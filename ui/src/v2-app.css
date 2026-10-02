@@ -229,6 +229,10 @@ html:not([data-desktop]) .workspace .new-arrival .message-user .message-content 
 .workspace .message-user .message-reply-quote { margin-left:auto; }
 .workspace .message-block:focus { outline:none; }
 .workspace .message-block:focus .message-content { outline:2px solid var(--lagoon); outline-offset:4px; }
+/* Jumps from a pointer (sidebar result, reply quote) flash the target instead of
+   leaving a ring that only clears on the next click; keyboard focus keeps it. */
+.workspace .message-block:focus:not(:focus-visible) .message-content { animation:v2-focus-flash 1.6s ease-out forwards; }
+@keyframes v2-focus-flash { 0%,45% { outline-color:var(--lagoon); } 100% { outline-color:transparent; } }
 html:not([data-desktop]) .workspace .message-segment .message-content {
   display:table; max-width:min(78%, 680px); padding:9px 13px; border:1px solid var(--line-soft);
   border-radius:16px 16px 16px 5px; background:var(--surface-2);
@@ -249,9 +253,9 @@ html:not([data-desktop]) .workspace .new-arrival .message-segment .message-conte
 }
 .workspace .message-code,.workspace .message-content pre {
   color:var(--code-block-ink); background:var(--code-block-bg); border:1px solid var(--code-block-edge);
-  border-radius:12px; font:12px/1.6 var(--mono);
+  border-radius:12px; font:var(--type-code);
 }
-.workspace .message-code code,.workspace .message-content pre code { color:inherit; background:transparent; border:0; }
+.workspace .message-code code,.workspace .message-content pre code { color:inherit; background:transparent; border:0; font-size:inherit; }
 .workspace .message-notice { color:var(--muted); font:11px/1.5 var(--mono); }
 .workspace .message-notice button:hover { background:var(--surface-2); color:var(--ink); }
 .workspace .message-mention { background:var(--pink); color:var(--on-block); border-radius:6px; }

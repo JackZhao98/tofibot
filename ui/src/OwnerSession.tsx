@@ -173,7 +173,7 @@ export function SidebarAccount({ onSettings, onUsage, onConnection, onArchive, c
     {open && <div className="sidebar-account-menu" role="menu">
       <div className="sidebar-account-menu-heading"><strong>{name}</strong><small>{host}</small></div>
       <button role="menuitem" onClick={() => navigate(onSettings)}><TofiIcon name="settings" size={16}/>设置</button>
-      <button role="menuitem" onClick={() => navigate(onUsage)}><TofiIcon name="activity" size={16}/>Usage</button>
+      <button role="menuitem" onClick={() => navigate(onUsage)}><TofiIcon name="activity" size={16}/>用量</button>
       <div className="sidebar-account-themes" role="group" aria-label="外观主题">{(["system","light","dark"] as const).map(theme => <button key={theme} aria-pressed={appearance.preference === theme} onClick={() => appearance.choose(theme)}>{theme === "system" ? "系统" : theme === "light" ? "浅色" : "深色"}</button>)}</div>
       <button role="menuitem" onClick={() => navigate(onConnection)}><TofiIcon name="server" size={16}/>服务器与连接</button>
       <button role="menuitem" onClick={() => navigate(onArchive)}><TofiIcon name="archive" size={16}/>已归档的对话</button>
