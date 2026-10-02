@@ -10,9 +10,13 @@ immutable images and a sealed Guest release. No existing-install adoption or
 automatic data purge is offered. The existing first-Admin mechanism is reused;
 passwords are entered in the browser, not handled by the installer.
 
-Validation so far: Python syntax only. Before use, complete unit tests for plan
-identity binding/tampering, hostile paths, ownership/locks, occupied identities,
-partial-apply recovery, clean-stop/image rollback and data-retaining uninstall.
+Validation so far: Python syntax and seven synthetic failure-path unit checks
+pass (deploy/test_self_host.py). They cover hostile paths/mutable image IDs,
+permission acknowledgement, unsupported host refusal, unclean-stop fencing,
+data-retaining uninstall and rollback to previous code with current data. Docker,
+image checks and service lifecycle are mocked; this is not actual host acceptance.
+Before use, complete plan metadata/rendered-file identity binding, ownership/locks,
+occupied-identity and partial-apply recovery tests and real clean-host acceptance.
 Upgrade is limited to compatible App/Worker images and an unchanged Guest release;
 permission installation and clean-machine KVM acceptance are still unrun.
 Installer integrity checks must bind all plan metadata to rendered files; do not
