@@ -46,6 +46,19 @@ export function compareQuestionTime(a: string, b: string) {
   return left[0] - right[0] || left[1] - right[1];
 }
 
+/** Prefer the newest authoritative version while an answer response is local. */
+export function reconcileQuestion(item: Question, local: Question | null): Question {
+ if (!local || item.question_id !== local.question_id) return item;
+ const serverTime = item.updated_at ?? item.created_at;
+ const localTime = local.updated_at ?? local.created_at;
+ const order = compareQuestionTime(serverTime, localTime);
+ if (order > 0) return item;
+ if (order < 0) return local;
+ // Older servers omit versions. A backend expiry must still replace a decision.
+ if (item.status === "expired" || item.status === "run_done" || item.status === "cancelled") return item;
+ return local;
+}
+
 /** Messages retain sequence order; answering a card never moves its original position. */
 export function buildQuestionTimeline(messages: Message[], questions: Question[], hasMore: boolean, mailDrafts: MailDraft[] = []): ConversationItem[] {
   const lowerBound = hasMore ? messages[0]?.created_at : undefined;

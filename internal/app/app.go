@@ -18,11 +18,12 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/google/uuid"
 	"github.com/JackZhao98/tofibot/internal/codexauth"
 	"github.com/JackZhao98/tofibot/internal/computer"
 	"github.com/JackZhao98/tofibot/internal/extensions"
 	"github.com/JackZhao98/tofibot/internal/runtime"
+	"github.com/JackZhao98/tofibot/internal/tooloutcome"
+	"github.com/google/uuid"
 	_ "modernc.org/sqlite"
 )
 
@@ -357,7 +358,7 @@ func insertRecoveryEvent(tx *sql.Tx, conversationID, typ string, value any, crea
 }
 
 func interruptToolActivitiesTx(tx *sql.Tx, runID, t string) error {
-	rows, err := tx.Query(`SELECT conversation_id,bot_id,run_id,call_id,name,arguments,result,status,truncated,started_at,updated_at FROM tool_activities WHERE run_id=? AND status IN ('queued','running')`, runID)
+	rows, err := tx.Query(`SELECT conversation_id,bot_id,run_id,call_id,name,arguments,result,status,truncated,started_at,updated_at,outcome_json FROM tool_activities WHERE run_id=? AND status IN ('queued','running')`, runID)
 	if err != nil {
 		return err
 	}
@@ -380,7 +381,7 @@ func interruptToolActivitiesTx(tx *sql.Tx, runID, t string) error {
 }
 
 func interruptOrphanToolActivitiesTx(tx *sql.Tx, t string) error {
-	rows, err := tx.Query(`SELECT a.conversation_id,a.bot_id,a.run_id,a.call_id,a.name,a.arguments,a.result,a.status,a.truncated,a.started_at,a.updated_at
+	rows, err := tx.Query(`SELECT a.conversation_id,a.bot_id,a.run_id,a.call_id,a.name,a.arguments,a.result,a.status,a.truncated,a.started_at,a.updated_at,a.outcome_json
 FROM tool_activities a
 WHERE a.status IN ('queued','running')
   AND NOT EXISTS (SELECT 1 FROM runs r WHERE r.id=a.run_id AND (r.status IN ('running','queued')
@@ -406,16 +407,23 @@ WHERE a.status IN ('queued','running')
 	return nil
 }
 
+func scanToolActivity(row interface{ Scan(...any) error }) (ToolActivity, error) {
+	var a ToolActivity
+	var truncated int
+	var outcome string
+	err := row.Scan(&a.ConversationID, &a.BotID, &a.RunID, &a.CallID, &a.Name, &a.Arguments, &a.Result, &a.Status, &truncated, &a.StartedAt, &a.UpdatedAt, &outcome)
+	a.Truncated = truncated != 0
+	a.Outcome = tooloutcome.Parse(outcome)
+	return a, err
+}
 func scanToolActivities(rows *sql.Rows) ([]ToolActivity, error) {
 	var activities []ToolActivity
 	for rows.Next() {
-		var activity ToolActivity
-		var truncated int
-		if err := rows.Scan(&activity.ConversationID, &activity.BotID, &activity.RunID, &activity.CallID, &activity.Name, &activity.Arguments, &activity.Result, &activity.Status, &truncated, &activity.StartedAt, &activity.UpdatedAt); err != nil {
+		a, err := scanToolActivity(rows)
+		if err != nil {
 			return nil, err
 		}
-		activity.Truncated = truncated != 0
-		activities = append(activities, activity)
+		activities = append(activities, a)
 	}
 	return activities, rows.Err()
 }
@@ -1674,6 +1682,17 @@ func (s *Store) FinishRun(id, conv, bot, content string) (Message, bool, error) 
 	return s.finishRun(id, conv, bot, content, false)
 }
 func (s *Store) finishRun(id, conv, bot, content string, silent bool) (Message, bool, error) {
+	return s.finishRunState(id, conv, bot, content, silent, "")
+}
+
+// Partial output and the terminal budget failure commit in one transaction.
+func (s *Store) finishRunBudget(id, conv, bot, content, reason string) (Message, bool, error) {
+	if reason == "" {
+		reason = "active run budget exhausted"
+	}
+	return s.finishRunState(id, conv, bot, content, false, "budget exhausted: "+reason)
+}
+func (s *Store) finishRunState(id, conv, bot, content string, silent bool, failure string) (Message, bool, error) {
 	tx, err := s.db.Begin()
 	if err != nil {
 		return Message{}, false, err
@@ -1746,7 +1765,11 @@ func (s *Store) finishRun(id, conv, bot, content string, silent bool) (Message, 
 	} else {
 		m = Message{}
 	}
-	if _, err = tx.Exec(`UPDATE runs SET status='done',error=NULL,updated_at=? WHERE id=? AND status='running'`, t, id); err != nil {
+	terminal := "done"
+	if failure != "" {
+		terminal = "failed"
+	}
+	if _, err = tx.Exec(`UPDATE runs SET status=?,error=?,updated_at=? WHERE id=? AND status='running'`, terminal, nullString(failure), t, id); err != nil {
 		return Message{}, false, err
 	}
 	if draftID != "" {
@@ -1773,8 +1796,10 @@ func (s *Store) finishRun(id, conv, bot, content string, silent bool) (Message, 
 	done.Kind = kind
 	done.OriginConversationID = origin.String
 	done.TriggerMessageID = trigger.String
-	if _, _, err = scheduleGroupFollowupTx(tx, done, m); err != nil {
-		return Message{}, false, err
+	if failure == "" {
+		if _, _, err = scheduleGroupFollowupTx(tx, done, m); err != nil {
+			return Message{}, false, err
+		}
 	}
 	runData, _ := json.Marshal(done)
 	if _, err = tx.Exec(`INSERT INTO events(conversation_id,type,data,created_at) VALUES(?,?,?,?)`, conv, "run", string(runData), t); err != nil {
@@ -1784,7 +1809,7 @@ func (s *Store) finishRun(id, conv, bot, content string, silent bool) (Message, 
 	if err != nil {
 		return Message{}, false, err
 	}
-	if publish && shouldReturn && returnTarget.ConversationID != conv && handoffs == 0 {
+	if failure == "" && publish && shouldReturn && returnTarget.ConversationID != conv && handoffs == 0 {
 		var forwarded Message
 		var visible int
 		if err = tx.QueryRow(`SELECT user_visible FROM conversations WHERE id=?`, conv).Scan(&visible); err != nil {
@@ -3044,8 +3069,9 @@ func (s *Server) execute(c Conversation, r Run) {
 		})
 	}
 	res, e := engine.Run(ctx, Request{BotID: r.BotID, RunID: r.ID, System: system, Model: model, ReasoningEffort: reasoningEffort, Messages: pm, Tools: tools, OnDelta: onDelta, BeforeModelCall: steeringBoundary, BeforeFinalResponse: finalReview, FinalResponseRepairTools: finalRepairTools, OnAssistantTurn: onAssistantTurn,
-		Continuation: continuation,
-		ResumeResult: s.inputResumeResult(answeredQuestion),
+		Continuation:  continuation,
+		ResumeResult:  s.inputResumeResult(answeredQuestion),
+		ResumeOutcome: s.inputResumeOutcome(answeredQuestion),
 		OnSuspend: func(questionID string, checkpoint json.RawMessage) error {
 			if err := steeringBoundary(); err != nil {
 				return err
@@ -3115,6 +3141,12 @@ func (s *Server) execute(c Conversation, r Run) {
 		return
 	}
 	if res.Suspended {
+		return
+	}
+	if res.BudgetExhausted {
+		if _, _, err := s.store.finishRunBudget(r.ID, c.ID, r.BotID, cleanBotOutput(res.Content, botCfg), res.BudgetReason); err != nil {
+			s.failRun(c, r, err)
+		}
 		return
 	}
 	if r.Kind == runKindSchedule || r.scheduleTask != nil {

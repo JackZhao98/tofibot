@@ -3,6 +3,7 @@ package runtime
 import (
 	"context"
 	"encoding/json"
+	"github.com/JackZhao98/tofibot/internal/tooloutcome"
 	"time"
 )
 
@@ -24,18 +25,20 @@ type Tool struct {
 	Description string
 	Parameters  map[string]any
 	Execute     func(context.Context, json.RawMessage) (string, error)
+	Identity    func(json.RawMessage) tooloutcome.Identity
 }
 
 // ToolEvent describes one provider tool call and its lifecycle. Arguments and
 // Result are bounded by the runtime before they leave this package; the full
 // result returned by a tool is still passed to the model by the agent loop.
 type ToolEvent struct {
-	CallID    string `json:"call_id"`
-	Name      string `json:"name"`
-	Arguments string `json:"arguments"`
-	Result    string `json:"result"`
-	Status    string `json:"status"`
-	Truncated bool   `json:"truncated"`
+	CallID    string               `json:"call_id"`
+	Name      string               `json:"name"`
+	Arguments string               `json:"arguments"`
+	Result    string               `json:"result"`
+	Status    string               `json:"status"`
+	Truncated bool                 `json:"truncated"`
+	Outcome   *tooloutcome.Outcome `json:"outcome,omitempty"`
 }
 
 type Request struct {
@@ -79,15 +82,18 @@ type Request struct {
 	// Continuation is a checkpoint returned to OnSuspend. When present, Run
 	// resumes its exact provider transcript and inserts ResumeResult for the
 	// suspended tool rather than replaying any old tool execution.
-	Continuation json.RawMessage
-	ResumeResult string
+	Continuation  json.RawMessage
+	ResumeResult  string
+	ResumeOutcome *tooloutcome.Outcome
 }
 
 type Result struct {
-	Content      string
-	InputTokens  int64
-	OutputTokens int64
-	Suspended    bool
+	Content         string
+	InputTokens     int64
+	OutputTokens    int64
+	Suspended       bool
+	BudgetExhausted bool
+	BudgetReason    string
 }
 
 type Engine interface {

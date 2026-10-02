@@ -279,16 +279,10 @@ func (s *Server) inputResumeResult(q Question) string {
 		b, _ := json.Marshal(map[string]string{"status": q.Status})
 		return string(b)
 	}
-	if q.Type == questionApproval {
-		var mcpApproval bool
-		_ = s.store.db.QueryRow(`SELECT EXISTS(SELECT 1 FROM mcp_call_approvals WHERE question_id=?)`, q.ID).Scan(&mcpApproval)
-		if mcpApproval {
-			if string(q.Answer) != "true" {
-				return tooloutcome.New(tooloutcome.Denied, "approval_denied", "not_executed", "The human did not approve this external tool call. Do not execute or repeat it.", "explain_blocker").JSON()
-			}
-			return tooloutcome.New("approval_recorded", "approval_recorded", "not_executed", "The human recorded approval; the external action has not executed. Reinspect current state and refresh the MCP schema if needed, then propose the exact approved call.", "reinspect_and_call").JSON()
-		}
+	if outcome := s.inputResumeOutcome(q); outcome != nil {
+		return outcome.JSON()
 	}
+
 	if q.Type != questionForm {
 		return string(q.Answer)
 	}
@@ -318,4 +312,21 @@ func (s *Server) inputResumeResult(q Question) string {
 	}
 	b, _ := json.Marshal(fields)
 	return string(b)
+}
+
+// Only the backend approval binding may create control metadata. User answers
+// and returned JSON remain ordinary content even if they resemble an Outcome.
+func (s *Server) inputResumeOutcome(q Question) *tooloutcome.Outcome {
+	if q.Type != questionApproval || q.Status != questionAnswered {
+		return nil
+	}
+	var bound bool
+	if s.store.db.QueryRow(`SELECT EXISTS(SELECT 1 FROM mcp_call_approvals WHERE question_id=?)`, q.ID).Scan(&bound) != nil || !bound {
+		return nil
+	}
+	o := tooloutcome.New("approval_recorded", "approval_recorded", "not_executed", "The human recorded approval; the external action has not executed. Reinspect current state and refresh the MCP schema if needed, then propose the exact approved call.", "reinspect_and_call")
+	if string(q.Answer) != "true" {
+		o = tooloutcome.New(tooloutcome.Denied, "approval_denied", "not_executed", "The human did not approve this external tool call. Do not execute or repeat it.", "explain_blocker")
+	}
+	return &o
 }

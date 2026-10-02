@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/JackZhao98/tofibot/internal/provider"
+	"github.com/JackZhao98/tofibot/internal/tooloutcome"
 )
 
 // SuspensionError is the narrow control signal used by a bounded runtime tool
@@ -200,20 +201,26 @@ func waitingBatchCalls(messages []provider.Message, waitingID string) []provider
 	return nil
 }
 
-func resumeContinuation(c *Continuation, result string) ([]provider.Message, error) {
+func resumeContinuation(c *Continuation, result string, outcomes ...*tooloutcome.Outcome) ([]provider.Message, error) {
 	if err := ValidateContinuation(c); err != nil {
 		return nil, err
 	}
 	messages := append([]provider.Message(nil), c.Messages...)
+	var outcome *tooloutcome.Outcome
+	if len(outcomes) > 0 {
+		outcome = outcomes[0]
+	}
 	messages = append(messages, provider.Message{
-		Role:       "tool",
-		Content:    result,
+		Role:        "tool",
+		Content:     result,
+		ToolOutcome: outcome, ToolFailed: outcome != nil && outcome.Status != "approval_recorded",
 		ToolCallID: c.WaitingToolCallID,
 		ToolName:   c.WaitingToolName,
 	})
 	for _, call := range c.SkippedToolCalls {
 		messages = append(messages, provider.Message{
 			Role:       "tool",
+			ToolFailed: true,
 			Content:    "Tool error: execution skipped after human input suspension. Do not reuse this stale tool call; decide whether to call a tool again based on the resumed context.",
 			ToolCallID: call.ID,
 			ToolName:   call.Name,

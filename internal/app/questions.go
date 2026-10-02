@@ -115,6 +115,7 @@ type QuestionCard struct {
 	RunID          string               `json:"run_id"`
 	ConversationID string               `json:"conversation_id"`
 	BotID          string               `json:"bot_id"`
+	UpdatedAt      string               `json:"updated_at"`
 	CreatedAt      string               `json:"created_at"`
 	Answer         json.RawMessage      `json:"answer,omitempty"`
 	AnsweredBy     string               `json:"answered_by,omitempty"`
@@ -383,7 +384,7 @@ func (s *Server) CreateQuestion(conv string, run Run, in askQuestionInput) (Ques
 }
 
 func (q Question) Card() QuestionCard {
-	card := QuestionCard{Type: "question", QuestionID: q.ID, Question: q.Prompt, QuestionType: q.Type, Options: q.Options, AllowOther: q.AllowOther, Fields: q.Fields, SourceURL: q.SourceURL, Approval: q.Approval, MinSelections: q.MinSelections, MaxSelections: q.MaxSelections, RunID: q.RunID, ConversationID: q.ConversationID, BotID: q.BotID, CreatedAt: q.CreatedAt, Answer: q.Answer, AnsweredBy: q.AnsweredBy, Status: q.Status, ExpiresAt: q.ExpiresAt}
+	card := QuestionCard{Type: "question", QuestionID: q.ID, Question: q.Prompt, QuestionType: q.Type, Options: q.Options, AllowOther: q.AllowOther, Fields: q.Fields, SourceURL: q.SourceURL, Approval: q.Approval, MinSelections: q.MinSelections, MaxSelections: q.MaxSelections, RunID: q.RunID, ConversationID: q.ConversationID, BotID: q.BotID, CreatedAt: q.CreatedAt, UpdatedAt: q.UpdatedAt, Answer: q.Answer, AnsweredBy: q.AnsweredBy, Status: q.Status, ExpiresAt: q.ExpiresAt}
 	if q.Status == questionPending || (q.Type == questionApproval && q.Status == questionExpired) {
 		status, code, message, next := tooloutcome.NeedInformation, "human_input", "Task is waiting for the requested information.", "answer_question"
 		if q.Type == questionApproval {

@@ -296,17 +296,26 @@ func (e *engine) Run(ctx context.Context, req Request) (Result, error) {
 		duration = defaultMaxDuration
 	}
 	result, err := agent.RunAgentLoop(agent.AgentConfig{
-		Ctx:                        runCtx,
-		Provider:                   modelProvider,
-		Model:                      model,
-		ReasoningEffort:            req.ReasoningEffort,
-		System:                     req.System,
-		Messages:                   messages,
-		ExtraTools:                 extraTools,
-		SessionID:                  req.RunID,
-		ToolsOnly:                  true,
-		Continuation:               continuation,
-		ResumeResult:               req.ResumeResult,
+		Ctx:             runCtx,
+		Provider:        modelProvider,
+		Model:           model,
+		ReasoningEffort: req.ReasoningEffort,
+		System:          req.System,
+		Messages:        messages,
+		ExtraTools:      extraTools,
+		SessionID:       req.RunID,
+		ToolsOnly:       true,
+		Continuation:    continuation,
+		ResumeResult:    req.ResumeResult,
+		ResumeOutcome:   req.ResumeOutcome,
+		ResolveToolIdentity: func(name, args string) tooloutcome.Identity {
+			for _, t := range req.Tools {
+				if t.Name == name && t.Identity != nil {
+					return t.Identity(json.RawMessage(args))
+				}
+			}
+			return tooloutcome.DefaultIdentity(name, json.RawMessage(args))
+		},
 		MaxToolCallsBetweenReports: defaultToolCallsBetweenReports,
 		MaxRunDuration:             duration,
 		UserWaitDuration:           userWait.duration,
@@ -395,7 +404,8 @@ func (e *engine) Run(ctx context.Context, req Request) (Result, error) {
 		}, nil
 	}
 	return Result{
-		Content:      result.Content,
+		Content:         result.Content,
+		BudgetExhausted: result.BudgetExhausted, BudgetReason: result.BudgetReason,
 		InputTokens:  result.TotalUsage.InputTokens,
 		OutputTokens: result.TotalUsage.OutputTokens,
 	}, nil

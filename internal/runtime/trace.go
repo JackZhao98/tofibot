@@ -190,7 +190,7 @@ func (t *toolEventTracker) finish(msg provider.Message) {
 		return
 	}
 	status := "completed"
-	if !call.resumeWaiting && toolResultFailed(msg.Content) {
+	if msg.ToolFailed {
 		status = "failed"
 	}
 	if call.status == "queued" {
@@ -212,31 +212,12 @@ func (t *toolEventTracker) finish(msg provider.Message) {
 	if name == "" {
 		name = call.name
 	}
-	_ = t.emit(ToolEvent{CallID: msg.ToolCallID, Name: name, Arguments: call.arguments, Result: msg.Content, Status: status})
-}
-
-func toolResultFailed(result string) bool {
-	if o := tooloutcome.Parse(result); o != nil {
-		return o.Status != "approval_recorded"
-	}
-	result = strings.ToLower(strings.TrimSpace(result))
-	for _, prefix := range []string{
-		"tool error:",
-		"tool execution error:",
-		"error parsing arguments",
-		"pretoolcall hook blocked",
-		"tool '",
-		"skill '",
-	} {
-		if strings.HasPrefix(result, prefix) {
-			return true
-		}
-	}
-	return strings.Contains(result, "is not available in this run")
+	_ = t.emit(ToolEvent{CallID: msg.ToolCallID, Name: name, Arguments: call.arguments, Result: msg.Content, Status: status, Outcome: msg.ToolOutcome})
 }
 
 func boundedToolEvent(event ToolEvent) (ToolEvent, bool) {
 	truncated := false
+	event.Outcome = tooloutcome.Bounded(event.Outcome)
 	event.Arguments, truncated = limitToolEventText(event.Arguments, maxToolEventArguments)
 	result, resultTruncated := limitToolEventText(event.Result, maxToolEventResult)
 	event.Result = result

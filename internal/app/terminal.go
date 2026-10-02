@@ -10,8 +10,9 @@ import (
 	"time"
 	"unicode"
 
-	"github.com/google/uuid"
 	"github.com/JackZhao98/tofibot/internal/computer"
+	"github.com/JackZhao98/tofibot/internal/tooloutcome"
+	"github.com/google/uuid"
 )
 
 // Terminal control shares the existing computer owner: a viewer never claims
@@ -181,7 +182,22 @@ func (s *Server) terminalTool(r Run) Tool {
 	return Tool{Name: "computer_terminal", Description: "Open and operate a persistent PTY terminal in this Bot's VM workspace. Tabs and live output are visible to the human in Terminal. Use for interactive or long-running commands. open starts a shell when command is omitted; read returns incremental text and a next_cursor; write sends text/control characters. Sessions are bounded and end on VM restart; working files persist. User control blocks model actions. Close finished sessions.", Parameters: objectSchema(map[string]any{
 		"action":      map[string]any{"type": "string", "enum": []string{"open", "list", "read", "write", "resize", "close"}},
 		"terminal_id": map[string]any{"type": "string"}, "command": map[string]any{"type": "string"}, "data": map[string]any{"type": "string"}, "cursor": map[string]any{"type": "integer", "minimum": 0}, "cols": map[string]any{"type": "integer"}, "rows": map[string]any{"type": "integer"},
-	}, []string{"action"}), Execute: func(ctx context.Context, raw json.RawMessage) (string, error) {
+	}, []string{"action"}), Identity: func(raw json.RawMessage) tooloutcome.Identity {
+		var in map[string]json.RawMessage
+		_ = json.Unmarshal(raw, &in)
+		var action string
+		_ = json.Unmarshal(in["action"], &action)
+		delete(in, "action")
+		if action == "open" {
+			var command string
+			_ = json.Unmarshal(in["command"], &command)
+			if strings.TrimSpace(command) == "" {
+				in["command"], _ = json.Marshal(s.defaultTerminalCommand(r.BotID))
+			}
+		}
+		args, _ := json.Marshal(in)
+		return computerRecoveryIdentity(r.BotID, microVMComputerID, "terminal."+action, args)
+	}, Execute: func(ctx context.Context, raw json.RawMessage) (string, error) {
 		var in map[string]json.RawMessage
 		if json.Unmarshal(raw, &in) != nil {
 			return "", errors.New("invalid terminal input")
