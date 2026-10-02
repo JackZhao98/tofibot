@@ -1,4 +1,4 @@
-<p align="center"><img src="assets/banner.svg" alt="TOFI — A home for your bots" width="100%"></p>
+<p align="center"><img src="assets/banner.png" alt="TOFI — A home for your bots" width="100%"></p>
 
 <p align="center">Persistent bots, conversations and connected tools — on your own server.</p>
 
@@ -64,5 +64,6 @@ No deployment or live service upgrade occurs when this source is published.
 
 This source repository is currently private. Project license selection is pending. See Web dependency notices in
 `ui/THIRD_PARTY_NOTICES.md` and bundled dependency notices under `ui/public/licenses`.
-The header uses the project’s existing cat logo; no photographic reference assets
-are included. No open-source release has been made; publication awaits an explicit later decision and a confirmed license.
+The header uses the project’s original four-cat landing artwork and Fredoka
+lettering; its font notice is in assets/OFL-Fredoka.txt. No photographic reference
+assets are included. No open-source release has been made; publication awaits an explicit later decision and a confirmed license.
