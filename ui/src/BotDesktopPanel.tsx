@@ -725,10 +725,14 @@ export function BotDesktopPanel({ botId, botName, members = [], autoConnect = fa
     if (expanded) void controlRef.current?.acquire();
     else { setExpanded(true); setTakePending(true); }
   };
-  // The bezel's chin (Motion Lab · 电脑, fused into the frame): power · status · cat ⇄ you switch.
+  // A drop hanging from the bezel's bottom edge holds the cat ⇄ you switch (Motion Lab · 电脑, fused into the frame).
   const controlBar = !isDesktop && <div className={`desktop-chin is-${capsule.tone}`}>
+    <svg className="desktop-drop" viewBox="0 0 156 44" aria-hidden="true">
+      <path className="desktop-drop-fill" d="M0 0Q12 0 12 12V26A18 18 0 0 0 30 44H126A18 18 0 0 0 144 26V12Q144 0 156 0Z" />
+      <path className="desktop-drop-edge" d="M0 1Q13 1 13 12V26A17 17 0 0 0 30 43H126A17 17 0 0 0 143 26V12Q143 1 156 1" />
+    </svg>
     <button type="button" className="desktop-power" aria-label="隐藏共享电脑" data-hint="关闭屏幕（电脑继续运行）" onClick={() => void powerOff()}><TofiIcon name="stop" size={14} /></button>
-    <span className="desktop-chin-status" role="status"><span className="desktop-status-dot" />{capsule.text}</span>
+    <span className="sr-only" role="status">{capsule.text}</span>
     <button type="button" role="switch" aria-checked={humanControlled} className={`desktop-driver-switch is-${humanControlled ? "you" : "bot"}`} disabled={!switchEnabled}
       aria-label={humanControlled ? "交还控制" : "接管控制"} data-hint={humanControlled ? "交还控制" : "接管控制"} onClick={toggleDriver}>
       <span className="desktop-driver-thumb" aria-hidden="true"><TofiIcon name="mouse" size={11} /></span>
@@ -747,7 +751,7 @@ export function BotDesktopPanel({ botId, botName, members = [], autoConnect = fa
     {!botWorking && info && (debug || info.state !== "ready") && <div className="computer-info"><div className="computer-info-main"><strong>{stateText[info.state] ?? `电脑${info.state}`}</strong><small>{info.phase && info.state !== "error" && info.state !== "stopped" ? `阶段：${phaseText[info.phase] ?? info.phase}` : "状态已同步"}</small></div>{info.error && <small className="error-text">{info.error}</small>}{(info.state === "error" || info.state === "stopped") && <button className="secondary-button" disabled={busy} onClick={() => void retry()}>重试准备</button>}</div>}
     {imageURL && <div className={`computer-screen-wrap desktop-presence-frame desktop-preview-surface desktop-live-screen${humanControlled ? " is-human-controlled" : ""}`}>{(debug || connectionLost) && <div className="computer-screen-toolbar"><small className="computer-screen-caption">{connectionLost ? "连接中断 · 保留最后画面" : videoState === "live" ? "实时桌面" : videoState === "fallback" && fallbackFrameReady ? "截图查看 · 画面静默更新" : "正在恢复桌面画面…"}</small></div>}<RemoteDesktopControl key={selectedBotId} controlRef={controlRef} onControlChange={setHumanControlled} botId={selectedBotId} enabled={!!screenReady && !busy} blocked={showOwnershipStatus && Boolean(ownership?.owner && !humanControlled)} takeoverRun={showOwnershipStatus && !ownershipUnavailable && ownership?.owner?.kind === "bot" ? { id: ownership.owner.run_id, name: botLabel(ownership.owner.bot_id), botId: ownership.owner.bot_id } : undefined} expanded={expanded} onExpand={() => setExpanded(true)} waiting={!!ownership?.waiting.length}>{videoState !== "stopped" && (videoState !== "fallback" || !fallbackFrameReady) ? <DesktopVideo key={`${selectedBotId}:${videoSession}`} botId={selectedBotId} cursor={isDesktop && !humanControlled ? "visible" : "hidden"} enabled={!!ready && (viewerState === "connected" || preserveViewerRef.current) && desktopActive} poster={imageURL} onState={videoStateChanged}  /> : <img className="computer-screen" src={imageURL} alt="共享电脑屏幕"  />}<DesktopPointerMarker presence={desktopPresence} humanControlled={humanControlled || !screenReady || busy} botLabel={botLabel} /></RemoteDesktopControl>{previewControls}</div>}
     {!imageURL && <div className="desktop-preview-surface desktop-launch-surface" onClick={() => { if (!expanded) setExpanded(true); }}>
-      <div className="desktop-launch-preview desktop-bot-starting" role="status" aria-label={error ? "电脑连接失败" : "正在启动电脑"}>{error ? <span>连接失败，请稍后重新打开</span> : <GazeAvatar id={ownership?.owner?.bot_id ?? botId} motion="working" />}</div>
+      <div className="desktop-launch-preview desktop-bot-starting" role="status" aria-label={error ? "电脑连接失败" : "正在启动电脑"}>{error ? <span>连接失败，请稍后重新打开</span> : [<GazeAvatar key="cat" id={ownership?.owner?.bot_id ?? botId} motion="working" />, !isDesktop && <span key="phase" className="desktop-boot-phase">{capsule.text}</span>]}</div>
       {previewControls}
     </div>}
     {controlBar}
