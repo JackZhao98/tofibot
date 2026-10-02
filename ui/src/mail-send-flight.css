@@ -1,0 +1,21 @@
+.mail-flight-layer { position:fixed; inset:0; z-index:120; pointer-events:none; overflow:hidden; }
+.mail-flight-packet { position:absolute; transform-style:preserve-3d; perspective:1400px; filter:drop-shadow(3px 4px 0 var(--hard-ink)); }
+.mail-flight-panel { position:absolute; left:0; width:100%; overflow:hidden; backface-visibility:hidden; transform-style:preserve-3d; }
+.mail-flight-panel-0 { transform-origin:50% 100%; z-index:3; }
+.mail-flight-panel-2 { transform-origin:50% 0; z-index:2; }
+.mail-flight-envelope { position:absolute; height:auto; aspect-ratio:5/3; visibility:hidden; perspective:700px; filter:drop-shadow(3px 4px 0 var(--hard-ink)); }
+.mail-flight-envelope-back { position:absolute; inset:0; z-index:1; border:3px solid var(--mail-ink); border-radius:9px; background:var(--mail-stripe-paper); }
+.mail-flight-envelope-insert { position:absolute; z-index:2; left:7%; top:-34%; width:86%; height:30%; visibility:hidden; border:2px solid var(--mail-ink); border-radius:4px; background:repeating-linear-gradient(to bottom, transparent 0 9px, var(--mail-line) 9px 10px), var(--mail-paper); }
+.mail-flight-envelope-pocket { position:absolute; inset:0; z-index:3; }
+.mail-flight-envelope-pocket svg,.mail-flight-envelope-flap svg { display:block; width:100%; height:100%; overflow:visible; }
+.mail-flight-envelope-pocket path { fill:var(--mail-footer); stroke:var(--mail-ink); stroke-width:3; stroke-linejoin:round; vector-effect:non-scaling-stroke; }
+.mail-flight-envelope-pocket::after { content:""; position:absolute; left:3px; right:3px; bottom:3px; height:7px; border-radius:0 0 5px 5px; background:repeating-linear-gradient(135deg,var(--mail-post-red) 0 9px,var(--mail-footer) 9px 15px,var(--mail-post-blue) 15px 24px,var(--mail-footer) 24px 30px); }
+.mail-flight-envelope-flap { position:absolute; left:0; top:0; z-index:0; width:100%; height:58%; transform-origin:50% 0; transform:rotateX(180deg); }
+.mail-flight-envelope-flap path { fill:var(--mail-stripe-paper); stroke:var(--mail-ink); stroke-width:3; stroke-linejoin:round; vector-effect:non-scaling-stroke; }
+.mail-flight-envelope-stamp { position:absolute; z-index:5; right:12px; top:11px; width:46px; height:55px; opacity:0; padding:4px; border:2px dashed var(--mail-post-red); background:var(--mail-paper); }
+.mail-flight-envelope-stamp .avatar { display:block; width:100%; height:100%; }
+.mail-flight-envelope-stamp .tofi-avatar { width:100%; height:100%; }
+.mail-flight-envelope-postmark { position:absolute; z-index:6; right:34px; top:18px; width:118px; opacity:0; color:var(--mail-post-blue); }
+.mail-flight-envelope-postmark svg { display:block; width:100%; }
+.mail-flight-envelope-address { position:absolute; z-index:5; left:16px; bottom:18px; color:var(--mail-ink); font:var(--type-status); }
+@media(prefers-reduced-motion:reduce) { .mail-flight-layer { display:none; } }

@@ -1,0 +1,98 @@
+/* Final V2 tokens. Legacy variable names below are temporary aliases for
+   production selectors; the final-system palette is the sole color source. */
+:root {
+  color-scheme:light;
+  /* Final V2 system: semantic palette is authoritative; historical names below
+     are aliases, not a second colour source. */
+  --bg:#f1efeb; --surface:#fcfbf9; --surface-2:#f5f3ef; --sunk:#e9e6e1;
+  --line:#2a2019; --line-soft:#dcd8d1; --ink:#241b14; --ink-soft:#54473a; --muted:#6f6252;
+  /* Sep 25 system: fills and readable foregrounds are distinct in each mode. */
+  --clay:#e07f55; --clay-text:#a8502a; --iris:#a58ee6; --iris-text:#6a4fbf;
+  --lagoon:#4fb3a0; --lagoon-text:#1d7466; --honey:#e0a82a; --honey-text:#8a6106;
+  --yellow:var(--clay); --pink:var(--iris); --blue:var(--lagoon); --orange:var(--honey);
+  --yellow-text:var(--clay-text); --pink-text:var(--iris-text); --blue-text:var(--lagoon-text); --orange-text:var(--honey-text);
+  --green:#6fae7f; --green-text:#37744a; --wait:#6f6252; --work-status-ink:var(--lagoon-text);
+  --danger:#d9573f; --danger-text:#b0381f; --on-danger:var(--on-block); --on-block:#1a140f; --focus:#2f6db0;
+  --inverse:var(--ink); --on-inverse:var(--bg);
+  --lagoon-text-light:#1d7466;
+  --paper:#fffdf7; --paper-ink:#2a2019; --paper-rule:#e3d6bf; --paper-muted:#8a7a66;
+  --sticky:#f7e3a8; --airmail-red:#d9562a; --airmail-blue:#4f789d;
+  --file-xlsx:#4d8a5d; --file-pdf:#b8432f;
+  --code-inline-bg:#eae3d7; --code-inline-ink:#56432e; --code-inline-edge:#d8cbb9;
+  --code-block-bg:#e6ded0; --code-block-ink:#352b22; --code-block-edge:#d3c5b2;
+  --surface-page:var(--bg); --surface-card:var(--surface); --surface-raised:var(--surface-2); --surface-sunk:var(--sunk);
+  --text-body:var(--ink); --text-secondary:var(--ink-soft); --text-meta:var(--muted); --text-on-block:var(--on-block);
+  --border-edge:var(--line); --border-soft:var(--line-soft); --accent-primary:var(--clay); --accent-decide:var(--iris);
+  --accent-primary-text:var(--clay-text); --accent-decide-text:var(--iris-text);
+  --surface-inverse:var(--inverse); --text-on-inverse:var(--on-inverse);
+  --status-working:var(--lagoon); --status-unread:var(--honey); --status-done:var(--green); --status-error:var(--danger); --status-wait:var(--wait);
+  --status-working-text:var(--lagoon-text); --status-unread-text:var(--honey-text); --status-done-text:var(--green-text); --status-error-text:var(--danger-text);
+  --space-1:4px; --space-2:8px; --space-3:12px; --space-4:16px; --space-5:22px;
+  --radius-sm:9px; --radius-md:12px; --radius-lg:16px; --radius-xl:20px; --radius-2xl:22px; --radius-pill:999px;
+  --edge-soft:1px; --ease-press:120ms;
+  --edge:2px; --edge-bold:3px; --r:14px; --r-lg:20px;
+  --hard:3px 4px 0 #2a2019; --hard-sm:2px 3px 0 #2a2019;
+  --dots:radial-gradient(#2a201914 1px,transparent 1.2px) 0 0/16px 16px;
+  --glass:rgba(252,251,249,.58); --glass-strong:rgba(252,251,249,.85);
+  --glass-edge:rgba(42,32,25,.14); --blur:blur(40px) saturate(1.8);
+  --sheen:inset 0 1px 0 rgba(255,255,255,.7);
+  /* FloatingDesktop preview keeps dark glass legible over any desktop frame. */
+  --desktop-controls-glass:rgba(12,14,18,.45);
+  --desktop-controls-solid:#0c0e12;
+  --desktop-controls-edge:rgba(255,255,255,.14);
+  --desktop-controls-ink:#f3eadb;
+  --desktop-controls-hover:rgba(255,255,255,.14);
+  --desktop-controls-grip:rgba(255,255,255,.5);
+  --desktop-screen:var(--desktop-controls-solid);
+  --desktop-actor-glass:var(--desktop-controls-glass);
+  --desktop-pointer-ink:var(--on-block);
+  --desktop-pointer-surface:var(--blue);
+  --swatch-light-bg:#f1efeb;
+  --swatch-light-edge:#dcd8d1;
+  --swatch-light-ink:#54473a;
+  --swatch-dark-bg:#14120f;
+  --swatch-dark-edge:#3a352e;
+  --swatch-dark-ink:#c9bca8;
+  /* Letter and stationery colors are fixed artwork from the v2 MailRead preview. */
+  --mail-paper:#fffdf7; --mail-stripe-paper:#fbf4e6; --mail-ink:#2a2019; --mail-muted:#766751;
+  --mail-post-blue:#4f789d; --mail-post-red:#d9562a;
+  --mail-rule:#e3d6bf; --mail-note:#f7e3a8; --mail-note-ink:#3a2e1c;
+  --mail-note-muted:#6d5a2a; --mail-line:#eadfca; --mail-footer:#f6ecd9;
+  --mail-note-shadow:2px 3px 0 rgba(0,0,0,.18);
+  --display:"Fredoka","PingFang SC","HarmonyOS Sans SC",system-ui,sans-serif;
+  --body:"PingFang SC","Inter",system-ui,sans-serif;
+  --mono:"JetBrains Mono",ui-monospace,monospace;
+  --font-display:var(--display); --font-body:var(--body); --font-mono:var(--mono);
+  --type-hero:700 40px/1.05 var(--display); --type-title:700 20px/1.2 var(--display);
+  --type-button:600 14px/1 var(--display); --type-body:400 15px/1.6 var(--body);
+  --type-row-title:600 14px/1.4 var(--body); --type-meta:400 13px/1.5 var(--body);
+  --type-label:600 10px/1.2 var(--mono); --label-tracking:.14em;
+  --type-status:600 11px/1.4 var(--mono); --type-code:400 13px/1.6 var(--mono);
+  /* Compatibility selectors resolve to V2 values while component CSS is retired. */
+  --surface-soft:var(--surface-2); --surface-hover:var(--surface);
+  --sidebar-bg:var(--sunk); --selected-bg:var(--surface-2); --line-strong:var(--line-soft);
+  --text:var(--ink); --text-soft:var(--ink-soft); --accent:var(--yellow);
+  --focus-ring:var(--focus); --success:var(--green); --on-accent:var(--on-block);
+  --bubble-user:var(--surface-2);
+  --float-shadow:var(--hard);
+  --ease-out:cubic-bezier(.22,1,.36,1); --ease-settle:cubic-bezier(.2,.8,.2,1);
+  --chat-max:760px; --sidebar-width:272px; --sidebar-collapsed:80px; --settings-rail:216px;
+}
+:root[data-theme="dark"] {
+  color-scheme:dark;
+  --bg:#14120f; --surface:#1f1c18; --surface-2:#2a2621; --sunk:#181613;
+  --line:#f1e6d6; --line-soft:#3a352e; --ink:#f3eadb; --ink-soft:#c9bca8; --muted:#a3957f;
+  --clay:#ec9a74; --clay-text:#f2a887; --iris:#c0acf0; --iris-text:#c9b8f4;
+  --lagoon:#72cdbc; --lagoon-text:#7fd6c6; --honey:#f3c75a; --honey-text:#f5cf6e;
+  --green:#93cfa1; --green-text:#9dd6ab; --wait:#c9bca8;
+  --danger:#f4917f; --danger-text:#f79d8c; --focus:#8cc3f0;
+  --paper:#fbf4e6;
+  --code-inline-bg:#332b23; --code-inline-ink:#ead8bf; --code-inline-edge:#4b3d30;
+  --code-block-bg:#25201b; --code-block-ink:#f0e2cf; --code-block-edge:#493d32;
+  --hard:3px 4px 0 #000; --hard-sm:2px 3px 0 #000;
+  --dots:radial-gradient(#ffffff14 1px,transparent 1.2px) 0 0/16px 16px;
+  --glass:rgba(31,28,24,.52); --glass-strong:rgba(31,28,24,.8);
+  --glass-edge:rgba(241,230,214,.2); --sheen:inset 0 1px 0 rgba(255,255,255,.08);
+  --float-shadow:var(--hard);
+  --mail-paper:#fbf4e6;
+}

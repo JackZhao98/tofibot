@@ -1,0 +1,49 @@
+/* TeamChain (v2n): one ticket, handed round the loop, each hop drawn as it happens. */
+.relay-stage { height:440px; padding:0; }
+@media (max-width:560px) { .relay-stage { height:540px; } }
+.relay-track { position:absolute; inset:0; width:100%; height:100%; overflow:visible; }
+.relay-base { fill:none; stroke:var(--line-soft); stroke-width:3; stroke-linecap:round; stroke-dasharray:2 9; }
+.relay-progress { fill:none; stroke:var(--lagoon); stroke-width:4; stroke-linecap:round; stroke-dasharray:1; stroke-dashoffset:1; }
+
+.relay-node { position:absolute; width:0; height:0; z-index:2; }
+.relay-face {
+  position:absolute; left:-36px; top:-36px; width:72px; height:72px; display:grid; place-items:center;
+  border-radius:30%; background:var(--surface); border:var(--edge) solid var(--line-soft);
+  transition:border-color 200ms ease, box-shadow 200ms ease, transform 420ms cubic-bezier(.34,1.56,.64,1);
+}
+.relay-face .lab-cat { width:86%; height:86%; }
+.relay-node.is-human .relay-face { border-radius:50%; background:var(--inverse); color:var(--on-inverse); border-color:var(--inverse); }
+.relay-you { font:700 26px/1 var(--display); }
+.relay-node.is-active .relay-face { border:var(--edge-bold) solid var(--line); box-shadow:var(--hard); transform:translate(-1px,-2px) scale(1.08); }
+.relay-node.is-active .relay-face::after {
+  content:""; position:absolute; inset:-6px; border-radius:inherit; border:2px solid var(--lagoon);
+  animation:relay-ring 1.2s ease-out infinite;
+}
+.relay-node.is-done:not(.is-human) .relay-face { border-color:var(--line); }
+.relay-name, .relay-verb { position:absolute; left:0; transform:translateX(-50%); white-space:nowrap; }
+.relay-name { top:44px; font:var(--type-row-title); }
+.relay-verb { top:66px; display:inline-flex; align-items:center; gap:5px; font:var(--type-status); color:var(--muted); }
+.relay-node.is-active .relay-verb { color:var(--lagoon-text); }
+.relay-node.is-done .relay-verb { color:var(--green-text); }
+
+/* The ticket rides the path, carried just above the line so it never leaves the stage. */
+.ticket { position:absolute; left:0; top:0; z-index:4; offset-anchor:50% 50%; offset-rotate:0deg; offset-distance:0%; pointer-events:none; }
+.ticket-card {
+  display:grid; gap:1px; padding:6px 10px 7px; translate:0 -62px;
+  border:var(--edge) solid var(--line); border-radius:10px; background:var(--surface); box-shadow:var(--hard-sm);
+}
+.ticket-label { font:var(--type-label); letter-spacing:var(--label-tracking); color:var(--clay-text); }
+.ticket-title { font:600 13px/1.3 var(--body); white-space:nowrap; }
+
+.chain { display:flex; flex-wrap:wrap; align-items:center; gap:4px 0; list-style:none; margin:14px 0 0; padding:0; }
+.chain li { display:inline-flex; align-items:center; font:var(--type-status); color:var(--muted); }
+.chain li + li::before { content:"›"; margin:0 6px; color:var(--muted); }
+.chain span { padding:4px 10px; border-radius:999px; transition:background-color 260ms ease, color 260ms ease; }
+.chain li.is-done span { color:var(--green-text); }
+.chain li.is-now span { background:var(--lagoon); color:var(--on-block); }
+
+@keyframes relay-ring { from { opacity:.9; transform:scale(.92); } to { opacity:0; transform:scale(1.25); } }
+@media (prefers-reduced-motion:reduce) {
+  .relay-face { transition:none; }
+  .relay-node.is-active .relay-face::after { animation:none; opacity:.6; }
+}

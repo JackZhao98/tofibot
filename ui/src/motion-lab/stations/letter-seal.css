@@ -1,0 +1,123 @@
+/* DraftConfirm (v2r) mail variant. Stationery colours are fixed artwork in both themes. */
+.letter-stage { display:grid; place-items:center; min-height:500px; padding:40px 20px; }
+
+.letter { position:relative; z-index:2; width:min(470px,100%); border-radius:16px; box-shadow:var(--hard); }
+.letter-paper {
+  position:relative; overflow:hidden; background:var(--mail-paper); color:var(--mail-ink);
+  border:var(--edge-bold) solid var(--mail-ink); border-radius:16px 16px 6px 6px;
+}
+.airmail {
+  height:10px;
+  background:repeating-linear-gradient(135deg, var(--mail-post-red) 0 12px, var(--mail-paper) 12px 20px, var(--mail-post-blue) 20px 32px, var(--mail-paper) 32px 40px);
+}
+.letter-head { display:flex; align-items:flex-start; justify-content:space-between; gap:12px; padding:14px 18px 12px; border-bottom:1px dashed var(--mail-rule); }
+.letter-head dl { display:grid; gap:4px; margin:0; min-width:0; }
+.letter-head dl > div { display:flex; gap:10px; align-items:baseline; }
+.letter-head dt { flex:none; width:42px; font:var(--type-label); letter-spacing:.08em; color:var(--mail-muted); }
+.letter-head dd { margin:0; font:600 14px/1.4 var(--body); overflow-wrap:anywhere; }
+.letter-body {
+  padding:4px 18px 18px; font:15px/28px var(--body);
+  background:repeating-linear-gradient(to bottom, transparent 0 27px, var(--mail-rule) 27px 28px) 0 4px / 100% 28px;
+  background-origin:content-box;
+}
+.letter-body p { margin:0; }
+
+/* Postage stamp: perforations are holes punched by the mask in the padding ring only. */
+.cat-stamp {
+  flex:none; display:block; width:60px; height:72px; padding:5px; rotate:4deg; background:var(--mail-paper);
+  filter:drop-shadow(1px 1.5px 0 rgba(42,32,25,.35));
+  -webkit-mask:linear-gradient(#000 0 0) content-box, radial-gradient(circle 2.6px, #0000 96%, #000) -3.5px -3.5px / 7px 7px;
+  mask:linear-gradient(#000 0 0) content-box, radial-gradient(circle 2.6px, #0000 96%, #000) -3.5px -3.5px / 7px 7px;
+}
+.cat-stamp .lab-cat { width:100%; height:100%; border-radius:2px; background:var(--lagoon); outline:1px solid rgba(42,32,25,.25); outline-offset:-1px; }
+
+.letter-foot {
+  display:flex; flex-wrap:wrap; align-items:center; gap:4px; margin-top:-3px; padding:10px 12px;
+  background:var(--mail-footer); color:var(--mail-ink);
+  border:var(--edge-bold) solid var(--mail-ink); border-radius:6px 6px 16px 16px;
+  transition:opacity 220ms ease;
+}
+/* The footer is paper in both themes, so its buttons use stationery ink, never theme surfaces. */
+.letter-foot .lab-btn.quiet { color:var(--mail-muted); }
+.letter-foot .lab-btn.quiet:not(:disabled):hover { background:rgba(42,32,25,.08); color:var(--mail-ink); }
+.letter-foot .lab-btn.quiet:not(:disabled):active { background:rgba(42,32,25,.14); }
+.letter-foot .lab-btn.primary { border-color:var(--mail-ink); box-shadow:2px 3px 0 var(--mail-ink); }
+.letter-foot .lab-btn.primary:not(:disabled):hover { box-shadow:3px 4px 0 var(--mail-ink); }
+.letter-foot .lab-btn.primary:not(:disabled):active { box-shadow:none; }
+.letter-dest { flex:1; min-width:120px; text-align:right; padding-right:6px; font:var(--type-meta); color:var(--mail-muted); }
+.letter.is-sending .letter-foot { opacity:0; }
+
+/* Fold: three hinged panels; only faces pointing at the viewer are drawn. */
+.fold { position:absolute; z-index:4; perspective:1400px; transform-origin:50% 50%; pointer-events:none; filter:drop-shadow(3px 4px 0 var(--hard-ink)); }
+.fold .letter-paper { border-radius:6px; }
+.fold-panel { position:absolute; left:0; width:100%; transform-style:preserve-3d; }
+.fold-panel-0 { transform-origin:50% 100%; z-index:3; }
+.fold-panel-2 { transform-origin:50% 0; z-index:2; }
+.fold-face { position:absolute; inset:0; overflow:hidden; -webkit-backface-visibility:hidden; backface-visibility:hidden; }
+.fold-back {
+  transform:rotateX(180deg); border:var(--edge-bold) solid var(--mail-ink); border-radius:6px;
+  background:repeating-linear-gradient(to bottom, transparent 0 13px, var(--mail-line) 13px 14px), var(--mail-paper);
+}
+
+/* Envelope: flap (behind while open), back, the letter, front pocket, then stamp and postmark. */
+.envelope {
+  --w:300px;
+  position:absolute; z-index:3; width:var(--w); height:calc(var(--w) * .6);
+  left:calc(50% - var(--w) / 2); top:calc(50% - var(--w) * .3 + 36px);
+  perspective:700px; visibility:hidden;
+}
+.envelope.is-in { visibility:visible; }
+@media (max-width:520px) { .envelope { --w:236px; } }
+.env-back { position:absolute; inset:0; z-index:1; background:var(--mail-stripe-paper); border:var(--edge-bold) solid var(--mail-ink); border-radius:8px; box-shadow:var(--hard); }
+.env-letter {
+  position:absolute; z-index:2; left:7%; width:86%; top:-34%; height:30%; visibility:hidden;
+  border:2px solid var(--mail-ink); border-radius:4px;
+  background:repeating-linear-gradient(to bottom, transparent 0 9px, var(--mail-line) 9px 10px), var(--mail-paper);
+}
+.env-letter.is-in { visibility:visible; }
+.env-front { position:absolute; inset:0; z-index:3; }
+.env-front svg, .env-flap svg { display:block; width:100%; height:100%; overflow:visible; }
+.env-front path { fill:var(--mail-footer); stroke:var(--mail-ink); stroke-width:3; stroke-linejoin:round; vector-effect:non-scaling-stroke; }
+.env-front::after {
+  content:""; position:absolute; left:3px; right:3px; bottom:3px; height:7px; border-radius:0 0 5px 5px;
+  background:repeating-linear-gradient(135deg, var(--mail-post-red) 0 9px, var(--mail-footer) 9px 15px, var(--mail-post-blue) 15px 24px, var(--mail-footer) 24px 30px);
+}
+.env-flap { position:absolute; left:0; top:0; z-index:0; width:100%; height:58%; transform-origin:50% 0; transform:rotateX(180deg); }
+.env-flap.is-closing { z-index:4; }
+.env-flap path { fill:var(--mail-stripe-paper); stroke:var(--mail-ink); stroke-width:3; stroke-linejoin:round; vector-effect:non-scaling-stroke; }
+.env-stamp { position:absolute; z-index:5; right:12px; top:10px; opacity:0; }
+.env-stamp .cat-stamp { width:46px; height:56px; padding:4px; }
+.env-mark { position:absolute; z-index:6; right:34px; top:18px; width:118px; color:var(--mail-post-blue); pointer-events:none; }
+.postmark { display:block; width:100%; opacity:0; }
+.postmark .pm-ring { font-family:var(--mono); }
+.postmark .pm-date { font-family:var(--display); }
+.env-address { position:absolute; z-index:5; left:16px; bottom:18px; font:var(--type-status); color:var(--mail-ink); }
+
+.speed-lines { position:absolute; z-index:2; left:58%; top:44%; pointer-events:none; }
+.speed-lines i { position:absolute; display:block; height:3px; border-radius:2px; background:var(--ink-soft); opacity:0; rotate:-24deg; transform-origin:100% 50%; }
+.speed-lines i:nth-child(1) { width:70px; top:0; }
+.speed-lines i:nth-child(2) { width:46px; top:22px; left:18px; }
+.speed-lines i:nth-child(3) { width:58px; top:44px; left:6px; }
+.envelope.is-leaving ~ .speed-lines i { animation:speed-line 620ms cubic-bezier(.3,.6,.3,1) both; }
+.envelope.is-leaving ~ .speed-lines i:nth-child(2) { animation-delay:70ms; }
+.envelope.is-leaving ~ .speed-lines i:nth-child(3) { animation-delay:130ms; }
+@keyframes speed-line {
+  0% { opacity:0; transform:translateX(-30px) scaleX(.2); }
+  35% { opacity:.8; }
+  100% { opacity:0; transform:translateX(120px) scaleX(1); }
+}
+
+.draft-done {
+  display:flex; flex-wrap:wrap; align-items:center; gap:10px; width:min(470px,100%); padding:12px 14px;
+  border:1px solid var(--line-soft); border-radius:14px; background:var(--surface);
+  animation:done-in 520ms cubic-bezier(.34,1.56,.64,1) both;
+}
+.draft-done .done-dot { width:8px; height:8px; border-radius:50%; background:var(--green); }
+.draft-done-text { font:var(--type-row-title); }
+.draft-done-meta { flex:1; font:var(--type-status); color:var(--muted); }
+@keyframes done-in { from { opacity:0; transform:translateY(14px) scale(.96); } }
+
+@media (prefers-reduced-motion:reduce) {
+  .draft-done { animation:none; }
+  .letter-foot { transition:none; }
+}

@@ -1,0 +1,30 @@
+/* Small shared pieces used across demos. */
+.copy-feedback { display:inline-grid; flex:none; vertical-align:middle; }
+.copy-feedback > svg { grid-area:1 / 1; transition:opacity 140ms ease, scale 380ms cubic-bezier(.34,1.56,.64,1), rotate 380ms cubic-bezier(.34,1.56,.64,1); }
+.copy-feedback > svg:last-child { opacity:0; scale:.4; rotate:-45deg; color:var(--green-text); }
+.copy-feedback.is-copied > svg:first-child { opacity:0; scale:.5; rotate:30deg; }
+.copy-feedback.is-copied > svg:last-child { opacity:1; scale:1; rotate:0deg; }
+
+.loading-cat { display:inline-block; flex:none; vertical-align:middle; }
+.loading-cat > svg { display:block; width:100%; height:100%; }
+
+.wakeable-cat {
+  --cat:96px;
+  position:relative; display:grid; place-items:center; width:calc(var(--cat) * 1.42); height:calc(var(--cat) * 1.42); padding:0;
+  border:0; border-radius:50%; background:var(--dots); color:inherit; cursor:pointer;
+  transition:transform 260ms cubic-bezier(.34,1.56,.64,1);
+}
+.wakeable-cat:hover { transform:translateY(-3px); }
+.wakeable-cat:active { transform:translateY(1px) scale(.97); }
+.wakeable-cat .lab-cat { width:var(--cat); height:var(--cat); }
+.wakeable-zzz { position:absolute; right:14%; top:12%; pointer-events:none; }
+.wakeable-zzz i {
+  position:absolute; font:600 17px/1 var(--display); font-style:normal; color:var(--muted);
+  animation:wakeable-zzz 2.8s ease-in-out infinite;
+}
+.wakeable-zzz i + i { font-size:12px; animation-delay:1.4s; }
+@keyframes wakeable-zzz {
+  0% { opacity:0; transform:translate(0,6px) scale(.7); }
+  35% { opacity:1; }
+  100% { opacity:0; transform:translate(14px,-18px) scale(1.15); }
+}

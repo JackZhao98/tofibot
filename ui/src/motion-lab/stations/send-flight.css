@@ -1,0 +1,100 @@
+/* Composer (v2t) + DM thread. The composer is one of the chunky, glass surfaces. */
+.send-stage { display:flex; flex-direction:column; padding:0; background:var(--bg); }
+.thread {
+  display:flex; flex-direction:column; justify-content:flex-end; gap:10px;
+  height:330px; padding:28px 24px 16px; overflow:hidden;
+  -webkit-mask-image:linear-gradient(to bottom, transparent 0, #000 64px); mask-image:linear-gradient(to bottom, transparent 0, #000 64px);
+}
+.bubble { margin:0; max-width:78%; line-height:1.55; overflow-wrap:anywhere; }
+/* Same treatment as the production user bubble (conversation-workspace.css). */
+.bubble.me { align-self:flex-end; padding:10px 14px; border:1px solid var(--line-soft); border-radius:16px 5px 16px 16px; background:var(--surface-2); }
+.bubble.bot { align-self:flex-start; padding:9px 13px; border:1px solid var(--line-soft); border-radius:16px 16px 16px 5px; background:var(--surface-2); color:var(--ink); animation:reply-bubble-in 300ms cubic-bezier(.22,1,.36,1) both; }
+.bubble.is-hidden { visibility:hidden; }
+.bubble.flight { position:absolute; z-index:5; pointer-events:none; transform-origin:100% 100%; }
+
+.composer-dock { position:relative; padding:0 18px 18px; }
+.think-line {
+  height:18px; margin:0 0 10px 8px; font:var(--type-status); color:var(--lagoon-text);
+  opacity:0; transform:translateY(4px); transition:opacity 200ms ease, transform 200ms ease;
+}
+.think-line.is-on { opacity:1; transform:none; }
+
+.lab-composer {
+  position:relative; display:flex; align-items:flex-end; gap:4px; padding:8px;
+  border:var(--edge-bold) solid var(--line); border-radius:22px;
+  background:var(--glass-strong); -webkit-backdrop-filter:var(--blur); backdrop-filter:var(--blur);
+  box-shadow:var(--hard), var(--sheen);
+}
+@media (prefers-reduced-transparency:reduce) { .lab-composer, .plus-menu { background:var(--surface); -webkit-backdrop-filter:none; backdrop-filter:none; } }
+.lab-composer .plus { order:0; }
+.composer-input { order:1; }
+.lab-composer .composer-icon:not(.plus) { order:2; }
+.send-button { order:3; }
+.lab-composer.is-voice { flex-wrap:wrap; }
+.lab-composer.is-voice .composer-input { flex-basis:100%; order:0; }
+
+.composer-input {
+  flex:1; min-width:0; min-height:46px; max-height:120px; padding:11px 8px;
+  border:0; outline:none; resize:none; background:transparent;
+  font:var(--type-body); color:var(--ink); caret-color:var(--clay); field-sizing:content;
+}
+/* The composer's own edge already shows where you are typing: no extra focus halo. */
+.composer-input:focus-visible { outline:none; }
+.composer-input::placeholder { color:var(--muted); }
+.composer-icon {
+  display:grid; place-items:center; width:46px; height:46px; flex:none; border:0; border-radius:14px;
+  background:transparent; color:var(--ink-soft); cursor:pointer; transition:background-color 120ms ease;
+}
+.composer-icon:hover { background:var(--surface-2); color:var(--ink); }
+.composer-icon.plus svg { transition:rotate var(--spring-ms) var(--spring); }
+.composer-icon.plus.is-open svg { rotate:45deg; }
+
+.send-button {
+  display:grid; place-items:center; width:46px; height:46px; flex:none; border-radius:14px; cursor:pointer;
+  border:var(--edge) solid transparent; background:var(--surface-2); color:var(--muted);
+  transition:background-color 160ms ease, color 160ms ease, transform var(--ease-press) ease, box-shadow var(--ease-press) ease;
+}
+.send-button:disabled { cursor:default; }
+.send-button.is-ready { background:var(--clay); color:var(--on-block); border-color:var(--line); box-shadow:var(--hard-sm); }
+.send-button.is-ready svg { animation:send-pop 460ms var(--spring) both; }
+.send-button.is-ready:hover { transform:translate(-1px,-1px); box-shadow:3px 4px 0 var(--hard-ink); }
+.send-button.is-ready:active { transform:translate(2px,3px); box-shadow:none; }
+
+/* The cat sits on the composer's top edge, feet on the line. */
+.perch { position:absolute; right:84px; top:-74px; width:84px; height:84px; pointer-events:none; }
+.perch .lab-cat { width:100%; height:100%; }
+
+.plus-menu {
+  position:absolute; left:6px; bottom:calc(100% + 12px); z-index:6; display:grid; gap:2px; min-width:190px; padding:6px;
+  border:var(--edge) solid var(--line); border-radius:16px;
+  background:var(--glass-strong); -webkit-backdrop-filter:var(--blur); backdrop-filter:var(--blur); box-shadow:var(--hard), var(--sheen);
+  transform-origin:22px 100%; animation:menu-in 440ms var(--spring) both;
+}
+.plus-menu button {
+  display:flex; align-items:center; gap:10px; padding:9px 10px; border:0; border-radius:10px;
+  background:none; color:var(--ink); font:var(--type-row-title); text-align:left; cursor:pointer;
+  animation:item-in 380ms var(--spring) both; animation-delay:calc(var(--i) * 45ms + 70ms);
+}
+.plus-menu button:hover { background:var(--surface); }
+
+.voice-bar { order:1; flex:1; display:flex; align-items:center; gap:10px; min-width:0; animation:item-in 360ms var(--spring) both; }
+.voice-clock { display:inline-flex; align-items:center; gap:6px; font:var(--type-status); color:var(--ink); font-variant-numeric:tabular-nums; }
+.rec-dot { width:8px; height:8px; border-radius:50%; background:var(--danger); animation:rec-pulse 1.2s ease-in-out infinite; }
+.voice-wave { flex:1; display:flex; align-items:center; gap:3px; height:34px; min-width:0; overflow:hidden; }
+.voice-wave span { flex:1; min-width:2px; max-width:4px; height:100%; border-radius:2px; background:var(--lagoon); transform:scaleY(.2); }
+
+.stage-note { font:var(--type-meta); color:var(--muted); }
+.send-style { display:inline-flex; padding:3px; border-radius:11px; background:var(--sunk); }
+.send-style button { padding:6px 12px; border:0; border-radius:8px; background:none; color:var(--ink-soft); font:600 13px/1.2 var(--body); cursor:pointer; transition:background-color 200ms ease, color 200ms ease; }
+.send-style button[aria-checked="true"] { background:var(--surface); color:var(--ink); box-shadow:0 0 0 1px var(--line-soft); }
+
+@keyframes send-pop { 0% { scale:.5; rotate:-30deg; } 100% { scale:1; rotate:0deg; } }
+@keyframes menu-in { from { opacity:0; transform:translateY(10px) scale(.6); } }
+@keyframes item-in { from { opacity:0; transform:translateX(-10px); } }
+@keyframes rec-pulse { 50% { opacity:.35; } }
+@keyframes reply-bubble-in { from { opacity:0; transform:translateY(10px) scale(.98); } to { opacity:1; transform:none; } }
+
+@media (prefers-reduced-motion:reduce) {
+  .send-button.is-ready svg, .plus-menu, .plus-menu button, .voice-bar, .rec-dot, .bubble.bot { animation:none; }
+  .composer-icon.plus svg, .think-line { transition:none; }
+}

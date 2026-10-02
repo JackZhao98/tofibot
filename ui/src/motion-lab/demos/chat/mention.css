@@ -1,0 +1,65 @@
+/* @ menu (v2t): frosted, chunky, anchored at the "@". */
+.mention-stage { position:relative; display:flex; flex-direction:column; justify-content:flex-end; min-height:420px; }
+.mention-hint { position:absolute; top:22px; left:26px; margin:0; font:var(--type-status); color:var(--muted); }
+.mention-composer { align-items:center; min-height:62px; padding:8px 12px; cursor:text; }
+.mention-field { flex:1; display:flex; flex-wrap:wrap; align-items:center; gap:4px 2px; min-width:0; }
+.mention-text { white-space:pre-wrap; }
+.mention-input-wrap { position:relative; flex:1; min-width:120px; }
+.mention-input {
+  width:100%; padding:8px 2px; border:0; outline:none; background:transparent;
+  font:var(--type-body); color:var(--ink); caret-color:var(--clay);
+}
+.mention-input::placeholder { color:var(--muted); }
+.mention-mirror { position:absolute; visibility:hidden; white-space:pre; font:var(--type-body); padding:0 2px; }
+
+.mention-chip {
+  display:inline-flex; align-items:center; padding:2px 8px; border-radius:8px;
+  background:color-mix(in srgb, var(--iris) 30%, transparent); color:var(--iris-text); font:600 15px/1.5 var(--body); white-space:nowrap;
+}
+.mention-chip.is-flying { visibility:hidden; }
+.mention-chip.is-landed { animation:chip-land 420ms cubic-bezier(.34,1.56,.64,1); }
+@keyframes chip-land { from { scale:1.15; } }
+.mention-ghost { position:absolute; z-index:8; pointer-events:none; background:color-mix(in srgb, var(--iris) 30%, var(--surface)); }
+
+.mention-menu {
+  position:absolute; bottom:94px; z-index:6; width:min(300px, calc(100% - 24px)); padding:6px;
+  border:var(--edge) solid var(--line); border-radius:16px;
+  background:var(--glass-strong); -webkit-backdrop-filter:var(--blur); backdrop-filter:var(--blur); box-shadow:var(--hard), var(--sheen);
+  animation:mention-grow 420ms cubic-bezier(.34,1.4,.64,1) both;
+}
+@keyframes mention-grow { from { opacity:0; transform:translateY(8px) scale(.6); } }
+@media (prefers-reduced-transparency:reduce) { .mention-menu { background:var(--surface); -webkit-backdrop-filter:none; backdrop-filter:none; } }
+.mention-pill {
+  position:absolute; left:6px; right:6px; top:0; border-radius:11px; background:var(--surface);
+  box-shadow:inset 0 0 0 1px var(--line-soft); transition:transform 320ms cubic-bezier(.34,1.3,.64,1), height 200ms ease;
+}
+.mention-item {
+  position:relative; z-index:1; display:grid; grid-template-columns:34px minmax(0,1fr) auto; align-items:center; gap:10px;
+  width:100%; padding:7px 8px; border:0; border-radius:11px; background:none; color:var(--ink); text-align:left; cursor:pointer;
+  animation:mention-item-in 360ms cubic-bezier(.22,1,.36,1) both;
+}
+.mention-item:nth-of-type(2) { animation-delay:40ms; }
+.mention-item:nth-of-type(3) { animation-delay:80ms; }
+.mention-item:nth-of-type(4) { animation-delay:120ms; }
+@keyframes mention-item-in { from { opacity:0; transform:translateY(6px); } }
+.mention-cat { width:34px; height:34px; }
+.mention-cat .lab-cat { width:100%; height:100%; }
+.mention-copy { display:grid; min-width:0; }
+.mention-copy small { font:var(--type-meta); color:var(--muted); overflow:hidden; white-space:nowrap; text-overflow:ellipsis; }
+.mention-name { position:relative; justify-self:start; font:var(--type-row-title); }
+.mention-line {
+  position:absolute; left:0; bottom:-1px; height:2px; width:0; border-radius:1px; background:var(--iris);
+  transition:width 260ms cubic-bezier(.34,1.3,.64,1), transform 260ms cubic-bezier(.34,1.3,.64,1);
+}
+.mention-status { display:inline-flex; align-items:center; gap:5px; font:var(--type-status); color:var(--muted); }
+.mention-status i { width:7px; height:7px; border-radius:50%; }
+.mention-status.is-working { color:var(--lagoon-text); }
+.mention-status.is-working i { background:var(--lagoon); animation:dot-breathe 2.4s ease-in-out infinite; }
+.mention-status.is-idle i { background:var(--green); }
+.mention-status.is-asleep i { border:1.5px solid var(--muted); }
+
+@keyframes dot-breathe { 0%, 100% { scale:.75; opacity:.7; } 50% { scale:1; opacity:1; } }
+@media (prefers-reduced-motion:reduce) {
+  .mention-menu, .mention-item, .mention-chip.is-landed, .mention-status i { animation:none; }
+  .mention-pill, .mention-line { transition:none; }
+}

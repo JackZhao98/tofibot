@@ -1,0 +1,24 @@
+/* Tofi Rounded Icons v2.1: every glyph keeps its own one-shot motion. */
+.icon-filters { display:flex; flex-wrap:wrap; gap:6px; margin-bottom:14px; }
+.icon-filter {
+  padding:6px 12px; border:1px solid var(--line-soft); border-radius:999px; cursor:pointer;
+  background:var(--surface); color:var(--ink-soft); font:600 13px/1.2 var(--body);
+  transition:background-color 160ms ease, color 160ms ease, border-color 160ms ease;
+}
+.icon-filter:hover { color:var(--ink); border-color:var(--line); }
+.icon-filter[aria-pressed="true"] { background:var(--inverse); color:var(--on-inverse); border-color:var(--inverse); }
+
+.icon-stage { padding:18px; }
+.icon-caption { display:flex; gap:10px; align-items:baseline; min-height:22px; margin:0 0 12px; font:var(--type-meta); color:var(--muted); }
+.icon-caption-name { font:var(--type-status); color:var(--clay-text); }
+.icon-grid { position:relative; display:grid; grid-template-columns:repeat(auto-fill, minmax(46px, 1fr)); gap:4px; }
+.icon-cell {
+  display:grid; place-items:center; aspect-ratio:1; border:0; border-radius:12px; cursor:pointer;
+  background:transparent; color:var(--ink-soft); transition:background-color 120ms ease, color 120ms ease;
+}
+.icon-cell[hidden] { display:none; }
+.icon-cell:hover { background:var(--surface); color:var(--ink); }
+.icon-ring {
+  position:absolute; z-index:0; width:0; height:0; border-radius:50%; pointer-events:none; opacity:0;
+  border:2px solid var(--clay); translate:-50% -50%;
+}

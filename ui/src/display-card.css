@@ -1,0 +1,131 @@
+.workspace .display-card {
+  box-sizing: border-box;
+  width: min(520px, 100%);
+  margin: 8px 0 12px;
+  overflow: hidden;
+  border: 3px solid var(--line);
+  border-radius: 20px;
+  background: var(--surface);
+  box-shadow: var(--hard);
+  color: var(--ink);
+}
+.workspace .message-ui-card.is-dm .display-card { width:100%; }
+.workspace .display-card-texthead { display: flex; align-items: center; gap: 9px; padding: 12px 14px 0; }
+.workspace .display-card-texthead span {
+  padding: 4px 7px;
+  border-radius: 6px;
+  background: var(--iris);
+  color: var(--on-block);
+  font: 600 10px/1.2 var(--mono);
+}
+.workspace .display-card-texthead strong { color: var(--ink); font: 600 15px/1.4 var(--display); }
+.workspace .display-card-copy { padding: 12px 14px; color: var(--ink); line-height: 1.65; overflow-wrap: anywhere; }
+.workspace .display-card-copy > :first-child { margin-top: 0; }
+.workspace .display-card-copy > :last-child { margin-bottom: 0; }
+.workspace .display-card-copy.is-folded { max-height: 170px; overflow: hidden; -webkit-mask: linear-gradient(var(--ink) 70%, transparent); mask-image: linear-gradient(var(--ink) 70%, transparent); }
+.workspace .display-card-expand {
+  margin: 0 14px 10px;
+  padding: 5px 0;
+  border: 0;
+  background: transparent;
+  color: var(--ink-soft);
+  font: 600 12px/1.4 var(--body);
+  cursor: pointer;
+}
+.workspace .display-card-expand:hover { color: var(--ink); text-decoration: underline; text-underline-offset: 3px; }
+.workspace .display-card-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 9px 14px 10px;
+  border-top: 1px dashed var(--line-soft);
+  color: var(--muted);
+  font: 11px/1.4 var(--mono);
+}
+.workspace .display-card-footer span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.workspace .display-card-footer button {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  flex: none;
+  min-height: 30px;
+  padding: 4px 6px;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--ink-soft);
+  font: 600 12px/1.2 var(--body);
+  cursor: pointer;
+}
+.workspace .display-card-footer button:hover { background: var(--surface-2); color: var(--ink); }
+.workspace .display-card-footer button:disabled { opacity:.55; cursor:default; }
+.workspace .display-card-action-error { margin:0; padding:0 14px 10px; color:var(--danger-text); font:12px/1.5 var(--body); }
+
+/* Incoming mail uses the V2 paper and postmark treatment from MailRead. */
+.workspace .display-card-mail {
+  border-radius: 7px 7px 14px 14px;
+  background: var(--paper);
+  color: var(--paper-ink);
+}
+.workspace .display-card-poststripe {
+  height: 8px;
+  background: repeating-linear-gradient(135deg, var(--airmail-blue) 0 10px, var(--paper) 10px 20px, var(--airmail-red) 20px 30px, var(--paper) 30px 40px);
+}
+.workspace .display-card-mailhead {
+  position: relative;
+  display: grid;
+  grid-template-columns: 42px minmax(0, 1fr);
+  align-items: baseline;
+  gap: 5px 10px;
+  padding: 13px 16px 11px;
+  border-bottom: 1px solid var(--paper-rule);
+  font-size: 12px;
+}
+.workspace .display-card-mailhead > span { color: var(--paper-muted); font: 600 10px/1.2 var(--mono); }
+.workspace .display-card-mailhead > strong { min-width: 0; padding-right: 68px; color: var(--paper-ink); font-weight: 600; overflow-wrap: anywhere; }
+.workspace .display-card-postmark {
+  position: absolute;
+  top: 12px;
+  right: 14px;
+  display: grid;
+  width: 58px;
+  height: 58px;
+  place-items: center;
+  padding: 3px;
+  border: 2px solid var(--airmail-blue);
+  border-radius: 50%;
+  color: var(--airmail-blue);
+  text-align: center;
+  font: 700 9px/1.2 var(--mono);
+  transform: rotate(-9deg);
+}
+.workspace .display-card-note {
+  display: grid;
+  gap: 3px;
+  margin: 14px 16px 8px;
+  padding: 10px 12px;
+  border-radius: 4px;
+  background: var(--sticky);
+  color: var(--paper-ink);
+  font: 13px/1.5 var(--body);
+}
+.workspace .display-card-note strong { color: var(--paper-muted); font: 600 11px/1.4 var(--mono); }
+.workspace .display-card-mail .display-card-copy {
+  padding: 13px 16px 14px;
+  background: repeating-linear-gradient(transparent 0 26px, var(--paper-rule) 26px 27px);
+  background-position: 0 15px;
+  color: var(--paper-ink);
+}
+.workspace .display-card-mail .display-card-expand { color: var(--paper-ink); }
+.workspace .display-card-mail .display-card-footer { border-color: var(--paper-rule); background: color-mix(in srgb, var(--paper-rule) 34%, var(--paper)); color: var(--paper-muted); }
+.workspace .display-card-mail .display-card-footer button { color: var(--paper-ink); }
+.workspace .display-card :is(button, a):focus-visible { outline: 2px solid var(--focus); outline-offset: 3px; }
+
+@media (max-width: 560px) {
+  .workspace .display-card { max-width: 100%; }
+  .workspace .display-card-mailhead { grid-template-columns: 36px minmax(0, 1fr); gap: 5px 8px; padding-right: 12px; }
+  .workspace .display-card-mailhead > strong { padding-right: 62px; }
+  .workspace .display-card-postmark { right: 10px; width: 52px; height: 52px; font-size: 8px; }
+}
+@media (prefers-reduced-motion: reduce) { .workspace .display-card-postmark { transform: none; } }

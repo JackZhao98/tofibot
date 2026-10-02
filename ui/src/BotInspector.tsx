@@ -1,0 +1,17 @@
+import {useEffect,useState} from "react";
+import {request} from "./api";
+import {useDebugMode,setDebugMode} from "./debugMode";
+import type {Bot,Conversation} from "./types";
+type ToolDefinition={name:string;description:string;parameters:Record<string,unknown>};
+type Preview={system_prompt:string;tools:ToolDefinition[];last_run_tools?:ToolDefinition[];last_run_at?:string};
+export function BotInspector({botId,conversationId,tools=false}:{botId:string;conversationId?:string;tools?:boolean}){
+ const [open,setOpen]=useState(tools);const [data,setData]=useState<Preview|null>(null);const [error,setError]=useState("");const [version,setVersion]=useState(0);const [copied,setCopied]=useState(false);const [query,setQuery]=useState("");
+ useEffect(()=>{setData(null);setError("");setCopied(false);if(!open)return;const ac=new AbortController();const search=conversationId?`?conversation_id=${encodeURIComponent(conversationId)}`:"";request<Preview>(`/api/bots/${encodeURIComponent(botId)}/debug-preview${search}`,{signal:ac.signal}).then(setData).catch(()=>{if(!ac.signal.aborted)setError("暂时无法读取。")});return()=>ac.abort()},[botId,conversationId,open,version]);
+ async function copy(){try{await navigator.clipboard.writeText(data?.system_prompt??"");setCopied(true)}catch{setError("复制失败，可选中文本复制。")}}
+ const definitions=data?.last_run_tools?.length?data.last_run_tools:data?.tools??[];
+ return <details className="bot-inspector" open={open} onToggle={e=>setOpen(e.currentTarget.open)}><summary>{tools?"工具目录":"系统提示词"}</summary>{open&&<div className="inspector-body">{error&&<p role="alert" className="error-text">{error} <button type="button" className="text-button" onClick={()=>setVersion(v=>v+1)}>重试</button></p>}{!data&&!error&&<p className="muted">读取中…</p>}{data&&(tools?<><p className="field-note">{data.last_run_tools?.length?`最近运行 · ${data.last_run_at?new Date(data.last_run_at).toLocaleString():""}`:"内置工具；扩展工具在运行后显示。"}</p><input aria-label="搜索工具" placeholder="搜索工具" value={query} onChange={e=>setQuery(e.target.value)}/><div className="debug-tools">{definitions.filter(t=>(t.name+" "+t.description).toLowerCase().includes(query.toLowerCase())).map(t=><details key={t.name}><summary>{t.name}</summary><p>{t.description}</p><pre>{JSON.stringify(t.parameters,null,2)}</pre></details>)}</div></>:<><div className="inspector-caption"><span>当前配置预览</span><button type="button" className="text-button" onClick={()=>void copy()}>{copied?"已复制":"复制"}</button></div><pre className="prompt-preview" tabIndex={0}>{data.system_prompt}</pre><p className="field-note">运行时还会加入历史、记忆与扩展上下文。</p></>)}</div>}</details>
+}
+export function DebugSettings({bots,conversation}:{bots:Bot[];conversation?:Conversation}){
+ const debug=useDebugMode();const [chosen,setChosen]=useState("");const botId=bots.some(b=>b.id===chosen)?chosen:bots[0]?.id??"";
+ return <section className="settings-section"><label className="debug-toggle"><span>Debug 模式<small>显示工具调用和诊断信息</small></span><input type="checkbox" role="switch" checked={debug} onChange={e=>setDebugMode(e.target.checked)}/></label>{debug&&<><label>Bot<select value={botId} onChange={e=>setChosen(e.target.value)}>{bots.map(bot=><option key={bot.id} value={bot.id}>{bot.name}</option>)}</select></label>{botId?<BotInspector key={botId} botId={botId} conversationId={conversation&&(conversation.bot_id===botId||conversation.bot_ids.includes(botId))?conversation.id:undefined} tools/>:<p className="muted">暂无 Bot。</p>}</>}</section>
+}

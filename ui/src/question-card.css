@@ -1,0 +1,252 @@
+.workspace .question-message {
+  display: flex;
+  align-items: flex-end;
+  gap: 12px;
+  max-width: 100%;
+  margin: 8px 0 22px;
+}
+
+.workspace .question-message > .avatar { flex: none; margin: 0 0 4px; }
+html:not([data-desktop]) .workspace .question-message { align-items:flex-start; }
+html:not([data-desktop]) .workspace .question-message > .avatar { margin:0; }
+.workspace .question-body { min-width: 0; max-width: min(540px, calc(100% - 44px)); flex: 1; }
+.workspace .question-message.is-dm .question-body { max-width:100%; }
+.workspace .question-body > .message-meta { margin-bottom: 7px; }
+
+.workspace .question-message .question-card {
+  display: grid;
+  gap: 0;
+  padding: 16px;
+  border: 3px solid var(--line);
+  border-radius: 20px;
+  background: var(--surface) var(--dots);
+  box-shadow: var(--hard);
+  color: var(--ink);
+}
+html:not([data-desktop]) .workspace .question-message .question-card { transition: padding 240ms cubic-bezier(.22,1,.36,1), border-width 240ms ease, border-color 240ms ease, background-color 240ms ease, box-shadow 240ms ease; }
+html:not([data-desktop]) .workspace .question-message .question-card.is-pending { transform-origin:50% 100%; animation:question-card-arrive 620ms cubic-bezier(.34,1.4,.64,1) both; }
+@keyframes question-card-arrive { from { opacity: 0; transform: translateY(28px) scale(.94); } to { opacity: 1; transform: translateY(0) scale(1); } }
+html:not([data-desktop]) .workspace .question-message .question-state { max-height:40px; overflow:hidden; }
+html:not([data-desktop]) .workspace .question-message .question-prompt { max-height:240px; overflow:hidden; }
+html:not([data-desktop]) .workspace .question-message .question-options label { max-height:120px; overflow:hidden; }
+html:not([data-desktop]) .workspace .question-message .question-card.is-folding { overflow:hidden; }
+html:not([data-desktop]) .workspace .question-message .question-card.is-folding :is(.question-state,.question-prompt) { max-height:0; margin:0; opacity:0; overflow:hidden; transition:max-height 440ms cubic-bezier(.22,1,.36,1),opacity 220ms ease,margin 440ms cubic-bezier(.22,1,.36,1); }
+html:not([data-desktop]) .workspace .question-message .question-card.is-folding .question-options { gap:0; margin-top:0; transition:gap 440ms cubic-bezier(.22,1,.36,1),margin 440ms cubic-bezier(.22,1,.36,1); }
+html:not([data-desktop]) .workspace .question-message .question-card.is-folding .question-options label { max-height:80px; overflow:hidden; }
+html:not([data-desktop]) .workspace .question-message .question-card.is-folding .question-options label.selected { transform:translate(2px,2px); background:color-mix(in srgb,var(--iris) 24%,var(--surface)); color:var(--ink); opacity:1; }
+html:not([data-desktop]) .workspace .question-message .question-card.is-folding .question-options label.is-fold-away { max-height:0; padding-block:0; border-width:0; opacity:0; transform:scaleY(0); }
+html:not([data-desktop]) .workspace .question-message .question-options label.selected { background:color-mix(in srgb,var(--iris) 24%,var(--surface)); color:var(--ink); transform:translate(2px,2px); }
+
+.workspace .question-message .question-state {
+  width: fit-content;
+  margin: 0 0 9px;
+  padding: 4px 8px;
+  border-radius: 6px;
+  background: var(--iris);
+  color: var(--on-block);
+  font: 600 10px/1.2 var(--mono);
+  letter-spacing: .04em;
+}
+
+.workspace .question-message .question-prompt {
+  color: var(--ink);
+  font: 600 17px/1.4 var(--display);
+  overflow-wrap: anywhere;
+}
+.workspace .question-prompt > div > :first-child,
+.workspace .question-prompt > :first-child { margin-top: 0; }
+.workspace .question-prompt > div > :last-child,
+.workspace .question-prompt > :last-child { margin-bottom: 0; }
+
+.workspace .question-message .question-card > textarea {
+  display: block;
+  width: 100%;
+  min-height: 90px;
+  margin-top: 14px;
+  padding: 10px 12px;
+  resize: vertical;
+  border: 1px solid var(--line-soft);
+  border-radius: 12px;
+  background: var(--sunk);
+  color: var(--ink);
+  font: 14px/1.6 var(--body);
+}
+.workspace .question-message .question-card > textarea:hover { border-color: var(--line); }
+.workspace .question-message .question-card > textarea:focus-visible {
+  border-color: var(--line);
+  outline: 2px solid var(--focus);
+  outline-offset: 3px;
+  box-shadow: var(--hard-sm);
+}
+.workspace .question-message .question-card > textarea::placeholder { color: var(--muted); }
+
+.workspace .question-message .question-options {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+  margin: 14px 0 0;
+  padding: 0;
+  border: 0;
+}
+.workspace .question-message .question-options label {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  padding: 10px 12px;
+  border: 2px solid var(--line-soft);
+  border-radius: 12px;
+  background: var(--surface-2);
+  color: var(--ink);
+  cursor: pointer;
+  transition: transform 120ms ease, border-color 120ms ease, background-color 120ms ease, box-shadow 120ms ease, max-height 440ms cubic-bezier(.22,1,.36,1), padding 440ms cubic-bezier(.22,1,.36,1), opacity 220ms ease;
+}
+.workspace .question-message .question-options label:hover { border-color: var(--line); background: var(--surface); }
+.workspace .question-message .question-options label.selected {
+  border-color: var(--line);
+  background: var(--clay);
+  box-shadow: var(--hard-sm);
+  color: var(--on-block);
+}
+.workspace .question-message .question-options label:has(input:disabled) { cursor: default; opacity: .68; }
+.workspace .question-message .question-options input {
+  width: 16px;
+  height: 16px;
+  min-height: 0;
+  margin: 0;
+  flex: none;
+  accent-color: var(--clay);
+}
+.workspace .question-message .question-options span { min-width: 0; overflow-wrap: anywhere; }
+.workspace .question-message .question-other-answer { margin-top:12px; }
+.workspace .question-message .question-other-answer > label { display:block; margin-bottom:6px; color:var(--ink-soft); font:600 13px/1.5 var(--body); }
+.workspace .question-message .question-other-answer textarea { box-sizing:border-box; display:block; width:100%; min-height:88px; padding:10px 12px; border:1px solid var(--line-soft); border-radius:12px; background:var(--sunk); color:var(--ink); font:15px/1.6 var(--body); resize:vertical; caret-color:var(--lagoon-text); }
+.workspace .question-message .question-other-answer textarea:focus-visible { border-color:var(--line); box-shadow:var(--hard-sm); }
+.workspace .question-message .field-note { margin: 9px 0 0; color: var(--muted); font-size: 12px; }
+.workspace .question-message .question-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 12px;
+}
+.workspace .question-message .question-actions button { min-height: 36px; padding: 8px 12px; font-size: 13px; }
+.workspace .question-message .question-actions .primary-button {
+  border: 2px solid var(--line);
+  border-radius: 12px;
+  background: var(--clay);
+  box-shadow: var(--hard-sm);
+  color: var(--on-block);
+  font: 600 13px/1 var(--display);
+  transition: transform 120ms ease, box-shadow 120ms ease, background-color 120ms ease;
+}
+.workspace .question-message .question-actions .primary-button:not(:disabled):hover { transform: translate(-1px, -1px); }
+.workspace .question-message .question-actions .primary-button:not(:disabled):active { transform: translate(2px, 3px); box-shadow: none; }
+.workspace .question-message .question-actions .primary-button:disabled { cursor: not-allowed; opacity: .58; }
+.workspace .question-message .question-card :is(button, input, textarea):focus-visible { outline: 2px solid var(--focus); outline-offset: 3px; }
+
+.workspace .question-message .question-result {
+  margin-top: 12px;
+  padding-top: 10px;
+  border-top: 1px solid var(--line-soft);
+}
+.workspace .question-message .question-result > span { color: var(--muted); font: 11px/1.4 var(--mono); }
+.workspace .question-message .question-result p {
+  margin: 5px 0 0;
+  color: var(--ink-soft);
+  font-size: 13px;
+  line-height: 1.6;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.workspace .question-message .question-card.is-resolved {
+  padding: 12px 14px;
+  border: 1px solid var(--line-soft);
+  border-radius: 14px;
+  background: var(--surface-2);
+  box-shadow: none;
+}
+html:not([data-desktop]) .workspace .question-message .question-card.is-expired { border-width:1px; border-color:var(--line-soft); box-shadow:none; }
+html:not([data-desktop]) .workspace .question-message .question-card.is-resolved.is-answered { padding:8px 12px; }
+html:not([data-desktop]) .workspace .question-message .question-card.is-resolved.is-answered .question-prompt { position:absolute; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden; clip:rect(0,0,0,0); white-space:nowrap; border:0; }
+html:not([data-desktop]) .workspace .question-message .question-card.is-resolved.is-answered .question-result { display:flex; align-items:center; gap:8px; min-width:0; margin:0; }
+html:not([data-desktop]) .workspace .question-message .question-card.is-resolved.is-answered .question-result > svg { flex:none; width:25px; height:25px; padding:5px; border-radius:8px; background:var(--iris); color:var(--on-block); animation:question-check-pop 460ms cubic-bezier(.34,1.56,.64,1); }
+html:not([data-desktop]) .workspace .question-message .question-card.is-resolved.is-answered .question-result > span { flex:none; color:var(--iris-text); font:600 13px/1.4 var(--body); animation:question-answered-fade 360ms ease both 120ms; }
+html:not([data-desktop]) .workspace .question-message .question-card.is-resolved.is-answered .question-result > p { min-width:0; margin:0; font:600 14px/1.4 var(--body); }
+@keyframes question-check-pop { from { scale:.4; } }
+@keyframes question-answered-fade { from { opacity:0; transform:translateX(-6px); } }
+.workspace .question-message .question-card.is-resolved .question-prompt { color: var(--ink-soft); font-size: 14px; font-weight: 600; }
+.workspace .question-message .question-card.is-resolved .question-result { margin-top: 7px; padding-top: 0; border-top: 0; }
+.workspace .question-message .question-card .error-text { margin-bottom: 0; font-size: 13px; }
+
+.workspace .question-message .question-form-target {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 3px 8px;
+  margin: 10px 0 0;
+  color: var(--ink-soft);
+  font-size: 12px;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+.workspace .question-message .question-form-target > :first-child { color: var(--muted); flex: none; }
+.workspace .question-message .question-form-target > :last-child { min-width: 0; }
+.workspace .question-message .question-form-privacy { margin-top: 10px; color: var(--ink-soft); font: 12px/1.6 var(--body); }
+.workspace .question-message .question-form-privacy p { margin: 0; }
+.workspace .question-message .question-form-privacy p + p { margin-top: 4px; }
+.workspace .question-message .question-form-fields { display: grid; gap: 16px; min-width: 0; margin: 18px 0 0; padding: 0; border: 0; }
+.workspace .question-message .question-form-field { min-width: 0; }
+.workspace .question-message .question-form-field label {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  color: var(--ink);
+  font: 600 13px/1.5 var(--body);
+  overflow-wrap: anywhere;
+}
+.workspace .question-message .question-form-private,
+.workspace .question-message .question-form-optional { color: var(--muted); font-size: 12px; font-weight: 400; }
+.workspace .question-message .question-form-optional { flex: none; }
+.workspace .question-message .question-form-field :is(input, textarea) {
+  display: block;
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+  min-height: 44px;
+  margin-top: 6px;
+  padding: 10px 12px;
+  border: 1px solid var(--line-soft);
+  border-radius: 12px;
+  background: var(--sunk);
+  color: var(--ink);
+  font: 14px/1.6 var(--body);
+  caret-color: var(--ink);
+}
+.workspace .question-message .question-form-field textarea { min-height: 96px; resize: vertical; }
+.workspace .question-message .question-form-field :is(input, textarea):not(:disabled):hover { border-color: var(--line); }
+.workspace .question-message .question-form-field :is(input, textarea):focus-visible { border-color: var(--line); box-shadow: var(--hard-sm); }
+.workspace .question-message .question-form-field [aria-invalid="true"] { border-color: var(--danger); }
+.workspace .question-message .question-form-field :is(input, textarea):disabled { opacity: .65; cursor: not-allowed; }
+.workspace .question-message .question-form-field .error-text { margin: 6px 0 0; line-height: 1.5; overflow-wrap: anywhere; }
+.workspace .question-message .question-form .question-actions { margin-top: 18px; }
+.workspace .question-message .question-form .question-actions button { min-height: 44px; }
+.workspace .question-message .question-form-summary { display: grid; gap: 8px; margin: 10px 0 0; font-size: 13px; line-height: 1.6; }
+.workspace .question-message .question-form-summary > div { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 2fr); gap: 12px; }
+.workspace .question-message .question-form-summary dt { color: var(--muted); overflow-wrap: anywhere; }
+.workspace .question-message .question-form-summary dd { margin: 0; color: var(--ink-soft); white-space: pre-wrap; overflow-wrap: anywhere; }
+
+@media (max-width: 560px) {
+  .workspace .question-body { max-width: calc(100% - 38px); }
+  .workspace .question-message .question-card { padding: 13px; }
+  .workspace .question-message .question-actions { flex-wrap: wrap; }
+  .workspace .question-message .question-form-field :is(input, textarea), .workspace .question-message .question-other-answer textarea { font-size: 16px; }
+  .workspace .question-message .question-form-summary > div { grid-template-columns: minmax(0, 1fr); gap: 1px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  html:not([data-desktop]) .workspace .question-message .question-card { animation: none; transition: none; }
+  html:not([data-desktop]) .workspace .question-message .question-card.is-folding :is(.question-state,.question-prompt,.question-options) { transition:none; }
+  .workspace .question-message .question-options label,
+  .workspace .question-message .question-actions .primary-button { transition: none; }
+  html:not([data-desktop]) .workspace .question-message .question-card.is-resolved.is-answered .question-result > :is(svg,span) { animation:none; }
+}

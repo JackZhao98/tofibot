@@ -1,0 +1,6 @@
+/* Conversation placement only. The ticket itself is shared with Motion Lab. */
+html:not([data-desktop]) .workspace .scheduled-run {
+  width:100%;
+  max-width:var(--chat-max);
+  margin:6px auto 16px;
+}

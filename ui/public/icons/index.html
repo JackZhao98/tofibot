@@ -1,0 +1,106 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#fafbf9" />
+    <meta name="description" content="为 Tofi 设计的 144 枚原创 SVG 图标。描边与实心双版本，圆润系统风格，每一枚都有名字。" />
+    <title>Tofi Icons · 每个细节，都有一点灵气</title>
+    <link rel="icon" type="image/svg+xml" href="./svg/bot.svg" />
+    <link rel="stylesheet" href="./gallery.css" />
+    <script src="./catalog.js" defer></script>
+    <script src="./motion.js" defer></script>
+    <script src="./gallery.js" defer></script>
+  </head>
+  <body>
+    <a class="skip-link" href="#collection">跳到图标集合</a>
+    <header class="topbar">
+      <a class="brand" href="./" aria-label="Tofi Icons 首页"><span class="brand-word">tofi<span class="brand-dot">.</span></span><span class="brand-divider"></span><span class="brand-product">icons</span><span class="version">v2.1</span></a>
+      <nav class="top-nav" aria-label="主导航">
+        <a class="nav-current" href="#collection">图标库</a>
+        <button type="button" data-open="specs">设计规范</button>
+        <button type="button" data-open="guide">使用指南<span class="nav-arrow">↗</span></button>
+      </nav>
+      <div class="header-actions">
+        <button class="icon-button theme-toggle" type="button" aria-label="切换深色模式" title="切换深色模式"><span data-icon="moon"></span></button>
+        <a class="button download-all" href="./tofi-icons.zip" download><span data-icon="download"></span><span>下载图标库</span></a>
+      </div>
+    </header>
+
+    <aside class="sidebar" aria-label="图标分类">
+      <div class="sidebar-label">THE COLLECTION</div>
+      <button class="category-button active" type="button" data-category="all" aria-pressed="true"><span data-icon="layout-grid"></span><span>全部图标</span><span class="category-count" id="all-count">144</span></button>
+      <div class="category-list" id="categories"></div>
+      <div class="sidebar-bottom">
+        <div class="sidebar-note"><span class="status-dot"></span>专为 Tofi 而画</div>
+        <p>一点圆润，一点个性。<br />让人和 Bot 的相处更自然。</p>
+        <a href="./tofi-contact-sheet.svg" target="_blank" rel="noopener">打开完整 SVG 图鉴 <span>↗</span></a>
+      </div>
+    </aside>
+
+    <main class="main">
+      <section class="hero" aria-labelledby="hero-title">
+        <div class="hero-copy">
+          <div class="eyebrow"><span class="status-dot"></span>TOFI ORIGINALS <span class="eyebrow-separator">/</span> COLLECTION 02</div>
+          <h1 id="hero-title">每个细节，<br />都有一点<span>灵气。</span></h1>
+          <p>144 枚圆润基础图标，配齐描边与实心双版本。<br class="desktop-break" />从双侧天线 Bot，到每一处细小的功能。</p>
+          <div class="hero-specs"><span><b id="hero-count">144</b> 枚原创图标</span><i></i><span><b>24 × 24</b> 网格</span><i></i><span><b>1.8 px</b> 线宽</span></div>
+        </div>
+        <div class="hero-art" aria-hidden="true">
+          <div class="art-coordinate coordinate-top">24 : 24</div>
+          <div class="art-orbit"></div>
+          <div class="art-tile tile-chat"><span data-icon="chat" data-size="32"></span></div>
+          <div class="art-tile tile-spark"><span data-icon="sparkles" data-size="27"></span></div>
+          <div class="art-tile tile-bot"><span data-icon="bot" data-size="75"></span><span class="tile-caption">hello, tofi.</span></div>
+          <div class="art-tile tile-memory"><span data-icon="memory" data-size="29"></span></div>
+          <div class="art-tile tile-check"><span data-icon="check" data-size="23"></span></div>
+          <div class="art-coordinate coordinate-bottom">A LITTLE MORE HUMAN.</div>
+          <svg class="art-pointer" width="37" height="43" viewBox="0 0 37 43"><path d="m5 3 23 15-11 3-4 13L5 3Z" fill="var(--paper)" stroke="var(--ink)" stroke-width="1.5" stroke-linejoin="round"/><path d="m17 24 5 9" fill="none" stroke="var(--ink)" stroke-width="1.5" stroke-linecap="round"/></svg>
+        </div>
+      </section>
+
+      <section id="collection" aria-label="图标集合">
+        <div class="variant-bar">
+          <span>一套图标，两种状态 <b>288 SVG</b></span>
+          <div class="variant-control" role="group" aria-label="图标样式">
+            <button type="button" class="active" data-variant="outline" aria-pressed="true">描边 <small>Outline</small></button>
+            <button type="button" data-variant="filled" aria-pressed="false">实心 <small>Filled</small></button>
+          </div>
+        </div>
+        <div class="collection-bar">
+          <div class="collection-heading"><h2 id="collection-title">全部图标</h2><span class="count-pill" id="result-count">144</span></div>
+          <span class="collection-hint">悬停看动效，点击查看与复制 <span data-icon="cursor" data-size="14"></span></span>
+        </div>
+        <div class="toolbar">
+          <label class="search-field"><span data-icon="search" data-size="18"></span><input type="search" id="search" placeholder="搜索图标名称、功能…" aria-label="搜索图标名称或功能" autocomplete="off" /><kbd>/</kbd></label>
+          <div class="preview-controls">
+            <button type="button" class="motion-toggle" id="motion-toggle" aria-pressed="true">动效 开</button>
+            <div class="control-divider"></div>
+            <div class="size-control" role="group" aria-label="预览尺寸">
+              <button type="button" data-size-choice="20" aria-pressed="false">20</button><button type="button" data-size-choice="24" class="active" aria-pressed="true">24</button><button type="button" data-size-choice="32" aria-pressed="false">32</button><span>px</span>
+            </div>
+            <div class="control-divider"></div>
+            <div class="color-control" role="group" aria-label="图标颜色">
+              <button type="button" class="color-swatch active" data-color="ink" style="--swatch:#344a3e" aria-label="墨绿" aria-pressed="true"></button>
+              <button type="button" class="color-swatch" data-color="green" style="--swatch:#6c987c" aria-label="鼠尾草绿" aria-pressed="false"></button>
+              <button type="button" class="color-swatch" data-color="orange" style="--swatch:#c98767" aria-label="陶土橙" aria-pressed="false"></button>
+              <button type="button" class="color-swatch" data-color="blue" style="--swatch:#6c8fae" aria-label="雾蓝" aria-pressed="false"></button>
+            </div>
+            <div class="control-divider"></div>
+            <label class="stroke-control" title="预览线宽"><span data-icon="sliders" data-size="16"></span><select id="stroke" aria-label="预览线宽"><option value="1.5">1.5 px</option><option value="1.8" selected>1.8 px</option><option value="2">2 px</option></select></label>
+          </div>
+        </div>
+        <div id="icon-sections"></div>
+        <div class="empty-state" id="empty-state" hidden><span data-icon="search" data-size="32"></span><h3>还没找到这个图标</h3><p>试试中文功能名，或 chat、bot、file 等英文关键词。</p><button class="button secondary" id="reset-search" type="button">重置搜索与分类</button></div>
+      </section>
+      <footer class="footer"><span><span class="footer-brand">tofi.</span> Made with a little character.</span><span>144 icons <b>·</b> 288 SVG <b>·</b> v2.1.0</span><a href="#hero-title">回到顶部 ↑</a></footer>
+    </main>
+
+    <dialog class="detail-dialog" id="detail-dialog" aria-labelledby="dialog-title">
+      <div class="dialog-top"><span class="eyebrow" id="dialog-eyebrow">ICON DETAILS</span><button type="button" class="icon-button" id="close-dialog" aria-label="关闭详情"><span data-icon="close"></span></button></div>
+      <div id="dialog-content"></div>
+    </dialog>
+    <div class="toast" id="toast" role="status" aria-live="polite"></div>
+    <noscript><p class="noscript">交互图鉴需要 JavaScript。你也可以<a href="./tofi-contact-sheet.svg">查看全部图标的 SVG 网格</a>或<a href="./tofi-icons.zip" download>下载图标库</a>。</p></noscript>
+  </body>
+</html>

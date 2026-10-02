@@ -1,0 +1,194 @@
+.workspace .delivered-attachment {
+  width: min(340px, 100%);
+  max-width: 100%;
+  margin: 10px 0 4px;
+  overflow: hidden;
+  border: 1px solid var(--line-soft);
+  border-radius: 14px;
+  background: var(--surface-2);
+  color: var(--ink);
+}
+.workspace .sent-attachment-pill { display:inline-flex; max-width:min(220px,100%); height:32px; margin:6px 6px 0 0; padding:0; vertical-align:middle; border:1px solid var(--line-soft); border-radius:999px; background:var(--surface); color:var(--ink); }
+.workspace .sent-attachment-main { display:flex; align-items:center; gap:7px; min-width:0; max-width:100%; height:100%; padding:3px 8px 3px 4px; border:0; border-radius:999px; background:transparent; color:var(--ink); text-decoration:none; cursor:pointer; }
+.workspace .sent-attachment-main:hover { background:var(--surface-2); }
+.workspace .sent-attachment-main img { width:24px; height:24px; flex:none; border:1px solid var(--line-soft); border-radius:50%; object-fit:cover; }
+.workspace .sent-attachment-type { display:grid; place-items:center; min-width:24px; height:22px; flex:none; padding:0 4px; border-radius:999px; background:var(--blue); color:var(--on-block); font:600 9px/1 var(--mono); }
+.workspace .sent-attachment-name { min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font:13px/1 var(--body); }
+.workspace .sent-attachment-main small { flex:none; color:var(--muted); font:10px/1 var(--mono); }
+.workspace .delivered-attachment.is-image { background: var(--sunk); }
+.workspace .attachment-preview { display: block; line-height: 0; background: var(--sunk); }
+.workspace .attachment-preview img {
+  display: block;
+  width: 100%;
+  max-height: 340px;
+  margin: auto;
+  object-fit: contain;
+}
+
+.workspace .attachment-file-row { display: flex; align-items: center; gap: 12px; padding: 10px 12px; }
+.workspace .attachment-file-row > div { display: grid; gap: 3px; min-width: 0; flex: 1; }
+.workspace .message-content .attachment-name {
+  overflow-wrap: anywhere;
+  color: var(--ink);
+  font: 600 13px/1.4 var(--body);
+  text-decoration: none;
+}
+.workspace .message-content .attachment-name:hover { text-decoration: underline; text-underline-offset: 3px; }
+.workspace .attachment-file-row small { color: var(--muted); font: 11px/1.4 var(--mono); }
+.workspace .message-content .attachment-download,
+.workspace .attachment-native-actions button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  min-width: 32px;
+  min-height: 32px;
+  padding: 5px 8px;
+  border: 1px solid var(--line-soft);
+  border-radius: 10px;
+  background: var(--surface);
+  color: var(--ink-soft);
+  font: 600 11px/1.2 var(--display);
+  text-decoration: none;
+  cursor: pointer;
+}
+.workspace .message-content .attachment-download:hover,
+.workspace .attachment-native-actions button:not(:disabled):hover { border-color: var(--line); color: var(--ink); }
+.workspace .attachment-native-actions { display: flex; align-items: center; gap: 5px; flex: none; }
+.workspace .attachment-native-actions button:disabled { cursor: wait; opacity: .58; }
+.workspace .attachment-file-type {
+  position: relative;
+  display: grid;
+  flex: 0 0 40px;
+  width: 40px;
+  height: 46px;
+  place-items: end center;
+  padding: 0 3px 6px;
+  border: 1px solid color-mix(in srgb, var(--line) 55%, transparent);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--ink-soft);
+  font: 700 9px/1 var(--mono);
+}
+.workspace .attachment-file-type::after {
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 0;
+  height: 0;
+  border-top: 11px solid var(--surface-2);
+  border-left: 11px solid transparent;
+  content: "";
+}
+.workspace .attachment-file-type[data-file-type="pdf"] { color: var(--danger-text); }
+.workspace .attachment-file-type[data-file-type="xlsx"],
+.workspace .attachment-file-type[data-file-type="xls"],
+.workspace .attachment-file-type[data-file-type="csv"] { color: var(--green-text); }
+.workspace .attachment-file-type[data-file-type="doc"],
+.workspace .attachment-file-type[data-file-type="docx"] { color: var(--focus); }
+
+.workspace .attachment-image-frame { position: relative; overflow: hidden; border-radius: 13px; }
+.workspace .attachment-image-frame .attachment-preview { width: 100%; padding: 0; border: 0; background: var(--sunk); cursor: zoom-in; }
+.workspace .attachment-image-frame .attachment-preview img { width: 100%; height: auto; max-height: 340px; object-fit: contain; }
+.workspace .attachment-image-caption,
+.workspace .attachment-image-actions {
+  position: absolute;
+  z-index: 2;
+  opacity: 0;
+  -webkit-backdrop-filter: var(--blur);
+  backdrop-filter: var(--blur);
+  transition: opacity 150ms ease;
+}
+.workspace .attachment-image-caption {
+  bottom: 8px;
+  left: 8px;
+  max-width: 65%;
+  overflow: hidden;
+  padding: 4px 7px;
+  border: 1px solid var(--glass-edge);
+  border-radius: 7px;
+  background: var(--glass-strong);
+  color: var(--ink);
+  font: 10px/1.4 var(--mono);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  pointer-events: none;
+}
+.workspace .attachment-image-actions {
+  top: 8px;
+  right: 8px;
+  display: flex;
+  gap: 3px;
+  padding: 3px;
+  border: 1px solid var(--glass-edge);
+  border-radius: 10px;
+  background: var(--glass-strong);
+}
+.workspace .attachment-image-frame:is(:hover, :focus-within) :is(.attachment-image-caption, .attachment-image-actions) { opacity: 1; }
+.workspace .attachment-image-actions :is(button, a) {
+  display: grid;
+  width: 30px;
+  height: 30px;
+  place-items: center;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--ink);
+  cursor: pointer;
+}
+.workspace .attachment-image-actions :is(button, a):hover { background: color-mix(in srgb, var(--ink) 12%, transparent); }
+.workspace .attachment-image-actions button:disabled { cursor: wait; opacity: .55; }
+.workspace .attachment-image-actions :is(button, a):focus-visible,
+.workspace .attachment-image-frame .attachment-preview:focus-visible { outline: 2px solid var(--focus); outline-offset: -2px; }
+
+.workspace .attachment-lightbox {
+  position: relative;
+  max-width: min(95vw, 1200px);
+  max-height: 94dvh;
+  padding: 12px;
+  border: 2px solid var(--line);
+  border-radius: 16px;
+  background: var(--surface);
+  box-shadow: var(--hard);
+  color: var(--ink);
+}
+.workspace .attachment-lightbox::backdrop { background: color-mix(in srgb, var(--bg) 82%, transparent); }
+.workspace .attachment-lightbox > button {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  display: grid;
+  width: 36px;
+  height: 36px;
+  place-items: center;
+  border: 1px solid var(--line-soft);
+  border-radius: 10px;
+  background: var(--surface-2);
+  color: var(--ink);
+  cursor: pointer;
+}
+.workspace .attachment-lightbox img { display: block; max-width: calc(95vw - 32px); max-height: calc(94dvh - 56px); object-fit: contain; }
+.workspace .attachment-lightbox small { display: block; margin-top: 5px; color: var(--muted); font: 11px/1.4 var(--mono); }
+html:not([data-desktop]) .workspace .attachment-lightbox { max-width:min(860px,calc(100vw - 32px)); max-height:calc(100dvh - 96px); padding:0; border:0; border-radius:0; background:transparent; box-shadow:none; overflow:visible; }
+html:not([data-desktop]) .workspace .attachment-lightbox::backdrop { background:rgba(20,18,15,.74); animation:web-zoom-backdrop-in 260ms ease-out both; }
+html:not([data-desktop]) .workspace .attachment-lightbox.is-closing::backdrop { animation:web-zoom-backdrop-out 300ms ease-in both; }
+@keyframes web-zoom-backdrop-in { from { background:rgba(20,18,15,0); } }
+@keyframes web-zoom-backdrop-out { to { background:rgba(20,18,15,0); } }
+html:not([data-desktop]) .workspace .attachment-lightbox img { max-width:min(860px,calc(100vw - 32px)); max-height:calc(100dvh - 116px); border:var(--edge) solid var(--line); border-radius:16px; box-shadow:var(--hard); transform-origin:0 0; }
+html:not([data-desktop]) .workspace .attachment-lightbox small { margin-top:12px; color:#f3eadb; font:var(--type-status); text-align:center; animation:web-zoom-caption 300ms ease both 200ms; }
+@keyframes web-zoom-caption { from { opacity:0; transform:translateY(-6px); } }
+html:not([data-desktop]) .workspace .attachment-lightbox > button { position:fixed; top:16px; right:16px; width:42px; height:42px; border:var(--edge) solid var(--line); border-radius:12px; background:var(--surface); box-shadow:var(--hard-sm); }
+.workspace .attachment-recovery { display: flex; align-items: center; gap: 12px; padding: 0 12px 10px; color: var(--muted); font-size: 12px; line-height: 1.5; }
+.workspace .attachment-recovery button { padding: 0; border: 0; background: transparent; color: var(--ink); font-size: 12px; cursor: pointer; }
+.workspace .attachment-recovery button:hover { text-decoration: underline; text-underline-offset: 3px; }
+
+@media (hover: none), (pointer: coarse) {
+  .workspace .attachment-image-actions,
+  .workspace .attachment-image-caption { opacity: 1; }
+  .workspace .attachment-image-actions :is(button, a) { width: 40px; height: 40px; }
+}
+@media (prefers-reduced-motion: reduce) { .workspace .attachment-image-caption, .workspace .attachment-image-actions { transition: none; } html:not([data-desktop]) .workspace .attachment-lightbox::backdrop,html:not([data-desktop]) .workspace .attachment-lightbox small { animation:none; } }
+@media (prefers-reduced-transparency: reduce) {
+  .workspace .attachment-image-caption,
+  .workspace .attachment-image-actions { background: var(--bg); -webkit-backdrop-filter: none; backdrop-filter: none; }
+}

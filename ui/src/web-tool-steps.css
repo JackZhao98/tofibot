@@ -1,0 +1,64 @@
+/* Motion Lab's BotWorking presentation, limited to the Web conversation. */
+html:not([data-desktop]) .workspace .message-content .typing-cursor{width:2px;height:1.05em;margin-left:2px;vertical-align:-.15em;background:var(--lagoon);animation:blink 1s steps(2,start) infinite}
+html:not([data-desktop]) .workspace .composer-row>.dictation-button.is-starting{color:var(--lagoon-text);border-color:var(--lagoon);background:color-mix(in srgb,var(--lagoon) 12%,var(--surface-2));animation:web-mic-connecting 1.2s ease-in-out infinite}
+html:not([data-desktop]) .workspace .dictation-status.is-starting{color:var(--lagoon-text)}
+@keyframes web-mic-connecting{50%{box-shadow:0 0 0 5px color-mix(in srgb,var(--lagoon) 15%,transparent)}}
+html:not([data-desktop]) .workspace .web-tool-body{display:flex;flex-direction:column}
+html:not([data-desktop]) .workspace .web-tool-body>.message-meta{order:0}
+html:not([data-desktop]) .workspace .web-tool-body>.message-content{order:2}
+html:not([data-desktop]) .workspace .web-tool-body>.message-tools{order:1;margin:0;width:100%}
+html:not([data-desktop]) .workspace .web-tool-body.is-tools-done>.message-tools{order:3;margin-top:6px}
+html:not([data-desktop]) .workspace .web-tool-body>.related-message-link{order:4}
+html:not([data-desktop]) .workspace .web-tool-run{margin:0;color:var(--ink-soft)}
+html:not([data-desktop]) .workspace .web-tool-disclosure{margin:0}
+html:not([data-desktop]) .workspace .web-tool-summary{display:flex;align-items:center;gap:8px;min-height:30px;padding:0;color:var(--muted);font:var(--type-status)}
+html:not([data-desktop]) .workspace .web-tool-run.is-live .web-tool-summary{color:var(--lagoon-text)}
+html:not([data-desktop]) .workspace .web-tool-toggle{display:inline-flex;align-items:center;gap:4px;margin-left:4px;padding:4px 6px;border:0;border-radius:8px;background:transparent;color:inherit;font:inherit;cursor:pointer}
+html:not([data-desktop]) .workspace .web-tool-toggle:hover{color:var(--ink);background:var(--surface-2)}
+html:not([data-desktop]) .workspace .web-tool-toggle:focus-visible{outline:2px solid var(--focus);outline-offset:2px}
+html:not([data-desktop]) .workspace .web-tool-run.is-complete:not(.has-tool-issues) .web-tool-toggle{opacity:.72}
+html:not([data-desktop]) .workspace .web-tool-run.has-tool-issues .web-tool-toggle{color:var(--danger-text)}
+html:not([data-desktop]) .workspace .web-tool-live-label{color:transparent;background-image:linear-gradient(100deg,var(--lagoon-text) 10%,var(--ink-soft) 45%,var(--lagoon-text) 80%);background-size:240% 100%;background-clip:text;-webkit-background-clip:text;animation:web-tool-label-sheen 2.4s linear infinite}
+html:not([data-desktop]) .workspace .web-tool-summary time{font-variant-numeric:tabular-nums}
+html:not([data-desktop]) .workspace .web-tool-chevron{flex:none;transition:rotate 520ms cubic-bezier(.22,1,.36,1)}
+html:not([data-desktop]) .workspace .web-tool-toggle[aria-expanded="true"] .web-tool-chevron{rotate:90deg}
+html:not([data-desktop]) .workspace .web-tool-drawer{display:grid;grid-template-rows:0fr;transition:grid-template-rows 520ms cubic-bezier(.22,1,.36,1)}
+html:not([data-desktop]) .workspace .web-tool-drawer.is-open{grid-template-rows:1fr}
+html:not([data-desktop]) .workspace .web-tool-drawer-inner{min-height:0;overflow:hidden;opacity:0;transform:translateY(-6px);transition:opacity 300ms ease,transform 520ms cubic-bezier(.22,1,.36,1)}
+html:not([data-desktop]) .workspace .web-tool-drawer.is-open .web-tool-drawer-inner{opacity:1;transform:translateY(0)}
+html:not([data-desktop]) .workspace .web-tool-steps{display:grid;gap:2px;margin:8px 0 12px;padding:2px 0 2px 12px;border-left:var(--edge) solid var(--line-soft);list-style:none}
+html:not([data-desktop]) .workspace .web-tool-run.is-complete .web-tool-steps{margin:6px 0 0 12px}
+html:not([data-desktop]) .workspace .web-tool-step{display:grid;grid-template-columns:16px minmax(0,1fr) auto;align-items:start;gap:8px;min-width:0;padding:4px 0;color:var(--ink-soft);font:var(--type-meta);animation:web-tool-step-in 360ms cubic-bezier(.22,1,.36,1) both}
+html:not([data-desktop]) .workspace .web-tool-run.is-complete .web-tool-step{animation:none}
+html:not([data-desktop]) .workspace .web-tool-step>svg{margin-top:1px}
+html:not([data-desktop]) .workspace .web-tool-step-detail{min-width:0}
+html:not([data-desktop]) .workspace .web-tool-step-detail>summary{display:block;min-height:0;padding:0;border:0;background:none;color:inherit;cursor:pointer;list-style:none}
+html:not([data-desktop]) .workspace .web-tool-step-detail>summary::-webkit-details-marker{display:none}
+html:not([data-desktop]) .workspace .web-tool-step-detail>summary:focus-visible{outline:2px solid var(--focus);outline-offset:2px}
+html:not([data-desktop]) .workspace .web-tool-step-label{display:block;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+html:not([data-desktop]) .workspace .web-tool-step:is(.is-running,.is-queued) .web-tool-step-label{color:transparent;background-image:linear-gradient(100deg,var(--ink) 0 30%,var(--lagoon-text) 44% 56%,var(--ink) 70% 100%);background-size:260% 100%;background-clip:text;-webkit-background-clip:text;animation:web-tool-label-sheen 1.8s linear infinite}
+html:not([data-desktop]) .workspace .web-tool-step-meta{display:inline-flex;align-items:center;gap:6px;white-space:nowrap;color:var(--muted);font:var(--type-status);font-variant-numeric:tabular-nums}
+html:not([data-desktop]) .workspace .web-tool-step:is(.is-running,.is-queued) .web-tool-step-meta{color:var(--lagoon-text)}
+html:not([data-desktop]) .workspace .web-tool-step.is-completed .web-tool-step-meta>svg{color:var(--green-text)}
+html:not([data-desktop]) .workspace .web-tool-step:is(.is-failed,.is-interrupted) .web-tool-step-meta>svg{color:var(--danger-text)}
+html:not([data-desktop]) .workspace .web-tool-breath{width:8px;height:8px;flex:none;border-radius:50%;background:var(--lagoon);animation:web-tool-breathe 2.4s ease-in-out infinite}
+html:not([data-desktop]) .workspace .web-tool-step .tool-activity-details{margin:7px 0 4px;padding:8px 10px}
+html:not([data-desktop]) .workspace .web-tool-note{margin-top:5px;white-space:normal}
+html:not([data-desktop]) .workspace .web-tool-note :is(p,ul,ol){margin:0 0 4px}
+@keyframes web-tool-step-in{from{opacity:0;transform:translateY(-6px)}}
+@keyframes web-tool-label-sheen{from{background-position:100% 0}to{background-position:-60% 0}}
+@keyframes web-tool-breathe{0%,100%{scale:.75;opacity:.7}50%{scale:1;opacity:1}}
+@media(max-width:700px){html:not([data-desktop]) .workspace .web-tool-step{grid-template-columns:16px minmax(0,1fr) auto;gap:5px}}
+@media(prefers-reduced-motion:reduce){
+  html:not([data-desktop]) .workspace .message-content .typing-cursor{animation:none}
+  html:not([data-desktop]) .workspace .composer-row>.dictation-button.is-starting{animation:none}
+  html:not([data-desktop]) .workspace .web-tool-step,
+  html:not([data-desktop]) .workspace .web-tool-step:is(.is-running,.is-queued) .web-tool-step-label,
+  html:not([data-desktop]) .workspace .web-tool-breath,
+  html:not([data-desktop]) .workspace .web-tool-live-label{animation:none}
+  html:not([data-desktop]) .workspace .web-tool-step:is(.is-running,.is-queued) .web-tool-step-label{color:var(--ink);background:none}
+  html:not([data-desktop]) .workspace .web-tool-live-label{color:var(--lagoon-text);background:none}
+  html:not([data-desktop]) .workspace .web-tool-chevron,
+  html:not([data-desktop]) .workspace .web-tool-drawer,
+  html:not([data-desktop]) .workspace .web-tool-drawer-inner{transition:none}
+}

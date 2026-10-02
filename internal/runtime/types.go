@@ -1,0 +1,107 @@
+package runtime
+
+import (
+	"context"
+	"encoding/json"
+	"time"
+)
+
+// Message is the backend-owned conversation message passed to the agent loop.
+// Tool call history is intentionally not part of Alpha's public adapter
+// contract; the backend owns durable context and supplies the bounded view.
+type Message struct {
+	Role    string
+	Content string
+	// ImageURLs are provider-facing visual inputs. They must be validated by
+	// the product boundary before entering the runtime.
+	ImageURLs []string
+}
+
+// Tool is the complete tool surface for one run. Runtime never discovers or
+// registers additional tools; the backend must explicitly supply each tool.
+type Tool struct {
+	Name        string
+	Description string
+	Parameters  map[string]any
+	Execute     func(context.Context, json.RawMessage) (string, error)
+}
+
+// ToolEvent describes one provider tool call and its lifecycle. Arguments and
+// Result are bounded by the runtime before they leave this package; the full
+// result returned by a tool is still passed to the model by the agent loop.
+type ToolEvent struct {
+	CallID    string `json:"call_id"`
+	Name      string `json:"name"`
+	Arguments string `json:"arguments"`
+	Result    string `json:"result"`
+	Status    string `json:"status"`
+	Truncated bool   `json:"truncated"`
+}
+
+type Request struct {
+	BotID           string
+	RunID           string
+	System          string
+	Model           string
+	ReasoningEffort string
+	Messages        []Message
+	Tools           []Tool
+	OnDelta         func(string)
+	// OnAssistantTurn is called for completed non-final assistant turns with
+	// non-empty public content immediately before their tool calls are queued or
+	// executed. It is also called for a budget wrap-up turn whose tool calls are
+	// discarded before the next model request, and for a final draft promoted
+	// to a non-final turn by BeforeFinalResponse.
+	OnAssistantTurn   func(turnIndex int, content string) error
+	OnToolEvent       func(ToolEvent) error
+	OnContextEstimate func(estimatedInput int)
+	OnUsage           func(inputTokens, outputTokens int64)
+	OnCompact         func(originalTokens, compactedTokens int)
+	// BeforeModelCall runs at the safe boundary immediately before each model
+	// request, after prior streaming and tool work has settled.
+	BeforeModelCall func() error
+	// BeforeFinalResponse reviews cleaned, non-empty text-only final content.
+	// An empty reminder accepts; an error aborts; a non-empty reminder requests
+	// at most one repair using existing history and the remaining run budget.
+	// The draft is published through OnAssistantTurn, but the internal reminder
+	// is not published. It is skipped after repair or on cancellation.
+	BeforeFinalResponse func(content string) (reminder string, err error)
+	// FinalResponseRepairTools permits one reserved repair after an exhausted
+	// run budget. The repair request exposes and executes only these named
+	// tools, so callers may use it for an internal receipt without replaying
+	// the task's original external action. Empty keeps ordinary budget rules.
+	FinalResponseRepairTools []string
+	// OnSuspend durably stores an opaque checkpoint after a ToolsOnly tool asks
+	// for human input. It must persist atomically with the run's waiting state.
+	// A callback error aborts the run; a successful callback is followed by a
+	// Result with Suspended true and no model-visible tool error.
+	OnSuspend func(questionID string, checkpoint json.RawMessage) error
+	// Continuation is a checkpoint returned to OnSuspend. When present, Run
+	// resumes its exact provider transcript and inserts ResumeResult for the
+	// suspended tool rather than replaying any old tool execution.
+	Continuation json.RawMessage
+	ResumeResult string
+}
+
+type Result struct {
+	Content      string
+	InputTokens  int64
+	OutputTokens int64
+	Suspended    bool
+}
+
+type Engine interface {
+	Run(context.Context, Request) (Result, error)
+}
+
+type Config struct {
+	// MaxDuration is the active budget between agent-loop calls, including
+	// tools but excluding explicit bounded human-input waits. Zero retains the
+	// runtime default; caller deadlines and cancellation remain immediate.
+	MaxDuration time.Duration
+	Provider    string
+	APIKey      string
+	BaseURL     string
+	Model       string
+	Credential  func(context.Context) (string, error)
+}

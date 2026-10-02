@@ -1,0 +1,76 @@
+/* BotWorking (v2f): steps between name and answer while working, one mono line after. */
+.stage.convo { background:var(--bg); padding:28px 26px; min-height:440px; }
+.user-bubble {
+  width:fit-content; max-width:82%; margin:0 0 0 auto; padding:10px 14px;
+  border:1px solid var(--line-soft); border-radius:16px 5px 16px 16px; background:var(--surface-2); color:var(--ink);
+}
+.bot-message { position:relative; margin-top:22px; }
+.bot-head { display:flex; align-items:center; gap:8px; }
+.bot-head .avatar { display:block; width:28px; height:28px; }
+.bot-head .tofi-avatar, .bot-head .tofi-avatar > svg { display:block; width:100%; height:100%; }
+.bot-name { font:var(--type-row-title); }
+
+.steps-wrap { margin:8px 0 12px 36px; }
+.steps { list-style:none; margin:0; padding:2px 0 2px 12px; border-left:var(--edge) solid var(--line-soft); display:grid; gap:2px; }
+.step {
+  display:grid; grid-template-columns:16px minmax(0,1fr) auto; align-items:center; gap:8px;
+  padding:4px 0; font:var(--type-meta); color:var(--ink-soft);
+  animation:step-in 360ms var(--spring) both;
+}
+.step-label { overflow:hidden; white-space:nowrap; text-overflow:ellipsis; }
+.step.is-active .step-label {
+  color:transparent; -webkit-background-clip:text; background-clip:text;
+  background-image:linear-gradient(100deg, var(--ink) 0 38%, var(--lagoon-text) 50%, var(--ink) 62% 100%);
+  background-size:260% 100%; animation:label-sheen 1.8s linear infinite;
+}
+.step-meta { display:inline-flex; align-items:center; gap:6px; font:var(--type-status); color:var(--muted); font-variant-numeric:tabular-nums; }
+.step.is-active .step-meta { color:var(--lagoon-text); }
+.step.is-done .step-meta svg { color:var(--green-text); }
+.breath-dot { width:8px; height:8px; border-radius:50%; background:var(--lagoon); animation:dot-breathe 2.4s ease-in-out infinite; }
+
+.answer { padding-left:36px; }
+.answer p { margin:0 0 6px; white-space:pre-wrap; }
+.caret {
+  display:inline-block; width:2px; height:1.05em; margin-left:2px; vertical-align:-.15em;
+  background:var(--lagoon); animation:caret-blink 1s steps(2, start) infinite;
+}
+
+.steps-ghost { position:absolute; margin:0; pointer-events:none; transform-origin:0 0; z-index:2; background:var(--bg); }
+
+.work-footer {
+  display:flex; flex-wrap:wrap; align-items:center; gap:8px; margin-top:6px; padding-left:36px;
+  font:var(--type-status); color:var(--muted);
+}
+.done-dot { width:7px; height:7px; border-radius:50%; background:var(--green); }
+.footer-time { font-variant-numeric:tabular-nums; }
+.tools-toggle {
+  display:inline-flex; align-items:center; gap:4px; padding:4px 6px; margin-left:4px; border:0; border-radius:8px;
+  background:none; cursor:pointer; font:var(--type-status); color:var(--muted);
+}
+.tools-toggle:hover { color:var(--ink); background:var(--surface-2); }
+.chevron { display:inline-grid; transition:rotate var(--spring-ms) var(--spring); }
+.tools-toggle[aria-expanded="true"] .chevron { rotate:90deg; }
+.footer-actions { display:inline-flex; gap:2px; opacity:0; transition:opacity 160ms ease; }
+.bot-message:hover .footer-actions, .bot-message:focus-within .footer-actions { opacity:1; }
+@media (hover:none) { .footer-actions { opacity:1; } }
+.icon-quiet {
+  display:grid; place-items:center; width:30px; height:30px; border:0; border-radius:9px;
+  background:none; color:var(--ink-soft); cursor:pointer;
+}
+.icon-quiet:hover { background:var(--surface-2); color:var(--ink); }
+.tools-drawer { flex-basis:100%; display:grid; grid-template-rows:0fr; transition:grid-template-rows var(--spring-ms) var(--spring); }
+.tools-drawer.is-open { grid-template-rows:1fr; }
+.tools-drawer-inner { min-height:0; overflow:hidden; }
+.tools-drawer .steps { margin-top:6px; }
+.tools-drawer .step { animation:none; }
+
+@keyframes step-in { from { opacity:0; transform:translateY(-6px); } }
+@keyframes label-sheen { from { background-position:100% 0; } to { background-position:-60% 0; } }
+@keyframes dot-breathe { 0%, 100% { scale:.75; opacity:.7; } 50% { scale:1; opacity:1; } }
+@keyframes caret-blink { to { visibility:hidden; } }
+
+@media (prefers-reduced-motion:reduce) {
+  .step, .step.is-active .step-label, .breath-dot, .caret { animation:none; }
+  .step.is-active .step-label { color:var(--ink); background:none; }
+  .tools-drawer, .chevron { transition:none; }
+}

@@ -1,0 +1,45 @@
+{
+  "name": "tofi-ui",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc -b && vite build && vite build --config vite.motion-lab.config.ts",
+    "typecheck": "tsc -b --pretty false",
+    "test:composer-draft": "node scripts/test-composer-draft.mjs",
+    "test:timeline": "node scripts/test-tool-timeline.mjs",
+    "test:run-family": "node scripts/test-run-family.mjs",
+    "test:run-merge": "node scripts/test-run-merge.mjs",
+    "test:mcp-oauth": "node scripts/test-mcp-oauth.mjs",
+    "test:oauth-completion": "node scripts/test-oauth-completion.mjs",
+    "test:user-form": "node scripts/test-user-form.mjs",
+    "test:message-markdown": "node scripts/test-message-markdown.mjs",
+    "test:v2-palette": "node scripts/test-v2-palette.mjs",
+    "test:final-v2-tokens": "node scripts/test-final-v2-tokens.mjs",
+    "test:design-icons": "node scripts/test-design-icons.mjs",
+    "test:motion-lab": "node scripts/test-motion-lab.mjs",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "@dicebear/core": "10.7.0",
+    "@dicebear/styles": "10.6.0",
+    "@emoji-mart/data": "1.2.1",
+    "@xterm/addon-fit": "^0.11.0",
+    "@xterm/xterm": "^6.0.0",
+    "emoji-mart": "5.6.0",
+    "react": "^19.3.0",
+    "react-dom": "^19.3.0",
+    "react-markdown": "10.1.0",
+    "remark-cjk-friendly": "2.3.1",
+    "remark-gfm": "4.0.1"
+  },
+  "devDependencies": {
+    "@types/node": "^22.20.3",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "@vitejs/plugin-react": "^6.1.1",
+    "typescript": "^7.0.2",
+    "vite": "^8.3.0"
+  }
+}

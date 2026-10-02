@@ -1,0 +1,49 @@
+# Local configuration and credentials
+.env
+.env.*
+!.env.example
+*.local
+/credentials/
+/secrets/
+
+# Runtime state and local data
+/runtime/
+/data/
+/storage/
+/logs/
+/tmp/
+*.db
+*.sqlite
+*.sqlite3
+*.db-wal
+*.db-shm
+*.sqlite-wal
+*.sqlite-shm
+*.sqlite3-wal
+*.sqlite3-shm
+*.log
+
+# Dependencies and generated output
+node_modules/
+.next/
+dist/
+build/
+out/
+coverage/
+target/
+.cache/
+.turbo/
+*.tsbuildinfo
+__pycache__/
+/deploy/microvm/tofi-guest
+__pycache__/
+.venv/
+
+# Local OS/editor files
+.DS_Store
+.idea/
+.vscode/*
+!.vscode/extensions.json
+*.swp
+
+# Sibling desktop/archive projects are outside this repository.

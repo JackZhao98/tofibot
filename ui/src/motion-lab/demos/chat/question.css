@@ -1,0 +1,62 @@
+/* QuestionCard: chunky while it waits for you, one quiet line once answered. */
+.question-stage { display:flex; flex-direction:column; min-height:430px; }
+.question-lead { margin:8px 0 0 36px; }
+.question-dock { margin-top:auto; display:grid; gap:12px; }
+
+.q-card {
+  padding:14px 14px 12px; border:var(--edge-bold) solid var(--line); border-radius:18px;
+  background:var(--surface); box-shadow:var(--hard);
+  transform-origin:50% 100%; animation:q-rise 620ms cubic-bezier(.34,1.4,.64,1) both;
+  transition:border-width 300ms ease, border-color 300ms ease, box-shadow 300ms ease, padding 420ms cubic-bezier(.22,1,.36,1), background-color 300ms ease;
+}
+@keyframes q-rise { from { opacity:0; transform:translateY(28px) scale(.94); } }
+.q-card.is-answered { padding:8px 12px; border-width:1px; border-color:var(--line-soft); box-shadow:none; background:var(--surface-2); }
+.q-card.is-expired { border-width:1px; border-color:var(--line-soft); box-shadow:none; }
+
+/* Every row folds with grid-template-rows so heights animate without measuring. */
+.q-fold { display:grid; grid-template-rows:1fr; transition:grid-template-rows 440ms cubic-bezier(.22,1,.36,1), opacity 220ms ease; }
+.q-inner { min-height:0; overflow:hidden; }
+.q-fold.is-gone, .q-card.is-answered .q-headwrap { grid-template-rows:0fr; opacity:0; }
+
+.q-head { display:flex; align-items:center; gap:8px; }
+.q-tag { padding:3px 9px; border-radius:999px; background:var(--iris); color:var(--on-block); font:600 12px/1.3 var(--display); transition:background-color 300ms ease, color 300ms ease; }
+.q-meta { font:var(--type-status); color:var(--muted); }
+.q-title { margin:8px 0 4px; font:600 16px/1.4 var(--body); transition:color 300ms ease; }
+.q-card.is-expired .q-tag { background:var(--surface-2); color:var(--muted); }
+.q-card.is-expired .q-title { color:var(--muted); }
+
+.q-opt {
+  display:grid; grid-template-columns:28px minmax(0,1fr); align-items:center; gap:10px; width:100%; margin-top:6px; padding:8px 10px;
+  border:1px solid var(--line-soft); border-radius:12px; background:var(--surface); color:var(--ink); text-align:left; cursor:pointer;
+  transition:transform var(--ease-press) ease, border-color 160ms ease, background-color 200ms ease, padding 420ms cubic-bezier(.22,1,.36,1), margin 420ms cubic-bezier(.22,1,.36,1);
+}
+.q-opt:not(:disabled):hover { border-color:var(--line); transform:translate(-1px,-1px); }
+.q-opt:disabled { cursor:default; }
+.q-card.is-chosen .q-opt.is-chosen { transform:translate(2px,2px); background:color-mix(in srgb, var(--iris) 24%, var(--surface)); border-color:var(--line); }
+.q-card.is-answered .q-opt.is-chosen { margin-top:0; padding:2px 0; border-color:transparent; background:transparent; }
+.q-card.is-expired .q-opt { opacity:.55; }
+.q-key {
+  display:grid; place-items:center; width:26px; height:26px; border-radius:8px;
+  background:var(--surface-2); font:600 12px/1 var(--mono); transition:background-color 260ms ease, color 260ms ease;
+}
+.q-card.is-answered .q-opt.is-chosen .q-key { background:var(--iris); color:var(--on-block); animation:q-pop 460ms cubic-bezier(.34,1.56,.64,1); }
+@keyframes q-pop { from { scale:.4; } }
+.q-text { display:flex; flex-wrap:wrap; align-items:baseline; gap:2px 8px; min-width:0; }
+.q-text strong { font:600 14px/1.4 var(--body); }
+.q-text small { font:var(--type-meta); color:var(--muted); }
+.q-answered { font:600 13px/1.4 var(--body); color:var(--iris-text); animation:q-fade 360ms ease both 120ms; }
+@keyframes q-fade { from { opacity:0; transform:translateX(-6px); } }
+
+.q-composer {
+  padding:15px 16px; border:var(--edge-bold) solid var(--line); border-radius:20px;
+  background:var(--glass-strong); color:var(--muted); box-shadow:var(--hard-sm);
+}
+@media (prefers-reduced-motion:reduce) { .q-card, .q-answered { animation:none; } }
+.q-other-entry { display:grid; gap:8px; padding:14px 0 0; }
+.q-other-entry label { color:var(--ink-soft); font:600 13px/1.5 var(--body); }
+.q-other-entry textarea { width:100%; box-sizing:border-box; min-height:90px; border:1px solid var(--line-soft); border-radius:12px; background:var(--sunk); color:var(--ink); padding:10px 12px; font:16px/1.6 var(--body); caret-color:var(--lagoon-text); resize:vertical; }
+.q-other-entry textarea:focus-visible { outline:2px solid var(--focus); outline-offset:3px; }
+.q-other-entry small,.q-other-toggle { color:var(--muted); font:12px/1.6 var(--body); }
+.q-other-entry button { justify-self:end; }
+.q-other-toggle { display:flex; align-items:center; gap:7px; }
+.q-other-toggle input { accent-color:var(--iris); }

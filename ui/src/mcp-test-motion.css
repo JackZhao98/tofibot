@@ -1,0 +1,14 @@
+html:not([data-desktop]) .web-mcp-plug{display:block;width:170px;height:56px;margin:8px 0 0 48px;overflow:visible}
+.web-mcp-cable{fill:none;stroke:var(--ink-soft);stroke-width:3.5;stroke-linecap:round}
+.web-mcp-body,.web-mcp-socket{fill:var(--surface);stroke:var(--line);stroke-width:2.5}
+.web-mcp-prong{fill:var(--ink-soft)}.web-mcp-hole{fill:var(--sunk)}
+.web-mcp-socket{transition:stroke 300ms ease,fill 300ms ease}
+.web-mcp-plug.is-ready .web-mcp-socket{stroke:var(--lagoon);fill:color-mix(in srgb,var(--lagoon) 16%,var(--surface))}
+.web-mcp-plug.is-error .web-mcp-socket{stroke:var(--danger)}
+.web-mcp-sparks path{fill:none;stroke:var(--honey);stroke-width:2.5;stroke-linecap:round;opacity:0}
+.web-mcp-plug.is-ready .web-mcp-sparks path{animation:web-mcp-spark 520ms ease-out both}
+.web-mcp-plug.is-ready .web-mcp-sparks path:nth-child(2){animation-delay:40ms}
+.web-mcp-plug.is-ready .web-mcp-sparks path:nth-child(3){animation-delay:80ms}
+@keyframes web-mcp-spark{0%{opacity:0;stroke-dasharray:0 20}30%{opacity:1}100%{opacity:0;stroke-dasharray:12 20;stroke-dashoffset:-8}}
+@media(prefers-reduced-motion:reduce){.web-mcp-plug.is-ready .web-mcp-sparks path{animation:none}}
+@media(max-width:420px){html:not([data-desktop]) .web-mcp-plug{margin-left:0}}

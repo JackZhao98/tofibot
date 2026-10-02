@@ -1,0 +1,30 @@
+/* Tofi V2 colour tokens. Dark is primary; light uses the same names.
+   Accents are mode-tuned like Apple system colours: brighter/lighter in dark, deeper in light.
+   --X = fill (always pairs with --on-block text) · --X-text = the same hue tuned for text/icons on bg/surface (≥4.5:1). --inverse / --on-inverse = ink-filled control.
+   Code-variable names from the source kit (--yellow/--pink/--blue/--orange) are kept as aliases of the named palette. */
+:root{
+--bg:#14120f;--surface:#1f1c18;--surface-2:#2a2621;--sunk:#181613;
+--line:#f1e6d6;--line-soft:#3a352e;
+--ink:#f3eadb;--ink-soft:#c9bca8;--muted:#a3957f;
+--clay:#ec9a74;--clay-text:#f2a887;--iris:#c0acf0;--iris-text:#c9b8f4;--lagoon:#72cdbc;--lagoon-text:#7fd6c6;--honey:#f3c75a;--honey-text:#f5cf6e;--green:#93cfa1;--green-text:#9dd6ab;--danger:#f4917f;--danger-text:#f79d8c;
+--wait:#c9bca8;--on-block:#1a140f;--focus:#8cc3f0;
+--glass:rgba(31,28,24,.52);--glass-strong:rgba(31,28,24,.8);--glass-edge:rgba(241,230,214,.2);
+--yellow:var(--clay);--yellow-text:var(--clay-text);--pink:var(--iris);--pink-text:var(--iris-text);--blue:var(--lagoon);--blue-text:var(--lagoon-text);--orange:var(--honey);--orange-text:var(--honey-text);--inverse:var(--ink);--on-inverse:var(--bg);
+--lagoon-text-light:#1d7466;
+--paper:#fbf4e6;--paper-ink:#2a2019;--paper-rule:#e3d6bf;--paper-muted:#8a7a66;--sticky:#f7e3a8;--airmail-red:#d9562a;--airmail-blue:#4f789d;
+--file-xlsx:#4d8a5d;--file-pdf:#b8432f;
+/* semantic aliases */
+--surface-page:var(--bg);--surface-card:var(--surface);--surface-raised:var(--surface-2);--surface-sunk:var(--sunk);
+--text-body:var(--ink);--text-secondary:var(--ink-soft);--text-meta:var(--muted);--text-on-block:var(--on-block);
+--border-edge:var(--line);--border-soft:var(--line-soft);
+--accent-primary:var(--clay);--accent-primary-text:var(--clay-text);--surface-inverse:var(--inverse);--text-on-inverse:var(--on-inverse);--accent-decide:var(--iris);--status-working:var(--lagoon);--status-unread:var(--honey);
+--status-done:var(--green);--status-error:var(--danger);--status-wait:var(--wait);
+}
+.light{
+--bg:#f1efeb;--surface:#fcfbf9;--surface-2:#f5f3ef;--sunk:#e9e6e1;--line:#2a2019;--line-soft:#dcd8d1;
+--ink:#241b14;--ink-soft:#54473a;--muted:#6f6252;
+--clay:#e07f55;--clay-text:#a8502a;--iris:#a58ee6;--iris-text:#6a4fbf;--lagoon:#4fb3a0;--lagoon-text:#1d7466;--honey:#e0a82a;--honey-text:#8a6106;--green:#6fae7f;--green-text:#37744a;--danger:#d9573f;--danger-text:#b0381f;
+--wait:#6f6252;--focus:#2f6db0;
+--glass:rgba(252,251,249,.58);--glass-strong:rgba(252,251,249,.85);--glass-edge:rgba(42,32,25,.14);
+--yellow:var(--clay);--yellow-text:var(--clay-text);--pink:var(--iris);--pink-text:var(--iris-text);--blue:var(--lagoon);--blue-text:var(--lagoon-text);--orange:var(--honey);--orange-text:var(--honey-text);--inverse:var(--ink);--on-inverse:var(--bg);--paper:#fffdf7;
+}

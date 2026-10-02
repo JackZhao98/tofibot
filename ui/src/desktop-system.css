@@ -1,0 +1,53 @@
+/* Native shell: only the navigation lets the actual macOS material through. */
+html[data-desktop="darwin"],html[data-desktop="darwin"] body,html[data-desktop="darwin"] #root,
+html[data-desktop="darwin"] .workspace,html[data-desktop="darwin"] .workspace-grid{background:transparent}
+html[data-desktop="darwin"] .contact-pane{background:color-mix(in srgb,var(--sidebar-bg) 34%,transparent);padding-top:56px;border-right-color:color-mix(in srgb,var(--line) 65%,transparent)}
+html[data-desktop="darwin"] .chat-pane{background:var(--bg)}
+html[data-desktop="darwin"] .chat-header{height:64px;min-height:64px;-webkit-app-region:drag;user-select:none}
+html[data-desktop="darwin"] .chat-header button,html[data-desktop="darwin"] .chat-header input{-webkit-app-region:no-drag}
+html[data-desktop="darwin"] .native-titlebar{position:fixed;inset:0 auto auto 0;width:var(--native-sidebar-width,272px);height:48px;z-index:20;-webkit-app-region:drag;user-select:none}
+html[data-desktop="darwin"] .workspace:has(.sidebar-collapsed){--native-sidebar-width:80px}
+html[data-desktop="darwin"] .workspace:has(.sidebar-collapsed) .native-titlebar{width:80px}
+html[data-desktop="darwin"] .sidebar-collapsed .contact-pane{padding-top:58px}
+html[data-desktop="darwin"] .sidebar-collapsed .sidebar-top{margin-top:0}
+html[data-desktop="darwin"] .contact-row.active{background:color-mix(in srgb,var(--selected-bg) 78%,transparent)}
+html[data-desktop="darwin"][data-window-focused="false"] .contact-row.active{background:color-mix(in srgb,var(--selected-bg) 55%,transparent)}
+html[data-desktop="darwin"][data-window-focused="false"] .sidebar-top,html[data-desktop="darwin"][data-window-focused="false"] .sidebar-footer{color:var(--text-soft)}
+html[data-desktop="darwin"][data-fullscreen="true"] .contact-pane{padding-top:16px}
+html[data-desktop="darwin"][data-fullscreen="true"] .native-titlebar{display:none}
+html[data-desktop] .more-menu,html[data-desktop] .create-menu{background:color-mix(in srgb,var(--surface) 88%,transparent);backdrop-filter:blur(24px) saturate(1.25);border-color:color-mix(in srgb,var(--line) 70%,transparent)}
+html[data-desktop] .search-box{background:color-mix(in srgb,var(--surface-soft) 70%,transparent)}
+html[data-desktop] .sidebar-context-menu,html[data-desktop] .mention-menu{background:color-mix(in srgb,var(--surface) 88%,transparent);backdrop-filter:blur(24px) saturate(1.25);border-color:color-mix(in srgb,var(--line) 70%,transparent)}
+html[data-desktop] .view-only-chat{background:color-mix(in srgb,var(--surface) 92%,transparent);backdrop-filter:blur(24px) saturate(1.08)}
+html[data-desktop] .view-only-chat-header,html[data-desktop] .view-only-chat-footer{background:color-mix(in srgb,var(--surface) 68%,transparent);backdrop-filter:blur(24px) saturate(1.2)}
+html[data-desktop="darwin"] .view-only-chat-header{-webkit-app-region:drag;padding-top:56px;user-select:none}
+html[data-desktop="darwin"] .view-only-chat-header button,html[data-desktop="darwin"] .view-only-chat-header a{-webkit-app-region:no-drag}
+html[data-desktop="darwin"][data-fullscreen="true"] .view-only-chat-header{padding-top:12px}
+html[data-desktop] .view-only-chat-body{overscroll-behavior:contain}
+.owner-gate{min-height:100dvh;display:grid;place-items:center;box-sizing:border-box;padding:56px 24px 40px;background:var(--bg) var(--dots);color:var(--ink)}
+.owner-card{width:min(420px,100%);box-sizing:border-box;padding:28px 30px 30px;border:3px solid var(--line);border-radius:22px;background:var(--surface);box-shadow:var(--hard);color:var(--ink)}
+.owner-card>.brand-logo{display:flex;width:100%;font-size:32px;margin-bottom:38px;justify-content:center}
+.owner-card>.brand-logo img{width:54px;height:54px}
+.owner-card h1{margin:0;text-align:center;color:var(--ink);font:600 26px/1.3 var(--display);letter-spacing:-.02em}
+.owner-subtitle{margin:10px 0 28px;color:var(--ink-soft);font:14px/1.55 var(--body);text-align:center}
+.owner-card form{gap:16px}
+.owner-card label{font:13px/1.45 var(--body);color:var(--ink-soft)}
+.owner-card input{height:48px;margin-top:7px;border:2px solid transparent;border-radius:12px;background:var(--sunk);color:var(--ink);font:15px var(--body);box-shadow:inset 0 2px 0 color-mix(in srgb,var(--line) 8%,transparent)}
+.owner-card input:focus-visible{outline:2px solid var(--focus);outline-offset:3px}
+.owner-card label small{display:block;color:var(--muted);font:11px/1.5 var(--body);margin-top:8px}
+.owner-card .primary-button{width:100%;min-height:48px;border-radius:12px;margin-top:6px;font:600 15px/1.2 var(--display)}
+.owner-error{padding:10px 12px;border:1px solid color-mix(in srgb,var(--danger) 35%,transparent);border-radius:10px;background:color-mix(in srgb,var(--danger) 8%,transparent);font:13px/1.5 var(--body);color:var(--danger-text);}
+.owner-switch{display:block;margin-top:28px;text-align:center;color:var(--muted);font-size:13px;text-decoration:none}
+.owner-switch:hover{color:var(--ink)}
+.owner-loading{display:flex;align-items:center;justify-content:center;gap:10px;padding:30px;color:var(--muted);font-size:14px}
+.owner-account{display:flex;align-items:center;gap:20px;flex-wrap:wrap;margin-bottom:24px;padding:0 0 24px;border-bottom:1px solid var(--line)}
+.owner-account>div{display:grid;gap:3px;flex:1;min-width:0}.owner-account strong{font-size:15px}.owner-account span{font-size:13px;color:var(--muted)}
+.owner-account .secondary-button{font-size:13px;font-weight:500;padding:8px 14px}
+@media(max-width:767px){.owner-gate{padding:28px 16px max(24px,env(safe-area-inset-bottom))}.owner-card{width:min(420px,100%);padding:22px 20px 24px;border-radius:18px}.owner-card>.brand-logo{margin-bottom:26px}.owner-card h1{font-size:23px}.owner-subtitle{margin-bottom:22px}}
+.composer.is-dragging .composer-row{border-color:var(--text-soft);background:var(--surface-hover)}
+.attachment-native-actions{display:flex;align-items:center;gap:6px}
+.attachment-native-actions button{border:0;background:transparent;color:var(--text-soft);padding:6px;border-radius:7px;font-size:12px;white-space:nowrap}
+.attachment-native-actions button:hover{background:var(--surface-hover);color:var(--text)}
+.attachment-native-actions [draggable="true"]{cursor:grab}.attachment-native-actions [draggable="true"]:active{cursor:grabbing}
+.attachment-status{font-size:11px;color:var(--muted);padding:4px 0}
+@media(prefers-reduced-transparency:reduce){html[data-desktop="darwin"] .contact-pane{background:var(--sidebar-bg)}}

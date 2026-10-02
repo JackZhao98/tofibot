@@ -1,0 +1,810 @@
+{
+  "categories": [
+    {
+      "id": "navigation",
+      "label": "导航与布局",
+      "english": "Navigation",
+      "icon": "layout-grid",
+      "description": "在 Tofi 中找到方向，让每一次切换都直觉自然。"
+    },
+    {
+      "id": "actions",
+      "label": "通用操作",
+      "english": "Actions",
+      "icon": "cursor",
+      "description": "从添加到分享，日常操作保持清晰、轻盈。"
+    },
+    {
+      "id": "conversations",
+      "label": "对话与消息",
+      "english": "Conversations",
+      "icon": "chat",
+      "description": "承载每一段持续的对话，以及对话里的细微动作。"
+    },
+    {
+      "id": "bots",
+      "label": "Bot 与协作",
+      "english": "Bots & collaboration",
+      "icon": "bot",
+      "description": "为长期陪伴的 Bot，设计一点可亲近的个性。"
+    },
+    {
+      "id": "workspace",
+      "label": "工作区与成员",
+      "english": "Workspace",
+      "icon": "workspace",
+      "description": "一个工作区，连接成员、群组与共同的目标。"
+    },
+    {
+      "id": "files",
+      "label": "文件与内容",
+      "english": "Files & content",
+      "icon": "folder",
+      "description": "收集、阅读与交付，都有恰当的文件表达。"
+    },
+    {
+      "id": "scheduling",
+      "label": "任务与计划",
+      "english": "Tasks & schedules",
+      "icon": "calendar",
+      "description": "让持续运行、定时执行与任务进度一目了然。"
+    },
+    {
+      "id": "memory",
+      "label": "记忆与知识",
+      "english": "Memory & knowledge",
+      "icon": "memory",
+      "description": "把对话中的信息，变成可积累、可追溯的记忆。"
+    },
+    {
+      "id": "devices",
+      "label": "设备与运行环境",
+      "english": "Devices & runtime",
+      "icon": "monitor",
+      "description": "从本地设备到远程环境，保持连接与控制。"
+    },
+    {
+      "id": "extensions",
+      "label": "扩展与连接",
+      "english": "Extensions",
+      "icon": "puzzle",
+      "description": "让工具、Skill 和外部服务成为 Bot 的能力。"
+    },
+    {
+      "id": "status",
+      "label": "状态与反馈",
+      "english": "Status & feedback",
+      "icon": "check-circle",
+      "description": "用准确的反馈，让等待、完成和异常都有迹可循。"
+    },
+    {
+      "id": "preferences",
+      "label": "偏好与安全",
+      "english": "Preferences",
+      "icon": "settings",
+      "description": "让个性化、通知和隐私设置保持安静而明确。"
+    }
+  ],
+  "icons": {
+    "home": {
+      "label": "首页",
+      "category": "navigation",
+      "tags": ""
+    },
+    "layout-grid": {
+      "label": "总览",
+      "category": "navigation",
+      "tags": "dashboard grid 网格"
+    },
+    "sidebar": {
+      "label": "侧边栏",
+      "category": "navigation",
+      "tags": ""
+    },
+    "search": {
+      "label": "搜索",
+      "category": "navigation",
+      "tags": "find 查找"
+    },
+    "menu": {
+      "label": "菜单",
+      "category": "navigation",
+      "tags": ""
+    },
+    "arrow-left": {
+      "label": "向左",
+      "category": "navigation",
+      "tags": "back 返回"
+    },
+    "arrow-right": {
+      "label": "向右",
+      "category": "navigation",
+      "tags": "forward 前进"
+    },
+    "arrow-up": {
+      "label": "向上",
+      "category": "navigation",
+      "tags": ""
+    },
+    "arrow-down": {
+      "label": "向下",
+      "category": "navigation",
+      "tags": ""
+    },
+    "chevron-left": {
+      "label": "上一级",
+      "category": "navigation",
+      "tags": ""
+    },
+    "chevron-right": {
+      "label": "下一级",
+      "category": "navigation",
+      "tags": ""
+    },
+    "chevron-down": {
+      "label": "展开",
+      "category": "navigation",
+      "tags": ""
+    },
+    "plus": {
+      "label": "添加",
+      "category": "actions",
+      "tags": "new create 新建"
+    },
+    "minus": {
+      "label": "移除",
+      "category": "actions",
+      "tags": ""
+    },
+    "close": {
+      "label": "关闭",
+      "category": "actions",
+      "tags": "cancel 取消"
+    },
+    "edit": {
+      "label": "编辑",
+      "category": "actions",
+      "tags": ""
+    },
+    "copy": {
+      "label": "复制",
+      "category": "actions",
+      "tags": ""
+    },
+    "trash": {
+      "label": "删除",
+      "category": "actions",
+      "tags": ""
+    },
+    "download": {
+      "label": "下载",
+      "category": "actions",
+      "tags": ""
+    },
+    "upload": {
+      "label": "上传",
+      "category": "actions",
+      "tags": ""
+    },
+    "share": {
+      "label": "分享",
+      "category": "actions",
+      "tags": ""
+    },
+    "external-link": {
+      "label": "外部打开",
+      "category": "actions",
+      "tags": ""
+    },
+    "cursor": {
+      "label": "选择",
+      "category": "actions",
+      "tags": ""
+    },
+    "more": {
+      "label": "更多",
+      "category": "actions",
+      "tags": ""
+    },
+    "chat": {
+      "label": "对话",
+      "category": "conversations",
+      "tags": "message 消息"
+    },
+    "chat-new": {
+      "label": "新对话",
+      "category": "conversations",
+      "tags": ""
+    },
+    "chat-unread": {
+      "label": "未读消息",
+      "category": "conversations",
+      "tags": ""
+    },
+    "chat-typing": {
+      "label": "正在输入",
+      "category": "conversations",
+      "tags": ""
+    },
+    "chat-history": {
+      "label": "对话历史",
+      "category": "conversations",
+      "tags": ""
+    },
+    "send": {
+      "label": "发送",
+      "category": "conversations",
+      "tags": ""
+    },
+    "reply": {
+      "label": "回复",
+      "category": "conversations",
+      "tags": ""
+    },
+    "forward": {
+      "label": "转发",
+      "category": "conversations",
+      "tags": ""
+    },
+    "mention": {
+      "label": "提及",
+      "category": "conversations",
+      "tags": "at @"
+    },
+    "attachment": {
+      "label": "附件",
+      "category": "conversations",
+      "tags": "paperclip"
+    },
+    "emoji": {
+      "label": "表情",
+      "category": "conversations",
+      "tags": ""
+    },
+    "pin": {
+      "label": "置顶",
+      "category": "conversations",
+      "tags": ""
+    },
+    "bot": {
+      "label": "智能伙伴",
+      "category": "bots",
+      "tags": "agent robot 机器人"
+    },
+    "bot-add": {
+      "label": "创建 Bot",
+      "category": "bots",
+      "tags": ""
+    },
+    "bot-thinking": {
+      "label": "Bot 思考",
+      "category": "bots",
+      "tags": ""
+    },
+    "bot-chat": {
+      "label": "Bot 私信",
+      "category": "bots",
+      "tags": ""
+    },
+    "bot-team": {
+      "label": "Bot 组队",
+      "category": "bots",
+      "tags": ""
+    },
+    "bot-handoff": {
+      "label": "工作交接",
+      "category": "bots",
+      "tags": ""
+    },
+    "bot-run": {
+      "label": "Bot 工作",
+      "category": "bots",
+      "tags": ""
+    },
+    "bot-pause": {
+      "label": "暂停 Bot",
+      "category": "bots",
+      "tags": ""
+    },
+    "bot-sleep": {
+      "label": "Bot 休息",
+      "category": "bots",
+      "tags": ""
+    },
+    "bot-wake": {
+      "label": "唤醒 Bot",
+      "category": "bots",
+      "tags": ""
+    },
+    "bot-config": {
+      "label": "配置 Bot",
+      "category": "bots",
+      "tags": ""
+    },
+    "bot-spark": {
+      "label": "Bot 灵感",
+      "category": "bots",
+      "tags": ""
+    },
+    "workspace": {
+      "label": "工作区",
+      "category": "workspace",
+      "tags": ""
+    },
+    "user": {
+      "label": "成员",
+      "category": "workspace",
+      "tags": ""
+    },
+    "user-add": {
+      "label": "邀请成员",
+      "category": "workspace",
+      "tags": ""
+    },
+    "group": {
+      "label": "群组",
+      "category": "workspace",
+      "tags": "team 团队"
+    },
+    "group-add": {
+      "label": "创建群组",
+      "category": "workspace",
+      "tags": ""
+    },
+    "id-card": {
+      "label": "成员资料",
+      "category": "workspace",
+      "tags": ""
+    },
+    "inbox": {
+      "label": "收件箱",
+      "category": "workspace",
+      "tags": ""
+    },
+    "archive": {
+      "label": "归档",
+      "category": "workspace",
+      "tags": ""
+    },
+    "bookmark": {
+      "label": "收藏",
+      "category": "workspace",
+      "tags": ""
+    },
+    "star": {
+      "label": "星标",
+      "category": "workspace",
+      "tags": ""
+    },
+    "link": {
+      "label": "链接",
+      "category": "workspace",
+      "tags": ""
+    },
+    "logout": {
+      "label": "退出",
+      "category": "workspace",
+      "tags": ""
+    },
+    "folder": {
+      "label": "文件夹",
+      "category": "files",
+      "tags": ""
+    },
+    "folder-open": {
+      "label": "打开文件夹",
+      "category": "files",
+      "tags": ""
+    },
+    "file": {
+      "label": "文件",
+      "category": "files",
+      "tags": ""
+    },
+    "file-text": {
+      "label": "文本文档",
+      "category": "files",
+      "tags": ""
+    },
+    "file-code": {
+      "label": "代码文件",
+      "category": "files",
+      "tags": ""
+    },
+    "file-image": {
+      "label": "图片文件",
+      "category": "files",
+      "tags": ""
+    },
+    "file-audio": {
+      "label": "音频文件",
+      "category": "files",
+      "tags": ""
+    },
+    "file-video": {
+      "label": "视频文件",
+      "category": "files",
+      "tags": ""
+    },
+    "image": {
+      "label": "图片",
+      "category": "files",
+      "tags": ""
+    },
+    "code": {
+      "label": "代码",
+      "category": "files",
+      "tags": ""
+    },
+    "markdown": {
+      "label": "Markdown",
+      "category": "files",
+      "tags": ""
+    },
+    "clipboard": {
+      "label": "剪贴板",
+      "category": "files",
+      "tags": ""
+    },
+    "calendar": {
+      "label": "日历",
+      "category": "scheduling",
+      "tags": ""
+    },
+    "calendar-add": {
+      "label": "新建计划",
+      "category": "scheduling",
+      "tags": ""
+    },
+    "clock": {
+      "label": "时间",
+      "category": "scheduling",
+      "tags": ""
+    },
+    "timer": {
+      "label": "计时器",
+      "category": "scheduling",
+      "tags": ""
+    },
+    "repeat": {
+      "label": "重复执行",
+      "category": "scheduling",
+      "tags": ""
+    },
+    "queue": {
+      "label": "任务队列",
+      "category": "scheduling",
+      "tags": ""
+    },
+    "checklist": {
+      "label": "任务清单",
+      "category": "scheduling",
+      "tags": ""
+    },
+    "play": {
+      "label": "开始",
+      "category": "scheduling",
+      "tags": ""
+    },
+    "pause": {
+      "label": "暂停",
+      "category": "scheduling",
+      "tags": ""
+    },
+    "stop": {
+      "label": "停止",
+      "category": "scheduling",
+      "tags": ""
+    },
+    "retry": {
+      "label": "重试",
+      "category": "scheduling",
+      "tags": ""
+    },
+    "progress": {
+      "label": "任务进度",
+      "category": "scheduling",
+      "tags": ""
+    },
+    "memory": {
+      "label": "长期记忆",
+      "category": "memory",
+      "tags": "brain 大脑"
+    },
+    "memory-add": {
+      "label": "新增记忆",
+      "category": "memory",
+      "tags": ""
+    },
+    "book-open": {
+      "label": "知识库",
+      "category": "memory",
+      "tags": ""
+    },
+    "note": {
+      "label": "笔记",
+      "category": "memory",
+      "tags": ""
+    },
+    "tag": {
+      "label": "标签",
+      "category": "memory",
+      "tags": ""
+    },
+    "layers": {
+      "label": "分层",
+      "category": "memory",
+      "tags": ""
+    },
+    "database": {
+      "label": "数据存储",
+      "category": "memory",
+      "tags": ""
+    },
+    "history": {
+      "label": "版本历史",
+      "category": "memory",
+      "tags": ""
+    },
+    "lightbulb": {
+      "label": "灵感",
+      "category": "memory",
+      "tags": ""
+    },
+    "sparkles": {
+      "label": "智能整理",
+      "category": "memory",
+      "tags": ""
+    },
+    "merge": {
+      "label": "合并记忆",
+      "category": "memory",
+      "tags": ""
+    },
+    "source": {
+      "label": "引用来源",
+      "category": "memory",
+      "tags": ""
+    },
+    "monitor": {
+      "label": "电脑",
+      "category": "devices",
+      "tags": "computer desktop 桌面"
+    },
+    "laptop": {
+      "label": "笔记本电脑",
+      "category": "devices",
+      "tags": ""
+    },
+    "phone": {
+      "label": "手机",
+      "category": "devices",
+      "tags": "mobile 移动"
+    },
+    "terminal": {
+      "label": "终端",
+      "category": "devices",
+      "tags": "bash shell"
+    },
+    "browser": {
+      "label": "浏览器",
+      "category": "devices",
+      "tags": ""
+    },
+    "server": {
+      "label": "服务器",
+      "category": "devices",
+      "tags": ""
+    },
+    "cloud": {
+      "label": "云端",
+      "category": "devices",
+      "tags": ""
+    },
+    "wifi": {
+      "label": "网络",
+      "category": "devices",
+      "tags": ""
+    },
+    "device-pair": {
+      "label": "设备配对",
+      "category": "devices",
+      "tags": ""
+    },
+    "mouse": {
+      "label": "鼠标",
+      "category": "devices",
+      "tags": ""
+    },
+    "keyboard": {
+      "label": "键盘",
+      "category": "devices",
+      "tags": ""
+    },
+    "screen-share": {
+      "label": "屏幕共享",
+      "category": "devices",
+      "tags": ""
+    },
+    "puzzle": {
+      "label": "扩展",
+      "category": "extensions",
+      "tags": ""
+    },
+    "plug": {
+      "label": "连接服务",
+      "category": "extensions",
+      "tags": ""
+    },
+    "unplug": {
+      "label": "断开连接",
+      "category": "extensions",
+      "tags": ""
+    },
+    "mcp": {
+      "label": "MCP 服务",
+      "category": "extensions",
+      "tags": "protocol 协议"
+    },
+    "skill": {
+      "label": "技能",
+      "category": "extensions",
+      "tags": ""
+    },
+    "workflow": {
+      "label": "工作流",
+      "category": "extensions",
+      "tags": ""
+    },
+    "webhook": {
+      "label": "Webhook",
+      "category": "extensions",
+      "tags": ""
+    },
+    "api": {
+      "label": "API 接口",
+      "category": "extensions",
+      "tags": ""
+    },
+    "key": {
+      "label": "访问密钥",
+      "category": "extensions",
+      "tags": ""
+    },
+    "shield-check": {
+      "label": "授权",
+      "category": "extensions",
+      "tags": ""
+    },
+    "sync": {
+      "label": "同步",
+      "category": "extensions",
+      "tags": ""
+    },
+    "globe": {
+      "label": "互联网",
+      "category": "extensions",
+      "tags": ""
+    },
+    "check": {
+      "label": "完成",
+      "category": "status",
+      "tags": ""
+    },
+    "check-circle": {
+      "label": "已完成",
+      "category": "status",
+      "tags": "success 成功"
+    },
+    "info": {
+      "label": "信息",
+      "category": "status",
+      "tags": ""
+    },
+    "alert": {
+      "label": "注意",
+      "category": "status",
+      "tags": "warning 警告"
+    },
+    "error": {
+      "label": "出错",
+      "category": "status",
+      "tags": "failed 失败"
+    },
+    "help": {
+      "label": "帮助",
+      "category": "status",
+      "tags": ""
+    },
+    "loading": {
+      "label": "加载中",
+      "category": "status",
+      "tags": ""
+    },
+    "activity": {
+      "label": "运行动态",
+      "category": "status",
+      "tags": ""
+    },
+    "online": {
+      "label": "在线",
+      "category": "status",
+      "tags": ""
+    },
+    "offline": {
+      "label": "离线",
+      "category": "status",
+      "tags": ""
+    },
+    "thumbs-up": {
+      "label": "有帮助",
+      "category": "status",
+      "tags": ""
+    },
+    "thumbs-down": {
+      "label": "需改进",
+      "category": "status",
+      "tags": ""
+    },
+    "settings": {
+      "label": "设置",
+      "category": "preferences",
+      "tags": ""
+    },
+    "sliders": {
+      "label": "偏好",
+      "category": "preferences",
+      "tags": ""
+    },
+    "bell": {
+      "label": "通知",
+      "category": "preferences",
+      "tags": ""
+    },
+    "bell-off": {
+      "label": "免打扰",
+      "category": "preferences",
+      "tags": ""
+    },
+    "sun": {
+      "label": "浅色模式",
+      "category": "preferences",
+      "tags": ""
+    },
+    "moon": {
+      "label": "深色模式",
+      "category": "preferences",
+      "tags": ""
+    },
+    "lock": {
+      "label": "锁定",
+      "category": "preferences",
+      "tags": ""
+    },
+    "unlock": {
+      "label": "解锁",
+      "category": "preferences",
+      "tags": ""
+    },
+    "eye": {
+      "label": "显示",
+      "category": "preferences",
+      "tags": ""
+    },
+    "eye-off": {
+      "label": "隐藏",
+      "category": "preferences",
+      "tags": ""
+    },
+    "language": {
+      "label": "语言",
+      "category": "preferences",
+      "tags": ""
+    },
+    "filter": {
+      "label": "筛选",
+      "category": "preferences",
+      "tags": ""
+    }
+  }
+}

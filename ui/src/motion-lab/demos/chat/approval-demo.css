@@ -1,0 +1,9 @@
+.approval-stage { display:grid; gap:18px; padding:24px; }
+.approval-stage .approval-card { max-width:480px; margin-inline:auto; }
+.approval-demo-note { color:var(--muted); font:12px/1.6 var(--body); }
+.approval-draft-preview { max-width:480px; margin:0 auto; padding:16px; border:1px solid var(--line-soft); border-radius:12px; color:var(--ink-soft); background:var(--surface-2); font:14px/1.6 var(--body); }
+.approval-draft-preview p { margin:8px 0 0; }
+.approval-production-preview { width:100%; min-width:0; padding-top:18px; border-top:1px solid var(--line-soft); }
+.approval-production-head { display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:10px; margin-bottom:12px; font:600 14px/1.4 var(--body); }
+.approval-stage .approval-production-preview .approval-card { max-width:none; }
+@media(max-width:560px) { .approval-stage { padding:16px; } }

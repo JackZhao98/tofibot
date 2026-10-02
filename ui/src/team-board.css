@@ -1,0 +1,59 @@
+.workspace .team-board-screen { flex:1; min-height:0; overflow:auto; padding:22px clamp(12px,3vw,30px) 30px; background:var(--bg); color:var(--ink); }
+.workspace .team-board-shell { position:relative; width:min(100%,1180px); min-height:520px; margin:auto; border:1px solid var(--line-soft); border-radius:20px; background:var(--surface); overflow:hidden; }
+.workspace .team-board-header { display:flex; justify-content:space-between; align-items:center; gap:16px; min-height:66px; padding:14px 18px; border-bottom:1px solid var(--line-soft); }
+.workspace .team-board-header>div { display:flex; align-items:center; gap:12px; min-width:0; }
+.workspace .team-board-header h2 { min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; margin:0; color:var(--ink); font:600 18px/1.25 var(--display); }
+.workspace .team-board-header span { flex:none; padding:4px 7px; border:1px dashed var(--muted); border-radius:6px; color:var(--muted); font:600 10px/1 var(--mono); }
+.workspace .team-board-close,.workspace .team-board-detail-top button { display:grid; place-items:center; flex:none; width:34px; height:34px; padding:0; border:1px solid var(--line-soft); border-radius:10px; background:var(--surface); color:var(--ink-soft); cursor:pointer; }
+.workspace .team-board-close:hover,.workspace .team-board-detail-top button:hover { background:var(--surface-2); color:var(--ink); }
+.workspace .team-board-filter { display:flex; align-items:center; gap:8px; min-height:54px; padding:9px 18px; border-bottom:1px solid var(--line-soft); color:var(--muted); font:12px/1.2 var(--body); }
+.workspace .team-board-filter>button { display:grid; place-items:center; flex:none; min-width:30px; height:30px; margin:0; padding:0 8px; border:1.5px solid transparent; border-radius:9px; background:var(--surface-2); color:var(--ink-soft); cursor:pointer; }
+.workspace .team-board-filter>button.is-active { border-color:var(--line); background:var(--surface); color:var(--ink); }
+.workspace .team-board-filter .team-board-member { width:30px; padding:0; }
+.workspace .team-board-member .avatar { width:25px; height:25px; }
+.workspace .team-board-goal-filter { display:flex; align-items:center; gap:6px; min-width:0; margin-left:8px; }
+.workspace .team-board-goal-filter select { width:min(180px,23vw); min-height:30px; margin:0; padding:3px 22px 3px 8px; border:1px solid var(--line-soft); border-radius:8px; background:var(--surface); color:var(--ink-soft); font:12px/1.2 var(--body); }
+.workspace .team-board-total { margin-left:auto; white-space:nowrap; font:11px/1 var(--mono); }
+.workspace .team-board-scroll { max-width:100%; overflow-x:auto; }
+.workspace .team-board-columns { display:grid; grid-template-columns:repeat(5,minmax(155px,1fr)); gap:10px; min-width:815px; min-height:450px; padding:14px; background:var(--dots); }
+.workspace .team-board-column { display:flex; flex-direction:column; align-items:stretch; gap:8px; min-width:0; }
+.workspace .team-board-column h3 { display:flex; align-items:center; gap:6px; min-height:23px; margin:0; padding:2px 4px 4px; color:var(--ink-soft); font:600 11px/1.2 var(--mono); letter-spacing:.02em; }
+.workspace .team-board-count { color:var(--muted); font-weight:400; }
+.workspace .team-board-dot { width:9px; height:9px; flex:none; border-radius:50%; background:var(--muted); }
+.workspace .team-board-dot.status-todo { border:1.5px solid var(--muted); background:transparent; }
+.workspace .team-board-dot.status-in_progress { background:var(--blue); }
+.workspace .team-board-dot.status-blocked { background:var(--danger); }
+.workspace .team-board-dot.status-review { background:var(--pink); }
+.workspace .team-board-dot.status-done { background:var(--green); }
+.workspace .team-ticket { display:grid; gap:7px; width:100%; margin:0; padding:10px; border:1px solid var(--line-soft); border-radius:12px; background:var(--surface); color:var(--ink); text-align:left; box-shadow:none; cursor:pointer; }
+.workspace .team-ticket:hover { transform:translateY(-1px); border-color:var(--line); box-shadow:var(--hard-sm); }
+.workspace .team-ticket:active { transform:translate(1px,2px); box-shadow:none; }
+.workspace .team-ticket.is-selected { border:2px solid var(--line); box-shadow:var(--hard-sm); }
+.workspace .team-ticket.is-done { opacity:.72; }
+.workspace .team-ticket.is-done strong { text-decoration:line-through; text-decoration-color:var(--muted); }
+.workspace .team-ticket-id { display:flex; align-items:center; gap:6px; color:var(--muted); font:600 10px/1 var(--mono); }
+.workspace .team-ticket-kind { padding:3px 5px; border-radius:5px; background:var(--surface-2); color:var(--ink-soft); }
+.workspace .team-ticket strong { overflow-wrap:anywhere; font:500 13px/1.42 var(--body); }
+.workspace .team-ticket-goal { width:fit-content; max-width:100%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; padding:3px 6px; border-radius:6px; background:var(--surface-2); color:var(--ink-soft); font:10px/1.2 var(--mono); }
+.workspace .team-ticket-footer { display:flex; align-items:center; gap:4px; min-width:0; color:var(--muted); font:10px/1.2 var(--mono); }
+.workspace .team-ticket-footer .avatar { width:22px; height:22px; flex:none; }
+.workspace .team-ticket-footer>span:not(.avatar) { min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.workspace .team-ticket-footer time { margin-left:auto; flex:none; }
+.workspace .team-board-add { min-height:38px; padding:8px; border:1px dashed var(--line-soft); border-radius:10px; background:var(--surface); color:var(--muted); font:12px/1.2 var(--body); cursor:pointer; }
+.workspace .team-board-add:hover { border-color:var(--line); color:var(--ink); }
+.workspace .team-board-error { display:flex; align-items:center; justify-content:space-between; gap:12px; padding:10px 18px; color:var(--danger-text); font:12px/1.4 var(--body); }
+.workspace .team-board-error button { border:0; background:transparent; color:inherit; text-decoration:underline; cursor:pointer; }
+.workspace .team-board-loading { margin:16px 18px; color:var(--muted); }
+.workspace .team-board-create,.workspace .team-board-detail { position:absolute; z-index:2; right:14px; top:130px; display:grid; gap:12px; width:min(300px,calc(100% - 28px)); max-height:calc(100% - 145px); overflow:auto; padding:18px; border:2px solid var(--line); border-radius:16px; background:var(--surface); box-shadow:var(--hard); }
+.workspace .team-board-create h3,.workspace .team-board-detail h3 { margin:0; color:var(--ink); font:600 16px/1.35 var(--display); }
+.workspace .team-board-create label,.workspace .team-board-detail label { display:grid; gap:5px; color:var(--ink-soft); font:12px/1.3 var(--body); }
+.workspace .team-board-create input,.workspace .team-board-create select,.workspace .team-board-detail select { width:100%; min-height:38px; margin:0; padding:7px 9px; border:1px solid var(--line-soft); border-radius:9px; background:var(--surface-2); color:var(--ink); font:13px/1.3 var(--body); }
+.workspace .team-board-create>div:last-child { display:flex; justify-content:flex-end; gap:8px; }
+.workspace .team-board-create>div:last-child button,.workspace .team-board-detail-work { min-height:36px; padding:7px 12px; border:1px solid var(--line); border-radius:10px; background:var(--surface); color:var(--ink); cursor:pointer; }
+.workspace .team-board-create>div:last-child button[type="submit"] { background:var(--yellow); }
+.workspace .team-board-create button:disabled { opacity:.5; cursor:not-allowed; }
+.workspace .team-board-detail-top { display:flex; align-items:center; justify-content:space-between; gap:8px; color:var(--muted); font:11px/1 var(--mono); }
+.workspace .team-board-detail p { margin:0; color:var(--ink-soft); font:13px/1.5 var(--body); white-space:pre-wrap; overflow-wrap:anywhere; }
+.workspace .team-board-detail-work { justify-self:start; }
+@media(max-width:767px) { .workspace .team-board-screen { padding:10px 8px 18px; } .workspace .team-board-header { padding:12px; } .workspace .team-board-filter { flex-wrap:wrap; padding:8px 12px; } .workspace .team-board-goal-filter { margin-left:0; } .workspace .team-board-goal-filter select { width:140px; } .workspace .team-board-create,.workspace .team-board-detail { position:fixed; inset:auto 12px 12px; width:auto; max-height:min(65vh,500px); } }
+@media(prefers-reduced-motion:reduce) { .workspace .team-ticket { transition:none; } }

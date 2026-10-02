@@ -1,0 +1,57 @@
+services:
+  tofi:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: tofi:local
+    restart: unless-stopped
+    environment:
+      TOFI_LISTEN: 0.0.0.0:8321
+      TOFI_DATA_DIR: /app/data
+      TOFI_UI_DIR: /app/ui
+      TOFI_PUBLIC_ORIGIN: ${TOFI_PUBLIC_ORIGIN:-}
+      TOFI_MODEL_PROVIDER: ${TOFI_MODEL_PROVIDER:-openai_codex}
+      TOFI_MODEL: ${TOFI_MODEL:-codex-gpt-5.6-luna}
+      TOFI_TRIAGE_MODEL: ${TOFI_TRIAGE_MODEL:-codex-gpt-5.6-luna}
+      TOFI_MCP_CONFIG: ${TOFI_MCP_CONFIG:-}
+      TOFI_MCP_RUNNER_URL: http://runner:8390
+      TOFI_MCP_RUNNER_TOKEN_FILE: /app/runner-auth/token
+      TOFI_SKILLS_DIR: /app/data/skills
+      TOFI_MODEL_API_KEY: ${TOFI_MODEL_API_KEY:-}
+      TOFI_MODEL_BASE_URL: ${TOFI_MODEL_BASE_URL:-}
+      TOFI_TRANSCRIPTION_API_KEY: ${TOFI_TRANSCRIPTION_API_KEY:-}
+      TOFI_TRANSCRIPTION_URL: ${TOFI_TRANSCRIPTION_URL:-https://api.openai.com/v1/audio/transcriptions}
+    ports:
+      - "127.0.0.1:${TOFI_HOST_PORT:-8321}:8321"
+    volumes:
+      - tofi-data:/app/data
+      - runner-auth:/app/runner-auth:ro
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "--quiet", "http://127.0.0.1:8321/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    depends_on:
+      - runner
+
+  runner:
+    build:
+      context: .
+      dockerfile: deploy/mcp-runner/Dockerfile
+    image: tofi-mcp-runner:local
+    restart: unless-stopped
+    init: true
+    read_only: true
+    tmpfs:
+      - /tmp:rw,nosuid,size=256m
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    volumes:
+      - runner-state:/runner/state
+      - runner-auth:/runner/auth
+
+volumes:
+  tofi-data:
+  runner-state:
+  runner-auth:

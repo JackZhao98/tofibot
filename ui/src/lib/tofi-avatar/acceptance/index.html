@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Tofi · 六只猫的动作排练</title>
+  <link rel="stylesheet" href="./style.css">
+</head>
+<body>
+  <main>
+    <h1>六只猫，各有脾气。</h1>
+    <p class="intro">同一行看性格，同一列比动作。每格同时呈现实际小头像与 96px 放大视图；花色、尺寸和减少动态效果可以即时切换。动作只演一遍，停在对应状态。</p>
+    <div class="controls" aria-label="验收设置">
+      <label>实际尺寸 <select id="size"><option>32</option><option selected>48</option><option>64</option></select> px</label>
+      <label>花色 <select id="pattern"><option value="identity">各自花色</option></select></label>
+      <label>配色 <select id="palette" disabled></select></label>
+      <label><input type="checkbox" id="reduced"> 减少动态效果</label>
+      <label><input type="checkbox" id="dark"> 深色背景</label>
+    </div>
+    <div class="controls">
+      <button id="all">全部演一次</button>
+      <button id="interrupt">入睡中打断 → 醒来</button>
+      <button id="remount">销毁并重新挂载</button>
+      <span id="status" role="status">已就绪。点击列标题，只播放该动作。</span>
+    </div>
+    <div class="table-scroll" tabindex="0" aria-label="六型动作对照，可横向滚动">
+      <table>
+        <caption>左侧为实际尺寸，右侧为 96px。工作视线先于头部移动；空闲眨眼不左右巡视。</caption>
+        <thead><tr><th scope="col">猫型 / 表演设计</th>
+          <th scope="col"><button data-action="wake">醒来</button></th>
+          <th scope="col"><button data-action="look">工作张望</button></th>
+          <th scope="col"><button data-action="blink-look">空闲眨眼</button></th>
+          <th scope="col"><button data-action="sleep">入睡</button></th>
+          <th scope="col"><button data-action="breathe">睡眠轻动</button></th>
+        </tr></thead>
+        <tbody id="cats"></tbody>
+      </table>
+    </div>
+    <p class="note">系统开启减少动态效果时也会立即显示结束姿态。切到其他标签页或滚出视口会暂停，返回后继续。此页直接导入生产模块，不接入上层活动计时。</p>
+  </main>
+  <script type="module" src="./demo.js"></script>
+</body>
+</html>

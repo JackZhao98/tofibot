@@ -1,0 +1,39 @@
+html:not([data-desktop]) .web-drop-overlay {
+  position:fixed; inset:0; z-index:1000; display:grid; place-items:center; padding:24px;
+  background:color-mix(in srgb,var(--bg) 48%,transparent);
+  -webkit-backdrop-filter:blur(12px); backdrop-filter:blur(12px);
+  color:var(--ink); opacity:0; visibility:hidden; pointer-events:none;
+  transition:opacity 180ms ease,visibility 0s 180ms;
+}
+html:not([data-desktop]) .web-drop-overlay.is-dragging { opacity:1; visibility:visible; transition-delay:0s; }
+html:not([data-desktop]) .web-drop-zone {
+  width:min(100%,420px); min-height:216px; padding:24px; display:grid;
+  place-content:center; justify-items:center; gap:16px;
+  border:2px dashed var(--line); border-radius:var(--r-lg);
+  background:var(--glass); font:600 16px/1.5 var(--display);
+  transform:translateY(8px) scale(.97); transition:transform 320ms cubic-bezier(.22,1,.36,1);
+}
+html:not([data-desktop]) .web-drop-overlay.is-dragging .web-drop-zone { transform:none; }
+html:not([data-desktop]) .web-drop-arrow {
+  display:grid; place-items:center; width:52px; height:52px; border-radius:16px;
+  border:var(--edge) solid var(--line); background:var(--clay); color:var(--on-block); box-shadow:var(--hard-sm);
+}
+html:not([data-desktop]) .web-drop-overlay.is-dragging .web-drop-arrow { animation:web-drop-bob 900ms ease-in-out infinite; }
+@keyframes web-drop-bob { 50% { transform:translateY(-6px); } }
+.web-drop-ghost { position:fixed; z-index:1000; pointer-events:none; display:inline-flex; align-items:center; gap:6px; height:32px; padding:3px 5px 3px 4px; border:1px solid var(--line-soft); border-radius:999px; background:var(--surface-2); color:var(--ink-soft); font:11px/1.4 var(--body); box-shadow:var(--hard-sm); white-space:nowrap; }
+.web-drop-ghost .composer-attachment-type { display:grid; place-items:center; min-width:24px; height:22px; border-radius:999px; background:var(--blue); color:var(--on-block); font:600 9px/1 var(--mono); }
+.web-drop-ghost .composer-attachment-name { overflow:hidden; text-overflow:ellipsis; }
+.web-drop-ghost > button { display:none; }
+html:not([data-desktop]) .workspace .composer-row { position:relative; }
+html:not([data-desktop]) .workspace .web-upload-ring { position:absolute; inset:-3px; z-index:4; width:calc(100% + 6px); height:calc(100% + 6px); overflow:visible; pointer-events:none; }
+html:not([data-desktop]) .workspace .web-upload-ring rect { x:1.5px; y:1.5px; width:calc(100% - 3px); height:calc(100% - 3px); rx:20px; fill:none; stroke:var(--lagoon); stroke-width:3.5; stroke-dasharray:.26 .74; animation:web-upload-travel 1.5s linear infinite; }
+@keyframes web-upload-travel { to { stroke-dashoffset:-1; } }
+@media (prefers-reduced-motion:reduce) {
+  html:not([data-desktop]) :is(.web-drop-overlay,.web-drop-zone) { transition:none; }
+  html:not([data-desktop]) .web-drop-overlay.is-dragging .web-drop-arrow,
+  html:not([data-desktop]) .workspace .web-upload-ring rect { animation:none; }
+}
+@media (prefers-reduced-transparency:reduce) {
+  html:not([data-desktop]) .web-drop-overlay { background:var(--bg); -webkit-backdrop-filter:none; backdrop-filter:none; }
+  html:not([data-desktop]) .web-drop-zone { background:var(--surface); }
+}
