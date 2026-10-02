@@ -22,6 +22,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/JackZhao98/tofibot/internal/tooloutcome"
 	"github.com/google/uuid"
 )
 
@@ -1097,7 +1098,15 @@ func (s *Server) computerTools(r Run) []Tool {
 		b, _ := json.Marshal(map[string]any{"computers": items})
 		return string(b), nil
 	}}
-	action := Tool{Name: "computer_action", Description: "Run one explicitly granted action on a paired computer or on the Bot's fixed Firecracker computer. Use only capabilities currently advertised by that computer; an action name does not grant access or enable an unavailable runtime. Callers cannot override local grants or execution policy. When a paired Mac advertises sandbox.exec, pass only args.command: it runs for at most 30 seconds in the locally authorized directory and directly changes its files, with no automatic rollback. It does not grant network, SSH keys, Keychain or arbitrary host toolchains. A stopped managed process group does not prove every detached descendant stopped. Inspect exitCode, stderr and cancellation before claiming success; do not retry uncertain writes automatically. Use host.info on the service host only to read its OS and architecture.", Parameters: objectSchema(map[string]any{"computer_id": map[string]any{"type": "string"}, "action": map[string]any{"type": "string"}, "args": map[string]any{"type": "object"}}, []string{"computer_id", "action", "args"}), Execute: func(ctx context.Context, raw json.RawMessage) (string, error) {
+	action := Tool{Name: "computer_action", Description: "Run one explicitly granted action on a paired computer or on the Bot's fixed Firecracker computer. Use only capabilities currently advertised by that computer; an action name does not grant access or enable an unavailable runtime. Callers cannot override local grants or execution policy. When a paired Mac advertises sandbox.exec, pass only args.command: it runs for at most 30 seconds in the locally authorized directory and directly changes its files, with no automatic rollback. It does not grant network, SSH keys, Keychain or arbitrary host toolchains. A stopped managed process group does not prove every detached descendant stopped. Inspect exitCode, stderr and cancellation before claiming success; do not retry uncertain writes automatically. Use host.info on the service host only to read its OS and architecture.", Parameters: objectSchema(map[string]any{"computer_id": map[string]any{"type": "string"}, "action": map[string]any{"type": "string"}, "args": map[string]any{"type": "object"}}, []string{"computer_id", "action", "args"}), Identity: func(raw json.RawMessage) tooloutcome.Identity {
+		var in struct {
+			ComputerID string          `json:"computer_id"`
+			Action     string          `json:"action"`
+			Args       json.RawMessage `json:"args"`
+		}
+		_ = json.Unmarshal(raw, &in)
+		return computerRecoveryIdentity(r.BotID, in.ComputerID, in.Action, in.Args)
+	}, Execute: func(ctx context.Context, raw json.RawMessage) (string, error) {
 		if err := ctx.Err(); err != nil {
 			return "", err
 		}

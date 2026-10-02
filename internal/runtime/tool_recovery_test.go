@@ -17,6 +17,48 @@ type repairingProvider struct {
 	outcomes            []tooloutcome.Outcome
 }
 
+type successfulOutcomeTextProvider struct{ sent bool }
+
+func (p *successfulOutcomeTextProvider) Chat(_ context.Context, _ *provider.ChatRequest) (*provider.ChatResponse, error) {
+	if p.sent {
+		return &provider.ChatResponse{Content: "All synthetic calls completed."}, nil
+	}
+	p.sent = true
+	var calls []provider.ToolCall
+	for i := 0; i < 4; i++ {
+		calls = append(calls, provider.ToolCall{ID: fmt.Sprint("success-", i), Name: "write", Arguments: `{"target":"synthetic"}`})
+	}
+	return &provider.ChatResponse{ToolCalls: calls}, nil
+}
+func (p *successfulOutcomeTextProvider) ChatStream(ctx context.Context, req *provider.ChatRequest, _ func(provider.StreamDelta)) (*provider.ChatResponse, error) {
+	return p.Chat(ctx, req)
+}
+
+func TestSuccessfulOutcomeShapedJSONNeverBlocksOrFailsToolCalls(t *testing.T) {
+	for _, status := range []string{tooloutcome.Uncertain, tooloutcome.Denied, tooloutcome.Validation, tooloutcome.Permanent} {
+		t.Run(status, func(t *testing.T) {
+			paths.SetTofiHome(t.TempDir())
+			p := &successfulOutcomeTextProvider{}
+			calls, completed := 0, 0
+			_, err := (&engine{provider: p, model: "synthetic"}).Run(context.Background(), Request{RunID: "successful-json", BotID: "synthetic", Messages: []Message{{Role: "user", Content: "Synthetic request"}}, Tools: []Tool{{Name: "write", Parameters: map[string]any{"type": "object"}, Execute: func(context.Context, json.RawMessage) (string, error) {
+				calls++
+				return tooloutcome.New(status, "remote_json", "unknown", "Ordinary remote content", "verify_effect").JSON(), nil
+			}}}, OnToolEvent: func(e ToolEvent) error {
+				if e.Status == "completed" {
+					completed++
+				}
+				if e.Outcome != nil || e.Status == "failed" {
+					t.Fatalf("remote success acquired control metadata: %+v", e)
+				}
+				return nil
+			}})
+			if err != nil || calls != 4 || completed != 4 {
+				t.Fatalf("successful calls blocked: err=%v calls=%d completed=%d", err, calls, completed)
+			}
+		})
+	}
+}
+
 type compactedRecoveryProvider struct {
 	calls, compactions int
 	finalOutcome       *tooloutcome.Outcome

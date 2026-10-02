@@ -26,6 +26,11 @@
   },
   {
     "viewport": "narrow",
+    "case": "local-answer-then-backend-expiry-renews-fresh-card",
+    "pass": true
+  },
+  {
+    "viewport": "narrow",
     "case": "sse-reconnect-refreshes-current-action-without-stale-replay",
     "pass": true
   },
@@ -37,6 +42,11 @@
   {
     "viewport": "narrow",
     "case": "stream-failure-system-explanation-and-late-frame-guard",
+    "pass": true
+  },
+  {
+    "viewport": "narrow",
+    "case": "budget-failure-visible-with-preserved-partial-output",
     "pass": true
   },
   {
@@ -66,6 +76,11 @@
   },
   {
     "viewport": "desktop",
+    "case": "local-answer-then-backend-expiry-renews-fresh-card",
+    "pass": true
+  },
+  {
+    "viewport": "desktop",
     "case": "sse-reconnect-refreshes-current-action-without-stale-replay",
     "pass": true
   },
@@ -77,6 +92,11 @@
   {
     "viewport": "desktop",
     "case": "stream-failure-system-explanation-and-late-frame-guard",
+    "pass": true
+  },
+  {
+    "viewport": "desktop",
+    "case": "budget-failure-visible-with-preserved-partial-output",
     "pass": true
   }
 ]

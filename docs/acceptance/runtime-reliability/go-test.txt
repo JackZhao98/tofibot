@@ -1,14 +1,14 @@
 Command: GOCACHE=/tmp/tofi-runtime-go-cache go test -timeout=120s ./...
-Exit: 0
+Environment: isolated private-core worktree, synthetic fixtures, temporary localhost/Unix sockets
 
 ?   	github.com/JackZhao98/tofibot/cmd/account-acceptance	[no test files]
-ok  	github.com/JackZhao98/tofibot/cmd/tofi	0.695s
+ok  	github.com/JackZhao98/tofibot/cmd/tofi	0.504s
 ?   	github.com/JackZhao98/tofibot/cmd/tofi-guest	[no test files]
 ?   	github.com/JackZhao98/tofibot/cmd/tofi-mcp-runner	[no test files]
-ok  	github.com/JackZhao98/tofibot/cmd/tofi-shadow-review	0.306s
-ok  	github.com/JackZhao98/tofibot/internal/agent	(cached)
-ok  	github.com/JackZhao98/tofibot/internal/app	39.395s
-ok  	github.com/JackZhao98/tofibot/internal/codexauth	0.771s
+ok  	github.com/JackZhao98/tofibot/cmd/tofi-shadow-review	(cached)
+ok  	github.com/JackZhao98/tofibot/internal/agent	1.152s
+ok  	github.com/JackZhao98/tofibot/internal/app	39.940s
+ok  	github.com/JackZhao98/tofibot/internal/codexauth	(cached)
 ok  	github.com/JackZhao98/tofibot/internal/computer	(cached)
 ok  	github.com/JackZhao98/tofibot/internal/computer/guest	(cached)
 ?   	github.com/JackZhao98/tofibot/internal/executor	[no test files]
@@ -18,6 +18,6 @@ ok  	github.com/JackZhao98/tofibot/internal/mcprunner	(cached)
 ?   	github.com/JackZhao98/tofibot/internal/paths	[no test files]
 ?   	github.com/JackZhao98/tofibot/internal/pkg/logger	[no test files]
 ok  	github.com/JackZhao98/tofibot/internal/provider	(cached)
-ok  	github.com/JackZhao98/tofibot/internal/runtime	(cached)
+ok  	github.com/JackZhao98/tofibot/internal/runtime	1.547s
 ok  	github.com/JackZhao98/tofibot/internal/shadowreview	(cached)
 ?   	github.com/JackZhao98/tofibot/internal/tooloutcome	[no test files]

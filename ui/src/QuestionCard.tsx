@@ -7,7 +7,7 @@ import { MessageMarkdown } from "./MessageMarkdown";
 import { ApprovalCard } from "./ApprovalCard";
 import { useUserTimezone } from "./UserTimezone";
 import type { Bot } from "./types";
-import { type Question } from "./questionTimeline";
+import { reconcileQuestion, type Question } from "./questionTimeline";
 import { userFormAnswerRows, userFormIdentity, userFormSchemaError, validateUserForm } from "./userForm";
 import "./question-card.css";
 
@@ -80,7 +80,7 @@ function BinaryQuestionCard({ item, bot, group, archived, onChanged }: QuestionC
   const [resolved, setResolved] = useState<Question | null>(null);
   const sending = useRef(false);
   const controller = useRef<AbortController | null>(null);
-  const current = resolved ?? item;
+  const current = reconcileQuestion(item, resolved);
   const approval = item.question_type === "approval" ? item.approval : undefined;
   useEffect(() => () => controller.current?.abort(), []);
   async function answer(value: boolean | null) {
@@ -133,7 +133,7 @@ function UserFormCard({ item, bot, group, archived, onChanged }: QuestionCardPro
   const [error, setError] = useState("");
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [resolved, setResolved] = useState<Question | null>(null);
-  const current = resolved ?? item;
+  const current = reconcileQuestion(item, resolved);
   const active = !resolved && item.status === "pending";
   const fields = item.fields ?? [];
   const schemaError = userFormSchemaError(item.fields);
@@ -265,7 +265,7 @@ function LegacyQuestionCard({ item, bot, group, archived, onChanged }: QuestionC
   const submitting = useRef(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
-  const current = resolved ?? item;
+  const current = reconcileQuestion(item, resolved);
   const active = current.status === "pending";
   const allowOther = Boolean(item.allow_other) && ["yes_no", "single_choice", "multi_choice"].includes(item.question_type);
   const selectedCount = selection.length + (otherSelected ? 1 : 0);

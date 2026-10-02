@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/JackZhao98/tofibot/internal/computer"
+	"github.com/JackZhao98/tofibot/internal/tooloutcome"
 )
 
 const microVMComputerID = "firecracker"
@@ -284,7 +285,20 @@ func (s *Server) microVMTools(r Run) []Tool {
 		return d.Decode(target)
 	}
 	call := func(name, description string, schema map[string]any, parse func(json.RawMessage) (string, json.RawMessage, error)) Tool {
-		return Tool{Name: name, Description: description, Parameters: schema, Execute: func(ctx context.Context, raw json.RawMessage) (string, error) {
+		return Tool{Name: name, Description: description, Parameters: schema, Identity: func(raw json.RawMessage) tooloutcome.Identity {
+			action, args, err := parse(raw)
+			if err != nil {
+				var in struct {
+					Action string `json:"action"`
+				}
+				_ = json.Unmarshal(raw, &in)
+				action, args = in.Action, raw
+				if action == "" {
+					action = name
+				}
+			}
+			return computerRecoveryIdentity(r.BotID, microVMComputerID, action, args)
+		}, Execute: func(ctx context.Context, raw json.RawMessage) (string, error) {
 			action, args, err := parse(raw)
 			if err != nil {
 				return "", err
