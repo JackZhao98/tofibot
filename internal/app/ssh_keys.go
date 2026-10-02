@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/JackZhao98/tofibot/internal/tooloutcome"
 	"github.com/google/uuid"
 )
 
@@ -173,13 +174,13 @@ except Exception:fail('operation_failed')
 
 func (s *Server) computerSSHKeys(ctx context.Context, r Run, op sshKeyOperation) (sshKeyResult, error) {
 	if op.Action != "list" && op.Action != "generate" && op.Action != "import" {
-		return sshKeyResult{}, errors.New("Unsupported SSH key action")
+		return sshKeyResult{}, tooloutcome.InvalidArguments("Unsupported SSH key action")
 	}
 	if op.Action != "list" && !validSSHKeyName(op.Name) {
-		return sshKeyResult{}, errors.New("Choose a private key filename such as id_ed25519_work")
+		return sshKeyResult{}, tooloutcome.InvalidArguments("Choose a private key filename such as id_ed25519_work")
 	}
 	if op.Action == "import" && (!validSecretValue(op.PrivateKey) || len(op.PublicKey) > 16384) {
-		return sshKeyResult{}, errors.New("A valid private key is required")
+		return sshKeyResult{}, tooloutcome.InvalidArguments("A valid private key is required")
 	}
 	data, _ := json.Marshal(op)
 	args, _ := json.Marshal(map[string]any{"command": "python3 -c " + secretQuote(computerSSHKeyScript) + " " + secretQuote(base64.StdEncoding.EncodeToString(data)), "timeout_sec": 25})
@@ -274,10 +275,22 @@ func (s *Server) handleSSHKeys(w http.ResponseWriter, r *http.Request) bool {
 	return true
 }
 func (s *Server) sshKeyTool(r Run) Tool {
-	return Tool{Name: "computer_ssh_keys", Description: "List or generate SSH keys in the shared computer HOME ~/.ssh. Settings discovers these same keys automatically. Returns public keys and fingerprints only, never private material. Generate creates a new unencrypted Ed25519 key without overwriting existing files; only do so when the user requests a key. For private-key import use request_secret_input then use_secret_input(action ssh,target filename), never ask for a private key in chat. A public key must still be added to GitHub or the intended remote service by the user or an explicitly authorized action.", Parameters: objectSchema(map[string]any{"action": map[string]any{"type": "string", "enum": []string{"list", "generate"}}, "name": map[string]any{"type": "string", "description": "Private key filename, for example id_ed25519_work"}}, []string{"action"}), Execute: func(ctx context.Context, raw json.RawMessage) (string, error) {
+	return Tool{Name: "computer_ssh_keys", Description: "List or generate SSH keys in the shared computer HOME ~/.ssh. Settings discovers these same keys automatically. Returns public keys and fingerprints only, never private material. Generate creates a new unencrypted Ed25519 key without overwriting existing files; only do so when the user requests a key. For private-key import use request_secret_input then use_secret_input(action ssh,target filename), never ask for a private key in chat. A public key must still be added to GitHub or the intended remote service by the user or an explicitly authorized action.", Parameters: objectSchema(map[string]any{"action": map[string]any{"type": "string", "enum": []string{"list", "generate"}}, "name": map[string]any{"type": "string", "description": "Private key filename, for example id_ed25519_work"}}, []string{"action"}), Identity: func(raw json.RawMessage) tooloutcome.Identity {
+		var in sshKeyOperation
+		_ = json.Unmarshal(raw, &in)
+		i := tooloutcome.OperationIdentity("computer/ssh_keys", in.Action, raw)
+		if in.Action == "list" {
+			i.Risk = tooloutcome.Observation
+		}
+		if in.Action == "generate" {
+			i.Risk = tooloutcome.TargetMutation
+			i.Target = in.Name
+		}
+		return i
+	}, Execute: func(ctx context.Context, raw json.RawMessage) (string, error) {
 		var op sshKeyOperation
 		if json.Unmarshal(raw, &op) != nil || (op.Action != "list" && op.Action != "generate") || op.PrivateKey != "" || op.PublicKey != "" {
-			return "", errors.New("Choose list or generate; private values must use Secret Input")
+			return "", tooloutcome.InvalidArguments("Choose list or generate; private values must use Secret Input")
 		}
 		result, err := s.computerSSHKeys(ctx, r, op)
 		if err != nil {

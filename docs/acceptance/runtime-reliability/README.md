@@ -26,7 +26,7 @@ synthetic; this fixture has no credentials or production connection.
 Representative evidence:
 
 - [Full Go suite](go-test.txt) and [Web checks](web-checks.txt)
-- [Five Astra findings and budget issue: implementation/test mapping](review-fixes.md)
+- [Astra findings, rereview blockers and budget issue: implementation/test mapping](review-fixes.md)
 - [Auto Review probe: expired local snapshot, zero requests](auto-review-live-probe.json)
 - [Authorized production shadow probe: HTTP 200, one request, zero tools](auto-review-production-shadow-probe.json)
 - [Fixed synthetic candidate request](auto-review-candidate-request.json)

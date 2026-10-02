@@ -1,4 +1,1 @@
-Command: node ui/scripts/test-runtime-reliability-browser.mjs
-Environment: canonical App/OwnerSessionGate, synthetic HTTP/SSE, localhost Vite, Chromium, viewports 390x844 and 1280x900
-
 PASS: 20 full-App UI cases at 390/1280, synthetic relogin/expiry/renew/resume/reconnect/stream failure; zero executable requests

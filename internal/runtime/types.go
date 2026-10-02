@@ -26,6 +26,9 @@ type Tool struct {
 	Parameters  map[string]any
 	Execute     func(context.Context, json.RawMessage) (string, error)
 	Identity    func(json.RawMessage) tooloutcome.Identity
+	// ResolveIdentity may make a bounded, read-only backend lookup. A failure
+	// here is known to precede execution, and must not become uncertain effect.
+	ResolveIdentity func(context.Context, json.RawMessage) (tooloutcome.Identity, error)
 }
 
 // ToolEvent describes one provider tool call and its lifecycle. Arguments and

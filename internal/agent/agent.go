@@ -1359,14 +1359,14 @@ func RunAgentLoop(cfg AgentConfig, ctx *models.ExecutionContext) (returned *Agen
 			results := executeToolsParallel(resp.ToolCalls, func(tc provider.ToolCall) (string, error) {
 				var argsMap map[string]interface{}
 				if err := json.Unmarshal([]byte(tc.Arguments), &argsMap); err != nil {
-					return fmt.Sprintf("Error parsing arguments for %s: %v", tc.Name, err), nil
+					return "", fmt.Errorf("error parsing arguments for %s: %w", tc.Name, err)
 				}
 
 				// Registry tools (core + skill + activated deferred)
 				if tool := registry.Get(tc.Name); tool != nil {
 					result, err := tool.Execute(loopCtx, argsMap)
 					if err != nil {
-						return fmt.Sprintf("Tool error: %v", err), nil
+						return "", err
 					}
 					return result, nil
 				}
@@ -1374,12 +1374,12 @@ func RunAgentLoop(cfg AgentConfig, ctx *models.ExecutionContext) (returned *Agen
 				// MCP tools
 				cli, exists := clientMap[tc.Name]
 				if !exists {
-					return fmt.Sprintf("Tool '%s' not found.", tc.Name), nil
+					return "", fmt.Errorf("tool '%s' not found", tc.Name)
 				}
 
 				toolResult, err := cli.CallTool(loopCtx, &mcp.CallToolParams{Name: tc.Name, Arguments: argsMap})
 				if err != nil {
-					return fmt.Sprintf("Tool execution error: %v", err), nil
+					return "", err
 				}
 
 				var sb strings.Builder
@@ -1397,6 +1397,9 @@ func RunAgentLoop(cfg AgentConfig, ctx *models.ExecutionContext) (returned *Agen
 						sb.WriteString("[Unknown Content]")
 					}
 				}
+				if toolResult.IsError {
+					return "", errors.New(sb.String())
+				}
 				return sb.String(), nil
 			}, 5)
 
@@ -1405,6 +1408,7 @@ func RunAgentLoop(cfg AgentConfig, ctx *models.ExecutionContext) (returned *Agen
 				messages = appendAndEmit(messages, provider.Message{
 					Role:       "tool",
 					Content:    r.Content,
+					ToolFailed: r.Failed,
 					ToolCallID: r.CallID,
 					ToolName:   r.ToolName,
 				})
@@ -1421,7 +1425,8 @@ func RunAgentLoop(cfg AgentConfig, ctx *models.ExecutionContext) (returned *Agen
 				fnArgs := tc.Arguments
 				callID := tc.ID
 				if repairRequest && (!finalRepairToolNames[fnName] || reservedReceiptAttempted) {
-					messages = appendAndEmit(messages, provider.Message{Role: "tool", Content: "Tool error: final review repair permits only the declared completion receipt tool.", ToolCallID: callID, ToolName: fnName})
+					refusal := tooloutcome.New(tooloutcome.Permanent, "reserved_repair_refused", "not_executed", "Final review repair permits only one declared completion receipt attempt. This call was not executed.", "explain_blocker")
+					messages = appendAndEmit(messages, provider.Message{Role: "tool", Content: refusal.JSON(), ToolCallID: callID, ToolName: fnName, ToolFailed: true, ToolOutcome: &refusal})
 					continue
 				}
 				if repairRequest {
@@ -1620,6 +1625,7 @@ func RunAgentLoop(cfg AgentConfig, ctx *models.ExecutionContext) (returned *Agen
 					messages = appendAndEmit(messages, provider.Message{
 						Role:       "tool",
 						Content:    resultMsg,
+						ToolFailed: shellResult.ExitCode != 0 || shellResult.TimedOut,
 						ToolCallID: callID,
 						ToolName:   fnName,
 					})
@@ -1629,7 +1635,17 @@ func RunAgentLoop(cfg AgentConfig, ctx *models.ExecutionContext) (returned *Agen
 
 				// Handle registry tools (core + skill + activated deferred)
 				if tool := registry.Get(fnName); tool != nil {
-					result, err := tool.Execute(loopCtx, argsMap)
+					executionCtx := loopCtx
+					if cfg.ToolsOnly {
+						executionCtx = tooloutcome.WithBoundary(loopCtx, func(identity tooloutcome.Identity) *tooloutcome.Outcome {
+							blocked := toolRecoveryIdentityGuard(recoveryLedger, identity)
+							if blocked != nil {
+								recoveryBlocked[callID] = true
+							}
+							return blocked
+						}, func(identity tooloutcome.Identity) { recoveryIdentities[callID] = identity })
+					}
+					result, err := tool.Execute(executionCtx, argsMap)
 					resultMsg := ""
 					var outcome *tooloutcome.Outcome
 					if err != nil {
@@ -1729,6 +1745,7 @@ func RunAgentLoop(cfg AgentConfig, ctx *models.ExecutionContext) (returned *Agen
 						messages = appendAndEmit(messages, provider.Message{
 							Role:       "tool",
 							Content:    resultMsg,
+							ToolFailed: err != nil,
 							ToolCallID: callID,
 							ToolName:   fnName,
 						})
@@ -1737,6 +1754,7 @@ func RunAgentLoop(cfg AgentConfig, ctx *models.ExecutionContext) (returned *Agen
 						messages = appendAndEmit(messages, provider.Message{
 							Role:       "tool",
 							Content:    fmt.Sprintf("Skill '%s' not found", skillKey),
+							ToolFailed: true,
 							ToolCallID: callID,
 							ToolName:   fnName,
 						})
@@ -1789,6 +1807,7 @@ func RunAgentLoop(cfg AgentConfig, ctx *models.ExecutionContext) (returned *Agen
 				messages = appendAndEmit(messages, provider.Message{
 					Role:       "tool",
 					Content:    outputText,
+					ToolFailed: err != nil || (toolResult != nil && toolResult.IsError),
 					ToolCallID: callID,
 					ToolName:   fnName,
 				})

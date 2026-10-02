@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/base64"
 	"encoding/json"
-	"errors"
 	"net/http"
 	"strings"
 	"time"
@@ -200,11 +199,11 @@ func (s *Server) terminalTool(r Run) Tool {
 	}, Execute: func(ctx context.Context, raw json.RawMessage) (string, error) {
 		var in map[string]json.RawMessage
 		if json.Unmarshal(raw, &in) != nil {
-			return "", errors.New("invalid terminal input")
+			return "", tooloutcome.InvalidArguments("invalid terminal input")
 		}
 		var action string
 		if json.Unmarshal(in["action"], &action) != nil || !microVMActions["terminal."+action] {
-			return "", errors.New("invalid terminal action")
+			return "", tooloutcome.InvalidArguments("invalid terminal action")
 		}
 		delete(in, "action")
 		if action == "open" {

@@ -21,6 +21,7 @@ import (
 	"time"
 	"unicode/utf8"
 
+	"github.com/JackZhao98/tofibot/internal/tooloutcome"
 	"golang.org/x/oauth2"
 )
 
@@ -170,11 +171,11 @@ func tokenFileConnected(path string) bool {
 
 func (m *Manager) SaveMCP(name string, c MCPServerConfig, updating bool) error {
 	if !validExtensionName(name) {
-		return errors.New("invalid MCP server name")
+		return tooloutcome.InvalidArguments("invalid MCP server name")
 	}
 	u, e := url.Parse(c.URL)
 	if e != nil || u.Host == "" || u.User != nil || (u.Scheme != "http" && u.Scheme != "https") {
-		return errors.New("MCP URL must be an http or https endpoint")
+		return tooloutcome.InvalidArguments("MCP URL must be an http or https endpoint")
 	}
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -187,10 +188,10 @@ func (m *Manager) SaveMCP(name string, c MCPServerConfig, updating bool) error {
 	}
 	old, exists := cfg[name]
 	if updating && !exists {
-		return errors.New("MCP server not found")
+		return tooloutcome.InvalidArguments("MCP server not found")
 	}
 	if !updating && exists {
-		return errors.New("MCP server already exists")
+		return tooloutcome.InvalidArguments("MCP server already exists")
 	}
 	// Ordinary settings updates cannot grant an exemption. Changing the target
 	// clears previously reviewed read-only tool names.
@@ -352,31 +353,31 @@ func writeJSON0600(path string, v any) error {
 // relative, bounded, and created with private permissions.
 func (m *Manager) InstallSkill(name string, files map[string][]byte) error {
 	if !skillNamePattern.MatchString(name) {
-		return errors.New("invalid skill name")
+		return tooloutcome.InvalidArguments("invalid skill name")
 	}
 	if len(files) == 0 || len(files) > maxInstallFiles {
-		return errors.New("invalid skill file count")
+		return tooloutcome.InvalidArguments("invalid skill file count")
 	}
 	root := m.cfg.SkillsDir
 	if root == "" {
-		return errors.New("skills directory is not configured")
+		return tooloutcome.New(tooloutcome.Permanent, "skills_unavailable", "not_executed", "Skills directory is not configured.", "explain_blocker").Err()
 	}
 	total := 0
 	for p, b := range files {
 		total += len(b)
 		if !validSkillInstallPath(p) || total > maxSkillFile {
-			return errors.New("unsafe or oversized skill file path")
+			return tooloutcome.InvalidArguments("unsafe or oversized skill file path")
 		}
 	}
 	if _, ok := files["SKILL.md"]; !ok {
-		return errors.New("SKILL.md is required")
+		return tooloutcome.InvalidArguments("SKILL.md is required")
 	}
 	manifest, err := parseSkill(files["SKILL.md"])
 	if err != nil {
-		return err
+		return tooloutcome.InvalidArguments("invalid skill manifest")
 	}
 	if manifest.Name != name {
-		return errors.New("skill directory name must match SKILL.md name")
+		return tooloutcome.InvalidArguments("skill directory name must match SKILL.md name")
 	}
 	m.mu.Lock()
 	defer m.mu.Unlock()

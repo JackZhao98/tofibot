@@ -26,7 +26,7 @@ limits or uncertainty.
 | `validation_error` | Return schema/argument feedback to the model before requesting approval or dispatching. Allow three failed repairs per effective backend operation, then explain the blocker. |
 | `transient_failure` | Retry only tools already explicitly trusted as read-only by the owner: at most two retries (three attempts), within the existing tool deadline. Repeating an exhausted identical request is blocked. |
 | `denied` / `permanent_failure` | Explain the failure and block an equivalent repeated request in the current run. |
-| `uncertain_effect` | No automatic replay. Explain that the action may have happened and require target-state verification. Independent inspection operations remain available. The current checkpoint cannot repeat an unresolved operation merely by changing arguments or path aliases; observations alone do not automatically clear the fence. |
+| `uncertain_effect` | No automatic replay. Explain that the action may have happened and require target-state verification. Independent observations and verified distinct targets remain available. Equivalent uncertain effects stay blocked despite changed arguments, ignored fields, wrapper names or path aliases; observations alone do not automatically clear the fence. |
 
 Approval is still bound to the exact run, server configuration, remote tool and
 argument payload. Approval claim precedes dispatch and checks the validity
@@ -50,6 +50,22 @@ for effective operations and arguments. Replay checks run again immediately
 before dispatch after hooks, and the ledger retains these identities across
 compaction and suspension. File reads, desktop captures and browser snapshots
 have separate repair scopes from their corresponding mutations.
+
+VM file writes resolve a backend physical target before dispatch through the
+internal `files.identity` lookup (five-second deadline, no directory creation,
+no alias creation and no file-content read). Canonical paths and device/inode
+identity detect symlinks and hardlinks. After a lost write response, one read-only
+identity recheck also retains the inode of a newly created file. A distinct
+verified file can still be written; the uncertain target cannot. Older guests
+without the lookup keep first-call behavior and conservatively fence the whole
+write operation after uncertainty. Paired-Mac mutations, arbitrary shell/secret
+operations and unreviewed MCP tools cannot prove independent targets from model
+arguments and remain opaque. This does not modify any access grant or allowlist.
+
+Reserved final-repair refusals are failed, non-executed activities. A second
+refused receipt cannot satisfy `HasCompletedTool` when the first receipt failed
+validation. The event tracker additionally rejects success for every never-started
+call, while resumed waiting calls preserve their existing running lifecycle.
 
 Question cards compare backend `updated_at` versions with the local answer
 response. A later backend expiry replaces an answered decision and exposes

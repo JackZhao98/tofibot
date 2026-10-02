@@ -147,6 +147,14 @@ func (s *Service) dispatchAction(ctx context.Context, req ActionRequest) (any, e
 			return nil, err
 		}
 		return s.listFiles(ctx, req.BotID, args.Path)
+	case "files.identity":
+		var args struct {
+			Path string `json:"path"`
+		}
+		if err := decodeArgs(req.Args, &args); err != nil {
+			return nil, err
+		}
+		return s.fileIdentity(req.BotID, args.Path)
 	case "files.read":
 		var args fileArgs
 		if err := decodeArgs(req.Args, &args); err != nil {

@@ -42,3 +42,53 @@ func TestRecoveryIdentityPreservesLargeNumbers(t *testing.T) {
 		t.Fatal("distinct integer arguments collapsed")
 	}
 }
+
+func TestResolvedRecoveryTargetsAndRiskSurviveCheckpoint(t *testing.T) {
+	prior := tooloutcome.OperationIdentity("computer/vm/bot/fixture", "files.write", json.RawMessage(`{"path":"a","content":"X"}`))
+	prior.Risk, prior.Target, prior.Object = tooloutcome.TargetMutation, "/workspace/a", "1:42"
+	data, err := json.Marshal([]ToolRecoveryRecord{{Identity: &prior, Outcome: tooloutcome.New(tooloutcome.Uncertain, "lost", "unknown", "Synthetic response lost.", "verify_effect")}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	var records []ToolRecoveryRecord
+	if err := json.Unmarshal(data, &records); err != nil {
+		t.Fatal(err)
+	}
+	for _, tc := range []struct {
+		name, target, object, risk string
+		blocked                    bool
+	}{
+		{"same-target-new-content", "/workspace/a", "1:43", tooloutcome.TargetMutation, true},
+		{"hardlink-alias", "/workspace/link", "1:42", tooloutcome.TargetMutation, true},
+		{"distinct-target", "/workspace/b", "1:44", tooloutcome.TargetMutation, false},
+		{"unverified-target", "/workspace/b", "", tooloutcome.OpaqueEffect, true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			i := tooloutcome.OperationIdentity(prior.Scope, prior.Operation, json.RawMessage(`{"path":"changed","content":"different"}`))
+			i.Target, i.Object, i.Risk = tc.target, tc.object, tc.risk
+			if got := toolRecoveryIdentityGuard(records, i); (got != nil) != tc.blocked {
+				t.Fatalf("guard=%+v identity=%+v", got, i)
+			}
+		})
+	}
+	observation := tooloutcome.OperationIdentity("computer/vm/bot/fixture", "files.read", json.RawMessage(`{"path":"a"}`))
+	observation.Risk = tooloutcome.Observation
+	records = []ToolRecoveryRecord{{Identity: &observation, Outcome: records[0].Outcome}}
+	other := tooloutcome.OperationIdentity(observation.Scope, observation.Operation, json.RawMessage(`{"path":"b"}`))
+	other.Risk = tooloutcome.Observation
+	if toolRecoveryIdentityGuard(records, observation) == nil || toolRecoveryIdentityGuard(records, other) != nil {
+		t.Fatal("observations were not scoped to the request")
+	}
+	// Legacy checkpoints with no risk/target evidence stay conservative.
+	legacy := prior
+	legacy.Risk = ""
+	legacy.Target = ""
+	legacy.Object = ""
+	records[0].Identity = &legacy
+	other.Scope, other.Operation = prior.Scope, prior.Operation
+	other.Risk = tooloutcome.TargetMutation
+	other.Target = "/workspace/b"
+	if toolRecoveryIdentityGuard(records, other) == nil {
+		t.Fatal("legacy unknown effect gained retry permission")
+	}
+}
