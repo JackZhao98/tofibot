@@ -239,6 +239,13 @@ function messageId() {
   return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
 }
 
+/** Short run durations keep their tenths; longer runs read as minutes and hours. */
+function formatRunDuration(ms: number, precise = true) {
+  const total = ms / 1000;
+  if (total < 60) return precise ? `${total.toFixed(1)}s` : `${Math.floor(total)}s`;
+  const rounded = Math.round(total), hours = Math.floor(rounded / 3600), minutes = Math.floor(rounded % 3600 / 60), secs = rounded % 60;
+  return hours ? `${hours} 小时 ${minutes} 分` : `${minutes} 分 ${secs} 秒`;
+}
 function formatTime(value: string, timeZone: string) {
   return new Intl.DateTimeFormat("zh-CN", { hour: "2-digit", minute: "2-digit", timeZone }).format(new Date(value));
 }
@@ -1497,7 +1504,7 @@ function Workspace() {
 
   function conversationRow(conversation: Conversation) {
     const bot = conversation.kind === "dm" ? botByConversationId.get(conversation.id) : undefined;
-    const preview = previewText(conversation.last_message?.content?.trim() || "");
+    const preview = previewText(conversation.last_message?.kind === "message_ref" ? localizeMessageRef(conversation.last_message.content) : conversation.last_message?.content?.trim() || "");
     const botId = conversation.kind === "dm" ? bot?.id || conversation.bot_id || conversation.bot_ids[0] || conversation.id : conversation.id;
     const motion = conversationMotion(conversation, bot?.id || conversation.bot_id || botId);
     const task = conversation.task_state;
@@ -1842,13 +1849,21 @@ function EmptyWorkspace({ onCreate, busy, error }: { onCreate: () => void; busy:
 }
 
 
+/** Cross-conversation capsules are stored with English labels; show them in the UI language. */
+function localizeMessageRef(content: string) {
+  const text = content.trim();
+  if (text.startsWith("Message from ")) return `来自 ${text.slice(13)} 的消息`;
+  if (text.startsWith("Messaged ")) return `已发消息给 ${text.slice(9)}`;
+  return text;
+}
+
 function RelatedMessageLink({ target, onOpen }: { target: ViewOnlyChatTarget; onOpen: (target: ViewOnlyChatTarget) => void }) {
   const targetIDs = target.targetBotIds?.length ? target.targetBotIds : target.target.kind === "group" ? target.target.bot_ids : [target.target.bot_id ?? target.target.id];
   const label = target.label ?? (target.target.kind === "group" ? "Messaged" : "Message from");
   const displayIDs = label === "Message from" && target.sourceBotIds?.length ? target.sourceBotIds : targetIDs;
   const displayName = label === "Message from" && target.sourceName ? target.sourceName : target.targetName ?? target.target.name;
   const visibleDisplayIDs = displayIDs.slice(0, 3);
-  return <button type="button" className="related-message-link" aria-label={`${label} ${displayName}`} onClick={() => onOpen(target)}><span>{label}</span><span className="related-message-avatars">{visibleDisplayIDs.map((id) => <GazeAvatar key={id} id={id} mini />)}{displayIDs.length > visibleDisplayIDs.length && <em>+{displayIDs.length - visibleDisplayIDs.length}</em>}</span><span className="related-message-name">{displayName}</span><Icon name="chevron-right" size={14} /></button>;
+  return <button type="button" className="related-message-link" aria-label={`${label === "Message from" ? "来自" : "已发给"} ${displayName}`} onClick={() => onOpen(target)}><span>{label === "Message from" ? "来自" : "已发给"}</span><span className="related-message-avatars">{visibleDisplayIDs.map((id) => <GazeAvatar key={id} id={id} mini />)}{displayIDs.length > visibleDisplayIDs.length && <em>+{displayIDs.length - visibleDisplayIDs.length}</em>}</span><span className="related-message-name">{displayName}</span><Icon name="chevron-right" size={14} /></button>;
 }
 
 function SmoothStreamMarkdown({ content, mention, active }: { content: string; mention?: React.ReactNode; active: boolean }) {
@@ -2150,7 +2165,7 @@ function WebToolActivityRun({ runId, items, notes, summary, summaryError, summar
   const times = toolRunTimes(items, notes, summary);
   const lastTime = live ? now : times.last;
   const firstTime = times.first;
-  const seconds = Number.isFinite(firstTime) && Number.isFinite(lastTime) && lastTime >= firstTime ? ((lastTime - firstTime) / 1000).toFixed(1) : undefined;
+  const duration = Number.isFinite(firstTime) && Number.isFinite(lastTime) && lastTime >= firstTime ? formatRunDuration(lastTime - firstTime) : undefined;
   const current = activeToolForRun(items, runId) ?? items.find(item => item.status === "queued");
   const count = summary?.tool_count ?? (summaryError || summaryLoading ? undefined : items.length);
   const issues = live
@@ -2187,7 +2202,7 @@ function WebToolActivityRun({ runId, items, notes, summary, summaryError, summar
         {!live && Number.isFinite(lastTime) && <time>{formatTime(new Date(lastTime).toISOString(), timezone)}</time>}
         <button type="button" className="web-tool-toggle" aria-expanded={expanded} aria-controls={`web-tool-drawer-${runId}`} onClick={() => setExpanded(value => { const next = !value; if (next) loadDetails(); return next; })}>
           <Icon className="web-tool-chevron" name="chevron-right" size={14} />
-          <span className={live ? "web-tool-live-label" : undefined}>{activityLabel}{!live && count !== undefined ? ` · ${count} 次调用` : ""}{issues ? ` · ${issues}` : ""}{notes.length ? ` · ${notes.length} 次汇报` : ""}{!live && seconds !== undefined ? ` · ${seconds}s` : ""}</span>
+          <span className={live ? "web-tool-live-label" : undefined}>{activityLabel}{!live && count !== undefined ? ` · ${count} 次调用` : ""}{issues ? ` · ${issues}` : ""}{notes.length ? ` · ${notes.length} 次汇报` : ""}{!live && duration !== undefined ? ` · ${duration}` : ""}</span>
         </button>
       </div>
       <div className={`web-tool-drawer${expanded ? " is-open" : ""}`} id={`web-tool-drawer-${runId}`} aria-hidden={!expanded} inert={!expanded}><div className="web-tool-drawer-inner">
@@ -2222,7 +2237,7 @@ function DesktopToolActivityRun({ runId, items, notes, summary: runSummary, summ
     const times = toolRunTimes(items, notes, runSummary);
     const firstTime = times.first;
     const lastTime = live ? now : times.last;
-    const seconds = Number.isFinite(firstTime) && Number.isFinite(lastTime) && lastTime >= firstTime ? Math.floor((lastTime - firstTime) / 1000) : undefined;
+    const duration = Number.isFinite(firstTime) && Number.isFinite(lastTime) && lastTime >= firstTime ? formatRunDuration(lastTime - firstTime, false) : undefined;
     const summary = live ? current ? `正在 ${current.name} · 第 ${items.indexOf(current) + 1} 步` : queued ? `等待 ${queued.name} · 第 ${items.indexOf(queued) + 1} 步` : "正在整理工具结果" : summaryLoading ? "正在读取工作汇总…" : summaryError ? "工作详情未加载" : notes.length ? `工作过程 · ${notes.length} 次汇报${count ? ` · ${count} 个工具` : ""}` : `${count ?? 0} 个工具`;
     const entries = [
       ...items.map(activity => ({ type: "tool" as const, at: activity.started_at, activity })),
@@ -2231,7 +2246,7 @@ function DesktopToolActivityRun({ runId, items, notes, summary: runSummary, summ
     return <section className={`tool-message${live ? " is-live" : ""}`}>
       <div className="tool-sender">{botName}</div>
       <details className="tool-activity v2-tool-run" open={expanded} onToggle={event => { setExpanded(event.currentTarget.open); if (event.currentTarget.open && !detail?.loading && (count === undefined || items.length < count) && detail?.hasMore !== false) void onLoadDetails?.(runId, detail?.loaded ?? 0); }}>
-        <summary className="v2-tool-summary"><span>{summary}{seconds === undefined ? "" : ` · ${seconds}s`}</span></summary>
+        <summary className="v2-tool-summary"><span>{summary}{duration === undefined ? "" : ` · ${duration}`}</span></summary>
         <ol className="v2-tool-steps">{summaryLoading && <li className="v2-progress-note"><div>正在读取工作汇总…</div></li>}{summaryError && <li className="v2-progress-note"><div>工作汇总加载失败：{summaryError}</div><button type="button" className="secondary-button" onClick={() => onRetrySummary?.(runId)}>重试</button></li>}{!entries.length && <li className="v2-progress-note"><div>{detail?.loading ? "正在加载工作详情…" : detail?.error ? `工作详情加载失败：${detail.error}` : "展开以加载工作详情"}</div></li>}{entries.map(entry => {
           if (entry.type === "note") return <li className="v2-progress-note" key={entry.note.id}><span className="v2-tool-step-marker" aria-hidden="true" /><div><small>进度汇报 · {formatExactTime(entry.note.created_at, timezone)}</small><MessageMarkdown content={entry.note.content} /></div></li>;
           const { activity } = entry;
