@@ -113,6 +113,7 @@ func isConnectionError(msg string) bool {
 		"no such host",
 		"network is unreachable",
 		"i/o timeout",
+		"internal_error",
 	}
 	for _, pattern := range connectionPatterns {
 		if strings.Contains(lower, pattern) {

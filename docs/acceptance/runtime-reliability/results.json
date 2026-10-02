@@ -1,0 +1,82 @@
+[
+  {
+    "viewport": "narrow",
+    "case": "approval-visible-wait-with-historical-failures",
+    "pass": true
+  },
+  {
+    "viewport": "narrow",
+    "case": "relogin-restores-pending-no-stale-error-flood",
+    "pass": true
+  },
+  {
+    "viewport": "narrow",
+    "case": "expiry-distinct-resumable",
+    "pass": true
+  },
+  {
+    "viewport": "narrow",
+    "case": "fresh-card-after-duplicate-renew-click",
+    "pass": true
+  },
+  {
+    "viewport": "narrow",
+    "case": "duplicate-answer-one-submission-resume",
+    "pass": true
+  },
+  {
+    "viewport": "narrow",
+    "case": "sse-reconnect-refreshes-current-action-without-stale-replay",
+    "pass": true
+  },
+  {
+    "viewport": "narrow",
+    "case": "need-information-visible-answerable-and-resumable",
+    "pass": true
+  },
+  {
+    "viewport": "narrow",
+    "case": "stream-failure-system-explanation-and-late-frame-guard",
+    "pass": true
+  },
+  {
+    "viewport": "desktop",
+    "case": "approval-visible-wait-with-historical-failures",
+    "pass": true
+  },
+  {
+    "viewport": "desktop",
+    "case": "relogin-restores-pending-no-stale-error-flood",
+    "pass": true
+  },
+  {
+    "viewport": "desktop",
+    "case": "expiry-distinct-resumable",
+    "pass": true
+  },
+  {
+    "viewport": "desktop",
+    "case": "fresh-card-after-duplicate-renew-click",
+    "pass": true
+  },
+  {
+    "viewport": "desktop",
+    "case": "duplicate-answer-one-submission-resume",
+    "pass": true
+  },
+  {
+    "viewport": "desktop",
+    "case": "sse-reconnect-refreshes-current-action-without-stale-replay",
+    "pass": true
+  },
+  {
+    "viewport": "desktop",
+    "case": "need-information-visible-answerable-and-resumable",
+    "pass": true
+  },
+  {
+    "viewport": "desktop",
+    "case": "stream-failure-system-explanation-and-late-frame-guard",
+    "pass": true
+  }
+]

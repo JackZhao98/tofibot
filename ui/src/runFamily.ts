@@ -63,7 +63,8 @@ export function runFailureText(run: Run) {
   if (run.status === "cancelled") return "本次请求已停止。已完成的工具结果保留。";
   if (run.status === "interrupted") return "本次请求已中断，任务未完成。已完成的工具结果保留。";
   if (run.status !== "failed") return "";
+  if (run.failure?.code === "budget_exhausted") return "执行或修复次数已用尽，任务未完成。已完成的工具结果保留，请检查原因后继续。";
   const interrupted = run.failure?.source === "runtime" && run.failure.code === "connection_interrupted"
     || (!run.failure && /stream read error|connection reset|unexpected EOF|INTERNAL_ERROR.*received from peer/i.test(run.error ?? ""));
-  return interrupted ? "连接中断，任务未完成。已完成的工具结果保留。" : "本次请求失败，任务未完成。已完成的工具结果保留。";
+  return interrupted ? "连接中断，任务未完成。已完成的工具结果保留；重试前请核实结果不确定的操作。" : "本次请求失败，任务未完成。已完成的工具结果保留。";
 }

@@ -34,6 +34,10 @@ func newOpenAICodex(accessToken string, cfg *providerConfig) (Provider, error) {
 func (o *openAICodex) request(req *ChatRequest) *ChatRequest {
 	copy := *req
 	copy.Model = strings.TrimPrefix(req.Model, "codex-")
+	// This provider slug itself starts with codex-. Preserve the real ID.
+	if req.Model == "codex-auto-review" {
+		copy.Model = "codex-auto-review"
+	}
 	return &copy
 }
 

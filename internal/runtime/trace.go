@@ -8,6 +8,7 @@ import (
 
 	"github.com/JackZhao98/tofibot/internal/agent"
 	"github.com/JackZhao98/tofibot/internal/provider"
+	"github.com/JackZhao98/tofibot/internal/tooloutcome"
 )
 
 const (
@@ -215,6 +216,9 @@ func (t *toolEventTracker) finish(msg provider.Message) {
 }
 
 func toolResultFailed(result string) bool {
+	if o := tooloutcome.Parse(result); o != nil {
+		return o.Status != "approval_recorded"
+	}
 	result = strings.ToLower(strings.TrimSpace(result))
 	for _, prefix := range []string{
 		"tool error:",

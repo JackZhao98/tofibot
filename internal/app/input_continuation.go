@@ -9,6 +9,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"errors"
+	"github.com/JackZhao98/tofibot/internal/tooloutcome"
 	"time"
 )
 
@@ -67,7 +68,8 @@ func (s *Store) SaveInputContinuation(ctx context.Context, runID, questionID str
 	}
 	result, err := tx.ExecContext(ctx, `INSERT INTO run_input_waits(run_id,question_id,checkpoint_json,state,created_at) VALUES(?,?,?,'waiting',?)
 		ON CONFLICT(run_id) DO UPDATE SET question_id=excluded.question_id,checkpoint_json=excluded.checkpoint_json,state='waiting',created_at=excluded.created_at
-		WHERE run_input_waits.state='claimed' AND run_input_waits.question_id<>excluded.question_id`, runID, questionID, string(checkpoint), now())
+		WHERE run_input_waits.state='claimed' AND (run_input_waits.question_id<>excluded.question_id
+		OR EXISTS(SELECT 1 FROM questions WHERE id=excluded.question_id AND type='approval' AND status='expired'))`, runID, questionID, string(checkpoint), now())
 	if err != nil {
 		return err
 	}
@@ -80,6 +82,12 @@ func (s *Store) SaveInputContinuation(ctx context.Context, runID, questionID str
 	}
 	if err = insertRecoveryEvent(tx, r.ConversationID, "run", r, r.UpdatedAt); err != nil {
 		return err
+	}
+	if q.Type == questionApproval && q.Status == questionExpired {
+		q.Resumable = true
+		if err = insertRecoveryEvent(tx, q.ConversationID, "question", q.Card(), r.UpdatedAt); err != nil {
+			return err
+		}
 	}
 	return tx.Commit()
 }
@@ -122,7 +130,7 @@ func (s *Store) refreshInputWaits(conv string) error {
 				return e
 			}
 			if !time.Now().Before(deadline) {
-				q.Status, q.UpdatedAt = questionExpired, now()
+				q.Status, q.UpdatedAt, q.Resumable = questionExpired, now(), q.Type == questionApproval
 				if _, e = tx.Exec(`UPDATE questions SET status=?,updated_at=? WHERE id=? AND status='pending'`, q.Status, q.UpdatedAt, q.ID); e != nil {
 					return e
 				}
@@ -130,6 +138,11 @@ func (s *Store) refreshInputWaits(conv string) error {
 					return e
 				}
 			}
+		}
+		// An expired approval remains a resumable wait. Only a fresh card can
+		// release it; expiration is neither denial nor permission to execute.
+		if q.Type == questionApproval && q.Status == questionExpired {
+			continue
 		}
 		if q.Status != questionAnswered && q.Status != questionCancelled && q.Status != questionExpired {
 			continue
@@ -178,7 +191,7 @@ func (s *Store) claimInputContinuation(ctx context.Context, runID string) (json.
 		if err != nil {
 			return nil, q, false, err
 		}
-		if q.RunID != runID || (q.Status != questionAnswered && q.Status != questionCancelled && q.Status != questionExpired) {
+		if q.RunID != runID || (q.Type == questionApproval && q.Status == questionExpired) || (q.Status != questionAnswered && q.Status != questionCancelled && q.Status != questionExpired) {
 			return nil, q, false, errors.New("input continuation is not ready")
 		}
 		if _, err = tx.ExecContext(ctx, `UPDATE run_input_waits SET state='claimed' WHERE run_id=? AND state='waiting'`, runID); err != nil {
@@ -265,6 +278,16 @@ func (s *Server) inputResumeResult(q Question) string {
 	if q.Status != questionAnswered {
 		b, _ := json.Marshal(map[string]string{"status": q.Status})
 		return string(b)
+	}
+	if q.Type == questionApproval {
+		var mcpApproval bool
+		_ = s.store.db.QueryRow(`SELECT EXISTS(SELECT 1 FROM mcp_call_approvals WHERE question_id=?)`, q.ID).Scan(&mcpApproval)
+		if mcpApproval {
+			if string(q.Answer) != "true" {
+				return tooloutcome.New(tooloutcome.Denied, "approval_denied", "not_executed", "The human did not approve this external tool call. Do not execute or repeat it.", "explain_blocker").JSON()
+			}
+			return tooloutcome.New("approval_recorded", "approval_recorded", "not_executed", "The human recorded approval; the external action has not executed. Reinspect current state and refresh the MCP schema if needed, then propose the exact approved call.", "reinspect_and_call").JSON()
+		}
 	}
 	if q.Type != questionForm {
 		return string(q.Answer)

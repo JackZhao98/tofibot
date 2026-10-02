@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	"github.com/JackZhao98/tofibot/internal/runtime"
+	"github.com/JackZhao98/tofibot/internal/tooloutcome"
 )
 
 const (
@@ -37,6 +38,15 @@ type ToolActivity struct {
 	Truncated      bool   `json:"truncated"`
 	StartedAt      string `json:"started_at"`
 	UpdatedAt      string `json:"updated_at"`
+}
+
+// Outcome is derived from the stored executor result, including after reload.
+func (a ToolActivity) MarshalJSON() ([]byte, error) {
+	type plain ToolActivity
+	return json.Marshal(struct {
+		plain
+		Outcome *tooloutcome.Outcome `json:"outcome,omitempty"`
+	}{plain: plain(a), Outcome: tooloutcome.Parse(a.Result)})
 }
 
 // ToolActivityRunSummary is the small, exact count shown before a user asks
