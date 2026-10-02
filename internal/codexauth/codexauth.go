@@ -104,6 +104,19 @@ func New(dataDir string) (*Manager, error) {
 	})
 }
 
+// OpenReadOnly constructs an accessor without creating directories, changing
+// permissions or refreshing tokens. Read-only probes use CredentialReadOnly.
+func OpenReadOnly(dataDir string) (*Manager, error) {
+	if strings.TrimSpace(dataDir) == "" {
+		return nil, errors.New("existing Codex auth data directory is required")
+	}
+	info, err := os.Stat(dataDir)
+	if err != nil || !info.IsDir() {
+		return nil, errors.New("existing Codex auth data directory is unavailable")
+	}
+	return newManager(dataDir, &http.Client{Timeout: requestTimeout}, endpoints{})
+}
+
 func newManager(dataDir string, client *http.Client, ep endpoints) (*Manager, error) {
 	if client == nil {
 		client = &http.Client{Timeout: requestTimeout}

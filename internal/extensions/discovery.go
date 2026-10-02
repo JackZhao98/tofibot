@@ -11,8 +11,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"github.com/JackZhao98/tofibot/internal/runtime"
+	"github.com/JackZhao98/tofibot/internal/tooloutcome"
+	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
 const maxDiscoveryBytes = 32 << 10
@@ -270,7 +271,7 @@ func lazyDiscoverableMCPTools(runCtx context.Context, m *Manager, servers map[st
 				toolSources[toolName] = mcpToolSource{server: name, remoteName: remote.RemoteName, schemaVersion: version}
 				remoteName := remote.RemoteName
 				found = append(found, runtime.Tool{Name: toolName, Description: boundedDescription(remote.Description, toolName), Parameters: remote.InputSchema, Execute: func(callCtx context.Context, args json.RawMessage) (string, error) {
-					out, err := m.callMCPTool(callCtx, cli, remoteName, args)
+					out, err := m.callMCPTool(callCtx, cli, remoteName, args, trustedReadOnlyTool(cfg, remoteName))
 					if err != nil {
 						m.invalidateCatalogs(name)
 					}
@@ -698,15 +699,18 @@ func lazyDiscoverableMCPTools(runCtx context.Context, m *Manager, servers map[st
 		seenMu.Unlock()
 		if !ok {
 			if rejectedCached[in.Name] {
-				return "", errors.New("recent MCP schema was not accepted for the current configuration; search the known server before calling it")
+				return "", tooloutcome.New(tooloutcome.Validation, "stale_schema", "not_executed", "recent MCP schema was not accepted for the current configuration; search the known server before calling it.", "refresh_schema").Err()
 			}
-			return "", errors.New("tool was not returned by search_mcp_tools in this run or accepted from recent capability context")
+			return "", tooloutcome.New(tooloutcome.Validation, "schema_required", "not_executed", "Tool was not returned by search_mcp_tools in this run or accepted from recent capability context.", "refresh_schema").Err()
 		}
 		sourceMu.RLock()
 		source, ok := toolSources[in.Name]
 		sourceMu.RUnlock()
 		if !ok {
 			return "", errors.New("MCP tool source is unavailable")
+		}
+		if err := validateMCPArguments(t.Parameters, args); err != nil {
+			return "", err
 		}
 		if enforceApproval && !trustedReadOnlyTool(servers[source.server], source.remoteName) {
 			if approvalGate == nil {

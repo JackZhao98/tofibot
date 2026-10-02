@@ -167,7 +167,7 @@ func (p *batchedReportingProvider) ChatStream(ctx context.Context, req *provider
 	return p.Chat(ctx, req)
 }
 
-func TestRunDefersBatchCallsBeyondFifteenUntilReport(t *testing.T) {
+func TestRunKeepsUsefulBatchCallsBeyondFifteen(t *testing.T) {
 	paths.SetTofiHome(t.TempDir())
 	p := &batchedReportingProvider{}
 	e := &engine{provider: p, model: "test-model"}
@@ -176,12 +176,12 @@ func TestRunDefersBatchCallsBeyondFifteenUntilReport(t *testing.T) {
 		Tools:           []Tool{{Name: "tick", Parameters: map[string]any{"type": "object"}, Execute: func(context.Context, json.RawMessage) (string, error) { executed++; return "ok", nil }}},
 		OnAssistantTurn: func(int, string) error { return nil },
 	})
-	if err != nil || result.Content != "Done." || executed != 16 || p.seenDeferred != 2 {
+	if err != nil || result.Content != "Done." || executed != 18 || p.seenDeferred != 0 {
 		t.Fatalf("result=%+v err=%v executed=%d deferred=%d", result, err, executed, p.seenDeferred)
 	}
 }
 
-func TestRunDoesNotExecuteMoreToolsWhenModelRefusesReport(t *testing.T) {
+func TestRunRetainsStepBudgetWithoutMissingProseAbort(t *testing.T) {
 	paths.SetTofiHome(t.TempDir())
 	p := &batchedReportingProvider{neverReports: true}
 	e := &engine{provider: p, model: "test-model"}
@@ -190,7 +190,7 @@ func TestRunDoesNotExecuteMoreToolsWhenModelRefusesReport(t *testing.T) {
 		Tools:           []Tool{{Name: "tick", Parameters: map[string]any{"type": "object"}, Execute: func(context.Context, json.RawMessage) (string, error) { executed++; return "ok", nil }}},
 		OnAssistantTurn: func(int, string) error { return nil },
 	})
-	if err == nil || !strings.Contains(err.Error(), "required progress report") || executed != 15 || p.calls != 4 {
+	if err == nil || !strings.Contains(err.Error(), "maximum agent steps") || executed != 314 || p.calls != 300 {
 		t.Fatalf("err=%v executed=%d modelCalls=%d", err, executed, p.calls)
 	}
 }

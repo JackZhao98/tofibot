@@ -32,6 +32,7 @@ export interface Question {
   created_at: string;
   updated_at?: string;
   expires_at?: string;
+  outcome?: { status: string; execution_certainty: string; message: string; next_action: string };
 }
 export type ConversationItem = { kind: "message"; message: Message } | { kind: "question"; question: Question } | { kind: "mail_draft"; draft: MailDraft };
 
@@ -51,7 +52,7 @@ export function buildQuestionTimeline(messages: Message[], questions: Question[]
   const ordered: Exclude<ConversationItem, { kind: "message" }>[] = [
     ...questions.map(question => ({ kind: "question" as const, question })),
     ...mailDrafts.map(draft => ({ kind: "mail_draft" as const, draft })),
-  ].filter(item => !lowerBound || (item.kind === "question" ? item.question.status === "pending" : item.draft.status === "pending") || compareQuestionTime(item.kind === "question" ? item.question.created_at : item.draft.created_at, lowerBound) >= 0)
+  ].filter(item => !lowerBound || (item.kind === "question" ? (item.question.status === "pending" || item.question.outcome?.next_action === "renew_approval") : item.draft.status === "pending") || compareQuestionTime(item.kind === "question" ? item.question.created_at : item.draft.created_at, lowerBound) >= 0)
     .sort((a, b) => compareQuestionTime(a.kind === "question" ? a.question.created_at : a.draft.created_at, b.kind === "question" ? b.question.created_at : b.draft.created_at)
       || (a.kind === "question" ? a.question.question_id : a.draft.draft_id).localeCompare(b.kind === "question" ? b.question.question_id : b.draft.draft_id));
   const output: ConversationItem[] = [];

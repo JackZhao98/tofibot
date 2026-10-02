@@ -12,6 +12,7 @@ import (
 	"github.com/JackZhao98/tofibot/internal/agent"
 	"github.com/JackZhao98/tofibot/internal/models"
 	"github.com/JackZhao98/tofibot/internal/provider"
+	"github.com/JackZhao98/tofibot/internal/tooloutcome"
 )
 
 const (
@@ -76,6 +77,20 @@ func encodeContinuation(req Request, model string, continuation *agent.Continuat
 		return nil, fmt.Errorf("encode runtime continuation: %w", err)
 	}
 	return checkpoint, nil
+}
+
+// RenewContinuationQuestion changes only the backend-owned rendezvous ID.
+// The provider transcript and tool call remain unchanged; no action is replayed.
+func RenewContinuationQuestion(raw json.RawMessage, oldID, newID string) (json.RawMessage, error) {
+	var c continuationEnvelope
+	if json.Unmarshal(raw, &c) != nil || c.Version != continuationVersion || c.Agent == nil || c.Agent.QuestionID != oldID || strings.TrimSpace(newID) == "" {
+		return nil, errors.New("invalid approval renewal checkpoint")
+	}
+	if err := agent.ValidateContinuation(c.Agent); err != nil {
+		return nil, err
+	}
+	c.Agent.QuestionID = newID
+	return json.Marshal(c)
 }
 
 type engine struct {
@@ -247,7 +262,21 @@ func (e *engine) Run(ctx context.Context, req Request) (Result, error) {
 				if err != nil {
 					return "", fmt.Errorf("encode arguments for %s: %w", rawTool.Name, err)
 				}
-				return rawTool.Execute(context.WithValue(toolCtx, toolCallIDContextKey{}, callID), encoded)
+				if err := tooloutcome.ValidateArguments(params, args); err != nil {
+					return "", err
+				}
+				result, executeErr := rawTool.Execute(context.WithValue(toolCtx, toolCallIDContextKey{}, callID), encoded)
+				var suspension *userInputSuspensionError
+				if executeErr != nil && !errors.As(executeErr, &suspension) && toolCtx.Err() == nil {
+					if _, classified := tooloutcome.FromError(executeErr); !classified {
+						status, code, next := tooloutcome.Uncertain, "unclassified_tool_failure", "verify_effect"
+						if errors.Is(executeErr, errors.ErrUnsupported) {
+							status, code, next = tooloutcome.Permanent, "unsupported_operation", "explain_blocker"
+						}
+						executeErr = tooloutcome.New(status, code, "unknown", executeErr.Error()+" Verify the target state before repeating this call.", next).Err()
+					}
+				}
+				return result, executeErr
 			},
 		})
 	}

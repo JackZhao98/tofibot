@@ -18,6 +18,7 @@ import (
 	"github.com/JackZhao98/tofibot/internal/executor"
 	"github.com/JackZhao98/tofibot/internal/models"
 	"github.com/JackZhao98/tofibot/internal/provider"
+	"github.com/JackZhao98/tofibot/internal/tooloutcome"
 
 	"github.com/modelcontextprotocol/go-sdk/auth"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
@@ -748,12 +749,13 @@ func RunAgentLoop(cfg AgentConfig, ctx *models.ExecutionContext) (*AgentResult, 
 	assistantTurnIndex := 0
 	toolCallsSinceReport := 0
 	reportRequired := false
-	reportRetries := 0
 	seenDiscoveryResults := map[[32]byte]bool{}
 	toolArgsByCallID := map[string]string{}
 	cycleSawTool, cycleSawNovel, cycleOnlyDiscovery := false, false, true
 	stalledDiscoveryCycles := 0
 	stalledDiscoveryStop := false
+	var recoveryLedger []ToolRecoveryRecord
+	recoveryCalls := map[string]provider.ToolCall{}
 	if cfg.Continuation != nil {
 		assistantTurnIndex = cfg.Continuation.AssistantTurnIndex
 		toolCallsSinceReport = cfg.Continuation.ToolCallsSinceReport
@@ -769,13 +771,24 @@ func RunAgentLoop(cfg AgentConfig, ctx *models.ExecutionContext) (*AgentResult, 
 					cfg.OnAssistantTurn(assistantTurnIndex, content)
 					toolCallsSinceReport = 0
 					reportRequired = false
-					reportRetries = 0
 					cycleSawTool, cycleSawNovel, cycleOnlyDiscovery = false, false, true
 				}
 			}
 		}
 	}
 	appendAndEmit := func(list []provider.Message, msg provider.Message) []provider.Message {
+		if cfg.ToolsOnly {
+			for _, call := range msg.ToolCalls {
+				recoveryCalls[call.ID] = call
+			}
+			if msg.Role == "tool" {
+				if o := tooloutcome.Parse(msg.Content); o != nil && recoveryStatus(o.Status) {
+					if call, ok := recoveryCalls[msg.ToolCallID]; ok {
+						recoveryLedger = append(recoveryLedger, ToolRecoveryRecord{Call: call, Outcome: *o})
+					}
+				}
+			}
+		}
 		if msg.Role == "tool" && cfg.MaxToolCallsBetweenReports > 0 && !strings.HasPrefix(msg.Content, "Tool not executed:") {
 			if args, ok := toolArgsByCallID[msg.ToolCallID]; ok {
 				cycleSawTool = true
@@ -821,6 +834,19 @@ func RunAgentLoop(cfg AgentConfig, ctx *models.ExecutionContext) (*AgentResult, 
 	} else {
 		messages = []provider.Message{
 			{Role: "user", Content: cfg.Prompt},
+		}
+	}
+
+	if cfg.ToolsOnly {
+		if cfg.Continuation != nil && cfg.Continuation.ToolRecovery != nil {
+			recoveryLedger = append([]ToolRecoveryRecord(nil), cfg.Continuation.ToolRecovery...)
+		} else {
+			recoveryLedger = toolRecoveryRecords(messages)
+		}
+		for _, msg := range messages {
+			for _, call := range msg.ToolCalls {
+				recoveryCalls[call.ID] = call
+			}
 		}
 	}
 
@@ -1120,13 +1146,15 @@ func RunAgentLoop(cfg AgentConfig, ctx *models.ExecutionContext) (*AgentResult, 
 			emptyResponseStreak = 0
 		}
 		if reportRequired && strings.TrimSpace(stripThinkTags(resp.Content)) == "" {
-			reportRetries++
-			if reportRetries >= 3 {
-				return nil, errors.New("model did not provide a required progress report")
+			// Progress is a presentation concern, not execution authorization.
+			// A model's missing narration must not discard useful tool calls or
+			// consume three extra model turns. Runtime activity remains visible.
+			if cfg.OnProgress != nil {
+				cfg.OnProgress("running", 0, "Work is continuing; completed tool results are available in the activity history.")
 			}
-			messages = append(messages, provider.Message{Role: "user", Content: progressReportReminder(cfg.MaxToolCallsBetweenReports)})
-			state = state.WithMessages(messages)
-			continue
+			reportRequired = false
+			toolCallsSinceReport = 0
+			cycleSawTool, cycleSawNovel, cycleOnlyDiscovery = false, false, true
 		}
 
 		// Per-run budget guard. After each LLM call we check whether this
@@ -1356,10 +1384,7 @@ func RunAgentLoop(cfg AgentConfig, ctx *models.ExecutionContext) (*AgentResult, 
 				if repairRequest {
 					reservedReceiptAttempted = true
 				}
-				if !repairRequest && cfg.MaxToolCallsBetweenReports > 0 && toolCallsSinceReport >= cfg.MaxToolCallsBetweenReports {
-					messages = appendAndEmit(messages, provider.Message{Role: "tool", Content: "Tool not executed: a user-visible progress report is required before more tool calls.", ToolCallID: callID, ToolName: fnName})
-					continue
-				}
+
 				toolCallsSinceReport++
 				if err := loopCtx.Err(); err != nil {
 					return nil, err
@@ -1383,10 +1408,16 @@ func RunAgentLoop(cfg AgentConfig, ctx *models.ExecutionContext) (*AgentResult, 
 					cfg.OnStepStart(fnName, argsStr)
 				}
 
+				if cfg.ToolsOnly {
+					if blocked := toolRecoveryRecordsGuard(recoveryLedger, fnName, fnArgs); blocked != nil {
+						messages = appendAndEmit(messages, provider.Message{Role: "tool", Content: blocked.JSON(), ToolCallID: callID, ToolName: fnName})
+						continue
+					}
+				}
 				// Parse Args
 				var argsMap map[string]interface{}
 				if err := json.Unmarshal([]byte(fnArgs), &argsMap); err != nil {
-					errMsg := fmt.Sprintf("Error parsing arguments for %s: %v", fnName, err)
+					errMsg := tooloutcome.New(tooloutcome.Validation, "invalid_json", "not_executed", fmt.Sprintf("Error parsing arguments for %s: %v", fnName, err), "repair_arguments").JSON()
 					messages = appendAndEmit(messages, provider.Message{
 						Role:       "tool",
 						Content:    errMsg,
@@ -1542,10 +1573,10 @@ func RunAgentLoop(cfg AgentConfig, ctx *models.ExecutionContext) (*AgentResult, 
 								state, &cfg, cfg.Model, messages, assistantTurnIndex, runStart,
 								budgetWrapUp, finalResponseRepaired, finalRepairPending, finalRepairReserved, finalRepairFinalPending,
 								toolCallsSinceReport, toolCallsSinceReport >= cfg.MaxToolCallsBetweenReports && cfg.MaxToolCallsBetweenReports > 0,
-								questionID, tc,
+								questionID, tc, recoveryLedger,
 							), nil
 						}
-						resultMsg = fmt.Sprintf("Tool error: %v", err)
+						resultMsg = tooloutcome.ModelResult(err)
 					} else {
 						resultMsg = result
 						// If skill returned commands (code blocks), hint agent to execute them
