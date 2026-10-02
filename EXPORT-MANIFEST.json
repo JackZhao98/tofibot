@@ -8,8 +8,11 @@
     "AGENTS.md": "0e5e8d6457eab4b5441288c04bcd66661f456531257157faf2945ce446642a1c",
     "Dockerfile": "1d79991f7e8213ccdb21cb4050d3546553626561e53921cdb128c9725e89ae90",
     "Makefile": "419ac0da6b4c6787c8acd51bd14f8781b6e2e05bfe8bc6972791b2be60cf85a0",
-    "README.md": "e32542cb10ec402a4a78a25dc36bc2ff351887d8cb49ab381c9932b0e368a158",
-    "assets/banner.svg": "02625fcbfd465accf462fd7775c4e13eb9f8b3e04e604a4df4b1883f2da21893",
+    "README.md": "a6a503259adefe6c4181473048df931889ba27816c653090f13505f7320b94d1",
+    "assets/OFL-Fredoka.txt": "18aabf190848725e2576eefb5c29ba06aac1029d02132252a7f312eac2e50cf3",
+    "assets/README.md": "d37284a02b4c8436be38513ab57bf805f583b7a0a59b89e65ca7a37e6bfa2eb6",
+    "assets/banner.png": "48b98b63507b1decb557b12bd250c386c71b5cdf4895714c34e1951c5d7f52ed",
+    "assets/banner.svg": "7a150ac9a6d90e1bc553fda07b509ff3240ad1da3c2b2301c60961733a45dca0",
     "cmd/account-acceptance/main.go": "734bfd7ea8abc3e410eced34eb82651782063c864b53eb47efc6c1f1d49136ae",
     "cmd/tofi-guest/main.go": "b31e0a1dd2610a020a61dbb8fc83ef020f894a153ea1391f8746676348bfa35d",
     "cmd/tofi-mcp-runner/main.go": "fc4f3a937619b8a4d96555928e3014495f25fa9e097d25f883d9a7c2a687784e",
@@ -61,7 +64,7 @@
     "deploy/microvm/worker_cgroups.py": "bc2942c9584266df144b110a01c5f6d53a92c72806edfd697348216a0e4fb157",
     "deploy/microvm/worker_entrypoint.py": "eef0a19c59d28fd4a3ab975f31cc432f3d9572e8a85dd97fa4b9fdf553a2696d",
     "deploy/microvm/worker_supervisor.py": "41133c81a807c5db9d3402062cb757de21b610736a6fe6b345dee92dab83fa57",
-    "deploy/open-source-allowlist.json": "4b9746c7f9f2fc8d4f3fd26e9cac634ee07311439054d9fb1c23f7b8588e526b",
+    "deploy/open-source-allowlist.json": "abec44783d48ae6d1e3da2819492f60934c353ff6f8b6a5d46ec0e3ba6b0aa1d",
     "deploy/self-host/README.md": "6f8685a96f072838b644f4c10ae0abaff7807ca62cdfd566b4096673b9b06cc9",
     "deploy/self-host/worker.apparmor.template": "4d5f1aa068b080417831612ab34178365a54040459e71ab20d423038cc7f1eb1",
     "deploy/self-host/worker.seccomp.json": "aa4121584afdc24c25b7c0445a3940cdbe02aeddbf92e7d63ba0c95536d3e26b",
@@ -1375,7 +1378,8 @@
     "Export policy paths normalized to delivered tree",
     "Desktop-only diagnostic localvm package moved to sibling private client",
     "Project referer branding uses new repository URL, not prior domain",
-    "Added synthetic installer failure-path verification and truthful validation record"
+    "Added synthetic installer failure-path verification and truthful validation record",
+    "Replaced header with exact original four-cat landing snapshots and embedded Fredoka; README uses rendered PNG"
   ],
   "delivery_visibility": "PRIVATE; open-source publication deferred"
 }
