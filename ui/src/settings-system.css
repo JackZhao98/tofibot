@@ -104,3 +104,9 @@
 .workspace .settings-page-body :is(.appearance-setting h3,.timezone-setting h3,.notification-setting>strong,.settings-section h3){margin-top:0;color:var(--ink);font:600 15px/1.4 var(--body)}
 .workspace .settings-page-body .appearance-setting{border-bottom-color:var(--line-soft)}
 .workspace .settings-page-body .purge-section{border-top-color:var(--line-soft)}
+/* Skill cards pick up the shared bordered card surface, so they need inner padding and separation. */
+.workspace .settings-page-body .extension-panel .extension-list{display:grid;gap:10px}
+.workspace .settings-page-body .extension-panel .extension-card{padding:16px 18px}
+.workspace .settings-page-body .detail-heading{padding-right:0;padding-left:0}
+.workspace .settings-page-body a:not([class]){color:var(--ink);text-decoration-color:var(--yellow);text-underline-offset:3px}
+.workspace .settings-page-body input[type="file"]::file-selector-button{margin-right:10px;padding:6px 12px;border:1px solid var(--line-soft);border-radius:var(--radius-sm);background:var(--surface);color:var(--ink);font:var(--type-meta);cursor:pointer}
