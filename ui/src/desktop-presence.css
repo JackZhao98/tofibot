@@ -67,8 +67,8 @@ html:not([data-desktop]) .web-desktop-pointer-name{position:absolute;left:16px;t
 .desktop-pointer-label>span:last-child{min-width:0;overflow:hidden;text-overflow:ellipsis}
 .desktop-pointer-confirmed.is-right .desktop-pointer-label{left:auto;right:12px}
 .desktop-pointer-confirmed.is-bottom .desktop-pointer-label{top:auto;bottom:10px}
-.computer-detail:not(.is-expanded).is-driven-by-you .desktop-live-screen{border-color:var(--clay)!important;box-shadow:0 0 0 1px var(--clay),0 0 60px color-mix(in srgb,var(--clay) 40%,transparent)!important}
-.computer-detail:not(.is-expanded).is-driven-by-bot .desktop-live-screen{border-color:var(--lagoon)!important;box-shadow:0 0 0 1px var(--lagoon),0 0 60px color-mix(in srgb,var(--lagoon) 45%,transparent)!important}
+.computer-detail.is-driven-by-you .desktop-live-screen{border-color:var(--clay)!important;box-shadow:0 0 0 1px var(--clay),0 0 60px color-mix(in srgb,var(--clay) 40%,transparent)!important}
+.computer-detail.is-driven-by-bot .desktop-live-screen{border-color:var(--lagoon)!important;box-shadow:0 0 0 1px var(--lagoon),0 0 60px color-mix(in srgb,var(--lagoon) 45%,transparent)!important}
 @keyframes desktop-confirmed-click{from{transform:scale(.65);opacity:.2}45%{transform:scale(1.5);opacity:1}to{transform:scale(1);opacity:1}}
 @media(prefers-reduced-motion:reduce){
   html:not([data-desktop]) .web-desktop-pointer{transition:none}
@@ -106,21 +106,19 @@ html:not([data-desktop]) .desktop-floating-shell.is-expanded {
 }
 html:not([data-desktop]) .desktop-floating-shell>.computer-detail.is-expanded {
   position:relative; inset:auto; translate:none; transform:none;
-  width:min(1120px,calc(100vw - 24px),calc((var(--viewport-height,100dvh) - 80px) * 1.6));
+  width:min(1120px,calc(100vw - 24px),calc((var(--viewport-height,100dvh) - 120px) * 1.6));
   height:auto; max-height:calc(var(--viewport-height,100dvh) - 24px); min-height:0;
-  padding:0; border:2px solid var(--desktop-bezel); border-radius:16px;
-  background:var(--desktop-screen); box-shadow:none; overflow:auto;
-  transition:border-color 400ms ease,box-shadow 700ms ease;
+  padding:0; border:0; border-radius:0; background:transparent; box-shadow:none; overflow:visible;
+  display:flex; flex-direction:column; align-items:center; gap:16px;
 }
-html:not([data-desktop]) .desktop-floating-shell>.computer-detail.is-expanded.is-driven-by-bot { border-color:var(--lagoon); box-shadow:0 0 0 1px var(--lagoon),0 0 60px color-mix(in srgb,var(--lagoon) 45%,transparent); }
-html:not([data-desktop]) .desktop-floating-shell>.computer-detail.is-expanded.is-driven-by-you { border-color:var(--clay); box-shadow:0 0 0 1px var(--clay),0 0 60px color-mix(in srgb,var(--clay) 40%,transparent); }
 html:not([data-desktop]) .desktop-floating-shell .computer-detail.is-expanded .computer-floating-heading {
   position:absolute; inset:7px 7px auto auto; z-index:10; min-height:0; margin:0; padding:0;
 }
 html:not([data-desktop]) .desktop-floating-shell .computer-detail.is-expanded .desktop-control-button { color:var(--ink); }
 html:not([data-desktop]) .desktop-floating-shell .computer-detail.is-expanded .desktop-control-button:hover { background:var(--surface-hover); }
 html:not([data-desktop]) .desktop-floating-shell .computer-detail.is-expanded .computer-screen-wrap {
-  flex:none; width:100%; margin:0; padding:0; border:0; border-radius:0; box-shadow:none!important;
+  flex:none; width:100%; margin:0; padding:0; border:2px solid var(--desktop-bezel); border-radius:16px; overflow:hidden;
+  background:var(--desktop-screen); transition:border-color 400ms ease,box-shadow 700ms ease;
 }
 html:not([data-desktop]) .desktop-floating-shell .computer-detail.is-expanded .remote-desktop {
   flex:none; min-height:0; width:100%;
@@ -169,3 +167,27 @@ html:not([data-desktop]) .desktop-floating-shell .computer-detail.is-expanded .d
 html:not([data-desktop]) .desktop-floating-shell .computer-detail.is-expanded .remote-control-bar button.desktop-take-button{min-height:30px;padding:5px 12px;border:0;background:var(--clay);color:var(--on-block)}
 html:not([data-desktop]) .desktop-floating-shell .computer-detail.is-expanded .remote-control-bar button.desktop-take-button.is-hand-back{background:var(--lagoon)}
 @media(prefers-reduced-motion:reduce){.desktop-status-dot{animation:none!important}}
+
+/* Design system control bar (Motion Lab .fd-controls): power · cat ⇄ you with the mouse token · take / hand back. */
+html:not([data-desktop]) .desktop-floating-shell{max-height:none}
+.desktop-control-bar{order:10;position:relative;display:flex;align-items:center;gap:10px;width:fit-content;margin:12px auto 0;padding:7px 9px;border:1px solid var(--desktop-controls-edge);border-radius:16px;background:var(--desktop-controls-glass);-webkit-backdrop-filter:blur(20px) saturate(1.6);backdrop-filter:blur(20px) saturate(1.6);color:var(--desktop-controls-ink);pointer-events:auto}
+.computer-detail.is-expanded .desktop-control-bar{margin:0}
+@media(prefers-reduced-transparency:reduce){.desktop-control-bar{background:var(--desktop-controls-solid);-webkit-backdrop-filter:none;backdrop-filter:none}}
+.desktop-power{display:grid;place-items:center;width:34px;height:34px;flex:none;padding:0;border:1px solid var(--desktop-controls-edge);border-radius:50%;background:transparent;color:var(--desktop-controls-ink);cursor:pointer}
+.desktop-power:hover{background:var(--desktop-controls-hover)}
+.desktop-power:focus-visible{outline:2px solid var(--focus);outline-offset:2px}
+.desktop-hands{position:relative;display:flex;align-items:center}
+.desktop-hand{display:grid;place-items:center;width:32px;height:32px;border-radius:30%;background:rgba(255,255,255,.08)}
+.desktop-hand .avatar{width:28px;height:28px;background:transparent}
+.desktop-hand.is-you{border-radius:50%;background:var(--iris);color:var(--on-block);font:700 13px/1 var(--display)}
+.desktop-track{width:36px;height:2px;background:repeating-linear-gradient(90deg,rgba(255,255,255,.32) 0 4px,transparent 4px 8px)}
+.desktop-token{position:absolute;top:-13px;display:grid;place-items:center;width:22px;height:22px;border-radius:50%;background:var(--surface);color:var(--ink);border:1.5px solid var(--line);box-shadow:0 2px 0 rgba(0,0,0,.35)}
+.desktop-token.is-bot{left:5px}
+.desktop-token.is-you{left:73px}
+.desktop-control-bar .desktop-take-button{min-height:32px;padding:6px 13px}
+.desktop-take-button:disabled{opacity:.4;cursor:default}
+/* The design has no window buttons; keyboard users still get a reversible enlarge / shrink control on focus. */
+.desktop-expand-toggle{position:absolute;z-index:11;top:10px;left:10px;width:1px;height:1px;padding:0;overflow:hidden;clip-path:inset(50%);border:0;white-space:nowrap}
+.desktop-expand-toggle:focus-visible{width:auto;height:auto;padding:5px 10px;clip-path:none;border:1px solid var(--desktop-controls-edge);border-radius:8px;background:var(--desktop-controls-glass);color:var(--desktop-controls-ink);font:var(--type-status);outline:2px solid var(--focus);outline-offset:2px}
+/* Clicking the dimmed area around the enlarged screen shrinks it back. */
+.desktop-expanded-scrim{position:fixed;inset:0;z-index:-1;cursor:zoom-out}
