@@ -727,11 +727,11 @@ export function BotDesktopPanel({ botId, botName, members = [], autoConnect = fa
   };
   // A drop hanging from the bezel's bottom edge holds the cat ⇄ you switch (Motion Lab · 电脑, fused into the frame).
   const controlBar = !isDesktop && <div className={`desktop-chin is-${capsule.tone}`}>
-    <svg className="desktop-drop" viewBox="0 0 156 44" aria-hidden="true">
-      <path className="desktop-drop-fill" d="M0 0Q12 0 12 12V26A18 18 0 0 0 30 44H126A18 18 0 0 0 144 26V12Q144 0 156 0Z" />
-      <path className="desktop-drop-edge" d="M0 1Q13 1 13 12V26A17 17 0 0 0 30 43H126A17 17 0 0 0 143 26V12Q143 1 156 1" />
+    <svg className="desktop-drop" viewBox="0 0 172 44" aria-hidden="true">
+      <path className="desktop-drop-fill" d="M0 0Q12 0 12 12V26A18 18 0 0 0 30 44H142A18 18 0 0 0 160 26V12Q160 0 172 0Z" />
+      <path className="desktop-drop-edge" d="M0 1Q13 1 13 12V26A17 17 0 0 0 30 43H142A17 17 0 0 0 159 26V12Q159 1 172 1" />
     </svg>
-    <button type="button" className="desktop-power" aria-label="隐藏共享电脑" data-hint="关闭屏幕（电脑继续运行）" onClick={() => void powerOff()}><TofiIcon name="stop" size={14} /></button>
+    <button type="button" className="desktop-power" aria-label="隐藏共享电脑" data-hint="收起屏幕（电脑继续运行）" onClick={() => void powerOff()}><TofiIcon name="chevron-down" size={15} /></button>
     <span className="sr-only" role="status">{capsule.text}</span>
     <button type="button" role="switch" aria-checked={humanControlled} className={`desktop-driver-switch is-${humanControlled ? "you" : "bot"}`} disabled={!switchEnabled}
       aria-label={humanControlled ? "交还控制" : "接管控制"} data-hint={humanControlled ? "交还控制" : "接管控制"} onClick={toggleDriver}>
