@@ -161,7 +161,7 @@ html:not([data-desktop]) .desktop-floating-shell>.computer-detail.is-driven-by-y
 html:not([data-desktop]) .desktop-floating-shell .computer-detail :is(.computer-screen-wrap,.desktop-launch-surface){border:0!important;border-radius:12px!important;box-shadow:none!important;clip-path:inset(0 round 12px)}
 
 /* top:100% is the inner edge of the 2px bezel border, so the drop's 2px top band lies exactly on it. */
-.desktop-chin{position:absolute;z-index:3;top:100%;left:50%;display:flex;align-items:center;justify-content:center;gap:6px;width:156px;height:44px;padding:0 0 4px;translate:-50% 0;box-sizing:border-box;color:var(--desktop-controls-ink)}
+.desktop-chin{position:absolute;z-index:3;top:100%;left:50%;display:flex;align-items:center;justify-content:center;gap:8px;width:172px;height:44px;padding:0 0 4px;translate:-50% 0;box-sizing:border-box;color:var(--desktop-controls-ink)}
 /* The drop: its fill hides the bezel's bottom edge between two concave fillets, and its stroke continues that edge. */
 .desktop-drop{position:absolute;inset:0;z-index:-1;width:100%;height:100%;overflow:visible}
 .desktop-drop-fill{fill:var(--bezel-fill)}
@@ -174,11 +174,11 @@ html:not([data-desktop]) .desktop-floating-shell .computer-detail :is(.computer-
 .desktop-floating-shell .desktop-bot-starting{display:flex!important;flex-direction:column;align-items:center;justify-content:center;gap:8px}
 
 /* The switch: the thumb is the hand on the mouse. It springs to the cat or to you and takes that side's color. */
-.desktop-driver-switch{position:relative;display:grid;grid-template-columns:1fr 1fr;align-items:center;width:84px;height:34px;flex:none;padding:3px;border:1px solid var(--desktop-controls-edge);border-radius:999px;background:rgba(255,255,255,.06);cursor:pointer}
+.desktop-driver-switch{position:relative;display:grid;grid-template-columns:1fr 1fr;align-items:center;width:100px;height:34px;flex:none;padding:3px;border:1px solid var(--desktop-controls-edge);border-radius:999px;background:rgba(255,255,255,.06);cursor:pointer}
 .desktop-driver-switch:disabled{opacity:.45;cursor:default}
-.desktop-driver-thumb{position:absolute;top:3px;left:3px;width:38px;height:26px;border-radius:999px;background:var(--lagoon);transition:transform 440ms cubic-bezier(.34,1.56,.64,1),background-color 300ms ease}
+.desktop-driver-thumb{position:absolute;top:3px;left:4px;width:44px;height:26px;border-radius:999px;background:var(--lagoon);transition:transform 440ms cubic-bezier(.34,1.56,.64,1),background-color 300ms ease}
 .desktop-driver-thumb svg{position:absolute;top:-6px;right:-4px;width:14px;height:14px;padding:2px;border-radius:50%;background:var(--surface);color:var(--ink);box-sizing:border-box;box-shadow:0 1px 0 rgba(0,0,0,.3)}
-.desktop-driver-switch.is-you .desktop-driver-thumb{transform:translateX(38px);background:var(--clay)}
+.desktop-driver-switch.is-you .desktop-driver-thumb{transform:translateX(47px);background:var(--clay)}
 .desktop-chin:is(.is-idle,.is-booting,.is-error) .desktop-driver-switch.is-bot .desktop-driver-thumb{background:rgba(255,255,255,.16)}
 .desktop-driver-side{position:relative;z-index:1;display:grid;place-items:center;height:26px}
 .desktop-driver-side .avatar{width:22px;height:22px;background:transparent}
