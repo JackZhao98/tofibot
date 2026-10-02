@@ -1,5 +1,5 @@
 import { useDebugMode } from "./debugMode";
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { api, ApiError } from "./api";
 import { GazeAvatar } from "./GazeAvatar";
 import { DesktopPointerMarker } from "./DesktopPointerMarker";
@@ -711,27 +711,36 @@ export function BotDesktopPanel({ botId, botName, members = [], autoConnect = fa
     }
     onClose("hide");
   }
-  // Design system control bar (Motion Lab · 电脑): power · cat ⇄ you · take / hand back.
-  const controlBar = !isDesktop && <div className="desktop-control-bar">
-    <button type="button" className="desktop-power" aria-label="隐藏共享电脑" data-hint="关闭屏幕（电脑继续运行）" onClick={() => void powerOff()}><TofiIcon name="stop" size={16} /></button>
-    <DesktopHands botId={ownership?.owner?.kind === "bot" ? ownership.owner.bot_id : selectedBotId} side={humanControlled ? "you" : "bot"} />
-    {humanControlled
-      ? <button type="button" className="desktop-take-button is-hand-back" onClick={() => void controlRef.current?.release()}>交还控制</button>
-      : <button type="button" className="desktop-take-button" disabled={!(canTake || !expanded && Boolean(imageURL) && !takeBlocked)} onClick={() => { if (expanded) void controlRef.current?.acquire(); else { setExpanded(true); setTakePending(true); } }}>接管控制</button>}
-  </div>;
-
-  // Design system: one capsule on the bezel says who drives; the frame color follows it.
+  // Who holds the mouse: the bezel color, the chin status and the cat ⇄ you switch all follow it.
   const driver = humanControlled ? "you" : botWorking && imageURL ? "bot" : "";
   const capsule = error ? { tone: "error", text: "连接失败" }
     : !imageURL ? { tone: "booting", text: info?.state === "starting" && info.phase ? `正在开机 · ${phaseText[info.phase] ?? info.phase}` : "正在开机…" }
     : humanControlled ? { tone: "you", text: "你在控制" }
     : botWorking ? { tone: "bot", text: `${botLabel(ownership?.owner?.bot_id ?? botId)} 在操作` }
     : { tone: "idle", text: "共享电脑空闲" };
+  const switchBot = ownership?.owner?.kind === "bot" ? ownership.owner.bot_id : selectedBotId;
+  const switchEnabled = humanControlled || canTake || !expanded && Boolean(imageURL) && !takeBlocked;
+  const toggleDriver = () => {
+    if (humanControlled) { void controlRef.current?.release(); return; }
+    if (expanded) void controlRef.current?.acquire();
+    else { setExpanded(true); setTakePending(true); }
+  };
+  // The bezel's chin (Motion Lab · 电脑, fused into the frame): power · status · cat ⇄ you switch.
+  const controlBar = !isDesktop && <div className={`desktop-chin is-${capsule.tone}`}>
+    <button type="button" className="desktop-power" aria-label="隐藏共享电脑" data-hint="关闭屏幕（电脑继续运行）" onClick={() => void powerOff()}><TofiIcon name="stop" size={14} /></button>
+    <span className="desktop-chin-status" role="status"><span className="desktop-status-dot" />{capsule.text}</span>
+    <button type="button" role="switch" aria-checked={humanControlled} className={`desktop-driver-switch is-${humanControlled ? "you" : "bot"}`} disabled={!switchEnabled}
+      aria-label={humanControlled ? "交还控制" : "接管控制"} data-hint={humanControlled ? "交还控制" : "接管控制"} onClick={toggleDriver}>
+      <span className="desktop-driver-thumb" aria-hidden="true"><TofiIcon name="mouse" size={11} /></span>
+      <span className="desktop-driver-side is-bot" aria-hidden="true"><GazeAvatar id={switchBot} mini animated={false} /></span>
+      <span className="desktop-driver-side is-you" aria-hidden="true">你</span>
+    </button>
+  </div>;
+
   return <div ref={screenRef} className={`detail-content computer-detail ${expanded ? "is-expanded" : ""}${driver ? ` is-driven-by-${driver}` : ""}`}>
     <DesktopStatusAnnouncement key={selectedBotId} ready={info !== null} text={viewerAnnouncement} />
     {expanded && !isDesktop && <div className="desktop-expanded-scrim" aria-hidden="true" onClick={() => setExpanded(false)} />}
     {!isDesktop && <button type="button" className="desktop-expand-toggle" aria-label={expanded ? "缩小共享电脑" : "放大共享电脑"} onClick={() => setExpanded(!expanded)}>{expanded ? "缩小" : "放大"}</button>}
-    {(!expanded || !isDesktop) && <p className={`desktop-status-capsule is-${capsule.tone}`} aria-hidden="true"><span className="desktop-status-dot" />{capsule.text}</p>}
     {expanded && isDesktop && <div className="detail-heading computer-floating-heading"><div className="computer-heading-copy"><h2 className="sr-only">共享电脑</h2></div>{windowActions}</div>}
 
     {(error || connectionLost) && <p className="error-banner" role="alert">{connectionLost ? "电脑连接暂时不可用，正在重试…" : error}</p>}
@@ -744,31 +753,4 @@ export function BotDesktopPanel({ botId, botName, members = [], autoConnect = fa
     {controlBar}
     {debug && <fieldset className="computer-aux-fields" disabled={humanControlled}><details className="computer-tools"><summary>辅助操作</summary><div className="computer-tools-body"><div className="computer-key-row"><button className="secondary-button" disabled={busy || !controlsReady} onClick={() => void perform("desktop.key", { key: "Return" })}>Enter</button><button className="secondary-button" disabled={busy || !controlsReady} onClick={() => void perform("desktop.key", { key: "Escape" })}>Esc</button><button className="secondary-button" disabled={busy || !controlsReady} onClick={() => void perform("desktop.key", { key: "c", modifiers: ["ctrl"] })}>Ctrl+C</button></div><label>打开浏览器<input disabled={busy || !controlsReady} value={url} onChange={event => setURL(event.target.value)} onKeyDown={event => { if (event.key === "Enter" && controlsReady && !busyRef.current && url.trim()) { event.preventDefault(); void perform("browser.navigate", { url }); } }} placeholder="https://…" /></label><label>运行 Shell（{botName} 工作区）<textarea disabled={busy || connectionLost || !ready} value={command} onChange={event => setCommand(event.target.value)} rows={3} placeholder="例如：pwd" /></label><button className="primary-button" disabled={busy || connectionLost || !ready || !command.trim()} onClick={() => void perform("shell.exec", { command })}>运行命令</button>{output && <pre className="computer-output">{output}</pre>}{info && <details className="computer-technical"><summary>技术详情</summary><dl><div><dt>工作区</dt><dd>{info.workspace_root || "/workspace"}</dd></div><div><dt>浏览器</dt><dd>{info.browser || "Google Chrome"}</dd></div></dl></details>}</div></details></fieldset>}
   </div>;
-}
-
-/** The mouse token travels along the dashed track between the cat and you (Motion Lab · 电脑). */
-function DesktopHands({ botId, side }: { botId: string; side: "bot" | "you" }) {
-  const botSlot = useRef<HTMLSpanElement>(null);
-  const youSlot = useRef<HTMLSpanElement>(null);
-  const token = useRef<HTMLSpanElement>(null);
-  const previous = useRef(side);
-  useLayoutEffect(() => {
-    if (previous.current === side) return;
-    previous.current = side;
-    const from = (side === "you" ? botSlot : youSlot).current?.getBoundingClientRect();
-    const to = (side === "you" ? youSlot : botSlot).current?.getBoundingClientRect();
-    if (!token.current || !from || !to || window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
-    const dx = from.left - to.left;
-    token.current.animate([
-      { transform: `translate(${dx}px, 0)` },
-      { transform: `translate(${dx / 2}px, -12px)` },
-      { transform: "translate(0, 0)" },
-    ], { duration: 520, easing: "cubic-bezier(.4,0,.2,1)" });
-  }, [side]);
-  return <span className="desktop-hands" aria-hidden="true">
-    <span className="desktop-hand" ref={botSlot}><GazeAvatar id={botId} mini animated={false} /></span>
-    <span className="desktop-track" />
-    <span className="desktop-hand is-you" ref={youSlot}>你</span>
-    <span className={`desktop-token is-${side}`} ref={token}><TofiIcon name="mouse" size={14} /></span>
-  </span>;
 }
