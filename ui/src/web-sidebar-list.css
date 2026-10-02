@@ -9,3 +9,7 @@ html:not([data-desktop]) .workspace .sidebar-account.is-offline .sidebar-account
 @keyframes web-side-connection-shake { 0%,100% { translate:0; } 20% { translate:-4px; } 40% { translate:4px; } 60% { translate:-2px; } 80% { translate:2px; } }
 @keyframes web-side-connection-fade { 50% { opacity:.45; } }
 @media (prefers-reduced-motion:reduce) { html:not([data-desktop]) .workspace .conversation-row .contact-copy,html:not([data-desktop]) .workspace .conversation-row .conversation-time { transition:none; } html:not([data-desktop]) .workspace .sidebar-account-monogram i,html:not([data-desktop]) .workspace .sidebar-account.is-offline .sidebar-account-monogram i { animation:none; } }
+/* On phones the empty workspace hero is hidden behind the list, so the list offers the first step itself. */
+.workspace .empty-copy>p { margin:0; }
+.workspace .sidebar-empty-create { display:none; }
+@media (max-width:767px) { .workspace .sidebar-empty-create { display:inline-flex; margin-top:14px; } }

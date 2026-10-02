@@ -23,6 +23,6 @@ export function WorkspacePurgeSettings() {
     <p className="field-note">执行前 VM 会自动保留一个可恢复 checkpoint；新创建的第一个账号会成为 admin。</p>
     <label>输入 PURGE 确认<input value={value} onChange={event => setValue(event.target.value)} spellCheck={false} autoCapitalize="characters" disabled={busy} /></label>
     {error && <p className="error-text" role="alert">{error}</p>}
-    <button type="button" className="purge-button" disabled={busy || value.trim() !== "PURGE"} onClick={() => void purge()}>{busy ? "正在清空…" : "Purge everything"}</button>
+    <button type="button" className="purge-button" disabled={busy || value.trim() !== "PURGE"} onClick={() => void purge()}>{busy ? "正在清空…" : "清空全部数据"}</button>
   </section>;
 }
