@@ -45,6 +45,11 @@ func (s *Service) action(ctx context.Context, req ActionRequest) (any, error) {
 	ctx, cancel := context.WithTimeout(ctx, MaxTimeout*time.Second)
 	defer cancel()
 	req.Source = normalizedSource(req.Source)
+	// Internal recovery lookups must remain read-only even for a new Bot. All
+	// ordinary actions create/update workspace aliases through the lifecycle.
+	if req.Action == "files.identity" {
+		return s.dispatchAction(ctx, req)
+	}
 	if _, err := s.ensureWorkspaceAlias(req.BotID, req.BotName); err != nil {
 		return nil, fmt.Errorf("workspace alias: %w", err)
 	}

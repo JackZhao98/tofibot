@@ -17,8 +17,9 @@ import (
 	"time"
 	"unicode/utf8"
 
-	"github.com/google/uuid"
 	"github.com/JackZhao98/tofibot/internal/computer"
+	"github.com/JackZhao98/tofibot/internal/tooloutcome"
+	"github.com/google/uuid"
 )
 
 type UserFormField struct {
@@ -290,7 +291,7 @@ func (s *Server) AnswerUserForm(id, actor string, values map[string]string) (Que
 // not isolate a credential from the receiving website or arbitrary VM code.
 func (s *Server) applyFormSecret(ctx context.Context, run Run, rec secretRecord, action string) (string, error) {
 	if action != "browser_type" {
-		return "", errors.New("form passwords may only be typed into their original website")
+		return "", tooloutcome.InvalidArguments("form passwords may only be typed into their original website")
 	}
 	for {
 		if err := s.waitComputerOwner(ctx, run); err != nil {
@@ -310,14 +311,14 @@ func (s *Server) applyFormSecret(ctx context.Context, run Run, rec secretRecord,
 	}
 	if err := s.renewComputerHold(ctx, run); err != nil {
 		s.releaseComputerOwner(run.BotID, run.ID)
-		return "", errors.New("computer control is unavailable; inspect the page again before filling")
+		return "", tooloutcome.InvalidArguments("computer control is unavailable; inspect the page again before filling")
 	}
 	if !s.desktopObservedFor(run) {
-		return "", errors.New("needs_observation: inspect the current page and focus the intended private field before using the reference")
+		return "", tooloutcome.InvalidArguments("needs_observation: inspect the current page and focus the intended private field before using the reference")
 	}
 	snapshot, err := s.microVMActionOnLease(ctx, run, "browser.snapshot", json.RawMessage(`{}`))
 	if err != nil {
-		return "", errors.New("could not verify the current website; inspect and focus the intended field again")
+		return "", tooloutcome.InvalidArguments("could not verify the current website; inspect and focus the intended field again")
 	}
 	var page struct {
 		Current *struct {
@@ -326,18 +327,18 @@ func (s *Server) applyFormSecret(ctx context.Context, run Run, rec secretRecord,
 		Source string `json:"current_source"`
 	}
 	if json.Unmarshal([]byte(snapshot), &page) != nil || page.Current == nil || page.Source != "focused" {
-		return "", errors.New("the current website is not focused; inspect and focus the intended field again")
+		return "", tooloutcome.InvalidArguments("the current website is not focused; inspect and focus the intended field again")
 	}
 	u, err := formSourceURL(page.Current.URL)
 	if err != nil || formOrigin(u) != rec.Target {
-		return "", errors.New("the current website differs from the form's approved destination; request a new form for a different website")
+		return "", tooloutcome.New(tooloutcome.Denied, "private_input_destination_mismatch", "not_executed", "the current website differs from the form's approved destination; request a new form for a different website", "explain_blocker").Err()
 	}
 	if err := ctx.Err(); err != nil {
 		return "", err
 	}
 	value, err := s.secretVault.reveal(rec)
 	if err != nil {
-		return "", err
+		return "", tooloutcome.New(tooloutcome.Permanent, "secret_unavailable", "not_executed", "secret unavailable", "explain_blocker").Err()
 	}
 	args, _ := json.Marshal(map[string]string{"origin": rec.Target, "text": value})
 	// Internal-only action: do not add it to the model/public computer-action

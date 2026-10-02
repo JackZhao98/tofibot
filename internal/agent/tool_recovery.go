@@ -58,11 +58,25 @@ func toolRecoveryIdentityGuard(records []ToolRecoveryRecord, identity tooloutcom
 			continue
 		}
 		o := record.Outcome
-		// No backend verification has resolved this dispatch. Changed wrapper
-		// arguments, path aliases or defaults do not prove that its effect is
-		// absent. Observations use separate operations and remain available.
 		if o.Status == tooloutcome.Uncertain {
-			return &o
+			if identity.ResolutionRequired {
+				continue
+			} // executor must resolve and recheck before dispatch
+			// Known observations only fence equivalent requests. Mutation targets are
+			// backend-resolved: an independent target is available, but changed payload
+			// on the unresolved target does not authorize replay. Opaque capabilities
+			// remain conservative because model arguments cannot prove a distinct effect.
+			if prior.Risk == tooloutcome.Observation && identity.Risk == tooloutcome.Observation {
+				if prior.ArgumentsHash == identity.ArgumentsHash {
+					return &o
+				}
+			} else if prior.Risk == tooloutcome.TargetMutation && identity.Risk == tooloutcome.TargetMutation && prior.Target != "" && identity.Target != "" {
+				if prior.Target == identity.Target || (prior.Object != "" && prior.Object == identity.Object) {
+					return &o
+				}
+			} else {
+				return &o
+			}
 		}
 		if o.Status == tooloutcome.Validation {
 			repairs++

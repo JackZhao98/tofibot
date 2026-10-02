@@ -1,10 +1,13 @@
 package app
 
 import (
+	"context"
 	"encoding/json"
 	"path"
 	"strings"
+	"time"
 
+	"github.com/JackZhao98/tofibot/internal/computer"
 	"github.com/JackZhao98/tofibot/internal/tooloutcome"
 )
 
@@ -15,7 +18,11 @@ func computerRecoveryIdentity(bot, computerID, action string, raw json.RawMessag
 	args := map[string]json.RawMessage{}
 	_ = json.Unmarshal(raw, &args)
 	if computerID != microVMComputerID {
-		return tooloutcome.OperationIdentity("computer/"+computerID, action, raw)
+		i := tooloutcome.OperationIdentity("computer/"+computerID, action, raw)
+		if action == "files.read" || action == "files.list" || action == "screen.capture" || action == "host.info" {
+			i.Risk = tooloutcome.Observation
+		}
+		return i
 	}
 	if action == "browser.action" {
 		var command string
@@ -81,5 +88,53 @@ func computerRecoveryIdentity(bot, computerID, action string, raw json.RawMessag
 		}
 	}
 	encoded, _ := json.Marshal(args)
-	return tooloutcome.OperationIdentity("computer/"+computerID+"/bot/"+bot, action, encoded)
+	i := tooloutcome.OperationIdentity("computer/"+computerID+"/bot/"+bot, action, encoded)
+	if isReadOnlyMicroVMAction(action) || action == "terminal.list" || action == "terminal.read" {
+		i.Risk = tooloutcome.Observation
+	}
+	if action == "files.write" {
+		i.Risk = tooloutcome.TargetMutation
+		i.ResolutionRequired = true
+	}
+	return i
+}
+
+func (s *Server) resolveComputerRecovery(ctx context.Context, r Run, computerID, action string, args json.RawMessage) (tooloutcome.Identity, error) {
+	i := computerRecoveryIdentity(r.BotID, computerID, action, args)
+	if !i.ResolutionRequired {
+		return i, nil
+	}
+	if s.microVM == nil {
+		return i, tooloutcome.New(tooloutcome.Permanent, "computer_unavailable", "not_executed", "Computer VM is not configured.", "explain_blocker").Err()
+	}
+	var in struct {
+		Path string `json:"path"`
+	}
+	if json.Unmarshal(args, &in) != nil {
+		return i, tooloutcome.InvalidArguments("Invalid file operation arguments.")
+	}
+	raw, _ := json.Marshal(in)
+	lookupCtx, cancelLookup := context.WithTimeout(ctx, 5*time.Second)
+	defer cancelLookup()
+	result, err := s.microVM.Action(lookupCtx, computer.Action{BotID: r.BotID, RunID: r.ID, Name: "files.identity", Args: raw, Source: "model"})
+	if err != nil {
+		if ctx.Err() != nil {
+			return i, ctx.Err()
+		}
+		// Older/offline backends may lack this lookup. Preserve ordinary first-call
+		// behavior, but keep unknown targets opaque: the boundary cannot authorize
+		// another mutation while an uncertain effect is unresolved.
+		i.Risk, i.ResolutionRequired = tooloutcome.OpaqueEffect, false
+		return i, nil
+	}
+	var identity struct {
+		Target string `json:"target"`
+		Object string `json:"object"`
+	}
+	if json.Unmarshal(result.Result, &identity) != nil || identity.Target == "" {
+		i.Risk, i.ResolutionRequired = tooloutcome.OpaqueEffect, false
+		return i, nil
+	}
+	i.Target, i.Object, i.ResolutionRequired = identity.Target, identity.Object, false
+	return i, nil
 }

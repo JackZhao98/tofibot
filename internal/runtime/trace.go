@@ -190,7 +190,7 @@ func (t *toolEventTracker) finish(msg provider.Message) {
 		return
 	}
 	status := "completed"
-	if msg.ToolFailed {
+	if msg.ToolFailed || call.status == "queued" {
 		status = "failed"
 	}
 	if call.status == "queued" {

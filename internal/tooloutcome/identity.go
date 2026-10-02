@@ -10,10 +10,20 @@ import (
 // Identity describes the effective backend operation, independent of the model's
 // wrapper spelling. Resolvers must use the same argument interpretation as Execute.
 type Identity struct {
-	Scope         string `json:"scope"`
-	Operation     string `json:"operation"`
-	ArgumentsHash string `json:"arguments_hash"`
+	Scope              string `json:"scope"`
+	Operation          string `json:"operation"`
+	ArgumentsHash      string `json:"arguments_hash"`
+	Target             string `json:"target,omitempty"`
+	Risk               string `json:"risk,omitempty"`
+	Object             string `json:"object,omitempty"`
+	ResolutionRequired bool   `json:"resolution_required,omitempty"`
 }
+
+const (
+	Observation    = "observation"
+	TargetMutation = "target_mutation"
+	OpaqueEffect   = "opaque_effect"
+)
 
 func OperationIdentity(scope, operation string, args json.RawMessage) Identity {
 	d := json.NewDecoder(bytes.NewReader(args))
@@ -25,7 +35,7 @@ func OperationIdentity(scope, operation string, args json.RawMessage) Identity {
 		}
 	}
 	h := sha256.Sum256(args)
-	return Identity{Scope: scope, Operation: operation, ArgumentsHash: hex.EncodeToString(h[:])}
+	return Identity{Scope: scope, Operation: operation, ArgumentsHash: hex.EncodeToString(h[:]), Risk: OpaqueEffect}
 }
 
 func DefaultIdentity(name string, args json.RawMessage) Identity {
@@ -38,7 +48,12 @@ func DefaultIdentity(name string, args json.RawMessage) Identity {
 			return OperationIdentity(name, in.Name, in.Arguments)
 		}
 	}
-	return OperationIdentity("tool", name, args)
+	i := OperationIdentity("tool", name, args)
+	switch name {
+	case "get_context_usage", "search_history", "inspect_recent_runs", "list_computers", "list_bots", "list_skills", "list_mcp_servers", "search_mcp_tools", "workflow_guide", "read_workflow_guide", "computer_help", "workspace_capabilities", "read_skill", "read_skill_file":
+		i.Risk = Observation
+	}
+	return i
 }
 
 // Bounded retains a valid, independently bounded control envelope even when the

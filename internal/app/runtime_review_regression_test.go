@@ -8,6 +8,7 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"path"
 	"strings"
 	"sync/atomic"
 	"testing"
@@ -27,13 +28,25 @@ type reviewCall struct{ name, args string }
 // The provider is synthetic; the actual runtime, schemas, computer parsers,
 // dispatch and durable activity all run unchanged.
 func reviewEngine(t *testing.T, calls []reviewCall, duration time.Duration) runtime.Engine {
+	batches := make([][]reviewCall, len(calls))
+	for i, call := range calls {
+		batches[i] = []reviewCall{call}
+	}
+	return reviewBatchEngine(t, batches, duration)
+}
+
+func reviewBatchEngine(t *testing.T, batches [][]reviewCall, duration time.Duration) runtime.Engine {
 	t.Helper()
 	var index atomic.Int32
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		i := int(index.Add(1)) - 1
 		message := map[string]any{"content": "SYNTHETIC_PARTIAL_OUTPUT"}
-		if i < len(calls) {
-			message = map[string]any{"content": "", "tool_calls": []any{map[string]any{"id": fmt.Sprintf("review-%d", i), "type": "function", "function": map[string]any{"name": calls[i].name, "arguments": calls[i].args}}}}
+		if i < len(batches) && len(batches[i]) > 0 {
+			calls := []any{}
+			for j, call := range batches[i] {
+				calls = append(calls, map[string]any{"id": fmt.Sprintf("review-%d-%d", i, j), "type": "function", "function": map[string]any{"name": call.name, "arguments": call.args}})
+			}
+			message = map[string]any{"content": "", "tool_calls": calls}
 		}
 		w.Header().Set("Content-Type", "application/json")
 		_ = json.NewEncoder(w).Encode(map[string]any{"choices": []any{map[string]any{"message": message}}})
@@ -56,7 +69,23 @@ func reviewComputer(t *testing.T, s *Server, onAction func(computer.Action) erro
 		if err := onAction(action); err != nil {
 			return nil, err
 		}
-		return &http.Response{StatusCode: 200, Header: make(http.Header), Body: io.NopCloser(strings.NewReader(`{"ok":true,"result":{}}`))}, nil
+		body := `{"ok":true,"result":{}}`
+		if action.Name == "files.identity" {
+			var in struct {
+				Path string `json:"path"`
+			}
+			_ = json.Unmarshal(action.Args, &in)
+			target := in.Path
+			if !path.IsAbs(target) {
+				target = path.Join("/workspace/bots", action.BotID, target)
+			}
+			if strings.HasPrefix(target, "/workspace/alias/") {
+				target = path.Join("/workspace/bots", action.BotID, strings.TrimPrefix(target, "/workspace/alias/"))
+			}
+			raw, _ := json.Marshal(map[string]any{"ok": true, "result": map[string]any{"target": target}})
+			body = string(raw)
+		}
+		return &http.Response{StatusCode: 200, Header: make(http.Header), Body: io.NopCloser(strings.NewReader(body))}, nil
 	})}})
 	if err != nil {
 		t.Fatal(err)

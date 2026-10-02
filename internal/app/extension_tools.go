@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	"github.com/JackZhao98/tofibot/internal/extensions"
+	"github.com/JackZhao98/tofibot/internal/tooloutcome"
 )
 
 type extensionToolOAuth struct {
@@ -46,7 +47,7 @@ func (s *Server) extensionManagementTools(c Conversation, r Run) []Tool {
 		"files":           map[string]any{"type": "object", "additionalProperties": map[string]any{"type": "string"}, "description": "Complete local skill files as UTF-8 strings, including SKILL.md with matching name; no downloading or execution. Installation does not overwrite an existing skill."},
 		"test_connection": map[string]any{"type": "boolean", "description": "Must be true for mcp_test, only when the user requested connecting/testing. Other actions never test automatically."},
 	}
-	return []Tool{{Name: "manage_extensions", Description: "Manage the user's workspace-wide MCP servers and installed Skills using Tofi's existing settings. Every Bot can access installed resources; there is no per-Bot grant or activation setting. Read/list first before changes. MCP update requires the complete desired URL; omitted policy lists, headers and OAuth retain existing values. Tool allow/deny lists are global server policies. Never expose credentials or perform OAuth authorization; tell the user to finish authorization in Settings. Test network connections only when explicitly requested using mcp_test with test_connection=true. Delete actions remove user configuration/skill files and require user intent.", Parameters: objectSchema(properties, []string{"action"}), Execute: func(ctx context.Context, raw json.RawMessage) (string, error) {
+	return []Tool{{Name: "manage_extensions", Description: "Manage the user's workspace-wide MCP servers and installed Skills using Tofi's existing settings. Every Bot can access installed resources; there is no per-Bot grant or activation setting. Read/list first before changes. MCP update requires the complete desired URL; omitted policy lists, headers and OAuth retain existing values. Tool allow/deny lists are global server policies. Never expose credentials or perform OAuth authorization; tell the user to finish authorization in Settings. Test network connections only when explicitly requested using mcp_test with test_connection=true. Delete actions remove user configuration/skill files and require user intent.", Parameters: objectSchema(properties, []string{"action"}), Identity: extensionRecoveryIdentity, Execute: func(ctx context.Context, raw json.RawMessage) (string, error) {
 		return s.executeExtensionManagement(ctx, c, r, raw)
 	}}}
 }
@@ -57,15 +58,15 @@ func (s *Server) extensionToolActive(ctx context.Context, c Conversation, r Run)
 	}
 	current, err := s.store.GetRun(r.ID)
 	if err != nil || current.Status != "running" || current.ConversationID != c.ID || current.BotID != r.BotID {
-		return errors.New("run is no longer active")
+		return tooloutcome.New(tooloutcome.Denied, "run_inactive", "not_executed", "Run is no longer active.", "explain_blocker").Err()
 	}
 	conversation, err := s.store.GetConversation(c.ID)
 	if err != nil || conversation.Archived {
-		return errors.New("conversation is unavailable or archived")
+		return tooloutcome.New(tooloutcome.Denied, "conversation_unavailable", "not_executed", "Conversation is unavailable or archived.", "explain_blocker").Err()
 	}
 	bot, err := s.store.GetBot(r.BotID)
 	if err != nil || bot.Archived {
-		return errors.New("Bot is unavailable or archived")
+		return tooloutcome.New(tooloutcome.Denied, "bot_unavailable", "not_executed", "Bot is unavailable or archived.", "explain_blocker").Err()
 	}
 	return ctx.Err()
 }
@@ -75,22 +76,22 @@ func (s *Server) executeExtensionManagement(ctx context.Context, c Conversation,
 		return "", err
 	}
 	if s.extensions == nil {
-		return "", errors.New("extensions unavailable")
+		return "", tooloutcome.New(tooloutcome.Permanent, "extensions_unavailable", "not_executed", "Extensions are unavailable.", "explain_blocker").Err()
 	}
 	if len(raw) > 2<<20 {
-		return "", errors.New("extension arguments exceed 2 MiB")
+		return "", tooloutcome.InvalidArguments("extension arguments exceed 2 MiB")
 	}
 	var x extensionToolArgs
 	decoder := json.NewDecoder(bytes.NewReader(raw))
 	decoder.DisallowUnknownFields()
 	if err := decoder.Decode(&x); err != nil {
-		return "", errors.New("invalid extension arguments")
+		return "", tooloutcome.InvalidArguments("invalid extension arguments")
 	}
 	if decoder.Decode(new(any)) != io.EOF {
-		return "", errors.New("expected one extension argument object")
+		return "", tooloutcome.InvalidArguments("expected one extension argument object")
 	}
 	if x.Action != "mcp_list" && x.Action != "skill_list" && strings.TrimSpace(x.Name) == "" {
-		return "", errors.New("extension name is required")
+		return "", tooloutcome.InvalidArguments("extension name is required")
 	}
 	if err := s.extensionToolActive(ctx, c, r); err != nil {
 		return "", err
@@ -112,12 +113,16 @@ func (s *Server) executeExtensionManagement(ctx context.Context, c Conversation,
 			result = map[string]any{"servers": servers}
 		}
 	case "mcp_create", "mcp_update":
+		u, parseErr := url.Parse(x.URL)
+		if parseErr != nil || u.Host == "" || (u.Scheme != "http" && u.Scheme != "https") {
+			return "", tooloutcome.InvalidArguments("MCP create/update requires a complete HTTP(S) endpoint.")
+		}
 		config := extensions.MCPServerConfig{URL: x.URL, Headers: x.Headers, Transport: "streamable_http"}
 		var existing *extensions.MCPServerView
 		if x.Action == "mcp_update" {
 			servers, listErr := s.extensions.ListMCP()
 			if listErr != nil {
-				return "", errors.New("extension configuration could not be read")
+				return "", tooloutcome.New(tooloutcome.Permanent, "configuration_read_failed", "not_executed", "Extension configuration could not be read.", "explain_blocker").Err()
 			}
 			for i := range servers {
 				if servers[i].Name == x.Name {
@@ -126,7 +131,7 @@ func (s *Server) executeExtensionManagement(ctx context.Context, c Conversation,
 				}
 			}
 			if existing == nil {
-				return "", errors.New("MCP server not found")
+				return "", tooloutcome.InvalidArguments("MCP server not found")
 			}
 			config.ToolAllowlist = existing.ToolAllowlist
 			config.ToolDenylist = existing.ToolDenylist
@@ -136,7 +141,7 @@ func (s *Server) executeExtensionManagement(ctx context.Context, c Conversation,
 		}
 		if x.Transport != nil {
 			if *x.Transport != "streamable_http" && *x.Transport != "sse" {
-				return "", errors.New("unsupported MCP transport")
+				return "", tooloutcome.InvalidArguments("unsupported MCP transport")
 			}
 			config.Transport = *x.Transport
 		}
@@ -164,7 +169,7 @@ func (s *Server) executeExtensionManagement(ctx context.Context, c Conversation,
 		mutated = err == nil
 	case "mcp_test":
 		if !x.TestConnection {
-			return "", errors.New("mcp_test requires explicit test_connection=true; do not test automatically")
+			return "", tooloutcome.New(tooloutcome.Denied, "connection_test_not_requested", "not_executed", "mcp_test requires explicit test_connection=true; do not test automatically", "explain_blocker").Err()
 		}
 		var servers []extensions.MCPServerView
 		servers, err = s.extensions.ListMCP()
@@ -181,7 +186,7 @@ func (s *Server) executeExtensionManagement(ctx context.Context, c Conversation,
 			}
 		}
 		if !found {
-			return "", errors.New("MCP server not found")
+			return "", tooloutcome.InvalidArguments("MCP server not found")
 		}
 		if err = s.extensionToolActive(ctx, c, r); err != nil {
 			return "", err
@@ -207,7 +212,7 @@ func (s *Server) executeExtensionManagement(ctx context.Context, c Conversation,
 			}
 		}
 		if !found {
-			return "", errors.New("MCP server not found")
+			return "", tooloutcome.InvalidArguments("MCP server not found")
 		}
 		result = extensionOAuthRequired()
 	case "skill_list":
@@ -227,11 +232,15 @@ func (s *Server) executeExtensionManagement(ctx context.Context, c Conversation,
 		err = s.extensions.DeleteSkill(x.Name)
 		mutated = err == nil
 	default:
-		return "", errors.New("unsupported extension action")
+		return "", tooloutcome.InvalidArguments("unsupported extension action")
 	}
 	// Manager errors can contain file paths, malformed configuration or provider
 	// details. Never forward those strings into model-visible tool results.
 	if err != nil {
+		if o, ok := tooloutcome.FromError(err); ok {
+			o.Message = "Extension arguments were rejected before execution; check the name, endpoint, configuration or skill manifest in Settings."
+			return "", o.Err()
+		}
 		return "", errors.New("extension operation failed; check the name, endpoint, configuration or skill manifest in Settings")
 	}
 	if mutated {
@@ -271,4 +280,21 @@ func extensionPublicURL(raw string) string {
 		parsed.Fragment = "redacted"
 	}
 	return parsed.String()
+}
+
+func extensionRecoveryIdentity(raw json.RawMessage) tooloutcome.Identity {
+	var x extensionToolArgs
+	_ = json.Unmarshal(raw, &x)
+	i := tooloutcome.OperationIdentity("workspace/extensions", x.Action, raw)
+	switch x.Action {
+	case "mcp_list", "skill_list", "oauth_required":
+		i.Risk = tooloutcome.Observation
+	case "mcp_create", "mcp_update", "mcp_delete":
+		i.Risk = tooloutcome.TargetMutation
+		i.Target = "mcp/" + x.Name
+	case "skill_install", "skill_delete":
+		i.Risk = tooloutcome.TargetMutation
+		i.Target = "skill/" + x.Name
+	}
+	return i
 }

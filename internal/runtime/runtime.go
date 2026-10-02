@@ -265,6 +265,22 @@ func (e *engine) Run(ctx context.Context, req Request) (Result, error) {
 				if err := tooloutcome.ValidateArguments(params, args); err != nil {
 					return "", err
 				}
+				identity := tooloutcome.DefaultIdentity(rawTool.Name, encoded)
+				if rawTool.Identity != nil {
+					identity = rawTool.Identity(encoded)
+				}
+				if rawTool.ResolveIdentity != nil {
+					identity, err = rawTool.ResolveIdentity(toolCtx, encoded)
+					if err != nil {
+						if _, typed := tooloutcome.FromError(err); typed {
+							return "", err
+						}
+						return "", tooloutcome.New(tooloutcome.Permanent, "identity_resolution_failed", "not_executed", "The backend target could not be verified before dispatch. Inspect the target or backend status before proposing this operation again.", "verify_target").Err()
+					}
+				}
+				if err := tooloutcome.CheckBoundary(toolCtx, identity); err != nil {
+					return "", err
+				}
 				result, executeErr := rawTool.Execute(context.WithValue(toolCtx, toolCallIDContextKey{}, callID), encoded)
 				var suspension *userInputSuspensionError
 				if executeErr != nil && !errors.As(executeErr, &suspension) && toolCtx.Err() == nil {
@@ -273,9 +289,25 @@ func (e *engine) Run(ctx context.Context, req Request) (Result, error) {
 						if errors.Is(executeErr, errors.ErrUnsupported) {
 							status, code, next = tooloutcome.Permanent, "unsupported_operation", "explain_blocker"
 						}
-						executeErr = tooloutcome.New(status, code, "unknown", executeErr.Error()+" Verify the target state before repeating this call.", next).Err()
+						certainty, explanation := "unknown", executeErr.Error()+" Verify the target state before repeating this call."
+						if identity.Risk == tooloutcome.Observation {
+							status, code, next, certainty = tooloutcome.Permanent, "observation_failed", "explain_blocker", "no_side_effects"
+							explanation = executeErr.Error() + " This observation failed; inspect another target or explain the blocker."
+						}
+						executeErr = tooloutcome.New(status, code, certainty, explanation, next).Err()
 					}
 				}
+				if executeErr != nil && identity.Risk == tooloutcome.TargetMutation && rawTool.ResolveIdentity != nil && toolCtx.Err() == nil {
+					classified, typed := tooloutcome.FromError(executeErr)
+					if !typed || classified.Status == tooloutcome.Uncertain {
+						// Read-only verification after a lost response records the new object's
+						// identity without repeating the effect (including newly created files).
+						if resolved, e := rawTool.ResolveIdentity(toolCtx, encoded); e == nil {
+							tooloutcome.RecordIdentity(toolCtx, resolved)
+						}
+					}
+				}
+
 				return result, executeErr
 			},
 		})
