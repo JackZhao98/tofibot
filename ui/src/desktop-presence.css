@@ -152,30 +152,32 @@ html:not([data-desktop]) .desktop-floating-shell .computer-detail.is-expanded .d
    carries power, status and the cat ⇄ you switch. The bezel edge and its glow follow whoever holds the mouse. */
 html:not([data-desktop]) .desktop-floating-shell>.computer-detail,
 html:not([data-desktop]) .desktop-floating-shell>.computer-detail.is-expanded{
-  position:relative;display:flex;flex-direction:column;gap:0;padding:6px 6px 0;border:2px solid var(--desktop-bezel);border-radius:18px;
-  background:#15181e;box-shadow:0 12px 32px rgba(0,0,0,.2);transition:border-color 400ms ease,box-shadow 700ms ease}
-html:not([data-desktop]) .desktop-floating-shell>.computer-detail.is-driven-by-bot{border-color:var(--lagoon);box-shadow:0 0 0 1px var(--lagoon),0 0 60px color-mix(in srgb,var(--lagoon) 45%,transparent)}
-html:not([data-desktop]) .desktop-floating-shell>.computer-detail.is-driven-by-you{border-color:var(--clay);box-shadow:0 0 0 1px var(--clay),0 0 60px color-mix(in srgb,var(--clay) 40%,transparent)}
+  --bezel-fill:#15181e;--bezel-edge:var(--desktop-bezel);
+  position:relative;display:flex;flex-direction:column;gap:0;margin-bottom:40px;padding:6px;border:2px solid var(--bezel-edge);border-radius:18px;
+  background:var(--bezel-fill);box-shadow:0 12px 32px rgba(0,0,0,.2);transition:border-color 400ms ease,box-shadow 700ms ease}
+html:not([data-desktop]) .desktop-floating-shell>.computer-detail.is-driven-by-bot{--bezel-edge:var(--lagoon);border-color:var(--lagoon);box-shadow:0 0 0 1px var(--lagoon),0 0 60px color-mix(in srgb,var(--lagoon) 45%,transparent)}
+html:not([data-desktop]) .desktop-floating-shell>.computer-detail.is-driven-by-you{--bezel-edge:var(--clay);border-color:var(--clay);box-shadow:0 0 0 1px var(--clay),0 0 60px color-mix(in srgb,var(--clay) 40%,transparent)}
 /* clip-path, not overflow, rounds the screen: the CRT boot's transformed layer escapes overflow clipping. */
 html:not([data-desktop]) .desktop-floating-shell .computer-detail :is(.computer-screen-wrap,.desktop-launch-surface){border:0!important;border-radius:12px!important;box-shadow:none!important;clip-path:inset(0 round 12px)}
 
-.desktop-chin{order:10;display:flex;align-items:center;gap:9px;min-height:44px;padding:5px 2px;color:var(--desktop-controls-ink)}
-.computer-detail.is-expanded .desktop-chin{align-self:stretch;min-height:54px;padding:8px 6px}
-.desktop-power{display:grid;place-items:center;width:30px;height:30px;flex:none;padding:0;border:1px solid var(--desktop-controls-edge);border-radius:50%;background:transparent;color:var(--desktop-controls-ink);cursor:pointer}
+/* top:100% is the inner edge of the 2px bezel border, so the drop's 2px top band lies exactly on it. */
+.desktop-chin{position:absolute;z-index:3;top:100%;left:50%;display:flex;align-items:center;justify-content:center;gap:6px;width:156px;height:44px;padding:0 0 4px;translate:-50% 0;box-sizing:border-box;color:var(--desktop-controls-ink)}
+/* The drop: its fill hides the bezel's bottom edge between two concave fillets, and its stroke continues that edge. */
+.desktop-drop{position:absolute;inset:0;z-index:-1;width:100%;height:100%;overflow:visible}
+.desktop-drop-fill{fill:var(--bezel-fill)}
+.desktop-drop-edge{fill:none;stroke:var(--bezel-edge);stroke-width:2;transition:stroke 400ms ease}
+.computer-detail.is-driven-by-bot .desktop-drop{filter:drop-shadow(0 10px 16px color-mix(in srgb,var(--lagoon) 45%,transparent))}
+.computer-detail.is-driven-by-you .desktop-drop{filter:drop-shadow(0 10px 16px color-mix(in srgb,var(--clay) 40%,transparent))}
+.desktop-power{display:grid;place-items:center;width:26px;height:26px;flex:none;padding:0;border:1px solid var(--desktop-controls-edge);border-radius:50%;background:transparent;color:var(--desktop-controls-ink);cursor:pointer}
 .desktop-power:hover{background:var(--desktop-controls-hover)}
-.desktop-chin-status{display:flex;align-items:center;gap:7px;min-width:0;flex:1;overflow:hidden;font:var(--type-status);white-space:nowrap;text-overflow:ellipsis;opacity:.88}
-.desktop-status-dot{width:7px;height:7px;flex:0 0 7px;border-radius:50%;background:#6f6252}
-.desktop-chin.is-booting .desktop-status-dot{background:var(--honey);animation:desktop-status-breathe 1s ease-in-out infinite}
-.desktop-chin.is-bot .desktop-status-dot{background:var(--lagoon);animation:desktop-status-breathe 2.4s ease-in-out infinite}
-.desktop-chin.is-you .desktop-status-dot{background:var(--clay)}
-.desktop-chin.is-error .desktop-status-dot{background:var(--danger)}
-@keyframes desktop-status-breathe{0%,100%{opacity:.6;transform:scale(.8)}50%{opacity:1;transform:scale(1)}}
+.desktop-boot-phase{color:var(--desktop-controls-ink);font:var(--type-status);opacity:.8}
+.desktop-floating-shell .desktop-bot-starting{display:flex!important;flex-direction:column;align-items:center;justify-content:center;gap:8px}
 
 /* The switch: the thumb is the hand on the mouse. It springs to the cat or to you and takes that side's color. */
 .desktop-driver-switch{position:relative;display:grid;grid-template-columns:1fr 1fr;align-items:center;width:84px;height:34px;flex:none;padding:3px;border:1px solid var(--desktop-controls-edge);border-radius:999px;background:rgba(255,255,255,.06);cursor:pointer}
 .desktop-driver-switch:disabled{opacity:.45;cursor:default}
 .desktop-driver-thumb{position:absolute;top:3px;left:3px;width:38px;height:26px;border-radius:999px;background:var(--lagoon);transition:transform 440ms cubic-bezier(.34,1.56,.64,1),background-color 300ms ease}
-.desktop-driver-thumb svg{position:absolute;top:-8px;left:50%;width:16px;height:16px;margin-left:-8px;padding:2px;border-radius:50%;background:var(--surface);color:var(--ink);box-sizing:border-box;box-shadow:0 1px 0 rgba(0,0,0,.3)}
+.desktop-driver-thumb svg{position:absolute;top:-6px;right:-4px;width:14px;height:14px;padding:2px;border-radius:50%;background:var(--surface);color:var(--ink);box-sizing:border-box;box-shadow:0 1px 0 rgba(0,0,0,.3)}
 .desktop-driver-switch.is-you .desktop-driver-thumb{transform:translateX(38px);background:var(--clay)}
 .desktop-chin:is(.is-idle,.is-booting,.is-error) .desktop-driver-switch.is-bot .desktop-driver-thumb{background:rgba(255,255,255,.16)}
 .desktop-driver-side{position:relative;z-index:1;display:grid;place-items:center;height:26px}
