@@ -4,7 +4,7 @@ import { GazeAvatar } from "./GazeAvatar";
 import { DesktopPointerGlyph } from "./DesktopPointerGlyph";
 import { desktopPointerPosition, visibleDesktopPointer, type DesktopPresenceState, type DesktopPointer } from "./desktopPresence";
 
-function WebPointer({ pointer, width, height }: { pointer: DesktopPointer | null; width: number; height: number }) {
+function WebPointer({ pointer, width, height, name }: { pointer: DesktopPointer | null; width: number; height: number; name: (id: string) => string }) {
   const [previous, setPrevious] = useState<DesktopPointer | null>(null);
   useLayoutEffect(() => { if (pointer) setPrevious(pointer); }, [pointer]);
   const retained = pointer ?? previous;
@@ -16,6 +16,7 @@ function WebPointer({ pointer, width, height }: { pointer: DesktopPointer | null
     <span className={`desktop-pointer-confirmed web-desktop-pointer${pointer ? " is-visible" : ""}`}
       style={{ transform:`translate3d(${position.left}px,${position.top}px,0)` }}>
       <DesktopPointerGlyph botId={retained.bot_id} />
+      <span className="web-desktop-pointer-name">{name(retained.bot_id)}</span>
     </span>
     {pointer && <span key={pointer.updated_at} className="web-desktop-click" style={position}><span className="desktop-click-ring" /></span>}
   </>;
@@ -46,6 +47,6 @@ export function DesktopPointerMarker({ presence, humanControlled, botLabel }: { 
     {isDesktop ? pointer && position && <span className={`desktop-pointer-confirmed${position.left > bounds.width / 2 ? " is-right" : ""}${position.top > bounds.height - 36 ? " is-bottom" : ""}`} style={position}>
       <span key={pointer.updated_at} className="desktop-click-ring" />
       <span className="desktop-pointer-label"><GazeAvatar id={pointer.bot_id} mini animated={false}/><span>{botLabel(pointer.bot_id)} · 点击</span></span>
-    </span> : <WebPointer key={`${owner?.bot_id}:${owner?.run_id}:${humanControlled}`} pointer={pointer} {...bounds} />}
+    </span> : <WebPointer key={`${owner?.bot_id}:${owner?.run_id}:${humanControlled}`} pointer={pointer} name={botLabel} {...bounds} />}
   </span>;
 }
