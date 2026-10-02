@@ -228,10 +228,10 @@ html:not([data-desktop]) .workspace .new-arrival .message-user .message-content 
 .workspace .message-reply-excerpt { overflow:hidden; max-width:100%; text-overflow:ellipsis; white-space:nowrap; font:13px/1.4 var(--body); }
 .workspace .message-user .message-reply-quote { margin-left:auto; }
 .workspace .message-block:focus { outline:none; }
-.workspace .message-block:focus .message-content { outline:2px solid var(--lagoon); outline-offset:4px; }
-/* Jumps from a pointer (sidebar result, reply quote) flash the target instead of
-   leaving a ring that only clears on the next click; keyboard focus keeps it. */
-.workspace .message-block:focus:not(:focus-visible) .message-content { animation:v2-focus-flash 1.6s ease-out forwards; }
+.workspace .message-block:focus-visible .message-content { outline:2px solid var(--lagoon); outline-offset:4px; }
+/* Clicking a message never frames it. Jumps to a message (sidebar result, reply
+   quote) flash the target once via .is-jump-target; keyboard focus keeps the ring. */
+.workspace .message-block.is-jump-target .message-content { outline:2px solid var(--lagoon); outline-offset:4px; animation:v2-focus-flash 1.6s ease-out forwards; }
 @keyframes v2-focus-flash { 0%,45% { outline-color:var(--lagoon); } 100% { outline-color:transparent; } }
 html:not([data-desktop]) .workspace .message-segment .message-content {
   display:table; max-width:min(78%, 680px); padding:9px 13px; border:1px solid var(--line-soft);
@@ -577,3 +577,38 @@ html:not([data-desktop]) .workspace .web-memory-empty p{margin:0;color:var(--mut
 html:not([data-desktop]) .workspace .web-loading-state{min-height:96px;padding-block:16px;align-content:center;justify-items:center;gap:8px;animation:web-loading-in 260ms ease both}
 @keyframes web-loading-in{from{opacity:0}}
 @media(prefers-reduced-motion:reduce){html:not([data-desktop]) .workspace .web-loading-state{animation:none}}
+
+/* Browser-mode message actions: hover (or keyboard focus) reveals time, reaction and reply. */
+.workspace .message-hover-host { position:relative; }
+.workspace .message-hover-actions {
+  position:absolute; z-index:4; right:0; bottom:calc(100% - 6px); display:flex; align-items:center; gap:2px; padding:3px;
+  border:1px solid var(--line-soft); border-radius:10px; background:var(--surface);
+  box-shadow:0 6px 18px color-mix(in srgb,var(--ink) 12%,transparent);
+  opacity:0; pointer-events:none; transform:translateY(3px); transition:opacity 120ms ease,transform 120ms ease;
+}
+.workspace .message-hover-host:hover>.message-hover-actions,
+.workspace .message-hover-actions:focus-within { opacity:1; pointer-events:auto; transform:none; }
+.workspace .message-hover-actions time { padding:0 6px 0 7px; color:var(--muted); font:11px/1 var(--mono); white-space:nowrap; }
+.workspace .message-hover-actions button {
+  display:grid; place-items:center; width:28px; height:28px; padding:0; border:0; border-radius:7px;
+  background:transparent; color:var(--ink-soft); cursor:pointer;
+}
+.workspace .message-hover-actions button:hover { background:var(--surface-2); color:var(--ink); }
+.workspace .message-hover-actions button:focus-visible { outline:2px solid var(--focus); outline-offset:1px; }
+@media (hover:none) { .workspace .message-hover-actions { display:none; } }
+@media (prefers-reduced-motion:reduce) { .workspace .message-hover-actions { transition:none; } }
+
+.workspace .composer-reply {
+  display:flex; align-items:center; gap:8px; margin:0 0 6px; padding:6px 6px 6px 10px;
+  border-left:3px solid var(--lagoon); border-radius:8px; background:var(--surface-2); color:var(--muted);
+}
+.workspace .composer-reply-copy { display:flex; min-width:0; flex:1; gap:8px; align-items:baseline; font:13px/1.4 var(--body); }
+.workspace .composer-reply-copy strong { flex-shrink:0; color:var(--ink); font-weight:600; }
+.workspace .composer-reply-copy span { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.workspace .composer-reply button { display:grid; place-items:center; width:24px; height:24px; padding:0; border:0; border-radius:6px; background:transparent; color:var(--muted); cursor:pointer; }
+.workspace .composer-reply button:hover { background:var(--surface); color:var(--ink); }
+
+/* Group chats: reactions and live status line up with the message text, not the avatar column. */
+html:not([data-desktop]) .workspace .message-block:has(.message-avatar)>.message-reactions,
+html:not([data-desktop]) .workspace .live-run-status.is-group { margin-left:44px; }
+html[data-desktop] .workspace .message-block:has(.message-avatar)>.message-reactions { margin-left:48px; }
