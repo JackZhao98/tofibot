@@ -256,9 +256,20 @@ func (r *Runner) Remove(id string) error {
 		return errors.New("plugin is busy")
 	}
 	cli, stop, group := p.cli, p.stop, p.processGroup
+	// Block new leases before releasing the busy-check lock. Shutdown and
+	// manifest writes may take time; an old handler must not restart this child.
+	p.retiring = true
 	p.cli = nil
 	p.stop = nil
 	p.mu.Unlock()
+	removed := false
+	defer func() {
+		if !removed {
+			p.mu.Lock()
+			p.retiring = false
+			p.mu.Unlock()
+		}
+	}()
 	shutdown(cli, stop, group)
 	manifest := filepath.Join(dir, "manifest.json")
 	data, err := os.ReadFile(manifest)
@@ -287,6 +298,7 @@ func (r *Runner) Remove(id string) error {
 	}
 	r.mu.Lock()
 	delete(r.plugins, id)
+	removed = true
 	r.mu.Unlock()
 	return os.RemoveAll(filepath.Join(dir, "plugins", id))
 }
