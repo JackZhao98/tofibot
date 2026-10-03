@@ -1900,7 +1900,7 @@ function MembersPanel({ conversation, bots, onClose, onOpen, onSaved, onReload, 
 
   return <div className="detail-content member-details">
     <div className="detail-heading"><div><h2>群资料</h2></div><button className="close-button" aria-label="关闭成员详情" disabled={saving || reloading} onClick={onClose}><Icon name="close" size={18} /></button></div>
-    <WorkPreview disabled={saving || reloading} scope={{type:"conversations",id:conversation.id}} refreshToken={refreshToken} onOpen={onOpenWork}/>
+    <nav className="bot-v2-rows members-v2-rows" aria-label="群资料"><WorkPreview disabled={saving || reloading} scope={{type:"conversations",id:conversation.id}} refreshToken={refreshToken} onOpen={onOpenWork} leading={<span className="bot-v2-row-icon" aria-hidden="true"><Icon name="checklist" size={18}/></span>}/></nav>
     <form className="members-manage-form" aria-busy={saving || reloading} onSubmit={(event) => void submit(event)}>
       <label>群名称<input aria-label="群名称" value={name} maxLength={200} disabled={saving || reloading} onChange={(event) => setName(event.target.value)} /></label>
       <div className="members-manage-label"><span>成员</span><span className="muted small-text">{selectedIds.length}/8</span></div>
@@ -2728,21 +2728,29 @@ function BotPanel({ bots, activeBot, onClose, onUpdate, onCreateGroup, onOpenWor
   }
   if (activeBot) {
     const role = instructions.trim().split(/[\n。！？.!?]/)[0]?.trim();
+    const effortLabel = (activeBot.reasoning_effort || effort) ? ` · ${activeBot.reasoning_effort || effort}` : "";
+    const latestMemory = memories.at(-1)?.content;
     return <div className="detail-content bot-v2-panel">
       <div className="detail-heading bot-v2-heading">
-        {view === "home" ? <h2>Bot</h2> : <button type="button" className="bot-v2-back" onClick={() => setView("home")}><Icon name="arrow-left" size={18}/> 返回</button>}
-        <div className="bot-v2-heading-actions">{view === "home" && <button type="button" className="icon-button" aria-label="导出 Bot 分享包" data-hint="分享 Bot" onClick={() => downloadBotPackage(buildBotPackage(activeBot))}><Icon name="download" size={18}/></button>}<button className="close-button" aria-label="关闭 Bot 设置" disabled={saving} onClick={onClose}><Icon name="close" size={18}/></button></div>
+        {view === "home" ? <h2>Bot 资料</h2> : <button type="button" className="bot-v2-back" onClick={() => setView("home")}><Icon name="arrow-left" size={18}/> 返回</button>}
+        <button className="close-button" aria-label="关闭 Bot 资料" data-hint="关闭" onClick={onClose}><Icon name="close" size={18} /></button>
       </div>
       {view === "home" ? <>
-        <button type="button" className="bot-v2-hero" onClick={() => setView("appearance")} aria-label={`更改 ${activeBot.name} 的头像样式`}>
-          <span className="bot-v2-cat"><GazeAvatar id={activeBot.id} config={avatarConfig} motion="awake" /></span>
-          <span className="bot-v2-change"><Icon name="edit" size={15}/> 样式</span>
-        </button>
-        <div className="bot-v2-identity"><h2>{activeBot.name}</h2>{role && <p>{role}</p>}<small>{activeBot.model || model || "默认模型"}{activeBot.reasoning_effort ? ` · ${activeBot.reasoning_effort}` : ""}</small></div>
-        {onOpenWork && <section className="bot-v2-section"><div className="bot-v2-section-heading"><h3>计划与定时任务</h3><button type="button" className="text-button" onClick={onOpenWork}>全部 ›</button></div><WorkPreview disabled={saving} scope={{type:"bots",id:activeBot.id}} refreshToken={refreshToken} onOpen={onOpenWork}/></section>}
-        <section className="bot-v2-section"><div className="bot-v2-section-heading"><h3>记忆 <small>{memories.length}</small></h3>{onOpenMemory && <button type="button" className="text-button" onClick={onOpenMemory}>全部 ›</button>}</div>{memories.length ? <div className="bot-v2-memory-preview">{memories.slice(-2).reverse().map(memory => <p key={memory.id}>{memory.content}</p>)}</div> : <p>暂无记忆</p>}</section>
-        <section className="bot-v2-section bot-v2-config-list"><h3>配置</h3><button type="button" onClick={() => setView("config")}><span>职能、模型与思考</span><Icon name="chevron-right" size={17}/></button><button type="button" onClick={() => setView("appearance")}><span>头像样式</span><Icon name="chevron-right" size={17}/></button></section>
-      </> : view === "appearance" ? <><div className="bot-v2-subtitle"><h2>样式</h2><p>看看这只猫在列表和聊天里是什么样子。</p></div><BotAvatarPicker botId={activeBot.id} config={avatarConfig!} onChange={(next) => setAvatarConfig(saveBotAvatarConfig(activeBot.id, next))}/><button type="button" className="primary-button bot-v2-done" onClick={() => setView("home")}>完成</button></> : <><div className="bot-v2-subtitle"><h2>职能与模型</h2><p>这些设置决定这个 Bot 如何工作。</p></div><form className="detail-form" aria-busy={saving} onSubmit={(event) => void submit(event)}><fieldset className="form-fields" disabled={saving}><label>名称<input value={name} maxLength={200} onChange={(event) => setName(event.target.value)}/></label><label>职能与指令<textarea value={instructions} onChange={(event) => setInstructions(event.target.value)} placeholder="这个 Bot 长期负责什么？" rows={6}/></label><Disclosure title="模型与思考"><ModelFields disabled={saving} model={model} effort={effort} onChange={(next,level)=>{setModel(next);setEffort(level)}}/></Disclosure>{error && <p className="error-text" role="alert">{error}</p>}<button className="primary-button" disabled={!valid || saving}>{saving ? "保存中…" : "保存"}</button></fieldset></form><BotInspector botId={activeBot.id}/></>}
+        {/* One entry per destination: the cat opens its style, each row opens one page. */}
+        <div className="bot-v2-profile">
+          <button type="button" className="bot-v2-hero" onClick={() => setView("appearance")} aria-label={`更改 ${activeBot.name} 的头像样式`} data-hint="更换样式">
+            <span className="bot-v2-cat"><GazeAvatar id={activeBot.id} config={avatarConfig} motion="awake" /></span>
+            <span className="bot-v2-change" aria-hidden="true"><Icon name="edit" size={13}/></span>
+          </button>
+          <div className="bot-v2-identity"><h2>{activeBot.name}</h2>{role && <p>{role}</p>}<span className="bot-v2-model">{activeBot.model || model || "默认模型"}{effortLabel}</span></div>
+        </div>
+        <nav className="bot-v2-rows" aria-label="Bot 资料">
+          {onOpenWork && <WorkPreview disabled={saving} scope={{type:"bots",id:activeBot.id}} refreshToken={refreshToken} onOpen={onOpenWork} leading={<span className="bot-v2-row-icon" aria-hidden="true"><Icon name="checklist" size={18}/></span>}/>}
+          {onOpenMemory && <button type="button" className="bot-v2-row" onClick={onOpenMemory}><span className="bot-v2-row-icon" aria-hidden="true"><Icon name="memory" size={18}/></span><span className="bot-v2-row-copy"><strong>记忆 <span>{memories.length}</span></strong><small>{latestMemory ?? "暂无记忆"}</small></span><Icon name="chevron-right" size={16}/></button>}
+          <button type="button" className="bot-v2-row" onClick={() => setView("config")}><span className="bot-v2-row-icon" aria-hidden="true"><Icon name="bot-config" size={18}/></span><span className="bot-v2-row-copy"><strong>名称、职能与模型</strong><small>{role || "还没有写职能"}</small></span><Icon name="chevron-right" size={16}/></button>
+        </nav>
+        <div className="bot-v2-footer"><button type="button" className="text-button" onClick={() => downloadBotPackage(buildBotPackage(activeBot))}><Icon name="share" size={15}/> 导出分享包</button></div>
+      </> : view === "appearance" ? <><div className="bot-v2-subtitle"><h2>样式</h2><p>看看这只猫在列表和聊天里是什么样子。</p></div><BotAvatarPicker botId={activeBot.id} config={avatarConfig!} onChange={(next) => setAvatarConfig(saveBotAvatarConfig(activeBot.id, next))}/><button type="button" className="primary-button bot-v2-done" onClick={() => setView("home")}>完成</button></> : <><div className="bot-v2-subtitle"><h2>名称、职能与模型</h2><p>这些设置决定这个 Bot 如何工作。</p></div><form className="detail-form" aria-busy={saving} onSubmit={(event) => void submit(event)}><fieldset className="form-fields" disabled={saving}><label>名称<input value={name} maxLength={200} onChange={(event) => setName(event.target.value)}/></label><label>职能与指令<textarea value={instructions} onChange={(event) => setInstructions(event.target.value)} placeholder="这个 Bot 长期负责什么？" rows={6}/></label><Disclosure title="模型与思考"><ModelFields disabled={saving} model={model} effort={effort} onChange={(next,level)=>{setModel(next);setEffort(level)}}/></Disclosure>{error && <p className="error-text" role="alert">{error}</p>}<button className="primary-button" disabled={!valid || saving}>{saving ? "保存中…" : "保存"}</button></fieldset></form><BotInspector botId={activeBot.id}/></>}
     </div>;
   }
   return <div className="detail-content">
