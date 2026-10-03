@@ -1,0 +1,45 @@
+# Initial token-capable catalog review
+
+Candidate based on verified remote main `2d304632558b4497d98ec7759be6a181d7362a9c`, in isolated branch `codex/token-catalog-20261003`. Reviewed 2026-10-03. No publish, merge, provider installation, production mutation, live credential read or live MCP request was performed. Repository AGENTS.md was read; no .agents/skills directory or further AGENTS.md exists in this main snapshot. Other workers' mail, metadata, release, portability and installer scopes are untouched.
+
+## Existing capability
+
+`ui/src/integrationCatalog.ts` already offered GitHub/Linear Bearer presets, Context7 custom API-key header, Microsoft Learn no-auth, Notion hosted OAuth and six Google presets. Google remains deferred and unchanged. `MCPSettings.tsx` has an existing password input and submits headers privately to the settings API. `internal/extensions/management.go` masks all saved header values and writes configuration atomically at mode 0600. Nil header map preserves all values; masked/empty values preserve the corresponding existing key; an explicitly supplied map without a key removes that key. These permissions protect files at rest; they are not encryption or an account authorization proof.
+
+Local MCP Runner supports owner-selected, pinned npm/PyPI packages and stdio-to-private-HTTP bridging. `install.go` keeps secret environment values in mode-0600 files and omits those values from the manifest. Its generic installation form does not establish vendor provenance or protocol compatibility. No new package installer or general PAT/OAuth system is introduced.
+
+Skills already support workspace-wide folder import, manual SKILL.md entry, three original TOFI starter workflows, `list_skills`, `read_skill`, and bounded reference-file reads. Install validates matching YAML name/description, safe paths, at most 256 files and 1 MiB aggregate content. Read access is bounded and rejects directory escapes/symlinks. Imported scripts are not automatically executed. Instructions/reference files are supported; binary assets are not faithfully imported by the UI's text-based folder reader. A Skill is not a provider credential grant.
+
+## Provider decisions
+
+| Service | Proven source and auth contract | Candidate decision / remaining gap |
+| --- | --- | --- |
+| GitHub | Vendor repository; hosted Streamable HTTP at `https://api.githubcopilot.com/mcp/`; PAT in `Authorization: Bearer …`. Vendor remote docs list `/mcp/readonly`. Pinned upstream uses Go SDK 1.8.0, the same SDK as TOFI. | Add GitHub read-only PAT preset. Source/auth vetted; compatibility with the hosted deployment is an inference from its documented use of this library, not live availability proof. Runtime discovery and account/org policy still apply. |
+| Notion hosted | Vendor `https://mcp.notion.com/mcp`, user OAuth rather than integration PAT. | Preserve existing OAuth preset. No fake Bearer-token mode for this hosted endpoint. |
+| Notion token | Vendor npm `@notionhq/notion-mcp-server`, package source version 2.5.2, binary `notion-mcp-server`, default stdio, `NOTION_TOKEN`. Its own HTTP auth token is distinct from the Notion integration token. | Hold local token preset: declared TypeScript SDK 1.29.0 supports protocol only through 2025-11-25. TOFI requires 2026-07-28/server-discover and blocks legacy initialize. Do not change that fence to make an incompatible preset appear usable. A future release must be source/pin/protocol vetted. |
+| Discord | Community `SaseQ/discord-mcp` has active source history and documented Discord bot `DISCORD_TOKEN`, optional guild ID, Java/Docker HTTP singleton. Community `v-3/discordmcp` has two commits and no package bin field. `hanweg/mcp-discord` is another Python candidate. None is a Discord-owned upstream. | Hold installable preset: Java/Docker deployment is outside current npm/PyPI installer contract; reviewed alternatives lack proven current protocol/package compatibility. Self-hosted HTTP auth and bot channel permissions require explicit validation. Do not invent a Discord-hosted MCP endpoint or accept a personal user token. |
+| Slack | Slack-owned Streamable HTTP endpoint `https://mcp.slack.com/mcp`; confidential user OAuth, no DCR. Registered fixed app identity is required; only published or internal apps may use it. Scopes depend on tools. | Hold preset: a generic bot token is not this official auth contract; TOFI's generic client identity is not a registered Slack app identity. No OAuth redesign or unregistered-app workaround. A community bot-token bridge must separately prove maintenance, package provenance, current protocol and its scopes before TOFI can support it. |
+| Yahoo Finance | Community `Alex2Yang97/yahoo-finance-mcp` uses yfinance/FastMCP, no token. Main declares Python >=3.14.6, while current Runner Debian Python is older. PyPI's same-named 0.1.2 project lists maintainer ycjcl868, and published metadata differs from GitHub main. | Hold: no verified Yahoo-owned MCP or token contract; published package provenance and runtime compatibility are unresolved. Do not silently install a similarly named package or describe community yfinance as Yahoo upstream support. |
+
+TOFI-supported describes TOFI curation, not vendor ownership or endorsement. The UI type now distinguishes vendor/community provenance and uses neutral “connection documentation” instead of calling every linked project official. The review records held candidates; it does not place unproven providers in the clickable installation catalog.
+
+## Credential safety change
+
+Saving a new endpoint cannot implicitly carry saved headers or an OAuth client using omitted, empty or masked retention markers. Such edits fail before config writes, leaving the old connection intact. Explicitly re-entering credentials or removing header keys supports intentional edits. The pending UI token draft is cleared when the address changes. Existing same-endpoint preserve/replace/delete semantics remain intact. No approvals are exempted and no read-only annotation is treated as authorization.
+
+## Verification and icons
+
+`ui/scripts/test-integration-catalog.mjs` exercises catalog URLs/provenance, GitHub read-only PAT, no-auth empty headers, custom keys/prefixes and preserve/replace/delete behavior. `internal/extensions/token_catalog_test.go` covers private saved files, masks, refused destination moves, unchanged configs after rejection and disposable no-auth/Bearer/custom-header discovery. Fixture connection tests only use `server/discover` and `tools/list`; they never execute a tool. Existing legacy-protocol rejection and Skill import tests are included in focused validation. See accompanying acceptance evidence for actual completed checks and environment limits; neither synthetic tests nor a UI build prove live providers work.
+
+Named SVG candidates and per-file hashes are in `icons/manifest.json`, with a static `icons/preview.html`. Vendor-permitted GitHub black/white and Discord black/white/Blurple marks retain their original bytes. GitHub native color is black, so its color and monochrome names intentionally reference identical artwork. Soft/cute is proposed for TOFI-owned surrounding presentation only, subject to vendor permissions; no provider mark was redrawn or recolored. Notion/Slack/Yahoo variants remain held where exact asset rights are unverified. The original 144-glyph TOFI icon library is unchanged.
+
+## Primary sources and immutable revisions
+
+- GitHub remote/PAT and endpoint docs: https://github.com/github/github-mcp-server/blob/71ef8266e48110974b13aef50b4df6ff9914ff68/README.md and https://github.com/github/github-mcp-server/blob/71ef8266e48110974b13aef50b4df6ff9914ff68/docs/remote-server.md
+- GitHub SDK dependency: https://github.com/github/github-mcp-server/blob/71ef8266e48110974b13aef50b4df6ff9914ff68/go.mod
+- Notion package/auth/transport: https://github.com/makenotion/notion-mcp-server/blob/730ae781ba28beeaf0865025a3f2ed4c25ea2387/package.json and https://github.com/makenotion/notion-mcp-server/blob/730ae781ba28beeaf0865025a3f2ed4c25ea2387/README.md
+- Protocol declaration: https://github.com/modelcontextprotocol/typescript-sdk/blob/e12cbd7078db388152f6e839abdbe09ba01f3f32/src/types.ts
+- Slack vendor contract: https://docs.slack.dev/ai/slack-mcp-server/
+- Discord community sources: https://github.com/SaseQ/discord-mcp ; https://github.com/v-3/discordmcp ; https://github.com/hanweg/mcp-discord
+- Yahoo community source/published registry: https://github.com/Alex2Yang97/yahoo-finance-mcp/blob/main/pyproject.toml ; https://pypi.org/project/yahoo-finance-mcp/
+- Brand source and terms: https://brand.github.com/foundations/logo ; https://discord.com/branding ; https://slack.com/media-kit ; https://github.com/simple-icons/simple-icons/blob/develop/DISCLAIMER.md

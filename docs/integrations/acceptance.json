@@ -1,0 +1,69 @@
+{
+  "base_commit": "2d304632558b4497d98ec7759be6a181d7362a9c",
+  "review_date": "2026-10-03",
+  "scope": [
+    "additive GitHub read-only PAT preset",
+    "catalog provenance",
+    "credential destination safety",
+    "synthetic regression tests",
+    "provider/Skills vetting documentation",
+    "unmodified permitted vendor SVG candidates"
+  ],
+  "checks": [
+    {
+      "check": "Focused Go credential, discovery-only, legacy-protocol and Skill import tests",
+      "command": "GOCACHE=<task-cache> GOPROXY=off GOTOOLCHAIN=local <cached-go1.25.11>/bin/go test -buildvcs=false -timeout=45s ./internal/extensions -run 'TestMCPHeaderCredentialEditSemantics|TestMCPDestinationEdit|TestTokenCatalogAuthenticationDiscoveryOnly|TestMCPManagementMasksAndRetainsSecrets|TestSkillInstallRejectsTraversalAndInvalidFrontmatter|TestMCPRequiresLatestWithoutSendingLegacyHandshake' -count=1 -v",
+      "exit_code": 0,
+      "result": "PASS; internal/extensions 0.502s"
+    },
+    {
+      "check": "UI catalog/token headers",
+      "command": "node ui/scripts/test-integration-catalog.mjs",
+      "exit_code": 0,
+      "result": "PASS; provenance, public-only presets, no-auth/Bearer/custom-header and preserve/replace/delete"
+    },
+    {
+      "check": "UI typecheck",
+      "command": "npm --prefix ui run typecheck",
+      "exit_code": 0,
+      "result": "PASS"
+    },
+    {
+      "check": "Exact changed-source whitespace",
+      "command": "git diff --check -- internal/extensions/management.go ui/src/MCPSettings.tsx ui/src/integrationCatalog.ts",
+      "exit_code": 0,
+      "result": "PASS"
+    },
+    {
+      "check": "SVG candidate structural/integrity validation",
+      "exit_code": 0,
+      "result": "PASS; six exact vendor SHA-256 hashes, scalable viewBox, no active/external content"
+    },
+    {
+      "check": "SVG contact sheet",
+      "command": "rsvg-convert -o docs/integrations/icons/contact-sheet.png docs/integrations/icons/contact-sheet.svg",
+      "exit_code": 0,
+      "result": "Rendered and visually reviewed; recognizable unmodified shapes, labels, monochrome/native-color/inverse and held soft column"
+    },
+    {
+      "check": "Full UI production build",
+      "command": "npm --prefix ui run build",
+      "exit_code": null,
+      "result": "Incomplete: Vite transformed 449 modules, then stalled reading unchanged ui/public/icons/svg/monitor-filled.svg; task process stopped. Typecheck separately passed."
+    }
+  ],
+  "limitations": [
+    "No live MCP request, account authorization or deployment validation",
+    "No provider package was installed or executed",
+    "Notion-token/Discord/Slack/Yahoo held with exact gaps in token-catalog-review.md",
+    "Google unchanged and deferred",
+    "Notion/Slack/Yahoo icon variants and all soft logo treatments held pending applicable asset permission"
+  ],
+  "environment_notes": [
+    "Initial sandbox blocked disposable httptest port binding; approved escalation completed tests",
+    "Some broad Git/Go operations stalled; bounded blob reads and exact-source whitespace check succeeded; focused tests ultimately returned passing results",
+    "No automatic review denial was received",
+    "Normal Git commit stalled refreshing unchanged internal/computer/guest/blobs_test.go; exact reviewed index sealed using standard Git tree/commit plumbing after stopping the stalled process. No active repository hooks existed."
+  ],
+  "review": "Self-review only; no additional agents. No publish or merge."
+}

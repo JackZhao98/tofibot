@@ -13,6 +13,8 @@ export type IntegrationPreset = {
   /** Remote Streamable HTTP MCP endpoint. */
   url: string;
   docsURL: string;
+  /** Provider-owned and community-maintained servers are distinct. */
+  upstream?: "vendor" | "community";
   /** Public enablement IDs, never inferred from a user's OAuth client ID. */
   googleAPIs?: { api: string; mcp: string };
   /** Human-readable prerequisites shown before saving the form. */
@@ -132,12 +134,32 @@ export const integrationCatalog: IntegrationPreset[] = [
     status: "developer-preview",
   },
   {
+    id: "github-readonly",
+    name: "GitHub 只读",
+    description: "读取仓库、Issue 与 Pull Request。",
+    category: "service",
+    url: "https://api.githubcopilot.com/mcp/readonly",
+    docsURL: "https://github.com/github/github-mcp-server/blob/main/docs/remote-server.md",
+    upstream: "vendor",
+    setup: [
+      "创建仅覆盖所需仓库和读取权限的 fine-grained PAT。",
+      "在下方私密令牌输入框填写 PAT；无需粘贴到聊天或请求头 JSON。",
+      "添加后检查服务连接和可用工具；账号及组织策略仍适用。",
+    ],
+    auth: "token",
+    tokenHeader: "Authorization",
+    tokenPrefix: "Bearer ",
+    note: "GitHub 托管的只读端点；Tofi 的工具确认与允许/禁用策略仍适用。来源与配置已核对，尚未用真实账号验证。",
+    status: "public-preview",
+  },
+  {
     id: "github",
     name: "GitHub",
     description: "仓库、Issue 与 Pull Request。",
     category: "service",
     url: "https://api.githubcopilot.com/mcp/",
     docsURL: "https://github.com/github/github-mcp-server",
+    upstream: "vendor",
     setup: [
       "准备权限尽量收窄的 fine-grained PAT，并在 Tofi 作为 Bearer token 填入。",
       "连接前检查 GitHub MCP 的 toolset 和仓库权限。",
@@ -155,6 +177,7 @@ export const integrationCatalog: IntegrationPreset[] = [
     category: "service",
     url: "https://mcp.notion.com/mcp",
     docsURL: "https://www.notion.com/help/notion-mcp",
+    upstream: "vendor",
     setup: [
       "Tofi 会向服务申请 OAuth 客户端，无需手动填写 Client ID。",
       "添加后点击授权，选择要连接的 Notion 工作区。",
