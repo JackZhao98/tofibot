@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/JackZhao98/tofibot/internal/provider"
+	"github.com/JackZhao98/tofibot/internal/tooloutcome"
 )
 
 // SuspensionError is the narrow control signal used by a bounded runtime tool
@@ -34,11 +35,12 @@ func suspensionQuestionID(err error) (string, bool) {
 type Continuation struct {
 	Version int `json:"version"`
 
-	Messages   []provider.Message    `json:"messages"`
-	TotalUsage provider.Usage        `json:"total_usage"`
-	ModelUsage map[string]ModelUsage `json:"model_usage"`
-	LLMCalls   int                   `json:"llm_calls"`
-	Step       int                   `json:"step"`
+	Messages     []provider.Message    `json:"messages"`
+	ToolRecovery []ToolRecoveryRecord  `json:"tool_recovery,omitempty"`
+	TotalUsage   provider.Usage        `json:"total_usage"`
+	ModelUsage   map[string]ModelUsage `json:"model_usage"`
+	LLMCalls     int                   `json:"llm_calls"`
+	Step         int                   `json:"step"`
 
 	AssistantTurnIndex      int   `json:"assistant_turn_index"`
 	ToolCallsSinceReport    int   `json:"tool_calls_since_report,omitempty"`
@@ -78,6 +80,11 @@ func ValidateContinuation(c *Continuation) error {
 	}
 	if len(c.Messages) == 0 {
 		return errors.New("agent continuation has no messages")
+	}
+	for _, record := range c.ToolRecovery {
+		if record.Call.ID == "" || record.Call.Name == "" || record.Outcome.Version != 1 || !recoveryStatus(record.Outcome.Status) || record.Outcome.Certainty == "" || record.Outcome.NextAction == "" {
+			return errors.New("agent continuation has invalid tool recovery state")
+		}
 	}
 
 	var waitingBatch []provider.ToolCall
@@ -142,7 +149,7 @@ func continuationActiveElapsed(cfg *AgentConfig, runStart time.Time) time.Durati
 	return max(0, elapsed)
 }
 
-func newSuspendedResult(state *AgentState, cfg *AgentConfig, model string, messages []provider.Message, assistantTurnIndex int, runStart time.Time, budgetWrapUp, finalResponseRepaired, finalRepairPending, finalRepairReserved, finalRepairFinalPending bool, toolCallsSinceReport int, reportRequired bool, questionID string, waiting provider.ToolCall) *AgentResult {
+func newSuspendedResult(state *AgentState, cfg *AgentConfig, model string, messages []provider.Message, assistantTurnIndex int, runStart time.Time, budgetWrapUp, finalResponseRepaired, finalRepairPending, finalRepairReserved, finalRepairFinalPending bool, toolCallsSinceReport int, reportRequired bool, questionID string, waiting provider.ToolCall, recovery []ToolRecoveryRecord) *AgentResult {
 	state = state.WithMessages(messages)
 	return &AgentResult{
 		TotalUsage:     state.TotalUsage,
@@ -158,6 +165,7 @@ func newSuspendedResult(state *AgentState, cfg *AgentConfig, model string, messa
 		Continuation: &Continuation{
 			Version:                 continuationVersion,
 			Messages:                append([]provider.Message(nil), messages...),
+			ToolRecovery:            append([]ToolRecoveryRecord(nil), recovery...),
 			TotalUsage:              state.TotalUsage,
 			ModelUsage:              state.Tracker.ModelBreakdown(),
 			LLMCalls:                state.LLMCalls,
@@ -193,20 +201,26 @@ func waitingBatchCalls(messages []provider.Message, waitingID string) []provider
 	return nil
 }
 
-func resumeContinuation(c *Continuation, result string) ([]provider.Message, error) {
+func resumeContinuation(c *Continuation, result string, outcomes ...*tooloutcome.Outcome) ([]provider.Message, error) {
 	if err := ValidateContinuation(c); err != nil {
 		return nil, err
 	}
 	messages := append([]provider.Message(nil), c.Messages...)
+	var outcome *tooloutcome.Outcome
+	if len(outcomes) > 0 {
+		outcome = outcomes[0]
+	}
 	messages = append(messages, provider.Message{
-		Role:       "tool",
-		Content:    result,
+		Role:        "tool",
+		Content:     result,
+		ToolOutcome: outcome, ToolFailed: outcome != nil && outcome.Status != "approval_recorded",
 		ToolCallID: c.WaitingToolCallID,
 		ToolName:   c.WaitingToolName,
 	})
 	for _, call := range c.SkippedToolCalls {
 		messages = append(messages, provider.Message{
 			Role:       "tool",
+			ToolFailed: true,
 			Content:    "Tool error: execution skipped after human input suspension. Do not reuse this stale tool call; decide whether to call a tool again based on the resumed context.",
 			ToolCallID: call.ID,
 			ToolName:   call.Name,

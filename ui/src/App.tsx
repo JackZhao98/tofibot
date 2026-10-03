@@ -1253,8 +1253,10 @@ function Workspace() {
       onEvent: (data, id) => { if (current()) handleWorkspaceEvent(data, id); },
       onReset: () => { if (current()) resetWorkspaceEvents(); },
     });
+    for (const event of ["question", "question_answered", "question_cancelled", "question_updated"]) source.addEventListener(event, () => { if (current()) void questions.refresh(); });
     source.onopen = () => {
       if (!current()) return;
+      void questions.refresh();
       if (eventConnectTimer.current !== undefined) window.clearTimeout(eventConnectTimer.current);
       reconnectAttempt.current = 0;
       setStreamConnected(true);
@@ -2291,7 +2293,7 @@ function WebToolActivityRun({ runId, items, notes, summary, summaryError, summar
         return <li className={`web-tool-step is-${activity.status}`} key={toolActivityKey(activity)}>
           <Icon name={toolStepIcon(toolStepLabel(activity))} size={16} />
           <details className="web-tool-step-detail"><summary><span className="web-tool-step-label">{toolStepLabel(activity)}{toolArgumentPreview(activity) ? ` · ${toolArgumentPreview(activity)}` : ""}</span></summary>
-            <div className="tool-activity-details"><small>{Number.isFinite(Date.parse(activity.started_at)) ? formatExactTime(activity.started_at, timezone) : ""} · {timezone}</small><div><span>参数</span><pre>{activity.arguments || "（无）"}</pre></div><div><span>结果</span><pre>{activity.result || (active ? "等待结果…" : "（无）")}</pre></div>{activity.truncated && <small>内容已截断</small>}</div>
+            <div className="tool-activity-details"><small>{Number.isFinite(Date.parse(activity.started_at)) ? formatExactTime(activity.started_at, timezone) : ""} · {timezone}</small><div><span>参数</span><pre>{activity.arguments || "（无）"}</pre></div><div><span>结果</span>{activity.outcome && <p className="tool-outcome" role="note">{activity.outcome.message}</p>}<pre>{activity.result || (active ? "等待结果…" : "（无）")}</pre></div>{activity.truncated && <small>内容已截断</small>}</div>
           </details>
           <span className="web-tool-step-meta">{active ? <span className="web-tool-breath" aria-hidden="true" /> : <Icon name={activity.status === "completed" ? "check" : "alert"} size={14} variant="filled" />}{duration === undefined ? toolStatusText[activity.status] : `${duration.toFixed(1)}s`}</span>
         </li>;
@@ -2332,7 +2334,7 @@ function DesktopToolActivityRun({ runId, items, notes, summary: runSummary, summ
           const duration = Number.isFinite(start) && Number.isFinite(end) && end >= start ? (end - start) / 1000 : undefined;
           return <li className={`v2-tool-step tool-status-${activity.status}`} key={toolActivityKey(activity)}>
             <details className="v2-tool-step-detail"><summary><span className="v2-tool-step-marker" aria-hidden="true" /><strong>{activity.name}</strong>{toolArgumentPreview(activity) && <span className="v2-tool-step-argument">{toolArgumentPreview(activity)}</span>}<span className="v2-tool-step-state">{toolStatusText[activity.status]}</span><time>{duration === undefined ? "" : activity.status === "running" ? `${duration}s…` : `${duration}s`}</time></summary>
-              <div className="tool-activity-details"><small>{Number.isFinite(Date.parse(activity.started_at)) ? formatExactTime(activity.started_at, timezone) : ""} · {timezone}</small><div><span>参数</span><pre>{activity.arguments || "（无）"}</pre></div><div><span>结果</span><pre>{activity.result || (activity.status === "running" || activity.status === "queued" ? "等待结果…" : "（无）")}</pre></div>{activity.truncated && <small>内容已截断</small>}</div>
+              <div className="tool-activity-details"><small>{Number.isFinite(Date.parse(activity.started_at)) ? formatExactTime(activity.started_at, timezone) : ""} · {timezone}</small><div><span>参数</span><pre>{activity.arguments || "（无）"}</pre></div><div><span>结果</span>{activity.outcome && <p className="tool-outcome" role="note">{activity.outcome.message}</p>}<pre>{activity.result || (activity.status === "running" || activity.status === "queued" ? "等待结果…" : "（无）")}</pre></div>{activity.truncated && <small>内容已截断</small>}</div>
             </details>
           </li>;
         })}{detail?.hasMore && (count === undefined || items.length < count) && <li className="v2-progress-note"><button type="button" className="secondary-button" disabled={detail.loading} onClick={() => void onLoadDetails?.(runId, detail.loaded)}>{detail.loading ? "加载中…" : `加载更多（已显示 ${items.length}/${count ?? "?"}）`}</button></li>}</ol>

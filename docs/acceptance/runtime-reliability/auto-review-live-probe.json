@@ -1,0 +1,1 @@
+{"model":"codex-auto-review","fixture":"public_search","availability":"not_tested","attempts":0,"blocker":"existing_auth_snapshot_expired","tool_calls":0,"usage":{"InputTokens":0,"OutputTokens":0},"execution_approved":false}

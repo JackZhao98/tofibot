@@ -15,9 +15,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"github.com/JackZhao98/tofibot/internal/extensions"
 	"github.com/JackZhao98/tofibot/internal/runtime"
+	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
 // Only the model and external MCP endpoint are synthetic. The runtime,
@@ -126,6 +126,25 @@ func TestScheduledMCPApprovalRestartHTTPDelivery(t *testing.T) {
 						t.Fatalf("answer=%d %s", response.Code, response.Body.String())
 					}
 				}
+			}
+			if outcome == "expire" {
+				waitForRunStatus(t, server, run.ID, runWaiting)
+				deadline := time.Now().Add(3 * time.Second)
+				for {
+					q, _ := server.store.GetQuestion(question.ID)
+					if q.Status == questionExpired {
+						break
+					}
+					if time.Now().After(deadline) {
+						t.Fatal("approval did not expire")
+					}
+					time.Sleep(10 * time.Millisecond)
+				}
+				response := answerOtherQuestionHTTP(server, question.ID, `{"value":true}`)
+				if response.Code != http.StatusConflict || remoteCalls.Load() != 0 {
+					t.Fatalf("expired approval executed: HTTP=%d calls=%d", response.Code, remoteCalls.Load())
+				}
+				return
 			}
 			wantStatus, wantCalls, wantDelivery := "failed", int32(0), false
 			if outcome == "approve" {
@@ -345,7 +364,7 @@ func newScheduledApprovalModel(t *testing.T, outcome string, remoteCalls *atomic
 			case seen["discover-after"] == "":
 				// An approval answer is not the remote result. Reload the
 				// schema in this new execution, then explicitly call once.
-				if outcome == "approve" && seen["approval-wait"] != "true" {
+				if outcome == "approve" && !strings.Contains(seen["approval-wait"], "approval_recorded") {
 					t.Errorf("resume lost approval answer: %q", seen["approval-wait"])
 				}
 				if remoteCalls.Load() != 0 {

@@ -1,0 +1,1 @@
+PASS: 20 full-App UI cases at 390/1280, synthetic relogin/expiry/renew/resume/reconnect/stream failure; zero executable requests

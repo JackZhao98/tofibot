@@ -11,8 +11,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"github.com/JackZhao98/tofibot/internal/runtime"
+	"github.com/JackZhao98/tofibot/internal/tooloutcome"
+	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
 const maxDiscoveryBytes = 32 << 10
@@ -37,15 +38,15 @@ func (m *Manager) PrepareDiscoverableForBotWithCallGate(ctx context.Context, bot
 
 func strictDiscoveryJSON(raw []byte, value any) error {
 	if len(raw) > 1<<20 || len(bytes.TrimSpace(raw)) == 0 || bytes.TrimSpace(raw)[0] != '{' {
-		return errors.New("arguments must be a JSON object no larger than 1 MiB")
+		return tooloutcome.InvalidArguments("arguments must be a JSON object no larger than 1 MiB")
 	}
 	dec := json.NewDecoder(bytes.NewReader(raw))
 	dec.DisallowUnknownFields()
 	if err := dec.Decode(value); err != nil {
-		return err
+		return tooloutcome.InvalidArguments("invalid tool arguments")
 	}
 	if err := dec.Decode(new(any)); err != io.EOF {
-		return errors.New("arguments must contain exactly one object")
+		return tooloutcome.InvalidArguments("arguments must contain exactly one object")
 	}
 	return nil
 }
@@ -142,13 +143,13 @@ func discoverableMCPTools(runCtx context.Context, available []runtime.Tool) []ru
 		}
 		var args map[string]any
 		if len(in.Arguments) == 0 || json.Unmarshal(in.Arguments, &args) != nil || args == nil {
-			return "", errors.New("arguments must be an object")
+			return "", tooloutcome.InvalidArguments("arguments must be an object")
 		}
 		mu.Lock()
 		t, ok := seen[in.Name]
 		mu.Unlock()
 		if !ok {
-			return "", errors.New("tool was not returned by search_mcp_tools in this run")
+			return "", tooloutcome.New(tooloutcome.Validation, "schema_required", "not_executed", "Tool was not returned by search_mcp_tools in this run.", "refresh_schema").Err()
 		}
 		linked, cancel := context.WithCancel(ctx)
 		defer cancel()
@@ -270,7 +271,7 @@ func lazyDiscoverableMCPTools(runCtx context.Context, m *Manager, servers map[st
 				toolSources[toolName] = mcpToolSource{server: name, remoteName: remote.RemoteName, schemaVersion: version}
 				remoteName := remote.RemoteName
 				found = append(found, runtime.Tool{Name: toolName, Description: boundedDescription(remote.Description, toolName), Parameters: remote.InputSchema, Execute: func(callCtx context.Context, args json.RawMessage) (string, error) {
-					out, err := m.callMCPTool(callCtx, cli, remoteName, args)
+					out, err := m.callMCPTool(callCtx, cli, remoteName, args, trustedReadOnlyTool(cfg, remoteName))
 					if err != nil {
 						m.invalidateCatalogs(name)
 					}
@@ -676,6 +677,22 @@ func lazyDiscoverableMCPTools(runCtx context.Context, m *Manager, servers map[st
 		return string(data), nil
 	}
 	call := runtime.Tool{Name: "call_mcp_tool", Description: "Invoke an MCP tool returned by search_mcp_tools in this run, or a validated schema reference from this Bot conversation, using its exact name and input schema.", Parameters: map[string]any{"type": "object", "properties": map[string]any{"name": map[string]any{"type": "string"}, "arguments": map[string]any{"type": "object"}}, "required": []string{"name", "arguments"}, "additionalProperties": false}}
+	call.Identity = func(raw json.RawMessage) tooloutcome.Identity {
+		i := tooloutcome.DefaultIdentity(call.Name, raw)
+		var in struct {
+			Name string `json:"name"`
+		}
+		_ = json.Unmarshal(raw, &in)
+		sourceMu.RLock()
+		source, ok := toolSources[in.Name]
+		sourceMu.RUnlock()
+		// Only an existing owner-reviewed exact tool entry establishes read-only
+		// risk. Remote annotations, descriptions and model arguments cannot.
+		if ok && trustedReadOnlyTool(servers[source.server], source.remoteName) {
+			i.Risk = tooloutcome.Observation
+		}
+		return i
+	}
 	call.Execute = func(ctx context.Context, raw json.RawMessage) (string, error) {
 		ctx, cancel := link(ctx)
 		defer cancel()
@@ -691,26 +708,29 @@ func lazyDiscoverableMCPTools(runCtx context.Context, m *Manager, servers map[st
 		}
 		var args map[string]any
 		if len(in.Arguments) == 0 || json.Unmarshal(in.Arguments, &args) != nil || args == nil {
-			return "", errors.New("arguments must be an object")
+			return "", tooloutcome.InvalidArguments("arguments must be an object")
 		}
 		seenMu.Lock()
 		t, ok := seen[in.Name]
 		seenMu.Unlock()
 		if !ok {
 			if rejectedCached[in.Name] {
-				return "", errors.New("recent MCP schema was not accepted for the current configuration; search the known server before calling it")
+				return "", tooloutcome.New(tooloutcome.Validation, "stale_schema", "not_executed", "recent MCP schema was not accepted for the current configuration; search the known server before calling it.", "refresh_schema").Err()
 			}
-			return "", errors.New("tool was not returned by search_mcp_tools in this run or accepted from recent capability context")
+			return "", tooloutcome.New(tooloutcome.Validation, "schema_required", "not_executed", "Tool was not returned by search_mcp_tools in this run or accepted from recent capability context.", "refresh_schema").Err()
 		}
 		sourceMu.RLock()
 		source, ok := toolSources[in.Name]
 		sourceMu.RUnlock()
 		if !ok {
-			return "", errors.New("MCP tool source is unavailable")
+			return "", tooloutcome.New(tooloutcome.Permanent, "source_unavailable", "not_executed", "MCP tool source is unavailable.", "explain_blocker").Err()
+		}
+		if err := validateMCPArguments(t.Parameters, args); err != nil {
+			return "", err
 		}
 		if enforceApproval && !trustedReadOnlyTool(servers[source.server], source.remoteName) {
 			if approvalGate == nil {
-				return "", errors.New("MCP tool requires a run-scoped human approval gate")
+				return "", tooloutcome.New(tooloutcome.Denied, "approval_gate_required", "not_executed", "MCP tool requires a run-scoped human approval gate.", "explain_blocker").Err()
 			}
 			if err := approvalGate(ctx, MCPCallApproval{Server: source.server, Tool: source.remoteName, ConfigVersion: metadataFingerprint(source.server, servers[source.server]), Arguments: append(json.RawMessage(nil), in.Arguments...)}); err != nil {
 				return "", err

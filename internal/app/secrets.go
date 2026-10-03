@@ -12,6 +12,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/JackZhao98/tofibot/internal/tooloutcome"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -334,7 +335,7 @@ func (s *Server) applySecret(ctx context.Context, r Run, action, target, value, 
 		args["text"] = value
 	case "env":
 		if !allowedSecretEnv(target) {
-			return "", errors.New("invalid environment variable name")
+			return "", tooloutcome.InvalidArguments("invalid environment variable name")
 		}
 		path := "/workspace/.tofi-env/" + target
 		args["command"] = "umask 077; mkdir -p /workspace/.tofi-env && printf '%s' " + secretQuote(value) + " > " + secretQuote(path)
@@ -347,11 +348,11 @@ func (s *Server) applySecret(ctx context.Context, r Run, action, target, value, 
 		return string(data), nil
 	case "shell_exec":
 		if !allowedSecretEnv(target) || strings.TrimSpace(command) == "" {
-			return "", errors.New("environment variable name and command required")
+			return "", tooloutcome.InvalidArguments("environment variable name and command required")
 		}
 		args["command"] = "export " + target + "=" + secretQuote(value) + "; " + command
 	default:
-		return "", errors.New("unsupported secret action")
+		return "", tooloutcome.InvalidArguments("unsupported secret action")
 	}
 	raw, _ := json.Marshal(args)
 	out, err := s.microVMAction(ctx, r, name, raw)
@@ -439,13 +440,19 @@ func (s *Server) secretTools(r Run) []Tool {
 				}
 			}
 		}},
-		{Name: "use_secret_input", Description: "Use a private input reference from this run without seeing its value. browser_type does not locate or focus a field: first inspect the current screenshot and click the intended password field, then call this tool. Never reveal the value. References from ask_user_form only support visible, focused HTML password inputs on the approved HTTPS origin; wrong focus is rejected. If the site uses a plain text secret field, ask the human to enter it directly; never move the value into ordinary tool arguments. shell_exec exports the value as target environment variable for command; ALL output is withheld. env installs a shared environment variable; ssh installs a private key with target filename without overwriting. Shared VM files can be read by Bots with shell permissions, so only install when the user requested it.", Parameters: objectSchema(map[string]any{"secret_ref": map[string]any{"type": "string"}, "action": map[string]any{"type": "string", "enum": []string{"browser_type", "shell_exec", "env", "ssh"}}, "target": map[string]any{"type": "string"}, "command": map[string]any{"type": "string"}}, []string{"secret_ref", "action"}), Execute: func(ctx context.Context, raw json.RawMessage) (string, error) {
+		{Name: "use_secret_input", Description: "Use a private input reference from this run without seeing its value. browser_type does not locate or focus a field: first inspect the current screenshot and click the intended password field, then call this tool. Never reveal the value. References from ask_user_form only support visible, focused HTML password inputs on the approved HTTPS origin; wrong focus is rejected. If the site uses a plain text secret field, ask the human to enter it directly; never move the value into ordinary tool arguments. shell_exec exports the value as target environment variable for command; ALL output is withheld. env installs a shared environment variable; ssh installs a private key with target filename without overwriting. Shared VM files can be read by Bots with shell permissions, so only install when the user requested it.", Parameters: objectSchema(map[string]any{"secret_ref": map[string]any{"type": "string"}, "action": map[string]any{"type": "string", "enum": []string{"browser_type", "shell_exec", "env", "ssh"}}, "target": map[string]any{"type": "string"}, "command": map[string]any{"type": "string"}}, []string{"secret_ref", "action"}), Identity: func(raw json.RawMessage) tooloutcome.Identity {
+			var in struct {
+				Action string `json:"action"`
+			}
+			_ = json.Unmarshal(raw, &in)
+			return tooloutcome.OperationIdentity("secret_input", in.Action, raw)
+		}, Execute: func(ctx context.Context, raw json.RawMessage) (string, error) {
 			var in struct {
 				Ref                     string `json:"secret_ref"`
 				Action, Target, Command string
 			}
 			if json.Unmarshal(raw, &in) != nil {
-				return "", errors.New("invalid secret operation")
+				return "", tooloutcome.InvalidArguments("invalid secret operation")
 			}
 			v := s.secretVault
 			v.mu.Lock()
@@ -453,14 +460,14 @@ func (s *Server) secretTools(r Run) []Tool {
 			v.mu.Unlock()
 			created, _ := time.Parse(time.RFC3339Nano, rec.CreatedAt)
 			if !ok || rec.RunID != r.ID || rec.BotID != r.BotID || rec.ConversationID != r.ConversationID || rec.Status != "ready" || time.Since(created) > 15*time.Minute {
-				return "", errors.New("secret reference unavailable in this run")
+				return "", tooloutcome.New(tooloutcome.Denied, "secret_reference_unavailable", "not_executed", "secret reference unavailable in this run", "explain_blocker").Err()
 			}
 			if rec.Kind == "browser_form" {
 				return s.applyFormSecret(ctx, r, rec, in.Action)
 			}
 			value, err := v.reveal(rec)
 			if err != nil {
-				return "", err
+				return "", tooloutcome.New(tooloutcome.Permanent, "secret_unavailable", "not_executed", "secret unavailable", "explain_blocker").Err()
 			}
 			return s.applySecret(ctx, r, in.Action, in.Target, value, in.Command)
 		}},
