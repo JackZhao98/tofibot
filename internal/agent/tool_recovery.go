@@ -57,6 +57,11 @@ func toolRecoveryIdentityGuard(records []ToolRecoveryRecord, identity tooloutcom
 			prior = *record.Identity
 		}
 		o := record.Outcome
+		if o.Status == tooloutcome.Permanent && o.Code == "batch_skipped" && o.Certainty == "not_executed" {
+			// This records a stale provider call, not a denial of its capability.
+			// Fresh calls still pass normal schema, identity and approval checks.
+			continue
+		}
 		if o.Status == tooloutcome.Expired && prior.Scope == identity.Scope && prior.Operation == identity.Operation {
 			// Changing arguments cannot turn an expired proposal into permission.
 			return &o

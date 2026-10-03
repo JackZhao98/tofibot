@@ -36,6 +36,10 @@ func (e *engine) finishApprovalExpiry(ctx context.Context, req Request, model st
 	if c.BudgetWrapUp {
 		return Result{}, errors.New("original recovery budget exhausted")
 	}
+	requests := min(2, agent.MaxStepsWithProgressReports-c.Step)
+	if requests <= 0 {
+		return Result{}, errors.New("original step budget exhausted")
+	}
 	duration := e.config.MaxDuration
 	if duration <= 0 {
 		duration = defaultMaxDuration
@@ -70,7 +74,7 @@ func (e *engine) finishApprovalExpiry(ctx context.Context, req Request, model st
 	safe := map[string]Tool{}
 	var schemas []provider.Tool
 	for _, t := range req.Tools {
-		if t.ApprovalExpiryReadOnly && t.Execute != nil {
+		if requests > 1 && t.ApprovalExpiryReadOnly && t.Execute != nil {
 			safe[t.Name] = t
 			schemas = append(schemas, provider.Tool{Name: t.Name, Description: t.Description, Parameters: t.Parameters})
 		}
@@ -78,7 +82,7 @@ func (e *engine) finishApprovalExpiry(ctx context.Context, req Request, model st
 	request := &provider.ChatRequest{Model: model, ReasoningEffort: req.ReasoningEffort, System: req.System + "\n" + expiryConclusionPrompt, Messages: messages, Tools: schemas}
 	var result Result
 	seen := map[string]bool{}
-	for turn := 0; turn < 2; turn++ {
+	for turn := 0; turn < requests; turn++ {
 		if err := ctx.Err(); err != nil {
 			return result, err
 		}
@@ -106,11 +110,11 @@ func (e *engine) finishApprovalExpiry(ctx context.Context, req Request, model st
 			}
 			return result, nil
 		}
+		if turn == requests-1 {
+			return result, errors.New("summary-only response requested tools")
+		}
 		if len(safe) == 0 || len(response.ToolCalls) > 32 {
 			return result, errors.New("no compatible bounded recovery tool batch")
-		}
-		if turn == 1 {
-			return result, errors.New("summary-only response requested tools")
 		}
 		request.Messages = append(request.Messages, provider.Message{Role: "assistant", Content: response.Content, ToolCalls: response.ToolCalls})
 		for index, call := range response.ToolCalls {

@@ -22,8 +22,15 @@ func migrateApprovalExpiry(db *sql.DB) error {
  state TEXT NOT NULL CHECK(state IN ('ready','claimed','finished')),
  created_at TEXT NOT NULL,updated_at TEXT NOT NULL,
  summary_message_id TEXT NOT NULL DEFAULT '',
+ summary_content TEXT NOT NULL DEFAULT '',retry_after TEXT NOT NULL DEFAULT '',
  PRIMARY KEY(run_id,question_id));`)
-	return err
+	if err != nil {
+		return err
+	}
+	if err = ensureColumn(db, "approval_expiry_recoveries", "summary_content", `ALTER TABLE approval_expiry_recoveries ADD COLUMN summary_content TEXT NOT NULL DEFAULT ''`); err != nil {
+		return err
+	}
+	return ensureColumn(db, "approval_expiry_recoveries", "retry_after", `ALTER TABLE approval_expiry_recoveries ADD COLUMN retry_after TEXT NOT NULL DEFAULT ''`)
 }
 
 // Expiry and its queue entry commit together. The immutable checkpoint and
@@ -96,8 +103,22 @@ func (s *Store) expireApproval(id string) error {
 
 func (s *Store) hasApprovalExpiry(runID string) bool {
 	var found bool
-	_ = s.db.QueryRow(`SELECT EXISTS(SELECT 1 FROM approval_expiry_recoveries WHERE run_id=? AND state='ready')`, runID).Scan(&found)
+	_ = s.db.QueryRow(`SELECT EXISTS(SELECT 1 FROM approval_expiry_recoveries WHERE run_id=? AND state IN ('ready','claimed'))`, runID).Scan(&found)
 	return found
+}
+
+func (s *Store) hasApprovalExpirySettlement(conv string) bool {
+	var found bool
+	_ = s.db.QueryRow(`SELECT EXISTS(SELECT 1 FROM approval_expiry_recoveries e JOIN runs r ON r.id=e.run_id WHERE r.conversation_id=? AND r.status='running' AND e.state='claimed')`, conv).Scan(&found)
+	return found
+}
+
+// Claimed is irreversible: all subsequent executions may only persist a
+// conclusion. The queue's durable retry timestamp prevents a storage-error spin.
+func (s *Store) deferApprovalExpirySettlement(runID string) error {
+	retry := time.Now().UTC().Add(time.Second).Format(time.RFC3339Nano)
+	_, err := s.db.Exec(`UPDATE approval_expiry_recoveries SET retry_after=? WHERE run_id=? AND state='claimed'`, retry, runID)
+	return err
 }
 
 func (s *Store) claimApprovalExpiry(ctx context.Context, runID string) (Question, json.RawMessage, bool, error) {
@@ -153,13 +174,16 @@ func (s *Store) settleApprovalExpiry(runID, content string) error {
 }
 
 func settleApprovalExpiryTx(tx *sql.Tx, runID, content string) error {
-	var id, data, state string
-	err := tx.QueryRow(`SELECT question_id,checkpoint_json,state FROM approval_expiry_recoveries WHERE run_id=? ORDER BY created_at LIMIT 1`, runID).Scan(&id, &data, &state)
+	var id, data, state, savedContent string
+	err := tx.QueryRow(`SELECT question_id,checkpoint_json,state,summary_content FROM approval_expiry_recoveries WHERE run_id=? ORDER BY created_at LIMIT 1`, runID).Scan(&id, &data, &state, &savedContent)
 	if err == sql.ErrNoRows || state == "finished" {
 		return nil
 	}
 	if err != nil {
 		return err
+	}
+	if content == "" {
+		content = savedContent
 	}
 	r, err := scanRun(tx.QueryRow(`SELECT id,conversation_id,bot_id,status,error,parent_run_id,model,kind,origin_conversation_id,trigger_message_id,queue_seq,created_at,updated_at FROM runs WHERE id=?`, runID))
 	if err != nil {
@@ -266,6 +290,16 @@ func (s *Server) executeApprovalExpiry(c Conversation, r Run) {
 	engine := s.engine
 	s.mu.Unlock()
 	defer func() { s.mu.Lock(); delete(s.runs, r.ID); s.mu.Unlock(); s.clearRunSecrets(r.ID) }()
+	var state string
+	if err := s.store.db.QueryRow(`SELECT state FROM approval_expiry_recoveries WHERE run_id=? ORDER BY created_at LIMIT 1`, r.ID).Scan(&state); err != nil {
+		return
+	}
+	if state == "claimed" {
+		// A previous attempt already ran (or lost) its model/tool budget. Never
+		// reset it to ready, even when only summary persistence failed.
+		s.concludeApprovalExpiry(r.ID, "")
+		return
+	}
 	q, checkpoint, ok, err := s.store.claimApprovalExpiry(ctx, r.ID)
 	if err != nil || !ok {
 		return
@@ -295,8 +329,22 @@ func (s *Server) executeApprovalExpiry(c Conversation, r Run) {
 		}
 	}
 	// Shutdown/cancellation still concludes this claimed workflow; no replay.
-	if err = s.store.settleApprovalExpiry(r.ID, content); err != nil {
-		log.Printf("[expiry] conclude run %s: %v", r.ID, err)
+	s.concludeApprovalExpiry(r.ID, content)
+}
+
+func (s *Server) concludeApprovalExpiry(runID, content string) {
+	if content != "" {
+		// Retain a completed model conclusion independently of its message/event
+		// transaction. A failed stage can still fall back to a deterministic one.
+		if _, err := s.store.db.Exec(`UPDATE approval_expiry_recoveries SET summary_content=? WHERE run_id=? AND state='claimed'`, content, runID); err != nil {
+			log.Printf("[expiry] stage conclusion for %s: %v", runID, err)
+		}
+	}
+	if err := s.store.settleApprovalExpiry(runID, content); err != nil {
+		log.Printf("[expiry] conclude run %s: %v", runID, err)
+		if retryErr := s.store.deferApprovalExpirySettlement(runID); retryErr != nil {
+			log.Printf("[expiry] defer conclusion for %s: %v", runID, retryErr)
+		}
 	}
 }
 
