@@ -218,7 +218,7 @@ func resumeContinuation(c *Continuation, result string, outcomes ...*tooloutcome
 		ToolName:   c.WaitingToolName,
 	})
 	for _, call := range c.SkippedToolCalls {
-		skipped := tooloutcome.New(tooloutcome.Permanent, "batch_skipped", "not_executed", "This queued call was not executed after the human-input boundary. Do not replay the interrupted batch.", "explain_blocker")
+		skipped := tooloutcome.New(tooloutcome.Permanent, "batch_skipped", "not_executed", "This old queued call was not executed after the human-input boundary. Do not replay the interrupted batch. A fresh proposal must be revalidated and independently authorized using the resumed context.", "replan_after_input")
 		messages = append(messages, provider.Message{
 			Role:        "tool",
 			ToolFailed:  true,

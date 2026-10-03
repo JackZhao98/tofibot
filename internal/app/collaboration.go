@@ -986,7 +986,7 @@ func hasHandoff(s *Store, id string) bool {
 func (s *Store) workerConversationIDs() ([]string, error) {
 	rows, err := s.db.Query(`SELECT c.id FROM conversations c
 		WHERE c.archived=0 AND (c.user_visible=1 OR EXISTS (
-			SELECT 1 FROM runs r WHERE r.conversation_id=c.id AND (r.status='queued' OR (r.status='waiting' AND EXISTS(SELECT 1 FROM run_input_waits w WHERE w.run_id=r.id)))))
+			SELECT 1 FROM runs r WHERE r.conversation_id=c.id AND (r.status='queued' OR (r.status='waiting' AND EXISTS(SELECT 1 FROM run_input_waits w WHERE w.run_id=r.id)) OR (r.status='running' AND EXISTS(SELECT 1 FROM approval_expiry_recoveries e WHERE e.run_id=r.id AND e.state='claimed')))))
 		ORDER BY c.id`)
 	if err != nil {
 		return nil, err
@@ -1060,16 +1060,21 @@ func (s *Server) runConversationWorker(conv string, q *conversationQueue) {
 		// Expiry settlement is independent of provider availability. Never leave
 		// a parked approval indefinitely waiting when the model disconnects.
 		r, ok, err := s.store.nextQueuedRun(conv)
-		if err == nil && ok && (s.modelConfigured() || s.store.hasApprovalExpiry(r.ID)) {
+		s.mu.Lock()
+		active := s.runs[r.ID] != nil
+		s.mu.Unlock()
+		if err == nil && ok && !active && (s.modelConfigured() || s.store.hasApprovalExpiry(r.ID)) {
 			s.executeForQueue(r)
-			continue
+			if !s.store.hasApprovalExpirySettlement(conv) {
+				continue
+			}
 		}
 		// Pending input has a bounded expiry even without an HTTP answer. Poll
 		// only conversations with parked input, and release the worker between
 		// checks. This also covers answers committed by internal callers.
 		var tick <-chan time.Time
 		var timer *time.Timer
-		if s.store.hasInputWait(conv) {
+		if err != nil || s.store.hasInputWait(conv) || s.store.hasApprovalExpirySettlement(conv) {
 			timer = time.NewTimer(time.Second)
 			tick = timer.C
 		}
@@ -1111,7 +1116,7 @@ func (s *Store) nextQueuedRun(conv string) (Run, bool, error) {
 	if err := s.refreshInputWaits(conv); err != nil {
 		return Run{}, false, err
 	}
-	row := s.db.QueryRow(`SELECT id,conversation_id,bot_id,status,error,parent_run_id,model,kind,origin_conversation_id,trigger_message_id,queue_seq,created_at,updated_at FROM runs WHERE conversation_id=? AND status='queued' ORDER BY CASE WHEN EXISTS(SELECT 1 FROM approval_expiry_recoveries e WHERE e.run_id=runs.id AND e.state='ready') THEN -1 WHEN kind IN ('group_task','group_followup') THEN 0 ELSE 1 END,queue_seq,created_at,id LIMIT 1`, conv)
+	row := s.db.QueryRow(`SELECT id,conversation_id,bot_id,status,error,parent_run_id,model,kind,origin_conversation_id,trigger_message_id,queue_seq,created_at,updated_at FROM runs WHERE conversation_id=? AND (status='queued' OR (status='running' AND EXISTS(SELECT 1 FROM approval_expiry_recoveries e WHERE e.run_id=runs.id AND e.state='claimed' AND e.retry_after<=?))) ORDER BY CASE WHEN EXISTS(SELECT 1 FROM approval_expiry_recoveries e WHERE e.run_id=runs.id AND e.state IN ('ready','claimed')) THEN -1 WHEN kind IN ('group_task','group_followup') THEN 0 ELSE 1 END,queue_seq,created_at,id LIMIT 1`, conv, now())
 	r, err := scanRun(row)
 	if err == sql.ErrNoRows {
 		return Run{}, false, nil
