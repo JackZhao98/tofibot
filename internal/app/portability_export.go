@@ -79,6 +79,7 @@ func (s *Store) exportPortable(ctx context.Context, instance string, selection p
 	if err != nil {
 		return b, err
 	}
+	allBots := append([]portableBot(nil), b.Bots...)
 	// Select before reading content so standalone exports never include group history.
 	chosen := map[string]bool{}
 	for _, id := range selection.BotIDs {
@@ -198,9 +199,6 @@ func (s *Store) exportPortable(ctx context.Context, instance string, selection p
 				if len(m.Origin.Notice) == 0 && notice.Valid && json.Valid([]byte(notice.String)) {
 					m.Origin.Notice = json.RawMessage(notice.String)
 				}
-				if !found[m.SenderBotID] {
-					m.SenderBotID = ""
-				}
 				b.Messages = append(b.Messages, m)
 				if len(b.Messages) > portableMaxRecords {
 					err = errors.New("export exceeds record limit; select fewer Bots or categories")
@@ -270,6 +268,15 @@ func (s *Store) exportPortable(ctx context.Context, instance string, selection p
 			return b, err
 		}
 		b.Settings = x
+	}
+	availableConversations := []portableConversation{}
+	for _, c := range conversations {
+		if c.Kind == "dm" {
+			availableConversations = append(availableConversations, portableConversation{ID: c.ID, Kind: c.Kind, Name: c.Name, BotID: c.BotID, BotIDs: []string{c.BotID}, UpdatedAt: c.UpdatedAt, Archived: c.Archived, UserVisible: c.UserVisible})
+		}
+	}
+	if err = closePortableHistory(&b, allBots, availableConversations); err != nil {
+		return b, err
 	}
 	sort.Strings(b.Included)
 	b.Counts = b.counts()

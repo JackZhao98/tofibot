@@ -5,6 +5,7 @@ import { getBotAvatarConfig, saveBotAvatarConfig } from "./avatarStore";
 import type { AvatarConfig } from "./lib/tofi-avatar/index.js";
 import { decryptPortable, encryptPortable, isEncryptedPortable, MAX_PORTABLE_FILE_BYTES } from "./portabilityCrypto";
 import "./portability.css";
+import { useUserTimezone } from "./UserTimezone";
 
 const categories = ["bot_config", "chats", "memories", "schedules", "settings"] as const;
 const labels: Record<string, string> = { bot_config: "Bot 配置与当前浏览器头像", conversations: "会话", chats: "聊天正文", memories: "记忆", schedules: "定时任务", settings: "时区与模型设置" };
@@ -20,6 +21,7 @@ function download(source: string, name: string) {
 function message(error: unknown) { return error instanceof Error ? error.message : "操作失败，请重试。"; }
 
 export function PortabilitySettings({ bots, initialFile, initialBotID = "", onInitialFileConsumed }: { bots: Bot[]; initialFile?: File; initialBotID?: string; onInitialFileConsumed?: () => void }) {
+  const timezone = useUserTimezone();
   const [kind, setKind] = useState<"account" | "bot">(initialBotID ? "bot" : "account");
   const [botIDs, setBotIDs] = useState<string[]>(initialBotID ? [initialBotID] : bots.map(b => b.id));
   const [exportBots, setExportBots] = useState(bots);
@@ -100,6 +102,8 @@ export function PortabilitySettings({ bots, initialFile, initialBotID = "", onIn
       preview.bots.forEach(bot => { if (bot.avatar && result.id_map[bot.id]) saveBotAvatarConfig(result.id_map[bot.id], bot.avatar); });
       setPreview(undefined); setBundle(undefined); setBundleSource(""); setFileSource(""); setDone(`已导入 ${result.counts.bot_config} 个 Bot。定时任务全部暂停，现有数据保留。`);
       window.dispatchEvent(new Event("tofi:portability-imported"));
+      if (importCategories.includes("settings")) void timezone.refresh();
+      void request<{ bots: Bot[] | null }>("/api/bots?include_archived=true").then(next => setExportBots(next.bots ?? [])).catch(() => {});
     } catch (cause) { setError(message(cause)); } finally { setBusy(false); }
   }
   const encryptedFile = fileSource && isEncryptedPortable(fileSource);
@@ -112,6 +116,7 @@ export function PortabilitySettings({ bots, initialFile, initialBotID = "", onIn
       <label>范围<select value={kind} onChange={event => { const next = event.target.value as "account" | "bot"; setKind(next); if (next === "bot") { setBotIDs(exportBots[0] ? [exportBots[0].id] : []); setIncluded(c => c.filter(x => x !== "settings")); } }}><option value="account">账号数据</option><option value="bot">独立 Bot</option></select></label>
       <div className="portability-choices">{exportBots.map(bot => <label key={bot.id}><input type={kind === "bot" ? "radio" : "checkbox"} name="export-bots" checked={botIDs.includes(bot.id)} onChange={() => setBotIDs(kind === "bot" ? [bot.id] : toggle(botIDs, bot.id))}/>{bot.name}{bot.archived ? "（已归档）" : ""}</label>)}</div>
       <div className="portability-choices">{categories.filter(c => kind === "account" || c !== "settings").map(c => <label key={c}><input type="checkbox" checked={included.includes(c)} disabled={c === "bot_config"} onChange={() => setIncluded(toggle(included, c))}/>{labels[c]}</label>)}</div>
+      <p className="field-note">历史引用所需的 Bot 配置与空私聊结构会作为依赖附带；不会恢复旧群成员，也不会附带其额外聊天正文。</p>
       <label>加密口令<input type="password" autoComplete="new-password" value={exportPassword} onChange={e => setExportPassword(e.target.value)} /></label>
       <label>再次输入口令<input type="password" autoComplete="new-password" value={confirmPassword} onChange={e => setConfirmPassword(e.target.value)} /></label>
       <button type="button" disabled={!botIDs.length || exportPassword.length < 12 || exportPassword !== confirmPassword} onClick={() => void exportBundle()}>下载加密数据包</button>
@@ -132,8 +137,10 @@ export function PortabilitySettings({ bots, initialFile, initialBotID = "", onIn
         <h4>导入预览</h4>
         <p>预估数据库空间：约 {Math.ceil(preview.estimated_bytes / 1024)} KiB。实际占用由 SQLite 决定；空间不足会整体回滚。</p>
         <dl>{Object.entries(preview.counts).map(([name, count]) => <div key={name}><dt>{labels[name] ?? name}</dt><dd>{count}</dd></div>)}</dl>
-        <p>Bot 和所有关联记录将获得新 ID；现有内容保留。取消选择的 Bot 会跳过，需要其他 Bot 的群聊也会跳过。预览有效期 15 分钟。</p>
+        <p>将创建的 Bot：{preview.bots.map(bot => bot.name).join("、") || "无"}</p>
+        <p>Bot 和所有关联记录将获得新 ID；现有内容保留。未选内容会跳过；历史引用所需的 Bot 配置会作为依赖保留，不恢复旧群成员或额外私聊正文。群聊需要选中全部现有成员。预览有效期 15 分钟。</p>
         {preview.conflicts.length > 0 && <><h4>冲突与设置变更</h4><ul>{preview.conflicts.map((c, i) => <li key={i}>{c}</li>)}</ul></>}
+        <h4>关联依赖</h4><ul>{preview.dependencies.map((dependency, i) => <li key={i}>{dependency}</li>)}</ul>
         <h4>敏感内容与缺失项</h4><ul>{preview.warnings.map((warning, i) => <li key={i}>{warning}</li>)}</ul>
         <button type="button" onClick={() => void apply()}>确认创建副本</button>
       </div>}

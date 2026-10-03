@@ -33,6 +33,7 @@ type portableOrigin struct {
 	RunID       string          `json:"run_id,omitempty"`
 	SenderBotID string          `json:"sender_bot_id,omitempty"`
 	Kind        string          `json:"kind,omitempty"`
+	BotID       string          `json:"bot_id,omitempty"`
 	Status      string          `json:"status,omitempty"`
 	Notice      json.RawMessage `json:"notice,omitempty"`
 }
@@ -202,6 +203,9 @@ func portableJSON(data []byte, out any) error {
 	if _, err := d.Token(); err != io.EOF {
 		return errors.New("expected one JSON object")
 	}
+	if err := portableCanonicalFields(data, reflect.TypeOf(out)); err != nil {
+		return err
+	}
 	d = json.NewDecoder(bytes.NewReader(data))
 	d.DisallowUnknownFields()
 	if err := d.Decode(out); err != nil {
@@ -303,7 +307,7 @@ func (b portableBundle) validate() error {
 		return true
 	}
 	originOK := func(o portableOrigin) bool {
-		return len(o.InstanceID) <= 200 && len(o.RecordID) <= 200 && len(o.RunID) <= 200 && len(o.SenderBotID) <= 200 && len(o.Kind) <= 100 && len(o.Status) <= 100 && len(o.Notice) <= 256<<10
+		return len(o.InstanceID) <= 200 && len(o.RecordID) <= 200 && len(o.RunID) <= 200 && len(o.SenderBotID) <= 200 && len(o.BotID) <= 200 && len(o.Kind) <= 100 && len(o.Status) <= 100 && len(o.Notice) <= 256<<10
 	}
 	for _, x := range b.Bots {
 		if !unique(x.ID) || !portableID(x.DMConversationID) || strings.TrimSpace(x.Name) == "" || utf8.RuneCountInString(x.Name) > 200 || utf8.RuneCountInString(x.Instructions) > 200000 || utf8.RuneCountInString(x.Model) > 200 || len(x.ReasoningEffort) > 100 || !portableTime(x.CreatedAt) || len(x.Avatar) > 4096 || !originOK(x.Origin) {
@@ -340,24 +344,20 @@ func (b portableBundle) validate() error {
 			return bad()
 		}
 	}
-	member := func(conv, bot string) bool {
-		c, ok := convs[conv]
+	reference := func(conv, bot string) bool {
+		_, ok := convs[conv]
 		if !ok {
 			return false
 		}
 		if bot == "" {
 			return true
 		}
-		for _, id := range c.BotIDs {
-			if id == bot {
-				return true
-			}
-		}
-		return false
+		_, ok = bots[bot]
+		return ok
 	}
 	sequences := map[string]map[int64]bool{}
 	for _, x := range b.Messages {
-		if !unique(x.ID) || !member(x.ConversationID, x.SenderBotID) || x.Seq < 1 || (x.Role != "user" && x.Role != "assistant" && x.Role != "system") || len(x.Kind) > 100 || len(x.Content) > 2<<20 || !portableTime(x.CreatedAt) || !originOK(x.Origin) {
+		if !unique(x.ID) || !reference(x.ConversationID, x.SenderBotID) || x.Seq < 1 || (x.Role != "user" && x.Role != "assistant" && x.Role != "system") || len(x.Kind) > 100 || len(x.Content) > 2<<20 || !portableTime(x.CreatedAt) || !originOK(x.Origin) {
 			return bad()
 		}
 		if sequences[x.ConversationID] == nil {
@@ -369,12 +369,12 @@ func (b portableBundle) validate() error {
 		sequences[x.ConversationID][x.Seq] = true
 	}
 	for _, x := range b.Memories {
-		if !unique(x.ID) || !member(x.ConversationID, x.BotID) || len(x.Content) > 2<<20 || len(x.Title) > 1000 || len(x.Description) > 200000 || x.Revision < 1 || !portableTime(x.CreatedAt) || !portableTime(x.UpdatedAt) || !originOK(x.Origin) {
+		if !unique(x.ID) || !reference(x.ConversationID, x.BotID) || len(x.Content) > 2<<20 || len(x.Title) > 1000 || len(x.Description) > 200000 || x.Revision < 1 || !portableTime(x.CreatedAt) || !portableTime(x.UpdatedAt) || !originOK(x.Origin) {
 			return bad()
 		}
 	}
 	for _, x := range b.Schedules {
-		if !unique(x.ID) || x.BotID == "" || !member(x.ConversationID, x.BotID) || len(x.Content) > 200000 || strings.TrimSpace(x.Content) == "" || len(x.Title) > 1000 || len(x.Description) > 200000 || len(x.CreatedBy) > 200 || !portableTime(x.CreatedAt) || !portableTime(x.UpdatedAt) || !portableTime(x.NextAtUTC) || !originOK(x.Origin) {
+		if !unique(x.ID) || x.BotID == "" || !reference(x.ConversationID, x.BotID) || len(x.Content) > 200000 || strings.TrimSpace(x.Content) == "" || len(x.Title) > 1000 || len(x.Description) > 200000 || len(x.CreatedBy) > 200 || !portableTime(x.CreatedAt) || !portableTime(x.UpdatedAt) || !portableTime(x.NextAtUTC) || !originOK(x.Origin) {
 			return bad()
 		}
 		if _, err := time.LoadLocation(x.Timezone); err != nil {
@@ -490,6 +490,9 @@ func selectPortable(b portableBundle, sel portableSelection) (portableBundle, er
 	if !cat["settings"] {
 		out.Settings = nil
 	}
+	if err := closePortableHistory(&out, b.Bots, b.Conversations); err != nil {
+		return out, err
+	}
 	out.Counts = out.counts()
 	return out, out.validate()
 }
@@ -549,7 +552,7 @@ func (s *Store) previewPortable(ctx context.Context, b portableBundle) (portable
 	p := portablePreview{ID: uuid.NewString(), Counts: b.counts(), Bots: b.Bots, Conflicts: []string{}, Excluded: portableExcluded, Warnings: []string{"Imported records are new copies. Existing records are never overwritten.", "All imported schedules are paused. Instructions and history are stored without execution.", "Content may contain secrets pasted into chats or instructions. Review before sharing.", "Attachments, guest disk, credentials, extensions, work items and execution history are excluded."}}
 	data, _ := json.Marshal(b)
 	p.SourceFormat, p.SourceVersion, p.EstimatedBytes = b.Format, b.Version, len(data)*3
-	p.Dependencies = []string{"Bot configuration and DM structure are required.", "Group history requires all member Bots; partial groups are skipped.", "Settings are preserved unless explicitly selected."}
+	p.Dependencies = []string{"Historical Bot references bring required configurations and empty DM structure, without restoring former group membership.", "Bot configuration and DM structure are required.", "Group history requires all member Bots; partial groups are skipped.", "Settings are preserved unless explicitly selected."}
 	for _, x := range b.Bots {
 		for _, name := range names {
 			if strings.EqualFold(name, x.Name) {
