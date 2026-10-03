@@ -1,0 +1,27 @@
+[
+  {
+    "name": "mobile",
+    "pass": true,
+    "checks": "compact labels, descriptions, tooltips, management-only prompt, preview, all schedule kinds, legacy fallback, multilingual memory search/details, viewport"
+  },
+  {
+    "name": "tablet",
+    "pass": true,
+    "checks": "compact labels, descriptions, tooltips, management-only prompt, preview, all schedule kinds, legacy fallback, multilingual memory search/details, viewport"
+  },
+  {
+    "name": "desktop",
+    "pass": true,
+    "checks": "compact labels, descriptions, tooltips, management-only prompt, preview, all schedule kinds, legacy fallback, multilingual memory search/details, viewport"
+  },
+  {
+    "name": "native-row",
+    "pass": true,
+    "checks": "compact labels, descriptions, tooltips, management-only prompt, preview, all schedule kinds, legacy fallback, multilingual memory search/details, viewport"
+  },
+  {
+    "name": "persistence",
+    "pass": true,
+    "checks": "UI create/edit, exact factual body/prompt preservation, timing unchanged, immutable occurrence snapshot, reload and SQLite restart"
+  }
+]

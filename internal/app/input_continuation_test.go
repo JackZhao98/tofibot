@@ -284,7 +284,7 @@ func TestInputContinuationRealRuntimeRestartsAndDoesNotReplayTools(t *testing.T)
 				var delta map[string]any
 				if n == 1 {
 					tcs := []any{}
-					for i, v := range []struct{ ID, Name, Args string }{{"before", "save_memory", `{"content":"checkpoint fixture completed effect"}`}, {"ask", "ask_user_form", `{"question":"Supply a display name","source_url":"https://forms.example.test/profile","fields":[{"id":"name","label":"Display name","type":"text","required":true}]}`}, {"stale", "save_memory", `{"content":"MUST NOT execute stale tail"}`}} {
+					for i, v := range []struct{ ID, Name, Args string }{{"before", "save_memory", `{"title":"Checkpoint", "description":"Synthetic completed effect", "content":"checkpoint fixture completed effect"}`}, {"ask", "ask_user_form", `{"question":"Supply a display name","source_url":"https://forms.example.test/profile","fields":[{"id":"name","label":"Display name","type":"text","required":true}]}`}, {"stale", "save_memory", `{"title":"Stale", "description":"Must not execute", "content":"MUST NOT execute stale tail"}`}} {
 						tcs = append(tcs, map[string]any{"index": i, "id": v.ID, "type": "function", "function": map[string]string{"name": v.Name, "arguments": v.Args}})
 					}
 					delta = map[string]any{"content": "Saved the completed step; waiting for your form.", "tool_calls": tcs}

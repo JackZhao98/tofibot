@@ -277,8 +277,11 @@ func (s *Server) longTermMemoryTools(c Conversation, r Run) []Tool {
 			b, _ := json.Marshal(ms)
 			return string(b), nil
 		}},
-		{Name: "update_memory", Description: "replace a durable memory when a fact is corrected", Parameters: objectSchema(map[string]any{"id": map[string]any{"type": "string"}, "content": map[string]any{"type": "string"}}, []string{"id", "content"}), Execute: func(ctx context.Context, raw json.RawMessage) (string, error) {
-			var x struct{ ID, Content string }
+		{Name: "update_memory", Description: "Update scoped factual memory and its concise localized title/description. Preserve factual meaning and original data language; write any assistant-authored instructions in English.", Parameters: objectSchema(memoryUpdateProperties(), []string{"id", "title", "description", "content"}), Execute: func(ctx context.Context, raw json.RawMessage) (string, error) {
+			var x struct {
+				ID string `json:"id"`
+				MemoryInput
+			}
 			if json.Unmarshal(raw, &x) != nil || x.ID == "" || x.Content == "" {
 				return "", errors.New("id and content required")
 			}
@@ -289,7 +292,10 @@ func (s *Server) longTermMemoryTools(c Conversation, r Run) []Tool {
 			if err := ctx.Err(); err != nil {
 				return "", err
 			}
-			m, err = s.store.UpdateMemory(x.ID, x.Content)
+			if _, _, err := normalizeDisplayMetadata(x.Title, x.Description, true); err != nil {
+				return "", err
+			}
+			m, err = s.store.PatchMemory(x.ID, MemoryPatch{Title: &x.Title, Description: &x.Description, Content: &x.Content})
 			if err != nil {
 				return "", err
 			}
