@@ -18,9 +18,51 @@ type MemoryInput struct {
 }
 
 type MemoryPatch struct {
+	Title       *string       `json:"title"`
+	Description *string       `json:"description"`
+	Content     *string       `json:"content"`
+	Expected    *EditBaseline `json:"expected,omitempty"`
+}
+
+// Opt-in field comparisons protect edit sessions without conflicting with
+// unrelated updates (including schedule claims and memory fact corrections).
+// The existing record is read and checked in the same transaction as the write.
+type EditBaseline struct {
 	Title       *string `json:"title"`
 	Description *string `json:"description"`
 	Content     *string `json:"content"`
+}
+
+var ErrEditConflict = errors.New("record changed while editing; reopen details before retrying")
+
+func validateEditExpectation(expected *EditBaseline, title, description, content *string) error {
+	if expected == nil {
+		return nil
+	} // Keep older PATCH clients compatible.
+	if title != nil && expected.Title == nil || description != nil && expected.Description == nil || content != nil && expected.Content == nil {
+		return errors.New("expected must include the original value of every changed field")
+	}
+	return nil
+}
+
+func checkEditExpectation(expected *EditBaseline, title, description, content *string, currentTitle, currentDescription, currentContent string) error {
+	if expected == nil {
+		return nil
+	}
+	for _, field := range []struct {
+		name            string
+		patch, baseline *string
+		current         string
+	}{
+		{"title", title, expected.Title, currentTitle},
+		{"description", description, expected.Description, currentDescription},
+		{"content", content, expected.Content, currentContent},
+	} {
+		if field.patch != nil && field.baseline != nil && *field.baseline != field.current {
+			return fmt.Errorf("%w: %s", ErrEditConflict, field.name)
+		}
+	}
+	return nil
 }
 
 // Compatibility calls may omit metadata. Neutral labels avoid deriving a

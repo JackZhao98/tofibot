@@ -243,6 +243,7 @@ export interface Run {
 }
 
 export interface MemoryInput { title: string; description: string; content: string; }
+export type ContentPatch = Partial<MemoryInput> & { expected?: Partial<MemoryInput> };
 
 export interface Memory {
   id: string;

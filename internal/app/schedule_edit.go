@@ -6,9 +6,10 @@ import (
 )
 
 type SchedulePatch struct {
-	Title       *string `json:"title"`
-	Description *string `json:"description"`
-	Content     *string `json:"content"`
+	Title       *string       `json:"title"`
+	Description *string       `json:"description"`
+	Content     *string       `json:"content"`
+	Expected    *EditBaseline `json:"expected,omitempty"`
 }
 
 // PatchSchedule changes presentation or future instructions only. It never
@@ -21,6 +22,9 @@ func (s *Store) PatchSchedule(id string, patch SchedulePatch) (Schedule, error) 
 		return Schedule{}, errors.New("provide title, description or content")
 	}
 	if err := validateMetadataPatch(patch.Title, patch.Description); err != nil {
+		return Schedule{}, err
+	}
+	if err := validateEditExpectation(patch.Expected, patch.Title, patch.Description, patch.Content); err != nil {
 		return Schedule{}, err
 	}
 	if patch.Content != nil && (strings.TrimSpace(*patch.Content) == "" || len([]rune(*patch.Content)) > maxScheduleContent) {
@@ -39,6 +43,9 @@ func (s *Store) PatchSchedule(id string, patch SchedulePatch) (Schedule, error) 
 		return Schedule{}, err
 	}
 	if err = requireActiveMemberTx(tx, x.ConversationID, x.BotID); err != nil {
+		return Schedule{}, err
+	}
+	if err = checkEditExpectation(patch.Expected, patch.Title, patch.Description, patch.Content, x.Title, x.Description, x.Content); err != nil {
 		return Schedule{}, err
 	}
 	if patch.Title != nil {

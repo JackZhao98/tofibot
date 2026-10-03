@@ -1251,6 +1251,9 @@ func (s *Store) PatchMemory(id string, patch MemoryPatch) (Memory, error) {
 	if err := validateMetadataPatch(patch.Title, patch.Description); err != nil {
 		return Memory{}, err
 	}
+	if err := validateEditExpectation(patch.Expected, patch.Title, patch.Description, patch.Content); err != nil {
+		return Memory{}, err
+	}
 	if patch.Content != nil && strings.TrimSpace(*patch.Content) == "" {
 		return Memory{}, errors.New("content required")
 	}
@@ -1261,6 +1264,9 @@ func (s *Store) PatchMemory(id string, patch MemoryPatch) (Memory, error) {
 	defer tx.Rollback()
 	m, e := scanMemory(tx.QueryRow(`SELECT id,conversation_id,bot_id,content,title,description,revision,created_at,updated_at FROM memories WHERE id=?`, id))
 	if e != nil {
+		return Memory{}, e
+	}
+	if e = checkEditExpectation(patch.Expected, patch.Title, patch.Description, patch.Content, m.Title, m.Description, m.Content); e != nil {
 		return Memory{}, e
 	}
 	if patch.Content != nil {
@@ -3693,8 +3699,16 @@ func (s *Server) memory(w http.ResponseWriter, r *http.Request, id string) {
 			writeErr(w, 400, "invalid_memory", "content required")
 			return
 		}
+		if err := validateEditExpectation(x.Expected, x.Title, x.Description, x.Content); err != nil {
+			writeErr(w, 400, "invalid_memory", err.Error())
+			return
+		}
 		m, e = s.store.PatchMemory(id, x)
 		if e != nil {
+			if errors.Is(e, ErrEditConflict) {
+				writeErr(w, 409, "edit_conflict", e.Error())
+				return
+			}
 			writeErr(w, 500, "storage", e.Error())
 			return
 		}
