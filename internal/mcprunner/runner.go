@@ -23,6 +23,8 @@ const (
 	maxTools           = 1000
 )
 
+var ErrPluginInstanceChanged = errors.New("plugin instance changed; reattach before calling")
+
 // Spec is an operator-approved installed MCP. Command and WorkDir are absolute
 // paths in the runner container; no shell expansion or runtime downloads occur.
 type Spec struct {
@@ -70,6 +72,7 @@ type plugin struct {
 	tools        []mcp.Tool
 	lastUsed     time.Time
 	active       int
+	retiring     bool
 }
 
 func New(specs []Spec, idleTimeout time.Duration) (*Runner, error) {
@@ -138,6 +141,28 @@ func (r *Runner) get(id string) (*plugin, error) {
 	return p, nil
 }
 
+// retainPlugin binds an operation to the instance selected at its boundary.
+// Registry validation and the active lease are atomic with Remove's busy check.
+// No installation lock is held across body parsing, startup or tool execution.
+func (r *Runner) retainPlugin(p *plugin) (func(), error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	if r.plugins[p.spec.ID] != p {
+		return nil, ErrPluginInstanceChanged
+	}
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	if p.retiring {
+		return nil, ErrPluginInstanceChanged
+	}
+	if r.ctx.Err() != nil {
+		return nil, errors.New("runner stopped")
+	}
+	p.active++
+	p.lastUsed = time.Now()
+	return func() { p.mu.Lock(); p.active--; p.lastUsed = time.Now(); p.mu.Unlock() }, nil
+}
+
 func (r *Runner) Statuses() []Status {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
@@ -163,6 +188,15 @@ func (r *Runner) Tools(ctx context.Context, id string) ([]mcp.Tool, error) {
 	if err != nil {
 		return nil, err
 	}
+	return r.toolsPlugin(ctx, p)
+}
+
+func (r *Runner) toolsPlugin(ctx context.Context, p *plugin) ([]mcp.Tool, error) {
+	releaseInstance, err := r.retainPlugin(p)
+	if err != nil {
+		return nil, err
+	}
+	defer releaseInstance()
 	p.mu.Lock()
 	if p.tools != nil {
 		tools := append([]mcp.Tool(nil), p.tools...)
@@ -192,6 +226,10 @@ func (r *Runner) call(ctx context.Context, id string, params *mcp.CallToolParams
 	if err != nil {
 		return nil, err
 	}
+	return r.callPlugin(ctx, p, params)
+}
+
+func (r *Runner) callPlugin(ctx context.Context, p *plugin, params *mcp.CallToolParams) (*mcp.CallToolResult, error) {
 	if p.spec.Adapter != nil {
 		if err := adapterFeatures(params.InputResponses, params.RequestState, params.Meta); err != nil {
 			return nil, err
@@ -241,6 +279,13 @@ func (r *Runner) call(ctx context.Context, id string, params *mcp.CallToolParams
 }
 
 func (r *Runner) acquire(ctx context.Context, p *plugin) (*mcp.ClientSession, func(), error) {
+	// Keep the selected instance registered throughout cold-start waiting. A
+	// returned session gets its own lease before this temporary lease is released.
+	releaseInstance, err := r.retainPlugin(p)
+	if err != nil {
+		return nil, nil, err
+	}
+	defer releaseInstance()
 	for {
 		if err := ctx.Err(); err != nil {
 			return nil, nil, err
