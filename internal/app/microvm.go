@@ -199,7 +199,11 @@ func (s *Server) microVMActionFromSource(ctx context.Context, r Run, name string
 			botName = bot.Name
 		}
 	}
-	result, err := s.microVM.Action(ctx, computer.Action{BotID: r.BotID, BotName: botName, RunID: r.ID, Name: name, Args: args, Source: source})
+	action := computer.Action{BotID: r.BotID, BotName: botName, RunID: r.ID, Name: name, Args: args, Source: source}
+	if identity, ok := tooloutcome.ExecutionIdentity(ctx); ok && name == "files.write" && identity.GuardVersion == 1 {
+		action.WriteIdentity = &identity
+	}
+	result, err := s.microVM.Action(ctx, action)
 	if err != nil {
 		return "", err
 	}

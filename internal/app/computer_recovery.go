@@ -128,13 +128,17 @@ func (s *Server) resolveComputerRecovery(ctx context.Context, r Run, computerID,
 		return i, nil
 	}
 	var identity struct {
-		Target string `json:"target"`
-		Object string `json:"object"`
+		Target       string `json:"target"`
+		Object       string `json:"object"`
+		Parent       string `json:"parent"`
+		ParentObject string `json:"parent_object"`
+		GuardVersion int    `json:"guard_version"`
 	}
-	if json.Unmarshal(result.Result, &identity) != nil || identity.Target == "" {
+	if json.Unmarshal(result.Result, &identity) != nil || identity.Target == "" || identity.Parent == "" || identity.ParentObject == "" || identity.GuardVersion != 1 {
 		i.Risk, i.ResolutionRequired = tooloutcome.OpaqueEffect, false
 		return i, nil
 	}
 	i.Target, i.Object, i.ResolutionRequired = identity.Target, identity.Object, false
+	i.Parent, i.ParentObject, i.GuardVersion = identity.Parent, identity.ParentObject, identity.GuardVersion
 	return i, nil
 }

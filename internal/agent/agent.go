@@ -767,6 +767,7 @@ func RunAgentLoop(cfg AgentConfig, ctx *models.ExecutionContext) (returned *Agen
 	var recoveryLedger []ToolRecoveryRecord
 	recoveryCalls := map[string]provider.ToolCall{}
 	recoveryIdentities := map[string]tooloutcome.Identity{}
+	recoveryEvidence := map[string][]tooloutcome.Identity{}
 	recoveryBlocked := map[string]bool{}
 	resolveIdentity := func(name, args string) tooloutcome.Identity {
 		if cfg.ResolveToolIdentity != nil {
@@ -806,7 +807,11 @@ func RunAgentLoop(cfg AgentConfig, ctx *models.ExecutionContext) (returned *Agen
 						if !ok {
 							identity = resolveIdentity(call.Name, call.Arguments)
 						}
-						recoveryLedger = append(recoveryLedger, ToolRecoveryRecord{Call: call, Outcome: *o, Identity: &identity})
+						var evidence []tooloutcome.Identity
+						if observed := recoveryEvidence[call.ID]; len(observed) > 1 {
+							evidence = append(evidence, observed[1:]...)
+						}
+						recoveryLedger = append(recoveryLedger, ToolRecoveryRecord{Call: call, Outcome: *o, Identity: &identity, Evidence: evidence})
 					}
 				}
 			}
@@ -1643,7 +1648,19 @@ func RunAgentLoop(cfg AgentConfig, ctx *models.ExecutionContext) (returned *Agen
 								recoveryBlocked[callID] = true
 							}
 							return blocked
-						}, func(identity tooloutcome.Identity) { recoveryIdentities[callID] = identity })
+						}, func(identity tooloutcome.Identity) {
+							// The first dispatch identity is immutable. Later observations can
+							// add evidence, but cannot replace or narrow its uncertainty fence.
+							if len(recoveryEvidence[callID]) == 0 {
+								recoveryIdentities[callID] = identity
+							}
+							for _, prior := range recoveryEvidence[callID] {
+								if prior == identity {
+									return
+								}
+							}
+							recoveryEvidence[callID] = append(recoveryEvidence[callID], identity)
+						})
 					}
 					result, err := tool.Execute(executionCtx, argsMap)
 					resultMsg := ""

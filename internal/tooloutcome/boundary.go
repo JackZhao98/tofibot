@@ -3,6 +3,19 @@ package tooloutcome
 import "context"
 
 type boundaryKey struct{}
+type executionIdentityKey struct{}
+
+// ExecutionIdentity is supplied only by runtime after its final recovery check.
+// It is separate from model arguments and binds the backend mutation boundary.
+func WithExecutionIdentity(ctx context.Context, i Identity) context.Context {
+	return context.WithValue(ctx, executionIdentityKey{}, i)
+}
+
+func ExecutionIdentity(ctx context.Context) (Identity, bool) {
+	i, ok := ctx.Value(executionIdentityKey{}).(Identity)
+	return i, ok
+}
+
 type recoveryBoundary struct {
 	check    func(Identity) *Outcome
 	resolved func(Identity)
