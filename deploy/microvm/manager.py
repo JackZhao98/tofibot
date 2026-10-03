@@ -850,8 +850,15 @@ class Handler(http.server.BaseHTTPRequestHandler):
             return self.json(404, {"error": "not found"})
         try:
             value = json.loads(body)
-            if not isinstance(value, dict) or set(value) - {"bot_id", "bot_name", "run_id", "action", "args", "source"}:
+            if not isinstance(value, dict) or set(value) - {"bot_id", "bot_name", "run_id", "action", "args", "source", "write_identity"}:
                 return self.json(400, {"error": "invalid request"})
+            # The App's recovery boundary owns this separate envelope. Forward
+            # it unchanged only for file writes; the Guest binds and validates
+            # the actual descriptors. Never strip it or fall back to an
+            # unguarded write after a Guest identity rejection.
+            if "write_identity" in value and (value.get("action") != "files.write"
+                                              or not isinstance(value["write_identity"], dict)):
+                return self.json(400, {"error": "invalid write identity"})
             if self.server.vm.info()["state"] != "ready":
                 return self.json(503, {"ok": False, "error": "microVM is not ready"})
             with self.server.vm.connect() as guest:
