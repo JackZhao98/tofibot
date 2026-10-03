@@ -170,12 +170,12 @@
 .workspace .attachment-lightbox img { display: block; max-width: calc(95vw - 32px); max-height: calc(94dvh - 56px); object-fit: contain; }
 .workspace .attachment-lightbox small { display: block; margin-top: 5px; color: var(--muted); font: 11px/1.4 var(--mono); }
 html:not([data-desktop]) .workspace .attachment-lightbox { max-width:min(860px,calc(100vw - 32px)); max-height:calc(100dvh - 96px); padding:0; border:0; border-radius:0; background:transparent; box-shadow:none; overflow:visible; }
-html:not([data-desktop]) .workspace .attachment-lightbox::backdrop { background:rgba(20,18,15,.74); animation:web-zoom-backdrop-in 260ms ease-out both; }
+html:not([data-desktop]) .workspace .attachment-lightbox::backdrop { background:var(--lightbox-scrim); animation:web-zoom-backdrop-in 260ms ease-out both; }
 html:not([data-desktop]) .workspace .attachment-lightbox.is-closing::backdrop { animation:web-zoom-backdrop-out 300ms ease-in both; }
-@keyframes web-zoom-backdrop-in { from { background:rgba(20,18,15,0); } }
-@keyframes web-zoom-backdrop-out { to { background:rgba(20,18,15,0); } }
+@keyframes web-zoom-backdrop-in { from { background:transparent; } }
+@keyframes web-zoom-backdrop-out { to { background:transparent; } }
 html:not([data-desktop]) .workspace .attachment-lightbox img { max-width:min(860px,calc(100vw - 32px)); max-height:calc(100dvh - 116px); border:var(--edge) solid var(--line); border-radius:16px; box-shadow:var(--hard); transform-origin:0 0; }
-html:not([data-desktop]) .workspace .attachment-lightbox small { margin-top:12px; color:#f3eadb; font:var(--type-status); text-align:center; animation:web-zoom-caption 300ms ease both 200ms; }
+html:not([data-desktop]) .workspace .attachment-lightbox small { margin-top:12px; color:var(--lightbox-ink); font:var(--type-status); text-align:center; animation:web-zoom-caption 300ms ease both 200ms; }
 @keyframes web-zoom-caption { from { opacity:0; transform:translateY(-6px); } }
 html:not([data-desktop]) .workspace .attachment-lightbox > button { position:fixed; top:16px; right:16px; width:42px; height:42px; border:var(--edge) solid var(--line); border-radius:12px; background:var(--surface); box-shadow:var(--hard-sm); }
 .workspace .attachment-recovery { display: flex; align-items: center; gap: 12px; padding: 0 12px 10px; color: var(--muted); font-size: 12px; line-height: 1.5; }

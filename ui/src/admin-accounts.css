@@ -13,7 +13,7 @@
 .admin-account-row small,.admin-account-row span {color:var(--muted);font-size:12px}
 .admin-account-actions {display:flex;flex-wrap:wrap;gap:8px}
 .admin-reset {display:flex;align-items:end;flex-wrap:wrap;gap:10px;width:100%}
-.admin-error {margin:0;color:var(--danger)}
+.admin-error {margin:0;color:var(--danger-text)}
 @media(max-width:600px){.admin-create{grid-template-columns:1fr}.admin-account-actions{width:100%}.admin-account-row{gap:12px}.admin-reset label{width:100%}}
 
 .admin-quota {display:flex;align-items:end;flex-wrap:wrap;gap:10px;width:100%}
