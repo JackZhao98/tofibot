@@ -33,13 +33,15 @@ type Spec struct {
 	WorkDir   string            `json:"work_dir"`
 	Env       map[string]string `json:"env,omitempty"`
 	SecretEnv map[string]string `json:"secret_env,omitempty"`
+	Adapter   *AdapterPolicy    `json:"adapter,omitempty"`
 }
 
 type Status struct {
-	ID        string    `json:"id"`
-	State     string    `json:"state"`
-	ToolCount int       `json:"tool_count"`
-	LastUsed  time.Time `json:"last_used,omitempty"`
+	ID              string    `json:"id"`
+	State           string    `json:"state"`
+	ToolCount       int       `json:"tool_count"`
+	LastUsed        time.Time `json:"last_used,omitempty"`
+	AdapterIdentity string    `json:"adapter_identity,omitempty"`
 }
 
 type Runner struct {
@@ -91,6 +93,23 @@ func New(specs []Spec, idleTimeout time.Duration) (*Runner, error) {
 				return nil, fmt.Errorf("invalid environment key in %q", spec.ID)
 			}
 		}
+		if err := validateAdapter(spec); err != nil {
+			cancel()
+			return nil, err
+		}
+		if spec.Adapter != nil {
+			policy := *spec.Adapter
+			spec.Adapter = &policy
+			spec.Args = append([]string(nil), spec.Args...)
+			env, secrets := make(map[string]string, len(spec.Env)), make(map[string]string, len(spec.SecretEnv))
+			for key, value := range spec.Env {
+				env[key] = value
+			}
+			for key, value := range spec.SecretEnv {
+				secrets[key] = value
+			}
+			spec.Env, spec.SecretEnv = env, secrets
+		}
 		r.plugins[spec.ID] = &plugin{spec: spec}
 	}
 	go r.reap()
@@ -131,7 +150,7 @@ func (r *Runner) Statuses() []Status {
 		} else if p.cli != nil {
 			state = "ready"
 		}
-		out = append(out, Status{ID: p.spec.ID, State: state, ToolCount: len(p.tools), LastUsed: p.lastUsed})
+		out = append(out, Status{ID: p.spec.ID, State: state, ToolCount: len(p.tools), LastUsed: p.lastUsed, AdapterIdentity: adapterIdentity(p.spec)})
 		p.mu.Unlock()
 	}
 	sort.Slice(out, func(i, j int) bool { return out[i].ID < out[j].ID })
@@ -173,6 +192,16 @@ func (r *Runner) call(ctx context.Context, id string, params *mcp.CallToolParams
 	if err != nil {
 		return nil, err
 	}
+	if p.spec.Adapter != nil {
+		if err := adapterFeatures(params.InputResponses, params.RequestState, params.Meta); err != nil {
+			return nil, err
+		}
+		// Modern identity/capability metadata is validated at the outer boundary;
+		// the opted-in leaf establishes its identity through initialize instead.
+		copy := *params
+		copy.Meta = nil
+		params = &copy
+	}
 	cli, release, err := r.acquire(ctx, p)
 	if err != nil {
 		return nil, err
@@ -204,6 +233,9 @@ func (r *Runner) call(ctx context.Context, id string, params *mcp.CallToolParams
 			p.mu.Unlock()
 		}
 		return nil, fmt.Errorf("tool result unknown: %w", err)
+	}
+	if p.spec.Adapter != nil && result != nil && (result.NeedsInput() || result.InputRequests != nil || result.RequestState != "") {
+		return nil, ErrUnsupportedAdapterFeature
 	}
 	return result, nil
 }
@@ -287,6 +319,9 @@ func (r *Runner) acquire(ctx context.Context, p *plugin) (*mcp.ClientSession, fu
 }
 
 func start(startCtx, life context.Context, spec Spec) (*mcp.ClientSession, context.CancelFunc, int, []mcp.Tool, error) {
+	if err := validateAdapter(spec); err != nil {
+		return nil, nil, 0, nil, err
+	}
 	procCtx, stop := context.WithCancel(life)
 	processCmd := exec.CommandContext(procCtx, spec.Command, spec.Args...)
 	processCmd.Dir = spec.WorkDir
@@ -295,6 +330,13 @@ func start(startCtx, life context.Context, spec Spec) (*mcp.ClientSession, conte
 		processCmd.Env = append(processCmd.Env, key+"="+value)
 	}
 	for key, path := range spec.SecretEnv {
+		if spec.Adapter != nil && key == "NOTION_TOKEN" {
+			info, err := os.Lstat(path)
+			if err != nil || !info.Mode().IsRegular() || info.Mode().Perm() != 0600 {
+				stop()
+				return nil, nil, 0, nil, errors.New("Notion token file must be a private mode-0600 regular file")
+			}
+		}
 		value, err := os.ReadFile(path)
 		if err != nil {
 			stop()
@@ -303,8 +345,15 @@ func start(startCtx, life context.Context, spec Spec) (*mcp.ClientSession, conte
 		processCmd.Env = append(processCmd.Env, key+"="+strings.TrimSpace(string(value)))
 	}
 	processCmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
-	tr := &latestOnlyTransport{Transport: &mcp.CommandTransport{Command: processCmd}}
-	cli, err := mcp.NewClient(&mcp.Implementation{Name: "tofi-mcp-runner", Version: "1"}, nil).Connect(startCtx, tr, &mcp.ClientSessionOptions{ProtocolVersion: ProtocolVersion})
+	var tr mcp.Transport = &latestOnlyTransport{Transport: &mcp.CommandTransport{Command: processCmd}}
+	leafProtocol := ProtocolVersion
+	var clientOptions *mcp.ClientOptions
+	if spec.Adapter != nil {
+		leafProtocol = spec.Adapter.Protocol
+		tr = notionLeafTransport{Transport: &mcp.CommandTransport{Command: processCmd}}
+		clientOptions = &mcp.ClientOptions{Capabilities: &mcp.ClientCapabilities{}, MultiRoundTrip: &mcp.MultiRoundTripOptions{Disabled: true}}
+	}
+	cli, err := mcp.NewClient(&mcp.Implementation{Name: "tofi-mcp-runner", Version: "1"}, clientOptions).Connect(startCtx, tr, &mcp.ClientSessionOptions{ProtocolVersion: leafProtocol})
 	closeFailure := func(err error) (*mcp.ClientSession, context.CancelFunc, int, []mcp.Tool, error) {
 		pid := 0
 		if processCmd.Process != nil {
@@ -316,7 +365,10 @@ func start(startCtx, life context.Context, spec Spec) (*mcp.ClientSession, conte
 	if err != nil {
 		return closeFailure(err)
 	}
-	if result := cli.InitializeResult(); result == nil || result.ProtocolVersion != ProtocolVersion {
+	if result := cli.InitializeResult(); result == nil || result.ProtocolVersion != leafProtocol {
+		if spec.Adapter != nil {
+			return closeFailure(ErrAdapterProtocolMismatch)
+		}
 		return closeFailure(ErrIncompatibleProtocol)
 	}
 	tools := make([]mcp.Tool, 0)

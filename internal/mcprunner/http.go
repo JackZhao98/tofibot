@@ -75,6 +75,10 @@ func (r *Runner) Handler(token string) http.Handler {
 				http.Error(w, "Unsupported protocol version: Tofi requires MCP "+ProtocolVersion, http.StatusBadRequest)
 				return
 			}
+			if req.URL.Query().Get(AdapterIdentityQuery) != adapterIdentity(p.spec) {
+				http.Error(w, "MCP adapter identity changed; reattach before calling", http.StatusConflict)
+				return
+			}
 			handler, err := r.mcpHandler(req.Context(), p)
 			if err != nil {
 				writePluginError(w, err)
@@ -210,6 +214,11 @@ func (r *Runner) mcpHandler(ctx context.Context, p *plugin) (http.Handler, error
 	for _, tool := range tools {
 		name := tool.Name
 		mcpServer.AddTool(&tool, func(ctx context.Context, request *mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+			if p.spec.Adapter != nil {
+				if err := adapterFeatures(request.Params.InputResponses, request.Params.RequestState, request.Params.Meta); err != nil {
+					return nil, err
+				}
+			}
 			arguments := map[string]any{}
 			if len(request.Params.Arguments) > 0 {
 				if err := json.Unmarshal(request.Params.Arguments, &arguments); err != nil {
