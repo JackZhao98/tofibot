@@ -134,6 +134,7 @@ export type ScheduleStatus = "active" | "paused" | "completed" | "deleted";
 export interface Schedule {
   id: string;
   title?: string;
+  description?: string;
   created_by?: "user" | "bot";
   conversation_id: string;
   bot_id: string;
@@ -241,8 +242,12 @@ export interface Run {
   updated_at: string;
 }
 
+export interface MemoryInput { title: string; description: string; content: string; }
+
 export interface Memory {
   id: string;
+  title?: string;
+  description?: string;
   conversation_id: string;
   bot_id?: string;
   content: string;

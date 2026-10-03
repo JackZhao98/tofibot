@@ -43,7 +43,7 @@ func (e scheduleBrowserEngine) Run(ctx context.Context, request runtime.Request)
 		if tool.Name != "create_schedule" {
 			continue
 		}
-		raw, _ := json.Marshal(map[string]any{"title": "隔离定时审批验收", "content": "Perform the synthetic write only after human approval, then deliver the verified result.", "kind": "once", "run_at": time.Now().Add(2 * time.Second).UTC().Format(time.RFC3339Nano), "timezone": "UTC"})
+		raw, _ := json.Marshal(map[string]any{"title": "隔离定时审批验收", "description": "隔离环境中的单次审批验收。", "content": "Perform the synthetic write only after human approval, then deliver the verified result.", "kind": "once", "run_at": time.Now().Add(2 * time.Second).UTC().Format(time.RFC3339Nano), "timezone": "UTC"})
 		for _, status := range []string{"queued", "running"} {
 			if err := request.OnToolEvent(runtime.ToolEvent{CallID: "browser-create", Name: tool.Name, Arguments: string(raw), Status: status}); err != nil {
 				return runtime.Result{}, err

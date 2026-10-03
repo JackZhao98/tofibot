@@ -155,7 +155,7 @@ func archiveBotEventTx(tx *sql.Tx, b Bot, at string) error {
 }
 
 func pauseSchedulesTx(tx *sql.Tx, where string, args ...any) error {
-	rows, err := tx.Query(`SELECT id,conversation_id,bot_id,content,title,created_by,kind,timezone,next_at_utc,interval_seconds,daily_time,status,created_at,updated_at FROM schedules WHERE status='active' AND `+where, args...)
+	rows, err := tx.Query(`SELECT id,conversation_id,bot_id,content,title,description,created_by,kind,timezone,next_at_utc,interval_seconds,daily_time,status,created_at,updated_at FROM schedules WHERE status='active' AND `+where, args...)
 	if err != nil {
 		return err
 	}

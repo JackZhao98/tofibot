@@ -4,3 +4,5 @@ html:not([data-desktop]) .workspace .scheduled-run {
   max-width:var(--chat-max);
   margin:6px auto 16px;
 }
+.scheduled-task-label > strong { display:block; overflow:hidden; text-overflow:ellipsis; font-weight:500; }
+.scheduled-task-label > small { display:block; overflow:hidden; text-overflow:ellipsis; color:var(--text-soft); font-size:11px; }

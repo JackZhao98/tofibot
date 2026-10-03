@@ -27,8 +27,9 @@ export function ScheduledTaskRow({ message, run, occurrence, schedule, timezone,
   ) : undefined;
   const retryId = exactOccurrence?.status_run_id ?? owningRun?.id;
   const receiptMissing = error?.includes("scheduled task returned without confirming a completed result");
+  const metadata = scheduledRunMetadata(message, run, occurrence, schedule, timezone);
   if (!isDesktop) return <ScheduledRun
-    {...scheduledRunMetadata(message, run, occurrence, schedule, timezone)}
+    {...metadata}
     content={message.content}
     state={state}
     statusLabel={status}
@@ -47,11 +48,11 @@ export function ScheduledTaskRow({ message, run, occurrence, schedule, timezone,
       <summary>
         <span className="scheduled-task-dot" aria-hidden="true" />
         <TofiIcon className="scheduled-task-clock" name="clock" size={13} aria-hidden="true" />
-        <span className="scheduled-task-label" title={message.content}>{message.content}</span>
+        <span className="scheduled-task-label" title={metadata.title}><strong>{metadata.title}</strong><small>{metadata.description}</small></span>
         <span className="scheduled-task-status">{status}</span>
         <TofiIcon className="scheduled-task-chevron" name="chevron-right" size={14} />
       </summary>
-      <div className="scheduled-task-details"><strong>任务内容</strong><p>{message.content}</p>{!exactOccurrence && <p className="field-note">暂未取得完整执行状态；这里只显示主运行状态。</p>}{exactOccurrence?.execution_status === "done" && !exactOccurrence.result_in_conversation && <p className="field-note">未确认本次最终回复已写入当前对话；运行结束不代表结果已交付。</p>}{isFailure && <div className="scheduled-task-recovery"><p>{receiptMissing ? "本轮没有确认完成结果，未算作已交付。" : "本轮未完成，任务记录已保留。"}为避免重复执行外部操作，请确认后重试。</p>{error && <details><summary>查看技术原因</summary><p className="error-text">{error}</p></details>}{onRetry && retryId && <button type="button" className="text-button" disabled={retrying} onClick={() => { setRetrying(true); void onRetry(retryId).finally(() => setRetrying(false)); }}>{retrying ? "正在重新执行…" : "重新执行本轮"}</button>}</div>}</div>
+      <div className="scheduled-task-details"><p>{metadata.description}</p><details><summary>管理 · 完整执行指令</summary><p>{message.content}</p></details>{!exactOccurrence && <p className="field-note">暂未取得完整执行状态；这里只显示主运行状态。</p>}{exactOccurrence?.execution_status === "done" && !exactOccurrence.result_in_conversation && <p className="field-note">未确认本次最终回复已写入当前对话；运行结束不代表结果已交付。</p>}{isFailure && <div className="scheduled-task-recovery"><p>{receiptMissing ? "本轮没有确认完成结果，未算作已交付。" : "本轮未完成，任务记录已保留。"}为避免重复执行外部操作，请确认后重试。</p>{error && <details><summary>查看技术原因</summary><p className="error-text">{error}</p></details>}{onRetry && retryId && <button type="button" className="text-button" disabled={retrying} onClick={() => { setRetrying(true); void onRetry(retryId).finally(() => setRetrying(false)); }}>{retrying ? "正在重新执行…" : "重新执行本轮"}</button>}</div>}</div>
     </details>
   </article>;
 }
