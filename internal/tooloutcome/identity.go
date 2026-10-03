@@ -16,6 +16,9 @@ type Identity struct {
 	Target             string `json:"target,omitempty"`
 	Risk               string `json:"risk,omitempty"`
 	Object             string `json:"object,omitempty"`
+	Parent             string `json:"parent,omitempty"`
+	ParentObject       string `json:"parent_object,omitempty"`
+	GuardVersion       int    `json:"guard_version,omitempty"`
 	ResolutionRequired bool   `json:"resolution_required,omitempty"`
 }
 

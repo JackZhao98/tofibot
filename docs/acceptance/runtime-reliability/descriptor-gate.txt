@@ -1,0 +1,19 @@
+Finite descriptor/evidence gate (synthetic local tests)
+$ GOCACHE=/tmp/tofi-runtime-go-cache go test -timeout=120s ./internal/computer/guest ./internal/agent ./internal/runtime ./internal/app -run "TestGuardedGuest|TestReviewerUncertainWritePathChanges|TestRetargetedWriteFence|TestLostNewFileResponse|TestRuntimeEffectiveComputerReplay|TestReservedRepairRefusal|TestUncertainFileMutation"
+ok  	github.com/JackZhao98/tofibot/internal/computer/guest	0.676s
+ok  	github.com/JackZhao98/tofibot/internal/agent	0.882s [no tests to run]
+ok  	github.com/JackZhao98/tofibot/internal/runtime	0.355s [no tests to run]
+ok  	github.com/JackZhao98/tofibot/internal/app	0.859s
+
+Affected package suite, including cumulative evidence and compaction/checkpoint test
+$ GOCACHE=/tmp/tofi-runtime-go-cache go test -timeout=120s ./internal/computer ./internal/computer/guest ./internal/agent ./internal/runtime ./internal/app
+ok  	github.com/JackZhao98/tofibot/internal/computer	0.549s
+ok  	github.com/JackZhao98/tofibot/internal/computer/guest	2.155s
+ok  	github.com/JackZhao98/tofibot/internal/agent	1.380s
+ok  	github.com/JackZhao98/tofibot/internal/runtime	1.477s
+ok  	github.com/JackZhao98/tofibot/internal/app	40.476s
+
+Final full suite (including final descriptor close/error handling): go-test.txt
+Final Linux amd64 cross-build exit code: 0
+$ GOOS=linux GOARCH=amd64 GOCACHE=/tmp/tofi-runtime-go-cache go build -o /tmp/tofi-runtime-review3-guest-linux ./cmd/tofi-guest
+No Linux/KVM execution or deployment performed.

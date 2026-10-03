@@ -25,6 +25,8 @@ func (f reviewTransport) RoundTrip(r *http.Request) (*http.Response, error) { re
 
 type reviewCall struct{ name, args string }
 
+var reviewProviderIDs atomic.Uint64
+
 // The provider is synthetic; the actual runtime, schemas, computer parsers,
 // dispatch and durable activity all run unchanged.
 func reviewEngine(t *testing.T, calls []reviewCall, duration time.Duration) runtime.Engine {
@@ -37,6 +39,7 @@ func reviewEngine(t *testing.T, calls []reviewCall, duration time.Duration) runt
 
 func reviewBatchEngine(t *testing.T, batches [][]reviewCall, duration time.Duration) runtime.Engine {
 	t.Helper()
+	providerID := reviewProviderIDs.Add(1)
 	var index atomic.Int32
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		i := int(index.Add(1)) - 1
@@ -44,7 +47,7 @@ func reviewBatchEngine(t *testing.T, batches [][]reviewCall, duration time.Durat
 		if i < len(batches) && len(batches[i]) > 0 {
 			calls := []any{}
 			for j, call := range batches[i] {
-				calls = append(calls, map[string]any{"id": fmt.Sprintf("review-%d-%d", i, j), "type": "function", "function": map[string]any{"name": call.name, "arguments": call.args}})
+				calls = append(calls, map[string]any{"id": fmt.Sprintf("review-%d-%d-%d", providerID, i, j), "type": "function", "function": map[string]any{"name": call.name, "arguments": call.args}})
 			}
 			message = map[string]any{"content": "", "tool_calls": calls}
 		}
@@ -82,7 +85,7 @@ func reviewComputer(t *testing.T, s *Server, onAction func(computer.Action) erro
 			if strings.HasPrefix(target, "/workspace/alias/") {
 				target = path.Join("/workspace/bots", action.BotID, strings.TrimPrefix(target, "/workspace/alias/"))
 			}
-			raw, _ := json.Marshal(map[string]any{"ok": true, "result": map[string]any{"target": target}})
+			raw, _ := json.Marshal(map[string]any{"ok": true, "result": map[string]any{"target": target, "object": "synthetic:" + target, "parent": path.Dir(target), "parent_object": "synthetic-parent", "guard_version": 1}})
 			body = string(raw)
 		}
 		return &http.Response{StatusCode: 200, Header: make(http.Header), Body: io.NopCloser(strings.NewReader(body))}, nil

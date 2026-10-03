@@ -1,20 +1,20 @@
 ?   	github.com/JackZhao98/tofibot/cmd/account-acceptance	[no test files]
-ok  	github.com/JackZhao98/tofibot/cmd/tofi	0.449s
+ok  	github.com/JackZhao98/tofibot/cmd/tofi	0.456s
 ?   	github.com/JackZhao98/tofibot/cmd/tofi-guest	[no test files]
 ?   	github.com/JackZhao98/tofibot/cmd/tofi-mcp-runner	[no test files]
-ok  	github.com/JackZhao98/tofibot/cmd/tofi-shadow-review	(cached)
+ok  	github.com/JackZhao98/tofibot/cmd/tofi-shadow-review	0.666s
 ok  	github.com/JackZhao98/tofibot/internal/agent	(cached)
-ok  	github.com/JackZhao98/tofibot/internal/app	40.688s
+ok  	github.com/JackZhao98/tofibot/internal/app	41.325s
 ok  	github.com/JackZhao98/tofibot/internal/codexauth	(cached)
 ok  	github.com/JackZhao98/tofibot/internal/computer	(cached)
-ok  	github.com/JackZhao98/tofibot/internal/computer/guest	(cached)
+ok  	github.com/JackZhao98/tofibot/internal/computer/guest	2.241s
 ?   	github.com/JackZhao98/tofibot/internal/executor	[no test files]
-ok  	github.com/JackZhao98/tofibot/internal/extensions	(cached)
+ok  	github.com/JackZhao98/tofibot/internal/extensions	8.389s
 ok  	github.com/JackZhao98/tofibot/internal/mcprunner	(cached)
 ?   	github.com/JackZhao98/tofibot/internal/models	[no test files]
 ?   	github.com/JackZhao98/tofibot/internal/paths	[no test files]
 ?   	github.com/JackZhao98/tofibot/internal/pkg/logger	[no test files]
-ok  	github.com/JackZhao98/tofibot/internal/provider	(cached)
+ok  	github.com/JackZhao98/tofibot/internal/provider	0.951s
 ok  	github.com/JackZhao98/tofibot/internal/runtime	(cached)
-ok  	github.com/JackZhao98/tofibot/internal/shadowreview	(cached)
+ok  	github.com/JackZhao98/tofibot/internal/shadowreview	1.067s
 ?   	github.com/JackZhao98/tofibot/internal/tooloutcome	[no test files]

@@ -110,14 +110,17 @@ func TestLostNewFileResponseCannotReplayThroughCreatedHardlink(t *testing.T) {
 	s.microVM = client
 	calls := []reviewCall{{"computer_files", `{"action":"files.write","path":"a","content":"X","append":true}`}, {"computer_action", `{"computer_id":"firecracker","action":"files.write","args":{"path":"hardlink","content":"X","append":true}}`}, {"computer_files", `{"action":"files.write","path":"b","content":"Y","append":true}`}}
 	_, err = reviewEngine(t, calls, 0).Run(context.Background(), runtime.Request{BotID: b.ID, RunID: r.ID, Messages: []runtime.Message{{Role: "user", Content: "Synthetic physical target verification"}}, Tools: append(s.microVMTools(r), s.computerTools(r)...)})
-	if err != nil || writes != 2 {
+	if err != nil || writes != 1 {
 		t.Fatalf("writes=%d err=%v", writes, err)
 	}
-	for name, want := range map[string]string{"a": "X", "hardlink": "X", "b": "Y"} {
+	for name, want := range map[string]string{"a": "X", "hardlink": "X"} {
 		got, err := os.ReadFile(filepath.Join(root, "bots", b.ID, name))
 		if err != nil || string(got) != want {
 			t.Fatalf("%s=%q want=%q err=%v", name, got, want, err)
 		}
+	}
+	if _, err := os.Stat(filepath.Join(root, "bots", b.ID, "b")); !os.IsNotExist(err) {
+		t.Fatal("uncertain create allowed a second target", err)
 	}
 }
 

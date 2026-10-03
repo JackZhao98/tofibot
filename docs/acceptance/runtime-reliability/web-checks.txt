@@ -22,7 +22,7 @@ dist/assets/TerminalPanel-E6w2FPvB.js          342.04 kB │ gzip:  86.96 kB
 dist/assets/ReactionEmojiPicker-BABeL3tw.js    506.08 kB │ gzip: 109.64 kB
 dist/assets/index-dyEhbk5m.js                1,079.20 kB │ gzip: 319.55 kB
 
-✓ built in 399ms
+✓ built in 537ms
 [plugin builtin:vite-reporter]
 (!) Some chunks are larger than 500 kB after minification. Consider:
 - Using dynamic import() to code-split the application
@@ -37,7 +37,7 @@ dist/motion-lab.html                   0.54 kB │ gzip:   0.35 kB
 dist/assets/motion-lab-Bmh1Ozlc.css  108.12 kB │ gzip:  21.44 kB
 dist/assets/motion-lab-C0KzNbsP.js   603.96 kB │ gzip: 181.31 kB
 
-✓ built in 164ms
+✓ built in 166ms
 [plugin builtin:vite-reporter]
 (!) Some chunks are larger than 500 kB after minification. Consider:
 - Using dynamic import() to code-split the application

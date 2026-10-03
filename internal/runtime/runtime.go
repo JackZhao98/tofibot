@@ -281,7 +281,8 @@ func (e *engine) Run(ctx context.Context, req Request) (Result, error) {
 				if err := tooloutcome.CheckBoundary(toolCtx, identity); err != nil {
 					return "", err
 				}
-				result, executeErr := rawTool.Execute(context.WithValue(toolCtx, toolCallIDContextKey{}, callID), encoded)
+				executionCtx := tooloutcome.WithExecutionIdentity(toolCtx, identity)
+				result, executeErr := rawTool.Execute(context.WithValue(executionCtx, toolCallIDContextKey{}, callID), encoded)
 				var suspension *userInputSuspensionError
 				if executeErr != nil && !errors.As(executeErr, &suspension) && toolCtx.Err() == nil {
 					if _, classified := tooloutcome.FromError(executeErr); !classified {
@@ -297,17 +298,8 @@ func (e *engine) Run(ctx context.Context, req Request) (Result, error) {
 						executeErr = tooloutcome.New(status, code, certainty, explanation, next).Err()
 					}
 				}
-				if executeErr != nil && identity.Risk == tooloutcome.TargetMutation && rawTool.ResolveIdentity != nil && toolCtx.Err() == nil {
-					classified, typed := tooloutcome.FromError(executeErr)
-					if !typed || classified.Status == tooloutcome.Uncertain {
-						// Read-only verification after a lost response records the new object's
-						// identity without repeating the effect (including newly created files).
-						if resolved, e := rawTool.ResolveIdentity(toolCtx, encoded); e == nil {
-							tooloutcome.RecordIdentity(toolCtx, resolved)
-						}
-					}
-				}
-
+				// A later path lookup cannot establish what this dispatch mutated.
+				// Keep its original boundary evidence; unknown creates stay opaque.
 				return result, executeErr
 			},
 		})

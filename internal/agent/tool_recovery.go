@@ -2,6 +2,7 @@ package agent
 
 import (
 	"encoding/json"
+	"strings"
 
 	"github.com/JackZhao98/tofibot/internal/provider"
 	"github.com/JackZhao98/tofibot/internal/tooloutcome"
@@ -11,9 +12,10 @@ const toolRepairLimit = 3
 
 // Backend-owned recovery records outlive provider transcript compaction.
 type ToolRecoveryRecord struct {
-	Identity *tooloutcome.Identity `json:"identity,omitempty"`
-	Call     provider.ToolCall     `json:"call"`
-	Outcome  tooloutcome.Outcome   `json:"outcome"`
+	Identity *tooloutcome.Identity  `json:"identity,omitempty"`
+	Evidence []tooloutcome.Identity `json:"evidence,omitempty"`
+	Call     provider.ToolCall      `json:"call"`
+	Outcome  tooloutcome.Outcome    `json:"outcome"`
 }
 
 func recoveryStatus(status string) bool {
@@ -54,29 +56,23 @@ func toolRecoveryIdentityGuard(records []ToolRecoveryRecord, identity tooloutcom
 		if record.Identity != nil {
 			prior = *record.Identity
 		}
-		if prior.Scope != identity.Scope || prior.Operation != identity.Operation {
-			continue
-		}
 		o := record.Outcome
 		if o.Status == tooloutcome.Uncertain {
 			if identity.ResolutionRequired {
 				continue
 			} // executor must resolve and recheck before dispatch
-			// Known observations only fence equivalent requests. Mutation targets are
-			// backend-resolved: an independent target is available, but changed payload
-			// on the unresolved target does not authorize replay. Opaque capabilities
-			// remain conservative because model arguments cannot prove a distinct effect.
-			if prior.Risk == tooloutcome.Observation && identity.Risk == tooloutcome.Observation {
-				if prior.ArgumentsHash == identity.ArgumentsHash {
-					return &o
-				}
-			} else if prior.Risk == tooloutcome.TargetMutation && identity.Risk == tooloutcome.TargetMutation && prior.Target != "" && identity.Target != "" {
-				if prior.Target == identity.Target || (prior.Object != "" && prior.Object == identity.Object) {
-					return &o
-				}
-			} else {
+			if uncertainIdentityBlocks(prior, identity) {
 				return &o
 			}
+			for _, evidence := range record.Evidence {
+				if uncertainIdentityBlocks(evidence, identity) {
+					return &o
+				}
+			}
+			continue
+		}
+		if prior.Scope != identity.Scope || prior.Operation != identity.Operation {
+			continue
 		}
 		if o.Status == tooloutcome.Validation {
 			repairs++
@@ -91,4 +87,23 @@ func toolRecoveryIdentityGuard(records []ToolRecoveryRecord, identity tooloutcom
 		return &o
 	}
 	return nil
+}
+
+func uncertainIdentityBlocks(prior, candidate tooloutcome.Identity) bool {
+	if prior.Scope != candidate.Scope || prior.Operation != candidate.Operation {
+		return false
+	}
+	if prior.Risk == tooloutcome.Observation && candidate.Risk == tooloutcome.Observation {
+		return prior.ArgumentsHash == candidate.ArgumentsHash
+	}
+	if prior.Risk == tooloutcome.TargetMutation && candidate.Risk == tooloutcome.TargetMutation && prior.Target != "" && candidate.Target != "" {
+		// A missing file's inode is unknown after a lost create response. Later
+		// lookups cannot attribute the effect; legacy unbound evidence is also
+		// insufficient. Keep the entire write operation fenced in either case.
+		if prior.Operation == "files.write" && strings.HasPrefix(prior.Scope, "computer/") && (prior.GuardVersion != 1 || candidate.GuardVersion != 1 || prior.Object == "") {
+			return true
+		}
+		return prior.Target == candidate.Target || (prior.Object != "" && prior.Object == candidate.Object)
+	}
+	return true
 }

@@ -8,8 +8,10 @@ The installer checkout and VM106 are untouched.
 
 | Review issue | Final behavior and implementation | Exact regression |
 | --- | --- | --- |
+| c43ec03 P1: symlink retarget after lookup replayed an uncertain append | Runtime transports the resolved identity outside model arguments. Guest opens existing files without truncation, verifies the opened descriptor against that identity, and writes through the same descriptor. New files use a verified parent descriptor and exclusive creation. Identity mismatch returns typed `write_identity_changed/not_executed`; no unguarded fallback runs. | `TestReviewerUncertainWritePathChanges/lookup-before-dispatch` retains the exact reviewer schedule: one append to a, lookup of alias to b, actor retargets alias to a. Guest rejects the second request and a remains X. `TestGuardedGuestRetargetAfterOpenWritesOnlyBoundDescriptor` replaces alias and physical path after opening; only the held original inode changes. `TestGuardedGuestMismatchHasNoMutationOrLegacyFallback` covers replaced file, parent, unexpected entry and symlink. |
+| c43ec03 P1: postfailure lookup replaced original effect evidence | Postfailure lookup is removed. The first dispatch identity is immutable; later observations append deduplicated evidence and never narrow its fence. Unknown create attribution and legacy/unbound evidence remain conservative for the write operation. | `TestReviewerUncertainWritePathChanges/postfailure-replaces-evidence`: append through alias to a, lose response, retarget b, retry direct a; a stays X. `TestEffectEvidenceIsCumulativeAcrossCompactionAndCheckpoint` preserves original a plus later b/c evidence, blocks all three and permits d. `TestRetargetedWriteFenceSurvivesGuestRestartAndCheckpointReload` covers repeated retargets, disk reload and fresh Guest for bound existing files, uncertain creates, older guests and failed lookups; reads/list execute in every case, distinct existing b only for bound a. |
 | Rereview P1: refused reserved-repair call invented a completed receipt | Reserved-repair refusals carry trusted `ToolFailed` and `reserved_repair_refused/not_executed` metadata. The event tracker also prevents any queued, never-started call from becoming completed. The audit adds failure flags to legacy parallel, shell, skill and MCP error branches. | `TestReservedRepairRefusalCannotInventCompletionReceipt`: actual runtime and durable Store, invalid first receipt + refused second receipt => zero executions and `HasCompletedTool=false`; valid first + refused second => one execution and a real completed receipt. `TestNeverStartedToolCannotBecomeCompleted` checks the tracker backstop. |
-| Rereview P2: operation-wide uncertainty fence blocked observations and distinct targets; known argument errors were uncertain | Wrapper identities distinguish effective operations and backend-owned risk. Known pre-dispatch argument/access failures carry typed validation/denied/permanent outcomes. Observations fence equivalent requests. VM file writes resolve physical paths and device/inode identity through a five-second, internal read-only lookup before dispatch; uncertain writes recheck identity once without repeating the effect. Distinct verified targets remain available; equivalent paths, symlinks, hardlinks and changed/ignored arguments remain fenced. Unknown capabilities and older guests stay conservative. | `TestExtensionPredispatchValidationAllowsListAndCorrectedUpdate`, `TestFileObservationFailuresDoNotBlockDifferentRequests`, `TestUncertainFileMutationAllowsVerifiedDistinctTarget`, `TestUnavailableFileIdentityCannotRelaxUncertainFence`, `TestLostNewFileResponseCannotReplayThroughCreatedHardlink`, `TestActionWrappersHaveSeparateRecoveryOperations`, `TestMissingSecretReferenceDoesNotFenceCorrectedReference`, `TestResolvedRecoveryTargetsAndRiskSurviveCheckpoint`, `TestFileIdentityResolvesAliasesAndMissingTargetsWithoutMutation`, `TestFileIdentityHTTPDoesNotCreateWorkspaceOrAlias`. |
+| Rereview P2: operation-wide uncertainty fence blocked observations and distinct targets; known argument errors were uncertain | Wrapper identities distinguish effective operations and backend-owned risk. Known pre-dispatch argument/access failures carry typed validation/denied/permanent outcomes. Observations fence equivalent requests. VM file writes bind physical paths and device/inode identity to the guest descriptor. Distinct verified targets remain available after an uncertain existing-file write; unknown creates stay conservative. Equivalent paths, symlinks, hardlinks and changed/ignored arguments remain fenced. | `TestExtensionPredispatchValidationAllowsListAndCorrectedUpdate`, `TestFileObservationFailuresDoNotBlockDifferentRequests`, `TestUncertainFileMutationAllowsVerifiedDistinctTarget`, `TestUnavailableFileIdentityCannotRelaxUncertainFence`, `TestLostNewFileResponseCannotReplayThroughCreatedHardlink`, `TestActionWrappersHaveSeparateRecoveryOperations`, `TestMissingSecretReferenceDoesNotFenceCorrectedReference`, `TestResolvedRecoveryTargetsAndRiskSurviveCheckpoint`, `TestFileIdentityResolvesAliasesAndMissingTargetsWithoutMutation`, `TestFileIdentityHTTPDoesNotCreateWorkspaceOrAlias`. |
 | P1: raw wrapper arguments allowed uncertain append replay using ignored `offset` or `computer_action` | `runtime.Tool.Identity` delegates to the backend's execution parser. `computerRecoveryIdentity` maps convenience wrappers and generic computer actions to shared scope/operation/argument identities. `runtime.Tool.ResolveIdentity` resolves mutable backend targets before the final recovery check, including after hooks. These identities remain in the recovery ledger across checkpoint serialization. | `TestRuntimeEffectiveComputerReplayCannotUseIgnoredFieldsOrAlias`: actual runtime and app computer parsers dispatch one append whose response is lost; ignored-offset, generic-action and alternate-path attempts remain blocked; one file read still executes. `TestUncertainEffectCannotReplayAfterCompactionAndResumedCheckpoint` checks the retained fence across compaction and suspension. |
 | P2: locally answered question masked newer backend expiry | `QuestionCard` exposes `updated_at`. `reconcileQuestion` compares nanosecond backend/local versions, so later expiry supersedes the local answer and shows renewal. Older polling responses cannot reopen an answered card. | `test-question-timeline.mjs` covers ordering and legacy expiry. The actual App browser case `local-answer-then-backend-expiry-renews-fresh-card` submits an answer, receives expiry, shows renewal and creates the fresh card at both widths. |
 | P2: wrapper-wide validation budget blocked independent observations | Repair records are keyed by backend scope and effective operation. Files read/write, desktop capture/type and browser snapshot/navigation have independent scopes. Guard-produced budget errors do not count as additional validation attempts. | `TestRepairBudgetScopesComputerOperationAndPreservesObservations`: three invalid writes followed by a valid read, then three invalid desktop types followed by a capture; both observations execute, while further write/type repairs remain blocked. |
@@ -39,8 +41,9 @@ The new guest `files.identity` action is internal and is absent from the public
 tool catalog. Its HTTP lifecycle bypasses workspace/alias creation; tests verify
 that the lookup creates neither a Bot directory nor an alias and reads no file
 content. The actual guest HTTP integration appends a new file, loses the response,
-creates a hardlink, blocks replay through that hardlink, and writes a distinct
-file exactly once. A new guest artifact is required for physical-target precision.
+creates a hardlink, and blocks both that alias and further writes because the
+original inode attribution is unknown. The stable-file Guest test writes existing
+and new files once. A new guest artifact is required for descriptor binding.
 An older/offline guest permits ordinary first calls but cannot establish distinct
 targets after uncertainty, so that operation remains fenced. Paired-Mac mutations,
 arbitrary shell/secret operations and unreviewed MCP tools also remain opaque.
@@ -48,10 +51,33 @@ Existing exact owner-reviewed MCP read-only entries retain observation risk;
 remote annotations and unseen capabilities do not gain it. No settings or
 allowlists are modified by this change.
 
+The reviewer overlay's race schedules are preserved in
+`internal/app/runtime_reviewer_race_test.go`. Its original counter incremented
+for every HTTP write request, including a rejected request. The committed test
+counts successful Guest mutations separately: lookup-before-dispatch produces
+two requests, one HTTP 409 rejection, one mutation, and a remains X. The second
+race produces one request/mutation because the retained ledger blocks replay
+before dispatch. This distinguishes a failed request from a duplicate effect.
+
+## Finite descriptor/evidence gate
+
+| Acceptance | Evidence |
+| --- | --- |
+| Invalid first receipt + refused second: zero executions, false completion | `TestReservedRepairRefusalCannotInventCompletionReceipt` |
+| Stable existing and new files write once | `TestGuardedGuestStableExistingAndNewFileWriteOnce` |
+| Lost response: aliases, ignored arguments, symlinks and hardlinks stay fenced | Existing effective-identity regressions; actual Guest hardlink and restart tests |
+| Both exact reviewer races retain original a=X | `TestReviewerUncertainWritePathChanges` |
+| Changed file/parent/entry rejects with no content mutation or fallback | `TestGuardedGuestMismatchHasNoMutationOrLegacyFallback` |
+| Distinct verified existing target and independent reads remain usable | `TestRetargetedWriteFenceSurvivesGuestRestartAndCheckpointReload/bound-existing` |
+| Uncertain create with unknown inode stays conservative | Same test `/uncertain-create`; actual new-file hardlink test |
+| Older guest, failed lookup, cumulative evidence and checkpoint retain fence | Same test `/older-guest` and `/failed-lookup`; `TestEffectEvidenceIsCumulativeAcrossCompactionAndCheckpoint` |
+
 ## Verification
 
 - Full Go suite: `GOCACHE=/tmp/tofi-runtime-go-cache go test -timeout=120s ./...`.
   All packages pass; local test listeners required sandbox escalation.
+- [Finite descriptor/evidence gate and affected package checks](descriptor-gate.txt)
+  pass. Final Linux amd64 guest cross-build passes; no Linux/KVM execution is claimed.
 - Web typecheck and both production bundles pass. Vite reports bundle-size
   warnings; there are no build failures.
 - Question timeline, tool timeline, run-family, run-merge and user-form checks pass.

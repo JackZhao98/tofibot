@@ -172,6 +172,9 @@ func (s *Service) dispatchAction(ctx context.Context, req ActionRequest) (any, e
 		if err := decodeArgs(req.Args, &args); err != nil {
 			return nil, err
 		}
+		if req.WriteIdentity != nil {
+			return s.guardedWriteFile(ctx, req.BotID, args, *req.WriteIdentity)
+		}
 		return s.writeFile(ctx, req.BotID, args)
 	case "desktop.start":
 		return s.startDesktop(ctx, req.BotID)

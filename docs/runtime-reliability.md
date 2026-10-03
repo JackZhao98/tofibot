@@ -54,13 +54,29 @@ have separate repair scopes from their corresponding mutations.
 VM file writes resolve a backend physical target before dispatch through the
 internal `files.identity` lookup (five-second deadline, no directory creation,
 no alias creation and no file-content read). Canonical paths and device/inode
-identity detect symlinks and hardlinks. After a lost write response, one read-only
-identity recheck also retains the inode of a newly created file. A distinct
-verified file can still be written; the uncertain target cannot. Older guests
-without the lookup keep first-call behavior and conservatively fence the whole
-write operation after uncertainty. Paired-Mac mutations, arbitrary shell/secret
+identity detect symlinks and hardlinks. Lookup advertises guest guard version 1
+and the nearest existing parent directory's identity. Runtime sends this trusted
+identity separately from model arguments. At the guest mutation boundary, an
+existing file opens without truncation, its descriptor identity is verified,
+and content is written through that same descriptor. Missing files use the
+verified parent descriptor, no-follow directory traversal and exclusive creation.
+A changed identity is rejected before content mutation; no legacy fallback runs.
+
+The original dispatch evidence is immutable. Additional observations can only
+extend its fence, and survive compaction, checkpoint reload and guest restart.
+There is no postfailure path lookup: it cannot establish which object received
+the effect. An uncertain create with an unknown original inode fences all writes
+in that operation scope, while independent reads and lists remain available.
+For an uncertain existing-file write, a verified distinct target remains usable.
+Older guests without the guarded protocol keep first-call behavior and
+conservatively fence the whole write operation after uncertainty.
+Paired-Mac mutations, arbitrary shell/secret
 operations and unreviewed MCP tools cannot prove independent targets from model
 arguments and remain opaque. This does not modify any access grant or allowlist.
+
+Guarded existing-file overwrites preserve the opened inode and use descriptor
+truncation/writing rather than path replacement. An interrupted content write
+can be partial and remains uncertain; the runtime never infers success from it.
 
 Reserved final-repair refusals are failed, non-executed activities. A second
 refused receipt cannot satisfy `HasCompletedTool` when the first receipt failed

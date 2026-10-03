@@ -56,11 +56,38 @@ func (s *Service) fileIdentity(botID, name string) (map[string]any, error) {
 	if !within(root, target) {
 		return nil, fmt.Errorf("path escapes guest workspace")
 	}
-	result := map[string]any{"target": target}
-	if info, err := os.Stat(target); err == nil {
-		if stat, ok := info.Sys().(*syscall.Stat_t); ok {
-			result["object"] = fmt.Sprintf("%d:%d", stat.Dev, stat.Ino)
+	parent := filepath.Dir(target)
+	for {
+		info, statErr := os.Stat(parent)
+		if statErr == nil {
+			if !info.IsDir() {
+				return nil, fmt.Errorf("file parent must be a directory")
+			}
+			break
 		}
+		if !os.IsNotExist(statErr) {
+			return nil, statErr
+		}
+		parent = filepath.Dir(parent)
+	}
+	parent, err = filepath.EvalSymlinks(parent)
+	if err != nil || !within(root, parent) {
+		return nil, fmt.Errorf("file parent escapes guest workspace")
+	}
+	parentInfo, err := os.Stat(parent)
+	if err != nil {
+		return nil, err
+	}
+	result := map[string]any{"target": target, "parent": parent, "parent_object": fileObject(parentInfo), "guard_version": 1}
+	if info, err := os.Stat(target); err == nil {
+		result["object"] = fileObject(info)
 	}
 	return result, nil
+}
+
+func fileObject(info os.FileInfo) string {
+	if stat, ok := info.Sys().(*syscall.Stat_t); ok {
+		return fmt.Sprintf("%d:%d", stat.Dev, stat.Ino)
+	}
+	return ""
 }

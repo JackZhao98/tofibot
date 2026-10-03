@@ -46,6 +46,7 @@ func TestRecoveryIdentityPreservesLargeNumbers(t *testing.T) {
 func TestResolvedRecoveryTargetsAndRiskSurviveCheckpoint(t *testing.T) {
 	prior := tooloutcome.OperationIdentity("computer/vm/bot/fixture", "files.write", json.RawMessage(`{"path":"a","content":"X"}`))
 	prior.Risk, prior.Target, prior.Object = tooloutcome.TargetMutation, "/workspace/a", "1:42"
+	prior.GuardVersion = 1
 	data, err := json.Marshal([]ToolRecoveryRecord{{Identity: &prior, Outcome: tooloutcome.New(tooloutcome.Uncertain, "lost", "unknown", "Synthetic response lost.", "verify_effect")}})
 	if err != nil {
 		t.Fatal(err)
@@ -66,6 +67,7 @@ func TestResolvedRecoveryTargetsAndRiskSurviveCheckpoint(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			i := tooloutcome.OperationIdentity(prior.Scope, prior.Operation, json.RawMessage(`{"path":"changed","content":"different"}`))
 			i.Target, i.Object, i.Risk = tc.target, tc.object, tc.risk
+			i.GuardVersion = 1
 			if got := toolRecoveryIdentityGuard(records, i); (got != nil) != tc.blocked {
 				t.Fatalf("guard=%+v identity=%+v", got, i)
 			}
