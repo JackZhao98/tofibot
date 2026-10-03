@@ -63,6 +63,15 @@ with 409 and retains zero Bots; process restart preserves the receipt and
 current model choice. These cross-account/restart assertions are HTTP checks,
 not browser network mocking.
 
+## Response-writing mutex follow-up
+
+Commit/cache publication now uses small helpers that return with the runtime
+mutex released. All success and error HTTP writes occur afterward, so response
+backpressure cannot retain the runtime cancellation/shutdown mutex. The
+supplied blocking-response repro is retained with four branches: import
+success/failure and ordinary settings success/SQL failure. Receipt idempotency
+and settings commit/cache ordering keep their existing regression coverage.
+
 ## Final verification
 
 Full Go suite, focused portability/review race suite, UI typecheck, encryption

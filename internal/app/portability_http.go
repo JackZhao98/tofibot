@@ -1,6 +1,7 @@
 package app
 
 import (
+	"context"
 	"io"
 	"net/http"
 	"strings"
@@ -66,19 +67,26 @@ func (s *Server) routePortability(w http.ResponseWriter, r *http.Request, p stri
 		writeJSON(w, 200, preview)
 		return true
 	}
-	// Serialize settings commits and cache publication with ordinary settings writes.
-	if b.Settings != nil {
-		s.mu.Lock()
-		defer s.mu.Unlock()
-	}
-	result, replayed, err := s.store.applyPortableWithState(r.Context(), b, in.PreviewID)
+	result, err := s.applyPortableDefaults(r.Context(), b, in.PreviewID)
 	if err != nil {
 		writeErr(w, 409, "import_not_applied", "Import was not applied. Preview again or check available storage.")
 		return true
 	}
-	if b.Settings != nil && !replayed {
-		s.defaultModel, s.defaultReasoning = b.Settings.Model, b.Settings.ReasoningEffort
-	}
 	writeJSON(w, 200, result)
 	return true
+}
+
+// Keep commit/cache publication ordered with ordinary settings writes. The
+// helper returns with the mutex released before the caller writes any response.
+func (s *Server) applyPortableDefaults(ctx context.Context, b portableBundle, previewID string) (portableResult, error) {
+	if b.Settings == nil {
+		return s.store.applyPortable(ctx, b, previewID)
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	result, replayed, err := s.store.applyPortableWithState(ctx, b, previewID)
+	if err == nil && !replayed {
+		s.defaultModel, s.defaultReasoning = b.Settings.Model, b.Settings.ReasoningEffort
+	}
+	return result, err
 }
