@@ -579,6 +579,9 @@ CREATE INDEX IF NOT EXISTS events_conversation ON events(conversation_id,id);`)
 	if err := migrateDictationSettings(s.db); err != nil {
 		return err
 	}
+	if err := migratePortability(s.db); err != nil {
+		return err
+	}
 	return migrateToolActivity(s.db)
 }
 
@@ -2316,6 +2319,9 @@ func (s *Server) route(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	p := strings.TrimPrefix(r.URL.Path, "/api/")
+	if s.routePortability(w, r, p) {
+		return
+	}
 	if s.routeDesktopStream(w, r, p) {
 		return
 	}
