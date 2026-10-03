@@ -148,13 +148,13 @@ func (s *Server) modelSettings(w http.ResponseWriter, r *http.Request) {
 			writeErr(w, http.StatusBadRequest, "invalid_model_settings", err.Error())
 			return
 		}
+		s.mu.Lock()
+		defer s.mu.Unlock()
 		if err := s.store.putModelSettings(x); err != nil {
 			writeErr(w, http.StatusInternalServerError, "storage", err.Error())
 			return
 		}
-		s.mu.Lock()
 		s.defaultModel, s.defaultReasoning = x.Model, x.ReasoningEffort
-		s.mu.Unlock()
 		writeJSON(w, http.StatusOK, x)
 	default:
 		writeErr(w, http.StatusNotFound, "not_found", "not found")
