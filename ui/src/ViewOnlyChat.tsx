@@ -46,6 +46,12 @@ export function ViewOnlyChat({ target, bots, onClose, returnFocus, card = false 
     return () => { queueMicrotask(() => { if (!dialog?.isConnected && trigger?.isConnected) trigger.focus(); }); };
   }, [returnFocus]);
 
+  useLayoutEffect(() => {
+    // Resizing a usable card into a modal also makes the workspace inert.
+    // Move any background focus into the newly modal surface.
+    if (!card && !dialogRef.current?.contains(document.activeElement)) closeRef.current?.focus();
+  }, [card]);
+
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.defaultPrevented) return;

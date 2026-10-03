@@ -12,6 +12,8 @@ import "../../src/conversation-workspace.css";
 import "../../src/v2-foundations.css";
 import "../../src/v2-app.css";
 import "../../src/web-tool-steps.css";
+import "../../src/chat-header.css";
+import "../../src/context-card.css";
 const at="2026-10-02T17:00:00Z",conv="fixture-conversation",bot="fixture-bot",trigger="fixture-trigger";
 const error="LLM call failed: stream read error: stream error: stream ID 13; INTERNAL_ERROR; received from peer";
 let cursor=100;

@@ -8,6 +8,7 @@
     "build": "tsc -b && vite build && vite build --config vite.motion-lab.config.ts",
     "typecheck": "tsc -b --pretty false",
     "test:composer-draft": "node scripts/test-composer-draft.mjs",
+    "test:reply-ack": "node scripts/test-reply-ack.mjs",
     "test:timeline": "node scripts/test-tool-timeline.mjs",
     "test:run-family": "node scripts/test-run-family.mjs",
     "test:run-merge": "node scripts/test-run-merge.mjs",
