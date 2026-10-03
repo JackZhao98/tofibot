@@ -12,6 +12,7 @@ import {MessageAttachment} from "./MessageAttachment";
 import {MessageReactions} from "./MessageReactions";
 import { DisplayCard } from "./DisplayCard";
 import { QuestionCard, useQuestions } from "./QuestionCard";
+import { toolDisplayState, toolDisplayLabel } from "./toolTimeline";
 import { ConversationTaskStatus, taskStateLabel } from "./ConversationTaskStatus";
 import { MailDraftCard, useMailDrafts } from "./MailDraftCard";
 import { buildQuestionTimeline, compareQuestionTime } from "./questionTimeline";
@@ -272,6 +273,7 @@ function jumpToMessage(target: HTMLElement | null | undefined) {
 }
 
 /** Live rows in the conversation time the whole run, not just its first tool. */
+const ExpiryFinishingContext = createContext<ReadonlySet<string>>(new Set());
 const RunStartContext = createContext<ReadonlyMap<string, number>>(new Map());
 
 function useNow(active: boolean, interval = 1000) {
@@ -290,9 +292,9 @@ function LiveRunStatus({ run, botName, showName }: { run: Run; botName: string; 
   const now = useNow(true);
   const started = Date.parse(run.created_at);
   const seconds = Number.isFinite(started) ? Math.max(0, Math.floor((now - started) / 1000)) : 0;
-  const label = run.status === "queued" ? "等待启动" : run.kind === "triage" ? "正在安排合适的成员" : "正在思考";
+  const label = run.finishing_reason === "approval_expired" ? "正在收尾" : run.status === "queued" ? "等待启动" : run.kind === "triage" ? "正在安排合适的成员" : "正在思考";
   return <section className={`tool-message web-tool-run is-live live-run-status${showName ? " is-group" : ""}`} aria-label={`${botName} 的工作状态`}>
-    <div className="web-tool-disclosure"><div className="web-tool-summary"><span className="web-tool-toggle"><span className="web-tool-live-label">{showName ? `${botName} ` : ""}{label} · {formatRunDuration(seconds * 1000, false)}</span></span></div></div>
+    <div className="web-tool-disclosure"><div className="web-tool-summary"><span className="web-tool-toggle"><span className="web-tool-live-label">{showName ? `${botName} ` : ""}{label}{run.finishing_reason === "approval_expired" ? "" : ` · ${formatRunDuration(seconds * 1000, false)}`}</span></span></div></div>
   </section>;
 }
 
@@ -1691,13 +1693,13 @@ function Workspace() {
         <main className={`chat-pane ${!mobileList ? "mobile-chat" : ""}`} inert={modalPanelOpen || undefined}>
           {!active ? routeUnavailable ? <div className="conversation-empty" role="alert"><h2>无法打开这个会话</h2><p>链接无效、会话已删除，或当前账号没有访问权限。请从消息列表选择其他会话。</p><button className="secondary-button" onClick={() => setMobileList(true)}>返回消息列表</button></div> : <EmptyWorkspace onCreate={() => void createNewBot()} busy={newBotBusy} error={newBotError} /> : <>
             <div className="chat-header"><div className="chat-title"><button className="back-button" onClick={() => setMobileList(true)} aria-label="返回消息列表"><Icon name="arrow-left" size={19} /></button><button className="chat-identity" onClick={() => active.kind === "group" ? setPanel("members") : transitionBotPanel(true)} aria-label="打开会话成员详情"><span className="member-avatar-stack">{(active.kind === "group" ? active.bot_ids : [active.bot_id ?? active.id]).slice(0, 4).map((id) => <Avatar key={id} label={botById.get(id)?.name ?? active.name} id={id} mini motion={conversationMotion(active, id)} />)}</span><span className="chat-name-pill"><h1>{active.name}</h1>{active.kind === "group" && <small>{active.bot_ids.length} 位成员</small>}</span></button></div><div className="header-actions">{active.kind === "group" && <button className="computer-button" data-hint="团队看板" aria-label={teamBoardOpen ? "返回对话" : "打开团队看板"} aria-pressed={teamBoardOpen} onClick={() => { setPanel(null); setTeamBoardOpen(value => !value); }}><Icon name="layout-grid" size={18} variant={teamBoardOpen ? "filled" : "outline"} /></button>}{desktopBot && <button className={`computer-button${desktopReady || computerInfo?.state === "ready" ? " is-ready" : ""}`} data-hint="共享电脑" aria-label="打开共享电脑" aria-pressed={panel === "desktop"} onClick={() => setPanel(current => current === "desktop" ? null : "desktop")}><Icon name="monitor" size={17} variant={panel === "desktop" ? "filled" : "outline"} animated /></button>}{desktopBot && <button className="computer-button" data-hint="终端" aria-label="打开终端" aria-pressed={panel === "terminal"} onClick={() => setPanel(current => current === "terminal" ? null : "terminal")}><Icon name="terminal" size={18} variant={panel === "terminal" ? "filled" : "outline"} /></button>}<div className="header-more" ref={headerMenuRef}><button ref={headerMenuTriggerRef} className="ghost-button" data-hint="更多操作" aria-label="更多操作" aria-expanded={headerMenuOpen} aria-controls={headerMenuOpen ? "conversation-more-menu" : undefined} onClick={() => setHeaderMenuOpen((open) => !open)}><Icon name="more" size={17} /></button>{showHeaderMenu && <div id="conversation-more-menu" className="more-menu" data-open={headerMenuOpen} inert={!headerMenuOpen || undefined}><button onClick={() => { headerMenuTriggerRef.current?.focus(); setHeaderMenuOpen(false); void copyConversationLink(active); }}>复制会话链接</button><button onClick={() => { headerMenuTriggerRef.current?.focus(); setHeaderMenuOpen(false); setPanel("schedule"); }}>待办与日程</button><button onClick={() => { headerMenuTriggerRef.current?.focus(); setHeaderMenuOpen(false); setPanel("memory"); }}>{active.kind === "group" ? "群记忆" : "记忆"}</button><button onClick={() => { headerMenuTriggerRef.current?.focus(); setHeaderMenuOpen(false); setUsageBotId(active.kind === "dm" ? active.bot_id ?? "" : ""); setSettingsTab("usage"); setPanel("settings"); }}>用量</button>{active.kind === "dm" && <button onClick={() => { headerMenuTriggerRef.current?.focus(); setPanel("bot-edit"); setHeaderMenuOpen(false); }}>Bot 设置</button>}<button className="delete-menu-action" onClick={() => { headerMenuTriggerRef.current?.focus(); setHeaderMenuOpen(false); confirmDelete(active); }}>{active.kind === "dm" ? "删除 Bot" : "删除群聊"}</button></div>}</div></div></div>
-            {!isDesktop && active.task_state && <ConversationTaskStatus state={active.task_state} onView={() => focusTask(active)} onRetry={active.task_state.run_id ? () => { void retryRun(active.task_state!.run_id!).then(refreshConversations); } : undefined} />}
+            {!isDesktop && active.task_state && <ConversationTaskStatus state={active.task_state} run={active.task_state.run_id ? runById.get(active.task_state.run_id) : undefined} onView={() => focusTask(active)} onRetry={active.task_state.run_id ? () => { void retryRun(active.task_state!.run_id!).then(refreshConversations); } : undefined} />}
             {streamNeedsAttention && <DelayedFeedback delay={2500}><div className="stream-status" role="status">实时更新连接不稳定，正在重连…</div></DelayedFeedback>}
             <RunStatusAnnouncement key={active.id} conversationId={active.id} runs={runs} botById={botById} ready={loadedId === active.id && !loadingMessages} />
             {teamBoardOpen && active.kind === "group" ? <TeamBoard key={active.id} conversation={active} bots={bots} timezone={timezone} onClose={() => setTeamBoardOpen(false)} onOpenWork={() => { setTeamBoardOpen(false); setPanel("schedule"); }} /> : <>
             <div className="chat-body">
               <div className="message-scroll" ref={viewport.scrollRef} onScroll={viewport.onScroll}>
-                <RunStartContext.Provider value={runStarts}><div className="message-list" ref={messageListRef}>
+                <ExpiryFinishingContext.Provider value={new Set(runs.filter(run => run.finishing_reason === "approval_expired").map(run => run.id))}><RunStartContext.Provider value={runStarts}><div className="message-list" ref={messageListRef}>
                   {viewport.boundaryError && <div className="history-error" role="alert">暂时无法加载未读位置。<button onClick={viewport.retryBoundary}>重试</button><button onClick={jumpLatest}>查看最新消息</button></div>}
                   {historyError && !viewport.boundaryError && <div className="history-error history-error-older" role="alert"><span>暂时无法加载更早消息：{historyError}</span><button onClick={() => void loadOlder()} disabled={loadingOlder}>{loadingOlder ? "重试中…" : "重试"}</button></div>}
                   {hasMore && <button className="load-older" onClick={() => void loadOlder()} disabled={loadingOlder}>{loadingOlder ? "加载中…" : "查看更早消息"}</button>}
@@ -1727,7 +1729,7 @@ function Workspace() {
                       const unread = message.seq === viewport.unreadSeq;
                       const compact = Boolean(previous && !unread && !message.notice && !previous.notice && sameDay && gap < 5 * 60_000 && senderKey === previousKey);
                       const showDivider = !previousTime || dateInTimezone(previousTime, timezone) !== dateInTimezone(message.created_at, timezone) || +new Date(message.created_at) - +new Date(previousTime) >= 10 * 60_000;
-                      const showIdentity = (active.kind === "group" || message.kind === "forward_result") && message.role !== "user" && !compact;
+                      const showIdentity = (active.kind === "group" || message.kind === "forward_result" || message.kind === "notice" && runById.get(message.run_id ?? "")?.stop_reason === "approval_expired") && message.role !== "user" && !compact;
                       const processTools = toolTimeline.beforeMessageId.get(message.id) ?? [];
                       const processProgress = foldedProgress.progressByFinalId.get(message.id) ?? [];
                       const afterTools = toolTimeline.afterMessageId.get(message.id) ?? [];
@@ -1787,7 +1789,7 @@ function Workspace() {
                   <ToolActivityList activities={toolTimeline.fallback} summaries={terminalToolSummaries.filter(summary => toolTimeline.fallback.some(activity => activity.run_id === summary.run_id))} details={toolDetailState} onLoadDetails={loadToolDetails} botById={botById} activeRunIds={activeRunIds} />
                   {!isDesktop && pendingRuns.map(run => <LiveRunStatus key={run.id} run={run} botName={run.kind === "triage" ? "Tofi" : botById.get(run.bot_id)?.name ?? "Bot"} showName={active.kind === "group"} />)}
                   {(error || snapshotError) && <div className="error-banner" role="alert">{error || snapshotError}</div>}
-                </div></RunStartContext.Provider>
+                </div></RunStartContext.Provider></ExpiryFinishingContext.Provider>
               </div>
               {viewport.showJump && <button className="jump-latest" aria-label="回到最新消息" onClick={jumpLatest}><Icon name="arrow-down" size={18} variant="filled" />{viewport.newCount > 0 && <span className="jump-new-count">{viewport.newCount} 条新消息</span>}</button>}
             </div>
@@ -2015,7 +2017,7 @@ export function MessageBubble({ message, replyTarget, replyTargetName, sender, s
     return <article className="message message-notice" title={`${formatExactTime(message.created_at, timezone)} · ${timezone}`}><div>{noticeTargetAvailable ? <button onClick={() => onNavigate?.(target)}>{content}</button> : <span>{content}</span>}{relatedChat && onOpenRelatedChat && <RelatedMessageLink target={relatedChat} onOpen={onOpenRelatedChat} />}</div></article>;
   }
   const isUser = message.role === "user";
-  const label = isUser ? "你" : sender?.name ?? senderName ?? (message.role === "tool" ? "工具" : "Bot");
+  const label = message.kind === "notice" && run?.stop_reason === "approval_expired" ? "系统提示" : isUser ? "你" : sender?.name ?? senderName ?? (message.role === "tool" ? "工具" : "Bot");
   const draftText = typeof draft === "string" ? draft : draft?.content ?? "";
   const scheduled = isUser && run?.kind === "schedule";
   const hideMeta = compact && !scheduled;
@@ -2057,7 +2059,7 @@ export function RunStatusAnnouncement({ conversationId, runs, botById, ready }: 
     ));
     if (changes.length) {
       const labels: Record<Run["status"], string> = { queued: "请求已排队", running: "正在处理请求", waiting: "等待回复", done: "已完成本次工作", failed: "本次工作失败，可重新执行", cancelled: "已停止本次工作", interrupted: "本次工作已中断" };
-      setAnnouncement(changes.slice(0, 3).map(run => `${botById.get(run.bot_id)?.name ?? "Bot"}：${run.status === "done" && before.get(run.id) === "waiting" ? "本轮等待已结束" : labels[run.status]}`).join("；"));
+      setAnnouncement(changes.slice(0, 3).map(run => `${botById.get(run.bot_id)?.name ?? "Bot"}：${run.stop_reason === "approval_expired" ? "审批已过期，工作已停止" : run.finishing_reason === "approval_expired" ? "正在收尾" : run.status === "done" && before.get(run.id) === "waiting" ? "本轮等待已结束" : labels[run.status]}`).join("；"));
     }
   }, [conversationId, runs, botById, ready]);
   return <div className="sr-only" role="status" aria-live="polite" aria-atomic="true">{announcement}</div>;
@@ -2097,7 +2099,7 @@ function WorkingMembers({ isGroup, companionBotId, companionMotion, workingBotId
   // that helper also drives the actual-working avatar policy.
   const liveRuns = new Map([...activeBotRuns(runs, drafts, toolActivities), ...runs.filter(run => run.status === "waiting")].map(run => [run.id, run]));
   const visible = [...runs.filter((run) => {
-    if (liveRuns.has(run.id)) return false;
+    if (liveRuns.has(run.id) || run.stop_reason === "approval_expired") return false;
     if ((run.status !== "failed" && run.status !== "interrupted") || run.kind === "schedule") return false;
     const trigger = messages.find((message) => message.id === run.trigger_message_id);
     return trigger !== undefined && trigger.seq >= latestUserSeq && !resolvedIds.has(run.id);
@@ -2111,6 +2113,7 @@ function WorkingMembers({ isGroup, companionBotId, companionMotion, workingBotId
   const companionExternal = Boolean(companionBotId && external.includes(companionBotId));
   if (!visible.length && !external.length && !companionBotId) return null;
   const labelForRun = (run: Run) => {
+    if (run.finishing_reason === "approval_expired") return "正在收尾";
     if (!connected && ["queued", "running", "waiting"].includes(run.status)) return "连接中断，状态待确认";
     if (run.status === "waiting") return statusText.waiting;
     if (run.kind === "triage" && (run.status === "queued" || run.status === "running")) return "正在安排合适的成员…";
@@ -2189,12 +2192,12 @@ export function RetryFamilyAudit({ latest, previous, botName, children }: { late
   if (!failure && !previous.length) return null;
   return <section className="run-attempt-family" data-latest-run-id={latest.id} aria-label={`${botName} 的请求状态`}>
     {previous.length > 0 && <p className="run-attempt-label">{botName} · 最新尝试 · {statusText[latest.status]}</p>}
-    {failure && <div className="run-terminal-notice" role="status"><strong>系统提示 · {botName}</strong><p>{failure}</p>{latest.error && <details><summary>查看技术原因</summary><pre>{latest.error}</pre></details>}</div>}
+    {failure && <div className="run-terminal-notice" role="status"><strong>系统提示 · {botName}</strong><p>{failure}</p>{latest.error && latest.stop_reason !== "approval_expired" && <details><summary>查看技术原因</summary><pre>{latest.error}</pre></details>}</div>}
     {previous.length > 0 && <details className="run-attempt-history"><summary>查看此前 {previous.length} 次尝试（记录保留）</summary>{children}</details>}
   </section>;
 }
 
-const toolStatusText: Record<ToolActivity["status"], string> = { queued: "排队中", running: "执行中", completed: "已完成", failed: "失败", interrupted: "已中断" };
+
 
 function ToolActivityList({ activities, progress = [], summaries = [], summaryErrors = {}, summaryLoading = {}, details = {}, onLoadDetails, onRetrySummary, botById, activeRunIds }: { activities: ToolActivity[]; progress?: Message[]; summaries?: ToolActivityRunSummary[]; summaryErrors?: Record<string, string>; summaryLoading?: Record<string, boolean>; details?: Record<string, ToolDetailState>; onLoadDetails?: (runId: string, offset: number) => Promise<void>; onRetrySummary?: (runId: string) => void; botById: Map<string, Bot>; activeRunIds: Set<string> }) {
   const { timezone } = useUserTimezone();
@@ -2237,7 +2240,7 @@ function webToolSeconds(activity: ToolActivity, now: number): number | undefined
 
 function toolSummaryIssues(summary?: ToolActivityRunSummary): string {
   if (!summary) return "";
-  return [summary.failed_count ? `${summary.failed_count} 次失败` : "", summary.interrupted_count ? `${summary.interrupted_count} 次中断` : "", summary.pending_count ? `${summary.pending_count} 次待结束` : ""].filter(Boolean).join(" · ");
+  return [summary.failed_count ? `${summary.failed_count} 次失败` : "", summary.interrupted_count ? `${summary.interrupted_count} 次中断` : "", summary.pending_count ? `${summary.pending_count} 次待结束` : "", summary.expired_count ? "已过期" : "", summary.skipped_count ? `${summary.skipped_count} 次未执行` : ""].filter(Boolean).join(" · ");
 }
 
 function toolRunTimes(items: ToolActivity[], notes: Message[], summary?: ToolActivityRunSummary) {
@@ -2247,25 +2250,26 @@ function toolRunTimes(items: ToolActivity[], notes: Message[], summary?: ToolAct
 }
 
 function WebToolActivityRun({ runId, items, notes, summary, summaryError, summaryLoading, detail, onLoadDetails, onRetrySummary, live, now, timezone, botName }: ToolRunProps) {
+  const finishing = useContext(ExpiryFinishingContext).has(runId);
   const [expanded, setExpanded] = useState(false);
   const stepsRef = useRef<HTMLOListElement>(null);
   const priorStepKeys = useRef("");
   const priorStepsHeight = useRef(0);
   const growthAnimation = useRef<Animation | null>(null);
   const times = toolRunTimes(items, notes, summary);
-  const lastTime = live ? now : times.last;
+  const lastTime = live && !finishing ? now : times.last;
   const firstTime = times.first;
   const duration = Number.isFinite(firstTime) && Number.isFinite(lastTime) && lastTime >= firstTime ? formatRunDuration(lastTime - firstTime) : undefined;
   const current = activeToolForRun(items, runId) ?? items.find(item => item.status === "queued");
   const count = summary?.tool_count ?? (summaryError || summaryLoading ? undefined : items.length);
   const issues = live
-    ? [summary?.failed_count ?? items.filter(item => item.status === "failed").length, summary?.interrupted_count ?? items.filter(item => item.status === "interrupted").length]
+    ? [summary?.failed_count ?? items.filter(item => item.status === "failed" && toolDisplayState(item) === "failed").length, summary?.interrupted_count ?? items.filter(item => item.status === "interrupted").length]
         .map((value, index) => value ? `${value} 次${index ? "中断" : "失败"}` : "").filter(Boolean).join(" · ")
     : summary ? toolSummaryIssues(summary) : toolAttemptIssues(items);
   const runStart = useContext(RunStartContext).get(runId);
   const liveSeconds = live && runStart !== undefined ? Math.max(0, Math.floor((now - runStart) / 1000)) : undefined;
   const liveTimer = liveSeconds === undefined ? "…" : ` · ${formatRunDuration(liveSeconds * 1000, false)}`;
-  const activityLabel = live ? current?.status === "queued" ? `正在准备工具${liveTimer}` : current ? `正在忙活${liveTimer}` : `正在思考${liveTimer}` : summaryError ? "工作详情暂不可用" : issues ? "有步骤未完成" : "工作过程";
+  const activityLabel = finishing ? "正在收尾" : live ? current?.status === "queued" ? `正在准备工具${liveTimer}` : current ? `正在忙活${liveTimer}` : `正在思考${liveTimer}` : summaryError ? "工作详情暂不可用" : issues ? "有步骤未完成" : "工作过程";
   const entries = [...items.map(activity => ({ type: "tool" as const, at: activity.started_at, activity })), ...notes.map(note => ({ type: "note" as const, at: note.created_at, note }))].sort((a, b) => compareQuestionTime(a.at, b.at));
   const hasMoreDetails = Boolean(detail?.hasMore && (count === undefined || items.length < count));
   const loadDetails = () => {
@@ -2304,12 +2308,12 @@ function WebToolActivityRun({ runId, items, notes, summary, summaryError, summar
         const activity = entry.activity;
         const duration = webToolSeconds(activity, now);
         const active = live && (activity.status === "running" || activity.status === "queued");
-        return <li className={`web-tool-step is-${activity.status}`} key={toolActivityKey(activity)}>
+        return <li className={`web-tool-step is-${toolDisplayState(activity)}`} key={toolActivityKey(activity)}>
           <Icon name={toolStepIcon(toolStepLabel(activity))} size={16} />
           <details className="web-tool-step-detail"><summary><span className="web-tool-step-label">{toolStepLabel(activity)}{toolArgumentPreview(activity) ? ` · ${toolArgumentPreview(activity)}` : ""}</span></summary>
             <div className="tool-activity-details"><small>{Number.isFinite(Date.parse(activity.started_at)) ? formatExactTime(activity.started_at, timezone) : ""} · {timezone}</small><div><span>参数</span><pre>{activity.arguments || "（无）"}</pre></div><div><span>结果</span>{activity.outcome && <p className="tool-outcome" role="note">{activity.outcome.message}</p>}<pre>{activity.result || (active ? "等待结果…" : "（无）")}</pre></div>{activity.truncated && <small>内容已截断</small>}</div>
           </details>
-          <span className="web-tool-step-meta">{active ? <span className="web-tool-breath" aria-hidden="true" /> : <Icon name={activity.status === "completed" ? "check" : "alert"} size={14} variant="filled" />}{duration === undefined ? toolStatusText[activity.status] : `${duration.toFixed(1)}s`}</span>
+          <span className="web-tool-step-meta">{active ? <span className="web-tool-breath" aria-hidden="true" /> : <Icon name={activity.status === "completed" ? "check" : toolDisplayState(activity) !== activity.status ? "clock" : "alert"} size={14} variant="filled" />}{toolDisplayState(activity) !== activity.status ? toolDisplayLabel(activity) : duration === undefined ? toolDisplayLabel(activity) : `${duration.toFixed(1)}s`}</span>
         </li>;
       })}{hasMoreDetails && <li className="web-tool-step is-note"><button type="button" className="secondary-button" disabled={detail?.loading} onClick={loadDetails}>{detail?.loading ? "加载中…" : `加载更多（已显示 ${items.length}/${count ?? "?"}）`}</button></li>}</ol>
       </div></div>
@@ -2322,6 +2326,7 @@ function ToolActivityRun(props: ToolRunProps) {
 }
 
 function DesktopToolActivityRun({ runId, items, notes, summary: runSummary, summaryError, summaryLoading, detail, onLoadDetails, onRetrySummary, live, now, timezone, botName }: ToolRunProps) {
+    const finishing = useContext(ExpiryFinishingContext).has(runId);
     const [expanded, setExpanded] = useState(live);
     useEffect(() => setExpanded(live), [live]);
     const count = runSummary?.tool_count ?? (summaryError || summaryLoading ? undefined : items.length);
@@ -2329,9 +2334,9 @@ function DesktopToolActivityRun({ runId, items, notes, summary: runSummary, summ
     const queued = items.find(item => item.status === "queued");
     const times = toolRunTimes(items, notes, runSummary);
     const firstTime = times.first;
-    const lastTime = live ? now : times.last;
+    const lastTime = live && !finishing ? now : times.last;
     const duration = Number.isFinite(firstTime) && Number.isFinite(lastTime) && lastTime >= firstTime ? formatRunDuration(lastTime - firstTime, false) : undefined;
-    const summary = live ? current ? `正在 ${current.name} · 第 ${items.indexOf(current) + 1} 步` : queued ? `等待 ${queued.name} · 第 ${items.indexOf(queued) + 1} 步` : "正在整理工具结果" : summaryLoading ? "正在读取工作汇总…" : summaryError ? "工作详情未加载" : notes.length ? `工作过程 · ${notes.length} 次汇报${count ? ` · ${count} 个工具` : ""}` : `${count ?? 0} 个工具`;
+    const summary = finishing ? "正在收尾" : live ? current ? `正在 ${current.name} · 第 ${items.indexOf(current) + 1} 步` : queued ? `等待 ${queued.name} · 第 ${items.indexOf(queued) + 1} 步` : "正在整理工具结果" : summaryLoading ? "正在读取工作汇总…" : summaryError ? "工作详情未加载" : notes.length ? `工作过程 · ${notes.length} 次汇报${count ? ` · ${count} 个工具` : ""}` : `${count ?? 0} 个工具`;
     const entries = [
       ...items.map(activity => ({ type: "tool" as const, at: activity.started_at, activity })),
       ...notes.map(note => ({ type: "note" as const, at: note.created_at, note })),
@@ -2346,8 +2351,8 @@ function DesktopToolActivityRun({ runId, items, notes, summary: runSummary, summ
           const start = Date.parse(activity.started_at);
           const end = activity.status === "running" ? now : Date.parse(activity.updated_at);
           const duration = Number.isFinite(start) && Number.isFinite(end) && end >= start ? (end - start) / 1000 : undefined;
-          return <li className={`v2-tool-step tool-status-${activity.status}`} key={toolActivityKey(activity)}>
-            <details className="v2-tool-step-detail"><summary><span className="v2-tool-step-marker" aria-hidden="true" /><strong>{activity.name}</strong>{toolArgumentPreview(activity) && <span className="v2-tool-step-argument">{toolArgumentPreview(activity)}</span>}<span className="v2-tool-step-state">{toolStatusText[activity.status]}</span><time>{duration === undefined ? "" : activity.status === "running" ? `${duration}s…` : `${duration}s`}</time></summary>
+          return <li className={`v2-tool-step tool-status-${toolDisplayState(activity)}`} key={toolActivityKey(activity)}>
+            <details className="v2-tool-step-detail"><summary><span className="v2-tool-step-marker" aria-hidden="true" /><strong>{activity.name}</strong>{toolArgumentPreview(activity) && <span className="v2-tool-step-argument">{toolArgumentPreview(activity)}</span>}<span className="v2-tool-step-state">{toolDisplayLabel(activity)}</span><time>{duration === undefined ? "" : activity.status === "running" ? `${duration}s…` : `${duration}s`}</time></summary>
               <div className="tool-activity-details"><small>{Number.isFinite(Date.parse(activity.started_at)) ? formatExactTime(activity.started_at, timezone) : ""} · {timezone}</small><div><span>参数</span><pre>{activity.arguments || "（无）"}</pre></div><div><span>结果</span>{activity.outcome && <p className="tool-outcome" role="note">{activity.outcome.message}</p>}<pre>{activity.result || (activity.status === "running" || activity.status === "queued" ? "等待结果…" : "（无）")}</pre></div>{activity.truncated && <small>内容已截断</small>}</div>
             </details>
           </li>;

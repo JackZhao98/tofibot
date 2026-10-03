@@ -269,6 +269,14 @@ func openStoreWithLimit(dir string, recoverWork bool, maxBytes int64) (*Store, e
 	if !recoverWork {
 		return s, nil
 	}
+	if err = s.reconcileLegacyApprovalExpiry(); err != nil {
+		db.Close()
+		return nil, err
+	}
+	if err = s.recoverClaimedApprovalExpiry(); err != nil {
+		db.Close()
+		return nil, err
+	}
 	// A queued run has a durable initiating message and may safely be resumed by
 	// the per-conversation worker. A running run may have performed an unknown
 	// side effect and therefore requires explicit retry after restart.
@@ -565,6 +573,9 @@ CREATE INDEX IF NOT EXISTS events_conversation ON events(conversation_id,id);`)
 		return err
 	}
 	if err := migrateInputContinuations(s.db); err != nil {
+		return err
+	}
+	if err := migrateApprovalExpiry(s.db); err != nil {
 		return err
 	}
 	if err := migrateTerminalCleanup(s.db); err != nil {
@@ -1962,6 +1973,9 @@ func (s *Store) RetryRun(id string) (Run, error) {
 	if e = requireActiveMemberTx(tx, old.ConversationID, old.BotID); e != nil {
 		return Run{}, e
 	}
+	if old.Error == "approval_expired" {
+		return Run{}, fmt.Errorf("expired workflow cannot be retried; start a new explicit request")
+	}
 	if old.Status == "cancelled" {
 		return Run{}, fmt.Errorf("cancelled runs cannot be retried")
 	}
@@ -2090,7 +2104,7 @@ func NewServer(c Config) (*Server, error) {
 	if e != nil {
 		return nil, e
 	}
-	st, e := openStoreWithLimit(c.DataDir, !c.AccountControlPlane, c.AccountDBMaxBytes)
+	st, e := openStoreWithLimit(c.DataDir, !c.AccountControlPlane && !c.AccountMaintenance, c.AccountDBMaxBytes)
 	if e != nil {
 		return nil, e
 	}
@@ -2185,7 +2199,7 @@ func NewServer(c Config) (*Server, error) {
 		st.guestBlobs = microVM
 		st.cleanupDeletedAttachments()
 	}
-	if c.AccountControlPlane {
+	if c.AccountControlPlane || c.AccountMaintenance {
 		return server, nil
 	}
 	workerIDs, e := st.workerConversationIDs()
@@ -2861,6 +2875,10 @@ func (s *Server) enqueue(c Conversation, r Run) {
 	}
 }
 func (s *Server) execute(c Conversation, r Run) {
+	if s.store.hasApprovalExpiry(r.ID) {
+		s.executeApprovalExpiry(c, r)
+		return
+	}
 	defer func() {
 		if !s.store.preservesInputWait(r.ID) {
 			s.clearRunSecrets(r.ID)
@@ -3325,7 +3343,7 @@ func (s *Server) tools(c Conversation, r Run) []Tool {
 		}
 		m, e := s.store.AddMemoryWithMetadata(c.ID, memoryBot, x)
 		return m.ID, e
-	}}, {Name: "search_history", Description: "search exact conversation history", Parameters: objectSchema(map[string]any{"query": map[string]any{"type": "string"}}, []string{"query"}), Execute: func(ctx context.Context, b json.RawMessage) (string, error) {
+	}}, {Name: "search_history", ApprovalExpiryReadOnly: true, Description: "search exact conversation history", Parameters: objectSchema(map[string]any{"query": map[string]any{"type": "string"}}, []string{"query"}), Execute: func(ctx context.Context, b json.RawMessage) (string, error) {
 		var x struct {
 			Query string `json:"query"`
 		}

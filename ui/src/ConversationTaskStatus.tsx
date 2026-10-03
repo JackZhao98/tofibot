@@ -1,10 +1,12 @@
-import type { Conversation } from "./types";
+import type { Conversation, Run } from "./types";
 import "./conversation-task-status.css";
 
 type TaskState = NonNullable<Conversation["task_state"]>;
 
 export function taskStateLabel(state: TaskState): string {
   switch (state.status) {
+    case "finishing": return "正在收尾";
+    case "expired": return "已过期";
     case "executing": return state.draft_status === "sending" ? "邮件发送中" : "执行中";
     case "needs_attention": return state.question_id ? "待你回答" : state.draft_status === "unknown" ? "发送待核实" : "待你确认";
     case "waiting": return "等待继续";
@@ -14,7 +16,13 @@ export function taskStateLabel(state: TaskState): string {
   }
 }
 
-export function ConversationTaskStatus({ state, onView, onRetry }: { state: TaskState; onView: () => void; onRetry?: () => void }) {
+export function ConversationTaskStatus({ state: snapshot, run, onView, onRetry }: { state: TaskState; run?: Run; onView: () => void; onRetry?: () => void }) {
+  // The conversation summary can precede the latest run SSE frame. Project
+  // only its exact run, so a stale finishing banner cannot outlive conclusion.
+  const state: TaskState = run && run.id === snapshot.run_id && run.stop_reason === "approval_expired"
+    ? { ...snapshot, status:"expired", can_retry:false }
+    : run && run.id === snapshot.run_id && run.finishing_reason === "approval_expired"
+      ? { ...snapshot, status:"finishing", can_retry:false } : snapshot;
   // A successful result already lives in the conversation. Keep this strip
   // for states that require attention instead of repeating every success.
   if (state.status === "completed") return null;

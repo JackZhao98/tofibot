@@ -218,13 +218,43 @@ func resumeContinuation(c *Continuation, result string, outcomes ...*tooloutcome
 		ToolName:   c.WaitingToolName,
 	})
 	for _, call := range c.SkippedToolCalls {
+		skipped := tooloutcome.New(tooloutcome.Permanent, "batch_skipped", "not_executed", "This queued call was not executed after the human-input boundary. Do not replay the interrupted batch.", "explain_blocker")
 		messages = append(messages, provider.Message{
-			Role:       "tool",
-			ToolFailed: true,
-			Content:    "Tool error: execution skipped after human input suspension. Do not reuse this stale tool call; decide whether to call a tool again based on the resumed context.",
-			ToolCallID: call.ID,
-			ToolName:   call.Name,
+			Role:        "tool",
+			ToolFailed:  true,
+			Content:     "Tool error: execution skipped after human input suspension. Do not reuse this stale tool call; decide whether to call a tool again based on the resumed context.",
+			ToolCallID:  call.ID,
+			ToolName:    call.Name,
+			ToolOutcome: &skipped,
 		})
 	}
 	return messages, nil
+}
+
+// ResumeApprovalExpiry resolves the interrupted batch without dispatching it.
+// Recovery records remain backend control metadata rather than model output.
+func ResumeApprovalExpiry(c *Continuation) ([]provider.Message, []ToolRecoveryRecord, error) {
+	o := tooloutcome.New(tooloutcome.Expired, "approval_window_expired", "not_executed", "Approval expired. This call was not executed. Do not retry it, change its arguments, or switch providers to perform the same effect. Summarize completed and incomplete work.", "finish_summary")
+	messages, err := resumeContinuation(c, o.JSON(), &o)
+	if err != nil {
+		return nil, nil, err
+	}
+	records := append([]ToolRecoveryRecord(nil), c.ToolRecovery...)
+	if c.ToolRecovery == nil {
+		records = toolRecoveryRecords(c.Messages)
+	}
+
+	// The waiting call precedes the appended result; add its exact identity.
+	for _, m := range c.Messages {
+		for _, call := range m.ToolCalls {
+			if call.ID == c.WaitingToolCallID {
+				records = append(records, ToolRecoveryRecord{Call: call, Outcome: o})
+			}
+		}
+	}
+	return messages, records, nil
+}
+
+func ApprovalExpiryGuard(records []ToolRecoveryRecord, identity tooloutcome.Identity) *tooloutcome.Outcome {
+	return toolRecoveryIdentityGuard(records, identity)
 }

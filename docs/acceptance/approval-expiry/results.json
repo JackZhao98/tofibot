@@ -1,0 +1,122 @@
+[
+  {
+    "viewport": "web-mobile",
+    "case": "expiry-label-bounded-finishing-frozen-timer",
+    "pass": true
+  },
+  {
+    "viewport": "web-mobile",
+    "case": "reload-preserves-expired-finishing",
+    "pass": true
+  },
+  {
+    "viewport": "web-mobile",
+    "case": "sse-reconnect-preserves-expiry",
+    "pass": true
+  },
+  {
+    "viewport": "web-mobile",
+    "case": "one-visible-system-conclusion-and-terminal-expiry",
+    "pass": true
+  },
+  {
+    "viewport": "web-mobile",
+    "case": "terminal-reload-no-executing-or-renew",
+    "pass": true
+  },
+  {
+    "viewport": "web-mobile",
+    "case": "answer-then-expiry-projects-authoritative-state",
+    "pass": true
+  },
+  {
+    "viewport": "web-mobile",
+    "case": "relogin-restores-expiry-without-stale-error-flood",
+    "pass": true
+  },
+  {
+    "viewport": "web-mobile",
+    "case": "true-stream-failure-remains-visible",
+    "pass": true
+  },
+  {
+    "viewport": "web-desktop",
+    "case": "expiry-label-bounded-finishing-frozen-timer",
+    "pass": true
+  },
+  {
+    "viewport": "web-desktop",
+    "case": "reload-preserves-expired-finishing",
+    "pass": true
+  },
+  {
+    "viewport": "web-desktop",
+    "case": "sse-reconnect-preserves-expiry",
+    "pass": true
+  },
+  {
+    "viewport": "web-desktop",
+    "case": "one-visible-system-conclusion-and-terminal-expiry",
+    "pass": true
+  },
+  {
+    "viewport": "web-desktop",
+    "case": "terminal-reload-no-executing-or-renew",
+    "pass": true
+  },
+  {
+    "viewport": "web-desktop",
+    "case": "answer-then-expiry-projects-authoritative-state",
+    "pass": true
+  },
+  {
+    "viewport": "web-desktop",
+    "case": "relogin-restores-expiry-without-stale-error-flood",
+    "pass": true
+  },
+  {
+    "viewport": "web-desktop",
+    "case": "true-stream-failure-remains-visible",
+    "pass": true
+  },
+  {
+    "viewport": "native-ui",
+    "case": "expiry-label-bounded-finishing-frozen-timer",
+    "pass": true
+  },
+  {
+    "viewport": "native-ui",
+    "case": "reload-preserves-expired-finishing",
+    "pass": true
+  },
+  {
+    "viewport": "native-ui",
+    "case": "sse-reconnect-preserves-expiry",
+    "pass": true
+  },
+  {
+    "viewport": "native-ui",
+    "case": "one-visible-system-conclusion-and-terminal-expiry",
+    "pass": true
+  },
+  {
+    "viewport": "native-ui",
+    "case": "terminal-reload-no-executing-or-renew",
+    "pass": true
+  },
+  {
+    "viewport": "native-ui",
+    "case": "answer-then-expiry-projects-authoritative-state",
+    "pass": true
+  },
+  {
+    "viewport": "native-ui",
+    "case": "relogin-restores-expiry-without-stale-error-flood",
+    "pass": true
+  },
+  {
+    "viewport": "native-ui",
+    "case": "true-stream-failure-remains-visible",
+    "pass": true
+  }
+]

@@ -1,0 +1,126 @@
+=== RUN   TestApprovalExpiryBoundedReadOnlyAndCrossToolBypass
+--- PASS: TestApprovalExpiryBoundedReadOnlyAndCrossToolBypass (0.00s)
+=== RUN   TestApprovalExpiryModelBudgetAndUnavailableFallback
+=== RUN   TestApprovalExpiryModelBudgetAndUnavailableFallback/budget
+=== RUN   TestApprovalExpiryModelBudgetAndUnavailableFallback/timeout
+=== RUN   TestApprovalExpiryModelBudgetAndUnavailableFallback/unavailable
+=== RUN   TestApprovalExpiryModelBudgetAndUnavailableFallback/empty
+=== RUN   TestApprovalExpiryModelBudgetAndUnavailableFallback/summary-tools
+=== RUN   TestApprovalExpiryModelBudgetAndUnavailableFallback/none
+--- PASS: TestApprovalExpiryModelBudgetAndUnavailableFallback (0.26s)
+    --- PASS: TestApprovalExpiryModelBudgetAndUnavailableFallback/budget (0.00s)
+    --- PASS: TestApprovalExpiryModelBudgetAndUnavailableFallback/timeout (0.25s)
+    --- PASS: TestApprovalExpiryModelBudgetAndUnavailableFallback/unavailable (0.00s)
+    --- PASS: TestApprovalExpiryModelBudgetAndUnavailableFallback/empty (0.00s)
+    --- PASS: TestApprovalExpiryModelBudgetAndUnavailableFallback/summary-tools (0.00s)
+    --- PASS: TestApprovalExpiryModelBudgetAndUnavailableFallback/none (0.00s)
+=== RUN   TestApprovalExpiryRecoveryLedgerBlocksChangedArgumentsAndUncertainty
+--- PASS: TestApprovalExpiryRecoveryLedgerBlocksChangedArgumentsAndUncertainty (0.00s)
+PASS
+ok  	github.com/JackZhao98/tofibot/internal/runtime	0.501s
+=== RUN   TestApprovalExpiryAtomicBatchAndConcurrentClaim
+--- PASS: TestApprovalExpiryAtomicBatchAndConcurrentClaim (0.03s)
+=== RUN   TestApprovalExpiryTransactionRollback
+--- PASS: TestApprovalExpiryTransactionRollback (0.02s)
+=== RUN   TestApprovalExpiryRestartClaimedAndLegacyMaintenance
+=== RUN   TestApprovalExpiryRestartClaimedAndLegacyMaintenance/ready
+=== RUN   TestApprovalExpiryRestartClaimedAndLegacyMaintenance/claimed
+=== RUN   TestApprovalExpiryRestartClaimedAndLegacyMaintenance/legacy
+=== RUN   TestApprovalExpiryRestartClaimedAndLegacyMaintenance/claimed-wait
+=== RUN   TestApprovalExpiryRestartClaimedAndLegacyMaintenance/corrupt
+=== RUN   TestApprovalExpiryRestartClaimedAndLegacyMaintenance/mismatch
+--- PASS: TestApprovalExpiryRestartClaimedAndLegacyMaintenance (0.24s)
+    --- PASS: TestApprovalExpiryRestartClaimedAndLegacyMaintenance/ready (0.05s)
+    --- PASS: TestApprovalExpiryRestartClaimedAndLegacyMaintenance/claimed (0.04s)
+    --- PASS: TestApprovalExpiryRestartClaimedAndLegacyMaintenance/legacy (0.04s)
+    --- PASS: TestApprovalExpiryRestartClaimedAndLegacyMaintenance/claimed-wait (0.04s)
+    --- PASS: TestApprovalExpiryRestartClaimedAndLegacyMaintenance/corrupt (0.04s)
+    --- PASS: TestApprovalExpiryRestartClaimedAndLegacyMaintenance/mismatch (0.04s)
+=== RUN   TestApprovalExpiryWithoutModelSettlesBeforeConfiguredGate
+--- PASS: TestApprovalExpiryWithoutModelSettlesBeforeConfiguredGate (0.04s)
+=== RUN   TestApprovalExpiryPreservesUncertainClaimAndTrueFailure
+--- PASS: TestApprovalExpiryPreservesUncertainClaimAndTrueFailure (0.02s)
+=== RUN   TestExpiredApprovalRestartConcludesWithoutRenewOrRemoteEffect
+2026/10/03 12:03:06 [41821a09-19c1-4ca9-84c8-726917be4c95] [Agent] Registered 45 tools: save_memory, search_history, handoff, message, list_bots, react_to_message, complete_scheduled_task, read_workflow_guide, inspect_recent_runs, ask_user_question, ask_user_form, request_approval, display_content, prepare_email, workspace_list, workspace_update_bot, workspace_update_group, workspace_delete_bot, workspace_delete_group, manage_extensions, read_attachment, generate_image, list_computers, computer_action, create_bot, create_group, invite_bot, list_groups, send_group_message, list_work_item_executions, create_work_item, update_work_item, list_work_items, list_memory, update_memory, delete_memory, get_context_usage, list_mcp_servers, search_mcp_catalog, search_mcp_tools, call_mcp_tool, list_skills, read_skill, read_skill_file, workspace_capabilities
+2026/10/03 12:03:06 [41821a09-19c1-4ca9-84c8-726917be4c95] [Agent] Tools: 45 core, 0 skills (deferred)
+2026/10/03 12:03:06 [41821a09-19c1-4ca9-84c8-726917be4c95] <tool_call name=" search_mcp_tools ">
+{"server":"fixture","query":"write"}
+</tool_call>
+2026/10/03 12:03:06 [41821a09-19c1-4ca9-84c8-726917be4c95] [ExtraTool:search_mcp_tools] {"tools":[{"name":"mcp_fixture__write","description":"Synthetic write","input_schema":{"properties":{"target":{"type":"string"}},"required":["target"],"type":"object"},"server":"fixture","remote_name"...
+2026/10/03 12:03:06 [41821a09-19c1-4ca9-84c8-726917be4c95] <tool_call name=" call_mcp_tool ">
+{"name":"mcp_fixture__write","arguments":{"target":"synthetic"}}
+</tool_call>
+--- PASS: TestExpiredApprovalRestartConcludesWithoutRenewOrRemoteEffect (0.08s)
+=== RUN   TestApprovalExpiresAfterAnswerBeforeDispatchAndReparksConsumedWait
+--- PASS: TestApprovalExpiresAfterAnswerBeforeDispatchAndReparksConsumedWait (0.02s)
+=== RUN   TestScheduledMCPApprovalRestartHTTPDelivery
+=== RUN   TestScheduledMCPApprovalRestartHTTPDelivery/approve
+2026/10/03 12:03:06 [20722115-2d22-4b40-abb0-40d13978ab81] [Agent] Registered 45 tools: save_memory, search_history, handoff, message, list_bots, react_to_message, complete_scheduled_task, read_workflow_guide, inspect_recent_runs, ask_user_question, ask_user_form, request_approval, display_content, prepare_email, workspace_list, workspace_update_bot, workspace_update_group, workspace_delete_bot, workspace_delete_group, manage_extensions, read_attachment, generate_image, list_computers, computer_action, create_bot, create_group, invite_bot, list_groups, send_group_message, list_work_item_executions, create_work_item, update_work_item, list_work_items, list_memory, update_memory, delete_memory, get_context_usage, list_mcp_servers, search_mcp_catalog, search_mcp_tools, call_mcp_tool, list_skills, read_skill, read_skill_file, workspace_capabilities
+2026/10/03 12:03:06 [20722115-2d22-4b40-abb0-40d13978ab81] [Agent] Tools: 45 core, 0 skills (deferred)
+2026/10/03 12:03:06 [20722115-2d22-4b40-abb0-40d13978ab81] <tool_call name=" search_mcp_tools ">
+{"server":"fixture","query":"write"}
+</tool_call>
+2026/10/03 12:03:06 [20722115-2d22-4b40-abb0-40d13978ab81] [ExtraTool:search_mcp_tools] {"tools":[{"name":"mcp_fixture__write","description":"Synthetic external write","input_schema":{"properties":{"target":{"type":"string"}},"required":["target"],"type":"object"},"server":"fixture","rem...
+2026/10/03 12:03:06 [20722115-2d22-4b40-abb0-40d13978ab81] <tool_call name=" call_mcp_tool ">
+{"name":"mcp_fixture__write","arguments":{"target":"synthetic"}}
+</tool_call>
+2026/10/03 12:03:06 [20722115-2d22-4b40-abb0-40d13978ab81] [Agent] Registered 45 tools: save_memory, search_history, handoff, message, list_bots, react_to_message, complete_scheduled_task, read_workflow_guide, inspect_recent_runs, ask_user_question, ask_user_form, request_approval, display_content, prepare_email, workspace_list, workspace_update_bot, workspace_update_group, workspace_delete_bot, workspace_delete_group, manage_extensions, read_attachment, generate_image, list_computers, computer_action, create_bot, create_group, invite_bot, list_groups, send_group_message, list_work_item_executions, create_work_item, update_work_item, list_work_items, list_memory, update_memory, delete_memory, get_context_usage, list_mcp_servers, search_mcp_catalog, search_mcp_tools, call_mcp_tool, list_skills, read_skill, read_skill_file, workspace_capabilities
+2026/10/03 12:03:06 [20722115-2d22-4b40-abb0-40d13978ab81] [Agent] Tools: 45 core, 0 skills (deferred)
+2026/10/03 12:03:06 [20722115-2d22-4b40-abb0-40d13978ab81] <tool_call name=" search_mcp_tools ">
+{"server":"fixture","query":"write"}
+</tool_call>
+2026/10/03 12:03:06 [20722115-2d22-4b40-abb0-40d13978ab81] [ExtraTool:search_mcp_tools] {"tools":[{"name":"mcp_fixture__write","description":"Synthetic external write","input_schema":{"properties":{"target":{"type":"string"}},"required":["target"],"type":"object"},"server":"fixture","rem...
+2026/10/03 12:03:06 [20722115-2d22-4b40-abb0-40d13978ab81] <tool_call name=" call_mcp_tool ">
+{"name":"mcp_fixture__write","arguments":{"target":"synthetic"}}
+</tool_call>
+2026/10/03 12:03:06 [20722115-2d22-4b40-abb0-40d13978ab81] [ExtraTool:call_mcp_tool] synthetic write executed
+2026/10/03 12:03:06 [20722115-2d22-4b40-abb0-40d13978ab81] <tool_call name=" complete_scheduled_task ">
+{"content":"Synthetic scheduled write delivered."}
+</tool_call>
+2026/10/03 12:03:06 [20722115-2d22-4b40-abb0-40d13978ab81] [ExtraTool:complete_scheduled_task] scheduled result accepted for this run; now provide the same result as the final answer in the current conversation, preserving its delivery rules
+2026/10/03 12:03:06 [20722115-2d22-4b40-abb0-40d13978ab81] <think>
+Synthetic scheduled write delivered.
+</think>
+2026/10/03 12:03:06 [20722115-2d22-4b40-abb0-40d13978ab81] [Agent] Finished.
+=== RUN   TestScheduledMCPApprovalRestartHTTPDelivery/deny
+2026/10/03 12:03:06 [8bd9b6ff-853e-4624-af48-61962f29372c] [Agent] Registered 45 tools: save_memory, search_history, handoff, message, list_bots, react_to_message, complete_scheduled_task, read_workflow_guide, inspect_recent_runs, ask_user_question, ask_user_form, request_approval, display_content, prepare_email, workspace_list, workspace_update_bot, workspace_update_group, workspace_delete_bot, workspace_delete_group, manage_extensions, read_attachment, generate_image, list_computers, computer_action, create_bot, create_group, invite_bot, list_groups, send_group_message, list_work_item_executions, create_work_item, update_work_item, list_work_items, list_memory, update_memory, delete_memory, get_context_usage, list_mcp_servers, search_mcp_catalog, search_mcp_tools, call_mcp_tool, list_skills, read_skill, read_skill_file, workspace_capabilities
+2026/10/03 12:03:06 [8bd9b6ff-853e-4624-af48-61962f29372c] [Agent] Tools: 45 core, 0 skills (deferred)
+2026/10/03 12:03:06 [8bd9b6ff-853e-4624-af48-61962f29372c] <tool_call name=" search_mcp_tools ">
+{"server":"fixture","query":"write"}
+</tool_call>
+2026/10/03 12:03:06 [8bd9b6ff-853e-4624-af48-61962f29372c] [ExtraTool:search_mcp_tools] {"tools":[{"name":"mcp_fixture__write","description":"Synthetic external write","input_schema":{"properties":{"target":{"type":"string"}},"required":["target"],"type":"object"},"server":"fixture","rem...
+2026/10/03 12:03:06 [8bd9b6ff-853e-4624-af48-61962f29372c] <tool_call name=" call_mcp_tool ">
+{"name":"mcp_fixture__write","arguments":{"target":"synthetic"}}
+</tool_call>
+2026/10/03 12:03:06 [8bd9b6ff-853e-4624-af48-61962f29372c] [Agent] Registered 45 tools: save_memory, search_history, handoff, message, list_bots, react_to_message, complete_scheduled_task, read_workflow_guide, inspect_recent_runs, ask_user_question, ask_user_form, request_approval, display_content, prepare_email, workspace_list, workspace_update_bot, workspace_update_group, workspace_delete_bot, workspace_delete_group, manage_extensions, read_attachment, generate_image, list_computers, computer_action, create_bot, create_group, invite_bot, list_groups, send_group_message, list_work_item_executions, create_work_item, update_work_item, list_work_items, list_memory, update_memory, delete_memory, get_context_usage, list_mcp_servers, search_mcp_catalog, search_mcp_tools, call_mcp_tool, list_skills, read_skill, read_skill_file, workspace_capabilities
+2026/10/03 12:03:06 [8bd9b6ff-853e-4624-af48-61962f29372c] [Agent] Tools: 45 core, 0 skills (deferred)
+2026/10/03 12:03:06 [8bd9b6ff-853e-4624-af48-61962f29372c] <tool_call name=" search_mcp_tools ">
+{"server":"fixture","query":"write"}
+</tool_call>
+2026/10/03 12:03:06 [8bd9b6ff-853e-4624-af48-61962f29372c] [ExtraTool:search_mcp_tools] {"tools":[{"name":"mcp_fixture__write","description":"Synthetic external write","input_schema":{"properties":{"target":{"type":"string"}},"required":["target"],"type":"object"},"server":"fixture","rem...
+2026/10/03 12:03:06 [8bd9b6ff-853e-4624-af48-61962f29372c] <tool_call name=" call_mcp_tool ">
+{"name":"mcp_fixture__write","arguments":{"target":"synthetic"}}
+</tool_call>
+2026/10/03 12:03:06 [8bd9b6ff-853e-4624-af48-61962f29372c] <think>
+The synthetic write was not approved; nothing was executed.
+</think>
+2026/10/03 12:03:06 [8bd9b6ff-853e-4624-af48-61962f29372c] <think>
+The synthetic write was not approved; nothing was executed.
+</think>
+2026/10/03 12:03:06 [8bd9b6ff-853e-4624-af48-61962f29372c] [Agent] Finished.
+=== RUN   TestScheduledMCPApprovalRestartHTTPDelivery/expire
+2026/10/03 12:03:06 [fd659756-2fdb-4d94-a401-8ac7f801430e] [Agent] Registered 45 tools: save_memory, search_history, handoff, message, list_bots, react_to_message, complete_scheduled_task, read_workflow_guide, inspect_recent_runs, ask_user_question, ask_user_form, request_approval, display_content, prepare_email, workspace_list, workspace_update_bot, workspace_update_group, workspace_delete_bot, workspace_delete_group, manage_extensions, read_attachment, generate_image, list_computers, computer_action, create_bot, create_group, invite_bot, list_groups, send_group_message, list_work_item_executions, create_work_item, update_work_item, list_work_items, list_memory, update_memory, delete_memory, get_context_usage, list_mcp_servers, search_mcp_catalog, search_mcp_tools, call_mcp_tool, list_skills, read_skill, read_skill_file, workspace_capabilities
+2026/10/03 12:03:06 [fd659756-2fdb-4d94-a401-8ac7f801430e] [Agent] Tools: 45 core, 0 skills (deferred)
+2026/10/03 12:03:06 [fd659756-2fdb-4d94-a401-8ac7f801430e] <tool_call name=" search_mcp_tools ">
+{"server":"fixture","query":"write"}
+</tool_call>
+2026/10/03 12:03:06 [fd659756-2fdb-4d94-a401-8ac7f801430e] [ExtraTool:search_mcp_tools] {"tools":[{"name":"mcp_fixture__write","description":"Synthetic external write","input_schema":{"properties":{"target":{"type":"string"}},"required":["target"],"type":"object"},"server":"fixture","rem...
+2026/10/03 12:03:06 [fd659756-2fdb-4d94-a401-8ac7f801430e] <tool_call name=" call_mcp_tool ">
+{"name":"mcp_fixture__write","arguments":{"target":"synthetic"}}
+</tool_call>
+--- PASS: TestScheduledMCPApprovalRestartHTTPDelivery (0.25s)
+    --- PASS: TestScheduledMCPApprovalRestartHTTPDelivery/approve (0.09s)
+    --- PASS: TestScheduledMCPApprovalRestartHTTPDelivery/deny (0.09s)
+    --- PASS: TestScheduledMCPApprovalRestartHTTPDelivery/expire (0.07s)
+PASS
+ok  	github.com/JackZhao98/tofibot/internal/app	1.155s

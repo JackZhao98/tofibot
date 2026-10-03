@@ -128,7 +128,7 @@ func TestScheduledMCPApprovalRestartHTTPDelivery(t *testing.T) {
 				}
 			}
 			if outcome == "expire" {
-				waitForRunStatus(t, server, run.ID, runWaiting)
+				waitForRunStatus(t, server, run.ID, "failed")
 				deadline := time.Now().Add(3 * time.Second)
 				for {
 					q, _ := server.store.GetQuestion(question.ID)
@@ -326,6 +326,7 @@ func assertScheduledApprovalReplay(t *testing.T, server *Server, conversationID 
 func newScheduledApprovalModel(t *testing.T, outcome string, remoteCalls *atomic.Int32) *httptest.Server {
 	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		var input struct {
+			Stream bool `json:"stream"`
 			Tools []struct {
 				Function struct {
 					Name string `json:"name"`
@@ -385,6 +386,11 @@ func newScheduledApprovalModel(t *testing.T, outcome string, remoteCalls *atomic
 				}
 				delta = map[string]any{"content": content}
 			}
+		}
+		if !input.Stream {
+			w.Header().Set("Content-Type","application/json")
+			_ = json.NewEncoder(w).Encode(map[string]any{"choices":[]any{map[string]any{"index":0,"message":delta}},"usage":map[string]int{"prompt_tokens":10,"completion_tokens":5}})
+			return
 		}
 		w.Header().Set("Content-Type", "text/event-stream")
 		body, _ := json.Marshal(map[string]any{"choices": []any{map[string]any{"index": 0, "delta": delta}}, "usage": map[string]int{"prompt_tokens": 10, "completion_tokens": 5}})

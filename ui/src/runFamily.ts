@@ -60,6 +60,7 @@ export function retryFamilyAnchor(family: ReturnType<typeof buildRetryFamilies>[
 }
 
 export function runFailureText(run: Run) {
+	if(run.stop_reason==="approval_expired" || run.failure?.code==="approval_expired")return "已过期。工作已停止，已完成的结果保留；结果不确定的操作需先核实。";
   if (run.status === "cancelled") return "本次请求已停止。已完成的工具结果保留。";
   if (run.status === "interrupted") return "本次请求已中断，任务未完成。已完成的工具结果保留。";
   if (run.status !== "failed") return "";

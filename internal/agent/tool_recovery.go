@@ -19,7 +19,7 @@ type ToolRecoveryRecord struct {
 }
 
 func recoveryStatus(status string) bool {
-	return status == tooloutcome.Validation || status == tooloutcome.Uncertain || status == tooloutcome.Denied || status == tooloutcome.Permanent || status == tooloutcome.Transient
+	return status == tooloutcome.Expired || status == tooloutcome.Validation || status == tooloutcome.Uncertain || status == tooloutcome.Denied || status == tooloutcome.Permanent || status == tooloutcome.Transient
 }
 
 func toolRecoveryRecords(messages []provider.Message) []ToolRecoveryRecord {
@@ -57,6 +57,10 @@ func toolRecoveryIdentityGuard(records []ToolRecoveryRecord, identity tooloutcom
 			prior = *record.Identity
 		}
 		o := record.Outcome
+		if o.Status == tooloutcome.Expired && prior.Scope == identity.Scope && prior.Operation == identity.Operation {
+			// Changing arguments cannot turn an expired proposal into permission.
+			return &o
+		}
 		if o.Status == tooloutcome.Uncertain {
 			if identity.ResolutionRequired {
 				continue

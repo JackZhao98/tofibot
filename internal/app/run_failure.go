@@ -19,6 +19,11 @@ func (r Run) failure() *RunFailure {
 	}
 	failure := &RunFailure{Code: "execution_failed", Source: "runtime", Message: "Task failed before completion. Completed tool results are retained; verify any uncertain effects before retrying."}
 	errorText := strings.ToLower(r.Error)
+	if errorText == "approval_expired" {
+		failure.Code = "approval_expired"
+		failure.Message = "Approval expired. This workflow stopped; completed results are retained and uncertain effects require verification."
+		return failure
+	}
 	if strings.Contains(errorText, "stream read error") || strings.Contains(errorText, "connection reset") || strings.Contains(errorText, "broken pipe") || strings.Contains(errorText, "unexpected eof") || strings.Contains(errorText, "internal_error") {
 		failure.Code = "connection_interrupted"
 		failure.Message = "Connection interrupted. Task did not finish. Completed tool results are retained; verify any uncertain effects before retrying."
@@ -34,6 +39,18 @@ func (r Run) MarshalJSON() ([]byte, error) {
 	type plain Run
 	return json.Marshal(struct {
 		plain
-		Failure *RunFailure `json:"failure,omitempty"`
-	}{plain: plain(r), Failure: r.failure()})
+		Failure         *RunFailure `json:"failure,omitempty"`
+		StopReason      string      `json:"stop_reason,omitempty"`
+		FinishingReason string      `json:"finishing_reason,omitempty"`
+	}{plain: plain(r), Failure: r.failure(), StopReason: func() string {
+		if r.Error == "approval_expired" {
+			return "approval_expired"
+		}
+		return ""
+	}(), FinishingReason: func() string {
+		if r.Error == "approval_expiry_recovery" && (r.Status == "queued" || r.Status == "running") {
+			return "approval_expired"
+		}
+		return ""
+	}()})
 }
