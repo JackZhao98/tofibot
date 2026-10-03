@@ -25,13 +25,18 @@ html:not([data-desktop]) .web-drop-overlay.is-dragging .web-drop-arrow { animati
 .web-drop-ghost .composer-attachment-name { overflow:hidden; text-overflow:ellipsis; }
 .web-drop-ghost > button { display:none; }
 html:not([data-desktop]) .workspace .composer-row { position:relative; }
-html:not([data-desktop]) .workspace .web-upload-ring { position:absolute; inset:-3px; z-index:4; width:calc(100% + 6px); height:calc(100% + 6px); overflow:visible; pointer-events:none; }
-html:not([data-desktop]) .workspace .web-upload-ring rect { x:1.5px; y:1.5px; width:calc(100% - 3px); height:calc(100% - 3px); rx:20px; fill:none; stroke:var(--lagoon); stroke-width:3.5; stroke-dasharray:.26 .74; animation:web-upload-travel 1.5s linear infinite; }
-@keyframes web-upload-travel { to { stroke-dashoffset:-1; } }
+/* A quarter-length lagoon arc travels around the composer while a file uploads. */
+@property --web-upload-angle { syntax:"<angle>"; inherits:false; initial-value:0deg; }
+html:not([data-desktop]) .workspace .web-upload-ring { position:absolute; inset:-3px; z-index:4; box-sizing:border-box; padding:3.5px; border-radius:22px; pointer-events:none;
+  background:conic-gradient(from var(--web-upload-angle),var(--lagoon) 0 26%,transparent 26% 100%);
+  -webkit-mask:linear-gradient(black 0 0) content-box,linear-gradient(black 0 0); -webkit-mask-composite:xor;
+  mask:linear-gradient(black 0 0) content-box exclude,linear-gradient(black 0 0);
+  animation:web-upload-travel 1.5s linear infinite; }
+@keyframes web-upload-travel { to { --web-upload-angle:360deg; } }
 @media (prefers-reduced-motion:reduce) {
   html:not([data-desktop]) :is(.web-drop-overlay,.web-drop-zone) { transition:none; }
   html:not([data-desktop]) .web-drop-overlay.is-dragging .web-drop-arrow,
-  html:not([data-desktop]) .workspace .web-upload-ring rect { animation:none; }
+  html:not([data-desktop]) .workspace .web-upload-ring { animation:none; }
 }
 @media (prefers-reduced-transparency:reduce) {
   html:not([data-desktop]) .web-drop-overlay { background:var(--bg); -webkit-backdrop-filter:none; backdrop-filter:none; }

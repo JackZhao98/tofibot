@@ -678,7 +678,7 @@ export function BotDesktopPanel({ botId, botName, members = [], autoConnect = fa
   }
 
   const windowActions = <div className="computer-detail-heading-actions computer-floating-actions">
-    <button type="button" className="desktop-control-button desktop-control-expand" aria-label={expanded ? "缩小共享电脑" : "放大共享电脑"} title={expanded ? "缩小" : "放大"} onClick={() => setExpanded(!expanded)}><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d={expanded ? "M4 9h5V4m11 5h-5V4M4 15h5v5m11-5h-5v5" : "M9 4H4v5m11-5h5v5M4 15v5h5m11-5v5h-5"} /></svg></button>
+    <button type="button" className="desktop-control-button desktop-control-expand" aria-label={expanded ? "缩小共享电脑" : "放大共享电脑"} title={expanded ? "缩小" : "放大"} onClick={() => setExpanded(!expanded)}><span className={`desktop-expand-glyph${expanded ? " is-expanded" : ""}`} aria-hidden="true" /></button>
     <button type="button" className="desktop-control-button computer-hide-button" aria-label="隐藏共享电脑" title="最小化" onClick={() => closePanel("hide")}><TofiIcon name="minus" size={16} /></button>
 
   </div>;
@@ -727,10 +727,7 @@ export function BotDesktopPanel({ botId, botName, members = [], autoConnect = fa
   };
   // A drop hanging from the bezel's bottom edge holds the cat ⇄ you switch (Motion Lab · 电脑, fused into the frame).
   const controlBar = !isDesktop && <div className={`desktop-chin is-${capsule.tone}`}>
-    <svg className="desktop-drop" viewBox="0 0 172 44" aria-hidden="true">
-      <path className="desktop-drop-fill" d="M0 0Q12 0 12 12V26A18 18 0 0 0 30 44H142A18 18 0 0 0 160 26V12Q160 0 172 0Z" />
-      <path className="desktop-drop-edge" d="M0 1Q13 1 13 12V26A17 17 0 0 0 30 43H142A17 17 0 0 0 159 26V12Q159 1 172 1" />
-    </svg>
+    <span className="desktop-drop" aria-hidden="true" />
     <button type="button" className="desktop-power" aria-label="隐藏共享电脑" data-hint="收起屏幕（电脑继续运行）" onClick={() => void powerOff()}><TofiIcon name="chevron-down" size={15} /></button>
     <span className="sr-only" role="status">{capsule.text}</span>
     <button type="button" role="switch" aria-checked={humanControlled} className={`desktop-driver-switch is-${humanControlled ? "you" : "bot"}`} disabled={!switchEnabled}
