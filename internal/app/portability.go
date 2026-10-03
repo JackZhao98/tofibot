@@ -16,6 +16,7 @@ import (
 	"sort"
 	"strings"
 	"time"
+	"unicode/utf8"
 
 	"github.com/google/uuid"
 )
@@ -32,6 +33,7 @@ type portableOrigin struct {
 	RunID       string          `json:"run_id,omitempty"`
 	SenderBotID string          `json:"sender_bot_id,omitempty"`
 	Kind        string          `json:"kind,omitempty"`
+	Status      string          `json:"status,omitempty"`
 	Notice      json.RawMessage `json:"notice,omitempty"`
 }
 type portableBot struct {
@@ -116,13 +118,17 @@ type portableImportRequest struct {
 	PreviewID string            `json:"preview_id,omitempty"`
 }
 type portablePreview struct {
-	ID        string         `json:"preview_id"`
-	Counts    map[string]int `json:"counts"`
-	Bots      []portableBot  `json:"bots"`
-	Conflicts []string       `json:"conflicts"`
-	Warnings  []string       `json:"warnings"`
-	Excluded  []string       `json:"excluded"`
-	ExpiresAt string         `json:"expires_at"`
+	SourceFormat   string         `json:"source_format"`
+	SourceVersion  int            `json:"source_version"`
+	EstimatedBytes int            `json:"estimated_bytes"`
+	Dependencies   []string       `json:"dependencies"`
+	ID             string         `json:"preview_id"`
+	Counts         map[string]int `json:"counts"`
+	Bots           []portableBot  `json:"bots"`
+	Conflicts      []string       `json:"conflicts"`
+	Warnings       []string       `json:"warnings"`
+	Excluded       []string       `json:"excluded"`
+	ExpiresAt      string         `json:"expires_at"`
 }
 type portableResult struct {
 	ImportID string            `json:"import_id"`
@@ -143,6 +149,9 @@ CREATE TABLE IF NOT EXISTS portability_provenance(kind TEXT NOT NULL,target_id T
 func portableJSON(data []byte, out any) error {
 	if len(data) == 0 || len(data) > portableMaxBytes {
 		return errors.New("bundle exceeds the 16 MiB limit or is empty")
+	}
+	if !utf8.Valid(data) {
+		return errors.New("bundle must be valid UTF-8")
 	}
 	d := json.NewDecoder(bytes.NewReader(data))
 	d.UseNumber()
@@ -294,16 +303,16 @@ func (b portableBundle) validate() error {
 		return true
 	}
 	originOK := func(o portableOrigin) bool {
-		return len(o.InstanceID) <= 200 && len(o.RecordID) <= 200 && len(o.RunID) <= 200 && len(o.SenderBotID) <= 200 && len(o.Kind) <= 100 && len(o.Notice) <= 256<<10
+		return len(o.InstanceID) <= 200 && len(o.RecordID) <= 200 && len(o.RunID) <= 200 && len(o.SenderBotID) <= 200 && len(o.Kind) <= 100 && len(o.Status) <= 100 && len(o.Notice) <= 256<<10
 	}
 	for _, x := range b.Bots {
-		if !unique(x.ID) || !portableID(x.DMConversationID) || strings.TrimSpace(x.Name) == "" || len(x.Name) > 200 || len(x.Instructions) > 200000 || len(x.Model) > 200 || len(x.ReasoningEffort) > 100 || !portableTime(x.CreatedAt) || len(x.Avatar) > 4096 || !originOK(x.Origin) {
+		if !unique(x.ID) || !portableID(x.DMConversationID) || strings.TrimSpace(x.Name) == "" || utf8.RuneCountInString(x.Name) > 200 || utf8.RuneCountInString(x.Instructions) > 200000 || utf8.RuneCountInString(x.Model) > 200 || len(x.ReasoningEffort) > 100 || !portableTime(x.CreatedAt) || len(x.Avatar) > 4096 || !originOK(x.Origin) {
 			return bad()
 		}
 		bots[x.ID] = x
 	}
 	for _, x := range b.Conversations {
-		if !unique(x.ID) || len(x.Name) > 200 || !portableTime(x.UpdatedAt) || (x.Kind != "dm" && x.Kind != "group") {
+		if !unique(x.ID) || utf8.RuneCountInString(x.Name) > 200 || !portableTime(x.UpdatedAt) || (x.Kind != "dm" && x.Kind != "group") {
 			return bad()
 		}
 		members := map[string]bool{}
@@ -525,6 +534,9 @@ func portableDestination(tx *sql.Tx) (string, []string, error) {
 	return hex.EncodeToString(hash[:]), names, nil
 }
 func (s *Store) previewPortable(ctx context.Context, b portableBundle) (portablePreview, error) {
+	if err := b.validate(); err != nil {
+		return portablePreview{}, err
+	}
 	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
 		return portablePreview{}, err
@@ -535,6 +547,9 @@ func (s *Store) previewPortable(ctx context.Context, b portableBundle) (portable
 		return portablePreview{}, err
 	}
 	p := portablePreview{ID: uuid.NewString(), Counts: b.counts(), Bots: b.Bots, Conflicts: []string{}, Excluded: portableExcluded, Warnings: []string{"Imported records are new copies. Existing records are never overwritten.", "All imported schedules are paused. Instructions and history are stored without execution.", "Content may contain secrets pasted into chats or instructions. Review before sharing.", "Attachments, guest disk, credentials, extensions, work items and execution history are excluded."}}
+	data, _ := json.Marshal(b)
+	p.SourceFormat, p.SourceVersion, p.EstimatedBytes = b.Format, b.Version, len(data)*3
+	p.Dependencies = []string{"Bot configuration and DM structure are required.", "Group history requires all member Bots; partial groups are skipped.", "Settings are preserved unless explicitly selected."}
 	for _, x := range b.Bots {
 		for _, name := range names {
 			if strings.EqualFold(name, x.Name) {

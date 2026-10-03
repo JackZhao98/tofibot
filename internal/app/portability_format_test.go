@@ -21,6 +21,10 @@ func TestPortableLegacyStableIDsAndAvatar(t *testing.T) {
 	if len(b.Bots) != 1 || len(b.Bots[0].Avatar) == 0 || b.Kind != "bot" || b.Counts["bot_config"] != 1 {
 		t.Fatal("legacy fields lost")
 	}
+	unicode := strings.Replace(portableLegacyFixture, "Synthetic Bot", strings.Repeat("中", 200), 1)
+	if _, err := parsePortableBundle([]byte(unicode)); err != nil {
+		t.Fatalf("valid legacy Unicode name rejected: %v", err)
+	}
 }
 
 func TestPortableRejectUnsafeFormatsAndForgedManifest(t *testing.T) {
