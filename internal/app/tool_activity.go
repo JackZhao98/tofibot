@@ -432,13 +432,11 @@ func (s *Store) InterruptToolActivities(runID string) error {
 	}
 	var pending []ToolActivity
 	for rows.Next() {
-		var a ToolActivity
-		var truncated int
-		if err = rows.Scan(&a.ConversationID, &a.BotID, &a.RunID, &a.CallID, &a.Name, &a.Arguments, &a.Result, &a.Status, &truncated, &a.StartedAt, &a.UpdatedAt); err != nil {
+		a, scanErr := scanToolActivity(rows)
+		if scanErr != nil {
 			rows.Close()
-			return err
+			return scanErr
 		}
-		a.Truncated = truncated != 0
 		a.Status = "interrupted"
 		a.UpdatedAt = now()
 		pending = append(pending, a)
