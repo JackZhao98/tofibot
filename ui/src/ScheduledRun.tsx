@@ -5,6 +5,7 @@ import "./scheduled-run.css";
 
 export interface ScheduledRunProps {
   title: string;
+  description?: string;
   content: string;
   plannedTime: string;
   plannedAt?: string;
@@ -28,7 +29,7 @@ export interface ScheduledRunProps {
 const reduceMotion = () => typeof window.matchMedia === "function" && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
 /** Shared ticket used by the conversation and the explicitly synthetic Lab. */
-export function ScheduledRun({ title, content, plannedTime, plannedAt, plannedTimeDescription, metadata, metadataDescription, state, statusLabel, statusAt, statusTime, statusTimeDescription, runningSince, resultPublished = false, failureSummary, error, notes, onRetry, defaultExpanded = false }: ScheduledRunProps) {
+export function ScheduledRun({ title, description, content, plannedTime, plannedAt, plannedTimeDescription, metadata, metadataDescription, state, statusLabel, statusAt, statusTime, statusTimeDescription, runningSince, resultPublished = false, failureSummary, error, notes, onRetry, defaultExpanded = false }: ScheduledRunProps) {
   const [expanded, setExpanded] = useState(defaultExpanded);
   const [retrying, setRetrying] = useState(false);
   const [retryError, setRetryError] = useState<string>();
@@ -89,6 +90,7 @@ export function ScheduledRun({ title, content, plannedTime, plannedAt, plannedTi
           </span>
           <TofiIcon className="scheduled-run-chevron" name="chevron-right" size={14} aria-hidden="true" />
         </span>
+        {description && <span className="scheduled-run-description">{description}</span>}
         <span className="scheduled-run-meta" title={metadataDescription}>{metadata}</span>
       </button>
       {failed && <div className="scheduled-run-failure">
@@ -100,10 +102,7 @@ export function ScheduledRun({ title, content, plannedTime, plannedAt, plannedTi
       {retryError && <p className="scheduled-run-retry-error" role="alert">{retryError}</p>}
       <div className="scheduled-run-disclosure" data-expanded={expanded} id={contentId} inert={!expanded} aria-hidden={!expanded}>
         <div className="scheduled-run-disclosure-inner">
-          <div className="scheduled-run-details">
-            <strong>任务内容</strong>
-            <p>{content}</p>
-          </div>
+          <details className="scheduled-run-details"><summary>管理 · 完整执行指令</summary><p>{content}</p></details>
           {notes && <div className="scheduled-run-notes">{notes}</div>}
           {failed && <div className="scheduled-run-recovery">
             <p>为避免重复执行外部操作，请确认后重试。</p>

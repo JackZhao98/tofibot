@@ -1,4 +1,4 @@
-import type { AgentUsageTotal, Attachment, Bot, Config, ContextUsage, Conversation, EventEnvelope, Memory, Message, Run, Schedule, ScheduleKind, StreamDraft, ToolActivity, ToolActivityDetailPage, ToolActivityRunSummary, UsageCall, UsagePeriod, WorkspaceEventEnvelope, WorkItem } from "./types";
+import type { AgentUsageTotal, Attachment, Bot, Config, ContentPatch, ContextUsage, Conversation, EventEnvelope, Memory, MemoryInput, Message, Run, Schedule, ScheduleKind, StreamDraft, ToolActivity, ToolActivityDetailPage, ToolActivityRunSummary, UsageCall, UsagePeriod, WorkspaceEventEnvelope, WorkItem } from "./types";
 
 export class ApiError extends Error {
   constructor(public status: number, message: string, public code?: string) {
@@ -73,8 +73,8 @@ export const api = {
   cancelRun: (id: string) => request<Run>(`/api/runs/${encodeURIComponent(id)}/cancel`, { method: "POST" }),
   retryRun: (id: string) => request<Run>(`/api/runs/${encodeURIComponent(id)}/retry`, { method: "POST" }),
   memories: (id: string) => request<{ memories: Memory[] | null }>(`/api/conversations/${encodeURIComponent(id)}/memories`).then((result) => ({ memories: result.memories ?? [] })),
-  createMemory: (id: string, content: string) => request<Memory>(`/api/conversations/${encodeURIComponent(id)}/memories`, json({ content })),
-  updateMemory: (id: string, content: string) => request<Memory>(`/api/memories/${encodeURIComponent(id)}`, { method: "PATCH", body: JSON.stringify({ content }) }),
+  createMemory: (id: string, input: MemoryInput) => request<Memory>(`/api/conversations/${encodeURIComponent(id)}/memories`, json(input)),
+  updateMemory: (id: string, input: ContentPatch) => request<Memory>(`/api/memories/${encodeURIComponent(id)}`, { method: "PATCH", body: JSON.stringify(input) }),
   deleteMemory: (id: string) => request<void>(`/api/memories/${encodeURIComponent(id)}`, { method: "DELETE" }),
   schedules: (id: string) => request<{ schedules: Schedule[] }>(`/api/conversations/${encodeURIComponent(id)}/schedules`),
   scheduleAgenda: (id: string, scope: "bots" | "conversations", history = false) => request<{ schedules: Schedule[] }>(`/api/${scope}/${encodeURIComponent(id)}/schedules?${scope === "bots" ? `history=${history}` : `view=${history ? "history" : "upcoming"}`}`),
@@ -82,7 +82,8 @@ export const api = {
   createWorkItem: (conversation: string, input: Pick<WorkItem, "kind" | "title" | "bot_id"> & Partial<Pick<WorkItem, "description" | "parent_goal_id">>) => request<WorkItem>(`/api/conversations/${encodeURIComponent(conversation)}/work-items`, json(input)),
   updateWorkItem: (id: string, input: Partial<Pick<WorkItem, "title" | "description" | "status" | "bot_id">>) => request<WorkItem>(`/api/work-items/${encodeURIComponent(id)}`, { method: "PATCH", body: JSON.stringify(input) }),
   executeWorkItem: (id: string, request_id: string) => request<{ work_item: WorkItem; run: Run; duplicate: boolean }>(`/api/work-items/${encodeURIComponent(id)}/execute`, json({ request_id })),
-  createSchedule: (id: string, input: { bot_id?: string; title?: string; content: string; kind: ScheduleKind; run_at?: string; interval_seconds?: number; daily_time?: string; timezone?: string }) => request<Schedule>(`/api/conversations/${encodeURIComponent(id)}/schedules`, json(input)),
+  createSchedule: (id: string, input: { bot_id?: string; title: string; description: string; content: string; kind: ScheduleKind; run_at?: string; interval_seconds?: number; daily_time?: string; timezone?: string }) => request<Schedule>(`/api/conversations/${encodeURIComponent(id)}/schedules`, json(input)),
+  updateSchedule: (id: string, input: ContentPatch) => request<Schedule>(`/api/schedules/${encodeURIComponent(id)}`, { method: "PATCH", body: JSON.stringify(input) }),
   pauseSchedule: (id: string) => request<Schedule>(`/api/schedules/${encodeURIComponent(id)}/pause`, json({})),
   resumeSchedule: (id: string) => request<Schedule>(`/api/schedules/${encodeURIComponent(id)}/resume`, json({})),
   deleteSchedule: (id: string) => request<void>(`/api/schedules/${encodeURIComponent(id)}`, { method: "DELETE" }),

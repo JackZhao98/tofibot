@@ -7,6 +7,7 @@ export type ScheduleOccurrence = {
   schedule_id: string;
   scheduled_for_utc: string;
   title?: string;
+  description?: string;
   created_by?: "user" | "bot";
   kind?: "once" | "daily" | "interval";
   timezone?: string;
@@ -46,6 +47,7 @@ export async function loadScheduleOccurrences(conversationId: string, rootKey: s
         status_run_id: item.status_run_id,
         result_in_conversation: item.result_in_conversation === true && item.execution_status === "done",
         ...(typeof item.title === "string" && item.title ? { title: item.title } : {}),
+        ...(typeof item.description === "string" ? { description: item.description } : {}),
         ...((item.created_by === "user" || item.created_by === "bot") ? { created_by: item.created_by } : {}),
         ...((item.kind === "once" || item.kind === "daily" || item.kind === "interval") ? { kind: item.kind } : {}),
         ...(typeof item.timezone === "string" && validTimezone(item.timezone) ? { timezone: item.timezone } : {}),

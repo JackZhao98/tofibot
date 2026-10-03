@@ -107,7 +107,7 @@ func TestLongTermMemoryToolsEnforceScopeAndUpdate(t *testing.T) {
 			update = tool
 		}
 	}
-	data, _ := json.Marshal(map[string]string{"id": mem.ID, "content": "corrected fact"})
+	data, _ := json.Marshal(map[string]string{"id": mem.ID, "title": "Corrected fact", "description": "Current durable fact", "content": "corrected fact"})
 	if _, err := update.Execute(context.Background(), data); err != nil {
 		t.Fatal(err)
 	}

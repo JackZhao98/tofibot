@@ -283,3 +283,9 @@
   .workspace .work-create-kind button,
   .workspace .work-item-details summary::after { transition: none; }
 }
+
+.work-schedule-description { grid-column:2; margin:4px 0; color:var(--ink-soft); font:var(--type-meta); overflow-wrap:anywhere; display:-webkit-box; -webkit-line-clamp:3; -webkit-box-orient:vertical; overflow:hidden; }
+.schedule-instructions { padding:10px 0; }
+.schedule-instructions strong { font:600 12px/1.5 var(--body); }
+.schedule-instructions p { white-space:pre-wrap; overflow-wrap:anywhere; margin:6px 0; }
+.schedule-edit { margin-top:12px; }

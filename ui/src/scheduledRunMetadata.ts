@@ -1,3 +1,4 @@
+import { scheduleDisplay } from "./displayMetadata";
 import type { Message, Run, Schedule } from "./types";
 import type { ScheduleOccurrence } from "./scheduleOccurrences";
 import { browserTimezone, validTimezone } from "./timezone";
@@ -40,8 +41,11 @@ export function scheduledRunMetadata(message: Message, run?: Run, occurrence?: S
   const creatorLabel = creator === "user" ? "由你创建" : creator === "bot" ? "由助理创建" : "";
   const occurrenceLabel = exactOccurrence?.occurrence_number ? `第 ${exactOccurrence.occurrence_number} 次` : "";
 
+  // Never borrow edited live labels for a historical occurrence. Missing
+  // snapshots get neutral labels, never a first line of the execution prompt.
+  const display = scheduleDisplay(exactOccurrence);
   return {
-    title: exactOccurrence?.title || matchedSchedule?.title || message.content.trim().split(/\r?\n/, 1)[0] || "定时任务",
+    ...display,
     plannedAt,
     plannedTime: plannedAt ? time(plannedAt) : "待确认",
     plannedTimeDescription: plannedAt ? `计划触发：${date(plannedAt)} ${time(plannedAt)} · ${displayTimezone}` : "计划触发时间待确认",

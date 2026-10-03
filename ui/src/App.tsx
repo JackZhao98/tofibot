@@ -1,3 +1,5 @@
+import { MemoryPanel } from "./MemoryPanel";
+import { memoryDisplay } from "./displayMetadata";
 import { mergeMessageTimeline } from "./messageTimeline";
 import { textareaCaretRect } from "./textareaCaret";
 import { DelayedFeedback } from "./DelayedFeedback";
@@ -1788,7 +1790,7 @@ function Workspace() {
           {displayedPanel === "settings" && <SettingsShell tab={settingsTab} onTab={setSettingsTab} onClose={()=>setPanel(null)} renderPage={(page) => page === "admin" ? <AdminAccounts/> : page === "account" ? <><OwnerAccount /><AppearancePicker value={appearance.preference} onChange={appearance.choose} /><TimezoneSetting /><NotificationSetting /><WorkspacePurgeSettings />{conversations.some(conversation => conversation.archived) && <div className="legacy-archive-entry"><span>旧归档</span><button className="text-button" onClick={() => setPanel("archive")}>管理</button></div>}</> : page === "usage" ? <UsagePanel preferredBotId={usageBotId} timezone={timezone} /> : page === "debug" ? <DebugSettings bots={bots.filter(bot=>!bot.archived)} conversation={active}/> : page === "models" ? <ModelDefaults/> : page === "dictate" ? <DictationSettings/> : page === "connection" ? <><ConnectionInfo /><CodexPanel refreshToken={codexStatusRefresh} onConfigured={() => void refreshIndex()} /></> : page === "computers" ? <><ComputerResources/><ComputerPanel /></> : page === "credentials" ? <ComputerCredentials bots={bots.filter(bot=>!bot.archived)}/> : <ExtensionPanel bots={bots} kind={page} refreshToken={extensionRefresh} />} />}
           {displayedPanel === "archive" && <ArchivePanel onClose={() => setPanel(null)} onOpen={(id) => { setActiveId(id); setMobileList(false); setPanel(null); }} onLoaded={mergeArchived} onChanged={refreshAfterArchive} onDelete={confirmDelete} />}
           {displayedPanel === "terminal" && desktopBot && <Suspense fallback={<DelayedFeedback><div className="inline-state" role="status">载入终端…</div></DelayedFeedback>}><TerminalPanel key={desktopBot.id} botId={desktopBot.id} botName={desktopBot.name} onClose={() => setPanel(null)} /></Suspense>}
-          {displayedPanel === "memory" && activeId && <MemoryPanel key={activeId} memories={memories} conversationId={activeId} onClose={() => setPanel(null)} onCreate={async (content) => { const memory = await api.createMemory(activeId, content); setMemories((current) => [...current.filter((item) => item.id !== memory.id), memory]); }} onUpdate={async (id, content) => { const memory = await api.updateMemory(id, content); setMemories((current) => current.map((item) => item.id === id ? memory : item)); }} onDelete={async (id) => { await api.deleteMemory(id); setMemories((current) => current.filter((item) => item.id !== id)); }} />}
+          {displayedPanel === "memory" && activeId && <MemoryPanel key={activeId} memories={memories} conversationId={activeId} onClose={() => setPanel(null)} onCreate={async (input) => { const memory = await api.createMemory(activeId, input); setMemories((current) => [...current.filter((item) => item.id !== memory.id), memory]); }} onUpdate={async (id, input) => { const memory = await api.updateMemory(id, input); setMemories((current) => current.map((item) => item.id === id ? memory : item)); }} onDelete={async (id) => { await api.deleteMemory(id); setMemories((current) => current.filter((item) => item.id !== id)); }} />}
           {displayedPanel === "memory" && !activeId && <div className="detail-empty"><button className="close-button" aria-label="关闭记忆" onClick={() => setPanel(null)}><Icon name="close" size={18} /></button><p>选择一个 Bot 或群后管理记忆。</p></div>}
           {displayedPanel === "schedule" && active && <WorkPanel key={active.id} conversation={active} conversations={conversations} bots={bots} refreshToken={scheduleRefresh} onClose={() => setPanel(null)} onNavigate={id => { setActiveId(id); setMobileList(false); setPanel(null); }} />}
           {displayedPanel === "members" && active?.kind === "group" && <MembersPanel refreshToken={scheduleRefresh} onOpenWork={() => setPanel("schedule")} conversation={active} bots={bots} onClose={() => setPanel(null)} onOpen={(id) => { setActiveId(id); setMobileList(false); setPanel(null); }} onSaved={updateGroup} onReload={reloadGroup} />}
@@ -2733,7 +2735,8 @@ function BotPanel({ bots, activeBot, onClose, onUpdate, onCreateGroup, onOpenWor
   if (activeBot) {
     const role = instructions.trim().split(/[\n。！？.!?]/)[0]?.trim();
     const effortLabel = (activeBot.reasoning_effort || effort) ? ` · ${activeBot.reasoning_effort || effort}` : "";
-    const latestMemory = memories.at(-1)?.content;
+    const latestMemoryDisplay = memories.length ? memoryDisplay(memories.at(-1)) : undefined;
+    const latestMemory = latestMemoryDisplay ? `${latestMemoryDisplay.title} · ${latestMemoryDisplay.description}` : undefined;
     return <div className="detail-content bot-v2-panel">
       <div className="detail-heading bot-v2-heading">
         {view === "home" ? <h2>Bot 资料</h2> : <button type="button" className="bot-v2-back" onClick={() => setView("home")}><Icon name="arrow-left" size={18}/> 返回</button>}
@@ -2773,35 +2776,6 @@ function BotPanel({ bots, activeBot, onClose, onUpdate, onCreateGroup, onOpenWor
   </div>;
 }
 
-function MemoryPanel({ memories, onClose, onCreate, onUpdate, onDelete }: { memories: Memory[]; conversationId: string; onClose: () => void; onCreate: (content: string) => Promise<void>; onUpdate: (id: string, content: string) => Promise<void>; onDelete: (id: string) => Promise<void> }) {
-  const debug = useDebugMode();
-  const [newContent, setNewContent] = useState("");
-  const [editing, setEditing] = useState<string | null>(null);
-  const [editContent, setEditContent] = useState("");
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState("");
-  async function save(action: () => Promise<void>, success: () => void) {
-    if (busy) return;
-    setBusy(true); setError("");
-    try { await action(); success(); } catch (cause) { setError(errorText(cause)); }
-    finally { setBusy(false); }
-  }
-  return <div className="detail-content">
-    <div className="detail-heading"><h2>记忆</h2><button className="close-button" aria-label="关闭记忆" onClick={onClose}><Icon name="close" size={18} /></button></div>
-
-    {error && <p className="error-text" role="alert">{error}</p>}
-    <form className="memory-create" onSubmit={(event) => { event.preventDefault(); if (newContent.trim()) void save(() => onCreate(newContent.trim()), () => setNewContent("")); }}>
-      <textarea aria-label="新增记忆" value={newContent} disabled={busy} onChange={(event) => setNewContent(event.target.value)} placeholder="记录一个需要长期记住的事实…" rows={3} />
-      <button className="secondary-button" disabled={!newContent.trim() || busy}>保存记忆</button>
-    </form>
-    <div className="memory-list">{memories.map((memory) => <div className="memory-card" key={memory.id}>{editing === memory.id ? <>
-      <textarea aria-label="编辑记忆" value={editContent} disabled={busy} onChange={(event) => setEditContent(event.target.value)} rows={3} />
-      <div className="card-actions"><button disabled={!editContent.trim() || busy} onClick={() => void save(() => onUpdate(memory.id, editContent.trim()), () => setEditing(null))}>保存</button><button disabled={busy} onClick={() => setEditing(null)}>取消</button></div>
-    </> : <>
-      <p>{memory.content}</p><div className="memory-footer">{debug && <span>修订 {memory.revision}</span>}<span><button disabled={busy} onClick={() => { setEditing(memory.id); setEditContent(memory.content); }}>编辑</button><ConfirmAction label="删除" question="删除这条记忆？" disabled={busy} onConfirm={() => save(() => onDelete(memory.id), () => {})} /></span></div>
-    </>}</div>)}{!memories.length && (isDesktop?<div className="panel-empty">还没有记忆。</div>:<div className="panel-empty web-memory-empty"><WakeableCat config={{shape:"loaf",pattern:"solid",palette:"ivory"}} name="糯米" size={84}/><strong>还没有记忆</strong><p>Bot 记住的事会出现在这里。</p></div>)}</div>
-  </div>;
-}
 
 export default App;
 export { WorkingMembers, Composer, DictationControls, WebToolActivityRun };
