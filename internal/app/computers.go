@@ -22,6 +22,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/JackZhao98/tofibot/internal/tooloutcome"
 	"github.com/google/uuid"
 )
 
@@ -479,7 +480,7 @@ func validateHostInfoArgs(raw json.RawMessage) error {
 
 func (s *Store) queueComputerJob(r Run, deviceID, action string, args json.RawMessage) (ComputerJob, error) {
 	if err := validateComputerArgs(action, args); err != nil {
-		return ComputerJob{}, err
+		return ComputerJob{}, tooloutcome.InvalidArguments(err.Error())
 	}
 	tx, err := s.db.Begin()
 	if err != nil {
@@ -489,16 +490,16 @@ func (s *Store) queueComputerJob(r Run, deviceID, action string, args json.RawMe
 	if r.ID != "" {
 		var status, botID string
 		if err = tx.QueryRow(`SELECT status,bot_id FROM runs WHERE id=?`, r.ID).Scan(&status, &botID); err != nil || status != "running" || botID != r.BotID {
-			return ComputerJob{}, errors.New("parent run is not active")
+			return ComputerJob{}, tooloutcome.New(tooloutcome.Denied, "run_inactive", "not_executed", "parent run is not active", "explain_blocker").Err()
 		}
 	}
 	var capsRaw, lastSeen string
 	if err = tx.QueryRow(`SELECT capabilities,last_seen FROM computers WHERE id=? AND revoked_at IS NULL`, deviceID).Scan(&capsRaw, &lastSeen); err != nil {
-		return ComputerJob{}, errors.New("computer not found")
+		return ComputerJob{}, tooloutcome.InvalidArguments("computer not found")
 	}
 	last, _ := time.Parse(time.RFC3339Nano, lastSeen)
 	if !last.After(time.Now().UTC().Add(-computerOnlineWindow)) {
-		return ComputerJob{}, errors.New("computer is offline")
+		return ComputerJob{}, tooloutcome.New(tooloutcome.Permanent, "computer_offline", "not_executed", "computer is offline", "explain_blocker").Err()
 	}
 	var caps []string
 	_ = json.Unmarshal([]byte(capsRaw), &caps)
@@ -510,14 +511,14 @@ func (s *Store) queueComputerJob(r Run, deviceID, action string, args json.RawMe
 		}
 	}
 	if !granted {
-		return ComputerJob{}, errors.New("computer capability not granted")
+		return ComputerJob{}, tooloutcome.New(tooloutcome.Denied, "capability_not_granted", "not_executed", "computer capability not granted", "explain_blocker").Err()
 	}
 	var outstanding int
 	if err = tx.QueryRow(`SELECT COUNT(*) FROM computer_jobs WHERE device_id=? AND status IN ('pending','running')`, deviceID).Scan(&outstanding); err != nil {
 		return ComputerJob{}, err
 	}
 	if outstanding >= maxOutstandingJobs {
-		return ComputerJob{}, errors.New("computer has too many outstanding jobs")
+		return ComputerJob{}, tooloutcome.New(tooloutcome.Permanent, "computer_queue_full", "not_executed", "computer has too many outstanding jobs", "explain_blocker").Err()
 	}
 	t := time.Now().UTC()
 	j := ComputerJob{ID: uuid.NewString(), DeviceID: deviceID, BotID: r.BotID, RunID: r.ID, Action: action, Args: append(json.RawMessage(nil), args...), ExpiresAt: t.Add(computerJobTTL).Format(time.RFC3339Nano), Status: "pending"}
@@ -1097,7 +1098,25 @@ func (s *Server) computerTools(r Run) []Tool {
 		b, _ := json.Marshal(map[string]any{"computers": items})
 		return string(b), nil
 	}}
-	action := Tool{Name: "computer_action", Description: "Run one explicitly granted action on a paired computer or on the Bot's fixed Firecracker computer. Use only capabilities currently advertised by that computer; an action name does not grant access or enable an unavailable runtime. Callers cannot override local grants or execution policy. When a paired Mac advertises sandbox.exec, pass only args.command: it runs for at most 30 seconds in the locally authorized directory and directly changes its files, with no automatic rollback. It does not grant network, SSH keys, Keychain or arbitrary host toolchains. A stopped managed process group does not prove every detached descendant stopped. Inspect exitCode, stderr and cancellation before claiming success; do not retry uncertain writes automatically. Use host.info on the service host only to read its OS and architecture.", Parameters: objectSchema(map[string]any{"computer_id": map[string]any{"type": "string"}, "action": map[string]any{"type": "string"}, "args": map[string]any{"type": "object"}}, []string{"computer_id", "action", "args"}), Execute: func(ctx context.Context, raw json.RawMessage) (string, error) {
+	action := Tool{Name: "computer_action", Description: "Run one explicitly granted action on a paired computer or on the Bot's fixed Firecracker computer. Use only capabilities currently advertised by that computer; an action name does not grant access or enable an unavailable runtime. Callers cannot override local grants or execution policy. When a paired Mac advertises sandbox.exec, pass only args.command: it runs for at most 30 seconds in the locally authorized directory and directly changes its files, with no automatic rollback. It does not grant network, SSH keys, Keychain or arbitrary host toolchains. A stopped managed process group does not prove every detached descendant stopped. Inspect exitCode, stderr and cancellation before claiming success; do not retry uncertain writes automatically. Use host.info on the service host only to read its OS and architecture.", Parameters: objectSchema(map[string]any{"computer_id": map[string]any{"type": "string"}, "action": map[string]any{"type": "string"}, "args": map[string]any{"type": "object"}}, []string{"computer_id", "action", "args"}), Identity: func(raw json.RawMessage) tooloutcome.Identity {
+		var in struct {
+			ComputerID string          `json:"computer_id"`
+			Action     string          `json:"action"`
+			Args       json.RawMessage `json:"args"`
+		}
+		_ = json.Unmarshal(raw, &in)
+		return computerRecoveryIdentity(r.BotID, in.ComputerID, in.Action, in.Args)
+	}, ResolveIdentity: func(ctx context.Context, raw json.RawMessage) (tooloutcome.Identity, error) {
+		var in struct {
+			ComputerID string          `json:"computer_id"`
+			Action     string          `json:"action"`
+			Args       json.RawMessage `json:"args"`
+		}
+		if json.Unmarshal(raw, &in) != nil {
+			return tooloutcome.Identity{}, tooloutcome.InvalidArguments("Invalid computer action arguments.")
+		}
+		return s.resolveComputerRecovery(ctx, r, in.ComputerID, in.Action, in.Args)
+	}, Execute: func(ctx context.Context, raw json.RawMessage) (string, error) {
 		if err := ctx.Err(); err != nil {
 			return "", err
 		}
@@ -1109,14 +1128,14 @@ func (s *Server) computerTools(r Run) []Tool {
 		d := json.NewDecoder(strings.NewReader(string(raw)))
 		d.DisallowUnknownFields()
 		if err := d.Decode(&v); err != nil {
-			return "", errors.New("invalid computer action")
+			return "", tooloutcome.InvalidArguments("invalid computer action")
 		}
 		if v.ComputerID == "host:"+s.instance.ID {
 			if v.Action != "host.info" {
-				return "", errors.New("service host only supports host.info")
+				return "", tooloutcome.InvalidArguments("service host only supports host.info")
 			}
 			if err := validateHostInfoArgs(v.Args); err != nil {
-				return "", err
+				return "", tooloutcome.InvalidArguments(err.Error())
 			}
 			return fmt.Sprintf(`{"os":%q,"arch":%q}`, runtime.GOOS, runtime.GOARCH), nil
 		}

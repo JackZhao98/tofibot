@@ -15,6 +15,8 @@ import (
 	"os"
 	"strings"
 	"time"
+
+	"github.com/JackZhao98/tofibot/internal/tooloutcome"
 )
 
 const DefaultSocket = "/run/tofi-computer/control.sock"
@@ -45,18 +47,20 @@ type Info struct {
 }
 
 type Action struct {
-	Source  string          `json:"source,omitempty"`
-	BotID   string          `json:"bot_id"`
-	BotName string          `json:"bot_name,omitempty"`
-	RunID   string          `json:"run_id,omitempty"`
-	Name    string          `json:"action"`
-	Args    json.RawMessage `json:"args,omitempty"`
+	Source        string                `json:"source,omitempty"`
+	BotID         string                `json:"bot_id"`
+	BotName       string                `json:"bot_name,omitempty"`
+	RunID         string                `json:"run_id,omitempty"`
+	Name          string                `json:"action"`
+	Args          json.RawMessage       `json:"args,omitempty"`
+	WriteIdentity *tooloutcome.Identity `json:"write_identity,omitempty"`
 }
 
 type ActionResult struct {
-	OK     bool            `json:"ok"`
-	Result json.RawMessage `json:"result,omitempty"`
-	Error  string          `json:"error,omitempty"`
+	OK      bool                 `json:"ok"`
+	Result  json.RawMessage      `json:"result,omitempty"`
+	Error   string               `json:"error,omitempty"`
+	Outcome *tooloutcome.Outcome `json:"outcome,omitempty"`
 }
 
 // OAuthStartResult is the guest-owned authorization session created by the
@@ -143,6 +147,15 @@ func (c *Client) request(ctx context.Context, method, endpoint string, body any,
 	defer resp.Body.Close()
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		message, _ := io.ReadAll(io.LimitReader(resp.Body, 8<<10))
+		if action, ok := body.(Action); ok && action.Name == "files.write" && action.WriteIdentity != nil {
+			var rejected ActionResult
+			if json.Unmarshal(message, &rejected) == nil && rejected.Outcome != nil {
+				o := *rejected.Outcome
+				if o.Version == 1 && o.Status == tooloutcome.Validation && (o.Code == "write_identity_changed" || o.Code == "invalid_arguments") && o.Certainty == "not_executed" {
+					return o.Err()
+				}
+			}
+		}
 		return fmt.Errorf("computer control returned %s: %s", resp.Status, strings.TrimSpace(string(message)))
 	}
 	if out == nil {

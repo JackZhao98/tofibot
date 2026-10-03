@@ -12,6 +12,9 @@ import (
 	"unicode/utf8"
 
 	"github.com/JackZhao98/tofibot/internal/extensions"
+	"github.com/JackZhao98/tofibot/internal/runtime"
+	"github.com/JackZhao98/tofibot/internal/tooloutcome"
+	"time"
 )
 
 const maxMCPApprovalPayloadBytes = 32 << 10
@@ -31,12 +34,12 @@ func (s *Server) approveMCPCall(ctx context.Context, c Conversation, r Run, call
 		return err
 	}
 	hash := mcpApprovalHash(call)
-	var id, status, claimed string
+	var id, status, claimed, expires string
 	var answer sql.NullString
-	err = s.store.db.QueryRow(`SELECT q.id,q.status,q.answer_json,a.claimed_at
+	err = s.store.db.QueryRow(`SELECT q.id,q.status,q.answer_json,a.claimed_at,COALESCE(q.expires_at,'')
 		FROM mcp_call_approvals a JOIN questions q ON q.id=a.question_id
 		WHERE a.run_id=? AND a.action_hash=? AND q.conversation_id=? AND q.bot_id=?
-		ORDER BY q.created_at DESC,q.id DESC LIMIT 1`, r.ID, hash, c.ID, r.BotID).Scan(&id, &status, &answer, &claimed)
+		ORDER BY q.created_at DESC,q.id DESC LIMIT 1`, r.ID, hash, c.ID, r.BotID).Scan(&id, &status, &answer, &claimed, &expires)
 	if errors.Is(err, sql.ErrNoRows) {
 		in, normalizeErr := normalizeQuestionInput(askQuestionInput{
 			Question: "Allow this external tool call?",
@@ -63,37 +66,66 @@ func (s *Server) approveMCPCall(ctx context.Context, c Conversation, r Run, call
 			_, _ = s.store.db.Exec(`UPDATE questions SET status=?,updated_at=? WHERE id=? AND status=?`, questionCancelled, now(), q.ID, questionPending)
 			return createErr
 		}
-		id, status = q.ID, q.Status
+		id, status, expires = q.ID, q.Status, q.ExpiresAt
 	} else if err != nil {
 		return err
 	}
 	if claimed != "" {
-		return errors.New("this exact external tool call already used its approval; inspect the result before proposing another action")
+		return tooloutcome.New(tooloutcome.Uncertain, "approval_already_claimed", "unknown", "This exact external tool call already used its approval; inspect the result before proposing another action.", "verify_effect").Err()
 	}
 	if status == questionPending {
 		result, waitErr := s.WaitQuestion(ctx, id)
 		if waitErr != nil {
 			return waitErr
 		}
-		answer = sql.NullString{String: string(result), Valid: true}
-		status = questionAnswered
+		_ = result
+		q, readErr := s.store.GetQuestion(id)
+		if readErr != nil {
+			return readErr
+		}
+		answer = sql.NullString{String: string(q.Answer), Valid: len(q.Answer) > 0}
+		status, expires = q.Status, q.ExpiresAt
+	}
+	deadline, parseErr := time.Parse(time.RFC3339Nano, expires)
+	if status == questionExpired || (parseErr == nil && !time.Now().Before(deadline) && status == questionAnswered && strings.TrimSpace(answer.String) == "true") {
+		return s.parkExpiredMCPApproval(ctx, c, id)
 	}
 	if status != questionAnswered || !answer.Valid || strings.TrimSpace(answer.String) != "true" {
-		return errors.New("external tool call was not approved")
+		return tooloutcome.New(tooloutcome.Denied, "approval_denied", "not_executed", "External tool call was not approved. Do not execute or repeat it.", "explain_blocker").Err()
+	}
+	if parseErr != nil {
+		return tooloutcome.New(tooloutcome.Permanent, "invalid_approval_deadline", "not_executed", "External tool approval has an invalid validity window; request a fresh review before execution.", "explain_blocker").Err()
 	}
 	if err := s.extensionToolActive(ctx, c, r); err != nil {
 		return err
 	}
 	result, err := s.store.db.Exec(`UPDATE mcp_call_approvals SET claimed_at=? WHERE question_id=? AND claimed_at=''
-		AND EXISTS(SELECT 1 FROM questions WHERE id=? AND status='answered' AND answer_json='true')`, now(), id, id)
+		AND EXISTS(SELECT 1 FROM questions WHERE id=? AND status='answered' AND answer_json='true'
+		AND julianday(expires_at)>julianday(?))`, now(), id, id, now())
 	if err != nil {
 		return err
 	}
 	rows, err := result.RowsAffected()
 	if err != nil || rows != 1 {
-		return errors.New("external tool approval was already used or is no longer valid")
+		if err == nil && !time.Now().Before(deadline) {
+			return s.parkExpiredMCPApproval(ctx, c, id)
+		}
+		return tooloutcome.New(tooloutcome.Uncertain, "approval_claim_failed", "unknown", "External tool approval was already used or is no longer valid; verify the existing result before proposing another action.", "verify_effect").Err()
 	}
 	return ctx.Err()
+}
+
+func (s *Server) parkExpiredMCPApproval(ctx context.Context, c Conversation, id string) error {
+	if _, err := s.store.db.Exec(`UPDATE questions SET status='expired',updated_at=? WHERE id=? AND status IN ('pending','answered')`, now(), id); err != nil {
+		return err
+	}
+	if q, err := s.store.GetQuestion(id); err == nil {
+		_, _ = s.store.Event(c.ID, "question", q.Card())
+	}
+	if runtime.CanSuspend(ctx) {
+		return runtime.SuspendForUserInput(ctx, id)
+	}
+	return tooloutcome.New(tooloutcome.Expired, "approval_window_expired", "not_executed", "External tool approval expired; request a fresh review before execution.", "renew_approval").Err()
 }
 
 func mcpApprovalHash(call extensions.MCPCallApproval) string {

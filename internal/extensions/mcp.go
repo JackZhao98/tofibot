@@ -18,8 +18,9 @@ import (
 	"time"
 	"unicode/utf8"
 
-	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"github.com/JackZhao98/tofibot/internal/runtime"
+	"github.com/JackZhao98/tofibot/internal/tooloutcome"
+	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
 const (
@@ -508,7 +509,7 @@ func (m *Manager) prepareServer(runCtx, discoveryCtx context.Context, name strin
 		}
 		r := remote
 		result = append(result, runtime.Tool{Name: toolName, Description: boundedDescription(remote.Description, toolName), Parameters: params, Execute: func(callCtx context.Context, args json.RawMessage) (string, error) {
-			return m.callMCPTool(callCtx, cli, r.Name, args)
+			return m.callMCPTool(callCtx, cli, r.Name, args, trustedReadOnlyTool(cfg, r.Name))
 		}})
 	}
 	return result, cli, nil
@@ -600,7 +601,7 @@ func mcpToolAllowed(allow, deny, bot map[string]bool, name string) bool {
 	return !(len(allow) > 0 && !allow[name] || deny[name] || len(bot) > 0 && !bot[name] && !bot["*"])
 }
 
-func (m *Manager) callMCPTool(callCtx context.Context, cli *mcp.ClientSession, name string, args json.RawMessage) (string, error) {
+func (m *Manager) callMCPTool(callCtx context.Context, cli *mcp.ClientSession, name string, args json.RawMessage, readOnly bool) (string, error) {
 	if callCtx == nil {
 		callCtx = context.Background()
 	}
@@ -612,18 +613,47 @@ func (m *Manager) callMCPTool(callCtx context.Context, cli *mcp.ClientSession, n
 	} else if err := json.Unmarshal(args, &arguments); err != nil {
 		return "", fmt.Errorf("invalid arguments: %w", err)
 	}
-	out, err := cli.CallTool(callCtx, &mcp.CallToolParams{Name: name, Arguments: arguments})
-	if err != nil {
-		return "", errors.New("MCP tool call failed")
+	var out *mcp.CallToolResult
+	var err error
+	attempts := 0
+	for {
+		attempts++
+		out, err = cli.CallTool(callCtx, &mcp.CallToolParams{Name: name, Arguments: arguments})
+		if err == nil {
+			break
+		}
+		if !readOnly {
+			return "", uncertainMCPOutcome(attempts).Err()
+		}
+		if !transientMCPError(err) || attempts >= 3 || callCtx.Err() != nil {
+			status, code := tooloutcome.Permanent, "mcp_call_failed"
+			if transientMCPError(err) || callCtx.Err() != nil {
+				status, code = tooloutcome.Transient, "mcp_retry_exhausted"
+			}
+			o := tooloutcome.New(status, code, "no_side_effect", "MCP tool call failed; the read-only retry budget is exhausted or the endpoint rejected the request.", "explain_blocker")
+			o.Attempts, o.RetryLimit = attempts, 2
+			return "", o.Err()
+		}
+		select {
+		case <-callCtx.Done():
+			return "", tooloutcome.New(tooloutcome.Transient, "mcp_timeout", "no_side_effect", "MCP read-only call timed out.", "explain_blocker").Err()
+		case <-time.After(time.Duration(attempts) * 100 * time.Millisecond):
+		}
 	}
 	text := boundedContent(out, m.cfg.MaxToolResult)
 	if out == nil {
-		return text, errors.New("MCP tool returned an empty result")
+		return text, uncertainMCPOutcome(attempts).Err()
 	}
 	if out.IsError {
 		// The agent reports err.Error() for a failed executor and discards its
 		// value. Preserve bounded tool output while keeping transport errors private.
-		return text, fmt.Errorf("MCP tool %s returned an error. Untrusted tool-reported details: %s", name, text)
+		o := uncertainMCPOutcome(attempts)
+		if readOnly {
+			o = tooloutcome.New(tooloutcome.Permanent, "mcp_reported_error", "no_side_effect", "MCP tool returned an error; inspect its result and schema before choosing another action.", "explain_blocker")
+		}
+		// Preserve bounded details as untrusted data, never as recovery authority.
+		o.Message += " Untrusted tool-reported details: " + text
+		return text, o.Err()
 	}
 	return text, nil
 }
@@ -646,7 +676,7 @@ func (m *Manager) cachedMCPRuntimeTool(runCtx context.Context, cached CachedMCPT
 			return "", errors.New(mcpInspectionDiagnostic(cached.Server, cfg.URL, err).Message)
 		}
 		defer cli.Close()
-		return m.callMCPTool(callCtx, cli, cached.RemoteName, args)
+		return m.callMCPTool(callCtx, cli, cached.RemoteName, args, trustedReadOnlyTool(cfg, cached.RemoteName))
 	}}
 }
 

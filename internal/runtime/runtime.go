@@ -12,6 +12,7 @@ import (
 	"github.com/JackZhao98/tofibot/internal/agent"
 	"github.com/JackZhao98/tofibot/internal/models"
 	"github.com/JackZhao98/tofibot/internal/provider"
+	"github.com/JackZhao98/tofibot/internal/tooloutcome"
 )
 
 const (
@@ -76,6 +77,20 @@ func encodeContinuation(req Request, model string, continuation *agent.Continuat
 		return nil, fmt.Errorf("encode runtime continuation: %w", err)
 	}
 	return checkpoint, nil
+}
+
+// RenewContinuationQuestion changes only the backend-owned rendezvous ID.
+// The provider transcript and tool call remain unchanged; no action is replayed.
+func RenewContinuationQuestion(raw json.RawMessage, oldID, newID string) (json.RawMessage, error) {
+	var c continuationEnvelope
+	if json.Unmarshal(raw, &c) != nil || c.Version != continuationVersion || c.Agent == nil || c.Agent.QuestionID != oldID || strings.TrimSpace(newID) == "" {
+		return nil, errors.New("invalid approval renewal checkpoint")
+	}
+	if err := agent.ValidateContinuation(c.Agent); err != nil {
+		return nil, err
+	}
+	c.Agent.QuestionID = newID
+	return json.Marshal(c)
 }
 
 type engine struct {
@@ -247,7 +262,45 @@ func (e *engine) Run(ctx context.Context, req Request) (Result, error) {
 				if err != nil {
 					return "", fmt.Errorf("encode arguments for %s: %w", rawTool.Name, err)
 				}
-				return rawTool.Execute(context.WithValue(toolCtx, toolCallIDContextKey{}, callID), encoded)
+				if err := tooloutcome.ValidateArguments(params, args); err != nil {
+					return "", err
+				}
+				identity := tooloutcome.DefaultIdentity(rawTool.Name, encoded)
+				if rawTool.Identity != nil {
+					identity = rawTool.Identity(encoded)
+				}
+				if rawTool.ResolveIdentity != nil {
+					identity, err = rawTool.ResolveIdentity(toolCtx, encoded)
+					if err != nil {
+						if _, typed := tooloutcome.FromError(err); typed {
+							return "", err
+						}
+						return "", tooloutcome.New(tooloutcome.Permanent, "identity_resolution_failed", "not_executed", "The backend target could not be verified before dispatch. Inspect the target or backend status before proposing this operation again.", "verify_target").Err()
+					}
+				}
+				if err := tooloutcome.CheckBoundary(toolCtx, identity); err != nil {
+					return "", err
+				}
+				executionCtx := tooloutcome.WithExecutionIdentity(toolCtx, identity)
+				result, executeErr := rawTool.Execute(context.WithValue(executionCtx, toolCallIDContextKey{}, callID), encoded)
+				var suspension *userInputSuspensionError
+				if executeErr != nil && !errors.As(executeErr, &suspension) && toolCtx.Err() == nil {
+					if _, classified := tooloutcome.FromError(executeErr); !classified {
+						status, code, next := tooloutcome.Uncertain, "unclassified_tool_failure", "verify_effect"
+						if errors.Is(executeErr, errors.ErrUnsupported) {
+							status, code, next = tooloutcome.Permanent, "unsupported_operation", "explain_blocker"
+						}
+						certainty, explanation := "unknown", executeErr.Error()+" Verify the target state before repeating this call."
+						if identity.Risk == tooloutcome.Observation {
+							status, code, next, certainty = tooloutcome.Permanent, "observation_failed", "explain_blocker", "no_side_effects"
+							explanation = executeErr.Error() + " This observation failed; inspect another target or explain the blocker."
+						}
+						executeErr = tooloutcome.New(status, code, certainty, explanation, next).Err()
+					}
+				}
+				// A later path lookup cannot establish what this dispatch mutated.
+				// Keep its original boundary evidence; unknown creates stay opaque.
+				return result, executeErr
 			},
 		})
 	}
@@ -267,17 +320,26 @@ func (e *engine) Run(ctx context.Context, req Request) (Result, error) {
 		duration = defaultMaxDuration
 	}
 	result, err := agent.RunAgentLoop(agent.AgentConfig{
-		Ctx:                        runCtx,
-		Provider:                   modelProvider,
-		Model:                      model,
-		ReasoningEffort:            req.ReasoningEffort,
-		System:                     req.System,
-		Messages:                   messages,
-		ExtraTools:                 extraTools,
-		SessionID:                  req.RunID,
-		ToolsOnly:                  true,
-		Continuation:               continuation,
-		ResumeResult:               req.ResumeResult,
+		Ctx:             runCtx,
+		Provider:        modelProvider,
+		Model:           model,
+		ReasoningEffort: req.ReasoningEffort,
+		System:          req.System,
+		Messages:        messages,
+		ExtraTools:      extraTools,
+		SessionID:       req.RunID,
+		ToolsOnly:       true,
+		Continuation:    continuation,
+		ResumeResult:    req.ResumeResult,
+		ResumeOutcome:   req.ResumeOutcome,
+		ResolveToolIdentity: func(name, args string) tooloutcome.Identity {
+			for _, t := range req.Tools {
+				if t.Name == name && t.Identity != nil {
+					return t.Identity(json.RawMessage(args))
+				}
+			}
+			return tooloutcome.DefaultIdentity(name, json.RawMessage(args))
+		},
 		MaxToolCallsBetweenReports: defaultToolCallsBetweenReports,
 		MaxRunDuration:             duration,
 		UserWaitDuration:           userWait.duration,
@@ -366,7 +428,8 @@ func (e *engine) Run(ctx context.Context, req Request) (Result, error) {
 		}, nil
 	}
 	return Result{
-		Content:      result.Content,
+		Content:         result.Content,
+		BudgetExhausted: result.BudgetExhausted, BudgetReason: result.BudgetReason,
 		InputTokens:  result.TotalUsage.InputTokens,
 		OutputTokens: result.TotalUsage.OutputTokens,
 	}, nil
