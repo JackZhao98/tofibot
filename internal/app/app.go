@@ -117,6 +117,8 @@ type Run struct {
 	scheduleTask *Message
 }
 type Memory struct {
+	Title          string `json:"title,omitempty"`
+	Description    string `json:"description,omitempty"`
 	ID             string `json:"id"`
 	ConversationID string `json:"conversation_id"`
 	BotID          string `json:"bot_id,omitempty"`
@@ -489,6 +491,14 @@ CREATE INDEX IF NOT EXISTS events_conversation ON events(conversation_id,id);`)
 		}
 	}
 	for _, col := range []struct{ name, ddl string }{
+		{"title", `ALTER TABLE memories ADD COLUMN title TEXT NOT NULL DEFAULT ''`},
+		{"description", `ALTER TABLE memories ADD COLUMN description TEXT NOT NULL DEFAULT ''`},
+	} {
+		if err = ensureColumn(s.db, "memories", col.name, col.ddl); err != nil {
+			return err
+		}
+	}
+	for _, col := range []struct{ name, ddl string }{
 		{"archived", `ALTER TABLE bots ADD COLUMN archived INTEGER NOT NULL DEFAULT 0`},
 		{"reasoning_effort", `ALTER TABLE bots ADD COLUMN reasoning_effort TEXT NOT NULL DEFAULT ''`},
 	} {
@@ -651,7 +661,7 @@ func scanRun(r interface{ Scan(...any) error }) (Run, error) {
 func scanMemory(r interface{ Scan(...any) error }) (Memory, error) {
 	var m Memory
 	var b sql.NullString
-	err := r.Scan(&m.ID, &m.ConversationID, &b, &m.Content, &m.Revision, &m.CreatedAt, &m.UpdatedAt)
+	err := r.Scan(&m.ID, &m.ConversationID, &b, &m.Content, &m.Title, &m.Description, &m.Revision, &m.CreatedAt, &m.UpdatedAt)
 	m.BotID = b.String
 	return m, err
 }
@@ -1162,14 +1172,25 @@ func (s *Store) Search(conv, q string, limit int) ([]Message, error) {
 	return out, s.hydrateDeletedSenders(out)
 }
 func (s *Store) AddMemory(conv, bot, content string) (Memory, error) {
+	return s.AddMemoryWithMetadata(conv, bot, MemoryInput{Content: content})
+}
+
+func (s *Store) AddMemoryWithMetadata(conv, bot string, input MemoryInput) (Memory, error) {
+	title, description, err := normalizeDisplayMetadata(input.Title, input.Description, false)
+	if err != nil {
+		return Memory{}, err
+	}
+	if strings.TrimSpace(input.Content) == "" {
+		return Memory{}, errors.New("content required")
+	}
 	t := now()
-	m := Memory{ID: uuid.NewString(), ConversationID: conv, BotID: bot, Content: content, Revision: 1, CreatedAt: t, UpdatedAt: t}
+	m := Memory{ID: uuid.NewString(), ConversationID: conv, BotID: bot, Content: input.Content, Title: title, Description: description, Revision: 1, CreatedAt: t, UpdatedAt: t}
 	tx, e := s.db.Begin()
 	if e != nil {
 		return Memory{}, e
 	}
 	defer tx.Rollback()
-	if _, e = tx.Exec(`INSERT INTO memories(id,conversation_id,bot_id,content,revision,created_at,updated_at) VALUES(?,?,?,?,?,?,?)`, m.ID, conv, nullString(bot), content, 1, t, t); e != nil {
+	if _, e = tx.Exec(`INSERT INTO memories(id,conversation_id,bot_id,content,title,description,revision,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?)`, m.ID, conv, nullString(bot), m.Content, m.Title, m.Description, 1, t, t); e != nil {
 		return Memory{}, e
 	}
 	if e = insertEventTx(tx, conv, "memory", m, t); e != nil {
@@ -1181,7 +1202,7 @@ func (s *Store) AddMemory(conv, bot, content string) (Memory, error) {
 	return m, nil
 }
 func (s *Store) Memories(conv, bot string) ([]Memory, error) {
-	q := `SELECT id,conversation_id,bot_id,content,revision,created_at,updated_at FROM memories WHERE conversation_id=? AND (bot_id IS NULL OR bot_id=?) ORDER BY created_at,id`
+	q := `SELECT id,conversation_id,bot_id,content,title,description,revision,created_at,updated_at FROM memories WHERE conversation_id=? AND (bot_id IS NULL OR bot_id=?) ORDER BY created_at,id`
 	rows, e := s.db.Query(q, conv, bot)
 	if e != nil {
 		return nil, e
@@ -1201,7 +1222,7 @@ func (s *Store) MemoriesForConversation(id string, c Conversation) ([]Memory, er
 	if c.Kind == "dm" {
 		return s.Memories(id, c.BotID)
 	}
-	rows, e := s.db.Query(`SELECT id,conversation_id,bot_id,content,revision,created_at,updated_at FROM memories WHERE conversation_id=? AND bot_id IS NULL ORDER BY created_at,id`, id)
+	rows, e := s.db.Query(`SELECT id,conversation_id,bot_id,content,title,description,revision,created_at,updated_at FROM memories WHERE conversation_id=? AND bot_id IS NULL ORDER BY created_at,id`, id)
 	if e != nil {
 		return nil, e
 	}
@@ -1217,22 +1238,49 @@ func (s *Store) MemoriesForConversation(id string, c Conversation) ([]Memory, er
 	return out, rows.Err()
 }
 func (s *Store) GetMemory(id string) (Memory, error) {
-	return scanMemory(s.db.QueryRow(`SELECT id,conversation_id,bot_id,content,revision,created_at,updated_at FROM memories WHERE id=?`, id))
+	return scanMemory(s.db.QueryRow(`SELECT id,conversation_id,bot_id,content,title,description,revision,created_at,updated_at FROM memories WHERE id=?`, id))
 }
 func (s *Store) UpdateMemory(id, content string) (Memory, error) {
+	return s.PatchMemory(id, MemoryPatch{Content: &content})
+}
+
+func (s *Store) PatchMemory(id string, patch MemoryPatch) (Memory, error) {
+	if patch.Title == nil && patch.Description == nil && patch.Content == nil {
+		return Memory{}, errors.New("provide title, description or content")
+	}
+	if err := validateMetadataPatch(patch.Title, patch.Description); err != nil {
+		return Memory{}, err
+	}
+	if err := validateEditExpectation(patch.Expected, patch.Title, patch.Description, patch.Content); err != nil {
+		return Memory{}, err
+	}
+	if patch.Content != nil && strings.TrimSpace(*patch.Content) == "" {
+		return Memory{}, errors.New("content required")
+	}
 	tx, e := s.db.Begin()
 	if e != nil {
 		return Memory{}, e
 	}
 	defer tx.Rollback()
-	m, e := scanMemory(tx.QueryRow(`SELECT id,conversation_id,bot_id,content,revision,created_at,updated_at FROM memories WHERE id=?`, id))
+	m, e := scanMemory(tx.QueryRow(`SELECT id,conversation_id,bot_id,content,title,description,revision,created_at,updated_at FROM memories WHERE id=?`, id))
 	if e != nil {
 		return Memory{}, e
 	}
-	m.Content = content
+	if e = checkEditExpectation(patch.Expected, patch.Title, patch.Description, patch.Content, m.Title, m.Description, m.Content); e != nil {
+		return Memory{}, e
+	}
+	if patch.Content != nil {
+		m.Content = *patch.Content
+	}
+	if patch.Title != nil {
+		m.Title = compactWhitespace(*patch.Title)
+	}
+	if patch.Description != nil {
+		m.Description = compactWhitespace(*patch.Description)
+	}
 	m.Revision++
 	m.UpdatedAt = now()
-	if _, e = tx.Exec(`UPDATE memories SET content=?,revision=?,updated_at=? WHERE id=?`, m.Content, m.Revision, m.UpdatedAt, id); e != nil {
+	if _, e = tx.Exec(`UPDATE memories SET content=?,title=?,description=?,revision=?,updated_at=? WHERE id=?`, m.Content, m.Title, m.Description, m.Revision, m.UpdatedAt, id); e != nil {
 		return Memory{}, e
 	}
 	if e = insertEventTx(tx, m.ConversationID, "memory", m, m.UpdatedAt); e != nil {
@@ -1249,7 +1297,7 @@ func (s *Store) DeleteMemory(id string) error {
 		return e
 	}
 	defer tx.Rollback()
-	m, e := scanMemory(tx.QueryRow(`SELECT id,conversation_id,bot_id,content,revision,created_at,updated_at FROM memories WHERE id=?`, id))
+	m, e := scanMemory(tx.QueryRow(`SELECT id,conversation_id,bot_id,content,title,description,revision,created_at,updated_at FROM memories WHERE id=?`, id))
 	if e != nil {
 		return e
 	}
@@ -1891,7 +1939,7 @@ func completeOneTimeScheduleTx(tx *sql.Tx, runID, updated string) error {
 	if err != nil || changed == 0 {
 		return err
 	}
-	x, err := scanSchedule(tx.QueryRow(`SELECT id,conversation_id,bot_id,content,title,created_by,kind,timezone,next_at_utc,interval_seconds,daily_time,status,created_at,updated_at FROM schedules WHERE id=?`, scheduleID))
+	x, err := scanSchedule(tx.QueryRow(`SELECT id,conversation_id,bot_id,content,title,description,created_by,kind,timezone,next_at_utc,interval_seconds,daily_time,status,created_at,updated_at FROM schedules WHERE id=?`, scheduleID))
 	if err != nil {
 		return err
 	}
@@ -2644,18 +2692,20 @@ func (s *Server) conversation(w http.ResponseWriter, r *http.Request, id string)
 		return
 	}
 	if r.Method == http.MethodPost && strings.HasSuffix(r.URL.Path, "/memories") {
-		var x struct {
-			Content string `json:"content"`
-		}
+		var x MemoryInput
 		if decode(r, &x) != nil || strings.TrimSpace(x.Content) == "" {
 			writeErr(w, 400, "invalid_request", "content required")
+			return
+		}
+		if _, _, err := normalizeDisplayMetadata(x.Title, x.Description, false); err != nil {
+			writeErr(w, 400, "invalid_memory", err.Error())
 			return
 		}
 		bot := c.BotID
 		if bot == "" {
 			bot = ""
 		}
-		m, e := s.store.AddMemory(id, bot, x.Content)
+		m, e := s.store.AddMemoryWithMetadata(id, bot, x)
 		if e != nil {
 			writeErr(w, 500, "storage", e.Error())
 			return
@@ -3258,12 +3308,13 @@ func (s *Store) AddAssistant(conv, bot, run, content string) (Message, error) {
 	return m, err
 }
 func (s *Server) tools(c Conversation, r Run) []Tool {
-	base := []Tool{{Name: "save_memory", Description: "save scoped memory", Parameters: objectSchema(map[string]any{"content": map[string]any{"type": "string"}}, []string{"content"}), Execute: func(ctx context.Context, b json.RawMessage) (string, error) {
-		var x struct {
-			Content string `json:"content"`
-		}
-		if json.Unmarshal(b, &x) != nil || x.Content == "" {
+	base := []Tool{{Name: "save_memory", Description: "Save scoped factual memory with a concise localized title and user-facing description. Content is the faithful memory body, not an execution prompt; preserve facts and quoted user wording. Write any assistant-authored instructions in English.", Parameters: objectSchema(memoryInputProperties(), []string{"title", "description", "content"}), Execute: func(ctx context.Context, b json.RawMessage) (string, error) {
+		var x MemoryInput
+		if json.Unmarshal(b, &x) != nil || strings.TrimSpace(x.Content) == "" {
 			return "", errors.New("content required")
+		}
+		if _, _, err := normalizeDisplayMetadata(x.Title, x.Description, true); err != nil {
+			return "", err
 		}
 		if err := ctx.Err(); err != nil {
 			return "", err
@@ -3272,7 +3323,7 @@ func (s *Server) tools(c Conversation, r Run) []Tool {
 		if c.Kind == "group" {
 			memoryBot = ""
 		}
-		m, e := s.store.AddMemory(c.ID, memoryBot, x.Content)
+		m, e := s.store.AddMemoryWithMetadata(c.ID, memoryBot, x)
 		return m.ID, e
 	}}, {Name: "search_history", Description: "search exact conversation history", Parameters: objectSchema(map[string]any{"query": map[string]any{"type": "string"}}, []string{"query"}), Execute: func(ctx context.Context, b json.RawMessage) (string, error) {
 		var x struct {
@@ -3635,15 +3686,29 @@ func (s *Server) memory(w http.ResponseWriter, r *http.Request, id string) {
 		return
 	}
 	if r.Method == http.MethodPatch {
-		var x struct {
-			Content string `json:"content"`
-		}
-		if decode(r, &x) != nil || x.Content == "" {
-			writeErr(w, 400, "invalid_request", "content required")
+		var x MemoryPatch
+		if decode(r, &x) != nil || (x.Content == nil && x.Title == nil && x.Description == nil) {
+			writeErr(w, 400, "invalid_request", "provide content, title or description")
 			return
 		}
-		m, e = s.store.UpdateMemory(id, x.Content)
+		if err := validateMetadataPatch(x.Title, x.Description); err != nil {
+			writeErr(w, 400, "invalid_memory", err.Error())
+			return
+		}
+		if x.Content != nil && strings.TrimSpace(*x.Content) == "" {
+			writeErr(w, 400, "invalid_memory", "content required")
+			return
+		}
+		if err := validateEditExpectation(x.Expected, x.Title, x.Description, x.Content); err != nil {
+			writeErr(w, 400, "invalid_memory", err.Error())
+			return
+		}
+		m, e = s.store.PatchMemory(id, x)
 		if e != nil {
+			if errors.Is(e, ErrEditConflict) {
+				writeErr(w, 409, "edit_conflict", e.Error())
+				return
+			}
 			writeErr(w, 500, "storage", e.Error())
 			return
 		}

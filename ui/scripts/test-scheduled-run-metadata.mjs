@@ -11,7 +11,7 @@ const output = await mkdtemp(join(tmpdir(), "tofi-scheduled-run-"));
 try {
   await promisify(execFile)(join(root, "node_modules/.bin/tsc"), ["src/scheduledRunMetadata.ts", "--ignoreConfig", "--target", "ES2022", "--module", "ES2022", "--moduleResolution", "Bundler", "--outDir", output, "--skipLibCheck", "--declaration", "false", "--pretty", "false"], { cwd: root });
   const compiled = join(output, "scheduledRunMetadata.js");
-  await writeFile(compiled, (await readFile(compiled, "utf8")).replace('from "./timezone"', 'from "./timezone.js"'));
+  await writeFile(compiled, (await readFile(compiled, "utf8")).replace('from "./timezone"', 'from "./timezone.js"').replace('from "./displayMetadata"', 'from "./displayMetadata.js"'));
   const { scheduledRunMetadata } = await import(pathToFileURL(compiled));
   const message = { run_id: "root", conversation_id: "chat", content: "Original task\nFull task instructions", created_at: "2026-09-29T00:00:01Z" };
   const run = { id: "root", status: "done", updated_at: "2026-09-29T00:01:00Z" };
@@ -19,7 +19,9 @@ try {
   const schedule = { id: "schedule", conversation_id: "chat", content: "Edited after trigger", kind: "daily", daily_time: "17:00", timezone: "America/Los_Angeles", created_at: "2026-09-28T00:00:00Z" };
   const derive = (runValue = run, occurrenceValue = occurrence, scheduleValue = schedule) => scheduledRunMetadata(message, runValue, occurrenceValue, scheduleValue, "UTC");
   const exact = derive();
-  assert.equal(exact.title, "Original task", "historical task text survives schedule edits");
+  assert.equal(exact.title, "定时任务", "legacy task text never becomes display metadata");
+  assert.equal(derive(run, { ...occurrence, title: "Snapshot title", description: "Snapshot description" }, { ...schedule, title: "New title", description: "New description" }).description, "Snapshot description");
+  assert.equal(derive(run, occurrence, { ...schedule, title: "New title" }).title, "定时任务", "legacy occurrences never borrow live metadata");
   assert.equal(exact.plannedTime, "00:00");
   assert.equal(exact.statusTime, "00:01");
   assert.match(exact.metadata, /每天 17:00（America\/Los_Angeles）/);
