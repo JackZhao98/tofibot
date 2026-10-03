@@ -102,6 +102,7 @@ try {
   let source = await readFile(join(out, "RemoteDesktopControl.js"), "utf8");
   source = source
     .replace(/^import .* from "\.\/GazeAvatar";$/m, "const GazeAvatar = () => null;")
+    .replace(/^import .* from "\.\/desktop";$/m, "const isDesktop = false;")
     .replace(/^import .* from "react\/jsx-runtime";$/m, "const { jsx, jsxs } = globalThis.__remoteHarness; const _jsx = jsx; const _jsxs = jsxs;")
     .replace(/^import .* from "react";$/m, "const { useEffect, useRef, useState } = globalThis.__remoteHarness;")
     .replace(/^import .* from "\.\/api";$/m, "const { request } = globalThis.__remoteHarness; class ApiError extends Error {}");

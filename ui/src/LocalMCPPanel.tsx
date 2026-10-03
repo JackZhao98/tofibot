@@ -42,7 +42,7 @@ export function LocalMCPPanel({ onChanged, attachedIDs, callbackOrigin }: { onCh
  }, []);
  useEffect(() => { void refresh(); const focus = () => { if (!document.hidden) void refresh(); }; window.addEventListener("focus", focus); return () => window.removeEventListener("focus", focus); }, [refresh]);
  if (!runner) return null;
- if (!runner.available) return <section className="local-mcp-panel" aria-label="本地 MCP"><h3>本地 MCP Runner 暂不可用</h3><p>{runner.reason ?? "请检查 Runner 容器。"}</p></section>;
+ if (!runner.available) return <section className="local-mcp-panel" aria-label="本地 MCP"><h3>本地 MCP Runner 暂不可用</h3><p>请检查 Runner 容器是否已启动。</p>{runner.reason && <p className="field-note">{runner.reason}</p>}</section>;
  const gog = runner.plugins?.find(plugin => plugin.id === "gog");
  const installed = runner.plugins ?? [];
  async function install(payload: { id: string; kind: string; package?: string; version?: string; binary?: string; args?: string[]; env?: Record<string,string> }) {

@@ -70,7 +70,7 @@ export function UsagePanel({ preferredBotId, timezone }: { preferredBotId?: stri
   });
   const chartMax = Math.max(1, ...recentDays.map(day => day.requests));
 
-  return <section className="usage-page" aria-label="Usage">
+  return <section className="usage-page" aria-label="用量">
     <p className="usage-explanation">记录从功能上线后开始。参考等值按公开 API 单价估算，并非 Codex 实际收费或节省金额。缓存命中量不可得，输入全部按非缓存价计算；不含摘要请求与工具费用。</p>
     {error && <div className="usage-error" role="alert">{error}<button type="button" onClick={() => void load()}>重试</button></div>}
     {loading ? <p role="status">正在读取 Usage…</p> : agents.length === 0 ? <p className="usage-empty">还没有 Agent。</p> : <div className="usage-layout">
