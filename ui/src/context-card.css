@@ -9,7 +9,7 @@
 
   html:not([data-desktop]) .workspace .detail-pane.context-panel,
   html:not([data-desktop]) .view-only-chat.is-card {
-    --card-top:82px;
+    --card-top:66px; /* just under the header's action pill */
     position:absolute; z-index:12; inset:var(--card-top) 16px auto auto;
     width:min(400px,calc(100vw - var(--sidebar-width,260px) - 64px)); height:auto;
     max-height:calc(var(--viewport-height,100dvh) - var(--card-top) - var(--composer-height,110px) - 20px);
@@ -60,3 +60,8 @@
 .view-only-message[data-focused="true"] .view-only-message-bubble { box-shadow:none; }
 .view-only-message.is-bot[data-focused="true"] .view-only-message-bubble { margin:0 -10px; padding:8px 10px; border-left:3px solid var(--lagoon); border-radius:4px 12px 12px 4px; background:color-mix(in srgb,var(--lagoon) 9%,transparent); }
 .view-only-message.is-user[data-focused="true"] .view-only-message-bubble { border-color:var(--lagoon); }
+/* Every card shares one frame: the same inner padding, and a heading row with one divider beneath it. */
+@media (min-width:1100px) {
+  html:not([data-desktop]) .workspace .detail-pane.context-panel>.detail-content { padding:16px 20px 20px; }
+  html:not([data-desktop]) .workspace .detail-pane.context-panel>.detail-content>.detail-heading { min-height:40px; margin:0 0 16px; padding:0 0 12px; border-bottom:1px solid var(--line-soft); }
+}

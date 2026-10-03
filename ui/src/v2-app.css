@@ -612,3 +612,31 @@ html:not([data-desktop]) .workspace .web-loading-state{min-height:96px;padding-b
 html:not([data-desktop]) .workspace .message-block:has(.message-avatar)>.message-reactions,
 html:not([data-desktop]) .workspace .live-run-status.is-group { margin-left:44px; }
 html[data-desktop] .workspace .message-block:has(.message-avatar)>.message-reactions { margin-left:48px; }
+
+/* Bot profile: one header (title + close), the cat and identity, then one list of equal rows —
+   plans, memory, name/role/model — each opening exactly one page. Sharing sits quietly at the end. */
+.workspace .bot-v2-heading { justify-content:space-between; padding:0 0 14px; }
+.workspace .bot-v2-profile { display:grid; justify-items:center; gap:4px; padding:4px 0 18px; }
+.workspace .bot-v2-profile .bot-v2-hero { width:136px; height:136px; margin:14px auto 10px; border-radius:28px; }
+.workspace .bot-v2-profile .bot-v2-cat { width:108px; height:108px; }
+.workspace .bot-v2-profile .bot-v2-change { right:-6px; bottom:-6px; display:grid; place-items:center; width:28px; height:28px; padding:0; border:1.5px solid var(--line); border-radius:50%; }
+.workspace .bot-v2-profile .bot-v2-identity { padding:0 8px; }
+.workspace .bot-v2-model { display:inline-block; margin-top:6px; padding:3px 9px; border:1px solid var(--line-soft); border-radius:999px; background:var(--surface-2); color:var(--muted); font:10px/1.4 var(--mono); }
+.workspace .bot-v2-rows { display:grid; gap:8px; }
+.workspace .bot-v2-rows :is(.bot-v2-row,.work-preview) {
+  display:grid; grid-template-columns:36px minmax(0,1fr) auto; align-items:center; gap:12px; width:100%; min-height:60px;
+  margin:0; padding:10px 12px 10px 10px; border:1px solid var(--line-soft); border-radius:14px; background:var(--surface-2);
+  color:var(--ink); text-align:left; cursor:pointer; transition:border-color 140ms ease,background-color 140ms ease;
+}
+.workspace .bot-v2-rows :is(.bot-v2-row,.work-preview):hover:not(:disabled) { border-color:var(--line); background:var(--surface); }
+.workspace .bot-v2-rows :is(.bot-v2-row,.work-preview):focus-visible { outline:2px solid var(--focus); outline-offset:2px; }
+.workspace .bot-v2-row-icon { display:grid; place-items:center; width:36px; height:36px; border:1px solid var(--line-soft); border-radius:10px; background:var(--surface); color:var(--ink-soft); }
+.workspace .bot-v2-rows :is(.bot-v2-row-copy,.work-preview-copy) { display:grid; gap:3px; min-width:0; }
+.workspace .bot-v2-rows :is(.bot-v2-row-copy,.work-preview-copy) strong { color:var(--ink); font:600 13px/1.35 var(--display); }
+.workspace .bot-v2-rows :is(.bot-v2-row-copy,.work-preview-copy) strong span { margin-left:4px; color:var(--muted); font:11px/1 var(--mono); }
+.workspace .bot-v2-rows :is(.bot-v2-row-copy,.work-preview-copy) small { overflow:hidden; color:var(--muted); font:11px/1.45 var(--body); white-space:nowrap; text-overflow:ellipsis; }
+.workspace .bot-v2-rows .bot-v2-row>svg, .workspace .bot-v2-rows .work-preview>span[aria-hidden="true"]:last-child { color:var(--muted); font-size:18px; line-height:1; }
+.workspace .bot-v2-footer { display:flex; justify-content:center; padding:18px 0 2px; }
+.workspace .bot-v2-footer .text-button { display:inline-flex; align-items:center; gap:6px; color:var(--muted); font:var(--type-meta); }
+.workspace .bot-v2-footer .text-button:hover { color:var(--ink); }
+.workspace .members-v2-rows { margin-bottom:18px; }

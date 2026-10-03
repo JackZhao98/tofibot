@@ -1,0 +1,54 @@
+/* Browser chat header: no bar. The identity and the actions are two quiet pills resting on the
+   reading plane, and messages fade out beneath them instead of meeting a hard edge. The action pill
+   is also where the top-right context card hangs from. */
+html:not([data-desktop]) .workspace .chat-header {
+  min-height:64px; padding:10px 16px 10px 14px; gap:12px;
+  background:transparent; border-bottom:0; box-shadow:none; -webkit-backdrop-filter:none; backdrop-filter:none;
+}
+html:not([data-desktop]) .workspace .message-scroll { mask-image:linear-gradient(to bottom,transparent 0,#000 28px); -webkit-mask-image:linear-gradient(to bottom,transparent 0,#000 28px); }
+
+/* Identity pill */
+html:not([data-desktop]) .workspace .chat-identity {
+  min-height:44px; padding:4px 16px 4px 5px; gap:9px;
+  border:1px solid var(--line-soft); border-radius:999px; background:var(--surface);
+  transition:border-color 160ms ease,background-color 160ms ease;
+}
+html:not([data-desktop]) .workspace .chat-identity:hover { border-color:var(--line); background:var(--surface); }
+html:not([data-desktop]) .workspace .chat-identity:focus-visible { outline:2px solid var(--focus); outline-offset:2px; }
+html:not([data-desktop]) .workspace .member-avatar-stack { min-width:34px; }
+html:not([data-desktop]) .workspace .member-avatar-stack .avatar { width:34px; height:34px; flex-basis:34px; margin-left:-10px; border-radius:50%; background:var(--surface-2); }
+html:not([data-desktop]) .workspace .member-avatar-stack .avatar:first-child { margin-left:0; }
+html:not([data-desktop]) .workspace .chat-name-pill { display:grid; gap:1px; }
+html:not([data-desktop]) .workspace .chat-title h1 { font:600 15px/1.2 var(--display); }
+html:not([data-desktop]) .workspace .chat-name-pill small { font:10px/1.2 var(--mono); }
+
+/* Action pill: one rounded group; the open surface is marked with a lagoon tint. */
+html:not([data-desktop]) .workspace .header-actions {
+  gap:2px; padding:3px; border:1px solid var(--line-soft); border-radius:999px; background:var(--surface);
+}
+html:not([data-desktop]) .workspace .header-actions :is(.computer-button,.ghost-button) {
+  width:36px; height:36px; min-width:36px; padding:0; border:0; border-radius:50%;
+  background:transparent; color:var(--ink-soft); transition:background-color 140ms ease,color 140ms ease;
+}
+html:not([data-desktop]) .workspace .header-actions :is(.computer-button,.ghost-button):hover { background:var(--surface-2); color:var(--ink); border:0; }
+html:not([data-desktop]) .workspace .header-actions :is([aria-pressed="true"],[aria-expanded="true"]) { background:color-mix(in srgb,var(--lagoon) 18%,transparent); color:var(--ink); border:0; }
+html:not([data-desktop]) .workspace .header-actions .computer-button.is-ready { color:var(--green-text); }
+html:not([data-desktop]) .workspace .header-actions .header-more { display:flex; }
+
+@media (max-width:767px) {
+  html:not([data-desktop]) .workspace .chat-header { padding-inline:10px; gap:8px; }
+  html:not([data-desktop]) .workspace .chat-identity { padding-right:12px; }
+}
+@media (prefers-reduced-transparency:reduce) {
+  html:not([data-desktop]) .workspace .chat-header { background:transparent; }
+}
+html:not([data-desktop]) .workspace .header-actions :is(.computer-button,.ghost-button) { display:grid; place-items:center; }
+
+/* The run banner sits under the identity pill as one more quiet pill, not a ruled strip. */
+html:not([data-desktop]) .workspace .conversation-task-banner {
+  align-self:flex-start; width:fit-content; max-width:calc(100% - 28px); min-height:32px; box-sizing:border-box;
+  margin:0 14px 4px; padding:5px 14px 5px 12px; border:1px solid var(--line-soft); border-radius:999px; background:var(--surface);
+}
+@media (max-width:600px) {
+  html:not([data-desktop]) .workspace .conversation-task-banner { margin-inline:10px; border-radius:16px; }
+}
