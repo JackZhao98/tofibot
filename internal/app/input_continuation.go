@@ -84,8 +84,10 @@ func (s *Store) SaveInputContinuation(ctx context.Context, runID, questionID str
 		return err
 	}
 	if q.Type == questionApproval && q.Status == questionExpired {
-		q.Resumable = true
 		if err = insertRecoveryEvent(tx, q.ConversationID, "question", q.Card(), r.UpdatedAt); err != nil {
+			return err
+		}
+		if err = enqueueApprovalExpiryTx(tx, q); err != nil {
 			return err
 		}
 	}
@@ -124,14 +126,14 @@ func (s *Store) refreshInputWaits(conv string) error {
 		if e != nil {
 			return e
 		}
-		if q.Status == questionPending && q.ExpiresAt != "" {
+		if (q.Status == questionPending || q.Type == questionApproval && q.Status == questionAnswered && string(q.Answer) == "true") && q.ExpiresAt != "" {
 			deadline, e := time.Parse(time.RFC3339Nano, q.ExpiresAt)
-			if e != nil {
+			if e != nil && q.Type != questionApproval {
 				return e
 			}
-			if !time.Now().Before(deadline) {
+			if e != nil || !time.Now().Before(deadline) {
 				q.Status, q.UpdatedAt, q.Resumable = questionExpired, now(), q.Type == questionApproval
-				if _, e = tx.Exec(`UPDATE questions SET status=?,updated_at=? WHERE id=? AND status='pending'`, q.Status, q.UpdatedAt, q.ID); e != nil {
+				if _, e = tx.Exec(`UPDATE questions SET status=?,updated_at=? WHERE id=? AND status IN ('pending','answered')`, q.Status, q.UpdatedAt, q.ID); e != nil {
 					return e
 				}
 				if e = insertRecoveryEvent(tx, q.ConversationID, "question", q.Card(), q.UpdatedAt); e != nil {
@@ -139,9 +141,10 @@ func (s *Store) refreshInputWaits(conv string) error {
 				}
 			}
 		}
-		// An expired approval remains a resumable wait. Only a fresh card can
-		// release it; expiration is neither denial nor permission to execute.
 		if q.Type == questionApproval && q.Status == questionExpired {
+			if e = enqueueApprovalExpiryTx(tx, q); e != nil {
+				return e
+			}
 			continue
 		}
 		if q.Status != questionAnswered && q.Status != questionCancelled && q.Status != questionExpired {

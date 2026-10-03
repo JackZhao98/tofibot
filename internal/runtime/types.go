@@ -29,6 +29,9 @@ type Tool struct {
 	// ResolveIdentity may make a bounded, read-only backend lookup. A failure
 	// here is known to precede execution, and must not become uncertain effect.
 	ResolveIdentity func(context.Context, json.RawMessage) (tooloutcome.Identity, error)
+	// ApprovalExpiryReadOnly is set only by a backend-owned executor whose
+	// scoped observation is independently authorized. Remote metadata cannot set it.
+	ApprovalExpiryReadOnly bool
 }
 
 // ToolEvent describes one provider tool call and its lifecycle. Arguments and
@@ -45,14 +48,15 @@ type ToolEvent struct {
 }
 
 type Request struct {
-	BotID           string
-	RunID           string
-	System          string
-	Model           string
-	ReasoningEffort string
-	Messages        []Message
-	Tools           []Tool
-	OnDelta         func(string)
+	ApprovalExpiryRecovery bool
+	BotID                  string
+	RunID                  string
+	System                 string
+	Model                  string
+	ReasoningEffort        string
+	Messages               []Message
+	Tools                  []Tool
+	OnDelta                func(string)
 	// OnAssistantTurn is called for completed non-final assistant turns with
 	// non-empty public content immediately before their tool calls are queued or
 	// executed. It is also called for a budget wrap-up turn whose tool calls are

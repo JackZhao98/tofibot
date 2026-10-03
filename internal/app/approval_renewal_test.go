@@ -15,7 +15,7 @@ import (
 	"time"
 )
 
-func TestExpiredApprovalRestartRenewAndDuplicateResume(t *testing.T) {
+func TestExpiredApprovalRestartConcludesWithoutRenewOrRemoteEffect(t *testing.T) {
 	var effects atomic.Int32
 	remote := newAppMCPFixture(t, "fixture", newAppTextTool("write", "Synthetic write", "target"), func(context.Context, *mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 		effects.Add(1)
@@ -84,24 +84,28 @@ func TestExpiredApprovalRestartRenewAndDuplicateResume(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	waitForRunStatus(t, s, r.ID, runWaiting)
+	waitForRunStatus(t, s, r.ID, "failed")
 	expired, _ := s.store.GetQuestion(old.ID)
-	if expired.Card().Outcome.Status != "approval_expired" || expired.Card().Outcome.NextAction != "renew_approval" {
+	if expired.Card().Outcome.Status != "approval_expired" || expired.Card().Outcome.NextAction != "finish_summary" {
 		t.Fatalf("expired=%+v", expired.Card())
 	}
 	if response := answerOtherQuestionHTTP(s, old.ID, `{"value":true}`); response.Code != http.StatusConflict {
 		t.Fatal("late old approval accepted")
 	}
-	fresh, err := s.store.RenewExpiredApproval(old.ID)
-	if err != nil {
-		t.Fatal(err)
+	if _, err = s.store.RenewExpiredApproval(old.ID); err == nil {
+		t.Fatal("expired flow revived")
 	}
-	duplicate, err := s.store.RenewExpiredApproval(old.ID)
-	if err != nil || duplicate.ID != fresh.ID || fresh.ID == old.ID || effects.Load() != 0 {
-		t.Fatalf("renew replay: %+v %v effects=%d", duplicate, err, effects.Load())
+	for range 2 {
+		if err = s.store.expireApproval(old.ID); err != nil {
+			t.Fatal(err)
+		}
 	}
-	if fresh.Approval.Payload != old.Approval.Payload {
-		t.Fatal("renewal changed scope")
+	if effects.Load() != 0 {
+		t.Fatal("expired action executed")
+	}
+	var summaries int
+	if err = s.store.db.QueryRow(`SELECT COUNT(*) FROM messages WHERE run_id=? AND role='assistant' AND kind<>'progress'`, r.ID).Scan(&summaries); err != nil || summaries != 1 {
+		t.Fatalf("summaries=%d error=%v", summaries, err)
 	}
 	if err = s.Close(); err != nil {
 		t.Fatal(err)
@@ -111,18 +115,9 @@ func TestExpiredApprovalRestartRenewAndDuplicateResume(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	waitForRunStatus(t, s, r.ID, runWaiting)
-	for range 2 {
-		if response := answerOtherQuestionHTTP(s, fresh.ID, `{"value":true}`); response.Code != http.StatusOK {
-			t.Fatalf("answer HTTP=%d %s", response.Code, response.Body.String())
-		}
-	}
-	waitForRunStatus(t, s, r.ID, "done")
-	if effects.Load() != 1 {
-		t.Fatalf("duplicate effect count=%d", effects.Load())
-	}
-	if response := answerOtherQuestionHTTP(s, old.ID, `{"value":true}`); response.Code != http.StatusConflict {
-		t.Fatal("old ID resurrected")
+	waitForRunStatus(t, s, r.ID, "failed")
+	if effects.Load() != 0 {
+		t.Fatal("restart replayed expired action")
 	}
 	var checkpointCount int
 	_ = s.store.db.QueryRow(`SELECT COUNT(*) FROM run_input_waits WHERE run_id=?`, r.ID).Scan(&checkpointCount)
@@ -185,7 +180,7 @@ func TestApprovalExpiresAfterAnswerBeforeDispatchAndReparksConsumedWait(t *testi
 	}
 	run, _ := s.GetRun(r.ID)
 	expired, _ := s.GetQuestion(q.ID)
-	if run.Status != runWaiting || expired.Card().Outcome.NextAction != "renew_approval" {
+	if run.Status != "queued" || expired.Card().Outcome.NextAction != "finish_summary" {
 		t.Fatalf("lost expired wait: %+v %+v", run, expired)
 	}
 	if err = s.SaveInputContinuation(context.Background(), r.ID, q.ID, json.RawMessage(`{}`)); err == nil {

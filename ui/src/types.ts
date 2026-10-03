@@ -38,7 +38,7 @@ export interface Bot {
 export interface Conversation {
   unread_count?: number;
   task_state?: {
-    status: "executing" | "needs_attention" | "waiting" | "failed" | "completed" | "cancelled";
+    status: "executing" | "needs_attention" | "waiting" | "failed" | "completed" | "cancelled" | "finishing" | "expired";
     run_id?: string;
     question_id?: string;
     draft_id?: string;
@@ -215,6 +215,8 @@ export interface ToolActivityRunSummary {
   failed_count: number;
   interrupted_count: number;
   pending_count: number;
+  expired_count?: number;
+  skipped_count?: number;
   started_at: string;
   updated_at: string;
 }
@@ -231,7 +233,9 @@ export interface Run {
   bot_id: string;
   status: RunStatus;
   error?: string;
-  failure?: { code: "connection_interrupted" | "execution_failed" | "budget_exhausted"; source: "runtime"; message: string };
+  failure?: { code: "connection_interrupted" | "execution_failed" | "budget_exhausted" | "approval_expired"; source: "runtime"; message: string };
+  stop_reason?: "approval_expired";
+  finishing_reason?: "approval_expired";
   parent_run_id?: string;
   model?: string;
   kind?: string;

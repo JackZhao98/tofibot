@@ -207,6 +207,9 @@ func (e *engine) Run(ctx context.Context, req Request) (Result, error) {
 	if err != nil {
 		return Result{}, err
 	}
+	if req.ApprovalExpiryRecovery {
+		return e.finishApprovalExpiry(ctx, req, model, continuation)
+	}
 
 	messages := make([]provider.Message, len(req.Messages))
 	for i, msg := range req.Messages {

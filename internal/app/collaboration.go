@@ -1057,16 +1057,10 @@ func (s *Server) runConversationWorker(conv string, q *conversationQueue) {
 			return
 		default:
 		}
-		if !s.modelConfigured() {
-			select {
-			case <-q.stop:
-				return
-			case <-q.wake:
-				continue
-			}
-		}
+		// Expiry settlement is independent of provider availability. Never leave
+		// a parked approval indefinitely waiting when the model disconnects.
 		r, ok, err := s.store.nextQueuedRun(conv)
-		if err == nil && ok {
+		if err == nil && ok && (s.modelConfigured() || s.store.hasApprovalExpiry(r.ID)) {
 			s.executeForQueue(r)
 			continue
 		}
@@ -1117,7 +1111,7 @@ func (s *Store) nextQueuedRun(conv string) (Run, bool, error) {
 	if err := s.refreshInputWaits(conv); err != nil {
 		return Run{}, false, err
 	}
-	row := s.db.QueryRow(`SELECT id,conversation_id,bot_id,status,error,parent_run_id,model,kind,origin_conversation_id,trigger_message_id,queue_seq,created_at,updated_at FROM runs WHERE conversation_id=? AND status='queued' ORDER BY CASE WHEN kind IN ('group_task','group_followup') THEN 0 ELSE 1 END,queue_seq,created_at,id LIMIT 1`, conv)
+	row := s.db.QueryRow(`SELECT id,conversation_id,bot_id,status,error,parent_run_id,model,kind,origin_conversation_id,trigger_message_id,queue_seq,created_at,updated_at FROM runs WHERE conversation_id=? AND status='queued' ORDER BY CASE WHEN EXISTS(SELECT 1 FROM approval_expiry_recoveries e WHERE e.run_id=runs.id AND e.state='ready') THEN -1 WHEN kind IN ('group_task','group_followup') THEN 0 ELSE 1 END,queue_seq,created_at,id LIMIT 1`, conv)
 	r, err := scanRun(row)
 	if err == sql.ErrNoRows {
 		return Run{}, false, nil
