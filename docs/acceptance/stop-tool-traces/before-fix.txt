@@ -1,0 +1,9 @@
+=== RUN   TestInterruptToolActivitiesScansOutcomeAndPublishesOneTerminalEvent
+    tool_activity_stop_test.go:36: sql: expected 12 destination arguments in Scan, not 11
+--- FAIL: TestInterruptToolActivitiesScansOutcomeAndPublishesOneTerminalEvent (0.03s)
+=== RUN   TestStopHTTPInterruptsToolTracesWithoutEffectReplay
+    tool_activity_stop_test.go:152: summaries=[{RunID:40976d80-8e5a-4e45-82cf-1120df178a93 BotID:85e9817f-454d-4ccf-9e96-e68e3358e109 ToolCount:3 CompletedCount:1 FailedCount:0 InterruptedCount:0 PendingCount:2 ExpiredCount:0 SkippedCount:0 StartedAt:2026-10-03T20:13:34.535254Z UpdatedAt:2026-10-03T20:13:34.536417Z}] err=<nil>
+--- FAIL: TestStopHTTPInterruptsToolTracesWithoutEffectReplay (0.03s)
+FAIL
+FAIL	github.com/JackZhao98/tofibot/internal/app	0.554s
+FAIL
