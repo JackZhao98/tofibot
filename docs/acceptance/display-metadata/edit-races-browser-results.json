@@ -1,0 +1,160 @@
+[
+  {
+    "kind": "memory",
+    "scenario": "title-only-refresh",
+    "pass": true,
+    "patch": {
+      "title": "Local memory title",
+      "expected": {
+        "title": "Original memory title"
+      }
+    },
+    "status": 200
+  },
+  {
+    "kind": "memory",
+    "scenario": "description-only-refresh",
+    "pass": true,
+    "patch": {
+      "description": "Local memory description",
+      "expected": {
+        "description": "Original memory description"
+      }
+    },
+    "status": 200
+  },
+  {
+    "kind": "memory",
+    "scenario": "body-restored-with-title",
+    "pass": true,
+    "patch": {
+      "title": "Local memory title",
+      "expected": {
+        "title": "Original memory title"
+      }
+    },
+    "status": 200
+  },
+  {
+    "kind": "memory",
+    "scenario": "body-conflict-before-refresh",
+    "pass": true,
+    "patch": {
+      "content": "本地编辑的新事实。",
+      "expected": {
+        "content": "原始事实，保留中文。"
+      }
+    },
+    "status": 409
+  },
+  {
+    "kind": "memory",
+    "scenario": "title-conflict-after-refresh",
+    "pass": true,
+    "patch": {
+      "title": "Local memory title",
+      "expected": {
+        "title": "Original memory title"
+      }
+    },
+    "status": 409
+  },
+  {
+    "kind": "memory",
+    "scenario": "all-restored-no-op",
+    "pass": true,
+    "patch": null,
+    "status": "no write"
+  },
+  {
+    "kind": "memory",
+    "scenario": "body-edit-unrelated-refresh",
+    "pass": true,
+    "patch": {
+      "content": "本地编辑的新事实。",
+      "expected": {
+        "content": "原始事实，保留中文。"
+      }
+    },
+    "status": 200
+  },
+  {
+    "kind": "schedule",
+    "scenario": "title-only-refresh",
+    "pass": true,
+    "patch": {
+      "title": "Local schedule title",
+      "expected": {
+        "title": "Original schedule title"
+      }
+    },
+    "status": 200
+  },
+  {
+    "kind": "schedule",
+    "scenario": "description-only-refresh",
+    "pass": true,
+    "patch": {
+      "description": "Local schedule description",
+      "expected": {
+        "description": "Original schedule description"
+      }
+    },
+    "status": 200
+  },
+  {
+    "kind": "schedule",
+    "scenario": "body-restored-with-title",
+    "pass": true,
+    "patch": {
+      "title": "Local schedule title",
+      "expected": {
+        "title": "Original schedule title"
+      }
+    },
+    "status": 200
+  },
+  {
+    "kind": "schedule",
+    "scenario": "body-conflict-before-refresh",
+    "pass": true,
+    "patch": {
+      "content": "Deliberately edited local English instruction.",
+      "expected": {
+        "content": "Original English execution instruction with quoted ‘上海’."
+      }
+    },
+    "status": 409
+  },
+  {
+    "kind": "schedule",
+    "scenario": "title-conflict-after-refresh",
+    "pass": true,
+    "patch": {
+      "title": "Local schedule title",
+      "expected": {
+        "title": "Original schedule title"
+      }
+    },
+    "status": 409
+  },
+  {
+    "kind": "schedule",
+    "scenario": "all-restored-no-op",
+    "pass": true,
+    "patch": null,
+    "status": "no write"
+  },
+  {
+    "kind": "schedule",
+    "scenario": "body-edit-unrelated-refresh",
+    "pass": true,
+    "patch": {
+      "content": "Deliberately edited local English instruction.",
+      "expected": {
+        "content": "Original English execution instruction with quoted ‘上海’."
+      }
+    },
+    "status": 200
+  }
+]

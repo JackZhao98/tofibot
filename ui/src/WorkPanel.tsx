@@ -2,7 +2,7 @@ import { scheduleDisplay } from "./displayMetadata";
 import { ScheduleEditor } from "./ScheduleEditor";
 import { DelayedFeedback } from "./DelayedFeedback";
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { api } from "./api";
+import { api, ApiError } from "./api";
 import { TofiIcon } from "./icons";
 import { GazeAvatar } from "./GazeAvatar";
 import { ConfirmAction, Disclosure } from "./InteractionSystem";
@@ -105,7 +105,9 @@ function WorkPanelView({ conversation, conversations, bots, refreshToken, onClos
     writing.current = true;
     setPending(id); setOperationError(null);
     try { await action(); if (mounted.current) await currentReload.current(); }
-    catch (cause) { if (operationView.active) setOperationError({ text: message(cause), id, retry: action }); }
+    // The editor retains its draft and explains conflicts. Replaying that stale
+    // PATCH cannot resolve a conflict; the user must reopen the current record.
+    catch (cause) { if (operationView.active && !(cause instanceof ApiError && cause.code === "edit_conflict")) setOperationError({ text: message(cause), id, retry: action }); }
     finally { writing.current = false; if (mounted.current) setPending(""); }
   }
   function itemReadOnly(item: WorkItem) {

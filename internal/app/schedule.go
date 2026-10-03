@@ -1181,6 +1181,10 @@ func (s *Server) routeSchedules(w http.ResponseWriter, r *http.Request, p string
 			}
 			x, err := s.store.PatchSchedule(id, patch)
 			if err != nil {
+				if errors.Is(err, ErrEditConflict) {
+					writeErr(w, http.StatusConflict, "edit_conflict", err.Error())
+					return true
+				}
 				if errors.Is(err, ErrArchiveBlocked) {
 					writeErr(w, http.StatusConflict, "archive_blocked", err.Error())
 					return true
