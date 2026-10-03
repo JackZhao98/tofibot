@@ -60,6 +60,15 @@ identity separately from model arguments. At the guest mutation boundary, an
 existing file opens without truncation, its descriptor identity is verified,
 and content is written through that same descriptor. Missing files use the
 verified parent descriptor, no-follow directory traversal and exclusive creation.
+The Worker manager forwards the separate `write_identity` object only for
+`files.write`, without rewriting it. It relays the Guest's HTTP status and
+structured outcome unchanged, including a 409 identity mismatch, and makes no
+unguarded fallback request. Invalid envelopes are refused before Guest dispatch.
+
+Deployment requires the matching manager as well as the new App and Guest.
+Direct Guest-handler tests do not establish that the real Unix/vsock proxy
+accepts this envelope; the manager transport regression and actual confined
+Guest acceptance must cover that hop before release.
 A changed identity is rejected before content mutation; no legacy fallback runs.
 
 The original dispatch evidence is immutable. Additional observations can only
