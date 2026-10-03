@@ -13,6 +13,7 @@ type ToolResult struct {
 	CallID   string
 	ToolName string
 	Content  string
+	Failed   bool
 	Index    int // preserves original order
 }
 
@@ -109,6 +110,7 @@ func executeToolsParallel(
 				CallID:   tc.ID,
 				ToolName: tc.Name,
 				Content:  content,
+				Failed:   err != nil,
 				Index:    i,
 			}
 			mu.Unlock()

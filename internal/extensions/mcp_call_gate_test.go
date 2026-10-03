@@ -10,6 +10,7 @@ import (
 	"sync/atomic"
 	"testing"
 
+	"github.com/JackZhao98/tofibot/internal/tooloutcome"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
@@ -155,6 +156,13 @@ func TestMCPCallGateTrustedReadOnlyRequiresOwnerConfiguration(t *testing.T) {
 	defer prepared.Close()
 	if _, err := discoveryTool(t, prepared, "search_mcp_tools").Execute(context.Background(), json.RawMessage(`{"server":"fixture","query":"read"}`)); err != nil {
 		t.Fatal(err)
+	}
+	call := discoveryTool(t, prepared, "call_mcp_tool")
+	if call.Identity == nil || call.Identity(json.RawMessage(`{"name":"mcp_fixture__read_report","arguments":{}}`)).Risk != tooloutcome.Observation {
+		t.Fatal("owner-reviewed read-only risk was not retained")
+	}
+	if call.Identity(json.RawMessage(`{"name":"mcp_fixture__unseen_read","arguments":{}}`)).Risk != tooloutcome.OpaqueEffect {
+		t.Fatal("unseen capability gained read-only classification")
 	}
 	result, err := discoveryTool(t, prepared, "call_mcp_tool").Execute(context.Background(), json.RawMessage(`{"name":"mcp_fixture__read_report","arguments":{}}`))
 	if err != nil || result != "report" || remoteCalls.Load() != 1 {

@@ -16,6 +16,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/JackZhao98/tofibot/internal/tooloutcome"
 )
 
 const (
@@ -43,18 +45,20 @@ const (
 var botIDPattern = regexp.MustCompile(`^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$`)
 
 type ActionRequest struct {
-	BotID   string          `json:"bot_id"`
-	BotName string          `json:"bot_name,omitempty"`
-	RunID   string          `json:"run_id"`
-	Action  string          `json:"action"`
-	Args    json.RawMessage `json:"args"`
-	Source  string          `json:"source,omitempty"`
+	BotID         string                `json:"bot_id"`
+	BotName       string                `json:"bot_name,omitempty"`
+	RunID         string                `json:"run_id"`
+	Action        string                `json:"action"`
+	Args          json.RawMessage       `json:"args"`
+	Source        string                `json:"source,omitempty"`
+	WriteIdentity *tooloutcome.Identity `json:"write_identity,omitempty"`
 }
 
 type ActionResponse struct {
-	OK     bool   `json:"ok"`
-	Result any    `json:"result,omitempty"`
-	Error  string `json:"error,omitempty"`
+	OK      bool                 `json:"ok"`
+	Result  any                  `json:"result,omitempty"`
+	Error   string               `json:"error,omitempty"`
+	Outcome *tooloutcome.Outcome `json:"outcome,omitempty"`
 }
 
 type Service struct {
@@ -236,6 +240,10 @@ func (s *Service) handle(w http.ResponseWriter, r *http.Request) {
 	}
 	result, err := s.action(r.Context(), req)
 	if err != nil {
+		if o, ok := tooloutcome.FromError(err); ok && req.WriteIdentity != nil && o.Status == tooloutcome.Validation && o.Certainty == "not_executed" {
+			writeJSON(w, http.StatusConflict, ActionResponse{OK: false, Error: o.Message, Outcome: &o})
+			return
+		}
 		status := http.StatusInternalServerError
 		if errors.Is(err, errFileConflict) {
 			status = http.StatusConflict

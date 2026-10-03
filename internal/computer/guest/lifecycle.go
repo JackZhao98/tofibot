@@ -45,6 +45,11 @@ func (s *Service) action(ctx context.Context, req ActionRequest) (any, error) {
 	ctx, cancel := context.WithTimeout(ctx, MaxTimeout*time.Second)
 	defer cancel()
 	req.Source = normalizedSource(req.Source)
+	// Recovery lookup stays read-only. Bound writes validate and create their
+	// own directories; alias setup here would mutate a target before validation.
+	if req.Action == "files.identity" || (req.Action == "files.write" && req.WriteIdentity != nil) {
+		return s.dispatchAction(ctx, req)
+	}
 	if _, err := s.ensureWorkspaceAlias(req.BotID, req.BotName); err != nil {
 		return nil, fmt.Errorf("workspace alias: %w", err)
 	}

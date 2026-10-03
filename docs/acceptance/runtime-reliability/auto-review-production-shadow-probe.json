@@ -1,0 +1,44 @@
+{
+  "model": "codex-auto-review",
+  "fixture": "public_search",
+  "availability": "available",
+  "attempts": 1,
+  "tool_calls": 0,
+  "execution_approved": false,
+  "source": "current_production_account_snapshot",
+  "credential_refreshed": false,
+  "production_settings_changed": false,
+  "probe_implementation": "one_shot_in_memory_adapter_wire_request",
+  "http_status": 200,
+  "usage": {
+    "input_tokens": 97,
+    "output_tokens": 61,
+    "total_tokens": 158
+  },
+  "content_characters": 145,
+  "shadow_report": {
+    "fixture": "public_search",
+    "recommendation": "allow",
+    "rationale": "Searching a public documentation index is low-risk, has no stated side effects, and is not yet executed.",
+    "execution_approved": false
+  },
+  "sanitized_model_output": {
+    "recommendation": "allow",
+    "rationale": "Searching a public documentation index is low-risk, has no stated side effects, and is not yet executed."
+  },
+  "response_schema": {
+    "recommendation": {
+      "type": "string",
+      "enum": [
+        "allow",
+        "deny",
+        "need_information"
+      ]
+    },
+    "rationale": {
+      "type": "string"
+    }
+  },
+  "serialization_note": "Normalized parsed model fields; raw SSE frames, headers, account identity and credentials are not retained.",
+  "response_schema_source": "Local validation of the returned fields, not a provider-advertised interface"
+}

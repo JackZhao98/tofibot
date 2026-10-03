@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	"github.com/JackZhao98/tofibot/internal/runtime"
+	"github.com/JackZhao98/tofibot/internal/tooloutcome"
 )
 
 const (
@@ -26,17 +27,18 @@ const (
 
 // ToolActivity is the durable snapshot of one provider tool call.
 type ToolActivity struct {
-	ConversationID string `json:"conversation_id"`
-	BotID          string `json:"bot_id"`
-	RunID          string `json:"run_id"`
-	CallID         string `json:"call_id"`
-	Name           string `json:"name"`
-	Arguments      string `json:"arguments"`
-	Result         string `json:"result"`
-	Status         string `json:"status"`
-	Truncated      bool   `json:"truncated"`
-	StartedAt      string `json:"started_at"`
-	UpdatedAt      string `json:"updated_at"`
+	ConversationID string               `json:"conversation_id"`
+	BotID          string               `json:"bot_id"`
+	RunID          string               `json:"run_id"`
+	CallID         string               `json:"call_id"`
+	Name           string               `json:"name"`
+	Arguments      string               `json:"arguments"`
+	Result         string               `json:"result"`
+	Status         string               `json:"status"`
+	Truncated      bool                 `json:"truncated"`
+	StartedAt      string               `json:"started_at"`
+	UpdatedAt      string               `json:"updated_at"`
+	Outcome        *tooloutcome.Outcome `json:"outcome,omitempty"`
 }
 
 // ToolActivityRunSummary is the small, exact count shown before a user asks
@@ -84,7 +86,10 @@ CREATE TABLE IF NOT EXISTS tool_activities(
  PRIMARY KEY(run_id,call_id)
  );
 CREATE INDEX IF NOT EXISTS tool_activities_conversation ON tool_activities(conversation_id,updated_at DESC);`)
-	return err
+	if err != nil {
+		return err
+	}
+	return ensureColumn(db, "tool_activities", "outcome_json", `ALTER TABLE tool_activities ADD COLUMN outcome_json TEXT NOT NULL DEFAULT ''`)
 }
 
 // RecordToolEvent atomically updates the call snapshot and appends its SSE
@@ -102,6 +107,11 @@ func (s *Store) RecordToolEvent(conversationID, botID, runID string, event runti
 	}
 	event.Arguments, event.Truncated = boundToolActivityText(event.Arguments, maxToolActivityArguments, event.Truncated)
 	event.Result, event.Truncated = boundToolActivityText(event.Result, maxToolActivityResult, event.Truncated)
+	event.Outcome = tooloutcome.Bounded(event.Outcome)
+	outcomeJSON := ""
+	if event.Outcome != nil {
+		outcomeJSON = event.Outcome.JSON()
+	}
 
 	tx, err := s.db.Begin()
 	if err != nil {
@@ -121,14 +131,16 @@ func (s *Store) RecordToolEvent(conversationID, botID, runID string, event runti
 
 	var current ToolActivity
 	var truncated int
-	lookupErr := tx.QueryRow(`SELECT conversation_id,bot_id,run_id,call_id,name,arguments,result,status,truncated,started_at,updated_at
+	var currentOutcome string
+	lookupErr := tx.QueryRow(`SELECT conversation_id,bot_id,run_id,call_id,name,arguments,result,status,truncated,started_at,updated_at,outcome_json
 FROM tool_activities WHERE run_id=? AND call_id=?`, runID, event.CallID).Scan(
 		&current.ConversationID, &current.BotID, &current.RunID, &current.CallID,
 		&current.Name, &current.Arguments, &current.Result, &current.Status,
-		&truncated, &current.StartedAt, &current.UpdatedAt)
+		&truncated, &current.StartedAt, &current.UpdatedAt, &currentOutcome)
 	if lookupErr != nil && lookupErr != sql.ErrNoRows {
 		return lookupErr
 	}
+	current.Outcome = tooloutcome.Parse(currentOutcome)
 	t := now()
 	snapshot := ToolActivity{
 		ConversationID: conversationID,
@@ -142,13 +154,14 @@ FROM tool_activities WHERE run_id=? AND call_id=?`, runID, event.CallID).Scan(
 		Truncated:      event.Truncated,
 		StartedAt:      t,
 		UpdatedAt:      t,
+		Outcome:        event.Outcome,
 	}
 	if lookupErr == sql.ErrNoRows {
 		if event.Status != "queued" {
 			return fmt.Errorf("tool call %q has no queued record", event.CallID)
 		}
-		if _, err = tx.Exec(`INSERT INTO tool_activities(conversation_id,bot_id,run_id,call_id,name,arguments,result,status,truncated,started_at,updated_at)
-VALUES(?,?,?,?,?,?,?,?,?,?,?)`, snapshot.ConversationID, snapshot.BotID, snapshot.RunID, snapshot.CallID, snapshot.Name, snapshot.Arguments, snapshot.Result, snapshot.Status, boolInt(snapshot.Truncated), snapshot.StartedAt, snapshot.UpdatedAt); err != nil {
+		if _, err = tx.Exec(`INSERT INTO tool_activities(conversation_id,bot_id,run_id,call_id,name,arguments,result,status,truncated,started_at,updated_at,outcome_json)
+VALUES(?,?,?,?,?,?,?,?,?,?,?,?)`, snapshot.ConversationID, snapshot.BotID, snapshot.RunID, snapshot.CallID, snapshot.Name, snapshot.Arguments, snapshot.Result, snapshot.Status, boolInt(snapshot.Truncated), snapshot.StartedAt, snapshot.UpdatedAt, outcomeJSON); err != nil {
 			return err
 		}
 	} else {
@@ -174,7 +187,7 @@ VALUES(?,?,?,?,?,?,?,?,?,?,?)`, snapshot.ConversationID, snapshot.BotID, snapsho
 			result = event.Result
 		}
 		truncatedValue := current.Truncated || event.Truncated
-		if _, err = tx.Exec(`UPDATE tool_activities SET arguments=?,result=?,status=?,truncated=?,updated_at=? WHERE run_id=? AND call_id=?`, arguments, result, event.Status, boolInt(truncatedValue), t, runID, event.CallID); err != nil {
+		if _, err = tx.Exec(`UPDATE tool_activities SET arguments=?,result=?,status=?,truncated=?,updated_at=?,outcome_json=? WHERE run_id=? AND call_id=?`, arguments, result, event.Status, boolInt(truncatedValue), t, outcomeJSON, runID, event.CallID); err != nil {
 			return err
 		}
 		snapshot = current
@@ -183,6 +196,7 @@ VALUES(?,?,?,?,?,?,?,?,?,?,?)`, snapshot.ConversationID, snapshot.BotID, snapsho
 		snapshot.Status = event.Status
 		snapshot.Truncated = truncatedValue
 		snapshot.UpdatedAt = t
+		snapshot.Outcome = event.Outcome
 	}
 
 	b, err := json.Marshal(snapshot)
@@ -229,7 +243,7 @@ func (s *Store) ToolActivities(conversationID string, limit int) ([]ToolActivity
 	if limit > maxToolActivityLimit {
 		limit = maxToolActivityLimit
 	}
-	rows, err := s.db.Query(`SELECT conversation_id,bot_id,run_id,call_id,name,arguments,result,status,truncated,started_at,updated_at
+	rows, err := s.db.Query(`SELECT conversation_id,bot_id,run_id,call_id,name,arguments,result,status,truncated,started_at,updated_at,outcome_json
 FROM tool_activities WHERE conversation_id=? ORDER BY updated_at DESC,run_id DESC,call_id DESC LIMIT ?`, conversationID, limit)
 	if err != nil {
 		return nil, err
@@ -237,12 +251,10 @@ FROM tool_activities WHERE conversation_id=? ORDER BY updated_at DESC,run_id DES
 	defer rows.Close()
 	activities := make([]ToolActivity, 0)
 	for rows.Next() {
-		var activity ToolActivity
-		var truncated int
-		if err = rows.Scan(&activity.ConversationID, &activity.BotID, &activity.RunID, &activity.CallID, &activity.Name, &activity.Arguments, &activity.Result, &activity.Status, &truncated, &activity.StartedAt, &activity.UpdatedAt); err != nil {
-			return nil, err
+		activity, scanErr := scanToolActivity(rows)
+		if scanErr != nil {
+			return nil, scanErr
 		}
-		activity.Truncated = truncated != 0
 		activities = append(activities, activity)
 	}
 	return activities, rows.Err()
@@ -294,7 +306,7 @@ func (s *Store) ToolActivitiesForRun(conversationID, runID string, offset, limit
 	if err := s.db.QueryRow(`SELECT COUNT(*) FROM tool_activities WHERE conversation_id=? AND run_id=?`, conversationID, runID).Scan(&total); err != nil {
 		return nil, 0, err
 	}
-	rows, err := s.db.Query(`SELECT conversation_id,bot_id,run_id,call_id,name,arguments,result,status,truncated,started_at,updated_at
+	rows, err := s.db.Query(`SELECT conversation_id,bot_id,run_id,call_id,name,arguments,result,status,truncated,started_at,updated_at,outcome_json
 FROM tool_activities WHERE conversation_id=? AND run_id=? ORDER BY started_at ASC,call_id ASC LIMIT ? OFFSET ?`, conversationID, runID, limit, offset)
 	if err != nil {
 		return nil, 0, err
@@ -302,12 +314,10 @@ FROM tool_activities WHERE conversation_id=? AND run_id=? ORDER BY started_at AS
 	defer rows.Close()
 	activities := make([]ToolActivity, 0, min(limit, max(0, total-offset)))
 	for rows.Next() {
-		var activity ToolActivity
-		var truncated int
-		if err = rows.Scan(&activity.ConversationID, &activity.BotID, &activity.RunID, &activity.CallID, &activity.Name, &activity.Arguments, &activity.Result, &activity.Status, &truncated, &activity.StartedAt, &activity.UpdatedAt); err != nil {
-			return nil, 0, err
+		activity, scanErr := scanToolActivity(rows)
+		if scanErr != nil {
+			return nil, 0, scanErr
 		}
-		activity.Truncated = truncated != 0
 		activities = append(activities, activity)
 	}
 	return activities, total, rows.Err()
@@ -414,7 +424,7 @@ func (s *Store) InterruptToolActivities(runID string) error {
 		return err
 	}
 	defer tx.Rollback()
-	rows, err := tx.Query(`SELECT conversation_id,bot_id,run_id,call_id,name,arguments,result,status,truncated,started_at,updated_at FROM tool_activities WHERE run_id=? AND status IN ('queued','running')`, runID)
+	rows, err := tx.Query(`SELECT conversation_id,bot_id,run_id,call_id,name,arguments,result,status,truncated,started_at,updated_at,outcome_json FROM tool_activities WHERE run_id=? AND status IN ('queued','running')`, runID)
 	if err != nil {
 		return err
 	}

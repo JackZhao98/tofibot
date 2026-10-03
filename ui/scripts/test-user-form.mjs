@@ -10,7 +10,7 @@ const run = promisify(execFile);
 const uiRoot = dirname(dirname(fileURLToPath(import.meta.url)));
 const output = await mkdtemp(join(tmpdir(), "tofi-user-form-"));
 try {
-  await run(join(uiRoot, "node_modules/.bin/tsc"), ["src/userForm.ts", "--ignoreConfig", "--target", "ES2022", "--module", "ES2022", "--moduleResolution", "Bundler", "--outDir", output, "--skipLibCheck", "--strict", "--declaration", "false", "--pretty", "false"], { cwd: uiRoot });
+  await run(join(uiRoot, "node_modules/.bin/tsc"), ["src/userForm.ts", "--ignoreConfig", "--target", "ES2022", "--module", "ES2022", "--moduleResolution", "Bundler", "--jsx", "react-jsx", "--types", "vite/client", "--outDir", output, "--skipLibCheck", "--strict", "--declaration", "false", "--pretty", "false"], { cwd: uiRoot });
   const { userFormSchemaError, validateUserForm, userFormAnswerRows, userFormIdentity } = await import(pathToFileURL(join(output, "userForm.js")));
   const field = (id, type = "text", required = true) => ({ id, label: id, type, required });
   const fields = [field("name"), field("email", "email"), field("password", "password"), field("note", "textarea", false)];

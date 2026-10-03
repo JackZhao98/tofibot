@@ -17,11 +17,15 @@ func (r Run) failure() *RunFailure {
 	if r.Status != "failed" {
 		return nil
 	}
-	failure := &RunFailure{Code: "execution_failed", Source: "runtime", Message: "Task failed before completion."}
+	failure := &RunFailure{Code: "execution_failed", Source: "runtime", Message: "Task failed before completion. Completed tool results are retained; verify any uncertain effects before retrying."}
 	errorText := strings.ToLower(r.Error)
-	if strings.Contains(errorText, "stream read error") || strings.Contains(errorText, "connection reset") || strings.Contains(errorText, "broken pipe") || strings.Contains(errorText, "unexpected eof") {
+	if strings.Contains(errorText, "stream read error") || strings.Contains(errorText, "connection reset") || strings.Contains(errorText, "broken pipe") || strings.Contains(errorText, "unexpected eof") || strings.Contains(errorText, "internal_error") {
 		failure.Code = "connection_interrupted"
-		failure.Message = "Connection interrupted. Task did not finish."
+		failure.Message = "Connection interrupted. Task did not finish. Completed tool results are retained; verify any uncertain effects before retrying."
+	}
+	if strings.Contains(errorText, "budget") || strings.Contains(errorText, "maximum agent steps") || strings.Contains(errorText, "empty responses") {
+		failure.Code = "budget_exhausted"
+		failure.Message = "The execution or repair budget was exhausted. Task did not finish; completed tool results are retained. Review the blocker before continuing."
 	}
 	return failure
 }

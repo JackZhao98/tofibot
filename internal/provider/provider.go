@@ -6,6 +6,7 @@ package provider
 import (
 	"context"
 	"fmt"
+	"github.com/JackZhao98/tofibot/internal/tooloutcome"
 	"strings"
 )
 
@@ -37,6 +38,9 @@ type Message struct {
 	ToolCalls  []ToolCall // For assistant messages: tool calls made
 	ToolCallID string     // For tool messages: which call this is responding to
 	ToolName   string     // For tool messages: name of the tool
+	// Backend metadata only; provider request converters never send these fields.
+	ToolOutcome *tooloutcome.Outcome `json:"tool_outcome,omitempty"`
+	ToolFailed  bool                 `json:"tool_failed,omitempty"`
 }
 
 // Tool represents a callable function tool.

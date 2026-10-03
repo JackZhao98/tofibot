@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/JackZhao98/tofibot/internal/computer"
+	"github.com/JackZhao98/tofibot/internal/tooloutcome"
 )
 
 const microVMComputerID = "firecracker"
@@ -100,14 +101,14 @@ func (s *Server) listComputers(ctx context.Context) ([]Computer, error) {
 
 func (s *Server) microVMAction(ctx context.Context, r Run, name string, args json.RawMessage) (string, error) {
 	if s.microVM == nil {
-		return "", errors.New("computer VM is not configured")
+		return "", tooloutcome.New(tooloutcome.Permanent, "computer_unavailable", "not_executed", "computer VM is not configured", "explain_blocker").Err()
 	}
 	if !microVMActions[name] {
-		return "", fmt.Errorf("unsupported computer action %q", name)
+		return "", tooloutcome.InvalidArguments(fmt.Sprintf("unsupported computer action %q", name))
 	}
 	if !isGraphicAction(name) {
 		if strings.HasPrefix(name, "terminal.") && name != "terminal.list" && name != "terminal.read" && !s.terminalAvailable(r.BotID, r.ID) {
-			return "", errors.New("terminal_busy: user controls this Bot's terminal")
+			return "", tooloutcome.New(tooloutcome.Denied, "terminal_busy", "not_executed", "terminal_busy: user controls this Bot's terminal", "explain_blocker").Err()
 		}
 		if name == "terminal.open" || name == "terminal.write" {
 			if err := s.store.registerRunTerminals(ctx, r, s.microVM.Socket()); err != nil {
@@ -138,7 +139,7 @@ func (s *Server) microVMAction(ctx context.Context, r Run, name string, args jso
 	}
 
 	if actionNeedsObservation(name) && !s.desktopObservedFor(r) {
-		return "", errors.New("needs_observation: shared desktop control changed; inspect desktop.capture or browser.snapshot before using coordinates or typing")
+		return "", tooloutcome.InvalidArguments("needs_observation: shared desktop control changed; inspect desktop.capture or browser.snapshot before using coordinates or typing")
 	}
 	result, err := s.microVMActionOnLease(ctx, r, name, args)
 	if err == nil {
@@ -198,7 +199,11 @@ func (s *Server) microVMActionFromSource(ctx context.Context, r Run, name string
 			botName = bot.Name
 		}
 	}
-	result, err := s.microVM.Action(ctx, computer.Action{BotID: r.BotID, BotName: botName, RunID: r.ID, Name: name, Args: args, Source: source})
+	action := computer.Action{BotID: r.BotID, BotName: botName, RunID: r.ID, Name: name, Args: args, Source: source}
+	if identity, ok := tooloutcome.ExecutionIdentity(ctx); ok && name == "files.write" && identity.GuardVersion == 1 {
+		action.WriteIdentity = &identity
+	}
+	result, err := s.microVM.Action(ctx, action)
 	if err != nil {
 		return "", err
 	}
@@ -284,7 +289,26 @@ func (s *Server) microVMTools(r Run) []Tool {
 		return d.Decode(target)
 	}
 	call := func(name, description string, schema map[string]any, parse func(json.RawMessage) (string, json.RawMessage, error)) Tool {
-		return Tool{Name: name, Description: description, Parameters: schema, Execute: func(ctx context.Context, raw json.RawMessage) (string, error) {
+		return Tool{Name: name, Description: description, Parameters: schema, Identity: func(raw json.RawMessage) tooloutcome.Identity {
+			action, args, err := parse(raw)
+			if err != nil {
+				var in struct {
+					Action string `json:"action"`
+				}
+				_ = json.Unmarshal(raw, &in)
+				action, args = in.Action, raw
+				if action == "" {
+					action = name
+				}
+			}
+			return computerRecoveryIdentity(r.BotID, microVMComputerID, action, args)
+		}, ResolveIdentity: func(ctx context.Context, raw json.RawMessage) (tooloutcome.Identity, error) {
+			action, args, err := parse(raw)
+			if err != nil {
+				return tooloutcome.Identity{}, tooloutcome.InvalidArguments(err.Error())
+			}
+			return s.resolveComputerRecovery(ctx, r, microVMComputerID, action, args)
+		}, Execute: func(ctx context.Context, raw json.RawMessage) (string, error) {
 			action, args, err := parse(raw)
 			if err != nil {
 				return "", err
