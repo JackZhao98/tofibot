@@ -228,7 +228,11 @@ html:not([data-desktop]) .workspace .new-arrival .message-user .message-content 
 .workspace .message-reply-excerpt { overflow:hidden; max-width:100%; text-overflow:ellipsis; white-space:nowrap; font:13px/1.4 var(--body); }
 .workspace .message-user .message-reply-quote { margin-left:auto; }
 .workspace .message-block:focus { outline:none; }
-.workspace .message-block:focus .message-content { outline:2px solid var(--lagoon); outline-offset:4px; }
+.workspace .message-block:focus-visible .message-content { outline:2px solid var(--lagoon); outline-offset:4px; }
+/* Clicking a message never frames it. Jumps to a message (sidebar result, reply
+   quote) flash the target once via .is-jump-target; keyboard focus keeps the ring. */
+.workspace .message-block.is-jump-target .message-content { outline:2px solid var(--lagoon); outline-offset:4px; animation:v2-focus-flash 1.6s ease-out forwards; }
+@keyframes v2-focus-flash { 0%,45% { outline-color:var(--lagoon); } 100% { outline-color:transparent; } }
 html:not([data-desktop]) .workspace .message-segment .message-content {
   display:table; max-width:min(78%, 680px); padding:9px 13px; border:1px solid var(--line-soft);
   border-radius:16px 16px 16px 5px; background:var(--surface-2);
@@ -249,9 +253,9 @@ html:not([data-desktop]) .workspace .new-arrival .message-segment .message-conte
 }
 .workspace .message-code,.workspace .message-content pre {
   color:var(--code-block-ink); background:var(--code-block-bg); border:1px solid var(--code-block-edge);
-  border-radius:12px; font:12px/1.6 var(--mono);
+  border-radius:12px; font:var(--type-code);
 }
-.workspace .message-code code,.workspace .message-content pre code { color:inherit; background:transparent; border:0; }
+.workspace .message-code code,.workspace .message-content pre code { color:inherit; background:transparent; border:0; font-size:inherit; }
 .workspace .message-notice { color:var(--muted); font:11px/1.5 var(--mono); }
 .workspace .message-notice button:hover { background:var(--surface-2); color:var(--ink); }
 .workspace .message-mention { background:var(--pink); color:var(--on-block); border-radius:6px; }
@@ -573,3 +577,66 @@ html:not([data-desktop]) .workspace .web-memory-empty p{margin:0;color:var(--mut
 html:not([data-desktop]) .workspace .web-loading-state{min-height:96px;padding-block:16px;align-content:center;justify-items:center;gap:8px;animation:web-loading-in 260ms ease both}
 @keyframes web-loading-in{from{opacity:0}}
 @media(prefers-reduced-motion:reduce){html:not([data-desktop]) .workspace .web-loading-state{animation:none}}
+
+/* Browser-mode message actions: hover (or keyboard focus) reveals time, reaction and reply. */
+.workspace .message-hover-host { position:relative; }
+.workspace .message-hover-actions {
+  position:absolute; z-index:4; right:0; bottom:calc(100% - 6px); display:flex; align-items:center; gap:2px; padding:3px;
+  border:1px solid var(--line-soft); border-radius:10px; background:var(--surface);
+  box-shadow:0 6px 18px color-mix(in srgb,var(--ink) 12%,transparent);
+  opacity:0; pointer-events:none; transform:translateY(3px); transition:opacity 120ms ease,transform 120ms ease;
+}
+.workspace .message-hover-host:hover>.message-hover-actions,
+.workspace .message-hover-actions:focus-within { opacity:1; pointer-events:auto; transform:none; }
+.workspace .message-hover-actions time { padding:0 6px 0 7px; color:var(--muted); font:11px/1 var(--mono); white-space:nowrap; }
+.workspace .message-hover-actions button {
+  display:grid; place-items:center; width:28px; height:28px; padding:0; border:0; border-radius:7px;
+  background:transparent; color:var(--ink-soft); cursor:pointer;
+}
+.workspace .message-hover-actions button:hover { background:var(--surface-2); color:var(--ink); }
+.workspace .message-hover-actions button:focus-visible { outline:2px solid var(--focus); outline-offset:1px; }
+@media (hover:none) { .workspace .message-hover-actions { display:none; } }
+@media (prefers-reduced-motion:reduce) { .workspace .message-hover-actions { transition:none; } }
+
+.workspace .composer-reply {
+  display:flex; align-items:center; gap:8px; margin:0 0 6px; padding:6px 6px 6px 10px;
+  border-left:3px solid var(--lagoon); border-radius:8px; background:var(--surface-2); color:var(--muted);
+}
+.workspace .composer-reply-copy { display:flex; min-width:0; flex:1; gap:8px; align-items:baseline; font:13px/1.4 var(--body); }
+.workspace .composer-reply-copy strong { flex-shrink:0; color:var(--ink); font-weight:600; }
+.workspace .composer-reply-copy span { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.workspace .composer-reply button { display:grid; place-items:center; width:24px; height:24px; padding:0; border:0; border-radius:6px; background:transparent; color:var(--muted); cursor:pointer; }
+.workspace .composer-reply button:hover { background:var(--surface); color:var(--ink); }
+
+/* Group chats: reactions and live status line up with the message text, not the avatar column. */
+html:not([data-desktop]) .workspace .message-block:has(.message-avatar)>.message-reactions,
+html:not([data-desktop]) .workspace .live-run-status.is-group { margin-left:44px; }
+html[data-desktop] .workspace .message-block:has(.message-avatar)>.message-reactions { margin-left:48px; }
+
+/* Bot profile: one header (title + close), the cat and identity, then one list of equal rows —
+   plans, memory, name/role/model — each opening exactly one page. Sharing sits quietly at the end. */
+.workspace .bot-v2-heading { justify-content:space-between; padding:0 0 14px; }
+.workspace .bot-v2-profile { display:grid; justify-items:center; gap:4px; padding:4px 0 18px; }
+.workspace .bot-v2-profile .bot-v2-hero { width:136px; height:136px; margin:14px auto 10px; border-radius:28px; }
+.workspace .bot-v2-profile .bot-v2-cat { width:108px; height:108px; }
+.workspace .bot-v2-profile .bot-v2-change { right:-6px; bottom:-6px; display:grid; place-items:center; width:28px; height:28px; padding:0; border:1.5px solid var(--line); border-radius:50%; }
+.workspace .bot-v2-profile .bot-v2-identity { padding:0 8px; }
+.workspace .bot-v2-model { display:inline-block; margin-top:6px; padding:3px 9px; border:1px solid var(--line-soft); border-radius:999px; background:var(--surface-2); color:var(--muted); font:10px/1.4 var(--mono); }
+.workspace .bot-v2-rows { display:grid; gap:8px; }
+.workspace .bot-v2-rows :is(.bot-v2-row,.work-preview) {
+  display:grid; grid-template-columns:36px minmax(0,1fr) auto; align-items:center; gap:12px; width:100%; min-height:60px;
+  margin:0; padding:10px 12px 10px 10px; border:1px solid var(--line-soft); border-radius:14px; background:var(--surface-2);
+  color:var(--ink); text-align:left; cursor:pointer; transition:border-color 140ms ease,background-color 140ms ease;
+}
+.workspace .bot-v2-rows :is(.bot-v2-row,.work-preview):hover:not(:disabled) { border-color:var(--line); background:var(--surface); }
+.workspace .bot-v2-rows :is(.bot-v2-row,.work-preview):focus-visible { outline:2px solid var(--focus); outline-offset:2px; }
+.workspace .bot-v2-row-icon { display:grid; place-items:center; width:36px; height:36px; border:1px solid var(--line-soft); border-radius:10px; background:var(--surface); color:var(--ink-soft); }
+.workspace .bot-v2-rows :is(.bot-v2-row-copy,.work-preview-copy) { display:grid; gap:3px; min-width:0; }
+.workspace .bot-v2-rows :is(.bot-v2-row-copy,.work-preview-copy) strong { color:var(--ink); font:600 13px/1.35 var(--display); }
+.workspace .bot-v2-rows :is(.bot-v2-row-copy,.work-preview-copy) strong span { margin-left:4px; color:var(--muted); font:11px/1 var(--mono); }
+.workspace .bot-v2-rows :is(.bot-v2-row-copy,.work-preview-copy) small { overflow:hidden; color:var(--muted); font:11px/1.45 var(--body); white-space:nowrap; text-overflow:ellipsis; }
+.workspace .bot-v2-rows .bot-v2-row>svg, .workspace .bot-v2-rows .work-preview>span[aria-hidden="true"]:last-child { color:var(--muted); font-size:18px; line-height:1; }
+.workspace .bot-v2-footer { display:flex; justify-content:center; padding:18px 0 2px; }
+.workspace .bot-v2-footer .text-button { display:inline-flex; align-items:center; gap:6px; color:var(--muted); font:var(--type-meta); }
+.workspace .bot-v2-footer .text-button:hover { color:var(--ink); }
+.workspace .members-v2-rows { margin-bottom:18px; }

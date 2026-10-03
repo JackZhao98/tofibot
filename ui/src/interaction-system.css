@@ -150,7 +150,8 @@ html[data-desktop] .conversation-row>.unread-badge{position:absolute;right:12px;
 :root[data-theme="dark"] .message-content code{background:var(--surface-hover);color:var(--text)}
 :root[data-theme="dark"] .composer-row,:root[data-theme="dark"] .composer-toolbar,:root[data-theme="dark"] .tool-activity-details{background:var(--surface-soft)}
 @media(prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:.01ms!important;transition-duration:.01ms!important;animation-iteration-count:1!important}}
-html[data-desktop] .message-avatar{align-self:flex-end;width:38px;height:38px;margin-top:0;margin-bottom:2px}
+/* Group messages read top-down: avatar beside the sender name, then the message body. */
+html[data-desktop] .message-avatar{align-self:flex-start;width:38px;height:38px;margin-top:0;margin-bottom:0}
 html[data-desktop] .message-avatar .avatar{width:38px;height:38px}
 .message-avatar .identity-card-anchor{user-select:none;-webkit-touch-callout:none}
 .stream-status{background:var(--surface-soft);color:var(--muted)}

@@ -1,5 +1,5 @@
 import { DelayedFeedback } from "./DelayedFeedback";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { api } from "./api";
 import { TofiIcon } from "./icons";
 import { GazeAvatar } from "./GazeAvatar";
@@ -56,11 +56,11 @@ function useAgenda(scope: Scope, history: boolean, refreshToken: number) {
   return { items, schedules, loading, error, reload, accept };
 }
 
-export function WorkPreview({ scope, refreshToken, onOpen, disabled = false }: { disabled?: boolean; scope: Scope; refreshToken: number; onOpen: () => void }) {
+export function WorkPreview({ scope, refreshToken, onOpen, disabled = false, leading }: { disabled?: boolean; scope: Scope; refreshToken: number; onOpen: () => void; leading?: ReactNode }) {
   const { items, schedules, loading, error } = useAgenda(scope, false, refreshToken);
   const total = items.length + schedules.length;
   const titles = [...items.map(item => item.title), ...schedules.map(item => item.content)].slice(0, 2);
-  return <button className="work-preview" disabled={disabled} onClick={onOpen}><span className="work-preview-copy"><strong>目标与待办 <span>{loading ? "" : total}</span></strong><small>{error ? "暂时无法同步，打开重试" : loading ? "" : titles.length ? titles.join(" · ") : "暂无待办"}</small></span><span aria-hidden="true">›</span></button>;
+  return <button className="work-preview" disabled={disabled} onClick={onOpen}>{leading}<span className="work-preview-copy"><strong>目标与待办 <span>{loading ? "" : total}</span></strong><small>{error ? "暂时无法同步，打开重试" : loading ? "" : titles.length ? titles.join(" · ") : "暂无待办"}</small></span><span aria-hidden="true">›</span></button>;
 }
 
 type Props = { conversation: Conversation; conversations: Conversation[]; bots: Bot[]; refreshToken: number; onClose: () => void; onNavigate: (id: string) => void };

@@ -60,7 +60,7 @@ try {
   const source = (await readFile(join(out, "BotDesktopPanel.js"), "utf8"))
     .replace(/^import .* from "\.\/debugMode";$/m, "const useDebugMode = () => true;")
     .replace(/^import .* from "react\/jsx-runtime";$/m, "const { jsx: _jsx, jsxs: _jsxs } = globalThis.__desktopHarness;")
-    .replace(/^import .* from "react";$/m, "const { useEffect, useRef, useState } = globalThis.__desktopHarness;")
+    .replace(/^import .* from "react";$/m, "const { useEffect, useRef, useState } = globalThis.__desktopHarness; const useLayoutEffect = useEffect;")
     .replace(/^import .* from "\.\/api";$/m, "const { api, ApiError, request } = globalThis.__desktopHarness;")
     .replace(/^import .* from "\.\/DesktopVideo";$/m, "const { DesktopVideo } = globalThis.__desktopHarness;")
     .replace(/^import .* from "\.\/icons";$/m, "const { TofiIcon } = globalThis.__desktopHarness;")

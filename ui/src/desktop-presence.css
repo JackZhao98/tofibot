@@ -1,13 +1,11 @@
-.computer-detail:not(.is-expanded)>.computer-screen-wrap.desktop-presence-frame,.computer-detail.is-expanded>.computer-screen-wrap.desktop-presence-frame{border:1.5px solid var(--line);overflow:hidden}
+.computer-detail:not(.is-expanded)>.computer-screen-wrap.desktop-presence-frame,.computer-detail.is-expanded>.computer-screen-wrap.desktop-presence-frame{border:2px solid var(--desktop-bezel);overflow:hidden}
 .desktop-floating-shell{position:fixed;right:20px;bottom:calc(var(--composer-height,90px) + 18px);z-index:25;width:min(320px,calc(100vw - 32px));max-height:min(240px,calc(100dvh - 120px));overflow:visible;pointer-events:none}
 .desktop-floating-shell.is-settling{transition:left 420ms cubic-bezier(.2,.8,.2,1),top 420ms cubic-bezier(.2,.8,.2,1)}
 .desktop-floating-shell:focus-visible{outline:2px solid var(--focus);outline-offset:4px;border-radius:20px}
 /* Keep the latest-message control fully visible beneath a collapsed preview. */
 .workspace:has(.jump-latest) .desktop-floating-shell:not(:has(.is-expanded)){bottom:calc(var(--composer-height,90px) + 66px)}
-.desktop-floating-shell::after{position:absolute;z-index:-1;left:8%;right:8%;bottom:-30px;height:72px;content:"";pointer-events:none;background:radial-gradient(ellipse at center,color-mix(in srgb,var(--blue) 28%,transparent) 0%,color-mix(in srgb,var(--blue) 12%,transparent) 42%,transparent 74%);filter:blur(12px)}
-.desktop-floating-shell:has(.is-expanded)::after{display:none}
 .desktop-preview-surface{position:relative}
-.desktop-launch-surface{order:1;aspect-ratio:16/9;max-height:220px;border:1.5px solid var(--line);border-radius:20px;background:var(--desktop-screen);box-shadow:0 0 24px color-mix(in srgb,var(--blue) 28%,transparent);overflow:hidden}
+.desktop-launch-surface{order:1;aspect-ratio:16/9;max-height:220px;border:2px solid var(--desktop-bezel);border-radius:16px;background:var(--desktop-screen);overflow:hidden}
 .desktop-preview-controls{position:absolute;inset:0;z-index:8;pointer-events:none}
 .desktop-floating-shell:not(:has(.is-expanded)) .desktop-preview-surface{cursor:grab;touch-action:none}
 .desktop-floating-shell.is-dragging .desktop-preview-surface{cursor:grabbing}
@@ -23,9 +21,9 @@
 }
 .desktop-floating-shell .desktop-control-button:disabled{opacity:.35;cursor:not-allowed}
 @media(prefers-reduced-transparency:reduce){.desktop-floating-shell .computer-floating-actions{background:var(--desktop-controls-solid);-webkit-backdrop-filter:none;backdrop-filter:none}}
-.desktop-floating-shell .computer-detail:not(.is-expanded) .computer-screen-wrap{position:relative;width:100%;aspect-ratio:16/9;max-height:220px;margin:0;padding:0;border:1.5px solid var(--line);border-radius:20px;background:var(--desktop-screen);box-shadow:0 0 24px color-mix(in srgb,var(--blue) 28%,transparent);overflow:hidden}
+.desktop-floating-shell .computer-detail:not(.is-expanded) .computer-screen-wrap{position:relative;width:100%;aspect-ratio:16/9;max-height:220px;margin:0;padding:0;border:2px solid var(--desktop-bezel);border-radius:16px;background:var(--desktop-screen);overflow:hidden;transition:border-color 400ms ease,box-shadow 700ms ease}
 .desktop-floating-shell .computer-detail:not(.is-expanded) .computer-screen-wrap .remote-preview-hint{display:none}
-.desktop-floating-shell .computer-detail:not(.is-expanded) .desktop-launch-preview{width:100%;height:100%;aspect-ratio:auto;margin:0;border:0;border-radius:18px;background:transparent!important}
+.desktop-floating-shell .computer-detail:not(.is-expanded) .desktop-launch-preview{width:100%;height:100%;aspect-ratio:auto;margin:0;border:0;border-radius:14px;background:transparent!important}
 .desktop-floating-shell>.computer-detail.is-expanded{position:fixed;z-index:35;top:16px;left:50%;translate:-50% 0;transform:none;display:flex;width:min(1120px,calc(100vw - 32px));height:calc(100dvh - 32px);max-height:calc(100dvh - 32px);box-sizing:border-box;flex-direction:column;gap:0;padding:18px 20px 20px;border:3px solid var(--line);border-radius:22px;background:var(--surface);box-shadow:var(--hard),var(--float-shadow);overflow:auto;pointer-events:auto}
 .desktop-floating-shell .computer-detail.is-expanded .computer-floating-heading{position:static;display:flex;align-items:center;justify-content:space-between;gap:18px;margin:0 0 8px;padding:0;background:transparent;pointer-events:auto}
 .desktop-floating-shell .computer-detail.is-expanded .computer-heading-copy{display:block}
@@ -55,21 +53,23 @@ html:not([data-desktop]) .desktop-live-screen .remote-desktop-surface{transform-
 html:not([data-desktop]) .web-desktop-pointer{left:0;top:0;opacity:0;transition:transform 420ms cubic-bezier(.22,1,.36,1),opacity 120ms ease}
 html:not([data-desktop]) .web-desktop-pointer.is-visible{opacity:1}
 html:not([data-desktop]) .web-desktop-click{position:absolute;width:0;height:0}
-html:not([data-desktop]) .web-desktop-click .desktop-click-ring{animation:web-desktop-click 400ms 420ms ease-out both}
+html:not([data-desktop]) .web-desktop-click .desktop-click-ring{width:36px;height:36px;left:-18px;top:-18px;border-color:var(--lagoon);box-shadow:none;background:transparent;animation:web-desktop-click 400ms 420ms ease-out both}
 @keyframes web-desktop-click{from{transform:scale(.5);opacity:0}20%{opacity:.6}to{transform:scale(1.6);opacity:0}}
 .desktop-pointer-arrow{display:none}
 .desktop-pointer-glyph{position:absolute;left:0;top:0;display:none}
 html:not([data-desktop]) .desktop-pointer-glyph{display:block}
-html:not([data-desktop]) .desktop-pointer-glyph::before{content:"";position:absolute;left:-16px;top:-14px;width:48px;height:48px;border-radius:50%;background:radial-gradient(circle,color-mix(in srgb,var(--pointer-coat) 55%,transparent),transparent 70%);filter:blur(4px)}
-html:not([data-desktop]) .desktop-pointer-arrow{position:absolute;left:-4px;top:-3px;display:block;width:26px;height:26px;fill:#080808;stroke:#fff;stroke-width:2.3;stroke-linejoin:round;filter:drop-shadow(0 1px 2px rgba(0,0,0,.25))}
+html:not([data-desktop]) .desktop-pointer-glyph::before{display:none;content:"";position:absolute;left:-16px;top:-14px;width:48px;height:48px;border-radius:50%;background:radial-gradient(circle,color-mix(in srgb,var(--pointer-coat) 55%,transparent),transparent 70%);filter:blur(4px)}
+html:not([data-desktop]) .desktop-pointer-arrow{position:absolute;left:-4px;top:-3px;display:block;width:24px;height:24px}
+html:not([data-desktop]) .desktop-pointer-arrow path{fill:var(--lagoon);stroke:var(--desktop-controls-solid);stroke-width:1.5;stroke-linejoin:round}
+html:not([data-desktop]) .web-desktop-pointer-name{position:absolute;left:16px;top:17px;max-width:140px;padding:2px 7px;overflow:hidden;border-radius:6px;background:var(--lagoon);color:var(--on-block);font:600 10px/1.4 var(--body);white-space:nowrap;text-overflow:ellipsis}
 .desktop-click-ring{position:absolute;width:16px;height:16px;left:-8px;top:-8px;border:2px solid var(--desktop-pointer-ink);border-radius:50%;box-shadow:0 0 0 2px var(--desktop-pointer-surface);background:color-mix(in srgb,var(--desktop-pointer-surface) 20%,transparent);animation:desktop-confirmed-click 750ms ease-out both}
 .desktop-pointer-label{display:flex;align-items:center;gap:5px;position:absolute;left:12px;top:10px;max-width:160px;padding:4px 7px;border-radius:5px;background:var(--desktop-pointer-surface);color:var(--desktop-pointer-ink);box-shadow:var(--hard-sm);white-space:nowrap;font:11px/1.3 var(--body);text-overflow:ellipsis;overflow:hidden}
 .desktop-pointer-label .avatar{width:17px;height:17px;flex:0 0 17px;background:transparent}
 .desktop-pointer-label>span:last-child{min-width:0;overflow:hidden;text-overflow:ellipsis}
 .desktop-pointer-confirmed.is-right .desktop-pointer-label{left:auto;right:12px}
 .desktop-pointer-confirmed.is-bottom .desktop-pointer-label{top:auto;bottom:10px}
-html:not([data-desktop]) .desktop-live-screen.is-human-controlled{border-color:var(--clay)!important;box-shadow:0 0 0 1px var(--clay),0 0 40px color-mix(in srgb,var(--clay) 35%,transparent)!important}
-html:not([data-desktop]) .desktop-live-screen:not(.is-human-controlled):has(.desktop-presence-actor){border-color:var(--lagoon)!important;box-shadow:0 0 0 1px var(--lagoon),0 0 40px color-mix(in srgb,var(--lagoon) 35%,transparent)!important}
+.computer-detail.is-driven-by-you .desktop-live-screen{border-color:var(--clay)!important;box-shadow:0 0 0 1px var(--clay),0 0 60px color-mix(in srgb,var(--clay) 40%,transparent)!important}
+.computer-detail.is-driven-by-bot .desktop-live-screen{border-color:var(--lagoon)!important;box-shadow:0 0 0 1px var(--lagoon),0 0 60px color-mix(in srgb,var(--lagoon) 45%,transparent)!important}
 @keyframes desktop-confirmed-click{from{transform:scale(.65);opacity:.2}45%{transform:scale(1.5);opacity:1}to{transform:scale(1);opacity:1}}
 @media(prefers-reduced-motion:reduce){
   html:not([data-desktop]) .web-desktop-pointer{transition:none}
@@ -102,13 +102,15 @@ html:not([data-desktop]) .desktop-live-screen:not(.is-human-controlled):has(.des
 html:not([data-desktop]) .desktop-floating-shell.is-expanded {
   inset:0; z-index:40; display:grid; place-items:center; width:auto; max-height:none;
   height:var(--viewport-height,100dvh); padding:12px; margin:0; transition:none;
+  pointer-events:auto; background:color-mix(in srgb,var(--ink) 30%,transparent);
+  -webkit-backdrop-filter:blur(6px); backdrop-filter:blur(6px);
 }
 html:not([data-desktop]) .desktop-floating-shell>.computer-detail.is-expanded {
   position:relative; inset:auto; translate:none; transform:none;
-  width:min(1120px,calc(100vw - 24px),calc((var(--viewport-height,100dvh) - 80px) * 1.6));
+  width:min(1120px,calc(100vw - 24px),calc((var(--viewport-height,100dvh) - 120px) * 1.6));
   height:auto; max-height:calc(var(--viewport-height,100dvh) - 24px); min-height:0;
-  padding:0; border:1px solid var(--desktop-controls-edge); border-radius:10px;
-  background:var(--desktop-screen); box-shadow:none; overflow:auto;
+  padding:0; border:0; border-radius:0; background:transparent; box-shadow:none; overflow:visible;
+  display:flex; flex-direction:column; align-items:center; gap:16px;
 }
 html:not([data-desktop]) .desktop-floating-shell .computer-detail.is-expanded .computer-floating-heading {
   position:absolute; inset:7px 7px auto auto; z-index:10; min-height:0; margin:0; padding:0;
@@ -116,7 +118,8 @@ html:not([data-desktop]) .desktop-floating-shell .computer-detail.is-expanded .c
 html:not([data-desktop]) .desktop-floating-shell .computer-detail.is-expanded .desktop-control-button { color:var(--ink); }
 html:not([data-desktop]) .desktop-floating-shell .computer-detail.is-expanded .desktop-control-button:hover { background:var(--surface-hover); }
 html:not([data-desktop]) .desktop-floating-shell .computer-detail.is-expanded .computer-screen-wrap {
-  flex:none; width:100%; margin:0; padding:0; border:0; border-radius:0; box-shadow:none!important;
+  flex:none; width:100%; margin:0; padding:0; border:2px solid var(--desktop-bezel); border-radius:16px; overflow:hidden;
+  background:var(--desktop-screen); transition:border-color 400ms ease,box-shadow 700ms ease;
 }
 html:not([data-desktop]) .desktop-floating-shell .computer-detail.is-expanded .remote-desktop {
   flex:none; min-height:0; width:100%;
@@ -145,3 +148,56 @@ html:not([data-desktop]) .desktop-floating-shell .computer-detail.is-expanded .d
 .remote-owner-status{display:flex;align-items:center;gap:8px;min-width:0}
 .remote-owner-status>.avatar{width:22px;height:22px;flex:0 0 22px;background:transparent}
 .remote-owner-status>span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+
+/* One device (Motion Lab · 电脑, control fused into the frame): a dark bezel holds the screen, and its chin
+   carries power, status and the cat ⇄ you switch. The bezel edge and its glow follow whoever holds the mouse. */
+html:not([data-desktop]) .desktop-floating-shell>.computer-detail,
+html:not([data-desktop]) .desktop-floating-shell>.computer-detail.is-expanded{
+  --bezel-fill:var(--desktop-bezel-fill);--bezel-edge:var(--desktop-bezel);
+  position:relative;display:flex;flex-direction:column;gap:0;margin-bottom:40px;padding:6px;border:2px solid var(--bezel-edge);border-radius:18px;
+  background:var(--bezel-fill);box-shadow:var(--desktop-bezel-shadow);transition:border-color 400ms ease,box-shadow 700ms ease}
+html:not([data-desktop]) .desktop-floating-shell>.computer-detail.is-driven-by-bot{--bezel-edge:var(--lagoon);border-color:var(--lagoon);box-shadow:0 0 0 1px var(--lagoon),0 0 60px color-mix(in srgb,var(--lagoon) 45%,transparent)}
+html:not([data-desktop]) .desktop-floating-shell>.computer-detail.is-driven-by-you{--bezel-edge:var(--clay);border-color:var(--clay);box-shadow:0 0 0 1px var(--clay),0 0 60px color-mix(in srgb,var(--clay) 40%,transparent)}
+/* clip-path, not overflow, rounds the screen: the CRT boot's transformed layer escapes overflow clipping. */
+html:not([data-desktop]) .desktop-floating-shell .computer-detail :is(.computer-screen-wrap,.desktop-launch-surface){border:0!important;border-radius:12px!important;box-shadow:none!important;clip-path:inset(0 round 12px)}
+
+/* top:100% is the inner edge of the 2px bezel border, so the drop's 2px top band lies exactly on it. */
+.desktop-chin{position:absolute;z-index:3;top:100%;left:50%;display:flex;align-items:center;justify-content:center;gap:8px;width:172px;height:44px;padding:0 0 4px;translate:-50% 0;box-sizing:border-box;color:var(--desktop-controls-ink)}
+/* The drop: its fill hides the bezel's bottom edge between two concave fillets, and its stroke continues that edge. */
+.desktop-drop{position:absolute;inset:0;z-index:-1;width:100%;height:100%;pointer-events:none}
+/* The drop is drawn as two masked layers: the bezel edge, then the fill inset by the edge width. */
+.desktop-drop::before,.desktop-drop::after{content:"";position:absolute;inset:0;-webkit-mask-size:100% 100%;mask-size:100% 100%;-webkit-mask-repeat:no-repeat;mask-repeat:no-repeat}
+.desktop-drop::before{background:var(--bezel-edge);transition:background-color 400ms ease;-webkit-mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 172 44' preserveAspectRatio='none'%3E%3Cpath d='M0 0Q12 0 12 12V26A18 18 0 0 0 30 44H142A18 18 0 0 0 160 26V12Q160 0 172 0Z'/%3E%3C/svg%3E");mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 172 44' preserveAspectRatio='none'%3E%3Cpath d='M0 0Q12 0 12 12V26A18 18 0 0 0 30 44H142A18 18 0 0 0 160 26V12Q160 0 172 0Z'/%3E%3C/svg%3E")}
+.desktop-drop::after{background:var(--bezel-fill);-webkit-mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 172 44' preserveAspectRatio='none'%3E%3Cpath d='M0 2Q14 2 14 12V26A16 16 0 0 0 30 42H142A16 16 0 0 0 158 26V12Q158 2 172 2Z'/%3E%3C/svg%3E");mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 172 44' preserveAspectRatio='none'%3E%3Cpath d='M0 2Q14 2 14 12V26A16 16 0 0 0 30 42H142A16 16 0 0 0 158 26V12Q158 2 172 2Z'/%3E%3C/svg%3E")}
+.computer-detail.is-driven-by-bot .desktop-drop{filter:drop-shadow(0 10px 16px color-mix(in srgb,var(--lagoon) 45%,transparent))}
+.computer-detail.is-driven-by-you .desktop-drop{filter:drop-shadow(0 10px 16px color-mix(in srgb,var(--clay) 40%,transparent))}
+.desktop-power{display:grid;place-items:center;width:26px;height:26px;flex:none;padding:0;border:1px solid var(--desktop-controls-edge);border-radius:50%;background:transparent;color:var(--desktop-controls-ink);cursor:pointer}
+.desktop-power:hover{background:var(--desktop-controls-hover)}
+.desktop-boot-phase{color:var(--desktop-controls-ink);font:var(--type-status);opacity:.8}
+.desktop-floating-shell .desktop-bot-starting{display:flex!important;flex-direction:column;align-items:center;justify-content:center;gap:8px}
+
+/* The switch: the thumb is the hand on the mouse. It springs to the cat or to you and takes that side's color. */
+.desktop-driver-switch{position:relative;display:grid;grid-template-columns:1fr 1fr;align-items:center;width:100px;height:34px;flex:none;padding:3px;border:1px solid var(--desktop-controls-edge);border-radius:999px;background:var(--desktop-switch-track);cursor:pointer}
+.desktop-driver-switch:disabled{opacity:.45;cursor:default}
+.desktop-driver-thumb{position:absolute;top:3px;left:4px;width:44px;height:26px;border-radius:999px;background:var(--lagoon);transition:transform 440ms cubic-bezier(.34,1.56,.64,1),background-color 300ms ease}
+.desktop-driver-thumb svg{position:absolute;top:-6px;right:-4px;width:14px;height:14px;padding:2px;border-radius:50%;background:var(--surface);color:var(--ink);box-sizing:border-box;box-shadow:var(--desktop-switch-badge-shadow)}
+.desktop-driver-switch.is-you .desktop-driver-thumb{transform:translateX(47px);background:var(--clay)}
+.desktop-chin:is(.is-idle,.is-booting,.is-error) .desktop-driver-switch.is-bot .desktop-driver-thumb{background:var(--desktop-switch-idle)}
+.desktop-driver-side{position:relative;z-index:1;display:grid;place-items:center;height:26px}
+.desktop-driver-side .avatar{width:22px;height:22px;background:transparent}
+.desktop-driver-side.is-you{font:700 12px/1 var(--display);color:var(--desktop-controls-ink)}
+.desktop-driver-switch.is-you .desktop-driver-side.is-you{color:var(--on-block)}
+:is(.desktop-power,.desktop-driver-switch):focus-visible{outline:2px solid var(--focus);outline-offset:2px}
+@media(prefers-reduced-motion:reduce){.desktop-driver-thumb{transition:none}.desktop-status-dot{animation:none!important}}
+/* The design has no window buttons; keyboard users still get a reversible enlarge / shrink control on focus. */
+.desktop-expand-toggle{position:absolute;z-index:11;top:10px;left:10px;width:1px;height:1px;padding:0;overflow:hidden;clip-path:inset(50%);border:0;white-space:nowrap}
+.desktop-expand-toggle:focus-visible{width:auto;height:auto;padding:5px 10px;clip-path:none;border:1px solid var(--desktop-controls-edge);border-radius:8px;background:var(--desktop-controls-glass);color:var(--desktop-controls-ink);font:var(--type-status);outline:2px solid var(--focus);outline-offset:2px}
+/* Clicking the dimmed area around the enlarged screen shrinks it back. */
+.desktop-expanded-scrim{position:fixed;inset:0;z-index:-1;cursor:zoom-out}
+/* Control notices and errors float over the top of the screen instead of pushing it inside the bezel. */
+html:not([data-desktop]) .desktop-floating-shell .remote-desktop{position:relative}
+html:not([data-desktop]) .desktop-floating-shell .remote-desktop>:is(.field-note,.error-text){position:absolute;z-index:6;top:10px;left:50%;max-width:calc(100% - 24px);margin:0;padding:5px 12px;translate:-50% 0;overflow:hidden;border:1px solid var(--desktop-controls-edge);border-radius:999px;background:var(--desktop-controls-glass);-webkit-backdrop-filter:blur(20px) saturate(1.6);backdrop-filter:blur(20px) saturate(1.6);color:var(--desktop-controls-ink);font:var(--type-status);white-space:nowrap;text-overflow:ellipsis}
+html:not([data-desktop]) .desktop-floating-shell .remote-desktop>.error-text{border-color:color-mix(in srgb,var(--danger) 60%,transparent)}
+/* Expand/shrink corners for the floating screen, tinted by the button's text color. */
+.desktop-expand-glyph{display:block;width:16px;height:16px;background:currentColor;-webkit-mask-size:100% 100%;mask-size:100% 100%;-webkit-mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M9 4H4v5m11-5h5v5M4 15v5h5m11-5v5h-5'/%3E%3C/svg%3E");mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M9 4H4v5m11-5h5v5M4 15v5h5m11-5v5h-5'/%3E%3C/svg%3E")}
+.desktop-expand-glyph.is-expanded{-webkit-mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M4 9h5V4m11 5h-5V4M4 15h5v5m11-5h-5v5'/%3E%3C/svg%3E");mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M4 9h5V4m11 5h-5V4M4 15h5v5m11-5h-5v5'/%3E%3C/svg%3E")}
