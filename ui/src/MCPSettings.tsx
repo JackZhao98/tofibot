@@ -9,6 +9,7 @@ import { isDesktop } from "./desktop";
 import { mcpOAuthRoute, type OAuthOptions, type OAuthRoute } from "./mcpOAuthRoute";
 import { CatStage, type CatHandle } from "./CatStage";
 import { LocalMCPPanel } from "./LocalMCPPanel";
+import { mcpTokenHeaders } from "./mcpTokenHeaders";
 import "./mcp-test-motion.css";
 import "./oauth-link-motion.css";
 
@@ -69,6 +70,8 @@ const message=(e:unknown)=>{
  if(text.includes("HTTP redirects must use localhost"))return "授权需要 HTTPS 地址，或通过 localhost 隧道连接 Tofi。内网 HTTP 地址无法完成回调。";
  if(text.includes("OAuth discovery or client registration failed"))return "无法读取授权信息或注册客户端，请检查服务地址后重试。";
  if(text.startsWith("OAuth connection could not be started"))return "暂时无法启动授权，请检查服务地址后重试。";
+ if(text==="MCP endpoint changed; re-enter or remove saved headers before saving")return "服务地址已改变，请重新输入或移除保存的请求头凭据后再保存。";
+ if(text==="MCP endpoint changed; explicitly configure OAuth for the new endpoint before saving")return "服务地址已改变，请为新地址重新填写 OAuth 配置后再保存。";
  return text;
 };
 const post=(body:unknown)=>({method:"POST",body:JSON.stringify(body)});
@@ -277,16 +280,15 @@ function MCPForm({initial,preset,options,route,busy,onSave,onCancel}:{initial:MC
  const [error,setError]=useState("");
  return <form className="extension-form integration-setup" aria-busy={busy} onSubmit={async e=>{e.preventDefault();if(busy)return;try{
   if(!/^[a-zA-Z0-9_.-]{1,64}$/.test(name)||name==="."||name==="..")throw new Error("服务标识请使用 1–64 个英文字母、数字、点、下划线或短横线");
-  const h:unknown=JSON.parse(headers);if(!h||typeof h!=="object"||Array.isArray(h)||Object.values(h).some(v=>typeof v!=="string"))throw new Error("请求头需要是名称与文本值的 JSON 对象");
-  const parsed=h as Record<string,string>;if(token.trim())parsed[preset?.tokenHeader??"Authorization"]=`${preset?.tokenPrefix??(preset?.tokenHeader&&preset.tokenHeader!=="Authorization"?"":"Bearer ")}${token.trim()}`;
+  const parsed=mcpTokenHeaders(headers,token,preset);
   setError("");await onSave({name,url,transport,headers:parsed,tool_allowlist:words(allow),tool_denylist:words(deny),...(oauth?{oauth:{client_id:clientID,client_secret:secret,scopes:words(scopes),auth_server_metadata_url:metadata}}:{})});
  }catch(cause){setError(message(cause));}}}>
   <fieldset className="form-fields" disabled={busy}>
   <header className="integration-setup-heading"><ServiceMark name={preset?.name??initial?.name??"MCP"}/><div><h3>{preset?.name??(initial?"编辑服务":"自定义 MCP")}</h3><p>{preset?.description??"连接到工作区，Bot 按需发现工具。"}</p></div></header>
-  {preset&&<Disclosure title="接入说明" defaultOpen={preset.category==="google"}><div className="integration-guide"><div><strong>{preset.category==="google"?"连接前准备":"接入指南"}</strong><a href={preset.docsURL} target="_blank" rel="noopener noreferrer">官方文档 <TofiIcon name="external-link" size={16} style={{verticalAlign:"middle"}}/></a></div><ol>{preset.setup.map(step=><li key={step}>{step}</li>)}</ol>{preset.note&&<p>{preset.note}</p>}<GoogleSetupLinks preset={preset}/></div></Disclosure>}
+  {preset&&<Disclosure title="接入说明" defaultOpen={preset.category==="google"}><div className="integration-guide"><div><strong>{preset.category==="google"?"连接前准备":"接入指南"}</strong><a href={preset.docsURL} target="_blank" rel="noopener noreferrer">{preset.upstream==="community"?"社区项目文档":"接入文档"} <TofiIcon name="external-link" size={16} style={{verticalAlign:"middle"}}/></a></div><ol>{preset.setup.map(step=><li key={step}>{step}</li>)}</ol>{preset.note&&<p>{preset.note}</p>}<GoogleSetupLinks preset={preset}/></div></Disclosure>}
   {oauth&&<OAuthLoginHelp route={route}/>}
   {!preset&&<label>服务标识<input required maxLength={64} disabled={Boolean(initial)} value={name} onChange={e=>setName(e.target.value)} placeholder="my-service"/></label>}
-  {!preset&&<label>服务地址<input required type="url" value={url} onChange={e=>setURL(e.target.value)} placeholder="https://example.com/mcp"/></label>}
+  {!preset&&<label>服务地址<input required type="url" value={url} onChange={e=>{setURL(e.target.value);setToken("");}} placeholder="https://example.com/mcp"/></label>}
   {preset?.auth==="token"&&<label>访问令牌<input type="password" autoComplete="off" value={token} onChange={e=>setToken(e.target.value)} placeholder={initial?"留空保留已有令牌":"粘贴服务提供的令牌"} required={!initial}/></label>}
   {!preset&&<label className="extension-check"><input type="checkbox" checked={oauth} onChange={e=>setOAuth(e.target.checked)} disabled={Boolean(initial?.oauth)}/>OAuth 授权</label>}
   {oauth&&preset?.id!=="notion"&&<><label>OAuth Client ID{preset?.category!=="google"?"（可留空自动注册）":""}<input required={preset?.category==="google"} value={clientID} onChange={e=>setClientID(e.target.value)} autoComplete="off"/></label><label>Client Secret<input required={preset?.category==="google"} type="password" autoComplete="off" value={secret} onChange={e=>setSecret(e.target.value)} placeholder="服务要求时填写"/></label>
@@ -296,9 +298,9 @@ function MCPForm({initial,preset,options,route,busy,onSave,onCancel}:{initial:MC
   </>}
   <Disclosure title="高级配置">
    {preset&&<label>服务标识<input required maxLength={64} disabled={Boolean(initial)} value={name} onChange={e=>setName(e.target.value)} placeholder="my-service"/></label>}
-   {preset&&<label>服务地址<input required type="url" value={url} onChange={e=>setURL(e.target.value)}/></label>}
+   {preset&&<label>服务地址<input required type="url" value={url} onChange={e=>{setURL(e.target.value);setToken("");}}/></label>}
    <label>连接方式<select value={transport} disabled={busy} onChange={e=>setTransport(e.target.value as MCPTransport)}><option value="streamable_http">Streamable HTTP</option><option value="sse">SSE</option></select></label>
-   <label>请求头<textarea rows={3} value={headers} onChange={e=>setHeaders(e.target.value)} spellCheck={false}/></label>{initial&&<p className="field-note">圆点表示已有凭据；保留即可沿用。</p>}
+   <label>请求头<textarea rows={3} value={headers} onChange={e=>setHeaders(e.target.value)} spellCheck={false}/></label>{initial&&<p className="field-note">圆点或空值保留已有凭据；删除对应字段可移除。更换服务地址时，请重新输入或移除凭据。</p>}
    {oauth&&<><label>权限范围<input value={scopes} onChange={e=>setScopes(e.target.value)} placeholder="逗号分隔"/></label><label>授权元数据地址<input type="url" value={metadata} onChange={e=>setMetadata(e.target.value)}/></label></>}
    <label>允许的工具<input value={allow} onChange={e=>setAllow(e.target.value)} placeholder="留空允许全部"/></label><label>禁用的工具<input value={deny} onChange={e=>setDeny(e.target.value)} placeholder="逗号分隔"/></label>
   </Disclosure>

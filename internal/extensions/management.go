@@ -193,6 +193,20 @@ func (m *Manager) SaveMCP(name string, c MCPServerConfig, updating bool) error {
 	if !updating && exists {
 		return tooloutcome.InvalidArguments("MCP server already exists")
 	}
+	// Retention markers authorize reuse only at the previously saved endpoint.
+	// Reject before copying or writing, so a destination edit cannot silently
+	// send an existing PAT, custom API key, or OAuth client secret elsewhere.
+	if exists && old.URL != c.URL {
+		for key, value := range old.Headers {
+			next, supplied := c.Headers[key]
+			if value != "" && (c.Headers == nil || supplied && (next == maskedSecret || next == "")) {
+				return tooloutcome.InvalidArguments("MCP endpoint changed; re-enter or remove saved headers before saving")
+			}
+		}
+		if old.OAuth != nil && (c.OAuth == nil || c.OAuth.ClientSecret == maskedSecret) {
+			return tooloutcome.InvalidArguments("MCP endpoint changed; explicitly configure OAuth for the new endpoint before saving")
+		}
+	}
 	// Ordinary settings updates cannot grant an exemption. Changing the target
 	// clears previously reviewed read-only tool names.
 	c.TrustedReadOnlyTools = append([]string(nil), old.TrustedReadOnlyTools...)
