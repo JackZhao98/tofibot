@@ -18,8 +18,9 @@ import (
 	"time"
 	"unicode/utf8"
 
-	"github.com/google/uuid"
 	"github.com/JackZhao98/tofibot/internal/runtime"
+	"github.com/JackZhao98/tofibot/internal/tooloutcome"
+	"github.com/google/uuid"
 )
 
 const (
@@ -74,6 +75,7 @@ type ApprovalDetails struct {
 }
 
 type Question struct {
+	Resumable      bool             `json:"-"`
 	ID             string           `json:"question_id"`
 	RunID          string           `json:"run_id"`
 	ConversationID string           `json:"conversation_id"`
@@ -98,25 +100,27 @@ type Question struct {
 // QuestionCard is safe to send to the UI. It intentionally excludes answer
 // and actor fields while a question is pending.
 type QuestionCard struct {
-	Type           string           `json:"type"`
-	QuestionID     string           `json:"question_id"`
-	Question       string           `json:"question"`
-	QuestionType   string           `json:"question_type"`
-	Options        []QuestionOption `json:"options,omitempty"`
-	AllowOther     bool             `json:"allow_other,omitempty"`
-	Fields         []UserFormField  `json:"fields,omitempty"`
-	SourceURL      string           `json:"source_url,omitempty"`
-	Approval       *ApprovalDetails `json:"approval,omitempty"`
-	MinSelections  int              `json:"min_selections,omitempty"`
-	MaxSelections  int              `json:"max_selections,omitempty"`
-	RunID          string           `json:"run_id"`
-	ConversationID string           `json:"conversation_id"`
-	BotID          string           `json:"bot_id"`
-	CreatedAt      string           `json:"created_at"`
-	Answer         json.RawMessage  `json:"answer,omitempty"`
-	AnsweredBy     string           `json:"answered_by,omitempty"`
-	Status         string           `json:"status"`
-	ExpiresAt      string           `json:"expires_at,omitempty"`
+	Outcome        *tooloutcome.Outcome `json:"outcome,omitempty"`
+	Type           string               `json:"type"`
+	QuestionID     string               `json:"question_id"`
+	Question       string               `json:"question"`
+	QuestionType   string               `json:"question_type"`
+	Options        []QuestionOption     `json:"options,omitempty"`
+	AllowOther     bool                 `json:"allow_other,omitempty"`
+	Fields         []UserFormField      `json:"fields,omitempty"`
+	SourceURL      string               `json:"source_url,omitempty"`
+	Approval       *ApprovalDetails     `json:"approval,omitempty"`
+	MinSelections  int                  `json:"min_selections,omitempty"`
+	MaxSelections  int                  `json:"max_selections,omitempty"`
+	RunID          string               `json:"run_id"`
+	ConversationID string               `json:"conversation_id"`
+	BotID          string               `json:"bot_id"`
+	UpdatedAt      string               `json:"updated_at"`
+	CreatedAt      string               `json:"created_at"`
+	Answer         json.RawMessage      `json:"answer,omitempty"`
+	AnsweredBy     string               `json:"answered_by,omitempty"`
+	Status         string               `json:"status"`
+	ExpiresAt      string               `json:"expires_at,omitempty"`
 }
 
 type askQuestionInput struct {
@@ -185,7 +189,9 @@ run_id TEXT NOT NULL,
 action_hash TEXT NOT NULL,
 claimed_at TEXT NOT NULL DEFAULT ''
 );
-CREATE UNIQUE INDEX IF NOT EXISTS mcp_call_approvals_run_action ON mcp_call_approvals(run_id,action_hash);`)
+DROP INDEX IF EXISTS mcp_call_approvals_run_action;
+CREATE INDEX IF NOT EXISTS mcp_call_approvals_run_action ON mcp_call_approvals(run_id,action_hash);
+CREATE TABLE IF NOT EXISTS question_renewals(original_id TEXT PRIMARY KEY REFERENCES questions(id) ON DELETE CASCADE,new_id TEXT NOT NULL UNIQUE REFERENCES questions(id) ON DELETE CASCADE);`)
 	return err
 }
 
@@ -378,7 +384,22 @@ func (s *Server) CreateQuestion(conv string, run Run, in askQuestionInput) (Ques
 }
 
 func (q Question) Card() QuestionCard {
-	return QuestionCard{Type: "question", QuestionID: q.ID, Question: q.Prompt, QuestionType: q.Type, Options: q.Options, AllowOther: q.AllowOther, Fields: q.Fields, SourceURL: q.SourceURL, Approval: q.Approval, MinSelections: q.MinSelections, MaxSelections: q.MaxSelections, RunID: q.RunID, ConversationID: q.ConversationID, BotID: q.BotID, CreatedAt: q.CreatedAt, Answer: q.Answer, AnsweredBy: q.AnsweredBy, Status: q.Status, ExpiresAt: q.ExpiresAt}
+	card := QuestionCard{Type: "question", QuestionID: q.ID, Question: q.Prompt, QuestionType: q.Type, Options: q.Options, AllowOther: q.AllowOther, Fields: q.Fields, SourceURL: q.SourceURL, Approval: q.Approval, MinSelections: q.MinSelections, MaxSelections: q.MaxSelections, RunID: q.RunID, ConversationID: q.ConversationID, BotID: q.BotID, CreatedAt: q.CreatedAt, UpdatedAt: q.UpdatedAt, Answer: q.Answer, AnsweredBy: q.AnsweredBy, Status: q.Status, ExpiresAt: q.ExpiresAt}
+	if q.Status == questionPending || (q.Type == questionApproval && q.Status == questionExpired) {
+		status, code, message, next := tooloutcome.NeedInformation, "human_input", "Task is waiting for the requested information.", "answer_question"
+		if q.Type == questionApproval {
+			status, code, message, next = tooloutcome.NeedApproval, "human_approval", "Task is waiting for approval of this exact proposal.", "answer_approval"
+		}
+		if q.Status == questionExpired {
+			status, code, message, next = tooloutcome.Expired, "approval_window_expired", "The approval window expired. The action was not approved or executed; request a fresh review card to continue.", "renew_approval"
+			if !q.Resumable {
+				next = "explain_blocker"
+			}
+		}
+		o := tooloutcome.New(status, code, "not_executed", message, next)
+		card.Outcome = &o
+	}
+	return card
 }
 
 func (s *Store) CreateQuestion(conv string, run Run, in askQuestionInput) (Question, error) {
@@ -437,7 +458,11 @@ func scanQuestion(row interface{ Scan(...any) error }) (Question, error) {
 }
 
 func (s *Store) GetQuestion(id string) (Question, error) {
-	return scanQuestion(s.db.QueryRow(`SELECT `+questionColumns+` FROM questions WHERE id=?`, id))
+	q, err := scanQuestion(s.db.QueryRow(`SELECT `+questionColumns+` FROM questions WHERE id=?`, id))
+	if err == nil && q.Type == questionApproval && q.Status == questionExpired {
+		_ = s.db.QueryRow(`SELECT EXISTS(SELECT 1 FROM run_input_waits w JOIN runs r ON r.id=w.run_id WHERE w.question_id=? AND w.state='waiting' AND r.status='waiting')`, id).Scan(&q.Resumable)
+	}
+	return q, err
 }
 
 func (s *Store) PendingQuestions(conv string) ([]Question, error) {
@@ -471,7 +496,17 @@ func (s *Store) ListQuestions(conv string) ([]Question, error) {
 		}
 		out = append(out, q)
 	}
-	return out, rows.Err()
+	err = rows.Err()
+	rows.Close()
+	if err != nil {
+		return nil, err
+	}
+	for i := range out {
+		if out[i].Type == questionApproval && out[i].Status == questionExpired {
+			_ = s.db.QueryRow(`SELECT EXISTS(SELECT 1 FROM run_input_waits w JOIN runs r ON r.id=w.run_id WHERE w.question_id=? AND w.state='waiting' AND r.status='waiting')`, out[i].ID).Scan(&out[i].Resumable)
+		}
+	}
+	return out, nil
 }
 
 func (s *Store) CancelQuestion(id string) (Question, error) {
@@ -525,6 +560,15 @@ func (s *Server) routeQuestions(w http.ResponseWriter, r *http.Request, p string
 		return true
 	}
 	id := parts[0]
+	if len(parts) == 2 && parts[1] == "renew" && r.Method == http.MethodPost {
+		q, err := s.store.RenewExpiredApproval(id)
+		if err != nil {
+			writeErr(w, http.StatusConflict, "approval_not_resumable", "This approval cannot be renewed; refresh its current task state.")
+			return true
+		}
+		writeJSON(w, http.StatusOK, map[string]any{"question": q.Card()})
+		return true
+	}
 	if len(parts) == 2 && parts[1] == "answer" && r.Method == http.MethodPost {
 		q, err := s.store.GetQuestion(id)
 		if errors.Is(err, sql.ErrNoRows) {

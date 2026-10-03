@@ -18,6 +18,7 @@ import (
 	"github.com/JackZhao98/tofibot/internal/executor"
 	"github.com/JackZhao98/tofibot/internal/models"
 	"github.com/JackZhao98/tofibot/internal/provider"
+	"github.com/JackZhao98/tofibot/internal/tooloutcome"
 
 	"github.com/modelcontextprotocol/go-sdk/auth"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
@@ -175,8 +176,10 @@ type AgentConfig struct {
 	// Continuation restores a previously suspended ToolsOnly loop. It is
 	// agent-owned protocol state: callers must validate their outer run identity
 	// before supplying it. ResumeResult is inserted only for its waiting tool.
-	Continuation *Continuation
-	ResumeResult string
+	Continuation        *Continuation
+	ResumeResult        string
+	ResumeOutcome       *tooloutcome.Outcome
+	ResolveToolIdentity func(name, arguments string) tooloutcome.Identity
 }
 
 type MCPServerConfig struct {
@@ -199,23 +202,31 @@ type MCPOAuthConfig struct {
 
 // AgentResult holds the result of an agent loop execution.
 type AgentResult struct {
-	Content        string
-	TotalUsage     provider.Usage
-	TotalCost      float64
-	Model          string
-	LLMCalls       int
-	LoadedSkills   []string              // Skills that were loaded during this agent loop (for persistence)
-	Messages       []provider.Message    // All new messages from this turn (assistant + tool calls + tool responses)
-	ModelBreakdown map[string]ModelUsage // Per-model token/cost breakdown
-	Trace          *Trace                // Execution trace for observability (nil if not recorded)
-	Suspended      bool                  // True when a tool requested durable human input.
-	QuestionID     string                // Backend-owned question identity for Suspended results.
-	Continuation   *Continuation         // Present only when Suspended is true.
+	Content         string
+	TotalUsage      provider.Usage
+	TotalCost       float64
+	Model           string
+	LLMCalls        int
+	LoadedSkills    []string              // Skills that were loaded during this agent loop (for persistence)
+	Messages        []provider.Message    // All new messages from this turn (assistant + tool calls + tool responses)
+	ModelBreakdown  map[string]ModelUsage // Per-model token/cost breakdown
+	Trace           *Trace                // Execution trace for observability (nil if not recorded)
+	Suspended       bool                  // True when a tool requested durable human input.
+	QuestionID      string                // Backend-owned question identity for Suspended results.
+	Continuation    *Continuation         // Present only when Suspended is true.
+	BudgetExhausted bool
+	BudgetReason    string
 }
 
 // RunAgentLoop executes the autonomous agent loop (ReAct)
 // It manages MCP clients, tools, and the LLM interaction loop.
-func RunAgentLoop(cfg AgentConfig, ctx *models.ExecutionContext) (*AgentResult, error) {
+func RunAgentLoop(cfg AgentConfig, ctx *models.ExecutionContext) (returned *AgentResult, returnedErr error) {
+	budgetReason := ""
+	defer func() {
+		if returned != nil && !returned.Suspended && budgetReason != "" {
+			returned.BudgetExhausted, returned.BudgetReason = true, budgetReason
+		}
+	}()
 	if cfg.Provider == nil {
 		return nil, fmt.Errorf("provider is required")
 	}
@@ -748,12 +759,22 @@ func RunAgentLoop(cfg AgentConfig, ctx *models.ExecutionContext) (*AgentResult, 
 	assistantTurnIndex := 0
 	toolCallsSinceReport := 0
 	reportRequired := false
-	reportRetries := 0
 	seenDiscoveryResults := map[[32]byte]bool{}
 	toolArgsByCallID := map[string]string{}
 	cycleSawTool, cycleSawNovel, cycleOnlyDiscovery := false, false, true
 	stalledDiscoveryCycles := 0
 	stalledDiscoveryStop := false
+	var recoveryLedger []ToolRecoveryRecord
+	recoveryCalls := map[string]provider.ToolCall{}
+	recoveryIdentities := map[string]tooloutcome.Identity{}
+	recoveryEvidence := map[string][]tooloutcome.Identity{}
+	recoveryBlocked := map[string]bool{}
+	resolveIdentity := func(name, args string) tooloutcome.Identity {
+		if cfg.ResolveToolIdentity != nil {
+			return cfg.ResolveToolIdentity(name, args)
+		}
+		return tooloutcome.DefaultIdentity(name, json.RawMessage(args))
+	}
 	if cfg.Continuation != nil {
 		assistantTurnIndex = cfg.Continuation.AssistantTurnIndex
 		toolCallsSinceReport = cfg.Continuation.ToolCallsSinceReport
@@ -769,13 +790,32 @@ func RunAgentLoop(cfg AgentConfig, ctx *models.ExecutionContext) (*AgentResult, 
 					cfg.OnAssistantTurn(assistantTurnIndex, content)
 					toolCallsSinceReport = 0
 					reportRequired = false
-					reportRetries = 0
 					cycleSawTool, cycleSawNovel, cycleOnlyDiscovery = false, false, true
 				}
 			}
 		}
 	}
 	appendAndEmit := func(list []provider.Message, msg provider.Message) []provider.Message {
+		if cfg.ToolsOnly {
+			for _, call := range msg.ToolCalls {
+				recoveryCalls[call.ID] = call
+			}
+			if msg.Role == "tool" {
+				if o := msg.ToolOutcome; o != nil && recoveryStatus(o.Status) && !recoveryBlocked[msg.ToolCallID] {
+					if call, ok := recoveryCalls[msg.ToolCallID]; ok {
+						identity, ok := recoveryIdentities[call.ID]
+						if !ok {
+							identity = resolveIdentity(call.Name, call.Arguments)
+						}
+						var evidence []tooloutcome.Identity
+						if observed := recoveryEvidence[call.ID]; len(observed) > 1 {
+							evidence = append(evidence, observed[1:]...)
+						}
+						recoveryLedger = append(recoveryLedger, ToolRecoveryRecord{Call: call, Outcome: *o, Identity: &identity, Evidence: evidence})
+					}
+				}
+			}
+		}
 		if msg.Role == "tool" && cfg.MaxToolCallsBetweenReports > 0 && !strings.HasPrefix(msg.Content, "Tool not executed:") {
 			if args, ok := toolArgsByCallID[msg.ToolCallID]; ok {
 				cycleSawTool = true
@@ -803,7 +843,7 @@ func RunAgentLoop(cfg AgentConfig, ctx *models.ExecutionContext) (*AgentResult, 
 	var messages []provider.Message
 	if cfg.Continuation != nil {
 		var err error
-		messages, err = resumeContinuation(cfg.Continuation, cfg.ResumeResult)
+		messages, err = resumeContinuation(cfg.Continuation, cfg.ResumeResult, cfg.ResumeOutcome)
 		if err != nil {
 			return nil, fmt.Errorf("resume continuation: %w", err)
 		}
@@ -822,6 +862,36 @@ func RunAgentLoop(cfg AgentConfig, ctx *models.ExecutionContext) (*AgentResult, 
 		messages = []provider.Message{
 			{Role: "user", Content: cfg.Prompt},
 		}
+	}
+
+	if cfg.ToolsOnly {
+		if cfg.Continuation != nil && cfg.Continuation.ToolRecovery != nil {
+			recoveryLedger = append([]ToolRecoveryRecord(nil), cfg.Continuation.ToolRecovery...)
+		} else {
+			recoveryLedger = toolRecoveryRecords(messages)
+		}
+		for i := range recoveryLedger {
+			if recoveryLedger[i].Identity == nil {
+				identity := resolveIdentity(recoveryLedger[i].Call.Name, recoveryLedger[i].Call.Arguments)
+				recoveryLedger[i].Identity = &identity
+			}
+		}
+		for _, msg := range messages {
+			for _, call := range msg.ToolCalls {
+				recoveryCalls[call.ID] = call
+			}
+		}
+		if cfg.Continuation != nil {
+			for _, msg := range messages[len(cfg.Continuation.Messages):] {
+				if msg.ToolOutcome != nil && recoveryStatus(msg.ToolOutcome.Status) {
+					if call, ok := recoveryCalls[msg.ToolCallID]; ok {
+						identity := resolveIdentity(call.Name, call.Arguments)
+						recoveryLedger = append(recoveryLedger, ToolRecoveryRecord{Call: call, Identity: &identity, Outcome: *msg.ToolOutcome})
+					}
+				}
+			}
+		}
+
 	}
 
 	// 4. Start Loop — AgentState drives the entire execution
@@ -876,6 +946,9 @@ func RunAgentLoop(cfg AgentConfig, ctx *models.ExecutionContext) (*AgentResult, 
 	if cfg.Continuation != nil {
 		runStart = runStart.Add(-time.Duration(cfg.Continuation.ActiveElapsedNanos))
 		budgetWrapUp = cfg.Continuation.BudgetWrapUp
+		if budgetWrapUp {
+			budgetReason = "active run budget exhausted before suspension"
+		}
 		finalResponseRepaired = cfg.Continuation.FinalResponseRepaired
 		finalRepairPending = cfg.Continuation.FinalRepairPending
 		finalRepairReserved = cfg.Continuation.FinalRepairReserved
@@ -1120,13 +1193,15 @@ func RunAgentLoop(cfg AgentConfig, ctx *models.ExecutionContext) (*AgentResult, 
 			emptyResponseStreak = 0
 		}
 		if reportRequired && strings.TrimSpace(stripThinkTags(resp.Content)) == "" {
-			reportRetries++
-			if reportRetries >= 3 {
-				return nil, errors.New("model did not provide a required progress report")
+			// Progress is a presentation concern, not execution authorization.
+			// A model's missing narration must not discard useful tool calls or
+			// consume three extra model turns. Runtime activity remains visible.
+			if cfg.OnProgress != nil {
+				cfg.OnProgress("running", 0, "Work is continuing; completed tool results are available in the activity history.")
 			}
-			messages = append(messages, provider.Message{Role: "user", Content: progressReportReminder(cfg.MaxToolCallsBetweenReports)})
-			state = state.WithMessages(messages)
-			continue
+			reportRequired = false
+			toolCallsSinceReport = 0
+			cycleSawTool, cycleSawNovel, cycleOnlyDiscovery = false, false, true
 		}
 
 		// Per-run budget guard. After each LLM call we check whether this
@@ -1149,6 +1224,7 @@ func RunAgentLoop(cfg AgentConfig, ctx *models.ExecutionContext) (*AgentResult, 
 		if !repairRequest && (resp.HasToolCalls() || stripThinkTags(resp.Content) == "") {
 			if exceeded, reason := checkRunBudget(&cfg, state.LLMCalls, state.Tracker.TotalCost(), runStart); exceeded {
 				if !budgetWrapUp {
+					budgetReason = reason
 					budgetWrapUp = true
 					ctx.Log("[Agent] Per-run budget exceeded (%s) — injecting wrap-up directive", reason)
 					// Keep the assistant text but drop tool calls, so the
@@ -1288,14 +1364,14 @@ func RunAgentLoop(cfg AgentConfig, ctx *models.ExecutionContext) (*AgentResult, 
 			results := executeToolsParallel(resp.ToolCalls, func(tc provider.ToolCall) (string, error) {
 				var argsMap map[string]interface{}
 				if err := json.Unmarshal([]byte(tc.Arguments), &argsMap); err != nil {
-					return fmt.Sprintf("Error parsing arguments for %s: %v", tc.Name, err), nil
+					return "", fmt.Errorf("error parsing arguments for %s: %w", tc.Name, err)
 				}
 
 				// Registry tools (core + skill + activated deferred)
 				if tool := registry.Get(tc.Name); tool != nil {
 					result, err := tool.Execute(loopCtx, argsMap)
 					if err != nil {
-						return fmt.Sprintf("Tool error: %v", err), nil
+						return "", err
 					}
 					return result, nil
 				}
@@ -1303,12 +1379,12 @@ func RunAgentLoop(cfg AgentConfig, ctx *models.ExecutionContext) (*AgentResult, 
 				// MCP tools
 				cli, exists := clientMap[tc.Name]
 				if !exists {
-					return fmt.Sprintf("Tool '%s' not found.", tc.Name), nil
+					return "", fmt.Errorf("tool '%s' not found", tc.Name)
 				}
 
 				toolResult, err := cli.CallTool(loopCtx, &mcp.CallToolParams{Name: tc.Name, Arguments: argsMap})
 				if err != nil {
-					return fmt.Sprintf("Tool execution error: %v", err), nil
+					return "", err
 				}
 
 				var sb strings.Builder
@@ -1326,6 +1402,9 @@ func RunAgentLoop(cfg AgentConfig, ctx *models.ExecutionContext) (*AgentResult, 
 						sb.WriteString("[Unknown Content]")
 					}
 				}
+				if toolResult.IsError {
+					return "", errors.New(sb.String())
+				}
 				return sb.String(), nil
 			}, 5)
 
@@ -1334,6 +1413,7 @@ func RunAgentLoop(cfg AgentConfig, ctx *models.ExecutionContext) (*AgentResult, 
 				messages = appendAndEmit(messages, provider.Message{
 					Role:       "tool",
 					Content:    r.Content,
+					ToolFailed: r.Failed,
 					ToolCallID: r.CallID,
 					ToolName:   r.ToolName,
 				})
@@ -1350,23 +1430,21 @@ func RunAgentLoop(cfg AgentConfig, ctx *models.ExecutionContext) (*AgentResult, 
 				fnArgs := tc.Arguments
 				callID := tc.ID
 				if repairRequest && (!finalRepairToolNames[fnName] || reservedReceiptAttempted) {
-					messages = appendAndEmit(messages, provider.Message{Role: "tool", Content: "Tool error: final review repair permits only the declared completion receipt tool.", ToolCallID: callID, ToolName: fnName})
+					refusal := tooloutcome.New(tooloutcome.Permanent, "reserved_repair_refused", "not_executed", "Final review repair permits only one declared completion receipt attempt. This call was not executed.", "explain_blocker")
+					messages = appendAndEmit(messages, provider.Message{Role: "tool", Content: refusal.JSON(), ToolCallID: callID, ToolName: fnName, ToolFailed: true, ToolOutcome: &refusal})
 					continue
 				}
 				if repairRequest {
 					reservedReceiptAttempted = true
 				}
-				if !repairRequest && cfg.MaxToolCallsBetweenReports > 0 && toolCallsSinceReport >= cfg.MaxToolCallsBetweenReports {
-					messages = appendAndEmit(messages, provider.Message{Role: "tool", Content: "Tool not executed: a user-visible progress report is required before more tool calls.", ToolCallID: callID, ToolName: fnName})
-					continue
-				}
+
 				toolCallsSinceReport++
 				if err := loopCtx.Err(); err != nil {
 					return nil, err
 				}
 				if cfg.ToolsOnly && registry.Get(fnName) == nil {
 					messages = appendAndEmit(messages, provider.Message{
-						Role: "tool", Content: fmt.Sprintf("Tool '%s' is not available in this run.", fnName), ToolCallID: callID, ToolName: fnName,
+						Role: "tool", Content: fmt.Sprintf("Tool '%s' is not available in this run.", fnName), ToolCallID: callID, ToolName: fnName, ToolFailed: true,
 					})
 					continue
 				}
@@ -1383,13 +1461,24 @@ func RunAgentLoop(cfg AgentConfig, ctx *models.ExecutionContext) (*AgentResult, 
 					cfg.OnStepStart(fnName, argsStr)
 				}
 
+				if cfg.ToolsOnly {
+					identity := resolveIdentity(fnName, fnArgs)
+					recoveryIdentities[callID] = identity
+					if blocked := toolRecoveryIdentityGuard(recoveryLedger, identity); blocked != nil {
+						recoveryBlocked[callID] = true
+						messages = appendAndEmit(messages, provider.Message{Role: "tool", Content: blocked.JSON(), ToolCallID: callID, ToolName: fnName, ToolOutcome: blocked, ToolFailed: true})
+						continue
+					}
+				}
 				// Parse Args
 				var argsMap map[string]interface{}
 				if err := json.Unmarshal([]byte(fnArgs), &argsMap); err != nil {
-					errMsg := fmt.Sprintf("Error parsing arguments for %s: %v", fnName, err)
+					outcome := tooloutcome.New(tooloutcome.Validation, "invalid_json", "not_executed", fmt.Sprintf("Error parsing arguments for %s: %v", fnName, err), "repair_arguments")
+					errMsg := outcome.JSON()
 					messages = appendAndEmit(messages, provider.Message{
-						Role:       "tool",
-						Content:    errMsg,
+						Role:        "tool",
+						Content:     errMsg,
+						ToolOutcome: &outcome, ToolFailed: true,
 						ToolCallID: callID,
 						ToolName:   fnName,
 					})
@@ -1401,12 +1490,28 @@ func RunAgentLoop(cfg AgentConfig, ctx *models.ExecutionContext) (*AgentResult, 
 				if modifiedArgs, hookErr := cfg.Hooks.callPreToolCall(fnName, argsMap); hookErr != nil {
 					errMsg := fmt.Sprintf("PreToolCall hook blocked %s: %v", fnName, hookErr)
 					messages = appendAndEmit(messages, provider.Message{
-						Role: "tool", Content: errMsg, ToolCallID: callID, ToolName: fnName,
+						Role: "tool", Content: errMsg, ToolCallID: callID, ToolName: fnName, ToolFailed: true,
 					})
 					ctx.Log("[Hook] %s", errMsg)
 					continue
 				} else {
 					argsMap = modifiedArgs
+				}
+
+				// Hooks may change execution arguments. Recheck the effective operation
+				// immediately before dispatch and record this exact identity in the ledger.
+				if cfg.ToolsOnly {
+					raw, encodeErr := json.Marshal(argsMap)
+					if encodeErr != nil {
+						return nil, encodeErr
+					}
+					identity := resolveIdentity(fnName, string(raw))
+					recoveryIdentities[callID] = identity
+					if blocked := toolRecoveryIdentityGuard(recoveryLedger, identity); blocked != nil {
+						recoveryBlocked[callID] = true
+						messages = appendAndEmit(messages, provider.Message{Role: "tool", Content: blocked.JSON(), ToolCallID: callID, ToolName: fnName, ToolOutcome: blocked, ToolFailed: true})
+						continue
+					}
 				}
 
 				// markStepDone is a helper to update the step status after tool execution
@@ -1525,6 +1630,7 @@ func RunAgentLoop(cfg AgentConfig, ctx *models.ExecutionContext) (*AgentResult, 
 					messages = appendAndEmit(messages, provider.Message{
 						Role:       "tool",
 						Content:    resultMsg,
+						ToolFailed: shellResult.ExitCode != 0 || shellResult.TimedOut,
 						ToolCallID: callID,
 						ToolName:   fnName,
 					})
@@ -1534,18 +1640,44 @@ func RunAgentLoop(cfg AgentConfig, ctx *models.ExecutionContext) (*AgentResult, 
 
 				// Handle registry tools (core + skill + activated deferred)
 				if tool := registry.Get(fnName); tool != nil {
-					result, err := tool.Execute(loopCtx, argsMap)
+					executionCtx := loopCtx
+					if cfg.ToolsOnly {
+						executionCtx = tooloutcome.WithBoundary(loopCtx, func(identity tooloutcome.Identity) *tooloutcome.Outcome {
+							blocked := toolRecoveryIdentityGuard(recoveryLedger, identity)
+							if blocked != nil {
+								recoveryBlocked[callID] = true
+							}
+							return blocked
+						}, func(identity tooloutcome.Identity) {
+							// The first dispatch identity is immutable. Later observations can
+							// add evidence, but cannot replace or narrow its uncertainty fence.
+							if len(recoveryEvidence[callID]) == 0 {
+								recoveryIdentities[callID] = identity
+							}
+							for _, prior := range recoveryEvidence[callID] {
+								if prior == identity {
+									return
+								}
+							}
+							recoveryEvidence[callID] = append(recoveryEvidence[callID], identity)
+						})
+					}
+					result, err := tool.Execute(executionCtx, argsMap)
 					resultMsg := ""
+					var outcome *tooloutcome.Outcome
 					if err != nil {
 						if questionID, suspended := suspensionQuestionID(err); suspended && cfg.ToolsOnly {
 							return newSuspendedResult(
 								state, &cfg, cfg.Model, messages, assistantTurnIndex, runStart,
 								budgetWrapUp, finalResponseRepaired, finalRepairPending, finalRepairReserved, finalRepairFinalPending,
 								toolCallsSinceReport, toolCallsSinceReport >= cfg.MaxToolCallsBetweenReports && cfg.MaxToolCallsBetweenReports > 0,
-								questionID, tc,
+								questionID, tc, recoveryLedger,
 							), nil
 						}
-						resultMsg = fmt.Sprintf("Tool error: %v", err)
+						resultMsg = tooloutcome.ModelResult(err)
+						if classified, ok := tooloutcome.FromError(err); ok {
+							outcome = &classified
+						}
 					} else {
 						resultMsg = result
 						// If skill returned commands (code blocks), hint agent to execute them
@@ -1559,9 +1691,10 @@ func RunAgentLoop(cfg AgentConfig, ctx *models.ExecutionContext) (*AgentResult, 
 					}
 					ctx.Log("[ExtraTool:%s] %s", fnName, truncate(resultMsg, 200))
 					messages = appendAndEmit(messages, provider.Message{
-						Role:       "tool",
-						Content:    resultMsg,
-						ImageURLs:  imageURLs,
+						Role:        "tool",
+						Content:     resultMsg,
+						ImageURLs:   imageURLs,
+						ToolOutcome: outcome, ToolFailed: err != nil,
 						ToolCallID: callID,
 						ToolName:   fnName,
 					})
@@ -1629,6 +1762,7 @@ func RunAgentLoop(cfg AgentConfig, ctx *models.ExecutionContext) (*AgentResult, 
 						messages = appendAndEmit(messages, provider.Message{
 							Role:       "tool",
 							Content:    resultMsg,
+							ToolFailed: err != nil,
 							ToolCallID: callID,
 							ToolName:   fnName,
 						})
@@ -1637,6 +1771,7 @@ func RunAgentLoop(cfg AgentConfig, ctx *models.ExecutionContext) (*AgentResult, 
 						messages = appendAndEmit(messages, provider.Message{
 							Role:       "tool",
 							Content:    fmt.Sprintf("Skill '%s' not found", skillKey),
+							ToolFailed: true,
 							ToolCallID: callID,
 							ToolName:   fnName,
 						})
@@ -1651,6 +1786,7 @@ func RunAgentLoop(cfg AgentConfig, ctx *models.ExecutionContext) (*AgentResult, 
 					messages = appendAndEmit(messages, provider.Message{
 						Role:       "tool",
 						Content:    errMsg,
+						ToolFailed: true,
 						ToolCallID: callID,
 						ToolName:   fnName,
 					})
@@ -1688,6 +1824,7 @@ func RunAgentLoop(cfg AgentConfig, ctx *models.ExecutionContext) (*AgentResult, 
 				messages = appendAndEmit(messages, provider.Message{
 					Role:       "tool",
 					Content:    outputText,
+					ToolFailed: err != nil || (toolResult != nil && toolResult.IsError),
 					ToolCallID: callID,
 					ToolName:   fnName,
 				})

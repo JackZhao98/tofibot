@@ -311,6 +311,62 @@ class ProxyTests(unittest.TestCase):
         self.assertTrue(cancelled.wait(2), "guest request must cancel before command timeout")
         thread.join(timeout=2)
 
+    def test_guarded_write_keeps_identity_and_guest_outcome_over_transport(self):
+        identity = dict(guard_version=1, target="/workspace/bots/fixture/a",
+                        object="1:2", parent="/workspace/bots/fixture",
+                        parent_object="1:3", operation="files.write")
+        for status, guarded in [(200, True), (409, True), (200, False)]:
+            with self.subTest(status=status, guarded=guarded):
+                action = dict(bot_id="00000000-0000-4000-8000-000000000001",
+                              run_id="synthetic", action="files.write",
+                              args=dict(path="a", content="X", append=True), source="model")
+                if guarded:
+                    action["write_identity"] = identity
+                original = json.dumps(action).encode()
+                outcome = dict(version=1, status="validation_error",
+                               code="write_identity_changed", certainty="not_executed",
+                               message="Synthetic identity mismatch", next_action="verify_target")
+                response = dict(ok=status == 200)
+                if status == 409:
+                    response.update(error="Synthetic identity mismatch", outcome=outcome)
+                payload = json.dumps(response).encode()
+                proxied, guest = socket.socketpair()
+                self.vm.connect = mock.Mock(return_value=proxied)
+                received = []
+                def serve_guest():
+                    with guest:
+                        guest.settimeout(3)
+                        raw = b""
+                        while b"\r\n\r\n" not in raw:
+                            raw += guest.recv(4096)
+                        headers, body = raw.split(b"\r\n\r\n", 1)
+                        while len(body) < len(original):
+                            body += guest.recv(4096)
+                        received.append(body)
+                        reason = b"Conflict" if status == 409 else b"OK"
+                        guest.sendall(b"HTTP/1.1 " + str(status).encode() + b" " + reason
+                                      + b"\r\nContent-Type: application/json\r\nContent-Length: "
+                                      + str(len(payload)).encode() + b"\r\nConnection: close\r\n\r\n" + payload)
+                thread = threading.Thread(target=serve_guest, daemon=True)
+                thread.start()
+                actual_status, actual_response = self.request("POST", "/v1/action", original)
+                thread.join(3)
+                self.assertFalse(thread.is_alive())
+                self.assertEqual(received, [original])
+                self.assertEqual((actual_status, actual_response), (status, response))
+                self.vm.connect.assert_called_once_with()
+
+    def test_invalid_write_identity_is_refused_before_guest_dispatch(self):
+        self.vm.connect = mock.Mock(side_effect=AssertionError("must not reach Guest"))
+        for action, identity in [("files.write", None), ("files.write", []),
+                                 ("files.write", "synthetic"), ("files.read", {}),
+                                 ("shell.exec", {})]:
+            with self.subTest(action=action, identity=identity):
+                status, _ = self.request("POST", "/v1/action", json.dumps(
+                    dict(action=action, args={}, write_identity=identity)))
+                self.assertEqual(status, 400)
+        self.vm.connect.assert_not_called()
+
     def test_stream_rejects_arbitrary_endpoints_and_parameters(self):
         self.vm.connect = mock.Mock(side_effect=AssertionError("must not reach guest"))
         bot = "00000000-0000-0000-0000-000000000001"

@@ -199,6 +199,7 @@ export interface ToolActivity {
   name: string;
   arguments: string;
   result: string;
+  outcome?: { status: string; code: string; execution_certainty: string; message: string; next_action: string; attempts?: number; retry_limit?: number; repair_limit?: number };
   status: ToolActivityStatus;
   truncated: boolean;
   started_at: string;
@@ -229,7 +230,7 @@ export interface Run {
   bot_id: string;
   status: RunStatus;
   error?: string;
-  failure?: { code: "connection_interrupted" | "execution_failed"; source: "runtime"; message: string };
+  failure?: { code: "connection_interrupted" | "execution_failed" | "budget_exhausted"; source: "runtime"; message: string };
   parent_run_id?: string;
   model?: string;
   kind?: string;

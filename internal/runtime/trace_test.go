@@ -51,6 +51,17 @@ func TestToolEventTrackerLifecycleKeepsProviderIDs(t *testing.T) {
 	}
 }
 
+func TestNeverStartedToolCannotBecomeCompleted(t *testing.T) {
+	var events []ToolEvent
+	tracker := newToolEventTracker(func(e ToolEvent) error { events = append(events, e); return nil })
+	tracker.queue([]provider.ToolCall{{ID: "refused", Name: "complete_scheduled_task", Arguments: `{}`}})
+	// Even an omitted failure flag cannot invent successful execution.
+	tracker.finish(provider.Message{Role: "tool", ToolCallID: "refused", ToolName: "complete_scheduled_task", Content: "not executed"})
+	if tracker.Err() != nil || len(events) != 2 || events[1].Status != "failed" {
+		t.Fatalf("events=%+v err=%v", events, tracker.Err())
+	}
+}
+
 func TestToolEventTrackerRejectsDuplicateCallID(t *testing.T) {
 	tracker := newToolEventTracker(nil)
 	tracker.queue([]provider.ToolCall{{ID: "same", Name: "one", Arguments: `{}`}})

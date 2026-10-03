@@ -10,7 +10,7 @@ const uiRoot = dirname(dirname(fileURLToPath(import.meta.url)));
 const output = await mkdtemp(join(tmpdir(), "tofi-question-timeline-"));
 try {
   await run(join(uiRoot, "node_modules/.bin/tsc"), ["src/questionTimeline.ts", "src/types.ts", "--ignoreConfig", "--target", "ES2022", "--module", "ES2022", "--moduleResolution", "Bundler", "--jsx", "react-jsx", "--types", "vite/client", "--outDir", output, "--skipLibCheck", "--declaration", "false", "--pretty", "false"], { cwd: uiRoot });
-  const { buildQuestionTimeline } = await import(pathToFileURL(join(output, "questionTimeline.js")));
+  const { buildQuestionTimeline, reconcileQuestion } = await import(pathToFileURL(join(output, "questionTimeline.js")));
   const message = (id, seq, created_at) => ({ id, seq, created_at, conversation_id: "c", role: "assistant", content: id });
   const question = (question_id, created_at, extra = {}) => ({ question_id, created_at, type: "question", question_type: "text", conversation_id: "c", bot_id: "b", run_id: "r", question: question_id, status: "pending", ...extra });
   const ids = timeline => timeline.map(item => item.kind === "message" ? item.message.id : item.question.question_id);
@@ -25,5 +25,10 @@ try {
   assert.deepEqual(ids(buildQuestionTimeline([], [q], false)), ["q"], "question without a text turn remains visible");
   assert.deepEqual(ids(buildQuestionTimeline([intro], [question("z", q.created_at), question("a", q.created_at)], false)), ["intro", "a", "z"], "equal timestamps have deterministic IDs as tie breaker");
   assert.deepEqual(ids(buildQuestionTimeline([intro], [question("same", intro.created_at)], false)), ["intro", "same"], "same-time question comes after the turn that introduced it");
+  const answered = { ...q, status: "answered", answer: true, updated_at: "2026-09-17T00:00:00.000000501Z" };
+  const expired = { ...q, status: "expired", updated_at: "2026-09-17T00:00:00.000000502Z", outcome: { next_action: "renew_approval" } };
+  assert.equal(reconcileQuestion(expired, answered), expired, "new backend expiry replaces the locally answered decision");
+  assert.equal(reconcileQuestion({ ...q, updated_at: q.created_at }, answered), answered, "older polling response cannot reopen an answered card");
+  assert.equal(reconcileQuestion({ ...expired, updated_at: undefined }, { ...answered, updated_at: undefined }).status, "expired", "unversioned legacy expiry stays visible");
   console.log("question timeline checks: PASS (nanosecond boundary, answer stability, pagination, question-only history, deterministic ties)");
 } finally { await rm(output, { recursive: true, force: true }); }
