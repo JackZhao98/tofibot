@@ -32,7 +32,7 @@ function Participant({ ids, name }: { ids: string[]; name: string }) {
   return <div className="view-only-chat-participant"><AvatarStack ids={ids} /><strong>{name}</strong></div>;
 }
 
-export function ViewOnlyChat({ target, bots, onClose, returnFocus }: { target: ViewOnlyChatTarget; bots: Bot[]; onClose: () => void; returnFocus?: HTMLElement | null }) {
+export function ViewOnlyChat({ target, bots, onClose, returnFocus, card = false }: { target: ViewOnlyChatTarget; bots: Bot[]; onClose: () => void; returnFocus?: HTMLElement | null; card?: boolean }) {
   const dialogRef = useRef<HTMLDivElement>(null);
   const closeRef = useRef<HTMLButtonElement>(null);
   const botById = useMemo(() => new Map(bots.map((bot) => [bot.id, bot])), [bots]);
@@ -50,7 +50,8 @@ export function ViewOnlyChat({ target, bots, onClose, returnFocus }: { target: V
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.defaultPrevented) return;
       if (event.key === "Escape") { event.preventDefault(); onClose(); return; }
-      if (event.key !== "Tab") return;
+      // As a top-right card the chat stays usable beside it, so focus is not trapped.
+      if (event.key !== "Tab" || card) return;
       const controls = Array.from(dialogRef.current?.querySelectorAll<HTMLElement>('button:not(:disabled), a[href], summary, [tabindex="0"]') ?? [])
         .filter(element => !element.closest('[hidden], [inert]') && element.getClientRects().length > 0);
       const index = controls.indexOf(document.activeElement as HTMLElement);
@@ -61,12 +62,12 @@ export function ViewOnlyChat({ target, bots, onClose, returnFocus }: { target: V
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [onClose]);
+  }, [onClose, card]);
 
   const sourceIDs = participantIds(target.source, target.sourceBotIds);
   const targetIDs = participantIds(target.target, target.targetBotIds);
 
-  return createPortal(<div ref={dialogRef} className="view-only-chat" role="dialog" aria-modal="true" aria-label="只读转发对话">
+  return createPortal(<div ref={dialogRef} className={`view-only-chat${card ? " is-card" : ""}`} role="dialog" aria-modal={card ? undefined : true} aria-label="只读转发对话">
     <header className="view-only-chat-header">
       <div className="view-only-chat-identity">
         <Participant ids={sourceIDs} name={target.sourceName ?? target.source.name} />
@@ -76,7 +77,7 @@ export function ViewOnlyChat({ target, bots, onClose, returnFocus }: { target: V
       <button ref={closeRef} type="button" className="view-only-chat-close" aria-label="关闭只读对话" data-hint="关闭只读对话" onClick={onClose}><TofiIcon name="close" size={20} /></button>
     </header>
     <ViewOnlyChatHistory key={JSON.stringify([target.target.id, target.runId ?? null])} conversationId={target.target.id} runId={target.runId} botById={botById} closeRef={closeRef} />
-    <footer className="view-only-chat-footer"><span><TofiIcon name="lock" size={16} /> This chat is view-only</span><button type="button" className="secondary-button" onClick={onClose}>Close Chat</button></footer>
+    <footer className="view-only-chat-footer"><span><TofiIcon name="lock" size={16} /> 只读对话</span><button type="button" className="secondary-button" onClick={onClose}>关闭</button></footer>
   </div>, document.body);
 }
 

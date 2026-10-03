@@ -430,6 +430,8 @@ function Workspace() {
   const viewOnlyChatTriggerRef = useRef<HTMLElement | null>(null);
   function openRelatedChat(target: ViewOnlyChatTarget) {
     viewOnlyChatTriggerRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    // On wide browser windows the read-only chat takes the same top-right card as context panels.
+    if (!isDesktop && !compactViewport && panel && panel !== "settings" && panel !== "desktop") setPanel(null);
     setViewOnlyChat(target);
   }
   const showCreateMenu = useSurfacePresence(createMenuOpen ? "open" : null);
@@ -467,6 +469,8 @@ function Workspace() {
   // The shared computer is a floating surface. It must not reserve the
   // detail-pane column or push the chat inward while it is open.
   const contextPanelOpen = Boolean(panel && panel !== "settings" && panel !== "desktop");
+  // One top-right card at a time: opening a context panel closes the read-only chat card.
+  useEffect(() => { if (contextPanelOpen && !isDesktop) setViewOnlyChat(null); }, [contextPanelOpen]);
   const modalPanelOpen = Boolean(panel && (panel === "settings" || (panel !== "desktop" && compactViewport) || (panel === "desktop" && desktopExpanded)));
   const readSent = useRef<Record<string, number>>({});
   const readRetryAfter = useRef<Record<string, number>>({});
@@ -1644,7 +1648,7 @@ function Workspace() {
     <div inert={Boolean(deleteTarget || viewOnlyChat) || undefined} className={`workspace${keyboardViewportOpen ? " keyboard-viewport-open" : ""}`} style={viewportHeight ? { "--viewport-height": `${viewportHeight}px` } as React.CSSProperties : undefined}>
       {workspaceError && indexInitialized.current && <div className="stream-status workspace-status" role="alert">暂时无法刷新工作区。<button className="secondary-button" onClick={() => void refreshIndex()}>重试</button></div>}
       {computerInfo && computerInfo.state !== "ready" && panel !== "desktop" && <div className="stream-status workspace-status computer-preparing" role="status"><strong>{computerInfo.state === "starting" ? "正在准备你的共享电脑" : computerInfo.state === "error" ? "共享电脑准备失败" : computerInfo.state === "stopped" ? "共享电脑已停止" : "共享电脑暂不可用"}</strong><span>{computerInfo.state === "starting" && computerInfo.phase ? ` · ${computerPhaseText[computerInfo.phase] ?? computerInfo.phase}` : ""}{computerInfo.error ? ` · ${computerInfo.error}` : ""}</span>{(computerInfo.state === "error" || computerInfo.state === "stopped") && <button className="secondary-button" onClick={() => void api.computerRetry().then(() => api.computerInfo()).then(setComputerInfo).catch(cause => setError(errorText(cause)))}>重试</button>}</div>}
-      <div className="native-titlebar" aria-hidden="true" /><ActionHints /><div className={`workspace-grid${sidebarCollapsed ? " sidebar-collapsed" : ""}${contextPanelOpen ? " context-open" : ""}${activeBot ? " bot-panel-ready" : ""}${panel === "bot-edit" ? " bot-panel-open" : ""}${displayedPanel === "terminal" ? " terminal-context" : ""}`}>
+      <div className="native-titlebar" aria-hidden="true" /><ActionHints /><div className={`workspace-grid${sidebarCollapsed ? " sidebar-collapsed" : ""}${contextPanelOpen ? " context-open" : ""}${contextPanelOpen || viewOnlyChat ? " card-open" : ""}${activeBot ? " bot-panel-ready" : ""}${panel === "bot-edit" ? " bot-panel-open" : ""}${displayedPanel === "terminal" ? " terminal-context" : ""}`}>
         <aside className={`contact-pane ${mobileList ? "open" : ""}`} inert={modalPanelOpen || undefined}>
           <div className="sidebar-top">{sidebarCollapsed ? <button className="sidebar-logo-expand" type="button" aria-label="展开侧栏" data-hint="展开侧栏" onClick={() => setSidebarCollapsed(false)}><span className="sidebar-logo-art"><BrandLogo variant="calico" /></span><span className="sidebar-logo-arrow" aria-hidden="true"><Icon name="sidebar" size={20} /></span></button> : <BrandLogo variant="calico" />}<div className="sidebar-actions">{!sidebarCollapsed && <button className="top-icon-button sidebar-toggle" aria-label="收起侧栏" data-hint="收起侧栏" onClick={() => setSidebarCollapsed(true)}><Icon name="sidebar" size={20} /></button>}<div className="create-menu-anchor" ref={createMenuRef}><button ref={createMenuTriggerRef} className="icon-button" onClick={() => setCreateMenuOpen((open) => !open)} data-hint="新建 Bot 或群" aria-label="新建 Bot 或群" aria-expanded={createMenuOpen} aria-controls={createMenuOpen ? "create-menu" : undefined}><Icon name="plus" size={18} animated /></button><input ref={botImportRef} type="file" hidden accept=".json,.tofi-bot,application/json" onChange={(event) => { const file = event.currentTarget.files?.[0]; event.currentTarget.value = ""; if (file) void importBotPackage(file); }} />{showCreateMenu && <div id="create-menu" className="create-menu" data-open={createMenuOpen} inert={!createMenuOpen || undefined}><button disabled={newBotBusy} onClick={() => { createMenuTriggerRef.current?.focus(); void createNewBot(); }}><Icon name="bot-add" size={18} /><span>{newBotBusy ? "创建中…" : "新建 Bot"}</span></button><button onClick={() => { createMenuTriggerRef.current?.focus(); setCreateMenuOpen(false); setPanel("group-create"); }}><Icon name="group-add" size={18} /><span>新建群</span></button><button disabled={botImportBusy} onClick={() => { setCreateMenuOpen(false); botImportRef.current?.click(); }}><Icon name="upload" size={18} /><span>{botImportBusy ? "导入中…" : "导入 Bot 分享包"}</span></button>{(newBotError || botImportError) && <p className="error-text" role="alert">{newBotError || botImportError}</p>}</div>}</div></div></div>
           <label className="search-box"><Icon name="search" size={16} /><input aria-label="搜索 Bot 和群" value={search} onChange={(event) => setSearch(event.target.value)} placeholder="搜索 Bot 或群" /></label>
@@ -1791,7 +1795,7 @@ function Workspace() {
       </div>
       {displayedPanel === "desktop" && desktopBot && <FloatingDesktop expanded={desktopExpanded}><BotDesktopPanel presence={desktopPresence} autoConnect={Boolean(activeDesktopOwner)} botId={desktopBot.id} botName={desktopBot.name} members={bots.map(bot => ({ id: bot.id, name: bot.name }))} onClose={(reason) => { if (reason === "shutdown") { setDesktopReady(false); setComputerInfo({ state: "stopped" }); } setPanel(null); }} onReadyChange={setDesktopReady} onExpandedChange={setDesktopExpanded} /></FloatingDesktop>}
       {deleteTarget && <DeleteConversationDialog target={deleteTarget} onDelete={deleteConversation} onClose={() => setDeleteTarget(null)} />}
-      {viewOnlyChat && <ViewOnlyChat target={viewOnlyChat} bots={bots} returnFocus={viewOnlyChatTriggerRef.current} onClose={() => setViewOnlyChat(null)} />}
+      {viewOnlyChat && <ViewOnlyChat target={viewOnlyChat} bots={bots} card={!isDesktop && !compactViewport} returnFocus={viewOnlyChatTriggerRef.current} onClose={() => setViewOnlyChat(null)} />}
     </div>
   );
 }
@@ -1982,7 +1986,7 @@ export function MessageBubble({ message, replyTarget, replyTargetName, sender, s
     return <ScheduledTaskRow message={message} run={run} occurrence={scheduleOccurrence} schedule={schedule} timezone={timezone} onRetry={onRetrySchedule} />;
   }
   if (message.kind === "message_ref" && message.notice) {
-    return <article className="message message-notice message-reference" title={`${formatExactTime(message.created_at, timezone)} · ${timezone}`}><div>{relatedChat && onOpenRelatedChat ? <RelatedMessageLink target={relatedChat} onOpen={onOpenRelatedChat} /> : <span>{message.content}</span>}</div></article>;
+    return <article className="message message-notice message-reference" title={`${formatExactTime(message.created_at, timezone)} · ${timezone}`}><div>{relatedChat && onOpenRelatedChat ? <RelatedMessageLink target={relatedChat} onOpen={onOpenRelatedChat} /> : <span>{localizeMessageRef(message.content)}</span>}</div></article>;
   }
   const assignment = message.kind === "notice" && message.sender_bot_id !== "system" && message.notice &&
     (message.notice.type === "handoff" || message.notice.type === "forward") &&
