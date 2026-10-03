@@ -72,6 +72,7 @@ const message=(e:unknown)=>{
  if(text.startsWith("OAuth connection could not be started"))return "暂时无法启动授权，请检查服务地址后重试。";
  if(text==="MCP endpoint changed; re-enter or remove saved headers before saving")return "服务地址已改变，请重新输入或移除保存的请求头凭据后再保存。";
  if(text==="MCP endpoint changed; explicitly configure OAuth for the new endpoint before saving")return "服务地址已改变，请为新地址重新填写 OAuth 配置后再保存。";
+ if(text==="OAuth metadata destination changed; re-enter or remove the saved client secret before saving")return "授权元数据地址已改变，请重新输入或清空保存的 Client Secret 后再保存。";
  return text;
 };
 const post=(body:unknown)=>({method:"POST",body:JSON.stringify(body)});
