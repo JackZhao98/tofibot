@@ -269,6 +269,7 @@ func (g *AccountGateway) workspace(a Account) (*Server, error) {
 			return err
 		}
 	}
+	c.AccountID = a.ID
 	createRuntime := g.runtimeFactory
 	if createRuntime == nil {
 		createRuntime = NewServer

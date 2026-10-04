@@ -270,7 +270,7 @@ func lazyDiscoverableMCPTools(runCtx context.Context, m *Manager, servers map[st
 				toolName := uniqueToolName("mcp_"+name+"__"+remote.RemoteName, usedNames)
 				toolSources[toolName] = mcpToolSource{server: name, remoteName: remote.RemoteName, schemaVersion: version}
 				remoteName := remote.RemoteName
-				found = append(found, runtime.Tool{Name: toolName, Description: boundedDescription(remote.Description, toolName), Parameters: remote.InputSchema, Execute: func(callCtx context.Context, args json.RawMessage) (string, error) {
+				found = append(found, runtime.Tool{Name: toolName, Description: boundedDescription(remote.Description, toolName), Parameters: remote.InputSchema, CheckReadiness: m.mcpMethodReadiness(name, cfg), Execute: func(callCtx context.Context, args json.RawMessage) (string, error) {
 					out, err := m.callMCPTool(callCtx, cli, remoteName, args, trustedReadOnlyTool(cfg, remoteName))
 					if err != nil {
 						m.invalidateCatalogs(name)
@@ -728,15 +728,47 @@ func lazyDiscoverableMCPTools(runCtx context.Context, m *Manager, servers map[st
 		if err := validateMCPArguments(t.Parameters, args); err != nil {
 			return "", err
 		}
+		schema, _ := json.Marshal(t.Parameters)
+		proposal := MCPCallApproval{Server: source.server, Tool: source.remoteName, ConfigVersion: metadataFingerprint(source.server, servers[source.server]), Arguments: append(json.RawMessage(nil), in.Arguments...), Description: t.Description, Schema: schema}
+		proposal.Recheck = func(checkCtx context.Context) error {
+			if !m.MCPCallCurrent(proposal) {
+				return mcpReadinessOutcome(runtime.MethodNotConfigured).Err()
+			}
+			if t.CheckReadiness == nil {
+				return mcpReadinessOutcome(runtime.MethodUnknown).Err()
+			}
+			state, err := t.CheckReadiness(checkCtx)
+			if state != runtime.MethodReady || err != nil {
+				if err != nil && state == runtime.MethodReady {
+					state = runtime.MethodUnknown
+				}
+				return mcpReadinessOutcome(state).Err()
+			}
+			return nil
+		}
+		if err := proposal.Recheck(ctx); err != nil {
+			return "", err
+		}
 		if enforceApproval && !trustedReadOnlyTool(servers[source.server], source.remoteName) {
 			if approvalGate == nil {
 				return "", tooloutcome.New(tooloutcome.Denied, "approval_gate_required", "not_executed", "MCP tool requires a run-scoped human approval gate.", "explain_blocker").Err()
 			}
-			if err := approvalGate(ctx, MCPCallApproval{Server: source.server, Tool: source.remoteName, ConfigVersion: metadataFingerprint(source.server, servers[source.server]), Arguments: append(json.RawMessage(nil), in.Arguments...)}); err != nil {
+			if err := approvalGate(ctx, proposal); err != nil {
 				return "", err
 			}
 		}
-		return t.Execute(ctx, in.Arguments)
+		return m.executeCurrentMCPCall(proposal, func() (string, error) {
+			// The configuration fence is already held here. Do not recursively
+			// acquire it while a writer is waiting; only recheck the endpoint.
+			state, err := t.CheckReadiness(ctx)
+			if state != runtime.MethodReady || err != nil {
+				if err != nil && state == runtime.MethodReady {
+					state = runtime.MethodUnknown
+				}
+				return "", mcpReadinessOutcome(state).Err()
+			}
+			return t.Execute(ctx, in.Arguments)
+		})
 	}
 	list := runtime.Tool{Name: "list_mcp_servers", Description: "List installed MCP server names without connecting or inspecting tool capabilities. This is not capability discovery: inspect plausible returned servers with search_mcp_tools before falling back to generic browsing. Skip this directory call when the relevant server is already known.", Parameters: map[string]any{"type": "object", "properties": map[string]any{"offset": map[string]any{"type": "integer", "minimum": 0}, "query": map[string]any{"type": "string", "maxLength": 256}}, "additionalProperties": false}}
 	list.Execute = func(ctx context.Context, raw json.RawMessage) (string, error) {

@@ -177,6 +177,8 @@ func (m *Manager) SaveMCP(name string, c MCPServerConfig, updating bool) error {
 	if e != nil || u.Host == "" || u.User != nil || (u.Scheme != "http" && u.Scheme != "https") {
 		return tooloutcome.InvalidArguments("MCP URL must be an http or https endpoint")
 	}
+	m.mcpConfigFence.Lock()
+	defer m.mcpConfigFence.Unlock()
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	cfg, e := loadServers(m.cfg.MCPConfigPath)
@@ -252,6 +254,8 @@ func credentialTargetKey(cfg MCPServerConfig) string {
 }
 
 func (m *Manager) DeleteMCP(name string) error {
+	m.mcpConfigFence.Lock()
+	defer m.mcpConfigFence.Unlock()
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	cfg, e := loadServers(m.cfg.MCPConfigPath)
@@ -866,6 +870,8 @@ func (m *Manager) OAuthStart(ctx context.Context, name, redirect string) (string
 	if e != nil {
 		return "", "", e
 	}
+	m.mcpConfigFence.Lock()
+	defer m.mcpConfigFence.Unlock()
 	m.mu.Lock()
 	current, currentErr := loadServers(m.cfg.MCPConfigPath)
 	if !store.active.Load() || m.tokenStores[name] != store || currentErr != nil || credentialTargetChanged(c, current[name]) {
@@ -975,6 +981,8 @@ func (m *Manager) OAuthCallbackForRedirect(ctx context.Context, sid, code, state
 	// DCR credentials are not persisted until the authorization-code exchange
 	// succeeds. This keeps the previous refresh credentials usable if the user
 	// abandons or fails the new loopback authorization.
+	m.mcpConfigFence.Lock()
+	defer m.mcpConfigFence.Unlock()
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	current, err := loadServers(m.cfg.MCPConfigPath)

@@ -22,7 +22,8 @@
     "test:final-v2-tokens": "node scripts/test-final-v2-tokens.mjs",
     "test:design-icons": "node scripts/test-design-icons.mjs",
     "test:motion-lab": "node scripts/test-motion-lab.mjs",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "test:auto-review": "node scripts/test-auto-review.mjs"
   },
   "dependencies": {
     "@dicebear/core": "10.7.0",

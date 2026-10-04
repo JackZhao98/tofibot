@@ -21,6 +21,7 @@ const (
 )
 
 type Outcome struct {
+	Readiness   string `json:"readiness,omitempty"`
 	Version     int    `json:"version"`
 	Status      string `json:"status"`
 	Code        string `json:"code"`

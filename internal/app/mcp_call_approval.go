@@ -26,8 +26,13 @@ func (s *Server) approveMCPCall(ctx context.Context, c Conversation, r Run, call
 	if err := s.extensionToolActive(ctx, c, r); err != nil {
 		return err
 	}
-	if call.Server == "" || call.Tool == "" || call.ConfigVersion == "" {
-		return errors.New("external tool approval target is incomplete")
+	if call.Server == "" || call.Tool == "" || call.ConfigVersion == "" || !mcpSchemaAvailable(call.Schema) {
+		return mcpReviewBlocked("setup_required", "The exact external tool configuration or input schema is incomplete. Approval cannot repair this setup gap.")
+	}
+	if call.Recheck != nil {
+		if err := call.Recheck(ctx); err != nil {
+			return err
+		}
 	}
 	payload, err := mcpApprovalPayload(call.Arguments)
 	if err != nil {
@@ -36,43 +41,73 @@ func (s *Server) approveMCPCall(ctx context.Context, c Conversation, r Run, call
 	hash := mcpApprovalHash(call)
 	var id, status, claimed, expires string
 	var answer sql.NullString
-	err = s.store.db.QueryRow(`SELECT q.id,q.status,q.answer_json,a.claimed_at,COALESCE(q.expires_at,'')
+	var newQuestion *Question
+	loadErr := func() error {
+		s.mcpApprovalMu.Lock()
+		defer s.mcpApprovalMu.Unlock()
+		err = s.store.db.QueryRow(`SELECT q.id,q.status,q.answer_json,a.claimed_at,COALESCE(q.expires_at,'')
 		FROM mcp_call_approvals a JOIN questions q ON q.id=a.question_id
 		WHERE a.run_id=? AND a.action_hash=? AND q.conversation_id=? AND q.bot_id=?
 		ORDER BY q.created_at DESC,q.id DESC LIMIT 1`, r.ID, hash, c.ID, r.BotID).Scan(&id, &status, &answer, &claimed, &expires)
-	if errors.Is(err, sql.ErrNoRows) {
-		in, normalizeErr := normalizeQuestionInput(askQuestionInput{
-			Question: "Allow this external tool call?",
-			Type:     questionApproval,
-			Approval: &ApprovalDetails{
-				Action:  "Call " + call.Tool,
-				Target:  "MCP server " + call.Server,
-				Impact:  fmt.Sprintf("The external server may change data or contact others. Review the complete %d-byte argument payload below before approving.", len(call.Arguments)),
-				Payload: payload,
-			},
-		})
-		if normalizeErr != nil {
-			return normalizeErr
+		if errors.Is(err, sql.ErrNoRows) {
+			in, normalizeErr := normalizeQuestionInput(askQuestionInput{
+				Question: "Allow this external tool call?",
+				Type:     questionApproval,
+				Approval: &ApprovalDetails{
+					Action:  "Call " + call.Tool,
+					Target:  "MCP server " + call.Server,
+					Impact:  fmt.Sprintf("The external server may change data or contact others. Review the complete %d-byte argument payload below before approving.", len(call.Arguments)),
+					Payload: payload,
+				},
+			})
+			if normalizeErr != nil {
+				return normalizeErr
+			}
+			q, createErr := s.store.CreateQuestion(c.ID, r, in)
+			if createErr != nil {
+				return createErr
+			}
+			if _, createErr = s.store.db.Exec(`INSERT INTO mcp_call_approvals(question_id,run_id,action_hash) VALUES(?,?,?)`, q.ID, r.ID, hash); createErr != nil {
+				_, _ = s.store.db.Exec(`DELETE FROM questions WHERE id=? AND status=?`, q.ID, questionPending)
+				return createErr
+			}
+			if _, createErr = s.store.Event(c.ID, "question", q.Card()); createErr != nil {
+				_, _ = s.store.db.Exec(`UPDATE questions SET status=?,updated_at=? WHERE id=? AND status=?`, questionCancelled, now(), q.ID, questionPending)
+				return createErr
+			}
+			id, status, expires = q.ID, q.Status, q.ExpiresAt
+			newQuestion = &q
+		} else if err != nil {
+			return err
 		}
-		q, createErr := s.store.CreateQuestion(c.ID, r, in)
-		if createErr != nil {
-			return createErr
+		return nil
+	}()
+	if loadErr != nil {
+		return loadErr
+	}
+	if newQuestion != nil {
+		if err := s.reviewNewMCPProposal(ctx, c, r, call, *newQuestion); err != nil {
+			return err
 		}
-		if _, createErr = s.store.db.Exec(`INSERT INTO mcp_call_approvals(question_id,run_id,action_hash) VALUES(?,?,?)`, q.ID, r.ID, hash); createErr != nil {
-			_, _ = s.store.db.Exec(`DELETE FROM questions WHERE id=? AND status=?`, q.ID, questionPending)
-			return createErr
+		q, err := s.store.GetQuestion(id)
+		if err != nil {
+			return err
 		}
-		if _, createErr = s.store.Event(c.ID, "question", q.Card()); createErr != nil {
-			_, _ = s.store.db.Exec(`UPDATE questions SET status=?,updated_at=? WHERE id=? AND status=?`, questionCancelled, now(), q.ID, questionPending)
-			return createErr
-		}
-		id, status, expires = q.ID, q.Status, q.ExpiresAt
-	} else if err != nil {
-		return err
+		status, expires = q.Status, q.ExpiresAt
+		answer = sql.NullString{String: string(q.Answer), Valid: len(q.Answer) > 0}
 	}
 	if claimed != "" {
 		return tooloutcome.New(tooloutcome.Uncertain, "approval_already_claimed", "unknown", "This exact external tool call already used its approval; inspect the result before proposing another action.", "verify_effect").Err()
 	}
+	current, readErr := s.store.GetQuestion(id)
+	if readErr != nil {
+		return readErr
+	}
+	if err := mcpReviewDisplayBlock(current); err != nil {
+		return err
+	}
+	status, expires = current.Status, current.ExpiresAt
+	answer = sql.NullString{String: string(current.Answer), Valid: len(current.Answer) > 0}
 	if status == questionPending {
 		result, waitErr := s.WaitQuestion(ctx, id)
 		if waitErr != nil {
@@ -99,9 +134,15 @@ func (s *Server) approveMCPCall(ctx context.Context, c Conversation, r Run, call
 	if err := s.extensionToolActive(ctx, c, r); err != nil {
 		return err
 	}
-	result, err := s.store.db.Exec(`UPDATE mcp_call_approvals SET claimed_at=? WHERE question_id=? AND claimed_at=''
-		AND EXISTS(SELECT 1 FROM questions WHERE id=? AND status='answered' AND answer_json='true'
-		AND julianday(expires_at)>julianday(?))`, now(), id, id, now())
+	if call.Recheck != nil {
+		if err := call.Recheck(ctx); err != nil {
+			return err
+		}
+	}
+	result, err := s.claimMCPApproval(ctx, c, r, call, id)
+	if errors.Is(err, errAutoReviewInvalidated) {
+		return s.approveMCPCall(ctx, c, r, call)
+	}
 	if err != nil {
 		return err
 	}
