@@ -229,6 +229,7 @@ type Store struct {
 	// Multi-account files must use guest storage; host staging is not a quota.
 	requireGuestAttachments bool
 	guestBlobs              guestBlobStorage
+	portabilityMu           sync.Mutex
 	db                      *sql.DB
 	scheduleSchemaOnce      sync.Once
 	scheduleSchemaErr       error
@@ -2187,6 +2188,9 @@ func NewServer(c Config) (*Server, error) {
 	if st.requireGuestAttachments && microVM != nil {
 		st.guestBlobs = microVM
 		st.cleanupDeletedAttachments()
+		cleanupCtx, cleanupCancel := context.WithTimeout(context.Background(), 5*time.Second)
+		_ = st.recoverPortableAssets(cleanupCtx) // Failed cleanup stays journaled for the next import.
+		cleanupCancel()
 	}
 	if c.AccountControlPlane {
 		return server, nil

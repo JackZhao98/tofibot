@@ -27,6 +27,14 @@ func (s *Service) handleBlob(w http.ResponseWriter, r *http.Request) {
 		writeError(w, 405, "method not allowed")
 		return
 	}
+	stagedDigest := r.Header.Get("X-Tofi-Staged-SHA256")
+	if stagedDigest != "" {
+		hash, err := hex.DecodeString(stagedDigest)
+		if r.Method != "DELETE" || err != nil || len(hash) != 32 || hex.EncodeToString(hash) != stagedDigest {
+			writeError(w, 400, "invalid staged digest")
+			return
+		}
+	}
 	base, err := os.OpenRoot(s.root)
 	if err != nil {
 		writeError(w, 503, "workspace unavailable")
@@ -87,6 +95,10 @@ func (s *Service) handleBlob(w http.ResponseWriter, r *http.Request) {
 				writeError(w, 507, "workspace storage unavailable")
 				return
 			}
+			if err = syncBlobDirectory(root, "objects"); err != nil {
+				writeError(w, 507, "workspace storage durability unavailable")
+				return
+			}
 		} else if err != nil || !info.Mode().IsRegular() || info.Mode()&os.ModeSymlink != 0 {
 			writeError(w, 503, "invalid content object")
 			return
@@ -95,6 +107,11 @@ func (s *Service) handleBlob(w http.ResponseWriter, r *http.Request) {
 			writeError(w, 507, "workspace storage unavailable")
 			return
 		}
+		if err = syncBlobDirectory(root, "."); err != nil {
+			writeError(w, 507, "workspace storage durability unavailable")
+			return
+		}
+		w.Header().Set("X-Tofi-Blob-Durability", "1")
 		w.WriteHeader(201)
 	case "GET":
 		f, err := openBlob(root, id)
@@ -123,17 +140,35 @@ func (s *Service) handleBlob(w http.ResponseWriter, r *http.Request) {
 				object = "objects/" + hex.EncodeToString(hash.Sum(nil))
 			}
 		}
+		if stagedDigest != "" {
+			if object != "" && object != "objects/"+stagedDigest {
+				writeError(w, 409, "staged content differs")
+				return
+			}
+			object = "objects/" + stagedDigest
+		}
 		if err = root.Remove(id); err != nil && !os.IsNotExist(err) {
 			writeError(w, 503, "blob removal unavailable")
 			return
 		}
 		// The final alias releases the single physical object. SameFile prevents
 		// hostile metadata from selecting some other live content object.
-		if object != "" && original != nil {
-			if info, err := root.Lstat(object); err == nil && os.SameFile(original, info) && blobHasOneLink(info) {
-				root.Remove(object)
+		if object != "" {
+			if info, e := root.Lstat(object); e == nil && info.Mode().IsRegular() && info.Mode()&os.ModeSymlink == 0 && blobHasOneLink(info) && (stagedDigest != "" || (original != nil && os.SameFile(original, info))) {
+				if err = root.Remove(object); err != nil && !os.IsNotExist(err) {
+					writeError(w, 503, "object removal unavailable")
+					return
+				}
 			}
 		}
+		if err = syncBlobDirectory(root, "objects"); err == nil {
+			err = syncBlobDirectory(root, ".")
+		}
+		if err != nil {
+			writeError(w, 503, "blob removal durability unavailable")
+			return
+		}
+		w.Header().Set("X-Tofi-Blob-Durability", "1")
 		w.WriteHeader(204)
 	}
 }
@@ -153,4 +188,15 @@ func openBlob(root *os.Root, id string) (*os.File, error) {
 		return nil, errors.New("blob is not a regular file")
 	}
 	return f, nil
+}
+
+// A successful blob acknowledgement includes durable directory entries. The
+// import coordinator may commit SQLite metadata immediately after this reply.
+func syncBlobDirectory(root *os.Root, path string) error {
+	f, err := root.Open(path)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+	return f.Sync()
 }

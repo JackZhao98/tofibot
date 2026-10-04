@@ -31,6 +31,10 @@ func (s *Store) exportPortable(ctx context.Context, instance string, selection p
 	}
 	defer tx.Rollback()
 	b := portableBundle{Format: "tofi.bundle", Version: 1, Kind: kind, SourceInstance: instance, CreatedAt: now(), Included: selection.Categories, Excluded: portableExcluded, Bots: []portableBot{}, Conversations: []portableConversation{}, Messages: []portableMessage{}, Memories: []portableMemory{}, Schedules: []portableSchedule{}}
+	if cat["attachments"] {
+		b.Version = 2
+		b.Excluded = portableExclusions(true)
+	}
 	origins := map[string]portableOrigin{}
 	rows, err := tx.QueryContext(ctx, `SELECT kind,target_id,source_json FROM portability_provenance`)
 	if err != nil {
@@ -170,7 +174,7 @@ func (s *Store) exportPortable(ctx context.Context, instance string, selection p
 		}
 		b.Conversations = append(b.Conversations, portableConversation{ID: c.ID, Kind: c.Kind, Name: c.Name, BotID: c.BotID, BotIDs: members, UpdatedAt: c.UpdatedAt, Archived: c.Archived, UserVisible: c.UserVisible})
 		var attachmentCount int
-		if err = tx.QueryRowContext(ctx, `SELECT COUNT(*) FROM attachments WHERE conversation_id=?`, c.ID).Scan(&attachmentCount); err != nil {
+		if err = tx.QueryRowContext(ctx, `SELECT (SELECT COUNT(*) FROM attachments WHERE conversation_id=?)+(SELECT COUNT(*) FROM portability_missing_assets WHERE conversation_id=?)`, c.ID, c.ID).Scan(&attachmentCount); err != nil {
 			return b, err
 		}
 		b.AttachmentCount += attachmentCount
@@ -268,6 +272,12 @@ func (s *Store) exportPortable(ctx context.Context, instance string, selection p
 			return b, err
 		}
 		b.Settings = x
+	}
+	if cat["attachments"] {
+		b.AttachmentCount = 0
+		if err = s.exportPortableAttachments(ctx, tx, &b, origins); err != nil {
+			return b, err
+		}
 	}
 	availableConversations := []portableConversation{}
 	for _, c := range conversations {

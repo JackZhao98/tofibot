@@ -24,18 +24,19 @@ import (
 const portableMaxBytes = 16 << 20
 const portableMaxRecords = 20000
 
-var portableCategories = []string{"bot_config", "chats", "memories", "schedules", "settings"}
+var portableCategories = []string{"bot_config", "chats", "memories", "schedules", "attachments", "settings"}
 var portableExcluded = []string{"credentials", "private_ssh_keys", "attachments", "guest_files_and_disk", "extensions_and_skills", "work_items", "mail_drafts", "run_and_tool_history", "reactions", "summaries", "browser_preferences", "authentication_and_approvals"}
 
 type portableOrigin struct {
-	InstanceID  string          `json:"instance_id"`
-	RecordID    string          `json:"record_id"`
-	RunID       string          `json:"run_id,omitempty"`
-	SenderBotID string          `json:"sender_bot_id,omitempty"`
-	Kind        string          `json:"kind,omitempty"`
-	BotID       string          `json:"bot_id,omitempty"`
-	Status      string          `json:"status,omitempty"`
-	Notice      json.RawMessage `json:"notice,omitempty"`
+	InstanceID     string          `json:"instance_id"`
+	RecordID       string          `json:"record_id"`
+	RunID          string          `json:"run_id,omitempty"`
+	SenderBotID    string          `json:"sender_bot_id,omitempty"`
+	Kind           string          `json:"kind,omitempty"`
+	BotID          string          `json:"bot_id,omitempty"`
+	Status         string          `json:"status,omitempty"`
+	ConversationID string          `json:"conversation_id,omitempty"`
+	Notice         json.RawMessage `json:"notice,omitempty"`
 }
 type portableBot struct {
 	Bot
@@ -92,22 +93,25 @@ type portableSettings struct {
 	DictationModel  string `json:"dictation_model"`
 }
 type portableBundle struct {
-	Format          string                 `json:"format"`
-	Version         int                    `json:"version"`
-	Kind            string                 `json:"kind"`
-	SourceInstance  string                 `json:"source_instance"`
-	CreatedAt       string                 `json:"created_at"`
-	Included        []string               `json:"included"`
-	Counts          map[string]int         `json:"counts"`
-	Excluded        []string               `json:"excluded"`
-	AttachmentCount int                    `json:"excluded_attachment_count"`
-	SkippedGroups   int                    `json:"skipped_group_count"`
-	Bots            []portableBot          `json:"bots"`
-	Conversations   []portableConversation `json:"conversations"`
-	Messages        []portableMessage      `json:"messages"`
-	Memories        []portableMemory       `json:"memories"`
-	Schedules       []portableSchedule     `json:"schedules"`
-	Settings        *portableSettings      `json:"settings,omitempty"`
+	Format             string                      `json:"format"`
+	Version            int                         `json:"version"`
+	Kind               string                      `json:"kind"`
+	SourceInstance     string                      `json:"source_instance"`
+	CreatedAt          string                      `json:"created_at"`
+	Included           []string                    `json:"included"`
+	Counts             map[string]int              `json:"counts"`
+	Excluded           []string                    `json:"excluded"`
+	AttachmentCount    int                         `json:"excluded_attachment_count"`
+	SkippedGroups      int                         `json:"skipped_group_count"`
+	Bots               []portableBot               `json:"bots"`
+	Conversations      []portableConversation      `json:"conversations"`
+	Messages           []portableMessage           `json:"messages"`
+	Memories           []portableMemory            `json:"memories"`
+	Schedules          []portableSchedule          `json:"schedules"`
+	Settings           *portableSettings           `json:"settings,omitempty"`
+	Attachments        []portableAttachment        `json:"attachments,omitempty"`
+	AttachmentBindings []portableAttachmentBinding `json:"attachment_bindings,omitempty"`
+	MissingAttachments []portableMissingAttachment `json:"missing_attachments,omitempty"`
 }
 type portableSelection struct {
 	Categories []string `json:"categories"`
@@ -119,17 +123,19 @@ type portableImportRequest struct {
 	PreviewID string            `json:"preview_id,omitempty"`
 }
 type portablePreview struct {
-	SourceFormat   string         `json:"source_format"`
-	SourceVersion  int            `json:"source_version"`
-	EstimatedBytes int            `json:"estimated_bytes"`
-	Dependencies   []string       `json:"dependencies"`
-	ID             string         `json:"preview_id"`
-	Counts         map[string]int `json:"counts"`
-	Bots           []portableBot  `json:"bots"`
-	Conflicts      []string       `json:"conflicts"`
-	Warnings       []string       `json:"warnings"`
-	Excluded       []string       `json:"excluded"`
-	ExpiresAt      string         `json:"expires_at"`
+	SourceFormat    string         `json:"source_format"`
+	SourceVersion   int            `json:"source_version"`
+	EstimatedBytes  int            `json:"estimated_bytes"`
+	Dependencies    []string       `json:"dependencies"`
+	AttachmentBytes int64          `json:"attachment_bytes"`
+	CanApply        bool           `json:"can_apply"`
+	ID              string         `json:"preview_id"`
+	Counts          map[string]int `json:"counts"`
+	Bots            []portableBot  `json:"bots"`
+	Conflicts       []string       `json:"conflicts"`
+	Warnings        []string       `json:"warnings"`
+	Excluded        []string       `json:"excluded"`
+	ExpiresAt       string         `json:"expires_at"`
 }
 type portableResult struct {
 	ImportID string            `json:"import_id"`
@@ -141,7 +147,10 @@ func migratePortability(db *sql.DB) error {
 	_, err := db.Exec(`CREATE TABLE IF NOT EXISTS portability_imports(
 id TEXT PRIMARY KEY,digest TEXT NOT NULL,destination TEXT NOT NULL,status TEXT NOT NULL CHECK(status IN ('preview','applied')),
 expires_at INTEGER NOT NULL,created_at TEXT NOT NULL,result_json TEXT NOT NULL DEFAULT '');
-CREATE TABLE IF NOT EXISTS portability_provenance(kind TEXT NOT NULL,target_id TEXT NOT NULL,source_json TEXT NOT NULL,PRIMARY KEY(kind,target_id));`)
+CREATE TABLE IF NOT EXISTS portability_provenance(kind TEXT NOT NULL,target_id TEXT NOT NULL,source_json TEXT NOT NULL,PRIMARY KEY(kind,target_id));
+PRAGMA synchronous=FULL;
+CREATE TABLE IF NOT EXISTS portability_asset_staging(import_id TEXT NOT NULL,target_id TEXT NOT NULL UNIQUE,sha256 TEXT NOT NULL,size INTEGER NOT NULL,created_at TEXT NOT NULL,PRIMARY KEY(import_id,target_id));
+CREATE TABLE IF NOT EXISTS portability_missing_assets(id TEXT PRIMARY KEY,conversation_id TEXT NOT NULL,metadata_json TEXT NOT NULL,FOREIGN KEY(conversation_id) REFERENCES conversations(id) ON DELETE CASCADE);`)
 	return err
 }
 
@@ -234,7 +243,13 @@ func (b portableBundle) counts() map[string]int {
 	if b.Settings != nil {
 		n = 1
 	}
-	return map[string]int{"bot_config": len(b.Bots), "conversations": len(b.Conversations), "chats": len(b.Messages), "memories": len(b.Memories), "schedules": len(b.Schedules), "settings": n}
+	counts := map[string]int{"bot_config": len(b.Bots), "conversations": len(b.Conversations), "chats": len(b.Messages), "memories": len(b.Memories), "schedules": len(b.Schedules), "settings": n}
+	if b.Version == 2 {
+		counts["attachments"] = len(b.Attachments)
+		counts["attachment_bindings"] = len(b.AttachmentBindings)
+		counts["missing_attachments"] = b.AttachmentCount
+	}
+	return counts
 }
 func parsePortableBundle(data []byte) (portableBundle, error) {
 	var header struct {
@@ -280,7 +295,7 @@ func parsePortableBundle(data []byte) (portableBundle, error) {
 }
 func (b portableBundle) validate() error {
 	bad := func() error { return errors.New("bundle has invalid counts, records or references") }
-	if b.Format != "tofi.bundle" || b.Version != 1 || (b.Kind != "account" && b.Kind != "bot") {
+	if b.Format != "tofi.bundle" || (b.Version != 1 && b.Version != 2) || (b.Kind != "account" && b.Kind != "bot") {
 		return errors.New("unsupported bundle format or version")
 	}
 	if len(b.SourceInstance) > 200 || b.SourceInstance == "" || !portableTime(b.CreatedAt) || b.AttachmentCount < 0 || b.SkippedGroups < 0 || !reflect.DeepEqual(b.Counts, b.counts()) {
@@ -293,7 +308,11 @@ func (b portableBundle) validate() error {
 	if (!categories["chats"] && len(b.Messages) > 0) || (!categories["memories"] && len(b.Memories) > 0) || (!categories["schedules"] && len(b.Schedules) > 0) || (!categories["settings"] && b.Settings != nil) || (b.Kind == "bot" && (len(b.Bots) != 1 || b.Settings != nil)) {
 		return bad()
 	}
-	if len(b.Bots) > 1000 || len(b.Bots)+len(b.Conversations)+len(b.Messages)+len(b.Memories)+len(b.Schedules) > portableMaxRecords {
+	missingRefs := 0
+	for _, x := range b.MissingAttachments {
+		missingRefs += len(x.MessageIDs)
+	}
+	if len(b.Bots) > 1000 || len(b.Bots)+len(b.Conversations)+len(b.Messages)+len(b.Memories)+len(b.Schedules)+len(b.Attachments)+len(b.AttachmentBindings)+len(b.MissingAttachments)+missingRefs > portableMaxRecords {
 		return errors.New("bundle record limit exceeded")
 	}
 	ids := map[string]bool{}
@@ -307,7 +326,7 @@ func (b portableBundle) validate() error {
 		return true
 	}
 	originOK := func(o portableOrigin) bool {
-		return len(o.InstanceID) <= 200 && len(o.RecordID) <= 200 && len(o.RunID) <= 200 && len(o.SenderBotID) <= 200 && len(o.BotID) <= 200 && len(o.Kind) <= 100 && len(o.Status) <= 100 && len(o.Notice) <= 256<<10
+		return len(o.InstanceID) <= 200 && len(o.RecordID) <= 200 && len(o.RunID) <= 200 && len(o.SenderBotID) <= 200 && len(o.BotID) <= 200 && len(o.Kind) <= 100 && len(o.Status) <= 100 && len(o.ConversationID) <= 200 && len(o.Notice) <= 256<<10
 	}
 	for _, x := range b.Bots {
 		if !unique(x.ID) || !portableID(x.DMConversationID) || strings.TrimSpace(x.Name) == "" || utf8.RuneCountInString(x.Name) > 200 || utf8.RuneCountInString(x.Instructions) > 200000 || utf8.RuneCountInString(x.Model) > 200 || len(x.ReasoningEffort) > 100 || !portableTime(x.CreatedAt) || len(x.Avatar) > 4096 || !originOK(x.Origin) {
@@ -394,6 +413,9 @@ func (b portableBundle) validate() error {
 		if x.Status != "active" && x.Status != "paused" && x.Status != "completed" && x.Status != "deleted" {
 			return bad()
 		}
+	}
+	if err := b.validatePortableAttachments(categories, ids, convs, originOK); err != nil {
+		return err
 	}
 	if b.Settings != nil {
 		x := b.Settings
@@ -490,6 +512,7 @@ func selectPortable(b portableBundle, sel portableSelection) (portableBundle, er
 	if !cat["settings"] {
 		out.Settings = nil
 	}
+	selectPortableAttachments(&out, b, cat["attachments"], convs)
 	if err := closePortableHistory(&out, b.Bots, b.Conversations); err != nil {
 		return out, err
 	}
@@ -549,9 +572,20 @@ func (s *Store) previewPortable(ctx context.Context, b portableBundle) (portable
 	if err != nil {
 		return portablePreview{}, err
 	}
-	p := portablePreview{ID: uuid.NewString(), Counts: b.counts(), Bots: b.Bots, Conflicts: []string{}, Excluded: portableExcluded, Warnings: []string{"Imported records are new copies. Existing records are never overwritten.", "All imported schedules are paused. Instructions and history are stored without execution.", "Content may contain secrets pasted into chats or instructions. Review before sharing.", "Attachments, guest disk, credentials, extensions, work items and execution history are excluded."}}
+	p := portablePreview{CanApply: true, ID: uuid.NewString(), Counts: b.counts(), Bots: b.Bots, Conflicts: []string{}, Excluded: b.Excluded, Warnings: []string{"Imported records are new copies. Existing records are never overwritten.", "All imported schedules are paused. Instructions and history are stored without execution.", "Content may contain secrets pasted into chats or instructions. Review before sharing.", "Guest disk, credentials, extensions, work items and execution history are excluded."}}
 	data, _ := json.Marshal(b)
 	p.SourceFormat, p.SourceVersion, p.EstimatedBytes = b.Format, b.Version, len(data)*3
+	for _, asset := range b.Attachments {
+		p.AttachmentBytes += asset.Size
+		p.EstimatedBytes -= len(asset.Data) * 3
+	}
+	if len(b.Attachments) > 0 {
+		p.Warnings = append(p.Warnings, "Attachment bytes can contain private information. Files stay on the destination account guest disk; its quota applies.")
+		if s.portableBlobBackend() == nil {
+			p.CanApply = false
+			p.Warnings = append(p.Warnings, "Account file storage is unavailable. Deselect attachments to import the other data, or enable file storage and preview again.")
+		}
+	}
 	p.Dependencies = []string{"Historical Bot references bring required configurations and empty DM structure, without restoring former group membership.", "Bot configuration and DM structure are required.", "Group history requires all member Bots; partial groups are skipped.", "Settings are preserved unless explicitly selected."}
 	for _, x := range b.Bots {
 		for _, name := range names {
@@ -566,6 +600,9 @@ func (s *Store) previewPortable(ctx context.Context, b portableBundle) (portable
 	}
 	if b.AttachmentCount > 0 {
 		p.Warnings = append(p.Warnings, fmt.Sprintf("%d attachment files were omitted; chat text is included without those files.", b.AttachmentCount))
+	}
+	for _, missing := range b.MissingAttachments {
+		p.Warnings = append(p.Warnings, fmt.Sprintf("Attachment omitted: %s (%s).", missing.Name, missing.Reason))
 	}
 	if b.SkippedGroups > 0 {
 		p.Warnings = append(p.Warnings, fmt.Sprintf("%d groups omitted because not all member Bots were selected.", b.SkippedGroups))
