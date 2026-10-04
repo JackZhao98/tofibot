@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"path/filepath"
+	"strings"
 
 	"github.com/modelcontextprotocol/go-sdk/jsonrpc"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
@@ -23,6 +24,8 @@ const (
 
 var ErrUnsupportedAdapterFeature = errors.New("Notion adapter supports basic tool requests only; modern interaction fields and extensions are unsupported")
 var ErrAdapterProtocolMismatch = errors.New("Notion adapter requires exact leaf protocol 2025-11-25")
+var ErrUnsupportedAdapterInvocation = errors.New("Notion adapter requires stdio transport; other or ambiguous transport arguments are unsupported")
+var ErrAdapterCredentialOverride = errors.New("Notion adapter does not support header or API destination overrides")
 
 // AdapterPolicy is operator-owned private configuration, never accepted by
 // InstallRequest. These source pins do not verify installed package bytes.
@@ -45,6 +48,28 @@ func validateAdapter(spec Spec) error {
 	}
 	if _, supplied := spec.Env["NOTION_TOKEN"]; supplied || !filepath.IsAbs(spec.SecretEnv["NOTION_TOKEN"]) {
 		return errors.New("Notion adapter requires NOTION_TOKEN through the existing private secret-file entry")
+	}
+	// The vendor gives OPENAPI_MCP_HEADERS priority over NOTION_TOKEN and
+	// BASE_URL changes its API destination. Neither belongs to this profile.
+	for _, key := range []string{"OPENAPI_MCP_HEADERS", "BASE_URL"} {
+		_, public := spec.Env[key]
+		_, private := spec.SecretEnv[key]
+		if public || private {
+			return ErrAdapterCredentialOverride
+		}
+	}
+	// HTTP mode has a different gateway-auth contract and may make an identity
+	// request at startup. Reject it before reading secrets or creating a child.
+	for i := 0; i < len(spec.Args); i++ {
+		arg := spec.Args[i]
+		if arg == "--transport" {
+			i++
+			if i >= len(spec.Args) || !strings.EqualFold(spec.Args[i], "stdio") {
+				return ErrUnsupportedAdapterInvocation
+			}
+		} else if strings.HasPrefix(arg, "--transport=") && !strings.EqualFold(strings.TrimPrefix(arg, "--transport="), "stdio") {
+			return ErrUnsupportedAdapterInvocation
+		}
 	}
 	return nil
 }
