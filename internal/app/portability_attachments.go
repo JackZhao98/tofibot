@@ -229,7 +229,21 @@ func portablePlaceholders(n int) string {
 	}
 	return strings.TrimSuffix(strings.Repeat("?,", n), ",")
 }
-func (s *Store) exportPortableAttachments(ctx context.Context, tx *sql.Tx, b *portableBundle, origins map[string]portableOrigin) error {
+
+type portableAttachmentSource struct {
+	x    portableAttachment
+	disk string
+}
+type portableAttachmentSnapshot struct {
+	sources  []portableAttachmentSource
+	bindings []portableAttachmentBinding
+	missing  []portableMissingAttachment
+	dbFile   string
+}
+
+// Only metadata is read under SQLite's single connection. All file reads use
+// this immutable snapshot after the transaction has released the connection.
+func snapshotPortableAttachments(ctx context.Context, tx *sql.Tx, b *portableBundle, origins map[string]portableOrigin) (snapshot portableAttachmentSnapshot, err error) {
 	convs := map[string]bool{}
 	args := []any{}
 	for _, c := range b.Conversations {
@@ -245,15 +259,11 @@ func (s *Store) exportPortableAttachments(ctx context.Context, tx *sql.Tx, b *po
 	args = append(args, portableMaxRecords+1)
 	rows, err := tx.QueryContext(ctx, query, args...)
 	if err != nil {
-		return err
+		return snapshot, err
 	}
-	type sourceAsset struct {
-		x    portableAttachment
-		disk string
-	}
-	sources := []sourceAsset{}
+	sources := []portableAttachmentSource{}
 	for rows.Next() {
-		var a sourceAsset
+		var a portableAttachmentSource
 		if err = rows.Scan(&a.x.ID, &a.x.ConversationID, &a.x.Name, &a.x.Size, &a.x.CreatedAt, &a.disk); err != nil {
 			break
 		}
@@ -264,10 +274,10 @@ func (s *Store) exportPortableAttachments(ctx context.Context, tx *sql.Tx, b *po
 	}
 	rows.Close()
 	if err != nil {
-		return err
+		return snapshot, err
 	}
 	if len(sources) > portableMaxRecords {
-		return errors.New("attachment record limit exceeded; select fewer Bots")
+		return snapshot, errors.New("attachment record limit exceeded; select fewer Bots")
 	}
 	bindings := []portableAttachmentBinding{}
 	firstConv := map[string]string{}
@@ -277,7 +287,7 @@ func (s *Store) exportPortableAttachments(ctx context.Context, tx *sql.Tx, b *po
 	}
 	rows, err = tx.QueryContext(ctx, `SELECT attachment_id,message_id FROM attachment_messages WHERE message_id IN (`+portablePlaceholders(len(messages))+`) ORDER BY attachment_id,message_id LIMIT ?`, append(args, portableMaxRecords+1)...)
 	if err != nil {
-		return err
+		return snapshot, err
 	}
 	for rows.Next() {
 		var x portableAttachmentBinding
@@ -294,20 +304,16 @@ func (s *Store) exportPortableAttachments(ctx context.Context, tx *sql.Tx, b *po
 	}
 	rows.Close()
 	if err != nil {
-		return err
+		return snapshot, err
 	}
 	if len(bindings) > portableMaxRecords {
-		return errors.New("attachment binding limit exceeded")
+		return snapshot, errors.New("attachment binding limit exceeded")
 	}
 	var dbFile string
 	if err = tx.QueryRowContext(ctx, `PRAGMA database_list`).Scan(new(any), new(any), &dbFile); err != nil {
-		return err
+		return snapshot, err
 	}
-	fileCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
-	defer cancel()
-	total := int64(0)
-	kept := map[string]bool{}
-	for _, src := range sources {
+	for i, src := range sources {
 		x := src.x
 		originalConv := x.ConversationID
 		if !convs[x.ConversationID] {
@@ -324,8 +330,67 @@ func (s *Store) exportPortableAttachments(ctx context.Context, tx *sql.Tx, b *po
 			x.Origin.ConversationID = originalConv
 		}
 		if !portableID(x.ID) || !portableFileName(x.Name) || !portableTime(x.CreatedAt) {
-			return errors.New("invalid source attachment metadata")
+			return snapshot, errors.New("invalid source attachment metadata")
 		}
+		sources[i].x = x
+	}
+	missingArgs := portableConversationArgs(b.Conversations)
+	for _, m := range b.Messages {
+		missingArgs = append(missingArgs, m.ID)
+	}
+	rows, err = tx.QueryContext(ctx, `SELECT metadata_json FROM portability_missing_assets WHERE conversation_id IN (`+portablePlaceholders(len(convs))+`) OR EXISTS(SELECT 1 FROM json_each(metadata_json,'$.message_ids') WHERE value IN (`+portablePlaceholders(len(messages))+`)) ORDER BY id LIMIT ?`, append(missingArgs, portableMaxRecords+1)...)
+
+	if err != nil {
+		return snapshot, err
+	}
+	for rows.Next() {
+		var raw string
+		if err = rows.Scan(&raw); err != nil {
+			break
+		}
+		var missing portableMissingAttachment
+		if err = portableJSON([]byte(raw), &missing); err != nil {
+			break
+		}
+		filtered := []string{}
+		for _, id := range missing.MessageIDs {
+			if messages[id] != "" {
+				filtered = append(filtered, id)
+			}
+		}
+		missing.MessageIDs = filtered
+		if !convs[missing.ConversationID] {
+			if len(filtered) == 0 {
+				continue
+			}
+			missing.ConversationID = messages[filtered[0]]
+		}
+		snapshot.missing = append(snapshot.missing, missing)
+		if len(snapshot.missing) > portableMaxRecords {
+			err = errors.New("omitted attachment record limit exceeded")
+			break
+		}
+	}
+	if err == nil {
+		err = rows.Err()
+	}
+	rows.Close()
+	if err != nil {
+		return snapshot, err
+	}
+	snapshot.sources, snapshot.bindings, snapshot.dbFile = sources, bindings, dbFile
+	return snapshot, nil
+}
+
+func (s *Store) exportPortableAttachmentBytes(ctx context.Context, b *portableBundle, snapshot portableAttachmentSnapshot) error {
+	bindings, dbFile := snapshot.bindings, snapshot.dbFile
+	fileCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
+	defer cancel()
+	total := int64(0)
+	kept := map[string]bool{}
+	b.MissingAttachments = append(b.MissingAttachments, snapshot.missing...)
+	for _, src := range snapshot.sources {
+		x := src.x
 		reason := ""
 		if x.Size < 0 || x.Size > portableMaxAttachmentBytes {
 			reason = "too_large"
@@ -350,50 +415,6 @@ func (s *Store) exportPortableAttachments(ctx context.Context, tx *sql.Tx, b *po
 		if kept[x.AttachmentID] {
 			b.AttachmentBindings = append(b.AttachmentBindings, x)
 		}
-	}
-	missingArgs := portableConversationArgs(b.Conversations)
-	for _, m := range b.Messages {
-		missingArgs = append(missingArgs, m.ID)
-	}
-	rows, err = tx.QueryContext(ctx, `SELECT metadata_json FROM portability_missing_assets WHERE conversation_id IN (`+portablePlaceholders(len(convs))+`) OR EXISTS(SELECT 1 FROM json_each(metadata_json,'$.message_ids') WHERE value IN (`+portablePlaceholders(len(messages))+`)) ORDER BY id LIMIT ?`, append(missingArgs, portableMaxRecords+1)...)
-
-	if err != nil {
-		return err
-	}
-	for rows.Next() {
-		var raw string
-		if err = rows.Scan(&raw); err != nil {
-			break
-		}
-		var missing portableMissingAttachment
-		if err = portableJSON([]byte(raw), &missing); err != nil {
-			break
-		}
-		filtered := []string{}
-		for _, id := range missing.MessageIDs {
-			if messages[id] != "" {
-				filtered = append(filtered, id)
-			}
-		}
-		missing.MessageIDs = filtered
-		if !convs[missing.ConversationID] {
-			if len(filtered) == 0 {
-				continue
-			}
-			missing.ConversationID = messages[filtered[0]]
-		}
-		b.MissingAttachments = append(b.MissingAttachments, missing)
-		if len(b.MissingAttachments) > portableMaxRecords {
-			err = errors.New("omitted attachment record limit exceeded")
-			break
-		}
-	}
-	if err == nil {
-		err = rows.Err()
-	}
-	rows.Close()
-	if err != nil {
-		return err
 	}
 	b.AttachmentCount = len(b.MissingAttachments)
 	return nil

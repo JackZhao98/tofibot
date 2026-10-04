@@ -273,9 +273,10 @@ func (s *Store) exportPortable(ctx context.Context, instance string, selection p
 		}
 		b.Settings = x
 	}
+	var assetSnapshot portableAttachmentSnapshot
 	if cat["attachments"] {
 		b.AttachmentCount = 0
-		if err = s.exportPortableAttachments(ctx, tx, &b, origins); err != nil {
+		if assetSnapshot, err = snapshotPortableAttachments(ctx, tx, &b, origins); err != nil {
 			return b, err
 		}
 	}
@@ -289,6 +290,14 @@ func (s *Store) exportPortable(ctx context.Context, instance string, selection p
 		return b, err
 	}
 	sort.Strings(b.Included)
+	if err = tx.Commit(); err != nil {
+		return b, err
+	}
+	if cat["attachments"] {
+		if err = s.exportPortableAttachmentBytes(ctx, &b, assetSnapshot); err != nil {
+			return b, err
+		}
+	}
 	b.Counts = b.counts()
 	if err = b.validate(); err != nil {
 		return b, err
@@ -300,5 +309,5 @@ func (s *Store) exportPortable(ctx context.Context, instance string, selection p
 	if len(data) > portableMaxBytes {
 		return b, errors.New("export exceeds 16 MiB; select fewer Bots or categories")
 	}
-	return b, tx.Commit()
+	return b, nil
 }
