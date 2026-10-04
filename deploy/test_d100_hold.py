@@ -13,6 +13,7 @@ import re
 import subprocess
 import tempfile
 import stat
+import threading
 import unittest
 from unittest.mock import patch
 
@@ -164,7 +165,7 @@ class FreshApply(unittest.TestCase):
         self.events=[];self.containers={};self.free=100*installer.GIB;self.admission=16*installer.GIB;self.calls=[];self.starts=[];self.stop_ids=[]
         self.env=patch.dict(os.environ,{},clear=True);self.env.start();self.addCleanup(self.env.stop)
         self.mocks=patch.multiple(installer,CLAIM_ROOT=self.base/'claims',validate_release=self.validate_guest,check_engine_files=lambda e:None,
-                                  preflight=self.preflight,vacant=self.vacant,run=self.command,compose=self.compose,permissions=self.permissions,
+                                  preflight=self.preflight,host_admission=lambda p:self.events.append('host-admission'),vacant=self.vacant,run=self.command,compose=self.compose,permissions=self.permissions,
                                   health=self.health,available_bytes=lambda p:self.free)
         self.mocks.start();self.addCleanup(self.mocks.stop)
         self.chown=patch.object(installer.os,'chown');self.chown.start();self.addCleanup(self.chown.stop)
@@ -546,8 +547,101 @@ class FreshApply(unittest.TestCase):
                             self.assertEqual(args.args[0][0],engine['compose']['path']);self.assertEqual(args.kwargs['env']['DOCKER_HOST'],'unix:///run/docker.sock');self.assertEqual(args.kwargs['env']['COMPOSE_DISABLE_ENV_FILE'],'1')
                     finally:installer.ENGINE.reset(token)
 
+    @contextlib.contextmanager
+    def synthetic_host(self,model,admissions):
+        read=Path.read_text;listing=Path.iterdir
+        def read_host(path,*args,**kwargs):
+            if str(path)=='/proc/meminfo':return 'MemTotal: 16777216 kB\nMemAvailable: '+str(model['memory']*1024)+' kB\n'
+            if str(path)=='/proc/123/comm':return 'firecracker' if model['vm'] else 'synthetic-process'
+            return read(path,*args,**kwargs)
+        def list_host(path):return iter([Path('/proc/123')]) if str(path)=='/proc' else listing(path)
+        def command(args,**kwargs):
+            if args==['docker','ps','-q','--no-trunc']:return subprocess.CompletedProcess([],0,'1'*64 if model['container'] else '')
+            return self.command(args,**kwargs)
+        def admission(p):
+            admissions.append(p['project'])
+            if model['changed']:
+                # The stale second admission must execute while the lock is held.
+                with self.assertRaisesRegex(ValueError,'busy'):
+                    with installer.claim_lock(create=True):pass
+            FreshApply.actual_host_admission(p)
+        with patch.object(Path,'read_text',read_host),patch.object(Path,'iterdir',list_host),patch.object(installer.os,'cpu_count',side_effect=lambda:model['cpu']),patch.object(installer,'run',side_effect=command),patch.object(installer,'host_admission',side_effect=admission):yield
+
+    def test_11_distinct_plans_repeat_host_admission_under_lock(self):
+        for changed in ['container','vm','cpu','memory']:
+            with self.subTest(changed=changed):
+                self.reset();other_root=self.base/'other-install';other_review=self.base/'other-review'
+                installer.generate(str(other_root),'other',prior.B,prior.W,str(self.source),2,2048,18334,str(other_review),self.app_ref,self.worker_ref,self.engine_ref)
+                seal=installer.digest(other_review/'plan.json');second_checked=threading.Event();first_finished=threading.Event();errors={};admissions=[]
+                model=dict(container=False,vm=False,cpu=4,memory=8192,changed=False)
+                def preflight(directory):
+                    p=installer.load_plan(directory);installer.host_admission(p)
+                    if Path(directory)==other_review:
+                        second_checked.set()
+                        if not first_finished.wait(5):raise AssertionError('first installer did not finish within synthetic bound')
+                    elif not second_checked.wait(5):raise AssertionError('second preflight did not reach synthetic barrier')
+                    return {'ready':True}
+                def first():
+                    try:self.apply()
+                    except BaseException as error:errors['first']=error
+                    finally:
+                        model['changed']=True;model[changed]=True if changed in ['container','vm'] else 2 if changed=='cpu' else 1024
+                        first_finished.set()
+                def second():
+                    try:installer.apply(other_review,True,seal)
+                    except BaseException as error:errors['second']=error
+                with self.synthetic_host(model,admissions),patch.object(installer,'preflight',side_effect=preflight):
+                    threads=[threading.Thread(target=first),threading.Thread(target=second)]
+                    for thread in threads:thread.start()
+                    for thread in threads:thread.join(10)
+                    self.assertFalse(any(thread.is_alive() for thread in threads),'bounded fixture thread did not finish')
+                self.assertNotIn('first',errors);self.assertIsInstance(errors.get('second'),ValueError)
+                self.assertIn({'container':'existing running containers','vm':'existing VM','cpu':'CPU budget','memory':'memory budget'}[changed],str(errors['second']))
+                self.assertEqual(admissions.count('synthetic'),2);self.assertEqual(admissions.count('other'),2)
+                self.assertFalse(other_root.exists());self.assertFalse((installer.CLAIM_ROOT/'other.json').exists());self.assertEqual(self.starts,['worker','app'])
+
+    def test_12_first_legacy_and_fresh_share_serialization(self):
+        for first in ['legacy','fresh']:
+            with self.subTest(first=first):
+                self.reset();legacy=self.base/'legacy';legacy.mkdir(mode=0o700)
+                installer.write(legacy/'install-state.json',dict(root=str(legacy),project='legacy',phase='installed'))
+                installer.write(legacy/'compose.yaml',{'name':'legacy','services':{}})
+                before={p.name:p.read_bytes() for p in legacy.iterdir()}
+                state=installer.private_json(legacy/'install-state.json');config=installer.private_json(legacy/'compose.yaml')
+                self.assertFalse(installer.CLAIM_ROOT.exists())
+                with patch.object(installer,'owned_state',return_value=(legacy,state,config)):
+                    if first=='legacy':
+                        with installer.lifecycle(legacy):
+                            self.assertTrue(installer.CLAIM_ROOT.exists());self.assertEqual(list(installer.CLAIM_ROOT.iterdir()),[])
+                            with self.assertRaisesRegex(ValueError,'busy'):self.apply()
+                    else:
+                        with installer.claim_lock(create=True):
+                            with self.assertRaisesRegex(ValueError,'busy'):
+                                with installer.lifecycle(legacy):pass
+                self.assertFalse(self.root.exists());self.assertEqual(self.starts,[]);self.assertEqual(list(installer.CLAIM_ROOT.iterdir()),[])
+                self.assertEqual(before,{p.name:p.read_bytes() for p in legacy.iterdir()});self.assertNotIn('claim',state)
+
+    def test_13_competing_first_registry_creation(self):
+        self.reset();mkdir=Path.mkdir;exists=Path.exists;checks=0
+        def racing_exists(path):
+            nonlocal checks
+            if path==installer.CLAIM_ROOT:
+                checks+=1
+                if checks==1:return False
+            return exists(path)
+        def racing_mkdir(path,*args,**kwargs):
+            mkdir(path,*args,**kwargs)
+            if path==installer.CLAIM_ROOT:raise FileExistsError('synthetic concurrent creator won')
+        with patch.object(Path,'exists',racing_exists),patch.object(Path,'mkdir',racing_mkdir):
+            with installer.claim_lock(create=True) as registry:self.assertEqual(registry,installer.CLAIM_ROOT)
+        installer.CLAIM_ROOT.chmod(0o755)
+        with self.assertRaisesRegex(ValueError,'private claim registry'):
+            with installer.claim_lock(create=True):pass
+        self.assertEqual(installer.CLAIM_ROOT.stat().st_mode&0o777,0o755);self.assertEqual(self.starts,[])
+
 
 FreshApply.actual_vacant=installer.vacant
+FreshApply.actual_host_admission=installer.host_admission
 FreshApply.actual_health=installer.health
 FreshApply.actual_run=installer.run
 

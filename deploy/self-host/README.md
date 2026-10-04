@@ -74,6 +74,14 @@ legacy migrations keep their existing path and are never silently assigned a
 new claim. Fresh-marked or externally claimed states missing their claim are
 refused. The root directory lock and shared registry lock serialize lifecycle
 operations.
+The shared registry is created empty at the first legacy or fresh lifecycle
+operation, so an absent registry never leaves a legacy stop/start unprotected.
+Competing directory creation still validates the existing directory's ownership
+and private mode; it never changes or adopts its permissions. This lock creates
+no fresh claim for legacy data. Under the shared lock, fresh apply repeats the
+host-wide running-container, VM, CPU and available-memory admission checks before
+creating its claim. Two distinct plans that passed an earlier empty-host
+preflight cannot both use that stale admission.
 
 The first journal records `phase: installing`, `bootstrap_contract_floor: d100-v1`,
 full contracts, artifact/render bindings, the claim/root identity and effect
@@ -127,6 +135,9 @@ is authorized by this draft. Before release, independently execute exact App/UI,
 Worker/Guest and N/B artifact checks and synthetic clean-host installation,
 first-admin setup, reboot, retained upgrade/uninstall and failure recovery using
 the unchanged seccomp/AppArmor policy.
+The historical direct/wrapped health-timeout fixture now mocks the production
+`build_opener().open` client in the committed test, including proxy-free and
+redirect-refusal assertions; it requires no external test adapter.
 
 ## D100 compatibility contract for existing installations
 

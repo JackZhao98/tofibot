@@ -260,8 +260,13 @@ def claim_lock(create=False):
     # An absent registry has no lock/claim to adopt, including on source-test hosts.
     if not create and not CLAIM_ROOT.exists() and not CLAIM_ROOT.is_symlink():yield None;return
     registry=absolute(CLAIM_ROOT)
-    if create and not registry.exists():registry.mkdir(mode=0o700);fsync_dir(registry.parent)
-    if not registry.exists():yield None;return
+    if create and not registry.exists():
+        try:registry.mkdir(mode=0o700)
+        except FileExistsError:pass  # A competing first operation created it.
+        fsync_dir(registry.parent)
+    if not registry.exists():
+        if create:raise ValueError('shared lifecycle registry disappeared; no unlocked operation')
+        yield None;return
     fd=os.open(registry,os.O_RDONLY|os.O_DIRECTORY|os.O_NOFOLLOW)
     try:
         info=os.fstat(fd)
@@ -335,7 +340,8 @@ def selected_app(p,c):
 @contextlib.contextmanager
 def lifecycle(root):
     # Lock the existing directory: invalid preflight creates no lock file.
-    with claim_lock():
+    # First legacy and fresh operations share serialization without legacy claims.
+    with claim_lock(create=True):
         root=absolute(root);fd=os.open(root,os.O_RDONLY|os.O_DIRECTORY|os.O_NOFOLLOW)
         try:
             info=os.fstat(fd)
@@ -433,6 +439,18 @@ def inspect_image(identity,app=False):
     return data
 
 
+def host_admission(p):
+    if run(['docker','ps','-q','--no-trunc']).stdout.strip():raise ValueError('fresh dedicated host required: existing running containers need separate reviewed admission')
+    for process in Path('/proc').iterdir():
+        if process.name.isdecimal():
+            try:name=(process/'comm').read_text().strip()
+            except FileNotFoundError:continue
+            if name=='firecracker':raise ValueError('existing VM must be inventoried; do not assume spare capacity')
+    if p['cpu_budget']>os.cpu_count()-1:raise ValueError('CPU budget must preserve1CPU for App/host')
+    mem={l.split(':')[0]:int(l.split()[1])//1024 for l in Path('/proc/meminfo').read_text().splitlines() if l.startswith(('MemTotal:','MemAvailable:'))}
+    if p['memory_budget_mib']+256+512+1024>mem['MemAvailable']:raise ValueError('memory budget cannot cover Worker/App/1GiB safety')
+
+
 def preflight(directory):
     p=load_plan(directory);root=absolute(p['root'])
     if platform.system()!='Linux' or platform.machine()!='x86_64':raise ValueError('supported host: dedicated Linux x86_64')
@@ -447,15 +465,7 @@ def preflight(directory):
     info=json.loads(run(['docker','info','--format','{{json .}}']).stdout)
     if info.get('CgroupVersion')!='2' or not any('apparmor' in s for s in info.get('SecurityOptions',[])):raise ValueError('Docker cgroup v2 and enforced AppArmor required')
     if root.exists():raise ValueError('fresh root already exists; no adoption or overwrite is automatic')
-    if run(['docker','ps','-q']).stdout.strip():raise ValueError('fresh dedicated host required: existing running containers need separate reviewed admission')
-    for process in Path('/proc').iterdir():
-        if process.name.isdecimal():
-            try:name=(process/'comm').read_text().strip()
-            except FileNotFoundError:continue
-            if name=='firecracker':raise ValueError('existing VM must be inventoried; do not assume spare capacity')
-    if p['cpu_budget']>os.cpu_count()-1:raise ValueError('CPU budget must preserve1CPU for App/host')
-    mem={l.split(':')[0]:int(l.split()[1])//1024 for l in Path('/proc/meminfo').read_text().splitlines() if l.startswith(('MemTotal:','MemAvailable:'))}
-    if p['memory_budget_mib']+256+512+1024>mem['MemAvailable']:raise ValueError('memory budget cannot cover Worker/App/1GiB safety')
+    host_admission(p)
     vacant(p);free=capacity_check(p,root.parent,copy=True)
     contracts(p)
     cfg=json.loads((Path(directory)/'worker.json').read_text());validate_config(cfg)
@@ -657,7 +667,7 @@ def apply(directory,accepted,plan_sha256=None):
         if release_binding(Path(p['source_release']))!=p['guest']:raise ValueError('sealed source Guest changed during preflight')
         with claim_lock(create=True) as registry:
             # Recheck under the shared lock; no check-then-adopt window.
-            vacant(p);capacity_check(p,root.parent,copy=True)
+            host_admission(p);vacant(p);capacity_check(p,root.parent,copy=True)
             reference=new_claim(registry,p,plan_sha256,full)
             state=dict(root=p['root'],project=p['project'],port=p['port'],release=p['release'],app_image=p['app_image'],worker_image=p['worker_image'],
                        authority=p,plan_sha256=plan_sha256,bootstrap_contract_floor=BOOTSTRAP_CONTRACT,app_contract=full['app'],worker_contract=full['worker'],

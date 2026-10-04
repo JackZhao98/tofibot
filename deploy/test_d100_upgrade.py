@@ -19,6 +19,12 @@ class D100Upgrade(unittest.TestCase):
         self.temp = tempfile.TemporaryDirectory(prefix='tofi-d100-installer-')
         self.addCleanup(self.temp.cleanup)
         self.root = Path(self.temp.name).resolve()
+        claims = tempfile.TemporaryDirectory(prefix='tofi-d100-lifecycle-')
+        self.addCleanup(claims.cleanup)
+        registry=Path(claims.name).resolve()/'registry'
+        registry.mkdir(mode=0o700)
+        claim_root = patch.object(installer,'CLAIM_ROOT',registry)
+        claim_root.start();self.addCleanup(claim_root.stop)
         self.data = self.root / 'synthetic-current-data'
         self.data.write_text('existing synthetic writes')
         self.images = {A: {'Id': A, 'Architecture': 'amd64', 'Config': {'Labels': {'io.tofi.account-runtime': '1'}}}, W: {'Id': W, 'Architecture': 'amd64', 'Config': {}}}
@@ -197,9 +203,13 @@ class D100Upgrade(unittest.TestCase):
                 if failure in ['health-timeout','wrapped-health-timeout']:
                     error=TimeoutError('synthetic health timeout')
                     if failure=='wrapped-health-timeout':error=installer.urllib.error.URLError(error)
-                    with patch.object(installer.urllib.request,'urlopen',side_effect=error):
+                    opener=unittest.mock.Mock();opener.open.side_effect=error
+                    with patch.object(installer.urllib.request,'build_opener',return_value=opener) as build:
                         with self.assertRaises((TimeoutError,installer.urllib.error.URLError)):
                             self.upgrade(reference,N,stopped=stop,health=installer.health,run=inspect,compose=command)
+                    opener.open.assert_called_once_with('http://127.0.0.1:18333/health',timeout=2)
+                    self.assertEqual(build.call_args.args[0].proxies,{})
+                    with self.assertRaisesRegex(ValueError,'redirect refused'):build.call_args.args[1].redirect_request(None,None,302,'synthetic redirect',{},'http://127.0.0.1:18333/other')
                 else:
                     with self.assertRaises((ValueError,subprocess.TimeoutExpired)):self.upgrade(reference,N,stopped=stop,health=health,run=inspect,compose=command)
                 self.assertNotIn(A,self.started)
