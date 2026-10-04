@@ -256,6 +256,8 @@ export type HeldIntegration = {
   name: string;
   description: string;
   upstream: "vendor" | "community";
+  /** Historical vendor origin does not imply ongoing provider maintenance. */
+  maintenance?: "retired";
   auth: "oauth" | "integration-token" | "bot-token" | "none";
   docsURL: string;
   reason: string;
@@ -263,10 +265,10 @@ export type HeldIntegration = {
 
 export const heldIntegrations: HeldIntegration[] = [
   {
-    id: "notion-token", name: "Notion 令牌接入", description: "通过 Notion integration token 连接。",
-    upstream: "vendor", auth: "integration-token",
+    id: "notion-token", name: "Notion 令牌服务（历史）", description: "已停止维护的历史本地 MCP 服务。",
+    upstream: "vendor", maintenance: "retired", auth: "integration-token",
     docsURL: "https://github.com/makenotion/notion-mcp-server/blob/730ae781ba28beeaf0865025a3f2ed4c25ea2387/README.md",
-    reason: "令牌接入仍需核对安装包和实际运行；目前可选择上方的 Notion OAuth 连接。",
+    reason: "提供方已停止维护和支持此本地服务，仅作为历史参考，不在首批支持范围。需连接 Notion 时，请使用上方的 OAuth 连接。",
   },
   {
     id: "discord", name: "Discord", description: "社区维护的 Discord Bot 连接。",

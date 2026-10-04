@@ -12,10 +12,39 @@ import { symlink } from "node:fs/promises";
 
 const root = dirname(dirname(fileURLToPath(import.meta.url)));
 const output = await mkdtemp(join(tmpdir(), "tofi-integration-catalog-"));
-try {
+async function browserRenderer() {
+  await build({
+    configFile: false, root, plugins: [react()], logLevel: "error",
+    build: { outDir: join(output, "browser"), emptyOutDir: false, lib: { entry: join(root, "src/IntegrationBrowser.tsx"), formats: ["es"], fileName: "browser" }, rollupOptions: { external: ["react", "react/jsx-runtime", "react/jsx-dev-runtime"] } },
+  });
+  await symlink(join(root, "node_modules"), join(output, "node_modules"), "dir");
+  const { IntegrationBrowser } = await import(pathToFileURL(join(output, "browser/browser.js")));
+  return (query = "", servers = []) => renderToStaticMarkup(createElement(IntegrationBrowser, { query, servers, onQueryChange() {}, onBack() {}, onSelect() {}, onCustom() {} }));
+}
+
+function assertRetiredNotion(html) {
+  const row = html.match(/<li[^>]*data-held-integration-id="notion-token"[\s\S]*?<\/li>/)?.[0];
+  assert.ok(row, "historical Notion token reference must remain a held row");
+  assert.ok(row.includes("历史提供方项目") && row.includes("已停止维护"), "retired vendor origin must be disclosed in the actual row");
+  assert.ok(row.includes("不在首批支持范围") && row.includes("历史项目文档"));
+  assert.ok(!row.includes("提供方维护"), "retired source cannot claim current provider maintenance");
+  assert.ok(!row.includes("<button") && !row.includes("<input"), "historical reference cannot collect credentials or offer setup");
+  assert.ok(html.includes('data-integration-id="notion"'), "hosted OAuth remains separately addable");
+  assert.ok(!html.includes('data-integration-id="notion-token"'));
+  assert.ok(html.includes('aria-label="暂不可添加的服务"'), "retired reference must not be presented as pending first-wave support");
+}
+
+async function run() {
   execFileSync(join(root, "node_modules/.bin/tsc"), ["src/integrationCatalog.ts", "src/mcpTokenHeaders.ts", "--ignoreConfig", "--target", "ES2022", "--module", "ES2022", "--moduleResolution", "Bundler", "--outDir", output, "--skipLibCheck", "--strict"], { cwd: root });
   const { integrationCatalog, getIntegrationPreset, heldIntegrations, matchesIntegration } = await import(pathToFileURL(join(output, "integrationCatalog.js")));
   const { mcpTokenHeaders } = await import(pathToFileURL(join(output, "mcpTokenHeaders.js")));
+  if (process.argv.includes("--retired-notion")) {
+    const render = await browserRenderer();
+    assertRetiredNotion(render("Notion"));
+    assert.equal(getIntegrationPreset("notion-token"), undefined);
+    console.log("Retired Notion actual browser row: PASS (historical vendor origin, retirement, first-wave exclusion, no setup/credential controls, hosted OAuth separate)");
+    return;
+  }
   const ids = new Set();
   for (const item of integrationCatalog) {
     assert.ok(!ids.has(item.id), `duplicate preset: ${item.id}`);
@@ -65,15 +94,9 @@ try {
 
   // Render the actual browser component. No DOM, network, account or settings
   // request is needed to verify that held entries have no setup control.
-  await build({
-    configFile: false, root, plugins: [react()], logLevel: "error",
-    build: { outDir: join(output, "browser"), emptyOutDir: false, lib: { entry: join(root, "src/IntegrationBrowser.tsx"), formats: ["es"], fileName: "browser" }, rollupOptions: { external: ["react", "react/jsx-runtime", "react/jsx-dev-runtime"] } },
-  });
-  await symlink(join(root, "node_modules"), join(output, "node_modules"), "dir");
-  const { IntegrationBrowser } = await import(pathToFileURL(join(output, "browser/browser.js")));
-  const render = (query = "", servers = []) => renderToStaticMarkup(createElement(IntegrationBrowser, { query, servers, onQueryChange() {}, onBack() {}, onSelect() {}, onCustom() {} }));
+  const render = await browserRenderer();
   const all = render();
-  const heldSection = all.match(/<section[^>]*aria-label="待支持的服务"[\s\S]*?<\/section>/)?.[0];
+  const heldSection = all.match(/<section[^>]*aria-label="暂不可添加的服务"[\s\S]*?<\/section>/)?.[0];
   assert.ok(heldSection);
   assert.ok(!heldSection.includes("<button"), "held providers must have no install/setup button");
   assert.ok(!heldSection.includes("<input"), "held providers must have no credential entry");
@@ -86,8 +109,10 @@ try {
   }
   const notion = render("Notion");
   assert.ok(notion.includes('data-integration-id="notion"') && notion.includes('data-held-integration-id="notion-token"'));
+  assertRetiredNotion(notion);
   const installed = render("GitHub", [{ url: readonly.url }]);
   assert.match(installed, /<button[^>]*data-integration-id="github-readonly"[^>]*disabled=""/);
   assert.ok(render("synthetic-missing-provider").includes('role="status"'));
   console.log("Integration catalog, private token headers and actual browser rendering: PASS (source/auth labels, read-only presets, held-provider setup fence, search, installed state, preserve/replace/delete)");
-} finally { await rm(output, { recursive: true, force: true }); }
+}
+try { await run(); } finally { await rm(output, { recursive: true, force: true }); }
