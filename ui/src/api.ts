@@ -1,4 +1,4 @@
-import type { AgentUsageTotal, Attachment, Bot, Config, ContentPatch, ContextUsage, Conversation, EventEnvelope, Memory, MemoryInput, Message, Run, Schedule, ScheduleKind, StreamDraft, ToolActivity, ToolActivityDetailPage, ToolActivityRunSummary, UsageCall, UsagePeriod, WorkspaceEventEnvelope, WorkItem } from "./types";
+import type { AgentUsageTotal, Attachment, Bot, Config, ContentPatch, ContextUsage, Conversation, ConversationWebhook, IssuedConversationWebhook, EventEnvelope, Memory, MemoryInput, Message, Run, Schedule, ScheduleKind, StreamDraft, ToolActivity, ToolActivityDetailPage, ToolActivityRunSummary, UsageCall, UsagePeriod, WorkspaceEventEnvelope, WorkItem } from "./types";
 
 export class ApiError extends Error {
   constructor(public status: number, message: string, public code?: string) {
@@ -23,7 +23,7 @@ export async function request<T>(path: string, init: RequestInit = {}): Promise<
 const json = (body: unknown): RequestInit => ({ method: "POST", body: JSON.stringify(body) });
 
 export const api = {
-  serverInfo: (signal?: AbortSignal) => request<{ service: string; protocol_version: number; instance_id: string }>("/api/server-info", { signal }),
+  serverInfo: (signal?: AbortSignal) => request<{ service: string; protocol_version: number; instance_id: string; capabilities?: { inbound_webhooks?: boolean } }>("/api/server-info", { signal }),
   config: () => request<Config>("/api/config"),
   usage: () => request<{ contexts: ContextUsage[]; agents: AgentUsageTotal[]; periods: Record<"24h" | "7d" | "30d", UsagePeriod[]>; calls: UsageCall[]; price_source: string; price_as_of: string; note: string }>("/api/usage"),
   dictationSettings: () => request<{ model: string; configured: boolean; auth_source: "api_key" | "codex" | ""; models: { id: string; name: string; description: string; cost: string }[] }>("/api/dictation-settings"),
@@ -60,6 +60,10 @@ export const api = {
   deleteGroup: (id: string) => request<{ deleted: boolean; conversation_id: string }>(`/api/conversations/${encodeURIComponent(id)}`, { method: "DELETE" }),
   markRead: (id: string, seq: number) => request<{read_seq: number}>(`/api/conversations/${encodeURIComponent(id)}/read`, json({seq})),
   markUnread: (id: string, seq: number) => request<{read_seq: number}>(`/api/conversations/${encodeURIComponent(id)}/read`, json({seq, unread: true})),
+  conversationWebhook: (id: string, signal?: AbortSignal) => request<ConversationWebhook>(`/api/conversations/${encodeURIComponent(id)}/webhook`, { signal, cache: "no-store" }),
+  createConversationWebhook: (id: string, signal?: AbortSignal) => request<IssuedConversationWebhook>(`/api/conversations/${encodeURIComponent(id)}/webhook`, { ...json({}), signal, cache: "no-store" }),
+  rotateConversationWebhook: (id: string, expected_version: number, signal?: AbortSignal) => request<IssuedConversationWebhook>(`/api/conversations/${encodeURIComponent(id)}/webhook/rotate`, { ...json({ expected_version }), signal, cache: "no-store" }),
+  revokeConversationWebhook: (id: string, expected_version: number, signal?: AbortSignal) => request<void>(`/api/conversations/${encodeURIComponent(id)}/webhook`, { method: "DELETE", body: JSON.stringify({ expected_version }), signal, cache: "no-store" }),
   createGroup: (input: { name: string; bot_ids: string[] }) => request<Conversation>("/api/groups", json(input)),
   messages: (id: string, beforeSeq?: number) => {
     const query = new URLSearchParams({ limit: "50" });

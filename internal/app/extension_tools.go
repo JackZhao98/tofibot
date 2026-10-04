@@ -47,6 +47,9 @@ func (s *Server) extensionManagementTools(c Conversation, r Run) []Tool {
 		"files":           map[string]any{"type": "object", "additionalProperties": map[string]any{"type": "string"}, "description": "Complete local skill files as UTF-8 strings, including SKILL.md with matching name; no downloading or execution. Installation does not overwrite an existing skill."},
 		"test_connection": map[string]any{"type": "boolean", "description": "Must be true for mcp_test, only when the user requested connecting/testing. Other actions never test automatically."},
 	}
+	if external, err := s.store.webhookRunOrigin(r.ID); err != nil || external {
+		properties["action"] = map[string]any{"type": "string", "enum": []string{"mcp_list", "skill_list"}}
+	}
 	return []Tool{{Name: "manage_extensions", Description: "Manage the user's workspace-wide MCP servers and installed Skills using Tofi's existing settings. Every Bot can access installed resources; there is no per-Bot grant or activation setting. Read/list first before changes. MCP update requires the complete desired URL; omitted policy lists, headers and OAuth retain existing values. Tool allow/deny lists are global server policies. Never expose credentials or perform OAuth authorization; tell the user to finish authorization in Settings. Test network connections only when explicitly requested using mcp_test with test_connection=true. Delete actions remove user configuration/skill files and require user intent.", Parameters: objectSchema(properties, []string{"action"}), Identity: extensionRecoveryIdentity, Execute: func(ctx context.Context, raw json.RawMessage) (string, error) {
 		return s.executeExtensionManagement(ctx, c, r, raw)
 	}}}
@@ -89,6 +92,13 @@ func (s *Server) executeExtensionManagement(ctx context.Context, c Conversation,
 	}
 	if decoder.Decode(new(any)) != io.EOF {
 		return "", tooloutcome.InvalidArguments("expected one extension argument object")
+	}
+	external, originErr := s.store.webhookRunOrigin(r.ID)
+	if originErr != nil {
+		return "", originErr
+	}
+	if external && x.Action != "mcp_list" && x.Action != "skill_list" {
+		return "", tooloutcome.New(tooloutcome.Denied, "external_webhook_authority", "not_executed", "External webhook events cannot authorize extension configuration or credential changes.", "explain_blocker").Err()
 	}
 	if x.Action != "mcp_list" && x.Action != "skill_list" && strings.TrimSpace(x.Name) == "" {
 		return "", tooloutcome.InvalidArguments("extension name is required")

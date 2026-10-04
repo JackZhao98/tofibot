@@ -1,5 +1,6 @@
 import { useEffect, useId, useLayoutEffect, useMemo, useRef, useState, type RefObject } from "react";
 import { createPortal } from "react-dom";
+import { isWebhookMessage, messageSourceLabel } from "./messageOrigin";
 import { request } from "./api";
 import { GazeAvatar } from "./GazeAvatar";
 import { MessageMarkdown } from "./MessageMarkdown";
@@ -164,11 +165,12 @@ function ViewOnlyChatHistory({ conversationId, runId, botById, closeRef }: { con
     {history && !history.messages.length && <div className="conversation-empty"><h2>{history.hasMore ? "暂未找到匹配消息" : "暂无消息"}</h2></div>}
     <div id={listId} className="view-only-message-list">{history?.messages.map((message: Message) => {
       const bot = message.sender_bot_id ? botById.get(message.sender_bot_id) : undefined;
-      const label = bot?.name ?? message.sender_bot_name ?? (message.role === "user" ? "你" : "Bot");
-      const user = message.role === "user" && !message.sender_bot_id;
+      const label = messageSourceLabel(message, bot?.name ?? message.sender_bot_name);
+      const webhook = isWebhookMessage(message);
+      const user = message.role === "user" && !message.sender_bot_id && !webhook;
       return <article className={`view-only-message ${user ? "is-user" : "is-bot"}`} key={message.id} data-message-id={message.id} tabIndex={-1} data-focused={(runId !== undefined && message.run_id === runId) || undefined}>
-        {!user && <GazeAvatar id={message.sender_bot_id ?? "bot"} mini />}
-        <div className="view-only-message-copy"><small>{label}</small><div className="view-only-message-bubble"><MessageMarkdown content={message.content} /></div></div>
+        {!user && !webhook && <GazeAvatar id={message.sender_bot_id ?? "bot"} mini />}
+        <div className="view-only-message-copy"><small>{label}{webhook && " · 外部事件"}</small><div className="view-only-message-bubble"><MessageMarkdown content={message.content} /></div></div>
       </article>;
     })}</div>
   </main>;

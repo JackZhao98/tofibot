@@ -4,7 +4,9 @@ import { mergeMessageTimeline } from "./messageTimeline";
 import { textareaCaretRect } from "./textareaCaret";
 import { DelayedFeedback } from "./DelayedFeedback";
 import { WebFileDropOverlay } from "./WebFileDropOverlay";
-import { OwnerAccount, SidebarAccount } from "./OwnerSession";
+import { WebhookPanel } from "./WebhookPanel";
+import { isRetryBoundaryMessage, isWebhookMessage, messageOriginKey, messageSourceLabel } from "./messageOrigin";
+import { OwnerAccount, SidebarAccount, useOwnerSession } from "./OwnerSession";
 import { desktopState, updateDesktopState, isDesktop, type DesktopCommand } from "./desktop";
 import {TimezoneProvider, TimezoneSetting, useUserTimezone} from "./UserTimezone";
 import {dateInTimezone, formatZonedTime} from "./timezone";
@@ -79,7 +81,7 @@ import type { Attachment, Bot, Config, Conversation, EventEnvelope, Memory, Mess
 
 const TerminalPanel = lazy(() => import("./TerminalPanel").then(module => ({ default: module.TerminalPanel })));
 
-type Panel = "group-create" | "bot-edit" | "memory" | "schedule" | "settings" | "members" | "desktop" | "terminal" | "archive" | null;
+type Panel = "group-create" | "bot-edit" | "memory" | "schedule" | "settings" | "members" | "desktop" | "terminal" | "archive" | "webhook" | null;
 type SidebarLayout = { pinned: string[]; sections: Record<string, string> };
 type SidebarContextMenu = { x: number; y: number; conversation: Conversation };
 type ToolDetailState = { loaded: number; toolCount: number; hasMore: boolean; loading: boolean; error?: string };
@@ -325,8 +327,8 @@ function formatDay(value: string, timeZone: string) {
   return new Intl.DateTimeFormat("zh-CN", { month: "long", day: "numeric", weekday: "short", timeZone }).format(new Date(value));
 }
 
-function previewText(value: string, max = 160) {
-  const normalized = readReplyMarker(value).body.replace(/\s+/g, " ").replace(/[*_`#>]/g, "").replace(/\s+/g, " ").trim();
+function previewText(value: string, max = 160, replyMarkers = true) {
+  const normalized = (replyMarkers ? readReplyMarker(value).body : value).replace(/\s+/g, " ").replace(/[*_`#>]/g, "").replace(/\s+/g, " ").trim();
   const chars = Array.from(normalized);
   return chars.length > max ? `${chars.slice(0, max - 1).join("")}…` : normalized;
 }
@@ -350,6 +352,8 @@ function App() {
 }
 
 function Workspace() {
+  const ownerSession = useOwnerSession();
+  const [webhooksAvailable, setWebhooksAvailable] = useState(false);
   const {timezone} = useUserTimezone();
   const appearance = useAppearance();
   const [sidebarCollapsed, setSidebarCollapsed] = useState(Boolean(desktopState().sidebarCollapsed));
@@ -553,6 +557,7 @@ function Workspace() {
     const timeout = window.setTimeout(() => controller.abort(), 6_000);
     api.serverInfo(controller.signal).then((info) => {
       if (!alive || !info.instance_id) return;
+      setWebhooksAvailable(info.capabilities?.inbound_webhooks === true);
       const key = composerDraftStorageKey(info.instance_id);
       composerStorageKey.current = key;
       const stored = readComposerDrafts(key);
@@ -1115,7 +1120,7 @@ function Workspace() {
   const updateConversationPreview = useCallback((next: Message) => {
     setConversations((current) => current.map((conversation) => {
       if (conversation.id !== next.conversation_id || (conversation.last_message && next.seq < conversation.last_message.seq)) return conversation;
-      return { ...conversation, updated_at: next.created_at, ...(next.role === "user" && !next.run_id ? { last_user_message_at: next.created_at } : {}), last_message: { id: next.id, seq: next.seq, role: next.role, kind: next.kind, sender_bot_id: next.sender_bot_id, content: Array.from(next.content).slice(0, 160).join(""), created_at: next.created_at, internal: next.kind === "message_ref" } };
+      return { ...conversation, updated_at: next.created_at, ...(next.role === "user" && !isWebhookMessage(next) && !next.run_id ? { last_user_message_at: next.created_at } : {}), last_message: { id: next.id, seq: next.seq, role: next.role, kind: next.kind, sender_bot_id: next.sender_bot_id, content: Array.from(next.content).slice(0, 160).join(""), created_at: next.created_at, internal: next.kind === "message_ref" } };
     }));
   }, []);
 
@@ -1591,7 +1596,8 @@ function Workspace() {
 
   function conversationRow(conversation: Conversation) {
     const bot = conversation.kind === "dm" ? botByConversationId.get(conversation.id) : undefined;
-    const preview = previewText(conversation.last_message?.kind === "message_ref" ? localizeMessageRef(conversation.last_message.content) : conversation.last_message?.content?.trim() || "");
+    const webhook = conversation.last_message?.kind === "webhook_event";
+    const preview = `${webhook ? "Webhook · " : ""}${previewText(conversation.last_message?.kind === "message_ref" ? localizeMessageRef(conversation.last_message.content) : conversation.last_message?.content?.trim() || "", 160, !webhook)}`;
     const botId = conversation.kind === "dm" ? bot?.id || conversation.bot_id || conversation.bot_ids[0] || conversation.id : conversation.id;
     const motion = conversationMotion(conversation, bot?.id || conversation.bot_id || botId);
     const task = conversation.task_state;
@@ -1693,7 +1699,7 @@ function Workspace() {
 
         <main className={`chat-pane ${!mobileList ? "mobile-chat" : ""}`} inert={modalPanelOpen || undefined}>
           {!active ? routeUnavailable ? <div className="conversation-empty" role="alert"><h2>无法打开这个会话</h2><p>链接无效、会话已删除，或当前账号没有访问权限。请从消息列表选择其他会话。</p><button className="secondary-button" onClick={() => setMobileList(true)}>返回消息列表</button></div> : <EmptyWorkspace onCreate={() => void createNewBot()} busy={newBotBusy} error={newBotError} /> : <>
-            <div className="chat-header"><div className="chat-title"><button className="back-button" onClick={() => setMobileList(true)} aria-label="返回消息列表"><Icon name="arrow-left" size={19} /></button><button className="chat-identity" onClick={() => active.kind === "group" ? setPanel("members") : transitionBotPanel(true)} aria-label="打开会话成员详情"><span className="member-avatar-stack">{(active.kind === "group" ? active.bot_ids : [active.bot_id ?? active.id]).slice(0, 4).map((id) => <Avatar key={id} label={botById.get(id)?.name ?? active.name} id={id} mini motion={conversationMotion(active, id)} />)}</span><span className="chat-name-pill"><h1>{active.name}</h1>{active.kind === "group" && <small>{active.bot_ids.length} 位成员</small>}</span></button></div><div className="header-actions">{active.kind === "group" && <button className="computer-button" data-hint="团队看板" aria-label={teamBoardOpen ? "返回对话" : "打开团队看板"} aria-pressed={teamBoardOpen} onClick={() => { setPanel(null); setTeamBoardOpen(value => !value); }}><Icon name="layout-grid" size={18} variant={teamBoardOpen ? "filled" : "outline"} /></button>}{desktopBot && <button className={`computer-button${desktopReady || computerInfo?.state === "ready" ? " is-ready" : ""}`} data-hint="共享电脑" aria-label="打开共享电脑" aria-pressed={panel === "desktop"} onClick={() => setPanel(current => current === "desktop" ? null : "desktop")}><Icon name="monitor" size={17} variant={panel === "desktop" ? "filled" : "outline"} animated /></button>}{desktopBot && <button className="computer-button" data-hint="终端" aria-label="打开终端" aria-pressed={panel === "terminal"} onClick={() => setPanel(current => current === "terminal" ? null : "terminal")}><Icon name="terminal" size={18} variant={panel === "terminal" ? "filled" : "outline"} /></button>}<div className="header-more" ref={headerMenuRef}><button ref={headerMenuTriggerRef} className="ghost-button" data-hint="更多操作" aria-label="更多操作" aria-expanded={headerMenuOpen} aria-controls={headerMenuOpen ? "conversation-more-menu" : undefined} onClick={() => setHeaderMenuOpen((open) => !open)}><Icon name="more" size={17} /></button>{showHeaderMenu && <div id="conversation-more-menu" className="more-menu" data-open={headerMenuOpen} inert={!headerMenuOpen || undefined}><button onClick={() => { headerMenuTriggerRef.current?.focus(); setHeaderMenuOpen(false); void copyConversationLink(active); }}>复制会话链接</button><button onClick={() => { headerMenuTriggerRef.current?.focus(); setHeaderMenuOpen(false); setPanel("schedule"); }}>待办与日程</button><button onClick={() => { headerMenuTriggerRef.current?.focus(); setHeaderMenuOpen(false); setPanel("memory"); }}>{active.kind === "group" ? "群记忆" : "记忆"}</button><button onClick={() => { headerMenuTriggerRef.current?.focus(); setHeaderMenuOpen(false); setUsageBotId(active.kind === "dm" ? active.bot_id ?? "" : ""); setSettingsTab("usage"); setPanel("settings"); }}>用量</button>{active.kind === "dm" && <button onClick={() => { headerMenuTriggerRef.current?.focus(); setPanel("bot-edit"); setHeaderMenuOpen(false); }}>Bot 设置</button>}<button className="delete-menu-action" onClick={() => { headerMenuTriggerRef.current?.focus(); setHeaderMenuOpen(false); confirmDelete(active); }}>{active.kind === "dm" ? "删除 Bot" : "删除群聊"}</button></div>}</div></div></div>
+            <div className="chat-header"><div className="chat-title"><button className="back-button" onClick={() => setMobileList(true)} aria-label="返回消息列表"><Icon name="arrow-left" size={19} /></button><button className="chat-identity" onClick={() => active.kind === "group" ? setPanel("members") : transitionBotPanel(true)} aria-label="打开会话成员详情"><span className="member-avatar-stack">{(active.kind === "group" ? active.bot_ids : [active.bot_id ?? active.id]).slice(0, 4).map((id) => <Avatar key={id} label={botById.get(id)?.name ?? active.name} id={id} mini motion={conversationMotion(active, id)} />)}</span><span className="chat-name-pill"><h1>{active.name}</h1>{active.kind === "group" && <small>{active.bot_ids.length} 位成员</small>}</span></button></div><div className="header-actions">{active.kind === "group" && <button className="computer-button" data-hint="团队看板" aria-label={teamBoardOpen ? "返回对话" : "打开团队看板"} aria-pressed={teamBoardOpen} onClick={() => { setPanel(null); setTeamBoardOpen(value => !value); }}><Icon name="layout-grid" size={18} variant={teamBoardOpen ? "filled" : "outline"} /></button>}{desktopBot && <button className={`computer-button${desktopReady || computerInfo?.state === "ready" ? " is-ready" : ""}`} data-hint="共享电脑" aria-label="打开共享电脑" aria-pressed={panel === "desktop"} onClick={() => setPanel(current => current === "desktop" ? null : "desktop")}><Icon name="monitor" size={17} variant={panel === "desktop" ? "filled" : "outline"} animated /></button>}{desktopBot && <button className="computer-button" data-hint="终端" aria-label="打开终端" aria-pressed={panel === "terminal"} onClick={() => setPanel(current => current === "terminal" ? null : "terminal")}><Icon name="terminal" size={18} variant={panel === "terminal" ? "filled" : "outline"} /></button>}<div className="header-more" ref={headerMenuRef}><button ref={headerMenuTriggerRef} className="ghost-button" data-hint="更多操作" aria-label="更多操作" aria-expanded={headerMenuOpen} aria-controls={headerMenuOpen ? "conversation-more-menu" : undefined} onClick={() => setHeaderMenuOpen((open) => !open)}><Icon name="more" size={17} /></button>{showHeaderMenu && <div id="conversation-more-menu" className="more-menu" data-open={headerMenuOpen} inert={!headerMenuOpen || undefined}><button onClick={() => { headerMenuTriggerRef.current?.focus(); setHeaderMenuOpen(false); void copyConversationLink(active); }}>复制会话链接</button><button onClick={() => { headerMenuTriggerRef.current?.focus(); setHeaderMenuOpen(false); setPanel("schedule"); }}>待办与日程</button>{webhooksAvailable && ownerSession?.enabled && ownerSession.authenticated && !ownerSession.owner?.must_change_password && !active.archived && (active.kind === "group" ? active.user_visible !== false : activeBot?.dm_conversation_id === active.id) && <button onClick={() => { headerMenuTriggerRef.current?.focus(); setHeaderMenuOpen(false); setPanel("webhook"); }}>Webhook</button>}<button onClick={() => { headerMenuTriggerRef.current?.focus(); setHeaderMenuOpen(false); setPanel("memory"); }}>{active.kind === "group" ? "群记忆" : "记忆"}</button><button onClick={() => { headerMenuTriggerRef.current?.focus(); setHeaderMenuOpen(false); setUsageBotId(active.kind === "dm" ? active.bot_id ?? "" : ""); setSettingsTab("usage"); setPanel("settings"); }}>用量</button>{active.kind === "dm" && <button onClick={() => { headerMenuTriggerRef.current?.focus(); setPanel("bot-edit"); setHeaderMenuOpen(false); }}>Bot 设置</button>}<button className="delete-menu-action" onClick={() => { headerMenuTriggerRef.current?.focus(); setHeaderMenuOpen(false); confirmDelete(active); }}>{active.kind === "dm" ? "删除 Bot" : "删除群聊"}</button></div>}</div></div></div>
             {!isDesktop && active.task_state && <ConversationTaskStatus state={active.task_state} run={active.task_state.run_id ? runById.get(active.task_state.run_id) : undefined} onView={() => focusTask(active)} onRetry={active.task_state.run_id ? () => { void retryRun(active.task_state!.run_id!).then(refreshConversations); } : undefined} />}
             {streamNeedsAttention && <DelayedFeedback delay={2500}><div className="stream-status" role="status">实时更新连接不稳定，正在重连…</div></DelayedFeedback>}
             <RunStatusAnnouncement key={active.id} conversationId={active.id} runs={runs} botById={botById} ready={loadedId === active.id && !loadingMessages} />
@@ -1723,12 +1729,12 @@ function Workspace() {
                       }
                       const message = item.message;
                       const previous = previousItem?.kind === "message" ? previousItem.message : undefined;
-                      const senderKey = message.role === "user" ? "user" : message.sender_bot_id ?? message.role;
-                      const previousKey = previous ? previous.role === "user" ? "user" : previous.sender_bot_id ?? previous.role : "";
+                      const senderKey = messageOriginKey(message);
+                      const previousKey = previous ? messageOriginKey(previous) : "";
                       const sameDay = Boolean(previous && dateInTimezone(previous.created_at, timezone) === dateInTimezone(message.created_at, timezone));
                       const gap = previous ? +new Date(message.created_at) - +new Date(previous.created_at) : 0;
                       const unread = message.seq === viewport.unreadSeq;
-                      const compact = Boolean(previous && !unread && !message.notice && !previous.notice && sameDay && gap < 5 * 60_000 && senderKey === previousKey);
+                      const compact = Boolean(previous && !isWebhookMessage(message) && !isWebhookMessage(previous) && !unread && !message.notice && !previous.notice && sameDay && gap < 5 * 60_000 && senderKey === previousKey);
                       const showDivider = !previousTime || dateInTimezone(previousTime, timezone) !== dateInTimezone(message.created_at, timezone) || +new Date(message.created_at) - +new Date(previousTime) >= 10 * 60_000;
                       const showIdentity = (active.kind === "group" || message.kind === "forward_result" || message.kind === "notice" && runById.get(message.run_id ?? "")?.stop_reason === "approval_expired") && message.role !== "user" && !compact;
                       const processTools = toolTimeline.beforeMessageId.get(message.id) ?? [];
@@ -1747,7 +1753,7 @@ function Workspace() {
                       const afterAggregateRunIDs = new Set([...afterSummaries.map(summary => summary.run_id), ...Object.keys(afterSummaryErrors), ...Object.keys(afterSummaryLoading)]);
                       const processAggregateTools = loadedToolActivities.filter(activity => processAggregateRunIDs.has(activity.run_id));
                       const afterAggregateTools = loadedToolActivities.filter(activity => afterAggregateRunIDs.has(activity.run_id));
-                      const replyMarker = readReplyMarker(message.content || drafts[message.id]?.content || "");
+                      const replyMarker = isWebhookMessage(message) ? { ids: [], body: message.content } : readReplyMarker(message.content || drafts[message.id]?.content || "");
                       // Older model replies sometimes echoed a fabricated ID. The run's
                       // trigger is the only trustworthy fallback for that legacy output.
                       const runTriggerId = message.run_id ? runById.get(message.run_id)?.trigger_message_id : undefined;
@@ -1758,11 +1764,11 @@ function Workspace() {
                       return <div className={`message-block${arrivalIDs.current.has(message.id) ? " new-arrival" : ""}`} data-message-seq={message.seq} data-message-id={message.id} data-flip={message.id} tabIndex={-1} key={message.id} onContextMenu={canReact && isDesktop ? event => { event.preventDefault(); setReactionMenu({ messageId: message.id, x: event.clientX, y: event.clientY }); } : undefined}>
                         {showDivider && <div className="date-divider"><span>{formatDateDivider(message.created_at, timezone)}</span></div>}
                         {unread && <div className="unread-divider" aria-label="以下为未读消息"><span>未读</span></div>}
-                        <div className={`message-hover-host${message.role === "user" ? " is-user" : ""}`}>
+                        <div className={`message-hover-host${message.role === "user" && !isWebhookMessage(message) ? " is-user" : ""}`}>
                         {!isDesktop && canReact && message.kind !== "notice" && message.kind !== "message_ref" && <MessageHoverActions message={message} timezone={timezone}
                           onReact={anchor => setReactionMenu({ messageId: message.id, x: anchor.left, y: anchor.bottom + 6 })}
-                          onReply={active.archived ? undefined : () => { updateComposerDraft(active.id, current => ({ ...current, reply: { id: message.id, name: message.role === "user" ? "你" : message.sender_bot_name ?? (message.sender_bot_id ? botById.get(message.sender_bot_id)?.name : undefined) ?? "Bot", excerpt: previewText(readReplyMarker(message.content).body) || "附件" } })); document.querySelector<HTMLTextAreaElement>(".composer textarea")?.focus(); }} />}
-                        <MessageBubble message={message} replyTarget={replyTarget} replyTargetName={replyTarget?.role === "user" ? "你" : replyTarget?.sender_bot_name ?? (replyTarget?.sender_bot_id ? botById.get(replyTarget.sender_bot_id)?.name ?? knownBotNames.current.get(replyTarget.sender_bot_id) : undefined)} senderName={message.sender_bot_name ?? (message.sender_bot_id ? knownBotNames.current.get(message.sender_bot_id) : undefined)} targetBot={message.notice?.to_bot_id ? botById.get(message.notice.to_bot_id) : undefined} sender={message.sender_bot_id ? botById.get(message.sender_bot_id) : undefined}
+                          onReply={active.archived ? undefined : () => { updateComposerDraft(active.id, current => ({ ...current, reply: { id: message.id, name: messageSourceLabel(message, message.sender_bot_name ?? (message.sender_bot_id ? botById.get(message.sender_bot_id)?.name : undefined)), excerpt: previewText(message.content, 160, !isWebhookMessage(message)) || "附件" } })); document.querySelector<HTMLTextAreaElement>(".composer textarea")?.focus(); }} />}
+                        <MessageBubble message={message} replyTarget={replyTarget} replyTargetName={replyTarget ? messageSourceLabel(replyTarget, replyTarget.sender_bot_name ?? (replyTarget.sender_bot_id ? botById.get(replyTarget.sender_bot_id)?.name ?? knownBotNames.current.get(replyTarget.sender_bot_id) : undefined)) : undefined} senderName={message.sender_bot_name ?? (message.sender_bot_id ? knownBotNames.current.get(message.sender_bot_id) : undefined)} targetBot={message.notice?.to_bot_id ? botById.get(message.notice.to_bot_id) : undefined} sender={message.sender_bot_id ? botById.get(message.sender_bot_id) : undefined}
                           run={message.run_id ? runById.get(message.run_id) : undefined}
                           tools={processTools.length || processProgress.length || processSummaries.length || Object.keys(processSummaryErrors).length || Object.keys(processSummaryLoading).length ? <ToolActivityList activities={[...processTools, ...processAggregateTools]} progress={processProgress} summaries={processSummaries} summaryErrors={processSummaryErrors} summaryLoading={processSummaryLoading} details={toolDetailState} onLoadDetails={loadToolDetails} onRetrySummary={retryToolSummary} botById={botById} activeRunIds={activeRunIds} /> : undefined}
                           scheduleOccurrence={message.run_id ? scheduleOccurrences.get(message.run_id) : undefined} schedule={message.run_id ? scheduleMetadata.get(scheduleOccurrences.get(message.run_id)?.schedule_id ?? "") : undefined} onRetrySchedule={active.archived ? undefined : retryRun}
@@ -1800,7 +1806,7 @@ function Workspace() {
         </main>
 
         {modalPanelOpen && <button type="button" className="detail-backdrop" aria-label="关闭详情" onClick={() => { if (displayedPanel === "settings") window.dispatchEvent(new Event("tofi-settings-close")); else if (!detailPaneRef.current?.querySelector('[aria-busy="true"]')) setPanel(null); }} />}
-        <aside ref={detailPaneRef} className={`detail-pane ${displayedPanel !== "settings" && displayedPanel !== "desktop" ? "context-panel" : ""} ${(panel === "bot-edit" || displayedPanel) && displayedPanel !== "desktop" ? "visible" : ""} ${!panel && displayedPanel && displayedPanel !== "desktop" ? "surface-exiting" : ""}`} inert={!panel || undefined} role={modalPanelOpen ? "dialog" : undefined} aria-modal={modalPanelOpen ? true : undefined} aria-label={panel === "settings" ? "设置" : panel === "terminal" ? "终端" : "详情"} tabIndex={modalPanelOpen ? -1 : undefined}>
+        <aside ref={detailPaneRef} className={`detail-pane ${displayedPanel !== "settings" && displayedPanel !== "desktop" ? "context-panel" : ""} ${(panel === "bot-edit" || displayedPanel) && displayedPanel !== "desktop" ? "visible" : ""} ${!panel && displayedPanel && displayedPanel !== "desktop" ? "surface-exiting" : ""}`} inert={!panel || undefined} role={modalPanelOpen ? "dialog" : undefined} aria-modal={modalPanelOpen ? true : undefined} aria-label={panel === "settings" ? "设置" : panel === "terminal" ? "终端" : panel === "webhook" ? "Webhook" : "详情"} tabIndex={modalPanelOpen ? -1 : undefined}>
           {displayedPanel === "group-create" && <BotPanel key="new-group" bots={bots.filter((bot) => !bot.archived)} onClose={() => setPanel(null)} onUpdate={updateBot} onCreateGroup={createGroup} />}
           {(panel === "bot-edit" || displayedPanel === "bot-edit") && <BotPanel refreshToken={scheduleRefresh} memories={memories} onOpenWork={() => setPanel("schedule")} onOpenMemory={() => setPanel("memory")} key={activeBot?.id ?? "edit-empty"} bots={bots} activeBot={activeBot} onClose={() => transitionBotPanel(false)} onUpdate={updateBot} onCreateGroup={createGroup} />}
           {displayedPanel === "settings" && <SettingsShell tab={settingsTab} onTab={setSettingsTab} onClose={()=>setPanel(null)} renderPage={(page) => page === "admin" ? <AdminAccounts/> : page === "account" ? <><OwnerAccount /><AppearancePicker value={appearance.preference} onChange={appearance.choose} /><TimezoneSetting /><NotificationSetting /><WorkspacePurgeSettings />{conversations.some(conversation => conversation.archived) && <div className="legacy-archive-entry"><span>旧归档</span><button className="text-button" onClick={() => setPanel("archive")}>管理</button></div>}</> : page === "usage" ? <UsagePanel preferredBotId={usageBotId} timezone={timezone} /> : page === "debug" ? <DebugSettings bots={bots.filter(bot=>!bot.archived)} conversation={active}/> : page === "models" ? <><ModelDefaults/><AutoReviewSettings/></> : page === "dictate" ? <DictationSettings/> : page === "connection" ? <><ConnectionInfo /><CodexPanel refreshToken={codexStatusRefresh} onConfigured={() => void refreshIndex()} /></> : page === "computers" ? <><ComputerResources/><ComputerPanel /></> : page === "credentials" ? <ComputerCredentials bots={bots.filter(bot=>!bot.archived)}/> : <ExtensionPanel bots={bots} kind={page} refreshToken={extensionRefresh} />} />}
@@ -1808,6 +1814,7 @@ function Workspace() {
           {displayedPanel === "terminal" && desktopBot && <Suspense fallback={<DelayedFeedback><div className="inline-state" role="status">载入终端…</div></DelayedFeedback>}><TerminalPanel key={desktopBot.id} botId={desktopBot.id} botName={desktopBot.name} onClose={() => setPanel(null)} /></Suspense>}
           {displayedPanel === "memory" && activeId && <MemoryPanel key={activeId} memories={memories} conversationId={activeId} onClose={() => setPanel(null)} onCreate={async (input) => { const memory = await api.createMemory(activeId, input); setMemories((current) => [...current.filter((item) => item.id !== memory.id), memory]); }} onUpdate={async (id, input) => { const memory = await api.updateMemory(id, input); setMemories((current) => current.map((item) => item.id === id ? memory : item)); }} onDelete={async (id) => { await api.deleteMemory(id); setMemories((current) => current.filter((item) => item.id !== id)); }} />}
           {displayedPanel === "memory" && !activeId && <div className="detail-empty"><button className="close-button" aria-label="关闭记忆" onClick={() => setPanel(null)}><Icon name="close" size={18} /></button><p>选择一个 Bot 或群后管理记忆。</p></div>}
+          {displayedPanel === "webhook" && active && <WebhookPanel key={JSON.stringify([ownerSession?.owner?.id ?? "owner", active.id])} conversationId={active.id} conversationName={active.name} accountKey={ownerSession?.owner?.id ?? "owner"} active={panel === "webhook" && Boolean(ownerSession?.enabled && ownerSession.authenticated && !ownerSession.owner?.must_change_password) && webhooksAvailable && !active.archived && (active.kind === "group" ? active.user_visible !== false : activeBot?.dm_conversation_id === active.id)} onClose={() => setPanel(null)} />}
           {displayedPanel === "schedule" && active && <WorkPanel key={active.id} conversation={active} conversations={conversations} bots={bots} refreshToken={scheduleRefresh} onClose={() => setPanel(null)} onNavigate={id => { selectConversation(id); setMobileList(false); setPanel(null); }} />}
           {displayedPanel === "members" && active?.kind === "group" && <MembersPanel refreshToken={scheduleRefresh} onOpenWork={() => setPanel("schedule")} conversation={active} bots={bots} onClose={() => setPanel(null)} onOpen={(id) => { selectConversation(id); setMobileList(false); setPanel(null); }} onSaved={updateGroup} onReload={reloadGroup} />}
         </aside>
@@ -2017,15 +2024,16 @@ export function MessageBubble({ message, replyTarget, replyTargetName, sender, s
     const content = <>{showSender && <><span>{targetBot}</span> · </>}{message.content}</>;
     return <article className="message message-notice" title={`${formatExactTime(message.created_at, timezone)} · ${timezone}`}><div>{noticeTargetAvailable ? <button onClick={() => onNavigate?.(target)}>{content}</button> : <span>{content}</span>}{relatedChat && onOpenRelatedChat && <RelatedMessageLink target={relatedChat} onOpen={onOpenRelatedChat} />}</div></article>;
   }
-  const isUser = message.role === "user";
-  const label = message.kind === "notice" && run?.stop_reason === "approval_expired" ? "系统提示" : isUser ? "你" : sender?.name ?? senderName ?? (message.role === "tool" ? "工具" : "Bot");
+  const webhook = isWebhookMessage(message);
+  const isUser = message.role === "user" && !webhook;
+  const label = message.kind === "notice" && run?.stop_reason === "approval_expired" ? "系统提示" : messageSourceLabel(message, sender?.name ?? senderName);
   const draftText = typeof draft === "string" ? draft : draft?.content ?? "";
   const scheduled = isUser && run?.kind === "schedule";
-  const hideMeta = compact && !scheduled;
+  const hideMeta = compact && !scheduled && !webhook;
   const rawBody = message.content || draftText;
-  const contextLabel = (sender?.name || senderName) && message.sender_bot_id ? `[sender ${sender?.name ?? senderName} id=${message.sender_bot_id}]` : "";
+  const contextLabel = !webhook && (sender?.name || senderName) && message.sender_bot_id ? `[sender ${sender?.name ?? senderName} id=${message.sender_bot_id}]` : "";
   let body = contextLabel && rawBody.startsWith(contextLabel) ? rawBody.slice(contextLabel.length).trimStart() : rawBody;
-  body = readReplyMarker(body).body;
+  if (!webhook) body = readReplyMarker(body).body;
   if (assignment) {
     // Only collapse the structured recipient at the start; ordinary @ references stay text.
     const text = body.trimStart();
@@ -2036,7 +2044,7 @@ export function MessageBubble({ message, replyTarget, replyTargetName, sender, s
   const mention = assignment ? <span className="message-mention"><Avatar label={targetBot?.name ?? "成员"} id={message.notice!.to_bot_id} mini /><span>@{targetBot?.name ?? "成员"}</span></span> : undefined;
   const inlineMention = mention && targetBot ? <BotIdentityCard bot={targetBot} onMention={onMention ? () => onMention(targetBot) : undefined} onOpen={allowOpenDM && onNavigate ? () => onNavigate(targetBot.dm_conversation_id) : undefined}>{mention}</BotIdentityCard> : mention;
   const toolRow = tools && <div className="message-tools">{tools}</div>;
-  return <article className={`message ${isUser ? "message-user" : "message-bot"} ${message.kind === "segment" ? "message-segment" : ""} ${message.kind === "forward_result" ? "message-forward-result" : ""} ${compact ? "message-compact" : ""}`} title={isDesktop ? `${formatExactTime(message.created_at, timezone)} · ${timezone}` : undefined}>{showAvatar && !isUser && <div className="message-avatar">{sender ? <BotIdentityCard bot={sender} onMention={onMention ? () => onMention(sender) : undefined} onOpen={allowOpenDM && onNavigate ? () => onNavigate(sender.dm_conversation_id) : undefined}><Avatar label={label} id={sender.id} mini /></BotIdentityCard> : <Avatar label={label} id={message.sender_bot_id ?? "bot"} mini />}</div>}<div className={`message-body${tools && !isDesktop ? ` web-tool-body ${toolsRunning ? "is-tools-live" : "is-tools-done"}` : ""}`}><div className={`message-meta ${hideMeta ? "compact" : ""}`}>{scheduled && <span>定时任务</span>}{showIdentity && !isUser && !compact && <strong>{label}</strong>}</div>{(toolsRunning || !isDesktop) && toolRow}{replyTarget && <button type="button" className="message-reply-quote" aria-label={`跳转到${replyTargetName ?? "原消息"}的消息`} onClick={() => jumpToMessage(document.querySelector<HTMLElement>(`[data-message-id="${replyTarget.id}"]`))}><span className="message-reply-author">回复 {replyTargetName ?? "原消息"}</span><span className="message-reply-excerpt">{previewText(readReplyMarker(replyTarget.content).body) || "附件"}</span></button>}<div className="message-content" ref={answerRef}>{<SmoothStreamMarkdown content={body} mention={inlineMention} active={Boolean(draft) && !isDesktop} />}{message.attachments?.map((a) => <MessageAttachment attachment={a} compact={isUser} key={a.id} />)}{draft && isDesktop && <span className="typing-cursor" />}</div>{!toolsRunning && isDesktop && toolRow}{relatedChat && onOpenRelatedChat && <RelatedMessageLink target={relatedChat} onOpen={onOpenRelatedChat} />}</div></article>;
+  return <article className={`message ${isUser ? "message-user" : "message-bot"} ${message.kind === "segment" ? "message-segment" : ""} ${message.kind === "forward_result" ? "message-forward-result" : ""} ${compact ? "message-compact" : ""}`} data-message-origin={webhook ? "webhook_event" : undefined} title={isDesktop ? `${formatExactTime(message.created_at, timezone)} · ${timezone}` : undefined}>{showAvatar && !isUser && !webhook && <div className="message-avatar">{sender ? <BotIdentityCard bot={sender} onMention={onMention ? () => onMention(sender) : undefined} onOpen={allowOpenDM && onNavigate ? () => onNavigate(sender.dm_conversation_id) : undefined}><Avatar label={label} id={sender.id} mini /></BotIdentityCard> : <Avatar label={label} id={message.sender_bot_id ?? "bot"} mini />}</div>}<div className={`message-body${tools && !isDesktop ? ` web-tool-body ${toolsRunning ? "is-tools-live" : "is-tools-done"}` : ""}`}><div className={`message-meta ${hideMeta ? "compact" : ""}`}>{scheduled && <span>定时任务</span>}{showIdentity && !isUser && !compact && !webhook && <strong>{label}</strong>}{webhook && <><strong>Webhook</strong><span>外部事件</span></>}</div>{(toolsRunning || !isDesktop) && toolRow}{replyTarget && !webhook && <button type="button" className="message-reply-quote" aria-label={`跳转到${replyTargetName ?? "原消息"}的消息`} onClick={() => jumpToMessage(document.querySelector<HTMLElement>(`[data-message-id="${replyTarget.id}"]`))}><span className="message-reply-author">回复 {replyTargetName ?? "原消息"}</span><span className="message-reply-excerpt">{previewText(replyTarget.content, 160, !isWebhookMessage(replyTarget)) || "附件"}</span></button>}<div className="message-content" ref={answerRef}>{<SmoothStreamMarkdown content={body} mention={inlineMention} active={Boolean(draft) && !isDesktop} />}{message.attachments?.map((a) => <MessageAttachment attachment={a} compact={isUser} key={a.id} />)}{draft && isDesktop && <span className="typing-cursor" />}</div>{!toolsRunning && isDesktop && toolRow}{relatedChat && onOpenRelatedChat && <RelatedMessageLink target={relatedChat} onOpen={onOpenRelatedChat} />}</div></article>;
 }
 
 export function RunStatusAnnouncement({ conversationId, runs, botById, ready }: { conversationId: string; runs: Run[]; botById: Map<string, Bot>; ready: boolean }) {
@@ -2095,7 +2103,7 @@ function WorkingMembers({ isGroup, companionBotId, companionMotion, workingBotId
     return () => window.clearInterval(interval);
   }, [hasLiveRun]);
   const resolvedIds = new Set(buildRetryFamilies(runs).flatMap(family => family.previous.map(run => run.id)));
-  const latestUserSeq = Math.max(0, ...messages.filter((message) => message.role === "user").map((message) => message.seq));
+  const latestUserSeq = Math.max(0, ...messages.filter(isRetryBoundaryMessage).map((message) => message.seq));
   // Waiting is cancellable durable work, but must not enter activeBotRuns:
   // that helper also drives the actual-working avatar policy.
   const liveRuns = new Map([...activeBotRuns(runs, drafts, toolActivities), ...runs.filter(run => run.status === "waiting")].map(run => [run.id, run]));

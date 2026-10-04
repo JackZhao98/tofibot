@@ -73,6 +73,8 @@ type MessagePreview struct {
 	Internal    bool   `json:"internal,omitempty"`
 }
 type Message struct {
+	// Derived only from stored run ancestry for model-facing projections.
+	webhookOrigin  bool
 	Attachments    []Attachment   `json:"attachments,omitempty"`
 	Reactions      []Reaction     `json:"reactions,omitempty"`
 	ID             string         `json:"id"`
@@ -167,6 +169,8 @@ type Server struct {
 	mcpApprovalMu                        sync.Mutex
 	autoReviewProvider                   provider.Provider         // Deterministic tests only; production uses the existing Codex adapter.
 	autoReviewPolicies                   []verifiedMCPReviewPolicy // Empty in production until separately reviewed.
+	webhookStandalone                    bool
+	webhookLimits                        *webhookLimiter
 	isolatedWorkspace                    bool
 	localRunnerURL, localRunnerTokenFile string
 	ownerAuth                            *ownerAuth
@@ -605,6 +609,9 @@ CREATE INDEX IF NOT EXISTS events_conversation ON events(conversation_id,id);`)
 		return err
 	}
 	if err := migrateDictationSettings(s.db); err != nil {
+		return err
+	}
+	if err := migrateWebhookIngress(s.db); err != nil {
 		return err
 	}
 	return migrateToolActivity(s.db)
@@ -1200,6 +1207,7 @@ func (s *Store) Search(conv, q string, limit int) ([]Message, error) {
 	if err := s.hydrateMessageReactions(out); err != nil {
 		return nil, err
 	}
+	s.hydrateWebhookMessageOrigins(out)
 	return out, s.hydrateDeletedSenders(out)
 }
 func (s *Store) AddMemory(conv, bot, content string) (Memory, error) {
@@ -2016,7 +2024,7 @@ func (s *Store) RetryRun(id string) (Run, error) {
 		return Run{}, e
 	}
 	var newerUser int
-	if e = tx.QueryRow(`SELECT COUNT(*) FROM messages WHERE conversation_id=? AND role='user' AND seq>?`, old.ConversationID, triggerSeq).Scan(&newerUser); e != nil {
+	if e = tx.QueryRow(`SELECT COUNT(*) FROM messages WHERE conversation_id=? AND role='user' AND kind<>? AND seq>?`, old.ConversationID, messageKindWebhookEvent, triggerSeq).Scan(&newerUser); e != nil {
 		return Run{}, e
 	}
 	if newerUser > 0 {
@@ -2193,6 +2201,14 @@ func NewServer(c Config) (*Server, error) {
 		st.Close()
 		return nil, fmt.Errorf("owner authentication: %w", e)
 	}
+	server.webhookLimits = newWebhookLimiter()
+	server.webhookStandalone = server.ownerAuth != nil && !c.AccountRuntime && !c.AccountControlPlane && !c.IsolatedWorkspace
+	if server.webhookStandalone || c.AccountControlPlane {
+		if e = migrateWebhookRegistry(st.db); e != nil {
+			st.Close()
+			return nil, e
+		}
+	}
 	server.secretVault, e = initializeSecretVault(c.DataDir)
 	if e != nil {
 		st.Close()
@@ -2281,6 +2297,17 @@ func (s *Server) handle(w http.ResponseWriter, r *http.Request) {
 		s.serveUI(w, r)
 		return
 	}
+	if hook, ok := webhookPublicPath(r.URL.Path); ok {
+		s.mu.Lock()
+		purging := s.purging
+		s.mu.Unlock()
+		if purging {
+			webhookError(w, 503)
+			return
+		}
+		s.webhookIngress(w, r, hook)
+		return
+	}
 	if strings.HasPrefix(r.URL.Path, "/api/") && r.Method != "GET" && !s.originOK(r) {
 		writeErr(w, 403, "csrf", "origin rejected")
 		return
@@ -2302,6 +2329,10 @@ func (s *Server) handle(w http.ResponseWriter, r *http.Request) {
 	s.mu.Unlock()
 	if purging && r.URL.Path != "/api/admin/purge" {
 		writeErr(w, http.StatusServiceUnavailable, "workspace_purging", "workspace reset is in progress")
+		return
+	}
+	if id, rotate, ok := webhookManagementPath(r.URL.Path); ok {
+		s.webhookManage(w, r, id, rotate)
 		return
 	}
 	s.route(w, r)
@@ -2420,6 +2451,7 @@ func (s *Server) route(w http.ResponseWriter, r *http.Request) {
 			"instance_id":      s.instance.ID,
 			"auth":             s.ownerAuthInfo(),
 			"tenancy":          map[string]string{"mode": "single"},
+			"capabilities":     map[string]bool{"inbound_webhooks": s.webhookStandalone && s.webhookAvailable()},
 		})
 	case p == "config":
 		writeJSON(w, 200, map[string]any{"model_configured": s.modelConfigured(), "default_model": s.defaultModel, "provider": s.provider})
@@ -3584,7 +3616,33 @@ func (s *Server) tools(c Conversation, r Run) []Tool {
 	base = append(base, s.publishAttachmentTools(c, r)...)
 	base = append(base, s.computerTools(r)...)
 	base = append(base, s.microVMTools(r)...)
-	return append(append(append(base, s.teamTools(c, r)...), s.scheduleTools(c, r)...), s.workItemTools(c, r)...)
+	base = append(append(append(base, s.teamTools(c, r)...), s.scheduleTools(c, r)...), s.workItemTools(c, r)...)
+	// These durable settings would otherwise launder external event data into
+	// independent future roots or new Bot profiles. Keep normal collaboration,
+	// read-only listing and existing tool approval gates available.
+	configuration := map[string]bool{"create_bot": true, "create_group": true, "invite_bot": true, "create_schedule": true, "update_schedule": true, "pause_schedule": true, "resume_schedule": true, "delete_schedule": true}
+	external, originErr := s.store.webhookRunOrigin(r.ID)
+	filtered := make([]Tool, 0, len(base))
+	for _, tool := range base {
+		if configuration[tool.Name] {
+			execute := tool.Execute
+			tool.Execute = func(ctx context.Context, raw json.RawMessage) (string, error) {
+				external, err := s.store.webhookRunOrigin(r.ID)
+				if err != nil {
+					return "", err
+				}
+				if external {
+					return "", errors.New("external webhook events cannot authorize durable configuration changes")
+				}
+				return execute(ctx, raw)
+			}
+			if external || originErr != nil {
+				continue
+			}
+		}
+		filtered = append(filtered, tool)
+	}
+	return filtered
 }
 func objectSchema(properties map[string]any, required []string) map[string]any {
 	if required == nil {

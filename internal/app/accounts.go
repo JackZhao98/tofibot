@@ -150,7 +150,7 @@ func (g *AccountGateway) session(r *http.Request) (Account, bool) {
 		return a, false
 	}
 	hash := sha256.Sum256([]byte(cookie.Value))
-	err = g.root.store.db.QueryRow(`SELECT a.id,a.username,a.email,a.role,a.disabled,a.must_change_password,a.legacy FROM account_sessions s JOIN accounts a ON a.id=s.account_id WHERE s.token_hash=? AND s.expires_at>? AND a.disabled=0`, hash[:], time.Now().Unix()).Scan(&a.ID, &a.Username, &a.Email, &a.Role, &a.Disabled, &a.MustChangePassword, &a.Legacy)
+	err = g.root.store.db.QueryRowContext(r.Context(), `SELECT a.id,a.username,a.email,a.role,a.disabled,a.must_change_password,a.legacy FROM account_sessions s JOIN accounts a ON a.id=s.account_id WHERE s.token_hash=? AND s.expires_at>? AND a.disabled=0`, hash[:], time.Now().Unix()).Scan(&a.ID, &a.Username, &a.Email, &a.Role, &a.Disabled, &a.MustChangePassword, &a.Legacy)
 	return a, err == nil
 }
 func (g *AccountGateway) issue(w http.ResponseWriter, r *http.Request, id string) error {
@@ -292,6 +292,10 @@ func (g *AccountGateway) handle(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, 503, "maintenance", "workspace writes are fenced during ownership verification")
 		return
 	}
+	if hook, ok := webhookPublicPath(r.URL.Path); ok {
+		g.webhookIngress(w, r, hook)
+		return
+	}
 	if r.Method != http.MethodGet && (!g.root.originOK(r) || r.Header.Get("Sec-Fetch-Site") == "cross-site") {
 		writeErr(w, 403, "csrf", "origin rejected")
 		return
@@ -306,7 +310,8 @@ func (g *AccountGateway) handle(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 		}
-		writeJSON(w, 200, map[string]any{"service": "tofi", "protocol_version": 1, "instance_id": workspace.instance.ID, "environment": workspace.instance.Environment, "auth": map[string]string{"mode": "accounts"}})
+		_, webhookOriginOK := g.root.webhookOrigin()
+		writeJSON(w, 200, map[string]any{"service": "tofi", "protocol_version": 1, "instance_id": workspace.instance.ID, "environment": workspace.instance.Environment, "auth": map[string]string{"mode": "accounts"}, "capabilities": map[string]bool{"inbound_webhooks": webhookOriginOK && !g.config.AccountMaintenance}})
 		return
 	}
 	a, ok := g.session(r)
@@ -445,6 +450,10 @@ func (g *AccountGateway) handle(w http.ResponseWriter, r *http.Request) {
 	workspace, err := g.workspace(a)
 	if err != nil {
 		writeErr(w, 503, "workspace_unavailable", "workspace unavailable")
+		return
+	}
+	if id, rotate, ok := webhookManagementPath(r.URL.Path); ok {
+		g.webhookManage(w, r, a, workspace, id, rotate)
 		return
 	}
 	workspace.route(w, r)

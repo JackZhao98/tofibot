@@ -76,7 +76,7 @@ export interface Message {
   conversation_id: string;
   seq: number;
   role: MessageRole;
-  kind?: "notice" | "forward_result" | "message_ref" | "user_message" | "scheduled_task" | "ui_card" | "progress" | "segment";
+  kind?: "notice" | "forward_result" | "message_ref" | "user_message" | "scheduled_task" | "webhook_event" | "ui_card" | "progress" | "segment";
   card?: { type: "text" | "mail"; title?: string; body: string; from?: string; to?: string; subject?: string; summary?: string; received_at?: string; source?: string };
   sender_bot_id?: string;
   sender_bot_name?: string;
@@ -279,4 +279,20 @@ export type WorkspaceEventScope = "bots" | "groups" | "config";
 export interface WorkspaceEventEnvelope {
   scope: WorkspaceEventScope;
   revision: number;
+}
+
+/** Metadata is safe to retain; the bearer secret exists only in explicit issuance. */
+export interface ConversationWebhook {
+  configured: boolean;
+  enabled: boolean;
+  hook_id?: string;
+  version?: number;
+  url?: string;
+  created_at?: string;
+  rotated_at?: string;
+  last_accepted_at?: string;
+}
+
+export interface IssuedConversationWebhook extends ConversationWebhook {
+  secret: string;
 }

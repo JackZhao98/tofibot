@@ -174,8 +174,8 @@ func onboardingProfileTool(s *Server, c Conversation, r Run) (Tool, bool) {
 }
 
 // botProfileRunEligible is shared by tool exposure and the write transaction.
-// A retry retains the original user trigger and is eligible; handoffs and
-// scheduled runs have assistant/system triggers or a non-ordinary kind.
+// A retry retains the original human trigger and is eligible; handoffs,
+// scheduled runs, and external events never convey owner profile authority.
 func (s *Server) botProfileRunEligible(c Conversation, r Run) bool {
 	if c.Kind != "dm" || c.BotID != r.BotID || r.Kind != "" {
 		return false
@@ -189,10 +189,14 @@ func (s *Server) botProfileRunEligible(c Conversation, r Run) bool {
 	if err != nil || status != "running" || convID != c.ID || botID != r.BotID || runKind != "" || trigger == "" {
 		return false
 	}
-	var role string
+	var role, triggerKind string
 	var sender sql.NullString
-	err = s.store.db.QueryRow(`SELECT role,sender_bot_id FROM messages WHERE id=? AND conversation_id=?`, trigger, c.ID).Scan(&role, &sender)
-	return err == nil && role == "user" && !sender.Valid
+	err = s.store.db.QueryRow(`SELECT role,kind,sender_bot_id FROM messages WHERE id=? AND conversation_id=?`, trigger, c.ID).Scan(&role, &triggerKind, &sender)
+	if err != nil || role != "user" || triggerKind != "" || sender.Valid {
+		return false
+	}
+	external, err := s.store.webhookRunOrigin(r.ID)
+	return err == nil && !external
 }
 
 // setBotProfile verifies the run's user-owned trigger and canonical DM in the
@@ -225,13 +229,16 @@ func (s *Store) setBotProfile(ctx context.Context, r Run, c Conversation, name, 
 	if convKind != "dm" || convBotID != r.BotID {
 		return Bot{}, errors.New("profile requires the Bot's canonical DM")
 	}
-	var triggerRole string
+	var triggerRole, triggerKind string
 	var triggerSender sql.NullString
-	if err = tx.QueryRow(`SELECT role,sender_bot_id FROM messages WHERE id=? AND conversation_id=?`, trigger, c.ID).Scan(&triggerRole, &triggerSender); err != nil {
+	if err = tx.QueryRow(`SELECT role,kind,sender_bot_id FROM messages WHERE id=? AND conversation_id=?`, trigger, c.ID).Scan(&triggerRole, &triggerKind, &triggerSender); err != nil {
 		return Bot{}, err
 	}
-	if triggerRole != "user" || triggerSender.Valid {
-		return Bot{}, errors.New("Bot profile requires a user trigger")
+	if triggerRole != "user" || triggerKind != "" || triggerSender.Valid {
+		return Bot{}, errors.New("Bot profile requires a human user trigger")
+	}
+	if external, originErr := webhookRunOriginQuery(tx, r.ID); originErr != nil || external {
+		return Bot{}, errors.New("Bot profile requires verified human run provenance")
 	}
 	var b Bot
 	if b, err = scanBot(tx.QueryRow(`SELECT id,name,instructions,model,reasoning_effort,dm_conversation_id,created_at,archived FROM bots WHERE id=? AND dm_conversation_id=?`, r.BotID, c.ID)); err != nil {

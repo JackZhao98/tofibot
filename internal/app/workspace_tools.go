@@ -25,9 +25,9 @@ func (s *Server) workspaceTools(c Conversation, r Run) []Tool {
 		return Tool{Name: name, Description: description, Parameters: objectSchema(properties, required), Execute: execute}
 	}
 
-	return append([]Tool{
+	tools := append([]Tool{
 		tool("workspace_list", "List all Bots and discussion groups in this workspace, including archived entries and their stable IDs. Also return the configured model IDs; use this before changing workspace settings.", map[string]any{}, nil, func(ctx context.Context, _ json.RawMessage) (string, error) {
-			if err := requireWorkspaceToolRun(s, c, r); err != nil {
+			if err := requireActiveWorkspaceToolRun(s, c, r); err != nil {
 				return "", err
 			}
 			if err := ctx.Err(); err != nil {
@@ -217,9 +217,27 @@ func (s *Server) workspaceTools(c Conversation, r Run) []Tool {
 			return string(encoded), err
 		}),
 	}, s.workspaceDeletionTools(c, r)...)
+	external, err := s.store.webhookRunOrigin(r.ID)
+	if err != nil || external {
+		return tools[:1]
+	}
+	return tools
 }
 
 func requireWorkspaceToolRun(s *Server, conversation Conversation, run Run) error {
+	if err := requireActiveWorkspaceToolRun(s, conversation, run); err != nil {
+		return err
+	}
+	external, err := s.store.webhookRunOrigin(run.ID)
+	if err != nil {
+		return err
+	}
+	if external {
+		return errors.New("external webhook events cannot authorize workspace configuration changes")
+	}
+	return nil
+}
+func requireActiveWorkspaceToolRun(s *Server, conversation Conversation, run Run) error {
 	if s == nil || s.store == nil || strings.TrimSpace(run.ID) == "" {
 		return errors.New("workspace management requires an active run")
 	}
