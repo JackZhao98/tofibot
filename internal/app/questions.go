@@ -63,9 +63,10 @@ type QuestionOtherAnswer struct {
 // ApprovalDetails describe the exact proposal shown to the human. The card
 // records a decision; the proposed action still requires its own tool call.
 type ApprovalDetails struct {
-	Action string `json:"action"`
-	Target string `json:"target"`
-	Impact string `json:"impact"`
+	Review *MCPReviewDisplay `json:"review,omitempty"` // Internal MCP gate only.
+	Action string            `json:"action"`
+	Target string            `json:"target"`
+	Impact string            `json:"impact"`
 	// Payload is a bounded, plain-text snapshot for internal MCP call review.
 	// The model-visible request_approval tool cannot supply it.
 	Payload      string `json:"payload,omitempty"`
@@ -214,6 +215,9 @@ func normalizeQuestionInput(x askQuestionInput) (askQuestionInput, error) {
 	case questionApproval:
 		if x.Approval == nil {
 			return x, errors.New("approval details are required")
+		}
+		if x.Approval.Review != nil {
+			return x, errors.New("AutoReview metadata is reserved for the internal MCP gate")
 		}
 		for _, field := range []*string{&x.Approval.Action, &x.Approval.Target, &x.Approval.Impact} {
 			*field = strings.TrimSpace(*field)
@@ -700,7 +704,7 @@ func (s *Store) AnswerQuestion(id, actor string, answer any) (Question, bool, er
 	if err != nil {
 		return Question{}, false, err
 	}
-	if actor == "" || actor == q.BotID {
+	if actor == "" || actor == q.BotID || actor == autoReviewActor {
 		return Question{}, false, ErrQuestionBotActor
 	}
 	if q.Status != questionPending {

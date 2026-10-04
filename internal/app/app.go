@@ -21,6 +21,7 @@ import (
 	"github.com/JackZhao98/tofibot/internal/codexauth"
 	"github.com/JackZhao98/tofibot/internal/computer"
 	"github.com/JackZhao98/tofibot/internal/extensions"
+	"github.com/JackZhao98/tofibot/internal/provider"
 	"github.com/JackZhao98/tofibot/internal/runtime"
 	"github.com/JackZhao98/tofibot/internal/tooloutcome"
 	"github.com/google/uuid"
@@ -129,6 +130,7 @@ type Memory struct {
 }
 
 type Config struct {
+	AccountID                string // Set by the account gateway; never accepted from an HTTP body.
 	OwnerAuth                bool
 	OwnerAllowLoopbackHTTP   bool
 	OwnerAllowLANHTTP        bool
@@ -161,6 +163,10 @@ type Config struct {
 	ComputerEnsure      func(context.Context) error
 }
 type Server struct {
+	accountID                            string
+	mcpApprovalMu                        sync.Mutex
+	autoReviewProvider                   provider.Provider         // Deterministic tests only; production uses the existing Codex adapter.
+	autoReviewPolicies                   []verifiedMCPReviewPolicy // Empty in production until separately reviewed.
 	isolatedWorkspace                    bool
 	localRunnerURL, localRunnerTokenFile string
 	ownerAuth                            *ownerAuth
@@ -440,6 +446,8 @@ func scanToolActivities(rows *sql.Rows) ([]ToolActivity, error) {
 func (s *Store) Close() error { return s.db.Close() }
 func now() string             { return time.Now().UTC().Format(time.RFC3339Nano) }
 func (s *Store) migrate() error {
+	// Authorization provenance is recorded only by new host user-ingress
+	// transactions. Existing message roles are not evidence for a backfill.
 	_, err := s.db.Exec(`PRAGMA journal_mode=WAL; PRAGMA foreign_keys=ON;
 	CREATE TABLE IF NOT EXISTS bots(id TEXT PRIMARY KEY,name TEXT NOT NULL,instructions TEXT NOT NULL,model TEXT NOT NULL,reasoning_effort TEXT NOT NULL DEFAULT '',dm_conversation_id TEXT NOT NULL UNIQUE,created_at TEXT NOT NULL,archived INTEGER NOT NULL DEFAULT 0);
 	CREATE TABLE IF NOT EXISTS conversations(id TEXT PRIMARY KEY,kind TEXT NOT NULL CHECK(kind IN ('dm','group')),name TEXT NOT NULL,bot_id TEXT,updated_at TEXT NOT NULL,archived INTEGER NOT NULL DEFAULT 0,user_visible INTEGER NOT NULL DEFAULT 1,FOREIGN KEY(bot_id) REFERENCES bots(id));
@@ -579,6 +587,12 @@ CREATE INDEX IF NOT EXISTS events_conversation ON events(conversation_id,id);`)
 		return err
 	}
 	if err := migrateTerminalCleanup(s.db); err != nil {
+		return err
+	}
+	if err := migrateMCPReviewProvenance(s.db); err != nil {
+		return err
+	}
+	if err := migrateAutoReview(s.db); err != nil {
 		return err
 	}
 	if err := migrateModelSettings(s.db); err != nil {
@@ -1089,6 +1103,9 @@ func (s *Store) AddUserRun(conv, bot, content, client string) (Message, Run, boo
 	m := Message{ID: uuid.NewString(), ConversationID: conv, Seq: seq, Role: "user", RunID: run.ID, Content: content, CreatedAt: t}
 	run.TriggerMessageID = m.ID
 	if _, err = tx.Exec(`INSERT INTO messages(id,conversation_id,seq,role,kind,run_id,content,created_at,client_message_id) VALUES(?,?,?,?,?,?,?,?,?)`, m.ID, conv, seq, m.Role, m.Kind, run.ID, content, t, nullString(client)); err != nil {
+		return Message{}, Run{}, false, err
+	}
+	if _, err = tx.Exec(`INSERT INTO user_message_ingress(message_id,created_at) VALUES(?,?)`, m.ID, t); err != nil {
 		return Message{}, Run{}, false, err
 	}
 	if _, err = tx.Exec(`INSERT INTO runs(id,conversation_id,bot_id,status,model,origin_conversation_id,trigger_message_id,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?)`, run.ID, conv, bot, run.Status, run.Model, run.OriginConversationID, run.TriggerMessageID, t, t); err != nil {
@@ -2167,7 +2184,7 @@ func NewServer(c Config) (*Server, error) {
 	if savedSettings.ReasoningEffort == "" {
 		savedSettings.ReasoningEffort = "medium"
 	}
-	server := &Server{isolatedWorkspace: c.IsolatedWorkspace, localRunnerURL: c.LocalRunnerURL, localRunnerTokenFile: c.LocalRunnerTokenFile, instance: identity, store: st, engine: engine, codex: codex, codexManaged: codexManaged, defaultModel: c.DefaultModel, defaultReasoning: savedSettings.ReasoningEffort, provider: c.Provider, transcriptionAPIKey: c.TranscriptionAPIKey, transcriptionURL: strings.TrimRight(c.TranscriptionURL, "/"), listen: c.Listen, uiDir: c.UIDir, publicOrigin: strings.TrimRight(c.PublicOrigin, "/"), convMu: map[string]*sync.Mutex{}, runs: map[string]context.CancelFunc{}, queues: map[string]*conversationQueue{}, triageModel: os.Getenv("TOFI_TRIAGE_MODEL"), microVM: microVM, computerLeases: map[string]*sync.Mutex{}, computerOwners: map[string]string{}, vmOAuth: map[string]*vmOAuthSession{}, toolSnapshots: map[toolSnapshotKey]toolSnapshot{}}
+	server := &Server{accountID: c.AccountID, isolatedWorkspace: c.IsolatedWorkspace, localRunnerURL: c.LocalRunnerURL, localRunnerTokenFile: c.LocalRunnerTokenFile, instance: identity, store: st, engine: engine, codex: codex, codexManaged: codexManaged, defaultModel: c.DefaultModel, defaultReasoning: savedSettings.ReasoningEffort, provider: c.Provider, transcriptionAPIKey: c.TranscriptionAPIKey, transcriptionURL: strings.TrimRight(c.TranscriptionURL, "/"), listen: c.Listen, uiDir: c.UIDir, publicOrigin: strings.TrimRight(c.PublicOrigin, "/"), convMu: map[string]*sync.Mutex{}, runs: map[string]context.CancelFunc{}, queues: map[string]*conversationQueue{}, triageModel: os.Getenv("TOFI_TRIAGE_MODEL"), microVM: microVM, computerLeases: map[string]*sync.Mutex{}, computerOwners: map[string]string{}, vmOAuth: map[string]*vmOAuthSession{}, toolSnapshots: map[toolSnapshotKey]toolSnapshot{}}
 	server.ownerAuth, e = initializeOwnerAuth(st, c)
 	if e != nil {
 		st.Close()
@@ -2343,6 +2360,10 @@ func (s *Server) route(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if s.routeUsage(w, r, p) {
+		return
+	}
+	if p == "auto-review-settings" {
+		s.autoReviewSettings(w, r)
 		return
 	}
 	if p == "models" || p == "model-settings" {

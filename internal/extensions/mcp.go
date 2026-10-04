@@ -75,6 +75,7 @@ type Config struct {
 }
 
 type Manager struct {
+	mcpConfigFence     sync.RWMutex // Dispatch/configuration fence, separate from OAuth cache locking.
 	cfg                Config
 	mu                 sync.RWMutex
 	oauth              map[string]oauthSession
@@ -102,13 +103,41 @@ type CachedMCPTool struct {
 // MCPCallApproval is an execution-time request for one exact tool call.
 // Approval must occur before the remote CallTool request is sent.
 type MCPCallApproval struct {
+	Description   string // Untrusted remote metadata, never policy authority.
+	Schema        json.RawMessage
 	Server        string
 	Tool          string
 	ConfigVersion string
 	Arguments     json.RawMessage
+	// Recheck is a backend-owned readiness callback; it cannot grant approval.
+	Recheck func(context.Context) error
 }
 
 type MCPCallGate func(context.Context, MCPCallApproval) error
+
+// MCPCallCurrent checks the private configuration without returning credentials.
+func (m *Manager) MCPCallCurrent(call MCPCallApproval) bool {
+	m.mcpConfigFence.RLock()
+	defer m.mcpConfigFence.RUnlock()
+	return m.mcpCallCurrentLocked(call)
+}
+
+func (m *Manager) mcpCallCurrentLocked(call MCPCallApproval) bool {
+	servers, err := loadServers(m.cfg.MCPConfigPath)
+	cfg, ok := servers[call.Server]
+	return err == nil && ok && call.ConfigVersion != "" && metadataFingerprint(call.Server, cfg) == call.ConfigVersion
+}
+
+// Hold the configuration fence through dispatch so a settings edit cannot
+// redirect a claimed proposal. No human/model wait takes this lock.
+func (m *Manager) executeCurrentMCPCall(call MCPCallApproval, execute func() (string, error)) (string, error) {
+	m.mcpConfigFence.RLock()
+	defer m.mcpConfigFence.RUnlock()
+	if !m.mcpCallCurrentLocked(call) {
+		return "", tooloutcome.New(tooloutcome.NeedApproval, "mcp_config_changed", "not_executed", "MCP configuration changed; request a fresh human review.", "explain_blocker").Err()
+	}
+	return execute()
+}
 
 type mcpToolSource struct {
 	server        string
@@ -508,7 +537,7 @@ func (m *Manager) prepareServer(runCtx, discoveryCtx context.Context, name strin
 			sources[toolName] = mcpToolSource{server: name, remoteName: remote.Name, schemaVersion: m.schemaVersion(name, cfg)}
 		}
 		r := remote
-		result = append(result, runtime.Tool{Name: toolName, Description: boundedDescription(remote.Description, toolName), Parameters: params, Execute: func(callCtx context.Context, args json.RawMessage) (string, error) {
+		result = append(result, runtime.Tool{Name: toolName, Description: boundedDescription(remote.Description, toolName), Parameters: params, CheckReadiness: m.mcpMethodReadiness(name, cfg), Execute: func(callCtx context.Context, args json.RawMessage) (string, error) {
 			return m.callMCPTool(callCtx, cli, r.Name, args, trustedReadOnlyTool(cfg, r.Name))
 		}})
 	}
@@ -659,12 +688,12 @@ func (m *Manager) callMCPTool(callCtx context.Context, cli *mcp.ClientSession, n
 }
 
 func (m *Manager) cachedMCPRuntimeTool(runCtx context.Context, cached CachedMCPTool, cfg MCPServerConfig) runtime.Tool {
-	return runtime.Tool{Name: cached.Name, Description: cached.Description, Parameters: cached.Parameters, Execute: func(callCtx context.Context, args json.RawMessage) (string, error) {
+	return runtime.Tool{Name: cached.Name, Description: cached.Description, Parameters: cached.Parameters, CheckReadiness: m.mcpMethodReadiness(cached.Server, cfg), Execute: func(callCtx context.Context, args json.RawMessage) (string, error) {
 		if callCtx == nil {
 			callCtx = context.Background()
 		}
 		if _, err := m.prepareTransport(callCtx, cfg); err != nil {
-			return "", fmt.Errorf("prepare MCP endpoint: %w", err)
+			return "", mcpReadinessOutcome(mcpErrorReadiness(err)).Err()
 		}
 		discoveryCtx, cancel := context.WithTimeout(callCtx, m.cfg.DiscoveryTimeout)
 		defer cancel()
@@ -673,7 +702,7 @@ func (m *Manager) cachedMCPRuntimeTool(runCtx context.Context, cached CachedMCPT
 			if callCtx.Err() != nil {
 				return "", callCtx.Err()
 			}
-			return "", errors.New(mcpInspectionDiagnostic(cached.Server, cfg.URL, err).Message)
+			return "", mcpReadinessOutcome(mcpErrorReadiness(err)).Err()
 		}
 		defer cli.Close()
 		return m.callMCPTool(callCtx, cli, cached.RemoteName, args, trustedReadOnlyTool(cfg, cached.RemoteName))

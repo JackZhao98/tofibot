@@ -7,7 +7,7 @@ import { MessageMarkdown } from "./MessageMarkdown";
 import { ApprovalCard } from "./ApprovalCard";
 import { useUserTimezone } from "./UserTimezone";
 import type { Bot } from "./types";
-import { reconcileQuestion, type Question } from "./questionTimeline";
+import { autoReviewPresentation, reconcileQuestion, type Question } from "./questionTimeline";
 import { userFormAnswerRows, userFormIdentity, userFormSchemaError, validateUserForm } from "./userForm";
 import "./question-card.css";
 
@@ -81,10 +81,14 @@ function BinaryQuestionCard({ item, bot, group, archived, onChanged }: QuestionC
   const sending = useRef(false);
   const controller = useRef<AbortController | null>(null);
   const current = reconcileQuestion(item, resolved);
-  const approval = item.question_type === "approval" ? item.approval : undefined;
+  const approval = current.question_type === "approval" ? current.approval : undefined;
+  const review = approval?.review;
+  const reviewPresentation = autoReviewPresentation(current);
+  const reviewBlocked = ["setup_required", "context_required", "unavailable", "policy_denied", "terminal"].includes(review?.status ?? "");
+  const autoApproved = current.answered_by === "auto-review" && current.status === "answered" && current.answer === true;
   useEffect(() => () => controller.current?.abort(), []);
   async function answer(value: boolean | null) {
-    if (sending.current || current.status !== "pending" || archived) return;
+    if (sending.current || current.status !== "pending" || archived || reviewBlocked) return;
     sending.current = true; setBusy(value === null ? "cancel" : value ? "accept" : "decline"); setError("");
     const pending = new AbortController(); controller.current = pending;
     try {
@@ -102,13 +106,14 @@ function BinaryQuestionCard({ item, bot, group, archived, onChanged }: QuestionC
   const validTime = Number.isFinite(Date.parse(item.created_at));
   return <article className={`binary-question-message${group ? " is-group" : " is-dm"}`} data-question-id={item.question_id} tabIndex={-1} aria-label={`${bot?.name ?? "Bot"} 的问题`}>
     {group && <div className="message-meta"><strong>{bot?.name ?? "Bot"}</strong></div>}
-    <ApprovalCard title={<MessageMarkdown content={item.question} />} avatar={group ? <GazeAvatar id={item.bot_id} mini /> : undefined} badge={approval ? "需要你批准" : "需要你回答"}
+    <ApprovalCard title={<MessageMarkdown content={item.question} />} avatar={group ? <GazeAvatar id={item.bot_id} mini /> : undefined} badge={reviewPresentation?.badge ?? (autoApproved ? "AutoReview 自动批准" : approval ? "需要你批准" : "需要你回答")}
       time={validTime ? new Intl.DateTimeFormat("zh-CN", { timeZone:timezone, hour:"2-digit", minute:"2-digit", hourCycle:"h23" }).format(new Date(item.created_at)) : undefined}
       exactTime={item.created_at} facts={approval ? [{ label:"动作", value:approval.action }, { label:"对象", value:approval.target }, { label:"影响", value:approval.impact }] : undefined} payload={approval?.payload}
       acceptLabel={approval ? approval.approve_label || "批准" : "是"} declineLabel={approval ? approval.deny_label || "暂不批准" : "否"} onAnswer={value => void answer(value)} busy={busy} disabled={archived}
-      secondaryAction={!archived && <><button type="button" disabled={Boolean(busy)} onClick={() => void answer(null)}>{busy === "cancel" ? "取消中…" : approval ? "取消审批" : "取消问题"}</button>{approval?.draft_id && <button type="button" onClick={() => { const node = [...document.querySelectorAll<HTMLElement>("[data-draft-id]")].find(element => element.dataset.draftId === approval.draft_id); node?.scrollIntoView({ behavior:"smooth", block:"center" }); }} >查看草稿</button>}</>}
-      note={archived ? "恢复会话后可回答。" : approval ? "批准后会继续任务，具体操作仍需由 Bot 执行。" : undefined} error={error}
-      resolution={current.status === "pending" ? undefined : { label:current.status === "answered" ? approval ? "已决定" : "已回答" : current.status === "expired" ? "已过期" : current.status === "run_done" ? "任务已结束" : "已取消", answer:current.status === "answered" ? approval ? current.answer === true ? approval.approve_label || "已批准" : approval.deny_label || "未批准" : answerLabel(current) : undefined, accepted:current.status === "answered" && current.answer === true }} />
+      secondaryAction={!archived && !reviewBlocked && <><button type="button" disabled={Boolean(busy)} onClick={() => void answer(null)}>{busy === "cancel" ? "取消中…" : approval ? "取消审批" : "取消问题"}</button>{approval?.draft_id && <button type="button" onClick={() => { const node = [...document.querySelectorAll<HTMLElement>("[data-draft-id]")].find(element => element.dataset.draftId === approval.draft_id); node?.scrollIntoView({ behavior:"smooth", block:"center" }); }} >查看草稿</button>}</>}
+      note={archived ? "恢复会话后可回答。" : reviewBlocked ? "此提案不可执行；批准不能修复配置或上下文缺口。" : approval ? "批准后会继续任务，具体操作仍需由 Bot 执行。" : undefined} error={error}
+      resolution={current.status === "pending" && reviewBlocked ? {label:reviewPresentation?.label ?? "不可执行", accepted:false} : current.status === "pending" ? undefined : { label:current.status === "answered" ? autoApproved ? "AutoReview 自动批准" : approval ? "人工已决定" : "已回答" : current.status === "expired" ? "已过期" : current.status === "run_done" ? "任务已结束" : "已取消", answer:current.status === "answered" ? approval ? current.answer === true ? approval.approve_label || "已批准" : approval.deny_label || "未批准" : answerLabel(current) : undefined, accepted:current.status === "answered" && current.answer === true }} />
+    {review && <p className="approval-note" role="status">AutoReview · {reviewPresentation?.label ?? "状态待核实"}：{review.reason}</p>}
 
   </article>;
 }

@@ -180,6 +180,9 @@ func (s *Store) addUserRuns(conv, content, client string, specs []runSpec, attac
 	if _, err = tx.Exec(`INSERT INTO messages(id,conversation_id,seq,role,kind,run_id,content,created_at,client_message_id) VALUES(?,?,?,?,?,?,?,?,?)`, m.ID, conv, seq, m.Role, m.Kind, nil, content, t, nullString(client)); err != nil {
 		return Message{}, nil, false, err
 	}
+	if _, err = tx.Exec(`INSERT INTO user_message_ingress(message_id,created_at) VALUES(?,?)`, m.ID, t); err != nil {
+		return Message{}, nil, false, err
+	}
 	runs := make([]Run, 0, len(specs))
 	for _, spec := range specs {
 		if spec.BotID == "" {

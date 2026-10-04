@@ -29,6 +29,9 @@ type Tool struct {
 	// ResolveIdentity may make a bounded, read-only backend lookup. A failure
 	// here is known to precede execution, and must not become uncertain effect.
 	ResolveIdentity func(context.Context, json.RawMessage) (tooloutcome.Identity, error)
+	// CheckReadiness is a bounded, read-only method check. Backends invoke it
+	// before asking for approval and again immediately before dispatch.
+	CheckReadiness func(context.Context) (MethodReadiness, error)
 	// ApprovalExpiryReadOnly is set only by a backend-owned executor whose
 	// scoped observation is independently authorized. Remote metadata cannot set it.
 	ApprovalExpiryReadOnly bool
@@ -118,3 +121,13 @@ type Config struct {
 	Model       string
 	Credential  func(context.Context) (string, error)
 }
+
+type MethodReadiness string
+
+const (
+	MethodReady         MethodReadiness = "ready"
+	MethodNotConfigured MethodReadiness = "not_configured"
+	MethodAuthRequired  MethodReadiness = "auth_required"
+	MethodUnavailable   MethodReadiness = "unavailable"
+	MethodUnknown       MethodReadiness = "unknown"
+)
