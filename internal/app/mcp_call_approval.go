@@ -26,13 +26,8 @@ func (s *Server) approveMCPCall(ctx context.Context, c Conversation, r Run, call
 	if err := s.extensionToolActive(ctx, c, r); err != nil {
 		return err
 	}
-	if call.Server == "" || call.Tool == "" || call.ConfigVersion == "" || !mcpSchemaAvailable(call.Schema) {
-		return mcpReviewBlocked("setup_required", "The exact external tool configuration or input schema is incomplete. Approval cannot repair this setup gap.")
-	}
-	if call.Recheck != nil {
-		if err := call.Recheck(ctx); err != nil {
-			return err
-		}
+	if call.Server == "" || call.Tool == "" || call.ConfigVersion == "" {
+		return mcpReviewBlocked("setup_required", "The exact external tool configuration is incomplete. Approval cannot repair this setup gap.")
 	}
 	payload, err := mcpApprovalPayload(call.Arguments)
 	if err != nil {
@@ -50,6 +45,14 @@ func (s *Server) approveMCPCall(ctx context.Context, c Conversation, r Run, call
 		WHERE a.run_id=? AND a.action_hash=? AND q.conversation_id=? AND q.bot_id=?
 		ORDER BY q.created_at DESC,q.id DESC LIMIT 1`, r.ID, hash, c.ID, r.BotID).Scan(&id, &status, &answer, &claimed, &expires)
 		if errors.Is(err, sql.ErrNoRows) {
+			if !mcpSchemaAvailable(call.Schema) {
+				return mcpReviewBlocked("setup_required", "The exact input schema is incomplete. Approval cannot repair this setup gap.")
+			}
+			if call.Recheck != nil {
+				if err := call.Recheck(ctx); err != nil {
+					return err
+				}
+			}
 			in, normalizeErr := normalizeQuestionInput(askQuestionInput{
 				Question: "Allow this external tool call?",
 				Type:     questionApproval,
@@ -108,6 +111,22 @@ func (s *Server) approveMCPCall(ctx context.Context, c Conversation, r Run, call
 	}
 	status, expires = current.Status, current.ExpiresAt
 	answer = sql.NullString{String: string(current.Answer), Valid: len(current.Answer) > 0}
+	// Main's durable terminal expiry wins over later setup/readiness gaps.
+	// In particular, old cards without a schema cannot reopen an expired action.
+	deadline, parseErr := time.Parse(time.RFC3339Nano, expires)
+	if status == questionExpired || (parseErr == nil && !time.Now().Before(deadline) && status == questionAnswered && strings.TrimSpace(answer.String) == "true") {
+		return s.parkExpiredMCPApproval(ctx, c, id)
+	}
+	if status == questionPending || status == questionAnswered && answer.Valid && strings.TrimSpace(answer.String) == "true" {
+		if !mcpSchemaAvailable(call.Schema) {
+			return mcpReviewBlocked("setup_required", "The exact input schema is incomplete. Approval cannot repair this setup gap.")
+		}
+		if call.Recheck != nil {
+			if err := call.Recheck(ctx); err != nil {
+				return err
+			}
+		}
+	}
 	if status == questionPending {
 		result, waitErr := s.WaitQuestion(ctx, id)
 		if waitErr != nil {
@@ -121,7 +140,7 @@ func (s *Server) approveMCPCall(ctx context.Context, c Conversation, r Run, call
 		answer = sql.NullString{String: string(q.Answer), Valid: len(q.Answer) > 0}
 		status, expires = q.Status, q.ExpiresAt
 	}
-	deadline, parseErr := time.Parse(time.RFC3339Nano, expires)
+	deadline, parseErr = time.Parse(time.RFC3339Nano, expires)
 	if status == questionExpired || (parseErr == nil && !time.Now().Before(deadline) && status == questionAnswered && strings.TrimSpace(answer.String) == "true") {
 		return s.parkExpiredMCPApproval(ctx, c, id)
 	}
