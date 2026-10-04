@@ -1,6 +1,8 @@
 import hashlib
 import importlib.util
 import json
+import subprocess
+import sys
 from pathlib import Path
 import tempfile
 import unittest
@@ -14,10 +16,9 @@ spec.loader.exec_module(checker)
 
 class AccountReleaseCheckTests(unittest.TestCase):
     def setUp(self):
-        # macOS commonly aliases /var to /private/var; use the checkout so
-        # the test fixture itself satisfies the installer's canonical path rule.
-        self.temp = tempfile.TemporaryDirectory(dir=Path(__file__).parent)
-        self.root = Path(self.temp.name)
+        # Resolve macOS temporary-path aliases for the canonical-path validator.
+        self.temp = tempfile.TemporaryDirectory(dir="/tmp")
+        self.root = Path(self.temp.name).resolve()
         self.release = self.root / "release"
         (self.release / "bin").mkdir(parents=True)
         self.manager_source = self.root / "operator-manager.py"
@@ -103,20 +104,108 @@ class AccountReleaseCheckTests(unittest.TestCase):
             self.validate(expected_manifest_sha256="0" * 64)
 
     def test_guest_extraction_uses_read_only_debugfs_invocation(self):
-        from types import SimpleNamespace
-
         def fake_debugfs(args, **kwargs):
             self.assertEqual(args[0:2], ["debugfs", "-R"])
             self.assertTrue(args[2].startswith("dump /usr/local/bin/tofi-guest "))
             extracted = Path(args[2].split(" ", 2)[2])
             extracted.write_bytes(b"synthetic embedded guest")
             self.assertFalse(any(arg == "-w" for arg in args))
-            self.assertEqual(kwargs["check"], False)
-            return SimpleNamespace(returncode=0, stdout="", stderr="")
+            self.assertEqual(kwargs["stdout"], subprocess.PIPE)
+            child = mock.Mock(args=args, returncode=0, stdout=None, stderr=None)
+            child.poll.return_value = 0
+            child.communicate.return_value = ("", "")
+            return child
 
-        with mock.patch.object(checker.subprocess, "run", side_effect=fake_debugfs):
+        with mock.patch.object(checker.subprocess, "Popen", side_effect=fake_debugfs):
             expected = self.digest(b"synthetic embedded guest")
             self.assertEqual(self.real_embedded_extractor(self.release / "rootfs.ext4"), expected)
+
+    def test_hash_and_between_file_cancellation_stop_before_more_work(self):
+        image = self.root/"new-synthetic-large-image"
+        image.write_bytes(b"x"*(3*1024**2))
+        real_digest = hashlib.sha256
+        cancelled, chunks, handles = [], [], []
+        class Digest:
+            def __init__(self): self.digest = real_digest()
+            def update(self, data):
+                chunks.append(len(data)); self.digest.update(data); cancelled.append(True)
+            def hexdigest(self): return self.digest.hexdigest()
+        def cancel():
+            if cancelled: raise KeyboardInterrupt
+        real_open = Path.open
+        def opened(path, *args, **kwargs):
+            handle = real_open(path, *args, **kwargs)
+            if path == image: handles.append(handle)
+            return handle
+        with mock.patch.object(checker.hashlib, "sha256", Digest), \
+             mock.patch.object(Path, "open", opened):
+            with self.assertRaises(KeyboardInterrupt): checker._sha256(image, cancel)
+        self.assertEqual(chunks, [1024**2])
+        self.assertTrue(handles[0].closed)
+        cancelled.clear(); hashed = []
+        real_hash = checker._sha256
+        def hashing(path, cancel=None):
+            value = real_hash(path, cancel); hashed.append(path.name)
+            if path.name == "manager.py": cancelled.append(True)
+            return value
+        with mock.patch.object(checker, "_sha256", hashing):
+            with self.assertRaises(KeyboardInterrupt): self.validate(cancel=cancel)
+        self.assertEqual(hashed, ["account-release.json", "manager.py"])
+        checker._embedded_guest_sha256.assert_not_called()
+
+    def test_debugfs_cancellation_terminates_or_kills_and_reaps_before_cleanup(self):
+        real_popen, real_remove = subprocess.Popen, checker.shutil.rmtree
+        for ignores_term in (False, True):
+            with self.subTest(ignores_term=ignores_term):
+                ready = self.root/("ready-"+str(ignores_term))
+                children, events = [], []
+                def spawn(args, **kwargs):
+                    code = ("import signal,time;from pathlib import Path;"
+                            "signal.signal(signal.SIGTERM,"+
+                            ("signal.SIG_IGN" if ignores_term else "signal.SIG_DFL")+
+                            ");Path("+repr(str(ready))+").write_text('ready');time.sleep(10)")
+                    child = real_popen([sys.executable, "-c", code], **kwargs)
+                    children.append(child)
+                    term, kill = child.terminate, child.kill
+                    child.terminate = lambda:(events.append("terminate"), term())[-1]
+                    child.kill = lambda:(events.append("kill"), kill())[-1]
+                    return child
+                def cancel():
+                    if ready.exists(): raise KeyboardInterrupt
+                def remove(path, *args, **kwargs):
+                    self.assertIsNotNone(children[0].poll())
+                    events.append("scratch-cleanup")
+                    return real_remove(path, *args, **kwargs)
+                try:
+                    with mock.patch.object(checker.subprocess, "Popen", side_effect=spawn), \
+                         mock.patch.object(checker.shutil, "rmtree", side_effect=remove):
+                        with self.assertRaises(KeyboardInterrupt):
+                            self.real_embedded_extractor(self.release/"rootfs.ext4", cancel)
+                    self.assertIsNotNone(children[0].returncode)
+                    self.assertEqual(events, ["terminate"]+(["kill"] if ignores_term else [])+["scratch-cleanup"])
+                finally:
+                    for child in children:
+                        if child.poll() is None: child.kill()
+                        child.wait(timeout=2)
+
+    def test_unreaped_debugfs_is_failure_and_retains_its_scratch(self):
+        scratch = self.root/"new-unreaped-synthetic-scratch"
+        scratch.mkdir()
+        child = mock.Mock(args=["debugfs"])
+        child.poll.return_value = None
+        child.communicate.side_effect = subprocess.TimeoutExpired(["debugfs"], .5)
+        calls = []
+        def cancel():
+            calls.append(True)
+            if len(calls) > 1: raise KeyboardInterrupt
+        with mock.patch.object(checker.tempfile, "mkdtemp", return_value=str(scratch)), \
+             mock.patch.object(checker.subprocess, "Popen", return_value=child), \
+             mock.patch.object(checker.shutil, "rmtree") as remove:
+            with self.assertRaisesRegex(checker.ReleaseCheckError, "cleanup could not be proven"):
+                self.real_embedded_extractor(self.release/"rootfs.ext4", cancel)
+            child.terminate.assert_called_once(); child.kill.assert_called_once()
+            remove.assert_not_called()
+        self.assertTrue(scratch.exists())
 
     def test_rejects_file_hash_missing_file_and_symlinks(self):
         self.manifest["files_sha256"]["vmlinux"] = "0" * 64

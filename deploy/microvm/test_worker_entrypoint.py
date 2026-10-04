@@ -1,16 +1,35 @@
 import importlib.util
 from pathlib import Path
 import sys
+import hashlib
+import json
+import io
+from contextlib import redirect_stderr
 import socket
 import tempfile
 import unittest
-from unittest.mock import Mock
+from unittest.mock import Mock, ANY, patch
 
 HERE = Path(__file__).parent
 sys.path.insert(0, str(HERE))
 spec = importlib.util.spec_from_file_location("worker_entrypoint", HERE / "worker_entrypoint.py")
 entry = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(entry)
+import account_release_check as checker
+
+
+class ControlledSignals:
+    SIGTERM, SIGINT = 15, 2
+    def __init__(self):
+        self.original = {15: "previous-term", 2: "previous-int"}
+        self.handlers = dict(self.original)
+    def signal(self, sig, handler):
+        previous = self.handlers[sig]
+        self.handlers[sig] = handler
+        return previous
+    def stop(self):
+        for sig in (self.SIGTERM, self.SIGINT, self.SIGTERM):
+            self.handlers[sig](sig, None)
 
 
 class Cgroups:
@@ -122,7 +141,109 @@ class WorkerEntryTests(unittest.TestCase):
         self.assertEqual(groups.events, [])
         self.release_validator.assert_called_with(config["release_dir"],
             str((HERE / "manager.py").resolve()), config["expected_guest_sha256"],
-            expected_manifest_sha256=config["release_manifest_sha256"])
+            expected_manifest_sha256=config["release_manifest_sha256"], cancel=ANY)
+
+    def test_early_and_hash_cancellation_exit_zero_without_resource_factories(self):
+        image = Path(self.tmp.name)/"new-synthetic-image"
+        image.write_bytes(b"x" * (3*1024**2))
+        config_file = Path(self.tmp.name)/"config.json"
+        config_file.write_text(json.dumps(self.config))
+        for phase in ("verification-entry", "hash-chunk"):
+            with self.subTest(phase=phase):
+                signals = ControlledSignals()
+                groups, broker, server = Mock(), Mock(), Mock()
+                chunks = []
+                real_digest = hashlib.sha256
+                class Digest:
+                    def __init__(self): self.digest = real_digest()
+                    def update(self, data):
+                        chunks.append(len(data)); self.digest.update(data)
+                        signals.stop()  # Repeated startup signals only latch.
+                    def hexdigest(self): return self.digest.hexdigest()
+                def verifier(*_, cancel, **__):
+                    self.assertTrue(callable(signals.handlers[signals.SIGTERM]))
+                    if phase == "verification-entry":
+                        signals.stop(); cancel()
+                    with patch.object(checker.hashlib, "sha256", Digest):
+                        checker._sha256(image, cancel)
+                actual_serve = entry.serve
+                def serve(config):
+                    return actual_serve(config, groups, broker, server,
+                                        signal_api=signals, release_validator=verifier)
+                with patch.object(entry, "serve", side_effect=serve):
+                    self.assertEqual(entry.main(["--config", str(config_file)]), 0)
+                groups.initialize.assert_not_called()
+                broker.assert_not_called(); server.assert_not_called()
+                self.assertEqual(chunks, [] if phase == "verification-entry" else [1024**2])
+                self.assertEqual(signals.handlers, signals.original)
+                self.assertFalse(Path(self.config["broker_socket"]).exists())
+
+    def test_postverification_acquisition_boundaries_clean_up_without_readiness(self):
+        for phase in ("verified", "mounted", "exposed", "broker", "socket"):
+            with self.subTest(phase=phase):
+                signals, events = ControlledSignals(), []
+                class Groups(Cgroups):
+                    def initialize(self):
+                        super().initialize()
+                        if phase == "mounted": signals.stop()
+                    def expose_for_jailer(self):
+                        super().expose_for_jailer()
+                        if phase == "exposed": signals.stop()
+                def verifier(*_, **__):
+                    events.append("verified")
+                    if phase == "verified": signals.stop()
+                supervisor = Mock()
+                def close_supervisor():
+                    events.append("supervisor-close"); signals.stop()
+                supervisor.close.side_effect = close_supervisor
+                def broker(_):
+                    events.append("broker")
+                    if phase == "broker": signals.stop()
+                    return Mock(supervisor=supervisor)
+                class Server:
+                    def __init__(self, path, *_):
+                        self.socket = socket.socket(socket.AF_UNIX)
+                        self.socket.bind(path); events.append("socket-open")
+                        if phase == "socket": signals.stop()
+                    def serve_forever(self, **_):
+                        raise AssertionError("cancelled startup reached readiness")
+                    def server_close(self):
+                        events.append("server-close"); signals.stop(); self.socket.close()
+                def unmount(path):
+                    events.append("unmount:"+str(path)); signals.stop()
+                with patch.object(entry.os, "geteuid", return_value=0), \
+                     patch.object(entry.os, "chown"), patch.object(entry.os, "chmod"):
+                    with self.assertRaises(KeyboardInterrupt):
+                        entry.serve(self.config, Groups(events), broker, Server,
+                                    signal_api=signals, release_validator=verifier, umount=unmount)
+                self.assertEqual(signals.handlers, signals.original)
+                self.assertFalse(Path(self.config["broker_socket"]).exists())
+                if phase == "verified": self.assertEqual(events, ["verified"])
+                if phase == "mounted": self.assertEqual(events[-1], "unmount:"+str(entry.ROOT))
+                if phase in ("broker", "socket"):
+                    self.assertLess(events.index("supervisor-close"), events.index("unmount:/sys/fs/cgroup"))
+                if phase == "socket":
+                    self.assertLess(events.index("server-close"), events.index("supervisor-close"))
+                    # The lifetime lock is released after repeated cleanup signals.
+                    with open(Path(self.config["ledger_root"])/"service.lock", "a") as lock:
+                        entry.fcntl.flock(lock, entry.fcntl.LOCK_EX|entry.fcntl.LOCK_NB)
+
+    def test_verification_failure_stays_nonzero_and_restores_handlers(self):
+        signals = ControlledSignals()
+        groups, broker, server = Mock(), Mock(), Mock()
+        verifier = Mock(side_effect=ValueError("SHA-256 mismatch"))
+        config_file = Path(self.tmp.name)/"bad-digest-config.json"
+        config_file.write_text(json.dumps(self.config))
+        actual_serve = entry.serve
+        def serve(config):
+            return actual_serve(config, groups, broker, server,
+                                signal_api=signals, release_validator=verifier)
+        with patch.object(entry, "serve", side_effect=serve), redirect_stderr(io.StringIO()) as errors:
+            self.assertEqual(entry.main(["--config", str(config_file)]), 1)
+        self.assertIn("SHA-256 mismatch", errors.getvalue())
+        groups.initialize.assert_not_called()
+        broker.assert_not_called(); server.assert_not_called()
+        self.assertEqual(signals.handlers, signals.original)
 
     def test_startup_failure_does_not_open_socket_or_continue(self):
         events = []

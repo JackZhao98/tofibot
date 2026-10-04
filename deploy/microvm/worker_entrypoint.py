@@ -88,39 +88,63 @@ def _umount(path):
 def serve(config, cgroups=None, broker_factory=WorkerBroker, server_factory=Server,
           signal_api=signal, umount=_umount, release_validator=validate_release):
     """Initialize isolation, serve the Unix API, then prove process cleanup."""
-    validate_config(config)
-    # Fail before creating cgroups, broker directories, sockets or processes.
-    release_validator(config["release_dir"], str(Path(__file__).with_name("manager.py").resolve()),
-                      config["expected_guest_sha256"],
-                      expected_manifest_sha256=config["release_manifest_sha256"])
-    image_sizes = {name: (Path(config["release_dir"])/name).stat().st_size
-                   for name in ("rootfs.ext4", "vmlinux")}
-    image_bytes = sum(image_sizes.values())
-    if config["per_account_internal_reserved_bytes"] < image_bytes:
-        raise AdmissionError("per-account reserve does not cover immutable jail image copies")
-    if config["runtime_vcpu_budget"] == 0:
-        raise AdmissionError("conservative configured CPU commitments leave no Worker budget")
-    if os.geteuid() != 0:
-        raise AdmissionError("Worker container must run as root")
-    os.umask(0o077)
-    cgroups = cgroups or PrivateCgroups()
+    groups = None
     mounted = False
     bound = False
     server = broker = path = None
     socket_inode = None
     lifetime = None
     old_handlers = {}
+    stop_requested = False
+    serving = False
     def request_stop(_signum, _frame):
-        raise KeyboardInterrupt
+        nonlocal stop_requested, serving
+        stop_requested = True
+        # Startup and cleanup must finish registering/releasing each resource.
+        # Interrupt the blocking service loop once; repeated signals only latch.
+        if serving:
+            serving = False
+            raise KeyboardInterrupt
+
+    def check_stop():
+        if stop_requested:
+            raise KeyboardInterrupt
 
     try:
-        cgroups.initialize()
-        mounted = bool(getattr(cgroups, "mounted", True))
-        cgroups.expose_for_jailer()
-        bound = bool(getattr(cgroups, "exposed", True))
+        for sig in (signal_api.SIGTERM, signal_api.SIGINT):
+            old_handlers[sig] = signal_api.signal(sig, request_stop)
+        check_stop()
+        validate_config(config)
+        check_stop()
+        # Verification stays before all isolation, broker and readiness work.
+        release_validator(config["release_dir"], str(Path(__file__).with_name("manager.py").resolve()),
+                          config["expected_guest_sha256"],
+                          expected_manifest_sha256=config["release_manifest_sha256"],
+                          cancel=check_stop)
+        check_stop()
+        image_sizes = {name: (Path(config["release_dir"])/name).stat().st_size
+                       for name in ("rootfs.ext4", "vmlinux")}
+        image_bytes = sum(image_sizes.values())
+        if config["per_account_internal_reserved_bytes"] < image_bytes:
+            raise AdmissionError("per-account reserve does not cover immutable jail image copies")
+        if config["runtime_vcpu_budget"] == 0:
+            raise AdmissionError("conservative configured CPU commitments leave no Worker budget")
+        if os.geteuid() != 0:
+            raise AdmissionError("Worker container must run as root")
+        os.umask(0o077)
+        check_stop()
+        groups = cgroups or PrivateCgroups()
+        check_stop()
+        groups.initialize()
+        mounted = bool(getattr(groups, "mounted", True))
+        check_stop()
+        groups.expose_for_jailer()
+        bound = bool(getattr(groups, "exposed", True))
+        check_stop()
         # This private field is derived only after release validation; the
         # operator/public configuration schema cannot supply allocation credit.
         broker = broker_factory(dict(config, _validated_immutable_image_sizes=image_sizes))
+        check_stop()
         socket_root = Path(config["socket_root"])
         os.chown(socket_root, 0, config["socket_gid"])
         os.chmod(socket_root, 0o750)
@@ -130,58 +154,72 @@ def serve(config, cgroups=None, broker_factory=WorkerBroker, server_factory=Serv
         os.chmod(path.parent, 0o750)
         lifetime = open(Path(config["ledger_root"]) / "service.lock", "a")
         fcntl.flock(lifetime, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        check_stop()
         remove_stale_socket(path)
         server = server_factory(str(path), Handler)
         socket_inode = path.lstat().st_ino
+        check_stop()
         server.broker = broker
         server.daemon_threads = False
         server.block_on_close = True
         os.chown(path, 0, config["socket_gid"])
         os.chmod(path, 0o660)
-        for sig in (signal_api.SIGTERM, signal_api.SIGINT):
-            old_handlers[sig] = signal_api.signal(sig, request_stop)
+        serving = True
+        check_stop()
         server.serve_forever(poll_interval=.25)
     finally:
-        failures = []
-        processes_clean = True
-        mounted = mounted or bool(getattr(cgroups, "mounted", False))
-        bound = bound or bool(getattr(cgroups, "exposed", False))
-        if server is not None:
-            try:
-                server.server_close()
-            except OSError:
-                failures.append("socket server close")
-        if broker is not None:
-            try:
-                broker.supervisor.close()
-            except Exception:
-                failures.append("managed computer cleanup")
-                processes_clean = False
-        for sig, handler in old_handlers.items():
-            signal_api.signal(sig, handler)
-        if path is not None and socket_inode is not None:
-            try:
-                info = path.lstat()
-                if info.st_ino != socket_inode or not stat.S_ISSOCK(info.st_mode):
-                    raise AdmissionError("broker socket changed during shutdown")
-                path.unlink()
-            except (OSError, AdmissionError):
-                failures.append("broker socket removal")
-        if processes_clean and not failures and bound:
-            try:
-                umount("/sys/fs/cgroup")
-            except (OSError, subprocess.SubprocessError):
-                failures.append("private cgroup bind cleanup")
-        if processes_clean and not failures and mounted:
-            try:
-                umount(ROOT)
-            except (OSError, subprocess.SubprocessError):
-                failures.append("private cgroup mount cleanup")
-        if lifetime is not None:
+        serving = False
+        try:
+            _cleanup_worker(groups, mounted, bound, server, broker, path, socket_inode, lifetime, umount)
+        finally:
+            for sig, handler in old_handlers.items():
+                signal_api.signal(sig, handler)
+
+
+def _cleanup_worker(groups, mounted, bound, server, broker, path, socket_inode, lifetime, umount):
+    """Keep signal cancellation latched until all owned resources are released."""
+    failures = []
+    processes_clean = True
+    mounted = mounted or bool(getattr(groups, "mounted", False))
+    bound = bound or bool(getattr(groups, "exposed", False))
+    if server is not None:
+        try:
+            server.server_close()
+        except Exception:
+            failures.append("socket server close")
+    if broker is not None:
+        try:
+            broker.supervisor.close()
+        except Exception:
+            failures.append("managed computer cleanup")
+            processes_clean = False
+    if path is not None and socket_inode is not None:
+        try:
+            info = path.lstat()
+            if info.st_ino != socket_inode or not stat.S_ISSOCK(info.st_mode):
+                raise AdmissionError("broker socket changed during shutdown")
+            path.unlink()
+        except (OSError, AdmissionError):
+            failures.append("broker socket removal")
+    if processes_clean and not failures and bound:
+        try:
+            umount("/sys/fs/cgroup")
+        except (OSError, subprocess.SubprocessError):
+            failures.append("private cgroup bind cleanup")
+    if processes_clean and not failures and mounted:
+        try:
+            umount(ROOT)
+        except (OSError, subprocess.SubprocessError):
+            failures.append("private cgroup mount cleanup")
+    if lifetime is not None:
+        try:
             fcntl.flock(lifetime, fcntl.LOCK_UN)
+        except OSError:
+            failures.append("service lock release")
+        finally:
             lifetime.close()
-        if failures:
-            raise AdmissionError("Worker shutdown cleanup could not be proven: " + ", ".join(failures))
+    if failures:
+        raise AdmissionError("Worker shutdown cleanup could not be proven: " + ", ".join(failures))
 
 
 def main(argv=None):

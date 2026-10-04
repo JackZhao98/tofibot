@@ -12,10 +12,12 @@ import json
 import os
 from pathlib import Path
 import re
+import shutil
 import subprocess
 import stat
 import sys
 import tempfile
+import time
 
 
 PROTOCOL = "tofi-account-guest-v1"
@@ -78,11 +80,22 @@ def _readonly(path, kind):
         raise ReleaseCheckError(f"release {kind} must be read-only: {path}")
 
 
-def _sha256(path):
+def _check_cancel(cancel):
+    if cancel is not None:
+        cancel()
+
+
+def _sha256(path, cancel=None):
     digest = hashlib.sha256()
     try:
+        _check_cancel(cancel)
         with path.open("rb") as source:
-            for block in iter(lambda: source.read(1024 * 1024), b""):
+            while True:
+                _check_cancel(cancel)
+                block = source.read(1024 * 1024)
+                _check_cancel(cancel)
+                if not block:
+                    break
                 digest.update(block)
     except OSError as exc:
         raise ReleaseCheckError(f"cannot read file for hashing: {path}") from exc
@@ -115,29 +128,76 @@ def _load_manifest(path):
     return value
 
 
-def _embedded_guest_sha256(rootfs):
-    """Hash the guest executable extracted from ext4 without mounting it."""
+def _stop_debugfs(process):
+    """Reap the exact verification child before releasing its scratch files."""
     try:
-        with tempfile.TemporaryDirectory(prefix="tofi-guest-check-") as scratch:
+        process.terminate()
+    except ProcessLookupError:
+        pass
+    try:
+        process.communicate(timeout=.5)
+    except subprocess.TimeoutExpired:
+        try:
+            process.kill()
+        except ProcessLookupError:
+            pass
+        try:
+            process.communicate(timeout=.5)
+        except subprocess.TimeoutExpired as exc:
+            raise ReleaseCheckError("debugfs child cleanup could not be proven; scratch retained") from exc
+    if process.poll() is None:
+        raise ReleaseCheckError("debugfs child cleanup could not be proven; scratch retained")
+
+
+def _embedded_guest_sha256(rootfs, cancel=None):
+    """Hash the guest executable extracted from ext4 without mounting it."""
+    scratch = Path(tempfile.mkdtemp(prefix="tofi-guest-check-"))
+    process = None
+    try:
+        _check_cancel(cancel)
+        try:
             output = Path(scratch) / "tofi-guest"
-            result = subprocess.run(
+            began = time.monotonic()
+            process = subprocess.Popen(
                 ["debugfs", "-R", f"dump /usr/local/bin/tofi-guest {output}", str(rootfs)],
-                stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, timeout=120,
-                check=False,
+                stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True,
             )
-            if result.returncode != 0 or not output.is_file():
-                detail = (result.stderr or result.stdout or "debugfs could not extract guest binary")
+            while True:
+                _check_cancel(cancel)
+                remaining = 120-(time.monotonic()-began)
+                if remaining <= 0:
+                    raise subprocess.TimeoutExpired(process.args, 120)
+                try:
+                    stdout, stderr = process.communicate(timeout=min(.1, remaining))
+                    break
+                except subprocess.TimeoutExpired:
+                    continue
+            _check_cancel(cancel)
+            if process.returncode != 0 or not output.is_file():
+                detail = (stderr or stdout or "debugfs could not extract guest binary")
                 raise ReleaseCheckError("cannot extract guest binary from rootfs.ext4: " + detail[-500:].strip())
             _regular_nonempty(output)
-            return _sha256(output)
+            return _sha256(output, cancel)
+        except BaseException:
+            if process is not None and process.poll() is None:
+                _stop_debugfs(process)
+            raise
     except FileNotFoundError as exc:
         raise ReleaseCheckError("debugfs is required to verify the embedded guest binary") from exc
     except subprocess.TimeoutExpired as exc:
         raise ReleaseCheckError("debugfs timed out extracting guest binary from rootfs.ext4") from exc
+    finally:
+        # Never unlink scratch while an unreaped child may still write there.
+        if process is None or process.poll() is not None:
+            for pipe in (getattr(process, "stdout", None), getattr(process, "stderr", None)):
+                if pipe is not None:
+                    pipe.close()
+            shutil.rmtree(scratch)
 
 
-def validate_release(release_dir, manager_source, guest_sha256, expected_manifest_sha256=None):
+def validate_release(release_dir, manager_source, guest_sha256, expected_manifest_sha256=None, cancel=None):
     """Validate a local release directory without changing it or the host."""
+    _check_cancel(cancel)
     if not isinstance(guest_sha256, str) or not SHA256.fullmatch(guest_sha256):
         raise ReleaseCheckError("expected guest SHA-256 must be 64 lowercase hex characters")
     if (expected_manifest_sha256 is not None
@@ -158,7 +218,7 @@ def validate_release(release_dir, manager_source, guest_sha256, expected_manifes
     manifest_path = root / "account-release.json"
     # Validate every traversed component, including release root and manifest.
     _no_symlink_path(manifest_path)
-    manifest_digest = _sha256(manifest_path)
+    manifest_digest = _sha256(manifest_path, cancel)
     _regular_nonempty(manifest_path)
     _readonly(manifest_path, "manifest")
     if expected_manifest_sha256 is not None and manifest_digest != expected_manifest_sha256:
@@ -172,6 +232,7 @@ def validate_release(release_dir, manager_source, guest_sha256, expected_manifes
     if not isinstance(expected_files, dict) or set(expected_files) != set(FILES):
         raise ReleaseCheckError("files_sha256 must name exactly the required release files")
     for name in FILES:
+        _check_cancel(cancel)
         # FILES is a fixed safe allowlist; manifest-supplied paths are never opened.
         path = root / name
         _no_symlink_path(path)
@@ -180,12 +241,13 @@ def validate_release(release_dir, manager_source, guest_sha256, expected_manifes
         expected = expected_files[name]
         if not isinstance(expected, str) or not SHA256.fullmatch(expected):
             raise ReleaseCheckError(f"invalid SHA-256 for {name}")
-        actual = _sha256(path)
+        actual = _sha256(path, cancel)
         if actual != expected:
             raise ReleaseCheckError(f"SHA-256 mismatch for {name}")
     expected_tree = set(FILES) | {"account-release.json"}
     actual_tree = set()
     for parent, dirs, names in os.walk(root, followlinks=False):
+        _check_cancel(cancel)
         parent_path = Path(parent)
         for directory in dirs:
             entry = parent_path / directory
@@ -208,7 +270,7 @@ def validate_release(release_dir, manager_source, guest_sha256, expected_manifes
         raise ReleaseCheckError("manifest guest_binary_sha256 must be 64 lowercase hex characters")
     if guest_digest != guest_sha256:
         raise ReleaseCheckError("guest binary SHA-256 does not match operator expectation")
-    embedded_guest_digest = _embedded_guest_sha256(root / "rootfs.ext4")
+    embedded_guest_digest = _embedded_guest_sha256(root / "rootfs.ext4", cancel)
     if guest_digest != embedded_guest_digest:
         raise ReleaseCheckError("guest binary SHA-256 does not match binary embedded in rootfs.ext4")
     capabilities = manifest.get("capabilities")
@@ -219,9 +281,10 @@ def validate_release(release_dir, manager_source, guest_sha256, expected_manifes
     for optional in ("features", "operator_metadata"):
         if optional in manifest and not isinstance(manifest[optional], (dict, list, str)):
             raise ReleaseCheckError(f"{optional} must be descriptive JSON metadata")
-    source_digest = _sha256(manager)
+    source_digest = _sha256(manager, cancel)
     if source_digest != expected_files["manager.py"]:
         raise ReleaseCheckError("operator manager source does not match candidate manager.py")
+    _check_cancel(cancel)
     return {
         "valid": True,
         "release_dir": str(root),
