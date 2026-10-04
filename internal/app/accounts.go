@@ -237,7 +237,7 @@ func (g *AccountGateway) workspace(a Account) (*Server, error) {
 	}
 	// New runtimes start without owner credentials, engine, inherited MCP paths,
 	// transcription key or the legacy personal computer. Provisioning is pending.
-	c := Config{AccountDBMaxBytes: g.config.AccountDBMaxBytes, DataDir: filepath.Join(g.config.DataDir, "accounts", a.ID), UIDir: g.config.UIDir, Listen: g.root.listen, PublicOrigin: g.root.publicOrigin, Provider: "openai_codex", IsolatedWorkspace: true, Environment: g.root.instance.Environment}
+	c := Config{AccountDBMaxBytes: g.config.AccountDBMaxBytes, DataDir: filepath.Join(g.config.DataDir, "accounts", a.ID), UIDir: g.config.UIDir, Listen: g.root.listen, PublicOrigin: g.root.publicOrigin, Provider: "openai_codex", IsolatedWorkspace: true, Environment: g.root.instance.Environment, OwnerAllowLoopbackHTTP: g.config.OwnerAllowLoopbackHTTP}
 	if a.Legacy {
 		c = g.config
 		c.AccountRuntime = true
@@ -456,5 +456,5 @@ func (g *AccountGateway) handle(w http.ResponseWriter, r *http.Request) {
 		g.webhookManage(w, r, a, workspace, id, rotate)
 		return
 	}
-	workspace.route(w, r)
+	workspace.route(w, r.WithContext(context.WithValue(r.Context(), portableAccountAuthKey{}, true)))
 }

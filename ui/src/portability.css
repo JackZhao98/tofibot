@@ -1,0 +1,13 @@
+.portability-section fieldset { border: 1px solid var(--border); border-radius: 12px; padding: 16px; margin-block: 20px; min-width: 0; }
+.portability-section legend { padding-inline: 6px; font-weight: 600; }
+.portability-section label { display: flex; flex-direction: column; gap: 6px; margin-block: 10px; }
+.portability-choices { display: grid; gap: 4px; margin-block: 14px; max-height: 240px; overflow: auto; }
+.portability-choices label { flex-direction: row; align-items: center; gap: 8px; margin: 0; padding-block: 5px; }
+.portability-choices input { width: auto; }
+.portability-preview { margin-top: 20px; padding-top: 14px; border-top: 1px solid var(--border); overflow-wrap: anywhere; }
+.portability-preview dl > div { display: flex; justify-content: space-between; gap: 16px; padding-block: 4px; }
+.portability-preview dd { margin: 0; font-variant-numeric: tabular-nums; }
+.portability-preview li { margin-block: 8px; }
+
+.portability-sensitive { margin-block: 16px; padding: 12px; border: 1px solid var(--border); border-radius: 8px; overflow-wrap: anywhere; }
+.portability-recovery-row { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; margin-block: 12px; }

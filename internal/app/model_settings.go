@@ -148,13 +148,10 @@ func (s *Server) modelSettings(w http.ResponseWriter, r *http.Request) {
 			writeErr(w, http.StatusBadRequest, "invalid_model_settings", err.Error())
 			return
 		}
-		if err := s.store.putModelSettings(x); err != nil {
+		if err := s.saveModelDefaults(x); err != nil {
 			writeErr(w, http.StatusInternalServerError, "storage", err.Error())
 			return
 		}
-		s.mu.Lock()
-		s.defaultModel, s.defaultReasoning = x.Model, x.ReasoningEffort
-		s.mu.Unlock()
 		writeJSON(w, http.StatusOK, x)
 	default:
 		writeErr(w, http.StatusNotFound, "not_found", "not found")
@@ -381,4 +378,15 @@ func normalizeCodexModels(raw codexModelsResponse) []ModelOption {
 		return nil
 	}
 	return out
+}
+
+// No caller response write runs under the runtime mutex, including SQL failure.
+func (s *Server) saveModelDefaults(x modelSettings) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if err := s.store.putModelSettings(x); err != nil {
+		return err
+	}
+	s.defaultModel, s.defaultReasoning = x.Model, x.ReasoningEffort
+	return nil
 }

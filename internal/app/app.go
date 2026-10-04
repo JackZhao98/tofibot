@@ -239,6 +239,8 @@ type Store struct {
 	// Multi-account files must use guest storage; host staging is not a quota.
 	requireGuestAttachments bool
 	guestBlobs              guestBlobStorage
+	portabilityMu           sync.Mutex
+	portabilitySecrets      *portableSecretCodec
 	db                      *sql.DB
 	scheduleSchemaOnce      sync.Once
 	scheduleSchemaErr       error
@@ -612,6 +614,9 @@ CREATE INDEX IF NOT EXISTS events_conversation ON events(conversation_id,id);`)
 		return err
 	}
 	if err := migrateWebhookIngress(s.db); err != nil {
+		return err
+	}
+	if err := migratePortability(s.db); err != nil {
 		return err
 	}
 	return migrateToolActivity(s.db)
@@ -2214,6 +2219,7 @@ func NewServer(c Config) (*Server, error) {
 		st.Close()
 		return nil, fmt.Errorf("secret storage: %w", e)
 	}
+	st.portabilitySecrets = &portableSecretCodec{vault: server.secretVault, account: identity.ID, allowLoopback: c.OwnerAllowLoopbackHTTP}
 	if c.MCPConfigPath == "" && !c.IsolatedWorkspace {
 		c.MCPConfigPath = os.Getenv("TOFI_MCP_CONFIG")
 	}
@@ -2234,6 +2240,9 @@ func NewServer(c Config) (*Server, error) {
 	if st.requireGuestAttachments && microVM != nil {
 		st.guestBlobs = microVM
 		st.cleanupDeletedAttachments()
+		cleanupCtx, cleanupCancel := context.WithTimeout(context.Background(), 5*time.Second)
+		_ = st.recoverPortableAssets(cleanupCtx) // Failed cleanup stays journaled for the next import.
+		cleanupCancel()
 	}
 	if c.AccountControlPlane || c.AccountMaintenance {
 		return server, nil
@@ -2381,6 +2390,9 @@ func (s *Server) route(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	p := strings.TrimPrefix(r.URL.Path, "/api/")
+	if s.routePortability(w, r, p) {
+		return
+	}
 	if s.routeDesktopStream(w, r, p) {
 		return
 	}
