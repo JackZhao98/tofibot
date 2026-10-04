@@ -71,13 +71,16 @@ func (s *Service) handleBlob(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		if info, err := root.Lstat(object); os.IsNotExist(err) {
-			temporary := "objects/." + uuid.NewString() + ".pending"
+			temporary := blobPendingName(id)
 			f, err := root.OpenFile(temporary, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0400)
 			if err != nil {
 				writeError(w, 507, "workspace storage full or unavailable")
 				return
 			}
-			_, err = f.Write(data)
+			err = syncBlobDirectory(root, "objects") // Persist the recoverable name before writing bytes.
+			if err == nil {
+				_, err = f.Write(data)
+			}
 			if err == nil {
 				err = f.Sync()
 			}
@@ -147,6 +150,18 @@ func (s *Service) handleBlob(w http.ResponseWriter, r *http.Request) {
 			}
 			object = "objects/" + stagedDigest
 		}
+		// The pending filename is bound to the same durable alias identity as
+		// the import journal, including a crash during a partial write. Cleanup
+		// must confirm absence before acknowledging journal reclamation.
+		pending := blobPendingName(id)
+		if err = root.Remove(pending); err != nil && !os.IsNotExist(err) {
+			writeError(w, 503, "pending blob removal unavailable")
+			return
+		}
+		if _, err = root.Lstat(pending); !os.IsNotExist(err) {
+			writeError(w, 503, "pending blob cleanup unconfirmed")
+			return
+		}
 		if err = root.Remove(id); err != nil && !os.IsNotExist(err) {
 			writeError(w, 503, "blob removal unavailable")
 			return
@@ -200,3 +215,5 @@ func syncBlobDirectory(root *os.Root, path string) error {
 	defer f.Close()
 	return f.Sync()
 }
+
+func blobPendingName(id string) string { return "objects/." + id + ".pending" }

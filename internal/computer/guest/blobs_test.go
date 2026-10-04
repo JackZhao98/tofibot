@@ -128,3 +128,58 @@ func TestGuestStagedBlobCleanupAfterObjectAliasCrashAndDurableWrites(t *testing.
 		t.Fatal("staged digest allowed on read")
 	}
 }
+
+func TestGuestBlobPendingWritesAreBoundToAliasAndCleanedBeforeAcknowledgement(t *testing.T) {
+	root := t.TempDir()
+	s, err := New(root, 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer s.Close(context.Background())
+	id, otherID := uuid.NewString(), uuid.NewString()
+	data := []byte("synthetic pre-rename content")
+	digest := sha256.Sum256(data)
+	folder := filepath.Join(root, "shared/.tofi/blobs/objects")
+	if err = os.MkdirAll(folder, 0700); err != nil {
+		t.Fatal(err)
+	}
+	pending, otherPending := filepath.Join(root, "shared/.tofi/blobs", blobPendingName(id)), filepath.Join(root, "shared/.tofi/blobs", blobPendingName(otherID))
+	if err = os.WriteFile(pending, data[:5], 0400); err != nil {
+		t.Fatal(err)
+	}
+	if err = os.WriteFile(otherPending, []byte("synthetic other staging identity"), 0400); err != nil {
+		t.Fatal(err)
+	}
+	request := func(method string) *httptest.ResponseRecorder {
+		r := httptest.NewRequest(method, "/v1/blobs/"+id, bytes.NewReader(data))
+		if method == "DELETE" {
+			r.Header.Set("X-Tofi-Staged-SHA256", hex.EncodeToString(digest[:]))
+		}
+		w := httptest.NewRecorder()
+		s.Handler().ServeHTTP(w, r)
+		return w
+	}
+	// O_EXCL must detect the same journal-bound pending path, rather than writing
+	// a fresh random temporary that a later DELETE cannot identify.
+	if w := request("PUT"); w.Code != 507 {
+		t.Fatalf("PUT ignored journal-bound interrupted write: %d", w.Code)
+	}
+	if w := request("DELETE"); w.Code != 204 || w.Header().Get("X-Tofi-Blob-Durability") != "1" {
+		t.Fatalf("cleanup did not acknowledge durably: %d", w.Code)
+	}
+	if _, err = os.Lstat(pending); !os.IsNotExist(err) {
+		t.Fatal("pending file remains after cleanup acknowledgement")
+	}
+	if got, err := os.ReadFile(otherPending); err != nil || string(got) != "synthetic other staging identity" {
+		t.Fatal("cleanup removed another staging identity")
+	}
+	if w := request("PUT"); w.Code != 201 {
+		t.Fatalf("retry after cleanup: %d %s", w.Code, w.Body.String())
+	}
+	if w := request("GET"); w.Code != 200 || !bytes.Equal(w.Body.Bytes(), data) {
+		t.Fatal("retry did not preserve bytes")
+	}
+	if w := request("DELETE"); w.Code != 204 {
+		t.Fatal("completed alias cleanup")
+	}
+}
