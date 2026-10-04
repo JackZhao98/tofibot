@@ -8,3 +8,6 @@
 .portability-preview dl > div { display: flex; justify-content: space-between; gap: 16px; padding-block: 4px; }
 .portability-preview dd { margin: 0; font-variant-numeric: tabular-nums; }
 .portability-preview li { margin-block: 8px; }
+
+.portability-sensitive { margin-block: 16px; padding: 12px; border: 1px solid var(--border); border-radius: 8px; overflow-wrap: anywhere; }
+.portability-recovery-row { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; margin-block: 12px; }

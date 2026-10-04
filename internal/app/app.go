@@ -230,6 +230,7 @@ type Store struct {
 	requireGuestAttachments bool
 	guestBlobs              guestBlobStorage
 	portabilityMu           sync.Mutex
+	portabilitySecrets      *portableSecretCodec
 	db                      *sql.DB
 	scheduleSchemaOnce      sync.Once
 	scheduleSchemaErr       error
@@ -2168,6 +2169,7 @@ func NewServer(c Config) (*Server, error) {
 		st.Close()
 		return nil, fmt.Errorf("secret storage: %w", e)
 	}
+	st.portabilitySecrets = &portableSecretCodec{vault: server.secretVault, account: identity.ID, allowLoopback: c.OwnerAllowLoopbackHTTP}
 	if c.MCPConfigPath == "" && !c.IsolatedWorkspace {
 		c.MCPConfigPath = os.Getenv("TOFI_MCP_CONFIG")
 	}

@@ -24,12 +24,18 @@ func (s *Store) applyPortableSQL(ctx context.Context, b portableBundle, previewI
 		return portableResult{}, false, err
 	}
 	defer tx.Rollback()
-	previous, replayed, err := portablePreviewState(ctx, tx, b, previewID)
+	previous, replayed, err := s.portablePreviewState(ctx, tx, b, previewID)
 	if err != nil || replayed {
 		return previous, replayed, err
 	}
 	result := portableResult{ImportID: previewID, Counts: b.counts(), IDMap: map[string]string{}}
 	newID := func(id string) { result.IDMap[id] = uuid.NewString() }
+	if err = portableRecoveryCapacity(ctx, tx, b); err != nil {
+		return result, false, err
+	}
+	for _, x := range b.VaultEnvironment {
+		newID(x.ID)
+	}
 	for _, x := range b.Bots {
 		newID(x.ID)
 	}
@@ -169,6 +175,21 @@ func (s *Store) applyPortableSQL(ctx context.Context, b portableBundle, previewI
 			if _, err = tx.ExecContext(ctx, op.q, op.args...); err != nil {
 				return result, false, err
 			}
+		}
+	}
+	for _, x := range b.VaultEnvironment {
+		sourceID := x.ID
+		x.ID = id(sourceID)
+		clear, e := json.Marshal(x)
+		if e != nil {
+			return result, false, errPortableSecret
+		}
+		capsule, e := s.portabilitySecrets.seal("recovery", x.ID, clear)
+		if e != nil {
+			return result, false, e
+		}
+		if _, err = tx.ExecContext(ctx, `INSERT INTO portability_secret_recovery(id,import_id,source_id,capsule,size,created_at) VALUES(?,?,?,?,?,?)`, x.ID, previewID, sourceID, capsule, len(x.Value), now()); err != nil {
+			return result, false, err
 		}
 	}
 	for _, scope := range []string{workspaceScopeBots, workspaceScopeGroups, workspaceScopeConfig} {

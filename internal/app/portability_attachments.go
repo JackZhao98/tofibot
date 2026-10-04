@@ -91,7 +91,7 @@ func (b portableBundle) validatePortableAttachments(cat map[string]bool, ids map
 		}
 		return nil
 	}
-	if !reflect.DeepEqual(b.Excluded, portableExclusions(cat["attachments"])) || len(b.Attachments) > portableMaxAttachments {
+	if !reflect.DeepEqual(b.Excluded, portableEnvironmentExclusions(cat["attachments"], cat[portableEnvironmentCategory])) || len(b.Attachments) > portableMaxAttachments {
 		return bad()
 	}
 	if !cat["attachments"] && len(b.Attachments)+len(b.AttachmentBindings)+len(b.MissingAttachments) != 0 {
