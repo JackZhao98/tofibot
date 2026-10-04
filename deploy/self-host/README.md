@@ -1,16 +1,15 @@
 # Dedicated-host installer draft checkpoint
 
-This checkpoint is NOT a verified one-command distribution. No public images,
-production changes or new policy loads were performed. `deploy/self_host.py`
-contains plan/preflight/upgrade/uninstall scaffolding using the accepted
-Worker and exact seccomp/profile baseline. Plan emits a new review directory.
-Fresh `apply` is blocked even with `--accept-permissions`: its D100 contract/floor
-transaction and broader fresh-install recovery are not implemented. Plan and
-preflight remain read-only with respect to the host. The intended host is an empty,
-dedicated Linux x86_64 KVM/cgroup-v2/AppArmor Docker host with operator-provided
-immutable images and a sealed Guest release. No existing-install adoption or
-automatic data purge is offered. The existing first-Admin mechanism is reused;
-passwords are entered in the browser, not handled by the installer.
+This remains a source-validated draft, pending separately authorized clean
+Linux/KVM acceptance and independently prepared artifacts. Private development
+has not built/imported images, activated permissions, started services, created
+accounts or changed production. The intended host is an empty, dedicated Linux
+x86_64 KVM/cgroup-v2/AppArmor Docker host. Images and a sealed Guest release are
+operator-provided. Plan writes a new private review directory. Preflight reads
+host readiness. Apply requires both the exact reviewed plan SHA-256 and explicit
+permission acknowledgement. Existing installations cannot be adopted or purged.
+The existing first-Admin mechanism is reused; passwords and the initialization
+secret are handled only by the matching browser UI.
 
 For first-Admin setup, the deployment operator also supplies the one-time
 `owner-bootstrap.secret` from the App data directory through the browser's
@@ -21,36 +20,113 @@ and removes the file. Restarting an initialized installation does not require
 the file and cannot reopen setup. A pending setup still requires its original
 file; deleting it does not generate a replacement.
 
-Validation so far: Python syntax, seven existing synthetic failure-path checks
-(deploy/test_self_host.py) and six bounded D100 contract/failure groups
-(deploy/test_d100_upgrade.py) pass. They cover hostile paths/mutable image IDs,
-permission acknowledgement, unsupported host refusal, unclean-stop fencing,
-data-retaining uninstall, bootstrap compatibility preflight, first-migration
-stop-retain and planned rollback with current data. Docker, image checks and
-service lifecycle are mocked; this is not actual host acceptance. Three held-item
-groups (deploy/test_d100_hold.py) additionally cover exact N-to-B pair evidence,
-fresh-apply refusal and unproven stop/persistence errors. Their Go source fixture
-uses real synthetic account/SQLite stores and handlers across reopen to prove
-password login and typed account/bot/message preservation, closed setup and
-consumed-secret rejection. It certifies source semantics only; actual N/B image
-pair execution and provenance remain required before use.
-Before use, complete plan metadata/rendered-file identity binding, ownership/locks,
-occupied-identity and partial-apply recovery tests and real clean-host acceptance.
-The D100 upgrade path changes only the App image. Worker, Guest and mounts remain
-unchanged; permission installation and clean-machine KVM acceptance are still unrun.
-Installer integrity checks must bind all plan metadata to rendered files; do not
-assume the current checksum list alone establishes that relationship. No operator
-should apply this draft before those gates pass.
+## Fresh D100 installation transaction
 
-A clean integration host must be separate from production, expose KVM/tun and
-have Docker Compose/cgroup v2/AppArmor/systemd-tmpfiles/e2fsprogs; reserve >=17GiB
-for the first8GiB guest plus8GiB internal promise and1GiB headroom, plus source
-release/build blocks,1CPU and1GiB host safety. Test only synthetic accounts and
-owned project resources; explicitly review generated profile/caps/device/mount
-paths before loading. Verify empty first-Admin bootstrap, forced passwords for
-Admin-created users, isolation/quota, clean reboot, same-data upgrade and retained
-uninstall. No new host allocation/purchase or permission activation is authorized
-by the presence of this draft.
+The plan schema is integer `2`, kind `d100-fresh-install`. `plan` requires the
+existing root/project/image/release/budget/port/output arguments plus sealed
+`--app-contract`, `--worker-contract`, `--engine-contract` references, each with
+its matching `--*-contract-sha256`. All references use private operator-owned
+regular files, canonical absolute paths and lowercase SHA-256 digests. Duplicate,
+unknown or malformed metadata is refused. The App contract/evidence below must
+bind the exact image, D100 bootstrap contract and matching UI/source. Worker
+metadata contains exactly integer `schema: 1`, `image`, `entrypoint` equal to
+`["python3","/opt/tofi-worker/worker_entrypoint.py","--config","/etc/tofi-worker/config.json"]`,
+and `labels` equal to the image's complete labels. App and Worker image commands
+must be empty; their entrypoints are explicitly rendered and checked at runtime.
+Labels and attestations require independent artifact provenance/validation.
+
+The engine contract contains exactly integer `schema: 1`, `docker`, `compose`,
+`socket`, and `engine_id`. `docker` and `compose` each contain `path` and `sha256`
+of a regular operator-owned executable that is not group/world writable. The
+Compose path names the standalone local Compose plugin executable. `socket`
+contains `path: "/run/docker.sock"`, integer `device` and integer `inode` from its
+root-owned Unix socket. `engine_id` is the local Linux daemon's exact ID. Docker
+and Compose calls use these executables, the local socket, a private empty Docker
+CLI configuration, explicit project/config paths, no `.env` file, and a minimal
+execution environment. Ambient Docker/Compose, loader, Python and proxy overrides
+are refused. A replaced executable/socket/engine requires a new reviewed plan.
+
+All authority fields are deterministically rendered: owned root/release paths,
+project/profile/socket identities, App/Worker images, contract seals, Guest
+manifest/binary/manager and logical file sizes, CPU/memory budgets, loopback port,
+Worker config, mounts, environment, capabilities, device and security settings,
+AppArmor/seccomp/tmpfiles and Compose bytes. Apply checks the exact fixed file
+set against a full re-render, beyond checksums of caller-provided files.
+
+After independent artifact and clean-host acceptance, an operator can invoke:
+
+```text
+python3 deploy/self_host.py apply /absolute/private/review-directory \
+  --plan-sha256 <SHA-256 of the exact reviewed plan.json bytes> \
+  --accept-permissions
+```
+
+Missing either acknowledgement or seal has zero effects. Apply refuses an
+existing root, any stopped/running Compose project resource, loaded/stored
+profile, tmpfiles identity or socket root. New claims serialize through the
+private `/var/lib/tofi-installer-claims` directory. An exclusive, fsynced claim
+retains the full plan/contracts and root-creation intent before creating the
+root or installer state. Claims persist after failure/uninstall; an orphan claim
+fences retries even when a crash precedes state creation. No automatic resume,
+claim reassignment, deletion or adoption exists. Upgrade/uninstall validate new
+claims, root inode/device and retained rendered authority. Previously accepted
+legacy migrations keep their existing path and are never silently assigned a
+new claim. Fresh-marked or externally claimed states missing their claim are
+refused. The root directory lock and shared registry lock serialize lifecycle
+operations.
+
+The first journal records `phase: installing`, `bootstrap_contract_floor: d100-v1`,
+full contracts, artifact/render bindings, the claim/root identity and effect
+intents. Each preparation, copy, permission and start intent is fsynced before
+its effect. The installer creates a new Guest copy beneath `root/release` from
+only manifest, manager, rootfs, kernel, Firecracker and jailer. Symlinks and
+hardlinks are refused; exclusive files are streamed, hashed, sized and fsynced,
+then sealed read-only with executable modes for Firecracker/jailer. The copied
+manifest, manager and embedded Guest validator must pass before startup. The
+external candidate is never mounted by the installed Worker.
+
+Pre-copy destination capacity must cover the full logical release copy plus
+8 GiB first workspace, 8 GiB internal immutable-copy promise and 1 GiB headroom;
+post-copy checks require the remaining 17 GiB. Sparse logical rootfs/kernel sizes
+must also fit the internal promise. After the exact Worker starts, an owned
+container execution as UID/GID `10001` sends only `{"op":"capacity"}` to its Unix
+broker. The first-account gate requires `admission_remaining_bytes >= 16 GiB`,
+8 GiB internal reserve and an empty account list. The broker already subtracts
+headroom and ledger commitments; the installer does not subtract them again and
+does not reserve/create an account. Admission is a point-in-time readiness check;
+the existing atomic broker reservation remains authoritative when setup occurs.
+
+Before reporting success, both containers must match exact image IDs, labels,
+commands/users, bind paths/read-only modes, limits/security/devices/environment
+and loopback network/port authority. App health uses a proxy-free client that
+refuses redirects and requires boolean `ok: true`. Only the final fsynced
+`phase: installed` / completed intent permits success and ordinary D100 upgrades.
+The persisted floor makes the next upgrade require the later N/B pair gate;
+first-migration stop-retain is refused on a fresh D100 installation.
+
+Preparation failure retains the claim and owned files without starting cleanup
+services. Following any startup attempt, cleanup inventories and verifies every
+candidate before stopping exact proven-owned IDs, then verifies clean exits.
+Foreign/ambiguous containers are untouched and produce `STOP_UNPROVEN`.
+Original, stop and persistence errors remain distinct; a recovery write failure
+reports `DURABLE_FENCE_UNPROVEN`. Interrupted journal writes and incomplete phases
+refuse apply and ordinary upgrade. There is no fallback, purge, secret reading,
+secret regeneration or account creation in fresh apply. The App itself creates
+its normal bootstrap secret only when a future authorized installation starts.
+
+Ten table-driven source acceptance families cover consent/seals, full render
+binding, claims/concurrency, release copying/capacity, durable ordering, exact
+identity/health, preparation faults, start/commit faults, unproven recovery and
+success/later D100 gating. Run only `test_d100_hold.FreshApply` for these checks;
+its neighboring historical semantic test invokes Go and is a separate gate.
+Docker, broker, permissions, health and Guest ext4 extraction are mocked; only
+local disposable copy/modes/locks/fsync are real. Existing bounded upgrade and
+failure controls remain covered. This is not clean Linux/KVM acceptance or
+artifact provenance proof. No host allocation/purchase or permission activation
+is authorized by this draft. Before release, independently execute exact App/UI,
+Worker/Guest and N/B artifact checks and synthetic clean-host installation,
+first-admin setup, reboot, retained upgrade/uninstall and failure recovery using
+the unchanged seccomp/AppArmor policy.
 
 ## D100 compatibility contract for existing installations
 
@@ -184,8 +260,8 @@ inspection is mandatory. Never infer safe recovery from a health response alone.
 This fence applies to starts mediated by this installer. It cannot stop a root
 operator from manually invoking Docker or an older installer against the same
 data. Retire incompatible scripts/images operationally; direct restarts need
-separate review. This bounded contract does not complete fresh-install plan
-integrity, partial-apply recovery, real Linux/KVM acceptance or release readiness.
+separate review. Fresh-install integrity/recovery now has bounded synthetic source coverage;
+real Linux/KVM acceptance and independent artifact provenance remain required.
 
 ## Admin computer deletion acceptance gate
 
