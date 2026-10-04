@@ -541,6 +541,9 @@ CREATE INDEX IF NOT EXISTS events_conversation ON events(conversation_id,id);`)
 	if err := migrateSchedules(s.db); err != nil {
 		return err
 	}
+	if err := migrateScheduleAuthorization(s.db); err != nil {
+		return err
+	}
 	if err := migrateDeletion(s.db); err != nil {
 		return err
 	}
