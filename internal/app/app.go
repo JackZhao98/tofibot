@@ -2242,7 +2242,7 @@ func NewServer(c Config) (*Server, error) {
 	}
 	server.hostedMCP = hostedMCPEgress(c)
 	server.snapshotLocalRunnerMCP()
-	server.extensions = extensions.NewManager(extensions.Config{HostedEgress: hostedMCPEgress(c), MCPConfigPath: c.MCPConfigPath, SkillsDir: c.SkillsDir, ExpandToolQuery: server.expandToolSearchQuery, HTTPTransport: server.localMCPTransport})
+	server.extensions = extensions.NewManager(extensions.Config{HostedEgress: hostedMCPEgress(c), MCPConfigPath: c.MCPConfigPath, SkillsDir: c.SkillsDir, ExpandToolQuery: server.expandToolSearchQuery, HTTPTransport: server.localMCPTransport, TrustedMailEndpoint: server.trustedMailEndpoint})
 	if st.requireGuestAttachments && microVM != nil {
 		st.guestBlobs = microVM
 		st.cleanupDeletedAttachments()
@@ -2453,7 +2453,7 @@ func (s *Server) route(w http.ResponseWriter, r *http.Request) {
 	if s.routeQuestions(w, r, p) {
 		return
 	}
-	if s.routeMailDrafts(w, r, p) {
+	if s.routeMailPresentations(w, r, p) || s.routeMailDrafts(w, r, p) {
 		return
 	}
 	if s.routePreferences(w, r, p) {
@@ -3060,6 +3060,7 @@ func (s *Server) execute(c Conversation, r Run) {
 	}
 	// The last committed summary and bounded recent history are enough to start
 	// the reply. Durable history maintenance runs after the response is saved.
+	ctx = s.mailReadContext(ctx, c, r)
 	pm, system := s.buildContextParts(c, r, botCfg)
 	tools := append(s.tools(c, r), s.longTermMemoryTools(c, r)...)
 	if r.Kind != runKindTriage {

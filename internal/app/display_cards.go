@@ -14,15 +14,16 @@ import (
 // authorization to perform an external action. The text remains in messages;
 // structured fields are stored in the existing per-message metadata column.
 type DisplayCard struct {
-	Type       string `json:"type"`
-	Title      string `json:"title,omitempty"`
-	Body       string `json:"body"`
-	From       string `json:"from,omitempty"`
-	To         string `json:"to,omitempty"`
-	Subject    string `json:"subject,omitempty"`
-	Summary    string `json:"summary,omitempty"`
-	ReceivedAt string `json:"received_at,omitempty"`
-	Source     string `json:"source,omitempty"`
+	Type       string            `json:"type"`
+	Mail       *MailPresentation `json:"mail,omitempty"`
+	Title      string            `json:"title,omitempty"`
+	Body       string            `json:"body"`
+	From       string            `json:"from,omitempty"`
+	To         string            `json:"to,omitempty"`
+	Subject    string            `json:"subject,omitempty"`
+	Summary    string            `json:"summary,omitempty"`
+	ReceivedAt string            `json:"received_at,omitempty"`
+	Source     string            `json:"source,omitempty"`
 }
 
 func (c *DisplayCard) normalize() error {
@@ -35,6 +36,12 @@ func (c *DisplayCard) normalize() error {
 	c.Summary = strings.TrimSpace(c.Summary)
 	c.ReceivedAt = strings.TrimSpace(c.ReceivedAt)
 	c.Source = strings.TrimSpace(c.Source)
+	if c.Type == "mail_list" {
+		if utf8.RuneCountInString(c.Title) > 512 {
+			return errors.New("mail title exceeds 512 characters")
+		}
+		return validateMailPresentation(c.Mail)
+	}
 	if c.Type != "text" && c.Type != "mail" {
 		return errors.New("type must be text or mail")
 	}
@@ -56,8 +63,8 @@ func (c *DisplayCard) normalize() error {
 }
 
 func (s *Server) displayTools(c Conversation, r Run) []Tool {
-	return []Tool{{Name: "display_content", Description: "Show verified content to the human in a structured UI card. Use type=text for a document, report or substantial text; type=mail only for an actual email you accessed. This is display-only: it does not send email or perform an action. Preserve the source text; do not invent sender, subject, or message body. Ordinary short replies should remain normal chat messages.", Parameters: objectSchema(map[string]any{
-		"type":        map[string]any{"type": "string", "enum": []string{"text", "mail"}},
+	return append(s.mailPresentationTools(c, r), Tool{Name: "display_content", Description: "Present a document, report or substantial text to the human in a structured text card. This tool does not verify its content or perform an external action. Use display_emails with stored mail_sources for actual mail presentation, and open_email to select a presented message. Preserve source text and do not fabricate citations. Ordinary short replies should remain normal chat messages.", Parameters: objectSchema(map[string]any{
+		"type":        map[string]any{"type": "string", "enum": []string{"text"}},
 		"title":       map[string]any{"type": "string"},
 		"body":        map[string]any{"type": "string"},
 		"from":        map[string]any{"type": "string"},
@@ -74,6 +81,9 @@ func (s *Server) displayTools(c Conversation, r Run) []Tool {
 		if err := json.Unmarshal(raw, &card); err != nil {
 			return "", err
 		}
+		if strings.TrimSpace(card.Type) != "text" {
+			return "", errors.New("display_content supports text only; use display_emails with stored mail_sources")
+		}
 		if err := card.normalize(); err != nil {
 			return "", err
 		}
@@ -82,7 +92,7 @@ func (s *Server) displayTools(c Conversation, r Run) []Tool {
 			return "", err
 		}
 		return "Displayed card " + message.ID + " to the user. It did not send an email or perform any other action.", nil
-	}}}
+	}})
 }
 
 // Message and replay event commit together: a failed publication cannot leave
@@ -93,6 +103,22 @@ func (s *Store) AddDisplayCard(ctx context.Context, conv string, run Run, card D
 	}
 	if err := card.normalize(); err != nil {
 		return Message{}, err
+	}
+	if card.Type == "mail_list" {
+		for i, email := range card.Mail.Emails {
+			detail, err := s.resolvePresentedEmail(ctx, conv, run.BotID, email.Source)
+			if err != nil {
+				return Message{}, err
+			}
+			canonical := detail.Email
+			canonical.Summary = email.Summary
+			canonical.Tag = email.Tag
+			canonical.Priority = email.Priority
+			card.Mail.Emails[i] = canonical
+		}
+		if err := validateMailPresentation(card.Mail); err != nil {
+			return Message{}, err
+		}
 	}
 	metadata, err := json.Marshal(card)
 	if err != nil {
@@ -115,7 +141,12 @@ func (s *Store) AddDisplayCard(ctx context.Context, conv string, run Run, card D
 		return Message{}, err
 	}
 	content := card.Title + "\n" + card.Body
-	if card.Type == "mail" {
+	if card.Type == "mail_list" {
+		content = card.Title
+		for _, email := range card.Mail.Emails {
+			content += "\n邮件 · " + email.Subject + " · " + email.From + " · " + email.Summary
+		}
+	} else if card.Type == "mail" {
 		content = "邮件 · " + card.Subject + "\n发件人: " + card.From
 		if card.To != "" {
 			content += "\n收件人: " + card.To

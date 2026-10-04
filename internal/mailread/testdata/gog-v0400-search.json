@@ -1,0 +1,66 @@
+{
+  "tool": "gmail_search",
+  "service": "gmail",
+  "risk": "read",
+  "exit_code": 0,
+  "stdout": {
+    "messages": [
+      {
+        "id": "synthetic-0",
+        "threadId": "synthetic-thread-0",
+        "from": "Sender <sender@example.test>",
+        "subject": "<<<EXTERNAL_UNTRUSTED_CONTENT id=\"abc123\">>>\nSource: google_api\n---\nSame synthetic subject\n<<<END_EXTERNAL_UNTRUSTED_CONTENT id=\"abc123\">>>",
+        "internalDateIso": "2026-10-03T09:12:00Z",
+        "attachments": [
+          {
+            "filename": "synthetic.txt",
+            "size": 23,
+            "sizeHuman": "23 B",
+            "mimeType": "text/plain",
+            "attachmentId": "synthetic-attachment"
+          }
+        ],
+        "body": "<<<EXTERNAL_UNTRUSTED_CONTENT id=\"abc123\">>>\nSource: google_api\n---\nSynthetic body 0. <script>never execute()</script><img src=\"https://tracker.example.test/pixel\">\n<<<END_EXTERNAL_UNTRUSTED_CONTENT id=\"abc123\">>>"
+      },
+      {
+        "id": "synthetic-1",
+        "threadId": "synthetic-thread-1",
+        "from": "Sender <sender@example.test>",
+        "subject": "<<<EXTERNAL_UNTRUSTED_CONTENT id=\"abc123\">>>\nSource: google_api\n---\nSame synthetic subject\n<<<END_EXTERNAL_UNTRUSTED_CONTENT id=\"abc123\">>>",
+        "internalDateIso": "2026-10-03T09:12:00Z",
+        "attachments": [
+          {
+            "filename": "synthetic.txt",
+            "size": 23,
+            "sizeHuman": "23 B",
+            "mimeType": "text/plain",
+            "attachmentId": "synthetic-attachment"
+          }
+        ],
+        "body": "<<<EXTERNAL_UNTRUSTED_CONTENT id=\"abc123\">>>\nSource: google_api\n---\nSynthetic body 1. <script>never execute()</script><img src=\"https://tracker.example.test/pixel\">\n<<<END_EXTERNAL_UNTRUSTED_CONTENT id=\"abc123\">>>"
+      },
+      {
+        "id": "synthetic-2",
+        "threadId": "synthetic-thread-2",
+        "from": "Sender <sender@example.test>",
+        "subject": "<<<EXTERNAL_UNTRUSTED_CONTENT id=\"abc123\">>>\nSource: google_api\n---\nSame synthetic subject\n<<<END_EXTERNAL_UNTRUSTED_CONTENT id=\"abc123\">>>",
+        "internalDateIso": "2026-10-03T09:12:00Z",
+        "attachments": [
+          {
+            "filename": "synthetic.txt",
+            "size": 23,
+            "sizeHuman": "23 B",
+            "mimeType": "text/plain",
+            "attachmentId": "synthetic-attachment"
+          }
+        ]
+      }
+    ],
+    "nextPageToken": "",
+    "externalContent": {
+      "untrusted": true,
+      "source": "google_api",
+      "wrapped": true
+    }
+  }
+}

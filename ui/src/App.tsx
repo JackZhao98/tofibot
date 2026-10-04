@@ -13,6 +13,7 @@ import {dateInTimezone, formatZonedTime} from "./timezone";
 import {MessageAttachment} from "./MessageAttachment";
 import {MessageReactions} from "./MessageReactions";
 import { DisplayCard } from "./DisplayCard";
+import { MailPresentationCard } from "./MailPresentationCard";
 import { QuestionCard, useQuestions } from "./QuestionCard";
 import { toolDisplayState, toolDisplayLabel } from "./toolTimeline";
 import { ConversationTaskStatus, taskStateLabel } from "./ConversationTaskStatus";
@@ -1982,7 +1983,7 @@ export function MessageBubble({ message, replyTarget, replyTargetName, sender, s
     const label = sender?.name ?? senderName ?? "Bot";
     return <article className={`message message-bot message-ui-card${showAvatar ? " is-group" : " is-dm"}`} title={`${formatExactTime(message.created_at, timezone)} · ${timezone}`}>
       {showAvatar && <div className="message-avatar"><Avatar label={label} id={message.sender_bot_id ?? "bot"} mini /></div>}
-      <div className="message-body">{showIdentity && !compact && <div className="message-meta"><strong>{label}</strong></div>}<DisplayCard card={message.card} onDraftReply={onDraftReply} />{tools && <div className="message-tools">{tools}</div>}</div>
+      <div className="message-body">{showIdentity && !compact && <div className="message-meta"><strong>{label}</strong></div>}{message.card.type === "mail_list" && message.card.mail ? <MailPresentationCard key={`${message.conversation_id}:${message.id}:${message.card.mail.revision}`} message={message} botName={label} /> : <DisplayCard card={message.card} onDraftReply={onDraftReply} />}{tools && <div className="message-tools">{tools}</div>}</div>
     </article>;
   }
   if (message.kind === "scheduled_task") {

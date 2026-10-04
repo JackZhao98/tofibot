@@ -14,6 +14,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/JackZhao98/tofibot/internal/mailread"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
@@ -58,6 +59,7 @@ type plugin struct {
 	mu          sync.Mutex
 	httpMu      sync.Mutex
 	gogMu       sync.Mutex
+	gogMailbox  string
 	httpHandler http.Handler
 	// ready serializes cold starts. No request context owns a child process.
 	ready        chan struct{}
@@ -173,12 +175,40 @@ func (r *Runner) call(ctx context.Context, id string, params *mcp.CallToolParams
 	if err != nil {
 		return nil, err
 	}
+	// Serialize built-in reads against account connect/disconnect. Bind the
+	// child process explicitly, including when a prior catalog started it.
+	if p.spec.Kind == "builtin_gog" {
+		p.gogMu.Lock()
+		defer p.gogMu.Unlock()
+		account, err := r.GogStatus(id)
+		if err != nil || account.Email == "" {
+			return nil, errors.New("connected Gmail mailbox unavailable")
+		}
+		p.mu.Lock()
+		if p.cli != nil && p.gogMailbox != account.Email {
+			old, stop, group := p.cli, p.stop, p.processGroup
+			p.cli = nil
+			go shutdown(old, stop, group)
+		}
+		p.mu.Unlock()
+	}
 	cli, release, err := r.acquire(ctx, p)
 	if err != nil {
 		return nil, err
 	}
 	defer release()
 	p.mu.Lock()
+	mailbox := p.gogMailbox
+	if p.spec.Kind == "builtin_gog" {
+		account, e := r.GogStatus(id)
+		if e != nil || mailbox == "" || mailbox != account.Email {
+			old, stop, group := p.cli, p.stop, p.processGroup
+			p.cli = nil
+			p.mu.Unlock()
+			go shutdown(old, stop, group)
+			return nil, errors.New("Gmail mailbox changed during startup; retry the read")
+		}
+	}
 	allowed := false
 	for _, candidate := range p.tools {
 		if candidate.Name == params.Name {
@@ -204,6 +234,16 @@ func (r *Runner) call(ctx context.Context, id string, params *mcp.CallToolParams
 			p.mu.Unlock()
 		}
 		return nil, fmt.Errorf("tool result unknown: %w", err)
+	}
+	// Remote/plugin-authored metadata never supplies the trusted context.
+	if result != nil {
+		delete(result.Meta, mailread.MetaKey)
+		if !result.IsError && p.spec.Kind == "builtin_gog" && mailbox != "" && mailread.Supported(params.Name) {
+			if result.Meta == nil {
+				result.Meta = mcp.Meta{}
+			}
+			result.Meta[mailread.MetaKey] = mailread.Identity{Version: 1, Provider: "gmail", Connection: id, Mailbox: mailbox}
+		}
 	}
 	return result, nil
 }
@@ -251,11 +291,30 @@ func (r *Runner) acquire(ctx context.Context, p *plugin) (*mcp.ClientSession, fu
 		go func() {
 			startCtx, cancel := context.WithTimeout(r.ctx, startupTimeout)
 			defer cancel()
-			cli, stop, pgid, tools, err := start(startCtx, r.ctx, p.spec)
+			spec := p.spec
+			mailbox := ""
+			var bindErr error
+			if spec.Kind == "builtin_gog" {
+				account, e := r.GogStatus(spec.ID)
+				bindErr = e
+				mailbox = account.Email
+				if bindErr == nil && mailbox != "" {
+					spec.Args, bindErr = boundGogMCPArgs(mailbox, spec.Args)
+				}
+			}
+			var cli *mcp.ClientSession
+			var stop context.CancelFunc
+			var pgid int
+			var tools []mcp.Tool
+			err := bindErr
+			if err == nil {
+				cli, stop, pgid, tools, err = start(startCtx, r.ctx, spec)
+			}
 			p.mu.Lock()
 			p.startErr = err
 			if err == nil && r.ctx.Err() == nil {
 				p.cli, p.stop, p.processGroup, p.tools = cli, stop, pgid, tools
+				p.gogMailbox = mailbox
 				p.lastUsed = time.Now()
 			} else if cli != nil {
 				_ = cli.Close()

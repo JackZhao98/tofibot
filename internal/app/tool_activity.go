@@ -87,7 +87,9 @@ CREATE TABLE IF NOT EXISTS tool_activities(
  updated_at TEXT NOT NULL,
  PRIMARY KEY(run_id,call_id)
  );
-CREATE INDEX IF NOT EXISTS tool_activities_conversation ON tool_activities(conversation_id,updated_at DESC);`)
+CREATE INDEX IF NOT EXISTS tool_activities_conversation ON tool_activities(conversation_id,updated_at DESC);
+CREATE TABLE IF NOT EXISTS mail_read_snapshots(run_id TEXT NOT NULL,call_id TEXT NOT NULL,data TEXT NOT NULL,PRIMARY KEY(run_id,call_id));
+CREATE TABLE IF NOT EXISTS mail_open_intents(run_id TEXT NOT NULL,call_id TEXT NOT NULL,presentation_id TEXT NOT NULL,email_key TEXT NOT NULL,input_revision INTEGER NOT NULL,message_json TEXT NOT NULL,PRIMARY KEY(run_id,call_id));`)
 	if err != nil {
 		return err
 	}

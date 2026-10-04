@@ -11,9 +11,50 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
 )
+
+// boundGogMCPArgs permits only the pinned gogcli v0.40.0 McpCmd options.
+// All RootFlags, aliases, short clusters and option terminators stay Runner-owned;
+// a new account spelling therefore cannot bypass a selector-specific denylist.
+func boundGogMCPArgs(mailbox string, args []string) ([]string, error) {
+	errArgs := errors.New("built-in Gmail arguments must use mcp and supported MCP options; root options are Runner managed")
+	if mailbox == "" || len(args) == 0 || args[0] != "mcp" {
+		return nil, errArgs
+	}
+	for i := 1; i < len(args); i++ {
+		flag, value, attached := strings.Cut(args[i], "=")
+		switch flag {
+		case "--allow-tool", "--tool", "--timeout-seconds", "--max-output-bytes":
+			if !attached {
+				i++
+				if i == len(args) {
+					return nil, errArgs
+				}
+				value = args[i]
+			}
+			if value == "" || strings.HasPrefix(value, "-") {
+				return nil, errArgs
+			}
+			if flag == "--timeout-seconds" || flag == "--max-output-bytes" {
+				if n, err := strconv.Atoi(value); err != nil || n <= 0 {
+					return nil, errArgs
+				}
+			}
+		case "--allow-write", "--list-tools":
+			if attached {
+				if _, err := strconv.ParseBool(value); err != nil {
+					return nil, errArgs
+				}
+			}
+		default:
+			return nil, errArgs
+		}
+	}
+	return append([]string{"--account", mailbox}, args...), nil
+}
 
 type GogStartRequest struct {
 	Email           string          `json:"email"`

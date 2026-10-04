@@ -23,6 +23,7 @@ export async function request<T>(path: string, init: RequestInit = {}): Promise<
 const json = (body: unknown): RequestInit => ({ method: "POST", body: JSON.stringify(body) });
 
 export const api = {
+  presentedEmail: (conversationId: string, presentationId: string, emailKey: string, revision: number, signal?: AbortSignal) => request<import("./types").MailDetail>(`/api/conversations/${encodeURIComponent(conversationId)}/mail-presentations/${encodeURIComponent(presentationId)}/${encodeURIComponent(emailKey)}?revision=${revision}`, { signal }),
   serverInfo: (signal?: AbortSignal) => request<{ service: string; protocol_version: number; instance_id: string; capabilities?: { inbound_webhooks?: boolean } }>("/api/server-info", { signal }),
   config: () => request<Config>("/api/config"),
   usage: () => request<{ contexts: ContextUsage[]; agents: AgentUsageTotal[]; periods: Record<"24h" | "7d" | "30d", UsagePeriod[]>; calls: UsageCall[]; price_source: string; price_as_of: string; note: string }>("/api/usage"),

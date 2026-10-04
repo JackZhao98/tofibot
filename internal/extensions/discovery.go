@@ -271,7 +271,7 @@ func lazyDiscoverableMCPTools(runCtx context.Context, m *Manager, servers map[st
 				toolSources[toolName] = mcpToolSource{server: name, remoteName: remote.RemoteName, schemaVersion: version}
 				remoteName := remote.RemoteName
 				found = append(found, runtime.Tool{Name: toolName, Description: boundedDescription(remote.Description, toolName), Parameters: remote.InputSchema, CheckReadiness: m.mcpMethodReadiness(name, cfg), Execute: func(callCtx context.Context, args json.RawMessage) (string, error) {
-					out, err := m.callMCPTool(callCtx, cli, remoteName, args, trustedReadOnlyTool(cfg, remoteName))
+					out, err := m.callMCPTool(callCtx, cli, remoteName, args, trustedReadOnlyTool(cfg, remoteName), cfg.URL)
 					if err != nil {
 						m.invalidateCatalogs(name)
 					}

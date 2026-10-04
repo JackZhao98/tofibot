@@ -1,0 +1,20 @@
+{
+  "allowed": [
+    {"name":"default-gmail","args":["mcp","--allow-tool","gmail"]},
+    {"name":"mcp-options","args":["mcp","--tool=gmail.*","--timeout-seconds","120","--max-output-bytes=204800","--allow-write=false"]},
+    {"name":"repeated-selectors","args":["mcp","--allow-tool=gmail","--tool","calendar","--list-tools=false"]},
+    {"name":"bare-read-default","args":["mcp"]}
+  ],
+  "overrides": [
+    {"name":"account-separated","args":["mcp","--allow-tool","gmail","--account","reader-b@example.test"]},
+    {"name":"account-equals","args":["mcp","--allow-tool","gmail","--account=reader-b@example.test"]},
+    {"name":"acct-separated","args":["mcp","--allow-tool","gmail","--acct","reader-b@example.test"]},
+    {"name":"acct-equals","args":["mcp","--allow-tool","gmail","--acct=reader-b@example.test"]},
+    {"name":"short-separated","args":["mcp","--allow-tool","gmail","-a","reader-b@example.test"]},
+    {"name":"short-attached","args":["mcp","--allow-tool","gmail","-areader-b@example.test"]},
+    {"name":"short-json-cluster","args":["mcp","--allow-tool","gmail","-jareader-b@example.test"]},
+    {"name":"short-plain-cluster-separated","args":["mcp","--allow-tool","gmail","-pa","reader-b@example.test"]},
+    {"name":"short-verbose-cluster","args":["mcp","--allow-tool","gmail","-vpareader-b@example.test"]},
+    {"name":"root-before-command","args":["--acct","reader-b@example.test","mcp","--allow-tool","gmail"]}
+  ]
+}

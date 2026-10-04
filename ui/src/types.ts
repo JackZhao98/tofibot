@@ -71,13 +71,23 @@ export interface Conversation {
   user_visible?: boolean;
 }
 
+export interface PresentedEmail {
+  key: string; message_id: string; account?: string; provider: string;
+  connection: string;
+  from: string; to?: string; subject: string; received_at?: string; retrieved_at: string;
+  summary?: string; tag?: string; priority?: boolean;
+  source: { run_id: string; call_id: string; message_id: string; digest: string };
+}
+export interface MailPresentation { revision: number; emails: PresentedEmail[]; selected_key?: string }
+export interface MailDetail { email: PresentedEmail; body: string; body_available: boolean; source_url?: string; attachments: { name: string; url?: string }[] }
+
 export interface Message {
   id: string;
   conversation_id: string;
   seq: number;
   role: MessageRole;
   kind?: "notice" | "forward_result" | "message_ref" | "user_message" | "scheduled_task" | "webhook_event" | "ui_card" | "progress" | "segment";
-  card?: { type: "text" | "mail"; title?: string; body: string; from?: string; to?: string; subject?: string; summary?: string; received_at?: string; source?: string };
+  card?: { type: "text" | "mail" | "mail_list"; mail?: MailPresentation; title?: string; body: string; from?: string; to?: string; subject?: string; summary?: string; received_at?: string; source?: string };
   sender_bot_id?: string;
   sender_bot_name?: string;
   run_id?: string;

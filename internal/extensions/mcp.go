@@ -19,6 +19,7 @@ import (
 	"time"
 	"unicode/utf8"
 
+	"github.com/JackZhao98/tofibot/internal/mailread"
 	"github.com/JackZhao98/tofibot/internal/runtime"
 	"github.com/JackZhao98/tofibot/internal/tooloutcome"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
@@ -65,6 +66,8 @@ type Config struct {
 	// HTTPTransport resolves service-owned private endpoints. A nil result
 	// retains ordinary remote HTTP; errors must never fall back to remote DNS.
 	HTTPTransport func(string) (http.RoundTripper, error)
+	// TrustedMailEndpoint is supplied by the account workspace, never MCP config.
+	TrustedMailEndpoint func(endpoint, connection string) bool
 	// HostedEgress is selected only by the server mode, never saved MCP data.
 	HostedEgress     bool
 	MCPConfigPath    string
@@ -547,7 +550,7 @@ func (m *Manager) prepareServer(runCtx, discoveryCtx context.Context, name strin
 		}
 		r := remote
 		result = append(result, runtime.Tool{Name: toolName, Description: boundedDescription(remote.Description, toolName), Parameters: params, CheckReadiness: m.mcpMethodReadiness(name, cfg), Execute: func(callCtx context.Context, args json.RawMessage) (string, error) {
-			return m.callMCPTool(callCtx, cli, r.Name, args, trustedReadOnlyTool(cfg, r.Name))
+			return m.callMCPTool(callCtx, cli, r.Name, args, trustedReadOnlyTool(cfg, r.Name), cfg.URL)
 		}})
 	}
 	return result, cli, nil
@@ -653,7 +656,7 @@ func mcpToolAllowed(allow, deny, bot map[string]bool, name string) bool {
 	return !(len(allow) > 0 && !allow[name] || deny[name] || len(bot) > 0 && !bot[name] && !bot["*"])
 }
 
-func (m *Manager) callMCPTool(callCtx context.Context, cli *mcp.ClientSession, name string, args json.RawMessage, readOnly bool) (string, error) {
+func (m *Manager) callMCPTool(callCtx context.Context, cli *mcp.ClientSession, name string, args json.RawMessage, readOnly bool, endpoint string) (string, error) {
 	if callCtx == nil {
 		callCtx = context.Background()
 	}
@@ -707,6 +710,20 @@ func (m *Manager) callMCPTool(callCtx context.Context, cli *mcp.ClientSession, n
 		o.Message += " Untrusted tool-reported details: " + text
 		return text, o.Err()
 	}
+	if raw, ok := out.Meta[mailread.MetaKey]; ok && m.cfg.TrustedMailEndpoint != nil {
+		var identity mailread.Identity
+		data, _ := json.Marshal(raw)
+		if json.Unmarshal(data, &identity) == nil && m.cfg.TrustedMailEndpoint(endpoint, identity.Connection) {
+			snapshot, e := mailread.NormalizeGog(identity, name, out.StructuredContent, text)
+			if e == nil {
+				text, e = mailread.Record(callCtx, snapshot, text)
+				if e != nil {
+					return "", e
+				}
+			}
+			// Unsupported schemas remain ordinary tool results; presentation fails closed.
+		}
+	}
 	return text, nil
 }
 
@@ -728,7 +745,7 @@ func (m *Manager) cachedMCPRuntimeTool(runCtx context.Context, cached CachedMCPT
 			return "", mcpReadinessOutcome(mcpErrorReadiness(err)).Err()
 		}
 		defer cli.Close()
-		return m.callMCPTool(callCtx, cli, cached.RemoteName, args, trustedReadOnlyTool(cfg, cached.RemoteName))
+		return m.callMCPTool(callCtx, cli, cached.RemoteName, args, trustedReadOnlyTool(cfg, cached.RemoteName), cfg.URL)
 	}}
 }
 
