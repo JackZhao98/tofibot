@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import {execFile} from "node:child_process";
-import {mkdtemp, rm, writeFile} from "node:fs/promises";
+import {mkdtemp, readFile, rm, writeFile} from "node:fs/promises";
 import {tmpdir} from "node:os";
 import {dirname, join, basename} from "node:path";
 import {fileURLToPath, pathToFileURL} from "node:url";
@@ -47,8 +47,14 @@ if (process.env.TOFI_AUTOREVIEW_RENDERED === "1") {
   const fixture = await mkdtemp(join(ui, ".autoreview-composition-"));
   let server, browser;
   try {
+    // Keep actual component styles, with the existing remote font import removed
+    // only from this temporary fixture. Rendering acceptance needs no font host.
+    const foundations = await readFile(join(ui, "src/v2-foundations.css"), "utf8");
+    const offlineFoundations = foundations.replace(/^@import url\("https:\/\/fonts\.googleapis\.com\/[^"\n]+"\);\r?\n/m, "");
+    assert.notEqual(offlineFoundations, foundations, "Expected the known remote font import");
+    await writeFile(join(fixture, "foundations.css"), offlineFoundations);
     await writeFile(join(fixture,"index.html"),'<div id="root"></div><script type="module" src="./main.tsx"></script>');
-    await writeFile(join(fixture,"main.tsx"),`import React from 'react';import {createRoot} from 'react-dom/client';import {TimezoneProvider} from '../src/UserTimezone';import {AutoReviewSettings} from '../src/AutoReviewSettings';import {QuestionCard} from '../src/QuestionCard';import '../src/styles.css';import '../src/settings-system.css';import '../src/v2-foundations.css';const status=new URLSearchParams(location.search).get('status')||'context_required';const state=new URLSearchParams(location.search).get('state')||'pending';const item={question_id:'synthetic-question',conversation_id:'synthetic-conversation',bot_id:'synthetic-bot',run_id:'synthetic-run',type:'question',question_type:'approval',question:'Synthetic bounded operation',status:state,created_at:'2026-01-01T00:00:00Z',approval:{action:'Synthetic read',target:'Synthetic fact',impact:'Synthetic effect',review:{source:'auto-review',status,reason:'Synthetic <script>untrusted</script>',model:'codex-auto-review'}}};createRoot(document.getElementById('root')!).render(<TimezoneProvider><AutoReviewSettings/><QuestionCard item={item as any} bot={undefined} group={false} archived={false} onChanged={async()=>{}}/></TimezoneProvider>);`);
+    await writeFile(join(fixture,"main.tsx"),`import React from 'react';import {createRoot} from 'react-dom/client';import {TimezoneProvider} from '../src/UserTimezone';import {AutoReviewSettings} from '../src/AutoReviewSettings';import {QuestionCard} from '../src/QuestionCard';import '../src/styles.css';import '../src/settings-system.css';import './foundations.css';const status=new URLSearchParams(location.search).get('status')||'context_required';const state=new URLSearchParams(location.search).get('state')||'pending';const item={question_id:'synthetic-question',conversation_id:'synthetic-conversation',bot_id:'synthetic-bot',run_id:'synthetic-run',type:'question',question_type:'approval',question:'Synthetic bounded operation',status:state,created_at:'2026-01-01T00:00:00Z',approval:{action:'Synthetic read',target:'Synthetic fact',impact:'Synthetic effect',review:{source:'auto-review',status,reason:'Synthetic <script>untrusted</script>',model:'codex-auto-review'}}};createRoot(document.getElementById('root')!).render(<TimezoneProvider><AutoReviewSettings/><QuestionCard item={item as any} bot={undefined} group={false} archived={false} onChanged={async()=>{}}/></TimezoneProvider>);`);
     server = await createServer({configFile:false,root:ui,plugins:[react()],server:{host:"127.0.0.1",port:0},logLevel:"error"});
     await server.listen();
     const origin = `http://127.0.0.1:${server.httpServer.address().port}`;
