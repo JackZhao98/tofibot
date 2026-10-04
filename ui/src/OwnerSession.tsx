@@ -107,7 +107,7 @@ export function OwnerSessionGate({ children }: { children: ReactNode }) {
           setPending(true); setError("");
           try {
             await authRequest(mustChange ? "password" : session.setup_required ? "setup" : "login", mustChange ? {current_password:data.get("current_password"),password:data.get("password")} : session.setup_required
-              ? { username: data.get("username"), email: data.get("email"), password: data.get("password"), ...(session.multi_account ? {} : {bootstrap_secret: data.get("bootstrap_secret")}) }
+              ? { username: data.get("username"), email: data.get("email"), password: data.get("password"), bootstrap_secret: data.get("bootstrap_secret") }
               : { identifier: data.get("identifier"), password: data.get("password") });
             form.reset(); setExpired(false);
             // The POST may have consumed setup or issued a cookie, but only a
@@ -124,7 +124,7 @@ export function OwnerSessionGate({ children }: { children: ReactNode }) {
             <label>邮箱<input name="email" type="email" autoComplete="email" autoCapitalize="none" spellCheck={false} required disabled={pending} /></label>
           </> : <label>用户名或邮箱<input name="identifier" autoComplete="username" autoCapitalize="none" spellCheck={false} required autoFocus disabled={pending} /></label>}
           <label>密码<input name="password" type="password" autoComplete={session.setup_required || mustChange ? "new-password" : "current-password"} required minLength={session.setup_required || mustChange ? 12 : undefined} maxLength={1024} disabled={pending} /></label>
-          {session.setup_required && !session.multi_account && <label>初始化密钥<input name="bootstrap_secret" type="password" autoComplete="off" spellCheck={false} required disabled={pending} /><small>来自服务器的 owner-bootstrap.secret，只使用一次。</small></label>}
+          {session.setup_required && <label>初始化密钥<input name="bootstrap_secret" type="password" autoComplete="off" spellCheck={false} required disabled={pending} /><small>来自服务器的 owner-bootstrap.secret，只使用一次。</small></label>}
           {error && <p className="owner-error" role="alert">{error}</p>}
           <button className="primary-button" disabled={pending}>{pending ? "请稍候…" : mustChange ? "更新密码并继续" : session.setup_required ? "创建账号并继续" : "登录"}</button>
         </form>}

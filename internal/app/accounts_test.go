@@ -12,6 +12,20 @@ import (
 	"testing"
 )
 
+// Reads only the disposable fixture's generated secret; invited accounts do
+// not consume or require deployment bootstrap authority.
+func accountCreationSecret(t *testing.T, g *AccountGateway, first bool) string {
+	t.Helper()
+	if !first {
+		return ""
+	}
+	secret, err := readOwnerBootstrap(g.auth.bootstrapPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return secret
+}
+
 func accountFixture(t *testing.T) *AccountGateway {
 	t.Helper()
 	g, err := NewAccountGateway(Config{DataDir: t.TempDir(), Environment: "acceptance", OwnerAuth: true})
@@ -43,13 +57,14 @@ func accountCookie(t *testing.T, g *AccountGateway, a Account) *http.Cookie {
 }
 func TestAccountBootstrapRaceAndClosedSignup(t *testing.T) {
 	g := accountFixture(t)
+	secret := accountCreationSecret(t, g, true)
 	var successes atomic.Int32
 	var wg sync.WaitGroup
 	for _, name := range []string{"first-admin", "racing-admin"} {
 		wg.Add(1)
 		go func(name string) {
 			defer wg.Done()
-			a, err := g.create(context.Background(), name, name+"@example.test", "SyntheticPassword123!", true)
+			a, err := g.create(context.Background(), name, name+"@example.test", "SyntheticPassword123!", true, secret)
 			if err == nil {
 				if a.Role != "admin" || a.Legacy {
 					t.Error("first account must be a non-legacy admin")
@@ -63,7 +78,7 @@ func TestAccountBootstrapRaceAndClosedSignup(t *testing.T) {
 		t.Fatalf("bootstrap successes %d", successes.Load())
 	}
 	w := accountRequest(g, "POST", "/api/auth/setup", `{"username":"late-admin","email":"late@example.test","password":"SyntheticPassword123!"}`, nil)
-	if w.Code != 409 {
+	if w.Code != 401 {
 		t.Fatalf("reopened bootstrap %d %s", w.Code, w.Body.String())
 	}
 	w = accountRequest(g, "POST", "/api/admin/accounts", `{}`, nil)
@@ -73,7 +88,7 @@ func TestAccountBootstrapRaceAndClosedSignup(t *testing.T) {
 }
 func TestAccountAdminCreatesSeparateEmptyWorkspaces(t *testing.T) {
 	g := accountFixture(t)
-	admin, err := g.create(context.Background(), "admin", "admin@example.test", "SyntheticPassword123!", true)
+	admin, err := g.create(context.Background(), "admin", "admin@example.test", "SyntheticPassword123!", true, accountCreationSecret(t, g, true))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -179,8 +194,8 @@ func TestAccountLegacyMigrationPreservesOwnerSessions(t *testing.T) {
 
 func TestAccountDisableRestoreRevokesRequestsAndRetainsWorkspace(t *testing.T) {
 	g := accountFixture(t)
-	admin, _ := g.create(context.Background(), "admin", "admin@example.test", "SyntheticPassword123!", true)
-	user, _ := g.create(context.Background(), "alice", "alice@example.test", "SyntheticPassword123!", false)
+	admin, _ := g.create(context.Background(), "admin", "admin@example.test", "SyntheticPassword123!", true, accountCreationSecret(t, g, true))
+	user, _ := g.create(context.Background(), "alice", "alice@example.test", "SyntheticPassword123!", false, "")
 	cookie := accountCookie(t, g, user)
 	adminCookie := accountCookie(t, g, admin)
 	if w := accountRequest(g, "GET", "/api/bots", "", cookie); w.Code != 403 {
@@ -235,8 +250,8 @@ func TestAccountDisableRestoreRevokesRequestsAndRetainsWorkspace(t *testing.T) {
 }
 func TestAccountRBACSelfLockoutResetAndSessionRestart(t *testing.T) {
 	g := accountFixture(t)
-	admin, _ := g.create(context.Background(), "admin", "admin@example.test", "SyntheticPassword123!", true)
-	user, _ := g.create(context.Background(), "bravo", "bravo@example.test", "SyntheticPassword123!", false)
+	admin, _ := g.create(context.Background(), "admin", "admin@example.test", "SyntheticPassword123!", true, accountCreationSecret(t, g, true))
+	user, _ := g.create(context.Background(), "bravo", "bravo@example.test", "SyntheticPassword123!", false, "")
 	ac := accountCookie(t, g, admin)
 	uc := accountCookie(t, g, user)
 	for _, body := range []string{`{"disabled":true}`, `{"role":"user"}`} {
@@ -278,8 +293,8 @@ func TestAccountRBACSelfLockoutResetAndSessionRestart(t *testing.T) {
 
 func TestAccountPublicInfoDoesNotDisableAuthAndUsesOwnInstance(t *testing.T) {
 	g := accountFixture(t)
-	admin, _ := g.create(context.Background(), "admin", "admin@example.test", "SyntheticPassword123!", true)
-	user, _ := g.create(context.Background(), "alice", "alice@example.test", "SyntheticPassword123!", false)
+	admin, _ := g.create(context.Background(), "admin", "admin@example.test", "SyntheticPassword123!", true, accountCreationSecret(t, g, true))
+	user, _ := g.create(context.Background(), "alice", "alice@example.test", "SyntheticPassword123!", false, "")
 	public := accountRequest(g, "GET", "/api/server-info", "", nil)
 	if public.Code != 200 || strings.Contains(public.Body.String(), `"mode":"none"`) {
 		t.Fatal("first-login discovery bypasses auth")

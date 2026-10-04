@@ -1,11 +1,13 @@
 #!/usr/bin/env python3
-"""Plan/install a fresh dedicated Linux x86_64 Compose account deployment.
+"""Review and maintain a dedicated Linux x86_64 Compose account deployment.
 
 Images and sealed Guest release are operator-provided; nothing is published or
-pulled. Plan writes only a new review directory. Apply needs explicit permission.
+pulled. Plan writes only a new review directory. Fresh apply is blocked.
 Upgrade preserves current data; uninstall stops services and retains all files.
 """
 import argparse
+import contextlib
+import fcntl
 import hashlib
 import json
 import os
@@ -18,6 +20,7 @@ import stat
 import subprocess
 import sys
 import time
+import urllib.error
 import urllib.request
 
 HERE = Path(__file__).resolve().parent
@@ -27,6 +30,21 @@ from worker_entrypoint import validate_config
 
 CAPS = ['SYS_ADMIN','NET_ADMIN','MKNOD','SYS_CHROOT','SETUID','SETGID','CHOWN','DAC_OVERRIDE','FOWNER']
 GIB = 1024**3
+BOOTSTRAP_CONTRACT = 'd100-v1'
+BOOTSTRAP_CHECKS = {'first_admin_secret', 'initialized_restart', 'consumed_replay', 'pending_setup_matching_ui'}
+PAIR_CHECKS = {'n_data_written','current_data_retained','b_data_read','b_login','b_setup_closed','b_consumed_replay_rejected'}
+
+
+class AppStartupFailure(ValueError):
+    """An explicitly attempted startup or health check failed."""
+
+
+class RecoveryFailure(ValueError):
+    def __init__(self,details):
+        self.details=details
+        status='STOP_UNPROVEN' if details['stop_error'] else 'stopped-retained'
+        if details['persistence_error']:status+='; DURABLE_FENCE_UNPROVEN'
+        super().__init__(status+'; CURRENT data retained; operator inspection required; '+json.dumps(details,sort_keys=True))
 
 
 def run(args, **kwargs):
@@ -53,6 +71,53 @@ def digest(p):
 def write(p, value, mode=0o600):
     p.write_text(json.dumps(value,indent=2)+'\n' if not isinstance(value,str) else value)
     os.chmod(p,mode)
+
+
+def private_json(path, expected=None):
+    path=absolute(path);info=path.lstat()
+    if not stat.S_ISREG(info.st_mode) or info.st_uid!=os.geteuid() or info.st_mode&0o077 or info.st_size>65536:
+        raise ValueError('private regular operator-owned metadata required')
+    with open(path,'rb') as stream:
+        if not os.path.samestat(info,os.fstat(stream.fileno())):raise ValueError('metadata identity changed')
+        data=stream.read(65537)
+    if expected is not None and hashlib.sha256(data).hexdigest()!=sha256_hex(expected):raise ValueError('reviewed metadata digest differs')
+    def unique(pairs):
+        result={}
+        for key,value in pairs:
+            if key in result:raise ValueError('duplicate metadata field')
+            result[key]=value
+        return result
+    return json.loads(data,object_pairs_hook=unique)
+
+
+def sha256_hex(value):
+    if not isinstance(value,str) or not re.fullmatch('[0-9a-f]{64}',value):raise ValueError('SHA-256 digest required')
+    return value
+
+
+def durable_write(path,value):
+    # A leftover staging file fences retries; never silently remove it.
+    path=Path(path);pending=path.with_name(path.name+'.pending')
+    fd=os.open(pending,os.O_WRONLY|os.O_CREAT|os.O_EXCL|os.O_NOFOLLOW,0o600)
+    with os.fdopen(fd,'w') as stream:
+        json.dump(value,stream,indent=2);stream.write('\n');stream.flush();os.fsync(stream.fileno())
+    os.replace(pending,path)
+    directory=os.open(path.parent,os.O_RDONLY|os.O_DIRECTORY)
+    try:os.fsync(directory)
+    finally:os.close(directory)
+
+
+@contextlib.contextmanager
+def lifecycle(root):
+    # Lock the existing directory: invalid preflight creates no lock file.
+    root=absolute(root);fd=os.open(root,os.O_RDONLY|os.O_DIRECTORY|os.O_NOFOLLOW)
+    try:
+        info=os.fstat(fd)
+        if info.st_uid!=os.geteuid() or info.st_mode&0o077:raise ValueError('private operator-owned install root required')
+        try:fcntl.flock(fd,fcntl.LOCK_EX|fcntl.LOCK_NB)
+        except BlockingIOError as exc:raise ValueError('owned installer lifecycle is busy') from exc
+        yield owned_state(root)
+    finally:os.close(fd)
 
 
 def generate(root, project, app, worker, release, cpu, memory, port, out):
@@ -141,6 +206,9 @@ def health(root,state):
         try:
             d=json.loads(urllib.request.urlopen('http://127.0.0.1:'+str(state['port'])+'/health',timeout=2).read())
             if d.get('ok'):return
+        except (TimeoutError,socket.timeout):raise
+        except urllib.error.URLError as exc:
+            if isinstance(exc.reason,(TimeoutError,socket.timeout)):raise
         except (OSError,ValueError):pass
         time.sleep(1)
     raise ValueError('App health failed; files/data retained, inspect the owned project')
@@ -148,27 +216,17 @@ def health(root,state):
 
 def apply(directory,accepted):
     if not accepted:raise ValueError('review permission files, then explicitly use --accept-permissions')
-    result=preflight(directory);p=load_plan(directory);root=absolute(p['root']);directory=absolute(directory)
-    policy=Path('/etc/apparmor.d')/p['profile'];tmp=Path('/etc/tmpfiles.d')/(p['profile']+'.conf')
-    if policy.exists() or tmp.exists() or Path(p['socket_root']).exists():raise ValueError('owned profile/socket identity already exists; investigate, never overwrite')
-    root.mkdir(mode=0o700,parents=False);(root/'data').mkdir(mode=0o700);os.chown(root/'data',10001,10001);(root/'worker').mkdir(mode=0o700);(root/'config').mkdir(mode=0o700)
-    for src,target in [('compose.yaml',root/'compose.yaml'),('worker.json',root/'config/worker.json'),('worker.seccomp.json',root/'config/worker.seccomp.json'),('worker.apparmor',policy),('tmpfiles.conf',tmp)]:
-        shutil.copyfile(directory/src,target);os.chmod(target,0o644 if target in [policy,tmp] else 0o600)
-    write(root/'install-state.json',dict(p,phase='prepared'))
-    run(['systemd-tmpfiles','--create',str(tmp)]);run(['apparmor_parser','-r',str(policy)])
-    compose(root,'up','-d','--no-build','worker');compose(root,'up','-d','--no-build','app');health(root,p)
-    write(root/'install-state.json',dict(p,phase='installed'))
-    return dict(installed=True,url='http://127.0.0.1:'+str(p['port']),next='Open via localhost/SSH/TLS and create the first Admin; later accounts are Admin-only.',data_retained=True)
+    raise ValueError('fresh apply is blocked until its reviewed D100 contract/floor transaction is implemented; plan/preflight only')
 
 
 def owned_state(root):
     root=absolute(root)
     if os.geteuid()!=0:raise ValueError('host operator required')
-    state=root/'install-state.json';s=state.stat()
-    if s.st_uid!=0 or s.st_mode&0o077:raise ValueError('root-owned private install state required')
-    p=json.loads(state.read_text())
+    for name in ['install-state.json','compose.yaml']:
+        if (root/(name+'.pending')).exists() or (root/(name+'.pending')).is_symlink():raise ValueError('interrupted metadata write requires operator review')
+    p=private_json(root/'install-state.json')
     if p['root']!=str(root):raise ValueError('ownership root differs')
-    c=json.loads((root/'compose.yaml').read_text())
+    c=private_json(root/'compose.yaml')
     if c['name']!=p['project']:raise ValueError('Compose ownership differs')
     return root,p,c
 
@@ -177,30 +235,170 @@ def stopped(root):
     compose(root,'stop','--timeout','180')
     ids=compose(root,'ps','-a','-q').stdout.split()
     if ids:
-        for c in json.loads(run(['docker','inspect',*ids]).stdout):
+        containers=json.loads(run(['docker','inspect',*ids]).stdout)
+        if len(containers)!=len(ids):raise ValueError('owned stop inspection incomplete; no restart')
+        for c in containers:
             if c['State']['Running'] or c['State']['Pid'] or c['State']['ExitCode']:raise ValueError('unclean stop; ownership/budgets retained, no cleanup/restart')
 
 
-def upgrade(root,app,worker):
-    root,p,c=owned_state(root);inspect_image(app,True);inspect_image(worker)
-    inspect_image(c['services']['app']['image'],True)
-    old=json.loads(json.dumps(c));stopped(root)
-    c['services']['app']['image']=app;c['services']['worker']['image']=worker
-    write(root/'compose.yaml',c)
+def sealed_json(reference):
+    if not isinstance(reference,dict) or set(reference)!={'path','sha256'}:raise ValueError('sealed artifact contract reference required')
+    return private_json(reference['path'],sha256_hex(reference['sha256']))
+
+
+def artifact_contract(reference):return validate_artifact(sealed_json(reference))
+
+
+def validate_artifact(artifact):
+    fields={'schema','app_image','source_commit','ui_source_commit','ui_sha256','bootstrap_contract','evidence'}
+    if not isinstance(artifact,dict) or set(artifact)!=fields or artifact['schema']!=1 or artifact['bootstrap_contract']!=BOOTSTRAP_CONTRACT:raise ValueError('unknown App bootstrap contract')
+    image_id(artifact['app_image']);sha256_hex(artifact['ui_sha256'])
+    if not re.fullmatch('[0-9a-f]{40}',str(artifact['source_commit'])) or artifact['ui_source_commit']!=artifact['source_commit']:raise ValueError('matching App/UI source commits required')
+    evidence=artifact['evidence']
+    if not isinstance(evidence,dict) or set(evidence)!={'path','sha256'}:raise ValueError('sealed compatibility evidence required')
+    record=sealed_json(evidence)
+    binding={key:artifact[key] for key in fields-{'schema','evidence'}}
+    if not isinstance(record,dict) or set(record)!={'schema','kind','bindings','checks'} or record['schema']!=1 or record['kind']!='d100-app-validation' or record['bindings']!=binding:
+        raise ValueError('artifact compatibility evidence binding differs')
+    if not isinstance(record['checks'],dict) or set(record['checks'])!=BOOTSTRAP_CHECKS or any(value!='pass' for value in record['checks'].values()):raise ValueError('complete passing bootstrap/UI evidence required')
+    labels=inspect_image(artifact['app_image'],True)['Config'].get('Labels') or {}
+    expected={'org.opencontainers.image.revision':artifact['source_commit'],'io.tofi.ui.source':artifact['ui_source_commit'],'io.tofi.ui.sha256':artifact['ui_sha256'],'io.tofi.bootstrap-contract':BOOTSTRAP_CONTRACT}
+    if any(labels.get(key)!=value for key,value in expected.items()):raise ValueError('App image source/UI/bootstrap labels differ from contract')
+    return artifact
+
+
+def passing_checks(checks,names):
+    return isinstance(checks,dict) and set(checks)==names and all(value=='pass' for value in checks.values())
+
+
+def current_data_pair(reference,target_ref,fallback_ref,target,fallback):
+    record=sealed_json(reference)
+    binding=dict(target_image=target['app_image'],fallback_image=fallback['app_image'],target_contract_sha256=target_ref['sha256'],fallback_contract_sha256=fallback_ref['sha256'])
+    if not isinstance(record,dict) or set(record)!={'schema','kind','bindings','checks','semantic_evidence'} or type(record['schema']) is not int or record['schema']!=1 or record['kind']!='d100-current-data-pair-validation' or record['bindings']!=binding or not passing_checks(record['checks'],PAIR_CHECKS):raise ValueError('complete passing exact N-to-B current-data pair evidence required')
+    proof=sealed_json(record['semantic_evidence'])
+    if not isinstance(proof,dict) or set(proof)!={'schema','kind','model','n_written','b_read','checks'} or type(proof['schema']) is not int or proof['schema']!=1 or proof['kind']!='d100-current-data-semantic-result' or proof['model']!='account-workspace-messages-v1' or not passing_checks(proof['checks'],PAIR_CHECKS):raise ValueError('structured account/workspace semantic evidence required')
+    data=proof['n_written']
+    if not isinstance(data,dict) or set(data)!={'account_id','bot_id','conversation_id','message_id','message_seq','message_role','message_content'} or proof['b_read']!=data or type(proof['b_read']['message_seq']) is not int or any(not isinstance(data[key],str) or not 1<=len(data[key])<=128 for key in ['account_id','bot_id','conversation_id','message_id']) or type(data['message_seq']) is not int or data['message_seq']<1 or data['message_role']!='user' or not isinstance(data['message_content'],str) or not 1<=len(data['message_content'])<=4096:raise ValueError('N-written account/message records must be read by B with unchanged semantics')
+    return dict(reference=reference,record=record,semantic_result=proof)
+
+
+def upgrade_contract(root,p,c,app,worker,path,sealed):
+    if path is None or sealed is None:raise ValueError('reviewed D100 upgrade plan and digest required')
+    if p.get('phase')!='installed':raise ValueError('interrupted/unknown lifecycle phase requires operator review; no automatic resume')
+    if 'migration_intent' in p and (not isinstance(p['migration_intent'],dict) or p['migration_intent'].get('stage') not in ['completed','rolled-back']):raise ValueError('malformed/unfinished prior migration intent requires operator review')
+    floor=p.get('bootstrap_contract_floor')
+    if floor not in (None,BOOTSTRAP_CONTRACT):raise ValueError('unknown compatibility floor')
+    services=c['services']
+    if p.get('app_image')!=services['app']['image'] or p.get('worker_image')!=services['worker']['image']:raise ValueError('state/Compose image binding differs')
+    if worker!=services['worker']['image']:raise ValueError('D100 upgrade cannot change Worker image')
+    plan=private_json(path,sealed)
+    if not isinstance(plan,dict) or set(plan)!={'schema','kind','root','current_app_image','worker_image','target','failure'} or plan['schema']!=1 or plan['kind']!='d100-app-upgrade' or plan['root']!=str(root) or plan['current_app_image']!=p['app_image'] or plan['worker_image']!=worker:
+        raise ValueError('reviewed upgrade plan binding differs')
+    target=artifact_contract(plan['target'])
+    if target['app_image']!=app:raise ValueError('target image differs from reviewed plan')
+    current=inspect_image(p['app_image'],True)
+    if floor is None and ((current['Config'].get('Labels') or {}).get('io.tofi.bootstrap-contract') is not None or p.get('app_contract') is not None or p.get('migration_intent') is not None):raise ValueError('D100 installation without a persisted floor requires operator review')
+    failure=plan['failure'];fallback=None;pair=None
+    if floor is None:
+        if failure!={'mode':'first-migration-stop-retain'}:raise ValueError('first D100 migration requires explicit stop-retain')
+    else:
+        if not isinstance(failure,dict) or set(failure)!={'mode','fallback','pair_evidence'} or failure['mode']!='compatible-fallback':raise ValueError('later D100 upgrade requires verified fallback and exact pair evidence')
+        fallback=artifact_contract(failure['fallback'])
+        if fallback['app_image']==app:raise ValueError('fallback must be a distinct reviewed App artifact')
+        if not isinstance(p.get('app_contract'),dict) or p['app_contract'].get('app_image')!=p['app_image'] or p['app_contract'].get('bootstrap_contract')!=floor:
+            raise ValueError('installed App contract/floor binding differs')
+        validate_artifact(p['app_contract'])
+        pair=current_data_pair(failure['pair_evidence'],plan['target'],failure['fallback'],target,fallback)
+    inspect_image(worker)
+    return dict(plan_sha256=sealed,previous_app_image=p['app_image'],target=target,fallback=fallback,pair_evidence=pair,failure_mode=failure['mode'],stage='target-starting')
+
+
+def start_verified(root,p,image):
     try:
-        compose(root,'up','-d','--no-build','worker');compose(root,'up','-d','--no-build','app');health(root,p)
-    except Exception:
-        stopped(root);write(root/'compose.yaml',old)
-        compose(root,'up','-d','--no-build','worker');compose(root,'up','-d','--no-build','app');health(root,p)
-        raise ValueError('upgrade rejected; compatible previous code restored with CURRENT data')
-    p.update(app_image=app,worker_image=worker,phase='installed');write(root/'install-state.json',p)
-    return dict(upgraded=True,data_retained=True,guest_release_unchanged=True)
+        compose(root,'up','-d','--no-build','worker');compose(root,'up','-d','--no-build','app')
+    except subprocess.CalledProcessError as exc:raise AppStartupFailure('planned App startup failed') from exc
+    ids=compose(root,'ps','-q','app').stdout.split()
+    if len(ids)!=1:raise ValueError('owned App container identity is ambiguous')
+    containers=json.loads(run(['docker','inspect',ids[0]]).stdout)
+    if len(containers)!=1:raise ValueError('owned App container inspection differs')
+    item=containers[0];labels=item.get('Config',{}).get('Labels') or {}
+    if item.get('Image')!=image or not item.get('State',{}).get('Running') or labels.get('com.docker.compose.project')!=p['project'] or labels.get('com.docker.compose.service')!='app':raise ValueError('running App differs from planned artifact')
+    try:health(root,p)
+    except ValueError as exc:raise AppStartupFailure('planned App health failed') from exc
+
+
+def error_record(error):
+    result=dict(type=type(error).__name__,message=str(error))
+    if error.__cause__ is not None:result['cause']=dict(type=type(error.__cause__).__name__,message=str(error.__cause__))
+    return result
+
+
+def retain_stopped(root,p,reason,original,stop_error=None):
+    if stop_error is None:
+        try:stopped(root)
+        except BaseException as error:stop_error=error
+    intent=p.get('migration_intent')
+    details=dict(reason=reason,original_error=error_record(original),target_error=intent.get('target_error') if isinstance(intent,dict) else None,stop_error=error_record(stop_error) if stop_error else None,persistence_error=None)
+    p['phase']='STOP_UNPROVEN' if stop_error else 'stopped-retained'
+    p['recovery_failure']=details
+    if isinstance(intent,dict):intent['stage']=reason
+    try:durable_write(root/'install-state.json',p)
+    except BaseException as error:details['persistence_error']=error_record(error)
+    if stop_error or details['persistence_error']:raise RecoveryFailure(details) from original
+    return reason+'; stopped-retained with CURRENT data; original='+json.dumps(details['original_error'],sort_keys=True)
+
+
+def upgrade(root,app,worker,plan=None,plan_sha256=None):
+    with lifecycle(root) as (root,p,c):
+        intent=upgrade_contract(root,p,c,app,worker,plan,plan_sha256)
+        try:stopped(root)
+        except BaseException as error:
+            retain_stopped(root,p,'initial stop unproven',error,stop_error=error)
+            raise
+        p.update(bootstrap_contract_floor=BOOTSTRAP_CONTRACT,migration_intent=intent,phase='d100-migrating')
+        try:
+            # This durable fence completes before Compose selection or startup.
+            durable_write(root/'install-state.json',p)
+            c['services']['app']['image']=app;durable_write(root/'compose.yaml',c)
+        except BaseException as error:
+            retain_stopped(root,p,'metadata persistence uncertain',error)
+            raise
+        try:start_verified(root,p,app)
+        except AppStartupFailure as target_failure:
+            intent['target_error']=error_record(target_failure)
+            fallback=intent['fallback']
+            if fallback is None:
+                result=retain_stopped(root,p,'first D100 migration failed',target_failure)
+                raise ValueError(result) from target_failure
+            try:
+                intent['stage']='fallback-stopping'
+                stopped(root)
+                intent['stage']='fallback-starting';durable_write(root/'install-state.json',p)
+                c['services']['app']['image']=fallback['app_image'];durable_write(root/'compose.yaml',c)
+                start_verified(root,p,fallback['app_image'])
+                p.update(app_image=fallback['app_image'],app_contract=fallback,phase='installed')
+                intent['stage']='rolled-back';durable_write(root/'install-state.json',p)
+            except BaseException as error:
+                retain_stopped(root,p,'fallback failed or uncertain',error,stop_error=error if intent['stage']=='fallback-stopping' else None)
+                raise
+            raise ValueError('upgrade failed; planned D100 fallback '+fallback['app_image']+' installed with CURRENT data') from target_failure
+        except BaseException as error:
+            retain_stopped(root,p,'target startup interrupted or unknown',error)
+            raise
+        try:
+            p.update(app_image=app,app_contract=intent['target'],phase='installed')
+            intent['stage']='completed';durable_write(root/'install-state.json',p)
+        except BaseException as error:
+            retain_stopped(root,p,'final metadata persistence uncertain',error)
+            raise
+        return dict(upgraded=True,app_image=app,data_retained=True,guest_release_unchanged=True,bootstrap_contract_floor=BOOTSTRAP_CONTRACT)
 
 
 def uninstall(root):
-    root,p,c=owned_state(root);stopped(root)
-    compose(root,'rm','-f','app','worker')
-    p['phase']='stopped-retained';write(root/'install-state.json',p)
+    with lifecycle(root) as (root,p,c):
+        stopped(root)
+        compose(root,'rm','-f','app','worker')
+        p['phase']='stopped-retained';durable_write(root/'install-state.json',p)
     return dict(uninstalled=True,data_retained=True,root=str(root),permissions_retained=True,next='All DBs/disks/credentials/config/release/profile/socket paths retained; no down -v, rm -rf or automatic purge. Resume using this owned Compose project after review.')
 
 
@@ -212,14 +410,14 @@ def main():
     for action in ['preflight','apply']:
         q=sub.add_parser(action);q.add_argument('plan');
         if action=='apply':q.add_argument('--accept-permissions',action='store_true')
-    q=sub.add_parser('upgrade');q.add_argument('root');q.add_argument('--app-image',required=True);q.add_argument('--worker-image',required=True)
+    q=sub.add_parser('upgrade');q.add_argument('root');q.add_argument('--app-image',required=True);q.add_argument('--worker-image',required=True);q.add_argument('--upgrade-plan',required=True);q.add_argument('--upgrade-plan-sha256',required=True)
     q=sub.add_parser('uninstall');q.add_argument('root')
     a=parser.parse_args()
     try:
         if a.action=='plan':result=generate(a.root,a.project,a.app_image,a.worker_image,a.release,a.cpu_budget,a.memory_budget_mib,a.port,a.out)
         elif a.action=='preflight':result=preflight(a.plan)
         elif a.action=='apply':result=apply(a.plan,a.accept_permissions)
-        elif a.action=='upgrade':result=upgrade(a.root,a.app_image,a.worker_image)
+        elif a.action=='upgrade':result=upgrade(a.root,a.app_image,a.worker_image,a.upgrade_plan,a.upgrade_plan_sha256)
         else:result=uninstall(a.root)
         print(json.dumps(result,indent=2))
     except (ValueError,OSError,subprocess.SubprocessError) as e:

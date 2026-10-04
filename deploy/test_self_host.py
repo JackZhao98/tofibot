@@ -19,7 +19,7 @@ class InstallerFailurePaths(unittest.TestCase):
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory(prefix='tofi-installer-synthetic-')
         self.addCleanup(self.temp.cleanup)
-        self.root = Path(self.temp.name)
+        self.root = Path(self.temp.name).resolve()
         (self.root / 'data').mkdir()
         self.data = self.root / 'data/current-data'
         self.data.write_bytes(b'synthetic writes after initial installation')
@@ -67,14 +67,14 @@ class InstallerFailurePaths(unittest.TestCase):
         self.assertEqual(self.data.read_bytes(), b'synthetic writes after initial installation')
         self.assertEqual(json.loads((self.root / 'install-state.json').read_text())['phase'], 'stopped-retained')
 
-    def test_failed_upgrade_restores_previous_code_with_current_data(self):
+    def test_unreviewed_upgrade_cannot_implicitly_restore_old_code(self):
         with patch.object(installer, 'owned_state', return_value=(self.root, self.plan, self.compose)), \
              patch.object(installer, 'inspect_image'), patch.object(installer, 'stopped') as stop, \
              patch.object(installer, 'compose'), \
              patch.object(installer, 'health', side_effect=[ValueError('new code unhealthy'), None]):
-            with self.assertRaisesRegex(ValueError, 'CURRENT data'):
+            with self.assertRaisesRegex(ValueError, 'reviewed D100 upgrade plan'):
                 installer.upgrade(self.root, 'sha256:' + 'c' * 64, 'sha256:' + 'd' * 64)
-            self.assertEqual(stop.call_count, 2)
+            stop.assert_not_called()
         saved = json.loads((self.root / 'compose.yaml').read_text())
         self.assertEqual(saved['services']['app']['image'], 'sha256:' + 'a' * 64)
         self.assertEqual(self.data.read_bytes(), b'synthetic writes after initial installation')

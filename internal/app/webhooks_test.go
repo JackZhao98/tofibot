@@ -320,7 +320,7 @@ func TestWebhookAccountIsolationAndDeniedIngressNeverConstructsRuntime(t *testin
 	var endpoints []webhookEndpoint
 	var secrets []string
 	for i := 0; i < 2; i++ {
-		a, err := g.create(context.Background(), fmt.Sprintf("synthetic-webhook-%d", i), "", "SyntheticPassword123!", i == 0)
+		a, err := g.create(context.Background(), fmt.Sprintf("synthetic-webhook-%d", i), "", "SyntheticPassword123!", i == 0, accountCreationSecret(t, g, i == 0))
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -369,7 +369,7 @@ func TestWebhookAccountManagementCannotGuessOtherWorkspace(t *testing.T) {
 	var accounts []Account
 	var bots []Bot
 	for i := 0; i < 2; i++ {
-		a, err := g.create(context.Background(), fmt.Sprintf("synthetic-owner-%d", i), "", "SyntheticPassword123!", i == 0)
+		a, err := g.create(context.Background(), fmt.Sprintf("synthetic-owner-%d", i), "", "SyntheticPassword123!", i == 0, accountCreationSecret(t, g, i == 0))
 		if err != nil {
 			t.Fatal(err)
 		}

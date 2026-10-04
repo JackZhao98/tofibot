@@ -289,11 +289,11 @@ func TestPortableConcurrentApplyAndSettingsOptIn(t *testing.T) {
 
 func TestPortableAccountIsolationAndCSRF(t *testing.T) {
 	g := accountFixture(t)
-	a, err := g.create(context.Background(), "fixture-a", "", "SyntheticPassword123!", true)
+	a, err := g.create(context.Background(), "fixture-a", "", "SyntheticPassword123!", true, accountCreationSecret(t, g, true))
 	if err != nil {
 		t.Fatal(err)
 	}
-	b, err := g.create(context.Background(), "fixture-b", "", "SyntheticPassword123!", false)
+	b, err := g.create(context.Background(), "fixture-b", "", "SyntheticPassword123!", false, "")
 	if err != nil {
 		t.Fatal(err)
 	}

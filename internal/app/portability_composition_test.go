@@ -365,11 +365,11 @@ func TestPortableCompositionGatewayBoundaries(t *testing.T) {
 		c.Engine = testEngine{}
 		return NewServer(c)
 	}
-	owner, err := g.create(context.Background(), "synthetic-composition-owner", "", "SyntheticFixturePassword123!", true)
+	owner, err := g.create(context.Background(), "synthetic-composition-owner", "", "SyntheticFixturePassword123!", true, accountCreationSecret(t, g, true))
 	if err != nil {
 		t.Fatal(err)
 	}
-	other, err := g.create(context.Background(), "synthetic-composition-other", "", "SyntheticFixturePassword456!", false)
+	other, err := g.create(context.Background(), "synthetic-composition-other", "", "SyntheticFixturePassword456!", false, "")
 	if err != nil {
 		t.Fatal(err)
 	}

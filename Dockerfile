@@ -20,7 +20,13 @@ COPY --from=go-build /out/tofi-guest /tofi-guest
 
 # The runtime image contains one non-root process and a named persistent data volume.
 FROM alpine:3.22
-LABEL io.tofi.account-runtime="1"
+ARG TOFI_SOURCE_COMMIT
+ARG TOFI_UI_SHA256
+LABEL io.tofi.account-runtime="1" \
+      io.tofi.bootstrap-contract="d100-v1" \
+      org.opencontainers.image.revision="${TOFI_SOURCE_COMMIT}" \
+      io.tofi.ui.source="${TOFI_SOURCE_COMMIT}" \
+      io.tofi.ui.sha256="${TOFI_UI_SHA256}"
 RUN apk add --no-cache ca-certificates \
   && addgroup -S -g 10001 tofi && adduser -S -u 10001 -G tofi -h /app tofi \
   && mkdir -p /app/data /app/ui \
