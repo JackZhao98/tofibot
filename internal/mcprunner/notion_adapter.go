@@ -26,6 +26,7 @@ var ErrUnsupportedAdapterFeature = errors.New("Notion adapter supports basic too
 var ErrAdapterProtocolMismatch = errors.New("Notion adapter requires exact leaf protocol 2025-11-25")
 var ErrUnsupportedAdapterInvocation = errors.New("Notion adapter requires stdio transport; other or ambiguous transport arguments are unsupported")
 var ErrAdapterCredentialOverride = errors.New("Notion adapter does not support header or API destination overrides")
+var ErrInvalidAdapterEnvKey = errors.New("Notion adapter environment variable names must be nonempty and contain neither '=' nor NUL")
 
 // AdapterPolicy is operator-owned private configuration, never accepted by
 // InstallRequest. These source pins do not verify installed package bytes.
@@ -45,6 +46,15 @@ func validateAdapter(spec Spec) error {
 	a := spec.Adapter
 	if spec.Kind != "npm" || a.ID != NotionAdapterID || a.Package != NotionPackage || a.Version != NotionPackageVersion || a.SourceRevision != NotionSourceRevision || a.Protocol != NotionLeafProtocol {
 		return errors.New("unsupported or unpinned MCP adapter")
+	}
+	// Child environment entries are assembled as key=value. Validate both maps
+	// before reserved-name checks so malformed keys cannot introduce aliases.
+	for _, env := range []map[string]string{spec.Env, spec.SecretEnv} {
+		for key := range env {
+			if key == "" || strings.ContainsAny(key, "=\x00") {
+				return ErrInvalidAdapterEnvKey
+			}
+		}
 	}
 	if _, supplied := spec.Env["NOTION_TOKEN"]; supplied || !filepath.IsAbs(spec.SecretEnv["NOTION_TOKEN"]) {
 		return errors.New("Notion adapter requires NOTION_TOKEN through the existing private secret-file entry")
