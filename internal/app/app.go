@@ -10,6 +10,7 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -173,6 +174,9 @@ type Server struct {
 	webhookLimits                        *webhookLimiter
 	isolatedWorkspace                    bool
 	localRunnerURL, localRunnerTokenFile string
+	hostedMCP                            bool
+	localRunnerMCPBase                   *url.URL
+	localRunnerMCPHTTP                   *http.Transport
 	ownerAuth                            *ownerAuth
 	secretVault                          *secretVault
 	instance                             instanceIdentity
@@ -2236,7 +2240,9 @@ func NewServer(c Config) (*Server, error) {
 		st.Close()
 		return nil, err
 	}
-	server.extensions = extensions.NewManager(extensions.Config{MCPConfigPath: c.MCPConfigPath, SkillsDir: c.SkillsDir, ExpandToolQuery: server.expandToolSearchQuery, HTTPTransport: server.localMCPTransport})
+	server.hostedMCP = hostedMCPEgress(c)
+	server.snapshotLocalRunnerMCP()
+	server.extensions = extensions.NewManager(extensions.Config{HostedEgress: hostedMCPEgress(c), MCPConfigPath: c.MCPConfigPath, SkillsDir: c.SkillsDir, ExpandToolQuery: server.expandToolSearchQuery, HTTPTransport: server.localMCPTransport})
 	if st.requireGuestAttachments && microVM != nil {
 		st.guestBlobs = microVM
 		st.cleanupDeletedAttachments()
@@ -2268,6 +2274,12 @@ func NewServer(c Config) (*Server, error) {
 	}
 	return server, nil
 }
+
+// Only an actual single-owner server keeps unrestricted remote HTTP compatibility.
+func hostedMCPEgress(c Config) bool {
+	return c.IsolatedWorkspace || c.AccountRuntime || c.AccountControlPlane || c.AccountMaintenance
+}
+
 func (s *Server) Close() error {
 	s.ownerAuth.close()
 	s.closeVMOAuth()
@@ -2278,6 +2290,10 @@ func (s *Server) Close() error {
 	s.stopConversationWorkers()
 	s.stopSummaryWorkers()
 	s.stopTerminalCleanup()
+	s.extensions.CloseIdleConnections()
+	if s.localRunnerMCPHTTP != nil {
+		s.localRunnerMCPHTTP.CloseIdleConnections()
+	}
 	return s.store.Close()
 }
 func (s *Server) Listen() string { return s.listen }

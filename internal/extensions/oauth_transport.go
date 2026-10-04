@@ -72,6 +72,7 @@ type OAuthFlowConfig struct {
 	ClientID, ClientSecret, RedirectURI, AuthServerMetadataURL string
 	Scopes                                                     []string
 	TokenStore                                                 TokenStore
+	HTTPClient                                                 *http.Client
 	PKCEEnabled                                                bool
 }
 type AuthServerMetadata = oauthex.AuthServerMeta
@@ -85,24 +86,39 @@ type OAuthHandler struct {
 }
 
 func NewOAuthHandler(cfg OAuthFlowConfig) *OAuthHandler { return &OAuthHandler{cfg: cfg} }
-func (h *OAuthHandler) SetBaseURL(u string)             { h.baseURL = u }
-func (h *OAuthHandler) SetExpectedState(s string)       { h.expectedState = s }
-func (h *OAuthHandler) GetClientID() string             { return h.cfg.ClientID }
-func (h *OAuthHandler) GetClientSecret() string         { return h.cfg.ClientSecret }
+
+// Standalone callers retain their existing default/context client compatibility.
+// Hosted Managers always supply their immutable policy-owned client.
+func (h *OAuthHandler) httpClient() *http.Client {
+	if h.cfg.HTTPClient != nil {
+		return h.cfg.HTTPClient
+	}
+	return http.DefaultClient
+}
+func (h *OAuthHandler) operationContext(ctx context.Context) context.Context {
+	if h.cfg.HTTPClient != nil {
+		return context.WithValue(ctx, oauth2.HTTPClient, h.cfg.HTTPClient)
+	}
+	return ctx
+}
+func (h *OAuthHandler) SetBaseURL(u string)       { h.baseURL = u }
+func (h *OAuthHandler) SetExpectedState(s string) { h.expectedState = s }
+func (h *OAuthHandler) GetClientID() string       { return h.cfg.ClientID }
+func (h *OAuthHandler) GetClientSecret() string   { return h.cfg.ClientSecret }
 func (h *OAuthHandler) GetServerMetadata(ctx context.Context) (*AuthServerMetadata, error) {
 	if h.metadata != nil {
 		return h.metadata, nil
 	}
 	metadataURL := h.cfg.AuthServerMetadataURL
 	if metadataURL == "" {
-		_, resolved, err := discoverOAuthMetadata(ctx, h.baseURL)
+		_, resolved, err := discoverOAuthMetadata(ctx, h.baseURL, h.httpClient())
 		if err != nil {
 			return nil, err
 		}
 		metadataURL = resolved
 	}
 	var md AuthServerMetadata
-	status, err := fetchOAuthJSON(ctx, metadataURL, &md)
+	status, err := fetchOAuthJSON(ctx, metadataURL, &md, h.httpClient())
 	if err != nil {
 		return nil, err
 	}
@@ -132,7 +148,7 @@ func (h *OAuthHandler) RegisterClient(ctx context.Context, name string) error {
 	}
 	registration, err := oauthex.RegisterClient(ctx, md.RegistrationEndpoint, &oauthex.ClientRegistrationMetadata{
 		RedirectURIs: []string{h.cfg.RedirectURI}, TokenEndpointAuthMethod: "none", GrantTypes: []string{"authorization_code", "refresh_token"}, ResponseTypes: []string{"code"}, ClientName: name, Scope: strings.Join(h.cfg.Scopes, " "),
-	}, http.DefaultClient)
+	}, h.httpClient())
 	if err != nil {
 		return err
 	}
@@ -166,7 +182,7 @@ func (h *OAuthHandler) ProcessAuthorizationResponse(ctx context.Context, code, s
 	if err != nil {
 		return err
 	}
-	token, err := cfg.Exchange(ctx, code, oauth2.VerifierOption(verifier), oauth2.SetAuthURLParam("resource", h.baseURL))
+	token, err := cfg.Exchange(h.operationContext(ctx), code, oauth2.VerifierOption(verifier), oauth2.SetAuthURLParam("resource", h.baseURL))
 	if err != nil {
 		return err
 	}
@@ -189,7 +205,7 @@ func (h *OAuthHandler) RefreshToken(ctx context.Context, refresh string) (*Token
 		return nil, err
 	}
 	// Preserve RFC 8707 resource binding during the RFC 6749 refresh grant.
-	token, err := cfg.Exchange(ctx, "", oauth2.SetAuthURLParam("grant_type", "refresh_token"), oauth2.SetAuthURLParam("refresh_token", refresh), oauth2.SetAuthURLParam("resource", h.baseURL))
+	token, err := cfg.Exchange(h.operationContext(ctx), "", oauth2.SetAuthURLParam("grant_type", "refresh_token"), oauth2.SetAuthURLParam("refresh_token", refresh), oauth2.SetAuthURLParam("resource", h.baseURL))
 	if err != nil {
 		return nil, err
 	}

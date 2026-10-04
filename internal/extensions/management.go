@@ -603,7 +603,7 @@ var errOAuthAdvertisedIssuerUnavailable = errors.New("OAuth protected resource m
 // deployments that publish authorization-server metadata at the origin. The
 // latter is common for a single hosted MCP endpoint whose resource URL has a
 // path (for example, /mcp).
-func discoverOAuthMetadata(ctx context.Context, endpoint string) (OAuthMetadata, string, error) {
+func discoverOAuthMetadata(ctx context.Context, endpoint string, clients ...*http.Client) (OAuthMetadata, string, error) {
 	u, e := url.Parse(endpoint)
 	if e != nil || u.Host == "" || (u.Scheme != "https" && u.Scheme != "http") {
 		return OAuthMetadata{}, "", errors.New("invalid OAuth endpoint")
@@ -623,7 +623,10 @@ func discoverOAuthMetadata(ctx context.Context, endpoint string) (OAuthMetadata,
 		var prm struct {
 			AuthorizationServers []string `json:"authorization_servers"`
 		}
-		status, decodeErr := fetchOAuthJSON(ctx, prmURL, &prm)
+		status, decodeErr := fetchOAuthJSON(ctx, prmURL, &prm, clients...)
+		if outboundPolicyDenied(decodeErr) {
+			return OAuthMetadata{}, "", decodeErr
+		}
 		if status/100 != 2 || decodeErr != nil || len(prm.AuthorizationServers) == 0 {
 			continue
 		}
@@ -631,7 +634,10 @@ func discoverOAuthMetadata(ctx context.Context, endpoint string) (OAuthMetadata,
 		for _, issuer := range prm.AuthorizationServers {
 			for _, candidate := range oauthMetadataCandidates(issuer) {
 				var metadata OAuthMetadata
-				status, decodeErr := fetchOAuthJSON(ctx, candidate, &metadata)
+				status, decodeErr := fetchOAuthJSON(ctx, candidate, &metadata, clients...)
+				if outboundPolicyDenied(decodeErr) {
+					return OAuthMetadata{}, "", decodeErr
+				}
 				if status/100 == 2 && decodeErr == nil && metadata.AuthorizationEndpoint != "" && metadata.TokenEndpoint != "" {
 					return metadata, candidate, nil
 				}
@@ -654,7 +660,10 @@ func discoverOAuthMetadata(ctx context.Context, endpoint string) (OAuthMetadata,
 	var lastStatus int
 	for _, candidate := range candidates {
 		var metadata OAuthMetadata
-		status, decodeErr := fetchOAuthJSON(ctx, candidate, &metadata)
+		status, decodeErr := fetchOAuthJSON(ctx, candidate, &metadata, clients...)
+		if outboundPolicyDenied(decodeErr) {
+			return OAuthMetadata{}, "", decodeErr
+		}
 		lastStatus = status
 		if status/100 != 2 {
 			continue
@@ -683,13 +692,17 @@ func oauthMetadataCandidates(issuer string) []string {
 	return []string{root + "/.well-known/oauth-authorization-server/" + path, root + "/.well-known/oauth-authorization-server"}
 }
 
-func fetchOAuthJSON(ctx context.Context, endpoint string, out any) (int, error) {
+func fetchOAuthJSON(ctx context.Context, endpoint string, out any, clients ...*http.Client) (int, error) {
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, endpoint, nil)
 	if err != nil {
 		return 0, err
 	}
 	req.Header.Set("Accept", "application/json")
-	resp, err := http.DefaultClient.Do(req)
+	client := http.DefaultClient
+	if len(clients) > 0 && clients[0] != nil {
+		client = clients[0]
+	}
+	resp, err := client.Do(req)
 	if err != nil {
 		return 0, err
 	}
@@ -706,6 +719,9 @@ func fetchOAuthJSON(ctx context.Context, endpoint string, out any) (int, error) 
 func OAuthPublicError(err error) string {
 	if err == nil {
 		return ""
+	}
+	if outboundPolicyDenied(err) {
+		return "OAuth connection was blocked by network policy. Use a public canonical endpoint without redirects."
 	}
 	msg := strings.ToLower(err.Error())
 	switch {
@@ -750,9 +766,9 @@ func StartOAuth(ctx context.Context, cfg OAuthFlowConfig, endpoint ...string) (*
 	// publishing it at the origin
 	// still work when the MCP resource itself has a path.
 	if strings.TrimSpace(cfg.AuthServerMetadataURL) == "" && len(endpoint) > 0 && strings.TrimSpace(endpoint[0]) != "" {
-		if _, metadataURL, discoverErr := discoverOAuthMetadata(ctx, endpoint[0]); discoverErr == nil {
+		if _, metadataURL, discoverErr := discoverOAuthMetadata(ctx, endpoint[0], cfg.HTTPClient); discoverErr == nil {
 			cfg.AuthServerMetadataURL = metadataURL
-		} else if errors.Is(discoverErr, errOAuthAdvertisedIssuerUnavailable) {
+		} else if errors.Is(discoverErr, errOAuthAdvertisedIssuerUnavailable) || outboundPolicyDenied(discoverErr) {
 			return nil, discoverErr
 		}
 	}
@@ -880,7 +896,7 @@ func (m *Manager) OAuthStart(ctx context.Context, name, redirect string) (string
 		// continues serving the previous refresh token until commit succeeds.
 		exchangeStore = NewMemoryTokenStore()
 	}
-	f, e := StartOAuth(ctx, OAuthFlowConfig{ClientID: clientID, ClientSecret: clientSecret, RedirectURI: redirect, Scopes: c.OAuth.Scopes, AuthServerMetadataURL: c.OAuth.AuthServerMetadataURL, TokenStore: exchangeStore, PKCEEnabled: true}, c.URL)
+	f, e := StartOAuth(ctx, OAuthFlowConfig{HTTPClient: m.oauthHTTPClient(), ClientID: clientID, ClientSecret: clientSecret, RedirectURI: redirect, Scopes: c.OAuth.Scopes, AuthServerMetadataURL: c.OAuth.AuthServerMetadataURL, TokenStore: exchangeStore, PKCEEnabled: true}, c.URL)
 	if e != nil {
 		return "", "", e
 	}
@@ -934,7 +950,7 @@ func (m *Manager) OAuthStart(ctx context.Context, name, redirect string) (string
 		store.refreshMu.Lock()
 		store.target = credentialTargetKey(updated)
 		store.refresh = func(refreshCtx context.Context, refreshToken string) (*Token, error) {
-			h := NewOAuthHandler(OAuthFlowConfig{ClientID: oauth.ClientID, ClientSecret: oauth.ClientSecret, Scopes: oauth.Scopes, AuthServerMetadataURL: oauth.AuthServerMetadataURL, TokenStore: store})
+			h := NewOAuthHandler(OAuthFlowConfig{HTTPClient: m.oauthHTTPClient(), ClientID: oauth.ClientID, ClientSecret: oauth.ClientSecret, Scopes: oauth.Scopes, AuthServerMetadataURL: oauth.AuthServerMetadataURL, TokenStore: store})
 			h.SetBaseURL(updated.URL)
 			return h.RefreshToken(refreshCtx, refreshToken)
 		}
@@ -1035,7 +1051,7 @@ func (m *Manager) OAuthCallbackForRedirect(ctx context.Context, sid, code, state
 	oauth.Scopes = append([]string(nil), updated.OAuth.Scopes...)
 	s.Store.target = credentialTargetKey(updated)
 	s.Store.refresh = func(refreshCtx context.Context, refreshToken string) (*Token, error) {
-		h := NewOAuthHandler(OAuthFlowConfig{ClientID: oauth.ClientID, ClientSecret: oauth.ClientSecret, Scopes: oauth.Scopes, AuthServerMetadataURL: oauth.AuthServerMetadataURL, TokenStore: s.Store})
+		h := NewOAuthHandler(OAuthFlowConfig{HTTPClient: m.oauthHTTPClient(), ClientID: oauth.ClientID, ClientSecret: oauth.ClientSecret, Scopes: oauth.Scopes, AuthServerMetadataURL: oauth.AuthServerMetadataURL, TokenStore: s.Store})
 		h.SetBaseURL(updated.URL)
 		return h.RefreshToken(refreshCtx, refreshToken)
 	}
@@ -1073,9 +1089,13 @@ func (m *Manager) OAuthDisconnect(name string) error {
 	var revokeErr error
 	if cfgErr == nil && tokenErr == nil && c.OAuth != nil {
 		oauth := c.OAuth
-		h := NewOAuthHandler(OAuthFlowConfig{ClientID: oauth.ClientID, ClientSecret: oauth.ClientSecret, AuthServerMetadataURL: oauth.AuthServerMetadataURL, TokenStore: NewMemoryTokenStore()})
+		h := NewOAuthHandler(OAuthFlowConfig{HTTPClient: m.oauthHTTPClient(), ClientID: oauth.ClientID, ClientSecret: oauth.ClientSecret, AuthServerMetadataURL: oauth.AuthServerMetadataURL, TokenStore: NewMemoryTokenStore()})
 		h.SetBaseURL(c.URL)
-		if metadata, err := h.GetServerMetadata(ctx); err == nil && metadata != nil && metadata.RevocationEndpoint != "" {
+		metadata, metadataErr := h.GetServerMetadata(ctx)
+		if outboundPolicyDenied(metadataErr) {
+			revokeErr = metadataErr
+		}
+		if metadataErr == nil && metadata != nil && metadata.RevocationEndpoint != "" {
 			value := token.RefreshToken
 			if value == "" {
 				value = token.AccessToken
@@ -1087,7 +1107,7 @@ func (m *Manager) OAuthDisconnect(name string) error {
 			req, err := http.NewRequestWithContext(ctx, http.MethodPost, metadata.RevocationEndpoint, strings.NewReader(form.Encode()))
 			if err == nil {
 				req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-				resp, err := http.DefaultClient.Do(req)
+				resp, err := m.oauthRequestClient().Do(req)
 				if err == nil {
 					resp.Body.Close()
 					if resp.StatusCode/100 != 2 {
@@ -1132,7 +1152,7 @@ func (m *Manager) newTokenStoreLocked(name string, cfg MCPServerConfig) *FileTok
 		oauth := *cfg.OAuth
 		oauth.Scopes = append([]string(nil), cfg.OAuth.Scopes...)
 		s.refresh = func(ctx context.Context, refreshToken string) (*Token, error) {
-			h := NewOAuthHandler(OAuthFlowConfig{ClientID: oauth.ClientID, ClientSecret: oauth.ClientSecret, Scopes: oauth.Scopes, AuthServerMetadataURL: oauth.AuthServerMetadataURL, TokenStore: s})
+			h := NewOAuthHandler(OAuthFlowConfig{HTTPClient: m.oauthHTTPClient(), ClientID: oauth.ClientID, ClientSecret: oauth.ClientSecret, Scopes: oauth.Scopes, AuthServerMetadataURL: oauth.AuthServerMetadataURL, TokenStore: s})
 			h.SetBaseURL(cfg.URL)
 			return h.RefreshToken(ctx, refreshToken)
 		}

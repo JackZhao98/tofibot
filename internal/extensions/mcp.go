@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net"
 	"net/http"
 	"net/url"
 	"os"
@@ -63,7 +64,9 @@ type Diagnostic struct {
 type Config struct {
 	// HTTPTransport resolves service-owned private endpoints. A nil result
 	// retains ordinary remote HTTP; errors must never fall back to remote DNS.
-	HTTPTransport    func(string) (http.RoundTripper, error)
+	HTTPTransport func(string) (http.RoundTripper, error)
+	// HostedEgress is selected only by the server mode, never saved MCP data.
+	HostedEgress     bool
 	MCPConfigPath    string
 	SkillsDir        string
 	ToolTimeout      time.Duration
@@ -77,6 +80,7 @@ type Config struct {
 type Manager struct {
 	mcpConfigFence     sync.RWMutex // Dispatch/configuration fence, separate from OAuth cache locking.
 	cfg                Config
+	httpClient         *http.Client
 	mu                 sync.RWMutex
 	oauth              map[string]oauthSession
 	oauthState         map[string]string
@@ -165,6 +169,11 @@ func NewManager(cfg Config) *Manager {
 		cfg.MaxToolResult = maxToolResult
 	}
 	m := &Manager{cfg: cfg, tokenStores: map[string]*FileTokenStore{}, catalog: NewMCPCatalogCache(0, 0, 0), metadata: NewMCPCatalogCache(0, 0, 10*time.Minute)}
+	m.httpClient = http.DefaultClient
+	if cfg.HostedEgress {
+		m.httpClient = newPublicHTTPClient(net.DefaultResolver, (&net.Dialer{Timeout: 10 * time.Second, KeepAlive: 30 * time.Second}).DialContext)
+		m.httpClient.Transport.(*publicHTTPTransport).transport.ResponseHeaderTimeout = cfg.ToolTimeout
+	}
 	if cfg.MCPConfigPath != "" {
 		if root, err := filepath.Abs(filepath.Join(filepath.Dir(cfg.MCPConfigPath), "mcp-tool-index")); err == nil {
 			m.metadataDisk, _ = NewPersistentMCPMetadataIndex(root)
@@ -563,6 +572,9 @@ func (m *Manager) openMCPClient(runCtx, discoveryCtx context.Context, name strin
 		return nil, fmt.Errorf("unsupported MCP transport %q", cfg.Transport)
 	}
 	baseTransport := http.DefaultTransport
+	if m.cfg.HostedEgress {
+		baseTransport = m.httpClient.Transport
+	}
 	if m.cfg.HTTPTransport != nil {
 		resolved, err := m.cfg.HTTPTransport(cfg.URL)
 		if err != nil {
@@ -572,7 +584,18 @@ func (m *Manager) openMCPClient(runCtx, discoveryCtx context.Context, name strin
 			baseTransport = resolved
 		}
 	}
-	transport := &mcp.StreamableClientTransport{Endpoint: cfg.URL, HTTPClient: &http.Client{Transport: mcpHeaderTransport{headers: cloneStringMap(cfg.Headers), base: baseTransport}, CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}}
+	clientHTTP := http.Client{}
+	if m.cfg.HostedEgress {
+		clientHTTP = *m.httpClient
+		// MCP calls/discovery use their existing operation contexts. Subscription
+		// bodies last until the run/session closes, rather than an OAuth deadline.
+		clientHTTP.Timeout = 0
+	}
+	clientHTTP.Transport = mcpHeaderTransport{headers: cloneStringMap(cfg.Headers), base: baseTransport}
+	if !m.cfg.HostedEgress {
+		clientHTTP.CheckRedirect = func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }
+	}
+	transport := &mcp.StreamableClientTransport{Endpoint: cfg.URL, HTTPClient: &clientHTTP}
 	if cfg.OAuth != nil {
 		transport.OAuthHandler = storedMCPOAuth{store: m.tokenStore(name, cfg)}
 	}
@@ -822,4 +845,26 @@ func boundedContent(result *mcp.CallToolResult, max int) string {
 		return string(r[:max]) + "\n[truncated]"
 	}
 	return out
+}
+
+// CloseIdleConnections releases only this Manager's hosted remote pool.
+func (m *Manager) CloseIdleConnections() {
+	if m != nil && m.cfg.HostedEgress {
+		m.httpClient.CloseIdleConnections()
+	}
+}
+
+// A nil operation client preserves single-owner oauth2 context compatibility.
+// Every hosted construction and later operation instead retains this client.
+func (m *Manager) oauthHTTPClient() *http.Client {
+	if m.cfg.HostedEgress {
+		return m.httpClient
+	}
+	return nil
+}
+func (m *Manager) oauthRequestClient() *http.Client {
+	if client := m.oauthHTTPClient(); client != nil {
+		return client
+	}
+	return http.DefaultClient
 }

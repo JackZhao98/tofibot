@@ -11,6 +11,9 @@ import (
 )
 
 func mcpErrorReadiness(err error) runtime.MethodReadiness {
+	if outboundPolicyDenied(err) {
+		return runtime.MethodUnavailable
+	}
 	if errors.Is(err, ErrOAuthAuthorizationRequired) || errors.Is(err, ErrNoToken) {
 		return runtime.MethodAuthRequired
 	}

@@ -2,10 +2,12 @@ package app
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"net/url"
 	"os"
@@ -45,12 +47,118 @@ func (s *Server) localRunnerConfig() (string, string, error) {
 	return base, strings.TrimSpace(string(token)), nil
 }
 
+// Snapshot only process-owned configuration; classification never reads a token
+// or any saved/imported MCP field. Tenant runtimes have no environment fallback.
+func (s *Server) snapshotLocalRunnerMCP() {
+	base := strings.TrimRight(s.localRunnerURL, "/")
+	if !s.isolatedWorkspace && base == "" {
+		base = strings.TrimRight(os.Getenv("TOFI_MCP_RUNNER_URL"), "/")
+	}
+	u, err := url.Parse(base)
+	if err != nil || !validRunnerBase(u) {
+		return
+	}
+	s.localRunnerMCPBase = u
+	s.localRunnerMCPHTTP = &http.Transport{Proxy: nil,
+		DialContext:       (&net.Dialer{Timeout: 10 * time.Second, KeepAlive: 30 * time.Second}).DialContext,
+		ForceAttemptHTTP2: true, TLSHandshakeTimeout: 10 * time.Second, ResponseHeaderTimeout: 30 * time.Second,
+		MaxIdleConns: 8, MaxIdleConnsPerHost: 4, MaxConnsPerHost: 8, IdleConnTimeout: 30 * time.Second}
+}
+
+func validRunnerBase(u *url.URL) bool {
+	if u == nil || u.Host == "" || u.Hostname() == "account-computer" || u.User != nil || u.RawQuery != "" || u.ForceQuery || u.Fragment != "" || u.RawPath != "" || u.Opaque != "" || (u.Scheme != "http" && u.Scheme != "https") {
+		return false
+	}
+	for _, segment := range strings.Split(u.Path, "/") {
+		if segment == "." || segment == ".." {
+			return false
+		}
+	}
+	return !strings.ContainsAny(u.Path, "\\")
+}
+
+func exactRunnerMCP(u, base *url.URL) bool {
+	if u == nil || base == nil || u.Scheme != base.Scheme || u.Host != base.Host || u.User != nil || u.RawQuery != "" || u.ForceQuery || u.Fragment != "" || u.RawPath != "" || u.Opaque != "" {
+		return false
+	}
+	prefix := strings.TrimRight(base.Path, "/") + "/mcp/"
+	return strings.HasPrefix(u.Path, prefix) && localMCPID(strings.TrimPrefix(u.Path, prefix))
+}
+
+type scopedMCPTransport struct {
+	endpoint  string
+	base      http.RoundTripper
+	authorize func(*http.Request) error
+}
+
+func (t scopedMCPTransport) RoundTrip(r *http.Request) (*http.Response, error) {
+	if r.URL == nil || r.URL.String() != t.endpoint || (r.Host != "" && r.Host != r.URL.Host) || r.Header.Get("Host") != "" {
+		return nil, extensions.ErrOutboundDestinationDenied
+	}
+	req := r.Clone(r.Context())
+	if t.authorize != nil {
+		if err := t.authorize(req); err != nil {
+			return nil, err
+		}
+	}
+	return t.base.RoundTrip(req)
+}
+func (t scopedMCPTransport) Prepare(ctx context.Context) error {
+	if p, ok := t.base.(interface{ Prepare(context.Context) error }); ok {
+		return p.Prepare(ctx)
+	}
+	return nil
+}
+func (t scopedMCPTransport) Readiness(ctx context.Context) (string, error) {
+	if p, ok := t.base.(interface {
+		Readiness(context.Context) (string, error)
+	}); ok {
+		return p.Readiness(ctx)
+	}
+	return "ready", nil
+}
+
 func (s *Server) localMCPTransport(endpoint string) (http.RoundTripper, error) {
 	u, err := url.Parse(endpoint)
 	if err != nil {
-		return nil, err
+		return nil, extensions.ErrOutboundDestinationDenied
 	}
-	if u.Host != "account-computer" {
+	if strings.EqualFold(u.Hostname(), "account-computer") {
+		base, _ := url.Parse(computer.RunnerOrigin)
+		if !exactRunnerMCP(u, base) {
+			return nil, extensions.ErrOutboundDestinationDenied
+		}
+		if !s.isolatedWorkspace || s.microVM == nil {
+			return nil, errors.New("account Runner transport unavailable")
+		}
+		return scopedMCPTransport{endpoint: endpoint, base: s.microVM.RunnerTransport()}, nil
+	}
+	if base := s.localRunnerMCPBase; base != nil && strings.EqualFold(u.Hostname(), base.Hostname()) {
+		if !exactRunnerMCP(u, base) {
+			if !s.hostedMCP {
+				return nil, nil
+			}
+			return nil, extensions.ErrOutboundDestinationDenied
+		}
+		return scopedMCPTransport{endpoint: endpoint, base: s.localRunnerMCPHTTP, authorize: func(r *http.Request) error {
+			current, token, err := s.localRunnerConfig()
+			if err != nil {
+				return err
+			}
+			if current != strings.TrimRight(base.String(), "/") {
+				return extensions.ErrOutboundDestinationDenied
+			}
+			r.Header.Set("Authorization", "Bearer "+token)
+			return nil
+		}}, nil
+	}
+	return nil, nil
+}
+
+// Administration calls use only the server-constructed base and fixed paths.
+// They do not pass through the tenant MCP capability selector.
+func (s *Server) runnerManagementTransport(base string) (http.RoundTripper, error) {
+	if base != computer.RunnerOrigin {
 		return nil, nil
 	}
 	if !s.isolatedWorkspace || s.microVM == nil {
@@ -85,7 +193,7 @@ func (s *Server) runnerRequest(r *http.Request, method, path string, body any) (
 	client := &http.Client{Timeout: 4 * time.Minute, CheckRedirect: func(*http.Request, []*http.Request) error {
 		return http.ErrUseLastResponse
 	}}
-	client.Transport, err = s.localMCPTransport(base)
+	client.Transport, err = s.runnerManagementTransport(base)
 	if err != nil {
 		return nil, 0, err
 	}
