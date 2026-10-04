@@ -55,13 +55,14 @@ if (process.env.TOFI_AUTOREVIEW_RENDERED === "1") {
     browser = await chromium.launch({executablePath:process.env.TOFI_TEST_CHROME});
     const page = await browser.newPage();
     let writes = 0, unexpected = 0, cases = 0;
+    const unexpectedPaths = [];
     await page.route("**/*",async route=>{
       const request=route.request(), url=new URL(request.url());
-      if(url.origin!==origin){unexpected++;await route.abort();return;}
+      if(url.origin!==origin){unexpected++;unexpectedPaths.push(url.origin+url.pathname);await route.abort();return;}
       if(!url.pathname.startsWith("/api/")){await route.continue();return;}
       if(request.method()!=="GET"){writes++;await route.fulfill({status:500,body:"Synthetic writes forbidden"});return;}
       const body=url.pathname==="/api/auto-review-settings"?{mode:"off",revision:0,eligible_tool_count:0}:url.pathname==="/api/preferences"?{timezone:"UTC",timezone_configured:true}:undefined;
-      if(!body){unexpected++;await route.fulfill({status:500,body:"Unexpected synthetic request"});return;}
+      if(!body){unexpected++;unexpectedPaths.push(url.pathname);await route.fulfill({status:500,body:"Unexpected synthetic request"});return;}
       await route.fulfill({contentType:"application/json",body:JSON.stringify(body)});
     });
     for(const viewport of [{width:1280,height:900},{width:390,height:844}]){
@@ -78,7 +79,7 @@ if (process.env.TOFI_AUTOREVIEW_RENDERED === "1") {
         cases++;
       }
     }
-    assert.equal(writes,0);assert.equal(unexpected,0);
+    assert.equal(writes,0);assert.equal(unexpected,0,JSON.stringify(unexpectedPaths));
     console.log(`PASS ${cases} rendered AutoReview composition cases: desktop/narrow OFF/zero, technical gaps/terminal cards, plain-text reasons, zero writes/external requests`);
   } finally {
     await browser?.close();await server?.close();await rm(fixture,{recursive:true,force:true});
