@@ -4,6 +4,7 @@ package app
 // transport/storage boundary, not isolation from an agent with arbitrary shell
 // access to the same user-owned VM.
 import (
+	"bytes"
 	"context"
 	"crypto/aes"
 	"crypto/cipher"
@@ -16,6 +17,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"reflect"
 	"regexp"
 	"strings"
 	"sync"
@@ -267,11 +269,25 @@ func (s *Server) handleSecrets(w http.ResponseWriter, r *http.Request) bool {
 			fail(409, "Request no longer pending")
 			return true
 		}
+		// Portability transactions hold the database connection before taking the
+		// vault mutex. Never wait for that connection while holding this mutex.
+		// Preserve a complete snapshot so a deletion, competing submission or
+		// changed request cannot be revived after the database check.
+		current.Ciphertext = bytes.Clone(current.Ciphertext)
+		pending := current
+		v.mu.Unlock()
 		var active int
-		err := s.store.db.QueryRow(`SELECT COUNT(*) FROM runs WHERE id=? AND bot_id=? AND conversation_id=? AND status='running'`, current.RunID, current.BotID, current.ConversationID).Scan(&active)
+		err := s.store.db.QueryRowContext(r.Context(), `SELECT COUNT(*) FROM runs WHERE id=? AND bot_id=? AND conversation_id=? AND status='running'`, pending.RunID, pending.BotID, pending.ConversationID).Scan(&active)
 		if err != nil || active != 1 {
-			v.mu.Unlock()
 			fail(409, "Run no longer active")
+			return true
+		}
+		v.mu.Lock()
+		current, exists = v.records[id]
+		created, _ = time.Parse(time.RFC3339Nano, current.CreatedAt)
+		if !exists || !reflect.DeepEqual(current, pending) || current.Status != "pending" || time.Since(created) > 10*time.Minute || r.Context().Err() != nil {
+			v.mu.Unlock()
+			fail(409, "Request no longer pending")
 			return true
 		}
 		current.Ciphertext, err = v.seal(id, in.Value)
@@ -280,7 +296,7 @@ func (s *Server) handleSecrets(w http.ResponseWriter, r *http.Request) bool {
 			v.records[id] = current
 			err = v.saveLocked()
 			if err != nil {
-				v.records[id] = record
+				v.records[id] = pending
 			}
 		}
 		v.mu.Unlock()
