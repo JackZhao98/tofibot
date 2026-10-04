@@ -186,3 +186,36 @@ operator from manually invoking Docker or an older installer against the same
 data. Retire incompatible scripts/images operationally; direct restarts need
 separate review. This bounded contract does not complete fresh-install plan
 integrity, partial-apply recovery, real Linux/KVM acceptance or release readiness.
+
+## Admin computer deletion acceptance gate
+
+The accounts-mode admin panel now has a separate permanent computer deletion
+control. Its App journal and Worker tombstone preserve the account, login,
+server-side credentials and conversations. The exact selected computer's Guest
+disk, runtime files, generated configuration and owned in-directory recovery
+copies are removed only after stop/ownership/cleanup proofs. External backups
+and shared releases are retained. See `contracts/alpha-api.md` for confirmation,
+generation, retry, attachment availability and explicit recreation semantics.
+Legacy adopted computers and unresolved offline resize are refused before stop.
+The systemd host Broker reports deletion unsupported and refuses before stop; this feature requires the
+isolated Worker implementation.
+
+Source checks use only freshly generated mock accounts and disposable files:
+`python3 -m unittest discover -s deploy/microvm -p test_account_deletion.py -v`,
+`go test -race ./internal/app -run TestAccountComputer -count=1`, and
+`cd ui && npm run test:admin-computer` (install Playwright Chromium first, or set
+`TOFI_TEST_CHROME` to an installed Chrome executable). The browser test mocks
+every API route and creates an isolated browser profile; it cannot issue a live
+computer deletion. It covers loss disclosure, typed confirmation, cancel/Escape,
+failed cleanup, same-operation retry, account restore and explicit recreation.
+
+Deployment still requires a separately authorized clean Linux/KVM test using
+new synthetic accounts only. Verify a running and a disabled computer, manager
+and Firecracker exit, empty selected cgroup, removed namespace/veth/filter/NAT
+rules, no selected mount/open file, actual disk blocks reclaimed, reservation
+and slot release, other account/session/chat/credential retention, Worker/App
+restart during partial cleanup, and a new generation after explicit recreation.
+Status reads, login and account restore must not allocate or start a deleted
+computer. Exercise the existing seccomp/AppArmor policy without broadening it.
+Do not use a retained production/test computer or an adopted legacy disk for
+this destructive acceptance. Source/browser tests are not Linux/KVM evidence.

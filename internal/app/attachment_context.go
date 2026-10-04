@@ -19,7 +19,7 @@ type attachmentQuerier interface {
 }
 
 func attachmentMetadata(q attachmentQuerier, id string) ([]Attachment, error) {
-	rows, err := q.Query(`SELECT a.id,a.conversation_id,a.name,a.mime,a.size,a.created_at FROM attachments a JOIN attachment_messages am ON am.attachment_id=a.id WHERE am.message_id=? ORDER BY a.created_at,a.id`, id)
+	rows, err := q.Query(`SELECT a.id,a.conversation_id,a.name,a.mime,a.size,a.created_at,EXISTS(SELECT 1 FROM unavailable_guest_attachments u WHERE u.attachment_id=a.id) FROM attachments a JOIN attachment_messages am ON am.attachment_id=a.id WHERE am.message_id=? ORDER BY a.created_at,a.id`, id)
 	if err != nil {
 		return nil, err
 	}
@@ -27,7 +27,7 @@ func attachmentMetadata(q attachmentQuerier, id string) ([]Attachment, error) {
 	out := []Attachment{}
 	for rows.Next() {
 		var a Attachment
-		if err := rows.Scan(&a.ID, &a.ConversationID, &a.Name, &a.MIME, &a.Size, &a.CreatedAt); err != nil {
+		if err := rows.Scan(&a.ID, &a.ConversationID, &a.Name, &a.MIME, &a.Size, &a.CreatedAt, &a.Unavailable); err != nil {
 			return nil, err
 		}
 		a.MessageID = id
@@ -40,6 +40,9 @@ func (s *Store) attachmentImage(id, conv string) (string, error) {
 	a, path, err := s.Attachment(id)
 	if err != nil {
 		return "", err
+	}
+	if a.Unavailable {
+		return "", errors.New("cloud computer deleted; attachment contents unavailable")
 	}
 	if ok, e := s.attachmentAvailableInConversation(id, conv); e != nil || !ok {
 		return "", errors.New("attachment belongs to another conversation")

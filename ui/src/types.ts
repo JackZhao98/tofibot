@@ -123,6 +123,7 @@ export interface Attachment {
   mime: string;
   size: number;
   created_at: string;
+  unavailable?: boolean;
 }
 
 export interface StreamDraft {

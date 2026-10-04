@@ -27,7 +27,8 @@
     "test:design-icons": "node scripts/test-design-icons.mjs",
     "test:motion-lab": "node scripts/test-motion-lab.mjs",
     "preview": "vite preview",
-    "test:auto-review": "node scripts/test-auto-review.mjs"
+    "test:auto-review": "node scripts/test-auto-review.mjs",
+    "test:admin-computer": "node scripts/test-admin-computer.mjs"
   },
   "dependencies": {
     "@dicebear/core": "10.7.0",
@@ -48,6 +49,7 @@
     "@types/react-dom": "^19.3.0",
     "@vitejs/plugin-react": "^6.1.1",
     "typescript": "^7.0.2",
-    "vite": "^8.3.0"
+    "vite": "^8.3.0",
+    "@playwright/test": "1.63.0"
   }
 }

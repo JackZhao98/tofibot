@@ -231,8 +231,9 @@ func portablePlaceholders(n int) string {
 }
 
 type portableAttachmentSource struct {
-	x    portableAttachment
-	disk string
+	x           portableAttachment
+	disk        string
+	unavailable bool
 }
 type portableAttachmentSnapshot struct {
 	sources  []portableAttachmentSource
@@ -255,7 +256,7 @@ func snapshotPortableAttachments(ctx context.Context, tx *sql.Tx, b *portableBun
 		messages[m.ID] = m.ConversationID
 		args = append(args, m.ID)
 	}
-	query := `SELECT id,conversation_id,name,size,created_at,disk_name FROM attachments WHERE conversation_id IN (` + portablePlaceholders(len(convs)) + `) OR id IN (SELECT attachment_id FROM attachment_messages WHERE message_id IN (` + portablePlaceholders(len(messages)) + `)) ORDER BY id LIMIT ?`
+	query := `SELECT id,conversation_id,name,size,created_at,disk_name,EXISTS(SELECT 1 FROM unavailable_guest_attachments u WHERE u.attachment_id=attachments.id) FROM attachments WHERE conversation_id IN (` + portablePlaceholders(len(convs)) + `) OR id IN (SELECT attachment_id FROM attachment_messages WHERE message_id IN (` + portablePlaceholders(len(messages)) + `)) ORDER BY id LIMIT ?`
 	args = append(args, portableMaxRecords+1)
 	rows, err := tx.QueryContext(ctx, query, args...)
 	if err != nil {
@@ -264,7 +265,7 @@ func snapshotPortableAttachments(ctx context.Context, tx *sql.Tx, b *portableBun
 	sources := []portableAttachmentSource{}
 	for rows.Next() {
 		var a portableAttachmentSource
-		if err = rows.Scan(&a.x.ID, &a.x.ConversationID, &a.x.Name, &a.x.Size, &a.x.CreatedAt, &a.disk); err != nil {
+		if err = rows.Scan(&a.x.ID, &a.x.ConversationID, &a.x.Name, &a.x.Size, &a.x.CreatedAt, &a.disk, &a.unavailable); err != nil {
 			break
 		}
 		sources = append(sources, a)
@@ -392,7 +393,11 @@ func (s *Store) exportPortableAttachmentBytes(ctx context.Context, b *portableBu
 	for _, src := range snapshot.sources {
 		x := src.x
 		reason := ""
-		if x.Size < 0 || x.Size > portableMaxAttachmentBytes {
+		if src.unavailable {
+			// The snapshot includes the permanent deletion marker. A new Guest
+			// generation or bytes at the old alias cannot restore this identity.
+			reason = "unavailable"
+		} else if x.Size < 0 || x.Size > portableMaxAttachmentBytes {
 			reason = "too_large"
 		} else if len(b.Attachments) >= portableMaxAttachments || total+x.Size > portableMaxAttachmentTotal {
 			reason = "bundle_limit"

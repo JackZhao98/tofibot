@@ -3,7 +3,7 @@ FROM python:3.12-slim
 ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1 LIBMOUNT_FORCE_MOUNT2=always
 WORKDIR /opt/tofi-worker
 COPY deploy/microvm/account_capacity.py deploy/microvm/account_provisioner.py \
-     deploy/microvm/account_adoption.py \
+     deploy/microvm/account_adoption.py deploy/microvm/account_deletion.py \
      deploy/microvm/worker_cgroups.py deploy/microvm/worker_supervisor.py \
      deploy/microvm/worker_entrypoint.py deploy/microvm/manager.py \
      deploy/microvm/account_release_check.py ./

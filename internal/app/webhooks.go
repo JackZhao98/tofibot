@@ -388,7 +388,7 @@ func (g *AccountGateway) webhookIngress(w http.ResponseWriter, r *http.Request, 
 	current, err := g.root.store.webhookByHook(ctx, hook)
 	var disabled, change bool
 	accountErr := g.root.store.db.QueryRowContext(ctx, `SELECT disabled,must_change_password FROM accounts WHERE id=?`, a.ID).Scan(&disabled, &change)
-	if err != nil || current.Version != e.Version || !webhookMatches(current, secret) || accountErr != nil || disabled || change || g.closed || g.workspaces[a.ID] != s {
+	if err != nil || current.Version != e.Version || !webhookMatches(current, secret) || accountErr != nil || disabled || change || g.closed || g.workspaces[a.ID] != s || g.computerFenced(a.ID) {
 		g.mu.Unlock()
 		webhookError(w, 401)
 		return

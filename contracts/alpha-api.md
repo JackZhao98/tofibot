@@ -24,6 +24,20 @@
 - 电脑：`GET /api/computers`、`POST /api/computers/pairings`、`POST /api/computers/pair`、`DELETE /api/computers/{id}`。设备凭据只返回一次，服务端只存摘要。
 - 设备用 Bearer 凭据请求 `PATCH /api/computers/{id}/capabilities`、`GET /api/computers/{id}/jobs`、`POST /api/computers/{id}/jobs/{job_id}/result`。UI/工具可通过 `POST /api/computers/{id}/actions`、`GET /api/computers/{id}/actions/{job_id}` 创建和读取任务；设备离线或能力未授权时拒绝执行。
 
+### 多账号 Worker 云电脑的删除与重建
+
+此接口用于 accounts 模式下的隔离 Worker 云电脑，与上面的设备配对删除不同。要求当前启用、已修改初始密码的 Admin 会话；写请求仍受同源检查保护。身份由服务端根据账号解析，客户端不能提供文件路径、槽位或运行时目标。
+
+- `GET /api/admin/accounts/{account_id}/computer` 返回账号、电脑 ID、`generation`、`state`、原操作 ID、阶段、错误、`supported`、槽位、预留磁盘字节与 `resources_released`。查询不会启动或重新预留电脑。
+- `DELETE /api/admin/accounts/{account_id}/computer` 要求严格 JSON：`operation_id`、`expected_generation`、`confirm_computer_id`、`confirm_account_id`、`confirm_username`、`acknowledge_data_loss:true`。UUID 必须为规范形式，名称与身份必须与当前账号一致。失败后使用原操作 ID 与原 generation 重试；旧操作不能影响后来重建的电脑或复用槽位的其他账号。
+- `POST /api/admin/accounts/{account_id}/computer/recreate` 要求相同身份确认字段与 `quota_gib`（整数 8..1024）。仅在删除已验证后显式重建；账号必须已启用。重新 admission 后分配新的 generation；此调用不会立即启动 manager。失败或回复丢失时原操作 ID 和容量不可改变。
+
+删除前，App 保存意图、封锁新的电脑操作、取消并等待该账号的旧请求及后台运行时退出；Worker 独立保存删除 tombstone 后停止 manager。只有在进程/cgroup、文件占用、挂载、网络清理与固定目录的文件身份均验证通过后，才逐项删除该电脑的磁盘、jail、日志、socket、资源状态文件和经摘要验证的生成配置。电脑目录内属于该电脑的恢复副本也会删除；共享 release 镜像不会删除。未知文件、符号链接、外部硬链接、跨挂载或外来所有者均保留数据并拒绝完成。部分删除保存原始 inode 清单供重启后继续，不能重新推测目标。
+
+账号、登录权限、App 聊天记录、服务端凭据、附件元数据、电脑目录外备份与其他账号数据保留。Guest 中的工作区文件、应用、浏览器登录状态、工具/插件数据及其授权、聊天附件字节永久丢失。Guest 附件在开始清理时标记为 `unavailable:true`，下载返回 410；后续空白重建不会恢复旧附件 ID。管理界面的动作确认必须展示账号/电脑身份和上述损失，勾选确认并输入完整电脑 ID 后才能提交。
+
+生命周期为 `active → deleting → deleted`，失败保持 `cleanup_failed` 与原操作 ID。App 的重建未确认状态为 `recreating`。只有 `deleted` 才声明资源已释放并清除磁盘承诺、内部预留与槽位；运行时预算在停止证明通过后释放。登录、状态轮询、恢复账号、隐式 ensure/reserve/abort/quota 以及重启均不能绕过 tombstone。旧电脑 adoption 依赖现存 inode 的所有权证明，当前明确不支持删除；未解决的离线 resize 也必须先完成已有操作。
+
 ## 主要对象
 
 客户端启动顺序为服务发现、身份与工作区选择、聊天初始化。当前只实现无登录的单工作区模式，发现成功后可直接进入聊天；未来需要登录或多住户时扩展相应步骤。客户端不能把未知 `protocol_version`、`auth.mode` 或 `tenancy.mode` 当作当前模式放行，也不能把某个 HTTP 端口能连接等同于 Tofi 服务就绪。服务连接与 Codex 模型账户连接是两件独立的事。

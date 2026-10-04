@@ -15,9 +15,12 @@ import subprocess
 
 from account_capacity import AdmissionError, CapacityLedger, account_id
 import account_adoption
+import account_deletion
 
 
 class Broker:
+    supports_computer_deletion = False
+
     def __init__(self, config, run=None, metrics=None):
         self.c = config
         self.release = Path(config["release_dir"])
@@ -39,6 +42,7 @@ class Broker:
         os.chmod(self.ledger.database, 0o600)
         with self.ledger.connection() as db:
             account_adoption.initialize(db)
+            account_deletion.initialize(db)
             db.execute("""CREATE TABLE IF NOT EXISTS owned_files(
                 path TEXT PRIMARY KEY, sha256 TEXT NOT NULL, mode INTEGER NOT NULL)""")
             db.execute("""CREATE TABLE IF NOT EXISTS runtime_claims(
@@ -392,8 +396,7 @@ class Broker:
         return row[0]
 
     def record_owned(self, path, content, mode):
-        # Future uninstall must recheck hash/ownership before removing files.
-        # No delete operation is offered by this broker.
+        # Deletion rechecks this manifest before removing generated files.
         with self.ledger.connection() as db:
             db.execute("INSERT OR REPLACE INTO owned_files VALUES(?,?,?)",
                        (str(path), hashlib.sha256(content.encode()).hexdigest(), mode))
@@ -434,7 +437,7 @@ class Broker:
             db.execute("COMMIT")
 
     def dispatch(self, request):
-        if not isinstance(request, dict) or set(request) - {"op", "account_id", "quota_gib"}:
+        if not isinstance(request, dict) or set(request) - {"op", "account_id", "quota_gib", "generation", "operation_id"}:
             raise ValueError("unknown request field")
         op = request.get("op")
         if op == "capacity" and set(request) == {"op"}:
@@ -446,6 +449,20 @@ class Broker:
                     computer["pending_quota"] = computer["account_id"] in pending
                 return snapshot
         identity, name, unit = self.identity(request.get("account_id"))
+        if op == 'computer_status' and set(request) == {'op', 'account_id'}:
+            return account_deletion.status(self, identity)
+        if op == 'delete' and set(request) == {'op', 'account_id', 'generation', 'operation_id'}:
+            return account_deletion.delete(self, identity, request['generation'], request['operation_id'])
+        if op == 'recreate' and set(request) == {'op', 'account_id', 'generation', 'operation_id', 'quota_gib'}:
+            return account_deletion.recreate(self, identity, request['generation'], request['operation_id'], request['quota_gib'])
+        with self.ledger.connection() as db:
+            life = db.execute('SELECT state FROM computer_lifecycle WHERE account_id=?', (identity,)).fetchone()
+            # Account restore/disable keeps a deleted computer fenced. A stop
+            # can be safely retried without admitting or removing anything.
+            if life and life[0] != 'active':
+                if op in ('restore', 'disable', 'stop') and set(request) == {'op', 'account_id'}:
+                    return {'fenced': True}
+                account_deletion.assert_active(db, identity)
         if op in ("reserve", "quota") and set(request) == {"op", "account_id", "quota_gib"}:
             if op == "quota":
                 return self._quota(identity, unit, request["quota_gib"])
@@ -522,6 +539,14 @@ class Broker:
 
     def stop_manager(self, identity, unit):
         self.run(["/usr/bin/systemctl", "stop", unit])
+
+    def verify_delete_cleanup(self, identity, slot):
+        # Only the isolated Worker supervisor has the required process and
+        # namespace proof. Compatibility systemd brokers never offer deletion.
+        raise AdmissionError('computer deletion requires the isolated Worker')
+
+    def delete_userfault_device(self):
+        raise AdmissionError('userfault device identity unavailable')
 
     def manager_config(self, config):
         return config

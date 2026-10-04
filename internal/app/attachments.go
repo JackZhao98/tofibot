@@ -36,6 +36,7 @@ type Attachment struct {
 	MIME           string `json:"mime"`
 	Size           int64  `json:"size"`
 	CreatedAt      string `json:"created_at"`
+	Unavailable    bool   `json:"unavailable,omitempty"`
 }
 
 func migrateAttachments(db *sql.DB) error {
@@ -47,7 +48,9 @@ func migrateAttachments(db *sql.DB) error {
 	 attachment_id TEXT NOT NULL, message_id TEXT NOT NULL,
 	 PRIMARY KEY(attachment_id,message_id),
 	 FOREIGN KEY(attachment_id) REFERENCES attachments(id) ON DELETE CASCADE,
-	 FOREIGN KEY(message_id) REFERENCES messages(id) ON DELETE CASCADE);`)
+	 FOREIGN KEY(message_id) REFERENCES messages(id) ON DELETE CASCADE);
+	CREATE TABLE IF NOT EXISTS unavailable_guest_attachments(
+	 attachment_id TEXT PRIMARY KEY REFERENCES attachments(id) ON DELETE CASCADE);`)
 	return err
 }
 
@@ -171,7 +174,7 @@ func isRasterFile(path, typ string) bool {
 func (s *Store) Attachment(id string) (Attachment, string, error) {
 	var a Attachment
 	var disk string
-	err := s.db.QueryRow(`SELECT id,conversation_id,name,mime,size,created_at,disk_name FROM attachments WHERE id=?`, id).Scan(&a.ID, &a.ConversationID, &a.Name, &a.MIME, &a.Size, &a.CreatedAt, &disk)
+	err := s.db.QueryRow(`SELECT id,conversation_id,name,mime,size,created_at,disk_name,EXISTS(SELECT 1 FROM unavailable_guest_attachments u WHERE u.attachment_id=attachments.id) FROM attachments WHERE id=?`, id).Scan(&a.ID, &a.ConversationID, &a.Name, &a.MIME, &a.Size, &a.CreatedAt, &disk, &a.Unavailable)
 	if err != nil {
 		return Attachment{}, "", err
 	}
@@ -200,6 +203,9 @@ func (s *Store) ReadAttachmentText(id, conversationID string) (string, Attachmen
 	a, path, err := s.Attachment(id)
 	if err != nil {
 		return "", Attachment{}, err
+	}
+	if a.Unavailable {
+		return "", a, errors.New("cloud computer deleted; attachment contents unavailable")
 	}
 	if conversationID != "" {
 		ok, e := s.attachmentAvailableInConversation(id, conversationID)
@@ -331,6 +337,10 @@ func (s *Server) routeAttachments(w http.ResponseWriter, r *http.Request, p stri
 	}
 	if r.Method != http.MethodGet {
 		writeErr(w, 405, "method", "method not allowed")
+		return true
+	}
+	if a.Unavailable {
+		writeErr(w, 410, "computer_attachment_deleted", "云电脑已删除，此附件内容无法恢复；聊天记录及附件条目仍保留")
 		return true
 	}
 	f, err := s.store.openAttachment(r.Context(), path)

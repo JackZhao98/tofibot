@@ -22,6 +22,7 @@ export function MessageAttachment({attachment,compact=false}:{attachment:Attachm
  const url=`/api/attachments/${encodeURIComponent(attachment.id)}`;
  const image=attachment.mime.startsWith("image/")&&attachment.mime!=="image/svg+xml";
  const extension=(attachment.name.split(".").at(-1)??"FILE").replace(/[^a-z0-9]/gi,"").slice(0,5).toUpperCase()||"FILE";
+ if(attachment.unavailable)return <span className="attachment-recovery" role="status">{attachment.name} · 云电脑已删除，附件内容无法恢复</span>;
  if(compact) return <span className="sent-attachment-pill">
   {image ? <button ref={preview} type="button" className="sent-attachment-main" onClick={openZoom} aria-label={`放大图片 ${attachment.name}`}><img src={url} alt="" loading="lazy"/><span className="sent-attachment-name">{attachment.name}</span><small>{fileSize(attachment.size)}</small></button> : <a className="sent-attachment-main" href={url} target="_blank" rel="noreferrer"><span className="sent-attachment-type" aria-hidden="true">{extension}</span><span className="sent-attachment-name">{attachment.name}</span><small>{fileSize(attachment.size)}</small></a>}
   {image&&<dialog ref={lightbox} className="attachment-lightbox" onCancel={event=>{event.preventDefault();void closeZoom()}} onClick={event=>{if(event.target===lightbox.current)void closeZoom()}}><button type="button" onClick={()=>void closeZoom()} aria-label="关闭图片"><TofiIcon name="close" size={20}/></button><img ref={zoomImage} src={url} alt={attachment.name}/><small>{attachment.name}</small></dialog>}

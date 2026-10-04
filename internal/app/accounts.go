@@ -37,6 +37,7 @@ type AccountGateway struct {
 	closed              bool
 	runtimeFactory      func(Config) (*Server, error)
 	legacyComputerPhase string
+	computerTransitions sync.Map
 }
 
 func NewAccountGateway(c Config) (*AccountGateway, error) {
@@ -68,6 +69,8 @@ func NewAccountGateway(c Config) (*AccountGateway, error) {
 	_, err = tx.Exec(`CREATE TABLE IF NOT EXISTS accounts(id TEXT PRIMARY KEY,username TEXT NOT NULL COLLATE NOCASE UNIQUE,email TEXT NOT NULL COLLATE NOCASE UNIQUE,role TEXT NOT NULL CHECK(role IN ('admin','user')),salt BLOB NOT NULL,password_hash BLOB NOT NULL,disabled INTEGER NOT NULL DEFAULT 0,must_change_password INTEGER NOT NULL DEFAULT 0,legacy INTEGER NOT NULL DEFAULT 0,created_at INTEGER NOT NULL);
  CREATE UNIQUE INDEX IF NOT EXISTS accounts_legacy ON accounts(legacy) WHERE legacy=1;
  CREATE TABLE IF NOT EXISTS account_sessions(token_hash BLOB PRIMARY KEY,account_id TEXT NOT NULL REFERENCES accounts(id),expires_at INTEGER NOT NULL);
+ CREATE TABLE IF NOT EXISTS account_computer_lifecycle(account_id TEXT PRIMARY KEY REFERENCES accounts(id),computer_id TEXT NOT NULL,generation TEXT NOT NULL,operation_id TEXT NOT NULL,state TEXT NOT NULL,actor_id TEXT NOT NULL,updated_at INTEGER NOT NULL);
+ CREATE TABLE IF NOT EXISTS account_computer_audit(operation_id TEXT PRIMARY KEY,account_id TEXT NOT NULL,computer_id TEXT NOT NULL,generation TEXT NOT NULL,action TEXT NOT NULL,actor_id TEXT NOT NULL,state TEXT NOT NULL,created_at INTEGER NOT NULL,updated_at INTEGER NOT NULL,quota_gib INTEGER NOT NULL DEFAULT 0);
  CREATE TABLE IF NOT EXISTS account_migration(id INTEGER PRIMARY KEY CHECK(id=1),legacy_sessions_imported INTEGER NOT NULL DEFAULT 0);
  INSERT OR IGNORE INTO account_migration(id,legacy_sessions_imported) VALUES(1,0);
  CREATE TABLE IF NOT EXISTS account_bootstrap(id INTEGER PRIMARY KEY CHECK(id=1),consumed INTEGER NOT NULL DEFAULT 0);
@@ -307,13 +310,16 @@ func (g *AccountGateway) workspace(a Account) (*Server, error) {
 	if g.config.AccountMaintenance {
 		c.AccountControlPlane = true // Metadata reads cannot start background jobs.
 	}
+	if g.computerFenced(a.ID) {
+		c.AccountControlPlane = true // History remains readable; no background recreation.
+	}
 	if (!a.Legacy || g.legacyComputerPhase == "worker") && g.config.AccountProvisionerSocket != "" {
 		if !filepath.IsAbs(g.config.AccountComputerSocketRoot) {
 			return nil, errors.New("absolute account socket root required")
 		}
 		c.ComputerSocket = filepath.Join(g.config.AccountComputerSocketRoot, g.computerIdentity(a), "control.sock")
 		c.ComputerEnsure = func(ctx context.Context) error {
-			if g.config.AccountMaintenance {
+			if g.config.AccountMaintenance || g.computerFenced(a.ID) {
 				return errors.New("account computer startup is fenced during maintenance")
 			}
 			var disabled, change bool
@@ -443,6 +449,9 @@ func (g *AccountGateway) handle(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	defer cleanup()
+	if g.adminComputer(w, r, a) {
+		return
+	}
 	if g.adminQuota(w, r, a) {
 		return
 	}
@@ -508,6 +517,18 @@ func (g *AccountGateway) handle(w http.ResponseWriter, r *http.Request) {
 	if strings.HasPrefix(r.URL.Path, "/api/computer/resources") && r.Method != http.MethodGet {
 		writeErr(w, 403, "quota_management_required", "computer allocation requires central capacity management")
 		return
+	}
+	if g.computerFenced(a.ID) {
+		if r.URL.Path == "/api/computers/firecracker/info" && r.Method == http.MethodGet {
+			var state string
+			g.root.store.db.QueryRow(`SELECT state FROM account_computer_lifecycle WHERE account_id=?`, a.ID).Scan(&state)
+			writeJSON(w, 200, map[string]any{"kind": "firecracker", "state": state, "phase": state, "error": "云电脑已停用或删除，需要 Admin 明确重新创建；聊天记录保留"})
+			return
+		}
+		if r.Method != http.MethodGet || strings.HasPrefix(r.URL.Path, "/api/computer") || strings.HasPrefix(r.URL.Path, "/api/extensions/local-mcp") {
+			writeErr(w, 423, "computer_fenced", "cloud computer unavailable; ask an admin to finish deletion or explicitly recreate it")
+			return
+		}
 	}
 	workspace, err := g.workspace(a)
 	if err != nil {

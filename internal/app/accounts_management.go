@@ -11,7 +11,11 @@ import (
 	"time"
 )
 
-type accountActiveRequest struct{ token string }
+type accountRequestKey struct{}
+type accountActiveRequest struct {
+	token string
+	done  chan struct{}
+}
 
 func (g *AccountGateway) register(r *http.Request) (*http.Request, Account, func(), bool) {
 	g.mu.Lock()
@@ -27,7 +31,8 @@ func (g *AccountGateway) register(r *http.Request) (*http.Request, Account, func
 		return r, a, func() {}, false
 	}
 	ctx, cancel := context.WithDeadline(r.Context(), time.Unix(expires, 0))
-	request := &accountActiveRequest{token: string(hash[:])}
+	request := &accountActiveRequest{token: string(hash[:]), done: make(chan struct{})}
+	ctx = context.WithValue(ctx, accountRequestKey{}, request)
 	if g.active[a.ID] == nil {
 		g.active[a.ID] = map[*accountActiveRequest]context.CancelFunc{}
 	}
@@ -37,6 +42,7 @@ func (g *AccountGateway) register(r *http.Request) (*http.Request, Account, func
 		g.mu.Lock()
 		defer g.mu.Unlock()
 		delete(g.active[a.ID], request)
+		close(request.done)
 		if len(g.active[a.ID]) == 0 {
 			delete(g.active, a.ID)
 		}
@@ -252,7 +258,7 @@ func (g *AccountGateway) manageAccount(w http.ResponseWriter, r *http.Request, a
 			runtime = g.workspaces[id]
 			delete(g.workspaces, id)
 		}
-		if in.Disabled != nil && (!target.Legacy || g.legacyComputerPhase == "worker") {
+		if in.Disabled != nil && (!target.Legacy || g.legacyComputerPhase == "worker") && !g.computerFenced(id) {
 			op := "restore"
 			if target.Disabled {
 				op = "disable"

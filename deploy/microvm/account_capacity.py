@@ -351,6 +351,9 @@ class CapacityLedger:
             raise ValueError("disk quota must be 8..1024 GiB")
         with self.connection() as db:
             db.execute("BEGIN IMMEDIATE")
+            if db.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='computer_lifecycle'").fetchone():
+                from account_deletion import assert_active
+                assert_active(db, identity)
             old = db.execute("SELECT * FROM computers WHERE account_id=?", (identity,)).fetchone()
             snapshot = self._snapshot(db)
             if old:

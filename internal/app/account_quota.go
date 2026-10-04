@@ -35,6 +35,23 @@ func (g *AccountGateway) adminQuota(w http.ResponseWriter, r *http.Request, a Ac
 		writeErr(w, 405, "method_not_allowed", "unsupported method")
 		return true
 	}
+	transition := g.computerTransition(id)
+	if transition.acquire(r.Context()) != nil {
+		writeErr(w, 409, "operation_canceled", "quota operation canceled before admission; refresh status")
+		return true
+	}
+	defer transition.release()
+	g.mu.Lock()
+	fresh, authorized := g.session(r)
+	g.mu.Unlock()
+	if !authorized || fresh.ID != a.ID || fresh.Role != "admin" || fresh.MustChangePassword {
+		writeErr(w, 403, "forbidden", "current admin session required")
+		return true
+	}
+	if g.computerFenced(id) {
+		writeErr(w, 409, "computer_fenced", "computer deletion is fenced; explicit recreation required")
+		return true
+	}
 	var in struct {
 		QuotaGiB int `json:"quota_gib"`
 	}
