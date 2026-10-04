@@ -1,8 +1,8 @@
 import assert from "node:assert/strict";
 import {execFile} from "node:child_process";
-import {mkdtemp, rm} from "node:fs/promises";
+import {mkdtemp, rm, writeFile} from "node:fs/promises";
 import {tmpdir} from "node:os";
-import {dirname, join} from "node:path";
+import {dirname, join, basename} from "node:path";
 import {fileURLToPath, pathToFileURL} from "node:url";
 import {promisify} from "node:util";
 
@@ -36,3 +36,51 @@ try {
   assert.equal(autoReviewPresentation({...awaitingHuman,approval:{...human.approval,review:{...human.approval.review,status:"not_eligible"}}}).label,"未获自动执行资格");
   console.log("PASS AutoReview UI reconnect, off switch, expiry and human decision provenance");
 } finally {await rm(output, {recursive: true, force: true});}
+
+// Optional finite rendering acceptance. The supplied Playwright/Chrome are local
+// tools; every API response and displayed identity below is newly synthetic.
+if (process.env.TOFI_AUTOREVIEW_RENDERED === "1") {
+  assert.ok(process.env.PLAYWRIGHT_MODULE, "Set PLAYWRIGHT_MODULE to a trusted installed module");
+  const {chromium} = await import(pathToFileURL(process.env.PLAYWRIGHT_MODULE));
+  const {createServer} = await import("vite");
+  const {default:react} = await import("@vitejs/plugin-react");
+  const fixture = await mkdtemp(join(ui, ".autoreview-composition-"));
+  let server, browser;
+  try {
+    await writeFile(join(fixture,"index.html"),'<div id="root"></div><script type="module" src="./main.tsx"></script>');
+    await writeFile(join(fixture,"main.tsx"),`import React from 'react';import {createRoot} from 'react-dom/client';import {TimezoneProvider} from '../src/UserTimezone';import {AutoReviewSettings} from '../src/AutoReviewSettings';import {QuestionCard} from '../src/QuestionCard';import '../src/styles.css';import '../src/settings-system.css';import '../src/v2-foundations.css';const status=new URLSearchParams(location.search).get('status')||'context_required';const state=new URLSearchParams(location.search).get('state')||'pending';const item={question_id:'synthetic-question',conversation_id:'synthetic-conversation',bot_id:'synthetic-bot',run_id:'synthetic-run',type:'question',question_type:'approval',question:'Synthetic bounded operation',status:state,created_at:'2026-01-01T00:00:00Z',approval:{action:'Synthetic read',target:'Synthetic fact',impact:'Synthetic effect',review:{source:'auto-review',status,reason:'Synthetic <script>untrusted</script>',model:'codex-auto-review'}}};createRoot(document.getElementById('root')!).render(<TimezoneProvider><AutoReviewSettings/><QuestionCard item={item as any} bot={undefined} group={false} archived={false} onChanged={async()=>{}}/></TimezoneProvider>);`);
+    server = await createServer({configFile:false,root:ui,plugins:[react()],server:{host:"127.0.0.1",port:0},logLevel:"error"});
+    await server.listen();
+    const origin = `http://127.0.0.1:${server.httpServer.address().port}`;
+    browser = await chromium.launch({executablePath:process.env.TOFI_TEST_CHROME});
+    const page = await browser.newPage();
+    let writes = 0, unexpected = 0, cases = 0;
+    await page.route("**/*",async route=>{
+      const request=route.request(), url=new URL(request.url());
+      if(url.origin!==origin){unexpected++;await route.abort();return;}
+      if(!url.pathname.startsWith("/api/")){await route.continue();return;}
+      if(request.method()!=="GET"){writes++;await route.fulfill({status:500,body:"Synthetic writes forbidden"});return;}
+      const body=url.pathname==="/api/auto-review-settings"?{mode:"off",revision:0,eligible_tool_count:0}:url.pathname==="/api/preferences"?{timezone:"UTC",timezone_configured:true}:undefined;
+      if(!body){unexpected++;await route.fulfill({status:500,body:"Unexpected synthetic request"});return;}
+      await route.fulfill({contentType:"application/json",body:JSON.stringify(body)});
+    });
+    for(const viewport of [{width:1280,height:900},{width:390,height:844}]){
+      await page.setViewportSize(viewport);
+      for(const [status,state] of [["setup_required","pending"],["context_required","pending"],["unavailable","pending"],["policy_denied","pending"],["terminal","pending"],["approved","expired"],["approved","cancelled"],["approved","run_done"]]){
+        await page.goto(`${origin}/${basename(fixture)}/index.html?status=${status}&state=${state}`);
+        const settings=page.locator("section").filter({has:page.getByRole("heading",{name:"AutoReview",exact:true})});
+        await settings.getByText("当前没有工具可自动批准。",{exact:false}).waitFor({timeout:10000});
+        assert.equal(await settings.getByRole("combobox").inputValue(),"off");
+        const card=page.locator('[data-question-id="synthetic-question"]');
+        await card.getByText("Synthetic <script>untrusted</script>",{exact:false}).waitFor({timeout:10000});
+        assert.equal(await card.getByRole("button").count(),0,`${status}/${state} must have no approval controls`);
+        assert.equal(await card.locator("script").count(),0,"review reason remains plain text");
+        cases++;
+      }
+    }
+    assert.equal(writes,0);assert.equal(unexpected,0);
+    console.log(`PASS ${cases} rendered AutoReview composition cases: desktop/narrow OFF/zero, technical gaps/terminal cards, plain-text reasons, zero writes/external requests`);
+  } finally {
+    await browser?.close();await server?.close();await rm(fixture,{recursive:true,force:true});
+  }
+}
