@@ -20,6 +20,13 @@ class InstallerFailurePaths(unittest.TestCase):
         self.temp = tempfile.TemporaryDirectory(prefix='tofi-installer-synthetic-')
         self.addCleanup(self.temp.cleanup)
         self.root = Path(self.temp.name).resolve()
+        claims = tempfile.TemporaryDirectory(prefix='tofi-installer-claims-synthetic-')
+        self.addCleanup(claims.cleanup)
+        self.claim_parent = Path(claims.name).resolve()
+        self.native_claim_root = installer.CLAIM_ROOT
+        claim_root = patch.object(installer, 'CLAIM_ROOT', self.claim_parent / 'registry')
+        claim_root.start()
+        self.addCleanup(claim_root.stop)
         (self.root / 'data').mkdir()
         self.data = self.root / 'data/current-data'
         self.data.write_bytes(b'synthetic writes after initial installation')
@@ -28,6 +35,18 @@ class InstallerFailurePaths(unittest.TestCase):
             'app': {'image': 'sha256:' + 'a' * 64},
             'worker': {'image': 'sha256:' + 'b' * 64}}}
         installer.write(self.root / 'compose.yaml', self.compose)
+
+    def test_lifecycle_registry_is_disposable(self):
+        self.assertEqual(installer.CLAIM_ROOT, self.claim_parent / 'registry')
+        self.assertNotEqual(installer.CLAIM_ROOT, self.native_claim_root)
+        self.assertNotEqual(self.claim_parent, self.root)
+        self.assertFalse(installer.CLAIM_ROOT.exists())
+        with patch.object(installer, 'owned_state', return_value=(self.root, self.plan, self.compose)), \
+             installer.lifecycle(self.root):
+            self.assertTrue(installer.CLAIM_ROOT.is_dir())
+            self.assertEqual(installer.CLAIM_ROOT.stat().st_mode & 0o777, 0o700)
+            self.assertEqual(list(installer.CLAIM_ROOT.iterdir()), [])
+        self.assertTrue(self.data.exists())
 
     def test_mutable_tags_and_hostile_paths_rejected(self):
         for value in ['app:latest', 'sha256:short', 'sha256:' + 'g' * 64]:
