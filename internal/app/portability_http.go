@@ -12,7 +12,7 @@ func (s *Server) routePortability(w http.ResponseWriter, r *http.Request, p stri
 		return false
 	}
 	if p == "portability/capabilities" && r.Method == http.MethodGet {
-		writeJSON(w, 200, map[string]any{"format": "tofi.bundle", "version": 1, "categories": portableCategories, "excluded": portableExcluded, "max_bytes": portableMaxBytes, "archives_supported": false})
+		writeJSON(w, 200, map[string]any{"format": "tofi.bundle", "version": 2, "categories": portableCategories, "excluded": portableExcluded, "max_bytes": portableMaxBytes, "archives_supported": false, "attachment_max_bytes": portableMaxAttachmentBytes, "attachment_total_bytes": portableMaxAttachmentTotal, "attachment_max_count": portableMaxAttachments, "attachment_storage_ready": s.store.portableBlobBackend() != nil})
 		return true
 	}
 	if r.Method != http.MethodPost {
@@ -82,11 +82,14 @@ func (s *Server) applyPortableDefaults(ctx context.Context, b portableBundle, pr
 	if b.Settings == nil {
 		return s.store.applyPortable(ctx, b, previewID)
 	}
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	result, replayed, err := s.store.applyPortableWithState(ctx, b, previewID)
-	if err == nil && !replayed {
-		s.defaultModel, s.defaultReasoning = b.Settings.Model, b.Settings.ReasoningEffort
-	}
+	result, _, err := s.store.applyPortableWithStateGuard(ctx, b, previewID, func() func(portableResult, bool, error) {
+		s.mu.Lock()
+		return func(result portableResult, replayed bool, err error) {
+			if err == nil && !replayed {
+				s.defaultModel, s.defaultReasoning = b.Settings.Model, b.Settings.ReasoningEffort
+			}
+			s.mu.Unlock()
+		}
+	})
 	return result, err
 }

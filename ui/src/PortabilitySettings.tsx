@@ -7,11 +7,11 @@ import { decryptPortable, encryptPortable, isEncryptedPortable, MAX_PORTABLE_FIL
 import "./portability.css";
 import { useUserTimezone } from "./UserTimezone";
 
-const categories = ["bot_config", "chats", "memories", "schedules", "settings"] as const;
-const labels: Record<string, string> = { bot_config: "Bot 配置与当前浏览器头像", conversations: "会话", chats: "聊天正文", memories: "记忆", schedules: "定时任务", settings: "时区与模型设置" };
+const categories = ["bot_config", "chats", "memories", "schedules", "attachments", "settings"] as const;
+const labels: Record<string, string> = { bot_config: "Bot 配置与当前浏览器头像", conversations: "会话", chats: "聊天正文", memories: "记忆", schedules: "定时任务", attachments: "附件文件", attachment_bindings: "附件关联", missing_attachments: "未包含的附件", settings: "时区与模型设置" };
 type PortableBot = { id: string; name: string; avatar?: AvatarConfig };
 type Bundle = { format: string; version: number; kind?: string; included: string[]; bots?: PortableBot[]; bot?: { name: string; avatar?: AvatarConfig }; counts?: Record<string, number> };
-type Preview = { preview_id: string; counts: Record<string, number>; bots: PortableBot[]; conflicts: string[]; warnings: string[]; excluded: string[]; expires_at: string; estimated_bytes: number; dependencies: string[] };
+type Preview = { preview_id: string; counts: Record<string, number>; bots: PortableBot[]; conflicts: string[]; warnings: string[]; excluded: string[]; expires_at: string; estimated_bytes: number; attachment_bytes: number; can_apply: boolean; dependencies: string[] };
 
 function download(source: string, name: string) {
   const url = URL.createObjectURL(new Blob([source], { type: "application/json" }));
@@ -25,7 +25,7 @@ export function PortabilitySettings({ bots, initialFile, initialBotID = "", onIn
   const [kind, setKind] = useState<"account" | "bot">(initialBotID ? "bot" : "account");
   const [botIDs, setBotIDs] = useState<string[]>(initialBotID ? [initialBotID] : bots.map(b => b.id));
   const [exportBots, setExportBots] = useState(bots);
-  const [included, setIncluded] = useState<string[]>(["bot_config", "chats", "memories", "schedules"]);
+  const [included, setIncluded] = useState<string[]>(["bot_config", "chats", "memories", "schedules", "attachments"]);
   const [exportPassword, setExportPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [importPassword, setImportPassword] = useState("");
@@ -51,7 +51,7 @@ export function PortabilitySettings({ bots, initialFile, initialBotID = "", onIn
   }
   function loadBundle(source: string) {
     const parsed = JSON.parse(source) as Bundle;
-    if (!parsed || !["tofi.bundle", "tofi.bot"].includes(parsed.format) || parsed.version !== 1 || !Array.isArray(parsed.included)) throw new Error("文件格式或版本不受支持。");
+    if (!parsed || !["tofi.bundle", "tofi.bot"].includes(parsed.format) || !(parsed.version === 1 || (parsed.format === "tofi.bundle" && parsed.version === 2)) || !Array.isArray(parsed.included)) throw new Error("文件格式或版本不受支持。");
     setBundle(parsed); setBundleSource(source); setImportCategories(parsed.included.filter(c => c !== "settings")); setImportBotIDs(parsed.bots?.map(b => b.id) ?? []); setPreview(undefined);
   }
   useEffect(() => { if (initialFile) void loadFile(initialFile).finally(() => onInitialFileConsumed?.()); }, [initialFile]);
@@ -80,8 +80,9 @@ export function PortabilitySettings({ bots, initialFile, initialBotID = "", onIn
       const exported = await request<Bundle>("/api/portability/export", { method: "POST", body: JSON.stringify({ kind, selection: { categories: included, bot_ids: botIDs } }) });
       exported.bots?.forEach(bot => { bot.avatar = getBotAvatarConfig(bot.id); });
       const encrypted = await encryptPortable(JSON.stringify(exported), exportPassword);
-      download(encrypted, kind === "bot" ? "tofi-bot.tofi.json" : "tofi-account.tofi.json");
-      setExportPassword(""); setConfirmPassword(""); setDone("加密数据包已下载。请妥善保存口令；无法找回。");
+      const filename = `tofi-${kind}-${new Date().toISOString().replace(/[:.]/g, "-")}.tofi.json`;
+      download(encrypted, filename);
+      setExportPassword(""); setConfirmPassword(""); setDone(`加密数据包已下载：${filename}。${exported.counts?.missing_attachments ? `其中 ${exported.counts.missing_attachments} 个附件未包含，请在导入预览中查看原因。` : ""}请妥善保存口令；无法找回。`);
     } catch (cause) { setError(message(cause)); } finally { setBusy(false); }
   }
   async function decrypt() {
@@ -110,7 +111,7 @@ export function PortabilitySettings({ bots, initialFile, initialBotID = "", onIn
   return <section className="settings-section portability-section">
     <h3>数据迁移</h3>
     <p className="settings-description">选择账号数据或单个 Bot，导入前检查内容并创建副本。账号包与 Bot 包使用相同格式，默认加密。</p>
-    <p className="field-note">当前支持配置、聊天正文、记忆、定时任务和时区／模型设置。附件、密钥、登录、插件、技能、工作事项、邮件草稿、运行记录、虚拟电脑文件与整盘暂不支持。这是所选数据包，尚非完整账号备份。聊天或指令中粘贴的秘密仍会随正文导出。</p>
+    <p className="field-note">当前支持配置、聊天正文、记忆、定时任务、附件和时区／模型设置。附件每个最多 4 MiB、合计最多 8 MiB；缺失或超限文件会明确列出。密钥、登录、插件、技能、工作事项、邮件草稿、运行记录、虚拟电脑文件与整盘暂不支持。这是所选数据包，尚非完整账号备份。聊天或指令中粘贴的秘密仍会随正文导出。</p>
     <fieldset disabled={busy}>
       <legend>导出</legend>
       <label>范围<select value={kind} onChange={event => { const next = event.target.value as "account" | "bot"; setKind(next); if (next === "bot") { setBotIDs(exportBots[0] ? [exportBots[0].id] : []); setIncluded(c => c.filter(x => x !== "settings")); } }}><option value="account">账号数据</option><option value="bot">独立 Bot</option></select></label>
@@ -135,6 +136,7 @@ export function PortabilitySettings({ bots, initialFile, initialBotID = "", onIn
       </>}
       {preview && <div className="portability-preview" aria-live="polite">
         <h4>导入预览</h4>
+        <p>附件空间：约 {Math.ceil(preview.attachment_bytes / 1024)} KiB，使用目标账号文件存储配额。</p>
         <p>预估数据库空间：约 {Math.ceil(preview.estimated_bytes / 1024)} KiB。实际占用由 SQLite 决定；空间不足会整体回滚。</p>
         <dl>{Object.entries(preview.counts).map(([name, count]) => <div key={name}><dt>{labels[name] ?? name}</dt><dd>{count}</dd></div>)}</dl>
         <p>将创建的 Bot：{preview.bots.map(bot => bot.name).join("、") || "无"}</p>
@@ -142,7 +144,7 @@ export function PortabilitySettings({ bots, initialFile, initialBotID = "", onIn
         {preview.conflicts.length > 0 && <><h4>冲突与设置变更</h4><ul>{preview.conflicts.map((c, i) => <li key={i}>{c}</li>)}</ul></>}
         <h4>关联依赖</h4><ul>{preview.dependencies.map((dependency, i) => <li key={i}>{dependency}</li>)}</ul>
         <h4>敏感内容与缺失项</h4><ul>{preview.warnings.map((warning, i) => <li key={i}>{warning}</li>)}</ul>
-        <button type="button" onClick={() => void apply()}>确认创建副本</button>
+        <button type="button" disabled={preview.can_apply === false} onClick={() => void apply()}>确认创建副本</button>
       </div>}
     </fieldset>
     {busy && <p role="status">处理中…</p>}{error && <p className="error-text" role="alert">{error}</p>}{done && <p role="status">{done}</p>}

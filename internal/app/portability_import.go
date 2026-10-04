@@ -3,9 +3,7 @@ package app
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"github.com/google/uuid"
-	"time"
 )
 
 func (s *Store) applyPortable(ctx context.Context, b portableBundle, previewID string) (portableResult, error) {
@@ -15,6 +13,9 @@ func (s *Store) applyPortable(ctx context.Context, b portableBundle, previewID s
 
 // The replay bit is internal, so the immutable receipt remains byte-identical.
 func (s *Store) applyPortableWithState(ctx context.Context, b portableBundle, previewID string) (portableResult, bool, error) {
+	return s.applyPortableWithStateGuard(ctx, b, previewID, nil)
+}
+func (s *Store) applyPortableSQL(ctx context.Context, b portableBundle, previewID string, assetTargets map[string]string) (portableResult, bool, error) {
 	if err := b.validate(); err != nil {
 		return portableResult{}, false, err
 	}
@@ -23,22 +24,9 @@ func (s *Store) applyPortableWithState(ctx context.Context, b portableBundle, pr
 		return portableResult{}, false, err
 	}
 	defer tx.Rollback()
-	var digest, destination, status, resultJSON string
-	var expires int64
-	if err = tx.QueryRowContext(ctx, `SELECT digest,destination,status,expires_at,result_json FROM portability_imports WHERE id=?`, previewID).Scan(&digest, &destination, &status, &expires, &resultJSON); err != nil || digest != portableDigest(b) {
-		return portableResult{}, false, errors.New("preview does not belong to this workspace or bundle; preview again")
-	}
-	if status == "applied" {
-		var result portableResult
-		err = json.Unmarshal([]byte(resultJSON), &result)
-		return result, true, err
-	}
-	current, _, err := portableDestination(tx)
-	if err != nil {
-		return portableResult{}, false, err
-	}
-	if expires < time.Now().Unix() || current != destination {
-		return portableResult{}, false, errors.New("preview expired or destination changed; preview again")
+	previous, replayed, err := portablePreviewState(ctx, tx, b, previewID)
+	if err != nil || replayed {
+		return previous, replayed, err
 	}
 	result := portableResult{ImportID: previewID, Counts: b.counts(), IDMap: map[string]string{}}
 	newID := func(id string) { result.IDMap[id] = uuid.NewString() }
@@ -55,6 +43,16 @@ func (s *Store) applyPortableWithState(ctx context.Context, b portableBundle, pr
 		newID(x.ID)
 	}
 	for _, x := range b.Schedules {
+		newID(x.ID)
+	}
+	for _, x := range b.Attachments {
+		target := assetTargets[x.ID]
+		if !portableID(target) {
+			return result, false, errPortableStorage
+		}
+		result.IDMap[x.ID] = target
+	}
+	for _, x := range b.MissingAttachments {
 		newID(x.ID)
 	}
 	id := func(old string) string { return result.IDMap[old] }
@@ -118,6 +116,46 @@ func (s *Store) applyPortableWithState(ctx context.Context, b portableBundle, pr
 		if err = provenance("schedule", x.ID, origin); err != nil {
 			return result, false, err
 		}
+	}
+	for _, x := range b.Attachments {
+		var digest string
+		var size int64
+		if err = tx.QueryRowContext(ctx, `SELECT sha256,size FROM portability_asset_staging WHERE import_id=? AND target_id=?`, previewID, id(x.ID)).Scan(&digest, &size); err != nil || digest != x.SHA256 || size != x.Size {
+			return result, false, errPortableStorage
+		}
+		if _, err = tx.ExecContext(ctx, `INSERT INTO attachments(id,conversation_id,name,mime,size,disk_name,created_at) VALUES(?,?,?,?,?,?,?)`, id(x.ID), id(x.ConversationID), x.Name, x.MIME, x.Size, guestAttachmentPrefix+id(x.ID), x.CreatedAt); err != nil {
+			return result, false, err
+		}
+		if err = provenance("attachment", x.ID, x.Origin); err != nil {
+			return result, false, err
+		}
+	}
+	for _, x := range b.MissingAttachments {
+		old := x.ID
+		x.ID, x.ConversationID = id(x.ID), id(x.ConversationID)
+		if x.Origin.RecordID == "" {
+			x.Origin.RecordID = old
+		}
+		if x.Origin.InstanceID == "" {
+			x.Origin.InstanceID = b.SourceInstance
+		}
+		mappedMessages := []string{}
+		for _, oldMessage := range x.MessageIDs {
+			mappedMessages = append(mappedMessages, id(oldMessage))
+		}
+		x.MessageIDs = mappedMessages
+		raw, _ := json.Marshal(x)
+		if _, err = tx.ExecContext(ctx, `INSERT INTO portability_missing_assets(id,conversation_id,metadata_json) VALUES(?,?,?)`, x.ID, x.ConversationID, string(raw)); err != nil {
+			return result, false, err
+		}
+	}
+	for _, x := range b.AttachmentBindings {
+		if _, err = tx.ExecContext(ctx, `INSERT INTO attachment_messages(attachment_id,message_id) VALUES(?,?)`, id(x.AttachmentID), id(x.MessageID)); err != nil {
+			return result, false, err
+		}
+	}
+	if _, err = tx.ExecContext(ctx, `DELETE FROM portability_asset_staging WHERE import_id=?`, previewID); err != nil {
+		return result, false, err
 	}
 	if x := b.Settings; x != nil {
 		for _, op := range []struct {
