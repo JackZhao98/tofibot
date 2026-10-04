@@ -18,7 +18,7 @@ import (
 )
 
 const autoReviewActor = "auto-review"
-const autoReviewPolicyVersion = "mcp-public-read-v2"
+const autoReviewPolicyVersion = "mcp-public-read-v3"
 const autoReviewTimeout = 30 * time.Second
 const autoReviewValidity = 2 * time.Minute
 
@@ -49,6 +49,9 @@ type mcpReviewContext struct {
 	Memories          []Memory               `json:"memories"`
 	Summary           string                 `json:"conversation_summary"`
 	SummaryVersion    int64                  `json:"summary_version"`
+	SourceRunBinding  *mcpScheduleRunBinding `json:"host_source_run_binding,omitempty"`
+	SourceToolResults []ToolActivity         `json:"untrusted_source_tool_results,omitempty"`
+	ScheduleLineage   *mcpScheduleLineage    `json:"schedule_lineage,omitempty"`
 }
 
 type reviewQuerier interface {
@@ -263,7 +266,7 @@ func (s *Server) reviewNewMCPProposal(ctx context.Context, c Conversation, r Run
 	if call.Server == "" || call.Tool == "" || call.ConfigVersion == "" || !mcpSchemaAvailable(call.Schema) || s.reviewAccountID() == "" || s.extensions == nil || !s.extensions.MCPCallCurrent(call) {
 		return s.closeMCPReviewGap(q.ID, "setup_required", "Current tool configuration, schema or connection binding is unavailable. Approval cannot repair this setup gap.")
 	}
-	x, digest, contextErr := readMCPReviewContext(s.store.db, c, r)
+	x, digest, contextErr := s.readMCPReviewContext(s.store.db, c, r)
 	digest = mcpReviewDigest(x, call)
 	if contextErr != nil {
 		return s.closeMCPReviewGap(q.ID, "context_required", "Necessary durable user authorization or context is missing, changed or exceeds the bounded evidence limit.")
@@ -352,7 +355,7 @@ func (s *Server) finishMCPReview(ctx context.Context, c Conversation, r Run, cal
 	if err != nil {
 		return err
 	}
-	x, _, contextErr := readMCPReviewContext(tx, c, r)
+	x, _, contextErr := s.readMCPReviewContext(tx, c, r)
 	currentDigest := mcpReviewDigest(x, call)
 	status := "human_required"
 	var reviewStatus string

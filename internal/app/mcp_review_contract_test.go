@@ -39,11 +39,33 @@ func TestAutoReviewGenericPromptAndAuthorizationProvenance(t *testing.T) {
 	if err := json.Unmarshal(raw, &in); err != nil {
 		t.Fatal(err)
 	}
-	if in.Custom != "tofi-mcp-risk-advice-v2" || len(in.Authorization) != 2 || in.Authorization[0].MessageID != "human" || in.Authorization[1].MessageID != "answer" {
+	if in.Custom != "tofi-mcp-risk-advice-v3" || len(in.Authorization) != 2 || in.Authorization[0].MessageID != "human" || in.Authorization[1].MessageID != "answer" {
 		t.Fatalf("untrusted copies gained authorization: %+v", in)
 	}
 	if string(in.Arguments) != string(call.Arguments) || in.Binding["config_fingerprint"] != call.ConfigVersion || in.Binding["arguments_digest"] != digestBytes(call.Arguments) {
 		t.Fatal("exact planned action binding was lost")
+	}
+}
+
+func TestAutoReviewScheduleFormUsesTypedSourceReference(t *testing.T) {
+	ref := &mcpScheduleSourceReference{ScheduleID: "synthetic-schedule", Revision: 1, RequestID: "synthetic-native-request", SourceKind: scheduleSourceForm, SourceDigest: "synthetic-source-digest"}
+	x := mcpReviewContext{ScheduleLineage: &mcpScheduleLineage{Authorization: []mcpAuthorizationEvidence{{Source: scheduleSourceForm, ScheduleSource: ref}}}}
+	raw, err := mcpReviewInput(extensions.MCPCallApproval{Arguments: json.RawMessage(`{}`)}, x, "synthetic-context-digest", "synthetic operation facts", "synthetic provenance")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var in struct {
+		Authorization []map[string]json.RawMessage `json:"authorization_evidence"`
+	}
+	if err := json.Unmarshal(raw, &in); err != nil {
+		t.Fatal(err)
+	}
+	if len(in.Authorization) != 1 || in.Authorization[0]["message_id"] != nil {
+		t.Fatalf("native request ID was presented as a message: %s", raw)
+	}
+	var source mcpScheduleSourceReference
+	if err := json.Unmarshal(in.Authorization[0]["schedule_source"], &source); err != nil || source != *ref {
+		t.Fatalf("typed native form source was lost: %+v %v", source, err)
 	}
 }
 

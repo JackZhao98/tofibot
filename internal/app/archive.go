@@ -178,6 +178,9 @@ func pauseSchedulesTx(tx *sql.Tx, where string, args ...any) error {
 		}
 		x.Status = schedulePaused
 		x.UpdatedAt = updated
+		if err = appendScheduleAuthorizationTx(tx, x, "archive", updated, nil); err != nil {
+			return err
+		}
 		if err = insertScheduleEvent(tx, x.ConversationID, "schedule", x, x.UpdatedAt); err != nil {
 			return err
 		}

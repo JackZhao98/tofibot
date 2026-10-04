@@ -50,7 +50,7 @@ func (s *Server) claimMCPApproval(ctx context.Context, c Conversation, r Run, ca
 		var revision int64
 		err = tx.QueryRow(`SELECT account_id,conversation_id,run_id,action_hash,server,tool,config_fingerprint,arguments_digest,policy_version,context_digest,provenance,status,settings_revision,expires_at FROM mcp_auto_reviews WHERE question_id=?`, id).Scan(&account, &conv, &run, &hash, &server, &tool, &config, &args, &policy, &contextDigest, &provenance, &status, &revision, &expiry)
 		settings, settingsErr := readAutoReviewSettings(tx)
-		x, _, contextErr := readMCPReviewContext(tx, c, r)
+		x, _, contextErr := s.readMCPReviewContext(tx, c, r)
 		digest := mcpReviewDigest(x, call)
 		verified := s.verifiedReviewPolicy(call, x)
 		valid := err == nil && settingsErr == nil && contextErr == nil && verified != nil && verified.Provenance == provenance && settings.Mode == "auto" && settings.Revision == revision && account == s.reviewAccountID() && conv == c.ID && run == r.ID && hash == mcpApprovalHash(call) && server == call.Server && tool == call.Tool && config == call.ConfigVersion && args == digestBytes(call.Arguments) && policy == autoReviewPolicyVersion && contextDigest == digest && status == "approved" && expiry == q.ExpiresAt && s.extensions != nil && s.extensions.MCPCallCurrent(call)

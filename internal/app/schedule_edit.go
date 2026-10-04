@@ -15,6 +15,10 @@ type SchedulePatch struct {
 // PatchSchedule changes presentation or future instructions only. It never
 // recalculates timing or rewrites an already claimed occurrence/trigger.
 func (s *Store) PatchSchedule(id string, patch SchedulePatch) (Schedule, error) {
+	return s.patchScheduleWithSource(id, patch, nil)
+}
+
+func (s *Store) patchScheduleWithSource(id string, patch SchedulePatch, source *scheduleMutationSource) (Schedule, error) {
 	if err := s.ensureSchedules(); err != nil {
 		return Schedule{}, err
 	}
@@ -48,6 +52,7 @@ func (s *Store) PatchSchedule(id string, patch SchedulePatch) (Schedule, error) 
 	if err = checkEditExpectation(patch.Expected, patch.Title, patch.Description, patch.Content, x.Title, x.Description, x.Content); err != nil {
 		return Schedule{}, err
 	}
+	contentChanged := patch.Content != nil && *patch.Content != x.Content
 	if patch.Title != nil {
 		x.Title = compactWhitespace(*patch.Title)
 	}
@@ -60,6 +65,11 @@ func (s *Store) PatchSchedule(id string, patch SchedulePatch) (Schedule, error) 
 	x.UpdatedAt = now()
 	if _, err = tx.Exec(`UPDATE schedules SET title=?,description=?,content=?,updated_at=? WHERE id=?`, x.Title, x.Description, x.Content, x.UpdatedAt, id); err != nil {
 		return Schedule{}, err
+	}
+	if contentChanged {
+		if err = appendScheduleAuthorizationTx(tx, x, "content_edit", x.UpdatedAt, source); err != nil {
+			return Schedule{}, err
+		}
 	}
 	if err = insertScheduleEvent(tx, x.ConversationID, "schedule", x, x.UpdatedAt); err != nil {
 		return Schedule{}, err
