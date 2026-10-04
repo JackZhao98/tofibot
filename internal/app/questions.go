@@ -391,10 +391,7 @@ func (q Question) Card() QuestionCard {
 			status, code, message, next = tooloutcome.NeedApproval, "human_approval", "Task is waiting for approval of this exact proposal.", "answer_approval"
 		}
 		if q.Status == questionExpired {
-			status, code, message, next = tooloutcome.Expired, "approval_window_expired", "The approval window expired. The action was not approved or executed; request a fresh review card to continue.", "renew_approval"
-			if !q.Resumable {
-				next = "explain_blocker"
-			}
+			status, code, message, next = tooloutcome.Expired, "approval_window_expired", "The approval window expired. This workflow is concluding; the expired proposal is not permission to execute or retry.", "finish_summary"
 		}
 		o := tooloutcome.New(status, code, "not_executed", message, next)
 		card.Outcome = &o
@@ -721,8 +718,19 @@ func (s *Store) AnswerQuestion(id, actor string, answer any) (Question, bool, er
 	}
 	if q.ExpiresAt != "" {
 		if t, e := time.Parse(time.RFC3339Nano, q.ExpiresAt); e == nil && !time.Now().UTC().Before(t) {
-			_, _ = tx.Exec(`UPDATE questions SET status=?,updated_at=? WHERE id=? AND status=?`, questionExpired, now(), id, questionPending)
-			_ = tx.Commit()
+			q.Status, q.UpdatedAt = questionExpired, now()
+			if _, err = tx.Exec(`UPDATE questions SET status=?,updated_at=? WHERE id=? AND status=?`, questionExpired, q.UpdatedAt, id, questionPending); err != nil {
+				return q, false, err
+			}
+			if err = insertRecoveryEvent(tx, q.ConversationID, "question", q.Card(), q.UpdatedAt); err != nil {
+				return q, false, err
+			}
+			if err = enqueueApprovalExpiryTx(tx, q); err != nil {
+				return q, false, err
+			}
+			if err = tx.Commit(); err != nil {
+				return q, false, err
+			}
 			return q, false, ErrQuestionNotPending
 		}
 	}
@@ -862,7 +870,13 @@ func (s *Server) WaitQuestion(ctx context.Context, id string) (json.RawMessage, 
 		}
 		if q.Status == questionPending && q.ExpiresAt != "" {
 			if deadline, parseErr := time.Parse(time.RFC3339Nano, q.ExpiresAt); parseErr == nil && !time.Now().UTC().Before(deadline) {
-				_, _ = s.store.db.Exec(`UPDATE questions SET status=?,updated_at=? WHERE id=? AND status=?`, questionExpired, now(), id, questionPending)
+				if q.Type == questionApproval {
+					if err = s.store.expireApproval(id); err != nil {
+						return nil, err
+					}
+				} else {
+					_, _ = s.store.db.Exec(`UPDATE questions SET status=?,updated_at=? WHERE id=? AND status=?`, questionExpired, now(), id, questionPending)
+				}
 				return json.RawMessage(`{"status":"expired"}`), nil
 			}
 		}

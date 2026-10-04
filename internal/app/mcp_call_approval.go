@@ -116,7 +116,7 @@ func (s *Server) approveMCPCall(ctx context.Context, c Conversation, r Run, call
 }
 
 func (s *Server) parkExpiredMCPApproval(ctx context.Context, c Conversation, id string) error {
-	if _, err := s.store.db.Exec(`UPDATE questions SET status='expired',updated_at=? WHERE id=? AND status IN ('pending','answered')`, now(), id); err != nil {
+	if err := s.store.expireApproval(id); err != nil {
 		return err
 	}
 	if q, err := s.store.GetQuestion(id); err == nil {
@@ -125,7 +125,7 @@ func (s *Server) parkExpiredMCPApproval(ctx context.Context, c Conversation, id 
 	if runtime.CanSuspend(ctx) {
 		return runtime.SuspendForUserInput(ctx, id)
 	}
-	return tooloutcome.New(tooloutcome.Expired, "approval_window_expired", "not_executed", "External tool approval expired; request a fresh review before execution.", "renew_approval").Err()
+	return tooloutcome.New(tooloutcome.Expired, "approval_window_expired", "not_executed", "External tool approval expired. This workflow must conclude without executing or retrying the proposal.", "finish_summary").Err()
 }
 
 func mcpApprovalHash(call extensions.MCPCallApproval) string {
