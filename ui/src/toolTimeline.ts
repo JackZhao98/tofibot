@@ -12,11 +12,22 @@ export interface ToolRunAnchors<T> {
 }
 
 /** Summarize attempts, not whether the user's task was completed. */
-export function toolAttemptIssues(items: Pick<ToolActivity, "status">[]): string {
-  const failures = items.filter(item => item.status === "failed").length;
+export function toolAttemptIssues(items: Pick<ToolActivity, "status" | "outcome">[]): string {
+  const failures = items.filter(item => item.status === "failed" && toolDisplayState(item) === "failed").length;
   const interrupted = items.filter(item => item.status === "interrupted").length;
   const pending = items.filter(item => item.status === "queued" || item.status === "running").length;
   return [failures ? `${failures} 次失败` : "", interrupted ? `${interrupted} 次中断` : "", pending ? `${pending} 次待结束` : ""].filter(Boolean).join(" · ");
+}
+
+export function toolDisplayState(activity: Pick<ToolActivity,"status"|"outcome">): string {
+  if (activity.status === "failed" && activity.outcome?.status === "approval_expired") return "expired";
+  if (activity.status === "failed" && activity.outcome?.code === "batch_skipped" && activity.outcome.execution_certainty === "not_executed") return "skipped";
+  return activity.status;
+}
+
+export function toolDisplayLabel(activity: Pick<ToolActivity,"status"|"outcome">): string {
+  const labels:Record<string,string> = {queued:"排队中",running:"执行中",completed:"已完成",failed:"失败",interrupted:"已中断",expired:"已过期",skipped:"未执行"};
+  return labels[toolDisplayState(activity)];
 }
 
 type PreciseTime = { milliseconds: number; nanoseconds: number };

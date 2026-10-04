@@ -1,0 +1,19 @@
+{
+  "parent_commit": "a7ccec565080f4e30bafc3319b4f2cdc6d92ffa3",
+  "branch": "codex/stop-tool-trace-scan-20261003",
+  "problem": "InterruptToolActivities selects 12 fields including outcome_json but scanned 11, so normal run cleanup returned a scan error and left canceled queued/running tool activities stale.",
+  "fix": "Use the existing 12-field scanToolActivity helper. Preserve typed outcome, completed results and terminal event metadata; transaction behavior is unchanged.",
+  "production_scope": "One scanner replacement in internal/app/tool_activity.go; independent from expiry semantics and generalized review contracts.",
+  "tests": {
+    "before": "Both new regressions fail on the unmodified parent: expected 12 destination arguments; Stop leaves 2 pending tool traces.",
+    "after": "Focused Stop, outcome, SSE, cancellation, input steering and activity regressions pass (0.745s).",
+    "suite": "Full internal/app suite passes (49.932s).",
+    "behavior": "Actual cancel handler leaves the run cancelled, completed effect count 1, runtime invocation count 1, tail unexecuted, 2 interrupted activities, 0 pending activities. UI reload feed has no queued/running activity. Repeated cleanup publishes one interruption event per activity and retains uncertainty metadata.",
+    "source_copy": "Both candidate files hash match the materialized verification tree."
+  },
+  "source_sha256": {
+    "internal/app/tool_activity.go": "1c751dfe23b6598edb4b9df7b58d4f9fd39b58112960acfd693bfc76032f310a",
+    "internal/app/tool_activity_stop_test.go": "07add13816a584af62a4b30305c3c2f576a5eadab4f21f629579c0a8c1b2b060"
+  },
+  "safety": "Synthetic isolated fixture only. No production repair, startup recovery operation, VM106, credentials, live approval, main, merge or deployment changes."
+}

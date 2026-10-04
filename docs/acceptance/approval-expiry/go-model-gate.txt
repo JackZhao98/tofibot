@@ -1,0 +1,4 @@
+=== RUN   TestApprovalExpiryWithoutModelSettlesBeforeConfiguredGate
+--- PASS: TestApprovalExpiryWithoutModelSettlesBeforeConfiguredGate (0.06s)
+PASS
+ok  	github.com/JackZhao98/tofibot/internal/app	0.531s

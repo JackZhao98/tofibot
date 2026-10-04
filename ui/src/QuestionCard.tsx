@@ -99,15 +99,6 @@ function BinaryQuestionCard({ item, bot, group, archived, onChanged }: QuestionC
       }
     } finally { sending.current = false; if (!pending.signal.aborted) setBusy(undefined); }
   }
-  async function renew() {
-    if (sending.current || archived || current.outcome?.next_action !== "renew_approval") return;
-    sending.current = true; setBusy("accept"); setError("");
-    try {
-      const result = await request<{ question: Question }>(`/api/questions/${encodeURIComponent(item.question_id)}/renew`, {method:"POST"});
-      await onChanged(result.question);
-    } catch (cause) { setError(cause instanceof Error ? cause.message : "无法重新请求审批，请刷新后重试。"); }
-    finally { sending.current = false; setBusy(undefined); }
-  }
   const validTime = Number.isFinite(Date.parse(item.created_at));
   return <article className={`binary-question-message${group ? " is-group" : " is-dm"}`} data-question-id={item.question_id} tabIndex={-1} aria-label={`${bot?.name ?? "Bot"} 的问题`}>
     {group && <div className="message-meta"><strong>{bot?.name ?? "Bot"}</strong></div>}
@@ -118,7 +109,7 @@ function BinaryQuestionCard({ item, bot, group, archived, onChanged }: QuestionC
       secondaryAction={!archived && <><button type="button" disabled={Boolean(busy)} onClick={() => void answer(null)}>{busy === "cancel" ? "取消中…" : approval ? "取消审批" : "取消问题"}</button>{approval?.draft_id && <button type="button" onClick={() => { const node = [...document.querySelectorAll<HTMLElement>("[data-draft-id]")].find(element => element.dataset.draftId === approval.draft_id); node?.scrollIntoView({ behavior:"smooth", block:"center" }); }} >查看草稿</button>}</>}
       note={archived ? "恢复会话后可回答。" : approval ? "批准后会继续任务，具体操作仍需由 Bot 执行。" : undefined} error={error}
       resolution={current.status === "pending" ? undefined : { label:current.status === "answered" ? approval ? "已决定" : "已回答" : current.status === "expired" ? "已过期" : current.status === "run_done" ? "任务已结束" : "已取消", answer:current.status === "answered" ? approval ? current.answer === true ? approval.approve_label || "已批准" : approval.deny_label || "未批准" : answerLabel(current) : undefined, accepted:current.status === "answered" && current.answer === true }} />
-    {current.status === "expired" && current.outcome?.next_action === "renew_approval" && <div className="question-result" role="status"><p>审批已过期，任务仍在等待。继续前需要重新查看并批准；尚未执行该操作。</p>{!archived && <button type="button" className="secondary-button" disabled={Boolean(busy)} onClick={() => void renew()}>重新请求审批</button>}</div>}
+
   </article>;
 }
 

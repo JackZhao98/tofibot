@@ -1,0 +1,278 @@
+=== RUN   TestInputContinuationRealRuntimeRestartsAndDoesNotReplayTools
+=== RUN   TestInputContinuationRealRuntimeRestartsAndDoesNotReplayTools/false
+2026/10/03 12:15:36 [478f8727-6271-4fd0-8232-2a4c1c3c63eb] [Agent] Registered 52 tools: save_memory, search_history, handoff, message, list_bots, send_chat_message, react_to_message, set_bot_profile, read_workflow_guide, inspect_recent_runs, ask_user_question, ask_user_form, request_approval, display_content, prepare_email, workspace_list, workspace_update_bot, workspace_update_group, workspace_delete_bot, workspace_delete_group, manage_extensions, read_attachment, generate_image, list_computers, computer_action, create_bot, create_group, invite_bot, list_groups, send_group_message, create_schedule, update_schedule, list_schedules, pause_schedule, resume_schedule, delete_schedule, list_work_item_executions, create_work_item, update_work_item, list_work_items, list_memory, update_memory, delete_memory, get_context_usage, list_mcp_servers, search_mcp_catalog, search_mcp_tools, call_mcp_tool, list_skills, read_skill, read_skill_file, workspace_capabilities
+2026/10/03 12:15:36 [478f8727-6271-4fd0-8232-2a4c1c3c63eb] [Agent] Tools: 52 core, 0 skills (deferred)
+2026/10/03 12:15:36 [478f8727-6271-4fd0-8232-2a4c1c3c63eb] <think>
+Saved the completed step; waiting for your form.
+</think>
+2026/10/03 12:15:36 [478f8727-6271-4fd0-8232-2a4c1c3c63eb] <tool_call name=" save_memory ">
+{"title":"Checkpoint", "description":"Synthetic completed effect", "content":"checkpoint fixture completed effect"}
+</tool_call>
+2026/10/03 12:15:36 [478f8727-6271-4fd0-8232-2a4c1c3c63eb] [ExtraTool:save_memory] c3dd8ec3-00a1-4d24-a6a0-68093be93d16
+2026/10/03 12:15:36 [478f8727-6271-4fd0-8232-2a4c1c3c63eb] <tool_call name=" ask_user_form ">
+{"question":"Supply a display name","source_url":"https://forms.example.test/profile","fields":[{"id":"name","label":"Display name","type":"text","required":true}]}
+</tool_call>
+2026/10/03 12:15:36 [478f8727-6271-4fd0-8232-2a4c1c3c63eb] [Agent] Registered 52 tools: save_memory, search_history, handoff, message, list_bots, send_chat_message, react_to_message, set_bot_profile, read_workflow_guide, inspect_recent_runs, ask_user_question, ask_user_form, request_approval, display_content, prepare_email, workspace_list, workspace_update_bot, workspace_update_group, workspace_delete_bot, workspace_delete_group, manage_extensions, read_attachment, generate_image, list_computers, computer_action, create_bot, create_group, invite_bot, list_groups, send_group_message, create_schedule, update_schedule, list_schedules, pause_schedule, resume_schedule, delete_schedule, list_work_item_executions, create_work_item, update_work_item, list_work_items, list_memory, update_memory, delete_memory, get_context_usage, list_mcp_servers, search_mcp_catalog, search_mcp_tools, call_mcp_tool, list_skills, read_skill, read_skill_file, workspace_capabilities
+2026/10/03 12:15:36 [478f8727-6271-4fd0-8232-2a4c1c3c63eb] [Agent] Tools: 52 core, 0 skills (deferred)
+2026/10/03 12:15:36 [478f8727-6271-4fd0-8232-2a4c1c3c63eb] <think>
+Finished with Ada; prior work was preserved.
+</think>
+2026/10/03 12:15:36 [478f8727-6271-4fd0-8232-2a4c1c3c63eb] <think>
+Finished with Ada; prior work was preserved.
+</think>
+2026/10/03 12:15:36 [478f8727-6271-4fd0-8232-2a4c1c3c63eb] [Agent] Finished.
+=== RUN   TestInputContinuationRealRuntimeRestartsAndDoesNotReplayTools/true
+2026/10/03 12:15:36 [4aa466cf-9dbc-40c1-b500-6e4dfb246e00] [Agent] Registered 52 tools: save_memory, search_history, handoff, message, list_bots, send_chat_message, react_to_message, set_bot_profile, read_workflow_guide, inspect_recent_runs, ask_user_question, ask_user_form, request_approval, display_content, prepare_email, workspace_list, workspace_update_bot, workspace_update_group, workspace_delete_bot, workspace_delete_group, manage_extensions, read_attachment, generate_image, list_computers, computer_action, create_bot, create_group, invite_bot, list_groups, send_group_message, create_schedule, update_schedule, list_schedules, pause_schedule, resume_schedule, delete_schedule, list_work_item_executions, create_work_item, update_work_item, list_work_items, list_memory, update_memory, delete_memory, get_context_usage, list_mcp_servers, search_mcp_catalog, search_mcp_tools, call_mcp_tool, list_skills, read_skill, read_skill_file, workspace_capabilities
+2026/10/03 12:15:36 [4aa466cf-9dbc-40c1-b500-6e4dfb246e00] [Agent] Tools: 52 core, 0 skills (deferred)
+2026/10/03 12:15:36 [4aa466cf-9dbc-40c1-b500-6e4dfb246e00] <think>
+Saved the completed step; waiting for your form.
+</think>
+2026/10/03 12:15:36 [4aa466cf-9dbc-40c1-b500-6e4dfb246e00] <tool_call name=" save_memory ">
+{"title":"Checkpoint", "description":"Synthetic completed effect", "content":"checkpoint fixture completed effect"}
+</tool_call>
+2026/10/03 12:15:36 [4aa466cf-9dbc-40c1-b500-6e4dfb246e00] [ExtraTool:save_memory] 80302a69-47b0-486c-bfce-526a960536ad
+2026/10/03 12:15:36 [4aa466cf-9dbc-40c1-b500-6e4dfb246e00] <tool_call name=" ask_user_form ">
+{"question":"Supply a display name","source_url":"https://forms.example.test/profile","fields":[{"id":"name","label":"Display name","type":"text","required":true}]}
+</tool_call>
+2026/10/03 12:15:36 [4aa466cf-9dbc-40c1-b500-6e4dfb246e00] [Agent] Registered 52 tools: save_memory, search_history, handoff, message, list_bots, send_chat_message, react_to_message, set_bot_profile, read_workflow_guide, inspect_recent_runs, ask_user_question, ask_user_form, request_approval, display_content, prepare_email, workspace_list, workspace_update_bot, workspace_update_group, workspace_delete_bot, workspace_delete_group, manage_extensions, read_attachment, generate_image, list_computers, computer_action, create_bot, create_group, invite_bot, list_groups, send_group_message, create_schedule, update_schedule, list_schedules, pause_schedule, resume_schedule, delete_schedule, list_work_item_executions, create_work_item, update_work_item, list_work_items, list_memory, update_memory, delete_memory, get_context_usage, list_mcp_servers, search_mcp_catalog, search_mcp_tools, call_mcp_tool, list_skills, read_skill, read_skill_file, workspace_capabilities
+2026/10/03 12:15:36 [4aa466cf-9dbc-40c1-b500-6e4dfb246e00] [Agent] Tools: 52 core, 0 skills (deferred)
+2026/10/03 12:15:36 [4aa466cf-9dbc-40c1-b500-6e4dfb246e00] <think>
+Finished with Ada; prior work was preserved.
+</think>
+2026/10/03 12:15:36 [4aa466cf-9dbc-40c1-b500-6e4dfb246e00] <think>
+Finished with Ada; prior work was preserved.
+</think>
+2026/10/03 12:15:36 [4aa466cf-9dbc-40c1-b500-6e4dfb246e00] [Agent] Finished.
+--- PASS: TestInputContinuationRealRuntimeRestartsAndDoesNotReplayTools (0.12s)
+    --- PASS: TestInputContinuationRealRuntimeRestartsAndDoesNotReplayTools/false (0.07s)
+    --- PASS: TestInputContinuationRealRuntimeRestartsAndDoesNotReplayTools/true (0.06s)
+=== RUN   TestRuntimeEffectiveComputerReplayCannotUseIgnoredFieldsOrAlias
+2026/10/03 12:15:36 [562dfac5-8205-4eb8-9dc9-e2d954177a94] [Agent] Registered 9 tools: computer_shell, computer_files, computer_desktop, computer_browser, computer_help, computer_terminal, computer_ssh_keys, list_computers, computer_action
+2026/10/03 12:15:36 [562dfac5-8205-4eb8-9dc9-e2d954177a94] [Agent] Tools: 9 core, 0 skills (deferred)
+2026/10/03 12:15:36 [562dfac5-8205-4eb8-9dc9-e2d954177a94] <tool_call name=" computer_files ">
+{"action":"files.write","path":"notes","content":"X","append":true}
+</tool_call>
+2026/10/03 12:15:36 [562dfac5-8205-4eb8-9dc9-e2d954177a94] [ExtraTool:computer_files] {"version":1,"status":"uncertain_effect","code":"unclassified_tool_failure","execution_certainty":"unknown","message":"computer control socket: Post \"http://tofi-computer/v1/action\": synthetic lost ...
+2026/10/03 12:15:36 [562dfac5-8205-4eb8-9dc9-e2d954177a94] <tool_call name=" computer_files ">
+{"action":"files.write","path":"notes","content":"X","append":true,"offset":1}
+</tool_call>
+2026/10/03 12:15:36 [562dfac5-8205-4eb8-9dc9-e2d954177a94] [ExtraTool:computer_files] {"version":1,"status":"uncertain_effect","code":"unclassified_tool_failure","execution_certainty":"unknown","message":"computer control socket: Post \"http://tofi-computer/v1/action\": synthetic lost ...
+2026/10/03 12:15:36 [562dfac5-8205-4eb8-9dc9-e2d954177a94] <tool_call name=" computer_action ">
+{"computer_id":"firecracker","action":"files.write","args":{"path":"./notes","content":"X","append":true,"offset":1}}
+</tool_call>
+2026/10/03 12:15:36 [562dfac5-8205-4eb8-9dc9-e2d954177a94] [ExtraTool:computer_action] {"version":1,"status":"uncertain_effect","code":"unclassified_tool_failure","execution_certainty":"unknown","message":"computer control socket: Post \"http://tofi-computer/v1/action\": synthetic lost ...
+2026/10/03 12:15:36 [562dfac5-8205-4eb8-9dc9-e2d954177a94] <tool_call name=" computer_action ">
+{"computer_id":"firecracker","action":"files.write","args":{"path":"/workspace/alias/notes","content":"X","append":true}}
+</tool_call>
+2026/10/03 12:15:36 [562dfac5-8205-4eb8-9dc9-e2d954177a94] [ExtraTool:computer_action] {"version":1,"status":"uncertain_effect","code":"unclassified_tool_failure","execution_certainty":"unknown","message":"computer control socket: Post \"http://tofi-computer/v1/action\": synthetic lost ...
+2026/10/03 12:15:36 [562dfac5-8205-4eb8-9dc9-e2d954177a94] <tool_call name=" computer_files ">
+{"action":"files.read","path":"notes"}
+</tool_call>
+2026/10/03 12:15:36 [562dfac5-8205-4eb8-9dc9-e2d954177a94] [ExtraTool:computer_files] {}
+2026/10/03 12:15:36 [562dfac5-8205-4eb8-9dc9-e2d954177a94] <think>
+SYNTHETIC_PARTIAL_OUTPUT
+</think>
+2026/10/03 12:15:36 [562dfac5-8205-4eb8-9dc9-e2d954177a94] [Agent] Finished.
+--- PASS: TestRuntimeEffectiveComputerReplayCannotUseIgnoredFieldsOrAlias (0.04s)
+=== RUN   TestReviewerUncertainWritePathChanges
+=== RUN   TestReviewerUncertainWritePathChanges/lookup-before-dispatch
+2026/10/03 12:15:36 [7efb36aa-73eb-4933-977f-b612a180162a] [Agent] Registered 7 tools: computer_shell, computer_files, computer_desktop, computer_browser, computer_help, computer_terminal, computer_ssh_keys
+2026/10/03 12:15:36 [7efb36aa-73eb-4933-977f-b612a180162a] [Agent] Tools: 7 core, 0 skills (deferred)
+2026/10/03 12:15:36 [7efb36aa-73eb-4933-977f-b612a180162a] <tool_call name=" computer_files ">
+{"action":"files.write","append":true,"content":"X","path":"a"}
+</tool_call>
+2026/10/03 12:15:36 [7efb36aa-73eb-4933-977f-b612a180162a] [ExtraTool:computer_files] {"version":1,"status":"uncertain_effect","code":"unclassified_tool_failure","execution_certainty":"unknown","message":"computer control socket: Post \"http://tofi-computer/v1/action\": synthetic lost ...
+2026/10/03 12:15:36 [7efb36aa-73eb-4933-977f-b612a180162a] <tool_call name=" computer_files ">
+{"action":"files.write","append":true,"content":"X","path":"candidate"}
+</tool_call>
+2026/10/03 12:15:36 [7efb36aa-73eb-4933-977f-b612a180162a] [ExtraTool:computer_files] {"version":1,"status":"validation_error","code":"write_identity_changed","execution_certainty":"not_executed","message":"File target changed or could not be bound to the reviewed identity. No file con...
+2026/10/03 12:15:36 [7efb36aa-73eb-4933-977f-b612a180162a] <think>
+SYNTHETIC_PARTIAL_OUTPUT
+</think>
+2026/10/03 12:15:36 [7efb36aa-73eb-4933-977f-b612a180162a] [Agent] Finished.
+=== RUN   TestReviewerUncertainWritePathChanges/postfailure-replaces-evidence
+2026/10/03 12:15:36 [11c1db0d-5fcd-4d77-9f4e-131c30600e71] [Agent] Registered 7 tools: computer_shell, computer_files, computer_desktop, computer_browser, computer_help, computer_terminal, computer_ssh_keys
+2026/10/03 12:15:36 [11c1db0d-5fcd-4d77-9f4e-131c30600e71] [Agent] Tools: 7 core, 0 skills (deferred)
+2026/10/03 12:15:36 [11c1db0d-5fcd-4d77-9f4e-131c30600e71] <tool_call name=" computer_files ">
+{"action":"files.write","append":true,"content":"X","path":"candidate"}
+</tool_call>
+2026/10/03 12:15:36 [11c1db0d-5fcd-4d77-9f4e-131c30600e71] [ExtraTool:computer_files] {"version":1,"status":"uncertain_effect","code":"unclassified_tool_failure","execution_certainty":"unknown","message":"computer control socket: Post \"http://tofi-computer/v1/action\": synthetic lost ...
+2026/10/03 12:15:36 [11c1db0d-5fcd-4d77-9f4e-131c30600e71] <tool_call name=" computer_files ">
+{"action":"files.write","append":true,"content":"X","path":"a"}
+</tool_call>
+2026/10/03 12:15:36 [11c1db0d-5fcd-4d77-9f4e-131c30600e71] [ExtraTool:computer_files] {"version":1,"status":"uncertain_effect","code":"unclassified_tool_failure","execution_certainty":"unknown","message":"computer control socket: Post \"http://tofi-computer/v1/action\": synthetic lost ...
+2026/10/03 12:15:36 [11c1db0d-5fcd-4d77-9f4e-131c30600e71] <think>
+SYNTHETIC_PARTIAL_OUTPUT
+</think>
+2026/10/03 12:15:36 [11c1db0d-5fcd-4d77-9f4e-131c30600e71] [Agent] Finished.
+--- PASS: TestReviewerUncertainWritePathChanges (0.07s)
+    --- PASS: TestReviewerUncertainWritePathChanges/lookup-before-dispatch (0.04s)
+    --- PASS: TestReviewerUncertainWritePathChanges/postfailure-replaces-evidence (0.04s)
+=== RUN   TestRetargetedWriteFenceSurvivesGuestRestartAndCheckpointReload
+=== RUN   TestRetargetedWriteFenceSurvivesGuestRestartAndCheckpointReload/bound-existing
+2026/10/03 12:15:37 [fdff3663-8b3f-48ed-92ab-1e9f72e66179] [Agent] Registered 10 tools: computer_shell, computer_files, computer_desktop, computer_browser, computer_help, computer_terminal, computer_ssh_keys, list_computers, computer_action, synthetic_ask
+2026/10/03 12:15:37 [fdff3663-8b3f-48ed-92ab-1e9f72e66179] [Agent] Tools: 10 core, 0 skills (deferred)
+2026/10/03 12:15:37 [fdff3663-8b3f-48ed-92ab-1e9f72e66179] <tool_call name=" computer_files ">
+{"action":"files.write","append":true,"content":"X","path":"candidate"}
+</tool_call>
+2026/10/03 12:15:37 [fdff3663-8b3f-48ed-92ab-1e9f72e66179] [ExtraTool:computer_files] {"version":1,"status":"uncertain_effect","code":"unclassified_tool_failure","execution_certainty":"unknown","message":"computer control socket: Post \"http://tofi-computer/v1/action\": synthetic respo...
+2026/10/03 12:15:37 [fdff3663-8b3f-48ed-92ab-1e9f72e66179] <tool_call name=" synthetic_ask ">
+{}
+</tool_call>
+2026/10/03 12:15:37 [fdff3663-8b3f-48ed-92ab-1e9f72e66179] [Agent] Registered 10 tools: computer_shell, computer_files, computer_desktop, computer_browser, computer_help, computer_terminal, computer_ssh_keys, list_computers, computer_action, synthetic_ask
+2026/10/03 12:15:37 [fdff3663-8b3f-48ed-92ab-1e9f72e66179] [Agent] Tools: 10 core, 0 skills (deferred)
+2026/10/03 12:15:37 [fdff3663-8b3f-48ed-92ab-1e9f72e66179] <tool_call name=" computer_files ">
+{"action":"files.write","path":"a","content":"X","append":true}
+</tool_call>
+2026/10/03 12:15:37 [fdff3663-8b3f-48ed-92ab-1e9f72e66179] [ExtraTool:computer_files] {"version":1,"status":"uncertain_effect","code":"unclassified_tool_failure","execution_certainty":"unknown","message":"computer control socket: Post \"http://tofi-computer/v1/action\": synthetic respo...
+2026/10/03 12:15:37 [fdff3663-8b3f-48ed-92ab-1e9f72e66179] <tool_call name=" computer_files ">
+{"action":"files.write","path":"./a","content":"X","append":true,"offset":1}
+</tool_call>
+2026/10/03 12:15:37 [fdff3663-8b3f-48ed-92ab-1e9f72e66179] [ExtraTool:computer_files] {"version":1,"status":"uncertain_effect","code":"unclassified_tool_failure","execution_certainty":"unknown","message":"computer control socket: Post \"http://tofi-computer/v1/action\": synthetic respo...
+2026/10/03 12:15:37 [fdff3663-8b3f-48ed-92ab-1e9f72e66179] <tool_call name=" computer_action ">
+{"computer_id":"firecracker","action":"files.write","args":{"path":"candidate","content":"X","append":true}}
+</tool_call>
+2026/10/03 12:15:37 [fdff3663-8b3f-48ed-92ab-1e9f72e66179] [ExtraTool:computer_action] {"version":1,"status":"uncertain_effect","code":"unclassified_tool_failure","execution_certainty":"unknown","message":"computer control socket: Post \"http://tofi-computer/v1/action\": synthetic respo...
+2026/10/03 12:15:37 [fdff3663-8b3f-48ed-92ab-1e9f72e66179] <tool_call name=" computer_files ">
+{"action":"files.read","path":"a"}
+</tool_call>
+2026/10/03 12:15:37 [fdff3663-8b3f-48ed-92ab-1e9f72e66179] [ExtraTool:computer_files] {"bytes":1,"content":"X","path":"a","sha256":"4b68ab3847feda7d6c62c1fbcbeebfa35eab7351ed5e78f4ddadea5df64b8015","truncated":false}
+2026/10/03 12:15:37 [fdff3663-8b3f-48ed-92ab-1e9f72e66179] <tool_call name=" computer_files ">
+{"action":"files.list","path":"."}
+</tool_call>
+2026/10/03 12:15:37 [fdff3663-8b3f-48ed-92ab-1e9f72e66179] [ExtraTool:computer_files] [{"directory":false,"name":"a","path":"a","size":1},{"directory":false,"name":"b","path":"b","size":0},{"directory":false,"name":"c","path":"c","size":0},{"directory":false,"name":"candidate","path":"...
+2026/10/03 12:15:37 [fdff3663-8b3f-48ed-92ab-1e9f72e66179] <tool_call name=" computer_files ">
+{"action":"files.write","path":"b","content":"Y","append":true}
+</tool_call>
+2026/10/03 12:15:37 [fdff3663-8b3f-48ed-92ab-1e9f72e66179] [ExtraTool:computer_files] {"bytes":1,"guard_version":1,"path":"b","sha256":"18f5384d58bcb1bba0bcd9e6a6781d1a6ac2cc280c330ecbab6cb7931b721552"}
+2026/10/03 12:15:37 [fdff3663-8b3f-48ed-92ab-1e9f72e66179] <think>
+SYNTHETIC_PARTIAL_OUTPUT
+</think>
+2026/10/03 12:15:37 [fdff3663-8b3f-48ed-92ab-1e9f72e66179] [Agent] Finished.
+=== RUN   TestRetargetedWriteFenceSurvivesGuestRestartAndCheckpointReload/uncertain-create
+2026/10/03 12:15:37 [8036d78a-2272-4777-8f6b-25558b4ee180] [Agent] Registered 10 tools: computer_shell, computer_files, computer_desktop, computer_browser, computer_help, computer_terminal, computer_ssh_keys, list_computers, computer_action, synthetic_ask
+2026/10/03 12:15:37 [8036d78a-2272-4777-8f6b-25558b4ee180] [Agent] Tools: 10 core, 0 skills (deferred)
+2026/10/03 12:15:37 [8036d78a-2272-4777-8f6b-25558b4ee180] <tool_call name=" computer_files ">
+{"action":"files.write","append":true,"content":"X","path":"a"}
+</tool_call>
+2026/10/03 12:15:37 [8036d78a-2272-4777-8f6b-25558b4ee180] [ExtraTool:computer_files] {"version":1,"status":"uncertain_effect","code":"unclassified_tool_failure","execution_certainty":"unknown","message":"computer control socket: Post \"http://tofi-computer/v1/action\": synthetic respo...
+2026/10/03 12:15:37 [8036d78a-2272-4777-8f6b-25558b4ee180] <tool_call name=" synthetic_ask ">
+{}
+</tool_call>
+2026/10/03 12:15:37 [8036d78a-2272-4777-8f6b-25558b4ee180] [Agent] Registered 10 tools: computer_shell, computer_files, computer_desktop, computer_browser, computer_help, computer_terminal, computer_ssh_keys, list_computers, computer_action, synthetic_ask
+2026/10/03 12:15:37 [8036d78a-2272-4777-8f6b-25558b4ee180] [Agent] Tools: 10 core, 0 skills (deferred)
+2026/10/03 12:15:37 [8036d78a-2272-4777-8f6b-25558b4ee180] <tool_call name=" computer_files ">
+{"action":"files.write","path":"a","content":"X","append":true}
+</tool_call>
+2026/10/03 12:15:37 [8036d78a-2272-4777-8f6b-25558b4ee180] [ExtraTool:computer_files] {"version":1,"status":"uncertain_effect","code":"unclassified_tool_failure","execution_certainty":"unknown","message":"computer control socket: Post \"http://tofi-computer/v1/action\": synthetic respo...
+2026/10/03 12:15:37 [8036d78a-2272-4777-8f6b-25558b4ee180] <tool_call name=" computer_files ">
+{"action":"files.write","path":"./a","content":"X","append":true,"offset":1}
+</tool_call>
+2026/10/03 12:15:37 [8036d78a-2272-4777-8f6b-25558b4ee180] [ExtraTool:computer_files] {"version":1,"status":"uncertain_effect","code":"unclassified_tool_failure","execution_certainty":"unknown","message":"computer control socket: Post \"http://tofi-computer/v1/action\": synthetic respo...
+2026/10/03 12:15:37 [8036d78a-2272-4777-8f6b-25558b4ee180] <tool_call name=" computer_action ">
+{"computer_id":"firecracker","action":"files.write","args":{"path":"candidate","content":"X","append":true}}
+</tool_call>
+2026/10/03 12:15:37 [8036d78a-2272-4777-8f6b-25558b4ee180] [ExtraTool:computer_action] {"version":1,"status":"uncertain_effect","code":"unclassified_tool_failure","execution_certainty":"unknown","message":"computer control socket: Post \"http://tofi-computer/v1/action\": synthetic respo...
+2026/10/03 12:15:37 [8036d78a-2272-4777-8f6b-25558b4ee180] <tool_call name=" computer_files ">
+{"action":"files.read","path":"a"}
+</tool_call>
+2026/10/03 12:15:37 [8036d78a-2272-4777-8f6b-25558b4ee180] [ExtraTool:computer_files] {"bytes":1,"content":"X","path":"a","sha256":"4b68ab3847feda7d6c62c1fbcbeebfa35eab7351ed5e78f4ddadea5df64b8015","truncated":false}
+2026/10/03 12:15:37 [8036d78a-2272-4777-8f6b-25558b4ee180] <tool_call name=" computer_files ">
+{"action":"files.list","path":"."}
+</tool_call>
+2026/10/03 12:15:37 [8036d78a-2272-4777-8f6b-25558b4ee180] [ExtraTool:computer_files] [{"directory":false,"name":"a","path":"a","size":1},{"directory":false,"name":"b","path":"b","size":0},{"directory":false,"name":"c","path":"c","size":0},{"directory":false,"name":"candidate","path":"...
+2026/10/03 12:15:37 [8036d78a-2272-4777-8f6b-25558b4ee180] <tool_call name=" computer_files ">
+{"action":"files.write","path":"b","content":"Y","append":true}
+</tool_call>
+2026/10/03 12:15:37 [8036d78a-2272-4777-8f6b-25558b4ee180] [ExtraTool:computer_files] {"version":1,"status":"uncertain_effect","code":"unclassified_tool_failure","execution_certainty":"unknown","message":"computer control socket: Post \"http://tofi-computer/v1/action\": synthetic respo...
+2026/10/03 12:15:37 [8036d78a-2272-4777-8f6b-25558b4ee180] <think>
+SYNTHETIC_PARTIAL_OUTPUT
+</think>
+2026/10/03 12:15:37 [8036d78a-2272-4777-8f6b-25558b4ee180] [Agent] Finished.
+=== RUN   TestRetargetedWriteFenceSurvivesGuestRestartAndCheckpointReload/older-guest
+2026/10/03 12:15:37 [8c39ed1d-cfce-45d9-a4fe-060e04de1335] [Agent] Registered 10 tools: computer_shell, computer_files, computer_desktop, computer_browser, computer_help, computer_terminal, computer_ssh_keys, list_computers, computer_action, synthetic_ask
+2026/10/03 12:15:37 [8c39ed1d-cfce-45d9-a4fe-060e04de1335] [Agent] Tools: 10 core, 0 skills (deferred)
+2026/10/03 12:15:37 [8c39ed1d-cfce-45d9-a4fe-060e04de1335] <tool_call name=" computer_files ">
+{"action":"files.write","append":true,"content":"X","path":"candidate"}
+</tool_call>
+2026/10/03 12:15:37 [8c39ed1d-cfce-45d9-a4fe-060e04de1335] [ExtraTool:computer_files] {"version":1,"status":"uncertain_effect","code":"unclassified_tool_failure","execution_certainty":"unknown","message":"computer control socket: Post \"http://tofi-computer/v1/action\": synthetic respo...
+2026/10/03 12:15:37 [8c39ed1d-cfce-45d9-a4fe-060e04de1335] <tool_call name=" synthetic_ask ">
+{}
+</tool_call>
+2026/10/03 12:15:37 [8c39ed1d-cfce-45d9-a4fe-060e04de1335] [Agent] Registered 10 tools: computer_shell, computer_files, computer_desktop, computer_browser, computer_help, computer_terminal, computer_ssh_keys, list_computers, computer_action, synthetic_ask
+2026/10/03 12:15:37 [8c39ed1d-cfce-45d9-a4fe-060e04de1335] [Agent] Tools: 10 core, 0 skills (deferred)
+2026/10/03 12:15:37 [8c39ed1d-cfce-45d9-a4fe-060e04de1335] <tool_call name=" computer_files ">
+{"action":"files.write","path":"a","content":"X","append":true}
+</tool_call>
+2026/10/03 12:15:37 [8c39ed1d-cfce-45d9-a4fe-060e04de1335] [ExtraTool:computer_files] {"version":1,"status":"uncertain_effect","code":"unclassified_tool_failure","execution_certainty":"unknown","message":"computer control socket: Post \"http://tofi-computer/v1/action\": synthetic respo...
+2026/10/03 12:15:37 [8c39ed1d-cfce-45d9-a4fe-060e04de1335] <tool_call name=" computer_files ">
+{"action":"files.write","path":"./a","content":"X","append":true,"offset":1}
+</tool_call>
+2026/10/03 12:15:37 [8c39ed1d-cfce-45d9-a4fe-060e04de1335] [ExtraTool:computer_files] {"version":1,"status":"uncertain_effect","code":"unclassified_tool_failure","execution_certainty":"unknown","message":"computer control socket: Post \"http://tofi-computer/v1/action\": synthetic respo...
+2026/10/03 12:15:37 [8c39ed1d-cfce-45d9-a4fe-060e04de1335] <tool_call name=" computer_action ">
+{"computer_id":"firecracker","action":"files.write","args":{"path":"candidate","content":"X","append":true}}
+</tool_call>
+2026/10/03 12:15:37 [8c39ed1d-cfce-45d9-a4fe-060e04de1335] [ExtraTool:computer_action] {"version":1,"status":"uncertain_effect","code":"unclassified_tool_failure","execution_certainty":"unknown","message":"computer control socket: Post \"http://tofi-computer/v1/action\": synthetic respo...
+2026/10/03 12:15:37 [8c39ed1d-cfce-45d9-a4fe-060e04de1335] <tool_call name=" computer_files ">
+{"action":"files.read","path":"a"}
+</tool_call>
+2026/10/03 12:15:37 [8c39ed1d-cfce-45d9-a4fe-060e04de1335] [ExtraTool:computer_files] {"bytes":1,"content":"X","path":"a","sha256":"4b68ab3847feda7d6c62c1fbcbeebfa35eab7351ed5e78f4ddadea5df64b8015","truncated":false}
+2026/10/03 12:15:37 [8c39ed1d-cfce-45d9-a4fe-060e04de1335] <tool_call name=" computer_files ">
+{"action":"files.list","path":"."}
+</tool_call>
+2026/10/03 12:15:37 [8c39ed1d-cfce-45d9-a4fe-060e04de1335] [ExtraTool:computer_files] [{"directory":false,"name":"a","path":"a","size":1},{"directory":false,"name":"b","path":"b","size":0},{"directory":false,"name":"c","path":"c","size":0},{"directory":false,"name":"candidate","path":"...
+2026/10/03 12:15:37 [8c39ed1d-cfce-45d9-a4fe-060e04de1335] <tool_call name=" computer_files ">
+{"action":"files.write","path":"b","content":"Y","append":true}
+</tool_call>
+2026/10/03 12:15:37 [8c39ed1d-cfce-45d9-a4fe-060e04de1335] [ExtraTool:computer_files] {"version":1,"status":"uncertain_effect","code":"unclassified_tool_failure","execution_certainty":"unknown","message":"computer control socket: Post \"http://tofi-computer/v1/action\": synthetic respo...
+2026/10/03 12:15:37 [8c39ed1d-cfce-45d9-a4fe-060e04de1335] <think>
+SYNTHETIC_PARTIAL_OUTPUT
+</think>
+2026/10/03 12:15:37 [8c39ed1d-cfce-45d9-a4fe-060e04de1335] [Agent] Finished.
+=== RUN   TestRetargetedWriteFenceSurvivesGuestRestartAndCheckpointReload/failed-lookup
+2026/10/03 12:15:37 [1b6c5993-d76e-44b9-8f7e-e517088e2e6c] [Agent] Registered 10 tools: computer_shell, computer_files, computer_desktop, computer_browser, computer_help, computer_terminal, computer_ssh_keys, list_computers, computer_action, synthetic_ask
+2026/10/03 12:15:37 [1b6c5993-d76e-44b9-8f7e-e517088e2e6c] [Agent] Tools: 10 core, 0 skills (deferred)
+2026/10/03 12:15:37 [1b6c5993-d76e-44b9-8f7e-e517088e2e6c] <tool_call name=" computer_files ">
+{"action":"files.write","append":true,"content":"X","path":"candidate"}
+</tool_call>
+2026/10/03 12:15:37 [1b6c5993-d76e-44b9-8f7e-e517088e2e6c] [ExtraTool:computer_files] {"version":1,"status":"uncertain_effect","code":"unclassified_tool_failure","execution_certainty":"unknown","message":"computer control socket: Post \"http://tofi-computer/v1/action\": synthetic respo...
+2026/10/03 12:15:37 [1b6c5993-d76e-44b9-8f7e-e517088e2e6c] <tool_call name=" synthetic_ask ">
+{}
+</tool_call>
+2026/10/03 12:15:37 [1b6c5993-d76e-44b9-8f7e-e517088e2e6c] [Agent] Registered 10 tools: computer_shell, computer_files, computer_desktop, computer_browser, computer_help, computer_terminal, computer_ssh_keys, list_computers, computer_action, synthetic_ask
+2026/10/03 12:15:37 [1b6c5993-d76e-44b9-8f7e-e517088e2e6c] [Agent] Tools: 10 core, 0 skills (deferred)
+2026/10/03 12:15:37 [1b6c5993-d76e-44b9-8f7e-e517088e2e6c] <tool_call name=" computer_files ">
+{"action":"files.write","path":"a","content":"X","append":true}
+</tool_call>
+2026/10/03 12:15:37 [1b6c5993-d76e-44b9-8f7e-e517088e2e6c] [ExtraTool:computer_files] {"version":1,"status":"uncertain_effect","code":"unclassified_tool_failure","execution_certainty":"unknown","message":"computer control socket: Post \"http://tofi-computer/v1/action\": synthetic respo...
+2026/10/03 12:15:37 [1b6c5993-d76e-44b9-8f7e-e517088e2e6c] <tool_call name=" computer_files ">
+{"action":"files.write","path":"./a","content":"X","append":true,"offset":1}
+</tool_call>
+2026/10/03 12:15:37 [1b6c5993-d76e-44b9-8f7e-e517088e2e6c] [ExtraTool:computer_files] {"version":1,"status":"uncertain_effect","code":"unclassified_tool_failure","execution_certainty":"unknown","message":"computer control socket: Post \"http://tofi-computer/v1/action\": synthetic respo...
+2026/10/03 12:15:37 [1b6c5993-d76e-44b9-8f7e-e517088e2e6c] <tool_call name=" computer_action ">
+{"computer_id":"firecracker","action":"files.write","args":{"path":"candidate","content":"X","append":true}}
+</tool_call>
+2026/10/03 12:15:37 [1b6c5993-d76e-44b9-8f7e-e517088e2e6c] [ExtraTool:computer_action] {"version":1,"status":"uncertain_effect","code":"unclassified_tool_failure","execution_certainty":"unknown","message":"computer control socket: Post \"http://tofi-computer/v1/action\": synthetic respo...
+2026/10/03 12:15:37 [1b6c5993-d76e-44b9-8f7e-e517088e2e6c] <tool_call name=" computer_files ">
+{"action":"files.read","path":"a"}
+</tool_call>
+2026/10/03 12:15:37 [1b6c5993-d76e-44b9-8f7e-e517088e2e6c] [ExtraTool:computer_files] {"bytes":1,"content":"X","path":"a","sha256":"4b68ab3847feda7d6c62c1fbcbeebfa35eab7351ed5e78f4ddadea5df64b8015","truncated":false}
+2026/10/03 12:15:37 [1b6c5993-d76e-44b9-8f7e-e517088e2e6c] <tool_call name=" computer_files ">
+{"action":"files.list","path":"."}
+</tool_call>
+2026/10/03 12:15:37 [1b6c5993-d76e-44b9-8f7e-e517088e2e6c] [ExtraTool:computer_files] [{"directory":false,"name":"a","path":"a","size":1},{"directory":false,"name":"b","path":"b","size":0},{"directory":false,"name":"c","path":"c","size":0},{"directory":false,"name":"candidate","path":"...
+2026/10/03 12:15:37 [1b6c5993-d76e-44b9-8f7e-e517088e2e6c] <tool_call name=" computer_files ">
+{"action":"files.write","path":"b","content":"Y","append":true}
+</tool_call>
+2026/10/03 12:15:37 [1b6c5993-d76e-44b9-8f7e-e517088e2e6c] [ExtraTool:computer_files] {"version":1,"status":"uncertain_effect","code":"unclassified_tool_failure","execution_certainty":"unknown","message":"computer control socket: Post \"http://tofi-computer/v1/action\": synthetic respo...
+2026/10/03 12:15:37 [1b6c5993-d76e-44b9-8f7e-e517088e2e6c] <think>
+SYNTHETIC_PARTIAL_OUTPUT
+</think>
+2026/10/03 12:15:37 [1b6c5993-d76e-44b9-8f7e-e517088e2e6c] [Agent] Finished.
+--- PASS: TestRetargetedWriteFenceSurvivesGuestRestartAndCheckpointReload (0.16s)
+    --- PASS: TestRetargetedWriteFenceSurvivesGuestRestartAndCheckpointReload/bound-existing (0.05s)
+    --- PASS: TestRetargetedWriteFenceSurvivesGuestRestartAndCheckpointReload/uncertain-create (0.04s)
+    --- PASS: TestRetargetedWriteFenceSurvivesGuestRestartAndCheckpointReload/older-guest (0.03s)
+    --- PASS: TestRetargetedWriteFenceSurvivesGuestRestartAndCheckpointReload/failed-lookup (0.03s)
+PASS
+ok  	github.com/JackZhao98/tofibot/internal/app	0.851s
