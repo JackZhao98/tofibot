@@ -16,10 +16,10 @@ func (s *Store) exportPortable(ctx context.Context, instance string, selection p
 		return portableBundle{}, errors.New("invalid export kind")
 	}
 	if len(selection.Categories) == 0 {
-		selection.Categories = portableCategories
+		selection.Categories = append([]string(nil), portableDefaultCategories...)
 	}
 	cat, err := portableSet(selection.Categories, portableCategories)
-	if err != nil || !cat["bot_config"] {
+	if err != nil || !cat["bot_config"] || cat[portableEnvironmentCategory] || len(selection.VaultEnvironmentIDs)+len(selection.RecoveredEnvironmentIDs) > 0 {
 		return portableBundle{}, errors.New("Bot configuration is required")
 	}
 	if kind == "bot" && (len(selection.BotIDs) != 1 || cat["settings"]) {
@@ -30,7 +30,7 @@ func (s *Store) exportPortable(ctx context.Context, instance string, selection p
 		return portableBundle{}, err
 	}
 	defer tx.Rollback()
-	b := portableBundle{Format: "tofi.bundle", Version: 1, Kind: kind, SourceInstance: instance, CreatedAt: now(), Included: selection.Categories, Excluded: portableExcluded, Bots: []portableBot{}, Conversations: []portableConversation{}, Messages: []portableMessage{}, Memories: []portableMemory{}, Schedules: []portableSchedule{}}
+	b := portableBundle{Format: "tofi.bundle", Version: 1, Kind: kind, SourceInstance: instance, CreatedAt: now(), Included: append([]string(nil), selection.Categories...), Excluded: portableExcluded, Bots: []portableBot{}, Conversations: []portableConversation{}, Messages: []portableMessage{}, Memories: []portableMemory{}, Schedules: []portableSchedule{}}
 	if cat["attachments"] {
 		b.Version = 2
 		b.Excluded = portableExclusions(true)

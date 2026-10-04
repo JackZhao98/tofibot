@@ -24,7 +24,8 @@ import (
 const portableMaxBytes = 16 << 20
 const portableMaxRecords = 20000
 
-var portableCategories = []string{"bot_config", "chats", "memories", "schedules", "attachments", "settings"}
+var portableDefaultCategories = []string{"bot_config", "chats", "memories", "schedules", "attachments", "settings"}
+var portableCategories = append(append([]string(nil), portableDefaultCategories...), portableEnvironmentCategory)
 var portableExcluded = []string{"credentials", "private_ssh_keys", "attachments", "guest_files_and_disk", "extensions_and_skills", "work_items", "mail_drafts", "run_and_tool_history", "reactions", "summaries", "browser_preferences", "authentication_and_approvals"}
 
 type portableOrigin struct {
@@ -112,10 +113,13 @@ type portableBundle struct {
 	Attachments        []portableAttachment        `json:"attachments,omitempty"`
 	AttachmentBindings []portableAttachmentBinding `json:"attachment_bindings,omitempty"`
 	MissingAttachments []portableMissingAttachment `json:"missing_attachments,omitempty"`
+	VaultEnvironment   []portableEnvironment       `json:"vault_environment,omitempty"`
 }
 type portableSelection struct {
-	Categories []string `json:"categories"`
-	BotIDs     []string `json:"bot_ids"`
+	Categories              []string `json:"categories"`
+	BotIDs                  []string `json:"bot_ids"`
+	VaultEnvironmentIDs     []string `json:"vault_environment_ids,omitempty"`
+	RecoveredEnvironmentIDs []string `json:"recovered_environment_ids,omitempty"`
 }
 type portableImportRequest struct {
 	Bundle    json.RawMessage   `json:"bundle"`
@@ -123,19 +127,21 @@ type portableImportRequest struct {
 	PreviewID string            `json:"preview_id,omitempty"`
 }
 type portablePreview struct {
-	SourceFormat    string         `json:"source_format"`
-	SourceVersion   int            `json:"source_version"`
-	EstimatedBytes  int            `json:"estimated_bytes"`
-	Dependencies    []string       `json:"dependencies"`
-	AttachmentBytes int64          `json:"attachment_bytes"`
-	CanApply        bool           `json:"can_apply"`
-	ID              string         `json:"preview_id"`
-	Counts          map[string]int `json:"counts"`
-	Bots            []portableBot  `json:"bots"`
-	Conflicts       []string       `json:"conflicts"`
-	Warnings        []string       `json:"warnings"`
-	Excluded        []string       `json:"excluded"`
-	ExpiresAt       string         `json:"expires_at"`
+	SourceFormat     string                        `json:"source_format"`
+	SourceVersion    int                           `json:"source_version"`
+	EstimatedBytes   int                           `json:"estimated_bytes"`
+	Dependencies     []string                      `json:"dependencies"`
+	AttachmentBytes  int64                         `json:"attachment_bytes"`
+	CanApply         bool                          `json:"can_apply"`
+	ID               string                        `json:"preview_id"`
+	Counts           map[string]int                `json:"counts"`
+	Bots             []portableBot                 `json:"bots"`
+	Conflicts        []string                      `json:"conflicts"`
+	Warnings         []string                      `json:"warnings"`
+	Excluded         []string                      `json:"excluded"`
+	ExpiresAt        string                        `json:"expires_at"`
+	Environment      []portableEnvironmentMetadata `json:"vault_environment,omitempty"`
+	EnvironmentBytes int                           `json:"vault_environment_bytes,omitempty"`
 }
 type portableResult struct {
 	ImportID string            `json:"import_id"`
@@ -150,7 +156,8 @@ expires_at INTEGER NOT NULL,created_at TEXT NOT NULL,result_json TEXT NOT NULL D
 CREATE TABLE IF NOT EXISTS portability_provenance(kind TEXT NOT NULL,target_id TEXT NOT NULL,source_json TEXT NOT NULL,PRIMARY KEY(kind,target_id));
 PRAGMA synchronous=FULL;
 CREATE TABLE IF NOT EXISTS portability_asset_staging(import_id TEXT NOT NULL,target_id TEXT NOT NULL UNIQUE,sha256 TEXT NOT NULL,size INTEGER NOT NULL,created_at TEXT NOT NULL,PRIMARY KEY(import_id,target_id));
-CREATE TABLE IF NOT EXISTS portability_missing_assets(id TEXT PRIMARY KEY,conversation_id TEXT NOT NULL,metadata_json TEXT NOT NULL,FOREIGN KEY(conversation_id) REFERENCES conversations(id) ON DELETE CASCADE);`)
+CREATE TABLE IF NOT EXISTS portability_missing_assets(id TEXT PRIMARY KEY,conversation_id TEXT NOT NULL,metadata_json TEXT NOT NULL,FOREIGN KEY(conversation_id) REFERENCES conversations(id) ON DELETE CASCADE);
+CREATE TABLE IF NOT EXISTS portability_secret_recovery(id TEXT PRIMARY KEY,import_id TEXT NOT NULL,source_id TEXT NOT NULL,capsule BLOB NOT NULL,size INTEGER NOT NULL CHECK(size>0 AND size<=65536),created_at TEXT NOT NULL,UNIQUE(import_id,source_id));`)
 	return err
 }
 
@@ -244,10 +251,13 @@ func (b portableBundle) counts() map[string]int {
 		n = 1
 	}
 	counts := map[string]int{"bot_config": len(b.Bots), "conversations": len(b.Conversations), "chats": len(b.Messages), "memories": len(b.Memories), "schedules": len(b.Schedules), "settings": n}
-	if b.Version == 2 {
+	if b.Version >= 2 {
 		counts["attachments"] = len(b.Attachments)
 		counts["attachment_bindings"] = len(b.AttachmentBindings)
 		counts["missing_attachments"] = b.AttachmentCount
+	}
+	if b.Version == 3 {
+		counts[portableEnvironmentCategory] = len(b.VaultEnvironment)
 	}
 	return counts
 }
@@ -295,7 +305,7 @@ func parsePortableBundle(data []byte) (portableBundle, error) {
 }
 func (b portableBundle) validate() error {
 	bad := func() error { return errors.New("bundle has invalid counts, records or references") }
-	if b.Format != "tofi.bundle" || (b.Version != 1 && b.Version != 2) || (b.Kind != "account" && b.Kind != "bot") {
+	if b.Format != "tofi.bundle" || (b.Version != 1 && b.Version != 2 && b.Version != 3) || (b.Kind != "account" && b.Kind != "bot") {
 		return errors.New("unsupported bundle format or version")
 	}
 	if len(b.SourceInstance) > 200 || b.SourceInstance == "" || !portableTime(b.CreatedAt) || b.AttachmentCount < 0 || b.SkippedGroups < 0 || !reflect.DeepEqual(b.Counts, b.counts()) {
@@ -312,7 +322,7 @@ func (b portableBundle) validate() error {
 	for _, x := range b.MissingAttachments {
 		missingRefs += len(x.MessageIDs)
 	}
-	if len(b.Bots) > 1000 || len(b.Bots)+len(b.Conversations)+len(b.Messages)+len(b.Memories)+len(b.Schedules)+len(b.Attachments)+len(b.AttachmentBindings)+len(b.MissingAttachments)+missingRefs > portableMaxRecords {
+	if len(b.Bots) > 1000 || len(b.Bots)+len(b.Conversations)+len(b.Messages)+len(b.Memories)+len(b.Schedules)+len(b.Attachments)+len(b.AttachmentBindings)+len(b.MissingAttachments)+missingRefs+len(b.VaultEnvironment) > portableMaxRecords {
 		return errors.New("bundle record limit exceeded")
 	}
 	ids := map[string]bool{}
@@ -417,6 +427,9 @@ func (b portableBundle) validate() error {
 	if err := b.validatePortableAttachments(categories, ids, convs, originOK); err != nil {
 		return err
 	}
+	if err := b.validatePortableEnvironment(categories, ids); err != nil {
+		return err
+	}
 	if b.Settings != nil {
 		x := b.Settings
 		if len(x.Model) > 200 || len(x.ReasoningEffort) > 100 || (x.DictationModel != "" && !validDictationModel(x.DictationModel)) {
@@ -434,7 +447,7 @@ func (b portableBundle) validate() error {
 func selectPortable(b portableBundle, sel portableSelection) (portableBundle, error) {
 	if len(sel.Categories) == 0 {
 		for _, category := range b.Included {
-			if category != "settings" {
+			if category != "settings" && category != portableEnvironmentCategory {
 				sel.Categories = append(sel.Categories, category)
 			}
 		}
@@ -513,6 +526,9 @@ func selectPortable(b portableBundle, sel portableSelection) (portableBundle, er
 		out.Settings = nil
 	}
 	selectPortableAttachments(&out, b, cat["attachments"], convs)
+	if err := selectPortableEnvironment(&out, b, sel, cat[portableEnvironmentCategory]); err != nil {
+		return out, err
+	}
 	if err := closePortableHistory(&out, b.Bots, b.Conversations); err != nil {
 		return out, err
 	}
@@ -572,7 +588,7 @@ func (s *Store) previewPortable(ctx context.Context, b portableBundle) (portable
 	if err != nil {
 		return portablePreview{}, err
 	}
-	p := portablePreview{CanApply: true, ID: uuid.NewString(), Counts: b.counts(), Bots: b.Bots, Conflicts: []string{}, Excluded: b.Excluded, Warnings: []string{"Imported records are new copies. Existing records are never overwritten.", "All imported schedules are paused. Instructions and history are stored without execution.", "Content may contain secrets pasted into chats or instructions. Review before sharing.", "Guest disk, credentials, extensions, work items and execution history are excluded."}}
+	p := portablePreview{CanApply: true, ID: uuid.NewString(), Counts: b.counts(), Bots: b.Bots, Conflicts: []string{}, Excluded: b.Excluded, Warnings: []string{"Imported records are new copies. Existing records are never overwritten.", "All imported schedules are paused. Instructions and history are stored without execution.", "Content may contain secrets pasted into chats or instructions. Review before sharing.", "Guest disk, unselected credentials, extensions, work items and execution history are excluded."}}
 	data, _ := json.Marshal(b)
 	p.SourceFormat, p.SourceVersion, p.EstimatedBytes = b.Format, b.Version, len(data)*3
 	for _, asset := range b.Attachments {
@@ -584,6 +600,25 @@ func (s *Store) previewPortable(ctx context.Context, b portableBundle) (portable
 		if s.portableBlobBackend() == nil {
 			p.CanApply = false
 			p.Warnings = append(p.Warnings, "Account file storage is unavailable. Deselect attachments to import the other data, or enable file storage and preview again.")
+		}
+	}
+	if len(b.VaultEnvironment) > 0 {
+		if !s.portabilitySecrets.available() || portableRecoveryCapacity(ctx, tx, b) != nil {
+			return p, errPortableSecret
+		}
+		for _, x := range b.VaultEnvironment {
+			p.Environment = append(p.Environment, portableEnvironmentPublic(x))
+			p.EnvironmentBytes += len(x.Value)
+		}
+		p.Warnings = append(p.Warnings, "Selected vault environment values are recovered inactive. They are not installed, connected or available to tools. Vault and database exports are independent snapshots.")
+		active, err := s.portableActiveTargets()
+		if err != nil {
+			return p, err
+		}
+		for _, x := range b.VaultEnvironment {
+			if active[x.Target] {
+				p.Conflicts = append(p.Conflicts, x.Target+": active destination entry preserved; recovery remains separate and inactive")
+			}
 		}
 	}
 	p.Dependencies = []string{"Historical Bot references bring required configurations and empty DM structure, without restoring former group membership.", "Bot configuration and DM structure are required.", "Group history requires all member Bots; partial groups are skipped.", "Settings are preserved unless explicitly selected."}
@@ -620,7 +655,11 @@ func (s *Store) previewPortable(ctx context.Context, b portableBundle) (portable
 	if pending >= 32 {
 		return p, errors.New("too many pending import previews; wait for expiration")
 	}
-	_, err = tx.ExecContext(ctx, `INSERT INTO portability_imports(id,digest,destination,status,expires_at,created_at) VALUES(?,?,?,'preview',?,?)`, p.ID, portableDigest(b), dest, expires.Unix(), now())
+	digest, boundDestination, e := s.portableBoundDigest(ctx, tx, b, p.ID, dest)
+	if e != nil {
+		return p, e
+	}
+	_, err = tx.ExecContext(ctx, `INSERT INTO portability_imports(id,digest,destination,status,expires_at,created_at) VALUES(?,?,?,'preview',?,?)`, p.ID, digest, boundDestination, expires.Unix(), now())
 	if err != nil {
 		return p, err
 	}

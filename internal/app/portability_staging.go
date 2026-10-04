@@ -76,11 +76,14 @@ func (s *Store) recoverPortableAssets(ctx context.Context) error {
 	}
 	return nil
 }
-func portablePreviewState(ctx context.Context, tx *sql.Tx, b portableBundle, previewID string) (portableResult, bool, error) {
+func (s *Store) portablePreviewState(ctx context.Context, tx *sql.Tx, b portableBundle, previewID string) (portableResult, bool, error) {
 	var digest, destination, status, resultJSON string
 	var expires int64
-	if err := tx.QueryRowContext(ctx, `SELECT digest,destination,status,expires_at,result_json FROM portability_imports WHERE id=?`, previewID).Scan(&digest, &destination, &status, &expires, &resultJSON); err != nil || digest != portableDigest(b) {
+	if err := tx.QueryRowContext(ctx, `SELECT digest,destination,status,expires_at,result_json FROM portability_imports WHERE id=?`, previewID).Scan(&digest, &destination, &status, &expires, &resultJSON); err != nil {
 		return portableResult{}, false, errors.New("preview does not belong to this workspace or bundle; preview again")
+	}
+	if err := s.portableCheckDigest(ctx, tx, b, previewID, digest, destination, status == "applied"); err != nil {
+		return portableResult{}, false, err
 	}
 	if status == "applied" {
 		var result portableResult
@@ -91,7 +94,7 @@ func portablePreviewState(ctx context.Context, tx *sql.Tx, b portableBundle, pre
 	if err != nil {
 		return portableResult{}, false, err
 	}
-	if expires < time.Now().Unix() || current != destination {
+	if expires < time.Now().Unix() || (len(b.VaultEnvironment) == 0 && current != destination) {
 		return portableResult{}, false, errors.New("preview expired or destination changed; preview again")
 	}
 	return portableResult{}, false, nil
@@ -106,7 +109,7 @@ func (s *Store) preparePortableAssets(ctx context.Context, b portableBundle, pre
 		return targets, err
 	}
 	defer tx.Rollback()
-	if _, replayed, err := portablePreviewState(ctx, tx, b, previewID); err != nil || replayed {
+	if _, replayed, err := s.portablePreviewState(ctx, tx, b, previewID); err != nil || replayed {
 		return targets, err
 	}
 	backend := s.portableBlobBackend()
@@ -150,7 +153,9 @@ func (s *Store) applyPortableWithStateGuard(ctx context.Context, b portableBundl
 	defer s.portabilityMu.Unlock()
 	ctx, cancel := context.WithTimeout(ctx, 120*time.Second)
 	defer cancel()
-	if s.portableBlobBackend() != nil {
+	// A credential-only recovery is independent of Guest availability. Older
+	// asset journals remain durable for startup or the next attachment import.
+	if s.portableBlobBackend() != nil && (len(b.VaultEnvironment) == 0 || len(b.Attachments) > 0) {
 		if err = s.recoverPortableAssets(ctx); err != nil {
 			return
 		}
