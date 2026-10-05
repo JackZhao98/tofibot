@@ -190,8 +190,11 @@ func TestMCPContextDiagnosticDataBranches(t *testing.T) {
 		{"imported ingress", mcpContextIntentProvenance, func(t *testing.T, f *autoReviewFixture) {
 			diagnosticExec(t, f, `INSERT INTO portability_provenance VALUES('message',?,'{}')`, f.r.TriggerMessageID)
 		}, -1, 0, false},
-		{"historical attachment", mcpContextNonText, func(t *testing.T, f *autoReviewFixture) {
+		{"current attachment", mcpContextNonText, func(t *testing.T, f *autoReviewFixture) {
 			diagnosticExec(t, f, `INSERT INTO attachments VALUES('synthetic',?,'synthetic','text/plain',0,'synthetic',?)`, f.c.ID, now())
+			if err := f.s.store.BindAttachments(f.c.ID, f.r.TriggerMessageID, []string{"synthetic"}); err != nil {
+				t.Fatal(err)
+			}
 		}, 1, 0, false},
 		{"message limit", mcpContextMessagesLimit, func(t *testing.T, f *autoReviewFixture) {
 			diagnosticExec(t, f, `WITH RECURSIVE n(i) AS (VALUES(1) UNION ALL SELECT i+1 FROM n WHERE i<201) INSERT INTO messages(id,conversation_id,seq,role,content,created_at) SELECT printf('synthetic-message-%d',i),?,1000+i,'assistant','synthetic',? FROM n`, f.c.ID, now())

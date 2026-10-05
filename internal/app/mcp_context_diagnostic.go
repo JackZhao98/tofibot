@@ -24,6 +24,8 @@ const (
 	mcpContextInstructionsRead  mcpContextFailureCode = "instructions_read_failed"
 	mcpContextAttachmentsRead   mcpContextFailureCode = "attachments_read_failed"
 	mcpContextNonText           mcpContextFailureCode = "non_text_context"
+	mcpContextAttachmentScope   mcpContextFailureCode = "attachment_scope_unavailable"
+	mcpContextAttachmentsLimit  mcpContextFailureCode = "attachment_bindings_limit_exceeded"
 	mcpContextMessagesQuery     mcpContextFailureCode = "messages_query_failed"
 	mcpContextMessagesScan      mcpContextFailureCode = "messages_scan_failed"
 	mcpContextMessagesIteration mcpContextFailureCode = "messages_iteration_failed"

@@ -19,9 +19,13 @@ import (
 // Production agent suspension/continuation and official MCP SDK dispatch run
 // unchanged. Both providers are synthetic and in process, without a listener.
 func TestAutoReviewV5HumanRequiredDurableResume(t *testing.T) {
-	for _, mutation := range []string{"unchanged", "user intent", "related evidence", "human refusal", "unknown control outcome", "forged progress", "old progress edit", "active proposal arguments", "config binding", "expiry", "off epoch", "missing snapshot", "checkpoint question"} {
+	for _, mutation := range []string{"unchanged", "user intent", "related evidence", "human refusal", "unknown control outcome", "forged progress", "old progress edit", "active proposal arguments", "config binding", "expiry", "off epoch", "missing snapshot", "checkpoint question", "attachment unchanged", "attachment add", "attachment delete", "attachment relink"} {
 		t.Run(mutation, func(t *testing.T) {
 			f := newAutoReviewFixture(t)
+			var oldAttachmentMessage string
+			if strings.HasPrefix(mutation, "attachment ") {
+				oldAttachmentMessage = seedHistoricalMCPAttachments(t, f, "Read the synthetic public fact for alpha.")
+			}
 			setSyntheticMCPHumanPolicy(t, f, true)
 			if err := f.s.store.putAutoReviewMode("auto"); err != nil {
 				t.Fatal(err)
@@ -165,6 +169,15 @@ func TestAutoReviewV5HumanRequiredDurableResume(t *testing.T) {
 				_, err = f.s.store.db.Exec(`UPDATE mcp_auto_reviews SET context_snapshot='' WHERE question_id=?`, q.ID)
 			case "checkpoint question":
 				_, err = f.s.store.db.Exec(`UPDATE run_input_waits SET checkpoint_json=json_set(checkpoint_json,'$.agent.question_id','wrong-question') WHERE run_id=?`, f.r.ID)
+			case "attachment add":
+				_, err = f.s.store.db.Exec(`INSERT INTO attachments VALUES('synthetic-resume-file',?,'synthetic','text/plain',1,'synthetic-resume-file',?)`, f.c.ID, now())
+				if err == nil {
+					err = f.s.store.BindAttachments(f.c.ID, oldAttachmentMessage, []string{"synthetic-resume-file"})
+				}
+			case "attachment delete":
+				_, err = f.s.store.db.Exec(`DELETE FROM attachments WHERE id='synthetic-old-file-1'`)
+			case "attachment relink":
+				err = f.s.store.BindAttachments(f.c.ID, f.r.TriggerMessageID, []string{"synthetic-old-file-1"})
 			}
 			if err != nil {
 				t.Fatal(err)
@@ -174,7 +187,7 @@ func TestAutoReviewV5HumanRequiredDurableResume(t *testing.T) {
 				t.Fatal("production resume failed", finished, err)
 			}
 			want := int32(0)
-			if mutation == "unchanged" {
+			if mutation == "unchanged" || mutation == "attachment unchanged" {
 				want = 1
 			}
 			if f.effects.Load() != want || f.p.calls.Load() != 1 {
@@ -184,7 +197,7 @@ func TestAutoReviewV5HumanRequiredDurableResume(t *testing.T) {
 			if err == nil && duplicate {
 				t.Fatal("duplicate continuation claimed")
 			}
-			if mutation == "unchanged" {
+			if mutation == "unchanged" || mutation == "attachment unchanged" {
 				if err := f.execute(context.Background()); err == nil || f.effects.Load() != 1 || f.p.calls.Load() != 1 {
 					t.Fatal("approved proposal replayed", err)
 				}

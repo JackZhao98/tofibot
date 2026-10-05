@@ -35,19 +35,20 @@ type MCPReviewDisplay struct {
 }
 
 type mcpReviewContext struct {
-	Intent            string                 `json:"user_intent"`
-	IntentMessageID   string                 `json:"user_intent_message_id"`
-	Instructions      string                 `json:"bot_instructions"`
-	Messages          []Message              `json:"conversation_context"`
-	MessageProvenance []mcpMessageProvenance `json:"host_message_provenance"`
-	Memories          []Memory               `json:"memories"`
-	Summary           string                 `json:"conversation_summary"`
-	HumanRefusals     []mcpHumanRefusal      `json:"host_human_mcp_refusals,omitempty"`
-	ToolResults       []ToolActivity         `json:"untrusted_tool_results,omitempty"`
-	SummaryVersion    int64                  `json:"summary_version"`
-	SourceRunBinding  *mcpScheduleRunBinding `json:"host_source_run_binding,omitempty"`
-	SourceToolResults []ToolActivity         `json:"untrusted_source_tool_results,omitempty"`
-	ScheduleLineage   *mcpScheduleLineage    `json:"schedule_lineage,omitempty"`
+	Intent             string                 `json:"user_intent"`
+	IntentMessageID    string                 `json:"user_intent_message_id"`
+	Instructions       string                 `json:"bot_instructions"`
+	Messages           []Message              `json:"conversation_context"`
+	MessageProvenance  []mcpMessageProvenance `json:"host_message_provenance"`
+	Memories           []Memory               `json:"memories"`
+	Summary            string                 `json:"conversation_summary"`
+	HumanRefusals      []mcpHumanRefusal      `json:"host_human_mcp_refusals,omitempty"`
+	ToolResults        []ToolActivity         `json:"untrusted_tool_results,omitempty"`
+	SummaryVersion     int64                  `json:"summary_version"`
+	SourceRunBinding   *mcpScheduleRunBinding `json:"host_source_run_binding,omitempty"`
+	SourceToolResults  []ToolActivity         `json:"untrusted_source_tool_results,omitempty"`
+	ScheduleLineage    *mcpScheduleLineage    `json:"schedule_lineage,omitempty"`
+	AttachmentBoundary *mcpAttachmentBoundary `json:"host_attachment_boundary,omitempty"`
 }
 
 // These restrictions originate only from native MCP approval rows and genuine
@@ -85,7 +86,7 @@ func (s *Server) reviewAccountID() string {
 	return s.instance.ID
 }
 
-// Read the complete bounded durable context, never a truncated summary. The
+// Read complete bounded durable text and explicit attachment omissions. The
 // host provenance must establish the necessary authorization. Unsupported
 // non-text context is explicit; tool names never determine completeness.
 // This snapshot is recomputed inside the atomic claim transaction.
@@ -102,8 +103,9 @@ func readMCPReviewContext(db reviewQuerier, c Conversation, r Run) (mcpReviewCon
 		return x, "", mcpContextFail(mcpContextUserUnavailable)
 	}
 	var role, conv, intentSource string
+	var intentSeq int64
 	var intentKind, sender sql.NullString
-	if err := db.QueryRow(`SELECT m.content,m.role,m.conversation_id,m.kind,m.sender_bot_id,`+mcpMessageProvenanceSQL+` FROM messages m WHERE m.id=?`, r.TriggerMessageID).Scan(&x.Intent, &role, &conv, &intentKind, &sender, &intentSource); err != nil {
+	if err := db.QueryRow(`SELECT m.content,m.role,m.conversation_id,m.kind,m.sender_bot_id,m.seq,`+mcpMessageProvenanceSQL+` FROM messages m WHERE m.id=?`, r.TriggerMessageID).Scan(&x.Intent, &role, &conv, &intentKind, &sender, &intentSeq, &intentSource); err != nil {
 		return x, "", mcpContextFail(mcpContextIntentRead)
 	}
 	if role != "user" || conv != c.ID || sender.String != "" || intentKind.String != "" && intentKind.String != "user_message" || strings.TrimSpace(x.Intent) == "" {
@@ -116,12 +118,10 @@ func readMCPReviewContext(db reviewQuerier, c Conversation, r Run) (mcpReviewCon
 	if err := db.QueryRow(`SELECT instructions FROM bots WHERE id=?`, r.BotID).Scan(&x.Instructions); err != nil {
 		return x, "", mcpContextFail(mcpContextInstructionsRead)
 	}
-	var attachments int
-	if err := db.QueryRow(`SELECT COUNT(*) FROM attachments WHERE conversation_id=?`, c.ID).Scan(&attachments); err != nil {
-		return x, "", mcpContextFail(mcpContextAttachmentsRead)
-	}
-	if attachments != 0 {
-		return x, "", mcpContextLimitFail(mcpContextNonText, attachments, 0, 201, false)
+	var attachmentErr error
+	x.AttachmentBoundary, attachmentErr = readMCPAttachmentBoundary(db, c.ID, r.TriggerMessageID, intentSeq)
+	if attachmentErr != nil {
+		return x, "", attachmentErr
 	}
 	rows, err := db.Query(`SELECT m.id,m.seq,m.role,m.kind,m.content,COALESCE(m.sender_bot_id,''),`+mcpMessageProvenanceSQL+` FROM messages m WHERE m.conversation_id=? ORDER BY m.seq LIMIT 201`, c.ID)
 	if err != nil {
