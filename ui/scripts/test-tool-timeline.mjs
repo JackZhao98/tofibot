@@ -28,7 +28,7 @@ try {
   const expired = {status:"failed",outcome:{status:"approval_expired",code:"approval_window_expired",execution_certainty:"not_executed"}};
   assert(toolDisplayLabel(expired) === "已过期" && toolDisplayState(expired) === "expired", "expiry has its own presentation");
   assert(toolAttemptIssues([expired]) === "", "expired approval is not an execution-error alert");
-  assert(toolDisplayLabel({...expired,status:"interrupted"}) === "已中断", "true interruption remains visible");
+  assert(toolDisplayLabel({...expired,status:"interrupted"}) === "未执行", "object-level not-executed certainty takes precedence over interrupted transport");
   assert(toolDisplayLabel({status:"failed",outcome:{code:"batch_skipped",execution_certainty:"not_executed"}}) === "未执行", "stale batch tails did not execute");
   const progress = { ...message("progress", 2, "2026-09-17T00:00:01Z"), kind: "progress" };
   const finalReply = message("final-reply", 3, "2026-09-17T00:00:03Z");

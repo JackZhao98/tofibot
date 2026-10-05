@@ -1,0 +1,35 @@
+.task-run-block{width:100%;max-width:var(--chat-max);min-width:0;margin-block:var(--space-3);color:var(--text-body);font:var(--type-body);overflow-wrap:anywhere}
+.task-run-phase,.task-run-identity{margin:0 0 var(--space-2);font:var(--type-row-title);color:var(--text-secondary)}
+.task-issue-card{position:relative;min-width:0;border:1px solid var(--border-soft);border-radius:var(--radius-md);background:var(--surface-card);padding:var(--space-4)}
+.task-issue-heading{display:flex;align-items:flex-start;gap:var(--space-2);margin-block-end:var(--space-3)}
+.task-issue-heading>svg{flex:none;color:var(--status-error-text)}
+.task-issue-card[data-issue-kind="uncertain_effect"] .task-issue-heading>svg{color:var(--honey-text)}
+.task-issue-heading h3{font:var(--type-row-title);margin:0;min-width:0}
+.task-issue-fact,.task-issue-context,.task-issue-feedback{margin:var(--space-2) 0 0;font:var(--type-body)}
+.task-issue-context{color:var(--text-secondary)}
+.task-issue-actions{display:flex;flex-wrap:wrap;gap:var(--space-3);margin-block-start:var(--space-3)}
+.task-issue-actions .secondary-button,.task-record-page .secondary-button{display:inline-flex;align-items:center;justify-content:center;gap:var(--space-2);min-height:44px;font:var(--type-button);white-space:normal;line-height:1.4;max-width:100%}
+.task-issue-technical{margin-block-start:var(--space-2);font:var(--type-meta)}
+.task-issue-technical>summary,.task-activity>summary,.task-tool-records summary,.task-progress-record>summary{cursor:pointer;min-height:44px;align-content:center;color:var(--text-secondary);overflow-wrap:anywhere}
+.task-issue-technical pre,.task-activity pre{white-space:pre-wrap;overflow-wrap:anywhere;max-height:240px;overflow:auto;padding:var(--space-3);border-radius:var(--radius-sm);background:var(--surface-sunk);color:var(--text-body);font:var(--type-code)}
+.task-issue-feedback{font:var(--type-meta);color:var(--text-secondary)}
+.task-activity{margin-block-start:var(--space-2)}
+.task-activity>summary{display:flex;align-items:center;gap:var(--space-2);font:var(--type-meta);list-style:none}
+.task-activity>summary::-webkit-details-marker{display:none}
+.task-activity[open]>summary>svg{transform:rotate(90deg)}
+.task-activity-records{padding-block:var(--space-2);min-width:0;border-block-start:1px solid var(--border-soft)}
+.task-tool-records{list-style:none;padding:0;margin:0}.task-tool-records li{border-block-end:1px solid var(--border-soft)}
+.task-tool-records summary{display:flex;flex-wrap:wrap;align-items:center;gap:var(--space-2);font:var(--type-meta)}
+.task-tool-records summary strong{font-weight:600;margin-inline-start:auto;color:var(--text-body)}
+.task-record-meta,.task-question-record{font:var(--type-meta);color:var(--text-secondary)}
+.task-question-record{padding-block:var(--space-2)}.task-question-record p{margin:0 0 var(--space-2)}.task-question-record dl{margin:0}.task-question-record dl>div{display:flex;gap:var(--space-3)}.task-question-record dd{margin:0;overflow-wrap:anywhere}
+.task-run-block :is(button,summary,pre,h3):focus-visible{outline:2px solid var(--focus-ring);outline-offset:3px}
+.task-run-block ::selection{background:var(--surface-inverse);color:var(--text-on-inverse)}
+.task-state-read-error{margin-block:var(--space-2);color:var(--text-secondary);font:var(--type-meta)}
+.task-state-read-error button{min-height:44px;margin-inline-start:var(--space-2)}
+@media(max-width:560px){.task-issue-card{padding:var(--space-3)}.task-issue-fact,.task-issue-context{font-size:max(16px,1em)}.task-issue-actions{display:block}.task-issue-actions .secondary-button{width:100%}}
+@media(prefers-reduced-motion:reduce){.task-run-block *{scroll-behavior:auto;transition:none;animation:none}}
+
+.task-mail-record{margin-block:var(--space-3);font:var(--type-body)}.task-mail-record p{margin:var(--space-2) 0}.task-mail-record>details>summary{min-height:44px;align-content:center;cursor:pointer;color:var(--text-secondary);font:var(--type-meta)}.task-mail-record dd{margin:0;overflow-wrap:anywhere}
+
+.task-run-block .approval-actions button,.task-run-block .approval-secondary button{min-height:44px}

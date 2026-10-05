@@ -1,5 +1,16 @@
 import type { Message, Run, ToolActivity, ToolActivityRunSummary } from "./types";
 
+/** A failed request is not evidence that its external effect did not occur. */
+export function toolExecutionState(tool: Pick<ToolActivity, "status" | "outcome">): "not_executed" | "in_progress" | "completed" | "unknown" {
+  const outcome = tool.outcome;
+  if (outcome?.status === "uncertain_effect" || outcome?.code === "mcp_result_unknown" || outcome?.execution_certainty === "unknown") return "unknown";
+  if (outcome?.execution_certainty === "not_executed") return tool.status === "completed" ? "unknown" : "not_executed";
+  if (tool.status === "completed") return "completed";
+  if (tool.status === "running" || tool.status === "queued") return "in_progress";
+  return "unknown";
+}
+
+
 export interface ToolTimeline {
   beforeMessageId: Map<string, ToolActivity[]>;
   afterMessageId: Map<string, ToolActivity[]>;
@@ -13,21 +24,25 @@ export interface ToolRunAnchors<T> {
 
 /** Summarize attempts, not whether the user's task was completed. */
 export function toolAttemptIssues(items: Pick<ToolActivity, "status" | "outcome">[]): string {
-  const failures = items.filter(item => item.status === "failed" && toolDisplayState(item) === "failed").length;
+  const failures = items.filter(item => item.status === "failed" && ["failed", "unknown"].includes(toolDisplayState(item))).length;
   const interrupted = items.filter(item => item.status === "interrupted").length;
   const pending = items.filter(item => item.status === "queued" || item.status === "running").length;
   return [failures ? `${failures} 次失败` : "", interrupted ? `${interrupted} 次中断` : "", pending ? `${pending} 次待结束` : ""].filter(Boolean).join(" · ");
 }
 
 export function toolDisplayState(activity: Pick<ToolActivity,"status"|"outcome">): string {
+  if (toolExecutionState(activity) === "unknown") return "unknown";
   if (activity.status === "failed" && activity.outcome?.status === "approval_expired") return "expired";
   if (activity.status === "failed" && activity.outcome?.code === "batch_skipped" && activity.outcome.execution_certainty === "not_executed") return "skipped";
+  const certainty = toolExecutionState(activity);
+  if (certainty === "unknown") return "unknown";
+  if (certainty === "not_executed") return "not_executed";
   return activity.status;
 }
 
-export function toolDisplayLabel(activity: Pick<ToolActivity,"status"|"outcome">): string {
-  const labels:Record<string,string> = {queued:"排队中",running:"执行中",completed:"已完成",failed:"失败",interrupted:"已中断",expired:"已过期",skipped:"未执行"};
-  return labels[toolDisplayState(activity)];
+export function toolDisplayLabel(activity: Pick<ToolActivity,"status"|"outcome">, locale: "zh-CN" | "en" = typeof document !== "undefined" && document.documentElement.lang.startsWith("en") ? "en" : "zh-CN"): string {
+  const labels: Record<string, [string, string]> = {queued:["排队中","Queued"],running:["执行中","Running"],completed:["已完成","Completed"],failed:["失败","Failed"],interrupted:["已中断","Interrupted"],expired:["已过期","Expired"],skipped:["未执行","Not executed"],not_executed:["未执行","Not executed"],unknown:["结果待核实","Result needs checking"]};
+  return (labels[toolDisplayState(activity)] ?? ["状态待确认", "Status unconfirmed"])[locale === "en" ? 1 : 0];
 }
 
 type PreciseTime = { milliseconds: number; nanoseconds: number };
@@ -51,6 +66,20 @@ function compareTime(a: PreciseTime | null, b: PreciseTime | null) {
   if (a === null) return 1;
   if (b === null) return -1;
   return a.milliseconds - b.milliseconds || a.nanoseconds - b.nanoseconds;
+}
+
+/** Reconnect/detail pages must not replace newer certainty with older evidence. */
+export function reconcileToolActivity(previous: ToolActivity | undefined, next: ToolActivity): ToolActivity {
+  if (!previous) return next;
+  const order = compareTime(preciseTime(previous.updated_at), preciseTime(next.updated_at));
+  if (order > 0) return previous;
+  if (order < 0) return next;
+  const before = toolExecutionState(previous), after = toolExecutionState(next);
+  if (before === after) return next;
+  // Equal-version contradictory snapshots cannot confirm an external effect.
+  // Retain any completed result as a business record while projecting unknown.
+  const record = previous.status === "completed" ? previous : next;
+  return { ...record, outcome: { ...record.outcome, status: "uncertain_effect", code: record.outcome?.code ?? "", execution_certainty: "unknown", message: "", next_action: "" } };
 }
 
 /** Keep tool order tied to the immutable queued timestamp, not completion time. */
