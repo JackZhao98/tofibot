@@ -24,13 +24,14 @@ const autoReviewTimeout = 30 * time.Second
 const autoReviewValidity = 2 * time.Minute
 
 type MCPReviewDisplay struct {
-	Source               string `json:"source"`
-	Status               string `json:"status"`
-	Reason               string `json:"reason"`
-	Model                string `json:"model"`
-	RiskLevel            string `json:"risk_level,omitempty"`
-	ConfirmationRequired bool   `json:"confirmation_required"`
-	PolicyVersion        string `json:"policy_version,omitempty"`
+	Source               string             `json:"source"`
+	Status               string             `json:"status"`
+	Reason               string             `json:"reason"`
+	Model                string             `json:"model"`
+	RiskLevel            string             `json:"risk_level,omitempty"`
+	ConfirmationRequired bool               `json:"confirmation_required"`
+	PolicyVersion        string             `json:"policy_version,omitempty"`
+	ContextFailure       *MCPContextFailure `json:"context_failure,omitempty"`
 }
 
 type mcpReviewContext struct {
@@ -91,31 +92,40 @@ func (s *Server) reviewAccountID() string {
 func readMCPReviewContext(db reviewQuerier, c Conversation, r Run) (mcpReviewContext, string, error) {
 	var x mcpReviewContext
 	var trigger, parent, kind sql.NullString
-	if err := db.QueryRow(`SELECT trigger_message_id,parent_run_id,kind FROM runs WHERE id=? AND conversation_id=? AND bot_id=?`, r.ID, c.ID, r.BotID).Scan(&trigger, &parent, &kind); err != nil || trigger.String != r.TriggerMessageID || parent.String != r.ParentRunID || kind.String != r.Kind {
-		return x, "", errors.New("run context binding changed")
+	if err := db.QueryRow(`SELECT trigger_message_id,parent_run_id,kind FROM runs WHERE id=? AND conversation_id=? AND bot_id=?`, r.ID, c.ID, r.BotID).Scan(&trigger, &parent, &kind); err != nil {
+		return x, "", mcpContextFail(mcpContextRunRead)
+	}
+	if trigger.String != r.TriggerMessageID || parent.String != r.ParentRunID || kind.String != r.Kind {
+		return x, "", mcpContextFail(mcpContextRunBinding)
 	}
 	if r.TriggerMessageID == "" || r.ParentRunID != "" || r.Kind != "" && r.Kind != "chat" {
-		return x, "", errors.New("complete user context unavailable")
+		return x, "", mcpContextFail(mcpContextUserUnavailable)
 	}
 	var role, conv, intentSource string
 	var intentKind, sender sql.NullString
-	if err := db.QueryRow(`SELECT m.content,m.role,m.conversation_id,m.kind,m.sender_bot_id,`+mcpMessageProvenanceSQL+` FROM messages m WHERE m.id=?`, r.TriggerMessageID).Scan(&x.Intent, &role, &conv, &intentKind, &sender, &intentSource); err != nil || role != "user" || conv != c.ID || sender.String != "" || intentKind.String != "" && intentKind.String != "user_message" || strings.TrimSpace(x.Intent) == "" {
-		return x, "", errors.New("user intent unavailable")
+	if err := db.QueryRow(`SELECT m.content,m.role,m.conversation_id,m.kind,m.sender_bot_id,`+mcpMessageProvenanceSQL+` FROM messages m WHERE m.id=?`, r.TriggerMessageID).Scan(&x.Intent, &role, &conv, &intentKind, &sender, &intentSource); err != nil {
+		return x, "", mcpContextFail(mcpContextIntentRead)
+	}
+	if role != "user" || conv != c.ID || sender.String != "" || intentKind.String != "" && intentKind.String != "user_message" || strings.TrimSpace(x.Intent) == "" {
+		return x, "", mcpContextFail(mcpContextIntentInvalid)
 	}
 	if intentSource != mcpHostUserIngress {
-		return x, "", errors.New("host-verified user intent provenance unavailable")
+		return x, "", mcpContextFail(mcpContextIntentProvenance)
 	}
 	x.IntentMessageID = r.TriggerMessageID
 	if err := db.QueryRow(`SELECT instructions FROM bots WHERE id=?`, r.BotID).Scan(&x.Instructions); err != nil {
-		return x, "", err
+		return x, "", mcpContextFail(mcpContextInstructionsRead)
 	}
 	var attachments int
-	if err := db.QueryRow(`SELECT COUNT(*) FROM attachments WHERE conversation_id=?`, c.ID).Scan(&attachments); err != nil || attachments != 0 {
-		return x, "", errors.New("non-text context requires human review")
+	if err := db.QueryRow(`SELECT COUNT(*) FROM attachments WHERE conversation_id=?`, c.ID).Scan(&attachments); err != nil {
+		return x, "", mcpContextFail(mcpContextAttachmentsRead)
+	}
+	if attachments != 0 {
+		return x, "", mcpContextLimitFail(mcpContextNonText, attachments, 0, 201, false)
 	}
 	rows, err := db.Query(`SELECT m.id,m.seq,m.role,m.kind,m.content,COALESCE(m.sender_bot_id,''),`+mcpMessageProvenanceSQL+` FROM messages m WHERE m.conversation_id=? ORDER BY m.seq LIMIT 201`, c.ID)
 	if err != nil {
-		return x, "", err
+		return x, "", mcpContextFail(mcpContextMessagesQuery)
 	}
 	for rows.Next() {
 		var m Message
@@ -130,12 +140,18 @@ func readMCPReviewContext(db reviewQuerier, c Conversation, r Run) (mcpReviewCon
 	}
 	rowErr := rows.Err()
 	rows.Close()
-	if err != nil || rowErr != nil || len(x.Messages) > 200 {
-		return x, "", errors.New("complete conversation exceeds review limit")
+	if err != nil {
+		return x, "", mcpContextFail(mcpContextMessagesScan)
+	}
+	if rowErr != nil {
+		return x, "", mcpContextFail(mcpContextMessagesIteration)
+	}
+	if len(x.Messages) > 200 {
+		return x, "", mcpContextLimitFail(mcpContextMessagesLimit, len(x.Messages), 200, 201, true)
 	}
 	rows, err = db.Query(`SELECT id,content,revision FROM memories WHERE conversation_id=? AND (bot_id IS NULL OR bot_id=?) ORDER BY id LIMIT 201`, c.ID, r.BotID)
 	if err != nil {
-		return x, "", err
+		return x, "", mcpContextFail(mcpContextMemoriesQuery)
 	}
 	for rows.Next() {
 		var m Memory
@@ -146,27 +162,38 @@ func readMCPReviewContext(db reviewQuerier, c Conversation, r Run) (mcpReviewCon
 	}
 	rowErr = rows.Err()
 	rows.Close()
-	if err != nil || rowErr != nil || len(x.Memories) > 200 {
-		return x, "", errors.New("complete memory unavailable")
+	if err != nil {
+		return x, "", mcpContextFail(mcpContextMemoriesScan)
+	}
+	if rowErr != nil {
+		return x, "", mcpContextFail(mcpContextMemoriesIteration)
+	}
+	if len(x.Memories) > 200 {
+		return x, "", mcpContextLimitFail(mcpContextMemoriesLimit, len(x.Memories), 200, 201, true)
 	}
 	err = db.QueryRow(`SELECT version,content FROM summaries WHERE conversation_id=? ORDER BY version DESC LIMIT 1`, c.ID).Scan(&x.SummaryVersion, &x.Summary)
 	if err != nil && !errors.Is(err, sql.ErrNoRows) {
-		return x, "", errors.New("complete summary unavailable")
+		return x, "", mcpContextFail(mcpContextSummaryRead)
 	}
 	rows, err = db.Query(`SELECT conversation_id,bot_id,run_id,call_id,name,arguments,result,status,truncated,started_at,updated_at,outcome_json FROM tool_activities WHERE conversation_id=? ORDER BY started_at,run_id,call_id LIMIT 201`, c.ID)
 	if err != nil {
-		return x, "", errors.New("complete tool-result context unavailable")
+		return x, "", mcpContextFail(mcpContextToolsQuery)
 	}
 	for rows.Next() {
 		var a ToolActivity
 		var truncated int
 		var outcome string
 		if err = rows.Scan(&a.ConversationID, &a.BotID, &a.RunID, &a.CallID, &a.Name, &a.Arguments, &a.Result, &a.Status, &truncated, &a.StartedAt, &a.UpdatedAt, &outcome); err != nil {
+			err = mcpContextFail(mcpContextToolsScan)
 			break
 		}
 		a.Truncated, a.Outcome = truncated != 0, tooloutcome.Parse(outcome)
-		if outcome != "" && a.Outcome == nil || !utf8.ValidString(a.Arguments) || !utf8.ValidString(a.Result) {
-			err = errors.New("complete tool-result or effect context unavailable")
+		if outcome != "" && a.Outcome == nil {
+			err = mcpContextFail(mcpContextToolsOutcome)
+			break
+		}
+		if !utf8.ValidString(a.Arguments) || !utf8.ValidString(a.Result) {
+			err = mcpContextFail(mcpContextToolsUTF8)
 			break
 		}
 		// Preserve incompleteness and uncertainty as untrusted evidence. Only
@@ -176,21 +203,28 @@ func readMCPReviewContext(db reviewQuerier, c Conversation, r Run) (mcpReviewCon
 	}
 	rowErr = rows.Err()
 	rows.Close()
-	if err != nil || rowErr != nil || len(x.ToolResults) > 200 {
-		return x, "", errors.New("complete tool-result context unavailable or exceeds limit")
+	if err != nil {
+		return x, "", err
+	}
+	if rowErr != nil {
+		return x, "", mcpContextFail(mcpContextToolsIteration)
+	}
+	if len(x.ToolResults) > 200 {
+		return x, "", mcpContextLimitFail(mcpContextToolsLimit, len(x.ToolResults), 200, 201, true)
 	}
 	rows, err = db.Query(`SELECT q.id,q.run_id,a.action_hash,q.approval_json FROM questions q JOIN mcp_call_approvals a ON a.question_id=q.id WHERE q.conversation_id=? AND q.status='answered' AND q.answer_json='false' AND COALESCE(q.answered_by,'')<>'' AND q.answered_by<>? ORDER BY q.created_at,q.id LIMIT 201`, c.ID, autoReviewActor)
 	if err != nil {
-		return x, "", err
+		return x, "", mcpContextFail(mcpContextRefusalsQuery)
 	}
 	for rows.Next() {
 		var refusal mcpHumanRefusal
 		var raw string
 		if err = rows.Scan(&refusal.QuestionID, &refusal.RunID, &refusal.ActionHash, &raw); err != nil {
+			err = mcpContextFail(mcpContextRefusalsScan)
 			break
 		}
 		if err = json.Unmarshal([]byte(raw), &refusal.Approval); err != nil || refusal.Approval == nil {
-			err = errors.New("human refusal context unavailable")
+			err = mcpContextFail(mcpContextRefusalsInvalid)
 			break
 		}
 		refusal.Approval.Review = nil // Prior model advice is not human provenance.
@@ -198,12 +232,21 @@ func readMCPReviewContext(db reviewQuerier, c Conversation, r Run) (mcpReviewCon
 	}
 	rowErr = rows.Err()
 	rows.Close()
-	if err != nil || rowErr != nil || len(x.HumanRefusals) > 200 {
-		return x, "", errors.New("complete human refusal context unavailable")
+	if err != nil {
+		return x, "", err
+	}
+	if rowErr != nil {
+		return x, "", mcpContextFail(mcpContextRefusalsIteration)
+	}
+	if len(x.HumanRefusals) > 200 {
+		return x, "", mcpContextLimitFail(mcpContextRefusalsLimit, len(x.HumanRefusals), 200, 201, true)
 	}
 	raw, err := json.Marshal(x)
-	if err != nil || len(raw) > 64<<10 || !utf8.Valid(raw) {
-		return x, "", errors.New("complete context exceeds review limit")
+	if err != nil || !utf8.Valid(raw) {
+		return x, "", mcpContextFail(mcpContextEncoding)
+	}
+	if len(raw) > 64<<10 {
+		return x, "", mcpContextLimitFail(mcpContextBytesLimit, len(raw), 64<<10, 1<<20, false)
 	}
 	return x, digestBytes(raw), nil
 }
@@ -335,11 +378,15 @@ func (s *Server) reviewNewMCPProposal(ctx context.Context, c Conversation, r Run
 
 func (s *Server) reviewMCPProposal(ctx context.Context, c Conversation, r Run, call extensions.MCPCallApproval, q Question, settings autoReviewSettings) error {
 	shadow := settings.Mode == "shadow"
-	gap := func(status, reason string) error {
-		if shadow {
-			return s.store.setMCPReviewDisplay(q.ID, MCPReviewDisplay{autoReviewActor, "shadow_" + status, reason, "codex-auto-review", "", false, autoReviewPolicyVersion})
+	gap := func(status, reason string, failure ...*MCPContextFailure) error {
+		var diagnostic *MCPContextFailure
+		if len(failure) != 0 {
+			diagnostic = failure[0]
 		}
-		return s.closeMCPReviewGap(q.ID, status, reason)
+		if shadow {
+			return s.store.setMCPReviewDisplay(q.ID, MCPReviewDisplay{autoReviewActor, "shadow_" + status, reason, "codex-auto-review", "", false, autoReviewPolicyVersion, diagnostic})
+		}
+		return s.closeMCPReviewGap(q.ID, status, reason, diagnostic)
 	}
 	current, err := s.store.GetQuestion(q.ID)
 	if err != nil {
@@ -350,7 +397,7 @@ func (s *Server) reviewMCPProposal(ctx context.Context, c Conversation, r Run, c
 		if _, ok := tooloutcome.FromError(terminalErr); !ok {
 			return terminalErr
 		}
-		if err := s.store.setMCPReviewDisplay(q.ID, MCPReviewDisplay{autoReviewActor, "terminal", terminalErr.Error(), "codex-auto-review", "", false, autoReviewPolicyVersion}); err != nil {
+		if err := s.store.setMCPReviewDisplay(q.ID, MCPReviewDisplay{autoReviewActor, "terminal", terminalErr.Error(), "codex-auto-review", "", false, autoReviewPolicyVersion, nil}); err != nil {
 			return err
 		}
 		return terminalErr
@@ -366,14 +413,14 @@ func (s *Server) reviewMCPProposal(ctx context.Context, c Conversation, r Run, c
 	x, digest, contextErr := s.readMCPReviewContext(s.store.db, c, r)
 	digest = mcpReviewDigest(x, call)
 	if contextErr != nil {
-		return gap("context_required", "Necessary durable user authorization or context is missing, changed or exceeds the bounded evidence limit.")
+		return gap("context_required", "Necessary durable user authorization or context is missing, changed or exceeds the bounded evidence limit.", mcpContextDiagnostic(contextErr))
 	}
 	if latest, e := s.store.getAutoReviewSettings(); e != nil || latest != settings {
 		return gap("invalidated", "AutoReview settings changed before this review could begin.")
 	}
 	snapshot, err := json.Marshal(x)
 	if err != nil {
-		return gap("context_required", "The exact durable evidence snapshot could not be retained.")
+		return gap("context_required", "The exact durable evidence snapshot could not be retained.", mcpContextDiagnostic(mcpContextFail(mcpContextSnapshotEncoding)))
 	}
 	_, err = s.store.db.Exec(`INSERT INTO mcp_auto_reviews(question_id,account_id,conversation_id,run_id,action_hash,server,tool,config_fingerprint,arguments_digest,schema_digest,policy_version,context_digest,context_snapshot,provenance,mode,settings_revision,status,decision,reason,expires_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,'reviewing','','',?)`, q.ID, s.reviewAccountID(), c.ID, r.ID, mcpApprovalHash(call), call.Server, call.Tool, call.ConfigVersion, digestBytes(call.Arguments), digestBytes(call.Schema), autoReviewPolicyVersion, digest, string(snapshot), autoReviewProvenance, settings.Mode, settings.Revision, q.ExpiresAt)
 	if err != nil {
@@ -383,13 +430,13 @@ func (s *Server) reviewMCPProposal(ctx context.Context, c Conversation, r Run, c
 		}
 		// A duplicate cannot reserve or replay another reviewer request. Claim
 		// must still validate the exact card's review and action-level fences.
-		return s.store.setMCPReviewDisplay(q.ID, MCPReviewDisplay{autoReviewActor, "not_reviewed", "No new review was reserved for this exact proposal. Existing action-level review and execution claims remain authoritative.", "codex-auto-review", "", false, autoReviewPolicyVersion})
+		return s.store.setMCPReviewDisplay(q.ID, MCPReviewDisplay{autoReviewActor, "not_reviewed", "No new review was reserved for this exact proposal. Existing action-level review and execution claims remain authoritative.", "codex-auto-review", "", false, autoReviewPolicyVersion, nil})
 	}
 	displayStatus := "reviewing"
 	if shadow {
 		displayStatus = "shadow_reviewing"
 	}
-	if err = s.store.setMCPReviewDisplay(q.ID, MCPReviewDisplay{autoReviewActor, displayStatus, "Assessing the exact proposal's authorization, effects and data flow.", "codex-auto-review", "", false, autoReviewPolicyVersion}); err != nil {
+	if err = s.store.setMCPReviewDisplay(q.ID, MCPReviewDisplay{autoReviewActor, displayStatus, "Assessing the exact proposal's authorization, effects and data flow.", "codex-auto-review", "", false, autoReviewPolicyVersion, nil}); err != nil {
 		return err
 	}
 	request := func(reviewCtx context.Context) error {
@@ -406,8 +453,8 @@ func (s *Server) reviewMCPProposal(ctx context.Context, c Conversation, r Run, c
 	return request(ctx)
 }
 
-func (s *Server) closeMCPReviewGap(id, status, reason string) error {
-	if err := s.store.setMCPReviewDisplay(id, MCPReviewDisplay{autoReviewActor, status, reason, "codex-auto-review", "", false, autoReviewPolicyVersion}); err != nil {
+func (s *Server) closeMCPReviewGap(id, status, reason string, diagnostic *MCPContextFailure) error {
+	if err := s.store.setMCPReviewDisplay(id, MCPReviewDisplay{autoReviewActor, status, reason, "codex-auto-review", "", false, autoReviewPolicyVersion, diagnostic}); err != nil {
 		return err
 	}
 	// Keep a genuine human answer truthful; it cannot repair a technical gap.
@@ -477,6 +524,7 @@ func (s *Server) finishMCPReview(ctx context.Context, c Conversation, r Run, cal
 		return err
 	}
 	var blocked error
+	var contextFailure *MCPContextFailure
 	terminalErr := mcpReviewTerminal(ctx, tx, q, r, call)
 	if terminalErr != nil {
 		if _, ok := tooloutcome.FromError(terminalErr); !ok {
@@ -490,6 +538,10 @@ func (s *Server) finishMCPReview(ctx context.Context, c Conversation, r Run, cal
 		status, result.Reason = "setup_required", "The current tool configuration or schema binding changed."
 	} else if contextErr != nil || currentDigest != result.ContextDigest {
 		status, result.Reason = "context_required", "Necessary authorization or context changed. A complete current evidence packet is required."
+		contextFailure = mcpContextDiagnostic(contextErr)
+		if contextErr == nil {
+			contextFailure = mcpContextDiagnostic(mcpContextFail(mcpContextDigestChanged))
+		}
 	} else if initial != settings || reviewStatus != "reviewing" {
 		status, result.Reason = "invalidated", "The review was invalidated by changed settings or state; it cannot authorize execution."
 	} else {
@@ -514,7 +566,7 @@ func (s *Server) finishMCPReview(ctx context.Context, c Conversation, r Run, cal
 		}
 	}
 	q.UpdatedAt = now()
-	q.Approval.Review = &MCPReviewDisplay{autoReviewActor, status, result.Reason, "codex-auto-review", result.RiskLevel, result.ConfirmationRequired, autoReviewPolicyVersion}
+	q.Approval.Review = &MCPReviewDisplay{autoReviewActor, status, result.Reason, "codex-auto-review", result.RiskLevel, result.ConfirmationRequired, autoReviewPolicyVersion, contextFailure}
 	raw, _ := json.Marshal(q.Approval)
 	if _, err = tx.Exec(`UPDATE mcp_auto_reviews SET status=?,decision=?,reason=?,risk_level=?,confirmation_required=?,expires_at=? WHERE question_id=?`, status, result.Decision, result.Reason, result.RiskLevel, boolInt(result.ConfirmationRequired), q.ExpiresAt, id); err != nil {
 		return err

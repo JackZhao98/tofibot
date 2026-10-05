@@ -90,14 +90,19 @@ func (s *Server) claimMCPApproval(ctx context.Context, c Conversation, r Run, ca
 			q.AnsweredBy = ""
 			q.UpdatedAt = now()
 			reviewState, reason := "invalidated", "The automatic decision's execution binding is no longer valid. It cannot authorize execution."
+			var contextFailure *MCPContextFailure
 			if q.Status == questionExpired {
 				reviewState, reason = "terminal", "This proposal expired and remains non-executable."
 			} else if contextErr != nil || contextDigest != digest {
 				q.Status, reviewState, reason = questionCancelled, "context_required", "Necessary authorization or context changed. A complete current evidence packet is required."
+				contextFailure = mcpContextDiagnostic(contextErr)
+				if contextErr == nil {
+					contextFailure = mcpContextDiagnostic(mcpContextFail(mcpContextDigestChanged))
+				}
 			} else if s.extensions == nil || !mcpSchemaAvailable(call.Schema) || !s.extensions.MCPCallCurrent(call) {
 				q.Status, reviewState, reason = questionCancelled, "setup_required", "The current tool configuration or schema binding is unavailable. Approval cannot repair this setup gap."
 			}
-			q.Approval.Review = &MCPReviewDisplay{autoReviewActor, reviewState, reason, "codex-auto-review", "", false, autoReviewPolicyVersion}
+			q.Approval.Review = &MCPReviewDisplay{autoReviewActor, reviewState, reason, "codex-auto-review", "", false, autoReviewPolicyVersion, contextFailure}
 			raw, _ := json.Marshal(q.Approval)
 			if _, err = tx.Exec(`UPDATE questions SET status=?,answer_json=NULL,answered_by=NULL,approval_json=?,updated_at=? WHERE id=?`, q.Status, string(raw), q.UpdatedAt, id); err != nil {
 				return nil, err
