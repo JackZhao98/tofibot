@@ -137,7 +137,7 @@ func (s *Store) putAutoReviewMode(mode string) error {
 			q.AnsweredBy = ""
 		}
 		q.UpdatedAt = now()
-		display := MCPReviewDisplay{autoReviewActor, "invalidated", "AutoReview mode changed. The previous automatic decision cannot authorize execution.", "codex-auto-review", "", false, autoReviewPolicyVersion}
+		display := MCPReviewDisplay{autoReviewActor, "invalidated", "AutoReview mode changed. The previous automatic decision cannot authorize execution.", "codex-auto-review", "", false, autoReviewPolicyVersion, nil}
 		if q.Status == questionExpired || q.Status == questionCancelled || q.Status == questionRunDone {
 			display.Status, display.Reason = "terminal", "This proposal has ended and remains non-executable."
 		}
