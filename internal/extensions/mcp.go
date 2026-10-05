@@ -111,7 +111,12 @@ type MCPCallApproval struct {
 	Arguments     json.RawMessage
 	// Recheck is a backend-owned readiness callback; it cannot grant approval.
 	Recheck func(context.Context) error
+	// OnClaim only disables transport retries after a durable backend claim.
+	// It cannot grant permission and is never populated by remote metadata.
+	OnClaim func()
 }
+
+type mcpClaimedDispatchKey struct{}
 
 type MCPCallGate func(context.Context, MCPCallApproval) error
 
@@ -120,6 +125,20 @@ func (m *Manager) MCPCallCurrent(call MCPCallApproval) bool {
 	m.mcpConfigFence.RLock()
 	defer m.mcpConfigFence.RUnlock()
 	return m.mcpCallCurrentLocked(call)
+}
+
+// MCPCallRequiresHuman reads the existing host execution policy for this exact
+// configuration. Remote descriptions, schemas and annotations cannot exempt a
+// call from human confirmation. The second result is false for stale setup.
+func (m *Manager) MCPCallRequiresHuman(call MCPCallApproval) (bool, bool) {
+	m.mcpConfigFence.RLock()
+	defer m.mcpConfigFence.RUnlock()
+	servers, err := loadServers(m.cfg.MCPConfigPath)
+	cfg, ok := servers[call.Server]
+	if err != nil || !ok || call.ConfigVersion == "" || metadataFingerprint(call.Server, cfg) != call.ConfigVersion {
+		return true, false
+	}
+	return !trustedReadOnlyTool(cfg, call.Tool), true
 }
 
 func (m *Manager) mcpCallCurrentLocked(call MCPCallApproval) bool {
@@ -633,6 +652,9 @@ func mcpToolAllowed(allow, deny, bot map[string]bool, name string) bool {
 func (m *Manager) callMCPTool(callCtx context.Context, cli *mcp.ClientSession, name string, args json.RawMessage, readOnly bool) (string, error) {
 	if callCtx == nil {
 		callCtx = context.Background()
+	}
+	if claimed, _ := callCtx.Value(mcpClaimedDispatchKey{}).(bool); claimed {
+		readOnly = false
 	}
 	callCtx, cancel := context.WithTimeout(callCtx, m.cfg.ToolTimeout)
 	defer cancel()

@@ -34,6 +34,15 @@ try {
   const awaitingHuman = {...human,status:"pending",answered_by:undefined,answer:undefined};
   assert.equal(autoReviewPresentation(awaitingHuman).label,"策略需要人工决定");
   assert.equal(autoReviewPresentation({...awaitingHuman,approval:{...human.approval,review:{...human.approval.review,status:"not_eligible"}}}).label,"未获自动执行资格");
+  for (const status of ["shadow_allow","shadow_deny","shadow_needs_human","shadow_context_required","shadow_setup_required","shadow_unavailable","shadow_invalidated","shadow_reviewing"]) {
+    const advice = {...awaitingHuman,status:"run_done",approval:{...human.approval,review_only:true,review:{...human.approval.review,status}}};
+    assert.match(autoReviewPresentation(advice).label,/观察/);
+    assert.match(autoReviewPresentation(advice).badge,/原有执行策略/);
+    assert.equal(JSON.parse(JSON.stringify(advice)).answered_by,undefined);
+  }
+  const humanWithShadowDeny={...human,approval:{...human.approval,review:{...human.approval.review,status:"shadow_deny"}}};
+  assert.equal(autoReviewPresentation(humanWithShadowDeny).badge,"人工已决定 · 观察建议");
+  assert.equal(autoReviewPresentation(humanWithShadowDeny).label,"观察建议拒绝");
   console.log("PASS AutoReview UI reconnect, off switch, expiry and human decision provenance");
 } finally {await rm(output, {recursive: true, force: true});}
 
@@ -54,7 +63,7 @@ if (process.env.TOFI_AUTOREVIEW_RENDERED === "1") {
     assert.notEqual(offlineFoundations, foundations, "Expected the known remote font import");
     await writeFile(join(fixture, "foundations.css"), offlineFoundations);
     await writeFile(join(fixture,"index.html"),'<div id="root"></div><script type="module" src="./main.tsx"></script>');
-    await writeFile(join(fixture,"main.tsx"),`import React from 'react';import {createRoot} from 'react-dom/client';import {TimezoneProvider} from '../src/UserTimezone';import {AutoReviewSettings} from '../src/AutoReviewSettings';import {QuestionCard} from '../src/QuestionCard';import '../src/styles.css';import '../src/settings-system.css';import './foundations.css';const status=new URLSearchParams(location.search).get('status')||'context_required';const state=new URLSearchParams(location.search).get('state')||'pending';const item={question_id:'synthetic-question',conversation_id:'synthetic-conversation',bot_id:'synthetic-bot',run_id:'synthetic-run',type:'question',question_type:'approval',question:'Synthetic bounded operation',status:state,created_at:'2026-01-01T00:00:00Z',approval:{action:'Synthetic read',target:'Synthetic fact',impact:'Synthetic effect',review:{source:'auto-review',status,reason:'Synthetic <script>untrusted</script>',model:'codex-auto-review'}}};createRoot(document.getElementById('root')!).render(<TimezoneProvider><AutoReviewSettings/><QuestionCard item={item as any} bot={undefined} group={false} archived={false} onChanged={async()=>{}}/></TimezoneProvider>);`);
+    await writeFile(join(fixture,"main.tsx"),`import React from 'react';import {createRoot} from 'react-dom/client';import {TimezoneProvider} from '../src/UserTimezone';import {AutoReviewSettings} from '../src/AutoReviewSettings';import {QuestionCard} from '../src/QuestionCard';import '../src/styles.css';import '../src/settings-system.css';import './foundations.css';const status=new URLSearchParams(location.search).get('status')||'context_required';const state=new URLSearchParams(location.search).get('state')||'pending';const item={question_id:'synthetic-question',conversation_id:'synthetic-conversation',bot_id:'synthetic-bot',run_id:'synthetic-run',type:'question',question_type:'approval',question:'Synthetic bounded operation',status:state,created_at:'2026-01-01T00:00:00Z',approval:{review_only:status.startsWith('shadow_'),action:'Synthetic read',target:'Synthetic fact',impact:'Synthetic effect',review:{source:'auto-review',status,reason:'Synthetic <script>untrusted</script>',model:'codex-auto-review'}}};createRoot(document.getElementById('root')!).render(<TimezoneProvider><AutoReviewSettings/><QuestionCard item={item as any} bot={undefined} group={false} archived={false} onChanged={async()=>{}}/></TimezoneProvider>);`);
     server = await createServer({configFile:false,root:ui,plugins:[react()],server:{host:"127.0.0.1",port:0},logLevel:"error"});
     await server.listen();
     const origin = `http://127.0.0.1:${server.httpServer.address().port}`;
@@ -67,17 +76,21 @@ if (process.env.TOFI_AUTOREVIEW_RENDERED === "1") {
       if(url.origin!==origin){unexpected++;unexpectedPaths.push(url.origin+url.pathname);await route.abort();return;}
       if(!url.pathname.startsWith("/api/")){await route.continue();return;}
       if(request.method()!=="GET"){writes++;await route.fulfill({status:500,body:"Synthetic writes forbidden"});return;}
-      const body=url.pathname==="/api/auto-review-settings"?{mode:"off",revision:0,eligible_tool_count:0}:url.pathname==="/api/preferences"?{timezone:"UTC",timezone_configured:true}:undefined;
+      const body=url.pathname==="/api/auto-review-settings"?{mode:"off",revision:0,review_scope:"all_external_tools"}:url.pathname==="/api/preferences"?{timezone:"UTC",timezone_configured:true}:undefined;
       if(!body){unexpected++;unexpectedPaths.push(url.pathname);await route.fulfill({status:500,body:"Unexpected synthetic request"});return;}
       await route.fulfill({contentType:"application/json",body:JSON.stringify(body)});
     });
     for(const viewport of [{width:1280,height:900},{width:390,height:844}]){
       await page.setViewportSize(viewport);
-      for(const [status,state] of [["setup_required","pending"],["context_required","pending"],["unavailable","pending"],["policy_denied","pending"],["terminal","pending"],["approved","expired"],["approved","cancelled"],["approved","run_done"]]){
+      for(const [status,state] of [["shadow_allow","run_done"],["shadow_deny","run_done"],["shadow_unavailable","run_done"],["setup_required","pending"],["context_required","pending"],["unavailable","pending"],["policy_denied","pending"],["terminal","pending"],["approved","expired"],["approved","cancelled"],["approved","run_done"]]){
         await page.goto(`${origin}/${basename(fixture)}/index.html?status=${status}&state=${state}`);
         const settings=page.locator("section").filter({has:page.getByRole("heading",{name:"AutoReview",exact:true})});
-        await settings.getByText("当前没有工具可自动批准。",{exact:false}).waitFor({timeout:10000});
+        await settings.getByText("审查范围：所有外部工具。",{exact:false}).waitFor({timeout:10000});
         assert.equal(await settings.getByRole("combobox").inputValue(),"off");
+        for (const [mode, text] of [["shadow","不新增等待或执行权限"],["auto","策略要求的人工确认继续生效"],["off","不请求审查"]]) {
+          await settings.getByRole("combobox").selectOption(mode);
+          await settings.getByText(text,{exact:false}).waitFor();
+        }
         const card=page.locator('[data-question-id="synthetic-question"]');
         await card.getByText("Synthetic <script>untrusted</script>",{exact:false}).waitFor({timeout:10000});
         assert.equal(await card.getByRole("button").count(),0,`${status}/${state} must have no approval controls`);
@@ -86,7 +99,7 @@ if (process.env.TOFI_AUTOREVIEW_RENDERED === "1") {
       }
     }
     assert.equal(writes,0);assert.equal(unexpected,0,JSON.stringify(unexpectedPaths));
-    console.log(`PASS ${cases} rendered AutoReview composition cases: desktop/narrow OFF/zero, technical gaps/terminal cards, plain-text reasons, zero writes/external requests`);
+    console.log(`PASS ${cases} rendered AutoReview composition cases: desktop/narrow default OFF/all-external scope, technical gaps/terminal cards, plain-text reasons, zero writes/external requests`);
   } finally {
     await browser?.close();await server?.close();await rm(fixture,{recursive:true,force:true});
   }

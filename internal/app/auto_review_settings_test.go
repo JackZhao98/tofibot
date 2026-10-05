@@ -46,6 +46,7 @@ func TestAutoReviewPurgeResetsOffAndHumanMCPApprovalWorksWithoutRestart(t *testi
 						t.Fatalf("purge retained %s: count=%d err=%v", table, count, err)
 					}
 				}
+				setSyntheticMCPHumanPolicy(t, f, true)
 				f.p.calls.Store(0)
 				bot, err := f.s.store.CreateBot("post-purge synthetic bot", "", "model")
 				if err != nil {

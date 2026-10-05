@@ -4,6 +4,8 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"strings"
@@ -14,6 +16,19 @@ import (
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
+type syntheticMCPGateTransport struct{ handler http.Handler }
+
+func (tr syntheticMCPGateTransport) RoundTrip(req *http.Request) (*http.Response, error) {
+	if req.URL.Host != "synthetic.invalid" {
+		return nil, errors.New("unexpected synthetic destination")
+	}
+	rec := httptest.NewRecorder()
+	tr.handler.ServeHTTP(rec, req)
+	response := rec.Result()
+	response.Request = req
+	return response, nil
+}
+
 func TestMCPCallGatePrecedesRemoteCallAndDoesNotTrustAnnotations(t *testing.T) {
 	backend := fixtureServer("gate", "1")
 	var remoteCalls atomic.Int32
@@ -21,10 +36,9 @@ func TestMCPCallGatePrecedesRemoteCallAndDoesNotTrustAnnotations(t *testing.T) {
 		remoteCalls.Add(1)
 		return fixtureText("published"), nil
 	})
-	remote := fixtureHTTPServer(backend)
-	defer remote.Close()
-	manager := NewManager(Config{MCPConfigPath: filepath.Join(t.TempDir(), "mcp.json")})
-	if err := manager.SaveMCP("fixture", MCPServerConfig{URL: remote.URL}, false); err != nil {
+	transport := syntheticMCPGateTransport{fixtureHTTPHandler(backend)}
+	manager := NewManager(Config{MCPConfigPath: filepath.Join(t.TempDir(), "mcp.json"), HTTPTransport: func(string) (http.RoundTripper, error) { return transport, nil }})
+	if err := manager.SaveMCP("fixture", MCPServerConfig{URL: "https://synthetic.invalid/mcp"}, false); err != nil {
 		t.Fatal(err)
 	}
 	var approvals atomic.Int32
@@ -56,14 +70,13 @@ func TestMCPCallGateMigratesLegacyServerWithoutPolicyField(t *testing.T) {
 		remoteCalls.Add(1)
 		return fixtureText("called"), nil
 	})
-	remote := fixtureHTTPServer(backend)
-	defer remote.Close()
+	transport := syntheticMCPGateTransport{fixtureHTTPHandler(backend)}
 	path := filepath.Join(t.TempDir(), "mcp.json")
-	config, _ := json.Marshal(serverFile{MCPServers: map[string]MCPServerConfig{"legacy": {URL: remote.URL}}})
+	config, _ := json.Marshal(serverFile{MCPServers: map[string]MCPServerConfig{"legacy": {URL: "https://synthetic.invalid/mcp"}}})
 	if err := os.WriteFile(path, config, 0600); err != nil {
 		t.Fatal(err)
 	}
-	manager := NewManager(Config{MCPConfigPath: path})
+	manager := NewManager(Config{MCPConfigPath: path, HTTPTransport: func(string) (http.RoundTripper, error) { return transport, nil }})
 	prepared, err := manager.PrepareDiscoverableForBotWithCallGate(context.Background(), "bot", nil, nil)
 	if err != nil {
 		t.Fatal(err)
@@ -104,10 +117,9 @@ func TestMCPCallGateDoesNotReplayUnknownRemoteResult(t *testing.T) {
 		remoteCalls.Add(1)
 		return fixtureError("result unavailable after synthetic side effect"), nil
 	})
-	remote := fixtureHTTPServer(backend)
-	defer remote.Close()
-	manager := NewManager(Config{MCPConfigPath: filepath.Join(t.TempDir(), "mcp.json")})
-	if err := manager.SaveMCP("fixture", MCPServerConfig{URL: remote.URL}, false); err != nil {
+	transport := syntheticMCPGateTransport{fixtureHTTPHandler(backend)}
+	manager := NewManager(Config{MCPConfigPath: filepath.Join(t.TempDir(), "mcp.json"), HTTPTransport: func(string) (http.RoundTripper, error) { return transport, nil }})
+	if err := manager.SaveMCP("fixture", MCPServerConfig{URL: "https://synthetic.invalid/mcp"}, false); err != nil {
 		t.Fatal(err)
 	}
 	var claims atomic.Int32
@@ -141,15 +153,15 @@ func TestMCPCallGateTrustedReadOnlyRequiresOwnerConfiguration(t *testing.T) {
 		remoteCalls.Add(1)
 		return fixtureText("report"), nil
 	})
-	remote := fixtureHTTPServer(backend)
-	defer remote.Close()
+	transport := syntheticMCPGateTransport{fixtureHTTPHandler(backend)}
 	path := filepath.Join(t.TempDir(), "mcp.json")
-	config, _ := json.Marshal(serverFile{MCPServers: map[string]MCPServerConfig{"fixture": {URL: remote.URL, TrustedReadOnlyTools: []string{"read_report"}}}})
+	config, _ := json.Marshal(serverFile{MCPServers: map[string]MCPServerConfig{"fixture": {URL: "https://synthetic.invalid/mcp", TrustedReadOnlyTools: []string{"read_report"}}}})
 	if err := os.WriteFile(path, config, 0600); err != nil {
 		t.Fatal(err)
 	}
-	manager := NewManager(Config{MCPConfigPath: path})
-	prepared, err := manager.PrepareDiscoverableForBotWithCallGate(context.Background(), "bot", nil, func(context.Context, MCPCallApproval) error { return errors.New("unexpected approval") })
+	manager := NewManager(Config{MCPConfigPath: path, HTTPTransport: func(string) (http.RoundTripper, error) { return transport, nil }})
+	var reviewCalls atomic.Int32
+	prepared, err := manager.PrepareDiscoverableForBotWithCallGate(context.Background(), "bot", nil, func(context.Context, MCPCallApproval) error { reviewCalls.Add(1); return nil })
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -165,7 +177,7 @@ func TestMCPCallGateTrustedReadOnlyRequiresOwnerConfiguration(t *testing.T) {
 		t.Fatal("unseen capability gained read-only classification")
 	}
 	result, err := discoveryTool(t, prepared, "call_mcp_tool").Execute(context.Background(), json.RawMessage(`{"name":"mcp_fixture__read_report","arguments":{}}`))
-	if err != nil || result != "report" || remoteCalls.Load() != 1 {
+	if err != nil || result != "report" || remoteCalls.Load() != 1 || reviewCalls.Load() != 1 {
 		t.Fatalf("read result=%q err=%v remote=%d", result, err, remoteCalls.Load())
 	}
 }

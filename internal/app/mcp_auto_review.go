@@ -18,20 +18,10 @@ import (
 )
 
 const autoReviewActor = "auto-review"
-const autoReviewPolicyVersion = "mcp-public-read-v3"
+const autoReviewPolicyVersion = "mcp-all-external-v4"
+const autoReviewProvenance = "host-mcp-review-binding-v4"
 const autoReviewTimeout = 30 * time.Second
 const autoReviewValidity = 2 * time.Minute
-
-// These entries are independent of trusted_read_only_tools. Only a separately
-// verified exact public, side-effect-free operation can be added in source.
-// Remote metadata, user settings and model output cannot populate this list.
-// Production intentionally has NO entries. Tests install synthetic policies.
-type verifiedMCPReviewPolicy struct {
-	Server, Tool, ConfigFingerprint, SchemaDigest, Provenance string
-	ReviewContract                                            string
-	ArgumentsSafe                                             func(json.RawMessage) bool
-	ContextComplete                                           func(mcpReviewContext) bool
-}
 
 type MCPReviewDisplay struct {
 	Source string `json:"source"`
@@ -48,6 +38,7 @@ type mcpReviewContext struct {
 	MessageProvenance []mcpMessageProvenance `json:"host_message_provenance"`
 	Memories          []Memory               `json:"memories"`
 	Summary           string                 `json:"conversation_summary"`
+	ToolResults       []ToolActivity         `json:"untrusted_tool_results,omitempty"`
 	SummaryVersion    int64                  `json:"summary_version"`
 	SourceRunBinding  *mcpScheduleRunBinding `json:"host_source_run_binding,omitempty"`
 	SourceToolResults []ToolActivity         `json:"untrusted_source_tool_results,omitempty"`
@@ -81,9 +72,9 @@ func (s *Server) reviewAccountID() string {
 }
 
 // Read the complete bounded durable context, never a truncated summary. The
-// verified policy must additionally prove this call is self-contained: calls
-// requiring tool results, visual state, delegation or schedule ancestry stay
-// human. This snapshot is recomputed inside the atomic claim transaction.
+// host provenance must establish the necessary authorization. Unsupported
+// non-text context is explicit; tool names never determine completeness.
+// This snapshot is recomputed inside the atomic claim transaction.
 func readMCPReviewContext(db reviewQuerier, c Conversation, r Run) (mcpReviewContext, string, error) {
 	var x mcpReviewContext
 	var trigger, parent, kind sql.NullString
@@ -149,21 +140,34 @@ func readMCPReviewContext(db reviewQuerier, c Conversation, r Run) (mcpReviewCon
 	if err != nil && !errors.Is(err, sql.ErrNoRows) {
 		return x, "", errors.New("complete summary unavailable")
 	}
+	rows, err = db.Query(`SELECT conversation_id,bot_id,run_id,call_id,name,arguments,result,status,truncated,started_at,updated_at,outcome_json FROM tool_activities WHERE conversation_id=? ORDER BY started_at,run_id,call_id LIMIT 201`, c.ID)
+	if err != nil {
+		return x, "", errors.New("complete tool-result context unavailable")
+	}
+	for rows.Next() {
+		var a ToolActivity
+		var truncated int
+		var outcome string
+		if err = rows.Scan(&a.ConversationID, &a.BotID, &a.RunID, &a.CallID, &a.Name, &a.Arguments, &a.Result, &a.Status, &truncated, &a.StartedAt, &a.UpdatedAt, &outcome); err != nil {
+			break
+		}
+		a.Truncated, a.Outcome = truncated != 0, tooloutcome.Parse(outcome)
+		if a.Truncated || outcome != "" && a.Outcome == nil || a.Outcome != nil && a.Outcome.Certainty == "unknown" || !utf8.ValidString(a.Arguments) || !utf8.ValidString(a.Result) {
+			err = errors.New("complete tool-result or effect context unavailable")
+			break
+		}
+		x.ToolResults = append(x.ToolResults, a)
+	}
+	rowErr = rows.Err()
+	rows.Close()
+	if err != nil || rowErr != nil || len(x.ToolResults) > 200 {
+		return x, "", errors.New("complete tool-result context unavailable or exceeds limit")
+	}
 	raw, err := json.Marshal(x)
 	if err != nil || len(raw) > 64<<10 || !utf8.Valid(raw) {
 		return x, "", errors.New("complete context exceeds review limit")
 	}
 	return x, digestBytes(raw), nil
-}
-
-func (s *Server) verifiedReviewPolicy(call extensions.MCPCallApproval, x mcpReviewContext) *verifiedMCPReviewPolicy {
-	for i := range s.autoReviewPolicies {
-		p := &s.autoReviewPolicies[i]
-		if p.Server == call.Server && p.Tool == call.Tool && p.ConfigFingerprint == call.ConfigVersion && p.SchemaDigest == digestBytes(call.Schema) && p.Provenance != "" && p.ArgumentsSafe != nil && p.ContextComplete != nil && p.ArgumentsSafe(call.Arguments) && p.ContextComplete(x) {
-			return p
-		}
-	}
-	return nil
 }
 
 type mcpReviewResult struct{ Decision, Reason, ContextDigest string }
@@ -206,7 +210,7 @@ func parseMCPReview(resp *provider.ChatResponse, expected string) (mcpReviewResu
 	return out, nil
 }
 
-func (s *Server) requestMCPReview(ctx context.Context, call extensions.MCPCallApproval, x mcpReviewContext, digest, contract, provenance string) (mcpReviewResult, error) {
+func (s *Server) requestMCPReview(ctx context.Context, call extensions.MCPCallApproval, x mcpReviewContext, digest string, requiresHuman bool) (mcpReviewResult, error) {
 	ctx, cancel := context.WithTimeout(ctx, autoReviewTimeout)
 	defer cancel()
 	p := s.autoReviewProvider
@@ -223,7 +227,7 @@ func (s *Server) requestMCPReview(ctx context.Context, call extensions.MCPCallAp
 			return mcpReviewResult{}, errors.New("reviewer unavailable")
 		}
 	}
-	raw, err := mcpReviewInput(call, x, digest, contract, provenance)
+	raw, err := mcpReviewInput(call, x, digest, requiresHuman)
 	if err != nil || len(raw) > 100<<10 {
 		return mcpReviewResult{}, errors.New("review input unavailable")
 	}
@@ -244,12 +248,23 @@ func (s *Server) reviewNewMCPProposal(ctx context.Context, c Conversation, r Run
 	if settings.Mode == "off" {
 		return nil
 	}
+	return s.reviewMCPProposal(ctx, c, r, call, q, settings)
+}
+
+func (s *Server) reviewMCPProposal(ctx context.Context, c Conversation, r Run, call extensions.MCPCallApproval, q Question, settings autoReviewSettings) error {
+	shadow := settings.Mode == "shadow"
+	gap := func(status, reason string) error {
+		if shadow {
+			return s.store.setMCPReviewDisplay(q.ID, MCPReviewDisplay{autoReviewActor, "shadow_" + status, reason, "codex-auto-review"})
+		}
+		return s.closeMCPReviewGap(q.ID, status, reason)
+	}
 	current, err := s.store.GetQuestion(q.ID)
 	if err != nil {
 		return err
 	}
 	q = current
-	if terminalErr := mcpReviewTerminal(ctx, s.store.db, q, r, call); terminalErr != nil {
+	if terminalErr := mcpReviewTerminal(ctx, s.store.db, q, r, call); !shadow && terminalErr != nil {
 		if _, ok := tooloutcome.FromError(terminalErr); !ok {
 			return terminalErr
 		}
@@ -260,39 +275,53 @@ func (s *Server) reviewNewMCPProposal(ctx context.Context, c Conversation, r Run
 	}
 	// A human may settle the card before review begins. Never impersonate or
 	// overwrite that decision, and do not spend a reviewer request on it.
-	if q.Status == questionAnswered {
+	if !shadow && q.Status == questionAnswered {
 		return nil
 	}
 	if call.Server == "" || call.Tool == "" || call.ConfigVersion == "" || !mcpSchemaAvailable(call.Schema) || s.reviewAccountID() == "" || s.extensions == nil || !s.extensions.MCPCallCurrent(call) {
-		return s.closeMCPReviewGap(q.ID, "setup_required", "Current tool configuration, schema or connection binding is unavailable. Approval cannot repair this setup gap.")
+		return gap("setup_required", "Current tool configuration, schema or connection binding is unavailable. Approval cannot repair this setup gap.")
 	}
 	x, digest, contextErr := s.readMCPReviewContext(s.store.db, c, r)
 	digest = mcpReviewDigest(x, call)
 	if contextErr != nil {
-		return s.closeMCPReviewGap(q.ID, "context_required", "Necessary durable user authorization or context is missing, changed or exceeds the bounded evidence limit.")
+		return gap("context_required", "Necessary durable user authorization or context is missing, changed or exceeds the bounded evidence limit.")
 	}
-	p := s.verifiedReviewPolicy(call, x)
-	if p == nil {
-		return s.store.setMCPReviewDisplay(q.ID, MCPReviewDisplay{autoReviewActor, "not_eligible", "No matching independently verified operation qualification permits automatic execution. The existing execution policy requires a human decision; this is not an intrinsic-risk finding.", "codex-auto-review"})
+	requiresHuman, currentPolicy := s.extensions.MCPCallRequiresHuman(call)
+	if !currentPolicy {
+		return gap("setup_required", "The exact host configuration or execution policy is unavailable.")
 	}
-	_, err = s.store.db.Exec(`INSERT INTO mcp_auto_reviews(question_id,account_id,conversation_id,run_id,action_hash,server,tool,config_fingerprint,arguments_digest,policy_version,context_digest,provenance,mode,settings_revision,status,decision,reason,expires_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,'reviewing','','',?)`, q.ID, s.reviewAccountID(), c.ID, r.ID, mcpApprovalHash(call), call.Server, call.Tool, call.ConfigVersion, digestBytes(call.Arguments), autoReviewPolicyVersion, digest, p.Provenance, settings.Mode, settings.Revision, q.ExpiresAt)
+	if latest, e := s.store.getAutoReviewSettings(); e != nil || latest != settings {
+		return gap("invalidated", "AutoReview settings changed before this review could begin.")
+	}
+	_, err = s.store.db.Exec(`INSERT INTO mcp_auto_reviews(question_id,account_id,conversation_id,run_id,action_hash,server,tool,config_fingerprint,arguments_digest,schema_digest,policy_version,context_digest,provenance,mode,settings_revision,status,decision,reason,expires_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,'reviewing','','',?)`, q.ID, s.reviewAccountID(), c.ID, r.ID, mcpApprovalHash(call), call.Server, call.Tool, call.ConfigVersion, digestBytes(call.Arguments), digestBytes(call.Schema), autoReviewPolicyVersion, digest, autoReviewProvenance, settings.Mode, settings.Revision, q.ExpiresAt)
 	if err != nil {
 		var reserved bool
 		if e := s.store.db.QueryRow(`SELECT EXISTS(SELECT 1 FROM mcp_auto_reviews WHERE run_id=? AND action_hash=?)`, r.ID, mcpApprovalHash(call)).Scan(&reserved); e != nil || !reserved {
-			return s.closeMCPReviewGap(q.ID, "unavailable", "The exact review could not be reserved. No policy judgment or automatic execution permission was established.")
+			return gap("unavailable", "The exact review could not be reserved. No policy judgment or automatic execution permission was established.")
 		}
 		// A duplicate card still follows the existing human execution policy,
 		// but cannot reserve or replay another reviewer request for this action.
 		return s.store.setMCPReviewDisplay(q.ID, MCPReviewDisplay{autoReviewActor, "not_reviewed", "No new review was reserved for this exact proposal. Existing action-level review and execution claims remain authoritative.", "codex-auto-review"})
 	}
-	if err = s.store.setMCPReviewDisplay(q.ID, MCPReviewDisplay{autoReviewActor, "reviewing", "Assessing the exact proposal's authorization, effects and data flow.", "codex-auto-review"}); err != nil {
+	displayStatus := "reviewing"
+	if shadow {
+		displayStatus = "shadow_reviewing"
+	}
+	if err = s.store.setMCPReviewDisplay(q.ID, MCPReviewDisplay{autoReviewActor, displayStatus, "Assessing the exact proposal's authorization, effects and data flow.", "codex-auto-review"}); err != nil {
 		return err
 	}
-	result, requestErr := s.requestMCPReview(ctx, call, x, digest, p.ReviewContract, p.Provenance)
-	if requestErr != nil {
-		result = mcpReviewResult{"", "AutoReview was unavailable, timed out or returned an invalid response. No policy judgment or execution permission was established.", digest}
+	request := func(reviewCtx context.Context) error {
+		result, requestErr := s.requestMCPReview(reviewCtx, call, x, digest, requiresHuman)
+		if requestErr != nil {
+			result = mcpReviewResult{"", "AutoReview was unavailable, timed out or returned an invalid response. No policy judgment or execution permission was established.", digest}
+		}
+		return s.finishMCPReview(reviewCtx, c, r, call, q.ID, settings, result)
 	}
-	return s.finishMCPReview(ctx, c, r, call, q.ID, settings, result)
+	if shadow {
+		s.startShadowMCPReview(func(reviewCtx context.Context) { _ = request(reviewCtx) })
+		return nil
+	}
+	return request(ctx)
 }
 
 func (s *Server) closeMCPReviewGap(id, status, reason string) error {
@@ -342,6 +371,9 @@ func (s *Store) setMCPReviewDisplay(id string, display MCPReviewDisplay) error {
 }
 
 func (s *Server) finishMCPReview(ctx context.Context, c Conversation, r Run, call extensions.MCPCallApproval, id string, initial autoReviewSettings, result mcpReviewResult) error {
+	if initial.Mode == "shadow" {
+		return s.finishShadowMCPReview(c, r, call, id, initial, result)
+	}
 	tx, err := s.store.db.Begin()
 	if err != nil {
 		return err
@@ -385,11 +417,12 @@ func (s *Server) finishMCPReview(ctx context.Context, c Conversation, r Run, cal
 		result.Reason = "The automatic decision was invalidated by changed execution settings or review state. It cannot authorize execution."
 	} else if result.Decision == "" {
 		status = "unavailable"
-	} else if initial.Mode == "shadow" {
-		status = "shadow"
+
 	} else if result.Decision == "deny" {
 		status = "policy_denied"
-	} else if initial.Mode == "auto" && settings.Mode == "auto" && result.Decision == "allow" && q.Status == questionPending {
+	} else if requiresHuman, current := s.extensions.MCPCallRequiresHuman(call); !current {
+		status, result.Reason = "setup_required", "The exact host execution policy changed during review."
+	} else if initial.Mode == "auto" && settings.Mode == "auto" && result.Decision == "allow" && !requiresHuman && q.Status == questionPending {
 		deadline, _ := time.Parse(time.RFC3339Nano, q.ExpiresAt)
 		status = "approved"
 		q.Status = questionAnswered
@@ -399,6 +432,8 @@ func (s *Server) finishMCPReview(ctx context.Context, c Conversation, r Run, cal
 		if short.Before(deadline) {
 			q.ExpiresAt = short.Format(time.RFC3339Nano)
 		}
+	} else if result.Decision == "allow" && requiresHuman {
+		result.Reason = "Review advice allows this proposal; the current host execution policy still requires human confirmation. " + result.Reason
 	}
 	if q.Status == questionPending && mcpReviewClosesProposal(status) {
 		q.Status = questionCancelled

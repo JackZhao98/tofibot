@@ -63,10 +63,11 @@ type QuestionOtherAnswer struct {
 // ApprovalDetails describe the exact proposal shown to the human. The card
 // records a decision; the proposed action still requires its own tool call.
 type ApprovalDetails struct {
-	Review *MCPReviewDisplay `json:"review,omitempty"` // Internal MCP gate only.
-	Action string            `json:"action"`
-	Target string            `json:"target"`
-	Impact string            `json:"impact"`
+	ReviewOnly bool              `json:"review_only,omitempty"` // Advisory card; never permission.
+	Review     *MCPReviewDisplay `json:"review,omitempty"`      // Internal MCP gate only.
+	Action     string            `json:"action"`
+	Target     string            `json:"target"`
+	Impact     string            `json:"impact"`
 	// Payload is a bounded, plain-text snapshot for internal MCP call review.
 	// The model-visible request_approval tool cannot supply it.
 	Payload      string `json:"payload,omitempty"`
@@ -216,7 +217,7 @@ func normalizeQuestionInput(x askQuestionInput) (askQuestionInput, error) {
 		if x.Approval == nil {
 			return x, errors.New("approval details are required")
 		}
-		if x.Approval.Review != nil {
+		if x.Approval.Review != nil || x.Approval.ReviewOnly {
 			return x, errors.New("AutoReview metadata is reserved for the internal MCP gate")
 		}
 		for _, field := range []*string{&x.Approval.Action, &x.Approval.Target, &x.Approval.Impact} {
@@ -426,6 +427,9 @@ func (s *Store) CreateQuestion(conv string, run Run, in askQuestionInput) (Quest
 		expires = time.Now().UTC().Add(time.Duration(in.ExpiresInSeconds) * time.Second).Format(time.RFC3339Nano)
 	}
 	q := Question{ID: uuid.NewString(), RunID: run.ID, ConversationID: conv, BotID: run.BotID, Type: in.Type, Prompt: in.Question, Options: in.Options, AllowOther: in.AllowOther, Fields: in.Fields, SourceURL: in.SourceURL, Approval: in.Approval, MinSelections: in.MinSelections, MaxSelections: in.MaxSelections, Status: questionPending, CreatedAt: nowAt, ExpiresAt: expires, UpdatedAt: nowAt}
+	if in.Approval != nil && in.Approval.ReviewOnly {
+		q.Status = questionRunDone
+	}
 	_, err = s.db.Exec(`INSERT INTO questions(id,run_id,conversation_id,bot_id,type,prompt,options_json,min_selections,max_selections,status,created_at,expires_at,updated_at,fields_json,source_url,allow_other,approval_json) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`, q.ID, q.RunID, q.ConversationID, q.BotID, q.Type, q.Prompt, string(opts), q.MinSelections, q.MaxSelections, q.Status, q.CreatedAt, nullString(q.ExpiresAt), q.UpdatedAt, string(fields), q.SourceURL, q.AllowOther, approval)
 	return q, err
 }
