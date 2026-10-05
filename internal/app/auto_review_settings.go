@@ -39,6 +39,14 @@ UPDATE mcp_auto_reviews SET status=CASE WHEN mode='shadow' THEN 'shadow_unavaila
 	if err = ensureColumn(db, "mcp_auto_reviews", "schema_digest", `ALTER TABLE mcp_auto_reviews ADD COLUMN schema_digest TEXT NOT NULL DEFAULT ''`); err != nil {
 		return err
 	}
+	for _, col := range []struct{ name, ddl string }{
+		{"risk_level", `ALTER TABLE mcp_auto_reviews ADD COLUMN risk_level TEXT NOT NULL DEFAULT ''`},
+		{"confirmation_required", `ALTER TABLE mcp_auto_reviews ADD COLUMN confirmation_required INTEGER NOT NULL DEFAULT -1`},
+	} {
+		if err = ensureColumn(db, "mcp_auto_reviews", col.name, col.ddl); err != nil {
+			return err
+		}
+	}
 	// Policy versions cannot inherit execution permission across upgrades.
 	tx, err := db.Begin()
 	if err != nil {
@@ -128,7 +136,7 @@ func (s *Store) putAutoReviewMode(mode string) error {
 			q.AnsweredBy = ""
 		}
 		q.UpdatedAt = now()
-		display := MCPReviewDisplay{autoReviewActor, "invalidated", "AutoReview mode changed. The previous automatic decision cannot authorize execution.", "codex-auto-review"}
+		display := MCPReviewDisplay{autoReviewActor, "invalidated", "AutoReview mode changed. The previous automatic decision cannot authorize execution.", "codex-auto-review", "", false, autoReviewPolicyVersion}
 		if q.Status == questionExpired || q.Status == questionCancelled || q.Status == questionRunDone {
 			display.Status, display.Reason = "terminal", "This proposal has ended and remains non-executable."
 		}

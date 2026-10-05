@@ -43,6 +43,13 @@ try {
   const humanWithShadowDeny={...human,approval:{...human.approval,review:{...human.approval.review,status:"shadow_deny"}}};
   assert.equal(autoReviewPresentation(humanWithShadowDeny).badge,"人工已决定 · 观察建议");
   assert.equal(autoReviewPresentation(humanWithShadowDeny).label,"观察建议拒绝");
+  const v5Denied={...human,approval:{...human.approval,review:{...human.approval.review,status:"policy_denied",risk_level:"low",confirmation_required:false,policy_version:"mcp-all-external-v5"}}};
+  assert.equal(autoReviewPresentation(v5Denied).label,"策略判决拒绝","a human race must not label a hard denial as execution permission");
+  for (const [status,label] of [["setup_required","配置缺口"],["context_required","上下文缺口"],["unavailable","审查不可用"],["terminal","不可执行"]]) {
+    assert.equal(autoReviewPresentation({...v5Denied,approval:{...v5Denied.approval,review:{...v5Denied.approval.review,status}}}).label,label);
+  }
+  const v5Reviewing={...awaitingHuman,approval:{...human.approval,review:{...human.approval.review,status:"reviewing",policy_version:"mcp-all-external-v5"}}};
+  assert.equal(autoReviewPresentation(v5Reviewing).badge,"AutoReview 审查中");
   console.log("PASS AutoReview UI reconnect, off switch, expiry and human decision provenance");
 } finally {await rm(output, {recursive: true, force: true});}
 
@@ -87,7 +94,7 @@ if (process.env.TOFI_AUTOREVIEW_RENDERED === "1") {
         const settings=page.locator("section").filter({has:page.getByRole("heading",{name:"AutoReview",exact:true})});
         await settings.getByText("审查范围：所有外部工具。",{exact:false}).waitFor({timeout:10000});
         assert.equal(await settings.getByRole("combobox").inputValue(),"off");
-        for (const [mode, text] of [["shadow","不新增等待或执行权限"],["auto","策略要求的人工确认继续生效"],["off","不请求审查"]]) {
+        for (const [mode, text] of [["shadow","不新增等待或执行权限"],["auto","高风险、需要确认的提案仍须由你批准"],["off","不请求审查"]]) {
           await settings.getByRole("combobox").selectOption(mode);
           await settings.getByText(text,{exact:false}).waitFor();
         }

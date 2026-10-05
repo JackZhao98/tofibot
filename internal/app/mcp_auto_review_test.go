@@ -48,7 +48,14 @@ func reviewReply(req *provider.ChatRequest, decision string) *provider.ChatRespo
 		Digest string `json:"context_digest"`
 	}
 	_ = json.Unmarshal([]byte(req.Messages[0].Content), &in)
-	raw, _ := json.Marshal(map[string]string{"decision": decision, "reason": "Synthetic policy evaluation.", "context_digest": in.Digest})
+	risk, confirmation := "low", false
+	if decision == "context_gap" {
+		risk = "unknown"
+	}
+	if decision == "needs_human" {
+		confirmation = true
+	}
+	raw, _ := json.Marshal(map[string]any{"decision": decision, "reason": "Synthetic policy evaluation.", "context_digest": in.Digest, "risk_level": risk, "confirmation_required": confirmation})
 	return &provider.ChatResponse{Content: string(raw)}
 }
 

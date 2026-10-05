@@ -58,7 +58,7 @@ func (s *Server) shadowExemptMCPCall(ctx context.Context, c Conversation, r Run,
 		return err
 	}
 	if payload == "" {
-		return s.store.setMCPReviewDisplay(q.ID, MCPReviewDisplay{autoReviewActor, "shadow_context_required", "Complete arguments are unavailable for safe review; the original host execution policy remains in force.", "codex-auto-review"})
+		return s.store.setMCPReviewDisplay(q.ID, MCPReviewDisplay{autoReviewActor, "shadow_context_required", "Complete arguments are unavailable for safe review; the original host execution policy remains in force.", "codex-auto-review", "", false, autoReviewPolicyVersion})
 	}
 	return s.reviewNewMCPProposal(ctx, c, r, call, q)
 }
@@ -77,29 +77,28 @@ func (s *Server) finishShadowMCPReview(c Conversation, r Run, call extensions.MC
 	if err != nil {
 		return err
 	}
-	var reviewStatus string
-	if err = tx.QueryRow(`SELECT status FROM mcp_auto_reviews WHERE question_id=?`, id).Scan(&reviewStatus); err != nil {
+	var reviewStatus, snapshotDigest string
+	if err = tx.QueryRow(`SELECT status,context_digest FROM mcp_auto_reviews WHERE question_id=?`, id).Scan(&reviewStatus, &snapshotDigest); err != nil {
 		return err
 	}
-	x, _, contextErr := s.readMCPReviewContext(tx, c, r)
 	status := "shadow_" + result.Decision
 	switch {
 	case settings != initial || reviewStatus != "reviewing":
 		status, result.Reason = "shadow_invalidated", "Settings changed; this advice has no execution authority."
 	case s.extensions == nil || !s.extensions.MCPCallCurrent(call):
 		status, result.Reason = "shadow_setup_required", "Tool configuration changed during review; this advice has no execution authority."
-	case contextErr != nil || mcpReviewDigest(x, call) != result.ContextDigest:
-		status, result.Reason = "shadow_context_required", "Necessary authorization or context changed during review."
-	case result.Decision == "context_gap":
+	case snapshotDigest != result.ContextDigest:
+		status, result.Reason = "shadow_context_required", "The advice does not match the immutable proposal snapshot."
+	case result.Decision == "context_gap" || result.RiskLevel == "unknown" && result.Decision != "":
 		status = "shadow_context_required"
 	case result.Decision == "":
 		status = "shadow_unavailable"
 	}
 	// Advice never changes a human answer, expiry, cancellation or run state.
-	q.Approval.Review = &MCPReviewDisplay{autoReviewActor, status, result.Reason, "codex-auto-review"}
+	q.Approval.Review = &MCPReviewDisplay{autoReviewActor, status, result.Reason, "codex-auto-review", result.RiskLevel, result.ConfirmationRequired, autoReviewPolicyVersion}
 	q.UpdatedAt = now()
 	raw, _ := json.Marshal(q.Approval)
-	if _, err = tx.Exec(`UPDATE mcp_auto_reviews SET status=?,decision=?,reason=? WHERE question_id=?`, status, result.Decision, result.Reason, id); err != nil {
+	if _, err = tx.Exec(`UPDATE mcp_auto_reviews SET status=?,decision=?,reason=?,risk_level=?,confirmation_required=? WHERE question_id=?`, status, result.Decision, result.Reason, result.RiskLevel, boolInt(result.ConfirmationRequired), id); err != nil {
 		return err
 	}
 	if _, err = tx.Exec(`UPDATE questions SET approval_json=?,updated_at=? WHERE id=?`, string(raw), q.UpdatedAt, id); err != nil {
