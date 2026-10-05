@@ -730,6 +730,8 @@ func lazyDiscoverableMCPTools(runCtx context.Context, m *Manager, servers map[st
 		}
 		schema, _ := json.Marshal(t.Parameters)
 		proposal := MCPCallApproval{Server: source.server, Tool: source.remoteName, ConfigVersion: metadataFingerprint(source.server, servers[source.server]), Arguments: append(json.RawMessage(nil), in.Arguments...), Description: t.Description, Schema: schema}
+		claimedDispatch := false
+		proposal.OnClaim = func() { claimedDispatch = true }
 		proposal.Recheck = func(checkCtx context.Context) error {
 			if !m.MCPCallCurrent(proposal) {
 				return mcpReadinessOutcome(runtime.MethodNotConfigured).Err()
@@ -749,13 +751,20 @@ func lazyDiscoverableMCPTools(runCtx context.Context, m *Manager, servers map[st
 		if err := proposal.Recheck(ctx); err != nil {
 			return "", err
 		}
-		if enforceApproval && !trustedReadOnlyTool(servers[source.server], source.remoteName) {
-			if approvalGate == nil {
+		if enforceApproval {
+			if approvalGate == nil && !trustedReadOnlyTool(servers[source.server], source.remoteName) {
 				return "", tooloutcome.New(tooloutcome.Denied, "approval_gate_required", "not_executed", "MCP tool requires a run-scoped human approval gate.", "explain_blocker").Err()
 			}
-			if err := approvalGate(ctx, proposal); err != nil {
-				return "", err
+			// Review scope includes host-exempt reads. The account's mode and
+			// execution policy belong to the gate, not discovery metadata.
+			if approvalGate != nil {
+				if err := approvalGate(ctx, proposal); err != nil {
+					return "", err
+				}
 			}
+		}
+		if claimedDispatch {
+			ctx = context.WithValue(ctx, mcpClaimedDispatchKey{}, true)
 		}
 		return m.executeCurrentMCPCall(proposal, func() (string, error) {
 			// The configuration fence is already held here. Do not recursively

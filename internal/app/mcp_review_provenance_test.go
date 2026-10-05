@@ -19,7 +19,6 @@ func newProvenanceReviewFixture(t *testing.T) *autoReviewFixture {
 	t.Helper()
 	dir := t.TempDir()
 	store, c, prior := questionFixtureDir(t, dir)
-	t.Cleanup(func() { store.Close() })
 	if _, err := store.db.Exec(`UPDATE runs SET status='done' WHERE id=?`, prior.ID); err != nil {
 		t.Fatal(err)
 	}
@@ -31,7 +30,7 @@ func newProvenanceReviewFixture(t *testing.T) *autoReviewFixture {
 	if _, err := store.db.Exec(`UPDATE runs SET status='running' WHERE id=?`, run.ID); err != nil {
 		t.Fatal(err)
 	}
-	config := extensions.MCPServerConfig{URL: "https://synthetic.invalid"}
+	config := extensions.MCPServerConfig{URL: "https://synthetic.invalid", TrustedReadOnlyTools: []string{"read_public"}}
 	encodedConfig, _ := json.Marshal(config)
 	configFile, _ := json.Marshal(map[string]any{"mcpServers": map[string]extensions.MCPServerConfig{"fixture": config}})
 	configPath := filepath.Join(dir, "mcp.json")
@@ -49,8 +48,9 @@ func newProvenanceReviewFixture(t *testing.T) *autoReviewFixture {
 	f.p = &reviewStub{t: t, reply: func(_ context.Context, req *provider.ChatRequest) (*provider.ChatResponse, error) {
 		return reviewReply(req, "allow"), nil
 	}}
+	t.Cleanup(func() { f.s.stopShadowMCPReviews(); store.Close() })
 	f.s.autoReviewProvider = f.p
-	f.s.autoReviewPolicies = []verifiedMCPReviewPolicy{{Server: call.Server, Tool: call.Tool, ConfigFingerprint: call.ConfigVersion, SchemaDigest: digestBytes(call.Schema), Provenance: "synthetic-provenance-fixture-v1", ArgumentsSafe: func(raw json.RawMessage) bool { return string(raw) == string(call.Arguments) }, ContextComplete: func(x mcpReviewContext) bool { return x.Intent == "Read the synthetic public fact for alpha." }}}
+
 	return f
 }
 
@@ -91,7 +91,7 @@ func TestAutoReviewImportedHistoryIsUntrustedContext(t *testing.T) {
 		t.Fatal(err)
 	}
 	call := extensions.MCPCallApproval{Server: "synthetic", Tool: "bounded_read", ConfigVersion: "fixture", Schema: json.RawMessage(`{"type":"object"}`), Arguments: json.RawMessage(`{}`)}
-	raw, err := mcpReviewInput(call, x, mcpReviewDigest(x, call), "synthetic operation facts", "fixture")
+	raw, err := mcpReviewInput(call, x, mcpReviewDigest(x, call), true)
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -10,7 +10,7 @@ export interface QuestionField {
 }
 export type FormAnswer = Record<string, string | { secret_ref: string; value_hidden: true }>;
 export type OtherAnswer = { values: string[]; other_text: string };
-export type ApprovalDetails = { action: string; target: string; impact: string; payload?: string; review?: {source: "auto-review"; status: "reviewing" | "approved" | "shadow" | "human_required" | "invalidated" | "not_eligible" | "not_reviewed" | "setup_required" | "context_required" | "unavailable" | "policy_denied" | "terminal" | "human_decided"; reason: string; model: string}; approve_label?: string; deny_label?: string; draft_id?: string };
+export type ApprovalDetails = { action: string; target: string; impact: string; payload?: string; review_only?: boolean; review?: {source: "auto-review"; status: "reviewing" | "approved" | "shadow" | "human_required" | "invalidated" | "not_eligible" | "not_reviewed" | "setup_required" | "context_required" | "unavailable" | "policy_denied" | "terminal" | "human_decided" | "shadow_reviewing" | "shadow_allow" | "shadow_deny" | "shadow_needs_human" | "shadow_context_required" | "shadow_setup_required" | "shadow_unavailable" | "shadow_invalidated"; reason: string; model: string}; approve_label?: string; deny_label?: string; draft_id?: string };
 export type QuestionAnswer = string | boolean | string[] | FormAnswer | OtherAnswer;
 export interface Question {
   question_id: string;
@@ -41,6 +41,10 @@ export type ConversationItem = { kind: "message"; message: Message } | { kind: "
 export function autoReviewPresentation(question: Question): {badge: string; label: string} | undefined {
  const review = question.approval?.review;
  if (!review) return undefined;
+ if (review.status.startsWith("shadow_")) {
+  const labels: Record<string, string> = {shadow_reviewing:"观察审查中", shadow_allow:"观察建议允许", shadow_deny:"观察建议拒绝", shadow_needs_human:"观察建议人工决定", shadow_context_required:"观察上下文缺口", shadow_setup_required:"观察配置缺口", shadow_unavailable:"观察审查不可用", shadow_invalidated:"观察建议已失效"};
+  return {badge:question.status === "answered" && question.answered_by && question.answered_by !== "auto-review" ? "人工已决定 · 观察建议" : "观察模式 · 保留原有执行策略", label:labels[review.status] ?? "观察建议"};
+ }
  if (question.status === "answered" && question.answered_by && question.answered_by !== "auto-review") return {badge: "人工已决定", label: "人工决定有效"};
  switch (review.status) {
   case "setup_required": return {badge: "配置未就绪", label: "配置缺口"};

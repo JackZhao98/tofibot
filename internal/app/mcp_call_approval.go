@@ -29,6 +29,35 @@ func (s *Server) approveMCPCall(ctx context.Context, c Conversation, r Run, call
 	if call.Server == "" || call.Tool == "" || call.ConfigVersion == "" {
 		return mcpReviewBlocked("setup_required", "The exact external tool configuration is incomplete. Approval cannot repair this setup gap.")
 	}
+	settings, err := s.store.getAutoReviewSettings()
+	if err != nil {
+		return err
+	}
+	if s.extensions != nil && settings.Mode != "auto" {
+		requiresHuman, current := s.extensions.MCPCallRequiresHuman(call)
+		if current && !requiresHuman {
+			prior, err := s.hasMCPApprovalHistory(r, call)
+			if err != nil {
+				return err
+			}
+			if !prior {
+				if !mcpSchemaAvailable(call.Schema) {
+					return mcpReviewBlocked("setup_required", "The exact input schema is unavailable.")
+				}
+				if call.Recheck != nil {
+					if err := call.Recheck(ctx); err != nil {
+						return err
+					}
+				}
+				if settings.Mode == "shadow" {
+					payload, _ := mcpApprovalPayload(call.Arguments)
+					return s.shadowExemptMCPCall(ctx, c, r, call, payload)
+				}
+				return nil
+			}
+		}
+	}
+
 	payload, err := mcpApprovalPayload(call.Arguments)
 	if err != nil {
 		return err
@@ -171,6 +200,9 @@ func (s *Server) approveMCPCall(ctx context.Context, c Conversation, r Run, call
 			return s.parkExpiredMCPApproval(ctx, c, id)
 		}
 		return tooloutcome.New(tooloutcome.Uncertain, "approval_claim_failed", "unknown", "External tool approval was already used or is no longer valid; verify the existing result before proposing another action.", "verify_effect").Err()
+	}
+	if call.OnClaim != nil {
+		call.OnClaim()
 	}
 	return ctx.Err()
 }

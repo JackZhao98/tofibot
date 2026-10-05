@@ -41,7 +41,7 @@ func newScheduledMCPFixture(t *testing.T, group bool, sourceKind string) *schedu
 	store, bot, c := scheduleTestStoreAt(t, dir)
 	f := &scheduledMCPFixture{t: t, dir: dir, bot: bot, c: c}
 	f.s = &Server{store: store, accountID: "synthetic-schedule-account", closing: true}
-	t.Cleanup(func() { _ = f.s.store.Close() })
+	t.Cleanup(func() { f.s.stopShadowMCPReviews(); _ = f.s.store.Close() })
 	var err error
 	f.colleague, err = store.CreateBot("synthetic colleague", "", "model")
 	if err != nil {
@@ -88,7 +88,7 @@ func newScheduledMCPFixture(t *testing.T, group bool, sourceKind string) *schedu
 
 	// Match the host's metadata fingerprint using public config fields. Writing
 	// this synthetic file is enough for MCPCallCurrent; no connection is opened.
-	cfg := extensions.MCPServerConfig{URL: "https://fixture.invalid/mcp", Transport: "streamable_http"}
+	cfg := extensions.MCPServerConfig{URL: "https://fixture.invalid/mcp", Transport: "streamable_http", TrustedReadOnlyTools: []string{"read_public"}}
 	config, err := json.Marshal(cfg)
 	if err != nil {
 		t.Fatal(err)
@@ -111,10 +111,7 @@ func newScheduledMCPFixture(t *testing.T, group bool, sourceKind string) *schedu
 		return reviewReply(req, "allow"), nil
 	}}
 	f.s.autoReviewProvider = f.p
-	f.s.autoReviewPolicies = []verifiedMCPReviewPolicy{{Server: f.call.Server, Tool: f.call.Tool, ConfigFingerprint: f.call.ConfigVersion, SchemaDigest: digestBytes(f.call.Schema), Provenance: "synthetic-scheduled-public-read-v1", ReviewContract: "Synthetic alpha is public and this exact read has no external effect.", ArgumentsSafe: func(args json.RawMessage) bool { return string(args) == `{"target":"alpha"}` }, ContextComplete: func(x mcpReviewContext) bool {
-		l := x.ScheduleLineage
-		return l != nil && l.AccountID == "synthetic-schedule-account" && l.TargetRunID == f.r.ID && l.Occurrence.ScheduleID == f.schedule.ID && l.Occurrence.RootRunID == f.root.ID && l.Occurrence.ExecutionSpec.Content == f.schedule.Content && l.SnapshotDigest != "" && len(l.Ancestry) > 0 && len(l.Authorization) > 0
-	}}}
+
 	if err := store.putAutoReviewMode("auto"); err != nil {
 		t.Fatal(err)
 	}
@@ -541,23 +538,22 @@ func TestScheduledMCPContextBoundedLineage(t *testing.T) {
 	}
 }
 
-func TestScheduledMCPQualifiedPolicyModesAndOneUse(t *testing.T) {
+func TestScheduledMCPAllToolReviewModesAndOneUse(t *testing.T) {
 	for _, tc := range []struct {
 		name, mode       string
-		registry         bool
 		reviews, effects int32
-	}{{"qualified allow", "auto", true, 1, 1}, {"shadow", "shadow", true, 1, 0}, {"off", "off", true, 0, 0}, {"empty production registry", "auto", false, 0, 0}} {
+	}{{"all tools allow", "auto", 1, 1}, {"shadow", "shadow", 1, 0}, {"off", "off", 0, 0}} {
 		t.Run(tc.name, func(t *testing.T) {
 			f := newScheduledMCPFixture(t, false, scheduleSourceChat)
-			if !tc.registry {
-				f.s.autoReviewPolicies = nil
-			}
 			if err := f.s.store.putAutoReviewMode(tc.mode); err != nil {
 				t.Fatal(err)
 			}
 			q := f.question()
 			if err := f.review(q); err != nil {
 				t.Fatal(err)
+			}
+			if tc.mode == "shadow" {
+				f.s.shadowReviewWG.Wait()
 			}
 			err := f.claimEffect(q.ID)
 			if (err == nil) != (tc.effects == 1) {

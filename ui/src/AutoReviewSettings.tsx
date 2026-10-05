@@ -3,7 +3,7 @@ import {request} from "./api";
 import {useSettingsDraft} from "./settingsDraft";
 
 type Mode = "off" | "shadow" | "auto";
-type Settings = {mode: Mode; eligible_tool_count: number};
+type Settings = {mode: Mode; review_scope: "all_external_tools"};
 
 export function AutoReviewSettings() {
   const [settings, setSettings] = useState<Settings | null>(null);
@@ -27,8 +27,8 @@ export function AutoReviewSettings() {
     finally {setBusy(false);}
   }
   useSettingsDraft({label: "AutoReview", dirty: Boolean(settings && settings.mode !== mode), busy, save, discard: () => {if (settings) setMode(settings.mode); setError(""); setStatus("");}});
-  return <section className="settings-section"><h3>AutoReview</h3><p className="settings-description">默认关闭。仅审查经过独立核实的公开只读工具；其余操作需要你批准。</p>
-    {settings ? <><label>当前账号的审批模式<select value={mode} disabled={busy} onChange={event => {setMode(event.target.value as Mode); setStatus("");}}><option value="off">关闭 · 人工审批</option><option value="shadow">观察 · 记录建议，仍由你批准</option><option value="auto">自动审批 · 仅限已核实工具</option></select></label><p className="field-note">已核实工具：{settings.eligible_tool_count}。{settings.eligible_tool_count === 0 ? "当前没有工具可自动批准。" : "自动决定仅对这一次完整提案有效。"}关闭后，尚未领取执行权的自动批准立即失效。</p><span role="status">{status}</span></> : !error && <p className="muted">读取配置…</p>}
+  return <section className="settings-section"><h3>AutoReview</h3><p className="settings-description">默认关闭。审查范围：所有外部工具。审查建议与执行权限分别判断。</p>
+    {settings ? <><label>当前账号的审批模式<select value={mode} disabled={busy} onChange={event => {setMode(event.target.value as Mode); setStatus("");}}><option value="off">关闭 · 保留原有审批规则</option><option value="shadow">观察 · 记录建议，保留原有执行路径</option><option value="auto">自动 · 审查后按执行策略决定</option></select></label><p className="field-note" data-autoreview-mode={mode}>{mode === "off" ? "关闭：不请求审查，保留原有人工审批及可信只读豁免。" : mode === "shadow" ? "观察：异步记录所有外部工具的建议，不新增等待或执行权限；原有人工审批及可信只读路径继续生效。" : "自动：审查所有外部工具；允许建议仍须通过当前执行策略、完整绑定及一次性领取。策略要求的人工确认继续生效。"}关闭后，尚未领取执行权的自动批准立即失效。</p><span role="status">{status}</span></> : !error && <p className="muted">读取配置…</p>}
     {error && <p className="error-text" role="alert">{error}{!settings && <button className="text-button" onClick={() => setVersion(current => current + 1)}>重试</button>}</p>}
   </section>;
 }

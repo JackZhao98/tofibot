@@ -165,8 +165,12 @@ type Config struct {
 type Server struct {
 	accountID                            string
 	mcpApprovalMu                        sync.Mutex
-	autoReviewProvider                   provider.Provider         // Deterministic tests only; production uses the existing Codex adapter.
-	autoReviewPolicies                   []verifiedMCPReviewPolicy // Empty in production until separately reviewed.
+	autoReviewProvider                   provider.Provider // Deterministic tests only; production uses the existing Codex adapter.
+	shadowReviewMu                       sync.Mutex
+	shadowReviewWG                       sync.WaitGroup
+	shadowReviewCancel                   context.CancelFunc
+	shadowReviewContext                  context.Context
+	shadowReviewClosed                   bool
 	isolatedWorkspace                    bool
 	localRunnerURL, localRunnerTokenFile string
 	ownerAuth                            *ownerAuth
@@ -2244,6 +2248,7 @@ func NewServer(c Config) (*Server, error) {
 	return server, nil
 }
 func (s *Server) Close() error {
+	s.stopShadowMCPReviews()
 	s.ownerAuth.close()
 	s.closeVMOAuth()
 	s.closeComputerControls()
