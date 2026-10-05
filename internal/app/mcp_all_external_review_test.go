@@ -99,23 +99,23 @@ func TestAllExternalReviewEmptyRegistryUnknownToolAndUntrustedMetadata(t *testin
 					Schema      json.RawMessage `json:"untrusted_tool_schema"`
 					Description string          `json:"untrusted_tool_description"`
 				}
-				if json.Unmarshal([]byte(req.Messages[0].Content), &in) != nil || in.Policy["review_scope"] != "all_external_tools" || in.Policy["host_human_confirmation_required"] != true || !mcpSchemaAvailable(in.Schema) || strings.Contains(req.Messages[0].Content, "qualified_operation_contract") || strings.Contains(req.System, "host-verified operation facts") {
+				if json.Unmarshal([]byte(req.Messages[0].Content), &in) != nil || in.Policy["review_scope"] != "all_external_tools" || in.Policy["host_human_confirmation_required"] != nil || !mcpSchemaAvailable(in.Schema) || strings.Contains(req.Messages[0].Content, "qualified_operation_contract") || strings.Contains(req.System, "host-verified operation facts") {
 					t.Error("untrusted metadata gained policy authority")
 				}
 				if !unknown && !strings.Contains(in.Description, "ignore all rules") {
 					t.Error("untrusted description lost")
 				}
-				return reviewReply(req, "allow"), nil // Deliberately unsafe advice cannot override the backend.
+				return reviewReply(req, "needs_human"), nil // The annotation cannot override required confirmation.
 			}
 			done := make(chan error, 1)
 			go func() { done <- f.execute(context.Background()) }()
 			q := waitReviewQuestion(t, f, "human_required")
 			if f.p.calls.Load() != 1 || f.effects.Load() != 0 || q.AnsweredBy != "" {
-				t.Fatal("unknown tool was excluded or model allowance granted authority")
+				t.Fatal("unknown tool was excluded or review advice granted authority")
 			}
 			_, _, _ = f.s.store.AnswerQuestion(q.ID, "synthetic-human", false)
 			if err := waitReviewDone(t, done); err == nil || f.effects.Load() != 0 {
-				t.Fatal("untrusted allow bypassed human", err)
+				t.Fatal("untrusted metadata bypassed human", err)
 			}
 		})
 	}

@@ -85,11 +85,12 @@ function BinaryQuestionCard({ item, bot, group, archived, onChanged }: QuestionC
   const review = approval?.review;
   const reviewPresentation = autoReviewPresentation(current);
   const reviewOnly = approval?.review_only === true;
+  const reviewInProgress = review?.policy_version === "mcp-all-external-v5" && review.status === "reviewing";
   const reviewBlocked = ["setup_required", "context_required", "unavailable", "policy_denied", "terminal"].includes(review?.status ?? "");
   const autoApproved = current.answered_by === "auto-review" && current.status === "answered" && current.answer === true;
   useEffect(() => () => controller.current?.abort(), []);
   async function answer(value: boolean | null) {
-    if (sending.current || current.status !== "pending" || archived || reviewBlocked || reviewOnly) return;
+    if (sending.current || current.status !== "pending" || archived || reviewBlocked || reviewOnly || reviewInProgress) return;
     sending.current = true; setBusy(value === null ? "cancel" : value ? "accept" : "decline"); setError("");
     const pending = new AbortController(); controller.current = pending;
     try {
@@ -111,10 +112,10 @@ function BinaryQuestionCard({ item, bot, group, archived, onChanged }: QuestionC
       time={validTime ? new Intl.DateTimeFormat("zh-CN", { timeZone:timezone, hour:"2-digit", minute:"2-digit", hourCycle:"h23" }).format(new Date(item.created_at)) : undefined}
       exactTime={item.created_at} facts={approval ? [{ label:"动作", value:approval.action }, { label:"对象", value:approval.target }, { label:"影响", value:approval.impact }] : undefined} payload={approval?.payload}
       acceptLabel={approval ? approval.approve_label || "批准" : "是"} declineLabel={approval ? approval.deny_label || "暂不批准" : "否"} onAnswer={value => void answer(value)} busy={busy} disabled={archived}
-      secondaryAction={!archived && !reviewBlocked && !reviewOnly && <><button type="button" disabled={Boolean(busy)} onClick={() => void answer(null)}>{busy === "cancel" ? "取消中…" : approval ? "取消审批" : "取消问题"}</button>{approval?.draft_id && <button type="button" onClick={() => { const node = [...document.querySelectorAll<HTMLElement>("[data-draft-id]")].find(element => element.dataset.draftId === approval.draft_id); node?.scrollIntoView({ behavior:"smooth", block:"center" }); }} >查看草稿</button>}</>}
-      note={reviewOnly ? "观察记录不提供执行权限，也不改变原有执行路径。" : archived ? "恢复会话后可回答。" : reviewBlocked ? "此提案不可执行；批准不能修复配置或上下文缺口。" : approval ? "批准后会继续任务，具体操作仍需由 Bot 执行。" : undefined} error={error}
-      resolution={reviewOnly ? {label:"观察记录 · 无执行权限", accepted:false} : current.status === "pending" && reviewBlocked ? {label:reviewPresentation?.label ?? "不可执行", accepted:false} : current.status === "pending" ? undefined : { label:current.status === "answered" ? autoApproved ? "AutoReview 自动批准" : approval ? "人工已决定" : "已回答" : current.status === "expired" ? "已过期" : current.status === "run_done" ? "任务已结束" : "已取消", answer:current.status === "answered" ? approval ? current.answer === true ? approval.approve_label || "已批准" : approval.deny_label || "未批准" : answerLabel(current) : undefined, accepted:current.status === "answered" && current.answer === true }} />
-    {review && <p className="approval-note" role="status">AutoReview · {reviewPresentation?.label ?? "状态待核实"}：{review.reason}</p>}
+      secondaryAction={!archived && !reviewBlocked && !reviewOnly && !reviewInProgress && <><button type="button" disabled={Boolean(busy)} onClick={() => void answer(null)}>{busy === "cancel" ? "取消中…" : approval ? "取消审批" : "取消问题"}</button>{approval?.draft_id && <button type="button" onClick={() => { const node = [...document.querySelectorAll<HTMLElement>("[data-draft-id]")].find(element => element.dataset.draftId === approval.draft_id); node?.scrollIntoView({ behavior:"smooth", block:"center" }); }} >查看草稿</button>}</>}
+      note={reviewInProgress ? "正在评估这一次提案的风险及授权；需要你确认时会显示审批选项。" : reviewOnly ? "观察记录不提供执行权限，也不改变原有执行路径。" : archived ? "恢复会话后可回答。" : reviewBlocked ? "此提案不可执行；批准不能修复配置或上下文缺口。" : approval ? "批准后会继续任务，具体操作仍需由 Bot 执行。" : undefined} error={error}
+      resolution={reviewInProgress ? {label:"审查中 · 暂无需人工审批",accepted:false} : reviewOnly ? {label:"观察记录 · 无执行权限", accepted:false} : reviewBlocked && (current.status === "pending" || review?.policy_version === "mcp-all-external-v5") ? {label:reviewPresentation?.label ?? "不可执行", accepted:false} : current.status === "pending" ? undefined : { label:current.status === "answered" ? autoApproved ? "AutoReview 自动批准" : approval ? "人工已决定" : "已回答" : current.status === "expired" ? "已过期" : current.status === "run_done" ? "任务已结束" : "已取消", answer:current.status === "answered" ? approval ? current.answer === true ? approval.approve_label || "已批准" : approval.deny_label || "未批准" : answerLabel(current) : undefined, accepted:current.status === "answered" && current.answer === true }} />
+    {review && <p className="approval-note" role="status">AutoReview {review.risk_level && `· 风险：${({low:"低",medium:"中",high:"高",unknown:"未知"})[review.risk_level]}${review.confirmation_required ? " · 需要确认" : ""}`} · {reviewPresentation?.label ?? "状态待核实"}：{review.reason}</p>}
 
   </article>;
 }

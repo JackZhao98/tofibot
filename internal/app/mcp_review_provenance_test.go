@@ -91,7 +91,7 @@ func TestAutoReviewImportedHistoryIsUntrustedContext(t *testing.T) {
 		t.Fatal(err)
 	}
 	call := extensions.MCPCallApproval{Server: "synthetic", Tool: "bounded_read", ConfigVersion: "fixture", Schema: json.RawMessage(`{"type":"object"}`), Arguments: json.RawMessage(`{}`)}
-	raw, err := mcpReviewInput(call, x, mcpReviewDigest(x, call), true)
+	raw, err := mcpReviewInput(call, x, mcpReviewDigest(x, call))
 	if err != nil {
 		t.Fatal(err)
 	}

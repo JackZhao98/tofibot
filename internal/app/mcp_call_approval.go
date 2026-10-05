@@ -19,8 +19,8 @@ import (
 
 const maxMCPApprovalPayloadBytes = 32 << 10
 
-// approveMCPCall binds one human decision to the exact run, MCP configuration
-// snapshot, tool and argument bytes. Claiming precedes remote execution: an
+// approveMCPCall binds one reviewed or human decision to the exact run, MCP
+// configuration snapshot, tool and argument bytes. Claiming precedes execution: an
 // uncertain remote result must never cause an automatic replay.
 func (s *Server) approveMCPCall(ctx context.Context, c Conversation, r Run, call extensions.MCPCallApproval) error {
 	if err := s.extensionToolActive(ctx, c, r); err != nil {
@@ -103,9 +103,11 @@ func (s *Server) approveMCPCall(ctx context.Context, c Conversation, r Run, call
 				_, _ = s.store.db.Exec(`DELETE FROM questions WHERE id=? AND status=?`, q.ID, questionPending)
 				return createErr
 			}
-			if _, createErr = s.store.Event(c.ID, "question", q.Card()); createErr != nil {
-				_, _ = s.store.db.Exec(`UPDATE questions SET status=?,updated_at=? WHERE id=? AND status=?`, questionCancelled, now(), q.ID, questionPending)
-				return createErr
+			if settings.Mode != "auto" {
+				if _, createErr = s.store.Event(c.ID, "question", q.Card()); createErr != nil {
+					_, _ = s.store.db.Exec(`UPDATE questions SET status=?,updated_at=? WHERE id=? AND status=?`, questionCancelled, now(), q.ID, questionPending)
+					return createErr
+				}
 			}
 			id, status, expires = q.ID, q.Status, q.ExpiresAt
 			newQuestion = &q
