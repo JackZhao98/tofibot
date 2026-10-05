@@ -327,9 +327,14 @@ func (s *Server) inputResumeOutcome(q Question) *tooloutcome.Outcome {
 	if s.store.db.QueryRow(`SELECT EXISTS(SELECT 1 FROM mcp_call_approvals WHERE question_id=?)`, q.ID).Scan(&bound) != nil || !bound {
 		return nil
 	}
-	o := tooloutcome.New("approval_recorded", "approval_recorded", "not_executed", "The human recorded approval; the external action has not executed. Reinspect current state and refresh the MCP schema if needed, then propose the exact approved call.", "reinspect_and_call")
+	o := mcpApprovalRecordedOutcome()
 	if string(q.Answer) != "true" {
 		o = tooloutcome.New(tooloutcome.Denied, "approval_denied", "not_executed", "The human did not approve this external tool call. Do not execute or repeat it.", "explain_blocker")
 	}
 	return &o
+}
+
+// Shared native control record, never inferred from returned tool text.
+func mcpApprovalRecordedOutcome() tooloutcome.Outcome {
+	return tooloutcome.New("approval_recorded", "approval_recorded", "not_executed", "The human recorded approval; the external action has not executed. Reinspect current state and refresh the MCP schema if needed, then propose the exact approved call.", "reinspect_and_call")
 }

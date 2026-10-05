@@ -50,17 +50,21 @@ func (s *Server) claimMCPApproval(ctx context.Context, c Conversation, r Run, ca
 		return nil, settingsErr
 	}
 	if q.AnsweredBy == autoReviewActor || settings.Mode == "auto" {
-		var account, conv, run, hash, server, tool, config, args, schema, policy, contextDigest, provenance, status, expiry, decision, risk string
+		var account, conv, run, hash, server, tool, config, args, schema, policy, contextDigest, snapshot, provenance, status, expiry, decision, risk string
 		var revision int64
 		var confirmation int
-		err = tx.QueryRow(`SELECT account_id,conversation_id,run_id,action_hash,server,tool,config_fingerprint,arguments_digest,schema_digest,policy_version,context_digest,provenance,status,settings_revision,expires_at,decision,risk_level,confirmation_required FROM mcp_auto_reviews WHERE question_id=?`, id).Scan(&account, &conv, &run, &hash, &server, &tool, &config, &args, &schema, &policy, &contextDigest, &provenance, &status, &revision, &expiry, &decision, &risk, &confirmation)
+		err = tx.QueryRow(`SELECT account_id,conversation_id,run_id,action_hash,server,tool,config_fingerprint,arguments_digest,schema_digest,policy_version,context_digest,context_snapshot,provenance,status,settings_revision,expires_at,decision,risk_level,confirmation_required FROM mcp_auto_reviews WHERE question_id=?`, id).Scan(&account, &conv, &run, &hash, &server, &tool, &config, &args, &schema, &policy, &contextDigest, &snapshot, &provenance, &status, &revision, &expiry, &decision, &risk, &confirmation)
 		x, _, contextErr := s.readMCPReviewContext(tx, c, r)
 		digest := mcpReviewDigest(x, call)
 		disposition := mcpReviewDisposition(mcpReviewResult{Decision: decision, RiskLevel: risk, ConfirmationRequired: confirmation == 1})
 		automatic := q.AnsweredBy == autoReviewActor
+		contextValid := contextErr == nil && contextDigest == digest
+		if !automatic && !contextValid && contextErr == nil && err == nil {
+			contextValid = mcpHumanResumeContextMatches(ctx, tx, c, r, call, q, snapshot, contextDigest, x)
+		}
 		decisionPermitsClaim := disposition == "approved" || !automatic && disposition == "human_required"
 		statusPermitsClaim := status == "approved" || !automatic && (status == "human_required" || status == "human_decided")
-		valid := err == nil && contextErr == nil && confirmation >= 0 && confirmation <= 1 && decisionPermitsClaim && statusPermitsClaim && provenance == autoReviewProvenance && settings.Mode == "auto" && settings.Revision == revision && account == s.reviewAccountID() && conv == c.ID && run == r.ID && hash == mcpApprovalHash(call) && server == call.Server && tool == call.Tool && config == call.ConfigVersion && args == digestBytes(call.Arguments) && schema == digestBytes(call.Schema) && policy == autoReviewPolicyVersion && contextDigest == digest && expiry == q.ExpiresAt && s.extensions != nil && s.extensions.MCPCallCurrent(call)
+		valid := err == nil && contextValid && confirmation >= 0 && confirmation <= 1 && decisionPermitsClaim && statusPermitsClaim && provenance == autoReviewProvenance && settings.Mode == "auto" && settings.Revision == revision && account == s.reviewAccountID() && conv == c.ID && run == r.ID && hash == mcpApprovalHash(call) && server == call.Server && tool == call.Tool && config == call.ConfigVersion && args == digestBytes(call.Arguments) && schema == digestBytes(call.Schema) && policy == autoReviewPolicyVersion && expiry == q.ExpiresAt && s.extensions != nil && s.extensions.MCPCallCurrent(call)
 		deadline, e := time.Parse(time.RFC3339Nano, expiry)
 		valid = valid && e == nil && time.Now().Before(deadline)
 		if !valid {

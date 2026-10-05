@@ -42,6 +42,7 @@ UPDATE mcp_auto_reviews SET status=CASE WHEN mode='shadow' THEN 'shadow_unavaila
 	for _, col := range []struct{ name, ddl string }{
 		{"risk_level", `ALTER TABLE mcp_auto_reviews ADD COLUMN risk_level TEXT NOT NULL DEFAULT ''`},
 		{"confirmation_required", `ALTER TABLE mcp_auto_reviews ADD COLUMN confirmation_required INTEGER NOT NULL DEFAULT -1`},
+		{"context_snapshot", `ALTER TABLE mcp_auto_reviews ADD COLUMN context_snapshot TEXT NOT NULL DEFAULT ''`},
 	} {
 		if err = ensureColumn(db, "mcp_auto_reviews", col.name, col.ddl); err != nil {
 			return err

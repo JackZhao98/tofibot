@@ -371,7 +371,11 @@ func (s *Server) reviewMCPProposal(ctx context.Context, c Conversation, r Run, c
 	if latest, e := s.store.getAutoReviewSettings(); e != nil || latest != settings {
 		return gap("invalidated", "AutoReview settings changed before this review could begin.")
 	}
-	_, err = s.store.db.Exec(`INSERT INTO mcp_auto_reviews(question_id,account_id,conversation_id,run_id,action_hash,server,tool,config_fingerprint,arguments_digest,schema_digest,policy_version,context_digest,provenance,mode,settings_revision,status,decision,reason,expires_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,'reviewing','','',?)`, q.ID, s.reviewAccountID(), c.ID, r.ID, mcpApprovalHash(call), call.Server, call.Tool, call.ConfigVersion, digestBytes(call.Arguments), digestBytes(call.Schema), autoReviewPolicyVersion, digest, autoReviewProvenance, settings.Mode, settings.Revision, q.ExpiresAt)
+	snapshot, err := json.Marshal(x)
+	if err != nil {
+		return gap("context_required", "The exact durable evidence snapshot could not be retained.")
+	}
+	_, err = s.store.db.Exec(`INSERT INTO mcp_auto_reviews(question_id,account_id,conversation_id,run_id,action_hash,server,tool,config_fingerprint,arguments_digest,schema_digest,policy_version,context_digest,context_snapshot,provenance,mode,settings_revision,status,decision,reason,expires_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,'reviewing','','',?)`, q.ID, s.reviewAccountID(), c.ID, r.ID, mcpApprovalHash(call), call.Server, call.Tool, call.ConfigVersion, digestBytes(call.Arguments), digestBytes(call.Schema), autoReviewPolicyVersion, digest, string(snapshot), autoReviewProvenance, settings.Mode, settings.Revision, q.ExpiresAt)
 	if err != nil {
 		var reserved bool
 		if e := s.store.db.QueryRow(`SELECT EXISTS(SELECT 1 FROM mcp_auto_reviews WHERE run_id=? AND action_hash=?)`, r.ID, mcpApprovalHash(call)).Scan(&reserved); e != nil || !reserved {
