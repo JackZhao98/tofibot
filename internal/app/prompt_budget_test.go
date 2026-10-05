@@ -234,8 +234,16 @@ func TestProductionPromptSizeMatrix(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			if tc.name == "dm" && len([]rune(system))+runtime.SystemPromptOverheadRunes() > 4000 {
-				t.Errorf("ordinary DM provider system exceeds 4000 runes")
+			// Keep the prior 4000-rune baseline plus a bounded essential
+			// ordinary-chat fallback contract, without growing scheduled policy.
+			if len([]rune(ordinaryResearchGuidance))+1 > 800 {
+				t.Fatal("ordinary research guidance exceeds its 800-rune allowance")
+			}
+			if tc.name == "dm" && len([]rune(system))+runtime.SystemPromptOverheadRunes()-len([]rune(ordinaryResearchGuidance))-1 > 4000 {
+				t.Error("ordinary DM baseline excluding the new research contract exceeds 4000 runes")
+			}
+			if tc.name == "dm" && len([]rune(system))+runtime.SystemPromptOverheadRunes() > 4800 {
+				t.Errorf("ordinary DM provider system exceeds 4800 runes")
 			}
 			if fixed > 6200 {
 				t.Errorf("fixed overhead %d leaves too little customization headroom (ceiling 6200)", fixed)
@@ -244,13 +252,21 @@ func TestProductionPromptSizeMatrix(t *testing.T) {
 				t.Fatal("user instructions changed")
 			}
 			if tc.kind == runKindSchedule || tc.descendant {
+				if strings.Contains(system, ordinaryResearchGuidance) {
+					t.Fatal("scheduled run loaded ordinary research startup policy")
+				}
 				for _, required := range []string{"complete_scheduled_task", "source names/URLs", "without calling complete_scheduled_task", "receipt", "computer_browser"} {
 					if !strings.Contains(system, required) {
 						t.Errorf("missing scheduled contract %q", required)
 					}
 				}
-			} else if strings.Contains(system, "complete_scheduled_task") {
-				t.Fatal("ordinary chat loaded scheduled execution policy")
+			} else {
+				if !strings.Contains(system, ordinaryResearchGuidance) {
+					t.Fatal("ordinary research policy lost")
+				}
+				if strings.Contains(system, "complete_scheduled_task") {
+					t.Fatal("ordinary chat loaded scheduled execution policy")
+				}
 			}
 		})
 	}

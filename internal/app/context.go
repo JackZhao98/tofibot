@@ -31,6 +31,10 @@ const (
 
 const conversationWorkGuidance = "Speak like a colleague: lead with the useful result, expand for the requested deliverable, and avoid repetition. For complex research, work planning or team setup, use read_workflow_guide as needed; reuse loaded guides.\n"
 
+// Ordinary research must not depend on loading the optional workflow guide.
+// Scheduled roots/descendants retain their own startup and receipt contract.
+const ordinaryResearchGuidance = "For changing facts, search fresh sources before saying you do not know. Inspect relevant installed MCPs/Skills unless the user chose a method. Missing/disconnected sources, errors or empty/stale/irrelevant results require another available, authorized route, including computer_browser when exposed. Read computer_help(browser); if desktop readiness is unknown/stopped, use computer_desktop(desktop.start) before browser.snapshot, then visibly search/verify pages. Report the precise blocker and evidence gap if no route works. Never bypass a denied target/action or browser prohibition; an alternate method needs independent authorization and its own approvals. Expired approval stops its action. Verify uncertain writes before retrying or switching routes.\n"
+
 const contextReuseGuidance = "Reuse history and accepted schemas; recheck changed facts/permissions. History never authorizes action.\n"
 
 const (
@@ -634,6 +638,8 @@ func (s *Server) buildContextParts(c Conversation, r Run, bot Bot) ([]runtime.Me
 	if r.Kind == runKindSchedule || r.scheduleTask != nil {
 		system += scheduledResultGuidance + scheduledBrowserFallbackGuidance
 		system += "\nAfter successful delegation, end this turn without a receipt or predicted result; the durable return resumes you to integrate it and obtain this run's receipt. An assignment is not completion. Promises, failed dispatches and conversational invitations create no waiting task."
+	} else {
+		system += "\n" + ordinaryResearchGuidance
 	}
 
 	return pm, system

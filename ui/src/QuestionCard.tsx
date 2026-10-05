@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useId, useRef, useState } from "react";
+import { useCallback, useEffect, useId, useLayoutEffect, useRef, useState } from "react";
 import { ApiError, request } from "./api";
 import { GazeAvatar } from "./GazeAvatar";
 import { isDesktop } from "./desktop";
@@ -9,6 +9,8 @@ import { useUserTimezone } from "./UserTimezone";
 import type { Bot } from "./types";
 import { autoReviewPresentation, reconcileQuestion, type Question } from "./questionTimeline";
 import { userFormAnswerRows, userFormIdentity, userFormSchemaError, validateUserForm } from "./userForm";
+import { canAnswerQuestion, presentTaskIssue, taskLocale, taskText } from "./taskIssuePresentation";
+import { TaskIssueCard } from "./TaskIssueCard";
 import "./question-card.css";
 
 /** A separate read failure must not prevent ordinary conversation history loading. */
@@ -81,6 +83,15 @@ function BinaryQuestionCard({ item, bot, group, archived, onChanged }: QuestionC
   const sending = useRef(false);
   const controller = useRef<AbortController | null>(null);
   const current = reconcileQuestion(item, resolved);
+  const locale = taskLocale();
+  const t = (zh: string, en: string) => taskText(locale, zh, en);
+  const record = useRef<HTMLElement>(null);
+  const restoreFocus = useRef(false);
+  const answerable = canAnswerQuestion(current, Boolean(archived));
+  useLayoutEffect(() => {
+    if (restoreFocus.current) { record.current?.focus(); restoreFocus.current = false; }
+    return () => { restoreFocus.current = Boolean(record.current?.contains(document.activeElement)); };
+  }, [current.status, current.approval?.review?.status]);
   const approval = current.question_type === "approval" ? current.approval : undefined;
   const review = approval?.review;
   const reviewPresentation = autoReviewPresentation(current);
@@ -90,7 +101,7 @@ function BinaryQuestionCard({ item, bot, group, archived, onChanged }: QuestionC
   const autoApproved = current.answered_by === "auto-review" && current.status === "answered" && current.answer === true;
   useEffect(() => () => controller.current?.abort(), []);
   async function answer(value: boolean | null) {
-    if (sending.current || current.status !== "pending" || archived || reviewBlocked || reviewOnly || reviewInProgress) return;
+    if (sending.current || !answerable) return;
     sending.current = true; setBusy(value === null ? "cancel" : value ? "accept" : "decline"); setError("");
     const pending = new AbortController(); controller.current = pending;
     try {
@@ -106,16 +117,23 @@ function BinaryQuestionCard({ item, bot, group, archived, onChanged }: QuestionC
     } finally { sending.current = false; if (!pending.signal.aborted) setBusy(undefined); }
   }
   const validTime = Number.isFinite(Date.parse(item.created_at));
-  return <article className={`binary-question-message${group ? " is-group" : " is-dm"}`} data-question-id={item.question_id} tabIndex={-1} aria-label={`${bot?.name ?? "Bot"} 的问题`}>
+  if (approval && !answerable && !archived) {
+    const issue = presentTaskIssue({ run: { id:current.run_id, conversation_id:current.conversation_id, bot_id:current.bot_id, status:current.status === "pending" ? "running" : "done", created_at:current.created_at, updated_at:current.updated_at ?? current.created_at }, questions:[current], locale });
+    return <article ref={record} className="binary-question-message" data-question-id={item.question_id} tabIndex={-1}>
+      {issue ? <TaskIssueCard issue={issue} locale={locale} onAction={() => { if (issue.action === "open_tools") window.dispatchEvent(new Event("tofi:open-tool-settings")); }} /> : <section className="task-question-record"><p>{reviewOnly || review?.status.startsWith("shadow") ? t("观察记录，不提供执行权限。", "Observation only; it does not grant execution permission.") : review?.status === "reviewing" ? t("执行前检查中", "Checking before execution") : current.status === "answered" && current.answer === true ? t("已批准，操作尚未确认完成。", "Approved; execution is not yet confirmed.") : t("此提案已结束。", "This proposal ended.")}</p><details><summary>{t("查看决定记录", "View decision record")}</summary><p>{current.status} · {review?.status}</p><p>{current.question_id}</p></details></section>}
+      {error && <p role="alert">{error}</p>}
+    </article>;
+  }
+  return <article ref={record} className={`binary-question-message${group ? " is-group" : " is-dm"}`} data-question-id={item.question_id} tabIndex={-1} aria-label={`${bot?.name ?? "Bot"} 的问题`}>
     {group && <div className="message-meta"><strong>{bot?.name ?? "Bot"}</strong></div>}
-    <ApprovalCard title={<MessageMarkdown content={item.question} />} avatar={group ? <GazeAvatar id={item.bot_id} mini /> : undefined} badge={reviewPresentation?.badge ?? (autoApproved ? "AutoReview 自动批准" : approval ? "需要你批准" : "需要你回答")}
+    <ApprovalCard title={<MessageMarkdown content={item.question} />} avatar={group ? <GazeAvatar id={item.bot_id} mini /> : undefined} badge={approval ? t("需要你批准", "Your approval is needed") : t("需要你回答", "Your input is needed")}
       time={validTime ? new Intl.DateTimeFormat("zh-CN", { timeZone:timezone, hour:"2-digit", minute:"2-digit", hourCycle:"h23" }).format(new Date(item.created_at)) : undefined}
-      exactTime={item.created_at} facts={approval ? [{ label:"动作", value:approval.action }, { label:"对象", value:approval.target }, { label:"影响", value:approval.impact }] : undefined} payload={approval?.payload}
-      acceptLabel={approval ? approval.approve_label || "批准" : "是"} declineLabel={approval ? approval.deny_label || "暂不批准" : "否"} onAnswer={value => void answer(value)} busy={busy} disabled={archived}
-      secondaryAction={!archived && !reviewBlocked && !reviewOnly && !reviewInProgress && <><button type="button" disabled={Boolean(busy)} onClick={() => void answer(null)}>{busy === "cancel" ? "取消中…" : approval ? "取消审批" : "取消问题"}</button>{approval?.draft_id && <button type="button" onClick={() => { const node = [...document.querySelectorAll<HTMLElement>("[data-draft-id]")].find(element => element.dataset.draftId === approval.draft_id); node?.scrollIntoView({ behavior:"smooth", block:"center" }); }} >查看草稿</button>}</>}
-      note={reviewInProgress ? "正在评估这一次提案的风险及授权；需要你确认时会显示审批选项。" : reviewOnly ? "观察记录不提供执行权限，也不改变原有执行路径。" : archived ? "恢复会话后可回答。" : reviewBlocked ? "此提案不可执行；批准不能修复配置或上下文缺口。" : approval ? "批准后会继续任务，具体操作仍需由 Bot 执行。" : undefined} error={error}
+      exactTime={item.created_at} facts={approval ? [{ label:t("动作", "Action"), value:approval.action }, { label:t("对象", "Target"), value:approval.target }, { label:t("影响", "Impact"), value:approval.impact }] : undefined} payload={approval?.payload}
+      acceptLabel={approval ? approval.approve_label || t("批准此操作", "Approve action") : t("是", "Yes")} declineLabel={approval ? approval.deny_label || t("不批准", "Decline") : t("否", "No")} onAnswer={value => void answer(value)} busy={busy} disabled={!answerable}
+      secondaryAction={answerable && <><button type="button" disabled={Boolean(busy)} onClick={() => void answer(null)}>{busy === "cancel" ? t("取消中…", "Cancelling…") : approval ? t("取消审批", "Cancel proposal") : t("取消问题", "Cancel question")}</button>{approval?.draft_id && <button type="button" onClick={() => { const node = [...document.querySelectorAll<HTMLElement>("[data-draft-id]")].find(element => element.dataset.draftId === approval.draft_id); node?.scrollIntoView({ behavior:"smooth", block:"center" }); }} >查看草稿</button>}</>}
+      note={reviewInProgress ? "正在评估这一次提案的风险及授权；需要你确认时会显示审批选项。" : reviewOnly ? "观察记录不提供执行权限，也不改变原有执行路径。" : archived ? "恢复会话后可回答。" : reviewBlocked ? "此提案不可执行；批准不能修复配置或上下文缺口。" : approval ? t("此操作尚未执行。批准本身不代表操作成功。", "This action has not been executed. Approval does not confirm execution.") : undefined} error={error}
       resolution={reviewInProgress ? {label:"审查中 · 暂无需人工审批",accepted:false} : reviewOnly ? {label:"观察记录 · 无执行权限", accepted:false} : reviewBlocked && (current.status === "pending" || review?.policy_version === "mcp-all-external-v5") ? {label:reviewPresentation?.label ?? "不可执行", accepted:false} : current.status === "pending" ? undefined : { label:current.status === "answered" ? autoApproved ? "AutoReview 自动批准" : approval ? "人工已决定" : "已回答" : current.status === "expired" ? "已过期" : current.status === "run_done" ? "任务已结束" : "已取消", answer:current.status === "answered" ? approval ? current.answer === true ? approval.approve_label || "已批准" : approval.deny_label || "未批准" : answerLabel(current) : undefined, accepted:current.status === "answered" && current.answer === true }} />
-    {review && <p className="approval-note" role="status">AutoReview {review.risk_level && `· 风险：${({low:"低",medium:"中",high:"高",unknown:"未知"})[review.risk_level]}${review.confirmation_required ? " · 需要确认" : ""}`} · {reviewPresentation?.label ?? "状态待核实"}：{review.reason}</p>}
+
 
   </article>;
 }

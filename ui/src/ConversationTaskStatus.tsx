@@ -1,3 +1,4 @@
+import { taskLocale, taskText } from "./taskIssuePresentation";
 import type { Conversation, Run } from "./types";
 import "./conversation-task-status.css";
 
@@ -16,7 +17,7 @@ export function taskStateLabel(state: TaskState): string {
   }
 }
 
-export function ConversationTaskStatus({ state: snapshot, run, onView, onRetry }: { state: TaskState; run?: Run; onView: () => void; onRetry?: () => void }) {
+export function ConversationTaskStatus({ state: snapshot, run, onView }: { state: TaskState; run?: Run; onView: () => void }) {
   // The conversation summary can precede the latest run SSE frame. Project
   // only its exact run, so a stale finishing banner cannot outlive conclusion.
   const state: TaskState = run && run.id === snapshot.run_id && run.stop_reason === "approval_expired"
@@ -26,13 +27,7 @@ export function ConversationTaskStatus({ state: snapshot, run, onView, onRetry }
   // A successful result already lives in the conversation. Keep this strip
   // for states that require attention instead of repeating every success.
   if (state.status === "completed") return null;
-  const canView = Boolean(state.question_id || state.draft_id || state.result_message_id);
-  return <section className="conversation-task-banner" data-task-status={state.status} aria-label={`任务状态：${taskStateLabel(state)}`}>
-    <span className="conversation-task-banner-dot" aria-hidden="true" />
-    <strong>{taskStateLabel(state)}</strong>
-    {state.status === "needs_attention" && <span>{state.draft_status === "unknown" ? "请先核实实际发送状态；系统不会自动重发。" : state.draft_id ? "请在草稿卡确认或取消，发送状态以卡片记录为准。" : "处理后任务会继续，批准本身不代表操作成功。"}</span>}
-    {state.status === "failed" && <span>{state.failure_reason || "本轮未完成。"}</span>}
-    {canView && <button type="button" onClick={onView}>{state.status === "needs_attention" && state.draft_status !== "unknown" ? "查看待处理" : "查看记录"}</button>}
-    {state.status === "failed" && state.can_retry && onRetry && <button type="button" onClick={onRetry}>重试本轮</button>}
+  return <section className="conversation-task-banner" data-task-status={state.status} aria-label="任务定位">
+    <button type="button" onClick={onView}>{taskText(taskLocale(), "查看任务", "View task")}</button>
   </section>;
 }
