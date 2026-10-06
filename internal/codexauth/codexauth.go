@@ -377,6 +377,9 @@ func (m *Manager) RecoverRejected(ctx context.Context) (bool, error) {
 	if !t.AccessOnly && t.RefreshToken != "" {
 		if _, err = m.refreshToken(ctx, t); err == nil {
 			return false, nil
+		} else if err.Error() != refreshRejected {
+			// Unreachable token endpoint or malformed reply: not a verdict.
+			return false, err
 		}
 	}
 	t.Rejected = true
@@ -412,9 +415,12 @@ func (m *Manager) exchange(ctx context.Context, code, verifier string) (token, e
 	return m.postToken(ctx, form, "Codex token exchange failed")
 }
 
+// refreshRejected is the error for a token endpoint that answered and refused.
+const refreshRejected = "Codex login expired; reconnect your ChatGPT account"
+
 func (m *Manager) refreshToken(ctx context.Context, old token) (string, error) {
 	form := url.Values{"grant_type": {"refresh_token"}, "refresh_token": {old.RefreshToken}, "client_id": {clientID}}
-	newToken, err := m.postToken(ctx, form, "Codex login expired; reconnect your ChatGPT account")
+	newToken, err := m.postToken(ctx, form, refreshRejected)
 	if err != nil {
 		return "", err
 	}

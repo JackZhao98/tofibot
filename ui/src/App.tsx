@@ -2370,12 +2370,22 @@ export function CodexPanel({ refreshToken, onConfigured }: { refreshToken: numbe
   const [error, setError] = useState("");
   const statusRequest = useRef(0);
   const [needsReconnect, setNeedsReconnect] = useState(false);
+  const [check, setCheck] = useState<"" | "checking" | "ok" | "unverified">("");
   useEffect(() => {
     const request = ++statusRequest.current;
-    setWorking(true); setConnected(null); setExpiresAt(undefined); setError(""); setNeedsReconnect(false);
-    api.codexStatus().then((status) => {
+    setWorking(true); setConnected(null); setExpiresAt(undefined); setError(""); setNeedsReconnect(false); setCheck("");
+    api.codexStatus().then(async (status) => {
       if (request !== statusRequest.current) return;
       setConnected(status.connected); setExpiresAt(status.expires_at); setNeedsReconnect(Boolean(status.needs_reconnect));
+      if (!status.connected) return;
+      // A stored credential is not proof the provider still accepts it.
+      setCheck("checking");
+      const verified = await api.codexVerify().catch(() => null);
+      if (request !== statusRequest.current) return;
+      if (!verified) { setCheck("unverified"); return; }
+      setConnected(verified.connected); setExpiresAt(verified.expires_at); setNeedsReconnect(Boolean(verified.needs_reconnect));
+      setCheck(verified.check === "ok" ? "ok" : verified.check === "unverified" ? "unverified" : "");
+      if (verified.check === "rejected") onConfigured();
     }).catch((cause) => { if (request === statusRequest.current) setError(errorText(cause)); }).finally(() => { if (request === statusRequest.current) setWorking(false); });
   }, [refreshToken, statusRefresh]);
   async function connect() {
@@ -2398,7 +2408,7 @@ export function CodexPanel({ refreshToken, onConfigured }: { refreshToken: numbe
     finally { setWorking(false); }
   }
   async function disconnect() { ++statusRequest.current; setWorking(true); setError(""); try { await api.codexDisconnect(); setConnected(false); setExpiresAt(undefined); onConfigured(); } catch (cause) { setError(errorText(cause)); } finally { setWorking(false); } }
-  return <div className="detail-content"><div className="detail-heading"><div><h2>Codex</h2></div></div><div className={`codex-status ${connected === true ? "connected" : connected === false ? "missing" : "unknown"}`} role="status"><span className="status-dot" />{connected === true ? "Codex 已连接" : connected === false ? needsReconnect ? "Codex 登录已失效，请重新连接" : "模型未配置" : working ? "正在读取连接状态…" : "连接状态未确认"}</div>{expiresAt && connected && <p className="field-note">连接有效期至 {new Date(expiresAt).toLocaleString("zh-CN")}</p>}{session ? <div className="verification-card"><p>在官方验证页面输入下面的短代码：</p><code>{session.code}</code><a href={session.url} target="_blank" rel="noreferrer">打开官方验证链接 <Icon name="external-link" size={16} style={{ verticalAlign: "middle" }} /></a></div> : connected === true ? <button className="secondary-button" onClick={() => void disconnect()} disabled={working}>断开 Codex</button> : connected === null ? <button className="secondary-button" onClick={() => setStatusRefresh(value => value + 1)} disabled={working}>{working ? "读取状态…" : "重试读取状态"}</button> : <button className="primary-button" onClick={() => void connect()} disabled={working}>{working ? "连接中…" : needsReconnect ? "重新连接 Codex" : "连接 Codex"}</button>}{error && <p className="error-text">{error}</p>}</div>;
+  return <div className="detail-content"><div className="detail-heading"><div><h2>Codex</h2></div></div><div className={`codex-status ${connected === true ? "connected" : connected === false ? "missing" : "unknown"}`} role="status"><span className="status-dot" />{connected === true ? check === "checking" ? "正在验证 Codex 登录…" : check === "ok" ? "Codex 已连接 · 已验证" : check === "unverified" ? "Codex 已连接 · 暂时无法验证" : "Codex 已连接" : connected === false ? needsReconnect ? "Codex 登录已失效，请重新连接" : "模型未配置" : working ? "正在读取连接状态…" : "连接状态未确认"}</div>{expiresAt && connected && check !== "unverified" && <p className="field-note">连接有效期至 {new Date(expiresAt).toLocaleString("zh-CN")}</p>}{connected && check === "unverified" && <p className="field-note">暂时无法连到模型服务确认登录状态，可能是网络问题。 <button className="text-button" onClick={() => setStatusRefresh(value => value + 1)} disabled={working}>重新验证</button></p>}{session ? <div className="verification-card"><p>在官方验证页面输入下面的短代码：</p><code>{session.code}</code><a href={session.url} target="_blank" rel="noreferrer">打开官方验证链接 <Icon name="external-link" size={16} style={{ verticalAlign: "middle" }} /></a></div> : connected === true ? <button className="secondary-button" onClick={() => void disconnect()} disabled={working}>断开 Codex</button> : connected === null ? <button className="secondary-button" onClick={() => setStatusRefresh(value => value + 1)} disabled={working}>{working ? "读取状态…" : "重试读取状态"}</button> : <button className="primary-button" onClick={() => void connect()} disabled={working}>{working ? "连接中…" : needsReconnect ? "重新连接 Codex" : "连接 Codex"}</button>}{error && <p className="error-text">{error}</p>}</div>;
 }
 
 function DictationControls({ elapsed, levels, busy, onCancel, onConfirm }: { elapsed: number; levels: number[]; busy: boolean; onCancel: () => void; onConfirm: () => void }) {
