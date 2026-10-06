@@ -112,6 +112,23 @@ const reviewStatusWords: Record<string, [string, string]> = {
 const certaintyWords: Record<string, [string, string]> = {
   not_executed: ["未执行", "Not executed"], unknown: ["结果待核实", "Result needs checking"], no_side_effect: ["未产生改动", "No changes made"], executed: ["已执行", "Executed"], completed: ["已执行", "Executed"],
 };
+const outcomeCodeWords: Record<string, [string, string]> = {
+  mcp_review_context_missing: ["执行前检查缺少必要信息", "Pre-execution check is missing information"], mcp_review_setup_missing: ["工具尚未就绪", "Tool setup is incomplete"],
+  mcp_review_policy_denied: ["未通过安全检查", "Did not pass the safety check"], mcp_review_unavailable: ["执行前检查暂时不可用", "Pre-execution checking is unavailable"],
+  approval_window_expired: ["批准已过期", "Approval expired"], batch_skipped: ["批准过期后未执行", "Skipped after approval expired"],
+  stale_schema: ["工具信息已过期，需要重新查找", "Tool details were stale and need a fresh lookup"], invalid_arguments: ["参数不符合工具要求", "Arguments did not match the tool"],
+  mcp_retry_exhausted: ["多次重试后仍然失败", "Still failing after retries"], mcp_result_unknown: ["结果待核实", "Result needs checking"],
+};
+Object.assign(reviewStatusWords, {
+  need_information: ["缺少必要信息", "Missing required information"], validation_error: ["参数校验未通过", "Validation failed"],
+  transient_failure: ["暂时失败", "Temporary failure"], permanent_failure: ["执行失败", "Failed"],
+});
+/** A tool outcome in words: the specific code first, then its status. */
+export function taskOutcomeText(outcome: { code?: string; status?: string } | undefined, locale: TaskLocale = taskLocale()) {
+  const words = outcome?.code ? outcomeCodeWords[outcome.code] : undefined;
+  return words ? taskText(locale, ...words) : taskStatusText(outcome?.status, locale);
+}
+
 /** Human words for review/answer states; raw codes stay in technical diagnostics only. */
 export function taskStatusText(status: string | undefined, locale: TaskLocale = taskLocale()) {
   if (status?.startsWith("shadow")) return taskText(locale, "观察记录", "Observation only");

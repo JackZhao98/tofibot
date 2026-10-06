@@ -61,6 +61,10 @@ try {
  const factCard=markup(scenario("unknown"));
  assert(factCard.includes('class="task-fact-link"'));assert(!/工具调用 · [0-9A-F]{8}/.test(visibleText(factCard)));
  assert(steps.includes("工作过程<span class=\"task-activity-detail\"> · 10 个工具"));
+ // Production outcomes name the cause in a code; the step reads it in words.
+ const prodBlocked={...scenario("busy"),run:{...run,status:"done"},tools:[{...tool,outcome:{version:1,status:"need_information",code:"mcp_review_context_missing",execution_certainty:"not_executed",message:"Necessary durable user authorization or context is missing"}}]};
+ const prodHTML=markup(prodBlocked);assert(prodHTML.includes("执行前检查缺少必要信息"));assert(!visibleText(prodHTML.replace(/<details class="task-step-technical">[\s\S]*?<\/details>/g,"")).includes("状态待确认"));
+ assert.equal(p.taskOutcomeText({code:"stale_schema",status:"validation_error"},"zh-CN"),"工具信息已过期，需要重新查找");assert.equal(p.taskOutcomeText({status:"need_information"},"zh-CN"),"缺少必要信息");
  console.log("PASS 2c: activity records use human step names, states and counts");
  // 3. Setup and context have different bounded actions; neither has controls.
  // Setup and context gaps live on the blocked step: setup offers tool settings there, context offers diagnostics.
