@@ -59,9 +59,9 @@ func modelAccountFailure(errorText string) (string, string) {
 	}
 	switch {
 	case has(modelUnconfiguredMarkers):
-		return "model_unconfigured", "No AI provider is available: no model account is connected. Connect a Codex account in model settings, then retry."
+		return "model_unconfigured", "No AI provider is available: no model account is connected. Connect a Codex account under Settings > Server and Codex, then retry."
 	case has(modelAuthMarkers):
-		return "model_auth_invalid", "The model account sign-in is no longer valid, so the model rejected this request. Reconnect the Codex account in model settings, then retry."
+		return "model_auth_invalid", "The model account sign-in is no longer valid, so the model rejected this request. Reconnect the Codex account under Settings > Server and Codex, then retry."
 	case has(modelQuotaMarkers):
 		return "model_quota_exhausted", "The model account has reached its usage limit, so the model rejected this request. Retry after the limit resets or connect another account."
 	}

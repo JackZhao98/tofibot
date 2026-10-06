@@ -191,6 +191,9 @@ type Server struct {
 	modelCatalog                         []ModelOption
 	modelCatalogAt                       time.Time
 	modelCatalogSource                   string
+	codexVerifyMu                        sync.Mutex
+	codexVerifyAt                        time.Time
+	codexVerifyCheck                     string
 	mu                                   sync.Mutex
 	convMu                               map[string]*sync.Mutex
 	runs                                 map[string]context.CancelFunc
@@ -2463,12 +2466,19 @@ func (s *Server) codexAuth(w http.ResponseWriter, r *http.Request, path string) 
 	switch {
 	case path == "" && r.Method == http.MethodGet:
 		writeJSON(w, 200, s.codex.Status())
+	case path == "/verify" && r.Method == http.MethodPost:
+		check := s.verifyCodexSignIn(r.Context())
+		writeJSON(w, 200, struct {
+			codexauth.Status
+			Check string `json:"check"`
+		}{s.codex.Status(), check})
 	case path == "" && r.Method == http.MethodDelete:
 		before := s.codex.Status()
 		if e := s.codex.Disconnect(); e != nil {
 			writeErr(w, 500, "codex_disconnect", e.Error())
 			return
 		}
+		s.forgetCodexVerification()
 		if strings.EqualFold(s.provider, "openai_codex") {
 			s.mu.Lock()
 			s.engine = nil
@@ -2501,6 +2511,9 @@ func (s *Server) codexAuth(w http.ResponseWriter, r *http.Request, path string) 
 		if e != nil {
 			writeErr(w, 503, "codex_poll", e.Error())
 			return
+		}
+		if x.Connected {
+			s.forgetCodexVerification()
 		}
 		if x.Connected && strings.EqualFold(s.provider, "openai_codex") {
 			s.mu.Lock()

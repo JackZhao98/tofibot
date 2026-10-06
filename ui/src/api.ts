@@ -38,6 +38,7 @@ export const api = {
     const result = await request<{ connected: boolean; expires_at?: number; pending?: boolean; needs_reconnect?: boolean }>("/api/auth/codex");
     return result;
   },
+  codexVerify: () => request<{ connected: boolean; expires_at?: number; pending?: boolean; needs_reconnect?: boolean; check: "ok" | "rejected" | "unverified" | "not_connected" }>("/api/auth/codex/verify", { method: "POST" }),
   codexConnect: () => request<{ session_id: string; verification_url: string; user_code: string; expires_at: number; interval: number }>("/api/auth/codex/connect", { method: "POST" }),
   codexPoll: (id: string) => request<{ connected: boolean; pending: boolean; expires_at?: number }>(`/api/auth/codex/connect/${encodeURIComponent(id)}/poll`, { method: "POST" }),
   codexDisconnect: () => request<void>("/api/auth/codex", { method: "DELETE" }),
