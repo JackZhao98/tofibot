@@ -172,6 +172,11 @@ export function presentTaskIssue({ run, family, tools = [], questions = [], draf
   else if (run.failure?.code === "connection_interrupted") add("runtime_connection");
   else if (["failed", "interrupted"].includes(run.status)) add("unknown_failure");
   if (!connected && !isTerminalRun(run)) add("connection_status");
+  // A blocked or failed tool step is shown on that step (red, with its reason and
+  // diagnostics), not as a separate card. Cards stay for run-level problems:
+  // model account, results needing verification, expiry and interrupted runs.
+  const stepLevel: TaskIssueKind[] = ["review_context", "review_unavailable", "tool_setup", "policy_denied", "human_denied"];
+  for (let index = causes.length - 1; index >= 0; index--) if (stepLevel.includes(causes[index])) causes.splice(index, 1);
   if (!causes.length) return undefined;
   const priority: TaskIssueKind[] = ["uncertain_effect", "expired", "human_denied", "policy_denied", "tool_setup", "review_context", "review_unavailable", "connection_status", "model_unconfigured", "model_auth", "model_quota", "provider_busy", "runtime_connection", "unknown_failure"];
   const kind = priority.find(value => causes.includes(value))!;
@@ -192,9 +197,7 @@ export function presentTaskIssue({ run, family, tools = [], questions = [], draf
     for (const draft of drafts.filter(draft => draft.status === "unknown")) facts.push(`${taskDraftLabel(draft, locale)}: ${t("发送结果待核实。", "Sending result needs checking.")}`);
     facts.push(t("以上待核实的操作可能已经生效；再次操作前请先核实。", "The unconfirmed actions above may have taken effect. Check before trying again."));
   }
-  const notExecuted = tools.filter(tool => toolExecutionState(tool) === "not_executed");
-  if (notExecuted.length) for (const tool of notExecuted) pushToolFact(tool, t("本次工具调用未执行。", "This tool call was not executed."));
-  else for (const question of questions.filter(question => !question.approval?.review_only && question.outcome?.execution_certainty === "not_executed")) facts.push(`${taskQuestionLabel(question, locale)}: ${t("此提案对应的操作未执行。", "The action associated with this proposal was not executed.")}`);
+  // Steps that did not run are marked on the steps themselves.
   if (drafts.some(draft => draft.status === "unknown")) facts.push(t("请检查邮件服务中的已发送记录，核对时间、收件人与主题。", "Check sent-mail records in your email service and compare the time, recipient, and subject."));
   else if (kind === "uncertain_effect") facts.push(t("请在目标服务中核对这次操作的记录。无法确认时，请保持结果待核实。", "Check this action's records in the target service. If still unconfirmed, keep the result unconfirmed."));
   if (kind === "connection_status") facts.push(t("任务可能仍在运行。刷新只读取最新状态。", "The task may still be running. Refresh only reads the latest status."));

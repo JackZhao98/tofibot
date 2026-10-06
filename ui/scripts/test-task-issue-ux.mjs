@@ -19,10 +19,12 @@ try {
  const markup=(fixture,locale="zh-CN")=>renderToStaticMarkup(createElement(TaskRunBlock,{owner:p.buildTaskOwners([fixture.run],fixture.messages,fixture.questions,fixture.drafts)[0],...fixture,messages:fixture.messages,locale,onOpenTools:()=>{},onRefresh:async()=>{},renderQuestion:q=>createElement("p",{key:q.question_id,"data-valid-proposal":q.question_id},q.question),renderDraft:d=>createElement("p",{key:d.draft_id,"data-draft-status":d.status},d.demo?"Demo; not sent":d.status)}));
  // 1. Independent context and later model failure, one issue, safe diagnostic copy.
  const incident=scenario("incident"), issue=view(incident), html=markup(incident);
- assert.equal(issue.kind,"review_context");assert.equal(issue.action,"copy_diagnostics");assert.match(issue.facts.join(" "),/本次工具调用未执行/);assert.match(issue.secondary.join(" "),/随后模型服务繁忙/);
+ // The blocked step is red on the step itself; only the run-level overload raises a card.
+ assert.equal(issue.kind,"provider_busy");assert(!issue.facts.join(" ").includes("本次工具调用未执行"));assert(!issue.secondary.join(" ").includes("执行前检查"));
+ assert(html.includes('task-step is-not_executed is-problem'));assert(html.includes("task-step-problem"));assert(html.includes("执行前检查缺少必要信息"));assert(html.includes("复制诊断信息"));
  assert.equal((html.match(/class="task-issue-card"/g)||[]).length,1);assert(!html.includes("data-valid-proposal"));assert(!html.includes('role="status"'));
  const diagnostic=p.taskDiagnostics(issue);for(const secret of ["PRIVATE_SECRET","PRIVATE_BODY","PRIVATE_REASONING","synthetic@example.invalid"]) assert(!diagnostic.includes(secret));assert(diagnostic.includes("intent_provenance_unverified"));assert(diagnostic.includes("server_is_overloaded"));assert(diagnostic.includes("not_executed"));
- console.log("PASS 1: one issue, two independent causes, object-scoped certainty, diagnostic allowlist");
+ console.log("PASS 1: blocked step marked on the step, run-level overload card, diagnostic allowlist");
  // 2. Overload preserves completed facts and incomplete paging, never grants replay.
  const busy=view(scenario("busy"));assert.equal(busy.kind,"provider_busy");assert.equal(busy.action,"view_activity");assert.equal(busy.recordsComplete,false);assert(!busy.facts.join(" ").includes("未执行"));assert(busy.facts.join(" ").includes("已完成"));
  for(const error of ["busy", "503", "xserver_is_overloaded", "server_is_overloaded_extra"]) assert.equal(view({...scenario("busy"),run:{...run,status:"failed",error}}).kind,"unknown_failure");
@@ -51,17 +53,21 @@ try {
  const records=visibleText(steps.slice(steps.indexOf('<div class="task-activity-records">')));
  for(const raw of ["mcp_email_read","synthetic-call-1","工具调用 · "]) assert(!records.includes(raw),`raw ${raw} leaked into activity records`);
  const review=markup(scenario("incident"));assert(review.includes("执行前检查缺少必要信息"));assert(review.includes("未执行"));
- const reviewRecords=visibleText(review.slice(review.indexOf('<div class="task-activity-records">')));
+ // Raw codes belong only in a step's collapsed technical details.
+ const reviewRecords=visibleText(review.slice(review.indexOf('<div class="task-activity-records">')).replace(/<details class="task-step-technical">[\s\S]*?<\/details>/g,""));
+ assert(review.includes('<details class="task-step-technical">'));assert(!review.includes("决定与执行前检查记录"));
  for(const raw of ["context_required","not_executed","synthetic-question-1"]) assert(!reviewRecords.includes(raw),`raw ${raw} leaked into review record`);
  // Issue facts name the step in words and link to it; no hash fingerprints remain.
- const factCard=markup(scenario("incident"));
+ const factCard=markup(scenario("unknown"));
  assert(factCard.includes('class="task-fact-link"'));assert(!/工具调用 · [0-9A-F]{8}/.test(visibleText(factCard)));
  assert(steps.includes("工作过程<span class=\"task-activity-detail\"> · 10 个工具"));
  console.log("PASS 2c: activity records use human step names, states and counts");
  // 3. Setup and context have different bounded actions; neither has controls.
- assert.equal(view(scenario("setup")).action,"open_tools");assert(!markup(scenario("setup")).includes("data-valid-proposal"));assert.equal(view(incident).action,"copy_diagnostics");
+ // Setup and context gaps live on the blocked step: setup offers tool settings there, context offers diagnostics.
+ const setupHTML=markup(scenario("setup"));assert.equal(view(scenario("setup")),undefined);assert(setupHTML.includes("打开工具设置"));assert(!setupHTML.includes("data-valid-proposal"));assert(!setupHTML.includes("task-issue-card"));
+ assert(html.includes("复制诊断信息"));assert(!html.includes("打开工具设置"));
  assert.equal(p.canAnswerQuestion(incident.questions[0]),false);assert.equal(p.canAnswerQuestion(scenario("setup").questions[0]),false);
- console.log("PASS 3: setup navigation versus diagnostics, no technical-gap approval");
+ console.log("PASS 3: setup and context gaps act from the step, no technical-gap approval");
  // 4. Only a current manual proposal is actionable; observations never succeed.
  assert.equal(p.canAnswerQuestion(question),true);assert.equal(p.canAnswerQuestion(question,true),false);
  assert.equal(p.canAnswerQuestion({...question,outcome:{status:"approval_expired",execution_certainty:"not_executed"}}),false);
@@ -74,9 +80,10 @@ try {
  // 5. Expiry replaces even local answered state; human versus policy refusal distinct.
  const expired=scenario("expired");assert.equal(view(expired).kind,"expired");assert.equal(p.canAnswerQuestion(expired.questions[0]),false);assert.equal(reconcileQuestion(expired.questions[0],{...question,status:"answered",answer:true}).status,"expired");
  assert.equal(view({...expired,run:{...run,finishing_reason:"approval_expired"}}).phase,"finishing");
- assert.equal(view({run,questions:[{...question,status:"answered",answer:false,answered_by:"human"}]}).kind,"human_denied");
- assert.equal(view({run,questions:[{...question,approval:{...question.approval,review:{...question.approval.review,status:"policy_denied"}}}]}).kind,"policy_denied");
- console.log("PASS 5: expiry reconciliation, finishing, distinct refusals, no old controls");
+ // A person's own refusal and a policy refusal of one step are not run-level cards; the step and record carry them.
+ assert.equal(view({run,questions:[{...question,status:"answered",answer:false,answered_by:"human"}]}),undefined);
+ assert.equal(view({run,questions:[{...question,approval:{...question.approval,review:{...question.approval.review,status:"policy_denied"}}}]}),undefined);
+ console.log("PASS 5: expiry reconciliation, finishing, refusals stay on steps, no old controls");
  // 6. Unknown outranks overload/expiry; verify before acting; another sent result retained.
  const unknown=scenario("unknown"), uv=view(unknown);assert.equal(uv.kind,"uncertain_effect");assert.equal(uv.action,"verify_steps");assert(uv.facts.join(" ").includes("已发送记录"));assert(markup(unknown).includes('data-draft-status="sent"'));
  assert.equal(p.toolExecutionState({...tool,status:"completed"}),"unknown");
@@ -101,7 +108,7 @@ assert.equal(toolDisplayLabel({...tool,status:"completed"}),"结果待核实");
  assert(historyMarkup.includes("synthetic-result.txt"),"previous attachment-bearing outputs reach the existing message renderer");
  console.log("PASS 7: stable owner, no success card, connection versus run, terminal no revival, bot/schedule isolation");
  // 8. Both languages, neutral section, native details and untouched protected components.
- const english=markup(incident,"en");assert(english.includes("Required information"));assert(english.includes("Copy diagnostics"));assert(html.includes("技术详情"));assert(!html.includes('<details class="task-activity" open'));
+ const english=markup(incident,"en");assert(english.includes("Pre-execution check is missing information"));assert(english.includes("Model service is temporarily busy"));assert(english.includes("Copy diagnostics"));assert(html.includes("技术详情"));assert(!html.includes('<details class="task-activity" open'));
  const css=await readFile(join(ui,"src/task-issue-card.css"),"utf8");for(const rule of ["min-height:44px","max-width:var(--chat-max)","prefers-reduced-motion","overflow-wrap:anywhere","max-width:560px"])assert(css.includes(rule));
  for(const file of ["ui/src/BotDesktopPanel.tsx","ui/src/MemoryPanel.tsx","ui/src/ModelSettings.tsx"]) {const current=await readFile(join(ui,"..",file));const base=execFileSync("git",["show",`fcb2157c58069db40ea13c0bdb12697cb6b2e2c5:${file}`],{cwd:join(ui,"..")});assert(current.equals(base),file);}
  console.log("PASS 8: bilingual copy, collapsed activity, semantic sections, 44px/reduced motion, protected components byte-identical");
