@@ -250,3 +250,59 @@ func TestDisconnectInvalidatesBlockedStart(t *testing.T) {
 		t.Fatalf("late Start recreated pending sessions: %#v", manager.pending)
 	}
 }
+
+func TestRecoverRejectedRefreshesBeforeMarkingAndReconnectClearsMark(t *testing.T) {
+	var refreshOK atomic.Bool
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if !refreshOK.Load() {
+			w.WriteHeader(http.StatusBadRequest)
+			json.NewEncoder(w).Encode(map[string]any{"error": "invalid_grant"})
+			return
+		}
+		json.NewEncoder(w).Encode(map[string]any{"access_token": "fresh-access", "refresh_token": "fresh-refresh", "expires_in": 3600})
+	}))
+	defer server.Close()
+	manager, err := newManager(t.TempDir(), server.Client(), endpoints{token: server.URL + "/token", issuer: server.URL})
+	if err != nil {
+		t.Fatal(err)
+	}
+	future := time.Now().Add(time.Hour).UnixMilli()
+	if err = manager.save(token{AccessToken: "synthetic-access", RefreshToken: "synthetic-refresh", ExpiresAt: future}); err != nil {
+		t.Fatal(err)
+	}
+
+	// A refresh that succeeds recovers silently and leaves the connection healthy.
+	refreshOK.Store(true)
+	if rejected, err := manager.RecoverRejected(context.Background()); err != nil || rejected {
+		t.Fatalf("recoverable rejection: rejected=%v err=%v", rejected, err)
+	}
+	if status := manager.Status(); !status.Connected || status.NeedsReconnect {
+		t.Fatalf("status after recovery = %+v", status)
+	}
+
+	// A refresh that fails marks the credential once; status and credential agree.
+	refreshOK.Store(false)
+	if rejected, err := manager.RecoverRejected(context.Background()); err != nil || !rejected {
+		t.Fatalf("unrecoverable rejection: rejected=%v err=%v", rejected, err)
+	}
+	if rejected, err := manager.RecoverRejected(context.Background()); err != nil || rejected {
+		t.Fatalf("repeat rejection must not report a new mark: rejected=%v err=%v", rejected, err)
+	}
+	if status := manager.Status(); status.Connected || !status.NeedsReconnect {
+		t.Fatalf("status after rejection = %+v", status)
+	}
+	if _, err := manager.Credential(context.Background()); err == nil || !strings.Contains(err.Error(), "reconnect your ChatGPT account") {
+		t.Fatalf("credential after rejection err=%v", err)
+	}
+	if _, err := manager.CredentialReadOnly(context.Background()); err == nil {
+		t.Fatal("read-only credential must not return a rejected token")
+	}
+
+	// A new connection writes a fresh credential without the mark.
+	if err := manager.SaveAccessOnlyCredential("replacement-access", "", future); err != nil {
+		t.Fatal(err)
+	}
+	if status := manager.Status(); !status.Connected || status.NeedsReconnect {
+		t.Fatalf("status after reconnect = %+v", status)
+	}
+}

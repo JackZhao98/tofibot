@@ -3349,6 +3349,31 @@ func (s *Server) failRun(c Conversation, r Run, err error) {
 			_, _ = s.store.Event(c.ID, "run", failed)
 		}
 	}
+	s.noteModelAuthRejection(err)
+}
+
+// noteModelAuthRejection keeps the Codex connection status truthful after the
+// provider rejects the stored sign-in: one refresh is attempted, otherwise the
+// workspace reports that a reconnect is needed.
+func (s *Server) noteModelAuthRejection(err error) {
+	if err == nil {
+		return
+	}
+	if code, _ := modelAccountFailure(strings.ToLower(err.Error())); code != "model_auth_invalid" {
+		return
+	}
+	s.mu.Lock()
+	managed, codex := s.codexManaged, s.codex
+	s.mu.Unlock()
+	if !strings.EqualFold(s.provider, "openai_codex") || !managed || codex == nil {
+		return
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	if rejected, e := codex.RecoverRejected(ctx); e != nil || !rejected {
+		return
+	}
+	_, _ = s.store.WorkspaceEvent(workspaceScopeConfig)
 }
 func (s *Store) AddAssistant(conv, bot, run, content string) (Message, error) {
 	m, _, err := s.AddMessage(conv, "assistant", bot, run, content, "")

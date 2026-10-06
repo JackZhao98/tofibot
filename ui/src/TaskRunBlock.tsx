@@ -52,7 +52,7 @@ export function TaskRunBlock({ owner, tools, questions, drafts, messages, summar
   function viewActivity() { if (disclosure.current) { disclosure.current.open = true; disclosure.current.querySelector("summary")?.focus(); } }
   return <section ref={block} className="task-run-block" data-task-owner={owner.key} data-run-id={run.id} data-latest-run-id={run.id} tabIndex={-1} aria-label={t("任务记录", "Task records")}>
     {showName && botName && <p className="task-run-identity">{botName}</p>}
-    {issue ? <TaskIssueCard issue={issue} locale={locale} onFeedback={onFeedback} onAction={issue.action === "open_tools" ? onOpenTools : issue.action === "refresh_status" ? onRefresh : viewActivity} /> : !(run.status === "done" && hasFinal) && <p className="task-run-phase">{taskPhaseLabel(input)}</p>}
+    {issue ? <TaskIssueCard issue={issue} locale={locale} onFeedback={onFeedback} onAction={issue.action === "open_tools" ? onOpenTools : issue.action === "open_codex" ? () => { window.dispatchEvent(new Event("tofi:open-codex-settings")); } : issue.action === "refresh_status" ? onRefresh : viewActivity} /> : !(run.status === "done" && hasFinal) && <p className="task-run-phase">{taskPhaseLabel(input)}</p>}
     {/* A separate valid proposal survives another call's failure/unknown effect. */}
     {decisions.map(renderQuestion)}
     {currentQuestions.filter(question => question.question_type === "approval" && question.status === "answered" && question.answer === true && !question.approval?.review_only).map(question => <p className="task-record-meta" data-question-id={question.question_id} key={question.question_id}>{t("已批准，操作尚未确认完成。", "Approved; execution is not yet confirmed.")}</p>)}
@@ -71,13 +71,13 @@ export function TaskRunBlock({ owner, tools, questions, drafts, messages, summar
       {drafts.filter(draft => draft.run_id !== run.id || draft.status === "unknown").map(renderDraft)}
       {notes.map(note => <details className="task-progress-record" key={note.id}><summary>{t("进度汇报", "Progress report")}</summary><MessageMarkdown content={note.content} /></details>)}
       {owner.family.previous.flatMap(attempt => messages.filter(message => message.run_id === attempt.id && message.role === "assistant" && message.kind !== "progress").map(message => <div key={message.id}>{renderMessage ? renderMessage(message) : <MessageMarkdown content={message.content} />}</div>))}
-      {!tools.length && !recordedQuestions.length && !notes.length && <p className="task-record-meta">{t("尚无已加载的执行记录。", "No execution records are loaded yet.")}</p>}
+      {!tools.length && !recordedQuestions.length && !notes.length && <p className="task-record-meta">{owner.family.attempts.every(attempt => summaries.find(item => item.run_id === attempt.id)?.tool_count === 0) ? t("本次没有执行任何工具步骤。", "No tool steps ran.") : t("尚无已加载的执行记录。", "No execution records are loaded yet.")}</p>}
       {owner.family.attempts.map(attempt => {
         const detail = details[attempt.id], count = summaries.find(item => item.run_id === attempt.id)?.tool_count ?? detail?.toolCount;
         const loaded = tools.filter(tool => tool.run_id === attempt.id).length;
         return <div key={attempt.id} className="task-record-page">
           {detail?.error && <p>{t("部分执行记录暂时无法更新。", "Some execution records are unavailable.")}</p>}
-          {(detail?.hasMore !== false || (count !== undefined && loaded < count)) && <button type="button" className="secondary-button" disabled={detail?.loading} onClick={() => void onLoadDetails?.(attempt.id, detail?.loaded ?? 0)}>{detail?.loading ? t("读取中…", "Loading…") : t("读取执行记录", "Load activity")}{count !== undefined ? ` (${loaded}/${count})` : ""}</button>}
+          {count !== 0 && (detail?.hasMore !== false || (count !== undefined && loaded < count)) && <button type="button" className="secondary-button" disabled={detail?.loading} onClick={() => void onLoadDetails?.(attempt.id, detail?.loaded ?? 0)}>{detail?.loading ? t("读取中…", "Loading…") : t("读取执行记录", "Load activity")}{count !== undefined ? ` (${loaded}/${count})` : ""}</button>}
         </div>;
       })}
     </ActivityDisclosure>
