@@ -44,6 +44,16 @@ try {
  assert.equal(generic.kind,"unknown_failure");assert.match(generic.facts.join(" "),/没有记录具体原因/);assert.equal(generic.recordsComplete,true);
  assert.equal(view({...scenario("busy"),run:{...run,status:"failed",failure:{code:"model_auth_invalid",source:"runtime",message:""}},tools:[],summaries:[zero]},"en").title,"Model account sign-in is no longer valid");
  console.log("PASS 2b: model account failures are named, routed to model settings, and zero-tool runs say so");
+ // 2c. Activity records name steps in words: no raw tool names, call ids, hash labels or raw review codes.
+ const steps=markup(scenario("busy"));
+ assert(steps.includes('class="task-step is-completed"'));assert(steps.includes("检查文档"));
+ const records=steps.slice(steps.indexOf('<div class="task-activity-records">'));
+ for(const raw of ["mcp_email_read","synthetic-call-1","工具调用 · "]) assert(!records.includes(raw),`raw ${raw} leaked into activity records`);
+ const review=markup(scenario("incident"));assert(review.includes("执行前检查缺少必要信息"));assert(review.includes("未执行"));
+ const reviewRecords=review.slice(review.indexOf('<div class="task-activity-records">'));
+ for(const raw of [">context_required<",">not_executed<","synthetic-question-1</dd>"]) assert(!reviewRecords.includes(raw),`raw ${raw} leaked into review record`);
+ assert(steps.includes("工作过程<span class=\"task-activity-detail\"> · 10 个工具"));
+ console.log("PASS 2c: activity records use human step names, states and counts");
  // 3. Setup and context have different bounded actions; neither has controls.
  assert.equal(view(scenario("setup")).action,"open_tools");assert(!markup(scenario("setup")).includes("data-valid-proposal"));assert.equal(view(incident).action,"copy_diagnostics");
  assert.equal(p.canAnswerQuestion(incident.questions[0]),false);assert.equal(p.canAnswerQuestion(scenario("setup").questions[0]),false);
