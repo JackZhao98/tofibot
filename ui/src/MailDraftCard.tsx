@@ -5,7 +5,7 @@ import { GazeAvatar } from "./GazeAvatar";
 import type { Bot } from "./types";
 import { flyMailDraft } from "./mailSendFlight";
 import { TaskIssueCard } from "./TaskIssueCard";
-import { presentTaskIssue, taskLocale, taskObjectLabel, taskText } from "./taskIssuePresentation";
+import { presentTaskIssue, taskDraftLabel, taskLocale, taskText } from "./taskIssuePresentation";
 import "./mail-draft-card.css";
 
 export type MailDraft = {
@@ -88,7 +88,7 @@ export function MailDraftCard({ draft, bot, group, archived, onDemoAction, onCha
   const pending = draft.status === "pending" || animating;
   const resolution = pending ? undefined : { label: draft.status === "sent" ? draft.demo ? "演示完成 · 未实际发送" : "已发送" : draft.status === "declined" ? "已取消" : draft.status === "unknown" ? "发送结果待核实" : "正在发送", accepted: draft.status === "sent" };
   if (draft.status === "sent" || draft.status === "declined") return <article className="task-mail-record" data-draft-id={draft.draft_id} tabIndex={-1}>
-    <p>{taskObjectLabel("draft", draft.draft_id)}: {taskText(taskLocale(), draft.status === "declined" ? "已取消发送" : draft.demo ? "演示完成，未实际发送" : "邮件已发送", draft.status === "declined" ? "Sending was cancelled" : draft.demo ? "Demo completed; no email was sent" : "Email was sent")}</p>
+    <p>{taskDraftLabel(draft)}: {taskText(taskLocale(), draft.status === "declined" ? "已取消发送" : draft.demo ? "演示完成，未实际发送" : "邮件已发送", draft.status === "declined" ? "Sending was cancelled" : draft.demo ? "Demo completed; no email was sent" : "Email was sent")}</p>
     <details><summary>{taskText(taskLocale(), "查看草稿记录", "View draft record")}</summary><dl><dt>TO</dt><dd>{draft.to}</dd><dt>{taskText(taskLocale(), "主题", "Subject")}</dt><dd>{draft.subject}</dd></dl><p>{draft.body}</p></details>
   </article>;
   return <article className={`mail-draft-message${group ? " is-group" : " is-dm"}`} data-draft-id={draft.draft_id} tabIndex={-1}>
@@ -107,7 +107,7 @@ export function MailDraftCard({ draft, bot, group, archived, onDemoAction, onCha
       secondaryAction={pending && !editing ? <button type="button" disabled={Boolean(busy || archived)} onClick={() => setEditing(true)}>编辑草稿</button> : undefined}
     />}
     {draft.status === "unknown" && !issueOwned && <p className="task-issue-fact">{taskText(taskLocale(), "请先检查邮件服务的已发送记录，核对时间、收件人与主题。", "Check sent-mail records in your email service and compare the time, recipient, and subject.")}</p>}
-    {draft.status === "unknown" && <p className="task-record-meta">{taskObjectLabel("draft", draft.draft_id)}: {taskText(taskLocale(), "发送结果待核实", "Sending result needs checking")}</p>}
+    {draft.status === "unknown" && <p className="task-record-meta">{taskDraftLabel(draft)}: {taskText(taskLocale(), "发送结果待核实", "Sending result needs checking")}</p>}
     {(pending || draft.status === "sending" || draft.status === "unknown") && <section ref={letterRef} className="mail-draft-letter" aria-label="邮件草稿全文">
       <div className="mail-draft-stripe" aria-hidden="true" />
       <div className="mail-draft-fields">

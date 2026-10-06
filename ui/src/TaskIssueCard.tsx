@@ -4,7 +4,7 @@ import { taskDiagnostics, taskLocale, taskText, type TaskIssueView, type TaskLoc
 import "./task-issue-card.css";
 
 /** Neutral section: the task's single announcement channel owns live speech. */
-export function TaskIssueCard({ issue, locale = taskLocale(), onAction, onFeedback }: { issue: TaskIssueView; locale?: TaskLocale; onAction?: () => void | Promise<void>; onFeedback?: (text:string) => void }) {
+export function TaskIssueCard({ issue, locale = taskLocale(), onAction, onFeedback, onOpenStep }: { issue: TaskIssueView; locale?: TaskLocale; onAction?: () => void | Promise<void>; onFeedback?: (text:string) => void; onOpenStep?: (runId: string, callId: string) => void }) {
   const heading = useId();
   const details = useRef<HTMLDetailsElement>(null);
   const diagnostics = useRef<HTMLPreElement>(null);
@@ -39,7 +39,11 @@ export function TaskIssueCard({ issue, locale = taskLocale(), onAction, onFeedba
   }
   return <section className="task-issue-card" data-issue-kind={issue.kind} data-issue-phase={issue.phase} aria-labelledby={heading} aria-busy={busy}>
     <div className="task-issue-heading"><TofiIcon name={issue.kind === "uncertain_effect" ? "clock" : issue.kind === "tool_setup" ? "plug" : "alert"} size={20} aria-hidden="true" /><h3 id={heading} tabIndex={-1}>{issue.title}</h3></div>
-    {issue.facts.map((fact, index) => <p className="task-issue-fact" key={index}>{fact}</p>)}
+    {issue.facts.map((fact, index) => {
+      const link = issue.links?.[index];
+      // A named step opens its own record; the rest of the sentence stays plain text.
+      return <p className="task-issue-fact" key={index}>{link && onOpenStep && fact.startsWith(link.label) ? <><button type="button" className="task-fact-link" onClick={() => onOpenStep(link.runId, link.callId)}>{link.label}</button>{fact.slice(link.label.length)}</> : fact}</p>;
+    })}
     {issue.secondary.map((cause, index) => <p className="task-issue-context" key={index}>{cause}</p>)}
     <div className="task-issue-actions"><button type="button" className="secondary-button" disabled={busy} onClick={() => void act()}>{issue.action === "copy_diagnostics" && <TofiIcon name="copy" size={16} aria-hidden="true" />}{busy ? t("处理中…", "Working…") : issue.actionLabel}</button></div>
     <details className="task-issue-technical" ref={details}><summary>{t("技术详情", "Technical details")}</summary><pre ref={diagnostics} tabIndex={0} aria-label={t("诊断信息", "Diagnostics")}>{taskDiagnostics(issue)}</pre></details>

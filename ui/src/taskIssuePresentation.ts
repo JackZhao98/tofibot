@@ -1,4 +1,4 @@
-import { toolExecutionState } from "./toolTimeline";
+import { toolExecutionState, toolStepDetail, toolStepTitle } from "./toolTimeline";
 export { toolExecutionState } from "./toolTimeline";
 import type { MailDraft } from "./MailDraftCard";
 import type { Question } from "./questionTimeline";
@@ -12,7 +12,9 @@ export type TaskIssueKind = "provider_busy" | "model_unconfigured" | "model_auth
 export type TaskAction = "open_tools" | "open_codex" | "copy_diagnostics" | "view_activity" | "verify_steps" | "refresh_status";
 export type ExecutionState = "not_executed" | "in_progress" | "completed" | "unknown";
 export type TaskEvidence = { source: "run" | "tool" | "question" | "draft" | "connection"; id: string; code?: string; status?: string; certainty?: string; model?: string; updatedAt?: string; contextCode?: string };
-export type TaskIssueView = { kind: TaskIssueKind; phase: "active" | "finishing" | "terminal"; title: string; facts: string[]; secondary: string[]; action: TaskAction; actionLabel: string; evidence: TaskEvidence[]; recordsComplete: boolean };
+/** A fact that names one tool step can open that step in the activity record. */
+export type TaskFactLink = { runId: string; callId: string; label: string };
+export type TaskIssueView = { kind: TaskIssueKind; phase: "active" | "finishing" | "terminal"; title: string; facts: string[]; links: (TaskFactLink | undefined)[]; secondary: string[]; action: TaskAction; actionLabel: string; evidence: TaskEvidence[]; recordsComplete: boolean };
 export type TaskFamily = ReturnType<typeof buildRetryFamilies>[number];
 export type TaskOwner = { key: string; family: TaskFamily; anchor?: { kind: "message" | "question" | "draft"; id: string } };
 
@@ -72,8 +74,26 @@ const category = (code?: string, status?: string): TaskIssueKind | undefined => 
   if (code === "mcp_review_unavailable" || status === "unavailable") return "review_unavailable";
 };
 
-/** Neutral labels are stable across retries, loading order and subject edits.
- * They identify records visually; authority still comes from the full IDs. */
+const clock = (value: string, locale: TaskLocale, seconds = true) => {
+  const time = Date.parse(value);
+  return Number.isFinite(time) ? new Date(time).toLocaleTimeString(locale === "en" ? "en-GB" : "zh-CN", { hour12: false, hour: "2-digit", minute: "2-digit", ...(seconds ? { second: "2-digit" } : {}) }) : "";
+};
+/** Human labels, stable across retries, loading order and subject edits: an object's own
+ * start time plus what it is. They never include recipients, subjects or bodies. */
+export function taskToolLabel(tool: Pick<ToolActivity, "name" | "arguments" | "started_at">, locale: TaskLocale = taskLocale()) {
+  const detail = toolStepDetail(tool);
+  return `${clock(tool.started_at, locale)} ${toolStepTitle(tool)}${detail ? ` · ${detail}` : ""}`.trim();
+}
+export function taskDraftLabel(draft: Pick<MailDraft, "created_at">, locale: TaskLocale = taskLocale()) {
+  const time = clock(draft.created_at, locale, false);
+  return taskText(locale, `${time} 起草的邮件`, `Email drafted at ${time}`).trim();
+}
+export function taskQuestionLabel(question: Pick<Question, "created_at">, locale: TaskLocale = taskLocale()) {
+  const time = clock(question.created_at, locale);
+  return taskText(locale, `${time} 的提案`, `Proposal at ${time}`).trim();
+}
+
+/** Legacy neutral fingerprint label; kept for diagnostics callers, not shown in chat. */
 export function taskObjectLabel(source: "tool" | "question" | "draft", id: string, locale: TaskLocale = taskLocale()) {
   let fingerprint = 2166136261;
   for (const character of id) fingerprint = Math.imul(fingerprint ^ character.charCodeAt(0), 16777619);
@@ -160,15 +180,21 @@ export function presentTaskIssue({ run, family, tools = [], questions = [], draf
   const noToolSteps = isTerminalRun(run) && summary?.tool_count === 0 && !tools.some(tool => tool.run_id === run.id);
   const phase = run.finishing_reason ? "finishing" : isTerminalRun(run) ? "terminal" : "active";
   const facts: string[] = [];
+  const links: (TaskFactLink | undefined)[] = [];
+  const pushToolFact = (tool: ToolActivity, text: string) => {
+    const label = taskToolLabel(tool, locale);
+    links[facts.length] = { runId: tool.run_id, callId: tool.call_id, label };
+    facts.push(`${label}: ${text}`);
+  };
   if (kind === "uncertain_effect") {
-    for (const tool of tools.filter(tool => toolExecutionState(tool) === "unknown")) facts.push(`${taskObjectLabel("tool", `${tool.run_id}:${tool.call_id}`, locale)}: ${t("执行结果待核实。", "Execution result needs checking.")}`);
-    for (const question of questions.filter(questionUnknown)) facts.push(`${taskObjectLabel("question", question.question_id, locale)}: ${t("执行结果待核实。", "Execution result needs checking.")}`);
-    for (const draft of drafts.filter(draft => draft.status === "unknown")) facts.push(`${taskObjectLabel("draft", draft.draft_id, locale)}: ${t("发送结果待核实。", "Sending result needs checking.")}`);
+    for (const tool of tools.filter(tool => toolExecutionState(tool) === "unknown")) pushToolFact(tool, t("执行结果待核实。", "Execution result needs checking."));
+    for (const question of questions.filter(questionUnknown)) facts.push(`${taskQuestionLabel(question, locale)}: ${t("执行结果待核实。", "Execution result needs checking.")}`);
+    for (const draft of drafts.filter(draft => draft.status === "unknown")) facts.push(`${taskDraftLabel(draft, locale)}: ${t("发送结果待核实。", "Sending result needs checking.")}`);
     facts.push(t("以上待核实的操作可能已经生效；再次操作前请先核实。", "The unconfirmed actions above may have taken effect. Check before trying again."));
   }
   const notExecuted = tools.filter(tool => toolExecutionState(tool) === "not_executed");
-  if (notExecuted.length) for (const tool of notExecuted) facts.push(`${taskObjectLabel("tool", `${tool.run_id}:${tool.call_id}`, locale)}: ${t("本次工具调用未执行。", "This tool call was not executed.")}`);
-  else for (const question of questions.filter(question => !question.approval?.review_only && question.outcome?.execution_certainty === "not_executed")) facts.push(`${taskObjectLabel("question", question.question_id, locale)}: ${t("此提案对应的操作未执行。", "The action associated with this proposal was not executed.")}`);
+  if (notExecuted.length) for (const tool of notExecuted) pushToolFact(tool, t("本次工具调用未执行。", "This tool call was not executed."));
+  else for (const question of questions.filter(question => !question.approval?.review_only && question.outcome?.execution_certainty === "not_executed")) facts.push(`${taskQuestionLabel(question, locale)}: ${t("此提案对应的操作未执行。", "The action associated with this proposal was not executed.")}`);
   if (drafts.some(draft => draft.status === "unknown")) facts.push(t("请检查邮件服务中的已发送记录，核对时间、收件人与主题。", "Check sent-mail records in your email service and compare the time, recipient, and subject."));
   else if (kind === "uncertain_effect") facts.push(t("请在目标服务中核对这次操作的记录。无法确认时，请保持结果待核实。", "Check this action's records in the target service. If still unconfirmed, keep the result unconfirmed."));
   if (kind === "connection_status") facts.push(t("任务可能仍在运行。刷新只读取最新状态。", "The task may still be running. Refresh only reads the latest status."));
@@ -186,7 +212,7 @@ export function presentTaskIssue({ run, family, tools = [], questions = [], draf
   if (!complete) secondary.push(t("执行记录尚未完整加载。", "Execution records are not fully loaded."));
   evidence.push({ source: "run", id: run.id, status: run.status, code: overloaded ? "server_is_overloaded" : run.failure?.code, model: run.model, updatedAt: run.updated_at });
   if (!connected) evidence.push({ source: "connection", id: run.id, status: "disconnected" });
-  return { kind, phase, title: t(...titles[kind]), facts, secondary, action, actionLabel: t(...actions[action]), evidence, recordsComplete: complete };
+  return { kind, phase, title: t(...titles[kind]), facts, links, secondary, action, actionLabel: t(...actions[action]), evidence, recordsComplete: complete };
 }
 
 /** Diagnostics never contain arguments, results, prose errors, mail or reasoning. */

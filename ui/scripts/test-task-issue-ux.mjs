@@ -47,11 +47,15 @@ try {
  // 2c. Activity records name steps in words: no raw tool names, call ids, hash labels or raw review codes.
  const steps=markup(scenario("busy"));
  assert(steps.includes('class="task-step is-completed"'));assert(steps.includes("检查文档"));
- const records=steps.slice(steps.indexOf('<div class="task-activity-records">'));
+ const visibleText=html=>html.replace(/<[^>]*>/g," ");
+ const records=visibleText(steps.slice(steps.indexOf('<div class="task-activity-records">')));
  for(const raw of ["mcp_email_read","synthetic-call-1","工具调用 · "]) assert(!records.includes(raw),`raw ${raw} leaked into activity records`);
  const review=markup(scenario("incident"));assert(review.includes("执行前检查缺少必要信息"));assert(review.includes("未执行"));
- const reviewRecords=review.slice(review.indexOf('<div class="task-activity-records">'));
- for(const raw of [">context_required<",">not_executed<","synthetic-question-1</dd>"]) assert(!reviewRecords.includes(raw),`raw ${raw} leaked into review record`);
+ const reviewRecords=visibleText(review.slice(review.indexOf('<div class="task-activity-records">')));
+ for(const raw of ["context_required","not_executed","synthetic-question-1"]) assert(!reviewRecords.includes(raw),`raw ${raw} leaked into review record`);
+ // Issue facts name the step in words and link to it; no hash fingerprints remain.
+ const factCard=markup(scenario("incident"));
+ assert(factCard.includes('class="task-fact-link"'));assert(!/工具调用 · [0-9A-F]{8}/.test(visibleText(factCard)));
  assert(steps.includes("工作过程<span class=\"task-activity-detail\"> · 10 个工具"));
  console.log("PASS 2c: activity records use human step names, states and counts");
  // 3. Setup and context have different bounded actions; neither has controls.

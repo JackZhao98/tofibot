@@ -22,9 +22,9 @@ try {
   const final={...request,id:"synthetic-later-answer",role:"assistant",run_id:latest.id,seq:2,content:"Synthetic follow-up answer; it does not confirm the earlier send."};
   const owner=p.buildTaskOwners([previous,latest],[request,final],[],[])[0];
   const uncertainTool={...tool,outcome:{...tool.outcome,code:"mcp_result_unknown",status:"uncertain_effect",execution_certainty:"unknown"}};
-  const secondTool={...uncertainTool,call_id:"synthetic-call-2"};
+  const secondTool={...uncertainTool,call_id:"synthetic-call-2",started_at:"2026-10-05T10:00:01Z"};
   const uncertainDraft={...draft,subject:"PRIVATE_SUBJECT_A",to:"private-a@example.invalid",body:"PRIVATE_BODY_A"};
-  const sentDraft={...draft,draft_id:"synthetic-draft-2",run_id:latest.id,status:"sent",subject:"PRIVATE_SUBJECT_B",to:"private-b@example.invalid",body:"PRIVATE_BODY_B"};
+  const sentDraft={...draft,draft_id:"synthetic-draft-2",run_id:latest.id,created_at:"2026-10-05T10:05:00Z",status:"sent",subject:"PRIVATE_SUBJECT_B",to:"private-b@example.invalid",body:"PRIVATE_BODY_B"};
   const familyView=(tools,drafts,locale="en",extra={})=>p.presentTaskIssue({run:latest,family:owner.family,tools,drafts,locale,recordsComplete:true,...extra});
   const render=(tools,drafts,locale="en")=>{
     globalThis.document={documentElement:{lang:locale}};
@@ -44,20 +44,20 @@ try {
     }
     return text.replace(/&#x27;/g,"'").replace(/&amp;/g,"&").replace(/\s+/g," ").trim();
   }
-  const label=(source,id,locale="en")=>p.taskObjectLabel(source,id,locale);
-  const toolLabel=item=>label("tool",`${item.run_id}:${item.call_id}`);
+  const draftLabel=(item,locale="en")=>p.taskDraftLabel(item,locale);
+  const toolLabel=(item,locale="en")=>p.taskToolLabel(item,locale);
 
   // P1: later completion has no authority over either earlier unknown object.
   const initial=familyView([uncertainTool],[uncertainDraft,sentDraft]);
   assert.equal(initial.kind,"uncertain_effect");assert.equal(initial.action,"verify_steps");
   assert(initial.facts.some(fact=>fact.startsWith(toolLabel(uncertainTool))));
-  assert(initial.facts.some(fact=>fact.startsWith(label("draft",uncertainDraft.draft_id))));
+  assert(initial.facts.some(fact=>fact.startsWith(draftLabel(uncertainDraft))));
   assert(initial.secondary.some(fact=>fact.includes("later attempt ended")));
   const initialHTML=render([uncertainTool],[uncertainDraft,sentDraft]);
   const visible=closedText(initialHTML);
   assert.equal((initialHTML.match(/data-task-owner=/g)??[]).length,1);
   assert.equal((initialHTML.match(/class="task-issue-card"/g)??[]).length,1);
-  assert(visible.includes(toolLabel(uncertainTool)));assert(visible.includes(label("draft",uncertainDraft.draft_id)));
+  assert(visible.includes(toolLabel(uncertainTool)));assert(visible.includes(draftLabel(uncertainDraft)));
   assert(visible.includes("earlier action results still need checking"));
   assert(!initialHTML.includes(final.content),"normal latest final is not moved into the task owner");
   assert(!initialHTML.includes("approval-actions"));assert(!initialHTML.includes("Retry"));
@@ -66,10 +66,10 @@ try {
   const oneCallResolved=familyView([resolvedTool,secondTool],[uncertainDraft,sentDraft]);
   assert(!oneCallResolved.facts.some(fact=>fact.startsWith(toolLabel(uncertainTool))));
   assert(oneCallResolved.facts.some(fact=>fact.startsWith(toolLabel(secondTool))));
-  assert(oneCallResolved.facts.some(fact=>fact.startsWith(label("draft",uncertainDraft.draft_id))));
+  assert(oneCallResolved.facts.some(fact=>fact.startsWith(draftLabel(uncertainDraft))));
   const resolvedDraft={...uncertainDraft,status:"sent",revision:2,updated_at:"2026-10-05T10:07:00Z"};
   const oneDraftResolved=familyView([uncertainTool,secondTool],[resolvedDraft,sentDraft]);
-  assert(!oneDraftResolved.facts.some(fact=>fact.startsWith(label("draft",uncertainDraft.draft_id))));
+  assert(!oneDraftResolved.facts.some(fact=>fact.startsWith(draftLabel(uncertainDraft))));
   assert(oneDraftResolved.facts.some(fact=>fact.startsWith(toolLabel(uncertainTool))));
   assert(oneDraftResolved.facts.some(fact=>fact.startsWith(toolLabel(secondTool))));
   assert.equal(familyView([resolvedTool,tool],[resolvedDraft,sentDraft]),undefined,"resolved historical context/overload must stay in history");
@@ -89,7 +89,7 @@ try {
   for(const locale of ["zh-CN","en"]) {
     const html=render([uncertainTool,secondTool],[uncertainDraft,sentDraft],locale);
     const text=closedText(html),view=familyView([uncertainTool,secondTool],[uncertainDraft,sentDraft],locale);
-    const a=label("draft",uncertainDraft.draft_id,locale),b=label("draft",sentDraft.draft_id,locale);
+    const a=draftLabel(uncertainDraft,locale),b=draftLabel(sentDraft,locale);
     assert.notEqual(a,b);assert(text.includes(`${a}: ${locale==="en"?"Sending result needs checking.":"发送结果待核实。"}`));
     assert(text.includes(`${b}: ${locale==="en"?"Email was sent":"邮件已发送"}`));
     assert(!view.facts.some(fact=>fact.startsWith(b)),"confirmed draft B is not described as unknown");
@@ -97,8 +97,8 @@ try {
     for(const secret of [uncertainDraft.subject,uncertainDraft.to,uncertainDraft.body,sentDraft.subject,sentDraft.to,sentDraft.body]){assert(!text.includes(secret));assert(!diag.includes(secret));}
     const reversed=closedText(render([secondTool,uncertainTool],[sentDraft,{...uncertainDraft,subject:"Changed private subject"}],locale));
     assert(reversed.includes(a));assert(reversed.includes(b));
-    assert(view.facts.some(fact=>fact.startsWith(label("tool",`${uncertainTool.run_id}:${uncertainTool.call_id}`,locale))));
-    assert(view.facts.some(fact=>fact.startsWith(label("tool",`${secondTool.run_id}:${secondTool.call_id}`,locale))));
+    assert(view.facts.some(fact=>fact.startsWith(toolLabel(uncertainTool,locale))));
+    assert(view.facts.some(fact=>fact.startsWith(toolLabel(secondTool,locale))));
     languages.push({locale,unknownDraftLabel:a,sentDraftLabel:b,collapsedText:text,html});
   }
   const demoText=closedText(render([],[{...sentDraft,demo:true}],"en"));assert(demoText.includes("Demo completed; no email was sent"));
