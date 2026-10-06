@@ -289,7 +289,31 @@ FROM tool_activities WHERE conversation_id=? AND run_id IN (`+strings.Join(place
 		}
 		summaries = append(summaries, summary)
 	}
-	return summaries, rows.Err()
+	if err = rows.Err(); err != nil {
+		return nil, err
+	}
+	rows.Close()
+	// A finished run in this conversation with no rows recorded zero tools; say
+	// so explicitly instead of leaving the client to guess it is still loading.
+	seen := make(map[string]bool, len(summaries))
+	for _, summary := range summaries {
+		seen[summary.RunID] = true
+	}
+	empty, err := s.db.Query(`SELECT id,bot_id,updated_at FROM runs WHERE conversation_id=? AND status IN ('done','failed','cancelled','interrupted') AND id IN (`+strings.Join(placeholders, ",")+`)`, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer empty.Close()
+	for empty.Next() {
+		var summary ToolActivityRunSummary
+		if err = empty.Scan(&summary.RunID, &summary.BotID, &summary.UpdatedAt); err != nil {
+			return nil, err
+		}
+		if !seen[summary.RunID] {
+			summaries = append(summaries, summary)
+		}
+	}
+	return summaries, empty.Err()
 }
 
 // ToolActivitiesForRun returns one bounded detail page for a single run. The

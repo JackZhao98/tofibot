@@ -8,8 +8,8 @@ import type { Message, Run, ToolActivity, ToolActivityRunSummary } from "./types
 export type TaskLocale = "zh-CN" | "en";
 export const taskLocale = (): TaskLocale => typeof document !== "undefined" && document.documentElement.lang.startsWith("en") ? "en" : "zh-CN";
 export const taskText = (locale: TaskLocale, zh: string, en: string) => locale === "en" ? en : zh;
-export type TaskIssueKind = "provider_busy" | "tool_setup" | "review_context" | "review_unavailable" | "expired" | "human_denied" | "policy_denied" | "uncertain_effect" | "connection_status" | "runtime_connection" | "unknown_failure";
-export type TaskAction = "open_tools" | "copy_diagnostics" | "view_activity" | "verify_steps" | "refresh_status";
+export type TaskIssueKind = "provider_busy" | "model_unconfigured" | "model_auth" | "model_quota" | "tool_setup" | "review_context" | "review_unavailable" | "expired" | "human_denied" | "policy_denied" | "uncertain_effect" | "connection_status" | "runtime_connection" | "unknown_failure";
+export type TaskAction = "open_tools" | "open_codex" | "copy_diagnostics" | "view_activity" | "verify_steps" | "refresh_status";
 export type ExecutionState = "not_executed" | "in_progress" | "completed" | "unknown";
 export type TaskEvidence = { source: "run" | "tool" | "question" | "draft" | "connection"; id: string; code?: string; status?: string; certainty?: string; model?: string; updatedAt?: string; contextCode?: string };
 export type TaskIssueView = { kind: TaskIssueKind; phase: "active" | "finishing" | "terminal"; title: string; facts: string[]; secondary: string[]; action: TaskAction; actionLabel: string; evidence: TaskEvidence[]; recordsComplete: boolean };
@@ -45,6 +45,9 @@ export function canAnswerQuestion(question: Question, archived = false) {
 
 const titles: Record<TaskIssueKind, [string, string]> = {
   provider_busy: ["模型服务暂时繁忙", "Model service is temporarily busy"],
+  model_unconfigured: ["没有可用的 AI 提供方", "No AI provider is available"],
+  model_auth: ["模型账户登录已失效", "Model account sign-in is no longer valid"],
+  model_quota: ["模型账户额度已用尽", "Model account usage limit reached"],
   tool_setup: ["工具尚未就绪", "Tool setup is incomplete"],
   review_context: ["执行前检查缺少必要信息", "Required information is missing from the pre-execution check"],
   review_unavailable: ["执行前检查暂时不可用", "Pre-execution checking is unavailable"],
@@ -57,7 +60,7 @@ const titles: Record<TaskIssueKind, [string, string]> = {
   unknown_failure: ["任务未完成", "The task did not finish"],
 };
 const actions: Record<TaskAction, [string, string]> = {
-  open_tools: ["查看工具设置", "Open tool settings"], copy_diagnostics: ["复制诊断信息", "Copy diagnostics"], view_activity: ["查看执行记录", "View activity"], verify_steps: ["查看核实步骤", "See verification steps"], refresh_status: ["刷新状态", "Refresh status"],
+  open_tools: ["查看工具设置", "Open tool settings"], open_codex: ["打开 Codex 设置", "Open Codex settings"], copy_diagnostics: ["复制诊断信息", "Copy diagnostics"], view_activity: ["查看执行记录", "View activity"], verify_steps: ["查看核实步骤", "See verification steps"], refresh_status: ["刷新状态", "Refresh status"],
 };
 const category = (code?: string, status?: string): TaskIssueKind | undefined => {
   if (code === "mcp_result_unknown" || status === "uncertain_effect") return "uncertain_effect";
@@ -120,14 +123,19 @@ export function presentTaskIssue({ run, family, tools = [], questions = [], draf
   if (run.stop_reason === "approval_expired" || run.finishing_reason === "approval_expired" || run.failure?.code === "approval_expired") add("expired");
   // Exact independent token in the RUN error only. It affects copy, never replay.
   const overloaded = run.status === "failed" && /(?:^|[^a-zA-Z0-9_])server_is_overloaded(?:$|[^a-zA-Z0-9_])/.test(run.error ?? "");
+  const modelAccount: Partial<Record<string, TaskIssueKind>> = { model_unconfigured: "model_unconfigured", model_auth_invalid: "model_auth", model_quota_exhausted: "model_quota" };
+  const modelKind = run.status === "failed" ? modelAccount[run.failure?.code ?? ""] : undefined;
   if (overloaded) add("provider_busy");
+  else if (modelKind) add(modelKind);
   else if (run.failure?.code === "connection_interrupted") add("runtime_connection");
   else if (["failed", "interrupted"].includes(run.status)) add("unknown_failure");
   if (!connected && !isTerminalRun(run)) add("connection_status");
   if (!causes.length) return undefined;
-  const priority: TaskIssueKind[] = ["uncertain_effect", "expired", "human_denied", "policy_denied", "tool_setup", "review_context", "review_unavailable", "connection_status", "provider_busy", "runtime_connection", "unknown_failure"];
+  const priority: TaskIssueKind[] = ["uncertain_effect", "expired", "human_denied", "policy_denied", "tool_setup", "review_context", "review_unavailable", "connection_status", "model_unconfigured", "model_auth", "model_quota", "provider_busy", "runtime_connection", "unknown_failure"];
   const kind = priority.find(value => causes.includes(value))!;
-  const action: TaskAction = kind === "uncertain_effect" ? "verify_steps" : kind === "tool_setup" ? "open_tools" : ["review_context", "review_unavailable"].includes(kind) ? "copy_diagnostics" : kind === "connection_status" ? "refresh_status" : "view_activity";
+  const action: TaskAction = kind === "uncertain_effect" ? "verify_steps" : kind === "tool_setup" ? "open_tools" : ["model_unconfigured", "model_auth", "model_quota"].includes(kind) ? "open_codex" : ["review_context", "review_unavailable"].includes(kind) ? "copy_diagnostics" : kind === "connection_status" ? "refresh_status" : "view_activity";
+  // A zero tool count is a recorded fact: there is nothing more to load or verify.
+  const noToolSteps = isTerminalRun(run) && summary?.tool_count === 0 && !tools.some(tool => tool.run_id === run.id);
   const phase = run.finishing_reason ? "finishing" : isTerminalRun(run) ? "terminal" : "active";
   const facts: string[] = [];
   if (kind === "uncertain_effect") {
@@ -142,11 +150,15 @@ export function presentTaskIssue({ run, family, tools = [], questions = [], draf
   if (drafts.some(draft => draft.status === "unknown")) facts.push(t("请检查邮件服务中的已发送记录，核对时间、收件人与主题。", "Check sent-mail records in your email service and compare the time, recipient, and subject."));
   else if (kind === "uncertain_effect") facts.push(t("请在目标服务中核对这次操作的记录。无法确认时，请保持结果待核实。", "Check this action's records in the target service. If still unconfirmed, keep the result unconfirmed."));
   if (kind === "connection_status") facts.push(t("任务可能仍在运行。刷新只读取最新状态。", "The task may still be running. Refresh only reads the latest status."));
-  if (kind === "unknown_failure" && !facts.length) facts.push(t("目前无法确认原因和执行结果。", "The cause and execution result are not yet confirmed."));
+  if (kind === "unknown_failure" && !facts.length) facts.push(noToolSteps ? t("没有记录具体原因。", "No specific cause was recorded.") : t("目前无法确认原因和执行结果。", "The cause and execution result are not yet confirmed."));
   if (kind === "provider_busy") facts.push(t("任务未完成。", "The task did not finish."));
+  if (kind === "model_unconfigured") facts.push(t("工作区没有连接 Codex 账户，模型无法调用。", "This workspace has no Codex account connected, so the model cannot be called."), t("在设置的「服务器与 Codex」页连接账户后重试。", "Connect an account under Settings › Server and Codex, then retry."));
+  if (kind === "model_auth") facts.push(t("Codex 账户的登录已失效，模型拒绝了这次调用。", "The Codex account sign-in is no longer valid, and the model rejected this request."), t("在设置的「服务器与 Codex」页重新连接后重试。", "Reconnect under Settings › Server and Codex, then retry."));
+  if (kind === "model_quota") facts.push(t("Codex 账户的用量额度已用尽，模型拒绝了这次调用。", "The Codex account has reached its usage limit, and the model rejected this request."), t("额度恢复或更换账户后重试。", "Retry after the limit resets or connect another account."));
+  if (noToolSteps) facts.push(t("本次没有执行任何工具步骤。", "No tool steps ran in this attempt."));
   if (kind === "expired") facts.push(phase === "finishing" ? t("正在收尾，已完成结果保留。", "Finishing up; completed results are retained.") : t("本次工作已停止，已完成结果保留。", "This workflow stopped; completed results are retained."));
   if (tools.some(tool => toolExecutionState(tool) === "completed")) facts.push(t("已完成的工具步骤保留在工作过程。", "Completed tool steps are retained in activity."));
-  const complete = recordsComplete && (!summary || tools.filter(tool => tool.run_id === run.id).length >= summary.tool_count);
+  const complete = noToolSteps || (recordsComplete && (!summary || tools.filter(tool => tool.run_id === run.id).length >= summary.tool_count));
   const secondary = causes.filter(cause => cause !== kind && cause !== "unknown_failure").map(cause => cause === "provider_busy" ? t("随后模型服务繁忙，任务未完成。", "The model service was then busy, and the task did not finish.") : t(...titles[cause]));
   if (priorUnknown) secondary.unshift(run.status === "done" ? t("后续尝试已结束；此前操作的结果仍待核实。", "The later attempt ended; earlier action results still need checking.") : `${t("后续尝试", "Later attempt")}: ${taskPhaseLabel({run, tools:tools.filter(tool => tool.run_id === run.id), questions:questions.filter(question => question.run_id === run.id), drafts:drafts.filter(draft => draft.run_id === run.id), locale})}`);
   if (!complete) secondary.push(t("执行记录尚未完整加载。", "Execution records are not fully loaded."));

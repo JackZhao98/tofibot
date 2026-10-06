@@ -1109,8 +1109,10 @@ function Workspace() {
   }
   useEffect(() => {
     const openTools = () => { setSettingsTab("mcp"); setPanel("settings"); };
+    const openCodex = () => { setSettingsTab("connection"); setPanel("settings"); };
     window.addEventListener("tofi:open-tool-settings", openTools);
-    return () => window.removeEventListener("tofi:open-tool-settings", openTools);
+    window.addEventListener("tofi:open-codex-settings", openCodex);
+    return () => { window.removeEventListener("tofi:open-tool-settings", openTools); window.removeEventListener("tofi:open-codex-settings", openCodex); };
   }, []);
 
   const updateConversationPreview = useCallback((next: Message) => {
@@ -2367,12 +2369,13 @@ export function CodexPanel({ refreshToken, onConfigured }: { refreshToken: numbe
   const [statusRefresh, setStatusRefresh] = useState(0);
   const [error, setError] = useState("");
   const statusRequest = useRef(0);
+  const [needsReconnect, setNeedsReconnect] = useState(false);
   useEffect(() => {
     const request = ++statusRequest.current;
-    setWorking(true); setConnected(null); setExpiresAt(undefined); setError("");
+    setWorking(true); setConnected(null); setExpiresAt(undefined); setError(""); setNeedsReconnect(false);
     api.codexStatus().then((status) => {
       if (request !== statusRequest.current) return;
-      setConnected(status.connected); setExpiresAt(status.expires_at);
+      setConnected(status.connected); setExpiresAt(status.expires_at); setNeedsReconnect(Boolean(status.needs_reconnect));
     }).catch((cause) => { if (request === statusRequest.current) setError(errorText(cause)); }).finally(() => { if (request === statusRequest.current) setWorking(false); });
   }, [refreshToken, statusRefresh]);
   async function connect() {
@@ -2387,7 +2390,7 @@ export function CodexPanel({ refreshToken, onConfigured }: { refreshToken: numbe
       while (Date.now() < expires) {
         await new Promise((resolve) => window.setTimeout(resolve, delay));
         const status = await api.codexPoll(result.session_id);
-        if (status.connected) { setConnected(true); setExpiresAt(status.expires_at); setSession(null); onConfigured(); return; }
+        if (status.connected) { setConnected(true); setNeedsReconnect(false); setExpiresAt(status.expires_at); setSession(null); onConfigured(); return; }
         if (!status.pending) break;
       }
       setError("Codex 登录已过期，请重新开始。");
@@ -2395,7 +2398,7 @@ export function CodexPanel({ refreshToken, onConfigured }: { refreshToken: numbe
     finally { setWorking(false); }
   }
   async function disconnect() { ++statusRequest.current; setWorking(true); setError(""); try { await api.codexDisconnect(); setConnected(false); setExpiresAt(undefined); onConfigured(); } catch (cause) { setError(errorText(cause)); } finally { setWorking(false); } }
-  return <div className="detail-content"><div className="detail-heading"><div><h2>Codex</h2></div></div><div className={`codex-status ${connected === true ? "connected" : connected === false ? "missing" : "unknown"}`} role="status"><span className="status-dot" />{connected === true ? "Codex 已连接" : connected === false ? "模型未配置" : working ? "正在读取连接状态…" : "连接状态未确认"}</div>{expiresAt && connected && <p className="field-note">连接有效期至 {new Date(expiresAt).toLocaleString("zh-CN")}</p>}{session ? <div className="verification-card"><p>在官方验证页面输入下面的短代码：</p><code>{session.code}</code><a href={session.url} target="_blank" rel="noreferrer">打开官方验证链接 <Icon name="external-link" size={16} style={{ verticalAlign: "middle" }} /></a></div> : connected === true ? <button className="secondary-button" onClick={() => void disconnect()} disabled={working}>断开 Codex</button> : connected === null ? <button className="secondary-button" onClick={() => setStatusRefresh(value => value + 1)} disabled={working}>{working ? "读取状态…" : "重试读取状态"}</button> : <button className="primary-button" onClick={() => void connect()} disabled={working}>{working ? "连接中…" : "连接 Codex"}</button>}{error && <p className="error-text">{error}</p>}</div>;
+  return <div className="detail-content"><div className="detail-heading"><div><h2>Codex</h2></div></div><div className={`codex-status ${connected === true ? "connected" : connected === false ? "missing" : "unknown"}`} role="status"><span className="status-dot" />{connected === true ? "Codex 已连接" : connected === false ? needsReconnect ? "Codex 登录已失效，请重新连接" : "模型未配置" : working ? "正在读取连接状态…" : "连接状态未确认"}</div>{expiresAt && connected && <p className="field-note">连接有效期至 {new Date(expiresAt).toLocaleString("zh-CN")}</p>}{session ? <div className="verification-card"><p>在官方验证页面输入下面的短代码：</p><code>{session.code}</code><a href={session.url} target="_blank" rel="noreferrer">打开官方验证链接 <Icon name="external-link" size={16} style={{ verticalAlign: "middle" }} /></a></div> : connected === true ? <button className="secondary-button" onClick={() => void disconnect()} disabled={working}>断开 Codex</button> : connected === null ? <button className="secondary-button" onClick={() => setStatusRefresh(value => value + 1)} disabled={working}>{working ? "读取状态…" : "重试读取状态"}</button> : <button className="primary-button" onClick={() => void connect()} disabled={working}>{working ? "连接中…" : needsReconnect ? "重新连接 Codex" : "连接 Codex"}</button>}{error && <p className="error-text">{error}</p>}</div>;
 }
 
 function DictationControls({ elapsed, levels, busy, onCancel, onConfirm }: { elapsed: number; levels: number[]; busy: boolean; onCancel: () => void; onConfirm: () => void }) {

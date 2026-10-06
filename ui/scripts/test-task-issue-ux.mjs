@@ -6,7 +6,7 @@ import {dirname, join} from "node:path";
 import {createServer} from "vite";
 import {createElement} from "react";
 import {renderToStaticMarkup} from "react-dom/server";
-import {at, run, request, tool, question, draft, scenario} from "./task-issue-fixtures.mjs";
+import {at, run, request, tool, question, draft, summary, scenario} from "./task-issue-fixtures.mjs";
 const ui=dirname(dirname(fileURLToPath(import.meta.url)));
 const server=await createServer({configFile:false,root:ui,server:{middlewareMode:true,hmr:false,ws:false},logLevel:"error"});
 try {
@@ -28,6 +28,22 @@ try {
  for(const error of ["busy", "503", "xserver_is_overloaded", "server_is_overloaded_extra"]) assert.equal(view({...scenario("busy"),run:{...run,status:"failed",error}}).kind,"unknown_failure");
  assert.equal(view({...scenario("busy"),run:{...run,status:"failed",error:"server_is_overloaded"},tools:[]}).kind,"provider_busy");
  console.log("PASS 2: exact run token, completed results, partial page, no replay action");
+ // 2b. Model account failures name the account state, route to model settings and state recorded tool facts.
+ const zero={...summary,tool_count:0,failed_count:0};
+ for(const [code,kind,title] of [["model_auth_invalid","model_auth","模型账户登录已失效"],["model_unconfigured","model_unconfigured","没有可用的 AI 提供方"],["model_quota_exhausted","model_quota","模型账户额度已用尽"]]){
+  const fixture={...scenario("busy"),run:{...run,status:"failed",error:"PRIVATE_SECRET",failure:{code,source:"runtime",message:"PRIVATE_BODY"}},tools:[],summaries:[zero]};
+  const issue=view(fixture),html=markup(fixture);
+  assert.equal(issue.kind,kind);assert.equal(issue.title,title);assert.equal(issue.recordsComplete,true);
+  assert.equal(issue.action,"open_codex");assert.equal(issue.actionLabel,"打开 Codex 设置");
+  assert.match(issue.facts.join(" "),/没有执行任何工具步骤/);assert(!issue.facts.join(" ").includes("无法确认原因"));assert(!issue.secondary.join(" ").includes("尚未完整加载"));
+  assert(!JSON.stringify(issue).includes("PRIVATE_SECRET"));assert(!html.includes("读取执行记录"));assert(html.includes("本次没有执行任何工具步骤"));
+ }
+ const unloaded=view({...scenario("busy"),run:{...run,status:"failed",failure:{code:"model_auth_invalid",source:"runtime",message:""}},tools:[],summaries:[]});
+ assert.equal(unloaded.kind,"model_auth");assert(!unloaded.facts.join(" ").includes("没有执行任何工具"));
+ const generic=view({...scenario("busy"),run:{...run,status:"failed",error:"",failure:{code:"execution_failed",source:"runtime",message:""}},tools:[],summaries:[zero]});
+ assert.equal(generic.kind,"unknown_failure");assert.match(generic.facts.join(" "),/没有记录具体原因/);assert.equal(generic.recordsComplete,true);
+ assert.equal(view({...scenario("busy"),run:{...run,status:"failed",failure:{code:"model_auth_invalid",source:"runtime",message:""}},tools:[],summaries:[zero]},"en").title,"Model account sign-in is no longer valid");
+ console.log("PASS 2b: model account failures are named, routed to model settings, and zero-tool runs say so");
  // 3. Setup and context have different bounded actions; neither has controls.
  assert.equal(view(scenario("setup")).action,"open_tools");assert(!markup(scenario("setup")).includes("data-valid-proposal"));assert.equal(view(incident).action,"copy_diagnostics");
  assert.equal(p.canAnswerQuestion(incident.questions[0]),false);assert.equal(p.canAnswerQuestion(scenario("setup").questions[0]),false);

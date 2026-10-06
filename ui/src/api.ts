@@ -35,7 +35,7 @@ export const api = {
     return request<{ text: string; model: string }>("/api/dictate", { method: "POST", body, signal });
   },
   codexStatus: async () => {
-    const result = await request<{ connected: boolean; expires_at?: number; pending?: boolean }>("/api/auth/codex");
+    const result = await request<{ connected: boolean; expires_at?: number; pending?: boolean; needs_reconnect?: boolean }>("/api/auth/codex");
     return result;
   },
   codexConnect: () => request<{ session_id: string; verification_url: string; user_code: string; expires_at: number; interval: number }>("/api/auth/codex/connect", { method: "POST" }),
