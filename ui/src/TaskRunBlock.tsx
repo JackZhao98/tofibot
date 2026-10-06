@@ -1,9 +1,9 @@
 import { useLayoutEffect, useRef, type ReactNode } from "react";
 import { TofiIcon } from "./icons";
 import { MessageMarkdown } from "./MessageMarkdown";
-import { toolDisplayLabel, orderToolActivities } from "./toolTimeline";
+import { toolDisplayLabel, orderToolActivities, toolDisplayState, toolStepTitle, toolStepSeconds, formatStepSeconds, toolStepDetail } from "./toolTimeline";
 import { TaskIssueCard } from "./TaskIssueCard";
-import { canAnswerQuestion, presentTaskIssue, taskLocale, taskObjectLabel, taskPhaseLabel, taskText, type TaskLocale, type TaskOwner } from "./taskIssuePresentation";
+import { canAnswerQuestion, presentTaskIssue, taskCertaintyText, taskLocale, taskPhaseLabel, taskStatusText, taskText, type TaskLocale, type TaskOwner } from "./taskIssuePresentation";
 import type { Question } from "./questionTimeline";
 import type { MailDraft } from "./MailDraftCard";
 import type { Message, ToolActivity, ToolActivityRunSummary } from "./types";
@@ -12,8 +12,19 @@ import "./task-issue-card.css";
 export type TaskDetailState = { loaded: number; toolCount: number; hasMore: boolean; loading: boolean; error?: string };
 export type TaskRunBlockProps = { owner: TaskOwner; tools: ToolActivity[]; questions: Question[]; drafts: MailDraft[]; messages: Message[]; summaries: ToolActivityRunSummary[]; details?: Record<string, TaskDetailState>; connected?: boolean; locale?: TaskLocale; botName?: string; showName?: boolean; onFeedback?: (text:string) => void; onOpenTools: () => void; onRefresh: () => Promise<void>; onLoadDetails?: (runId: string, offset: number) => Promise<void>; renderMessage?: (message: Message) => ReactNode; renderQuestion: (question: Question) => ReactNode; renderDraft: (draft: MailDraft) => ReactNode };
 
-export function ActivityDisclosure({ children, locale, disclosureRef, onOpen }: { children: ReactNode; locale: TaskLocale; disclosureRef: React.RefObject<HTMLDetailsElement | null>; onOpen: () => void }) {
-  return <details className="task-activity" ref={disclosureRef} onToggle={event => { if (event.currentTarget.open) onOpen(); }}><summary><TofiIcon name="chevron-right" size={16} aria-hidden="true" />{taskText(locale, "工作过程", "Activity")}</summary><div className="task-activity-records">{children}</div></details>;
+export function ActivityDisclosure({ children, locale, detail, disclosureRef, onOpen }: { children: ReactNode; locale: TaskLocale; detail?: string; disclosureRef: React.RefObject<HTMLDetailsElement | null>; onOpen: () => void }) {
+  return <details className="task-activity" ref={disclosureRef} onToggle={event => { if (event.currentTarget.open) onOpen(); }}><summary><TofiIcon name="chevron-right" size={16} aria-hidden="true" />{taskText(locale, "工作过程", "Activity")}{detail && <span className="task-activity-detail"> · {detail}</span>}</summary><div className="task-activity-records">{children}</div></details>;
+}
+
+/** One step: marker, human action, short argument, then state and duration. */
+function ToolStepRecord({ tool, locale }: { tool: ToolActivity; locale: TaskLocale }) {
+  const t = (zh: string, en: string) => taskText(locale, zh, en);
+  const state = toolDisplayState(tool), seconds = toolStepSeconds(tool), preview = toolStepDetail(tool);
+  const started = Date.parse(tool.started_at);
+  return <li className={`task-step is-${state}`}>
+    <details><summary><span className="task-step-marker" aria-hidden="true" /><span className="task-step-title">{toolStepTitle(tool)}{preview && <span className="task-step-argument"> · {preview}</span>}</span><span className="task-step-state">{toolDisplayLabel(tool, locale)}{seconds !== undefined && <time> · {formatStepSeconds(seconds)}</time>}</span></summary>
+      <div className="tool-activity-details">{Number.isFinite(started) && <span className="task-step-time">{t("开始于", "Started")} {new Date(started).toLocaleTimeString(locale === "en" ? "en-US" : "zh-CN", { hour12: false })}</span>}<span>{t("参数", "Arguments")}</span><pre tabIndex={0}>{tool.arguments || t("（无）", "(none)")}</pre>{tool.outcome?.message && <p className="tool-outcome">{tool.outcome.message}</p>}<span>{t("结果", "Result")}</span><pre tabIndex={0}>{tool.result || t("尚无结果", "No result yet")}</pre></div></details>
+  </li>;
 }
 
 /** One durable owner replaces progress in place; actual final answers stay in chat. */
@@ -49,6 +60,10 @@ export function TaskRunBlock({ owner, tools, questions, drafts, messages, summar
       if (!detail && onLoadDetails) void onLoadDetails(attempt.id, 0);
     }
   }
+  const attemptStatus = (status: string) => ({ done: t("已完成", "Done"), failed: t("失败", "Failed"), cancelled: t("已取消", "Cancelled"), interrupted: t("已中断", "Interrupted") } as Record<string, string>)[status] ?? t("已结束", "Ended");
+  const toolTotal = owner.family.attempts.reduce<number | undefined>((sum, attempt) => { const count = summaries.find(item => item.run_id === attempt.id)?.tool_count ?? details[attempt.id]?.toolCount; return count === undefined || sum === undefined ? undefined : sum + count; }, 0);
+  const runSeconds = run.status !== "running" && run.status !== "queued" ? (Date.parse(run.updated_at) - Date.parse(run.created_at)) / 1000 : NaN;
+  const activityDetail = [toolTotal ? t(`${toolTotal} 个工具`, `${toolTotal} ${toolTotal === 1 ? "tool" : "tools"}`) : "", Number.isFinite(runSeconds) && runSeconds >= 0 && toolTotal ? formatStepSeconds(runSeconds) : ""].filter(Boolean).join(" · ") || undefined;
   function viewActivity() { if (disclosure.current) { disclosure.current.open = true; disclosure.current.querySelector("summary")?.focus(); } }
   return <section ref={block} className="task-run-block" data-task-owner={owner.key} data-run-id={run.id} data-latest-run-id={run.id} tabIndex={-1} aria-label={t("任务记录", "Task records")}>
     {showName && botName && <p className="task-run-identity">{botName}</p>}
@@ -57,17 +72,15 @@ export function TaskRunBlock({ owner, tools, questions, drafts, messages, summar
     {decisions.map(renderQuestion)}
     {currentQuestions.filter(question => question.question_type === "approval" && question.status === "answered" && question.answer === true && !question.approval?.review_only).map(question => <p className="task-record-meta" data-question-id={question.question_id} key={question.question_id}>{t("已批准，操作尚未确认完成。", "Approved; execution is not yet confirmed.")}</p>)}
     {currentDrafts.filter(draft => draft.status !== "unknown").map(renderDraft)}
-    <ActivityDisclosure locale={locale} disclosureRef={disclosure} onOpen={loadInitial}>
-      {owner.family.previous.map(attempt => <p key={attempt.id} className="task-record-meta">{t("此前尝试", "Previous attempt")} · {attempt.id} · {attempt.status}</p>)}
+    <ActivityDisclosure locale={locale} detail={activityDetail} disclosureRef={disclosure} onOpen={loadInitial}>
+      {owner.family.previous.map((attempt, index) => <p key={attempt.id} className="task-record-meta">{t("此前尝试", "Previous attempt")} {index + 1} · {attemptStatus(attempt.status)}</p>)}
       {recordedQuestions.map(question => <section className="task-question-record" key={question.question_id} data-question-record-id={question.question_id} tabIndex={-1}>
         <p>{question.question_type === "approval" ? question.approval?.review_only || question.approval?.review?.status.startsWith("shadow") ? t("观察记录，不提供执行权限。", "Observation only; it does not grant execution permission.") : question.status === "answered" && question.answer === true ? t("已批准，操作尚未确认完成。", "Approved; execution is not yet confirmed.") : question.status === "expired" ? t("批准已过期。", "Approval expired.") : t("决定与执行前检查记录", "Decision and pre-execution check record") : t("回答记录", "Answer record")}</p>
-        <dl><div><dt>{t("状态", "Status")}</dt><dd>{question.approval?.review?.status ?? question.status}</dd></div><div><dt>ID</dt><dd>{question.question_id}</dd></div>{question.outcome && <div><dt>{t("执行事实", "Execution certainty")}</dt><dd>{question.outcome.execution_certainty}</dd></div>}</dl>
+        <dl><div><dt>{t("状态", "Status")}</dt><dd>{taskStatusText(question.approval?.review?.status ?? question.status, locale)}</dd></div>{question.outcome && <div><dt>{t("执行情况", "Execution")}</dt><dd>{taskCertaintyText(question.outcome.execution_certainty, locale)}</dd></div>}</dl>
         {question.question_type === "approval" && <details><summary>{t("查看提案记录", "View proposal record")}</summary><MessageMarkdown content={question.question} />{question.approval && <dl><div><dt>{t("动作", "Action")}</dt><dd>{question.approval.action}</dd></div><div><dt>{t("对象", "Target")}</dt><dd>{question.approval.target}</dd></div><div><dt>{t("影响", "Impact")}</dt><dd>{question.approval.impact}</dd></div></dl>}{question.approval?.payload && <details><summary>{t("查看完整参数", "View full arguments")}</summary><pre tabIndex={0}>{question.approval.payload}</pre></details>}</details>}
         {question.question_type !== "approval" && renderQuestion(question)}
       </section>)}
-      <ol className="task-tool-records">{tools.map(tool => <li key={`${tool.run_id}:${tool.call_id}`}>
-        <details><summary><span>{taskObjectLabel("tool", `${tool.run_id}:${tool.call_id}`, locale)} · {tool.name}</span><strong>{toolDisplayLabel(tool, locale)}</strong></summary><p className="task-record-meta">{tool.started_at} · {tool.call_id}</p><div className="tool-activity-details"><span>{t("参数", "Arguments")}</span><pre tabIndex={0}>{tool.arguments || t("（无）", "(none)")}</pre><span>{t("结果", "Result")}</span><pre tabIndex={0}>{tool.result || t("尚无结果", "No result yet")}</pre></div></details>
-      </li>)}</ol>
+      <ol className="task-tool-records">{tools.map(tool => <ToolStepRecord key={`${tool.run_id}:${tool.call_id}`} tool={tool} locale={locale} />)}</ol>
       {drafts.filter(draft => draft.run_id !== run.id || draft.status === "unknown").map(renderDraft)}
       {notes.map(note => <details className="task-progress-record" key={note.id}><summary>{t("进度汇报", "Progress report")}</summary><MessageMarkdown content={note.content} /></details>)}
       {owner.family.previous.flatMap(attempt => messages.filter(message => message.run_id === attempt.id && message.role === "assistant" && message.kind !== "progress").map(message => <div key={message.id}>{renderMessage ? renderMessage(message) : <MessageMarkdown content={message.content} />}</div>))}

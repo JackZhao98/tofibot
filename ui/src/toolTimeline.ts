@@ -101,10 +101,17 @@ export function toolActionLabel(activity: Pick<ToolActivity, "name" | "arguments
   if (name === "search_mcp_tools") return "正在查找可用工具";
   if (name === "search_history") return "正在检查对话记录";
   if (name === "inspect_recent_runs") return "正在检查执行记录";
+  if (name === "computer_help") return "正在查看电脑使用说明";
+  if (name === "send_chat_message") return "正在发送消息";
+  if (name === "complete_scheduled_task") return "正在完成定时任务";
   if (name === "call_mcp_tool") {
     try {
       const args = JSON.parse(activity.arguments) as { name?: unknown };
-      if (typeof args.name === "string") return toolActionLabel({ name: args.name, arguments: "" });
+      if (typeof args.name === "string") {
+        const inner = toolActionLabel({ name: args.name, arguments: "" });
+        // An unrecognised remote tool is described by its role, not its raw name.
+        if (!inner.startsWith("正在调用 ")) return inner;
+      }
     } catch { /* An unparseable call is not evidence of the remote action. */ }
     return "正在使用连接的工具";
   }
@@ -124,6 +131,25 @@ export function toolActionLabel(activity: Pick<ToolActivity, "name" | "arguments
   if (/computer|desktop|screen/.test(name)) return "正在操作电脑";
   if (/message|handoff/.test(name)) return "正在联系成员";
   return `正在调用 ${activity.name}`;
+}
+
+/** A step's human title for records: the action without the live "正在" prefix. */
+export function toolStepTitle(activity: Pick<ToolActivity, "name" | "arguments">): string {
+  return toolActionLabel(activity).replace(/^正在/, "");
+}
+
+/** Seconds a finished step took; undefined while running or when times are missing. */
+export function toolStepSeconds(activity: Pick<ToolActivity, "status" | "started_at" | "updated_at">): number | undefined {
+  if (activity.status === "running" || activity.status === "queued") return undefined;
+  const started = Date.parse(activity.started_at), ended = Date.parse(activity.updated_at);
+  return Number.isFinite(started) && Number.isFinite(ended) && ended >= started ? (ended - started) / 1000 : undefined;
+}
+
+export function formatStepSeconds(seconds: number): string {
+  if (seconds < 10) return `${seconds.toFixed(1)}s`;
+  if (seconds < 60) return `${Math.round(seconds)}s`;
+  const minutes = Math.floor(seconds / 60);
+  return `${minutes}m ${Math.round(seconds - minutes * 60)}s`;
 }
 
 export function activeToolForRun(activities: ToolActivity[], runId: string): ToolActivity | undefined {
@@ -149,6 +175,32 @@ export function toolArgumentPreview(activity: Pick<ToolActivity, "arguments">): 
     if (typeof args.path === "string") return args.path.split(/[\\/]/).at(-1)?.slice(0, 64);
   } catch { /* Raw arguments stay in the expanded detail only. */ }
   return undefined;
+}
+
+const stepActionWords: Record<string, string> = {
+  "desktop.capture": "截屏", "desktop.click": "点击", "desktop.type": "输入文字", "desktop.key": "按键", "desktop.scroll": "滚动", "desktop.start": "开机", "desktop.stop": "关机",
+  "browser.snapshot": "读取页面", "browser.action": "切换标签页", "files.read": "读取文件", "files.write": "写入文件", "files.list": "列出文件",
+};
+
+/** The short detail beside a step: the page or file it touched, the remote tool's own name,
+ * or a plain word for a desktop action. Raw commands and argument bodies stay in the detail. */
+export function toolStepDetail(activity: Pick<ToolActivity, "name" | "arguments">): string | undefined {
+  try {
+    const args = JSON.parse(activity.arguments) as Record<string, unknown>;
+    if (args && typeof args === "object" && !Array.isArray(args)) {
+      if (activity.name === "call_mcp_tool" && typeof args.name === "string") {
+        const remote = args.name.split("__").at(-1);
+        if (remote && /^[a-z0-9._-]{1,48}$/i.test(remote)) return remote;
+      }
+      if (typeof args.url === "string") {
+        const url = new URL(args.url);
+        if (url.protocol === "https:" || url.protocol === "http:") return `${url.hostname}${url.pathname === "/" ? "" : url.pathname}`.slice(0, 48);
+      }
+      if (typeof args.action === "string" && stepActionWords[args.action]) return stepActionWords[args.action];
+    }
+  } catch { /* Fall back to the allowlisted preview. */ }
+  const preview = toolArgumentPreview(activity);
+  return preview && !/^[a-z]+\.[a-z_]+$/i.test(preview) ? preview : undefined;
 }
 
 export function buildToolRunAnchors<T extends { run_id: string }>(messages: Message[], values: T[], runs: Run[] = []): ToolRunAnchors<T> {

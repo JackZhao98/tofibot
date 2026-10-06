@@ -81,6 +81,28 @@ export function taskObjectLabel(source: "tool" | "question" | "draft", id: strin
   return `${label} · ${(fingerprint >>> 0).toString(16).padStart(8, "0").toUpperCase()}`;
 }
 
+const reviewStatusWords: Record<string, [string, string]> = {
+  context_required: ["执行前检查缺少必要信息", "Pre-execution check is missing information"], setup_required: ["工具尚未就绪", "Tool setup is incomplete"],
+  policy_denied: ["未通过安全检查", "Did not pass the safety check"], unavailable: ["执行前检查暂时不可用", "Pre-execution checking is unavailable"],
+  human_required: ["等你批准", "Waiting for your approval"], not_reviewed: ["等你批准", "Waiting for your approval"], invalidated: ["等你批准", "Waiting for your approval"], not_eligible: ["等你批准", "Waiting for your approval"],
+  reviewing: ["检查中", "Checking"], allow: ["已通过检查", "Passed the check"], approved: ["已通过检查", "Passed the check"],
+  pending: ["待处理", "Pending"], answered: ["已回答", "Answered"], expired: ["已过期", "Expired"], cancelled: ["已取消", "Cancelled"], run_done: ["运行已结束", "Run ended"],
+  approval_expired: ["批准已过期", "Approval expired"], approval_denied: ["未批准", "Declined"], uncertain_effect: ["结果待核实", "Result needs checking"],
+};
+const certaintyWords: Record<string, [string, string]> = {
+  not_executed: ["未执行", "Not executed"], unknown: ["结果待核实", "Result needs checking"], no_side_effect: ["未产生改动", "No changes made"], executed: ["已执行", "Executed"], completed: ["已执行", "Executed"],
+};
+/** Human words for review/answer states; raw codes stay in technical diagnostics only. */
+export function taskStatusText(status: string | undefined, locale: TaskLocale = taskLocale()) {
+  if (status?.startsWith("shadow")) return taskText(locale, "观察记录", "Observation only");
+  const words = status ? reviewStatusWords[status] : undefined;
+  return words ? taskText(locale, ...words) : taskText(locale, "状态待确认", "Status unconfirmed");
+}
+export function taskCertaintyText(certainty: string | undefined, locale: TaskLocale = taskLocale()) {
+  const words = certainty ? certaintyWords[certainty] : undefined;
+  return words ? taskText(locale, ...words) : taskText(locale, "执行情况待确认", "Execution unconfirmed");
+}
+
 export type TaskPresentationInput = { run: Run; family?: TaskFamily; tools?: ToolActivity[]; questions?: Question[]; drafts?: MailDraft[]; summary?: ToolActivityRunSummary; recordsComplete?: boolean; connected?: boolean; locale?: TaskLocale };
 export function presentTaskIssue({ run, family, tools = [], questions = [], drafts = [], summary, recordsComplete = false, connected = true, locale = "zh-CN" }: TaskPresentationInput): TaskIssueView | undefined {
   const t = (zh: string, en: string) => taskText(locale, zh, en);
