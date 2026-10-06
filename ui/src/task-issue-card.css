@@ -20,8 +20,8 @@
 .task-activity>summary{display:flex;align-items:center;gap:var(--space-2);font:var(--type-meta);list-style:none}
 .task-activity>summary::-webkit-details-marker{display:none}
 .task-activity>summary>svg{transition:transform var(--spring-ms,300ms) var(--spring,ease)}
-.task-activity[open]>summary>svg{transform:rotate(90deg)}
-.task-activity-records{padding-block:var(--space-2);min-width:0;border-block-start:1px solid var(--border-soft)}
+.task-activity[open]:not([data-drawer=closing])>summary>svg{transform:rotate(90deg)}
+.task-activity-records{box-sizing:border-box;padding-block:var(--space-2);min-width:0;border-block-start:1px solid var(--border-soft)}
 .task-activity-detail{color:var(--text-secondary);font:var(--type-code)}
 /* Steps sit on one thin rail; each marker carries state by shape as well as color. */
 .task-tool-records{position:relative;list-style:none;padding:0 0 0 var(--space-4);margin:0}

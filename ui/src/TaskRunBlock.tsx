@@ -18,18 +18,47 @@ const settleVars = { "--spring": SETTLE.easing, "--spring-ms": `${SETTLE.duratio
 export type TaskDetailState = { loaded: number; toolCount: number; hasMore: boolean; loading: boolean; error?: string };
 export type TaskRunBlockProps = { owner: TaskOwner; tools: ToolActivity[]; questions: Question[]; drafts: MailDraft[]; messages: Message[]; summaries: ToolActivityRunSummary[]; details?: Record<string, TaskDetailState>; connected?: boolean; locale?: TaskLocale; botName?: string; showName?: boolean; onFeedback?: (text:string) => void; onOpenTools: () => void; onRefresh: () => Promise<void>; onLoadDetails?: (runId: string, offset: number) => Promise<void>; renderMessage?: (message: Message) => ReactNode; renderQuestion: (question: Question) => ReactNode; renderDraft: (draft: MailDraft) => ReactNode };
 
-/** Animate the records' height; the <details> open state stays the source of truth. */
-export function animateRecords(details: HTMLDetailsElement, open: boolean) {
-  const records = details.querySelector<HTMLElement>(".task-activity-records");
-  if (!records || prefersReducedMotion()) { details.open = open; return; }
+const GROW = springEasing(SPRINGS.settle);
+const drawers = new WeakMap<HTMLElement, Animation[]>();
+const drawerBody = (details: HTMLDetailsElement) => details.querySelector<HTMLElement>(":scope > :not(summary)");
+
+/**
+ * Motion Lab drawer for a native <details>: the body is clipped while its height
+ * settles, its content fades and drops 6px into place, and a second click
+ * reverses from wherever the drawer is. The open attribute stays the truth.
+ */
+export function animateDisclosure(details: HTMLDetailsElement, open: boolean) {
+  const body = drawerBody(details);
+  if (!body || prefersReducedMotion()) { details.open = open; return; }
+  const from = drawers.has(body) ? body.getBoundingClientRect().height : open ? 0 : body.offsetHeight;
+  drawers.get(body)?.forEach(animation => animation.cancel());
   if (open) details.open = true;
-  const height = records.scrollHeight;
-  const motion = records.animate({ height: open ? ["0px", `${height}px`] : [`${height}px`, "0px"], opacity: open ? [0, 1] : [1, 0] }, { duration: SETTLE.durationMs, easing: SETTLE.easing });
-  if (!open) motion.finished.then(() => { details.open = false; }, () => { details.open = false; });
+  details.dataset.drawer = open ? "opening" : "closing";
+  const to = open ? body.scrollHeight + body.offsetHeight - body.clientHeight : 0;
+  body.style.overflow = "clip";
+  const height = body.animate({ height: [`${from}px`, `${to}px`] }, { duration: GROW.durationMs, easing: GROW.easing });
+  const fade = body.animate(open ? { opacity: [0, 1], translate: ["0 -6px", "0 0"] } : { opacity: [1, 0], translate: ["0 0", "0 -4px"] }, { duration: open ? 320 : 200, easing: "cubic-bezier(.22,1,.36,1)", fill: "forwards" });
+  drawers.set(body, [height, fade]);
+  height.finished.then(() => {
+    drawers.delete(body);
+    delete details.dataset.drawer;
+    body.style.overflow = "";
+    if (!open) details.open = false;
+    fade.cancel();
+  }, () => {});
+}
+
+/** A summary click drives the drawer instead of the native instant toggle. */
+export function toggleDisclosure(event: React.MouseEvent<HTMLElement>) {
+  const details = event.currentTarget.parentElement;
+  if (!(details instanceof HTMLDetailsElement)) return;
+  event.preventDefault();
+  // Mid-collapse the attribute is still open, so the drawer's direction decides.
+  animateDisclosure(details, details.dataset.drawer ? details.dataset.drawer === "closing" : !details.open);
 }
 
 export function ActivityDisclosure({ children, locale, detail, problem, disclosureRef, onOpen }: { children: ReactNode; locale: TaskLocale; detail?: string; problem?: string; disclosureRef: React.RefObject<HTMLDetailsElement | null>; onOpen: () => void }) {
-  return <details className="task-activity" ref={disclosureRef} style={settleVars} onToggle={event => { if (event.currentTarget.open) onOpen(); }}><summary onClick={event => { const details = event.currentTarget.parentElement as HTMLDetailsElement | null; if (!details) return; event.preventDefault(); animateRecords(details, !details.open); }}><TofiIcon name="chevron-right" size={16} aria-hidden="true" />{taskText(locale, "工作过程", "Activity")}{detail && <span className="task-activity-detail"> · {detail}</span>}{problem && <span className="task-activity-problem"> · {problem}</span>}</summary><div className="task-activity-records">{children}</div></details>;
+  return <details className="task-activity" ref={disclosureRef} style={settleVars} onToggle={event => { if (event.currentTarget.open) onOpen(); }}><summary onClick={toggleDisclosure}><TofiIcon name="chevron-right" size={16} aria-hidden="true" />{taskText(locale, "工作过程", "Activity")}{detail && <span className="task-activity-detail"> · {detail}</span>}{problem && <span className="task-activity-problem"> · {problem}</span>}</summary><div className="task-activity-records">{children}</div></details>;
 }
 
 /** One step: marker, human action, short argument, then state and duration. */
@@ -51,14 +80,14 @@ function ToolStepRecord({ tool, locale, now, onOpenTools }: { tool: ToolActivity
     catch { setCopied(t("未能复制，请在技术详情里手动选择。", "Copy failed; select the technical details manually.")); }
   }
   return <li className={`task-step is-${state}${problem ? " is-problem" : ""}`} data-step={`${tool.run_id}:${tool.call_id}`}>
-    <details><summary><span className="task-step-marker" aria-hidden="true" /><span className="task-step-title">{toolStepTitle(tool)}{preview && <span className="task-step-argument"> · {preview}</span>}</span><span className="task-step-state">{toolDisplayLabel(tool, locale)}{seconds !== undefined && <time> · {formatStepSeconds(seconds)}</time>}</span></summary>
-      {problem && <div className="task-step-problem" role="group" aria-label={t("问题说明", "Problem")}>
+    <details><summary onClick={toggleDisclosure}><span className="task-step-marker" aria-hidden="true" /><span className="task-step-title">{toolStepTitle(tool)}{preview && <span className="task-step-argument"> · {preview}</span>}</span><span className="task-step-state">{toolDisplayLabel(tool, locale)}{seconds !== undefined && <time> · {formatStepSeconds(seconds)}</time>}</span></summary>
+      <div className="task-step-body">{problem && <div className="task-step-problem" role="group" aria-label={t("问题说明", "Problem")}>
         <p><strong>{reason}</strong>{tool.outcome?.execution_certainty && <> · {taskCertaintyText(tool.outcome.execution_certainty, locale)}</>}</p>
         <div className="task-step-actions"><button type="button" className="secondary-button" onClick={() => void copyDiagnostics()}><TofiIcon name="copy" size={15} aria-hidden="true" />{t("复制诊断信息", "Copy diagnostics")}</button>{(tool.outcome?.status === "setup_required" || tool.outcome?.code === "mcp_review_setup_missing") && onOpenTools && <button type="button" className="secondary-button" onClick={onOpenTools}>{t("打开工具设置", "Open tool settings")}</button>}</div>
         {copied && <p className="task-step-feedback" role="status">{copied}</p>}
         <details className="task-step-technical"><summary>{t("技术详情", "Technical details")}</summary>{tool.outcome?.message && <p>{tool.outcome.message}</p>}<pre tabIndex={0}>{stepDiagnostics(tool)}</pre></details>
       </div>}
-      <div className="tool-activity-details">{Number.isFinite(started) && <span className="task-step-time">{t("开始于", "Started")} {new Date(started).toLocaleTimeString(locale === "en" ? "en-US" : "zh-CN", { hour12: false })}</span>}<span>{t("参数", "Arguments")}</span><pre tabIndex={0}>{tool.arguments || t("（无）", "(none)")}</pre>{!problem && tool.outcome?.message && <p className="tool-outcome">{tool.outcome.message}</p>}<span>{t("结果", "Result")}</span><pre tabIndex={0}>{tool.result || t("尚无结果", "No result yet")}</pre></div></details>
+      <div className="tool-activity-details">{Number.isFinite(started) && <span className="task-step-time">{t("开始于", "Started")} {new Date(started).toLocaleTimeString(locale === "en" ? "en-US" : "zh-CN", { hour12: false })}</span>}<span>{t("参数", "Arguments")}</span><pre tabIndex={0}>{tool.arguments || t("（无）", "(none)")}</pre>{!problem && tool.outcome?.message && <p className="tool-outcome">{tool.outcome.message}</p>}<span>{t("结果", "Result")}</span><pre tabIndex={0}>{tool.result || t("尚无结果", "No result yet")}</pre></div></div></details>
   </li>;
 }
 

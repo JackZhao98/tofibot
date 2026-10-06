@@ -31,7 +31,12 @@ interface Visit {
   followNext: boolean;
   loadingBoundary: boolean;
   boundaryFailed: boolean;
+  hold: { node: HTMLElement; offset: number; until: number } | null;
 }
+
+// A disclosure the reader opens grows the page under their pointer; follow-bottom
+// must not chase that growth. Hold the clicked row in place while it settles.
+const HOLD_MS = 900;
 
 interface ViewSnapshot {
   anchorSeq: number;
@@ -77,7 +82,7 @@ export function useConversationScroll(options: Options) {
     visit.current = { id, readSeq: options.conversation?.read_seq ?? 0, entryMax: snapshot?.entryMax ?? null,
       resume: snapshot, positioned: false, atBottom: snapshot?.atBottom ?? true, nearBottom: true, width: 0, height: 0,
       baseline: 0, detached: snapshot?.detached ?? false, resumeIntent: false, lastScrollTop: 0,
-      prepend: null, followNext: false, loadingBoundary: false, boundaryFailed: false };
+      prepend: null, followNext: false, loadingBoundary: false, boundaryFailed: false, hold: null };
   }
 
   const isVisible = useCallback(() => document.visibilityState === "visible" &&
@@ -183,6 +188,8 @@ export function useConversationScroll(options: Options) {
       v.resume = null;
       v.prepend = null;
       render(n => n + 1);
+    } else if (v.hold && v.hold.until > performance.now() && v.hold.node.isConnected) {
+      el.scrollTop += v.hold.node.getBoundingClientRect().top - el.getBoundingClientRect().top - v.hold.offset;
     } else if (v.prepend) {
       const prepend = v.prepend;
       const anchor = prepend.anchorSeq ? el.querySelector<HTMLElement>(`[data-message-seq="${prepend.anchorSeq}"]`) : null;
@@ -212,6 +219,7 @@ export function useConversationScroll(options: Options) {
     const pauseFollow = () => {
       const v = visit.current;
       if (!v?.positioned) return;
+      v.hold = null;
       v.detached = true;
       v.resumeIntent = false;
       v.followNext = false;
@@ -229,6 +237,12 @@ export function useConversationScroll(options: Options) {
       else if (event.deltaY > 0) resumeFollow();
     };
     const onTouchStart = (event: TouchEvent) => { touchY = event.touches[0]?.clientY ?? 0; };
+    const onDisclosure = (event: MouseEvent) => {
+      const v = visit.current;
+      const summary = (event.target as Element | null)?.closest?.("summary");
+      if (!v?.positioned || !summary || !el.contains(summary)) return;
+      v.hold = { node: summary as HTMLElement, offset: summary.getBoundingClientRect().top - el.getBoundingClientRect().top, until: performance.now() + HOLD_MS };
+    };
     const onTouchMove = (event: TouchEvent) => {
       const y = event.touches[0]?.clientY ?? touchY;
       if (y > touchY) pauseFollow();
@@ -243,6 +257,7 @@ export function useConversationScroll(options: Options) {
     el.addEventListener("touchstart", onTouchStart, { passive: true });
     el.addEventListener("touchmove", onTouchMove, { passive: true });
     el.addEventListener("keydown", onKey);
+    el.addEventListener("click", onDisclosure, true);
     const observer = new ResizeObserver(position);
     observer.observe(el);
     const content = el.querySelector(".message-list");
@@ -259,6 +274,7 @@ export function useConversationScroll(options: Options) {
       el.removeEventListener("touchstart", onTouchStart);
       el.removeEventListener("touchmove", onTouchMove);
       el.removeEventListener("keydown", onKey);
+      el.removeEventListener("click", onDisclosure, true);
       window.removeEventListener("focus", onFocus);
       document.removeEventListener("visibilitychange", onFocus);
       desktop.removeEventListener("change", onFocus);
@@ -283,6 +299,7 @@ export function useConversationScroll(options: Options) {
     // An explicit jump supersedes a pending restore that may be loading
     // older pages for an anchor outside the current page.
     v.resume = null;
+    v.hold = null;
     v.followNext = true;
     position();
   }, [position]);
