@@ -2022,7 +2022,7 @@ export function MessageBubble({ message, replyTarget, replyTargetName, sender, s
     const label = sender?.name ?? senderName ?? "Bot";
     return <article className={`message message-bot message-ui-card${showAvatar ? " is-group" : " is-dm"}`} title={`${formatExactTime(message.created_at, timezone)} · ${timezone}`}>
       {showAvatar && <div className="message-avatar"><Avatar label={label} id={message.sender_bot_id ?? "bot"} mini /></div>}
-      <div className="message-body">{showIdentity && !compact && <div className="message-meta"><strong>{label}</strong></div>}<DisplayCard card={message.card} onDraftReply={onDraftReply} />{tools && <div className="message-tools">{tools}</div>}</div>
+      <div className="message-body">{showIdentity && !compact && <div className="message-meta"><strong>{label}</strong></div>}<DisplayCard card={message.card} bot={message.sender_bot_id ? { id: message.sender_bot_id, name: label } : undefined} onDraftReply={onDraftReply} />{tools && <div className="message-tools">{tools}</div>}</div>
     </article>;
   }
   if (message.kind === "scheduled_task") {
