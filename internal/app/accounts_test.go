@@ -301,3 +301,19 @@ func TestAccountPublicInfoDoesNotDisableAuthAndUsesOwnInstance(t *testing.T) {
 		t.Fatal("browser/native cache workspace identity is shared")
 	}
 }
+
+func TestAccountGateDispatchesCodexVerifyToWorkspace(t *testing.T) {
+	g := accountFixture(t)
+	admin, err := g.create(context.Background(), "admin", "admin@example.test", "SyntheticPassword123!", true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	cookie := accountCookie(t, g, admin)
+	w := accountRequest(g, "POST", "/api/auth/codex/verify", `{}`, cookie)
+	if w.Code != 200 || !strings.Contains(w.Body.String(), `"check":"not_connected"`) {
+		t.Fatalf("verify through account gate %d %s", w.Code, w.Body.String())
+	}
+	if blocked := accountRequest(g, "POST", "/api/auth/codex/other", `{}`, cookie); blocked.Code != 403 {
+		t.Fatalf("unlisted auth path %d", blocked.Code)
+	}
+}

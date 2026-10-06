@@ -433,7 +433,7 @@ func (g *AccountGateway) handle(w http.ResponseWriter, r *http.Request) {
 	}
 	// Central account management is never dispatched into a workspace. Codex
 	// credentials belong to the selected workspace and remain available there.
-	codexPath := r.URL.Path == "/api/auth/codex" || r.URL.Path == "/api/auth/codex/connect" || strings.HasPrefix(r.URL.Path, "/api/auth/codex/connect/")
+	codexPath := r.URL.Path == "/api/auth/codex" || r.URL.Path == "/api/auth/codex/connect" || r.URL.Path == "/api/auth/codex/verify" || strings.HasPrefix(r.URL.Path, "/api/auth/codex/connect/")
 	if (strings.HasPrefix(r.URL.Path, "/api/auth/") && !codexPath) || strings.HasPrefix(r.URL.Path, "/api/admin/") {
 		writeErr(w, 403, "unavailable", "account management surface not available")
 		return

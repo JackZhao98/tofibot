@@ -2431,7 +2431,7 @@ func (s *Server) route(w http.ResponseWriter, r *http.Request) {
 		})
 	case p == "config":
 		writeJSON(w, 200, map[string]any{"model_configured": s.modelConfigured(), "default_model": s.defaultModel, "provider": s.provider})
-	case p == "auth/codex" || p == "auth/codex/connect" || strings.HasPrefix(p, "auth/codex/connect/"):
+	case p == "auth/codex" || p == "auth/codex/connect" || p == "auth/codex/verify" || strings.HasPrefix(p, "auth/codex/connect/"):
 		s.codexAuth(w, r, strings.TrimPrefix(p, "auth/codex"))
 	case strings.HasPrefix(p, "bots/") && strings.HasSuffix(p, "/debug-preview"):
 		s.botDebugPreview(w, r, strings.TrimSuffix(strings.TrimPrefix(p, "bots/"), "/debug-preview"))
