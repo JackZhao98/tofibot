@@ -6,14 +6,4 @@ html:not([data-desktop]) .workspace .conversation-row:has(>.conversation-task-ba
 html:not([data-desktop]) .workspace .conversation-row:has(>.conversation-task-badge)>.conversation-status[data-status="unread"]{right:38px}
 html:not([data-desktop]) .workspace .sidebar-collapsed .conversation-row>.conversation-task-badge{top:6px;right:6px;bottom:auto}
 html:not([data-desktop]) .workspace .sidebar-collapsed .conversation-row:has(>.conversation-task-badge)>.conversation-status[data-status="unread"]{top:27px;right:6px}
-.conversation-task-banner{display:flex;align-items:center;gap:10px;min-height:40px;padding:8px 22px;border-bottom:1px solid var(--line-soft);color:var(--muted);font:var(--type-status)}
-.conversation-task-banner strong{color:var(--ink);white-space:nowrap}
-.conversation-task-banner>span:not(.conversation-task-banner-dot){overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.conversation-task-banner-dot{flex:none;width:8px;height:8px;border-radius:50%;background:var(--muted)}
-.conversation-task-banner[data-task-status="executing"] .conversation-task-banner-dot{background:var(--lagoon-text);animation:v2-breathe 2.4s ease-in-out infinite}
-.conversation-task-banner[data-task-status="needs_attention"] .conversation-task-banner-dot,.conversation-task-banner[data-task-status="waiting"] .conversation-task-banner-dot{background:var(--iris-text)}
-.conversation-task-banner[data-task-status="failed"] .conversation-task-banner-dot{background:var(--danger-text)}
-.conversation-task-banner button{flex:none;margin-left:auto;border:0;background:transparent;color:var(--ink);font:inherit;text-decoration:underline;text-underline-offset:3px;cursor:pointer}
-.conversation-task-banner button+button{margin-left:0}
-@media(max-width:600px){.conversation-task-banner{padding:8px 14px;flex-wrap:wrap}.conversation-task-banner>span:not(.conversation-task-banner-dot){order:3;flex-basis:100%;white-space:normal}}
-@media(prefers-reduced-motion:reduce){html:not([data-desktop]) .workspace .conversation-row>.conversation-task-badge[data-task-status="executing"],.conversation-task-banner[data-task-status="executing"] .conversation-task-banner-dot{animation:none}}
+@media(prefers-reduced-motion:reduce){html:not([data-desktop]) .workspace .conversation-row>.conversation-task-badge[data-task-status="executing"]{animation:none}}
