@@ -3,7 +3,7 @@ import { TofiIcon } from "./icons";
 import { MessageMarkdown } from "./MessageMarkdown";
 import { toolDisplayLabel, orderToolActivities, toolDisplayState, toolStepTitle, toolStepSeconds, formatStepSeconds, toolStepDetail } from "./toolTimeline";
 import { TaskIssueCard } from "./TaskIssueCard";
-import { canAnswerQuestion, presentTaskIssue, taskCertaintyText, taskLocale, taskPhaseLabel, taskStatusText, taskText, type TaskLocale, type TaskOwner } from "./taskIssuePresentation";
+import { canAnswerQuestion, presentTaskIssue, taskCertaintyText, taskLocale, taskOutcomeText, taskPhaseLabel, taskStatusText, taskText, type TaskLocale, type TaskOwner } from "./taskIssuePresentation";
 import type { Question } from "./questionTimeline";
 import type { MailDraft } from "./MailDraftCard";
 import type { Message, ToolActivity, ToolActivityRunSummary } from "./types";
@@ -45,7 +45,7 @@ function ToolStepRecord({ tool, locale, now, onOpenTools }: { tool: ToolActivity
   const started = Date.parse(tool.started_at);
   const problem = problemStates.includes(state);
   // A problem step explains itself in words first; codes stay in technical details.
-  const reason = tool.outcome?.status ? taskStatusText(tool.outcome.status, locale) : state === "interrupted" ? t("执行中断", "Interrupted") : t("工具调用失败", "The tool call failed");
+  const reason = tool.outcome?.code || tool.outcome?.status ? taskOutcomeText(tool.outcome, locale) : state === "interrupted" ? t("执行中断", "Interrupted") : t("工具调用失败", "The tool call failed");
   async function copyDiagnostics() {
     try { await navigator.clipboard.writeText(stepDiagnostics(tool)); setCopied(t("已复制诊断信息。", "Diagnostics copied.")); }
     catch { setCopied(t("未能复制，请在技术详情里手动选择。", "Copy failed; select the technical details manually.")); }
@@ -54,7 +54,7 @@ function ToolStepRecord({ tool, locale, now, onOpenTools }: { tool: ToolActivity
     <details><summary><span className="task-step-marker" aria-hidden="true" /><span className="task-step-title">{toolStepTitle(tool)}{preview && <span className="task-step-argument"> · {preview}</span>}</span><span className="task-step-state">{toolDisplayLabel(tool, locale)}{seconds !== undefined && <time> · {formatStepSeconds(seconds)}</time>}</span></summary>
       {problem && <div className="task-step-problem" role="group" aria-label={t("问题说明", "Problem")}>
         <p><strong>{reason}</strong>{tool.outcome?.execution_certainty && <> · {taskCertaintyText(tool.outcome.execution_certainty, locale)}</>}</p>
-        <div className="task-step-actions"><button type="button" className="secondary-button" onClick={() => void copyDiagnostics()}><TofiIcon name="copy" size={15} aria-hidden="true" />{t("复制诊断信息", "Copy diagnostics")}</button>{tool.outcome?.status === "setup_required" && onOpenTools && <button type="button" className="secondary-button" onClick={onOpenTools}>{t("打开工具设置", "Open tool settings")}</button>}</div>
+        <div className="task-step-actions"><button type="button" className="secondary-button" onClick={() => void copyDiagnostics()}><TofiIcon name="copy" size={15} aria-hidden="true" />{t("复制诊断信息", "Copy diagnostics")}</button>{(tool.outcome?.status === "setup_required" || tool.outcome?.code === "mcp_review_setup_missing") && onOpenTools && <button type="button" className="secondary-button" onClick={onOpenTools}>{t("打开工具设置", "Open tool settings")}</button>}</div>
         {copied && <p className="task-step-feedback" role="status">{copied}</p>}
         <details className="task-step-technical"><summary>{t("技术详情", "Technical details")}</summary>{tool.outcome?.message && <p>{tool.outcome.message}</p>}<pre tabIndex={0}>{stepDiagnostics(tool)}</pre></details>
       </div>}
