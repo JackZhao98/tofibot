@@ -1,4 +1,4 @@
-import { useLayoutEffect, useRef, type ReactNode } from "react";
+import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { TofiIcon } from "./icons";
 import { MessageMarkdown } from "./MessageMarkdown";
 import { toolDisplayLabel, orderToolActivities, toolDisplayState, toolStepTitle, toolStepSeconds, formatStepSeconds, toolStepDetail } from "./toolTimeline";
@@ -21,7 +21,7 @@ function ToolStepRecord({ tool, locale }: { tool: ToolActivity; locale: TaskLoca
   const t = (zh: string, en: string) => taskText(locale, zh, en);
   const state = toolDisplayState(tool), seconds = toolStepSeconds(tool), preview = toolStepDetail(tool);
   const started = Date.parse(tool.started_at);
-  return <li className={`task-step is-${state}`}>
+  return <li className={`task-step is-${state}`} data-step={`${tool.run_id}:${tool.call_id}`}>
     <details><summary><span className="task-step-marker" aria-hidden="true" /><span className="task-step-title">{toolStepTitle(tool)}{preview && <span className="task-step-argument"> · {preview}</span>}</span><span className="task-step-state">{toolDisplayLabel(tool, locale)}{seconds !== undefined && <time> · {formatStepSeconds(seconds)}</time>}</span></summary>
       <div className="tool-activity-details">{Number.isFinite(started) && <span className="task-step-time">{t("开始于", "Started")} {new Date(started).toLocaleTimeString(locale === "en" ? "en-US" : "zh-CN", { hour12: false })}</span>}<span>{t("参数", "Arguments")}</span><pre tabIndex={0}>{tool.arguments || t("（无）", "(none)")}</pre>{tool.outcome?.message && <p className="tool-outcome">{tool.outcome.message}</p>}<span>{t("结果", "Result")}</span><pre tabIndex={0}>{tool.result || t("尚无结果", "No result yet")}</pre></div></details>
   </li>;
@@ -64,10 +64,26 @@ export function TaskRunBlock({ owner, tools, questions, drafts, messages, summar
   const toolTotal = owner.family.attempts.reduce<number | undefined>((sum, attempt) => { const count = summaries.find(item => item.run_id === attempt.id)?.tool_count ?? details[attempt.id]?.toolCount; return count === undefined || sum === undefined ? undefined : sum + count; }, 0);
   const runSeconds = run.status !== "running" && run.status !== "queued" ? (Date.parse(run.updated_at) - Date.parse(run.created_at)) / 1000 : NaN;
   const activityDetail = [toolTotal ? t(`${toolTotal} 个工具`, `${toolTotal} ${toolTotal === 1 ? "tool" : "tools"}`) : "", Number.isFinite(runSeconds) && runSeconds >= 0 && toolTotal ? formatStepSeconds(runSeconds) : ""].filter(Boolean).join(" · ") || undefined;
+  const [pendingStep, setPendingStep] = useState("");
+  function openStep(runId: string, callId: string) {
+    if (disclosure.current && !disclosure.current.open) disclosure.current.open = true;
+    setPendingStep(`${runId}:${callId}`);
+  }
+  // The step may arrive with a later activity page; reveal it once it renders.
+  useEffect(() => {
+    if (!pendingStep) return;
+    const step = block.current?.querySelector<HTMLLIElement>(`li[data-step="${CSS.escape(pendingStep)}"]`);
+    if (!step) return;
+    const record = step.querySelector("details");
+    if (record) record.open = true;
+    step.scrollIntoView({ block: "center", behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" });
+    step.querySelector<HTMLElement>("summary")?.focus({ preventScroll: true });
+    setPendingStep("");
+  }, [pendingStep, tools]);
   function viewActivity() { if (disclosure.current) { disclosure.current.open = true; disclosure.current.querySelector("summary")?.focus(); } }
   return <section ref={block} className="task-run-block" data-task-owner={owner.key} data-run-id={run.id} data-latest-run-id={run.id} tabIndex={-1} aria-label={t("任务记录", "Task records")}>
     {showName && botName && <p className="task-run-identity">{botName}</p>}
-    {issue ? <TaskIssueCard issue={issue} locale={locale} onFeedback={onFeedback} onAction={issue.action === "open_tools" ? onOpenTools : issue.action === "open_codex" ? () => { window.dispatchEvent(new Event("tofi:open-codex-settings")); } : issue.action === "refresh_status" ? onRefresh : viewActivity} /> : !(run.status === "done" && hasFinal) && <p className="task-run-phase">{taskPhaseLabel(input)}</p>}
+    {issue ? <TaskIssueCard issue={issue} locale={locale} onFeedback={onFeedback} onOpenStep={openStep} onAction={issue.action === "open_tools" ? onOpenTools : issue.action === "open_codex" ? () => { window.dispatchEvent(new Event("tofi:open-codex-settings")); } : issue.action === "refresh_status" ? onRefresh : viewActivity} /> : !(run.status === "done" && hasFinal) && <p className="task-run-phase">{taskPhaseLabel(input)}</p>}
     {/* A separate valid proposal survives another call's failure/unknown effect. */}
     {decisions.map(renderQuestion)}
     {currentQuestions.filter(question => question.question_type === "approval" && question.status === "answered" && question.answer === true && !question.approval?.review_only).map(question => <p className="task-record-meta" data-question-id={question.question_id} key={question.question_id}>{t("已批准，操作尚未确认完成。", "Approved; execution is not yet confirmed.")}</p>)}

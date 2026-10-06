@@ -6,6 +6,9 @@
 .task-issue-card[data-issue-kind="uncertain_effect"] .task-issue-heading>svg{color:var(--honey-text)}
 .task-issue-heading h3{font:var(--type-row-title);margin:0;min-width:0}
 .task-issue-fact,.task-issue-context,.task-issue-feedback{margin:var(--space-2) 0 0;font:var(--type-body)}
+.task-fact-link{display:inline;min-height:0;padding:0;border:0;background:none;color:var(--text-body);font:inherit;text-decoration:underline;text-decoration-color:var(--border-soft);text-underline-offset:3px;cursor:pointer}
+.task-fact-link:hover{text-decoration-color:currentColor}
+.task-fact-link:focus-visible{outline:2px solid var(--focus);outline-offset:2px;border-radius:3px}
 .task-issue-context{color:var(--text-secondary)}
 .task-issue-actions{display:flex;flex-wrap:wrap;gap:var(--space-3);margin-block-start:var(--space-3)}
 .task-issue-actions .secondary-button,.task-record-page .secondary-button{display:inline-flex;align-items:center;justify-content:center;gap:var(--space-2);min-height:44px;font:var(--type-button);white-space:normal;line-height:1.4;max-width:100%}
