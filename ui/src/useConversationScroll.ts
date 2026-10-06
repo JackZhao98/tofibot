@@ -232,7 +232,10 @@ export function useConversationScroll(options: Options) {
       const v = visit.current;
       if (v?.positioned && v.detached) v.resumeIntent = true;
     };
+    // Any reading gesture takes over from the disclosure hold at once.
+    const release = () => { if (visit.current) visit.current.hold = null; };
     const onWheel = (event: WheelEvent) => {
+      release();
       if (event.deltaY < 0) pauseFollow();
       else if (event.deltaY > 0) resumeFollow();
     };
@@ -244,12 +247,14 @@ export function useConversationScroll(options: Options) {
       v.hold = { node: summary as HTMLElement, offset: summary.getBoundingClientRect().top - el.getBoundingClientRect().top, until: performance.now() + HOLD_MS };
     };
     const onTouchMove = (event: TouchEvent) => {
+      release();
       const y = event.touches[0]?.clientY ?? touchY;
       if (y > touchY) pauseFollow();
       else if (y < touchY) resumeFollow();
       touchY = y;
     };
     const onKey = (event: KeyboardEvent) => {
+      if (["ArrowUp", "ArrowDown", "PageUp", "PageDown", "Home", "End", " "].includes(event.key)) release();
       if (["ArrowUp", "PageUp", "Home"].includes(event.key) || (event.key === " " && event.shiftKey)) pauseFollow();
       else if (["ArrowDown", "PageDown", "End"].includes(event.key) || (event.key === " " && !event.shiftKey)) resumeFollow();
     };
@@ -258,6 +263,8 @@ export function useConversationScroll(options: Options) {
     el.addEventListener("touchmove", onTouchMove, { passive: true });
     el.addEventListener("keydown", onKey);
     el.addEventListener("click", onDisclosure, true);
+    // Scrollbar drags send no wheel; a pointer press on the pane hands control back too.
+    el.addEventListener("pointerdown", release, true);
     const observer = new ResizeObserver(position);
     observer.observe(el);
     const content = el.querySelector(".message-list");
@@ -275,6 +282,7 @@ export function useConversationScroll(options: Options) {
       el.removeEventListener("touchmove", onTouchMove);
       el.removeEventListener("keydown", onKey);
       el.removeEventListener("click", onDisclosure, true);
+      el.removeEventListener("pointerdown", release, true);
       window.removeEventListener("focus", onFocus);
       document.removeEventListener("visibilitychange", onFocus);
       desktop.removeEventListener("change", onFocus);
