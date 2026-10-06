@@ -30,12 +30,20 @@
 .task-tool-records summary::-webkit-details-marker{display:none}
 .task-step-marker{position:relative;flex:0 0 auto;width:7px;height:7px;margin-inline-start:calc(-1 * var(--space-4) + 2px);border-radius:50%;background:var(--text-secondary)}
 .task-step.is-running .task-step-marker,.task-step.is-queued .task-step-marker{background:var(--lagoon);animation:task-step-breathe 1.6s ease-in-out infinite}
-.task-step.is-failed .task-step-marker,.task-step.is-interrupted .task-step-marker{border-radius:1px;background:var(--status-error);transform:rotate(45deg)}
-.task-step.is-not_executed .task-step-marker,.task-step.is-expired .task-step-marker,.task-step.is-skipped .task-step-marker,.task-step.is-unknown .task-step-marker{background:transparent;box-shadow:inset 0 0 0 1.5px var(--text-secondary)}
+/* A step that failed, was blocked or was interrupted is red: a diamond and red state words. */
+.task-step.is-problem .task-step-marker{border-radius:1px;background:var(--status-error);box-shadow:none;transform:rotate(45deg)}
+.task-step.is-expired .task-step-marker,.task-step.is-skipped .task-step-marker,.task-step.is-unknown .task-step-marker{background:transparent;box-shadow:inset 0 0 0 1.5px var(--text-secondary)}
 .task-step-title{min-width:0;color:var(--text-body);overflow-wrap:anywhere}
 .task-step-argument{color:var(--text-secondary)}
 .task-step-state{flex:0 0 auto;margin-inline-start:auto;color:var(--text-secondary);white-space:nowrap}
-.task-step.is-failed .task-step-state{color:var(--status-error-text)}
+.task-step.is-problem .task-step-state,.task-step.is-problem .task-step-title,.task-activity-problem{color:var(--status-error-text)}
+.task-step-problem{display:grid;gap:var(--space-2);margin:var(--space-2) 0;padding:var(--space-3);border:1px solid color-mix(in srgb,var(--status-error) 35%,transparent);border-radius:var(--radius-sm,10px);background:color-mix(in srgb,var(--status-error) 7%,var(--surface))}
+.task-step-problem>p{margin:0;font:var(--type-body);color:var(--text-body)}
+.task-step-actions{display:flex;flex-wrap:wrap;gap:var(--space-2)}
+.task-step-actions .secondary-button{display:inline-flex;align-items:center;gap:6px;min-height:36px;border-width:1px;box-shadow:none}
+.task-step-feedback{margin:0;font:var(--type-meta);color:var(--text-secondary)}
+.task-step-technical>summary{cursor:pointer;font:var(--type-meta);color:var(--text-secondary)}
+.task-step-technical>p{margin:var(--space-2) 0 0;font:var(--type-meta);color:var(--text-secondary);overflow-wrap:anywhere}
 .task-step-time{color:var(--text-secondary);font:var(--type-meta)}
 @keyframes task-step-breathe{50%{opacity:.35}}
 /* Motion Lab ToolSteps: live steps drop in; the running step's label carries a lagoon sheen. */

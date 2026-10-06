@@ -28,20 +28,37 @@ export function animateRecords(details: HTMLDetailsElement, open: boolean) {
   if (!open) motion.finished.then(() => { details.open = false; }, () => { details.open = false; });
 }
 
-export function ActivityDisclosure({ children, locale, detail, disclosureRef, onOpen }: { children: ReactNode; locale: TaskLocale; detail?: string; disclosureRef: React.RefObject<HTMLDetailsElement | null>; onOpen: () => void }) {
-  return <details className="task-activity" ref={disclosureRef} style={settleVars} onToggle={event => { if (event.currentTarget.open) onOpen(); }}><summary onClick={event => { const details = event.currentTarget.parentElement as HTMLDetailsElement | null; if (!details) return; event.preventDefault(); animateRecords(details, !details.open); }}><TofiIcon name="chevron-right" size={16} aria-hidden="true" />{taskText(locale, "工作过程", "Activity")}{detail && <span className="task-activity-detail"> · {detail}</span>}</summary><div className="task-activity-records">{children}</div></details>;
+export function ActivityDisclosure({ children, locale, detail, problem, disclosureRef, onOpen }: { children: ReactNode; locale: TaskLocale; detail?: string; problem?: string; disclosureRef: React.RefObject<HTMLDetailsElement | null>; onOpen: () => void }) {
+  return <details className="task-activity" ref={disclosureRef} style={settleVars} onToggle={event => { if (event.currentTarget.open) onOpen(); }}><summary onClick={event => { const details = event.currentTarget.parentElement as HTMLDetailsElement | null; if (!details) return; event.preventDefault(); animateRecords(details, !details.open); }}><TofiIcon name="chevron-right" size={16} aria-hidden="true" />{taskText(locale, "工作过程", "Activity")}{detail && <span className="task-activity-detail"> · {detail}</span>}{problem && <span className="task-activity-problem"> · {problem}</span>}</summary><div className="task-activity-records">{children}</div></details>;
 }
 
 /** One step: marker, human action, short argument, then state and duration. */
-function ToolStepRecord({ tool, locale, now }: { tool: ToolActivity; locale: TaskLocale; now?: number }) {
+const problemStates = ["failed", "not_executed", "interrupted"];
+const stepDiagnostics = (tool: ToolActivity) => JSON.stringify({ tool: tool.name, run_id: tool.run_id, call_id: tool.call_id, status: tool.status, outcome_status: tool.outcome?.status, code: tool.outcome?.code, certainty: tool.outcome?.execution_certainty, started_at: tool.started_at, updated_at: tool.updated_at }, null, 2);
+
+function ToolStepRecord({ tool, locale, now, onOpenTools }: { tool: ToolActivity; locale: TaskLocale; now?: number; onOpenTools?: () => void }) {
+  const [copied, setCopied] = useState("");
   const t = (zh: string, en: string) => taskText(locale, zh, en);
   const state = toolDisplayState(tool), preview = toolStepDetail(tool);
   const live = tool.status === "running" && now !== undefined ? Math.max(0, (now - Date.parse(tool.started_at)) / 1000) : undefined;
   const seconds = toolStepSeconds(tool) ?? (Number.isFinite(live) ? live : undefined);
   const started = Date.parse(tool.started_at);
-  return <li className={`task-step is-${state}`} data-step={`${tool.run_id}:${tool.call_id}`}>
+  const problem = problemStates.includes(state);
+  // A problem step explains itself in words first; codes stay in technical details.
+  const reason = tool.outcome?.status ? taskStatusText(tool.outcome.status, locale) : state === "interrupted" ? t("执行中断", "Interrupted") : t("工具调用失败", "The tool call failed");
+  async function copyDiagnostics() {
+    try { await navigator.clipboard.writeText(stepDiagnostics(tool)); setCopied(t("已复制诊断信息。", "Diagnostics copied.")); }
+    catch { setCopied(t("未能复制，请在技术详情里手动选择。", "Copy failed; select the technical details manually.")); }
+  }
+  return <li className={`task-step is-${state}${problem ? " is-problem" : ""}`} data-step={`${tool.run_id}:${tool.call_id}`}>
     <details><summary><span className="task-step-marker" aria-hidden="true" /><span className="task-step-title">{toolStepTitle(tool)}{preview && <span className="task-step-argument"> · {preview}</span>}</span><span className="task-step-state">{toolDisplayLabel(tool, locale)}{seconds !== undefined && <time> · {formatStepSeconds(seconds)}</time>}</span></summary>
-      <div className="tool-activity-details">{Number.isFinite(started) && <span className="task-step-time">{t("开始于", "Started")} {new Date(started).toLocaleTimeString(locale === "en" ? "en-US" : "zh-CN", { hour12: false })}</span>}<span>{t("参数", "Arguments")}</span><pre tabIndex={0}>{tool.arguments || t("（无）", "(none)")}</pre>{tool.outcome?.message && <p className="tool-outcome">{tool.outcome.message}</p>}<span>{t("结果", "Result")}</span><pre tabIndex={0}>{tool.result || t("尚无结果", "No result yet")}</pre></div></details>
+      {problem && <div className="task-step-problem" role="group" aria-label={t("问题说明", "Problem")}>
+        <p><strong>{reason}</strong>{tool.outcome?.execution_certainty && <> · {taskCertaintyText(tool.outcome.execution_certainty, locale)}</>}</p>
+        <div className="task-step-actions"><button type="button" className="secondary-button" onClick={() => void copyDiagnostics()}><TofiIcon name="copy" size={15} aria-hidden="true" />{t("复制诊断信息", "Copy diagnostics")}</button>{tool.outcome?.status === "setup_required" && onOpenTools && <button type="button" className="secondary-button" onClick={onOpenTools}>{t("打开工具设置", "Open tool settings")}</button>}</div>
+        {copied && <p className="task-step-feedback" role="status">{copied}</p>}
+        <details className="task-step-technical"><summary>{t("技术详情", "Technical details")}</summary>{tool.outcome?.message && <p>{tool.outcome.message}</p>}<pre tabIndex={0}>{stepDiagnostics(tool)}</pre></details>
+      </div>}
+      <div className="tool-activity-details">{Number.isFinite(started) && <span className="task-step-time">{t("开始于", "Started")} {new Date(started).toLocaleTimeString(locale === "en" ? "en-US" : "zh-CN", { hour12: false })}</span>}<span>{t("参数", "Arguments")}</span><pre tabIndex={0}>{tool.arguments || t("（无）", "(none)")}</pre>{!problem && tool.outcome?.message && <p className="tool-outcome">{tool.outcome.message}</p>}<span>{t("结果", "Result")}</span><pre tabIndex={0}>{tool.result || t("尚无结果", "No result yet")}</pre></div></details>
   </li>;
 }
 
@@ -70,7 +87,11 @@ export function TaskRunBlock({ owner, tools, questions, drafts, messages, summar
     needsFocus.current = false;
     return () => { needsFocus.current = Boolean(block.current?.contains(document.activeElement) && document.activeElement?.closest(".approval-actions")); };
   }, [decisionKey, issue?.kind]);
-  const recordedQuestions = questions.filter(question => !decisions.some(item => item.question_id === question.question_id));
+  // Automatic pre-execution review outcomes are explained on the step they blocked;
+  // only decisions and answers a person gave stay as separate records.
+  const reviewOnlyStates = ["context_required", "setup_required", "unavailable", "policy_denied", "reviewing"];
+  const recordedQuestions = questions.filter(question => !decisions.some(item => item.question_id === question.question_id)
+    && !(question.question_type === "approval" && (question.approval?.review_only || question.approval?.review?.status.startsWith("shadow") || reviewOnlyStates.includes(question.approval?.review?.status ?? "") || reviewOnlyStates.includes(question.outcome?.status ?? ""))));
   const notes = messages.filter(message => ids.has(message.run_id ?? "") && message.conversation_id === run.conversation_id && message.role === "assistant" && message.kind === "progress");
   function loadInitial() {
     for (const attempt of owner.family.attempts) {
@@ -81,6 +102,7 @@ export function TaskRunBlock({ owner, tools, questions, drafts, messages, summar
   const attemptStatus = (status: string) => ({ done: t("已完成", "Done"), failed: t("失败", "Failed"), cancelled: t("已取消", "Cancelled"), interrupted: t("已中断", "Interrupted") } as Record<string, string>)[status] ?? t("已结束", "Ended");
   const toolTotal = owner.family.attempts.reduce<number | undefined>((sum, attempt) => { const count = summaries.find(item => item.run_id === attempt.id)?.tool_count ?? details[attempt.id]?.toolCount; return count === undefined || sum === undefined ? undefined : sum + count; }, 0);
   const runSeconds = run.status !== "running" && run.status !== "queued" ? (Date.parse(run.updated_at) - Date.parse(run.created_at)) / 1000 : NaN;
+  const problemCount = owner.family.attempts.reduce((sum, attempt) => { const summary = summaries.find(item => item.run_id === attempt.id); return sum + (summary ? summary.failed_count + summary.interrupted_count : tools.filter(tool => tool.run_id === attempt.id && problemStates.includes(toolDisplayState(tool))).length); }, 0);
   const activityDetail = [toolTotal ? t(`${toolTotal} 个工具`, `${toolTotal} ${toolTotal === 1 ? "tool" : "tools"}`) : "", Number.isFinite(runSeconds) && runSeconds >= 0 && toolTotal ? formatStepSeconds(runSeconds) : ""].filter(Boolean).join(" · ") || undefined;
   const [pendingStep, setPendingStep] = useState("");
   // While the Bot works the steps are open and the running step's clock ticks;
@@ -143,7 +165,7 @@ export function TaskRunBlock({ owner, tools, questions, drafts, messages, summar
     {decisions.map(renderQuestion)}
     {currentQuestions.filter(question => question.question_type === "approval" && question.status === "answered" && question.answer === true && !question.approval?.review_only).map(question => <p className="task-record-meta" data-question-id={question.question_id} key={question.question_id}>{t("已批准，操作尚未确认完成。", "Approved; execution is not yet confirmed.")}</p>)}
     {currentDrafts.filter(draft => draft.status !== "unknown").map(renderDraft)}
-    <ActivityDisclosure locale={locale} detail={activityDetail} disclosureRef={disclosure} onOpen={loadInitial}>
+    <ActivityDisclosure locale={locale} detail={activityDetail} problem={problemCount ? t(`${problemCount} 步未完成`, `${problemCount} ${problemCount === 1 ? "step" : "steps"} did not finish`) : undefined} disclosureRef={disclosure} onOpen={loadInitial}>
       {owner.family.previous.map((attempt, index) => <p key={attempt.id} className="task-record-meta">{t("此前尝试", "Previous attempt")} {index + 1} · {attemptStatus(attempt.status)}</p>)}
       {recordedQuestions.map(question => <section className="task-question-record" key={question.question_id} data-question-record-id={question.question_id} tabIndex={-1}>
         <p>{question.question_type === "approval" ? question.approval?.review_only || question.approval?.review?.status.startsWith("shadow") ? t("观察记录，不提供执行权限。", "Observation only; it does not grant execution permission.") : question.status === "answered" && question.answer === true ? t("已批准，操作尚未确认完成。", "Approved; execution is not yet confirmed.") : question.status === "expired" ? t("批准已过期。", "Approval expired.") : t("决定与执行前检查记录", "Decision and pre-execution check record") : t("回答记录", "Answer record")}</p>
@@ -151,7 +173,7 @@ export function TaskRunBlock({ owner, tools, questions, drafts, messages, summar
         {question.question_type === "approval" && <details><summary>{t("查看提案记录", "View proposal record")}</summary><MessageMarkdown content={question.question} />{question.approval && <dl><div><dt>{t("动作", "Action")}</dt><dd>{question.approval.action}</dd></div><div><dt>{t("对象", "Target")}</dt><dd>{question.approval.target}</dd></div><div><dt>{t("影响", "Impact")}</dt><dd>{question.approval.impact}</dd></div></dl>}{question.approval?.payload && <details><summary>{t("查看完整参数", "View full arguments")}</summary><pre tabIndex={0}>{question.approval.payload}</pre></details>}</details>}
         {question.question_type !== "approval" && renderQuestion(question)}
       </section>)}
-      <ol className={`task-tool-records${live ? " is-live" : ""}`}>{tools.map(tool => <ToolStepRecord key={`${tool.run_id}:${tool.call_id}`} tool={tool} locale={locale} now={live ? now : undefined} />)}</ol>
+      <ol className={`task-tool-records${live ? " is-live" : ""}`}>{tools.map(tool => <ToolStepRecord key={`${tool.run_id}:${tool.call_id}`} tool={tool} locale={locale} now={live ? now : undefined} onOpenTools={onOpenTools} />)}</ol>
       {drafts.filter(draft => draft.run_id !== run.id || draft.status === "unknown").map(renderDraft)}
       {notes.map(note => <details className="task-progress-record" key={note.id}><summary>{t("进度汇报", "Progress report")}</summary><MessageMarkdown content={note.content} /></details>)}
       {owner.family.previous.flatMap(attempt => messages.filter(message => message.run_id === attempt.id && message.role === "assistant" && message.kind !== "progress").map(message => <div key={message.id}>{renderMessage ? renderMessage(message) : <MessageMarkdown content={message.content} />}</div>))}
