@@ -153,39 +153,32 @@ try {
     const composer = page.getByRole("textbox", { name: `发送给 ${bot.name}` });
     await composer.fill("Unsent draft"); await composer.focus();
     activeOwner = true;
-    await launcher().waitFor();
+    // Wide layouts show a passive mini screen beside the composer; narrow layouts keep the icon.
+    const wide = width >= 768;
+    const opener = () => wide ? page.locator(".desktop-mini-open") : launcher();
+    await opener().waitFor();
     assert.equal(await composer.evaluate(element => element === document.activeElement), true);
-    assert.equal(await page.locator(".computer-detail").count(), 0);
-    assert.equal((await launcher().boundingBox()).width, 48);
-    noControl(); record("activity-icon-no-focus-or-viewer");
-    if (!touch) {
-      await launcher().hover();
-      await page.locator(".desktop-presence-peek .desktop-frame-status").filter({ hasText: "截图查看" }).waitFor();
-      assert.equal(await composer.evaluate(element => element === document.activeElement), true);
-      assert.equal(await page.locator('.desktop-presence-peek [inert]').count(), 1);
-      assert.equal(await page.locator('.desktop-presence-peek [role="switch"]').count(), 0);
-      noControl(); record("hover-is-passive");
-      await capture("preview", ".desktop-presence-peek");
-      if (reduce) assert.equal(await page.locator(".desktop-presence-peek").evaluate(element => getComputedStyle(element).animationName), "none");
-      await page.mouse.move(30, 40); await composer.focus();
-      await page.locator(".desktop-presence-peek").waitFor({ state: "detached" });
-      await launcher().focus();
-      await page.locator(".desktop-presence-peek").waitFor();
-      await page.keyboard.press("Escape");
-      await page.locator(".desktop-presence-peek").waitFor({ state: "detached" });
-      assert.equal(await launcher().evaluate(element => element === document.activeElement), true);
-      noControl(); record("keyboard-preview-escape");
-      await composer.focus();
-      await launcher().hover();
-      await page.locator(".desktop-presence-peek-hint").click();
-      await dialog().waitFor();
-      noControl();
-      await page.keyboard.press("Escape");
-      await dialog().waitFor({ state: "detached" });
-      await page.waitForFunction(() => document.activeElement?.closest(".composer"));
-      record("preview-click-opens-without-control-and-restores-composer");
-      await page.mouse.move(30, 40);
+    noControl(); record("activity-appears-without-focus-or-control");
+    if (wide) {
+      const mini = page.locator(".desktop-floating-shell.is-mini");
+      assert.equal(await page.locator(".computer-detail.is-expanded").count(), 0);
+      assert.equal(await mini.locator('.desktop-presence-canvas[inert]').count(), 1);
+      assert.equal(await mini.locator('[role="switch"]').count(), 0);
+      await mini.locator(".desktop-frame-status").filter({ hasText: "截图查看" }).waitFor();
+      const box = await mini.boundingBox(), composerBox = await page.locator(".composer .composer-row").boundingBox();
+      assert.ok(Math.abs(box.x + box.width - (composerBox.x + composerBox.width)) <= 2, `mini screen aligns with the composer's right edge: ${JSON.stringify({ box, composerBox })}`);
+      assert.ok(box.y + box.height <= composerBox.y, "mini screen sits above the composer");
+      if (reduce) assert.equal(await mini.evaluate(element => getComputedStyle(element).animationName), "none");
+      noControl(); record("mini-screen-is-passive-and-anchored");
+      await capture("mini", ".desktop-floating-shell.is-mini");
+      await page.locator(".desktop-mini").hover();
+      await page.waitForFunction(() => getComputedStyle(document.querySelector(".desktop-mini-controls")).opacity === "1");
+      await page.getByRole("button", { name: "收起小屏", exact: true }).click();
+      await launcher().waitFor();
+      assert.equal(await page.locator(".desktop-floating-shell.is-mini").count(), 0);
+      noControl(); record("mini-hide-falls-back-to-icon");
       if (layout === "desktop") {
+        // A stopped machine is never booted by the passive surface.
         computerState = "stopped";
         await launcher().focus();
         await page.locator(".desktop-presence-peek .desktop-bot-starting").waitFor();
@@ -194,7 +187,9 @@ try {
         record("passive-preview-never-boots-stopped-machine");
         computerState = "ready";
         await page.locator(".desktop-frame-status").filter({ hasText: "截图查看" }).waitFor();
+        await page.keyboard.press("Escape");
       }
+      await composer.focus();
     } else {
       await launcher().focus();
       assert.equal(await page.locator(".desktop-presence-peek").count(), 0);

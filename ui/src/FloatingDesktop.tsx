@@ -1,7 +1,30 @@
-import { useEffect, useId, useRef, useState, type ReactNode } from "react";
+import { useEffect, useId, useLayoutEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { TofiIcon } from "./icons";
 
-/** Activity announces availability; only an explicit opening creates a dialog. */
+/** Keeps the mini screen beside the composer's right edge, above the perched cat. */
+function useComposerAnchor(active: boolean) {
+  const [style, setStyle] = useState<CSSProperties>();
+  useLayoutEffect(() => {
+    if (!active) return;
+    const place = () => {
+      // .composer spans the column; .composer-row is the visible bordered box.
+      const composer = document.querySelector<HTMLElement>(".composer .composer-row") ?? document.querySelector<HTMLElement>(".composer");
+      if (!composer) { setStyle(undefined); return; }
+      const box = composer.getBoundingClientRect();
+      // The cat perches on the composer's top edge; the screen sits above it.
+      setStyle({ right: Math.max(16, window.innerWidth - box.right), bottom: Math.max(16, window.innerHeight - box.top + 64) });
+    };
+    place();
+    const composer = document.querySelector(".composer .composer-row") ?? document.querySelector(".composer");
+    const observer = composer ? new ResizeObserver(place) : undefined;
+    if (composer) observer?.observe(composer);
+    window.addEventListener("resize", place);
+    return () => { observer?.disconnect(); window.removeEventListener("resize", place); };
+  }, [active]);
+  return style;
+}
+
+/** Activity shows a small live screen; only an explicit opening creates a dialog. */
 export function FloatingDesktop({ expanded, activityLabel, onOpen, onClose, children }: {
   expanded: boolean; activityLabel?: string; onOpen: () => void; onClose: () => void; children: ReactNode;
 }) {
@@ -16,7 +39,11 @@ export function FloatingDesktop({ expanded, activityLabel, onOpen, onClose, chil
   const [focused, setFocused] = useState(false);
   const [dismissed, setDismissed] = useState(false);
   const contentId = useId();
-  const preview = !expanded && !dismissed && (hovered || focused);
+  // The mini screen is the collapsed form while a Bot works; hiding it leaves the launcher icon.
+  const [miniHidden, setMiniHidden] = useState(false);
+  const mini = !expanded && Boolean(activityLabel) && !miniHidden && window.matchMedia("(min-width: 768px)").matches;
+  const anchor = useComposerAnchor(mini);
+  const preview = !expanded && !mini && !dismissed && (hovered || focused);
   const supportsPreview = () => window.matchMedia("(min-width: 768px) and (hover: hover) and (pointer: fine)").matches;
   function openDesktop() {
     const focusedElement = document.activeElement;
@@ -83,6 +110,18 @@ export function FloatingDesktop({ expanded, activityLabel, onOpen, onClose, chil
       returnFocusRef.current = null;
     };
   }, [expanded]);
+
+  if (mini) return <div ref={shellRef} className="desktop-floating-shell is-mini" style={anchor}>
+    <div className="desktop-mini">
+      <button type="button" className="desktop-mini-open" aria-label={`打开共享电脑：${activityLabel}`} onClick={openDesktop} />
+      <div className="desktop-presence-canvas" inert aria-hidden="true">{children}</div>
+      <div className="desktop-mini-controls">
+        <button type="button" className="desktop-mini-control" aria-label="放大共享电脑" title="放大" onClick={openDesktop}><TofiIcon name="external-link" size={14} /></button>
+        <button type="button" className="desktop-mini-control" aria-label="收起小屏" title="收起" onClick={() => setMiniHidden(true)}><TofiIcon name="minus" size={14} /></button>
+      </div>
+      <p className="desktop-mini-status"><span className="desktop-presence-dot" aria-hidden="true" />{activityLabel}</p>
+    </div>
+  </div>;
 
   return <div ref={shellRef} className={`desktop-floating-shell${expanded ? " is-expanded" : ""}`}
     role={expanded ? "dialog" : undefined} aria-modal={expanded || undefined} aria-label={expanded ? "共享电脑" : undefined} tabIndex={expanded ? -1 : undefined}
