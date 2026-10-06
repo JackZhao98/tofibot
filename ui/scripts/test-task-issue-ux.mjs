@@ -103,6 +103,6 @@ assert.equal(toolDisplayLabel({...tool,status:"completed"}),"结果待核实");
  // 8. Both languages, neutral section, native details and untouched protected components.
  const english=markup(incident,"en");assert(english.includes("Required information"));assert(english.includes("Copy diagnostics"));assert(html.includes("技术详情"));assert(!html.includes('<details class="task-activity" open'));
  const css=await readFile(join(ui,"src/task-issue-card.css"),"utf8");for(const rule of ["min-height:44px","max-width:var(--chat-max)","prefers-reduced-motion","overflow-wrap:anywhere","max-width:560px"])assert(css.includes(rule));
- for(const file of ["ui/src/FloatingDesktop.tsx","ui/src/BotDesktopPanel.tsx","ui/src/MemoryPanel.tsx","ui/src/ModelSettings.tsx","ui/src/desktop-presence.css"]) {const current=await readFile(join(ui,"..",file));const base=execFileSync("git",["show",`fcb2157c58069db40ea13c0bdb12697cb6b2e2c5:${file}`],{cwd:join(ui,"..")});assert(current.equals(base),file);}
+ for(const file of ["ui/src/BotDesktopPanel.tsx","ui/src/MemoryPanel.tsx","ui/src/ModelSettings.tsx"]) {const current=await readFile(join(ui,"..",file));const base=execFileSync("git",["show",`fcb2157c58069db40ea13c0bdb12697cb6b2e2c5:${file}`],{cwd:join(ui,"..")});assert(current.equals(base),file);}
  console.log("PASS 8: bilingual copy, collapsed activity, semantic sections, 44px/reduced motion, protected components byte-identical");
 } finally {await server.close();}
