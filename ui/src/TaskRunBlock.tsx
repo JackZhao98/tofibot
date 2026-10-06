@@ -7,19 +7,37 @@ import { canAnswerQuestion, presentTaskIssue, taskCertaintyText, taskLocale, tas
 import type { Question } from "./questionTimeline";
 import type { MailDraft } from "./MailDraftCard";
 import type { Message, ToolActivity, ToolActivityRunSummary } from "./types";
+import { isTerminalRun } from "./runFamily";
+import { SPRINGS, springEasing } from "./motion-lab/lib/spring";
+import { prefersReducedMotion } from "./motion-lab/lib/hooks";
 import "./task-issue-card.css";
+
+const SETTLE = springEasing(SPRINGS.morph);
+const settleVars = { "--spring": SETTLE.easing, "--spring-ms": `${SETTLE.durationMs}ms` } as React.CSSProperties;
 
 export type TaskDetailState = { loaded: number; toolCount: number; hasMore: boolean; loading: boolean; error?: string };
 export type TaskRunBlockProps = { owner: TaskOwner; tools: ToolActivity[]; questions: Question[]; drafts: MailDraft[]; messages: Message[]; summaries: ToolActivityRunSummary[]; details?: Record<string, TaskDetailState>; connected?: boolean; locale?: TaskLocale; botName?: string; showName?: boolean; onFeedback?: (text:string) => void; onOpenTools: () => void; onRefresh: () => Promise<void>; onLoadDetails?: (runId: string, offset: number) => Promise<void>; renderMessage?: (message: Message) => ReactNode; renderQuestion: (question: Question) => ReactNode; renderDraft: (draft: MailDraft) => ReactNode };
 
+/** Animate the records' height; the <details> open state stays the source of truth. */
+export function animateRecords(details: HTMLDetailsElement, open: boolean) {
+  const records = details.querySelector<HTMLElement>(".task-activity-records");
+  if (!records || prefersReducedMotion()) { details.open = open; return; }
+  if (open) details.open = true;
+  const height = records.scrollHeight;
+  const motion = records.animate({ height: open ? ["0px", `${height}px`] : [`${height}px`, "0px"], opacity: open ? [0, 1] : [1, 0] }, { duration: SETTLE.durationMs, easing: SETTLE.easing });
+  if (!open) motion.finished.then(() => { details.open = false; }, () => { details.open = false; });
+}
+
 export function ActivityDisclosure({ children, locale, detail, disclosureRef, onOpen }: { children: ReactNode; locale: TaskLocale; detail?: string; disclosureRef: React.RefObject<HTMLDetailsElement | null>; onOpen: () => void }) {
-  return <details className="task-activity" ref={disclosureRef} onToggle={event => { if (event.currentTarget.open) onOpen(); }}><summary><TofiIcon name="chevron-right" size={16} aria-hidden="true" />{taskText(locale, "工作过程", "Activity")}{detail && <span className="task-activity-detail"> · {detail}</span>}</summary><div className="task-activity-records">{children}</div></details>;
+  return <details className="task-activity" ref={disclosureRef} style={settleVars} onToggle={event => { if (event.currentTarget.open) onOpen(); }}><summary onClick={event => { const details = event.currentTarget.parentElement as HTMLDetailsElement | null; if (!details) return; event.preventDefault(); animateRecords(details, !details.open); }}><TofiIcon name="chevron-right" size={16} aria-hidden="true" />{taskText(locale, "工作过程", "Activity")}{detail && <span className="task-activity-detail"> · {detail}</span>}</summary><div className="task-activity-records">{children}</div></details>;
 }
 
 /** One step: marker, human action, short argument, then state and duration. */
-function ToolStepRecord({ tool, locale }: { tool: ToolActivity; locale: TaskLocale }) {
+function ToolStepRecord({ tool, locale, now }: { tool: ToolActivity; locale: TaskLocale; now?: number }) {
   const t = (zh: string, en: string) => taskText(locale, zh, en);
-  const state = toolDisplayState(tool), seconds = toolStepSeconds(tool), preview = toolStepDetail(tool);
+  const state = toolDisplayState(tool), preview = toolStepDetail(tool);
+  const live = tool.status === "running" && now !== undefined ? Math.max(0, (now - Date.parse(tool.started_at)) / 1000) : undefined;
+  const seconds = toolStepSeconds(tool) ?? (Number.isFinite(live) ? live : undefined);
   const started = Date.parse(tool.started_at);
   return <li className={`task-step is-${state}`} data-step={`${tool.run_id}:${tool.call_id}`}>
     <details><summary><span className="task-step-marker" aria-hidden="true" /><span className="task-step-title">{toolStepTitle(tool)}{preview && <span className="task-step-argument"> · {preview}</span>}</span><span className="task-step-state">{toolDisplayLabel(tool, locale)}{seconds !== undefined && <time> · {formatStepSeconds(seconds)}</time>}</span></summary>
@@ -65,6 +83,26 @@ export function TaskRunBlock({ owner, tools, questions, drafts, messages, summar
   const runSeconds = run.status !== "running" && run.status !== "queued" ? (Date.parse(run.updated_at) - Date.parse(run.created_at)) / 1000 : NaN;
   const activityDetail = [toolTotal ? t(`${toolTotal} 个工具`, `${toolTotal} ${toolTotal === 1 ? "tool" : "tools"}`) : "", Number.isFinite(runSeconds) && runSeconds >= 0 && toolTotal ? formatStepSeconds(runSeconds) : ""].filter(Boolean).join(" · ") || undefined;
   const [pendingStep, setPendingStep] = useState("");
+  // While the Bot works the steps are open and the running step's clock ticks;
+  // when the run ends they fold into the summary line (Motion Lab ToolSteps).
+  const live = !isTerminalRun(run);
+  const [now, setNow] = useState(() => Date.now());
+  const wasLive = useRef(live);
+  useEffect(() => {
+    if (!live || !currentTools.some(tool => tool.status === "running")) return;
+    const ticker = window.setInterval(() => setNow(Date.now()), 100);
+    return () => window.clearInterval(ticker);
+  }, [live, currentTools]);
+  useEffect(() => {
+    const details = disclosure.current;
+    if (!details) return;
+    if (live && !wasLive.current) wasLive.current = true;
+    if (live && !details.open && currentTools.length) { details.open = true; }
+    if (!live && wasLive.current) {
+      wasLive.current = false;
+      if (details.open) foldSteps(details);
+    }
+  }, [live, currentTools.length]);
   function openStep(runId: string, callId: string) {
     if (disclosure.current && !disclosure.current.open) disclosure.current.open = true;
     setPendingStep(`${runId}:${callId}`);
@@ -80,6 +118,23 @@ export function TaskRunBlock({ owner, tools, questions, drafts, messages, summar
     step.querySelector<HTMLElement>("summary")?.focus({ preventScroll: true });
     setPendingStep("");
   }, [pendingStep, tools]);
+  function foldSteps(details: HTMLDetailsElement) {
+    const records = details.querySelector<HTMLElement>(".task-activity-records");
+    const summary = details.querySelector<HTMLElement>(":scope > summary");
+    if (!records || !summary || prefersReducedMotion()) { details.open = false; return; }
+    const from = records.getBoundingClientRect(), to = summary.getBoundingClientRect();
+    const ghost = records.cloneNode(true) as HTMLElement;
+    ghost.classList.add("task-steps-ghost");
+    // The ghost covers the answer arriving underneath, so it takes the page's real background.
+    let surface: Element | null = details, background = "";
+    while (surface && (!background || background === "transparent" || background === "rgba(0, 0, 0, 0)")) { background = getComputedStyle(surface).backgroundColor; surface = surface.parentElement; }
+    Object.assign(ghost.style, { position: "fixed", left: `${from.left}px`, top: `${from.top}px`, width: `${from.width}px`, margin: "0", pointerEvents: "none", transformOrigin: "0 0", zIndex: "3", background });
+    document.body.append(ghost);
+    details.open = false;
+    const fold = ghost.animate({ transform: ["none", `translate(${to.left - from.left}px, ${to.top - from.top}px) scale(${Math.min(1, to.width / from.width)}, ${Math.max(0.05, to.height / from.height)})`], opacity: [1, 0.6, 0] }, { duration: 520, easing: "cubic-bezier(.5,0,.2,1)" });
+    summary.animate({ opacity: [0.4, 1], transform: ["translateY(-4px)", "none"] }, { duration: 360, delay: 260, easing: "cubic-bezier(.22,1,.36,1)", fill: "backwards" });
+    fold.finished.finally(() => ghost.remove());
+  }
   function viewActivity() { if (disclosure.current) { disclosure.current.open = true; disclosure.current.querySelector("summary")?.focus(); } }
   return <section ref={block} className="task-run-block" data-task-owner={owner.key} data-run-id={run.id} data-latest-run-id={run.id} tabIndex={-1} aria-label={t("任务记录", "Task records")}>
     {showName && botName && <p className="task-run-identity">{botName}</p>}
@@ -96,7 +151,7 @@ export function TaskRunBlock({ owner, tools, questions, drafts, messages, summar
         {question.question_type === "approval" && <details><summary>{t("查看提案记录", "View proposal record")}</summary><MessageMarkdown content={question.question} />{question.approval && <dl><div><dt>{t("动作", "Action")}</dt><dd>{question.approval.action}</dd></div><div><dt>{t("对象", "Target")}</dt><dd>{question.approval.target}</dd></div><div><dt>{t("影响", "Impact")}</dt><dd>{question.approval.impact}</dd></div></dl>}{question.approval?.payload && <details><summary>{t("查看完整参数", "View full arguments")}</summary><pre tabIndex={0}>{question.approval.payload}</pre></details>}</details>}
         {question.question_type !== "approval" && renderQuestion(question)}
       </section>)}
-      <ol className="task-tool-records">{tools.map(tool => <ToolStepRecord key={`${tool.run_id}:${tool.call_id}`} tool={tool} locale={locale} />)}</ol>
+      <ol className={`task-tool-records${live ? " is-live" : ""}`}>{tools.map(tool => <ToolStepRecord key={`${tool.run_id}:${tool.call_id}`} tool={tool} locale={locale} now={live ? now : undefined} />)}</ol>
       {drafts.filter(draft => draft.run_id !== run.id || draft.status === "unknown").map(renderDraft)}
       {notes.map(note => <details className="task-progress-record" key={note.id}><summary>{t("进度汇报", "Progress report")}</summary><MessageMarkdown content={note.content} /></details>)}
       {owner.family.previous.flatMap(attempt => messages.filter(message => message.run_id === attempt.id && message.role === "assistant" && message.kind !== "progress").map(message => <div key={message.id}>{renderMessage ? renderMessage(message) : <MessageMarkdown content={message.content} />}</div>))}

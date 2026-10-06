@@ -19,6 +19,7 @@
 .task-activity{margin-block-start:var(--space-2)}
 .task-activity>summary{display:flex;align-items:center;gap:var(--space-2);font:var(--type-meta);list-style:none}
 .task-activity>summary::-webkit-details-marker{display:none}
+.task-activity>summary>svg{transition:transform var(--spring-ms,300ms) var(--spring,ease)}
 .task-activity[open]>summary>svg{transform:rotate(90deg)}
 .task-activity-records{padding-block:var(--space-2);min-width:0;border-block-start:1px solid var(--border-soft)}
 .task-activity-detail{color:var(--text-secondary);font:var(--type-code)}
@@ -37,7 +38,13 @@
 .task-step.is-failed .task-step-state{color:var(--status-error-text)}
 .task-step-time{color:var(--text-secondary);font:var(--type-meta)}
 @keyframes task-step-breathe{50%{opacity:.35}}
-@media(prefers-reduced-motion:reduce){.task-step-marker{animation:none!important}}
+/* Motion Lab ToolSteps: live steps drop in; the running step's label carries a lagoon sheen. */
+.task-tool-records.is-live .task-step{animation:task-step-in 360ms var(--spring,ease) both}
+.task-step.is-running .task-step-title{color:transparent;-webkit-background-clip:text;background-clip:text;background-image:linear-gradient(100deg,var(--text-body) 0 38%,var(--lagoon-text) 50%,var(--text-body) 62% 100%);background-size:260% 100%;animation:task-step-sheen 1.8s linear infinite}
+.task-step.is-running .task-step-state{color:var(--lagoon-text);font-variant-numeric:tabular-nums}
+@keyframes task-step-in{from{opacity:0;transform:translateY(-6px)}}
+@keyframes task-step-sheen{from{background-position:100% 0}to{background-position:-60% 0}}
+@media(prefers-reduced-motion:reduce){.task-step-marker,.task-tool-records.is-live .task-step,.task-step.is-running .task-step-title{animation:none!important}.task-step.is-running .task-step-title{color:var(--text-body);background:none}.task-activity>summary>svg{transition:none}}
 .task-record-meta,.task-question-record{font:var(--type-meta);color:var(--text-secondary)}
 .task-question-record{padding-block:var(--space-2)}.task-question-record p{margin:0 0 var(--space-2)}.task-question-record dl{margin:0}.task-question-record dl>div{display:flex;gap:var(--space-3)}.task-question-record dd{margin:0;overflow-wrap:anywhere}
 .task-run-block :is(button,summary,pre,h3):focus-visible{outline:2px solid var(--focus-ring);outline-offset:3px}
