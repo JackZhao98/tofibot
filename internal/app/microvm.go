@@ -343,6 +343,9 @@ func (s *Server) resourceLease(botID string) *sync.Mutex {
 // microVMTools are intentionally separate from the paired-Mac queue. A VM is
 // already bound to this service's one workspace and therefore never accepts a
 // user-provided VM/socket identifier.
+// effectParam is the model's own statement of a page action's effect.
+var effectParam = map[string]any{"type": "string", "enum": actionEffects, "description": "For click/type/key: what this does outside reading. none = read, open, navigate, select, search; otherwise submit, purchase, send, delete, publish, account (sign-up, permissions, settings) or other_external. Actions with an effect may need the user's confirmation."}
+
 func (s *Server) microVMTools(r Run) []Tool {
 	if s.microVM == nil {
 		return nil
@@ -396,18 +399,34 @@ func (s *Server) microVMTools(r Run) []Tool {
 				}
 				return out, err
 			}
-			if action == "desktop.click" {
-				var at struct{ X, Y float64 }
-				var dims struct {
-					W float64 `json:"screenshot_width"`
-					H float64 `json:"screenshot_height"`
+			var declared struct {
+				Effect string `json:"effect"`
+				Text   string `json:"text"`
+				Key    string `json:"key"`
+			}
+			_ = json.Unmarshal(raw, &declared)
+			if (action == "desktop.click" || action == "desktop.type" || action == "desktop.key") && consequentialEffect(declared.Effect) {
+				var target actionTarget
+				if action == "desktop.click" {
+					var at struct{ X, Y float64 }
+					var dims struct {
+						W float64 `json:"screenshot_width"`
+						H float64 `json:"screenshot_height"`
+					}
+					_ = json.Unmarshal(args, &at)
+					_ = json.Unmarshal(args, &dims)
+					if dims.W <= 0 || dims.H <= 0 {
+						dims.W, dims.H = 1280, 800
+					}
+					target = s.locateAction(ctx, r, browserReadArgs{Probe: []float64{at.X, at.Y, dims.W, dims.H}})
+				} else {
+					target = s.locateAction(ctx, r, browserReadArgs{Probe: []float64{-1, -1, 1, 1}})
 				}
-				_ = json.Unmarshal(args, &at)
-				_ = json.Unmarshal(args, &dims)
-				if dims.W <= 0 || dims.H <= 0 {
-					dims.W, dims.H = 1280, 800
+				text := declared.Text
+				if action == "desktop.key" {
+					text = "key " + declared.Key
 				}
-				if err := s.guardConsequentialClick(ctx, r, browserReadArgs{Probe: []float64{at.X, at.Y, dims.W, dims.H}}); err != nil {
+				if err := s.guardAction(ctx, r, actionReview{Kind: strings.TrimPrefix(action, "desktop."), Effect: declared.Effect, Element: target.Label, Text: text, URL: target.URL, Title: target.Title}); err != nil {
 					return "", err
 				}
 			}
@@ -469,7 +488,7 @@ func (s *Server) microVMTools(r Run) []Tool {
 		argsJSON, _ := json.Marshal(args)
 		return in.Action, argsJSON, nil
 	})
-	desktop := call("computer_desktop", "Control the shared user VM's display and Chrome session. All Bots share this display/browser. Graphical actions wait for exclusive control; inspect after acquiring it or after the page changes. A successful browser.snapshot already includes a current screenshot and proves the desktop is running: use that screenshot directly, without an extra desktop.start or desktop.capture. Use desktop.start when desktop readiness is unknown/stopped; desktop.capture is an alternative observation for non-browser UI. Click/type/key/scroll act on the current visible screen. After an input sequence, inspect the result before claiming success.", objectSchema(map[string]any{"action": map[string]any{"type": "string", "enum": []string{"desktop.start", "desktop.stop", "desktop.capture", "desktop.snapshot", "desktop.click", "desktop.type", "desktop.key", "desktop.scroll", "start", "stop", "capture", "click", "type", "key", "scroll"}, "description": "desktop.start/stop/capture/click/type/key/scroll (desktop.snapshot = capture)"}, "x": map[string]any{"type": "integer", "minimum": 0, "description": "Screen pixel X from the latest capture"}, "y": map[string]any{"type": "integer", "minimum": 0, "description": "Screen pixel Y from the latest capture"}, "screenshot_width": map[string]any{"type": "integer", "minimum": 1, "maximum": 1280, "description": "Width of the screenshot used for x/y; provide together with screenshot_height"}, "screenshot_height": map[string]any{"type": "integer", "minimum": 1, "maximum": 800, "description": "Height of the screenshot used for x/y; provide together with screenshot_width"}, "direction": map[string]any{"type": "string", "enum": []string{"up", "down", "left", "right"}, "description": "Visible page scroll direction"}, "amount": map[string]any{"type": "integer", "minimum": 1, "maximum": 20, "description": "Mouse wheel steps, default 3"}, "text": map[string]any{"type": "string"}, "key": map[string]any{"type": "string", "description": "X11 key name, for example Return or Escape"}, "modifiers": map[string]any{"type": "array", "items": map[string]any{"type": "string"}}}, []string{"action"}), func(raw json.RawMessage) (string, json.RawMessage, error) {
+	desktop := call("computer_desktop", "Control the shared user VM's display and Chrome session. All Bots share this display/browser. Graphical actions wait for exclusive control; inspect after acquiring it or after the page changes. A successful browser.snapshot already includes a current screenshot and proves the desktop is running: use that screenshot directly, without an extra desktop.start or desktop.capture. Use desktop.start when desktop readiness is unknown/stopped; desktop.capture is an alternative observation for non-browser UI. Click/type/key/scroll act on the current visible screen. After an input sequence, inspect the result before claiming success.", objectSchema(map[string]any{"action": map[string]any{"type": "string", "enum": []string{"desktop.start", "desktop.stop", "desktop.capture", "desktop.snapshot", "desktop.click", "desktop.type", "desktop.key", "desktop.scroll", "start", "stop", "capture", "click", "type", "key", "scroll"}, "description": "desktop.start/stop/capture/click/type/key/scroll (desktop.snapshot = capture)"}, "x": map[string]any{"type": "integer", "minimum": 0, "description": "Screen pixel X from the latest capture"}, "y": map[string]any{"type": "integer", "minimum": 0, "description": "Screen pixel Y from the latest capture"}, "screenshot_width": map[string]any{"type": "integer", "minimum": 1, "maximum": 1280, "description": "Width of the screenshot used for x/y; provide together with screenshot_height"}, "screenshot_height": map[string]any{"type": "integer", "minimum": 1, "maximum": 800, "description": "Height of the screenshot used for x/y; provide together with screenshot_width"}, "direction": map[string]any{"type": "string", "enum": []string{"up", "down", "left", "right"}, "description": "Visible page scroll direction"}, "amount": map[string]any{"type": "integer", "minimum": 1, "maximum": 20, "description": "Mouse wheel steps, default 3"}, "text": map[string]any{"type": "string"}, "key": map[string]any{"type": "string", "description": "X11 key name, for example Return or Escape"}, "effect": effectParam, "modifiers": map[string]any{"type": "array", "items": map[string]any{"type": "string"}}}, []string{"action"}), func(raw json.RawMessage) (string, json.RawMessage, error) {
 		var in struct {
 			Action           string   `json:"action"`
 			Direction        string   `json:"direction,omitempty"`
@@ -481,6 +500,7 @@ func (s *Server) microVMTools(r Run) []Tool {
 			Text             string   `json:"text,omitempty"`
 			Key              string   `json:"key,omitempty"`
 			Modifiers        []string `json:"modifiers,omitempty"`
+			Effect           string   `json:"effect,omitempty"`
 		}
 		if err := decode(raw, &in); err != nil {
 			return "", nil, errors.New("computer_desktop requires a desktop action")
@@ -526,7 +546,7 @@ func (s *Server) microVMTools(r Run) []Tool {
 		argsJSON, _ := json.Marshal(args)
 		return in.Action, argsJSON, nil
 	})
-	browser := call("computer_browser", "Use the shared Chrome. browser.read returns the focused page's text and links (use find to jump to a phrase); prefer it for reading pages, results, articles and mail. browser.click clicks an item by its visible text (a mail subject, button, link) and returns the new page, so no screenshot or coordinates are needed. browser.snapshot returns a screenshot for layout and click coordinates. browser.navigate opens a URL in the current tab (search engines and site searches by URL are fine). browser.action switches/opens/closes tabs. All Bots share this Chrome and its logged-in profile.", objectSchema(map[string]any{"action": map[string]any{"type": "string", "enum": []string{"browser.read", "browser.click", "browser.navigate", "browser.snapshot", "browser.action", "read", "click", "navigate", "snapshot"}, "description": "browser.read: page text+links (optional find, max_chars); browser.click: click the element showing click text, then returns the page like read; browser.navigate needs url; browser.snapshot: screenshot; browser.action uses target_action"}, "click": map[string]any{"type": "string", "description": "browser.click: visible text of the item to click (a mail subject, button or link label)"}, "find": map[string]any{"type": "string", "description": "browser.read: return passages around this phrase"}, "max_chars": map[string]any{"type": "integer", "minimum": 1000, "maximum": 60000, "description": "browser.read: text budget, default 20000"}, "url": map[string]any{"type": "string", "description": "URL for browser.navigate"}, "target_action": map[string]any{"type": "string", "enum": []string{"navigate", "snapshot", "new", "switch", "close"}, "description": "Browser action; new explicitly opens a foreground tab; switch/close require target_id"}, "target_id": map[string]any{"type": "string", "description": "Exact target_id from browser.snapshot; omit to use the actual current foreground tab"}}, []string{"action"}), func(raw json.RawMessage) (string, json.RawMessage, error) {
+	browser := call("computer_browser", "Use the shared Chrome. browser.read returns the focused page's text and links (use find to jump to a phrase); prefer it for reading pages, results, articles and mail. browser.click clicks an item by its visible text (a mail subject, button, link) and returns the new page, so no screenshot or coordinates are needed. browser.snapshot returns a screenshot for layout and click coordinates. browser.navigate opens a URL in the current tab (search engines and site searches by URL are fine). browser.action switches/opens/closes tabs. All Bots share this Chrome and its logged-in profile.", objectSchema(map[string]any{"action": map[string]any{"type": "string", "enum": []string{"browser.read", "browser.click", "browser.navigate", "browser.snapshot", "browser.action", "read", "click", "navigate", "snapshot"}, "description": "browser.read: page text+links (optional find, max_chars); browser.click: click the element showing click text, then returns the page like read; browser.navigate needs url; browser.snapshot: screenshot; browser.action uses target_action"}, "click": map[string]any{"type": "string", "description": "browser.click: visible text of the item to click (a mail subject, button or link label)"}, "effect": effectParam, "find": map[string]any{"type": "string", "description": "browser.read: return passages around this phrase"}, "max_chars": map[string]any{"type": "integer", "minimum": 1000, "maximum": 60000, "description": "browser.read: text budget, default 20000"}, "url": map[string]any{"type": "string", "description": "URL for browser.navigate"}, "target_action": map[string]any{"type": "string", "enum": []string{"navigate", "snapshot", "new", "switch", "close"}, "description": "Browser action; new explicitly opens a foreground tab; switch/close require target_id"}, "target_id": map[string]any{"type": "string", "description": "Exact target_id from browser.snapshot; omit to use the actual current foreground tab"}}, []string{"action"}), func(raw json.RawMessage) (string, json.RawMessage, error) {
 		var in struct {
 			Action       string `json:"action"`
 			URL          string `json:"url,omitempty"`
@@ -535,6 +555,7 @@ func (s *Server) microVMTools(r Run) []Tool {
 			Find         string `json:"find,omitempty"`
 			MaxChars     int    `json:"max_chars,omitempty"`
 			Click        string `json:"click,omitempty"`
+			Effect       string `json:"effect,omitempty"`
 		}
 		if err := decode(raw, &in); err != nil || in.Action == "" {
 			return "", nil, errors.New("computer_browser requires a browser action")
@@ -547,7 +568,7 @@ func (s *Server) microVMTools(r Run) []Tool {
 		case "browser.read":
 			args = browserReadArgs{Find: in.Find, MaxChars: in.MaxChars}
 		case "browser.click":
-			args = browserReadArgs{Click: in.Click, Find: in.Find, MaxChars: in.MaxChars}
+			args = browserReadArgs{Click: in.Click, Find: in.Find, MaxChars: in.MaxChars, Effect: in.Effect}
 		case "browser.navigate":
 			args = struct {
 				URL      string `json:"url"`

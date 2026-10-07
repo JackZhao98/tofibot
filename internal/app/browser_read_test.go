@@ -1,9 +1,12 @@
 package app
 
 import (
+	"context"
 	"encoding/base64"
 	"encoding/json"
 	"errors"
+	"github.com/JackZhao98/tofibot/internal/provider"
+	"github.com/JackZhao98/tofibot/internal/tooloutcome"
 	"strings"
 	"testing"
 )
@@ -79,14 +82,38 @@ func TestOnlyDeadDevToolsTriggersDesktopRestart(t *testing.T) {
 	}
 }
 
-func TestConsequentialClickLabels(t *testing.T) {
-	for label, risky := range map[string]bool{
-		"Place order": true, "Buy now": true, "Send": true, "Delete": true, "提交订单": true, "立即支付": true, "发送": true,
-		"Sent": false, "Posts": false, "Your reward is ready": false, "Inbox": false, "Promotions": false, "Read more": false,
-	} {
-		if consequentialLabel(label) != risky {
-			t.Errorf("%q risky=%v", label, !risky)
-		}
+func TestActionReviewFollowsDeclaredEffect(t *testing.T) {
+	s, bot, conv := contextSurfaceServer(t)
+	_, run, _, err := s.store.AddUserRun(conv.ID, bot.ID, "fill the httpbin form and submit it", "effect-review")
+	if err != nil {
+		t.Fatal(err)
+	}
+	decision := "allow"
+	var seen actionReview
+	stub := &reviewStub{t: t, reply: func(_ context.Context, req *provider.ChatRequest) (*provider.ChatResponse, error) {
+		_ = json.Unmarshal([]byte(req.Messages[0].Content), &seen)
+		return &provider.ChatResponse{Content: `{"decision":"` + decision + `","reason":"stub"}`}, nil
+	}}
+	s.autoReviewProvider = stub
+	if err := s.guardAction(context.Background(), run, actionReview{Kind: "click", Effect: "none", Element: "Next page"}); err != nil || stub.calls.Load() != 0 {
+		t.Fatalf("a no-effect action must not be reviewed: err=%v calls=%d", err, stub.calls.Load())
+	}
+	if err := s.guardAction(context.Background(), run, actionReview{Kind: "click", Effect: "submit", Element: "Submit order"}); err != nil {
+		t.Fatalf("reviewer allowed: %v", err)
+	}
+	if seen.Request != "fill the httpbin form and submit it" || seen.Effect != "submit" || seen.Element != "Submit order" {
+		t.Fatalf("reviewer input=%+v", seen)
+	}
+	decision = "confirm"
+	err = s.guardAction(context.Background(), run, actionReview{Kind: "click", Effect: "purchase", Element: "Place order"})
+	if o, ok := tooloutcome.FromError(err); !ok || o.Code != "user_confirmation_required" {
+		t.Fatalf("confirm must ask the user: %v", err)
+	}
+	s.autoReviewProvider = &reviewStub{t: t, reply: func(context.Context, *provider.ChatRequest) (*provider.ChatResponse, error) {
+		return nil, errors.New("down")
+	}}
+	if err := s.guardAction(context.Background(), run, actionReview{Kind: "click", Effect: "delete", Element: "Delete"}); err == nil {
+		t.Fatal("an unavailable reviewer must ask the user")
 	}
 }
 
