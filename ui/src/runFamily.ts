@@ -64,6 +64,7 @@ export function runFailureText(run: Run) {
   if (run.status === "cancelled") return "本次请求已停止。已完成的工具结果保留。";
   if (run.status === "interrupted") return "本次请求已中断，任务未完成。已完成的工具结果保留。";
   if (run.status !== "failed") return "";
+  if (run.failure?.code === "no_final_answer") return "本次任务结束时没有给出最终回答。已完成的工具结果保留，可重试。";
   if (run.failure?.code === "budget_exhausted") return "本次任务的执行预算已用尽，任务未完成。已完成的工具结果保留，请检查原因后继续。";
   const interrupted = run.failure?.source === "runtime" && run.failure.code === "connection_interrupted"
     || (!run.failure && /stream read error|connection reset|unexpected EOF|INTERNAL_ERROR.*received from peer/i.test(run.error ?? ""));

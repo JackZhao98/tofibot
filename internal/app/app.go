@@ -1813,7 +1813,8 @@ func (s *Store) finishRunState(id, conv, bot, content string, silent bool, failu
 			return Message{}, false, errors.New("cannot stay silent after publishing, delegating, or preparing attachments")
 		}
 	}
-	publish := strings.TrimSpace(content) != "" || (handoffs == 0 && runKind != runKindGroupChat) || pendingFiles > 0
+	// An empty assistant message is never published; attachments alone may be.
+	publish := strings.TrimSpace(content) != "" || pendingFiles > 0
 	var draftID, draftStatus string
 	var draftSeq int64
 	_ = tx.QueryRow(`SELECT message_id,status,seq FROM stream_drafts WHERE run_id=?`, id).Scan(&draftID, &draftStatus, &draftSeq)
@@ -3275,6 +3276,12 @@ func (s *Server) execute(c Conversation, r Run) {
 	if persistErr != nil {
 		e = persistErr
 	}
+	if e == nil && ctx.Err() != nil {
+		// A cancelled run context never carries a completed answer, whatever
+		// the engine reported (run e8cb6243 finished "done" and empty when a
+		// deploy stopped it mid model call).
+		e = ctx.Err()
+	}
 	if steeringCancelled {
 		if current, err := s.store.GetRun(r.ID); err == nil && current.Status == "running" {
 			_, _ = s.store.SetRunStatus(r.ID, "cancelled", "run context cancelled")
@@ -3285,10 +3292,12 @@ func (s *Server) execute(c Conversation, r Run) {
 		// Shutdown can cancel the runtime just after the checkpoint transaction
 		// committed. That durable wait is restart-safe; an explicit user Stop
 		// already removed it transactionally and must not be resurrected here.
+		// A run stopped by shutdown stays running: startup recovery marks it
+		// interrupted, the state a restarted service reports for unfinished work.
 		s.mu.Lock()
 		closing := s.closing
 		s.mu.Unlock()
-		if closing && s.store.preservesInputWait(r.ID) {
+		if closing {
 			return
 		}
 		status := "failed"
@@ -3395,6 +3404,33 @@ func (s *Server) execute(c Conversation, r Run) {
 					res.Content = ""
 					s.enqueue(c, child)
 				}
+			}
+		}
+	}
+	if res.Content == "" {
+		required, err := s.store.finalAnswerRequired(r.ID)
+		if err != nil {
+			s.failRun(c, r, err)
+			return
+		}
+		if required {
+			// Never end "done" in silence. The retained demoted draft is the
+			// answer; it still occupies the stream draft, so it publishes under
+			// that identity without a reset and is not published again.
+			demotedMu.Lock()
+			draft := demoted.content
+			demoted = demotedDraft{}
+			demotedMu.Unlock()
+			if draft != "" {
+				res.Content = draft
+			} else if progressed, err := s.store.hasProgressReport(r.ID); err != nil {
+				s.failRun(c, r, err)
+				return
+			} else if progressed {
+				res.Content = noFinalAnswerProgressNote
+			} else {
+				s.failRun(c, r, errNoFinalAnswer)
+				return
 			}
 		}
 	}
