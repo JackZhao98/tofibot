@@ -895,13 +895,7 @@ func parseMentions(content string, members []Bot) mentionResult {
 }
 
 func (s *Server) triageModelName() string {
-	if s.triageModel != "" {
-		return s.triageModel
-	}
-	if strings.EqualFold(s.provider, "openai_codex") || s.provider == "" {
-		return "codex-gpt-5.6-luna"
-	}
-	return s.defaultModel
+	return s.backgroundModel(backgroundTriage)
 }
 
 func (s *Server) memberBots(c Conversation) ([]Bot, error) {

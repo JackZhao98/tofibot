@@ -331,23 +331,17 @@ func (s *Server) guardAction(ctx context.Context, r Run, a actionReview) error {
 
 func (s *Server) reviewAction(ctx context.Context, a actionReview) (bool, string) {
 	const fallback = "the reviewer could not assess it."
-	p := s.autoReviewProvider
+	p, model := s.autoReviewProvider, codexReviewModel
 	if p == nil {
-		if s.provider != "openai_codex" || s.codex == nil {
-			return false, fallback
-		}
-		credential, err := s.codex.Credential(ctx)
-		if err != nil {
-			return false, fallback
-		}
-		if p, err = provider.New("openai_codex", credential); err != nil {
+		var err error
+		if p, model, err = s.backgroundProvider(ctx, backgroundReview); err != nil {
 			return false, fallback
 		}
 	}
 	ctx, cancel := context.WithTimeout(ctx, autoReviewTimeout)
 	defer cancel()
 	input, _ := json.Marshal(a)
-	resp, err := p.Chat(ctx, &provider.ChatRequest{Model: "codex-auto-review", System: actionReviewPrompt, Messages: []provider.Message{{Role: "user", Content: string(input)}}})
+	resp, err := p.Chat(ctx, &provider.ChatRequest{Model: model, System: actionReviewPrompt, Messages: []provider.Message{{Role: "user", Content: string(input)}}})
 	if err != nil || resp == nil {
 		return false, fallback
 	}
