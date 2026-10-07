@@ -33,11 +33,13 @@ export function buildTaskOwners(runs: Run[], messages: Message[], questions: Que
   });
 }
 
+/** Outcome codes that close an approval proposal; review states arrive as codes, not statuses. */
+const closedProposalCodes = ["mcp_review_setup_missing", "mcp_review_context_missing", "mcp_review_unavailable", "mcp_review_policy_denied", "approval_window_expired", "approval_denied"];
 /** Keep the incumbent answer guards. Advice alone never creates permission. */
 export function canAnswerQuestion(question: Question, archived = false) {
   if (archived || question.status !== "pending") return false;
   if (question.question_type !== "approval") return true;
-  if (question.outcome?.execution_certainty === "unknown" || ["approval_expired", "approval_denied", "uncertain_effect", "setup_required", "context_required", "unavailable", "policy_denied"].includes(question.outcome?.status ?? "")) return false;
+  if (question.outcome?.execution_certainty === "unknown" || ["approval_expired", "uncertain_effect"].includes(question.outcome?.status ?? "") || closedProposalCodes.includes(question.outcome?.code ?? "")) return false;
   const approval = question.approval, review = approval?.review;
   if (approval?.review_only) return false;
   if (!review) return true; // Legacy backend pending manual proposal.
@@ -110,7 +112,7 @@ const reviewStatusWords: Record<string, [string, string]> = {
   approval_expired: ["批准已过期", "Approval expired"], approval_denied: ["未批准", "Declined"], uncertain_effect: ["结果待核实", "Result needs checking"],
 };
 const certaintyWords: Record<string, [string, string]> = {
-  not_executed: ["未执行", "Not executed"], unknown: ["结果待核实", "Result needs checking"], no_side_effect: ["未产生改动", "No changes made"], executed: ["已执行", "Executed"], completed: ["已执行", "Executed"],
+  not_executed: ["未执行", "Not executed"], unknown: ["结果待核实", "Result needs checking"], no_side_effect: ["未产生改动", "No changes made"], no_side_effects: ["未产生改动", "No changes made"], executed: ["已执行", "Executed"], completed: ["已执行", "Executed"],
 };
 const outcomeCodeWords: Record<string, [string, string]> = {
   mcp_review_context_missing: ["执行前检查缺少必要信息", "Pre-execution check is missing information"], mcp_review_setup_missing: ["工具尚未就绪", "Tool setup is incomplete"],
@@ -118,6 +120,10 @@ const outcomeCodeWords: Record<string, [string, string]> = {
   approval_window_expired: ["批准已过期", "Approval expired"], batch_skipped: ["批准过期后未执行", "Skipped after approval expired"],
   stale_schema: ["工具信息已过期，需要重新查找", "Tool details were stale and need a fresh lookup"], invalid_arguments: ["参数不符合工具要求", "Arguments did not match the tool"],
   mcp_retry_exhausted: ["多次重试后仍然失败", "Still failing after retries"], mcp_result_unknown: ["结果待核实", "Result needs checking"],
+  // Readiness checks run before anything is sent: "mcp_" + the method readiness state.
+  mcp_auth_required: ["工具需要重新登录授权", "The tool needs you to sign in again"], mcp_unavailable: ["工具服务暂时连不上", "The tool service is unreachable right now"],
+  mcp_not_configured: ["工具尚未配置", "The tool is not set up"], mcp_unknown: ["工具状态暂时无法确认", "The tool's status could not be confirmed"], mcp_ready: ["工具已就绪", "The tool is ready"],
+  mcp_config_changed: ["工具设置已变更，需要重新批准", "Tool settings changed; approve again"],
 };
 Object.assign(reviewStatusWords, {
   need_information: ["缺少必要信息", "Missing required information"], validation_error: ["参数校验未通过", "Validation failed"],
