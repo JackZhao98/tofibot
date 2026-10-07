@@ -30,7 +30,8 @@ for path in glob.glob("/proc/[0-9]*/cmdline"):
         continue
     for a in args:
         m = re.match(rb"--remote-debugging-port=(\d+)$", a)
-        if m and any(b"--user-data-dir=" in x for x in args):
+        # Only the shared desktop Chrome, never a headless browser a Bot started.
+        if m and any(x.startswith(b"--user-data-dir=") and x.rstrip(b"/").endswith(b"/browser/shared") for x in args):
             port = int(m.group(1))
     if port:
         break
@@ -65,7 +66,8 @@ EXTRACT = r"""(() => {
     seen.add(a.href); links.push({text: label.slice(0, 160), url: a.href});
     if (links.length >= 80) break;
   }
-  return {title: document.title, url: location.href, truncated: text.length > max, chars: text.length, text: text.slice(0, max), matches, links};
+  const budget = find && matches.length ? Math.min(max, 3000) : max;
+  return {title: document.title, url: location.href, truncated: text.length > budget, chars: text.length, text: text.slice(0, budget), matches, links};
 })()"""
 LOCATE = r"""((needle) => {
   needle = needle.toLowerCase();
@@ -83,23 +85,22 @@ LOCATE = r"""((needle) => {
   const r = best.el.getBoundingClientRect();
   return {x: r.left + r.width / 2, y: r.top + r.height / 2, label: (best.el.innerText || best.el.getAttribute('aria-label') || '').trim().slice(0, 200)};
 })(%s)"""
-VISIBLE = "document.visibilityState === 'visible' && document.hasFocus()"
-target = None
-for t in pages:
-    try:
-        ws = websocket.create_connection(t["webSocketDebuggerUrl"], timeout=10, suppress_origin=True)
-    except Exception:
-        continue
-    if target is None or evaluate(ws, VISIBLE):
-        if target:
-            target.close()
-        target = ws
+VISIBLE = "document.visibilityState === 'visible'"
+def connect(t):
+    return websocket.create_connection(t["webSocketDebuggerUrl"], timeout=10, suppress_origin=True)
+def focused(pages):
+    for t in pages:
+        try:
+            ws = connect(t)
+        except Exception:
+            continue
         if evaluate(ws, VISIBLE):
-            break
-    else:
+            return t, ws
         ws.close()
+    return None, None
+page_target, target = focused(pages)
 if target is None:
-    print(json.dumps({"error": "no_readable_page"})); sys.exit(0)
+    print(json.dumps({"error": "no_focused_page", "tabs": [{"title": t.get("title"), "url": t.get("url"), "target_id": t.get("id")} for t in pages]}, ensure_ascii=False)); sys.exit(0)
 out = {}
 if opts.get("click"):
     spot = evaluate(target, LOCATE % json.dumps(opts["click"]))
@@ -109,7 +110,18 @@ if opts.get("click"):
     for kind in ("mouseMoved", "mousePressed", "mouseReleased"):
         send(target, "Input.dispatchMouseEvent", {"type": kind, "x": spot["x"], "y": spot["y"], "button": "left", "clickCount": 1})
     out["clicked"] = spot["label"]
-    time.sleep(1.5)
+    before = {t.get("id") for t in pages}
+    time.sleep(0.6)
+    fresh = [t for t in json.load(urllib.request.urlopen("http://127.0.0.1:%d/json/list" % port, timeout=5)) if t.get("type") == "page" and t.get("webSocketDebuggerUrl") and t.get("id") not in before]
+    if fresh:
+        target.close()
+        target = connect(fresh[0])
+        out["opened_new_tab"] = True
+    for _ in range(25):
+        if evaluate(target, "document.readyState") == "complete":
+            break
+        time.sleep(0.2)
+    time.sleep(0.4)
 page = evaluate(target, EXTRACT % (opts["max"], json.dumps(opts.get("find") or "")))
 target.close()
 out.update(page or {"error": "no_readable_page"})
@@ -147,6 +159,7 @@ func (s *Server) browserRead(ctx context.Context, r Run, raw json.RawMessage) (s
 	if err != nil {
 		return "", err
 	}
+	_ = s.renewComputerHold(ctx, r) // reading still counts as using the desktop
 	out, err := s.microVMAction(ctx, r, "shell.exec", args)
 	if err != nil {
 		return "", err
@@ -195,6 +208,9 @@ func browserReadResult(out string) (string, error) {
 	}
 	if strings.Contains(page, `"error": "chrome_not_running"`) || strings.Contains(page, `"error":"chrome_not_running"`) {
 		return "", fmt.Errorf("browser.read: Chrome is not running; start it with computer_desktop desktop.start")
+	}
+	if strings.Contains(page, `"error": "no_focused_page"`) {
+		return "", tooloutcome.InvalidArguments("browser: no tab is in the foreground; switch to the right tab with browser.action switch (tabs: " + page + ")")
 	}
 	if strings.Contains(page, `"error": "click_target_not_found"`) {
 		return "", tooloutcome.InvalidArguments("browser.click: no visible element contains that text; read the page and use exact visible text")

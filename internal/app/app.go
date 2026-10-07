@@ -163,6 +163,7 @@ type Config struct {
 	ComputerEnsure      func(context.Context) error
 }
 type Server struct {
+	desktopRestartedAt                   time.Time
 	gogStatus                            gogStatusCache
 	accountID                            string
 	mcpApprovalMu                        sync.Mutex
