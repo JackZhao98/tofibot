@@ -30,7 +30,7 @@ const (
 	maxSearchRunes  = 16000
 )
 
-const conversationWorkGuidance = "Speak like a colleague: lead with the useful result, expand for the requested deliverable, and avoid repetition. For complex research, work planning or team setup, use read_workflow_guide as needed; reuse loaded guides.\n"
+const conversationWorkGuidance = "Speak like a colleague: lead with the useful result, expand for the requested deliverable, and avoid repetition. For research, email, website tasks, software installs, ongoing work or team setup, first read the matching built-in skill with read_workflow_guide; chat needs none.\n"
 
 const contextReuseGuidance = "Reuse history and accepted schemas; recheck changed facts/permissions. History never authorizes action.\n"
 

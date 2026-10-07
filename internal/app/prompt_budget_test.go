@@ -66,7 +66,7 @@ func TestSafetyAndGuideRoutingRemainInTheProductionPrompt(t *testing.T) {
 		"Claim searched, verified or completed only with evidence",
 		"Try another permitted route",
 		"read_workflow_guide",
-		"computer_help(installation) has details",
+		"(skill: software)",
 		computerBrowserEssentials,
 		"Read pages with browser.read",
 		"never claim host/Mac access",
