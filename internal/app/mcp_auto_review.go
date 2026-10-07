@@ -146,7 +146,7 @@ func readMCPChatContext(db reviewQuerier, c Conversation, r Run) (mcpReviewConte
 	if x.Messages, x.MessageProvenance, err = readMCPMessageWindow(db, c.ID, intentSeq, false, bounds); err != nil {
 		return x, err
 	}
-	if x.LaterUserMessages, err = readMCPLaterUserMessages(db, c.ID, intentSeq, bounds); err != nil {
+	if x.LaterUserMessages, err = readMCPLaterUserMessages(db, c.ID, intentSeq); err != nil {
 		return x, err
 	}
 	if x.ToolResults, err = readMCPRunToolEvidence(db, r, false, bounds); err != nil {
@@ -337,6 +337,17 @@ func (s *Server) reviewMCPProposal(ctx context.Context, c Conversation, r Run, c
 	if !shadow && q.Status == questionAnswered && strings.TrimSpace(string(q.Answer)) == "false" {
 		return nil
 	}
+	// A human refusal of this exact action anywhere in the conversation or its
+	// chain is final; it is enforced here, not left to the bounded packet.
+	if !shadow {
+		refused, err := mcpHumanRefusedAction(s.store.db, c, r, mcpApprovalHash(call))
+		if err != nil {
+			return err
+		}
+		if refused {
+			return gap("policy_denied", "A person already refused this exact action in this conversation. It cannot be proposed again.")
+		}
+	}
 	if call.Server == "" || call.Tool == "" || call.ConfigVersion == "" || !mcpSchemaAvailable(call.Schema) || s.reviewAccountID() == "" || s.extensions == nil || !s.extensions.MCPCallCurrent(call) {
 		return gap("setup_required", "Current tool configuration, schema or connection binding is unavailable. Approval cannot repair this setup gap.")
 	}
@@ -352,6 +363,9 @@ func (s *Server) reviewMCPProposal(ctx context.Context, c Conversation, r Run, c
 	snapshot, err := json.Marshal(x)
 	if err != nil {
 		return gap("context_required", "The exact durable evidence snapshot could not be retained.", mcpContextDiagnostic(mcpContextFail(mcpContextSnapshotEncoding)))
+	}
+	if err := s.retireTransientMCPReview(r, call, q.ID); err != nil {
+		return err
 	}
 	_, err = s.store.db.Exec(`INSERT INTO mcp_auto_reviews(question_id,account_id,conversation_id,run_id,action_hash,server,tool,config_fingerprint,arguments_digest,schema_digest,policy_version,context_digest,context_snapshot,provenance,mode,settings_revision,status,decision,reason,expires_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,'reviewing','','',?)`, q.ID, s.reviewAccountID(), c.ID, r.ID, mcpApprovalHash(call), call.Server, call.Tool, call.ConfigVersion, digestBytes(call.Arguments), digestBytes(call.Schema), autoReviewPolicyVersion, digest, string(snapshot), autoReviewProvenance, settings.Mode, settings.Revision, q.ExpiresAt)
 	if err != nil {
@@ -382,6 +396,27 @@ func (s *Server) reviewMCPProposal(ctx context.Context, c Conversation, r Run, c
 		return nil
 	}
 	return request(ctx)
+}
+
+// The review reservation is unique per run and exact action. A predecessor
+// closed only because its evidence moved releases its reservation, keeping
+// its row under a retired key, so a retried card can be reviewed afresh.
+func (s *Server) retireTransientMCPReview(r Run, call extensions.MCPCallApproval, current string) error {
+	hash := mcpApprovalHash(call)
+	var prior string
+	err := s.store.db.QueryRow(`SELECT question_id FROM mcp_auto_reviews WHERE run_id=? AND action_hash=?`, r.ID, hash).Scan(&prior)
+	if errors.Is(err, sql.ErrNoRows) || err == nil && prior == current {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+	q, err := s.store.GetQuestion(prior)
+	if err != nil || !mcpReviewRetryable(q) {
+		return err
+	}
+	_, err = s.store.db.Exec(`UPDATE mcp_auto_reviews SET action_hash=action_hash||':retired:'||question_id WHERE question_id=? AND run_id=? AND action_hash=? AND status='context_required' AND NOT EXISTS(SELECT 1 FROM mcp_call_approvals WHERE question_id=? AND claimed_at<>'')`, prior, r.ID, hash, prior)
+	return err
 }
 
 func (s *Server) closeMCPReviewGap(id, status, reason string, diagnostic *MCPContextFailure) error {

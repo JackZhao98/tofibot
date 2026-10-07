@@ -19,10 +19,41 @@ import (
 
 const maxMCPApprovalPayloadBytes = 32 << 10
 
+// At most this many cards (and so fresh reviews) per exact action and run when
+// evidence keeps changing under a pending review. Afterwards the closure is
+// permanent and the recovery guard fences identical retries.
+const mcpReviewRetryCards = 3
+
 // approveMCPCall binds one reviewed or human decision to the exact run, MCP
 // configuration snapshot, tool and argument bytes. Claiming precedes execution: an
 // uncertain remote result must never cause an automatic replay.
 func (s *Server) approveMCPCall(ctx context.Context, c Conversation, r Run, call extensions.MCPCallApproval) error {
+	err := s.approveMCPCallOnce(ctx, c, r, call, true)
+	if out, ok := tooloutcome.FromError(err); ok && out.Status == tooloutcome.Transient && out.Code == "mcp_review_context_missing" {
+		if cards, e := s.mcpReviewCards(r, call); e != nil || cards >= mcpReviewRetryCards {
+			return tooloutcome.New(tooloutcome.Permanent, out.Code, out.Certainty, "Evidence kept changing while this exact action was reviewed; its fresh-review limit is reached. Do not retry this MCP action; an identical call stays blocked. Use another permitted route or explain the blocker to the user.", "replan").Err()
+		}
+	}
+	return err
+}
+
+func (s *Server) mcpReviewCards(r Run, call extensions.MCPCallApproval) (int, error) {
+	var n int
+	err := s.store.db.QueryRow(`SELECT COUNT(*) FROM mcp_call_approvals WHERE run_id=? AND action_hash=?`, r.ID, mcpApprovalHash(call)).Scan(&n)
+	return n, err
+}
+
+// A card closed only because its evidence moved under a pending review (or
+// human resume) may be replaced by a fresh card once the model retries.
+func mcpReviewRetryable(q Question) bool {
+	d := q.Approval
+	if d == nil || d.Review == nil || d.Review.Status != "context_required" || d.Review.ContextFailure == nil || !mcpContextTransient(d.Review.ContextFailure.Code) {
+		return false
+	}
+	return q.Status == questionCancelled || q.Status == questionAnswered && q.AnsweredBy != autoReviewActor && string(q.Answer) == "true"
+}
+
+func (s *Server) approveMCPCallOnce(ctx context.Context, c Conversation, r Run, call extensions.MCPCallApproval, retry bool) error {
 	if err := s.extensionToolActive(ctx, c, r); err != nil {
 		return err
 	}
@@ -73,6 +104,19 @@ func (s *Server) approveMCPCall(ctx context.Context, c Conversation, r Run, call
 		FROM mcp_call_approvals a JOIN questions q ON q.id=a.question_id
 		WHERE a.run_id=? AND a.action_hash=? AND q.conversation_id=? AND q.bot_id=?
 		ORDER BY q.created_at DESC,q.id DESC LIMIT 1`, r.ID, hash, c.ID, r.BotID).Scan(&id, &status, &answer, &claimed, &expires)
+		if err == nil && retry && claimed == "" && settings.Mode == "auto" {
+			prior, e := s.store.GetQuestion(id)
+			if e != nil {
+				return e
+			}
+			cards, e := s.mcpReviewCards(r, call)
+			if e != nil {
+				return e
+			}
+			if mcpReviewRetryable(prior) && cards < mcpReviewRetryCards {
+				err = sql.ErrNoRows // Review the current evidence on a fresh card.
+			}
+		}
 		if errors.Is(err, sql.ErrNoRows) {
 			if !mcpSchemaAvailable(call.Schema) {
 				return mcpReviewBlocked("setup_required", "The exact input schema is incomplete. Approval cannot repair this setup gap.")
@@ -191,7 +235,9 @@ func (s *Server) approveMCPCall(ctx context.Context, c Conversation, r Run, call
 	}
 	result, err := s.claimMCPApproval(ctx, c, r, call, id)
 	if errors.Is(err, errAutoReviewInvalidated) {
-		return s.approveMCPCall(ctx, c, r, call)
+		// The same tool call re-reads its card; only a model retry starts a
+		// fresh review.
+		return s.approveMCPCallOnce(ctx, c, r, call, false)
 	}
 	if err != nil {
 		return err
