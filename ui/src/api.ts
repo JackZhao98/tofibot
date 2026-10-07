@@ -106,7 +106,7 @@ export function openConversationEvents(
   const query = new URLSearchParams({ after: String(after) });
   if (workspace) query.set("workspace_after", String(workspace.after));
   const source = new EventSource(`/api/conversations/${encodeURIComponent(id)}/events?${query}`);
-  const types = ["message", "reaction", "run", "delta", "memory", "memory_deleted", "schedule", "work_item", "tool", "bot"] as const;
+  const types = ["message", "reaction", "run", "delta", "draft_reset", "thinking", "retrying", "memory", "memory_deleted", "schedule", "work_item", "tool", "bot"] as const;
   for (const type of types) {
     source.addEventListener(type, (event) => {
       const message = event as MessageEvent<string>;
