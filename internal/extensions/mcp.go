@@ -72,6 +72,9 @@ type Config struct {
 	// ExpandToolQuery is an optional, bounded AI fallback for lexical misses.
 	// Search remains usable when it is nil or returns an error.
 	ExpandToolQuery func(context.Context, string) ([]string, error)
+	// ServerUsable may hide a configured server from a run while its setup is
+	// incomplete (for example, no connected account). Nil offers every server.
+	ServerUsable func(context.Context, string) bool
 }
 
 type Manager struct {
@@ -300,6 +303,13 @@ func (m *Manager) prepareMode(ctx context.Context, botID string, scoped, discove
 	}
 	servers = cloneServers(servers)
 	m.mu.RUnlock()
+	if m.cfg.ServerUsable != nil {
+		for name := range servers {
+			if !m.cfg.ServerUsable(ctx, name) {
+				delete(servers, name)
+			}
+		}
+	}
 	if err != nil {
 		p.Diagnostics = append(p.Diagnostics, Diagnostic{Message: publicDiagnostic(err)})
 	} else {
