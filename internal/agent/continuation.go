@@ -251,7 +251,7 @@ func ResumeApprovalExpiry(c *Continuation) ([]provider.Message, []ToolRecoveryRe
 	for _, m := range c.Messages {
 		for _, call := range m.ToolCalls {
 			if call.ID == c.WaitingToolCallID {
-				records = append(records, ToolRecoveryRecord{Call: call, Outcome: o})
+				records = append(records, ToolRecoveryRecord{Call: call, Outcome: o, Batch: toolCallBatch(m.ToolCalls)})
 			}
 		}
 	}
