@@ -116,11 +116,9 @@ export function TaskRunBlock({ owner, tools, questions, drafts, messages, summar
     needsFocus.current = false;
     return () => { needsFocus.current = Boolean(block.current?.contains(document.activeElement) && document.activeElement?.closest(".approval-actions")); };
   }, [decisionKey, issue?.kind]);
-  // Automatic pre-execution review outcomes are explained on the step they blocked;
-  // only decisions and answers a person gave stay as separate records.
-  const reviewOnlyStates = ["context_required", "setup_required", "unavailable", "policy_denied", "reviewing"];
-  const recordedQuestions = questions.filter(question => !decisions.some(item => item.question_id === question.question_id)
-    && !(question.question_type === "approval" && (question.approval?.review_only || question.approval?.review?.status.startsWith("shadow") || reviewOnlyStates.includes(question.approval?.review?.status ?? "") || ["mcp_review_context_missing", "mcp_review_setup_missing", "mcp_review_unavailable", "mcp_review_policy_denied"].includes(question.outcome?.code ?? ""))));
+  // Approval proposals are bookkeeping: the step itself shows whether the call
+  // ran. Only answers a person gave to a real question stay as records.
+  const recordedQuestions = questions.filter(question => question.question_type !== "approval" && !decisions.some(item => item.question_id === question.question_id));
   const notes = messages.filter(message => ids.has(message.run_id ?? "") && message.conversation_id === run.conversation_id && message.role === "assistant" && message.kind === "progress");
   function loadInitial() {
     for (const attempt of owner.family.attempts) {
@@ -192,7 +190,6 @@ export function TaskRunBlock({ owner, tools, questions, drafts, messages, summar
     {issue ? <TaskIssueCard issue={issue} locale={locale} onFeedback={onFeedback} onOpenStep={openStep} onAction={issue.action === "open_tools" ? onOpenTools : issue.action === "open_codex" ? () => { window.dispatchEvent(new Event("tofi:open-codex-settings")); } : issue.action === "refresh_status" ? onRefresh : viewActivity} /> : !(run.status === "done" && hasFinal) && <p className="task-run-phase">{taskPhaseLabel(input)}</p>}
     {/* A separate valid proposal survives another call's failure/unknown effect. */}
     {decisions.map(renderQuestion)}
-    {currentQuestions.filter(question => question.question_type === "approval" && question.status === "answered" && question.answer === true && !question.approval?.review_only).map(question => <p className="task-record-meta" data-question-id={question.question_id} key={question.question_id}>{t("已批准，操作尚未确认完成。", "Approved; execution is not yet confirmed.")}</p>)}
     {currentDrafts.filter(draft => draft.status !== "unknown").map(renderDraft)}
     <ActivityDisclosure locale={locale} detail={activityDetail} problem={problemCount ? t(`${problemCount} 步未完成`, `${problemCount} ${problemCount === 1 ? "step" : "steps"} did not finish`) : undefined} disclosureRef={disclosure} onOpen={loadInitial}>
       {owner.family.previous.map((attempt, index) => <p key={attempt.id} className="task-record-meta">{t("此前尝试", "Previous attempt")} {index + 1} · {attemptStatus(attempt.status)}</p>)}
