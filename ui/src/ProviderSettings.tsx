@@ -58,7 +58,7 @@ function ApiKeyProviderCard({id, label, description, placeholder, status, loadin
    setNotice(`${label} API key 已保存并通过验证。`);
    onChange(next);
   } catch (cause) {
-   setError(cause instanceof ApiError && cause.code === "invalid_key" ? `这个 API key 没有通过 ${label} 的验证，未保存。请检查后重试。` : cause instanceof ApiError && cause.status >= 500 ? `暂时无法连到 ${label} 完成验证，未保存。请稍后重试。` : "保存失败，请重试。");
+   setError(cause instanceof ApiError && cause.code === "invalid_key" ? `这个 API key 没有通过 ${label} 的验证，未保存。${cause.message ? `（${cause.message}）` : ""}` : cause instanceof ApiError && cause.status >= 500 ? `暂时无法连到 ${label} 完成验证，未保存。请稍后重试。` : "保存失败，请重试。");
    input.current?.focus();
   } finally { setVerifying(false); }
  }
