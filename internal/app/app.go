@@ -3077,17 +3077,31 @@ func (s *Server) execute(c Conversation, r Run) {
 		// workspace default explicitly.
 		reasoningEffort = "medium"
 	}
-	var onDelta func(string)
-	var onAssistantTurn func(int, string) error
+	var onDelta, onThinking func(string)
+	var onAssistantTurn, onReviewDraft func(int, string) error
+	var onStreamReset func()
+	var onRetry func(int, time.Duration)
 	flushStream := func() {}
 	var streamMu sync.Mutex
 	var streamErr error
 	if r.Kind != runKindTriage {
 		var initErr error
-		onDelta, flushStream, initErr = s.store.StreamCallbacks(ctx, r, func(err error) { streamMu.Lock(); streamErr = err; streamMu.Unlock(); cancel() })
+		onDelta, flushStream, onStreamReset, initErr = s.store.StreamControls(ctx, r, func(err error) { streamMu.Lock(); streamErr = err; streamMu.Unlock(); cancel() })
 		if initErr != nil {
 			s.failRun(c, r, initErr)
 			return
+		}
+		var stopThinking func()
+		onThinking, stopThinking = s.store.ThinkingCallback(ctx, r)
+		defer stopThinking()
+		onRetry = func(attempt int, wait time.Duration) { s.store.PublishRetry(r, attempt, wait) }
+		// A draft sent back for final review is superseded by the reviewed
+		// answer; discard it instead of publishing a second visible reply.
+		onReviewDraft = func(int, string) error {
+			onStreamReset()
+			streamMu.Lock()
+			defer streamMu.Unlock()
+			return streamErr
 		}
 		onAssistantTurn = func(turnIndex int, content string) error {
 			flushStream()
@@ -3179,6 +3193,7 @@ func (s *Server) execute(c Conversation, r Run) {
 		})
 	}
 	res, e := engine.Run(ctx, Request{BotID: r.BotID, RunID: r.ID, System: system, Model: model, ReasoningEffort: reasoningEffort, Messages: pm, Tools: tools, OnDelta: onDelta, BeforeModelCall: steeringBoundary, BeforeFinalResponse: finalReview, FinalResponseRepairTools: finalRepairTools, OnAssistantTurn: onAssistantTurn,
+		OnThinking: onThinking, OnRetry: onRetry, OnStreamReset: onStreamReset, OnReviewDraft: onReviewDraft,
 		Continuation:  continuation,
 		ResumeResult:  s.inputResumeResult(answeredQuestion),
 		ResumeOutcome: s.inputResumeOutcome(answeredQuestion),
@@ -3204,7 +3219,7 @@ func (s *Server) execute(c Conversation, r Run) {
 			}
 		},
 		OnToolEvent: func(ev runtime.ToolEvent) error {
-			if completionReviewTool(ev.Name) && (ev.Status == "running" || ev.Status == "completed" || ev.Status == "failed") {
+			if completionReviewWork(ev.Name, ev.Risk) && (ev.Status == "running" || ev.Status == "completed" || ev.Status == "failed") {
 				observedToolWork.Store(true)
 			}
 			if ev.Status == "running" {

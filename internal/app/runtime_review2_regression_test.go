@@ -252,7 +252,9 @@ func TestFileObservationFailuresDoNotBlockDifferentRequests(t *testing.T) {
 				}
 				return nil
 			}})
-			if err != nil || reads["a"] != 1 || reads["b"] != 1 || len(outcomes) != 2 {
+			// A failed observation has no effect: the identical retry (via the
+			// other wrapper) is allowed, and other targets are never blocked.
+			if err != nil || reads["a"] != 2 || reads["b"] != 1 || len(outcomes) != 2 {
 				t.Fatalf("reads=%v outcomes=%+v err=%v", reads, outcomes, err)
 			}
 			if !uncertain && (outcomes[0].Status != tooloutcome.Permanent || outcomes[0].Certainty != "no_side_effects") {
