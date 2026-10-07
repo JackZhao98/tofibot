@@ -112,6 +112,9 @@ func ToolCallID(ctx context.Context) string {
 // echo provider. Local providers are allowed to omit a key only when the
 // provider/base URL explicitly identifies a local endpoint.
 func New(cfg Config) (Engine, error) {
+	if cfg.Resolve != nil {
+		return &engine{config: cfg, model: strings.TrimSpace(cfg.Model)}, nil
+	}
 	providerName := strings.TrimSpace(cfg.Provider)
 	if providerName == "" {
 		return nil, errors.New("model provider is not configured")
@@ -169,6 +172,61 @@ func (p credentialProvider) Chat(ctx context.Context, req *provider.ChatRequest)
 
 func (p credentialProvider) ChatStream(ctx context.Context, req *provider.ChatRequest, onDelta func(provider.StreamDelta)) (*provider.ChatResponse, error) {
 	model, err := p.provider(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return model.ChatStream(ctx, req, onDelta)
+}
+
+// ModelProvider names the provider that serves a model ID: codex-* is the
+// Codex sign-in, claude* is Anthropic, everything else is the OpenAI API.
+// TODO(integrator): delegate to provider.ProviderForModel once WS-P lands it.
+func ModelProvider(model string) string {
+	m := strings.ToLower(strings.TrimSpace(model))
+	switch {
+	case strings.HasPrefix(m, "codex-"):
+		return "openai_codex"
+	case strings.HasPrefix(m, "claude"):
+		return "anthropic"
+	}
+	return "openai"
+}
+
+// routedProvider builds the provider for each request's model, so one engine
+// serves every configured provider and compaction follows the same route.
+type routedProvider struct {
+	config Config
+	retry  bool
+}
+
+func (p routedProvider) provider(ctx context.Context, model string) (provider.Provider, error) {
+	name := ModelProvider(model)
+	credential, err := p.config.Resolve(ctx, name)
+	if err != nil {
+		return nil, err
+	}
+	var opts []provider.Option
+	if p.config.Endpoint != nil {
+		if base := strings.TrimSpace(p.config.Endpoint(name)); base != "" {
+			opts = append(opts, provider.WithBaseURL(base))
+		}
+	}
+	if p.retry {
+		opts = append(opts, provider.WithDefaultRetry())
+	}
+	return provider.New(name, credential, opts...)
+}
+
+func (p routedProvider) Chat(ctx context.Context, req *provider.ChatRequest) (*provider.ChatResponse, error) {
+	model, err := p.provider(ctx, req.Model)
+	if err != nil {
+		return nil, err
+	}
+	return model.Chat(ctx, req)
+}
+
+func (p routedProvider) ChatStream(ctx context.Context, req *provider.ChatRequest, onDelta func(provider.StreamDelta)) (*provider.ChatResponse, error) {
+	model, err := p.provider(ctx, req.Model)
 	if err != nil {
 		return nil, err
 	}
@@ -323,7 +381,9 @@ func (e *engine) Run(ctx context.Context, req Request) (Result, error) {
 	execCtx := models.NewExecutionContext(req.RunID, req.BotID, "")
 	defer execCtx.Cancel()
 	modelProvider := e.provider
-	if e.credential != nil {
+	if e.config.Resolve != nil {
+		modelProvider = routedProvider{config: e.config, retry: true}
+	} else if e.credential != nil {
 		modelProvider = credentialProvider{config: e.config, credential: e.credential}
 	}
 	var onStream func(string, string)

@@ -26,7 +26,7 @@ var toolSearchAITermPattern = regexp.MustCompile(`^[A-Za-z][A-Za-z0-9]*(?:[ -][A
 // only after a lexical search returns no match and fall back to lexical search
 // on any error.
 func (s *Server) expandToolSearchQuery(ctx context.Context, query string) ([]string, error) {
-	if s == nil || !strings.EqualFold(strings.TrimSpace(s.provider), "openai_codex") || s.codex == nil {
+	if s == nil || !managedProviderName(s.provider) {
 		return nil, errors.New("AI query expansion is unavailable")
 	}
 	if ctx == nil || strings.TrimSpace(query) == "" || len(query) > toolSearchAIQueryLimit {
@@ -35,15 +35,11 @@ func (s *Server) expandToolSearchQuery(ctx context.Context, query string) ([]str
 	ctx, cancel := context.WithTimeout(ctx, toolSearchAITimeout)
 	defer cancel()
 
-	credential, err := s.codex.Credential(ctx)
-	if err != nil || strings.TrimSpace(credential) == "" {
+	p, model, err := s.backgroundProvider(ctx, backgroundTriage)
+	if err != nil {
 		return nil, errors.New("AI query expansion credentials are unavailable")
 	}
-	p, err := provider.New("openai_codex", credential)
-	if err != nil {
-		return nil, errors.New("AI query expansion provider is unavailable")
-	}
-	return expandToolSearchQueryWithProvider(ctx, query, p, s.triageModelName())
+	return expandToolSearchQueryWithProvider(ctx, query, p, model)
 }
 
 // expandToolSearchQueryWithProvider is separated for deterministic tests.
