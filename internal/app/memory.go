@@ -394,8 +394,9 @@ func resolveMemoryAlias(ms []Memory, ref string) (Memory, bool) {
 
 // normalizedMemoryText ignores case and runs of whitespace, punctuation and
 // symbols so a restated fact is recognized as the same memory. Characters that
-// carry meaning (+ # - . / % : and any mark next to a digit) are kept, so
-// "1/12" and "11/2" or "C++" and "C" stay distinct.
+// carry meaning (+ # - / %, an inner . or :, and any mark next to a digit)
+// are kept, so "1/12" and "11/2" or "C++" and "C" stay distinct; a
+// sentence-ending period is not.
 func normalizedMemoryText(content string) string {
 	rs := []rune(strings.ToLower(content))
 	var b strings.Builder
@@ -403,7 +404,8 @@ func normalizedMemoryText(content string) string {
 	for i, r := range rs {
 		keep := !unicode.IsSpace(r) && !unicode.IsPunct(r) && !unicode.IsSymbol(r)
 		if !keep && !unicode.IsSpace(r) {
-			keep = strings.ContainsRune("+#-./%:", r) ||
+			next := i+1 < len(rs) && (unicode.IsLetter(rs[i+1]) || unicode.IsDigit(rs[i+1]))
+			keep = strings.ContainsRune("+#-/%", r) || (strings.ContainsRune(".:", r) && next) ||
 				(i > 0 && unicode.IsDigit(rs[i-1])) || (i+1 < len(rs) && unicode.IsDigit(rs[i+1]))
 		}
 		if !keep {
