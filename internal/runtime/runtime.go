@@ -181,16 +181,7 @@ func (p credentialProvider) ChatStream(ctx context.Context, req *provider.ChatRe
 // ModelProvider names the provider that serves a model ID: codex-* is the
 // Codex sign-in, claude* is Anthropic, everything else is the OpenAI API.
 // TODO(integrator): delegate to provider.ProviderForModel once WS-P lands it.
-func ModelProvider(model string) string {
-	m := strings.ToLower(strings.TrimSpace(model))
-	switch {
-	case strings.HasPrefix(m, "codex-"):
-		return "openai_codex"
-	case strings.HasPrefix(m, "claude"):
-		return "anthropic"
-	}
-	return "openai"
-}
+func ModelProvider(model string) string { return provider.ProviderForModel(model) }
 
 // routedProvider builds the provider for each request's model, so one engine
 // serves every configured provider and compaction follows the same route.

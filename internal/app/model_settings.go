@@ -34,8 +34,31 @@ type modelSettings struct {
 
 func (s *Server) modelDefaults() (string, string) {
 	s.mu.Lock()
-	defer s.mu.Unlock()
-	return s.defaultModel, s.defaultReasoning
+	model, effort := s.defaultModel, s.defaultReasoning
+	s.mu.Unlock()
+	if s.modelProviderUsable(model) || !s.anyProviderConfigured() {
+		return model, effort
+	}
+	// The saved default belongs to a provider this workspace no longer has
+	// (e.g. Codex default, only a Claude key): fall back to the first usable
+	// provider's catalog so new Bots work without a manual pick.
+	for _, name := range []string{providerOpenAI, providerAnthropic} {
+		if s.usableProviderKey(name) {
+			if models := s.cachedProviderCatalog(name); len(models) > 0 {
+				return models[0].ID, models[0].DefaultReasoning
+			}
+		}
+	}
+	return model, effort
+}
+
+func (s *Server) modelProviderUsable(model string) bool {
+	switch name := runtime.ModelProvider(model); name {
+	case "openai_codex":
+		return s.codexConnected()
+	default:
+		return s.usableProviderKey(name)
+	}
 }
 
 func migrateModelSettings(db *sql.DB) error {
