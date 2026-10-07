@@ -230,6 +230,18 @@ func (e *engine) Run(ctx context.Context, req Request) (Result, error) {
 		}
 		return err
 	})
+	resolveIdentity := func(name, args string) tooloutcome.Identity {
+		for _, t := range req.Tools {
+			if t.Name == name && t.Identity != nil {
+				return t.Identity(json.RawMessage(args))
+			}
+		}
+		return tooloutcome.DefaultIdentity(name, json.RawMessage(args))
+	}
+	tracker.risk = func(name, args string) string { return resolveIdentity(name, args).Risk }
+	if req.OnRetry != nil {
+		runCtx = provider.WithRetryObserver(runCtx, func(attempt int, _ error, wait time.Duration) { req.OnRetry(attempt, wait) })
+	}
 	if continuation != nil {
 		if err := tracker.restoreContinuation(continuation); err != nil {
 			return Result{}, fmt.Errorf("restore tool events: %w", err)
@@ -296,7 +308,7 @@ func (e *engine) Run(ctx context.Context, req Request) (Result, error) {
 						certainty, explanation := "unknown", executeErr.Error()+" Verify the target state before repeating this call."
 						if identity.Risk == tooloutcome.Observation {
 							status, code, next, certainty = tooloutcome.Permanent, "observation_failed", "explain_blocker", "no_side_effects"
-							explanation = executeErr.Error() + " This observation failed; inspect another target or explain the blocker."
+							explanation = executeErr.Error() + " This observation failed without side effects. Fix its precondition (for example, start what it reads) before retrying it, inspect another target, or explain the blocker."
 						}
 						executeErr = tooloutcome.New(status, code, certainty, explanation, next).Err()
 					}
@@ -318,31 +330,41 @@ func (e *engine) Run(ctx context.Context, req Request) (Result, error) {
 	if req.OnDelta != nil {
 		onStream = func(_ string, delta string) { req.OnDelta(delta) }
 	}
+	var onThinking func(string, string)
+	if req.OnThinking != nil {
+		onThinking = func(_ string, delta string) { req.OnThinking(delta) }
+	}
+	var onReviewDraft func(int, string)
+	if req.OnReviewDraft != nil {
+		onReviewDraft = func(turnIndex int, content string) {
+			if err := req.OnReviewDraft(turnIndex, content); err != nil {
+				tracker.setErr(err)
+				cancelRun()
+			}
+		}
+	}
 	duration := e.config.MaxDuration
 	if duration <= 0 {
 		duration = defaultMaxDuration
 	}
 	result, err := agent.RunAgentLoop(agent.AgentConfig{
-		Ctx:             runCtx,
-		Provider:        modelProvider,
-		Model:           model,
-		ReasoningEffort: req.ReasoningEffort,
-		System:          req.System,
-		Messages:        messages,
-		ExtraTools:      extraTools,
-		SessionID:       req.RunID,
-		ToolsOnly:       true,
-		Continuation:    continuation,
-		ResumeResult:    req.ResumeResult,
-		ResumeOutcome:   req.ResumeOutcome,
-		ResolveToolIdentity: func(name, args string) tooloutcome.Identity {
-			for _, t := range req.Tools {
-				if t.Name == name && t.Identity != nil {
-					return t.Identity(json.RawMessage(args))
-				}
-			}
-			return tooloutcome.DefaultIdentity(name, json.RawMessage(args))
-		},
+		Ctx:                        runCtx,
+		Provider:                   modelProvider,
+		Model:                      model,
+		ReasoningEffort:            req.ReasoningEffort,
+		System:                     req.System,
+		Messages:                   messages,
+		ExtraTools:                 extraTools,
+		SessionID:                  req.RunID,
+		ToolsOnly:                  true,
+		Continuation:               continuation,
+		ResumeResult:               req.ResumeResult,
+		ResumeOutcome:              req.ResumeOutcome,
+		ResolveToolIdentity:        resolveIdentity,
+		PromptCacheKey:             req.RunID,
+		OnThinkingChunk:            onThinking,
+		OnStreamReset:              req.OnStreamReset,
+		OnFinalDraftDemoted:        onReviewDraft,
 		MaxToolCallsBetweenReports: defaultToolCallsBetweenReports,
 		MaxRunDuration:             duration,
 		UserWaitDuration:           userWait.duration,
