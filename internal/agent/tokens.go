@@ -107,6 +107,10 @@ func (t *TokenTracker) RestoreModelBreakdown(breakdown map[string]ModelUsage) {
 	}
 }
 
+// imageTokenEstimate is a flat per-image input cost; a detail:auto desktop
+// screenshot is roughly 1–1.5K tokens.
+const imageTokenEstimate = 1500
+
 // EstimateContextUsage estimates the total token count for a request
 // (system prompt + messages + tool definitions) before sending to the API.
 // Returns estimated input tokens.
@@ -120,6 +124,7 @@ func EstimateContextUsage(system string, messages []provider.Message, tools []pr
 	for _, msg := range messages {
 		total += 4 // message framing overhead
 		total += estimateStringTokens(msg.Content)
+		total += len(msg.ImageURLs) * imageTokenEstimate
 		for _, tc := range msg.ToolCalls {
 			total += 4 // tool call framing
 			total += estimateStringTokens(tc.Name)
