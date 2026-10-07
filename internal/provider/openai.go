@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"sort"
 	"strings"
 	"sync/atomic"
 	"time"
@@ -530,19 +531,89 @@ func (o *openaiResponses) parseResponse(body string) (*ChatResponse, error) {
 	return result, nil
 }
 
+// streamCall accumulates one streamed function_call output item.
+type streamCall struct {
+	itemID   string
+	callID   string
+	name     string
+	index    int
+	hasIndex bool
+	seq      int
+	streamed strings.Builder // concatenated argument deltas
+	final    string          // arguments from a .done / output_item.done event
+	hasFinal bool
+}
+
+// streamCalls keys function calls by item_id (stable across all events) with
+// output_index as a secondary key; either may be missing on a given event.
+type streamCalls struct {
+	byItem  map[string]*streamCall
+	byIndex map[int]*streamCall
+	all     []*streamCall
+}
+
+func (s *streamCalls) get(itemID string, index *int) *streamCall {
+	var c *streamCall
+	if itemID != "" {
+		c = s.byItem[itemID]
+	}
+	if c == nil && index != nil {
+		if found := s.byIndex[*index]; found != nil && (itemID == "" || found.itemID == "" || found.itemID == itemID) {
+			c = found
+		}
+	}
+	if c == nil {
+		c = &streamCall{seq: len(s.all)}
+		s.all = append(s.all, c)
+	}
+	if itemID != "" && c.itemID == "" {
+		c.itemID = itemID
+		s.byItem[itemID] = c
+	}
+	if index != nil && !c.hasIndex {
+		c.index, c.hasIndex = *index, true
+		s.byIndex[*index] = c
+	}
+	return c
+}
+
+// arguments prefers the complete arguments from a done event; streamed deltas
+// are only a fallback when the backend sent no done arguments.
+func (c *streamCall) callIDOrItem() string {
+	if c.callID != "" {
+		return c.callID
+	}
+	return c.itemID
+}
+
+func (c *streamCall) arguments() string {
+	if c.hasFinal && (c.final != "" || c.streamed.Len() == 0) {
+		return c.final
+	}
+	return c.streamed.String()
+}
+
 // parseStream parses the Responses API streaming events.
 func (o *openaiResponses) parseStream(body io.Reader, onDelta func(StreamDelta)) (*ChatResponse, error) {
 	result := &ChatResponse{}
 	var contentBuf strings.Builder
 	var reasoningBuf strings.Builder
 
-	// Track function calls by output_index
-	type fcAccum struct {
-		ID   string
-		Name string
-		Args strings.Builder
+	calls := &streamCalls{byItem: map[string]*streamCall{}, byIndex: map[int]*streamCall{}}
+	// setFinal records authoritative arguments and forwards any part that was
+	// not streamed as deltas, so argument-size observers see the whole call.
+	setFinal := func(c *streamCall, args string) {
+		c.final, c.hasFinal = args, true
+		if onDelta == nil || !c.hasIndex {
+			return
+		}
+		streamed := c.streamed.String()
+		if strings.HasPrefix(args, streamed) && len(args) > len(streamed) {
+			rest := args[len(streamed):]
+			c.streamed.WriteString(rest)
+			onDelta(StreamDelta{ToolCalls: []ToolCallDelta{{Index: c.index, Arguments: rest}}})
+		}
 	}
-	fcMap := make(map[int]*fcAccum)
 
 	scanner := bufio.NewScanner(body)
 	scanner.Buffer(make([]byte, 0, 64*1024), 1024*1024)
@@ -563,8 +634,18 @@ func (o *openaiResponses) parseStream(body io.Reader, onDelta func(StreamDelta))
 			continue
 		}
 		data := strings.TrimPrefix(line, "data: ")
+		// The data payload names its own type; prefer it so a stream without
+		// (or with a stale) "event:" line is still routed correctly.
+		eventType := currentEvent
+		var head struct {
+			Type string `json:"type"`
+		}
+		if json.Unmarshal([]byte(data), &head) == nil && head.Type != "" {
+			eventType = head.Type
+		}
+		currentEvent = ""
 
-		switch currentEvent {
+		switch eventType {
 		case "response.output_text.delta":
 			var ev struct {
 				Delta string `json:"delta"`
@@ -590,60 +671,99 @@ func (o *openaiResponses) parseStream(body io.Reader, onDelta func(StreamDelta))
 		case "response.output_item.added":
 			// A new output item — could be function_call or reasoning
 			var ev struct {
-				OutputIndex int `json:"output_index"`
+				OutputIndex *int `json:"output_index"`
 				Item        struct {
-					Type   string `json:"type"`
-					ID     string `json:"id"`
-					CallID string `json:"call_id"`
-					Name   string `json:"name"`
+					Type      string `json:"type"`
+					ID        string `json:"id"`
+					CallID    string `json:"call_id"`
+					Name      string `json:"name"`
+					Arguments string `json:"arguments"`
 				} `json:"item"`
 			}
 			if json.Unmarshal([]byte(data), &ev) == nil && ev.Item.Type == "function_call" {
-				callID := ev.Item.CallID
-				if callID == "" {
-					callID = ev.Item.ID
+				c := calls.get(ev.Item.ID, ev.OutputIndex)
+				if ev.Item.CallID != "" {
+					c.callID = ev.Item.CallID
 				}
-				fcMap[ev.OutputIndex] = &fcAccum{
-					ID:   callID,
-					Name: ev.Item.Name,
+				if ev.Item.Name != "" {
+					c.name = ev.Item.Name
 				}
-				if onDelta != nil {
+				if onDelta != nil && c.hasIndex {
 					onDelta(StreamDelta{
 						ToolCalls: []ToolCallDelta{{
-							Index: ev.OutputIndex,
-							ID:    callID,
-							Name:  ev.Item.Name,
+							Index: c.index,
+							ID:    c.callIDOrItem(),
+							Name:  c.name,
 						}},
 					})
+				}
+				if ev.Item.Arguments != "" {
+					setFinal(c, ev.Item.Arguments)
 				}
 			}
 
 		case "response.function_call_arguments.delta":
 			var ev struct {
-				OutputIndex int    `json:"output_index"`
+				OutputIndex *int   `json:"output_index"`
+				ItemID      string `json:"item_id"`
 				Delta       string `json:"delta"`
 			}
-			if json.Unmarshal([]byte(data), &ev) == nil {
-				if acc, ok := fcMap[ev.OutputIndex]; ok {
-					acc.Args.WriteString(ev.Delta)
-					if onDelta != nil {
-						onDelta(StreamDelta{
-							ToolCalls: []ToolCallDelta{{
-								Index:     ev.OutputIndex,
-								Arguments: ev.Delta,
-							}},
-						})
-					}
+			if json.Unmarshal([]byte(data), &ev) == nil && ev.Delta != "" {
+				c := calls.get(ev.ItemID, ev.OutputIndex)
+				c.streamed.WriteString(ev.Delta)
+				if onDelta != nil && c.hasIndex {
+					onDelta(StreamDelta{
+						ToolCalls: []ToolCallDelta{{
+							Index:     c.index,
+							Arguments: ev.Delta,
+						}},
+					})
 				}
+			}
+
+		case "response.function_call_arguments.done":
+			var ev struct {
+				OutputIndex *int    `json:"output_index"`
+				ItemID      string  `json:"item_id"`
+				Name        string  `json:"name"`
+				Arguments   *string `json:"arguments"`
+			}
+			if json.Unmarshal([]byte(data), &ev) == nil && ev.Arguments != nil {
+				c := calls.get(ev.ItemID, ev.OutputIndex)
+				if ev.Name != "" && c.name == "" {
+					c.name = ev.Name
+				}
+				setFinal(c, *ev.Arguments)
 			}
 
 		case "response.output_item.done":
 			// Check for reasoning item with summary — only use as fallback
 			// if we didn't already receive reasoning via streaming deltas.
 			var ev struct {
-				Item json.RawMessage `json:"item"`
+				OutputIndex *int            `json:"output_index"`
+				Item        json.RawMessage `json:"item"`
 			}
 			if json.Unmarshal([]byte(data), &ev) == nil {
+				var fc struct {
+					Type      string  `json:"type"`
+					ID        string  `json:"id"`
+					CallID    string  `json:"call_id"`
+					Name      string  `json:"name"`
+					Arguments *string `json:"arguments"`
+				}
+				if json.Unmarshal(ev.Item, &fc) == nil && fc.Type == "function_call" {
+					// The completed item is the authoritative record of the call.
+					c := calls.get(fc.ID, ev.OutputIndex)
+					if fc.CallID != "" {
+						c.callID = fc.CallID
+					}
+					if fc.Name != "" {
+						c.name = fc.Name
+					}
+					if fc.Arguments != nil {
+						setFinal(c, *fc.Arguments)
+					}
+				}
 				var item struct {
 					Type             string `json:"type"`
 					ID               string `json:"id"`
@@ -717,25 +837,28 @@ func (o *openaiResponses) parseStream(body io.Reader, onDelta func(StreamDelta))
 	result.Content = contentBuf.String()
 	result.Reasoning = reasoningBuf.String()
 
-	// Assemble tool calls — iterate by sorted output_index keys
-	// (output_index may not start at 0 if text/reasoning items precede tool calls)
-	if len(fcMap) > 0 {
-		// Find the max output_index to iterate over all possible indices
-		maxIdx := 0
-		for idx := range fcMap {
-			if idx > maxIdx {
-				maxIdx = idx
-			}
+	// Assemble tool calls in output order; items seen without an
+	// output_index keep their arrival order after indexed ones.
+	ordered := append([]*streamCall(nil), calls.all...)
+	sort.SliceStable(ordered, func(i, j int) bool {
+		a, b := ordered[i], ordered[j]
+		if a.hasIndex != b.hasIndex {
+			return a.hasIndex
 		}
-		for i := 0; i <= maxIdx; i++ {
-			if acc, ok := fcMap[i]; ok {
-				result.ToolCalls = append(result.ToolCalls, ToolCall{
-					ID:        acc.ID,
-					Name:      acc.Name,
-					Arguments: acc.Args.String(),
-				})
-			}
+		if a.hasIndex && a.index != b.index {
+			return a.index < b.index
 		}
+		return a.seq < b.seq
+	})
+	for _, c := range ordered {
+		if c.name == "" && c.callID == "" {
+			continue // argument events for an item never identified as a call
+		}
+		result.ToolCalls = append(result.ToolCalls, ToolCall{
+			ID:        c.callIDOrItem(),
+			Name:      c.name,
+			Arguments: c.arguments(),
+		})
 	}
 
 	return result, nil
