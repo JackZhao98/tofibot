@@ -262,9 +262,43 @@ export interface Memory {
 }
 
 export interface Config {
+  /** True when any model provider (Codex, OpenAI or Claude) is configured. */
   model_configured: boolean;
   default_model: string;
+  /** First configured provider; kept for compatibility. */
   provider: string;
+}
+
+export type ModelProviderID = "codex" | "openai" | "anthropic";
+
+/** One model provider as GET /api/providers reports it. Keys are never returned. */
+export interface ModelProviderStatus {
+  id: ModelProviderID;
+  label: string;
+  kind: "oauth" | "api_key";
+  configured: boolean;
+  /** Codex only. */
+  status?: "connected" | "needs_reconnect" | "disconnected";
+  /** API-key providers only, e.g. "…abcd". */
+  key_hint?: string;
+  /** RFC3339, or "" when never verified. */
+  verified_at?: string;
+  error?: string;
+}
+
+export interface ModelOption {
+  id: string;
+  name: string;
+  /** Absent on older servers; inferred from the id then. */
+  provider?: ModelProviderID;
+  reasoning_efforts: string[];
+  default_reasoning: string;
+}
+
+export interface ModelCatalog {
+  models: ModelOption[];
+  source: string;
+  warning?: string;
 }
 
 export interface EventEnvelope {
