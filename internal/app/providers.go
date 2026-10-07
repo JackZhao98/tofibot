@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"net/url"
 	"regexp"
+	"slices"
 	"sort"
 	"strings"
 	"time"
@@ -763,6 +764,16 @@ func (s *Server) putProviderKey(w http.ResponseWriter, r *http.Request, name str
 		return
 	}
 	models, status, err := s.fetchProviderModels(r.Context(), name, key)
+	if name == providerAnthropic && status == http.StatusBadRequest && err != nil && strings.Contains(err.Error(), "anthropic-workspace-id") && !strings.Contains(key, "\x00") {
+		// An organization-scoped key must name a workspace; use the org's
+		// Default Workspace, which the key itself can look up.
+		if workspace, lookupErr := s.defaultAnthropicWorkspace(r.Context(), key); lookupErr == nil {
+			key += "\x00" + workspace
+			models, status, err = s.fetchProviderModels(r.Context(), name, key)
+		} else {
+			log.Printf("[providers] anthropic default workspace lookup: %v", lookupErr)
+		}
+	}
 	if err != nil || len(models) == 0 {
 		log.Printf("[providers] %s key verification failed: status=%d models=%d err=%v", name, status, len(models), err)
 		switch {
@@ -787,4 +798,66 @@ func (s *Server) putProviderKey(w http.ResponseWriter, r *http.Request, name str
 	}
 	s.wakeConversationWorkers()
 	writeJSON(w, http.StatusOK, s.providerStatus(name))
+}
+
+// defaultAnthropicWorkspace finds the Default Workspace of the key's
+// organization. List Workspaces has no default flag; the default is the one
+// present only with include_default=true (or the sole workspace).
+func (s *Server) defaultAnthropicWorkspace(ctx context.Context, key string) (string, error) {
+	list := func(includeDefault bool) ([]string, error) {
+		ctx, cancel := context.WithTimeout(ctx, providerKeyVerifyTimeout)
+		defer cancel()
+		u := s.providerEndpoint(providerAnthropic) + "/v1/organizations/workspaces?limit=100"
+		if includeDefault {
+			u += "&include_default=true"
+		}
+		req, err := http.NewRequestWithContext(ctx, http.MethodGet, u, nil)
+		if err != nil {
+			return nil, err
+		}
+		req.Header.Set("x-api-key", key)
+		req.Header.Set("anthropic-version", "2023-06-01")
+		resp, err := http.DefaultClient.Do(req)
+		if err != nil {
+			return nil, errProviderUnreachable
+		}
+		defer resp.Body.Close()
+		body, _ := io.ReadAll(io.LimitReader(resp.Body, 1<<20))
+		if resp.StatusCode != http.StatusOK {
+			return nil, fmt.Errorf("list workspaces returned HTTP %d: %s", resp.StatusCode, trimRunes(strings.TrimSpace(string(body)), 300))
+		}
+		var out struct {
+			Data []struct {
+				ID         string  `json:"id"`
+				ArchivedAt *string `json:"archived_at"`
+			} `json:"data"`
+		}
+		if err := json.Unmarshal(body, &out); err != nil {
+			return nil, err
+		}
+		ids := []string{}
+		for _, w := range out.Data {
+			if w.ArchivedAt == nil && anthropicWorkspaceID.MatchString(w.ID) {
+				ids = append(ids, w.ID)
+			}
+		}
+		return ids, nil
+	}
+	all, err := list(true)
+	if err != nil {
+		return "", err
+	}
+	if len(all) == 1 {
+		return all[0], nil
+	}
+	named, err := list(false)
+	if err != nil {
+		return "", err
+	}
+	for _, id := range all {
+		if !slices.Contains(named, id) {
+			return id, nil
+		}
+	}
+	return "", errors.New("no default workspace in the organization's workspace list")
 }
