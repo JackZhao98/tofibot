@@ -163,6 +163,7 @@ type Config struct {
 	ComputerEnsure      func(context.Context) error
 }
 type Server struct {
+	gogStatus                            gogStatusCache
 	accountID                            string
 	mcpApprovalMu                        sync.Mutex
 	autoReviewProvider                   provider.Provider // Deterministic tests only; production uses the existing Codex adapter.
@@ -2222,7 +2223,7 @@ func NewServer(c Config) (*Server, error) {
 		st.Close()
 		return nil, err
 	}
-	server.extensions = extensions.NewManager(extensions.Config{MCPConfigPath: c.MCPConfigPath, SkillsDir: c.SkillsDir, ExpandToolQuery: server.expandToolSearchQuery, HTTPTransport: server.localMCPTransport})
+	server.extensions = extensions.NewManager(extensions.Config{MCPConfigPath: c.MCPConfigPath, SkillsDir: c.SkillsDir, ExpandToolQuery: server.expandToolSearchQuery, HTTPTransport: server.localMCPTransport, ServerUsable: server.mcpServerUsable})
 	if st.requireGuestAttachments && microVM != nil {
 		st.guestBlobs = microVM
 		st.cleanupDeletedAttachments()
@@ -3713,15 +3714,20 @@ func (s *Server) tools(c Conversation, r Run) []Tool {
 // mcpDiscoveryToolNames are the MCP facade tools; Skill tools are kept.
 var mcpDiscoveryToolNames = map[string]bool{"search_mcp_tools": true, "call_mcp_tool": true, "search_mcp_catalog": true, "list_mcp_servers": true}
 
-// withoutIdleMCPTools drops the MCP facade when no MCP server is configured.
+// withoutIdleMCPTools drops the MCP facade when no MCP server is configured and usable.
 // An unreadable configuration keeps the tools so diagnostics stay reachable.
 func (s *Server) withoutIdleMCPTools(tools []Tool) []Tool {
 	if s.extensions == nil {
 		return tools
 	}
 	servers, err := s.extensions.ListMCP()
-	if err != nil || len(servers) > 0 {
+	if err != nil {
 		return tools
+	}
+	for _, server := range servers {
+		if s.mcpServerUsable(context.Background(), server.Name) {
+			return tools
+		}
 	}
 	out := make([]Tool, 0, len(tools))
 	for _, tool := range tools {

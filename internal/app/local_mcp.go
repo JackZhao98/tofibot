@@ -2,6 +2,7 @@ package app
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -10,6 +11,7 @@ import (
 	"net/url"
 	"os"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/JackZhao98/tofibot/internal/computer"
@@ -60,6 +62,10 @@ func (s *Server) localMCPTransport(endpoint string) (http.RoundTripper, error) {
 }
 
 func (s *Server) runnerRequest(r *http.Request, method, path string, body any) ([]byte, int, error) {
+	return s.runnerRequestContext(r.Context(), method, path, body)
+}
+
+func (s *Server) runnerRequestContext(ctx context.Context, method, path string, body any) ([]byte, int, error) {
 	base, token, err := s.localRunnerConfig()
 	if err != nil {
 		return nil, 0, err
@@ -72,7 +78,7 @@ func (s *Server) runnerRequest(r *http.Request, method, path string, body any) (
 		}
 		reader = bytes.NewReader(data)
 	}
-	req, err := http.NewRequestWithContext(r.Context(), method, base+path, reader)
+	req, err := http.NewRequestWithContext(ctx, method, base+path, reader)
 	if err != nil {
 		return nil, 0, err
 	}
@@ -311,4 +317,39 @@ func (s *Server) attachLocalMCP(id string) error {
 		}
 	}
 	return s.extensions.SaveMCP("local_"+id, cfg, updating)
+}
+
+// gog is installed with the runner but useless until a Google account is
+// connected; offering it then only costs the model a failing round trip.
+const gogStatusTTL = 30 * time.Second
+
+type gogStatusCache struct {
+	mu        sync.Mutex
+	connected bool
+	checked   time.Time
+}
+
+// mcpServerUsable hides local_gog from runs while no Google account is
+// connected. Other servers, and an unknown status, stay offered.
+func (s *Server) mcpServerUsable(ctx context.Context, name string) bool {
+	if name != "local_gog" {
+		return true
+	}
+	c := &s.gogStatus
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	if !c.checked.IsZero() && time.Since(c.checked) < gogStatusTTL {
+		return c.connected
+	}
+	ctx, cancel := context.WithTimeout(ctx, 2*time.Second)
+	defer cancel()
+	data, status, err := s.runnerRequestContext(ctx, http.MethodGet, "/v1/plugins/gog/gog/status", nil)
+	var out struct {
+		Connected bool `json:"connected"`
+	}
+	if err != nil || status != http.StatusOK || json.Unmarshal(data, &out) != nil {
+		return true
+	}
+	c.connected, c.checked = out.Connected, time.Now()
+	return c.connected
 }
