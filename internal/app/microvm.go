@@ -147,14 +147,14 @@ func (s *Server) microVMEnvironmentPrompt(ctx context.Context, botID string) str
 	if info.DesktopIdleSeconds != nil {
 		idle = fmt.Sprintf(" Desktop idle timeout: %ds (0 disables).", *info.DesktopIdleSeconds)
 	}
-	return fmt.Sprintf("\nShared Linux VM, separate from the service host and Mac; never claim host/Mac access. cwd=%s/bots/%s, HOME=/workspace/home; /workspace/shared, files, tools, Chrome profile and display are shared. Browser: %s. Read-only system; no sudo/system apt. Read computer_help(installation) before software changes. Use tools only when ready; otherwise report status. %s No shell fetches, hidden DOM or offscreen captures as browsing evidence. Stop the shared desktop only on user intent. Private keys use Secret Input; return public keys only.", root, botID, browser, computerBrowserEssentials) + idle
+	return fmt.Sprintf("\nShared Linux VM, separate from the service host and Mac; never claim host/Mac access. cwd=%s/bots/%s, HOME=/workspace/home; /workspace/shared, files, tools, Chrome profile and display are shared. Browser: %s. System directories are read-only (no sudo). Install software in user space: language package managers, or official release archives unpacked under /workspace/home/.local/opt and linked into /workspace/home/.local/bin (first on PATH, shared by all Bots); uninstall by removing exactly what was installed, then verify. computer_help(installation) has details. Use tools only when ready; otherwise report status. %s Stop the shared desktop only on user intent. Private keys use Secret Input; return public keys only.", root, botID, browser, computerBrowserEssentials) + idle
 }
 
 // computerBrowserEssentials is the always-present browser recipe; computer_help
 // keeps the longer procedure.
-const computerBrowserEssentials = "If the desktop is unknown/stopped, run desktop.start once, then browser.snapshot. Never infer the page from history: observe before acting, use coordinates only from the latest capture, verify the visible result after each material action; no guessed URLs for requested page interactions."
+const computerBrowserEssentials = "Browser: if the desktop is stopped, run desktop.start once. Read pages with browser.read (text, links, find a phrase); take browser.snapshot only for layout or click coordinates, and use coordinates only from the latest snapshot. Open searches and sites directly by URL (for example https://www.google.com/search?q=… or https://mail.google.com/mail/u/0/#search/…). Opening an item to read it is fine under read-only requests; just do not change, send or delete anything."
 
-const computerResearchGuidance = " For web research, start with the user's words and language. If weak, vary the query or route. For direct links, open result pages and record their actual URLs and requested fields; a search card is not a destination. For 'all' results, sweep visible results and related pages, deduplicate, and qualify coverage. browser.snapshot already includes a screenshot; do not repeat it with desktop.capture. Observe once after each material action, not twice on an unchanged page."
+const computerResearchGuidance = " For research, open the primary pages (the article, filing or official page), not search-result pages, and cite those URLs with dates. A few good sources beat many screenshots."
 
 func (s *Server) listComputers(ctx context.Context) ([]Computer, error) {
 	items, err := s.store.listComputers(s.instance.ID)

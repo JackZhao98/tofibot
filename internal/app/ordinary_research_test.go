@@ -83,7 +83,7 @@ func TestOrdinaryResearchPolicyPreservesRestrictionsAndLongRoles(t *testing.T) {
 						t.Fatal(err)
 					}
 					for _, required := range []string{toolEvidencePolicy,
-						"Missing/disconnected", "empty/stale/irrelevant", "when exposed",
+						"Lead with the answer", "switch routes", "Use data you already fetched",
 						"precise blocker and evidence gap", "Never bypass a denied target/action or browser prohibition",
 						"independent authorization and its own approvals", "Expired approval stops its action",
 						"Verify uncertain action outcomes before retrying or switching routes"} {
