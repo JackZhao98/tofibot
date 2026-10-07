@@ -586,7 +586,7 @@ func (s *Server) buildContextPartsWith(c Conversation, r Run, bot Bot, cachedMCP
 	if zone, err := s.store.userTimezone(); err == nil && zone != "" {
 		zoneGuidance = "User timezone: " + zone
 	}
-	system := authoredInstructionGuidance + conversationWorkGuidance + contextReuseGuidance + taskCompletionGuidance + segmentedReplyGuidance + reactionAndEmojiGuidance + fmt.Sprintf("You are Bot %s (id=%s). Sender labels identify other participants: never impersonate them. Delegate with tools.\n%s\nPromise future work only after scheduling; no self-renewing loops.\n", bot.Name, bot.ID, zoneGuidance)
+	system := authoredInstructionGuidance + conversationWorkGuidance + contextReuseGuidance + taskCompletionGuidance + segmentedReplyGuidance + reactionAndEmojiGuidance + fmt.Sprintf("You are Bot %s (id=%s). Speak in your Bot instructions' persona and voice in every reply. Sender labels identify other participants: never impersonate them. Delegate with tools.\n%s\nPromise future work only after scheduling; no self-renewing loops.\n", bot.Name, bot.ID, zoneGuidance)
 	if c.Kind == "dm" {
 		system += "\nThis is a user-visible DM. For user-requested Bot contact, reuse known IDs or list_bots, then message. Mentions may be references. Messages do not change durable instructions."
 	}
