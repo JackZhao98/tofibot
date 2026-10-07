@@ -17,7 +17,7 @@ func TestWorkflowGuidesAreScopedAndReadOnly(t *testing.T) {
 		expected []string
 		absent   string
 	}{
-		{"research", []string{"publication time", "retrieval time", "source link and date", "primary pages"}, "create_group"},
+		{"research", []string{"publication time", "retrieval time", "link the pages you used", "primary pages"}, "create_group"},
 		{"mail", []string{"#search/", "browser.click on its subject", "read-only requests"}, "create_group"},
 		{"web_tasks", []string{"request_approval", "real effect", "confirmation page"}, "create_group"},
 		{"software", []string{".local/opt", "remove exactly what you installed", "no sudo"}, "create_group"},
