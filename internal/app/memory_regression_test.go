@@ -129,3 +129,25 @@ func TestGroupSummaryNeverReadsPrivateConversation(t *testing.T) {
 		}
 	}
 }
+
+func TestDuplicateMemoryKeepsMeaningfulPunctuation(t *testing.T) {
+	for _, pair := range [][2]string{
+		{"meeting on 1/12", "meeting on 11/2"},
+		{"threshold -5", "threshold 5"},
+		{"version 3.5", "version 35"},
+		{"I use C++", "I use C"},
+	} {
+		if _, ok := duplicateMemory([]Memory{{ID: "m1", Content: pair[0]}}, pair[1]); ok {
+			t.Fatalf("%q collapsed into %q", pair[1], pair[0])
+		}
+	}
+	for _, pair := range [][2]string{
+		{"Meeting on 1/12", "  meeting   ON 1/12 "},
+		{"I use C++", "i  use\tc++"},
+		{"likes green tea, not coffee", "Likes green tea not coffee"},
+	} {
+		if _, ok := duplicateMemory([]Memory{{ID: "m1", Content: pair[0]}}, pair[1]); !ok {
+			t.Fatalf("%q did not dedup with %q", pair[1], pair[0])
+		}
+	}
+}
