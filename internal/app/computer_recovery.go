@@ -38,7 +38,7 @@ func computerRecoveryIdentity(bot, computerID, action string, raw json.RawMessag
 		"desktop.start": "", "desktop.stop": "", "desktop.capture": "",
 		"desktop.click": "x y button screenshot_width screenshot_height", "desktop.type": "text", "desktop.key": "key modifiers", "desktop.scroll": "direction amount",
 		"terminal.open": "command cols rows", "terminal.list": "", "terminal.read": "terminal_id cursor max_bytes", "terminal.write": "terminal_id data data_base64", "terminal.resize": "terminal_id cols rows", "terminal.close": "terminal_id",
-		"browser.navigate": "url target_id", "browser.snapshot": "target_id", "browser.new": "url", "browser.switch": "target_id", "browser.close": "target_id",
+		"browser.navigate": "url target_id", "browser.snapshot": "target_id", "browser.read": "find max_chars", "browser.new": "url", "browser.switch": "target_id", "browser.close": "target_id",
 	}
 	if keys, known := fields[action]; known {
 		effective := map[string]json.RawMessage{}
@@ -89,7 +89,7 @@ func computerRecoveryIdentity(bot, computerID, action string, raw json.RawMessag
 	}
 	encoded, _ := json.Marshal(args)
 	i := tooloutcome.OperationIdentity("computer/"+computerID+"/bot/"+bot, action, encoded)
-	if isReadOnlyMicroVMAction(action) || action == "terminal.list" || action == "terminal.read" {
+	if isReadOnlyMicroVMAction(action) || action == "browser.read" || action == "terminal.list" || action == "terminal.read" {
 		i.Risk = tooloutcome.Observation
 	}
 	if action == "files.write" {
