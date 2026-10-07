@@ -196,26 +196,11 @@ func (s *Server) microVMAction(ctx context.Context, r Run, name string, args jso
 		}
 		return s.microVMActionFromSource(ctx, r, name, args, "model")
 	}
-	for {
-		if err := s.waitComputerOwner(ctx, r); err != nil {
-			return "", err
-		}
-		lease := s.computerLease(r.BotID)
-		if err := lockComputerLease(ctx, lease); err != nil {
-			s.releaseComputerOwner(r.BotID, r.ID)
-			return "", err
-		}
-		if !s.ownsComputer(r) {
-			lease.Unlock()
-			continue
-		}
-		defer lease.Unlock()
-		break
-	}
-	if err := s.renewComputerHold(ctx, r); err != nil {
-		s.releaseComputerOwner(r.BotID, r.ID)
+	release, err := s.acquireDesktop(ctx, r)
+	if err != nil {
 		return "", err
 	}
+	defer release()
 
 	if actionNeedsObservation(name) && !s.desktopObservedFor(r) {
 		return "", tooloutcome.InvalidArguments("needs_observation: shared desktop control changed; inspect desktop.capture or browser.snapshot before using coordinates or typing")
@@ -401,6 +386,9 @@ func (s *Server) microVMTools(r Run) []Tool {
 					return "", fmt.Errorf("scheduled browser startup: %w", err)
 				}
 			}
+			if action == "browser.click" {
+				return s.browserClick(ctx, r, args)
+			}
 			if action == "browser.read" {
 				out, err := s.browserRead(ctx, r, args)
 				if err != nil && browserProcessGone(err) && s.restartDesktop(ctx, r) == nil {
@@ -517,7 +505,7 @@ func (s *Server) microVMTools(r Run) []Tool {
 		argsJSON, _ := json.Marshal(args)
 		return in.Action, argsJSON, nil
 	})
-	browser := call("computer_browser", "Use the shared Chrome. browser.read returns the focused page's text and links (use find to jump to a phrase); prefer it for reading pages, results, articles and mail. browser.snapshot returns a screenshot for layout and click coordinates. browser.navigate opens a URL in the current tab (search engines and site searches by URL are fine). browser.action switches/opens/closes tabs. All Bots share this Chrome and its logged-in profile.", objectSchema(map[string]any{"action": map[string]any{"type": "string", "enum": []string{"browser.read", "browser.navigate", "browser.snapshot", "browser.action"}, "description": "browser.read: page text+links (optional find, max_chars); browser.navigate needs url; browser.snapshot: screenshot; browser.action uses target_action"}, "find": map[string]any{"type": "string", "description": "browser.read: return passages around this phrase"}, "max_chars": map[string]any{"type": "integer", "minimum": 1000, "maximum": 60000, "description": "browser.read: text budget, default 20000"}, "url": map[string]any{"type": "string", "description": "URL for browser.navigate"}, "target_action": map[string]any{"type": "string", "enum": []string{"navigate", "snapshot", "new", "switch", "close"}, "description": "Browser action; new explicitly opens a foreground tab; switch/close require target_id"}, "target_id": map[string]any{"type": "string", "description": "Exact target_id from browser.snapshot; omit to use the actual current foreground tab"}}, []string{"action"}), func(raw json.RawMessage) (string, json.RawMessage, error) {
+	browser := call("computer_browser", "Use the shared Chrome. browser.read returns the focused page's text and links (use find to jump to a phrase); prefer it for reading pages, results, articles and mail. browser.click clicks an item by its visible text (a mail subject, button, link) and returns the new page, so no screenshot or coordinates are needed. browser.snapshot returns a screenshot for layout and click coordinates. browser.navigate opens a URL in the current tab (search engines and site searches by URL are fine). browser.action switches/opens/closes tabs. All Bots share this Chrome and its logged-in profile.", objectSchema(map[string]any{"action": map[string]any{"type": "string", "enum": []string{"browser.read", "browser.click", "browser.navigate", "browser.snapshot", "browser.action"}, "description": "browser.read: page text+links (optional find, max_chars); browser.click: click the element showing click text, then returns the page like read; browser.navigate needs url; browser.snapshot: screenshot; browser.action uses target_action"}, "click": map[string]any{"type": "string", "description": "browser.click: visible text of the item to click (a mail subject, button or link label)"}, "find": map[string]any{"type": "string", "description": "browser.read: return passages around this phrase"}, "max_chars": map[string]any{"type": "integer", "minimum": 1000, "maximum": 60000, "description": "browser.read: text budget, default 20000"}, "url": map[string]any{"type": "string", "description": "URL for browser.navigate"}, "target_action": map[string]any{"type": "string", "enum": []string{"navigate", "snapshot", "new", "switch", "close"}, "description": "Browser action; new explicitly opens a foreground tab; switch/close require target_id"}, "target_id": map[string]any{"type": "string", "description": "Exact target_id from browser.snapshot; omit to use the actual current foreground tab"}}, []string{"action"}), func(raw json.RawMessage) (string, json.RawMessage, error) {
 		var in struct {
 			Action       string `json:"action"`
 			URL          string `json:"url,omitempty"`
@@ -525,6 +513,7 @@ func (s *Server) microVMTools(r Run) []Tool {
 			TargetID     string `json:"target_id,omitempty"`
 			Find         string `json:"find,omitempty"`
 			MaxChars     int    `json:"max_chars,omitempty"`
+			Click        string `json:"click,omitempty"`
 		}
 		if err := decode(raw, &in); err != nil || !strings.HasPrefix(in.Action, "browser.") {
 			return "", nil, errors.New("computer_browser requires a browser action")
@@ -533,6 +522,8 @@ func (s *Server) microVMTools(r Run) []Tool {
 		switch in.Action {
 		case "browser.read":
 			args = browserReadArgs{Find: in.Find, MaxChars: in.MaxChars}
+		case "browser.click":
+			args = browserReadArgs{Click: in.Click, Find: in.Find, MaxChars: in.MaxChars}
 		case "browser.navigate":
 			args = struct {
 				URL      string `json:"url"`
@@ -571,4 +562,31 @@ func (s *Server) restartDesktop(ctx context.Context, r Run) error {
 	}
 	_, err := s.microVMAction(ctx, r, "desktop.start", json.RawMessage(`{}`))
 	return err
+}
+
+// acquireDesktop waits for this run to own the shared desktop and holds its
+// lease; the returned release unlocks the lease.
+func (s *Server) acquireDesktop(ctx context.Context, r Run) (func(), error) {
+	var lease *sync.Mutex
+	for {
+		if err := s.waitComputerOwner(ctx, r); err != nil {
+			return nil, err
+		}
+		lease = s.computerLease(r.BotID)
+		if err := lockComputerLease(ctx, lease); err != nil {
+			s.releaseComputerOwner(r.BotID, r.ID)
+			return nil, err
+		}
+		if !s.ownsComputer(r) {
+			lease.Unlock()
+			continue
+		}
+		break
+	}
+	if err := s.renewComputerHold(ctx, r); err != nil {
+		lease.Unlock()
+		s.releaseComputerOwner(r.BotID, r.ID)
+		return nil, err
+	}
+	return lease.Unlock, nil
 }

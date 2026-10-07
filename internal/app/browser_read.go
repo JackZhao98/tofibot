@@ -5,6 +5,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"github.com/JackZhao98/tofibot/internal/tooloutcome"
 	"strings"
 )
 
@@ -18,7 +19,7 @@ const (
 )
 
 const browserReadScript = `
-import base64, glob, json, re, sys, urllib.request, websocket
+import base64, glob, json, re, sys, time, urllib.request, websocket
 opts = json.loads(base64.b64decode(sys.argv[1]))
 port = None
 for path in glob.glob("/proc/[0-9]*/cmdline"):
@@ -35,12 +36,16 @@ for path in glob.glob("/proc/[0-9]*/cmdline"):
 if not port:
     print(json.dumps({"error": "chrome_not_running"})); sys.exit(0)
 pages = [t for t in json.load(urllib.request.urlopen("http://127.0.0.1:%d/json/list" % port, timeout=5)) if t.get("type") == "page" and t.get("webSocketDebuggerUrl")]
-def call(ws, expr):
-    ws.send(json.dumps({"id": 1, "method": "Runtime.evaluate", "params": {"expression": expr, "returnByValue": True}}))
+seq = [0]
+def send(ws, method, params):
+    seq[0] += 1
+    ws.send(json.dumps({"id": seq[0], "method": method, "params": params}))
     while True:
         msg = json.loads(ws.recv())
-        if msg.get("id") == 1:
-            return msg.get("result", {}).get("result", {}).get("value")
+        if msg.get("id") == seq[0]:
+            return msg.get("result", {})
+def evaluate(ws, expr):
+    return send(ws, "Runtime.evaluate", {"expression": expr, "returnByValue": True}).get("result", {}).get("value")
 EXTRACT = r"""(() => {
   const max = %d, find = %s;
   const root = document.querySelector('main, article, [role=main]') || document.body;
@@ -59,32 +64,62 @@ EXTRACT = r"""(() => {
     seen.add(a.href); links.push({text: label.slice(0, 160), url: a.href});
     if (links.length >= 80) break;
   }
-  return {title: document.title, url: location.href, visible: document.visibilityState === 'visible' && document.hasFocus(),
-    truncated: text.length > max, chars: text.length, text: text.slice(0, max), matches, links};
+  return {title: document.title, url: location.href, truncated: text.length > max, chars: text.length, text: text.slice(0, max), matches, links};
 })()"""
-expr = EXTRACT % (opts["max"], json.dumps(opts.get("find") or ""))
-best = None
+LOCATE = r"""((needle) => {
+  needle = needle.toLowerCase();
+  const sel = 'a,button,[role=button],[role=link],[role=row],[role=option],[role=tab],[role=menuitem],tr,li,summary,label,[onclick],[tabindex]';
+  let best = null;
+  for (const el of document.querySelectorAll(sel)) {
+    const label = ((el.innerText || '') + ' ' + (el.getAttribute('aria-label') || '')).toLowerCase();
+    if (!label.includes(needle)) continue;
+    const r = el.getBoundingClientRect();
+    if (r.width < 2 || r.height < 2) continue;
+    if (!best || label.length < best.len) best = {el, len: label.length};
+  }
+  if (!best) return null;
+  best.el.scrollIntoView({block: 'center', inline: 'center'});
+  const r = best.el.getBoundingClientRect();
+  return {x: r.left + r.width / 2, y: r.top + r.height / 2, label: (best.el.innerText || best.el.getAttribute('aria-label') || '').trim().slice(0, 200)};
+})(%s)"""
+VISIBLE = "document.visibilityState === 'visible' && document.hasFocus()"
+target = None
 for t in pages:
     try:
         ws = websocket.create_connection(t["webSocketDebuggerUrl"], timeout=10, suppress_origin=True)
-        try:
-            page = call(ws, expr)
-        finally:
-            ws.close()
     except Exception:
         continue
-    if not page:
-        continue
-    if page.get("visible"):
-        best = page; break
-    if best is None:
-        best = page
-print(json.dumps(best or {"error": "no_readable_page"}, ensure_ascii=False))
+    if target is None or evaluate(ws, VISIBLE):
+        if target:
+            target.close()
+        target = ws
+        if evaluate(ws, VISIBLE):
+            break
+    else:
+        ws.close()
+if target is None:
+    print(json.dumps({"error": "no_readable_page"})); sys.exit(0)
+out = {}
+if opts.get("click"):
+    spot = evaluate(target, LOCATE % json.dumps(opts["click"]))
+    if not spot:
+        print(json.dumps({"error": "click_target_not_found", "click": opts["click"]}, ensure_ascii=False)); sys.exit(0)
+    time.sleep(0.2)
+    for kind in ("mouseMoved", "mousePressed", "mouseReleased"):
+        send(target, "Input.dispatchMouseEvent", {"type": kind, "x": spot["x"], "y": spot["y"], "button": "left", "clickCount": 1})
+    out["clicked"] = spot["label"]
+    time.sleep(1.5)
+page = evaluate(target, EXTRACT % (opts["max"], json.dumps(opts.get("find") or "")))
+target.close()
+out.update(page or {"error": "no_readable_page"})
+print(json.dumps(out, ensure_ascii=False))
 `
 
 type browserReadArgs struct {
 	Find     string `json:"find,omitempty"`
 	MaxChars int    `json:"max_chars,omitempty"`
+	// Click is visible text to click before reading (browser.click).
+	Click string `json:"click,omitempty"`
 }
 
 // browserReadCommand is the shell.exec payload for one bounded page read.
@@ -94,7 +129,7 @@ func browserReadCommand(in browserReadArgs) (json.RawMessage, error) {
 		max = browserReadDefaultChars
 	}
 	max = min(max, browserReadMaxChars)
-	opts, err := json.Marshal(map[string]any{"max": max, "find": strings.TrimSpace(in.Find)})
+	opts, err := json.Marshal(map[string]any{"max": max, "find": strings.TrimSpace(in.Find), "click": strings.TrimSpace(in.Click)})
 	if err != nil {
 		return nil, err
 	}
@@ -110,6 +145,31 @@ func (s *Server) browserRead(ctx context.Context, r Run, raw json.RawMessage) (s
 		return "", err
 	}
 	out, err := s.microVMAction(ctx, r, "shell.exec", args)
+	if err != nil {
+		return "", err
+	}
+	return browserReadResult(out)
+}
+
+// browserClick clicks the smallest visible element containing the given text
+// on the focused page through DevTools, then returns the resulting page like
+// browser.read. It takes the shared desktop like any other page input.
+func (s *Server) browserClick(ctx context.Context, r Run, raw json.RawMessage) (string, error) {
+	var in browserReadArgs
+	_ = json.Unmarshal(raw, &in)
+	if strings.TrimSpace(in.Click) == "" {
+		return "", tooloutcome.InvalidArguments("browser.click needs click text")
+	}
+	args, err := browserReadCommand(in)
+	if err != nil {
+		return "", err
+	}
+	release, err := s.acquireDesktop(ctx, r)
+	if err != nil {
+		return "", err
+	}
+	defer release()
+	out, err := s.microVMActionOnLease(ctx, r, "shell.exec", args)
 	if err != nil {
 		return "", err
 	}
@@ -132,6 +192,9 @@ func browserReadResult(out string) (string, error) {
 	}
 	if strings.Contains(page, `"error": "chrome_not_running"`) || strings.Contains(page, `"error":"chrome_not_running"`) {
 		return "", fmt.Errorf("browser.read: Chrome is not running; start it with computer_desktop desktop.start")
+	}
+	if strings.Contains(page, `"error": "click_target_not_found"`) {
+		return "", tooloutcome.InvalidArguments("browser.click: no visible element contains that text; read the page and use exact visible text")
 	}
 	return page, nil
 }

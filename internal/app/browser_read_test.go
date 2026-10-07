@@ -48,3 +48,22 @@ func TestBrowserReadResultUnwrapsShell(t *testing.T) {
 		t.Fatal("browser.read must be an observation")
 	}
 }
+
+func TestBrowserClickCarriesTextAndIsNotAnObservation(t *testing.T) {
+	raw, _ := browserReadCommand(browserReadArgs{Click: "Your Ticket has been issued"})
+	var shell struct {
+		Command string `json:"command"`
+	}
+	_ = json.Unmarshal(raw, &shell)
+	decoded, _ := base64.StdEncoding.DecodeString(strings.Fields(shell.Command)[2])
+	if !strings.Contains(string(decoded), `"click":"Your Ticket has been issued"`) {
+		t.Fatalf("opts=%s", decoded)
+	}
+	missing, _ := json.Marshal(map[string]any{"stdout": `{"error": "click_target_not_found", "click": "x"}`, "exit_code": 0})
+	if _, err := browserReadResult(string(missing)); err == nil || browserProcessGone(err) {
+		t.Fatalf("missing click target must be a repairable argument error, err=%v", err)
+	}
+	if computerRecoveryIdentity("bot", microVMComputerID, "browser.click", json.RawMessage(`{"click":"x"}`)).Risk == "observation" {
+		t.Fatal("a click changes the page")
+	}
+}
