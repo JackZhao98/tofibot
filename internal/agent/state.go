@@ -176,5 +176,6 @@ func (s *AgentState) ToResult(model string) *AgentResult {
 		Messages:       s.NewMessages(),
 		ModelBreakdown: s.Tracker.ModelBreakdown(),
 		Trace:          s.Trace,
+		Cancelled:      s.Phase == PhaseCancelled,
 	}
 }
