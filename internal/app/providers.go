@@ -43,6 +43,7 @@ var (
 	apiKeyProviders          = []string{providerOpenAI, providerAnthropic}
 	defaultProviderEndpoints = map[string]string{providerOpenAI: "https://api.openai.com/v1", providerAnthropic: "https://api.anthropic.com"}
 	errProviderUnreachable   = errors.New("provider unreachable")
+	anthropicWorkspaceID     = regexp.MustCompile(`^wrkspc_[A-Za-z0-9]{8,64}$`)
 	datedModelSnapshot       = regexp.MustCompile(`-(\d{4}-\d{2}-\d{2}|\d{4})$`)
 )
 
@@ -347,8 +348,12 @@ func (s *Server) fetchProviderModels(ctx context.Context, name, key string) ([]M
 	case providerAnthropic:
 		req, err = http.NewRequestWithContext(ctx, http.MethodGet, base+"/v1/models", nil)
 		if err == nil {
-			req.Header.Set("x-api-key", key)
+			apiKey, workspace, _ := strings.Cut(key, "\x00")
+			req.Header.Set("x-api-key", apiKey)
 			req.Header.Set("anthropic-version", "2023-06-01")
+			if workspace != "" {
+				req.Header.Set("anthropic-workspace-id", workspace)
+			}
 		}
 	default:
 		return nil, 0, fmt.Errorf("unknown provider: %s", name)
@@ -573,7 +578,7 @@ func (s *Server) storeProviderKey(name, key string) (secretRecord, error) {
 	}
 	id := providerVaultID(name)
 	at := now()
-	record := secretRecord{ID: id, Name: providerLabel(name) + " API key", Kind: modelProviderKind, Target: name, Label: keyHint(key), Status: "stored", CreatedAt: at, VerifiedAt: at}
+	record := secretRecord{ID: id, Name: providerLabel(name) + " API key", Kind: modelProviderKind, Target: name, Label: keyHint(strings.SplitN(key, "\x00", 2)[0]), Status: "stored", CreatedAt: at, VerifiedAt: at}
 	var err error
 	if record.Ciphertext, err = v.seal(id, key); err != nil {
 		return secretRecord{}, err
@@ -733,7 +738,8 @@ func (s *Server) routeProviders(w http.ResponseWriter, r *http.Request, p string
 
 func (s *Server) putProviderKey(w http.ResponseWriter, r *http.Request, name string) {
 	var in struct {
-		Key string `json:"key"`
+		Key         string `json:"key"`
+		WorkspaceID string `json:"workspace_id"`
 	}
 	if err := decode(r, &in); err != nil {
 		writeErr(w, http.StatusBadRequest, "invalid_request", "invalid request")
@@ -743,6 +749,14 @@ func (s *Server) putProviderKey(w http.ResponseWriter, r *http.Request, name str
 	if key == "" || len(key) > 4096 || strings.ContainsAny(key, " \t\r\n\x00") {
 		writeErr(w, http.StatusBadRequest, "invalid_key", "Enter the full API key.")
 		return
+	}
+	if workspace := strings.TrimSpace(in.WorkspaceID); workspace != "" {
+		if name != providerAnthropic || !anthropicWorkspaceID.MatchString(workspace) {
+			writeErr(w, http.StatusBadRequest, "invalid_workspace", "Enter the workspace ID shown in Claude Console (wrkspc_…).")
+			return
+		}
+		// Keys not scoped to a workspace must name one on every request.
+		key += "\x00" + workspace
 	}
 	if s.secretVault == nil {
 		writeErr(w, http.StatusServiceUnavailable, "unavailable", "Secret storage unavailable")
