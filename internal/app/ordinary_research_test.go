@@ -82,11 +82,11 @@ func TestOrdinaryResearchPolicyPreservesRestrictionsAndLongRoles(t *testing.T) {
 					if err != nil {
 						t.Fatal(err)
 					}
-					for _, required := range []string{ordinaryResearchGuidance, toolEvidencePolicy,
+					for _, required := range []string{toolEvidencePolicy,
 						"Missing/disconnected", "empty/stale/irrelevant", "when exposed",
 						"precise blocker and evidence gap", "Never bypass a denied target/action or browser prohibition",
 						"independent authorization and its own approvals", "Expired approval stops its action",
-						"Verify uncertain writes before retrying or switching routes"} {
+						"Verify uncertain action outcomes before retrying or switching routes"} {
 						if !strings.Contains(system, required) {
 							t.Fatalf("missing mandatory research boundary %q", required)
 						}
@@ -98,11 +98,18 @@ func TestOrdinaryResearchPolicyPreservesRestrictionsAndLongRoles(t *testing.T) {
 			})
 		}
 	}
-	for _, guide := range []string{researchGuide, computerBrowserGuide} {
-		for _, required := range []string{"denied target/action", "browser prohibition", "independent authorization", "approvals", "Expired approval", "uncertain", "precise blocker and evidence gap"} {
-			if !strings.Contains(guide, required) {
-				t.Fatalf("optional help weakened boundary %q", required)
-			}
+	for _, required := range []string{"denied target/action", "browser prohibition", "independent authorization", "approvals", "Expired approval", "uncertain", "precise blocker and evidence gap"} {
+		if !strings.Contains(computerBrowserGuide, required) {
+			t.Fatalf("optional help weakened boundary %q", required)
+		}
+		if !strings.Contains(toolEvidencePolicy, required) {
+			t.Fatalf("always-present policy lost boundary %q", required)
+		}
+	}
+	// The research guide extends the always-present block without repeating it.
+	for _, repeated := range []string{"denied target/action", "browser prohibition", "independent authorization", "Expired approval", "precise blocker and evidence gap"} {
+		if strings.Contains(researchGuide, repeated) {
+			t.Fatalf("research guide repeats system boundary %q", repeated)
 		}
 	}
 }
@@ -205,11 +212,13 @@ func TestOrdinaryResearchFallbackToolPaths(t *testing.T) {
 				}
 				messages, core := s.buildContextParts(conv, run, bot)
 				system, err := assembleRunSystem(runSystemPrompt{Core: core, BotInstructions: bot.Instructions, Computer: s.microVMEnvironmentPrompt(ctx, bot.ID), Extensions: prepared.Instructions})
-				if err != nil || !strings.Contains(system, ordinaryResearchGuidance) || strings.Contains(system, marker) {
+				if err != nil || !strings.Contains(system, toolEvidencePolicy) || strings.Contains(system, marker) {
 					t.Fatalf("ordinary production prompt invalid: %v", err)
 				}
-				if scenario != "unconfigured-vm" {
-					calls = append(calls, reviewCall{"computer_help", `{"topic":"browser"}`})
+				// The browser recipe is inline in the VM environment text, so the
+				// script starts the desktop without a computer_help round trip.
+				if scenario != "unconfigured-vm" && !strings.Contains(system, computerBrowserEssentials) {
+					t.Fatal("VM environment lost its inline browser recipe")
 				}
 				success := scenario != "unavailable-vm" && scenario != "startup-failure" && scenario != "unconfigured-vm"
 				if scenario != "unavailable-vm" && scenario != "unconfigured-vm" {
@@ -259,7 +268,7 @@ func TestOrdinaryResearchFallbackToolPaths(t *testing.T) {
 				if (scenario == "unavailable-vm" || scenario == "unconfigured-vm") && len(actions) != 0 {
 					t.Fatalf("unavailable VM was used: %v", actions)
 				}
-				if scenario == "unavailable-vm" && !strings.Contains(system, "synthetic VM unavailable") {
+				if scenario == "unavailable-vm" && !strings.Contains(messages[len(messages)-2].Content, "synthetic VM unavailable") {
 					t.Fatal("unavailable VM lost its concrete reported blocker")
 				}
 				t.Logf("scripted %s source-to-browser trace: tools=%d VM actions=%v verified=%v", scenario, len(events), actions, success)
