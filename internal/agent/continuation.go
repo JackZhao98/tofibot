@@ -56,6 +56,9 @@ type Continuation struct {
 	WaitingToolCallID string              `json:"waiting_tool_call_id"`
 	WaitingToolName   string              `json:"waiting_tool_name"`
 	SkippedToolCalls  []provider.ToolCall `json:"skipped_tool_calls"`
+
+	// RecoveryEpoch is the ledger window for observation retry limits.
+	RecoveryEpoch int `json:"recovery_epoch,omitempty"`
 }
 
 const continuationVersion = 1
@@ -69,7 +72,7 @@ func ValidateContinuation(c *Continuation) error {
 	if c.Version != continuationVersion {
 		return fmt.Errorf("unsupported agent continuation version %d", c.Version)
 	}
-	if c.LLMCalls < 0 || c.Step < 0 || c.AssistantTurnIndex < 0 || c.ToolCallsSinceReport < 0 || c.ActiveElapsedNanos < 0 {
+	if c.LLMCalls < 0 || c.Step < 0 || c.AssistantTurnIndex < 0 || c.ToolCallsSinceReport < 0 || c.ActiveElapsedNanos < 0 || c.RecoveryEpoch < 0 {
 		return errors.New("agent continuation has negative counters")
 	}
 	if c.TotalUsage.InputTokens < 0 || c.TotalUsage.OutputTokens < 0 {

@@ -14,6 +14,7 @@ import (
 	"sort"
 	"strings"
 	"time"
+	"unicode/utf8"
 
 	"github.com/JackZhao98/tofibot/internal/executor"
 	"github.com/JackZhao98/tofibot/internal/models"
@@ -76,6 +77,18 @@ type ExtraBuiltinTool struct {
 
 const maxDirectToolResultChars = 50000
 
+// maxToolsOnlyResultChars bounds one tool result sent to the model in
+// ToolsOnly runs. Activity storage still receives the full result.
+const maxToolsOnlyResultChars = 24000
+
+// Model-call watchdogs. A call past the wall cap, or one tool call whose
+// streamed arguments pass the size cap, is aborted and the iteration retried
+// once. Variables so tests can shorten them.
+var (
+	modelCallWallCap         = 240 * time.Second
+	maxToolCallArgumentChars = 24000
+)
+
 // MaxStepsWithProgressReports is the hard loop guard for tasks that report
 // progress between tool batches. Persistence must accept the same turn range.
 const MaxStepsWithProgressReports = 300
@@ -118,6 +131,15 @@ type AgentConfig struct {
 	OnStreamChunk   func(sessionID, delta string)                          // Optional: called with each content delta during streaming
 	OnThinkingChunk func(sessionID, delta string)                          // Optional: called with each reasoning/thinking delta during streaming
 	OnToolCall      func(toolName, input, output string, durationMs int64) // Optional: called after each tool execution
+	// OnStreamReset is called before a model call is retried after the aborted
+	// attempt already streamed visible content, so the caller can discard it.
+	OnStreamReset func()
+	// OnFinalDraftDemoted, when set, receives a final draft that
+	// BeforeFinalResponse sent back for review instead of OnAssistantTurn.
+	// The draft is superseded by the reviewed final answer.
+	OnFinalDraftDemoted func(turnIndex int, content string)
+	// PromptCacheKey is sent with every model request of this run.
+	PromptCacheKey string
 	// OnAssistantTurn is called for each completed non-final assistant turn with
 	// non-empty public content, before any associated tools are executed. The
 	// content is sanitized for public delivery; the agent's internal message
@@ -769,6 +791,12 @@ func RunAgentLoop(cfg AgentConfig, ctx *models.ExecutionContext) (returned *Agen
 	recoveryIdentities := map[string]tooloutcome.Identity{}
 	recoveryEvidence := map[string][]tooloutcome.Identity{}
 	recoveryBlocked := map[string]bool{}
+	// recoveryEpoch counts successful non-observation actions; failed
+	// observations are only counted against retries within one epoch.
+	recoveryEpoch := 0
+	recoveryGuard := func(identity tooloutcome.Identity) *tooloutcome.Outcome {
+		return toolRecoveryIdentityGuardAt(recoveryLedger, identity, recoveryEpoch)
+	}
 	resolveIdentity := func(name, args string) tooloutcome.Identity {
 		if cfg.ResolveToolIdentity != nil {
 			return cfg.ResolveToolIdentity(name, args)
@@ -795,7 +823,13 @@ func RunAgentLoop(cfg AgentConfig, ctx *models.ExecutionContext) (returned *Agen
 			}
 		}
 	}
+	// appendAndEmitAs appends msg for the model but reports emitted to OnMessage;
+	// emitted may carry the full tool result that msg bounds.
+	var appendAndEmitAs func(list []provider.Message, msg, emitted provider.Message) []provider.Message
 	appendAndEmit := func(list []provider.Message, msg provider.Message) []provider.Message {
+		return appendAndEmitAs(list, msg, msg)
+	}
+	appendAndEmitAs = func(list []provider.Message, msg, emitted provider.Message) []provider.Message {
 		if cfg.ToolsOnly {
 			for _, call := range msg.ToolCalls {
 				recoveryCalls[call.ID] = call
@@ -811,7 +845,7 @@ func RunAgentLoop(cfg AgentConfig, ctx *models.ExecutionContext) (returned *Agen
 						if observed := recoveryEvidence[call.ID]; len(observed) > 1 {
 							evidence = append(evidence, observed[1:]...)
 						}
-						recoveryLedger = append(recoveryLedger, ToolRecoveryRecord{Call: call, Outcome: *o, Identity: &identity, Evidence: evidence})
+						recoveryLedger = append(recoveryLedger, ToolRecoveryRecord{Call: call, Outcome: *o, Identity: &identity, Evidence: evidence, Epoch: recoveryEpoch})
 					}
 				}
 			}
@@ -832,7 +866,7 @@ func RunAgentLoop(cfg AgentConfig, ctx *models.ExecutionContext) (returned *Agen
 		}
 		notifyAssistantTurn(msg, len(msg.ToolCalls) > 0)
 		if cfg.OnMessage != nil {
-			cfg.OnMessage(msg)
+			cfg.OnMessage(emitted)
 		}
 		return append(list, msg)
 	}
@@ -882,11 +916,12 @@ func RunAgentLoop(cfg AgentConfig, ctx *models.ExecutionContext) (returned *Agen
 			}
 		}
 		if cfg.Continuation != nil {
+			recoveryEpoch = cfg.Continuation.RecoveryEpoch
 			for _, msg := range messages[len(cfg.Continuation.Messages):] {
 				if msg.ToolOutcome != nil && recoveryStatus(msg.ToolOutcome.Status) {
 					if call, ok := recoveryCalls[msg.ToolCallID]; ok {
 						identity := resolveIdentity(call.Name, call.Arguments)
-						recoveryLedger = append(recoveryLedger, ToolRecoveryRecord{Call: call, Identity: &identity, Outcome: *msg.ToolOutcome})
+						recoveryLedger = append(recoveryLedger, ToolRecoveryRecord{Call: call, Identity: &identity, Outcome: *msg.ToolOutcome, Epoch: recoveryEpoch})
 					}
 				}
 			}
@@ -959,6 +994,9 @@ func RunAgentLoop(cfg AgentConfig, ctx *models.ExecutionContext) (returned *Agen
 		state.Tracker.RestoreModelBreakdown(cfg.Continuation.ModelUsage)
 	}
 
+	reasoningReplayDisabled := false
+	modelCallRecovered := false
+
 	finalRepairToolNames := make(map[string]bool, len(cfg.FinalResponseRepairTools))
 	for _, name := range cfg.FinalResponseRepairTools {
 		if declaredTools[name] {
@@ -1014,13 +1052,18 @@ func RunAgentLoop(cfg AgentConfig, ctx *models.ExecutionContext) (returned *Agen
 		// Extract messages from state for this iteration (written back at end of loop)
 		messages := state.Messages
 
-		// Micro-compact: trim old tool results that LLM has already consumed
-		if len(messages) > 8 {
+		// Screenshots are re-sent with every request; keep only the newest.
+		messages = dropOldToolImages(messages, keepRecentToolImages)
+
+		// Micro-compact: trim old tool results that LLM has already consumed,
+		// at coarse checkpoints so the cached request prefix stays stable.
+		estimatedInput := EstimateContextUsage(systemPrompt, messages, allTools)
+		if len(messages) > 8 && microCompactDue(messages, 6, estimatedInput, state.Tracker.ContextWindow()) {
 			messages = microCompact(messages, 6)
+			estimatedInput = EstimateContextUsage(systemPrompt, messages, allTools)
 		}
 
 		// Pre-call context budget check — compact proactively before hitting the limit
-		estimatedInput := EstimateContextUsage(systemPrompt, messages, allTools)
 		if cfg.OnContextEstimate != nil {
 			cfg.OnContextEstimate(estimatedInput)
 		}
@@ -1091,22 +1134,31 @@ func RunAgentLoop(cfg AgentConfig, ctx *models.ExecutionContext) (returned *Agen
 			requestTools = nil
 		}
 		req := &provider.ChatRequest{
-			Model:           cfg.Model,
-			ReasoningEffort: cfg.ReasoningEffort,
-			System:          systemPrompt,
-			Messages:        messages,
-			Tools:           requestTools,
+			Model:               cfg.Model,
+			ReasoningEffort:     cfg.ReasoningEffort,
+			System:              systemPrompt,
+			Messages:            messages,
+			Tools:               requestTools,
+			PromptCacheKey:      cfg.PromptCacheKey,
+			OmitReasoningReplay: reasoningReplayDisabled,
 		}
 
 		apiStart := time.Now()
 		var resp *provider.ChatResponse
 		var err error
+		// Per-call watchdogs: a wall-clock cap and a cap on one tool call's
+		// streamed arguments (degenerate generation). Both abort the call.
+		callCtx, cancelCall := context.WithTimeout(loopCtx, modelCallWallCap)
+		overlongArguments := false
+		streamedContent := false
+		argumentChars := map[int]int{}
 
 		if cfg.OnStreamChunk != nil {
 			// Streaming mode — wrap callback to filter out <think> blocks
 			firstThinkTag := true
 			filter := &thinkStreamFilter{
 				forward: func(delta string) {
+					streamedContent = true
 					cfg.OnStreamChunk(cfg.SessionID, delta)
 				},
 				onThinking: func(delta string) {
@@ -1120,7 +1172,17 @@ func RunAgentLoop(cfg AgentConfig, ctx *models.ExecutionContext) (returned *Agen
 				},
 			}
 			firstReasoning := true
-			resp, err = cfg.Provider.ChatStream(loopCtx, req, func(delta provider.StreamDelta) {
+			resp, err = cfg.Provider.ChatStream(callCtx, req, func(delta provider.StreamDelta) {
+				for _, call := range delta.ToolCalls {
+					argumentChars[call.Index] += len(call.Arguments)
+					if argumentChars[call.Index] > maxToolCallArgumentChars && !overlongArguments {
+						overlongArguments = true
+						cancelCall()
+					}
+				}
+				if overlongArguments {
+					return
+				}
 				if delta.Content != "" {
 					filter.Write(delta.Content)
 				}
@@ -1136,7 +1198,64 @@ func RunAgentLoop(cfg AgentConfig, ctx *models.ExecutionContext) (returned *Agen
 			})
 		} else {
 			// Non-streaming mode
-			resp, err = cfg.Provider.Chat(loopCtx, req)
+			resp, err = cfg.Provider.Chat(callCtx, req)
+		}
+		wallCapped := errors.Is(callCtx.Err(), context.DeadlineExceeded) && loopCtx.Err() == nil
+		cancelCall()
+		if err == nil && overlongArguments {
+			// Never execute or repair a call cut off by the argument cap.
+			if resp != nil {
+				state = state.RecordAPICall(cfg.Model, resp.Usage)
+				if cfg.OnUsage != nil {
+					cfg.OnUsage(resp.Usage.InputTokens, resp.Usage.OutputTokens)
+				}
+			}
+			resp, err = nil, errors.New("model call aborted: tool call arguments exceeded the size cap")
+		}
+
+		// One in-iteration recovery for a watchdog abort, an idle stream that had
+		// already forwarded output, or a context overflow. Nothing from the
+		// aborted attempt enters the transcript.
+		if err != nil && loopCtx.Err() == nil && !modelCallRecovered && !repairRequest && !finalRepairFinalRequest {
+			recoverNote := ""
+			recoverable := true
+			switch {
+			case overlongArguments || wallCapped:
+				recoverNote = "Your previous attempt was aborted because it ran too long or produced an over-long tool call. Keep tool arguments short; split large content into smaller steps."
+			case provider.IsStreamIdle(err):
+			case provider.IsContextOverflow(err) && len(messages) > 4:
+				summary, compactErr := compactMessages(loopCtx, cfg.Provider, cfg.Model, cfg.ReasoningEffort, messages)
+				if compactErr != nil {
+					ctx.Log("[Agent] Overflow compaction failed: %v", compactErr)
+					recoverable = false
+					break
+				}
+				originalTokens := EstimateContextUsage(systemPrompt, messages, allTools)
+				originalCount := len(messages)
+				messages = compactAndRebuild(messages, summary)
+				state = state.WithCompactedMessages(messages)
+				compactedTokens := EstimateContextUsage(systemPrompt, messages, allTools)
+				cfg.Hooks.callPostCompact(originalCount, len(messages), originalTokens, compactedTokens)
+				if cfg.OnCompact != nil {
+					cfg.OnCompact(originalTokens, compactedTokens)
+				}
+			default:
+				recoverable = false
+			}
+			if recoverable {
+				ctx.Log("[Agent] Model call failed (%v); retrying the iteration once", err)
+				state.Trace.RecordError(state.Step, err)
+				modelCallRecovered = true
+				if streamedContent && cfg.OnStreamReset != nil {
+					cfg.OnStreamReset()
+				}
+				if recoverNote != "" {
+					// Synthetic guidance, intentionally not emitted via OnMessage.
+					messages = append(messages, provider.Message{Role: "user", Content: recoverNote})
+				}
+				state = state.WithMessages(messages)
+				continue
+			}
 		}
 
 		if err != nil {
@@ -1162,6 +1281,11 @@ func RunAgentLoop(cfg AgentConfig, ctx *models.ExecutionContext) (returned *Agen
 			return nil, fmt.Errorf("LLM call failed: %v", err)
 		}
 
+		modelCallRecovered = false
+		if resp.ReasoningReplayRejected && !reasoningReplayDisabled {
+			ctx.Log("[Agent] Provider rejected replayed reasoning; disabled for this run")
+			reasoningReplayDisabled = true
+		}
 		apiDuration := time.Since(apiStart)
 		state = state.RecordAPICall(cfg.Model, resp.Usage)
 		if cfg.OnUsage != nil {
@@ -1277,6 +1401,9 @@ func RunAgentLoop(cfg AgentConfig, ctx *models.ExecutionContext) (returned *Agen
 			Content:   resp.Content,
 			ToolCalls: resp.ToolCalls,
 		}
+		if resp.HasToolCalls() && !reasoningReplayDisabled {
+			assistantMsg.ReasoningItems = resp.ReasoningItems
+		}
 		toolArgsByCallID = make(map[string]string, len(resp.ToolCalls))
 		for _, call := range resp.ToolCalls {
 			toolArgsByCallID[call.ID] = call.Arguments
@@ -1327,7 +1454,9 @@ func RunAgentLoop(cfg AgentConfig, ctx *models.ExecutionContext) (returned *Agen
 						finalRepairReserved = canUseReservedRepair
 						// appendAndEmit already counted and emitted this assistant
 						// message. Promote the same turn; do not count or emit it twice.
-						if cfg.OnAssistantTurn != nil {
+						if cfg.OnFinalDraftDemoted != nil {
+							cfg.OnFinalDraftDemoted(assistantTurnIndex, cleanContent)
+						} else if cfg.OnAssistantTurn != nil {
 							cfg.OnAssistantTurn(assistantTurnIndex, cleanContent)
 						}
 						if loopCtx.Err() != nil {
@@ -1464,7 +1593,7 @@ func RunAgentLoop(cfg AgentConfig, ctx *models.ExecutionContext) (returned *Agen
 				if cfg.ToolsOnly {
 					identity := resolveIdentity(fnName, fnArgs)
 					recoveryIdentities[callID] = identity
-					if blocked := toolRecoveryIdentityGuard(recoveryLedger, identity); blocked != nil {
+					if blocked := recoveryGuard(identity); blocked != nil {
 						recoveryBlocked[callID] = true
 						messages = appendAndEmit(messages, provider.Message{Role: "tool", Content: blocked.JSON(), ToolCallID: callID, ToolName: fnName, ToolOutcome: blocked, ToolFailed: true})
 						continue
@@ -1507,7 +1636,7 @@ func RunAgentLoop(cfg AgentConfig, ctx *models.ExecutionContext) (returned *Agen
 					}
 					identity := resolveIdentity(fnName, string(raw))
 					recoveryIdentities[callID] = identity
-					if blocked := toolRecoveryIdentityGuard(recoveryLedger, identity); blocked != nil {
+					if blocked := recoveryGuard(identity); blocked != nil {
 						recoveryBlocked[callID] = true
 						messages = appendAndEmit(messages, provider.Message{Role: "tool", Content: blocked.JSON(), ToolCallID: callID, ToolName: fnName, ToolOutcome: blocked, ToolFailed: true})
 						continue
@@ -1643,7 +1772,7 @@ func RunAgentLoop(cfg AgentConfig, ctx *models.ExecutionContext) (returned *Agen
 					executionCtx := loopCtx
 					if cfg.ToolsOnly {
 						executionCtx = tooloutcome.WithBoundary(loopCtx, func(identity tooloutcome.Identity) *tooloutcome.Outcome {
-							blocked := toolRecoveryIdentityGuard(recoveryLedger, identity)
+							blocked := recoveryGuard(identity)
 							if blocked != nil {
 								recoveryBlocked[callID] = true
 							}
@@ -1667,12 +1796,14 @@ func RunAgentLoop(cfg AgentConfig, ctx *models.ExecutionContext) (returned *Agen
 					var outcome *tooloutcome.Outcome
 					if err != nil {
 						if questionID, suspended := suspensionQuestionID(err); suspended && cfg.ToolsOnly {
-							return newSuspendedResult(
+							parked := newSuspendedResult(
 								state, &cfg, cfg.Model, messages, assistantTurnIndex, runStart,
 								budgetWrapUp, finalResponseRepaired, finalRepairPending, finalRepairReserved, finalRepairFinalPending,
 								toolCallsSinceReport, toolCallsSinceReport >= cfg.MaxToolCallsBetweenReports && cfg.MaxToolCallsBetweenReports > 0,
 								questionID, tc, recoveryLedger,
-							), nil
+							)
+							parked.Continuation.RecoveryEpoch = recoveryEpoch
+							return parked, nil
 						}
 						resultMsg = tooloutcome.ModelResult(err)
 						if classified, ok := tooloutcome.FromError(err); ok {
@@ -1690,14 +1821,25 @@ func RunAgentLoop(cfg AgentConfig, ctx *models.ExecutionContext) (returned *Agen
 						resultMsg, imageURLs = computerScreenshot(resultMsg)
 					}
 					ctx.Log("[ExtraTool:%s] %s", fnName, truncate(resultMsg, 200))
-					messages = appendAndEmit(messages, provider.Message{
+					toolMsg := provider.Message{
 						Role:        "tool",
 						Content:     resultMsg,
 						ImageURLs:   imageURLs,
 						ToolOutcome: outcome, ToolFailed: err != nil,
 						ToolCallID: callID,
 						ToolName:   fnName,
-					})
+					}
+					modelMsg := toolMsg
+					if cfg.ToolsOnly {
+						// Observers keep the full result; the model gets a bounded one.
+						modelMsg.Content = truncateToolResultForModel(resultMsg, maxToolsOnlyResultChars)
+						if err == nil && recoveryIdentities[callID].Risk != tooloutcome.Observation {
+							// A successful action opens a new window for retrying
+							// failed observations.
+							recoveryEpoch++
+						}
+					}
+					messages = appendAndEmitAs(messages, modelMsg, toolMsg)
 					markStepDone(resultMsg)
 					continue
 				}
@@ -1962,23 +2104,86 @@ func microCompact(messages []provider.Message, keepRecentCount int) []provider.M
 
 	for i := 0; i < cutoff; i++ {
 		msg := &result[i]
-		if msg.Role != "tool" {
-			continue
-		}
-		if len(msg.Content) <= 300 {
+		// Older reasoning is no longer needed to continue the current chain.
+		msg.ReasoningItems = nil
+		if !microCompactable(*msg) {
 			continue
 		}
 
 		// Preserve first 200 chars as a preview
 		preview := msg.Content[:200]
+		for !utf8.ValidString(preview) && len(preview) > 0 {
+			preview = preview[:len(preview)-1]
+		}
 		// Find a clean break point (newline)
 		if idx := strings.LastIndex(preview, "\n"); idx > 100 {
 			preview = preview[:idx]
 		}
-		msg.Content = fmt.Sprintf("%s\n\n[... %d chars of output omitted — already processed by assistant above]",
-			preview, len(msg.Content)) + lazyKnowledgeReloadHint(msg.ToolName)
+		msg.Content = fmt.Sprintf("%s\n\n[... %d chars %s]",
+			preview, len(msg.Content), microCompactMarker) + lazyKnowledgeReloadHint(msg.ToolName)
 	}
 
+	return result
+}
+
+const microCompactMarker = "of output omitted — already processed by assistant above"
+
+// A compacted result is never rewritten again, so a compacted prefix stays
+// byte-identical across later requests.
+func microCompactable(msg provider.Message) bool {
+	return msg.Role == "tool" && len(msg.Content) > 300 && !strings.Contains(msg.Content, microCompactMarker)
+}
+
+// Old tool results are compacted in one pass only when this much uncompacted
+// text sits outside the recent window, or when the context is half full.
+// Between checkpoints the request prefix is left untouched for prompt caching.
+const microCompactCheckpointTokens = 8000
+
+func microCompactDue(messages []provider.Message, keepRecentCount int, estimatedInput, contextWindow int) bool {
+	if len(messages) <= keepRecentCount {
+		return false
+	}
+	pending := 0
+	for _, msg := range messages[:len(messages)-keepRecentCount] {
+		if microCompactable(msg) {
+			pending += estimateStringTokens(msg.Content)
+		}
+	}
+	if pending == 0 {
+		return false
+	}
+	return pending >= microCompactCheckpointTokens || contextWindow > 0 && estimatedInput > contextWindow/2
+}
+
+// keepRecentToolImages is how many image-bearing tool results keep pixels.
+const keepRecentToolImages = 2
+
+const omittedToolImageNote = "\n[earlier screenshot omitted]"
+
+// dropOldToolImages keeps image data only on the newest tool results that
+// carry images. Older ones get a short marker instead of being re-uploaded on
+// every request. User-supplied images are untouched.
+func dropOldToolImages(messages []provider.Message, keep int) []provider.Message {
+	seen := 0
+	var result []provider.Message
+	for i := len(messages) - 1; i >= 0; i-- {
+		if messages[i].Role != "tool" || len(messages[i].ImageURLs) == 0 {
+			continue
+		}
+		seen++
+		if seen <= keep {
+			continue
+		}
+		if result == nil {
+			result = make([]provider.Message, len(messages))
+			copy(result, messages)
+		}
+		result[i].ImageURLs = nil
+		result[i].Content += omittedToolImageNote
+	}
+	if result == nil {
+		return messages
+	}
 	return result
 }
 
@@ -2383,6 +2588,27 @@ func smartTruncate(output string, maxChars int) string {
 	sb.WriteString(fmt.Sprintf("\n\n... [%d lines omitted, %d total lines, %d total chars] ...\n\n", omitted, len(lines), len(output)))
 	sb.WriteString(strings.Join(tailLines, "\n"))
 	return sb.String()
+}
+
+// truncateToolResultForModel keeps the head and tail of an over-long tool
+// result. smartTruncate is used when it cuts at line boundaries within the
+// budget; long single-line output (JSON) falls back to a rune-safe split.
+func truncateToolResultForModel(output string, maxChars int) string {
+	if len(output) <= maxChars {
+		return output
+	}
+	if cut := smartTruncate(output, maxChars); len(cut) <= maxChars+200 && len(cut) >= maxChars/2 && utf8.ValidString(cut) && strings.Contains(cut, "lines omitted") {
+		return cut
+	}
+	head, tail := maxChars*6/10, maxChars*3/10
+	for head > 0 && !utf8.RuneStart(output[head]) {
+		head--
+	}
+	tailStart := len(output) - tail
+	for tailStart < len(output) && !utf8.RuneStart(output[tailStart]) {
+		tailStart++
+	}
+	return output[:head] + fmt.Sprintf("\n\n... [%d of %d chars omitted from the middle] ...\n\n", tailStart-head, len(output)) + output[tailStart:]
 }
 
 func directToolResultChars(args map[string]interface{}) (int, error) {

@@ -75,10 +75,12 @@ func TestResolvedRecoveryTargetsAndRiskSurviveCheckpoint(t *testing.T) {
 	}
 	observation := tooloutcome.OperationIdentity("computer/vm/bot/fixture", "files.read", json.RawMessage(`{"path":"a"}`))
 	observation.Risk = tooloutcome.Observation
-	records = []ToolRecoveryRecord{{Identity: &observation, Outcome: records[0].Outcome}}
+	uncertain := records[0].Outcome
+	records = []ToolRecoveryRecord{{Identity: &observation, Outcome: uncertain}, {Identity: &observation, Outcome: uncertain}, {Identity: &observation, Outcome: uncertain}}
 	other := tooloutcome.OperationIdentity(observation.Scope, observation.Operation, json.RawMessage(`{"path":"b"}`))
 	other.Risk = tooloutcome.Observation
-	if toolRecoveryIdentityGuard(records, observation) == nil || toolRecoveryIdentityGuard(records, other) != nil {
+	// Failed observations have no effect: identical retries are capped, not fenced.
+	if toolRecoveryIdentityGuard(records[:1], observation) != nil || toolRecoveryIdentityGuard(records, observation) == nil || toolRecoveryIdentityGuard(records, other) != nil {
 		t.Fatal("observations were not scoped to the request")
 	}
 	// Legacy checkpoints with no risk/target evidence stay conservative.

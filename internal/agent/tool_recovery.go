@@ -10,12 +10,18 @@ import (
 
 const toolRepairLimit = 3
 
+// observationRetryLimit caps identical failed observations per epoch.
+const observationRetryLimit = 3
+
 // Backend-owned recovery records outlive provider transcript compaction.
 type ToolRecoveryRecord struct {
 	Identity *tooloutcome.Identity  `json:"identity,omitempty"`
 	Evidence []tooloutcome.Identity `json:"evidence,omitempty"`
 	Call     provider.ToolCall      `json:"call"`
 	Outcome  tooloutcome.Outcome    `json:"outcome"`
+	// Epoch is the number of successful non-observation actions before the
+	// failure; a later successful action resets observation retry counts.
+	Epoch int `json:"epoch,omitempty"`
 }
 
 func recoveryStatus(status string) bool {
@@ -49,8 +55,21 @@ func toolRecoveryRecordsGuard(records []ToolRecoveryRecord, name, args string) *
 	return toolRecoveryIdentityGuard(records, tooloutcome.DefaultIdentity(name, json.RawMessage(args)))
 }
 
+// toolRecoveryIdentityGuard checks against the latest recorded epoch.
 func toolRecoveryIdentityGuard(records []ToolRecoveryRecord, identity tooloutcome.Identity) *tooloutcome.Outcome {
+	epoch := 0
+	for _, record := range records {
+		epoch = max(epoch, record.Epoch)
+	}
+	return toolRecoveryIdentityGuardAt(records, identity, epoch)
+}
+
+// toolRecoveryIdentityGuardAt fences replays. A failed observation has no
+// effect, so an identical retry is allowed (its precondition may have been
+// fixed) until observationRetryLimit failures accrue within one epoch.
+func toolRecoveryIdentityGuardAt(records []ToolRecoveryRecord, identity tooloutcome.Identity, epoch int) *tooloutcome.Outcome {
 	repairs := 0
+	observationFailures := 0
 	for _, record := range records {
 		prior := tooloutcome.DefaultIdentity(record.Call.Name, json.RawMessage(record.Call.Arguments))
 		if record.Identity != nil {
@@ -65,6 +84,13 @@ func toolRecoveryIdentityGuard(records []ToolRecoveryRecord, identity tooloutcom
 		if o.Status == tooloutcome.Expired && prior.Scope == identity.Scope && prior.Operation == identity.Operation {
 			// Changing arguments cannot turn an expired proposal into permission.
 			return &o
+		}
+		if identity.Risk == tooloutcome.Observation && prior.Risk == tooloutcome.Observation && prior.Scope == identity.Scope && prior.Operation == identity.Operation &&
+			(o.Status == tooloutcome.Permanent || o.Status == tooloutcome.Uncertain || o.Status == tooloutcome.Transient) {
+			if prior.ArgumentsHash == identity.ArgumentsHash && record.Epoch == epoch {
+				observationFailures++
+			}
+			continue
 		}
 		if o.Status == tooloutcome.Uncertain {
 			if identity.ResolutionRequired {
@@ -90,6 +116,11 @@ func toolRecoveryIdentityGuard(records []ToolRecoveryRecord, identity tooloutcom
 			return &o
 		}
 	}
+	if observationFailures >= observationRetryLimit {
+		o := tooloutcome.New(tooloutcome.Permanent, "observation_retry_limit", "not_executed", "This identical observation has failed repeatedly since the last successful action. Change its arguments, fix its precondition with another action first, or explain the blocker.", "explain_blocker")
+		o.RetryLimit = observationRetryLimit
+		return &o
+	}
 	if repairs >= toolRepairLimit {
 		o := tooloutcome.New(tooloutcome.Permanent, "repair_budget_exhausted", "not_executed", "Argument/schema repair budget exhausted for this operation. Explain the blocker and use another permitted capability or request corrected information.", "explain_blocker")
 		o.RepairLimit = toolRepairLimit
@@ -113,6 +144,11 @@ func uncertainIdentityBlocks(prior, candidate tooloutcome.Identity) bool {
 			return true
 		}
 		return prior.Target == candidate.Target || (prior.Object != "" && prior.Object == candidate.Object)
+	}
+	if strings.HasPrefix(prior.Scope, "computer/") && prior.Risk == tooloutcome.OpaqueEffect && candidate.Risk == tooloutcome.OpaqueEffect {
+		// A lost VM action response (click, key, shell command) fences only its
+		// exact replay; a different action of the same kind is a new decision.
+		return prior.ArgumentsHash == candidate.ArgumentsHash
 	}
 	return true
 }
