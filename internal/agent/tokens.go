@@ -130,6 +130,10 @@ func EstimateContextUsage(system string, messages []provider.Message, tools []pr
 			total += estimateStringTokens(tc.Name)
 			total += estimateStringTokens(tc.Arguments)
 		}
+		// Replayed reasoning is opaque ciphertext; count it by size.
+		for _, item := range msg.ReasoningItems {
+			total += len(item.EncryptedContent) / 4
+		}
 	}
 
 	// Tool definitions eat context too

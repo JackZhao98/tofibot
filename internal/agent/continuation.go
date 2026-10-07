@@ -258,6 +258,7 @@ func ResumeApprovalExpiry(c *Continuation) ([]provider.Message, []ToolRecoveryRe
 	return messages, records, nil
 }
 
-func ApprovalExpiryGuard(records []ToolRecoveryRecord, identity tooloutcome.Identity) *tooloutcome.Outcome {
-	return toolRecoveryIdentityGuard(records, identity)
+// ApprovalExpiryGuard checks identity within the suspended run's RecoveryEpoch.
+func ApprovalExpiryGuard(records []ToolRecoveryRecord, identity tooloutcome.Identity, epoch int) *tooloutcome.Outcome {
+	return toolRecoveryIdentityGuardAt(records, identity, epoch)
 }

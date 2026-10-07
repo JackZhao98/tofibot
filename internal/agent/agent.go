@@ -81,13 +81,17 @@ const maxDirectToolResultChars = 50000
 // ToolsOnly runs. Activity storage still receives the full result.
 const maxToolsOnlyResultChars = 24000
 
-// Model-call watchdogs. A call past the wall cap, or one tool call whose
-// streamed arguments pass the size cap, is aborted and the iteration retried
-// once. Variables so tests can shorten them.
+// maxToolCallArgumentChars aborts a call whose one streamed tool call passes
+// it (degenerate generation); the iteration is retried once. Idle and wall-cap
+// watchdogs live per attempt in the provider. A variable so tests can shorten it.
 var (
-	modelCallWallCap         = 240 * time.Second
 	maxToolCallArgumentChars = 24000
+	// Declared bulk-content tools (file writes) get a larger cap; the
+	// provider's wall cap still bounds a degenerate generation.
+	maxBulkToolCallArgumentChars = 96000
 )
+
+var bulkContentTools = map[string]bool{"computer_files": true, "computer_action": true, "tofi_write": true, "tofi_edit": true}
 
 // MaxStepsWithProgressReports is the hard loop guard for tasks that report
 // progress between tool batches. Persistence must accept the same turn range.
@@ -794,8 +798,8 @@ func RunAgentLoop(cfg AgentConfig, ctx *models.ExecutionContext) (returned *Agen
 	// recoveryEpoch counts successful non-observation actions; failed
 	// observations are only counted against retries within one epoch.
 	recoveryEpoch := 0
-	recoveryGuard := func(identity tooloutcome.Identity) *tooloutcome.Outcome {
-		return toolRecoveryIdentityGuardAt(recoveryLedger, identity, recoveryEpoch)
+	recoveryGuard := func(identity tooloutcome.Identity, args string) *tooloutcome.Outcome {
+		return toolRecoveryCallGuardAt(recoveryLedger, identity, args, recoveryEpoch)
 	}
 	resolveIdentity := func(name, args string) tooloutcome.Identity {
 		if cfg.ResolveToolIdentity != nil {
@@ -1146,12 +1150,12 @@ func RunAgentLoop(cfg AgentConfig, ctx *models.ExecutionContext) (returned *Agen
 		apiStart := time.Now()
 		var resp *provider.ChatResponse
 		var err error
-		// Per-call watchdogs: a wall-clock cap and a cap on one tool call's
-		// streamed arguments (degenerate generation). Both abort the call.
-		callCtx, cancelCall := context.WithTimeout(loopCtx, modelCallWallCap)
+		// Cap one tool call's streamed arguments (degenerate generation).
+		callCtx, cancelCall := context.WithCancel(loopCtx)
 		overlongArguments := false
 		streamedContent := false
 		argumentChars := map[int]int{}
+		argumentTools := map[int]string{}
 
 		if cfg.OnStreamChunk != nil {
 			// Streaming mode — wrap callback to filter out <think> blocks
@@ -1174,8 +1178,15 @@ func RunAgentLoop(cfg AgentConfig, ctx *models.ExecutionContext) (returned *Agen
 			firstReasoning := true
 			resp, err = cfg.Provider.ChatStream(callCtx, req, func(delta provider.StreamDelta) {
 				for _, call := range delta.ToolCalls {
+					if call.Name != "" {
+						argumentTools[call.Index] = call.Name
+					}
 					argumentChars[call.Index] += len(call.Arguments)
-					if argumentChars[call.Index] > maxToolCallArgumentChars && !overlongArguments {
+					limit := maxToolCallArgumentChars
+					if bulkContentTools[argumentTools[call.Index]] {
+						limit = maxBulkToolCallArgumentChars
+					}
+					if argumentChars[call.Index] > limit && !overlongArguments {
 						overlongArguments = true
 						cancelCall()
 					}
@@ -1200,7 +1211,6 @@ func RunAgentLoop(cfg AgentConfig, ctx *models.ExecutionContext) (returned *Agen
 			// Non-streaming mode
 			resp, err = cfg.Provider.Chat(callCtx, req)
 		}
-		wallCapped := errors.Is(callCtx.Err(), context.DeadlineExceeded) && loopCtx.Err() == nil
 		cancelCall()
 		if err == nil && overlongArguments {
 			// Never execute or repair a call cut off by the argument cap.
@@ -1213,16 +1223,16 @@ func RunAgentLoop(cfg AgentConfig, ctx *models.ExecutionContext) (returned *Agen
 			resp, err = nil, errors.New("model call aborted: tool call arguments exceeded the size cap")
 		}
 
-		// One in-iteration recovery for a watchdog abort, an idle stream that had
-		// already forwarded output, or a context overflow. Nothing from the
-		// aborted attempt enters the transcript.
+		// One in-iteration recovery for the argument cap, a provider idle/wall-cap
+		// abort, or a context overflow. Nothing from the aborted attempt enters
+		// the transcript.
 		if err != nil && loopCtx.Err() == nil && !modelCallRecovered && !repairRequest && !finalRepairFinalRequest {
 			recoverNote := ""
 			recoverable := true
 			switch {
-			case overlongArguments || wallCapped:
-				recoverNote = "Your previous attempt was aborted because it ran too long or produced an over-long tool call. Keep tool arguments short; split large content into smaller steps."
-			case provider.IsStreamIdle(err):
+			case overlongArguments:
+				recoverNote = "Your previous attempt was aborted because it produced an over-long tool call. Keep tool arguments short; split large content into smaller steps."
+			case provider.IsStreamWatchdog(err):
 			case provider.IsContextOverflow(err) && len(messages) > 4:
 				summary, compactErr := compactMessages(loopCtx, cfg.Provider, cfg.Model, cfg.ReasoningEffort, messages)
 				if compactErr != nil {
@@ -1593,7 +1603,7 @@ func RunAgentLoop(cfg AgentConfig, ctx *models.ExecutionContext) (returned *Agen
 				if cfg.ToolsOnly {
 					identity := resolveIdentity(fnName, fnArgs)
 					recoveryIdentities[callID] = identity
-					if blocked := recoveryGuard(identity); blocked != nil {
+					if blocked := recoveryGuard(identity, fnArgs); blocked != nil {
 						recoveryBlocked[callID] = true
 						messages = appendAndEmit(messages, provider.Message{Role: "tool", Content: blocked.JSON(), ToolCallID: callID, ToolName: fnName, ToolOutcome: blocked, ToolFailed: true})
 						continue
@@ -1629,14 +1639,16 @@ func RunAgentLoop(cfg AgentConfig, ctx *models.ExecutionContext) (returned *Agen
 
 				// Hooks may change execution arguments. Recheck the effective operation
 				// immediately before dispatch and record this exact identity in the ledger.
+				dispatchArgs := fnArgs
 				if cfg.ToolsOnly {
 					raw, encodeErr := json.Marshal(argsMap)
 					if encodeErr != nil {
 						return nil, encodeErr
 					}
-					identity := resolveIdentity(fnName, string(raw))
+					dispatchArgs = string(raw)
+					identity := resolveIdentity(fnName, dispatchArgs)
 					recoveryIdentities[callID] = identity
-					if blocked := recoveryGuard(identity); blocked != nil {
+					if blocked := recoveryGuard(identity, dispatchArgs); blocked != nil {
 						recoveryBlocked[callID] = true
 						messages = appendAndEmit(messages, provider.Message{Role: "tool", Content: blocked.JSON(), ToolCallID: callID, ToolName: fnName, ToolOutcome: blocked, ToolFailed: true})
 						continue
@@ -1772,7 +1784,7 @@ func RunAgentLoop(cfg AgentConfig, ctx *models.ExecutionContext) (returned *Agen
 					executionCtx := loopCtx
 					if cfg.ToolsOnly {
 						executionCtx = tooloutcome.WithBoundary(loopCtx, func(identity tooloutcome.Identity) *tooloutcome.Outcome {
-							blocked := recoveryGuard(identity)
+							blocked := recoveryGuard(identity, dispatchArgs)
 							if blocked != nil {
 								recoveryBlocked[callID] = true
 							}
@@ -2027,8 +2039,32 @@ func RunAgentLoop(cfg AgentConfig, ctx *models.ExecutionContext) (returned *Agen
 }
 
 // compactMessages uses the same LLM to generate a concise summary of the conversation.
+// Summarizer input bounds, so overflow recovery cannot itself overflow.
+const (
+	compactionMessageChars = 4000
+	compactionInputChars   = 200000
+)
+
+// clipUTF8 cuts s to at most n bytes, dropping only a rune the cut split.
+// Invalid bytes earlier in s are kept rather than shrinking the result.
+func clipUTF8(s string, n int) string {
+	if len(s) <= n {
+		return s
+	}
+	s = s[:n]
+	for i := len(s) - 1; i >= 0 && i >= len(s)-utf8.UTFMax; i-- {
+		if utf8.RuneStart(s[i]) {
+			if !utf8.FullRuneInString(s[i:]) {
+				s = s[:i]
+			}
+			break
+		}
+	}
+	return s
+}
+
 func compactMessages(ctx context.Context, p provider.Provider, model, reasoningEffort string, messages []provider.Message) (string, error) {
-	var conversationText strings.Builder
+	var entries []string
 	for _, msg := range messages {
 		if msg.Content == "" {
 			continue
@@ -2036,9 +2072,29 @@ func compactMessages(ctx context.Context, p provider.Provider, model, reasoningE
 		// For compaction input, truncate long tool results to save context
 		content := msg.Content
 		if msg.Role == "tool" && len(content) > 500 {
-			content = content[:500] + "\n[... truncated for summarization]" + lazyKnowledgeReloadHint(msg.ToolName)
+			content = clipUTF8(content, 500) + "\n[... truncated for summarization]" + lazyKnowledgeReloadHint(msg.ToolName)
+		} else if len(content) > compactionMessageChars {
+			content = clipUTF8(content, compactionMessageChars) + "\n[... truncated for summarization]"
 		}
-		conversationText.WriteString(fmt.Sprintf("[%s]: %s\n\n", msg.Role, content))
+		entries = append(entries, fmt.Sprintf("[%s]: %s\n\n", msg.Role, content))
+	}
+	// Keep the opening request and the newest messages within half the window.
+	limit := min(compactionInputChars, provider.GetContextWindow(model)*2)
+	var conversationText strings.Builder
+	if len(entries) > 0 {
+		used := len(entries[0])
+		start := len(entries)
+		for start > 1 && used+len(entries[start-1]) <= limit {
+			start--
+			used += len(entries[start])
+		}
+		conversationText.WriteString(clipUTF8(entries[0], limit))
+		if start > 1 {
+			fmt.Fprintf(&conversationText, "[... %d earlier messages omitted for summarization]\n\n", start-1)
+		}
+		for _, entry := range entries[start:] {
+			conversationText.WriteString(entry)
+		}
 	}
 
 	req := &provider.ChatRequest{
@@ -2111,10 +2167,7 @@ func microCompact(messages []provider.Message, keepRecentCount int) []provider.M
 		}
 
 		// Preserve first 200 chars as a preview
-		preview := msg.Content[:200]
-		for !utf8.ValidString(preview) && len(preview) > 0 {
-			preview = preview[:len(preview)-1]
-		}
+		preview := clipUTF8(msg.Content, 200)
 		// Find a clean break point (newline)
 		if idx := strings.LastIndex(preview, "\n"); idx > 100 {
 			preview = preview[:idx]

@@ -51,23 +51,21 @@ func toolRecoveryGuard(messages []provider.Message, name, args string) *tooloutc
 	return toolRecoveryRecordsGuard(toolRecoveryRecords(messages), name, args)
 }
 
+// Transcript-derived legacy records carry no epoch.
 func toolRecoveryRecordsGuard(records []ToolRecoveryRecord, name, args string) *tooloutcome.Outcome {
-	return toolRecoveryIdentityGuard(records, tooloutcome.DefaultIdentity(name, json.RawMessage(args)))
+	return toolRecoveryCallGuardAt(records, tooloutcome.DefaultIdentity(name, json.RawMessage(args)), args, 0)
 }
 
-// toolRecoveryIdentityGuard checks against the latest recorded epoch.
-func toolRecoveryIdentityGuard(records []ToolRecoveryRecord, identity tooloutcome.Identity) *tooloutcome.Outcome {
-	epoch := 0
-	for _, record := range records {
-		epoch = max(epoch, record.Epoch)
-	}
-	return toolRecoveryIdentityGuardAt(records, identity, epoch)
-}
-
-// toolRecoveryIdentityGuardAt fences replays. A failed observation has no
-// effect, so an identical retry is allowed (its precondition may have been
-// fixed) until observationRetryLimit failures accrue within one epoch.
+// toolRecoveryIdentityGuardAt checks identity within the run's epoch.
 func toolRecoveryIdentityGuardAt(records []ToolRecoveryRecord, identity tooloutcome.Identity, epoch int) *tooloutcome.Outcome {
+	return toolRecoveryCallGuardAt(records, identity, "", epoch)
+}
+
+// toolRecoveryCallGuardAt fences replays. A failed observation has no
+// effect, so an identical retry is allowed (its precondition may have been
+// fixed) until observationRetryLimit failures accrue within one epoch. args
+// are the candidate's raw tool arguments, when known.
+func toolRecoveryCallGuardAt(records []ToolRecoveryRecord, identity tooloutcome.Identity, args string, epoch int) *tooloutcome.Outcome {
 	repairs := 0
 	observationFailures := 0
 	for _, record := range records {
@@ -96,7 +94,7 @@ func toolRecoveryIdentityGuardAt(records []ToolRecoveryRecord, identity tooloutc
 			if identity.ResolutionRequired {
 				continue
 			} // executor must resolve and recheck before dispatch
-			if uncertainIdentityBlocks(prior, identity) {
+			if uncertainIdentityBlocks(prior, identity) || sameShellCommand(prior, record.Call.Arguments, identity, args) {
 				return &o
 			}
 			for _, evidence := range record.Evidence {
@@ -152,4 +150,33 @@ func uncertainIdentityBlocks(prior, candidate tooloutcome.Identity) bool {
 		return prior.ArgumentsHash == candidate.ArgumentsHash
 	}
 	return true
+}
+
+// A lost shell.exec response fences the command itself; whitespace and
+// timeout_sec changes are the same replay.
+func sameShellCommand(prior tooloutcome.Identity, priorArgs string, candidate tooloutcome.Identity, candidateArgs string) bool {
+	if prior.Operation != "shell.exec" || candidate.Operation != "shell.exec" || prior.Scope != candidate.Scope || !strings.HasPrefix(prior.Scope, "computer/") {
+		return false
+	}
+	command := shellCommandKey(priorArgs)
+	return command != "" && command == shellCommandKey(candidateArgs)
+}
+
+// shellCommandKey reads computer_shell {command} or computer_action
+// {action: shell.exec, args: {command}} with whitespace runs collapsed.
+func shellCommandKey(raw string) string {
+	var in struct {
+		Command string `json:"command"`
+		Action  string `json:"action"`
+		Args    struct {
+			Command string `json:"command"`
+		} `json:"args"`
+	}
+	if json.Unmarshal([]byte(raw), &in) != nil {
+		return ""
+	}
+	if in.Action == "shell.exec" {
+		in.Command = in.Args.Command
+	}
+	return strings.Join(strings.Fields(in.Command), " ")
 }
