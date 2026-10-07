@@ -65,3 +65,9 @@
 .task-mail-record{margin-block:var(--space-3);font:var(--type-body)}.task-mail-record p{margin:var(--space-2) 0}.task-mail-record>details>summary{min-height:44px;align-content:center;cursor:pointer;color:var(--text-secondary);font:var(--type-meta)}.task-mail-record dd{margin:0;overflow-wrap:anywhere}
 
 .task-run-block .approval-actions button,.task-run-block .approval-secondary button{min-height:44px}
+/* Working run: one quiet status line with the Bot's cat typing beside it. */
+.task-activity.is-live>summary{gap:var(--space-2);color:var(--text-secondary)}
+.task-activity-cat{display:inline-grid;flex:none;width:22px;height:22px}
+.task-activity-cat :is(.avatar,.tofi-avatar){width:22px;height:22px}
+.task-activity-live{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:transparent;-webkit-background-clip:text;background-clip:text;background-image:linear-gradient(100deg,var(--text-secondary) 0 38%,var(--text-body) 50%,var(--text-secondary) 62% 100%);background-size:260% 100%;animation:task-step-sheen 2.4s linear infinite;font-variant-numeric:tabular-nums}
+@media(prefers-reduced-motion:reduce){.task-activity-live{animation:none;color:var(--text-secondary);background:none}}
