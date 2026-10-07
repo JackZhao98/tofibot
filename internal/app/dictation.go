@@ -85,14 +85,21 @@ ON CONFLICT(id) DO UPDATE SET model=excluded.model,updated_at=excluded.updated_a
 	return tx.Commit()
 }
 
-// Codex credentials may only be sent to the verified OpenAI endpoint. Custom
-// gateways must use an explicitly configured transcription API key.
+// Codex credentials and the workspace OpenAI key may only be sent to the
+// verified OpenAI endpoint. Custom gateways must use an explicitly configured
+// transcription API key.
 func (s *Server) dictationAuthSource() string {
 	if strings.TrimSpace(s.transcriptionAPIKey) != "" {
 		return "api_key"
 	}
-	if s.transcriptionURL == defaultTranscriptionURL && s.codex != nil && s.codex.Status().Connected {
+	if s.transcriptionURL != defaultTranscriptionURL {
+		return ""
+	}
+	if s.codex != nil && s.codex.Status().Connected {
 		return "codex"
+	}
+	if s.usableProviderKey(providerOpenAI) {
+		return "openai"
 	}
 	return ""
 }
@@ -101,18 +108,20 @@ func (s *Server) dictationCredential(ctx context.Context) (string, error) {
 	if strings.TrimSpace(s.transcriptionAPIKey) != "" {
 		return strings.TrimSpace(s.transcriptionAPIKey), nil
 	}
-	if s.transcriptionURL != defaultTranscriptionURL || s.codex == nil {
+	if s.transcriptionURL != defaultTranscriptionURL {
 		return "", errors.New("dictation authentication unavailable")
 	}
-	credential, err := s.codex.Credential(ctx)
-	if err != nil {
-		return "", errors.New("dictation authentication unavailable")
+	if s.codex != nil && s.codex.Status().Connected {
+		if credential, err := s.codex.Credential(ctx); err == nil {
+			if token, _, _ := strings.Cut(credential, "\x00"); strings.TrimSpace(token) != "" {
+				return token, nil
+			}
+		}
 	}
-	token, _, _ := strings.Cut(credential, "\x00")
-	if strings.TrimSpace(token) == "" {
-		return "", errors.New("dictation authentication unavailable")
+	if state, ok := s.providerKey(providerOpenAI); ok && state.Error == "" {
+		return state.Key, nil
 	}
-	return token, nil
+	return "", errors.New("dictation authentication unavailable")
 }
 
 func (s *Server) dictationSettings(w http.ResponseWriter, r *http.Request) {
@@ -161,7 +170,7 @@ func (s *Server) dictate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if s.dictationAuthSource() == "" {
-		writeErr(w, http.StatusServiceUnavailable, "dictation_unconfigured", "请连接 Codex，或配置服务端转写 API key。")
+		writeErr(w, http.StatusServiceUnavailable, "dictation_unconfigured", "请连接 Codex、添加 OpenAI API key，或配置服务端转写 API key。")
 		return
 	}
 	r.Body = http.MaxBytesReader(w, r.Body, maxDictationBytes+1<<20)

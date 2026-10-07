@@ -64,6 +64,12 @@ func (s *Server) workspaceTools(c Conversation, r Run) []Tool {
 			for _, bot := range bots {
 				addModel(bot.Model)
 			}
+			if s.strictModelValidation() {
+				catalog, _, _ := s.loadModels(ctx)
+				for _, option := range catalog {
+					addModel(option.ID)
+				}
+			}
 			sort.Strings(models)
 			result := struct {
 				Bots             []Bot          `json:"bots"`
@@ -71,7 +77,7 @@ func (s *Server) workspaceTools(c Conversation, r Run) []Tool {
 				ConfiguredModels []string       `json:"configured_models"`
 				DefaultModel     string         `json:"default_model"`
 				Provider         string         `json:"provider"`
-			}{Bots: bots, Groups: groups, ConfiguredModels: models, DefaultModel: s.defaultModel, Provider: s.provider}
+			}{Bots: bots, Groups: groups, ConfiguredModels: models, DefaultModel: s.defaultModel, Provider: s.activeProvider()}
 			encoded, err := json.Marshal(result)
 			return string(encoded), err
 		}),
@@ -128,7 +134,7 @@ func (s *Server) workspaceTools(c Conversation, r Run) []Tool {
 				case "default", "auto", "inherit":
 					value = ""
 				}
-				if err := s.validateWorkspaceModel(value); err != nil {
+				if err := s.validateWorkspaceModel(ctx, value); err != nil {
 					return "", err
 				}
 				if err := s.validateModelID(ctx, value); err != nil {
@@ -258,9 +264,15 @@ func decodeWorkspaceTool(raw json.RawMessage, target any) error {
 	return nil
 }
 
-func (s *Server) validateWorkspaceModel(model string) error {
+func (s *Server) validateWorkspaceModel(ctx context.Context, model string) error {
 	if model == "" || model == s.defaultModel {
 		return nil
+	}
+	if s.strictModelValidation() {
+		catalog, _, _ := s.loadModels(ctx)
+		if _, ok := s.matchModel(catalog, model); ok {
+			return nil
+		}
 	}
 	var configured int
 	if err := s.store.db.QueryRow(`SELECT COUNT(*) FROM bots WHERE model=?`, model).Scan(&configured); err != nil {

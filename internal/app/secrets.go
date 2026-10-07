@@ -37,6 +37,10 @@ type secretRecord struct {
 	Status         string `json:"status"`
 	CreatedAt      string `json:"created_at"`
 	Ciphertext     []byte `json:"ciphertext,omitempty"`
+	// Model provider keys only: last successful verification and why the
+	// provider later rejected the key.
+	VerifiedAt string `json:"verified_at,omitempty"`
+	Error      string `json:"error,omitempty"`
 }
 type secretVault struct {
 	mu      sync.Mutex
@@ -175,7 +179,7 @@ func (s *Server) handleSecrets(w http.ResponseWriter, r *http.Request) bool {
 		v.mu.Lock()
 		list := []secretRecord{}
 		for _, record := range v.records {
-			if credentials != (record.RunID == "") {
+			if credentials != (record.RunID == "") || record.Kind == modelProviderKind {
 				continue
 			}
 			if !credentials && (record.ConversationID != r.URL.Query().Get("conversation_id") || record.Status != "pending") {
@@ -233,7 +237,9 @@ func (s *Server) handleSecrets(w http.ResponseWriter, r *http.Request) bool {
 	v.mu.Lock()
 	record, ok := v.records[id]
 	v.mu.Unlock()
-	if !ok || credentials != (record.RunID == "") {
+	// Model provider keys belong to the server; they are never listed,
+	// removed here, or installed on a computer.
+	if !ok || credentials != (record.RunID == "") || record.Kind == modelProviderKind {
 		fail(404, "Not found")
 		return true
 	}
