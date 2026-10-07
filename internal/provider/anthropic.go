@@ -57,7 +57,18 @@ func newAnthropic(apiKey string, cfg *providerConfig) (Provider, error) {
 	if cfg.BaseURL != "" {
 		baseURL = cfg.BaseURL
 	}
-	return &anthropicProvider{apiKey: apiKey, baseURL: baseURL, headers: cfg.ExtraHeaders}, nil
+	headers := cfg.ExtraHeaders
+	// A key not scoped to a workspace travels as "key\x00wrkspc_…"; every
+	// request then names the workspace (anthropic-workspace-id).
+	if key, workspace, ok := strings.Cut(apiKey, "\x00"); ok {
+		apiKey = key
+		merged := map[string]string{"anthropic-workspace-id": workspace}
+		for k, v := range headers {
+			merged[k] = v
+		}
+		headers = merged
+	}
+	return &anthropicProvider{apiKey: apiKey, baseURL: baseURL, headers: headers}, nil
 }
 
 // Chat aggregates a streamed response.

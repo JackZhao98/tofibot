@@ -43,7 +43,7 @@ export const api = {
   codexPoll: (id: string) => request<{ connected: boolean; pending: boolean; expires_at?: number }>(`/api/auth/codex/connect/${encodeURIComponent(id)}/poll`, { method: "POST" }),
   codexDisconnect: () => request<void>("/api/auth/codex", { method: "DELETE" }),
   listProviders: (signal?: AbortSignal) => request<{ providers: ModelProviderStatus[] | null }>("/api/providers", { signal }).then((result) => result.providers ?? []),
-  setProviderKey: (id: "openai" | "anthropic", key: string) => request<ModelProviderStatus>(`/api/providers/${encodeURIComponent(id)}/key`, { method: "PUT", body: JSON.stringify({ key }) }),
+  setProviderKey: (id: "openai" | "anthropic", key: string, workspaceId?: string) => request<ModelProviderStatus>(`/api/providers/${encodeURIComponent(id)}/key`, { method: "PUT", body: JSON.stringify(workspaceId ? { key, workspace_id: workspaceId } : { key }) }),
   deleteProviderKey: (id: "openai" | "anthropic") => request<unknown>(`/api/providers/${encodeURIComponent(id)}/key`, { method: "DELETE" }),
   models: (signal?: AbortSignal) => request<ModelCatalog>("/api/models", { signal }),
   bots: async (includeArchived = false) => {

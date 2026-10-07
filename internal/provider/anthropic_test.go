@@ -531,3 +531,32 @@ func TestAnthropicUsageCost(t *testing.T) {
 		t.Fatalf("uncached OpenAI cost = %v", got)
 	}
 }
+
+func TestAnthropicWorkspaceCredentialSendsWorkspaceHeader(t *testing.T) {
+	var gotKey, gotWorkspace string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotKey, gotWorkspace = r.Header.Get("x-api-key"), r.Header.Get("anthropic-workspace-id")
+		w.Header().Set("Content-Type", "text/event-stream")
+		for _, frame := range []string{
+			`{"type":"message_start","message":{"usage":{"input_tokens":1,"output_tokens":0}}}`,
+			`{"type":"content_block_start","index":0,"content_block":{"type":"text","text":""}}`,
+			`{"type":"content_block_delta","index":0,"delta":{"type":"text_delta","text":"ok"}}`,
+			`{"type":"content_block_stop","index":0}`,
+			`{"type":"message_delta","delta":{"stop_reason":"end_turn"},"usage":{"output_tokens":1}}`,
+			`{"type":"message_stop"}`,
+		} {
+			_, _ = io.WriteString(w, "data: "+frame+"\n\n")
+		}
+	}))
+	defer srv.Close()
+	p, err := New("anthropic", "sk-ant-key\x00wrkspc_0123456789", WithBaseURL(srv.URL))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := p.Chat(context.Background(), &ChatRequest{Model: "claude-opus-5-5", Messages: []Message{{Role: "user", Content: "hi"}}}); err != nil {
+		t.Fatal(err)
+	}
+	if gotKey != "sk-ant-key" || gotWorkspace != "wrkspc_0123456789" {
+		t.Fatalf("key=%q workspace=%q", gotKey, gotWorkspace)
+	}
+}

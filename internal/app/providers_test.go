@@ -29,6 +29,8 @@ type fakeModelAPI struct {
 	models   []string
 	chatKeys []string
 	chats    []string // requested model IDs
+	// workspace, when set, makes the key unscoped: requests must name it.
+	workspace string
 }
 
 func newFakeOpenAI(t *testing.T, reply string) *fakeModelAPI {
@@ -88,6 +90,11 @@ func newFakeAnthropic(t *testing.T, reply string) *fakeModelAPI {
 	f := &fakeModelAPI{key: syntheticAnthropicKey, reply: reply}
 	f.Server = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		authorized := r.Header.Get("x-api-key") == f.key && r.Header.Get("anthropic-version") != ""
+		if authorized && f.workspace != "" && r.Header.Get("anthropic-workspace-id") != f.workspace {
+			w.WriteHeader(http.StatusBadRequest)
+			_, _ = io.WriteString(w, `{"type":"error","error":{"type":"invalid_request_error","message":"This API key is not scoped to a workspace, so this request must include the anthropic-workspace-id header with the ID of the workspace to use."}}`)
+			return
+		}
 		switch r.URL.Path {
 		case "/v1/models":
 			if !authorized {
@@ -718,5 +725,30 @@ func TestAccountGateDispatchesProviderRoutesToWorkspace(t *testing.T) {
 	}
 	if w := accountRequest(g, http.MethodDelete, "/api/providers/openai/key", "", cookie); w.Code != http.StatusOK {
 		t.Fatalf("provider key delete through account gate %d %s", w.Code, w.Body.String())
+	}
+}
+
+func TestUnscopedAnthropicKeyNeedsWorkspaceID(t *testing.T) {
+	anthropic := newFakeAnthropic(t, "Hello from a workspace.")
+	anthropic.workspace = "wrkspc_01JwQvzr7rXLA5AGx3HKfFUJ"
+	s := providerServer(t, nil, anthropic)
+	missing := providerRequest(t, s, http.MethodPut, "/api/providers/anthropic/key", `{"key":"`+syntheticAnthropicKey+`"}`)
+	if missing.Code != http.StatusBadRequest || !strings.Contains(missing.Body.String(), "HTTP 400") {
+		t.Fatalf("unscoped key without workspace: %d %s", missing.Code, missing.Body.String())
+	}
+	bad := providerRequest(t, s, http.MethodPut, "/api/providers/anthropic/key", `{"key":"`+syntheticAnthropicKey+`","workspace_id":"not-a-workspace"}`)
+	if bad.Code != http.StatusBadRequest || !strings.Contains(bad.Body.String(), "invalid_workspace") {
+		t.Fatalf("malformed workspace: %d %s", bad.Code, bad.Body.String())
+	}
+	ok := providerRequest(t, s, http.MethodPut, "/api/providers/anthropic/key", `{"key":"`+syntheticAnthropicKey+`","workspace_id":"wrkspc_01JwQvzr7rXLA5AGx3HKfFUJ"}`)
+	if ok.Code != http.StatusOK || strings.Contains(ok.Body.String(), "wrkspc_") && strings.Contains(ok.Body.String(), "key_hint\":\"…FUJ") {
+		t.Fatalf("workspace key: %d %s", ok.Code, ok.Body.String())
+	}
+	if hint := listProviders(t, s)["anthropic"].KeyHint; hint != keyHint(syntheticAnthropicKey) {
+		t.Fatalf("hint %q must come from the key, not the workspace", hint)
+	}
+	run, _ := runBotThroughProvider(t, s, "claude-opus-5-5", "Say hello.")
+	if run.Status != "done" {
+		t.Fatalf("run=%+v failure=%+v", run, run.failure())
 	}
 }
