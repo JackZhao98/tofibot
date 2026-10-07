@@ -53,8 +53,8 @@ func TestModelSettingsPersistAndBotDefaultReasoning(t *testing.T) {
 	if err := json.Unmarshal(postRec.Body.Bytes(), &created); err != nil {
 		t.Fatal(err)
 	}
-	if created.ReasoningEffort != "high" {
-		t.Fatalf("new Bot did not inherit global reasoning: %q", created.ReasoningEffort)
+	if created.Model != followGlobalModel || created.ReasoningEffort != followGlobalModel || created.EffectiveModel != "custom-model" || created.EffectiveReasoningEffort != "high" {
+		t.Fatalf("new Bot does not follow the global setting: %+v", created)
 	}
 	patchReq := httptest.NewRequest(http.MethodPatch, "/api/bots/"+created.ID, strings.NewReader(`{"model":"custom-model","reasoning_effort":"low"}`))
 	patchRec := httptest.NewRecorder()

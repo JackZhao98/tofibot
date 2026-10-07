@@ -28,8 +28,13 @@ export interface Bot {
   id: string;
   name: string;
   instructions: string;
+  /** "default" follows the workspace's global model; any other id is a pin. */
   model: string;
+  /** "default": the global effort when following, else the pinned model's default. Empty is legacy "medium". */
   reasoning_effort?: string;
+  /** What the Bot executes with now, resolved by the server. */
+  effective_model?: string;
+  effective_reasoning_effort?: string;
   dm_conversation_id: string;
   created_at: string;
   archived?: boolean;
