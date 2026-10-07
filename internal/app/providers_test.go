@@ -90,15 +90,6 @@ func newFakeAnthropic(t *testing.T, reply string) *fakeModelAPI {
 	f := &fakeModelAPI{key: syntheticAnthropicKey, reply: reply}
 	f.Server = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		authorized := r.Header.Get("x-api-key") == f.key && r.Header.Get("anthropic-version") != ""
-		if authorized && r.URL.Path == "/v1/organizations/workspaces" {
-			// The default workspace is listed only with include_default=true.
-			data := `{"id":"wrkspc_OtherTeamWorkspace0","archived_at":null,"name":"Other"}`
-			if r.URL.Query().Get("include_default") == "true" {
-				data = `{"id":"` + f.workspace + `","archived_at":null,"name":"Default Workspace"},` + data
-			}
-			_, _ = io.WriteString(w, `{"data":[`+data+`],"has_more":false}`)
-			return
-		}
 		if authorized && f.workspace != "" && r.Header.Get("anthropic-workspace-id") != f.workspace {
 			w.WriteHeader(http.StatusBadRequest)
 			_, _ = io.WriteString(w, `{"type":"error","error":{"type":"invalid_request_error","message":"This API key is not scoped to a workspace, so this request must include the anthropic-workspace-id header with the ID of the workspace to use."}}`)
@@ -197,9 +188,15 @@ func providerRequest(t *testing.T, s *Server, method, path, body string) *httpte
 	return rec
 }
 
+const syntheticWorkspace = "wrkspc_01JwQvzr7rXLA5AGx3HKfFUJ"
+
 func putProviderKeyOK(t *testing.T, s *Server, name, key string) ProviderStatus {
 	t.Helper()
-	rec := providerRequest(t, s, http.MethodPut, "/api/providers/"+name+"/key", `{"key":"`+key+`"}`)
+	body := `{"key":"` + key + `"}`
+	if name == "anthropic" {
+		body = `{"key":"` + key + `","workspace_id":"` + syntheticWorkspace + `"}`
+	}
+	rec := providerRequest(t, s, http.MethodPut, "/api/providers/"+name+"/key", body)
 	if rec.Code != http.StatusOK {
 		t.Fatalf("PUT %s key status=%d body=%s", name, rec.Code, rec.Body.String())
 	}
@@ -741,13 +738,10 @@ func TestUnscopedAnthropicKeyNeedsWorkspaceID(t *testing.T) {
 	anthropic := newFakeAnthropic(t, "Hello from a workspace.")
 	anthropic.workspace = "wrkspc_01JwQvzr7rXLA5AGx3HKfFUJ"
 	s := providerServer(t, nil, anthropic)
-	// Without a workspace ID the org's Default Workspace is found and used.
-	auto := providerRequest(t, s, http.MethodPut, "/api/providers/anthropic/key", `{"key":"`+syntheticAnthropicKey+`"}`)
-	if auto.Code != http.StatusOK {
-		t.Fatalf("unscoped key should resolve the default workspace: %d %s", auto.Code, auto.Body.String())
-	}
-	if run, _ := runBotThroughProvider(t, s, "claude-opus-5-5", "Say hello."); run.Status != "done" {
-		t.Fatalf("run with discovered workspace=%+v", run)
+	// Claude keys require the workspace ID.
+	missing := providerRequest(t, s, http.MethodPut, "/api/providers/anthropic/key", `{"key":"`+syntheticAnthropicKey+`"}`)
+	if missing.Code != http.StatusBadRequest || !strings.Contains(missing.Body.String(), "invalid_workspace") {
+		t.Fatalf("missing workspace: %d %s", missing.Code, missing.Body.String())
 	}
 	bad := providerRequest(t, s, http.MethodPut, "/api/providers/anthropic/key", `{"key":"`+syntheticAnthropicKey+`","workspace_id":"not-a-workspace"}`)
 	if bad.Code != http.StatusBadRequest || !strings.Contains(bad.Body.String(), "invalid_workspace") {

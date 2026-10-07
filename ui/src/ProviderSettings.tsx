@@ -59,7 +59,7 @@ function ApiKeyProviderCard({id, label, description, placeholder, status, loadin
    setNotice(`${label} API key 已保存并通过验证。`);
    onChange(next);
   } catch (cause) {
-   setError(cause instanceof ApiError && cause.code === "invalid_workspace" ? "Workspace ID 格式不对，应为 Claude Console 里 Workspaces 页面 ID 列的 wrkspc_… 。" : cause instanceof ApiError && cause.code === "invalid_key" ? `这个 API key 没有通过 ${label} 的验证，未保存。${cause.message ? `（${cause.message}）` : ""}${/workspace/i.test(cause.message) ? " 这个 key 没有限定 workspace：请在下方填 Workspace ID，或在 Console 新建一个限定 workspace 的 key。" : ""}` : cause instanceof ApiError && cause.status >= 500 ? `暂时无法连到 ${label} 完成验证，未保存。请稍后重试。` : "保存失败，请重试。");
+   setError(cause instanceof ApiError && cause.code === "invalid_workspace" ? "Workspace ID 格式不对，应为 Claude Console 里 Workspaces 页面 ID 列的 wrkspc_… 。" : cause instanceof ApiError && cause.code === "invalid_key" ? `这个 API key 没有通过 ${label} 的验证，未保存。${cause.message ? `（${cause.message}）` : ""}${/workspace/i.test(cause.message) ? " 请检查 Workspace ID 是否填对。" : ""}` : cause instanceof ApiError && cause.status >= 500 ? `暂时无法连到 ${label} 完成验证，未保存。请稍后重试。` : "保存失败，请重试。");
    input.current?.focus();
   } finally { setVerifying(false); }
  }
@@ -76,11 +76,11 @@ function ApiKeyProviderCard({id, label, description, placeholder, status, loadin
    <label htmlFor={inputId}>{configured ? `替换 ${label} API key` : `${label} API key`}</label>
    <div className="provider-key-row">
     <input ref={input} id={inputId} name={`${id}-api-key`} type="password" autoComplete="off" spellCheck={false} autoCapitalize="off" autoCorrect="off" placeholder={placeholder} value={key} disabled={verifying} onChange={event => { setKey(event.target.value); setError(""); setNotice(""); }} aria-invalid={Boolean(error)} aria-describedby={error ? `${inputId}-error` : undefined} />
-    <button type="submit" className="primary-button" disabled={verifying || !key.trim()}>{verifying ? "验证中…" : "保存并验证"}</button>
+    <button type="submit" className="primary-button" disabled={verifying || !key.trim() || (id === "anthropic" && !workspace.trim())}>{verifying ? "验证中…" : "保存并验证"}</button>
    </div>
-   {id === "anthropic" && <><label htmlFor={`${inputId}-workspace`}>Workspace ID（可选）</label>
-    <input id={`${inputId}-workspace`} name="anthropic-workspace-id" type="text" autoComplete="off" spellCheck={false} autoCapitalize="off" autoCorrect="off" placeholder="wrkspc_…" value={workspace} disabled={verifying} onChange={event => { setWorkspace(event.target.value); setError(""); }} />
-    <p className="field-note">只有 key 没有限定某个 workspace 时才需要；在 Console 的 Settings → Workspaces 的 ID 列找到。</p></>}
+   {id === "anthropic" && <><label htmlFor={`${inputId}-workspace`}>Workspace ID</label>
+    <input id={`${inputId}-workspace`} name="anthropic-workspace-id" type="text" autoComplete="off" spellCheck={false} autoCapitalize="off" autoCorrect="off" placeholder="wrkspc_…" value={workspace} required disabled={verifying} onChange={event => { setWorkspace(event.target.value); setError(""); }} />
+    <p className="field-note">在 Claude Console 的 Settings → Workspaces 页面，ID 列里以 wrkspc_ 开头的那串。</p></>}
    {error && <p id={`${inputId}-error`} className="error-text" role="alert">{error}</p>}
    {notice && !error && <p className="field-note" role="status">{notice}</p>}
   </form>
