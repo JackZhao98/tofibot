@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/JackZhao98/tofibot/internal/tooloutcome"
+	"regexp"
 	"strings"
 )
 
@@ -102,6 +103,19 @@ page_target, target = focused(pages)
 if target is None:
     print(json.dumps({"error": "no_focused_page", "tabs": [{"title": t.get("title"), "url": t.get("url"), "target_id": t.get("id")} for t in pages]}, ensure_ascii=False)); sys.exit(0)
 out = {}
+if opts.get("probe"):
+    sx, sy, sw, sh = opts["probe"]
+    label = evaluate(target, r"""(() => {
+      const kx = screen.width / %f, ky = screen.height / %f;
+      const chromeX = (outerWidth - innerWidth) / 2, chromeY = outerHeight - innerHeight - chromeX;
+      const el = document.elementFromPoint(%f * kx - screenX - chromeX, %f * ky - screenY - chromeY);
+      const hit = el && el.closest('a,button,[role=button],[role=link],[role=menuitem],input[type=submit],input[type=button],[onclick]');
+      return hit ? ((hit.innerText || hit.value || hit.getAttribute('aria-label') || '').trim().slice(0, 200)) : '';
+    })()""" % (sw, sh, sx, sy))
+    print(json.dumps({"label": label or ""}, ensure_ascii=False)); sys.exit(0)
+if opts.get("click") and opts.get("dry"):
+    spot = evaluate(target, LOCATE % json.dumps(opts["click"]))
+    print(json.dumps({"label": spot["label"]} if spot else {"error": "click_target_not_found", "click": opts["click"]}, ensure_ascii=False)); sys.exit(0)
 if opts.get("click"):
     spot = evaluate(target, LOCATE % json.dumps(opts["click"]))
     if not spot:
@@ -141,6 +155,11 @@ type browserReadArgs struct {
 	MaxChars int    `json:"max_chars,omitempty"`
 	// Click is visible text to click before reading (browser.click).
 	Click string `json:"click,omitempty"`
+	// Dry locates the click target without clicking.
+	Dry bool `json:"-"`
+	// Probe is a screen point [x, y, screenshot_width, screenshot_height]
+	// whose page element label is returned.
+	Probe []float64 `json:"-"`
 }
 
 // browserReadCommand is the shell.exec payload for one bounded page read.
@@ -152,7 +171,7 @@ func browserReadCommand(in browserReadArgs) (json.RawMessage, error) {
 	// Models ask for tiny budgets and then miss the part of a mail or article
 	// they needed; a whole ordinary page fits in the floor.
 	budget = min(max(budget, browserReadMinChars), browserReadMaxChars)
-	opts, err := json.Marshal(map[string]any{"max": budget, "find": strings.TrimSpace(in.Find), "click": strings.TrimSpace(in.Click)})
+	opts, err := json.Marshal(map[string]any{"max": budget, "find": strings.TrimSpace(in.Find), "click": strings.TrimSpace(in.Click), "dry": in.Dry, "probe": in.Probe})
 	if err != nil {
 		return nil, err
 	}
@@ -183,6 +202,9 @@ func (s *Server) browserClick(ctx context.Context, r Run, raw json.RawMessage) (
 	_ = json.Unmarshal(raw, &in)
 	if strings.TrimSpace(in.Click) == "" {
 		return "", tooloutcome.InvalidArguments("browser.click needs click text")
+	}
+	if err := s.guardConsequentialClick(ctx, r, browserReadArgs{Click: in.Click, Dry: true}); err != nil {
+		return "", err
 	}
 	args, err := browserReadCommand(in)
 	if err != nil {
@@ -224,4 +246,62 @@ func browserReadResult(out string) (string, error) {
 		return "", tooloutcome.InvalidArguments("browser.click: no visible element contains that text; read the page and use exact visible text")
 	}
 	return page, nil
+}
+
+// Clicks that commit something outside the page (buy, pay, send, delete,
+// submit, publish...) need the user's approval in this run, whatever tool
+// performs them; reading and browsing never do. Owner rule 2026-10-07: risk is
+// judged by what the action does, not by which tool does it.
+var consequentialClick = regexp.MustCompile(`(?i)\b(buy|purchase|pay|checkout|check out|place order|confirm order|order now|send|submit|delete|remove|transfer|publish|post|book now|reserve|unsubscribe|cancel subscription)\b|购买|下单|支付|付款|结算|提交|发送|删除|转账|发布|预订|确认订单|确认支付`)
+
+func consequentialLabel(label string) bool { return consequentialClick.MatchString(label) }
+
+// guardConsequentialClick resolves the element a click would hit and refuses
+// a consequential one unless a person approved that target in this run.
+func (s *Server) guardConsequentialClick(ctx context.Context, r Run, probe browserReadArgs) error {
+	args, err := browserReadCommand(probe)
+	if err != nil {
+		return err
+	}
+	out, err := s.microVMAction(ctx, r, "shell.exec", args)
+	if err != nil {
+		return nil // an unreadable page cannot be classified; the click itself reports
+	}
+	page, err := browserReadResult(out)
+	if err != nil {
+		return nil
+	}
+	var hit struct {
+		Label string `json:"label"`
+	}
+	if json.Unmarshal([]byte(page), &hit) != nil || !consequentialLabel(hit.Label) || s.clickApproved(r, hit.Label) {
+		return nil
+	}
+	label := hit.Label
+	if len([]rune(label)) > 80 {
+		label = string([]rune(label)[:80])
+	}
+	return tooloutcome.New(tooloutcome.NeedApproval, "user_confirmation_required", "not_executed",
+		fmt.Sprintf("This click on %q would commit an action outside the page (buy, pay, send, delete, submit or publish). Ask the user with request_approval (target: %q) and click again only after they approve.", label, label),
+		"request_approval").Err()
+}
+
+// clickApproved reports a human-approved request_approval in this run whose
+// action or target names the clicked element.
+func (s *Server) clickApproved(r Run, label string) bool {
+	questions, err := s.store.ListQuestions(r.ConversationID)
+	if err != nil {
+		return false
+	}
+	want := strings.ToLower(strings.TrimSpace(label))
+	for _, q := range questions {
+		if q.RunID != r.ID || q.Approval == nil || q.Approval.Review != nil || q.Status != questionAnswered || strings.TrimSpace(string(q.Answer)) != "true" || q.AnsweredBy == autoReviewActor {
+			continue
+		}
+		named := strings.ToLower(q.Approval.Target + " " + q.Approval.Action)
+		if want != "" && (strings.Contains(named, want) || strings.Contains(want, strings.ToLower(strings.TrimSpace(q.Approval.Target)))) {
+			return true
+		}
+	}
+	return false
 }
