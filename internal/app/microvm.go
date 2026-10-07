@@ -152,9 +152,9 @@ func (s *Server) microVMEnvironmentPrompt(ctx context.Context, botID string) str
 
 // computerBrowserEssentials is the always-present browser recipe; computer_help
 // keeps the longer procedure.
-const computerBrowserEssentials = "Browser: if the desktop is stopped, run desktop.start once. Read pages with browser.read (text, links, find a phrase); take browser.snapshot only for layout or click coordinates, and use coordinates only from the latest snapshot. Open searches and sites directly by URL (for example https://www.google.com/search?q=… or https://mail.google.com/mail/u/0/#search/…). Opening an item to read it is fine under read-only requests; just do not change, send or delete anything."
+const computerBrowserEssentials = "Browser: if the desktop is stopped, run desktop.start once. Read pages with browser.read and open items with browser.click by their visible text; use browser.snapshot only for layout or coordinates (latest snapshot only). Open searches and sites by URL, e.g. https://www.google.com/search?q=… or https://mail.google.com/mail/u/0/#search/…. Read-only requests still allow opening items; never change, send or delete."
 
-const computerResearchGuidance = " For research, open the primary pages (the article, filing or official page), not search-result pages, and cite those URLs with dates. A few good sources beat many screenshots."
+const computerResearchGuidance = " For research, open primary pages (the article itself), not search results, and cite their URLs with dates."
 
 func (s *Server) listComputers(ctx context.Context) ([]Computer, error) {
 	items, err := s.store.listComputers(s.instance.ID)
