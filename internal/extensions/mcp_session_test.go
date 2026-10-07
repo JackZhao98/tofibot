@@ -232,6 +232,10 @@ func TestMCPKnownToolNameResolvesWithoutSearch(t *testing.T) {
 	if o, ok := tooloutcome.FromError(err); !ok || o.Status != tooloutcome.Validation || o.Code != "invalid_arguments" || !strings.Contains(o.Message, "Current input schema: ") || !strings.Contains(o.Message, `"target"`) {
 		t.Fatalf("invalid arguments outcome=%+v err=%v", o, err)
 	}
+	// Models echo the server's display case; the name resolves case-insensitively.
+	if got, err := execute(`{"name":"mcp_MAIL__read_inbox","arguments":{}}`); err != nil || got != "inbox" {
+		t.Fatalf("case-variant name=%q err=%v", got, err)
+	}
 	// Truly absent tools and unknown servers still require a schema.
 	for raw, code := range map[string]string{
 		`{"name":"mcp_mail__retired","arguments":{}}`:     "stale_schema",
@@ -243,7 +247,7 @@ func TestMCPKnownToolNameResolvesWithoutSearch(t *testing.T) {
 			t.Fatalf("%s outcome=%+v err=%v", raw, o, err)
 		}
 	}
-	if tr.listings.Load() != 1 || tr.calls.Load() != 2 || gateCalls.Load() != 2 {
+	if tr.listings.Load() != 1 || tr.calls.Load() != 3 || gateCalls.Load() != 3 {
 		t.Fatalf("listings=%d calls=%d gate=%d", tr.listings.Load(), tr.calls.Load(), gateCalls.Load())
 	}
 }

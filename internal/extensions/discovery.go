@@ -717,15 +717,15 @@ func lazyDiscoverableMCPTools(runCtx context.Context, m *Manager, servers map[st
 			return runtime.Tool{}, false
 		}
 		for _, candidate := range found {
-			if candidate.Name != toolName {
+			if !strings.EqualFold(candidate.Name, toolName) {
 				continue
 			}
 			seenMu.Lock()
 			defer seenMu.Unlock()
-			if existing, ok := seen[toolName]; ok {
+			if existing, ok := seen[candidate.Name]; ok {
 				return existing, true
 			}
-			seen[toolName] = candidate
+			seen[candidate.Name] = candidate
 			return candidate, true
 		}
 		return runtime.Tool{}, false
@@ -771,6 +771,9 @@ func lazyDiscoverableMCPTools(runCtx context.Context, m *Manager, servers map[st
 			t, ok = resolveKnown(ctx, in.Name)
 			if err := ctx.Err(); err != nil {
 				return "", err
+			}
+			if ok {
+				in.Name = t.Name
 			}
 		}
 		if !ok {
@@ -911,7 +914,8 @@ func mcpServerForToolName(servers []string, toolName string) string {
 	best, bestLen := "", 0
 	for _, server := range servers {
 		prefix := sanitizeToolName("mcp_" + server + "__")
-		if len(prefix) > bestLen && len(toolName) > len(prefix) && strings.HasPrefix(toolName, prefix) {
+		// Models echo the server's display case (mcp_YH__…); names are case-folded.
+		if len(prefix) > bestLen && len(toolName) > len(prefix) && strings.EqualFold(toolName[:len(prefix)], prefix) {
 			best, bestLen = server, len(prefix)
 		}
 	}
