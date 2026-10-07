@@ -40,4 +40,15 @@ try {
   assert.equal(parsed.bot.model,model);
  }
  console.log("PASS 4: bot package import keeps Codex, OpenAI and Claude model ids");
+ // 5. Follow-global: "default" (and legacy "") follow; pinning keeps a supported effort else defers to the model default.
+ assert.equal(m.FOLLOW_GLOBAL,"default");
+ assert.equal(m.followsGlobal("default"),true);assert.equal(m.followsGlobal(""),true);assert.equal(m.followsGlobal(undefined),true);assert.equal(m.followsGlobal("codex-gpt-6-luna"),false);
+ assert.equal(m.effortForPinnedModel(claude,"max"),"max");assert.equal(m.effortForPinnedModel(openai,"max"),"default");assert.equal(m.effortForPinnedModel(claude,"default"),"default");assert.equal(m.effortForPinnedModel(plain,"high"),"default");
+ const labels={low:"低 · 更快",medium:"中 · 均衡",high:"高 · 深入"};
+ assert.equal(m.followGlobalLabel(models,{model:"codex-gpt-6-luna",reasoning_effort:"medium"},labels),"跟随全局（当前：Codex · GPT-6 Luna · 中）");
+ assert.equal(m.followGlobalLabel(models,{model:"retired-model",reasoning_effort:""},labels),"跟随全局（当前：retired-model）");
+ assert.equal(m.followGlobalLabel(models,null,labels),"跟随全局");
+ const followed=pkg.parseBotPackage(JSON.stringify({format:"tofi.bot",version:1,included:["bot_config"],bot:{name:"Follower",instructions:"",model:"default",reasoning_effort:"default"}}));
+ assert.equal(followed.bot.model,"default");assert.equal(followed.bot.reasoning_effort,"default");
+ console.log("PASS 5: follow-global sentinel, pinned effort and label; bot packages carry \"default\" through");
 } finally {await server.close();}

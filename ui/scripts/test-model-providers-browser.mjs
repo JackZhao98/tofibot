@@ -52,6 +52,7 @@ createRoot(document.getElementById('root')).render(<Fixture/>);`);
     if (url.pathname === "/api/auth/codex/verify") return reply({connected: true, expires_at: Date.parse("2026-11-01T00:00:00Z"), check: "ok"});
     if (url.pathname === "/api/providers" && method === "GET") return reply({providers: Object.values(providers)});
     if (url.pathname === "/api/models") return reply(catalog);
+    if (url.pathname === "/api/model-settings" && method === "GET") return reply({model: "codex-gpt-6-luna", reasoning_effort: "medium"});
     const match = url.pathname.match(/^\/api\/providers\/(openai|anthropic)\/key$/);
     if (match && method === "PUT") {
       writes.push(`PUT ${match[1]}`);
@@ -83,13 +84,21 @@ createRoot(document.getElementById('root')).render(<Fixture/>);`);
       [["Codex", ["Codex · GPT-6 Sol", "Codex · GPT-6 Luna"]], ["OpenAI", ["GPT-6 Luna", "GPT-4.1"]], ["Claude", ["Claude Opus 5.5"]]]);
     if (shots) await page.screenshot({path: join(shots, `providers-${viewport.width}.png`), fullPage: true});
     const modelSelect = picker.getByRole("combobox").first();
+    // A Bot with no pin follows the global model; the option names what it follows and hides effort.
+    await picker.locator("option", {hasText: "跟随全局（当前：Codex · GPT-6 Luna · 中）"}).waitFor({state: "attached", timeout: 10000});
+    assert.equal(await modelSelect.inputValue(), "default");
+    assert.equal(await picker.locator("label",{hasText:"思考强度"}).count(), 0, "effort hidden while following global");
     await modelSelect.selectOption("claude-opus-5-5");
-    assert.deepEqual(await picker.locator("label",{hasText:"思考强度"}).locator("select").locator("option").evaluateAll(options => options.map(option => option.value)), ["", "low", "medium", "high", "xhigh", "max"]);
-    assert.equal(await page.getByTestId("value").textContent(), "claude-opus-5-5|high");
+    assert.deepEqual(await picker.locator("label",{hasText:"思考强度"}).locator("select").locator("option").evaluateAll(options => options.map(option => option.value)), ["default", "low", "medium", "high", "xhigh", "max"]);
+    assert.equal(await picker.locator("label",{hasText:"思考强度"}).locator("option").first().textContent(), "模型默认（高）");
+    assert.equal(await page.getByTestId("value").textContent(), "claude-opus-5-5|default");
     await picker.locator("label",{hasText:"思考强度"}).locator("select").selectOption("max");
+    assert.equal(await page.getByTestId("value").textContent(), "claude-opus-5-5|max");
     await modelSelect.selectOption("gpt-4.1");
     assert.equal(await picker.locator("label",{hasText:"思考强度"}).locator("select").count(), 0, "effort hidden for non-reasoning models");
-    assert.equal(await page.getByTestId("value").textContent(), "gpt-4.1|");
+    assert.equal(await page.getByTestId("value").textContent(), "gpt-4.1|default");
+    await modelSelect.selectOption("default");
+    assert.equal(await page.getByTestId("value").textContent(), "default|default", "following global follows its effort too");
     // Invalid key: disabled while verifying, inline named error, nothing echoed.
     const input = openai.getByLabel("OpenAI API key");
     await input.fill(badKey);
