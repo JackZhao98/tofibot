@@ -54,7 +54,7 @@ func (s *Server) verifyCodexSignIn(ctx context.Context) string {
 	probe := func() (int, error) {
 		credential, err := s.codex.Credential(ctx)
 		if err != nil {
-			if code, _ := modelAccountFailure(strings.ToLower(err.Error())); code == "model_auth_invalid" {
+			if code, _ := modelAccountFailure(strings.ToLower(err.Error()), ""); code == "model_auth_invalid" {
 				return http.StatusUnauthorized, nil
 			}
 			return 0, err

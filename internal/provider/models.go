@@ -9,6 +9,10 @@ type ModelInfo struct {
 	ContextWindow   int     // Maximum context window in tokens
 	InputCostPer1M  float64 // Cost per 1M input tokens in USD
 	OutputCostPer1M float64 // Cost per 1M output tokens in USD
+	MaxOutputTokens int     // Largest max_tokens the model accepts (0 = unknown)
+	// Prompt-cache prices per 1M tokens; 0 = 0.1x / 1.25x input (5-minute TTL).
+	CacheReadCostPer1M  float64
+	CacheWriteCostPer1M float64
 }
 
 // Registry maps model names/prefixes to their metadata.
@@ -39,9 +43,27 @@ var Registry = map[string]ModelInfo{
 	"gpt-4.1-mini": {Provider: "openai", ContextWindow: 1047576, InputCostPer1M: 0.40, OutputCostPer1M: 1.60},
 	"gpt-4.1-nano": {Provider: "openai", ContextWindow: 1047576, InputCostPer1M: 0.10, OutputCostPer1M: 0.40},
 
-	// ─── Anthropic ───
-	"claude-opus-4-20250514":   {Provider: "anthropic", ContextWindow: 200000, InputCostPer1M: 15.00, OutputCostPer1M: 75.00},
-	"claude-sonnet-4-20250514": {Provider: "anthropic", ContextWindow: 200000, InputCostPer1M: 3.00, OutputCostPer1M: 15.00},
+	// ─── Anthropic (first-party list prices, 2026-09) ───
+	"claude-fable-5-1":         {Provider: "anthropic", ContextWindow: 1000000, MaxOutputTokens: 128000, InputCostPer1M: 10.00, OutputCostPer1M: 50.00, CacheReadCostPer1M: 0.25},
+	"claude-mythos-5-1":        {Provider: "anthropic", ContextWindow: 1000000, MaxOutputTokens: 128000, InputCostPer1M: 10.00, OutputCostPer1M: 50.00, CacheReadCostPer1M: 0.25},
+	"claude-fable-5":           {Provider: "anthropic", ContextWindow: 1000000, MaxOutputTokens: 128000, InputCostPer1M: 10.00, OutputCostPer1M: 50.00},
+	"claude-mythos-5":          {Provider: "anthropic", ContextWindow: 1000000, MaxOutputTokens: 128000, InputCostPer1M: 10.00, OutputCostPer1M: 50.00},
+	"claude-opus-5-5":          {Provider: "anthropic", ContextWindow: 1000000, MaxOutputTokens: 128000, InputCostPer1M: 4.00, OutputCostPer1M: 20.00, CacheReadCostPer1M: 0.20},
+	"claude-opus-5":            {Provider: "anthropic", ContextWindow: 1000000, MaxOutputTokens: 128000, InputCostPer1M: 5.00, OutputCostPer1M: 25.00},
+	"claude-opus-4-8":          {Provider: "anthropic", ContextWindow: 1000000, MaxOutputTokens: 128000, InputCostPer1M: 5.00, OutputCostPer1M: 25.00},
+	"claude-opus-4-7":          {Provider: "anthropic", ContextWindow: 1000000, MaxOutputTokens: 128000, InputCostPer1M: 5.00, OutputCostPer1M: 25.00},
+	"claude-opus-4-6":          {Provider: "anthropic", ContextWindow: 1000000, MaxOutputTokens: 128000, InputCostPer1M: 5.00, OutputCostPer1M: 25.00},
+	"claude-opus-4-5":          {Provider: "anthropic", ContextWindow: 200000, MaxOutputTokens: 64000, InputCostPer1M: 5.00, OutputCostPer1M: 25.00},
+	"claude-opus-4-1":          {Provider: "anthropic", ContextWindow: 200000, MaxOutputTokens: 32000, InputCostPer1M: 15.00, OutputCostPer1M: 75.00},
+	"claude-opus-4-0":          {Provider: "anthropic", ContextWindow: 200000, MaxOutputTokens: 32000, InputCostPer1M: 15.00, OutputCostPer1M: 75.00},
+	"claude-sonnet-5-5":        {Provider: "anthropic", ContextWindow: 1000000, MaxOutputTokens: 128000, InputCostPer1M: 2.00, OutputCostPer1M: 10.00},
+	"claude-sonnet-5":          {Provider: "anthropic", ContextWindow: 1000000, MaxOutputTokens: 128000, InputCostPer1M: 2.00, OutputCostPer1M: 10.00},
+	"claude-sonnet-4-6":        {Provider: "anthropic", ContextWindow: 1000000, MaxOutputTokens: 128000, InputCostPer1M: 3.00, OutputCostPer1M: 15.00},
+	"claude-sonnet-4-5":        {Provider: "anthropic", ContextWindow: 200000, MaxOutputTokens: 64000, InputCostPer1M: 3.00, OutputCostPer1M: 15.00},
+	"claude-sonnet-4-0":        {Provider: "anthropic", ContextWindow: 200000, MaxOutputTokens: 64000, InputCostPer1M: 3.00, OutputCostPer1M: 15.00},
+	"claude-haiku-4-5":         {Provider: "anthropic", ContextWindow: 200000, MaxOutputTokens: 64000, InputCostPer1M: 1.00, OutputCostPer1M: 5.00},
+	"claude-opus-4-20250514":   {Provider: "anthropic", ContextWindow: 200000, MaxOutputTokens: 32000, InputCostPer1M: 15.00, OutputCostPer1M: 75.00},
+	"claude-sonnet-4-20250514": {Provider: "anthropic", ContextWindow: 200000, MaxOutputTokens: 64000, InputCostPer1M: 3.00, OutputCostPer1M: 15.00},
 	"claude-haiku-4-20250514":  {Provider: "anthropic", ContextWindow: 200000, InputCostPer1M: 0.80, OutputCostPer1M: 4.00},
 
 	// ─── Google Gemini ───
@@ -76,6 +98,28 @@ func GetModelInfo(model string) (ModelInfo, bool) {
 	}
 
 	return ModelInfo{}, false
+}
+
+// Provider routing names returned by ProviderForModel.
+const (
+	ProviderOpenAICodex = "openai_codex"
+	ProviderOpenAI      = "openai"
+	ProviderAnthropic   = "anthropic"
+)
+
+// ProviderForModel routes a persisted bot model ID to the provider that
+// serves it: codex-* (including codex-auto-review) to the Codex OAuth
+// backend, claude* to the Anthropic API, everything else to the OpenAI API.
+func ProviderForModel(id string) string {
+	m := strings.ToLower(strings.TrimSpace(id))
+	switch {
+	case strings.HasPrefix(m, "codex-"):
+		return ProviderOpenAICodex
+	case strings.HasPrefix(m, "claude"):
+		return ProviderAnthropic
+	default:
+		return ProviderOpenAI
+	}
 }
 
 // DetectProvider infers the provider name from a model name.
@@ -150,7 +194,21 @@ func CalculateCost(model string, usage Usage) float64 {
 	if !ok {
 		return 0
 	}
-	inputCost := float64(usage.InputTokens) / 1_000_000 * info.InputCostPer1M
+	readPrice, writePrice := info.CacheReadCostPer1M, info.CacheWriteCostPer1M
+	if readPrice == 0 {
+		readPrice = info.InputCostPer1M * 0.1
+	}
+	if writePrice == 0 {
+		writePrice = info.InputCostPer1M * 1.25
+	}
+	// Cache counts are subsets of InputTokens, priced at their own rates.
+	uncached := usage.InputTokens - usage.CacheReadTokens - usage.CacheWriteTokens
+	if uncached < 0 {
+		uncached = 0
+	}
+	inputCost := float64(uncached)/1_000_000*info.InputCostPer1M +
+		float64(usage.CacheReadTokens)/1_000_000*readPrice +
+		float64(usage.CacheWriteTokens)/1_000_000*writePrice
 	outputCost := float64(usage.OutputTokens) / 1_000_000 * info.OutputCostPer1M
 	return inputCost + outputCost
 }

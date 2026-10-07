@@ -13,17 +13,35 @@ import (
 	"time"
 )
 
-// supportsReasoning returns true for OpenAI models with reasoning capability
-// (the o-series and gpt-5.x family). Other Responses-API models like gpt-4o
-// reject the reasoning + include payload fields.
+// supportsReasoning returns true for OpenAI models with reasoning capability:
+// the o-series (o1, o3, o4, ...) and gpt-5 onward (gpt-5.x, gpt-6*, ...),
+// with or without the codex- slug prefix. Other Responses-API models like
+// gpt-4o reject the reasoning + include payload fields.
 func supportsReasoning(model string) bool {
-	if strings.HasPrefix(model, "gpt-5") {
-		return true
+	m := strings.TrimPrefix(strings.ToLower(strings.TrimSpace(model)), "codex-")
+	if rest, ok := strings.CutPrefix(m, "gpt-"); ok {
+		return leadingNumber(rest) >= 5
 	}
-	if strings.HasPrefix(model, "o1") || strings.HasPrefix(model, "o3") || strings.HasPrefix(model, "o4") {
-		return true
+	if rest, ok := strings.CutPrefix(m, "o"); ok {
+		return leadingNumber(rest) >= 1
 	}
 	return false
+}
+
+// leadingNumber parses the decimal digits at the start of s (-1 if none).
+func leadingNumber(s string) int {
+	n, digits := 0, 0
+	for _, r := range s {
+		if r < '0' || r > '9' || digits == 4 {
+			break
+		}
+		n = n*10 + int(r-'0')
+		digits++
+	}
+	if digits == 0 {
+		return -1
+	}
+	return n
 }
 
 // openaiResponses implements Provider using the OpenAI Responses API.

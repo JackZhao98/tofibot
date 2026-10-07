@@ -59,6 +59,11 @@ func IsRetryable(err error) bool {
 	if errors.Is(err, ErrStreamIncomplete) {
 		return true
 	}
+	var incomplete *IncompleteResponseError
+	var refusal *RefusalError
+	if errors.As(err, &incomplete) || errors.As(err, &refusal) {
+		return false // the same request would stop the same way
+	}
 
 	// Connection-level errors (no HTTP response received)
 	msg := err.Error()
@@ -85,7 +90,8 @@ func IsContextOverflow(err error) bool {
 		strings.Contains(msg, "maximum context") ||
 		strings.Contains(msg, "max_tokens") && strings.Contains(msg, "exceed") ||
 		strings.Contains(msg, "too many tokens") ||
-		strings.Contains(msg, "input is too long")
+		strings.Contains(msg, "input is too long") ||
+		strings.Contains(msg, "prompt is too long")
 }
 
 // AsAPIError extracts an APIError from an error chain.
@@ -157,6 +163,41 @@ func (e *StreamWallCapError) Error() string {
 func IsStreamWatchdog(err error) bool {
 	var wall *StreamWallCapError
 	return IsStreamIdle(err) || errors.As(err, &wall)
+}
+
+// IncompleteResponseError reports a response the model stopped before
+// finishing (Anthropic stop_reason max_tokens or
+// model_context_window_exceeded). Its partial output, possibly a truncated
+// tool call, is discarded. A context-window stop matches IsContextOverflow.
+type IncompleteResponseError struct {
+	Provider string
+	Reason   string
+}
+
+func (e *IncompleteResponseError) Error() string {
+	if e.Reason == "model_context_window_exceeded" {
+		return fmt.Sprintf("%s response incomplete: model context window exceeded", e.Provider)
+	}
+	return fmt.Sprintf("%s response incomplete: %s", e.Provider, e.Reason)
+}
+
+// RefusalError reports a response the model's safety classifiers declined
+// (Anthropic stop_reason refusal). It is not retryable.
+type RefusalError struct {
+	Provider    string
+	Category    string
+	Explanation string
+}
+
+func (e *RefusalError) Error() string {
+	msg := e.Provider + " model declined the request"
+	if e.Category != "" {
+		msg += " (" + e.Category + ")"
+	}
+	if e.Explanation != "" {
+		msg += ": " + e.Explanation
+	}
+	return msg
 }
 
 // ErrStreamIncomplete reports a stream that ended without a terminal event.

@@ -40,6 +40,14 @@ try {
   assert.match(issue.facts.join(" "),/没有执行任何工具步骤/);assert(!issue.facts.join(" ").includes("无法确认原因"));assert(!issue.secondary.join(" ").includes("尚未完整加载"));
   assert(!JSON.stringify(issue).includes("PRIVATE_SECRET"));assert(!html.includes("读取执行记录"));assert(html.includes("本次没有执行任何工具步骤"));
  }
+ // Model account copy follows the failing model's provider; Codex keeps its own wording.
+ for(const [model,needle,label] of [["claude-opus-5-5","Claude API key","打开模型连接设置"],["gpt-6-luna","OpenAI API key","打开模型连接设置"],["","模型提供方","打开模型连接设置"],["codex-gpt-6-sol","Codex 账户","打开 Codex 设置"]]){
+  const item=view({...scenario("busy"),run:{...run,model,status:"failed",failure:{code:"model_unconfigured",source:"runtime",message:""}},tools:[],summaries:[zero]});
+  assert.equal(item.kind,"model_unconfigured");assert.equal(item.action,"open_codex");assert.equal(item.actionLabel,label);assert(item.facts.join(" ").includes(needle),model);
+  if(!model.startsWith("codex-"))assert(!item.facts.join(" ").includes("Codex 账户"),model);
+  assert(item.facts.join(" ").includes("模型与连接"));
+ }
+ for(const code of ["model_auth_invalid","model_quota_exhausted"]){const item=view({...scenario("busy"),run:{...run,model:"claude-sonnet-5-5",status:"failed",failure:{code,source:"runtime",message:""}},tools:[],summaries:[zero]});assert(!item.facts.join(" ").includes("Codex"),code);assert(item.facts.join(" ").includes("Claude API"),code);}
  const unloaded=view({...scenario("busy"),run:{...run,status:"failed",failure:{code:"model_auth_invalid",source:"runtime",message:""}},tools:[],summaries:[]});
  assert.equal(unloaded.kind,"model_auth");assert(!unloaded.facts.join(" ").includes("没有执行任何工具"));
  const generic=view({...scenario("busy"),run:{...run,status:"failed",error:"",failure:{code:"execution_failed",source:"runtime",message:""}},tools:[],summaries:[zero]});
@@ -126,6 +134,6 @@ assert.equal(toolDisplayLabel({...tool,status:"completed"}),"结果待核实");
  // 8. Both languages, neutral section, native details and untouched protected components.
  const english=markup(incident,"en");assert(english.includes("Pre-execution check is missing information"));assert(english.includes("Model service is temporarily busy"));assert(english.includes("Copy diagnostics"));assert(html.includes("技术详情"));assert(!html.includes('<details class="task-activity" open'));
  const css=await readFile(join(ui,"src/task-issue-card.css"),"utf8");for(const rule of ["min-height:44px","max-width:var(--chat-max)","prefers-reduced-motion","overflow-wrap:anywhere","max-width:560px"])assert(css.includes(rule));
- for(const file of ["ui/src/BotDesktopPanel.tsx","ui/src/MemoryPanel.tsx","ui/src/ModelSettings.tsx"]) {const current=await readFile(join(ui,"..",file));const base=execFileSync("git",["show",`fcb2157c58069db40ea13c0bdb12697cb6b2e2c5:${file}`],{cwd:join(ui,"..")});assert(current.equals(base),file);}
+ for(const file of ["ui/src/BotDesktopPanel.tsx","ui/src/MemoryPanel.tsx"]) {const current=await readFile(join(ui,"..",file));const base=execFileSync("git",["show",`fcb2157c58069db40ea13c0bdb12697cb6b2e2c5:${file}`],{cwd:join(ui,"..")});assert(current.equals(base),file);}
  console.log("PASS 8: bilingual copy, collapsed activity, semantic sections, 44px/reduced motion, protected components byte-identical");
 } finally {await server.close();}

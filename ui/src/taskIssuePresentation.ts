@@ -4,6 +4,7 @@ import type { MailDraft } from "./MailDraftCard";
 import type { Question } from "./questionTimeline";
 import { buildRetryFamilies, retryFamilyAnchor, isTerminalRun } from "./runFamily";
 import type { Message, Run, ToolActivity, ToolActivityRunSummary } from "./types";
+import { providerForModel } from "./modelCatalog";
 
 export type TaskLocale = "zh-CN" | "en";
 export const taskLocale = (): TaskLocale => typeof document !== "undefined" && document.documentElement.lang.startsWith("en") ? "en" : "zh-CN";
@@ -226,9 +227,24 @@ export function presentTaskIssue({ run, family, tools = [], questions = [], draf
   if (kind === "connection_status") facts.push(t("任务可能仍在运行。刷新只读取最新状态。", "The task may still be running. Refresh only reads the latest status."));
   if (kind === "unknown_failure" && !facts.length) facts.push(noToolSteps ? t("没有记录具体原因。", "No specific cause was recorded.") : t("目前无法确认原因和执行结果。", "The cause and execution result are not yet confirmed."));
   if (kind === "provider_busy") facts.push(t("任务未完成。", "The task did not finish."));
-  if (kind === "model_unconfigured") facts.push(t("工作区没有连接 Codex 账户，模型无法调用。", "This workspace has no Codex account connected, so the model cannot be called."), t("在设置的「服务器与 Codex」页连接账户后重试。", "Connect an account under Settings › Server and Codex, then retry."));
-  if (kind === "model_auth") facts.push(t("Codex 账户的登录已失效，模型拒绝了这次调用。", "The Codex account sign-in is no longer valid, and the model rejected this request."), t("在设置的「服务器与 Codex」页重新连接后重试。", "Reconnect under Settings › Server and Codex, then retry."));
-  if (kind === "model_quota") facts.push(t("Codex 账户的用量额度已用尽，模型拒绝了这次调用。", "The Codex account has reached its usage limit, and the model rejected this request."), t("额度恢复或更换账户后重试。", "Retry after the limit resets or connect another account."));
+  // Model account copy names the provider of the model that failed; no model means the workspace default.
+  const provider = run.model?.trim() ? providerForModel(run.model) : undefined;
+  const keyLabel = provider === "anthropic" ? "Claude" : "OpenAI";
+  if (kind === "model_unconfigured") {
+    if (provider === "codex") facts.push(t("工作区没有连接 Codex 账户，模型无法调用。", "This workspace has no Codex account connected, so the model cannot be called."), t("在设置的「模型与连接」页连接账户后重试。", "Connect an account under Settings › Models and connections, then retry."));
+    else if (provider) facts.push(t(`工作区没有配置 ${keyLabel} API key，这个模型无法调用。`, `This workspace has no ${keyLabel} API key, so this model cannot be called.`), t(`在设置的「模型与连接」页添加 ${keyLabel} API key，或为 Bot 换一个已连接的模型后重试。`, `Add a ${keyLabel} API key under Settings › Models and connections, or switch the bot to a connected model, then retry.`));
+    else facts.push(t("工作区没有可用的模型提供方，模型无法调用。", "This workspace has no model provider available, so the model cannot be called."), t("在设置的「模型与连接」页连接 Codex 或添加 API key 后重试。", "Connect Codex or add an API key under Settings › Models and connections, then retry."));
+  }
+  if (kind === "model_auth") {
+    if (provider === "codex") facts.push(t("Codex 账户的登录已失效，模型拒绝了这次调用。", "The Codex account sign-in is no longer valid, and the model rejected this request."), t("在设置的「模型与连接」页重新连接后重试。", "Reconnect under Settings › Models and connections, then retry."));
+    else if (provider) facts.push(t(`${keyLabel} API key 已失效，模型拒绝了这次调用。`, `The ${keyLabel} API key is no longer valid, and the model rejected this request.`), t(`在设置的「模型与连接」页更新 ${keyLabel} API key 后重试。`, `Update the ${keyLabel} API key under Settings › Models and connections, then retry.`));
+    else facts.push(t("模型账户的凭证已失效，模型拒绝了这次调用。", "The model account credentials are no longer valid, and the model rejected this request."), t("在设置的「模型与连接」页重新连接或更新 API key 后重试。", "Reconnect or update the API key under Settings › Models and connections, then retry."));
+  }
+  if (kind === "model_quota") {
+    if (provider === "codex") facts.push(t("Codex 账户的用量额度已用尽，模型拒绝了这次调用。", "The Codex account has reached its usage limit, and the model rejected this request."), t("额度恢复或更换账户后重试。", "Retry after the limit resets or connect another account."));
+    else if (provider) facts.push(t(`${keyLabel} API 账户的用量额度已用尽，模型拒绝了这次调用。`, `The ${keyLabel} API account has reached its usage limit, and the model rejected this request.`), t(`额度恢复、充值或更换 ${keyLabel} API key 后重试。`, `Retry after the limit resets, after adding credit, or with another ${keyLabel} API key.`));
+    else facts.push(t("模型账户的用量额度已用尽，模型拒绝了这次调用。", "The model account has reached its usage limit, and the model rejected this request."), t("额度恢复或更换账户后重试。", "Retry after the limit resets or connect another account."));
+  }
   if (noToolSteps) facts.push(t("本次没有执行任何工具步骤。", "No tool steps ran in this attempt."));
   if (kind === "expired") facts.push(phase === "finishing" ? t("正在收尾，已完成结果保留。", "Finishing up; completed results are retained.") : t("本次工作已停止，已完成结果保留。", "This workflow stopped; completed results are retained."));
   if (tools.some(tool => toolExecutionState(tool) === "completed")) facts.push(t("已完成的工具步骤保留在工作过程。", "Completed tool steps are retained in activity."));
@@ -238,7 +254,7 @@ export function presentTaskIssue({ run, family, tools = [], questions = [], draf
   if (!complete) secondary.push(t("执行记录尚未完整加载。", "Execution records are not fully loaded."));
   evidence.push({ source: "run", id: run.id, status: run.status, code: overloaded ? "server_is_overloaded" : run.failure?.code, model: run.model, updatedAt: run.updated_at });
   if (!connected) evidence.push({ source: "connection", id: run.id, status: "disconnected" });
-  return { kind, phase, title: t(...titles[kind]), facts, links, secondary, action, actionLabel: t(...actions[action]), evidence, recordsComplete: complete };
+  return { kind, phase, title: t(...titles[kind]), facts, links, secondary, action, actionLabel: action === "open_codex" && provider !== "codex" ? t("打开模型连接设置", "Open model connections") : t(...actions[action]), evidence, recordsComplete: complete };
 }
 
 /** Diagnostics never contain arguments, results, prose errors, mail or reasoning. */

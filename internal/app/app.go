@@ -130,19 +130,22 @@ type Memory struct {
 }
 
 type Config struct {
-	AccountID                string // Set by the account gateway; never accepted from an HTTP body.
-	OwnerAuth                bool
-	OwnerAllowLoopbackHTTP   bool
-	OwnerAllowLANHTTP        bool
-	Environment              string
-	DataDir, Listen          string
-	UIDir                    string
-	PublicOrigin             string
-	Engine                   runtime.Engine
-	DefaultModel, Provider   string
-	TranscriptionAPIKey      string
-	TranscriptionURL         string
-	MCPConfigPath, SkillsDir string
+	AccountID              string // Set by the account gateway; never accepted from an HTTP body.
+	OwnerAuth              bool
+	OwnerAllowLoopbackHTTP bool
+	OwnerAllowLANHTTP      bool
+	Environment            string
+	DataDir, Listen        string
+	UIDir                  string
+	PublicOrigin           string
+	Engine                 runtime.Engine
+	DefaultModel, Provider string
+	// ProviderAPIKey/ProviderBaseURL seed the OpenAI or Anthropic provider
+	// named by Provider from operator environment; vault keys override.
+	ProviderAPIKey, ProviderBaseURL string
+	TranscriptionAPIKey             string
+	TranscriptionURL                string
+	MCPConfigPath, SkillsDir        string
 	// ComputerSocket points at the service-owned control socket for the one
 	// configured Firecracker workspace. It is never selected by a request.
 	ComputerSocket string
@@ -193,6 +196,11 @@ type Server struct {
 	modelCatalog                         []ModelOption
 	modelCatalogAt                       time.Time
 	modelCatalogSource                   string
+	providerMu                           sync.Mutex
+	providerEndpoints                    map[string]string // Tests and operator gateways only.
+	envProviderKeys                      map[string]string
+	envProviderErrors                    map[string]string
+	providerCatalogs                     map[string]providerCatalog
 	codexVerifyMu                        sync.Mutex
 	codexVerifyAt                        time.Time
 	codexVerifyCheck                     string
@@ -2189,16 +2197,28 @@ func NewServer(c Config) (*Server, error) {
 		codex = m
 	}
 	engine := c.Engine
-	codexManaged := false
-	if engine == nil && strings.EqualFold(c.Provider, "openai_codex") && codex != nil {
-		engine, _ = runtime.New(runtime.Config{Provider: c.Provider, Model: c.DefaultModel, Credential: codex.Credential, MaxDuration: 10 * time.Minute})
-		codexManaged = true
+	if managedProviderName(c.Provider) {
+		c.Provider = normalizeProviderName(c.Provider)
 	}
+	// The server owns a routed engine for Codex and API-key providers; a
+	// supplied engine (tests, custom providers) is used as is.
+	codexManaged := engine == nil && managedProviderName(c.Provider)
 	savedSettings, _ := st.getModelSettings()
 	if savedSettings.ReasoningEffort == "" {
 		savedSettings.ReasoningEffort = "medium"
 	}
-	server := &Server{accountID: c.AccountID, isolatedWorkspace: c.IsolatedWorkspace, localRunnerURL: c.LocalRunnerURL, localRunnerTokenFile: c.LocalRunnerTokenFile, instance: identity, store: st, engine: engine, codex: codex, codexManaged: codexManaged, defaultModel: c.DefaultModel, defaultReasoning: savedSettings.ReasoningEffort, provider: c.Provider, transcriptionAPIKey: c.TranscriptionAPIKey, transcriptionURL: strings.TrimRight(c.TranscriptionURL, "/"), listen: c.Listen, uiDir: c.UIDir, publicOrigin: strings.TrimRight(c.PublicOrigin, "/"), convMu: map[string]*sync.Mutex{}, runs: map[string]context.CancelFunc{}, queues: map[string]*conversationQueue{}, triageModel: os.Getenv("TOFI_TRIAGE_MODEL"), microVM: microVM, computerLeases: map[string]*sync.Mutex{}, computerOwners: map[string]string{}, vmOAuth: map[string]*vmOAuthSession{}, toolSnapshots: map[toolSnapshotKey]toolSnapshot{}}
+	server := &Server{accountID: c.AccountID, isolatedWorkspace: c.IsolatedWorkspace, localRunnerURL: c.LocalRunnerURL, localRunnerTokenFile: c.LocalRunnerTokenFile, instance: identity, store: st, engine: engine, codex: codex, codexManaged: codexManaged, defaultModel: c.DefaultModel, defaultReasoning: savedSettings.ReasoningEffort, provider: c.Provider, transcriptionAPIKey: c.TranscriptionAPIKey, transcriptionURL: strings.TrimRight(c.TranscriptionURL, "/"), listen: c.Listen, uiDir: c.UIDir, publicOrigin: strings.TrimRight(c.PublicOrigin, "/"), convMu: map[string]*sync.Mutex{}, runs: map[string]context.CancelFunc{}, queues: map[string]*conversationQueue{}, triageModel: os.Getenv("TOFI_TRIAGE_MODEL"), microVM: microVM, computerLeases: map[string]*sync.Mutex{}, computerOwners: map[string]string{}, vmOAuth: map[string]*vmOAuthSession{}, toolSnapshots: map[toolSnapshotKey]toolSnapshot{}, providerEndpoints: map[string]string{}, envProviderKeys: map[string]string{}, envProviderErrors: map[string]string{}, providerCatalogs: map[string]providerCatalog{}}
+	if (c.Provider == providerOpenAI || c.Provider == providerAnthropic) && !c.IsolatedWorkspace {
+		if key := strings.TrimSpace(c.ProviderAPIKey); key != "" {
+			server.envProviderKeys[c.Provider] = key
+		}
+		if base := strings.TrimSpace(c.ProviderBaseURL); base != "" {
+			server.providerEndpoints[c.Provider] = base
+		}
+	}
+	if codexManaged {
+		server.engine = server.newRoutedEngine()
+	}
 	server.ownerAuth, e = initializeOwnerAuth(st, c)
 	if e != nil {
 		st.Close()
@@ -2377,6 +2397,9 @@ func (s *Server) route(w http.ResponseWriter, r *http.Request) {
 	if s.routeUsage(w, r, p) {
 		return
 	}
+	if s.routeProviders(w, r, p) {
+		return
+	}
 	if p == "auto-review-settings" {
 		s.autoReviewSettings(w, r)
 		return
@@ -2434,7 +2457,7 @@ func (s *Server) route(w http.ResponseWriter, r *http.Request) {
 			"tenancy":          map[string]string{"mode": "single"},
 		})
 	case p == "config":
-		writeJSON(w, 200, map[string]any{"model_configured": s.modelConfigured(), "default_model": s.defaultModel, "provider": s.provider})
+		writeJSON(w, 200, map[string]any{"model_configured": s.modelConfigured(), "default_model": s.defaultModel, "provider": s.activeProvider()})
 	case p == "auth/codex" || p == "auth/codex/connect" || p == "auth/codex/verify" || strings.HasPrefix(p, "auth/codex/connect/"):
 		s.codexAuth(w, r, strings.TrimPrefix(p, "auth/codex"))
 	case strings.HasPrefix(p, "bots/") && strings.HasSuffix(p, "/debug-preview"):
@@ -2455,10 +2478,10 @@ func (s *Server) route(w http.ResponseWriter, r *http.Request) {
 }
 func (s *Server) modelConfigured() bool {
 	s.mu.Lock()
-	managed, engine, codex := s.codexManaged, s.engine, s.codex
+	managed, engine := s.codexManaged, s.engine
 	s.mu.Unlock()
-	if strings.EqualFold(s.provider, "openai_codex") && managed {
-		return codex != nil && codex.Status().Connected
+	if managed && managedProviderName(s.provider) {
+		return engine != nil && s.anyProviderConfigured()
 	}
 	return engine != nil
 }
@@ -2483,12 +2506,16 @@ func (s *Server) codexAuth(w http.ResponseWriter, r *http.Request, path string) 
 			return
 		}
 		s.forgetCodexVerification()
-		if strings.EqualFold(s.provider, "openai_codex") {
-			s.mu.Lock()
+		// The routed engine keeps serving any other configured provider.
+		s.mu.Lock()
+		if !s.codexManaged && strings.EqualFold(s.provider, "openai_codex") {
 			s.engine = nil
 			s.codexManaged = true
-			s.mu.Unlock()
 		}
+		if s.codexManaged && s.engine == nil && managedProviderName(s.provider) {
+			s.engine = s.newRoutedEngine()
+		}
+		s.mu.Unlock()
 		if before != s.codex.Status() {
 			if _, e := s.store.WorkspaceEvent(workspaceScopeConfig); e != nil {
 				log.Printf("[workspace-events] record Codex disconnect: %v", e)
@@ -2519,9 +2546,11 @@ func (s *Server) codexAuth(w http.ResponseWriter, r *http.Request, path string) 
 		if x.Connected {
 			s.forgetCodexVerification()
 		}
-		if x.Connected && strings.EqualFold(s.provider, "openai_codex") {
+		if x.Connected && managedProviderName(s.provider) {
 			s.mu.Lock()
-			s.engine, _ = runtime.New(runtime.Config{Provider: s.provider, Model: s.defaultModel, Credential: s.codex.Credential, MaxDuration: 10 * time.Minute})
+			if !s.codexManaged || s.engine == nil {
+				s.engine = s.newRoutedEngine()
+			}
 			s.codexManaged = true
 			s.mu.Unlock()
 			s.wakeConversationWorkers()
@@ -3309,6 +3338,9 @@ func (s *Server) execute(c Conversation, r Run) {
 		if failed, fe := s.store.GetRun(r.ID); fe == nil {
 			_, _ = s.store.Event(c.ID, "run", failed)
 		}
+		if status == "failed" {
+			s.noteAPIKeyRejection(model, e)
+		}
 		return
 	}
 	if res.Suspended {
@@ -3471,23 +3503,55 @@ func (s *Server) failRun(c Conversation, r Run, err error) {
 			_, _ = s.store.Event(c.ID, "run", failed)
 		}
 	}
-	s.noteModelAuthRejection(err)
+	s.noteModelAuthRejection(s.runModel(r), err)
 }
 
-// noteModelAuthRejection keeps the Codex connection status truthful after the
-// provider rejects the stored sign-in: one refresh is attempted, otherwise the
-// workspace reports that a reconnect is needed.
-func (s *Server) noteModelAuthRejection(err error) {
+// noteAPIKeyRejection marks an OpenAI/Anthropic key the provider rejected for
+// this model as needing attention. It reports whether the failure was theirs.
+func (s *Server) noteAPIKeyRejection(model string, err error) bool {
+	if err == nil {
+		return false
+	}
+	if code, _ := modelAccountFailure(strings.ToLower(err.Error()), model); code != "model_auth_invalid" {
+		return false
+	}
+	name := runtime.ModelProvider(model)
+	if name == providerCodex || !managedProviderName(s.provider) {
+		return false
+	}
+	if _, keyed := s.providerKey(name); !keyed {
+		return false
+	}
+	s.noteProviderKeyRejected(name, http.StatusUnauthorized)
+	return true
+}
+
+// runModel is the model a run executes with: its own, else its Bot's.
+func (s *Server) runModel(r Run) string {
+	if strings.TrimSpace(r.Model) != "" {
+		return r.Model
+	}
+	if b, err := s.store.GetBot(r.BotID); err == nil {
+		return b.Model
+	}
+	return ""
+}
+
+// noteModelAuthRejection keeps provider status truthful after the provider
+// rejects the stored credential. An API key is marked as needing attention;
+// a Codex sign-in gets one refresh, otherwise the workspace reports that a
+// reconnect is needed.
+func (s *Server) noteModelAuthRejection(model string, err error) {
 	if err == nil {
 		return
 	}
-	if code, _ := modelAccountFailure(strings.ToLower(err.Error())); code != "model_auth_invalid" {
+	if code, _ := modelAccountFailure(strings.ToLower(err.Error()), ""); code != "model_auth_invalid" {
 		return
 	}
 	s.mu.Lock()
 	managed, codex := s.codexManaged, s.codex
 	s.mu.Unlock()
-	if !strings.EqualFold(s.provider, "openai_codex") || !managed || codex == nil {
+	if !managed || !managedProviderName(s.provider) || s.noteAPIKeyRejection(model, err) || codex == nil {
 		return
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
