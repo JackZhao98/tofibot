@@ -122,6 +122,14 @@ if opts.get("click"):
             break
         time.sleep(0.2)
     time.sleep(0.4)
+# Web apps (Gmail) re-render after a hash navigation; read once the text settles.
+last = -1
+for _ in range(7):
+    size = evaluate(target, "(document.body && document.body.innerText || '').length + ':' + location.href")
+    if size == last:
+        break
+    last = size
+    time.sleep(0.3)
 page = evaluate(target, EXTRACT % (opts["max"], json.dumps(opts.get("find") or "")))
 target.close()
 out.update(page or {"error": "no_readable_page"})
