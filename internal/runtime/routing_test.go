@@ -51,7 +51,18 @@ func newRoutedFixture(t *testing.T) *routedFixture {
 			_, _ = io.WriteString(w, `{"output":[{"type":"message","content":[{"type":"output_text","text":"openai reply"}]}],"usage":{"input_tokens":1,"output_tokens":1}}`)
 		case "/anthropic/v1/messages":
 			f.hits = append(f.hits, "anthropic:"+in.Model+":"+r.Header.Get("x-api-key"))
-			_, _ = io.WriteString(w, `{"type":"message","role":"assistant","content":[{"type":"text","text":"anthropic reply"}],"stop_reason":"end_turn","usage":{"input_tokens":1,"output_tokens":1}}`)
+			// The adapter always streams; a stream must end with message_stop.
+			w.Header().Set("Content-Type", "text/event-stream")
+			for _, frame := range []string{
+				`{"type":"message_start","message":{"usage":{"input_tokens":1,"output_tokens":0}}}`,
+				`{"type":"content_block_start","index":0,"content_block":{"type":"text","text":""}}`,
+				`{"type":"content_block_delta","index":0,"delta":{"type":"text_delta","text":"anthropic reply"}}`,
+				`{"type":"content_block_stop","index":0}`,
+				`{"type":"message_delta","delta":{"stop_reason":"end_turn"},"usage":{"output_tokens":1}}`,
+				`{"type":"message_stop"}`,
+			} {
+				_, _ = io.WriteString(w, "data: "+frame+"\n\n")
+			}
 		default:
 			http.NotFound(w, r)
 		}
