@@ -145,9 +145,10 @@ func uncertainIdentityBlocks(prior, candidate tooloutcome.Identity) bool {
 		}
 		return prior.Target == candidate.Target || (prior.Object != "" && prior.Object == candidate.Object)
 	}
-	if strings.HasPrefix(prior.Scope, "computer/") && prior.Risk == tooloutcome.OpaqueEffect && candidate.Risk == tooloutcome.OpaqueEffect {
+	if strings.HasPrefix(prior.Scope, "computer/") && !strings.HasPrefix(prior.Operation, "files.") && prior.Risk == tooloutcome.OpaqueEffect && candidate.Risk == tooloutcome.OpaqueEffect {
 		// A lost VM action response (click, key, shell command) fences only its
 		// exact replay; a different action of the same kind is a new decision.
+		// File writes whose target could not be resolved stay fully fenced.
 		return prior.ArgumentsHash == candidate.ArgumentsHash
 	}
 	return true

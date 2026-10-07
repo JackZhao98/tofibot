@@ -344,6 +344,12 @@ func TestUncertainVMActionFencesOnlyIdenticalReplay(t *testing.T) {
 	if got := toolRecoveryIdentityGuard(records, click(`{"x":5,"y":9}`)); got != nil {
 		t.Fatalf("different VM action fenced: %+v", got)
 	}
+	// An unresolved file write keeps fencing the whole operation.
+	write := tooloutcome.OperationIdentity("computer/vm/bot/b1", "files.write", json.RawMessage(`{"path":"a"}`))
+	records[0].Identity = &write
+	if toolRecoveryIdentityGuard(records, tooloutcome.OperationIdentity("computer/vm/bot/b1", "files.write", json.RawMessage(`{"path":"b"}`))) == nil {
+		t.Fatal("unresolved uncertain file write lost its operation fence")
+	}
 	// Outside the computer scope an uncertain opaque effect still fences the operation.
 	publish := tooloutcome.OperationIdentity("tool", "publish", json.RawMessage(`{"a":1}`))
 	records[0].Identity = &publish
