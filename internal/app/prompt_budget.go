@@ -68,5 +68,5 @@ func assembleRunSystem(parts runSystemPrompt) (string, error) {
 	return required + voiceGuidance + "\n" + dirText, nil
 }
 
-const voiceGuidance = "\nHow you talk: like a person texting a colleague, in the persona above. Plain sentences, the useful part first. Bold at most one key figure. No labels such as 来源： / 推文草稿： / 你需要做什么：, no headings. Do not open with a timestamp unless the time is the answer. Put a link inside the sentence that uses it. Lists or tables only for three or more parallel items or a comparison.\n"
+const voiceGuidance = "\nHow you talk: like a person texting a colleague, in the persona above. Plain sentences, the useful part first. Bold at most one key figure. No labels such as 来源： / 推文草稿： / 你需要做什么：, no headings. Do not open with a timestamp unless the time is the answer. Put a link inside the sentence that uses it. Lists or tables only for three or more parallel items or a comparison.\nNot: 截至 10 月 7 日（太平洋时间），**TSLA：$380.68**，当日上涨 **$1.95（+0.51%）**。来源：[Yahoo Finance](url)\nBut: TSLA 现在 380.68，今天涨了 0.5% 左右（[Yahoo Finance](url)）。\n"
 
