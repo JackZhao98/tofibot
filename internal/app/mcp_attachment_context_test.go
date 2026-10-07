@@ -133,7 +133,7 @@ func TestMCPHistoricalAttachmentDependencyAndAmbiguityFailClosed(t *testing.T) {
 }
 
 func TestMCPAttachmentScopeGapsSpendNoReview(t *testing.T) {
-	for _, mutation := range []string{"current attachment", "future binding", "foreign conversation", "missing current provenance"} {
+	for _, mutation := range []string{"current attachment", "foreign conversation", "missing current provenance"} {
 		t.Run(mutation, func(t *testing.T) {
 			f := newProvenanceReviewFixture(t)
 			seedHistoricalMCPAttachments(t, f, "Read the synthetic public fact for alpha and return it here.")
@@ -143,14 +143,6 @@ func TestMCPAttachmentScopeGapsSpendNoReview(t *testing.T) {
 			case "current attachment":
 				want = mcpContextNonText
 				if err := f.s.store.BindAttachments(f.c.ID, f.r.TriggerMessageID, []string{"synthetic-old-file-1"}); err != nil {
-					t.Fatal(err)
-				}
-			case "future binding":
-				m, _, err := f.s.store.AddMessage(f.c.ID, "assistant", "", "", "Synthetic later evidence.", "synthetic-future")
-				if err != nil {
-					t.Fatal(err)
-				}
-				if err = f.s.store.BindAttachments(f.c.ID, m.ID, []string{"synthetic-old-file-1"}); err != nil {
 					t.Fatal(err)
 				}
 			case "foreign conversation":
@@ -268,13 +260,41 @@ func TestMCPAttachmentManifestQueryAndLimitFailures(t *testing.T) {
 			}
 		})
 	}
+	// Many earlier uploads are a bounded manifest with an explicit omission
+	// flag, never a reason the current text request cannot be reviewed.
 	diagnosticExec(t, f, `WITH RECURSIVE n(i) AS (VALUES(1) UNION ALL SELECT i+1 FROM n WHERE i<201)
-INSERT INTO attachments SELECT printf('synthetic-limit-%03d',i),?,'synthetic','text/plain',1,printf('synthetic-limit-%03d',i),? FROM n`, f.c.ID, now())
+INSERT INTO attachments SELECT printf('synthetic-limit-%03d',i),?,'synthetic','text/plain',1,printf('synthetic-limit-%03d',i),? FROM n`, f.c.ID, "2000-01-01T00:00:00Z")
 	diagnosticExec(t, f, `INSERT INTO attachment_messages SELECT id,? FROM attachments WHERE id LIKE 'synthetic-limit-%'`, old)
-	_, digest, err := readMCPReviewContext(f.s.store.db, f.c, f.r)
-	d := assertContextDiagnostic(t, err, mcpContextAttachmentsLimit)
-	if digest != "" || d.Observed == nil || *d.Observed != 201 || d.Limit == nil || *d.Limit != 200 || !d.ObservedAtLeast || f.p.calls.Load() != 0 || f.effects.Load() != 0 {
-		t.Fatal("manifest limit did not fail closed")
+	x, digest, err := readMCPReviewContext(f.s.store.db, f.c, f.r)
+	if err != nil || digest == "" || x.AttachmentBoundary == nil || len(x.AttachmentBoundary.Omissions) == 0 || len(x.AttachmentBoundary.Omissions) > mcpEvidenceAttachments || !x.AttachmentBoundary.OlderOmitted || f.p.calls.Load() != 0 || f.effects.Load() != 0 {
+		t.Fatal("bounded manifest was not built and flagged", err)
+	}
+}
+
+// A binding made after the authorizing message (e.g. a file the bot posts
+// during the run) is outside the window and cannot invalidate review.
+func TestMCPAttachmentBoundAfterTriggerStaysOutsideWindow(t *testing.T) {
+	f := newProvenanceReviewFixture(t)
+	old := seedHistoricalMCPAttachments(t, f, "Read the synthetic public fact for alpha and return it here.")
+	before, digest, err := readMCPReviewContext(f.s.store.db, f.c, f.r)
+	if err != nil {
+		t.Fatal(err)
+	}
+	m, _, err := f.s.store.AddMessage(f.c.ID, "assistant", f.r.BotID, f.r.ID, "Synthetic later file.", "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	diagnosticExec(t, f, `INSERT INTO attachments VALUES('synthetic-later-file',?,'synthetic','text/plain',1,'synthetic-later-file',?)`, f.c.ID, now())
+	if err = f.s.store.BindAttachments(f.c.ID, m.ID, []string{"synthetic-later-file", "synthetic-old-file-1"}); err != nil {
+		t.Fatal(err)
+	}
+	after, again, err := readMCPReviewContext(f.s.store.db, f.c, f.r)
+	if err != nil || again != digest || mcpReviewDigest(after, f.call) != mcpReviewDigest(before, f.call) || len(after.AttachmentBoundary.Omissions) != 2 || after.AttachmentBoundary.Omissions[0].MessageID != old {
+		t.Fatal("a later binding changed the authorizing window", err)
+	}
+	q := newMCPReviewProposal(t, f)
+	if err := f.s.reviewNewMCPProposal(context.Background(), f.c, f.r, f.call, q); err != nil || f.p.calls.Load() != 1 {
+		t.Fatal("later binding blocked review", err)
 	}
 }
 

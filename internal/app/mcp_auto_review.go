@@ -34,21 +34,23 @@ type MCPReviewDisplay struct {
 	ContextFailure       *MCPContextFailure `json:"context_failure,omitempty"`
 }
 
+// Memories and summaries are deliberately absent: they are untrusted, change
+// independently of authorization and only add size and digest volatility.
 type mcpReviewContext struct {
-	Intent             string                 `json:"user_intent"`
-	IntentMessageID    string                 `json:"user_intent_message_id"`
-	Instructions       string                 `json:"bot_instructions"`
-	Messages           []Message              `json:"conversation_context"`
-	MessageProvenance  []mcpMessageProvenance `json:"host_message_provenance"`
-	Memories           []Memory               `json:"memories"`
-	Summary            string                 `json:"conversation_summary"`
-	HumanRefusals      []mcpHumanRefusal      `json:"host_human_mcp_refusals,omitempty"`
-	ToolResults        []ToolActivity         `json:"untrusted_tool_results,omitempty"`
-	SummaryVersion     int64                  `json:"summary_version"`
-	SourceRunBinding   *mcpScheduleRunBinding `json:"host_source_run_binding,omitempty"`
-	SourceToolResults  []ToolActivity         `json:"untrusted_source_tool_results,omitempty"`
-	ScheduleLineage    *mcpScheduleLineage    `json:"schedule_lineage,omitempty"`
-	AttachmentBoundary *mcpAttachmentBoundary `json:"host_attachment_boundary,omitempty"`
+	Intent             string                  `json:"user_intent"`
+	IntentMessageID    string                  `json:"user_intent_message_id"`
+	Instructions       string                  `json:"bot_instructions"`
+	Messages           []Message               `json:"conversation_context"`
+	MessageProvenance  []mcpMessageProvenance  `json:"host_message_provenance"`
+	LaterUserMessages  []mcpRestrictionMessage `json:"later_user_messages_restrictions_only,omitempty"`
+	HumanRefusals      []mcpHumanRefusal       `json:"host_human_mcp_refusals,omitempty"`
+	ToolResults        []ToolActivity          `json:"untrusted_tool_results,omitempty"`
+	SourceRunBinding   *mcpScheduleRunBinding  `json:"host_source_run_binding,omitempty"`
+	SourceToolResults  []ToolActivity          `json:"untrusted_source_tool_results,omitempty"`
+	ScheduleLineage    *mcpScheduleLineage     `json:"schedule_lineage,omitempty"`
+	Delegation         *mcpDelegationLineage   `json:"host_delegation_lineage,omitempty"`
+	AttachmentBoundary *mcpAttachmentBoundary  `json:"host_attachment_boundary,omitempty"`
+	Bounds             *mcpEvidenceBounds      `json:"host_evidence_bounds,omitempty"`
 }
 
 // These restrictions originate only from native MCP approval rows and genuine
@@ -86,169 +88,97 @@ func (s *Server) reviewAccountID() string {
 	return s.instance.ID
 }
 
-// Read complete bounded durable text and explicit attachment omissions. The
-// host provenance must establish the necessary authorization. Unsupported
-// non-text context is explicit; tool names never determine completeness.
-// This snapshot is recomputed inside the atomic claim transaction.
+// Read the bounded evidence window for a direct or group chat run: the host
+// verified trigger, conversation text up to it, later human restrictions,
+// this run's own records and human refusals. Only the trigger's provenance
+// establishes authorization; size never does. Recomputed inside the claim tx.
 func readMCPReviewContext(db reviewQuerier, c Conversation, r Run) (mcpReviewContext, string, error) {
+	x, err := readMCPChatContext(db, c, r)
+	if err != nil {
+		return mcpReviewContext{}, "", err
+	}
+	digest, err := fitMCPReviewContext(&x, mcpEvidenceBudget)
+	if err != nil {
+		return x, "", err
+	}
+	return x, digest, nil
+}
+
+func readMCPChatContext(db reviewQuerier, c Conversation, r Run) (mcpReviewContext, error) {
 	var x mcpReviewContext
 	var trigger, parent, kind sql.NullString
 	if err := db.QueryRow(`SELECT trigger_message_id,parent_run_id,kind FROM runs WHERE id=? AND conversation_id=? AND bot_id=?`, r.ID, c.ID, r.BotID).Scan(&trigger, &parent, &kind); err != nil {
-		return x, "", mcpContextFail(mcpContextRunRead)
+		return x, mcpContextFail(mcpContextRunRead)
 	}
 	if trigger.String != r.TriggerMessageID || parent.String != r.ParentRunID || kind.String != r.Kind {
-		return x, "", mcpContextFail(mcpContextRunBinding)
+		return x, mcpContextFail(mcpContextRunBinding)
 	}
-	if r.TriggerMessageID == "" || r.ParentRunID != "" || r.Kind != "" && r.Kind != "chat" {
-		return x, "", mcpContextFail(mcpContextUserUnavailable)
+	if r.TriggerMessageID == "" || r.Kind != "" && r.Kind != "chat" && r.Kind != runKindGroupChat || r.ParentRunID != "" && r.Kind != runKindGroupChat {
+		return x, mcpContextFail(mcpContextUserUnavailable)
+	}
+	if r.Kind == runKindGroupChat {
+		if err := verifyMCPGroupRound(db, c, r); err != nil {
+			return x, err
+		}
 	}
 	var role, conv, intentSource string
 	var intentSeq int64
 	var intentKind, sender sql.NullString
 	if err := db.QueryRow(`SELECT m.content,m.role,m.conversation_id,m.kind,m.sender_bot_id,m.seq,`+mcpMessageProvenanceSQL+` FROM messages m WHERE m.id=?`, r.TriggerMessageID).Scan(&x.Intent, &role, &conv, &intentKind, &sender, &intentSeq, &intentSource); err != nil {
-		return x, "", mcpContextFail(mcpContextIntentRead)
+		return x, mcpContextFail(mcpContextIntentRead)
 	}
-	if role != "user" || conv != c.ID || sender.String != "" || intentKind.String != "" && intentKind.String != "user_message" || strings.TrimSpace(x.Intent) == "" {
-		return x, "", mcpContextFail(mcpContextIntentInvalid)
+	if role != "user" || conv != c.ID || sender.String != "" || intentKind.String != "" && intentKind.String != "user_message" || strings.TrimSpace(x.Intent) == "" || !utf8.ValidString(x.Intent) {
+		return x, mcpContextFail(mcpContextIntentInvalid)
 	}
 	if intentSource != mcpHostUserIngress {
-		return x, "", mcpContextFail(mcpContextIntentProvenance)
+		return x, mcpContextFail(mcpContextIntentProvenance)
 	}
 	x.IntentMessageID = r.TriggerMessageID
 	if err := db.QueryRow(`SELECT instructions FROM bots WHERE id=?`, r.BotID).Scan(&x.Instructions); err != nil {
-		return x, "", mcpContextFail(mcpContextInstructionsRead)
+		return x, mcpContextFail(mcpContextInstructionsRead)
 	}
-	var attachmentErr error
-	x.AttachmentBoundary, attachmentErr = readMCPAttachmentBoundary(db, c.ID, r.TriggerMessageID, intentSeq)
-	if attachmentErr != nil {
-		return x, "", attachmentErr
+	var err error
+	if x.AttachmentBoundary, err = readMCPAttachmentBoundary(db, c.ID, r.TriggerMessageID, intentSeq); err != nil {
+		return x, err
 	}
-	rows, err := db.Query(`SELECT m.id,m.seq,m.role,m.kind,m.content,COALESCE(m.sender_bot_id,''),`+mcpMessageProvenanceSQL+` FROM messages m WHERE m.conversation_id=? ORDER BY m.seq LIMIT 201`, c.ID)
-	if err != nil {
-		return x, "", mcpContextFail(mcpContextMessagesQuery)
+	bounds := &mcpEvidenceBounds{}
+	boundMCPIntent(&x, bounds)
+	if x.Messages, x.MessageProvenance, err = readMCPMessageWindow(db, c.ID, intentSeq, false, bounds); err != nil {
+		return x, err
 	}
-	for rows.Next() {
-		var m Message
-		var source string
-		var kind sql.NullString
-		if err = rows.Scan(&m.ID, &m.Seq, &m.Role, &kind, &m.Content, &m.SenderBotID, &source); err != nil {
-			break
+	if x.LaterUserMessages, err = readMCPLaterUserMessages(db, c.ID, intentSeq, bounds); err != nil {
+		return x, err
+	}
+	if x.ToolResults, err = readMCPRunToolEvidence(db, r, false, bounds); err != nil {
+		return x, err
+	}
+	if x.HumanRefusals, err = readMCPHumanRefusals(db, c.ID, bounds); err != nil {
+		return x, err
+	}
+	x.Bounds = bounds.orNil()
+	return x, nil
+}
+
+// An invited group member shares its round's user trigger. Every hop must be
+// a group turn in the same conversation with that exact trigger.
+func verifyMCPGroupRound(db reviewQuerier, c Conversation, r Run) error {
+	var kind string
+	if err := db.QueryRow(`SELECT kind FROM conversations WHERE id=?`, c.ID).Scan(&kind); err != nil || kind != "group" {
+		return mcpContextFail(mcpContextGroupRound)
+	}
+	seen := map[string]bool{r.ID: true}
+	for id := r.ParentRunID; id != ""; {
+		if seen[id] || len(seen) > maxMCPAuthorizationAncestry {
+			return mcpContextFail(mcpContextGroupRound)
 		}
-		m.Kind = kind.String
-		x.Messages = append(x.Messages, m)
-		x.MessageProvenance = append(x.MessageProvenance, mcpMessageProvenance{m.ID, source})
-	}
-	rowErr := rows.Err()
-	rows.Close()
-	if err != nil {
-		return x, "", mcpContextFail(mcpContextMessagesScan)
-	}
-	if rowErr != nil {
-		return x, "", mcpContextFail(mcpContextMessagesIteration)
-	}
-	if len(x.Messages) > 200 {
-		return x, "", mcpContextLimitFail(mcpContextMessagesLimit, len(x.Messages), 200, 201, true)
-	}
-	rows, err = db.Query(`SELECT id,content,revision FROM memories WHERE conversation_id=? AND (bot_id IS NULL OR bot_id=?) ORDER BY id LIMIT 201`, c.ID, r.BotID)
-	if err != nil {
-		return x, "", mcpContextFail(mcpContextMemoriesQuery)
-	}
-	for rows.Next() {
-		var m Memory
-		if err = rows.Scan(&m.ID, &m.Content, &m.Revision); err != nil {
-			break
+		seen[id] = true
+		p, err := scanRun(db.QueryRow(mcpScheduleRunSQL, id))
+		if err != nil || p.Kind != runKindGroupChat || p.ConversationID != c.ID || p.TriggerMessageID != r.TriggerMessageID {
+			return mcpContextFail(mcpContextGroupRound)
 		}
-		x.Memories = append(x.Memories, m)
+		id = p.ParentRunID
 	}
-	rowErr = rows.Err()
-	rows.Close()
-	if err != nil {
-		return x, "", mcpContextFail(mcpContextMemoriesScan)
-	}
-	if rowErr != nil {
-		return x, "", mcpContextFail(mcpContextMemoriesIteration)
-	}
-	if len(x.Memories) > 200 {
-		return x, "", mcpContextLimitFail(mcpContextMemoriesLimit, len(x.Memories), 200, 201, true)
-	}
-	err = db.QueryRow(`SELECT version,content FROM summaries WHERE conversation_id=? ORDER BY version DESC LIMIT 1`, c.ID).Scan(&x.SummaryVersion, &x.Summary)
-	if err != nil && !errors.Is(err, sql.ErrNoRows) {
-		return x, "", mcpContextFail(mcpContextSummaryRead)
-	}
-	rows, err = db.Query(`SELECT conversation_id,bot_id,run_id,call_id,name,arguments,result,status,truncated,started_at,updated_at,outcome_json FROM tool_activities WHERE conversation_id=? ORDER BY started_at,run_id,call_id LIMIT 201`, c.ID)
-	if err != nil {
-		return x, "", mcpContextFail(mcpContextToolsQuery)
-	}
-	for rows.Next() {
-		var a ToolActivity
-		var truncated int
-		var outcome string
-		if err = rows.Scan(&a.ConversationID, &a.BotID, &a.RunID, &a.CallID, &a.Name, &a.Arguments, &a.Result, &a.Status, &truncated, &a.StartedAt, &a.UpdatedAt, &outcome); err != nil {
-			err = mcpContextFail(mcpContextToolsScan)
-			break
-		}
-		a.Truncated, a.Outcome = truncated != 0, tooloutcome.Parse(outcome)
-		if outcome != "" && a.Outcome == nil {
-			err = mcpContextFail(mcpContextToolsOutcome)
-			break
-		}
-		if !utf8.ValidString(a.Arguments) || !utf8.ValidString(a.Result) {
-			err = mcpContextFail(mcpContextToolsUTF8)
-			break
-		}
-		// Preserve incompleteness and uncertainty as untrusted evidence. Only
-		// facts needed by this proposal are context gaps; exact replay claims
-		// remain the backend fence for an already dispatched uncertain effect.
-		x.ToolResults = append(x.ToolResults, a)
-	}
-	rowErr = rows.Err()
-	rows.Close()
-	if err != nil {
-		return x, "", err
-	}
-	if rowErr != nil {
-		return x, "", mcpContextFail(mcpContextToolsIteration)
-	}
-	if len(x.ToolResults) > 200 {
-		return x, "", mcpContextLimitFail(mcpContextToolsLimit, len(x.ToolResults), 200, 201, true)
-	}
-	rows, err = db.Query(`SELECT q.id,q.run_id,a.action_hash,q.approval_json FROM questions q JOIN mcp_call_approvals a ON a.question_id=q.id WHERE q.conversation_id=? AND q.status='answered' AND q.answer_json='false' AND COALESCE(q.answered_by,'')<>'' AND q.answered_by<>? ORDER BY q.created_at,q.id LIMIT 201`, c.ID, autoReviewActor)
-	if err != nil {
-		return x, "", mcpContextFail(mcpContextRefusalsQuery)
-	}
-	for rows.Next() {
-		var refusal mcpHumanRefusal
-		var raw string
-		if err = rows.Scan(&refusal.QuestionID, &refusal.RunID, &refusal.ActionHash, &raw); err != nil {
-			err = mcpContextFail(mcpContextRefusalsScan)
-			break
-		}
-		if err = json.Unmarshal([]byte(raw), &refusal.Approval); err != nil || refusal.Approval == nil {
-			err = mcpContextFail(mcpContextRefusalsInvalid)
-			break
-		}
-		refusal.Approval.Review = nil // Prior model advice is not human provenance.
-		x.HumanRefusals = append(x.HumanRefusals, refusal)
-	}
-	rowErr = rows.Err()
-	rows.Close()
-	if err != nil {
-		return x, "", err
-	}
-	if rowErr != nil {
-		return x, "", mcpContextFail(mcpContextRefusalsIteration)
-	}
-	if len(x.HumanRefusals) > 200 {
-		return x, "", mcpContextLimitFail(mcpContextRefusalsLimit, len(x.HumanRefusals), 200, 201, true)
-	}
-	raw, err := json.Marshal(x)
-	if err != nil || !utf8.Valid(raw) {
-		return x, "", mcpContextFail(mcpContextEncoding)
-	}
-	if len(raw) > 64<<10 {
-		return x, "", mcpContextLimitFail(mcpContextBytesLimit, len(raw), 64<<10, 1<<20, false)
-	}
-	return x, digestBytes(raw), nil
+	return nil
 }
 
 type mcpReviewResult struct {
@@ -413,7 +343,8 @@ func (s *Server) reviewMCPProposal(ctx context.Context, c Conversation, r Run, c
 	x, digest, contextErr := s.readMCPReviewContext(s.store.db, c, r)
 	digest = mcpReviewDigest(x, call)
 	if contextErr != nil {
-		return gap("context_required", "Necessary durable user authorization or context is missing, changed or exceeds the bounded evidence limit.", mcpContextDiagnostic(contextErr))
+		diagnostic := mcpContextDiagnostic(contextErr)
+		return gap("context_required", "Necessary durable user authorization is missing or unverifiable: "+mcpContextFailureReason(diagnostic.Code)+".", diagnostic)
 	}
 	if latest, e := s.store.getAutoReviewSettings(); e != nil || latest != settings {
 		return gap("invalidated", "AutoReview settings changed before this review could begin.")
@@ -537,11 +468,11 @@ func (s *Server) finishMCPReview(ctx context.Context, c Conversation, r Run, cal
 	} else if s.extensions == nil || !mcpSchemaAvailable(call.Schema) || !s.extensions.MCPCallCurrent(call) {
 		status, result.Reason = "setup_required", "The current tool configuration or schema binding changed."
 	} else if contextErr != nil || currentDigest != result.ContextDigest {
-		status, result.Reason = "context_required", "Necessary authorization or context changed. A complete current evidence packet is required."
 		contextFailure = mcpContextDiagnostic(contextErr)
 		if contextErr == nil {
 			contextFailure = mcpContextDiagnostic(mcpContextFail(mcpContextDigestChanged))
 		}
+		status, result.Reason = "context_required", "Necessary authorization changed during review: "+mcpContextFailureReason(contextFailure.Code)+"."
 	} else if initial != settings || reviewStatus != "reviewing" {
 		status, result.Reason = "invalidated", "The review was invalidated by changed settings or state; it cannot authorize execution."
 	} else {
