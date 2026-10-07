@@ -77,6 +77,9 @@ updated_at TEXT NOT NULL);`)
 	if err != nil {
 		return err
 	}
+	if err = migrateFollowGlobalMarker(db); err != nil {
+		return err
+	}
 	return migrateProviderCatalogCache(db)
 }
 
@@ -156,9 +159,14 @@ func (s *Server) modelSettings(w http.ResponseWriter, r *http.Request) {
 		}
 		x.Model = strings.TrimSpace(x.Model)
 		x.ReasoningEffort = strings.TrimSpace(x.ReasoningEffort)
-		if x.Model == "" {
+		if isFollowGlobalModel(x.Model) {
+			// The global setting is what "default" resolves to; it must
+			// name a concrete model.
 			writeErr(w, http.StatusBadRequest, "invalid_request", "model is required")
 			return
+		}
+		if x.ReasoningEffort == followGlobalModel {
+			x.ReasoningEffort = ""
 		}
 		if x.ReasoningEffort == "" {
 			_, x.ReasoningEffort = s.modelDefaults()
@@ -332,8 +340,16 @@ func (s *Server) validateModelChoice(ctx context.Context, model, effort string) 
 	if err := s.validateModelID(ctx, model); err != nil {
 		return err
 	}
-	if strings.TrimSpace(effort) == "" || !s.strictModelValidation() {
+	effort = strings.TrimSpace(effort)
+	// "default" effort resolves at execution: the global effort for a Bot
+	// following the global model, else the pinned model's default.
+	if effort == "" || effort == followGlobalModel || !s.strictModelValidation() {
 		return nil
+	}
+	if isFollowGlobalModel(model) {
+		// An explicit effort on a following Bot is checked against the
+		// model it currently resolves to.
+		model, _ = s.modelDefaults()
 	}
 	models, _, _ := s.loadModels(ctx)
 	if option, ok := s.matchModel(models, model); ok {
@@ -360,7 +376,7 @@ func (s *Server) validateModelChoice(ctx context.Context, model, effort string) 
 
 func (s *Server) validateModelID(ctx context.Context, model string) error {
 	model = strings.TrimSpace(model)
-	if model == "" || !s.strictModelValidation() {
+	if isFollowGlobalModel(model) || !s.strictModelValidation() {
 		return nil
 	}
 	models, _, _ := s.loadModels(ctx)

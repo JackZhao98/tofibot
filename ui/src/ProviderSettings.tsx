@@ -24,7 +24,7 @@ export function ModelProviders({codex, refreshToken, onConfigured}: {codex: Reac
  }, [refreshToken, version]);
  const update = (next: ModelProviderStatus) => setProviders(current => current ? current.some(item => item.id === next.id) ? current.map(item => item.id === next.id ? next : item) : [...current, next] : [next]);
  return <section className="model-providers" aria-labelledby="model-providers-title">
-  <div className="model-providers-heading"><h3 id="model-providers-title">模型提供方</h3><p className="settings-description">连接任意一个即可使用。已连接提供方的模型都会出现在 Bot 和默认配置的模型列表里。</p></div>
+  <div className="model-providers-heading"><h3 id="model-providers-title">模型提供方</h3><p className="settings-description">连接任意一个即可使用。已连接提供方的模型都会出现在 Bot 和全局模型的模型列表里。</p></div>
   {error && <p className="error-text" role="alert">{error} <button type="button" className="text-button" onClick={() => setVersion(value => value + 1)}>重试</button></p>}
   <div className="provider-list">
    {codex}

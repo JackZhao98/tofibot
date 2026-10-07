@@ -51,7 +51,7 @@ func (s *Server) workspaceTools(c Conversation, r Run) []Tool {
 			seen := make(map[string]struct{}, len(bots)+1)
 			addModel := func(model string) {
 				model = strings.TrimSpace(model)
-				if model == "" {
+				if isFollowGlobalModel(model) {
 					return
 				}
 				if _, ok := seen[model]; ok {
@@ -77,7 +77,7 @@ func (s *Server) workspaceTools(c Conversation, r Run) []Tool {
 				ConfiguredModels []string       `json:"configured_models"`
 				DefaultModel     string         `json:"default_model"`
 				Provider         string         `json:"provider"`
-			}{Bots: bots, Groups: groups, ConfiguredModels: models, DefaultModel: s.defaultModel, Provider: s.activeProvider()}
+			}{Bots: s.withEffectiveModels(ctx, bots...), Groups: groups, ConfiguredModels: models, DefaultModel: s.defaultModel, Provider: s.activeProvider()}
 			encoded, err := json.Marshal(result)
 			return string(encoded), err
 		}),
@@ -85,8 +85,8 @@ func (s *Server) workspaceTools(c Conversation, r Run) []Tool {
 			"bot_id":           map[string]any{"type": "string"},
 			"name":             map[string]any{"type": "string"},
 			"instructions":     map[string]any{"type": "string"},
-			"model":            map[string]any{"type": "string", "description": "Exact configured model ID; an empty string uses the workspace default."},
-			"reasoning_effort": map[string]any{"type": "string", "description": "Supported reasoning effort for the selected model; empty uses the model default."},
+			"model":            map[string]any{"type": "string", "description": "Exact configured model ID to pin, or \"default\" (or an empty string) to follow the workspace's global model."},
+			"reasoning_effort": map[string]any{"type": "string", "description": "Supported reasoning effort for the selected model, or \"default\" (or empty): the global effort when following the global model, else the pinned model's default."},
 		}, []string{"bot_id"}, func(ctx context.Context, raw json.RawMessage) (string, error) {
 			if err := requireWorkspaceToolRun(s, c, r); err != nil {
 				return "", err
@@ -129,11 +129,7 @@ func (s *Server) workspaceTools(c Conversation, r Run) []Tool {
 				input.Instructions = &value
 			}
 			if input.Model != nil {
-				value := strings.TrimSpace(*input.Model)
-				switch strings.ToLower(value) {
-				case "default", "auto", "inherit":
-					value = ""
-				}
+				value := s.normalizeBotModel(*input.Model)
 				if err := s.validateWorkspaceModel(ctx, value); err != nil {
 					return "", err
 				}
@@ -144,11 +140,14 @@ func (s *Server) workspaceTools(c Conversation, r Run) []Tool {
 			}
 			if input.ReasoningEffort != nil {
 				value := strings.TrimSpace(*input.ReasoningEffort)
+				if value == "" {
+					value = followGlobalModel
+				}
 				model := ""
 				if input.Model != nil {
 					model = *input.Model
 				}
-				if model == "" {
+				if input.Model == nil {
 					if current, e := s.store.GetBot(input.BotID); e == nil {
 						model = current.Model
 					}
@@ -157,6 +156,10 @@ func (s *Server) workspaceTools(c Conversation, r Run) []Tool {
 					return "", e
 				}
 				input.ReasoningEffort = &value
+			} else if input.Model != nil && *input.Model == followGlobalModel {
+				// Following the global model follows its effort too.
+				effort := followGlobalModel
+				input.ReasoningEffort = &effort
 			}
 			updated, err := s.store.UpdateBot(input.BotID, input.Name, input.Instructions, input.Model)
 			if err != nil {
@@ -168,7 +171,7 @@ func (s *Server) workspaceTools(c Conversation, r Run) []Tool {
 					return "", err
 				}
 			}
-			encoded, err := json.Marshal(updated)
+			encoded, err := json.Marshal(s.withEffectiveModel(ctx, updated))
 			return string(encoded), err
 		}),
 		tool("workspace_update_group", "Rename a discussion group or replace its members. Members must be 2-8 distinct existing active Bots; use expected_name and expected_bot_ids from workspace_list to avoid overwriting another client's change. A queued or running task makes membership changes fail with an actionable busy error. History and sender identities are preserved.", map[string]any{
@@ -265,7 +268,7 @@ func decodeWorkspaceTool(raw json.RawMessage, target any) error {
 }
 
 func (s *Server) validateWorkspaceModel(ctx context.Context, model string) error {
-	if model == "" || model == s.defaultModel {
+	if isFollowGlobalModel(model) || model == s.defaultModel {
 		return nil
 	}
 	if s.strictModelValidation() {
