@@ -13,7 +13,6 @@ import (
 
 	"github.com/JackZhao98/tofibot/internal/runtime"
 	"github.com/JackZhao98/tofibot/internal/tooloutcome"
-	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
 const maxDiscoveryBytes = 32 << 10
@@ -170,7 +169,20 @@ func lazyDiscoverableMCPTools(runCtx context.Context, m *Manager, servers map[st
 	usedNames := map[string]int{}
 	toolSources := map[string]mcpToolSource{}
 	var sourceMu sync.RWMutex
-	clients := []*mcp.ClientSession{}
+	// One session slot per server holds this run's MCP sessions. Discovery,
+	// readiness checks and calls reuse it instead of reconnecting.
+	var slotMu sync.Mutex
+	slots := map[string]*mcpSessionSlot{}
+	slotFor := func(name string) *mcpSessionSlot {
+		slotMu.Lock()
+		defer slotMu.Unlock()
+		slot, ok := slots[name]
+		if !ok {
+			slot = newMCPSessionSlot(m, life, name, servers[name])
+			slots[name] = slot
+		}
+		return slot
+	}
 	var closeOnce sync.Once
 	var closeErr error
 	closeLazy := func() error {
@@ -178,12 +190,13 @@ func lazyDiscoverableMCPTools(runCtx context.Context, m *Manager, servers map[st
 			stopLife()
 			<-gate
 			defer func() { gate <- struct{}{} }()
-			for _, c := range clients {
-				if err := c.Close(); err != nil && closeErr == nil {
+			slotMu.Lock()
+			defer slotMu.Unlock()
+			for _, slot := range slots {
+				if err := slot.close(); err != nil && closeErr == nil {
 					closeErr = err
 				}
 			}
-			clients = nil
 		})
 		return closeErr
 	}
@@ -224,6 +237,7 @@ func lazyDiscoverableMCPTools(runCtx context.Context, m *Manager, servers map[st
 		defer cancel()
 		cfg := servers[name]
 		version := m.schemaVersion(name, cfg)
+		slot := slotFor(name)
 		rememberMetadata := func(found []runtime.Tool, fresh bool) {
 			items := make([]MCPCatalogTool, 0, len(found))
 			persisted := make([]MCPMetadataTool, 0, len(found))
@@ -269,16 +283,9 @@ func lazyDiscoverableMCPTools(runCtx context.Context, m *Manager, servers map[st
 				}
 				toolName := uniqueToolName("mcp_"+name+"__"+remote.RemoteName, usedNames)
 				toolSources[toolName] = mcpToolSource{server: name, remoteName: remote.RemoteName, schemaVersion: version}
-				remoteName := remote.RemoteName
-				found = append(found, runtime.Tool{Name: toolName, Description: boundedDescription(remote.Description, toolName), Parameters: remote.InputSchema, CheckReadiness: m.mcpMethodReadiness(name, cfg), Execute: func(callCtx context.Context, args json.RawMessage) (string, error) {
-					out, err := m.callMCPTool(callCtx, cli, remoteName, args, trustedReadOnlyTool(cfg, remoteName))
-					if err != nil {
-						m.invalidateCatalogs(name)
-					}
-					return out, err
-				}})
+				found = append(found, runtime.Tool{Name: toolName, Description: boundedDescription(remote.Description, toolName), Parameters: remote.InputSchema, CheckReadiness: slot.readinessCheck, Execute: slot.callTool(remote.RemoteName, func() { m.invalidateCatalogs(name) })})
 			}
-			clients = append(clients, cli)
+			slot.adopt(cli)
 			cached[name] = found
 			rememberMetadata(found, false)
 			return found, nil
@@ -294,7 +301,13 @@ func lazyDiscoverableMCPTools(runCtx context.Context, m *Manager, servers map[st
 			}
 			return nil, ctx.Err()
 		}
-		clients = append(clients, cli)
+		// The discovery session becomes the run session: readiness checks
+		// and calls reuse it while it is live and recent.
+		for i := range found {
+			found[i].CheckReadiness = slot.readinessCheck
+			found[i].Execute = slot.callTool(toolSources[found[i].Name].remoteName, nil)
+		}
+		slot.adopt(cli)
 		cached[name] = found
 		rememberMetadata(found, true)
 		catalog := make([]MCPCatalogTool, 0, len(found))
@@ -306,18 +319,18 @@ func lazyDiscoverableMCPTools(runCtx context.Context, m *Manager, servers map[st
 	}
 	var seenMu sync.Mutex
 	seen := map[string]runtime.Tool{}
-	rejectedCached := map[string]bool{}
+	rejectedCached := map[string]CachedMCPTool{}
 	for _, cachedTool := range cachedTools {
 		if !validCachedMCPTool(cachedTool, servers, m) {
 			if safeCachedToolName(cachedTool.Name) {
-				rejectedCached[cachedTool.Name] = true
+				rejectedCached[cachedTool.Name] = cachedTool
 			}
 			continue
 		}
 		if _, exists := seen[cachedTool.Name]; exists {
 			continue
 		}
-		seen[cachedTool.Name] = m.cachedMCPRuntimeTool(life, cachedTool, servers[cachedTool.Server])
+		seen[cachedTool.Name] = m.cachedMCPRuntimeTool(slotFor(cachedTool.Server), cachedTool)
 		toolSources[cachedTool.Name] = mcpToolSource{server: cachedTool.Server, remoteName: cachedTool.RemoteName, schemaVersion: cachedTool.SchemaVersion}
 	}
 	type pageKey struct {
@@ -676,7 +689,48 @@ func lazyDiscoverableMCPTools(runCtx context.Context, m *Manager, servers map[st
 		seenMu.Unlock()
 		return string(data), nil
 	}
-	call := runtime.Tool{Name: "call_mcp_tool", Description: "Invoke an MCP tool returned by search_mcp_tools in this run, or a validated schema reference from this Bot conversation, using its exact name and input schema.", Parameters: map[string]any{"type": "object", "properties": map[string]any{"name": map[string]any{"type": "string"}, "arguments": map[string]any{"type": "object"}}, "required": []string{"name", "arguments"}, "additionalProperties": false}}
+	// resolveKnown looks up an exact tool name on the configured server it
+	// names, through the same bounded discovery search uses. Policy filtering
+	// is identical: only names ensure returns for this run become callable.
+	resolveKnown := func(ctx context.Context, toolName string) (runtime.Tool, bool) {
+		server := mcpServerForToolName(names, toolName)
+		if server == "" {
+			return runtime.Tool{}, false
+		}
+		if rejected, ok := rejectedCached[toolName]; ok && rejected.Server == server {
+			// A stale reference to a tool the current policy denies needs no
+			// remote lookup to fail closed.
+			cfg := servers[server]
+			allow, deny := map[string]bool{}, map[string]bool{}
+			for _, remoteName := range cfg.ToolAllowlist {
+				allow[remoteName] = true
+			}
+			for _, remoteName := range cfg.ToolDenylist {
+				deny[remoteName] = true
+			}
+			if !mcpToolAllowed(allow, deny, nil, rejected.RemoteName) {
+				return runtime.Tool{}, false
+			}
+		}
+		found, err := ensure(ctx, server)
+		if err != nil {
+			return runtime.Tool{}, false
+		}
+		for _, candidate := range found {
+			if candidate.Name != toolName {
+				continue
+			}
+			seenMu.Lock()
+			defer seenMu.Unlock()
+			if existing, ok := seen[toolName]; ok {
+				return existing, true
+			}
+			seen[toolName] = candidate
+			return candidate, true
+		}
+		return runtime.Tool{}, false
+	}
+	call := runtime.Tool{Name: "call_mcp_tool", Description: "Invoke an MCP tool by its exact name and input schema. A name returned by search_mcp_tools in this run, a validated schema reference from this Bot conversation, or a known exact tool name (mcp_<server>__<tool>) can be called directly; a known name is resolved on its server without a separate search. Invalid arguments return the current input schema.", Parameters: map[string]any{"type": "object", "properties": map[string]any{"name": map[string]any{"type": "string"}, "arguments": map[string]any{"type": "object"}}, "required": []string{"name", "arguments"}, "additionalProperties": false}}
 	call.Identity = func(raw json.RawMessage) tooloutcome.Identity {
 		i := tooloutcome.DefaultIdentity(call.Name, raw)
 		var in struct {
@@ -714,7 +768,13 @@ func lazyDiscoverableMCPTools(runCtx context.Context, m *Manager, servers map[st
 		t, ok := seen[in.Name]
 		seenMu.Unlock()
 		if !ok {
-			if rejectedCached[in.Name] {
+			t, ok = resolveKnown(ctx, in.Name)
+			if err := ctx.Err(); err != nil {
+				return "", err
+			}
+		}
+		if !ok {
+			if _, rejected := rejectedCached[in.Name]; rejected {
 				return "", tooloutcome.New(tooloutcome.Validation, "stale_schema", "not_executed", "recent MCP schema was not accepted for the current configuration; search the known server before calling it.", "refresh_schema").Err()
 			}
 			return "", tooloutcome.New(tooloutcome.Validation, "schema_required", "not_executed", "Tool was not returned by search_mcp_tools in this run or accepted from recent capability context.", "refresh_schema").Err()
@@ -726,7 +786,7 @@ func lazyDiscoverableMCPTools(runCtx context.Context, m *Manager, servers map[st
 			return "", tooloutcome.New(tooloutcome.Permanent, "source_unavailable", "not_executed", "MCP tool source is unavailable.", "explain_blocker").Err()
 		}
 		if err := validateMCPArguments(t.Parameters, args); err != nil {
-			return "", err
+			return "", withMCPSchemaHint(err, t.Parameters)
 		}
 		schema, _ := json.Marshal(t.Parameters)
 		proposal := MCPCallApproval{Server: source.server, Tool: source.remoteName, ConfigVersion: metadataFingerprint(source.server, servers[source.server]), Arguments: append(json.RawMessage(nil), in.Arguments...), Description: t.Description, Schema: schema}
@@ -842,6 +902,20 @@ func lazyDiscoverableMCPTools(runCtx context.Context, m *Manager, servers map[st
 		return string(data), err
 	}
 	return []runtime.Tool{list, catalogSearch, search, call}, closeLazy
+}
+
+// mcpServerForToolName maps an exact run tool name back to its configured
+// server. Names are uniqueToolName("mcp_"+server+"__"+remote); the longest
+// sanitized server prefix wins so "a_b" is not mistaken for "a".
+func mcpServerForToolName(servers []string, toolName string) string {
+	best, bestLen := "", 0
+	for _, server := range servers {
+		prefix := sanitizeToolName("mcp_" + server + "__")
+		if len(prefix) > bestLen && len(toolName) > len(prefix) && strings.HasPrefix(toolName, prefix) {
+			best, bestLen = server, len(prefix)
+		}
+	}
+	return best
 }
 
 func trustedReadOnlyTool(cfg MCPServerConfig, name string) bool {

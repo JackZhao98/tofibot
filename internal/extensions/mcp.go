@@ -86,6 +86,11 @@ type Manager struct {
 	catalog            *MCPCatalogCache
 	metadata           *MCPCatalogCache
 	metadataDisk       *PersistentMCPMetadataIndex
+	// readiness memoizes recent successful MCP handshakes per server and
+	// configuration fingerprint; see mcp_session.go.
+	readiness mcpReadinessCache
+	// now is a test seam for readiness freshness. Nil means time.Now.
+	now func() time.Time
 }
 
 // CachedMCPTool is a bounded schema reference that a caller recovered from a
@@ -631,12 +636,17 @@ func (m *Manager) openMCPClient(runCtx, discoveryCtx context.Context, name strin
 	})
 	cli, err := client.Connect(discoveryCtx, transport, &mcp.ClientSessionOptions{ProtocolVersion: requiredMCPProtocolVersion})
 	if err != nil {
+		m.invalidateMCPReadiness(name)
 		return nil, fmt.Errorf("connect MCP: %w", err)
 	}
 	if cli.InitializeResult().ProtocolVersion != requiredMCPProtocolVersion {
 		_ = cli.Close()
+		m.invalidateMCPReadiness(name)
 		return nil, errMCPProtocolIncompatible
 	}
+	// A completed server/discover handshake is the readiness proof that
+	// call-time checks may reuse for a short, configuration-bound window.
+	m.markMCPReady(name, cfg)
 	// Connect's context bounds discovery, while the prepared session belongs
 	// to the run. Its cancellation must close even lazy stateless sessions.
 	stop := context.AfterFunc(runCtx, func() { _ = cli.Close() })
@@ -650,6 +660,19 @@ func mcpToolAllowed(allow, deny, bot map[string]bool, name string) bool {
 }
 
 func (m *Manager) callMCPTool(callCtx context.Context, cli *mcp.ClientSession, name string, args json.RawMessage, readOnly bool) (string, error) {
+	return m.callMCPToolObserved(callCtx, cli, name, args, readOnly, mcpCallObserver{})
+}
+
+// mcpCallObserver lets a run-scoped session learn whether the endpoint
+// answered. It never changes the outcome returned to the model.
+type mcpCallObserver struct {
+	// connectionFailed runs when tools/call failed below the JSON-RPC layer.
+	connectionFailed func()
+	// reached runs when the endpoint answered tools/call at all.
+	reached func()
+}
+
+func (m *Manager) callMCPToolObserved(callCtx context.Context, cli *mcp.ClientSession, name string, args json.RawMessage, readOnly bool, observe mcpCallObserver) (string, error) {
 	if callCtx == nil {
 		callCtx = context.Background()
 	}
@@ -670,6 +693,13 @@ func (m *Manager) callMCPTool(callCtx context.Context, cli *mcp.ClientSession, n
 	for {
 		attempts++
 		out, err = cli.CallTool(callCtx, &mcp.CallToolParams{Name: name, Arguments: arguments})
+		if mcpConnectionFailure(err) {
+			if observe.connectionFailed != nil {
+				observe.connectionFailed()
+			}
+		} else if observe.reached != nil {
+			observe.reached()
+		}
 		if err == nil {
 			break
 		}
@@ -709,26 +739,10 @@ func (m *Manager) callMCPTool(callCtx context.Context, cli *mcp.ClientSession, n
 	return text, nil
 }
 
-func (m *Manager) cachedMCPRuntimeTool(runCtx context.Context, cached CachedMCPTool, cfg MCPServerConfig) runtime.Tool {
-	return runtime.Tool{Name: cached.Name, Description: cached.Description, Parameters: cached.Parameters, CheckReadiness: m.mcpMethodReadiness(cached.Server, cfg), Execute: func(callCtx context.Context, args json.RawMessage) (string, error) {
-		if callCtx == nil {
-			callCtx = context.Background()
-		}
-		if _, err := m.prepareTransport(callCtx, cfg); err != nil {
-			return "", mcpReadinessOutcome(mcpErrorReadiness(err)).Err()
-		}
-		discoveryCtx, cancel := context.WithTimeout(callCtx, m.cfg.DiscoveryTimeout)
-		defer cancel()
-		cli, err := m.openMCPClient(runCtx, discoveryCtx, cached.Server, cfg)
-		if err != nil {
-			if callCtx.Err() != nil {
-				return "", callCtx.Err()
-			}
-			return "", mcpReadinessOutcome(mcpErrorReadiness(err)).Err()
-		}
-		defer cli.Close()
-		return m.callMCPTool(callCtx, cli, cached.RemoteName, args, trustedReadOnlyTool(cfg, cached.RemoteName))
-	}}
+// cachedMCPRuntimeTool restores a validated schema reference. Calls share
+// the run's session slot for the server instead of opening one per call.
+func (m *Manager) cachedMCPRuntimeTool(slot *mcpSessionSlot, cached CachedMCPTool) runtime.Tool {
+	return runtime.Tool{Name: cached.Name, Description: cached.Description, Parameters: cached.Parameters, CheckReadiness: slot.readinessCheck, Execute: slot.callTool(cached.RemoteName, nil)}
 }
 
 func validCachedMCPTool(cached CachedMCPTool, servers map[string]MCPServerConfig, m *Manager) bool {
@@ -788,13 +802,19 @@ func boundedDescription(s, fallback string) string {
 	return s
 }
 
-func uniqueToolName(raw string, used map[string]int) string {
-	raw = strings.ToLower(strings.Map(func(r rune) rune {
+// sanitizeToolName is the character mapping uniqueToolName applies before
+// length limits and collision suffixes.
+func sanitizeToolName(raw string) string {
+	return strings.ToLower(strings.Map(func(r rune) rune {
 		if (r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z') || (r >= '0' && r <= '9') || r == '_' || r == '-' {
 			return r
 		}
 		return '_'
 	}, raw))
+}
+
+func uniqueToolName(raw string, used map[string]int) string {
+	raw = sanitizeToolName(raw)
 	if raw == "" {
 		raw = "mcp_tool"
 	}

@@ -33,7 +33,7 @@ export interface Question {
   created_at: string;
   updated_at?: string;
   expires_at?: string;
-  outcome?: { status: string; execution_certainty: string; message: string; next_action: string };
+  outcome?: { status: string; code?: string; execution_certainty: string; message: string; next_action: string };
 }
 export type ConversationItem = { kind: "message"; message: Message } | { kind: "question"; question: Question } | { kind: "mail_draft"; draft: MailDraft };
 

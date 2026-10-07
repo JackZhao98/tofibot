@@ -15,8 +15,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"github.com/JackZhao98/tofibot/internal/runtime"
+	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
 func discoveryTool(t *testing.T, p *Prepared, name string) runtime.Tool {
@@ -137,8 +137,18 @@ func TestDiscoverableMCPAuthorizationAndTransports(t *testing.T) {
 			}
 			search := discoveryTool(t, p, "search_mcp_tools")
 			call := discoveryTool(t, p, "call_mcp_tool")
-			if _, err := call.Execute(context.Background(), json.RawMessage(`{"name":"mcp_fixture__echo","arguments":{}}`)); err == nil {
-				t.Fatal("unseen call allowed")
+			// A known exact name resolves on its server without a prior search;
+			// policy-denied tools and unusable transports still fail closed.
+			if _, err := call.Execute(context.Background(), json.RawMessage(`{"name":"mcp_fixture__denied","arguments":{}}`)); err == nil {
+				t.Fatal("denied tool callable by exact name")
+			}
+			direct, err := call.Execute(context.Background(), json.RawMessage(`{"name":"mcp_fixture__echo","arguments":{}}`))
+			if transport == "sse" {
+				if err == nil {
+					t.Fatal("legacy transport call allowed")
+				}
+			} else if err != nil || direct != "echo" {
+				t.Fatalf("known exact name did not resolve: %s %v", direct, err)
 			}
 			got, err := search.Execute(context.Background(), json.RawMessage(`{"query":"echo"}`))
 			if transport == "sse" {
@@ -163,7 +173,7 @@ func TestDiscoverableMCPAuthorizationAndTransports(t *testing.T) {
 			if _, err := call.Execute(context.Background(), json.RawMessage(`{"name":"mcp_fixture__unmatched","arguments":{}}`)); err != nil {
 				t.Fatalf("global unmatched call failed: %v", err)
 			}
-			if calls.Load() != 2 {
+			if calls.Load() != 3 {
 				t.Fatalf("remote calls=%d", calls.Load())
 			}
 			other, err := mgr.PrepareDiscoverableForBot(context.Background(), "other")
