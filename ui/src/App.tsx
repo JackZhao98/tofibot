@@ -1622,8 +1622,18 @@ function Workspace() {
     setMemories(memoryPage.memories);
     setLoadedId(conversationId); setSnapshotError("");
   }
+  // One status line per working run: the current tool, the answer being
+  // written, or the model's latest reasoning headline.
+  function runLiveStatus(run: Run): string {
+    const tool = activeToolForRun(toolActivities, run.id);
+    if (tool) return toolActionLabel(tool);
+    if (Object.values(drafts).some(d => d.run_id === run.id && d.status === "active" && d.content.trim())) return "正在疯狂码字";
+    const signal = runSignals[run.id];
+    if (signal?.retryUntil && signal.retryUntil > Date.now()) return "服务繁忙，稍后重试";
+    return signal?.thinking ? `正在思考：${signal.thinking}` : run.status === "queued" ? "等待启动" : "正在思考";
+  }
   function renderTaskOwner(owner: TaskOwner) {
-    return <TaskRunBlock key={owner.key} owner={owner} tools={loadedToolActivities} questions={questions.items} drafts={mailDrafts.items} messages={messageRecords} summaries={terminalToolSummaries} details={toolDetailState} connected={streamConnected} botName={botById.get(owner.family.latest.bot_id)?.name ?? "Bot"} showName={active?.kind === "group"}
+    return <TaskRunBlock key={owner.key} owner={owner} liveStatus={runLiveStatus(owner.family.latest)} liveAvatar={<GazeAvatar id={owner.family.latest.bot_id} mini motion="working" />} tools={loadedToolActivities} questions={questions.items} drafts={mailDrafts.items} messages={messageRecords} summaries={terminalToolSummaries} details={toolDetailState} connected={streamConnected} botName={botById.get(owner.family.latest.bot_id)?.name ?? "Bot"} showName={active?.kind === "group"}
       onOpenTools={() => { setSettingsTab("mcp"); setPanel("settings"); }}
       onFeedback={text => window.dispatchEvent(new CustomEvent("tofi:task-feedback", {detail:{conversationId:owner.family.latest.conversation_id,text}}))}
       onRefresh={refreshTaskStatus} onLoadDetails={loadToolDetails}
