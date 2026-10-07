@@ -9,6 +9,7 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"net/url"
 	"regexp"
 	"sort"
 	"strings"
@@ -344,7 +345,7 @@ func (s *Server) fetchProviderModels(ctx context.Context, name, key string) ([]M
 			req.Header.Set("Authorization", "Bearer "+key)
 		}
 	case providerAnthropic:
-		req, err = http.NewRequestWithContext(ctx, http.MethodGet, base+"/v1/models?limit=1000", nil)
+		req, err = http.NewRequestWithContext(ctx, http.MethodGet, base+"/v1/models", nil)
 		if err == nil {
 			req.Header.Set("x-api-key", key)
 			req.Header.Set("anthropic-version", "2023-06-01")
@@ -366,14 +367,58 @@ func (s *Server) fetchProviderModels(ctx context.Context, name, key string) ([]M
 		return nil, resp.StatusCode, errProviderUnreachable
 	}
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		return nil, resp.StatusCode, fmt.Errorf("%s model list returned HTTP %d", providerLabel(name), resp.StatusCode)
+		// Provider error bodies name the problem and never echo the key.
+		return nil, resp.StatusCode, fmt.Errorf("%s model list returned HTTP %d: %s", providerLabel(name), resp.StatusCode, trimRunes(strings.TrimSpace(string(body)), 300))
 	}
 	if name == providerOpenAI {
 		models, err := normalizeOpenAIModels(body)
 		return models, resp.StatusCode, err
 	}
+	// Anthropic pages its model list; follow has_more with the same key.
+	for page := 0; page < 10; page++ {
+		var cursor struct {
+			HasMore bool   `json:"has_more"`
+			LastID  string `json:"last_id"`
+		}
+		if json.Unmarshal(body, &cursor) != nil || !cursor.HasMore || cursor.LastID == "" {
+			break
+		}
+		next, err := http.NewRequestWithContext(ctx, http.MethodGet, base+"/v1/models?after_id="+url.QueryEscape(cursor.LastID), nil)
+		if err != nil {
+			break
+		}
+		next.Header = req.Header.Clone()
+		more, err := http.DefaultClient.Do(next)
+		if err != nil {
+			break
+		}
+		chunk, _ := io.ReadAll(io.LimitReader(more.Body, 4<<20))
+		more.Body.Close()
+		if more.StatusCode != http.StatusOK {
+			break
+		}
+		body = mergeAnthropicPages(body, chunk)
+	}
 	models, err := normalizeAnthropicModels(body)
 	return models, resp.StatusCode, err
+}
+
+// mergeAnthropicPages appends the next page's models and takes its cursor.
+func mergeAnthropicPages(first, next []byte) []byte {
+	var a, b struct {
+		Data    []json.RawMessage `json:"data"`
+		HasMore bool              `json:"has_more"`
+		LastID  string            `json:"last_id"`
+	}
+	if json.Unmarshal(first, &a) != nil || json.Unmarshal(next, &b) != nil {
+		return first
+	}
+	a.Data, a.HasMore, a.LastID = append(a.Data, b.Data...), b.HasMore, b.LastID
+	merged, err := json.Marshal(a)
+	if err != nil {
+		return first
+	}
+	return merged
 }
 
 func normalizeOpenAIModels(body []byte) ([]ModelOption, error) {
@@ -714,7 +759,7 @@ func (s *Server) putProviderKey(w http.ResponseWriter, r *http.Request, name str
 		case err == nil:
 			writeErr(w, http.StatusBadRequest, "invalid_key", fmt.Sprintf("This %s API key has no usable models.", providerLabel(name)))
 		default:
-			writeErr(w, http.StatusBadRequest, "invalid_key", fmt.Sprintf("%s did not accept this API key.", providerLabel(name)))
+			writeErr(w, http.StatusBadRequest, "invalid_key", fmt.Sprintf("%s did not accept this API key (HTTP %d).", providerLabel(name), status))
 		}
 		return
 	}
