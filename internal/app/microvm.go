@@ -560,12 +560,27 @@ func (s *Server) microVMTools(r Run) []Tool {
 // browserProcessGone reports a browser call that failed because Chrome's
 // DevTools endpoint no longer answers, not because of the page or action.
 func browserProcessGone(err error) bool {
-	msg := err.Error()
-	return strings.Contains(msg, "connection refused") || strings.Contains(msg, "Chrome is not running")
+	msg := strings.ToLower(err.Error())
+	return strings.Contains(msg, "chrome is not running") ||
+		strings.Contains(msg, "connection refused") && (strings.Contains(msg, "127.0.0.1") && strings.Contains(msg, "/json"))
 }
+
+// desktopRestartCooldown keeps a crash-looping Chrome from repeatedly wiping
+// the shared desktop that other Bots are using.
+const desktopRestartCooldown = 2 * time.Minute
 
 // restartDesktop stops and starts the shared desktop once to bring Chrome back.
 func (s *Server) restartDesktop(ctx context.Context, r Run) error {
+	s.computerOwnerMu.Lock()
+	recent := time.Since(s.desktopRestartedAt) < desktopRestartCooldown
+	if !recent {
+		s.desktopRestartedAt = time.Now()
+	}
+	s.computerOwnerMu.Unlock()
+	if recent {
+		return errors.New("Chrome restarted moments ago; not restarting again")
+	}
+	log.Printf("[computer] restarting shared desktop for run %s: Chrome DevTools unreachable", r.ID)
 	if _, err := s.microVMAction(ctx, r, "desktop.stop", json.RawMessage(`{}`)); err != nil {
 		return err
 	}

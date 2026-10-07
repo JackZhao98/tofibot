@@ -3,6 +3,7 @@ package app
 import (
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"strings"
 	"testing"
 )
@@ -65,5 +66,15 @@ func TestBrowserClickCarriesTextAndIsNotAnObservation(t *testing.T) {
 	}
 	if computerRecoveryIdentity("bot", microVMComputerID, "browser.click", json.RawMessage(`{"click":"x"}`)).Risk == "observation" {
 		t.Fatal("a click changes the page")
+	}
+}
+
+func TestOnlyDeadDevToolsTriggersDesktopRestart(t *testing.T) {
+	dead := errors.New(`computer control returned 500 Internal Server Error: {"ok":false,"error":"Get \"http://127.0.0.1:38589/json/list\": dial tcp 127.0.0.1:38589: connect: connection refused"}`)
+	if !browserProcessGone(dead) {
+		t.Fatal("dead DevTools endpoint must restart the desktop")
+	}
+	if browserProcessGone(errors.New("dial unix /run/tofi/guest.sock: connect: connection refused")) {
+		t.Fatal("a host-to-guest socket failure is not a dead Chrome")
 	}
 }
