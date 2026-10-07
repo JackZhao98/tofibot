@@ -10,6 +10,8 @@ import (
 type mcpAttachmentBoundary struct {
 	CurrentMessageID string                `json:"current_native_text_message_id"`
 	Omissions        []mcpUnreadAttachment `json:"unread_attachment_omissions"`
+	// Older omissions beyond the bounded manifest exist but are not listed.
+	OlderOmitted bool `json:"older_omissions_not_listed,omitempty"`
 }
 
 type mcpUnreadAttachment struct {
@@ -34,9 +36,13 @@ func readMCPAttachmentBoundary(db reviewQuerier, conversation, trigger string, t
 	if current != 0 {
 		return nil, mcpContextLimitFail(mcpContextNonText, current, 0, 201, false)
 	}
+	// Newest first: bindings to messages after the trigger, and unlinked
+	// uploads made after it, are outside the authorizing window.
 	rows, err := db.Query(`SELECT a.id,a.name,a.mime,a.size,a.created_at,am.message_id,m.id,m.conversation_id,m.seq,`+mcpMessageProvenanceSQL+`
 FROM attachments a LEFT JOIN attachment_messages am ON am.attachment_id=a.id LEFT JOIN messages m ON m.id=am.message_id
-WHERE a.conversation_id=? ORDER BY a.id,m.seq,m.id LIMIT 201`, conversation)
+WHERE a.conversation_id=? AND (m.seq IS NULL OR m.conversation_id<>a.conversation_id OR m.seq<?)
+AND NOT (am.message_id IS NULL AND julianday(a.created_at)>julianday((SELECT created_at FROM messages WHERE id=?)))
+ORDER BY a.created_at DESC,a.id DESC,m.seq DESC,m.id DESC LIMIT ?`, conversation, triggerSeq, trigger, mcpEvidenceAttachments+1)
 	if err != nil {
 		return nil, mcpContextFail(mcpContextAttachmentsRead)
 	}
@@ -46,6 +52,10 @@ WHERE a.conversation_id=? ORDER BY a.id,m.seq,m.id LIMIT 201`, conversation)
 		var a mcpUnreadAttachment
 		var linked, message, owner sql.NullString
 		var seq sql.NullInt64
+		if len(boundary.Omissions) == mcpEvidenceAttachments {
+			boundary.OlderOmitted = true
+			break
+		}
 		if err := rows.Scan(&a.ID, &a.Name, &a.MIME, &a.Size, &a.CreatedAt, &linked, &message, &owner, &seq, &a.MessageProvenance); err != nil {
 			return nil, mcpContextFail(mcpContextAttachmentsRead)
 		}
@@ -68,9 +78,7 @@ WHERE a.conversation_id=? ORDER BY a.id,m.seq,m.id LIMIT 201`, conversation)
 	if rows.Err() != nil {
 		return nil, mcpContextFail(mcpContextAttachmentsRead)
 	}
-	if len(boundary.Omissions) > 200 {
-		return nil, mcpContextLimitFail(mcpContextAttachmentsLimit, len(boundary.Omissions), 200, 201, true)
-	}
+	reverseSlice(boundary.Omissions)
 	if len(boundary.Omissions) == 0 {
 		return nil, nil // Keep packets and digests unchanged without attachments.
 	}

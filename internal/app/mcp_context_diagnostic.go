@@ -51,7 +51,87 @@ const (
 	mcpContextSnapshotEncoding  mcpContextFailureCode = "context_snapshot_encoding_failed"
 	mcpContextDigestChanged     mcpContextFailureCode = "context_digest_changed"
 	mcpContextUnclassified      mcpContextFailureCode = "unclassified_context_failure"
+
+	mcpContextToolsBinding        mcpContextFailureCode = "tool_result_binding_changed"
+	mcpContextToolsUncertain      mcpContextFailureCode = "tool_result_uncertain_effect"
+	mcpContextGroupRound          mcpContextFailureCode = "group_round_binding_changed"
+	mcpContextAccountUnavailable  mcpContextFailureCode = "authorization_account_unavailable"
+	mcpContextTargetBinding       mcpContextFailureCode = "target_run_binding_changed"
+	mcpContextAncestryUnavailable mcpContextFailureCode = "ancestry_unavailable"
+	mcpContextAncestryCycle       mcpContextFailureCode = "ancestry_cycle"
+	mcpContextAncestryEnded       mcpContextFailureCode = "ancestry_ended_or_uncertain"
+	mcpContextAncestryImported    mcpContextFailureCode = "ancestry_import_boundary"
+	mcpContextAncestryMessage     mcpContextFailureCode = "ancestry_message_unavailable"
+	mcpContextMembership          mcpContextFailureCode = "membership_unavailable"
+	mcpContextRetryInheritance    mcpContextFailureCode = "retry_inherits_authority"
+	mcpContextAssignmentBinding   mcpContextFailureCode = "assignment_binding_changed"
+	mcpContextReturnBinding       mcpContextFailureCode = "return_binding_changed"
+	mcpContextDelegationRoot      mcpContextFailureCode = "delegation_root_unsupported"
+	mcpContextScheduleRoot        mcpContextFailureCode = "schedule_root_unavailable"
+	mcpContextScheduleRootAmbig   mcpContextFailureCode = "schedule_root_ambiguous"
+	mcpContextOccurrenceAuth      mcpContextFailureCode = "occurrence_authorization_unavailable"
+	mcpContextScheduleRevoked     mcpContextFailureCode = "schedule_revised_or_revoked"
+	mcpContextOccurrenceChanged   mcpContextFailureCode = "occurrence_instruction_changed"
+	mcpContextSourceChain         mcpContextFailureCode = "schedule_source_chain_changed"
+	mcpContextSourceUnknown       mcpContextFailureCode = "schedule_source_unknown"
+	mcpContextSourceProvenance    mcpContextFailureCode = "schedule_source_provenance_changed"
+	mcpContextInstructionsInvalid mcpContextFailureCode = "instructions_invalid"
 )
+
+// One plain line for the model and the card: what failed, never content.
+func mcpContextFailureReason(code mcpContextFailureCode) string {
+	switch code {
+	case mcpContextUserUnavailable, mcpContextIntentRead, mcpContextIntentInvalid:
+		return "this task has no reviewable native user request behind it"
+	case mcpContextIntentProvenance:
+		return "the triggering message is not verified as typed by the user"
+	case mcpContextNonText:
+		return "the triggering message has attachments the reviewer cannot read"
+	case mcpContextAttachmentScope:
+		return "an attachment is bound outside this conversation's history"
+	case mcpContextRefusalsInvalid:
+		return "a recorded human refusal is unreadable"
+	case mcpContextToolsOutcome, mcpContextToolsUTF8, mcpContextToolsBinding:
+		return "a tool record of this task is corrupted or bound elsewhere"
+	case mcpContextToolsUncertain:
+		return "an earlier step of this scheduled task has an unverified effect"
+	case mcpContextGroupRound:
+		return "this group turn is not linked to its user message"
+	case mcpContextAccountUnavailable:
+		return "the account that authorized this task is unavailable"
+	case mcpContextRunBinding, mcpContextTargetBinding:
+		return "this task's run record changed during review"
+	case mcpContextAncestryUnavailable, mcpContextAncestryCycle, mcpContextAncestryMessage:
+		return "the chain of tasks that led here cannot be traced to its origin"
+	case mcpContextAncestryEnded:
+		return "an earlier task in this chain failed, stopped or has an unverified effect"
+	case mcpContextAncestryImported:
+		return "this task chain includes imported history"
+	case mcpContextMembership:
+		return "a bot in this task chain is no longer a member of its conversation"
+	case mcpContextRetryInheritance:
+		return "a retried task cannot reuse the earlier task's authority"
+	case mcpContextAssignmentBinding, mcpContextReturnBinding:
+		return "a hand-off between bots in this chain does not match its record"
+	case mcpContextDelegationRoot:
+		return "this delegated task does not start from a user request or schedule"
+	case mcpContextScheduleRoot, mcpContextScheduleRootAmbig, mcpContextOccurrenceAuth:
+		return "this scheduled run's occurrence record is unavailable"
+	case mcpContextScheduleRevoked:
+		return "the schedule was edited, paused or removed after this run started"
+	case mcpContextOccurrenceChanged:
+		return "the scheduled instruction no longer matches the schedule"
+	case mcpContextSourceChain, mcpContextSourceProvenance:
+		return "the schedule's original request record changed"
+	case mcpContextSourceUnknown:
+		return "the schedule has no recorded user request (re-create it to allow automatic review)"
+	case mcpContextDigestChanged:
+		return "the authorizing request or a task record changed during review"
+	case mcpContextBytesLimit:
+		return "the required authorization evidence alone exceeds the review size"
+	}
+	return "the review could not read its required records"
+}
 
 type mcpContextError struct{ failure MCPContextFailure }
 

@@ -19,7 +19,7 @@ import (
 // Production agent suspension/continuation and official MCP SDK dispatch run
 // unchanged. Both providers are synthetic and in process, without a listener.
 func TestAutoReviewV5HumanRequiredDurableResume(t *testing.T) {
-	for _, mutation := range []string{"unchanged", "user intent", "related evidence", "human refusal", "unknown control outcome", "forged progress", "old progress edit", "active proposal arguments", "config binding", "expiry", "off epoch", "missing snapshot", "checkpoint question", "attachment unchanged", "attachment add", "attachment delete", "attachment relink"} {
+	for _, mutation := range []string{"unchanged", "user intent", "related evidence", "human refusal", "unknown control outcome", "forged progress", "old progress edit", "observation lookups", "active proposal arguments", "config binding", "expiry", "off epoch", "missing snapshot", "checkpoint question", "attachment unchanged", "attachment add", "attachment delete", "attachment relink"} {
 		t.Run(mutation, func(t *testing.T) {
 			f := newAutoReviewFixture(t)
 			var oldAttachmentMessage string
@@ -156,6 +156,19 @@ func TestAutoReviewV5HumanRequiredDurableResume(t *testing.T) {
 				_, _, err = f.s.store.AddMessage(f.c.ID, "assistant", "progress", f.r.BotID, "Synthetic new fact without a native progress receipt.", f.r.ID)
 			case "old progress edit":
 				_, err = f.s.store.db.Exec(`UPDATE messages SET content='Synthetic earlier evidence changed.' WHERE id IN (SELECT message_id FROM stream_assistant_turns WHERE run_id=? AND turn_index=1)`, f.r.ID)
+			case "observation lookups":
+				// Lookups before the exact re-proposal are neither effects nor consent.
+				for _, ev := range []runtime.ToolEvent{{CallID: "lookup-search", Name: "search_mcp_tools", Arguments: `{"server":"fixture","query":"read_public"}`}, {CallID: "lookup-snapshot", Name: "computer_browser", Arguments: `{"action":"browser.snapshot"}`}} {
+					for _, status := range []string{"queued", "completed"} {
+						ev.Status, ev.Result = status, ""
+						if status == "completed" {
+							ev.Result = "Synthetic observation."
+						}
+						if err == nil {
+							err = f.s.store.RecordToolEvent(f.c.ID, f.r.BotID, f.r.ID, ev)
+						}
+					}
+				}
 			case "config binding":
 				_, err = f.s.store.db.Exec(`UPDATE mcp_auto_reviews SET config_fingerprint='changed' WHERE question_id=?`, q.ID)
 			case "expiry":
@@ -186,8 +199,10 @@ func TestAutoReviewV5HumanRequiredDurableResume(t *testing.T) {
 			if err != nil {
 				t.Fatal("production resume failed", finished, err)
 			}
+			// Progress text after the trigger is outside the bounded window.
+			executes := map[string]bool{"unchanged": true, "attachment unchanged": true, "forged progress": true, "old progress edit": true, "observation lookups": true}
 			want := int32(0)
-			if mutation == "unchanged" || mutation == "attachment unchanged" {
+			if executes[mutation] {
 				want = 1
 			}
 			if f.effects.Load() != want || f.p.calls.Load() != 1 {
@@ -197,7 +212,7 @@ func TestAutoReviewV5HumanRequiredDurableResume(t *testing.T) {
 			if err == nil && duplicate {
 				t.Fatal("duplicate continuation claimed")
 			}
-			if mutation == "unchanged" || mutation == "attachment unchanged" {
+			if executes[mutation] {
 				if err := f.execute(context.Background()); err == nil || f.effects.Load() != 1 || f.p.calls.Load() != 1 {
 					t.Fatal("approved proposal replayed", err)
 				}
