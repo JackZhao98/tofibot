@@ -268,16 +268,10 @@ func parseMCPReview(resp *provider.ChatResponse, expected string) (mcpReviewResu
 func (s *Server) requestMCPReview(ctx context.Context, call extensions.MCPCallApproval, x mcpReviewContext, digest string) (mcpReviewResult, error) {
 	ctx, cancel := context.WithTimeout(ctx, autoReviewTimeout)
 	defer cancel()
-	p := s.autoReviewProvider
+	p, model := s.autoReviewProvider, codexReviewModel
 	if p == nil {
-		if s.provider != "openai_codex" || s.codex == nil {
-			return mcpReviewResult{}, errors.New("reviewer unavailable")
-		}
-		credential, err := s.codex.Credential(ctx)
-		if err != nil {
-			return mcpReviewResult{}, errors.New("reviewer unavailable")
-		}
-		p, err = provider.New("openai_codex", credential) // No retry/fallback wrapper.
+		var err error
+		p, model, err = s.backgroundProvider(ctx, backgroundReview) // No retry/fallback wrapper.
 		if err != nil {
 			return mcpReviewResult{}, errors.New("reviewer unavailable")
 		}
@@ -286,7 +280,7 @@ func (s *Server) requestMCPReview(ctx context.Context, call extensions.MCPCallAp
 	if err != nil || len(raw) > 100<<10 {
 		return mcpReviewResult{}, errors.New("review input unavailable")
 	}
-	resp, err := p.Chat(ctx, &provider.ChatRequest{Model: "codex-auto-review", System: mcpAutoReviewPrompt, Messages: []provider.Message{{Role: "user", Content: string(raw)}}, Tools: nil})
+	resp, err := p.Chat(ctx, &provider.ChatRequest{Model: model, System: mcpAutoReviewPrompt, Messages: []provider.Message{{Role: "user", Content: string(raw)}}, Tools: nil})
 	if err != nil || ctx.Err() != nil {
 		return mcpReviewResult{}, errors.New("reviewer request failed or timed out")
 	}

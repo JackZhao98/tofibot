@@ -141,6 +141,12 @@ type Config struct {
 	BaseURL     string
 	Model       string
 	Credential  func(context.Context) (string, error)
+	// Resolve, when set, routes every model request by its model ID
+	// (ModelProvider) and supplies that provider's credential. Provider,
+	// APIKey, BaseURL and Credential are then unused.
+	Resolve func(ctx context.Context, providerName string) (string, error)
+	// Endpoint optionally overrides a routed provider's base URL.
+	Endpoint func(providerName string) string
 }
 
 type MethodReadiness string

@@ -56,20 +56,28 @@ func (e *engine) finishApprovalExpiry(ctx context.Context, req Request, model st
 	}
 	// Construct the same provider without the ordinary retry wrapper: every
 	// request counts toward the two-request hard cap, including failures.
-	key := e.config.APIKey
-	if e.credential != nil {
-		key, err = e.credential(ctx)
+	var p provider.Provider
+	if e.config.Resolve != nil {
+		p, err = routedProvider{config: e.config}.provider(ctx, model)
 		if err != nil {
 			return Result{}, err
 		}
-	}
-	var opts []provider.Option
-	if e.config.BaseURL != "" {
-		opts = append(opts, provider.WithBaseURL(e.config.BaseURL))
-	}
-	p, err := provider.New(e.config.Provider, key, opts...)
-	if err != nil {
-		return Result{}, err
+	} else {
+		key := e.config.APIKey
+		if e.credential != nil {
+			key, err = e.credential(ctx)
+			if err != nil {
+				return Result{}, err
+			}
+		}
+		var opts []provider.Option
+		if e.config.BaseURL != "" {
+			opts = append(opts, provider.WithBaseURL(e.config.BaseURL))
+		}
+		p, err = provider.New(e.config.Provider, key, opts...)
+		if err != nil {
+			return Result{}, err
+		}
 	}
 	safe := map[string]Tool{}
 	var schemas []provider.Tool

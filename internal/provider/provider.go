@@ -5,6 +5,7 @@ package provider
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"github.com/JackZhao98/tofibot/internal/tooloutcome"
 	"strings"
@@ -35,13 +36,22 @@ type ChatRequest struct {
 	OmitReasoningReplay bool
 }
 
-// ReasoningItem is an opaque Responses API reasoning output item. With
+// ReasoningItem is replayable reasoning from one assistant turn.
+//
+// OpenAI (Provider ""/"openai"): an opaque Responses API reasoning item. With
 // store=false it must be replayed with its encrypted content before the
 // function calls it produced, so the model can continue its prior reasoning.
+//
+// Anthropic (Provider "anthropic"): Content holds the turn's complete
+// content-block array as the model produced it (thinking blocks with their
+// signatures, redacted_thinking, text, tool_use), replayed verbatim on the
+// next request. Each adapter ignores the other's items.
 type ReasoningItem struct {
-	ID               string   `json:"id,omitempty"`
-	EncryptedContent string   `json:"encrypted_content,omitempty"`
-	Summary          []string `json:"summary,omitempty"`
+	ID               string          `json:"id,omitempty"`
+	EncryptedContent string          `json:"encrypted_content,omitempty"`
+	Summary          []string        `json:"summary,omitempty"`
+	Provider         string          `json:"provider,omitempty"`
+	Content          json.RawMessage `json:"content,omitempty"`
 }
 
 // Message represents a conversation message in the unified format.
@@ -107,15 +117,25 @@ func (r *ChatResponse) HasToolCalls() bool {
 }
 
 // Usage tracks token consumption for cost calculation.
+//
+// InputTokens is the whole prompt the model read, cached or not (OpenAI's
+// input_tokens; Anthropic's input_tokens + cache_read_input_tokens +
+// cache_creation_input_tokens), so it measures context size on every
+// provider. CacheReadTokens and CacheWriteTokens are the subsets of
+// InputTokens served from / written to the prompt cache, when reported.
 type Usage struct {
-	InputTokens  int64
-	OutputTokens int64
+	InputTokens      int64
+	OutputTokens     int64
+	CacheReadTokens  int64
+	CacheWriteTokens int64
 }
 
 // Add accumulates usage from another Usage.
 func (u *Usage) Add(other Usage) {
 	u.InputTokens += other.InputTokens
 	u.OutputTokens += other.OutputTokens
+	u.CacheReadTokens += other.CacheReadTokens
+	u.CacheWriteTokens += other.CacheWriteTokens
 }
 
 // Option configures provider creation.

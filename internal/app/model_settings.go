@@ -12,6 +12,8 @@ import (
 	"path/filepath"
 	"strings"
 	"time"
+
+	"github.com/JackZhao98/tofibot/internal/runtime"
 )
 
 // ModelOption is the normalized model metadata exposed to clients. It is
@@ -20,6 +22,7 @@ import (
 type ModelOption struct {
 	ID               string   `json:"id"`
 	Name             string   `json:"name"`
+	Provider         string   `json:"provider"`
 	ReasoningEfforts []string `json:"reasoning_efforts"`
 	DefaultReasoning string   `json:"default_reasoning"`
 }
@@ -31,8 +34,31 @@ type modelSettings struct {
 
 func (s *Server) modelDefaults() (string, string) {
 	s.mu.Lock()
-	defer s.mu.Unlock()
-	return s.defaultModel, s.defaultReasoning
+	model, effort := s.defaultModel, s.defaultReasoning
+	s.mu.Unlock()
+	if s.modelProviderUsable(model) || !s.anyProviderConfigured() {
+		return model, effort
+	}
+	// The saved default belongs to a provider this workspace no longer has
+	// (e.g. Codex default, only a Claude key): fall back to the first usable
+	// provider's catalog so new Bots work without a manual pick.
+	for _, name := range []string{providerOpenAI, providerAnthropic} {
+		if s.usableProviderKey(name) {
+			if models := s.cachedProviderCatalog(name); len(models) > 0 {
+				return models[0].ID, models[0].DefaultReasoning
+			}
+		}
+	}
+	return model, effort
+}
+
+func (s *Server) modelProviderUsable(model string) bool {
+	switch name := runtime.ModelProvider(model); name {
+	case "openai_codex":
+		return s.codexConnected()
+	default:
+		return s.usableProviderKey(name)
+	}
 }
 
 func migrateModelSettings(db *sql.DB) error {
@@ -48,7 +74,10 @@ CREATE TABLE IF NOT EXISTS model_catalog_cache(
 id INTEGER PRIMARY KEY CHECK(id=1),
 models_json TEXT NOT NULL,
 updated_at TEXT NOT NULL);`)
-	return err
+	if err != nil {
+		return err
+	}
+	return migrateProviderCatalogCache(db)
 }
 
 func (s *Store) getModelSettings() (modelSettings, error) {
@@ -134,13 +163,8 @@ func (s *Server) modelSettings(w http.ResponseWriter, r *http.Request) {
 		if x.ReasoningEffort == "" {
 			_, x.ReasoningEffort = s.modelDefaults()
 			if models, _, _ := s.loadModels(r.Context()); len(models) > 0 {
-				for _, option := range models {
-					if option.ID == x.Model || strings.TrimPrefix(option.ID, "codex-") == strings.TrimPrefix(x.Model, "codex-") {
-						if option.DefaultReasoning != "" {
-							x.ReasoningEffort = option.DefaultReasoning
-						}
-						break
-					}
+				if option, ok := s.matchModel(models, x.Model); ok && option.DefaultReasoning != "" {
+					x.ReasoningEffort = option.DefaultReasoning
 				}
 			}
 		}
@@ -174,10 +198,65 @@ func (s *Server) models(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, resp)
 }
 
+// loadModels merges every configured provider's catalog: Codex, then the
+// OpenAI API, then Anthropic. A workspace with no API key keeps the Codex
+// snapshot so Codex-only settings behave as before.
 func (s *Server) loadModels(ctx context.Context) ([]ModelOption, string, string) {
-	if !strings.EqualFold(s.provider, "openai_codex") {
+	if !managedProviderName(s.provider) {
 		return []ModelOption{}, "fallback", "model metadata is available only for the connected Codex provider"
 	}
+	var keyed []string
+	for _, name := range apiKeyProviders {
+		if _, ok := s.providerKey(name); ok {
+			keyed = append(keyed, name)
+		}
+	}
+	models := []ModelOption{}
+	var sources, warnings []string
+	if s.codex != nil {
+		status := s.codex.Status()
+		if status.Connected || status.NeedsReconnect || len(keyed) == 0 {
+			codexModels, source, warning := s.loadCodexModels(ctx)
+			for _, option := range codexModels {
+				option.Provider = "codex"
+				if !strings.HasPrefix(option.Name, "Codex · ") {
+					option.Name = "Codex · " + option.Name
+				}
+				models = append(models, option)
+			}
+			sources, warnings = append(sources, source), append(warnings, warning)
+		}
+	}
+	for _, name := range keyed {
+		group, source, warning := s.providerModels(ctx, name)
+		for _, option := range group {
+			option.Provider = publicProviderID(name)
+			models = append(models, option)
+		}
+		sources, warnings = append(sources, source), append(warnings, warning)
+	}
+	source := "fallback"
+	for _, candidate := range sources {
+		if candidate == "live" && source == "fallback" {
+			source = "live"
+		}
+		if candidate == "cache" {
+			source = "cache"
+		}
+	}
+	var warning []string
+	for _, w := range warnings {
+		if w != "" {
+			warning = append(warning, w)
+		}
+	}
+	if len(models) == 0 && len(warning) == 0 {
+		warning = append(warning, "model metadata is unavailable; connect a model provider to load available models")
+	}
+	return models, source, strings.Join(warning, "; ")
+}
+
+func (s *Server) loadCodexModels(ctx context.Context) ([]ModelOption, string, string) {
 	s.modelCatalogMu.Lock()
 	if len(s.modelCatalog) > 0 && time.Since(s.modelCatalogAt) < 5*time.Minute {
 		models := append([]ModelOption(nil), s.modelCatalog...)
@@ -217,20 +296,50 @@ func (s *Server) loadModels(ctx context.Context) ([]ModelOption, string, string)
 	return []ModelOption{}, "fallback", "model metadata is unavailable; connect the configured provider to load available models"
 }
 
+// strictModelValidation is false for an injected or custom-provider engine,
+// whose model IDs the catalog cannot vouch for.
+func (s *Server) strictModelValidation() bool {
+	s.mu.Lock()
+	injected := s.engine != nil && !s.codexManaged
+	s.mu.Unlock()
+	return !injected && managedProviderName(s.provider)
+}
+
+// matchModel finds a catalog entry. Unprefixed IDs match a Codex entry only
+// in a workspace without an OpenAI key, where they historically meant Codex.
+func (s *Server) matchModel(models []ModelOption, model string) (ModelOption, bool) {
+	model = strings.TrimSpace(model)
+	for _, option := range models {
+		if option.ID == model {
+			return option, true
+		}
+	}
+	if strings.HasPrefix(model, "codex-") || runtime.ModelProvider(model) != providerOpenAI {
+		return ModelOption{}, false
+	}
+	if _, ok := s.providerKey(providerOpenAI); ok {
+		return ModelOption{}, false
+	}
+	for _, option := range models {
+		if strings.HasPrefix(option.ID, "codex-") && strings.TrimPrefix(option.ID, "codex-") == model {
+			return option, true
+		}
+	}
+	return ModelOption{}, false
+}
+
 func (s *Server) validateModelChoice(ctx context.Context, model, effort string) error {
 	if err := s.validateModelID(ctx, model); err != nil {
 		return err
 	}
-	if strings.TrimSpace(effort) == "" {
-		return nil
-	}
-	if s.engine != nil && !s.codexManaged {
+	if strings.TrimSpace(effort) == "" || !s.strictModelValidation() {
 		return nil
 	}
 	models, _, _ := s.loadModels(ctx)
-	for _, option := range models {
-		if option.ID != model && strings.TrimPrefix(option.ID, "codex-") != strings.TrimPrefix(model, "codex-") {
-			continue
+	if option, ok := s.matchModel(models, model); ok {
+		// A model without reasoning controls ignores the effort setting.
+		if len(option.ReasoningEfforts) == 0 {
+			return nil
 		}
 		for _, supported := range option.ReasoningEfforts {
 			if supported == effort {
@@ -240,33 +349,23 @@ func (s *Server) validateModelChoice(ctx context.Context, model, effort string) 
 		return fmt.Errorf("reasoning_effort %q is not supported by model %q", effort, model)
 	}
 	if len(models) == 0 {
-		if !strings.EqualFold(s.provider, "openai_codex") {
-			return nil
-		}
 		defaultModel, defaultReasoning := s.modelDefaults()
 		if model == defaultModel && effort == defaultReasoning {
 			return nil
 		}
 		return errors.New("available model metadata is required to validate this model and reasoning effort")
 	}
-	// A disconnected provider cannot prove availability. Preserve existing
-	// local/custom provider workflows; Codex settings remain conservative.
-	if strings.EqualFold(s.provider, "openai_codex") {
-		return fmt.Errorf("model %q is not present in available model metadata", model)
-	}
-	return nil
+	return fmt.Errorf("model %q is not present in available model metadata", model)
 }
 
 func (s *Server) validateModelID(ctx context.Context, model string) error {
 	model = strings.TrimSpace(model)
-	if model == "" || (s.engine != nil && !s.codexManaged) || !strings.EqualFold(s.provider, "openai_codex") {
+	if model == "" || !s.strictModelValidation() {
 		return nil
 	}
 	models, _, _ := s.loadModels(ctx)
-	for _, option := range models {
-		if option.ID == model || strings.TrimPrefix(option.ID, "codex-") == strings.TrimPrefix(model, "codex-") {
-			return nil
-		}
+	if _, ok := s.matchModel(models, model); ok {
+		return nil
 	}
 	if len(models) == 0 {
 		defaultModel, _ := s.modelDefaults()
@@ -280,10 +379,8 @@ func (s *Server) validateModelID(ctx context.Context, model string) error {
 
 func (s *Server) defaultReasoningForModel(ctx context.Context, model string) string {
 	models, _, _ := s.loadModels(ctx)
-	for _, option := range models {
-		if option.ID == model || strings.TrimPrefix(option.ID, "codex-") == strings.TrimPrefix(model, "codex-") {
-			return option.DefaultReasoning
-		}
+	if option, ok := s.matchModel(models, model); ok {
+		return option.DefaultReasoning
 	}
 	return ""
 }
