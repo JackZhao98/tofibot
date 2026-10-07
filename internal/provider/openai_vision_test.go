@@ -44,7 +44,7 @@ func TestOpenAIResponsesUsesRequestedReasoningEffort(t *testing.T) {
 }
 
 func TestOpenAIResponsesAttachesToolImagesAsVisualInput(t *testing.T) {
-	input := (&openaiResponses{}).convertMessages([]Message{{Role: "tool", Content: "--- Images ---\n- https://example.com/chart.png", ImageURLs: []string{"https://example.com/chart.png"}, ToolCallID: "call_123"}})
+	input := (&openaiResponses{}).convertMessages([]Message{{Role: "tool", Content: "--- Images ---\n- https://example.com/chart.png", ImageURLs: []string{"https://example.com/chart.png"}, ToolCallID: "call_123"}}, false)
 	if len(input) != 2 {
 		t.Fatalf("expected tool output and visual message, got %d inputs", len(input))
 	}

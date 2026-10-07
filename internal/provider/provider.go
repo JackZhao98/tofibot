@@ -28,6 +28,20 @@ type ChatRequest struct {
 	System          string    // System prompt (extracted from messages for providers that need it separate)
 	Messages        []Message // Conversation history
 	Tools           []Tool    // Available tools for function calling
+	// PromptCacheKey groups requests that share a prefix (Responses API only).
+	PromptCacheKey string
+	// OmitReasoningReplay drops Message.ReasoningItems from the request after
+	// the provider rejected them once in this run.
+	OmitReasoningReplay bool
+}
+
+// ReasoningItem is an opaque Responses API reasoning output item. With
+// store=false it must be replayed with its encrypted content before the
+// function calls it produced, so the model can continue its prior reasoning.
+type ReasoningItem struct {
+	ID               string   `json:"id,omitempty"`
+	EncryptedContent string   `json:"encrypted_content,omitempty"`
+	Summary          []string `json:"summary,omitempty"`
 }
 
 // Message represents a conversation message in the unified format.
@@ -38,6 +52,8 @@ type Message struct {
 	ToolCalls  []ToolCall // For assistant messages: tool calls made
 	ToolCallID string     // For tool messages: which call this is responding to
 	ToolName   string     // For tool messages: name of the tool
+	// ReasoningItems belong to an assistant tool-call message (Responses API).
+	ReasoningItems []ReasoningItem `json:"reasoning_items,omitempty"`
 	// Backend metadata only; provider request converters never send these fields.
 	ToolOutcome *tooloutcome.Outcome `json:"tool_outcome,omitempty"`
 	ToolFailed  bool                 `json:"tool_failed,omitempty"`
@@ -78,6 +94,11 @@ type ChatResponse struct {
 	Reasoning string     // Full reasoning/thinking content
 	ToolCalls []ToolCall // Completed tool calls
 	Usage     Usage      // Token usage statistics
+	// ReasoningItems are replayable reasoning outputs (encrypted content present).
+	ReasoningItems []ReasoningItem
+	// ReasoningReplayRejected reports that the provider rejected replayed
+	// reasoning items and this response was produced without them.
+	ReasoningReplayRejected bool
 }
 
 // HasToolCalls returns true if the response contains tool calls.
