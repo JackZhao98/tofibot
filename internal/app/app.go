@@ -45,6 +45,10 @@ type Bot struct {
 	DMConversationID string `json:"dm_conversation_id"`
 	CreatedAt        string `json:"created_at"`
 	Archived         bool   `json:"archived"`
+	// EffectiveModel and EffectiveReasoningEffort are what the Bot executes
+	// with now; Model/ReasoningEffort stay raw ("default" follows global).
+	EffectiveModel           string `json:"effective_model,omitempty"`
+	EffectiveReasoningEffort string `json:"effective_reasoning_effort,omitempty"`
 }
 type Conversation struct {
 	UnreadCount       int                    `json:"unread_count"`
@@ -2245,6 +2249,12 @@ func NewServer(c Config) (*Server, error) {
 		st.Close()
 		return nil, err
 	}
+	if switched, me := server.migrateBotsToFollowGlobal(); me != nil {
+		st.Close()
+		return nil, fmt.Errorf("follow-global model migration: %w", me)
+	} else if switched > 0 {
+		log.Printf("[model-settings] %d Bot(s) now follow the global model", switched)
+	}
 	server.extensions = extensions.NewManager(extensions.Config{MCPConfigPath: c.MCPConfigPath, SkillsDir: c.SkillsDir, ExpandToolQuery: server.expandToolSearchQuery, HTTPTransport: server.localMCPTransport, ServerUsable: server.mcpServerUsable})
 	if st.requireGuestAttachments && microVM != nil {
 		st.guestBlobs = microVM
@@ -2582,7 +2592,7 @@ func (s *Server) bots(w http.ResponseWriter, r *http.Request) {
 			writeErr(w, 500, "storage", e.Error())
 			return
 		}
-		writeJSON(w, 200, map[string]any{"bots": x})
+		writeJSON(w, 200, map[string]any{"bots": s.withEffectiveModels(r.Context(), x...)})
 		return
 	}
 	if r.Method == http.MethodPost && r.URL.Path == "/api/bots" {
@@ -2598,17 +2608,17 @@ func (s *Server) bots(w http.ResponseWriter, r *http.Request) {
 			writeErr(w, 400, "invalid_request", "invalid request")
 			return
 		}
-		if x.Model == "" {
-			x.Model = s.defaultModel
+		// A Bot follows the global model unless the request pins one.
+		x.Model, x.ReasoningEffort = strings.TrimSpace(x.Model), strings.TrimSpace(x.ReasoningEffort)
+		if isFollowGlobalModel(x.Model) {
+			x.Model = followGlobalModel
 		}
 		if x.ReasoningEffort == "" {
-			_, x.ReasoningEffort = s.modelDefaults()
+			x.ReasoningEffort = followGlobalModel
 		}
-		if x.ReasoningEffort != "" {
-			if e := s.validateModelChoice(r.Context(), x.Model, x.ReasoningEffort); e != nil {
-				writeErr(w, http.StatusBadRequest, "invalid_model_settings", e.Error())
-				return
-			}
+		if e := s.validateModelChoice(r.Context(), x.Model, x.ReasoningEffort); e != nil {
+			writeErr(w, http.StatusBadRequest, "invalid_model_settings", e.Error())
+			return
 		}
 		if x.Onboarding {
 			b, duplicate, e := s.store.CreateOnboardingBotWithReasoning(x.ClientCreationID, x.Model, x.ReasoningEffort)
@@ -2617,10 +2627,10 @@ func (s *Server) bots(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 			if duplicate {
-				writeJSON(w, http.StatusOK, b)
+				writeJSON(w, http.StatusOK, s.withEffectiveModel(r.Context(), b))
 				return
 			}
-			writeJSON(w, http.StatusCreated, b)
+			writeJSON(w, http.StatusCreated, s.withEffectiveModel(r.Context(), b))
 			return
 		}
 		b, e := s.store.CreateBotWithReasoning(x.Name, x.Instructions, x.Model, x.ReasoningEffort)
@@ -2628,7 +2638,7 @@ func (s *Server) bots(w http.ResponseWriter, r *http.Request) {
 			writeErr(w, 400, "invalid_request", e.Error())
 			return
 		}
-		writeJSON(w, 201, b)
+		writeJSON(w, 201, s.withEffectiveModel(r.Context(), b))
 		return
 	}
 	id := strings.TrimPrefix(r.URL.Path, "/api/bots/")
@@ -2660,11 +2670,16 @@ func (s *Server) bots(w http.ResponseWriter, r *http.Request) {
 			}
 			model := current.Model
 			if x.Model != nil {
-				model = *x.Model
+				model = s.normalizeBotModel(*x.Model)
+				x.Model = &model
 			}
 			value := strings.TrimSpace(*x.ReasoningEffort)
 			if value == "" {
-				value = s.defaultReasoningForModel(r.Context(), model)
+				if isFollowGlobalModel(model) {
+					value = followGlobalModel
+				} else {
+					value = s.defaultReasoningForModel(r.Context(), model)
+				}
 			}
 			if e = s.validateModelChoice(r.Context(), model, value); e != nil {
 				writeErr(w, http.StatusBadRequest, "invalid_model_settings", e.Error())
@@ -2672,9 +2687,16 @@ func (s *Server) bots(w http.ResponseWriter, r *http.Request) {
 			}
 			x.ReasoningEffort = &value
 		} else if x.Model != nil {
-			if e := s.validateModelID(r.Context(), *x.Model); e != nil {
+			model := s.normalizeBotModel(*x.Model)
+			x.Model = &model
+			if e := s.validateModelID(r.Context(), model); e != nil {
 				writeErr(w, http.StatusBadRequest, "invalid_model_settings", e.Error())
 				return
+			}
+			if model == followGlobalModel {
+				// Following the global model follows its effort too.
+				effort := followGlobalModel
+				x.ReasoningEffort = &effort
 			}
 		}
 		b, e := s.store.UpdateBot(id, x.Name, x.Instructions, x.Model, x.ReasoningEffort)
@@ -2682,7 +2704,7 @@ func (s *Server) bots(w http.ResponseWriter, r *http.Request) {
 			writeErr(w, 404, "not_found", "bot not found")
 			return
 		}
-		writeJSON(w, 200, b)
+		writeJSON(w, 200, s.withEffectiveModel(r.Context(), b))
 		return
 	}
 	writeErr(w, 405, "method", "method not allowed")
@@ -3095,16 +3117,17 @@ func (s *Server) execute(c Conversation, r Run) {
 		capabilityPrompt = runtimeCapabilityPrompt
 	}
 	s.recordToolSnapshot(r.BotID, c.ID, tools)
-	model := r.Model
-	if model == "" {
-		model = botCfg.Model
-	}
-	reasoningEffort := botCfg.ReasoningEffort
-	if reasoningEffort == "" {
-		// Empty is the legacy persisted value. Keep existing Bots on the
-		// historical medium setting; newly-created HTTP Bots persist their
-		// workspace default explicitly.
-		reasoningEffort = "medium"
+	// "default" (and the legacy empty value) follow the global model;
+	// empty reasoning effort is legacy data and stays on "medium".
+	model, reasoningEffort := s.resolveBotModel(ctx, r.Model, botCfg)
+	if isFollowGlobalModel(r.Model) && model != "" {
+		// Continuations, approval expiry, failure classification and usage
+		// read the run row; give them the concrete model this run uses.
+		if err := s.store.setRunModelIfFollowing(r.ID, model); err != nil {
+			s.failRun(c, r, err)
+			return
+		}
+		r.Model = model
 	}
 	var onDelta, onThinking func(string)
 	var onAssistantTurn, onReviewDraft func(int, string) error
@@ -3528,13 +3551,12 @@ func (s *Server) noteAPIKeyRejection(model string, err error) bool {
 
 // runModel is the model a run executes with: its own, else its Bot's.
 func (s *Server) runModel(r Run) string {
-	if strings.TrimSpace(r.Model) != "" {
-		return r.Model
+	if !isFollowGlobalModel(r.Model) {
+		return strings.TrimSpace(r.Model)
 	}
-	if b, err := s.store.GetBot(r.BotID); err == nil {
-		return b.Model
-	}
-	return ""
+	b, _ := s.store.GetBot(r.BotID)
+	model, _ := s.resolveBotModel(context.Background(), r.Model, b)
+	return model
 }
 
 // noteModelAuthRejection keeps provider status truthful after the provider
@@ -3725,7 +3747,8 @@ func (s *Server) tools(c Conversation, r Run) []Tool {
 					continue
 				}
 			}
-			out = append(out, entry{b.ID, b.Name, b.Model, trimRunes(b.Instructions, 1500)})
+			model, _ := s.resolveBotModel(ctx, "", b)
+			out = append(out, entry{b.ID, b.Name, model, trimRunes(b.Instructions, 1500)})
 		}
 		data, _ := json.Marshal(out)
 		return string(data), nil

@@ -24,6 +24,7 @@ import {AdminAccounts} from "./AdminAccounts";
 import { SettingsShell, type SettingsTab } from "./SettingsShell";
 import { DictationSettings } from "./DictationSettings";
 import { ModelDefaults, ModelFields } from "./ModelSettings";
+import { followsGlobal } from "./modelCatalog";
 import { ModelProviders } from "./ProviderSettings";
 import { AutoReviewSettings } from "./AutoReviewSettings";
 import { ComputerCredentials } from "./ComputerCredentials";
@@ -1857,7 +1858,7 @@ function Workspace() {
         <aside ref={detailPaneRef} className={`detail-pane ${displayedPanel !== "settings" && displayedPanel !== "desktop" ? "context-panel" : ""} ${(panel === "bot-edit" || displayedPanel) && displayedPanel !== "desktop" ? "visible" : ""} ${!panel && displayedPanel && displayedPanel !== "desktop" ? "surface-exiting" : ""}`} inert={!panel || undefined} role={modalPanelOpen ? "dialog" : undefined} aria-modal={modalPanelOpen ? true : undefined} aria-label={panel === "settings" ? "设置" : panel === "terminal" ? "终端" : "详情"} tabIndex={modalPanelOpen ? -1 : undefined}>
           {displayedPanel === "group-create" && <BotPanel key="new-group" bots={bots.filter((bot) => !bot.archived)} onClose={() => setPanel(null)} onUpdate={updateBot} onCreateGroup={createGroup} />}
           {(panel === "bot-edit" || displayedPanel === "bot-edit") && <BotPanel refreshToken={scheduleRefresh} memories={memories} onOpenWork={() => setPanel("schedule")} onOpenMemory={() => setPanel("memory")} key={activeBot?.id ?? "edit-empty"} bots={bots} activeBot={activeBot} onClose={() => transitionBotPanel(false)} onUpdate={updateBot} onCreateGroup={createGroup} />}
-          {displayedPanel === "settings" && <SettingsShell tab={settingsTab} onTab={setSettingsTab} onClose={()=>setPanel(null)} renderPage={(page) => page === "admin" ? <AdminAccounts/> : page === "account" ? <><OwnerAccount /><AppearancePicker value={appearance.preference} onChange={appearance.choose} /><TimezoneSetting /><NotificationSetting /><WorkspacePurgeSettings />{conversations.some(conversation => conversation.archived) && <div className="legacy-archive-entry"><span>旧归档</span><button className="text-button" onClick={() => setPanel("archive")}>管理</button></div>}</> : page === "usage" ? <UsagePanel preferredBotId={usageBotId} timezone={timezone} /> : page === "debug" ? <DebugSettings bots={bots.filter(bot=>!bot.archived)} conversation={active}/> : page === "models" ? <><ModelDefaults/><AutoReviewSettings/></> : page === "dictate" ? <DictationSettings/> : page === "connection" ? <><ModelProviders refreshToken={codexStatusRefresh} onConfigured={() => void refreshIndex()} codex={<CodexPanel refreshToken={codexStatusRefresh} onConfigured={() => void refreshIndex()} />} /><ConnectionInfo /></> : page === "computers" ? <><ComputerResources/><ComputerPanel /></> : page === "credentials" ? <ComputerCredentials bots={bots.filter(bot=>!bot.archived)}/> : <ExtensionPanel bots={bots} kind={page} refreshToken={extensionRefresh} />} />}
+          {displayedPanel === "settings" && <SettingsShell tab={settingsTab} onTab={setSettingsTab} onClose={()=>setPanel(null)} renderPage={(page) => page === "admin" ? <AdminAccounts/> : page === "account" ? <><OwnerAccount /><AppearancePicker value={appearance.preference} onChange={appearance.choose} /><TimezoneSetting /><NotificationSetting /><WorkspacePurgeSettings />{conversations.some(conversation => conversation.archived) && <div className="legacy-archive-entry"><span>旧归档</span><button className="text-button" onClick={() => setPanel("archive")}>管理</button></div>}</> : page === "usage" ? <UsagePanel preferredBotId={usageBotId} timezone={timezone} /> : page === "debug" ? <DebugSettings bots={bots.filter(bot=>!bot.archived)} conversation={active}/> : page === "models" ? <><ModelDefaults bots={bots}/><AutoReviewSettings/></> : page === "dictate" ? <DictationSettings/> : page === "connection" ? <><ModelProviders refreshToken={codexStatusRefresh} onConfigured={() => void refreshIndex()} codex={<CodexPanel refreshToken={codexStatusRefresh} onConfigured={() => void refreshIndex()} />} /><ConnectionInfo /></> : page === "computers" ? <><ComputerResources/><ComputerPanel /></> : page === "credentials" ? <ComputerCredentials bots={bots.filter(bot=>!bot.archived)}/> : <ExtensionPanel bots={bots} kind={page} refreshToken={extensionRefresh} />} />}
           {displayedPanel === "archive" && <ArchivePanel onClose={() => setPanel(null)} onOpen={(id) => { selectConversation(id); setMobileList(false); setPanel(null); }} onLoaded={mergeArchived} onChanged={refreshAfterArchive} onDelete={confirmDelete} />}
           {displayedPanel === "terminal" && desktopBot && <Suspense fallback={<DelayedFeedback><div className="inline-state" role="status">载入终端…</div></DelayedFeedback>}><TerminalPanel key={desktopBot.id} botId={desktopBot.id} botName={desktopBot.name} onClose={() => setPanel(null)} /></Suspense>}
           {displayedPanel === "memory" && activeId && <MemoryPanel key={activeId} memories={memories} conversationId={activeId} scope={active?.kind === "group" ? "group" : "bot"} onClose={() => setPanel(null)} onCreate={async (input) => { const memory = await api.createMemory(activeId, input); setMemories((current) => [...current.filter((item) => item.id !== memory.id), memory]); }} onUpdate={async (id, input) => { const memory = await api.updateMemory(id, input); setMemories((current) => current.map((item) => item.id === id ? memory : item)); }} onDelete={async (id) => { await api.deleteMemory(id); setMemories((current) => current.filter((item) => item.id !== id)); }} />}
@@ -2805,7 +2806,11 @@ function BotPanel({ bots, activeBot, onClose, onUpdate, onCreateGroup, onOpenWor
   }
   if (activeBot) {
     const role = instructions.trim().split(/[\n。！？.!?]/)[0]?.trim();
-    const effortLabel = (activeBot.reasoning_effort || effort) ? ` · ${activeBot.reasoning_effort || effort}` : "";
+    // "default" is a stored sentinel; show what the Bot runs with now.
+    const follows = followsGlobal(activeBot.model);
+    const modelLine = follows ? (activeBot.effective_model ? `跟随全局 · ${activeBot.effective_model}` : "跟随全局") : activeBot.model;
+    const shownEffort = activeBot.effective_reasoning_effort || (activeBot.reasoning_effort !== "default" ? activeBot.reasoning_effort : "");
+    const effortLabel = shownEffort ? ` · ${shownEffort}` : "";
     const latestMemoryDisplay = memories.length ? memoryDisplay(memories.at(-1)) : undefined;
     const latestMemory = latestMemoryDisplay ? `${latestMemoryDisplay.title} · ${latestMemoryDisplay.description}` : undefined;
     return <div className="detail-content bot-v2-panel">
@@ -2820,7 +2825,7 @@ function BotPanel({ bots, activeBot, onClose, onUpdate, onCreateGroup, onOpenWor
             <span className="bot-v2-cat"><GazeAvatar id={activeBot.id} config={avatarConfig} motion="awake" /></span>
             <span className="bot-v2-change" aria-hidden="true"><Icon name="edit" size={13}/></span>
           </button>
-          <div className="bot-v2-identity"><h2>{activeBot.name}</h2>{role && <p>{role}</p>}<span className="bot-v2-model">{activeBot.model || model || "默认模型"}{effortLabel}</span></div>
+          <div className="bot-v2-identity"><h2>{activeBot.name}</h2>{role && <p>{role}</p>}<span className="bot-v2-model">{modelLine}{effortLabel}</span></div>
         </div>
         <nav className="bot-v2-rows" aria-label="Bot 资料">
           {onOpenWork && <WorkPreview disabled={saving} scope={{type:"bots",id:activeBot.id}} refreshToken={refreshToken} onOpen={onOpenWork} leading={<span className="bot-v2-row-icon" aria-hidden="true"><Icon name="checklist" size={18}/></span>}/>}

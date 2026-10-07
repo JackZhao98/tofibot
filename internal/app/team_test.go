@@ -539,8 +539,13 @@ func TestTeamDefaultModelNeverBecomesUpstreamModelName(t *testing.T) {
 	if err = json.Unmarshal([]byte(out), &b); err != nil {
 		t.Fatal(err)
 	}
-	if b.Model != "" {
-		t.Fatalf("model alias leaked into upstream configuration: %q", b.Model)
+	// "default" is the stored follow-global sentinel; it resolves to the
+	// workspace's concrete model and never reaches a provider.
+	if b.Model != followGlobalModel || b.ReasoningEffort != followGlobalModel {
+		t.Fatalf("team Bot does not follow the global model: %q/%q", b.Model, b.ReasoningEffort)
+	}
+	if model, effort := s.resolveBotModel(context.Background(), "", b); model != "codex-gpt-5.6-luna" || effort != "medium" {
+		t.Fatalf("model alias leaked into upstream configuration: %q/%q", model, effort)
 	}
 	if _, err = tool.Execute(context.Background(), json.RawMessage(`{"name":"bad","instructions":"task","model":"invented-model"}`)); err == nil {
 		t.Fatal("invented upstream model accepted")

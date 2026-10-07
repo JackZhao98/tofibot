@@ -322,7 +322,10 @@ func (s *Server) executeApprovalExpiry(c Conversation, r Run) {
 					tools = append(tools, t)
 				}
 			}
-			res, e := engine.Run(ctx, Request{BotID: r.BotID, RunID: r.ID, Model: r.Model, ReasoningEffort: b.ReasoningEffort, System: system, Continuation: checkpoint, ApprovalExpiryRecovery: true, Tools: tools, OnToolEvent: func(ev runtime.ToolEvent) error { return s.store.RecordToolEvent(c.ID, r.BotID, r.ID, ev) }, OnUsage: func(input, output int64) { _ = s.store.recordModelUsage(r.ID, input, output) }})
+			// The run row holds the concrete model it started with; the
+			// Bot's effort may be "default" and resolves the same way.
+			model, effort := s.resolveBotModel(ctx, r.Model, b)
+			res, e := engine.Run(ctx, Request{BotID: r.BotID, RunID: r.ID, Model: model, ReasoningEffort: effort, System: system, Continuation: checkpoint, ApprovalExpiryRecovery: true, Tools: tools, OnToolEvent: func(ev runtime.ToolEvent) error { return s.store.RecordToolEvent(c.ID, r.BotID, r.ID, ev) }, OnUsage: func(input, output int64) { _ = s.store.recordModelUsage(r.ID, input, output) }})
 			if e == nil {
 				content = cleanBotOutput(res.Content, b)
 			}

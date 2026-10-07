@@ -87,7 +87,7 @@ func TestWorkspaceToolsManageBotsGroupsAndDeleteDirectly(t *testing.T) {
 	}
 
 	updatedBot := workspaceJSON(t, workspaceTestTool(t, s, r, "workspace_update_bot"), `{"bot_id":"`+a.ID+`","name":" Alpha renamed ","instructions":"new instructions","model":"default"}`)
-	if updatedBot["name"] != "Alpha renamed" || updatedBot["instructions"] != "new instructions" || updatedBot["model"] != "" {
+	if updatedBot["name"] != "Alpha renamed" || updatedBot["instructions"] != "new instructions" || updatedBot["model"] != followGlobalModel || updatedBot["reasoning_effort"] != followGlobalModel || updatedBot["effective_model"] != "model" {
 		t.Fatalf("updated bot=%v", updatedBot)
 	}
 	storedBot, err := s.store.GetBot(a.ID)
