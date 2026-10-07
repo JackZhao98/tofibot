@@ -57,7 +57,7 @@ createRoot(document.getElementById('root')).render(<Fixture/>);`);
       writes.push(`PUT ${match[1]}`);
       const {key} = JSON.parse(request.postData() || "{}");
       await new Promise(resolve => setTimeout(resolve, 400));
-      if (key === badKey) return reply({error: {code: "invalid_key", message: "Incorrect API key provided: sk-synth****0000"}}, 400);
+      if (key === badKey) return reply({error: {code: "invalid_key", message: "OpenAI rejected this API key (HTTP 401)."}}, 400);
       providers[match[1]] = {...providers[match[1]], configured: true, key_hint: `…${key.slice(-4)}`, verified_at: "2026-10-07T17:30:00Z", error: ""};
       return reply(providers[match[1]]);
     }
@@ -97,7 +97,9 @@ createRoot(document.getElementById('root')).render(<Fixture/>);`);
     await openai.getByRole("button", {name: "验证中…"}).waitFor();
     assert(await openai.getByRole("button", {name: "验证中…"}).isDisabled());
     await openai.getByRole("alert").filter({hasText: "没有通过 OpenAI 的验证"}).waitFor();
-    assert(!(await openai.innerText()).includes("Incorrect API key"), "upstream detail stays out of the note");
+    // The server's own reason is shown; no part of the key ever is.
+    assert((await openai.innerText()).includes("HTTP 401"), "server reason is shown");
+    assert(!(await openai.innerText()).includes(badKey.slice(-6)), "key stays out of the note");
     assert.equal(await input.getAttribute("type"), "password");
     // Valid key: input cleared, status shows only the hint.
     await input.fill(goodKey);

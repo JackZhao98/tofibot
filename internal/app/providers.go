@@ -705,6 +705,7 @@ func (s *Server) putProviderKey(w http.ResponseWriter, r *http.Request, name str
 	}
 	models, status, err := s.fetchProviderModels(r.Context(), name, key)
 	if err != nil || len(models) == 0 {
+		log.Printf("[providers] %s key verification failed: status=%d models=%d err=%v", name, status, len(models), err)
 		switch {
 		case errors.Is(err, errProviderUnreachable) || status >= 500 || status == http.StatusTooManyRequests:
 			writeErr(w, http.StatusBadGateway, "provider_unreachable", fmt.Sprintf("%s could not be reached to verify the key; try again.", providerLabel(name)))
