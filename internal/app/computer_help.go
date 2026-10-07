@@ -19,7 +19,7 @@ The latest user instruction determines the task; unfinished history is not permi
 func computerHelpTool() Tool {
 	return Tool{
 		Name:        "computer_help",
-		Description: "Read VM procedures: browser before graphical work; installation before software changes. Instructions only, no VM actions.",
+		Description: "Read VM procedures: installation before software changes; browser for optional detail on shared-desktop startup, tabs and visible search. Instructions only, no VM actions.",
 		Parameters:  objectSchema(map[string]any{"topic": map[string]any{"type": "string", "enum": []string{"browser", "installation"}}}, []string{"topic"}),
 		Execute: func(_ context.Context, raw json.RawMessage) (string, error) {
 			var in struct {

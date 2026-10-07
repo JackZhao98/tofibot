@@ -460,10 +460,14 @@ func TestMicroVMToolsUseGuestActionContract(t *testing.T) {
 	s := &Server{microVM: client, computerLeases: map[string]*sync.Mutex{}, computerOwners: map[string]string{}}
 	run := Run{ID: "run-1", BotID: "11111111-1111-4111-8111-111111111111"}
 	prompt := s.microVMEnvironmentPrompt(context.Background(), run.BotID)
-	for _, fragment := range []string{"status ready/ready", "/workspace/bots/" + run.BotID, "/workspace/shared", "Google Chrome", "service host"} {
+	for _, fragment := range []string{"/workspace/bots/" + run.BotID, "/workspace/shared", "Google Chrome", "service host"} {
 		if !strings.Contains(prompt, fragment) {
 			t.Fatalf("environment prompt missing %q: %s", fragment, prompt)
 		}
+	}
+	// Volatile status trails the history instead of the cache-stable system text.
+	if status := s.microVMStatus(context.Background()); status != "VM status ready/ready" || strings.Contains(prompt, "ready/ready") {
+		t.Fatalf("VM status=%q prompt=%s", status, prompt)
 	}
 	tools := s.microVMTools(run)
 	byName := make(map[string]Tool, len(tools))
