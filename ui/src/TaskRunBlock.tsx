@@ -16,7 +16,7 @@ const SETTLE = springEasing(SPRINGS.morph);
 const settleVars = { "--spring": SETTLE.easing, "--spring-ms": `${SETTLE.durationMs}ms` } as React.CSSProperties;
 
 export type TaskDetailState = { loaded: number; toolCount: number; hasMore: boolean; loading: boolean; error?: string };
-export type TaskRunBlockProps = { owner: TaskOwner; tools: ToolActivity[]; questions: Question[]; drafts: MailDraft[]; messages: Message[]; summaries: ToolActivityRunSummary[]; details?: Record<string, TaskDetailState>; connected?: boolean; locale?: TaskLocale; botName?: string; showName?: boolean; onFeedback?: (text:string) => void; onOpenTools: () => void; onRefresh: () => Promise<void>; onLoadDetails?: (runId: string, offset: number) => Promise<void>; renderMessage?: (message: Message) => ReactNode; renderQuestion: (question: Question) => ReactNode; renderDraft: (draft: MailDraft) => ReactNode };
+export type TaskRunBlockProps = { owner: TaskOwner; tools: ToolActivity[]; questions: Question[]; drafts: MailDraft[]; messages: Message[]; summaries: ToolActivityRunSummary[]; details?: Record<string, TaskDetailState>; connected?: boolean; locale?: TaskLocale; botName?: string; showName?: boolean; onFeedback?: (text:string) => void; onOpenTools: () => void; onRefresh: () => Promise<void>; onLoadDetails?: (runId: string, offset: number) => Promise<void>; liveStatus?: string; liveAvatar?: ReactNode; renderMessage?: (message: Message) => ReactNode; renderQuestion: (question: Question) => ReactNode; renderDraft: (draft: MailDraft) => ReactNode };
 
 const GROW = springEasing(SPRINGS.settle);
 const drawers = new WeakMap<HTMLElement, Animation[]>();
@@ -57,8 +57,10 @@ export function toggleDisclosure(event: React.MouseEvent<HTMLElement>) {
   animateDisclosure(details, details.dataset.drawer ? details.dataset.drawer === "closing" : !details.open);
 }
 
-export function ActivityDisclosure({ children, locale, detail, problem, disclosureRef, onOpen }: { children: ReactNode; locale: TaskLocale; detail?: string; problem?: string; disclosureRef: React.RefObject<HTMLDetailsElement | null>; onOpen: () => void }) {
-  return <details className="task-activity" ref={disclosureRef} style={settleVars} onToggle={event => { if (event.currentTarget.open) onOpen(); }}><summary onClick={toggleDisclosure}><TofiIcon name="chevron-right" size={16} aria-hidden="true" />{taskText(locale, "工作过程", "Activity")}{detail && <span className="task-activity-detail"> · {detail}</span>}{problem && <span className="task-activity-problem"> · {problem}</span>}</summary><div className="task-activity-records">{children}</div></details>;
+export function ActivityDisclosure({ children, locale, detail, problem, live, disclosureRef, onOpen }: { children: ReactNode; locale: TaskLocale; detail?: string; problem?: string; live?: { label: string; avatar?: ReactNode }; disclosureRef: React.RefObject<HTMLDetailsElement | null>; onOpen: () => void }) {
+  // While the Bot works the whole block is one quiet status line; the steps
+  // stay folded until someone opens them.
+  return <details className={`task-activity${live ? " is-live" : ""}`} ref={disclosureRef} style={settleVars} onToggle={event => { if (event.currentTarget.open) onOpen(); }}><summary onClick={toggleDisclosure}>{live ? <>{live.avatar && <span className="task-activity-cat" aria-hidden="true">{live.avatar}</span>}<span className="task-activity-live" role="status">{live.label}</span></> : <><TofiIcon name="chevron-right" size={16} aria-hidden="true" />{taskText(locale, "工作过程", "Activity")}{detail && <span className="task-activity-detail"> · {detail}</span>}{problem && <span className="task-activity-problem"> · {problem}</span>}</>}</summary><div className="task-activity-records">{children}</div></details>;
 }
 
 /** One step: marker, human action, short argument, then state and duration. */
@@ -92,7 +94,7 @@ function ToolStepRecord({ tool, locale, now, onOpenTools }: { tool: ToolActivity
 }
 
 /** One durable owner replaces progress in place; actual final answers stay in chat. */
-export function TaskRunBlock({ owner, tools, questions, drafts, messages, summaries, details = {}, connected = true, locale = taskLocale(), botName, showName, onFeedback, onOpenTools, onRefresh, onLoadDetails, renderMessage, renderQuestion, renderDraft }: TaskRunBlockProps) {
+export function TaskRunBlock({ owner, tools, questions, drafts, messages, summaries, details = {}, connected = true, locale = taskLocale(), botName, showName, onFeedback, onOpenTools, onRefresh, onLoadDetails, liveStatus, liveAvatar, renderMessage, renderQuestion, renderDraft }: TaskRunBlockProps) {
   const disclosure = useRef<HTMLDetailsElement>(null);
   const block = useRef<HTMLElement>(null);
   const needsFocus = useRef(false);
@@ -129,29 +131,19 @@ export function TaskRunBlock({ owner, tools, questions, drafts, messages, summar
   const attemptStatus = (status: string) => ({ done: t("已完成", "Done"), failed: t("失败", "Failed"), cancelled: t("已取消", "Cancelled"), interrupted: t("已中断", "Interrupted") } as Record<string, string>)[status] ?? t("已结束", "Ended");
   const toolTotal = owner.family.attempts.reduce<number | undefined>((sum, attempt) => { const count = summaries.find(item => item.run_id === attempt.id)?.tool_count ?? details[attempt.id]?.toolCount; return count === undefined || sum === undefined ? undefined : sum + count; }, 0);
   const runSeconds = run.status !== "running" && run.status !== "queued" ? (Date.parse(run.updated_at) - Date.parse(run.created_at)) / 1000 : NaN;
-  const problemCount = owner.family.attempts.reduce((sum, attempt) => { const summary = summaries.find(item => item.run_id === attempt.id); return sum + (summary ? summary.failed_count + summary.interrupted_count : tools.filter(tool => tool.run_id === attempt.id && problemStates.includes(toolDisplayState(tool))).length); }, 0);
   const activityDetail = [toolTotal ? t(`${toolTotal} 个工具`, `${toolTotal} ${toolTotal === 1 ? "tool" : "tools"}`) : "", Number.isFinite(runSeconds) && runSeconds >= 0 && toolTotal ? formatStepSeconds(runSeconds) : ""].filter(Boolean).join(" · ") || undefined;
   const [pendingStep, setPendingStep] = useState("");
   // While the Bot works the steps are open and the running step's clock ticks;
   // when the run ends they fold into the summary line (Motion Lab ToolSteps).
   const live = !isTerminalRun(run);
   const [now, setNow] = useState(() => Date.now());
-  const wasLive = useRef(live);
   useEffect(() => {
-    if (!live || !currentTools.some(tool => tool.status === "running")) return;
-    const ticker = window.setInterval(() => setNow(Date.now()), 100);
+    if (!live) return;
+    const ticker = window.setInterval(() => setNow(Date.now()), currentTools.some(tool => tool.status === "running") ? 100 : 1000);
     return () => window.clearInterval(ticker);
   }, [live, currentTools]);
-  useEffect(() => {
-    const details = disclosure.current;
-    if (!details) return;
-    if (live && !wasLive.current) wasLive.current = true;
-    if (live && !details.open && currentTools.length) { details.open = true; }
-    if (!live && wasLive.current) {
-      wasLive.current = false;
-      if (details.open) foldSteps(details);
-    }
-  }, [live, currentTools.length]);
+  const liveSeconds = Math.max(0, Math.floor((now - Date.parse(run.created_at)) / 1000));
+  const liveLine = live ? { label: `${liveStatus || t("正在思考", "Thinking")} · ${formatStepSeconds(liveSeconds)}`, avatar: liveAvatar } : undefined;
   function openStep(runId: string, callId: string) {
     if (disclosure.current && !disclosure.current.open) disclosure.current.open = true;
     setPendingStep(`${runId}:${callId}`);
@@ -167,31 +159,14 @@ export function TaskRunBlock({ owner, tools, questions, drafts, messages, summar
     step.querySelector<HTMLElement>("summary")?.focus({ preventScroll: true });
     setPendingStep("");
   }, [pendingStep, tools]);
-  function foldSteps(details: HTMLDetailsElement) {
-    const records = details.querySelector<HTMLElement>(".task-activity-records");
-    const summary = details.querySelector<HTMLElement>(":scope > summary");
-    if (!records || !summary || prefersReducedMotion()) { details.open = false; return; }
-    const from = records.getBoundingClientRect(), to = summary.getBoundingClientRect();
-    const ghost = records.cloneNode(true) as HTMLElement;
-    ghost.classList.add("task-steps-ghost");
-    // The ghost covers the answer arriving underneath, so it takes the page's real background.
-    let surface: Element | null = details, background = "";
-    while (surface && (!background || background === "transparent" || background === "rgba(0, 0, 0, 0)")) { background = getComputedStyle(surface).backgroundColor; surface = surface.parentElement; }
-    Object.assign(ghost.style, { position: "fixed", left: `${from.left}px`, top: `${from.top}px`, width: `${from.width}px`, margin: "0", pointerEvents: "none", transformOrigin: "0 0", zIndex: "3", background });
-    document.body.append(ghost);
-    details.open = false;
-    const fold = ghost.animate({ transform: ["none", `translate(${to.left - from.left}px, ${to.top - from.top}px) scale(${Math.min(1, to.width / from.width)}, ${Math.max(0.05, to.height / from.height)})`], opacity: [1, 0.6, 0] }, { duration: 520, easing: "cubic-bezier(.5,0,.2,1)" });
-    summary.animate({ opacity: [0.4, 1], transform: ["translateY(-4px)", "none"] }, { duration: 360, delay: 260, easing: "cubic-bezier(.22,1,.36,1)", fill: "backwards" });
-    fold.finished.finally(() => ghost.remove());
-  }
   function viewActivity() { if (disclosure.current) { disclosure.current.open = true; disclosure.current.querySelector("summary")?.focus(); } }
   return <section ref={block} className="task-run-block" data-task-owner={owner.key} data-run-id={run.id} data-latest-run-id={run.id} tabIndex={-1} aria-label={t("任务记录", "Task records")}>
     {showName && botName && <p className="task-run-identity">{botName}</p>}
-    {issue ? <TaskIssueCard issue={issue} locale={locale} onFeedback={onFeedback} onOpenStep={openStep} onAction={issue.action === "open_tools" ? onOpenTools : issue.action === "open_codex" ? () => { window.dispatchEvent(new Event("tofi:open-codex-settings")); } : issue.action === "refresh_status" ? onRefresh : viewActivity} /> : !(run.status === "done" && hasFinal) && <p className="task-run-phase">{taskPhaseLabel(input)}</p>}
+    {issue ? <TaskIssueCard issue={issue} locale={locale} onFeedback={onFeedback} onOpenStep={openStep} onAction={issue.action === "open_tools" ? onOpenTools : issue.action === "open_codex" ? () => { window.dispatchEvent(new Event("tofi:open-codex-settings")); } : issue.action === "refresh_status" ? onRefresh : viewActivity} /> : !live && !(run.status === "done" && hasFinal) && <p className="task-run-phase">{taskPhaseLabel(input)}</p>}
     {/* A separate valid proposal survives another call's failure/unknown effect. */}
     {decisions.map(renderQuestion)}
     {currentDrafts.filter(draft => draft.status !== "unknown").map(renderDraft)}
-    <ActivityDisclosure locale={locale} detail={activityDetail} problem={problemCount ? t(`${problemCount} 步未完成`, `${problemCount} ${problemCount === 1 ? "step" : "steps"} did not finish`) : undefined} disclosureRef={disclosure} onOpen={loadInitial}>
+    <ActivityDisclosure locale={locale} detail={activityDetail} live={liveLine} disclosureRef={disclosure} onOpen={loadInitial}>
       {owner.family.previous.map((attempt, index) => <p key={attempt.id} className="task-record-meta">{t("此前尝试", "Previous attempt")} {index + 1} · {attemptStatus(attempt.status)}</p>)}
       {recordedQuestions.map(question => <section className="task-question-record" key={question.question_id} data-question-record-id={question.question_id} tabIndex={-1}>
         <p>{question.question_type === "approval" ? question.approval?.review_only || question.approval?.review?.status.startsWith("shadow") ? t("观察记录，不提供执行权限。", "Observation only; it does not grant execution permission.") : question.status === "answered" && question.answer === true ? t("已批准，操作尚未确认完成。", "Approved; execution is not yet confirmed.") : question.status === "expired" ? t("批准已过期。", "Approval expired.") : t("决定与执行前检查记录", "Decision and pre-execution check record") : t("回答记录", "Answer record")}</p>

@@ -147,14 +147,14 @@ func (s *Server) microVMEnvironmentPrompt(ctx context.Context, botID string) str
 	if info.DesktopIdleSeconds != nil {
 		idle = fmt.Sprintf(" Desktop idle timeout: %ds (0 disables).", *info.DesktopIdleSeconds)
 	}
-	return fmt.Sprintf("\nShared Linux VM, separate from the service host and Mac; never claim host/Mac access. cwd=%s/bots/%s, HOME=/workspace/home; /workspace/shared, files, tools, Chrome profile and display are shared. Browser: %s. Read-only system; no sudo/system apt. Read computer_help(installation) before software changes. Use tools only when ready; otherwise report status. %s No shell fetches, hidden DOM or offscreen captures as browsing evidence. Stop the shared desktop only on user intent. Private keys use Secret Input; return public keys only.", root, botID, browser, computerBrowserEssentials) + idle
+	return fmt.Sprintf("\nShared Linux VM, separate from the service host and Mac; never claim host/Mac access. cwd=%s/bots/%s, HOME=/workspace/home; /workspace/shared, files, tools, Chrome profile and display are shared. Browser: %s. System directories are read-only (no sudo). Install software in user space: language package managers, or official release archives unpacked under /workspace/home/.local/opt and linked into /workspace/home/.local/bin (first on PATH, shared by all Bots); uninstall by removing exactly what was installed, then verify. computer_help(installation) has details. Use tools only when ready; otherwise report status. %s Stop the shared desktop only on user intent. Private keys use Secret Input; return public keys only.", root, botID, browser, computerBrowserEssentials) + idle
 }
 
 // computerBrowserEssentials is the always-present browser recipe; computer_help
 // keeps the longer procedure.
-const computerBrowserEssentials = "If the desktop is unknown/stopped, run desktop.start once, then browser.snapshot. Never infer the page from history: observe before acting, use coordinates only from the latest capture, verify the visible result after each material action; no guessed URLs for requested page interactions."
+const computerBrowserEssentials = "Browser: if the desktop is stopped, run desktop.start once. Read pages with browser.read (text, links, find a phrase); take browser.snapshot only for layout or click coordinates, and use coordinates only from the latest snapshot. Open searches and sites directly by URL (for example https://www.google.com/search?q=… or https://mail.google.com/mail/u/0/#search/…). Opening an item to read it is fine under read-only requests; just do not change, send or delete anything."
 
-const computerResearchGuidance = " For web research, start with the user's words and language. If weak, vary the query or route. For direct links, open result pages and record their actual URLs and requested fields; a search card is not a destination. For 'all' results, sweep visible results and related pages, deduplicate, and qualify coverage. browser.snapshot already includes a screenshot; do not repeat it with desktop.capture. Observe once after each material action, not twice on an unchanged page."
+const computerResearchGuidance = " For research, open the primary pages (the article, filing or official page), not search-result pages, and cite those URLs with dates. A few good sources beat many screenshots."
 
 func (s *Server) listComputers(ctx context.Context) ([]Computer, error) {
 	items, err := s.store.listComputers(s.instance.ID)
@@ -401,7 +401,20 @@ func (s *Server) microVMTools(r Run) []Tool {
 					return "", fmt.Errorf("scheduled browser startup: %w", err)
 				}
 			}
-			return s.microVMAction(ctx, r, action, args)
+			if action == "browser.read" {
+				out, err := s.browserRead(ctx, r, args)
+				if err != nil && browserProcessGone(err) && s.restartDesktop(ctx, r) == nil {
+					out, err = s.browserRead(ctx, r, args)
+				}
+				return out, err
+			}
+			out, err := s.microVMAction(ctx, r, action, args)
+			// Chrome can exit under a still-registered desktop; every later
+			// browser call then fails the same way. Restart it once and retry.
+			if err != nil && name == "computer_browser" && browserProcessGone(err) && s.restartDesktop(ctx, r) == nil {
+				out, err = s.microVMAction(ctx, r, action, args)
+			}
+			return out, err
 		}}
 	}
 	shell := call("computer_shell", "Run a bounded shell command with this Bot's default working directory inside the shared user VM. HOME and installed tools are shared across all Bots in this VM; installing or uninstalling a command affects all of them. Only default working directories differ and remain mutually accessible. Load a project's .env explicitly when needed.", objectSchema(map[string]any{"command": map[string]any{"type": "string", "description": "bash command, for example pwd"}, "timeout_sec": map[string]any{"type": "integer", "minimum": 1, "maximum": 120, "description": "Optional command timeout in seconds"}}, []string{"command"}), func(raw json.RawMessage) (string, json.RawMessage, error) {
@@ -500,18 +513,22 @@ func (s *Server) microVMTools(r Run) []Tool {
 		argsJSON, _ := json.Marshal(args)
 		return in.Action, argsJSON, nil
 	})
-	browser := call("computer_browser", "Inspect this Bot's visible Chrome viewport and current foreground page. Snapshot before acting on this page. Navigate opens an explicitly requested URL in the current tab; use desktop click/type/scroll for page search and pagination. To view another tab, switch it to the foreground. All Bots share the current visible Chrome and profile. After waiting for control, inspect the screen again before acting.", objectSchema(map[string]any{"action": map[string]any{"type": "string", "enum": []string{"browser.navigate", "browser.snapshot", "browser.action"}, "description": "browser.navigate needs url; browser.snapshot needs no extra field; browser.action uses target_action"}, "url": map[string]any{"type": "string", "description": "URL for browser.navigate"}, "target_action": map[string]any{"type": "string", "enum": []string{"navigate", "snapshot", "new", "switch", "close"}, "description": "Browser action; new explicitly opens a foreground tab; switch/close require target_id"}, "target_id": map[string]any{"type": "string", "description": "Exact target_id from browser.snapshot; omit to use the actual current foreground tab"}}, []string{"action"}), func(raw json.RawMessage) (string, json.RawMessage, error) {
+	browser := call("computer_browser", "Use the shared Chrome. browser.read returns the focused page's text and links (use find to jump to a phrase); prefer it for reading pages, results, articles and mail. browser.snapshot returns a screenshot for layout and click coordinates. browser.navigate opens a URL in the current tab (search engines and site searches by URL are fine). browser.action switches/opens/closes tabs. All Bots share this Chrome and its logged-in profile.", objectSchema(map[string]any{"action": map[string]any{"type": "string", "enum": []string{"browser.read", "browser.navigate", "browser.snapshot", "browser.action"}, "description": "browser.read: page text+links (optional find, max_chars); browser.navigate needs url; browser.snapshot: screenshot; browser.action uses target_action"}, "find": map[string]any{"type": "string", "description": "browser.read: return passages around this phrase"}, "max_chars": map[string]any{"type": "integer", "minimum": 1000, "maximum": 60000, "description": "browser.read: text budget, default 20000"}, "url": map[string]any{"type": "string", "description": "URL for browser.navigate"}, "target_action": map[string]any{"type": "string", "enum": []string{"navigate", "snapshot", "new", "switch", "close"}, "description": "Browser action; new explicitly opens a foreground tab; switch/close require target_id"}, "target_id": map[string]any{"type": "string", "description": "Exact target_id from browser.snapshot; omit to use the actual current foreground tab"}}, []string{"action"}), func(raw json.RawMessage) (string, json.RawMessage, error) {
 		var in struct {
 			Action       string `json:"action"`
 			URL          string `json:"url,omitempty"`
 			TargetAction string `json:"target_action,omitempty"`
 			TargetID     string `json:"target_id,omitempty"`
+			Find         string `json:"find,omitempty"`
+			MaxChars     int    `json:"max_chars,omitempty"`
 		}
 		if err := decode(raw, &in); err != nil || !strings.HasPrefix(in.Action, "browser.") {
 			return "", nil, errors.New("computer_browser requires a browser action")
 		}
 		var args any
 		switch in.Action {
+		case "browser.read":
+			args = browserReadArgs{Find: in.Find, MaxChars: in.MaxChars}
 		case "browser.navigate":
 			args = struct {
 				URL      string `json:"url"`
@@ -534,4 +551,20 @@ func (s *Server) microVMTools(r Run) []Tool {
 		return in.Action, argsJSON, nil
 	})
 	return []Tool{shell, files, desktop, browser, computerHelpTool(), s.terminalTool(r), s.sshKeyTool(r)}
+}
+
+// browserProcessGone reports a browser call that failed because Chrome's
+// DevTools endpoint no longer answers, not because of the page or action.
+func browserProcessGone(err error) bool {
+	msg := err.Error()
+	return strings.Contains(msg, "connection refused") || strings.Contains(msg, "Chrome is not running")
+}
+
+// restartDesktop stops and starts the shared desktop once to bring Chrome back.
+func (s *Server) restartDesktop(ctx context.Context, r Run) error {
+	if _, err := s.microVMAction(ctx, r, "desktop.stop", json.RawMessage(`{}`)); err != nil {
+		return err
+	}
+	_, err := s.microVMAction(ctx, r, "desktop.start", json.RawMessage(`{}`))
+	return err
 }
