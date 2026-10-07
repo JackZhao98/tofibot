@@ -17,8 +17,8 @@ func TestWorkflowGuidesAreScopedAndReadOnly(t *testing.T) {
 		expected []string
 		absent   string
 	}{
-		{"research", []string{"event/publication time", "retrieval time", "One source's credentials", "uncertain action outcomes"}, "create_group"},
-		{"commitments", []string{"Recorded tasks do not execute themselves", "one-time schedule already appears", "never create an unbounded"}, "event/publication time"},
+		{"research", []string{"event/publication time", "retrieval time", "One source's credentials", "system evidence rules still apply"}, "create_group"},
+		{"commitments", []string{"Recorded tasks do not execute themselves", "one-time schedule already appears", "Use scheduling tools for future work"}, "event/publication time"},
 		{"team", []string{"reuse suitable existing Bots", "send_group_message once", "resumes you"}, "one-time schedule"},
 	} {
 		t.Run(tc.topic, func(t *testing.T) {

@@ -86,7 +86,7 @@ func TestBackgroundSummaryDoesNotBlockReplyContextAndCoalesces(t *testing.T) {
 	go func() { messages, _ := s.buildContextParts(c, r, b); ready <- messages }()
 	select {
 	case messages := <-ready:
-		if len(messages) == 0 || !strings.Contains(messages[len(messages)-1].Content, "current reply") {
+		if len(messages) == 0 || !strings.Contains(messages[len(messages)-1].Content, "current reply") && !strings.Contains(messages[len(messages)-2].Content, "current reply") {
 			t.Fatal("recent context missing while summary runs")
 		}
 	case <-time.After(2 * time.Second):

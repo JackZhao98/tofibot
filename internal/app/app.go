@@ -203,6 +203,7 @@ type Server struct {
 	scheduler                            *ScheduleWorker
 	extensions                           *extensions.Manager
 	microVM                              *computer.Client
+	microVMInfoCache                     microVMInfoCache
 	computerLeaseMu                      sync.Mutex
 	computerLeases                       map[string]*sync.Mutex
 	computerOwnerMu                      sync.Mutex
@@ -3018,18 +3019,14 @@ func (s *Server) execute(c Conversation, r Run) {
 	}
 	// The last committed summary and bounded recent history are enough to start
 	// the reply. Durable history maintenance runs after the response is saved.
-	pm, system := s.buildContextParts(c, r, botCfg)
+	cachedMCPTools := s.store.recentCapabilitySchemas(contextConversationID(c, botCfg), botCfg.ID, r.CreatedAt)
+	pm, system := s.buildContextPartsWith(c, r, botCfg, cachedMCPTools)
 	tools := append(s.tools(c, r), s.longTermMemoryTools(c, r)...)
 	if r.Kind != runKindTriage {
 		tools = append(tools, s.contextUsageTool(r.ID))
 	}
 	computerPrompt := s.microVMEnvironmentPrompt(ctx, r.BotID)
 	extensionPrompt, capabilityPrompt := "", ""
-	capabilityConversationID := c.ID
-	if c.Kind == "dm" && botCfg.DMConversationID != "" {
-		capabilityConversationID = botCfg.DMConversationID
-	}
-	cachedMCPTools := s.store.recentCapabilitySchemas(capabilityConversationID, botCfg.ID, r.CreatedAt)
 
 	if r.Kind == runKindTriage {
 		tools = nil
@@ -3054,7 +3051,7 @@ func (s *Server) execute(c Conversation, r Run) {
 		}
 		defer prepared.Close()
 		extensionPrompt = prepared.Instructions
-		tools = append(tools, prepared.Tools...)
+		tools = append(tools, s.withoutIdleMCPTools(prepared.Tools)...)
 		if len(prepared.Diagnostics) > 0 {
 			diagnostics, _ := json.Marshal(prepared.Diagnostics)
 			system += "\nSome configured extensions are unavailable. Consult extension_status when relevant; never claim an unavailable tool was executed."
@@ -3423,7 +3420,14 @@ func (s *Server) tools(c Conversation, r Run) []Tool {
 		if c.Kind == "group" {
 			memoryBot = ""
 		}
-		m, e := s.store.AddMemoryWithMetadata(c.ID, memoryBot, x)
+		existing, err := s.scopedMemories(c, r.BotID)
+		if err != nil {
+			return "", err
+		}
+		if m, ok := duplicateMemory(existing, x.Content); ok {
+			return "already saved; existing memory id " + m.ID, nil
+		}
+		m, e := s.store.AddMemoryWithMetadata(s.memoryConversationID(c, r.BotID), memoryBot, x)
 		return m.ID, e
 	}}, {Name: "search_history", ApprovalExpiryReadOnly: true, Description: "search exact conversation history", Parameters: objectSchema(map[string]any{"query": map[string]any{"type": "string"}}, []string{"query"}), Execute: func(ctx context.Context, b json.RawMessage) (string, error) {
 		var x struct {
@@ -3640,9 +3644,33 @@ func (s *Server) tools(c Conversation, r Run) []Tool {
 	base = append(base, s.attachmentTools(c)...)
 	base = append(base, s.imageGenerationTools(c, r)...)
 	base = append(base, s.publishAttachmentTools(c, r)...)
-	base = append(base, s.computerTools(r)...)
+	if s.store.hasPairedComputer() {
+		base = append(base, s.computerTools(r)...)
+	}
 	base = append(base, s.microVMTools(r)...)
 	return append(append(append(base, s.teamTools(c, r)...), s.scheduleTools(c, r)...), s.workItemTools(c, r)...)
+}
+
+// mcpDiscoveryToolNames are the MCP facade tools; Skill tools are kept.
+var mcpDiscoveryToolNames = map[string]bool{"search_mcp_tools": true, "call_mcp_tool": true, "search_mcp_catalog": true, "list_mcp_servers": true}
+
+// withoutIdleMCPTools drops the MCP facade when no MCP server is configured.
+// An unreadable configuration keeps the tools so diagnostics stay reachable.
+func (s *Server) withoutIdleMCPTools(tools []Tool) []Tool {
+	if s.extensions == nil {
+		return tools
+	}
+	servers, err := s.extensions.ListMCP()
+	if err != nil || len(servers) > 0 {
+		return tools
+	}
+	out := make([]Tool, 0, len(tools))
+	for _, tool := range tools {
+		if !mcpDiscoveryToolNames[tool.Name] {
+			out = append(out, tool)
+		}
+	}
+	return out
 }
 func objectSchema(properties map[string]any, required []string) map[string]any {
 	if required == nil {
