@@ -8,12 +8,15 @@ import (
 	"github.com/JackZhao98/tofibot/internal/agent"
 	"github.com/JackZhao98/tofibot/internal/extensions"
 	"github.com/JackZhao98/tofibot/internal/runtime"
+	"github.com/JackZhao98/tofibot/internal/tooloutcome"
 )
 
 // A human answer resumes a host-owned checkpoint before the model reproposes
-// the call. Only that checkpoint's non-executing control records may differ
-// from the reviewed snapshot. Every authorization/effect fact stays bound.
-// This runs inside the same transaction as the ordinary execution claim.
+// the call. Only that checkpoint's non-executing control records, the exact
+// re-proposal and observation-only lookups made before it may differ from the
+// reviewed snapshot. Every authorization/effect fact stays bound. Later
+// progress text never enters the bounded window. This runs inside the same
+// transaction as the ordinary execution claim.
 func mcpHumanResumeContextMatches(ctx context.Context, db reviewQuerier, c Conversation, r Run, call extensions.MCPCallApproval, q Question, snapshot, digest string, current mcpReviewContext) bool {
 	if q.Status != questionAnswered || q.AnsweredBy == "" || q.AnsweredBy == autoReviewActor || string(q.Answer) != "true" || len(snapshot) == 0 || len(snapshot) > 64<<10 {
 		return false
@@ -39,23 +42,20 @@ func mcpHumanResumeContextMatches(ctx context.Context, db reviewQuerier, c Conve
 	if activeID == "" || activeID == waitingID {
 		return false
 	}
-	var waiting ToolActivity
-	found := 0
-	visitMCPReviewActivities(&saved, func(activities *[]ToolActivity) bool {
-		for _, a := range *activities {
-			if a.RunID == r.ID && a.CallID == waitingID {
-				waiting, found = a, found+1
-			}
-		}
-		return true
-	})
-	if found != 1 || waiting.ConversationID != c.ID || waiting.BotID != r.BotID || waiting.Name != checkpoint.Agent.WaitingToolName || waiting.Status != "running" || waiting.Truncated || waiting.Result != "" || waiting.Outcome != nil || !mcpResumeActivityMatchesCall(waiting, call) {
+	// The packet may show shortened arguments; the durable rows hold them whole.
+	waitingRow, ok1 := mcpResumeActivity(db, r.ID, waitingID)
+	activeRow, ok2 := mcpResumeActivity(db, r.ID, activeID)
+	control := mcpApprovalRecordedOutcome().JSON()
+	if !ok1 || !ok2 || waitingRow.ConversationID != c.ID || waitingRow.BotID != r.BotID || waitingRow.Name != checkpoint.Agent.WaitingToolName || waitingRow.Status != "completed" || waitingRow.Truncated || waitingRow.Outcome == nil || waitingRow.Outcome.JSON() != control || waitingRow.Result != control || !mcpResumeActivityMatchesCall(waitingRow, call) {
+		return false
+	}
+	if activeRow.ConversationID != c.ID || activeRow.BotID != r.BotID || activeRow.Name != waitingRow.Name || activeRow.Status != "running" || activeRow.Truncated || activeRow.Result != "" || activeRow.Outcome != nil || !mcpResumeActivityMatchesCall(activeRow, call) || !sameMCPResumeToolName(activeRow, waitingRow) {
 		return false
 	}
 	protocolMatch := false
 	for _, message := range checkpoint.Agent.Messages {
 		for _, tc := range message.ToolCalls {
-			if tc.ID == waitingID && tc.Name == waiting.Name && tc.Arguments == waiting.Arguments {
+			if tc.ID == waitingID && tc.Name == waitingRow.Name && tc.Arguments == waitingRow.Arguments {
 				protocolMatch = true
 			}
 		}
@@ -63,23 +63,34 @@ func mcpHumanResumeContextMatches(ctx context.Context, db reviewQuerier, c Conve
 	if !protocolMatch {
 		return false
 	}
-	control := mcpApprovalRecordedOutcome().JSON()
+	var waiting ToolActivity
+	found := 0
+	known := map[string]bool{}
+	visitMCPReviewActivities(&saved, func(activities *[]ToolActivity) bool {
+		for _, a := range *activities {
+			known[a.RunID+"\x00"+a.CallID] = true
+			if a.RunID == r.ID && a.CallID == waitingID {
+				waiting, found = a, found+1
+			}
+		}
+		return true
+	})
+	shown, _ := mcpTruncate(waitingRow.Arguments, mcpEvidenceToolRunes)
+	if found != 1 || waiting.ConversationID != c.ID || waiting.BotID != r.BotID || waiting.Name != waitingRow.Name || waiting.Status != "running" || waiting.Result != "" || waiting.Outcome != nil || waiting.Arguments != shown || waiting.StartedAt != waitingRow.StartedAt {
+		return false
+	}
 	resumed, proposed := 0, 0
 	if !visitMCPReviewActivities(&current, func(activities *[]ToolActivity) bool {
 		filtered := make([]ToolActivity, 0, len(*activities))
 		for _, a := range *activities {
 			switch {
 			case a.RunID == r.ID && a.CallID == waitingID:
-				if a.ConversationID != waiting.ConversationID || a.BotID != waiting.BotID || a.Name != waiting.Name || a.Arguments != waiting.Arguments || a.StartedAt != waiting.StartedAt || a.Status != "completed" || a.Truncated || a.Outcome == nil || a.Outcome.JSON() != control || a.Result != control {
-					return false
-				}
 				filtered = append(filtered, waiting)
 				resumed++
 			case a.RunID == r.ID && a.CallID == activeID:
-				if a.ConversationID != c.ID || a.BotID != r.BotID || a.Name != waiting.Name || a.Status != "running" || a.Truncated || a.Result != "" || a.Outcome != nil || !mcpResumeActivityMatchesCall(a, call) || !sameMCPResumeToolName(a, waiting) {
-					return false
-				}
 				proposed++
+			case a.RunID == r.ID && !known[a.RunID+"\x00"+a.CallID] && mcpObservationOnlyActivity(a):
+				// A lookup before the exact re-proposal is not an effect or consent.
 			default:
 				filtered = append(filtered, a)
 			}
@@ -93,20 +104,18 @@ func mcpHumanResumeContextMatches(ctx context.Context, db reviewQuerier, c Conve
 	}) || resumed != 1 || proposed != 1 {
 		return false
 	}
-	if !filterMCPResumeProgress(db, c, r, &current, saved) {
-		return false
-	}
-	if current.ScheduleLineage != nil {
-		if saved.ScheduleLineage == nil || len(current.ScheduleLineage.Contexts) != len(saved.ScheduleLineage.Contexts) {
-			return false
-		}
-		for i := range current.ScheduleLineage.Contexts {
-			if !filterMCPResumeProgress(db, c, r, &current.ScheduleLineage.Contexts[i].Context, saved.ScheduleLineage.Contexts[i].Context) {
-				return false
-			}
-		}
-	}
 	return mcpReviewDigest(current, call) == digest
+}
+
+func mcpResumeActivity(db reviewQuerier, run, call string) (ToolActivity, bool) {
+	var a ToolActivity
+	var truncated int
+	var outcome string
+	if db.QueryRow(`SELECT conversation_id,bot_id,run_id,call_id,name,arguments,result,status,truncated,started_at,updated_at,outcome_json FROM tool_activities WHERE run_id=? AND call_id=?`, run, call).Scan(&a.ConversationID, &a.BotID, &a.RunID, &a.CallID, &a.Name, &a.Arguments, &a.Result, &a.Status, &truncated, &a.StartedAt, &a.UpdatedAt, &outcome) != nil {
+		return a, false
+	}
+	a.Truncated, a.Outcome = truncated != 0, tooloutcome.Parse(outcome)
+	return a, outcome == "" || a.Outcome != nil
 }
 
 func visitMCPReviewActivities(x *mcpReviewContext, visit func(*[]ToolActivity) bool) bool {
@@ -116,6 +125,13 @@ func visitMCPReviewActivities(x *mcpReviewContext, visit func(*[]ToolActivity) b
 	if x.ScheduleLineage != nil {
 		for i := range x.ScheduleLineage.Contexts {
 			if !visit(&x.ScheduleLineage.Contexts[i].ToolResults) {
+				return false
+			}
+		}
+	}
+	if x.Delegation != nil {
+		for i := range x.Delegation.Contexts {
+			if !visit(&x.Delegation.Contexts[i].ToolResults) {
 				return false
 			}
 		}
@@ -151,48 +167,4 @@ func sameMCPResumeToolName(a, waiting ToolActivity) bool {
 		Name string `json:"name"`
 	}
 	return json.Unmarshal([]byte(a.Arguments), &left) == nil && json.Unmarshal([]byte(waiting.Arguments), &right) == nil && left.Name != "" && left.Name == right.Name
-}
-
-// Native progress published after the snapshot is presentation/control text,
-// never user authorization or a completed effect. Prior progress stays bound;
-// imported, arbitrary assistant text and every user message stay in evidence.
-func filterMCPResumeProgress(db reviewQuerier, c Conversation, r Run, current *mcpReviewContext, saved mcpReviewContext) bool {
-	ids := make(map[string]bool, len(saved.Messages))
-	var last int64
-	for _, m := range saved.Messages {
-		ids[m.ID] = true
-		if m.Seq > last {
-			last = m.Seq
-		}
-	}
-	removed := map[string]bool{}
-	messages := make([]Message, 0, len(current.Messages))
-	for _, m := range current.Messages {
-		if !ids[m.ID] && m.Seq > last && m.Role == "assistant" && m.Kind == "progress" && m.SenderBotID == r.BotID {
-			var native bool
-			if db.QueryRow(`SELECT EXISTS(SELECT 1 FROM stream_assistant_turns t JOIN messages m ON m.id=t.message_id WHERE t.message_id=? AND t.run_id=? AND m.run_id=t.run_id AND m.conversation_id=? AND m.sender_bot_id=? AND m.role='assistant' AND m.kind='progress' AND NOT EXISTS(SELECT 1 FROM portability_provenance p WHERE p.kind='message' AND p.target_id=m.id))`, m.ID, r.ID, c.ID, r.BotID).Scan(&native) != nil {
-				return false
-			}
-			if native {
-				removed[m.ID] = true
-				continue
-			}
-		}
-		messages = append(messages, m)
-	}
-	if len(messages) == 0 {
-		messages = nil
-	}
-	current.Messages = messages
-	provenance := make([]mcpMessageProvenance, 0, len(current.MessageProvenance))
-	for _, p := range current.MessageProvenance {
-		if !removed[p.MessageID] {
-			provenance = append(provenance, p)
-		}
-	}
-	if len(provenance) == 0 {
-		provenance = nil
-	}
-	current.MessageProvenance = provenance
-	return true
 }

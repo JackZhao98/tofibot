@@ -467,12 +467,12 @@ func TestScheduledMCPContextBoundedLineage(t *testing.T) {
 				f.delegate(bot, false)
 			}
 		}},
-		{"attachment evidence", false, scheduleSourceChat, false, func(f *scheduledMCPFixture) {
+		{"earlier attachment is a manifest", false, scheduleSourceChat, true, func(f *scheduledMCPFixture) {
 			if _, err := f.s.store.AddAttachment(f.c.ID, "synthetic-state.txt", "text/plain", strings.NewReader("required non-text state")); err != nil {
 				f.t.Fatal(err)
 			}
 		}},
-		{"truncated tool result", false, scheduleSourceChat, false, func(f *scheduledMCPFixture) { f.toolEvidence(true, false) }},
+		{"truncated tool result is flagged evidence", false, scheduleSourceChat, true, func(f *scheduledMCPFixture) { f.toolEvidence(true, false) }},
 		{"uncertain tool result", false, scheduleSourceChat, false, func(f *scheduledMCPFixture) { f.toolEvidence(false, true) }},
 		{"malformed tool outcome", false, scheduleSourceChat, false, func(f *scheduledMCPFixture) {
 			f.toolEvidence(false, false)
@@ -486,7 +486,7 @@ func TestScheduledMCPContextBoundedLineage(t *testing.T) {
 			f.toolEvidence(false, false)
 			f.exec(`UPDATE tool_activities SET bot_id=? WHERE run_id=?`, f.colleague.ID, f.r.ID)
 		}},
-		{"context over byte limit", false, scheduleSourceChat, false, func(f *scheduledMCPFixture) {
+		{"later oversized message is outside the window", false, scheduleSourceChat, true, func(f *scheduledMCPFixture) {
 			if _, err := f.s.store.AddAssistant(f.c.ID, f.r.BotID, f.r.ID, strings.Repeat("x", 70<<10)); err != nil {
 				f.t.Fatal(err)
 			}

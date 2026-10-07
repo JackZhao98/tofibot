@@ -252,7 +252,7 @@ func TestScheduleAuthorizationNativeToolChatSources(t *testing.T) {
 }
 
 func TestScheduleAuthorizationUntrustedToolCreatorsStayUnknown(t *testing.T) {
-	for _, name := range []string{"no_ingress", "scheduled_task", "bot_message", "delegated", "autonomous", "imported_run", "imported_message", "oversized_context", "missing_trigger", "wrong_conversation", "wrong_bot"} {
+	for _, name := range []string{"no_ingress", "scheduled_task", "bot_message", "delegated", "autonomous", "imported_run", "imported_message", "missing_trigger", "wrong_conversation", "wrong_bot"} {
 		t.Run(name, func(t *testing.T) {
 			store, bot, c := scheduleTestStore(t)
 			defer store.Close()
@@ -277,8 +277,6 @@ func TestScheduleAuthorizationUntrustedToolCreatorsStayUnknown(t *testing.T) {
 				_, err = store.db.Exec(`INSERT INTO portability_provenance VALUES('run',?,?)`, run.ID, `{"verified":true,"source_kind":"native_chat"}`)
 			case "imported_message":
 				_, err = store.db.Exec(`INSERT INTO portability_provenance VALUES('message',?,?)`, run.TriggerMessageID, `{"verified":true,"source_kind":"host_user_ingress"}`)
-			case "oversized_context":
-				_, _, err = store.AddMessage(c.ID, "assistant", "", "", strings.Repeat("Synthetic context.", 5000), "synthetic-overlimit")
 			case "missing_trigger":
 				run.TriggerMessageID = "missing"
 			case "wrong_conversation":
@@ -360,7 +358,9 @@ func TestScheduleAuthorizationSourceToolResultsAreCompleteUntrustedContext(t *te
 			if err != nil {
 				t.Fatal(err)
 			}
-			if name != "complete" {
+			// Size, truncation and recorded uncertainty are bounded evidence; only
+			// a corrupted record leaves the source unknown.
+			if name == "malformed_outcome" {
 				if revision.SourceKind != scheduleSourceUnknown || string(revision.SourceContext) != "null" {
 					t.Fatalf("incomplete source tool evidence acquired native authority: %+v", revision)
 				}
@@ -375,11 +375,18 @@ func TestScheduleAuthorizationSourceToolResultsAreCompleteUntrustedContext(t *te
 			if err := json.Unmarshal(revision.SourceContext, &saved); err != nil {
 				t.Fatal(err)
 			}
-			if revision.SourceKind != scheduleSourceChat || saved.Intent != intent || saved.IntentMessageID != run.TriggerMessageID || saved.SourceRunBinding == nil || saved.SourceRunBinding.ID != run.ID || len(saved.SourceToolResults) != 2 {
-				t.Fatalf("source intent/binding/tool results lost: %+v", saved)
+			records := 2
+			if name == "overflow" {
+				records = mcpEvidenceToolRows
+			}
+			if revision.SourceKind != scheduleSourceChat || saved.Intent != intent || saved.IntentMessageID != run.TriggerMessageID || saved.SourceRunBinding == nil || saved.SourceRunBinding.ID != run.ID || len(saved.SourceToolResults) > records || len(saved.SourceToolResults) == 0 {
+				t.Fatalf("source intent/binding/tool results lost: %d %+v", len(saved.SourceToolResults), saved.Bounds)
+			}
+			if (name == "overflow") != (saved.Bounds != nil && saved.Bounds.OlderToolRecordsOmitted) || (name == "oversized") != (saved.Bounds != nil && saved.Bounds.ToolRecordsTruncated) {
+				t.Fatalf("bounded source evidence was not flagged: %+v", saved.Bounds)
 			}
 			for _, activity := range saved.SourceToolResults {
-				if activity.CallID == "prior" && (activity.Arguments != arguments || activity.Result != result || activity.Status != "completed") {
+				if name == "complete" && activity.CallID == "prior" && (activity.Arguments != arguments || activity.Result != result || activity.Status != "completed") {
 					t.Fatal("persisted source tool text changed")
 				}
 				if activity.CallID == "pending" && (activity.Name != "create_schedule" || activity.Status != "running" || activity.Result != "") {

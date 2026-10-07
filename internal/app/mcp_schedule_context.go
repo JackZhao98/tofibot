@@ -5,9 +5,6 @@ import (
 	"encoding/json"
 	"errors"
 	"strings"
-	"unicode/utf8"
-
-	"github.com/JackZhao98/tofibot/internal/tooloutcome"
 )
 
 const maxMCPAuthorizationAncestry = 32
@@ -38,9 +35,10 @@ type mcpScheduleSourceReference struct {
 }
 
 type mcpScheduleAncestor struct {
-	Binding mcpScheduleRunBinding `json:"binding"`
-	Status  string                `json:"status"`
-	Trigger Message               `json:"untrusted_trigger"`
+	Binding          mcpScheduleRunBinding `json:"binding"`
+	Status           string                `json:"status"`
+	Trigger          Message               `json:"untrusted_trigger"`
+	TriggerTruncated bool                  `json:"trigger_truncated,omitempty"`
 }
 
 type mcpScheduleConversation struct {
@@ -50,23 +48,62 @@ type mcpScheduleConversation struct {
 	ToolResults    []ToolActivity   `json:"untrusted_tool_results"`
 }
 
+// A compact, host-verified view of the occurrence's immutable authorization
+// snapshot. The complete snapshot stays bound through SnapshotDigest.
+type mcpScheduleOccurrenceEvidence struct {
+	ScheduleID          string                        `json:"schedule_id"`
+	RootRunID           string                        `json:"root_run_id"`
+	TriggerMessageID    string                        `json:"trigger_message_id"`
+	ScheduledForUTC     string                        `json:"scheduled_for_utc"`
+	Revision            int64                         `json:"revision"`
+	ExecutionSpec       scheduleExecutionSpec         `json:"execution_spec"`
+	ExecutionSpecDigest string                        `json:"execution_spec_digest"`
+	ContentTruncated    bool                          `json:"execution_content_truncated,omitempty"`
+	Revisions           []mcpScheduleRevisionEvidence `json:"revisions"`
+}
+
+// One immutable creation/edit/revocation event with its original source.
+type mcpScheduleRevisionEvidence struct {
+	Revision         int64     `json:"revision"`
+	EventKind        string    `json:"event_kind"`
+	SourceKind       string    `json:"source_kind"`
+	RequestID        string    `json:"request_id"`
+	CreatedAt        string    `json:"created_at"`
+	SourceDigest     string    `json:"source_digest"`
+	ExecutionContent string    `json:"execution_content"`
+	SubmittedFields  string    `json:"untrusted_submitted_fields,omitempty"`
+	SourceRequest    string    `json:"source_request,omitempty"`
+	SourceMessages   []Message `json:"source_conversation_context,omitempty"`
+	Truncated        bool      `json:"truncated,omitempty"`
+}
+
 type mcpScheduleLineage struct {
 	AccountID      string                        `json:"account_id"`
 	TargetRunID    string                        `json:"target_run_id"`
 	SnapshotDigest string                        `json:"snapshot_digest"`
-	Occurrence     scheduleAuthorizationSnapshot `json:"occurrence"`
+	Occurrence     mcpScheduleOccurrenceEvidence `json:"occurrence"`
 	Ancestry       []mcpScheduleAncestor         `json:"ancestry"`
 	Contexts       []mcpScheduleConversation     `json:"contexts"`
 	Authorization  []mcpAuthorizationEvidence    `json:"authorization_sources"`
 }
 
-// Keep the cleared direct-chat reader unchanged. A scheduled parent chain is
-// admitted only through this account-aware resolver, including inside claim tx.
+// A delegated task whose chain starts at a host-ingress chat request. The
+// top-level packet is that root request's evidence; these are the hops.
+type mcpDelegationLineage struct {
+	TargetRunID string                    `json:"target_run_id"`
+	RootRunID   string                    `json:"root_run_id"`
+	Ancestry    []mcpScheduleAncestor     `json:"ancestry"`
+	Contexts    []mcpScheduleConversation `json:"contexts"`
+}
+
+// Direct and group chat runs use the chat reader. Every chain with a parent
+// (scheduled or delegated) is admitted only through the account-aware chain
+// resolver, including inside the claim transaction.
 func (s *Server) readMCPReviewContext(db reviewQuerier, c Conversation, r Run) (mcpReviewContext, string, error) {
-	if r.Kind != runKindSchedule && r.ParentRunID == "" {
+	if r.Kind == runKindGroupChat || r.Kind != runKindSchedule && r.ParentRunID == "" {
 		return readMCPReviewContext(db, c, r)
 	}
-	return s.readScheduledMCPReviewContext(db, c, r)
+	return s.readMCPChainReviewContext(db, c, r)
 }
 
 const mcpScheduleRunSQL = `SELECT id,conversation_id,bot_id,status,error,parent_run_id,model,kind,origin_conversation_id,trigger_message_id,queue_seq,created_at,updated_at FROM runs WHERE id=?`
@@ -75,7 +112,7 @@ func mcpScheduleMember(db reviewQuerier, conversation, bot string) error {
 	var member bool
 	err := db.QueryRow(`SELECT EXISTS(SELECT 1 FROM conversations c JOIN bots b ON b.id=? JOIN members m ON m.conversation_id=c.id AND m.bot_id=b.id WHERE c.id=? AND c.archived=0 AND b.archived=0 AND (c.kind='group' OR c.bot_id=b.id))`, bot, conversation).Scan(&member)
 	if err != nil || !member {
-		return errors.New("scheduled authorization membership unavailable")
+		return mcpContextFail(mcpContextMembership)
 	}
 	return nil
 }
@@ -88,31 +125,41 @@ func mcpScheduleMessage(db reviewQuerier, id string) (Message, error) {
 	if err == nil && notice.String != "" {
 		err = json.Unmarshal([]byte(notice.String), &m.Notice)
 	}
-	if imported, e := scheduleImported(db, "message", id); err == nil && (e != nil || imported) {
-		err = errors.New("scheduled context message import boundary")
+	if err != nil {
+		return m, mcpContextFail(mcpContextAncestryMessage)
 	}
-	return m, err
+	if imported, e := scheduleImported(db, "message", id); e != nil || imported {
+		return m, mcpContextFail(mcpContextAncestryImported)
+	}
+	return m, nil
 }
 
 func mcpScheduleLiveRun(db reviewQuerier, id string) (Run, error) {
 	r, err := scanRun(db.QueryRow(mcpScheduleRunSQL, id))
 	if err != nil {
-		return r, err
+		return r, mcpContextFail(mcpContextAncestryUnavailable)
 	}
 	if r.ID == "" || r.TriggerMessageID == "" || (r.Status != "running" && r.Status != "queued" && r.Status != runWaiting && r.Status != "done") || strings.TrimSpace(r.Error) != "" {
-		return r, errors.New("scheduled ancestry ended or has uncertain effects")
+		return r, mcpContextFail(mcpContextAncestryEnded)
 	}
 	if imported, e := scheduleImported(db, "run", id); e != nil || imported {
-		return r, errors.New("scheduled ancestry import boundary")
+		return r, mcpContextFail(mcpContextAncestryImported)
 	}
 	return r, mcpScheduleMember(db, r.ConversationID, r.BotID)
 }
 
-func (s *Server) readScheduledMCPReviewContext(db reviewQuerier, c Conversation, requested Run) (mcpReviewContext, string, error) {
+func mcpGroupRoundEdge(child, parent Run) bool {
+	return child.Kind == runKindGroupChat && parent.Kind == runKindGroupChat && child.ParentRunID == parent.ID && child.ConversationID == parent.ConversationID && child.TriggerMessageID == parent.TriggerMessageID
+}
+
+func (s *Server) readMCPChainReviewContext(db reviewQuerier, c Conversation, requested Run) (mcpReviewContext, string, error) {
 	var x mcpReviewContext
 	account := s.reviewAccountID()
-	if account == "" || requested.ConversationID != c.ID {
-		return x, "", errors.New("scheduled authorization account or target unavailable")
+	if account == "" {
+		return x, "", mcpContextFail(mcpContextAccountUnavailable)
+	}
+	if requested.ConversationID != c.ID {
+		return x, "", mcpContextFail(mcpContextTargetBinding)
 	}
 	byID := make(map[string]Run)
 	triggers := make(map[string]Message)
@@ -120,14 +167,14 @@ func (s *Server) readScheduledMCPReviewContext(db reviewQuerier, c Conversation,
 	id := requested.ID
 	for id != "" && len(chain) < maxMCPAuthorizationAncestry {
 		if _, seen := byID[id]; seen {
-			return x, "", errors.New("scheduled authorization ancestry cycle")
+			return x, "", mcpContextFail(mcpContextAncestryCycle)
 		}
 		r, err := mcpScheduleLiveRun(db, id)
 		if err != nil {
 			return x, "", err
 		}
 		if len(chain) == 0 && (*mcpScheduleBinding(r) != *mcpScheduleBinding(requested) || r.Status != "running") {
-			return x, "", errors.New("scheduled authorization target binding changed")
+			return x, "", mcpContextFail(mcpContextTargetBinding)
 		}
 		m, err := mcpScheduleMessage(db, r.TriggerMessageID)
 		if err != nil {
@@ -138,24 +185,66 @@ func (s *Server) readScheduledMCPReviewContext(db reviewQuerier, c Conversation,
 		id = r.ParentRunID
 	}
 	if id != "" || len(chain) == 0 {
-		return x, "", errors.New("complete scheduled ancestry unavailable")
+		return x, "", mcpContextFail(mcpContextAncestryUnavailable)
 	}
+	switch root := chain[len(chain)-1]; {
+	case root.Kind == runKindSchedule:
+		return s.readMCPScheduleChain(db, account, requested, chain, byID, triggers)
+	case root.Kind == "" || root.Kind == "chat" || root.Kind == runKindGroupChat:
+		return readMCPDelegatedChain(db, requested, chain, byID, triggers)
+	}
+	return x, "", mcpContextFail(mcpContextDelegationRoot)
+}
+
+// A delegated child of a human chat request is authorized only by that root's
+// host-verified trigger. Every hop must be a recorded assignment or return.
+func readMCPDelegatedChain(db reviewQuerier, requested Run, chain []Run, byID map[string]Run, triggers map[string]Message) (mcpReviewContext, string, error) {
 	root := chain[len(chain)-1]
-	if root.Kind != runKindSchedule || root.ParentRunID != "" {
-		return x, "", errors.New("no unique actual schedule occurrence root")
+	for i := 0; i+1 < len(chain); i++ {
+		if chain[i].TriggerMessageID == chain[i+1].TriggerMessageID && !mcpGroupRoundEdge(chain[i], chain[i+1]) {
+			return mcpReviewContext{}, "", mcpContextFail(mcpContextRetryInheritance)
+		}
 	}
+	if err := validateMCPScheduleEdges(db, chain, byID, triggers); err != nil {
+		return mcpReviewContext{}, "", err
+	}
+	x, err := readMCPChatContext(db, Conversation{ID: root.ConversationID}, root)
+	if err != nil {
+		return mcpReviewContext{}, "", err
+	}
+	rootKey := root.ConversationID + "\x00" + root.BotID
+	ancestry, contexts, rootRows, err := readMCPChainContexts(db, chain, triggers, false, rootKey)
+	if err != nil {
+		return mcpReviewContext{}, "", err
+	}
+	for _, a := range rootRows {
+		if a.RunID != root.ID {
+			x.ToolResults = append(x.ToolResults, a)
+		}
+	}
+	x.Delegation = &mcpDelegationLineage{TargetRunID: requested.ID, RootRunID: root.ID, Ancestry: ancestry, Contexts: contexts}
+	digest, err := fitMCPReviewContext(&x, mcpEvidenceBudget)
+	if err != nil {
+		return x, "", err
+	}
+	return x, digest, nil
+}
+
+func (s *Server) readMCPScheduleChain(db reviewQuerier, account string, requested Run, chain []Run, byID map[string]Run, triggers map[string]Message) (mcpReviewContext, string, error) {
+	var x mcpReviewContext
+	root := chain[len(chain)-1]
 	for i, r := range chain {
 		var scheduleID, scheduledFor string
 		err := db.QueryRow(`SELECT schedule_id,scheduled_for_utc FROM schedule_occurrences WHERE run_id=?`, r.ID).Scan(&scheduleID, &scheduledFor)
 		if i == len(chain)-1 {
 			if err != nil {
-				return x, "", errors.New("actual occurrence root unavailable")
+				return x, "", mcpContextFail(mcpContextScheduleRoot)
 			}
 		} else if !errors.Is(err, sql.ErrNoRows) {
-			return x, "", errors.New("scheduled ancestry has ambiguous occurrence roots")
+			return x, "", mcpContextFail(mcpContextScheduleRootAmbig)
 		}
 		if i+1 < len(chain) && r.TriggerMessageID == chain[i+1].TriggerMessageID {
-			return x, "", errors.New("retry inheritance lacks new authority and effect certainty")
+			return x, "", mcpContextFail(mcpContextRetryInheritance)
 		}
 	}
 	if err := validateMCPScheduleEdges(db, chain, byID, triggers); err != nil {
@@ -163,117 +252,141 @@ func (s *Server) readScheduledMCPReviewContext(db reviewQuerier, c Conversation,
 	}
 	record, err := readScheduleOccurrenceAuthorization(db, root.ID)
 	if err != nil || record.AccountID != account || record.TriggerMessageID != root.TriggerMessageID {
-		return x, "", errors.New("complete occurrence authorization unavailable")
+		return x, "", mcpContextFail(mcpContextOccurrenceAuth)
 	}
 	var actualSchedule, actualDue string
 	if err := db.QueryRow(`SELECT schedule_id,scheduled_for_utc FROM schedule_occurrences WHERE run_id=?`, root.ID).Scan(&actualSchedule, &actualDue); err != nil || actualSchedule != record.ScheduleID || actualDue != record.ScheduledForUTC {
-		return x, "", errors.New("occurrence authorization binding changed")
+		return x, "", mcpContextFail(mcpContextOccurrenceAuth)
 	}
 	schedule, revision, spec, err := readBoundScheduleAuthorization(db, record.ScheduleID, account)
 	if err != nil || revision != record.Revision || schedule.Status != scheduleActive || spec != record.Snapshot.ExecutionSpec || root.ConversationID != spec.ConversationID || root.BotID != spec.BotID {
-		return x, "", errors.New("scheduled authorization was revised or revoked")
+		return x, "", mcpContextFail(mcpContextScheduleRevoked)
 	}
 	m := triggers[root.ID]
 	if m.Role != "user" || m.Kind != "scheduled_task" || m.SenderBotID != "" || m.ConversationID != root.ConversationID || m.RunID != root.ID || m.Content != spec.Content {
-		return x, "", errors.New("occurrence instruction binding changed")
+		return x, "", mcpContextFail(mcpContextOccurrenceChanged)
 	}
-	lineage := &mcpScheduleLineage{AccountID: account, TargetRunID: requested.ID, SnapshotDigest: record.SnapshotDigest, Occurrence: record.Snapshot}
+	snapshot := record.Snapshot
+	occurrence := mcpScheduleOccurrenceEvidence{ScheduleID: snapshot.ScheduleID, RootRunID: snapshot.RootRunID, TriggerMessageID: snapshot.TriggerMessageID, ScheduledForUTC: snapshot.ScheduledForUTC, Revision: snapshot.Revision, ExecutionSpec: snapshot.ExecutionSpec, ExecutionSpecDigest: snapshot.ExecutionSpecDigest}
+	occurrence.ExecutionSpec.Content, occurrence.ContentTruncated = mcpTruncate(occurrence.ExecutionSpec.Content, mcpEvidenceIntentRunes)
+	lineage := &mcpScheduleLineage{AccountID: account, TargetRunID: requested.ID, SnapshotDigest: record.SnapshotDigest, Occurrence: occurrence}
 	if err := verifyMCPScheduleSources(db, record, lineage, &x); err != nil {
 		return x, "", err
 	}
-	seenContext := make(map[string]bool)
+	if lineage.Ancestry, lineage.Contexts, _, err = readMCPChainContexts(db, chain, triggers, true, ""); err != nil {
+		return x, "", err
+	}
+	// The target conversation's text lives once, in its lineage context.
+	x.Instructions = lineage.Contexts[0].Context.Instructions
+	x.ScheduleLineage = lineage
+	bounds := &mcpEvidenceBounds{}
+	boundMCPIntent(&x, bounds)
+	x.Bounds = bounds.orNil()
+	digest, err := fitMCPReviewContext(&x, mcpEvidenceBudget)
+	if err != nil {
+		return x, "", err
+	}
+	return x, digest, nil
+}
+
+// Each distinct (conversation, bot) contributes one bounded window ending at
+// the nearest chain trigger in it; each chain run contributes its own records.
+// Records of skipKey are returned separately for the caller's own context.
+func readMCPChainContexts(db reviewQuerier, chain []Run, triggers map[string]Message, strictEffects bool, skipKey string) ([]mcpScheduleAncestor, []mcpScheduleConversation, []ToolActivity, error) {
+	var ancestry []mcpScheduleAncestor
+	var contexts []mcpScheduleConversation
+	var skipped []ToolActivity
+	index := map[string]int{}
 	for _, r := range chain {
-		lineage.Ancestry = append(lineage.Ancestry, mcpScheduleAncestor{Binding: *mcpScheduleBinding(r), Status: r.Status, Trigger: triggers[r.ID]})
+		trigger := triggers[r.ID]
+		var cut bool
+		trigger.Content, cut = mcpTruncate(trigger.Content, mcpEvidenceMessageRunes)
+		ancestry = append(ancestry, mcpScheduleAncestor{Binding: *mcpScheduleBinding(r), Status: r.Status, Trigger: trigger, TriggerTruncated: cut})
 		key := r.ConversationID + "\x00" + r.BotID
-		if seenContext[key] {
+		if _, seen := index[key]; seen || key == skipKey {
 			continue
 		}
-		seenContext[key] = true
-		evidence, err := readMCPScheduleConversation(db, r.ConversationID, r.BotID)
+		evidence, err := readMCPScheduleConversation(db, r.ConversationID, r.BotID, triggers[r.ID])
 		if err != nil {
-			return x, "", err
+			return nil, nil, nil, err
 		}
-		lineage.Contexts = append(lineage.Contexts, mcpScheduleConversation{ConversationID: r.ConversationID, BotID: r.BotID, Context: evidence})
+		index[key] = len(contexts)
+		contexts = append(contexts, mcpScheduleConversation{ConversationID: r.ConversationID, BotID: r.BotID, Context: evidence})
 	}
 	for _, r := range chain {
-		rows, err := db.Query(`SELECT conversation_id,bot_id,run_id,call_id,name,arguments,result,status,truncated,started_at,updated_at,outcome_json FROM tool_activities WHERE run_id=? ORDER BY started_at,call_id LIMIT 201`, r.ID)
+		key := r.ConversationID + "\x00" + r.BotID
+		var bounds *mcpEvidenceBounds
+		if key != skipKey {
+			bounds = contexts[index[key]].Context.Bounds
+			if bounds == nil {
+				bounds = &mcpEvidenceBounds{}
+			}
+		} else {
+			bounds = &mcpEvidenceBounds{}
+		}
+		activities, err := readMCPRunToolEvidence(db, r, strictEffects, bounds)
 		if err != nil {
-			return x, "", err
+			return nil, nil, nil, err
 		}
-		var activities []ToolActivity
-		for rows.Next() {
-			var a ToolActivity
-			var truncated int
-			var outcome string
-			err := rows.Scan(&a.ConversationID, &a.BotID, &a.RunID, &a.CallID, &a.Name, &a.Arguments, &a.Result, &a.Status, &truncated, &a.StartedAt, &a.UpdatedAt, &outcome)
-			a.Truncated = truncated != 0
-			a.Outcome = tooloutcome.Parse(outcome)
-			if err != nil {
-				rows.Close()
-				return x, "", err
-			}
-			if a.Truncated || outcome != "" && a.Outcome == nil || a.Outcome != nil && a.Outcome.Certainty == "unknown" || !utf8.ValidString(a.Arguments) || !utf8.ValidString(a.Result) || a.ConversationID != r.ConversationID || a.BotID != r.BotID {
-				rows.Close()
-				return x, "", errors.New("complete tool-result or effect context unavailable")
-			}
-			activities = append(activities, a)
+		if key == skipKey {
+			skipped = append(skipped, activities...)
+			continue
 		}
-		err = rows.Err()
-		rows.Close()
-		if err != nil || len(activities) > 200 {
-			return x, "", errors.New("complete tool-result context exceeds limit")
-		}
-		for i := range lineage.Contexts {
-			if lineage.Contexts[i].ConversationID == r.ConversationID && lineage.Contexts[i].BotID == r.BotID {
-				lineage.Contexts[i].ToolResults = append(lineage.Contexts[i].ToolResults, activities...)
-				break
-			}
-		}
+		c := &contexts[index[key]]
+		c.ToolResults = append(c.ToolResults, activities...)
+		c.Context.Bounds = bounds.orNil()
 	}
-	x.Instructions, x.Messages, x.MessageProvenance, x.Memories, x.Summary, x.SummaryVersion = lineage.Contexts[0].Context.Instructions, lineage.Contexts[0].Context.Messages, lineage.Contexts[0].Context.MessageProvenance, lineage.Contexts[0].Context.Memories, lineage.Contexts[0].Context.Summary, lineage.Contexts[0].Context.SummaryVersion
-	x.ScheduleLineage = lineage
-	raw, err := json.Marshal(x)
-	if err != nil || len(raw) > 64<<10 || !utf8.Valid(raw) {
-		return x, "", errors.New("complete scheduled authorization context exceeds limit")
+	return ancestry, contexts, skipped, nil
+}
+
+func (b *mcpEvidenceBounds) intent() *mcpTruncatedText {
+	if b == nil {
+		return nil
 	}
-	return x, digestBytes(raw), nil
+	return b.Intent
 }
 
 func verifyMCPScheduleSources(db reviewQuerier, record scheduleOccurrenceAuthorization, lineage *mcpScheduleLineage, x *mcpReviewContext) error {
 	chain := record.Snapshot.Revisions
 	if record.Revision < 1 || record.Revision > maxScheduleAuthorizationRevisions || int64(len(chain)) != record.Revision {
-		return errors.New("complete original schedule source chain unavailable")
+		return mcpContextFail(mcpContextSourceChain)
 	}
 	initial := chain[0].ExecutionSpec
 	for i, saved := range chain {
 		current, err := readScheduleAuthorizationRevision(db, record.ScheduleID, int64(i)+1)
 		if err != nil || !sameScheduleAuthorizationRevision(current, saved) || saved.PreviousRevision != int64(i) || saved.AccountID != record.AccountID || saved.ConversationID != initial.ConversationID || saved.BotID != initial.BotID || saved.RequestID == "" {
-			return errors.New("schedule source revision binding changed")
+			return mcpContextFail(mcpContextSourceChain)
 		}
 		if saved.ExecutionSpec.AccountID != initial.AccountID || saved.ExecutionSpec.ConversationID != initial.ConversationID || saved.ExecutionSpec.BotID != initial.BotID || saved.ExecutionSpec.InitialAtUTC != initial.InitialAtUTC || saved.ExecutionSpec.Kind != initial.Kind || saved.ExecutionSpec.Timezone != initial.Timezone || saved.ExecutionSpec.IntervalSeconds != initial.IntervalSeconds || saved.ExecutionSpec.DailyTime != initial.DailyTime {
-			return errors.New("schedule stable execution scope changed")
+			return mcpContextFail(mcpContextSourceChain)
 		}
 		if i == 0 && saved.EventKind != "create" || i > 0 && saved.EventKind == "create" {
-			return errors.New("legacy schedule lineage cannot be adopted implicitly")
+			return mcpContextFail(mcpContextSourceChain)
 		}
+		evidence := mcpScheduleRevisionEvidence{Revision: saved.Revision, EventKind: saved.EventKind, SourceKind: saved.SourceKind, RequestID: saved.RequestID, CreatedAt: saved.CreatedAt, SourceDigest: saved.SourceDigest}
+		evidence.ExecutionContent, evidence.Truncated = mcpTruncate(saved.ExecutionSpec.Content, mcpEvidenceMessageRunes)
 		switch saved.EventKind {
 		case "pause", "delete", "archive":
 			if i == len(chain)-1 {
-				return errors.New("schedule authorization is revoked")
+				return mcpContextFail(mcpContextScheduleRevoked)
 			}
+			lineage.Occurrence.Revisions = append(lineage.Occurrence.Revisions, evidence)
 			continue // Revocation removes authority and need not assert consent.
 		case "create", "content_edit", "resume":
 		default:
-			return errors.New("unknown schedule authority event")
+			return mcpContextFail(mcpContextSourceChain)
 		}
 		ref := &mcpScheduleSourceReference{ScheduleID: saved.ScheduleID, Revision: saved.Revision, RequestID: saved.RequestID, SourceKind: saved.SourceKind, SourceRunID: saved.SourceRunID, SourceDigest: saved.SourceDigest}
 		switch saved.SourceKind {
 		case scheduleSourceForm:
 			var form scheduleFormAuthorizationSource
 			if json.Unmarshal(saved.SourceContext, &form) != nil || form.Action != saved.EventKind || !json.Valid(form.SubmittedFields) || form.ExecutionSpec != saved.ExecutionSpec || saved.SourceRunID != "" || saved.SourceMessageID != "" {
-				return errors.New("native schedule form binding changed")
+				return mcpContextFail(mcpContextSourceProvenance)
 			}
 			lineage.Authorization = append(lineage.Authorization, mcpAuthorizationEvidence{Source: scheduleSourceForm, ScheduleSource: ref})
+			var cut bool
+			evidence.SubmittedFields, cut = mcpTruncate(string(form.SubmittedFields), mcpEvidenceMessageRunes)
+			evidence.Truncated = evidence.Truncated || cut
 			if i == 0 {
 				var fields struct {
 					Content string `json:"content"`
@@ -285,26 +398,26 @@ func verifyMCPScheduleSources(db reviewQuerier, record scheduleOccurrenceAuthori
 		case scheduleSourceChat:
 			var source mcpReviewContext
 			if json.Unmarshal(saved.SourceContext, &source) != nil || source.ScheduleLineage != nil || source.SourceRunBinding == nil || source.IntentMessageID != saved.SourceMessageID || saved.SourceRunID == "" {
-				return errors.New("native schedule chat source unavailable")
+				return mcpContextFail(mcpContextSourceProvenance)
 			}
 			r, err := scanRun(db.QueryRow(mcpScheduleRunSQL, saved.SourceRunID))
 			if err != nil || *source.SourceRunBinding != *mcpScheduleBinding(r) || r.ConversationID != saved.ConversationID || r.ParentRunID != "" || (r.Kind != "" && r.Kind != "chat" && r.Kind != runKindGroupChat) || r.TriggerMessageID != saved.SourceMessageID {
-				return errors.New("native schedule source run binding changed")
+				return mcpContextFail(mcpContextSourceProvenance)
 			}
 			if imported, err := scheduleImported(db, "run", r.ID); err != nil || imported {
-				return errors.New("native schedule source run import boundary")
+				return mcpContextFail(mcpContextSourceProvenance)
 			}
 			if err := mcpScheduleMember(db, r.ConversationID, r.BotID); err != nil {
 				return err
 			}
 			authorization := mcpAuthorizationSources(source)
 			if len(authorization) == 0 {
-				return errors.New("native source consent provenance unavailable")
+				return mcpContextFail(mcpContextSourceProvenance)
 			}
 			captured := make(map[string]Message, len(source.Messages))
 			for _, m := range source.Messages {
 				if _, duplicate := captured[m.ID]; duplicate {
-					return errors.New("ambiguous source message identity")
+					return mcpContextFail(mcpContextSourceProvenance)
 				}
 				captured[m.ID] = m
 			}
@@ -312,45 +425,61 @@ func verifyMCPScheduleSources(db reviewQuerier, record scheduleOccurrenceAuthori
 			for _, e := range authorization {
 				old, ok := captured[e.MessageID]
 				if !ok || e.ScheduleSource != nil {
-					return errors.New("invalid native source message reference")
+					return mcpContextFail(mcpContextSourceProvenance)
 				}
 				var content, role, conv, kind, sender, origin string
 				err := db.QueryRow(`SELECT m.content,m.role,m.conversation_id,COALESCE(m.kind,''),COALESCE(m.sender_bot_id,''),`+mcpMessageProvenanceSQL+` FROM messages m WHERE m.id=?`, e.MessageID).Scan(&content, &role, &conv, &kind, &sender, &origin)
-				if err != nil || origin != mcpHostUserIngress || conv != r.ConversationID || role != old.Role || kind != old.Kind || sender != old.SenderBotID || content != old.Content {
-					return errors.New("native original source text or provenance changed")
+				if err != nil || origin != mcpHostUserIngress || conv != r.ConversationID || role != old.Role || kind != old.Kind || sender != old.SenderBotID || !mcpCapturedTextMatches(content, old.Content, source.Bounds.truncatedMessage(e.MessageID)) {
+					return mcpContextFail(mcpContextSourceProvenance)
 				}
 				if e.MessageID == saved.SourceMessageID {
 					triggerFound = true
-					if content != source.Intent {
-						return errors.New("original schedule intent changed")
+					if !mcpCapturedTextMatches(content, source.Intent, source.Bounds.intent()) {
+						return mcpContextFail(mcpContextSourceProvenance)
 					}
 				}
 				lineage.Authorization = append(lineage.Authorization, mcpAuthorizationEvidence{MessageID: e.MessageID, Source: mcpHostUserIngress, ScheduleSource: ref})
 			}
 			if !triggerFound {
-				return errors.New("native source trigger lacks verified authorization")
+				return mcpContextFail(mcpContextSourceProvenance)
+			}
+			var cut bool
+			evidence.SourceRequest, cut = mcpTruncate(source.Intent, mcpEvidenceMessageRunes)
+			evidence.Truncated = evidence.Truncated || cut
+			messages := source.Messages
+			if len(messages) > mcpEvidenceSourceMessages {
+				messages, evidence.Truncated = messages[len(messages)-mcpEvidenceSourceMessages:], true
+			}
+			for _, m := range messages {
+				m.Content, cut = mcpTruncate(m.Content, mcpEvidenceSourceRunes)
+				m.Notice, m.RunID = nil, ""
+				evidence.Truncated = evidence.Truncated || cut
+				evidence.SourceMessages = append(evidence.SourceMessages, m)
 			}
 			if i == 0 {
 				x.Intent, x.IntentMessageID = source.Intent, source.IntentMessageID
 			}
+		case scheduleSourceUnknown:
+			return mcpContextFail(mcpContextSourceUnknown)
 		default:
-			return errors.New("schedule source provenance is unknown")
+			return mcpContextFail(mcpContextSourceProvenance)
 		}
+		lineage.Occurrence.Revisions = append(lineage.Occurrence.Revisions, evidence)
 	}
 	return nil
 }
 
-// Resolve only source-backed chronological edges. Unlike the runtime return
+// Resolve only source-backed chronological edges (scheduled or delegated). Unlike the runtime return
 // resolver, this authorization walk never skips retries or failed ancestors.
 func validateMCPScheduleEdges(db reviewQuerier, chain []Run, byID map[string]Run, triggers map[string]Message) error {
 	assignment := func(child, parent Run) error {
 		if child.BotID == parent.BotID || (parent.Status != "running" && parent.Status != "done" && parent.Status != runWaiting) {
-			return errors.New("scheduled assignment requester unavailable")
+			return mcpContextFail(mcpContextAssignmentBinding)
 		}
 		m := triggers[child.ID]
 		n := m.Notice
 		if m.ConversationID != child.ConversationID || m.Role != "assistant" || m.Kind != "notice" || m.SenderBotID != parent.BotID || n == nil || n.FromBotID != parent.BotID || n.TargetConversationID != child.ConversationID {
-			return errors.New("scheduled bot assignment binding changed")
+			return mcpContextFail(mcpContextAssignmentBinding)
 		}
 		expectedOrigin := parent.ConversationID
 		if child.Kind == runKindTeam || child.ConversationID == parent.ConversationID {
@@ -359,28 +488,28 @@ func validateMCPScheduleEdges(db reviewQuerier, chain []Run, byID map[string]Run
 			}
 		}
 		if child.OriginConversationID != expectedOrigin {
-			return errors.New("scheduled assignment origin changed")
+			return mcpContextFail(mcpContextAssignmentBinding)
 		}
 		if child.ConversationID == parent.ConversationID {
 			if child.Kind != runKindGroupTask || n.Type != "handoff" {
-				return errors.New("unsupported same-conversation continuation")
+				return mcpContextFail(mcpContextAssignmentBinding)
 			}
 		} else {
 			switch child.Kind {
 			case "":
 				if n.Type != "forward" {
-					return errors.New("invalid forward assignment")
+					return mcpContextFail(mcpContextAssignmentBinding)
 				}
 			case runKindMessage:
 				if n.Type != "message" {
-					return errors.New("invalid message assignment")
+					return mcpContextFail(mcpContextAssignmentBinding)
 				}
 			case runKindTeam:
 				if n.Type != "handoff" {
-					return errors.New("invalid team assignment")
+					return mcpContextFail(mcpContextAssignmentBinding)
 				}
 			default:
-				return errors.New("unsupported cross-conversation continuation")
+				return mcpContextFail(mcpContextAssignmentBinding)
 			}
 		}
 		contains := func(ids []string, id string) bool {
@@ -401,17 +530,17 @@ func validateMCPScheduleEdges(db reviewQuerier, chain []Run, byID map[string]Run
 			if err := db.QueryRow(`SELECT COUNT(*) FROM runs WHERE parent_run_id=? AND trigger_message_id=? AND conversation_id=?`, parent.ID, child.TriggerMessageID, child.ConversationID).Scan(&siblings); err == nil && siblings == 1 {
 				return nil
 			}
-			return errors.New("single-recipient message assignment is ambiguous")
+			return mcpContextFail(mcpContextAssignmentBinding)
 		}
 		// Fanout siblings share the first child's durable anchor. Its host notice
 		// lists each target; parent-child trigger reuse is still rejected above.
 		if child.Kind != runKindMessage || len(n.TargetRunIDs) < 2 || len(n.TargetRunIDs) > maxMCPAuthorizationAncestry || !contains(n.TargetRunIDs, child.ID) || !contains(n.TargetRunIDs, m.RunID) || !contains(n.TargetBotIDs, child.BotID) || !contains(n.ToBotIDs, child.BotID) {
-			return errors.New("scheduled assignment target changed")
+			return mcpContextFail(mcpContextAssignmentBinding)
 		}
 		for _, id := range n.TargetRunIDs {
 			sibling, err := scanRun(db.QueryRow(mcpScheduleRunSQL, id))
 			if err != nil || sibling.Kind != runKindMessage || sibling.ParentRunID != parent.ID || sibling.TriggerMessageID != child.TriggerMessageID || sibling.ConversationID != child.ConversationID || !contains(n.TargetBotIDs, sibling.BotID) {
-				return errors.New("fanout assignment membership changed")
+				return mcpContextFail(mcpContextAssignmentBinding)
 			}
 		}
 		return nil
@@ -427,17 +556,17 @@ func validateMCPScheduleEdges(db reviewQuerier, chain []Run, byID map[string]Run
 			origin = parent.OriginConversationID
 		}
 		if parent.Status != "done" || m.ID == "" || m.ConversationID != child.ConversationID || m.RunID != parent.ID || m.Role != "assistant" || m.SenderBotID != parent.BotID || (m.Kind != "" && m.Kind != "forward_result" && m.Kind != messageKindBotResult) || child.OriginConversationID != origin {
-			return errors.New("scheduled return result binding changed")
+			return mcpContextFail(mcpContextReturnBinding)
 		}
 		caller, err := requester(parent)
 		if err != nil || caller.BotID != child.BotID || caller.ConversationID != child.ConversationID {
-			return errors.New("scheduled return requester changed")
+			return mcpContextFail(mcpContextReturnBinding)
 		}
 		return nil
 	}
 	original = func(r Run) (Run, error) {
 		if visiting[r.ID] {
-			return Run{}, errors.New("scheduled logical return cycle")
+			return Run{}, mcpContextFail(mcpContextAncestryCycle)
 		}
 		visiting[r.ID] = true
 		defer delete(visiting, r.ID)
@@ -446,7 +575,7 @@ func validateMCPScheduleEdges(db reviewQuerier, chain []Run, byID map[string]Run
 		}
 		parent, ok := byID[r.ParentRunID]
 		if !ok {
-			return Run{}, errors.New("scheduled return ancestry missing")
+			return Run{}, mcpContextFail(mcpContextAncestryUnavailable)
 		}
 		if err := validateReturn(r, parent); err != nil {
 			return Run{}, err
@@ -464,7 +593,7 @@ func validateMCPScheduleEdges(db reviewQuerier, chain []Run, byID map[string]Run
 		}
 		caller, ok := byID[actual.ParentRunID]
 		if !ok {
-			return Run{}, errors.New("scheduled logical requester missing")
+			return Run{}, mcpContextFail(mcpContextAncestryUnavailable)
 		}
 		if err := assignment(actual, caller); err != nil {
 			return Run{}, err
@@ -474,7 +603,10 @@ func validateMCPScheduleEdges(db reviewQuerier, chain []Run, byID map[string]Run
 	for i := 0; i+1 < len(chain); i++ {
 		child, parent := chain[i], chain[i+1]
 		if child.ParentRunID != parent.ID {
-			return errors.New("scheduled ancestry link changed")
+			return mcpContextFail(mcpContextAncestryUnavailable)
+		}
+		if mcpGroupRoundEdge(child, parent) {
+			continue // An invited member shares its round's verified user trigger.
 		}
 		if child.Kind == runKindFollowup {
 			if err := validateReturn(child, parent); err != nil {
@@ -487,74 +619,29 @@ func validateMCPScheduleEdges(db reviewQuerier, chain []Run, byID map[string]Run
 	return nil
 }
 
-func readMCPScheduleConversation(db reviewQuerier, conversation, bot string) (mcpReviewContext, error) {
+// One conversation of a chain: bounded text ending at the chain's trigger in
+// it, its unread attachment manifest and human refusals. Earlier attachments
+// are an explicit manifest, not a reason the occurrence cannot be reviewed.
+func readMCPScheduleConversation(db reviewQuerier, conversation, bot string, trigger Message) (mcpReviewContext, error) {
 	var x mcpReviewContext
 	if err := mcpScheduleMember(db, conversation, bot); err != nil {
 		return x, err
 	}
-	var attachments int
-	if err := db.QueryRow(`SELECT COUNT(*) FROM attachments WHERE conversation_id=?`, conversation).Scan(&attachments); err != nil || attachments != 0 {
-		return x, errors.New("complete non-text scheduled context unavailable")
-	}
 	if err := db.QueryRow(`SELECT instructions FROM bots WHERE id=?`, bot).Scan(&x.Instructions); err != nil {
+		return x, mcpContextFail(mcpContextInstructionsRead)
+	}
+	var err error
+	if x.AttachmentBoundary, err = readMCPAttachmentBoundary(db, conversation, trigger.ID, trigger.Seq); err != nil {
 		return x, err
 	}
-	if !utf8.ValidString(x.Instructions) {
-		return x, errors.New("scheduled instructions cannot be represented completely")
-	}
-	rows, err := db.Query(`SELECT m.id,m.seq,m.role,COALESCE(m.kind,''),m.content,COALESCE(m.sender_bot_id,''),COALESCE(m.run_id,''),COALESCE(m.notice_data,''),`+mcpMessageProvenanceSQL+` FROM messages m WHERE m.conversation_id=? ORDER BY m.seq LIMIT 201`, conversation)
-	if err != nil {
+	bounds := &mcpEvidenceBounds{}
+	boundMCPIntent(&x, bounds)
+	if x.Messages, x.MessageProvenance, err = readMCPMessageWindow(db, conversation, trigger.Seq, true, bounds); err != nil {
 		return x, err
 	}
-	for rows.Next() {
-		var m Message
-		var notice, source string
-		if err = rows.Scan(&m.ID, &m.Seq, &m.Role, &m.Kind, &m.Content, &m.SenderBotID, &m.RunID, &notice, &source); err != nil {
-			break
-		}
-		if !utf8.ValidString(m.Content) || !utf8.ValidString(notice) {
-			err = errors.New("scheduled message cannot be represented completely")
-			break
-		}
-		if notice != "" {
-			if err = json.Unmarshal([]byte(notice), &m.Notice); err != nil {
-				break
-			}
-		}
-		x.Messages = append(x.Messages, m)
-		x.MessageProvenance = append(x.MessageProvenance, mcpMessageProvenance{m.ID, source})
-	}
-	rowErr := rows.Err()
-	rows.Close()
-	if err != nil || rowErr != nil || len(x.Messages) > 200 {
-		return x, errors.New("complete scheduled conversation exceeds limit")
-	}
-	rows, err = db.Query(`SELECT id,content,revision FROM memories WHERE conversation_id=? AND (bot_id IS NULL OR bot_id=?) ORDER BY id LIMIT 201`, conversation, bot)
-	if err != nil {
+	if x.HumanRefusals, err = readMCPHumanRefusals(db, conversation, bounds); err != nil {
 		return x, err
 	}
-	for rows.Next() {
-		var m Memory
-		if err = rows.Scan(&m.ID, &m.Content, &m.Revision); err != nil {
-			break
-		}
-		if !utf8.ValidString(m.Content) {
-			err = errors.New("scheduled memory cannot be represented completely")
-			break
-		}
-		x.Memories = append(x.Memories, m)
-	}
-	rowErr = rows.Err()
-	rows.Close()
-	if err != nil || rowErr != nil || len(x.Memories) > 200 {
-		return x, errors.New("complete scheduled memory exceeds limit")
-	}
-	err = db.QueryRow(`SELECT version,content FROM summaries WHERE conversation_id=? ORDER BY version DESC LIMIT 1`, conversation).Scan(&x.SummaryVersion, &x.Summary)
-	if err != nil && !errors.Is(err, sql.ErrNoRows) {
-		return x, err
-	}
-	if !utf8.ValidString(x.Summary) {
-		return x, errors.New("scheduled summary cannot be represented completely")
-	}
+	x.Bounds = bounds.orNil()
 	return x, nil
 }
