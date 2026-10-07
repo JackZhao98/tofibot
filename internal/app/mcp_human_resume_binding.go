@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"time"
 
 	"github.com/JackZhao98/tofibot/internal/agent"
 	"github.com/JackZhao98/tofibot/internal/extensions"
@@ -16,8 +17,11 @@ import (
 // re-proposal and observation-only lookups made before it may differ from the
 // reviewed snapshot. Every authorization/effect fact stays bound. Later
 // progress text never enters the bounded window. This runs inside the same
-// transaction as the ordinary execution claim.
-func mcpHumanResumeContextMatches(ctx context.Context, db reviewQuerier, c Conversation, r Run, call extensions.MCPCallApproval, q Question, snapshot, digest string, current mcpReviewContext) bool {
+// transaction as the ordinary execution claim. The current packet is rebuilt
+// by read from raw durable rows with those records normalized first, then
+// bounded and fitted exactly as the review was, so a long history or run
+// cannot make the comparison depend on which records the window kept.
+func mcpHumanResumeContextMatches(ctx context.Context, db reviewQuerier, c Conversation, r Run, call extensions.MCPCallApproval, q Question, snapshot, digest string, read func(reviewQuerier) (mcpReviewContext, error)) bool {
 	if q.Status != questionAnswered || q.AnsweredBy == "" || q.AnsweredBy == autoReviewActor || string(q.Answer) != "true" || len(snapshot) == 0 || len(snapshot) > 64<<10 {
 		return false
 	}
@@ -79,32 +83,34 @@ func mcpHumanResumeContextMatches(ctx context.Context, db reviewQuerier, c Conve
 	if found != 1 || waiting.ConversationID != c.ID || waiting.BotID != r.BotID || waiting.Name != waitingRow.Name || waiting.Status != "running" || waiting.Result != "" || waiting.Outcome != nil || waiting.Arguments != shown || waiting.StartedAt != waitingRow.StartedAt {
 		return false
 	}
-	resumed, proposed := 0, 0
-	if !visitMCPReviewActivities(&current, func(activities *[]ToolActivity) bool {
-		filtered := make([]ToolActivity, 0, len(*activities))
-		for _, a := range *activities {
-			switch {
-			case a.RunID == r.ID && a.CallID == waitingID:
-				filtered = append(filtered, waiting)
-				resumed++
-			case a.RunID == r.ID && a.CallID == activeID:
-				proposed++
-			case a.RunID == r.ID && !known[a.RunID+"\x00"+a.CallID] && mcpObservationOnlyActivity(a):
-				// A lookup before the exact re-proposal is not an effect or consent.
-			default:
-				filtered = append(filtered, a)
-			}
-		}
-		// Preserve nil versus empty slices in the original snapshot.
-		if len(filtered) == 0 {
-			filtered = nil
-		}
-		*activities = filtered
-		return true
-	}) || resumed != 1 || proposed != 1 {
+	waitingStarted, e := time.Parse(time.RFC3339Nano, waitingRow.StartedAt)
+	if e != nil {
 		return false
 	}
-	return mcpReviewDigest(current, call) == digest
+	resumed, proposed := 0, 0
+	current, err := read(&mcpResumeQuerier{db, func(a *ToolActivity) bool {
+		if a.RunID != r.ID {
+			return true
+		}
+		switch {
+		case a.CallID == waitingID:
+			// Restore the raw row as reviewed: the full durable arguments with the
+			// reviewed lifecycle state, before bounding re-truncates them.
+			resumed++
+			a.Status, a.Result, a.Outcome, a.Truncated, a.UpdatedAt = waiting.Status, waiting.Result, nil, false, waiting.UpdatedAt
+			return true
+		case a.CallID == activeID:
+			proposed++
+			return false
+		case !known[a.RunID+"\x00"+a.CallID] && mcpObservationOnlyActivity(*a):
+			// A lookup after the approval, before the exact re-proposal, is not
+			// an effect or consent. Older lookups stay as they were reviewed.
+			started, e := time.Parse(time.RFC3339Nano, a.StartedAt)
+			return e != nil || !started.After(waitingStarted)
+		}
+		return true
+	}})
+	return err == nil && resumed == 1 && proposed == 1 && mcpReviewDigest(current, call) == digest
 }
 
 func mcpResumeActivity(db reviewQuerier, run, call string) (ToolActivity, bool) {

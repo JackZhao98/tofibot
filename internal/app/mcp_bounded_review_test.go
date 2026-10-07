@@ -40,10 +40,10 @@ func TestMCPBoundedReviewLongConversationIsReviewable(t *testing.T) {
 	}
 	raw, _ := json.Marshal(x)
 	b := x.Bounds
-	if len(raw) > mcpEvidenceBudget || b == nil || !b.OlderMessagesOmitted || len(b.TruncatedMessages) == 0 || !b.OlderToolRecordsOmitted || !b.ToolRecordsTruncated || !b.OlderRefusalsOmitted || !b.RefusalPayloadsTruncated {
+	if len(raw) > mcpEvidenceBudget || b == nil || !b.OlderMessagesOmitted || len(b.TruncatedMessages) == 0 || !b.OlderToolRecordsOmitted || !b.ToolRecordsTruncated || !b.RefusalPayloadsTruncated {
 		t.Fatalf("bounded packet size=%d flags=%+v", len(raw), b)
 	}
-	if last := x.Messages[len(x.Messages)-1]; last.ID != f.r.TriggerMessageID || len(x.Messages) > mcpEvidenceMessages || len(x.ToolResults) > mcpEvidenceToolRows || len(x.HumanRefusals) > mcpEvidenceRefusals {
+	if last := x.Messages[len(x.Messages)-1]; last.ID != f.r.TriggerMessageID || len(x.Messages) > mcpEvidenceMessages || len(x.ToolResults) > mcpEvidenceToolRows || len(x.HumanRefusals) != 30 {
 		t.Fatal("window lost its trigger or exceeded its bounds")
 	}
 	if strings.Contains(string(raw), `"memories"`) || strings.Contains(string(raw), `conversation_summary`) {

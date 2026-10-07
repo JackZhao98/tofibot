@@ -118,6 +118,13 @@ func mcpReviewBlocked(status, reason string, failure ...*MCPContextFailure) erro
 		diagnostic, why := "reviewer_context_gap", "the reviewer found facts this exact action depends on missing"
 		if len(failure) != 0 && failure[0] != nil {
 			diagnostic, why = string(failure[0].Code), mcpContextFailureReason(failure[0].Code)
+			if mcpContextTransient(failure[0].Code) {
+				// Evidence moved under a pending review; it is not a standing gap.
+				// The recovery guard leaves a Transient retry unfenced.
+				outcome, next = tooloutcome.Transient, "retry"
+				reason = strings.TrimSpace(reason + " Diagnostic " + diagnostic + ": " + why + ". Retrying the same call starts a fresh review of the current evidence and may need the user's approval again.")
+				break
+			}
 		}
 		reason = strings.TrimSpace(reason + " Diagnostic " + diagnostic + ": " + why + ". Do not retry this MCP action; an identical call stays blocked. Use another permitted route or explain the blocker to the user.")
 	case "policy_denied":

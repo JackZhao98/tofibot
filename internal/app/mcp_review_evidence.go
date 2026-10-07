@@ -11,15 +11,17 @@ import (
 // The review packet is a bounded window, never the whole history. Authority
 // comes from the trigger (or schedule lineage); older text, records and
 // refusals are evidence that may be shortened or omitted with explicit flags.
-// Size or count alone never makes a proposal unreviewable.
+// Size or count alone never makes a proposal unreviewable. Human refusals and
+// later human messages are restrictions: they are shortened, never dropped,
+// and a packet that cannot hold them all fails closed.
 const (
 	mcpEvidenceMessages         = 40
 	mcpEvidenceMessageRunes     = 2000
 	mcpEvidenceIntentRunes      = 6000
 	mcpEvidenceInstructionRunes = 6000
-	mcpEvidenceLaterUser        = 10
-	mcpEvidenceRefusals         = 20
+	mcpEvidenceRestrictions     = 200
 	mcpEvidenceRefusalRunes     = 1500
+	mcpEvidenceRefusalShort     = 200
 	mcpEvidenceToolRows         = 60
 	mcpEvidenceToolRunes        = 1500
 	mcpEvidenceAttachments      = 50
@@ -45,8 +47,6 @@ type mcpEvidenceBounds struct {
 	InstructionsTruncated    bool               `json:"bot_instructions_truncated,omitempty"`
 	OlderMessagesOmitted     bool               `json:"older_messages_omitted,omitempty"`
 	TruncatedMessages        []mcpTruncatedText `json:"truncated_messages,omitempty"`
-	LaterUserMessagesOmitted bool               `json:"later_user_messages_omitted,omitempty"`
-	OlderRefusalsOmitted     bool               `json:"older_refusals_omitted,omitempty"`
 	RefusalPayloadsTruncated bool               `json:"refusal_payloads_truncated,omitempty"`
 	OlderToolRecordsOmitted  bool               `json:"older_tool_records_omitted,omitempty"`
 	ToolRecordsTruncated     bool               `json:"tool_records_truncated,omitempty"`
@@ -54,7 +54,7 @@ type mcpEvidenceBounds struct {
 }
 
 func (b *mcpEvidenceBounds) orNil() *mcpEvidenceBounds {
-	if b == nil || b.Intent == nil && !b.InstructionsTruncated && !b.OlderMessagesOmitted && len(b.TruncatedMessages) == 0 && !b.LaterUserMessagesOmitted && !b.OlderRefusalsOmitted && !b.RefusalPayloadsTruncated && !b.OlderToolRecordsOmitted && !b.ToolRecordsTruncated && !b.OlderSourceTextOmitted {
+	if b == nil || b.Intent == nil && !b.InstructionsTruncated && !b.OlderMessagesOmitted && len(b.TruncatedMessages) == 0 && !b.RefusalPayloadsTruncated && !b.OlderToolRecordsOmitted && !b.ToolRecordsTruncated && !b.OlderSourceTextOmitted {
 		return nil
 	}
 	return b
@@ -164,9 +164,10 @@ func readMCPMessageWindow(db reviewQuerier, conversation string, throughSeq int6
 	return messages, provenance, nil
 }
 
-// Human-typed messages after the trigger stay bound as restrictions.
-func readMCPLaterUserMessages(db reviewQuerier, conversation string, afterSeq int64, bounds *mcpEvidenceBounds) ([]mcpRestrictionMessage, error) {
-	rows, err := db.Query(`SELECT m.id,m.seq,m.role,COALESCE(m.kind,''),m.content,`+mcpMessageProvenanceSQL+` FROM messages m WHERE m.conversation_id=? AND m.seq>? AND m.role='user' AND COALESCE(m.sender_bot_id,'')='' AND COALESCE(m.kind,'') IN ('','user_message') ORDER BY m.seq DESC LIMIT ?`, conversation, afterSeq, mcpEvidenceLaterUser+1)
+// Human-typed messages after the trigger stay bound as restrictions. None is
+// dropped: more than the packet can hold closes the proposal instead.
+func readMCPLaterUserMessages(db reviewQuerier, conversation string, afterSeq int64) ([]mcpRestrictionMessage, error) {
+	rows, err := db.Query(`SELECT m.id,m.seq,m.role,COALESCE(m.kind,''),m.content,`+mcpMessageProvenanceSQL+` FROM messages m WHERE m.conversation_id=? AND m.seq>? AND m.role='user' AND COALESCE(m.sender_bot_id,'')='' AND COALESCE(m.kind,'') IN ('','user_message') ORDER BY m.seq DESC LIMIT ?`, conversation, afterSeq, mcpEvidenceRestrictions+1)
 	if err != nil {
 		return nil, mcpContextFail(mcpContextMessagesQuery)
 	}
@@ -177,8 +178,8 @@ func readMCPLaterUserMessages(db reviewQuerier, conversation string, afterSeq in
 			err = mcpContextFail(mcpContextMessagesScan)
 			break
 		}
-		if len(out) == mcpEvidenceLaterUser {
-			bounds.LaterUserMessagesOmitted = true
+		if len(out) == mcpEvidenceRestrictions {
+			err = mcpContextLimitFail(mcpContextLaterUserLimit, len(out)+1, mcpEvidenceRestrictions, mcpEvidenceRestrictions+1, true)
 			break
 		}
 		m.Content, _ = mcpTruncate(strings.ToValidUTF8(m.Content, "�"), mcpEvidenceMessageRunes)
@@ -219,10 +220,23 @@ func mcpObservationOnlyActivity(a ToolActivity) bool {
 	return false
 }
 
+// A human-approved resume rebuilds the reviewed packet from raw durable rows:
+// keep restores or drops each row before the count bound and truncation, so a
+// re-proposal or lookup cannot shift which reviewed records fit the window.
+type mcpResumeQuerier struct {
+	reviewQuerier
+	keep func(*ToolActivity) bool
+}
+
 // One run's own records, newest first within a count bound. Unknown effects
 // are evidence for direct chat; scheduled ancestry keeps its stricter fence.
 func readMCPRunToolEvidence(db reviewQuerier, r Run, strictEffects bool, bounds *mcpEvidenceBounds) ([]ToolActivity, error) {
-	rows, err := db.Query(`SELECT conversation_id,bot_id,run_id,call_id,name,arguments,result,status,truncated,started_at,updated_at,outcome_json FROM tool_activities WHERE run_id=? AND name NOT IN `+mcpDiscoveryToolsSQL+` ORDER BY started_at DESC,call_id DESC LIMIT ?`, r.ID, mcpEvidenceToolRows+1)
+	query, args := `SELECT conversation_id,bot_id,run_id,call_id,name,arguments,result,status,truncated,started_at,updated_at,outcome_json FROM tool_activities WHERE run_id=? AND name NOT IN `+mcpDiscoveryToolsSQL+` ORDER BY started_at DESC,call_id DESC`, []any{r.ID}
+	resume, _ := db.(*mcpResumeQuerier)
+	if resume == nil {
+		query, args = query+` LIMIT ?`, append(args, mcpEvidenceToolRows+1)
+	}
+	rows, err := db.Query(query, args...)
 	if err != nil {
 		return nil, mcpContextFail(mcpContextToolsQuery)
 	}
@@ -235,13 +249,16 @@ func readMCPRunToolEvidence(db reviewQuerier, r Run, strictEffects bool, bounds 
 			err = mcpContextFail(mcpContextToolsScan)
 			break
 		}
-		if len(out) == mcpEvidenceToolRows {
-			bounds.OlderToolRecordsOmitted = true
-			break
-		}
 		a.Truncated, a.Outcome = truncated != 0, tooloutcome.Parse(outcome)
 		if outcome != "" && a.Outcome == nil {
 			err = mcpContextFail(mcpContextToolsOutcome)
+			break
+		}
+		if resume != nil && !resume.keep(&a) {
+			continue
+		}
+		if len(out) == mcpEvidenceToolRows {
+			bounds.OlderToolRecordsOmitted = true
 			break
 		}
 		if !utf8.ValidString(a.Arguments) || !utf8.ValidString(a.Result) {
@@ -279,9 +296,10 @@ func readMCPRunToolEvidence(db reviewQuerier, r Run, strictEffects bool, bounds 
 }
 
 // Genuine human refusals in this conversation, newest first. Malformed rows
-// still fail: they are corrupted restrictions, not bounded evidence.
+// still fail: they are corrupted restrictions, not bounded evidence. None is
+// dropped: more than the packet can hold closes the proposal instead.
 func readMCPHumanRefusals(db reviewQuerier, conversation string, bounds *mcpEvidenceBounds) ([]mcpHumanRefusal, error) {
-	rows, err := db.Query(`SELECT q.id,q.run_id,a.action_hash,q.approval_json FROM questions q JOIN mcp_call_approvals a ON a.question_id=q.id WHERE q.conversation_id=? AND q.status='answered' AND q.answer_json='false' AND COALESCE(q.answered_by,'')<>'' AND q.answered_by<>? ORDER BY q.created_at DESC,q.id DESC LIMIT ?`, conversation, autoReviewActor, mcpEvidenceRefusals+1)
+	rows, err := db.Query(`SELECT q.id,q.run_id,a.action_hash,q.approval_json FROM questions q JOIN mcp_call_approvals a ON a.question_id=q.id WHERE q.conversation_id=? AND q.status='answered' AND q.answer_json='false' AND COALESCE(q.answered_by,'')<>'' AND q.answered_by<>? ORDER BY q.created_at DESC,q.id DESC LIMIT ?`, conversation, autoReviewActor, mcpEvidenceRestrictions+1)
 	if err != nil {
 		return nil, mcpContextFail(mcpContextRefusalsQuery)
 	}
@@ -293,8 +311,8 @@ func readMCPHumanRefusals(db reviewQuerier, conversation string, bounds *mcpEvid
 			err = mcpContextFail(mcpContextRefusalsScan)
 			break
 		}
-		if len(out) == mcpEvidenceRefusals {
-			bounds.OlderRefusalsOmitted = true
+		if len(out) == mcpEvidenceRestrictions {
+			err = mcpContextLimitFail(mcpContextRefusalsLimit, len(out)+1, mcpEvidenceRestrictions, mcpEvidenceRestrictions+1, true)
 			break
 		}
 		if err = json.Unmarshal([]byte(raw), &refusal.Approval); err != nil || refusal.Approval == nil {
@@ -327,7 +345,8 @@ func reverseSlice[T any](s []T) {
 }
 
 // Drop the oldest evidence until the packet fits, flagging each omission.
-// Authorization references, the trigger and the lineage are never dropped.
+// Authorization references, the trigger, the lineage and human restrictions
+// are never dropped; if they alone exceed the budget the packet fails closed.
 func fitMCPReviewContext(x *mcpReviewContext, budget int) (string, error) {
 	for {
 		raw, err := json.Marshal(x)
@@ -338,7 +357,13 @@ func fitMCPReviewContext(x *mcpReviewContext, budget int) (string, error) {
 			return digestBytes(raw), nil
 		}
 		if !dropOldestMCPEvidence(x) {
-			return "", mcpContextLimitFail(mcpContextBytesLimit, len(raw), budget, 1<<20, false)
+			code := mcpContextBytesLimit
+			visitMCPReviewContexts(x, func(c *mcpReviewContext) {
+				if len(c.HumanRefusals) > 0 || len(c.LaterUserMessages) > 0 {
+					code = mcpContextRestrictionsBudget
+				}
+			})
+			return "", mcpContextLimitFail(code, len(raw), budget, 1<<20, false)
 		}
 	}
 }
@@ -359,6 +384,17 @@ func dropOldestMCPEvidence(x *mcpReviewContext) bool {
 	if x.Delegation != nil {
 		for i := range x.Delegation.Contexts {
 			contexts = append(contexts, &x.Delegation.Contexts[i].Context)
+		}
+	}
+	// 0. Shorten refusal payloads first. The refusals themselves stay, and an
+	// exact refused action is also fenced in code by its action hash.
+	for _, c := range contexts {
+		for i := range c.HumanRefusals {
+			if a := c.HumanRefusals[i].Approval; a != nil && utf8.RuneCountInString(a.Payload) > mcpEvidenceRefusalShort+len("…[truncated]") {
+				a.Payload, _ = mcpTruncate(strings.TrimSuffix(a.Payload, "…[truncated]"), mcpEvidenceRefusalShort)
+				bounds(&c.Bounds).RefusalPayloadsTruncated = true
+				return true
+			}
 		}
 	}
 	// 1. Older conversation text, keeping each window's newest message.
@@ -402,17 +438,10 @@ func dropOldestMCPEvidence(x *mcpReviewContext) bool {
 			}
 		}
 	}
-	// 4. Unread attachment metadata, then the oldest human refusals.
+	// 4. Unread attachment metadata.
 	for _, c := range contexts {
 		if a := c.AttachmentBoundary; a != nil && len(a.Omissions) > 0 {
 			a.Omissions, a.OlderOmitted = a.Omissions[1:], true
-			return true
-		}
-	}
-	for _, c := range contexts {
-		if len(c.HumanRefusals) > 0 {
-			c.HumanRefusals = c.HumanRefusals[1:]
-			bounds(&c.Bounds).OlderRefusalsOmitted = true
 			return true
 		}
 	}
@@ -453,4 +482,18 @@ func dropOldestMCPEvidence(x *mcpReviewContext) bool {
 		}
 	}
 	return false
+}
+
+func visitMCPReviewContexts(x *mcpReviewContext, visit func(*mcpReviewContext)) {
+	visit(x)
+	if x.ScheduleLineage != nil {
+		for i := range x.ScheduleLineage.Contexts {
+			visit(&x.ScheduleLineage.Contexts[i].Context)
+		}
+	}
+	if x.Delegation != nil {
+		for i := range x.Delegation.Contexts {
+			visit(&x.Delegation.Contexts[i].Context)
+		}
+	}
 }

@@ -19,9 +19,15 @@ import (
 // Production agent suspension/continuation and official MCP SDK dispatch run
 // unchanged. Both providers are synthetic and in process, without a listener.
 func TestAutoReviewV5HumanRequiredDurableResume(t *testing.T) {
-	for _, mutation := range []string{"unchanged", "user intent", "related evidence", "human refusal", "unknown control outcome", "forged progress", "old progress edit", "observation lookups", "active proposal arguments", "config binding", "expiry", "off epoch", "missing snapshot", "checkpoint question", "attachment unchanged", "attachment add", "attachment delete", "attachment relink"} {
+	for _, mutation := range []string{"unchanged", "user intent", "related evidence", "human refusal", "unknown control outcome", "forged progress", "old progress edit", "observation lookups", "active proposal arguments", "config binding", "expiry", "off epoch", "missing snapshot", "checkpoint question", "attachment unchanged", "attachment add", "attachment delete", "attachment relink", "long unchanged", "long observation lookups", "long human refusal"} {
 		t.Run(mutation, func(t *testing.T) {
 			f := newAutoReviewFixture(t)
+			// A >56 KiB conversation with >60 run records: the reviewed snapshot is
+			// a fitted window, and the resume must rebuild exactly that window.
+			long := strings.HasPrefix(mutation, "long ")
+			if long {
+				seedLongMCPConversation(t, f)
+			}
 			var oldAttachmentMessage string
 			if strings.HasPrefix(mutation, "attachment ") {
 				oldAttachmentMessage = seedHistoricalMCPAttachments(t, f, "Read the synthetic public fact for alpha.")
@@ -138,7 +144,7 @@ func TestAutoReviewV5HumanRequiredDurableResume(t *testing.T) {
 			}
 			resuming = true
 			request.Continuation, request.ResumeResult, request.ResumeOutcome = checkpoint, f.s.inputResumeResult(answered), f.s.inputResumeOutcome(answered)
-			switch mutation {
+			switch strings.TrimPrefix(mutation, "long ") {
 			case "user intent":
 				_, err = f.s.store.db.Exec(`UPDATE messages SET content='Do not execute the synthetic operation.' WHERE id=?`, f.r.TriggerMessageID)
 			case "related evidence":
@@ -200,13 +206,21 @@ func TestAutoReviewV5HumanRequiredDurableResume(t *testing.T) {
 				t.Fatal("production resume failed", finished, err)
 			}
 			// Progress text after the trigger is outside the bounded window.
-			executes := map[string]bool{"unchanged": true, "attachment unchanged": true, "forged progress": true, "old progress edit": true, "observation lookups": true}
+			executes := map[string]bool{"unchanged": true, "attachment unchanged": true, "forged progress": true, "old progress edit": true, "observation lookups": true, "long unchanged": true, "long observation lookups": true}
 			want := int32(0)
 			if executes[mutation] {
 				want = 1
 			}
 			if f.effects.Load() != want || f.p.calls.Load() != 1 {
 				t.Fatalf("resume effects=%d want=%d reviewer requests=%d result=%+v", f.effects.Load(), want, f.p.calls.Load(), finished)
+			}
+			// Evidence that moved after the human answer closes the card as a
+			// transient resume change; the answer stays truthful.
+			if moved := map[string]bool{"user intent": true, "related evidence": true, "human refusal": true, "long human refusal": true}; moved[mutation] {
+				got, err := f.s.store.GetQuestion(q.ID)
+				if err != nil || got.Status != questionAnswered || got.Approval.Review == nil || got.Approval.Review.ContextFailure == nil || got.Approval.Review.ContextFailure.Code != mcpContextResumeChanged || !mcpReviewRetryable(got) {
+					t.Fatalf("resume change not recorded as transient: %+v %v", got.Approval.Review, err)
+				}
 			}
 			_, _, duplicate, err := f.s.store.claimInputContinuation(context.Background(), f.r.ID)
 			if err == nil && duplicate {

@@ -76,7 +76,16 @@ const (
 	mcpContextSourceUnknown       mcpContextFailureCode = "schedule_source_unknown"
 	mcpContextSourceProvenance    mcpContextFailureCode = "schedule_source_provenance_changed"
 	mcpContextInstructionsInvalid mcpContextFailureCode = "instructions_invalid"
+	mcpContextLaterUserLimit      mcpContextFailureCode = "later_user_messages_limit_exceeded"
+	mcpContextRestrictionsBudget  mcpContextFailureCode = "restrictions_exceed_review_size"
+	mcpContextResumeChanged       mcpContextFailureCode = "resume_context_changed"
 )
+
+// Evidence that changed while a review or approval was pending is not a
+// standing gap: a retry reviews the current evidence afresh.
+func mcpContextTransient(code mcpContextFailureCode) bool {
+	return code == mcpContextDigestChanged || code == mcpContextResumeChanged
+}
 
 // One plain line for the model and the card: what failed, never content.
 func mcpContextFailureReason(code mcpContextFailureCode) string {
@@ -127,6 +136,10 @@ func mcpContextFailureReason(code mcpContextFailureCode) string {
 		return "the schedule has no recorded user request (re-create it to allow automatic review)"
 	case mcpContextDigestChanged:
 		return "the authorizing request or a task record changed during review"
+	case mcpContextResumeChanged:
+		return "the reviewed evidence changed before the approved call resumed"
+	case mcpContextRefusalsLimit, mcpContextLaterUserLimit, mcpContextRestrictionsBudget:
+		return "this conversation's human refusals and later messages exceed what one review can hold"
 	case mcpContextBytesLimit:
 		return "the required authorization evidence alone exceeds the review size"
 	}
