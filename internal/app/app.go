@@ -3079,6 +3079,29 @@ func (s *Server) execute(c Conversation, r Run) {
 	var onStreamReset func()
 	var onRetry func(int, time.Duration)
 	flushStream := func() {}
+	var demotedMu sync.Mutex
+	var demoted demotedDraft
+	publishDemotedDraft := func() {
+		demotedMu.Lock()
+		d := demoted
+		demoted = demotedDraft{}
+		demotedMu.Unlock()
+		if d.content == "" {
+			return
+		}
+		if _, _, err := s.store.PublishDemotedDraft(r.ID, d.turn, d.content); err != nil {
+			log.Printf("[run] publish demoted draft %s: %v", r.ID, err)
+		}
+	}
+	resetDemotedDraft := func() {
+		demotedMu.Lock()
+		pending := demoted.resetPending
+		demoted.resetPending = false
+		demotedMu.Unlock()
+		if pending && onStreamReset != nil {
+			onStreamReset()
+		}
+	}
 	var streamMu sync.Mutex
 	var streamErr error
 	if r.Kind != runKindTriage {
@@ -3092,13 +3115,24 @@ func (s *Server) execute(c Conversation, r Run) {
 		onThinking, stopThinking = s.store.ThinkingCallback(ctx, r)
 		defer stopThinking()
 		onRetry = func(attempt int, wait time.Duration) { s.store.PublishRetry(r, attempt, wait) }
-		// A draft sent back for final review is superseded by the reviewed
-		// answer; discard it instead of publishing a second visible reply.
-		onReviewDraft = func(int, string) error {
-			onStreamReset()
+		// A draft sent back for final review stays visible until the reviewed
+		// turn streams or the final answer publishes; only then is it reset.
+		// If the run ends without a reviewed answer, it is published instead.
+		onReviewDraft = func(turnIndex int, content string) error {
+			flushStream()
+			demotedMu.Lock()
+			demoted = demotedDraft{turn: turnIndex, content: cleanBotOutput(content, botCfg), resetPending: true}
+			demotedMu.Unlock()
 			streamMu.Lock()
 			defer streamMu.Unlock()
 			return streamErr
+		}
+		streamDelta := onDelta
+		onDelta = func(text string) {
+			if text != "" {
+				resetDemotedDraft()
+			}
+			streamDelta(text)
 		}
 		onAssistantTurn = func(turnIndex int, content string) error {
 			flushStream()
@@ -3133,6 +3167,10 @@ func (s *Server) execute(c Conversation, r Run) {
 				_ = s.store.CancelStream(r.ID)
 			}
 		}()
+		// Runs before CancelStream: a demoted draft that no reviewed answer
+		// superseded is the reply of a steered, failed, cancelled, exhausted
+		// or suspended run.
+		defer publishDemotedDraft()
 	}
 	if r.Kind != runKindTriage {
 		var promptErr error
@@ -3266,6 +3304,14 @@ func (s *Server) execute(c Conversation, r Run) {
 		return
 	}
 	if res.BudgetExhausted {
+		// The demoted draft precedes the budget notice; partial output equal
+		// to it is published once, by finishRunBudget.
+		demotedMu.Lock()
+		if content := cleanBotOutput(res.Content, botCfg); content != "" && demoted.content == content {
+			demoted = demotedDraft{}
+		}
+		demotedMu.Unlock()
+		publishDemotedDraft()
 		if _, _, err := s.store.finishRunBudget(r.ID, c.ID, r.BotID, cleanBotOutput(res.Content, botCfg), res.BudgetReason); err != nil {
 			s.failRun(c, r, err)
 		}
@@ -3351,9 +3397,14 @@ func (s *Server) execute(c Conversation, r Run) {
 			}
 		}
 	}
-	if _, _, fe := s.store.FinishRun(r.ID, c.ID, r.BotID, res.Content); fe != nil {
+	resetDemotedDraft()
+	if _, finished, fe := s.store.FinishRun(r.ID, c.ID, r.BotID, res.Content); fe != nil {
 		s.failRun(c, r, fe)
 		return
+	} else if finished {
+		demotedMu.Lock()
+		demoted = demotedDraft{}
+		demotedMu.Unlock()
 	}
 	if r.Kind != runKindTriage && len(continuation) == 0 {
 		s.scheduleLongTermSummary(engine, c, r, botCfg)
@@ -3366,6 +3417,14 @@ func (s *Server) execute(c Conversation, r Run) {
 			s.enqueue(origin, followup)
 		}
 	}
+}
+
+// demotedDraft is a final draft sent back for review, retained until the
+// reviewed answer supersedes it.
+type demotedDraft struct {
+	turn         int
+	content      string
+	resetPending bool
 }
 
 func (s *Server) failRun(c Conversation, r Run, err error) {

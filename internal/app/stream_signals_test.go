@@ -70,14 +70,16 @@ func TestThinkingEventsAreThrottledAndBounded(t *testing.T) {
 	time.Sleep(3 * thinkingEventInterval)
 	stop()
 	onThinking("after stop")
+	// The leading and trailing updates were both emitted; only the latest
+	// stays durable so a long think does not grow the events table.
 	events := eventsOfType(t, s, c.ID, "thinking")
-	if len(events) != 2 {
-		t.Fatalf("thinking events = %d, want leading + trailing", len(events))
+	if len(events) != 1 {
+		t.Fatalf("durable thinking events = %d, want the latest only", len(events))
 	}
-	if events[0]["text"] != "Checking the inbox. " || events[0]["run_id"] != r.ID {
-		t.Fatalf("first = %+v", events[0])
+	if events[0]["run_id"] != r.ID || events[0]["conversation_id"] != c.ID {
+		t.Fatalf("thinking = %+v", events[0])
 	}
-	last := events[1]["text"].(string)
+	last := events[0]["text"].(string)
 	if len([]rune(last)) != maxThinkingEventRunes || !strings.HasSuffix(last, "latest") {
 		t.Fatalf("trailing snippet = %d runes", len([]rune(last)))
 	}
@@ -86,7 +88,7 @@ func TestThinkingEventsAreThrottledAndBounded(t *testing.T) {
 	}
 	s.PublishRetry(r, 2, 1500*time.Millisecond)
 	retries := eventsOfType(t, s, c.ID, "retrying")
-	if len(retries) != 1 || retries[0]["attempt"] != float64(2) || retries[0]["wait_ms"] != float64(1500) || retries[0]["run_id"] != r.ID {
+	if len(retries) != 1 || retries[0]["attempt"] != float64(2) || retries[0]["wait_ms"] != float64(1500) || retries[0]["run_id"] != r.ID || retries[0]["conversation_id"] != c.ID {
 		t.Fatalf("retrying events = %+v", retries)
 	}
 }
