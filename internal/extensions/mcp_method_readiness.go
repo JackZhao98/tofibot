@@ -54,12 +54,17 @@ func (m *Manager) mcpTransportReadiness(ctx context.Context, cfg MCPServerConfig
 
 // The current MCP protocol removed legacy ping. A fresh server/discover
 // connection proves endpoint readiness without listing or invoking any tool.
+// A recent successful handshake for the same configuration is reused for
+// mcpReadinessTTL; the cheap transport check still runs every time.
 func (m *Manager) mcpMethodReadiness(name string, cfg MCPServerConfig) func(context.Context) (runtime.MethodReadiness, error) {
 	return func(ctx context.Context) (runtime.MethodReadiness, error) {
 		ctx, cancel := context.WithTimeout(ctx, m.cfg.DiscoveryTimeout)
 		defer cancel()
 		if state, err := m.mcpTransportReadiness(ctx, cfg); state != runtime.MethodReady || err != nil {
 			return state, err
+		}
+		if m.mcpReadyFresh(name, cfg) {
+			return runtime.MethodReady, nil
 		}
 		cli, err := m.openMCPClient(ctx, ctx, name, cfg)
 		if err != nil {
