@@ -792,6 +792,7 @@ func RunAgentLoop(cfg AgentConfig, ctx *models.ExecutionContext) (returned *Agen
 	stalledDiscoveryStop := false
 	var recoveryLedger []ToolRecoveryRecord
 	recoveryCalls := map[string]provider.ToolCall{}
+	recoveryBatches := map[string]string{}
 	recoveryIdentities := map[string]tooloutcome.Identity{}
 	recoveryEvidence := map[string][]tooloutcome.Identity{}
 	recoveryBlocked := map[string]bool{}
@@ -837,6 +838,7 @@ func RunAgentLoop(cfg AgentConfig, ctx *models.ExecutionContext) (returned *Agen
 		if cfg.ToolsOnly {
 			for _, call := range msg.ToolCalls {
 				recoveryCalls[call.ID] = call
+				recoveryBatches[call.ID] = toolCallBatch(msg.ToolCalls)
 			}
 			if msg.Role == "tool" {
 				if o := msg.ToolOutcome; o != nil && recoveryStatus(o.Status) && !recoveryBlocked[msg.ToolCallID] {
@@ -849,7 +851,7 @@ func RunAgentLoop(cfg AgentConfig, ctx *models.ExecutionContext) (returned *Agen
 						if observed := recoveryEvidence[call.ID]; len(observed) > 1 {
 							evidence = append(evidence, observed[1:]...)
 						}
-						recoveryLedger = append(recoveryLedger, ToolRecoveryRecord{Call: call, Outcome: *o, Identity: &identity, Evidence: evidence, Epoch: recoveryEpoch})
+						recoveryLedger = append(recoveryLedger, ToolRecoveryRecord{Call: call, Outcome: *o, Identity: &identity, Evidence: evidence, Epoch: recoveryEpoch, Batch: recoveryBatches[call.ID]})
 					}
 				}
 			}
@@ -917,6 +919,7 @@ func RunAgentLoop(cfg AgentConfig, ctx *models.ExecutionContext) (returned *Agen
 		for _, msg := range messages {
 			for _, call := range msg.ToolCalls {
 				recoveryCalls[call.ID] = call
+				recoveryBatches[call.ID] = toolCallBatch(msg.ToolCalls)
 			}
 		}
 		if cfg.Continuation != nil {
@@ -925,7 +928,7 @@ func RunAgentLoop(cfg AgentConfig, ctx *models.ExecutionContext) (returned *Agen
 				if msg.ToolOutcome != nil && recoveryStatus(msg.ToolOutcome.Status) {
 					if call, ok := recoveryCalls[msg.ToolCallID]; ok {
 						identity := resolveIdentity(call.Name, call.Arguments)
-						recoveryLedger = append(recoveryLedger, ToolRecoveryRecord{Call: call, Identity: &identity, Outcome: *msg.ToolOutcome, Epoch: recoveryEpoch})
+						recoveryLedger = append(recoveryLedger, ToolRecoveryRecord{Call: call, Identity: &identity, Outcome: *msg.ToolOutcome, Epoch: recoveryEpoch, Batch: recoveryBatches[call.ID]})
 					}
 				}
 			}
@@ -1612,7 +1615,7 @@ func RunAgentLoop(cfg AgentConfig, ctx *models.ExecutionContext) (returned *Agen
 				// Parse Args
 				var argsMap map[string]interface{}
 				if err := json.Unmarshal([]byte(fnArgs), &argsMap); err != nil {
-					outcome := tooloutcome.New(tooloutcome.Validation, "invalid_json", "not_executed", fmt.Sprintf("Error parsing arguments for %s: %v", fnName, err), "repair_arguments")
+					outcome := invalidArgumentsOutcome(fnName, fnArgs, err)
 					errMsg := outcome.JSON()
 					messages = appendAndEmit(messages, provider.Message{
 						Role:        "tool",

@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"github.com/JackZhao98/tofibot/internal/provider"
 	"github.com/JackZhao98/tofibot/internal/tooloutcome"
+	"strings"
 	"testing"
 )
 
@@ -131,5 +132,35 @@ func TestApprovalExpiryGuardUsesRunRecoveryEpoch(t *testing.T) {
 	}
 	if got := ApprovalExpiryGuard(records, obs, 2); got != nil {
 		t.Fatalf("a later successful action did not reset the window: %+v", got)
+	}
+}
+
+// Several malformed parallel calls from one assistant turn spend one repair,
+// so a later call of the same operation is still given its repair chance.
+func TestMalformedParallelBatchSpendsOneRepair(t *testing.T) {
+	bad := tooloutcome.New(tooloutcome.Validation, "invalid_json", "not_executed", "empty", "repair_arguments")
+	calls := []provider.ToolCall{{ID: "a", Name: "call_mcp_tool"}, {ID: "b", Name: "call_mcp_tool"}, {ID: "c", Name: "call_mcp_tool"}, {ID: "d", Name: "call_mcp_tool"}}
+	transcript := []provider.Message{{Role: "assistant", ToolCalls: calls}}
+	for _, c := range calls[:3] {
+		transcript = append(transcript, provider.Message{Role: "tool", ToolCallID: c.ID, ToolOutcome: outcomePtr(bad)})
+	}
+	if got := toolRecoveryGuard(transcript, "call_mcp_tool", ""); got != nil {
+		t.Fatalf("one malformed batch exhausted the repair budget: %+v", got)
+	}
+	// Separate turns still count separately.
+	for _, id := range []string{"e", "f"} {
+		transcript = append(transcript, provider.Message{Role: "assistant", ToolCalls: []provider.ToolCall{{ID: id, Name: "call_mcp_tool"}}}, provider.Message{Role: "tool", ToolCallID: id, ToolOutcome: outcomePtr(bad)})
+	}
+	if got := toolRecoveryGuard(transcript, "call_mcp_tool", ""); got == nil || got.Code != "repair_budget_exhausted" {
+		t.Fatalf("three malformed turns: %+v", got)
+	}
+}
+
+func TestEmptyArgumentsOutcomeIsConciseRepair(t *testing.T) {
+	var v map[string]any
+	err := json.Unmarshal([]byte(""), &v)
+	o := invalidArgumentsOutcome("call_mcp_tool", "", err)
+	if o.Status != tooloutcome.Validation || o.Code != "invalid_json" || o.Certainty != "not_executed" || o.NextAction != "repair_arguments" || !strings.Contains(o.Message, "empty arguments") {
+		t.Fatalf("outcome=%+v", o)
 	}
 }

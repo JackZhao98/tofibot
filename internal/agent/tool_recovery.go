@@ -2,6 +2,7 @@ package agent
 
 import (
 	"encoding/json"
+	"fmt"
 	"strings"
 
 	"github.com/JackZhao98/tofibot/internal/provider"
@@ -22,6 +23,27 @@ type ToolRecoveryRecord struct {
 	// Epoch is the number of successful non-observation actions before the
 	// failure; a later successful action resets observation retry counts.
 	Epoch int `json:"epoch,omitempty"`
+	// Batch identifies the assistant turn that issued the call (its first
+	// call ID). Validation failures in one batch spend one repair together.
+	Batch string `json:"batch,omitempty"`
+}
+
+// invalidArgumentsOutcome tells the model its own call was malformed. Empty
+// arguments are a model/stream-side fault; the call was not executed.
+func invalidArgumentsOutcome(name, args string, err error) tooloutcome.Outcome {
+	msg := fmt.Sprintf("Error parsing arguments for %s: %v", name, err)
+	if strings.TrimSpace(args) == "" {
+		msg = fmt.Sprintf("The %s call arrived with empty arguments and was not executed. Resend it with a complete JSON object.", name)
+	}
+	return tooloutcome.New(tooloutcome.Validation, "invalid_json", "not_executed", msg, "repair_arguments")
+}
+
+// toolCallBatch names the assistant turn that issued calls.
+func toolCallBatch(calls []provider.ToolCall) string {
+	if len(calls) == 0 {
+		return ""
+	}
+	return calls[0].ID
 }
 
 func recoveryStatus(status string) bool {
@@ -30,15 +52,17 @@ func recoveryStatus(status string) bool {
 
 func toolRecoveryRecords(messages []provider.Message) []ToolRecoveryRecord {
 	calls := map[string]provider.ToolCall{}
+	batches := map[string]string{}
 	var records []ToolRecoveryRecord
 	for _, msg := range messages {
 		for _, call := range msg.ToolCalls {
 			calls[call.ID] = call
+			batches[call.ID] = toolCallBatch(msg.ToolCalls)
 		}
 		if msg.Role == "tool" {
 			if o := msg.ToolOutcome; o != nil && recoveryStatus(o.Status) {
 				if call, ok := calls[msg.ToolCallID]; ok {
-					records = append(records, ToolRecoveryRecord{Call: call, Outcome: *o})
+					records = append(records, ToolRecoveryRecord{Call: call, Outcome: *o, Batch: batches[call.ID]})
 				}
 			}
 		}
@@ -67,6 +91,7 @@ func toolRecoveryIdentityGuardAt(records []ToolRecoveryRecord, identity tooloutc
 // are the candidate's raw tool arguments, when known.
 func toolRecoveryCallGuardAt(records []ToolRecoveryRecord, identity tooloutcome.Identity, args string, epoch int) *tooloutcome.Outcome {
 	repairs := 0
+	repairBatches := map[string]bool{}
 	observationFailures := 0
 	for _, record := range records {
 		prior := tooloutcome.DefaultIdentity(record.Call.Name, json.RawMessage(record.Call.Arguments))
@@ -107,8 +132,13 @@ func toolRecoveryCallGuardAt(records []ToolRecoveryRecord, identity tooloutcome.
 		if prior.Scope != identity.Scope || prior.Operation != identity.Operation {
 			continue
 		}
-		if o.Status == tooloutcome.Validation {
+		if o.Status == tooloutcome.Validation && (record.Batch == "" || !repairBatches[record.Batch]) {
+			// Several malformed parallel calls from one model turn are one
+			// repair attempt, not one per call.
 			repairs++
+			if record.Batch != "" {
+				repairBatches[record.Batch] = true
+			}
 		}
 		if prior.ArgumentsHash == identity.ArgumentsHash && (o.Status == tooloutcome.Denied || o.Status == tooloutcome.Permanent || (o.Status == tooloutcome.Transient && o.NextAction != "retry")) {
 			return &o
