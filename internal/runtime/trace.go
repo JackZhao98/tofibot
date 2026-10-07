@@ -76,6 +76,8 @@ func (t *toolEventTracker) restoreContinuation(c *agent.Continuation) error {
 
 type toolEventTracker struct {
 	callback func(ToolEvent) error
+	// risk resolves the identity risk class reported on each event.
+	risk func(name, arguments string) string
 
 	mu      sync.Mutex
 	tools   map[string]trackedTool
@@ -111,6 +113,10 @@ func (t *toolEventTracker) setErr(err error) {
 func (t *toolEventTracker) emit(event ToolEvent) error {
 	if !validToolEventStatuses[event.Status] {
 		return fmt.Errorf("invalid tool event status %q", event.Status)
+	}
+	if t.risk != nil && event.Risk == "" {
+		// Classify from the unbounded arguments, before they are trimmed.
+		event.Risk = t.risk(event.Name, event.Arguments)
 	}
 	event, _ = boundedToolEvent(event)
 	if t.callback == nil {

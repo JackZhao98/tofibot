@@ -38,8 +38,9 @@ type Tool struct {
 }
 
 // ToolEvent describes one provider tool call and its lifecycle. Arguments and
-// Result are bounded by the runtime before they leave this package; the full
-// result returned by a tool is still passed to the model by the agent loop.
+// Result are bounded by the runtime before they leave this package. Result is
+// taken from the tool's full output; the agent loop separately bounds the
+// copy it passes to the model.
 type ToolEvent struct {
 	CallID    string               `json:"call_id"`
 	Name      string               `json:"name"`
@@ -48,6 +49,9 @@ type ToolEvent struct {
 	Status    string               `json:"status"`
 	Truncated bool                 `json:"truncated"`
 	Outcome   *tooloutcome.Outcome `json:"outcome,omitempty"`
+	// Risk is the call's identity risk class (tooloutcome.Observation, ...),
+	// resolved by the backend from the tool's Identity, never from results.
+	Risk string `json:"risk,omitempty"`
 }
 
 type Request struct {
@@ -70,14 +74,28 @@ type Request struct {
 	OnContextEstimate func(estimatedInput int)
 	OnUsage           func(inputTokens, outputTokens int64)
 	OnCompact         func(originalTokens, compactedTokens int)
+	// OnThinking receives provider reasoning-summary deltas. They are never
+	// part of the answer and must not be mixed into OnDelta output.
+	OnThinking func(delta string)
+	// OnRetry is called before the provider retries a failed model request
+	// after a backoff of wait.
+	OnRetry func(attempt int, wait time.Duration)
+	// OnStreamReset discards OnDelta output already streamed by a model call
+	// that was aborted and is about to be retried.
+	OnStreamReset func()
+	// OnReviewDraft, when set, receives a final draft that BeforeFinalResponse
+	// sent back for review; it replaces the OnAssistantTurn publication of that
+	// draft, which the reviewed final answer supersedes.
+	OnReviewDraft func(turnIndex int, content string) error
 	// BeforeModelCall runs at the safe boundary immediately before each model
 	// request, after prior streaming and tool work has settled.
 	BeforeModelCall func() error
 	// BeforeFinalResponse reviews cleaned, non-empty text-only final content.
 	// An empty reminder accepts; an error aborts; a non-empty reminder requests
 	// at most one repair using existing history and the remaining run budget.
-	// The draft is published through OnAssistantTurn, but the internal reminder
-	// is not published. It is skipped after repair or on cancellation.
+	// The draft is published through OnReviewDraft (or OnAssistantTurn when
+	// unset), but the internal reminder is not. It is skipped after repair or
+	// on cancellation.
 	BeforeFinalResponse func(content string) (reminder string, err error)
 	// FinalResponseRepairTools permits one reserved repair after an exhausted
 	// run budget. The repair request exposes and executes only these named
