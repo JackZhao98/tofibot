@@ -397,6 +397,8 @@ function Workspace() {
   const messageListRef = useRef<HTMLDivElement | null>(null);
   const [messageRecords, setMessages] = useState<Message[]>([]);
   const [drafts, setDrafts] = useState<Record<string, StreamDraft>>({});
+  // Transient per-run signals: the model's latest reasoning headline and a provider back-off.
+  const [runSignals, setRunSignals] = useState<Record<string, RunSignal>>({});
   const [avatarMention, setAvatarMention] = useState<{ name: string; conversationId: string; nonce: number } | null>(null);
   const [composerDrafts, setComposerDrafts] = useState<ComposerDrafts>({});
   const [composerDraftReady, setComposerDraftReady] = useState(false);
@@ -1191,6 +1193,20 @@ function Workspace() {
     } else if (type === "reaction") {
       const messageId = typeof data.message_id === "string" ? data.message_id : "";
       if (messageId && Array.isArray(data.reactions)) setMessages(current => current.map(message => message.id === messageId ? { ...message, reactions: data.reactions as Message["reactions"] } : message));
+    } else if (type === "draft_reset") {
+      // A draft returned for review is replaced by the final answer, never shown twice.
+      const messageIdValue = typeof data.message_id === "string" ? data.message_id : "";
+      if (messageIdValue) setDrafts(current => { if (!current[messageIdValue]) return current; const next = { ...current }; delete next[messageIdValue]; return next; });
+    } else if (type === "thinking" || type === "retrying") {
+      const runId = typeof data.run_id === "string" ? data.run_id : "";
+      if (!runId || terminalRunIDs.current.has(runId)) return;
+      if (type === "thinking") {
+        const headline = thinkingHeadline(typeof data.text === "string" ? data.text : "");
+        if (headline) setRunSignals(current => ({ ...current, [runId]: { thinking: headline } }));
+      } else {
+        const wait = typeof data.wait_ms === "number" ? data.wait_ms : 0;
+        setRunSignals(current => ({ ...current, [runId]: { ...current[runId], retryUntil: Date.now() + wait } }));
+      }
     } else if (type === "delta") {
       const messageIdValue = typeof data.message_id === "string" ? data.message_id : "";
       const delta = typeof data.text === "string" ? data.text : "";
@@ -1210,7 +1226,10 @@ function Workspace() {
       const run = asRun(data);
       if (run) {
         if (run.status && isTerminalRun({ status: run.status })) terminalRunIDs.current.add(run.id);
-        if (run.status && !["queued", "running"].includes(run.status)) setDrafts((current) => Object.fromEntries(Object.entries(current).filter(([, draft]) => draft.run_id !== run.id)));
+        if (run.status && !["queued", "running"].includes(run.status)) {
+          setDrafts((current) => Object.fromEntries(Object.entries(current).filter(([, draft]) => draft.run_id !== run.id)));
+          setRunSignals(current => { if (!current[run.id]) return current; const next = { ...current }; delete next[run.id]; return next; });
+        }
         setRuns((current) => {
           const existing = current.find((item) => item.id === run.id);
           if (!existing && !run.conversation_id) return current;
@@ -1817,7 +1836,7 @@ function Workspace() {
               </div>
               {viewport.showJump && <button className="jump-latest" aria-label="回到最新消息" onClick={jumpLatest}><Icon name="arrow-down" size={18} variant="filled" />{viewport.newCount > 0 && <span className="jump-new-count">{viewport.newCount} 条新消息</span>}</button>}
             </div>
-            {active.kind === "group" && !active.archived && !active.bot_ids.some(id => botById.has(id) && !botById.get(id)?.archived) ? <div className="composer empty-group-composer"><span>群里还没有可用成员</span><button className="secondary-button" onClick={() => setPanel("members")}>添加成员</button></div> : <Composer workStatus={<WorkingMembers isGroup={active.kind === "group"} companionBotId={active.kind === "dm" ? active.bot_id || active.bot_ids[0] : undefined} companionMotion={active.kind === "dm" ? conversationMotion(active, active.bot_id || active.bot_ids[0]) : undefined} workingBotIds={active.working_bot_ids ?? []} drafts={Object.values(drafts)} runs={runs} botById={botById} toolActivities={toolActivities} connected={streamConnected} />} activeRun={runs.find(run => run.status === "running" || run.status === "queued" || run.status === "waiting")} latestReplyId={messages.filter(message => message.role === "assistant").at(-1)?.id} onStopRun={stopRun} avatarMention={avatarMention} conversation={active} bots={bots} draft={composerDrafts[active.id] ?? emptyComposerDraft()} onDraftChange={(update) => updateComposerDraft(active.id, update)} onSend={send} onSent={jumpLatest} modelConfigured={config?.model_configured ?? false} draftReady={composerDraftReady} readOnly={Boolean(active.archived)} />}
+            {active.kind === "group" && !active.archived && !active.bot_ids.some(id => botById.has(id) && !botById.get(id)?.archived) ? <div className="composer empty-group-composer"><span>群里还没有可用成员</span><button className="secondary-button" onClick={() => setPanel("members")}>添加成员</button></div> : <Composer workStatus={<WorkingMembers isGroup={active.kind === "group"} companionBotId={active.kind === "dm" ? active.bot_id || active.bot_ids[0] : undefined} companionMotion={active.kind === "dm" ? conversationMotion(active, active.bot_id || active.bot_ids[0]) : undefined} workingBotIds={active.working_bot_ids ?? []} drafts={Object.values(drafts)} runs={runs} botById={botById} toolActivities={toolActivities} signals={runSignals} connected={streamConnected} />} activeRun={runs.find(run => run.status === "running" || run.status === "queued" || run.status === "waiting")} latestReplyId={messages.filter(message => message.role === "assistant").at(-1)?.id} onStopRun={stopRun} avatarMention={avatarMention} conversation={active} bots={bots} draft={composerDrafts[active.id] ?? emptyComposerDraft()} onDraftChange={(update) => updateComposerDraft(active.id, update)} onSend={send} onSent={jumpLatest} modelConfigured={config?.model_configured ?? false} draftReady={composerDraftReady} readOnly={Boolean(active.archived)} />}
             </>}
           </>}
         </main>
@@ -2086,7 +2105,16 @@ export function RunStatusAnnouncement({ conversationId, runs, botById, ready, ta
   return <div className="sr-only" role="status" aria-live="polite" aria-atomic="true">{announcement}</div>;
 }
 
-function WorkingMembers({ isGroup, companionBotId, companionMotion, workingBotIds, runs, drafts, botById, toolActivities, connected }: { isGroup: boolean; companionBotId?: string; companionMotion?: AvatarMotion; workingBotIds: string[]; drafts: StreamDraft[]; runs: Run[]; botById: Map<string, Bot>; toolActivities: ToolActivity[]; connected: boolean }) {
+type RunSignal = { thinking?: string; retryUntil?: number };
+
+/** The headline of a reasoning summary: its bold title, else its first line, kept short. */
+export function thinkingHeadline(text: string): string {
+  const bold = [...text.matchAll(/\*\*([^*\n]{2,80})\*\*/g)].at(-1)?.[1];
+  const line = (bold ?? text.split("\n").map(part => part.trim()).filter(Boolean)[0] ?? "").replace(/[*_`#]/g, "").trim();
+  return line.length > 36 ? `${line.slice(0, 35)}…` : line;
+}
+
+function WorkingMembers({ isGroup, companionBotId, companionMotion, workingBotIds, runs, drafts, botById, toolActivities, signals = {}, connected }: { isGroup: boolean; companionBotId?: string; companionMotion?: AvatarMotion; workingBotIds: string[]; drafts: StreamDraft[]; runs: Run[]; botById: Map<string, Bot>; toolActivities: ToolActivity[]; signals?: Record<string, RunSignal>; connected: boolean }) {
   const [now, setNow] = useState(() => Date.now());
   const rowRef = useRef<HTMLDivElement | null>(null);
   const priorPositions = useRef(new Map<string, DOMRect>());
@@ -2136,9 +2164,12 @@ function WorkingMembers({ isGroup, companionBotId, companionMotion, workingBotId
     const elapsed = currentTool ? elapsedToolSeconds(currentTool, now) : undefined;
     const writing = drafts.some(d => d.run_id === run.id && d.status === "active" && d.content.trim());
     const runSeconds = Math.max(0, Math.floor((now - Date.parse(run.created_at)) / 1000));
-    if (isDesktop) return currentTool ? `${toolActionLabel(currentTool)}${elapsed === undefined ? "" : ` · ${elapsed}s`}` : writing ? "正在整理回复…" : "正在思考…";
+    const signal = signals[run.id];
+    const retryIn = signal?.retryUntil ? Math.ceil((signal.retryUntil - now) / 1000) : 0;
+    const thinking = retryIn > 0 ? `服务繁忙，${retryIn} 秒后重试` : signal?.thinking ? `正在思考：${signal.thinking}` : "正在思考";
+    if (isDesktop) return currentTool ? `${toolActionLabel(currentTool)}${elapsed === undefined ? "" : ` · ${elapsed}s`}` : writing ? "正在整理回复…" : `${thinking}…`;
     const seconds = Number.isFinite(runSeconds) ? runSeconds : 0;
-    return currentTool ? `${toolActionLabel(currentTool)} · ${seconds}s` : writing ? `正在整理回复 · ${seconds}s` : `正在思考 · ${seconds}s`;
+    return currentTool ? `${toolActionLabel(currentTool)} · ${seconds}s` : writing ? `正在整理回复 · ${seconds}s` : `${thinking} · ${seconds}s`;
   };
   if (isGroup) {
     const groupRuns = visible.filter(run => ["running", "waiting", "queued"].includes(run.status)).sort((a, b) => {
