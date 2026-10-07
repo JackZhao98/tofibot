@@ -147,12 +147,12 @@ func (s *Server) microVMEnvironmentPrompt(ctx context.Context, botID string) str
 	if info.DesktopIdleSeconds != nil {
 		idle = fmt.Sprintf(" Desktop idle timeout: %ds (0 disables).", *info.DesktopIdleSeconds)
 	}
-	return fmt.Sprintf("\nShared Linux VM, separate from the service host and Mac; never claim host/Mac access. cwd=%s/bots/%s, HOME=/workspace/home; /workspace/shared, files, tools, Chrome profile and display are shared. Browser: %s. System directories are read-only (no sudo). Install software in user space: language package managers, or official release archives unpacked under /workspace/home/.local/opt and linked into /workspace/home/.local/bin (first on PATH, shared by all Bots); uninstall by removing exactly what was installed, then verify. computer_help(installation) has details. Use tools only when ready; otherwise report status. %s Stop the shared desktop only on user intent. Private keys use Secret Input; return public keys only.", root, botID, browser, computerBrowserEssentials) + idle
+	return fmt.Sprintf("\nShared Linux VM, separate from the service host and Mac; never claim host/Mac access. cwd=%s/bots/%s, HOME=/workspace/home; /workspace/shared, files, tools, Chrome profile and display are shared. Browser: %s. System directories are read-only (no sudo); install software only in user space (skill: software). Use tools only when ready; otherwise report status. %s Stop the shared desktop only on user intent. Private keys use Secret Input; return public keys only.", root, botID, browser, computerBrowserEssentials) + idle
 }
 
 // computerBrowserEssentials is the always-present browser recipe; computer_help
 // keeps the longer procedure.
-const computerBrowserEssentials = "Browser: if the desktop is stopped, run desktop.start once. Read pages with browser.read and open items with browser.click by their visible text; use browser.snapshot only for layout or coordinates (latest snapshot only). Open searches and sites by URL, e.g. https://www.google.com/search?q=… or https://mail.google.com/mail/u/0/#search/…. Read-only requests still allow opening items; never change, send or delete."
+const computerBrowserEssentials = "Browser: if the desktop is stopped, run desktop.start once. Read pages with browser.read and open items with browser.click by their visible text; use browser.snapshot only for layout or coordinates (latest snapshot only). Open searches and sites directly by URL."
 
 const computerResearchGuidance = " For research, open primary pages (the article itself), not search results, and cite their URLs with dates."
 
