@@ -322,6 +322,11 @@ func (e *engine) Run(ctx context.Context, req Request) (Result, error) {
 	if duration <= 0 {
 		duration = defaultMaxDuration
 	}
+	// A tool-free request (summaries, triage) cannot owe progress reports.
+	reports := defaultToolCallsBetweenReports
+	if len(req.Tools) == 0 {
+		reports = 0
+	}
 	result, err := agent.RunAgentLoop(agent.AgentConfig{
 		Ctx:             runCtx,
 		Provider:        modelProvider,
@@ -343,7 +348,7 @@ func (e *engine) Run(ctx context.Context, req Request) (Result, error) {
 			}
 			return tooloutcome.DefaultIdentity(name, json.RawMessage(args))
 		},
-		MaxToolCallsBetweenReports: defaultToolCallsBetweenReports,
+		MaxToolCallsBetweenReports: reports,
 		MaxRunDuration:             duration,
 		UserWaitDuration:           userWait.duration,
 		OnContextEstimate:          req.OnContextEstimate,
