@@ -3,6 +3,7 @@ package provider
 import (
 	"errors"
 	"fmt"
+	"regexp"
 	"strings"
 	"time"
 )
@@ -53,6 +54,10 @@ func IsRetryable(err error) bool {
 		default:
 			return false
 		}
+	}
+
+	if errors.Is(err, ErrStreamIncomplete) {
+		return true
 	}
 
 	// Connection-level errors (no HTTP response received)
@@ -139,13 +144,50 @@ func IsStreamIdle(err error) bool {
 	return errors.As(err, &idle)
 }
 
-// isReasoningReplayRejection matches a request-level rejection of replayed
-// reasoning items. Other 4xx errors keep their normal handling.
+// StreamWallCapError reports a single streaming attempt that ran past Cap
+// after its response headers arrived.
+type StreamWallCapError struct{ Cap time.Duration }
+
+func (e *StreamWallCapError) Error() string {
+	return fmt.Sprintf("stream wall cap: attempt exceeded %s", e.Cap)
+}
+
+// IsStreamWatchdog reports an idle or wall-cap abort. Each already cost
+// minutes, so RetryProvider leaves the single retry to the caller.
+func IsStreamWatchdog(err error) bool {
+	var wall *StreamWallCapError
+	return IsStreamIdle(err) || errors.As(err, &wall)
+}
+
+// ErrStreamIncomplete reports a stream that ended without a terminal event.
+var ErrStreamIncomplete = errors.New("stream ended before response.completed")
+
+var reasoningItemIDPattern = regexp.MustCompile(`\brs_[A-Za-z0-9]`)
+
+// ResponseFailedError is a response.failed event inside an accepted stream.
+type ResponseFailedError struct{ Code, Message string }
+
+func (e *ResponseFailedError) Error() string {
+	return fmt.Sprintf("response failed: [%s] %s", e.Code, e.Message)
+}
+
+// isReasoningReplayRejection matches a rejection of replayed reasoning items,
+// as a 400/404 or an in-stream response.failed. Other errors keep their
+// normal handling.
 func isReasoningReplayRejection(err error) bool {
+	var failed *ResponseFailedError
+	if errors.As(err, &failed) {
+		return mentionsReasoningReplay(failed.Message)
+	}
 	apiErr, ok := AsAPIError(err)
 	if !ok || (apiErr.StatusCode != 400 && apiErr.StatusCode != 404) {
 		return false
 	}
-	body := strings.ToLower(apiErr.Body)
-	return strings.Contains(body, "reasoning") || strings.Contains(body, "encrypted") || strings.Contains(body, "rs_")
+	return mentionsReasoningReplay(apiErr.Body)
+}
+
+func mentionsReasoningReplay(text string) bool {
+	lower := strings.ToLower(text)
+	return strings.Contains(lower, "encrypted_content") || strings.Contains(lower, "reasoning item") ||
+		reasoningItemIDPattern.MatchString(text)
 }

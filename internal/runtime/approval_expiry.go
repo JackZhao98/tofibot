@@ -139,7 +139,7 @@ func (e *engine) finishApprovalExpiry(ctx context.Context, req Request, model st
 					if i.Risk != tooloutcome.Observation {
 						return &denied
 					}
-					return agent.ApprovalExpiryGuard(records, i)
+					return agent.ApprovalExpiryGuard(records, i, c.RecoveryEpoch)
 				}
 				toolCtx := tooloutcome.WithBoundary(ctx, check, nil)
 				if executeErr == nil {

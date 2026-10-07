@@ -159,7 +159,7 @@ func TestApprovalExpiryRecoveryLedgerBlocksChangedArgumentsAndUncertainty(t *tes
 		t.Fatal(err)
 	}
 	for _, name := range []string{"write", "opaque_effect"} {
-		if agent.ApprovalExpiryGuard(records, tooloutcome.DefaultIdentity(name, json.RawMessage(`{"changed":true}`))) == nil {
+		if agent.ApprovalExpiryGuard(records, tooloutcome.DefaultIdentity(name, json.RawMessage(`{"changed":true}`)), c.RecoveryEpoch) == nil {
 			t.Fatalf("ledger lost %s", name)
 		}
 	}

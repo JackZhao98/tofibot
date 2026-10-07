@@ -106,6 +106,11 @@ func (r *RetryProvider) Chat(ctx context.Context, req *ChatRequest) (*ChatRespon
 			return nil, err
 		}
 
+		// A watchdog abort already spent minutes; the caller owns its one retry.
+		if IsStreamWatchdog(err) {
+			return nil, err
+		}
+
 		// Rate limit tracking for fallback
 		if IsRateLimited(err) {
 			rateLimitCount++
@@ -169,7 +174,7 @@ func (r *RetryProvider) ChatStream(ctx context.Context, req *ChatRequest, onDelt
 			return nil, err
 		}
 
-		if IsContextOverflow(err) {
+		if IsContextOverflow(err) || IsStreamWatchdog(err) {
 			return nil, err
 		}
 

@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -12,6 +13,8 @@ import (
 	"testing"
 	"time"
 )
+
+const completedEvent = "event: response.completed\ndata: {\"response\":{\"usage\":{}}}\n\n"
 
 func replayHistory() []Message {
 	return []Message{
@@ -26,7 +29,7 @@ func TestResponsesRequestCarriesPromptCacheKeyAndReasoningReplay(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		_ = json.NewDecoder(r.Body).Decode(&body)
 		w.Header().Set("Content-Type", "text/event-stream")
-		_, _ = io.WriteString(w, "event: response.output_text.delta\ndata: {\"delta\":\"ok\"}\n\n")
+		_, _ = io.WriteString(w, "event: response.output_text.delta\ndata: {\"delta\":\"ok\"}\n\n"+completedEvent)
 	}))
 	defer server.Close()
 	codex := &openAICodex{responses: &openaiResponses{apiKey: "token", baseURL: server.URL, noStore: true}}
@@ -78,7 +81,7 @@ func TestResponsesReasoningReplayRejectionRetriesOnceWithout(t *testing.T) {
 			t.Errorf("retry still replayed reasoning: %s", raw)
 		}
 		w.Header().Set("Content-Type", "text/event-stream")
-		_, _ = io.WriteString(w, "event: response.output_text.delta\ndata: {\"delta\":\"done\"}\n\n")
+		_, _ = io.WriteString(w, "event: response.output_text.delta\ndata: {\"delta\":\"done\"}\n\n"+completedEvent)
 	}))
 	defer server.Close()
 	p := &openaiResponses{apiKey: "token", baseURL: server.URL, noStore: true}
@@ -106,6 +109,7 @@ func TestResponsesStreamCapturesReasoningItems(t *testing.T) {
 		"event: response.output_item.done\ndata: {\"item\":{\"type\":\"reasoning\",\"id\":\"rs_9\",\"encrypted_content\":\"enc-9\",\"summary\":[{\"type\":\"summary_text\",\"text\":\"think\"}]}}\n\n",
 		"event: response.output_item.added\ndata: {\"output_index\":1,\"item\":{\"type\":\"function_call\",\"call_id\":\"c1\",\"name\":\"lookup\"}}\n\n",
 		"event: response.function_call_arguments.delta\ndata: {\"output_index\":1,\"delta\":\"{}\"}\n\n",
+		completedEvent,
 	}, "")
 	resp, err := (&openaiResponses{}).parseStream(strings.NewReader(stream), nil)
 	if err != nil {
@@ -179,4 +183,145 @@ func (p *sequenceProvider) ChatStream(_ context.Context, req *ChatRequest, _ fun
 		return nil, err
 	}
 	return &ChatResponse{Content: "ok"}, nil
+}
+
+func TestReasoningReplayRejectionMatchesOnlyReasoningForms(t *testing.T) {
+	for body, want := range map[string]bool{
+		`{"error":{"message":"Item with id 'rs_abc' not found."}}`:                  true,
+		`{"error":{"message":"Invalid encrypted_content for reasoning."}}`:          true,
+		`{"error":{"message":"A reasoning item was provided without its output."}}`: true,
+		`{"error":{"message":"Unknown parameter: 'users_list'."}}`:                  false,
+		`{"error":{"message":"parameters_schema is invalid"}}`:                      false,
+		`{"error":{"message":"reasoning.effort 'max' is not supported"}}`:           false,
+		`{"error":{"message":"Encrypted file upload rejected"}}`:                    false,
+	} {
+		if got := isReasoningReplayRejection(NewAPIError("openai", 400, body)); got != want {
+			t.Errorf("%s: got %v, want %v", body, got, want)
+		}
+	}
+}
+
+func TestReasoningReplayRetryFailureFallsThroughToLegacy(t *testing.T) {
+	var responses, legacy atomic.Int32
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/chat/completions" {
+			legacy.Add(1)
+			w.Header().Set("Content-Type", "text/event-stream")
+			_, _ = io.WriteString(w, "data: {\"choices\":[{\"delta\":{\"content\":\"legacy\"}}]}\n\ndata: [DONE]\n\n")
+			return
+		}
+		w.WriteHeader(http.StatusBadRequest)
+		if responses.Add(1) == 1 {
+			_, _ = io.WriteString(w, `{"error":{"message":"Item with id 'rs_1' not found."}}`)
+			return
+		}
+		_, _ = io.WriteString(w, `{"error":{"message":"No tool output found for function call call_1."}}`)
+	}))
+	defer server.Close()
+	p := &openaiResponses{apiKey: "token", baseURL: server.URL, legacy: &openaiChatCompletions{apiKey: "token", baseURL: server.URL}}
+	resp, err := p.ChatStream(context.Background(), &ChatRequest{Model: "gpt-5.6", Messages: replayHistory(), Tools: []Tool{{Name: "lookup"}}}, nil)
+	if err != nil || resp.Content != "legacy" || responses.Load() != 2 || legacy.Load() != 1 {
+		t.Fatalf("resp=%+v err=%v responses=%d legacy=%d", resp, err, responses.Load(), legacy.Load())
+	}
+}
+
+func TestResponsesStreamWithoutCompletedIsTransient(t *testing.T) {
+	stream := "event: response.output_text.delta\ndata: {\"delta\":\"half\"}\n\n"
+	_, err := (&openaiResponses{}).parseStream(strings.NewReader(stream), nil)
+	if !errors.Is(err, ErrStreamIncomplete) || !IsRetryable(err) {
+		t.Fatalf("err = %v, want retryable incomplete stream", err)
+	}
+	if _, err := (&openaiResponses{}).parseStream(strings.NewReader(stream+completedEvent), nil); err != nil {
+		t.Fatal(err)
+	}
+	inner := &sequenceProvider{errs: []error{fmt.Errorf("stream: %w", ErrStreamIncomplete)}}
+	r := NewRetryProvider(inner, RetryConfig{BaseDelay: time.Millisecond, MaxDelay: time.Millisecond, OnRetry: func(int, error, time.Duration) {}})
+	if _, err := r.ChatStream(context.Background(), &ChatRequest{Model: "m"}, nil); err != nil {
+		t.Fatalf("unforwarded incomplete stream was not retried: %v", err)
+	}
+}
+
+func TestStreamWatchdogDefaultsOutlastSilentReasoning(t *testing.T) {
+	if streamIdleTimeout < 300*time.Second || streamWallCap < 600*time.Second {
+		t.Fatalf("idle=%s wall=%s", streamIdleTimeout, streamWallCap)
+	}
+}
+
+func TestResponsesStreamWallCapStartsAfterHeaders(t *testing.T) {
+	previousIdle, previousWall := streamIdleTimeout, streamWallCap
+	streamIdleTimeout, streamWallCap = time.Second, 150*time.Millisecond
+	defer func() { streamIdleTimeout, streamWallCap = previousIdle, previousWall }()
+	trickle := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Header.Get("X-Slow-Headers") != "" {
+			time.Sleep(300 * time.Millisecond) // header wait is not the wall cap's concern
+			w.Header().Set("Content-Type", "text/event-stream")
+			_, _ = io.WriteString(w, "event: response.output_text.delta\ndata: {\"delta\":\"ok\"}\n\n"+completedEvent)
+			return
+		}
+		w.Header().Set("Content-Type", "text/event-stream")
+		for {
+			if _, err := io.WriteString(w, ": keep-alive\n\n"); err != nil {
+				return
+			}
+			w.(http.Flusher).Flush()
+			select {
+			case <-r.Context().Done():
+				return
+			case <-time.After(20 * time.Millisecond):
+			}
+		}
+	}))
+	defer trickle.Close()
+	p := &openaiResponses{apiKey: "token", baseURL: trickle.URL}
+	_, err := p.ChatStream(context.Background(), &ChatRequest{Model: "gpt-5.6"}, nil)
+	var wall *StreamWallCapError
+	if !errors.As(err, &wall) || !IsStreamWatchdog(err) || IsStreamIdle(err) {
+		t.Fatalf("err = %v, want wall-cap abort", err)
+	}
+	p.headers = map[string]string{"X-Slow-Headers": "1"}
+	if resp, err := p.ChatStream(context.Background(), &ChatRequest{Model: "gpt-5.6"}, nil); err != nil || resp.Content != "ok" {
+		t.Fatalf("slow headers: resp=%+v err=%v", resp, err)
+	}
+}
+
+func TestRetryProviderLeavesWatchdogRetryToCaller(t *testing.T) {
+	for _, watchdog := range []error{&StreamIdleError{Idle: time.Second}, fmt.Errorf("x: %w", &StreamWallCapError{Cap: time.Second})} {
+		inner := &sequenceProvider{errs: []error{watchdog, watchdog}}
+		r := NewRetryProvider(inner, RetryConfig{BaseDelay: time.Millisecond, MaxDelay: time.Millisecond, OnRetry: func(int, error, time.Duration) {}})
+		if _, err := r.ChatStream(context.Background(), &ChatRequest{Model: "m"}, nil); !IsStreamWatchdog(err) || len(inner.errs) != 1 {
+			t.Fatalf("stream err=%v remaining=%d", err, len(inner.errs))
+		}
+		if _, err := r.Chat(context.Background(), &ChatRequest{Model: "m"}); !IsStreamWatchdog(err) || len(inner.errs) != 0 {
+			t.Fatalf("chat err=%v remaining=%d", err, len(inner.errs))
+		}
+	}
+}
+
+func TestInStreamReasoningRejectionRetriesOnceWithout(t *testing.T) {
+	var requests atomic.Int32
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		raw, _ := io.ReadAll(r.Body)
+		w.Header().Set("Content-Type", "text/event-stream")
+		if requests.Add(1) == 1 {
+			if !strings.Contains(string(raw), `"type":"reasoning"`) {
+				t.Errorf("first request omitted reasoning")
+			}
+			_, _ = io.WriteString(w, "event: response.failed\ndata: {\"response\":{\"error\":{\"code\":\"invalid_request_error\",\"message\":\"Item with id 'rs_1' not found.\"}}}\n\n")
+			return
+		}
+		if strings.Contains(string(raw), `"type":"reasoning"`) {
+			t.Errorf("retry still replayed reasoning")
+		}
+		_, _ = io.WriteString(w, "event: response.output_text.delta\ndata: {\"delta\":\"done\"}\n\n"+completedEvent)
+	}))
+	defer server.Close()
+	p := &openaiResponses{apiKey: "token", baseURL: server.URL, noStore: true}
+	resp, err := p.ChatStream(context.Background(), &ChatRequest{Model: "gpt-5.6", Messages: replayHistory()}, nil)
+	if err != nil || resp.Content != "done" || !resp.ReasoningReplayRejected || requests.Load() != 2 {
+		t.Fatalf("resp=%+v err=%v requests=%d", resp, err, requests.Load())
+	}
+	// An unrelated in-stream failure keeps its error and is not resent here.
+	if isReasoningReplayRejection(&ResponseFailedError{Code: "server_error", Message: "The server had an error"}) {
+		t.Fatal("unrelated response.failed matched")
+	}
 }

@@ -96,8 +96,16 @@ func (o *openaiResponses) Chat(ctx context.Context, req *ChatRequest) (*ChatResp
 // ChatStream sends a streaming request via the Responses API.
 // Falls back to Chat Completions if the Responses API fails with tool errors.
 func (o *openaiResponses) ChatStream(ctx context.Context, req *ChatRequest, onDelta func(StreamDelta)) (*ChatResponse, error) {
-	resp, err := o.stream(ctx, req, onDelta)
-	if err != nil && !req.OmitReasoningReplay && hasReasoningReplay(req.Messages) && isReasoningReplayRejection(err) {
+	// A rejection can arrive in-stream; never replay a forwarded prefix.
+	forwarded := false
+	forward := func(delta StreamDelta) {
+		forwarded = true
+		if onDelta != nil {
+			onDelta(delta)
+		}
+	}
+	resp, err := o.stream(ctx, req, forward)
+	if err != nil && !forwarded && !req.OmitReasoningReplay && hasReasoningReplay(req.Messages) && isReasoningReplayRejection(err) {
 		// Replayed reasoning is an optimization. A backend that rejects it gets
 		// one request without it; the caller drops it for the rest of the run.
 		retry := *req
@@ -105,8 +113,8 @@ func (o *openaiResponses) ChatStream(ctx context.Context, req *ChatRequest, onDe
 		resp, err = o.stream(ctx, &retry, onDelta)
 		if err == nil {
 			resp.ReasoningReplayRejected = true
+			return resp, nil
 		}
-		return resp, err
 	}
 	if err != nil && o.legacy != nil && len(req.Tools) > 0 && isToolCallError(err) {
 		// Fallback to Chat Completions API for tool-related errors
@@ -117,9 +125,14 @@ func (o *openaiResponses) ChatStream(ctx context.Context, req *ChatRequest, onDe
 	return resp, err
 }
 
-// streamIdleTimeout aborts a stream that delivers no bytes for this long,
-// including the wait for response headers.
-var streamIdleTimeout = 90 * time.Second
+// Stream watchdogs. streamIdleTimeout aborts a stream that delivers no bytes
+// for this long, including the wait for response headers; reasoning models
+// can stay silent for minutes (Codex CLI uses 300 s). streamWallCap bounds one
+// attempt after its headers arrive. Variables so tests can shorten them.
+var (
+	streamIdleTimeout = 300 * time.Second
+	streamWallCap     = 600 * time.Second
+)
 
 type idleReader struct {
 	r     io.Reader
@@ -145,12 +158,18 @@ func (o *openaiResponses) stream(ctx context.Context, req *ChatRequest, onDelta 
 
 	streamCtx, cancel := context.WithCancel(ctx)
 	defer cancel()
-	idle := streamIdleTimeout
-	var idleFired atomic.Bool
+	idle, wallCap := streamIdleTimeout, streamWallCap
+	var idleFired, wallFired atomic.Bool
 	timer := time.AfterFunc(idle, func() { idleFired.Store(true); cancel() })
 	defer timer.Stop()
 	idleErr := func(err error) error {
-		if idleFired.Load() && ctx.Err() == nil {
+		if ctx.Err() != nil {
+			return err
+		}
+		if wallFired.Load() {
+			return &StreamWallCapError{Cap: wallCap}
+		}
+		if idleFired.Load() {
 			return &StreamIdleError{Idle: idle}
 		}
 		return err
@@ -166,8 +185,8 @@ func (o *openaiResponses) stream(ctx context.Context, req *ChatRequest, onDelta 
 		httpReq.Header.Set(key, value)
 	}
 
-	client := &http.Client{Timeout: 10 * time.Minute}
-	resp, err := client.Do(httpReq)
+	// No client timeout: the watchdogs bound header wait and body separately.
+	resp, err := (&http.Client{}).Do(httpReq)
 	if err != nil {
 		return nil, idleErr(fmt.Errorf("request failed: %w", err))
 	}
@@ -179,8 +198,10 @@ func (o *openaiResponses) stream(ctx context.Context, req *ChatRequest, onDelta 
 	}
 
 	timer.Reset(idle)
+	wall := time.AfterFunc(wallCap, func() { wallFired.Store(true); cancel() })
+	defer wall.Stop()
 	result, err := o.parseStream(&idleReader{r: resp.Body, timer: timer, idle: idle}, onDelta)
-	if err == nil && idleFired.Load() {
+	if err == nil && (idleFired.Load() || wallFired.Load()) {
 		err = context.Canceled // never return a stream cut short as complete
 	}
 	if err != nil {
@@ -527,6 +548,7 @@ func (o *openaiResponses) parseStream(body io.Reader, onDelta func(StreamDelta))
 	scanner.Buffer(make([]byte, 0, 64*1024), 1024*1024)
 
 	var currentEvent string
+	completed := false
 
 	for scanner.Scan() {
 		line := scanner.Text()
@@ -653,8 +675,9 @@ func (o *openaiResponses) parseStream(body io.Reader, onDelta func(StreamDelta))
 				}
 			}
 
-		case "response.completed":
-			// Final event with usage
+		case "response.completed", "response.incomplete":
+			// Terminal event with usage; incomplete still carries a usable output.
+			completed = true
 			var ev struct {
 				Response struct {
 					Usage struct {
@@ -678,13 +701,17 @@ func (o *openaiResponses) parseStream(body io.Reader, onDelta func(StreamDelta))
 				} `json:"response"`
 			}
 			if json.Unmarshal([]byte(data), &ev) == nil {
-				return nil, fmt.Errorf("response failed: [%s] %s", ev.Response.Error.Code, ev.Response.Error.Message)
+				return nil, &ResponseFailedError{Code: ev.Response.Error.Code, Message: ev.Response.Error.Message}
 			}
 		}
 	}
 
 	if err := scanner.Err(); err != nil {
 		return nil, fmt.Errorf("stream read error: %w", err)
+	}
+	if !completed {
+		// A clean EOF without a terminal event is a cut-off response.
+		return nil, ErrStreamIncomplete
 	}
 
 	result.Content = contentBuf.String()

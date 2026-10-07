@@ -64,6 +64,9 @@ type Request struct {
 	Messages               []Message
 	Tools                  []Tool
 	OnDelta                func(string)
+	// ConversationID keys the provider prompt cache across runs of one
+	// conversation; RunID is the fallback.
+	ConversationID string
 	// OnAssistantTurn is called for completed non-final assistant turns with
 	// non-empty public content immediately before their tool calls are queued or
 	// executed. It is also called for a budget wrap-up turn whose tool calls are

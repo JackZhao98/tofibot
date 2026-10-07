@@ -366,7 +366,7 @@ func (e *engine) Run(ctx context.Context, req Request) (Result, error) {
 		ResumeResult:               req.ResumeResult,
 		ResumeOutcome:              req.ResumeOutcome,
 		ResolveToolIdentity:        resolveIdentity,
-		PromptCacheKey:             req.RunID,
+		PromptCacheKey:             promptCacheKey(req),
 		OnThinkingChunk:            onThinking,
 		OnStreamReset:              req.OnStreamReset,
 		OnFinalDraftDemoted:        onReviewDraft,
@@ -463,4 +463,12 @@ func (e *engine) Run(ctx context.Context, req Request) (Result, error) {
 		InputTokens:  result.TotalUsage.InputTokens,
 		OutputTokens: result.TotalUsage.OutputTokens,
 	}, nil
+}
+
+// promptCacheKey shares the provider cache across a conversation's runs.
+func promptCacheKey(req Request) string {
+	if key := strings.TrimSpace(req.ConversationID); key != "" {
+		return key
+	}
+	return req.RunID
 }

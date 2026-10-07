@@ -10,6 +10,7 @@ import (
 	"sync"
 	"testing"
 	"time"
+	"unicode/utf8"
 
 	"github.com/JackZhao98/tofibot/internal/models"
 	"github.com/JackZhao98/tofibot/internal/provider"
@@ -190,12 +191,8 @@ func TestOverlongToolArgumentsAbortAndRetryOnce(t *testing.T) {
 }
 
 func TestWallCapAndIdleStreamRetryIterationOnce(t *testing.T) {
-	previous := modelCallWallCap
-	modelCallWallCap = 50 * time.Millisecond
-	defer func() { modelCallWallCap = previous }()
-	block := func(ctx context.Context, _ *provider.ChatRequest, _ func(provider.StreamDelta)) (*provider.ChatResponse, error) {
-		<-ctx.Done()
-		return nil, ctx.Err()
+	block := func(context.Context, *provider.ChatRequest, func(provider.StreamDelta)) (*provider.ChatResponse, error) {
+		return nil, fmt.Errorf("stream: %w", &provider.StreamWallCapError{Cap: time.Second})
 	}
 	idle := func(context.Context, *provider.ChatRequest, func(provider.StreamDelta)) (*provider.ChatResponse, error) {
 		return nil, fmt.Errorf("stream: %w", &provider.StreamIdleError{Idle: time.Second})
@@ -215,6 +212,10 @@ func TestWallCapAndIdleStreamRetryIterationOnce(t *testing.T) {
 			result, err := runLoop(t, AgentConfig{Provider: p, Prompt: "go"})
 			if tc.ok && (err != nil || result.Content != "final" || len(p.requests) != 2) {
 				t.Fatalf("result=%+v err=%v calls=%d", result, err, len(p.requests))
+			}
+			// A watchdog abort is not the model's fault: retry without guidance.
+			if len(p.requests) == 2 && !reflect.DeepEqual(p.requests[0].Messages, p.requests[1].Messages) {
+				t.Fatalf("retry added a note: %+v", p.requests[1].Messages)
 			}
 			if !tc.ok && (err == nil || len(p.requests) != 2) {
 				t.Fatalf("second failure was retried: err=%v calls=%d", err, len(p.requests))
@@ -338,22 +339,22 @@ func TestUncertainVMActionFencesOnlyIdenticalReplay(t *testing.T) {
 	prior := click(`{"x":1,"y":2}`)
 	lost := tooloutcome.New(tooloutcome.Uncertain, "lost", "unknown", "Response lost.", "verify_effect")
 	records := []ToolRecoveryRecord{{Call: provider.ToolCall{ID: "a", Name: "computer_action", Arguments: `{}`}, Identity: &prior, Outcome: lost}}
-	if toolRecoveryIdentityGuard(records, click(`{"x":1,"y":2}`)) == nil {
+	if toolRecoveryIdentityGuardAt(records, click(`{"x":1,"y":2}`), 0) == nil {
 		t.Fatal("identical uncertain VM action was replayed")
 	}
-	if got := toolRecoveryIdentityGuard(records, click(`{"x":5,"y":9}`)); got != nil {
+	if got := toolRecoveryIdentityGuardAt(records, click(`{"x":5,"y":9}`), 0); got != nil {
 		t.Fatalf("different VM action fenced: %+v", got)
 	}
 	// An unresolved file write keeps fencing the whole operation.
 	write := tooloutcome.OperationIdentity("computer/vm/bot/b1", "files.write", json.RawMessage(`{"path":"a"}`))
 	records[0].Identity = &write
-	if toolRecoveryIdentityGuard(records, tooloutcome.OperationIdentity("computer/vm/bot/b1", "files.write", json.RawMessage(`{"path":"b"}`))) == nil {
+	if toolRecoveryIdentityGuardAt(records, tooloutcome.OperationIdentity("computer/vm/bot/b1", "files.write", json.RawMessage(`{"path":"b"}`)), 0) == nil {
 		t.Fatal("unresolved uncertain file write lost its operation fence")
 	}
 	// Outside the computer scope an uncertain opaque effect still fences the operation.
 	publish := tooloutcome.OperationIdentity("tool", "publish", json.RawMessage(`{"a":1}`))
 	records[0].Identity = &publish
-	if toolRecoveryIdentityGuard(records, tooloutcome.OperationIdentity("tool", "publish", json.RawMessage(`{"a":2}`))) == nil {
+	if toolRecoveryIdentityGuardAt(records, tooloutcome.OperationIdentity("tool", "publish", json.RawMessage(`{"a":2}`)), 0) == nil {
 		t.Fatal("uncertain opaque mutation lost its operation fence")
 	}
 }
@@ -377,5 +378,71 @@ func TestDemotedFinalDraftUsesDedicatedCallback(t *testing.T) {
 		OnFinalDraftDemoted: func(_ int, c string) { demoted = append(demoted, c) }})
 	if err != nil || result.Content != "final" || len(turns) != 0 || !reflect.DeepEqual(demoted, []string{"draft"}) {
 		t.Fatalf("result=%+v err=%v turns=%v demoted=%v", result, err, turns, demoted)
+	}
+}
+
+func TestEstimateContextUsageCountsReplayedReasoning(t *testing.T) {
+	plain := []provider.Message{{Role: "assistant", ToolCalls: []provider.ToolCall{{ID: "a", Name: "lookup", Arguments: `{}`}}}}
+	replayed := []provider.Message{{Role: "assistant", ToolCalls: plain[0].ToolCalls, ReasoningItems: []provider.ReasoningItem{{ID: "rs_1", EncryptedContent: strings.Repeat("e", 40000)}}}}
+	if with, without := EstimateContextUsage("", replayed, nil), EstimateContextUsage("", plain, nil); with-without < 10000 {
+		t.Fatalf("reasoning estimate with=%d without=%d", with, without)
+	}
+}
+
+func TestCompactMessagesBoundsSummarizerInput(t *testing.T) {
+	var prompt string
+	p := &scriptedProvider{steps: []func(context.Context, *provider.ChatRequest, func(provider.StreamDelta)) (*provider.ChatResponse, error){
+		func(_ context.Context, req *provider.ChatRequest, _ func(provider.StreamDelta)) (*provider.ChatResponse, error) {
+			prompt = req.Messages[0].Content
+			return &provider.ChatResponse{Content: "summary"}, nil
+		},
+	}}
+	messages := []provider.Message{{Role: "user", Content: "ORIGINAL GOAL"}}
+	for i := 0; i < 300; i++ {
+		messages = append(messages, provider.Message{Role: "assistant", Content: fmt.Sprintf("turn %d ", i) + strings.Repeat("界", 5000)})
+	}
+	messages = append(messages, provider.Message{Role: "user", Content: "LATEST ASK"})
+	if _, err := compactMessages(context.Background(), p, "gpt-5.6", "", messages); err != nil {
+		t.Fatal(err)
+	}
+	if len(prompt) > compactionInputChars+2000 || !strings.Contains(prompt, "ORIGINAL GOAL") || !strings.Contains(prompt, "LATEST ASK") || !strings.Contains(prompt, "earlier messages omitted") || !utf8.ValidString(prompt) {
+		t.Fatalf("summarizer input %d bytes, head=%q", len(prompt), prompt[:min(len(prompt), 200)])
+	}
+}
+
+func TestBulkContentToolArgumentsUseLargerCap(t *testing.T) {
+	previous, previousBulk := maxToolCallArgumentChars, maxBulkToolCallArgumentChars
+	maxToolCallArgumentChars, maxBulkToolCallArgumentChars = 100, 1000
+	defer func() { maxToolCallArgumentChars, maxBulkToolCallArgumentChars = previous, previousBulk }()
+	args := `{"action":"files.write","path":"a.txt","content":"` + strings.Repeat("a", 500) + `"}`
+	p := &scriptedProvider{steps: []func(context.Context, *provider.ChatRequest, func(provider.StreamDelta)) (*provider.ChatResponse, error){
+		func(_ context.Context, _ *provider.ChatRequest, delta func(provider.StreamDelta)) (*provider.ChatResponse, error) {
+			delta(provider.StreamDelta{ToolCalls: []provider.ToolCallDelta{{Index: 0, ID: "c", Name: "computer_files"}}})
+			for i := 0; i < len(args); i += 50 {
+				delta(provider.StreamDelta{ToolCalls: []provider.ToolCallDelta{{Index: 0, Arguments: args[i:min(i+50, len(args))]}}})
+			}
+			return &provider.ChatResponse{ToolCalls: []provider.ToolCall{{ID: "c", Name: "computer_files", Arguments: args}}}, nil
+		},
+		reply(provider.ChatResponse{Content: "written"}),
+	}}
+	executed := 0
+	files := ExtraBuiltinTool{Schema: provider.Tool{Name: "computer_files", Parameters: map[string]any{"type": "object"}}, HandlerCtx: func(context.Context, map[string]interface{}) (string, error) { executed++; return "ok", nil }}
+	result, err := runLoop(t, AgentConfig{Provider: p, Prompt: "go", OnStreamChunk: func(string, string) {}, ExtraTools: []ExtraBuiltinTool{files}})
+	if err != nil || result.Content != "written" || executed != 1 || len(p.requests) != 2 {
+		t.Fatalf("result=%+v err=%v executed=%d calls=%d", result, err, executed, len(p.requests))
+	}
+}
+
+func TestMicroCompactPreviewSurvivesEarlyInvalidByte(t *testing.T) {
+	messages := []provider.Message{{Role: "tool", ToolName: "lookup", Content: "\xff" + strings.Repeat("a", 400) + "界"}}
+	for i := 0; i < 6; i++ {
+		messages = append(messages, provider.Message{Role: "user", Content: "recent"})
+	}
+	got := microCompact(messages, 6)[0].Content
+	if !strings.HasPrefix(got, "\xff"+strings.Repeat("a", 150)) {
+		t.Fatalf("preview collapsed: %q", got[:min(len(got), 60)])
+	}
+	if clipped := clipUTF8("ab界", 4); clipped != "ab" {
+		t.Fatalf("split rune kept: %q", clipped)
 	}
 }

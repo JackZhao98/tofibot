@@ -154,3 +154,16 @@ func TestDemotedDraftResetWaitsForReviewedTurn(t *testing.T) {
 		t.Fatalf("draft_reset events = %d", got)
 	}
 }
+
+func TestExecutePassesConversationForPromptCache(t *testing.T) {
+	var got string
+	_, run, _ := runReviewDraft(t, func(*Server, Run) func(context.Context, runtime.Request) (runtime.Result, error) {
+		return func(_ context.Context, req runtime.Request) (runtime.Result, error) {
+			got = req.ConversationID
+			return runtime.Result{Content: "done"}, nil
+		}
+	})
+	if got == "" || got != run.ConversationID {
+		t.Fatalf("request conversation = %q, want %q", got, run.ConversationID)
+	}
+}

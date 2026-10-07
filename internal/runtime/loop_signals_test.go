@@ -109,3 +109,12 @@ func TestRuntimeForwardsThinkingRetryReviewDraftAndRisk(t *testing.T) {
 		}
 	}
 }
+
+func TestPromptCacheKeyPrefersConversation(t *testing.T) {
+	if got := promptCacheKey(Request{RunID: "run-1", ConversationID: "conv-1"}); got != "conv-1" {
+		t.Fatalf("key = %q", got)
+	}
+	if got := promptCacheKey(Request{RunID: "run-1"}); got != "run-1" {
+		t.Fatalf("fallback key = %q", got)
+	}
+}
