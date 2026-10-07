@@ -94,11 +94,11 @@ func (s *Server) claimMCPApproval(ctx context.Context, c Conversation, r Run, ca
 			if q.Status == questionExpired {
 				reviewState, reason = "terminal", "This proposal expired and remains non-executable."
 			} else if contextErr != nil || contextDigest != digest {
-				q.Status, reviewState, reason = questionCancelled, "context_required", "Necessary authorization or context changed. A complete current evidence packet is required."
 				contextFailure = mcpContextDiagnostic(contextErr)
 				if contextErr == nil {
 					contextFailure = mcpContextDiagnostic(mcpContextFail(mcpContextDigestChanged))
 				}
+				q.Status, reviewState, reason = questionCancelled, "context_required", "Necessary authorization changed after review: "+mcpContextFailureReason(contextFailure.Code)+"."
 			} else if s.extensions == nil || !mcpSchemaAvailable(call.Schema) || !s.extensions.MCPCallCurrent(call) {
 				q.Status, reviewState, reason = questionCancelled, "setup_required", "The current tool configuration or schema binding is unavailable. Approval cannot repair this setup gap."
 			}

@@ -6,6 +6,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/JackZhao98/tofibot/internal/extensions"
@@ -206,7 +207,7 @@ func TestAutoReviewNativeUserIngressProvenance(t *testing.T) {
 		err := f.s.reviewNewMCPProposal(context.Background(), f.c, f.r, f.call, q)
 		out, typed := tooloutcome.FromError(err)
 		q, _ = f.s.store.GetQuestion(q.ID)
-		if !typed || out.Status != tooloutcome.NeedInformation || out.Code != "mcp_review_context_missing" || q.Status != questionCancelled || q.Approval.Review.Status != "context_required" {
+		if !typed || out.Status != tooloutcome.Permanent || out.Code != "mcp_review_context_missing" || !strings.Contains(out.Message, string(mcpContextIntentProvenance)) || q.Status != questionCancelled || q.Approval.Review.Status != "context_required" {
 			t.Fatalf("unknown provenance became approval or risk judgment: %+v %v", out, err)
 		}
 		if f.p.calls.Load() != 0 || f.effects.Load() != 0 || q.AnsweredBy != "" {

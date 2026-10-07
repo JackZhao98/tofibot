@@ -177,7 +177,8 @@ func TestAutoReviewContextGapNeverWaitsForApprovalOrRetries(t *testing.T) {
 	for i := 0; i < 2; i++ {
 		err := f.execute(context.Background())
 		out, ok := tooloutcome.FromError(err)
-		if !ok || out.Status != tooloutcome.NeedInformation || out.Code != "mcp_review_context_missing" || out.Certainty != "not_executed" {
+		// A recorded permanent closure the recovery guard blocks on identical retry.
+		if !ok || out.Status != tooloutcome.Permanent || out.NextAction != "replan" || out.Code != "mcp_review_context_missing" || out.Certainty != "not_executed" || !strings.Contains(out.Message, "reviewer_context_gap") || !strings.Contains(out.Message, "Do not retry") {
 			t.Fatalf("context gap became approval or untyped error: %v", err)
 		}
 	}

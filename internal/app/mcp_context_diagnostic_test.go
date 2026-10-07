@@ -95,7 +95,6 @@ func TestMCPContextDiagnosticDatabaseBranches(t *testing.T) {
 		{"SELECT m.content,m.role", mcpContextIntentRead},
 		{"SELECT instructions", mcpContextInstructionsRead},
 		{"SELECT COUNT(*) FROM attachments", mcpContextAttachmentsRead},
-		{"SELECT version,content FROM summaries", mcpContextSummaryRead},
 	} {
 		t.Run(string(tc.code), func(t *testing.T) {
 			_, digest, err := readMCPReviewContext(contextDiagnosticQuerier{f.s.store.db, fault, tc.match, "query"}, f.c, f.r)
@@ -110,8 +109,7 @@ func TestMCPContextDiagnosticDatabaseBranches(t *testing.T) {
 		query, scan, iteration mcpContextFailureCode
 	}{
 		{"SELECT m.id,m.seq", mcpContextMessagesQuery, mcpContextMessagesScan, mcpContextMessagesIteration},
-		{"SELECT id,content,revision FROM memories", mcpContextMemoriesQuery, mcpContextMemoriesScan, mcpContextMemoriesIteration},
-		{"FROM tool_activities WHERE conversation_id", mcpContextToolsQuery, mcpContextToolsScan, mcpContextToolsIteration},
+		{"FROM tool_activities WHERE run_id", mcpContextToolsQuery, mcpContextToolsScan, mcpContextToolsIteration},
 		{"SELECT q.id,q.run_id,a.action_hash", mcpContextRefusalsQuery, mcpContextRefusalsScan, mcpContextRefusalsIteration},
 	} {
 		for _, mode := range []string{"query", "scan", "iteration"} {
@@ -196,13 +194,6 @@ func TestMCPContextDiagnosticDataBranches(t *testing.T) {
 				t.Fatal(err)
 			}
 		}, 1, 0, false},
-		{"message limit", mcpContextMessagesLimit, func(t *testing.T, f *autoReviewFixture) {
-			diagnosticExec(t, f, `WITH RECURSIVE n(i) AS (VALUES(1) UNION ALL SELECT i+1 FROM n WHERE i<201) INSERT INTO messages(id,conversation_id,seq,role,content,created_at) SELECT printf('synthetic-message-%d',i),?,1000+i,'assistant','synthetic',? FROM n`, f.c.ID, now())
-		}, 201, 200, true},
-		{"memory limit", mcpContextMemoriesLimit, func(t *testing.T, f *autoReviewFixture) {
-			diagnosticExec(t, f, `WITH RECURSIVE n(i) AS (VALUES(1) UNION ALL SELECT i+1 FROM n WHERE i<201) INSERT INTO memories(id,conversation_id,content,revision,created_at,updated_at) SELECT printf('synthetic-memory-%d',i),?,'synthetic',1,?,? FROM n`, f.c.ID, now(), now())
-		}, 201, 200, true},
-		{"tool limit", mcpContextToolsLimit, func(t *testing.T, f *autoReviewFixture) { diagnosticTools(t, f, 201, "") }, 201, 200, true},
 		{"malformed outcome", mcpContextToolsOutcome, func(t *testing.T, f *autoReviewFixture) {
 			diagnosticTools(t, f, 1, "")
 			diagnosticExec(t, f, `UPDATE tool_activities SET outcome_json=?`, diagnosticPrivateSentinel)
@@ -215,32 +206,27 @@ func TestMCPContextDiagnosticDataBranches(t *testing.T) {
 			diagnosticTools(t, f, 1, "")
 			diagnosticExec(t, f, `UPDATE tool_activities SET result=CAST(x'ff' AS TEXT)`)
 		}, -1, 0, false},
-		{"refusal limit", mcpContextRefusalsLimit, func(t *testing.T, f *autoReviewFixture) {
-			diagnosticRefusals(t, f, 201, `{"action":"synthetic","target":"synthetic","impact":"synthetic"}`)
-		}, 201, 200, true},
 		{"malformed refusal", mcpContextRefusalsInvalid, func(t *testing.T, f *autoReviewFixture) { diagnosticRefusals(t, f, 1, diagnosticPrivateSentinel) }, -1, 0, false},
 		{"null refusal", mcpContextRefusalsInvalid, func(t *testing.T, f *autoReviewFixture) { diagnosticRefusals(t, f, 1, `null`) }, -1, 0, false},
-		{"aggregate bytes", mcpContextBytesLimit, func(t *testing.T, f *autoReviewFixture) { diagnosticTools(t, f, 2, strings.Repeat("s", 32<<10)) }, -2, 64 << 10, false},
-		{"saturated bytes", mcpContextBytesLimit, func(t *testing.T, f *autoReviewFixture) {
-			diagnosticExec(t, f, `UPDATE bots SET instructions=? WHERE id=?`, strings.Repeat("s", 2<<20), f.r.BotID)
-		}, 1 << 20, 64 << 10, true},
+		{"tool binding", mcpContextToolsBinding, func(t *testing.T, f *autoReviewFixture) {
+			diagnosticTools(t, f, 1, "")
+			diagnosticExec(t, f, `UPDATE tool_activities SET conversation_id='synthetic-elsewhere'`)
+		}, -1, 0, false},
+		{"group round", mcpContextGroupRound, func(t *testing.T, f *autoReviewFixture) {
+			diagnosticExec(t, f, `UPDATE runs SET kind=? WHERE id=?`, runKindGroupChat, f.r.ID)
+			f.r.Kind = runKindGroupChat
+		}, -1, 0, false},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			f := newProvenanceReviewFixture(t)
 			tc.mutate(t, f)
-			x, digest, err := readMCPReviewContext(f.s.store.db, f.c, f.r)
+			_, digest, err := readMCPReviewContext(f.s.store.db, f.c, f.r)
 			d := assertContextDiagnostic(t, err, tc.code)
 			if digest != "" {
 				t.Fatal("failed context has a digest")
 			}
 			if tc.observed >= 0 && (d.Observed == nil || *d.Observed != tc.observed || d.Limit == nil || *d.Limit != tc.limit || d.ObservedAtLeast != tc.atLeast) {
 				t.Fatalf("wrong bounded metric: %+v", d)
-			}
-			if tc.observed == -2 {
-				raw, _ := json.Marshal(x)
-				if d.Observed == nil || *d.Observed != len(raw) || d.Limit == nil || *d.Limit != tc.limit || d.ObservedAtLeast {
-					t.Fatal("exact bounded byte size missing")
-				}
 			}
 			if tc.observed == -1 && (d.Observed != nil || d.Limit != nil) {
 				t.Fatal("diagnostic invented a measurement")

@@ -10,7 +10,6 @@ import (
 	"strings"
 	"unicode/utf8"
 
-	"github.com/JackZhao98/tofibot/internal/tooloutcome"
 	"github.com/google/uuid"
 )
 
@@ -349,7 +348,10 @@ func sameScheduleAuthorizationRevision(a, b scheduleAuthorizationRevision) bool 
 }
 
 // Native schedule tools accept direct group roots as well as direct chats.
-// This private reader keeps the ordinary AutoReview chat eligibility unchanged.
+// This private reader keeps the ordinary AutoReview chat eligibility unchanged
+// and captures the same bounded window: the request, text up to it, earlier
+// attachment metadata and the source run's own records. Long conversations
+// keep their recorded source instead of degrading to unknown lineage.
 func readScheduleChatSourceContext(db reviewQuerier, c Conversation, r Run) (mcpReviewContext, string, error) {
 	var x mcpReviewContext
 	var trigger, parent, kind sql.NullString
@@ -364,106 +366,49 @@ func readScheduleChatSourceContext(db reviewQuerier, c Conversation, r Run) (mcp
 		return x, "", errors.New("native schedule source binding changed")
 	}
 	var role, conv, intentSource string
+	var intentSeq int64
 	var intentKind, sender sql.NullString
-	if err := db.QueryRow(`SELECT m.content,m.role,m.conversation_id,m.kind,m.sender_bot_id,`+mcpMessageProvenanceSQL+` FROM messages m WHERE m.id=?`, r.TriggerMessageID).Scan(&x.Intent, &role, &conv, &intentKind, &sender, &intentSource); err != nil || role != "user" || conv != c.ID || sender.String != "" || intentKind.String != "" && intentKind.String != "user_message" || strings.TrimSpace(x.Intent) == "" {
+	if err := db.QueryRow(`SELECT m.content,m.role,m.conversation_id,m.kind,m.sender_bot_id,m.seq,`+mcpMessageProvenanceSQL+` FROM messages m WHERE m.id=?`, r.TriggerMessageID).Scan(&x.Intent, &role, &conv, &intentKind, &sender, &intentSeq, &intentSource); err != nil || role != "user" || conv != c.ID || sender.String != "" || intentKind.String != "" && intentKind.String != "user_message" || strings.TrimSpace(x.Intent) == "" {
 		return x, "", errors.New("user intent unavailable")
 	}
 	if intentSource != mcpHostUserIngress {
 		return x, "", errors.New("host-verified user intent provenance unavailable")
 	}
+	// encoding/json replaces invalid UTF-8 in strings. Validate original source
+	// text first so that replacement bytes cannot become captured user intent.
+	if !utf8.ValidString(x.Intent) {
+		return x, "", errors.New("complete source text is not valid UTF-8")
+	}
 	x.IntentMessageID = r.TriggerMessageID
 	if err := db.QueryRow(`SELECT instructions FROM bots WHERE id=?`, r.BotID).Scan(&x.Instructions); err != nil {
 		return x, "", err
 	}
-	var attachments int
-	if err := db.QueryRow(`SELECT COUNT(*) FROM attachments WHERE conversation_id=?`, c.ID).Scan(&attachments); err != nil || attachments != 0 {
-		return x, "", errors.New("non-text context requires human review")
+	var err error
+	// The request itself must be text; earlier uploads are an explicit manifest.
+	if x.AttachmentBoundary, err = readMCPAttachmentBoundary(db, c.ID, r.TriggerMessageID, intentSeq); err != nil {
+		return x, "", err
 	}
-	rows, err := db.Query(`SELECT m.id,m.seq,m.role,m.kind,m.content,COALESCE(m.sender_bot_id,''),`+mcpMessageProvenanceSQL+` FROM messages m WHERE m.conversation_id=? ORDER BY m.seq LIMIT 201`, c.ID)
+	bounds := &mcpEvidenceBounds{}
+	boundMCPIntent(&x, bounds)
+	if x.Messages, x.MessageProvenance, err = readMCPMessageWindow(db, c.ID, intentSeq, false, bounds); err != nil {
+		return x, "", err
+	}
+	// Persist the bounded text of the source run's prior calls and the current
+	// pending schedule mutation. Tool output supplies context, never consent.
+	if x.SourceToolResults, err = readMCPRunToolEvidence(db, r, false, bounds); err != nil {
+		return x, "", err
+	}
+	x.Bounds = bounds.orNil()
+	digest, err := fitMCPReviewContext(&x, mcpScheduleSourceBudget)
 	if err != nil {
 		return x, "", err
 	}
-	for rows.Next() {
-		var m Message
-		var source string
-		var kind sql.NullString
-		if err = rows.Scan(&m.ID, &m.Seq, &m.Role, &kind, &m.Content, &m.SenderBotID, &source); err != nil {
-			break
-		}
-		m.Kind = kind.String
-		x.Messages = append(x.Messages, m)
-		x.MessageProvenance = append(x.MessageProvenance, mcpMessageProvenance{m.ID, source})
-	}
-	rowErr := rows.Err()
-	rows.Close()
-	if err != nil || rowErr != nil || len(x.Messages) > 200 {
-		return x, "", errors.New("complete conversation exceeds review limit")
-	}
-	rows, err = db.Query(`SELECT id,content,revision FROM memories WHERE conversation_id=? AND (bot_id IS NULL OR bot_id=?) ORDER BY id LIMIT 201`, c.ID, r.BotID)
-	if err != nil {
-		return x, "", err
-	}
-	for rows.Next() {
-		var m Memory
-		if err = rows.Scan(&m.ID, &m.Content, &m.Revision); err != nil {
-			break
-		}
-		x.Memories = append(x.Memories, m)
-	}
-	rowErr = rows.Err()
-	rows.Close()
-	if err != nil || rowErr != nil || len(x.Memories) > 200 {
-		return x, "", errors.New("complete memory unavailable")
-	}
-	err = db.QueryRow(`SELECT version,content FROM summaries WHERE conversation_id=? ORDER BY version DESC LIMIT 1`, c.ID).Scan(&x.SummaryVersion, &x.Summary)
-	if err != nil && !errors.Is(err, sql.ErrNoRows) {
-		return x, "", errors.New("complete summary unavailable")
-	}
-	// Persist the complete bounded text of prior calls and the current pending
-	// schedule mutation. Tool output supplies context; it cannot establish consent.
-	rows, err = db.Query(`SELECT conversation_id,bot_id,run_id,call_id,name,arguments,result,status,truncated,started_at,updated_at,outcome_json FROM tool_activities WHERE conversation_id=? ORDER BY started_at,updated_at,run_id,call_id LIMIT 201`, c.ID)
-	if err != nil {
-		return x, "", err
-	}
-	for rows.Next() {
-		var activity ToolActivity
-		var truncated int
-		var outcome string
-		scanErr := rows.Scan(&activity.ConversationID, &activity.BotID, &activity.RunID, &activity.CallID, &activity.Name, &activity.Arguments, &activity.Result, &activity.Status, &truncated, &activity.StartedAt, &activity.UpdatedAt, &outcome)
-		activity.Truncated = truncated != 0
-		activity.Outcome = tooloutcome.Parse(outcome)
-		if scanErr != nil || activity.Truncated || outcome != "" && activity.Outcome == nil || activity.Outcome != nil && activity.Outcome.Certainty == "unknown" || !utf8.ValidString(activity.Arguments) || !utf8.ValidString(activity.Result) {
-			rows.Close()
-			return x, "", errors.New("complete source tool-result or effect context unavailable")
-		}
-		x.SourceToolResults = append(x.SourceToolResults, activity)
-	}
-	rowErr = rows.Err()
-	rows.Close()
-	if rowErr != nil || len(x.SourceToolResults) > 200 {
-		return x, "", errors.New("complete source tool-result context exceeds limit")
-	}
-	// encoding/json replaces invalid UTF-8 in strings. Validate original source
-	// text first so that replacement bytes cannot become captured user intent.
-	if !utf8.ValidString(x.Intent) || !utf8.ValidString(x.Instructions) || !utf8.ValidString(x.Summary) {
-		return x, "", errors.New("complete source text is not valid UTF-8")
-	}
-	for _, message := range x.Messages {
-		if !utf8.ValidString(message.Content) {
-			return x, "", errors.New("complete source message text is not valid UTF-8")
-		}
-	}
-	for _, memory := range x.Memories {
-		if !utf8.ValidString(memory.Content) {
-			return x, "", errors.New("complete source memory text is not valid UTF-8")
-		}
-	}
-	raw, err := json.Marshal(x)
-	if err != nil || len(raw) > 64<<10 || !utf8.Valid(raw) {
-		return x, "", errors.New("complete context exceeds review limit")
-	}
-	return x, digestBytes(raw), nil
+	return x, digest, nil
 }
+
+// Leaves room for the execution scope and revision metadata in the 64 KiB
+// per-revision authorization record.
+const mcpScheduleSourceBudget = 40 << 10
 
 // Preserve the exact submitted form JSON after the existing request boundary.
 // A bounded tee does not change the historical one-megabyte decoding behavior.
