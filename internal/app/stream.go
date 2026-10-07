@@ -12,8 +12,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/google/uuid"
 	"github.com/JackZhao98/tofibot/internal/agent"
+	"github.com/google/uuid"
 )
 
 const (
@@ -305,8 +305,15 @@ func (s *Store) StreamDrafts(conversationID string) ([]StreamDraft, error) {
 // callback uses the run context and reports persistence failures to onError so
 // the owner can cancel the engine rather than silently losing output.
 func (s *Store) StreamCallbacks(ctx context.Context, run Run, onError func(error)) (func(string), func(), error) {
+	onDelta, flush, _, err := s.StreamControls(ctx, run, onError)
+	return onDelta, flush, err
+}
+
+// StreamControls is StreamCallbacks plus reset, which drops unpersisted text
+// and discards the current draft (see ResetStreamDraft).
+func (s *Store) StreamControls(ctx context.Context, run Run, onError func(error)) (func(string), func(), func(), error) {
 	if _, err := s.BeginStream(run); err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
 	var mu sync.Mutex
 	var buffer []rune
@@ -328,14 +335,125 @@ func (s *Store) StreamCallbacks(ctx context.Context, run Run, onError func(error
 		}
 	}
 	return func(text string) {
-		mu.Lock()
-		defer mu.Unlock()
-		if failed || ctx.Err() != nil {
+			mu.Lock()
+			defer mu.Unlock()
+			if failed || ctx.Err() != nil {
+				return
+			}
+			buffer = append(buffer, []rune(text)...)
+			if persisted.IsZero() || time.Since(persisted) >= streamFlushInterval || len(buffer) >= maxStreamDeltaRunes {
+				flushLocked()
+			}
+		}, func() { mu.Lock(); defer mu.Unlock(); flushLocked() }, func() {
+			mu.Lock()
+			defer mu.Unlock()
+			buffer = nil
+			if failed || ctx.Err() != nil {
+				return
+			}
+			if err := s.ResetStreamDraft(ctx, run.ID); err != nil {
+				failed = true
+				if onError != nil {
+					onError(err)
+				}
+			}
+		}, nil
+}
+
+// ResetStreamDraft discards the active draft without publishing it: the draft
+// gets a fresh message identity and empty content, and a "draft_reset" event
+// {conversation_id, run_id, bot_id, message_id} names the discarded bubble.
+// It is used when a reviewed final answer or a retried model call supersedes
+// text that was already streamed. Nothing enters messages.
+func (s *Store) ResetStreamDraft(ctx context.Context, runID string) error {
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+	tx, err := s.db.Begin()
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	var d StreamDraft
+	err = tx.QueryRow(`SELECT run_id,conversation_id,bot_id,message_id,seq,content,status FROM stream_drafts WHERE run_id=?`, runID).
+		Scan(&d.RunID, &d.ConversationID, &d.BotID, &d.MessageID, &d.Seq, &d.Content, &d.Status)
+	if err == sql.ErrNoRows {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+	if d.Status != streamDraftActive || (d.Content == "" && d.Seq == 0) {
+		return nil
+	}
+	t := now()
+	if _, err = tx.Exec(`UPDATE stream_drafts SET message_id=?,seq=0,content='',revision=0,created_at=?,updated_at=? WHERE run_id=? AND status=?`, uuid.NewString(), t, t, runID, streamDraftActive); err != nil {
+		return err
+	}
+	b, _ := json.Marshal(map[string]any{"conversation_id": d.ConversationID, "run_id": d.RunID, "bot_id": d.BotID, "message_id": d.MessageID})
+	if _, err = tx.Exec(`INSERT INTO events(conversation_id,type,data,created_at) VALUES(?,?,?,?)`, d.ConversationID, "draft_reset", string(b), t); err != nil {
+		return err
+	}
+	return tx.Commit()
+}
+
+const (
+	thinkingEventInterval = 250 * time.Millisecond
+	maxThinkingEventRunes = 400
+)
+
+// ThinkingCallback publishes reasoning-summary progress as ephemeral
+// "thinking" events {run_id, bot_id, text}, where text is the latest summary
+// snippet (at most 400 runes). Events are throttled to one per 250ms with a
+// trailing update; they never enter the answer draft or messages. The
+// returned stop cancels any pending update.
+func (s *Store) ThinkingCallback(ctx context.Context, run Run) (func(string), func()) {
+	var mu sync.Mutex
+	var text []rune
+	var last time.Time
+	var timer *time.Timer
+	stopped := false
+	emitLocked := func() {
+		if stopped || ctx.Err() != nil || len(text) == 0 {
 			return
 		}
-		buffer = append(buffer, []rune(text)...)
-		if persisted.IsZero() || time.Since(persisted) >= streamFlushInterval || len(buffer) >= maxStreamDeltaRunes {
-			flushLocked()
+		last = time.Now()
+		if _, err := s.Event(run.ConversationID, "thinking", map[string]any{"run_id": run.ID, "bot_id": run.BotID, "text": string(text)}); err != nil {
+			stopped = true // best effort: progress must never fail the run
 		}
-	}, func() { mu.Lock(); defer mu.Unlock(); flushLocked() }, nil
+	}
+	return func(delta string) {
+			mu.Lock()
+			defer mu.Unlock()
+			if stopped {
+				return
+			}
+			text = append(text, []rune(delta)...)
+			if len(text) > maxThinkingEventRunes {
+				text = append([]rune(nil), text[len(text)-maxThinkingEventRunes:]...)
+			}
+			if wait := thinkingEventInterval - time.Since(last); wait <= 0 {
+				emitLocked()
+			} else if timer == nil {
+				timer = time.AfterFunc(wait, func() {
+					mu.Lock()
+					defer mu.Unlock()
+					timer = nil
+					emitLocked()
+				})
+			}
+		}, func() {
+			mu.Lock()
+			defer mu.Unlock()
+			stopped = true
+			if timer != nil {
+				timer.Stop()
+			}
+		}
+}
+
+// PublishRetry records a model-request backoff as a "retrying" event
+// {run_id, bot_id, attempt, wait_ms}. It carries no upstream error text.
+func (s *Store) PublishRetry(run Run, attempt int, wait time.Duration) {
+	_, _ = s.Event(run.ConversationID, "retrying", map[string]any{"run_id": run.ID, "bot_id": run.BotID, "attempt": attempt, "wait_ms": wait.Milliseconds()})
 }
