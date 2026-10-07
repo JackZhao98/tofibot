@@ -80,6 +80,7 @@ func (r *RetryProvider) Chat(ctx context.Context, req *ChatRequest) (*ChatRespon
 				log.Printf("[retry] attempt %d/%d after %v (error: %v)",
 					attempt, r.config.maxRetries(), delay, lastErr)
 			}
+			observeRetry(ctx, attempt, lastErr, delay)
 
 			select {
 			case <-ctx.Done():
@@ -139,6 +140,7 @@ func (r *RetryProvider) ChatStream(ctx context.Context, req *ChatRequest, onDelt
 				log.Printf("[retry] stream attempt %d/%d after %v (error: %v)",
 					attempt, r.config.maxRetries(), delay, lastErr)
 			}
+			observeRetry(ctx, attempt, lastErr, delay)
 
 			select {
 			case <-ctx.Done():
@@ -208,11 +210,24 @@ func (r *RetryProvider) calculateDelay(attempt int) time.Duration {
 }
 
 func copyRequestWithModel(req *ChatRequest, model string) *ChatRequest {
-	return &ChatRequest{
-		Model:           model,
-		ReasoningEffort: req.ReasoningEffort,
-		System:          req.System,
-		Messages:        req.Messages,
-		Tools:           req.Tools,
+	copy := *req
+	copy.Model = model
+	return &copy
+}
+
+type retryObserverKey struct{}
+
+// WithRetryObserver lets one caller observe RetryProvider backoffs for requests
+// made with ctx, independent of the provider's shared RetryConfig.
+func WithRetryObserver(ctx context.Context, observe func(attempt int, err error, delay time.Duration)) context.Context {
+	if observe == nil {
+		return ctx
+	}
+	return context.WithValue(ctx, retryObserverKey{}, observe)
+}
+
+func observeRetry(ctx context.Context, attempt int, err error, delay time.Duration) {
+	if observe, ok := ctx.Value(retryObserverKey{}).(func(int, error, time.Duration)); ok {
+		observe(attempt, err, delay)
 	}
 }

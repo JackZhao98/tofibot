@@ -1,8 +1,10 @@
 package provider
 
 import (
+	"errors"
 	"fmt"
 	"strings"
+	"time"
 )
 
 // APIError represents a structured error from an LLM provider API call.
@@ -121,4 +123,29 @@ func isConnectionError(msg string) bool {
 		}
 	}
 	return false
+}
+
+// StreamIdleError reports a streaming response that delivered no bytes for
+// Idle. It is transient: RetryProvider retries it when nothing was forwarded.
+type StreamIdleError struct{ Idle time.Duration }
+
+func (e *StreamIdleError) Error() string {
+	return fmt.Sprintf("stream idle timeout: no data for %s", e.Idle)
+}
+
+// IsStreamIdle reports whether err is (or wraps) a StreamIdleError.
+func IsStreamIdle(err error) bool {
+	var idle *StreamIdleError
+	return errors.As(err, &idle)
+}
+
+// isReasoningReplayRejection matches a request-level rejection of replayed
+// reasoning items. Other 4xx errors keep their normal handling.
+func isReasoningReplayRejection(err error) bool {
+	apiErr, ok := AsAPIError(err)
+	if !ok || (apiErr.StatusCode != 400 && apiErr.StatusCode != 404) {
+		return false
+	}
+	body := strings.ToLower(apiErr.Body)
+	return strings.Contains(body, "reasoning") || strings.Contains(body, "encrypted") || strings.Contains(body, "rs_")
 }

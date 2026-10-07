@@ -8,6 +8,7 @@ import (
 	"io"
 	"net/http"
 	"strings"
+	"sync/atomic"
 	"time"
 )
 
@@ -67,6 +68,20 @@ func (o *openaiResponses) Chat(ctx context.Context, req *ChatRequest) (*ChatResp
 	payload := o.buildPayload(req, false)
 
 	body, err := o.doRequest(ctx, payload)
+	rejected := false
+	if err != nil && !req.OmitReasoningReplay && hasReasoningReplay(req.Messages) && isReasoningReplayRejection(err) {
+		retry := *req
+		retry.OmitReasoningReplay = true
+		body, err = o.doRequest(ctx, o.buildPayload(&retry, false))
+		rejected = err == nil
+	}
+	if err == nil && rejected {
+		resp, parseErr := o.parseResponse(body)
+		if parseErr == nil {
+			resp.ReasoningReplayRejected = true
+		}
+		return resp, parseErr
+	}
 	if err != nil {
 		// Fallback to Chat Completions API for tool-related errors
 		if o.legacy != nil && isToolCallError(err) && len(req.Tools) > 0 {
@@ -81,6 +96,46 @@ func (o *openaiResponses) Chat(ctx context.Context, req *ChatRequest) (*ChatResp
 // ChatStream sends a streaming request via the Responses API.
 // Falls back to Chat Completions if the Responses API fails with tool errors.
 func (o *openaiResponses) ChatStream(ctx context.Context, req *ChatRequest, onDelta func(StreamDelta)) (*ChatResponse, error) {
+	resp, err := o.stream(ctx, req, onDelta)
+	if err != nil && !req.OmitReasoningReplay && hasReasoningReplay(req.Messages) && isReasoningReplayRejection(err) {
+		// Replayed reasoning is an optimization. A backend that rejects it gets
+		// one request without it; the caller drops it for the rest of the run.
+		retry := *req
+		retry.OmitReasoningReplay = true
+		resp, err = o.stream(ctx, &retry, onDelta)
+		if err == nil {
+			resp.ReasoningReplayRejected = true
+		}
+		return resp, err
+	}
+	if err != nil && o.legacy != nil && len(req.Tools) > 0 && isToolCallError(err) {
+		// Fallback to Chat Completions API for tool-related errors
+		if _, httpErr := AsAPIError(err); httpErr {
+			return o.legacy.ChatStream(ctx, req, onDelta)
+		}
+	}
+	return resp, err
+}
+
+// streamIdleTimeout aborts a stream that delivers no bytes for this long,
+// including the wait for response headers.
+var streamIdleTimeout = 90 * time.Second
+
+type idleReader struct {
+	r     io.Reader
+	timer *time.Timer
+	idle  time.Duration
+}
+
+func (r *idleReader) Read(p []byte) (int, error) {
+	n, err := r.r.Read(p)
+	if n > 0 {
+		r.timer.Reset(r.idle)
+	}
+	return n, err
+}
+
+func (o *openaiResponses) stream(ctx context.Context, req *ChatRequest, onDelta func(StreamDelta)) (*ChatResponse, error) {
 	payload := o.buildPayload(req, true)
 
 	jsonData, err := json.Marshal(payload)
@@ -88,7 +143,20 @@ func (o *openaiResponses) ChatStream(ctx context.Context, req *ChatRequest, onDe
 		return nil, fmt.Errorf("marshal request: %w", err)
 	}
 
-	httpReq, err := http.NewRequestWithContext(ctx, "POST", o.baseURL+"/responses", strings.NewReader(string(jsonData)))
+	streamCtx, cancel := context.WithCancel(ctx)
+	defer cancel()
+	idle := streamIdleTimeout
+	var idleFired atomic.Bool
+	timer := time.AfterFunc(idle, func() { idleFired.Store(true); cancel() })
+	defer timer.Stop()
+	idleErr := func(err error) error {
+		if idleFired.Load() && ctx.Err() == nil {
+			return &StreamIdleError{Idle: idle}
+		}
+		return err
+	}
+
+	httpReq, err := http.NewRequestWithContext(streamCtx, "POST", o.baseURL+"/responses", strings.NewReader(string(jsonData)))
 	if err != nil {
 		return nil, fmt.Errorf("create request: %w", err)
 	}
@@ -101,21 +169,35 @@ func (o *openaiResponses) ChatStream(ctx context.Context, req *ChatRequest, onDe
 	client := &http.Client{Timeout: 10 * time.Minute}
 	resp, err := client.Do(httpReq)
 	if err != nil {
-		return nil, fmt.Errorf("request failed: %w", err)
+		return nil, idleErr(fmt.Errorf("request failed: %w", err))
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		respBody, _ := io.ReadAll(resp.Body)
-		httpErr := NewAPIError("openai", resp.StatusCode, string(respBody))
-		// Fallback to Chat Completions API for tool-related errors
-		if o.legacy != nil && isToolCallError(httpErr) && len(req.Tools) > 0 {
-			return o.legacy.ChatStream(ctx, req, onDelta)
-		}
-		return nil, httpErr
+		return nil, NewAPIError("openai", resp.StatusCode, string(respBody))
 	}
 
-	return o.parseStream(resp.Body, onDelta)
+	timer.Reset(idle)
+	result, err := o.parseStream(&idleReader{r: resp.Body, timer: timer, idle: idle}, onDelta)
+	if err == nil && idleFired.Load() {
+		err = context.Canceled // never return a stream cut short as complete
+	}
+	if err != nil {
+		return nil, idleErr(err)
+	}
+	return result, nil
+}
+
+func hasReasoningReplay(messages []Message) bool {
+	for _, msg := range messages {
+		for _, item := range msg.ReasoningItems {
+			if item.EncryptedContent != "" {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 // buildPayload constructs the Responses API request body.
@@ -133,6 +215,9 @@ func (o *openaiResponses) buildPayload(req *ChatRequest, stream bool) map[string
 
 	if stream {
 		payload["stream"] = true
+	}
+	if key := strings.TrimSpace(req.PromptCacheKey); key != "" {
+		payload["prompt_cache_key"] = key
 	}
 
 	// Enable reasoning with summary ONLY for models that support it.
@@ -152,7 +237,9 @@ func (o *openaiResponses) buildPayload(req *ChatRequest, stream bool) map[string
 	}
 
 	// Convert messages to Responses API input format
-	input := o.convertMessages(req.Messages)
+	// Replayed reasoning is only meaningful when the request asks for it.
+	_, reasoning := payload["reasoning"]
+	input := o.convertMessages(req.Messages, reasoning && !req.OmitReasoningReplay)
 	if len(input) > 0 {
 		payload["input"] = input
 	}
@@ -177,7 +264,9 @@ func (o *openaiResponses) buildPayload(req *ChatRequest, stream bool) map[string
 }
 
 // convertMessages converts unified Messages to Responses API input format.
-func (o *openaiResponses) convertMessages(msgs []Message) []interface{} {
+// With replayReasoning, an assistant tool-call message's reasoning items are
+// sent before its output, matching the order the model produced them.
+func (o *openaiResponses) convertMessages(msgs []Message, replayReasoning bool) []interface{} {
 	var input []interface{}
 
 	for _, msg := range msgs {
@@ -208,6 +297,9 @@ func (o *openaiResponses) convertMessages(msgs []Message) []interface{} {
 
 		case "assistant":
 			if len(msg.ToolCalls) > 0 {
+				if replayReasoning {
+					input = append(input, o.reasoningInput(msg.ReasoningItems)...)
+				}
 				// Assistant message with tool calls becomes multiple output items
 				// First, add text content if any
 				if msg.Content != "" {
@@ -276,6 +368,33 @@ func (o *openaiResponses) convertMessages(msgs []Message) []interface{} {
 	return input
 }
 
+// reasoningInput builds replayable reasoning input items. Items without
+// encrypted content cannot be resolved with store=false and are skipped.
+// Without storage an item id refers to nothing, so it is sent only when the
+// backend stores responses (the Codex CLI also omits it).
+func (o *openaiResponses) reasoningInput(items []ReasoningItem) []interface{} {
+	var input []interface{}
+	for _, item := range items {
+		if item.EncryptedContent == "" {
+			continue
+		}
+		summary := make([]map[string]interface{}, 0, len(item.Summary))
+		for _, text := range item.Summary {
+			summary = append(summary, map[string]interface{}{"type": "summary_text", "text": text})
+		}
+		entry := map[string]interface{}{
+			"type":              "reasoning",
+			"encrypted_content": item.EncryptedContent,
+			"summary":           summary,
+		}
+		if !o.noStore && item.ID != "" {
+			entry["id"] = item.ID
+		}
+		input = append(input, entry)
+	}
+	return input
+}
+
 // doRequest sends a non-streaming POST request.
 func (o *openaiResponses) doRequest(ctx context.Context, payload map[string]interface{}) (string, error) {
 	jsonData, err := json.Marshal(payload)
@@ -333,15 +452,19 @@ func (o *openaiResponses) parseResponse(body string) (*ChatResponse, error) {
 
 	for _, raw := range resp.Output {
 		var item struct {
-			Type    string `json:"type"`
-			ID      string `json:"id"`
-			CallID  string `json:"call_id"`
-			Name    string `json:"name"`
-			Args    string `json:"arguments"`
-			Content []struct {
+			Type             string `json:"type"`
+			ID               string `json:"id"`
+			CallID           string `json:"call_id"`
+			Name             string `json:"name"`
+			Args             string `json:"arguments"`
+			EncryptedContent string `json:"encrypted_content"`
+			Content          []struct {
 				Type string `json:"type"`
 				Text string `json:"text"`
 			} `json:"content"`
+			Summary []struct {
+				Text string `json:"text"`
+			} `json:"summary"`
 		}
 		if err := json.Unmarshal(raw, &item); err != nil {
 			continue
@@ -372,6 +495,13 @@ func (o *openaiResponses) parseResponse(body string) (*ChatResponse, error) {
 				if c.Type == "summary_text" {
 					result.Reasoning += c.Text
 				}
+			}
+			if item.EncryptedContent != "" {
+				captured := ReasoningItem{ID: item.ID, EncryptedContent: item.EncryptedContent}
+				for _, s := range item.Summary {
+					captured.Summary = append(captured.Summary, s.Text)
+				}
+				result.ReasoningItems = append(result.ReasoningItems, captured)
 			}
 		}
 	}
@@ -493,13 +623,22 @@ func (o *openaiResponses) parseStream(body io.Reader, onDelta func(StreamDelta))
 			}
 			if json.Unmarshal([]byte(data), &ev) == nil {
 				var item struct {
-					Type    string `json:"type"`
-					Summary []struct {
+					Type             string `json:"type"`
+					ID               string `json:"id"`
+					EncryptedContent string `json:"encrypted_content"`
+					Summary          []struct {
 						Type string `json:"type"`
 						Text string `json:"text"`
 					} `json:"summary"`
 				}
 				if json.Unmarshal(ev.Item, &item) == nil && item.Type == "reasoning" {
+					if item.EncryptedContent != "" {
+						captured := ReasoningItem{ID: item.ID, EncryptedContent: item.EncryptedContent}
+						for _, s := range item.Summary {
+							captured.Summary = append(captured.Summary, s.Text)
+						}
+						result.ReasoningItems = append(result.ReasoningItems, captured)
+					}
 					// Only use summary from done event if no streaming deltas were received
 					if reasoningBuf.Len() == 0 {
 						for _, s := range item.Summary {
