@@ -171,3 +171,27 @@ func TestOpenAICodexFixtureHeadersAndCallIDRoundTrip(t *testing.T) {
 		t.Fatalf("second response = %+v, requests=%d", second, requests)
 	}
 }
+
+func TestOpenAICodexGPT6RequestCarriesReasoning(t *testing.T) {
+	var payload map[string]any
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
+			t.Errorf("decode request: %v", err)
+		}
+		w.Header().Set("Content-Type", "text/event-stream")
+		_, _ = w.Write([]byte("event: response.completed\ndata: {\"response\":{\"usage\":{\"input_tokens\":1,\"output_tokens\":1}}}\n\n"))
+	}))
+	defer server.Close()
+	codex := &openAICodex{responses: &openaiResponses{apiKey: "token", baseURL: server.URL, noStore: true}}
+	if _, err := codex.Chat(context.Background(), &ChatRequest{Model: "codex-gpt-6-luna", ReasoningEffort: "high", Messages: []Message{{Role: "user", Content: "hi"}}}); err != nil {
+		t.Fatalf("Chat() error = %v", err)
+	}
+	reasoning, _ := payload["reasoning"].(map[string]any)
+	if payload["model"] != "gpt-6-luna" || reasoning["effort"] != "high" || reasoning["summary"] != "auto" {
+		t.Fatalf("payload model=%v reasoning=%v", payload["model"], payload["reasoning"])
+	}
+	include, _ := payload["include"].([]any)
+	if len(include) != 1 || include[0] != "reasoning.encrypted_content" {
+		t.Fatalf("include = %v", payload["include"])
+	}
+}
