@@ -7,7 +7,7 @@ export type SettingsTab="account"|"models"|"dictate"|"usage"|"connection"|"compu
 const sections:{label:string;items:{id:SettingsTab;name:string;description:string;icon:TofiIconName}[]}[]=[
  {label:"偏好",items:[{id:"account",name:"通用",description:"让 Tofi 更适合你的日常",icon:"settings"},{id:"models",name:"模型与思考",description:"选择新 Bot 的默认模型与思考强度",icon:"sparkles"},{id:"dictate",name:"语音听写",description:"选择语音听写模型",icon:"file-audio"}]},
  {label:"工作空间",items:[{id:"usage",name:"用量",description:"查看 Agent 的模型消耗与上下文压缩进度",icon:"activity"},{id:"computers",name:"电脑与资源",description:"共享 Linux 电脑、存储与运行资源",icon:"monitor"},{id:"credentials",name:"密钥与环境",description:"直接配置电脑需要的环境变量和 SSH 密钥",icon:"key"},{id:"mcp",name:"工具",description:"连接外部服务，扩展 Bot 的能力",icon:"plug"},{id:"skills",name:"Skills",description:"管理可复用的工作方法",icon:"skill"}]},
- {label:"高级",items:[{id:"connection",name:"服务器与 Codex",description:"查看连接并管理模型服务",icon:"server"},{id:"debug",name:"调试",description:"",icon:"activity"}]}
+ {label:"高级",items:[{id:"connection",name:"模型与连接",description:"连接 Codex 或添加 OpenAI、Claude API key，并查看服务器连接",icon:"server"},{id:"debug",name:"调试",description:"",icon:"activity"}]}
 ];
 export function SettingsShell({tab,onTab,onClose,renderPage}:{tab:SettingsTab;onTab:(tab:SettingsTab)=>void;onClose:()=>void;renderPage:(tab:SettingsTab)=>ReactNode}){
  const session=useOwnerSession();
