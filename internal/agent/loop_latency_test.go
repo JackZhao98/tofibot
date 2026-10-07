@@ -446,3 +446,14 @@ func TestMicroCompactPreviewSurvivesEarlyInvalidByte(t *testing.T) {
 		t.Fatalf("split rune kept: %q", clipped)
 	}
 }
+
+func TestDroppedStreamIsTransient(t *testing.T) {
+	for _, msg := range []string{"LLM call failed: stream read error: stream error: stream ID 211; INTERNAL_ERROR; received from peer", "unexpected EOF"} {
+		if !transientStreamFailure(errors.New(msg)) {
+			t.Fatalf("%q not treated as a dropped stream", msg)
+		}
+	}
+	if transientStreamFailure(errors.New("openai API error (HTTP 400): invalid request")) {
+		t.Fatal("a request error is not a dropped stream")
+	}
+}

@@ -1239,7 +1239,7 @@ func RunAgentLoop(cfg AgentConfig, ctx *models.ExecutionContext) (returned *Agen
 			switch {
 			case overlongArguments:
 				recoverNote = "Your previous attempt was aborted because it produced an over-long tool call. Keep tool arguments short; split large content into smaller steps."
-			case provider.IsStreamWatchdog(err):
+			case provider.IsStreamWatchdog(err), transientStreamFailure(err):
 			case provider.IsContextOverflow(err) && len(messages) > 4:
 				summary, compactErr := compactMessages(loopCtx, cfg.Provider, cfg.Model, cfg.ReasoningEffort, messages)
 				if compactErr != nil {
@@ -2915,4 +2915,20 @@ Rules:
 		return content + "\n\n[This skill returned suggested commands. Execute them using tofi_shell to get actual results.]", nil
 	}
 	return content, nil
+}
+
+// transientStreamFailure is a dropped provider stream (HTTP/2 reset, early
+// EOF): the request itself was fine, so retrying the iteration is safe even
+// after some output had streamed.
+func transientStreamFailure(err error) bool {
+	if errors.Is(err, provider.ErrStreamIncomplete) {
+		return true
+	}
+	msg := err.Error()
+	for _, marker := range []string{"stream error", "INTERNAL_ERROR", "unexpected EOF", "connection reset", "stream read error"} {
+		if strings.Contains(msg, marker) {
+			return true
+		}
+	}
+	return false
 }
