@@ -16,6 +16,7 @@ import (
 const (
 	browserReadDefaultChars = 20000
 	browserReadMaxChars     = 60000
+	browserReadMinChars     = 12000
 )
 
 const browserReadScript = `
@@ -124,12 +125,14 @@ type browserReadArgs struct {
 
 // browserReadCommand is the shell.exec payload for one bounded page read.
 func browserReadCommand(in browserReadArgs) (json.RawMessage, error) {
-	max := in.MaxChars
-	if max <= 0 {
-		max = browserReadDefaultChars
+	budget := in.MaxChars
+	if budget <= 0 {
+		budget = browserReadDefaultChars
 	}
-	max = min(max, browserReadMaxChars)
-	opts, err := json.Marshal(map[string]any{"max": max, "find": strings.TrimSpace(in.Find), "click": strings.TrimSpace(in.Click)})
+	// Models ask for tiny budgets and then miss the part of a mail or article
+	// they needed; a whole ordinary page fits in the floor.
+	budget = min(max(budget, browserReadMinChars), browserReadMaxChars)
+	opts, err := json.Marshal(map[string]any{"max": budget, "find": strings.TrimSpace(in.Find), "click": strings.TrimSpace(in.Click)})
 	if err != nil {
 		return nil, err
 	}
