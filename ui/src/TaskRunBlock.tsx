@@ -83,7 +83,7 @@ function ToolStepRecord({ tool, locale, now, onOpenTools }: { tool: ToolActivity
     <details><summary onClick={toggleDisclosure}><span className="task-step-marker" aria-hidden="true" /><span className="task-step-title">{toolStepTitle(tool)}{preview && <span className="task-step-argument"> · {preview}</span>}</span><span className="task-step-state">{toolDisplayLabel(tool, locale)}{seconds !== undefined && <time> · {formatStepSeconds(seconds)}</time>}</span></summary>
       <div className="task-step-body">{problem && <div className="task-step-problem" role="group" aria-label={t("问题说明", "Problem")}>
         <p><strong>{reason}</strong>{tool.outcome?.execution_certainty && <> · {taskCertaintyText(tool.outcome.execution_certainty, locale)}</>}</p>
-        <div className="task-step-actions"><button type="button" className="secondary-button" onClick={() => void copyDiagnostics()}><TofiIcon name="copy" size={15} aria-hidden="true" />{t("复制诊断信息", "Copy diagnostics")}</button>{(tool.outcome?.status === "setup_required" || tool.outcome?.code === "mcp_review_setup_missing") && onOpenTools && <button type="button" className="secondary-button" onClick={onOpenTools}>{t("打开工具设置", "Open tool settings")}</button>}</div>
+        <div className="task-step-actions"><button type="button" className="secondary-button" onClick={() => void copyDiagnostics()}><TofiIcon name="copy" size={15} aria-hidden="true" />{t("复制诊断信息", "Copy diagnostics")}</button>{tool.outcome?.code === "mcp_review_setup_missing" && onOpenTools && <button type="button" className="secondary-button" onClick={onOpenTools}>{t("打开工具设置", "Open tool settings")}</button>}</div>
         {copied && <p className="task-step-feedback" role="status">{copied}</p>}
         <details className="task-step-technical"><summary>{t("技术详情", "Technical details")}</summary>{tool.outcome?.message && <p>{tool.outcome.message}</p>}<pre tabIndex={0}>{stepDiagnostics(tool)}</pre></details>
       </div>}
@@ -120,7 +120,7 @@ export function TaskRunBlock({ owner, tools, questions, drafts, messages, summar
   // only decisions and answers a person gave stay as separate records.
   const reviewOnlyStates = ["context_required", "setup_required", "unavailable", "policy_denied", "reviewing"];
   const recordedQuestions = questions.filter(question => !decisions.some(item => item.question_id === question.question_id)
-    && !(question.question_type === "approval" && (question.approval?.review_only || question.approval?.review?.status.startsWith("shadow") || reviewOnlyStates.includes(question.approval?.review?.status ?? "") || reviewOnlyStates.includes(question.outcome?.status ?? ""))));
+    && !(question.question_type === "approval" && (question.approval?.review_only || question.approval?.review?.status.startsWith("shadow") || reviewOnlyStates.includes(question.approval?.review?.status ?? "") || ["mcp_review_context_missing", "mcp_review_setup_missing", "mcp_review_unavailable", "mcp_review_policy_denied"].includes(question.outcome?.code ?? ""))));
   const notes = messages.filter(message => ids.has(message.run_id ?? "") && message.conversation_id === run.conversation_id && message.role === "assistant" && message.kind === "progress");
   function loadInitial() {
     for (const attempt of owner.family.attempts) {
