@@ -9,6 +9,7 @@ import (
 	"strings"
 	"sync/atomic"
 	"testing"
+	"time"
 
 	"github.com/JackZhao98/tofibot/internal/runtime"
 	"github.com/JackZhao98/tofibot/internal/tooloutcome"
@@ -61,11 +62,20 @@ func TestMCPReadinessRecheckedAfterApprovalWithZeroToolEffects(t *testing.T) {
 	remote := fixtureHTTPServer(backend)
 	defer remote.Close()
 	m := NewManager(Config{MCPConfigPath: filepath.Join(t.TempDir(), "mcp.json")})
+	clock := time.Unix(1_800_000_000, 0)
+	m.now = func() time.Time { return clock }
 	if err := m.SaveMCP("fixture", MCPServerConfig{URL: remote.URL}, false); err != nil {
 		t.Fatal(err)
 	}
 	approvals := 0
-	prepared, err := m.PrepareDiscoverableForBotWithCallGate(context.Background(), "bot", nil, func(context.Context, MCPCallApproval) error { approvals++; remote.Close(); return nil })
+	// The endpoint disappears during a human wait longer than the readiness
+	// window, so the pre-dispatch check must perform a fresh handshake.
+	prepared, err := m.PrepareDiscoverableForBotWithCallGate(context.Background(), "bot", nil, func(context.Context, MCPCallApproval) error {
+		approvals++
+		remote.Close()
+		clock = clock.Add(mcpReadinessTTL + time.Second)
+		return nil
+	})
 	if err != nil {
 		t.Fatal(err)
 	}
