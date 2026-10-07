@@ -457,6 +457,17 @@ func (e *engine) Run(ctx context.Context, req Request) (Result, error) {
 			Suspended:    true,
 		}, nil
 	}
+	if result.Cancelled {
+		// A cancelled loop carries no final answer. Reporting it as a successful
+		// empty result let callers finish an interrupted run as done.
+		if err := ctx.Err(); err != nil {
+			return Result{}, err
+		}
+		if err := runCtx.Err(); err != nil {
+			return Result{}, err
+		}
+		return Result{}, context.Canceled
+	}
 	return Result{
 		Content:         result.Content,
 		BudgetExhausted: result.BudgetExhausted, BudgetReason: result.BudgetReason,

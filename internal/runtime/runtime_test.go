@@ -3,6 +3,7 @@ package runtime
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -278,8 +279,10 @@ func TestRunStopsAtBeforeModelBoundary(t *testing.T) {
 			return context.Canceled
 		},
 	})
-	if err != nil {
-		t.Fatalf("safe boundary returned error: %v", err)
+	// A stopped boundary is not a completed run: it must surface as an error
+	// so the caller never finishes the run "done" without an answer.
+	if !errors.Is(err, context.Canceled) {
+		t.Fatalf("safe boundary err = %v, want context.Canceled", err)
 	}
 	if called != 1 || result.Content != "" {
 		t.Fatalf("boundary calls=%d result=%+v", called, result)

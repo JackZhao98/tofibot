@@ -242,6 +242,10 @@ type AgentResult struct {
 	Continuation    *Continuation         // Present only when Suspended is true.
 	BudgetExhausted bool
 	BudgetReason    string
+	// Cancelled is true when the loop stopped because its context was
+	// cancelled. Content is then partial (often empty) and is never a final
+	// answer; callers must treat the run as interrupted, not completed.
+	Cancelled bool
 }
 
 // RunAgentLoop executes the autonomous agent loop (ReAct)
