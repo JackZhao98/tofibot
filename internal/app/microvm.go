@@ -396,6 +396,21 @@ func (s *Server) microVMTools(r Run) []Tool {
 				}
 				return out, err
 			}
+			if action == "desktop.click" {
+				var at struct{ X, Y float64 }
+				var dims struct {
+					W float64 `json:"screenshot_width"`
+					H float64 `json:"screenshot_height"`
+				}
+				_ = json.Unmarshal(args, &at)
+				_ = json.Unmarshal(args, &dims)
+				if dims.W <= 0 || dims.H <= 0 {
+					dims.W, dims.H = 1280, 800
+				}
+				if err := s.guardConsequentialClick(ctx, r, browserReadArgs{Probe: []float64{at.X, at.Y, dims.W, dims.H}}); err != nil {
+					return "", err
+				}
+			}
 			out, err := s.microVMAction(ctx, r, action, args)
 			// Chrome can exit under a still-registered desktop; every later
 			// browser call then fails the same way. Restart it once and retry.

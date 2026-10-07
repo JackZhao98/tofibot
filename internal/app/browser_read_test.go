@@ -78,3 +78,50 @@ func TestOnlyDeadDevToolsTriggersDesktopRestart(t *testing.T) {
 		t.Fatal("a host-to-guest socket failure is not a dead Chrome")
 	}
 }
+
+func TestConsequentialClickLabels(t *testing.T) {
+	for label, risky := range map[string]bool{
+		"Place order": true, "Buy now": true, "Send": true, "Delete": true, "提交订单": true, "立即支付": true, "发送": true,
+		"Sent": false, "Posts": false, "Your reward is ready": false, "Inbox": false, "Promotions": false, "Read more": false,
+	} {
+		if consequentialLabel(label) != risky {
+			t.Errorf("%q risky=%v", label, !risky)
+		}
+	}
+}
+
+func TestConsequentialClickNeedsHumanApprovalOfThatTarget(t *testing.T) {
+	s, bot, conv := contextSurfaceServer(t)
+	approve := func(key, actor string) Run {
+		_, run, _, err := s.store.AddUserRun(conv.ID, bot.ID, "buy it", key)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if s.clickApproved(run, "Place order") {
+			t.Fatal("approved without any approval")
+		}
+		if _, err := s.store.SetRunStatus(run.ID, "running", ""); err != nil {
+			t.Fatal(err)
+		}
+		q, err := s.store.CreateQuestion(conv.ID, run, askQuestionInput{Question: "Place the order?", Type: "approval", Approval: &ApprovalDetails{Action: "Click", Target: "Place order", Impact: "Charges the card"}})
+		if err != nil {
+			t.Fatal(err)
+		}
+		// The store refuses an automatic actor outright.
+		if _, _, err := s.store.AnswerQuestion(q.ID, actor, true); err != nil && actor != autoReviewActor {
+			t.Fatal(err)
+		}
+		return run
+	}
+	auto := approve("auto", autoReviewActor)
+	if s.clickApproved(auto, "Place order") {
+		t.Fatal("an automatic answer is not a person's approval")
+	}
+	if _, err := s.store.SetRunStatus(auto.ID, "done", ""); err != nil {
+		t.Fatal(err)
+	}
+	run := approve("human", "user")
+	if !s.clickApproved(run, "Place order") || s.clickApproved(run, "Delete account") {
+		t.Fatal("approval must cover exactly the approved target")
+	}
+}
