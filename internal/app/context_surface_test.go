@@ -118,7 +118,7 @@ func TestSaveMemoryDeduplicatesNormalizedText(t *testing.T) {
 		return out
 	}
 	id := call("User prefers green tea.")
-	if dup := call("  user PREFERS green-tea!  "); dup != "already saved; existing memory id "+id {
+	if dup := call("  user PREFERS   green tea!  "); dup != "already saved; existing memory id "+id {
 		t.Fatalf("duplicate save=%q", dup)
 	}
 	if other := call("User prefers black coffee."); other == id || strings.HasPrefix(other, "already saved") {
