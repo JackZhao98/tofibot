@@ -23,7 +23,7 @@ func assembleRunSystem(parts runSystemPrompt) (string, error) {
 	required := strings.Join(fixed, "\n")
 	const botStart = "\nBot instructions:\n"
 	const botEnd = "\nEnd of Bot instructions.\n"
-	remaining := maxSystemRunes - runtime.SystemPromptOverheadRunes() - len([]rune(required)) - 1
+	remaining := maxSystemRunes - runtime.SystemPromptOverheadRunes() - len([]rune(required)) - len([]rune(voiceGuidance)) - 1
 	if parts.BotInstructions != "" {
 		remaining -= len([]rune(botStart + botEnd))
 	}
@@ -64,5 +64,9 @@ func assembleRunSystem(parts runSystemPrompt) (string, error) {
 	if parts.BotInstructions != "" {
 		required += botStart + botText + botEnd
 	}
-	return required + "\n" + dirText, nil
+	// How to talk sits right after the persona, the last thing the model reads.
+	return required + voiceGuidance + "\n" + dirText, nil
 }
+
+const voiceGuidance = "\nHow you talk: like a person texting a colleague, in the persona above. Plain sentences, the useful part first. Bold at most one key figure. No labels such as 来源： / 推文草稿： / 你需要做什么：, no headings. Do not open with a timestamp unless the time is the answer. Put a link inside the sentence that uses it. Lists or tables only for three or more parallel items or a comparison.\n"
+
