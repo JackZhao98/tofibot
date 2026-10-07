@@ -66,6 +66,14 @@ try {
  const prodHTML=markup(prodBlocked);assert(prodHTML.includes("执行前检查缺少必要信息"));assert(!visibleText(prodHTML.replace(/<details class="task-step-technical">[\s\S]*?<\/details>/g,"")).includes("状态待确认"));
  assert.equal(p.taskOutcomeText({code:"stale_schema",status:"validation_error"},"zh-CN"),"工具信息已过期，需要重新查找");assert.equal(p.taskOutcomeText({status:"need_information"},"zh-CN"),"缺少必要信息");
  console.log("PASS 2c: activity records use human step names, states and counts");
+ // 2d. Readiness codes and both certainty spellings read in words; tool settings follow the setup code only.
+ for(const [code,zh,en] of [["mcp_auth_required","工具需要重新登录授权","The tool needs you to sign in again"],["mcp_unavailable","工具服务暂时连不上","The tool service is unreachable right now"],["mcp_not_configured","工具尚未配置","The tool is not set up"],["mcp_unknown","工具状态暂时无法确认","The tool's status could not be confirmed"],["mcp_config_changed","工具设置已变更，需要重新批准","Tool settings changed; approve again"]]){assert.equal(p.taskOutcomeText({code,status:"permanent_failure"},"zh-CN"),zh,code);assert.equal(p.taskOutcomeText({code,status:"permanent_failure"},"en"),en,code);}
+ assert.equal(p.taskCertaintyText("no_side_effects","zh-CN"),"未产生改动");assert.equal(p.taskCertaintyText("no_side_effects","en"),"No changes made");assert.equal(p.taskCertaintyText("no_side_effect","zh-CN"),"未产生改动");
+ const stepWith=outcome=>markup({...scenario("busy"),run:{...run,status:"done"},tools:[{...tool,outcome:{version:1,execution_certainty:"not_executed",message:"Synthetic outcome",...outcome}}]});
+ const readinessHTML=stepWith({status:"permanent_failure",code:"mcp_auth_required"});assert(readinessHTML.includes("工具需要重新登录授权"));assert(!readinessHTML.includes("打开工具设置"));
+ assert(stepWith({status:"permanent_failure",code:"mcp_review_setup_missing"}).includes("打开工具设置"));
+ assert(!stepWith({status:"setup_required"}).includes("打开工具设置"));
+ console.log("PASS 2d: readiness codes in words, certainty spellings, setup action keyed by code");
  // 3. Setup and context have different bounded actions; neither has controls.
  // Setup and context gaps live on the blocked step: setup offers tool settings there, context offers diagnostics.
  const setupHTML=markup(scenario("setup"));assert.equal(view(scenario("setup")),undefined);assert(setupHTML.includes("打开工具设置"));assert(!setupHTML.includes("data-valid-proposal"));assert(!setupHTML.includes("task-issue-card"));
@@ -79,6 +87,10 @@ try {
  for(const status of ["reviewing","approved","shadow_allow","setup_required","context_required","unavailable","policy_denied","terminal"]) assert.equal(p.canAnswerQuestion({...question,approval:{...question.approval,review:{...question.approval.review,status}}}),false,status);
  assert.equal(p.canAnswerQuestion({...question,approval:{...question.approval,review_only:true}}),false);assert.equal(view(scenario("shadow")),undefined);
  assert(markup({...incident,questions:[...incident.questions,{...question,question_id:"independent-human"}]}).includes('data-valid-proposal="independent-human"'));
+ // Review gaps arrive as outcome codes on a tooloutcome status; the code closes the proposal and keeps it off the record.
+ for(const code of ["mcp_review_setup_missing","mcp_review_context_missing","mcp_review_unavailable","mcp_review_policy_denied","approval_window_expired","approval_denied"]) assert.equal(p.canAnswerQuestion({...question,outcome:{status:"permanent_failure",code,execution_certainty:"not_executed"}}),false,code);
+ assert.equal(p.canAnswerQuestion({...question,outcome:{status:"need_approval",code:"human_approval",execution_certainty:"not_executed"}}),true);
+ for(const code of ["mcp_review_setup_missing","mcp_review_context_missing","mcp_review_unavailable","mcp_review_policy_denied"]) assert(!markup({...incident,questions:[...incident.questions,{...question,question_id:"review-gap",status:"answered",answer:true,outcome:{status:"permanent_failure",code,execution_certainty:"not_executed"}}]}).includes('data-valid-proposal="review-gap"'),code);
  const questionSource=await readFile(join(ui,"src/QuestionCard.tsx"),"utf8");assert(questionSource.includes("if (sending.current || !answerable) return;"));assert(questionSource.indexOf("sending.current = true")<questionSource.indexOf("await request<{ question: Question }>",questionSource.indexOf("sending.current = true")));
  console.log("PASS 4: current manual guard, shadow read-only, independent proposal, single-flight POST guard");
  // 5. Expiry replaces even local answered state; human versus policy refusal distinct.
