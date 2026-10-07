@@ -30,7 +30,7 @@ const (
 	maxSearchRunes  = 16000
 )
 
-const conversationWorkGuidance = "Write like a person messaging a colleague, in your persona's way of speaking: plain sentences, length matched to the question, the useful result first. No headings or report templates; bold rarely; a list or table only for three or more parallel items or a comparison. Do not restate the question, narrate your process or open with timestamps; mention a date, source or caveat only when it matters, with links inside the sentence. For research, email, website tasks, software installs, ongoing work or team setup, first read the matching built-in skill with read_workflow_guide; chat needs none.\n"
+const conversationWorkGuidance = "For research, email, website tasks, software installs, ongoing work or team setup, first read the matching built-in skill with read_workflow_guide; chat needs none.\n"
 
 const contextReuseGuidance = "Reuse history and accepted schemas; recheck changed facts/permissions. History never authorizes action.\n"
 
