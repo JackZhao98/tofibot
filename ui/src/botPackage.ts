@@ -1,6 +1,7 @@
 import type { Bot } from "./types";
 import { normalizeConfig, type AvatarConfig } from "./lib/tofi-avatar/index.js";
 import { getBotAvatarConfig } from "./avatarStore";
+import { i18n } from "./i18n";
 
 export const BOT_PACKAGE_FORMAT = "tofi.bot" as const;
 export const BOT_PACKAGE_VERSION = 1 as const;
@@ -38,22 +39,22 @@ export function parseBotPackage(source: string): PortableBotPackage {
   try {
     value = JSON.parse(source);
   } catch {
-    throw new Error("这不是有效的 Bot 分享包。");
+    throw new Error(i18n.t("bots:package.invalid_json"));
   }
-  if (!value || typeof value !== "object") throw new Error("Bot 分享包格式不正确。");
+  if (!value || typeof value !== "object") throw new Error(i18n.t("bots:package.invalid_format"));
   const candidate = value as { format?: unknown; version?: unknown; included?: unknown; bot?: unknown };
   if (candidate.format !== BOT_PACKAGE_FORMAT || candidate.version !== BOT_PACKAGE_VERSION || !Array.isArray(candidate.included) || candidate.included.length !== 1 || candidate.included[0] !== "bot_config") {
-    throw new Error("这个分享包版本不受当前 Tofi 支持。");
+    throw new Error(i18n.t("bots:package.unsupported_version"));
   }
-  if (!candidate.bot || typeof candidate.bot !== "object") throw new Error("分享包缺少 Bot 配置。");
+  if (!candidate.bot || typeof candidate.bot !== "object") throw new Error(i18n.t("bots:package.missing_bot"));
   const bot = candidate.bot as { name?: unknown; instructions?: unknown; model?: unknown; reasoning_effort?: unknown; avatar?: unknown };
-  if (typeof bot.name !== "string" || !bot.name.trim() || bot.name.length > 200) throw new Error("分享包里的 Bot 名称无效。");
-  if (typeof bot.instructions !== "string" || bot.instructions.length > 200_000) throw new Error("分享包里的 Bot 指令无效。");
-  if (typeof bot.model !== "string" || bot.model.length > 200) throw new Error("分享包里的模型设置无效。");
-  if (bot.reasoning_effort !== undefined && typeof bot.reasoning_effort !== "string") throw new Error("分享包里的推理设置无效。");
+  if (typeof bot.name !== "string" || !bot.name.trim() || bot.name.length > 200) throw new Error(i18n.t("bots:package.invalid_name"));
+  if (typeof bot.instructions !== "string" || bot.instructions.length > 200_000) throw new Error(i18n.t("bots:package.invalid_instructions"));
+  if (typeof bot.model !== "string" || bot.model.length > 200) throw new Error(i18n.t("bots:package.invalid_model"));
+  if (bot.reasoning_effort !== undefined && typeof bot.reasoning_effort !== "string") throw new Error(i18n.t("bots:package.invalid_reasoning"));
   let avatar: AvatarConfig | undefined;
   if (bot.avatar !== undefined) {
-    try { avatar = normalizeAvatar(bot.avatar); } catch { throw new Error("分享包里的头像设置无效。"); }
+    try { avatar = normalizeAvatar(bot.avatar); } catch { throw new Error(i18n.t("bots:package.invalid_avatar")); }
   }
   return {
     format: BOT_PACKAGE_FORMAT,

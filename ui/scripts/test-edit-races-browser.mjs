@@ -28,7 +28,7 @@ try {
       const path = `/api/${kind === "memory" ? "memories" : "schedules"}/${id}`;
       const baseline = await externalPatch(path, { title: `Original ${kind} title`, description: `Original ${kind} description`, content: kind === "memory" ? "原始事实，保留中文。" : "Original English execution instruction with quoted ‘上海’." });
       const fixture = await readFixture();
-      const context = await browser.newContext({ viewport: { width: 1280, height: 1100 } });
+      const context = await browser.newContext({ locale: "zh-CN", viewport: { width: 1280, height: 1100 } });
       await context.addInitScript(fixture => { window.metadataFixture = fixture; }, fixture);
       const page = await context.newPage();
       const pageErrors = []; page.on("pageerror", error => pageErrors.push(error.message));

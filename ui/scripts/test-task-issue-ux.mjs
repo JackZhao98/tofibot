@@ -1,6 +1,5 @@
 import assert from "node:assert/strict";
 import {readFile} from "node:fs/promises";
-import {execFileSync} from "node:child_process";
 import {fileURLToPath} from "node:url";
 import {dirname, join} from "node:path";
 import {createServer} from "vite";
@@ -136,6 +135,7 @@ assert.equal(toolDisplayLabel({...tool,status:"completed"}),"结果待核实");
  // 8. Both languages, neutral section, native details and untouched protected components.
  const english=markup(incident,"en");assert(english.includes("Pre-execution check is missing information"));assert(english.includes("Model service is temporarily busy"));assert(english.includes("Copy diagnostics"));assert(html.includes("技术详情"));assert(!html.includes('<details class="task-activity" open'));
  const css=await readFile(join(ui,"src/task-issue-card.css"),"utf8");for(const rule of ["min-height:44px","max-width:var(--chat-max)","prefers-reduced-motion","overflow-wrap:anywhere","max-width:560px"])assert(css.includes(rule));
- for(const file of ["ui/src/BotDesktopPanel.tsx","ui/src/MemoryPanel.tsx"]) {const current=await readFile(join(ui,"..",file));const base=execFileSync("git",["show",`fcb2157c58069db40ea13c0bdb12697cb6b2e2c5:${file}`],{cwd:join(ui,"..")});assert(current.equals(base),file);}
- console.log("PASS 8: bilingual copy, collapsed activity, semantic sections, 44px/reduced motion, protected components byte-identical");
+ // The desktop and memory panels are localized; they must carry no hardcoded CJK copy (comments aside).
+ for(const file of ["src/BotDesktopPanel.tsx","src/MemoryPanel.tsx"]) {const code=(await readFile(join(ui,file),"utf8")).replace(/\/\*[\s\S]*?\*\//g,"").replace(/\/\/.*$/gm,"");assert(!/[\p{sc=Han}\p{sc=Hiragana}\p{sc=Katakana}\p{sc=Hangul}]/u.test(code),`${file} has hardcoded CJK text`);}
+ console.log("PASS 8: bilingual copy, collapsed activity, semantic sections, 44px/reduced motion, desktop/memory panels free of hardcoded CJK");
 } finally {await server.close();}

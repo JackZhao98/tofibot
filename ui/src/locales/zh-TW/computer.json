@@ -1,1 +1,353 @@
-{}
+{
+  "desktop": {
+    "error": {
+      "resource_limit_count_other": "共享桌面資源暫時無法使用（{{count}} 個使用中的工作階段），請稍後再試。",
+      "resource_limit": "共享桌面資源暫時無法使用，請稍後再試。",
+      "stopping": "共享桌面正在停止，請稍後再試。",
+      "busy": "電腦正在執行其他操作，請稍後再試。",
+      "not_configured": "共享電腦尚未設定，請先完成伺服器安裝。",
+      "failed": "電腦操作失敗，請稍後再試。",
+      "capture_failed": "電腦截圖失敗",
+      "action_failed": "電腦操作失敗",
+      "switching": "桌面正在切換或準備中，請稍後再試。",
+      "unreachable": "暫時無法連線到桌面，請稍後再試。",
+      "connection_lost": "電腦連線暫時無法使用，正在重試…"
+    },
+    "phase": {
+      "checking": "檢查環境",
+      "storage": "準備儲存空間",
+      "network": "準備網路",
+      "booting": "啟動虛擬機器",
+      "verifying": "驗證 Linux 與 Chrome",
+      "ready": "就緒"
+    },
+    "state": {
+      "starting": "正在準備共享電腦",
+      "ready": "電腦已就緒",
+      "error": "電腦準備失敗",
+      "stopped": "電腦已停止",
+      "other": "電腦{{state}}"
+    },
+    "other_bot": "其他 Bot",
+    "frame": {
+      "paused": "畫面已暫停 · 非即時",
+      "live": "即時畫面",
+      "snapshot": "截圖檢視 · 剛剛更新"
+    },
+    "announce": {
+      "connecting": "正在連線到桌面",
+      "disconnected": "已中斷桌面檢視",
+      "live": "桌面已連線，正在顯示即時影像",
+      "fallback": "桌面已連線，已切換為截圖檢視",
+      "recovering": "桌面已連線，正在恢復畫面"
+    },
+    "shrink_aria": "縮小共享電腦",
+    "expand_aria": "放大共享電腦",
+    "shrink": "縮小",
+    "expand": "放大",
+    "hide_aria": "隱藏共享電腦",
+    "minimize": "最小化",
+    "title": "共享電腦",
+    "status": {
+      "failed": "連線失敗",
+      "connecting_preview": "正在連線預覽…",
+      "booting_phase": "正在開機 · {{phase}}",
+      "booting": "正在開機…",
+      "you": "你正在控制",
+      "bot": "{{name}} 正在操作",
+      "idle": "共享電腦閒置中"
+    },
+    "power_hint": "收起螢幕（電腦會繼續執行）",
+    "control": {
+      "release": "交還控制",
+      "take": "接管控制",
+      "you": "你"
+    },
+    "phase_label": "階段：{{phase}}",
+    "state_synced": "狀態已同步",
+    "retry_prepare": "重試準備",
+    "screen_alt": "共享電腦螢幕",
+    "launch": {
+      "failed_aria": "電腦連線失敗",
+      "preview_aria": "正在連線電腦預覽",
+      "starting_aria": "正在啟動電腦",
+      "failed": "連線失敗，請稍後重新開啟"
+    },
+    "tools": {
+      "title": "輔助操作",
+      "open_browser": "開啟瀏覽器",
+      "run_shell": "執行 Shell（{{name}} 工作區）",
+      "shell_placeholder": "例如：pwd",
+      "run": "執行指令",
+      "technical": "技術詳情",
+      "workspace": "工作區",
+      "browser": "瀏覽器"
+    },
+    "video_aria": "Bot 目前桌面的即時影像",
+    "pointer_click": "{{name}} · 點擊"
+  },
+  "floating": {
+    "open": "開啟共享電腦",
+    "open_activity": "開啟共享電腦：{{activity}}",
+    "hide_mini_aria": "收起小螢幕",
+    "collapse": "收起",
+    "peek_hint": "僅供檢視 · 點擊放大"
+  },
+  "remote": {
+    "error": {
+      "control_failed": "桌面控制失敗",
+      "no_control": "未取得桌面控制權",
+      "take_failed": "無法接管桌面",
+      "text_rejected": "目前視窗未接收文字，請先點擊輸入位置",
+      "interrupted": "連線中斷，請重新接管",
+      "too_slow": "輸入連線過慢，請重新接管",
+      "disconnected": "控制連線已中斷，請重新接管"
+    },
+    "notice": {
+      "waiting_current": "正在等待目前操作完成…",
+      "switching": "桌面剛才仍在切換控制，請稍後再試。",
+      "handed_to_bot": "已交給等待中的 Bot"
+    },
+    "status": {
+      "you": "你正在控制",
+      "waiting": "等待操作完成…",
+      "bot": "{{name}} 正在控制",
+      "other_window": "其他視窗正在控制",
+      "connecting": "正在連線…",
+      "click_to_take": "點擊畫面接管"
+    },
+    "keyboard": {
+      "hide_aria": "收起遠端鍵盤",
+      "open_aria": "開啟遠端鍵盤",
+      "hide": "收起鍵盤",
+      "open": "鍵盤"
+    },
+    "release": "釋放控制",
+    "bot_waiting": "Bot 要求使用電腦，將在你停止操作 15 秒後接手。",
+    "surface_aria": "遠端桌面操作區域",
+    "surface_preview_aria": "共享電腦畫面預覽；拖曳可移動",
+    "keyboard_input_aria": "遠端桌面鍵盤輸入",
+    "copy": {
+      "note": "瀏覽器未允許自動寫入本機剪貼簿，請複製以下文字。",
+      "aria": "從遠端桌面複製的文字",
+      "close": "關閉"
+    }
+  },
+  "terminal": {
+    "error": {
+      "control_lost": "控制已中斷，請重新接管",
+      "no_control": "無法取得控制權",
+      "take_failed": "無法接管"
+    },
+    "aria": "{{name}} 的終端機",
+    "title": "終端機",
+    "new": "新終端機",
+    "release": "釋放控制",
+    "take": "接管",
+    "close_aria": "關閉終端機面板",
+    "tabs_aria": "終端機工作階段",
+    "connecting": "正在連線…",
+    "empty": "還沒有終端機",
+    "create": "新增終端機",
+    "status": {
+      "you": "你正在控制",
+      "watching": "觀看中",
+      "closed": "已結束",
+      "exited": "已退出 ({{code}})",
+      "done": "已完成"
+    },
+    "end": "結束終端機",
+    "close": {
+      "title": "要結束這個終端機嗎？",
+      "body": "其中執行的程式也會停止。",
+      "keep": "保留"
+    },
+    "interrupt": {
+      "title": "要接管目前的終端機嗎？",
+      "body": "終端機可能仍有指令在執行。接管會停止 {{name}} 目前的任務，並向選取的終端機送出中斷。",
+      "keep_watching": "繼續觀看",
+      "stop_take": "停止並接管"
+    },
+    "trimmed": "較早的輸出已移出緩衝區。",
+    "reconnecting": "終端機連線暫時中斷，正在重新連線…",
+    "live_aria": "即時終端機"
+  },
+  "pairing": {
+    "this_device": "這台裝置",
+    "mac_client": "Mac 用戶端",
+    "connected": "{{name}} 已連線。",
+    "expired": "配對碼已過期，請重新產生。",
+    "enter_code": "在 Mac 用戶端輸入此配對碼，5 分鐘內有效。",
+    "code_aria": "配對碼 {{code}}",
+    "waiting": "等待裝置確認…"
+  },
+  "env": {
+    "unavailable": "執行環境暫時無法使用。",
+    "start_failed": "電腦未能啟動，請稍後再試。",
+    "title": "執行環境",
+    "description": "Linux、Google Chrome、檔案瀏覽器和終端機使用同一套環境。每個 Bot 都有自己的工作資料夾，也可互相存取。",
+    "state": {
+      "ready": "共享電腦已就緒",
+      "starting": "正在準備電腦",
+      "stopped": "共享電腦已停止",
+      "waiting": "等待電腦連線"
+    },
+    "workspace": "工作目錄 {{path}}",
+    "workspace_idle_other": "工作目錄 {{path}} · 桌面閒置 {{count}} 分鐘後自動關閉",
+    "retry": "重新準備電腦"
+  },
+  "mac": {
+    "title": "Mac 權限",
+    "description": "管理螢幕錄製和輔助使用權限，讓 Tofi 在你授權後檢視螢幕並操作桌面。",
+    "open_card": "查看授權卡片"
+  },
+  "devices": {
+    "title": "其他裝置",
+    "note": "也可以連接已安裝 Tofi 用戶端的 Mac。",
+    "pair_failed": "暫時無法建立配對碼。",
+    "connect": "連接 Mac",
+    "online": "線上",
+    "offline": "離線",
+    "disconnect_failed": "未能中斷裝置連線。",
+    "disconnect": "中斷連線"
+  },
+  "resources": {
+    "restart": {
+      "title": "要重新啟動並套用設定嗎？",
+      "impact": "請先停止正在執行的 Bot 任務。重新啟動會中斷所有 Bot 的桌面和終端機，其中執行的程式也會停止；工作檔案會保留。",
+      "confirm": "確認重新啟動"
+    },
+    "cancel": "取消",
+    "error": {
+      "restart_incomplete": "重新啟動未完成，請重試。",
+      "read": "暫時無法讀取電腦資源，請重試。",
+      "out_of_range": "資源設定超出允許範圍，請檢查後重試。",
+      "save": "儲存失敗，請重試。",
+      "busy": "電腦正在執行任務或套用設定。請先停止任務，稍後再試。",
+      "restart_request": "重新啟動要求未完成，請重試。",
+      "start_failed": "電腦啟動失敗，請重試。"
+    },
+    "status": {
+      "applied": "設定已套用。",
+      "saved_pending": "設定已儲存，重新啟動後套用。",
+      "saved": "設定已儲存。"
+    },
+    "draft_label": "電腦資源",
+    "title": "資源",
+    "adjust": "調整設定",
+    "unit": {
+      "cores": "核心"
+    },
+    "memory": "記憶體",
+    "disk_allocated": "已配置磁碟",
+    "host": "主機：{{cpus}} 核心 · {{memory}} GB 記憶體，磁碟剩餘 {{disk}} GB。",
+    "pending": "待套用：{{cpus}} 核心 · {{memory}} GB 記憶體 · {{disk}} GB 磁碟。",
+    "restart_apply": "重新啟動並套用",
+    "field": {
+      "cpus": "CPU 核心數",
+      "memory": "記憶體（GB）",
+      "disk": "磁碟（GB）"
+    },
+    "field_note": "磁碟只能擴充、不能縮小。儲存後需重新啟動電腦才會套用，關閉桌面不會套用設定。",
+    "restarting": "正在重新啟動並套用設定…",
+    "retry_restart": "重試重新啟動",
+    "reading": "讀取中…",
+    "retry": "重試",
+    "loading": "正在讀取資源…"
+  },
+  "credentials": {
+    "error": {
+      "exists": "此檔案名稱已存在，請換一個名稱。",
+      "busy": "電腦正在處理任務，請稍後再試。",
+      "private_key_invalid": "無法辨識私密金鑰，請檢查檔案格式。",
+      "private_key_filename": "請使用私密金鑰檔名，例如 id_ed25519_work；不要使用 .pub、config 或 known_hosts。",
+      "ssh_dir": "電腦的 .ssh 目錄無法使用，請檢查目錄後重試。",
+      "openssh_missing": "電腦尚未安裝 OpenSSH 工具。",
+      "key_io": "無法讀取或設定金鑰，請稍後再試。",
+      "load": "無法讀取設定，請重試。",
+      "switch_unsaved": "請先儲存或捨棄目前的輸入，再切換類型。",
+      "no_bot": "請先建立一個 Bot，再設定共享電腦。",
+      "operation": "操作失敗，請重試。",
+      "required": "請填寫必填欄位後重試。",
+      "name_format": "名稱格式不正確，請檢查後重試。",
+      "not_private_key": "請輸入私密金鑰內容；.pub 檔案是公開金鑰，不能當作私密金鑰匯入。",
+      "too_large": "私密金鑰不能超過 64 KB。",
+      "public_key_file": "這是公開金鑰檔案，請選擇對應的私密金鑰檔案（通常不帶 .pub）。",
+      "file_too_large": "請選擇小於 64 KB 的私密金鑰檔案。",
+      "no_private_key_in_file": "檔案中沒有找到私密金鑰，請選擇私密金鑰檔案或直接貼上內容。",
+      "read_file": "無法讀取檔案，請重試或直接貼上私密金鑰。",
+      "copy_manual": "請在下方公開金鑰框內複製（⌘C / Ctrl+C）。",
+      "drop_single": "請一次只拖入一個私密金鑰檔案。"
+    },
+    "status": {
+      "saved_applied": "已儲存並套用。新啟動的指令和終端機會讀取設定。",
+      "saved_not_applied": "已儲存，尚未套用到電腦。可在清單中重試套用。",
+      "generated": "金鑰已產生。可將公開金鑰複製到目標服務。",
+      "imported": "金鑰已匯入。",
+      "applied": "已套用到共享電腦。",
+      "deleted": "已刪除儲存項目，電腦中的副本會保留。"
+    },
+    "tab": {
+      "env": "環境變數",
+      "ssh": "SSH 金鑰"
+    },
+    "draft": {
+      "ssh": "SSH 金鑰"
+    },
+    "tabs_aria": "憑證類型",
+    "apply": "套用到電腦",
+    "delete": "刪除",
+    "delete_question": "要刪除儲存項目嗎？電腦中的副本會保留。",
+    "note": {
+      "env": "所有 Bot 共用，新啟動的指令才會生效。",
+      "ssh": "共享電腦中的金鑰，清單會自動同步。"
+    },
+    "cancel": "取消",
+    "add_env": "新增變數",
+    "add_key": "新增金鑰",
+    "mode_aria": "新增金鑰方式",
+    "mode": {
+      "import": "匯入金鑰",
+      "generate": "產生新金鑰"
+    },
+    "field": {
+      "display_name": "顯示名稱（選填）",
+      "display_name_placeholder": "例如：工作帳號",
+      "env_name": "變數名稱",
+      "key_file": "金鑰檔名",
+      "env_value": "變數值",
+      "private_key": "私密金鑰內容",
+      "private_key_placeholder": "貼上私密金鑰，或將檔案拖曳到這裡"
+    },
+    "choose_file": "選擇檔案",
+    "private_key_note": "私密金鑰不會傳到聊天中。加密的私密金鑰需在電腦中解鎖。",
+    "generate_note": "產生 Ed25519 金鑰，私密金鑰保留在共享電腦。不會覆寫既有檔案。",
+    "submit": {
+      "working": "處理中…",
+      "save_apply": "儲存並套用",
+      "import": "匯入金鑰",
+      "generate": "產生金鑰"
+    },
+    "loading": "正在讀取…",
+    "empty_env": "尚無環境變數",
+    "key": {
+      "public_only": "僅有公開金鑰",
+      "public_only_fingerprint": "僅有公開金鑰 · {{fingerprint}}",
+      "encrypted_no_public": "加密的私密金鑰，找不到公開金鑰",
+      "no_public": "找不到公開金鑰",
+      "unverified": "公開金鑰與私密金鑰的配對未驗證 · {{fingerprint}}",
+      "hide_public": "收起公開金鑰",
+      "show_public": "查看公開金鑰",
+      "copied": "已複製",
+      "copy_public": "複製公開金鑰",
+      "public_aria": "{{name}} 公開金鑰"
+    },
+    "no_bot_note": "建立一個 Bot 後，即可讀取共享電腦中的金鑰。",
+    "empty_ssh": "電腦中尚無 SSH 金鑰",
+    "legacy_title": "已儲存的金鑰",
+    "legacy_note": "先前儲存的設定，可套用到電腦。",
+    "sync_pending": "電腦暫時忙碌，稍後會自動同步。",
+    "truncated": "金鑰較多，目前僅顯示部分結果。",
+    "retry": "重試"
+  }
+}
