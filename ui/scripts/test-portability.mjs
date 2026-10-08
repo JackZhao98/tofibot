@@ -1,19 +1,17 @@
 import assert from "node:assert/strict";
 import { webcrypto } from "node:crypto";
-import { execFile } from "node:child_process";
-import { mkdtemp, rm, readFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
+import { readFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
-import { fileURLToPath, pathToFileURL } from "node:url";
-import { promisify } from "node:util";
+import { fileURLToPath } from "node:url";
+import { openUiModules } from "./ui-modules.mjs";
 
 const root = dirname(dirname(fileURLToPath(import.meta.url)));
-const output = await mkdtemp(join(tmpdir(), "tofi-portability-"));
 Object.defineProperty(globalThis, "crypto", { value: webcrypto, configurable: true });
+// Error copy is asserted in zh-CN (the shipped Chinese text), then once in English.
+const ui = await openUiModules({ language: "zh-CN" });
 try {
-  await promisify(execFile)(join(root, "node_modules/.bin/tsc"), ["src/portabilityCrypto.ts", "src/portabilitySelection.ts", "--ignoreConfig", "--target", "ES2022", "--module", "ES2022", "--moduleResolution", "Bundler", "--outDir", output, "--skipLibCheck", "--pretty", "false"], { cwd: root });
-  const { encryptPortable, decryptPortable, isEncryptedPortable } = await import(pathToFileURL(join(output, "portabilityCrypto.js")));
-  const { checkPortableInput, importDefaultCategories, exportDefaultCategories, ENVIRONMENT_CATEGORY } = await import(pathToFileURL(join(output, "portabilitySelection.js")));
+  const { encryptPortable, decryptPortable, isEncryptedPortable } = await ui.load("/src/portabilityCrypto.ts");
+  const { checkPortableInput, importDefaultCategories, exportDefaultCategories, ENVIRONMENT_CATEGORY, portabilityLabel } = await ui.load("/src/portabilitySelection.ts");
   const source = JSON.stringify({ format: "tofi.bundle", version: 1, synthetic: "中文 fixture, pasted synthetic sensitivity marker" });
   const password = "Synthetic-Test-Passphrase-Only";
   const encrypted = await encryptPortable(source, password);
@@ -45,10 +43,16 @@ try {
   assert.throws(() => checkPortableInput(v3.replace('"version":3', '"version":4'), true), /版本/);
   assert.equal(exportDefaultCategories.includes(ENVIRONMENT_CATEGORY), false);
   assert.deepEqual(importDefaultCategories(["bot_config", "settings", ENVIRONMENT_CATEGORY]), ["bot_config"]);
-  const ui = await readFile(join(root, "src/PortabilitySettings.tsx"), "utf8");
-  assert.match(ui, /exported\.bots\?\.forEach/);
-  assert.match(ui, /importBody\(preview\.preview_id\)/);
-  assert.match(ui, /bundleSource/);
-  assert.doesNotMatch(ui, /localStorage|console\.log|JSON\.stringify\(\{[^\n]*(?:exportPassword|importPassword)/);
+  assert.equal(portabilityLabel("chats"), "聊天正文");
+  assert.equal(portabilityLabel("unknown_server_count"), "unknown_server_count", "unknown categories show as sent");
+  await ui.setLanguage("en");
+  await assert.rejects(decryptPortable(encrypted, "Wrong-Synthetic-Passphrase"), /Couldn't decrypt/);
+  assert.throws(() => checkPortableInput(v3, false), /encrypted bundle/);
+  assert.equal(portabilityLabel("chats"), "Chat text");
+  const uiSource = await readFile(join(root, "src/PortabilitySettings.tsx"), "utf8");
+  assert.match(uiSource, /exported\.bots\?\.forEach/);
+  assert.match(uiSource, /importBody\(preview\.preview_id\)/);
+  assert.match(uiSource, /bundleSource/);
+  assert.doesNotMatch(uiSource, /localStorage|console\.log|JSON\.stringify\(\{[^\n]*(?:exportPassword|importPassword)/);
   console.log("portability encryption: PASS (round trip, fresh nonce, wrong password, corruption, KDF/version, size, browser-only password handling, v1/v2/v3 encrypted roundtrips, sensitive file gating/defaults)");
-} finally { await rm(output, { recursive: true, force: true }); }
+} finally { await ui.close(); }

@@ -19,9 +19,9 @@ try {
   const main = await readFile(join(ui, "src/main.tsx"), "utf8");
   const styles = [...main.matchAll(/^import "\.\/([\w-]+\.css)";$/gm)].map(match => match[1] === "v2-foundations.css" ? "import './foundations.css';" : `import '../src/${match[1]}';`).join("");
   await writeFile(join(fixture, "index.html"), '<!doctype html><meta charset="utf-8"><div id="root"></div><script type="module" src="./main.tsx"></script>');
-  await writeFile(join(fixture, "main.tsx"), `import React,{useState} from 'react';import {createRoot} from 'react-dom/client';import {TimezoneProvider} from '../src/UserTimezone';import {CodexPanel} from '../src/App';import {ModelProviders} from '../src/ProviderSettings';import {ModelFields} from '../src/ModelSettings';${styles}
+  await writeFile(join(fixture, "main.tsx"), `import React,{useState} from 'react';import {createRoot} from 'react-dom/client';import {i18nReady,setLanguage} from '../src/i18n';import {TimezoneProvider} from '../src/UserTimezone';import {CodexPanel} from '../src/App';import {ModelProviders} from '../src/ProviderSettings';import {ModelFields} from '../src/ModelSettings';${styles}
 function Fixture(){const [model,setModel]=useState(new URLSearchParams(location.search).get('model')||'');const [effort,setEffort]=useState('');return <TimezoneProvider><div className="workspace"><div className="settings-page-body"><ModelProviders refreshToken={0} onConfigured={()=>{}} codex={<CodexPanel refreshToken={0} onConfigured={()=>{}}/>}/><section className="settings-section" data-testid="picker"><ModelFields model={model} effort={effort} onChange={(m,e)=>{setModel(m);setEffort(e)}}/><output data-testid="value">{model}|{effort}</output></section></div></div></TimezoneProvider>}
-createRoot(document.getElementById('root')).render(<Fixture/>);`);
+void i18nReady.then(()=>setLanguage('zh-CN')).then(()=>createRoot(document.getElementById('root')).render(<Fixture/>));`);
   server = await createServer({configFile: false, root: ui, plugins: [react()], server: {host: "127.0.0.1", port: 0}, logLevel: "error"});
   await server.listen();
   const origin = `http://127.0.0.1:${server.httpServer.address().port}`;
