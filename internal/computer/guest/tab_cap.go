@@ -34,7 +34,9 @@ const DefaultMaxBrowserTabs = 3
 
 const (
 	tabCapPollInterval = 2 * time.Second
-	tabCapProbeTimeout = 1500 * time.Millisecond
+	// Under memory pressure Chrome answers /json/list slowly; a short probe
+	// would give up exactly when the cap matters most.
+	tabCapProbeTimeout = 5 * time.Second
 	// tabCapNewGrace protects a tab that just opened, so a page that is still
 	// committing its first navigation (or a sign-in popup) is never the victim.
 	tabCapNewGrace = 5 * time.Second
@@ -166,11 +168,14 @@ func (t *tabCapTracker) victimsLocked(live []tabCapPage, limit int, now time.Tim
 }
 
 // enforce closes least recently used tabs beyond limit and records a note
-// for the Bot about each one. It returns the number of tabs closed.
-func (t *tabCapTracker) enforce(ctx context.Context, browser tabCapBrowser, limit int, now time.Time, humanDriving bool) int {
+// for the Bot about each one. reserve keeps that many more slots free for a
+// tab about to open, so the browser never holds more than limit pages. It
+// returns the number of tabs closed.
+func (t *tabCapTracker) enforce(ctx context.Context, browser tabCapBrowser, limit, reserve int, now time.Time, humanDriving bool) int {
 	if t == nil || browser == nil || limit <= 0 {
 		return 0
 	}
+	keep := max(limit-reserve, 1)
 	t.mu.Lock()
 	defer t.mu.Unlock()
 	probe, cancel := context.WithTimeout(ctx, tabCapProbeTimeout)
@@ -181,7 +186,7 @@ func (t *tabCapTracker) enforce(ctx context.Context, browser tabCapBrowser, limi
 	}
 	live := t.observeLocked(pages, now)
 	closed := 0
-	for _, victim := range t.victimsLocked(live, limit, now, humanDriving) {
+	for _, victim := range t.victimsLocked(live, keep, now, humanDriving) {
 		probe, cancel := context.WithTimeout(ctx, tabCapProbeTimeout)
 		err := browser.closePage(probe, victim.ID)
 		cancel()
@@ -284,11 +289,21 @@ func (s *Service) tabCapTarget(d *desktop) (limit int, humanDriving bool, ok boo
 }
 
 func (s *Service) enforceTabCap(ctx context.Context, d *desktop) int {
+	return s.enforceTabCapReserving(ctx, d, 0)
+}
+
+// makeRoomForNewTab closes least recently used tabs before the Bot opens a
+// tab, so a heavy page never loads while the browser is already at the cap.
+func (s *Service) makeRoomForNewTab(ctx context.Context, d *desktop) int {
+	return s.enforceTabCapReserving(ctx, d, 1)
+}
+
+func (s *Service) enforceTabCapReserving(ctx context.Context, d *desktop, reserve int) int {
 	limit, human, ok := s.tabCapTarget(d)
 	if !ok {
 		return 0
 	}
-	return d.tabCap.enforce(ctx, desktopTabBrowser{d: d}, limit, time.Now(), human)
+	return d.tabCap.enforce(ctx, desktopTabBrowser{d: d}, limit, reserve, time.Now(), human)
 }
 
 // startTabCapWatcher observes tabs opened outside guest actions (page
