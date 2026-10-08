@@ -31,7 +31,7 @@ func TestReviewPortableResponseDoesNotHoldRuntimeLock(t *testing.T) {
 				t.Fatal(err)
 			}
 			defer store.Close()
-			server := &Server{store: store, defaultModel: "before", modelCatalog: []ModelOption{{ID: "ordinary", ReasoningEfforts: []string{"medium"}}}, modelCatalogAt: time.Now(), modelCatalogSource: "synthetic"}
+			server := &Server{store: store, provider: "local", defaultModel: "before", modelCatalog: []ModelOption{{ID: "ordinary", ReasoningEfforts: []string{"medium"}}}, modelCatalogAt: time.Now(), modelCatalogSource: "synthetic"}
 			w := &reviewBlockedPortableWriter{ResponseRecorder: httptest.NewRecorder(), entered: make(chan struct{}), release: make(chan struct{})}
 			done := make(chan struct{})
 			if strings.HasPrefix(endpoint, "import") {
