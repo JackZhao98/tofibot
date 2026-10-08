@@ -1,8 +1,8 @@
 Required Notice: Copyright 2026 Jack Zhao (https://github.com/JackZhao98/tofibot)
 
 The TOFI Web app in this directory (ui/) is licensed under the PolyForm
-Shield License 1.0.0 below, not under the AGPL-3.0 that covers the rest of
-this repository. You may use, modify and share it, including to run TOFI for
+Shield License 1.0.0 below, not under the Apache-2.0 license that covers the
+rest of this repository. You may use, modify and share it, including to run TOFI for
 yourself or your organization, but not to build a product that competes with
 TOFI. Third-party components keep their own licenses; see
 THIRD_PARTY_NOTICES.md and public/licenses.
