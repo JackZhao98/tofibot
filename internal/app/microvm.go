@@ -113,8 +113,12 @@ func (s *Server) microVMStatus(ctx context.Context) string {
 		state = "unknown"
 	}
 	status := state
-	if phase := strings.TrimSpace(info.Phase); phase != "" {
+	if phase := strings.TrimSpace(info.Phase); phase != "" && phase != state {
 		status += "/" + phase
+	}
+	if state == computer.StateHibernated || state == computer.StateHibernating || state == computer.StateResuming {
+		// Hibernation keeps Chrome tabs, logins and processes; tools work.
+		status += " (idle snapshot; resumes automatically with tabs and logins on the next computer tool call)"
 	}
 	if err != nil {
 		status += "; status unavailable: " + err.Error()
@@ -147,7 +151,9 @@ func (s *Server) microVMEnvironmentPrompt(ctx context.Context, botID string) str
 		browser = "Google Chrome"
 	}
 	idle := ""
-	if info.DesktopIdleSeconds != nil {
+	if info.DesktopIdleSeconds != nil && info.Hibernation && *info.DesktopIdleSeconds > 0 {
+		idle = fmt.Sprintf(" After %ds idle the computer hibernates; the next tool call resumes it with tabs and logins intact.", *info.DesktopIdleSeconds)
+	} else if info.DesktopIdleSeconds != nil {
 		idle = fmt.Sprintf(" Desktop idle timeout: %ds (0 disables).", *info.DesktopIdleSeconds)
 	}
 	return fmt.Sprintf("\nShared Linux VM, separate from the service host and Mac; never claim host/Mac access. cwd=%s/bots/%s, HOME=/workspace/home; /workspace/shared, files, tools, Chrome profile and display are shared. Browser: %s. System directories are read-only (no sudo); install software only in user space (skill: software). Use tools only when ready; otherwise report status. %s Stop the shared desktop only on user intent. Private keys use Secret Input; return public keys only.", root, botID, browser, computerBrowserEssentials) + idle
@@ -170,7 +176,7 @@ func (s *Server) listComputers(ctx context.Context) ([]Computer, error) {
 	info, infoErr := s.microVMInfo(ctx)
 	item := Computer{ID: microVMComputerID, Name: "Bot workspace", Platform: "linux", Kind: "firecracker", Capabilities: []string{"shell.exec", "files.list", "files.read", "files.write", "desktop.start", "desktop.stop", "desktop.capture", "desktop.click", "desktop.type", "desktop.key", "desktop.scroll", "browser.navigate", "browser.snapshot", "browser.action", "terminal.open", "terminal.list", "terminal.read", "terminal.write", "terminal.resize", "terminal.close"}}
 	if infoErr == nil {
-		item.Online = info.State == "ready"
+		item.Online = computer.Available(info.State)
 		if info.WorkspaceRoot != "" {
 			item.Name = "Bot workspace · " + info.WorkspaceRoot
 		}

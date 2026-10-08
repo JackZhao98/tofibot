@@ -375,10 +375,18 @@ func (s *Service) startDesktopReaper() {
 		defer close(s.reaperDone)
 		ticker := time.NewTicker(interval)
 		defer ticker.Stop()
+		last := time.Now()
 		for {
 			select {
 			case <-ticker.C:
-				s.reapIdleDesktops()
+				now := time.Now()
+				// Ticks stall only while the VM is paused for hibernation.
+				if now.Sub(last) > 3*interval+5*time.Second {
+					s.noteResume(now)
+				} else {
+					s.reapIdleDesktops()
+				}
+				last = now
 			case <-s.reaperStop:
 				return
 			}

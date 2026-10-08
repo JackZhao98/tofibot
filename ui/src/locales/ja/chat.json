@@ -122,7 +122,10 @@
     "stopped": "共有コンピューターは停止しています",
     "unavailable": "共有コンピューターは現在利用できません",
     "health_restarting": "共有コンピューターが応答しません · 再起動中",
-    "health_unresponsive": "共有コンピューターが応答しません"
+    "health_unresponsive": "共有コンピューターが応答しません",
+    "hibernated": "共有コンピューターはスリープ中 · 次回の使用時にタブごと復元します",
+    "hibernating": "共有コンピューターをスリープしています",
+    "resuming": "共有コンピューターを復帰しています"
   },
   "computer_phase": {
     "booting": "VM を起動中",
@@ -130,7 +133,8 @@
     "network": "ネットワークを準備中",
     "ready": "準備完了",
     "storage": "ストレージを準備中",
-    "verifying": "Linux と Chrome を確認中"
+    "verifying": "Linux と Chrome を確認中",
+    "restoring": "保存したセッションを復元中"
   },
   "create": {
     "create_bot": "Bot を作成",

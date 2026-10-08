@@ -200,6 +200,11 @@ func (w *computerWatchdog) check(ctx context.Context) {
 		}
 	case health.Guest == "ok":
 		w.state, w.failures = computerHealthy, 0
+	case health.Guest == "hibernated":
+		// Deliberately paused to disk; it is restored on use, not restarted.
+		if w.state != computerUnresponsive {
+			w.state, w.failures = computerHealthy, 0
+		}
 	case health.Guest == "unresponsive":
 		if w.state == computerUnresponsive {
 			return

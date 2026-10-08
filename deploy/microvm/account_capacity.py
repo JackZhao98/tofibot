@@ -79,7 +79,8 @@ class CapacityLedger:
     """
     def __init__(self, database, state_root, headroom_bytes, warning_bytes,
                  metrics=None, reserved_slots=(), external_reserved_bytes=0,
-                 per_account_internal_reserved_bytes=0, external_disks=(), immutable_image_sizes=None):
+                 per_account_internal_reserved_bytes=0, external_disks=(), immutable_image_sizes=None,
+                 snapshot_reserve=None):
         if not 0 <= headroom_bytes <= warning_bytes:
             raise ValueError("invalid capacity thresholds")
         for value in (external_reserved_bytes, per_account_internal_reserved_bytes):
@@ -95,6 +96,10 @@ class CapacityLedger:
         self.per_account_internal_reserved = per_account_internal_reserved_bytes
         self.external_disks = tuple(external_disks)
         self.immutable_image_sizes = dict(immutable_image_sizes or {})
+        # Hibernation writes each computer's guest memory beside its disk.
+        # snapshot_reserve(account_id) returns the bytes promised for that
+        # file (its configured guest RAM); None keeps no such promise.
+        self.snapshot_reserve = snapshot_reserve
         if (any(name not in ("rootfs.ext4", "vmlinux") or type(size) is not int or size <= 0
                 for name, size in self.immutable_image_sizes.items())
                 or sum(self.immutable_image_sizes.values()) > self.per_account_internal_reserved):
@@ -210,6 +215,9 @@ class CapacityLedger:
                 root_stat.st_dev, filesystem_type, inode_identities, db)
             internal_allocated = self._internal_capacity(accounts, root_stat.st_dev,
                                                         filesystem_type, inode_identities)
+            snapshot_reserved, snapshot_allocated = self._snapshot_capacity(
+                accounts, root_stat.st_dev, inode_identities)
+            snapshot_unallocated = snapshot_reserved - snapshot_allocated
             after = self.metrics()
             after_total, after_available = after["total_bytes"], after["available_bytes"]
             after_device = after.get("filesystem_device", root_stat.st_dev)
@@ -225,7 +233,7 @@ class CapacityLedger:
             internal_reserved = len(accounts) * self.per_account_internal_reserved
             internal_unallocated = internal_reserved - internal_allocated
             remaining = (available - unallocated - external_unallocated - self.headroom
-                         - self.external_reserved - internal_unallocated)
+                         - self.external_reserved - internal_unallocated - snapshot_unallocated)
             allocated = local_allocated
             return dict(total_bytes=total, available_bytes=available,
                         allocated_bytes=allocated, promised_bytes=promised,
@@ -239,11 +247,54 @@ class CapacityLedger:
                         internal_allocated_bytes=internal_allocated,
                         internal_unallocated_reserved_bytes=internal_unallocated,
                         safety_reserved_bytes=self.external_reserved + internal_reserved,
+                        snapshot_reserved_bytes=snapshot_reserved,
+                        snapshot_allocated_bytes=snapshot_allocated,
+                        snapshot_unallocated_reserved_bytes=snapshot_unallocated,
                         admission_remaining_bytes=remaining,
-                        warning=available - unallocated - external_unallocated - self.external_reserved - internal_unallocated < self.warning,
+                        warning=(available - unallocated - external_unallocated - self.external_reserved
+                                 - internal_unallocated - snapshot_unallocated) < self.warning,
                         accounts=accounts)
         except (OSError, KeyError, TypeError, ValueError) as exc:
             raise AdmissionError("capacity metrics unavailable; admission closed") from exc
+
+    def _snapshot_bytes(self, identity):
+        if self.snapshot_reserve is None:
+            return 0
+        value = self.snapshot_reserve(identity)
+        if type(value) is not int or not 0 <= value <= 64 * 1024**3:
+            raise ValueError("invalid snapshot reservation")
+        return value
+
+    def _snapshot_capacity(self, accounts, device, known_inodes):
+        """Promised and already written hibernation snapshot bytes.
+
+        A snapshot file earns credit only up to its account's promise and only
+        while it is a single-link, root-owned regular file on this filesystem;
+        anything else keeps the full promise (and, being real data, already
+        lowers the measured free space).
+        """
+        reserved = allocated = 0
+        for account in accounts:
+            promise = self._snapshot_bytes(account["account_id"])
+            reserved += promise
+            directory = self.root / account_id(account["account_id"]) / "snapshot"
+            used = 0
+            for name in ("memory", "vmstate"):
+                try:
+                    if directory.is_symlink():
+                        break
+                    info = (directory / name).lstat()
+                    identity = (info.st_dev, info.st_ino)
+                    if (not stat.S_ISREG(info.st_mode) or info.st_uid != 0 or info.st_nlink != 1
+                            or info.st_dev != device or identity in known_inodes):
+                        continue
+                    known_inodes.add(identity)
+                    used += info.st_blocks * 512
+                except OSError:
+                    pass
+            account["snapshot_bytes"] = used
+            allocated += min(used, promise)
+        return reserved, allocated
 
     def _internal_capacity(self, accounts, device, filesystem_type, known_inodes):
         # Only independent immutable copies consume the internal promise. Shared
@@ -362,7 +413,7 @@ class CapacityLedger:
                 internal_delta = 0
             else:
                 delta = quota_bytes
-                internal_delta = self.per_account_internal_reserved
+                internal_delta = self.per_account_internal_reserved + self._snapshot_bytes(identity)
                 occupied = self.reserved_slots | {a["slot"] for a in snapshot["accounts"]}
                 slot = next((s for s in range(1, 251) if s not in occupied), None)
                 if slot is None:
