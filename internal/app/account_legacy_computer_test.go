@@ -120,7 +120,7 @@ func TestAccountLegacyComputerBindingRoutingAndRetainedDataRollback(t *testing.T
 	if capacity.Code != 200 || !strings.Contains(capacity.Body.String(), `"account_id":"legacy-owner"`) || !strings.Contains(capacity.Body.String(), `"computer_id":"`+id+`"`) {
 		t.Fatalf("adopted Admin disk projection: %d %s", capacity.Code, capacity.Body.String())
 	}
-	other, err := g.create(context.Background(), "second-admin", "second@example.test", "SyntheticPassword123!", false)
+	other, err := g.create(context.Background(), "second-admin", "second@example.test", "SyntheticPassword123!", false, "")
 	if err != nil {
 		t.Fatal(err)
 	}

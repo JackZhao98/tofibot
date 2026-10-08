@@ -1,0 +1,16 @@
+[Unit]
+Description=TOFI self-hosted server (App + account Worker)
+Requires=docker.service
+After=docker.service apparmor.service systemd-tmpfiles-setup.service network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/local/bin/tofi start
+ExecStop=/usr/local/bin/tofi stop
+TimeoutStartSec=900
+TimeoutStopSec=600
+
+[Install]
+WantedBy=multi-user.target

@@ -98,7 +98,7 @@ func TestAccountModelComputerRestartAndLegacySuspension(t *testing.T) {
 	}
 	defer func() { g.Close() }()
 	g.runtimeFactory = func(c Config) (*Server, error) { c.Engine = accountComputerEngine{}; return NewServer(c) }
-	admin, err := g.create(context.Background(), "admin", "", "SyntheticPassword123!", true)
+	admin, err := g.create(context.Background(), "admin", "", "SyntheticPassword123!", true, accountCreationSecret(t, g, true))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -113,7 +113,7 @@ func TestAccountModelComputerRestartAndLegacySuspension(t *testing.T) {
 	var bots []Bot
 	var cookies []*http.Cookie
 	for i := 0; i < 2; i++ {
-		a, err := g.create(context.Background(), fmt.Sprintf("user-%d", i), "", "SyntheticPassword123!", false)
+		a, err := g.create(context.Background(), fmt.Sprintf("user-%d", i), "", "SyntheticPassword123!", false, "")
 		if err != nil {
 			t.Fatal(err)
 		}
