@@ -1,6 +1,7 @@
 import {useDebugMode} from "./debugMode";
 import { useEffect, useState } from "react";
 import "./ConnectionInfo.css";
+import { useTranslation } from "./i18n";
 
 type DesktopConnection =
   | { connectionMode: "direct"; serverURL: string }
@@ -28,6 +29,7 @@ function desktopConnection(value: unknown): DesktopConnection | null {
 // desktop settings bridge is intentionally not used: it exposes unrelated Mac
 // device configuration and is restricted to its own local settings page.
 export function ConnectionInfo() {
+  const { t } = useTranslation("settings");
   const debug = useDebugMode();
   const isDesktop = Boolean((window as Window & { tofiDesktop?: unknown }).tofiDesktop);
   const [state, setState] = useState<ConnectionState>({ instanceID: null, desktop: null, loading: true });
@@ -67,25 +69,25 @@ export function ConnectionInfo() {
   let mode: string;
   if (!isDesktop) {
     endpoint = window.location.origin;
-    mode = `${window.location.protocol === "https:" ? "HTTPS" : "HTTP"} · 浏览器直连`;
+    mode = t("connection.mode_browser", { protocol: window.location.protocol === "https:" ? "HTTPS" : "HTTP" });
   } else if (connection?.connectionMode === "ssh") {
-    endpoint = `${connection.sshAlias} · 远端端口 ${connection.remotePort}`;
-    mode = "SSH 隧道 · 桌面客户端";
+    endpoint = t("connection.ssh_endpoint", { alias: connection.sshAlias, port: connection.remotePort });
+    mode = t("connection.mode_ssh");
   } else if (connection?.connectionMode === "direct") {
     endpoint = connection.serverURL;
-    mode = `${new URL(connection.serverURL).protocol === "https:" ? "HTTPS" : "HTTP"} · 桌面客户端直连`;
+    mode = t("connection.mode_desktop_direct", { protocol: new URL(connection.serverURL).protocol === "https:" ? "HTTPS" : "HTTP" });
   } else {
-    endpoint = state.loading ? "正在读取连接信息…" : "客户端暂未提供远端连接信息";
-    mode = "桌面客户端";
+    endpoint = state.loading ? t("connection.loading") : t("connection.unavailable");
+    mode = t("connection.mode_desktop");
   }
-  return <section className="connection-info" aria-label="当前服务器连接">
-    <div className="connection-info-heading"><h3>当前连接</h3><span>{mode}</span></div>
+  return <section className="connection-info" aria-label={t("connection.label")}>
+    <div className="connection-info-heading"><h3>{t("connection.title")}</h3><span>{mode}</span></div>
     <dl>
-      <div><dt>{connection?.connectionMode === "ssh" ? "服务器" : isDesktop ? "服务器地址" : "访问地址"}</dt><dd>{endpoint}</dd></div>
-      {debug && <div><dt>实例 ID</dt><dd className="connection-instance-id">{state.instanceID || (state.loading ? "正在确认…" : "暂时无法确认")}</dd></div>}
+      <div><dt>{connection?.connectionMode === "ssh" ? t("connection.server") : isDesktop ? t("connection.server_address") : t("connection.access_address")}</dt><dd>{endpoint}</dd></div>
+      {debug && <div><dt>{t("connection.instance_id")}</dt><dd className="connection-instance-id">{state.instanceID || (state.loading ? t("connection.confirming") : t("connection.unconfirmed"))}</dd></div>}
     </dl>
-    {memorySession && <p role="status">钥匙串暂不可用。本次登录仅在 App 打开期间有效，重启后需要重新登录。</p>}
-    {isDesktop && <a className="text-button" href="/__desktop/setup">切换服务器</a>}
-    {isDesktop && !state.loading && !connection && <p>本地客户端入口：{window.location.origin}。远端地址和连接方式请在客户端的服务器配置中查看。</p>}
+    {memorySession && <p role="status">{t("connection.memory_session")}</p>}
+    {isDesktop && <a className="text-button" href="/__desktop/setup">{t("connection.switch_server")}</a>}
+    {isDesktop && !state.loading && !connection && <p>{t("connection.local_entry", { origin: window.location.origin })}</p>}
   </section>;
 }

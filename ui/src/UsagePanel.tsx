@@ -6,13 +6,14 @@ import { isDesktop } from "./desktop";
 import type { AgentUsageTotal, ContextUsage, UsageCall, UsagePeriod } from "./types";
 import "./usage-panel.css";
 import { intlLocale } from "./i18n/format";
+import { i18n, Trans, useTranslation } from "./i18n";
 
 // Built per call so a language switch applies without a reload.
 const number = { format: (value: number) => new Intl.NumberFormat(intlLocale()).format(value) };
 const count = (value: number) => number.format(value);
 const money = (value: number) => value < 0.01 && value > 0 ? `<$0.01` : `$${value.toFixed(2)}`;
-const ranges = [["24h", "过去 24 小时"], ["7d", "过去 7 天"], ["30d", "过去 30 天"]] as const;
-const fail = (cause: unknown) => cause instanceof Error ? cause.message : "读取失败，请重试";
+const ranges = [["24h", "usage.range.24h"], ["7d", "usage.range.7d"], ["30d", "usage.range.30d"]] as const;
+const fail = (cause: unknown) => cause instanceof Error ? cause.message : i18n.t("settings:usage.load_failed");
 
 function UsageReel({text,rolled}:{text:string;rolled:boolean}) {
  if(isDesktop)return <>{text}</>;
@@ -20,6 +21,7 @@ function UsageReel({text,rolled}:{text:string;rolled:boolean}) {
 }
 
 export function UsagePanel({ preferredBotId, timezone }: { preferredBotId?: string; timezone: string }) {
+  const { t } = useTranslation("settings");
   const active = useSettingsActive();
   const detailRef = useRef<HTMLDivElement>(null);
   const [rolled, setRolled] = useState(false);
@@ -72,27 +74,27 @@ export function UsagePanel({ preferredBotId, timezone }: { preferredBotId?: stri
   });
   const chartMax = Math.max(1, ...recentDays.map(day => day.requests));
 
-  return <section className="usage-page" aria-label="用量">
-    <p className="usage-explanation">记录从功能上线后开始。参考等值按公开 API 单价估算，并非 Codex 实际收费或节省金额。缓存命中量不可得，输入全部按非缓存价计算；不含摘要请求与工具费用。</p>
-    {error && <div className="usage-error" role="alert">{error}<button type="button" onClick={() => void load()}>重试</button></div>}
-    {loading ? <p role="status">正在读取 Usage…</p> : agents.length === 0 ? <p className="usage-empty">还没有 Agent。</p> : <div className="usage-layout">
-      <nav className="usage-agents" aria-label="选择 Agent"><button type="button" aria-current={selectedId === "all" ? "true" : undefined} onClick={() => setSelected("all")}><span><strong>全部 Bot</strong><small>合并用量</small></span></button>{agents.map(agent => <button type="button" key={agent.bot_id} aria-current={selectedId === agent.bot_id ? "true" : undefined} onClick={() => setSelected(agent.bot_id)}><BotAvatar id={agent.bot_id} mini /><span><strong>{agent.bot_name}</strong><small>{agent.runs ? `${count(agent.runs)} 次运行` : "尚无记录"}</small></span></button>)}</nav>
+  return <section className="usage-page" aria-label={t("usage.label")}>
+    <p className="usage-explanation">{t("usage.explanation")}</p>
+    {error && <div className="usage-error" role="alert">{error}<button type="button" onClick={() => void load()}>{t("action.retry")}</button></div>}
+    {loading ? <p role="status">{t("usage.loading")}</p> : agents.length === 0 ? <p className="usage-empty">{t("usage.no_agents")}</p> : <div className="usage-layout">
+      <nav className="usage-agents" aria-label={t("usage.choose_agent")}><button type="button" aria-current={selectedId === "all" ? "true" : undefined} onClick={() => setSelected("all")}><span><strong>{t("usage.all_bots")}</strong><small>{t("usage.combined")}</small></span></button>{agents.map(agent => <button type="button" key={agent.bot_id} aria-current={selectedId === agent.bot_id ? "true" : undefined} onClick={() => setSelected(agent.bot_id)}><BotAvatar id={agent.bot_id} mini /><span><strong>{agent.bot_name}</strong><small>{agent.runs ? t("usage.runs", { count: agent.runs, runs: count(agent.runs) }) : t("usage.no_records")}</small></span></button>)}</nav>
       <div className={`usage-detail${rolled ? " is-rolled" : ""}`} ref={detailRef}>
-        <div className="usage-summary"><h3>{selectedId === "all" ? "全部 Bot" : current?.bot_name ?? "Agent"}</h3><div className="usage-ranges" aria-label="统计时段">{ranges.map(([key, label]) => <button key={key} type="button" aria-pressed={range === key} onClick={() => setRange(key)}>{label}</button>)}</div><div><span><small>输入 token</small><strong><UsageReel text={count(total.input)} rolled={rolled}/></strong></span><span><small>输出 token</small><strong><UsageReel text={count(total.output)} rolled={rolled}/></strong></span><span><small>模型请求</small><strong><UsageReel text={count(total.requests)} rolled={rolled}/></strong></span><span><small>API 参考等值</small><strong><UsageReel text={total.unpriced === total.requests && total.requests ? "暂无报价" : money(total.usd)} rolled={rolled}/></strong></span></div>{total.unpriced > 0 && <p>有 {count(total.unpriced)} 次请求的模型缺少可核实报价，未计入金额。</p>}<p>按 2026-09-25 <a href="https://developers.openai.com/api/docs/pricing" target="_blank" rel="noreferrer">OpenAI 官方 API 报价</a>计算；30 天视图按小时汇总，边界可能相差不足一小时。</p></div>
-        {!isDesktop && <div className="web-usage-chart"><h4>最近 7 天请求</h4><div className="web-usage-bars" aria-label="最近 7 天请求次数">{recentDays.map((day,index)=><span className="web-usage-bar" key={day.key}><i style={{"--h":`${day.requests/chartMax*100}%`,"--delay":`${200+index*60}ms`} as CSSProperties} title={`${day.label} ${day.requests} 次请求`}/><small>{day.label}</small></span>)}</div></div>}
-        <h4>逐次请求 · 保留 7 天</h4>
-        {!visibleCalls.length ? <p className="usage-empty">该时段没有可显示的请求。新请求完成后会记录到这里。</p> : <div className="usage-call-list">{visibleCalls.map(call => <details key={call.id} className="usage-call"><summary><time dateTime={call.occurred_at}>{new Intl.DateTimeFormat(intlLocale(), { timeZone: timezone, month:"numeric", day:"numeric", hour:"2-digit", minute:"2-digit" }).format(new Date(call.occurred_at))}</time><span>{call.bot_name} · {call.conversation_name}</span><strong>{call.price_known ? money(call.equivalent_usd) : "暂无报价"}</strong></summary><p>{call.model} · 输入 {count(call.input_tokens)} · 输出 {count(call.output_tokens)}</p><p>触发内容：{call.trigger_content || "系统任务或续接，无直接用户消息"}</p></details>)}</div>}
+        <div className="usage-summary"><h3>{selectedId === "all" ? t("usage.all_bots") : current?.bot_name ?? t("usage.agent_fallback")}</h3><div className="usage-ranges" aria-label={t("usage.ranges")}>{ranges.map(([key, label]) => <button key={key} type="button" aria-pressed={range === key} onClick={() => setRange(key)}>{t(label)}</button>)}</div><div><span><small>{t("usage.input_tokens")}</small><strong><UsageReel text={count(total.input)} rolled={rolled}/></strong></span><span><small>{t("usage.output_tokens")}</small><strong><UsageReel text={count(total.output)} rolled={rolled}/></strong></span><span><small>{t("usage.requests")}</small><strong><UsageReel text={count(total.requests)} rolled={rolled}/></strong></span><span><small>{t("usage.api_equivalent")}</small><strong><UsageReel text={total.unpriced === total.requests && total.requests ? t("usage.no_price") : money(total.usd)} rolled={rolled}/></strong></span></div>{total.unpriced > 0 && <p>{t("usage.unpriced", { count: total.unpriced, requests: count(total.unpriced) })}</p>}<p><Trans t={t} i18nKey="usage.pricing_source" components={{ link: <a href="https://developers.openai.com/api/docs/pricing" target="_blank" rel="noreferrer" /> }} /></p></div>
+        {!isDesktop && <div className="web-usage-chart"><h4>{t("usage.chart_title")}</h4><div className="web-usage-bars" aria-label={t("usage.chart_label")}>{recentDays.map((day,index)=><span className="web-usage-bar" key={day.key}><i style={{"--h":`${day.requests/chartMax*100}%`,"--delay":`${200+index*60}ms`} as CSSProperties} title={t("usage.chart_bar", { day: day.label, count: day.requests })}/><small>{day.label}</small></span>)}</div></div>}
+        <h4>{t("usage.calls_title")}</h4>
+        {!visibleCalls.length ? <p className="usage-empty">{t("usage.no_calls")}</p> : <div className="usage-call-list">{visibleCalls.map(call => <details key={call.id} className="usage-call"><summary><time dateTime={call.occurred_at}>{new Intl.DateTimeFormat(intlLocale(), { timeZone: timezone, month:"numeric", day:"numeric", hour:"2-digit", minute:"2-digit" }).format(new Date(call.occurred_at))}</time><span>{call.bot_name} · {call.conversation_name}</span><strong>{call.price_known ? money(call.equivalent_usd) : t("usage.no_price")}</strong></summary><p>{call.model} · {t("usage.call_input", { value: count(call.input_tokens) })} · {t("usage.call_output", { value: count(call.output_tokens) })}</p><p>{t("usage.trigger", { content: call.trigger_content || t("usage.trigger_none") })}</p></details>)}</div>}
         {selectedId !== "all" && <>
-        <h4>各对话的最近一次上下文</h4>
-        {!rows.length ? <p className="usage-empty">还没有可显示的上下文记录。Agent 下一次运行后会开始记录。</p> : rows.map(row => {
+        <h4>{t("usage.contexts_title")}</h4>
+        {!rows.length ? <p className="usage-empty">{t("usage.no_contexts")}</p> : rows.map(row => {
           const remaining = Math.max(0, row.compact_at - row.estimated_input);
           const fraction = row.compact_at > 0 ? Math.min(100, row.estimated_input / row.compact_at * 100) : 0;
           return <article className="usage-context" key={`${row.conversation_id}:${row.bot_id}`}>
             <div className="usage-context-heading"><strong>{row.conversation_name}</strong><time dateTime={row.updated_at}>{new Intl.DateTimeFormat(intlLocale(), { timeZone: timezone, month:"numeric", day:"numeric", hour:"2-digit", minute:"2-digit" }).format(new Date(row.updated_at))}</time></div>
-            <div className="usage-context-model">{row.model}{!row.window_known && " · 模型窗口为默认估算"}{row.run_status === "running" && " · 运行中"}</div>
-            <div className="usage-context-meter" role="meter" aria-label="距自动压缩阈值的上下文占用" aria-valuemin={0} aria-valuemax={row.compact_at} aria-valuenow={Math.min(row.estimated_input, row.compact_at)}><span style={{ width: `${fraction}%` }} /></div>
-            <div className="usage-context-numbers"><span>请求前估算 <strong>{count(row.estimated_input)}</strong></span><span>距压缩约 <strong>{count(remaining)}</strong></span></div>
-            <p>上次模型实际输入 {row.last_input ? count(row.last_input) : "未报告"} · 本地窗口配置 {count(row.window_tokens)} · 80% 时尝试自动压缩{row.compact_count ? ` · 本次运行已压缩 ${row.compact_count} 次` : ""}</p>
+            <div className="usage-context-model">{row.model}{!row.window_known && ` · ${t("usage.window_estimated")}`}{row.run_status === "running" && ` · ${t("usage.running")}`}</div>
+            <div className="usage-context-meter" role="meter" aria-label={t("usage.meter_label")} aria-valuemin={0} aria-valuemax={row.compact_at} aria-valuenow={Math.min(row.estimated_input, row.compact_at)}><span style={{ width: `${fraction}%` }} /></div>
+            <div className="usage-context-numbers"><span><Trans t={t} i18nKey="usage.estimated" values={{ value: count(row.estimated_input) }} components={{ strong: <strong /> }} /></span><span><Trans t={t} i18nKey="usage.remaining" values={{ value: count(remaining) }} components={{ strong: <strong /> }} /></span></div>
+            <p>{[t("usage.last_input", { value: row.last_input ? count(row.last_input) : t("usage.not_reported") }), t("usage.window", { value: count(row.window_tokens) }), t("usage.auto_compact"), ...(row.compact_count ? [t("usage.compacted", { count: row.compact_count })] : [])].join(" · ")}</p>
           </article>;
         })}
         </>}
