@@ -70,6 +70,8 @@ jobs:
           docker compose -f deploy/self-host/compose.yaml \
             --env-file deploy/self-host/testdata/tofi.env --profile tls config --quiet
           docker compose -f deploy/self-host/compose.yaml \
+            --env-file deploy/self-host/testdata/tofi-direct.env config --quiet
+          docker compose -f deploy/self-host/compose.yaml \
             --env-file deploy/self-host/testdata/tofi.env config --services | sort | tr '\n' ' ' \
             | grep -qx 'app worker '
       - name: Dev compose renders

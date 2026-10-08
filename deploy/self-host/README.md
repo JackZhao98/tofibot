@@ -34,25 +34,53 @@ distributions can try `TOFI_ALLOW_UNSUPPORTED=1`.
 - `--domain NAME [--email ADDRESS]` — public HTTPS through a Caddy sidecar with
   automatic certificates. Ports 80 and 443 must be free and DNS must point here.
   Sets `TOFI_PUBLIC_ORIGIN=https://NAME`.
-- `--lan` — listen on all interfaces over plain HTTP. Passwords cross the network
-  unencrypted; you are asked to confirm unless `--yes`.
+- `--local-only` — publish on `127.0.0.1` only (still HTTPS). From your computer
+  run `ssh -L 8321:127.0.0.1:8321 user@server` and open `https://localhost:8321`.
+- `--lan` — accepted for compatibility; it is the default now (there is no
+  plain-HTTP mode any more).
 - `--port PORT` — App port (default 8321).
 - `--yes` — no questions.
 
-The default listens on `127.0.0.1:8321` only. From your computer run
-`ssh -L 8321:127.0.0.1:8321 user@server` and open `http://127.0.0.1:8321`, or on
-the server run `tailscale serve --bg 8321` and set
-`TOFI_PUBLIC_ORIGIN=https://<machine>.<tailnet>.ts.net` in `/etc/tofi/tofi.env`
-(then `sudo tofi stop && sudo tofi start`), because the App checks the browser
-origin on every change.
+### Default: self-signed HTTPS on every interface
+
+Without `--domain` the App serves HTTPS itself on `0.0.0.0:8321`, like Proxmox on
+`:8006`: open `https://<server-ip>:8321` in a browser, with no tunnel. The
+installer creates the certificate once with `openssl` and keeps it across
+updates, resumes and reinstalls over retained data:
+
+- `/etc/tofi/tls/cert.pem` (0644) and `key.pem` (0640 root:10001) in a 0750
+  root:10001 directory, mounted read-only at `/etc/tofi-tls` in the App;
+  `TOFI_TLS_CERT_FILE`/`TOFI_TLS_KEY_FILE` in `tofi.env` point there.
+- EC P-256, valid 825 days (the browser maximum), CN = hostname, SANs = the
+  hostname, `localhost`, `127.0.0.1`, `::1` and every global address of the
+  host's non-virtual interfaces (Docker bridges, veth and tap devices excluded).
+- Renewed whenever host config is re-applied (`tofi install`, a resumed
+  operation, `tofi update`) if missing or within 30 days of expiry; `sudo tofi regenerate-cert` replaces it on
+  demand (for example after the server's IP changed) and restarts the App.
+
+The end of the install (and `tofi status` in a terminal) lists
+`https://<ip>:8321` for every IPv4 address, the setup key and the certificate's
+SHA-256 fingerprint. The browser warns about the self-signed certificate:
+compare the fingerprint, then continue. On a cloud server allow TCP 8321 in its
+firewall or security group. `TOFI_PUBLIC_ORIGIN` stays empty, so the App accepts
+a change only when the browser's `Origin` equals `https://` + the `Host` it used:
+any of the server's addresses works. Owner sign-in accepts the connection
+because it is TLS, and the session cookie is `Secure`.
+
+Installs made before this default (plain HTTP on `127.0.0.1`) keep their
+`tofi.env` on update; to switch, add `TOFI_BIND=0.0.0.0`,
+`TOFI_TLS_CERT_FILE=/etc/tofi-tls/cert.pem`, `TOFI_TLS_KEY_FILE=/etc/tofi-tls/key.pem`
+and `TOFI_OWNER_ALLOW_LAN_HTTP=0` to `/etc/tofi/tofi.env`, run
+`sudo tofi regenerate-cert`, then `sudo tofi stop && sudo tofi start`.
 
 ## What install.sh does
 
 1. Root and `Linux x86_64`.
 2. Supported distribution from `/etc/os-release`.
 3. `/dev/kvm`, `/dev/net/tun`, cgroup v2, AppArmor.
-4. CPU, memory, disk and free ports. Steps 1-4 change nothing on the host.
-5. `apt-get install ca-certificates curl tar zstd python3 e2fsprogs apparmor apparmor-utils`.
+4. CPU, memory, disk and free ports (8321 on any address). Steps 1-4 change
+   nothing on the host.
+5. `apt-get install ca-certificates curl tar zstd python3 e2fsprogs apparmor apparmor-utils openssl iproute2`.
 6. Docker Engine + Compose plugin from Docker's apt repository when missing
    (falls back to get.docker.com for brand-new distributions); verifies Docker
    uses cgroup v2 and AppArmor.
@@ -68,11 +96,14 @@ origin on every change.
     profile `tofi-worker` (`apparmor_parser -Q -T`, then `-r`), tmpfiles, seccomp,
     images pulled by digest and their `io.tofi.*` labels checked, the Guest
     release downloaded, checksummed, unpacked, validated with
-    `account_release_check.validate_release` and sealed 0555.
+    `account_release_check.validate_release` and sealed 0555, and (without
+    `--domain`) the self-signed certificate in `/etc/tofi/tls` if none is usable.
 11. Starts the Worker, waits until its broker answers on `/run/tofi/broker.sock`
     with room for the first account, starts the App (and Caddy), waits for
     `/health`, enables `tofi.service`.
-12. Prints the URL and the one-time setup key.
+12. Prints the `https://<ip>:8321` addresses, the one-time setup key and the
+    certificate fingerprint (plain text when `NO_COLOR` is set, `TERM=dumb` or
+    the output is not a terminal).
 
 Re-running is safe. An installed host is reported, an interrupted operation is
 resumed (see below), and a host uninstalled with data retained starts again with
@@ -90,12 +121,13 @@ Later accounts are created by the Admin. Then open Settings -> Model provider.
 
 | Command | Effect |
 |---|---|
-| `tofi status` | Journal phase, container states, health (JSON) |
+| `tofi status` | Journal phase, container states, health, URLs and certificate fingerprint (JSON; in a terminal the install summary first) |
 | `tofi start` / `tofi stop` | Start (Worker first, readiness, App) / stop cleanly; never removes data |
 | `tofi update [--version X] [--allow-schema-change]` | Pull and check the new images and Guest before stopping anything; refuse a different `io.tofi.data-schema` unless allowed; on failure restore the previous images, Guest pin and host files with the current data ("update rejected; previous version restored") |
 | `tofi uninstall` | Stop and remove containers; keep `/etc/tofi`, `/var/lib/tofi`, images, AppArmor profile; journal `stopped-retained` |
 | `tofi uninstall --purge` | After you type the hostname: remove containers, images, profile, unit and every TOFI directory including all data |
 | `tofi setup-secret` | Print the pending setup key |
+| `tofi regenerate-cert` | Replace the self-signed certificate (new names/IPs, new fingerprint) and restart the App |
 | `tofi logs [app\|worker\|caddy]` | Follow container logs |
 | `tofi doctor` | Check KVM, cgroup, profile, `/run/tofi`, Worker config, Guest release, images, disk, health |
 | `tofi version` | Host tool, installed release and images |
@@ -113,6 +145,7 @@ host lock; a second one at the same time is refused.
 /etc/tofi/worker.json          Worker config (bind-mounted read-only)
 /etc/tofi/worker.seccomp.json  Worker seccomp profile
 /etc/tofi/Caddyfile            only with --domain
+/etc/tofi/tls/{cert,key}.pem   self-signed certificate (default mode; key 0640 root:10001)
 /etc/tofi/install-state.json   journal
 /etc/apparmor.d/tofi-worker
 /etc/tmpfiles.d/tofi.conf      d /run/tofi 0750 0 10001 -
@@ -129,8 +162,12 @@ The Compose project is `tofi` from `/opt/tofi/current/compose.yaml`, read with
 namespace, read-only, `cap_drop ALL` plus the nine Worker capabilities, KVM and
 TUN devices, AppArmor `tofi-worker`, the seccomp profile), `app` (uid 10001,
 read-only, no capabilities) and, with `--domain`, `caddy` (profile `tls`). The
-App is always published on `${TOFI_BIND}:${TOFI_HTTP_PORT}`; with `--domain` that
-is `127.0.0.1` so only Caddy is public and `tofi status` can still check health.
+App is always published on `${TOFI_BIND}:${TOFI_HTTP_PORT}` (`0.0.0.0` by
+default, HTTPS); with `--domain` that is `127.0.0.1` and plain HTTP so only Caddy
+is public and `tofi status` can still check health. In that mode Caddy reaches
+the App over the Docker bridge, which is why `TOFI_OWNER_ALLOW_LAN_HTTP=1` stays
+for it; the default HTTPS mode sets it to `0`. The App healthcheck picks `https`
+or `http` from `TOFI_TLS_CERT_FILE` (busybox `wget` with Alpine's `ssl_client`).
 The shared `mcp-runner` is not part of this stack; account computers run MCP
 inside their Guest.
 
@@ -182,7 +219,9 @@ make self-host-lint self-host-config
 
 `acceptance_api.py` drives the synthetic end-to-end API checks on a disposable
 acceptance host (`initial`, `files`, `verify`, `auth-capacity`,
-`restart-refusal`); run it as root so it can read the setup key.
+`restart-refusal`); run it as root so it can read the setup key. Against the
+default self-signed HTTPS pass `--url https://<ip>:8321 --insecure`; `initial`
+then also checks that the session cookie is `Secure`.
 
 ## Known limits
 
