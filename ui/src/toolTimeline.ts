@@ -28,7 +28,8 @@ export function toolAttemptIssues(items: Pick<ToolActivity, "status" | "outcome"
   const failures = items.filter(item => item.status === "failed" && ["failed", "unknown"].includes(toolDisplayState(item))).length;
   const interrupted = items.filter(item => item.status === "interrupted").length;
   const pending = items.filter(item => item.status === "queued" || item.status === "running").length;
-  return [failures ? `${failures} 次失败` : "", interrupted ? `${interrupted} 次中断` : "", pending ? `${pending} 次待结束` : ""].filter(Boolean).join(" · ");
+  const t = i18n.getFixedT(null, "tasks");
+  return [failures ? t("tool.attempt.failed", { count: failures }) : "", interrupted ? t("tool.attempt.interrupted", { count: interrupted }) : "", pending ? t("tool.attempt.pending", { count: pending }) : ""].filter(Boolean).join(" · ");
 }
 
 export function toolDisplayState(activity: Pick<ToolActivity,"status"|"outcome">): string {
@@ -94,51 +95,54 @@ export function compareToolActivities(a: ToolActivity, b: ToolActivity) {
   return compareTime(preciseTime(a.started_at), preciseTime(b.started_at)) || a.call_id.localeCompare(b.call_id);
 }
 
-/** Labels reflect observed tool events, never an inferred task the Bot has not started. */
-export function toolActionLabel(activity: Pick<ToolActivity, "name" | "arguments">): string {
+type ToolActionCode = "form" | "answer" | "secret_request" | "secret_use" | "search_tools" | "search_history" | "inspect_runs" | "computer_help" | "send_message" | "complete_schedule" | "connected_tool" | "browse" | "documents" | "command" | "computer" | "contact" | "call";
+const namedToolActions: Record<string, ToolActionCode> = {
+  ask_user_form: "form", ask_user_question: "answer", request_secret_input: "secret_request", use_secret_input: "secret_use",
+  search_mcp_tools: "search_tools", search_history: "search_history", inspect_recent_runs: "inspect_runs", computer_help: "computer_help",
+  send_chat_message: "send_message", complete_scheduled_task: "complete_schedule",
+};
+
+/** What an observed tool event is doing, as a code; callers word it. */
+function toolActionCode(activity: Pick<ToolActivity, "name" | "arguments">): ToolActionCode {
   const name = activity.name.toLowerCase();
-  if (name === "ask_user_form") return "等待你填写表单";
-  if (name === "ask_user_question") return "等待你的回答";
-  if (name === "request_secret_input") return "等待私密输入";
-  if (name === "use_secret_input") return "正在使用私密输入";
-  if (name === "search_mcp_tools") return "正在查找可用工具";
-  if (name === "search_history") return "正在检查对话记录";
-  if (name === "inspect_recent_runs") return "正在检查执行记录";
-  if (name === "computer_help") return "正在查看电脑使用说明";
-  if (name === "send_chat_message") return "正在发送消息";
-  if (name === "complete_scheduled_task") return "正在完成定时任务";
+  if (Object.hasOwn(namedToolActions, name)) return namedToolActions[name];
   if (name === "call_mcp_tool") {
     try {
       const args = JSON.parse(activity.arguments) as { name?: unknown };
       if (typeof args.name === "string") {
-        const inner = toolActionLabel({ name: args.name, arguments: "" });
+        const inner = toolActionCode({ name: args.name, arguments: "" });
         // An unrecognised remote tool is described by its role, not its raw name.
-        if (!inner.startsWith("正在调用 ")) return inner;
+        if (inner !== "call") return inner;
       }
     } catch { /* An unparseable call is not evidence of the remote action. */ }
-    return "正在使用连接的工具";
+    return "connected_tool";
   }
   if (name === "computer_action") {
     try {
       const args = JSON.parse(activity.arguments) as { action?: unknown };
       const action = typeof args.action === "string" ? args.action.toLowerCase() : "";
-      if (/browser|web|navigate|page|tab/.test(action)) return "正在浏览网页";
-      if (/file|read|document/.test(action)) return "正在检查文档";
-      if (/shell|exec|terminal/.test(action)) return "正在运行命令";
+      if (/browser|web|navigate|page|tab/.test(action)) return "browse";
+      if (/file|read|document/.test(action)) return "documents";
+      if (/shell|exec|terminal/.test(action)) return "command";
     } catch { /* A malformed argument is not evidence of an action. */ }
-    return "正在操作电脑";
+    return "computer";
   }
-  if (/browser|web|fetch|crawl/.test(name)) return "正在浏览网页";
-  if (/read|file|document|attachment|pdf/.test(name)) return "正在检查文档";
-  if (/shell|terminal|exec|command/.test(name)) return "正在运行命令";
-  if (/computer|desktop|screen/.test(name)) return "正在操作电脑";
-  if (/message|handoff/.test(name)) return "正在联系成员";
-  return `正在调用 ${activity.name}`;
+  if (/browser|web|fetch|crawl/.test(name)) return "browse";
+  if (/read|file|document|attachment|pdf/.test(name)) return "documents";
+  if (/shell|terminal|exec|command/.test(name)) return "command";
+  if (/computer|desktop|screen/.test(name)) return "computer";
+  if (/message|handoff/.test(name)) return "contact";
+  return "call";
 }
 
-/** A step's human title for records: the action without the live "正在" prefix. */
-export function toolStepTitle(activity: Pick<ToolActivity, "name" | "arguments">): string {
-  return toolActionLabel(activity).replace(/^正在/, "");
+/** Labels reflect observed tool events, never an inferred task the Bot has not started. */
+export function toolActionLabel(activity: Pick<ToolActivity, "name" | "arguments">, locale?: Language): string {
+  return i18n.getFixedT(locale ?? null, "tasks")(`tool.action.${toolActionCode(activity)}`, { name: activity.name });
+}
+
+/** A step's human title for records: the action without the live progress wording. */
+export function toolStepTitle(activity: Pick<ToolActivity, "name" | "arguments">, locale?: Language): string {
+  return i18n.getFixedT(locale ?? null, "tasks")(`tool.title.${toolActionCode(activity)}`, { name: activity.name });
 }
 
 /** Seconds a finished step took; undefined while running or when times are missing. */
@@ -180,10 +184,10 @@ export function toolArgumentPreview(activity: Pick<ToolActivity, "arguments">): 
   return undefined;
 }
 
-const stepActionWords: Record<string, string> = {
-  "desktop.capture": "截屏", "desktop.click": "点击", "desktop.type": "输入文字", "desktop.key": "按键", "desktop.scroll": "滚动", "desktop.start": "开机", "desktop.stop": "关机",
-  "browser.snapshot": "读取页面", "browser.action": "切换标签页", "files.read": "读取文件", "files.write": "写入文件", "files.list": "列出文件",
-};
+const stepActionWords = {
+  "desktop.capture": "desktop_capture", "desktop.click": "desktop_click", "desktop.type": "desktop_type", "desktop.key": "desktop_key", "desktop.scroll": "desktop_scroll", "desktop.start": "desktop_start", "desktop.stop": "desktop_stop",
+  "browser.snapshot": "browser_snapshot", "browser.action": "browser_action", "files.read": "files_read", "files.write": "files_write", "files.list": "files_list",
+} as const;
 
 /** The short detail beside a step: the page or file it touched, the remote tool's own name,
  * or a plain word for a desktop action. Raw commands and argument bodies stay in the detail. */
@@ -199,7 +203,7 @@ export function toolStepDetail(activity: Pick<ToolActivity, "name" | "arguments"
         const url = new URL(args.url);
         if (url.protocol === "https:" || url.protocol === "http:") return `${url.hostname}${url.pathname === "/" ? "" : url.pathname}`.slice(0, 48);
       }
-      if (typeof args.action === "string" && stepActionWords[args.action]) return stepActionWords[args.action];
+      if (typeof args.action === "string" && Object.hasOwn(stepActionWords, args.action)) return i18n.t(`tasks:tool.step_action.${stepActionWords[args.action as keyof typeof stepActionWords]}`);
     }
   } catch { /* Fall back to the allowlisted preview. */ }
   const preview = toolArgumentPreview(activity);

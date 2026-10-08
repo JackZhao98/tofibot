@@ -1,5 +1,6 @@
 import { useId, type ReactNode } from "react";
 import { TofiIcon } from "./icons";
+import { useTranslation } from "./i18n";
 import "./approval-card.css";
 
 export type ApprovalResolution = { label: string; answer?: string; accepted?: boolean };
@@ -24,7 +25,11 @@ export interface ApprovalCardProps {
 }
 
 /** Shared visual card. Only the caller's confirmed result can resolve it. */
-export function ApprovalCard({ title, avatar, time, exactTime, badge = "需要你批准", facts = [], payload, acceptLabel = "批准", declineLabel = "暂不批准", onAnswer, resolution, busy, disabled, error, note, secondaryAction }: ApprovalCardProps) {
+export function ApprovalCard({ title, avatar, time, exactTime, badge: badgeText, facts = [], payload, acceptLabel: acceptText, declineLabel: declineText, onAnswer, resolution, busy, disabled, error, note, secondaryAction }: ApprovalCardProps) {
+  const { t } = useTranslation("tasks");
+  const badge = badgeText ?? t("phase.needs_approval");
+  const acceptLabel = acceptText ?? t("approval.accept");
+  const declineLabel = declineText ?? t("approval.decline");
   const heading = useId();
   const pending = !resolution;
   return <section className={`approval-card ${pending ? "is-pending" : "is-resolved"}${resolution?.accepted === false ? " is-declined" : ""}`} aria-labelledby={heading} aria-busy={Boolean(busy)}>
@@ -39,10 +44,10 @@ export function ApprovalCard({ title, avatar, time, exactTime, badge = "需要�
     <div className="approval-fold approval-content-fold" aria-hidden={!pending} inert={!pending}>
       <div className="approval-fold-inner">
         {facts.length > 0 && <dl className="approval-facts">{facts.map((fact, index) => <div key={index}><dt>{fact.label}</dt><dd>{fact.value}</dd></div>)}</dl>}
-        {payload && <details className="approval-payload"><summary>查看完整参数</summary><pre tabIndex={0} aria-label="完整工具参数，纯文本">{payload}</pre></details>}
+        {payload && <details className="approval-payload"><summary>{t("record.view_full_arguments")}</summary><pre tabIndex={0} aria-label={t("approval.payload_label")}>{payload}</pre></details>}
         <div className="approval-actions">
-          <button type="button" className="approval-decline" disabled={disabled || Boolean(busy) || !pending} onClick={() => onAnswer(false)}>{busy === "decline" ? "提交中…" : declineLabel}</button>
-          <button type="button" className="approval-accept" disabled={disabled || Boolean(busy) || !pending} onClick={() => onAnswer(true)}>{busy === "accept" ? "提交中…" : acceptLabel}</button>
+          <button type="button" className="approval-decline" disabled={disabled || Boolean(busy) || !pending} onClick={() => onAnswer(false)}>{busy === "decline" ? t("approval.submitting") : declineLabel}</button>
+          <button type="button" className="approval-accept" disabled={disabled || Boolean(busy) || !pending} onClick={() => onAnswer(true)}>{busy === "accept" ? t("approval.submitting") : acceptLabel}</button>
           {secondaryAction && <span className="approval-secondary">{secondaryAction}</span>}
         </div>
         {note && <p className="approval-note">{note}</p>}

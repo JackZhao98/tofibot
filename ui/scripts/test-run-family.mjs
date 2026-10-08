@@ -1,16 +1,10 @@
 import assert from "node:assert/strict";
-import { execFile } from "node:child_process";
-import { mkdtemp, rm } from "node:fs/promises";
-import { tmpdir } from "node:os";
-import { dirname, join } from "node:path";
-import { fileURLToPath, pathToFileURL } from "node:url";
-import { promisify } from "node:util";
-const root = dirname(dirname(fileURLToPath(import.meta.url)));
-const out = await mkdtemp(join(tmpdir(), "tofi-run-family-"));
+import { openUiModules } from "./ui-modules.mjs";
+// Load through Vite so the module's i18n catalogs resolve; assertions pin the shipped zh-CN copy.
+const ui = await openUiModules({ language: "zh-CN" });
 try {
-  await promisify(execFile)(join(root, "node_modules/.bin/tsc"), ["src/runFamily.ts", "src/runMerge.ts", "src/types.ts", "--ignoreConfig", "--target", "ES2022", "--module", "ESNext", "--moduleResolution", "Bundler", "--outDir", out, "--skipLibCheck", "--pretty", "false"], {cwd:root});
-  const { buildRetryFamilies, retryFamilyAnchor, runFailureText } = await import(pathToFileURL(join(out, "runFamily.js")));
-  const { mergeRunUpdates } = await import(pathToFileURL(join(out, "runMerge.js")));
+  const { buildRetryFamilies, retryFamilyAnchor, runFailureText } = await ui.load("/src/runFamily.ts");
+  const { mergeRunUpdates } = await ui.load("/src/runMerge.ts");
   const first = {id:"first", conversation_id:"chat", bot_id:"bot", trigger_message_id:"user", status:"failed", error:"LLM call failed: stream read error: stream ID 13; INTERNAL_ERROR; received from peer", created_at:"2026-10-01T16:52:55Z", updated_at:"2026-10-01T16:53:43Z"};
   const retry = {...first,id:"retry",parent_run_id:first.id,status:"done",error:"",created_at:"2026-10-01T16:54:18Z",updated_at:"2026-10-01T16:56:42Z"};
   const family = buildRetryFamilies([retry,first])[0];
@@ -41,5 +35,8 @@ try {
   for (const status of ["queued","running","waiting","done","cancelled"]) assert.equal(mergeRunUpdates([first],[{...retry,id:first.id,status,updated_at:"2026-10-01T17:00:00Z"}])[0].status,"failed","terminal identity cannot revive or change outcome");
   assert.equal(mergeRunUpdates([first],[retry]).length,2,"only distinct retry ID creates new attempt");
   assert.equal(mergeRunUpdates([first],[{id:first.id,error:"more detail",updated_at:"2026-10-01T17:00:00Z"}])[0].error,"more detail","same terminal state may enrich evidence");
+  await ui.setLanguage("en");
+  assert.match(runFailureText(first),/connection dropped/,"English failure copy comes from the en catalog");
+  await ui.setLanguage("zh-CN");
   console.log("run family checks: PASS (terminal replay, explicit links, latest attempt, multi-retry/cycle, nanosecond ordering, legacy/structured failure)");
-} finally {await rm(out,{recursive:true,force:true});}
+} finally {await ui.close();}
