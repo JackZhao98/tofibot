@@ -90,8 +90,15 @@ No deployment or live service upgrade occurs when this source is published.
 
 ## Licensing
 
-This source repository is currently private. Project license selection is pending. See Web dependency notices in
-`ui/THIRD_PARTY_NOTICES.md` and bundled dependency notices under `ui/public/licenses`.
-The header uses the project’s original four-cat landing artwork and Fredoka
-lettering; its font notice is in assets/OFL-Fredoka.txt. No photographic reference
-assets are included. No open-source release has been made; publication awaits an explicit later decision and a confirmed license.
+TOFI is split into two licenses:
+
+- **Server, installer and everything outside `ui/`**: [GNU AGPL-3.0](LICENSE).
+  Run it, change it and share it; if you offer a modified version to others
+  over a network, you must publish your changes under the same license.
+- **Web app (`ui/`)**: [PolyForm Shield 1.0.0](ui/LICENSE). Source is visible
+  and you may use and modify it to run TOFI, but not to build a competing
+  product.
+
+Third-party Web dependency notices are in `ui/THIRD_PARTY_NOTICES.md` and
+`ui/public/licenses`. The header uses the project's original four-cat artwork
+and Fredoka lettering; the font notice is in `assets/OFL-Fredoka.txt`.
