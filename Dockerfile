@@ -20,11 +20,6 @@ COPY --from=go-build /out/tofi-guest /tofi-guest
 
 # The runtime image contains one non-root process and a named persistent data volume.
 FROM alpine:3.22
-ARG TOFI_SOURCE_COMMIT=""
-LABEL io.tofi.account-runtime="1" \
-      io.tofi.data-schema="tofi-account-data-v1" \
-      io.tofi.account-guest-protocol="tofi-account-guest-v1" \
-      org.opencontainers.image.revision=$TOFI_SOURCE_COMMIT
 RUN apk add --no-cache ca-certificates \
   && addgroup -S -g 10001 tofi && adduser -S -u 10001 -G tofi -h /app tofi \
   && mkdir -p /app/data /app/ui \
@@ -40,4 +35,10 @@ ENV TOFI_LISTEN=0.0.0.0:8321 \
     TOFI_UI_DIR=/app/ui
 EXPOSE 8321
 VOLUME ["/app/data"]
+# Labels last: the per-commit ARG would otherwise invalidate the package layer cache.
+ARG TOFI_SOURCE_COMMIT=""
+LABEL io.tofi.account-runtime="1" \
+      io.tofi.data-schema="tofi-account-data-v1" \
+      io.tofi.account-guest-protocol="tofi-account-guest-v1" \
+      org.opencontainers.image.revision=$TOFI_SOURCE_COMMIT
 ENTRYPOINT ["/app/tofi"]
