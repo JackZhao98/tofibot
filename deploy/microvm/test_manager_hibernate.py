@@ -125,6 +125,12 @@ class SnapshotValidityTests(Fixture):
         self.vm.c["vcpus"] = 2
         self.assertIn("machine configuration", self.vm.snapshot_problem())
         self.vm.c["vcpus"] = 1
+        # Guest boot arguments (idle, tab cap) live in the saved memory: a
+        # different value can only take effect through a cold boot.
+        self.vm.c["browser_max_tabs"] = self.vm.c.get("browser_max_tabs", manager.DEFAULT_BROWSER_MAX_TABS) + 1
+        self.assertIn("machine configuration", self.vm.snapshot_problem())
+        del self.vm.c["browser_max_tabs"]
+        self.assertIsNone(self.vm.snapshot_problem())
         with (self.base / "state" / "workspace.ext4").open("r+b") as disk:
             disk.write(b"x")
         self.assertEqual(self.vm.snapshot_problem(), "workspace disk changed since the snapshot")

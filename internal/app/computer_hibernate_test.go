@@ -42,7 +42,7 @@ func TestHibernatedComputerIsAvailableToTheModel(t *testing.T) {
 	s.microVMInfoCache.info = computer.Info{State: "hibernated", Phase: "hibernated", Hibernation: true}
 	s.microVMInfoCache.at = time.Now()
 	status := s.microVMStatus(context.Background())
-	if !strings.Contains(status, "VM status hibernated (") || strings.Contains(status, "hibernated/hibernated") || !strings.Contains(status, "resumes automatically") {
+	if !strings.HasPrefix(status, "VM status hibernated/hibernated (") || !strings.Contains(status, "resumes automatically") {
 		t.Fatalf("status = %q", status)
 	}
 }

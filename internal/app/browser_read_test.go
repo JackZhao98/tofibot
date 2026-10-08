@@ -53,6 +53,32 @@ func TestBrowserReadResultUnwrapsShell(t *testing.T) {
 	}
 }
 
+func TestBrowserReadCarriesGuestTabLimitNote(t *testing.T) {
+	page := `{"title":"T","url":"https://example.com","text":"hello"}`
+	note := `Closed least-recently-used tab "News (news.example)" to stay within the 3-tab limit.`
+	out, _ := json.Marshal(map[string]any{"stdout": page, "exit_code": 0, "tab_limit_note": note})
+	got, err := browserReadResult(string(out))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var decoded map[string]any
+	if json.Unmarshal([]byte(got), &decoded) != nil || decoded["tab_limit_note"] != note || decoded["text"] != "hello" {
+		t.Fatalf("got=%s", got)
+	}
+	quoted, _ := json.Marshal(note)
+	if withTabLimitNote("{}", note) != `{"tab_limit_note": `+string(quoted)+`}` {
+		t.Fatalf("empty page: %s", withTabLimitNote("{}", note))
+	}
+	// Reads carry the guest's notes; locate probes for action review do not
+	// consume them because they use another heredoc tag.
+	read, _ := browserReadCommand(browserReadArgs{})
+	dry, _ := browserReadCommand(browserReadArgs{Click: "Send", Dry: true})
+	probe, _ := browserReadCommand(browserReadArgs{Probe: []float64{1, 2, 3, 4}})
+	if !strings.Contains(string(read), "TOFI_BROWSER_READ") || strings.Contains(string(dry), "TOFI_BROWSER_READ") || strings.Contains(string(probe), "TOFI_BROWSER_READ") {
+		t.Fatal("only page reads may use the TOFI_BROWSER_READ tag")
+	}
+}
+
 func TestBrowserClickCarriesTextAndIsNotAnObservation(t *testing.T) {
 	raw, _ := browserReadCommand(browserReadArgs{Click: "Your Ticket has been issued"})
 	var shell struct {

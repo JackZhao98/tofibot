@@ -47,6 +47,9 @@ BALLOON_STATS_INTERVAL_S = 5
 # memory once the browser has stopped so nearly all free RAM is reported. The
 # guest init re-applies this value: Linux 6.1 overwrites the boot parameter.
 PAGE_REPORTING_ORDER = 5
+# Default cap on open page tabs in the guest Chrome (config browser_max_tabs,
+# boot argument tofi_browser_tabs, tofi-guest --max-browser-tabs).
+DEFAULT_BROWSER_MAX_TABS = 2
 # (Firecracker field, exported name, divisor). Guest byte counts become MiB.
 BALLOON_STATS = (("target_mib", "target_mib", 1), ("actual_mib", "actual_mib", 1),
                  ("total_memory", "guest_total_mib", 1024**2),
@@ -162,6 +165,11 @@ def validate_config(c):
     idle = c.get("desktop_idle_seconds", 900)
     if type(idle) is not int or not 0 <= idle <= 86400:
         raise ValueError("desktop_idle_seconds must be an integer from 0 to 86400")
+    # Open page tabs the guest Chrome keeps; beyond it the least recently used
+    # tab closes (1 GiB guests hang with about six heavy sites). 0 disables.
+    tabs = c.get("browser_max_tabs", DEFAULT_BROWSER_MAX_TABS)
+    if type(tabs) is not int or not 0 <= tabs <= 20:
+        raise ValueError("browser_max_tabs must be an integer from 0 to 20")
     if type(c.get("memory_balloon", True)) is not bool:
         raise ValueError("memory_balloon must be a boolean")
     if type(c.get("hibernate", True)) is not bool:
@@ -196,6 +204,7 @@ class VM:
         self.chain = "TOFI_FC_" + str(self.slot)
         self.link_net = f"10.246.{self.slot}"
         self.guest_net = f"10.247.{self.slot}"
+        self.tap_mac = f"06:00:00:00:{self.slot:02x}:01"
         self.root = Path(self.c["state_dir"])
         self.jail = self.root / "jails" / "firecracker" / self.c["id"] / "root"
         self.vsock = self.jail / "run" / "v.sock"
@@ -368,6 +377,9 @@ class VM:
         ns("ip", "link", "set", self.peer_if, "up")
         ns("ip", "route", "add", "default", "via", self.link_net + ".1")
         ns("ip", "tuntap", "add", "dev", "tap0", "mode", "tap", "user", str(self.uid))
+        # A fixed gateway MAC: a guest restored from a snapshot keeps its ARP
+        # entry for the gateway, which must still match a recreated tap0.
+        ns("ip", "link", "set", "dev", "tap0", "address", self.tap_mac)
         ns("ip", "addr", "add", self.guest_net + ".1/30", "dev", "tap0")
         ns("ip", "link", "set", "tap0", "up")
         ns("sysctl", "-q", "-w", "net.ipv4.ip_forward=1")
@@ -522,7 +534,8 @@ class VM:
     def firecracker_config(self):
         boot_args = ("console=ttyS0 reboot=k panic=1 pci=off root=/dev/vda ro init=/sbin/tofi-init "
                      f"tofi_ip={self.guest_net}.2 tofi_gateway={self.guest_net}.1 "
-                     f"tofi_desktop_idle={self.guest_desktop_idle()}")
+                     f"tofi_desktop_idle={self.guest_desktop_idle()} "
+                     f"tofi_browser_tabs={self.c.get('browser_max_tabs', DEFAULT_BROWSER_MAX_TABS)}")
         config = {
             "boot-source": {"kernel_image_path": "/vmlinux", "boot_args": boot_args},
             "drives": [
