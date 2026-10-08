@@ -26,7 +26,8 @@ STUBS = {
     'nproc': 'echo "${STUB_NPROC:-4}"',
     'df': ('echo "Filesystem 1024-blocks Used Available Capacity Mounted on"\n'
            'echo "/dev/vda1 104857600 1 ${STUB_DF_AVAIL_KIB:-52428800} 1% /"'),
-    'apt-get': 'exit 0',
+    'apt-get': ('echo "(Reading database ... 5%"\necho "DEBIAN_FRONTEND=$DEBIAN_FRONTEND"\n'
+                '[ -z "$STUB_APT_FAIL" ] || { echo "E: Unable to locate package zstd" >&2; exit 100; }'),
     'systemctl': 'exit 0',
     'docker': '''case "$*" in
   "compose version") echo "Docker Compose version v2.29.0" ;;
@@ -238,7 +239,7 @@ class InstallScriptTests(unittest.TestCase):
         self.assertEqual(json.loads(Path(manifest_path).read_text())['version'], VERSION)
         for number in range(1, 10):
             self.assertIn('[%d/12]' % number, result.stdout)
-        self.assertTrue(any(c.startswith('apt-get install') for c in self.stub_calls()))
+        self.assertTrue(any(c.startswith('apt-get -qq') and ' install -y ' in c for c in self.stub_calls()))
         self.assertEqual(list(self.tmp.iterdir()), [], 'temporary download directory must be removed')
 
     def test_hand_off_latest_and_lan(self):
@@ -247,6 +248,29 @@ class InstallScriptTests(unittest.TestCase):
         args = (self.root / 'handoff.args').read_text().splitlines()
         self.assertEqual(args[3:], ['--lan', '--yes'])
         self.assertTrue(any('latest/download/manifest.json' in c for c in self.stub_calls()))
+
+    def test_package_output_goes_to_log(self):
+        result = self.run_script('--version', VERSION, '--yes')
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertNotIn('Reading database', result.stdout + result.stderr)
+        log = (self.root / 'var/log/tofi-install.log').read_text()
+        self.assertIn('Reading database', log)
+        self.assertIn('DEBIAN_FRONTEND=noninteractive', log)
+        self.assertIn('+ env DEBIAN_FRONTEND=noninteractive apt-get -qq', log)
+
+    def test_package_failure_points_to_log(self):
+        result = self.run_script('--version', VERSION, '--yes', STUB_APT_FAIL='1')
+        self.assertEqual(result.returncode, 1)
+        self.assertIn('see /var/log/tofi-install.log', result.stderr)
+        self.assertNotIn('Unable to locate package', result.stderr)
+        self.assertIn('Unable to locate package', (self.root / 'var/log/tofi-install.log').read_text())
+
+    def test_latest_missing_suggests_version(self):
+        (self.releases / 'latest' / 'manifest.json').unlink()
+        result = self.run_script('--yes')
+        self.assertEqual(result.returncode, 1)
+        self.assertIn("'latest' skips pre-releases", result.stderr)
+        self.assertIn('--version', result.stderr)
 
     def test_existing_install_keeps_version(self):
         self.host_file('etc/tofi/install-state.json', '{"schema": 1, "phase": "installed"}')
