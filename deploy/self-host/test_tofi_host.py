@@ -328,6 +328,100 @@ class RenderTests(HostCase):
         self.assertLess(parsed.index(['apparmor_parser', '-Q']), parsed.index(['apparmor_parser', '-r']))
 
 
+class DockerTests(HostCase):
+    def inspect(self, reference, labels, entrypoint, arch='amd64', digests=None):
+        data = [{'Architecture': arch, 'Os': 'linux',
+                 'RepoDigests': digests if digests is not None else [reference],
+                 'Config': {'Labels': labels, 'Entrypoint': entrypoint}}]
+        tofi_host.run.side_effect = lambda args, **kw: completed(json.dumps(data))
+
+    def test_inspect_image_labels(self):
+        app = image('app', '1')
+        labels = {'io.tofi.account-runtime': '1', 'io.tofi.data-schema': 'tofi-account-data-v1',
+                  'io.tofi.account-guest-protocol': 'tofi-account-guest-v1'}
+        self.inspect(app, labels, ['/app/tofi'])
+        tofi_host.inspect_image(app, 'app', 'tofi-account-data-v1')
+        with self.assertRaisesRegex(tofi_host.HostError, 'data schema'):
+            tofi_host.inspect_image(app, 'app', 'tofi-account-data-v2')
+        self.inspect(app, dict(labels, **{'io.tofi.account-guest-protocol': 'other'}), ['/app/tofi'])
+        with self.assertRaisesRegex(tofi_host.HostError, 'Guest protocol'):
+            tofi_host.inspect_image(app, 'app')
+        self.inspect(app, labels, ['/app/tofi'], arch='arm64')
+        with self.assertRaisesRegex(tofi_host.HostError, 'linux/amd64'):
+            tofi_host.inspect_image(app, 'app')
+        self.inspect(app, labels, ['/app/tofi'], digests=['ghcr.io/jackzhao98/tofi@sha256:' + '0' * 64])
+        with self.assertRaisesRegex(tofi_host.HostError, 'pinned digest'):
+            tofi_host.inspect_image(app, 'app')
+        worker = image('worker', '1')
+        self.inspect(worker, {'io.tofi.account-worker': '1',
+                              'io.tofi.account-guest-protocol': 'tofi-account-guest-v1'},
+                     tofi_host.WORKER_ENTRYPOINT)
+        tofi_host.inspect_image(worker, 'worker')
+        caddy = image('caddy', '9')
+        self.inspect(caddy, {}, ['caddy'], digests=['caddy@sha256:' + '9' * 64])
+        tofi_host.inspect_image(caddy, 'caddy')
+
+    def test_stopped_fences_unclean_worker_exit(self):
+        containers = [{'Id': 'w' * 64, 'Config': {'Labels': {'com.docker.compose.service': 'worker'}},
+                       'State': {'Running': False, 'ExitCode': 1}}]
+
+        def docker(args, **kw):
+            if args[:2] == ['docker', 'ps']:
+                return completed('w' * 12 + '\n')
+            if args[:2] == ['docker', 'inspect']:
+                return completed(json.dumps(containers))
+            return completed()
+        tofi_host.run.side_effect = docker
+        with self.assertRaisesRegex(tofi_host.HostError, 'stopped uncleanly'):
+            tofi_host.stopped()
+        containers[0]['State']['ExitCode'] = 0
+        tofi_host.stopped()
+
+    def test_worker_ready_requires_first_account_capacity(self):
+        worker = [{'Id': 'w', 'Config': {'Labels': {'com.docker.compose.service': 'worker'}},
+                   'State': {'Running': True, 'Pid': 4242}}]
+        replies = {'value': {'remaining_bytes': 10 * tofi_host.GIB, 'empty': True}}
+
+        def docker(args, **kw):
+            if args[:2] == ['docker', 'ps']:
+                return completed('w\n')
+            if args[:2] == ['docker', 'inspect']:
+                return completed(json.dumps(worker))
+            self.assertEqual((kw['user'], kw['group']), (10001, 10001))
+            self.assertEqual(args[-1], '4242')
+            return completed(json.dumps(replies['value']))
+        tofi_host.run.side_effect = docker
+        with self.assertRaisesRegex(tofi_host.HostError, 'first account needs 16 GiB'):
+            tofi_host.worker_ready(first_install=True)
+        tofi_host.worker_ready(first_install=False)
+        replies['value'] = {'remaining_bytes': 20 * tofi_host.GIB, 'empty': True}
+        tofi_host.worker_ready(first_install=True)
+
+    def test_worker_ready_retries_while_broker_starts(self):
+        worker = [{'Id': 'w', 'Config': {'Labels': {'com.docker.compose.service': 'worker'}},
+                   'State': {'Running': True, 'Pid': 7}}]
+        attempts = []
+
+        def docker(args, **kw):
+            if args[:2] == ['docker', 'ps']:
+                return completed('w\n')
+            if args[:2] == ['docker', 'inspect']:
+                return completed(json.dumps(worker))
+            attempts.append(1)
+            if len(attempts) < 3:
+                raise subprocess.CalledProcessError(75, args, '', 'broker starting')
+            return completed(json.dumps({'remaining_bytes': 0, 'empty': False}))
+        tofi_host.run.side_effect = docker
+        tofi_host.worker_ready()
+        self.assertEqual(len(attempts), 3)
+        tofi_host.run.side_effect = lambda args, **kw: (
+            completed('w\n') if args[:2] == ['docker', 'ps'] else
+            completed(json.dumps(worker)) if args[:2] == ['docker', 'inspect'] else
+            (_ for _ in ()).throw(subprocess.CalledProcessError(78, args, '', 'peer mismatch')))
+        with self.assertRaisesRegex(tofi_host.HostError, 'peer mismatch'):
+            tofi_host.worker_ready()
+
+
 class LockTests(HostCase):
     def test_lock_contention_refused(self):
         with tofi_host.lifecycle_lock():
