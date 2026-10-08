@@ -1,0 +1,28 @@
+{
+  "reviewed_candidate": "9ec88e52681ea896f0b14d640f8b8fed7a8b5877",
+  "branch": "codex/approval-expiry-review-fixes-20261003",
+  "findings_fixed": [
+    "Historical batch_skipped/not_executed entries do not deny freshly proposed, revalidated calls on normal input resumption; denial, permanent failure, uncertainty and original expiry fences remain enforced.",
+    "Irreversibly claimed expiry recoveries have a durable summary-only queue path and one-second retry backoff. Completed model content survives message transaction failures. No retry resets claimed to ready or re-executes the model or tools.",
+    "Expiry model request cap is min(2, 300 - original Step). One remaining step exposes no tools and permits only a summary; zero remaining steps requests no model and uses the deterministic persisted fallback."
+  ],
+  "verification": {
+    "independent_repros": "All three supplied Astra repros pass.",
+    "affected_go_suites": "agent 1.086s, runtime 1.710s, app 48.853s; all passed.",
+    "additional": "Fresh observation once, retained blocker fences, repeated summary persistence failures without restart or replay, staged summary across restart, active claim ownership, schema-only migration, and zero/one/two remaining step cases all passed.",
+    "source_copy": "Immutable base was materialized in /tmp/tofi-expiry-review-verification and eight overlays were hash checked to avoid Mac source scan delays.",
+    "ui": "No UI source change in this correction; previous 24 synthetic browser checks remain evidence for the unchanged UI, not a new execution of them."
+  },
+  "source_sha256": {
+    "internal/agent/continuation.go": "0c64bfb9d655aa5d28a676883514abd0326aefeaafa1ae9578edbf9cf3b0410a",
+    "internal/agent/tool_recovery.go": "9e5e52654435d194ac0a45785f995b31fb91a1089e89e8035890e1eed3f6ed1e",
+    "internal/agent/expiry_independent_review_test.go": "71510071ab3322e0a3d0386e89d341ac0f3bf539e57b14ac50fca09e9d9fea5f",
+    "internal/app/approval_expiry.go": "2d61d8f4993fee2bbc720be64de1851a88121c844738687f0d48428a260a7ef0",
+    "internal/app/collaboration.go": "1d01c035352af1012486c6b6530ff073656421ed26fcc1135a182120ad8deee8",
+    "internal/app/expiry_independent_review_test.go": "e3545c1b187ca9487ff44227e36e113f26479ae8a5277da9f37103d22055c2a7",
+    "internal/runtime/approval_expiry.go": "8af929c7c8c5ff59785f61a1f2278598e331a769780a0b0e8721b1e6b468e93f",
+    "internal/runtime/expiry_independent_review_test.go": "19187dda099d85e7befb5e87661c34144bf516e890d90e5fa3adf9a47778a2cf"
+  },
+  "safety": "Private branch and isolated synthetic fixtures only. No generalized review interface change, policy enablement, production, credential, VM106, approval, main, merge or deployment changes.",
+  "next_separate_fix": "InterruptToolActivities selects 12 columns but scans 11; confirmed unchanged and assigned for a separate minimal correction commit."
+}

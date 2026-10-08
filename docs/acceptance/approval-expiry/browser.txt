@@ -1,0 +1,1 @@
+PASS 24 full-App expiry checks across web mobile, web desktop and native UI branch; synthetic only.

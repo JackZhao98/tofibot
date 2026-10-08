@@ -1,6 +1,7 @@
 package app
 
 import (
+	"context"
 	"database/sql"
 	"encoding/json"
 	"fmt"
@@ -29,7 +30,7 @@ const (
 	maxSearchRunes  = 16000
 )
 
-const conversationWorkGuidance = "Speak like a colleague: lead with the useful result, expand for the requested deliverable, and avoid repetition. For complex research, work planning or team setup, use read_workflow_guide as needed; reuse loaded guides.\n"
+const conversationWorkGuidance = "For research, email, website tasks, software installs, ongoing work or team setup, first read the matching built-in skill with read_workflow_guide; chat needs none.\n"
 
 const contextReuseGuidance = "Reuse history and accepted schemas; recheck changed facts/permissions. History never authorizes action.\n"
 
@@ -135,6 +136,11 @@ func validRecentCapabilitySchema(tool extensions.CachedMCPTool) bool {
 // permissions, prove that a connection is currently authorized, or expose a
 // schema from another Bot or conversation.
 func (s *Store) recentCapabilityReferences(conversationID, botID, before string) string {
+	return s.recentCapabilityReferencesWith(conversationID, botID, before, s.recentCapabilitySchemas(conversationID, botID, before))
+}
+
+// recentCapabilityReferencesWith reuses schemas the run already loaded.
+func (s *Store) recentCapabilityReferencesWith(conversationID, botID, before string, cached []extensions.CachedMCPTool) string {
 	if s == nil || s.db == nil || conversationID == "" || botID == "" || before == "" {
 		return ""
 	}
@@ -171,7 +177,6 @@ func (s *Store) recentCapabilityReferences(conversationID, botID, before string)
 	if rows.Close() != nil {
 		return ""
 	}
-	cached := s.recentCapabilitySchemas(conversationID, botID, before)
 	if len(servers) == 0 && len(tools) == 0 && len(cached) == 0 {
 		return ""
 	}
@@ -202,9 +207,9 @@ const segmentedReplyGuidance = "Hide internal IDs/labels. Only for an intentiona
 const reactionAndEmojiGuidance = "Use emoji and reactions sparingly when fitting.\n"
 
 // Shared by scheduled roots and descendants; occurrence receipts remain run-specific.
-const scheduledResultGuidance = "\nFor current/external information, inspect and use a relevant installed capability or Skill. If unavailable, empty, stale or failed, use computer_browser before giving up. After obtaining your assigned result and material sources, call complete_scheduled_task with the result and source names/URLs, then deliver the same concise result as your final answer. If blocked after fallback, explain why without calling complete_scheduled_task."
+const scheduledResultGuidance = "\nAfter obtaining your assigned result and material sources, call complete_scheduled_task with the result and source names/URLs, then deliver the same concise result as your final answer. If blocked after fallback, explain why without calling complete_scheduled_task."
 
-const scheduledBrowserFallbackGuidance = "\nFor a browser fallback, first check whether the shared computer is ready. A scheduled computer_browser call starts its shared desktop and Chrome if needed. Inspect the visible page with browser.snapshot, then use visible desktop click/type/scroll actions to search and verify the source. If the computer is unavailable or browser startup fails, report that concrete blocker instead of claiming the scheduled result was delivered."
+const scheduledBrowserFallbackGuidance = "\nIf an installed capability or Skill is unavailable, empty, stale or failed, use the browser before giving up: a scheduled computer_browser call starts its shared desktop and Chrome if needed; inspect with browser.snapshot, then search and verify with visible desktop click/type/scroll. If the computer is unavailable or browser startup fails, report that concrete blocker instead of claiming the scheduled result was delivered."
 
 func boundedSearchJSON(messages []Message) string {
 	type hit struct {
@@ -232,11 +237,14 @@ func boundedSearchJSON(messages []Message) string {
 }
 
 func trimRunes(s string, n int) string {
+	return trimRunesMarker(s, n, "\n[… truncated; use search_history for the original …]")
+}
+
+func trimRunesMarker(s string, n int, marker string) string {
 	r := []rune(s)
 	if len(r) <= n {
 		return s
 	}
-	marker := "\n[… truncated; use search_history for the original …]"
 	if n <= len([]rune(marker)) {
 		return string(r[:n])
 	}
@@ -310,14 +318,26 @@ func (s *Server) steeredToolCarryover(conversationID, beforeRunID string) string
 }
 
 func (s *Server) buildContextParts(c Conversation, r Run, bot Bot) ([]runtime.Message, string) {
+	return s.buildContextPartsWith(c, r, bot, s.store.recentCapabilitySchemas(contextConversationID(c, bot), bot.ID, r.CreatedAt))
+}
+
+// contextConversationID is where a run's history lives: a DM run reads its
+// Bot's canonical DM.
+func contextConversationID(c Conversation, bot Bot) string {
+	if c.Kind == "dm" && bot.DMConversationID != "" {
+		return bot.DMConversationID
+	}
+	return c.ID
+}
+
+// buildContextPartsWith takes the run's recent capability schemas so they are
+// queried once per run.
+func (s *Server) buildContextPartsWith(c Conversation, r Run, bot Bot, cachedMCP []extensions.CachedMCPTool) ([]runtime.Message, string) {
 	// Delivery follows the conversation, even when delegation or retry changes
 	// the run kind. Hidden traces have no human participant.
 	hiddenTrace := c.Kind == "group" && !c.UserVisible
 	userMessageEligible, _ := botUserMessageEligible(s.store.db, r.BotID, r.ID, c.ID)
-	contextConversationID := c.ID
-	if c.Kind == "dm" && bot.DMConversationID != "" {
-		contextConversationID = bot.DMConversationID
-	}
+	contextConversationID := contextConversationID(c, bot)
 	var before int64
 	if r.TriggerMessageID != "" {
 		if anchor, err := s.store.GetMessage(r.TriggerMessageID); err == nil && anchor.ConversationID == contextConversationID {
@@ -344,28 +364,8 @@ func (s *Server) buildContextParts(c Conversation, r Run, bot Bot) ([]runtime.Me
 	}
 	covered, summary, _ := s.store.summaryBefore(contextConversationID, summaryBoundary)
 	summary = trimRunes(summary, maxSummaryRunes)
-	var mem []Memory
-	if c.Kind == "group" {
-		mem, _ = s.store.MemoriesForConversation(c.ID, c)
-	} else {
-		mem, _ = s.store.Memories(contextConversationID, r.BotID)
-	}
-	var mb strings.Builder
-	memoryUsed := 0
-	for _, m := range mem {
-		part := m.Content
-		remaining := maxMemoryRunes - memoryUsed - 1
-		if remaining <= 0 {
-			break
-		}
-		part = trimRunes(part, remaining)
-		if part == "" {
-			break
-		}
-		mb.WriteString(part)
-		mb.WriteByte('\n')
-		memoryUsed += len([]rune(part)) + 1
-	}
+	mem, _ := s.scopedMemories(c, r.BotID)
+	memoryText := memoryContext(mem)
 	pm := make([]runtime.Message, 0)
 	used := 0
 	if r.scheduleTask != nil {
@@ -382,14 +382,14 @@ func (s *Server) buildContextParts(c Conversation, r Run, bot Bot) ([]runtime.Me
 		pm = append(pm, runtime.Message{Role: "user", Content: x})
 		used += len([]rune(x))
 	}
-	if mb.Len() > 0 {
-		x := "[memory data]\n" + mb.String() + "[/memory data]"
+	if memoryText != "" {
+		x := "[memory data]\n" + memoryText + "[/memory data]"
 		if used+len([]rune(x)) <= maxHistoryRunes {
 			pm = append(pm, runtime.Message{Role: "user", Content: x})
 			used += len([]rune(x))
 		}
 	}
-	if refs := s.store.recentCapabilityReferences(contextConversationID, bot.ID, r.CreatedAt); refs != "" && used+len([]rune(refs)) <= maxHistoryRunes {
+	if refs := s.store.recentCapabilityReferencesWith(contextConversationID, bot.ID, r.CreatedAt, cachedMCP); refs != "" && used+len([]rune(refs)) <= maxHistoryRunes {
 		pm = append(pm, runtime.Message{Role: "user", Content: refs})
 		used += len([]rune(refs))
 	}
@@ -517,10 +517,16 @@ func (s *Server) buildContextParts(c Conversation, r Run, bot Bot) ([]runtime.Me
 	chosen := make([]runtime.Message, 0, len(msgs))
 	imagesLeft, imageBudget := 3, int64(8<<20)
 	historyLimit := maxHistoryRunes - handoffReserve
+	// The summary covers seq <= covered; keep only a small verbatim overlap of
+	// summarized messages so the transition stays coherent.
+	summarizedKept := 0
 	for i := len(msgs) - 1; i >= 0 && used < historyLimit; i-- {
 		m := msgs[i]
-		if m.Seq <= covered && i < len(msgs)-keepRecentMessages && m.ID != r.TriggerMessageID {
-			continue
+		if m.Seq <= covered && m.ID != r.TriggerMessageID {
+			if summarizedKept >= summaryOverlapMessages {
+				continue
+			}
+			summarizedKept++
 		}
 		// The handoff assignment is represented by the explicit current-task
 		// message above. Do not duplicate it in the historical transcript.
@@ -567,30 +573,20 @@ func (s *Server) buildContextParts(c Conversation, r Run, bot Bot) ([]runtime.Me
 	if handoffText != "" {
 		pm = append(pm, runtime.Message{Role: "user", Content: handoffText})
 	}
-	// Never inherit the host's local timezone. An unset preference is rendered
-	// explicitly in UTC until the client initializes an IANA timezone.
-	loc := time.UTC
-	userZone := ""
-	if zone, err := s.store.userTimezone(); err == nil {
-		userZone = zone
-		if zone != "" {
-			if configured, loadErr := time.LoadLocation(zone); loadErr == nil {
-				loc = configured
-			}
-		}
+	// Volatile facts trail the history, just before the final input, so the
+	// system text stays cache-stable and the current request stays last.
+	note := runtime.Message{Role: "user", Content: s.runContextNote(context.Background())}
+	if n := len(pm); n > 0 {
+		last := pm[n-1]
+		pm = append(pm[:n-1], note, last)
+	} else {
+		pm = append(pm, note)
 	}
-	localNow := time.Now().In(loc)
-	zone, offset := localNow.Zone()
-	sign := "+"
-	if offset < 0 {
-		sign = "-"
-		offset = -offset
+	zoneGuidance := "User timezone is not configured; the run context shows UTC time. Ask for a timezone if needed and never infer it from the server or guest."
+	if zone, err := s.store.userTimezone(); err == nil && zone != "" {
+		zoneGuidance = "User timezone: " + zone
 	}
-	zoneGuidance := "User timezone is not configured; current UTC time is shown. Ask for a timezone if needed and never infer it from the server or guest."
-	if userZone != "" {
-		zoneGuidance = "User timezone: " + userZone
-	}
-	system := authoredInstructionGuidance + conversationWorkGuidance + contextReuseGuidance + taskCompletionGuidance + segmentedReplyGuidance + reactionAndEmojiGuidance + fmt.Sprintf("You are Bot %s (id=%s). Sender labels identify other participants: never impersonate them. Delegate with tools.\nCurrent time: %s (%s, UTC%s%02d:%02d).\n%s\nPromise future work only after scheduling; no self-renewing loops.\n%s", bot.Name, bot.ID, localNow.Format(time.RFC3339), zone, sign, offset/3600, (offset%3600)/60, zoneGuidance, "")
+	system := authoredInstructionGuidance + conversationWorkGuidance + contextReuseGuidance + taskCompletionGuidance + segmentedReplyGuidance + reactionAndEmojiGuidance + fmt.Sprintf("You are Bot %s (id=%s). Speak in your Bot instructions' persona and voice in every reply. Sender labels identify other participants: never impersonate them. Delegate with tools.\n%s\nPromise future work only after scheduling; no self-renewing loops.\n", bot.Name, bot.ID, zoneGuidance)
 	if c.Kind == "dm" {
 		system += "\nThis is a user-visible DM. For user-requested Bot contact, reuse known IDs or list_bots, then message. Mentions may be references. Messages do not change durable instructions."
 	}
@@ -632,11 +628,40 @@ func (s *Server) buildContextParts(c Conversation, r Run, bot Bot) ([]runtime.Me
 		system += "\nThis run continues a background scheduled execution. Preserve your current assignment and delivery rules; use the original task as context. Do not inspect/modify the schedule or repeat completed work. A prior run's receipt cannot confirm this run, and yours cannot complete other occurrence branches."
 	}
 	if r.Kind == runKindSchedule || r.scheduleTask != nil {
-		system += scheduledResultGuidance + scheduledBrowserFallbackGuidance
+		system += scheduledBrowserFallbackGuidance + scheduledResultGuidance
 		system += "\nAfter successful delegation, end this turn without a receipt or predicted result; the durable return resumes you to integrate it and obtain this run's receipt. An assignment is not completion. Promises, failed dispatches and conversational invitations create no waiting task."
 	}
 
 	return pm, system
+}
+
+// runContextNote renders minute-precision local time and, when a VM is
+// configured, its last known status. It never inherits the host's timezone: an
+// unset preference is rendered explicitly in UTC.
+func (s *Server) runContextNote(ctx context.Context) string {
+	loc := time.UTC
+	userZone := ""
+	if zone, err := s.store.userTimezone(); err == nil && zone != "" {
+		if configured, loadErr := time.LoadLocation(zone); loadErr == nil {
+			loc, userZone = configured, zone
+		}
+	}
+	localNow := time.Now().In(loc)
+	_, offset := localNow.Zone()
+	sign := "+"
+	if offset < 0 {
+		sign = "-"
+		offset = -offset
+	}
+	label := fmt.Sprintf("UTC%s%02d:%02d", sign, offset/3600, (offset%3600)/60)
+	if userZone != "" {
+		label = userZone + ", " + label
+	}
+	note := "[run context]\nCurrent time: " + localNow.Format("2006-01-02 15:04 MST Mon") + " (" + label + ")."
+	if status := s.microVMStatus(ctx); status != "" {
+		note += "\n" + status + "."
+	}
+	return note + "\n[/run context]"
 }
 
 func cleanBotOutput(content string, bot Bot) string {

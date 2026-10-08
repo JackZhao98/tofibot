@@ -70,7 +70,7 @@ func (s *Server) toolSnapshot(botID, conversationID string) (toolSnapshot, bool)
 	return snapshot, ok
 }
 
-const runtimeDurablePrompt = "\nBefore saving memory, list_memory; correct facts with update_memory. Keep session/compaction details private."
+const runtimeDurablePrompt = "\nsave_memory skips duplicates; correct facts with update_memory. Keep session/compaction details private."
 
 const runtimeCapabilityPrompt = "\nFor requested settings changes, first inspect workspace_capabilities and current state; preserve omitted fields and respect busy-target conflicts."
 

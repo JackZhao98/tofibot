@@ -112,6 +112,9 @@ func ToolCallID(ctx context.Context) string {
 // echo provider. Local providers are allowed to omit a key only when the
 // provider/base URL explicitly identifies a local endpoint.
 func New(cfg Config) (Engine, error) {
+	if cfg.Resolve != nil {
+		return &engine{config: cfg, model: strings.TrimSpace(cfg.Model)}, nil
+	}
 	providerName := strings.TrimSpace(cfg.Provider)
 	if providerName == "" {
 		return nil, errors.New("model provider is not configured")
@@ -175,6 +178,52 @@ func (p credentialProvider) ChatStream(ctx context.Context, req *provider.ChatRe
 	return model.ChatStream(ctx, req, onDelta)
 }
 
+// ModelProvider names the provider that serves a model ID: codex-* is the
+// Codex sign-in, claude* is Anthropic, everything else is the OpenAI API.
+// TODO(integrator): delegate to provider.ProviderForModel once WS-P lands it.
+func ModelProvider(model string) string { return provider.ProviderForModel(model) }
+
+// routedProvider builds the provider for each request's model, so one engine
+// serves every configured provider and compaction follows the same route.
+type routedProvider struct {
+	config Config
+	retry  bool
+}
+
+func (p routedProvider) provider(ctx context.Context, model string) (provider.Provider, error) {
+	name := ModelProvider(model)
+	credential, err := p.config.Resolve(ctx, name)
+	if err != nil {
+		return nil, err
+	}
+	var opts []provider.Option
+	if p.config.Endpoint != nil {
+		if base := strings.TrimSpace(p.config.Endpoint(name)); base != "" {
+			opts = append(opts, provider.WithBaseURL(base))
+		}
+	}
+	if p.retry {
+		opts = append(opts, provider.WithDefaultRetry())
+	}
+	return provider.New(name, credential, opts...)
+}
+
+func (p routedProvider) Chat(ctx context.Context, req *provider.ChatRequest) (*provider.ChatResponse, error) {
+	model, err := p.provider(ctx, req.Model)
+	if err != nil {
+		return nil, err
+	}
+	return model.Chat(ctx, req)
+}
+
+func (p routedProvider) ChatStream(ctx context.Context, req *provider.ChatRequest, onDelta func(provider.StreamDelta)) (*provider.ChatResponse, error) {
+	model, err := p.provider(ctx, req.Model)
+	if err != nil {
+		return nil, err
+	}
+	return model.ChatStream(ctx, req, onDelta)
+}
+
 func isExplicitLocalProvider(name, baseURL string) bool {
 	u, err := url.Parse(strings.TrimSpace(baseURL))
 	if err != nil || u.Hostname() == "" {
@@ -207,6 +256,9 @@ func (e *engine) Run(ctx context.Context, req Request) (Result, error) {
 	if err != nil {
 		return Result{}, err
 	}
+	if req.ApprovalExpiryRecovery {
+		return e.finishApprovalExpiry(ctx, req, model, continuation)
+	}
 
 	messages := make([]provider.Message, len(req.Messages))
 	for i, msg := range req.Messages {
@@ -227,6 +279,18 @@ func (e *engine) Run(ctx context.Context, req Request) (Result, error) {
 		}
 		return err
 	})
+	resolveIdentity := func(name, args string) tooloutcome.Identity {
+		for _, t := range req.Tools {
+			if t.Name == name && t.Identity != nil {
+				return t.Identity(json.RawMessage(args))
+			}
+		}
+		return tooloutcome.DefaultIdentity(name, json.RawMessage(args))
+	}
+	tracker.risk = func(name, args string) string { return resolveIdentity(name, args).Risk }
+	if req.OnRetry != nil {
+		runCtx = provider.WithRetryObserver(runCtx, func(attempt int, _ error, wait time.Duration) { req.OnRetry(attempt, wait) })
+	}
 	if continuation != nil {
 		if err := tracker.restoreContinuation(continuation); err != nil {
 			return Result{}, fmt.Errorf("restore tool events: %w", err)
@@ -293,7 +357,7 @@ func (e *engine) Run(ctx context.Context, req Request) (Result, error) {
 						certainty, explanation := "unknown", executeErr.Error()+" Verify the target state before repeating this call."
 						if identity.Risk == tooloutcome.Observation {
 							status, code, next, certainty = tooloutcome.Permanent, "observation_failed", "explain_blocker", "no_side_effects"
-							explanation = executeErr.Error() + " This observation failed; inspect another target or explain the blocker."
+							explanation = executeErr.Error() + " This observation failed without side effects. Fix its precondition (for example, start what it reads) before retrying it, inspect another target, or explain the blocker."
 						}
 						executeErr = tooloutcome.New(status, code, certainty, explanation, next).Err()
 					}
@@ -308,39 +372,56 @@ func (e *engine) Run(ctx context.Context, req Request) (Result, error) {
 	execCtx := models.NewExecutionContext(req.RunID, req.BotID, "")
 	defer execCtx.Cancel()
 	modelProvider := e.provider
-	if e.credential != nil {
+	if e.config.Resolve != nil {
+		modelProvider = routedProvider{config: e.config, retry: true}
+	} else if e.credential != nil {
 		modelProvider = credentialProvider{config: e.config, credential: e.credential}
 	}
 	var onStream func(string, string)
 	if req.OnDelta != nil {
 		onStream = func(_ string, delta string) { req.OnDelta(delta) }
 	}
+	var onThinking func(string, string)
+	if req.OnThinking != nil {
+		onThinking = func(_ string, delta string) { req.OnThinking(delta) }
+	}
+	var onReviewDraft func(int, string)
+	if req.OnReviewDraft != nil {
+		onReviewDraft = func(turnIndex int, content string) {
+			if err := req.OnReviewDraft(turnIndex, content); err != nil {
+				tracker.setErr(err)
+				cancelRun()
+			}
+		}
+	}
 	duration := e.config.MaxDuration
 	if duration <= 0 {
 		duration = defaultMaxDuration
 	}
+	// A tool-free request (summaries, triage) cannot owe progress reports.
+	reports := defaultToolCallsBetweenReports
+	if len(req.Tools) == 0 {
+		reports = 0
+	}
 	result, err := agent.RunAgentLoop(agent.AgentConfig{
-		Ctx:             runCtx,
-		Provider:        modelProvider,
-		Model:           model,
-		ReasoningEffort: req.ReasoningEffort,
-		System:          req.System,
-		Messages:        messages,
-		ExtraTools:      extraTools,
-		SessionID:       req.RunID,
-		ToolsOnly:       true,
-		Continuation:    continuation,
-		ResumeResult:    req.ResumeResult,
-		ResumeOutcome:   req.ResumeOutcome,
-		ResolveToolIdentity: func(name, args string) tooloutcome.Identity {
-			for _, t := range req.Tools {
-				if t.Name == name && t.Identity != nil {
-					return t.Identity(json.RawMessage(args))
-				}
-			}
-			return tooloutcome.DefaultIdentity(name, json.RawMessage(args))
-		},
-		MaxToolCallsBetweenReports: defaultToolCallsBetweenReports,
+		Ctx:                        runCtx,
+		Provider:                   modelProvider,
+		Model:                      model,
+		ReasoningEffort:            req.ReasoningEffort,
+		System:                     req.System,
+		Messages:                   messages,
+		ExtraTools:                 extraTools,
+		SessionID:                  req.RunID,
+		ToolsOnly:                  true,
+		Continuation:               continuation,
+		ResumeResult:               req.ResumeResult,
+		ResumeOutcome:              req.ResumeOutcome,
+		ResolveToolIdentity:        resolveIdentity,
+		PromptCacheKey:             promptCacheKey(req),
+		OnThinkingChunk:            onThinking,
+		OnStreamReset:              req.OnStreamReset,
+		OnFinalDraftDemoted:        onReviewDraft,
+		MaxToolCallsBetweenReports: reports,
 		MaxRunDuration:             duration,
 		UserWaitDuration:           userWait.duration,
 		OnContextEstimate:          req.OnContextEstimate,
@@ -427,10 +508,29 @@ func (e *engine) Run(ctx context.Context, req Request) (Result, error) {
 			Suspended:    true,
 		}, nil
 	}
+	if result.Cancelled {
+		// A cancelled loop carries no final answer. Reporting it as a successful
+		// empty result let callers finish an interrupted run as done.
+		if err := ctx.Err(); err != nil {
+			return Result{}, err
+		}
+		if err := runCtx.Err(); err != nil {
+			return Result{}, err
+		}
+		return Result{}, context.Canceled
+	}
 	return Result{
 		Content:         result.Content,
 		BudgetExhausted: result.BudgetExhausted, BudgetReason: result.BudgetReason,
 		InputTokens:  result.TotalUsage.InputTokens,
 		OutputTokens: result.TotalUsage.OutputTokens,
 	}, nil
+}
+
+// promptCacheKey shares the provider cache across a conversation's runs.
+func promptCacheKey(req Request) string {
+	if key := strings.TrimSpace(req.ConversationID); key != "" {
+		return key
+	}
+	return req.RunID
 }

@@ -15,7 +15,7 @@ try {
     "--module", "ES2022", "--moduleResolution", "Bundler", "--outDir", outputDir,
     "--skipLibCheck", "--declaration", "false", "--pretty", "false",
   ], { cwd: uiRoot });
-  const { activeToolForRun, buildToolRunAnchors, buildToolSummaryAnchors, buildToolTimeline, elapsedToolSeconds, orderToolActivities, toolActionLabel, toolArgumentPreview, toolAttemptIssues } = await import(pathToFileURL(join(outputDir, "toolTimeline.js")));
+  const { activeToolForRun, buildToolRunAnchors, buildToolSummaryAnchors, buildToolTimeline, elapsedToolSeconds, orderToolActivities, toolActionLabel, toolArgumentPreview, toolAttemptIssues, toolDisplayLabel, toolDisplayState } = await import(pathToFileURL(join(outputDir, "toolTimeline.js")));
   const { mergeMessageTimeline } = await import(pathToFileURL(join(outputDir, "messageTimeline.js")));
   const { foldCompletedProgress } = await import(pathToFileURL(join(outputDir, "runProgress.js")));
   const base = { conversation_id: "c", bot_id: "b", arguments: "", result: "", status: "completed", truncated: false, updated_at: "2026-09-17T00:00:09Z" };
@@ -25,6 +25,11 @@ try {
   assert(toolAttemptIssues([{ status: "failed" }, { status: "completed" }]) === "1 次失败", "a successful retry must retain the failed attempt without declaring the task incomplete");
   assert(toolAttemptIssues([{ status: "completed" }]) === "", "successful attempts must have no issue label");
   assert(toolAttemptIssues([{ status: "interrupted" }, { status: "running" }]) === "1 次中断 · 1 次待结束", "interrupted and unfinished attempts must remain distinguishable");
+  const expired = {status:"failed",outcome:{status:"approval_expired",code:"approval_window_expired",execution_certainty:"not_executed"}};
+  assert(toolDisplayLabel(expired) === "已过期" && toolDisplayState(expired) === "expired", "expiry has its own presentation");
+  assert(toolAttemptIssues([expired]) === "", "expired approval is not an execution-error alert");
+  assert(toolDisplayLabel({...expired,status:"interrupted"}) === "未执行", "object-level not-executed certainty takes precedence over interrupted transport");
+  assert(toolDisplayLabel({status:"failed",outcome:{code:"batch_skipped",execution_certainty:"not_executed"}}) === "未执行", "stale batch tails did not execute");
   const progress = { ...message("progress", 2, "2026-09-17T00:00:01Z"), kind: "progress" };
   const finalReply = message("final-reply", 3, "2026-09-17T00:00:03Z");
   const completed = foldCompletedProgress([progress, finalReply], [{ id: "r", status: "done" }]);

@@ -28,8 +28,13 @@ export interface Bot {
   id: string;
   name: string;
   instructions: string;
+  /** "default" follows the workspace's global model; any other id is a pin. */
   model: string;
+  /** "default": the global effort when following, else the pinned model's default. Empty is legacy "medium". */
   reasoning_effort?: string;
+  /** What the Bot executes with now, resolved by the server. */
+  effective_model?: string;
+  effective_reasoning_effort?: string;
   dm_conversation_id: string;
   created_at: string;
   archived?: boolean;
@@ -38,7 +43,7 @@ export interface Bot {
 export interface Conversation {
   unread_count?: number;
   task_state?: {
-    status: "executing" | "needs_attention" | "waiting" | "failed" | "completed" | "cancelled";
+    status: "executing" | "needs_attention" | "waiting" | "failed" | "completed" | "cancelled" | "finishing" | "expired";
     run_id?: string;
     question_id?: string;
     draft_id?: string;
@@ -215,6 +220,8 @@ export interface ToolActivityRunSummary {
   failed_count: number;
   interrupted_count: number;
   pending_count: number;
+  expired_count?: number;
+  skipped_count?: number;
   started_at: string;
   updated_at: string;
 }
@@ -231,7 +238,9 @@ export interface Run {
   bot_id: string;
   status: RunStatus;
   error?: string;
-  failure?: { code: "connection_interrupted" | "execution_failed" | "budget_exhausted"; source: "runtime"; message: string };
+  failure?: { code: "connection_interrupted" | "execution_failed" | "no_final_answer" | "budget_exhausted" | "approval_expired" | "model_unconfigured" | "model_auth_invalid" | "model_quota_exhausted"; source: "runtime"; message: string };
+  stop_reason?: "approval_expired";
+  finishing_reason?: "approval_expired";
   parent_run_id?: string;
   model?: string;
   kind?: string;
@@ -258,9 +267,43 @@ export interface Memory {
 }
 
 export interface Config {
+  /** True when any model provider (Codex, OpenAI or Claude) is configured. */
   model_configured: boolean;
   default_model: string;
+  /** First configured provider; kept for compatibility. */
   provider: string;
+}
+
+export type ModelProviderID = "codex" | "openai" | "anthropic";
+
+/** One model provider as GET /api/providers reports it. Keys are never returned. */
+export interface ModelProviderStatus {
+  id: ModelProviderID;
+  label: string;
+  kind: "oauth" | "api_key";
+  configured: boolean;
+  /** Codex only. */
+  status?: "connected" | "needs_reconnect" | "disconnected";
+  /** API-key providers only, e.g. "…abcd". */
+  key_hint?: string;
+  /** RFC3339, or "" when never verified. */
+  verified_at?: string;
+  error?: string;
+}
+
+export interface ModelOption {
+  id: string;
+  name: string;
+  /** Absent on older servers; inferred from the id then. */
+  provider?: ModelProviderID;
+  reasoning_efforts: string[];
+  default_reasoning: string;
+}
+
+export interface ModelCatalog {
+  models: ModelOption[];
+  source: string;
+  warning?: string;
 }
 
 export interface EventEnvelope {

@@ -21,6 +21,7 @@ import (
 	"github.com/JackZhao98/tofibot/internal/codexauth"
 	"github.com/JackZhao98/tofibot/internal/computer"
 	"github.com/JackZhao98/tofibot/internal/extensions"
+	"github.com/JackZhao98/tofibot/internal/provider"
 	"github.com/JackZhao98/tofibot/internal/runtime"
 	"github.com/JackZhao98/tofibot/internal/tooloutcome"
 	"github.com/google/uuid"
@@ -44,6 +45,10 @@ type Bot struct {
 	DMConversationID string `json:"dm_conversation_id"`
 	CreatedAt        string `json:"created_at"`
 	Archived         bool   `json:"archived"`
+	// EffectiveModel and EffectiveReasoningEffort are what the Bot executes
+	// with now; Model/ReasoningEffort stay raw ("default" follows global).
+	EffectiveModel           string `json:"effective_model,omitempty"`
+	EffectiveReasoningEffort string `json:"effective_reasoning_effort,omitempty"`
 }
 type Conversation struct {
 	UnreadCount       int                    `json:"unread_count"`
@@ -129,18 +134,22 @@ type Memory struct {
 }
 
 type Config struct {
-	OwnerAuth                bool
-	OwnerAllowLoopbackHTTP   bool
-	OwnerAllowLANHTTP        bool
-	Environment              string
-	DataDir, Listen          string
-	UIDir                    string
-	PublicOrigin             string
-	Engine                   runtime.Engine
-	DefaultModel, Provider   string
-	TranscriptionAPIKey      string
-	TranscriptionURL         string
-	MCPConfigPath, SkillsDir string
+	AccountID              string // Set by the account gateway; never accepted from an HTTP body.
+	OwnerAuth              bool
+	OwnerAllowLoopbackHTTP bool
+	OwnerAllowLANHTTP      bool
+	Environment            string
+	DataDir, Listen        string
+	UIDir                  string
+	PublicOrigin           string
+	Engine                 runtime.Engine
+	DefaultModel, Provider string
+	// ProviderAPIKey/ProviderBaseURL seed the OpenAI or Anthropic provider
+	// named by Provider from operator environment; vault keys override.
+	ProviderAPIKey, ProviderBaseURL string
+	TranscriptionAPIKey             string
+	TranscriptionURL                string
+	MCPConfigPath, SkillsDir        string
 	// ComputerSocket points at the service-owned control socket for the one
 	// configured Firecracker workspace. It is never selected by a request.
 	ComputerSocket string
@@ -161,6 +170,16 @@ type Config struct {
 	ComputerEnsure      func(context.Context) error
 }
 type Server struct {
+	desktopRestartedAt                   time.Time
+	gogStatus                            gogStatusCache
+	accountID                            string
+	mcpApprovalMu                        sync.Mutex
+	autoReviewProvider                   provider.Provider // Deterministic tests only; production uses the existing Codex adapter.
+	shadowReviewMu                       sync.Mutex
+	shadowReviewWG                       sync.WaitGroup
+	shadowReviewCancel                   context.CancelFunc
+	shadowReviewContext                  context.Context
+	shadowReviewClosed                   bool
 	isolatedWorkspace                    bool
 	localRunnerURL, localRunnerTokenFile string
 	ownerAuth                            *ownerAuth
@@ -181,6 +200,14 @@ type Server struct {
 	modelCatalog                         []ModelOption
 	modelCatalogAt                       time.Time
 	modelCatalogSource                   string
+	providerMu                           sync.Mutex
+	providerEndpoints                    map[string]string // Tests and operator gateways only.
+	envProviderKeys                      map[string]string
+	envProviderErrors                    map[string]string
+	providerCatalogs                     map[string]providerCatalog
+	codexVerifyMu                        sync.Mutex
+	codexVerifyAt                        time.Time
+	codexVerifyCheck                     string
 	mu                                   sync.Mutex
 	convMu                               map[string]*sync.Mutex
 	runs                                 map[string]context.CancelFunc
@@ -190,6 +217,7 @@ type Server struct {
 	scheduler                            *ScheduleWorker
 	extensions                           *extensions.Manager
 	microVM                              *computer.Client
+	microVMInfoCache                     microVMInfoCache
 	computerLeaseMu                      sync.Mutex
 	computerLeases                       map[string]*sync.Mutex
 	computerOwnerMu                      sync.Mutex
@@ -270,6 +298,14 @@ func openStoreWithLimit(dir string, recoverWork bool, maxBytes int64) (*Store, e
 	}
 	if !recoverWork {
 		return s, nil
+	}
+	if err = s.reconcileLegacyApprovalExpiry(); err != nil {
+		db.Close()
+		return nil, err
+	}
+	if err = s.recoverClaimedApprovalExpiry(); err != nil {
+		db.Close()
+		return nil, err
 	}
 	// A queued run has a durable initiating message and may safely be resumed by
 	// the per-conversation worker. A running run may have performed an unknown
@@ -434,6 +470,8 @@ func scanToolActivities(rows *sql.Rows) ([]ToolActivity, error) {
 func (s *Store) Close() error { return s.db.Close() }
 func now() string             { return time.Now().UTC().Format(time.RFC3339Nano) }
 func (s *Store) migrate() error {
+	// Authorization provenance is recorded only by new host user-ingress
+	// transactions. Existing message roles are not evidence for a backfill.
 	_, err := s.db.Exec(`PRAGMA journal_mode=WAL; PRAGMA foreign_keys=ON;
 	CREATE TABLE IF NOT EXISTS bots(id TEXT PRIMARY KEY,name TEXT NOT NULL,instructions TEXT NOT NULL,model TEXT NOT NULL,reasoning_effort TEXT NOT NULL DEFAULT '',dm_conversation_id TEXT NOT NULL UNIQUE,created_at TEXT NOT NULL,archived INTEGER NOT NULL DEFAULT 0);
 	CREATE TABLE IF NOT EXISTS conversations(id TEXT PRIMARY KEY,kind TEXT NOT NULL CHECK(kind IN ('dm','group')),name TEXT NOT NULL,bot_id TEXT,updated_at TEXT NOT NULL,archived INTEGER NOT NULL DEFAULT 0,user_visible INTEGER NOT NULL DEFAULT 1,FOREIGN KEY(bot_id) REFERENCES bots(id));
@@ -527,6 +565,9 @@ CREATE INDEX IF NOT EXISTS events_conversation ON events(conversation_id,id);`)
 	if err := migrateSchedules(s.db); err != nil {
 		return err
 	}
+	if err := migrateScheduleAuthorization(s.db); err != nil {
+		return err
+	}
 	if err := migrateDeletion(s.db); err != nil {
 		return err
 	}
@@ -569,7 +610,16 @@ CREATE INDEX IF NOT EXISTS events_conversation ON events(conversation_id,id);`)
 	if err := migrateInputContinuations(s.db); err != nil {
 		return err
 	}
+	if err := migrateApprovalExpiry(s.db); err != nil {
+		return err
+	}
 	if err := migrateTerminalCleanup(s.db); err != nil {
+		return err
+	}
+	if err := migrateMCPReviewProvenance(s.db); err != nil {
+		return err
+	}
+	if err := migrateAutoReview(s.db); err != nil {
 		return err
 	}
 	if err := migrateModelSettings(s.db); err != nil {
@@ -1083,6 +1133,9 @@ func (s *Store) AddUserRun(conv, bot, content, client string) (Message, Run, boo
 	m := Message{ID: uuid.NewString(), ConversationID: conv, Seq: seq, Role: "user", RunID: run.ID, Content: content, CreatedAt: t}
 	run.TriggerMessageID = m.ID
 	if _, err = tx.Exec(`INSERT INTO messages(id,conversation_id,seq,role,kind,run_id,content,created_at,client_message_id) VALUES(?,?,?,?,?,?,?,?,?)`, m.ID, conv, seq, m.Role, m.Kind, run.ID, content, t, nullString(client)); err != nil {
+		return Message{}, Run{}, false, err
+	}
+	if _, err = tx.Exec(`INSERT INTO user_message_ingress(message_id,created_at) VALUES(?,?)`, m.ID, t); err != nil {
 		return Message{}, Run{}, false, err
 	}
 	if _, err = tx.Exec(`INSERT INTO runs(id,conversation_id,bot_id,status,model,origin_conversation_id,trigger_message_id,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?)`, run.ID, conv, bot, run.Status, run.Model, run.OriginConversationID, run.TriggerMessageID, t, t); err != nil {
@@ -1778,7 +1831,8 @@ func (s *Store) finishRunState(id, conv, bot, content string, silent bool, failu
 			return Message{}, false, errors.New("cannot stay silent after publishing, delegating, or preparing attachments")
 		}
 	}
-	publish := strings.TrimSpace(content) != "" || (handoffs == 0 && runKind != runKindGroupChat) || pendingFiles > 0
+	// An empty assistant message is never published; attachments alone may be.
+	publish := strings.TrimSpace(content) != "" || pendingFiles > 0
 	var draftID, draftStatus string
 	var draftSeq int64
 	_ = tx.QueryRow(`SELECT message_id,status,seq FROM stream_drafts WHERE run_id=?`, id).Scan(&draftID, &draftStatus, &draftSeq)
@@ -1967,6 +2021,9 @@ func (s *Store) RetryRun(id string) (Run, error) {
 	if e = requireActiveMemberTx(tx, old.ConversationID, old.BotID); e != nil {
 		return Run{}, e
 	}
+	if old.Error == "approval_expired" {
+		return Run{}, fmt.Errorf("expired workflow cannot be retried; start a new explicit request")
+	}
 	if old.Status == "cancelled" {
 		return Run{}, fmt.Errorf("cancelled runs cannot be retried")
 	}
@@ -2095,7 +2152,7 @@ func NewServer(c Config) (*Server, error) {
 	if e != nil {
 		return nil, e
 	}
-	st, e := openStoreWithLimit(c.DataDir, !c.AccountControlPlane, c.AccountDBMaxBytes)
+	st, e := openStoreWithLimit(c.DataDir, !c.AccountControlPlane && !c.AccountMaintenance, c.AccountDBMaxBytes)
 	if e != nil {
 		return nil, e
 	}
@@ -2149,16 +2206,28 @@ func NewServer(c Config) (*Server, error) {
 		codex = m
 	}
 	engine := c.Engine
-	codexManaged := false
-	if engine == nil && strings.EqualFold(c.Provider, "openai_codex") && codex != nil {
-		engine, _ = runtime.New(runtime.Config{Provider: c.Provider, Model: c.DefaultModel, Credential: codex.Credential, MaxDuration: 10 * time.Minute})
-		codexManaged = true
+	if managedProviderName(c.Provider) {
+		c.Provider = normalizeProviderName(c.Provider)
 	}
+	// The server owns a routed engine for Codex and API-key providers; a
+	// supplied engine (tests, custom providers) is used as is.
+	codexManaged := engine == nil && managedProviderName(c.Provider)
 	savedSettings, _ := st.getModelSettings()
 	if savedSettings.ReasoningEffort == "" {
 		savedSettings.ReasoningEffort = "medium"
 	}
-	server := &Server{isolatedWorkspace: c.IsolatedWorkspace, localRunnerURL: c.LocalRunnerURL, localRunnerTokenFile: c.LocalRunnerTokenFile, instance: identity, store: st, engine: engine, codex: codex, codexManaged: codexManaged, defaultModel: c.DefaultModel, defaultReasoning: savedSettings.ReasoningEffort, provider: c.Provider, transcriptionAPIKey: c.TranscriptionAPIKey, transcriptionURL: strings.TrimRight(c.TranscriptionURL, "/"), listen: c.Listen, uiDir: c.UIDir, publicOrigin: strings.TrimRight(c.PublicOrigin, "/"), convMu: map[string]*sync.Mutex{}, runs: map[string]context.CancelFunc{}, queues: map[string]*conversationQueue{}, triageModel: os.Getenv("TOFI_TRIAGE_MODEL"), microVM: microVM, computerLeases: map[string]*sync.Mutex{}, computerOwners: map[string]string{}, vmOAuth: map[string]*vmOAuthSession{}, toolSnapshots: map[toolSnapshotKey]toolSnapshot{}}
+	server := &Server{accountID: c.AccountID, isolatedWorkspace: c.IsolatedWorkspace, localRunnerURL: c.LocalRunnerURL, localRunnerTokenFile: c.LocalRunnerTokenFile, instance: identity, store: st, engine: engine, codex: codex, codexManaged: codexManaged, defaultModel: c.DefaultModel, defaultReasoning: savedSettings.ReasoningEffort, provider: c.Provider, transcriptionAPIKey: c.TranscriptionAPIKey, transcriptionURL: strings.TrimRight(c.TranscriptionURL, "/"), listen: c.Listen, uiDir: c.UIDir, publicOrigin: strings.TrimRight(c.PublicOrigin, "/"), convMu: map[string]*sync.Mutex{}, runs: map[string]context.CancelFunc{}, queues: map[string]*conversationQueue{}, triageModel: os.Getenv("TOFI_TRIAGE_MODEL"), microVM: microVM, computerLeases: map[string]*sync.Mutex{}, computerOwners: map[string]string{}, vmOAuth: map[string]*vmOAuthSession{}, toolSnapshots: map[toolSnapshotKey]toolSnapshot{}, providerEndpoints: map[string]string{}, envProviderKeys: map[string]string{}, envProviderErrors: map[string]string{}, providerCatalogs: map[string]providerCatalog{}}
+	if (c.Provider == providerOpenAI || c.Provider == providerAnthropic) && !c.IsolatedWorkspace {
+		if key := strings.TrimSpace(c.ProviderAPIKey); key != "" {
+			server.envProviderKeys[c.Provider] = key
+		}
+		if base := strings.TrimSpace(c.ProviderBaseURL); base != "" {
+			server.providerEndpoints[c.Provider] = base
+		}
+	}
+	if codexManaged {
+		server.engine = server.newRoutedEngine()
+	}
 	server.ownerAuth, e = initializeOwnerAuth(st, c)
 	if e != nil {
 		st.Close()
@@ -2186,7 +2255,13 @@ func NewServer(c Config) (*Server, error) {
 		st.Close()
 		return nil, err
 	}
-	server.extensions = extensions.NewManager(extensions.Config{MCPConfigPath: c.MCPConfigPath, SkillsDir: c.SkillsDir, ExpandToolQuery: server.expandToolSearchQuery, HTTPTransport: server.localMCPTransport})
+	if switched, me := server.migrateBotsToFollowGlobal(); me != nil {
+		st.Close()
+		return nil, fmt.Errorf("follow-global model migration: %w", me)
+	} else if switched > 0 {
+		log.Printf("[model-settings] %d Bot(s) now follow the global model", switched)
+	}
+	server.extensions = extensions.NewManager(extensions.Config{MCPConfigPath: c.MCPConfigPath, SkillsDir: c.SkillsDir, ExpandToolQuery: server.expandToolSearchQuery, HTTPTransport: server.localMCPTransport, ServerUsable: server.mcpServerUsable})
 	if st.requireGuestAttachments && microVM != nil {
 		st.guestBlobs = microVM
 		st.cleanupDeletedAttachments()
@@ -2194,7 +2269,7 @@ func NewServer(c Config) (*Server, error) {
 		_ = st.recoverPortableAssets(cleanupCtx) // Failed cleanup stays journaled for the next import.
 		cleanupCancel()
 	}
-	if c.AccountControlPlane {
+	if c.AccountControlPlane || c.AccountMaintenance {
 		return server, nil
 	}
 	workerIDs, e := st.workerConversationIDs()
@@ -2219,6 +2294,7 @@ func NewServer(c Config) (*Server, error) {
 	return server, nil
 }
 func (s *Server) Close() error {
+	s.stopShadowMCPReviews()
 	s.ownerAuth.close()
 	s.closeVMOAuth()
 	s.closeComputerControls()
@@ -2343,6 +2419,13 @@ func (s *Server) route(w http.ResponseWriter, r *http.Request) {
 	if s.routeUsage(w, r, p) {
 		return
 	}
+	if s.routeProviders(w, r, p) {
+		return
+	}
+	if p == "auto-review-settings" {
+		s.autoReviewSettings(w, r)
+		return
+	}
 	if p == "models" || p == "model-settings" {
 		if p == "models" {
 			s.models(w, r)
@@ -2396,8 +2479,8 @@ func (s *Server) route(w http.ResponseWriter, r *http.Request) {
 			"tenancy":          map[string]string{"mode": "single"},
 		})
 	case p == "config":
-		writeJSON(w, 200, map[string]any{"model_configured": s.modelConfigured(), "default_model": s.defaultModel, "provider": s.provider})
-	case p == "auth/codex" || p == "auth/codex/connect" || strings.HasPrefix(p, "auth/codex/connect/"):
+		writeJSON(w, 200, map[string]any{"model_configured": s.modelConfigured(), "default_model": s.defaultModel, "provider": s.activeProvider()})
+	case p == "auth/codex" || p == "auth/codex/connect" || p == "auth/codex/verify" || strings.HasPrefix(p, "auth/codex/connect/"):
 		s.codexAuth(w, r, strings.TrimPrefix(p, "auth/codex"))
 	case strings.HasPrefix(p, "bots/") && strings.HasSuffix(p, "/debug-preview"):
 		s.botDebugPreview(w, r, strings.TrimSuffix(strings.TrimPrefix(p, "bots/"), "/debug-preview"))
@@ -2417,10 +2500,10 @@ func (s *Server) route(w http.ResponseWriter, r *http.Request) {
 }
 func (s *Server) modelConfigured() bool {
 	s.mu.Lock()
-	managed, engine, codex := s.codexManaged, s.engine, s.codex
+	managed, engine := s.codexManaged, s.engine
 	s.mu.Unlock()
-	if strings.EqualFold(s.provider, "openai_codex") && managed {
-		return codex != nil && codex.Status().Connected
+	if managed && managedProviderName(s.provider) {
+		return engine != nil && s.anyProviderConfigured()
 	}
 	return engine != nil
 }
@@ -2432,18 +2515,29 @@ func (s *Server) codexAuth(w http.ResponseWriter, r *http.Request, path string) 
 	switch {
 	case path == "" && r.Method == http.MethodGet:
 		writeJSON(w, 200, s.codex.Status())
+	case path == "/verify" && r.Method == http.MethodPost:
+		check := s.verifyCodexSignIn(r.Context())
+		writeJSON(w, 200, struct {
+			codexauth.Status
+			Check string `json:"check"`
+		}{s.codex.Status(), check})
 	case path == "" && r.Method == http.MethodDelete:
 		before := s.codex.Status()
 		if e := s.codex.Disconnect(); e != nil {
 			writeErr(w, 500, "codex_disconnect", e.Error())
 			return
 		}
-		if strings.EqualFold(s.provider, "openai_codex") {
-			s.mu.Lock()
+		s.forgetCodexVerification()
+		// The routed engine keeps serving any other configured provider.
+		s.mu.Lock()
+		if !s.codexManaged && strings.EqualFold(s.provider, "openai_codex") {
 			s.engine = nil
 			s.codexManaged = true
-			s.mu.Unlock()
 		}
+		if s.codexManaged && s.engine == nil && managedProviderName(s.provider) {
+			s.engine = s.newRoutedEngine()
+		}
+		s.mu.Unlock()
 		if before != s.codex.Status() {
 			if _, e := s.store.WorkspaceEvent(workspaceScopeConfig); e != nil {
 				log.Printf("[workspace-events] record Codex disconnect: %v", e)
@@ -2471,9 +2565,14 @@ func (s *Server) codexAuth(w http.ResponseWriter, r *http.Request, path string) 
 			writeErr(w, 503, "codex_poll", e.Error())
 			return
 		}
-		if x.Connected && strings.EqualFold(s.provider, "openai_codex") {
+		if x.Connected {
+			s.forgetCodexVerification()
+		}
+		if x.Connected && managedProviderName(s.provider) {
 			s.mu.Lock()
-			s.engine, _ = runtime.New(runtime.Config{Provider: s.provider, Model: s.defaultModel, Credential: s.codex.Credential, MaxDuration: 10 * time.Minute})
+			if !s.codexManaged || s.engine == nil {
+				s.engine = s.newRoutedEngine()
+			}
 			s.codexManaged = true
 			s.mu.Unlock()
 			s.wakeConversationWorkers()
@@ -2505,7 +2604,7 @@ func (s *Server) bots(w http.ResponseWriter, r *http.Request) {
 			writeErr(w, 500, "storage", e.Error())
 			return
 		}
-		writeJSON(w, 200, map[string]any{"bots": x})
+		writeJSON(w, 200, map[string]any{"bots": s.withEffectiveModels(r.Context(), x...)})
 		return
 	}
 	if r.Method == http.MethodPost && r.URL.Path == "/api/bots" {
@@ -2521,17 +2620,17 @@ func (s *Server) bots(w http.ResponseWriter, r *http.Request) {
 			writeErr(w, 400, "invalid_request", "invalid request")
 			return
 		}
-		if x.Model == "" {
-			x.Model = s.defaultModel
+		// A Bot follows the global model unless the request pins one.
+		x.Model, x.ReasoningEffort = strings.TrimSpace(x.Model), strings.TrimSpace(x.ReasoningEffort)
+		if isFollowGlobalModel(x.Model) {
+			x.Model = followGlobalModel
 		}
 		if x.ReasoningEffort == "" {
-			_, x.ReasoningEffort = s.modelDefaults()
+			x.ReasoningEffort = followGlobalModel
 		}
-		if x.ReasoningEffort != "" {
-			if e := s.validateModelChoice(r.Context(), x.Model, x.ReasoningEffort); e != nil {
-				writeErr(w, http.StatusBadRequest, "invalid_model_settings", e.Error())
-				return
-			}
+		if e := s.validateModelChoice(r.Context(), x.Model, x.ReasoningEffort); e != nil {
+			writeErr(w, http.StatusBadRequest, "invalid_model_settings", e.Error())
+			return
 		}
 		if x.Onboarding {
 			b, duplicate, e := s.store.CreateOnboardingBotWithReasoning(x.ClientCreationID, x.Model, x.ReasoningEffort)
@@ -2540,10 +2639,10 @@ func (s *Server) bots(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 			if duplicate {
-				writeJSON(w, http.StatusOK, b)
+				writeJSON(w, http.StatusOK, s.withEffectiveModel(r.Context(), b))
 				return
 			}
-			writeJSON(w, http.StatusCreated, b)
+			writeJSON(w, http.StatusCreated, s.withEffectiveModel(r.Context(), b))
 			return
 		}
 		b, e := s.store.CreateBotWithReasoning(x.Name, x.Instructions, x.Model, x.ReasoningEffort)
@@ -2551,7 +2650,7 @@ func (s *Server) bots(w http.ResponseWriter, r *http.Request) {
 			writeErr(w, 400, "invalid_request", e.Error())
 			return
 		}
-		writeJSON(w, 201, b)
+		writeJSON(w, 201, s.withEffectiveModel(r.Context(), b))
 		return
 	}
 	id := strings.TrimPrefix(r.URL.Path, "/api/bots/")
@@ -2583,11 +2682,16 @@ func (s *Server) bots(w http.ResponseWriter, r *http.Request) {
 			}
 			model := current.Model
 			if x.Model != nil {
-				model = *x.Model
+				model = s.normalizeBotModel(*x.Model)
+				x.Model = &model
 			}
 			value := strings.TrimSpace(*x.ReasoningEffort)
 			if value == "" {
-				value = s.defaultReasoningForModel(r.Context(), model)
+				if isFollowGlobalModel(model) {
+					value = followGlobalModel
+				} else {
+					value = s.defaultReasoningForModel(r.Context(), model)
+				}
 			}
 			if e = s.validateModelChoice(r.Context(), model, value); e != nil {
 				writeErr(w, http.StatusBadRequest, "invalid_model_settings", e.Error())
@@ -2595,9 +2699,16 @@ func (s *Server) bots(w http.ResponseWriter, r *http.Request) {
 			}
 			x.ReasoningEffort = &value
 		} else if x.Model != nil {
-			if e := s.validateModelID(r.Context(), *x.Model); e != nil {
+			model := s.normalizeBotModel(*x.Model)
+			x.Model = &model
+			if e := s.validateModelID(r.Context(), model); e != nil {
 				writeErr(w, http.StatusBadRequest, "invalid_model_settings", e.Error())
 				return
+			}
+			if model == followGlobalModel {
+				// Following the global model follows its effort too.
+				effort := followGlobalModel
+				x.ReasoningEffort = &effort
 			}
 		}
 		b, e := s.store.UpdateBot(id, x.Name, x.Instructions, x.Model, x.ReasoningEffort)
@@ -2605,7 +2716,7 @@ func (s *Server) bots(w http.ResponseWriter, r *http.Request) {
 			writeErr(w, 404, "not_found", "bot not found")
 			return
 		}
-		writeJSON(w, 200, b)
+		writeJSON(w, 200, s.withEffectiveModel(r.Context(), b))
 		return
 	}
 	writeErr(w, 405, "method", "method not allowed")
@@ -2873,6 +2984,10 @@ func (s *Server) enqueue(c Conversation, r Run) {
 	}
 }
 func (s *Server) execute(c Conversation, r Run) {
+	if s.store.hasApprovalExpiry(r.ID) {
+		s.executeApprovalExpiry(c, r)
+		return
+	}
 	defer func() {
 		if !s.store.preservesInputWait(r.ID) {
 			s.clearRunSecrets(r.ID)
@@ -2970,18 +3085,14 @@ func (s *Server) execute(c Conversation, r Run) {
 	}
 	// The last committed summary and bounded recent history are enough to start
 	// the reply. Durable history maintenance runs after the response is saved.
-	pm, system := s.buildContextParts(c, r, botCfg)
+	cachedMCPTools := s.store.recentCapabilitySchemas(contextConversationID(c, botCfg), botCfg.ID, r.CreatedAt)
+	pm, system := s.buildContextPartsWith(c, r, botCfg, cachedMCPTools)
 	tools := append(s.tools(c, r), s.longTermMemoryTools(c, r)...)
 	if r.Kind != runKindTriage {
 		tools = append(tools, s.contextUsageTool(r.ID))
 	}
 	computerPrompt := s.microVMEnvironmentPrompt(ctx, r.BotID)
 	extensionPrompt, capabilityPrompt := "", ""
-	capabilityConversationID := c.ID
-	if c.Kind == "dm" && botCfg.DMConversationID != "" {
-		capabilityConversationID = botCfg.DMConversationID
-	}
-	cachedMCPTools := s.store.recentCapabilitySchemas(capabilityConversationID, botCfg.ID, r.CreatedAt)
 
 	if r.Kind == runKindTriage {
 		tools = nil
@@ -3006,7 +3117,7 @@ func (s *Server) execute(c Conversation, r Run) {
 		}
 		defer prepared.Close()
 		extensionPrompt = prepared.Instructions
-		tools = append(tools, prepared.Tools...)
+		tools = append(tools, s.withoutIdleMCPTools(prepared.Tools)...)
 		if len(prepared.Diagnostics) > 0 {
 			diagnostics, _ := json.Marshal(prepared.Diagnostics)
 			system += "\nSome configured extensions are unavailable. Consult extension_status when relevant; never claim an unavailable tool was executed."
@@ -3018,28 +3129,77 @@ func (s *Server) execute(c Conversation, r Run) {
 		capabilityPrompt = runtimeCapabilityPrompt
 	}
 	s.recordToolSnapshot(r.BotID, c.ID, tools)
-	model := r.Model
-	if model == "" {
-		model = botCfg.Model
+	// "default" (and the legacy empty value) follow the global model;
+	// empty reasoning effort is legacy data and stays on "medium".
+	model, reasoningEffort := s.resolveBotModel(ctx, r.Model, botCfg)
+	if isFollowGlobalModel(r.Model) && model != "" {
+		// Continuations, approval expiry, failure classification and usage
+		// read the run row; give them the concrete model this run uses.
+		if err := s.store.setRunModelIfFollowing(r.ID, model); err != nil {
+			s.failRun(c, r, err)
+			return
+		}
+		r.Model = model
 	}
-	reasoningEffort := botCfg.ReasoningEffort
-	if reasoningEffort == "" {
-		// Empty is the legacy persisted value. Keep existing Bots on the
-		// historical medium setting; newly-created HTTP Bots persist their
-		// workspace default explicitly.
-		reasoningEffort = "medium"
-	}
-	var onDelta func(string)
-	var onAssistantTurn func(int, string) error
+	var onDelta, onThinking func(string)
+	var onAssistantTurn, onReviewDraft func(int, string) error
+	var onStreamReset func()
+	var onRetry func(int, time.Duration)
 	flushStream := func() {}
+	var demotedMu sync.Mutex
+	var demoted demotedDraft
+	publishDemotedDraft := func() {
+		demotedMu.Lock()
+		d := demoted
+		demoted = demotedDraft{}
+		demotedMu.Unlock()
+		if d.content == "" {
+			return
+		}
+		if _, _, err := s.store.PublishDemotedDraft(r.ID, d.turn, d.content); err != nil {
+			log.Printf("[run] publish demoted draft %s: %v", r.ID, err)
+		}
+	}
+	resetDemotedDraft := func() {
+		demotedMu.Lock()
+		pending := demoted.resetPending
+		demoted.resetPending = false
+		demotedMu.Unlock()
+		if pending && onStreamReset != nil {
+			onStreamReset()
+		}
+	}
 	var streamMu sync.Mutex
 	var streamErr error
 	if r.Kind != runKindTriage {
 		var initErr error
-		onDelta, flushStream, initErr = s.store.StreamCallbacks(ctx, r, func(err error) { streamMu.Lock(); streamErr = err; streamMu.Unlock(); cancel() })
+		onDelta, flushStream, onStreamReset, initErr = s.store.StreamControls(ctx, r, func(err error) { streamMu.Lock(); streamErr = err; streamMu.Unlock(); cancel() })
 		if initErr != nil {
 			s.failRun(c, r, initErr)
 			return
+		}
+		var stopThinking func()
+		onThinking, stopThinking = s.store.ThinkingCallback(ctx, r)
+		defer stopThinking()
+		onRetry = func(attempt int, wait time.Duration) { s.store.PublishRetry(r, attempt, wait) }
+		// A draft sent back for final review stays visible until the reviewed
+		// turn streams or the final answer publishes; only then is it reset.
+		// If the run ends without a reviewed answer, it is published instead.
+		onReviewDraft = func(turnIndex int, content string) error {
+			flushStream()
+			demotedMu.Lock()
+			demoted = demotedDraft{turn: turnIndex, content: cleanBotOutput(content, botCfg), resetPending: true}
+			demotedMu.Unlock()
+			streamMu.Lock()
+			defer streamMu.Unlock()
+			return streamErr
+		}
+		streamDelta := onDelta
+		onDelta = func(text string) {
+			if text != "" {
+				resetDemotedDraft()
+			}
+			streamDelta(text)
 		}
 		onAssistantTurn = func(turnIndex int, content string) error {
 			flushStream()
@@ -3074,6 +3234,10 @@ func (s *Server) execute(c Conversation, r Run) {
 				_ = s.store.CancelStream(r.ID)
 			}
 		}()
+		// Runs before CancelStream: a demoted draft that no reviewed answer
+		// superseded is the reply of a steered, failed, cancelled, exhausted
+		// or suspended run.
+		defer publishDemotedDraft()
 	}
 	if r.Kind != runKindTriage {
 		var promptErr error
@@ -3130,7 +3294,8 @@ func (s *Server) execute(c Conversation, r Run) {
 			return s.store.HasCompletedTool(r.ID, "complete_scheduled_task")
 		})
 	}
-	res, e := engine.Run(ctx, Request{BotID: r.BotID, RunID: r.ID, System: system, Model: model, ReasoningEffort: reasoningEffort, Messages: pm, Tools: tools, OnDelta: onDelta, BeforeModelCall: steeringBoundary, BeforeFinalResponse: finalReview, FinalResponseRepairTools: finalRepairTools, OnAssistantTurn: onAssistantTurn,
+	res, e := engine.Run(ctx, Request{BotID: r.BotID, RunID: r.ID, ConversationID: c.ID, System: system, Model: model, ReasoningEffort: reasoningEffort, Messages: pm, Tools: tools, OnDelta: onDelta, BeforeModelCall: steeringBoundary, BeforeFinalResponse: finalReview, FinalResponseRepairTools: finalRepairTools, OnAssistantTurn: onAssistantTurn,
+		OnThinking: onThinking, OnRetry: onRetry, OnStreamReset: onStreamReset, OnReviewDraft: onReviewDraft,
 		Continuation:  continuation,
 		ResumeResult:  s.inputResumeResult(answeredQuestion),
 		ResumeOutcome: s.inputResumeOutcome(answeredQuestion),
@@ -3156,7 +3321,7 @@ func (s *Server) execute(c Conversation, r Run) {
 			}
 		},
 		OnToolEvent: func(ev runtime.ToolEvent) error {
-			if completionReviewTool(ev.Name) && (ev.Status == "running" || ev.Status == "completed" || ev.Status == "failed") {
+			if completionReviewWork(ev.Name, ev.Risk) && (ev.Status == "running" || ev.Status == "completed" || ev.Status == "failed") {
 				observedToolWork.Store(true)
 			}
 			if ev.Status == "running" {
@@ -3176,6 +3341,12 @@ func (s *Server) execute(c Conversation, r Run) {
 	if persistErr != nil {
 		e = persistErr
 	}
+	if e == nil && ctx.Err() != nil {
+		// A cancelled run context never carries a completed answer, whatever
+		// the engine reported (run e8cb6243 finished "done" and empty when a
+		// deploy stopped it mid model call).
+		e = ctx.Err()
+	}
 	if steeringCancelled {
 		if current, err := s.store.GetRun(r.ID); err == nil && current.Status == "running" {
 			_, _ = s.store.SetRunStatus(r.ID, "cancelled", "run context cancelled")
@@ -3186,10 +3357,12 @@ func (s *Server) execute(c Conversation, r Run) {
 		// Shutdown can cancel the runtime just after the checkpoint transaction
 		// committed. That durable wait is restart-safe; an explicit user Stop
 		// already removed it transactionally and must not be resurrected here.
+		// A run stopped by shutdown stays running: startup recovery marks it
+		// interrupted, the state a restarted service reports for unfinished work.
 		s.mu.Lock()
 		closing := s.closing
 		s.mu.Unlock()
-		if closing && s.store.preservesInputWait(r.ID) {
+		if closing {
 			return
 		}
 		status := "failed"
@@ -3200,12 +3373,23 @@ func (s *Server) execute(c Conversation, r Run) {
 		if failed, fe := s.store.GetRun(r.ID); fe == nil {
 			_, _ = s.store.Event(c.ID, "run", failed)
 		}
+		if status == "failed" {
+			s.noteAPIKeyRejection(model, e)
+		}
 		return
 	}
 	if res.Suspended {
 		return
 	}
 	if res.BudgetExhausted {
+		// The demoted draft precedes the budget notice; partial output equal
+		// to it is published once, by finishRunBudget.
+		demotedMu.Lock()
+		if content := cleanBotOutput(res.Content, botCfg); content != "" && demoted.content == content {
+			demoted = demotedDraft{}
+		}
+		demotedMu.Unlock()
+		publishDemotedDraft()
 		if _, _, err := s.store.finishRunBudget(r.ID, c.ID, r.BotID, cleanBotOutput(res.Content, botCfg), res.BudgetReason); err != nil {
 			s.failRun(c, r, err)
 		}
@@ -3291,9 +3475,41 @@ func (s *Server) execute(c Conversation, r Run) {
 			}
 		}
 	}
-	if _, _, fe := s.store.FinishRun(r.ID, c.ID, r.BotID, res.Content); fe != nil {
+	if res.Content == "" {
+		required, err := s.store.finalAnswerRequired(r.ID)
+		if err != nil {
+			s.failRun(c, r, err)
+			return
+		}
+		if required {
+			// Never end "done" in silence. The retained demoted draft is the
+			// answer; it still occupies the stream draft, so it publishes under
+			// that identity without a reset and is not published again.
+			demotedMu.Lock()
+			draft := demoted.content
+			demoted = demotedDraft{}
+			demotedMu.Unlock()
+			if draft != "" {
+				res.Content = draft
+			} else if progressed, err := s.store.hasProgressReport(r.ID); err != nil {
+				s.failRun(c, r, err)
+				return
+			} else if progressed {
+				res.Content = noFinalAnswerProgressNote
+			} else {
+				s.failRun(c, r, errNoFinalAnswer)
+				return
+			}
+		}
+	}
+	resetDemotedDraft()
+	if _, finished, fe := s.store.FinishRun(r.ID, c.ID, r.BotID, res.Content); fe != nil {
 		s.failRun(c, r, fe)
 		return
+	} else if finished {
+		demotedMu.Lock()
+		demoted = demotedDraft{}
+		demotedMu.Unlock()
 	}
 	if r.Kind != runKindTriage && len(continuation) == 0 {
 		s.scheduleLongTermSummary(engine, c, r, botCfg)
@@ -3308,12 +3524,76 @@ func (s *Server) execute(c Conversation, r Run) {
 	}
 }
 
+// demotedDraft is a final draft sent back for review, retained until the
+// reviewed answer supersedes it.
+type demotedDraft struct {
+	turn         int
+	content      string
+	resetPending bool
+}
+
 func (s *Server) failRun(c Conversation, r Run, err error) {
 	if changed, _ := s.store.SetRunStatus(r.ID, "failed", err.Error()); changed {
 		if failed, e := s.store.GetRun(r.ID); e == nil {
 			_, _ = s.store.Event(c.ID, "run", failed)
 		}
 	}
+	s.noteModelAuthRejection(s.runModel(r), err)
+}
+
+// noteAPIKeyRejection marks an OpenAI/Anthropic key the provider rejected for
+// this model as needing attention. It reports whether the failure was theirs.
+func (s *Server) noteAPIKeyRejection(model string, err error) bool {
+	if err == nil {
+		return false
+	}
+	if code, _ := modelAccountFailure(strings.ToLower(err.Error()), model); code != "model_auth_invalid" {
+		return false
+	}
+	name := runtime.ModelProvider(model)
+	if name == providerCodex || !managedProviderName(s.provider) {
+		return false
+	}
+	if _, keyed := s.providerKey(name); !keyed {
+		return false
+	}
+	s.noteProviderKeyRejected(name, http.StatusUnauthorized)
+	return true
+}
+
+// runModel is the model a run executes with: its own, else its Bot's.
+func (s *Server) runModel(r Run) string {
+	if !isFollowGlobalModel(r.Model) {
+		return strings.TrimSpace(r.Model)
+	}
+	b, _ := s.store.GetBot(r.BotID)
+	model, _ := s.resolveBotModel(context.Background(), r.Model, b)
+	return model
+}
+
+// noteModelAuthRejection keeps provider status truthful after the provider
+// rejects the stored credential. An API key is marked as needing attention;
+// a Codex sign-in gets one refresh, otherwise the workspace reports that a
+// reconnect is needed.
+func (s *Server) noteModelAuthRejection(model string, err error) {
+	if err == nil {
+		return
+	}
+	if code, _ := modelAccountFailure(strings.ToLower(err.Error()), ""); code != "model_auth_invalid" {
+		return
+	}
+	s.mu.Lock()
+	managed, codex := s.codexManaged, s.codex
+	s.mu.Unlock()
+	if !managed || !managedProviderName(s.provider) || s.noteAPIKeyRejection(model, err) || codex == nil {
+		return
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	if rejected, e := codex.RecoverRejected(ctx); e != nil || !rejected {
+		return
+	}
+	_, _ = s.store.WorkspaceEvent(workspaceScopeConfig)
 }
 func (s *Store) AddAssistant(conv, bot, run, content string) (Message, error) {
 	m, _, err := s.AddMessage(conv, "assistant", bot, run, content, "")
@@ -3335,9 +3615,16 @@ func (s *Server) tools(c Conversation, r Run) []Tool {
 		if c.Kind == "group" {
 			memoryBot = ""
 		}
-		m, e := s.store.AddMemoryWithMetadata(c.ID, memoryBot, x)
+		existing, err := s.scopedMemories(c, r.BotID)
+		if err != nil {
+			return "", err
+		}
+		if m, ok := duplicateMemory(existing, x.Content); ok {
+			return "already saved; existing memory id " + m.ID, nil
+		}
+		m, e := s.store.AddMemoryWithMetadata(s.memoryConversationID(c, r.BotID), memoryBot, x)
 		return m.ID, e
-	}}, {Name: "search_history", Description: "search exact conversation history", Parameters: objectSchema(map[string]any{"query": map[string]any{"type": "string"}}, []string{"query"}), Execute: func(ctx context.Context, b json.RawMessage) (string, error) {
+	}}, {Name: "search_history", ApprovalExpiryReadOnly: true, Description: "search exact conversation history", Parameters: objectSchema(map[string]any{"query": map[string]any{"type": "string"}}, []string{"query"}), Execute: func(ctx context.Context, b json.RawMessage) (string, error) {
 		var x struct {
 			Query string `json:"query"`
 		}
@@ -3472,7 +3759,8 @@ func (s *Server) tools(c Conversation, r Run) []Tool {
 					continue
 				}
 			}
-			out = append(out, entry{b.ID, b.Name, b.Model, trimRunes(b.Instructions, 1500)})
+			model, _ := s.resolveBotModel(ctx, "", b)
+			out = append(out, entry{b.ID, b.Name, model, trimRunes(b.Instructions, 1500)})
 		}
 		data, _ := json.Marshal(out)
 		return string(data), nil
@@ -3552,9 +3840,38 @@ func (s *Server) tools(c Conversation, r Run) []Tool {
 	base = append(base, s.attachmentTools(c)...)
 	base = append(base, s.imageGenerationTools(c, r)...)
 	base = append(base, s.publishAttachmentTools(c, r)...)
-	base = append(base, s.computerTools(r)...)
+	if s.store.hasPairedComputer() {
+		base = append(base, s.computerTools(r)...)
+	}
 	base = append(base, s.microVMTools(r)...)
 	return append(append(append(base, s.teamTools(c, r)...), s.scheduleTools(c, r)...), s.workItemTools(c, r)...)
+}
+
+// mcpDiscoveryToolNames are the MCP facade tools; Skill tools are kept.
+var mcpDiscoveryToolNames = map[string]bool{"search_mcp_tools": true, "call_mcp_tool": true, "search_mcp_catalog": true, "list_mcp_servers": true}
+
+// withoutIdleMCPTools drops the MCP facade when no MCP server is configured and usable.
+// An unreadable configuration keeps the tools so diagnostics stay reachable.
+func (s *Server) withoutIdleMCPTools(tools []Tool) []Tool {
+	if s.extensions == nil {
+		return tools
+	}
+	servers, err := s.extensions.ListMCP()
+	if err != nil {
+		return tools
+	}
+	for _, server := range servers {
+		if s.mcpServerUsable(context.Background(), server.Name) {
+			return tools
+		}
+	}
+	out := make([]Tool, 0, len(tools))
+	for _, tool := range tools {
+		if !mcpDiscoveryToolNames[tool.Name] {
+			out = append(out, tool)
+		}
+	}
+	return out
 }
 func objectSchema(properties map[string]any, required []string) map[string]any {
 	if required == nil {

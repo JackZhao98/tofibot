@@ -1,6 +1,7 @@
 import { prefersReducedMotion } from "./motion-lab/lib/hooks";
 import { SPRINGS, springEasing } from "./motion-lab/lib/spring";
 import "./mail-send-flight.css";
+import { postmarkDate, postmarkSVG } from "./postmark";
 
 async function finish(animation: Animation) { try { await animation.finished; } catch { /* element removed */ } }
 
@@ -31,7 +32,7 @@ export async function flyMailDraft(letter: HTMLElement): Promise<void> {
   }
   const envelope = document.createElement("div");
   envelope.className = "mail-flight-envelope";
-  envelope.innerHTML = '<div class="mail-flight-envelope-flap"><svg viewBox="0 0 100 58" preserveAspectRatio="none"><path d="M1.5 1.5 L50 56 L98.5 1.5 Z" /></svg></div><div class="mail-flight-envelope-back"></div><div class="mail-flight-envelope-insert"></div><div class="mail-flight-envelope-pocket"><svg viewBox="0 0 100 60" preserveAspectRatio="none"><path d="M1.5 1.5 L50 34 L98.5 1.5 L98.5 58.5 L1.5 58.5 Z" /></svg></div><div class="mail-flight-envelope-stamp"></div><div class="mail-flight-envelope-postmark"><svg viewBox="0 0 150 80"><circle cx="40" cy="40" r="31" fill="none" stroke="currentColor" stroke-width="2.4"/><circle cx="40" cy="40" r="17" fill="none" stroke="currentColor" stroke-width="1.4"/><text x="40" y="43.5" text-anchor="middle" font-size="9" font-weight="700" fill="currentColor">TOFI</text><path d="M76 26q9 -6 18 0t18 0t18 0t18 0 M76 36q9 -6 18 0t18 0t18 0t18 0 M76 46q9 -6 18 0t18 0t18 0t18 0 M76 56q9 -6 18 0t18 0t18 0t18 0" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg></div><span class="mail-flight-envelope-address">TOFI POST</span>';
+  envelope.innerHTML = '<div class="mail-flight-envelope-flap"><svg viewBox="0 0 100 58" preserveAspectRatio="none"><path d="M1.5 1.5 L50 56 L98.5 1.5 Z" /></svg></div><div class="mail-flight-envelope-back"></div><div class="mail-flight-envelope-insert"></div><div class="mail-flight-envelope-pocket"><svg viewBox="0 0 100 60" preserveAspectRatio="none"><path d="M1.5 1.5 L50 34 L98.5 1.5 L98.5 58.5 L1.5 58.5 Z" /></svg></div><div class="mail-flight-envelope-stamp"></div><div class="mail-flight-envelope-postmark">' + postmarkSVG({ ring:"TOFI POST · TOFI POST ·", date:postmarkDate(new Date()), waves:true }) + '</div><span class="mail-flight-envelope-address">TOFI POST</span>';
   const stampSource = letter.querySelector(".mail-draft-stamp .avatar");
   if (stampSource) envelope.querySelector(".mail-flight-envelope-stamp")?.append(stampSource.cloneNode(true));
   const envelopeWidth = Math.min(300, Math.max(220, rect.width * .68));

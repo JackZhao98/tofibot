@@ -1,8 +1,11 @@
 package provider
 
 import (
+	"errors"
 	"fmt"
+	"regexp"
 	"strings"
+	"time"
 )
 
 // APIError represents a structured error from an LLM provider API call.
@@ -53,6 +56,15 @@ func IsRetryable(err error) bool {
 		}
 	}
 
+	if errors.Is(err, ErrStreamIncomplete) {
+		return true
+	}
+	var incomplete *IncompleteResponseError
+	var refusal *RefusalError
+	if errors.As(err, &incomplete) || errors.As(err, &refusal) {
+		return false // the same request would stop the same way
+	}
+
 	// Connection-level errors (no HTTP response received)
 	msg := err.Error()
 	return isConnectionError(msg)
@@ -78,7 +90,8 @@ func IsContextOverflow(err error) bool {
 		strings.Contains(msg, "maximum context") ||
 		strings.Contains(msg, "max_tokens") && strings.Contains(msg, "exceed") ||
 		strings.Contains(msg, "too many tokens") ||
-		strings.Contains(msg, "input is too long")
+		strings.Contains(msg, "input is too long") ||
+		strings.Contains(msg, "prompt is too long")
 }
 
 // AsAPIError extracts an APIError from an error chain.
@@ -121,4 +134,101 @@ func isConnectionError(msg string) bool {
 		}
 	}
 	return false
+}
+
+// StreamIdleError reports a streaming response that delivered no bytes for
+// Idle. It is transient: RetryProvider retries it when nothing was forwarded.
+type StreamIdleError struct{ Idle time.Duration }
+
+func (e *StreamIdleError) Error() string {
+	return fmt.Sprintf("stream idle timeout: no data for %s", e.Idle)
+}
+
+// IsStreamIdle reports whether err is (or wraps) a StreamIdleError.
+func IsStreamIdle(err error) bool {
+	var idle *StreamIdleError
+	return errors.As(err, &idle)
+}
+
+// StreamWallCapError reports a single streaming attempt that ran past Cap
+// after its response headers arrived.
+type StreamWallCapError struct{ Cap time.Duration }
+
+func (e *StreamWallCapError) Error() string {
+	return fmt.Sprintf("stream wall cap: attempt exceeded %s", e.Cap)
+}
+
+// IsStreamWatchdog reports an idle or wall-cap abort. Each already cost
+// minutes, so RetryProvider leaves the single retry to the caller.
+func IsStreamWatchdog(err error) bool {
+	var wall *StreamWallCapError
+	return IsStreamIdle(err) || errors.As(err, &wall)
+}
+
+// IncompleteResponseError reports a response the model stopped before
+// finishing (Anthropic stop_reason max_tokens or
+// model_context_window_exceeded). Its partial output, possibly a truncated
+// tool call, is discarded. A context-window stop matches IsContextOverflow.
+type IncompleteResponseError struct {
+	Provider string
+	Reason   string
+}
+
+func (e *IncompleteResponseError) Error() string {
+	if e.Reason == "model_context_window_exceeded" {
+		return fmt.Sprintf("%s response incomplete: model context window exceeded", e.Provider)
+	}
+	return fmt.Sprintf("%s response incomplete: %s", e.Provider, e.Reason)
+}
+
+// RefusalError reports a response the model's safety classifiers declined
+// (Anthropic stop_reason refusal). It is not retryable.
+type RefusalError struct {
+	Provider    string
+	Category    string
+	Explanation string
+}
+
+func (e *RefusalError) Error() string {
+	msg := e.Provider + " model declined the request"
+	if e.Category != "" {
+		msg += " (" + e.Category + ")"
+	}
+	if e.Explanation != "" {
+		msg += ": " + e.Explanation
+	}
+	return msg
+}
+
+// ErrStreamIncomplete reports a stream that ended without a terminal event.
+var ErrStreamIncomplete = errors.New("stream ended before response.completed")
+
+var reasoningItemIDPattern = regexp.MustCompile(`\brs_[A-Za-z0-9]`)
+
+// ResponseFailedError is a response.failed event inside an accepted stream.
+type ResponseFailedError struct{ Code, Message string }
+
+func (e *ResponseFailedError) Error() string {
+	return fmt.Sprintf("response failed: [%s] %s", e.Code, e.Message)
+}
+
+// isReasoningReplayRejection matches a rejection of replayed reasoning items,
+// as a 400/404 or an in-stream response.failed. Other errors keep their
+// normal handling.
+func isReasoningReplayRejection(err error) bool {
+	var failed *ResponseFailedError
+	if errors.As(err, &failed) {
+		return mentionsReasoningReplay(failed.Message)
+	}
+	apiErr, ok := AsAPIError(err)
+	if !ok || (apiErr.StatusCode != 400 && apiErr.StatusCode != 404) {
+		return false
+	}
+	return mentionsReasoningReplay(apiErr.Body)
+}
+
+func mentionsReasoningReplay(text string) bool {
+	lower := strings.ToLower(text)
+	return strings.Contains(lower, "encrypted_content") || strings.Contains(lower, "reasoning item") ||
+		reasoningItemIDPattern.MatchString(text)
 }

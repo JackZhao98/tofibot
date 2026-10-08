@@ -84,8 +84,10 @@ func (s *Store) SaveInputContinuation(ctx context.Context, runID, questionID str
 		return err
 	}
 	if q.Type == questionApproval && q.Status == questionExpired {
-		q.Resumable = true
 		if err = insertRecoveryEvent(tx, q.ConversationID, "question", q.Card(), r.UpdatedAt); err != nil {
+			return err
+		}
+		if err = enqueueApprovalExpiryTx(tx, q); err != nil {
 			return err
 		}
 	}
@@ -124,14 +126,14 @@ func (s *Store) refreshInputWaits(conv string) error {
 		if e != nil {
 			return e
 		}
-		if q.Status == questionPending && q.ExpiresAt != "" {
+		if (q.Status == questionPending || q.Type == questionApproval && q.Status == questionAnswered && string(q.Answer) == "true") && q.ExpiresAt != "" {
 			deadline, e := time.Parse(time.RFC3339Nano, q.ExpiresAt)
-			if e != nil {
+			if e != nil && q.Type != questionApproval {
 				return e
 			}
-			if !time.Now().Before(deadline) {
+			if e != nil || !time.Now().Before(deadline) {
 				q.Status, q.UpdatedAt, q.Resumable = questionExpired, now(), q.Type == questionApproval
-				if _, e = tx.Exec(`UPDATE questions SET status=?,updated_at=? WHERE id=? AND status='pending'`, q.Status, q.UpdatedAt, q.ID); e != nil {
+				if _, e = tx.Exec(`UPDATE questions SET status=?,updated_at=? WHERE id=? AND status IN ('pending','answered')`, q.Status, q.UpdatedAt, q.ID); e != nil {
 					return e
 				}
 				if e = insertRecoveryEvent(tx, q.ConversationID, "question", q.Card(), q.UpdatedAt); e != nil {
@@ -139,9 +141,10 @@ func (s *Store) refreshInputWaits(conv string) error {
 				}
 			}
 		}
-		// An expired approval remains a resumable wait. Only a fresh card can
-		// release it; expiration is neither denial nor permission to execute.
 		if q.Type == questionApproval && q.Status == questionExpired {
+			if e = enqueueApprovalExpiryTx(tx, q); e != nil {
+				return e
+			}
 			continue
 		}
 		if q.Status != questionAnswered && q.Status != questionCancelled && q.Status != questionExpired {
@@ -324,9 +327,14 @@ func (s *Server) inputResumeOutcome(q Question) *tooloutcome.Outcome {
 	if s.store.db.QueryRow(`SELECT EXISTS(SELECT 1 FROM mcp_call_approvals WHERE question_id=?)`, q.ID).Scan(&bound) != nil || !bound {
 		return nil
 	}
-	o := tooloutcome.New("approval_recorded", "approval_recorded", "not_executed", "The human recorded approval; the external action has not executed. Reinspect current state and refresh the MCP schema if needed, then propose the exact approved call.", "reinspect_and_call")
+	o := mcpApprovalRecordedOutcome()
 	if string(q.Answer) != "true" {
 		o = tooloutcome.New(tooloutcome.Denied, "approval_denied", "not_executed", "The human did not approve this external tool call. Do not execute or repeat it.", "explain_blocker")
 	}
 	return &o
+}
+
+// Shared native control record, never inferred from returned tool text.
+func mcpApprovalRecordedOutcome() tooloutcome.Outcome {
+	return tooloutcome.New("approval_recorded", "approval_recorded", "not_executed", "The human approved this exact call; it has not executed yet. Call call_mcp_tool again now with the identical name and arguments. Do not search, refresh schemas or inspect first, and do not change any argument.", "repeat_exact_call")
 }

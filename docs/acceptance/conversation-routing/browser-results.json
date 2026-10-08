@@ -1,0 +1,379 @@
+{
+  "browser": "154.0.8037.93",
+  "productionBuild": true,
+  "realAccountGateway": true,
+  "baseline": {
+    "engine_calls": 0,
+    "tasks": [
+      {
+        "runs": 0,
+        "schedules": 0,
+        "work_items": 0
+      },
+      {
+        "runs": 0,
+        "schedules": 0,
+        "work_items": 0
+      }
+    ]
+  },
+  "final": {
+    "engine_calls": 0,
+    "tasks": [
+      {
+        "runs": 0,
+        "schedules": 0,
+        "work_items": 0
+      },
+      {
+        "runs": 0,
+        "schedules": 0,
+        "work_items": 0
+      }
+    ]
+  },
+  "results": [
+    {
+      "layout": "desktop",
+      "label": "direct-link-login-return-native-precedence",
+      "path": "/b/13ec5544-505c-4405-bbed-126ac68f2fa1",
+      "pass": true
+    },
+    {
+      "layout": "desktop",
+      "label": "reload-retains-target-history-and-draft",
+      "path": "/b/13ec5544-505c-4405-bbed-126ac68f2fa1",
+      "pass": true
+    },
+    {
+      "layout": "desktop",
+      "label": "sidebar-repeat-back-forward-group-reload-drafts",
+      "path": "/g/a64a87bf-a416-45ac-85f0-80439d65f4e6",
+      "pass": true
+    },
+    {
+      "layout": "desktop",
+      "label": "copy-link-opens-authorized-group-in-new-tab",
+      "path": "/g/a64a87bf-a416-45ac-85f0-80439d65f4e6",
+      "pass": true
+    },
+    {
+      "layout": "desktop",
+      "label": "missing-bot",
+      "path": "/b/00000000-0000-0000-0000-000000000000",
+      "pass": true
+    },
+    {
+      "layout": "desktop",
+      "label": "deleted-bot",
+      "path": "/b/f33269c5-0c21-49c9-abd6-8074ab2cdb85",
+      "pass": true
+    },
+    {
+      "layout": "desktop",
+      "label": "internal-group",
+      "path": "/g/19745e9b-7b4b-470b-a3c7-ce1fc7dd46d4",
+      "pass": true
+    },
+    {
+      "layout": "desktop",
+      "label": "malformed-id",
+      "path": "/b/%25",
+      "pass": true
+    },
+    {
+      "layout": "desktop",
+      "label": "wrong-kind",
+      "path": "/g/7e70873a-d798-4a0c-9e0f-54ed0ea1801d",
+      "pass": true
+    },
+    {
+      "layout": "desktop",
+      "label": "cross-account-bot",
+      "path": "/b/61e317e8-b042-44ad-ac73-f060eeb6278f",
+      "pass": true
+    },
+    {
+      "layout": "desktop",
+      "label": "cross-account-group",
+      "path": "/g/b4b65ca2-f4d8-455b-8394-4636eb1fbc4e",
+      "pass": true
+    },
+    {
+      "layout": "desktop",
+      "label": "unavailable-recovery-by-sidebar",
+      "path": "/b/e17b7905-b66a-41be-8a94-cbbcb8383a36",
+      "pass": true
+    },
+    {
+      "layout": "desktop",
+      "label": "notification-selection-reload-retains-url-and-draft",
+      "path": "/b/13ec5544-505c-4405-bbed-126ac68f2fa1",
+      "pass": true
+    },
+    {
+      "layout": "desktop",
+      "label": "archived-direct-link-is-read-only",
+      "path": "/b/2c613c74-b04c-43a6-a8da-92882c905b50",
+      "pass": true
+    },
+    {
+      "layout": "desktop",
+      "label": "same-tab-account-switch-keeps-target-unavailable-no-leak",
+      "path": "/b/2c613c74-b04c-43a6-a8da-92882c905b50",
+      "pass": true
+    },
+    {
+      "layout": "desktop",
+      "label": "root-default-validates-native-saved-selection-in-current-account",
+      "path": "/g/b4b65ca2-f4d8-455b-8394-4636eb1fbc4e",
+      "pass": true
+    },
+    {
+      "layout": "desktop",
+      "label": "created-bot-selection-and-reload",
+      "path": "/b/b5ccf91a-8acf-4540-9110-3edadc0c98c5",
+      "pass": true
+    },
+    {
+      "layout": "desktop",
+      "label": "created-group-selection-and-reload",
+      "path": "/g/5019a922-61bf-48b5-aef3-6d12943af0c8",
+      "pass": true
+    },
+    {
+      "layout": "desktop",
+      "label": "active-deletion-back-forward-reload-remains-unavailable",
+      "path": "/g/5019a922-61bf-48b5-aef3-6d12943af0c8",
+      "pass": true
+    },
+    {
+      "layout": "narrow",
+      "label": "direct-link-login-return-native-precedence",
+      "path": "/b/13ec5544-505c-4405-bbed-126ac68f2fa1",
+      "pass": true
+    },
+    {
+      "layout": "narrow",
+      "label": "reload-retains-target-history-and-draft",
+      "path": "/b/13ec5544-505c-4405-bbed-126ac68f2fa1",
+      "pass": true
+    },
+    {
+      "layout": "narrow",
+      "label": "sidebar-repeat-back-forward-group-reload-drafts",
+      "path": "/g/a64a87bf-a416-45ac-85f0-80439d65f4e6",
+      "pass": true
+    },
+    {
+      "layout": "narrow",
+      "label": "copy-link-opens-authorized-group-in-new-tab",
+      "path": "/g/a64a87bf-a416-45ac-85f0-80439d65f4e6",
+      "pass": true
+    },
+    {
+      "layout": "narrow",
+      "label": "missing-bot",
+      "path": "/b/00000000-0000-0000-0000-000000000000",
+      "pass": true
+    },
+    {
+      "layout": "narrow",
+      "label": "deleted-bot",
+      "path": "/b/f33269c5-0c21-49c9-abd6-8074ab2cdb85",
+      "pass": true
+    },
+    {
+      "layout": "narrow",
+      "label": "internal-group",
+      "path": "/g/19745e9b-7b4b-470b-a3c7-ce1fc7dd46d4",
+      "pass": true
+    },
+    {
+      "layout": "narrow",
+      "label": "malformed-id",
+      "path": "/b/%25",
+      "pass": true
+    },
+    {
+      "layout": "narrow",
+      "label": "wrong-kind",
+      "path": "/g/7e70873a-d798-4a0c-9e0f-54ed0ea1801d",
+      "pass": true
+    },
+    {
+      "layout": "narrow",
+      "label": "cross-account-bot",
+      "path": "/b/61e317e8-b042-44ad-ac73-f060eeb6278f",
+      "pass": true
+    },
+    {
+      "layout": "narrow",
+      "label": "cross-account-group",
+      "path": "/g/b4b65ca2-f4d8-455b-8394-4636eb1fbc4e",
+      "pass": true
+    },
+    {
+      "layout": "narrow",
+      "label": "unavailable-recovery-by-sidebar",
+      "path": "/b/e17b7905-b66a-41be-8a94-cbbcb8383a36",
+      "pass": true
+    },
+    {
+      "layout": "narrow",
+      "label": "notification-selection-reload-retains-url-and-draft",
+      "path": "/b/13ec5544-505c-4405-bbed-126ac68f2fa1",
+      "pass": true
+    },
+    {
+      "layout": "narrow",
+      "label": "archived-direct-link-is-read-only",
+      "path": "/b/2c613c74-b04c-43a6-a8da-92882c905b50",
+      "pass": true
+    },
+    {
+      "layout": "narrow",
+      "label": "same-tab-account-switch-keeps-target-unavailable-no-leak",
+      "path": "/b/2c613c74-b04c-43a6-a8da-92882c905b50",
+      "pass": true
+    },
+    {
+      "layout": "narrow",
+      "label": "root-default-validates-native-saved-selection-in-current-account",
+      "path": "/b/b5ccf91a-8acf-4540-9110-3edadc0c98c5",
+      "pass": true
+    },
+    {
+      "layout": "narrow",
+      "label": "created-bot-selection-and-reload",
+      "path": "/b/ea19dd64-6822-42d4-b858-e28356d73cfb",
+      "pass": true
+    },
+    {
+      "layout": "narrow",
+      "label": "created-group-selection-and-reload",
+      "path": "/g/1252fbc1-9a7b-445f-81ff-e27896ad8caa",
+      "pass": true
+    },
+    {
+      "layout": "narrow",
+      "label": "active-deletion-back-forward-reload-remains-unavailable",
+      "path": "/g/1252fbc1-9a7b-445f-81ff-e27896ad8caa",
+      "pass": true
+    },
+    {
+      "layout": "native-bridge",
+      "label": "direct-link-login-return-native-precedence",
+      "path": "/b/13ec5544-505c-4405-bbed-126ac68f2fa1",
+      "pass": true
+    },
+    {
+      "layout": "native-bridge",
+      "label": "reload-retains-target-history-and-draft",
+      "path": "/b/13ec5544-505c-4405-bbed-126ac68f2fa1",
+      "pass": true
+    },
+    {
+      "layout": "native-bridge",
+      "label": "sidebar-repeat-back-forward-group-reload-drafts",
+      "path": "/g/a64a87bf-a416-45ac-85f0-80439d65f4e6",
+      "pass": true
+    },
+    {
+      "layout": "native-bridge",
+      "label": "copy-link-opens-authorized-group-in-new-tab",
+      "path": "/g/a64a87bf-a416-45ac-85f0-80439d65f4e6",
+      "pass": true
+    },
+    {
+      "layout": "native-bridge",
+      "label": "missing-bot",
+      "path": "/b/00000000-0000-0000-0000-000000000000",
+      "pass": true
+    },
+    {
+      "layout": "native-bridge",
+      "label": "deleted-bot",
+      "path": "/b/f33269c5-0c21-49c9-abd6-8074ab2cdb85",
+      "pass": true
+    },
+    {
+      "layout": "native-bridge",
+      "label": "internal-group",
+      "path": "/g/19745e9b-7b4b-470b-a3c7-ce1fc7dd46d4",
+      "pass": true
+    },
+    {
+      "layout": "native-bridge",
+      "label": "malformed-id",
+      "path": "/b/%25",
+      "pass": true
+    },
+    {
+      "layout": "native-bridge",
+      "label": "wrong-kind",
+      "path": "/g/7e70873a-d798-4a0c-9e0f-54ed0ea1801d",
+      "pass": true
+    },
+    {
+      "layout": "native-bridge",
+      "label": "cross-account-bot",
+      "path": "/b/61e317e8-b042-44ad-ac73-f060eeb6278f",
+      "pass": true
+    },
+    {
+      "layout": "native-bridge",
+      "label": "cross-account-group",
+      "path": "/g/b4b65ca2-f4d8-455b-8394-4636eb1fbc4e",
+      "pass": true
+    },
+    {
+      "layout": "native-bridge",
+      "label": "unavailable-recovery-by-sidebar",
+      "path": "/b/e17b7905-b66a-41be-8a94-cbbcb8383a36",
+      "pass": true
+    },
+    {
+      "layout": "native-bridge",
+      "label": "notification-selection-reload-retains-url-and-draft",
+      "path": "/b/13ec5544-505c-4405-bbed-126ac68f2fa1",
+      "pass": true
+    },
+    {
+      "layout": "native-bridge",
+      "label": "archived-direct-link-is-read-only",
+      "path": "/b/2c613c74-b04c-43a6-a8da-92882c905b50",
+      "pass": true
+    },
+    {
+      "layout": "native-bridge",
+      "label": "same-tab-account-switch-keeps-target-unavailable-no-leak",
+      "path": "/b/2c613c74-b04c-43a6-a8da-92882c905b50",
+      "pass": true
+    },
+    {
+      "layout": "native-bridge",
+      "label": "root-default-validates-native-saved-selection-in-current-account",
+      "path": "/b/ea19dd64-6822-42d4-b858-e28356d73cfb",
+      "pass": true
+    },
+    {
+      "layout": "native-bridge",
+      "label": "created-bot-selection-and-reload",
+      "path": "/b/f7a6beea-b38d-475d-8415-72a82e65ef70",
+      "pass": true
+    },
+    {
+      "layout": "native-bridge",
+      "label": "created-group-selection-and-reload",
+      "path": "/g/297c5fd2-088b-4359-a699-3e5a11e1bc8b",
+      "pass": true
+    },
+    {
+      "layout": "native-bridge",
+      "label": "active-deletion-back-forward-reload-remains-unavailable",
+      "path": "/g/297c5fd2-088b-4359-a699-3e5a11e1bc8b",
+      "pass": true
+    }
+  ]
+}

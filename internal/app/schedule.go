@@ -173,7 +173,12 @@ CREATE INDEX IF NOT EXISTS schedule_occurrences_run ON schedule_occurrences(run_
 }
 
 func (s *Store) ensureSchedules() error {
-	s.scheduleSchemaOnce.Do(func() { s.scheduleSchemaErr = migrateSchedules(s.db) })
+	s.scheduleSchemaOnce.Do(func() {
+		s.scheduleSchemaErr = migrateSchedules(s.db)
+		if s.scheduleSchemaErr == nil {
+			s.scheduleSchemaErr = migrateScheduleAuthorization(s.db)
+		}
+	})
 	return s.scheduleSchemaErr
 }
 
@@ -358,6 +363,10 @@ func nextDailyAfterOccurrence(occurrence time.Time, loc *time.Location, clock st
 func scheduleTime(t time.Time) string { return t.UTC().Format(scheduleTimeLayout) }
 
 func (s *Store) CreateSchedule(conversationID, botID string, spec ScheduleSpec) (Schedule, error) {
+	return s.createScheduleWithSource(conversationID, botID, spec, nil)
+}
+
+func (s *Store) createScheduleWithSource(conversationID, botID string, spec ScheduleSpec, source *scheduleMutationSource) (Schedule, error) {
 	if err := s.ensureSchedules(); err != nil {
 		return Schedule{}, err
 	}
@@ -400,6 +409,9 @@ func (s *Store) CreateSchedule(conversationID, botID string, spec ScheduleSpec) 
 		return Schedule{}, err
 	}
 	if _, err = tx.Exec(`INSERT INTO schedules(id,conversation_id,bot_id,content,title,description,created_by,kind,timezone,next_at_utc,interval_seconds,daily_time,status,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`, x.ID, x.ConversationID, x.BotID, x.Content, x.Title, x.Description, x.CreatedBy, x.Kind, x.Timezone, x.NextAtUTC, x.IntervalSeconds, x.DailyTime, x.Status, x.CreatedAt, x.UpdatedAt); err != nil {
+		return Schedule{}, err
+	}
+	if err = appendScheduleAuthorizationTx(tx, x, "create", t, source); err != nil {
 		return Schedule{}, err
 	}
 	if err = insertScheduleEvent(tx, x.ConversationID, "schedule", x, t); err != nil {
@@ -721,6 +733,10 @@ func boundedOccurrenceError(value string) string {
 }
 
 func (s *Store) setScheduleStatus(id, status string) (Schedule, error) {
+	return s.setScheduleStatusWithSource(id, status, nil)
+}
+
+func (s *Store) setScheduleStatusWithSource(id, status string, source *scheduleMutationSource) (Schedule, error) {
 	if err := s.ensureSchedules(); err != nil {
 		return Schedule{}, err
 	}
@@ -759,6 +775,13 @@ func (s *Store) setScheduleStatus(id, status string) (Schedule, error) {
 	if err != nil {
 		return Schedule{}, err
 	}
+	event := "pause"
+	if status == scheduleActive {
+		event = "resume"
+	}
+	if err = appendScheduleAuthorizationTx(tx, x, event, updated, source); err != nil {
+		return Schedule{}, err
+	}
 	if err = insertScheduleEvent(tx, x.ConversationID, "schedule", x, updated); err != nil {
 		return Schedule{}, err
 	}
@@ -775,6 +798,10 @@ func (s *Store) ResumeSchedule(id string) (Schedule, error) {
 	return s.setScheduleStatus(id, scheduleActive)
 }
 func (s *Store) DeleteSchedule(id string) error {
+	return s.deleteScheduleWithSource(id, nil)
+}
+
+func (s *Store) deleteScheduleWithSource(id string, source *scheduleMutationSource) error {
 	if err := s.ensureSchedules(); err != nil {
 		return err
 	}
@@ -791,11 +818,14 @@ func (s *Store) DeleteSchedule(id string) error {
 	if n, _ := res.RowsAffected(); n != 1 {
 		return errors.New("schedule already deleted")
 	}
-	var conversationID string
-	if err = tx.QueryRow(`SELECT conversation_id FROM schedules WHERE id=?`, id).Scan(&conversationID); err != nil {
+	x, err := scanSchedule(tx.QueryRow(`SELECT id,conversation_id,bot_id,content,title,description,created_by,kind,timezone,next_at_utc,interval_seconds,daily_time,status,created_at,updated_at FROM schedules WHERE id=?`, id))
+	if err != nil {
 		return err
 	}
-	if err = insertScheduleEvent(tx, conversationID, "schedule", map[string]any{"id": id, "status": scheduleDeleted}, updated); err != nil {
+	if err = appendScheduleAuthorizationTx(tx, x, "delete", updated, source); err != nil {
+		return err
+	}
+	if err = insertScheduleEvent(tx, x.ConversationID, "schedule", map[string]any{"id": id, "status": scheduleDeleted}, updated); err != nil {
 		return err
 	}
 	return tx.Commit()
@@ -923,6 +953,10 @@ func (s *Store) ClaimDueSchedules(at time.Time) ([]Run, error) {
 			return claimed, err
 		}
 		if _, err = tx.Exec(`INSERT INTO schedule_occurrences(schedule_id,scheduled_for_utc,run_id,created_at,title,description,created_by,kind,timezone,interval_seconds,daily_time,occurrence_number) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)`, x.ID, scheduleTime(occurrence), run.ID, updated, x.Title, x.Description, x.CreatedBy, x.Kind, x.Timezone, x.IntervalSeconds, x.DailyTime, occurrenceNumber); err != nil {
+			tx.Rollback()
+			return claimed, err
+		}
+		if err = snapshotScheduleAuthorizationTx(tx, x, run, scheduleTime(occurrence), updated); err != nil {
 			tx.Rollback()
 			return claimed, err
 		}
@@ -1141,13 +1175,14 @@ func (s *Server) routeSchedules(w http.ResponseWriter, r *http.Request, p string
 		}
 		if r.Method == http.MethodPost {
 			var req scheduleRequest
-			if decode(r, &req) != nil {
+			fields, decodeErr := decodeScheduleForm(r, &req)
+			if decodeErr != nil {
 				writeErr(w, http.StatusBadRequest, "invalid_request", "invalid schedule request")
 				return true
 			}
 			spec := req.spec()
 			spec.CreatedBy = "user"
-			x, err := s.store.CreateSchedule(c.ID, req.BotID, spec)
+			x, err := s.store.createScheduleWithSource(c.ID, req.BotID, spec, s.scheduleFormSource("create", fields))
 			if err != nil {
 				if errors.Is(err, ErrArchiveBlocked) {
 					writeErr(w, http.StatusConflict, "archive_blocked", err.Error())
@@ -1175,11 +1210,12 @@ func (s *Server) routeSchedules(w http.ResponseWriter, r *http.Request, p string
 			return true
 		case r.Method == http.MethodPatch && len(parts) == 2:
 			var patch SchedulePatch
-			if decode(r, &patch) != nil {
+			fields, decodeErr := decodeScheduleForm(r, &patch)
+			if decodeErr != nil {
 				writeErr(w, http.StatusBadRequest, "invalid_request", "invalid schedule edit")
 				return true
 			}
-			x, err := s.store.PatchSchedule(id, patch)
+			x, err := s.store.patchScheduleWithSource(id, patch, s.scheduleFormSource("content_edit", fields))
 			if err != nil {
 				if errors.Is(err, ErrEditConflict) {
 					writeErr(w, http.StatusConflict, "edit_conflict", err.Error())
@@ -1195,7 +1231,7 @@ func (s *Server) routeSchedules(w http.ResponseWriter, r *http.Request, p string
 			writeJSON(w, http.StatusOK, x)
 			return true
 		case r.Method == http.MethodPost && len(parts) == 3 && parts[2] == "pause":
-			x, err := s.store.PauseSchedule(id)
+			x, err := s.store.setScheduleStatusWithSource(id, schedulePaused, s.scheduleFormSource("pause", map[string]string{"schedule_id": id}))
 			if err != nil {
 				if errors.Is(err, ErrArchiveBlocked) {
 					writeErr(w, http.StatusConflict, "archive_blocked", err.Error())
@@ -1207,7 +1243,7 @@ func (s *Server) routeSchedules(w http.ResponseWriter, r *http.Request, p string
 			writeJSON(w, http.StatusOK, x)
 			return true
 		case r.Method == http.MethodPost && len(parts) == 3 && parts[2] == "resume":
-			x, err := s.store.ResumeSchedule(id)
+			x, err := s.store.setScheduleStatusWithSource(id, scheduleActive, s.scheduleFormSource("resume", map[string]string{"schedule_id": id}))
 			if err != nil {
 				if errors.Is(err, ErrArchiveBlocked) {
 					writeErr(w, http.StatusConflict, "archive_blocked", err.Error())
@@ -1219,7 +1255,7 @@ func (s *Server) routeSchedules(w http.ResponseWriter, r *http.Request, p string
 			writeJSON(w, http.StatusOK, x)
 			return true
 		case r.Method == http.MethodDelete && len(parts) == 2:
-			if err := s.store.DeleteSchedule(id); err != nil {
+			if err := s.store.deleteScheduleWithSource(id, s.scheduleFormSource("delete", map[string]string{"schedule_id": id})); err != nil {
 				writeErr(w, http.StatusNotFound, "not_found", err.Error())
 				return true
 			}
@@ -1275,7 +1311,7 @@ func (s *Server) scheduleTools(c Conversation, r Run) []Tool {
 			}
 			spec := req.spec()
 			spec.CreatedBy = "bot"
-			x, err := s.store.CreateSchedule(c.ID, req.BotID, spec)
+			x, err := s.store.createScheduleWithSource(c.ID, req.BotID, spec, s.scheduleChatSource(c, r))
 			if err != nil {
 				return "", err
 			}
@@ -1302,7 +1338,7 @@ func (s *Server) scheduleTools(c Conversation, r Run) []Tool {
 			if _, _, err := normalizeDisplayMetadata(*input.Title, *input.Description, true); err != nil {
 				return "", err
 			}
-			x, err := s.store.PatchSchedule(input.ScheduleID, input.SchedulePatch)
+			x, err := s.store.patchScheduleWithSource(input.ScheduleID, input.SchedulePatch, s.scheduleChatSource(c, r))
 			if err != nil {
 				return "", err
 			}
@@ -1361,7 +1397,7 @@ func (s *Server) scheduleTools(c Conversation, r Run) []Tool {
 			if _, err := check(in.ScheduleID); err != nil {
 				return "", err
 			}
-			x, err := s.store.PauseSchedule(in.ScheduleID)
+			x, err := s.store.setScheduleStatusWithSource(in.ScheduleID, schedulePaused, s.scheduleChatSource(c, r))
 			if err != nil {
 				return "", err
 			}
@@ -1381,7 +1417,7 @@ func (s *Server) scheduleTools(c Conversation, r Run) []Tool {
 			if _, err := check(in.ScheduleID); err != nil {
 				return "", err
 			}
-			x, err := s.store.ResumeSchedule(in.ScheduleID)
+			x, err := s.store.setScheduleStatusWithSource(in.ScheduleID, scheduleActive, s.scheduleChatSource(c, r))
 			if err != nil {
 				return "", err
 			}
@@ -1401,7 +1437,7 @@ func (s *Server) scheduleTools(c Conversation, r Run) []Tool {
 			if _, err := check(in.ScheduleID); err != nil {
 				return "", err
 			}
-			return "deleted", s.store.DeleteSchedule(in.ScheduleID)
+			return "deleted", s.store.deleteScheduleWithSource(in.ScheduleID, s.scheduleChatSource(c, r))
 		}},
 	}
 }

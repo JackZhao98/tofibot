@@ -1,0 +1,81 @@
+=== RUN   TestReviewOrdinaryResumeDoesNotPermanentlyBlockUnexecutedTail
+--- PASS: TestReviewOrdinaryResumeDoesNotPermanentlyBlockUnexecutedTail (0.00s)
+=== RUN   TestReviewNormalResumeExecutesFreshProposalOnce
+2026/10/03 13:01:58 [synthetic-resume] [Agent] Registered 1 tools: search_history
+2026/10/03 13:01:58 [synthetic-resume] [Agent] Tools: 1 core, 0 skills (deferred)
+2026/10/03 13:01:58 [synthetic-resume] <tool_call name=" search_history ">
+{"query":"approved task"}
+</tool_call>
+2026/10/03 13:01:58 [synthetic-resume] [ExtraTool:search_history] synthetic observed history
+2026/10/03 13:01:58 [synthetic-resume] <think>
+Fresh authorized observation completed.
+</think>
+2026/10/03 13:01:58 [synthetic-resume] [Agent] Finished.
+--- PASS: TestReviewNormalResumeExecutesFreshProposalOnce (0.00s)
+=== RUN   TestReviewSkippedHistoryDoesNotWeakenExpiryOrDenialFence
+--- PASS: TestReviewSkippedHistoryDoesNotWeakenExpiryOrDenialFence (0.00s)
+PASS
+ok  	github.com/JackZhao98/tofibot/internal/agent	0.315s
+=== RUN   TestReviewExpiryDoesNotExceedOriginalStepBudget
+--- PASS: TestReviewExpiryDoesNotExceedOriginalStepBudget (0.00s)
+=== RUN   TestReviewExpiryUsesOnlyRemainingSteps
+=== RUN   TestReviewExpiryUsesOnlyRemainingSteps/zero
+=== RUN   TestReviewExpiryUsesOnlyRemainingSteps/beyond
+=== RUN   TestReviewExpiryUsesOnlyRemainingSteps/one-summary-only
+=== RUN   TestReviewExpiryUsesOnlyRemainingSteps/one-tool-refused
+=== RUN   TestReviewExpiryUsesOnlyRemainingSteps/two-bounded
+--- PASS: TestReviewExpiryUsesOnlyRemainingSteps (0.00s)
+    --- PASS: TestReviewExpiryUsesOnlyRemainingSteps/zero (0.00s)
+    --- PASS: TestReviewExpiryUsesOnlyRemainingSteps/beyond (0.00s)
+    --- PASS: TestReviewExpiryUsesOnlyRemainingSteps/one-summary-only (0.00s)
+    --- PASS: TestReviewExpiryUsesOnlyRemainingSteps/one-tool-refused (0.00s)
+    --- PASS: TestReviewExpiryUsesOnlyRemainingSteps/two-bounded (0.00s)
+PASS
+ok  	github.com/JackZhao98/tofibot/internal/runtime	0.300s
+=== RUN   TestReviewExpirySettlementFailureRemainsRecoverableWithoutRestart
+2026/10/03 13:02:08 [expiry] conclude run e56ac7b6-8cbe-4885-94dc-3b8261ba27b6: constraint failed: synthetic temporary storage failure (1811)
+--- PASS: TestReviewExpirySettlementFailureRemainsRecoverableWithoutRestart (0.04s)
+=== RUN   TestReviewExpiryWorkerRetriesOnlySummaryPersistence
+2026/10/03 13:02:08 [expiry] conclude run ac02f458-e95d-45f8-84ee-0a5e01adce97: constraint failed: synthetic temporary storage failure (1811)
+2026/10/03 13:02:08 [expiry] conclude run ac02f458-e95d-45f8-84ee-0a5e01adce97: constraint failed: synthetic temporary storage failure (1811)
+2026/10/03 13:02:08 [expiry] conclude run ac02f458-e95d-45f8-84ee-0a5e01adce97: constraint failed: synthetic temporary storage failure (1811)
+--- PASS: TestReviewExpiryWorkerRetriesOnlySummaryPersistence (1.06s)
+=== RUN   TestReviewExpiryStagedSummarySurvivesRestart
+2026/10/03 13:02:10 [expiry] conclude run af85d0d6-56bc-4cd6-8e6b-8cfe7467f55a: constraint failed: synthetic temporary storage failure (1811)
+--- PASS: TestReviewExpiryStagedSummarySurvivesRestart (0.05s)
+=== RUN   TestReviewerUncertainWritePathChanges
+=== RUN   TestReviewerUncertainWritePathChanges/lookup-before-dispatch
+2026/10/03 13:02:10 [454bab0a-3ea2-461b-8348-22bfb24eac66] [Agent] Registered 7 tools: computer_shell, computer_files, computer_desktop, computer_browser, computer_help, computer_terminal, computer_ssh_keys
+2026/10/03 13:02:10 [454bab0a-3ea2-461b-8348-22bfb24eac66] [Agent] Tools: 7 core, 0 skills (deferred)
+2026/10/03 13:02:10 [454bab0a-3ea2-461b-8348-22bfb24eac66] <tool_call name=" computer_files ">
+{"action":"files.write","append":true,"content":"X","path":"a"}
+</tool_call>
+2026/10/03 13:02:10 [454bab0a-3ea2-461b-8348-22bfb24eac66] [ExtraTool:computer_files] {"version":1,"status":"uncertain_effect","code":"unclassified_tool_failure","execution_certainty":"unknown","message":"computer control socket: Post \"http://tofi-computer/v1/action\": synthetic lost ...
+2026/10/03 13:02:10 [454bab0a-3ea2-461b-8348-22bfb24eac66] <tool_call name=" computer_files ">
+{"action":"files.write","append":true,"content":"X","path":"candidate"}
+</tool_call>
+2026/10/03 13:02:10 [454bab0a-3ea2-461b-8348-22bfb24eac66] [ExtraTool:computer_files] {"version":1,"status":"validation_error","code":"write_identity_changed","execution_certainty":"not_executed","message":"File target changed or could not be bound to the reviewed identity. No file con...
+2026/10/03 13:02:10 [454bab0a-3ea2-461b-8348-22bfb24eac66] <think>
+SYNTHETIC_PARTIAL_OUTPUT
+</think>
+2026/10/03 13:02:10 [454bab0a-3ea2-461b-8348-22bfb24eac66] [Agent] Finished.
+=== RUN   TestReviewerUncertainWritePathChanges/postfailure-replaces-evidence
+2026/10/03 13:02:10 [cfb0c48a-f2ea-4aa0-8da4-a983c9e46684] [Agent] Registered 7 tools: computer_shell, computer_files, computer_desktop, computer_browser, computer_help, computer_terminal, computer_ssh_keys
+2026/10/03 13:02:10 [cfb0c48a-f2ea-4aa0-8da4-a983c9e46684] [Agent] Tools: 7 core, 0 skills (deferred)
+2026/10/03 13:02:10 [cfb0c48a-f2ea-4aa0-8da4-a983c9e46684] <tool_call name=" computer_files ">
+{"action":"files.write","append":true,"content":"X","path":"candidate"}
+</tool_call>
+2026/10/03 13:02:10 [cfb0c48a-f2ea-4aa0-8da4-a983c9e46684] [ExtraTool:computer_files] {"version":1,"status":"uncertain_effect","code":"unclassified_tool_failure","execution_certainty":"unknown","message":"computer control socket: Post \"http://tofi-computer/v1/action\": synthetic lost ...
+2026/10/03 13:02:10 [cfb0c48a-f2ea-4aa0-8da4-a983c9e46684] <tool_call name=" computer_files ">
+{"action":"files.write","append":true,"content":"X","path":"a"}
+</tool_call>
+2026/10/03 13:02:10 [cfb0c48a-f2ea-4aa0-8da4-a983c9e46684] [ExtraTool:computer_files] {"version":1,"status":"uncertain_effect","code":"unclassified_tool_failure","execution_certainty":"unknown","message":"computer control socket: Post \"http://tofi-computer/v1/action\": synthetic lost ...
+2026/10/03 13:02:10 [cfb0c48a-f2ea-4aa0-8da4-a983c9e46684] <think>
+SYNTHETIC_PARTIAL_OUTPUT
+</think>
+2026/10/03 13:02:10 [cfb0c48a-f2ea-4aa0-8da4-a983c9e46684] [Agent] Finished.
+--- PASS: TestReviewerUncertainWritePathChanges (0.12s)
+    --- PASS: TestReviewerUncertainWritePathChanges/lookup-before-dispatch (0.06s)
+    --- PASS: TestReviewerUncertainWritePathChanges/postfailure-replaces-evidence (0.05s)
+PASS
+ok  	github.com/JackZhao98/tofibot/internal/app	1.718s

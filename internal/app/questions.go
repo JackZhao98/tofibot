@@ -63,9 +63,11 @@ type QuestionOtherAnswer struct {
 // ApprovalDetails describe the exact proposal shown to the human. The card
 // records a decision; the proposed action still requires its own tool call.
 type ApprovalDetails struct {
-	Action string `json:"action"`
-	Target string `json:"target"`
-	Impact string `json:"impact"`
+	ReviewOnly bool              `json:"review_only,omitempty"` // Advisory card; never permission.
+	Review     *MCPReviewDisplay `json:"review,omitempty"`      // Internal MCP gate only.
+	Action     string            `json:"action"`
+	Target     string            `json:"target"`
+	Impact     string            `json:"impact"`
 	// Payload is a bounded, plain-text snapshot for internal MCP call review.
 	// The model-visible request_approval tool cannot supply it.
 	Payload      string `json:"payload,omitempty"`
@@ -214,6 +216,9 @@ func normalizeQuestionInput(x askQuestionInput) (askQuestionInput, error) {
 	case questionApproval:
 		if x.Approval == nil {
 			return x, errors.New("approval details are required")
+		}
+		if x.Approval.Review != nil || x.Approval.ReviewOnly {
+			return x, errors.New("AutoReview metadata is reserved for the internal MCP gate")
 		}
 		for _, field := range []*string{&x.Approval.Action, &x.Approval.Target, &x.Approval.Impact} {
 			*field = strings.TrimSpace(*field)
@@ -391,10 +396,7 @@ func (q Question) Card() QuestionCard {
 			status, code, message, next = tooloutcome.NeedApproval, "human_approval", "Task is waiting for approval of this exact proposal.", "answer_approval"
 		}
 		if q.Status == questionExpired {
-			status, code, message, next = tooloutcome.Expired, "approval_window_expired", "The approval window expired. The action was not approved or executed; request a fresh review card to continue.", "renew_approval"
-			if !q.Resumable {
-				next = "explain_blocker"
-			}
+			status, code, message, next = tooloutcome.Expired, "approval_window_expired", "The approval window expired. This workflow is concluding; the expired proposal is not permission to execute or retry.", "finish_summary"
 		}
 		o := tooloutcome.New(status, code, "not_executed", message, next)
 		card.Outcome = &o
@@ -425,6 +427,9 @@ func (s *Store) CreateQuestion(conv string, run Run, in askQuestionInput) (Quest
 		expires = time.Now().UTC().Add(time.Duration(in.ExpiresInSeconds) * time.Second).Format(time.RFC3339Nano)
 	}
 	q := Question{ID: uuid.NewString(), RunID: run.ID, ConversationID: conv, BotID: run.BotID, Type: in.Type, Prompt: in.Question, Options: in.Options, AllowOther: in.AllowOther, Fields: in.Fields, SourceURL: in.SourceURL, Approval: in.Approval, MinSelections: in.MinSelections, MaxSelections: in.MaxSelections, Status: questionPending, CreatedAt: nowAt, ExpiresAt: expires, UpdatedAt: nowAt}
+	if in.Approval != nil && in.Approval.ReviewOnly {
+		q.Status = questionRunDone
+	}
 	_, err = s.db.Exec(`INSERT INTO questions(id,run_id,conversation_id,bot_id,type,prompt,options_json,min_selections,max_selections,status,created_at,expires_at,updated_at,fields_json,source_url,allow_other,approval_json) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`, q.ID, q.RunID, q.ConversationID, q.BotID, q.Type, q.Prompt, string(opts), q.MinSelections, q.MaxSelections, q.Status, q.CreatedAt, nullString(q.ExpiresAt), q.UpdatedAt, string(fields), q.SourceURL, q.AllowOther, approval)
 	return q, err
 }
@@ -703,7 +708,7 @@ func (s *Store) AnswerQuestion(id, actor string, answer any) (Question, bool, er
 	if err != nil {
 		return Question{}, false, err
 	}
-	if actor == "" || actor == q.BotID {
+	if actor == "" || actor == q.BotID || actor == autoReviewActor {
 		return Question{}, false, ErrQuestionBotActor
 	}
 	if q.Status != questionPending {
@@ -721,8 +726,19 @@ func (s *Store) AnswerQuestion(id, actor string, answer any) (Question, bool, er
 	}
 	if q.ExpiresAt != "" {
 		if t, e := time.Parse(time.RFC3339Nano, q.ExpiresAt); e == nil && !time.Now().UTC().Before(t) {
-			_, _ = tx.Exec(`UPDATE questions SET status=?,updated_at=? WHERE id=? AND status=?`, questionExpired, now(), id, questionPending)
-			_ = tx.Commit()
+			q.Status, q.UpdatedAt = questionExpired, now()
+			if _, err = tx.Exec(`UPDATE questions SET status=?,updated_at=? WHERE id=? AND status=?`, questionExpired, q.UpdatedAt, id, questionPending); err != nil {
+				return q, false, err
+			}
+			if err = insertRecoveryEvent(tx, q.ConversationID, "question", q.Card(), q.UpdatedAt); err != nil {
+				return q, false, err
+			}
+			if err = enqueueApprovalExpiryTx(tx, q); err != nil {
+				return q, false, err
+			}
+			if err = tx.Commit(); err != nil {
+				return q, false, err
+			}
 			return q, false, ErrQuestionNotPending
 		}
 	}
@@ -862,7 +878,13 @@ func (s *Server) WaitQuestion(ctx context.Context, id string) (json.RawMessage, 
 		}
 		if q.Status == questionPending && q.ExpiresAt != "" {
 			if deadline, parseErr := time.Parse(time.RFC3339Nano, q.ExpiresAt); parseErr == nil && !time.Now().UTC().Before(deadline) {
-				_, _ = s.store.db.Exec(`UPDATE questions SET status=?,updated_at=? WHERE id=? AND status=?`, questionExpired, now(), id, questionPending)
+				if q.Type == questionApproval {
+					if err = s.store.expireApproval(id); err != nil {
+						return nil, err
+					}
+				} else {
+					_, _ = s.store.db.Exec(`UPDATE questions SET status=?,updated_at=? WHERE id=? AND status=?`, questionExpired, now(), id, questionPending)
+				}
 				return json.RawMessage(`{"status":"expired"}`), nil
 			}
 		}

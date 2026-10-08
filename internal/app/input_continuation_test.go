@@ -389,7 +389,8 @@ func TestInputContinuationRealRuntimeRestartsAndDoesNotReplayTools(t *testing.T)
 					final++
 				}
 			}
-			if progress != 2 || final != 1 {
+			// The reviewed draft is discarded, not kept as a second visible reply.
+			if progress != 1 || final != 1 {
 				t.Fatalf("duplicate/lost turns: %+v", messages)
 			}
 			var staleStatus string

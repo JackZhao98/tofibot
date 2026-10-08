@@ -19,7 +19,7 @@ import (
 )
 
 func (s *Server) imageGenerationTools(c Conversation, r Run) []Tool {
-	if s.codex == nil {
+	if s.codex == nil || !s.codex.Status().Connected {
 		return nil
 	}
 	return []Tool{s.imageGenerationTool(c, r, func(ctx context.Context, input provider.ImageRequest) ([]byte, error) {

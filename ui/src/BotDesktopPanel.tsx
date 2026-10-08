@@ -10,7 +10,7 @@ import { DesktopVideo, type DesktopVideoState } from "./DesktopVideo";
 import { TofiIcon } from "./icons";
 import { RemoteDesktopControl, type RemoteControlHandle } from "./RemoteDesktopControl";
 
-type Props = { autoConnect?: boolean; presence?: DesktopPresenceState; botId: string; botName: string; members?: Array<{ id: string; name: string }>; onClose: (reason?: "hide" | "shutdown") => void; onReadyChange?: (ready: boolean) => void; onExpandedChange?: (expanded: boolean) => void };
+type Props = { expanded?: boolean; passivePreview?: boolean; autoConnect?: boolean; presence?: DesktopPresenceState; botId: string; botName: string; members?: Array<{ id: string; name: string }>; onClose: (reason?: "hide" | "shutdown") => void; onReadyChange?: (ready: boolean) => void; onExpandedChange?: (expanded: boolean) => void };
 type ComputerInfo = { kind: string; state: string; phase?: string; workspace_root?: string; browser?: string; error?: string };
 type ViewerState = "disconnected" | "connecting" | "connected";
 type FrameStatus = "shown" | "busy" | "not-running" | "failed";
@@ -102,7 +102,7 @@ export function DesktopStatusAnnouncement({ ready, text }: { ready: boolean; tex
 }
 
 
-export function BotDesktopPanel({ botId, botName, members = [], autoConnect = false, presence, onClose, onReadyChange, onExpandedChange }: Props) {
+export function BotDesktopPanel({ botId, botName, members = [], autoConnect = false, passivePreview = false, expanded: expandedProp, presence, onClose, onReadyChange, onExpandedChange }: Props) {
   const debug = useDebugMode();
   // A shared viewer keeps its transport/lease identity while chats change.
   const [selectedBotId] = useState(botId);
@@ -122,12 +122,17 @@ export function BotDesktopPanel({ botId, botName, members = [], autoConnect = fa
   const botLabel = (id: string) => members.find(member => member.id === id)?.name ?? (id === botId ? botName : "其他 Bot");
   const [info, setInfo] = useState<ComputerInfo | null>(null);
   const [imageURL, setImageURL] = useState("");
+  const [lastFrameAt, setLastFrameAt] = useState(0);
+  const [frameNow, setFrameNow] = useState(() => Date.now());
+  function showFrame(image: string) { setImageURL(image); setLastFrameAt(Date.now()); }
   const [command, setCommand] = useState("");
   const [url, setURL] = useState("");
   const [busy, setBusy] = useState(false);
   const [desktopActive, setDesktopActive] = useState(false);
   const [viewerState, setViewerState] = useState<ViewerState>("disconnected");
-  const [expanded, setExpanded] = useState(false);
+  const [localExpanded, setLocalExpanded] = useState(false);
+  const expanded = expandedProp ?? localExpanded;
+  function setExpanded(next: boolean) { setLocalExpanded(next); onExpandedChange?.(next); }
   const [humanControlled, setHumanControlled] = useState(false);
   const [error, setError] = useState("");
   const [connectionLost, setConnectionLost] = useState(false);
@@ -151,7 +156,6 @@ export function BotDesktopPanel({ botId, botName, members = [], autoConnect = fa
   const framePromiseRef = useRef<Promise<FrameStatus> | null>(null);
   const frameOperationRef = useRef<object | null>(null);
   const frameRequestRef = useRef(0);
-  const expandedChangeRef = useRef(onExpandedChange);
   const controlRef = useRef<RemoteControlHandle | null>(null);
 
   function setViewerConnection(next: ViewerState) {
@@ -165,13 +169,9 @@ export function BotDesktopPanel({ botId, botName, members = [], autoConnect = fa
     setDesktopActive(next);
   }
 
-  useEffect(() => { expandedChangeRef.current = onExpandedChange; }, [onExpandedChange]);
   useEffect(() => { onReadyChange?.(info?.state === "ready"); }, [info?.state, onReadyChange]);
   useEffect(() => () => onReadyChange?.(false), [onReadyChange]);
-  useEffect(() => {
-    expandedChangeRef.current?.(expanded);
-    return () => { expandedChangeRef.current?.(false); };
-  }, [expanded]);
+
 
   useEffect(() => {
     const current = ++generation.current;
@@ -195,7 +195,6 @@ export function BotDesktopPanel({ botId, botName, members = [], autoConnect = fa
     setVideoState("connecting");
     setVideoSession(0);
     setFallbackFrameReady(false);
-    setExpanded(false);
     setInfo(null);
     setImageURL("");
     setOutput("");
@@ -223,7 +222,6 @@ export function BotDesktopPanel({ botId, botName, members = [], autoConnect = fa
           setDesktopRunning(false);
           setViewerConnection("disconnected");
           setImageURL("");
-          setExpanded(false);
           setConnectionLost(false);
         } else if (!recoveringViewer) {
           setConnectionLost(false);
@@ -289,7 +287,7 @@ export function BotDesktopPanel({ botId, botName, members = [], autoConnect = fa
       if (image) {
         if (!await decodeFrame(image)) return "failed";
         if (generation.current !== current || frameRequestRef.current !== request || infoRef.current?.state !== "ready") return "failed";
-        setImageURL(image);
+        showFrame(image);
         if (videoStateRef.current === "fallback") {
           if (preserveViewerRef.current) {
             setFallbackFrameReady(false);
@@ -318,7 +316,6 @@ export function BotDesktopPanel({ botId, botName, members = [], autoConnect = fa
           setDesktopRunning(false);
           setViewerConnection("disconnected");
           setImageURL("");
-          setExpanded(false);
           setConnectionLost(false);
           setError("");
         }
@@ -409,7 +406,7 @@ export function BotDesktopPanel({ botId, botName, members = [], autoConnect = fa
   }, [selectedBotId, viewerState, videoState, connectionLost]);
 
   useEffect(() => {
-    if (!expanded) return;
+    if (!expanded || expandedProp !== undefined) return;
     const onKeyDown = (event: KeyboardEvent) => { if (event.key === "Escape") { event.preventDefault(); setExpanded(false); } };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
@@ -438,7 +435,7 @@ export function BotDesktopPanel({ botId, botName, members = [], autoConnect = fa
       if (!response.ok) throw new Error(response.error || "电脑操作失败");
       const image = resultImage(response.result);
       if (generation.current === current) {
-        if (image && await decodeFrame(image) && generation.current === current) setImageURL(image);
+        if (image && await decodeFrame(image) && generation.current === current) showFrame(image);
         if (action === "shell.exec") setOutput(JSON.stringify(response.result, null, 2));
         if (action === "desktop.start" || ((action === "desktop.capture" || action === "browser.snapshot") && image)) setDesktopRunning(true);
       }
@@ -451,7 +448,6 @@ export function BotDesktopPanel({ botId, botName, members = [], autoConnect = fa
         setViewerConnection("disconnected");
         frameRequestRef.current++;
         setImageURL("");
-        setExpanded(false);
       }
       if (generation.current === current && action === "desktop.start") {
         // Starting is a foreground operation, so keep the panel busy while
@@ -459,7 +455,7 @@ export function BotDesktopPanel({ botId, botName, members = [], autoConnect = fa
         try {
           const snapshot = await api.computerAction({ bot_id: selectedBotId, action: "desktop.capture", args: {} });
           const snapshotImage = snapshot.ok ? resultImage(snapshot.result) : "";
-          if (generation.current === current && snapshotImage && await decodeFrame(snapshotImage) && generation.current === current) setImageURL(snapshotImage);
+          if (generation.current === current && snapshotImage && await decodeFrame(snapshotImage) && generation.current === current) showFrame(snapshotImage);
         } catch (cause) {
           if (generation.current === current && !isTransientDesktopError(cause)) setError(errorText(cause));
         }
@@ -556,21 +552,21 @@ export function BotDesktopPanel({ botId, botName, members = [], autoConnect = fa
   }
 
   useEffect(() => {
-    if (bootRequested.current || info?.state !== "stopped" || ownershipUnavailable || ownership?.owner || busy) return;
+    if (passivePreview || bootRequested.current || info?.state !== "stopped" || ownershipUnavailable || ownership?.owner || busy) return;
     bootRequested.current = true;
     void retry();
   // Reuse the existing authorized preparation path, only for a stopped machine.
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [info?.state, ownershipUnavailable, ownership?.owner, busy]);
+  }, [passivePreview, info?.state, ownershipUnavailable, ownership?.owner, busy]);
 
   useEffect(() => {
-    if (opened.current || info?.state !== "ready" || ownershipUnavailable || connectionLost || busy) return;
+    if (passivePreview || opened.current || info?.state !== "ready" || ownershipUnavailable || connectionLost || busy) return;
     opened.current = true;
     if (ownership?.owner?.kind === "bot") return; // Existing passive owner path.
     void connectViewer();
   // Opening this authorized workspace starts its normal desktop connection once.
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [info?.state, ownershipUnavailable, connectionLost, busy, ownership?.owner?.kind]);
+  }, [passivePreview, info?.state, ownershipUnavailable, connectionLost, busy, ownership?.owner?.kind]);
 
   useEffect(() => {
     const owner = ownership?.owner;
@@ -620,6 +616,16 @@ export function BotDesktopPanel({ botId, botName, members = [], autoConnect = fa
   }
 
   const ready = info?.state === "ready";
+  useEffect(() => {
+    if (!imageURL || videoState === "live") return;
+    setFrameNow(Date.now());
+    let timer = 0;
+    const tick = () => { setFrameNow(Date.now()); timer = window.setTimeout(tick, 1000); };
+    timer = window.setTimeout(tick, 1000);
+    return () => window.clearTimeout(timer);
+  }, [imageURL, videoState]);
+  const frameStale = connectionLost || viewerState !== "connected" || videoState !== "live" && (videoState !== "fallback" || !fallbackFrameReady || frameNow - lastFrameAt >= 5000);
+  const frameCaption = frameStale ? "画面已暂停 · 非实时" : videoState === "live" ? "实时画面" : "截图查看 · 刚刚更新";
   const botWorking = ownership?.owner?.kind === "bot" && !humanControlled;
   // Ownership can briefly outlive the VM's boot transition. Do not present
   // that stale lease as another window blocking the viewer while the machine
@@ -684,7 +690,7 @@ export function BotDesktopPanel({ botId, botName, members = [], autoConnect = fa
   </div>;
   // The overlay is a sibling of the launch button / remote input surface.
   // Its containing block is always the screen, never status or panel chrome.
-  const previewControls = !expanded && isDesktop && <div className="desktop-preview-controls">
+  const previewControls = !passivePreview && !expanded && isDesktop && <div className="desktop-preview-controls">
     {windowActions}
   </div>;
 
@@ -714,7 +720,7 @@ export function BotDesktopPanel({ botId, botName, members = [], autoConnect = fa
   // Who holds the mouse: the bezel color, the chin status and the cat ⇄ you switch all follow it.
   const driver = humanControlled ? "you" : botWorking && imageURL ? "bot" : "";
   const capsule = error ? { tone: "error", text: "连接失败" }
-    : !imageURL ? { tone: "booting", text: info?.state === "starting" && info.phase ? `正在开机 · ${phaseText[info.phase] ?? info.phase}` : "正在开机…" }
+    : !imageURL ? { tone: "booting", text: passivePreview ? "正在连接预览…" : info?.state === "starting" && info.phase ? `正在开机 · ${phaseText[info.phase] ?? info.phase}` : "正在开机…" }
     : humanControlled ? { tone: "you", text: "你在控制" }
     : botWorking ? { tone: "bot", text: `${botLabel(ownership?.owner?.bot_id ?? botId)} 在操作` }
     : { tone: "idle", text: "共享电脑空闲" };
@@ -740,18 +746,18 @@ export function BotDesktopPanel({ botId, botName, members = [], autoConnect = fa
 
   return <div ref={screenRef} className={`detail-content computer-detail ${expanded ? "is-expanded" : ""}${driver ? ` is-driven-by-${driver}` : ""}`}>
     <DesktopStatusAnnouncement key={selectedBotId} ready={info !== null} text={viewerAnnouncement} />
-    {expanded && !isDesktop && <div className="desktop-expanded-scrim" aria-hidden="true" onClick={() => setExpanded(false)} />}
-    {!isDesktop && <button type="button" className="desktop-expand-toggle" aria-label={expanded ? "缩小共享电脑" : "放大共享电脑"} onClick={() => setExpanded(!expanded)}>{expanded ? "缩小" : "放大"}</button>}
+    {!passivePreview && expanded && !isDesktop && <div className="desktop-expanded-scrim" aria-hidden="true" onClick={() => setExpanded(false)} />}
+    {!passivePreview && !isDesktop && <button type="button" className="desktop-expand-toggle" aria-label={expanded ? "缩小共享电脑" : "放大共享电脑"} onClick={() => setExpanded(!expanded)}>{expanded ? "缩小" : "放大"}</button>}
     {expanded && isDesktop && <div className="detail-heading computer-floating-heading"><div className="computer-heading-copy"><h2 className="sr-only">共享电脑</h2></div>{windowActions}</div>}
 
     {(error || connectionLost) && <p className="error-banner" role="alert">{connectionLost ? "电脑连接暂时不可用，正在重试…" : error}</p>}
     {!botWorking && info && (debug || info.state !== "ready") && <div className="computer-info"><div className="computer-info-main"><strong>{stateText[info.state] ?? `电脑${info.state}`}</strong><small>{info.phase && info.state !== "error" && info.state !== "stopped" ? `阶段：${phaseText[info.phase] ?? info.phase}` : "状态已同步"}</small></div>{info.error && <small className="error-text">{info.error}</small>}{(info.state === "error" || info.state === "stopped") && <button className="secondary-button" disabled={busy} onClick={() => void retry()}>重试准备</button>}</div>}
-    {imageURL && <div className={`computer-screen-wrap desktop-presence-frame desktop-preview-surface desktop-live-screen${humanControlled ? " is-human-controlled" : ""}`}>{(debug || connectionLost) && <div className="computer-screen-toolbar"><small className="computer-screen-caption">{connectionLost ? "连接中断 · 保留最后画面" : videoState === "live" ? "实时桌面" : videoState === "fallback" && fallbackFrameReady ? "截图查看 · 画面静默更新" : "正在恢复桌面画面…"}</small></div>}<RemoteDesktopControl key={selectedBotId} controlRef={controlRef} onControlChange={setHumanControlled} botId={selectedBotId} enabled={!!screenReady && !busy} blocked={showOwnershipStatus && Boolean(ownership?.owner && !humanControlled)} takeoverRun={showOwnershipStatus && !ownershipUnavailable && ownership?.owner?.kind === "bot" ? { id: ownership.owner.run_id, name: botLabel(ownership.owner.bot_id), botId: ownership.owner.bot_id } : undefined} expanded={expanded} onExpand={() => setExpanded(true)} waiting={!!ownership?.waiting.length}>{videoState !== "stopped" && (videoState !== "fallback" || !fallbackFrameReady) ? <DesktopVideo key={`${selectedBotId}:${videoSession}`} botId={selectedBotId} cursor={isDesktop && !humanControlled ? "visible" : "hidden"} enabled={!!ready && (viewerState === "connected" || preserveViewerRef.current) && desktopActive} poster={imageURL} onState={videoStateChanged}  /> : <img className="computer-screen" src={imageURL} alt="共享电脑屏幕"  />}<DesktopPointerMarker presence={desktopPresence} humanControlled={humanControlled || !screenReady || busy} botLabel={botLabel} /></RemoteDesktopControl>{previewControls}</div>}
+    {imageURL && <div className={`computer-screen-wrap desktop-presence-frame desktop-preview-surface desktop-live-screen${humanControlled ? " is-human-controlled" : ""}`}><div className={`desktop-frame-status${frameStale ? " is-stale" : ""}`}>{frameCaption}</div><RemoteDesktopControl key={selectedBotId} controlRef={controlRef} onControlChange={setHumanControlled} botId={selectedBotId} enabled={!passivePreview && !!screenReady && !busy} blocked={passivePreview || showOwnershipStatus && Boolean(ownership?.owner && !humanControlled)} takeoverRun={showOwnershipStatus && !ownershipUnavailable && ownership?.owner?.kind === "bot" ? { id: ownership.owner.run_id, name: botLabel(ownership.owner.bot_id), botId: ownership.owner.bot_id } : undefined} expanded={expanded} onExpand={() => setExpanded(true)} waiting={!!ownership?.waiting.length}>{videoState !== "stopped" && (videoState !== "fallback" || !fallbackFrameReady) ? <DesktopVideo key={`${selectedBotId}:${videoSession}`} botId={selectedBotId} cursor={isDesktop && !humanControlled ? "visible" : "hidden"} enabled={!!ready && (viewerState === "connected" || preserveViewerRef.current) && desktopActive} poster={imageURL} onState={videoStateChanged}  /> : <img className="computer-screen" src={imageURL} alt="共享电脑屏幕"  />}<DesktopPointerMarker presence={desktopPresence} humanControlled={humanControlled || !screenReady || busy} botLabel={botLabel} /></RemoteDesktopControl>{previewControls}</div>}
     {!imageURL && <div className="desktop-preview-surface desktop-launch-surface" onClick={() => { if (!expanded) setExpanded(true); }}>
-      <div className="desktop-launch-preview desktop-bot-starting" role="status" aria-label={error ? "电脑连接失败" : "正在启动电脑"}>{error ? <span>连接失败，请稍后重新打开</span> : [<GazeAvatar key="cat" id={ownership?.owner?.bot_id ?? botId} motion="working" />, !isDesktop && <span key="phase" className="desktop-boot-phase">{capsule.text}</span>]}</div>
+      <div className="desktop-launch-preview desktop-bot-starting" role="status" aria-label={error ? "电脑连接失败" : passivePreview ? "正在连接电脑预览" : "正在启动电脑"}>{error ? <span>连接失败，请稍后重新打开</span> : [<GazeAvatar key="cat" id={ownership?.owner?.bot_id ?? botId} motion="working" />, !isDesktop && <span key="phase" className="desktop-boot-phase">{capsule.text}</span>]}</div>
       {previewControls}
     </div>}
-    {controlBar}
-    {debug && <fieldset className="computer-aux-fields" disabled={humanControlled}><details className="computer-tools"><summary>辅助操作</summary><div className="computer-tools-body"><div className="computer-key-row"><button className="secondary-button" disabled={busy || !controlsReady} onClick={() => void perform("desktop.key", { key: "Return" })}>Enter</button><button className="secondary-button" disabled={busy || !controlsReady} onClick={() => void perform("desktop.key", { key: "Escape" })}>Esc</button><button className="secondary-button" disabled={busy || !controlsReady} onClick={() => void perform("desktop.key", { key: "c", modifiers: ["ctrl"] })}>Ctrl+C</button></div><label>打开浏览器<input disabled={busy || !controlsReady} value={url} onChange={event => setURL(event.target.value)} onKeyDown={event => { if (event.key === "Enter" && controlsReady && !busyRef.current && url.trim()) { event.preventDefault(); void perform("browser.navigate", { url }); } }} placeholder="https://…" /></label><label>运行 Shell（{botName} 工作区）<textarea disabled={busy || connectionLost || !ready} value={command} onChange={event => setCommand(event.target.value)} rows={3} placeholder="例如：pwd" /></label><button className="primary-button" disabled={busy || connectionLost || !ready || !command.trim()} onClick={() => void perform("shell.exec", { command })}>运行命令</button>{output && <pre className="computer-output">{output}</pre>}{info && <details className="computer-technical"><summary>技术详情</summary><dl><div><dt>工作区</dt><dd>{info.workspace_root || "/workspace"}</dd></div><div><dt>浏览器</dt><dd>{info.browser || "Google Chrome"}</dd></div></dl></details>}</div></details></fieldset>}
+    {!passivePreview && controlBar}
+    {debug && !passivePreview && <fieldset className="computer-aux-fields" disabled={humanControlled}><details className="computer-tools"><summary>辅助操作</summary><div className="computer-tools-body"><div className="computer-key-row"><button className="secondary-button" disabled={busy || !controlsReady} onClick={() => void perform("desktop.key", { key: "Return" })}>Enter</button><button className="secondary-button" disabled={busy || !controlsReady} onClick={() => void perform("desktop.key", { key: "Escape" })}>Esc</button><button className="secondary-button" disabled={busy || !controlsReady} onClick={() => void perform("desktop.key", { key: "c", modifiers: ["ctrl"] })}>Ctrl+C</button></div><label>打开浏览器<input disabled={busy || !controlsReady} value={url} onChange={event => setURL(event.target.value)} onKeyDown={event => { if (event.key === "Enter" && controlsReady && !busyRef.current && url.trim()) { event.preventDefault(); void perform("browser.navigate", { url }); } }} placeholder="https://…" /></label><label>运行 Shell（{botName} 工作区）<textarea disabled={busy || connectionLost || !ready} value={command} onChange={event => setCommand(event.target.value)} rows={3} placeholder="例如：pwd" /></label><button className="primary-button" disabled={busy || connectionLost || !ready || !command.trim()} onClick={() => void perform("shell.exec", { command })}>运行命令</button>{output && <pre className="computer-output">{output}</pre>}{info && <details className="computer-technical"><summary>技术详情</summary><dl><div><dt>工作区</dt><dd>{info.workspace_root || "/workspace"}</dd></div><div><dt>浏览器</dt><dd>{info.browser || "Google Chrome"}</dd></div></dl></details>}</div></details></fieldset>}
   </div>;
 }
