@@ -59,8 +59,16 @@ func TestAdapterURLIdentityInvalidatesSchemaAndApprovalBindings(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer second.Close()
-	if _, err := discoveryTool(t, second, "call_mcp_tool").Execute(context.Background(), args); err == nil || len(versions) != 1 || calls.Load() != 0 {
+	// The stale schema reference is rejected. Lazy discovery may re-resolve the
+	// name under the current configuration and consult the gate, but only with
+	// the new fingerprint; the remote tool never executes.
+	if _, err := discoveryTool(t, second, "call_mcp_tool").Execute(context.Background(), args); err == nil || calls.Load() != 0 {
 		t.Fatal("old schema remained callable across adapter identity change")
+	}
+	for _, version := range versions[1:] {
+		if version != metadataFingerprint("fixture", next) {
+			t.Fatalf("stale schema reached the gate with a stale fingerprint: %v", versions)
+		}
 	}
 	fresh, err := discoveryTool(t, second, "search_mcp_tools").Execute(context.Background(), json.RawMessage(`{"server":"fixture","query":"publish"}`))
 	if err != nil {
@@ -72,10 +80,11 @@ func TestAdapterURLIdentityInvalidatesSchemaAndApprovalBindings(t *testing.T) {
 	if err := json.Unmarshal([]byte(fresh), &updated); err != nil || len(updated.Tools) != 1 || updated.Tools[0].SchemaVersion == cached.Tools[0].SchemaVersion {
 		t.Fatal("schema cache identity did not change")
 	}
-	if _, err := discoveryTool(t, second, "call_mcp_tool").Execute(context.Background(), args); err == nil || len(versions) != 2 || versions[0] == versions[1] || calls.Load() != 0 {
+	before := len(versions)
+	if _, err := discoveryTool(t, second, "call_mcp_tool").Execute(context.Background(), args); err == nil || len(versions) != before+1 || versions[len(versions)-1] == versions[0] || calls.Load() != 0 {
 		t.Fatal("approval binding did not change or annotation granted execution")
 	}
-	if versions[0] != metadataFingerprint("fixture", old) || versions[1] != metadataFingerprint("fixture", next) {
+	if versions[0] != metadataFingerprint("fixture", old) || versions[len(versions)-1] != metadataFingerprint("fixture", next) {
 		t.Fatal("approval did not use current config fingerprint")
 	}
 }
