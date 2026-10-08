@@ -17,6 +17,21 @@ from account_capacity import AdmissionError, CapacityLedger, account_id
 import account_adoption
 
 
+
+def runtime_memory_claim_limit(config):
+    """Static memory claim ceiling for concurrently running computers.
+
+    Claims are full VM sizes. The optional overcommit percentage (100..200,
+    default 100 = none) only raises this static ceiling; every start must
+    still pass the live MemAvailable + headroom check. Each VM stays capped by
+    its own cgroup, but simultaneous regrowth of overcommitted VMs is NOT
+    prevented, so operators enable it deliberately.
+    """
+    percent = config.get("runtime_memory_overcommit_percent", 100)
+    if type(percent) is not int or not 100 <= percent <= 200:
+        raise ValueError("runtime_memory_overcommit_percent must be an integer from 100 to 200")
+    return config["runtime_memory_mib_budget"] * percent // 100
+
 class Broker:
     def __init__(self, config, run=None, metrics=None):
         self.c = config
@@ -421,9 +436,12 @@ class Broker:
             if db.execute("SELECT 1 FROM runtime_claims WHERE account_id=?", (identity,)).fetchone():
                 return
             cpu, memory = db.execute("SELECT COALESCE(SUM(vcpus),0),COALESCE(SUM(memory_mib),0) FROM runtime_claims").fetchone()
-            if cpu + vcpus > self.c["runtime_vcpu_budget"] or memory + memory_mib + 512 > self.c["runtime_memory_mib_budget"]:
+            if cpu + vcpus > self.c["runtime_vcpu_budget"] or memory + memory_mib + 512 > runtime_memory_claim_limit(self.c):
                 raise AdmissionError("concurrent computer resource budget exhausted")
             # Actual available memory also gates a new start, even within budget.
+            # With the virtio balloon's free page reporting, idle computers
+            # return freed guest RAM to the host, so this real measurement (not
+            # a static estimate) is what lets more computers start.
             available = None
             for line in Path("/proc/meminfo").read_text().splitlines():
                 if line.startswith("MemAvailable:"):

@@ -347,6 +347,16 @@ type Resources struct {
 	ApplyPolicy string             `json:"apply_policy"`
 	Host        map[string]int     `json:"host"`
 	Limits      map[string]int     `json:"limits"`
+	Memory      *MemoryUsage       `json:"memory,omitempty"`
+}
+
+// MemoryUsage is observational: the Firecracker process RSS on the host and,
+// with the virtio balloon, the guest driver's own statistics. Guest numbers
+// are an indication only and never an admission input.
+type MemoryUsage struct {
+	BalloonEnabled bool           `json:"balloon_enabled"`
+	HostRSSMiB     *int           `json:"host_rss_mib"`
+	Balloon        map[string]int `json:"balloon"`
 }
 
 func (c *Client) Resources(ctx context.Context) (Resources, error) {

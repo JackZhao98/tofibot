@@ -59,6 +59,8 @@ func (s *Server) maintainComputerHold(parent context.Context, r Run) func() {
 		}
 		releaseCtx, releaseCancel := context.WithTimeout(context.Background(), 3*time.Second)
 		defer releaseCancel()
-		_, _ = s.microVM.Action(releaseCtx, computer.Action{BotID: r.BotID, RunID: r.ID, Name: "desktop.release", Source: "model"})
+		// The run is over: the guest closes tabs this run opened, keeping the
+		// most recently active one. Mid-run yields never send this flag.
+		_, _ = s.microVM.Action(releaseCtx, computer.Action{BotID: r.BotID, RunID: r.ID, Name: "desktop.release", Source: "model", Args: json.RawMessage(`{"close_run_tabs":true}`)})
 	}
 }
