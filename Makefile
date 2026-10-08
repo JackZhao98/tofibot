@@ -46,6 +46,7 @@ self-host-lint:
 
 self-host-config:
 	docker compose -f deploy/self-host/compose.yaml --env-file deploy/self-host/testdata/tofi.env --profile tls config --quiet
+	docker compose -f deploy/self-host/compose.yaml --env-file deploy/self-host/testdata/tofi-direct.env config --quiet
 
 # make release-bundle VERSION=v0.1.0-rc.1
 release-bundle:

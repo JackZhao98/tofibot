@@ -14,6 +14,7 @@ import json
 import os
 from pathlib import Path
 import secrets
+import ssl
 import time
 import urllib.error
 import urllib.request
@@ -34,15 +35,20 @@ def save(path, value):
 
 
 class Client:
-    def __init__(self, url, session_path):
+    def __init__(self, url, session_path, insecure=False):
         self.url = url.rstrip('/')
         self.jar = http.cookiejar.LWPCookieJar(str(session_path))
         if session_path.exists():
             assert not session_path.is_symlink() and not session_path.stat().st_mode & 0o077
             self.jar.load(ignore_discard=True)
-        self.opener = urllib.request.build_opener(
-            urllib.request.ProxyHandler({}),
-            urllib.request.HTTPCookieProcessor(self.jar))
+        handlers = [urllib.request.ProxyHandler({}), urllib.request.HTTPCookieProcessor(self.jar)]
+        if insecure:
+            # The default install serves a self-signed certificate.
+            context = ssl.create_default_context()
+            context.check_hostname = False
+            context.verify_mode = ssl.CERT_NONE
+            handlers.append(urllib.request.HTTPSHandler(context=context))
+        self.opener = urllib.request.build_opener(*handlers)
 
     def request(self, route, body=None, method=None, expected=200):
         data = None if body is None else json.dumps(body).encode()
@@ -118,12 +124,14 @@ def verify(client, state):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('mode', choices=['initial', 'files', 'verify', 'auth-capacity', 'restart-refusal'])
-    parser.add_argument('--url', default='http://127.0.0.1:8321')
+    parser.add_argument('--url', default='https://127.0.0.1:8321')
+    parser.add_argument('--insecure', action='store_true',
+                        help='do not verify the TLS certificate (self-signed default install)')
     parser.add_argument('--setup-key-file', type=Path, default=Path('/var/lib/tofi/data/owner-bootstrap.secret'))
     parser.add_argument('--state', type=Path, required=True)
     parser.add_argument('--evidence', type=Path, required=True)
     args = parser.parse_args()
-    client = Client(args.url, args.state.with_name(args.state.name + '.cookies'))
+    client = Client(args.url, args.state.with_name(args.state.name + '.cookies'), args.insecure)
     checks = []
     if args.mode == 'initial':
         assert not args.state.exists(), 'fresh synthetic state path required'
@@ -140,6 +148,10 @@ def main():
         assert not args.setup_key_file.exists(), 'setup key must be consumed by the first Admin'
         session = client.request('/api/auth/session')
         assert session['authenticated'] and session['owner']['role'] == 'admin' and not session['setup_required']
+        if args.url.startswith('https://'):
+            cookies = list(client.jar)
+            assert cookies and all(cookie.secure for cookie in cookies), 'session cookie must be Secure over HTTPS'
+            checks.append('secure_session_cookie')
         state['account_id'] = session['owner']['id']
         save(args.state, state)
         client.request('/api/auth/setup', body, expected=(401, 409))

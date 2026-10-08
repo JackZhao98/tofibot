@@ -74,6 +74,9 @@ class HostCase(unittest.TestCase):
 
     def fake_run(self, args, check=True, timeout=300, **kwargs):
         self.commands.append(list(args))
+        if args[0] == 'openssl':
+            # Certificates are made by the real openssl, into the temporary root.
+            return subprocess.run(args, check=check, capture_output=True, text=True, timeout=timeout)
         return completed()
 
     def write(self, path, text):
@@ -100,7 +103,7 @@ class HostCase(unittest.TestCase):
         self.make_guest(version)
         self.P.opt.mkdir(parents=True, exist_ok=True)
         os.symlink('releases/' + version, self.P.current)
-        options = {'domain': '', 'email': '', 'bind': '127.0.0.1', 'port': 8321}
+        options = {'domain': '', 'email': '', 'bind': '0.0.0.0', 'port': 8321}
         env = tofi_host.render_env(manifest(version, '1'), options, {'cpu': 3, 'memory_mib': 6144})
         tofi_host.prepare_directories()
         tofi_host.apply_host_config(self.P.releases / version, env)
@@ -224,6 +227,10 @@ class PreflightTests(HostCase):
             self.assertIn('40 GiB', tofi_host.preflight(self.options())[0])
 
     def test_port_in_use(self):
+        default = tofi_host.install_options(tofi_host.parse_args(['install']))
+        with self.healthy_host(), mock.patch.object(tofi_host, 'port_in_use', return_value=True) as probe:
+            self.refuses('Port 8321 on 0.0.0.0 is already in use', default)
+        probe.assert_called_with('0.0.0.0', 8321)
         with self.healthy_host(), mock.patch.object(tofi_host, 'port_in_use', return_value=True):
             self.refuses('Port 8321 on 127.0.0.1 is already in use')
 
@@ -273,12 +280,28 @@ class RenderTests(HostCase):
 
     def test_env_exposure_modes(self):
         budgets = {'cpu': 1, 'memory_mib': 2048}
-        default = tofi_host.render_env(manifest(), {'bind': '127.0.0.1', 'port': 8321}, budgets)
-        self.assertEqual((default['TOFI_BIND'], default['TOFI_PUBLIC_ORIGIN']), ('127.0.0.1', ''))
-        lan = tofi_host.render_env(manifest(), {'bind': '0.0.0.0', 'port': 9000}, budgets)
-        self.assertEqual((lan['TOFI_BIND'], lan['TOFI_HTTP_PORT']), ('0.0.0.0', '9000'))
-        tls = tofi_host.render_env(manifest(), {'bind': '0.0.0.0', 'port': 8321, 'domain': 'tofi.example.com'}, budgets)
+
+        def env_for(*argv):
+            return tofi_host.render_env(manifest(), tofi_host.install_options(
+                tofi_host.parse_args(['install'] + list(argv))), budgets)
+
+        tls_files = ('/etc/tofi-tls/cert.pem', '/etc/tofi-tls/key.pem')
+        default = env_for()
+        self.assertEqual((default['TOFI_BIND'], default['TOFI_PUBLIC_ORIGIN']), ('0.0.0.0', ''))
+        self.assertEqual((default['TOFI_TLS_CERT_FILE'], default['TOFI_TLS_KEY_FILE']), tls_files)
+        self.assertEqual(default['TOFI_OWNER_ALLOW_LAN_HTTP'], '0')
+        self.assertEqual(env_for('--lan'), default, '--lan is an alias of the HTTPS default')
+        local = env_for('--local-only', '--port', '9000')
+        self.assertEqual((local['TOFI_BIND'], local['TOFI_HTTP_PORT']), ('127.0.0.1', '9000'))
+        self.assertEqual((local['TOFI_TLS_CERT_FILE'], local['TOFI_TLS_KEY_FILE']), tls_files)
+        tls = env_for('--domain', 'tofi.example.com')
         self.assertEqual((tls['TOFI_BIND'], tls['TOFI_PUBLIC_ORIGIN']), ('127.0.0.1', 'https://tofi.example.com'))
+        self.assertEqual((tls['TOFI_TLS_CERT_FILE'], tls['TOFI_TLS_KEY_FILE']), ('', ''))
+        self.assertEqual(tls['TOFI_OWNER_ALLOW_LAN_HTTP'], '1', 'Caddy reaches the App over the bridge')
+        for argv in (['--lan', '--local-only'], ['--domain', 'tofi.example.com', '--local-only'],
+                     ['--domain', 'tofi.example.com', '--lan']):
+            with self.subTest(argv=argv), self.assertRaises(tofi_host.HostError):
+                env_for(*argv)
         self.assertEqual(tls['TOFI_WORKER_MEMORY_LIMIT'], '2304m')
         self.assertEqual(tofi_host.read_env(self.write_env(tls)), tls)
 
@@ -520,18 +543,31 @@ class LifecycleTests(LifecycleBase):
         self.make_bundle(OLD)
         self.P.opt.mkdir(parents=True, exist_ok=True)
         os.symlink('releases/' + OLD, self.P.current)
-        options = {'domain': '', 'email': '', 'bind': '127.0.0.1', 'port': 8321, 'lan': False}
+        options = tofi_host.install_options(tofi_host.parse_args(['install', '--manifest', 'm.json']))
+        addresses = [('inet', '10.0.10.39'), ('inet', '192.168.7.2'), ('inet6', '2001:db8::39')]
         with mock.patch.object(tofi_host, 'preflight', return_value=[]), \
                 mock.patch.object(tofi_host, 'ASSETS', self.P.releases / OLD), \
+                mock.patch.object(tofi_host, 'interface_addresses', return_value=addresses), \
                 mock.patch.object(tofi_host.os, 'cpu_count', return_value=4):
             self.P.data.mkdir(parents=True)
             self.write(self.P.bootstrap_secret, 'synthetic-setup-key\n')
             result = tofi_host.install(str(self.write_manifest(manifest(OLD, '1'))), options)
         self.assertEqual(self.phase(), 'installed')
         self.assertTrue(result['setup_key_pending'])
-        self.assertIn('synthetic-setup-key', sys.stdout.getvalue())
-        self.assertIn('ssh -L 8321:127.0.0.1:8321', sys.stdout.getvalue())
+        out = sys.stdout.getvalue()
+        self.assertIn('  Setup key   synthetic-setup-key   (one time)', out)
+        self.assertIn('  Open        https://10.0.10.39:8321\n              https://192.168.7.2:8321\n', out)
+        self.assertNotIn('http://', out)
+        self.assertNotIn('ssh -L', out)
+        self.assertIn(tofi_host.certificate_fingerprint(), out)
+        self.assertIn('Cloud server? allow TCP 8321', out)
+        self.assertEqual(result['urls'], ['https://10.0.10.39:8321', 'https://192.168.7.2:8321'])
         env = tofi_host.read_env()
+        self.assertEqual(env['TOFI_BIND'], '0.0.0.0')
+        self.assertEqual(env['TOFI_TLS_CERT_FILE'], '/etc/tofi-tls/cert.pem')
+        self.assertEqual(env['TOFI_TLS_KEY_FILE'], '/etc/tofi-tls/key.pem')
+        self.assertEqual(env['TOFI_OWNER_ALLOW_LAN_HTTP'], '0')
+        self.assertEqual(env['TOFI_PUBLIC_ORIGIN'], '')
         self.assertEqual(env['TOFI_APP_IMAGE'], image('app', '1'))
         self.assertEqual(env['TOFI_CPU_BUDGET'], '3')
         tofi_host.validate_config(json.loads(self.P.worker_json.read_text()))
@@ -650,7 +686,8 @@ class LifecycleTests(LifecycleBase):
         self.assertEqual(self.phase(), 'installed')
         self.assertEqual((self.P.data / 'tofi.db').read_bytes(), DATA)
         self.assertFalse(self.start_services.call_args is None)
-        self.assertIn('existing Admin account', sys.stdout.getvalue())
+        self.assertIn('Sign in     with your existing admin account', sys.stdout.getvalue())
+        self.assertNotIn('Setup key', sys.stdout.getvalue())
 
     def test_purge_requires_hostname(self):
         self.installed(phase='stopped-retained')
@@ -728,6 +765,259 @@ class ResumeTests(LifecycleBase):
                 continue
             tofi_host.remove_tree(child)
         self.start_services.reset_mock(side_effect=True)
+
+
+
+IP_ADDR_OUTPUT = r"""1: lo    inet 127.0.0.1/8 scope host lo\       valid_lft forever preferred_lft forever
+1: lo    inet6 ::1/128 scope host noprefixroute \       valid_lft forever preferred_lft forever
+2: ens18    inet 10.0.10.39/24 brd 10.0.10.255 scope global dynamic ens18\       valid_lft 86000sec
+2: ens18    inet6 2001:db8::39/64 scope global dynamic mngtmpaddr \       valid_lft 86000sec
+2: ens18    inet6 fe80::2:acff:fe15:75cc/64 scope link \       valid_lft forever preferred_lft forever
+3: docker0    inet 172.17.0.1/16 brd 172.17.255.255 scope global docker0\       valid_lft forever
+4: br-1a2b3c    inet 172.18.0.1/16 brd 172.18.255.255 scope global br-1a2b3c\       valid_lft forever
+5: veth12@if4    inet6 fe80::1/64 scope link \       valid_lft forever
+6: wlan0    inet 192.168.7.2/24 brd 192.168.7.255 scope global wlan0\       valid_lft forever
+"""
+
+
+class TLSTests(HostCase):
+    ADDRESSES = [('inet', '10.0.10.39'), ('inet6', '2001:db8::39'), ('inet', '192.168.7.2')]
+
+    def setUp(self):
+        super().setUp()
+        patcher = mock.patch.object(tofi_host, 'interface_addresses', return_value=list(self.ADDRESSES))
+        patcher.start()
+        self.addCleanup(patcher.stop)
+
+    def certificate_text(self):
+        return subprocess.run(['openssl', 'x509', '-noout', '-text', '-in', str(self.P.tls_cert)],
+                              check=True, capture_output=True, text=True).stdout
+
+    def test_certificate_created_once_and_reused(self):
+        env = self.installed()
+        fingerprint = tofi_host.certificate_fingerprint()
+        self.assertRegex(fingerprint, r'^([0-9A-F]{2}:){31}[0-9A-F]{2}$')
+        self.assertEqual(oct(self.P.tls_key.stat().st_mode & 0o777), '0o640')
+        self.assertEqual(oct(self.P.tls_cert.stat().st_mode & 0o777), '0o644')
+        self.assertEqual(oct(self.P.tls.stat().st_mode & 0o777), '0o750')
+        owners = [(c.args[0].name, c.args[1:]) for c in tofi_host.os.chown.call_args_list]
+        self.assertIn(('key.pem', (0, tofi_host.APP_UID)), owners)
+        tofi_host.os.chown.assert_any_call(self.P.tls, 0, tofi_host.APP_UID)
+        key_before = self.P.tls_key.read_bytes()
+        # Update, resume and reinstall all re-apply host config: same pair.
+        tofi_host.apply_host_config(self.P.current, env)
+        tofi_host.apply_host_config(self.P.current, env)
+        self.assertEqual(tofi_host.certificate_fingerprint(), fingerprint)
+        self.assertEqual(self.P.tls_key.read_bytes(), key_before)
+        self.assertFalse([p for p in self.P.tls.iterdir() if p.name.startswith('.')], 'no leftovers')
+        # A missing key (or an expiring certificate) means a new pair.
+        self.P.tls_key.unlink()
+        tofi_host.apply_host_config(self.P.current, env)
+        self.assertNotEqual(tofi_host.certificate_fingerprint(), fingerprint)
+
+    def test_expiring_certificate_is_replaced(self):
+        env = self.installed()
+        fingerprint = tofi_host.certificate_fingerprint()
+        with mock.patch.object(tofi_host, 'CERT_RENEW_SECONDS', tofi_host.CERT_DAYS * 86400 + 86400):
+            tofi_host.apply_host_config(self.P.current, env)
+        self.assertNotEqual(tofi_host.certificate_fingerprint(), fingerprint)
+
+    def test_certificate_names_and_lifetime(self):
+        self.installed()
+        text = self.certificate_text()
+        for name in ('IP Address:10.0.10.39', 'IP Address:192.168.7.2', 'IP Address:2001:DB8:0:0:0:0:0:39',
+                     'IP Address:127.0.0.1', 'DNS:localhost', 'DNS:' + tofi_host.certificate_hostname()):
+            self.assertIn(name, text)
+        self.assertIn('CN = ' + tofi_host.certificate_hostname(), text.replace('CN=', 'CN = '))
+        self.assertIn('prime256v1', text)
+        self.assertIn('TLS Web Server Authentication', text)
+        days = subprocess.run(['openssl', 'x509', '-noout', '-checkend', str(825 * 86400 + 3600),
+                               '-in', str(self.P.tls_cert)], capture_output=True)
+        self.assertNotEqual(days.returncode, 0, 'validity must not exceed 825 days')
+
+    def test_domain_mode_has_no_certificate_but_keeps_mount_point(self):
+        budgets = {'cpu': 3, 'memory_mib': 6144}
+        env = tofi_host.render_env(manifest(OLD, '1'), {'domain': 'tofi.example.com', 'bind': '0.0.0.0',
+                                                        'port': 8321}, budgets)
+        self.make_bundle(OLD)
+        self.make_guest(OLD)
+        tofi_host.prepare_directories()
+        tofi_host.apply_host_config(self.P.releases / OLD, env)
+        self.assertTrue(self.P.tls.is_dir())
+        self.assertFalse(self.P.tls_cert.exists())
+        self.assertFalse(any(c[0] == 'openssl' and 'req' in c for c in self.commands))
+
+    def test_regenerate_cert(self):
+        self.installed()
+        fingerprint = tofi_host.certificate_fingerprint()
+        with mock.patch.object(tofi_host, 'project_containers', return_value=[{}]), \
+                mock.patch.object(tofi_host, 'health', return_value=True) as health:
+            result = tofi_host.regenerate_certificate()
+        self.assertNotEqual(result['fingerprint'], fingerprint)
+        self.assertEqual(tofi_host.certificate_fingerprint(), result['fingerprint'])
+        self.assertTrue(any(c[-2:] == ['restart', 'app'] for c in self.commands))
+        health.assert_called_once()
+
+    def test_access_urls(self):
+        env = {'TOFI_BIND': '0.0.0.0', 'TOFI_HTTP_PORT': '8321', 'TOFI_TLS_CERT_FILE': '/etc/tofi-tls/cert.pem'}
+        self.assertEqual(tofi_host.access_urls(env), ['https://10.0.10.39:8321', 'https://192.168.7.2:8321'])
+        self.assertEqual(tofi_host.access_urls(dict(env, TOFI_BIND='127.0.0.1')), ['https://127.0.0.1:8321'])
+        self.assertEqual(tofi_host.access_urls(dict(env, TOFI_DOMAIN='tofi.example.com')),
+                         ['https://tofi.example.com'])
+
+    def test_health_probes_https_without_verification(self):
+        seen = {}
+
+        class Response(io.BytesIO):
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *exc):
+                return False
+
+        class Opener:
+            def open(self, url, timeout):
+                seen['url'] = url
+                return Response(b'{"ok": true}')
+
+        def build(*handlers):
+            seen['handlers'] = handlers
+            return Opener()
+
+        with mock.patch.object(tofi_host.urllib.request, 'build_opener', side_effect=build):
+            tofi_host.health({'TOFI_HTTP_PORT': '8321', 'TOFI_TLS_CERT_FILE': '/etc/tofi-tls/cert.pem'}, attempts=1)
+        self.assertEqual(seen['url'], 'https://127.0.0.1:8321/health')
+        https = [h for h in seen['handlers'] if isinstance(h, tofi_host.urllib.request.HTTPSHandler)]
+        self.assertEqual(https[0]._context.verify_mode, tofi_host.ssl.CERT_NONE)
+        with mock.patch.object(tofi_host.urllib.request, 'build_opener', side_effect=build):
+            tofi_host.health({'TOFI_HTTP_PORT': '8321', 'TOFI_TLS_CERT_FILE': ''}, attempts=1)
+        self.assertEqual(seen['url'], 'http://127.0.0.1:8321/health')
+
+    def test_status_lists_urls_and_fingerprint(self):
+        self.installed()
+        with mock.patch.object(tofi_host, 'project_containers', return_value=[]), \
+                mock.patch.object(tofi_host, 'health', return_value=True):
+            result = tofi_host.status()
+        self.assertEqual(result['urls'], ['https://10.0.10.39:8321', 'https://192.168.7.2:8321'])
+        self.assertEqual(result['certificate_sha256'], tofi_host.certificate_fingerprint())
+
+
+class AddressTests(unittest.TestCase):
+    def test_interface_addresses_skip_loopback_link_local_and_bridges(self):
+        with mock.patch.object(tofi_host, 'run', return_value=completed(IP_ADDR_OUTPUT)):
+            self.assertEqual(tofi_host.interface_addresses(),
+                             [('inet', '10.0.10.39'), ('inet6', '2001:db8::39'), ('inet', '192.168.7.2')])
+
+    def test_hostname_fallback(self):
+        def fake(args, check=True, **kwargs):
+            if args[0] == 'ip':
+                raise FileNotFoundError('ip')
+            return completed('10.0.10.39 172.17.0.1 2001:db8::39 fe80::1\n')
+        with mock.patch.object(tofi_host, 'run', side_effect=fake):
+            self.assertEqual(tofi_host.interface_addresses(), [('inet', '10.0.10.39'), ('inet6', '2001:db8::39')])
+
+
+SPEC_ART = """\
+   ▄▄              ▄▄▄  ▄▄        ▄▀▄   ▄▀▄
+ ▀▀██▀▀  ▄▄▄▄▄   ▄██▀   ▀▀       █  ▀▀▀▀▀  █
+   ██   ██▀  ▀██ ▀██▀▀  ██       █  ●   ●  █
+   ██▄▄ ██▄  ▄██  ██    ██        ▀▄▄▄▄▄▄▄▀
+    ▀▀▀  ▀▀▀▀▀    ▀▀    ▀▀   v0.1.0 · your crew is awake
+"""
+FINGERPRINT = ':'.join(['AB'] * 32)
+KEY = 'synthetic-setup-key-0123456789abcdefghijklmnopqrstuvwxyz'
+
+
+class BannerTests(unittest.TestCase):
+    def info(self, **extra):
+        values = {'version': 'v0.1.0', 'urls': ['https://10.0.10.39:8321', 'https://192.168.7.2:8321'],
+                  'setup_key': KEY, 'domain': '', 'port': '8321', 'fingerprint': FINGERPRINT,
+                  'local_only': False}
+        values.update(extra)
+        return values
+
+    def test_plain_mode_layout(self):
+        text = tofi_host.render_banner(self.info(), None, 120)
+        self.assertNotIn('\033', text)
+        self.assertTrue(text.startswith(SPEC_ART), text)
+        self.assertIn('\n  Open        https://10.0.10.39:8321\n              https://192.168.7.2:8321\n', text)
+        self.assertIn("              or your server's public IP\n", text)
+        self.assertIn('\n  Setup key   %s   (one time)\n' % KEY, text)
+        self.assertIn('\n  Next        enter the key, create your admin, connect a model\n', text)
+        self.assertIn("\n  Browser warns about the certificate? That's expected — continue.\n", text)
+        self.assertIn('\n  Fingerprint SHA256 %s\n  Cloud server? allow TCP 8321\n' % FINGERPRINT, text)
+        self.assertTrue(text.endswith('\n\n  tofi status · tofi update · tofi logs · tofi uninstall\n'))
+
+    def test_art_display_width(self):
+        widths = [len(line) for line in tofi_host.BANNER_ART]
+        self.assertEqual(widths[:4], [43, 44, 44, 43])
+        # Every glyph is a single-column block element or a space.
+        self.assertTrue(set(''.join(tofi_host.BANNER_ART)) <= set(' ▄▀█●'))
+
+    def test_wide_terminal_keeps_fingerprint_and_firewall_on_one_line(self):
+        text = tofi_host.render_banner(self.info(), None, 200)
+        self.assertIn('\n  Fingerprint SHA256 %s   ·   Cloud server? allow TCP 8321\n' % FINGERPRINT, text)
+
+    def strip(self, text):
+        import re
+        return re.sub('\033\\[[0-9;]*m', '', text)
+
+    def test_truecolor_mode(self):
+        text = tofi_host.render_banner(self.info(), 'truecolor', 120)
+        self.assertIn(' \033[38;2;243;234;219m▀▀██▀▀\033[0m', text)  # t in cream
+        self.assertIn('\033[38;2;232;149;109m▄▄▄▄▄', text)    # o in peach
+        self.assertIn('\033[38;2;127;209;193m●', text)        # eyes in teal
+        self.assertIn('\033[1;4;38;2;127;209;193mhttps://10.0.10.39:8321\033[0m', text)
+        self.assertIn('\033[1m%s\033[0m' % KEY, text)
+        self.assertEqual(self.strip(text), tofi_host.render_banner(self.info(), None, 120))
+
+    def test_256_color_mode(self):
+        text = tofi_host.render_banner(self.info(), '256', 120)
+        self.assertIn('\033[38;5;230m', text)
+        self.assertIn('\033[38;5;209m', text)
+        self.assertIn('\033[38;5;115m●', text)
+        self.assertNotIn('38;2;', text)
+        self.assertEqual(self.strip(text), tofi_host.render_banner(self.info(), None, 120))
+
+    def test_color_mode_detection(self):
+        class Tty(io.StringIO):
+            def isatty(self):
+                return True
+        tty = Tty()
+        self.assertEqual(tofi_host.color_mode(tty, {'COLORTERM': 'truecolor'}), 'truecolor')
+        self.assertEqual(tofi_host.color_mode(tty, {'COLORTERM': '24bit'}), 'truecolor')
+        self.assertEqual(tofi_host.color_mode(tty, {'TERM': 'xterm-256color'}), '256')
+        self.assertIsNone(tofi_host.color_mode(tty, {'NO_COLOR': '', 'COLORTERM': 'truecolor'}))
+        self.assertIsNone(tofi_host.color_mode(tty, {'TERM': 'dumb'}))
+        self.assertIsNone(tofi_host.color_mode(io.StringIO(), {'COLORTERM': 'truecolor'}))
+
+    def test_narrow_terminal_skips_art(self):
+        text = tofi_host.render_banner(self.info(), None, 59)
+        self.assertTrue(text.startswith('tofi v0.1.0 · your crew is awake\n\n  Open        https://10.0.10.39:8321\n'))
+        self.assertNotIn('▄', text)
+        self.assertIn('\n  Fingerprint SHA256\n  %s\n  Cloud server? allow TCP 8321\n' % FINGERPRINT, text)
+        self.assertIn(KEY, text)
+
+    def test_retained_data_variant(self):
+        text = tofi_host.render_banner(self.info(setup_key=None), None, 120)
+        self.assertIn('\n  Sign in     with your existing admin account\n', text)
+        self.assertNotIn('Setup key', text)
+        self.assertNotIn('enter the key', text)
+
+    def test_domain_variant(self):
+        text = tofi_host.render_banner(self.info(domain='tofi.example.com', urls=['https://tofi.example.com'],
+                                                 fingerprint=None), None, 120)
+        self.assertIn('\n  Open        https://tofi.example.com\n', text)
+        self.assertIn('\n  Allow TCP 80 and 443.\n', text)
+        for absent in ('Fingerprint', 'certificate', 'Cloud server', "public IP"):
+            self.assertNotIn(absent, text)
+
+    def test_local_only_variant(self):
+        text = tofi_host.render_banner(self.info(urls=['https://127.0.0.1:8321'], local_only=True), None, 120)
+        self.assertIn('\n  Open        https://127.0.0.1:8321\n', text)
+        self.assertIn('ssh -L 8321:127.0.0.1:8321', text)
+        self.assertNotIn('Cloud server', text)
+        self.assertNotIn('public IP', text)
 
 
 if __name__ == '__main__':
