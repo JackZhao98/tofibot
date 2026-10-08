@@ -7,6 +7,7 @@
     "dev": "vite",
     "build": "tsc -b && vite build && vite build --config vite.motion-lab.config.ts",
     "typecheck": "tsc -b --pretty false",
+    "test:portability": "node scripts/test-portability.mjs",
     "test:composer-draft": "node scripts/test-composer-draft.mjs",
     "test:conversation-route": "node scripts/test-conversation-route.mjs",
     "test:conversation-route-browser": "node scripts/test-conversation-route-browser.mjs",
