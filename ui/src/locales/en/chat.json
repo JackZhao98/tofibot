@@ -120,7 +120,9 @@
     "in_use": "{{name}} is using the computer",
     "starting": "Preparing your shared computer",
     "stopped": "Shared computer stopped",
-    "unavailable": "Shared computer unavailable"
+    "unavailable": "Shared computer unavailable",
+    "health_restarting": "Shared computer stopped responding · restarting",
+    "health_unresponsive": "Shared computer isn't responding"
   },
   "computer_phase": {
     "booting": "Starting VM",

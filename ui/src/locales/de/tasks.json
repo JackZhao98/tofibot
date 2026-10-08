@@ -81,7 +81,10 @@
     "not_configured": "Das Tool ist nicht eingerichtet",
     "unknown": "Der Status des Tools ließ sich nicht bestätigen",
     "ready": "Das Tool ist bereit",
-    "config_changed": "Tool-Einstellungen geändert, bitte erneut freigeben"
+    "config_changed": "Tool-Einstellungen geändert, bitte erneut freigeben",
+    "tool_timeout": "Keine Antwort rechtzeitig, abgebrochen",
+    "computer_restarting": "Der Computer startet neu; dieser Schritt wurde nicht ausgeführt",
+    "computer_unresponsive": "Der Computer reagiert nicht; dieser Schritt wurde nicht ausgeführt"
   },
   "fact": {
     "labelled": "{{label}}: {{text}}",
@@ -401,7 +404,8 @@
     "no_final_answer": "Die Aufgabe endete ohne abschließende Antwort. Fertige Tool-Ergebnisse bleiben erhalten, du kannst es erneut versuchen.",
     "budget_exhausted": "Das Ausführungsbudget der Aufgabe ist aufgebraucht, sie ist nicht fertig. Fertige Tool-Ergebnisse bleiben erhalten. Prüfe die Ursache und mach dann weiter.",
     "connection_interrupted": "Die Verbindung ist abgebrochen, die Aufgabe ist nicht fertig. Fertige Tool-Ergebnisse bleiben erhalten. Prüfe vor einem neuen Versuch alle Aktionen mit unsicherem Ergebnis.",
-    "failed": "Diese Anfrage ist fehlgeschlagen, die Aufgabe ist nicht fertig. Fertige Tool-Ergebnisse bleiben erhalten."
+    "failed": "Diese Anfrage ist fehlgeschlagen, die Aufgabe ist nicht fertig. Fertige Tool-Ergebnisse bleiben erhalten.",
+    "tool_stuck": "Ein Tool-Schritt hat nicht mehr reagiert, deshalb wurde die Aufgabe gestoppt. Abgeschlossene Tool-Ergebnisse bleiben erhalten. Prüfe vor einem neuen Versuch alle Aktionen mit unsicherem Ergebnis."
   },
   "conversation_state": {
     "finishing": "Wird abgeschlossen",

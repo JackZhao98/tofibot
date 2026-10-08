@@ -31,9 +31,11 @@ func PauseForUserInput(ctx context.Context) func() {
 	if ctx == nil {
 		return func() {}
 	}
+	// A human wait never counts against the current tool call's deadline.
+	resumeDeadline := PauseToolDeadline(ctx)
 	b, ok := ctx.Value(userWaitKey{}).(*userWaitBudget)
 	if !ok {
-		return func() {}
+		return resumeDeadline
 	}
 	b.mu.Lock()
 	if b.depth == 0 {
@@ -44,6 +46,7 @@ func PauseForUserInput(ctx context.Context) func() {
 	var once sync.Once
 	return func() {
 		once.Do(func() {
+			resumeDeadline()
 			b.mu.Lock()
 			defer b.mu.Unlock()
 			b.depth--

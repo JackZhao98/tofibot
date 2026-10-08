@@ -120,7 +120,9 @@
     "in_use": "{{name}} 正在使用電腦",
     "starting": "正在準備你的共享電腦",
     "stopped": "共享電腦已停止",
-    "unavailable": "共享電腦暫時無法使用"
+    "unavailable": "共享電腦暫時無法使用",
+    "health_restarting": "共用電腦沒有回應 · 正在重新啟動",
+    "health_unresponsive": "共用電腦沒有回應"
   },
   "computer_phase": {
     "booting": "啟動虛擬機器",

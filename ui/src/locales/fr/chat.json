@@ -120,7 +120,9 @@
     "in_use": "{{name}} utilise l’ordinateur",
     "starting": "Préparation de votre ordinateur partagé",
     "stopped": "Ordinateur partagé arrêté",
-    "unavailable": "Ordinateur partagé indisponible"
+    "unavailable": "Ordinateur partagé indisponible",
+    "health_restarting": "L’ordinateur partagé ne répond plus · redémarrage en cours",
+    "health_unresponsive": "L’ordinateur partagé ne répond pas"
   },
   "computer_phase": {
     "booting": "Démarrage de la VM",

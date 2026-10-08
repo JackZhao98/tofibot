@@ -81,7 +81,10 @@
     "not_configured": "The tool is not set up",
     "unknown": "The tool's status could not be confirmed",
     "ready": "The tool is ready",
-    "config_changed": "Tool settings changed; approve again"
+    "config_changed": "Tool settings changed; approve again",
+    "tool_timeout": "Didn't respond in time and was stopped",
+    "computer_restarting": "The computer is restarting; this step didn't run",
+    "computer_unresponsive": "The computer isn't responding; this step didn't run"
   },
   "fact": {
     "labelled": "{{label}}: {{text}}",
@@ -401,7 +404,8 @@
     "no_final_answer": "The task ended without a final answer. Completed tool results are kept; you can retry.",
     "budget_exhausted": "The task ran out of its execution budget and didn't finish. Completed tool results are kept. Check why, then continue.",
     "connection_interrupted": "The connection dropped and the task didn't finish. Completed tool results are kept. Before retrying, check any actions with uncertain results.",
-    "failed": "This request failed and the task didn't finish. Completed tool results are kept."
+    "failed": "This request failed and the task didn't finish. Completed tool results are kept.",
+    "tool_stuck": "A tool step stopped responding, so the task was stopped. Completed tool results are kept. Before retrying, check any actions with uncertain results."
   },
   "conversation_state": {
     "finishing": "Finishing up",

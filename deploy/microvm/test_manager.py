@@ -233,6 +233,38 @@ class ProxyTests(unittest.TestCase):
         self.assertEqual(status, 503)
         self.vm.connect.assert_not_called()
 
+    def test_health_probes_guest_without_starting_a_vm(self):
+        self.vm.guest_request = mock.Mock(return_value={"ok": True})
+        self.assertEqual(self.request("GET", "/v1/health"), (200, {"state": "ready", "guest": "ok"}))
+        self.vm.guest_request.assert_called_once_with("GET", "/v1/info", timeout=manager.HEALTH_PROBE_SECONDS)
+        self.vm.guest_request.side_effect = socket.timeout("timed out")
+        status, body = self.request("GET", "/v1/health")
+        self.assertEqual((status, body["guest"]), (200, "unresponsive"))
+        self.assertIn(body["error"], ("timeout", "TimeoutError"))  # class name only, never guest output
+        self.vm.guest_request.reset_mock()
+        self.vm.state = "stopped"
+        self.vm.start = mock.Mock(side_effect=AssertionError("health must not start the VM"))
+        self.assertEqual(self.request("GET", "/v1/health"), (200, {"state": "stopped", "guest": "not_ready"}))
+        self.vm.guest_request.assert_not_called()
+
+    def test_recover_restarts_only_an_unresponsive_guest(self):
+        self.server.restart = mock.Mock(return_value=True)
+        self.assertEqual(self.request("POST", "/v1/recover", "{}")[0], 400)
+        self.vm.guest_request = mock.Mock(return_value={"ok": True})
+        status, body = self.request("POST", "/v1/recover", '{"confirm":true}')
+        self.assertEqual(status, 409)
+        self.assertIn("responsive", body["error"])
+        self.server.restart.assert_not_called()
+        self.vm.guest_request.side_effect = OSError("vsock hung")
+        self.assertEqual(self.request("POST", "/v1/recover", '{"confirm":true}'), (202, {"state": "restarting"}))
+        self.assertEqual(self.vm.guest_request.call_count, 1 + manager.RECOVER_PROBES)
+        self.server.restart.assert_called_once_with()
+        self.server.restart.return_value = False
+        self.assertEqual(self.request("POST", "/v1/recover", '{"confirm":true}')[0], 409)
+        self.vm.state = "error"
+        self.server.prepare = mock.Mock(return_value=True)
+        self.assertEqual(self.request("POST", "/v1/recover", '{"confirm":true}'), (202, {"state": "starting"}))
+
     def test_purge_requires_explicit_confirmation(self):
         self.vm.purge_workspace = mock.Mock(side_effect=AssertionError("must not purge"))
         status, body = self.request("POST", "/v1/purge", "{}")

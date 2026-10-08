@@ -63,6 +63,14 @@ MIN_CPUS = 2
 # A "4 GiB" machine reports a little less in MemTotal (kernel/firmware reserve).
 MIN_MEMORY_MIB = 3584
 WARN_MEMORY_MIB = 7680
+# Without swap, a computer that exhausts guest memory can stall the whole host
+# (a frozen host leaves every task hanging). Below this much RAM TOFI advises
+# swap; a "16 GiB" machine reports a little less in MemTotal.
+SWAP_ADVISED_BELOW_MIB = 16 * 1024 - 512
+# One computer: its guest memory (worker.json memory_mib) plus the Firecracker
+# and cgroup overhead the manager adds to memory.max.
+COMPUTER_MEMORY_MIB = 1024
+COMPUTER_OVERHEAD_MIB = 512
 MIN_DISK_BYTES = 30 * GIB
 WARN_DISK_BYTES = 40 * GIB
 # The first account needs an 8 GiB workspace disk plus 8 GiB internal reserve.
@@ -94,6 +102,10 @@ ENV_KEYS = ['TOFI_VERSION', 'TOFI_DOMAIN', 'TOFI_EMAIL', 'TOFI_HTTP_PORT', 'TOFI
 
 class HostError(Exception):
     """A refusal or failure with one actionable sentence for the operator."""
+
+
+class Advisory(str):
+    """A doctor result that is worth a warning but is not a failure."""
 
 
 class Paths:
@@ -445,9 +457,36 @@ def meminfo_mib():
     values = {}
     for line in P.meminfo.read_text().splitlines():
         key, _, rest = line.partition(':')
-        if key in ('MemTotal', 'MemAvailable'):
+        if key in ('MemTotal', 'MemAvailable', 'SwapTotal'):
             values[key] = int(rest.split()[0]) // 1024
     return values
+
+
+def computer_memory_need_mib(config=None):
+    """Host memory one running computer takes, from worker.json when known."""
+    memory = (config or {}).get('memory_mib') or COMPUTER_MEMORY_MIB
+    return int(memory) + COMPUTER_OVERHEAD_MIB
+
+
+def memory_report(per_computer_mib=None):
+    """Return (warning or None, detail): host memory against computer needs.
+
+    Warning only: a host without swap and under 16 GiB of RAM can freeze as a
+    whole when one computer runs out of memory.
+    """
+    info = meminfo_mib()
+    need = per_computer_mib or computer_memory_need_mib()
+    total = info['MemTotal']
+    available = info.get('MemAvailable', total)
+    swap = info.get('SwapTotal')
+    detail = '%d MiB available of %d MiB; each computer needs about %d MiB (room for %d now); swap %s' % (
+        available, total, need, available // need, 'unknown' if swap is None else '%d MiB' % swap)
+    warning = None
+    if swap == 0 and total < SWAP_ADVISED_BELOW_MIB:
+        warning = ('This host has %d MiB of RAM and no swap; a computer that runs out of memory can freeze '
+                   'the whole host. Add swap (for example a 4 GiB swap file) or use 16 GiB of RAM or more. '
+                   'Memory: %s.') % (total, detail)
+    return warning, detail
 
 
 def free_disk_bytes():
@@ -687,6 +726,9 @@ def preflight(options):
         raise HostError('TOFI needs at least 4 GiB of RAM; this host has %d MiB.' % memory)
     if memory < WARN_MEMORY_MIB:
         warnings.append('This host has %d MiB of RAM; 8 GiB or more is recommended.' % memory)
+    swap_warning, _ = memory_report()
+    if swap_warning:
+        warnings.append(swap_warning)
     free = free_disk_bytes()
     if free < MIN_DISK_BYTES:
         raise HostError('TOFI needs at least 30 GiB free under /var/lib; %.1f GiB is free.' % (free / GIB))
@@ -1664,7 +1706,10 @@ def doctor():
     def check(name, function):
         try:
             detail = function()
-            checks.append(('ok', name, detail or ''))
+            if isinstance(detail, Advisory):
+                checks.append(('WARN', name, str(detail)))
+            else:
+                checks.append(('ok', name, detail or ''))
         except Exception as error:  # report every failing check, do not stop
             checks.append(('FAIL', name, str(error)))
 
@@ -1701,6 +1746,14 @@ def doctor():
             raise HostError('only %.1f GiB free under /var/lib' % (free / GIB))
         return '%.1f GiB free' % (free / GIB)
 
+    def memory():
+        try:
+            config = json.loads(P.worker_json.read_text())
+        except (OSError, ValueError):
+            config = None
+        warning, detail = memory_report(computer_memory_need_mib(config))
+        return Advisory(warning) if warning else detail
+
     def certificate():
         if app_scheme(read_env()) != 'https':
             return 'served by Caddy'
@@ -1716,11 +1769,13 @@ def doctor():
     check('Guest release', guest)
     check('Images', images)
     check('Disk', disk)
+    check('Memory', memory)
     check('HTTPS certificate', certificate)
     check('App health', lambda: health(attempts=3) and None)
     for result, name, detail in checks:
         say('%-4s %-20s %s' % (result, name, detail))
-    return all(result == 'ok' for result, _, _ in checks)
+    # Advisories are printed but never fail the doctor.
+    return all(result in ('ok', 'WARN') for result, _, _ in checks)
 
 
 def version():

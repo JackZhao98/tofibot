@@ -346,7 +346,10 @@ func (e *engine) Run(ctx context.Context, req Request) (Result, error) {
 					return "", err
 				}
 				executionCtx := tooloutcome.WithExecutionIdentity(toolCtx, identity)
-				result, executeErr := rawTool.Execute(context.WithValue(executionCtx, toolCallIDContextKey{}, callID), encoded)
+				executionCtx = context.WithValue(executionCtx, toolCallIDContextKey{}, callID)
+				result, executeErr := executeWithDeadline(executionCtx, rawTool.Name, EffectiveToolTimeout(rawTool), identity.Risk == tooloutcome.Observation, func(ctx context.Context) (string, error) {
+					return rawTool.Execute(ctx, encoded)
+				})
 				var suspension *userInputSuspensionError
 				if executeErr != nil && !errors.As(executeErr, &suspension) && toolCtx.Err() == nil {
 					if _, classified := tooloutcome.FromError(executeErr); !classified {

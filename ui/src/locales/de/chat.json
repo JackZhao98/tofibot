@@ -120,7 +120,9 @@
     "in_use": "{{name}} nutzt den Computer",
     "starting": "Dein gemeinsamer Computer wird vorbereitet",
     "stopped": "Gemeinsamer Computer gestoppt",
-    "unavailable": "Gemeinsamer Computer nicht verfügbar"
+    "unavailable": "Gemeinsamer Computer nicht verfügbar",
+    "health_restarting": "Gemeinsamer Computer reagiert nicht · Neustart läuft",
+    "health_unresponsive": "Gemeinsamer Computer reagiert nicht"
   },
   "computer_phase": {
     "booting": "VM wird gestartet",
