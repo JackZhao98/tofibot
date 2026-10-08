@@ -112,6 +112,11 @@ def validate_config(c):
         raise ValueError("invalid Worker sysctl mode")
     if c.get("worker_private_sysctls") and c.get("cgroup_parent") != "tofi-vms":
         raise ValueError("Worker sysctl mode requires private cgroup configuration")
+    if "host_memory_headroom_mib" in c:
+        if (not c.get("worker_private_sysctls") or c.get("cgroup_parent") != "tofi-vms"
+                or type(c["host_memory_headroom_mib"]) is not int
+                or not 512 <= c["host_memory_headroom_mib"] <= 1024*1024):
+            raise ValueError("memory headroom requires trusted private Worker configuration")
     return c
 
 
@@ -219,7 +224,10 @@ class VM:
         desired = self.desired_resources()
         current = self.current_resources()
         host = self.host_resources()
-        if desired["vcpus"] > host["cpus"] or desired["memory_mib"] + 512 + 2048 > host["memory_available_mib"]:
+        # The account Worker supplies the SAME reviewed host reserve used by
+        # its runtime ledger; standalone managers retain the historical 2 GiB.
+        headroom = self.c.get("host_memory_headroom_mib", 2048)
+        if desired["vcpus"] > host["cpus"] or desired["memory_mib"] + 512 + headroom > host["memory_available_mib"]:
             raise RuntimeError("insufficient host capacity; requested resources remain pending")
         if desired == current:
             return
