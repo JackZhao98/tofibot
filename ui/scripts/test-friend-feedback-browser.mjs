@@ -32,7 +32,7 @@ try {
     ["native-bridge", 1280, 900, false, false, true],
   ]) {
     if (conversationRemoval && layout !== "desktop") continue;
-    const context = await browser.newContext({ viewport: { width, height }, hasTouch: touch, isMobile: touch, reducedMotion: reduce ? "reduce" : "no-preference" });
+    const context = await browser.newContext({ locale: "zh-CN", viewport: { width, height }, hasTouch: touch, isMobile: touch, reducedMotion: reduce ? "reduce" : "no-preference" });
     const page = await context.newPage();
     const errors = [], unexpected = [], actions = [], writes = [];
     let activeOwner = false, captureFailure = false, computerState = "ready", infoFailure = false, groupAvailable = true;

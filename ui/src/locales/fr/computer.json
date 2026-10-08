@@ -1,1 +1,357 @@
-{}
+{
+  "desktop": {
+    "error": {
+      "resource_limit_count_one": "Ressources du bureau partagé indisponibles ({{count}} session active). Réessayez plus tard.",
+      "resource_limit_count_many": "Ressources du bureau partagé indisponibles ({{count}} sessions actives). Réessayez plus tard.",
+      "resource_limit_count_other": "Ressources du bureau partagé indisponibles ({{count}} sessions actives). Réessayez plus tard.",
+      "resource_limit": "Ressources du bureau partagé indisponibles. Réessayez plus tard.",
+      "stopping": "Le bureau partagé est en cours d'arrêt. Réessayez dans un instant.",
+      "busy": "L'ordinateur exécute une autre action. Réessayez dans un instant.",
+      "not_configured": "L'ordinateur partagé n'est pas encore configuré. Terminez d'abord l'installation du serveur.",
+      "failed": "L'action sur l'ordinateur a échoué. Réessayez plus tard.",
+      "capture_failed": "Impossible de capturer l'écran",
+      "action_failed": "Échec de l'action sur l'ordinateur",
+      "switching": "Le bureau est en cours de bascule ou de préparation. Réessayez dans un instant.",
+      "unreachable": "Le bureau est injoignable pour le moment. Réessayez plus tard.",
+      "connection_lost": "Connexion à l'ordinateur indisponible. Nouvelle tentative…"
+    },
+    "phase": {
+      "checking": "Vérification de l'environnement",
+      "storage": "Préparation du stockage",
+      "network": "Préparation du réseau",
+      "booting": "Démarrage de la machine virtuelle",
+      "verifying": "Vérification de Linux et Chrome",
+      "ready": "Prêt"
+    },
+    "state": {
+      "starting": "Préparation de l'ordinateur partagé",
+      "ready": "Ordinateur prêt",
+      "error": "Échec de la préparation de l'ordinateur",
+      "stopped": "Ordinateur arrêté",
+      "other": "Ordinateur : {{state}}"
+    },
+    "other_bot": "Un autre Bot",
+    "frame": {
+      "paused": "En pause · pas en direct",
+      "live": "En direct",
+      "snapshot": "Vue par captures · mise à jour à l'instant"
+    },
+    "announce": {
+      "connecting": "Connexion au bureau",
+      "disconnected": "Affichage du bureau interrompu",
+      "live": "Bureau connecté, vidéo en direct affichée",
+      "fallback": "Bureau connecté, passage à la vue par captures",
+      "recovering": "Bureau connecté, rétablissement de l'image"
+    },
+    "shrink_aria": "Réduire l'ordinateur partagé",
+    "expand_aria": "Agrandir l'ordinateur partagé",
+    "shrink": "Réduire",
+    "expand": "Agrandir",
+    "hide_aria": "Masquer l'ordinateur partagé",
+    "minimize": "Réduire dans la barre",
+    "title": "Ordinateur partagé",
+    "status": {
+      "failed": "Échec de la connexion",
+      "connecting_preview": "Connexion de l'aperçu…",
+      "booting_phase": "Démarrage · {{phase}}",
+      "booting": "Démarrage…",
+      "you": "Vous avez le contrôle",
+      "bot": "{{name}} est aux commandes",
+      "idle": "Ordinateur partagé inactif"
+    },
+    "power_hint": "Masquer l'écran (l'ordinateur reste allumé)",
+    "control": {
+      "release": "Rendre le contrôle",
+      "take": "Prendre le contrôle",
+      "you": "Vous"
+    },
+    "phase_label": "Étape : {{phase}}",
+    "state_synced": "État à jour",
+    "retry_prepare": "Relancer la préparation",
+    "screen_alt": "Écran de l'ordinateur partagé",
+    "launch": {
+      "failed_aria": "Impossible de se connecter à l'ordinateur",
+      "preview_aria": "Connexion à l'aperçu de l'ordinateur",
+      "starting_aria": "Démarrage de l'ordinateur",
+      "failed": "Échec de la connexion. Rouvrez dans un instant."
+    },
+    "tools": {
+      "title": "Actions d'appoint",
+      "open_browser": "Ouvrir dans le navigateur",
+      "run_shell": "Exécuter un shell (espace de travail de {{name}})",
+      "shell_placeholder": "ex. : pwd",
+      "run": "Exécuter la commande",
+      "technical": "Détails techniques",
+      "workspace": "Espace de travail",
+      "browser": "Navigateur"
+    },
+    "video_aria": "Vidéo en direct du bureau du Bot",
+    "pointer_click": "{{name}} · clic"
+  },
+  "floating": {
+    "open": "Ouvrir l'ordinateur partagé",
+    "open_activity": "Ouvrir l'ordinateur partagé : {{activity}}",
+    "hide_mini_aria": "Replier le mini-écran",
+    "collapse": "Replier",
+    "peek_hint": "Lecture seule · cliquez pour agrandir"
+  },
+  "remote": {
+    "error": {
+      "control_failed": "Échec du contrôle du bureau",
+      "no_control": "Impossible d'obtenir le contrôle du bureau",
+      "take_failed": "Impossible de prendre la main sur le bureau",
+      "text_rejected": "La fenêtre active n'a pas reçu le texte. Cliquez d'abord à l'endroit où écrire",
+      "interrupted": "Connexion interrompue. Reprenez le contrôle",
+      "too_slow": "Connexion de saisie trop lente. Reprenez le contrôle",
+      "disconnected": "Connexion de contrôle perdue. Reprenez le contrôle"
+    },
+    "notice": {
+      "waiting_current": "En attente de la fin de l'action en cours…",
+      "switching": "Le bureau changeait encore de contrôle. Réessayez dans un instant.",
+      "handed_to_bot": "Confié au Bot en attente"
+    },
+    "status": {
+      "you": "Vous avez le contrôle",
+      "waiting": "En attente de la fin de l'action…",
+      "bot": "{{name}} a le contrôle",
+      "other_window": "Une autre fenêtre a le contrôle",
+      "connecting": "Connexion…",
+      "click_to_take": "Cliquez sur l'écran pour prendre le contrôle"
+    },
+    "keyboard": {
+      "hide_aria": "Masquer le clavier distant",
+      "open_aria": "Ouvrir le clavier distant",
+      "hide": "Masquer le clavier",
+      "open": "Clavier"
+    },
+    "release": "Libérer le contrôle",
+    "bot_waiting": "Un Bot demande l'ordinateur. Il prendra le relais 15 secondes après votre dernière action.",
+    "surface_aria": "Zone de contrôle du bureau distant",
+    "surface_preview_aria": "Aperçu de l'ordinateur partagé ; faites glisser pour déplacer",
+    "keyboard_input_aria": "Saisie clavier du bureau distant",
+    "copy": {
+      "note": "Le navigateur n'a pas autorisé l'écriture dans le presse-papiers. Copiez le texte ci-dessous.",
+      "aria": "Texte copié depuis le bureau distant",
+      "close": "Fermer"
+    }
+  },
+  "terminal": {
+    "error": {
+      "control_lost": "Contrôle perdu. Reprenez la main",
+      "no_control": "Impossible d'obtenir le contrôle",
+      "take_failed": "Impossible de prendre la main"
+    },
+    "aria": "Terminal de {{name}}",
+    "title": "Terminal",
+    "new": "Nouveau terminal",
+    "release": "Libérer le contrôle",
+    "take": "Prendre la main",
+    "close_aria": "Fermer le panneau du terminal",
+    "tabs_aria": "Sessions de terminal",
+    "connecting": "Connexion…",
+    "empty": "Aucun terminal pour l'instant",
+    "create": "Créer un terminal",
+    "status": {
+      "you": "Vous avez le contrôle",
+      "watching": "En observation",
+      "closed": "Terminé",
+      "exited": "Quitté ({{code}})",
+      "done": "Terminé avec succès"
+    },
+    "end": "Fermer le terminal",
+    "close": {
+      "title": "Fermer ce terminal ?",
+      "body": "Les processus qui y tournent s'arrêteront aussi.",
+      "keep": "Conserver"
+    },
+    "interrupt": {
+      "title": "Prendre la main sur le terminal ?",
+      "body": "Une commande est peut-être encore en cours. Prendre la main arrête la tâche en cours de {{name}} et envoie une interruption au terminal sélectionné.",
+      "keep_watching": "Continuer à observer",
+      "stop_take": "Arrêter et prendre la main"
+    },
+    "trimmed": "Les sorties plus anciennes ont été retirées du tampon.",
+    "reconnecting": "Connexion au terminal interrompue. Reconnexion…",
+    "live_aria": "Terminal en direct"
+  },
+  "pairing": {
+    "this_device": "Cet appareil",
+    "mac_client": "App Mac",
+    "connected": "{{name}} est connecté.",
+    "expired": "Le code d'association a expiré. Générez-en un nouveau.",
+    "enter_code": "Saisissez ce code d'association dans l'app Mac. Il est valable 5 minutes.",
+    "code_aria": "Code d'association {{code}}",
+    "waiting": "En attente de confirmation de l'appareil…"
+  },
+  "env": {
+    "unavailable": "L'environnement d'exécution est indisponible.",
+    "start_failed": "L'ordinateur n'a pas démarré. Réessayez plus tard.",
+    "title": "Environnement d'exécution",
+    "description": "Linux, Google Chrome, le navigateur de fichiers et le terminal partagent le même environnement. Chaque Bot a son propre dossier de travail et peut accéder à ceux des autres.",
+    "state": {
+      "ready": "Ordinateur partagé prêt",
+      "starting": "Préparation de l'ordinateur",
+      "stopped": "Ordinateur partagé arrêté",
+      "waiting": "En attente de l'ordinateur"
+    },
+    "workspace": "Dossier de travail {{path}}",
+    "workspace_idle_one": "Dossier de travail {{path}} · le bureau se ferme après {{count}} minute d'inactivité",
+    "workspace_idle_many": "Dossier de travail {{path}} · le bureau se ferme après {{count}} minutes d'inactivité",
+    "workspace_idle_other": "Dossier de travail {{path}} · le bureau se ferme après {{count}} minutes d'inactivité",
+    "retry": "Préparer à nouveau l'ordinateur"
+  },
+  "mac": {
+    "title": "Autorisations Mac",
+    "description": "Gérez les autorisations Enregistrement de l'écran et Accessibilité pour que Tofi puisse voir l'écran et utiliser le bureau une fois autorisé.",
+    "open_card": "Voir la carte d'autorisation"
+  },
+  "devices": {
+    "title": "Autres appareils",
+    "note": "Vous pouvez aussi connecter un Mac sur lequel l'app Tofi est installée.",
+    "pair_failed": "Impossible de créer un code d'association.",
+    "connect": "Connecter un Mac",
+    "online": "En ligne",
+    "offline": "Hors ligne",
+    "disconnect_failed": "Impossible de déconnecter l'appareil.",
+    "disconnect": "Déconnecter"
+  },
+  "resources": {
+    "restart": {
+      "title": "Redémarrer et appliquer la configuration ?",
+      "impact": "Arrêtez d'abord les tâches de Bot en cours. Le redémarrage interrompt le bureau et les terminaux de tous les Bots, et les processus qui y tournent s'arrêtent. Les fichiers de travail sont conservés.",
+      "confirm": "Redémarrer"
+    },
+    "cancel": "Annuler",
+    "error": {
+      "restart_incomplete": "Le redémarrage n'a pas abouti. Réessayez.",
+      "read": "Impossible de charger les ressources de l'ordinateur. Réessayez.",
+      "out_of_range": "Cette configuration dépasse les limites autorisées. Vérifiez-la et réessayez.",
+      "save": "Échec de l'enregistrement. Réessayez.",
+      "busy": "L'ordinateur exécute une tâche ou applique une configuration. Arrêtez d'abord la tâche, puis réessayez.",
+      "restart_request": "La demande de redémarrage n'a pas abouti. Réessayez.",
+      "start_failed": "L'ordinateur n'a pas pu démarrer. Réessayez."
+    },
+    "status": {
+      "applied": "Configuration appliquée.",
+      "saved_pending": "Configuration enregistrée. Elle s'appliquera après un redémarrage.",
+      "saved": "Configuration enregistrée."
+    },
+    "draft_label": "Ressources de l'ordinateur",
+    "title": "Ressources",
+    "adjust": "Ajuster",
+    "unit": {
+      "cores": "cœurs"
+    },
+    "memory": "Mémoire",
+    "disk_allocated": "Disque alloué",
+    "host": "Hôte : {{cpus}} cœurs · {{memory}} Go de mémoire, {{disk}} Go de disque libres.",
+    "pending": "En attente : {{cpus}} cœurs · {{memory}} Go de mémoire · {{disk}} Go de disque.",
+    "restart_apply": "Redémarrer et appliquer",
+    "field": {
+      "cpus": "Cœurs CPU",
+      "memory": "Mémoire (Go)",
+      "disk": "Disque (Go)"
+    },
+    "field_note": "Le disque peut seulement être agrandi, jamais réduit. Les changements s'appliquent après le redémarrage de l'ordinateur ; fermer le bureau ne suffit pas.",
+    "restarting": "Redémarrage et application de la configuration…",
+    "retry_restart": "Relancer le redémarrage",
+    "reading": "Chargement…",
+    "retry": "Réessayer",
+    "loading": "Chargement des ressources…"
+  },
+  "credentials": {
+    "error": {
+      "exists": "Un fichier porte déjà ce nom. Choisissez-en un autre.",
+      "busy": "L'ordinateur traite une tâche. Réessayez plus tard.",
+      "private_key_invalid": "Clé privée non reconnue. Vérifiez le format du fichier.",
+      "private_key_filename": "Utilisez un nom de fichier de clé privée, par exemple id_ed25519_work. N'utilisez pas .pub, config ni known_hosts.",
+      "ssh_dir": "Le dossier .ssh de l'ordinateur est indisponible. Vérifiez-le et réessayez.",
+      "openssh_missing": "Les outils OpenSSH ne sont pas installés sur l'ordinateur.",
+      "key_io": "Impossible de lire ou de configurer les clés. Réessayez plus tard.",
+      "load": "Impossible de charger la configuration. Réessayez.",
+      "switch_unsaved": "Enregistrez ou abandonnez votre saisie avant de changer de type.",
+      "no_bot": "Créez d'abord un Bot, puis configurez l'ordinateur partagé.",
+      "operation": "L'opération a échoué. Réessayez.",
+      "required": "Remplissez les champs obligatoires et réessayez.",
+      "name_format": "Le format du nom n'est pas valide. Vérifiez-le et réessayez.",
+      "not_private_key": "Saisissez la clé privée. Un fichier .pub est une clé publique et ne peut pas être importé comme clé privée.",
+      "too_large": "La clé privée ne peut pas dépasser 64 Ko.",
+      "public_key_file": "C'est un fichier de clé publique. Choisissez le fichier de clé privée correspondant (généralement sans .pub).",
+      "file_too_large": "Choisissez un fichier de clé privée de moins de 64 Ko.",
+      "no_private_key_in_file": "Aucune clé privée trouvée dans ce fichier. Choisissez un fichier de clé privée ou collez son contenu.",
+      "read_file": "Impossible de lire le fichier. Réessayez ou collez la clé privée.",
+      "copy_manual": "Copiez-la depuis le champ de clé publique ci-dessous (⌘C / Ctrl+C).",
+      "drop_single": "Déposez un seul fichier de clé privée à la fois."
+    },
+    "status": {
+      "saved_applied": "Enregistré et appliqué. Les nouvelles commandes et les nouveaux terminaux le prendront en compte.",
+      "saved_not_applied": "Enregistré, mais pas encore appliqué à l'ordinateur. Vous pouvez réessayer depuis la liste.",
+      "generated": "Clé générée. Copiez la clé publique vers le service cible.",
+      "imported": "Clé importée.",
+      "applied": "Appliqué à l'ordinateur partagé.",
+      "deleted": "Élément enregistré supprimé. La copie sur l'ordinateur est conservée."
+    },
+    "tab": {
+      "env": "Variables d'environnement",
+      "ssh": "Clé SSH"
+    },
+    "draft": {
+      "ssh": "Clés SSH"
+    },
+    "tabs_aria": "Type d'identifiant",
+    "apply": "Appliquer à l'ordinateur",
+    "delete": "Supprimer",
+    "delete_question": "Supprimer cet élément enregistré ? La copie sur l'ordinateur est conservée.",
+    "note": {
+      "env": "Partagé par tous les Bots. S'applique aux commandes lancées ensuite.",
+      "ssh": "Clés présentes sur l'ordinateur partagé. La liste se synchronise automatiquement."
+    },
+    "cancel": "Annuler",
+    "add_env": "Ajouter une variable",
+    "add_key": "Ajouter une clé",
+    "mode_aria": "Mode d'ajout de clé",
+    "mode": {
+      "import": "Importer une clé",
+      "generate": "Générer une nouvelle clé"
+    },
+    "field": {
+      "display_name": "Nom affiché (facultatif)",
+      "display_name_placeholder": "ex. : Compte pro",
+      "env_name": "Nom de la variable",
+      "key_file": "Nom du fichier de clé",
+      "env_value": "Valeur",
+      "private_key": "Clé privée",
+      "private_key_placeholder": "Collez une clé privée ou déposez le fichier ici"
+    },
+    "choose_file": "Choisir un fichier",
+    "private_key_note": "Les clés privées ne sont jamais envoyées dans le chat. Les clés chiffrées doivent être déverrouillées sur l'ordinateur.",
+    "generate_note": "Génère une clé Ed25519 ; la clé privée reste sur l'ordinateur partagé. Les fichiers existants ne sont jamais écrasés.",
+    "submit": {
+      "working": "Traitement…",
+      "save_apply": "Enregistrer et appliquer",
+      "import": "Importer la clé",
+      "generate": "Générer la clé"
+    },
+    "loading": "Chargement…",
+    "empty_env": "Aucune variable d'environnement",
+    "key": {
+      "public_only": "Clé publique uniquement",
+      "public_only_fingerprint": "Clé publique uniquement · {{fingerprint}}",
+      "encrypted_no_public": "Clé privée chiffrée, aucune clé publique trouvée",
+      "no_public": "Aucune clé publique trouvée",
+      "unverified": "Correspondance clé publique/privée non vérifiée · {{fingerprint}}",
+      "hide_public": "Masquer la clé publique",
+      "show_public": "Voir la clé publique",
+      "copied": "Copiée",
+      "copy_public": "Copier la clé publique",
+      "public_aria": "Clé publique {{name}}"
+    },
+    "no_bot_note": "Créez un Bot pour lire les clés présentes sur l'ordinateur partagé.",
+    "empty_ssh": "Aucune clé SSH sur l'ordinateur",
+    "legacy_title": "Clés enregistrées",
+    "legacy_note": "Configuration enregistrée précédemment. Vous pouvez l'appliquer à l'ordinateur.",
+    "sync_pending": "L'ordinateur est occupé. La synchronisation se fera automatiquement.",
+    "truncated": "Trop de clés : seule une partie est affichée.",
+    "retry": "Réessayer"
+  }
+}
