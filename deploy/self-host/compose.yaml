@@ -1,0 +1,132 @@
+# TOFI self-host stack. Read by `tofi` with --env-file /etc/tofi/tofi.env;
+# do not run it directly. All bind paths are host paths created by the installer.
+name: tofi
+
+x-bind: &bind
+  type: bind
+  bind:
+    create_host_path: false
+    propagation: rprivate
+
+services:
+  worker:
+    image: ${TOFI_WORKER_IMAGE:?set in /etc/tofi/tofi.env}
+    pull_policy: never
+    user: "0:0"
+    restart: unless-stopped
+    read_only: true
+    cgroup: private
+    cpus: ${TOFI_CPU_BUDGET:?set in /etc/tofi/tofi.env}
+    mem_limit: ${TOFI_WORKER_MEMORY_LIMIT:?set in /etc/tofi/tofi.env}
+    pids_limit: 512
+    stop_grace_period: 180s
+    cap_drop: [ALL]
+    cap_add: [SYS_ADMIN, NET_ADMIN, MKNOD, SYS_CHROOT, SETUID, SETGID, CHOWN, DAC_OVERRIDE, FOWNER]
+    devices:
+      - /dev/kvm:/dev/kvm
+      - /dev/net/tun:/dev/net/tun
+    device_cgroup_rules:
+      - "c 10:257 m"
+    security_opt:
+      - no-new-privileges:true
+      - apparmor:tofi-worker
+      - seccomp:/etc/tofi/worker.seccomp.json
+    sysctls:
+      net.ipv4.ip_forward: "1"
+    tmpfs:
+      - /run:rw,nosuid,nodev,mode=0755,size=64m
+      - /tmp:rw,nosuid,nodev,noexec,mode=1777,size=64m
+    volumes:
+      - <<: *bind
+        source: /var/lib/tofi/worker
+        target: /var/lib/tofi/worker
+      - <<: *bind
+        source: /run/tofi
+        target: /run/tofi
+      - <<: *bind
+        source: /etc/tofi/worker.json
+        target: /etc/tofi-worker/config.json
+        read_only: true
+      - <<: *bind
+        source: /var/lib/tofi/guest/${TOFI_GUEST_VERSION:?set in /etc/tofi/tofi.env}
+        target: /var/lib/tofi/guest/${TOFI_GUEST_VERSION:?set in /etc/tofi/tofi.env}
+        read_only: true
+
+  app:
+    image: ${TOFI_APP_IMAGE:?set in /etc/tofi/tofi.env}
+    pull_policy: never
+    user: "10001:10001"
+    restart: unless-stopped
+    init: true
+    read_only: true
+    cpus: 0.5
+    mem_limit: 512m
+    pids_limit: 256
+    cap_drop: [ALL]
+    security_opt:
+      - no-new-privileges:true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=64m
+    environment:
+      TOFI_LISTEN: 0.0.0.0:8321
+      TOFI_DATA_DIR: /app/data
+      TOFI_UI_DIR: /app/ui
+      TOFI_PUBLIC_ORIGIN: ${TOFI_PUBLIC_ORIGIN:-}
+      TOFI_OWNER_AUTH: "1"
+      # Requests reach the App from the Docker bridge, which is a private peer.
+      TOFI_OWNER_ALLOW_LAN_HTTP: "1"
+      TOFI_MULTI_ACCOUNT: "1"
+      TOFI_ACCOUNT_MAINTENANCE: "0"
+      TOFI_ACCOUNT_PROVISIONER_SOCKET: /run/tofi/broker.sock
+      TOFI_ACCOUNT_COMPUTER_SOCKET_ROOT: /run/tofi/accounts
+      TOFI_ACCOUNT_COMPUTER_DISK_GIB: "8"
+      TOFI_ACCOUNT_DB_MAX_BYTES: "1073741824"
+    # Direct mode publishes on TOFI_BIND (127.0.0.1 by default, 0.0.0.0 with
+    # --lan). With --domain the installer sets TOFI_BIND=127.0.0.1, so only
+    # Caddy is reachable from outside; the loopback port serves health checks.
+    ports:
+      - "${TOFI_BIND:-127.0.0.1}:${TOFI_HTTP_PORT:-8321}:8321"
+    volumes:
+      - <<: *bind
+        source: /var/lib/tofi/data
+        target: /app/data
+      - <<: *bind
+        source: /run/tofi
+        target: /run/tofi
+        read_only: true
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "--quiet", "http://127.0.0.1:8321/health"]
+      interval: 15s
+      timeout: 3s
+      retries: 3
+      start_period: 15s
+
+  caddy:
+    profiles: [tls]
+    image: ${TOFI_CADDY_IMAGE:-caddy}
+    pull_policy: never
+    restart: unless-stopped
+    read_only: true
+    cap_drop: [ALL]
+    cap_add: [NET_BIND_SERVICE]
+    security_opt:
+      - no-new-privileges:true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=16m
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    volumes:
+      - <<: *bind
+        source: /etc/tofi/Caddyfile
+        target: /etc/caddy/Caddyfile
+        read_only: true
+      - <<: *bind
+        source: /var/lib/tofi/caddy/data
+        target: /data
+      - <<: *bind
+        source: /var/lib/tofi/caddy/config
+        target: /config
+    depends_on:
+      - app
