@@ -1,1 +1,355 @@
-{}
+{
+  "desktop": {
+    "error": {
+      "resource_limit_count_one": "Shared desktop resources are unavailable ({{count}} active session). Try again later.",
+      "resource_limit_count_other": "Shared desktop resources are unavailable ({{count}} active sessions). Try again later.",
+      "resource_limit": "Shared desktop resources are unavailable. Try again later.",
+      "stopping": "The shared desktop is stopping. Try again in a moment.",
+      "busy": "The computer is busy with another action. Try again in a moment.",
+      "not_configured": "The shared computer isn't set up yet. Finish the server installation first.",
+      "failed": "The computer action failed. Try again later.",
+      "capture_failed": "Couldn't capture the screen",
+      "action_failed": "Computer action failed",
+      "switching": "The desktop is switching or still preparing. Try again in a moment.",
+      "unreachable": "Can't reach the desktop right now. Try again later.",
+      "connection_lost": "Computer connection unavailable. Retrying…"
+    },
+    "phase": {
+      "checking": "Checking environment",
+      "storage": "Preparing storage",
+      "network": "Preparing network",
+      "booting": "Starting virtual machine",
+      "verifying": "Verifying Linux and Chrome",
+      "ready": "Ready"
+    },
+    "state": {
+      "starting": "Preparing the shared computer",
+      "ready": "Computer ready",
+      "error": "Computer setup failed",
+      "stopped": "Computer stopped",
+      "other": "Computer: {{state}}"
+    },
+    "other_bot": "Another Bot",
+    "frame": {
+      "paused": "Paused · not live",
+      "live": "Live",
+      "snapshot": "Screenshot view · just updated"
+    },
+    "announce": {
+      "connecting": "Connecting to the desktop",
+      "disconnected": "Stopped viewing the desktop",
+      "live": "Desktop connected, showing live video",
+      "fallback": "Desktop connected, switched to screenshot view",
+      "recovering": "Desktop connected, restoring the picture"
+    },
+    "shrink_aria": "Shrink shared computer",
+    "expand_aria": "Enlarge shared computer",
+    "shrink": "Shrink",
+    "expand": "Enlarge",
+    "hide_aria": "Hide shared computer",
+    "minimize": "Minimize",
+    "title": "Shared computer",
+    "status": {
+      "failed": "Connection failed",
+      "connecting_preview": "Connecting preview…",
+      "booting_phase": "Starting up · {{phase}}",
+      "booting": "Starting up…",
+      "you": "You're in control",
+      "bot": "{{name}} is working",
+      "idle": "Shared computer idle"
+    },
+    "power_hint": "Hide screen (the computer keeps running)",
+    "control": {
+      "release": "Hand back control",
+      "take": "Take control",
+      "you": "You"
+    },
+    "phase_label": "Stage: {{phase}}",
+    "state_synced": "Status up to date",
+    "retry_prepare": "Retry setup",
+    "screen_alt": "Shared computer screen",
+    "launch": {
+      "failed_aria": "Couldn't connect to the computer",
+      "preview_aria": "Connecting computer preview",
+      "starting_aria": "Starting the computer",
+      "failed": "Connection failed. Reopen it in a moment."
+    },
+    "tools": {
+      "title": "Helper actions",
+      "open_browser": "Open in browser",
+      "run_shell": "Run shell ({{name}} workspace)",
+      "shell_placeholder": "e.g. pwd",
+      "run": "Run command",
+      "technical": "Technical details",
+      "workspace": "Workspace",
+      "browser": "Browser"
+    },
+    "video_aria": "Live video of the Bot's desktop",
+    "pointer_click": "{{name}} · click"
+  },
+  "floating": {
+    "open": "Open shared computer",
+    "open_activity": "Open shared computer: {{activity}}",
+    "hide_mini_aria": "Collapse mini screen",
+    "collapse": "Collapse",
+    "peek_hint": "View only · click to enlarge"
+  },
+  "remote": {
+    "error": {
+      "control_failed": "Desktop control failed",
+      "no_control": "Couldn't get control of the desktop",
+      "take_failed": "Couldn't take over the desktop",
+      "text_rejected": "The active window didn't accept text. Click where you want to type first",
+      "interrupted": "Connection interrupted. Take control again",
+      "too_slow": "Input connection is too slow. Take control again",
+      "disconnected": "Control connection lost. Take control again"
+    },
+    "notice": {
+      "waiting_current": "Waiting for the current action to finish…",
+      "switching": "The desktop was still switching control. Try again in a moment.",
+      "handed_to_bot": "Handed over to the waiting Bot"
+    },
+    "status": {
+      "you": "You're in control",
+      "waiting": "Waiting for the action to finish…",
+      "bot": "{{name}} is in control",
+      "other_window": "Another window is in control",
+      "connecting": "Connecting…",
+      "click_to_take": "Click the screen to take control"
+    },
+    "keyboard": {
+      "hide_aria": "Hide remote keyboard",
+      "open_aria": "Open remote keyboard",
+      "hide": "Hide keyboard",
+      "open": "Keyboard"
+    },
+    "release": "Release control",
+    "bot_waiting": "A Bot wants to use the computer. It takes over 15 seconds after you stop.",
+    "surface_aria": "Remote desktop control area",
+    "surface_preview_aria": "Shared computer preview; drag to move",
+    "keyboard_input_aria": "Remote desktop keyboard input",
+    "copy": {
+      "note": "The browser didn't allow writing to your clipboard. Copy the text below.",
+      "aria": "Text copied from the remote desktop",
+      "close": "Close"
+    }
+  },
+  "terminal": {
+    "error": {
+      "control_lost": "Control lost. Take over again",
+      "no_control": "Couldn't get control",
+      "take_failed": "Couldn't take over"
+    },
+    "aria": "{{name}}'s terminal",
+    "title": "Terminal",
+    "new": "New terminal",
+    "release": "Release control",
+    "take": "Take over",
+    "close_aria": "Close terminal panel",
+    "tabs_aria": "Terminal sessions",
+    "connecting": "Connecting…",
+    "empty": "No terminals yet",
+    "create": "New terminal",
+    "status": {
+      "you": "You're in control",
+      "watching": "Watching",
+      "closed": "Ended",
+      "exited": "Exited ({{code}})",
+      "done": "Finished"
+    },
+    "end": "End terminal",
+    "close": {
+      "title": "End this terminal?",
+      "body": "Any processes running in it will stop too.",
+      "keep": "Keep"
+    },
+    "interrupt": {
+      "title": "Take over the current terminal?",
+      "body": "A command may still be running. Taking over stops {{name}}'s current task and sends an interrupt to the selected terminal.",
+      "keep_watching": "Keep watching",
+      "stop_take": "Stop and take over"
+    },
+    "trimmed": "Earlier output was dropped from the buffer.",
+    "reconnecting": "Terminal connection interrupted. Reconnecting…",
+    "live_aria": "Live terminal"
+  },
+  "pairing": {
+    "this_device": "This device",
+    "mac_client": "Mac app",
+    "connected": "{{name}} is connected.",
+    "expired": "The pairing code expired. Generate a new one.",
+    "enter_code": "Enter this pairing code in the Mac app. It's valid for 5 minutes.",
+    "code_aria": "Pairing code {{code}}",
+    "waiting": "Waiting for the device to confirm…"
+  },
+  "env": {
+    "unavailable": "The runtime environment is unavailable.",
+    "start_failed": "The computer didn't start. Try again later.",
+    "title": "Runtime environment",
+    "description": "Linux, Google Chrome, the file browser and the terminal share one environment. Each Bot has its own work folder and can reach the others'.",
+    "state": {
+      "ready": "Shared computer ready",
+      "starting": "Preparing the computer",
+      "stopped": "Shared computer stopped",
+      "waiting": "Waiting for the computer"
+    },
+    "workspace": "Work folder {{path}}",
+    "workspace_idle_one": "Work folder {{path}} · desktop closes after {{count}} idle minute",
+    "workspace_idle_other": "Work folder {{path}} · desktop closes after {{count}} idle minutes",
+    "retry": "Prepare the computer again"
+  },
+  "mac": {
+    "title": "Mac permissions",
+    "description": "Manage Screen Recording and Accessibility permissions so Tofi can see the screen and use the desktop once you allow it.",
+    "open_card": "View permission card"
+  },
+  "devices": {
+    "title": "Other devices",
+    "note": "You can also connect a Mac that has the Tofi app installed.",
+    "pair_failed": "Couldn't create a pairing code.",
+    "connect": "Connect a Mac",
+    "online": "Online",
+    "offline": "Offline",
+    "disconnect_failed": "Couldn't disconnect the device.",
+    "disconnect": "Disconnect"
+  },
+  "resources": {
+    "restart": {
+      "title": "Restart and apply the new configuration?",
+      "impact": "Stop any running Bot tasks first. Restarting interrupts every Bot's desktop and terminals, and processes running there stop too. Work files are kept.",
+      "confirm": "Restart"
+    },
+    "cancel": "Cancel",
+    "error": {
+      "restart_incomplete": "The restart didn't finish. Try again.",
+      "read": "Couldn't load the computer's resources. Try again.",
+      "out_of_range": "That configuration is outside the allowed range. Check it and try again.",
+      "save": "Couldn't save. Try again.",
+      "busy": "The computer is running a task or applying a configuration. Stop the task first, then try again.",
+      "restart_request": "The restart request didn't go through. Try again.",
+      "start_failed": "The computer failed to start. Try again."
+    },
+    "status": {
+      "applied": "Configuration applied.",
+      "saved_pending": "Configuration saved. It applies after a restart.",
+      "saved": "Configuration saved."
+    },
+    "draft_label": "Computer resources",
+    "title": "Resources",
+    "adjust": "Adjust",
+    "unit": {
+      "cores": "cores"
+    },
+    "memory": "Memory",
+    "disk_allocated": "Allocated disk",
+    "host": "Host: {{cpus}} cores · {{memory}} GB memory, {{disk}} GB disk free.",
+    "pending": "Pending: {{cpus}} cores · {{memory}} GB memory · {{disk}} GB disk.",
+    "restart_apply": "Restart and apply",
+    "field": {
+      "cpus": "CPU cores",
+      "memory": "Memory (GB)",
+      "disk": "Disk (GB)"
+    },
+    "field_note": "Disk can only grow, never shrink. Changes apply after the computer restarts; closing the desktop doesn't apply them.",
+    "restarting": "Restarting and applying the configuration…",
+    "retry_restart": "Retry restart",
+    "reading": "Loading…",
+    "retry": "Retry",
+    "loading": "Loading resources…"
+  },
+  "credentials": {
+    "error": {
+      "exists": "A file with this name already exists. Choose another name.",
+      "busy": "The computer is busy with a task. Try again later.",
+      "private_key_invalid": "Couldn't read the private key. Check the file format.",
+      "private_key_filename": "Use a private key file name, such as id_ed25519_work. Don't use .pub, config or known_hosts.",
+      "ssh_dir": "The computer's .ssh folder isn't available. Check it and try again.",
+      "openssh_missing": "OpenSSH tools aren't installed on the computer.",
+      "key_io": "Couldn't read or set up keys. Try again later.",
+      "load": "Couldn't load the configuration. Try again.",
+      "switch_unsaved": "Save or discard what you've entered before switching type.",
+      "no_bot": "Create a Bot first, then set up the shared computer.",
+      "operation": "Something went wrong. Try again.",
+      "required": "Fill in the required fields and try again.",
+      "name_format": "The name format isn't valid. Check it and try again.",
+      "not_private_key": "Enter the private key. A .pub file is a public key and can't be imported as a private key.",
+      "too_large": "The private key can't exceed 64 KB.",
+      "public_key_file": "That's a public key file. Choose the matching private key file (usually without .pub).",
+      "file_too_large": "Choose a private key file smaller than 64 KB.",
+      "no_private_key_in_file": "No private key found in that file. Choose a private key file or paste the key.",
+      "read_file": "Couldn't read the file. Try again or paste the private key.",
+      "copy_manual": "Copy it from the public key box below (⌘C / Ctrl+C).",
+      "drop_single": "Drop one private key file at a time."
+    },
+    "status": {
+      "saved_applied": "Saved and applied. New commands and terminals pick it up.",
+      "saved_not_applied": "Saved, but not applied to the computer yet. You can retry from the list.",
+      "generated": "Key generated. Copy the public key to the service you need.",
+      "imported": "Key imported.",
+      "applied": "Applied to the shared computer.",
+      "deleted": "Saved item deleted. The copy on the computer stays."
+    },
+    "tab": {
+      "env": "Environment variables",
+      "ssh": "SSH key"
+    },
+    "draft": {
+      "ssh": "SSH keys"
+    },
+    "tabs_aria": "Credential type",
+    "apply": "Apply to computer",
+    "delete": "Delete",
+    "delete_question": "Delete this saved item? The copy on the computer stays.",
+    "note": {
+      "env": "Shared by all Bots. Applies to newly started commands.",
+      "ssh": "Keys on the shared computer. The list syncs automatically."
+    },
+    "cancel": "Cancel",
+    "add_env": "Add variable",
+    "add_key": "Add key",
+    "mode_aria": "How to add a key",
+    "mode": {
+      "import": "Import key",
+      "generate": "Generate new key"
+    },
+    "field": {
+      "display_name": "Display name (optional)",
+      "display_name_placeholder": "e.g. Work account",
+      "env_name": "Variable name",
+      "key_file": "Key file name",
+      "env_value": "Value",
+      "private_key": "Private key",
+      "private_key_placeholder": "Paste a private key, or drop the file here"
+    },
+    "choose_file": "Choose file",
+    "private_key_note": "Private keys never go to chat. Encrypted keys must be unlocked on the computer.",
+    "generate_note": "Generates an Ed25519 key; the private key stays on the shared computer. Existing files are never overwritten.",
+    "submit": {
+      "working": "Working…",
+      "save_apply": "Save and apply",
+      "import": "Import key",
+      "generate": "Generate key"
+    },
+    "loading": "Loading…",
+    "empty_env": "No environment variables yet",
+    "key": {
+      "public_only": "Public key only",
+      "public_only_fingerprint": "Public key only · {{fingerprint}}",
+      "encrypted_no_public": "Encrypted private key, no public key found",
+      "no_public": "No public key found",
+      "unverified": "Public/private key match not verified · {{fingerprint}}",
+      "hide_public": "Hide public key",
+      "show_public": "View public key",
+      "copied": "Copied",
+      "copy_public": "Copy public key",
+      "public_aria": "{{name}} public key"
+    },
+    "no_bot_note": "Create a Bot to read the keys on the shared computer.",
+    "empty_ssh": "No SSH keys on the computer",
+    "legacy_title": "Saved keys",
+    "legacy_note": "Previously saved configuration. You can apply it to the computer.",
+    "sync_pending": "The computer is busy. It will sync shortly.",
+    "truncated": "Too many keys; only some are shown.",
+    "retry": "Retry"
+  }
+}
