@@ -3,6 +3,7 @@ package computer
 import (
 	"bytes"
 	"context"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -16,6 +17,15 @@ import (
 const MaxBlobBytes int64 = 20 << 20
 
 func (c *Client) blob(ctx context.Context, method, id string, data []byte) ([]byte, error) {
+	return c.blobWithDigest(ctx, method, id, data, "", false)
+}
+func (c *Client) blobWithDigest(ctx context.Context, method, id string, data []byte, digest string, durable bool) ([]byte, error) {
+	if digest != "" {
+		hash, err := hex.DecodeString(digest)
+		if method != "DELETE" || err != nil || len(hash) != 32 || hex.EncodeToString(hash) != digest {
+			return nil, errors.New("invalid staged blob digest")
+		}
+	}
 	ctx, cancel := context.WithTimeout(ctx, 120*time.Second)
 	defer cancel()
 	parsed, err := uuid.Parse(id)
@@ -38,6 +48,9 @@ func (c *Client) blob(ctx context.Context, method, id string, data []byte) ([]by
 		return nil, err
 	}
 	req.Header.Set("Content-Type", "application/octet-stream")
+	if digest != "" {
+		req.Header.Set("X-Tofi-Staged-SHA256", digest)
+	}
 	response, err := c.http.Do(req)
 	if err != nil {
 		return nil, err
@@ -45,6 +58,9 @@ func (c *Client) blob(ctx context.Context, method, id string, data []byte) ([]by
 	defer response.Body.Close()
 	if response.StatusCode < 200 || response.StatusCode >= 300 {
 		return nil, fmt.Errorf("guest blob storage returned %d", response.StatusCode)
+	}
+	if durable && response.Header.Get("X-Tofi-Blob-Durability") != "1" {
+		return nil, errors.New("guest durable staging protocol unavailable")
 	}
 	result, err := io.ReadAll(io.LimitReader(response.Body, MaxBlobBytes+1))
 	if err != nil {
@@ -64,6 +80,18 @@ func (c *Client) GetBlob(ctx context.Context, id string) ([]byte, error) {
 }
 func (c *Client) DeleteBlob(ctx context.Context, id string) error {
 	_, err := c.blob(ctx, "DELETE", id, nil)
+	return err
+}
+
+func (c *Client) PutStagedBlob(ctx context.Context, id string, data []byte) error {
+	_, err := c.blobWithDigest(ctx, "PUT", id, data, "", true)
+	return err
+}
+
+// DeleteStagedBlob also reclaims an unlinked content object after a crash
+// between object creation and alias linking. Live hard-linked objects survive.
+func (c *Client) DeleteStagedBlob(ctx context.Context, id, digest string) error {
+	_, err := c.blobWithDigest(ctx, "DELETE", id, nil, digest, true)
 	return err
 }
 
