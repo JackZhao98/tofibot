@@ -1,1 +1,134 @@
-{}
+{
+  "memory": {
+    "error": {
+      "edit_conflict": "Ce souvenir a été modifié pendant votre édition. Votre brouillon est conservé ; annulez puis rouvrez-le pour comparer.",
+      "save": "Impossible d'enregistrer le souvenir"
+    },
+    "field": {
+      "title": "Titre",
+      "description": "Description",
+      "content": "Souvenir complet",
+      "content_placeholder": "Notez un fait à retenir sur la durée…"
+    },
+    "create": {
+      "title_aria": "Titre du nouveau souvenir",
+      "description_aria": "Description du nouveau souvenir",
+      "content_aria": "Nouveau souvenir"
+    },
+    "edit": {
+      "title_aria": "Modifier le titre du souvenir",
+      "description_aria": "Modifier la description du souvenir",
+      "content_aria": "Modifier le souvenir"
+    },
+    "heading": {
+      "group": "Souvenirs partagés du groupe",
+      "bot": "Souvenirs de ce Bot"
+    },
+    "close_aria": "Fermer les souvenirs",
+    "note": {
+      "group": "Ces souvenirs sont partagés par les membres du groupe. Changer de modèle conserve les souvenirs et l'historique, mais chaque modèle peut les utiliser différemment.",
+      "bot": "Les souvenirs de ce Bot sont conservés ici. Changer de modèle conserve les souvenirs et l'historique, mais chaque modèle peut les utiliser différemment."
+    },
+    "save_memory": "Enregistrer le souvenir",
+    "search": "Rechercher des souvenirs",
+    "save": "Enregistrer",
+    "cancel": "Annuler",
+    "view_full": "Voir le souvenir complet",
+    "revision": "Révision {{revision}}",
+    "edit_action": "Modifier",
+    "delete": "Supprimer",
+    "delete_question": "Supprimer ce souvenir ?",
+    "no_match": "Aucun souvenir correspondant.",
+    "empty_short": "Aucun souvenir pour l'instant.",
+    "empty_title": "Aucun souvenir pour l'instant",
+    "empty": {
+      "group": "Les souvenirs partagés enregistrés dans ce groupe apparaîtront ici.",
+      "bot": "Les souvenirs enregistrés par ce Bot apparaîtront ici."
+    },
+    "cat_name": "Mochi"
+  },
+  "apiError": {
+    "archive_busy": "Des tâches sont encore en cours. Attendez qu'elles se terminent ou arrêtez-les, puis restaurez.",
+    "no_active_members": "Ce groupe n'a aucun membre disponible. Après la restauration, ajoutez au moins un Bot.",
+    "archive_blocked": "Cette conversation est indisponible. Restaurez-la pour continuer."
+  },
+  "archive": {
+    "error": {
+      "failed": "L'action d'archivage a échoué. Réessayez plus tard.",
+      "bot_missing": "Profil de ce Bot introuvable : impossible de le restaurer."
+    },
+    "title": "Anciennes archives",
+    "close_aria": "Fermer les archives",
+    "schedule_note": "Après la restauration, réactivez manuellement les tâches planifiées.",
+    "reload": "Recharger",
+    "loading": "Chargement des archives…",
+    "empty": "Aucun élément archivé.",
+    "group_meta_one": "{{count}} membre · Groupe",
+    "group_meta_many": "{{count}} membres · Groupe",
+    "group_meta_other": "{{count}} membres · Groupe",
+    "dm_meta": "Bot · anciens messages privés",
+    "delete_bot": "Supprimer le Bot",
+    "delete_group": "Supprimer le groupe",
+    "restoring": "Restauration…",
+    "restore": "Restaurer"
+  },
+  "inspector": {
+    "error": {
+      "read": "Chargement impossible pour le moment.",
+      "copy": "Échec de la copie. Sélectionnez le texte pour le copier."
+    },
+    "tools": "Catalogue d'outils",
+    "system_prompt": "Prompt système",
+    "retry": "Réessayer",
+    "loading": "Chargement…",
+    "last_run": "Dernière exécution · {{time}}",
+    "builtin_note": "Outils intégrés ; les outils d'extension apparaissent après une exécution.",
+    "search": "Rechercher des outils",
+    "preview_caption": "Aperçu de la configuration actuelle",
+    "copied": "Copié",
+    "copy": "Copier",
+    "runtime_note": "À l'exécution, l'historique, les souvenirs et le contexte des extensions sont aussi ajoutés."
+  },
+  "debug": {
+    "mode": "Mode débogage",
+    "mode_hint": "Afficher les appels d'outils et les diagnostics",
+    "no_bots": "Aucun Bot pour l'instant."
+  },
+  "avatar": {
+    "aria": "Avatar du Bot",
+    "state_aria": "État de l'aperçu",
+    "state": {
+      "sleeping": "Endormi",
+      "awake": "Éveillé",
+      "working": "Au travail"
+    },
+    "sizes_aria": "Tailles réelles de l'avatar dans l'interface",
+    "palette": "Pelage",
+    "palette_count_one": "{{count}} option",
+    "palette_count_many": "{{count}} options",
+    "palette_count_other": "{{count}} options",
+    "palettes_aria": "Pelage du chat",
+    "shape": "Silhouette",
+    "random": "Au hasard",
+    "shapes_aria": "Silhouette du chat",
+    "pattern": "Motif",
+    "patterns_aria": "Motif du pelage",
+    "fixed_palette": "Couleurs fixes"
+  },
+  "package": {
+    "invalid_json": "Ce n'est pas un package de Bot valide.",
+    "invalid_format": "Le format du package de Bot n'est pas valide.",
+    "unsupported_version": "Cette version du package n'est pas prise en charge par ce Tofi.",
+    "missing_bot": "Le package ne contient pas de configuration de Bot.",
+    "invalid_name": "Le nom du Bot dans le package n'est pas valide.",
+    "invalid_instructions": "Les instructions du Bot dans le package ne sont pas valides.",
+    "invalid_model": "Le réglage du modèle dans le package n'est pas valide.",
+    "invalid_reasoning": "Le réglage du raisonnement dans le package n'est pas valide.",
+    "invalid_avatar": "Le réglage de l'avatar dans le package n'est pas valide."
+  },
+  "identity": {
+    "profile_aria": "Profil de {{name}}",
+    "mention": "Mentionner {{name}}",
+    "open_dm": "Ouvrir le message privé"
+  }
+}

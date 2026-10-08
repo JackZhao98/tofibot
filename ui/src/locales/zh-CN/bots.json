@@ -1,1 +1,130 @@
-{}
+{
+  "memory": {
+    "error": {
+      "edit_conflict": "这条记忆在编辑期间已更改。草稿已保留，请取消后重新打开核对。",
+      "save": "暂时无法保存记忆"
+    },
+    "field": {
+      "title": "标题",
+      "description": "说明",
+      "content": "完整记忆内容",
+      "content_placeholder": "记录一个需要长期记住的事实…"
+    },
+    "create": {
+      "title_aria": "新增记忆标题",
+      "description_aria": "新增记忆说明",
+      "content_aria": "新增记忆"
+    },
+    "edit": {
+      "title_aria": "编辑记忆标题",
+      "description_aria": "编辑记忆说明",
+      "content_aria": "编辑记忆"
+    },
+    "heading": {
+      "group": "本群共享记忆",
+      "bot": "这个 Bot 的记忆"
+    },
+    "close_aria": "关闭记忆",
+    "note": {
+      "group": "这里的记忆由本群成员共享。切换模型会保留已保存的记忆和聊天记录；不同模型使用这些内容的方式可能不同。",
+      "bot": "这里保存这个 Bot 的记忆。切换模型会保留已保存的记忆和聊天记录；不同模型使用这些内容的方式可能不同。"
+    },
+    "save_memory": "保存记忆",
+    "search": "搜索记忆",
+    "save": "保存",
+    "cancel": "取消",
+    "view_full": "查看完整记忆",
+    "revision": "修订 {{revision}}",
+    "edit_action": "编辑",
+    "delete": "删除",
+    "delete_question": "删除这条记忆？",
+    "no_match": "没有匹配的记忆。",
+    "empty_short": "还没有记忆。",
+    "empty_title": "还没有记忆",
+    "empty": {
+      "group": "本群保存的共享记忆会出现在这里。",
+      "bot": "这个 Bot 保存的记忆会出现在这里。"
+    },
+    "cat_name": "糯米"
+  },
+  "apiError": {
+    "archive_busy": "还有未完成的任务，请等它结束或先停止后再恢复。",
+    "no_active_members": "这个群没有可用成员，恢复后请先添加至少一位 Bot。",
+    "archive_blocked": "这个会话当前不可用，请先恢复后再继续。"
+  },
+  "archive": {
+    "error": {
+      "failed": "归档操作失败，请稍后重试。",
+      "bot_missing": "找不到这个 Bot 的身份资料，无法恢复。"
+    },
+    "title": "旧归档",
+    "close_aria": "关闭归档",
+    "schedule_note": "恢复后，定时任务需手动启用。",
+    "reload": "重新载入",
+    "loading": "读取归档…",
+    "empty": "暂无归档。",
+    "group_meta_other": "{{count}} 位成员 · 群",
+    "dm_meta": "Bot · 历史私信",
+    "delete_bot": "删除 Bot",
+    "delete_group": "删除群聊",
+    "restoring": "恢复中…",
+    "restore": "恢复"
+  },
+  "inspector": {
+    "error": {
+      "read": "暂时无法读取。",
+      "copy": "复制失败，可选中文本复制。"
+    },
+    "tools": "工具目录",
+    "system_prompt": "系统提示词",
+    "retry": "重试",
+    "loading": "读取中…",
+    "last_run": "最近运行 · {{time}}",
+    "builtin_note": "内置工具；扩展工具在运行后显示。",
+    "search": "搜索工具",
+    "preview_caption": "当前配置预览",
+    "copied": "已复制",
+    "copy": "复制",
+    "runtime_note": "运行时还会加入历史、记忆与扩展上下文。"
+  },
+  "debug": {
+    "mode": "Debug 模式",
+    "mode_hint": "显示工具调用和诊断信息",
+    "no_bots": "暂无 Bot。"
+  },
+  "avatar": {
+    "aria": "Bot 头像",
+    "state_aria": "预览状态",
+    "state": {
+      "sleeping": "睡着",
+      "awake": "醒着",
+      "working": "工作中"
+    },
+    "sizes_aria": "头像在界面中的实际尺寸",
+    "palette": "毛色",
+    "palette_count_other": "{{count}} 种可选",
+    "palettes_aria": "猫咪毛色",
+    "shape": "身形",
+    "random": "随机",
+    "shapes_aria": "猫咪身形",
+    "pattern": "花纹",
+    "patterns_aria": "猫咪花纹",
+    "fixed_palette": "固定配色"
+  },
+  "package": {
+    "invalid_json": "这不是有效的 Bot 分享包。",
+    "invalid_format": "Bot 分享包格式不正确。",
+    "unsupported_version": "这个分享包版本不受当前 Tofi 支持。",
+    "missing_bot": "分享包缺少 Bot 配置。",
+    "invalid_name": "分享包里的 Bot 名称无效。",
+    "invalid_instructions": "分享包里的 Bot 指令无效。",
+    "invalid_model": "分享包里的模型设置无效。",
+    "invalid_reasoning": "分享包里的推理设置无效。",
+    "invalid_avatar": "分享包里的头像设置无效。"
+  },
+  "identity": {
+    "profile_aria": "{{name}} 的资料",
+    "mention": "提及 {{name}}",
+    "open_dm": "打开私信"
+  }
+}
