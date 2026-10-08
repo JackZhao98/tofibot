@@ -122,7 +122,10 @@
     "stopped": "共享电脑已停止",
     "unavailable": "共享电脑暂不可用",
     "health_restarting": "共享电脑无响应 · 正在重启",
-    "health_unresponsive": "共享电脑无响应"
+    "health_unresponsive": "共享电脑无响应",
+    "hibernated": "共享电脑已休眠 · 下次使用时连同标签页一起恢复",
+    "hibernating": "共享电脑正在进入休眠",
+    "resuming": "正在唤醒共享电脑"
   },
   "computer_phase": {
     "booting": "启动虚拟机",
@@ -130,7 +133,8 @@
     "network": "准备网络",
     "ready": "就绪",
     "storage": "准备存储",
-    "verifying": "验证 Linux 与 Chrome"
+    "verifying": "验证 Linux 与 Chrome",
+    "restoring": "正在恢复已保存的会话"
   },
   "create": {
     "create_bot": "创建 Bot",

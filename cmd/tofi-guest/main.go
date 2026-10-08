@@ -18,7 +18,19 @@ func main() {
 	port := flag.Uint("port", guest.VsockPort, "AF_VSOCK port")
 	maxDesktop := flag.Int("max-desktops", guest.DefaultDesktop, "maximum simultaneous Bot desktops")
 	idleTimeout := flag.Duration("desktop-idle-timeout", 15*time.Minute, "automatically stop an idle Bot desktop (0 disables cleanup)")
+	clockSync := flag.Bool("clock-sync", false, "run only the root wall-clock setter the host uses after a snapshot restore")
 	flag.Parse()
+	if *clockSync {
+		if os.Geteuid() != 0 {
+			log.Fatal("tofi-guest --clock-sync must run as root")
+		}
+		ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+		defer stop()
+		if err := guest.ServeClockSync(ctx, guest.ClockSyncPort); err != nil && ctx.Err() == nil {
+			log.Fatal(err)
+		}
+		return
+	}
 	if os.Geteuid() != 1000 || os.Getegid() != 1000 {
 		log.Fatalf("tofi-guest must run as the provisioned non-root uid/gid 1000 (got %d/%d)", os.Geteuid(), os.Getegid())
 	}

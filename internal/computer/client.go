@@ -44,6 +44,37 @@ type Info struct {
 	Browser            string `json:"browser,omitempty"`
 	Error              string `json:"error,omitempty"`
 	ID                 string `json:"id,omitempty"`
+	// Hibernation reports whether an idle computer is snapshotted to disk
+	// instead of left running; HibernatedAt is set while it is.
+	Hibernation  bool      `json:"hibernation,omitempty"`
+	HibernatedAt string    `json:"hibernated_at,omitempty"`
+	LastWake     *WakeInfo `json:"last_wake,omitempty"`
+}
+
+// Computer states beside ready/starting/stopped/error. A hibernated computer
+// is available: the manager restores it on the next guest-bound request.
+const (
+	StateHibernating = "hibernating"
+	StateHibernated  = "hibernated"
+	StateResuming    = "resuming"
+)
+
+// Available reports a computer that serves actions now or after an automatic
+// restore from hibernation.
+func Available(state string) bool {
+	switch state {
+	case "ready", StateHibernating, StateHibernated, StateResuming:
+		return true
+	}
+	return false
+}
+
+// WakeInfo describes the computer's most recent start: a snapshot restore or
+// a cold boot (with the reason when a snapshot was rejected).
+type WakeInfo struct {
+	Kind           string  `json:"kind"`
+	Seconds        float64 `json:"seconds"`
+	FallbackReason string  `json:"fallback_reason,omitempty"`
 }
 
 type Action struct {

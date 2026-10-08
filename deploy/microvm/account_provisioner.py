@@ -50,7 +50,8 @@ class Broker:
             external_reserved_bytes=config.get("external_reserved_bytes", 0),
             per_account_internal_reserved_bytes=config.get("per_account_internal_reserved_bytes", 0),
             external_disks=config.get("external_disks", ()),
-            immutable_image_sizes=config.get("_validated_immutable_image_sizes"))
+            immutable_image_sizes=config.get("_validated_immutable_image_sizes"),
+            snapshot_reserve=self.snapshot_reserve)
         os.chmod(self.ledger.database, 0o600)
         with self.ledger.connection() as db:
             account_adoption.initialize(db)
@@ -413,6 +414,30 @@ class Broker:
             db.execute("INSERT OR REPLACE INTO owned_files VALUES(?,?,?)",
                        (str(path), hashlib.sha256(content.encode()).hexdigest(), mode))
 
+    # Bytes of one hibernation snapshot beyond the guest RAM image: Firecracker
+    # device state (tens of KiB) plus filesystem metadata, rounded up.
+    SNAPSHOT_STATE_BYTES = 64 * 1024**2
+
+    def snapshot_reserve(self, identity):
+        """Disk promised for one computer's hibernation snapshot."""
+        if self.c.get("hibernate", True) is False:
+            return 0
+        _, memory_mib = self.runtime_resources(identity)
+        return memory_mib * 1024**2 + self.SNAPSHOT_STATE_BYTES
+
+    def discard_snapshot(self, identity):
+        """Remove a stopped computer's saved guest memory (never its disk)."""
+        directory = Path(self.c["state_root"]) / account_id(identity) / "snapshot"
+        if directory.is_symlink():
+            raise AdmissionError("unexpected snapshot path")
+        if not directory.exists():
+            return
+        (directory / "meta.json").unlink(missing_ok=True)
+        for item in directory.iterdir():
+            if item.is_symlink() or not item.is_dir():
+                item.unlink()
+        directory.rmdir()
+
     def runtime_resources(self, identity):
         overrides = self.c.get("account_resource_overrides", {})
         if not isinstance(overrides, dict):
@@ -505,6 +530,10 @@ class Broker:
                 with self.ledger.connection() as db:
                     db.execute("UPDATE computers SET state='disabled' WHERE account_id=?", (identity,))
             self.stop_manager(identity, unit)
+            if op == "disable":
+                # A manager exit hibernates; a disabled computer keeps only
+                # its workspace disk, not 1 GiB+ of guest memory.
+                self.discard_snapshot(identity)
             with self.ledger.connection() as db:
                 db.execute("DELETE FROM runtime_claims WHERE account_id=?", (identity,))
             return {"stopped": True}
@@ -522,6 +551,10 @@ class Broker:
                    image_dir=str(self.release), bin_dir=str(self.release / "bin"),
                    vcpus=vcpus, memory_mib=memory_mib,
                    disk_gib=row["quota_bytes"] // 1024**3)
+        if self.c.get("hibernate", True) is False:
+            # Only an explicit opt-out is written: generated configs of
+            # existing computers stay byte-identical (the manager defaults on).
+            cfg["hibernate"] = False
         cfg = self.manager_config(cfg)
         config_path = Path(self.c["config_root"]) / (identity + ".json")
         self.write_owned(config_path, json.dumps(cfg, sort_keys=True) + "\n", 0o600)
