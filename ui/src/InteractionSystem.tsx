@@ -1,6 +1,7 @@
 import { TofiIcon } from "./icons";
 import { useEffect, useId, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
+import { useTranslation } from "./i18n";
 
 export type ThemePreference = "system" | "light" | "dark";
 export function useAppearance() {
@@ -40,8 +41,9 @@ export function useSurfacePresence<T>(value: T | null, duration = 220) {
 }
 
 export function AppearancePicker({ value, onChange }: { value: ThemePreference; onChange: (theme: ThemePreference) => void }) {
-  return <section className="appearance-setting"><div><h3>外观</h3></div><div className="appearance-options" role="group" aria-label="外观主题">
-    {(["system", "light", "dark"] as const).map((theme) => <button key={theme} aria-pressed={value === theme} onClick={() => onChange(theme)}><span className={`theme-swatch theme-swatch-${theme}`} aria-hidden="true"><i /><i /><i /></span><span>{theme === "system" ? "跟随系统" : theme === "light" ? "浅色" : "深色"}</span></button>)}
+  const { t } = useTranslation("settings");
+  return <section className="appearance-setting"><div><h3>{t("appearance.title")}</h3></div><div className="appearance-options" role="group" aria-label={t("appearance.label")}>
+    {(["system", "light", "dark"] as const).map((theme) => <button key={theme} aria-pressed={value === theme} onClick={() => onChange(theme)}><span className={`theme-swatch theme-swatch-${theme}`} aria-hidden="true"><i /><i /><i /></span><span>{t(`appearance.${theme}`)}</span></button>)}
   </div></section>;
 }
 
@@ -89,6 +91,7 @@ export function Disclosure({ title, children, defaultOpen = false }: { title: Re
 
 /** Destructive actions stay beside their content and always offer a way back. */
 export function ConfirmAction({ label, question, disabled, onConfirm }: { label: string; question: string; disabled?: boolean; onConfirm: () => Promise<void> }) {
+  const { t } = useTranslation("settings");
   const [confirming, setConfirming] = useState(false);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState("");
@@ -105,13 +108,13 @@ export function ConfirmAction({ label, question, disabled, onConfirm }: { label:
     if (pending || disabled) return;
     setPending(true); setError("");
     try { await onConfirm(); setConfirming(false); }
-    catch (cause) { setError(cause instanceof Error ? cause.message : "操作失败，请重试。"); }
+    catch (cause) { setError(cause instanceof Error ? cause.message : t("action.failed")); }
     finally { setPending(false); }
   }
   return <span className="confirm-action">
     <button ref={trigger} type="button" className="danger-link" disabled={disabled} hidden={confirming} onClick={() => setConfirming(true)}>{label}</button>
     {confirming && <span className="inline-confirmation" role="group" aria-label={question} onKeyDown={event => { if (event.key === "Escape") { event.stopPropagation(); cancel(); } }}>
-      <span>{question}</span><button type="button" className="danger-link" disabled={disabled || pending} onClick={() => void confirm()}>{pending ? "处理中…" : `确认${label}`}</button><button ref={cancelButton} type="button" disabled={disabled || pending} onClick={cancel}>取消</button>{error && <span className="error-text" role="alert">{error}</span>}
+      <span>{question}</span><button type="button" className="danger-link" disabled={disabled || pending} onClick={() => void confirm()}>{pending ? t("action.processing") : t("confirm.action", { action: label })}</button><button ref={cancelButton} type="button" disabled={disabled || pending} onClick={cancel}>{t("action.cancel")}</button>{error && <span className="error-text" role="alert">{error}</span>}
     </span>}
   </span>;
 }

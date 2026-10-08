@@ -1,4 +1,5 @@
 import type { ModelOption, ModelProviderID } from "./types";
+import { i18n } from "./i18n";
 
 export const providerOrder: ModelProviderID[] = ["codex", "openai", "anthropic"];
 export const providerLabels: Record<ModelProviderID, string> = { codex: "Codex", openai: "OpenAI", anthropic: "Claude" };
@@ -78,7 +79,7 @@ export function modelName(models: readonly ModelOption[], id: string): string {
 
 /** "跟随全局（当前：Codex · GPT-6 Luna · 中）"; plain "跟随全局" while the global setting is unknown. */
 export function followGlobalLabel(models: readonly ModelOption[], global: { model: string; reasoning_effort: string } | null, labels: Record<string, string>): string {
-  if (!global?.model) return "跟随全局";
+  if (!global?.model) return i18n.t("settings:model.follow_global");
   const effort = global.reasoning_effort ? ` · ${shortEffortLabel(global.reasoning_effort, labels)}` : "";
-  return `跟随全局（当前：${modelName(models, global.model)}${effort}）`;
+  return i18n.t("settings:model.follow_global_current", { model: `${modelName(models, global.model)}${effort}` });
 }

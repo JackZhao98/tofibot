@@ -176,6 +176,11 @@ func (s *Store) applyPortableSQL(ctx context.Context, b portableBundle, previewI
 				return result, false, err
 			}
 		}
+		if x.Language != nil {
+			if _, err = tx.ExecContext(ctx, `UPDATE user_preferences SET language=? WHERE id=1`, *x.Language); err != nil {
+				return result, false, err
+			}
+		}
 	}
 	for _, x := range b.VaultEnvironment {
 		sourceID := x.ID
