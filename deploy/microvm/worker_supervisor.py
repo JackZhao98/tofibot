@@ -176,7 +176,8 @@ class WorkerBroker(Broker):
         self.supervisor = supervisor or ProcessSupervisor(self.release, config["cgroup_root"])
 
     def manager_config(self, config):
-        return dict(config, cgroup_parent=JAILER_PARENT, worker_private_sysctls=True)
+        return dict(config, cgroup_parent=JAILER_PARENT, worker_private_sysctls=True,
+                    host_memory_headroom_mib=self.c["host_memory_headroom_mib"])
 
     def start_manager(self, identity, unit, config_path):
         self.supervisor.ensure(identity, config_path)

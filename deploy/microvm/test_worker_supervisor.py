@@ -61,10 +61,12 @@ class SupervisorTests(unittest.TestCase):
 
     def test_worker_manager_and_supervisor_share_the_same_vm_parent(self):
         broker=object.__new__(worker.WorkerBroker)
+        broker.c={"host_memory_headroom_mib":1024}
         identity=str(uuid.uuid4())
         cfg=broker.manager_config({"id":"ac-"+identity,"cgroup_parent":"../../host"})
         self.assertEqual(cfg["cgroup_parent"],"tofi-vms")
         self.assertEqual(cfg["id"],"ac-"+identity)
+        self.assertEqual(cfg["host_memory_headroom_mib"],1024)
         with self.assertRaises(ValueError):
             worker.WorkerBroker({"cgroup_root":"/sys/fs/cgroup"})
 
