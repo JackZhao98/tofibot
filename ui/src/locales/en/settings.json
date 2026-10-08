@@ -339,7 +339,7 @@
   "portability": {
     "title": "Data transfer",
     "description": "Pick account data or a single Bot. Imports are checked first and create copies. Account and Bot bundles share one format and are encrypted by default.",
-    "scope_note": "Supported now: configuration, chat text, memories, scheduled tasks, attachments, and timezone/model settings. Attachments are limited to 4 MiB each and 8 MiB in total; missing or oversized files are listed. You can also choose persistent vault environment credentials explicitly; only inactive copies are restored. SSH private keys, sign-ins, plugins, skills, work items, mail drafts, run history, virtual computer files and whole disks aren't supported yet. This is a selected bundle, not a full account backup. Secrets pasted into chats or instructions are still exported with the text.",
+    "scope_note": "Supported now: configuration, chat text, memories, scheduled tasks, attachments, and timezone/language/model settings. Attachments are limited to 4 MiB each and 8 MiB in total; missing or oversized files are listed. You can also choose persistent vault environment credentials explicitly; only inactive copies are restored. SSH private keys, sign-ins, plugins, skills, work items, mail drafts, run history, virtual computer files and whole disks aren't supported yet. This is a selected bundle, not a full account backup. Secrets pasted into chats or instructions are still exported with the text.",
     "security_note": "The export passphrase stays in your browser. Anyone with the bundle and the passphrase can read it. Importing sends the decrypted bundle to the target server, and your selection decides which records are written. The server handles plain text: an account manager who resets a password can take over the account, and the host administrator can read run data. This isn't storage kept secret from the operator. The vault and the database are snapshotted separately.",
     "export": "Export",
     "scope": "Scope",
@@ -400,7 +400,7 @@
       "attachments": "Attachment files",
       "attachment_bindings": "Attachment links",
       "missing_attachments": "Attachments not included",
-      "settings": "Timezone and model settings",
+      "settings": "Timezone, language and model settings",
       "vault_environment": "Vault environment credentials (sensitive, not enabled after restore)"
     },
     "error": {

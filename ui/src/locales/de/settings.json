@@ -307,7 +307,7 @@
   "portability": {
     "title": "Datenübertragung",
     "description": "Wähle Kontodaten oder einen einzelnen Bot. Importe werden vorher geprüft und als Kopien angelegt. Konto- und Bot-Pakete haben dasselbe Format und sind standardmäßig verschlüsselt.",
-    "scope_note": "Unterstützt werden derzeit Konfiguration, Chattexte, Erinnerungen, geplante Aufgaben, Anhänge sowie Zeitzonen- und Modelleinstellungen. Anhänge sind auf je 4 MiB und insgesamt 8 MiB begrenzt; fehlende oder zu große Dateien werden aufgelistet. Zusätzlich lassen sich Umgebungszugangsdaten aus dem dauerhaften Tresor ausdrücklich auswählen; sie werden nur als inaktive Kopien wiederhergestellt. Private SSH-Schlüssel, Anmeldungen, Plugins, Skills, Arbeitselemente, Mailentwürfe, Laufprotokolle, Dateien des virtuellen Computers und ganze Datenträger werden noch nicht unterstützt. Dies ist ein ausgewähltes Paket, kein vollständiges Kontobackup. In Chats oder Anweisungen eingefügte Geheimnisse werden mit dem Text exportiert.",
+    "scope_note": "Unterstützt werden derzeit Konfiguration, Chattexte, Erinnerungen, geplante Aufgaben, Anhänge sowie Zeitzonen-, Sprach- und Modelleinstellungen. Anhänge sind auf je 4 MiB und insgesamt 8 MiB begrenzt; fehlende oder zu große Dateien werden aufgelistet. Zusätzlich lassen sich Umgebungszugangsdaten aus dem dauerhaften Tresor ausdrücklich auswählen; sie werden nur als inaktive Kopien wiederhergestellt. Private SSH-Schlüssel, Anmeldungen, Plugins, Skills, Arbeitselemente, Mailentwürfe, Laufprotokolle, Dateien des virtuellen Computers und ganze Datenträger werden noch nicht unterstützt. Dies ist ein ausgewähltes Paket, kein vollständiges Kontobackup. In Chats oder Anweisungen eingefügte Geheimnisse werden mit dem Text exportiert.",
     "security_note": "Die Export-Passphrase bleibt in deinem Browser. Wer Paket und Passphrase hat, kann den Inhalt lesen. Beim Import wird das entschlüsselte Paket an den Zielserver gesendet; deine Auswahl bestimmt, welche Einträge geschrieben werden. Der Server verarbeitet Klartext: Wer als Kontoverwalter ein Passwort zurücksetzt, kann das Konto übernehmen, und die Host-Administration kann Laufdaten lesen. Das ist keine vor dem Betreiber geheime Verwahrung. Tresor und Datenbank werden getrennt als Snapshot gesichert.",
     "export": "Export",
     "scope": "Umfang",
@@ -368,7 +368,7 @@
       "attachments": "Anhangsdateien",
       "attachment_bindings": "Anhangsverknüpfungen",
       "missing_attachments": "Nicht enthaltene Anhänge",
-      "settings": "Zeitzonen- und Modelleinstellungen",
+      "settings": "Zeitzonen-, Sprach- und Modelleinstellungen",
       "vault_environment": "Umgebungszugangsdaten aus dem Tresor (sensibel, nach Wiederherstellung nicht aktiv)"
     },
     "error": {
