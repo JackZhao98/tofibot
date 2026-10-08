@@ -44,6 +44,8 @@ STATE_FILE=$ROOT/etc/tofi/install-state.json
 ENV_FILE=$ROOT/etc/tofi/tofi.env
 APT_KEYRINGS=$ROOT/etc/apt/keyrings
 APT_SOURCES=$ROOT/etc/apt/sources.list.d
+# Package manager and Docker installer output goes here, not to the terminal.
+LOG_FILE=$ROOT/var/log/tofi-install.log
 
 VERSION=
 DOMAIN=
@@ -68,6 +70,28 @@ die() {
 
 warn() {
   printf 'WARNING: %s\n' "$*" >&2
+}
+
+start_log() {
+  mkdir -p "$(dirname "$LOG_FILE")"
+  printf '\n=== TOFI install.sh %s ===\n' "$(date -u '+%Y-%m-%dT%H:%M:%SZ')" >> "$LOG_FILE"
+}
+
+logged() {
+  # Run a noisy command with its output appended to the install log.
+  printf '+ %s\n' "$*" >> "$LOG_FILE"
+  "$@" >> "$LOG_FILE" 2>&1 < /dev/null
+}
+
+apt_get() {
+  # Quiet, non-interactive apt; waits for another apt/dpkg (e.g. unattended
+  # upgrades on a fresh VM) instead of failing on the lock.
+  logged env DEBIAN_FRONTEND=noninteractive apt-get -qq -o Dpkg::Use-Pty=0 -o DPkg::Lock::Timeout=300 \
+    -o Dpkg::Options::=--force-confdef -o Dpkg::Options::=--force-confold "$@"
+}
+
+see_log() {
+  printf 'see %s' "${LOG_FILE#"$ROOT"}"
 }
 
 usage() {
@@ -225,10 +249,10 @@ check_resources() {
 # --- Step 5 -----------------------------------------------------------------
 install_packages() {
   step 5 "Installing system packages"
-  export DEBIAN_FRONTEND=noninteractive
-  apt-get update -qq || die "apt-get update failed; check the network and your apt sources."
-  apt-get install -y -qq --no-install-recommends "${APT_PACKAGES[@]}" \
-    || die "Could not install ${APT_PACKAGES[*]} with apt-get."
+  start_log
+  apt_get update || die "apt-get update failed; check the network and your apt sources ($(see_log))."
+  apt_get install -y --no-install-recommends "${APT_PACKAGES[@]}" \
+    || die "Could not install ${APT_PACKAGES[*]} with apt-get ($(see_log))."
 }
 
 # --- Step 6 -----------------------------------------------------------------
@@ -242,9 +266,9 @@ install_docker_from_repo() {
   chmod a+r "$APT_KEYRINGS/docker.asc"
   printf 'deb [arch=amd64 signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/%s %s stable\n' \
     "$OS_ID" "$OS_CODENAME" > "$APT_SOURCES/docker.list"
-  if ! apt-get update -qq || ! apt-get install -y -qq docker-ce docker-ce-cli containerd.io docker-compose-plugin; then
+  if ! apt_get update || ! apt_get install -y docker-ce docker-ce-cli containerd.io docker-compose-plugin; then
     rm -f "$APT_SOURCES/docker.list"
-    apt-get update -qq || true
+    apt_get update || true
     return 1
   fi
 }
@@ -252,14 +276,17 @@ install_docker_from_repo() {
 install_docker() {
   step 6 "Checking Docker"
   if ! docker_ready; then
-    printf 'Installing Docker Engine and the Compose plugin from download.docker.com\n'
+    printf 'Installing Docker Engine and the Compose plugin from download.docker.com (a few minutes; log: %s)\n' \
+      "${LOG_FILE#"$ROOT"}"
     if ! install_docker_from_repo; then
       warn "Docker's apt repository has no packages for $OS_ID $OS_CODENAME yet; using get.docker.com instead."
       curl -fsSL --proto '=https' --tlsv1.2 https://get.docker.com -o "$WORK_DIR/get-docker.sh" \
         || die "Could not download https://get.docker.com."
-      sh "$WORK_DIR/get-docker.sh" || die "Docker installation failed; install Docker Engine with the Compose plugin and re-run."
+      logged sh "$WORK_DIR/get-docker.sh" \
+        || die "Docker installation failed ($(see_log)); install Docker Engine with the Compose plugin and re-run."
     fi
-    systemctl enable --now docker >/dev/null 2>&1 || true
+    logged systemctl enable --now docker || true
+    printf 'Docker installed\n'
   fi
   docker_ready || die "Docker with the Compose v2 plugin is required but 'docker compose version' failed."
   local cgroup security
@@ -340,7 +367,10 @@ fetch_manifest() {
   if (( EXISTING == 1 )) && [[ -f $PREFIX/releases/$VERSION/manifest.json ]]; then
     cp "$PREFIX/releases/$VERSION/manifest.json" "$MANIFEST_FILE"
   else
-    fetch "$url" "$MANIFEST_FILE" || die "Could not download $url; check the version and network access to github.com."
+    if ! fetch "$url" "$MANIFEST_FILE"; then
+      [[ -n $VERSION ]] || die "Could not download $url. GitHub's 'latest' skips pre-releases, so if only release candidates are published pass one with --version (see $RELEASES_URL); otherwise check network access to github.com."
+      die "Could not download $url; check the version and network access to github.com."
+    fi
   fi
   fields=$(validate_manifest "$MANIFEST_FILE") || exit 1
   VERSION=$(printf '%s\n' "$fields" | sed -n 's/^VERSION=//p')

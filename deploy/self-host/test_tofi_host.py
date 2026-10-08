@@ -361,6 +361,14 @@ class DockerTests(HostCase):
         self.inspect(caddy, {}, ['caddy'], digests=['caddy@sha256:' + '9' * 64])
         tofi_host.inspect_image(caddy, 'caddy')
 
+    def test_pull_failure_names_docker_reason(self):
+        def failing(args, **kw):
+            raise subprocess.CalledProcessError(1, args, '', 'Error response from daemon: manifest unknown\n')
+        tofi_host.run.side_effect = failing
+        env = {'TOFI_APP_IMAGE': image('app', '0'), 'TOFI_WORKER_IMAGE': image('worker', '0')}
+        with self.assertRaisesRegex(tofi_host.HostError, 'Cannot pull .*: Error response from daemon: manifest unknown'):
+            tofi_host.pull_images(env, None)
+
     def test_stopped_fences_unclean_worker_exit(self):
         containers = [{'Id': 'w' * 64, 'Config': {'Labels': {'com.docker.compose.service': 'worker'}},
                        'State': {'Running': False, 'ExitCode': 1}}]
@@ -574,6 +582,20 @@ class LifecycleTests(LifecycleBase):
         journal = json.loads(self.P.state_file.read_text())
         self.assertEqual((journal['phase'], journal['version'], journal['transaction']), ('installed', OLD, None))
         self.assertEqual((self.P.data / 'tofi.db').read_bytes(), DATA)
+        # The rejection stays visible and the rejected candidate is removed.
+        self.assertEqual(journal['last_update_failure']['version'], NEW)
+        self.assertEqual(journal['last_update_failure']['message'], 'candidate unhealthy')
+        self.assertFalse((self.P.releases / NEW).exists())
+        self.assertFalse((self.P.guest / NEW).exists())
+        self.assertTrue((self.P.releases / OLD).is_dir())
+        self.assertTrue((self.P.guest / OLD).is_dir())
+        with mock.patch.object(tofi_host, 'project_containers', return_value=[]), \
+                mock.patch.object(tofi_host, 'health', return_value=True):
+            self.assertEqual(tofi_host.status()['last_update_failure']['version'], NEW)
+        # A later successful update clears the record.
+        self.start_services.side_effect = None
+        tofi_host.upgrade(manifest_path=str(self.write_manifest(manifest())))
+        self.assertNotIn('last_update_failure', json.loads(self.P.state_file.read_text()))
 
     def test_schema_label_mismatch_refuses_before_stop(self):
         self.installed()
