@@ -27,6 +27,10 @@ MAX_BODY = 2 * 1024 * 1024
 MAX_RESPONSE = 3 * 1024 * 1024
 MAX_BLOB = 20 * 1024 * 1024
 MAX_OAUTH_BODY = 64 * 1024
+# A guest that cannot answer /health within this many seconds is unresponsive.
+HEALTH_PROBE_SECONDS = 5
+# Consecutive failed probes the manager requires before a recovery restart.
+RECOVER_PROBES = 2
 OAUTH_PATHS = frozenset((
     "/v1/oauth/start", "/v1/oauth/arm", "/v1/oauth/poll", "/v1/oauth/cancel",
 ))
@@ -685,6 +689,9 @@ class Handler(http.server.BaseHTTPRequestHandler):
                 return self.json(502, {"error": "guest storage metrics unavailable"})
         if self.path == "/v1/resources":
             return self.json(200, self.server.vm.resources())
+        if self.path == "/v1/health":
+            # Observational only: probes the guest agent, never starts a VM.
+            return self.json(200, self.server.guest_health())
         if self.path.startswith("/v1/desktop/stream"):
             return self.stream_desktop()
         if self.path != "/v1/info":
@@ -837,6 +844,19 @@ class Handler(http.server.BaseHTTPRequestHandler):
             if not self.server.restart():
                 return self.json(409, {"error": "computer is preparing or another maintenance operation is active"})
             return self.json(202, {"state": "restarting"})
+        if self.path == "/v1/recover":
+            try:
+                confirmed = json.loads(body)
+            except (ValueError, TypeError):
+                confirmed = None
+            if confirmed != {"confirm": True} or type(confirmed.get("confirm") if isinstance(confirmed, dict) else None) is not bool:
+                return self.json(400, {"error": "explicit recovery confirmation required"})
+            result = self.server.recover()
+            if result == "responsive":
+                return self.json(409, {"error": "guest is responsive; not restarting"})
+            if result is None:
+                return self.json(409, {"error": "computer is preparing or another maintenance operation is active"})
+            return self.json(202, {"state": result})
         if self.path == "/v1/retry":
             if not self.server.prepare():
                 return self.json(409, {"error": "computer is already active or preparing"})
@@ -991,6 +1011,40 @@ class Server(socketserver.ThreadingMixIn, socketserver.UnixStreamServer):
             self.preparation = threading.Thread(target=work, daemon=True)
             self.preparation.start()
             return True
+
+    def guest_health(self):
+        """Liveness of the guest agent over vsock; /v1/info only sees the VM process.
+
+        The guest's static /v1/info is used rather than /health, which also
+        checks disk and Chrome: a full disk is unhealthy but responsive, and a
+        restart would neither fix it nor spare the work in progress.
+        """
+        state = self.vm.info()["state"]
+        if state != "ready":
+            return {"state": state, "guest": "not_ready"}
+        try:
+            self.vm.guest_request("GET", "/v1/info", timeout=HEALTH_PROBE_SECONDS)
+            return {"state": state, "guest": "ok"}
+        except (OSError, ValueError, RuntimeError, http.client.HTTPException) as error:
+            # The class name only: no guest output crosses this boundary.
+            return {"state": state, "guest": "unresponsive", "error": type(error).__name__}
+
+    def recover(self):
+        """Restart only this computer after its guest stopped answering.
+
+        The manager re-probes the guest itself, so the control plane cannot
+        restart a responsive computer through this endpoint. Pending resource
+        changes follow the existing next-VM-start policy.
+        """
+        state = self.vm.info()["state"]
+        if state in ("error", "stopped"):
+            return "starting" if self.prepare() else None
+        if state != "ready":
+            return None
+        for attempt in range(RECOVER_PROBES):
+            if self.guest_health()["guest"] == "ok":
+                return "responsive"
+        return "restarting" if self.restart() else None
 
     def purge(self):
         with self.preparation_lock:

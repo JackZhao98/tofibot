@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/JackZhao98/tofibot/internal/computer"
+	"github.com/JackZhao98/tofibot/internal/runtime"
 )
 
 type desktopWaiter struct {
@@ -80,6 +81,10 @@ func (s *Server) waitComputerOwner(ctx context.Context, r Run) error {
 		s.computerOwnerMu.Unlock()
 		return ctx.Err()
 	}
+	// Queueing behind another run's desktop use is not this call's active
+	// time; only the computer's own answer is bounded by the tool deadline.
+	resumeDeadline := runtime.PauseToolDeadline(ctx)
+	defer resumeDeadline()
 	waiter := &desktopWaiter{BotID: r.BotID, RunID: r.ID, QueuedAt: now()}
 	s.desktopWaiters = append(s.desktopWaiters, waiter)
 	s.desktopChangedLocked()
@@ -111,6 +116,7 @@ func (s *Server) waitComputerOwner(ctx context.Context, r Run) error {
 			}
 			s.computerOwners[r.BotID] = r.ID
 			remove()
+			s.noteDesktopQueueLeftLocked(r.ID, time.Now())
 			s.computerOwnerMu.Unlock()
 			return nil
 		}

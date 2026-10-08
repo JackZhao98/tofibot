@@ -105,6 +105,9 @@ const outcomeCodeKeys = {
   mcp_auth_required: "outcome.auth_required", mcp_unavailable: "outcome.unavailable",
   mcp_not_configured: "outcome.not_configured", mcp_unknown: "outcome.unknown", mcp_ready: "outcome.ready",
   mcp_config_changed: "outcome.config_changed",
+  // A computer or tool that stopped answering; the step failed, the task can go on.
+  tool_timeout: "outcome.tool_timeout", computer_restarting: "outcome.computer_restarting",
+  computer_unresponsive: "outcome.computer_unresponsive",
 } as const;
 const known = <T extends object>(map: T, code: string | undefined): code is Extract<keyof T, string> => Boolean(code && Object.hasOwn(map, code));
 

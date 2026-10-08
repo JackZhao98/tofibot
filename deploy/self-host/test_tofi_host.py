@@ -256,6 +256,63 @@ class PreflightTests(HostCase):
         self.assertEqual(len(warnings), 2)
 
 
+class MemoryAdvisoryTests(HostCase):
+    healthy_host = PreflightTests.healthy_host
+    options = PreflightTests.options
+    NO_SWAP_8G = 'MemTotal: 8000000 kB\nMemAvailable: 6000000 kB\nSwapTotal: 0 kB\n'
+
+    def test_no_swap_under_16_gib_only_warns_with_capacity(self):
+        with self.healthy_host():
+            self.P.meminfo.write_text(self.NO_SWAP_8G)
+            warnings = tofi_host.preflight(self.options())
+        self.assertEqual(len(warnings), 1)
+        self.assertIn('no swap', warnings[0])
+        self.assertIn('5859 MiB available of 7812 MiB', warnings[0])
+        self.assertIn('each computer needs about 1536 MiB (room for 3 now)', warnings[0])
+
+    def test_swap_or_16_gib_needs_no_warning(self):
+        for meminfo in ('MemTotal: 8000000 kB\nMemAvailable: 6000000 kB\nSwapTotal: 4194300 kB\n',
+                        'MemTotal: 16300000 kB\nMemAvailable: 15000000 kB\nSwapTotal: 0 kB\n',
+                        # Without a SwapTotal line the host is unknown, not swapless.
+                        'MemTotal: 8000000 kB\nMemAvailable: 6000000 kB\n'):
+            with self.healthy_host():
+                self.P.meminfo.write_text(meminfo)
+                self.assertEqual(tofi_host.preflight(self.options()), [], meminfo)
+
+    def test_per_computer_need_follows_worker_config(self):
+        self.P.meminfo.write_text(self.NO_SWAP_8G)
+        self.assertEqual(tofi_host.computer_memory_need_mib({'memory_mib': 2048}), 2560)
+        self.assertEqual(tofi_host.computer_memory_need_mib(None), 1536)
+        warning, detail = tofi_host.memory_report(2560)
+        self.assertIn('each computer needs about 2560 MiB (room for 2 now); swap 0 MiB', detail)
+        self.assertIn(detail, warning)
+
+    def test_doctor_reports_memory_as_warning_not_failure(self):
+        self.installed()
+        stubs = [mock.patch.object(tofi_host, name, return_value=True)
+                 for name in ('health', 'inspect_image', 'validate_release', 'certificate_usable')]
+        for stub in stubs:
+            stub.start()
+            self.addCleanup(stub.stop)
+        results = {}
+        for label, meminfo in (('no-swap', self.NO_SWAP_8G),
+                               ('swap', 'MemTotal: 8000000 kB\nMemAvailable: 6000000 kB\nSwapTotal: 4194300 kB\n')):
+            self.P.meminfo.write_text(meminfo)
+            sys.stdout.truncate(0)
+            sys.stdout.seek(0)
+            results[label] = tofi_host.doctor()
+            row = next(line for line in sys.stdout.getvalue().splitlines() if 'Memory' in line)
+            if label == 'no-swap':
+                self.assertTrue(row.startswith('WARN'), row)
+                self.assertIn('no swap', row)
+            else:
+                self.assertTrue(row.startswith('ok'), row)
+                self.assertIn('swap 4095 MiB', row)
+            self.assertIn('each computer needs about 1536 MiB', row)
+        # The advisory never changes the doctor's verdict.
+        self.assertEqual(results['no-swap'], results['swap'])
+
+
 class RenderTests(HostCase):
     def test_worker_config_passes_validate_config(self):
         config = tofi_host.render_worker_config(OLD, 3, 6144, GUEST_SHA, 'c' * 64)

@@ -119,6 +119,9 @@ func (s *Server) microVMStatus(ctx context.Context) string {
 	if err != nil {
 		status += "; status unavailable: " + err.Error()
 	}
+	if health := s.computerWatchdog.view(); health != nil && (health.State == computerRestarting || health.State == computerUnresponsive) {
+		status += "; health " + health.State
+	}
 	if strings.TrimSpace(info.Error) != "" {
 		status += "; manager reports: " + info.Error
 	}
@@ -184,6 +187,10 @@ func (s *Server) microVMAction(ctx context.Context, r Run, name string, args jso
 	}
 	if !microVMActions[name] {
 		return "", tooloutcome.InvalidArguments(fmt.Sprintf("unsupported computer action %q", name))
+	}
+	// A restarting computer fails fast, before queueing for the desktop.
+	if err := s.computerAdmission(); err != nil {
+		return "", err
 	}
 	if !isGraphicAction(name) {
 		if strings.HasPrefix(name, "terminal.") && name != "terminal.list" && name != "terminal.read" && !s.terminalAvailable(r.BotID, r.ID) {
@@ -257,6 +264,9 @@ func (s *Server) microVMActionFromSource(ctx context.Context, r Run, name string
 	if !microVMActions[name] {
 		return "", fmt.Errorf("unsupported computer action %q", name)
 	}
+	if err := s.computerAdmission(); err != nil {
+		return "", err
+	}
 	botName := ""
 	if s.store != nil {
 		if bot, err := s.store.GetBot(r.BotID); err == nil {
@@ -267,8 +277,13 @@ func (s *Server) microVMActionFromSource(ctx context.Context, r Run, name string
 	if identity, ok := tooloutcome.ExecutionIdentity(ctx); ok && name == "files.write" && identity.GuardVersion == 1 {
 		action.WriteIdentity = &identity
 	}
-	result, err := s.microVM.Action(ctx, action)
+	limit := computerDispatchTimeoutFor(name, args)
+	result, err := s.microVM.ActionWithin(ctx, action, limit)
 	if err != nil {
+		var deadline *computer.ActionDeadlineError
+		if errors.As(err, &deadline) {
+			return "", s.computerActionTimeoutError(ctx, name, deadline.Limit)
+		}
 		return "", err
 	}
 	return string(result.Result), nil
@@ -303,6 +318,7 @@ func (s *Server) claimComputerOwner(botID, runID string) bool {
 func (s *Server) releaseComputerOwner(botID, runID string) {
 	s.computerOwnerMu.Lock()
 	defer s.computerOwnerMu.Unlock()
+	delete(s.desktopQueueLeft, runID)
 	if s.computerOwners[botID] == runID {
 		delete(s.computerOwners, botID)
 		delete(s.desktopObserved, runID)
@@ -356,7 +372,7 @@ func (s *Server) microVMTools(r Run) []Tool {
 		return d.Decode(target)
 	}
 	call := func(name, description string, schema map[string]any, parse func(json.RawMessage) (string, json.RawMessage, error)) Tool {
-		return Tool{Name: name, Description: description, Parameters: schema, Identity: func(raw json.RawMessage) tooloutcome.Identity {
+		return Tool{Name: name, Description: description, Parameters: schema, Timeout: computerToolTimeout, Identity: func(raw json.RawMessage) tooloutcome.Identity {
 			action, args, err := parse(raw)
 			if err != nil {
 				var in struct {
