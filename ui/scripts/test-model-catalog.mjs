@@ -1,11 +1,9 @@
 import assert from "node:assert/strict";
-import {fileURLToPath} from "node:url";
-import {dirname} from "node:path";
-import {createServer} from "vite";
-const ui=dirname(dirname(fileURLToPath(import.meta.url)));
-const server=await createServer({configFile:false,root:ui,server:{middlewareMode:true,hmr:false,ws:false},logLevel:"error"});
+import {openUiModules} from "./ui-modules.mjs";
+// Labels are asserted in zh-CN (the shipped Chinese copy), then once in English.
+const ui=await openUiModules({language:"zh-CN"});
 try {
- const m=await server.ssrLoadModule("/src/modelCatalog.ts");
+ const m=await ui.load("/src/modelCatalog.ts");
  // 1. Routing mirrors the server rule.
  for(const [id,provider] of [["codex-gpt-6-luna","codex"],["codex-auto-review","codex"],["claude-opus-5-5","anthropic"],["claude-haiku-4-5-20251001","anthropic"],["gpt-6-luna","openai"],["o4-mini","openai"],["","openai"]]) assert.equal(m.providerForModel(id),provider,id);
  console.log("PASS 1: provider routing by id");
@@ -34,7 +32,7 @@ try {
  assert.equal(m.effortForModel(codex,""),"high");assert.equal(m.effortForModel(plain,"high"),"","non-reasoning models carry no effort");assert.equal(m.effortForModel(undefined,"high"),"");
  console.log("PASS 3: effort options and carry-over follow the model");
  // 4. Bot packages keep any provider's model id.
- const pkg=await server.ssrLoadModule("/src/botPackage.ts");
+ const pkg=await ui.load("/src/botPackage.ts");
  for(const model of ["claude-opus-5-5","gpt-6-luna","codex-gpt-6-luna",""]){
   const parsed=pkg.parseBotPackage(JSON.stringify({format:"tofi.bot",version:1,included:["bot_config"],bot:{name:"Synthetic",instructions:"",model,reasoning_effort:model?"high":undefined}}));
   assert.equal(parsed.bot.model,model);
@@ -48,7 +46,13 @@ try {
  assert.equal(m.followGlobalLabel(models,{model:"codex-gpt-6-luna",reasoning_effort:"medium"},labels),"跟随全局（当前：Codex · GPT-6 Luna · 中）");
  assert.equal(m.followGlobalLabel(models,{model:"retired-model",reasoning_effort:""},labels),"跟随全局（当前：retired-model）");
  assert.equal(m.followGlobalLabel(models,null,labels),"跟随全局");
+ const settings=await ui.load("/src/ModelSettings.tsx");
+ assert.equal(settings.effortLabels().medium,"中 · 均衡");assert.equal(m.shortEffortLabel("medium",settings.effortLabels()),"中");
+ await ui.setLanguage("en");
+ assert.equal(m.followGlobalLabel(models,{model:"codex-gpt-6-luna",reasoning_effort:"medium"},settings.effortLabels()),"Follow global (now: Codex · GPT-6 Luna · Medium)");
+ assert.equal(m.followGlobalLabel(models,null,labels),"Follow global");
+ await ui.setLanguage("zh-CN");
  const followed=pkg.parseBotPackage(JSON.stringify({format:"tofi.bot",version:1,included:["bot_config"],bot:{name:"Follower",instructions:"",model:"default",reasoning_effort:"default"}}));
  assert.equal(followed.bot.model,"default");assert.equal(followed.bot.reasoning_effort,"default");
  console.log("PASS 5: follow-global sentinel, pinned effort and label; bot packages carry \"default\" through");
-} finally {await server.close();}
+} finally {await ui.close();}

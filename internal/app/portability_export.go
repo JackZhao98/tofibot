@@ -262,9 +262,11 @@ func (s *Store) exportPortable(ctx context.Context, instance string, selection p
 	}
 	if cat["settings"] {
 		x := &portableSettings{}
-		if err = tx.QueryRowContext(ctx, `SELECT timezone FROM user_preferences WHERE id=1`).Scan(&x.Timezone); err != nil && err != sql.ErrNoRows {
+		language := ""
+		if err = tx.QueryRowContext(ctx, `SELECT timezone,language FROM user_preferences WHERE id=1`).Scan(&x.Timezone, &language); err != nil && err != sql.ErrNoRows {
 			return b, err
 		}
+		x.Language = &language
 		if err = tx.QueryRowContext(ctx, `SELECT model,reasoning_effort FROM model_settings WHERE id=1`).Scan(&x.Model, &x.ReasoningEffort); err != nil && err != sql.ErrNoRows {
 			return b, err
 		}
