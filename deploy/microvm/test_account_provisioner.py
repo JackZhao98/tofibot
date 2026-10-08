@@ -168,6 +168,34 @@ class BrokerTests(unittest.TestCase):
             self.b.dispatch(dict(op="stop",account_id=ids[0]))
             other.runtime_admission(ids[2])
 
+    def test_memory_overcommit_raises_only_static_ceiling_and_keeps_live_gate(self):
+        ids = [str(uuid.uuid4()) for _ in range(3)]
+        available = {"kib": 16777216}
+        original = Path.read_text
+        def read(path, *args, **kwargs):
+            if str(path) == "/proc/meminfo":
+                return "MemAvailable: %d kB\n" % available["kib"]
+            return original(path, *args, **kwargs)
+        for value in (99, 201, True, "150"):
+            with self.assertRaises(ValueError):
+                broker.runtime_memory_claim_limit(dict(self.config, runtime_memory_overcommit_percent=value))
+        self.assertEqual(broker.runtime_memory_claim_limit(self.config), 5120)
+        self.config["runtime_memory_overcommit_percent"] = 150
+        b = broker.Broker(self.config, self.run, self.b.ledger.metrics)
+        with patch.object(Path, "read_text", read):
+            for identity in ids:
+                b.dispatch(dict(op="reserve",account_id=identity,quota_gib=8))
+            b.runtime_admission(ids[0])
+            b.runtime_admission(ids[1])
+            # 3 x 2560 MiB claims fit 7680 MiB, but real free memory still decides.
+            self.config["runtime_vcpu_budget"] = 6
+            b = broker.Broker(self.config, self.run, self.b.ledger.metrics)
+            available["kib"] = (2048 + 512 + 2048 - 1) * 1024
+            with self.assertRaises(broker.AdmissionError):
+                b.runtime_admission(ids[2])
+            available["kib"] = 16777216
+            b.runtime_admission(ids[2])
+
     def test_disable_failure_persists_fence_and_restore_retains_quota(self):
         identity = str(uuid.uuid4())
         self.b.dispatch(dict(op="reserve",account_id=identity,quota_gib=8))

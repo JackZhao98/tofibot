@@ -212,7 +212,7 @@ func chromeStartArgs(profile, display string, remotePort int, workarea ...int) [
 		x, y, width, height = workarea[0], workarea[1], workarea[2], workarea[3]
 	}
 	marginX, marginY := min(32, max(8, width/40)), min(24, max(8, height/30))
-	return []string{
+	args := []string{
 		"--user-data-dir=" + profile,
 		"--display=" + display,
 		"--remote-debugging-address=127.0.0.1",
@@ -221,9 +221,43 @@ func chromeStartArgs(profile, display string, remotePort int, workarea ...int) [
 		// Bound disposable caches while preserving profile cookies and login state.
 		"--disk-cache-size=134217728", "--media-cache-size=33554432",
 		"--disable-session-crashed-bubble", "--disable-restore-session-state",
+	}
+	args = append(args, chromeMemoryArgs()...)
+	return append(args,
 		fmt.Sprintf("--window-position=%d,%d", x+marginX, y+marginY),
 		fmt.Sprintf("--window-size=%d,%d", max(1, width-2*marginX), max(1, height-2*marginY)),
 		"--new-window", "about:blank",
+	)
+}
+
+// chromeDisabledFeatures are background or speculative features that hold
+// memory in a 1 GiB guest without serving the visible page: back/forward
+// cache keeps whole previous pages alive, the spare renderer is an idle
+// pre-launched process, Optimization Guide downloads and runs on-device
+// models, and Media Router continuously discovers cast devices. Site
+// isolation, Safe Browsing and component (CRLSet) updates stay enabled.
+var chromeDisabledFeatures = []string{
+	"BackForwardCache",
+	"SpareRendererForSitePerProcess",
+	"OptimizationGuideModelDownloading",
+	"OptimizationHintsFetching",
+	"OptimizationTargetPrediction",
+	"OptimizationHints",
+	"MediaRouter",
+	"DialMediaRouteProvider",
+}
+
+// chromeMemoryArgs keeps Chrome lean in the small guest. Chrome honors only
+// the last --disable-features switch, so every disabled feature is listed in
+// this single switch.
+func chromeMemoryArgs() []string {
+	return []string{
+		// Same-site tabs share one renderer; cross-site isolation is unchanged.
+		"--process-per-site",
+		// A soft cap: Chrome still creates processes that site isolation needs.
+		"--renderer-process-limit=4",
+		"--disable-component-extensions-with-background-pages",
+		"--disable-features=" + strings.Join(chromeDisabledFeatures, ","),
 	}
 }
 

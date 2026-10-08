@@ -52,6 +52,10 @@ class WorkerEntryTests(unittest.TestCase):
         with self.assertRaises(ValueError): entry.validate_config(dict(self.config, cgroup_root="/sys/fs/cgroup"))
         with self.assertRaises(ValueError): entry.validate_config(dict(self.config, reserved_slots=1))
         with self.assertRaises(ValueError): entry.validate_config(dict(self.config, expected_guest_sha256="unpinned"))
+        entry.validate_config(dict(self.config, runtime_memory_overcommit_percent=150))
+        for value in (99, 201, 1.5, True):
+            with self.assertRaises(ValueError):
+                entry.validate_config(dict(self.config, runtime_memory_overcommit_percent=value))
 
     def test_scoped_resource_override_and_invalid_bounds(self):
         import uuid

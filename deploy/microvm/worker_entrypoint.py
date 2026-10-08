@@ -26,10 +26,15 @@ REQUIRED = {
     "external_disks", "expected_guest_sha256", "release_manifest_sha256",
 }
 
+OPTIONAL = {"account_resource_overrides", "runtime_memory_overcommit_percent"}
+
 
 def validate_config(config):
-    if not isinstance(config, dict) or not REQUIRED <= set(config) or set(config) - REQUIRED - {"account_resource_overrides"}:
+    if not isinstance(config, dict) or not REQUIRED <= set(config) or set(config) - REQUIRED - OPTIONAL:
         raise ValueError("Worker configuration fields do not match the supported schema")
+    overcommit = config.get("runtime_memory_overcommit_percent", 100)
+    if type(overcommit) is not int or not 100 <= overcommit <= 200:
+        raise ValueError("runtime_memory_overcommit_percent must be an integer from 100 to 200")
     overrides = config.get("account_resource_overrides", {})
     if not isinstance(overrides, dict):
         raise ValueError("account resource overrides must be a mapping")

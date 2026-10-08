@@ -37,20 +37,49 @@ for argument in $(cat /proc/cmdline); do
     tofi_ip=*) guest_ip=${argument#tofi_ip=} ;;
     tofi_gateway=*) guest_gateway=${argument#tofi_gateway=} ;;
     tofi_desktop_idle=*) desktop_idle_seconds=${argument#tofi_desktop_idle=} ;;
+    page_reporting.page_reporting_order=*) page_reporting_order=${argument#*=} ;;
   esac
 done
 [[ "$desktop_idle_seconds" =~ ^[0-9]+$ ]] || { echo "invalid desktop idle timeout" >&2; exit 1; }
+# The host's virtio-balloon asks for free page reporting. Linux 6.1 overwrites
+# the boot parameter with pageblock order (2 MiB) when the driver registers,
+# which misses most freed browser memory; re-apply the host's order here.
+reporting_order_file=/sys/module/page_reporting/parameters/page_reporting_order
+if [[ "${page_reporting_order:-}" =~ ^[0-9]$ && -w "$reporting_order_file" ]]; then
+  echo "$page_reporting_order" > "$reporting_order_file" || true
+fi
 ip addr add "${guest_ip:?guest IP is required}/30" dev eth0
 ip link set eth0 up
 ip route add default via "${guest_gateway:?guest gateway is required}"
 # DNS is written while constructing the immutable image.
 mkdir -p /run/dbus
 if [[ -f /usr/share/dbus-1/system.conf ]]; then dbus-daemon --system --fork; fi
+reclaim_pid=
+if [[ -n "${page_reporting_order:-}" ]]; then
+  # While no browser runs (desktop never started or stopped after idling),
+  # drop clean page cache once and compact free memory into large blocks so
+  # free page reporting hands it back to the host. Never runs while Chrome
+  # is up, so active pages and login state are untouched.
+  (
+    reclaimed=0
+    while sleep 30; do
+      if pgrep -x chrome >/dev/null 2>&1; then
+        reclaimed=0
+      elif [[ $reclaimed == 0 ]]; then
+        echo 1 > /proc/sys/vm/drop_caches 2>/dev/null || true
+        echo 1 > /proc/sys/vm/compact_memory 2>/dev/null || true
+        reclaimed=1
+      fi
+    done
+  ) &
+  reclaim_pid=$!
+fi
 echo 'TOFI_GUEST_READY_START'
 setpriv --reuid=1000 --regid=1000 --clear-groups /usr/local/bin/tofi-guest --desktop-idle-timeout="${desktop_idle_seconds}s" &
 guest_pid=$!
 trap 'kill -TERM "$guest_pid" 2>/dev/null || true' TERM INT
 wait "$guest_pid" || true
+[[ -z "$reclaim_pid" ]] || kill "$reclaim_pid" 2>/dev/null || true
 sync
 umount /workspace || true
 /bin/busybox poweroff -f

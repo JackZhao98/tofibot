@@ -77,6 +77,7 @@ type Service struct {
 	sharedDesktop    *desktop
 	terminals        map[string]*terminal
 	holds            map[string]map[string]time.Time
+	runTabs          map[string]*runTabBaseline // per model run; protected by mu
 	inputs           map[string]*inputSession
 	inputLocks       map[string]*sync.Mutex
 	fileWriteLocks   map[string]*sync.Mutex

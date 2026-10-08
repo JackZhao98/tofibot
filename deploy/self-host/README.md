@@ -173,7 +173,14 @@ inside their Guest.
 
 Budgets: the Worker gets `max(1, nproc-1)` vCPUs and
 `max(1536, MemTotal-2048)` MiB for account computers (1 vCPU / 1 GiB each), with
-1 GiB host memory headroom.
+1 GiB host memory headroom. Each computer has a virtio balloon with free page
+reporting: freed guest RAM goes back to the host, and once its desktop has
+idled out (Chrome stopped) the guest drops its page cache and compacts, so an
+idle computer holds roughly 0.3 GiB instead of its full allocation. Every start
+is still gated on the host's live `MemAvailable` plus headroom. The static
+claim ceiling does not overcommit; an operator can raise it with the optional
+`runtime_memory_overcommit_percent` (100-200) in `worker.json`, accepting that
+computers that all become busy again are not stopped by the Worker.
 
 ## Journal and recovery
 
