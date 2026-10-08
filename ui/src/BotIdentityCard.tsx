@@ -4,9 +4,11 @@ import { createPortal } from "react-dom";
 import { useSurfacePresence } from "./InteractionSystem";
 import { BotAvatar } from "./BotAvatar";
 import type { Bot } from "./types";
+import { useTranslation } from "./i18n";
 
 /** A short dwell opens identity; moving into the card never closes it mid-flight. */
 export function BotIdentityCard({ bot, children, onOpen, onMention }: { bot: Bot; children: ReactNode; onOpen?: () => void; onMention?: () => void }) {
+  const { t } = useTranslation("bots");
   const anchor = useRef<HTMLSpanElement>(null);
   const timer = useRef<number | undefined>(undefined);
   const holdTimer = useRef<number | undefined>(undefined);
@@ -42,5 +44,5 @@ export function BotIdentityCard({ bot, children, onOpen, onMention }: { bot: Bot
   }} onPointerUp={() => { cancelHold(); if (!held.current) open(); }} onPointerCancel={cancelHold}
   onContextMenu={event => { if (held.current || press.current) event.preventDefault(); }}
   onClick={event => { if (held.current) { event.preventDefault(); held.current = false; } }}
-  onPointerLeave={() => { cancelHold(); leave(); }} onFocus={() => { if (!press.current) open(); }} onBlur={leave} tabIndex={0} aria-label={`${bot.name} 的资料`}>{children}</span>{displayedPosition && createPortal(<section className="bot-identity-card" data-open={Boolean(position)} inert={!position || undefined} onPointerEnter={cancel} onPointerLeave={leave} onFocus={cancel} onBlur={leave} style={displayedPosition} aria-label={`${bot.name} 的资料`}><div className="identity-card-title"><BotAvatar id={bot.id} /><div><strong>{bot.name}</strong></div></div>{bot.instructions?.trim() && <p>{bot.instructions.trim().slice(0, 140)}{bot.instructions.trim().length > 140 ? "…" : ""}</p>}{onMention && <button onClick={() => { close(); onMention(); }}><TofiIcon name="mention" size={16} style={{ verticalAlign: "middle" }} /> 提及 {bot.name}</button>}{onOpen && <button onClick={() => { close(); onOpen(); }}>打开私信 <TofiIcon name="chat" size={16} style={{ verticalAlign: "middle" }} /></button>}</section>, document.body)}</>;
+  onPointerLeave={() => { cancelHold(); leave(); }} onFocus={() => { if (!press.current) open(); }} onBlur={leave} tabIndex={0} aria-label={t("identity.profile_aria", { name: bot.name })}>{children}</span>{displayedPosition && createPortal(<section className="bot-identity-card" data-open={Boolean(position)} inert={!position || undefined} onPointerEnter={cancel} onPointerLeave={leave} onFocus={cancel} onBlur={leave} style={displayedPosition} aria-label={t("identity.profile_aria", { name: bot.name })}><div className="identity-card-title"><BotAvatar id={bot.id} /><div><strong>{bot.name}</strong></div></div>{bot.instructions?.trim() && <p>{bot.instructions.trim().slice(0, 140)}{bot.instructions.trim().length > 140 ? "…" : ""}</p>}{onMention && <button onClick={() => { close(); onMention(); }}><TofiIcon name="mention" size={16} style={{ verticalAlign: "middle" }} /> {t("identity.mention", { name: bot.name })}</button>}{onOpen && <button onClick={() => { close(); onOpen(); }}>{t("identity.open_dm")} <TofiIcon name="chat" size={16} style={{ verticalAlign: "middle" }} /></button>}</section>, document.body)}</>;
 }
