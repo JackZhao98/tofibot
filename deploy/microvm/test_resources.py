@@ -16,6 +16,21 @@ class ResourcesTests(unittest.TestCase):
         self.vm = manager.VM(self.config.copy())
         self.vm.host_resources = mock.Mock(return_value=dict(cpus=4, memory_total_mib=16384, memory_available_mib=12000, disk_available_gib=100))
 
+    def test_worker_uses_its_trusted_host_reserve_and_still_checks_available_memory(self):
+        self.vm.c.update(vcpus=1,memory_mib=1024,cgroup_parent='tofi-vms',worker_private_sysctls=True,host_memory_headroom_mib=1024)
+        self.vm.host_resources.return_value['memory_available_mib']=2560
+        self.vm.apply_resources()
+        self.vm.host_resources.return_value['memory_available_mib']=2559
+        with self.assertRaises(RuntimeError):self.vm.apply_resources()
+        del self.vm.c['host_memory_headroom_mib']
+        self.vm.host_resources.return_value['memory_available_mib']=3000
+        with self.assertRaises(RuntimeError):self.vm.apply_resources()
+
+    def test_headroom_override_requires_private_worker_and_valid_budget(self):
+        for values in [dict(host_memory_headroom_mib=1024),dict(cgroup_parent='tofi-vms',worker_private_sysctls=True,host_memory_headroom_mib=True),dict(cgroup_parent='tofi-vms',worker_private_sysctls=True,host_memory_headroom_mib=0)]:
+            with self.assertRaises(ValueError):manager.validate_config(dict(self.config,**values))
+        manager.validate_config(dict(self.config,cgroup_parent='tofi-vms',worker_private_sysctls=True,host_memory_headroom_mib=1024))
+
     def test_save_does_not_interrupt_running_vm_and_applies_next_start(self):
         self.vm.state = 'ready'
         self.vm.stop = mock.Mock(side_effect=AssertionError('must not stop'))
