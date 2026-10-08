@@ -1,0 +1,23 @@
+{
+  "nav": {
+    "settings": "设置",
+    "usage": "用量",
+    "connection": "服务器与连接",
+    "archived": "已归档的对话"
+  },
+  "theme": {
+    "label": "外观主题",
+    "system": "系统",
+    "light": "浅色",
+    "dark": "深色"
+  },
+  "time": {
+    "unknown": "时间待确认"
+  },
+  "action": {
+    "retry": "重试"
+  },
+  "apiError": {
+    "request_failed": "请求失败（{{status}}）"
+  }
+}

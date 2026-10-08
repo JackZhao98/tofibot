@@ -5,8 +5,10 @@ import { useSettingsActive } from "./settingsActivity";
 import { isDesktop } from "./desktop";
 import type { AgentUsageTotal, ContextUsage, UsageCall, UsagePeriod } from "./types";
 import "./usage-panel.css";
+import { intlLocale } from "./i18n/format";
 
-const number = new Intl.NumberFormat("zh-CN");
+// Built per call so a language switch applies without a reload.
+const number = { format: (value: number) => new Intl.NumberFormat(intlLocale()).format(value) };
 const count = (value: number) => number.format(value);
 const money = (value: number) => value < 0.01 && value > 0 ? `<$0.01` : `$${value.toFixed(2)}`;
 const ranges = [["24h", "过去 24 小时"], ["7d", "过去 7 天"], ["30d", "过去 30 天"]] as const;
@@ -66,7 +68,7 @@ export function UsagePanel({ preferredBotId, timezone }: { preferredBotId?: stri
   const recentDays = Array.from({ length: 7 }, (_, index) => {
     const date = new Date(Date.now() - (6 - index) * 86400000);
     const key = dayKey(date);
-    return { key, label: new Intl.DateTimeFormat("zh-CN", { timeZone: timezone, weekday: "short" }).format(date), requests: calls.filter(call => (selectedId === "all" || call.bot_id === selectedId) && dayKey(new Date(call.occurred_at)) === key).length };
+    return { key, label: new Intl.DateTimeFormat(intlLocale(), { timeZone: timezone, weekday: "short" }).format(date), requests: calls.filter(call => (selectedId === "all" || call.bot_id === selectedId) && dayKey(new Date(call.occurred_at)) === key).length };
   });
   const chartMax = Math.max(1, ...recentDays.map(day => day.requests));
 
@@ -79,14 +81,14 @@ export function UsagePanel({ preferredBotId, timezone }: { preferredBotId?: stri
         <div className="usage-summary"><h3>{selectedId === "all" ? "全部 Bot" : current?.bot_name ?? "Agent"}</h3><div className="usage-ranges" aria-label="统计时段">{ranges.map(([key, label]) => <button key={key} type="button" aria-pressed={range === key} onClick={() => setRange(key)}>{label}</button>)}</div><div><span><small>输入 token</small><strong><UsageReel text={count(total.input)} rolled={rolled}/></strong></span><span><small>输出 token</small><strong><UsageReel text={count(total.output)} rolled={rolled}/></strong></span><span><small>模型请求</small><strong><UsageReel text={count(total.requests)} rolled={rolled}/></strong></span><span><small>API 参考等值</small><strong><UsageReel text={total.unpriced === total.requests && total.requests ? "暂无报价" : money(total.usd)} rolled={rolled}/></strong></span></div>{total.unpriced > 0 && <p>有 {count(total.unpriced)} 次请求的模型缺少可核实报价，未计入金额。</p>}<p>按 2026-09-25 <a href="https://developers.openai.com/api/docs/pricing" target="_blank" rel="noreferrer">OpenAI 官方 API 报价</a>计算；30 天视图按小时汇总，边界可能相差不足一小时。</p></div>
         {!isDesktop && <div className="web-usage-chart"><h4>最近 7 天请求</h4><div className="web-usage-bars" aria-label="最近 7 天请求次数">{recentDays.map((day,index)=><span className="web-usage-bar" key={day.key}><i style={{"--h":`${day.requests/chartMax*100}%`,"--delay":`${200+index*60}ms`} as CSSProperties} title={`${day.label} ${day.requests} 次请求`}/><small>{day.label}</small></span>)}</div></div>}
         <h4>逐次请求 · 保留 7 天</h4>
-        {!visibleCalls.length ? <p className="usage-empty">该时段没有可显示的请求。新请求完成后会记录到这里。</p> : <div className="usage-call-list">{visibleCalls.map(call => <details key={call.id} className="usage-call"><summary><time dateTime={call.occurred_at}>{new Intl.DateTimeFormat("zh-CN", { timeZone: timezone, month:"numeric", day:"numeric", hour:"2-digit", minute:"2-digit" }).format(new Date(call.occurred_at))}</time><span>{call.bot_name} · {call.conversation_name}</span><strong>{call.price_known ? money(call.equivalent_usd) : "暂无报价"}</strong></summary><p>{call.model} · 输入 {count(call.input_tokens)} · 输出 {count(call.output_tokens)}</p><p>触发内容：{call.trigger_content || "系统任务或续接，无直接用户消息"}</p></details>)}</div>}
+        {!visibleCalls.length ? <p className="usage-empty">该时段没有可显示的请求。新请求完成后会记录到这里。</p> : <div className="usage-call-list">{visibleCalls.map(call => <details key={call.id} className="usage-call"><summary><time dateTime={call.occurred_at}>{new Intl.DateTimeFormat(intlLocale(), { timeZone: timezone, month:"numeric", day:"numeric", hour:"2-digit", minute:"2-digit" }).format(new Date(call.occurred_at))}</time><span>{call.bot_name} · {call.conversation_name}</span><strong>{call.price_known ? money(call.equivalent_usd) : "暂无报价"}</strong></summary><p>{call.model} · 输入 {count(call.input_tokens)} · 输出 {count(call.output_tokens)}</p><p>触发内容：{call.trigger_content || "系统任务或续接，无直接用户消息"}</p></details>)}</div>}
         {selectedId !== "all" && <>
         <h4>各对话的最近一次上下文</h4>
         {!rows.length ? <p className="usage-empty">还没有可显示的上下文记录。Agent 下一次运行后会开始记录。</p> : rows.map(row => {
           const remaining = Math.max(0, row.compact_at - row.estimated_input);
           const fraction = row.compact_at > 0 ? Math.min(100, row.estimated_input / row.compact_at * 100) : 0;
           return <article className="usage-context" key={`${row.conversation_id}:${row.bot_id}`}>
-            <div className="usage-context-heading"><strong>{row.conversation_name}</strong><time dateTime={row.updated_at}>{new Intl.DateTimeFormat("zh-CN", { timeZone: timezone, month:"numeric", day:"numeric", hour:"2-digit", minute:"2-digit" }).format(new Date(row.updated_at))}</time></div>
+            <div className="usage-context-heading"><strong>{row.conversation_name}</strong><time dateTime={row.updated_at}>{new Intl.DateTimeFormat(intlLocale(), { timeZone: timezone, month:"numeric", day:"numeric", hour:"2-digit", minute:"2-digit" }).format(new Date(row.updated_at))}</time></div>
             <div className="usage-context-model">{row.model}{!row.window_known && " · 模型窗口为默认估算"}{row.run_status === "running" && " · 运行中"}</div>
             <div className="usage-context-meter" role="meter" aria-label="距自动压缩阈值的上下文占用" aria-valuemin={0} aria-valuemax={row.compact_at} aria-valuenow={Math.min(row.estimated_input, row.compact_at)}><span style={{ width: `${fraction}%` }} /></div>
             <div className="usage-context-numbers"><span>请求前估算 <strong>{count(row.estimated_input)}</strong></span><span>距压缩约 <strong>{count(remaining)}</strong></span></div>

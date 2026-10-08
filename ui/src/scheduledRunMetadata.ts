@@ -2,6 +2,7 @@ import { scheduleDisplay } from "./displayMetadata";
 import type { Message, Run, Schedule } from "./types";
 import type { ScheduleOccurrence } from "./scheduleOccurrences";
 import { browserTimezone, validTimezone } from "./timezone";
+import { intlLocale } from "./i18n/format";
 
 function timestamp(value: string | undefined) {
   return value && Number.isFinite(Date.parse(value)) ? value : undefined;
@@ -24,8 +25,8 @@ export function scheduledRunMetadata(message: Message, run?: Run, occurrence?: S
   const exactOccurrence = message.run_id && occurrence?.root_run_id === message.run_id ? occurrence : undefined;
   const matchedSchedule = exactOccurrence && schedule?.id === exactOccurrence.schedule_id && schedule.conversation_id === message.conversation_id ? schedule : undefined;
   const displayTimezone = timezone && validTimezone(timezone) ? timezone : browserTimezone();
-  const time = (value: string) => new Intl.DateTimeFormat("zh-CN", { timeZone: displayTimezone, hour: "2-digit", minute: "2-digit", hourCycle: "h23" }).format(new Date(value));
-  const date = (value: string) => new Intl.DateTimeFormat("zh-CN", { timeZone: displayTimezone, year: "numeric", month: "long", day: "numeric" }).format(new Date(value));
+  const time = (value: string) => new Intl.DateTimeFormat(intlLocale(), { timeZone: displayTimezone, hour: "2-digit", minute: "2-digit", hourCycle: "h23" }).format(new Date(value));
+  const date = (value: string) => new Intl.DateTimeFormat(intlLocale(), { timeZone: displayTimezone, year: "numeric", month: "long", day: "numeric" }).format(new Date(value));
   const plannedAt = timestamp(exactOccurrence?.scheduled_for_utc);
   const state = exactOccurrence?.execution_status ?? owningRun?.status;
   // The root run's update time is not the delegated family's completion time.

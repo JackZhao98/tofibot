@@ -1,5 +1,6 @@
 import { TaskRunBlock } from "./TaskRunBlock";
-import { buildTaskOwners, presentTaskIssue, taskPhaseLabel, taskLocale, taskText, type TaskOwner } from "./taskIssuePresentation";
+import { buildTaskOwners, presentTaskIssue, taskPhaseLabel, type TaskOwner } from "./taskIssuePresentation";
+import { i18n } from "./i18n";
 import { MemoryPanel } from "./MemoryPanel";
 import { memoryDisplay } from "./displayMetadata";
 import { mergeMessageTimeline } from "./messageTimeline";
@@ -9,6 +10,7 @@ import { WebFileDropOverlay } from "./WebFileDropOverlay";
 import { OwnerAccount, SidebarAccount } from "./OwnerSession";
 import { desktopState, updateDesktopState, isDesktop, type DesktopCommand } from "./desktop";
 import {TimezoneProvider, TimezoneSetting, useUserTimezone} from "./UserTimezone";
+import { LanguageSetting } from "./LanguageSetting";
 import {dateInTimezone, formatZonedTime} from "./timezone";
 import {MessageAttachment} from "./MessageAttachment";
 import {MessageReactions} from "./MessageReactions";
@@ -56,6 +58,7 @@ import { WorkspacePurgeSettings } from "./WorkspacePurgeSettings";
 import { PortabilitySettings } from "./PortabilitySettings";
 import { TofiIcon as Icon, type TofiIconName } from "./icons";
 import { ComposerGlyph } from "./ComposerGlyph";
+import { intlLocale } from "./i18n/format";
 import { BrandLogo } from "./BrandLogo";
 import { createContext, lazy, Suspense, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { flushSync } from "react-dom";
@@ -254,7 +257,7 @@ function messageId() {
 
 function formatHoverTime(value: string, timeZone: string) {
   const sameDay = dateInTimezone(value, timeZone) === dateInTimezone(new Date().toISOString(), timeZone);
-  return new Intl.DateTimeFormat("zh-CN", { ...(sameDay ? {} : { month: "numeric", day: "numeric" }), hour: "2-digit", minute: "2-digit", timeZone }).format(new Date(value));
+  return new Intl.DateTimeFormat(intlLocale(), { ...(sameDay ? {} : { month: "numeric", day: "numeric" }), hour: "2-digit", minute: "2-digit", timeZone }).format(new Date(value));
 }
 
 /** Browser-mode message actions, revealed on hover or keyboard focus instead of a context menu. */
@@ -312,22 +315,22 @@ function formatRunDuration(ms: number, precise = true) {
   return hours ? `${hours} 小时 ${minutes} 分` : `${minutes} 分 ${secs} 秒`;
 }
 function formatTime(value: string, timeZone: string) {
-  return new Intl.DateTimeFormat("zh-CN", { hour: "2-digit", minute: "2-digit", timeZone }).format(new Date(value));
+  return new Intl.DateTimeFormat(intlLocale(), { hour: "2-digit", minute: "2-digit", timeZone }).format(new Date(value));
 }
 
 function formatExactTime(value: string, timeZone?: string) {
-  return new Intl.DateTimeFormat("zh-CN", { year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", second: "2-digit", timeZone }).format(new Date(value));
+  return new Intl.DateTimeFormat(intlLocale(), { year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", second: "2-digit", timeZone }).format(new Date(value));
 }
 
 function formatListTime(value: string, timeZone: string) {
   const date = new Date(value);
   const now = new Date();
-  if (dateInTimezone(value, timeZone) === dateInTimezone(now.toISOString(), timeZone)) return new Intl.DateTimeFormat("zh-CN", { hour: "2-digit", minute: "2-digit", timeZone }).format(date);
-  return new Intl.DateTimeFormat("zh-CN", { month: "numeric", day: "numeric", timeZone }).format(date);
+  if (dateInTimezone(value, timeZone) === dateInTimezone(now.toISOString(), timeZone)) return new Intl.DateTimeFormat(intlLocale(), { hour: "2-digit", minute: "2-digit", timeZone }).format(date);
+  return new Intl.DateTimeFormat(intlLocale(), { month: "numeric", day: "numeric", timeZone }).format(date);
 }
 
 function formatDay(value: string, timeZone: string) {
-  return new Intl.DateTimeFormat("zh-CN", { month: "long", day: "numeric", weekday: "short", timeZone }).format(new Date(value));
+  return new Intl.DateTimeFormat(intlLocale(), { month: "long", day: "numeric", weekday: "short", timeZone }).format(new Date(value));
 }
 
 function previewText(value: string, max = 160) {
@@ -1623,9 +1626,9 @@ function Workspace() {
   }
   const taskAnnouncements = new Map(taskOwners.map(owner => {
     const run = owner.family.latest;
-    const input = {run, tools:loadedToolActivities.filter(tool => tool.run_id === run.id), questions:questions.items.filter(question => question.run_id === run.id), drafts:mailDrafts.items.filter(draft => draft.run_id === run.id), summary:terminalToolSummaries.find(summary => summary.run_id === run.id), recordsComplete:toolDetailState[run.id]?.hasMore === false, connected:streamConnected, locale:taskLocale()};
+    const input = {run, tools:loadedToolActivities.filter(tool => tool.run_id === run.id), questions:questions.items.filter(question => question.run_id === run.id), drafts:mailDrafts.items.filter(draft => draft.run_id === run.id), summary:terminalToolSummaries.find(summary => summary.run_id === run.id), recordsComplete:toolDetailState[run.id]?.hasMore === false, connected:streamConnected};
     const issue = presentTaskIssue({...input, family:owner.family, tools:loadedToolActivities, questions:questions.items, drafts:mailDrafts.items});
-    const approved = input.questions.some(question => question.question_type === "approval" && question.status === "answered" && question.answer === true && !question.approval?.review_only) ? taskText(taskLocale(), "已批准，操作尚未确认完成。", "Approved; execution is not yet confirmed.") : "";
+    const approved = input.questions.some(question => question.question_type === "approval" && question.status === "answered" && question.answer === true && !question.approval?.review_only) ? i18n.t("tasks:record.approved_unconfirmed") : "";
     return [run.id, issue ? [issue.title, ...issue.facts, ...issue.secondary.filter(cause => !cause.includes("完整加载") && !cause.includes("fully loaded"))].join(" ") : [taskPhaseLabel(input), approved].filter(Boolean).join(" ")];
   }));
 
@@ -1742,7 +1745,7 @@ function Workspace() {
                   {viewport.boundaryError && <div className="history-error" role="alert">暂时无法加载未读位置。<button onClick={viewport.retryBoundary}>重试</button><button onClick={jumpLatest}>查看最新消息</button></div>}
                   {historyError && !viewport.boundaryError && <div className="history-error history-error-older" role="alert"><span>暂时无法加载更早消息：{historyError}</span><button onClick={() => void loadOlder()} disabled={loadingOlder}>{loadingOlder ? "重试中…" : "重试"}</button></div>}
                   {hasMore && <button className="load-older" onClick={() => void loadOlder()} disabled={loadingOlder}>{loadingOlder ? "加载中…" : "查看更早消息"}</button>}
-                  {(questions.error || mailDrafts.error || snapshotError) && <div className="task-state-read-error"><span>{taskText(taskLocale(), "部分状态暂时无法更新。已确认的记录保留。", "Some status updates are unavailable. Confirmed records are retained.")}</span><button type="button" className="text-button" onClick={() => void refreshTaskStatus().catch(() => setSnapshotError("read_unavailable"))}>{taskText(taskLocale(), "刷新状态", "Refresh status")}</button></div>}
+                  {(questions.error || mailDrafts.error || snapshotError) && <div className="task-state-read-error"><span>{i18n.t("tasks:issue.status_unavailable")}</span><button type="button" className="text-button" onClick={() => void refreshTaskStatus().catch(() => setSnapshotError("read_unavailable"))}>{i18n.t("tasks:issue.action.refresh_status")}</button></div>}
                   {loadingMessages ? <DelayedFeedback key={active.id}><div className={`inline-state${isDesktop ? "" : " web-loading-state"}`}>{isDesktop ? <div className="spinner" /> : <LoadingCat size={34} />}读取消息…</div></DelayedFeedback> : conversationItems.length === 0 ?
                     <div className="conversation-empty">{!isDesktop && <WakeableCat config={{shape:"loaf",pattern:"solid",palette:"ivory"}} name="糯米" size={84}/>}<h2>开始聊天</h2></div> :
                     conversationItems.map((item, index) => {
@@ -1835,7 +1838,7 @@ function Workspace() {
         <aside ref={detailPaneRef} className={`detail-pane ${displayedPanel !== "settings" && displayedPanel !== "desktop" ? "context-panel" : ""} ${(panel === "bot-edit" || displayedPanel) && displayedPanel !== "desktop" ? "visible" : ""} ${!panel && displayedPanel && displayedPanel !== "desktop" ? "surface-exiting" : ""}`} inert={!panel || undefined} role={modalPanelOpen ? "dialog" : undefined} aria-modal={modalPanelOpen ? true : undefined} aria-label={panel === "settings" ? "设置" : panel === "terminal" ? "终端" : "详情"} tabIndex={modalPanelOpen ? -1 : undefined}>
           {displayedPanel === "group-create" && <BotPanel key="new-group" bots={bots.filter((bot) => !bot.archived)} onClose={() => setPanel(null)} onUpdate={updateBot} onCreateGroup={createGroup} />}
           {(panel === "bot-edit" || displayedPanel === "bot-edit") && <BotPanel onExportData={id => { setPortabilityBotID(id); setPortabilityFile(undefined); setSettingsTab("account"); setPanel("settings"); }} refreshToken={scheduleRefresh} memories={memories} onOpenWork={() => setPanel("schedule")} onOpenMemory={() => setPanel("memory")} key={activeBot?.id ?? "edit-empty"} bots={bots} activeBot={activeBot} onClose={() => transitionBotPanel(false)} onUpdate={updateBot} onCreateGroup={createGroup} />}
-          {displayedPanel === "settings" && <SettingsShell tab={settingsTab} onTab={setSettingsTab} onClose={()=>setPanel(null)} renderPage={(page) => page === "admin" ? <AdminAccounts/> : page === "account" ? <><OwnerAccount /><AppearancePicker value={appearance.preference} onChange={appearance.choose} /><TimezoneSetting /><NotificationSetting /><PortabilitySettings bots={bots} initialFile={portabilityFile} initialBotID={portabilityBotID} onInitialFileConsumed={() => setPortabilityFile(undefined)} /><WorkspacePurgeSettings />{conversations.some(conversation => conversation.archived) && <div className="legacy-archive-entry"><span>旧归档</span><button className="text-button" onClick={() => setPanel("archive")}>管理</button></div>}</> : page === "usage" ? <UsagePanel preferredBotId={usageBotId} timezone={timezone} /> : page === "debug" ? <DebugSettings bots={bots.filter(bot=>!bot.archived)} conversation={active}/> : page === "models" ? <><ModelDefaults bots={bots}/><AutoReviewSettings/></> : page === "dictate" ? <DictationSettings/> : page === "connection" ? <><ModelProviders refreshToken={codexStatusRefresh} onConfigured={() => void refreshIndex()} codex={<CodexPanel refreshToken={codexStatusRefresh} onConfigured={() => void refreshIndex()} />} /><ConnectionInfo /></> : page === "computers" ? <><ComputerResources/><ComputerPanel /></> : page === "credentials" ? <ComputerCredentials bots={bots.filter(bot=>!bot.archived)}/> : <ExtensionPanel bots={bots} kind={page} refreshToken={extensionRefresh} />} />}
+          {displayedPanel === "settings" && <SettingsShell tab={settingsTab} onTab={setSettingsTab} onClose={()=>setPanel(null)} renderPage={(page) => page === "admin" ? <AdminAccounts/> : page === "account" ? <><OwnerAccount /><AppearancePicker value={appearance.preference} onChange={appearance.choose} /><LanguageSetting /><TimezoneSetting /><NotificationSetting /><PortabilitySettings bots={bots} initialFile={portabilityFile} initialBotID={portabilityBotID} onInitialFileConsumed={() => setPortabilityFile(undefined)} /><WorkspacePurgeSettings />{conversations.some(conversation => conversation.archived) && <div className="legacy-archive-entry"><span>旧归档</span><button className="text-button" onClick={() => setPanel("archive")}>管理</button></div>}</> : page === "usage" ? <UsagePanel preferredBotId={usageBotId} timezone={timezone} /> : page === "debug" ? <DebugSettings bots={bots.filter(bot=>!bot.archived)} conversation={active}/> : page === "models" ? <><ModelDefaults bots={bots}/><AutoReviewSettings/></> : page === "dictate" ? <DictationSettings/> : page === "connection" ? <><ModelProviders refreshToken={codexStatusRefresh} onConfigured={() => void refreshIndex()} codex={<CodexPanel refreshToken={codexStatusRefresh} onConfigured={() => void refreshIndex()} />} /><ConnectionInfo /></> : page === "computers" ? <><ComputerResources/><ComputerPanel /></> : page === "credentials" ? <ComputerCredentials bots={bots.filter(bot=>!bot.archived)}/> : <ExtensionPanel bots={bots} kind={page} refreshToken={extensionRefresh} />} />}
           {displayedPanel === "archive" && <ArchivePanel onClose={() => setPanel(null)} onOpen={(id) => { selectConversation(id); setMobileList(false); setPanel(null); }} onLoaded={mergeArchived} onChanged={refreshAfterArchive} onDelete={confirmDelete} />}
           {displayedPanel === "terminal" && desktopBot && <Suspense fallback={<DelayedFeedback><div className="inline-state" role="status">载入终端…</div></DelayedFeedback>}><TerminalPanel key={desktopBot.id} botId={desktopBot.id} botName={desktopBot.name} onClose={() => setPanel(null)} /></Suspense>}
           {displayedPanel === "memory" && activeId && <MemoryPanel key={activeId} memories={memories} conversationId={activeId} scope={active?.kind === "group" ? "group" : "bot"} onClose={() => setPanel(null)} onCreate={async (input) => { const memory = await api.createMemory(activeId, input); setMemories((current) => [...current.filter((item) => item.id !== memory.id), memory]); }} onUpdate={async (id, input) => { const memory = await api.updateMemory(id, input); setMemories((current) => current.map((item) => item.id === id ? memory : item)); }} onDelete={async (id) => { await api.deleteMemory(id); setMemories((current) => current.filter((item) => item.id !== id)); }} />}
@@ -2079,7 +2082,7 @@ export function RunStatusAnnouncement({ conversationId, runs, botById, ready, ta
     if (!ready) { previous.current = null; silentHistory.current.clear(); setAnnouncement(""); return; }
     const current = buildRetryFamilies(runs.filter(run => run.conversation_id === conversationId && run.kind !== "triage")).map(family => family.latest);
     const before = previous.current;
-    const labels = new Map(current.map(run => [run.id, taskAnnouncements?.get(run.id) ?? taskPhaseLabel({run, locale:taskLocale()})]));
+    const labels = new Map(current.map(run => [run.id, taskAnnouncements?.get(run.id) ?? taskPhaseLabel({run})]));
     previous.current = labels;
     // Initial and replacement snapshots are silent; duplicate SSE is semantic no-op.
     if (!before) { silentHistory.current = new Set(current.filter(run => isTerminalRun(run)).map(run => run.id)); return; }
@@ -2211,7 +2214,7 @@ function WorkingMembers({ isGroup, companionBotId, companionMotion, workingBotId
 }
 
 export function RetryFamilyAudit({ latest, previous, botName, children }: { latest: Run; previous: Run[]; botName: string; children?: React.ReactNode }) {
-  const issue = presentTaskIssue({ run:latest, locale:taskLocale() });
+  const issue = presentTaskIssue({ run:latest });
   if (!issue && !previous.length) return null;
   return <section className="run-attempt-family" data-latest-run-id={latest.id} aria-label={`${botName} 的请求状态`}>
     {issue && <p>{issue.title}</p>}
@@ -2428,7 +2431,7 @@ export function CodexPanel({ refreshToken, onConfigured }: { refreshToken: numbe
     finally { setWorking(false); }
   }
   async function disconnect() { ++statusRequest.current; setWorking(true); setError(""); try { await api.codexDisconnect(); setConnected(false); setExpiresAt(undefined); onConfigured(); } catch (cause) { setError(errorText(cause)); } finally { setWorking(false); } }
-  return <article className="detail-content provider-card" aria-labelledby="codex-provider-title" aria-busy={working}><div className="provider-card-head"><div><h3 id="codex-provider-title">Codex</h3><p>用 ChatGPT 账户登录，按账户套餐额度使用 Codex 模型。</p></div><span className="settings-tag">账户登录</span></div><div className={`codex-status ${connected === true ? "connected" : connected === false ? "missing" : "unknown"}`} role="status"><span className="status-dot" />{connected === true ? check === "checking" ? "正在验证 Codex 登录…" : check === "ok" ? "Codex 已连接 · 已验证" : check === "unverified" ? "Codex 已连接 · 暂时无法验证" : "Codex 已连接" : connected === false ? needsReconnect ? "Codex 登录已失效，请重新连接" : "未连接" : working ? "正在读取连接状态…" : "连接状态未确认"}</div>{expiresAt && connected && check !== "unverified" && <p className="field-note">连接有效期至 {new Date(expiresAt).toLocaleString("zh-CN")}</p>}{connected && check === "unverified" && <p className="field-note">暂时无法连到模型服务确认登录状态，可能是网络问题。 <button className="text-button" onClick={() => setStatusRefresh(value => value + 1)} disabled={working}>重新验证</button></p>}{session ? <div className="verification-card"><p>在官方验证页面输入下面的短代码：</p><code>{session.code}</code><a href={session.url} target="_blank" rel="noreferrer">打开官方验证链接 <Icon name="external-link" size={16} style={{ verticalAlign: "middle" }} /></a></div> : connected === true ? <button className="secondary-button" onClick={() => void disconnect()} disabled={working}>断开 Codex</button> : connected === null ? <button className="secondary-button" onClick={() => setStatusRefresh(value => value + 1)} disabled={working}>{working ? "读取状态…" : "重试读取状态"}</button> : <button className="primary-button" onClick={() => void connect()} disabled={working}>{working ? "连接中…" : needsReconnect ? "重新连接 Codex" : "连接 Codex"}</button>}{error && <p className="error-text">{error}</p>}</article>;
+  return <article className="detail-content provider-card" aria-labelledby="codex-provider-title" aria-busy={working}><div className="provider-card-head"><div><h3 id="codex-provider-title">Codex</h3><p>用 ChatGPT 账户登录，按账户套餐额度使用 Codex 模型。</p></div><span className="settings-tag">账户登录</span></div><div className={`codex-status ${connected === true ? "connected" : connected === false ? "missing" : "unknown"}`} role="status"><span className="status-dot" />{connected === true ? check === "checking" ? "正在验证 Codex 登录…" : check === "ok" ? "Codex 已连接 · 已验证" : check === "unverified" ? "Codex 已连接 · 暂时无法验证" : "Codex 已连接" : connected === false ? needsReconnect ? "Codex 登录已失效，请重新连接" : "未连接" : working ? "正在读取连接状态…" : "连接状态未确认"}</div>{expiresAt && connected && check !== "unverified" && <p className="field-note">连接有效期至 {new Date(expiresAt).toLocaleString(intlLocale())}</p>}{connected && check === "unverified" && <p className="field-note">暂时无法连到模型服务确认登录状态，可能是网络问题。 <button className="text-button" onClick={() => setStatusRefresh(value => value + 1)} disabled={working}>重新验证</button></p>}{session ? <div className="verification-card"><p>在官方验证页面输入下面的短代码：</p><code>{session.code}</code><a href={session.url} target="_blank" rel="noreferrer">打开官方验证链接 <Icon name="external-link" size={16} style={{ verticalAlign: "middle" }} /></a></div> : connected === true ? <button className="secondary-button" onClick={() => void disconnect()} disabled={working}>断开 Codex</button> : connected === null ? <button className="secondary-button" onClick={() => setStatusRefresh(value => value + 1)} disabled={working}>{working ? "读取状态…" : "重试读取状态"}</button> : <button className="primary-button" onClick={() => void connect()} disabled={working}>{working ? "连接中…" : needsReconnect ? "重新连接 Codex" : "连接 Codex"}</button>}{error && <p className="error-text">{error}</p>}</article>;
 }
 
 function DictationControls({ elapsed, levels, busy, onCancel, onConfirm }: { elapsed: number; levels: number[]; busy: boolean; onCancel: () => void; onConfirm: () => void }) {

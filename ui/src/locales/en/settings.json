@@ -1,0 +1,20 @@
+{
+  "language": {
+    "title": "Language",
+    "note": "The language for Tofi's interface. Auto follows your browser.",
+    "label": "Interface language",
+    "auto": "Auto ({{language}})",
+    "save_failed": "Language changed on this device but couldn't be saved to your account. Try again later."
+  },
+  "timezone": {
+    "label": "Timezone",
+    "note": "Used for chat times and new scheduled tasks. Existing tasks keep their timezone.",
+    "current": "Current timezone",
+    "loading": "Loading timezone…",
+    "saved": "Timezone saved.",
+    "invalid_reselect": "That timezone can't be used. Choose another one.",
+    "invalid_retry": "That timezone can't be used. Try again.",
+    "read_failed": "Couldn't load your timezone. Try again.",
+    "save_failed": "Couldn't save your timezone. Try again."
+  }
+}

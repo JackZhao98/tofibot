@@ -1,23 +1,13 @@
-import { execFile } from "node:child_process";
-import { mkdtemp, rm } from "node:fs/promises";
-import { tmpdir } from "node:os";
-import { dirname, join } from "node:path";
-import { fileURLToPath, pathToFileURL } from "node:url";
-import { promisify } from "node:util";
+import { openUiModules } from "./ui-modules.mjs";
 
-const run = promisify(execFile);
-const uiRoot = dirname(dirname(fileURLToPath(import.meta.url)));
-const outputDir = await mkdtemp(join(tmpdir(), "tofi-tool-timeline-"));
+// Load through Vite so modules that use the i18n catalogs resolve like the app.
+// Assertions pin the shipped zh-CN copy.
+const ui = await openUiModules({ language: "zh-CN" });
 
 try {
-  await run(join(uiRoot, "node_modules/.bin/tsc"), [
-    "src/toolTimeline.ts", "src/messageTimeline.ts", "src/runProgress.ts", "src/types.ts", "--ignoreConfig", "--target", "ES2022",
-    "--module", "ES2022", "--moduleResolution", "Bundler", "--outDir", outputDir,
-    "--skipLibCheck", "--declaration", "false", "--pretty", "false",
-  ], { cwd: uiRoot });
-  const { activeToolForRun, buildToolRunAnchors, buildToolSummaryAnchors, buildToolTimeline, elapsedToolSeconds, orderToolActivities, toolActionLabel, toolArgumentPreview, toolAttemptIssues, toolDisplayLabel, toolDisplayState } = await import(pathToFileURL(join(outputDir, "toolTimeline.js")));
-  const { mergeMessageTimeline } = await import(pathToFileURL(join(outputDir, "messageTimeline.js")));
-  const { foldCompletedProgress } = await import(pathToFileURL(join(outputDir, "runProgress.js")));
+  const { activeToolForRun, buildToolRunAnchors, buildToolSummaryAnchors, buildToolTimeline, elapsedToolSeconds, orderToolActivities, toolActionLabel, toolArgumentPreview, toolAttemptIssues, toolDisplayLabel, toolDisplayState } = await ui.load("/src/toolTimeline.ts");
+  const { mergeMessageTimeline } = await ui.load("/src/messageTimeline.ts");
+  const { foldCompletedProgress } = await ui.load("/src/runProgress.ts");
   const base = { conversation_id: "c", bot_id: "b", arguments: "", result: "", status: "completed", truncated: false, updated_at: "2026-09-17T00:00:09Z" };
   const message = (id, seq, created_at, run_id = "r") => ({ id, seq, created_at, run_id, conversation_id: "c", role: "assistant", content: id });
   const activity = (call_id, started_at, updated_at = "2026-09-17T00:00:10Z", run_id = "r") => ({ ...base, call_id, started_at, updated_at, run_id, name: call_id });
@@ -112,5 +102,5 @@ try {
   assert(mergeMessageTimeline([interrupt], [{ ...speaking, seq: 0, content: "" }]).length === 1, "working-only draft must not create an empty bubble");
   console.log("tool timeline checks: PASS (run ownership, cancelled history, pagination, overlapping requests, live activity, deduplication, precise ordering)");
 } finally {
-  await rm(outputDir, { recursive: true, force: true });
+  await ui.close();
 }

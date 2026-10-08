@@ -1,0 +1,217 @@
+{
+  "issue": {
+    "title": {
+      "provider_busy": "Model service is temporarily busy",
+      "model_unconfigured": "No AI provider is available",
+      "model_auth": "Model account sign-in is no longer valid",
+      "model_quota": "Model account usage limit reached",
+      "tool_setup": "Tool setup is incomplete",
+      "review_context": "Required information is missing from the pre-execution check",
+      "review_unavailable": "Pre-execution checking is unavailable",
+      "expired": "Approval expired",
+      "human_denied": "You declined this action",
+      "policy_denied": "This action did not pass the safety check",
+      "uncertain_effect": "Execution result needs checking",
+      "connection_status": "Connection lost; status is unconfirmed",
+      "runtime_connection": "Connection interrupted; the task did not finish",
+      "unknown_failure": "The task did not finish"
+    },
+    "action": {
+      "open_tools": "Open tool settings",
+      "open_codex": "Open Codex settings",
+      "open_model_connections": "Open model connections",
+      "copy_diagnostics": "Copy diagnostics",
+      "view_activity": "View activity",
+      "verify_steps": "See verification steps",
+      "refresh_status": "Refresh status"
+    },
+    "working": "Working…",
+    "copied": "Diagnostics copied.",
+    "copy_failed": "Copy failed. Select the diagnostics below and copy them manually.",
+    "status_unavailable": "Some status updates are unavailable. Confirmed records are retained.",
+    "technical_details": "Technical details",
+    "diagnostics": "Diagnostics"
+  },
+  "label": {
+    "draft": "Email drafted at {{time}}",
+    "proposal": "Proposal at {{time}}",
+    "object": {
+      "draft": "Email",
+      "tool": "Tool call",
+      "question": "Proposal"
+    }
+  },
+  "status": {
+    "context_missing": "Pre-execution check is missing information",
+    "setup_incomplete": "Tool setup is incomplete",
+    "policy_denied": "Did not pass the safety check",
+    "review_unavailable": "Pre-execution checking is unavailable",
+    "awaiting_approval": "Waiting for your approval",
+    "reviewing": "Checking",
+    "passed": "Passed the check",
+    "pending": "Pending",
+    "answered": "Answered",
+    "expired": "Expired",
+    "cancelled": "Cancelled",
+    "run_done": "Run ended",
+    "approval_expired": "Approval expired",
+    "approval_denied": "Declined",
+    "needs_checking": "Result needs checking",
+    "need_information": "Missing required information",
+    "validation_error": "Validation failed",
+    "transient_failure": "Temporary failure",
+    "permanent_failure": "Failed",
+    "observation": "Observation only",
+    "unconfirmed": "Status unconfirmed"
+  },
+  "certainty": {
+    "not_executed": "Not executed",
+    "unknown": "Result needs checking",
+    "no_side_effects": "No changes made",
+    "executed": "Executed",
+    "unconfirmed": "Execution unconfirmed"
+  },
+  "outcome": {
+    "batch_skipped": "Skipped after approval expired",
+    "stale_schema": "Tool details were stale and need a fresh lookup",
+    "invalid_arguments": "Arguments did not match the tool",
+    "retry_exhausted": "Still failing after retries",
+    "auth_required": "The tool needs you to sign in again",
+    "unavailable": "The tool service is unreachable right now",
+    "not_configured": "The tool is not set up",
+    "unknown": "The tool's status could not be confirmed",
+    "ready": "The tool is ready",
+    "config_changed": "Tool settings changed; approve again"
+  },
+  "fact": {
+    "labelled": "{{label}}: {{text}}",
+    "execution_needs_checking": "Execution result needs checking.",
+    "sending_needs_checking": "Sending result needs checking.",
+    "may_have_taken_effect": "The unconfirmed actions above may have taken effect. Check before trying again.",
+    "check_sent_mail": "Check sent-mail records in your email service and compare the time, recipient, and subject.",
+    "check_target_service": "Check this action's records in the target service. If still unconfirmed, keep the result unconfirmed.",
+    "may_still_be_running": "The task may still be running. Refresh only reads the latest status.",
+    "no_cause_recorded": "No specific cause was recorded.",
+    "cause_unconfirmed": "The cause and execution result are not yet confirmed.",
+    "task_did_not_finish": "The task did not finish.",
+    "model_unconfigured": {
+      "codex": "This workspace has no Codex account connected, so the model cannot be called.",
+      "codex_next": "Connect an account under Settings › Models and connections, then retry.",
+      "api_key": "This workspace has no {{provider}} API key, so this model cannot be called.",
+      "api_key_next": "Add a {{provider}} API key under Settings › Models and connections, or switch the bot to a connected model, then retry.",
+      "any": "This workspace has no model provider available, so the model cannot be called.",
+      "any_next": "Connect Codex or add an API key under Settings › Models and connections, then retry."
+    },
+    "model_auth": {
+      "codex": "The Codex account sign-in is no longer valid, and the model rejected this request.",
+      "codex_next": "Reconnect under Settings › Models and connections, then retry.",
+      "api_key": "The {{provider}} API key is no longer valid, and the model rejected this request.",
+      "api_key_next": "Update the {{provider}} API key under Settings › Models and connections, then retry.",
+      "any": "The model account credentials are no longer valid, and the model rejected this request.",
+      "any_next": "Reconnect or update the API key under Settings › Models and connections, then retry."
+    },
+    "model_quota": {
+      "codex": "The Codex account has reached its usage limit, and the model rejected this request.",
+      "codex_next": "Retry after the limit resets or connect another account.",
+      "api_key": "The {{provider}} API account has reached its usage limit, and the model rejected this request.",
+      "api_key_next": "Retry after the limit resets, after adding credit, or with another {{provider}} API key.",
+      "any": "The model account has reached its usage limit, and the model rejected this request.",
+      "any_next": "Retry after the limit resets or connect another account."
+    },
+    "no_tool_steps": "No tool steps ran in this attempt.",
+    "finishing_results_kept": "Finishing up; completed results are retained.",
+    "stopped_results_kept": "This workflow stopped; completed results are retained.",
+    "completed_steps_kept": "Completed tool steps are retained in activity."
+  },
+  "secondary": {
+    "then_provider_busy": "The model service was then busy, and the task did not finish.",
+    "later_attempt_ended": "The later attempt ended; earlier action results still need checking.",
+    "later_attempt": "Later attempt: {{phase}}",
+    "records_incomplete": "Execution records are not fully loaded."
+  },
+  "phase": {
+    "finishing": "Finishing up",
+    "needs_approval": "Your approval is needed",
+    "needs_answer": "Your input is needed",
+    "turn_ended": "This turn ended",
+    "stopped": "This workflow stopped",
+    "reviewing": "Checking before execution",
+    "using_tool": "Using a tool",
+    "preparing_tool": "Preparing a tool",
+    "queued": "Queued",
+    "working": "Working"
+  },
+  "activity": {
+    "title": "Activity",
+    "thinking": "Thinking",
+    "tool_count_one": "{{count}} tool",
+    "tool_count_other": "{{count}} tools",
+    "previous_attempt": "Previous attempt {{number}} · {{status}}",
+    "attempt": {
+      "done": "Done",
+      "failed": "Failed",
+      "cancelled": "Cancelled",
+      "interrupted": "Interrupted",
+      "ended": "Ended"
+    },
+    "records_label": "Task records",
+    "no_tool_steps": "No tool steps ran.",
+    "no_records": "No execution records are loaded yet.",
+    "records_unavailable": "Some execution records are unavailable.",
+    "load": "Load activity",
+    "loading": "Loading…",
+    "progress_report": "Progress report"
+  },
+  "step": {
+    "problem": "Problem",
+    "interrupted": "Interrupted",
+    "failed": "The tool call failed",
+    "copied": "Diagnostics copied.",
+    "copy_failed": "Copy failed; select the technical details manually.",
+    "copy_diagnostics": "Copy diagnostics",
+    "open_tool_settings": "Open tool settings",
+    "technical_details": "Technical details",
+    "started": "Started {{time}}",
+    "arguments": "Arguments",
+    "none": "(none)",
+    "result": "Result",
+    "no_result": "No result yet",
+    "state": {
+      "queued": "Queued",
+      "running": "Running",
+      "completed": "Completed",
+      "failed": "Failed",
+      "interrupted": "Interrupted",
+      "expired": "Expired",
+      "not_executed": "Not executed",
+      "unknown": "Result needs checking",
+      "unconfirmed": "Status unconfirmed"
+    }
+  },
+  "record": {
+    "observation_only": "Observation only; it does not grant execution permission.",
+    "approved_unconfirmed": "Approved; execution is not yet confirmed.",
+    "approval_expired": "Approval expired.",
+    "decision": "Decision and pre-execution check record",
+    "answer": "Answer record",
+    "status": "Status",
+    "execution": "Execution",
+    "view_proposal": "View proposal record",
+    "action": "Action",
+    "target": "Target",
+    "impact": "Impact",
+    "view_full_arguments": "View full arguments",
+    "proposal_ended": "This proposal ended.",
+    "view_decision": "View decision record"
+  },
+  "question": {
+    "approve": "Approve action",
+    "decline": "Decline",
+    "yes": "Yes",
+    "no": "No",
+    "cancel_proposal": "Cancel proposal",
+    "cancel_question": "Cancel question",
+    "cancelling": "Cancelling…",
+    "not_executed_yet": "This action has not been executed. Approval does not confirm execution."
+  }
+}

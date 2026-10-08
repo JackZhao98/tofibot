@@ -3,6 +3,7 @@ import { BrandLogo } from "./BrandLogo";
 import { useAppearance } from "./InteractionSystem";
 import { TofiIcon } from "./icons";
 import { hydrateDesktopState, isDesktop, flushDesktopState } from "./desktop";
+import { i18n, Trans, useTranslation } from "./i18n";
 
 type OwnerSession = { enabled: boolean; setup_required: boolean; authenticated: boolean; password_transport_allowed: boolean; multi_account?: boolean; owner?: { id?: string; must_change_password?: boolean; username: string; email: string; role?: string } };
 export function useOwnerSession(){return useContext(SessionContext).session}
@@ -20,17 +21,22 @@ async function authRequest(path: string, body?: unknown, signal?: AbortSignal): 
     headers: body ? { "Content-Type": "application/json" } : undefined, body: body ? JSON.stringify(body) : undefined });
   const value = await response.json().catch(() => null);
   if (!response.ok) {
-    const errors: Record<string,string> = { invalid_credentials: "用户名、邮箱或密码不正确。", invalid_bootstrap: "初始化密钥无效或已使用。", setup_unavailable: "账号已创建，请刷新后登录。", rate_limited: "尝试次数过多，请稍后再试。", password_transport_required: "服务器未允许当前连接登录，请检查内网 HTTP、HTTPS 或 SSH 配置。", invalid_request: path === "setup" ? "请检查用户名、邮箱和密码（至少 12 位）。" : "请检查输入的登录信息。" };
-    throw new Error(errors[value?.error?.code] || "连接暂时不可用，请重试。");
+    // The server answers with a stable code; the words live in the catalog.
+    const code: unknown = value?.error?.code;
+    const known = ["invalid_credentials", "invalid_bootstrap", "setup_unavailable", "rate_limited", "password_transport_required"] as const;
+    const key = code === "invalid_request" ? (path === "setup" ? "error.invalid_setup_request" : "error.invalid_request")
+      : known.find(item => item === code) ? `error.${code as typeof known[number]}` as const : "error.unavailable";
+    throw new Error(i18n.t(key, { ns: "auth" }));
   }
-  if (!value || typeof value.enabled !== "boolean") throw new Error("服务器返回了无效的登录状态。");
+  if (!value || typeof value.enabled !== "boolean") throw new Error(i18n.t("auth:error.invalid_session"));
   return value;
-  } catch (cause) { if (controller.signal.aborted) throw new Error("连接超时，请重试。"); throw cause; }
+  } catch (cause) { if (controller.signal.aborted) throw new Error(i18n.t("auth:error.timeout")); throw cause; }
   finally { window.clearTimeout(timeout); signal?.removeEventListener("abort", aborted); }
 }
 
 export function OwnerSessionGate({ children }: { children: ReactNode }) {
   useAppearance();
+  const { t } = useTranslation("auth");
   const [session, setSession] = useState<OwnerSession | null>(null);
   const [error, setError] = useState("");
   const [pending, setPending] = useState(false);
@@ -49,10 +55,10 @@ export function OwnerSessionGate({ children }: { children: ReactNode }) {
     const timer = window.setTimeout(() => controller.abort(), 12_000);
     try {
       const response = await fetch("/api/server-info", { cache: "no-store", signal: controller.signal });
-      if (!response.ok) throw new Error("暂时无法连接服务器。");
+      if (!response.ok) throw new Error(i18n.t("auth:error.server_unreachable"));
       const info = await response.json();
       if (version !== requestVersion.current) return;
-      if (info.service !== "tofi" || info.protocol_version !== 1 || typeof info.instance_id !== "string" || !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(info.instance_id)) throw new Error("这不是可用的 Tofi 服务器。");
+      if (info.service !== "tofi" || info.protocol_version !== 1 || typeof info.instance_id !== "string" || !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(info.instance_id)) throw new Error(i18n.t("auth:error.not_tofi"));
       if (observedInstance.current && observedInstance.current !== info.instance_id) {
         // A confirmed replacement is not an offline refresh of the same
         // workspace. Unmount old content before checking the new owner's
@@ -67,7 +73,7 @@ export function OwnerSessionGate({ children }: { children: ReactNode }) {
       if (version !== requestVersion.current) return;
       setInstanceID(info.instance_id); setSession(next); setError(""); setChecked(true);
     } catch (cause) {
-      if (version === requestVersion.current && !sessionRef.current) setError(cause instanceof Error && cause.name !== "AbortError" ? cause.message : "连接超时，请重试。");
+      if (version === requestVersion.current && !sessionRef.current) setError(cause instanceof Error && cause.name !== "AbortError" ? cause.message : i18n.t("auth:error.timeout"));
       // An offline server does not log out an authenticated user or discard UI state.
     } finally { window.clearTimeout(timer); }
   }, []);
@@ -97,10 +103,10 @@ export function OwnerSessionGate({ children }: { children: ReactNode }) {
     <div className="native-titlebar" aria-hidden="true" />
     <section className="owner-card">
       <BrandLogo variant="calico" />
-      {!session ? <><h1>连接你的工作空间</h1>{error ? <><p className="owner-error" role="alert">{error}</p><button className="primary-button" onClick={() => void refresh()}>重新连接</button></> : <div className="owner-loading"><span className="spinner" />正在连接…</div>}</> : <>
-        <h1>{mustChange ? "设置你的密码" : session.setup_required ? "欢迎来到 Tofi" : expired ? "重新登录" : "欢迎回来"}</h1>
-        <p className="owner-subtitle">{mustChange ? "首次登录需要更换初始密码" : session.setup_required ? "创建第一个 Admin 账号" : "登录你的工作空间"}</p>
-        {!session.password_transport_allowed ? <p className="owner-error" role="alert">服务器未允许当前连接登录，请检查内网 HTTP、HTTPS 或 SSH 配置。</p> : <form onSubmit={async event => {
+      {!session ? <><h1>{t("gate.connect_title")}</h1>{error ? <><p className="owner-error" role="alert">{error}</p><button className="primary-button" onClick={() => void refresh()}>{t("gate.reconnect")}</button></> : <div className="owner-loading"><span className="spinner" />{t("gate.connecting")}</div>}</> : <>
+        <h1>{mustChange ? t("gate.title.set_password") : session.setup_required ? t("gate.title.welcome_new") : expired ? t("gate.title.sign_in_again") : t("gate.title.welcome_back")}</h1>
+        <p className="owner-subtitle">{mustChange ? t("gate.subtitle.change_initial") : session.setup_required ? t("gate.subtitle.create_admin") : t("gate.subtitle.sign_in")}</p>
+        {!session.password_transport_allowed ? <p className="owner-error" role="alert">{t("error.password_transport_required")}</p> : <form onSubmit={async event => {
           event.preventDefault(); if (pending) return;
           const form = event.currentTarget;
           const data = new FormData(form);
@@ -116,20 +122,20 @@ export function OwnerSessionGate({ children }: { children: ReactNode }) {
             sessionRef.current = null;
             setSession(null); setChecked(false);
             await refresh();
-          } catch (cause) { setError(cause instanceof Error ? cause.message : "登录失败，请重试。"); }
+          } catch (cause) { setError(cause instanceof Error ? cause.message : t("error.login_failed")); }
           finally { setPending(false); }
         }}>
-          {mustChange ? <label>当前初始密码<input name="current_password" type="password" autoComplete="current-password" required disabled={pending}/></label> : session.setup_required ? <>
-            <label>用户名<input name="username" autoComplete="username" autoCapitalize="none" spellCheck={false} required maxLength={64} disabled={pending} /></label>
-            <label>邮箱<input name="email" type="email" autoComplete="email" autoCapitalize="none" spellCheck={false} required disabled={pending} /></label>
-          </> : <label>用户名或邮箱<input name="identifier" autoComplete="username" autoCapitalize="none" spellCheck={false} required autoFocus disabled={pending} /></label>}
-          <label>密码<input name="password" type="password" autoComplete={session.setup_required || mustChange ? "new-password" : "current-password"} required minLength={session.setup_required || mustChange ? 12 : undefined} maxLength={1024} disabled={pending} /></label>
-          {session.setup_required && <label>初始化密钥<input name="bootstrap_secret" type="password" autoComplete="off" spellCheck={false} required disabled={pending} /><small>在服务器上运行 <code>sudo tofi setup-secret</code> 查看，或读取数据目录中的 owner-bootstrap.secret；仅可使用一次。</small></label>}
+          {mustChange ? <label>{t("field.current_initial_password")}<input name="current_password" type="password" autoComplete="current-password" required disabled={pending}/></label> : session.setup_required ? <>
+            <label>{t("field.username")}<input name="username" autoComplete="username" autoCapitalize="none" spellCheck={false} required maxLength={64} disabled={pending} /></label>
+            <label>{t("field.email")}<input name="email" type="email" autoComplete="email" autoCapitalize="none" spellCheck={false} required disabled={pending} /></label>
+          </> : <label>{t("field.identifier")}<input name="identifier" autoComplete="username" autoCapitalize="none" spellCheck={false} required autoFocus disabled={pending} /></label>}
+          <label>{t("field.password")}<input name="password" type="password" autoComplete={session.setup_required || mustChange ? "new-password" : "current-password"} required minLength={session.setup_required || mustChange ? 12 : undefined} maxLength={1024} disabled={pending} /></label>
+          {session.setup_required && <label>{t("field.setup_key")}<input name="bootstrap_secret" type="password" autoComplete="off" spellCheck={false} required disabled={pending} /><small><Trans t={t} i18nKey="field.setup_key_hint" components={{ code: <code /> }} /></small></label>}
           {error && <p className="owner-error" role="alert">{error}</p>}
-          <button className="primary-button" disabled={pending}>{pending ? "请稍候…" : mustChange ? "更新密码并继续" : session.setup_required ? "创建账号并继续" : "登录"}</button>
+          <button className="primary-button" disabled={pending}>{pending ? t("gate.submit.wait") : mustChange ? t("gate.submit.update_password") : session.setup_required ? t("gate.submit.create_account") : t("gate.submit.sign_in")}</button>
         </form>}
       </>}
-      {isDesktop && <a className="owner-switch" href="/__desktop/setup">切换服务器</a>}
+      {isDesktop && <a className="owner-switch" href="/__desktop/setup">{t("gate.switch_server")}</a>}
     </section>
   </div>}</SessionContext.Provider>;
 }
@@ -138,10 +144,11 @@ export function OwnerAccount() {
   const { session, logout } = useContext(SessionContext);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const { t } = useTranslation("auth");
   if (!session?.enabled || !session.owner) return null;
   return <section className="owner-account"><div><strong>{session.owner.username}</strong><span>{session.owner.email.endsWith("@account.invalid")?"":session.owner.email}{session.owner.role === "admin" && " · admin"}</span></div><button className="secondary-button" disabled={busy} onClick={() => {
     setBusy(true); setError(""); void logout().catch(cause => setError(cause.message)).finally(() => setBusy(false));
-  }}>{busy ? "退出中…" : "退出登录"}</button>{error && <p className="owner-error" role="alert">{error}</p>}</section>;
+  }}>{busy ? t("account.signing_out") : t("account.sign_out")}</button>{error && <p className="owner-error" role="alert">{error}</p>}</section>;
 }
 
 /** The compact identity dock shares the authenticated session with Settings. */
@@ -152,6 +159,7 @@ export function SidebarAccount({ onSettings, onUsage, onConnection, onArchive, c
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const menu = useRef<HTMLDivElement>(null);
+  const { t } = useTranslation(["auth", "common"]);
   useEffect(() => {
     if (!open) return;
     const dismiss = (event: PointerEvent) => { if (event.target instanceof Node && !menu.current?.contains(event.target)) setOpen(false); };
@@ -161,23 +169,23 @@ export function SidebarAccount({ onSettings, onUsage, onConnection, onArchive, c
     return () => { document.removeEventListener("pointerdown", dismiss); document.removeEventListener("keydown", escape); };
   }, [open]);
   const name = session?.owner?.username ?? "Tofi";
-  const host = isDesktop ? "桌面客户端" : connected ? window.location.host : "实时连接中断 · 正在重连";
+  const host = isDesktop ? t("account.desktop_client") : connected ? window.location.host : t("account.offline_reconnecting");
   const initial = Array.from(name)[0]?.toUpperCase() ?? "T";
   const navigate = (action: () => void) => { setOpen(false); action(); };
   return <div className={`sidebar-account${!connected && !isDesktop ? " is-offline" : ""}`} ref={menu}>
-    <button className="sidebar-account-identity" aria-label={`${name} · ${connected ? "实时连接正常" : "实时连接中断"} · 账户菜单`} aria-expanded={open} onClick={() => setOpen(value => !value)} data-hint={`${name} · 设置`}>
+    <button className="sidebar-account-identity" aria-label={t("account.menu_label", { name, status: connected ? t("account.live_ok") : t("account.live_lost") })} aria-expanded={open} onClick={() => setOpen(value => !value)} data-hint={t("account.settings_hint", { name })}>
       <span className="sidebar-account-monogram" aria-hidden="true">{initial}<i key={String(connected)} /></span>
       <span className="sidebar-account-copy"><strong>{name}</strong><small>{host}</small></span>
     </button>
-    <button className="sidebar-account-settings" aria-label="设置" data-hint="设置" onClick={onSettings}><TofiIcon name="settings" size={20}/></button>
+    <button className="sidebar-account-settings" aria-label={t("common:nav.settings")} data-hint={t("common:nav.settings")} onClick={onSettings}><TofiIcon name="settings" size={20}/></button>
     {open && <div className="sidebar-account-menu" role="menu">
       <div className="sidebar-account-menu-heading"><strong>{name}</strong><small>{host}</small></div>
-      <button role="menuitem" onClick={() => navigate(onSettings)}><TofiIcon name="settings" size={16}/>设置</button>
-      <button role="menuitem" onClick={() => navigate(onUsage)}><TofiIcon name="activity" size={16}/>用量</button>
-      <div className="sidebar-account-themes" role="group" aria-label="外观主题">{(["system","light","dark"] as const).map(theme => <button key={theme} aria-pressed={appearance.preference === theme} onClick={() => appearance.choose(theme)}>{theme === "system" ? "系统" : theme === "light" ? "浅色" : "深色"}</button>)}</div>
-      <button role="menuitem" onClick={() => navigate(onConnection)}><TofiIcon name="server" size={16}/>服务器与连接</button>
-      <button role="menuitem" onClick={() => navigate(onArchive)}><TofiIcon name="archive" size={16}/>已归档的对话</button>
-      {session?.enabled && <><div className="sidebar-account-menu-rule"/><button role="menuitem" className="sidebar-account-logout" disabled={busy} onClick={() => { setBusy(true); setError(""); void logout().catch(cause => setError(cause instanceof Error ? cause.message : "退出失败")).finally(() => setBusy(false)); }}>{busy ? "退出中…" : "退出登录"}</button></>}
+      <button role="menuitem" onClick={() => navigate(onSettings)}><TofiIcon name="settings" size={16}/>{t("common:nav.settings")}</button>
+      <button role="menuitem" onClick={() => navigate(onUsage)}><TofiIcon name="activity" size={16}/>{t("common:nav.usage")}</button>
+      <div className="sidebar-account-themes" role="group" aria-label={t("common:theme.label")}>{(["system","light","dark"] as const).map(theme => <button key={theme} aria-pressed={appearance.preference === theme} onClick={() => appearance.choose(theme)}>{t(`common:theme.${theme}`)}</button>)}</div>
+      <button role="menuitem" onClick={() => navigate(onConnection)}><TofiIcon name="server" size={16}/>{t("common:nav.connection")}</button>
+      <button role="menuitem" onClick={() => navigate(onArchive)}><TofiIcon name="archive" size={16}/>{t("common:nav.archived")}</button>
+      {session?.enabled && <><div className="sidebar-account-menu-rule"/><button role="menuitem" className="sidebar-account-logout" disabled={busy} onClick={() => { setBusy(true); setError(""); void logout().catch(cause => setError(cause instanceof Error ? cause.message : t("account.sign_out_failed"))).finally(() => setBusy(false)); }}>{busy ? t("account.signing_out") : t("account.sign_out")}</button></>}
       {error && <p className="error-text" role="alert">{error}</p>}
     </div>}
   </div>;

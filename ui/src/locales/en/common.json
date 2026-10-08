@@ -1,0 +1,23 @@
+{
+  "nav": {
+    "settings": "Settings",
+    "usage": "Usage",
+    "connection": "Server and connection",
+    "archived": "Archived conversations"
+  },
+  "theme": {
+    "label": "Appearance",
+    "system": "System",
+    "light": "Light",
+    "dark": "Dark"
+  },
+  "time": {
+    "unknown": "Time unconfirmed"
+  },
+  "action": {
+    "retry": "Retry"
+  },
+  "apiError": {
+    "request_failed": "Request failed ({{status}})"
+  }
+}

@@ -1,0 +1,216 @@
+{
+  "issue": {
+    "title": {
+      "provider_busy": "模型服务暂时繁忙",
+      "model_unconfigured": "没有可用的 AI 提供方",
+      "model_auth": "模型账户登录已失效",
+      "model_quota": "模型账户额度已用尽",
+      "tool_setup": "工具尚未就绪",
+      "review_context": "执行前检查缺少必要信息",
+      "review_unavailable": "执行前检查暂时不可用",
+      "expired": "批准已过期",
+      "human_denied": "你未批准此操作",
+      "policy_denied": "此操作未通过安全检查",
+      "uncertain_effect": "执行结果待核实",
+      "connection_status": "连接中断，状态待确认",
+      "runtime_connection": "连接中断，任务未完成",
+      "unknown_failure": "任务未完成"
+    },
+    "action": {
+      "open_tools": "查看工具设置",
+      "open_codex": "打开 Codex 设置",
+      "open_model_connections": "打开模型连接设置",
+      "copy_diagnostics": "复制诊断信息",
+      "view_activity": "查看执行记录",
+      "verify_steps": "查看核实步骤",
+      "refresh_status": "刷新状态"
+    },
+    "working": "处理中…",
+    "copied": "已复制诊断信息。",
+    "copy_failed": "未能复制，请选择下方诊断信息后手动复制。",
+    "status_unavailable": "部分状态暂时无法更新。已确认的记录保留。",
+    "technical_details": "技术详情",
+    "diagnostics": "诊断信息"
+  },
+  "label": {
+    "draft": "{{time}} 起草的邮件",
+    "proposal": "{{time}} 的提案",
+    "object": {
+      "draft": "邮件",
+      "tool": "工具调用",
+      "question": "提案"
+    }
+  },
+  "status": {
+    "context_missing": "执行前检查缺少必要信息",
+    "setup_incomplete": "工具尚未就绪",
+    "policy_denied": "未通过安全检查",
+    "review_unavailable": "执行前检查暂时不可用",
+    "awaiting_approval": "等你批准",
+    "reviewing": "检查中",
+    "passed": "已通过检查",
+    "pending": "待处理",
+    "answered": "已回答",
+    "expired": "已过期",
+    "cancelled": "已取消",
+    "run_done": "运行已结束",
+    "approval_expired": "批准已过期",
+    "approval_denied": "未批准",
+    "needs_checking": "结果待核实",
+    "need_information": "缺少必要信息",
+    "validation_error": "参数校验未通过",
+    "transient_failure": "暂时失败",
+    "permanent_failure": "执行失败",
+    "observation": "观察记录",
+    "unconfirmed": "状态待确认"
+  },
+  "certainty": {
+    "not_executed": "未执行",
+    "unknown": "结果待核实",
+    "no_side_effects": "未产生改动",
+    "executed": "已执行",
+    "unconfirmed": "执行情况待确认"
+  },
+  "outcome": {
+    "batch_skipped": "批准过期后未执行",
+    "stale_schema": "工具信息已过期，需要重新查找",
+    "invalid_arguments": "参数不符合工具要求",
+    "retry_exhausted": "多次重试后仍然失败",
+    "auth_required": "工具需要重新登录授权",
+    "unavailable": "工具服务暂时连不上",
+    "not_configured": "工具尚未配置",
+    "unknown": "工具状态暂时无法确认",
+    "ready": "工具已就绪",
+    "config_changed": "工具设置已变更，需要重新批准"
+  },
+  "fact": {
+    "labelled": "{{label}}: {{text}}",
+    "execution_needs_checking": "执行结果待核实。",
+    "sending_needs_checking": "发送结果待核实。",
+    "may_have_taken_effect": "以上待核实的操作可能已经生效；再次操作前请先核实。",
+    "check_sent_mail": "请检查邮件服务中的已发送记录，核对时间、收件人与主题。",
+    "check_target_service": "请在目标服务中核对这次操作的记录。无法确认时，请保持结果待核实。",
+    "may_still_be_running": "任务可能仍在运行。刷新只读取最新状态。",
+    "no_cause_recorded": "没有记录具体原因。",
+    "cause_unconfirmed": "目前无法确认原因和执行结果。",
+    "task_did_not_finish": "任务未完成。",
+    "model_unconfigured": {
+      "codex": "工作区没有连接 Codex 账户，模型无法调用。",
+      "codex_next": "在设置的「模型与连接」页连接账户后重试。",
+      "api_key": "工作区没有配置 {{provider}} API key，这个模型无法调用。",
+      "api_key_next": "在设置的「模型与连接」页添加 {{provider}} API key，或为 Bot 换一个已连接的模型后重试。",
+      "any": "工作区没有可用的模型提供方，模型无法调用。",
+      "any_next": "在设置的「模型与连接」页连接 Codex 或添加 API key 后重试。"
+    },
+    "model_auth": {
+      "codex": "Codex 账户的登录已失效，模型拒绝了这次调用。",
+      "codex_next": "在设置的「模型与连接」页重新连接后重试。",
+      "api_key": "{{provider}} API key 已失效，模型拒绝了这次调用。",
+      "api_key_next": "在设置的「模型与连接」页更新 {{provider}} API key 后重试。",
+      "any": "模型账户的凭证已失效，模型拒绝了这次调用。",
+      "any_next": "在设置的「模型与连接」页重新连接或更新 API key 后重试。"
+    },
+    "model_quota": {
+      "codex": "Codex 账户的用量额度已用尽，模型拒绝了这次调用。",
+      "codex_next": "额度恢复或更换账户后重试。",
+      "api_key": "{{provider}} API 账户的用量额度已用尽，模型拒绝了这次调用。",
+      "api_key_next": "额度恢复、充值或更换 {{provider}} API key 后重试。",
+      "any": "模型账户的用量额度已用尽，模型拒绝了这次调用。",
+      "any_next": "额度恢复或更换账户后重试。"
+    },
+    "no_tool_steps": "本次没有执行任何工具步骤。",
+    "finishing_results_kept": "正在收尾，已完成结果保留。",
+    "stopped_results_kept": "本次工作已停止，已完成结果保留。",
+    "completed_steps_kept": "已完成的工具步骤保留在工作过程。"
+  },
+  "secondary": {
+    "then_provider_busy": "随后模型服务繁忙，任务未完成。",
+    "later_attempt_ended": "后续尝试已结束；此前操作的结果仍待核实。",
+    "later_attempt": "后续尝试: {{phase}}",
+    "records_incomplete": "执行记录尚未完整加载。"
+  },
+  "phase": {
+    "finishing": "正在收尾",
+    "needs_approval": "需要你批准",
+    "needs_answer": "需要你回答",
+    "turn_ended": "本轮已结束",
+    "stopped": "本次工作已停止",
+    "reviewing": "执行前检查中",
+    "using_tool": "正在使用工具",
+    "preparing_tool": "正在准备工具",
+    "queued": "已排队",
+    "working": "正在处理"
+  },
+  "activity": {
+    "title": "工作过程",
+    "thinking": "正在思考",
+    "tool_count_other": "{{count}} 个工具",
+    "previous_attempt": "此前尝试 {{number}} · {{status}}",
+    "attempt": {
+      "done": "已完成",
+      "failed": "失败",
+      "cancelled": "已取消",
+      "interrupted": "已中断",
+      "ended": "已结束"
+    },
+    "records_label": "任务记录",
+    "no_tool_steps": "本次没有执行任何工具步骤。",
+    "no_records": "尚无已加载的执行记录。",
+    "records_unavailable": "部分执行记录暂时无法更新。",
+    "load": "读取执行记录",
+    "loading": "读取中…",
+    "progress_report": "进度汇报"
+  },
+  "step": {
+    "problem": "问题说明",
+    "interrupted": "执行中断",
+    "failed": "工具调用失败",
+    "copied": "已复制诊断信息。",
+    "copy_failed": "未能复制，请在技术详情里手动选择。",
+    "copy_diagnostics": "复制诊断信息",
+    "open_tool_settings": "打开工具设置",
+    "technical_details": "技术详情",
+    "started": "开始于 {{time}}",
+    "arguments": "参数",
+    "none": "（无）",
+    "result": "结果",
+    "no_result": "尚无结果",
+    "state": {
+      "queued": "排队中",
+      "running": "执行中",
+      "completed": "已完成",
+      "failed": "失败",
+      "interrupted": "已中断",
+      "expired": "已过期",
+      "not_executed": "未执行",
+      "unknown": "结果待核实",
+      "unconfirmed": "状态待确认"
+    }
+  },
+  "record": {
+    "observation_only": "观察记录，不提供执行权限。",
+    "approved_unconfirmed": "已批准，操作尚未确认完成。",
+    "approval_expired": "批准已过期。",
+    "decision": "决定与执行前检查记录",
+    "answer": "回答记录",
+    "status": "状态",
+    "execution": "执行情况",
+    "view_proposal": "查看提案记录",
+    "action": "动作",
+    "target": "对象",
+    "impact": "影响",
+    "view_full_arguments": "查看完整参数",
+    "proposal_ended": "此提案已结束。",
+    "view_decision": "查看决定记录"
+  },
+  "question": {
+    "approve": "批准此操作",
+    "decline": "不批准",
+    "yes": "是",
+    "no": "否",
+    "cancel_proposal": "取消审批",
+    "cancel_question": "取消问题",
+    "cancelling": "取消中…",
+    "not_executed_yet": "此操作尚未执行。批准本身不代表操作成功。"
+  }
+}

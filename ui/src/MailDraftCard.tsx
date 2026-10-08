@@ -5,7 +5,9 @@ import { TofiIcon } from "./icons";
 import type { Bot } from "./types";
 import { flyMailDraft } from "./mailSendFlight";
 import { TaskIssueCard } from "./TaskIssueCard";
-import { presentTaskIssue, taskDraftLabel, taskLocale, taskText } from "./taskIssuePresentation";
+import { presentTaskIssue, taskDraftLabel } from "./taskIssuePresentation";
+import { i18n, useTranslation } from "./i18n";
+import { formatClock } from "./i18n/format";
 import "./mail-draft-card.css";
 
 export type MailDraft = {
@@ -32,7 +34,7 @@ export function useMailDrafts(conversationId: string | null) {
       const result = await request<{ drafts: MailDraft[] }>(`/api/mail-drafts?conversation_id=${encodeURIComponent(conversationId)}`);
       setSnapshot({ id: conversationId, drafts: result.drafts ?? [] });
       setError("");
-    } catch (cause) { setError(cause instanceof Error ? cause.message : "草稿加载失败"); }
+    } catch (cause) { setError(cause instanceof Error ? cause.message : i18n.t("mail:draft.load_failed")); }
   }, [conversationId]);
   useEffect(() => {
     void refresh();
@@ -55,11 +57,12 @@ export function MailDraftCard({ draft, bot, group, archived, onDemoAction, onCha
   // Only a send or cancel made in this view settles in; history renders still.
   const actedHere = useRef(false);
   const [error, setError] = useState("");
+  const { t } = useTranslation("mail");
   useEffect(() => { setTo(draft.to); setSubject(draft.subject); setBody(draft.body); }, [draft.revision, draft.to, draft.subject, draft.body]);
   const changed = to !== draft.to || subject !== draft.subject || body !== draft.body;
   async function act(action: "save" | "send" | "decline") {
     if (busy || archived || draft.status !== "pending") return;
-    if (action === "send" && changed) { setError("草稿有未保存的修改，请先保存再发送。"); return; }
+    if (action === "send" && changed) { setError(t("draft.unsaved_changes")); return; }
     setBusy(action); setError("");
     if (action !== "save") actedHere.current = true;
     try {
@@ -84,37 +87,37 @@ export function MailDraftCard({ draft, bot, group, archived, onDemoAction, onCha
       }
       await onChanged();
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "操作失败，请刷新后查看状态。");
+      setError(cause instanceof Error ? cause.message : t("draft.action_failed"));
       if (action !== "save") void onChanged();
     } finally { setBusy(""); setAnimating(false); }
   }
   const pending = draft.status === "pending" || animating;
   if (draft.status === "sent" || draft.status === "declined") return <article className={`task-mail-record mail-draft-done is-${draft.status}${actedHere.current ? " is-arriving" : ""}`} data-draft-id={draft.draft_id} tabIndex={-1}>
-    <p><span className="mail-draft-done-dot" aria-hidden="true" />{taskDraftLabel(draft)}: {taskText(taskLocale(), draft.status === "declined" ? "已取消发送" : draft.demo ? "演示完成，未实际发送" : "邮件已发送", draft.status === "declined" ? "Sending was cancelled" : draft.demo ? "Demo completed; no email was sent" : "Email was sent")}<time>{taskText(taskLocale(), draft.status === "declined" ? "取消于" : "发送于", draft.status === "declined" ? "Cancelled" : "Sent")} {new Date(draft.updated_at).toLocaleTimeString("zh-CN", { hour: "2-digit", minute: "2-digit", hourCycle: "h23" })}</time></p>
-    <details><summary>{taskText(taskLocale(), "查看草稿记录", "View draft record")}</summary><dl><dt>TO</dt><dd>{draft.to}</dd><dt>{taskText(taskLocale(), "主题", "Subject")}</dt><dd>{draft.subject}</dd></dl><p>{draft.body}</p></details>
+    <p><span className="mail-draft-done-dot" aria-hidden="true" />{taskDraftLabel(draft)}: {draft.status === "declined" ? t("draft.declined") : draft.demo ? t("draft.demo_done") : t("draft.sent")}<time>{t(draft.status === "declined" ? "draft.declined_at" : "draft.sent_at", { time: formatClock(draft.updated_at) })}</time></p>
+    <details><summary>{t("draft.view_record")}</summary><dl><dt>TO</dt><dd>{draft.to}</dd><dt>{t("draft.subject")}</dt><dd>{draft.subject}</dd></dl><p>{draft.body}</p></details>
   </article>;
   return <article className={`mail-draft-message${group ? " is-group" : " is-dm"}`} data-draft-id={draft.draft_id} tabIndex={-1}>
     {group && <div className="mail-draft-identity"><BotAvatar id={draft.bot_id} mini /><strong>{bot?.name ?? "Bot"}</strong></div>}
-    {draft.status === "unknown" && !issueOwned && <TaskIssueCard issue={presentTaskIssue({run:{id:draft.run_id,conversation_id:draft.conversation_id,bot_id:draft.bot_id,status:"done",created_at:draft.created_at,updated_at:draft.updated_at},drafts:[draft],locale:taskLocale()})!} />}
-    {draft.status === "unknown" && !issueOwned && <p className="task-issue-fact">{taskText(taskLocale(), "请先检查邮件服务的已发送记录，核对时间、收件人与主题。", "Check sent-mail records in your email service and compare the time, recipient, and subject.")}</p>}
-    {draft.status === "unknown" && <p className="task-record-meta">{taskDraftLabel(draft)}: {taskText(taskLocale(), "发送结果待核实", "Sending result needs checking")}</p>}
-    {(pending || draft.status === "sending" || draft.status === "unknown") && <section ref={letterRef} className={`mail-draft-letter${pending && !animating ? " is-pending" : ""}`} aria-label="邮件草稿全文">
+    {draft.status === "unknown" && !issueOwned && <TaskIssueCard issue={presentTaskIssue({run:{id:draft.run_id,conversation_id:draft.conversation_id,bot_id:draft.bot_id,status:"done",created_at:draft.created_at,updated_at:draft.updated_at},drafts:[draft]})!} />}
+    {draft.status === "unknown" && !issueOwned && <p className="task-issue-fact">{t("draft.check_sent_records")}</p>}
+    {draft.status === "unknown" && <p className="task-record-meta">{taskDraftLabel(draft)}: {t("draft.sending_needs_checking")}</p>}
+    {(pending || draft.status === "sending" || draft.status === "unknown") && <section ref={letterRef} className={`mail-draft-letter${pending && !animating ? " is-pending" : ""}`} aria-label={t("draft.full_text")}>
       <div className="mail-draft-stripe" aria-hidden="true" />
       <div className="mail-draft-fields">
         <label>TO {editing ? <input type="text" value={to} onChange={event => setTo(event.target.value)} disabled={Boolean(busy)} /> : <strong>{draft.to}</strong>}</label>
-        <label>主题 {editing ? <input type="text" value={subject} onChange={event => setSubject(event.target.value)} disabled={Boolean(busy)} /> : <strong>{draft.subject}</strong>}</label>
+        <label>{t("draft.subject")} {editing ? <input type="text" value={subject} onChange={event => setSubject(event.target.value)} disabled={Boolean(busy)} /> : <strong>{draft.subject}</strong>}</label>
         <span className="mail-draft-stamp" aria-hidden="true"><BotAvatar id={draft.bot_id} mini /></span>
       </div>
-      <div className="mail-draft-paper">{editing ? <textarea aria-label="邮件正文" value={body} onChange={event => setBody(event.target.value)} disabled={Boolean(busy)} rows={8} /> : <p>{draft.body}</p>}</div>
-      <footer>{editing ? <><button type="button" disabled={Boolean(busy)} onClick={() => { setTo(draft.to); setSubject(draft.subject); setBody(draft.body); setEditing(false); setError(""); }}>放弃修改</button><button type="button" className="mail-draft-save" disabled={Boolean(busy || !changed)} onClick={() => void act("save")}>{busy === "save" ? "保存中…" : "保存草稿"}</button></>
+      <div className="mail-draft-paper">{editing ? <textarea aria-label={t("draft.body")} value={body} onChange={event => setBody(event.target.value)} disabled={Boolean(busy)} rows={8} /> : <p>{draft.body}</p>}</div>
+      <footer>{editing ? <><button type="button" disabled={Boolean(busy)} onClick={() => { setTo(draft.to); setSubject(draft.subject); setBody(draft.body); setEditing(false); setError(""); }}>{t("draft.discard")}</button><button type="button" className="mail-draft-save" disabled={Boolean(busy || !changed)} onClick={() => void act("save")}>{busy === "save" ? t("draft.saving") : t("draft.save")}</button></>
         : draft.status === "pending" ? <>
-          <button type="button" className="mail-draft-text-action" disabled={Boolean(busy || archived)} onClick={() => setEditing(true)}><TofiIcon name="edit" size={15} aria-hidden="true" />编辑</button>
-          <span className="mail-draft-hint"><b>{draft.demo ? "演示 · 不会发送" : "需要你批准"}</b>{draft.demo ? "只演示界面，不联系 Gmail" : "发出后不能撤回"}</span>
-          <button type="button" className="mail-draft-decline" disabled={Boolean(busy || archived)} onClick={() => void act("decline")}>{busy === "decline" ? "处理中…" : "先别发"}</button>
-          <button type="button" className="mail-draft-send" disabled={Boolean(busy || archived || changed)} onClick={() => void act("send")}>{busy === "send" ? "发送中…" : draft.demo ? "演示发送" : "发送邮件"}</button>
+          <button type="button" className="mail-draft-text-action" disabled={Boolean(busy || archived)} onClick={() => setEditing(true)}><TofiIcon name="edit" size={15} aria-hidden="true" />{t("draft.edit")}</button>
+          <span className="mail-draft-hint"><b>{draft.demo ? t("draft.demo_badge") : t("draft.needs_approval")}</b>{draft.demo ? t("draft.demo_hint") : t("draft.send_final")}</span>
+          <button type="button" className="mail-draft-decline" disabled={Boolean(busy || archived)} onClick={() => void act("decline")}>{busy === "decline" ? t("draft.working") : t("draft.hold")}</button>
+          <button type="button" className="mail-draft-send" disabled={Boolean(busy || archived || changed)} onClick={() => void act("send")}>{busy === "send" ? t("draft.sending") : draft.demo ? t("draft.demo_send") : t("draft.send")}</button>
         </>
-        : <span>{draft.status === "unknown" ? taskText(taskLocale(), "发送结果待核实", "Sending result needs checking") : "正在发送…"}</span>}</footer>
-      {(error || onDemoAction || archived) && <p className={error ? "mail-draft-error" : "mail-draft-note"} role={error ? "alert" : undefined}>{error || (onDemoAction ? "Motion Lab 演示数据，不会联系 Gmail。" : "恢复会话后可以处理草稿。")}</p>}
+        : <span>{draft.status === "unknown" ? t("draft.sending_needs_checking") : t("draft.sending_now")}</span>}</footer>
+      {(error || onDemoAction || archived) && <p className={error ? "mail-draft-error" : "mail-draft-note"} role={error ? "alert" : undefined}>{error || (onDemoAction ? t("draft.motion_lab_note") : t("draft.restore_to_act"))}</p>}
     </section>}
   </article>;
 }

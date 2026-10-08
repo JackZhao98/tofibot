@@ -41,6 +41,48 @@ func TestPreferencesPersistValidateAndInitializeOnly(t *testing.T) {
 	}
 }
 
+func TestPreferencesLanguageIsIndependentOfTimezone(t *testing.T) {
+	s, err := NewServer(Config{DataDir: t.TempDir()})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer s.Close()
+	put := func(body string) *httptest.ResponseRecorder {
+		rec := httptest.NewRecorder()
+		s.Handler().ServeHTTP(rec, httptest.NewRequest(http.MethodPut, "/api/preferences", strings.NewReader(body)))
+		return rec
+	}
+	get := func() string {
+		rec := httptest.NewRecorder()
+		s.Handler().ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/api/preferences", nil))
+		if rec.Code != http.StatusOK {
+			t.Fatalf("get status=%d body=%s", rec.Code, rec.Body.String())
+		}
+		return rec.Body.String()
+	}
+	if body := get(); !strings.Contains(body, `"language":""`) {
+		t.Fatalf("default language must be automatic: %s", body)
+	}
+	if rec := put(`{"language":"zh-TW"}`); rec.Code != http.StatusOK || !strings.Contains(rec.Body.String(), `"language":"zh-TW"`) || !strings.Contains(rec.Body.String(), `"timezone_configured":false`) {
+		t.Fatalf("language-only put: %d %s", rec.Code, rec.Body.String())
+	}
+	if rec := put(`{"timezone":"UTC"}`); rec.Code != http.StatusOK || !strings.Contains(rec.Body.String(), `"language":"zh-TW"`) {
+		t.Fatalf("timezone put must keep language: %d %s", rec.Code, rec.Body.String())
+	}
+	if rec := put(`{"language":"xx"}`); rec.Code != http.StatusBadRequest || !strings.Contains(rec.Body.String(), "invalid_language") {
+		t.Fatalf("unsupported language: %d %s", rec.Code, rec.Body.String())
+	}
+	if rec := put(`{"language":""}`); rec.Code != http.StatusOK {
+		t.Fatalf("reset to automatic: %d %s", rec.Code, rec.Body.String())
+	}
+	if body := get(); !strings.Contains(body, `"language":""`) || !strings.Contains(body, `"timezone":"UTC"`) {
+		t.Fatalf("language reset must keep timezone: %s", body)
+	}
+	if rec := put(`{}`); rec.Code != http.StatusBadRequest {
+		t.Fatalf("empty put must be rejected: %d %s", rec.Code, rec.Body.String())
+	}
+}
+
 func TestPreferenceInitializeOnlyIsAtomic(t *testing.T) {
 	s, err := OpenStore(t.TempDir())
 	if err != nil {

@@ -1,0 +1,20 @@
+{
+  "language": {
+    "title": "语言",
+    "note": "界面文字使用的语言。选择“自动”时跟随浏览器。",
+    "label": "界面语言",
+    "auto": "自动（{{language}}）",
+    "save_failed": "语言已在此设备上切换，但未能保存到账户。请稍后重试。"
+  },
+  "timezone": {
+    "label": "时区",
+    "note": "用于聊天时间和新建定时任务；已有任务保持原时区。",
+    "current": "当前时区",
+    "loading": "正在读取时区…",
+    "saved": "时区已保存。",
+    "invalid_reselect": "时区设置不可用，请重新选择。",
+    "invalid_retry": "时区设置不可用，请重试。",
+    "read_failed": "无法读取时区，请重试。",
+    "save_failed": "保存时区失败，请重试。"
+  }
+}

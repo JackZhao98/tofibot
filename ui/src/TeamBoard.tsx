@@ -7,6 +7,7 @@ import { WorkExecution } from "./WorkExecution";
 import { workExecutionActive } from "./workExecutionState";
 import type { Bot, Conversation, WorkItem, WorkStatus } from "./types";
 import "./team-board.css";
+import { intlLocale } from "./i18n/format";
 
 const columns: { status: WorkStatus; label: string }[] = [
   { status: "todo", label: "待办" },
@@ -148,7 +149,7 @@ function TeamBoardView({ conversation, bots, onClose, onOpenWork, timezone = bro
               <span className="team-ticket-id">#{item.id.slice(0, 6)}{item.kind === "goal" && <span className="team-ticket-kind">目标</span>}</span>
               <strong>{item.title}</strong>
               {item.parent_goal_id && <span className="team-ticket-goal">{goalById.get(item.parent_goal_id)?.title ?? "关联目标"}</span>}
-              <span className="team-ticket-footer"><BotAvatar id={item.bot_id} mini /><span>{botName(item.bot_id, item.bot_name)}</span><time dateTime={item.updated_at}>{new Intl.DateTimeFormat("zh-CN", { timeZone:timezone, month:"numeric", day:"numeric" }).format(new Date(item.updated_at))}</time></span>
+              <span className="team-ticket-footer"><BotAvatar id={item.bot_id} mini /><span>{botName(item.bot_id, item.bot_name)}</span><time dateTime={item.updated_at}>{new Intl.DateTimeFormat(intlLocale(), { timeZone:timezone, month:"numeric", day:"numeric" }).format(new Date(item.updated_at))}</time></span>
             </button>)}
             {column.status === "todo" && !conversation.archived && <button type="button" className="team-board-add" onClick={() => setCreating(true)}><TofiIcon name="plus" size={16} style={{ verticalAlign: "middle" }} /> 新建</button>}
           </section>;

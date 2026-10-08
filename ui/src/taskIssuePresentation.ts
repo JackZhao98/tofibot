@@ -5,10 +5,11 @@ import type { Question } from "./questionTimeline";
 import { buildRetryFamilies, retryFamilyAnchor, isTerminalRun } from "./runFamily";
 import type { Message, Run, ToolActivity, ToolActivityRunSummary } from "./types";
 import { providerForModel } from "./modelCatalog";
+import { i18n, type Language } from "./i18n";
+import { formatClock } from "./i18n/format";
 
-export type TaskLocale = "zh-CN" | "en";
-export const taskLocale = (): TaskLocale => typeof document !== "undefined" && document.documentElement.lang.startsWith("en") ? "en" : "zh-CN";
-export const taskText = (locale: TaskLocale, zh: string, en: string) => locale === "en" ? en : zh;
+/** Text for one language, or the active UI language when none is given (tests pin one). */
+const tasksT = (locale?: Language) => i18n.getFixedT(locale ?? null, "tasks");
 export type TaskIssueKind = "provider_busy" | "model_unconfigured" | "model_auth" | "model_quota" | "tool_setup" | "review_context" | "review_unavailable" | "expired" | "human_denied" | "policy_denied" | "uncertain_effect" | "connection_status" | "runtime_connection" | "unknown_failure";
 export type TaskAction = "open_tools" | "open_codex" | "copy_diagnostics" | "view_activity" | "verify_steps" | "refresh_status";
 export type ExecutionState = "not_executed" | "in_progress" | "completed" | "unknown";
@@ -48,25 +49,6 @@ export function canAnswerQuestion(question: Question, archived = false) {
 }
 
 
-const titles: Record<TaskIssueKind, [string, string]> = {
-  provider_busy: ["模型服务暂时繁忙", "Model service is temporarily busy"],
-  model_unconfigured: ["没有可用的 AI 提供方", "No AI provider is available"],
-  model_auth: ["模型账户登录已失效", "Model account sign-in is no longer valid"],
-  model_quota: ["模型账户额度已用尽", "Model account usage limit reached"],
-  tool_setup: ["工具尚未就绪", "Tool setup is incomplete"],
-  review_context: ["执行前检查缺少必要信息", "Required information is missing from the pre-execution check"],
-  review_unavailable: ["执行前检查暂时不可用", "Pre-execution checking is unavailable"],
-  expired: ["批准已过期", "Approval expired"],
-  human_denied: ["你未批准此操作", "You declined this action"],
-  policy_denied: ["此操作未通过安全检查", "This action did not pass the safety check"],
-  uncertain_effect: ["执行结果待核实", "Execution result needs checking"],
-  connection_status: ["连接中断，状态待确认", "Connection lost; status is unconfirmed"],
-  runtime_connection: ["连接中断，任务未完成", "Connection interrupted; the task did not finish"],
-  unknown_failure: ["任务未完成", "The task did not finish"],
-};
-const actions: Record<TaskAction, [string, string]> = {
-  open_tools: ["查看工具设置", "Open tool settings"], open_codex: ["打开 Codex 设置", "Open Codex settings"], copy_diagnostics: ["复制诊断信息", "Copy diagnostics"], view_activity: ["查看执行记录", "View activity"], verify_steps: ["查看核实步骤", "See verification steps"], refresh_status: ["刷新状态", "Refresh status"],
-};
 const category = (code?: string, status?: string): TaskIssueKind | undefined => {
   if (code === "mcp_result_unknown" || status === "uncertain_effect") return "uncertain_effect";
   if (code === "approval_window_expired" || status === "approval_expired") return "expired";
@@ -77,79 +59,75 @@ const category = (code?: string, status?: string): TaskIssueKind | undefined => 
   if (code === "mcp_review_unavailable" || status === "unavailable") return "review_unavailable";
 };
 
-const clock = (value: string, locale: TaskLocale, seconds = true) => {
-  const time = Date.parse(value);
-  return Number.isFinite(time) ? new Date(time).toLocaleTimeString(locale === "en" ? "en-GB" : "zh-CN", { hour12: false, hour: "2-digit", minute: "2-digit", ...(seconds ? { second: "2-digit" } : {}) }) : "";
-};
+const clock = (value: string, locale: Language | undefined, seconds = true) => formatClock(value, { seconds, language: locale });
 /** Human labels, stable across retries, loading order and subject edits: an object's own
  * start time plus what it is. They never include recipients, subjects or bodies. */
-export function taskToolLabel(tool: Pick<ToolActivity, "name" | "arguments" | "started_at">, locale: TaskLocale = taskLocale()) {
+export function taskToolLabel(tool: Pick<ToolActivity, "name" | "arguments" | "started_at">, locale?: Language) {
   const detail = toolStepDetail(tool);
   return `${clock(tool.started_at, locale)} ${toolStepTitle(tool)}${detail ? ` · ${detail}` : ""}`.trim();
 }
-export function taskDraftLabel(draft: Pick<MailDraft, "created_at">, locale: TaskLocale = taskLocale()) {
-  const time = clock(draft.created_at, locale, false);
-  return taskText(locale, `${time} 起草的邮件`, `Email drafted at ${time}`).trim();
+export function taskDraftLabel(draft: Pick<MailDraft, "created_at">, locale?: Language) {
+  return tasksT(locale)("label.draft", { time: clock(draft.created_at, locale, false) }).trim();
 }
-export function taskQuestionLabel(question: Pick<Question, "created_at">, locale: TaskLocale = taskLocale()) {
-  const time = clock(question.created_at, locale);
-  return taskText(locale, `${time} 的提案`, `Proposal at ${time}`).trim();
+export function taskQuestionLabel(question: Pick<Question, "created_at">, locale?: Language) {
+  return tasksT(locale)("label.proposal", { time: clock(question.created_at, locale) }).trim();
 }
 
 /** Legacy neutral fingerprint label; kept for diagnostics callers, not shown in chat. */
-export function taskObjectLabel(source: "tool" | "question" | "draft", id: string, locale: TaskLocale = taskLocale()) {
+export function taskObjectLabel(source: "tool" | "question" | "draft", id: string, locale?: Language) {
   let fingerprint = 2166136261;
   for (const character of id) fingerprint = Math.imul(fingerprint ^ character.charCodeAt(0), 16777619);
-  const label = source === "draft" ? taskText(locale, "邮件", "Email") : source === "tool" ? taskText(locale, "工具调用", "Tool call") : taskText(locale, "提案", "Proposal");
+  const label = tasksT(locale)(source === "draft" ? "label.object.draft" : source === "tool" ? "label.object.tool" : "label.object.question");
   return `${label} · ${(fingerprint >>> 0).toString(16).padStart(8, "0").toUpperCase()}`;
 }
 
-const reviewStatusWords: Record<string, [string, string]> = {
-  context_required: ["执行前检查缺少必要信息", "Pre-execution check is missing information"], setup_required: ["工具尚未就绪", "Tool setup is incomplete"],
-  policy_denied: ["未通过安全检查", "Did not pass the safety check"], unavailable: ["执行前检查暂时不可用", "Pre-execution checking is unavailable"],
-  human_required: ["等你批准", "Waiting for your approval"], not_reviewed: ["等你批准", "Waiting for your approval"], invalidated: ["等你批准", "Waiting for your approval"], not_eligible: ["等你批准", "Waiting for your approval"],
-  reviewing: ["检查中", "Checking"], allow: ["已通过检查", "Passed the check"], approved: ["已通过检查", "Passed the check"],
-  pending: ["待处理", "Pending"], answered: ["已回答", "Answered"], expired: ["已过期", "Expired"], cancelled: ["已取消", "Cancelled"], run_done: ["运行已结束", "Run ended"],
-  approval_expired: ["批准已过期", "Approval expired"], approval_denied: ["未批准", "Declined"], uncertain_effect: ["结果待核实", "Result needs checking"],
-};
-const certaintyWords: Record<string, [string, string]> = {
-  not_executed: ["未执行", "Not executed"], unknown: ["结果待核实", "Result needs checking"], no_side_effect: ["未产生改动", "No changes made"], no_side_effects: ["未产生改动", "No changes made"], executed: ["已执行", "Executed"], completed: ["已执行", "Executed"],
-};
-const outcomeCodeWords: Record<string, [string, string]> = {
-  mcp_review_context_missing: ["执行前检查缺少必要信息", "Pre-execution check is missing information"], mcp_review_setup_missing: ["工具尚未就绪", "Tool setup is incomplete"],
-  mcp_review_policy_denied: ["未通过安全检查", "Did not pass the safety check"], mcp_review_unavailable: ["执行前检查暂时不可用", "Pre-execution checking is unavailable"],
-  approval_window_expired: ["批准已过期", "Approval expired"], batch_skipped: ["批准过期后未执行", "Skipped after approval expired"],
-  stale_schema: ["工具信息已过期，需要重新查找", "Tool details were stale and need a fresh lookup"], invalid_arguments: ["参数不符合工具要求", "Arguments did not match the tool"],
-  mcp_retry_exhausted: ["多次重试后仍然失败", "Still failing after retries"], mcp_result_unknown: ["结果待核实", "Result needs checking"],
+// Server codes map to catalog keys; several codes share one human phrase.
+const reviewStatusKeys = {
+  context_required: "status.context_missing", setup_required: "status.setup_incomplete",
+  policy_denied: "status.policy_denied", unavailable: "status.review_unavailable",
+  human_required: "status.awaiting_approval", not_reviewed: "status.awaiting_approval", invalidated: "status.awaiting_approval", not_eligible: "status.awaiting_approval",
+  reviewing: "status.reviewing", allow: "status.passed", approved: "status.passed",
+  pending: "status.pending", answered: "status.answered", expired: "status.expired", cancelled: "status.cancelled", run_done: "status.run_done",
+  approval_expired: "status.approval_expired", approval_denied: "status.approval_denied", uncertain_effect: "status.needs_checking",
+  need_information: "status.need_information", validation_error: "status.validation_error",
+  transient_failure: "status.transient_failure", permanent_failure: "status.permanent_failure",
+} as const;
+const certaintyKeys = {
+  not_executed: "certainty.not_executed", unknown: "certainty.unknown", no_side_effect: "certainty.no_side_effects", no_side_effects: "certainty.no_side_effects", executed: "certainty.executed", completed: "certainty.executed",
+} as const;
+const outcomeCodeKeys = {
+  mcp_review_context_missing: "status.context_missing", mcp_review_setup_missing: "status.setup_incomplete",
+  mcp_review_policy_denied: "status.policy_denied", mcp_review_unavailable: "status.review_unavailable",
+  approval_window_expired: "status.approval_expired", batch_skipped: "outcome.batch_skipped",
+  stale_schema: "outcome.stale_schema", invalid_arguments: "outcome.invalid_arguments",
+  mcp_retry_exhausted: "outcome.retry_exhausted", mcp_result_unknown: "status.needs_checking",
   // Readiness checks run before anything is sent: "mcp_" + the method readiness state.
-  mcp_auth_required: ["工具需要重新登录授权", "The tool needs you to sign in again"], mcp_unavailable: ["工具服务暂时连不上", "The tool service is unreachable right now"],
-  mcp_not_configured: ["工具尚未配置", "The tool is not set up"], mcp_unknown: ["工具状态暂时无法确认", "The tool's status could not be confirmed"], mcp_ready: ["工具已就绪", "The tool is ready"],
-  mcp_config_changed: ["工具设置已变更，需要重新批准", "Tool settings changed; approve again"],
-};
-Object.assign(reviewStatusWords, {
-  need_information: ["缺少必要信息", "Missing required information"], validation_error: ["参数校验未通过", "Validation failed"],
-  transient_failure: ["暂时失败", "Temporary failure"], permanent_failure: ["执行失败", "Failed"],
-});
+  mcp_auth_required: "outcome.auth_required", mcp_unavailable: "outcome.unavailable",
+  mcp_not_configured: "outcome.not_configured", mcp_unknown: "outcome.unknown", mcp_ready: "outcome.ready",
+  mcp_config_changed: "outcome.config_changed",
+} as const;
+const known = <T extends object>(map: T, code: string | undefined): code is Extract<keyof T, string> => Boolean(code && Object.hasOwn(map, code));
+
 /** A tool outcome in words: the specific code first, then its status. */
-export function taskOutcomeText(outcome: { code?: string; status?: string } | undefined, locale: TaskLocale = taskLocale()) {
-  const words = outcome?.code ? outcomeCodeWords[outcome.code] : undefined;
-  return words ? taskText(locale, ...words) : taskStatusText(outcome?.status, locale);
+export function taskOutcomeText(outcome: { code?: string; status?: string } | undefined, locale?: Language) {
+  const code = outcome?.code;
+  return known(outcomeCodeKeys, code) ? tasksT(locale)(outcomeCodeKeys[code]) : taskStatusText(outcome?.status, locale);
 }
 
 /** Human words for review/answer states; raw codes stay in technical diagnostics only. */
-export function taskStatusText(status: string | undefined, locale: TaskLocale = taskLocale()) {
-  if (status?.startsWith("shadow")) return taskText(locale, "观察记录", "Observation only");
-  const words = status ? reviewStatusWords[status] : undefined;
-  return words ? taskText(locale, ...words) : taskText(locale, "状态待确认", "Status unconfirmed");
+export function taskStatusText(status: string | undefined, locale?: Language) {
+  const t = tasksT(locale);
+  if (status?.startsWith("shadow")) return t("status.observation");
+  return known(reviewStatusKeys, status) ? t(reviewStatusKeys[status]) : t("status.unconfirmed");
 }
-export function taskCertaintyText(certainty: string | undefined, locale: TaskLocale = taskLocale()) {
-  const words = certainty ? certaintyWords[certainty] : undefined;
-  return words ? taskText(locale, ...words) : taskText(locale, "执行情况待确认", "Execution unconfirmed");
+export function taskCertaintyText(certainty: string | undefined, locale?: Language) {
+  const t = tasksT(locale);
+  return known(certaintyKeys, certainty) ? t(certaintyKeys[certainty]) : t("certainty.unconfirmed");
 }
 
-export type TaskPresentationInput = { run: Run; family?: TaskFamily; tools?: ToolActivity[]; questions?: Question[]; drafts?: MailDraft[]; summary?: ToolActivityRunSummary; recordsComplete?: boolean; connected?: boolean; locale?: TaskLocale };
-export function presentTaskIssue({ run, family, tools = [], questions = [], drafts = [], summary, recordsComplete = false, connected = true, locale = "zh-CN" }: TaskPresentationInput): TaskIssueView | undefined {
-  const t = (zh: string, en: string) => taskText(locale, zh, en);
+export type TaskPresentationInput = { run: Run; family?: TaskFamily; tools?: ToolActivity[]; questions?: Question[]; drafts?: MailDraft[]; summary?: ToolActivityRunSummary; recordsComplete?: boolean; connected?: boolean; locale?: Language };
+export function presentTaskIssue({ run, family, tools = [], questions = [], drafts = [], summary, recordsComplete = false, connected = true, locale }: TaskPresentationInput): TaskIssueView | undefined {
+  const t = tasksT(locale);
   // Defend against unrelated records even if the caller hands us a mixed page.
   const sameObjectScope = (item: {run_id: string; conversation_id: string; bot_id: string}) => item.conversation_id === run.conversation_id && item.bot_id === run.bot_id && (item.run_id === run.id || family?.attempts.some(attempt => attempt.id === item.run_id && attempt.conversation_id === item.conversation_id && attempt.bot_id === item.bot_id));
   const questionUnknown = (question: Question) => !question.approval?.review_only && !question.approval?.review?.status.startsWith("shadow") && (question.outcome?.execution_certainty === "unknown" || question.outcome?.status === "uncertain_effect");
@@ -213,48 +191,37 @@ export function presentTaskIssue({ run, family, tools = [], questions = [], draf
   const pushToolFact = (tool: ToolActivity, text: string) => {
     const label = taskToolLabel(tool, locale);
     links[facts.length] = { runId: tool.run_id, callId: tool.call_id, label };
-    facts.push(`${label}: ${text}`);
+    facts.push(t("fact.labelled", { label, text }));
   };
   if (kind === "uncertain_effect") {
-    for (const tool of tools.filter(tool => toolExecutionState(tool) === "unknown")) pushToolFact(tool, t("执行结果待核实。", "Execution result needs checking."));
-    for (const question of questions.filter(questionUnknown)) facts.push(`${taskQuestionLabel(question, locale)}: ${t("执行结果待核实。", "Execution result needs checking.")}`);
-    for (const draft of drafts.filter(draft => draft.status === "unknown")) facts.push(`${taskDraftLabel(draft, locale)}: ${t("发送结果待核实。", "Sending result needs checking.")}`);
-    facts.push(t("以上待核实的操作可能已经生效；再次操作前请先核实。", "The unconfirmed actions above may have taken effect. Check before trying again."));
+    for (const tool of tools.filter(tool => toolExecutionState(tool) === "unknown")) pushToolFact(tool, t("fact.execution_needs_checking"));
+    for (const question of questions.filter(questionUnknown)) facts.push(t("fact.labelled", { label: taskQuestionLabel(question, locale), text: t("fact.execution_needs_checking") }));
+    for (const draft of drafts.filter(draft => draft.status === "unknown")) facts.push(t("fact.labelled", { label: taskDraftLabel(draft, locale), text: t("fact.sending_needs_checking") }));
+    facts.push(t("fact.may_have_taken_effect"));
   }
   // Steps that did not run are marked on the steps themselves.
-  if (drafts.some(draft => draft.status === "unknown")) facts.push(t("请检查邮件服务中的已发送记录，核对时间、收件人与主题。", "Check sent-mail records in your email service and compare the time, recipient, and subject."));
-  else if (kind === "uncertain_effect") facts.push(t("请在目标服务中核对这次操作的记录。无法确认时，请保持结果待核实。", "Check this action's records in the target service. If still unconfirmed, keep the result unconfirmed."));
-  if (kind === "connection_status") facts.push(t("任务可能仍在运行。刷新只读取最新状态。", "The task may still be running. Refresh only reads the latest status."));
-  if (kind === "unknown_failure" && !facts.length) facts.push(noToolSteps ? t("没有记录具体原因。", "No specific cause was recorded.") : t("目前无法确认原因和执行结果。", "The cause and execution result are not yet confirmed."));
-  if (kind === "provider_busy") facts.push(t("任务未完成。", "The task did not finish."));
+  if (drafts.some(draft => draft.status === "unknown")) facts.push(t("fact.check_sent_mail"));
+  else if (kind === "uncertain_effect") facts.push(t("fact.check_target_service"));
+  if (kind === "connection_status") facts.push(t("fact.may_still_be_running"));
+  if (kind === "unknown_failure" && !facts.length) facts.push(noToolSteps ? t("fact.no_cause_recorded") : t("fact.cause_unconfirmed"));
+  if (kind === "provider_busy") facts.push(t("fact.task_did_not_finish"));
   // Model account copy names the provider of the model that failed; no model means the workspace default.
   const provider = run.model?.trim() ? providerForModel(run.model) : undefined;
   const keyLabel = provider === "anthropic" ? "Claude" : "OpenAI";
-  if (kind === "model_unconfigured") {
-    if (provider === "codex") facts.push(t("工作区没有连接 Codex 账户，模型无法调用。", "This workspace has no Codex account connected, so the model cannot be called."), t("在设置的「模型与连接」页连接账户后重试。", "Connect an account under Settings › Models and connections, then retry."));
-    else if (provider) facts.push(t(`工作区没有配置 ${keyLabel} API key，这个模型无法调用。`, `This workspace has no ${keyLabel} API key, so this model cannot be called.`), t(`在设置的「模型与连接」页添加 ${keyLabel} API key，或为 Bot 换一个已连接的模型后重试。`, `Add a ${keyLabel} API key under Settings › Models and connections, or switch the bot to a connected model, then retry.`));
-    else facts.push(t("工作区没有可用的模型提供方，模型无法调用。", "This workspace has no model provider available, so the model cannot be called."), t("在设置的「模型与连接」页连接 Codex 或添加 API key 后重试。", "Connect Codex or add an API key under Settings › Models and connections, then retry."));
-  }
-  if (kind === "model_auth") {
-    if (provider === "codex") facts.push(t("Codex 账户的登录已失效，模型拒绝了这次调用。", "The Codex account sign-in is no longer valid, and the model rejected this request."), t("在设置的「模型与连接」页重新连接后重试。", "Reconnect under Settings › Models and connections, then retry."));
-    else if (provider) facts.push(t(`${keyLabel} API key 已失效，模型拒绝了这次调用。`, `The ${keyLabel} API key is no longer valid, and the model rejected this request.`), t(`在设置的「模型与连接」页更新 ${keyLabel} API key 后重试。`, `Update the ${keyLabel} API key under Settings › Models and connections, then retry.`));
-    else facts.push(t("模型账户的凭证已失效，模型拒绝了这次调用。", "The model account credentials are no longer valid, and the model rejected this request."), t("在设置的「模型与连接」页重新连接或更新 API key 后重试。", "Reconnect or update the API key under Settings › Models and connections, then retry."));
-  }
-  if (kind === "model_quota") {
-    if (provider === "codex") facts.push(t("Codex 账户的用量额度已用尽，模型拒绝了这次调用。", "The Codex account has reached its usage limit, and the model rejected this request."), t("额度恢复或更换账户后重试。", "Retry after the limit resets or connect another account."));
-    else if (provider) facts.push(t(`${keyLabel} API 账户的用量额度已用尽，模型拒绝了这次调用。`, `The ${keyLabel} API account has reached its usage limit, and the model rejected this request.`), t(`额度恢复、充值或更换 ${keyLabel} API key 后重试。`, `Retry after the limit resets, after adding credit, or with another ${keyLabel} API key.`));
-    else facts.push(t("模型账户的用量额度已用尽，模型拒绝了这次调用。", "The model account has reached its usage limit, and the model rejected this request."), t("额度恢复或更换账户后重试。", "Retry after the limit resets or connect another account."));
-  }
-  if (noToolSteps) facts.push(t("本次没有执行任何工具步骤。", "No tool steps ran in this attempt."));
-  if (kind === "expired") facts.push(phase === "finishing" ? t("正在收尾，已完成结果保留。", "Finishing up; completed results are retained.") : t("本次工作已停止，已完成结果保留。", "This workflow stopped; completed results are retained."));
-  if (tools.some(tool => toolExecutionState(tool) === "completed")) facts.push(t("已完成的工具步骤保留在工作过程。", "Completed tool steps are retained in activity."));
+  const model = provider === "codex" ? "codex" : provider ? "api_key" : "any";
+  if (kind === "model_unconfigured") facts.push(t(`fact.model_unconfigured.${model}`, { provider: keyLabel }), t(`fact.model_unconfigured.${model}_next`, { provider: keyLabel }));
+  if (kind === "model_auth") facts.push(t(`fact.model_auth.${model}`, { provider: keyLabel }), t(`fact.model_auth.${model}_next`, { provider: keyLabel }));
+  if (kind === "model_quota") facts.push(t(`fact.model_quota.${model}`, { provider: keyLabel }), t(`fact.model_quota.${model}_next`, { provider: keyLabel }));
+  if (noToolSteps) facts.push(t("fact.no_tool_steps"));
+  if (kind === "expired") facts.push(phase === "finishing" ? t("fact.finishing_results_kept") : t("fact.stopped_results_kept"));
+  if (tools.some(tool => toolExecutionState(tool) === "completed")) facts.push(t("fact.completed_steps_kept"));
   const complete = noToolSteps || (recordsComplete && (!summary || tools.filter(tool => tool.run_id === run.id).length >= summary.tool_count));
-  const secondary = causes.filter(cause => cause !== kind && cause !== "unknown_failure").map(cause => cause === "provider_busy" ? t("随后模型服务繁忙，任务未完成。", "The model service was then busy, and the task did not finish.") : t(...titles[cause]));
-  if (priorUnknown) secondary.unshift(run.status === "done" ? t("后续尝试已结束；此前操作的结果仍待核实。", "The later attempt ended; earlier action results still need checking.") : `${t("后续尝试", "Later attempt")}: ${taskPhaseLabel({run, tools:tools.filter(tool => tool.run_id === run.id), questions:questions.filter(question => question.run_id === run.id), drafts:drafts.filter(draft => draft.run_id === run.id), locale})}`);
-  if (!complete) secondary.push(t("执行记录尚未完整加载。", "Execution records are not fully loaded."));
+  const secondary = causes.filter(cause => cause !== kind && cause !== "unknown_failure").map(cause => cause === "provider_busy" ? t("secondary.then_provider_busy") : t(`issue.title.${cause}`));
+  if (priorUnknown) secondary.unshift(run.status === "done" ? t("secondary.later_attempt_ended") : t("secondary.later_attempt", { phase: taskPhaseLabel({run, tools:tools.filter(tool => tool.run_id === run.id), questions:questions.filter(question => question.run_id === run.id), drafts:drafts.filter(draft => draft.run_id === run.id), locale}) }));
+  if (!complete) secondary.push(t("secondary.records_incomplete"));
   evidence.push({ source: "run", id: run.id, status: run.status, code: overloaded ? "server_is_overloaded" : run.failure?.code, model: run.model, updatedAt: run.updated_at });
   if (!connected) evidence.push({ source: "connection", id: run.id, status: "disconnected" });
-  return { kind, phase, title: t(...titles[kind]), facts, links, secondary, action, actionLabel: action === "open_codex" && provider !== "codex" ? t("打开模型连接设置", "Open model connections") : t(...actions[action]), evidence, recordsComplete: complete };
+  return { kind, phase, title: t(`issue.title.${kind}`), facts, links, secondary, action, actionLabel: action === "open_codex" && provider !== "codex" ? t("issue.action.open_model_connections") : t(`issue.action.${action}`), evidence, recordsComplete: complete };
 }
 
 /** Diagnostics never contain arguments, results, prose errors, mail or reasoning. */
@@ -265,14 +232,14 @@ export function taskDiagnostics(issue: TaskIssueView) {
 }
 
 export function taskPhaseLabel(input: TaskPresentationInput) {
-  const { run, questions = [], tools = [], drafts = [], locale = "zh-CN" } = input;
-  const t = (zh: string, en: string) => taskText(locale, zh, en);
-  if (run.finishing_reason) return t("正在收尾", "Finishing up");
-  if (questions.some(question => canAnswerQuestion(question) && question.question_type === "approval") || drafts.some(draft => draft.status === "pending")) return t("需要你批准", "Your approval is needed");
-  if (questions.some(question => canAnswerQuestion(question) && question.question_type !== "approval")) return t("需要你回答", "Your input is needed");
-  if (isTerminalRun(run)) return run.status === "done" ? t("本轮已结束", "This turn ended") : t("本次工作已停止", "This workflow stopped");
-  if (questions.some(question => question.approval?.review?.status === "reviewing")) return t("执行前检查中", "Checking before execution");
-  if (tools.some(tool => tool.status === "running")) return t("正在使用工具", "Using a tool");
-  if (tools.some(tool => tool.status === "queued")) return t("正在准备工具", "Preparing a tool");
-  return run.status === "queued" ? t("已排队", "Queued") : t("正在处理", "Working");
+  const { run, questions = [], tools = [], drafts = [], locale } = input;
+  const t = tasksT(locale);
+  if (run.finishing_reason) return t("phase.finishing");
+  if (questions.some(question => canAnswerQuestion(question) && question.question_type === "approval") || drafts.some(draft => draft.status === "pending")) return t("phase.needs_approval");
+  if (questions.some(question => canAnswerQuestion(question) && question.question_type !== "approval")) return t("phase.needs_answer");
+  if (isTerminalRun(run)) return run.status === "done" ? t("phase.turn_ended") : t("phase.stopped");
+  if (questions.some(question => question.approval?.review?.status === "reviewing")) return t("phase.reviewing");
+  if (tools.some(tool => tool.status === "running")) return t("phase.using_tool");
+  if (tools.some(tool => tool.status === "queued")) return t("phase.preparing_tool");
+  return run.status === "queued" ? t("phase.queued") : t("phase.working");
 }
