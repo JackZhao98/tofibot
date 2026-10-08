@@ -708,7 +708,10 @@ def inspect_image(reference, role, data_schema=None):
         raise HostError('Image %s is not available locally.' % reference) from error
     if data.get('Architecture') != 'amd64' or data.get('Os') != 'linux':
         raise HostError('Image %s is %s/%s; linux/amd64 is required.' % (reference, data.get('Os'), data.get('Architecture')))
-    if reference not in (data.get('RepoDigests') or []):
+    # Docker shortens Docker Hub names in RepoDigests (caddy@sha256:...), so
+    # compare the pinned digest itself.
+    pinned = '@' + reference.partition('@')[2]
+    if not any(entry.endswith(pinned) for entry in data.get('RepoDigests') or []):
         raise HostError('Image %s was not pulled by its pinned digest.' % reference)
     config = data.get('Config') or {}
     labels = config.get('Labels') or {}
