@@ -515,11 +515,11 @@ func TestPortableEnvironmentSensitiveTransportAndResponseLock(t *testing.T) {
 func TestPortableEnvironmentAccountSessionIsolation(t *testing.T) {
 	g := accountFixture(t)
 	g.runtimeFactory = func(c Config) (*Server, error) { c.Engine = testEngine{}; return NewServer(c) }
-	a, err := g.create(context.Background(), "synthetic-owner", "", "SyntheticOwnerOnly123!", true)
+	a, err := g.create(context.Background(), "synthetic-owner", "", "SyntheticOwnerOnly123!", true, accountCreationSecret(t, g, true))
 	if err != nil {
 		t.Fatal(err)
 	}
-	other, err := g.create(context.Background(), "synthetic-other", "", "SyntheticOtherOnly123!", false)
+	other, err := g.create(context.Background(), "synthetic-other", "", "SyntheticOtherOnly123!", false, "")
 	if err != nil {
 		t.Fatal(err)
 	}

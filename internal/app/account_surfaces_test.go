@@ -16,15 +16,15 @@ import (
 // the same session gates as ordinary workspace requests.
 func TestAccountProtectedSurfacesRejectInvalidSessionStates(t *testing.T) {
 	g := accountFixture(t)
-	admin, err := g.create(context.Background(), "admin", "", "SyntheticPassword123!", true)
+	admin, err := g.create(context.Background(), "admin", "", "SyntheticPassword123!", true, accountCreationSecret(t, g, true))
 	if err != nil {
 		t.Fatal(err)
 	}
-	forced, err := g.create(context.Background(), "forced", "", "SyntheticPassword123!", false)
+	forced, err := g.create(context.Background(), "forced", "", "SyntheticPassword123!", false, "")
 	if err != nil {
 		t.Fatal(err)
 	}
-	active, err := g.create(context.Background(), "active", "", "SyntheticPassword123!", false)
+	active, err := g.create(context.Background(), "active", "", "SyntheticPassword123!", false, "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -67,11 +67,11 @@ func TestAccountProtectedSurfacesRejectInvalidSessionStates(t *testing.T) {
 
 func TestAccountSiblingCannotReadFilesSecretsOrCallRunner(t *testing.T) {
 	g := accountFixture(t)
-	owner, err := g.create(context.Background(), "owner", "", "SyntheticPassword123!", false)
+	owner, err := g.create(context.Background(), "owner", "", "SyntheticPassword123!", false, "")
 	if err != nil {
 		t.Fatal(err)
 	}
-	sibling, err := g.create(context.Background(), "sibling", "", "SyntheticPassword123!", false)
+	sibling, err := g.create(context.Background(), "sibling", "", "SyntheticPassword123!", false, "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -134,15 +134,15 @@ func TestAccountUpgradeHeadersDoNotBypassSessionGate(t *testing.T) {
 
 func TestAccountLiveSSEIsOwnConversationAndEndsOnDisable(t *testing.T) {
 	g := accountFixture(t)
-	admin, err := g.create(context.Background(), "stream-admin", "", "SyntheticPassword123!", true)
+	admin, err := g.create(context.Background(), "stream-admin", "", "SyntheticPassword123!", true, accountCreationSecret(t, g, true))
 	if err != nil {
 		t.Fatal(err)
 	}
-	owner, err := g.create(context.Background(), "stream-owner", "", "SyntheticPassword123!", false)
+	owner, err := g.create(context.Background(), "stream-owner", "", "SyntheticPassword123!", false, "")
 	if err != nil {
 		t.Fatal(err)
 	}
-	sibling, err := g.create(context.Background(), "stream-sibling", "", "SyntheticPassword123!", false)
+	sibling, err := g.create(context.Background(), "stream-sibling", "", "SyntheticPassword123!", false, "")
 	if err != nil {
 		t.Fatal(err)
 	}

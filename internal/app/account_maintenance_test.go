@@ -8,7 +8,7 @@ import (
 
 func TestAccountMaintenanceFencesWritesAndBackgroundRuntimeStartup(t *testing.T) {
 	g := accountFixture(t)
-	admin, err := g.create(context.Background(), "owner", "owner@example.test", "SyntheticPassword123!", true)
+	admin, err := g.create(context.Background(), "owner", "owner@example.test", "SyntheticPassword123!", true, accountCreationSecret(t, g, true))
 	if err != nil {
 		t.Fatal(err)
 	}
