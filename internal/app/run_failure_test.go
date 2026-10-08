@@ -13,6 +13,13 @@ func TestRunFailureJSONLegacyAndNonFailure(t *testing.T) {
 	for _, tc := range []struct{ status, err, code string }{
 		{"failed", "LLM call failed: stream read error: stream error: stream ID 13; INTERNAL_ERROR; received from peer", "connection_interrupted"},
 		{"failed", "invalid tool configuration", "execution_failed"},
+		{"failed", "LLM call failed: openai API error (HTTP 401): {\"error\":{\"message\":\"Your authentication token has been invalidated.\",\"code\":\"token_invalidated\"},\"status\":401}", "model_auth_invalid"},
+		{"failed", "LLM call failed: Codex login expired; reconnect your ChatGPT account", "model_auth_invalid"},
+		{"failed", "LLM call failed: Codex is not connected", "model_unconfigured"},
+		{"failed", "provider is required", "model_unconfigured"},
+		{"failed", "LLM call failed: openai API error (HTTP 429): {\"error\":{\"type\":\"usage_limit_reached\"}}", "model_quota_exhausted"},
+		{"failed", "LLM call failed: openai API error (HTTP 4010): synthetic", "execution_failed"},
+		{"failed", "tool returned 401 for synthetic fixture", "execution_failed"},
 		{"failed", "", "execution_failed"},
 		{"running", "old error", ""}, {"done", "", ""}, {"cancelled", "context cancelled", ""},
 	} {

@@ -14,6 +14,7 @@ import (
 	"sort"
 	"strings"
 	"time"
+	"unicode"
 
 	"github.com/JackZhao98/tofibot/internal/runtime"
 )
@@ -25,6 +26,7 @@ const (
 	summaryChunkMessages   = 80
 	maxSummaryInputRunes   = 24000
 	keepRecentMessages     = 80
+	summaryOverlapMessages = 10
 )
 
 func (s *Server) startSummaryWorkers() {
@@ -250,8 +252,9 @@ func formatSummaryMessages(msgs []Message) string {
 }
 
 func (s *Server) longTermMemoryTools(c Conversation, r Run) []Tool {
+	scopeConv := s.memoryConversationID(c, r.BotID)
 	scopeOK := func(m Memory) bool {
-		if m.ConversationID != c.ID {
+		if m.ConversationID != scopeConv {
 			return false
 		}
 		if c.Kind == "group" {
@@ -259,22 +262,35 @@ func (s *Server) longTermMemoryTools(c Conversation, r Run) []Tool {
 		}
 		return m.BotID == "" || m.BotID == r.BotID
 	}
+	resolve := func(id string) (Memory, error) {
+		if m, err := s.store.GetMemory(id); err == nil && scopeOK(m) {
+			return m, nil
+		}
+		ms, err := s.scopedMemories(c, r.BotID)
+		if err != nil {
+			return Memory{}, err
+		}
+		if m, ok := resolveMemoryAlias(ms, id); ok {
+			return m, nil
+		}
+		return Memory{}, errors.New("memory not found in scope")
+	}
 	return []Tool{
-		{Name: "list_memory", Description: "list durable memories in this conversation scope", Parameters: objectSchema(map[string]any{}, nil), Execute: func(ctx context.Context, _ json.RawMessage) (string, error) {
+		{Name: "list_memory", Description: "List durable memories in this conversation scope, newest first, at most 50 per call with the total count; pass offset for older entries.", Parameters: objectSchema(map[string]any{"offset": map[string]any{"type": "integer", "minimum": 0}}, nil), Execute: func(ctx context.Context, raw json.RawMessage) (string, error) {
 			if err := ctx.Err(); err != nil {
 				return "", err
 			}
-			var ms []Memory
-			var err error
-			if c.Kind == "group" {
-				ms, err = s.store.MemoriesForConversation(c.ID, c)
-			} else {
-				ms, err = s.store.Memories(c.ID, r.BotID)
+			var in struct {
+				Offset int `json:"offset"`
 			}
+			if len(raw) > 0 && json.Unmarshal(raw, &in) != nil || in.Offset < 0 {
+				return "", errors.New("offset must be a non-negative integer")
+			}
+			ms, err := s.scopedMemories(c, r.BotID)
 			if err != nil {
 				return "", err
 			}
-			b, _ := json.Marshal(ms)
+			b, _ := json.Marshal(memoryPage(ms, in.Offset))
 			return string(b), nil
 		}},
 		{Name: "update_memory", Description: "Update scoped factual memory and its concise localized title/description. Preserve factual meaning and original data language; write any assistant-authored instructions in English.", Parameters: objectSchema(memoryUpdateProperties(), []string{"id", "title", "description", "content"}), Execute: func(ctx context.Context, raw json.RawMessage) (string, error) {
@@ -285,9 +301,9 @@ func (s *Server) longTermMemoryTools(c Conversation, r Run) []Tool {
 			if json.Unmarshal(raw, &x) != nil || x.ID == "" || x.Content == "" {
 				return "", errors.New("id and content required")
 			}
-			m, err := s.store.GetMemory(x.ID)
-			if err != nil || !scopeOK(m) {
-				return "", errors.New("memory not found in scope")
+			m, err := resolve(x.ID)
+			if err != nil {
+				return "", err
 			}
 			if err := ctx.Err(); err != nil {
 				return "", err
@@ -295,7 +311,7 @@ func (s *Server) longTermMemoryTools(c Conversation, r Run) []Tool {
 			if _, _, err := normalizeDisplayMetadata(x.Title, x.Description, true); err != nil {
 				return "", err
 			}
-			m, err = s.store.PatchMemory(x.ID, MemoryPatch{Title: &x.Title, Description: &x.Description, Content: &x.Content})
+			m, err = s.store.PatchMemory(m.ID, MemoryPatch{Title: &x.Title, Description: &x.Description, Content: &x.Content})
 			if err != nil {
 				return "", err
 			}
@@ -309,17 +325,158 @@ func (s *Server) longTermMemoryTools(c Conversation, r Run) []Tool {
 			if json.Unmarshal(raw, &x) != nil || x.ID == "" {
 				return "", errors.New("id required")
 			}
-			m, err := s.store.GetMemory(x.ID)
-			if err != nil || !scopeOK(m) {
-				return "", errors.New("memory not found in scope")
+			m, err := resolve(x.ID)
+			if err != nil {
+				return "", err
 			}
 			if err := ctx.Err(); err != nil {
 				return "", err
 			}
-			if err = s.store.DeleteMemory(x.ID); err != nil {
+			if err = s.store.DeleteMemory(m.ID); err != nil {
 				return "", err
 			}
-			return x.ID, nil
+			return m.ID, nil
 		}},
 	}
+}
+
+const (
+	maxListedMemories    = 50
+	memoryAliasLength    = 8
+	memoryOmittedReserve = 96
+)
+
+// memoryConversationID is the one scope for saving, listing and injecting
+// memories. DM context is read from the Bot's canonical DM, so DM memories are
+// saved and listed there too.
+func (s *Server) memoryConversationID(c Conversation, botID string) string {
+	if c.Kind == "dm" {
+		if bot, err := s.store.GetBot(botID); err == nil && bot.DMConversationID != "" {
+			return bot.DMConversationID
+		}
+	}
+	return c.ID
+}
+
+// scopedMemories returns the run's visible memories in creation order.
+func (s *Server) scopedMemories(c Conversation, botID string) ([]Memory, error) {
+	if c.Kind == "group" {
+		return s.store.MemoriesForConversation(c.ID, c)
+	}
+	return s.store.Memories(s.memoryConversationID(c, botID), botID)
+}
+
+func memoryAlias(id string) string {
+	if len(id) > memoryAliasLength {
+		id = id[:memoryAliasLength]
+	}
+	return "m:" + id
+}
+
+// resolveMemoryAlias accepts the injected [m:abcd1234] alias or an unambiguous
+// id prefix of at least the alias length within the already scoped memories.
+func resolveMemoryAlias(ms []Memory, ref string) (Memory, bool) {
+	ref = strings.TrimSpace(strings.TrimSuffix(strings.TrimPrefix(strings.TrimSpace(ref), "["), "]"))
+	ref = strings.TrimPrefix(ref, "m:")
+	if len(ref) < memoryAliasLength {
+		return Memory{}, false
+	}
+	var found Memory
+	matches := 0
+	for _, m := range ms {
+		if strings.HasPrefix(m.ID, ref) {
+			found = m
+			matches++
+		}
+	}
+	return found, matches == 1
+}
+
+// normalizedMemoryText ignores case and runs of whitespace, punctuation and
+// symbols so a restated fact is recognized as the same memory. Characters that
+// carry meaning (+ # - / %, an inner . or :, and any mark next to a digit)
+// are kept, so "1/12" and "11/2" or "C++" and "C" stay distinct; a
+// sentence-ending period is not.
+func normalizedMemoryText(content string) string {
+	rs := []rune(strings.ToLower(content))
+	var b strings.Builder
+	gap := false
+	for i, r := range rs {
+		keep := !unicode.IsSpace(r) && !unicode.IsPunct(r) && !unicode.IsSymbol(r)
+		if !keep && !unicode.IsSpace(r) {
+			next := i+1 < len(rs) && (unicode.IsLetter(rs[i+1]) || unicode.IsDigit(rs[i+1]))
+			keep = strings.ContainsRune("+#-/%", r) || (strings.ContainsRune(".:", r) && next) ||
+				(i > 0 && unicode.IsDigit(rs[i-1])) || (i+1 < len(rs) && unicode.IsDigit(rs[i+1]))
+		}
+		if !keep {
+			gap = true
+			continue
+		}
+		if gap && b.Len() > 0 {
+			b.WriteByte(' ')
+		}
+		gap = false
+		b.WriteRune(r)
+	}
+	return b.String()
+}
+
+func duplicateMemory(ms []Memory, content string) (Memory, bool) {
+	want := normalizedMemoryText(content)
+	if want == "" {
+		return Memory{}, false
+	}
+	for i := len(ms) - 1; i >= 0; i-- {
+		if normalizedMemoryText(ms[i].Content) == want {
+			return ms[i], true
+		}
+	}
+	return Memory{}, false
+}
+
+type memoryListPage struct {
+	Total      int      `json:"total"`
+	Offset     int      `json:"offset"`
+	NextOffset int      `json:"next_offset,omitempty"`
+	Memories   []Memory `json:"memories"`
+}
+
+func memoryPage(ms []Memory, offset int) memoryListPage {
+	page := memoryListPage{Total: len(ms), Offset: offset, Memories: make([]Memory, 0)}
+	for i := len(ms) - 1 - offset; i >= 0 && len(page.Memories) < maxListedMemories; i-- {
+		page.Memories = append(page.Memories, ms[i])
+	}
+	if next := offset + len(page.Memories); next < len(ms) {
+		page.NextOffset = next
+	}
+	return page
+}
+
+// memoryContext renders memories newest first with short aliases. Older
+// entries that do not fit the unchanged budget are counted, not silently lost.
+func memoryContext(ms []Memory) string {
+	var b strings.Builder
+	used, omitted := 0, 0
+	for i := len(ms) - 1; i >= 0; i-- {
+		remaining := maxMemoryRunes - memoryOmittedReserve - used - 1
+		if remaining <= 0 {
+			omitted = i + 1
+			break
+		}
+		line := "[" + memoryAlias(ms[i].ID) + "] " + ms[i].Content
+		cost := len([]rune(line))
+		if cost > remaining {
+			line = trimRunesMarker(line, remaining, "\n[… truncated; use list_memory for the full memory …]")
+			cost = len([]rune(line))
+			omitted = i
+			i = -1
+		}
+		b.WriteString(line)
+		b.WriteByte('\n')
+		used += cost + 1
+	}
+	if omitted > 0 {
+		fmt.Fprintf(&b, "[… %d older memories omitted; use list_memory …]\n", omitted)
+	}
+	return b.String()
 }

@@ -3,6 +3,7 @@ package runtime
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -278,8 +279,10 @@ func TestRunStopsAtBeforeModelBoundary(t *testing.T) {
 			return context.Canceled
 		},
 	})
-	if err != nil {
-		t.Fatalf("safe boundary returned error: %v", err)
+	// A stopped boundary is not a completed run: it must surface as an error
+	// so the caller never finishes the run "done" without an answer.
+	if !errors.Is(err, context.Canceled) {
+		t.Fatalf("safe boundary err = %v, want context.Canceled", err)
 	}
 	if called != 1 || result.Content != "" {
 		t.Fatalf("boundary calls=%d result=%+v", called, result)
@@ -392,7 +395,8 @@ func TestRuntimeSystemPromptOverheadMatchesProviderRequest(t *testing.T) {
 	e := &engine{provider: p, model: "test-model"}
 	const limit = 16000
 	system := strings.Repeat("文", limit-SystemPromptOverheadRunes())
-	_, err := e.Run(context.Background(), Request{RunID: "prompt-budget", BotID: "bot", System: system, Messages: []Message{{Role: "user", Content: "hello"}}})
+	tools := []Tool{{Name: "tick", Parameters: map[string]any{"type": "object"}, Execute: func(context.Context, json.RawMessage) (string, error) { return "ok", nil }}}
+	_, err := e.Run(context.Background(), Request{RunID: "prompt-budget", BotID: "bot", System: system, Messages: []Message{{Role: "user", Content: "hello"}}, Tools: tools})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -404,4 +408,13 @@ func TestRuntimeSystemPromptOverheadMatchesProviderRequest(t *testing.T) {
 		t.Fatalf("reserved suffix=%d, actual system=%d", SystemPromptOverheadRunes(), len([]rune(actual)))
 	}
 	t.Logf("runtime agent suffix=%d runes; full provider system=%d", SystemPromptOverheadRunes(), len([]rune(actual)))
+
+	// A tool-free request (summary, triage) cannot owe progress reports.
+	plain := &scriptedProvider{called: true}
+	if _, err := (&engine{provider: plain, model: "test-model"}).Run(context.Background(), Request{RunID: "plain", BotID: "bot", System: "summarize", Messages: []Message{{Role: "user", Content: "hello"}}}); err != nil {
+		t.Fatal(err)
+	}
+	if len(plain.requests) != 1 || plain.requests[0].System != "summarize" {
+		t.Fatalf("tool-free system=%q", plain.requests[0].System)
+	}
 }

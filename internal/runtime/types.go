@@ -29,11 +29,18 @@ type Tool struct {
 	// ResolveIdentity may make a bounded, read-only backend lookup. A failure
 	// here is known to precede execution, and must not become uncertain effect.
 	ResolveIdentity func(context.Context, json.RawMessage) (tooloutcome.Identity, error)
+	// CheckReadiness is a bounded, read-only method check. Backends invoke it
+	// before asking for approval and again immediately before dispatch.
+	CheckReadiness func(context.Context) (MethodReadiness, error)
+	// ApprovalExpiryReadOnly is set only by a backend-owned executor whose
+	// scoped observation is independently authorized. Remote metadata cannot set it.
+	ApprovalExpiryReadOnly bool
 }
 
 // ToolEvent describes one provider tool call and its lifecycle. Arguments and
-// Result are bounded by the runtime before they leave this package; the full
-// result returned by a tool is still passed to the model by the agent loop.
+// Result are bounded by the runtime before they leave this package. Result is
+// taken from the tool's full output; the agent loop separately bounds the
+// copy it passes to the model.
 type ToolEvent struct {
 	CallID    string               `json:"call_id"`
 	Name      string               `json:"name"`
@@ -42,17 +49,24 @@ type ToolEvent struct {
 	Status    string               `json:"status"`
 	Truncated bool                 `json:"truncated"`
 	Outcome   *tooloutcome.Outcome `json:"outcome,omitempty"`
+	// Risk is the call's identity risk class (tooloutcome.Observation, ...),
+	// resolved by the backend from the tool's Identity, never from results.
+	Risk string `json:"risk,omitempty"`
 }
 
 type Request struct {
-	BotID           string
-	RunID           string
-	System          string
-	Model           string
-	ReasoningEffort string
-	Messages        []Message
-	Tools           []Tool
-	OnDelta         func(string)
+	ApprovalExpiryRecovery bool
+	BotID                  string
+	RunID                  string
+	System                 string
+	Model                  string
+	ReasoningEffort        string
+	Messages               []Message
+	Tools                  []Tool
+	OnDelta                func(string)
+	// ConversationID keys the provider prompt cache across runs of one
+	// conversation; RunID is the fallback.
+	ConversationID string
 	// OnAssistantTurn is called for completed non-final assistant turns with
 	// non-empty public content immediately before their tool calls are queued or
 	// executed. It is also called for a budget wrap-up turn whose tool calls are
@@ -63,14 +77,28 @@ type Request struct {
 	OnContextEstimate func(estimatedInput int)
 	OnUsage           func(inputTokens, outputTokens int64)
 	OnCompact         func(originalTokens, compactedTokens int)
+	// OnThinking receives provider reasoning-summary deltas. They are never
+	// part of the answer and must not be mixed into OnDelta output.
+	OnThinking func(delta string)
+	// OnRetry is called before the provider retries a failed model request
+	// after a backoff of wait.
+	OnRetry func(attempt int, wait time.Duration)
+	// OnStreamReset discards OnDelta output already streamed by a model call
+	// that was aborted and is about to be retried.
+	OnStreamReset func()
+	// OnReviewDraft, when set, receives a final draft that BeforeFinalResponse
+	// sent back for review; it replaces the OnAssistantTurn publication of that
+	// draft, which the reviewed final answer supersedes.
+	OnReviewDraft func(turnIndex int, content string) error
 	// BeforeModelCall runs at the safe boundary immediately before each model
 	// request, after prior streaming and tool work has settled.
 	BeforeModelCall func() error
 	// BeforeFinalResponse reviews cleaned, non-empty text-only final content.
 	// An empty reminder accepts; an error aborts; a non-empty reminder requests
 	// at most one repair using existing history and the remaining run budget.
-	// The draft is published through OnAssistantTurn, but the internal reminder
-	// is not published. It is skipped after repair or on cancellation.
+	// The draft is published through OnReviewDraft (or OnAssistantTurn when
+	// unset), but the internal reminder is not. It is skipped after repair or
+	// on cancellation.
 	BeforeFinalResponse func(content string) (reminder string, err error)
 	// FinalResponseRepairTools permits one reserved repair after an exhausted
 	// run budget. The repair request exposes and executes only these named
@@ -113,4 +141,20 @@ type Config struct {
 	BaseURL     string
 	Model       string
 	Credential  func(context.Context) (string, error)
+	// Resolve, when set, routes every model request by its model ID
+	// (ModelProvider) and supplies that provider's credential. Provider,
+	// APIKey, BaseURL and Credential are then unused.
+	Resolve func(ctx context.Context, providerName string) (string, error)
+	// Endpoint optionally overrides a routed provider's base URL.
+	Endpoint func(providerName string) string
 }
+
+type MethodReadiness string
+
+const (
+	MethodReady         MethodReadiness = "ready"
+	MethodNotConfigured MethodReadiness = "not_configured"
+	MethodAuthRequired  MethodReadiness = "auth_required"
+	MethodUnavailable   MethodReadiness = "unavailable"
+	MethodUnknown       MethodReadiness = "unknown"
+)

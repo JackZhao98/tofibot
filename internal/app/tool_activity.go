@@ -51,6 +51,8 @@ type ToolActivityRunSummary struct {
 	FailedCount      int    `json:"failed_count"`
 	InterruptedCount int    `json:"interrupted_count"`
 	PendingCount     int    `json:"pending_count"`
+	ExpiredCount     int    `json:"expired_count"`
+	SkippedCount     int    `json:"skipped_count"`
 	StartedAt        string `json:"started_at"`
 	UpdatedAt        string `json:"updated_at"`
 }
@@ -273,7 +275,7 @@ func (s *Store) ToolActivitySummaries(conversationID string, runIDs []string) ([
 		placeholders = append(placeholders, "?")
 		args = append(args, id)
 	}
-	rows, err := s.db.Query(`SELECT run_id,MIN(bot_id),COUNT(*),COALESCE(SUM(status='completed'),0),COALESCE(SUM(status='failed'),0),COALESCE(SUM(status='interrupted'),0),COALESCE(SUM(status IN ('queued','running')),0),COALESCE(MIN(started_at),''),COALESCE(MAX(updated_at),'')
+	rows, err := s.db.Query(`SELECT run_id,MIN(bot_id),COUNT(*),COALESCE(SUM(status='completed'),0),COALESCE(SUM(status='failed' AND COALESCE(json_extract(NULLIF(outcome_json,''),'$.status'),'')<>'approval_expired' AND COALESCE(json_extract(NULLIF(outcome_json,''),'$.code'),'')<>'batch_skipped'),0),COALESCE(SUM(status='interrupted'),0),COALESCE(SUM(status IN ('queued','running')),0),COALESCE(MIN(started_at),''),COALESCE(MAX(updated_at),''),COALESCE(SUM(json_extract(NULLIF(outcome_json,''),'$.status')='approval_expired'),0),COALESCE(SUM(json_extract(NULLIF(outcome_json,''),'$.code')='batch_skipped'),0)
 FROM tool_activities WHERE conversation_id=? AND run_id IN (`+strings.Join(placeholders, ",")+`) GROUP BY run_id`, args...)
 	if err != nil {
 		return nil, err
@@ -282,12 +284,36 @@ FROM tool_activities WHERE conversation_id=? AND run_id IN (`+strings.Join(place
 	summaries := make([]ToolActivityRunSummary, 0, len(runIDs))
 	for rows.Next() {
 		var summary ToolActivityRunSummary
-		if err = rows.Scan(&summary.RunID, &summary.BotID, &summary.ToolCount, &summary.CompletedCount, &summary.FailedCount, &summary.InterruptedCount, &summary.PendingCount, &summary.StartedAt, &summary.UpdatedAt); err != nil {
+		if err = rows.Scan(&summary.RunID, &summary.BotID, &summary.ToolCount, &summary.CompletedCount, &summary.FailedCount, &summary.InterruptedCount, &summary.PendingCount, &summary.StartedAt, &summary.UpdatedAt, &summary.ExpiredCount, &summary.SkippedCount); err != nil {
 			return nil, err
 		}
 		summaries = append(summaries, summary)
 	}
-	return summaries, rows.Err()
+	if err = rows.Err(); err != nil {
+		return nil, err
+	}
+	rows.Close()
+	// A finished run in this conversation with no rows recorded zero tools; say
+	// so explicitly instead of leaving the client to guess it is still loading.
+	seen := make(map[string]bool, len(summaries))
+	for _, summary := range summaries {
+		seen[summary.RunID] = true
+	}
+	empty, err := s.db.Query(`SELECT id,bot_id,updated_at FROM runs WHERE conversation_id=? AND status IN ('done','failed','cancelled','interrupted') AND id IN (`+strings.Join(placeholders, ",")+`)`, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer empty.Close()
+	for empty.Next() {
+		var summary ToolActivityRunSummary
+		if err = empty.Scan(&summary.RunID, &summary.BotID, &summary.UpdatedAt); err != nil {
+			return nil, err
+		}
+		if !seen[summary.RunID] {
+			summaries = append(summaries, summary)
+		}
+	}
+	return summaries, empty.Err()
 }
 
 // ToolActivitiesForRun returns one bounded detail page for a single run. The
@@ -430,13 +456,11 @@ func (s *Store) InterruptToolActivities(runID string) error {
 	}
 	var pending []ToolActivity
 	for rows.Next() {
-		var a ToolActivity
-		var truncated int
-		if err = rows.Scan(&a.ConversationID, &a.BotID, &a.RunID, &a.CallID, &a.Name, &a.Arguments, &a.Result, &a.Status, &truncated, &a.StartedAt, &a.UpdatedAt); err != nil {
+		a, scanErr := scanToolActivity(rows)
+		if scanErr != nil {
 			rows.Close()
-			return err
+			return scanErr
 		}
-		a.Truncated = truncated != 0
 		a.Status = "interrupted"
 		a.UpdatedAt = now()
 		pending = append(pending, a)

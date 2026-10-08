@@ -64,7 +64,7 @@ func (s *Server) displayTools(c Conversation, r Run) []Tool {
 		"to":          map[string]any{"type": "string"},
 		"subject":     map[string]any{"type": "string"},
 		"summary":     map[string]any{"type": "string"},
-		"received_at": map[string]any{"type": "string"},
+		"received_at": map[string]any{"type": "string", "description": "When the email was received, as ISO 8601 with its UTC offset, e.g. 2026-10-05T14:05:00-07:00"},
 		"source":      map[string]any{"type": "string", "description": "Where this content came from; use a real source, not a fabricated citation"},
 	}, []string{"type", "body"}), Execute: func(ctx context.Context, raw json.RawMessage) (string, error) {
 		if err := ctx.Err(); err != nil {

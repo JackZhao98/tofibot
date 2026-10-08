@@ -144,7 +144,7 @@ func (s *Server) teamTools(c Conversation, r Run) []Tool {
 		return Tool{Name: name, Description: desc, Parameters: objectSchema(props, req), Execute: fn}
 	}
 	return []Tool{
-		tool("create_bot", "Create or reuse a specialist bot for this run (bounded).", map[string]any{"name": map[string]any{"type": "string"}, "instructions": map[string]any{"type": "string"}, "model": map[string]any{"type": "string", "description": "Optional exact configured model ID. Omit to use the workspace default; do not invent model identifiers."}}, []string{"name", "instructions"}, func(ctx context.Context, args json.RawMessage) (string, error) {
+		tool("create_bot", "Create or reuse a specialist bot for this run (bounded).", map[string]any{"name": map[string]any{"type": "string"}, "instructions": map[string]any{"type": "string"}, "model": map[string]any{"type": "string", "description": "Optional exact configured model ID to pin. Omit to follow the workspace global model; do not invent model identifiers."}}, []string{"name", "instructions"}, func(ctx context.Context, args json.RawMessage) (string, error) {
 			if err := ctx.Err(); err != nil {
 				return "", err
 			}
@@ -163,12 +163,10 @@ func (s *Server) teamTools(c Conversation, r Run) []Tool {
 			if x.Instructions, err = normalizeTeamText(x.Instructions, "instructions", maxSystemRunes); err != nil {
 				return "", err
 			}
-			x.Model = strings.TrimSpace(x.Model)
-			switch strings.ToLower(x.Model) {
-			case "default", "auto", "inherit":
-				x.Model = ""
-			}
-			if x.Model != "" && x.Model != s.defaultModel {
+			// Team-created Bots follow the global model unless a configured
+			// model is named.
+			x.Model = s.normalizeBotModel(x.Model)
+			if x.Model != followGlobalModel && x.Model != s.defaultModel {
 				var configured int
 				if err = s.store.db.QueryRow(`SELECT COUNT(*) FROM bots WHERE model=?`, x.Model).Scan(&configured); err != nil {
 					return "", err
@@ -193,7 +191,7 @@ func (s *Server) teamTools(c Conversation, r Run) []Tool {
 				var archived int
 				e = tx.QueryRow(`SELECT id,name,instructions,model,reasoning_effort,dm_conversation_id,created_at,archived FROM bots WHERE name=? AND instructions=? AND model=? AND archived=0`, x.Name, x.Instructions, x.Model).Scan(&b.ID, &b.Name, &b.Instructions, &b.Model, &b.ReasoningEffort, &b.DMConversationID, &b.CreatedAt, &archived)
 				if e == sql.ErrNoRows {
-					b = Bot{ID: uuid.NewString(), Name: x.Name, Instructions: x.Instructions, Model: x.Model, DMConversationID: uuid.NewString(), CreatedAt: now()}
+					b = Bot{ID: uuid.NewString(), Name: x.Name, Instructions: x.Instructions, Model: x.Model, ReasoningEffort: followGlobalModel, DMConversationID: uuid.NewString(), CreatedAt: now()}
 					if _, e = tx.Exec(`INSERT INTO bots(id,name,instructions,model,reasoning_effort,dm_conversation_id,created_at) VALUES(?,?,?,?,?,?,?)`, b.ID, b.Name, b.Instructions, b.Model, b.ReasoningEffort, b.DMConversationID, b.CreatedAt); e != nil {
 						return "", e
 					}

@@ -45,9 +45,10 @@ type DeviceSession struct {
 }
 
 type Status struct {
-	Connected bool  `json:"connected"`
-	ExpiresAt int64 `json:"expires_at,omitempty"`
-	Pending   bool  `json:"pending,omitempty"`
+	Connected      bool  `json:"connected"`
+	ExpiresAt      int64 `json:"expires_at,omitempty"`
+	Pending        bool  `json:"pending,omitempty"`
+	NeedsReconnect bool  `json:"needs_reconnect,omitempty"`
 }
 
 type token struct {
@@ -56,6 +57,9 @@ type token struct {
 	ExpiresAt    int64  `json:"expires_at"`
 	AccountID    string `json:"account_id,omitempty"`
 	AccessOnly   bool   `json:"access_only,omitempty"`
+	// Rejected records that the provider refused this credential and a refresh
+	// could not recover it. A new connection writes a fresh token without it.
+	Rejected bool `json:"rejected,omitempty"`
 }
 
 type pendingSession struct {
@@ -277,6 +281,9 @@ func (m *Manager) Status() Status {
 	if err != nil || t.AccessToken == "" || (t.AccessOnly && t.ExpiresAt <= now.Add(30*time.Second).UnixMilli()) || (!t.AccessOnly && t.RefreshToken == "") {
 		return Status{Pending: pending}
 	}
+	if t.Rejected {
+		return Status{Pending: pending, NeedsReconnect: true}
+	}
 	return Status{Connected: true, ExpiresAt: t.ExpiresAt, Pending: pending}
 }
 
@@ -292,6 +299,9 @@ func (m *Manager) Credential(ctx context.Context) (string, error) {
 	t, err := m.load()
 	if err != nil || t.AccessToken == "" || (!t.AccessOnly && t.RefreshToken == "") {
 		return "", errors.New("Codex is not connected")
+	}
+	if t.Rejected {
+		return "", errors.New("Codex sign-in was rejected; reconnect your ChatGPT account")
 	}
 	if t.AccessOnly {
 		if t.ExpiresAt > time.Now().Add(30*time.Second).UnixMilli() {
@@ -323,6 +333,9 @@ func (m *Manager) CredentialReadOnly(ctx context.Context) (string, error) {
 	if err != nil || t.AccessToken == "" {
 		return "", errors.New("Codex is not connected")
 	}
+	if t.Rejected {
+		return "", errors.New("Codex sign-in was rejected; reconnect your ChatGPT account")
+	}
 	if t.ExpiresAt <= time.Now().Add(30*time.Second).UnixMilli() {
 		return "", errors.New("Codex access snapshot expired; reconnect your ChatGPT account")
 	}
@@ -345,6 +358,35 @@ func (m *Manager) SaveAccessOnlyCredential(accessToken, accountID string, expire
 	m.pending = make(map[string]pendingSession)
 	m.mu.Unlock()
 	return m.save(token{AccessToken: accessToken, AccountID: accountID, ExpiresAt: expiresAt, AccessOnly: true})
+}
+
+// RecoverRejected handles a provider authentication rejection of the stored
+// credential. It refreshes once; only if that fails is the credential marked
+// rejected, so status reports a reconnect instead of a healthy connection.
+// It reports whether this call newly marked the credential as rejected.
+func (m *Manager) RecoverRejected(ctx context.Context) (bool, error) {
+	if ctx == nil {
+		return false, errors.New("Codex credential context is required")
+	}
+	m.refresh.Lock()
+	defer m.refresh.Unlock()
+	t, err := m.load()
+	if err != nil || t.AccessToken == "" || t.Rejected {
+		return false, nil
+	}
+	if !t.AccessOnly && t.RefreshToken != "" {
+		if _, err = m.refreshToken(ctx, t); err == nil {
+			return false, nil
+		} else if err.Error() != refreshRejected {
+			// Unreachable token endpoint or malformed reply: not a verdict.
+			return false, err
+		}
+	}
+	t.Rejected = true
+	if err = m.save(t); err != nil {
+		return false, err
+	}
+	return true, nil
 }
 
 func (m *Manager) Disconnect() error {
@@ -373,9 +415,12 @@ func (m *Manager) exchange(ctx context.Context, code, verifier string) (token, e
 	return m.postToken(ctx, form, "Codex token exchange failed")
 }
 
+// refreshRejected is the error for a token endpoint that answered and refused.
+const refreshRejected = "Codex login expired; reconnect your ChatGPT account"
+
 func (m *Manager) refreshToken(ctx context.Context, old token) (string, error) {
 	form := url.Values{"grant_type": {"refresh_token"}, "refresh_token": {old.RefreshToken}, "client_id": {clientID}}
-	newToken, err := m.postToken(ctx, form, "Codex login expired; reconnect your ChatGPT account")
+	newToken, err := m.postToken(ctx, form, refreshRejected)
 	if err != nil {
 		return "", err
 	}

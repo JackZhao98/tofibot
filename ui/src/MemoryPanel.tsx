@@ -13,7 +13,7 @@ import "./memory-metadata.css";
 const empty: MemoryInput = { title: "", description: "", content: "" };
 const ready = (input: MemoryInput) => !!(input.title.trim() && input.description.trim() && input.content.trim());
 
-export function MemoryPanel({ memories, onClose, onCreate, onUpdate, onDelete }: { memories: Memory[]; conversationId: string; onClose: () => void; onCreate: (input: MemoryInput) => Promise<void>; onUpdate: (id: string, input: ContentPatch) => Promise<void>; onDelete: (id: string) => Promise<void> }) {
+export function MemoryPanel({ memories, scope = "bot", onClose, onCreate, onUpdate, onDelete }: { memories: Memory[]; scope?: "bot" | "group"; conversationId: string; onClose: () => void; onCreate: (input: MemoryInput) => Promise<void>; onUpdate: (id: string, input: ContentPatch) => Promise<void>; onDelete: (id: string) => Promise<void> }) {
   const debug = useDebugMode();
   const [draft, setDraft] = useState<MemoryInput>(empty);
   const [editing, setEditing] = useState<string | null>(null);
@@ -37,7 +37,8 @@ export function MemoryPanel({ memories, onClose, onCreate, onUpdate, onDelete }:
   }
   const visible = memories.filter(item => [item.title, item.description, item.content].some(value => value?.toLocaleLowerCase().includes(query.trim().toLocaleLowerCase())));
   return <div className="detail-content">
-    <div className="detail-heading"><h2>记忆</h2><button className="close-button" aria-label="关闭记忆" onClick={onClose}><Icon name="close" size={18} /></button></div>
+    <div className="detail-heading"><h2>{scope === "group" ? "本群共享记忆" : "这个 Bot 的记忆"}</h2><button className="close-button" aria-label="关闭记忆" onClick={onClose}><Icon name="close" size={18} /></button></div>
+    <p className="field-note">{scope === "group" ? "这里的记忆由本群成员共享。" : "这里保存这个 Bot 的记忆。"}切换模型会保留已保存的记忆和聊天记录；不同模型使用这些内容的方式可能不同。</p>
     {error && <p className="error-text" role="alert">{error}</p>}
     <form className="memory-create" onSubmit={event => { event.preventDefault(); if (ready(draft)) void save(() => onCreate(draft), () => setDraft(empty)); }}>
       {fields(draft, setDraft, "新增记忆")}
@@ -54,6 +55,6 @@ export function MemoryPanel({ memories, onClose, onCreate, onUpdate, onDelete }:
         <details className="memory-details"><summary>查看完整记忆</summary><p>{memory.content}</p></details>
         <div className="memory-footer">{debug && <span>修订 {memory.revision}</span>}<span><button disabled={busy} onClick={() => { const initial = { title: memory.title || "", description: memory.description || "", content: memory.content }; setEditing(memory.id); setBaseline(initial); setEdit(initial); setError(""); }}>编辑</button><ConfirmAction label="删除" question="删除这条记忆？" disabled={busy} onConfirm={() => save(() => onDelete(memory.id), () => {})} /></span></div>
       </>}</div>;
-    })}{!visible.length && !!memories.length && <div className="panel-empty">没有匹配的记忆。</div>}{!memories.length && (isDesktop ? <div className="panel-empty">还没有记忆。</div> : <div className="panel-empty web-memory-empty"><WakeableCat config={{ shape: "loaf", pattern: "solid", palette: "ivory" }} name="糯米" size={84} /><strong>还没有记忆</strong><p>Bot 记住的事会出现在这里。</p></div>)}</div>
+    })}{!visible.length && !!memories.length && <div className="panel-empty">没有匹配的记忆。</div>}{!memories.length && (isDesktop ? <div className="panel-empty">还没有记忆。</div> : <div className="panel-empty web-memory-empty"><WakeableCat config={{ shape: "loaf", pattern: "solid", palette: "ivory" }} name="糯米" size={84} /><strong>还没有记忆</strong><p>{scope === "group" ? "本群保存的共享记忆会出现在这里。" : "这个 Bot 保存的记忆会出现在这里。"}</p></div>)}</div>
   </div>;
 }

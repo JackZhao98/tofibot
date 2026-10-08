@@ -6,6 +6,10 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { promisify } from "node:util";
 import vm from "node:vm";
+import { createServer } from "vite";
+const server = await createServer({configFile:false, root:dirname(dirname(fileURLToPath(import.meta.url))),server:{middlewareMode:true,hmr:false,ws:false},logLevel:"error"});
+const helpers = await server.ssrLoadModule("/src/taskIssuePresentation.ts");
+const {buildRetryFamilies,isTerminalRun} = await server.ssrLoadModule("/src/runFamily.ts");
 
 const root = dirname(dirname(fileURLToPath(import.meta.url)));
 const out = await mkdtemp(join(tmpdir(), "tofi-status-announcements-"));
@@ -33,7 +37,7 @@ function mount(source, name, nextFunction) {
     slots[key] = deps;
   };
   const component = vm.runInNewContext(`${source.slice(start, end).replace("export function", "function")}\n${name}`, {
-    useRef, useState, useEffect, _jsx: (tag, props) => ({ tag, props }), Map,
+    useRef, useState, useEffect, _jsx: (tag, props) => ({ tag, props }), Map, Set, isTerminalRun, window:{addEventListener(){},removeEventListener(){}}, buildRetryFamilies, taskLocale:helpers.taskLocale, taskPhaseLabel:helpers.taskPhaseLabel, presentTaskIssue:helpers.presentTaskIssue,
   });
   const mutations = [];
   let last;
@@ -86,9 +90,18 @@ try {
   }
   assert.equal(live.mutations.length, count, "same statuses never mutate the live region per token");
   props.runs = [old, run("new", "failed")];
-  assert.match(live.render(props), /失败.*重新执行/);
+  assert.match(live.render(props), /已停止/);
+  props.taskAnnouncements = new Map([["new", "执行前检查缺少必要信息。本次工具调用未执行。"]]);
+  assert.match(live.render(props), /缺少必要信息/);
+  const semanticCount = live.mutations.length;
+  props.taskAnnouncements = new Map(props.taskAnnouncements);
+  live.render(props);
+  assert.equal(live.mutations.length, semanticCount, "duplicate semantic SSE stays silent");
+  props.taskAnnouncements = new Map([["new", "执行前检查缺少必要信息。本次工具调用未执行。随后模型服务繁忙。"]]);
+  assert.match(live.render(props), /随后模型服务繁忙/);
+  props.taskAnnouncements = undefined;
   props.runs = [old, run("new", "done")];
-  assert.match(live.render(props), /已完成/);
+  assert.match(live.render(props), /本轮已结束/);
   props.runs.push(run("late-other-conversation", "failed", "b"));
   props.runs = [...props.runs];
   const previousCount = live.mutations.length;
@@ -115,4 +128,5 @@ try {
   console.log("status announcements: PASS (snapshot silence, run transitions, identity, token/frame silence, recovery)");
 } finally {
   await rm(out, { recursive: true, force: true });
+  await server.close();
 }

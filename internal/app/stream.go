@@ -12,8 +12,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/google/uuid"
 	"github.com/JackZhao98/tofibot/internal/agent"
+	"github.com/google/uuid"
 )
 
 const (
@@ -152,6 +152,20 @@ func (s *Store) AppendStreamDelta(ctx context.Context, runID, text string) (Stre
 // message identity for this turn; the draft row is then rotated for the next
 // turn. The idempotency record and all message/event state are one transaction.
 func (s *Store) PublishAssistantTurn(ctx context.Context, runID string, turnIndex int, content string) (Message, bool, error) {
+	return s.publishAssistantTurn(ctx, runID, turnIndex, content, false)
+}
+
+// PublishDemotedDraft publishes a final draft that was sent back for review
+// when the run ends without a reviewed answer (steered, failed, cancelled,
+// budget-exhausted or suspended). It runs at the terminal transition, so it
+// ignores the run context and accepts those run states; a done run already
+// published its answer. The demoted turn index keeps it idempotent. An
+// inactive draft keeps its row; the message gets a fresh identity.
+func (s *Store) PublishDemotedDraft(runID string, turnIndex int, content string) (Message, bool, error) {
+	return s.publishAssistantTurn(context.Background(), runID, turnIndex, content, true)
+}
+
+func (s *Store) publishAssistantTurn(ctx context.Context, runID string, turnIndex int, content string, terminal bool) (Message, bool, error) {
 	if err := ctx.Err(); err != nil {
 		return Message{}, false, err
 	}
@@ -185,7 +199,7 @@ func (s *Store) PublishAssistantTurn(ctx context.Context, runID string, turnInde
 	if err != nil {
 		return Message{}, false, err
 	}
-	if runStatus != "running" {
+	if runStatus != "running" && (!terminal || (runStatus != "waiting" && runStatus != "cancelled" && runStatus != "failed")) {
 		return Message{}, false, nil
 	}
 
@@ -193,14 +207,18 @@ func (s *Store) PublishAssistantTurn(ctx context.Context, runID string, turnInde
 	err = tx.QueryRow(`SELECT run_id,conversation_id,bot_id,message_id,seq,content,status,revision,created_at,updated_at
 		FROM stream_drafts WHERE run_id=?`, runID).
 		Scan(&draft.RunID, &draft.ConversationID, &draft.BotID, &draft.MessageID, &draft.Seq, &draft.Content, &draft.Status, &draft.Revision, &draft.CreatedAt, &draft.UpdatedAt)
-	if err == sql.ErrNoRows {
+	if err == sql.ErrNoRows && !terminal {
 		return Message{}, false, nil
 	}
-	if err != nil {
+	if err != nil && err != sql.ErrNoRows {
 		return Message{}, false, err
 	}
-	if draft.Status != streamDraftActive {
-		return Message{}, false, nil
+	rotateDraft := err == nil && draft.Status == streamDraftActive
+	if !rotateDraft {
+		if !terminal {
+			return Message{}, false, nil
+		}
+		draft = StreamDraft{MessageID: uuid.NewString()}
 	}
 
 	// A completed publication can be retried after a transient caller failure.
@@ -254,8 +272,10 @@ func (s *Store) PublishAssistantTurn(ctx context.Context, runID string, turnInde
 	}
 	// Do not reserve the next draft sequence until its first non-empty delta;
 	// an empty follow-up draft must not jump ahead of user messages.
-	if _, err = tx.Exec(`UPDATE stream_drafts SET message_id=?,seq=0,content='',status=?,revision=0,created_at=?,updated_at=? WHERE run_id=? AND status=?`, uuid.NewString(), streamDraftActive, t, t, runID, streamDraftActive); err != nil {
-		return Message{}, false, err
+	if rotateDraft {
+		if _, err = tx.Exec(`UPDATE stream_drafts SET message_id=?,seq=0,content='',status=?,revision=0,created_at=?,updated_at=? WHERE run_id=? AND status=?`, uuid.NewString(), streamDraftActive, t, t, runID, streamDraftActive); err != nil {
+			return Message{}, false, err
+		}
 	}
 	if _, err = tx.Exec(`INSERT INTO stream_assistant_turns(run_id,turn_index,message_id,created_at) VALUES(?,?,?,?)`, runID, turnIndex, m.ID, t); err != nil {
 		return Message{}, false, err
@@ -305,8 +325,15 @@ func (s *Store) StreamDrafts(conversationID string) ([]StreamDraft, error) {
 // callback uses the run context and reports persistence failures to onError so
 // the owner can cancel the engine rather than silently losing output.
 func (s *Store) StreamCallbacks(ctx context.Context, run Run, onError func(error)) (func(string), func(), error) {
+	onDelta, flush, _, err := s.StreamControls(ctx, run, onError)
+	return onDelta, flush, err
+}
+
+// StreamControls is StreamCallbacks plus reset, which drops unpersisted text
+// and discards the current draft (see ResetStreamDraft).
+func (s *Store) StreamControls(ctx context.Context, run Run, onError func(error)) (func(string), func(), func(), error) {
 	if _, err := s.BeginStream(run); err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
 	var mu sync.Mutex
 	var buffer []rune
@@ -328,14 +355,159 @@ func (s *Store) StreamCallbacks(ctx context.Context, run Run, onError func(error
 		}
 	}
 	return func(text string) {
-		mu.Lock()
-		defer mu.Unlock()
-		if failed || ctx.Err() != nil {
+			mu.Lock()
+			defer mu.Unlock()
+			if failed || ctx.Err() != nil {
+				return
+			}
+			buffer = append(buffer, []rune(text)...)
+			if persisted.IsZero() || time.Since(persisted) >= streamFlushInterval || len(buffer) >= maxStreamDeltaRunes {
+				flushLocked()
+			}
+		}, func() { mu.Lock(); defer mu.Unlock(); flushLocked() }, func() {
+			mu.Lock()
+			defer mu.Unlock()
+			buffer = nil
+			if failed || ctx.Err() != nil {
+				return
+			}
+			if err := s.ResetStreamDraft(ctx, run.ID); err != nil {
+				failed = true
+				if onError != nil {
+					onError(err)
+				}
+			}
+		}, nil
+}
+
+// ResetStreamDraft discards the active draft without publishing it: the draft
+// gets a fresh message identity and empty content, and a "draft_reset" event
+// {conversation_id, run_id, bot_id, message_id} names the discarded bubble.
+// It is used when a reviewed final answer or a retried model call supersedes
+// text that was already streamed. Nothing enters messages.
+func (s *Store) ResetStreamDraft(ctx context.Context, runID string) error {
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+	tx, err := s.db.Begin()
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	var d StreamDraft
+	err = tx.QueryRow(`SELECT run_id,conversation_id,bot_id,message_id,seq,content,status FROM stream_drafts WHERE run_id=?`, runID).
+		Scan(&d.RunID, &d.ConversationID, &d.BotID, &d.MessageID, &d.Seq, &d.Content, &d.Status)
+	if err == sql.ErrNoRows {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+	if d.Status != streamDraftActive || (d.Content == "" && d.Seq == 0) {
+		return nil
+	}
+	t := now()
+	if _, err = tx.Exec(`UPDATE stream_drafts SET message_id=?,seq=0,content='',revision=0,created_at=?,updated_at=? WHERE run_id=? AND status=?`, uuid.NewString(), t, t, runID, streamDraftActive); err != nil {
+		return err
+	}
+	b, _ := json.Marshal(map[string]any{"conversation_id": d.ConversationID, "run_id": d.RunID, "bot_id": d.BotID, "message_id": d.MessageID})
+	if _, err = tx.Exec(`INSERT INTO events(conversation_id,type,data,created_at) VALUES(?,?,?,?)`, d.ConversationID, "draft_reset", string(b), t); err != nil {
+		return err
+	}
+	return tx.Commit()
+}
+
+const (
+	thinkingEventInterval = 250 * time.Millisecond
+	maxThinkingEventRunes = 400
+)
+
+// ThinkingCallback publishes reasoning-summary progress as ephemeral
+// "thinking" events {conversation_id, run_id, bot_id, text}, where text is the
+// latest summary snippet (at most 400 runes). Events are throttled to one per
+// 250ms with a trailing update; each replaces the run's previous thinking row,
+// so a long think keeps one durable row. They never enter the answer draft or
+// messages. The returned stop cancels any pending update.
+func (s *Store) ThinkingCallback(ctx context.Context, run Run) (func(string), func()) {
+	var mu sync.Mutex
+	var text []rune
+	var last time.Time
+	var timer *time.Timer
+	var previous int64
+	stopped := false
+	emitLocked := func() {
+		if stopped || ctx.Err() != nil || len(text) == 0 {
 			return
 		}
-		buffer = append(buffer, []rune(text)...)
-		if persisted.IsZero() || time.Since(persisted) >= streamFlushInterval || len(buffer) >= maxStreamDeltaRunes {
-			flushLocked()
+		last = time.Now()
+		id, err := s.replaceEvent(previous, run.ConversationID, "thinking", map[string]any{"conversation_id": run.ConversationID, "run_id": run.ID, "bot_id": run.BotID, "text": string(text)})
+		if err != nil {
+			stopped = true // best effort: progress must never fail the run
+			return
 		}
-	}, func() { mu.Lock(); defer mu.Unlock(); flushLocked() }, nil
+		previous = id
+	}
+	return func(delta string) {
+			mu.Lock()
+			defer mu.Unlock()
+			if stopped {
+				return
+			}
+			text = append(text, []rune(delta)...)
+			if len(text) > maxThinkingEventRunes {
+				text = append([]rune(nil), text[len(text)-maxThinkingEventRunes:]...)
+			}
+			if wait := thinkingEventInterval - time.Since(last); wait <= 0 {
+				emitLocked()
+			} else if timer == nil {
+				timer = time.AfterFunc(wait, func() {
+					mu.Lock()
+					defer mu.Unlock()
+					timer = nil
+					emitLocked()
+				})
+			}
+		}, func() {
+			mu.Lock()
+			defer mu.Unlock()
+			stopped = true
+			if timer != nil {
+				timer.Stop()
+			}
+		}
+}
+
+// replaceEvent inserts an event and deletes the superseded row previous (when
+// nonzero) of the same conversation and type in one transaction.
+func (s *Store) replaceEvent(previous int64, conv, typ string, v any) (int64, error) {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return 0, err
+	}
+	tx, err := s.db.Begin()
+	if err != nil {
+		return 0, err
+	}
+	defer tx.Rollback()
+	if previous > 0 {
+		if _, err = tx.Exec(`DELETE FROM events WHERE id=? AND conversation_id=? AND type=?`, previous, conv, typ); err != nil {
+			return 0, err
+		}
+	}
+	res, err := tx.Exec(`INSERT INTO events(conversation_id,type,data,created_at) VALUES(?,?,?,?)`, conv, typ, string(b), now())
+	if err != nil {
+		return 0, err
+	}
+	id, err := res.LastInsertId()
+	if err != nil {
+		return 0, err
+	}
+	return id, tx.Commit()
+}
+
+// PublishRetry records a model-request backoff as a "retrying" event
+// {conversation_id, run_id, bot_id, attempt, wait_ms}. It carries no upstream
+// error text.
+func (s *Store) PublishRetry(run Run, attempt int, wait time.Duration) {
+	_, _ = s.Event(run.ConversationID, "retrying", map[string]any{"conversation_id": run.ConversationID, "run_id": run.ID, "bot_id": run.BotID, "attempt": attempt, "wait_ms": wait.Milliseconds()})
 }

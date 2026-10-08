@@ -10,9 +10,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"github.com/JackZhao98/tofibot/internal/extensions"
 	"github.com/JackZhao98/tofibot/internal/runtime"
+	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
 type mcpApprovalEngine struct{}
@@ -101,7 +101,7 @@ func TestMCPApprovalExactOneUseAndDenial(t *testing.T) {
 	store, conversation, run := questionFixture(t)
 	defer store.Close()
 	server := &Server{store: store}
-	call := extensions.MCPCallApproval{Server: "fixture", Tool: "publish", ConfigVersion: "v1", Arguments: json.RawMessage(`{"target":"draft","text":"hello"}`)}
+	call := extensions.MCPCallApproval{Server: "fixture", Tool: "publish", ConfigVersion: "v1", Schema: json.RawMessage(`{"type":"object"}`), Arguments: json.RawMessage(`{"target":"draft","text":"hello"}`)}
 	done := make(chan error, 1)
 	go func() { done <- server.approveMCPCall(context.Background(), conversation, run, call) }()
 	var question Question
@@ -180,7 +180,7 @@ func TestMCPApprovalExactOneUseAndDenial(t *testing.T) {
 func TestMCPApprovalRestoresAnsweredDecisionWithoutReasking(t *testing.T) {
 	dir := t.TempDir()
 	store, conversation, run := questionFixtureDir(t, dir)
-	call := extensions.MCPCallApproval{Server: "fixture", Tool: "write", ConfigVersion: "v1", Arguments: json.RawMessage(`{"value":"ok"}`)}
+	call := extensions.MCPCallApproval{Server: "fixture", Tool: "write", ConfigVersion: "v1", Schema: json.RawMessage(`{"type":"object"}`), Arguments: json.RawMessage(`{"value":"ok"}`)}
 	in, err := normalizeQuestionInput(askQuestionInput{Question: "Allow?", Type: questionApproval, Approval: &ApprovalDetails{Action: "write", Target: "fixture", Impact: "ok"}})
 	if err != nil {
 		t.Fatal(err)
@@ -245,7 +245,7 @@ func TestMCPApprovalPreservesLongUnicodeMultilinePayload(t *testing.T) {
 	}
 	dir := t.TempDir()
 	store, conversation, run := questionFixtureDir(t, dir)
-	call := extensions.MCPCallApproval{Server: "fixture", Tool: "write", ConfigVersion: "reviewed-config", Arguments: raw}
+	call := extensions.MCPCallApproval{Server: "fixture", Tool: "write", ConfigVersion: "reviewed-config", Schema: json.RawMessage(`{"type":"object"}`), Arguments: raw}
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	done := make(chan error, 1)
