@@ -98,7 +98,11 @@ func (s *Service) action(ctx context.Context, req ActionRequest) (any, error) {
 	}
 
 	if req.Action == "desktop.stop" || req.Action == "desktop.start" || !desktopNeedsSession(req.Action) {
-		return s.dispatchAction(ctx, req)
+		result, err := s.dispatchAction(ctx, req)
+		if err == nil && req.Action == "shell.exec" {
+			result = s.applyTabCap(ctx, req, result)
+		}
+		return result, err
 	}
 	if req.Source == ActionSourceViewer && viewerDesktopAction(req.Action) {
 		// A polling viewer must never consume a slot by itself. If the model or
@@ -115,7 +119,11 @@ func (s *Service) action(ctx context.Context, req ActionRequest) (any, error) {
 	}
 	defer release()
 	s.recordRunTabs(ctx, req)
-	return s.dispatchAction(ctx, req)
+	result, err := s.dispatchAction(ctx, req)
+	if err == nil {
+		result = s.applyTabCap(ctx, req, result)
+	}
+	return result, err
 }
 
 func needsSharedInputGate(action string) bool {
