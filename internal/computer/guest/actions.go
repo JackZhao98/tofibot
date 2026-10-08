@@ -28,6 +28,7 @@ import (
 type desktop struct {
 	streamActive       bool // legacy compatibility; protected by Service.mu
 	streamViewers      int  // shared desktop stream viewers; protected by Service.mu
+	tabCap             *tabCapTracker
 	shared             bool // one workspace session, rather than a legacy fixture desktop
 	botID              string
 	botDir             string

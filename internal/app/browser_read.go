@@ -177,7 +177,13 @@ func browserReadCommand(in browserReadArgs) (json.RawMessage, error) {
 	if err != nil {
 		return nil, err
 	}
-	command := "python3 - " + base64.StdEncoding.EncodeToString(opts) + " <<'TOFI_BROWSER_READ'\n" + browserReadScript + "\nTOFI_BROWSER_READ"
+	// The guest attaches tab-limit notes only to TOFI_BROWSER_READ results,
+	// which the model sees; locate probes for action review use another tag.
+	tag := "TOFI_BROWSER_READ"
+	if in.Dry || len(in.Probe) > 0 {
+		tag = "TOFI_BROWSER_LOCATE"
+	}
+	command := "python3 - " + base64.StdEncoding.EncodeToString(opts) + " <<'" + tag + "'\n" + browserReadScript + "\n" + tag
 	return json.Marshal(map[string]any{"command": command, "timeout_sec": 30})
 }
 
@@ -233,9 +239,10 @@ func (s *Server) browserClick(ctx context.Context, r Run, raw json.RawMessage) (
 // browserReadResult unwraps the shell envelope into the page JSON.
 func browserReadResult(out string) (string, error) {
 	var shell struct {
-		Stdout   string `json:"stdout"`
-		Stderr   string `json:"stderr"`
-		ExitCode int    `json:"exit_code"`
+		Stdout       string `json:"stdout"`
+		Stderr       string `json:"stderr"`
+		ExitCode     int    `json:"exit_code"`
+		TabLimitNote string `json:"tab_limit_note"`
 	}
 	if json.Unmarshal([]byte(out), &shell) != nil {
 		return out, nil
@@ -253,7 +260,25 @@ func browserReadResult(out string) (string, error) {
 	if strings.Contains(page, `"error": "click_target_not_found"`) {
 		return "", tooloutcome.InvalidArguments("browser.click: no visible element contains that text; read the page and use exact visible text")
 	}
-	return page, nil
+	return withTabLimitNote(page, shell.TabLimitNote), nil
+}
+
+// withTabLimitNote puts the guest's note about a tab it closed to stay within
+// the open-tab limit at the front of the page JSON.
+func withTabLimitNote(page, note string) string {
+	note = strings.TrimSpace(note)
+	if note == "" || !strings.HasPrefix(page, "{") {
+		return page
+	}
+	encoded, err := json.Marshal(note)
+	if err != nil {
+		return page
+	}
+	rest := strings.TrimSpace(page[1:])
+	if rest == "}" {
+		return `{"tab_limit_note": ` + string(encoded) + `}`
+	}
+	return `{"tab_limit_note": ` + string(encoded) + `, ` + rest
 }
 
 // Risk follows what an action does, not the tool performing it (owner rule
