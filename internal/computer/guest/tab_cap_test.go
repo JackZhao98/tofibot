@@ -86,16 +86,16 @@ func TestTabCapClosesLeastRecentlyUsedTabsBeyondLimit(t *testing.T) {
 	// Tabs opened over time: a first, then b, c, d; each new tab is active.
 	for i, id := range []string{"a", "b", "c"} {
 		browser.open(id, "Site "+id, "https://"+id+".example/")
-		if closed := tracker.enforce(context.Background(), browser, 3, now.Add(time.Duration(i)*10*time.Second), false); closed != 0 {
+		if closed := tracker.enforce(context.Background(), browser, 3, 0, now.Add(time.Duration(i)*10*time.Second), false); closed != 0 {
 			t.Fatalf("closed %d tabs within the limit", closed)
 		}
 	}
 	// The person returns to a, so b is now least recently used.
 	browser.activate("a")
-	tracker.enforce(context.Background(), browser, 3, now.Add(40*time.Second), false)
+	tracker.enforce(context.Background(), browser, 3, 0, now.Add(40*time.Second), false)
 	browser.open("d", "Site d", "https://d.example/")
 	// d is new and active; the cap needs one victim and the oldest is b.
-	closed := tracker.enforce(context.Background(), browser, 3, now.Add(50*time.Second), false)
+	closed := tracker.enforce(context.Background(), browser, 3, 0, now.Add(50*time.Second), false)
 	if closed != 1 || strings.Join(browser.closed, ",") != "b" {
 		t.Fatalf("closed=%d %v, want the least recently used tab b", closed, browser.closed)
 	}
@@ -108,6 +108,19 @@ func TestTabCapClosesLeastRecentlyUsedTabsBeyondLimit(t *testing.T) {
 	}
 	if again := tracker.drainNotes(); again != "" {
 		t.Fatalf("notes were not consumed: %q", again)
+	}
+	// Before the Bot opens a tab at the cap, one slot is freed first; the
+	// note still names the configured limit.
+	closed = tracker.enforce(context.Background(), browser, 3, 1, now.Add(70*time.Second), false)
+	if closed != 1 || strings.Join(browser.ids(), ",") != "d,a" {
+		t.Fatalf("closed=%d remaining=%v, want c closed to make room", closed, browser.ids())
+	}
+	if note := tracker.drainNotes(); !strings.Contains(note, `"Site c (c.example)"`) || !strings.Contains(note, "3-tab limit") {
+		t.Fatalf("note = %q", note)
+	}
+	// A limit of one never closes the active tab to make room.
+	if closed := tracker.enforce(context.Background(), browser, 1, 1, now.Add(80*time.Second), false); closed != 1 || strings.Join(browser.ids(), ",") != "d" {
+		t.Fatalf("closed=%d remaining=%v", closed, browser.ids())
 	}
 }
 
@@ -138,18 +151,18 @@ func TestTabCapProtectsActiveNewAndHumanTabs(t *testing.T) {
 		tracker := newTabCapTracker()
 		browser := &fakeTabBrowser{}
 		browser.open("old", "Old", "https://old/")
-		tracker.enforce(context.Background(), browser, 1, start, false)
+		tracker.enforce(context.Background(), browser, 1, 0, start, false)
 		browser.open("new", "New", "https://new/")
 		// "new" is active and brand new; "old" is the only candidate but is
 		// itself within grace of its own first sighting only at start.
-		if closed := tracker.enforce(context.Background(), browser, 1, start.Add(time.Second), false); closed != 0 {
+		if closed := tracker.enforce(context.Background(), browser, 1, 0, start.Add(time.Second), false); closed != 0 {
 			t.Fatalf("closed %d tabs while the only candidate was protected", closed)
 		}
-		if closed := tracker.enforce(context.Background(), browser, 1, start.Add(10*time.Second), false); closed != 1 || browser.closed[0] != "old" {
+		if closed := tracker.enforce(context.Background(), browser, 1, 0, start.Add(10*time.Second), false); closed != 1 || browser.closed[0] != "old" {
 			t.Fatalf("closed=%d %v, want old", closed, browser.closed)
 		}
 		// One tab over a limit of one: the active tab is never closed.
-		if closed := tracker.enforce(context.Background(), browser, 1, start.Add(time.Minute), false); closed != 0 {
+		if closed := tracker.enforce(context.Background(), browser, 1, 0, start.Add(time.Minute), false); closed != 0 {
 			t.Fatalf("closed the active tab")
 		}
 	})
@@ -159,15 +172,15 @@ func TestTabCapProtectsActiveNewAndHumanTabs(t *testing.T) {
 		for _, id := range []string{"a", "b", "c"} {
 			browser.open(id, id, "https://"+id+"/")
 		}
-		tracker.enforce(context.Background(), browser, 2, start, true)
+		tracker.enforce(context.Background(), browser, 2, 0, start, true)
 		browser.activate("a") // the person switched to a, then back to c
-		tracker.enforce(context.Background(), browser, 2, start.Add(10*time.Second), true)
+		tracker.enforce(context.Background(), browser, 2, 0, start.Add(10*time.Second), true)
 		browser.activate("c")
-		if closed := tracker.enforce(context.Background(), browser, 2, start.Add(12*time.Second), true); closed != 0 {
+		if closed := tracker.enforce(context.Background(), browser, 2, 0, start.Add(12*time.Second), true); closed != 0 {
 			t.Fatalf("closed %v while the person used every tab recently", browser.closed)
 		}
 		// Without a person at the desktop the same state closes b.
-		if closed := tracker.enforce(context.Background(), browser, 2, start.Add(12*time.Second), false); closed != 1 || browser.closed[0] != "b" {
+		if closed := tracker.enforce(context.Background(), browser, 2, 0, start.Add(12*time.Second), false); closed != 1 || browser.closed[0] != "b" {
 			t.Fatalf("closed=%d %v, want b", closed, browser.closed)
 		}
 	})
@@ -197,9 +210,9 @@ func TestTabCapIgnoresNonPagesFailuresAndLingeringTargets(t *testing.T) {
 	for _, id := range []string{"a", "b", "c"} {
 		browser.open(id, id, "https://"+id+"/")
 	}
-	tracker.enforce(context.Background(), browser, 1, start, false)
+	tracker.enforce(context.Background(), browser, 1, 0, start, false)
 	// a fails to close; b still closes and only b gets a note.
-	if closed := tracker.enforce(context.Background(), browser, 1, start.Add(time.Minute), false); closed != 1 {
+	if closed := tracker.enforce(context.Background(), browser, 1, 0, start.Add(time.Minute), false); closed != 1 {
 		t.Fatalf("closed=%d", closed)
 	}
 	if note := tracker.drainNotes(); note != `Closed least-recently-used tab "b" to stay within the 1-tab limit.` {
@@ -208,15 +221,15 @@ func TestTabCapIgnoresNonPagesFailuresAndLingeringTargets(t *testing.T) {
 	// A closed target that lingers in /json/list is neither counted nor closed twice.
 	browser.failIDs = nil
 	browser.pages = append(browser.pages, tabCapPage{ID: "b", Title: "b", URL: "https://b/"})
-	tracker.enforce(context.Background(), browser, 1, start.Add(time.Minute+time.Second), false)
+	tracker.enforce(context.Background(), browser, 1, 0, start.Add(time.Minute+time.Second), false)
 	if count := strings.Count(strings.Join(browser.closed, ","), "b"); count != 1 {
 		t.Fatalf("lingering target closed %d times: %v", count, browser.closed)
 	}
 	browser.listErr = errors.New("chrome hung")
-	if closed := tracker.enforce(context.Background(), browser, 1, start.Add(2*time.Minute), false); closed != 0 {
+	if closed := tracker.enforce(context.Background(), browser, 1, 0, start.Add(2*time.Minute), false); closed != 0 {
 		t.Fatalf("closed tabs without a target list")
 	}
-	if closed := tracker.enforce(context.Background(), &fakeTabBrowser{}, 0, start, false); closed != 0 {
+	if closed := tracker.enforce(context.Background(), &fakeTabBrowser{}, 0, 0, start, false); closed != 0 {
 		t.Fatal("limit 0 must disable the cap")
 	}
 }
