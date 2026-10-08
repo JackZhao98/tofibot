@@ -67,6 +67,16 @@
 .mcp-list-error{display:flex;align-items:center;gap:12px;padding:12px 0;color:var(--danger-text);font-size:12px}.mcp-list-error>span{flex:1}
 .mcp-placeholder{padding:20px 0;font-size:12px;color:var(--muted)}
 .mcp-settings .integration-grid{grid-template-columns:1fr;gap:0}
+.integration-catalog-note{margin:0 0 16px;font-size:12px;line-height:1.6;color:var(--muted)}
+.mcp-settings .integration-tile .integration-details{margin-top:5px;font-size:11px;color:var(--muted)}
+.integration-held ul{margin:0;padding:0;list-style:none}
+.integration-held li{display:flex;align-items:flex-start;gap:12px;padding:16px 4px;border-bottom:1px solid var(--line)}
+.integration-held li>div{min-width:0;flex:1}
+.integration-held strong{display:block;font-size:14px;font-weight:550}
+.integration-held small{display:block;margin-top:5px;font-size:11px;color:var(--muted)}
+.integration-held p{margin:8px 0 0;font-size:12px;line-height:1.6;color:var(--muted)}
+.integration-held a{display:inline-flex;align-items:center;gap:6px;min-height:36px;font-size:12px;color:var(--ink-soft);text-underline-offset:3px}
+.integration-held a:focus-visible{outline:2px solid var(--focus);outline-offset:3px;border-radius:var(--radius-sm)}
 .mcp-settings .integration-tile{min-height:76px;border:0;border-bottom:1px solid var(--line);border-radius:0;padding:14px 4px;background:transparent;box-shadow:none}
 .mcp-settings .integration-tile:hover:not(:disabled){background:color-mix(in srgb,var(--text) 3%,transparent);box-shadow:none}
 .mcp-settings .integration-custom{border-style:solid;min-height:48px;border-radius:12px}
