@@ -8,6 +8,8 @@ import tempfile
 import unittest
 
 
+@unittest.skipUnless((Path(__file__).resolve().parents[2]/"scripts/server-ops.sh").is_file(),
+                     "private legacy production operator script is excluded from core source")
 class AccountInstallWorkflowTests(unittest.TestCase):
     def setUp(self):
         self.temp=tempfile.TemporaryDirectory(prefix='tofi-account-install-',dir='/tmp');self.addCleanup(self.temp.cleanup)
