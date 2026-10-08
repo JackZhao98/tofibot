@@ -117,6 +117,10 @@ func (c *Client) waitForBlobGuest(ctx context.Context) error {
 		if info.State == "error" {
 			return errors.New("account guest file storage unavailable")
 		}
+		if info.State == StateHibernated {
+			// The manager restores the computer on the request itself.
+			return nil
+		}
 		if info.State == "stopped" && !prepared {
 			prepared = true
 			req, _ := http.NewRequestWithContext(ctx, "POST", "http://tofi-computer/v1/prepare", bytes.NewReader([]byte("{}")))

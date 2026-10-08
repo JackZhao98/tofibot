@@ -211,6 +211,29 @@ class BrokerTests(unittest.TestCase):
         with patch.object(self.b,"runtime_admission"):
             self.b.dispatch(dict(op="ensure",account_id=identity))
 
+    def test_snapshot_reserve_follows_guest_memory_and_disable_discards_it(self):
+        identity = str(uuid.uuid4())
+        self.b.dispatch(dict(op="reserve",account_id=identity,quota_gib=8))
+        expected = 2048*1024**2 + broker.Broker.SNAPSHOT_STATE_BYTES
+        self.assertEqual(self.b.ledger.snapshot()["snapshot_reserved_bytes"], expected)
+        with patch.object(self.b, "runtime_admission"):
+            self.b.dispatch(dict(op="ensure",account_id=identity))
+        cfg = json.loads((Path(self.config["config_root"]) / (identity + ".json")).read_text())
+        self.assertNotIn("hibernate", cfg)  # default on; existing configs stay identical
+        snapshot = Path(self.config["state_root"]) / identity / "snapshot"
+        snapshot.mkdir(parents=True)
+        for name in ("meta.json", "memory", "vmstate"):
+            (snapshot / name).write_bytes(b"x")
+        disk = snapshot.parent / "workspace.ext4"
+        disk.write_bytes(b"disk")
+        self.b.dispatch(dict(op="stop",account_id=identity))
+        self.assertTrue(snapshot.exists())  # a stop/restart keeps the hibernated session
+        self.b.dispatch(dict(op="disable",account_id=identity))
+        self.assertFalse(snapshot.exists())
+        self.assertEqual(disk.read_bytes(), b"disk")
+        off = broker.Broker(dict(self.config, hibernate=False), self.run, self.b.ledger.metrics)
+        self.assertEqual(off.snapshot_reserve(identity), 0)
+
     def test_stale_socket_and_partial_write_recovery_preserve_unexpected_files(self):
         path = Path(self.temp.name) / "broker.sock"
         with socket.socket(socket.AF_UNIX,socket.SOCK_STREAM) as sock:

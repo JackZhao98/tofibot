@@ -35,6 +35,9 @@ type accountCapacity struct {
 	InternalAllocated          int64                 `json:"internal_allocated_bytes"`
 	InternalUnallocated        int64                 `json:"internal_unallocated_reserved_bytes"`
 	SafetyReserved             int64                 `json:"safety_reserved_bytes"`
+	SnapshotReserved           int64                 `json:"snapshot_reserved_bytes"`
+	SnapshotAllocated          int64                 `json:"snapshot_allocated_bytes"`
+	SnapshotUnallocated        int64                 `json:"snapshot_unallocated_reserved_bytes"`
 	Warning                    bool                  `json:"warning"`
 	Accounts                   []accountDiskCapacity `json:"accounts"`
 }
@@ -113,7 +116,11 @@ func parseAccountCapacity(data []byte) (accountCapacity, error) {
 	if out.ExternalPromised < 0 || out.ExternalPromised > 1<<60 || out.ExternalAllocated < 0 || out.ExternalAllocated > out.ExternalPromised || out.ExternalUnallocated != out.ExternalPromised-out.ExternalAllocated {
 		return out, errors.New("inconsistent external capacity metrics")
 	}
-	if out.PromisedBytes != promised || out.AllocatedBytes != allocated || out.UnallocatedPromises != promised-allocated || out.AdmissionRemaining > out.AvailableBytes-out.UnallocatedPromises-out.ExternalUnallocated-out.ExternalReserved-out.InternalUnallocated {
+	// Hibernation snapshot promises are optional for legacy brokers.
+	if out.SnapshotReserved < 0 || out.SnapshotReserved > 1<<60 || out.SnapshotAllocated < 0 || out.SnapshotAllocated > out.SnapshotReserved || out.SnapshotUnallocated != out.SnapshotReserved-out.SnapshotAllocated {
+		return out, errors.New("inconsistent snapshot capacity metrics")
+	}
+	if out.PromisedBytes != promised || out.AllocatedBytes != allocated || out.UnallocatedPromises != promised-allocated || out.AdmissionRemaining > out.AvailableBytes-out.UnallocatedPromises-out.ExternalUnallocated-out.ExternalReserved-out.InternalUnallocated-out.SnapshotUnallocated {
 		return out, errors.New("inconsistent capacity metrics")
 	}
 	return out, nil
