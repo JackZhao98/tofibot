@@ -1,1 +1,23 @@
-{}
+{
+  "nav": {
+    "settings": "設定",
+    "usage": "用量",
+    "connection": "伺服器與連線",
+    "archived": "已封存的對話"
+  },
+  "theme": {
+    "label": "外觀",
+    "system": "跟隨系統",
+    "light": "淺色",
+    "dark": "深色"
+  },
+  "time": {
+    "unknown": "時間未確認"
+  },
+  "action": {
+    "retry": "重試"
+  },
+  "apiError": {
+    "request_failed": "請求失敗（{{status}}）"
+  }
+}

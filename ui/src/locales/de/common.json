@@ -1,1 +1,23 @@
-{}
+{
+  "nav": {
+    "settings": "Einstellungen",
+    "usage": "Nutzung",
+    "connection": "Server und Verbindung",
+    "archived": "Archivierte Unterhaltungen"
+  },
+  "theme": {
+    "label": "Darstellung",
+    "system": "System",
+    "light": "Hell",
+    "dark": "Dunkel"
+  },
+  "time": {
+    "unknown": "Zeit unbestätigt"
+  },
+  "action": {
+    "retry": "Erneut versuchen"
+  },
+  "apiError": {
+    "request_failed": "Anfrage fehlgeschlagen ({{status}})"
+  }
+}
