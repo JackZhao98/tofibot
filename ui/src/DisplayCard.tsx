@@ -7,8 +7,10 @@ import { BotAvatar } from "./BotAvatar";
 import type { Message } from "./types";
 import "./display-card.css";
 import { postmarkSVG, receivedParts } from "./postmark";
+import { useTranslation } from "./i18n";
 
 export function DisplayCard({ card, bot, onDraftReply }: { card: NonNullable<Message["card"]>; bot?: { id: string; name: string }; onDraftReply?: () => Promise<boolean> }) {
+  const { t } = useTranslation("mail");
   const [expanded, setExpanded] = useState(false);
   const [copied, setCopied] = useState(false);
   const [replyBusy, setReplyBusy] = useState(false);
@@ -23,21 +25,21 @@ export function DisplayCard({ card, bot, onDraftReply }: { card: NonNullable<Mes
       window.setTimeout(() => setCopied(false), 1800);
     } catch { setCopied(false); }
   }
-  return <section className={`display-card ${isMail ? "display-card-mail" : "display-card-text"}`} aria-label={isMail ? `邮件：${card.subject}` : card.title || "文本内容"}>
+  return <section className={`display-card ${isMail ? "display-card-mail" : "display-card-text"}`} aria-label={isMail ? t("display.mail_aria", { subject: card.subject }) : card.title || t("display.text_content")}>
     {isMail ? <>
       <div className="display-card-poststripe" aria-hidden="true" />
       <div className="display-card-mailhead">
         <span>FROM</span><strong>{card.from}</strong>
         {card.to && <><span>TO</span><strong>{card.to}</strong></>}
-        <span>主题</span><strong>{card.subject}</strong>
-        {card.received_at && !received.date && <><span>收到</span><strong>{card.received_at}</strong></>}
-        {card.received_at && <span className="display-card-postmark" role="img" aria-label={`已收到 ${card.received_at}`} dangerouslySetInnerHTML={{ __html: postmarkSVG({ ring: "已收到 · TOFI POST · ", date: received.date ?? "已收到", time: received.date ? received.time : undefined }) }} />}
+        <span>{t("display.subject")}</span><strong>{card.subject}</strong>
+        {card.received_at && !received.date && <><span>{t("display.received_label")}</span><strong>{card.received_at}</strong></>}
+        {card.received_at && <span className="display-card-postmark" role="img" aria-label={t("display.received_aria", { time: card.received_at })} dangerouslySetInnerHTML={{ __html: postmarkSVG({ ring: t("display.postmark_ring"), date: received.date ?? t("display.postmark_received"), time: received.date ? received.time : undefined }) }} />}
       </div>
-      {card.summary && <aside className="display-card-note"><strong>{bot && <BotAvatar id={bot.id} mini />}{bot ? `${bot.name} 的便签` : "Bot 的便签"}</strong><span>{card.summary}</span></aside>}
-    </> : <header className="display-card-texthead"><span>文本</span><strong>{card.title || "内容"}</strong></header>}
+      {card.summary && <aside className="display-card-note"><strong>{bot && <BotAvatar id={bot.id} mini />}{t("display.note_from", { name: bot ? bot.name : "Bot" })}</strong><span>{card.summary}</span></aside>}
+    </> : <header className="display-card-texthead"><span>{t("display.text_label")}</span><strong>{card.title || t("display.content_fallback")}</strong></header>}
     <div className={`display-card-copy${!expanded && long ? " is-folded" : ""}`}><MessageMarkdown content={card.body} /></div>
-    {long && <button className="display-card-expand" type="button" aria-expanded={expanded} onClick={() => setExpanded(value => !value)}>{expanded ? "收起内容" : "展开全文"}</button>}
-    <footer className="display-card-footer"><span>{card.source ? `来源 · ${card.source}` : isMail ? "邮件内容" : "文本内容"}</span>{isMail && onDraftReply && <button type="button" disabled={replyBusy} onClick={() => { setReplyBusy(true); setReplyError(""); void onDraftReply().then(ok => { if (!ok) setReplyError("起草请求未送达，请重试。"); }).catch(() => setReplyError("起草请求未送达，请重试。")).finally(() => setReplyBusy(false)); }}>{replyBusy ? "正在起草…" : "让 Bot 起草回复"}</button>}<button type="button" onClick={() => void copy()}>{isDesktop ? <TofiIcon name={copied ? "check" : "copy"} size={16} variant={copied ? "filled" : "outline"} /> : <CopyFeedbackIcon copied={copied} />}{copied ? "已复制" : "复制"}</button></footer>
+    {long && <button className="display-card-expand" type="button" aria-expanded={expanded} onClick={() => setExpanded(value => !value)}>{expanded ? t("display.collapse") : t("display.expand")}</button>}
+    <footer className="display-card-footer"><span>{card.source ? t("display.source", { source: card.source }) : isMail ? t("display.mail_content") : t("display.text_content")}</span>{isMail && onDraftReply && <button type="button" disabled={replyBusy} onClick={() => { setReplyBusy(true); setReplyError(""); void onDraftReply().then(ok => { if (!ok) setReplyError(t("display.draft_failed")); }).catch(() => setReplyError(t("display.draft_failed"))).finally(() => setReplyBusy(false)); }}>{replyBusy ? t("display.drafting") : t("display.draft_reply")}</button>}<button type="button" onClick={() => void copy()}>{isDesktop ? <TofiIcon name={copied ? "check" : "copy"} size={16} variant={copied ? "filled" : "outline"} /> : <CopyFeedbackIcon copied={copied} />}{copied ? t("display.copied") : t("display.copy")}</button></footer>
     {replyError && <p className="display-card-action-error" role="alert">{replyError}</p>}
   </section>;
 }

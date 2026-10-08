@@ -1,1 +1,80 @@
-{}
+{
+  "display": {
+    "title": "定时任务",
+    "description": "按计划执行的任务；在管理中查看完整指令。"
+  },
+  "run": {
+    "cadence": {
+      "once": "只一次",
+      "daily_at": "每天 {{time}}",
+      "daily": "每天",
+      "interval": "按间隔执行",
+      "days_other": "每 {{count}} 天",
+      "hours_other": "每 {{count}} 小时",
+      "minutes_other": "每 {{count}} 分钟",
+      "seconds_other": "每 {{count}} 秒"
+    },
+    "with_zone": "{{recurrence}}（{{zone}}）",
+    "created_by_user": "由你创建",
+    "created_by_bot": "由助理创建",
+    "occurrence": "第 {{number}} 次",
+    "planned_unknown": "待确认",
+    "planned_description": "计划触发：{{date}} {{time}} · {{zone}}",
+    "planned_description_unknown": "计划触发时间待确认",
+    "triggered_on": "定时触发 · {{date}}",
+    "metadata_fallback": "定时任务",
+    "created_on": "{{date}}创建",
+    "metadata_snapshot": "本次触发时保存的计划频率",
+    "metadata_no_snapshot": "本次触发记录；历史频率未保存",
+    "status_description": "状态更新：{{date}} {{time}} · {{zone}}",
+    "retry_failed": "重新执行请求未成功，请稍后重试。",
+    "retrying": "正在重试…",
+    "retry": "重试",
+    "confirm_before_retry": "为避免重复执行外部操作，请确认后重试。"
+  },
+  "row": {
+    "status": {
+      "waiting": "等待回复",
+      "queued": "排队中",
+      "running": "执行中",
+      "published": "结果已写入对话",
+      "done": "执行已结束",
+      "failed": "执行失败",
+      "cancelled": "已停止",
+      "interrupted": "已中断",
+      "unknown": "状态未知",
+      "turn_running": "本轮执行中",
+      "turn_done": "本轮已结束",
+      "turn_failed": "本轮失败",
+      "turn_cancelled": "本轮已停止",
+      "turn_interrupted": "本轮已中断"
+    },
+    "failure": {
+      "receipt_missing": "本轮没有确认完成结果，未算作已交付。",
+      "incomplete": "本轮未完成，任务记录已保留。",
+      "receipt_missing_confirm": "本轮没有确认完成结果，未算作已交付。为避免重复执行外部操作，请确认后重试。",
+      "incomplete_confirm": "本轮未完成，任务记录已保留。为避免重复执行外部操作，请确认后重试。"
+    },
+    "note": {
+      "partial_status": "暂未取得完整执行状态；这里只显示主运行状态。",
+      "unpublished": "未确认本次最终回复已写入当前对话；运行结束不代表结果已交付。"
+    },
+    "manage_instructions": "管理 · 完整执行指令",
+    "technical_reason": "查看技术原因",
+    "rerunning": "正在重新执行…",
+    "rerun": "重新执行本轮"
+  },
+  "editor": {
+    "edit": "编辑",
+    "conflict": "这项日程在编辑期间已更改。草稿已保留，请取消后重新打开核对。",
+    "save_failed": "暂时无法保存日程",
+    "title": "标题",
+    "title_aria": "编辑日程标题",
+    "description": "说明",
+    "description_aria": "编辑日程说明",
+    "instructions": "完整执行指令",
+    "instructions_aria": "编辑日程执行指令",
+    "cancel": "取消",
+    "save": "保存"
+  }
+}

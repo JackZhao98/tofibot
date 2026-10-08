@@ -30,5 +30,26 @@
     "sending_now": "Sending…",
     "motion_lab_note": "Motion Lab demo data; Gmail isn't contacted.",
     "restore_to_act": "Restore the conversation to act on this draft."
+  },
+  "display": {
+    "mail_aria": "Email: {{subject}}",
+    "text_content": "Text content",
+    "subject": "Subject",
+    "received_label": "Received",
+    "received_aria": "Received {{time}}",
+    "postmark_ring": "RECEIVED · TOFI POST · ",
+    "postmark_received": "Received",
+    "note_from": "Note from {{name}}",
+    "text_label": "Text",
+    "content_fallback": "Content",
+    "collapse": "Show less",
+    "expand": "Show all",
+    "source": "Source · {{source}}",
+    "mail_content": "Email content",
+    "draft_failed": "The draft request didn't go through. Try again.",
+    "drafting": "Drafting…",
+    "draft_reply": "Ask the Bot to draft a reply",
+    "copied": "Copied",
+    "copy": "Copy"
   }
 }

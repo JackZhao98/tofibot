@@ -5,6 +5,7 @@ import type { Message, Run, Schedule } from "./types";
 import type { ScheduleOccurrence } from "./scheduleOccurrences";
 import { ScheduledRun } from "./ScheduledRun";
 import { scheduledRunMetadata } from "./scheduledRunMetadata";
+import { useTranslation } from "./i18n";
 import "./scheduled-task-row.css";
 
 export function ScheduledTaskRow({ message, run, occurrence, schedule, timezone, onRetry }: { message: Message; run?: Run; occurrence?: ScheduleOccurrence; schedule?: Schedule; timezone?: string; onRetry?: (id: string) => Promise<void> }) {
@@ -15,9 +16,10 @@ export function ScheduledTaskRow({ message, run, occurrence, schedule, timezone,
   // A whole-family execution outcome does not certify result quality. Only a
   // completed receipt plus a persisted final reply in this conversation can
   // justify the narrower publication label (not a notification/read claim).
-  const status = state === "waiting" ? "等待回复" : exactOccurrence
-    ? state === "queued" ? "排队中" : state === "running" ? "执行中" : state === "done" ? exactOccurrence.result_in_conversation ? "结果已写入对话" : "执行已结束" : state === "failed" ? "执行失败" : state === "cancelled" ? "已停止" : state === "interrupted" ? "已中断" : "状态未知"
-    : state === "queued" ? "排队中" : state === "running" ? "本轮执行中" : state === "done" ? "本轮已结束" : state === "failed" ? "本轮失败" : state === "cancelled" ? "本轮已停止" : state === "interrupted" ? "本轮已中断" : "状态未知";
+  const { t } = useTranslation("schedules");
+  const status = t(state === "waiting" ? "row.status.waiting" : exactOccurrence
+    ? state === "queued" ? "row.status.queued" : state === "running" ? "row.status.running" : state === "done" ? exactOccurrence.result_in_conversation ? "row.status.published" : "row.status.done" : state === "failed" ? "row.status.failed" : state === "cancelled" ? "row.status.cancelled" : state === "interrupted" ? "row.status.interrupted" : "row.status.unknown"
+    : state === "queued" ? "row.status.queued" : state === "running" ? "row.status.turn_running" : state === "done" ? "row.status.turn_done" : state === "failed" ? "row.status.turn_failed" : state === "cancelled" ? "row.status.turn_cancelled" : state === "interrupted" ? "row.status.turn_interrupted" : "row.status.unknown");
   const isFailure = state === "failed" || state === "interrupted";
   // The family may have failed in another Bot's hidden conversation. Its
   // selected diagnostic comes from the same snapshot as the aggregate, not a
@@ -34,11 +36,11 @@ export function ScheduledTaskRow({ message, run, occurrence, schedule, timezone,
     state={state}
     statusLabel={status}
     resultPublished={exactOccurrence?.result_in_conversation}
-    failureSummary={receiptMissing ? "本轮没有确认完成结果，未算作已交付。" : "本轮未完成，任务记录已保留。"}
+    failureSummary={receiptMissing ? t("row.failure.receipt_missing") : t("row.failure.incomplete")}
     error={error}
     notes={(!exactOccurrence || (exactOccurrence.execution_status === "done" && !exactOccurrence.result_in_conversation)) ? <>
-      {!exactOccurrence && <p>暂未取得完整执行状态；这里只显示主运行状态。</p>}
-      {exactOccurrence?.execution_status === "done" && !exactOccurrence.result_in_conversation && <p>未确认本次最终回复已写入当前对话；运行结束不代表结果已交付。</p>}
+      {!exactOccurrence && <p>{t("row.note.partial_status")}</p>}
+      {exactOccurrence?.execution_status === "done" && !exactOccurrence.result_in_conversation && <p>{t("row.note.unpublished")}</p>}
     </> : undefined}
     onRetry={onRetry && retryId ? () => onRetry(retryId) : undefined}
   />;
@@ -52,7 +54,7 @@ export function ScheduledTaskRow({ message, run, occurrence, schedule, timezone,
         <span className="scheduled-task-status">{status}</span>
         <TofiIcon className="scheduled-task-chevron" name="chevron-right" size={14} />
       </summary>
-      <div className="scheduled-task-details"><p>{metadata.description}</p><details><summary>管理 · 完整执行指令</summary><p>{message.content}</p></details>{!exactOccurrence && <p className="field-note">暂未取得完整执行状态；这里只显示主运行状态。</p>}{exactOccurrence?.execution_status === "done" && !exactOccurrence.result_in_conversation && <p className="field-note">未确认本次最终回复已写入当前对话；运行结束不代表结果已交付。</p>}{isFailure && <div className="scheduled-task-recovery"><p>{receiptMissing ? "本轮没有确认完成结果，未算作已交付。" : "本轮未完成，任务记录已保留。"}为避免重复执行外部操作，请确认后重试。</p>{error && <details><summary>查看技术原因</summary><p className="error-text">{error}</p></details>}{onRetry && retryId && <button type="button" className="text-button" disabled={retrying} onClick={() => { setRetrying(true); void onRetry(retryId).finally(() => setRetrying(false)); }}>{retrying ? "正在重新执行…" : "重新执行本轮"}</button>}</div>}</div>
+      <div className="scheduled-task-details"><p>{metadata.description}</p><details><summary>{t("row.manage_instructions")}</summary><p>{message.content}</p></details>{!exactOccurrence && <p className="field-note">{t("row.note.partial_status")}</p>}{exactOccurrence?.execution_status === "done" && !exactOccurrence.result_in_conversation && <p className="field-note">{t("row.note.unpublished")}</p>}{isFailure && <div className="scheduled-task-recovery"><p>{receiptMissing ? t("row.failure.receipt_missing_confirm") : t("row.failure.incomplete_confirm")}</p>{error && <details><summary>{t("row.technical_reason")}</summary><p className="error-text">{error}</p></details>}{onRetry && retryId && <button type="button" className="text-button" disabled={retrying} onClick={() => { setRetrying(true); void onRetry(retryId).finally(() => setRetrying(false)); }}>{retrying ? t("row.rerunning") : t("row.rerun")}</button>}</div>}</div>
     </details>
   </article>;
 }
