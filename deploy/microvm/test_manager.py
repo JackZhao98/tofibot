@@ -422,6 +422,74 @@ class ProxyTests(unittest.TestCase):
         for value in (0, 2, 900, 86400):
             self.assertEqual(manager.validate_config(dict(config(), desktop_idle_seconds=value))["desktop_idle_seconds"], value)
 
+    def test_firecracker_config_enables_reporting_balloon_by_default(self):
+        cfg = self.vm.firecracker_config()
+        self.assertEqual(cfg["balloon"], {"amount_mib": 0, "deflate_on_oom": True,
+                                          "stats_polling_interval_s": manager.BALLOON_STATS_INTERVAL_S,
+                                          "free_page_reporting": True})
+        self.assertNotIn("free_page_hinting", cfg["balloon"])
+        args = cfg["boot-source"]["boot_args"].split()
+        self.assertIn("page_reporting.page_reporting_order=%d" % manager.PAGE_REPORTING_ORDER, args)
+        self.assertIn("init=/sbin/tofi-init", args)
+        self.assertEqual(cfg["machine-config"]["mem_size_mib"], self.vm.c.get("memory_mib", 4096))
+        self.assertEqual({d["drive_id"] for d in cfg["drives"]}, {"rootfs", "workspace"})
+        self.assertEqual(cfg["vsock"], {"guest_cid": 3, "uds_path": "/run/v.sock"})
+
+    def test_guest_init_applies_reporting_order_and_reclaims_only_without_browser(self):
+        init = Path(__file__).with_name("init.sh")
+        self.assertEqual(subprocess.run(["bash", "-n", str(init)]).returncode, 0)
+        text = init.read_text()
+        self.assertIn("page_reporting.page_reporting_order=*) page_reporting_order=${argument#*=} ;;", text)
+        self.assertIn('[[ "${page_reporting_order:-}" =~ ^[0-9]$ && -w "$reporting_order_file" ]]', text)
+        self.assertRegex(str(manager.PAGE_REPORTING_ORDER), r"^[0-9]$")
+        loop = text[text.index("reclaim_pid="):text.index("TOFI_GUEST_READY_START")]
+        self.assertIn("pgrep -x chrome", loop)
+        self.assertLess(loop.index("pgrep -x chrome"), loop.index("drop_caches"))
+        self.assertNotIn("drop_caches", text.replace(loop, ""))
+
+    def test_balloon_can_be_disabled_and_flag_is_strict(self):
+        vm = manager.VM(dict(config(23), memory_balloon=False))
+        cfg = vm.firecracker_config()
+        self.assertNotIn("balloon", cfg)
+        self.assertNotIn("page_reporting", cfg["boot-source"]["boot_args"])
+        for value in ("false", 0, None):
+            with self.assertRaises(ValueError):
+                manager.validate_config(dict(config(), memory_balloon=value))
+
+    def test_memory_usage_reads_rss_and_balloon_statistics(self):
+        self.assertEqual(self.vm.memory_usage(), {"balloon_enabled": True, "host_rss_mib": None, "balloon": None})
+        api, peer = socket.socketpair()
+        stats = json.dumps({"target_pages": 0, "actual_pages": 0, "target_mib": 0, "actual_mib": 0,
+                            "free_memory": 600 * 1024**2, "total_memory": 990 * 1024**2,
+                            "available_memory": 700 * 1024**2, "disk_caches": 80 * 1024**2,
+                            "swap_in": 0}).encode()
+        def serve():
+            with peer:
+                request = b""
+                while b"\r\n\r\n" not in request:
+                    request += peer.recv(4096)
+                assert request.startswith(b"GET /balloon/statistics HTTP/1.1")
+                peer.sendall(b"HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: %d\r\n\r\n" % len(stats) + stats)
+        thread = threading.Thread(target=serve, daemon=True)
+        thread.start()
+        self.vm.state = "ready"
+        self.vm.process = mock.Mock(pid=4242)
+        self.vm.process.poll.return_value = None
+        status = "Name:\tfirecracker\nVmRSS:\t  524288 kB\n"
+        with mock.patch.object(manager.VM, "connect_unix", return_value=api), \
+                mock.patch.object(manager.Path, "read_text", return_value=status):
+            usage = self.vm.memory_usage()
+        thread.join(timeout=2)
+        self.assertEqual(usage["host_rss_mib"], 512)
+        self.assertEqual(usage["balloon"], {"target_mib": 0, "actual_mib": 0, "guest_total_mib": 990,
+                                            "guest_free_mib": 600, "guest_available_mib": 700,
+                                            "guest_cache_mib": 80})
+        with mock.patch.object(manager.VM, "connect_unix", side_effect=OSError("gone")), \
+                mock.patch.object(manager.Path, "read_text", side_effect=OSError("gone")):
+            self.assertEqual(self.vm.memory_usage(), {"balloon_enabled": True, "host_rss_mib": None, "balloon": None})
+        self.vm.process = None
+        self.vm.state = "stopped"
+
     def test_different_users_have_distinct_resources(self):
         other = manager.VM(config(22))
         for field in ("uid", "netns", "host_if", "peer_if", "chain", "link_net", "guest_net", "root", "jail", "vsock"):

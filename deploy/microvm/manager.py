@@ -27,6 +27,26 @@ MAX_BODY = 2 * 1024 * 1024
 MAX_RESPONSE = 3 * 1024 * 1024
 MAX_BLOB = 20 * 1024 * 1024
 MAX_OAUTH_BODY = 64 * 1024
+# Free page reporting lets the guest return freed RAM to the host continuously
+# (Firecracker madvise(MADV_DONTNEED)s each reported range), so the VM's host
+# RSS follows guest usage instead of its lifetime peak. The target stays 0: the
+# host never takes memory the guest is using, and deflate_on_oom lets the guest
+# take back any inflated pages instead of OOM-killing. Hinting is developer
+# preview in Firecracker v1.17 (documented page-corruption race) and is not used.
+BALLOON_STATS_INTERVAL_S = 5
+# Reported ranges are buddy blocks of at least 2**order guest pages. The kernel
+# default (pageblock order 9 = 2 MiB) misses most of a fragmented browser heap;
+# order 5 (128 KiB) keeps reporting work small, and the guest init compacts
+# memory once the browser has stopped so nearly all free RAM is reported. The
+# guest init re-applies this value: Linux 6.1 overwrites the boot parameter.
+PAGE_REPORTING_ORDER = 5
+# (Firecracker field, exported name, divisor). Guest byte counts become MiB.
+BALLOON_STATS = (("target_mib", "target_mib", 1), ("actual_mib", "actual_mib", 1),
+                 ("total_memory", "guest_total_mib", 1024**2),
+                 ("free_memory", "guest_free_mib", 1024**2),
+                 ("available_memory", "guest_available_mib", 1024**2),
+                 ("disk_caches", "guest_cache_mib", 1024**2),
+                 ("oom_kill", "guest_oom_kills", 1))
 OAUTH_PATHS = frozenset((
     "/v1/oauth/start", "/v1/oauth/arm", "/v1/oauth/poll", "/v1/oauth/cancel",
 ))
@@ -106,6 +126,8 @@ def validate_config(c):
     idle = c.get("desktop_idle_seconds", 900)
     if type(idle) is not int or not 0 <= idle <= 86400:
         raise ValueError("desktop_idle_seconds must be an integer from 0 to 86400")
+    if type(c.get("memory_balloon", True)) is not bool:
+        raise ValueError("memory_balloon must be a boolean")
     if "cgroup_parent" in c and c["cgroup_parent"] != "tofi-vms":
         raise ValueError("invalid Worker cgroup parent")
     if type(c.get("worker_private_sysctls", False)) is not bool:
@@ -185,6 +207,7 @@ class VM:
             desired = self.validate_resources(json.loads(held.read_text()))
         return {"scope": "workspace", "state": self.state, "error": self.error, "current": current, "desired": desired,
                     "pending": current != desired, "apply_policy": "next_vm_start", "host": host,
+                    "memory": self.memory_usage(),
                     "limits": {"max_vcpus": min(32, host["cpus"]),
                                "max_memory_mib": min(32768, max(512, host["memory_total_mib"] - 2048 - 512)),
                                "max_disk_gib": min(1024, current["disk_gib"] + max(0, host["disk_available_gib"] - current["disk_gib"] - 2))}}
@@ -339,12 +362,13 @@ class VM:
             raise RuntimeError("owned network firewall cleanup incomplete")
         self.network_owned = False
 
-    def connect(self, timeout=5):
+    @staticmethod
+    def connect_unix(target, timeout):
         sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
         parent_fd = None
         try:
             sock.settimeout(timeout)
-            path = str(self.vsock)
+            path = str(target)
             if len(os.fsencode(path)) >= 108:
                 # Linux pathname sockets have a 108-byte sun_path including the
                 # terminating NUL. The fixed service path can exceed that when
@@ -352,16 +376,60 @@ class VM:
                 # an already-open parent directory without changing cwd or
                 # changing the configured socket name.
                 parent_fd = os.open(
-                    self.vsock.parent,
+                    target.parent,
                     os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW | os.O_CLOEXEC,
                 )
-                path = f"/proc/self/fd/{parent_fd}/{self.vsock.name}"
-            try:
-                sock.connect(path)
-            finally:
-                if parent_fd is not None:
-                    os.close(parent_fd)
-                    parent_fd = None
+                path = f"/proc/self/fd/{parent_fd}/{target.name}"
+            sock.connect(path)
+            return sock
+        except BaseException:
+            sock.close()
+            raise
+        finally:
+            if parent_fd is not None:
+                os.close(parent_fd)
+
+    def memory_usage(self):
+        """Observational host/guest memory of a running VM; never raises.
+
+        Balloon statistics come from the guest driver and are only an
+        indication. Host RSS is measured from the Firecracker process itself.
+        """
+        result = {"balloon_enabled": bool(self.c.get("memory_balloon", True)),
+                  "host_rss_mib": None, "balloon": None}
+        process = self.process
+        if self.state != "ready" or process is None or process.poll() is not None:
+            return result
+        try:
+            for line in Path(f"/proc/{process.pid}/status").read_text().splitlines():
+                if line.startswith("VmRSS:"):
+                    result["host_rss_mib"] = int(line.split()[1]) // 1024
+        except (OSError, ValueError, IndexError):
+            pass
+        if not result["balloon_enabled"]:
+            return result
+        try:
+            with self.connect_unix(self.jail / "run" / "api.sock", 1) as sock:
+                sock.sendall(b"GET /balloon/statistics HTTP/1.1\r\nHost: localhost\r\n"
+                             b"Accept: application/json\r\nConnection: close\r\n\r\n")
+                response = http.client.HTTPResponse(sock)
+                response.begin()
+                body = response.read(65536)
+            value = json.loads(body) if response.status == 200 else None
+            if isinstance(value, dict):
+                stats = {}
+                for source, target, divisor in BALLOON_STATS:
+                    item = value.get(source)
+                    if type(item) is int and item >= 0:
+                        stats[target] = item // divisor
+                result["balloon"] = stats
+        except (OSError, ValueError, http.client.HTTPException):
+            pass
+        return result
+
+    def connect(self, timeout=5):
+        sock = self.connect_unix(self.vsock, timeout)
+        try:
             sock.sendall(b"CONNECT 1052\n")
             ack = bytearray()
             while not ack.endswith(b"\n") and len(ack) < 80:
@@ -373,8 +441,6 @@ class VM:
                 raise RuntimeError("guest vsock handshake failed")
             return sock
         except BaseException:
-            if parent_fd is not None:
-                os.close(parent_fd)
             sock.close()
             raise
 
@@ -390,6 +456,27 @@ class VM:
             if response.status != 200:
                 raise RuntimeError("guest is not ready")
             return json.loads(body)
+
+    def firecracker_config(self):
+        boot_args = ("console=ttyS0 reboot=k panic=1 pci=off root=/dev/vda ro init=/sbin/tofi-init "
+                     f"tofi_ip={self.guest_net}.2 tofi_gateway={self.guest_net}.1 "
+                     f"tofi_desktop_idle={self.c.get('desktop_idle_seconds', 900)}")
+        config = {
+            "boot-source": {"kernel_image_path": "/vmlinux", "boot_args": boot_args},
+            "drives": [
+                {"drive_id": "rootfs", "path_on_host": "/rootfs.ext4", "is_root_device": True, "is_read_only": True},
+                {"drive_id": "workspace", "path_on_host": "/workspace.ext4", "is_root_device": False, "is_read_only": False},
+            ],
+            "machine-config": {"vcpu_count": self.c.get("vcpus", 2), "mem_size_mib": self.c.get("memory_mib", 4096), "smt": False},
+            "network-interfaces": [{"iface_id": "eth0", "guest_mac": f"06:00:00:00:{self.slot:02x}:02", "host_dev_name": "tap0"}],
+            "vsock": {"guest_cid": 3, "uds_path": "/run/v.sock"},
+        }
+        if self.c.get("memory_balloon", True):
+            config["boot-source"]["boot_args"] += f" page_reporting.page_reporting_order={PAGE_REPORTING_ORDER}"
+            config["balloon"] = {"amount_mib": 0, "deflate_on_oom": True,
+                                 "stats_polling_interval_s": BALLOON_STATS_INTERVAL_S,
+                                 "free_page_reporting": True}
+        return config
 
     def start(self):
         with self.lock:
@@ -439,16 +526,7 @@ class VM:
                     (self.jail / "run" / name).unlink(missing_ok=True)
                 self.phase = "network"
                 self.network_up()
-                config = {
-                    "boot-source": {"kernel_image_path": "/vmlinux", "boot_args": f"console=ttyS0 reboot=k panic=1 pci=off root=/dev/vda ro init=/sbin/tofi-init tofi_ip={self.guest_net}.2 tofi_gateway={self.guest_net}.1 tofi_desktop_idle={self.c.get('desktop_idle_seconds', 900)}"},
-                    "drives": [
-                        {"drive_id": "rootfs", "path_on_host": "/rootfs.ext4", "is_root_device": True, "is_read_only": True},
-                        {"drive_id": "workspace", "path_on_host": "/workspace.ext4", "is_root_device": False, "is_read_only": False},
-                    ],
-                    "machine-config": {"vcpu_count": self.c.get("vcpus", 2), "mem_size_mib": self.c.get("memory_mib", 4096), "smt": False},
-                    "network-interfaces": [{"iface_id": "eth0", "guest_mac": f"06:00:00:00:{self.slot:02x}:02", "host_dev_name": "tap0"}],
-                    "vsock": {"guest_cid": 3, "uds_path": "/run/v.sock"},
-                }
+                config = self.firecracker_config()
                 config_path = self.jail / "config.json"
                 config_path.write_text(json.dumps(config))
                 os.chown(config_path, self.uid, self.uid)

@@ -77,7 +77,12 @@ func (s *Service) action(ctx context.Context, req ActionRequest) (any, error) {
 	case "desktop.hold":
 		return s.holdDesktop(req.BotID, req.RunID, req.Args)
 	case "desktop.release":
-		return s.releaseDesktop(req.BotID, req.RunID)
+		result, err := s.releaseDesktop(req.BotID, req.RunID)
+		var args releaseArgs
+		if err == nil && req.Source == ActionSourceModel && decodeArgs(req.Args, &args) == nil && args.CloseRunTabs {
+			result["closed_tabs"] = s.closeRunTabs(ctx, req.BotID, req.RunID)
+		}
+		return result, err
 	}
 	if req.Action == "shell.exec" {
 		release, err := s.beginOptionalDesktopOperation(ctx, req.BotID)
@@ -109,6 +114,7 @@ func (s *Service) action(ctx context.Context, req ActionRequest) (any, error) {
 		return nil, err
 	}
 	defer release()
+	s.recordRunTabs(ctx, req)
 	return s.dispatchAction(ctx, req)
 }
 
