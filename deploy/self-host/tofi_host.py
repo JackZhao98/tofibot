@@ -745,6 +745,11 @@ def pull_images(env, data_schema):
     for role, reference in roles:
         try:
             run(['docker', 'pull', '--quiet', reference], timeout=1800)
+        except subprocess.CalledProcessError as error:
+            # Name Docker's own reason: an unknown digest and a network
+            # failure need different fixes.
+            reason = ((error.stderr or '').strip().splitlines() or ['no output'])[-1][-300:]
+            raise HostError('Cannot pull %s: %s' % (reference, reason)) from error
         except subprocess.SubprocessError as error:
             raise HostError('Cannot pull %s; check network access to the registry.' % reference) from error
         inspect_image(reference, role, data_schema if role == 'app' else None)
@@ -1151,11 +1156,27 @@ def upgrade(version=None, manifest_path=None, allow_schema_change=False):
             except BaseException as rollback_error:
                 raise HostError('Update failed (%s) and rollback failed (%s); data is retained. '
                                 'Run `sudo tofi install` to retry.' % (error, rollback_error)) from error
+            # complete() cleared last_error; keep a record `tofi status` shows,
+            # and drop the rejected candidate's bundle and Guest release.
+            state['last_update_failure'] = {'version': manifest['version'], 'message': str(error)[:500],
+                                            'at': time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime())}
+            save_state(state)
+            discard_candidate(manifest['version'], candidate['TOFI_GUEST_VERSION'], previous)
             raise HostError('update rejected; previous version restored (%s)' % error) from error
+        state.pop('last_update_failure', None)
+        save_state(state)
         prune_releases(keep=[manifest['version'], previous['bundle']],
                        keep_guests=[candidate['TOFI_GUEST_VERSION'], previous['env']['TOFI_GUEST_VERSION']])
         say('Updated to %s.' % manifest['version'])
         return {'upgraded': True, 'version': manifest['version'], 'data_retained': True}
+
+
+def discard_candidate(version, guest_version, previous):
+    """Remove a rejected update's bundle and Guest release, never the running ones."""
+    if version != previous.get('bundle') and version != current_release():
+        remove_tree(P.releases / version)
+    if guest_version != previous['env'].get('TOFI_GUEST_VERSION'):
+        remove_tree(P.guest / guest_version)
 
 
 def install_bundle(manifest):
@@ -1293,6 +1314,8 @@ def status():
               'transaction': state.get('transaction') and {
                   'kind': state['transaction'].get('kind'), 'step': state['transaction'].get('step')},
               'last_error': state.get('last_error'), 'journal': str(P.state_file)}
+    if state.get('last_update_failure'):
+        result['last_update_failure'] = state['last_update_failure']
     try:
         containers = project_containers()
         result['services'] = {service_of(c): c['State'].get('Health', {}).get('Status') or c['State'].get('Status')
