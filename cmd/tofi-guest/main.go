@@ -19,6 +19,7 @@ func main() {
 	maxDesktop := flag.Int("max-desktops", guest.DefaultDesktop, "maximum simultaneous Bot desktops")
 	idleTimeout := flag.Duration("desktop-idle-timeout", 15*time.Minute, "automatically stop an idle Bot desktop (0 disables cleanup)")
 	clockSync := flag.Bool("clock-sync", false, "run only the root wall-clock setter the host uses after a snapshot restore")
+	maxBrowserTabs := flag.Int("max-browser-tabs", guest.DefaultMaxBrowserTabs, "maximum open page tabs in the shared Chrome; the least recently used tab closes beyond it (0 disables)")
 	flag.Parse()
 	if *clockSync {
 		if os.Geteuid() != 0 {
@@ -38,6 +39,7 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
+	svc.SetMaxBrowserTabs(*maxBrowserTabs)
 	svc.SetShutdownHook(func(context.Context) error {
 		// The response is written before this hook starts. PID 1 owns poweroff;
 		// this unprivileged process only exits after flushing its HTTP socket.

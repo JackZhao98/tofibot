@@ -113,7 +113,7 @@ func (s *Server) microVMStatus(ctx context.Context) string {
 		state = "unknown"
 	}
 	status := state
-	if phase := strings.TrimSpace(info.Phase); phase != "" && phase != state {
+	if phase := strings.TrimSpace(info.Phase); phase != "" {
 		status += "/" + phase
 	}
 	if state == computer.StateHibernated || state == computer.StateHibernating || state == computer.StateResuming {
@@ -161,7 +161,7 @@ func (s *Server) microVMEnvironmentPrompt(ctx context.Context, botID string) str
 
 // computerBrowserEssentials is the always-present browser recipe; computer_help
 // keeps the longer procedure.
-const computerBrowserEssentials = "Browser: if the desktop is stopped, run desktop.start once. Read pages with browser.read and open items with browser.click by their visible text; use browser.snapshot only for layout or coordinates (latest snapshot only). Open searches and sites directly by URL."
+const computerBrowserEssentials = "Browser: if the desktop is stopped, run desktop.start once. Read pages with browser.read and open items with browser.click by their visible text; use browser.snapshot only for layout or coordinates (latest snapshot only). Open searches and sites directly by URL. Reuse the current tab; at most 2 tabs stay open."
 
 const computerResearchGuidance = " For research, open primary pages (the article itself), not search results, and cite their URLs with dates."
 

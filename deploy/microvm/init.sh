@@ -32,15 +32,20 @@ chmod 755 /workspace
 hostname tofi-computer
 ip link set lo up
 desktop_idle_seconds=900
+# Open page tabs allowed in the shared Chrome (Worker config browser_max_tabs);
+# 1 GiB guests hang with about six heavy sites open. 0 disables the cap.
+browser_max_tabs=2
 for argument in $(cat /proc/cmdline); do
   case "$argument" in
     tofi_ip=*) guest_ip=${argument#tofi_ip=} ;;
     tofi_gateway=*) guest_gateway=${argument#tofi_gateway=} ;;
     tofi_desktop_idle=*) desktop_idle_seconds=${argument#tofi_desktop_idle=} ;;
+    tofi_browser_tabs=*) browser_max_tabs=${argument#tofi_browser_tabs=} ;;
     page_reporting.page_reporting_order=*) page_reporting_order=${argument#*=} ;;
   esac
 done
 [[ "$desktop_idle_seconds" =~ ^[0-9]+$ ]] || { echo "invalid desktop idle timeout" >&2; exit 1; }
+[[ "$browser_max_tabs" =~ ^[0-9]{1,2}$ ]] || { echo "invalid browser tab limit" >&2; exit 1; }
 # The host's virtio-balloon asks for free page reporting. Linux 6.1 overwrites
 # the boot parameter with pageblock order (2 MiB) when the driver registers,
 # which misses most freed browser memory; re-apply the host's order here.
@@ -80,7 +85,7 @@ fi
 /usr/local/bin/tofi-guest --clock-sync &
 clock_pid=$!
 echo 'TOFI_GUEST_READY_START'
-setpriv --reuid=1000 --regid=1000 --clear-groups /usr/local/bin/tofi-guest --desktop-idle-timeout="${desktop_idle_seconds}s" &
+setpriv --reuid=1000 --regid=1000 --clear-groups /usr/local/bin/tofi-guest --desktop-idle-timeout="${desktop_idle_seconds}s" --max-browser-tabs="$browser_max_tabs" &
 guest_pid=$!
 trap 'kill -TERM "$guest_pid" 2>/dev/null || true' TERM INT
 wait "$guest_pid" || true

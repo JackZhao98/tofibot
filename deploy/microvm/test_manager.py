@@ -454,6 +454,20 @@ class ProxyTests(unittest.TestCase):
         for value in (0, 2, 900, 86400):
             self.assertEqual(manager.validate_config(dict(config(), desktop_idle_seconds=value))["desktop_idle_seconds"], value)
 
+    def test_browser_tab_limit_is_bounded_and_reaches_the_guest(self):
+        for value in (-1, 21, True, "3 init=/bin/sh"):
+            with self.assertRaises(ValueError):
+                manager.validate_config(dict(config(), browser_max_tabs=value))
+        for value in (0, 3, 20):
+            self.assertEqual(manager.validate_config(dict(config(), browser_max_tabs=value))["browser_max_tabs"], value)
+        self.assertIn("tofi_browser_tabs=%d" % manager.DEFAULT_BROWSER_MAX_TABS,
+                      self.vm.firecracker_config()["boot-source"]["boot_args"].split())
+        vm = manager.VM(dict(config(23), browser_max_tabs=5))
+        self.assertIn("tofi_browser_tabs=5", vm.firecracker_config()["boot-source"]["boot_args"].split())
+        text = Path(__file__).with_name("init.sh").read_text()
+        self.assertIn("tofi_browser_tabs=*) browser_max_tabs=${argument#tofi_browser_tabs=} ;;", text)
+        self.assertIn('--max-browser-tabs="$browser_max_tabs"', text)
+
     def test_firecracker_config_enables_reporting_balloon_by_default(self):
         cfg = self.vm.firecracker_config()
         self.assertEqual(cfg["balloon"], {"amount_mib": 0, "deflate_on_oom": True,
