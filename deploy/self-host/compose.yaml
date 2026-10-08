@@ -73,17 +73,23 @@ services:
       TOFI_UI_DIR: /app/ui
       TOFI_PUBLIC_ORIGIN: ${TOFI_PUBLIC_ORIGIN:-}
       TOFI_OWNER_AUTH: "1"
-      # Requests reach the App from the Docker bridge, which is a private peer.
-      TOFI_OWNER_ALLOW_LAN_HTTP: "1"
+      # Direct mode (default) serves HTTPS itself with the host's self-signed
+      # certificate from /etc/tofi/tls. With --domain both are empty: Caddy
+      # terminates TLS and reaches the App over the Docker bridge, a private
+      # peer, so that path keeps TOFI_OWNER_ALLOW_LAN_HTTP=1. Older env files
+      # without the key keep their previous behaviour (1).
+      TOFI_TLS_CERT_FILE: ${TOFI_TLS_CERT_FILE:-}
+      TOFI_TLS_KEY_FILE: ${TOFI_TLS_KEY_FILE:-}
+      TOFI_OWNER_ALLOW_LAN_HTTP: ${TOFI_OWNER_ALLOW_LAN_HTTP:-1}
       TOFI_MULTI_ACCOUNT: "1"
       TOFI_ACCOUNT_MAINTENANCE: "0"
       TOFI_ACCOUNT_PROVISIONER_SOCKET: /run/tofi/broker.sock
       TOFI_ACCOUNT_COMPUTER_SOCKET_ROOT: /run/tofi/accounts
       TOFI_ACCOUNT_COMPUTER_DISK_GIB: "8"
       TOFI_ACCOUNT_DB_MAX_BYTES: "1073741824"
-    # Direct mode publishes on TOFI_BIND (127.0.0.1 by default, 0.0.0.0 with
-    # --lan). With --domain the installer sets TOFI_BIND=127.0.0.1, so only
-    # Caddy is reachable from outside; the loopback port serves health checks.
+    # Direct mode publishes HTTPS on TOFI_BIND (0.0.0.0 by default, 127.0.0.1
+    # with --local-only). With --domain the installer sets TOFI_BIND=127.0.0.1,
+    # so only Caddy is reachable from outside; the loopback port serves health checks.
     ports:
       - "${TOFI_BIND:-127.0.0.1}:${TOFI_HTTP_PORT:-8321}:8321"
     volumes:
@@ -94,8 +100,14 @@ services:
         source: /run/tofi
         target: /run/tofi
         read_only: true
+      - <<: *bind
+        source: /etc/tofi/tls
+        target: /etc/tofi-tls
+        read_only: true
     healthcheck:
-      test: ["CMD", "wget", "--spider", "--quiet", "http://127.0.0.1:8321/health"]
+      # busybox wget (with Alpine's ssl_client) speaks HTTPS; the scheme follows
+      # whether the App was given a certificate.
+      test: ["CMD-SHELL", "if [ -n \"$${TOFI_TLS_CERT_FILE}\" ]; then s=https; else s=http; fi; wget -q --spider --no-check-certificate \"$$s://127.0.0.1:8321/health\""]
       interval: 15s
       timeout: 3s
       retries: 3

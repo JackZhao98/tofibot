@@ -242,12 +242,23 @@ class InstallScriptTests(unittest.TestCase):
         self.assertTrue(any(c.startswith('apt-get -qq') and ' install -y ' in c for c in self.stub_calls()))
         self.assertEqual(list(self.tmp.iterdir()), [], 'temporary download directory must be removed')
 
-    def test_hand_off_latest_and_lan(self):
-        result = self.run_script('--lan', '--yes')
+    def test_hand_off_latest_and_local_only(self):
+        result = self.run_script('--local-only', '--yes')
         self.assertEqual(result.returncode, 0, result.stderr)
         args = (self.root / 'handoff.args').read_text().splitlines()
-        self.assertEqual(args[3:], ['--lan', '--yes'])
+        self.assertEqual(args[3:], ['--local-only', '--yes'])
         self.assertTrue(any('latest/download/manifest.json' in c for c in self.stub_calls()))
+
+    def test_default_is_https_everywhere_and_lan_is_an_alias(self):
+        # No exposure flag: tofi_host's default (self-signed HTTPS on 0.0.0.0).
+        # --lan no longer means plain HTTP; it is accepted and changes nothing.
+        result = self.run_script('--lan')
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertNotIn('Continue?', result.stdout + result.stderr)
+        args = (self.root / 'handoff.args').read_text().splitlines()
+        self.assertEqual(args[3:], [])
+        install = [c for c in self.stub_calls() if c.startswith('apt-get -qq') and ' install -y ' in c]
+        self.assertTrue(install and ' openssl' in install[0], 'openssl creates the certificate')
 
     def test_package_output_goes_to_log(self):
         result = self.run_script('--version', VERSION, '--yes')
@@ -284,7 +295,7 @@ class InstallScriptTests(unittest.TestCase):
 
     def test_bad_arguments(self):
         for args, message in [(['--port', '80'], '--port must be'), (['--version', '1.0'], '--version must'),
-                              (['--lan', '--domain', 'a.example.com'], 'either --domain or --lan'),
+                              (['--local-only', '--domain', 'a.example.com'], 'either --domain or --local-only'),
                               (['--email', 'a@example.com'], 'only used together with --domain'),
                               (['--bogus'], 'Unknown option')]:
             with self.subTest(args=args):

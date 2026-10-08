@@ -99,8 +99,9 @@ Host layout:
 /usr/local/bin/tofi -> /opt/tofi/current/bin/tofi
 /opt/tofi/releases/<ver>/   bin/tofi, lib/tofi_host.py, lib/microvm/{account_release_check.py,worker_entrypoint.py,account_capacity.py,manager.py,worker_cgroups.py,account_provisioner.py,account_adoption.py,worker_supervisor.py}, compose.yaml, Caddyfile.tmpl, worker.apparmor.template, worker.seccomp.json, tofi.service, manifest.json
 /opt/tofi/current -> releases/<ver>
-/etc/tofi/tofi.env           0600 root: TOFI_VERSION, TOFI_DOMAIN, TOFI_HTTP_PORT(8321), TOFI_BIND(127.0.0.1|0.0.0.0), TOFI_PUBLIC_ORIGIN, TOFI_APP_IMAGE@digest, TOFI_WORKER_IMAGE@digest, TOFI_CADDY_IMAGE@digest, TOFI_GUEST_VERSION, TOFI_CPU_BUDGET, TOFI_MEMORY_BUDGET_MIB
+/etc/tofi/tofi.env           0600 root: TOFI_VERSION, TOFI_DOMAIN, TOFI_HTTP_PORT(8321), TOFI_BIND(0.0.0.0|127.0.0.1), TOFI_PUBLIC_ORIGIN, TOFI_TLS_CERT_FILE, TOFI_TLS_KEY_FILE, TOFI_OWNER_ALLOW_LAN_HTTP, TOFI_APP_IMAGE@digest, TOFI_WORKER_IMAGE@digest, TOFI_CADDY_IMAGE@digest, TOFI_GUEST_VERSION, TOFI_CPU_BUDGET, TOFI_MEMORY_BUDGET_MIB
 /etc/tofi/worker.json, worker.seccomp.json, Caddyfile (domain only), install-state.json
+/etc/tofi/tls/{cert.pem 0644, key.pem 0640 root:10001}  dir 0750 root:10001 (self-signed, default mode)
 /etc/apparmor.d/tofi-worker
 /etc/tmpfiles.d/tofi.conf    d /run/tofi 0750 0 10001 -
 /etc/systemd/system/tofi.service  oneshot RemainAfterExit; ExecStart=tofi start; ExecStop=tofi stop; After=docker.service apparmor.service systemd-tmpfiles-setup.service
@@ -121,7 +122,8 @@ them today (worker: `user 0:0`, `read_only`, `cgroup: private`, cpus/mem from en
 `/etc/tofi/worker.json:/etc/tofi-worker/config.json:ro`, Guest dir `:ro`; app:
 `user 10001:10001`, `init`, `read_only`, `cap_drop ALL`, env block from finding 1 +
 `TOFI_PUBLIC_ORIGIN`, binds `/var/lib/tofi/data:/app/data`, `/run/tofi:/run/tofi:ro`,
-healthcheck `wget --spider http://127.0.0.1:8321/health`). Profiles: `direct` (app
+`/etc/tofi/tls:/etc/tofi-tls:ro`, healthcheck busybox `wget --no-check-certificate`
+on `https://` or `http://127.0.0.1:8321/health` depending on `TOFI_TLS_CERT_FILE`). Profiles: `direct` (app
 publishes `${TOFI_BIND}:${TOFI_HTTP_PORT}:8321`) and `tls` (caddy on 80/443,
 `reverse_proxy app:8321`, app unpublished).
 
@@ -137,19 +139,34 @@ Worker config (`render_worker_config`): `release_dir=/var/lib/tofi/guest/<ver>`,
 `external_disks=[]`, `expected_guest_sha256`/`release_manifest_sha256` from the
 downloaded `account-release.json`.
 
-Exposure:
-- default: `TOFI_BIND=127.0.0.1`, URL `http://127.0.0.1:8321`; print SSH tunnel
-  (`ssh -L 8321:127.0.0.1:8321 user@host`) and `tailscale serve 8321` instructions.
-- `--lan`: `TOFI_BIND=0.0.0.0` with a warning (plaintext passwords on the LAN).
+Exposure (owner decision 2026-10-08: the server opens directly in a browser by
+IP after the one command, no SSH tunnel; there is no plain-HTTP default):
+- default: self-signed HTTPS on every interface, like Proxmox `https://<ip>:8006`.
+  `TOFI_BIND=0.0.0.0`, the App serves TLS itself (`TOFI_TLS_CERT_FILE`/`KEY_FILE`
+  -> `/etc/tofi-tls/{cert,key}.pem`, mounted read-only from `/etc/tofi/tls`),
+  `TOFI_OWNER_ALLOW_LAN_HTTP=0`, `TOFI_PUBLIC_ORIGIN` empty (CSRF compares
+  `Origin` with `https://` + `Host`, so every server address works; owner auth
+  accepts any TLS peer; cookies are `Secure`). The certificate is created once by
+  `openssl` (EC P-256, 825 days, CN = hostname, SANs = hostname, localhost,
+  127.0.0.1, ::1 and every global address of non-virtual interfaces), kept across
+  update/resume/reinstall, renewed when missing or within 30 days of expiry, and
+  replaced on demand by `tofi regenerate-cert`. The summary lists
+  `https://<ipv4>:8321` per address, the setup key, the SHA-256 fingerprint, the
+  self-signed warning and "Cloud server? allow TCP 8321". Preflight checks
+  `0.0.0.0:8321` is free.
+- `--local-only`: `TOFI_BIND=127.0.0.1`, still HTTPS; reach it with
+  `ssh -L 8321:127.0.0.1:8321 user@host`.
+- `--lan`: accepted as an alias of the default (it used to mean plain HTTP).
 - `--domain D [--email E]`: Caddy profile, automatic HTTPS,
-  `TOFI_PUBLIC_ORIGIN=https://D`; preflight checks 80/443 free, warns if D does not
-  resolve to a host IP.
+  `TOFI_PUBLIC_ORIGIN=https://D`; the App stays plain HTTP on the Docker network
+  (`TOFI_OWNER_ALLOW_LAN_HTTP=1`, published only on 127.0.0.1 for health);
+  preflight checks 80/443 free, warns if D does not resolve to a host IP.
 
 ## install.sh (repo root)
 
 Bash, `set -euo pipefail`, whole body in `main "$@"` called on the last line (truncated
 download does nothing). Flags: `--version vX.Y.Z` (default latest release), `--domain`,
-`--email`, `--lan`, `--port`, `--yes`. Each step prints `[n/12]`; each failure prints
+`--email`, `--local-only` (`--lan` = default alias), `--port`, `--yes`. Each step prints `[n/12]`; each failure prints
 one actionable sentence with actual vs required values and exits non-zero.
 
 1. Root, `Linux x86_64`.
@@ -157,7 +174,7 @@ one actionable sentence with actual vs required values and exits non-zero.
    `TOFI_ALLOW_UNSUPPORTED=1`.
 3. `/dev/kvm` ("KVM is not available (/dev/kvm). Use bare metal or a VM with nested
    virtualization enabled."), `/dev/net/tun`, cgroup v2, AppArmor.
-4. `apt-get install -y ca-certificates curl tar zstd python3 e2fsprogs apparmor apparmor-utils`.
+4. `apt-get install -y ca-certificates curl tar zstd python3 e2fsprogs apparmor apparmor-utils openssl iproute2`.
 5. Docker missing or no compose v2 -> Docker's official apt repo (`docker-ce
    docker-ce-cli containerd.io docker-compose-plugin`; fall back to get.docker.com if
    the distro is not in the repo yet). Verify `docker info` cgroup v2 + apparmor.
@@ -279,7 +296,9 @@ requires typing the hostname, then removes dirs, images, AppArmor profile),
   needed.
 - Docker apt repo for Debian 13 may lag: fall back to get.docker.com.
 - Behind Caddy cookies lack `Secure` (no `X-Forwarded-Proto` support): follow-up.
-- `--lan` sends passwords in plaintext on the LAN: opt-in with warning.
+- Self-signed default: browsers warn once; users compare the printed fingerprint.
+  A changed server IP needs `tofi regenerate-cert` for a matching SAN (the
+  browser warning appears either way).
 
 ## Non-goals
 
