@@ -92,9 +92,7 @@ No deployment or live service upgrade occurs when this source is published.
 
 TOFI is split into two licenses:
 
-- **Server, installer and everything outside `ui/`**: [GNU AGPL-3.0](LICENSE).
-  Run it, change it and share it; if you offer a modified version to others
-  over a network, you must publish your changes under the same license.
+- **Server, installer and everything outside `ui/`**: [Apache-2.0](LICENSE).
 - **Web app (`ui/`)**: [PolyForm Shield 1.0.0](ui/LICENSE). Source is visible
   and you may use and modify it to run TOFI, but not to build a competing
   product.
