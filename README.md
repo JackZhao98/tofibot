@@ -25,21 +25,24 @@ curl -fsSL https://raw.githubusercontent.com/JackZhao98/tofibot/main/install.sh 
 
 The script checks the host, installs Docker if needed, downloads a release whose
 images and files are pinned by digest and checksum, and starts TOFI. It prints
-the address and a one-time **setup key**; enter the key on the first page to
+the addresses and a one-time **setup key**; enter the key on the first page to
 create the Admin account, then open Settings -> Model provider.
 
-By default TOFI listens on `127.0.0.1:8321` only. Reach it through an SSH tunnel
-(`ssh -L 8321:127.0.0.1:8321 user@server`) or Tailscale, or choose:
+By default TOFI serves HTTPS with a self-signed certificate on every interface,
+so you open it straight from your browser at `https://<server-ip>:8321` (like
+Proxmox on `:8006`). The browser warns about the certificate the first time:
+compare the SHA-256 fingerprint the installer printed, then continue. On a cloud
+server, allow TCP 8321 in its firewall or security group. Other choices:
 
 ```sh
-# Public HTTPS with automatic certificates (ports 80/443, DNS pointing here)
+# Public HTTPS with a trusted certificate (ports 80/443, DNS pointing here)
 curl -fsSL https://raw.githubusercontent.com/JackZhao98/tofibot/main/install.sh | sudo bash -s -- --domain tofi.example.com --email you@example.com
-# Plain HTTP on your LAN (passwords are not encrypted in transit)
-curl -fsSL https://raw.githubusercontent.com/JackZhao98/tofibot/main/install.sh | sudo bash -s -- --lan
+# This server only (127.0.0.1, still HTTPS); reach it with ssh -L 8321:127.0.0.1:8321
+curl -fsSL https://raw.githubusercontent.com/JackZhao98/tofibot/main/install.sh | sudo bash -s -- --local-only
 ```
 
 Afterwards use `sudo tofi status | start | stop | update | logs | doctor |
-setup-secret | uninstall`. `tofi update` keeps your data and restores the previous
+setup-secret | regenerate-cert | uninstall`. `tofi update` keeps your data and restores the previous
 version automatically if the new one does not come up. `tofi uninstall` keeps all
 data; `tofi uninstall --purge` deletes it. Details: `deploy/self-host/README.md`.
 

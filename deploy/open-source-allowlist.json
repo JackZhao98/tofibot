@@ -67,6 +67,7 @@
     "deploy/self-host/compose.yaml",
     "deploy/self-host/test_install_sh.py",
     "deploy/self-host/test_tofi_host.py",
+    "deploy/self-host/testdata/tofi-direct.env",
     "deploy/self-host/testdata/tofi.env",
     "deploy/self-host/tofi.conf",
     "deploy/self-host/tofi.service",

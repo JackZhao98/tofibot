@@ -21,6 +21,7 @@ import platform
 import re
 import shutil
 import socket
+import ssl
 import stat
 import subprocess
 import sys
@@ -67,9 +68,15 @@ WARN_DISK_BYTES = 40 * GIB
 # The first account needs an 8 GiB workspace disk plus 8 GiB internal reserve.
 FIRST_ACCOUNT_BYTES = 16 * GIB
 DEFAULT_PORT = 8321
+# Self-signed certificate for direct HTTPS. Browsers reject leaf certificates
+# valid for more than 825 days; renew when fewer than 30 days remain.
+CERT_DAYS = 825
+CERT_RENEW_SECONDS = 30 * 86400
+# Interfaces whose addresses are never how a person reaches this server.
+VIRTUAL_INTERFACE_PREFIXES = ('lo', 'docker', 'br-', 'veth', 'virbr', 'tap', 'fc', 'tun', 'cni', 'flannel')
 
 REQUIRED_TOOLS = ['docker', 'apparmor_parser', 'systemd-tmpfiles', 'systemctl',
-                  'debugfs', 'e2fsck', 'tar', 'zstd']
+                  'debugfs', 'e2fsck', 'tar', 'zstd', 'openssl']
 
 PHASES = {'prepared', 'installing', 'install-failed', 'installed',
           'upgrading', 'upgrade-failed', 'rolling-back', 'rollback-failed',
@@ -81,7 +88,8 @@ UNINSTALL_PHASES = {'uninstalling', 'uninstall-failed'}
 ENV_KEYS = ['TOFI_VERSION', 'TOFI_DOMAIN', 'TOFI_EMAIL', 'TOFI_HTTP_PORT', 'TOFI_BIND',
             'TOFI_PUBLIC_ORIGIN', 'TOFI_APP_IMAGE', 'TOFI_WORKER_IMAGE',
             'TOFI_CADDY_IMAGE', 'TOFI_GUEST_VERSION', 'TOFI_CPU_BUDGET',
-            'TOFI_MEMORY_BUDGET_MIB', 'TOFI_WORKER_MEMORY_LIMIT']
+            'TOFI_MEMORY_BUDGET_MIB', 'TOFI_WORKER_MEMORY_LIMIT', 'TOFI_TLS_CERT_FILE',
+            'TOFI_TLS_KEY_FILE', 'TOFI_OWNER_ALLOW_LAN_HTTP']
 
 
 class HostError(Exception):
@@ -104,6 +112,9 @@ class Paths:
         self.worker_json = self.etc / 'worker.json'
         self.seccomp = self.etc / 'worker.seccomp.json'
         self.caddyfile = self.etc / 'Caddyfile'
+        self.tls = self.etc / 'tls'
+        self.tls_cert = self.tls / 'cert.pem'
+        self.tls_key = self.tls / 'key.pem'
         self.state_file = self.etc / 'install-state.json'
         self.apparmor_profile = root / 'etc/apparmor.d/tofi-worker'
         self.tmpfiles = root / 'etc/tmpfiles.d/tofi.conf'
@@ -135,6 +146,8 @@ P = Paths()
 # Real paths as seen by containers (bind mounts use identical paths).
 VAR_REAL = '/var/lib/tofi'
 RUN_REAL = '/run/tofi'
+# compose.yaml mounts /etc/tofi/tls read-only here inside the App container.
+TLS_REAL = '/etc/tofi-tls'
 
 
 # --------------------------------------------------------------------------
@@ -473,14 +486,164 @@ def host_addresses():
     return result.stdout.split()
 
 
-def primary_address():
-    """Best-effort primary IPv4 address (no packet is sent)."""
-    with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as probe:
+def interface_addresses():
+    """Addresses people can reach this server on: [(family, address)].
+
+    Global-scope IPv4/IPv6 of physical-looking interfaces from `ip -o addr`;
+    loopback, link-local and container/VM bridges (docker0, br-*, veth*, tap*)
+    are left out. Falls back to `hostname -I`. No packet is sent.
+    """
+    found = []
+    try:
+        output = run(['ip', '-o', 'addr', 'show'], check=False).stdout
+    except (OSError, subprocess.SubprocessError):
+        output = ''
+    for line in output.splitlines():
+        fields = line.split()
+        if len(fields) < 4 or fields[2] not in ('inet', 'inet6'):
+            continue
+        name = fields[1].split('@')[0]
+        scope = fields[fields.index('scope') + 1] if 'scope' in fields[:-1] else 'global'
+        if name.startswith(VIRTUAL_INTERFACE_PREFIXES) or scope != 'global':
+            continue
+        entry = (fields[2], fields[3].split('/')[0])
+        if entry not in found:
+            found.append(entry)
+    if not found:
+        for address in host_addresses():
+            family = 'inet6' if ':' in address else 'inet'
+            if address.startswith(('127.', '169.254.', '172.17.', 'fe80')) or address == '::1':
+                continue
+            found.append((family, address))
+    return found
+
+
+def access_urls(env):
+    """Browser URLs for the App, one per reachable IPv4 address."""
+    if env.get('TOFI_DOMAIN'):
+        return ['https://' + env['TOFI_DOMAIN']]
+    scheme = app_scheme(env)
+    port = env.get('TOFI_HTTP_PORT') or str(DEFAULT_PORT)
+    if env.get('TOFI_BIND') != '0.0.0.0':
+        return ['%s://127.0.0.1:%s' % (scheme, port)]
+    urls = ['%s://%s:%s' % (scheme, address, port) for family, address in interface_addresses() if family == 'inet']
+    return urls or ['%s://<server-ip>:%s' % (scheme, port)]
+
+
+# --------------------------------------------------------------------------
+# Self-signed HTTPS certificate (default direct mode)
+
+
+def app_scheme(env):
+    return 'https' if env.get('TOFI_TLS_CERT_FILE') else 'http'
+
+
+def certificate_hostname():
+    name = socket.gethostname().strip().lower().rstrip('.')
+    if re.match(r'^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?(\.[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?)*$', name or ''):
+        return name
+    return 'tofi'
+
+
+def certificate_names():
+    """(DNS names, IP addresses) the self-signed certificate covers."""
+    hostname = certificate_hostname()
+    dns = [hostname] + (['localhost'] if hostname != 'localhost' else [])
+    ips = ['127.0.0.1', '::1']
+    for _family, address in interface_addresses():
+        if address not in ips:
+            ips.append(address)
+    return dns, ips
+
+
+def certificate_usable():
+    """True when cert and key exist and the cert has more than 30 days left."""
+    if not (P.tls_cert.is_file() and P.tls_key.is_file()):
+        return False
+    result = run(['openssl', 'x509', '-checkend', str(CERT_RENEW_SECONDS), '-noout',
+                  '-in', str(P.tls_cert)], check=False)
+    return result.returncode == 0
+
+
+def prepare_tls_directory():
+    P.tls.mkdir(parents=True, exist_ok=True)
+    os.chown(P.tls, 0, APP_UID)
+    os.chmod(P.tls, 0o750)
+
+
+def generate_certificate():
+    """Create an EC P-256 self-signed certificate for this host's names.
+
+    The App (uid 10001) reads the key through group 10001; nothing else can.
+    Files are written beside the old pair and renamed into place.
+    """
+    prepare_tls_directory()
+    hostname = certificate_hostname()
+    dns, ips = certificate_names()
+    alt = ['DNS:' + name for name in dns] + ['IP:' + address for address in ips]
+    config = '\n'.join([
+        '[req]', 'distinguished_name = dn', 'prompt = no', 'x509_extensions = v3', '',
+        '[dn]', 'CN = ' + hostname, 'O = TOFI self-signed', '',
+        '[v3]', 'subjectAltName = ' + ','.join(alt), 'basicConstraints = critical,CA:FALSE',
+        'keyUsage = critical,digitalSignature', 'extendedKeyUsage = serverAuth',
+        'subjectKeyIdentifier = hash', ''])
+    work = Path(tempfile.mkdtemp(prefix='.tofi-tls-', dir=str(P.tls)))
+    try:
+        key, cert, conf = work / 'key.pem', work / 'cert.pem', work / 'openssl.cnf'
+        conf.write_text(config)
         try:
-            probe.connect(('192.0.2.1', 9))
-            return probe.getsockname()[0]
-        except OSError:
-            return '<server-ip>'
+            run(['openssl', 'ecparam', '-name', 'prime256v1', '-genkey', '-noout', '-out', str(key)])
+            run(['openssl', 'req', '-new', '-x509', '-sha256', '-days', str(CERT_DAYS), '-key', str(key),
+                 '-out', str(cert), '-config', str(conf)])
+        except (OSError, subprocess.CalledProcessError) as error:
+            detail = getattr(error, 'stderr', None) or str(error)
+            raise HostError('Cannot create the HTTPS certificate with openssl: %s' % detail.strip()[-300:]) from error
+        os.chown(key, 0, APP_UID)
+        os.chmod(key, 0o640)
+        os.chown(cert, 0, APP_UID)
+        os.chmod(cert, 0o644)
+        os.replace(key, P.tls_key)
+        os.replace(cert, P.tls_cert)
+    finally:
+        shutil.rmtree(work, ignore_errors=True)
+    return certificate_fingerprint()
+
+
+def ensure_tls(env):
+    """Keep /etc/tofi/tls present (compose mounts it); create the cert once."""
+    prepare_tls_directory()
+    if app_scheme(env) == 'https' and not certificate_usable():
+        generate_certificate()
+        return True
+    return False
+
+
+def certificate_fingerprint(path=None):
+    """SHA-256 fingerprint as browsers show it (AB:CD:...), or None."""
+    try:
+        der = ssl.PEM_cert_to_DER_cert(Path(path or P.tls_cert).read_text())
+    except (OSError, ValueError):
+        return None
+    digest = hashlib.sha256(der).hexdigest().upper()
+    return ':'.join(digest[i:i + 2] for i in range(0, len(digest), 2))
+
+
+def regenerate_certificate():
+    """`tofi regenerate-cert`: new self-signed pair, then restart the App."""
+    with lifecycle_lock():
+        state = load_state()
+        if state is None:
+            raise HostError('TOFI is not installed; run install.sh.')
+        env = read_env()
+        if app_scheme(env) != 'https':
+            raise HostError('This installation does not serve its own certificate '
+                            '(--domain uses Caddy and Let\'s Encrypt).')
+        fingerprint = generate_certificate()
+        if state['phase'] == 'installed' and project_containers():
+            compose('restart', 'app', env=env)
+            health(env)
+        say('New certificate SHA-256 fingerprint: %s' % fingerprint)
+        return {'regenerated': True, 'fingerprint': fingerprint}
 
 
 def preflight(options):
@@ -612,11 +775,18 @@ def render_worker_config(guest_version, cpu_budget, memory_budget_mib, guest_bin
 def render_env(manifest, options, budgets):
     domain = options.get('domain') or ''
     if domain:
+        # Caddy terminates TLS; the App speaks plain HTTP on the Docker network
+        # and its loopback port only serves `tofi status` health checks.
         bind = '127.0.0.1'
         origin = 'https://' + domain
+        cert = key = ''
+        allow_lan_http = '1'
     else:
+        # Direct mode always serves HTTPS with the host's self-signed certificate.
         bind = options['bind']
         origin = ''
+        cert, key = TLS_REAL + '/cert.pem', TLS_REAL + '/key.pem'
+        allow_lan_http = '0'
     return {
         'TOFI_VERSION': manifest['version'],
         'TOFI_DOMAIN': domain,
@@ -631,6 +801,9 @@ def render_env(manifest, options, budgets):
         'TOFI_CPU_BUDGET': str(budgets['cpu']),
         'TOFI_MEMORY_BUDGET_MIB': str(budgets['memory_mib']),
         'TOFI_WORKER_MEMORY_LIMIT': '%dm' % (budgets['memory_mib'] + 256),
+        'TOFI_TLS_CERT_FILE': cert,
+        'TOFI_TLS_KEY_FILE': key,
+        'TOFI_OWNER_ALLOW_LAN_HTTP': allow_lan_http,
     }
 
 
@@ -668,6 +841,7 @@ def apply_host_config(bundle, env):
     config = render_worker_config(env['TOFI_GUEST_VERSION'], env['TOFI_CPU_BUDGET'],
                                   env['TOFI_MEMORY_BUDGET_MIB'], guest_manifest['guest_binary_sha256'],
                                   sha256_file(release_manifest))
+    ensure_tls(env)
     write_env(env)
     write_json(P.worker_json, config, 0o600)
     write_file(P.seccomp, (bundle / 'worker.seccomp.json').read_bytes(), 0o600)
@@ -907,8 +1081,16 @@ def worker_ready(first_install=False, attempts=120):
 
 def health(env=None, attempts=60):
     env = env if env is not None else read_env()
-    url = 'http://127.0.0.1:%s/health' % env['TOFI_HTTP_PORT']
-    opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))
+    scheme = app_scheme(env)
+    url = '%s://127.0.0.1:%s/health' % (scheme, env['TOFI_HTTP_PORT'])
+    handlers = [urllib.request.ProxyHandler({})]
+    if scheme == 'https':
+        # Loopback probe of our own self-signed certificate: no verification.
+        context = ssl.create_default_context()
+        context.check_hostname = False
+        context.verify_mode = ssl.CERT_NONE
+        handlers.append(urllib.request.HTTPSHandler(context=context))
+    opener = urllib.request.build_opener(*handlers)
     for _ in range(attempts):
         try:
             with opener.open(url, timeout=2) as response:
@@ -958,7 +1140,8 @@ def install(manifest_path, options):
         state = load_state()
         if state is not None:
             if state['phase'] == 'installed':
-                if options.get('domain') or options.get('lan') or options.get('port_given'):
+                if (options.get('domain') or options.get('lan') or options.get('local_only')
+                        or options.get('port_given')):
                     warn('TOFI is already installed; exposure flags were ignored. Edit /etc/tofi/tofi.env to change them.')
                 say('TOFI %s is already installed.' % state.get('version'))
                 result = status()
@@ -1010,32 +1193,153 @@ def finish_install(state, env):
 
 def final_message(env):
     say('[12/12] TOFI is running')
-    port = env['TOFI_HTTP_PORT']
-    if env.get('TOFI_DOMAIN'):
-        url = 'https://' + env['TOFI_DOMAIN']
-        lines = ['Open %s' % url]
-    elif env['TOFI_BIND'] == '0.0.0.0':
-        url = 'http://%s:%s' % (primary_address(), port)
-        lines = ['Open %s' % url,
-                 'Passwords travel unencrypted on your network in --lan mode.']
-    else:
-        url = 'http://127.0.0.1:%s' % port
-        lines = ['TOFI listens on %s (this server only). From your computer:' % url,
-                 '  ssh -L %s:127.0.0.1:%s <user>@%s   then open %s' % (port, port, primary_address(), url),
-                 '  or on this server: tailscale serve --bg %s' % port,
-                 '     and set TOFI_PUBLIC_ORIGIN=https://<machine>.<tailnet>.ts.net in /etc/tofi/tofi.env,',
-                 '     then run: sudo tofi stop && sudo tofi start']
     secret = read_setup_secret()
-    for line in lines:
-        say(line)
-    if secret:
-        say('')
-        say('One-time setup key: %s' % secret)
-        say('Enter it on the first page to create the Admin account (shown again by `sudo tofi setup-secret`).')
+    urls = access_urls(env)
+    info = {'version': env.get('TOFI_VERSION', ''), 'urls': urls, 'setup_key': secret,
+            'domain': env.get('TOFI_DOMAIN', ''), 'port': env.get('TOFI_HTTP_PORT') or str(DEFAULT_PORT),
+            'fingerprint': certificate_fingerprint() if app_scheme(env) == 'https' else None,
+            'local_only': not env.get('TOFI_DOMAIN') and env.get('TOFI_BIND') != '0.0.0.0'}
+    sys.stdout.write(render_banner(info, color_mode(sys.stdout), terminal_width()))
+    sys.stdout.flush()
+    return {'installed': True, 'url': urls[0], 'urls': urls, 'setup_key_pending': bool(secret)}
+
+
+# --------------------------------------------------------------------------
+# End-of-install banner (also the `tofi status` header)
+
+BANNER_ART = [
+    '   ▄▄              ▄▄▄  ▄▄        ▄▀▄   ▄▀▄',
+    ' ▀▀██▀▀  ▄▄▄▄▄   ▄██▀   ▀▀       █  ▀▀▀▀▀  █',
+    '   ██   ██▀  ▀██ ▀██▀▀  ██       █  ●   ●  █',
+    '   ██▄▄ ██▄  ▄██  ██    ██        ▀▄▄▄▄▄▄▄▀',
+    '    ▀▀▀  ▀▀▀▀▀    ▀▀    ▀▀   ',
+]
+# Column ranges of the letters t, o, f, i and the cat in BANNER_ART.
+BANNER_REGIONS = [(0, 8, 'cream'), (8, 17, 'peach'), (17, 23, 'cream'), (23, 28, 'cream'), (28, 99, 'cat')]
+BANNER_MIN_WIDTH = 60
+TAGLINE = 'your crew is awake'
+COLORS = {  # (truecolor RGB, 256-color index)
+    'cream': ((0xF3, 0xEA, 0xDB), 230),
+    'peach': ((0xE8, 0x95, 0x6D), 209),
+    'teal': ((0x7F, 0xD1, 0xC1), 115),
+}
+
+
+def color_mode(stream, environ=None):
+    """'truecolor', '256' or None (plain text: NO_COLOR, TERM=dumb, not a tty)."""
+    environ = os.environ if environ is None else environ
+    if 'NO_COLOR' in environ or environ.get('TERM') == 'dumb':
+        return None
+    try:
+        if not stream.isatty():
+            return None
+    except (AttributeError, ValueError):
+        return None
+    if environ.get('COLORTERM', '').lower() in ('truecolor', '24bit'):
+        return 'truecolor'
+    return '256'
+
+
+def terminal_width():
+    return shutil.get_terminal_size((80, 24)).columns
+
+
+class Paint:
+    def __init__(self, mode):
+        self.mode = mode
+
+    def _wrap(self, codes, text):
+        if not self.mode or not text:
+            return text
+        return '\033[%sm%s\033[0m' % (';'.join(codes), text)
+
+    def fg(self, name):
+        rgb, index = COLORS[name]
+        if self.mode == 'truecolor':
+            return '38;2;%d;%d;%d' % rgb
+        return '38;5;%d' % index
+
+    def color(self, name, text, *extra):
+        return self._wrap(list(extra) + [self.fg(name)], text)
+
+    def dim(self, text):
+        return self._wrap(['2'], text)
+
+    def bold(self, text):
+        return self._wrap(['1'], text)
+
+    def link(self, text):
+        return self._wrap(['1', '4', self.fg('teal')], text)
+
+
+def render_art(paint, version):
+    lines = []
+    for number, row in enumerate(BANNER_ART):
+        out = []
+        for start, end, role in BANNER_REGIONS:
+            part = row[start:end]
+            if role == 'cat':
+                # Outline peach, eyes teal; spaces stay uncoloured.
+                out.append(re.sub(r'●|[^ ●]+', lambda m: paint.color(
+                    'teal' if m.group() == '●' else 'peach', m.group()), part))
+            else:
+                out.append(re.sub(r'\S+', lambda m: paint.color(role, m.group()), part))
+        line = ''.join(out)
+        if number == len(BANNER_ART) - 1:
+            line += paint.dim('v%s · %s' % (version.lstrip('v'), TAGLINE))
+        lines.append(line.rstrip())
+    return lines
+
+
+def render_banner(info, mode=None, width=80):
+    """The end-of-install summary. `mode` is color_mode(); None is plain text."""
+    paint = Paint(mode)
+    version = str(info.get('version') or '').lstrip('v')
+    port = info.get('port') or str(DEFAULT_PORT)
+
+    def row(label, value):
+        return '  ' + (paint.dim(label.ljust(12)) if label else ' ' * 12) + value
+
+    if width < BANNER_MIN_WIDTH:
+        lines = ['tofi v%s · %s' % (version, TAGLINE)]
     else:
-        say('Sign in with your existing Admin account.')
-    say('Then open Settings -> Model provider to connect a model.')
-    return {'installed': True, 'url': url, 'setup_key_pending': bool(secret)}
+        lines = render_art(paint, version)
+    lines.append('')
+    urls = info.get('urls') or []
+    for index, url in enumerate(urls):
+        lines.append(row('Open' if index == 0 else '', paint.link(url)))
+    if not info.get('domain') and not info.get('local_only'):
+        lines.append(row('', paint.dim("or your server's public IP")))
+    if info.get('local_only'):
+        lines.append(row('', paint.dim('this server only; from your computer: ssh -L %s:127.0.0.1:%s <user>@<server>'
+                                       % (port, port))))
+    if info.get('setup_key'):
+        lines.append(row('Setup key', paint.bold(info['setup_key']) + '   ' + paint.dim('(one time)')))
+        lines.append(row('Next', 'enter the key, create your admin, connect a model'))
+    else:
+        lines.append(row('Sign in', 'with your existing admin account'))
+    lines.append('')
+    if info.get('domain'):
+        lines.append('  Allow TCP 80 and 443.')
+    else:
+        lines.append("  Browser warns about the certificate? That's expected — continue.")
+        cloud = '' if info.get('local_only') else 'Cloud server? allow TCP %s' % port
+        fingerprint = info.get('fingerprint') or 'unavailable'
+        single = '  Fingerprint SHA256 %s   ·   %s' % (fingerprint, cloud)
+        if cloud and len(single) <= width:
+            lines.append('  %s %s   %s   %s' % (paint.dim('Fingerprint SHA256'), fingerprint,
+                                               paint.dim('·'), cloud))
+        elif len('  Fingerprint SHA256 ' + fingerprint) <= width:
+            lines.append('  %s %s' % (paint.dim('Fingerprint SHA256'), fingerprint))
+        else:
+            # The full colon form (95 columns) gets a line of its own.
+            lines.append('  ' + paint.dim('Fingerprint SHA256'))
+            lines.append('  ' + fingerprint)
+        if cloud and not (len(single) <= width):
+            lines.append('  ' + cloud)
+    lines.append('')
+    lines.append('  ' + paint.dim(' · ').join(['tofi status', 'tofi update', 'tofi logs', 'tofi uninstall']))
+    return '\n'.join(lines) + '\n'
 
 
 def read_setup_secret():
@@ -1327,7 +1631,27 @@ def status():
     except HostError:
         result['healthy'] = False
     result['setup_key_pending'] = read_setup_secret() is not None
+    try:
+        env = read_env()
+        result['urls'] = access_urls(env)
+        if app_scheme(env) == 'https':
+            result['certificate_sha256'] = certificate_fingerprint()
+    except (OSError, HostError):
+        pass
     return result
+
+
+def status_banner():
+    """The install banner as a `tofi status` header (terminals only)."""
+    try:
+        env = read_env()
+    except (OSError, HostError):
+        return ''
+    info = {'version': env.get('TOFI_VERSION', ''), 'urls': access_urls(env), 'setup_key': read_setup_secret(),
+            'domain': env.get('TOFI_DOMAIN', ''), 'port': env.get('TOFI_HTTP_PORT') or str(DEFAULT_PORT),
+            'fingerprint': certificate_fingerprint() if app_scheme(env) == 'https' else None,
+            'local_only': not env.get('TOFI_DOMAIN') and env.get('TOFI_BIND') != '0.0.0.0'}
+    return render_banner(info, color_mode(sys.stdout), terminal_width())
 
 
 # --------------------------------------------------------------------------
@@ -1377,6 +1701,13 @@ def doctor():
             raise HostError('only %.1f GiB free under /var/lib' % (free / GIB))
         return '%.1f GiB free' % (free / GIB)
 
+    def certificate():
+        if app_scheme(read_env()) != 'https':
+            return 'served by Caddy'
+        if not certificate_usable():
+            raise HostError('missing or expires within 30 days; run `sudo tofi regenerate-cert`')
+        return 'SHA256 ' + (certificate_fingerprint() or '?')
+
     check('KVM device', kvm)
     check('cgroup v2', lambda: P.cgroup_controllers.read_text() and None)
     check('AppArmor profile', apparmor_loaded)
@@ -1385,6 +1716,7 @@ def doctor():
     check('Guest release', guest)
     check('Images', images)
     check('Disk', disk)
+    check('HTTPS certificate', certificate)
     check('App health', lambda: health(attempts=3) and None)
     for result, name, detail in checks:
         say('%-4s %-20s %s' % (result, name, detail))
@@ -1413,7 +1745,9 @@ def parse_args(argv):
     install_parser.add_argument('--manifest', help='verified release manifest.json (install.sh passes this)')
     install_parser.add_argument('--domain')
     install_parser.add_argument('--email')
-    install_parser.add_argument('--lan', action='store_true')
+    install_parser.add_argument('--local-only', action='store_true',
+                                help='listen on 127.0.0.1 only (still HTTPS); reach it with an SSH tunnel')
+    install_parser.add_argument('--lan', action='store_true', help=argparse.SUPPRESS)
     install_parser.add_argument('--port', type=int)
     install_parser.add_argument('--yes', action='store_true')
     sub.add_parser('status')
@@ -1427,6 +1761,7 @@ def parse_args(argv):
     uninstall_parser.add_argument('--purge', action='store_true')
     uninstall_parser.add_argument('--confirm-hostname', help='non-interactive purge confirmation')
     sub.add_parser('setup-secret')
+    sub.add_parser('regenerate-cert', help='replace the self-signed HTTPS certificate and restart the App')
     logs_parser = sub.add_parser('logs')
     logs_parser.add_argument('service', nargs='?', choices=['app', 'worker', 'caddy'])
     sub.add_parser('doctor')
@@ -1438,19 +1773,21 @@ def install_options(args):
     port = args.port if args.port is not None else DEFAULT_PORT
     if not 1024 <= port <= 65535:
         raise HostError('--port must be between 1024 and 65535.')
-    if args.domain and args.lan:
-        raise HostError('Use either --domain or --lan, not both.')
+    local_only = bool(getattr(args, 'local_only', False))
+    if args.domain and (args.lan or local_only):
+        raise HostError('--domain already decides how TOFI is reached; drop --lan/--local-only.')
+    if args.lan and local_only:
+        raise HostError('Use either --lan or --local-only, not both.')
     if args.email and not args.domain:
         raise HostError('--email is only used with --domain.')
     domain = (args.domain or '').lower().rstrip('.')
     if domain and not DOMAIN_RE.match(domain):
         raise HostError('%r is not a valid domain name.' % args.domain)
-    if args.lan:
-        warn('--lan publishes TOFI on every network interface over plain HTTP; '
-             'passwords will cross your network unencrypted.')
-    return {'domain': domain, 'email': args.email or '', 'lan': args.lan, 'port': port,
-            'port_given': args.port is not None, 'bind': '0.0.0.0' if args.lan else '127.0.0.1',
-            'yes': args.yes}
+    # Default: HTTPS with a self-signed certificate on every interface.
+    # --lan is the old name for that default and is kept as an alias.
+    return {'domain': domain, 'email': args.email or '', 'lan': args.lan, 'local_only': local_only,
+            'port': port, 'port_given': args.port is not None,
+            'bind': '127.0.0.1' if local_only else '0.0.0.0', 'yes': args.yes}
 
 
 def main(argv=None):
@@ -1462,7 +1799,14 @@ def main(argv=None):
             install(args.manifest, install_options(args))
             return 0
         if args.command == 'status':
-            print(json.dumps(status(), indent=2))
+            result = status()
+            if result.get('phase') == 'installed' and color_mode(sys.stdout, {}) is not None:
+                # Interactive terminal: banner first; pipes get the JSON only.
+                sys.stdout.write(status_banner() + '\n')
+            print(json.dumps(result, indent=2))
+            return 0
+        if args.command == 'regenerate-cert':
+            regenerate_certificate()
             return 0
         if args.command == 'start':
             start()

@@ -8,9 +8,12 @@
 #   --version vX.Y.Z   install this release (default: the latest release)
 #   --domain NAME      serve https://NAME with automatic certificates (Caddy)
 #   --email ADDRESS    contact address for the certificate authority (with --domain)
-#   --lan              listen on every interface over plain HTTP (not recommended)
+#   --local-only       listen on 127.0.0.1 only (still HTTPS; use an SSH tunnel)
 #   --port PORT        App port (default 8321)
 #   --yes              do not ask for confirmation
+#
+# By default TOFI serves HTTPS with a self-signed certificate on every
+# interface, so the server opens directly at https://<server-ip>:8321.
 #
 # Steps 1-8 check the host, install prerequisites and download a verified
 # release; the host tool (`tofi install`) does the rest. Re-running is safe: an
@@ -25,7 +28,7 @@ MIN_MEMORY_MIB=3584   # "4 GiB" machines report slightly less in MemTotal
 WARN_MEMORY_MIB=7680
 MIN_DISK_GIB=30
 WARN_DISK_GIB=40
-APT_PACKAGES=(ca-certificates curl tar zstd python3 e2fsprogs apparmor apparmor-utils)
+APT_PACKAGES=(ca-certificates curl tar zstd python3 e2fsprogs apparmor apparmor-utils openssl iproute2)
 
 # Host paths. TOFI_TEST_ROOT and the TOFI_OS_RELEASE / TOFI_DEV_* overrides
 # exist only for the installer's own tests.
@@ -50,7 +53,7 @@ LOG_FILE=$ROOT/var/log/tofi-install.log
 VERSION=
 DOMAIN=
 EMAIL=
-LAN=0
+LOCAL_ONLY=0
 PORT=
 ASSUME_YES=0
 EXISTING=0
@@ -101,8 +104,11 @@ Usage: curl -fsSL https://raw.githubusercontent.com/JackZhao98/tofibot/main/inst
   --version vX.Y.Z   install this release (default: the latest release)
   --domain NAME      serve https://NAME with automatic certificates (Caddy)
   --email ADDRESS    contact address for the certificate authority (with --domain)
-  --lan              listen on every interface over plain HTTP (not recommended)
+  --local-only       listen on 127.0.0.1 only (still HTTPS; use an SSH tunnel)
   --port PORT        App port (default 8321)
+
+By default TOFI serves HTTPS with a self-signed certificate on every interface:
+open https://<server-ip>:8321 and accept the browser's certificate warning.
   --yes              do not ask for confirmation
 USAGE
 }
@@ -114,7 +120,10 @@ parse_args() {
       --domain) [[ $# -ge 2 ]] || die "--domain needs a host name."; DOMAIN=$2; shift 2 ;;
       --email) [[ $# -ge 2 ]] || die "--email needs an address."; EMAIL=$2; shift 2 ;;
       --port) [[ $# -ge 2 ]] || die "--port needs a number."; PORT=$2; shift 2 ;;
-      --lan) LAN=1; shift ;;
+      --local-only) LOCAL_ONLY=1; shift ;;
+      # --lan used to mean plain HTTP on every interface; HTTPS on every
+      # interface is now the default, so it is accepted as a no-op alias.
+      --lan) shift ;;
       --yes|-y) ASSUME_YES=1; shift ;;
       --help|-h) usage; exit 0 ;;
       *) die "Unknown option $1 (see --help)." ;;
@@ -126,8 +135,8 @@ parse_args() {
   if [[ -n $PORT ]] && { [[ ! $PORT =~ ^[0-9]+$ ]] || (( PORT < 1024 || PORT > 65535 )); }; then
     die "--port must be a number between 1024 and 65535; got '$PORT'."
   fi
-  if [[ -n $DOMAIN && $LAN == 1 ]]; then
-    die "Use either --domain or --lan, not both."
+  if [[ -n $DOMAIN && $LOCAL_ONLY == 1 ]]; then
+    die "Use either --domain or --local-only, not both."
   fi
   if [[ -n $EMAIL && -z $DOMAIN ]]; then
     die "--email is only used together with --domain."
@@ -417,22 +426,10 @@ hand_off() {
   local args=(install --manifest "$PREFIX/releases/$VERSION/manifest.json")
   [[ -n $DOMAIN ]] && args+=(--domain "$DOMAIN")
   [[ -n $EMAIL ]] && args+=(--email "$EMAIL")
-  [[ $LAN == 1 ]] && args+=(--lan)
+  [[ $LOCAL_ONLY == 1 ]] && args+=(--local-only)
   [[ -n $PORT ]] && args+=(--port "$PORT")
   [[ $ASSUME_YES == 1 ]] && args+=(--yes)
   exec "$BIN_DIR/tofi" "${args[@]}"
-}
-
-confirm_lan() {
-  [[ $LAN == 1 && $ASSUME_YES == 0 ]] || return 0
-  warn "--lan serves TOFI over plain HTTP on every interface; passwords cross your network unencrypted."
-  if [[ -r /dev/tty ]] && { exec 3</dev/tty; } 2>/dev/null; then
-    local answer
-    printf 'Continue? [y/N] ' > /dev/tty
-    read -r answer <&3 || answer=
-    exec 3<&-
-    [[ $answer == y || $answer == Y ]] || die "Cancelled; re-run without --lan, or with --yes to skip this question."
-  fi
 }
 
 cleanup() {
@@ -448,7 +445,6 @@ main() {
   check_virtualization
   detect_existing
   check_resources
-  confirm_lan
   install_packages
   WORK_DIR=$(mktemp -d "${TMPDIR:-/tmp}/tofi-install.XXXXXX")
   trap cleanup EXIT
