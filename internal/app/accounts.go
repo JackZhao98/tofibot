@@ -48,6 +48,7 @@ func NewAccountGateway(c Config) (*AccountGateway, error) {
 	}
 	controlConfig := c
 	controlConfig.AccountControlPlane = true
+	controlConfig.OwnerAuth = true
 	root, err := NewServer(controlConfig)
 	if err != nil {
 		return nil, err
@@ -55,7 +56,8 @@ func NewAccountGateway(c Config) (*AccountGateway, error) {
 	g := &AccountGateway{root: root, config: c, workspaces: map[string]*Server{}, active: map[string]map[*accountActiveRequest]context.CancelFunc{}}
 	g.auth = root.ownerAuth
 	if g.auth == nil {
-		g.auth = &ownerAuth{store: root.store, hashing: make(chan struct{}, 2), allowLoopback: c.OwnerAllowLoopbackHTTP, allowLAN: c.OwnerAllowLANHTTP}
+		root.Close()
+		return nil, errors.New("account gateway requires owner authentication")
 	}
 	tx, err := root.store.db.Begin()
 	if err != nil {
@@ -71,7 +73,8 @@ func NewAccountGateway(c Config) (*AccountGateway, error) {
  CREATE TABLE IF NOT EXISTS account_bootstrap(id INTEGER PRIMARY KEY CHECK(id=1),consumed INTEGER NOT NULL DEFAULT 0);
  INSERT OR IGNORE INTO account_bootstrap(id,consumed) VALUES(1,0);
  INSERT OR IGNORE INTO accounts(id,username,email,role,salt,password_hash,legacy,created_at) SELECT 'legacy-owner',username,email,'admin',salt,password_hash,1,created_at FROM workspace_owner WHERE id=1;
- UPDATE account_bootstrap SET consumed=1 WHERE EXISTS(SELECT 1 FROM accounts);
+ UPDATE account_bootstrap SET consumed=1 WHERE EXISTS(SELECT 1 FROM accounts) OR EXISTS(SELECT 1 FROM owner_auth_settings WHERE id=1 AND bootstrap_hash IS NULL);
+ UPDATE owner_auth_settings SET bootstrap_hash=NULL WHERE id=1 AND (SELECT consumed FROM account_bootstrap WHERE id=1)=1;
  INSERT OR IGNORE INTO account_sessions(token_hash,account_id,expires_at) SELECT token_hash,'legacy-owner',expires_at FROM owner_sessions WHERE EXISTS(SELECT 1 FROM accounts WHERE id='legacy-owner') AND (SELECT legacy_sessions_imported FROM account_migration WHERE id=1)=0;
  UPDATE account_migration SET legacy_sessions_imported=1 WHERE id=1;`)
 	if err != nil {
@@ -166,7 +169,57 @@ func (g *AccountGateway) issue(w http.ResponseWriter, r *http.Request, id string
 	http.SetCookie(w, &http.Cookie{Name: ownerCookie, Value: token, Path: "/", HttpOnly: true, Secure: r.TLS != nil, SameSite: http.SameSiteLaxMode, MaxAge: int(ownerSessionLifetime.Seconds()), Expires: expires})
 	return nil
 }
-func (g *AccountGateway) create(ctx context.Context, username, email, password string, first bool) (Account, error) {
+
+var (
+	errInvalidAccountBootstrap = errors.New("setup secret is invalid or already consumed")
+	errAccountSetupClosed      = errors.New("setup unavailable")
+)
+
+// Runs before owner-auth initialization reads the bootstrap file, so a
+// multi-account database with accounts never regenerates setup authority.
+func accountBootstrapState(s *Store) (closed bool, err error) {
+	var accounts, bootstrap bool
+	if err := s.db.QueryRow(`SELECT EXISTS(SELECT 1 FROM sqlite_master WHERE type='table' AND name='accounts'), EXISTS(SELECT 1 FROM sqlite_master WHERE type='table' AND name='account_bootstrap')`).Scan(&accounts, &bootstrap); err != nil {
+		return false, err
+	}
+	var count, consumed int
+	if accounts {
+		if err := s.db.QueryRow(`SELECT COUNT(*) FROM accounts`).Scan(&count); err != nil {
+			return false, err
+		}
+	}
+	if bootstrap {
+		if err := s.db.QueryRow(`SELECT consumed FROM account_bootstrap WHERE id=1`).Scan(&consumed); err != nil {
+			return false, err
+		}
+		if consumed != 0 && consumed != 1 {
+			return false, errors.New("invalid account bootstrap state")
+		}
+	} else if accounts && count == 0 {
+		return false, errors.New("missing account bootstrap state")
+	}
+	return count != 0 || consumed == 1, nil
+}
+
+func (g *AccountGateway) create(ctx context.Context, username, email, password string, first bool, bootstrapSecret string) (Account, error) {
+	secretHash := sha256.Sum256([]byte(bootstrapSecret))
+	if first {
+		// Closed setup answers setup_unavailable; open setup checks the secret
+		// before any hashing or Worker reservation.
+		var consumed int
+		var accounts bool
+		err := g.root.store.db.QueryRowContext(ctx, `SELECT (SELECT consumed FROM account_bootstrap WHERE id=1), EXISTS(SELECT 1 FROM accounts)`).Scan(&consumed, &accounts)
+		if err == nil && (consumed != 0 || accounts) {
+			return Account{}, errAccountSetupClosed
+		}
+		var saved []byte
+		if err == nil {
+			err = g.root.store.db.QueryRowContext(ctx, `SELECT bootstrap_hash FROM owner_auth_settings WHERE id=1`).Scan(&saved)
+		}
+		if bootstrapSecret == "" || err != nil || subtle.ConstantTimeCompare(saved, secretHash[:]) != 1 {
+			return Account{}, errInvalidAccountBootstrap
+		}
+	}
 	if strings.TrimSpace(username) == "" && strings.TrimSpace(email) == "" {
 		return Account{}, errors.New("username or email is required")
 	}
@@ -197,11 +250,19 @@ func (g *AccountGateway) create(ctx context.Context, username, email, password s
 	defer tx.Rollback()
 	if first {
 		a.Role = "admin"
-		result, e := tx.ExecContext(ctx, `UPDATE account_bootstrap SET consumed=1 WHERE id=1 AND consumed=0 AND NOT EXISTS(SELECT 1 FROM accounts)`)
+		result, e := tx.ExecContext(ctx, `UPDATE owner_auth_settings SET bootstrap_hash=NULL WHERE id=1 AND bootstrap_hash=? AND (SELECT consumed FROM account_bootstrap WHERE id=1)=0 AND NOT EXISTS(SELECT 1 FROM accounts)`, secretHash[:])
 		if e != nil {
 			return Account{}, e
 		}
 		n, _ := result.RowsAffected()
+		if n != 1 {
+			return Account{}, errInvalidAccountBootstrap
+		}
+		result, e = tx.ExecContext(ctx, `UPDATE account_bootstrap SET consumed=1 WHERE id=1 AND consumed=0 AND NOT EXISTS(SELECT 1 FROM accounts)`)
+		if e != nil {
+			return Account{}, e
+		}
+		n, _ = result.RowsAffected()
 		if n != 1 {
 			return Account{}, errors.New("setup unavailable")
 		}
@@ -217,7 +278,14 @@ func (g *AccountGateway) create(ctx context.Context, username, email, password s
 		// Keep an uncertain reservation after a commit error; orphan reconciliation
 		// must prove no account/data exists before releasing its promise.
 	}
-	return a, tx.Commit()
+	if err = tx.Commit(); err != nil {
+		return a, err
+	}
+	if first {
+		// Only the durable transaction authorizes setup; stale files cannot replay it.
+		_ = removeOwnerBootstrap(g.auth.bootstrapPath)
+	}
+	return a, nil
 }
 func (g *AccountGateway) workspace(a Account) (*Server, error) {
 	g.mu.Lock()
@@ -330,13 +398,20 @@ func (g *AccountGateway) handle(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		if r.URL.Path == "/api/auth/setup" {
-			var in struct{ Username, Email, Password string }
+			var in struct {
+				Username, Email, Password string
+				BootstrapSecret           string `json:"bootstrap_secret"`
+			}
 			if decodeStrict(r, 8<<10, &in) != nil {
 				writeErr(w, 400, "invalid_request", "invalid account")
 				return
 			}
-			created, err := g.create(r.Context(), in.Username, in.Email, in.Password, true)
+			created, err := g.create(r.Context(), in.Username, in.Email, in.Password, true, in.BootstrapSecret)
 			if err != nil {
+				if errors.Is(err, errInvalidAccountBootstrap) {
+					writeErr(w, 401, "invalid_bootstrap", "setup secret is invalid or already consumed")
+					return
+				}
 				writeErr(w, 409, "setup_unavailable", "setup unavailable or invalid fields")
 				return
 			}
@@ -402,7 +477,7 @@ func (g *AccountGateway) handle(w http.ResponseWriter, r *http.Request) {
 				writeErr(w, 400, "invalid_request", "invalid account")
 				return
 			}
-			created, err := g.create(r.Context(), in.Username, in.Email, in.Password, false)
+			created, err := g.create(r.Context(), in.Username, in.Email, in.Password, false, "")
 			if err != nil {
 				writeErr(w, 400, "invalid_account", "invalid or duplicate account")
 				return
