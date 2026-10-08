@@ -47,7 +47,7 @@ func TestConversationRouteBrowserFixture(t *testing.T) {
 	workspaces := make([]*Server, 0, 2)
 	fixtures := make([]map[string]any, 0, 2)
 	for i, username := range []string{"route-alpha", "route-bravo"} {
-		a, err := g.create(context.Background(), username, "", "SyntheticRoutePassword123!", i == 0)
+		a, err := g.create(context.Background(), username, "", "SyntheticRoutePassword123!", i == 0, accountCreationSecret(t, g, i == 0))
 		if err != nil {
 			t.Fatal(err)
 		}

@@ -118,7 +118,7 @@ func TestApplyAccountDBLimitRejectsInvalidOrAlreadyOversizedDatabase(t *testing.
 
 func TestAccountGatewayAppliesDatabaseLimitToEveryWorkspace(t *testing.T) {
 	g := accountFixture(t)
-	a, err := g.create(context.Background(), "dbcap", "", "SyntheticPassword123!", true)
+	a, err := g.create(context.Background(), "dbcap", "", "SyntheticPassword123!", true, accountCreationSecret(t, g, true))
 	if err != nil {
 		t.Fatal(err)
 	}

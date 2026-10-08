@@ -64,18 +64,33 @@ func initializeOwnerAuth(s *Store, c Config) (*ownerAuth, error) {
 	if err = s.db.QueryRow(`SELECT (SELECT COUNT(*) FROM owner_auth_settings), (SELECT COUNT(*) FROM workspace_owner)`).Scan(&enabled, &owners); err != nil {
 		return nil, err
 	}
-	if !c.OwnerAuth && os.Getenv("TOFI_OWNER_AUTH") != "1" && enabled == 0 && owners == 0 {
+	// Accounts mode keeps its first admin outside workspace_owner.
+	accountClosed, err := accountBootstrapState(s)
+	if err != nil {
+		return nil, err
+	}
+	if !c.OwnerAuth && os.Getenv("TOFI_OWNER_AUTH") != "1" && enabled == 0 && owners == 0 && !accountClosed {
 		return nil, nil
 	}
 	host, _, _ := net.SplitHostPort(c.Listen)
 	ip := net.ParseIP(host)
 	a := &ownerAuth{allowLAN: c.OwnerAllowLANHTTP || os.Getenv("TOFI_OWNER_ALLOW_LAN_HTTP") == "1", store: s, bootstrapPath: filepath.Join(c.DataDir, "owner-bootstrap.secret"), allowLoopback: (c.OwnerAllowLoopbackHTTP || os.Getenv("TOFI_OWNER_ALLOW_LOOPBACK_HTTP") == "1") && ip != nil && ip.IsLoopback(), active: make(map[string]map[*ownerRequest]struct{}), hashing: make(chan struct{}, 2)}
-	if owners != 0 {
+	var saved []byte
+	var consumed bool
+	if enabled != 0 {
+		if err = s.db.QueryRow(`SELECT bootstrap_hash, bootstrap_hash IS NULL FROM owner_auth_settings WHERE id=1`).Scan(&saved, &consumed); err != nil {
+			return nil, err
+		}
+	}
+	if owners != 0 || accountClosed || consumed {
 		_, err = s.db.Exec(`INSERT INTO owner_auth_settings(id) VALUES(1) ON CONFLICT(id) DO UPDATE SET bootstrap_hash=NULL`)
 		if err == nil {
 			err = removeOwnerBootstrap(a.bootstrapPath)
 		}
 		return a, err
+	}
+	if enabled != 0 && len(saved) != sha256.Size {
+		return nil, errors.New("invalid persisted owner bootstrap hash")
 	}
 	secret, err := readOwnerBootstrap(a.bootstrapPath)
 	if errors.Is(err, os.ErrNotExist) && enabled == 0 {
@@ -98,10 +113,6 @@ func initializeOwnerAuth(s *Store, c Config) (*ownerAuth, error) {
 	}
 	hash := sha256.Sum256([]byte(secret))
 	if enabled != 0 {
-		var saved []byte
-		if err = s.db.QueryRow(`SELECT bootstrap_hash FROM owner_auth_settings WHERE id=1`).Scan(&saved); err != nil {
-			return nil, err
-		}
 		if subtle.ConstantTimeCompare(saved, hash[:]) != 1 {
 			return nil, errors.New("owner bootstrap file does not match persisted setup")
 		}
