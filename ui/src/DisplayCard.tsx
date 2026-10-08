@@ -3,15 +3,18 @@ import { MessageMarkdown } from "./MessageMarkdown";
 import { TofiIcon } from "./icons";
 import { CopyFeedbackIcon } from "./CopyFeedbackIcon";
 import { isDesktop } from "./desktop";
+import { GazeAvatar } from "./GazeAvatar";
 import type { Message } from "./types";
 import "./display-card.css";
+import { postmarkSVG, receivedParts } from "./postmark";
 
-export function DisplayCard({ card, onDraftReply }: { card: NonNullable<Message["card"]>; onDraftReply?: () => Promise<boolean> }) {
+export function DisplayCard({ card, bot, onDraftReply }: { card: NonNullable<Message["card"]>; bot?: { id: string; name: string }; onDraftReply?: () => Promise<boolean> }) {
   const [expanded, setExpanded] = useState(false);
   const [copied, setCopied] = useState(false);
   const [replyBusy, setReplyBusy] = useState(false);
   const [replyError, setReplyError] = useState("");
   const isMail = card.type === "mail";
+  const received = receivedParts(card.received_at);
   const long = card.body.length > 440;
   async function copy() {
     try {
@@ -27,9 +30,10 @@ export function DisplayCard({ card, onDraftReply }: { card: NonNullable<Message[
         <span>FROM</span><strong>{card.from}</strong>
         {card.to && <><span>TO</span><strong>{card.to}</strong></>}
         <span>主题</span><strong>{card.subject}</strong>
-        {card.received_at && <time className="display-card-postmark">已收到<br />{card.received_at}</time>}
+        {card.received_at && !received.date && <><span>收到</span><strong>{card.received_at}</strong></>}
+        {card.received_at && <span className="display-card-postmark" role="img" aria-label={`已收到 ${card.received_at}`} dangerouslySetInnerHTML={{ __html: postmarkSVG({ ring: "已收到 · TOFI POST · ", date: received.date ?? "已收到", time: received.date ? received.time : undefined }) }} />}
       </div>
-      {card.summary && <aside className="display-card-note"><strong>Bot 的便签</strong><span>{card.summary}</span></aside>}
+      {card.summary && <aside className="display-card-note"><strong>{bot && <GazeAvatar id={bot.id} mini />}{bot ? `${bot.name} 的便签` : "Bot 的便签"}</strong><span>{card.summary}</span></aside>}
     </> : <header className="display-card-texthead"><span>文本</span><strong>{card.title || "内容"}</strong></header>}
     <div className={`display-card-copy${!expanded && long ? " is-folded" : ""}`}><MessageMarkdown content={card.body} /></div>
     {long && <button className="display-card-expand" type="button" aria-expanded={expanded} onClick={() => setExpanded(value => !value)}>{expanded ? "收起内容" : "展开全文"}</button>}

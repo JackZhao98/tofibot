@@ -179,3 +179,55 @@ func TestValidationReturnsToModelForRepairWithSeparateBound(t *testing.T) {
 		})
 	}
 }
+
+// emptyArgsBatchProvider reproduces the incident turn: four parallel calls,
+// three of which arrive with empty arguments, then a final answer.
+type emptyArgsBatchProvider struct {
+	calls    int
+	outcomes map[string]tooloutcome.Outcome
+}
+
+func (p *emptyArgsBatchProvider) Chat(_ context.Context, req *provider.ChatRequest) (*provider.ChatResponse, error) {
+	p.calls++
+	if p.calls == 1 {
+		return &provider.ChatResponse{ToolCalls: []provider.ToolCall{
+			{ID: "e1", Name: "write", Arguments: ""},
+			{ID: "e2", Name: "write", Arguments: ""},
+			{ID: "e3", Name: "write", Arguments: ""},
+			{ID: "ok", Name: "write", Arguments: ""},
+		}}, nil
+	}
+	p.outcomes = map[string]tooloutcome.Outcome{}
+	for _, m := range req.Messages {
+		if m.Role == "tool" {
+			if o := tooloutcome.Parse(m.Content); o != nil {
+				p.outcomes[m.ToolCallID] = *o
+			}
+		}
+	}
+	if p.calls == 2 {
+		return &provider.ChatResponse{ToolCalls: []provider.ToolCall{{ID: "fixed", Name: "write", Arguments: `{"target":"synthetic"}`}}}, nil
+	}
+	return &provider.ChatResponse{Content: "Done."}, nil
+}
+func (p *emptyArgsBatchProvider) ChatStream(ctx context.Context, req *provider.ChatRequest, _ func(provider.StreamDelta)) (*provider.ChatResponse, error) {
+	return p.Chat(ctx, req)
+}
+
+func TestEmptyArgumentBatchDoesNotExhaustRepairBudget(t *testing.T) {
+	paths.SetTofiHome(t.TempDir())
+	p := &emptyArgsBatchProvider{}
+	effects := 0
+	result, err := (&engine{provider: p, model: "synthetic"}).Run(context.Background(), Request{RunID: "empty-args", BotID: "bot", Messages: []Message{{Role: "user", Content: "synthetic task"}}, Tools: []Tool{{Name: "write", Parameters: map[string]any{"type": "object", "required": []string{"target"}, "properties": map[string]any{"target": map[string]any{"type": "string"}}, "additionalProperties": false}, Execute: func(context.Context, json.RawMessage) (string, error) { effects++; return "synthetic success", nil }}}})
+	if err != nil || result.Content != "Done." {
+		t.Fatalf("result=%+v %v", result, err)
+	}
+	for _, id := range []string{"e1", "e2", "e3", "ok"} {
+		if o := p.outcomes[id]; o.Code != "invalid_json" || o.Status != tooloutcome.Validation {
+			t.Fatalf("%s outcome=%+v (all=%+v)", id, o, p.outcomes)
+		}
+	}
+	if effects != 1 {
+		t.Fatalf("repaired call was not executed: effects=%d outcomes=%+v", effects, p.outcomes)
+	}
+}

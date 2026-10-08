@@ -1,4 +1,4 @@
-import type { AgentUsageTotal, Attachment, Bot, Config, ContentPatch, ContextUsage, Conversation, EventEnvelope, Memory, MemoryInput, Message, Run, Schedule, ScheduleKind, StreamDraft, ToolActivity, ToolActivityDetailPage, ToolActivityRunSummary, UsageCall, UsagePeriod, WorkspaceEventEnvelope, WorkItem } from "./types";
+import type { AgentUsageTotal, Attachment, Bot, Config, ContentPatch, ContextUsage, Conversation, EventEnvelope, Memory, MemoryInput, Message, ModelCatalog, ModelProviderStatus, Run, Schedule, ScheduleKind, StreamDraft, ToolActivity, ToolActivityDetailPage, ToolActivityRunSummary, UsageCall, UsagePeriod, WorkspaceEventEnvelope, WorkItem } from "./types";
 
 export class ApiError extends Error {
   constructor(public status: number, message: string, public code?: string) {
@@ -35,12 +35,17 @@ export const api = {
     return request<{ text: string; model: string }>("/api/dictate", { method: "POST", body, signal });
   },
   codexStatus: async () => {
-    const result = await request<{ connected: boolean; expires_at?: number; pending?: boolean }>("/api/auth/codex");
+    const result = await request<{ connected: boolean; expires_at?: number; pending?: boolean; needs_reconnect?: boolean }>("/api/auth/codex");
     return result;
   },
+  codexVerify: () => request<{ connected: boolean; expires_at?: number; pending?: boolean; needs_reconnect?: boolean; check: "ok" | "rejected" | "unverified" | "not_connected" }>("/api/auth/codex/verify", { method: "POST" }),
   codexConnect: () => request<{ session_id: string; verification_url: string; user_code: string; expires_at: number; interval: number }>("/api/auth/codex/connect", { method: "POST" }),
   codexPoll: (id: string) => request<{ connected: boolean; pending: boolean; expires_at?: number }>(`/api/auth/codex/connect/${encodeURIComponent(id)}/poll`, { method: "POST" }),
   codexDisconnect: () => request<void>("/api/auth/codex", { method: "DELETE" }),
+  listProviders: (signal?: AbortSignal) => request<{ providers: ModelProviderStatus[] | null }>("/api/providers", { signal }).then((result) => result.providers ?? []),
+  setProviderKey: (id: "openai" | "anthropic", key: string, workspaceId?: string) => request<ModelProviderStatus>(`/api/providers/${encodeURIComponent(id)}/key`, { method: "PUT", body: JSON.stringify(workspaceId ? { key, workspace_id: workspaceId } : { key }) }),
+  deleteProviderKey: (id: "openai" | "anthropic") => request<unknown>(`/api/providers/${encodeURIComponent(id)}/key`, { method: "DELETE" }),
+  models: (signal?: AbortSignal) => request<ModelCatalog>("/api/models", { signal }),
   bots: async (includeArchived = false) => {
     const result = await request<{ bots: Bot[] | null }>(`/api/bots${includeArchived ? "?include_archived=true" : ""}`);
     return { bots: result.bots ?? [] };
@@ -105,7 +110,7 @@ export function openConversationEvents(
   const query = new URLSearchParams({ after: String(after) });
   if (workspace) query.set("workspace_after", String(workspace.after));
   const source = new EventSource(`/api/conversations/${encodeURIComponent(id)}/events?${query}`);
-  const types = ["message", "reaction", "run", "delta", "memory", "memory_deleted", "schedule", "work_item", "tool", "bot"] as const;
+  const types = ["message", "reaction", "run", "delta", "draft_reset", "thinking", "retrying", "memory", "memory_deleted", "schedule", "work_item", "tool", "bot"] as const;
   for (const type of types) {
     source.addEventListener(type, (event) => {
       const message = event as MessageEvent<string>;

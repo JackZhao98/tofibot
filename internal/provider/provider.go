@@ -5,6 +5,7 @@ package provider
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"github.com/JackZhao98/tofibot/internal/tooloutcome"
 	"strings"
@@ -28,6 +29,29 @@ type ChatRequest struct {
 	System          string    // System prompt (extracted from messages for providers that need it separate)
 	Messages        []Message // Conversation history
 	Tools           []Tool    // Available tools for function calling
+	// PromptCacheKey groups requests that share a prefix (Responses API only).
+	PromptCacheKey string
+	// OmitReasoningReplay drops Message.ReasoningItems from the request after
+	// the provider rejected them once in this run.
+	OmitReasoningReplay bool
+}
+
+// ReasoningItem is replayable reasoning from one assistant turn.
+//
+// OpenAI (Provider ""/"openai"): an opaque Responses API reasoning item. With
+// store=false it must be replayed with its encrypted content before the
+// function calls it produced, so the model can continue its prior reasoning.
+//
+// Anthropic (Provider "anthropic"): Content holds the turn's complete
+// content-block array as the model produced it (thinking blocks with their
+// signatures, redacted_thinking, text, tool_use), replayed verbatim on the
+// next request. Each adapter ignores the other's items.
+type ReasoningItem struct {
+	ID               string          `json:"id,omitempty"`
+	EncryptedContent string          `json:"encrypted_content,omitempty"`
+	Summary          []string        `json:"summary,omitempty"`
+	Provider         string          `json:"provider,omitempty"`
+	Content          json.RawMessage `json:"content,omitempty"`
 }
 
 // Message represents a conversation message in the unified format.
@@ -38,6 +62,8 @@ type Message struct {
 	ToolCalls  []ToolCall // For assistant messages: tool calls made
 	ToolCallID string     // For tool messages: which call this is responding to
 	ToolName   string     // For tool messages: name of the tool
+	// ReasoningItems belong to an assistant tool-call message (Responses API).
+	ReasoningItems []ReasoningItem `json:"reasoning_items,omitempty"`
 	// Backend metadata only; provider request converters never send these fields.
 	ToolOutcome *tooloutcome.Outcome `json:"tool_outcome,omitempty"`
 	ToolFailed  bool                 `json:"tool_failed,omitempty"`
@@ -78,6 +104,11 @@ type ChatResponse struct {
 	Reasoning string     // Full reasoning/thinking content
 	ToolCalls []ToolCall // Completed tool calls
 	Usage     Usage      // Token usage statistics
+	// ReasoningItems are replayable reasoning outputs (encrypted content present).
+	ReasoningItems []ReasoningItem
+	// ReasoningReplayRejected reports that the provider rejected replayed
+	// reasoning items and this response was produced without them.
+	ReasoningReplayRejected bool
 }
 
 // HasToolCalls returns true if the response contains tool calls.
@@ -86,15 +117,25 @@ func (r *ChatResponse) HasToolCalls() bool {
 }
 
 // Usage tracks token consumption for cost calculation.
+//
+// InputTokens is the whole prompt the model read, cached or not (OpenAI's
+// input_tokens; Anthropic's input_tokens + cache_read_input_tokens +
+// cache_creation_input_tokens), so it measures context size on every
+// provider. CacheReadTokens and CacheWriteTokens are the subsets of
+// InputTokens served from / written to the prompt cache, when reported.
 type Usage struct {
-	InputTokens  int64
-	OutputTokens int64
+	InputTokens      int64
+	OutputTokens     int64
+	CacheReadTokens  int64
+	CacheWriteTokens int64
 }
 
 // Add accumulates usage from another Usage.
 func (u *Usage) Add(other Usage) {
 	u.InputTokens += other.InputTokens
 	u.OutputTokens += other.OutputTokens
+	u.CacheReadTokens += other.CacheReadTokens
+	u.CacheWriteTokens += other.CacheWriteTokens
 }
 
 // Option configures provider creation.

@@ -24,16 +24,19 @@ func main() {
 		return
 	}
 	var engine runtime.Engine
-	provider, model, key := os.Getenv("TOFI_MODEL_PROVIDER"), os.Getenv("TOFI_MODEL"), os.Getenv("TOFI_MODEL_API_KEY")
-	if provider != "" && !strings.EqualFold(provider, "openai_codex") {
+	provider, model, key, baseURL := os.Getenv("TOFI_MODEL_PROVIDER"), os.Getenv("TOFI_MODEL"), os.Getenv("TOFI_MODEL_API_KEY"), os.Getenv("TOFI_MODEL_BASE_URL")
+	// Codex, OpenAI and Anthropic are routed per model by the server; an
+	// OpenAI/Anthropic key here seeds that provider. Other providers keep a
+	// single fixed engine.
+	if provider != "" && !routedProvider(provider) {
 		var err error
-		engine, err = runtime.New(runtime.Config{Provider: provider, Model: model, APIKey: key, BaseURL: os.Getenv("TOFI_MODEL_BASE_URL")})
+		engine, err = runtime.New(runtime.Config{Provider: provider, Model: model, APIKey: key, BaseURL: baseURL})
 		if err != nil {
 			log.Printf("model unavailable: %v", err)
 			engine = nil
 		}
 	}
-	config := app.Config{Engine: engine, DataDir: os.Getenv("TOFI_DATA_DIR"), UIDir: os.Getenv("TOFI_UI_DIR"), Listen: os.Getenv("TOFI_LISTEN"), OwnerAuth: os.Getenv("TOFI_OWNER_AUTH") == "1", OwnerAllowLoopbackHTTP: os.Getenv("TOFI_OWNER_ALLOW_LOOPBACK_HTTP") == "1", OwnerAllowLANHTTP: os.Getenv("TOFI_OWNER_ALLOW_LAN_HTTP") == "1", DefaultModel: model, Provider: provider, TranscriptionAPIKey: os.Getenv("TOFI_TRANSCRIPTION_API_KEY"), TranscriptionURL: os.Getenv("TOFI_TRANSCRIPTION_URL"), ComputerSocket: os.Getenv("TOFI_COMPUTER_SOCKET")}
+	config := app.Config{Engine: engine, ProviderAPIKey: key, ProviderBaseURL: baseURL, DataDir: os.Getenv("TOFI_DATA_DIR"), UIDir: os.Getenv("TOFI_UI_DIR"), Listen: os.Getenv("TOFI_LISTEN"), OwnerAuth: os.Getenv("TOFI_OWNER_AUTH") == "1", OwnerAllowLoopbackHTTP: os.Getenv("TOFI_OWNER_ALLOW_LOOPBACK_HTTP") == "1", OwnerAllowLANHTTP: os.Getenv("TOFI_OWNER_ALLOW_LAN_HTTP") == "1", DefaultModel: model, Provider: provider, TranscriptionAPIKey: os.Getenv("TOFI_TRANSCRIPTION_API_KEY"), TranscriptionURL: os.Getenv("TOFI_TRANSCRIPTION_URL"), ComputerSocket: os.Getenv("TOFI_COMPUTER_SOCKET")}
 	s, err := newConfiguredServer(config, os.Getenv)
 	if err != nil {
 		log.Printf("server unavailable: %v", err)
@@ -71,6 +74,14 @@ func main() {
 			log.Printf("HTTP server stopped: %v", err)
 		}
 	}
+}
+
+func routedProvider(name string) bool {
+	switch strings.ToLower(strings.TrimSpace(name)) {
+	case "openai_codex", "openai", "anthropic", "claude":
+		return true
+	}
+	return false
 }
 
 // TLS is configured only by the service operator, never by request headers.

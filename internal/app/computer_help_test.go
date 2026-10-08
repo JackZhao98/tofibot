@@ -26,7 +26,7 @@ func TestComputerInstallationGuideLoadsOnDemand(t *testing.T) {
 		t.Fatal("unknown guide accepted")
 	}
 	prompt := syntheticComputerPrompt(t, "guide-bot")
-	if strings.Contains(prompt, "apt-get download") || !strings.Contains(prompt, "installation before software changes") {
+	if strings.Contains(prompt, "apt-get download") || !strings.Contains(prompt, "(skill: software)") {
 		t.Fatal("installation recipe is not deferred behind its router")
 	}
 }

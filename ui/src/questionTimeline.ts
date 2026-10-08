@@ -10,7 +10,7 @@ export interface QuestionField {
 }
 export type FormAnswer = Record<string, string | { secret_ref: string; value_hidden: true }>;
 export type OtherAnswer = { values: string[]; other_text: string };
-export type ApprovalDetails = { action: string; target: string; impact: string; payload?: string; approve_label?: string; deny_label?: string; draft_id?: string };
+export type ApprovalDetails = { action: string; target: string; impact: string; payload?: string; review_only?: boolean; review?: {source: "auto-review"; status: "reviewing" | "approved" | "shadow" | "human_required" | "invalidated" | "not_eligible" | "not_reviewed" | "setup_required" | "context_required" | "unavailable" | "policy_denied" | "terminal" | "human_decided" | "shadow_reviewing" | "shadow_allow" | "shadow_deny" | "shadow_needs_human" | "shadow_context_required" | "shadow_setup_required" | "shadow_unavailable" | "shadow_invalidated"; reason: string; model: string; risk_level?: "low" | "medium" | "high" | "unknown"; confirmation_required?: boolean; policy_version?: string; context_failure?: {code: string; observed?: number; limit?: number; observed_at_least?: boolean}}; approve_label?: string; deny_label?: string; draft_id?: string };
 export type QuestionAnswer = string | boolean | string[] | FormAnswer | OtherAnswer;
 export interface Question {
   question_id: string;
@@ -29,12 +29,46 @@ export interface Question {
   max_selections?: number;
   status: "pending" | "answered" | "cancelled" | "run_done" | "expired";
   answer?: QuestionAnswer;
+  answered_by?: string;
   created_at: string;
   updated_at?: string;
   expires_at?: string;
-  outcome?: { status: string; execution_certainty: string; message: string; next_action: string };
+  outcome?: { status: string; code?: string; execution_certainty: string; message: string; next_action: string };
 }
 export type ConversationItem = { kind: "message"; message: Message } | { kind: "question"; question: Question } | { kind: "mail_draft"; draft: MailDraft };
+
+/** Readiness, terminal validity and policy advice are different server facts. */
+export function autoReviewPresentation(question: Question): {badge: string; label: string} | undefined {
+ const review = question.approval?.review;
+ if (!review) return undefined;
+ if (review.status.startsWith("shadow_")) {
+  const labels: Record<string, string> = {shadow_reviewing:"观察审查中", shadow_allow:"观察建议允许", shadow_deny:"观察建议拒绝", shadow_needs_human:"观察建议人工决定", shadow_context_required:"观察上下文缺口", shadow_setup_required:"观察配置缺口", shadow_unavailable:"观察审查不可用", shadow_invalidated:"观察建议已失效"};
+  return {badge:question.status === "answered" && question.answered_by && question.answered_by !== "auto-review" ? "人工已决定 · 观察建议" : "观察模式 · 保留原有执行策略", label:labels[review.status] ?? "观察建议"};
+ }
+ if (review.policy_version === "mcp-all-external-v5") {
+  const blockedLabels: Record<string, string> = {setup_required:"配置缺口",context_required:"上下文缺口",unavailable:"审查不可用",policy_denied:"策略判决拒绝",terminal:question.status === "expired" ? "提案已失效" : "不可执行"};
+  if (blockedLabels[review.status]) return {badge:"提案不可执行",label:blockedLabels[review.status]};
+ }
+ if (question.status === "answered" && question.answered_by && question.answered_by !== "auto-review") return {badge: "人工已决定", label: "人工决定有效"};
+ switch (review.status) {
+  case "setup_required": return {badge: "配置未就绪", label: "配置缺口"};
+  case "context_required": return {badge: "审查上下文不完整", label: "上下文缺口"};
+  case "unavailable": return {badge: "审查未完成", label: "审查不可用"};
+  case "policy_denied": return {badge: "审查未允许", label: "策略判决拒绝"};
+ }
+ if (question.status === "expired") return {badge: "提案已过期", label: "提案已失效"};
+ if (question.status === "cancelled" || question.status === "run_done" || review.status === "terminal") return {badge: "提案已结束", label: "不可执行"};
+ switch (review.status) {
+  case "approved": return question.status === "answered" && question.answered_by === "auto-review" && question.answer === true ? {badge: "AutoReview 自动批准", label: "自动批准"} : {badge: "审查建议允许", label: "允许建议"};
+  case "reviewing": return {badge: review.policy_version === "mcp-all-external-v5" ? "AutoReview 审查中" : "AutoReview 审查中 · 可人工决定", label: "审查中"};
+  case "shadow": return {badge: "观察模式 · 人工执行策略", label: "观察建议"};
+  case "human_required": return {badge: "需要你决定", label: "策略需要人工决定"};
+  case "invalidated": return {badge: "自动决定已失效", label: "自动决定失效"};
+  case "not_eligible": return {badge: "执行策略需人工批准", label: "未获自动执行资格"};
+  case "not_reviewed": return {badge: "本提案已有审查记录", label: "未重复审查"};
+  case "human_decided": return {badge: "人工已决定", label: "人工决定有效"};
+ }
+}
 
 /** Preserve the server's sub-millisecond ordering at question/message boundaries. */
 export function compareQuestionTime(a: string, b: string) {

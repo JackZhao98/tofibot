@@ -36,14 +36,14 @@ func (p *toolSearchAIStubProvider) ChatStream(context.Context, *provider.ChatReq
 
 func TestExpandToolSearchQueryParsesBoundedTerms(t *testing.T) {
 	stub := &toolSearchAIStubProvider{response: &provider.ChatResponse{Content: `["web search","browser", "memory save", "WEB SEARCH"]`}}
-	got, err := expandToolSearchQueryWithProvider(context.Background(), "中文找网页搜索工具", stub)
+	got, err := expandToolSearchQueryWithProvider(context.Background(), "中文找网页搜索工具", stub, "synthetic-small")
 	if err != nil {
 		t.Fatal(err)
 	}
 	if strings.Join(got, ",") != "web search,browser,memory save" {
 		t.Fatalf("terms = %#v", got)
 	}
-	if stub.request.Model != toolSearchAIModel || stub.request.ReasoningEffort != "low" {
+	if stub.request.Model != "synthetic-small" || stub.request.ReasoningEffort != "low" {
 		t.Fatalf("request model/effort = %q/%q", stub.request.Model, stub.request.ReasoningEffort)
 	}
 	if len(stub.request.Tools) != 0 {
@@ -69,7 +69,7 @@ func TestExpandToolSearchQueryRejectsInvalidInputAndOutput(t *testing.T) {
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			stub := &toolSearchAIStubProvider{response: &provider.ChatResponse{Content: tc.output}}
-			if _, err := expandToolSearchQueryWithProvider(context.Background(), tc.query, stub); err == nil {
+			if _, err := expandToolSearchQueryWithProvider(context.Background(), tc.query, stub, "synthetic-small"); err == nil {
 				t.Fatal("expected error")
 			}
 			if tc.name == "empty query" || tc.name == "query too long" {
@@ -83,11 +83,11 @@ func TestExpandToolSearchQueryRejectsInvalidInputAndOutput(t *testing.T) {
 
 func TestExpandToolSearchQueryRejectsToolCallsAndHidesProviderError(t *testing.T) {
 	stub := &toolSearchAIStubProvider{response: &provider.ChatResponse{Content: `[]`, ToolCalls: []provider.ToolCall{{Name: "unexpected"}}}}
-	if _, err := expandToolSearchQueryWithProvider(context.Background(), "secret query", stub); err == nil || strings.Contains(err.Error(), "secret query") {
+	if _, err := expandToolSearchQueryWithProvider(context.Background(), "secret query", stub, "synthetic-small"); err == nil || strings.Contains(err.Error(), "secret query") {
 		t.Fatalf("expected generic error without query text, got %v", err)
 	}
 	stub = &toolSearchAIStubProvider{err: context.DeadlineExceeded}
-	if _, err := expandToolSearchQueryWithProvider(context.Background(), "secret query", stub); err == nil || strings.Contains(err.Error(), "secret query") {
+	if _, err := expandToolSearchQueryWithProvider(context.Background(), "secret query", stub, "synthetic-small"); err == nil || strings.Contains(err.Error(), "secret query") {
 		t.Fatalf("expected generic error without query text, got %v", err)
 	}
 }
@@ -95,7 +95,7 @@ func TestExpandToolSearchQueryRejectsToolCallsAndHidesProviderError(t *testing.T
 func TestExpandToolSearchQueryHasShortTimeout(t *testing.T) {
 	stub := &toolSearchAIStubProvider{delay: 4 * time.Second}
 	started := time.Now()
-	_, err := expandToolSearchQueryWithProvider(context.Background(), "browser", stub)
+	_, err := expandToolSearchQueryWithProvider(context.Background(), "browser", stub, "synthetic-small")
 	if err == nil {
 		t.Fatal("expected timeout")
 	}

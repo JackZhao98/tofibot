@@ -55,6 +55,11 @@ func (s *Store) purgeWorkspaceData() error {
 			return err
 		}
 	}
+	// Runtime settings must be usable immediately, without reopening the store.
+	// A workspace reset always disables AutoReview along with its old decisions.
+	if _, err = tx.Exec(seedAutoReviewSettings); err != nil {
+		return err
+	}
 	if err = tx.Commit(); err != nil {
 		return err
 	}
