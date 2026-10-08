@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type CSSProperties } from "react";
-import { GazeAvatar } from "../../GazeAvatar";
+import { BotAvatar } from "../../BotAvatar";
 import { normalizeConfig } from "../../lib/tofi-avatar/index.js";
 import { BOTS } from "../lib/crew";
 import { SPRINGS, springEasing } from "../lib/spring";
@@ -118,7 +118,7 @@ export function StatusMorph() {
         <span className="specimen-label">{STATUSES[status].hint}</span>
       </div>
       <div className="status-row" aria-live="polite">
-        <GazeAvatar id="motion-lab-research" config={researchCat} motion={status === "working" ? "working" : "awake"} />
+        <BotAvatar id="motion-lab-research" config={researchCat} motion={status === "working" ? "working" : "awake"} />
         <span className="row-text">
           <span className="row-top">
             <span className="row-name">{BOTS.research.name}</span>

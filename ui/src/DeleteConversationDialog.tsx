@@ -1,7 +1,7 @@
 import { useEffect, useId, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { ApiError } from "./api";
-import { GazeAvatar } from "./GazeAvatar";
+import { BotAvatar } from "./BotAvatar";
 import { TofiIcon } from "./icons";
 
 export type DeleteTarget = { id: string; conversationId: string; name: string; kind: "bot" | "group" };
@@ -37,7 +37,7 @@ export function DeleteConversationDialog({ target, onDelete, onClose }: { target
       if (event.shiftKey && index <= 0 || !event.shiftKey && (index < 0 || index === buttons.length - 1)) { event.preventDefault(); (event.shiftKey ? buttons.at(-1) : buttons[0])?.focus(); }
     }
   }}><section className="delete-dialog" role="alertdialog" aria-modal="true" aria-labelledby={headingId} aria-describedby={descriptionId} aria-busy={busy}>
-    <div className="delete-dialog-identity">{target.kind === "bot" ? <GazeAvatar id={target.id} mini /> : <TofiIcon name="group" size={26} />}<span>{target.name}</span></div>
+    <div className="delete-dialog-identity">{target.kind === "bot" ? <BotAvatar id={target.id} mini /> : <TofiIcon name="group" size={26} />}<span>{target.name}</span></div>
     <h2 id={headingId}>{label}？</h2>
     <p id={descriptionId}>{target.kind === "bot" ? "将删除这个 Bot、私信记录、记忆、待办和日程，并将其移出群聊。" : "将删除群内的聊天记录、记忆、待办和日程。群成员 Bot 会保留。"}</p>
     <p className="delete-dialog-note">{target.kind === "bot" ? "群里的历史发言和共享电脑文件会保留。" : "共享电脑文件会保留。"}删除后无法在应用中恢复。</p>

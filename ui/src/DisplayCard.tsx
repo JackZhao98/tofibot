@@ -3,7 +3,7 @@ import { MessageMarkdown } from "./MessageMarkdown";
 import { TofiIcon } from "./icons";
 import { CopyFeedbackIcon } from "./CopyFeedbackIcon";
 import { isDesktop } from "./desktop";
-import { GazeAvatar } from "./GazeAvatar";
+import { BotAvatar } from "./BotAvatar";
 import type { Message } from "./types";
 import "./display-card.css";
 import { postmarkSVG, receivedParts } from "./postmark";
@@ -33,7 +33,7 @@ export function DisplayCard({ card, bot, onDraftReply }: { card: NonNullable<Mes
         {card.received_at && !received.date && <><span>收到</span><strong>{card.received_at}</strong></>}
         {card.received_at && <span className="display-card-postmark" role="img" aria-label={`已收到 ${card.received_at}`} dangerouslySetInnerHTML={{ __html: postmarkSVG({ ring: "已收到 · TOFI POST · ", date: received.date ?? "已收到", time: received.date ? received.time : undefined }) }} />}
       </div>
-      {card.summary && <aside className="display-card-note"><strong>{bot && <GazeAvatar id={bot.id} mini />}{bot ? `${bot.name} 的便签` : "Bot 的便签"}</strong><span>{card.summary}</span></aside>}
+      {card.summary && <aside className="display-card-note"><strong>{bot && <BotAvatar id={bot.id} mini />}{bot ? `${bot.name} 的便签` : "Bot 的便签"}</strong><span>{card.summary}</span></aside>}
     </> : <header className="display-card-texthead"><span>文本</span><strong>{card.title || "内容"}</strong></header>}
     <div className={`display-card-copy${!expanded && long ? " is-folded" : ""}`}><MessageMarkdown content={card.body} /></div>
     {long && <button className="display-card-expand" type="button" aria-expanded={expanded} onClick={() => setExpanded(value => !value)}>{expanded ? "收起内容" : "展开全文"}</button>}

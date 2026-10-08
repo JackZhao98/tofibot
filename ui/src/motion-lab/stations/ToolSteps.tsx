@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type CSSProperties } from "react";
 import { flushSync } from "react-dom";
-import { GazeAvatar } from "../../GazeAvatar";
+import { BotAvatar } from "../../BotAvatar";
 import { TofiIcon, type TofiIconName } from "../../icons";
 import { normalizeConfig } from "../../lib/tofi-avatar/index.js";
 import { BOTS } from "../lib/crew";
@@ -147,7 +147,7 @@ export function ToolSteps() {
         <p className="user-bubble">帮我查一下 Codex device flow 怎么接，列个要点。</p>
         <div className="bot-message" ref={messageRef}>
           <div className="bot-head">
-            <GazeAvatar id="motion-lab-steps" config={writerCat} motion={working ? "working" : "awake"} mini />
+            <BotAvatar id="motion-lab-steps" config={writerCat} motion={working ? "working" : "awake"} mini />
             <span className="bot-name">{BOTS.research.name}</span>
           </div>
           {(phase === "running" || phase === "streaming") && (

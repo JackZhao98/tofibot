@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useId, useLayoutEffect, useRef, useState } from "react";
 import { ApiError, request } from "./api";
-import { GazeAvatar } from "./GazeAvatar";
+import { BotAvatar } from "./BotAvatar";
 import { isDesktop } from "./desktop";
 import { TofiIcon } from "./icons";
 import { MessageMarkdown } from "./MessageMarkdown";
@@ -126,7 +126,7 @@ function BinaryQuestionCard({ item, bot, group, archived, onChanged }: QuestionC
   }
   return <article ref={record} className={`binary-question-message${group ? " is-group" : " is-dm"}`} data-question-id={item.question_id} tabIndex={-1} aria-label={`${bot?.name ?? "Bot"} 的问题`}>
     {group && <div className="message-meta"><strong>{bot?.name ?? "Bot"}</strong></div>}
-    <ApprovalCard title={<MessageMarkdown content={item.question} />} avatar={group ? <GazeAvatar id={item.bot_id} mini /> : undefined} badge={approval ? t("需要你批准", "Your approval is needed") : t("需要你回答", "Your input is needed")}
+    <ApprovalCard title={<MessageMarkdown content={item.question} />} avatar={group ? <BotAvatar id={item.bot_id} mini /> : undefined} badge={approval ? t("需要你批准", "Your approval is needed") : t("需要你回答", "Your input is needed")}
       time={validTime ? new Intl.DateTimeFormat("zh-CN", { timeZone:timezone, hour:"2-digit", minute:"2-digit", hourCycle:"h23" }).format(new Date(item.created_at)) : undefined}
       exactTime={item.created_at} facts={approval ? [{ label:t("动作", "Action"), value:approval.action }, { label:t("对象", "Target"), value:approval.target }, { label:t("影响", "Impact"), value:approval.impact }] : undefined} payload={approval?.payload}
       acceptLabel={approval ? approval.approve_label || t("批准此操作", "Approve action") : t("是", "Yes")} declineLabel={approval ? approval.deny_label || t("不批准", "Decline") : t("否", "No")} onAnswer={value => void answer(value)} busy={busy} disabled={!answerable}
@@ -223,7 +223,7 @@ function UserFormCard({ item, bot, group, archived, onChanged }: QuestionCardPro
   }
 
   return <article className={`question-message${group ? " is-group" : " is-dm"}`} data-question-id={item.question_id} tabIndex={-1}>
-    {group && <GazeAvatar id={item.bot_id} mini />}
+    {group && <BotAvatar id={item.bot_id} mini />}
     <div className="question-body">{group && <div className="message-meta"><strong>{bot?.name ?? "Bot"}</strong></div>}
       <form ref={attachForm} className={`question-card question-form ${active ? "is-pending" : "is-resolved"}`}
         aria-labelledby={title} aria-describedby={active ? privacy : undefined} aria-busy={Boolean(busy)}
@@ -317,7 +317,7 @@ function LegacyQuestionCard({ item, bot, group, archived, onChanged }: QuestionC
     } finally { submitting.current = false; setBusy(false); }
   }
   return <article className={`question-message${group ? " is-group" : " is-dm"}`} data-question-id={item.question_id} tabIndex={-1}>
-    {group && <GazeAvatar id={item.bot_id} mini />}
+    {group && <BotAvatar id={item.bot_id} mini />}
     <div className="question-body">{group && <div className="message-meta"><strong>{bot?.name ?? "Bot"}</strong></div>}
       <form className={`question-card ${active ? "is-pending" : foldAnswer ? "is-folding" : "is-resolved"}${current.status === "expired" ? " is-expired" : ""}${current.status === "answered" ? " is-answered" : ""}`} aria-labelledby={title} onSubmit={event => { event.preventDefault(); void finish(); }}>
         {(active || foldAnswer) && <span className="question-state">需要你决定</span>}

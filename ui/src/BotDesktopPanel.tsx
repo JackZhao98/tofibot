@@ -1,7 +1,7 @@
 import { useDebugMode } from "./debugMode";
 import { useEffect, useRef, useState } from "react";
 import { api, ApiError } from "./api";
-import { GazeAvatar } from "./GazeAvatar";
+import { BotAvatar } from "./BotAvatar";
 import { DesktopPointerMarker } from "./DesktopPointerMarker";
 import { isDesktop } from "./desktop";
 import { useDesktopPresence, type DesktopPresenceState } from "./desktopPresence";
@@ -739,7 +739,7 @@ export function BotDesktopPanel({ botId, botName, members = [], autoConnect = fa
     <button type="button" role="switch" aria-checked={humanControlled} className={`desktop-driver-switch is-${humanControlled ? "you" : "bot"}`} disabled={!switchEnabled}
       aria-label={humanControlled ? "交还控制" : "接管控制"} data-hint={humanControlled ? "交还控制" : "接管控制"} onClick={toggleDriver}>
       <span className="desktop-driver-thumb" aria-hidden="true"><TofiIcon name="mouse" size={11} /></span>
-      <span className="desktop-driver-side is-bot" aria-hidden="true"><GazeAvatar id={switchBot} mini animated={false} /></span>
+      <span className="desktop-driver-side is-bot" aria-hidden="true"><BotAvatar id={switchBot} mini animated={false} /></span>
       <span className="desktop-driver-side is-you" aria-hidden="true">你</span>
     </button>
   </div>;
@@ -754,7 +754,7 @@ export function BotDesktopPanel({ botId, botName, members = [], autoConnect = fa
     {!botWorking && info && (debug || info.state !== "ready") && <div className="computer-info"><div className="computer-info-main"><strong>{stateText[info.state] ?? `电脑${info.state}`}</strong><small>{info.phase && info.state !== "error" && info.state !== "stopped" ? `阶段：${phaseText[info.phase] ?? info.phase}` : "状态已同步"}</small></div>{info.error && <small className="error-text">{info.error}</small>}{(info.state === "error" || info.state === "stopped") && <button className="secondary-button" disabled={busy} onClick={() => void retry()}>重试准备</button>}</div>}
     {imageURL && <div className={`computer-screen-wrap desktop-presence-frame desktop-preview-surface desktop-live-screen${humanControlled ? " is-human-controlled" : ""}`}><div className={`desktop-frame-status${frameStale ? " is-stale" : ""}`}>{frameCaption}</div><RemoteDesktopControl key={selectedBotId} controlRef={controlRef} onControlChange={setHumanControlled} botId={selectedBotId} enabled={!passivePreview && !!screenReady && !busy} blocked={passivePreview || showOwnershipStatus && Boolean(ownership?.owner && !humanControlled)} takeoverRun={showOwnershipStatus && !ownershipUnavailable && ownership?.owner?.kind === "bot" ? { id: ownership.owner.run_id, name: botLabel(ownership.owner.bot_id), botId: ownership.owner.bot_id } : undefined} expanded={expanded} onExpand={() => setExpanded(true)} waiting={!!ownership?.waiting.length}>{videoState !== "stopped" && (videoState !== "fallback" || !fallbackFrameReady) ? <DesktopVideo key={`${selectedBotId}:${videoSession}`} botId={selectedBotId} cursor={isDesktop && !humanControlled ? "visible" : "hidden"} enabled={!!ready && (viewerState === "connected" || preserveViewerRef.current) && desktopActive} poster={imageURL} onState={videoStateChanged}  /> : <img className="computer-screen" src={imageURL} alt="共享电脑屏幕"  />}<DesktopPointerMarker presence={desktopPresence} humanControlled={humanControlled || !screenReady || busy} botLabel={botLabel} /></RemoteDesktopControl>{previewControls}</div>}
     {!imageURL && <div className="desktop-preview-surface desktop-launch-surface" onClick={() => { if (!expanded) setExpanded(true); }}>
-      <div className="desktop-launch-preview desktop-bot-starting" role="status" aria-label={error ? "电脑连接失败" : passivePreview ? "正在连接电脑预览" : "正在启动电脑"}>{error ? <span>连接失败，请稍后重新打开</span> : [<GazeAvatar key="cat" id={ownership?.owner?.bot_id ?? botId} motion="working" />, !isDesktop && <span key="phase" className="desktop-boot-phase">{capsule.text}</span>]}</div>
+      <div className="desktop-launch-preview desktop-bot-starting" role="status" aria-label={error ? "电脑连接失败" : passivePreview ? "正在连接电脑预览" : "正在启动电脑"}>{error ? <span>连接失败，请稍后重新打开</span> : [<BotAvatar key="cat" id={ownership?.owner?.bot_id ?? botId} motion="working" />, !isDesktop && <span key="phase" className="desktop-boot-phase">{capsule.text}</span>]}</div>
       {previewControls}
     </div>}
     {!passivePreview && controlBar}

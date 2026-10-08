@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { api, ApiError } from "./api";
 import { TofiIcon } from "./icons";
-import { GazeAvatar } from "./GazeAvatar";
+import { BotAvatar } from "./BotAvatar";
 import type { Bot, Conversation } from "./types";
 
 type Props = {
@@ -74,7 +74,7 @@ export function ArchivePanel({ onClose, onOpen, onLoaded, onChanged, onDelete }:
     {loading ? <div className="inline-state"><div className="spinner" />读取归档…</div> : !conversations.length ? !error && <div className="panel-empty">暂无归档。</div> : <div className="archive-list">{conversations.map((conversation) => {
       const bot = conversation.kind === "dm" ? bots.find((item) => item.id === conversation.bot_id || item.dm_conversation_id === conversation.id) : undefined;
       return <article className="archive-card" key={conversation.id}>
-        {bot ? <GazeAvatar id={bot.id} mini /> : <span className="archive-group-mark" aria-hidden="true"><TofiIcon name="group" size={20} /></span>}
+        {bot ? <BotAvatar id={bot.id} mini /> : <span className="archive-group-mark" aria-hidden="true"><TofiIcon name="group" size={20} /></span>}
         <div className="archive-card-copy"><button type="button" className="archive-open" onClick={() => onOpen(conversation.id)}>{conversation.name}</button><small>{conversation.kind === "group" ? `${conversation.bot_ids.length} 位成员 · 群` : "Bot · 历史私信"}</small></div>
         <div className="archive-card-actions"><button type="button" className="danger-link" disabled={busyId !== null} onClick={() => onDelete(conversation)}>{bot ? "删除 Bot" : "删除群聊"}</button><button type="button" className="secondary-button" disabled={busyId !== null} onClick={() => void restore(conversation)}>{busyId === conversation.id ? "恢复中…" : "恢复"}</button></div>
       </article>;

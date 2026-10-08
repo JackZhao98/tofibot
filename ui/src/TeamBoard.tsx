@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { api } from "./api";
-import { GazeAvatar } from "./GazeAvatar";
+import { BotAvatar } from "./BotAvatar";
 import { TofiIcon } from "./icons";
 import { browserTimezone } from "./timezone";
 import { WorkExecution } from "./WorkExecution";
@@ -133,7 +133,7 @@ function TeamBoardView({ conversation, bots, onClose, onOpenWork, timezone = bro
       <div className="team-board-filter">
         <span>成员</span>
         <button type="button" className={!member ? "is-active" : ""} aria-pressed={!member} onClick={() => setMember("")}>全部</button>
-        {availableBots.map(bot => <button type="button" key={bot.id} className={`team-board-member${member === bot.id ? " is-active" : ""}`} aria-label={`筛选 ${bot.name}`} aria-pressed={member === bot.id} title={bot.name} onClick={() => setMember(member === bot.id ? "" : bot.id)}><GazeAvatar id={bot.id} mini /></button>)}
+        {availableBots.map(bot => <button type="button" key={bot.id} className={`team-board-member${member === bot.id ? " is-active" : ""}`} aria-label={`筛选 ${bot.name}`} aria-pressed={member === bot.id} title={bot.name} onClick={() => setMember(member === bot.id ? "" : bot.id)}><BotAvatar id={bot.id} mini /></button>)}
         <label className="team-board-goal-filter">目标 <select aria-label="筛选目标" value={goal} onChange={event => setGoal(event.target.value)}><option value="">全部目标</option>{goals.map(item => <option key={item.id} value={item.id}>{item.title}</option>)}</select></label>
         <span className="team-board-total">{visible.length} 张</span>
       </div>
@@ -148,7 +148,7 @@ function TeamBoardView({ conversation, bots, onClose, onOpenWork, timezone = bro
               <span className="team-ticket-id">#{item.id.slice(0, 6)}{item.kind === "goal" && <span className="team-ticket-kind">目标</span>}</span>
               <strong>{item.title}</strong>
               {item.parent_goal_id && <span className="team-ticket-goal">{goalById.get(item.parent_goal_id)?.title ?? "关联目标"}</span>}
-              <span className="team-ticket-footer"><GazeAvatar id={item.bot_id} mini /><span>{botName(item.bot_id, item.bot_name)}</span><time dateTime={item.updated_at}>{new Intl.DateTimeFormat("zh-CN", { timeZone:timezone, month:"numeric", day:"numeric" }).format(new Date(item.updated_at))}</time></span>
+              <span className="team-ticket-footer"><BotAvatar id={item.bot_id} mini /><span>{botName(item.bot_id, item.bot_name)}</span><time dateTime={item.updated_at}>{new Intl.DateTimeFormat("zh-CN", { timeZone:timezone, month:"numeric", day:"numeric" }).format(new Date(item.updated_at))}</time></span>
             </button>)}
             {column.status === "todo" && !conversation.archived && <button type="button" className="team-board-add" onClick={() => setCreating(true)}><TofiIcon name="plus" size={16} style={{ verticalAlign: "middle" }} /> 新建</button>}
           </section>;

@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { TofiIcon } from "../../../icons";
-import { GazeAvatar } from "../../../GazeAvatar";
+import { BotAvatar } from "../../../BotAvatar";
 import { normalizeConfig } from "../../../lib/tofi-avatar/index.js";
 import { BOTS } from "../../lib/crew";
 import { prefersReducedMotion, useSeenOnce } from "../../lib/hooks";
@@ -50,7 +50,7 @@ export function QuestionDemo() {
     <div className="question-demo" ref={rootRef}>
       <div className="stage convo question-stage">
         <div className="bot-head">
-          <GazeAvatar id="motion-lab-question" config={writer} motion="awake" mini />
+          <BotAvatar id="motion-lab-question" config={writer} motion="awake" mini />
           <span className="bot-name">{BOTS.writer.name}</span>
         </div>
         <p className="question-lead">周报拟好了，有两个版本。</p>

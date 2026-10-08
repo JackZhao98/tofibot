@@ -1,6 +1,6 @@
 import { useRef, useState, useEffect } from "react";
 import { ApprovalCard, type ApprovalResolution } from "../../../ApprovalCard";
-import { GazeAvatar } from "../../../GazeAvatar";
+import { BotAvatar } from "../../../BotAvatar";
 import { TofiIcon } from "../../../icons";
 import { MailDraftCard, type MailDraft } from "../../../MailDraftCard";
 import { normalizeConfig } from "../../../lib/tofi-avatar/index.js";
@@ -31,12 +31,12 @@ export function ApprovalDemo() {
   };
   return <div className="approval-demo">
     <div className="stage approval-stage">
-      <ApprovalCard title="要把这封邮件发给 3 位客户吗？" avatar={<GazeAvatar id="lab-approval-mail" config={cat} mini />} time="14:20"
+      <ApprovalCard title="要把这封邮件发给 3 位客户吗？" avatar={<BotAvatar id="lab-approval-mail" config={cat} mini />} time="14:20"
         facts={[{ label:"动作", value:"发送邮件「9 月份价格调整通知」" }, { label:"对象", value:"lin@acme.co 等 3 人" }, { label:"影响", value:"发出后不能撤回" }]}
         acceptLabel="发送" declineLabel="先别发" onAnswer={answer} busy={busy} resolution={resolution}
         secondaryAction={<button type="button" aria-expanded={draft} disabled={Boolean(busy)} onClick={() => setDraft(!draft)}>看草稿</button>} />
       {draft && !resolution && <div className="approval-draft-preview"><strong>9 月份价格调整通知</strong><p>你好，9 月份的服务价格将按我们已确认的方案调整，具体明细请参考报价单。</p></div>}
-      <ApprovalCard title="允许 Ops Watcher 重启 tofi-vm-01 吗？" avatar={<GazeAvatar id="lab-approval-ops" config={ops} mini />}
+      <ApprovalCard title="允许 Ops Watcher 重启 tofi-vm-01 吗？" avatar={<BotAvatar id="lab-approval-ops" config={ops} mini />}
         facts={[{ label:"原因", value:"内存占用 97%，服务已无响应 3 分钟" }, { label:"停机", value:"约 40 秒" }]}
         acceptLabel="重启" declineLabel="再等等" resolution={restart} onAnswer={accepted => setRestart({ label:accepted ? "已批准" : "未批准", answer:accepted ? "重启" : "再等等", accepted })} />
       <ApprovalCard title="允许调用外部工具处理这份周报吗？" facts={[{ label:"动作", value:"调用 update_report" }, { label:"对象", value:"synthetic-workspace" }, { label:"影响", value:"合成演示；请展开核对完整参数" }]}

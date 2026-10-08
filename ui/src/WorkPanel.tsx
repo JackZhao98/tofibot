@@ -4,7 +4,7 @@ import { DelayedFeedback } from "./DelayedFeedback";
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { api, ApiError } from "./api";
 import { TofiIcon } from "./icons";
-import { GazeAvatar } from "./GazeAvatar";
+import { BotAvatar } from "./BotAvatar";
 import { ConfirmAction, Disclosure } from "./InteractionSystem";
 import { TimezoneSelect, useUserTimezone } from "./UserTimezone";
 import { formatZonedTime } from "./timezone";
@@ -122,7 +122,7 @@ function WorkPanelView({ conversation, conversations, bots, refreshToken, onClos
     });
   }
   function provenance(item: WorkItem | Schedule) {
-    return <div className="work-provenance">{botView ? <button onClick={() => onNavigate(item.conversation_id)}>{lookupSource(item.conversation_id, item.conversation_name)}</button> : <span><GazeAvatar id={item.bot_id} mini />{lookupBot(item.bot_id, item.bot_name)}</span>}</div>;
+    return <div className="work-provenance">{botView ? <button onClick={() => onNavigate(item.conversation_id)}>{lookupSource(item.conversation_id, item.conversation_name)}</button> : <span><BotAvatar id={item.bot_id} mini />{lookupBot(item.bot_id, item.bot_name)}</span>}</div>;
   }
   function renderItem(item: WorkItem) {
     const readOnly = itemReadOnly(item);

@@ -880,7 +880,7 @@
     "ui/src/DisplayCard.tsx": "1ce624e3fb320e4b570d52b0b92e07b4be9626c95e776801230b96484e689486",
     "ui/src/ExtensionPanel.tsx": "4df26599000f6a800f1b573f388d5e1f24ff358ba1c7326ba1245c20d64498c6",
     "ui/src/FloatingDesktop.tsx": "3523c9eeadb2dba9f23cb468eee74a06e75065f0d8b7bd334f35acdfcbf0dc69",
-    "ui/src/GazeAvatar.tsx": "9064e742d9334d7d618b61aed99be1d8ae1040a49975973ed4e30c0ba4a3e833",
+    "ui/src/BotAvatar.tsx": "ae819d608cf888b1f16a255ad8fe26149b0eb6033c4e649cdba180998e4d48d9",
     "ui/src/InteractionSystem.tsx": "f97cda8ee685a1152ddf7424623ac37bff999117400ab55acad6a622949232c4",
     "ui/src/LocalMCPPanel.tsx": "2e78f7cb6b8dcc487b60c480ec1df372d40d3ebefe4bb5680ce0a5a1ca8adca8",
     "ui/src/MCPSettings.tsx": "565192c830f6f0c5cbb48b5f5fca1beb85f673c3a6d5df3e4b9ccc9bdba7fbd8",
