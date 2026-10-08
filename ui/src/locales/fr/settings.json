@@ -312,7 +312,7 @@
   "portability": {
     "title": "Transfert de données",
     "description": "Choisissez les données du compte ou un seul Bot. Les imports sont vérifiés au préalable et créent des copies. Les paquets de compte et de Bot partagent le même format et sont chiffrés par défaut.",
-    "scope_note": "Sont pris en charge : la configuration, le texte des discussions, les souvenirs, les tâches planifiées, les pièces jointes et les réglages de fuseau horaire et de modèle. Les pièces jointes sont limitées à 4 Mio chacune et 8 Mio au total ; les fichiers manquants ou trop volumineux sont listés. Vous pouvez aussi choisir explicitement les identifiants d’environnement du coffre persistant ; seules des copies inactives sont restaurées. Les clés privées SSH, les connexions, les plugins, les Skills, les éléments de travail, les brouillons d’e-mail, l’historique d’exécution, les fichiers de l’ordinateur virtuel et les disques entiers ne sont pas encore pris en charge. Il s’agit d’un paquet sélectionné, pas d’une sauvegarde complète du compte. Les secrets collés dans des discussions ou des instructions sont exportés avec le texte.",
+    "scope_note": "Sont pris en charge : la configuration, le texte des discussions, les souvenirs, les tâches planifiées, les pièces jointes et les réglages de fuseau horaire, de langue et de modèle. Les pièces jointes sont limitées à 4 Mio chacune et 8 Mio au total ; les fichiers manquants ou trop volumineux sont listés. Vous pouvez aussi choisir explicitement les identifiants d’environnement du coffre persistant ; seules des copies inactives sont restaurées. Les clés privées SSH, les connexions, les plugins, les Skills, les éléments de travail, les brouillons d’e-mail, l’historique d’exécution, les fichiers de l’ordinateur virtuel et les disques entiers ne sont pas encore pris en charge. Il s’agit d’un paquet sélectionné, pas d’une sauvegarde complète du compte. Les secrets collés dans des discussions ou des instructions sont exportés avec le texte.",
     "security_note": "La phrase secrète d’export reste dans votre navigateur. Toute personne disposant du paquet et de la phrase secrète peut le lire. L’import envoie le paquet déchiffré au serveur cible, et votre sélection détermine les enregistrements écrits. Le serveur traite le texte en clair : un gestionnaire de compte qui réinitialise un mot de passe peut prendre le contrôle du compte, et l’administrateur de l’hôte peut lire les données d’exécution. Ce n’est pas un stockage tenu secret vis-à-vis de l’opérateur. Le coffre et la base de données font l’objet d’instantanés séparés.",
     "export": "Export",
     "scope": "Portée",
@@ -377,7 +377,7 @@
       "attachments": "Fichiers joints",
       "attachment_bindings": "Liens des pièces jointes",
       "missing_attachments": "Pièces jointes non incluses",
-      "settings": "Réglages de fuseau horaire et de modèle",
+      "settings": "Réglages de fuseau horaire, de langue et de modèle",
       "vault_environment": "Identifiants d’environnement du coffre (sensibles, non activés après restauration)"
     },
     "error": {
