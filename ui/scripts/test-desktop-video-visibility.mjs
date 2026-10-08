@@ -5,6 +5,7 @@ import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { promisify } from "node:util";
+import { fixedTranslation } from "./i18n-harness.mjs";
 
 const root = dirname(dirname(fileURLToPath(import.meta.url)));
 const out = await mkdtemp(join(tmpdir(), "tofi-desktop-visibility-"));
@@ -18,7 +19,8 @@ try {
   const source = (await readFile(join(out, "DesktopVideo.js"), "utf8"))
     .replace(/^import .* from "react\/jsx-runtime";$/m, "const { jsx: _jsx } = globalThis.__visibilityHarness;")
     .replace(/^import .* from "react";$/m, "const { useEffect, useRef, useState } = globalThis.__visibilityHarness;")
-    .replace(/^import .* from "\.\/desktopVideoRecovery";$/m, "const { openDesktopVideo } = globalThis.__visibilityHarness;");
+    .replace(/^import .* from "\.\/desktopVideoRecovery";$/m, "const { openDesktopVideo } = globalThis.__visibilityHarness;")
+    .replace(/^import .* from "\.\/i18n";$/m, "const { useTranslation } = globalThis.__visibilityHarness;");
   const slots = [];
   let cursor = 0, dirty = true, effects = [], tree;
   const timers = new Map();
@@ -36,7 +38,9 @@ try {
     load() { this.readyState = 0; }
     removeAttribute(name) { this[name] = ""; }
   }();
+  const { useTranslation } = await fixedTranslation("zh-CN");
   const hooks = {
+    useTranslation,
     jsx: (type, props) => ({ type, props }),
     openDesktopVideo() { throw new Error("Visibility test must not open a network connection"); },
     useState(initial) {
