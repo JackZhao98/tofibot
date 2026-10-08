@@ -12,7 +12,7 @@ export const SOURCE_LANGUAGE: Language = "en";
  * it). They load without the English fallback chunk. Add a language once its
  * translation is complete.
  */
-export const COMPLETE_LANGUAGES = ["en", "zh-CN"] as const;
+export const COMPLETE_LANGUAGES = ["en", "zh-CN", "zh-TW", "ja", "ko", "de", "fr"] as const;
 
 /**
  * One namespace per product area. Parallel workers own whole namespaces, so a

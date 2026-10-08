@@ -121,7 +121,9 @@ export function preferenceToServer(value: LanguagePreference): string {
 /** Apply the account's stored choice after sign-in, if it differs from this device. */
 export function syncServerLanguagePreference(value: unknown): Promise<void> | undefined {
   const next = preferenceFromServer(value);
-  if (next === preference) return undefined;
+  // An empty account value cannot tell "never chosen" from "Auto"; a language
+  // picked on this device wins over it instead of being reset.
+  if (next === preference || (next === "auto" && preference !== "auto")) return undefined;
   return setLanguagePreference(next);
 }
 
