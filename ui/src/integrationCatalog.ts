@@ -5,6 +5,8 @@
  * never contains credentials and it does not imply that Tofi can register an
  * OAuth client on the provider's behalf.
  */
+import { i18n } from "./i18n";
+
 export type IntegrationPreset = {
   id: string;
   name: string;
@@ -37,11 +39,12 @@ export type IntegrationPreset = {
 export const googleAudienceURL = "https://console.cloud.google.com/auth/audience";
 export const googleAPIEnableURL = (api: string) =>
   `https://console.cloud.google.com/apis/enableflow;apiid=${api}`;
-const googleSetup = [
-  "确认已获得 Google Workspace Developer Preview 访问资格。",
-  "在 Google Cloud 项目中启用对应产品 API 和 MCP 服务。",
-  "设置 OAuth 同意屏幕与测试用户，创建 Web 应用客户端并登记回调地址。",
-  "填写下方 Client ID 和 Secret，添加后完成 Google 授权。",
+// Catalog text is read at access time, so it follows the current UI language.
+const googleSetup = () => [
+  i18n.t("extensions:catalog.google_setup.preview_access"),
+  i18n.t("extensions:catalog.google_setup.enable_apis"),
+  i18n.t("extensions:catalog.google_setup.consent_screen"),
+  i18n.t("extensions:catalog.google_setup.client_credentials"),
 ];
 
 /**
@@ -50,199 +53,211 @@ const googleSetup = [
  * represented as six presets rather than a fictional all-in-one endpoint.
  */
 export const integrationCatalog: IntegrationPreset[] = [
-  {id:"microsoft-learn", name:"Microsoft Learn", description:"搜索官方技术文档与代码示例。", category:"service", url:"https://learn.microsoft.com/api/mcp", docsURL:"https://learn.microsoft.com/en-us/training/support/mcp", upstream:"vendor", setup:["无需账号或密钥，添加后即可使用官方公开文档。"], auth:"none", status:"active"},
+  {id:"microsoft-learn", name:"Microsoft Learn", get description() { return i18n.t("extensions:catalog.microsoft_learn.description"); }, category:"service", url:"https://learn.microsoft.com/api/mcp", docsURL:"https://learn.microsoft.com/en-us/training/support/mcp", upstream:"vendor", get setup() { return [i18n.t("extensions:catalog.microsoft_learn.setup.no_account")]; }, auth:"none", status:"active"},
   {
     id: "google-gmail",
     googleAPIs: { api: "gmail.googleapis.com", mcp: "gmailmcp.googleapis.com" },
     name: "Google Gmail",
-    description: "查找邮件、阅读内容、撰写草稿。",
+    get description() { return i18n.t("extensions:catalog.google_gmail.description"); },
     category: "google",
     url: "https://gmailmcp.googleapis.com/mcp/v1",
     docsURL: "https://developers.google.com/workspace/gmail/api/guides/configure-mcp-server",
-    setup: googleSetup,
+    get setup() { return googleSetup(); },
     auth: "oauth",
     scopes: ["https://www.googleapis.com/auth/gmail.readonly", "https://www.googleapis.com/auth/gmail.compose"],
-    note: "Google Workspace Developer Preview；启用 gmail.googleapis.com 和 gmailmcp.googleapis.com。具体工具可能要求 gmail.modify 或 mail.google.com。",
+    get note() { return i18n.t("extensions:catalog.google_gmail.note"); },
     status: "developer-preview",
   },
   {
     id: "google-drive",
     googleAPIs: { api: "drive.googleapis.com", mcp: "drivemcp.googleapis.com" },
     name: "Google Drive",
-    description: "查找和整理云端文件。",
+    get description() { return i18n.t("extensions:catalog.google_drive.description"); },
     category: "google",
     url: "https://drivemcp.googleapis.com/mcp/v1",
     docsURL: "https://developers.google.com/workspace/drive/api/guides/configure-mcp-server",
-    setup: googleSetup,
+    get setup() { return googleSetup(); },
     auth: "oauth",
     scopes: ["https://www.googleapis.com/auth/drive.readonly", "https://www.googleapis.com/auth/drive.file"],
-    note: "Google Drive MCP 属于 Developer Preview；启用 drive.googleapis.com 和 drivemcp.googleapis.com。",
+    get note() { return i18n.t("extensions:catalog.google_drive.note"); },
     status: "developer-preview",
   },
   {
     id: "google-docs",
     googleAPIs: { api: "docs.googleapis.com", mcp: "docsmcp.googleapis.com" },
     name: "Google Docs",
-    description: "阅读和编辑文档。",
+    get description() { return i18n.t("extensions:catalog.google_docs.description"); },
     category: "google",
     url: "https://docsmcp.googleapis.com/mcp/v1",
     docsURL: "https://developers.google.com/workspace/docs/api/guides/configure-mcp-server",
-    setup: googleSetup,
+    get setup() { return googleSetup(); },
     auth: "oauth",
     scopes: ["https://www.googleapis.com/auth/drive.readonly", "https://www.googleapis.com/auth/drive.file", "https://www.googleapis.com/auth/documents.readonly", "https://www.googleapis.com/auth/documents"],
-    note: "Google Docs MCP 属于 Developer Preview；启用 docs.googleapis.com 和 docsmcp.googleapis.com。",
+    get note() { return i18n.t("extensions:catalog.google_docs.note"); },
     status: "developer-preview",
   },
   {
     id: "google-sheets",
     googleAPIs: { api: "sheets.googleapis.com", mcp: "sheetsmcp.googleapis.com" },
     name: "Google Sheets",
-    description: "读取数据、编辑表格与公式。",
+    get description() { return i18n.t("extensions:catalog.google_sheets.description"); },
     category: "google",
     url: "https://sheetsmcp.googleapis.com/mcp/v1",
     docsURL: "https://developers.google.com/workspace/sheets/api/guides/configure-mcp-server",
-    setup: googleSetup,
+    get setup() { return googleSetup(); },
     auth: "oauth",
     scopes: ["https://www.googleapis.com/auth/drive.readonly", "https://www.googleapis.com/auth/drive.file", "https://www.googleapis.com/auth/spreadsheets.readonly", "https://www.googleapis.com/auth/spreadsheets"],
-    note: "Google Sheets MCP 属于 Developer Preview；启用 sheets.googleapis.com 和 sheetsmcp.googleapis.com。",
+    get note() { return i18n.t("extensions:catalog.google_sheets.note"); },
     status: "developer-preview",
   },
   {
     id: "google-slides",
     googleAPIs: { api: "slides.googleapis.com", mcp: "slidesmcp.googleapis.com" },
     name: "Google Slides",
-    description: "阅读和制作演示文稿。",
+    get description() { return i18n.t("extensions:catalog.google_slides.description"); },
     category: "google",
     url: "https://slidesmcp.googleapis.com/mcp/v1",
     docsURL: "https://developers.google.com/workspace/slides/api/guides/configure-mcp-server",
-    setup: googleSetup,
+    get setup() { return googleSetup(); },
     auth: "oauth",
     scopes: ["https://www.googleapis.com/auth/drive.readonly", "https://www.googleapis.com/auth/drive.file", "https://www.googleapis.com/auth/presentations.readonly", "https://www.googleapis.com/auth/presentations"],
-    note: "Google Slides MCP 属于 Developer Preview；启用 slides.googleapis.com 和 slidesmcp.googleapis.com。",
+    get note() { return i18n.t("extensions:catalog.google_slides.note"); },
     status: "developer-preview",
   },
   {
     id: "google-calendar",
     googleAPIs: { api: "calendar-json.googleapis.com", mcp: "calendarmcp.googleapis.com" },
     name: "Google Calendar",
-    description: "查看日程与空闲时间。",
+    get description() { return i18n.t("extensions:catalog.google_calendar.description"); },
     category: "google",
     url: "https://calendarmcp.googleapis.com/mcp/v1",
     docsURL: "https://developers.google.com/workspace/calendar/api/guides/configure-mcp-server",
-    setup: googleSetup,
+    get setup() { return googleSetup(); },
     auth: "oauth",
     scopes: ["https://www.googleapis.com/auth/calendar.calendarlist.readonly", "https://www.googleapis.com/auth/calendar.events.freebusy", "https://www.googleapis.com/auth/calendar.events.readonly"],
-    note: "当前预设仅提供日程读取与空闲查询。需启用 calendar-json.googleapis.com、calendarmcp.googleapis.com。",
+    get note() { return i18n.t("extensions:catalog.google_calendar.note"); },
     status: "developer-preview",
   },
   {
     id: "github-readonly",
-    name: "GitHub 只读",
-    description: "读取仓库、Issue 与 Pull Request。",
+    get name() { return i18n.t("extensions:catalog.github_readonly.name"); },
+    get description() { return i18n.t("extensions:catalog.github_readonly.description"); },
     category: "service",
     url: "https://api.githubcopilot.com/mcp/readonly",
     docsURL: "https://github.com/github/github-mcp-server/blob/main/docs/remote-server.md",
     upstream: "vendor",
     readOnly: true,
-    setup: [
-      "创建仅覆盖所需仓库和读取权限的 fine-grained PAT。",
-      "在下方私密令牌输入框填写 PAT；无需粘贴到聊天或请求头 JSON。",
-      "添加后检查服务连接和可用工具；账号及组织策略仍适用。",
-    ],
+    get setup() {
+      return [
+        i18n.t("extensions:catalog.github_readonly.setup.create_pat"),
+        i18n.t("extensions:catalog.github_readonly.setup.enter_token"),
+        i18n.t("extensions:catalog.github_readonly.setup.verify"),
+      ];
+    },
     auth: "token",
     tokenHeader: "Authorization",
     tokenPrefix: "Bearer ",
-    note: "GitHub 托管的只读端点；Tofi 的工具确认与允许/禁用策略仍适用。来源与配置已核对，尚未用真实账号验证。",
+    get note() { return i18n.t("extensions:catalog.github_readonly.note"); },
     status: "public-preview",
   },
   {
     id: "github",
     name: "GitHub",
-    description: "仓库、Issue 与 Pull Request。",
+    get description() { return i18n.t("extensions:catalog.github.description"); },
     category: "service",
     url: "https://api.githubcopilot.com/mcp/",
     docsURL: "https://github.com/github/github-mcp-server",
     upstream: "vendor",
-    setup: [
-      "准备权限尽量收窄的 fine-grained PAT，并在 Tofi 作为 Bearer token 填入。",
-      "连接前检查 GitHub MCP 的 toolset 和仓库权限。",
-    ],
+    get setup() {
+      return [
+        i18n.t("extensions:catalog.github.setup.prepare_pat"),
+        i18n.t("extensions:catalog.github.setup.check_scope"),
+      ];
+    },
     auth: "token",
     tokenHeader: "Authorization",
     tokenPrefix: "Bearer ",
-    note: "官方远程服务器由 GitHub 托管；可用性和 toolset 可能受账号或 Copilot 资格影响。",
+    get note() { return i18n.t("extensions:catalog.github.note"); },
     status: "public-preview",
   },
   {
     id: "notion",
     name: "Notion",
-    description: "查找和整理知识库。",
+    get description() { return i18n.t("extensions:catalog.notion.description"); },
     category: "service",
     url: "https://mcp.notion.com/mcp",
     docsURL: "https://www.notion.com/help/notion-mcp",
     upstream: "vendor",
-    setup: [
-      "Tofi 会向服务申请 OAuth 客户端，无需手动填写 Client ID。",
-      "添加后点击授权，选择要连接的 Notion 工作区。",
-      "确认连接身份的页面权限符合预期。",
-    ],
+    get setup() {
+      return [
+        i18n.t("extensions:catalog.notion.setup.auto_client"),
+        i18n.t("extensions:catalog.notion.setup.choose_workspace"),
+        i18n.t("extensions:catalog.notion.setup.check_access"),
+      ];
+    },
     auth: "oauth",
-    note: "Notion 当前优先维护托管远程 MCP；Enterprise 管理员可以限制可连接的 AI 应用。",
+    get note() { return i18n.t("extensions:catalog.notion.note"); },
     status: "active",
   },
   {
     id: "linear-readonly",
-    name: "Linear 只读",
-    description: "查找项目、任务与评论。",
+    get name() { return i18n.t("extensions:catalog.linear_readonly.name"); },
+    get description() { return i18n.t("extensions:catalog.linear_readonly.description"); },
     category: "service",
     url: "https://mcp.linear.app/mcp/readonly",
     docsURL: "https://linear.app/docs/mcp",
     upstream: "vendor",
     readOnly: true,
-    setup: [
-      "创建只包含 Read 权限、仅覆盖所需团队的 Linear API key。",
-      "在下方私密令牌输入框填写 key。",
-      "添加后确认授权范围和工具连接。",
-    ],
+    get setup() {
+      return [
+        i18n.t("extensions:catalog.linear_readonly.setup.create_key"),
+        i18n.t("extensions:catalog.linear_readonly.setup.enter_token"),
+        i18n.t("extensions:catalog.linear_readonly.setup.verify"),
+      ];
+    },
     auth: "token",
     tokenHeader: "Authorization",
     tokenPrefix: "Bearer ",
-    note: "Linear 文档说明此端点仅提供读取工具；Tofi 的工具确认与允许/禁用策略仍适用。连接配置已核对，尚未用真实账号验证。",
+    get note() { return i18n.t("extensions:catalog.linear_readonly.note"); },
     status: "active",
   },
   {
     id: "linear",
     name: "Linear",
-    description: "管理项目、任务与评论。",
+    get description() { return i18n.t("extensions:catalog.linear.description"); },
     category: "service",
     url: "https://mcp.linear.app/mcp",
     docsURL: "https://linear.app/docs/mcp",
     upstream: "vendor",
-    setup: [
-      "准备 Linear API key 或 Bearer token；写入权限不需要时请选择只读端点。",
-      "连接前检查团队和工作区权限。",
-    ],
+    get setup() {
+      return [
+        i18n.t("extensions:catalog.linear.setup.prepare_key"),
+        i18n.t("extensions:catalog.linear.setup.check_scope"),
+      ];
+    },
     auth: "token",
     tokenHeader: "Authorization",
     tokenPrefix: "Bearer ",
-    note: "Linear 主传输是 Streamable HTTP；/mcp/readonly 只提供读取工具，/sse 是已弃用的兼容路径。",
+    get note() { return i18n.t("extensions:catalog.linear.note"); },
     status: "active",
   },
   {
     id: "context7",
     name: "Context7",
-    description: "获取当前版本的库文档和示例。",
+    get description() { return i18n.t("extensions:catalog.context7.description"); },
     category: "service",
     url: "https://mcp.context7.com/mcp",
     docsURL: "https://context7.com/docs/resources/all-clients",
     upstream: "vendor",
-    setup: [
-      "在 Context7 控制台创建 API key。",
-      "在 Tofi 使用 Context7-API-Key 请求头填入 key。",
-    ],
+    get setup() {
+      return [
+        i18n.t("extensions:catalog.context7.setup.create_key"),
+        i18n.t("extensions:catalog.context7.setup.enter_key"),
+      ];
+    },
     auth: "token",
     tokenHeader: "Context7-API-Key",
-    note: "Context7 文档也列出 Authorization: Bearer 形式；本预设使用已验证的 Context7-API-Key 请求头。",
+    get note() { return i18n.t("extensions:catalog.context7.note"); },
     status: "active",
   },
 ];
@@ -265,33 +280,41 @@ export type HeldIntegration = {
 
 export const heldIntegrations: HeldIntegration[] = [
   {
-    id: "notion-token", name: "Notion 令牌服务（历史）", description: "已停止维护的历史本地 MCP 服务。",
+    id: "notion-token", get name() { return i18n.t("extensions:held.notion_token.name"); }, get description() { return i18n.t("extensions:held.notion_token.description"); },
     upstream: "vendor", maintenance: "retired", auth: "integration-token",
     docsURL: "https://github.com/makenotion/notion-mcp-server/blob/730ae781ba28beeaf0865025a3f2ed4c25ea2387/README.md",
-    reason: "提供方已停止维护和支持此本地服务，仅作为历史参考，不在首批支持范围。需连接 Notion 时，请使用上方的 OAuth 连接。",
+    get reason() { return i18n.t("extensions:held.notion_token.reason"); },
   },
   {
-    id: "discord", name: "Discord", description: "社区维护的 Discord Bot 连接。",
+    id: "discord", name: "Discord", get description() { return i18n.t("extensions:held.discord.description"); },
     upstream: "community", auth: "bot-token", docsURL: "https://github.com/SaseQ/discord-mcp",
-    reason: "尚未核实兼容的安装方式与连接权限，暂未开放添加。",
+    get reason() { return i18n.t("extensions:held.discord.reason"); },
   },
   {
-    id: "slack", name: "Slack", description: "Slack 提供的远程 MCP 服务。",
+    id: "slack", name: "Slack", get description() { return i18n.t("extensions:held.slack.description"); },
     upstream: "vendor", auth: "oauth", docsURL: "https://docs.slack.dev/ai/slack-mcp-server/",
-    reason: "需要注册 Slack 应用并完成用户授权；Bot token 不适用于此接入。",
+    get reason() { return i18n.t("extensions:held.slack.reason"); },
   },
   {
-    id: "yahoo-finance", name: "Yahoo Finance", description: "社区维护的行情查询方案。",
+    id: "yahoo-finance", name: "Yahoo Finance", get description() { return i18n.t("extensions:held.yahoo_finance.description"); },
     upstream: "community", auth: "none", docsURL: "https://github.com/Alex2Yang97/yahoo-finance-mcp",
-    reason: "尚未核实可安装的兼容版本；社区方案无需 Token。",
+    get reason() { return i18n.t("extensions:held.yahoo_finance.reason"); },
   },
 ];
 
+const authLabelKeys = {
+  oauth: "extensions:auth.oauth",
+  token: "extensions:auth.token",
+  none: "extensions:auth.none",
+  "integration-token": "extensions:auth.integration_token",
+  "bot-token": "extensions:auth.bot_token",
+} as const;
+
 export const integrationAuthLabel = (auth: IntegrationPreset["auth"] | HeldIntegration["auth"]): string =>
-  ({ oauth: "OAuth 授权", token: "访问令牌", none: "无需密钥", "integration-token": "Integration token", "bot-token": "Bot 令牌" })[auth];
+  i18n.t(authLabelKeys[auth]);
 
 export const integrationOriginLabel = (upstream: IntegrationPreset["upstream"]): string =>
-  upstream === "vendor" ? "提供方维护" : upstream === "community" ? "社区维护" : "连接预设";
+  upstream === "vendor" ? i18n.t("extensions:origin.vendor") : upstream === "community" ? i18n.t("extensions:origin.community") : i18n.t("extensions:origin.preset");
 
 export const matchesIntegration = (item: Pick<IntegrationPreset, "name" | "description">, query: string): boolean =>
   `${item.name} ${item.description}`.toLowerCase().includes(query.trim().toLowerCase());
