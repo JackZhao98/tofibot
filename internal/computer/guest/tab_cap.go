@@ -30,7 +30,7 @@ import (
 // DefaultMaxBrowserTabs is the default cap on simultaneously open page tabs.
 // tofi-guest --max-browser-tabs (boot argument tofi_browser_tabs, Worker
 // config browser_max_tabs) overrides it; 0 disables the cap.
-const DefaultMaxBrowserTabs = 3
+const DefaultMaxBrowserTabs = 2
 
 const (
 	tabCapPollInterval = 2 * time.Second

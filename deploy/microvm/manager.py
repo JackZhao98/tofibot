@@ -46,7 +46,7 @@ BALLOON_STATS_INTERVAL_S = 5
 PAGE_REPORTING_ORDER = 5
 # Default cap on open page tabs in the guest Chrome (config browser_max_tabs,
 # boot argument tofi_browser_tabs, tofi-guest --max-browser-tabs).
-DEFAULT_BROWSER_MAX_TABS = 3
+DEFAULT_BROWSER_MAX_TABS = 2
 # (Firecracker field, exported name, divisor). Guest byte counts become MiB.
 BALLOON_STATS = (("target_mib", "target_mib", 1), ("actual_mib", "actual_mib", 1),
                  ("total_memory", "guest_total_mib", 1024**2),
