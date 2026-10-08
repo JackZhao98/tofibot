@@ -1,1 +1,88 @@
-{}
+{
+  "display": {
+    "title": "Tâche planifiée",
+    "description": "S’exécute selon un planning. Ouvrez Gérer pour voir les instructions complètes."
+  },
+  "run": {
+    "cadence": {
+      "once": "Une fois",
+      "daily_at": "Tous les jours à {{time}}",
+      "daily": "Tous les jours",
+      "interval": "À intervalle régulier",
+      "days_one": "Tous les jours",
+      "days_many": "Tous les {{count}} jours",
+      "days_other": "Tous les {{count}} jours",
+      "hours_one": "Toutes les heures",
+      "hours_many": "Toutes les {{count}} heures",
+      "hours_other": "Toutes les {{count}} heures",
+      "minutes_one": "Toutes les minutes",
+      "minutes_many": "Toutes les {{count}} minutes",
+      "minutes_other": "Toutes les {{count}} minutes",
+      "seconds_one": "Toutes les secondes",
+      "seconds_many": "Toutes les {{count}} secondes",
+      "seconds_other": "Toutes les {{count}} secondes"
+    },
+    "with_zone": "{{recurrence}} ({{zone}})",
+    "created_by_user": "Créée par vous",
+    "created_by_bot": "Créée par l’assistant",
+    "occurrence": "Exécution n° {{number}}",
+    "planned_unknown": "Non confirmé",
+    "planned_description": "Prévue le {{date}} à {{time}} · {{zone}}",
+    "planned_description_unknown": "Heure prévue non confirmée",
+    "triggered_on": "Exécution planifiée · {{date}}",
+    "metadata_fallback": "Tâche planifiée",
+    "created_on": "Créée le {{date}}",
+    "metadata_snapshot": "Fréquence enregistrée au déclenchement de cette exécution",
+    "metadata_no_snapshot": "Historique d’exécution ; la fréquence de l’époque n’a pas été enregistrée",
+    "status_description": "État mis à jour le {{date}} à {{time}} · {{zone}}",
+    "retry_failed": "Impossible de relancer. Réessayez plus tard.",
+    "retrying": "Nouvelle tentative…",
+    "retry": "Réessayer",
+    "confirm_before_retry": "Pour éviter de répéter des actions externes, vérifiez avant de réessayer."
+  },
+  "row": {
+    "status": {
+      "waiting": "En attente d’une réponse",
+      "queued": "En file d’attente",
+      "running": "En cours",
+      "published": "Résultat publié dans la conversation",
+      "done": "Exécution terminée",
+      "failed": "Échec",
+      "cancelled": "Arrêtée",
+      "interrupted": "Interrompue",
+      "unknown": "État inconnu",
+      "turn_running": "Cette exécution est en cours",
+      "turn_done": "Cette exécution est terminée",
+      "turn_failed": "Cette exécution a échoué",
+      "turn_cancelled": "Cette exécution a été arrêtée",
+      "turn_interrupted": "Cette exécution a été interrompue"
+    },
+    "failure": {
+      "receipt_missing": "Cette exécution n’a pas confirmé de résultat final ; elle n’est donc pas considérée comme livrée.",
+      "incomplete": "Cette exécution n’a pas abouti. L’historique de la tâche est conservé.",
+      "receipt_missing_confirm": "Cette exécution n’a pas confirmé de résultat final ; elle n’est donc pas considérée comme livrée. Pour éviter de répéter des actions externes, vérifiez avant de réessayer.",
+      "incomplete_confirm": "Cette exécution n’a pas abouti. L’historique de la tâche est conservé. Pour éviter de répéter des actions externes, vérifiez avant de réessayer."
+    },
+    "note": {
+      "partial_status": "L’état complet de l’exécution n’est pas encore disponible ; seul celui de l’exécution principale est affiché.",
+      "unpublished": "La réponse finale n’est pas confirmée dans cette conversation. Une exécution terminée ne signifie pas que le résultat a été livré."
+    },
+    "manage_instructions": "Gérer · instructions complètes",
+    "technical_reason": "Voir les détails techniques",
+    "rerunning": "Relance…",
+    "rerun": "Relancer"
+  },
+  "editor": {
+    "edit": "Modifier",
+    "conflict": "Ce planning a changé pendant votre modification. Votre brouillon est conservé ; annulez et rouvrez-le pour comparer.",
+    "save_failed": "Impossible d’enregistrer le planning",
+    "title": "Titre",
+    "title_aria": "Modifier le titre du planning",
+    "description": "Description",
+    "description_aria": "Modifier la description du planning",
+    "instructions": "Instructions complètes",
+    "instructions_aria": "Modifier les instructions du planning",
+    "cancel": "Annuler",
+    "save": "Enregistrer"
+  }
+}

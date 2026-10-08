@@ -1,6 +1,7 @@
 import { useEffect, useRef } from "react";
 import { api } from "./api";
-import { hasPendingWorkExecution, startWorkExecution, workExecutionActive, workExecutionClosed, workExecutionStatus } from "./workExecutionState";
+import { useTranslation } from "./i18n";
+import { hasPendingWorkExecution, startWorkExecution, workExecutionActive, workExecutionClosed, workExecutionStatusKeys } from "./workExecutionState";
 import type { WorkItem } from "./types";
 import "./work-execution.css";
 
@@ -14,6 +15,7 @@ type Props = {
 
 export function WorkExecution(props: Props) {
   const { item, readOnly, pending, mutate } = props;
+  const { t } = useTranslation("work");
   const latest = useRef(props);
   latest.current = props;
   const mounted = useRef(false);
@@ -22,7 +24,7 @@ export function WorkExecution(props: Props) {
   const active = workExecutionActive(item);
   const closed = workExecutionClosed(item);
   const unresolved = hasPendingWorkExecution(item.id);
-  if (item.kind !== "task") return <p className="work-execution-note">目标用于规划，请从待办开始执行。</p>;
+  if (item.kind !== "task") return <p className="work-execution-note">{t("execution.goal_note")}</p>;
 
   async function start() {
     const current = latest.current;
@@ -38,18 +40,18 @@ export function WorkExecution(props: Props) {
     await api.cancelRun(current.item.execution!.root_run_id);
   }
 
-  return <section className="work-execution" aria-label="任务执行">
-    <div className="work-execution-heading"><strong>执行</strong><span role="status">{execution ? workExecutionStatus[execution.status] : "尚未执行"}</span></div>
+  return <section className="work-execution" aria-label={t("execution.aria")}>
+    <div className="work-execution-heading"><strong>{t("execution.heading")}</strong><span role="status">{execution ? t(workExecutionStatusKeys[execution.status]) : t("execution.not_run")}</span></div>
     {execution?.error && <p className="work-execution-error" role="alert">{execution.error}</p>}
-    {active && <p className="work-execution-note">{execution?.status === "failed" ? "仍有协作在执行，可停止本次执行。" : "执行期间暂不能修改或完成待办。"}</p>}
+    {active && <p className="work-execution-note">{execution?.status === "failed" ? t("execution.active_failed_note") : t("execution.active_note")}</p>}
     {execution && !active && execution.status === "done" && <>
-      {execution.result?.trim() ? <><p className="work-execution-result">{execution.result}</p><p className="work-execution-note">请核查结果，再确认待办是否完成。</p></> : <p className="work-execution-note">未收到可见结果，请检查原会话或重新执行。</p>}
+      {execution.result?.trim() ? <><p className="work-execution-result">{execution.result}</p><p className="work-execution-note">{t("execution.check_result")}</p></> : <p className="work-execution-note">{t("execution.no_result")}</p>}
     </>}
     <div className="work-execution-actions">
-      {active ? <button type="button" disabled={pending || readOnly} onClick={() => void mutate(item.id, stop)}>停止执行</button>
-        : <button type="button" disabled={pending || readOnly || closed} onClick={() => void mutate(item.id, start)}>{pending ? "处理中…" : unresolved ? "重试确认执行" : execution ? "重新执行" : "开始执行"}</button>}
-      {active && unresolved && <button type="button" disabled={pending || readOnly} onClick={() => void mutate(item.id, start)}>重试确认执行</button>}
+      {active ? <button type="button" disabled={pending || readOnly} onClick={() => void mutate(item.id, stop)}>{t("execution.stop")}</button>
+        : <button type="button" disabled={pending || readOnly || closed} onClick={() => void mutate(item.id, start)}>{pending ? t("execution.working") : unresolved ? t("execution.retry_confirm") : execution ? t("execution.rerun") : t("execution.start")}</button>}
+      {active && unresolved && <button type="button" disabled={pending || readOnly} onClick={() => void mutate(item.id, start)}>{t("execution.retry_confirm")}</button>}
     </div>
-    {readOnly ? <p className="work-execution-note">已归档，仅可查看执行记录。</p> : closed && <p className="work-execution-note">重新打开待办后可再次执行。</p>}
+    {readOnly ? <p className="work-execution-note">{t("execution.archived")}</p> : closed && <p className="work-execution-note">{t("execution.reopen_note")}</p>}
   </section>;
 }

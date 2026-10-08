@@ -1,16 +1,9 @@
-import { execFile } from "node:child_process";
-import { mkdtemp, rm } from "node:fs/promises";
-import { tmpdir } from "node:os";
-import { dirname, join } from "node:path";
-import { fileURLToPath, pathToFileURL } from "node:url";
-import { promisify } from "node:util";
 import assert from "node:assert/strict";
-const run = promisify(execFile);
-const uiRoot = dirname(dirname(fileURLToPath(import.meta.url)));
-const output = await mkdtemp(join(tmpdir(), "tofi-question-timeline-"));
+import { openUiModules } from "./ui-modules.mjs";
+// Load through Vite so the module's i18n catalogs resolve like the app.
+const ui = await openUiModules({ language: "zh-CN" });
 try {
-  await run(join(uiRoot, "node_modules/.bin/tsc"), ["src/questionTimeline.ts", "src/types.ts", "--ignoreConfig", "--target", "ES2022", "--module", "ES2022", "--moduleResolution", "Bundler", "--jsx", "react-jsx", "--types", "vite/client", "--outDir", output, "--skipLibCheck", "--declaration", "false", "--pretty", "false"], { cwd: uiRoot });
-  const { buildQuestionTimeline, reconcileQuestion } = await import(pathToFileURL(join(output, "questionTimeline.js")));
+  const { buildQuestionTimeline, reconcileQuestion } = await ui.load("/src/questionTimeline.ts");
   const message = (id, seq, created_at) => ({ id, seq, created_at, conversation_id: "c", role: "assistant", content: id });
   const question = (question_id, created_at, extra = {}) => ({ question_id, created_at, type: "question", question_type: "text", conversation_id: "c", bot_id: "b", run_id: "r", question: question_id, status: "pending", ...extra });
   const ids = timeline => timeline.map(item => item.kind === "message" ? item.message.id : item.question.question_id);
@@ -31,4 +24,4 @@ try {
   assert.equal(reconcileQuestion({ ...q, updated_at: q.created_at }, answered), answered, "older polling response cannot reopen an answered card");
   assert.equal(reconcileQuestion({ ...expired, updated_at: undefined }, { ...answered, updated_at: undefined }).status, "expired", "unversioned legacy expiry stays visible");
   console.log("question timeline checks: PASS (nanosecond boundary, answer stability, pagination, question-only history, deterministic ties)");
-} finally { await rm(output, { recursive: true, force: true }); }
+} finally { await ui.close(); }

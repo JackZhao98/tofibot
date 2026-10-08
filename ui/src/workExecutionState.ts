@@ -1,10 +1,12 @@
 import { api, ApiError } from "./api";
+import { i18n } from "./i18n";
 import type { RunStatus, WorkItem } from "./types";
 
-export const workExecutionStatus: Record<RunStatus, string> = {
-  queued: "待执行", running: "执行中", waiting: "等待回复", done: "执行已结束",
-  failed: "执行失败", cancelled: "已取消", interrupted: "已中断",
-};
+/** Catalog keys (work namespace) for a work item's execution status. */
+export const workExecutionStatusKeys = {
+  queued: "execution.status.queued", running: "execution.status.running", waiting: "execution.status.waiting", done: "execution.status.done",
+  failed: "execution.status.failed", cancelled: "execution.status.cancelled", interrupted: "execution.status.interrupted",
+} as const satisfies Record<RunStatus, string>;
 
 export const workExecutionActive = (item: WorkItem) => item.execution?.active === true;
 export const workExecutionClosed = (item: WorkItem) => item.status === "done" || item.status === "cancelled";
@@ -38,7 +40,7 @@ export function startWorkExecution(id: string) {
   }).catch(cause => {
     // Even a definite rejection now cannot rule out an earlier accepted request
     // whose response was lost. Only a successful replay resolves its UUID.
-    if (!(cause instanceof ApiError)) throw new Error("未能确认执行是否已开始，请重试确认。重试不会重复启动。", { cause });
+    if (!(cause instanceof ApiError)) throw new Error(i18n.t("work:execution.start_unconfirmed"), { cause });
     throw cause;
   }).finally(() => { inflight.delete(id); });
   inflight.set(id, operation);

@@ -1,6 +1,7 @@
 import { useEffect, useId, useRef, useState, type ReactNode } from "react";
 import { TofiIcon } from "./icons";
 import type { RunStatus } from "./types";
+import { useTranslation } from "./i18n";
 import "./scheduled-run.css";
 
 export interface ScheduledRunProps {
@@ -30,6 +31,7 @@ const reduceMotion = () => typeof window.matchMedia === "function" && window.mat
 
 /** Shared ticket used by the conversation and the explicitly synthetic Lab. */
 export function ScheduledRun({ title, description, content, plannedTime, plannedAt, plannedTimeDescription, metadata, metadataDescription, state, statusLabel, statusAt, statusTime, statusTimeDescription, runningSince, resultPublished = false, failureSummary, error, notes, onRetry, defaultExpanded = false }: ScheduledRunProps) {
+  const { t } = useTranslation("schedules");
   const [expanded, setExpanded] = useState(defaultExpanded);
   const [retrying, setRetrying] = useState(false);
   const [retryError, setRetryError] = useState<string>();
@@ -67,7 +69,7 @@ export function ScheduledRun({ title, description, content, plannedTime, planned
     try {
       await onRetry();
     } catch (cause) {
-      setRetryError(cause instanceof Error ? cause.message : "重新执行请求未成功，请稍后重试。");
+      setRetryError(cause instanceof Error ? cause.message : t("run.retry_failed"));
     } finally {
       setRetrying(false);
     }
@@ -94,19 +96,19 @@ export function ScheduledRun({ title, description, content, plannedTime, planned
         <span className="scheduled-run-meta" title={metadataDescription}>{metadata}</span>
       </button>
       {failed && <div className="scheduled-run-failure">
-        <p>{failureSummary || "本轮未完成，任务记录已保留。"}</p>
+        <p>{failureSummary || t("row.failure.incomplete")}</p>
         {onRetry && <button type="button" className="scheduled-run-retry" onClick={() => void retry()} disabled={retrying}>
-          <span ref={retryIconRef}><TofiIcon name="retry" size={14} aria-hidden="true" /></span>{retrying ? "正在重试…" : "重试"}
+          <span ref={retryIconRef}><TofiIcon name="retry" size={14} aria-hidden="true" /></span>{retrying ? t("run.retrying") : t("run.retry")}
         </button>}
       </div>}
       {retryError && <p className="scheduled-run-retry-error" role="alert">{retryError}</p>}
       <div className="scheduled-run-disclosure" data-expanded={expanded} id={contentId} inert={!expanded} aria-hidden={!expanded}>
         <div className="scheduled-run-disclosure-inner">
-          <details className="scheduled-run-details"><summary>管理 · 完整执行指令</summary><p>{content}</p></details>
+          <details className="scheduled-run-details"><summary>{t("row.manage_instructions")}</summary><p>{content}</p></details>
           {notes && <div className="scheduled-run-notes">{notes}</div>}
           {failed && <div className="scheduled-run-recovery">
-            <p>为避免重复执行外部操作，请确认后重试。</p>
-            {error && <details><summary>查看技术原因</summary><p className="scheduled-run-error">{error}</p></details>}
+            <p>{t("run.confirm_before_retry")}</p>
+            {error && <details><summary>{t("row.technical_reason")}</summary><p className="scheduled-run-error">{error}</p></details>}
           </div>}
         </div>
       </div>
