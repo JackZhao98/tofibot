@@ -228,7 +228,7 @@ func TestPortableSettingsImportAndOrdinaryWritesStayOrdered(t *testing.T) {
 		}
 		raw, _ := json.Marshal(b)
 		body, _ := json.Marshal(portableImportRequest{Bundle: raw, Selection: portableSelection{Categories: b.Included}, PreviewID: p.ID})
-		server := &Server{store: s, defaultModel: "before", modelCatalog: []ModelOption{{ID: "ordinary", ReasoningEfforts: []string{"medium"}}}, modelCatalogAt: time.Now(), modelCatalogSource: "synthetic"}
+		server := &Server{store: s, provider: "local", defaultModel: "before", modelCatalog: []ModelOption{{ID: "ordinary", ReasoningEfforts: []string{"medium"}}}, modelCatalogAt: time.Now(), modelCatalogSource: "synthetic"}
 		var wg sync.WaitGroup
 		start := make(chan struct{})
 		var applyCode, settingsCode int

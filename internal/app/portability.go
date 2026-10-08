@@ -432,7 +432,9 @@ func (b portableBundle) validate() error {
 	}
 	if b.Settings != nil {
 		x := b.Settings
-		if len(x.Model) > 200 || len(x.ReasoningEffort) > 100 || (x.DictationModel != "" && !validDictationModel(x.DictationModel)) {
+		// The global default is what Bots on "default" resolve to; a bundle
+		// cannot publish the follow-global sentinel as the global model.
+		if len(x.Model) > 200 || len(x.ReasoningEffort) > 100 || strings.TrimSpace(x.Model) == followGlobalModel || (x.DictationModel != "" && !validDictationModel(x.DictationModel)) {
 			return bad()
 		}
 		if x.Timezone != "" {
