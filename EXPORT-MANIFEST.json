@@ -77,7 +77,7 @@
     "deploy/self-host/testdata/tofi.env": "4053fa9c569ddbcc69c258b47f8975bb8657fcd60fb5738ddaa56b34dcda73ef",
     "deploy/self-host/tofi.conf": "eb8aba1e6083d6b86b45ff68e10ae547dab00fdb17e1224f0adb3ff4364c21c8",
     "deploy/self-host/tofi.service": "7efd84157dcb79b46943c1dc67c13016a69402432635f23fcd723ec67a8744ec",
-    "deploy/self-host/tofi_host.py": "bdd85c0b9dbac8498f7f7073d4f1a200883cf05f08b55f41125cfb8cdb551019",
+    "deploy/self-host/tofi_host.py": "00dd5b2f7d848daaaff746930c0660795673e26500a9344c2e2a5b768f94d334",
     "deploy/self-host/worker.apparmor.template": "4d5f1aa068b080417831612ab34178365a54040459e71ab20d423038cc7f1eb1",
     "deploy/self-host/worker.seccomp.json": "aa4121584afdc24c25b7c0445a3940cdbe02aeddbf92e7d63ba0c95536d3e26b",
     "docs/verification.md": "c00b7e7044e43101b7a620dad837a3acc0be9413d1378ef9634920904daf6dd8",

@@ -380,10 +380,19 @@ def manifest_url(version=None):
     return '%s/latest/download/manifest.json' % RELEASE_BASE
 
 
+class HTTPSOnlyRedirects(urllib.request.HTTPRedirectHandler):
+    """Follow GitHub's redirect to its object store, but never to plain HTTP."""
+
+    def redirect_request(self, request, fp, code, message, headers, new_url):
+        if not new_url.startswith('https://'):
+            raise HostError('Refusing a redirect to a non-HTTPS location: %s' % new_url)
+        return super().redirect_request(request, fp, code, message, headers, new_url)
+
+
 def https_open(url, timeout=60):
     if not url.startswith('https://'):
         raise HostError('Refusing a non-HTTPS download: %s' % url)
-    opener = urllib.request.build_opener(urllib.request.HTTPSHandler())
+    opener = urllib.request.build_opener(urllib.request.HTTPSHandler(), HTTPSOnlyRedirects())
     return opener.open(url, timeout=timeout)
 
 
@@ -948,6 +957,7 @@ def install(manifest_path, options):
                     warn('TOFI is already installed; exposure flags were ignored. Edit /etc/tofi/tofi.env to change them.')
                 say('TOFI %s is already installed.' % state.get('version'))
                 result = status()
+                print(json.dumps(result, indent=2))
             else:
                 result = resume(state)
         else:
