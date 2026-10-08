@@ -69,8 +69,10 @@ type Service struct {
 	runnerClosed  bool
 	root          string
 	maxDesktop    int
-	idleTimeout   time.Duration
-	desktops      map[string]*desktop
+	// maxBrowserTabs caps open page tabs in the shared Chrome; 0 disables.
+	maxBrowserTabs int
+	idleTimeout    time.Duration
+	desktops       map[string]*desktop
 	// sharedDesktop is the single graphical session for the workspace. The
 	// desktops map retains logical Bot aliases for API compatibility, while
 	// all aliases point at this one process set.
@@ -137,7 +139,7 @@ func NewWithIdleTimeout(root string, maxDesktop int, idleTimeout time.Duration) 
 		root = canonical
 	}
 	s := &Service{
-		root: root, maxDesktop: maxDesktop, idleTimeout: idleTimeout,
+		root: root, maxDesktop: maxDesktop, maxBrowserTabs: DefaultMaxBrowserTabs, idleTimeout: idleTimeout,
 		desktops: make(map[string]*desktop), holds: make(map[string]map[string]time.Time),
 		inputs: make(map[string]*inputSession), inputLocks: make(map[string]*sync.Mutex), fileWriteLocks: make(map[string]*sync.Mutex),
 		terminals:   make(map[string]*terminal),

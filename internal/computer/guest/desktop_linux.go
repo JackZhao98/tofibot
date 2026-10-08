@@ -107,7 +107,7 @@ func (s *Service) startDesktop(ctx context.Context, botID string) (map[string]an
 		// Reserve the slot before starting external processes. This prevents two
 		// simultaneous requests from exceeding the configured desktop limit or
 		// launching two Chromes for one Bot.
-		d = &desktop{botID: sharedDesktopKey, botDir: botDir, shared: true, terminalMarker: "tofi-terminal-shared", display: ":" + strconv.Itoa(displayNumber), ready: make(chan struct{}), stopDone: make(chan struct{}), log: &limitedBuffer{limit: 64 * 1024}, lastActivity: time.Now()}
+		d = &desktop{botID: sharedDesktopKey, botDir: botDir, shared: true, terminalMarker: "tofi-terminal-shared", display: ":" + strconv.Itoa(displayNumber), ready: make(chan struct{}), stopDone: make(chan struct{}), log: &limitedBuffer{limit: 64 * 1024}, lastActivity: time.Now(), tabCap: newTabCapTracker()}
 		startCtx, startCancel = context.WithCancel(ctx)
 		d.cancel = startCancel
 		s.sharedDesktop = d
@@ -191,6 +191,7 @@ func (s *Service) startDesktop(ctx context.Context, botID string) (map[string]an
 	s.mu.Unlock()
 	startCancel()
 	s.finishDesktop(botID, d, nil)
+	s.startTabCapWatcher(d)
 	return map[string]any{"bot_id": botID, "display": d.display, "profile": profile, "shared": true}, nil
 }
 
