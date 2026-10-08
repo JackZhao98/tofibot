@@ -3,7 +3,8 @@ import { request } from "./api";
 import type { Bot } from "./types";
 import { VMOAuthDialog, type VMOAuthSession } from "./VMOAuthDialog";
 import { Disclosure } from "./InteractionSystem";
-import { TofiIcon, type TofiIconName } from "./icons";
+import { TofiIcon } from "./icons";
+import { IntegrationBrowser, ServiceMark } from "./IntegrationBrowser";
 import { googleAPIEnableURL, googleAudienceURL, integrationCatalog, type IntegrationPreset } from "./integrationCatalog";
 import { isDesktop } from "./desktop";
 import { mcpOAuthRoute, type OAuthOptions, type OAuthRoute } from "./mcpOAuthRoute";
@@ -111,12 +112,7 @@ export function MCPSettings({refreshToken=0,bots=[]}:{refreshToken?:number;bots?
   } finally {setSaving(false);}
  }
  return <div className="extension-panel mcp-settings">
-  {editor?<><button className="extension-back" disabled={saving} onClick={()=>setEditor(null)}><TofiIcon name="arrow-left" size={16}/>返回</button><MCPForm key={editor.server?.name??editor.preset?.id??"new"} initial={editor.server} preset={editor.preset} options={options} route={route} busy={saving} onSave={save} onCancel={()=>setEditor(null)}/></>:browse?<>
-   <div className="mcp-toolbar"><button className="extension-back" onClick={()=>setBrowse(false)}><TofiIcon name="arrow-left" size={16}/>已添加</button><h3>添加服务</h3></div>
-   <label className="integration-search"><TofiIcon name="search" size={20}/><input aria-label="搜索服务" placeholder="搜索服务" value={query} onChange={e=>setQuery(e.target.value)}/></label>
-   {(["google","service"] as const).map(category=>{const items=integrationCatalog.filter(item=>item.category===category&&`${item.name} ${item.description}`.toLowerCase().includes(query.toLowerCase()));return items.length>0&&<section className="integration-section" key={category}><h3>{category==="google"?"Google Workspace":"更多服务"}</h3><div className="integration-grid">{items.map(item=>{const installed=servers.some(server=>server.url===item.url);return <button className="integration-tile" key={item.id} disabled={installed} onClick={()=>setEditor({server:null,preset:item})}><ServiceMark name={item.name}/><span><strong>{item.name}</strong><small>{item.description}</small></span>{installed?<span className="integration-added">已添加</span>:<TofiIcon name="plus" size={16}/>}</button>;})}</div></section>;})}
-   <button className="integration-custom" onClick={()=>setEditor({server:null})}><TofiIcon name="plus" size={20}/><span>自定义 MCP</span><TofiIcon name="chevron-right" size={16}/></button>
-  </>:<>
+  {editor?<><button className="extension-back" disabled={saving} onClick={()=>setEditor(null)}><TofiIcon name="arrow-left" size={16}/>返回</button><MCPForm key={editor.server?.name??editor.preset?.id??"new"} initial={editor.server} preset={editor.preset} options={options} route={route} busy={saving} onSave={save} onCancel={()=>setEditor(null)}/></>:browse?<IntegrationBrowser query={query} servers={servers} onQueryChange={setQuery} onBack={()=>setBrowse(false)} onSelect={preset=>setEditor({server:null,preset})} onCustom={()=>setEditor({server:null})}/>:<>
    {!isDesktop&&<LocalMCPPanel onChanged={refresh} callbackOrigin={options?.web_callback_origin} attachedIDs={servers.filter(server=>server.name.startsWith("local_")).map(server=>server.name.slice(6))}/>}
    <div className="mcp-toolbar"><h3>已添加 <span>{servers.length||""}</span></h3><button className="mcp-button" onClick={()=>setBrowse(true)}><TofiIcon name="plus" size={16}/>添加服务</button></div>
    {listError&&<div className="mcp-list-error" role="alert"><span>{listError}</span><button className="mcp-button" onClick={()=>void refresh()}>重试</button></div>}
@@ -260,11 +256,6 @@ function CallbackAddress({label,value}:{label:string;value:string}) {
  async function copy(){try {await navigator.clipboard.writeText(value);setNotice("已复制");}catch {setNotice("复制失败，请选中地址手动复制");}}
  return <div className="integration-callback"><span>{label}</span><code>{value}</code><button className="mcp-button" type="button" onClick={()=>void copy()}>复制地址</button>{notice&&<small role="status">{notice}</small>}</div>;
 }
-function ServiceMark({name}:{name:string}) {
- const icon:TofiIconName = /Calendar/.test(name)?"calendar":/Drive/.test(name)?"folder":/Gmail/.test(name)?"inbox":/Docs|Sheets|Slides/.test(name)?"file-text":/GitHub/.test(name)?"code":/Notion|Context7/.test(name)?"book-open":"mcp";
- return <span className={`service-mark${/Google|Gmail/.test(name)?" service-mark-google":""}`} aria-hidden="true"><TofiIcon name={icon} size={22}/></span>;
-}
-
 function MCPForm({initial,preset,options,route,busy,onSave,onCancel}:{initial:MCP|null;preset?:IntegrationPreset;options:OAuthOptions|null;route:OAuthRoute;busy:boolean;onSave:(v:MCP)=>Promise<void>;onCancel:()=>void}) {
  const [name,setName]=useState(initial?.name??preset?.id??"");
  const [url,setURL]=useState(initial?.url??preset?.url??"");

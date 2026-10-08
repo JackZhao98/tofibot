@@ -15,6 +15,8 @@ export type IntegrationPreset = {
   docsURL: string;
   /** Provider-owned and community-maintained servers are distinct. */
   upstream?: "vendor" | "community";
+  /** Provider exposes read tools only; this does not waive Tofi approvals. */
+  readOnly?: true;
   /** Public enablement IDs, never inferred from a user's OAuth client ID. */
   googleAPIs?: { api: string; mcp: string };
   /** Human-readable prerequisites shown before saving the form. */
@@ -48,7 +50,7 @@ const googleSetup = [
  * represented as six presets rather than a fictional all-in-one endpoint.
  */
 export const integrationCatalog: IntegrationPreset[] = [
-  {id:"microsoft-learn", name:"Microsoft Learn", description:"搜索官方技术文档与代码示例。", category:"service", url:"https://learn.microsoft.com/api/mcp", docsURL:"https://learn.microsoft.com/en-us/training/support/mcp", setup:["无需账号或密钥，添加后即可使用官方公开文档。"], auth:"none", status:"active"},
+  {id:"microsoft-learn", name:"Microsoft Learn", description:"搜索官方技术文档与代码示例。", category:"service", url:"https://learn.microsoft.com/api/mcp", docsURL:"https://learn.microsoft.com/en-us/training/support/mcp", upstream:"vendor", setup:["无需账号或密钥，添加后即可使用官方公开文档。"], auth:"none", status:"active"},
   {
     id: "google-gmail",
     googleAPIs: { api: "gmail.googleapis.com", mcp: "gmailmcp.googleapis.com" },
@@ -141,6 +143,7 @@ export const integrationCatalog: IntegrationPreset[] = [
     url: "https://api.githubcopilot.com/mcp/readonly",
     docsURL: "https://github.com/github/github-mcp-server/blob/main/docs/remote-server.md",
     upstream: "vendor",
+    readOnly: true,
     setup: [
       "创建仅覆盖所需仓库和读取权限的 fine-grained PAT。",
       "在下方私密令牌输入框填写 PAT；无需粘贴到聊天或请求头 JSON。",
@@ -188,12 +191,33 @@ export const integrationCatalog: IntegrationPreset[] = [
     status: "active",
   },
   {
+    id: "linear-readonly",
+    name: "Linear 只读",
+    description: "查找项目、任务与评论。",
+    category: "service",
+    url: "https://mcp.linear.app/mcp/readonly",
+    docsURL: "https://linear.app/docs/mcp",
+    upstream: "vendor",
+    readOnly: true,
+    setup: [
+      "创建只包含 Read 权限、仅覆盖所需团队的 Linear API key。",
+      "在下方私密令牌输入框填写 key。",
+      "添加后确认授权范围和工具连接。",
+    ],
+    auth: "token",
+    tokenHeader: "Authorization",
+    tokenPrefix: "Bearer ",
+    note: "Linear 文档说明此端点仅提供读取工具；Tofi 的工具确认与允许/禁用策略仍适用。连接配置已核对，尚未用真实账号验证。",
+    status: "active",
+  },
+  {
     id: "linear",
     name: "Linear",
     description: "管理项目、任务与评论。",
     category: "service",
     url: "https://mcp.linear.app/mcp",
     docsURL: "https://linear.app/docs/mcp",
+    upstream: "vendor",
     setup: [
       "准备 Linear API key 或 Bearer token；写入权限不需要时请选择只读端点。",
       "连接前检查团队和工作区权限。",
@@ -211,6 +235,7 @@ export const integrationCatalog: IntegrationPreset[] = [
     category: "service",
     url: "https://mcp.context7.com/mcp",
     docsURL: "https://context7.com/docs/resources/all-clients",
+    upstream: "vendor",
     setup: [
       "在 Context7 控制台创建 API key。",
       "在 Tofi 使用 Context7-API-Key 请求头填入 key。",
@@ -224,3 +249,49 @@ export const integrationCatalog: IntegrationPreset[] = [
 
 export const getIntegrationPreset = (id: string): IntegrationPreset | undefined =>
   integrationCatalog.find((preset) => preset.id === id);
+
+/** Research status only. No endpoint or installation arguments can be saved. */
+export type HeldIntegration = {
+  id: string;
+  name: string;
+  description: string;
+  upstream: "vendor" | "community";
+  /** Historical vendor origin does not imply ongoing provider maintenance. */
+  maintenance?: "retired";
+  auth: "oauth" | "integration-token" | "bot-token" | "none";
+  docsURL: string;
+  reason: string;
+};
+
+export const heldIntegrations: HeldIntegration[] = [
+  {
+    id: "notion-token", name: "Notion 令牌服务（历史）", description: "已停止维护的历史本地 MCP 服务。",
+    upstream: "vendor", maintenance: "retired", auth: "integration-token",
+    docsURL: "https://github.com/makenotion/notion-mcp-server/blob/730ae781ba28beeaf0865025a3f2ed4c25ea2387/README.md",
+    reason: "提供方已停止维护和支持此本地服务，仅作为历史参考，不在首批支持范围。需连接 Notion 时，请使用上方的 OAuth 连接。",
+  },
+  {
+    id: "discord", name: "Discord", description: "社区维护的 Discord Bot 连接。",
+    upstream: "community", auth: "bot-token", docsURL: "https://github.com/SaseQ/discord-mcp",
+    reason: "尚未核实兼容的安装方式与连接权限，暂未开放添加。",
+  },
+  {
+    id: "slack", name: "Slack", description: "Slack 提供的远程 MCP 服务。",
+    upstream: "vendor", auth: "oauth", docsURL: "https://docs.slack.dev/ai/slack-mcp-server/",
+    reason: "需要注册 Slack 应用并完成用户授权；Bot token 不适用于此接入。",
+  },
+  {
+    id: "yahoo-finance", name: "Yahoo Finance", description: "社区维护的行情查询方案。",
+    upstream: "community", auth: "none", docsURL: "https://github.com/Alex2Yang97/yahoo-finance-mcp",
+    reason: "尚未核实可安装的兼容版本；社区方案无需 Token。",
+  },
+];
+
+export const integrationAuthLabel = (auth: IntegrationPreset["auth"] | HeldIntegration["auth"]): string =>
+  ({ oauth: "OAuth 授权", token: "访问令牌", none: "无需密钥", "integration-token": "Integration token", "bot-token": "Bot 令牌" })[auth];
+
+export const integrationOriginLabel = (upstream: IntegrationPreset["upstream"]): string =>
+  upstream === "vendor" ? "提供方维护" : upstream === "community" ? "社区维护" : "连接预设";
+
+export const matchesIntegration = (item: Pick<IntegrationPreset, "name" | "description">, query: string): boolean =>
+  `${item.name} ${item.description}`.toLowerCase().includes(query.trim().toLowerCase());
