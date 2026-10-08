@@ -1,0 +1,7 @@
+#!/usr/bin/env bash
+# The `tofi` command. /usr/local/bin/tofi links here through /opt/tofi/current;
+# resolve the concrete release directory and run its host tool.
+set -euo pipefail
+self=$(readlink -f "${BASH_SOURCE[0]}")
+release_dir=$(dirname "$(dirname "$self")")
+exec /usr/bin/env python3 -I "$release_dir/lib/tofi_host.py" "$@"

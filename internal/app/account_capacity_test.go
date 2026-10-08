@@ -57,11 +57,11 @@ func TestAccountCapacityMetricsFailClosed(t *testing.T) {
 
 func TestAccountAdminCapacityEndpointCannotLeakOrStartComputer(t *testing.T) {
 	g := accountFixture(t)
-	admin, err := g.create(context.Background(), "admin", "", "SyntheticPassword123!", true)
+	admin, err := g.create(context.Background(), "admin", "", "SyntheticPassword123!", true, accountCreationSecret(t, g, true))
 	if err != nil {
 		t.Fatal(err)
 	}
-	user, err := g.create(context.Background(), "tenant", "", "SyntheticPassword123!", false)
+	user, err := g.create(context.Background(), "tenant", "", "SyntheticPassword123!", false, "")
 	if err != nil {
 		t.Fatal(err)
 	}

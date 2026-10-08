@@ -47,7 +47,8 @@ func TestMCPReadOnlyTransientRetriesAreBoundedAndMutationIsNotReplayed(t *testin
 				t.Fatalf("unclassified err=%v", err)
 			}
 			if readOnly {
-				if effects.Load() != 3 || approvals.Load() != 0 || o.Status != tooloutcome.Transient || o.RetryLimit != 2 {
+				// Reads still pass the gate once (it owns review policy); retries never re-ask.
+				if effects.Load() != 3 || approvals.Load() != 1 || o.Status != tooloutcome.Transient || o.RetryLimit != 2 {
 					t.Fatalf("retry effects=%d approvals=%d outcome=%+v", effects.Load(), approvals.Load(), o)
 				}
 			} else if effects.Load() != 1 || approvals.Load() != 1 || o.Status != tooloutcome.Uncertain || o.NextAction != "verify_effect" {

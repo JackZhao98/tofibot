@@ -86,7 +86,7 @@ func TestAccountLegacyOwnerUpgradeDisableRestoreAcrossRestart(t *testing.T) {
 
 	// Invite a second account, let it set its own password, then promote it so
 	// another administrator can exercise the legacy owner's disable guard.
-	invited, err := g.create(context.Background(), "second-admin", "second@example.test", "InitialPassword123!", false)
+	invited, err := g.create(context.Background(), "second-admin", "second@example.test", "InitialPassword123!", false, "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -101,7 +101,7 @@ func TestAccountLegacyOwnerUpgradeDisableRestoreAcrossRestart(t *testing.T) {
 		t.Fatalf("promote invited account: %d %s", promoted.Code, promoted.Body.String())
 	}
 	adminCookie = accountCookie(t, g, invited)
-	newTenant, err := g.create(context.Background(), "new-tenant", "tenant@example.test", "TenantPassword123!", false)
+	newTenant, err := g.create(context.Background(), "new-tenant", "tenant@example.test", "TenantPassword123!", false, "")
 	if err != nil {
 		t.Fatal(err)
 	}
