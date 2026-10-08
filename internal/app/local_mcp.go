@@ -305,6 +305,44 @@ func (s *Server) attachLocalMCP(id string) error {
 	if token != "" {
 		cfg.Headers = map[string]string{"Authorization": "Bearer " + token}
 	}
+	// The private status response supplies operator-owned adapter provenance.
+	// Binding it to the URL changes existing cache/config/approval fingerprints
+	// without granting any read-only exemption or changing approval semantics.
+	statusRequest, err := http.NewRequest(http.MethodGet, base+"/v1/plugins", nil)
+	if err != nil {
+		return err
+	}
+	data, status, err := s.runnerRequest(statusRequest, http.MethodGet, "/v1/plugins", nil)
+	if err != nil || status != http.StatusOK {
+		return errors.New("local MCP Runner identity is unavailable")
+	}
+	var installed struct {
+		Plugins []mcprunner.Status `json:"plugins"`
+	}
+	if err := json.Unmarshal(data, &installed); err != nil {
+		return errors.New("invalid local MCP Runner identity")
+	}
+	found := false
+	for _, plugin := range installed.Plugins {
+		if plugin.ID != id {
+			continue
+		}
+		found = true
+		if plugin.AdapterIdentity != "" {
+			if len(plugin.AdapterIdentity) != 64 || strings.Trim(plugin.AdapterIdentity, "0123456789abcdef") != "" {
+				return errors.New("invalid local MCP adapter identity")
+			}
+			u, _ := url.Parse(cfg.URL)
+			query := u.Query()
+			query.Set(mcprunner.AdapterIdentityQuery, plugin.AdapterIdentity)
+			u.RawQuery = query.Encode()
+			cfg.URL = u.String()
+		}
+		break
+	}
+	if !found {
+		return errors.New("local MCP plugin is not installed")
+	}
 	views, err := s.extensions.ListMCP()
 	if err != nil {
 		return err

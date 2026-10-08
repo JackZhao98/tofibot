@@ -3,12 +3,14 @@ import { request } from "./api";
 import type { Bot } from "./types";
 import { VMOAuthDialog, type VMOAuthSession } from "./VMOAuthDialog";
 import { Disclosure } from "./InteractionSystem";
-import { TofiIcon, type TofiIconName } from "./icons";
+import { TofiIcon } from "./icons";
+import { IntegrationBrowser, ServiceMark } from "./IntegrationBrowser";
 import { googleAPIEnableURL, googleAudienceURL, integrationCatalog, type IntegrationPreset } from "./integrationCatalog";
 import { isDesktop } from "./desktop";
 import { mcpOAuthRoute, type OAuthOptions, type OAuthRoute } from "./mcpOAuthRoute";
 import { CatStage, type CatHandle } from "./CatStage";
 import { LocalMCPPanel } from "./LocalMCPPanel";
+import { mcpTokenHeaders } from "./mcpTokenHeaders";
 import "./mcp-test-motion.css";
 import "./oauth-link-motion.css";
 
@@ -69,6 +71,9 @@ const message=(e:unknown)=>{
  if(text.includes("HTTP redirects must use localhost"))return "授权需要 HTTPS 地址，或通过 localhost 隧道连接 Tofi。内网 HTTP 地址无法完成回调。";
  if(text.includes("OAuth discovery or client registration failed"))return "无法读取授权信息或注册客户端，请检查服务地址后重试。";
  if(text.startsWith("OAuth connection could not be started"))return "暂时无法启动授权，请检查服务地址后重试。";
+ if(text==="MCP endpoint changed; re-enter or remove saved headers before saving")return "服务地址已改变，请重新输入或移除保存的请求头凭据后再保存。";
+ if(text==="MCP endpoint changed; explicitly configure OAuth for the new endpoint before saving")return "服务地址已改变，请为新地址重新填写 OAuth 配置后再保存。";
+ if(text==="OAuth metadata destination changed; re-enter or remove the saved client secret before saving")return "授权元数据地址已改变，请重新输入或清空保存的 Client Secret 后再保存。";
  return text;
 };
 const post=(body:unknown)=>({method:"POST",body:JSON.stringify(body)});
@@ -107,12 +112,7 @@ export function MCPSettings({refreshToken=0,bots=[]}:{refreshToken?:number;bots?
   } finally {setSaving(false);}
  }
  return <div className="extension-panel mcp-settings">
-  {editor?<><button className="extension-back" disabled={saving} onClick={()=>setEditor(null)}><TofiIcon name="arrow-left" size={16}/>返回</button><MCPForm key={editor.server?.name??editor.preset?.id??"new"} initial={editor.server} preset={editor.preset} options={options} route={route} busy={saving} onSave={save} onCancel={()=>setEditor(null)}/></>:browse?<>
-   <div className="mcp-toolbar"><button className="extension-back" onClick={()=>setBrowse(false)}><TofiIcon name="arrow-left" size={16}/>已添加</button><h3>添加服务</h3></div>
-   <label className="integration-search"><TofiIcon name="search" size={20}/><input aria-label="搜索服务" placeholder="搜索服务" value={query} onChange={e=>setQuery(e.target.value)}/></label>
-   {(["google","service"] as const).map(category=>{const items=integrationCatalog.filter(item=>item.category===category&&`${item.name} ${item.description}`.toLowerCase().includes(query.toLowerCase()));return items.length>0&&<section className="integration-section" key={category}><h3>{category==="google"?"Google Workspace":"更多服务"}</h3><div className="integration-grid">{items.map(item=>{const installed=servers.some(server=>server.url===item.url);return <button className="integration-tile" key={item.id} disabled={installed} onClick={()=>setEditor({server:null,preset:item})}><ServiceMark name={item.name}/><span><strong>{item.name}</strong><small>{item.description}</small></span>{installed?<span className="integration-added">已添加</span>:<TofiIcon name="plus" size={16}/>}</button>;})}</div></section>;})}
-   <button className="integration-custom" onClick={()=>setEditor({server:null})}><TofiIcon name="plus" size={20}/><span>自定义 MCP</span><TofiIcon name="chevron-right" size={16}/></button>
-  </>:<>
+  {editor?<><button className="extension-back" disabled={saving} onClick={()=>setEditor(null)}><TofiIcon name="arrow-left" size={16}/>返回</button><MCPForm key={editor.server?.name??editor.preset?.id??"new"} initial={editor.server} preset={editor.preset} options={options} route={route} busy={saving} onSave={save} onCancel={()=>setEditor(null)}/></>:browse?<IntegrationBrowser query={query} servers={servers} onQueryChange={setQuery} onBack={()=>setBrowse(false)} onSelect={preset=>setEditor({server:null,preset})} onCustom={()=>setEditor({server:null})}/>:<>
    {!isDesktop&&<LocalMCPPanel onChanged={refresh} callbackOrigin={options?.web_callback_origin} attachedIDs={servers.filter(server=>server.name.startsWith("local_")).map(server=>server.name.slice(6))}/>}
    <div className="mcp-toolbar"><h3>已添加 <span>{servers.length||""}</span></h3><button className="mcp-button" onClick={()=>setBrowse(true)}><TofiIcon name="plus" size={16}/>添加服务</button></div>
    {listError&&<div className="mcp-list-error" role="alert"><span>{listError}</span><button className="mcp-button" onClick={()=>void refresh()}>重试</button></div>}
@@ -256,11 +256,6 @@ function CallbackAddress({label,value}:{label:string;value:string}) {
  async function copy(){try {await navigator.clipboard.writeText(value);setNotice("已复制");}catch {setNotice("复制失败，请选中地址手动复制");}}
  return <div className="integration-callback"><span>{label}</span><code>{value}</code><button className="mcp-button" type="button" onClick={()=>void copy()}>复制地址</button>{notice&&<small role="status">{notice}</small>}</div>;
 }
-function ServiceMark({name}:{name:string}) {
- const icon:TofiIconName = /Calendar/.test(name)?"calendar":/Drive/.test(name)?"folder":/Gmail/.test(name)?"inbox":/Docs|Sheets|Slides/.test(name)?"file-text":/GitHub/.test(name)?"code":/Notion|Context7/.test(name)?"book-open":"mcp";
- return <span className={`service-mark${/Google|Gmail/.test(name)?" service-mark-google":""}`} aria-hidden="true"><TofiIcon name={icon} size={22}/></span>;
-}
-
 function MCPForm({initial,preset,options,route,busy,onSave,onCancel}:{initial:MCP|null;preset?:IntegrationPreset;options:OAuthOptions|null;route:OAuthRoute;busy:boolean;onSave:(v:MCP)=>Promise<void>;onCancel:()=>void}) {
  const [name,setName]=useState(initial?.name??preset?.id??"");
  const [url,setURL]=useState(initial?.url??preset?.url??"");
@@ -277,16 +272,15 @@ function MCPForm({initial,preset,options,route,busy,onSave,onCancel}:{initial:MC
  const [error,setError]=useState("");
  return <form className="extension-form integration-setup" aria-busy={busy} onSubmit={async e=>{e.preventDefault();if(busy)return;try{
   if(!/^[a-zA-Z0-9_.-]{1,64}$/.test(name)||name==="."||name==="..")throw new Error("服务标识请使用 1–64 个英文字母、数字、点、下划线或短横线");
-  const h:unknown=JSON.parse(headers);if(!h||typeof h!=="object"||Array.isArray(h)||Object.values(h).some(v=>typeof v!=="string"))throw new Error("请求头需要是名称与文本值的 JSON 对象");
-  const parsed=h as Record<string,string>;if(token.trim())parsed[preset?.tokenHeader??"Authorization"]=`${preset?.tokenPrefix??(preset?.tokenHeader&&preset.tokenHeader!=="Authorization"?"":"Bearer ")}${token.trim()}`;
+  const parsed=mcpTokenHeaders(headers,token,preset);
   setError("");await onSave({name,url,transport,headers:parsed,tool_allowlist:words(allow),tool_denylist:words(deny),...(oauth?{oauth:{client_id:clientID,client_secret:secret,scopes:words(scopes),auth_server_metadata_url:metadata}}:{})});
  }catch(cause){setError(message(cause));}}}>
   <fieldset className="form-fields" disabled={busy}>
   <header className="integration-setup-heading"><ServiceMark name={preset?.name??initial?.name??"MCP"}/><div><h3>{preset?.name??(initial?"编辑服务":"自定义 MCP")}</h3><p>{preset?.description??"连接到工作区，Bot 按需发现工具。"}</p></div></header>
-  {preset&&<Disclosure title="接入说明" defaultOpen={preset.category==="google"}><div className="integration-guide"><div><strong>{preset.category==="google"?"连接前准备":"接入指南"}</strong><a href={preset.docsURL} target="_blank" rel="noopener noreferrer">官方文档 <TofiIcon name="external-link" size={16} style={{verticalAlign:"middle"}}/></a></div><ol>{preset.setup.map(step=><li key={step}>{step}</li>)}</ol>{preset.note&&<p>{preset.note}</p>}<GoogleSetupLinks preset={preset}/></div></Disclosure>}
+  {preset&&<Disclosure title="接入说明" defaultOpen={preset.category==="google"}><div className="integration-guide"><div><strong>{preset.category==="google"?"连接前准备":"接入指南"}</strong><a href={preset.docsURL} target="_blank" rel="noopener noreferrer">{preset.upstream==="community"?"社区项目文档":"接入文档"} <TofiIcon name="external-link" size={16} style={{verticalAlign:"middle"}}/></a></div><ol>{preset.setup.map(step=><li key={step}>{step}</li>)}</ol>{preset.note&&<p>{preset.note}</p>}<GoogleSetupLinks preset={preset}/></div></Disclosure>}
   {oauth&&<OAuthLoginHelp route={route}/>}
   {!preset&&<label>服务标识<input required maxLength={64} disabled={Boolean(initial)} value={name} onChange={e=>setName(e.target.value)} placeholder="my-service"/></label>}
-  {!preset&&<label>服务地址<input required type="url" value={url} onChange={e=>setURL(e.target.value)} placeholder="https://example.com/mcp"/></label>}
+  {!preset&&<label>服务地址<input required type="url" value={url} onChange={e=>{setURL(e.target.value);setToken("");}} placeholder="https://example.com/mcp"/></label>}
   {preset?.auth==="token"&&<label>访问令牌<input type="password" autoComplete="off" value={token} onChange={e=>setToken(e.target.value)} placeholder={initial?"留空保留已有令牌":"粘贴服务提供的令牌"} required={!initial}/></label>}
   {!preset&&<label className="extension-check"><input type="checkbox" checked={oauth} onChange={e=>setOAuth(e.target.checked)} disabled={Boolean(initial?.oauth)}/>OAuth 授权</label>}
   {oauth&&preset?.id!=="notion"&&<><label>OAuth Client ID{preset?.category!=="google"?"（可留空自动注册）":""}<input required={preset?.category==="google"} value={clientID} onChange={e=>setClientID(e.target.value)} autoComplete="off"/></label><label>Client Secret<input required={preset?.category==="google"} type="password" autoComplete="off" value={secret} onChange={e=>setSecret(e.target.value)} placeholder="服务要求时填写"/></label>
@@ -296,9 +290,9 @@ function MCPForm({initial,preset,options,route,busy,onSave,onCancel}:{initial:MC
   </>}
   <Disclosure title="高级配置">
    {preset&&<label>服务标识<input required maxLength={64} disabled={Boolean(initial)} value={name} onChange={e=>setName(e.target.value)} placeholder="my-service"/></label>}
-   {preset&&<label>服务地址<input required type="url" value={url} onChange={e=>setURL(e.target.value)}/></label>}
+   {preset&&<label>服务地址<input required type="url" value={url} onChange={e=>{setURL(e.target.value);setToken("");}}/></label>}
    <label>连接方式<select value={transport} disabled={busy} onChange={e=>setTransport(e.target.value as MCPTransport)}><option value="streamable_http">Streamable HTTP</option><option value="sse">SSE</option></select></label>
-   <label>请求头<textarea rows={3} value={headers} onChange={e=>setHeaders(e.target.value)} spellCheck={false}/></label>{initial&&<p className="field-note">圆点表示已有凭据；保留即可沿用。</p>}
+   <label>请求头<textarea rows={3} value={headers} onChange={e=>setHeaders(e.target.value)} spellCheck={false}/></label>{initial&&<p className="field-note">圆点或空值保留已有凭据；删除对应字段可移除。更换服务地址时，请重新输入或移除凭据。</p>}
    {oauth&&<><label>权限范围<input value={scopes} onChange={e=>setScopes(e.target.value)} placeholder="逗号分隔"/></label><label>授权元数据地址<input type="url" value={metadata} onChange={e=>setMetadata(e.target.value)}/></label></>}
    <label>允许的工具<input value={allow} onChange={e=>setAllow(e.target.value)} placeholder="留空允许全部"/></label><label>禁用的工具<input value={deny} onChange={e=>setDeny(e.target.value)} placeholder="逗号分隔"/></label>
   </Disclosure>

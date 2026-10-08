@@ -71,16 +71,36 @@ func TestExtensionToolsMCPWritesAndMaskedReads(t *testing.T) {
 	if events := configEventsAfter(t, s, cursor); len(events) != 0 {
 		t.Fatal("read/OAuth guidance mutated state")
 	}
-	extensionToolCall(t, tool, map[string]any{"action": "mcp_update", "name": "local", "url": "https://example.invalid/new"})
-	if events := configEventsAfter(t, s, cursor); len(events) != 1 {
-		t.Fatalf("update events=%v", events)
+	// A destination change cannot implicitly carry the saved header or OAuth
+	// client to the new endpoint. The bare URL edit is refused before any write.
+	raw, err := json.Marshal(map[string]any{"action": "mcp_update", "name": "local", "url": "https://example.invalid/new"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := tool.Execute(context.Background(), raw); err == nil {
+		t.Fatal("URL change silently carried saved credentials")
+	}
+	if events := configEventsAfter(t, s, cursor); len(events) != 0 {
+		t.Fatalf("refused update wrote config: %v", events)
 	}
 	views, err := s.extensions.ListMCP()
 	if err != nil {
 		t.Fatal(err)
 	}
+	if len(views) != 1 || !strings.HasPrefix(views[0].URL, "https://example.invalid/mcp") || views[0].Headers["Authorization"] != "••••••••" {
+		t.Fatalf("refused update changed the saved connection: %#v", views)
+	}
+	// Explicitly re-entering credentials at the new endpoint is an intentional edit.
+	extensionToolCall(t, tool, map[string]any{"action": "mcp_update", "name": "local", "url": "https://example.invalid/new", "headers": map[string]string{"Authorization": "fixture-header-secret-2"}, "oauth": map[string]any{"client_id": "public-client", "auth_server_metadata_url": "https://example.invalid/metadata?key=fixture-metadata-secret"}})
+	if events := configEventsAfter(t, s, cursor); len(events) != 1 {
+		t.Fatalf("update events=%v", events)
+	}
+	views, err = s.extensions.ListMCP()
+	if err != nil {
+		t.Fatal(err)
+	}
 	if len(views) != 1 || views[0].OAuth == nil || views[0].Transport != "streamable_http" || views[0].Headers["Authorization"] != "••••••••" {
-		t.Fatalf("update did not retain omitted headers/OAuth: %#v", views)
+		t.Fatalf("explicit update did not save re-entered headers/OAuth: %#v", views)
 	}
 	cursor = s.store.workspaceEventCursor()
 	extensionToolCall(t, tool, map[string]any{"action": "mcp_delete", "name": "local"})
