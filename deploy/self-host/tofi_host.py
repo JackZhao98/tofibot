@@ -1686,7 +1686,7 @@ def doctor():
         env = read_env()
         manifest = json.loads((P.guest / env['TOFI_GUEST_VERSION'] / 'account-release.json').read_text())
         config = json.loads(P.worker_json.read_text())
-        validate_release(config['release_dir'], str(bundle_manager(P.current)),
+        validate_release(config['release_dir'], str(bundle_manager(P.current.resolve())),
                          manifest['guest_binary_sha256'],
                          expected_manifest_sha256=config['release_manifest_sha256'])
 
