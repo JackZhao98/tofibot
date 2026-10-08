@@ -240,7 +240,7 @@ func TestTabCapConfiguration(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer s.Close(context.Background())
-	if s.maxBrowserTabs != DefaultMaxBrowserTabs || DefaultMaxBrowserTabs != 3 {
+	if s.maxBrowserTabs != DefaultMaxBrowserTabs || DefaultMaxBrowserTabs != 2 {
 		t.Fatalf("default cap = %d", s.maxBrowserTabs)
 	}
 	s.SetMaxBrowserTabs(5)

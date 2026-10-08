@@ -34,7 +34,7 @@ ip link set lo up
 desktop_idle_seconds=900
 # Open page tabs allowed in the shared Chrome (Worker config browser_max_tabs);
 # 1 GiB guests hang with about six heavy sites open. 0 disables the cap.
-browser_max_tabs=3
+browser_max_tabs=2
 for argument in $(cat /proc/cmdline); do
   case "$argument" in
     tofi_ip=*) guest_ip=${argument#tofi_ip=} ;;
