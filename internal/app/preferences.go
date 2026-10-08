@@ -19,7 +19,13 @@ import (
 type userPreferences struct {
 	Timezone           string `json:"timezone"`
 	TimezoneConfigured bool   `json:"timezone_configured"`
+	// Language is the Web UI language. Empty means automatic: the browser's
+	// preferred languages decide.
+	Language string `json:"language"`
 }
+
+// uiLanguages are the Web UI catalogs (ui/src/i18n/languages.ts).
+var uiLanguages = map[string]bool{"en": true, "zh-CN": true, "zh-TW": true, "ja": true, "ko": true, "de": true, "fr": true}
 
 func migrateUserPreferences(db *sql.DB) error {
 	if db == nil {
@@ -30,7 +36,40 @@ id INTEGER PRIMARY KEY CHECK(id=1),
 timezone TEXT NOT NULL DEFAULT '',
 updated_at TEXT NOT NULL
 )`)
-	return err
+	if err != nil {
+		return err
+	}
+	return ensureColumn(db, "user_preferences", "language", `ALTER TABLE user_preferences ADD COLUMN language TEXT NOT NULL DEFAULT ''`)
+}
+
+func (s *Store) userPreferences() (userPreferences, error) {
+	var prefs userPreferences
+	err := s.db.QueryRow(`SELECT timezone,language FROM user_preferences WHERE id=1`).Scan(&prefs.Timezone, &prefs.Language)
+	if err == sql.ErrNoRows {
+		err = nil
+	}
+	prefs.TimezoneConfigured = prefs.Timezone != ""
+	return prefs, err
+}
+
+// putUserLanguage stores the UI language; "" returns to automatic.
+func (s *Store) putUserLanguage(language string) error {
+	if language != "" && !uiLanguages[language] {
+		return errors.New("language is not supported")
+	}
+	tx, err := s.db.Begin()
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	if _, err = tx.Exec(`INSERT INTO user_preferences(id,timezone,language,updated_at) VALUES(1,'',?,?)
+ON CONFLICT(id) DO UPDATE SET language=excluded.language,updated_at=excluded.updated_at`, language, now()); err != nil {
+		return err
+	}
+	if err = insertWorkspaceEventTx(tx, workspaceScopeConfig, now()); err != nil {
+		return err
+	}
+	return tx.Commit()
 }
 
 func (s *Store) userTimezone() (string, error) {
@@ -90,20 +129,22 @@ func (s *Server) routePreferences(w http.ResponseWriter, r *http.Request, path s
 func (s *Server) preferences(w http.ResponseWriter, r *http.Request) {
 	switch r.Method {
 	case http.MethodGet:
-		zone, err := s.store.userTimezone()
+		prefs, err := s.store.userPreferences()
 		if err != nil {
 			writeErr(w, http.StatusInternalServerError, "preferences_unavailable", "preferences unavailable")
 			return
 		}
-		writeJSON(w, http.StatusOK, userPreferences{Timezone: zone, TimezoneConfigured: zone != ""})
+		writeJSON(w, http.StatusOK, prefs)
 	case http.MethodPut:
 		if r.Body == nil || r.ContentLength > 16*1024 {
 			writeErr(w, http.StatusBadRequest, "invalid_request", "invalid preferences request")
 			return
 		}
+		// Each field is optional; an absent field keeps its stored value.
 		var body struct {
-			Timezone       string `json:"timezone"`
-			InitializeOnly bool   `json:"initialize_only"`
+			Timezone       *string `json:"timezone"`
+			InitializeOnly bool    `json:"initialize_only"`
+			Language       *string `json:"language"`
 		}
 		dec := json.NewDecoder(io.LimitReader(r.Body, 16*1024))
 		dec.DisallowUnknownFields()
@@ -111,20 +152,44 @@ func (s *Server) preferences(w http.ResponseWriter, r *http.Request) {
 			writeErr(w, http.StatusBadRequest, "invalid_request", "expected one preferences object")
 			return
 		}
-		body.Timezone = strings.TrimSpace(body.Timezone)
-		zone, err := s.store.putUserTimezone(body.Timezone, body.InitializeOnly)
-		if err != nil {
-			writeErr(w, http.StatusBadRequest, "invalid_timezone", err.Error())
+		if body.Timezone == nil && body.Language == nil {
+			writeErr(w, http.StatusBadRequest, "invalid_request", "expected timezone or language")
 			return
 		}
-		guestSync := "not_configured"
-		if s.microVM != nil {
-			guestSync = "synced"
-			if syncErr := s.syncGuestTimezone(context.Background(), true); syncErr != nil {
-				guestSync = "pending"
+		if body.Language != nil {
+			language := strings.TrimSpace(*body.Language)
+			if language != "" && !uiLanguages[language] {
+				writeErr(w, http.StatusBadRequest, "invalid_language", "language is not supported")
+				return
+			}
+			if err := s.store.putUserLanguage(language); err != nil {
+				writeErr(w, http.StatusInternalServerError, "preferences_unavailable", "preferences unavailable")
+				return
 			}
 		}
-		writeJSON(w, http.StatusOK, map[string]any{"timezone": zone, "timezone_configured": zone != "", "guest_sync": guestSync})
+		prefs, err := s.store.userPreferences()
+		if err != nil {
+			writeErr(w, http.StatusInternalServerError, "preferences_unavailable", "preferences unavailable")
+			return
+		}
+		response := map[string]any{"timezone": prefs.Timezone, "timezone_configured": prefs.TimezoneConfigured, "language": prefs.Language}
+		if body.Timezone != nil {
+			zone, err := s.store.putUserTimezone(strings.TrimSpace(*body.Timezone), body.InitializeOnly)
+			if err != nil {
+				writeErr(w, http.StatusBadRequest, "invalid_timezone", err.Error())
+				return
+			}
+			guestSync := "not_configured"
+			if s.microVM != nil {
+				guestSync = "synced"
+				if syncErr := s.syncGuestTimezone(context.Background(), true); syncErr != nil {
+					guestSync = "pending"
+				}
+			}
+			// The stored winner, so initialize_only callers see the existing zone.
+			response["timezone"], response["timezone_configured"], response["guest_sync"] = zone, zone != "", guestSync
+		}
+		writeJSON(w, http.StatusOK, response)
 	default:
 		w.Header().Set("Allow", "GET, PUT")
 		writeErr(w, http.StatusMethodNotAllowed, "method_not_allowed", "use GET or PUT")

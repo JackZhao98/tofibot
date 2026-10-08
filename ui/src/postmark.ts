@@ -3,6 +3,7 @@
 // outgoing mail the cancellation waves beside it. Drawn as an SVG string so the
 // imperative send flight and the React mail card share a single source.
 import "./postmark.css";
+import { intlLocale } from "./i18n/format";
 
 export type PostmarkParts = { ring: string; date: string; time?: string; waves?: boolean };
 
@@ -34,7 +35,7 @@ export function receivedParts(value: string | undefined): { date?: string; time?
   if (Number.isFinite(parsed)) {
     const date = new Date(parsed);
     const hasTime = /\d{1,2}:\d{2}/.test(text);
-    return { date: postmarkDate(date), time: hasTime ? date.toLocaleTimeString("zh-CN", { hour: "2-digit", minute: "2-digit", hour12: false }) : undefined };
+    return { date: postmarkDate(date), time: hasTime ? date.toLocaleTimeString(intlLocale(), { hour: "2-digit", minute: "2-digit", hour12: false }) : undefined };
   }
   const time = text.match(/\b(\d{1,2}):(\d{2})\b/);
   const day = text.match(/\b(\d{1,2})[./-](\d{1,2})\b(?!:)/) ?? text.match(/(\d{1,2})\s*月\s*(\d{1,2})\s*日/);

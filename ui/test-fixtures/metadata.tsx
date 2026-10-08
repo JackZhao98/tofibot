@@ -1,6 +1,7 @@
 // Synthetic acceptance entry only; production components use the real isolated API.
 import { useEffect, useState } from "react";
 import { createRoot } from "react-dom/client";
+import { i18nReady } from "../src/i18n";
 import { api } from "../src/api";
 import { MemoryPanel } from "../src/MemoryPanel";
 import { WorkPanel, WorkPreview } from "../src/WorkPanel";
@@ -40,4 +41,5 @@ function Acceptance() {
     })}</div>}
   </main></TimezoneProvider>;
 }
-createRoot(document.getElementById("root")!).render(<Acceptance />);
+// The app renders after its catalogs load (main.tsx); so does this fixture.
+void i18nReady.finally(() => createRoot(document.getElementById("root")!).render(<Acceptance />));

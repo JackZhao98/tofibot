@@ -5,6 +5,7 @@ import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { promisify } from "node:util";
+import { openUiModules } from "./ui-modules.mjs";
 
 const root = dirname(dirname(fileURLToPath(import.meta.url)));
 const out = await mkdtemp(join(tmpdir(), "tofi-multiplex-events-"));
@@ -17,13 +18,16 @@ class FakeEventSource extends EventTarget {
   fail() { this.onerror?.(); }
 }
 globalThis.EventSource = FakeEventSource;
+let ui;
 try {
   await promisify(execFile)(join(root, "node_modules/.bin/tsc"), [
     "src/App.tsx", "--ignoreConfig", "--target", "ES2022", "--jsx", "react-jsx",
     "--module", "ESNext", "--moduleResolution", "Bundler", "--outDir", out,
     "--skipLibCheck", "--types", "vite/client", "--declaration", "false", "--pretty", "false",
   ], { cwd: root });
-  const { openConversationEvents, openWorkspaceEvents } = await import(pathToFileURL(join(out, "api.js")));
+  // api.ts imports the i18n runtime, which only resolves through Vite.
+  ui = await openUiModules();
+  const { openConversationEvents, openWorkspaceEvents } = await ui.load("/src/api.ts");
   const events = [], workspaces = [], resets = [];
   const legacy = openConversationEvents("old", 42, (...args) => events.push(args), () => {});
   assert.equal(legacy.url, "/api/conversations/old/events?after=42", "legacy call must not request workspace multiplexing");
@@ -268,5 +272,6 @@ try {
   console.log("multiplex SSE checks: PASS (independent cursors, source isolation, replay, timeout/reset, serial snapshot recovery, retry cancellation and finite budget)");
 } finally {
   delete globalThis.EventSource;
+  await ui?.close();
   await rm(out, { recursive: true, force: true });
 }

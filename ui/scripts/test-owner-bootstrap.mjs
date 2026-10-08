@@ -14,7 +14,10 @@ const script = (Array.isArray(result) ? result[0] : result).output.find(item => 
 const browser = await chromium.launch({ headless: true, ...(process.env.CHROME_EXECUTABLE ? { executablePath: process.env.CHROME_EXECUTABLE } : {}) });
 try {
   for (const multiAccount of [false, true]) {
-    const context = await browser.newContext();
+    // Automatic language: the browser locale picks the catalog (zh-CN, then en-US).
+    const locale = multiAccount ? "en-US" : "zh-CN";
+    const copy = multiAccount ? { submit: "Create account and continue", invalid: "That setup key is invalid or has already been used." } : { submit: "创建账号并继续", invalid: "初始化密钥无效或已使用。" };
+    const context = await browser.newContext({ locale });
     const page = await context.newPage();
     page.setDefaultTimeout(5_000);
     const secret = "SyntheticBootstrapAuthority123";
@@ -66,12 +69,12 @@ try {
     await page.locator('input[name="email"]').fill("admin@example.test");
     await page.locator('input[name="password"]').fill(password);
     const submit = page.locator("form .primary-button");
-    assert.equal(await submit.innerText(), "创建账号并继续");
+    assert.equal(await submit.innerText(), copy.submit);
     await submit.click();
     assert.equal(setupRequests.length, 0, "missing secret must block browser submission");
     await input.fill("wrong-synthetic-secret");
     await submit.click();
-    await page.getByRole("alert").filter({ hasText: "初始化密钥无效或已使用。" }).waitFor();
+    await page.getByRole("alert").filter({ hasText: copy.invalid }).waitFor();
     await input.fill(secret);
     await submit.click();
     await page.getByText("Synthetic authenticated workspace").waitFor();
@@ -82,7 +85,7 @@ try {
     assert.ok(!consoleMessages.join("\n").includes(secret), "authority must not be logged");
     assert.deepEqual(pageErrors, []);
     await context.close();
-    console.log(`PASS ${multiAccount ? "multi-account" : "single-owner"} bootstrap: required masked secret, POST body, rejection, cleared form, no persistence/logging`);
+    console.log(`PASS ${multiAccount ? "multi-account" : "single-owner"} bootstrap (${locale}): required masked secret, POST body, rejection, cleared form, no persistence/logging`);
   }
 } finally {
   await browser.close();

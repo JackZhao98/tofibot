@@ -1,4 +1,5 @@
 import type { AgentUsageTotal, Attachment, Bot, Config, ContentPatch, ContextUsage, Conversation, EventEnvelope, Memory, MemoryInput, Message, ModelCatalog, ModelProviderStatus, Run, Schedule, ScheduleKind, StreamDraft, ToolActivity, ToolActivityDetailPage, ToolActivityRunSummary, UsageCall, UsagePeriod, WorkspaceEventEnvelope, WorkItem } from "./types";
+import { i18n } from "./i18n";
 
 export class ApiError extends Error {
   constructor(public status: number, message: string, public code?: string) {
@@ -14,7 +15,7 @@ export async function request<T>(path: string, init: RequestInit = {}): Promise<
   if (!response.ok) {
     if (response.status === 401) window.dispatchEvent(new Event("tofi:unauthorized"));
     const body = (await response.json().catch(() => null)) as { error?: { message?: string; code?: string } } | null;
-    throw new ApiError(response.status, body?.error?.message ?? `请求失败（${response.status}）`, body?.error?.code);
+    throw new ApiError(response.status, body?.error?.message ?? i18n.t("common:apiError.request_failed", { status: response.status }), body?.error?.code);
   }
   if (response.status === 204) return undefined as T;
   return (await response.json()) as T;

@@ -10,6 +10,8 @@ import {at, run, request, tool, question, draft, summary, scenario} from "./task
 const ui=dirname(dirname(fileURLToPath(import.meta.url)));
 const server=await createServer({configFile:false,root:ui,server:{middlewareMode:true,hmr:false,ws:false},logLevel:"error"});
 try {
+ // Assertions pin the shipped zh-CN copy unless a case passes locale "en".
+ const i18n=await server.ssrLoadModule("/src/i18n/index.ts");await i18n.i18nReady;await i18n.loadLanguage("en");await i18n.setLanguage("zh-CN");
  const p=await server.ssrLoadModule("/src/taskIssuePresentation.ts");
  const {TaskRunBlock}=await server.ssrLoadModule("/src/TaskRunBlock.tsx");
  const {toolDisplayLabel,reconcileToolActivity}=await server.ssrLoadModule("/src/toolTimeline.ts");

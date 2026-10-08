@@ -4,6 +4,7 @@ import {ConfirmAction} from "./InteractionSystem";
 import {useUserTimezone} from "./UserTimezone";
 import type {ModelProviderStatus} from "./types";
 import "./provider-settings.css";
+import { intlLocale } from "./i18n/format";
 
 type KeyProvider = "openai" | "anthropic";
 const keyProviders: {id: KeyProvider; label: string; description: string; placeholder: string}[] = [
@@ -91,6 +92,6 @@ function ApiKeyProviderCard({id, label, description, placeholder, status, loadin
 function formatVerified(value: string, timeZone: string) {
  const date = new Date(value);
  if (Number.isNaN(date.getTime())) return "";
- try { return date.toLocaleString("zh-CN", {timeZone, month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit"}); }
- catch { return date.toLocaleString("zh-CN"); }
+ try { return date.toLocaleString(intlLocale(), {timeZone, month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit"}); }
+ catch { return date.toLocaleString(intlLocale()); }
 }

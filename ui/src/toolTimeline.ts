@@ -1,4 +1,5 @@
 import type { Message, Run, ToolActivity, ToolActivityRunSummary } from "./types";
+import { i18n, type Language } from "./i18n";
 
 /** A failed request is not evidence that its external effect did not occur. */
 export function toolExecutionState(tool: Pick<ToolActivity, "status" | "outcome">): "not_executed" | "in_progress" | "completed" | "unknown" {
@@ -40,9 +41,11 @@ export function toolDisplayState(activity: Pick<ToolActivity,"status"|"outcome">
   return activity.status;
 }
 
-export function toolDisplayLabel(activity: Pick<ToolActivity,"status"|"outcome">, locale: "zh-CN" | "en" = typeof document !== "undefined" && document.documentElement.lang.startsWith("en") ? "en" : "zh-CN"): string {
-  const labels: Record<string, [string, string]> = {queued:["排队中","Queued"],running:["执行中","Running"],completed:["已完成","Completed"],failed:["失败","Failed"],interrupted:["已中断","Interrupted"],expired:["已过期","Expired"],skipped:["未执行","Not executed"],not_executed:["未执行","Not executed"],unknown:["结果待核实","Result needs checking"]};
-  return (labels[toolDisplayState(activity)] ?? ["状态待确认", "Status unconfirmed"])[locale === "en" ? 1 : 0];
+const displayStates = ["queued", "running", "completed", "failed", "interrupted", "expired", "not_executed", "unknown"] as const;
+export function toolDisplayLabel(activity: Pick<ToolActivity,"status"|"outcome">, locale?: Language): string {
+  const t = i18n.getFixedT(locale ?? null, "tasks");
+  const state = toolDisplayState(activity) === "skipped" ? "not_executed" : toolDisplayState(activity);
+  return (displayStates as readonly string[]).includes(state) ? t(`step.state.${state as typeof displayStates[number]}`) : t("step.state.unconfirmed");
 }
 
 type PreciseTime = { milliseconds: number; nanoseconds: number };
