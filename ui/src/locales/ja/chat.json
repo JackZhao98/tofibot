@@ -120,7 +120,9 @@
     "in_use": "{{name}} がコンピューターを使用中",
     "starting": "共有コンピューターを準備中",
     "stopped": "共有コンピューターは停止しています",
-    "unavailable": "共有コンピューターは現在利用できません"
+    "unavailable": "共有コンピューターは現在利用できません",
+    "health_restarting": "共有コンピューターが応答しません · 再起動中",
+    "health_unresponsive": "共有コンピューターが応答しません"
   },
   "computer_phase": {
     "booting": "VM を起動中",

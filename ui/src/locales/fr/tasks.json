@@ -81,7 +81,10 @@
     "not_configured": "L’outil n’est pas configuré",
     "unknown": "Impossible de confirmer l’état de l’outil",
     "ready": "L’outil est prêt",
-    "config_changed": "Les réglages de l’outil ont changé, approuvez à nouveau"
+    "config_changed": "Les réglages de l’outil ont changé, approuvez à nouveau",
+    "tool_timeout": "Pas de réponse à temps, arrêté",
+    "computer_restarting": "L’ordinateur redémarre ; cette étape n’a pas été exécutée",
+    "computer_unresponsive": "L’ordinateur ne répond pas ; cette étape n’a pas été exécutée"
   },
   "fact": {
     "labelled": "{{label}} : {{text}}",
@@ -406,7 +409,8 @@
     "no_final_answer": "La tâche s’est terminée sans réponse finale. Les résultats d’outils obtenus sont conservés ; vous pouvez réessayer.",
     "budget_exhausted": "La tâche a épuisé son budget d’exécution et n’a pas abouti. Les résultats d’outils obtenus sont conservés. Identifiez la cause, puis continuez.",
     "connection_interrupted": "La connexion a été coupée et la tâche n’a pas abouti. Les résultats d’outils obtenus sont conservés. Avant de réessayer, vérifiez les actions au résultat incertain.",
-    "failed": "Cette demande a échoué et la tâche n’a pas abouti. Les résultats d’outils obtenus sont conservés."
+    "failed": "Cette demande a échoué et la tâche n’a pas abouti. Les résultats d’outils obtenus sont conservés.",
+    "tool_stuck": "Une étape d’outil ne répondait plus, la tâche a donc été arrêtée. Les résultats d’outils obtenus sont conservés. Avant de réessayer, vérifiez les actions au résultat incertain."
   },
   "conversation_state": {
     "finishing": "Finalisation",

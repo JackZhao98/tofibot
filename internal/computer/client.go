@@ -113,7 +113,22 @@ func New(cfg Config) (*Client, error) {
 func (c *Client) Socket() string { return c.socket }
 
 func (c *Client) request(ctx context.Context, method, endpoint string, body any, out any) error {
-	if c.ensure != nil {
+	return c.do(ctx, method, endpoint, body, out, true, 0)
+}
+
+// ActionDeadlineError reports a guest action that did not answer within its
+// own deadline, measured after admission and cold-boot readiness.
+type ActionDeadlineError struct{ Limit time.Duration }
+
+func (e *ActionDeadlineError) Error() string {
+	return fmt.Sprintf("computer action did not answer within %s", e.Limit)
+}
+
+// do sends one control request. Observational probes pass admit=false: they
+// must never start (or keep alive) an account computer that is not running.
+// A positive limit bounds only the request itself, not admission or boot.
+func (c *Client) do(ctx context.Context, method, endpoint string, body any, out any, admit bool, limit time.Duration) error {
+	if admit && c.ensure != nil {
 		if err := c.ensure(ctx); err != nil {
 			return fmt.Errorf("computer admission: %w", err)
 		}
@@ -125,6 +140,21 @@ func (c *Client) request(ctx context.Context, method, endpoint string, body any,
 			}
 		}
 	}
+	if limit > 0 {
+		parent := ctx
+		var cancel context.CancelFunc
+		ctx, cancel = context.WithTimeout(ctx, limit)
+		defer cancel()
+		err := c.send(ctx, method, endpoint, body, out)
+		if err != nil && parent.Err() == nil && errors.Is(ctx.Err(), context.DeadlineExceeded) {
+			return &ActionDeadlineError{Limit: limit}
+		}
+		return err
+	}
+	return c.send(ctx, method, endpoint, body, out)
+}
+
+func (c *Client) send(ctx context.Context, method, endpoint string, body any, out any) error {
 	var reader io.Reader
 	if body != nil {
 		payload, err := json.Marshal(body)
@@ -181,6 +211,12 @@ func (c *Client) Info(ctx context.Context) (Info, error) {
 }
 
 func (c *Client) Action(ctx context.Context, action Action) (ActionResult, error) {
+	return c.ActionWithin(ctx, action, 0)
+}
+
+// ActionWithin is Action with a deadline for the guest's answer. Admission and
+// cold-boot readiness stay bounded by ctx alone; a slow boot is not a hung guest.
+func (c *Client) ActionWithin(ctx context.Context, action Action, limit time.Duration) (ActionResult, error) {
 	if strings.TrimSpace(action.BotID) == "" {
 		return ActionResult{}, errors.New("bot_id is required")
 	}
@@ -191,7 +227,7 @@ func (c *Client) Action(ctx context.Context, action Action) (ActionResult, error
 		action.Args = json.RawMessage(`{}`)
 	}
 	var out ActionResult
-	if err := c.request(ctx, http.MethodPost, "/v1/action", action, &out); err != nil {
+	if err := c.do(ctx, http.MethodPost, "/v1/action", action, &out, true, limit); err != nil {
 		return out, err
 	}
 	if !out.OK {
@@ -336,3 +372,50 @@ func (c *Client) ApplyResources(ctx context.Context) (Info, error) {
 	err := c.request(ctx, http.MethodPost, "/v1/resources/apply", map[string]bool{"confirm": true}, &out)
 	return out, err
 }
+
+// GuestHealth is the manager's direct probe of the guest agent over vsock. It
+// distinguishes a VM whose process is alive ("ready") but whose guest no longer
+// answers, which /v1/info cannot see.
+type GuestHealth struct {
+	State string `json:"state"`
+	// Guest is "ok", "unresponsive" or "not_ready" (the VM is not running).
+	Guest string `json:"guest"`
+	Error string `json:"error,omitempty"`
+}
+
+// ErrHealthUnsupported means the manager predates /v1/health; callers must not
+// treat it as an unhealthy guest.
+var ErrHealthUnsupported = errors.New("computer manager does not support health probes")
+
+const healthTimeout = 12 * time.Second
+const recoverTimeout = 45 * time.Second // the manager re-probes the guest before restarting
+
+func (c *Client) Health(ctx context.Context) (GuestHealth, error) {
+	ctx, cancel := context.WithTimeout(ctx, healthTimeout)
+	defer cancel()
+	var out GuestHealth
+	err := c.do(ctx, http.MethodGet, "/v1/health", nil, &out, false, 0)
+	if err != nil && strings.Contains(err.Error(), "404 Not Found") {
+		return out, ErrHealthUnsupported
+	}
+	if err == nil && out.Guest == "" {
+		err = errors.New("invalid computer health response")
+	}
+	return out, err
+}
+
+// Recover asks the manager to restart this computer because its guest stopped
+// answering. The manager re-probes the guest itself and refuses (409) to
+// restart one that is responsive, so the App cannot restart a healthy VM.
+func (c *Client) Recover(ctx context.Context) error {
+	ctx, cancel := context.WithTimeout(ctx, recoverTimeout)
+	defer cancel()
+	err := c.do(ctx, http.MethodPost, "/v1/recover", map[string]bool{"confirm": true}, nil, false, 0)
+	if err != nil && strings.Contains(err.Error(), "guest is responsive") {
+		return ErrGuestResponsive
+	}
+	return err
+}
+
+// ErrGuestResponsive means the manager's own probe found the guest answering.
+var ErrGuestResponsive = errors.New("computer guest is responsive")

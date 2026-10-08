@@ -32,6 +32,11 @@ type Tool struct {
 	// CheckReadiness is a bounded, read-only method check. Backends invoke it
 	// before asking for approval and again immediately before dispatch.
 	CheckReadiness func(context.Context) (MethodReadiness, error)
+	// Timeout is the hard per-call deadline of active time. Waits for a person
+	// or a queued shared resource (PauseToolDeadline) do not count. Zero uses
+	// DefaultToolTimeout; longer values are capped at MaxToolTimeout. When it
+	// passes, the call is cancelled and returns a typed tool_timeout outcome.
+	Timeout time.Duration
 	// ApprovalExpiryReadOnly is set only by a backend-owned executor whose
 	// scoped observation is independently authorized. Remote metadata cannot set it.
 	ApprovalExpiryReadOnly bool

@@ -218,10 +218,14 @@ type Server struct {
 	extensions                           *extensions.Manager
 	microVM                              *computer.Client
 	microVMInfoCache                     microVMInfoCache
+	computerWatchdog                     *computerWatchdog
+	stuckRunCancel                       context.CancelFunc
+	stuckRunDone                         chan struct{}
 	computerLeaseMu                      sync.Mutex
 	computerLeases                       map[string]*sync.Mutex
 	computerOwnerMu                      sync.Mutex
 	computerOwners                       map[string]string
+	desktopQueueLeft                     map[string]time.Time
 	vmOAuthMu                            sync.Mutex
 	vmOAuth                              map[string]*vmOAuthSession
 	vmOAuthClosing                       bool
@@ -2217,6 +2221,9 @@ func NewServer(c Config) (*Server, error) {
 		savedSettings.ReasoningEffort = "medium"
 	}
 	server := &Server{accountID: c.AccountID, isolatedWorkspace: c.IsolatedWorkspace, localRunnerURL: c.LocalRunnerURL, localRunnerTokenFile: c.LocalRunnerTokenFile, instance: identity, store: st, engine: engine, codex: codex, codexManaged: codexManaged, defaultModel: c.DefaultModel, defaultReasoning: savedSettings.ReasoningEffort, provider: c.Provider, transcriptionAPIKey: c.TranscriptionAPIKey, transcriptionURL: strings.TrimRight(c.TranscriptionURL, "/"), listen: c.Listen, uiDir: c.UIDir, publicOrigin: strings.TrimRight(c.PublicOrigin, "/"), convMu: map[string]*sync.Mutex{}, runs: map[string]context.CancelFunc{}, queues: map[string]*conversationQueue{}, triageModel: os.Getenv("TOFI_TRIAGE_MODEL"), microVM: microVM, computerLeases: map[string]*sync.Mutex{}, computerOwners: map[string]string{}, vmOAuth: map[string]*vmOAuthSession{}, toolSnapshots: map[toolSnapshotKey]toolSnapshot{}, providerEndpoints: map[string]string{}, envProviderKeys: map[string]string{}, envProviderErrors: map[string]string{}, providerCatalogs: map[string]providerCatalog{}}
+	if microVM != nil {
+		server.computerWatchdog = newComputerWatchdog(microVM)
+	}
 	if (c.Provider == providerOpenAI || c.Provider == providerAnthropic) && !c.IsolatedWorkspace {
 		if key := strings.TrimSpace(c.ProviderAPIKey); key != "" {
 			server.envProviderKeys[c.Provider] = key
@@ -2280,6 +2287,8 @@ func NewServer(c Config) (*Server, error) {
 	}
 	server.startSummaryWorkers()
 	server.startTerminalCleanup()
+	server.computerWatchdog.start()
+	server.startStuckRunSweeper()
 	for _, id := range workerIDs {
 		server.startConversationWorker(id)
 	}
@@ -2288,6 +2297,8 @@ func NewServer(c Config) (*Server, error) {
 		server.stopConversationWorkers()
 		server.stopSummaryWorkers()
 		server.stopTerminalCleanup()
+		server.computerWatchdog.stop()
+		server.stopStuckRunSweeper()
 		st.Close()
 		return nil, e
 	}
@@ -2304,6 +2315,8 @@ func (s *Server) Close() error {
 	s.stopConversationWorkers()
 	s.stopSummaryWorkers()
 	s.stopTerminalCleanup()
+	s.computerWatchdog.stop()
+	s.stopStuckRunSweeper()
 	return s.store.Close()
 }
 func (s *Server) Listen() string { return s.listen }

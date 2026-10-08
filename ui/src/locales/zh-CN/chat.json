@@ -120,7 +120,9 @@
     "in_use": "{{name}} 正在使用电脑",
     "starting": "正在准备你的共享电脑",
     "stopped": "共享电脑已停止",
-    "unavailable": "共享电脑暂不可用"
+    "unavailable": "共享电脑暂不可用",
+    "health_restarting": "共享电脑无响应 · 正在重启",
+    "health_unresponsive": "共享电脑无响应"
   },
   "computer_phase": {
     "booting": "启动虚拟机",
