@@ -1,0 +1,119 @@
+{
+  "reviewed_on": "2026-10-03",
+  "delivery": "candidate-only; assets are not wired into production UI",
+  "style_names": [
+    "monochrome",
+    "color",
+    "soft"
+  ],
+  "additional_style": "inverse (official white mark for dark surfaces)",
+  "assets": [
+    {
+      "name": "github-monochrome.svg",
+      "brand": "github",
+      "style": "monochrome",
+      "source": "https://brand.github.com/GitHub_Logos.zip",
+      "archive_member": "GitHub Logos/SVG/GitHub_Invertocat_Black_Clearspace.svg",
+      "sha256": "b5e2f4b3f953f075de7016faa952d6ce3ec7492aa7b32408505ec25857962d89",
+      "modified": false
+    },
+    {
+      "name": "github-color.svg",
+      "brand": "github",
+      "style": "color",
+      "source": "https://brand.github.com/GitHub_Logos.zip",
+      "archive_member": "GitHub Logos/SVG/GitHub_Invertocat_Black_Clearspace.svg",
+      "sha256": "b5e2f4b3f953f075de7016faa952d6ce3ec7492aa7b32408505ec25857962d89",
+      "modified": false
+    },
+    {
+      "name": "github-inverse.svg",
+      "brand": "github",
+      "style": "inverse",
+      "source": "https://brand.github.com/GitHub_Logos.zip",
+      "archive_member": "GitHub Logos/SVG/GitHub_Invertocat_White_Clearspace.svg",
+      "sha256": "ed102562e49ca3ea6e7d79ea10d54360dbecc5beb33de6a60fa578b6c0fac803",
+      "modified": false
+    },
+    {
+      "name": "discord-monochrome.svg",
+      "brand": "discord",
+      "style": "monochrome",
+      "source": "https://cdn.prod.website-files.com/6257adef93867e50d84d30e2/66e3d8014ea898f3a4b2156c_Symbol.svg",
+      "sha256": "3efc001289994d74fa3f919397259d1e7b8e77188c9161880243965ee284466e",
+      "modified": false
+    },
+    {
+      "name": "discord-color.svg",
+      "brand": "discord",
+      "style": "color",
+      "source": "https://cdn.prod.website-files.com/6257adef93867e50d84d30e2/66e3d80db9971f10a9757c99_Symbol.svg",
+      "sha256": "296286aa112c4400af8e96191ab888f81abd4bd1d5dc7294112a622ef43581b1",
+      "modified": false
+    },
+    {
+      "name": "discord-inverse.svg",
+      "brand": "discord",
+      "style": "inverse",
+      "source": "https://cdn.prod.website-files.com/6257adef93867e50d84d30e2/66e3d7f4ef6498ac018f2c55_Symbol.svg",
+      "sha256": "eb3bf5a2e8b9f9aa39c1b1d38aeaa7c2997084567634c55f4141aa39cf426cec",
+      "modified": false
+    }
+  ],
+  "brands": [
+    {
+      "id": "github",
+      "title": "GitHub",
+      "guidelines": "https://brand.github.com/foundations/logo",
+      "variants": {
+        "monochrome": "github-monochrome.svg",
+        "color": "github-color.svg",
+        "soft": null
+      },
+      "note": "Native GitHub brand color is black here, so color and monochrome intentionally have identical vendor bytes. No logo recoloring or cute redraw."
+    },
+    {
+      "id": "discord",
+      "title": "Discord",
+      "guidelines": "https://discord.com/branding",
+      "variants": {
+        "monochrome": "discord-monochrome.svg",
+        "color": "discord-color.svg",
+        "soft": null
+      },
+      "note": "Use symbol alongside visible Discord name and retain vendor shape, clearspace and approved colors."
+    },
+    {
+      "id": "notion",
+      "title": "Notion",
+      "variants": {
+        "monochrome": null,
+        "color": null,
+        "soft": null
+      },
+      "note": "Existing public/oauth/provider-notion.svg remains unchanged. Further variants held until usage terms and exact source are confirmed."
+    },
+    {
+      "id": "slack",
+      "title": "Slack",
+      "guidelines": "https://slack.com/media-kit",
+      "variants": {
+        "monochrome": null,
+        "color": null,
+        "soft": null
+      },
+      "note": "Use official brand-center assets only after confirming applicable usage and modification terms."
+    },
+    {
+      "id": "yahoo-finance",
+      "title": "Yahoo Finance",
+      "variants": {
+        "monochrome": null,
+        "color": null,
+        "soft": null
+      },
+      "note": "No Yahoo-specific asset or modification permission verified; no invented Yahoo logo."
+    }
+  ],
+  "soft_proposal": "Named soft/cute treatment for TOFI-owned surrounding UI only. Retain provider mark unmodified, recognizably paired with its service name. No mascot substitutions, endorsement claims, effects on the mark or unapproved combinations; obtain applicable permission before rendering."
+}

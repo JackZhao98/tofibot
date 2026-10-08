@@ -16,6 +16,7 @@
     "test:run-family": "node scripts/test-run-family.mjs",
     "test:run-merge": "node scripts/test-run-merge.mjs",
     "test:mcp-oauth": "node scripts/test-mcp-oauth.mjs",
+    "test:integration-catalog": "node scripts/test-integration-catalog.mjs",
     "test:oauth-completion": "node scripts/test-oauth-completion.mjs",
     "test:user-form": "node scripts/test-user-form.mjs",
     "test:message-markdown": "node scripts/test-message-markdown.mjs",

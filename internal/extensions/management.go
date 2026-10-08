@@ -195,6 +195,28 @@ func (m *Manager) SaveMCP(name string, c MCPServerConfig, updating bool) error {
 	if !updating && exists {
 		return tooloutcome.InvalidArguments("MCP server already exists")
 	}
+	// Retention markers authorize reuse only at the previously saved endpoint.
+	// Reject before copying or writing, so a destination edit cannot silently
+	// send an existing PAT, custom API key, or OAuth client secret elsewhere.
+	if exists && old.URL != c.URL {
+		for key, value := range old.Headers {
+			next, supplied := c.Headers[key]
+			if value != "" && (c.Headers == nil || supplied && (next == maskedSecret || next == "")) {
+				return tooloutcome.InvalidArguments("MCP endpoint changed; re-enter or remove saved headers before saving")
+			}
+		}
+		if old.OAuth != nil && (c.OAuth == nil || c.OAuth.ClientSecret == maskedSecret) {
+			return tooloutcome.InvalidArguments("MCP endpoint changed; explicitly configure OAuth for the new endpoint before saving")
+		}
+	}
+	// OAuth metadata selects the token destination independently of the MCP
+	// endpoint. Switching between explicit metadata and discovery also changes
+	// that destination selection, so masked secrets cannot move implicitly.
+	if exists && old.OAuth != nil && c.OAuth != nil &&
+		old.OAuth.AuthServerMetadataURL != c.OAuth.AuthServerMetadataURL &&
+		old.OAuth.ClientSecret != "" && c.OAuth.ClientSecret == maskedSecret {
+		return tooloutcome.InvalidArguments("OAuth metadata destination changed; re-enter or remove the saved client secret before saving")
+	}
 	// Ordinary settings updates cannot grant an exemption. Changing the target
 	// clears previously reviewed read-only tool names.
 	c.TrustedReadOnlyTools = append([]string(nil), old.TrustedReadOnlyTools...)

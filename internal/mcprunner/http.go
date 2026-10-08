@@ -75,6 +75,10 @@ func (r *Runner) Handler(token string) http.Handler {
 				http.Error(w, "Unsupported protocol version: Tofi requires MCP "+ProtocolVersion, http.StatusBadRequest)
 				return
 			}
+			if req.URL.Query().Get(AdapterIdentityQuery) != adapterIdentity(p.spec) {
+				http.Error(w, "MCP adapter identity changed; reattach before calling", http.StatusConflict)
+				return
+			}
 			handler, err := r.mcpHandler(req.Context(), p)
 			if err != nil {
 				writePluginError(w, err)
@@ -155,13 +159,14 @@ func (r *Runner) Handler(token string) http.Handler {
 			return
 		}
 		id, action := parts[2], parts[3]
-		if _, err := r.get(id); err != nil {
+		p, err := r.get(id)
+		if err != nil {
 			http.NotFound(w, req)
 			return
 		}
 		switch {
 		case action == "tools" && req.Method == http.MethodGet:
-			tools, err := r.Tools(req.Context(), id)
+			tools, err := r.toolsPlugin(req.Context(), p)
 			if err != nil {
 				writePluginError(w, err)
 				return
@@ -176,7 +181,7 @@ func (r *Runner) Handler(token string) http.Handler {
 				http.Error(w, "invalid call", http.StatusBadRequest)
 				return
 			}
-			result, err := r.Call(req.Context(), id, input.Name, input.Arguments)
+			result, err := r.callPlugin(req.Context(), p, &mcp.CallToolParams{Name: input.Name, Arguments: input.Arguments})
 			if err != nil {
 				// The child may have completed a mutating operation before losing
 				// its response. A client must never silently replay this call.
@@ -202,21 +207,39 @@ func (r *Runner) mcpHandler(ctx context.Context, p *plugin) (http.Handler, error
 	if p.httpHandler != nil {
 		return p.httpHandler, nil
 	}
-	tools, err := r.Tools(ctx, p.spec.ID)
+	tools, err := r.toolsPlugin(ctx, p)
 	if err != nil {
 		return nil, err
 	}
 	mcpServer := mcp.NewServer(&mcp.Implementation{Name: "tofi-runner-" + p.spec.ID, Version: "1"}, &mcp.ServerOptions{SupportedProtocolVersions: []string{ProtocolVersion}})
+	// The HTTP identity gate runs before reading the body. Revalidate the same
+	// instance at actual RPC dispatch, including cached discover/list responses,
+	// and hold it through the handler so removal cannot race process acquisition.
+	mcpServer.AddReceivingMiddleware(func(next mcp.MethodHandler) mcp.MethodHandler {
+		return func(ctx context.Context, method string, request mcp.Request) (mcp.Result, error) {
+			release, err := r.retainPlugin(p)
+			if err != nil {
+				return nil, err
+			}
+			defer release()
+			return next(ctx, method, request)
+		}
+	})
 	for _, tool := range tools {
 		name := tool.Name
 		mcpServer.AddTool(&tool, func(ctx context.Context, request *mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+			if p.spec.Adapter != nil {
+				if err := adapterFeatures(request.Params.InputResponses, request.Params.RequestState, request.Params.Meta); err != nil {
+					return nil, err
+				}
+			}
 			arguments := map[string]any{}
 			if len(request.Params.Arguments) > 0 {
 				if err := json.Unmarshal(request.Params.Arguments, &arguments); err != nil {
 					return nil, err
 				}
 			}
-			result, err := r.call(ctx, p.spec.ID, &mcp.CallToolParams{Name: name, Arguments: arguments, InputResponses: request.Params.InputResponses, RequestState: request.Params.RequestState})
+			result, err := r.callPlugin(ctx, p, &mcp.CallToolParams{Name: name, Arguments: arguments, InputResponses: request.Params.InputResponses, RequestState: request.Params.RequestState})
 			if err != nil {
 				message := "Tool result unknown; the operation may have completed. Do not retry automatically."
 				if errors.Is(err, ErrIncompatibleProtocol) {
