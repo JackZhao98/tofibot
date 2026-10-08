@@ -190,6 +190,17 @@ class InstallScriptTests(unittest.TestCase):
         result = self.run_script(STUB_NPROC='1')
         self.assertIn('at least 2 vCPUs; this host has 1', result.stderr)
 
+    def test_no_swap_under_16_gib_only_warns(self):
+        self.host_file('proc/meminfo', 'MemTotal: 8152000 kB\nSwapTotal: 0 kB\n')
+        result = self.run_script('--yes')
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn('7960 MiB of RAM and no swap', result.stderr)
+        for meminfo in ('MemTotal: 8152000 kB\nSwapTotal: 4194300 kB\n', 'MemTotal: 16300000 kB\nSwapTotal: 0 kB\n'):
+            self.host_file('proc/meminfo', meminfo)
+            result = self.run_script('--yes')
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertNotIn('no swap', result.stderr)
+
     def test_port_in_use_refused(self):
         self.host_file('proc/net/tcp', '  sl  local_address rem_address   st\n'
                        '   0: 0100007F:2081 00000000:0000 0A 00000000:00000000\n')

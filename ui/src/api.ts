@@ -1,4 +1,4 @@
-import type { AgentUsageTotal, Attachment, Bot, Config, ContentPatch, ContextUsage, Conversation, EventEnvelope, Memory, MemoryInput, Message, ModelCatalog, ModelProviderStatus, Run, Schedule, ScheduleKind, StreamDraft, ToolActivity, ToolActivityDetailPage, ToolActivityRunSummary, UsageCall, UsagePeriod, WorkspaceEventEnvelope, WorkItem } from "./types";
+import type { AgentUsageTotal, Attachment, Bot, ComputerHealth, Config, ContentPatch, ContextUsage, Conversation, EventEnvelope, Memory, MemoryInput, Message, ModelCatalog, ModelProviderStatus, Run, Schedule, ScheduleKind, StreamDraft, ToolActivity, ToolActivityDetailPage, ToolActivityRunSummary, UsageCall, UsagePeriod, WorkspaceEventEnvelope, WorkItem } from "./types";
 import { i18n } from "./i18n";
 
 export class ApiError extends Error {
@@ -96,7 +96,7 @@ export const api = {
   toolActivities: (id: string) => request<{ activities: ToolActivity[] }>(`/api/conversations/${encodeURIComponent(id)}/tools`),
   toolActivitySummaries: (id: string, runIds: string[]) => request<{ summaries: ToolActivityRunSummary[] }>(`/api/conversations/${encodeURIComponent(id)}/tools?${new URLSearchParams({ run_ids: runIds.join(",") })}`),
   toolActivityDetails: (id: string, runId: string, offset = 0) => request<ToolActivityDetailPage>(`/api/conversations/${encodeURIComponent(id)}/tools?${new URLSearchParams({ run_id: runId, offset: String(offset) })}`),
-  computerInfo: () => request<{ kind: string; state: string; phase?: string; workspace_root?: string; browser?: string; error?: string }>("/api/computers/firecracker/info"),
+  computerInfo: () => request<{ kind: string; state: string; phase?: string; workspace_root?: string; browser?: string; error?: string; health?: ComputerHealth }>("/api/computers/firecracker/info"),
   computerRetry: () => request<{ accepted: boolean }>("/api/computers/firecracker/retry", { method: "POST" }),
   computerAction: (input: { bot_id: string; run_id?: string; action: string; args?: Record<string, unknown> }) => request<{ ok: boolean; result?: unknown; error?: string }>("/api/computers/firecracker/actions", { method: "POST", body: JSON.stringify(input) }),
 };

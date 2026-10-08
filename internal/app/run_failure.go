@@ -26,6 +26,11 @@ func (r Run) failure() *RunFailure {
 		failure.Message = "The task ended without a final answer. Completed tool results are retained; retry to continue."
 		return failure
 	}
+	if strings.HasPrefix(errorText, stuckRunCode+":") {
+		failure.Code = stuckRunCode
+		failure.Message = "A tool step stopped responding and the task was stopped. Completed tool results are retained; verify any uncertain effects before retrying."
+		return failure
+	}
 	if errorText == "approval_expired" {
 		failure.Code = "approval_expired"
 		failure.Message = "Approval expired. This workflow stopped; completed results are retained and uncertain effects require verification."

@@ -22,6 +22,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/JackZhao98/tofibot/internal/computer"
 	"github.com/JackZhao98/tofibot/internal/tooloutcome"
 	"github.com/google/uuid"
 )
@@ -833,12 +834,25 @@ func (s *Server) routeComputers(w http.ResponseWriter, r *http.Request, path str
 			writeErr(w, http.StatusServiceUnavailable, "computer_unavailable", err.Error())
 			return true
 		}
-		writeJSON(w, http.StatusOK, info)
+		writeJSON(w, http.StatusOK, struct {
+			computer.Info
+			Health *ComputerHealth `json:"health,omitempty"`
+		}{info, s.computerWatchdog.view()})
 		return true
 	}
 	if len(parts) == 2 && parts[0] == microVMComputerID && parts[1] == "retry" && r.Method == http.MethodPost {
 		if s.microVM == nil {
 			writeErr(w, http.StatusNotFound, "not_configured", "computer VM is not configured")
+			return true
+		}
+		// A computer the watchdog gave up on is running but unresponsive; the
+		// person's Retry restarts it and resets the automatic restart cap.
+		if handled, err := s.computerWatchdog.manualRecover(r.Context()); handled {
+			if err != nil {
+				writeErr(w, http.StatusBadGateway, "computer_retry_failed", err.Error())
+			} else {
+				writeJSON(w, http.StatusAccepted, map[string]any{"accepted": true})
+			}
 			return true
 		}
 		if err := s.microVM.Retry(r.Context()); err != nil {
@@ -1106,7 +1120,7 @@ func (s *Server) computerTools(r Run) []Tool {
 		b, _ := json.Marshal(map[string]any{"computers": items})
 		return string(b), nil
 	}}
-	action := Tool{Name: "computer_action", Description: "Run one explicitly granted action on a paired computer or on the Bot's fixed Firecracker computer. Use only capabilities currently advertised by that computer; an action name does not grant access or enable an unavailable runtime. Callers cannot override local grants or execution policy. When a paired Mac advertises sandbox.exec, pass only args.command: it runs for at most 30 seconds in the locally authorized directory and directly changes its files, with no automatic rollback. It does not grant network, SSH keys, Keychain or arbitrary host toolchains. A stopped managed process group does not prove every detached descendant stopped. Inspect exitCode, stderr and cancellation before claiming success; do not retry uncertain writes automatically. Use host.info on the service host only to read its OS and architecture.", Parameters: objectSchema(map[string]any{"computer_id": map[string]any{"type": "string"}, "action": map[string]any{"type": "string"}, "args": map[string]any{"type": "object"}}, []string{"computer_id", "action", "args"}), Identity: func(raw json.RawMessage) tooloutcome.Identity {
+	action := Tool{Name: "computer_action", Timeout: computerToolTimeout, Description: "Run one explicitly granted action on a paired computer or on the Bot's fixed Firecracker computer. Use only capabilities currently advertised by that computer; an action name does not grant access or enable an unavailable runtime. Callers cannot override local grants or execution policy. When a paired Mac advertises sandbox.exec, pass only args.command: it runs for at most 30 seconds in the locally authorized directory and directly changes its files, with no automatic rollback. It does not grant network, SSH keys, Keychain or arbitrary host toolchains. A stopped managed process group does not prove every detached descendant stopped. Inspect exitCode, stderr and cancellation before claiming success; do not retry uncertain writes automatically. Use host.info on the service host only to read its OS and architecture.", Parameters: objectSchema(map[string]any{"computer_id": map[string]any{"type": "string"}, "action": map[string]any{"type": "string"}, "args": map[string]any{"type": "object"}}, []string{"computer_id", "action", "args"}), Identity: func(raw json.RawMessage) tooloutcome.Identity {
 		var in struct {
 			ComputerID string          `json:"computer_id"`
 			Action     string          `json:"action"`

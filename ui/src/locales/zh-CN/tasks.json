@@ -81,7 +81,10 @@
     "not_configured": "工具尚未配置",
     "unknown": "工具状态暂时无法确认",
     "ready": "工具已就绪",
-    "config_changed": "工具设置已变更，需要重新批准"
+    "config_changed": "工具设置已变更，需要重新批准",
+    "tool_timeout": "超时未响应，已停止",
+    "computer_restarting": "电脑正在重启，此步骤未执行",
+    "computer_unresponsive": "电脑无响应，此步骤未执行"
   },
   "fact": {
     "labelled": "{{label}}: {{text}}",
@@ -396,7 +399,8 @@
     "no_final_answer": "本次任务结束时没有给出最终回答。已完成的工具结果保留，可重试。",
     "budget_exhausted": "本次任务的执行预算已用尽，任务未完成。已完成的工具结果保留，请检查原因后继续。",
     "connection_interrupted": "连接中断，任务未完成。已完成的工具结果保留；重试前请核实结果不确定的操作。",
-    "failed": "本次请求失败，任务未完成。已完成的工具结果保留。"
+    "failed": "本次请求失败，任务未完成。已完成的工具结果保留。",
+    "tool_stuck": "某个工具步骤没有响应，任务已停止。已完成的工具结果会保留；重试前请先检查结果不确定的操作。"
   },
   "conversation_state": {
     "finishing": "正在收尾",

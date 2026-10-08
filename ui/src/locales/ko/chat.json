@@ -120,7 +120,9 @@
     "in_use": "{{name}}이(가) 컴퓨터를 사용하는 중",
     "starting": "공유 컴퓨터를 준비하는 중",
     "stopped": "공유 컴퓨터가 중지되었습니다",
-    "unavailable": "공유 컴퓨터를 사용할 수 없습니다"
+    "unavailable": "공유 컴퓨터를 사용할 수 없습니다",
+    "health_restarting": "공유 컴퓨터가 응답하지 않음 · 다시 시작하는 중",
+    "health_unresponsive": "공유 컴퓨터가 응답하지 않음"
   },
   "computer_phase": {
     "booting": "VM 시작 중",

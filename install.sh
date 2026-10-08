@@ -26,6 +26,7 @@ TOTAL_STEPS=12
 MIN_CPUS=2
 MIN_MEMORY_MIB=3584   # "4 GiB" machines report slightly less in MemTotal
 WARN_MEMORY_MIB=7680
+SWAP_ADVISED_BELOW_MIB=15872   # advise swap below "16 GiB" (MemTotal reads a little less)
 MIN_DISK_GIB=30
 WARN_DISK_GIB=40
 APT_PACKAGES=(ca-certificates curl tar zstd python3 e2fsprogs apparmor apparmor-utils openssl iproute2)
@@ -233,6 +234,11 @@ check_resources() {
   memory_mib=$(( memory_kib / 1024 ))
   (( memory_mib >= MIN_MEMORY_MIB )) || die "TOFI needs at least 4 GiB of RAM; this host has $memory_mib MiB."
   (( memory_mib >= WARN_MEMORY_MIB )) || warn "This host has $memory_mib MiB of RAM; 8 GiB or more is recommended."
+  local swap_kib
+  swap_kib=$(awk '$1 == "SwapTotal:" { print $2 }' "$MEMINFO")
+  if [[ -n $swap_kib ]] && (( swap_kib == 0 && memory_mib < SWAP_ADVISED_BELOW_MIB )); then
+    warn "This host has $memory_mib MiB of RAM and no swap; a computer that runs out of memory can freeze the whole host. Add swap (for example a 4 GiB swap file) or use 16 GiB of RAM or more."
+  fi
   local probe=$VAR_LIB
   while [[ ! -e $probe ]]; do
     probe=$(dirname "$probe")
