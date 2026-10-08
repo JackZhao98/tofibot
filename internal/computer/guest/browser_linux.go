@@ -200,6 +200,7 @@ func (s *Service) browserNewPage(ctx context.Context, botID string, d *desktop, 
 		}
 		targetURL = u.String()
 	}
+	s.makeRoomForNewTab(ctx, d)
 	body, err := chromeHTTP(ctx, d, http.MethodPut, "/json/new?"+url.QueryEscape(targetURL))
 	if err != nil {
 		return nil, err
