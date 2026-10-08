@@ -1,6 +1,11 @@
 package app
 
-import "strings"
+import (
+	"slices"
+	"strings"
+
+	"github.com/JackZhao98/tofibot/internal/tooloutcome"
+)
 
 // A tool-backed task gets one bounded chance to compare its draft against the
 // user's request before it becomes final. The agent owns the single repair
@@ -8,26 +13,43 @@ import "strings"
 // a draft as proof that work completed.
 const taskCompletionFinalReminder = `Before sending the final answer, compare the user's requested deliverable, fields, and categories with the actual completed work and tool results in this conversation.
 If any requested item remains unresolved, continue the remaining authorized work with relevant available and permitted tools while capacity remains. Give partial results only when the user asked for them or a concrete blocker prevents completion; otherwise do not stop after one lead or category. Do not describe a category, source, or action as searched, checked, completed, unavailable, or verified unless the conversation contains evidence for that statement. Distinguish an attempted or failed route from an inspected result.
-Do not broaden the request or replay an action with an uncertain outcome; inspect its current state first. Keep this review private. The draft immediately before this reminder may appear only as a progress entry, so the final answer must still contain the substantive response to the user rather than assuming they saw that draft. Preserve the tone and form the user asked for, including playful or interactive replies. Do not replace the answer with an audit-style statement such as "I checked everything" or "nothing was missed" unless the user asked for an audit.`
+Do not broaden the request or replay an action with an uncertain outcome; inspect its current state first. Keep this review private. The draft immediately before this reminder is replaced by your final answer and is not kept for the user, so the final answer must contain the complete substantive response rather than assuming they saw that draft. Preserve the tone and form the user asked for, including playful or interactive replies. Do not replace the answer with an audit-style statement such as "I checked everything" or "nothing was missed" unless the user asked for an audit.`
+
+// noCompletionReviewTools never arm the review: they read context, manage
+// memory, or talk to the user rather than doing the requested work.
+var noCompletionReviewTools = []string{
+	"get_context_usage", "inspect_recent_runs", "search_history", "ask_user_question", "request_approval", "computer_help", "read_workflow_guide",
+	"save_memory", "update_memory", "delete_memory", "list_memory", "send_chat_message", "react_to_message", "display_content",
+	"list_mcp_servers", "search_mcp_catalog", "search_mcp_tools", "list_skills", "read_skill", "read_skill_file",
+	// Browsing and pointing at the screen gather information; they are not the
+	// deliverable, and a research answer needs no extra review turn.
+	"computer_browser", "computer_desktop",
+}
+
+// noCompletionReviewSQL is the constant SQL list of noCompletionReviewTools.
+var noCompletionReviewSQL = "'" + strings.Join(noCompletionReviewTools, "','") + "'"
 
 func completionReviewTool(name string) bool {
-	switch name {
-	case "get_context_usage", "inspect_recent_runs", "search_history", "ask_user_question", "request_approval", "computer_help", "read_workflow_guide":
-		return false
-	default:
-		return name != ""
-	}
+	return name != "" && !slices.Contains(noCompletionReviewTools, name)
+}
+
+// completionReviewWork arms the review only for a tool that may have done the
+// requested work: read-only calls (identity risk Observation, e.g. a trusted
+// read-only MCP tool) do not.
+func completionReviewWork(name, risk string) bool {
+	return completionReviewTool(name) && risk != tooloutcome.Observation
 }
 
 // hasCompletionReviewToolWork restores the review gate after a durable input
 // continuation. The database is authoritative because the in-memory event
-// observer is intentionally recreated for each runtime invocation.
+// observer is intentionally recreated for each runtime invocation. Activity
+// rows carry no identity risk, so restored read-only calls still arm it.
 func (s *Store) hasCompletionReviewToolWork(runID string) (bool, error) {
 	var found int
 	err := s.db.QueryRow(`SELECT EXISTS(
 		SELECT 1 FROM tool_activities
 		WHERE run_id=? AND status IN ('running','completed','failed')
-		AND name NOT IN ('get_context_usage','inspect_recent_runs','search_history','ask_user_question','request_approval','computer_help','read_workflow_guide')
+		AND name NOT IN (`+noCompletionReviewSQL+`)
 	)`, runID).Scan(&found)
 	return found != 0, err
 }

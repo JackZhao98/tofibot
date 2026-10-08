@@ -1,0 +1,56 @@
+{
+  "base_commit": "2d304632558b4497d98ec7759be6a181d7362a9c",
+  "branch": "codex/approval-expiry-presentation-20261003",
+  "scope": "Durably conclude expired approvals with bounded independently authorized read-only recovery and an accurate persisted terminal summary.",
+  "state_flow": [
+    "question expired + recovery ready atomically",
+    "one recovery claim",
+    "finished summary + terminal approval_expired atomically"
+  ],
+  "limits": {
+    "model_requests": 2,
+    "read_only_tool_calls": 2,
+    "wall_seconds": 60,
+    "active_budget": "original remaining budget",
+    "second_model_request": "summary-only"
+  },
+  "backend_safe_tools": [
+    "search_history"
+  ],
+  "preserved": [
+    "original checkpoint",
+    "tool recovery ledger",
+    "completed and uncertain activities",
+    "MCP approval bindings and dispatch claims"
+  ],
+  "fallbacks": [
+    "missing model",
+    "exhausted budget",
+    "provider failure",
+    "empty response",
+    "claimed recovery interrupted",
+    "invalid checkpoint or bindings"
+  ],
+  "fallback_behavior": "Persist a deterministic system-backed summary without tools.",
+  "verification": {
+    "go": "Affected agent/runtime/app suites passed; dedicated expiry and four original exactly-once regression groups passed.",
+    "ui": "TypeScript typecheck, timeline and run-family checks passed.",
+    "browser": "24 full production App synthetic checks: eight lifecycle cases each for mobile Web, desktop Web, and native shared-UI branch.",
+    "browser_cases": [
+      "expiry label and bounded finishing with frozen timers",
+      "reload while finishing",
+      "SSE reconnect",
+      "duplicate completion gives one summary",
+      "terminal reload has no execution or renewal",
+      "answered approval expires authoritatively",
+      "relogin without stale error flood",
+      "true stream failure remains visible"
+    ],
+    "native_limit": "Synthetic desktop bridge exercises native rendering of the shared production App; no installed native binary or production session was exercised."
+  },
+  "integration_notes": [
+    "App.tsx overlaps the separately owned URL worker; parent must review integration.",
+    "General readiness/denial-scope/AutoReview replanning is a separate slice; no policy enablement is included."
+  ],
+  "safety": "Synthetic fixtures only. No credentials, persistent access, live approvals, VM106, main, production, merge, or deploy changes."
+}

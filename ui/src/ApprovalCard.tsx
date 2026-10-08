@@ -48,7 +48,7 @@ export function ApprovalCard({ title, avatar, time, exactTime, badge = "需要�
         {note && <p className="approval-note">{note}</p>}
       </div>
     </div>
-    {resolution && <div className="approval-result" role="status">
+    {resolution && <div className="approval-result">
       <TofiIcon name={resolution.accepted ? "check" : "close"} size={16} aria-hidden="true" />
       <span>{resolution.label}</span>{resolution.answer && <strong>{resolution.answer}</strong>}
     </div>}

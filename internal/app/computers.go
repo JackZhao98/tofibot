@@ -1086,6 +1086,14 @@ func (s *Server) routeComputers(w http.ResponseWriter, r *http.Request, path str
 	return true
 }
 
+// hasPairedComputer reports a non-revoked paired device. Without one, the
+// service host and VM are reachable only through their dedicated tools.
+func (s *Store) hasPairedComputer() bool {
+	var ok bool
+	_ = s.db.QueryRow(`SELECT EXISTS(SELECT 1 FROM computers WHERE revoked_at IS NULL)`).Scan(&ok)
+	return ok
+}
+
 func (s *Server) computerTools(r Run) []Tool {
 	list := Tool{Name: "list_computers", Description: "List the service host and paired Mac computers with current online status and explicitly granted capabilities. Reuse prior conversation facts for explanatory answers; call this when current availability or grants matter for an operation, not automatically on every turn.", Parameters: objectSchema(map[string]any{}, nil), Execute: func(ctx context.Context, _ json.RawMessage) (string, error) {
 		if err := ctx.Err(); err != nil {

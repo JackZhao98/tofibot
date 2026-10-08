@@ -1,0 +1,20 @@
+=== RUN   TestCancelDoesNotBecomeDone
+--- PASS: TestCancelDoesNotBecomeDone (0.04s)
+=== RUN   TestInputContinuationStopAndSteeringInvalidateCard
+=== RUN   TestInputContinuationStopAndSteeringInvalidateCard/false
+=== RUN   TestInputContinuationStopAndSteeringInvalidateCard/true
+--- PASS: TestInputContinuationStopAndSteeringInvalidateCard (0.05s)
+    --- PASS: TestInputContinuationStopAndSteeringInvalidateCard/false (0.03s)
+    --- PASS: TestInputContinuationStopAndSteeringInvalidateCard/true (0.02s)
+=== RUN   TestToolActivityOutcomeSurvivesLongResultAndReload
+--- PASS: TestToolActivityOutcomeSurvivesLongResultAndReload (0.03s)
+=== RUN   TestInterruptToolActivitiesScansOutcomeAndPublishesOneTerminalEvent
+--- PASS: TestInterruptToolActivitiesScansOutcomeAndPublishesOneTerminalEvent (0.02s)
+=== RUN   TestStopHTTPInterruptsToolTracesWithoutEffectReplay
+--- PASS: TestStopHTTPInterruptsToolTracesWithoutEffectReplay (0.03s)
+=== RUN   TestToolActivityLifecycleAndEventTransaction
+--- PASS: TestToolActivityLifecycleAndEventTransaction (0.02s)
+=== RUN   TestToolActivityBoundsAndRestartInterrupt
+--- PASS: TestToolActivityBoundsAndRestartInterrupt (0.03s)
+PASS
+ok  	github.com/JackZhao98/tofibot/internal/app	0.745s

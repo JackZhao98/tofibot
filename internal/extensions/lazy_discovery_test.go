@@ -222,8 +222,10 @@ func TestLazyDiscoveryBrowseAfterKeywordMissRemainsBoundedAndScoped(t *testing.T
 		t.Fatalf("keyword miss lacks browse path: %s %v", miss, err)
 	}
 	requestsAfterDiscovery := requests.Load()
-	if _, err = call.Execute(context.Background(), json.RawMessage(`{"name":"mcp_catalog__entry_12","arguments":{}}`)); err == nil {
-		t.Fatal("keyword miss authorized unseen schema")
+	// Exact-name resolution reuses this run's discovery: a name the server
+	// does not expose fails without another remote request.
+	if _, err = call.Execute(context.Background(), json.RawMessage(`{"name":"mcp_catalog__entry_99","arguments":{}}`)); err == nil || !strings.Contains(err.Error(), "search_mcp_tools") {
+		t.Fatalf("absent tool resolved: %v", err)
 	}
 	offset := 0
 	found := map[string]bool{}
@@ -271,8 +273,10 @@ func TestLazyDiscoveryBrowseAfterKeywordMissRemainsBoundedAndScoped(t *testing.T
 	if requests.Load() != requestsAfterDiscovery || otherRequests.Load() != 0 {
 		t.Fatal("cached pagination contacted remote or unrelated server")
 	}
-	if _, err = call.Execute(context.Background(), json.RawMessage(`{"name":"mcp_catalog__entry_00","arguments":{}}`)); err == nil {
-		t.Fatal("omitted oversized schema authorized")
+	// An oversized schema omitted from search pages stays callable by its
+	// exact name; the server's own schema still validates the arguments.
+	if _, err = call.Execute(context.Background(), json.RawMessage(`{"name":"mcp_catalog__entry_00","arguments":{"value":1}}`)); err == nil || !strings.Contains(err.Error(), "Current input schema") {
+		t.Fatalf("omitted schema did not validate arguments: %v", err)
 	}
 	if _, err = call.Execute(context.Background(), json.RawMessage(`{"name":"mcp_catalog__entry_12","arguments":{}}`)); err != nil {
 		t.Fatal(err)
@@ -400,8 +404,8 @@ func TestLazyDiscoveryCrossServerToolPages(t *testing.T) {
 					seen[tool.Name] = true
 				}
 				if page == 0 {
-					if _, err := call.Execute(context.Background(), json.RawMessage(`{"name":"mcp_catalog_07__inventory_b","arguments":{}}`)); err == nil {
-						t.Fatal("unreturned schema became callable")
+					if _, err := call.Execute(context.Background(), json.RawMessage(`{"name":"mcp_catalog_07__inventory_z","arguments":{}}`)); err == nil {
+						t.Fatal("absent tool became callable")
 					}
 				}
 				if result.NextTool != nil {
@@ -526,14 +530,19 @@ func TestLazyDiscoverySourceFailureLeavesAlternateCallable(t *testing.T) {
 			if tc.wantErr && !strings.Contains(err.Error(), "Untrusted tool-reported details: fixture source unavailable") {
 				t.Fatalf("model-visible failure lost the bounded source reason: %v", err)
 			}
-			if _, err := call.Execute(context.Background(), json.RawMessage(`{"name":"mcp_fixture__alternate","arguments":{}}`)); err == nil {
-				t.Fatal("source failure authorized an unseen alternate")
+			// A source failure never falls back on its own; the alternate runs
+			// only when explicitly called by its exact name.
+			if alternateCalls.Load() != 0 {
+				t.Fatal("source failure invoked the alternate")
+			}
+			if _, err := call.Execute(context.Background(), json.RawMessage(`{"name":"mcp_fixture__alternate","arguments":{}}`)); err != nil || alternateCalls.Load() != 1 {
+				t.Fatalf("explicit exact-name alternate failed: %v", err)
 			}
 			if _, err := search.Execute(context.Background(), json.RawMessage(`{"query":"browser"}`)); err != nil {
 				t.Fatal(err)
 			}
 			output, err = call.Execute(context.Background(), json.RawMessage(`{"name":"mcp_fixture__alternate","arguments":{}}`))
-			if err != nil || output != "fixture inventory record" || alternateCalls.Load() != 1 {
+			if err != nil || output != "fixture inventory record" || alternateCalls.Load() != 2 {
 				t.Fatalf("alternate unavailable after source failure: %s %v", output, err)
 			}
 		})

@@ -94,7 +94,7 @@ func (s *Store) fillConversationTaskStates(byID map[string]*Conversation) error 
 	)
 	SELECT r.id,r.scope_conversation_id,r.source_conversation_id,r.status,r.error,r.trigger_message_id,r.created_at,
 		(SELECT m.id FROM messages m WHERE m.run_id=r.id AND m.conversation_id=r.scope_conversation_id AND m.role='assistant'
-		AND m.kind NOT IN ('notice','message_ref','bot_result','progress') ORDER BY m.seq DESC LIMIT 1),
+		AND (m.kind NOT IN ('notice','message_ref','bot_result','progress') OR r.error='approval_expired') ORDER BY m.seq DESC LIMIT 1),
 		(SELECT d.id FROM mail_drafts d WHERE d.run_id=r.id AND d.conversation_id=r.scope_conversation_id ORDER BY d.created_at DESC,d.id DESC LIMIT 1),
 		(SELECT d.status FROM mail_drafts d WHERE d.run_id=r.id AND d.conversation_id=r.scope_conversation_id ORDER BY d.created_at DESC,d.id DESC LIMIT 1),
 		(SELECT d.demo FROM mail_drafts d WHERE d.run_id=r.id AND d.conversation_id=r.scope_conversation_id ORDER BY d.created_at DESC,d.id DESC LIMIT 1)
@@ -121,6 +121,9 @@ func (s *Store) fillConversationTaskStates(byID map[string]*Conversation) error 
 		switch status {
 		case "queued", "running":
 			state.Status = "executing"
+			if reason.String == "approval_expiry_recovery" {
+				state.Status = "finishing"
+			}
 		case "waiting":
 			state.Status = "waiting"
 		case "done":
@@ -134,6 +137,13 @@ func (s *Store) fillConversationTaskStates(byID map[string]*Conversation) error 
 			}
 		case "failed", "interrupted":
 			state.Status = "failed"
+			if reason.String == "approval_expired" {
+				state.Status = "expired"
+				state.ResultMessageID = result.String
+				state.CanRetry = false
+				c.TaskState = state
+				continue
+			}
 			state.FailureReason = reason.String
 			if sourceConv != conv {
 				state.FailureReason = "协作成员未完成此步骤。"

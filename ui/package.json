@@ -8,6 +8,8 @@
     "build": "tsc -b && vite build && vite build --config vite.motion-lab.config.ts",
     "typecheck": "tsc -b --pretty false",
     "test:composer-draft": "node scripts/test-composer-draft.mjs",
+    "test:conversation-route": "node scripts/test-conversation-route.mjs",
+    "test:conversation-route-browser": "node scripts/test-conversation-route-browser.mjs",
     "test:reply-ack": "node scripts/test-reply-ack.mjs",
     "test:timeline": "node scripts/test-tool-timeline.mjs",
     "test:run-family": "node scripts/test-run-family.mjs",
@@ -21,7 +23,9 @@
     "test:final-v2-tokens": "node scripts/test-final-v2-tokens.mjs",
     "test:design-icons": "node scripts/test-design-icons.mjs",
     "test:motion-lab": "node scripts/test-motion-lab.mjs",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "test:auto-review": "node scripts/test-auto-review.mjs",
+    "test:model-catalog": "node scripts/test-model-catalog.mjs"
   },
   "dependencies": {
     "@dicebear/core": "10.7.0",

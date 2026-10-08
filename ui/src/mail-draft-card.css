@@ -3,7 +3,9 @@
 .workspace .mail-draft-identity { display:flex; align-items:center; gap:9px; margin-bottom:9px; color:var(--ink); font:600 14px/1.4 var(--body); }
 .workspace .mail-draft-identity .avatar { flex:none; display:block; width:28px; height:28px; margin:0; }
 .workspace .mail-draft-identity .tofi-avatar { width:100%; height:100%; }
-.workspace .mail-draft-letter { width:100%; box-sizing:border-box; margin-top:12px; overflow:hidden; border:2px solid var(--line); border-radius:8px 8px 15px 15px; background:var(--paper); color:var(--paper-ink); box-shadow:var(--hard-sm); }
+.workspace .mail-draft-letter { width:100%; box-sizing:border-box; margin-top:12px; overflow:hidden; border:1px solid var(--line); border-radius:8px 8px 15px 15px; background:var(--paper); color:var(--paper-ink); }
+/* Only a letter waiting on you is loud: the chunky edge and hard shadow. */
+.workspace .mail-draft-letter.is-pending { border-width:3px; box-shadow:var(--hard); }
 .workspace .mail-draft-stripe { height:8px; background:repeating-linear-gradient(135deg,var(--airmail-blue) 0 10px,var(--paper) 10px 20px,var(--airmail-red) 20px 30px,var(--paper) 30px 40px); }
 .workspace .mail-draft-fields { position:relative; display:grid; gap:9px; padding:15px 86px 15px 18px; border-bottom:1px solid var(--paper-rule); }
 .workspace .mail-draft-stamp { position:absolute; right:17px; top:11px; display:block; width:54px; height:62px; padding:4px; border:2px dashed var(--airmail-red); transform:rotate(4deg); background:var(--paper); }
@@ -12,12 +14,32 @@
 .workspace .mail-draft-fields label { display:grid; grid-template-columns:52px minmax(0,1fr); gap:8px; align-items:baseline; color:var(--muted); font:600 12px/1.5 var(--body); }
 .workspace .mail-draft-fields strong { color:var(--paper-ink); font:500 14px/1.5 var(--body); overflow-wrap:anywhere; }
 .workspace .mail-draft-fields input { min-width:0; width:100%; box-sizing:border-box; padding:8px; border:1px solid var(--paper-rule); border-radius:6px; background:var(--paper); color:var(--paper-ink); font:14px/1.5 var(--body); }
-.workspace .mail-draft-paper { min-height:100px; padding:18px; background:repeating-linear-gradient(to bottom,transparent 0 31px,var(--paper-rule) 32px); }
+.workspace .mail-draft-paper { min-height:100px; padding:18px; background:repeating-linear-gradient(to bottom,transparent 0 31px,var(--paper-rule) 31px 32px); background-position:0 12px; }
 .workspace .mail-draft-paper p { margin:0; color:var(--paper-ink); white-space:pre-wrap; overflow-wrap:anywhere; font:14px/32px var(--body); }
 .workspace .mail-draft-paper textarea { box-sizing:border-box; display:block; width:100%; min-height:210px; padding:0; resize:vertical; border:0; background:transparent; color:var(--paper-ink); font:14px/32px var(--body); }
 .workspace .mail-draft-letter footer { display:flex; align-items:center; justify-content:flex-end; gap:10px; min-height:42px; padding:9px 18px; border-top:1px dashed var(--paper-rule); color:var(--muted); font:12px/1.4 var(--body); }
 .workspace .mail-draft-letter footer button { min-height:36px; padding:7px 12px; border:1px solid var(--line); border-radius:9px; background:var(--surface); color:var(--ink); cursor:pointer; font:600 13px/1.2 var(--body); }
 .workspace .mail-draft-letter footer .mail-draft-save { background:var(--clay); color:var(--on-block); }
+.workspace .mail-draft-letter footer .mail-draft-text-action { display:inline-flex; align-items:center; gap:5px; margin-right:auto; border:0; background:transparent; color:var(--paper-ink); }
+.workspace .mail-draft-hint { display:flex; align-items:center; gap:7px; min-width:0; color:var(--paper-muted); }
+.workspace .mail-draft-hint b { padding:2px 7px; border-radius:999px; background:var(--iris,var(--pink)); color:var(--on-block); font:700 11px/1.4 var(--body); white-space:nowrap; }
+.workspace .mail-draft-letter footer .mail-draft-send { border-width:2px; background:var(--clay); color:var(--on-block); box-shadow:var(--hard-sm); }
+.workspace .mail-draft-letter footer button:disabled { opacity:.55; cursor:default; }
+.workspace .mail-draft-note, .workspace .mail-draft-error { margin:8px 2px 0; color:var(--muted); font:12px/1.5 var(--body); }
+.workspace .mail-draft-error { color:var(--danger-text); }
+/* Done: a flat 1px record; contents stay behind the disclosure. */
+.workspace .mail-draft-done { margin:8px 0 18px; padding:10px 14px; border:1px solid var(--line-soft,var(--border-soft)); border-radius:12px; background:var(--surface); }
+.workspace .mail-draft-done > p { display:flex; align-items:center; gap:8px; margin:0; color:var(--ink); font:14px/1.5 var(--body); }
+.workspace .mail-draft-done time { margin-left:auto; color:var(--muted); font:var(--type-code,12px/1.4 var(--mono)); }
+.workspace .mail-draft-done-dot { flex:none; width:8px; height:8px; border-radius:50%; background:var(--status-done,var(--green)); }
+.workspace .mail-draft-done.is-declined { opacity:.7; }
+.workspace .mail-draft-done.is-arriving { animation:mail-done-settle 360ms cubic-bezier(.22,1,.36,1) both; }
+.workspace .mail-draft-done.is-arriving .mail-draft-done-dot { animation:mail-done-dot 520ms 160ms cubic-bezier(.34,1.6,.64,1) both; }
+@keyframes mail-done-settle { from { opacity:0; transform:translateY(8px) scale(.985); } }
+@keyframes mail-done-dot { from { transform:scale(0); } }
+@media(prefers-reduced-motion:reduce) { .workspace .mail-draft-done.is-arriving, .workspace .mail-draft-done.is-arriving .mail-draft-done-dot { animation:none; } }
+.workspace .mail-draft-done.is-declined .mail-draft-done-dot { background:transparent; box-shadow:inset 0 0 0 1.5px var(--muted); }
+.workspace .mail-draft-done details { margin-top:4px; color:var(--muted); font:13px/1.5 var(--body); }
 .workspace .mail-draft-letter :is(input,textarea,button):focus-visible { outline:2px solid var(--focus); outline-offset:3px; }
 .workspace .mail-draft-letter button:disabled { opacity:.55; cursor:default; }
-@media(max-width:560px) { .workspace .mail-draft-fields { padding:12px 72px 12px 12px; } .workspace .mail-draft-paper { padding:12px; } .workspace .mail-draft-stamp { right:10px; } }
+@media(max-width:560px) { .workspace .mail-draft-letter footer { flex-wrap:wrap; } .workspace .mail-draft-hint { flex-basis:100%; order:-1; } .workspace .mail-draft-fields { padding:12px 72px 12px 12px; } .workspace .mail-draft-paper { padding:12px; } .workspace .mail-draft-stamp { right:10px; } }

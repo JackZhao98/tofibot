@@ -1,0 +1,3 @@
+ok  	github.com/JackZhao98/tofibot/internal/agent	1.125s
+ok  	github.com/JackZhao98/tofibot/internal/runtime	1.781s
+ok  	github.com/JackZhao98/tofibot/internal/app	46.331s

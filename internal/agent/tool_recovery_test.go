@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"github.com/JackZhao98/tofibot/internal/provider"
 	"github.com/JackZhao98/tofibot/internal/tooloutcome"
+	"strings"
 	"testing"
 )
 
@@ -68,17 +69,19 @@ func TestResolvedRecoveryTargetsAndRiskSurviveCheckpoint(t *testing.T) {
 			i := tooloutcome.OperationIdentity(prior.Scope, prior.Operation, json.RawMessage(`{"path":"changed","content":"different"}`))
 			i.Target, i.Object, i.Risk = tc.target, tc.object, tc.risk
 			i.GuardVersion = 1
-			if got := toolRecoveryIdentityGuard(records, i); (got != nil) != tc.blocked {
+			if got := toolRecoveryIdentityGuardAt(records, i, 0); (got != nil) != tc.blocked {
 				t.Fatalf("guard=%+v identity=%+v", got, i)
 			}
 		})
 	}
 	observation := tooloutcome.OperationIdentity("computer/vm/bot/fixture", "files.read", json.RawMessage(`{"path":"a"}`))
 	observation.Risk = tooloutcome.Observation
-	records = []ToolRecoveryRecord{{Identity: &observation, Outcome: records[0].Outcome}}
+	uncertain := records[0].Outcome
+	records = []ToolRecoveryRecord{{Identity: &observation, Outcome: uncertain}, {Identity: &observation, Outcome: uncertain}, {Identity: &observation, Outcome: uncertain}}
 	other := tooloutcome.OperationIdentity(observation.Scope, observation.Operation, json.RawMessage(`{"path":"b"}`))
 	other.Risk = tooloutcome.Observation
-	if toolRecoveryIdentityGuard(records, observation) == nil || toolRecoveryIdentityGuard(records, other) != nil {
+	// Failed observations have no effect: identical retries are capped, not fenced.
+	if toolRecoveryIdentityGuardAt(records[:1], observation, 0) != nil || toolRecoveryIdentityGuardAt(records, observation, 0) == nil || toolRecoveryIdentityGuardAt(records, other, 0) != nil {
 		t.Fatal("observations were not scoped to the request")
 	}
 	// Legacy checkpoints with no risk/target evidence stay conservative.
@@ -90,7 +93,74 @@ func TestResolvedRecoveryTargetsAndRiskSurviveCheckpoint(t *testing.T) {
 	other.Scope, other.Operation = prior.Scope, prior.Operation
 	other.Risk = tooloutcome.TargetMutation
 	other.Target = "/workspace/b"
-	if toolRecoveryIdentityGuard(records, other) == nil {
+	if toolRecoveryIdentityGuardAt(records, other, 0) == nil {
 		t.Fatal("legacy unknown effect gained retry permission")
+	}
+}
+
+func TestUncertainShellExecFencesReformattedCommand(t *testing.T) {
+	shell := func(args string) tooloutcome.Identity {
+		return tooloutcome.OperationIdentity("computer/microvm/bot/b1", "shell.exec", json.RawMessage(args))
+	}
+	priorArgs := `{"command":"rm  -rf\tbuild","timeout_sec":30}`
+	prior := shell(priorArgs)
+	lost := tooloutcome.New(tooloutcome.Uncertain, "lost", "unknown", "Response lost.", "verify_effect")
+	records := []ToolRecoveryRecord{{Call: provider.ToolCall{ID: "a", Name: "computer_shell", Arguments: priorArgs}, Identity: &prior, Outcome: lost}}
+	for _, args := range []string{`{"command":"rm -rf build"}`, `{"command":" rm -rf build ","timeout_sec":90}`} {
+		if toolRecoveryCallGuardAt(records, shell(args), args, 0) == nil {
+			t.Fatalf("reformatted uncertain command replayed: %s", args)
+		}
+	}
+	action := `{"computer_id":"microvm","action":"shell.exec","args":{"command":"rm -rf build"}}`
+	if toolRecoveryCallGuardAt(records, shell(`{"command":"rm -rf build"}`), action, 0) == nil {
+		t.Fatal("computer_action form replayed the uncertain command")
+	}
+	if got := toolRecoveryCallGuardAt(records, shell(`{"command":"ls build"}`), `{"command":"ls build"}`, 0); got != nil {
+		t.Fatalf("different command fenced: %+v", got)
+	}
+}
+
+func TestApprovalExpiryGuardUsesRunRecoveryEpoch(t *testing.T) {
+	obs := tooloutcome.DefaultIdentity("list_skills", json.RawMessage(`{}`))
+	failed := tooloutcome.New(tooloutcome.Permanent, "observation_failed", "no_side_effects", "failed", "explain_blocker")
+	var records []ToolRecoveryRecord
+	for i := 0; i < observationRetryLimit; i++ {
+		records = append(records, ToolRecoveryRecord{Call: provider.ToolCall{ID: "x", Name: "list_skills", Arguments: `{}`}, Identity: &obs, Outcome: failed, Epoch: 1})
+	}
+	if ApprovalExpiryGuard(records, obs, 1) == nil {
+		t.Fatal("failures in the current epoch were not capped")
+	}
+	if got := ApprovalExpiryGuard(records, obs, 2); got != nil {
+		t.Fatalf("a later successful action did not reset the window: %+v", got)
+	}
+}
+
+// Several malformed parallel calls from one assistant turn spend one repair,
+// so a later call of the same operation is still given its repair chance.
+func TestMalformedParallelBatchSpendsOneRepair(t *testing.T) {
+	bad := tooloutcome.New(tooloutcome.Validation, "invalid_json", "not_executed", "empty", "repair_arguments")
+	calls := []provider.ToolCall{{ID: "a", Name: "call_mcp_tool"}, {ID: "b", Name: "call_mcp_tool"}, {ID: "c", Name: "call_mcp_tool"}, {ID: "d", Name: "call_mcp_tool"}}
+	transcript := []provider.Message{{Role: "assistant", ToolCalls: calls}}
+	for _, c := range calls[:3] {
+		transcript = append(transcript, provider.Message{Role: "tool", ToolCallID: c.ID, ToolOutcome: outcomePtr(bad)})
+	}
+	if got := toolRecoveryGuard(transcript, "call_mcp_tool", ""); got != nil {
+		t.Fatalf("one malformed batch exhausted the repair budget: %+v", got)
+	}
+	// Separate turns still count separately.
+	for _, id := range []string{"e", "f"} {
+		transcript = append(transcript, provider.Message{Role: "assistant", ToolCalls: []provider.ToolCall{{ID: id, Name: "call_mcp_tool"}}}, provider.Message{Role: "tool", ToolCallID: id, ToolOutcome: outcomePtr(bad)})
+	}
+	if got := toolRecoveryGuard(transcript, "call_mcp_tool", ""); got == nil || got.Code != "repair_budget_exhausted" {
+		t.Fatalf("three malformed turns: %+v", got)
+	}
+}
+
+func TestEmptyArgumentsOutcomeIsConciseRepair(t *testing.T) {
+	var v map[string]any
+	err := json.Unmarshal([]byte(""), &v)
+	o := invalidArgumentsOutcome("call_mcp_tool", "", err)
+	if o.Status != tooloutcome.Validation || o.Code != "invalid_json" || o.Certainty != "not_executed" || o.NextAction != "repair_arguments" || !strings.Contains(o.Message, "empty arguments") {
+		t.Fatalf("outcome=%+v", o)
 	}
 }

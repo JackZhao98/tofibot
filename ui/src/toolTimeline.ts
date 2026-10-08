@@ -1,5 +1,16 @@
 import type { Message, Run, ToolActivity, ToolActivityRunSummary } from "./types";
 
+/** A failed request is not evidence that its external effect did not occur. */
+export function toolExecutionState(tool: Pick<ToolActivity, "status" | "outcome">): "not_executed" | "in_progress" | "completed" | "unknown" {
+  const outcome = tool.outcome;
+  if (outcome?.status === "uncertain_effect" || outcome?.code === "mcp_result_unknown" || outcome?.execution_certainty === "unknown") return "unknown";
+  if (outcome?.execution_certainty === "not_executed") return tool.status === "completed" ? "unknown" : "not_executed";
+  if (tool.status === "completed") return "completed";
+  if (tool.status === "running" || tool.status === "queued") return "in_progress";
+  return "unknown";
+}
+
+
 export interface ToolTimeline {
   beforeMessageId: Map<string, ToolActivity[]>;
   afterMessageId: Map<string, ToolActivity[]>;
@@ -12,11 +23,26 @@ export interface ToolRunAnchors<T> {
 }
 
 /** Summarize attempts, not whether the user's task was completed. */
-export function toolAttemptIssues(items: Pick<ToolActivity, "status">[]): string {
-  const failures = items.filter(item => item.status === "failed").length;
+export function toolAttemptIssues(items: Pick<ToolActivity, "status" | "outcome">[]): string {
+  const failures = items.filter(item => item.status === "failed" && ["failed", "unknown"].includes(toolDisplayState(item))).length;
   const interrupted = items.filter(item => item.status === "interrupted").length;
   const pending = items.filter(item => item.status === "queued" || item.status === "running").length;
   return [failures ? `${failures} 次失败` : "", interrupted ? `${interrupted} 次中断` : "", pending ? `${pending} 次待结束` : ""].filter(Boolean).join(" · ");
+}
+
+export function toolDisplayState(activity: Pick<ToolActivity,"status"|"outcome">): string {
+  if (toolExecutionState(activity) === "unknown") return "unknown";
+  if (activity.status === "failed" && activity.outcome?.status === "approval_expired") return "expired";
+  if (activity.status === "failed" && activity.outcome?.code === "batch_skipped" && activity.outcome.execution_certainty === "not_executed") return "skipped";
+  const certainty = toolExecutionState(activity);
+  if (certainty === "unknown") return "unknown";
+  if (certainty === "not_executed") return "not_executed";
+  return activity.status;
+}
+
+export function toolDisplayLabel(activity: Pick<ToolActivity,"status"|"outcome">, locale: "zh-CN" | "en" = typeof document !== "undefined" && document.documentElement.lang.startsWith("en") ? "en" : "zh-CN"): string {
+  const labels: Record<string, [string, string]> = {queued:["排队中","Queued"],running:["执行中","Running"],completed:["已完成","Completed"],failed:["失败","Failed"],interrupted:["已中断","Interrupted"],expired:["已过期","Expired"],skipped:["未执行","Not executed"],not_executed:["未执行","Not executed"],unknown:["结果待核实","Result needs checking"]};
+  return (labels[toolDisplayState(activity)] ?? ["状态待确认", "Status unconfirmed"])[locale === "en" ? 1 : 0];
 }
 
 type PreciseTime = { milliseconds: number; nanoseconds: number };
@@ -42,6 +68,20 @@ function compareTime(a: PreciseTime | null, b: PreciseTime | null) {
   return a.milliseconds - b.milliseconds || a.nanoseconds - b.nanoseconds;
 }
 
+/** Reconnect/detail pages must not replace newer certainty with older evidence. */
+export function reconcileToolActivity(previous: ToolActivity | undefined, next: ToolActivity): ToolActivity {
+  if (!previous) return next;
+  const order = compareTime(preciseTime(previous.updated_at), preciseTime(next.updated_at));
+  if (order > 0) return previous;
+  if (order < 0) return next;
+  const before = toolExecutionState(previous), after = toolExecutionState(next);
+  if (before === after) return next;
+  // Equal-version contradictory snapshots cannot confirm an external effect.
+  // Retain any completed result as a business record while projecting unknown.
+  const record = previous.status === "completed" ? previous : next;
+  return { ...record, outcome: { ...record.outcome, status: "uncertain_effect", code: record.outcome?.code ?? "", execution_certainty: "unknown", message: "", next_action: "" } };
+}
+
 /** Keep tool order tied to the immutable queued timestamp, not completion time. */
 export function orderToolActivities(activities: ToolActivity[]) {
   return [...activities].sort(compareToolActivities);
@@ -61,10 +101,17 @@ export function toolActionLabel(activity: Pick<ToolActivity, "name" | "arguments
   if (name === "search_mcp_tools") return "正在查找可用工具";
   if (name === "search_history") return "正在检查对话记录";
   if (name === "inspect_recent_runs") return "正在检查执行记录";
+  if (name === "computer_help") return "正在查看电脑使用说明";
+  if (name === "send_chat_message") return "正在发送消息";
+  if (name === "complete_scheduled_task") return "正在完成定时任务";
   if (name === "call_mcp_tool") {
     try {
       const args = JSON.parse(activity.arguments) as { name?: unknown };
-      if (typeof args.name === "string") return toolActionLabel({ name: args.name, arguments: "" });
+      if (typeof args.name === "string") {
+        const inner = toolActionLabel({ name: args.name, arguments: "" });
+        // An unrecognised remote tool is described by its role, not its raw name.
+        if (!inner.startsWith("正在调用 ")) return inner;
+      }
     } catch { /* An unparseable call is not evidence of the remote action. */ }
     return "正在使用连接的工具";
   }
@@ -84,6 +131,25 @@ export function toolActionLabel(activity: Pick<ToolActivity, "name" | "arguments
   if (/computer|desktop|screen/.test(name)) return "正在操作电脑";
   if (/message|handoff/.test(name)) return "正在联系成员";
   return `正在调用 ${activity.name}`;
+}
+
+/** A step's human title for records: the action without the live "正在" prefix. */
+export function toolStepTitle(activity: Pick<ToolActivity, "name" | "arguments">): string {
+  return toolActionLabel(activity).replace(/^正在/, "");
+}
+
+/** Seconds a finished step took; undefined while running or when times are missing. */
+export function toolStepSeconds(activity: Pick<ToolActivity, "status" | "started_at" | "updated_at">): number | undefined {
+  if (activity.status === "running" || activity.status === "queued") return undefined;
+  const started = Date.parse(activity.started_at), ended = Date.parse(activity.updated_at);
+  return Number.isFinite(started) && Number.isFinite(ended) && ended >= started ? (ended - started) / 1000 : undefined;
+}
+
+export function formatStepSeconds(seconds: number): string {
+  if (seconds < 10) return `${seconds.toFixed(1)}s`;
+  if (seconds < 60) return `${Math.round(seconds)}s`;
+  const minutes = Math.floor(seconds / 60);
+  return `${minutes}m ${Math.round(seconds - minutes * 60)}s`;
 }
 
 export function activeToolForRun(activities: ToolActivity[], runId: string): ToolActivity | undefined {
@@ -109,6 +175,32 @@ export function toolArgumentPreview(activity: Pick<ToolActivity, "arguments">): 
     if (typeof args.path === "string") return args.path.split(/[\\/]/).at(-1)?.slice(0, 64);
   } catch { /* Raw arguments stay in the expanded detail only. */ }
   return undefined;
+}
+
+const stepActionWords: Record<string, string> = {
+  "desktop.capture": "截屏", "desktop.click": "点击", "desktop.type": "输入文字", "desktop.key": "按键", "desktop.scroll": "滚动", "desktop.start": "开机", "desktop.stop": "关机",
+  "browser.snapshot": "读取页面", "browser.action": "切换标签页", "files.read": "读取文件", "files.write": "写入文件", "files.list": "列出文件",
+};
+
+/** The short detail beside a step: the page or file it touched, the remote tool's own name,
+ * or a plain word for a desktop action. Raw commands and argument bodies stay in the detail. */
+export function toolStepDetail(activity: Pick<ToolActivity, "name" | "arguments">): string | undefined {
+  try {
+    const args = JSON.parse(activity.arguments) as Record<string, unknown>;
+    if (args && typeof args === "object" && !Array.isArray(args)) {
+      if (activity.name === "call_mcp_tool" && typeof args.name === "string") {
+        const remote = args.name.split("__").at(-1);
+        if (remote && /^[a-z0-9._-]{1,48}$/i.test(remote)) return remote;
+      }
+      if (typeof args.url === "string") {
+        const url = new URL(args.url);
+        if (url.protocol === "https:" || url.protocol === "http:") return `${url.hostname}${url.pathname === "/" ? "" : url.pathname}`.slice(0, 48);
+      }
+      if (typeof args.action === "string" && stepActionWords[args.action]) return stepActionWords[args.action];
+    }
+  } catch { /* Fall back to the allowlisted preview. */ }
+  const preview = toolArgumentPreview(activity);
+  return preview && !/^[a-z]+\.[a-z_]+$/i.test(preview) ? preview : undefined;
 }
 
 export function buildToolRunAnchors<T extends { run_id: string }>(messages: Message[], values: T[], runs: Run[] = []): ToolRunAnchors<T> {

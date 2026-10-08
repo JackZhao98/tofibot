@@ -1,0 +1,6 @@
+=== RUN   TestReviewExpiryWorkerDoesNotSettleAnActiveClaim
+--- PASS: TestReviewExpiryWorkerDoesNotSettleAnActiveClaim (0.11s)
+=== RUN   TestReviewExpiryMigratesExistingRecoveryRowsWithoutExecution
+--- PASS: TestReviewExpiryMigratesExistingRecoveryRowsWithoutExecution (0.19s)
+PASS
+ok  	github.com/JackZhao98/tofibot/internal/app	0.756s
