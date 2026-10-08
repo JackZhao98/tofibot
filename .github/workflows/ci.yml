@@ -1,0 +1,76 @@
+name: ci
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_call:
+
+permissions:
+  contents: read
+
+jobs:
+  go:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - name: go build
+        run: go build ./...
+      - name: go test
+        run: go test ./...
+
+  ui:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: ui/package-lock.json
+      - run: npm --prefix ui ci
+      - run: npm --prefix ui run typecheck
+      - run: npm --prefix ui run build
+
+  python:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          # The oldest supported host is Ubuntu 22.04 (Python 3.10).
+          python-version: '3.10'
+      - name: Install debugfs/e2fsck for release checks
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq e2fsprogs zstd
+      - name: Worker and Guest release tests
+        run: python3 -m unittest discover -s deploy/microvm -p 'test_*.py'
+      - name: Host installer tests
+        run: python3 -m unittest discover -s deploy/self-host -p 'test_*.py'
+      - name: Release script tests
+        run: python3 -m unittest discover -s scripts/release -p 'test_*.py'
+
+  shell:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: bash -n
+        run: bash -n install.sh deploy/self-host/bin/tofi scripts/release/make_bundle.sh
+      - name: shellcheck
+        run: shellcheck install.sh deploy/self-host/bin/tofi scripts/release/make_bundle.sh
+
+  compose:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Self-host compose renders with a fixture env
+        run: |
+          docker compose -f deploy/self-host/compose.yaml \
+            --env-file deploy/self-host/testdata/tofi.env --profile tls config --quiet
+          docker compose -f deploy/self-host/compose.yaml \
+            --env-file deploy/self-host/testdata/tofi.env config --services | sort | tr '\n' ' ' \
+            | grep -qx 'app worker '
+      - name: Dev compose renders
+        run: docker compose -f compose.yaml config --quiet

@@ -1,0 +1,271 @@
+name: release
+
+# Publishes a TOFI release from a tag vX.Y.Z (or vX.Y.Z-rc.N, published as a
+# prerelease): App/Worker images on ghcr.io pinned by digest, the sealed
+# account Guest release, the host bundle, manifest.json and install.sh.
+# One-time setup per package (tofi, tofi-worker, tofi-mcp-runner): make the
+# ghcr.io package public; see deploy/self-host/README.md "Publishing a release".
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing tag to (re)build, e.g. v0.1.0-rc.1
+        required: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.event.inputs.tag || github.ref_name }}
+  cancel-in-progress: false
+
+env:
+  TAG: ${{ github.event.inputs.tag || github.ref_name }}
+  REGISTRY: ghcr.io
+  IMAGE_OWNER: jackzhao98
+  CADDY_TAG: '2'
+
+jobs:
+  version:
+    runs-on: ubuntu-24.04
+    outputs:
+      tag: ${{ steps.tag.outputs.tag }}
+      prerelease: ${{ steps.tag.outputs.prerelease }}
+    steps:
+      - id: tag
+        run: |
+          if [[ ! $TAG =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-rc\.[0-9]+)?$ ]]; then
+            echo "::error::Release tags must be vMAJOR.MINOR.PATCH or vMAJOR.MINOR.PATCH-rc.N; got $TAG"
+            exit 1
+          fi
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          if [[ $TAG == *-rc.* ]]; then
+            echo "prerelease=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "prerelease=false" >> "$GITHUB_OUTPUT"
+          fi
+
+  test:
+    needs: version
+    uses: ./.github/workflows/ci.yml
+
+  images:
+    needs: [version, test]
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      packages: write
+    outputs:
+      app: ${{ steps.app.outputs.digest }}
+      worker: ${{ steps.worker.outputs.digest }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: refs/tags/${{ needs.version.outputs.tag }}
+      - id: commit
+        run: echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: App image
+        id: app
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: Dockerfile
+          platforms: linux/amd64
+          push: true
+          provenance: false
+          sbom: false
+          no-cache: true
+          pull: true
+          build-args: TOFI_SOURCE_COMMIT=${{ steps.commit.outputs.sha }}
+          tags: ${{ env.REGISTRY }}/${{ env.IMAGE_OWNER }}/tofi:${{ needs.version.outputs.tag }}
+          labels: |
+            org.opencontainers.image.source=https://github.com/${{ github.repository }}
+            org.opencontainers.image.version=${{ needs.version.outputs.tag }}
+      - name: Worker image
+        id: worker
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: deploy/microvm/Worker.Dockerfile
+          platforms: linux/amd64
+          push: true
+          provenance: false
+          sbom: false
+          no-cache: true
+          pull: true
+          build-args: TOFI_SOURCE_COMMIT=${{ steps.commit.outputs.sha }}
+          tags: ${{ env.REGISTRY }}/${{ env.IMAGE_OWNER }}/tofi-worker:${{ needs.version.outputs.tag }}
+          labels: |
+            org.opencontainers.image.source=https://github.com/${{ github.repository }}
+            org.opencontainers.image.version=${{ needs.version.outputs.tag }}
+      - name: MCP runner image (development compose only; not in the manifest)
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: deploy/mcp-runner/Dockerfile
+          platforms: linux/amd64
+          push: true
+          provenance: false
+          sbom: false
+          no-cache: true
+          tags: ${{ env.REGISTRY }}/${{ env.IMAGE_OWNER }}/tofi-mcp-runner:${{ needs.version.outputs.tag }}
+          labels: |
+            org.opencontainers.image.source=https://github.com/${{ github.repository }}
+            org.opencontainers.image.version=${{ needs.version.outputs.tag }}
+      - name: Check image labels
+        env:
+          APP: ${{ env.REGISTRY }}/${{ env.IMAGE_OWNER }}/tofi@${{ steps.app.outputs.digest }}
+          WORKER: ${{ env.REGISTRY }}/${{ env.IMAGE_OWNER }}/tofi-worker@${{ steps.worker.outputs.digest }}
+        run: |
+          docker pull --quiet "$APP"
+          docker pull --quiet "$WORKER"
+          docker image inspect "$APP" --format '{{json .Config.Labels}}' | tee /dev/stderr \
+            | grep -q '"io.tofi.data-schema":"tofi-account-data-v1"'
+          docker image inspect "$APP" --format '{{json .Config.Labels}}' | grep -q '"io.tofi.account-runtime":"1"'
+          docker image inspect "$WORKER" --format '{{json .Config.Labels}}' | tee /dev/stderr \
+            | grep -q '"io.tofi.account-worker":"1"'
+          for image in "$APP" "$WORKER"; do
+            docker image inspect "$image" --format '{{json .Config.Labels}}' \
+              | grep -q '"io.tofi.account-guest-protocol":"tofi-account-guest-v1"'
+          done
+
+  guest:
+    needs: [version, test]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+    env:
+      BUILD_ROOT: /opt/tofi-guest-build
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: refs/tags/${{ needs.version.outputs.tag }}
+      - name: Free runner disk space
+        run: |
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache/CodeQL \
+            /usr/local/share/boost /usr/local/.ghcup
+          sudo docker image prune --all --force
+          df -h /
+      - name: Host tools for the image assembler
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq e2fsprogs zstd python3 curl
+      - name: Build the Guest binary (Dockerfile guest-artifact stage)
+        run: |
+          docker build --target guest-artifact --output type=local,dest=deploy/microvm .
+          chmod 0755 deploy/microvm/tofi-guest
+          file deploy/microvm/tofi-guest
+      - name: Assemble the sealed account Guest release
+        run: |
+          sudo mkdir -p /run/lock "$BUILD_ROOT"
+          sudo TOFI_ACCOUNT_RELEASE=1 bash deploy/microvm/build-images.sh "$BUILD_ROOT/$TAG"
+          sudo python3 deploy/microvm/account_release_check.py \
+            --release-dir "$BUILD_ROOT/$TAG" \
+            --manager-source "$PWD/deploy/microvm/manager.py" \
+            --guest-sha256 "$(sudo python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["guest_binary_sha256"])' "$BUILD_ROOT/$TAG/account-release.json")"
+      - name: Package (sparse tar + zstd)
+        run: |
+          mkdir -p dist
+          archive="dist/tofi-guest-$TAG-x86_64.tar.zst"
+          sudo tar --sparse --numeric-owner --owner=0 --group=0 -C "$BUILD_ROOT/$TAG" -cf - . \
+            | zstd -T0 -12 -q -o "$archive"
+          sha256sum "$archive" | awk '{ print $1 }' > "$archive.sha256"
+          sudo cp "$BUILD_ROOT/$TAG/account-release.json" dist/account-release.json
+          sudo chown "$(id -u):$(id -g)" dist/account-release.json
+          ls -l dist
+          sudo cat "$BUILD_ROOT/$TAG.build-info/browser-version.txt" || true
+      - uses: actions/upload-artifact@v4
+        with:
+          name: guest
+          path: dist/
+          retention-days: 7
+          compression-level: 0
+
+  bundle:
+    needs: [version, images, guest]
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: refs/tags/${{ needs.version.outputs.tag }}
+      - uses: actions/download-artifact@v4
+        with:
+          name: guest
+          path: dist/
+      - uses: docker/setup-buildx-action@v3
+      - name: Host bundle
+        run: bash scripts/release/make_bundle.sh "$TAG" dist
+      - name: Pin Caddy by digest
+        id: caddy
+        run: |
+          digest=$(docker buildx imagetools inspect "docker.io/library/caddy:$CADDY_TAG" --format '{{json .Manifest}}' \
+            | python3 -c 'import json,sys; print(json.load(sys.stdin)["digest"])')
+          echo "digest=$digest" >> "$GITHUB_OUTPUT"
+      - name: manifest.json
+        env:
+          APP: ${{ env.REGISTRY }}/${{ env.IMAGE_OWNER }}/tofi@${{ needs.images.outputs.app }}
+          WORKER: ${{ env.REGISTRY }}/${{ env.IMAGE_OWNER }}/tofi-worker@${{ needs.images.outputs.worker }}
+          CADDY: docker.io/library/caddy@${{ steps.caddy.outputs.digest }}
+        run: |
+          python3 scripts/release/make_manifest.py --version "$TAG" \
+            --app-image "$APP" --worker-image "$WORKER" --caddy-image "$CADDY" \
+            --guest-archive "dist/tofi-guest-$TAG-x86_64.tar.zst" \
+            --guest-release-json dist/account-release.json \
+            --bundle "dist/tofi-host-$TAG.tar.gz" --out dist/manifest.json
+          cat dist/manifest.json
+          cp install.sh dist/install.sh
+          rm dist/account-release.json
+      - uses: actions/upload-artifact@v4
+        with:
+          name: release
+          path: dist/
+          retention-days: 7
+          compression-level: 0
+
+  publish:
+    needs: [version, bundle]
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: release
+          path: dist/
+      - name: Images must be publicly pullable
+        run: |
+          for repository in tofi tofi-worker; do
+            token=$(curl -fsS "https://ghcr.io/token?scope=repository:$IMAGE_OWNER/$repository:pull" \
+              | python3 -c 'import json,sys; print(json.load(sys.stdin)["token"])') || token=
+            if [[ -z $token ]] || ! curl -fsS -o /dev/null \
+                -H "Authorization: Bearer $token" \
+                -H 'Accept: application/vnd.oci.image.manifest.v1+json, application/vnd.docker.distribution.manifest.v2+json' \
+                "https://ghcr.io/v2/$IMAGE_OWNER/$repository/manifests/$TAG"; then
+              echo "::error::ghcr.io/$IMAGE_OWNER/$repository is not publicly pullable. Make the package public (GitHub > Packages > $repository > Package settings > Change visibility), then re-run this job."
+              exit 1
+            fi
+          done
+      - name: GitHub Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PRERELEASE: ${{ needs.version.outputs.prerelease }}
+        run: |
+          flags=(--repo "$GITHUB_REPOSITORY" --verify-tag --title "TOFI $TAG")
+          if [[ $PRERELEASE == true ]]; then
+            flags+=(--prerelease --latest=false)
+          fi
+          notes="Install on a Linux x86_64 server with KVM:
+
+          \`\`\`
+          curl -fsSL https://raw.githubusercontent.com/JackZhao98/tofibot/main/install.sh | sudo bash -s -- --version $TAG
+          \`\`\`"
+          gh release create "$TAG" "${flags[@]}" --notes "$notes" \
+            dist/manifest.json dist/install.sh \
+            "dist/tofi-host-$TAG.tar.gz" "dist/tofi-host-$TAG.tar.gz.sha256" \
+            "dist/tofi-guest-$TAG-x86_64.tar.zst" "dist/tofi-guest-$TAG-x86_64.tar.zst.sha256"

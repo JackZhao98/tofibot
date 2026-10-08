@@ -65,6 +65,8 @@ class WorkerEntryTests(unittest.TestCase):
                          "private machine-specific candidate configuration is excluded from core source")
     def test_candidate_json_matches_required_config_schema(self):
         import json
+        if not (HERE / "worker-account-candidate.json").exists():
+            self.skipTest("worker-account-candidate.json is a private deployment record outside this source tree")
         candidate = __import__("json").loads((HERE / "worker-account-candidate.json").read_text())
         entry.validate_config(candidate)
 
