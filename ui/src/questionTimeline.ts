@@ -1,5 +1,6 @@
 import type { Message } from "./types";
 import type { MailDraft } from "./MailDraftCard";
+import { i18n } from "./i18n";
 
 export interface QuestionField {
   id: string;
@@ -37,36 +38,42 @@ export interface Question {
 }
 export type ConversationItem = { kind: "message"; message: Message } | { kind: "question"; question: Question } | { kind: "mail_draft"; draft: MailDraft };
 
+const shadowLabels = ["shadow_reviewing", "shadow_allow", "shadow_deny", "shadow_needs_human", "shadow_context_required", "shadow_setup_required", "shadow_unavailable", "shadow_invalidated"] as const;
+type ReviewBadge = "human_decided_shadow" | "shadow_keeps_policy" | "proposal_not_executable" | "human_decided" | "setup_not_ready" | "review_context_incomplete" | "review_incomplete" | "review_not_allowed" | "proposal_expired" | "proposal_ended" | "auto_approved" | "review_suggests_allow" | "reviewing" | "reviewing_manual" | "shadow_manual_policy" | "needs_you" | "auto_invalidated" | "policy_needs_approval" | "already_reviewed";
+type ReviewLabel = typeof shadowLabels[number] | "shadow_advice" | "setup_gap" | "context_gap" | "review_unavailable" | "policy_denied" | "proposal_invalid" | "not_executable" | "human_decision_valid" | "auto_approved" | "allow_advice" | "reviewing" | "policy_needs_human" | "auto_invalidated" | "not_eligible" | "not_rereviewed";
+
 /** Readiness, terminal validity and policy advice are different server facts. */
 export function autoReviewPresentation(question: Question): {badge: string; label: string} | undefined {
  const review = question.approval?.review;
  if (!review) return undefined;
+ const t = i18n.getFixedT(null, "tasks");
+ const view = (badge: ReviewBadge, label: ReviewLabel) => ({badge: t(`review.badge.${badge}`), label: t(`review.label.${label}`)});
  if (review.status.startsWith("shadow_")) {
-  const labels: Record<string, string> = {shadow_reviewing:"观察审查中", shadow_allow:"观察建议允许", shadow_deny:"观察建议拒绝", shadow_needs_human:"观察建议人工决定", shadow_context_required:"观察上下文缺口", shadow_setup_required:"观察配置缺口", shadow_unavailable:"观察审查不可用", shadow_invalidated:"观察建议已失效"};
-  return {badge:question.status === "answered" && question.answered_by && question.answered_by !== "auto-review" ? "人工已决定 · 观察建议" : "观察模式 · 保留原有执行策略", label:labels[review.status] ?? "观察建议"};
+  const label: ReviewLabel = (shadowLabels as readonly string[]).includes(review.status) ? review.status as ReviewLabel : "shadow_advice";
+  return view(question.status === "answered" && question.answered_by && question.answered_by !== "auto-review" ? "human_decided_shadow" : "shadow_keeps_policy", label);
  }
  if (review.policy_version === "mcp-all-external-v5") {
-  const blockedLabels: Record<string, string> = {setup_required:"配置缺口",context_required:"上下文缺口",unavailable:"审查不可用",policy_denied:"策略判决拒绝",terminal:question.status === "expired" ? "提案已失效" : "不可执行"};
-  if (blockedLabels[review.status]) return {badge:"提案不可执行",label:blockedLabels[review.status]};
+  const blockedLabels: Record<string, ReviewLabel> = {setup_required:"setup_gap",context_required:"context_gap",unavailable:"review_unavailable",policy_denied:"policy_denied",terminal:question.status === "expired" ? "proposal_invalid" : "not_executable"};
+  if (Object.hasOwn(blockedLabels, review.status)) return view("proposal_not_executable", blockedLabels[review.status]);
  }
- if (question.status === "answered" && question.answered_by && question.answered_by !== "auto-review") return {badge: "人工已决定", label: "人工决定有效"};
+ if (question.status === "answered" && question.answered_by && question.answered_by !== "auto-review") return view("human_decided", "human_decision_valid");
  switch (review.status) {
-  case "setup_required": return {badge: "配置未就绪", label: "配置缺口"};
-  case "context_required": return {badge: "审查上下文不完整", label: "上下文缺口"};
-  case "unavailable": return {badge: "审查未完成", label: "审查不可用"};
-  case "policy_denied": return {badge: "审查未允许", label: "策略判决拒绝"};
+  case "setup_required": return view("setup_not_ready", "setup_gap");
+  case "context_required": return view("review_context_incomplete", "context_gap");
+  case "unavailable": return view("review_incomplete", "review_unavailable");
+  case "policy_denied": return view("review_not_allowed", "policy_denied");
  }
- if (question.status === "expired") return {badge: "提案已过期", label: "提案已失效"};
- if (question.status === "cancelled" || question.status === "run_done" || review.status === "terminal") return {badge: "提案已结束", label: "不可执行"};
+ if (question.status === "expired") return view("proposal_expired", "proposal_invalid");
+ if (question.status === "cancelled" || question.status === "run_done" || review.status === "terminal") return view("proposal_ended", "not_executable");
  switch (review.status) {
-  case "approved": return question.status === "answered" && question.answered_by === "auto-review" && question.answer === true ? {badge: "AutoReview 自动批准", label: "自动批准"} : {badge: "审查建议允许", label: "允许建议"};
-  case "reviewing": return {badge: review.policy_version === "mcp-all-external-v5" ? "AutoReview 审查中" : "AutoReview 审查中 · 可人工决定", label: "审查中"};
-  case "shadow": return {badge: "观察模式 · 人工执行策略", label: "观察建议"};
-  case "human_required": return {badge: "需要你决定", label: "策略需要人工决定"};
-  case "invalidated": return {badge: "自动决定已失效", label: "自动决定失效"};
-  case "not_eligible": return {badge: "执行策略需人工批准", label: "未获自动执行资格"};
-  case "not_reviewed": return {badge: "本提案已有审查记录", label: "未重复审查"};
-  case "human_decided": return {badge: "人工已决定", label: "人工决定有效"};
+  case "approved": return question.status === "answered" && question.answered_by === "auto-review" && question.answer === true ? view("auto_approved", "auto_approved") : view("review_suggests_allow", "allow_advice");
+  case "reviewing": return view(review.policy_version === "mcp-all-external-v5" ? "reviewing" : "reviewing_manual", "reviewing");
+  case "shadow": return view("shadow_manual_policy", "shadow_advice");
+  case "human_required": return view("needs_you", "policy_needs_human");
+  case "invalidated": return view("auto_invalidated", "auto_invalidated");
+  case "not_eligible": return view("policy_needs_approval", "not_eligible");
+  case "not_reviewed": return view("already_reviewed", "not_rereviewed");
+  case "human_decided": return view("human_decided", "human_decision_valid");
  }
 }
 

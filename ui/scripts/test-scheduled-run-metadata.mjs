@@ -50,6 +50,11 @@ try {
   assert.equal(derive(run, { ...occurrence, scheduled_for_utc: "not-a-date" }).plannedAt, undefined);
   assert.equal(derive({ ...run, status: "running" }, { ...occurrence, execution_status: "running" }).runningSince, run.updated_at);
   assert.doesNotThrow(() => scheduledRunMetadata(message, run, occurrence, schedule, "Invalid/Timezone"));
+  assert.match(derive(run, { ...occurrence, kind: "interval", interval_seconds: 7200 }).metadata, /^每 2 小时 · 第 2 次/);
+  await ui.setLanguage("en");
+  assert.equal(derive(run, occurrence, { ...schedule, conversation_id: "other" }).metadata, "Daily at 17:00 (America/Los_Angeles) · Run #2 · Created by you");
+  assert.match(derive(run, { ...occurrence, kind: "interval", interval_seconds: 3600 }).metadata, /^Every hour · /);
+  await ui.setLanguage("zh-CN");
   console.log("scheduled run metadata: PASS (exact occurrence, preserved task text, timezone, missing data, delegated/stale timestamp provenance)");
 } finally {
   await ui.close();
