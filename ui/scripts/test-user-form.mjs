@@ -1,17 +1,10 @@
-import { execFile } from "node:child_process";
-import { mkdtemp, rm } from "node:fs/promises";
-import { tmpdir } from "node:os";
-import { dirname, join } from "node:path";
-import { fileURLToPath, pathToFileURL } from "node:url";
-import { promisify } from "node:util";
 import assert from "node:assert/strict";
+import { openUiModules } from "./ui-modules.mjs";
 
-const run = promisify(execFile);
-const uiRoot = dirname(dirname(fileURLToPath(import.meta.url)));
-const output = await mkdtemp(join(tmpdir(), "tofi-user-form-"));
+// Load through Vite so the module's i18n catalogs resolve; assertions pin the shipped zh-CN copy.
+const ui = await openUiModules({ language: "zh-CN" });
 try {
-  await run(join(uiRoot, "node_modules/.bin/tsc"), ["src/userForm.ts", "--ignoreConfig", "--target", "ES2022", "--module", "ES2022", "--moduleResolution", "Bundler", "--jsx", "react-jsx", "--types", "vite/client", "--outDir", output, "--skipLibCheck", "--strict", "--declaration", "false", "--pretty", "false"], { cwd: uiRoot });
-  const { userFormSchemaError, validateUserForm, userFormAnswerRows, userFormIdentity } = await import(pathToFileURL(join(output, "userForm.js")));
+  const { userFormSchemaError, validateUserForm, userFormAnswerRows, userFormIdentity } = await ui.load("/src/userForm.ts");
   const field = (id, type = "text", required = true) => ({ id, label: id, type, required });
   const fields = [field("name"), field("email", "email"), field("password", "password"), field("note", "textarea", false)];
   const valid = { name: "  Ada  ", email: "ada+test@example.test", password: "  ", note: "" };
@@ -59,7 +52,16 @@ try {
     assert.notEqual(userFormIdentity({ ...item, [key]: "changed" }), identity, `${key} changes clear the old draft`);
   }
   assert.notEqual(userFormIdentity({ ...item, fields: [field("name", "password")] }), identity, "field schema changes clear old input");
-  console.log("user form checks: PASS (schema, required/email, Unicode/byte boundaries, private summaries, identity)");
+  // Shipped copy: limits are formatted in the UI language.
+  assert.equal(userFormSchemaError([]), "表单需包含 1–12 个字段，请让 Bot 重新发起。");
+  assert.equal(validateUserForm([field("value", "password")], { value: "a".repeat(65537) }).value, "密码不能超过 65,536 字节，请缩短后重试。");
+  assert.equal(validateUserForm([field("value")], { value: "a".repeat(4001) }).value, "不能超过 4,000 个字符，请缩短后重试。");
+  assert.equal(validateUserForm([field("value")], {}).value, "请填写此项。");
+  await ui.setLanguage("en");
+  assert.equal(validateUserForm([field("value")], {}).value, "Fill in this field.");
+  assert.equal(userFormAnswerRows(fields, undefined)[0].value, "Not filled in");
+  await ui.setLanguage("zh-CN");
+  console.log("user form checks: PASS (schema, required/email, Unicode/byte boundaries, private summaries, identity, zh-CN/en copy)");
 } finally {
-  await rm(output, { recursive: true, force: true });
+  await ui.close();
 }

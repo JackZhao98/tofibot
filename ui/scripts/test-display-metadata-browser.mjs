@@ -13,7 +13,7 @@ const browser = await chromium.launch({ headless: true, ...(process.env.CHROME_E
 const results = [];
 try {
   for (const [name, width, native] of [["mobile", 390, false], ["tablet", 820, false], ["desktop", 1280, false], ["native-row", 1280, true]]) {
-    const context = await browser.newContext({ viewport: { width, height: 950 } });
+    const context = await browser.newContext({ locale: "zh-CN", viewport: { width, height: 950 } });
     await context.addInitScript(({ fixture, native }) => { window.metadataFixture = fixture; if (native) window.tofiDesktop = { platform: "darwin", onFlushState: () => () => {}, onWindowState: () => () => {}, remoteInputFocus: () => {} }; }, { fixture, native });
     const page = await context.newPage();
     const errors = []; page.on("pageerror", error => errors.push(error.message));
@@ -56,7 +56,7 @@ try {
   }
 
   // Actual UI edits/create/reload followed by a real SQLite server restart.
-  const context = await browser.newContext({ viewport: { width: 1280, height: 950 } });
+  const context = await browser.newContext({ locale: "zh-CN", viewport: { width: 1280, height: 950 } });
   await context.addInitScript(fixture => { window.metadataFixture = fixture; }, fixture);
   const page = await context.newPage();
   await page.goto(origin + "/test-fixtures/metadata.html");

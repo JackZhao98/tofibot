@@ -8,6 +8,7 @@ import { memoryDisplay } from "./displayMetadata";
 import { ApiError } from "./api";
 import { contentEditPatch } from "./contentEditPatch";
 import type { ContentPatch, Memory, MemoryInput } from "./types";
+import { useTranslation } from "./i18n";
 import "./memory-metadata.css";
 
 const empty: MemoryInput = { title: "", description: "", content: "" };
@@ -15,6 +16,7 @@ const ready = (input: MemoryInput) => !!(input.title.trim() && input.description
 
 export function MemoryPanel({ memories, scope = "bot", onClose, onCreate, onUpdate, onDelete }: { memories: Memory[]; scope?: "bot" | "group"; conversationId: string; onClose: () => void; onCreate: (input: MemoryInput) => Promise<void>; onUpdate: (id: string, input: ContentPatch) => Promise<void>; onDelete: (id: string) => Promise<void> }) {
   const debug = useDebugMode();
+  const { t } = useTranslation("bots");
   const [draft, setDraft] = useState<MemoryInput>(empty);
   const [editing, setEditing] = useState<string | null>(null);
   const [edit, setEdit] = useState<MemoryInput>(empty);
@@ -25,36 +27,39 @@ export function MemoryPanel({ memories, scope = "bot", onClose, onCreate, onUpda
   async function save(action: () => Promise<void>, success: () => void) {
     if (busy) return;
     setBusy(true); setError("");
-    try { await action(); success(); } catch (cause) { setError(cause instanceof ApiError && cause.code === "edit_conflict" ? "这条记忆在编辑期间已更改。草稿已保留，请取消后重新打开核对。" : cause instanceof Error ? cause.message : "暂时无法保存记忆"); }
+    try { await action(); success(); } catch (cause) { setError(cause instanceof ApiError && cause.code === "edit_conflict" ? t("memory.error.edit_conflict") : cause instanceof Error ? cause.message : t("memory.error.save")); }
     finally { setBusy(false); }
   }
-  function fields(input: MemoryInput, change: (input: MemoryInput) => void, prefix: string, isEdit = false) {
+  function fields(input: MemoryInput, change: (input: MemoryInput) => void, isEdit = false) {
+    const aria = isEdit
+      ? { title: t("memory.edit.title_aria"), description: t("memory.edit.description_aria"), content: t("memory.edit.content_aria") }
+      : { title: t("memory.create.title_aria"), description: t("memory.create.description_aria"), content: t("memory.create.content_aria") };
     return <>
-      <label>标题<input aria-label={`${prefix}标题`} maxLength={120} required={!isEdit} value={input.title} disabled={busy} onChange={event => change({ ...input, title: event.target.value })} /></label>
-      <label>说明<textarea aria-label={`${prefix}说明`} maxLength={280} required={!isEdit} rows={2} value={input.description} disabled={busy} onChange={event => change({ ...input, description: event.target.value })} /></label>
-      <label>完整记忆内容<textarea aria-label={prefix} required rows={4} value={input.content} disabled={busy} onChange={event => change({ ...input, content: event.target.value })} placeholder="记录一个需要长期记住的事实…" /></label>
+      <label>{t("memory.field.title")}<input aria-label={aria.title} maxLength={120} required={!isEdit} value={input.title} disabled={busy} onChange={event => change({ ...input, title: event.target.value })} /></label>
+      <label>{t("memory.field.description")}<textarea aria-label={aria.description} maxLength={280} required={!isEdit} rows={2} value={input.description} disabled={busy} onChange={event => change({ ...input, description: event.target.value })} /></label>
+      <label>{t("memory.field.content")}<textarea aria-label={aria.content} required rows={4} value={input.content} disabled={busy} onChange={event => change({ ...input, content: event.target.value })} placeholder={t("memory.field.content_placeholder")} /></label>
     </>;
   }
   const visible = memories.filter(item => [item.title, item.description, item.content].some(value => value?.toLocaleLowerCase().includes(query.trim().toLocaleLowerCase())));
   return <div className="detail-content">
-    <div className="detail-heading"><h2>{scope === "group" ? "本群共享记忆" : "这个 Bot 的记忆"}</h2><button className="close-button" aria-label="关闭记忆" onClick={onClose}><Icon name="close" size={18} /></button></div>
-    <p className="field-note">{scope === "group" ? "这里的记忆由本群成员共享。" : "这里保存这个 Bot 的记忆。"}切换模型会保留已保存的记忆和聊天记录；不同模型使用这些内容的方式可能不同。</p>
+    <div className="detail-heading"><h2>{scope === "group" ? t("memory.heading.group") : t("memory.heading.bot")}</h2><button className="close-button" aria-label={t("memory.close_aria")} onClick={onClose}><Icon name="close" size={18} /></button></div>
+    <p className="field-note">{scope === "group" ? t("memory.note.group") : t("memory.note.bot")}</p>
     {error && <p className="error-text" role="alert">{error}</p>}
     <form className="memory-create" onSubmit={event => { event.preventDefault(); if (ready(draft)) void save(() => onCreate(draft), () => setDraft(empty)); }}>
-      {fields(draft, setDraft, "新增记忆")}
-      <button className="secondary-button" disabled={!ready(draft) || busy}>保存记忆</button>
+      {fields(draft, setDraft)}
+      <button className="secondary-button" disabled={!ready(draft) || busy}>{t("memory.save_memory")}</button>
     </form>
-    {!!memories.length && <label className="memory-search">搜索记忆<input type="search" aria-label="搜索记忆" value={query} onChange={event => setQuery(event.target.value)} /></label>}
+    {!!memories.length && <label className="memory-search">{t("memory.search")}<input type="search" aria-label={t("memory.search")} value={query} onChange={event => setQuery(event.target.value)} /></label>}
     <div className="memory-list">{visible.map(memory => {
       const display = memoryDisplay(memory);
       return <div className="memory-card" key={memory.id}>{editing === memory.id ? <form className="memory-edit" onSubmit={event => { event.preventDefault(); if (!edit.content.trim()) return; const patch = contentEditPatch(baseline, edit); if (!patch) { setEditing(null); return; } void save(() => onUpdate(memory.id, patch), () => setEditing(null)); }}>
-        {fields(edit, setEdit, "编辑记忆", true)}
-        <div className="card-actions"><button disabled={!edit.content.trim() || busy}>保存</button><button type="button" disabled={busy} onClick={() => setEditing(null)}>取消</button></div>
+        {fields(edit, setEdit, true)}
+        <div className="card-actions"><button disabled={!edit.content.trim() || busy}>{t("memory.save")}</button><button type="button" disabled={busy} onClick={() => setEditing(null)}>{t("memory.cancel")}</button></div>
       </form> : <>
         <strong className="memory-title">{display.title}</strong><p className="memory-description">{display.description}</p>
-        <details className="memory-details"><summary>查看完整记忆</summary><p>{memory.content}</p></details>
-        <div className="memory-footer">{debug && <span>修订 {memory.revision}</span>}<span><button disabled={busy} onClick={() => { const initial = { title: memory.title || "", description: memory.description || "", content: memory.content }; setEditing(memory.id); setBaseline(initial); setEdit(initial); setError(""); }}>编辑</button><ConfirmAction label="删除" question="删除这条记忆？" disabled={busy} onConfirm={() => save(() => onDelete(memory.id), () => {})} /></span></div>
+        <details className="memory-details"><summary>{t("memory.view_full")}</summary><p>{memory.content}</p></details>
+        <div className="memory-footer">{debug && <span>{t("memory.revision", { revision: memory.revision })}</span>}<span><button disabled={busy} onClick={() => { const initial = { title: memory.title || "", description: memory.description || "", content: memory.content }; setEditing(memory.id); setBaseline(initial); setEdit(initial); setError(""); }}>{t("memory.edit_action")}</button><ConfirmAction label={t("memory.delete")} question={t("memory.delete_question")} disabled={busy} onConfirm={() => save(() => onDelete(memory.id), () => {})} /></span></div>
       </>}</div>;
-    })}{!visible.length && !!memories.length && <div className="panel-empty">没有匹配的记忆。</div>}{!memories.length && (isDesktop ? <div className="panel-empty">还没有记忆。</div> : <div className="panel-empty web-memory-empty"><WakeableCat config={{ shape: "loaf", pattern: "solid", palette: "ivory" }} name="糯米" size={84} /><strong>还没有记忆</strong><p>{scope === "group" ? "本群保存的共享记忆会出现在这里。" : "这个 Bot 保存的记忆会出现在这里。"}</p></div>)}</div>
+    })}{!visible.length && !!memories.length && <div className="panel-empty">{t("memory.no_match")}</div>}{!memories.length && (isDesktop ? <div className="panel-empty">{t("memory.empty_short")}</div> : <div className="panel-empty web-memory-empty"><WakeableCat config={{ shape: "loaf", pattern: "solid", palette: "ivory" }} name={t("memory.cat_name")} size={84} /><strong>{t("memory.empty_title")}</strong><p>{scope === "group" ? t("memory.empty.group") : t("memory.empty.bot")}</p></div>)}</div>
   </div>;
 }

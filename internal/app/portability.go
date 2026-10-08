@@ -88,10 +88,13 @@ type portableSchedule struct {
 	Origin          portableOrigin `json:"origin"`
 }
 type portableSettings struct {
-	Timezone        string `json:"timezone"`
-	Model           string `json:"model"`
-	ReasoningEffort string `json:"reasoning_effort"`
-	DictationModel  string `json:"dictation_model"`
+	Timezone string `json:"timezone"`
+	// Language is the Web UI language ("" = automatic). Nil in bundles made
+	// before it was exported; importing those leaves the destination's choice.
+	Language        *string `json:"language,omitempty"`
+	Model           string  `json:"model"`
+	ReasoningEffort string  `json:"reasoning_effort"`
+	DictationModel  string  `json:"dictation_model"`
 }
 type portableBundle struct {
 	Format             string                      `json:"format"`
@@ -442,6 +445,9 @@ func (b portableBundle) validate() error {
 				return bad()
 			}
 		}
+		if x.Language != nil && *x.Language != "" && !uiLanguages[*x.Language] {
+			return bad()
+		}
 	}
 	return nil
 }
@@ -565,7 +571,7 @@ func portableDestination(tx *sql.Tx) (string, []string, error) {
 	if err != nil {
 		return "", nil, err
 	}
-	for _, q := range []string{`SELECT COALESCE(timezone,'') FROM user_preferences WHERE id=1`, `SELECT model||':'||reasoning_effort FROM model_settings WHERE id=1`, `SELECT model FROM dictation_settings WHERE id=1`} {
+	for _, q := range []string{`SELECT COALESCE(timezone,'')||':'||COALESCE(language,'') FROM user_preferences WHERE id=1`, `SELECT model||':'||reasoning_effort FROM model_settings WHERE id=1`, `SELECT model FROM dictation_settings WHERE id=1`} {
 		var v string
 		err = tx.QueryRow(q).Scan(&v)
 		if err != nil && err != sql.ErrNoRows {
@@ -633,7 +639,7 @@ func (s *Store) previewPortable(ctx context.Context, b portableBundle) (portable
 		}
 	}
 	if b.Settings != nil {
-		p.Conflicts = append(p.Conflicts, "Selected model, timezone and dictation settings replace the destination values.")
+		p.Conflicts = append(p.Conflicts, "Selected model, timezone, language and dictation settings replace the destination values.")
 	}
 	if b.AttachmentCount > 0 {
 		p.Warnings = append(p.Warnings, fmt.Sprintf("%d attachment files were omitted; chat text is included without those files.", b.AttachmentCount))

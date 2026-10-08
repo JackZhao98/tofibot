@@ -1,0 +1,23 @@
+{
+  "nav": {
+    "settings": "Réglages",
+    "usage": "Utilisation",
+    "connection": "Serveur et connexion",
+    "archived": "Conversations archivées"
+  },
+  "theme": {
+    "label": "Apparence",
+    "system": "Système",
+    "light": "Clair",
+    "dark": "Sombre"
+  },
+  "time": {
+    "unknown": "Heure non confirmée"
+  },
+  "action": {
+    "retry": "Réessayer"
+  },
+  "apiError": {
+    "request_failed": "Échec de la requête ({{status}})"
+  }
+}

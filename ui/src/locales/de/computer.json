@@ -1,0 +1,355 @@
+{
+  "desktop": {
+    "error": {
+      "resource_limit_count_one": "Keine freien Ressourcen für den gemeinsamen Desktop ({{count}} aktive Sitzung). Versuch es später noch einmal.",
+      "resource_limit_count_other": "Keine freien Ressourcen für den gemeinsamen Desktop ({{count}} aktive Sitzungen). Versuch es später noch einmal.",
+      "resource_limit": "Keine freien Ressourcen für den gemeinsamen Desktop. Versuch es später noch einmal.",
+      "stopping": "Der gemeinsame Desktop wird gerade beendet. Versuch es gleich noch einmal.",
+      "busy": "Der Computer führt gerade eine andere Aktion aus. Versuch es gleich noch einmal.",
+      "not_configured": "Der gemeinsame Computer ist noch nicht eingerichtet. Schließ zuerst die Serverinstallation ab.",
+      "failed": "Die Aktion auf dem Computer ist fehlgeschlagen. Versuch es später noch einmal.",
+      "capture_failed": "Bildschirmfoto fehlgeschlagen",
+      "action_failed": "Aktion auf dem Computer fehlgeschlagen",
+      "switching": "Der Desktop wird gerade umgeschaltet oder vorbereitet. Versuch es gleich noch einmal.",
+      "unreachable": "Der Desktop ist gerade nicht erreichbar. Versuch es später noch einmal.",
+      "connection_lost": "Verbindung zum Computer unterbrochen. Neuer Versuch…"
+    },
+    "phase": {
+      "checking": "Umgebung wird geprüft",
+      "storage": "Speicher wird vorbereitet",
+      "network": "Netzwerk wird vorbereitet",
+      "booting": "VM wird gestartet",
+      "verifying": "Linux und Chrome werden geprüft",
+      "ready": "Bereit"
+    },
+    "state": {
+      "starting": "Gemeinsamer Computer wird vorbereitet",
+      "ready": "Computer bereit",
+      "error": "Computer konnte nicht vorbereitet werden",
+      "stopped": "Computer gestoppt",
+      "other": "Computer: {{state}}"
+    },
+    "other_bot": "Ein anderer Bot",
+    "frame": {
+      "paused": "Pausiert · nicht live",
+      "live": "Live",
+      "snapshot": "Screenshot-Ansicht · gerade aktualisiert"
+    },
+    "announce": {
+      "connecting": "Verbindung zum Desktop wird hergestellt",
+      "disconnected": "Desktop-Ansicht getrennt",
+      "live": "Desktop verbunden, Live-Video wird angezeigt",
+      "fallback": "Desktop verbunden, auf Screenshot-Ansicht umgeschaltet",
+      "recovering": "Desktop verbunden, Bild wird wiederhergestellt"
+    },
+    "shrink_aria": "Gemeinsamen Computer verkleinern",
+    "expand_aria": "Gemeinsamen Computer vergrößern",
+    "shrink": "Verkleinern",
+    "expand": "Vergrößern",
+    "hide_aria": "Gemeinsamen Computer ausblenden",
+    "minimize": "Minimieren",
+    "title": "Gemeinsamer Computer",
+    "status": {
+      "failed": "Verbindung fehlgeschlagen",
+      "connecting_preview": "Vorschau wird verbunden…",
+      "booting_phase": "Wird gestartet · {{phase}}",
+      "booting": "Wird gestartet…",
+      "you": "Du steuerst",
+      "bot": "{{name}} arbeitet",
+      "idle": "Gemeinsamer Computer frei"
+    },
+    "power_hint": "Bildschirm ausblenden (Computer läuft weiter)",
+    "control": {
+      "release": "Steuerung zurückgeben",
+      "take": "Steuerung übernehmen",
+      "you": "Du"
+    },
+    "phase_label": "Phase: {{phase}}",
+    "state_synced": "Status aktuell",
+    "retry_prepare": "Vorbereitung wiederholen",
+    "screen_alt": "Bildschirm des gemeinsamen Computers",
+    "launch": {
+      "failed_aria": "Verbindung zum Computer fehlgeschlagen",
+      "preview_aria": "Computervorschau wird verbunden",
+      "starting_aria": "Computer wird gestartet",
+      "failed": "Verbindung fehlgeschlagen. Öffne es gleich noch einmal."
+    },
+    "tools": {
+      "title": "Hilfsaktionen",
+      "open_browser": "Im Browser öffnen",
+      "run_shell": "Shell ausführen ({{name}}-Arbeitsbereich)",
+      "shell_placeholder": "z. B. pwd",
+      "run": "Befehl ausführen",
+      "technical": "Technische Details",
+      "workspace": "Arbeitsbereich",
+      "browser": "Browser"
+    },
+    "video_aria": "Live-Video vom Desktop des Bots",
+    "pointer_click": "{{name}} · Klick"
+  },
+  "floating": {
+    "open": "Gemeinsamen Computer öffnen",
+    "open_activity": "Gemeinsamen Computer öffnen: {{activity}}",
+    "hide_mini_aria": "Mini-Bildschirm ausblenden",
+    "collapse": "Ausblenden",
+    "peek_hint": "Nur ansehen · zum Vergrößern klicken"
+  },
+  "remote": {
+    "error": {
+      "control_failed": "Desktop-Steuerung fehlgeschlagen",
+      "no_control": "Steuerung des Desktops nicht erhalten",
+      "take_failed": "Desktop konnte nicht übernommen werden",
+      "text_rejected": "Das aktive Fenster hat keinen Text angenommen. Klick zuerst auf die Eingabestelle",
+      "interrupted": "Verbindung unterbrochen. Übernimm die Steuerung erneut",
+      "too_slow": "Eingabeverbindung zu langsam. Übernimm die Steuerung erneut",
+      "disconnected": "Steuerverbindung getrennt. Übernimm die Steuerung erneut"
+    },
+    "notice": {
+      "waiting_current": "Warten, bis die aktuelle Aktion fertig ist…",
+      "switching": "Der Desktop hat die Steuerung gerade noch umgeschaltet. Versuch es gleich noch einmal.",
+      "handed_to_bot": "An den wartenden Bot übergeben"
+    },
+    "status": {
+      "you": "Du steuerst",
+      "waiting": "Warten auf Abschluss der Aktion…",
+      "bot": "{{name}} steuert",
+      "other_window": "Ein anderes Fenster steuert",
+      "connecting": "Verbindung wird hergestellt…",
+      "click_to_take": "Zum Übernehmen auf den Bildschirm klicken"
+    },
+    "keyboard": {
+      "hide_aria": "Remote-Tastatur ausblenden",
+      "open_aria": "Remote-Tastatur öffnen",
+      "hide": "Tastatur ausblenden",
+      "open": "Tastatur"
+    },
+    "release": "Steuerung freigeben",
+    "bot_waiting": "Ein Bot möchte den Computer nutzen. Er übernimmt 15 Sekunden, nachdem du aufhörst.",
+    "surface_aria": "Bedienbereich des Remote-Desktops",
+    "surface_preview_aria": "Vorschau des gemeinsamen Computers; zum Verschieben ziehen",
+    "keyboard_input_aria": "Tastatureingabe für den Remote-Desktop",
+    "copy": {
+      "note": "Der Browser hat das Schreiben in die Zwischenablage nicht erlaubt. Kopier den Text unten.",
+      "aria": "Vom Remote-Desktop kopierter Text",
+      "close": "Schließen"
+    }
+  },
+  "terminal": {
+    "error": {
+      "control_lost": "Steuerung getrennt. Übernimm erneut",
+      "no_control": "Steuerung nicht erhalten",
+      "take_failed": "Übernahme fehlgeschlagen"
+    },
+    "aria": "Terminal von {{name}}",
+    "title": "Terminal",
+    "new": "Neues Terminal",
+    "release": "Steuerung freigeben",
+    "take": "Übernehmen",
+    "close_aria": "Terminalbereich schließen",
+    "tabs_aria": "Terminalsitzungen",
+    "connecting": "Verbindung wird hergestellt…",
+    "empty": "Noch keine Terminals",
+    "create": "Terminal erstellen",
+    "status": {
+      "you": "Du steuerst",
+      "watching": "Zuschauen",
+      "closed": "Beendet",
+      "exited": "Beendet ({{code}})",
+      "done": "Fertig"
+    },
+    "end": "Terminal beenden",
+    "close": {
+      "title": "Dieses Terminal beenden?",
+      "body": "Darin laufende Prozesse werden ebenfalls beendet.",
+      "keep": "Behalten"
+    },
+    "interrupt": {
+      "title": "Aktuelles Terminal übernehmen?",
+      "body": "Möglicherweise läuft noch ein Befehl. Beim Übernehmen wird die aktuelle Aufgabe von {{name}} gestoppt und ein Interrupt an das ausgewählte Terminal gesendet.",
+      "keep_watching": "Weiter zuschauen",
+      "stop_take": "Stoppen und übernehmen"
+    },
+    "trimmed": "Ältere Ausgaben wurden aus dem Puffer entfernt.",
+    "reconnecting": "Terminalverbindung unterbrochen. Neu verbinden…",
+    "live_aria": "Live-Terminal"
+  },
+  "pairing": {
+    "this_device": "Dieses Gerät",
+    "mac_client": "Mac-App",
+    "connected": "{{name}} ist verbunden.",
+    "expired": "Der Kopplungscode ist abgelaufen. Erstelle einen neuen.",
+    "enter_code": "Gib diesen Kopplungscode in der Mac-App ein. Er ist 5 Minuten gültig.",
+    "code_aria": "Kopplungscode {{code}}",
+    "waiting": "Warten auf Bestätigung des Geräts…"
+  },
+  "env": {
+    "unavailable": "Die Laufzeitumgebung ist nicht verfügbar.",
+    "start_failed": "Der Computer ist nicht gestartet. Versuch es später noch einmal.",
+    "title": "Laufzeitumgebung",
+    "description": "Linux, Google Chrome, Dateibrowser und Terminal teilen sich eine Umgebung. Jeder Bot hat einen eigenen Arbeitsordner und kann auf die der anderen zugreifen.",
+    "state": {
+      "ready": "Gemeinsamer Computer bereit",
+      "starting": "Computer wird vorbereitet",
+      "stopped": "Gemeinsamer Computer gestoppt",
+      "waiting": "Warten auf den Computer"
+    },
+    "workspace": "Arbeitsverzeichnis {{path}}",
+    "workspace_idle_one": "Arbeitsverzeichnis {{path}} · Desktop schließt nach {{count}} Minute Inaktivität",
+    "workspace_idle_other": "Arbeitsverzeichnis {{path}} · Desktop schließt nach {{count}} Minuten Inaktivität",
+    "retry": "Computer neu vorbereiten"
+  },
+  "mac": {
+    "title": "Mac-Berechtigungen",
+    "description": "Verwalte die Berechtigungen für Bildschirmaufnahme und Bedienungshilfen, damit Tofi nach deiner Freigabe den Bildschirm sehen und den Desktop bedienen kann.",
+    "open_card": "Berechtigungskarte anzeigen"
+  },
+  "devices": {
+    "title": "Weitere Geräte",
+    "note": "Du kannst auch einen Mac verbinden, auf dem die Tofi-App installiert ist.",
+    "pair_failed": "Kopplungscode konnte nicht erstellt werden.",
+    "connect": "Mac verbinden",
+    "online": "Online",
+    "offline": "Offline",
+    "disconnect_failed": "Gerät konnte nicht getrennt werden.",
+    "disconnect": "Trennen"
+  },
+  "resources": {
+    "restart": {
+      "title": "Neu starten und Konfiguration anwenden?",
+      "impact": "Stoppe zuerst laufende Bot-Aufgaben. Ein Neustart unterbricht Desktop und Terminals aller Bots, darin laufende Prozesse werden beendet. Arbeitsdateien bleiben erhalten.",
+      "confirm": "Neu starten"
+    },
+    "cancel": "Abbrechen",
+    "error": {
+      "restart_incomplete": "Der Neustart wurde nicht abgeschlossen. Versuch es noch einmal.",
+      "read": "Die Ressourcen des Computers konnten nicht geladen werden. Versuch es noch einmal.",
+      "out_of_range": "Diese Konfiguration liegt außerhalb des zulässigen Bereichs. Prüf sie und versuch es noch einmal.",
+      "save": "Speichern fehlgeschlagen. Versuch es noch einmal.",
+      "busy": "Der Computer führt eine Aufgabe aus oder wendet eine Konfiguration an. Stoppe zuerst die Aufgabe und versuch es dann noch einmal.",
+      "restart_request": "Die Neustart-Anfrage ist nicht durchgegangen. Versuch es noch einmal.",
+      "start_failed": "Der Computer konnte nicht gestartet werden. Versuch es noch einmal."
+    },
+    "status": {
+      "applied": "Konfiguration angewendet.",
+      "saved_pending": "Konfiguration gespeichert. Sie gilt nach einem Neustart.",
+      "saved": "Konfiguration gespeichert."
+    },
+    "draft_label": "Computerressourcen",
+    "title": "Ressourcen",
+    "adjust": "Anpassen",
+    "unit": {
+      "cores": "Kerne"
+    },
+    "memory": "Arbeitsspeicher",
+    "disk_allocated": "Zugewiesener Speicher",
+    "host": "Host: {{cpus}} Kerne · {{memory}} GB Arbeitsspeicher, {{disk}} GB Speicher frei.",
+    "pending": "Ausstehend: {{cpus}} Kerne · {{memory}} GB Arbeitsspeicher · {{disk}} GB Speicher.",
+    "restart_apply": "Neu starten und anwenden",
+    "field": {
+      "cpus": "CPU-Kerne",
+      "memory": "Arbeitsspeicher (GB)",
+      "disk": "Speicher (GB)"
+    },
+    "field_note": "Speicher lässt sich nur vergrößern, nicht verkleinern. Änderungen gelten nach einem Neustart des Computers; Schließen des Desktops reicht nicht.",
+    "restarting": "Neustart und Anwenden der Konfiguration…",
+    "retry_restart": "Neustart wiederholen",
+    "reading": "Wird geladen…",
+    "retry": "Erneut versuchen",
+    "loading": "Ressourcen werden geladen…"
+  },
+  "credentials": {
+    "error": {
+      "exists": "Eine Datei mit diesem Namen gibt es schon. Wähl einen anderen Namen.",
+      "busy": "Der Computer bearbeitet gerade eine Aufgabe. Versuch es später noch einmal.",
+      "private_key_invalid": "Der private Schlüssel wurde nicht erkannt. Prüf das Dateiformat.",
+      "private_key_filename": "Verwende einen Dateinamen für den privaten Schlüssel, z. B. id_ed25519_work – nicht .pub, config oder known_hosts.",
+      "ssh_dir": "Der .ssh-Ordner auf dem Computer ist nicht verfügbar. Prüf ihn und versuch es noch einmal.",
+      "openssh_missing": "Auf dem Computer sind keine OpenSSH-Tools installiert.",
+      "key_io": "Schlüssel konnten nicht gelesen oder eingerichtet werden. Versuch es später noch einmal.",
+      "load": "Konfiguration konnte nicht geladen werden. Versuch es noch einmal.",
+      "switch_unsaved": "Speichere oder verwirf deine Eingabe, bevor du den Typ wechselst.",
+      "no_bot": "Erstelle zuerst einen Bot und richte dann den gemeinsamen Computer ein.",
+      "operation": "Aktion fehlgeschlagen. Versuch es noch einmal.",
+      "required": "Füll die Pflichtfelder aus und versuch es noch einmal.",
+      "name_format": "Das Namensformat ist ungültig. Prüf es und versuch es noch einmal.",
+      "not_private_key": "Gib den privaten Schlüssel ein. Eine .pub-Datei ist ein öffentlicher Schlüssel und kann nicht als privater Schlüssel importiert werden.",
+      "too_large": "Der private Schlüssel darf höchstens 64 KB groß sein.",
+      "public_key_file": "Das ist eine Datei mit öffentlichem Schlüssel. Wähl die passende Datei mit dem privaten Schlüssel (meist ohne .pub).",
+      "file_too_large": "Wähl eine Datei mit privatem Schlüssel unter 64 KB.",
+      "no_private_key_in_file": "In der Datei wurde kein privater Schlüssel gefunden. Wähl eine Schlüsseldatei oder füg den Inhalt direkt ein.",
+      "read_file": "Datei konnte nicht gelesen werden. Versuch es noch einmal oder füg den privaten Schlüssel ein.",
+      "copy_manual": "Kopier ihn aus dem Feld mit dem öffentlichen Schlüssel unten (⌘C / Strg+C).",
+      "drop_single": "Zieh immer nur eine Schlüsseldatei hierher."
+    },
+    "status": {
+      "saved_applied": "Gespeichert und angewendet. Neue Befehle und Terminals übernehmen es.",
+      "saved_not_applied": "Gespeichert, aber noch nicht auf den Computer angewendet. Du kannst es in der Liste erneut versuchen.",
+      "generated": "Schlüssel erstellt. Kopier den öffentlichen Schlüssel zum Zieldienst.",
+      "imported": "Schlüssel importiert.",
+      "applied": "Auf den gemeinsamen Computer angewendet.",
+      "deleted": "Gespeicherter Eintrag gelöscht. Die Kopie auf dem Computer bleibt."
+    },
+    "tab": {
+      "env": "Umgebungsvariablen",
+      "ssh": "SSH-Schlüssel"
+    },
+    "draft": {
+      "ssh": "SSH-Schlüssel"
+    },
+    "tabs_aria": "Art der Zugangsdaten",
+    "apply": "Auf Computer anwenden",
+    "delete": "Löschen",
+    "delete_question": "Gespeicherten Eintrag löschen? Die Kopie auf dem Computer bleibt.",
+    "note": {
+      "env": "Gilt für alle Bots und neu gestartete Befehle.",
+      "ssh": "Schlüssel auf dem gemeinsamen Computer. Die Liste wird automatisch synchronisiert."
+    },
+    "cancel": "Abbrechen",
+    "add_env": "Variable hinzufügen",
+    "add_key": "Schlüssel hinzufügen",
+    "mode_aria": "Art, einen Schlüssel hinzuzufügen",
+    "mode": {
+      "import": "Schlüssel importieren",
+      "generate": "Neuen Schlüssel erstellen"
+    },
+    "field": {
+      "display_name": "Anzeigename (optional)",
+      "display_name_placeholder": "z. B. Arbeitskonto",
+      "env_name": "Variablenname",
+      "key_file": "Dateiname des Schlüssels",
+      "env_value": "Wert",
+      "private_key": "Privater Schlüssel",
+      "private_key_placeholder": "Privaten Schlüssel einfügen oder Datei hierher ziehen"
+    },
+    "choose_file": "Datei auswählen",
+    "private_key_note": "Private Schlüssel landen nie im Chat. Verschlüsselte Schlüssel müssen auf dem Computer entsperrt werden.",
+    "generate_note": "Erstellt einen Ed25519-Schlüssel; der private Schlüssel bleibt auf dem gemeinsamen Computer. Vorhandene Dateien werden nicht überschrieben.",
+    "submit": {
+      "working": "Wird verarbeitet…",
+      "save_apply": "Speichern und anwenden",
+      "import": "Schlüssel importieren",
+      "generate": "Schlüssel erstellen"
+    },
+    "loading": "Wird geladen…",
+    "empty_env": "Noch keine Umgebungsvariablen",
+    "key": {
+      "public_only": "Nur öffentlicher Schlüssel",
+      "public_only_fingerprint": "Nur öffentlicher Schlüssel · {{fingerprint}}",
+      "encrypted_no_public": "Verschlüsselter privater Schlüssel, kein öffentlicher Schlüssel gefunden",
+      "no_public": "Kein öffentlicher Schlüssel gefunden",
+      "unverified": "Übereinstimmung von öffentlichem und privatem Schlüssel nicht geprüft · {{fingerprint}}",
+      "hide_public": "Öffentlichen Schlüssel ausblenden",
+      "show_public": "Öffentlichen Schlüssel anzeigen",
+      "copied": "Kopiert",
+      "copy_public": "Öffentlichen Schlüssel kopieren",
+      "public_aria": "Öffentlicher Schlüssel {{name}}"
+    },
+    "no_bot_note": "Erstelle einen Bot, um die Schlüssel auf dem gemeinsamen Computer zu lesen.",
+    "empty_ssh": "Keine SSH-Schlüssel auf dem Computer",
+    "legacy_title": "Gespeicherte Schlüssel",
+    "legacy_note": "Früher gespeicherte Konfiguration. Du kannst sie auf den Computer anwenden.",
+    "sync_pending": "Der Computer ist beschäftigt. Er synchronisiert gleich automatisch.",
+    "truncated": "Viele Schlüssel – es wird nur ein Teil angezeigt.",
+    "retry": "Erneut versuchen"
+  }
+}

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState, type RefObject } from "react";
 import { api } from "./api";
+import { i18n, useLanguage } from "./i18n";
 
 type DictationProps = {
   value: string;
@@ -29,8 +30,8 @@ function insertDictation(prefix: string, suffix: string, transcript: string) {
 }
 
 function browserSupport() {
-  if (!window.isSecureContext) return { supported: false, notice: "语音听写需要 HTTPS 地址，请通过 HTTPS 打开 Tofi。" };
-  if (!navigator.mediaDevices?.getUserMedia || typeof MediaRecorder === "undefined") return { supported: false, notice: "此浏览器不支持录音听写。" };
+  if (!window.isSecureContext) return { supported: false, notice: i18n.t("settings:dictation.needs_https") };
+  if (!navigator.mediaDevices?.getUserMedia || typeof MediaRecorder === "undefined") return { supported: false, notice: i18n.t("settings:dictation.unsupported_browser") };
   return { supported: true, notice: "" };
 }
 
@@ -68,11 +69,13 @@ export function useDictation({ value, textareaRef, disabled, onChange }: Dictati
     meterRef.current = null;
   }, []);
 
+  // Re-read on a language switch so the notice follows the UI language.
+  const { language } = useLanguage();
   useEffect(() => {
     const support = browserSupport();
     setSupported(support.supported);
     setNotice(support.notice);
-  }, []);
+  }, [language]);
 
   const finish = useCallback(async (recording: Recording) => {
     if (recording.cancelled || recordingRef.current?.token !== recording.token) return;
@@ -87,11 +90,11 @@ export function useDictation({ value, textareaRef, disabled, onChange }: Dictati
     abortRef.current = controller;
     try {
       const blob = new Blob(recording.chunks, { type: recording.recorder.mimeType || "audio/mp4" });
-      if (blob.size === 0) throw new Error("没有录到声音，请再试一次。");
+      if (blob.size === 0) throw new Error(i18n.t("settings:dictation.no_audio"));
       const result = await api.transcribeDictation(blob, controller.signal);
       if (!controller.signal.aborted && result.text.trim()) onChange(insertDictation(prefixRef.current, suffixRef.current, result.text));
     } catch (cause) {
-      if (!controller.signal.aborted) setError(cause instanceof Error ? cause.message : "语音听写失败，请再试一次。");
+      if (!controller.signal.aborted) setError(cause instanceof Error ? cause.message : i18n.t("settings:dictation.failed"));
     } finally {
       if (abortRef.current === controller) abortRef.current = null;
       if (!controller.signal.aborted) setBusy(false);
@@ -126,7 +129,7 @@ export function useDictation({ value, textareaRef, disabled, onChange }: Dictati
 
   const start = useCallback(async () => {
     if (disabled || listening || busy || startingRef.current) return;
-    if (!supported) { setError(notice || "语音听写当前不可用。"); return; }
+    if (!supported) { setError(notice || i18n.t("settings:dictation.unavailable")); return; }
     const token = ++operationRef.current;
     startingRef.current = true;
     setStarting(true);
@@ -149,7 +152,7 @@ export function useDictation({ value, textareaRef, disabled, onChange }: Dictati
       const recorder = new MediaRecorder(stream, (() => { const mimeType = recordingMimeType(); return mimeType ? { mimeType } : undefined; })());
       const recording: Recording = { recorder, stream, chunks: [], token, cancelled: false };
       recorder.ondataavailable = (event) => { if (event.data.size > 0) recording.chunks.push(event.data); };
-      recorder.onerror = () => { stopMeter(); stream.getTracks().forEach((track) => track.stop()); recordingRef.current = null; setListening(false); setError("录音失败，请检查麦克风权限后再试。"); };
+      recorder.onerror = () => { stopMeter(); stream.getTracks().forEach((track) => track.stop()); recordingRef.current = null; setListening(false); setError(i18n.t("settings:dictation.recording_failed")); };
       recorder.onstop = () => { void finish(recording); };
       recordingRef.current = recording;
       recorder.start();
@@ -196,7 +199,7 @@ export function useDictation({ value, textareaRef, disabled, onChange }: Dictati
       stopMeter();
       const permissionError = cause instanceof DOMException && (cause.name === "NotAllowedError" || cause.name === "SecurityError");
       setPermissionNeeded(permissionError);
-      setError(permissionError ? "需要麦克风权限才能开始听写。" : "无法启动录音，请检查麦克风后再试。");
+      setError(permissionError ? i18n.t("settings:dictation.permission_needed") : i18n.t("settings:dictation.start_failed"));
     } finally {
       if (operationRef.current === token) { startingRef.current = false; setStarting(false); }
     }

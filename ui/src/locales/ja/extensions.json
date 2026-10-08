@@ -1,0 +1,387 @@
+{
+  "action": {
+    "cancel": "キャンセル"
+  },
+  "auth": {
+    "bot_token": "Bot トークン",
+    "integration_token": "Integration token",
+    "none": "キー不要",
+    "oauth": "OAuth 認可",
+    "token": "アクセストークン"
+  },
+  "browser": {
+    "added": "追加済み",
+    "back": "追加済み",
+    "custom": "カスタム MCP",
+    "empty": "一致するサービスがありません。カスタム MCP を追加できます。",
+    "held_label": "まだ追加できないサービス",
+    "held_title": "まだ追加できません",
+    "intro": "接続プリセットを選び、追加後に認可とツールの接続を確認します。",
+    "read_only_tools": "読み取り専用ツール",
+    "retired": "保守終了",
+    "retired_origin": "提供元の旧プロジェクト",
+    "search": "サービスを検索",
+    "services": "サービス",
+    "title": "サービスを追加"
+  },
+  "callback": {
+    "copied": "コピーしました",
+    "copy": "URL をコピー",
+    "copy_failed": "コピーできません。URL を選択して手動でコピーしてください",
+    "desktop": "アプリのリダイレクト URL",
+    "web": "ウェブ版のリダイレクト URL"
+  },
+  "catalog": {
+    "context7": {
+      "description": "最新バージョンのライブラリドキュメントと例を取得。",
+      "note": "Context7 のドキュメントには Authorization: Bearer 形式も載っています。このプリセットは検証済みの Context7-API-Key ヘッダーを使います。",
+      "setup": {
+        "create_key": "Context7 のダッシュボードで API キーを作成します。",
+        "enter_key": "Tofi では Context7-API-Key ヘッダーにキーを入力します。"
+      }
+    },
+    "github": {
+      "description": "リポジトリ、Issue、Pull Request。",
+      "note": "公式のリモートサーバーは GitHub がホストしています。利用可否や toolset はアカウントや Copilot の利用資格によって変わることがあります。",
+      "setup": {
+        "check_scope": "接続前に GitHub MCP の toolset とリポジトリ権限を確認します。",
+        "prepare_pat": "権限をできるだけ絞った fine-grained PAT を用意し、Tofi に Bearer token として入力します。"
+      }
+    },
+    "github_readonly": {
+      "description": "リポジトリ、Issue、Pull Request の読み取り。",
+      "name": "GitHub（読み取り専用）",
+      "note": "GitHub がホストする読み取り専用エンドポイントです。Tofi のツール確認と許可／無効化ルールは引き続き適用されます。提供元と設定は確認済みですが、実アカウントでは未検証です。",
+      "setup": {
+        "create_pat": "必要なリポジトリと読み取り権限だけに絞った fine-grained PAT を作成します。",
+        "enter_token": "下の非公開トークン欄に PAT を入力します。チャットやヘッダー JSON に貼り付ける必要はありません。",
+        "verify": "追加後、接続と利用できるツールを確認します。アカウントと組織のポリシーは引き続き適用されます。"
+      }
+    },
+    "google_calendar": {
+      "description": "予定と空き時間の確認。",
+      "note": "このプリセットは予定の読み取りと空き時間の確認のみです。calendar-json.googleapis.com と calendarmcp.googleapis.com を有効にしてください。"
+    },
+    "google_docs": {
+      "description": "ドキュメントの閲覧と編集。",
+      "note": "Google Docs MCP は Developer Preview です。docs.googleapis.com と docsmcp.googleapis.com を有効にしてください。"
+    },
+    "google_drive": {
+      "description": "クラウド上のファイルを検索・整理。",
+      "note": "Google Drive MCP は Developer Preview です。drive.googleapis.com と drivemcp.googleapis.com を有効にしてください。"
+    },
+    "google_gmail": {
+      "description": "メールの検索、閲覧、下書きの作成。",
+      "note": "Google Workspace Developer Preview。gmail.googleapis.com と gmailmcp.googleapis.com を有効にしてください。ツールによっては gmail.modify または mail.google.com が必要です。"
+    },
+    "google_setup": {
+      "client_credentials": "下に Client ID と Secret を入力し、追加後に Google の認可を完了します。",
+      "consent_screen": "OAuth 同意画面とテストユーザーを設定し、ウェブアプリケーションのクライアントを作成してリダイレクト URL を登録します。",
+      "enable_apis": "Google Cloud プロジェクトで、対象プロダクトの API と MCP サービスを有効にします。",
+      "preview_access": "Google Workspace Developer Preview へのアクセス権があることを確認します。"
+    },
+    "google_sheets": {
+      "description": "データの読み取り、シートと数式の編集。",
+      "note": "Google Sheets MCP は Developer Preview です。sheets.googleapis.com と sheetsmcp.googleapis.com を有効にしてください。"
+    },
+    "google_slides": {
+      "description": "プレゼンテーションの閲覧と作成。",
+      "note": "Google Slides MCP は Developer Preview です。slides.googleapis.com と slidesmcp.googleapis.com を有効にしてください。"
+    },
+    "linear": {
+      "description": "プロジェクト、タスク、コメントの管理。",
+      "note": "Linear の主なトランスポートは Streamable HTTP です。/mcp/readonly は読み取りツールのみ、/sse は非推奨の互換パスです。",
+      "setup": {
+        "check_scope": "接続前にチームとワークスペースの権限を確認します。",
+        "prepare_key": "Linear の API キーまたは Bearer token を用意します。書き込み権限が不要なら読み取り専用エンドポイントを選んでください。"
+      }
+    },
+    "linear_readonly": {
+      "description": "プロジェクト、タスク、コメントの検索。",
+      "name": "Linear（読み取り専用）",
+      "note": "Linear のドキュメントでは、このエンドポイントは読み取りツールのみとされています。Tofi のツール確認と許可／無効化ルールは引き続き適用されます。接続設定は確認済みですが、実アカウントでは未検証です。",
+      "setup": {
+        "create_key": "Read 権限のみで、必要なチームだけを対象にした Linear の API キーを作成します。",
+        "enter_token": "下の非公開トークン欄にキーを入力します。",
+        "verify": "追加後、許可範囲とツールの接続を確認します。"
+      }
+    },
+    "microsoft_learn": {
+      "description": "公式の技術ドキュメントとコードサンプルを検索。",
+      "setup": {
+        "no_account": "アカウントもキーも不要です。追加するとすぐに公式ドキュメントを使えます。"
+      }
+    },
+    "notion": {
+      "description": "ナレッジベースの検索と整理。",
+      "note": "Notion は現在、ホスト型のリモート MCP を優先して保守しています。Enterprise の管理者は接続できる AI アプリを制限できます。",
+      "setup": {
+        "auto_client": "Tofi がサービスに OAuth クライアントを申請するので、Client ID の入力は不要です。",
+        "check_access": "接続したアカウントのページ権限が想定どおりか確認します。",
+        "choose_workspace": "追加後に「接続」をクリックし、接続する Notion ワークスペースを選びます。"
+      }
+    }
+  },
+  "diagnostics_separator": "；",
+  "docs": {
+    "community": "コミュニティのドキュメント",
+    "retired": "旧プロジェクトのドキュメント",
+    "vendor": "接続ドキュメント"
+  },
+  "error": {
+    "auth_incomplete": "認可が完了していません。もう一度接続してください。",
+    "auth_timeout": "認可がまだ完了していません。もう一度お試しください。",
+    "discovery_failed": "ツールを読み込めません。サーバーの URL と認証情報を確認して、もう一度お試しください。",
+    "endpoint_changed_headers": "サーバーの URL が変わりました。保存前に、保存済みのヘッダー認証情報を入力し直すか削除してください。",
+    "endpoint_changed_oauth": "サーバーの URL が変わりました。保存前に、新しい URL の OAuth 設定を入力し直してください。",
+    "invalid_auth_url": "認可 URL が無効です",
+    "metadata_changed_secret": "認可メタデータの URL が変わりました。保存前に、保存済みのクライアント シークレットを入力し直すか消去してください。",
+    "needs_bot": "共有コンピュータで認可するには、先に Bot を作成してください。",
+    "oauth_discovery_failed": "認可情報の取得またはクライアントの登録ができません。サーバーの URL を確認して、もう一度お試しください。",
+    "oauth_start_failed": "認可を開始できません。サーバーの URL を確認して、もう一度お試しください。",
+    "offline": "サーバーに接続できません。もう一度お試しください。",
+    "redirect_needs_https": "認可には HTTPS アドレス、または localhost トンネル経由での Tofi 接続が必要です。社内ネットワークの HTTP アドレスではリダイレクトを完了できません。",
+    "tools_failed": "ツールを読み込めません。もう一度お試しください。"
+  },
+  "form": {
+    "add": "追加",
+    "advanced": "詳細設定",
+    "allowlist": "許可するツール",
+    "allowlist_hint": "空欄ですべて許可",
+    "client_id": "OAuth クライアント ID",
+    "client_id_optional": "OAuth クライアント ID（空欄で自動登録）",
+    "client_secret": "クライアント シークレット",
+    "client_secret_hint": "サービスで必要な場合に入力",
+    "comma_separated": "カンマ区切り",
+    "custom_description": "ワークスペースに接続し、Bot が必要に応じてツールを見つけます。",
+    "custom_title": "カスタム MCP",
+    "denylist": "無効にするツール",
+    "edit_title": "サービスを編集",
+    "google_prepare": "接続前の準備",
+    "guide": "接続手順",
+    "guide_heading": "接続ガイド",
+    "headers": "リクエストヘッダー",
+    "headers_invalid": "ヘッダーは名前とテキスト値の JSON オブジェクトにしてください",
+    "headers_note": "ドットまたは空の値は保存済みの認証情報を維持します。項目を削除すると認証情報も削除されます。サーバーの URL を変えるときは、認証情報を入力し直すか削除してください。",
+    "metadata_url": "認可メタデータの URL",
+    "name": "サービス ID",
+    "name_invalid": "サービス ID は 1〜64 文字の英字、数字、ドット、アンダースコア、ハイフンで入力してください",
+    "save": "保存",
+    "saving": "保存中…",
+    "scopes": "スコープ",
+    "token": "アクセストークン",
+    "token_keep": "空欄のままにすると保存済みのトークンを維持します",
+    "token_paste": "サービスから発行されたトークンを貼り付け",
+    "transport": "接続方式",
+    "url": "サーバー URL"
+  },
+  "google": {
+    "docs": "公式の接続ドキュメント",
+    "enable_api": "プロダクト API を有効化",
+    "enable_mcp": "MCP サービスを有効化",
+    "help": "Google 設定ヘルプ",
+    "links_label": "{{name}} の設定リンク",
+    "nav_label": "{{name}} の Google Cloud 設定",
+    "project_hint": "Google Cloud で OAuth クライアントと同じプロジェクトを選びます。アプリがテストモードの間は、Audience で現在のアカウントをテストユーザーに追加してください。",
+    "redirect_hint": "Google Auth Platform → Clients のウェブアプリケーションで、使用する URL を 1 つずつ Authorized redirect URIs（JavaScript origins ではありません）に追加します。2 つの入口で同じ認証情報を共有できます。アドレス、ポート、パスは完全に一致させてください。HTTP の共有コンピュータで使う動的リダイレクトはこの固定設定に対応しないため、HTTPS かアプリの利用をおすすめします。",
+    "test_users": "テストユーザーを設定"
+  },
+  "held": {
+    "discord": {
+      "description": "コミュニティが保守する Discord Bot 接続。",
+      "reason": "互換性のあるインストール方法と接続権限が未確認のため、まだ追加できません。"
+    },
+    "notion_token": {
+      "description": "保守が終了した旧版のローカル MCP サーバー。",
+      "name": "Notion トークンサーバー（旧版）",
+      "reason": "提供元はこのローカルサーバーの保守とサポートを終了しています。参考として掲載しているだけで、初期サポートの対象外です。Notion に接続するには上の OAuth 接続を使ってください。"
+    },
+    "slack": {
+      "description": "Slack が提供するリモート MCP サーバー。",
+      "reason": "Slack アプリの登録とユーザー認可が必要です。Bot token ではこの接続は使えません。"
+    },
+    "yahoo_finance": {
+      "description": "コミュニティが保守する相場情報の検索。",
+      "reason": "インストール可能な互換バージョンが未確認です。コミュニティ版はトークン不要です。"
+    }
+  },
+  "local": {
+    "attach": "Tofi に接続",
+    "custom": {
+      "args": "起動引数（1 行に 1 つ）",
+      "binary": "実行ファイル",
+      "env": "環境変数（1 行に KEY=value、非公開ファイルとして保存）",
+      "install": "プラグインをインストール",
+      "intro": "固定バージョンと実行ファイルを指定します。インストールコマンドは Runner 内で実行され、プラグインのコードは Runner の権限で動作します。",
+      "package": "パッケージ名",
+      "plugin_id": "プラグイン ID",
+      "runtime": "ランタイム",
+      "title": "ほかのローカル MCP をインストール",
+      "version": "固定バージョン"
+    },
+    "gog": {
+      "install": "gogcli をインストール",
+      "installing": "インストール中…",
+      "intro": "バージョン固定の gogcli が Runner イメージに含まれています。読み取り専用か、読み取りと送信の許可を選べます。メール送信は 1 通ずつ確認が必要です。",
+      "title": "個人の Gmail · gogcli"
+    },
+    "google": {
+      "client_json": "OAuth クライアント JSON",
+      "client_setup": "Google Cloud で<strong>ウェブ アプリケーション</strong>の OAuth クライアントを作成し、下のアドレスを「承認済みのリダイレクト URI」に追加してから、ダウンロードした JSON をアップロードします。",
+      "connect": "Google に接続",
+      "connected_as": "{{email}} で認可済み",
+      "continue": "Google の認可ページを開く",
+      "disconnect": "Google を切断",
+      "disconnect_confirm": "保存済みの Google の認可を Runner から削除しますか？",
+      "disconnect_submit": "認可を解除",
+      "disconnected": "Google の認可を Runner から削除しました。",
+      "email": "Google のメールアドレス",
+      "finish_in_google": "Google のページで認可を完了してください。Tofi に戻ると接続状態が更新されます。",
+      "generating_link": "Google の認可リンクを作成中…",
+      "granted_read_send": "読み取りと送信を認可済みです。送信前に 1 通ずつ確認が必要です。",
+      "granted_readonly": "現在は読み取りのみ認可されています。送信するには、解除してから「読み取りと送信」を選び直してください。",
+      "invalid_json": "有効な Google OAuth クライアント JSON をアップロードしてください。",
+      "needs_https": "Tofi に設定された公開 HTTPS アドレスからこのページを開いてください。",
+      "open_console": "Google Cloud を開く",
+      "preparing": "認可を準備中…",
+      "preparing_popup": "Google の認可を準備中…",
+      "scope": "Gmail の権限",
+      "scope_read_send": "読み取りと送信：メールは毎回自分で確認",
+      "scope_readonly": "読み取り専用：メールの検索と閲覧",
+      "verified": "個人の Gmail の読み取りを確認しました。",
+      "verify": "Gmail の読み取りを確認",
+      "verifying": "確認中…",
+      "waiting": "Google の認可を待っています"
+    },
+    "intro": "プラグインは専用の Runner コンテナにインストールされ、必要なときに起動し、アイドル時は自動でスリープします。",
+    "notice": {
+      "attached": "{{id}} を Tofi に接続しました。",
+      "installed": "{{id}} をインストールしました。ツールは使用時に起動します。",
+      "removed": "{{id}} を削除しました。"
+    },
+    "remove": "削除",
+    "remove_confirm": "プラグインと保存済みの認可を削除しますか？",
+    "remove_submit": "削除する",
+    "state": {
+      "not_installed": "未インストール",
+      "ready": "実行中",
+      "sleeping": "スリープ中",
+      "starting": "起動中"
+    },
+    "title": "ローカル MCP",
+    "unavailable": "ローカル MCP Runner は現在利用できません",
+    "unavailable_hint": "Runner コンテナが起動しているか確認してください。",
+    "plugin_count_other": "プラグイン {{count}} 個"
+  },
+  "mcp": {
+    "add": "サービスを追加",
+    "added": "追加済み",
+    "back": "戻る",
+    "cancel_auth": "認可をキャンセル",
+    "confirm": {
+      "disconnect": "{{name}} の認可を解除しますか？",
+      "disconnect_submit": "解除",
+      "remove": "{{name}} を削除しますか？",
+      "remove_submit": "削除"
+    },
+    "connect": "接続",
+    "continue_auth": "認可を続ける",
+    "empty": "ツールを接続しましょう",
+    "loading": "サービスを読み込み中…",
+    "menu": {
+      "disconnect": "認可を解除",
+      "edit": "設定を編集",
+      "refresh": "ツールを更新",
+      "remove": "サービスを削除"
+    },
+    "more_actions": "{{name}} のその他の操作"
+  },
+  "oauth": {
+    "help_body": "認可方法は開いた入口に合わせて自動で決まり、Google、Notion などの OAuth サービスに対応します。手動で設定したクライアントは、下のリダイレクト URL をそのままサービスの管理画面に登録してください。Notion など自動登録に対応したサービスは Tofi が処理します。",
+    "help_title": "ログイン方法と制限",
+    "linked": "{{title}} を認可済み",
+    "waiting": "{{title}} の認可を待っています"
+  },
+  "origin": {
+    "community": "コミュニティが保守",
+    "preset": "接続プリセット",
+    "vendor": "提供元が保守"
+  },
+  "route": {
+    "desktop": "システムのブラウザでログインすると、完了後このアプリに自動で戻ります。共有コンピュータは使いません。",
+    "desktop_outdated": "このバージョンのアプリはローカル認可にまだ対応していません。アプリを更新してください。共有コンピュータに自動で切り替えることはありません。",
+    "http_blocked": "HTTP の直接接続では安全にリダイレクトを受け取れず、共有コンピュータも設定されていません。HTTPS か Tofi アプリを使ってください。",
+    "loading": "認可設定を読み込み中…",
+    "public_origin_missing": "サーバーに正しい TOFI_PUBLIC_ORIGIN（公開 HTTPS アドレス）を設定してから再試行してください。",
+    "vm": "現在 HTTP で直接接続しているため、この入口だけ共有コンピュータで認可します。サービスがローカルへのリダイレクトに対応している必要があります。HTTPS か Tofi アプリの利用をおすすめします。",
+    "web": "このデバイスのブラウザでログインし、Tofi の HTTPS サーバーにリダイレクトします。共有コンピュータは使いません。"
+  },
+  "skillCatalog": {
+    "document_delivery": {
+      "description": "ドキュメント、スプレッドシート、スライドを作成し、確認してからチャットに送ります。",
+      "title": "ドキュメント納品"
+    },
+    "research": {
+      "description": "出典を確認し、調査結果を納品できるファイルにまとめます。",
+      "title": "リサーチ"
+    },
+    "web_review": {
+      "description": "実際にページを操作し、問題と再現手順を記録します。",
+      "title": "Web 検収"
+    }
+  },
+  "skills": {
+    "choose_folder": "フォルダを選択",
+    "error": {
+      "missing_content": "SKILL.md を含むフォルダを選ぶか、「手動で編集」を開いて名前と内容を入力してください。",
+      "name_taken": "この名前はすでに使われています。別の名前にしてください。",
+      "no_skill_md": "フォルダの最上位に SKILL.md が必要です",
+      "too_large": "Skill の内容は最大 1 MB です",
+      "too_many_files": "ファイルは最大 {{max}} 個です"
+    },
+    "folder_label": "Skill フォルダを選択",
+    "install": "Skill をインストール",
+    "install_submit": "インストール",
+    "installed": "インストール済み",
+    "installed_notice": "インストールしました。すべての Bot が必要に応じて読み込めます",
+    "installing": "インストール中…",
+    "loading": "読み込み中…",
+    "manual": "手動で編集",
+    "name": "名前",
+    "needs_skill_md": "SKILL.md を含むフォルダ",
+    "reload": "再読み込み",
+    "remove": "削除",
+    "remove_confirm": "この Skill を削除しますか？",
+    "removed": "Skill を削除しました",
+    "saved": "保存しました",
+    "scope": "ワークスペースで共有 · 必要時に読み込み",
+    "starters": "Tofi のお仕事 Skill",
+    "support_note": "説明と参考ファイルに対応しています。同梱のスクリプトは自動実行されません。",
+    "file_count_other": "{{count}} 個のファイル"
+  },
+  "status": {
+    "authorizing": "認可を開いています…",
+    "checking": "ツールを読み込み中…",
+    "failed": "接続に失敗しました",
+    "needs_auth": "認可が必要です",
+    "removing": "処理中…",
+    "unverified": "未確認",
+    "waiting": "認可を待っています",
+    "tools_other": "ツール {{count}} 個"
+  },
+  "vm": {
+    "cancel": "認可をキャンセル",
+    "cancel_failed": "キャンセルできませんでした。もう一度お試しください。認可はタイムアウトすると自動で終了します。",
+    "cancelling": "キャンセル中…",
+    "dialog_label": "{{title}} の認可",
+    "end": {
+      "denied": "認可がキャンセルされました。もう一度接続できます。",
+      "error": "認可が完了しませんでした。もう一度お試しください。",
+      "expired": "認可がタイムアウトしました。もう一度接続してください。"
+    },
+    "footer": "完了すると自動で戻ります。ほかの Bot の画面操作は順番待ちです。",
+    "reconnecting": "接続が一時的に切れました。再試行中…",
+    "screen_alt": "共有コンピュータ",
+    "subtitle": "共有コンピュータで認可を完了します"
+  }
+}

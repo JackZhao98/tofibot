@@ -48,6 +48,9 @@ func portableFixture(t *testing.T) (*Store, portableBundle) {
 	if _, err = s.putUserTimezone("UTC", false); err != nil {
 		t.Fatal(err)
 	}
+	if err = s.putUserLanguage("fr"); err != nil {
+		t.Fatal(err)
+	}
 	b, err := s.exportPortable(context.Background(), "synthetic-source-instance", portableSelection{}, "account")
 	if err != nil {
 		t.Fatal(err)
@@ -284,6 +287,64 @@ func TestPortableConcurrentApplyAndSettingsOptIn(t *testing.T) {
 	zone, err = s.userTimezone()
 	if err != nil || zone != "UTC" {
 		t.Fatalf("opt-in settings missing: %q %v", zone, err)
+	}
+}
+
+func TestPortableSettingsCarryLanguage(t *testing.T) {
+	_, original := portableFixture(t)
+	if original.Settings == nil || original.Settings.Language == nil || *original.Settings.Language != "fr" {
+		t.Fatalf("export lost the UI language: %+v", original.Settings)
+	}
+	language := func(s *Store) string {
+		t.Helper()
+		prefs, err := s.userPreferences()
+		if err != nil {
+			t.Fatal(err)
+		}
+		return prefs.Language
+	}
+	apply := func(s *Store, b portableBundle) {
+		t.Helper()
+		p, err := s.previewPortable(context.Background(), b)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if _, err = s.applyPortable(context.Background(), b, p.ID); err != nil {
+			t.Fatal(err)
+		}
+	}
+	s, err := OpenStore(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer s.Close()
+	if err = s.putUserLanguage("ja"); err != nil {
+		t.Fatal(err)
+	}
+	withSettings, err := selectPortable(original, portableSelection{Categories: original.Included})
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Bundles exported before the language was carried leave the destination's choice.
+	legacy := withSettings
+	settings := *withSettings.Settings
+	settings.Language = nil
+	legacy.Settings = &settings
+	apply(s, legacy)
+	if got := language(s); got != "ja" {
+		t.Fatalf("legacy bundle changed the language: %q", got)
+	}
+	apply(s, withSettings)
+	if got := language(s); got != "fr" {
+		t.Fatalf("opt-in settings did not restore the language: %q", got)
+	}
+	bad := withSettings
+	unsupported := *withSettings.Settings
+	value := "xx"
+	unsupported.Language = &value
+	bad.Settings = &unsupported
+	if err = bad.validate(); err == nil {
+		t.Fatal("unsupported language accepted")
 	}
 }
 

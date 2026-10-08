@@ -1,0 +1,84 @@
+{
+  "display": {
+    "title": "Scheduled task",
+    "description": "Runs on a schedule. Open Manage to see the full instructions."
+  },
+  "run": {
+    "cadence": {
+      "once": "Once",
+      "daily_at": "Daily at {{time}}",
+      "daily": "Daily",
+      "interval": "On an interval",
+      "days_one": "Every day",
+      "days_other": "Every {{count}} days",
+      "hours_one": "Every hour",
+      "hours_other": "Every {{count}} hours",
+      "minutes_one": "Every minute",
+      "minutes_other": "Every {{count}} minutes",
+      "seconds_one": "Every second",
+      "seconds_other": "Every {{count}} seconds"
+    },
+    "with_zone": "{{recurrence}} ({{zone}})",
+    "created_by_user": "Created by you",
+    "created_by_bot": "Created by the assistant",
+    "occurrence": "Run #{{number}}",
+    "planned_unknown": "Unconfirmed",
+    "planned_description": "Scheduled for {{date}} {{time}} · {{zone}}",
+    "planned_description_unknown": "Scheduled time unconfirmed",
+    "triggered_on": "Scheduled run · {{date}}",
+    "metadata_fallback": "Scheduled task",
+    "created_on": "Created {{date}}",
+    "metadata_snapshot": "Frequency saved when this run was triggered",
+    "metadata_no_snapshot": "Run record; the frequency at the time wasn't saved",
+    "status_description": "Status updated {{date}} {{time}} · {{zone}}",
+    "retry_failed": "Couldn't rerun. Try again later.",
+    "retrying": "Retrying…",
+    "retry": "Retry",
+    "confirm_before_retry": "To avoid repeating external actions, check before retrying."
+  },
+  "row": {
+    "status": {
+      "waiting": "Waiting for a reply",
+      "queued": "Queued",
+      "running": "Running",
+      "published": "Result posted to the conversation",
+      "done": "Run ended",
+      "failed": "Failed",
+      "cancelled": "Stopped",
+      "interrupted": "Interrupted",
+      "unknown": "Status unknown",
+      "turn_running": "This run is in progress",
+      "turn_done": "This run ended",
+      "turn_failed": "This run failed",
+      "turn_cancelled": "This run was stopped",
+      "turn_interrupted": "This run was interrupted"
+    },
+    "failure": {
+      "receipt_missing": "This run didn't confirm a completed result, so it doesn't count as delivered.",
+      "incomplete": "This run didn't finish. The task record is kept.",
+      "receipt_missing_confirm": "This run didn't confirm a completed result, so it doesn't count as delivered. To avoid repeating external actions, check before retrying.",
+      "incomplete_confirm": "This run didn't finish. The task record is kept. To avoid repeating external actions, check before retrying."
+    },
+    "note": {
+      "partial_status": "Full run status isn't available yet; only the main run's status is shown.",
+      "unpublished": "The final reply isn't confirmed in this conversation. A finished run doesn't mean the result was delivered."
+    },
+    "manage_instructions": "Manage · full instructions",
+    "technical_reason": "View technical details",
+    "rerunning": "Rerunning…",
+    "rerun": "Run again"
+  },
+  "editor": {
+    "edit": "Edit",
+    "conflict": "This schedule changed while you were editing. Your draft is kept; cancel and reopen it to compare.",
+    "save_failed": "Couldn't save the schedule",
+    "title": "Title",
+    "title_aria": "Edit schedule title",
+    "description": "Description",
+    "description_aria": "Edit schedule description",
+    "instructions": "Full instructions",
+    "instructions_aria": "Edit schedule instructions",
+    "cancel": "Cancel",
+    "save": "Save"
+  }
+}

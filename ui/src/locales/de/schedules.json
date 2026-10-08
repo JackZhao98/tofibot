@@ -1,0 +1,84 @@
+{
+  "display": {
+    "title": "Geplante Aufgabe",
+    "description": "Läuft nach Zeitplan. Unter „Verwalten“ findest du die vollständigen Anweisungen."
+  },
+  "run": {
+    "cadence": {
+      "once": "Einmalig",
+      "daily_at": "Täglich um {{time}}",
+      "daily": "Täglich",
+      "interval": "In festem Abstand",
+      "days_one": "Jeden Tag",
+      "days_other": "Alle {{count}} Tage",
+      "hours_one": "Jede Stunde",
+      "hours_other": "Alle {{count}} Stunden",
+      "minutes_one": "Jede Minute",
+      "minutes_other": "Alle {{count}} Minuten",
+      "seconds_one": "Jede Sekunde",
+      "seconds_other": "Alle {{count}} Sekunden"
+    },
+    "with_zone": "{{recurrence}} ({{zone}})",
+    "created_by_user": "Von dir erstellt",
+    "created_by_bot": "Vom Assistenten erstellt",
+    "occurrence": "Lauf Nr. {{number}}",
+    "planned_unknown": "Unbestätigt",
+    "planned_description": "Geplant für {{date}} {{time}} · {{zone}}",
+    "planned_description_unknown": "Geplante Zeit unbestätigt",
+    "triggered_on": "Geplanter Lauf · {{date}}",
+    "metadata_fallback": "Geplante Aufgabe",
+    "created_on": "Erstellt am {{date}}",
+    "metadata_snapshot": "Häufigkeit zum Zeitpunkt dieses Laufs gespeichert",
+    "metadata_no_snapshot": "Laufprotokoll, die damalige Häufigkeit wurde nicht gespeichert",
+    "status_description": "Status aktualisiert {{date}} {{time}} · {{zone}}",
+    "retry_failed": "Erneuter Lauf fehlgeschlagen. Versuch es später noch einmal.",
+    "retrying": "Wird erneut versucht…",
+    "retry": "Erneut versuchen",
+    "confirm_before_retry": "Prüfe vor einem neuen Versuch, damit externe Aktionen nicht doppelt ausgeführt werden."
+  },
+  "row": {
+    "status": {
+      "waiting": "Wartet auf Antwort",
+      "queued": "In der Warteschlange",
+      "running": "Läuft",
+      "published": "Ergebnis in der Unterhaltung gepostet",
+      "done": "Lauf beendet",
+      "failed": "Fehlgeschlagen",
+      "cancelled": "Gestoppt",
+      "interrupted": "Unterbrochen",
+      "unknown": "Status unbekannt",
+      "turn_running": "Dieser Lauf ist im Gange",
+      "turn_done": "Dieser Lauf ist beendet",
+      "turn_failed": "Dieser Lauf ist fehlgeschlagen",
+      "turn_cancelled": "Dieser Lauf wurde gestoppt",
+      "turn_interrupted": "Dieser Lauf wurde unterbrochen"
+    },
+    "failure": {
+      "receipt_missing": "Dieser Lauf hat kein fertiges Ergebnis bestätigt und gilt daher nicht als geliefert.",
+      "incomplete": "Dieser Lauf wurde nicht abgeschlossen. Der Aufgabeneintrag bleibt erhalten.",
+      "receipt_missing_confirm": "Dieser Lauf hat kein fertiges Ergebnis bestätigt und gilt daher nicht als geliefert. Prüfe vor einem neuen Versuch, damit externe Aktionen nicht doppelt ausgeführt werden.",
+      "incomplete_confirm": "Dieser Lauf wurde nicht abgeschlossen. Der Aufgabeneintrag bleibt erhalten. Prüfe vor einem neuen Versuch, damit externe Aktionen nicht doppelt ausgeführt werden."
+    },
+    "note": {
+      "partial_status": "Der vollständige Laufstatus ist noch nicht verfügbar, angezeigt wird nur der Status des Hauptlaufs.",
+      "unpublished": "Die abschließende Antwort ist in dieser Unterhaltung nicht bestätigt. Ein beendeter Lauf heißt nicht, dass das Ergebnis geliefert wurde."
+    },
+    "manage_instructions": "Verwalten · vollständige Anweisungen",
+    "technical_reason": "Technische Details ansehen",
+    "rerunning": "Läuft erneut…",
+    "rerun": "Erneut ausführen"
+  },
+  "editor": {
+    "edit": "Bearbeiten",
+    "conflict": "Dieser Zeitplan wurde während deiner Bearbeitung geändert. Dein Entwurf bleibt erhalten. Brich ab und öffne ihn erneut, um zu vergleichen.",
+    "save_failed": "Zeitplan konnte nicht gespeichert werden",
+    "title": "Titel",
+    "title_aria": "Titel des Zeitplans bearbeiten",
+    "description": "Beschreibung",
+    "description_aria": "Beschreibung des Zeitplans bearbeiten",
+    "instructions": "Vollständige Anweisungen",
+    "instructions_aria": "Anweisungen des Zeitplans bearbeiten",
+    "cancel": "Abbrechen",
+    "save": "Speichern"
+  }
+}

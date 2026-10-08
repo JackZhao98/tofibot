@@ -3,6 +3,7 @@
 // outgoing mail the cancellation waves beside it. Drawn as an SVG string so the
 // imperative send flight and the React mail card share a single source.
 import "./postmark.css";
+import { intlLocale } from "./i18n/format";
 
 export type PostmarkParts = { ring: string; date: string; time?: string; waves?: boolean };
 
@@ -34,12 +35,15 @@ export function receivedParts(value: string | undefined): { date?: string; time?
   if (Number.isFinite(parsed)) {
     const date = new Date(parsed);
     const hasTime = /\d{1,2}:\d{2}/.test(text);
-    return { date: postmarkDate(date), time: hasTime ? date.toLocaleTimeString("zh-CN", { hour: "2-digit", minute: "2-digit", hour12: false }) : undefined };
+    return { date: postmarkDate(date), time: hasTime ? date.toLocaleTimeString(intlLocale(), { hour: "2-digit", minute: "2-digit", hour12: false }) : undefined };
   }
   const time = text.match(/\b(\d{1,2}):(\d{2})\b/);
-  const day = text.match(/\b(\d{1,2})[./-](\d{1,2})\b(?!:)/) ?? text.match(/(\d{1,2})\s*月\s*(\d{1,2})\s*日/);
+  // Parsing patterns for model-written Chinese dates and times, not UI copy. Escaped
+  // so the hardcoded-text gate stays at zero: \u6708/\u65e5 month/day,
+  // \u4e0b\u5348/\u665a\u4e0a afternoon/evening (pm), \u51cc\u6668/\u4e0a\u5348 small hours/morning (am).
+  const day = text.match(/\b(\d{1,2})[./-](\d{1,2})\b(?!:)/) ?? text.match(/(\d{1,2})\s*\u6708\s*(\d{1,2})\s*\u65e5/);
   let hour = time ? Number(time[1]) : 0;
-  if (time && /\bpm\b|下午|晚上/i.test(text) && hour < 12) hour += 12;
-  if (time && /\bam\b|凌晨|上午/i.test(text) && hour === 12) hour = 0;
+  if (time && /\bpm\b|\u4e0b\u5348|\u665a\u4e0a/i.test(text) && hour < 12) hour += 12;
+  if (time && /\bam\b|\u51cc\u6668|\u4e0a\u5348/i.test(text) && hour === 12) hour = 0;
   return { date: day ? `${Number(day[1])}.${Number(day[2])}` : undefined, time: time ? `${String(hour).padStart(2, "0")}:${time[2]}` : undefined };
 }

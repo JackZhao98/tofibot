@@ -1,4 +1,5 @@
 import type { Message, Run } from "./types";
+import { i18n } from "./i18n";
 
 export function isTerminalRun(run: Pick<Run, "status">) {
   return ["done", "failed", "cancelled", "interrupted"].includes(run.status);
@@ -60,13 +61,14 @@ export function retryFamilyAnchor(family: ReturnType<typeof buildRetryFamilies>[
 }
 
 export function runFailureText(run: Run) {
-	if(run.stop_reason==="approval_expired" || run.failure?.code==="approval_expired")return "已过期。工作已停止，已完成的结果保留；结果不确定的操作需先核实。";
-  if (run.status === "cancelled") return "本次请求已停止。已完成的工具结果保留。";
-  if (run.status === "interrupted") return "本次请求已中断，任务未完成。已完成的工具结果保留。";
+  const t = i18n.getFixedT(null, "tasks");
+  if (run.stop_reason === "approval_expired" || run.failure?.code === "approval_expired") return t("run_failure.approval_expired");
+  if (run.status === "cancelled") return t("run_failure.cancelled");
+  if (run.status === "interrupted") return t("run_failure.interrupted");
   if (run.status !== "failed") return "";
-  if (run.failure?.code === "no_final_answer") return "本次任务结束时没有给出最终回答。已完成的工具结果保留，可重试。";
-  if (run.failure?.code === "budget_exhausted") return "本次任务的执行预算已用尽，任务未完成。已完成的工具结果保留，请检查原因后继续。";
+  if (run.failure?.code === "no_final_answer") return t("run_failure.no_final_answer");
+  if (run.failure?.code === "budget_exhausted") return t("run_failure.budget_exhausted");
   const interrupted = run.failure?.source === "runtime" && run.failure.code === "connection_interrupted"
     || (!run.failure && /stream read error|connection reset|unexpected EOF|INTERNAL_ERROR.*received from peer/i.test(run.error ?? ""));
-  return interrupted ? "连接中断，任务未完成。已完成的工具结果保留；重试前请核实结果不确定的操作。" : "本次请求失败，任务未完成。已完成的工具结果保留。";
+  return interrupted ? t("run_failure.connection_interrupted") : t("run_failure.failed");
 }

@@ -1,24 +1,12 @@
 import assert from "node:assert/strict";
-import { execFileSync } from "node:child_process";
-import { mkdtemp, rm } from "node:fs/promises";
-import { tmpdir } from "node:os";
-import { dirname, join } from "node:path";
-import { fileURLToPath, pathToFileURL } from "node:url";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
-import { build } from "vite";
-import react from "@vitejs/plugin-react";
-import { symlink } from "node:fs/promises";
+import { openUiModules } from "./ui-modules.mjs";
 
-const root = dirname(dirname(fileURLToPath(import.meta.url)));
-const output = await mkdtemp(join(tmpdir(), "tofi-integration-catalog-"));
+// Shipped zh-CN copy; English is loaded as well for the en checks.
+const ui = await openUiModules({ language: "zh-CN" });
 async function browserRenderer() {
-  await build({
-    configFile: false, root, plugins: [react()], logLevel: "error",
-    build: { outDir: join(output, "browser"), emptyOutDir: false, lib: { entry: join(root, "src/IntegrationBrowser.tsx"), formats: ["es"], fileName: "browser" }, rollupOptions: { external: ["react", "react/jsx-runtime", "react/jsx-dev-runtime"] } },
-  });
-  await symlink(join(root, "node_modules"), join(output, "node_modules"), "dir");
-  const { IntegrationBrowser } = await import(pathToFileURL(join(output, "browser/browser.js")));
+  const { IntegrationBrowser } = await ui.load("/src/IntegrationBrowser.tsx");
   return (query = "", servers = []) => renderToStaticMarkup(createElement(IntegrationBrowser, { query, servers, onQueryChange() {}, onBack() {}, onSelect() {}, onCustom() {} }));
 }
 
@@ -35,9 +23,8 @@ function assertRetiredNotion(html) {
 }
 
 async function run() {
-  execFileSync(join(root, "node_modules/.bin/tsc"), ["src/integrationCatalog.ts", "src/mcpTokenHeaders.ts", "--ignoreConfig", "--target", "ES2022", "--module", "ES2022", "--moduleResolution", "Bundler", "--outDir", output, "--skipLibCheck", "--strict"], { cwd: root });
-  const { integrationCatalog, getIntegrationPreset, heldIntegrations, matchesIntegration } = await import(pathToFileURL(join(output, "integrationCatalog.js")));
-  const { mcpTokenHeaders } = await import(pathToFileURL(join(output, "mcpTokenHeaders.js")));
+  const { integrationCatalog, getIntegrationPreset, heldIntegrations, matchesIntegration, integrationAuthLabel } = await ui.load("/src/integrationCatalog.ts");
+  const { mcpTokenHeaders } = await ui.load("/src/mcpTokenHeaders.ts");
   if (process.argv.includes("--retired-notion")) {
     const render = await browserRenderer();
     assertRetiredNotion(render("Notion"));
@@ -113,6 +100,17 @@ async function run() {
   const installed = render("GitHub", [{ url: readonly.url }]);
   assert.match(installed, /<button[^>]*data-integration-id="github-readonly"[^>]*disabled=""/);
   assert.ok(render("synthetic-missing-provider").includes('role="status"'));
+
+  // Catalog text follows the UI language at access time.
+  await ui.setLanguage("en");
+  try {
+    assert.equal(getIntegrationPreset("github-readonly").name, "GitHub (read-only)");
+    assert.equal(integrationAuthLabel("none"), "No key needed");
+    assert.ok(matchesIntegration(heldIntegrations.find(item => item.id === "notion-token"), "legacy"));
+    const english = render("Notion");
+    assert.ok(english.includes("Former provider project") && english.includes("No longer maintained") && english.includes('aria-label="Services not available yet"'));
+    assert.ok(!/[\p{sc=Han}]/u.test(render()), "English rendering has no Chinese text");
+  } finally { await ui.setLanguage("zh-CN"); }
   console.log("Integration catalog, private token headers and actual browser rendering: PASS (source/auth labels, read-only presets, held-provider setup fence, search, installed state, preserve/replace/delete)");
 }
-try { await run(); } finally { await rm(output, { recursive: true, force: true }); }
+try { await run(); } finally { await ui.close(); }

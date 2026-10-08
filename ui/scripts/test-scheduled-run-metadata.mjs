@@ -5,14 +5,12 @@ import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { promisify } from "node:util";
+import { openUiModules } from "./ui-modules.mjs";
 
 const root = dirname(dirname(fileURLToPath(import.meta.url)));
-const output = await mkdtemp(join(tmpdir(), "tofi-scheduled-run-"));
+const ui = await openUiModules();
 try {
-  await promisify(execFile)(join(root, "node_modules/.bin/tsc"), ["src/scheduledRunMetadata.ts", "--ignoreConfig", "--target", "ES2022", "--module", "ES2022", "--moduleResolution", "Bundler", "--outDir", output, "--skipLibCheck", "--declaration", "false", "--pretty", "false"], { cwd: root });
-  const compiled = join(output, "scheduledRunMetadata.js");
-  await writeFile(compiled, (await readFile(compiled, "utf8")).replace('from "./timezone"', 'from "./timezone.js"').replace('from "./displayMetadata"', 'from "./displayMetadata.js"'));
-  const { scheduledRunMetadata } = await import(pathToFileURL(compiled));
+  const { scheduledRunMetadata } = await ui.load("/src/scheduledRunMetadata.ts");
   const message = { run_id: "root", conversation_id: "chat", content: "Original task\nFull task instructions", created_at: "2026-09-29T00:00:01Z" };
   const run = { id: "root", status: "done", updated_at: "2026-09-29T00:01:00Z" };
   const occurrence = { root_run_id: "root", schedule_id: "schedule", scheduled_for_utc: "2026-09-29T00:00:00Z", execution_status: "done", status_run_id: "root", kind: "daily", daily_time: "17:00", timezone: "America/Los_Angeles", occurrence_number: 2, created_by: "user" };
@@ -52,7 +50,12 @@ try {
   assert.equal(derive(run, { ...occurrence, scheduled_for_utc: "not-a-date" }).plannedAt, undefined);
   assert.equal(derive({ ...run, status: "running" }, { ...occurrence, execution_status: "running" }).runningSince, run.updated_at);
   assert.doesNotThrow(() => scheduledRunMetadata(message, run, occurrence, schedule, "Invalid/Timezone"));
+  assert.match(derive(run, { ...occurrence, kind: "interval", interval_seconds: 7200 }).metadata, /^每 2 小时 · 第 2 次/);
+  await ui.setLanguage("en");
+  assert.equal(derive(run, occurrence, { ...schedule, conversation_id: "other" }).metadata, "Daily at 17:00 (America/Los_Angeles) · Run #2 · Created by you");
+  assert.match(derive(run, { ...occurrence, kind: "interval", interval_seconds: 3600 }).metadata, /^Every hour · /);
+  await ui.setLanguage("zh-CN");
   console.log("scheduled run metadata: PASS (exact occurrence, preserved task text, timezone, missing data, delegated/stale timestamp provenance)");
 } finally {
-  await rm(output, { recursive: true, force: true });
+  await ui.close();
 }

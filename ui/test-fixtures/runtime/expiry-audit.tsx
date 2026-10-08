@@ -1,5 +1,6 @@
 // Actual App/API/SSE callback acceptance with in-memory synthetic responses only.
 import {createRoot} from "react-dom/client";
+import { i18nReady } from "../../src/i18n";
 import App from "../../src/App";
 import {OwnerSessionGate} from "../../src/OwnerSession";
 import type {Question} from "../../src/questionTimeline";
@@ -110,4 +111,5 @@ function expiryPhase(phase:string,persist=true){
 Object.assign(window,{expiryAudit:{expire:()=>expiryPhase("finishing"),conclude:()=>expiryPhase("finished"),requests,otherBot:()=>emit("run",{id:"other-bot-run",bot_id:"other-bot",status:"running",created_at:at,updated_at:new Date().toISOString()}),reset:()=>sessionStorage.removeItem("tofi-expiry-fixture-phase")}});
 const saved=sessionStorage.getItem("tofi-expiry-fixture-phase");if(saved)expiryPhase(saved,false);
 
-createRoot(document.getElementById('root')!).render(<OwnerSessionGate><App/></OwnerSessionGate>);
+// The app renders after its catalogs load (main.tsx); so does this fixture.
+void i18nReady.finally(() => createRoot(document.getElementById('root')!).render(<OwnerSessionGate><App/></OwnerSessionGate>));

@@ -5,6 +5,7 @@ import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { promisify } from "node:util";
+import { fixedTranslation } from "./i18n-harness.mjs";
 
 const root = dirname(dirname(fileURLToPath(import.meta.url)));
 const out = await mkdtemp(join(tmpdir(), "tofi-remote-control-"));
@@ -51,7 +52,10 @@ try {
   let acquireResult = Promise.resolve({ ok: true, result: { control_id: "control-1" } });
   let renewResult = { ok:true,result:{} };
   let clipboardResult = { text: "copied from Linux" };
+  // Copy is asserted in zh-CN, the shipped catalog.
+  const { useTranslation } = await fixedTranslation("zh-CN");
   const harness = {
+    useTranslation,
     jsx: (type, props) => ({ type, props }),
     jsxs: (type, props) => ({ type, props }),
     useState: (initial) => {
@@ -105,7 +109,8 @@ try {
     .replace(/^import .* from "\.\/desktop";$/m, "const isDesktop = false;")
     .replace(/^import .* from "react\/jsx-runtime";$/m, "const { jsx, jsxs } = globalThis.__remoteHarness; const _jsx = jsx; const _jsxs = jsxs;")
     .replace(/^import .* from "react";$/m, "const { useEffect, useRef, useState } = globalThis.__remoteHarness;")
-    .replace(/^import .* from "\.\/api";$/m, "const { request } = globalThis.__remoteHarness; class ApiError extends Error {}");
+    .replace(/^import .* from "\.\/api";$/m, "const { request } = globalThis.__remoteHarness; class ApiError extends Error {}")
+    .replace(/^import .* from "\.\/i18n";$/m, "const { useTranslation } = globalThis.__remoteHarness;");
   const harnessModule = join(out, "RemoteDesktopControl.harness.mjs");
   await writeFile(harnessModule, source);
   const { RemoteDesktopControl } = await import(pathToFileURL(harnessModule).href);

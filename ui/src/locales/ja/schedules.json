@@ -1,0 +1,80 @@
+{
+  "display": {
+    "title": "定期タスク",
+    "description": "スケジュールに沿って実行します。指示の全文は「管理」で確認できます。"
+  },
+  "run": {
+    "cadence": {
+      "once": "1回のみ",
+      "daily_at": "毎日 {{time}}",
+      "daily": "毎日",
+      "interval": "一定間隔",
+      "days_other": "{{count}}日ごと",
+      "hours_other": "{{count}}時間ごと",
+      "minutes_other": "{{count}}分ごと",
+      "seconds_other": "{{count}}秒ごと"
+    },
+    "with_zone": "{{recurrence}}（{{zone}}）",
+    "created_by_user": "あなたが作成",
+    "created_by_bot": "アシスタントが作成",
+    "occurrence": "第{{number}}回",
+    "planned_unknown": "未確定",
+    "planned_description": "予定：{{date}} {{time}} · {{zone}}",
+    "planned_description_unknown": "予定時刻は未確定",
+    "triggered_on": "定期実行 · {{date}}",
+    "metadata_fallback": "定期タスク",
+    "created_on": "{{date}}に作成",
+    "metadata_snapshot": "この回の実行時点で保存された頻度",
+    "metadata_no_snapshot": "実行記録のみ。当時の頻度は保存されていません",
+    "status_description": "{{date}} {{time}} · {{zone}} にステータス更新",
+    "retry_failed": "再実行できませんでした。しばらくしてからもう一度お試しください。",
+    "retrying": "再試行中…",
+    "retry": "再試行",
+    "confirm_before_retry": "外部操作の重複を避けるため、再試行の前に確認してください。"
+  },
+  "row": {
+    "status": {
+      "waiting": "返信待ち",
+      "queued": "待機中",
+      "running": "実行中",
+      "published": "結果を会話に投稿済み",
+      "done": "実行終了",
+      "failed": "失敗",
+      "cancelled": "停止済み",
+      "interrupted": "中断",
+      "unknown": "ステータス不明",
+      "turn_running": "この回は実行中です",
+      "turn_done": "この回は終了しました",
+      "turn_failed": "この回は失敗しました",
+      "turn_cancelled": "この回は停止されました",
+      "turn_interrupted": "この回は中断されました"
+    },
+    "failure": {
+      "receipt_missing": "この回は完了した結果を確認できなかったため、配信済みとはみなされません。",
+      "incomplete": "この回は完了しませんでした。タスクの記録は残っています。",
+      "receipt_missing_confirm": "この回は完了した結果を確認できなかったため、配信済みとはみなされません。外部操作の重複を避けるため、再試行の前に確認してください。",
+      "incomplete_confirm": "この回は完了しませんでした。タスクの記録は残っています。外部操作の重複を避けるため、再試行の前に確認してください。"
+    },
+    "note": {
+      "partial_status": "実行ステータスの全体はまだ取得できません。メインの実行のステータスのみ表示しています。",
+      "unpublished": "最終返信がこの会話で確認できていません。実行が終了しても、結果が届いたとは限りません。"
+    },
+    "manage_instructions": "管理 · 指示の全文",
+    "technical_reason": "技術的な詳細を表示",
+    "rerunning": "再実行中…",
+    "rerun": "もう一度実行"
+  },
+  "editor": {
+    "edit": "編集",
+    "conflict": "編集中にこのスケジュールが変更されました。下書きは保持されています。キャンセルして開き直すと比較できます。",
+    "save_failed": "スケジュールを保存できませんでした",
+    "title": "タイトル",
+    "title_aria": "スケジュールのタイトルを編集",
+    "description": "説明",
+    "description_aria": "スケジュールの説明を編集",
+    "instructions": "指示の全文",
+    "instructions_aria": "スケジュールの指示を編集",
+    "cancel": "キャンセル",
+    "save": "保存"
+  }
+}

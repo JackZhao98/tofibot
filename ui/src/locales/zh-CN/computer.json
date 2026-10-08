@@ -1,0 +1,353 @@
+{
+  "desktop": {
+    "error": {
+      "resource_limit_count_other": "共享桌面资源暂不可用（{{count}} 个活动会话），请稍后重试。",
+      "resource_limit": "共享桌面资源暂不可用，请稍后重试。",
+      "stopping": "共享桌面正在停止，请稍后再试。",
+      "busy": "电脑正在执行其他操作，请稍后再试。",
+      "not_configured": "共享电脑尚未配置，请先完成服务器安装。",
+      "failed": "电脑操作失败，请稍后重试。",
+      "capture_failed": "电脑截图失败",
+      "action_failed": "电脑操作失败",
+      "switching": "桌面正在切换或准备中，请稍后重试。",
+      "unreachable": "桌面暂时连接不上，请稍后重试。",
+      "connection_lost": "电脑连接暂时不可用，正在重试…"
+    },
+    "phase": {
+      "checking": "检查环境",
+      "storage": "准备存储",
+      "network": "准备网络",
+      "booting": "启动虚拟机",
+      "verifying": "验证 Linux 与 Chrome",
+      "ready": "就绪"
+    },
+    "state": {
+      "starting": "正在准备共享电脑",
+      "ready": "电脑已就绪",
+      "error": "电脑准备失败",
+      "stopped": "电脑已停止",
+      "other": "电脑{{state}}"
+    },
+    "other_bot": "其他 Bot",
+    "frame": {
+      "paused": "画面已暂停 · 非实时",
+      "live": "实时画面",
+      "snapshot": "截图查看 · 刚刚更新"
+    },
+    "announce": {
+      "connecting": "正在连接桌面",
+      "disconnected": "已断开桌面查看",
+      "live": "桌面已连接，正在显示实时视频",
+      "fallback": "桌面已连接，已切换为截图查看",
+      "recovering": "桌面已连接，正在恢复画面"
+    },
+    "shrink_aria": "缩小共享电脑",
+    "expand_aria": "放大共享电脑",
+    "shrink": "缩小",
+    "expand": "放大",
+    "hide_aria": "隐藏共享电脑",
+    "minimize": "最小化",
+    "title": "共享电脑",
+    "status": {
+      "failed": "连接失败",
+      "connecting_preview": "正在连接预览…",
+      "booting_phase": "正在开机 · {{phase}}",
+      "booting": "正在开机…",
+      "you": "你在控制",
+      "bot": "{{name}} 在操作",
+      "idle": "共享电脑空闲"
+    },
+    "power_hint": "收起屏幕（电脑继续运行）",
+    "control": {
+      "release": "交还控制",
+      "take": "接管控制",
+      "you": "你"
+    },
+    "phase_label": "阶段：{{phase}}",
+    "state_synced": "状态已同步",
+    "retry_prepare": "重试准备",
+    "screen_alt": "共享电脑屏幕",
+    "launch": {
+      "failed_aria": "电脑连接失败",
+      "preview_aria": "正在连接电脑预览",
+      "starting_aria": "正在启动电脑",
+      "failed": "连接失败，请稍后重新打开"
+    },
+    "tools": {
+      "title": "辅助操作",
+      "open_browser": "打开浏览器",
+      "run_shell": "运行 Shell（{{name}} 工作区）",
+      "shell_placeholder": "例如：pwd",
+      "run": "运行命令",
+      "technical": "技术详情",
+      "workspace": "工作区",
+      "browser": "浏览器"
+    },
+    "video_aria": "Bot 当前桌面实时视频",
+    "pointer_click": "{{name}} · 点击"
+  },
+  "floating": {
+    "open": "打开共享电脑",
+    "open_activity": "打开共享电脑：{{activity}}",
+    "hide_mini_aria": "收起小屏",
+    "collapse": "收起",
+    "peek_hint": "仅查看 · 点击放大"
+  },
+  "remote": {
+    "error": {
+      "control_failed": "桌面控制失败",
+      "no_control": "没有取得桌面控制权",
+      "take_failed": "无法接管桌面",
+      "text_rejected": "当前窗口未接收文本，请先点击输入位置",
+      "interrupted": "连接中断，请重新接管",
+      "too_slow": "输入连接过慢，请重新接管",
+      "disconnected": "控制连接已断开，请重新接管"
+    },
+    "notice": {
+      "waiting_current": "正在等待当前操作完成…",
+      "switching": "桌面刚刚仍在切换控制，请稍后再试。",
+      "handed_to_bot": "已交给等待中的 Bot"
+    },
+    "status": {
+      "you": "你正在控制",
+      "waiting": "等待操作完成…",
+      "bot": "{{name}} 正在控制",
+      "other_window": "其他窗口正在控制",
+      "connecting": "正在连接…",
+      "click_to_take": "点击画面接管"
+    },
+    "keyboard": {
+      "hide_aria": "收起远程键盘",
+      "open_aria": "打开远程键盘",
+      "hide": "收起键盘",
+      "open": "键盘"
+    },
+    "release": "释放控制",
+    "bot_waiting": "Bot 请求使用电脑，将在你停止操作 15 秒后接手。",
+    "surface_aria": "远程桌面操作区域",
+    "surface_preview_aria": "共享电脑画面预览；拖动可移动",
+    "keyboard_input_aria": "远程桌面键盘输入",
+    "copy": {
+      "note": "浏览器未允许自动写入本机剪贴板，请复制以下文字。",
+      "aria": "从远程桌面复制的文字",
+      "close": "关闭"
+    }
+  },
+  "terminal": {
+    "error": {
+      "control_lost": "控制已断开，请重新接管",
+      "no_control": "无法取得控制权",
+      "take_failed": "无法接管"
+    },
+    "aria": "{{name}} 的终端",
+    "title": "终端",
+    "new": "新终端",
+    "release": "释放控制",
+    "take": "接管",
+    "close_aria": "关闭终端面板",
+    "tabs_aria": "终端会话",
+    "connecting": "正在连接…",
+    "empty": "还没有终端",
+    "create": "新建终端",
+    "status": {
+      "you": "你正在控制",
+      "watching": "观看中",
+      "closed": "已结束",
+      "exited": "已退出 ({{code}})",
+      "done": "已完成"
+    },
+    "end": "结束终端",
+    "close": {
+      "title": "结束这个终端？",
+      "body": "其中运行的进程也会停止。",
+      "keep": "保留"
+    },
+    "interrupt": {
+      "title": "接管当前终端？",
+      "body": "终端可能仍有命令运行。接管会停止 {{name}} 的当前任务，并向选中的终端发送中断。",
+      "keep_watching": "继续观看",
+      "stop_take": "停止并接管"
+    },
+    "trimmed": "较早输出已移出缓存。",
+    "reconnecting": "终端连接暂时中断，正在重连…",
+    "live_aria": "实时终端"
+  },
+  "pairing": {
+    "this_device": "这台设备",
+    "mac_client": "Mac 客户端",
+    "connected": "{{name}} 已连接。",
+    "expired": "配对码已过期，请重新生成。",
+    "enter_code": "在 Mac 客户端输入此配对码，5 分钟内有效。",
+    "code_aria": "配对码 {{code}}",
+    "waiting": "等待设备确认…"
+  },
+  "env": {
+    "unavailable": "运行环境暂不可用。",
+    "start_failed": "电脑未能启动，请稍后重试。",
+    "title": "运行环境",
+    "description": "Linux、Google Chrome、文件浏览器和终端使用同一套环境。每个 Bot 有自己的工作文件夹，也可互相访问。",
+    "state": {
+      "ready": "共享电脑已就绪",
+      "starting": "正在准备电脑",
+      "stopped": "共享电脑已停止",
+      "waiting": "等待电脑连接"
+    },
+    "workspace": "工作目录 {{path}}",
+    "workspace_idle_other": "工作目录 {{path}} · 桌面闲置 {{count}} 分钟后自动关闭",
+    "retry": "重新准备电脑"
+  },
+  "mac": {
+    "title": "Mac 权限",
+    "description": "管理屏幕录制和辅助功能权限，允许 Tofi 在你授权后查看屏幕并操作桌面。",
+    "open_card": "查看授权卡片"
+  },
+  "devices": {
+    "title": "其他设备",
+    "note": "也可以连接已安装 Tofi 客户端的 Mac。",
+    "pair_failed": "暂时无法创建配对码。",
+    "connect": "连接 Mac",
+    "online": "在线",
+    "offline": "离线",
+    "disconnect_failed": "未能断开设备。",
+    "disconnect": "断开"
+  },
+  "resources": {
+    "restart": {
+      "title": "重启并应用配置？",
+      "impact": "请先停止正在执行的 Bot 任务。重启会中断所有 Bot 的桌面和终端，其中运行的进程也会停止；工作文件会保留。",
+      "confirm": "确认重启"
+    },
+    "cancel": "取消",
+    "error": {
+      "restart_incomplete": "重启未完成，请重试。",
+      "read": "暂时无法读取电脑资源，请重试。",
+      "out_of_range": "资源配置超出允许范围，请检查后重试。",
+      "save": "保存失败，请重试。",
+      "busy": "电脑正在执行任务或应用配置。请先停止任务，稍后重试。",
+      "restart_request": "重启请求未完成，请重试。",
+      "start_failed": "电脑启动失败，请重试。"
+    },
+    "status": {
+      "applied": "配置已应用。",
+      "saved_pending": "配置已保存，重启后应用。",
+      "saved": "配置已保存。"
+    },
+    "draft_label": "电脑资源",
+    "title": "资源",
+    "adjust": "调整配置",
+    "unit": {
+      "cores": "核"
+    },
+    "memory": "内存",
+    "disk_allocated": "已分配磁盘",
+    "host": "主机：{{cpus}} 核 · {{memory}} GB 内存，磁盘剩余 {{disk}} GB。",
+    "pending": "待应用：{{cpus}} 核 · {{memory}} GB 内存 · {{disk}} GB 磁盘。",
+    "restart_apply": "重启并应用",
+    "field": {
+      "cpus": "CPU 核数",
+      "memory": "内存（GB）",
+      "disk": "磁盘（GB）"
+    },
+    "field_note": "磁盘只扩容、不缩小。保存后需重启电脑才能应用，关闭桌面不会应用配置。",
+    "restarting": "正在重启并应用配置…",
+    "retry_restart": "重试重启",
+    "reading": "读取中…",
+    "retry": "重试",
+    "loading": "正在读取资源…"
+  },
+  "credentials": {
+    "error": {
+      "exists": "此文件名已存在，请换一个名称。",
+      "busy": "电脑正在处理任务，请稍后重试。",
+      "private_key_invalid": "无法识别私钥，请检查文件格式。",
+      "private_key_filename": "请使用私钥文件名，例如 id_ed25519_work；不要使用 .pub、config 或 known_hosts。",
+      "ssh_dir": "电脑的 .ssh 目录不可用，请检查目录后重试。",
+      "openssh_missing": "电脑尚未安装 OpenSSH 工具。",
+      "key_io": "无法读取或配置密钥，请稍后重试。",
+      "load": "无法读取配置，请重试。",
+      "switch_unsaved": "请先保存或放弃当前输入，再切换类型。",
+      "no_bot": "请先创建一个 Bot，再配置共享电脑。",
+      "operation": "操作失败，请重试。",
+      "required": "请填写必填项后重试。",
+      "name_format": "名称格式不正确，请检查后重试。",
+      "not_private_key": "请输入私钥内容；.pub 文件是公钥，不能作为私钥导入。",
+      "too_large": "私钥不能超过 64 KB。",
+      "public_key_file": "这是公钥文件，请选择对应的私钥文件（通常不带 .pub）。",
+      "file_too_large": "请选择小于 64 KB 的私钥文件。",
+      "no_private_key_in_file": "文件中没有找到私钥，请选择私钥文件或直接粘贴内容。",
+      "read_file": "无法读取文件，请重试或直接粘贴私钥。",
+      "copy_manual": "请在下方公钥框内复制（⌘C / Ctrl+C）。",
+      "drop_single": "请一次只拖入一个私钥文件。"
+    },
+    "status": {
+      "saved_applied": "已保存并应用。新启动的命令和终端会读取配置。",
+      "saved_not_applied": "已保存，尚未应用到电脑。可在列表中重试应用。",
+      "generated": "密钥已生成。可复制公钥到目标服务。",
+      "imported": "密钥已导入。",
+      "applied": "已应用到共享电脑。",
+      "deleted": "已删除保存项，电脑中的副本保留。"
+    },
+    "tab": {
+      "env": "环境变量",
+      "ssh": "SSH Key"
+    },
+    "draft": {
+      "ssh": "SSH 密钥"
+    },
+    "tabs_aria": "凭据类型",
+    "apply": "应用到电脑",
+    "delete": "删除",
+    "delete_question": "删除保存项？电脑中的副本会保留。",
+    "note": {
+      "env": "所有 Bot 共用，新启动的命令生效。",
+      "ssh": "共享电脑中的密钥，自动同步列表。"
+    },
+    "cancel": "取消",
+    "add_env": "添加变量",
+    "add_key": "添加密钥",
+    "mode_aria": "添加密钥方式",
+    "mode": {
+      "import": "导入密钥",
+      "generate": "生成新密钥"
+    },
+    "field": {
+      "display_name": "显示名称（可选）",
+      "display_name_placeholder": "例如：工作账号",
+      "env_name": "变量名",
+      "key_file": "密钥文件名",
+      "env_value": "变量值",
+      "private_key": "私钥内容",
+      "private_key_placeholder": "粘贴私钥，或将文件拖到这里"
+    },
+    "choose_file": "选择文件",
+    "private_key_note": "私钥不会发到聊天。加密私钥需在电脑中解锁。",
+    "generate_note": "生成 Ed25519 密钥，私钥保留在共享电脑。不会覆盖已有文件。",
+    "submit": {
+      "working": "处理中…",
+      "save_apply": "保存并应用",
+      "import": "导入密钥",
+      "generate": "生成密钥"
+    },
+    "loading": "正在读取…",
+    "empty_env": "暂无环境变量",
+    "key": {
+      "public_only": "仅公钥",
+      "public_only_fingerprint": "仅公钥 · {{fingerprint}}",
+      "encrypted_no_public": "加密私钥，未找到公钥",
+      "no_public": "未找到公钥",
+      "unverified": "公钥与私钥的匹配未验证 · {{fingerprint}}",
+      "hide_public": "收起公钥",
+      "show_public": "查看公钥",
+      "copied": "已复制",
+      "copy_public": "复制公钥",
+      "public_aria": "{{name}} 公钥"
+    },
+    "no_bot_note": "创建一个 Bot 后，可读取共享电脑中的密钥。",
+    "empty_ssh": "电脑中暂无 SSH Key",
+    "legacy_title": "已保存的密钥",
+    "legacy_note": "以前保存的配置，可应用到电脑。",
+    "sync_pending": "电脑暂忙，稍后自动同步。",
+    "truncated": "密钥较多，当前仅显示部分结果。",
+    "retry": "重试"
+  }
+}

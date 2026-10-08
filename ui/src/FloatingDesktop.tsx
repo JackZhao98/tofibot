@@ -1,5 +1,6 @@
 import { useEffect, useId, useLayoutEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { TofiIcon } from "./icons";
+import { i18n, useTranslation } from "./i18n";
 
 /** Keeps the mini screen beside the composer's right edge, above the perched cat. */
 function useComposerAnchor(active: boolean) {
@@ -28,6 +29,7 @@ function useComposerAnchor(active: boolean) {
 export function FloatingDesktop({ expanded, activityLabel, onOpen, onClose, children }: {
   expanded: boolean; activityLabel?: string; onOpen: () => void; onClose: () => void; children: ReactNode;
 }) {
+  const { t } = useTranslation("computer");
   const shellRef = useRef<HTMLDivElement>(null);
   const launcherRef = useRef<HTMLButtonElement>(null);
   const returnFocusRef = useRef<HTMLElement | null>(null);
@@ -104,7 +106,7 @@ export function FloatingDesktop({ expanded, activityLabel, onOpen, onClose, chil
         restoringFocusRef.current = true;
         if (trigger?.isConnected && trigger !== document.body) trigger.focus({ preventScroll: true });
         else if (launcherRef.current) launcherRef.current.focus({ preventScroll: true });
-        else document.querySelector<HTMLElement>('[aria-label="打开共享电脑"]')?.focus({ preventScroll: true });
+        else document.querySelector<HTMLElement>(`[aria-label="${CSS.escape(i18n.t("computer:floating.open"))}"]`)?.focus({ preventScroll: true });
         restoringFocusRef.current = false;
       }
       returnFocusRef.current = null;
@@ -113,22 +115,22 @@ export function FloatingDesktop({ expanded, activityLabel, onOpen, onClose, chil
 
   if (mini) return <div ref={shellRef} className="desktop-floating-shell is-mini" style={anchor}>
     <div className="desktop-mini">
-      <button type="button" className="desktop-mini-open" aria-label={`打开共享电脑：${activityLabel}`} onClick={openDesktop} />
+      <button type="button" className="desktop-mini-open" aria-label={t("floating.open_activity", { activity: activityLabel })} onClick={openDesktop} />
       <div className="desktop-presence-canvas" inert aria-hidden="true">{children}</div>
       <div className="desktop-mini-controls">
-        <button type="button" className="desktop-mini-control" aria-label="放大共享电脑" title="放大" onClick={openDesktop}><TofiIcon name="external-link" size={14} /></button>
-        <button type="button" className="desktop-mini-control" aria-label="收起小屏" title="收起" onClick={() => setMiniHidden(true)}><TofiIcon name="minus" size={14} /></button>
+        <button type="button" className="desktop-mini-control" aria-label={t("desktop.expand_aria")} title={t("desktop.expand")} onClick={openDesktop}><TofiIcon name="external-link" size={14} /></button>
+        <button type="button" className="desktop-mini-control" aria-label={t("floating.hide_mini_aria")} title={t("floating.collapse")} onClick={() => setMiniHidden(true)}><TofiIcon name="minus" size={14} /></button>
       </div>
       <p className="desktop-mini-status"><span className="desktop-presence-dot" aria-hidden="true" />{activityLabel}</p>
     </div>
   </div>;
 
   return <div ref={shellRef} className={`desktop-floating-shell${expanded ? " is-expanded" : ""}`}
-    role={expanded ? "dialog" : undefined} aria-modal={expanded || undefined} aria-label={expanded ? "共享电脑" : undefined} tabIndex={expanded ? -1 : undefined}
+    role={expanded ? "dialog" : undefined} aria-modal={expanded || undefined} aria-label={expanded ? t("desktop.title") : undefined} tabIndex={expanded ? -1 : undefined}
     onPointerEnter={event => { if (event.pointerType === "mouse" && supportsPreview()) { setDismissed(false); setHovered(true); } }}
     onPointerLeave={() => setHovered(false)}>
     {!expanded && <button ref={launcherRef} type="button" className="desktop-presence-launcher"
-      aria-label={`打开共享电脑${activityLabel ? `：${activityLabel}` : ""}`} aria-expanded={false} aria-controls={preview ? contentId : undefined}
+      aria-label={activityLabel ? t("floating.open_activity", { activity: activityLabel }) : t("floating.open")} aria-expanded={false} aria-controls={preview ? contentId : undefined}
       onFocus={() => { if (window.matchMedia("(min-width: 768px)").matches) { if (!restoringFocusRef.current) setDismissed(false); setFocused(true); } }} onBlur={() => setFocused(false)}
       onKeyDown={event => { if (event.key === "Escape" && preview) { event.preventDefault(); setDismissed(true); } }}
       onClick={openDesktop}>
@@ -138,7 +140,7 @@ export function FloatingDesktop({ expanded, activityLabel, onOpen, onClose, chil
       onPointerDownCapture={!expanded ? () => { pointerFocusRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null; } : undefined}
       onClick={!expanded ? openDesktop : undefined}>
       <div className="desktop-presence-canvas" inert={!expanded || undefined} aria-hidden={!expanded || undefined}>{children}</div>
-      {!expanded && <p className="desktop-presence-peek-hint">仅查看 · 点击放大</p>}
+      {!expanded && <p className="desktop-presence-peek-hint">{t("floating.peek_hint")}</p>}
     </div>}
   </div>;
 }

@@ -1,0 +1,23 @@
+{
+  "nav": {
+    "settings": "설정",
+    "usage": "사용량",
+    "connection": "서버 및 연결",
+    "archived": "보관된 대화"
+  },
+  "theme": {
+    "label": "화면 모드",
+    "system": "시스템",
+    "light": "라이트",
+    "dark": "다크"
+  },
+  "time": {
+    "unknown": "시간 미확인"
+  },
+  "action": {
+    "retry": "다시 시도"
+  },
+  "apiError": {
+    "request_failed": "요청 실패({{status}})"
+  }
+}

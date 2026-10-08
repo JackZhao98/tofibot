@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { openDesktopVideo } from "./desktopVideoRecovery";
+import { useTranslation } from "./i18n";
 
 export type DesktopVideoState = "connecting" | "live" | "fallback" | "stopped";
 type Props = {
@@ -29,6 +30,7 @@ export function desktopPlaybackAdjustment(current: number, start: number, end: n
 // Full Xvfb desktop video. Input intentionally stays in the existing action
 // API: a video connection cannot claim control or extend desktop idle time.
 export function DesktopVideo({ botId, enabled, poster, cursor = "visible", className = "computer-screen", onState, onClick }: Props) {
+  const { t } = useTranslation("computer");
   const videoRef = useRef<HTMLVideoElement>(null);
   const [resumePoster, setResumePoster] = useState<{ botId: string; src: string } | null>(null);
   const resumePosterRef = useRef<{ botId: string; src: string } | null>(null);
@@ -201,5 +203,5 @@ export function DesktopVideo({ botId, enabled, poster, cursor = "visible", class
   }, [botId, enabled, cursor]);
 
   const visiblePoster = enabled && resumePoster?.botId === botId ? resumePoster.src : poster;
-  return <video ref={videoRef} className={className} poster={visiblePoster} onClick={onClick} muted playsInline disablePictureInPicture aria-label="Bot 当前桌面实时视频" style={{ width: "100%", aspectRatio: "8 / 5", objectFit: "contain" }} />;
+  return <video ref={videoRef} className={className} poster={visiblePoster} onClick={onClick} muted playsInline disablePictureInPicture aria-label={t("desktop.video_aria")} style={{ width: "100%", aspectRatio: "8 / 5", objectFit: "contain" }} />;
 }
