@@ -5,7 +5,7 @@ import { directAvatarMotion, type AvatarMotion } from "./avatarMotionDirector";
 
 export type { AvatarMotion } from "./avatarMotionDirector";
 
-export function GazeAvatar({ id, mini = false, animated = false, motion, config }: { id: string; mini?: boolean; animated?: boolean; motion?: AvatarMotion; config?: AvatarConfig }) {
+export function BotAvatar({ id, mini = false, animated = false, motion, config }: { id: string; mini?: boolean; animated?: boolean; motion?: AvatarMotion; config?: AvatarConfig }) {
   const host = useRef<HTMLSpanElement | null>(null);
   const controller = useRef<CatAvatar | null>(null);
   const previousMotion = useRef<AvatarMotion>("sleeping");

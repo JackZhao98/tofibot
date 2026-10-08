@@ -66,7 +66,7 @@ try {
     .replace(/^import .* from "\.\/icons";$/m, "const { TofiIcon } = globalThis.__desktopHarness;")
     .replace(/^import .* from "\.\/RemoteDesktopControl";$/m, "const { RemoteDesktopControl } = globalThis.__desktopHarness;");
   const isolatedSource = source
-    .replace(/^import .* from "\.\/GazeAvatar";$/m, "const GazeAvatar = () => null;")
+    .replace(/^import .* from "\.\/BotAvatar";$/m, "const BotAvatar = () => null;")
     .replace(/^import .* from "\.\/DesktopPointerMarker";$/m, "const DesktopPointerMarker = () => null;")
     .replace(/^import .* from "\.\/desktop";$/m, "const isDesktop = false;")
     .replace(/^import .* from "\.\/desktopPresence";$/m, "const useDesktopPresence = () => ({ownership:{owner:null, waiting:[]}, unavailable:false});")

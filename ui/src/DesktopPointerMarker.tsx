@@ -1,6 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { isDesktop } from "./desktop";
-import { GazeAvatar } from "./GazeAvatar";
+import { BotAvatar } from "./BotAvatar";
 import { DesktopPointerGlyph } from "./DesktopPointerGlyph";
 import { desktopPointerPosition, visibleDesktopPointer, type DesktopPresenceState, type DesktopPointer } from "./desktopPresence";
 
@@ -46,7 +46,7 @@ export function DesktopPointerMarker({ presence, humanControlled, botLabel }: { 
   return <span className="desktop-pointer-overlay" ref={overlay} aria-hidden="true">
     {isDesktop ? pointer && position && <span className={`desktop-pointer-confirmed${position.left > bounds.width / 2 ? " is-right" : ""}${position.top > bounds.height - 36 ? " is-bottom" : ""}`} style={position}>
       <span key={pointer.updated_at} className="desktop-click-ring" />
-      <span className="desktop-pointer-label"><GazeAvatar id={pointer.bot_id} mini animated={false}/><span>{botLabel(pointer.bot_id)} · 点击</span></span>
+      <span className="desktop-pointer-label"><BotAvatar id={pointer.bot_id} mini animated={false}/><span>{botLabel(pointer.bot_id)} · 点击</span></span>
     </span> : <WebPointer key={`${owner?.bot_id}:${owner?.run_id}:${humanControlled}`} pointer={pointer} name={botLabel} {...bounds} />}
   </span>;
 }

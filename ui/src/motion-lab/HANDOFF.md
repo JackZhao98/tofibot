@@ -6,7 +6,7 @@ Web 已接入只读来信显示、从来信请求 Bot 起草回复、`prepare_em
 
 仍有功能缺口：收件箱摘要、归档、稍后提醒、标签和 Gmail 原线程回复尚无完整数据与动作接口。下面的旧交接表是当时快照，邮件状态以本节为准。
 
-Motion Lab 是一个独立的展示页：`ui/motion-lab.html`，源码在 `ui/src/motion-lab/`。它复用生产环境的 `design-tokens.css`、`lib/tofi-avatar`（`mountCat`）、`icons`（`TofiIcon`）和 `GazeAvatar`；新增的 `ApprovalCard`、`ScheduledRun` 直接与 Web 共用组件。本地运行 `npm --prefix ui run dev`，打开 `/motion-lab.html` 就能看到。构建时它由 `ui/vite.motion-lab.config.ts` 单独打包。
+Motion Lab 是一个独立的展示页：`ui/motion-lab.html`，源码在 `ui/src/motion-lab/`。它复用生产环境的 `design-tokens.css`、`lib/tofi-avatar`（`mountCat`）、`icons`（`TofiIcon`）和 `BotAvatar`；新增的 `ApprovalCard`、`ScheduledRun` 直接与 Web 共用组件。本地运行 `npm --prefix ui run dev`，打开 `/motion-lab.html` 就能看到。构建时它由 `ui/vite.motion-lab.config.ts` 单独打包。
 
 ## 2026-09-29 新增组件与能力
 

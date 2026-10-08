@@ -1,7 +1,7 @@
 import { useEffect, useId, useLayoutEffect, useMemo, useRef, useState, type RefObject } from "react";
 import { createPortal } from "react-dom";
 import { request } from "./api";
-import { GazeAvatar } from "./GazeAvatar";
+import { BotAvatar } from "./BotAvatar";
 import { MessageMarkdown } from "./MessageMarkdown";
 import { TofiIcon } from "./icons";
 import type { Bot, Conversation, Message } from "./types";
@@ -25,7 +25,7 @@ function participantIds(conversation: Conversation, override?: string[]) {
 
 function AvatarStack({ ids }: { ids: string[] }) {
   const visible = ids.slice(0, 3);
-  return <div className="view-only-chat-avatars">{visible.map((id) => <GazeAvatar key={id} id={id} mini />)}{ids.length > visible.length && <em>+{ids.length - visible.length}</em>}</div>;
+  return <div className="view-only-chat-avatars">{visible.map((id) => <BotAvatar key={id} id={id} mini />)}{ids.length > visible.length && <em>+{ids.length - visible.length}</em>}</div>;
 }
 
 function Participant({ ids, name }: { ids: string[]; name: string }) {
@@ -167,7 +167,7 @@ function ViewOnlyChatHistory({ conversationId, runId, botById, closeRef }: { con
       const label = bot?.name ?? message.sender_bot_name ?? (message.role === "user" ? "你" : "Bot");
       const user = message.role === "user" && !message.sender_bot_id;
       return <article className={`view-only-message ${user ? "is-user" : "is-bot"}`} key={message.id} data-message-id={message.id} tabIndex={-1} data-focused={(runId !== undefined && message.run_id === runId) || undefined}>
-        {!user && <GazeAvatar id={message.sender_bot_id ?? "bot"} mini />}
+        {!user && <BotAvatar id={message.sender_bot_id ?? "bot"} mini />}
         <div className="view-only-message-copy"><small>{label}</small><div className="view-only-message-bubble"><MessageMarkdown content={message.content} /></div></div>
       </article>;
     })}</div>

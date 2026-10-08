@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import { GazeAvatar } from "./GazeAvatar";
+import { BotAvatar } from "./BotAvatar";
 import { ApiError, request } from "./api";
 import { isDesktop } from "./desktop";
 
@@ -179,7 +179,7 @@ export function RemoteDesktopControl({ botId, enabled, blocked = false, takeover
     enqueue({ type: "clipboard-barrier" });
   }
   return <div className={`remote-desktop ${owned ? "in-control" : ""}`}>
-    {expanded && isDesktop && <div className="remote-control-bar"><span className="remote-owner-status">{!owned && takeoverRun && <GazeAvatar id={takeoverRun.botId ?? botId} mini animated={false} />}<span>{owned ? "你正在控制" : pending ? "等待操作完成…" : takeoverRun ? `${takeoverRun.name} 正在控制` : blocked ? "其他窗口正在控制" : !enabled ? "正在连接…" : "点击画面接管"}</span></span><div className="remote-control-actions">{owned && (touchMode || touchInput.current) && <button className="secondary-button" aria-label={keyboardOpen ? "收起远程键盘" : "打开远程键盘"} onPointerDown={event => event.preventDefault()} onClick={() => { if (keyboardOpen) input.current?.blur(); else input.current?.focus({ preventScroll: true }); setKeyboardOpen(!keyboardOpen); }}>{keyboardOpen ? "收起键盘" : "键盘"}</button>}{owned && <button className="secondary-button" onClick={() => void release()}>释放控制</button>}</div></div>}
+    {expanded && isDesktop && <div className="remote-control-bar"><span className="remote-owner-status">{!owned && takeoverRun && <BotAvatar id={takeoverRun.botId ?? botId} mini animated={false} />}<span>{owned ? "你正在控制" : pending ? "等待操作完成…" : takeoverRun ? `${takeoverRun.name} 正在控制` : blocked ? "其他窗口正在控制" : !enabled ? "正在连接…" : "点击画面接管"}</span></span><div className="remote-control-actions">{owned && (touchMode || touchInput.current) && <button className="secondary-button" aria-label={keyboardOpen ? "收起远程键盘" : "打开远程键盘"} onPointerDown={event => event.preventDefault()} onClick={() => { if (keyboardOpen) input.current?.blur(); else input.current?.focus({ preventScroll: true }); setKeyboardOpen(!keyboardOpen); }}>{keyboardOpen ? "收起键盘" : "键盘"}</button>}{owned && <button className="secondary-button" onClick={() => void release()}>释放控制</button>}</div></div>}
     {expanded && !isDesktop && owned && (touchMode || touchInput.current) && <div className="remote-control-bar is-touch-keys"><button className="secondary-button" aria-label={keyboardOpen ? "收起远程键盘" : "打开远程键盘"} onPointerDown={event => event.preventDefault()} onClick={() => { if (keyboardOpen) input.current?.blur(); else input.current?.focus({ preventScroll: true }); setKeyboardOpen(!keyboardOpen); }}>{keyboardOpen ? "收起键盘" : "键盘"}</button></div>}
     {owned && waiting && <p className="field-note" role="status">Bot 请求使用电脑，将在你停止操作 15 秒后接手。</p>}
     {notice && <p className="field-note" role="status">{notice}</p>}

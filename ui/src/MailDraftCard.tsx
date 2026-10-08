@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { request } from "./api";
-import { GazeAvatar } from "./GazeAvatar";
+import { BotAvatar } from "./BotAvatar";
 import { TofiIcon } from "./icons";
 import type { Bot } from "./types";
 import { flyMailDraft } from "./mailSendFlight";
@@ -94,7 +94,7 @@ export function MailDraftCard({ draft, bot, group, archived, onDemoAction, onCha
     <details><summary>{taskText(taskLocale(), "查看草稿记录", "View draft record")}</summary><dl><dt>TO</dt><dd>{draft.to}</dd><dt>{taskText(taskLocale(), "主题", "Subject")}</dt><dd>{draft.subject}</dd></dl><p>{draft.body}</p></details>
   </article>;
   return <article className={`mail-draft-message${group ? " is-group" : " is-dm"}`} data-draft-id={draft.draft_id} tabIndex={-1}>
-    {group && <div className="mail-draft-identity"><GazeAvatar id={draft.bot_id} mini /><strong>{bot?.name ?? "Bot"}</strong></div>}
+    {group && <div className="mail-draft-identity"><BotAvatar id={draft.bot_id} mini /><strong>{bot?.name ?? "Bot"}</strong></div>}
     {draft.status === "unknown" && !issueOwned && <TaskIssueCard issue={presentTaskIssue({run:{id:draft.run_id,conversation_id:draft.conversation_id,bot_id:draft.bot_id,status:"done",created_at:draft.created_at,updated_at:draft.updated_at},drafts:[draft],locale:taskLocale()})!} />}
     {draft.status === "unknown" && !issueOwned && <p className="task-issue-fact">{taskText(taskLocale(), "请先检查邮件服务的已发送记录，核对时间、收件人与主题。", "Check sent-mail records in your email service and compare the time, recipient, and subject.")}</p>}
     {draft.status === "unknown" && <p className="task-record-meta">{taskDraftLabel(draft)}: {taskText(taskLocale(), "发送结果待核实", "Sending result needs checking")}</p>}
@@ -103,7 +103,7 @@ export function MailDraftCard({ draft, bot, group, archived, onDemoAction, onCha
       <div className="mail-draft-fields">
         <label>TO {editing ? <input type="text" value={to} onChange={event => setTo(event.target.value)} disabled={Boolean(busy)} /> : <strong>{draft.to}</strong>}</label>
         <label>主题 {editing ? <input type="text" value={subject} onChange={event => setSubject(event.target.value)} disabled={Boolean(busy)} /> : <strong>{draft.subject}</strong>}</label>
-        <span className="mail-draft-stamp" aria-hidden="true"><GazeAvatar id={draft.bot_id} mini /></span>
+        <span className="mail-draft-stamp" aria-hidden="true"><BotAvatar id={draft.bot_id} mini /></span>
       </div>
       <div className="mail-draft-paper">{editing ? <textarea aria-label="邮件正文" value={body} onChange={event => setBody(event.target.value)} disabled={Boolean(busy)} rows={8} /> : <p>{draft.body}</p>}</div>
       <footer>{editing ? <><button type="button" disabled={Boolean(busy)} onClick={() => { setTo(draft.to); setSubject(draft.subject); setBody(draft.body); setEditing(false); setError(""); }}>放弃修改</button><button type="button" className="mail-draft-save" disabled={Boolean(busy || !changed)} onClick={() => void act("save")}>{busy === "save" ? "保存中…" : "保存草稿"}</button></>
