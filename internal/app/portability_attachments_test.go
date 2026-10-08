@@ -455,11 +455,11 @@ func TestPortableAttachmentForwardedStandaloneScope(t *testing.T) {
 func TestPortableAttachmentHTTPAccountIsolation(t *testing.T) {
 	_, bundle, _ := portableAssetFixture(t)
 	g := accountFixture(t)
-	a, err := g.create(context.Background(), "asset-a", "", "SyntheticPassword123!", true)
+	a, err := g.create(context.Background(), "asset-a", "", "SyntheticPassword123!", true, accountCreationSecret(t, g, true))
 	if err != nil {
 		t.Fatal(err)
 	}
-	b, err := g.create(context.Background(), "asset-b", "", "SyntheticPassword123!", false)
+	b, err := g.create(context.Background(), "asset-b", "", "SyntheticPassword123!", false, "")
 	if err != nil {
 		t.Fatal(err)
 	}

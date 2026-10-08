@@ -30,7 +30,7 @@ func TestAccountGuestFileUploadDownloadGeneratedAndReferences(t *testing.T) {
 	var roots []string
 	var dataDirs []string
 	g := accountFixture(t)
-	if _, err := g.create(context.Background(), "admin", "", "SyntheticPassword123!", true); err != nil {
+	if _, err := g.create(context.Background(), "admin", "", "SyntheticPassword123!", true, accountCreationSecret(t, g, true)); err != nil {
 		t.Fatal(err)
 	}
 	socketByAccount := map[string]string{}
@@ -55,7 +55,7 @@ func TestAccountGuestFileUploadDownloadGeneratedAndReferences(t *testing.T) {
 		httpServer := &http.Server{Handler: service.Handler()}
 		go httpServer.Serve(ln)
 		defer httpServer.Close()
-		a, err := g.create(context.Background(), fmt.Sprintf("user-%d", i), "", "SyntheticPassword123!", false)
+		a, err := g.create(context.Background(), fmt.Sprintf("user-%d", i), "", "SyntheticPassword123!", false, "")
 		if err != nil {
 			t.Fatal(err)
 		}

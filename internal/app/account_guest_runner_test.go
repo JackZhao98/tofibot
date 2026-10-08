@@ -117,7 +117,7 @@ func TestAccountGuestRunnerUserFlowAndRestart(t *testing.T) {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { g.Close() })
-	setup := accountRequest(g, "POST", "/api/auth/setup", `{"username":"admin","password":"SyntheticPassword123!"}`, nil)
+	setup := accountRequest(g, "POST", "/api/auth/setup", `{"username":"admin","password":"SyntheticPassword123!","bootstrap_secret":"`+accountCreationSecret(t, g, true)+`"}`, nil)
 	if setup.Code != 200 {
 		t.Fatal(setup.Code, setup.Body.String())
 	}
