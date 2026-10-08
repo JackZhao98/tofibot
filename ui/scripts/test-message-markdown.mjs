@@ -1,26 +1,15 @@
 import assert from "node:assert/strict";
-import { execFile } from "node:child_process";
-import { mkdtemp, rm } from "node:fs/promises";
-import { dirname, join } from "node:path";
-import { fileURLToPath, pathToFileURL } from "node:url";
-import { promisify } from "node:util";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
+import { openUiModules } from "./ui-modules.mjs";
 
-const uiRoot = dirname(dirname(fileURLToPath(import.meta.url)));
-// Keep emitted ESM beneath ui so it resolves the same React and parser packages.
-const outputDir = await mkdtemp(join(uiRoot, ".test-message-markdown-"));
-const run = promisify(execFile);
+// Load the actual MessageMarkdown TSX through Vite (it resolves i18n catalogs);
+// assertions pin the shipped zh-CN copy, with one English check below.
+const ui = await openUiModules({ language: "zh-CN" });
 let checks = 0;
 
 try {
-  await run(join(uiRoot, "node_modules/.bin/tsc"), [
-    "src/MessageMarkdown.tsx", "--ignoreConfig", "--target", "ES2022",
-    "--module", "ES2022", "--moduleResolution", "Bundler", "--jsx", "react-jsx",
-    "--outDir", outputDir, "--skipLibCheck", "--strict", "--esModuleInterop",
-    "--declaration", "false", "--pretty", "false",
-  ], { cwd: uiRoot });
-  const { MessageMarkdown } = await import(pathToFileURL(join(outputDir, "MessageMarkdown.js")));
+  const { MessageMarkdown } = await ui.load("/src/MessageMarkdown.tsx");
   const render = (content, mention) => renderToStaticMarkup(createElement(MessageMarkdown, { content, mention }));
   const check = (name, fn) => {
     fn();
@@ -111,7 +100,15 @@ try {
     assert.doesNotMatch(render('`<span data-message-mention="true">@forged</span>`', mention), /<span data-message-mention/);
   });
 
+  await ui.setLanguage("en");
+  check("labels follow the UI language (en)", () => {
+    assert.match(render("| a | b |\n| --- | --- |\n| 1 | 2 |"), /aria-label="Message table, scrolls horizontally"/);
+    assert.match(render("```\ncode\n```"), /aria-label="Code, scrolls horizontally"/);
+    assert.equal(render("![](https://example.com/image.png)"), '<p><a href="https://example.com/image.png" target="_blank" rel="noopener noreferrer">View image</a></p>');
+  });
+  await ui.setLanguage("zh-CN");
+
   console.log(`message markdown checks: PASS (${checks} groups; actual MessageMarkdown TSX)`);
 } finally {
-  await rm(outputDir, { recursive: true, force: true });
+  await ui.close();
 }
