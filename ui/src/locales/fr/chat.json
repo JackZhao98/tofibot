@@ -122,7 +122,10 @@
     "stopped": "Ordinateur partagé arrêté",
     "unavailable": "Ordinateur partagé indisponible",
     "health_restarting": "L’ordinateur partagé ne répond plus · redémarrage en cours",
-    "health_unresponsive": "L’ordinateur partagé ne répond pas"
+    "health_unresponsive": "L’ordinateur partagé ne répond pas",
+    "hibernated": "Ordinateur partagé en veille · reprend avec vos onglets à la prochaine utilisation",
+    "hibernating": "Mise en veille de l’ordinateur partagé",
+    "resuming": "Réveil de l’ordinateur partagé"
   },
   "computer_phase": {
     "booting": "Démarrage de la VM",
@@ -130,7 +133,8 @@
     "network": "Préparation du réseau",
     "ready": "Prêt",
     "storage": "Préparation du stockage",
-    "verifying": "Vérification de Linux et Chrome"
+    "verifying": "Vérification de Linux et Chrome",
+    "restoring": "Restauration de la session enregistrée"
   },
   "create": {
     "create_bot": "Créer un Bot",

@@ -45,6 +45,7 @@ type terminal struct {
 	closeReason               string
 	createdAt                 time.Time
 	closedAt                  time.Time
+	lastOutput                time.Time // hibernation treats a printing terminal as active
 }
 
 func (t *terminal) appendOutput(p []byte) {
@@ -52,6 +53,7 @@ func (t *terminal) appendOutput(p []byte) {
 	defer t.mu.Unlock()
 	t.buf = append(t.buf, p...)
 	t.end += uint64(len(p))
+	t.lastOutput = time.Now()
 	if len(t.buf) > terminalRingBytes {
 		n := len(t.buf) - terminalRingBytes
 		copy(t.buf, t.buf[n:])

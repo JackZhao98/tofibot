@@ -26,7 +26,7 @@ REQUIRED = {
     "external_disks", "expected_guest_sha256", "release_manifest_sha256",
 }
 
-OPTIONAL = {"account_resource_overrides", "runtime_memory_overcommit_percent"}
+OPTIONAL = {"account_resource_overrides", "runtime_memory_overcommit_percent", "hibernate"}
 
 
 def validate_config(config):
@@ -35,6 +35,8 @@ def validate_config(config):
     overcommit = config.get("runtime_memory_overcommit_percent", 100)
     if type(overcommit) is not int or not 100 <= overcommit <= 200:
         raise ValueError("runtime_memory_overcommit_percent must be an integer from 100 to 200")
+    if type(config.get("hibernate", True)) is not bool:
+        raise ValueError("hibernate must be a boolean")
     overrides = config.get("account_resource_overrides", {})
     if not isinstance(overrides, dict):
         raise ValueError("account resource overrides must be a mapping")

@@ -298,6 +298,47 @@ class CapacityTests(unittest.TestCase):
         self.assertEqual(ledger.snapshot()["external_promised_bytes"], 8 * GiB)
         self.assertEqual(ledger.snapshot()["promised_bytes"], 8 * GiB)
 
+    def test_hibernation_snapshots_are_promised_and_credited_only_when_trusted(self):
+        self.host["available_bytes"] = 30 * GiB
+        ledger = capacity.CapacityLedger(self.root / "snap.sqlite", self.root, 2 * GiB, 5 * GiB,
+                                         lambda: self.host, snapshot_reserve=lambda _: 2 * GiB)
+        first, second = str(uuid.uuid4()), str(uuid.uuid4())
+        ledger.reserve(first, 8 * GiB)
+        base = ledger.snapshot()
+        self.assertEqual(base["snapshot_reserved_bytes"], 2 * GiB)
+        self.assertEqual(base["snapshot_unallocated_reserved_bytes"], 2 * GiB)
+        self.assertEqual(base["admission_remaining_bytes"], 30 * GiB - 8 * GiB - 2 * GiB - 2 * GiB)
+        # A new account must fit its disk AND its snapshot promise.
+        self.host["available_bytes"] = 21 * GiB
+        with self.assertRaises(capacity.AdmissionError):
+            ledger.reserve(second, 8 * GiB)
+        self.host["available_bytes"] = 30 * GiB
+        snapshot = self.root / first / "snapshot"
+        snapshot.mkdir(parents=True)
+        memory = snapshot / "memory"
+        memory.write_bytes(b"\1" * (1024 * 1024))
+        written = memory.stat().st_blocks * 512
+        if os.getuid() == 0:
+            measured = ledger.snapshot()
+            self.assertEqual(measured["snapshot_allocated_bytes"], written)
+            self.assertEqual(measured["snapshot_unallocated_reserved_bytes"], 2 * GiB - written)
+        else:
+            # Not root-owned: real data, but never credited against the promise.
+            self.assertEqual(ledger.snapshot()["snapshot_allocated_bytes"], 0)
+        os.link(memory, snapshot / "extra-link")
+        self.assertEqual(ledger.snapshot()["snapshot_allocated_bytes"], 0)  # multi-link: no credit
+        self.assertEqual(ledger.snapshot()["accounts"][0]["account_id"], first)
+
+    def test_no_snapshot_promise_without_hibernation(self):
+        ledger = capacity.CapacityLedger(self.root / "plain.sqlite", self.root, 2 * GiB, 5 * GiB,
+                                         lambda: self.host)
+        ledger.reserve(str(uuid.uuid4()), 8 * GiB)
+        self.assertEqual(ledger.snapshot()["snapshot_reserved_bytes"], 0)
+        # An invalid promise closes admission instead of counting as zero.
+        with self.assertRaises(capacity.AdmissionError):
+            capacity.CapacityLedger(self.root / "plain.sqlite", self.root, 2 * GiB, 5 * GiB,
+                                    lambda: self.host, snapshot_reserve=lambda _: -1).snapshot()
+
 
 if __name__ == "__main__":
     unittest.main()

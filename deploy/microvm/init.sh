@@ -79,12 +79,18 @@ if [[ -n "${page_reporting_order:-}" ]]; then
   ) &
   reclaim_pid=$!
 fi
+# Root-only wall-clock setter: a restored snapshot resumes with the clock of
+# the moment it was saved, and the host sends its time once after a restore.
+# It accepts connections from the host CID only and does nothing else.
+/usr/local/bin/tofi-guest --clock-sync &
+clock_pid=$!
 echo 'TOFI_GUEST_READY_START'
 setpriv --reuid=1000 --regid=1000 --clear-groups /usr/local/bin/tofi-guest --desktop-idle-timeout="${desktop_idle_seconds}s" --max-browser-tabs="$browser_max_tabs" &
 guest_pid=$!
 trap 'kill -TERM "$guest_pid" 2>/dev/null || true' TERM INT
 wait "$guest_pid" || true
 [[ -z "$reclaim_pid" ]] || kill "$reclaim_pid" 2>/dev/null || true
+kill "$clock_pid" 2>/dev/null || true
 sync
 umount /workspace || true
 /bin/busybox poweroff -f

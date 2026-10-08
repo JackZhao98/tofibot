@@ -122,7 +122,10 @@
     "stopped": "Shared computer stopped",
     "unavailable": "Shared computer unavailable",
     "health_restarting": "Shared computer stopped responding · restarting",
-    "health_unresponsive": "Shared computer isn't responding"
+    "health_unresponsive": "Shared computer isn't responding",
+    "hibernated": "Shared computer asleep · resumes with your tabs on next use",
+    "hibernating": "Shared computer going to sleep",
+    "resuming": "Waking shared computer"
   },
   "computer_phase": {
     "booting": "Starting VM",
@@ -130,7 +133,8 @@
     "network": "Preparing network",
     "ready": "Ready",
     "storage": "Preparing storage",
-    "verifying": "Verifying Linux and Chrome"
+    "verifying": "Verifying Linux and Chrome",
+    "restoring": "Restoring saved session"
   },
   "create": {
     "create_bot": "Create Bot",

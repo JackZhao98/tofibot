@@ -5,8 +5,10 @@ Only the fixed guest action endpoint is exposed to the control plane. No caller
 can choose a VM, host path, kernel, command on the host, or lifecycle operation.
 """
 import argparse
+import contextlib
 import errno
 import fcntl
+import hashlib
 import http.client
 import http.server
 import json
@@ -18,6 +20,7 @@ import shutil
 import signal
 import socket
 import socketserver
+import stat
 import subprocess
 import sys
 import threading
@@ -54,6 +57,31 @@ BALLOON_STATS = (("target_mib", "target_mib", 1), ("actual_mib", "actual_mib", 1
                  ("available_memory", "guest_available_mib", 1024**2),
                  ("disk_caches", "guest_cache_mib", 1024**2),
                  ("oom_kill", "guest_oom_kills", 1))
+# Snapshot hibernation. After desktop_idle_seconds without a Bot lease, human
+# viewer/control or running guest work, the manager pauses the VM, writes a
+# Full Firecracker snapshot (guest memory + device state) beside the account's
+# workspace disk and ends the Firecracker process, so a hibernated computer
+# holds no host RAM. The next use restores it with Chrome and its logins intact.
+# Any doubt about a snapshot (missing, corrupt, other release or machine shape,
+# a workspace disk changed since) discards it and cold boots instead; the
+# snapshot is never the only copy of user data, the workspace disk is.
+SNAPSHOT_FORMAT = 1
+HIBERNATE_POLL_SECONDS = 15
+# A guest that reports work in progress is asked again only after this delay.
+HIBERNATE_BUSY_BACKOFF_SECONDS = 60
+# Free host disk required beyond the memory file before writing a snapshot.
+HIBERNATE_DISK_MARGIN_BYTES = 2 * 1024**3
+SNAPSHOT_CREATE_SECONDS = 180
+RESUME_READY_SECONDS = 30
+# How long a guest-bound request waits for hibernation, restore or (after a
+# rejected snapshot) a cold boot before it is answered as not ready.
+WAKE_WAIT_SECONDS = 150
+SNAPSHOT_FILES = ("vmstate", "memory")
+# Root-only guest wall-clock setter (cmd/tofi-guest --clock-sync).
+GUEST_CLOCK_PORT = 1053
+# Manager exit (Worker restart/deploy) hibernates only VMs whose memory can be
+# written well within the Worker's 60 s stop timeout.
+EXIT_HIBERNATE_MAX_MIB = 8192
 OAUTH_PATHS = frozenset((
     "/v1/oauth/start", "/v1/oauth/arm", "/v1/oauth/poll", "/v1/oauth/cancel",
 ))
@@ -115,6 +143,10 @@ def signal_process_group(process, sig):
         process.send_signal(sig)
 
 
+class SnapshotRejected(RuntimeError):
+    """A saved snapshot that must not be restored; the reason is path-free."""
+
+
 def validate_config(c):
     if not re.fullmatch(r"[a-z0-9][a-z0-9-]{0,39}", c.get("id", "")):
         raise ValueError("invalid computer id")
@@ -140,6 +172,8 @@ def validate_config(c):
         raise ValueError("browser_max_tabs must be an integer from 0 to 20")
     if type(c.get("memory_balloon", True)) is not bool:
         raise ValueError("memory_balloon must be a boolean")
+    if type(c.get("hibernate", True)) is not bool:
+        raise ValueError("hibernate must be a boolean")
     if "cgroup_parent" in c and c["cgroup_parent"] != "tofi-vms":
         raise ValueError("invalid Worker cgroup parent")
     if type(c.get("worker_private_sysctls", False)) is not bool:
@@ -170,12 +204,26 @@ class VM:
         self.chain = "TOFI_FC_" + str(self.slot)
         self.link_net = f"10.246.{self.slot}"
         self.guest_net = f"10.247.{self.slot}"
+        self.tap_mac = f"06:00:00:00:{self.slot:02x}:01"
         self.root = Path(self.c["state_dir"])
         self.jail = self.root / "jails" / "firecracker" / self.c["id"] / "root"
         self.vsock = self.jail / "run" / "v.sock"
         self.log = None
         self.network_owned = False
         self.abort = threading.Event()
+        # Snapshot files live beside the workspace disk, root-owned, never in
+        # the disposable jail and never shared with another account or host.
+        self.snapshot_dir = self.root / "snapshot"
+        self.snapshot_owner = 0  # root; tests substitute their own UID
+        # Guest-bound requests in flight and the last time one ended. The
+        # ready -> hibernating transition happens under the same lock, so no
+        # request can reach a guest that is being paused.
+        self.activity = threading.Lock()
+        self.active = 0
+        self.last_activity = time.monotonic()
+        self.hibernate_not_before = 0.0
+        self.hibernated_at = ""
+        self.last_wake = None
         applied = self.root / "resources-applied.json"
         if applied.exists():
             self.c.update(self.validate_resources(json.loads(applied.read_text())))
@@ -329,6 +377,9 @@ class VM:
         ns("ip", "link", "set", self.peer_if, "up")
         ns("ip", "route", "add", "default", "via", self.link_net + ".1")
         ns("ip", "tuntap", "add", "dev", "tap0", "mode", "tap", "user", str(self.uid))
+        # A fixed gateway MAC: a guest restored from a snapshot keeps its ARP
+        # entry for the gateway, which must still match a recreated tap0.
+        ns("ip", "link", "set", "dev", "tap0", "address", self.tap_mac)
         ns("ip", "addr", "add", self.guest_net + ".1/30", "dev", "tap0")
         ns("ip", "link", "set", "tap0", "up")
         ns("sysctl", "-q", "-w", "net.ipv4.ip_forward=1")
@@ -456,7 +507,8 @@ class VM:
             sock.close()
             raise
 
-    def guest_request(self, method, path, body=b"", timeout=5):
+    def guest_call(self, method, path, body=b"", timeout=5):
+        """One guest request; returns (status, decoded JSON body or None)."""
         if isinstance(body, str):
             body = body.encode()
         with self.connect(timeout=timeout) as sock:
@@ -464,15 +516,25 @@ class VM:
                           f"Content-Type: application/json\r\nContent-Length: {len(body)}\r\n\r\n").encode() + body)
             response = http.client.HTTPResponse(sock)
             response.begin()
-            body = response.read(MAX_RESPONSE)
-            if response.status != 200:
-                raise RuntimeError("guest is not ready")
-            return json.loads(body)
+            data = response.read(MAX_RESPONSE)
+        try:
+            value = json.loads(data)
+        except ValueError:
+            value = None
+        return response.status, value
+
+    def guest_request(self, method, path, body=b"", timeout=5):
+        status, value = self.guest_call(method, path, body, timeout)
+        if status != 200:
+            raise RuntimeError("guest is not ready")
+        if value is None:
+            raise ValueError("invalid guest response")
+        return value
 
     def firecracker_config(self):
         boot_args = ("console=ttyS0 reboot=k panic=1 pci=off root=/dev/vda ro init=/sbin/tofi-init "
                      f"tofi_ip={self.guest_net}.2 tofi_gateway={self.guest_net}.1 "
-                     f"tofi_desktop_idle={self.c.get('desktop_idle_seconds', 900)} "
+                     f"tofi_desktop_idle={self.guest_desktop_idle()} "
                      f"tofi_browser_tabs={self.c.get('browser_max_tabs', DEFAULT_BROWSER_MAX_TABS)}")
         config = {
             "boot-source": {"kernel_image_path": "/vmlinux", "boot_args": boot_args},
@@ -491,6 +553,75 @@ class VM:
                                  "free_page_reporting": True}
         return config
 
+    def hibernation_enabled(self):
+        return bool(self.c.get("hibernate", True)) and self.c.get("desktop_idle_seconds", 900) > 0
+
+    def guest_desktop_idle(self):
+        # With hibernation the manager owns idle: it snapshots the VM with
+        # Chrome still running. The guest's own desktop cleanup remains as a
+        # later backstop for a computer that cannot hibernate (no disk room).
+        idle = self.c.get("desktop_idle_seconds", 900)
+        return min(2 * idle, 86400) if self.hibernation_enabled() else idle
+
+    def prepare_jail(self):
+        """Replace the disposable jail and attach the shared immutable images."""
+        # Jailer creates device nodes which cannot be reused on the next
+        # launch. Only its disposable jail is replaced; the workspace disk and
+        # any snapshot live outside this directory.
+        if self.jail.parent.exists():
+            shutil.rmtree(self.jail.parent)
+        self.jail.mkdir(parents=True, exist_ok=True)
+        (self.jail / "run").mkdir(exist_ok=True)
+        for item in (self.jail, self.jail / "run"):
+            os.chown(item, self.uid, self.uid)
+        for name in ("vmlinux", "rootfs.ext4"):
+            target = self.jail / name
+            if target.exists():
+                target.unlink()
+            # Shared immutable images are mounted read-only by Firecracker.
+            attach_immutable_image(Path(self.c["image_dir"]) / name, target)
+
+    def attach_workspace(self):
+        data = self.root / "workspace.ext4"
+        os.chown(data, self.uid, self.uid)
+        os.chmod(data, 0o600)
+        target = self.jail / "workspace.ext4"
+        if target.exists():
+            target.unlink()
+        os.link(data, target)
+        for name in ("v.sock", "api.sock"):
+            (self.jail / "run" / name).unlink(missing_ok=True)
+
+    def jailer_command(self, config_file=True):
+        cmd = [str(Path(self.c["bin_dir"]) / "jailer"), "--id", self.c["id"],
+               "--exec-file", str(Path(self.c["bin_dir"]) / "firecracker"),
+               "--uid", str(self.uid), "--gid", str(self.uid),
+               "--chroot-base-dir", str(self.root / "jails"),
+               "--netns", "/var/run/netns/" + self.netns,
+               "--cgroup-version", "2", "--cgroup", f"memory.max={(self.c.get('memory_mib',4096)+512)*1024**2}",
+               "--cgroup", f"cpu.max={self.c.get('vcpus',2)*100000} 100000",
+               "--resource-limit", "no-file=2048",
+               "--", "--api-sock", "/run/api.sock"]
+        if config_file:
+            # A snapshot restore must start an unconfigured Firecracker.
+            cmd += ["--config-file", "/config.json"]
+        if self.c.get("cgroup_parent"):
+            cmd[1:1] = ["--parent-cgroup", self.c["cgroup_parent"]]
+        return cmd
+
+    def launch(self, cmd):
+        self.process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, start_new_session=True)
+        def drain_console(pipe):
+            recent = b""
+            with pipe:
+                while True:
+                    chunk = os.read(pipe.fileno(), 65536)
+                    if not chunk:
+                        return
+                    recent = (recent + chunk)[-262144:]
+                    (self.root / "console.log").write_bytes(recent)
+        threading.Thread(target=drain_console, args=(self.process.stdout,), daemon=True).start()
+
     def start(self):
         with self.lock:
             if self.process and self.process.poll() is None:
@@ -502,22 +633,11 @@ class VM:
             self.phase = "storage"
             self.error = ""
             try:
+                # A cold boot changes the workspace disk under any saved guest
+                # memory, so that snapshot can never be restored afterwards.
+                self.discard_snapshot()
                 self.apply_resources()
-                # Jailer creates device nodes which cannot be reused on the
-                # next launch. Only its disposable jail is replaced; the
-                # workspace disk lives outside this directory.
-                if self.jail.parent.exists():
-                    shutil.rmtree(self.jail.parent)
-                self.jail.mkdir(parents=True, exist_ok=True)
-                (self.jail / "run").mkdir(exist_ok=True)
-                for item in (self.jail, self.jail / "run"):
-                    os.chown(item, self.uid, self.uid)
-                for name in ("vmlinux", "rootfs.ext4"):
-                    target = self.jail / name
-                    if target.exists():
-                        target.unlink()
-                    # Shared immutable images are mounted read-only by Firecracker.
-                    attach_immutable_image(Path(self.c["image_dir"]) / name, target)
+                self.prepare_jail()
                 data = self.root / "workspace.ext4"
                 if not data.exists():
                     with data.open("xb") as f:
@@ -529,43 +649,16 @@ class VM:
                     check = run("e2fsck", "-p", str(data), check=False)
                     if check.returncode not in (0, 1, 2):
                         raise RuntimeError("workspace filesystem needs offline repair; existing disk preserved")
-                os.chown(data, self.uid, self.uid)
-                os.chmod(data, 0o600)
-                target = self.jail / "workspace.ext4"
-                if target.exists():
-                    target.unlink()
-                os.link(data, target)
-                for name in ("v.sock", "api.sock"):
-                    (self.jail / "run" / name).unlink(missing_ok=True)
+                self.attach_workspace()
                 self.phase = "network"
                 self.network_up()
                 config = self.firecracker_config()
                 config_path = self.jail / "config.json"
                 config_path.write_text(json.dumps(config))
                 os.chown(config_path, self.uid, self.uid)
-                cmd = [str(Path(self.c["bin_dir"]) / "jailer"), "--id", self.c["id"],
-                       "--exec-file", str(Path(self.c["bin_dir"]) / "firecracker"),
-                       "--uid", str(self.uid), "--gid", str(self.uid),
-                       "--chroot-base-dir", str(self.root / "jails"),
-                       "--netns", "/var/run/netns/" + self.netns,
-                       "--cgroup-version", "2", "--cgroup", f"memory.max={(self.c.get('memory_mib',4096)+512)*1024**2}",
-                       "--cgroup", f"cpu.max={self.c.get('vcpus',2)*100000} 100000",
-                       "--resource-limit", "no-file=2048",
-                       "--", "--api-sock", "/run/api.sock", "--config-file", "/config.json"]
-                if self.c.get("cgroup_parent"):
-                    cmd[1:1] = ["--parent-cgroup", self.c["cgroup_parent"]]
                 self.phase = "booting"
-                self.process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, start_new_session=True)
-                def drain_console(pipe):
-                    recent = b""
-                    with pipe:
-                        while True:
-                            chunk = os.read(pipe.fileno(), 65536)
-                            if not chunk:
-                                return
-                            recent = (recent + chunk)[-262144:]
-                            (self.root / "console.log").write_bytes(recent)
-                threading.Thread(target=drain_console, args=(self.process.stdout,), daemon=True).start()
+                started = time.monotonic()
+                self.launch(self.jailer_command(config_file=True))
                 deadline = time.monotonic() + 90
                 while time.monotonic() < deadline:
                     if self.abort.is_set():
@@ -575,6 +668,8 @@ class VM:
                     try:
                         self.phase = "verifying"
                         self.guest_request("GET", "/health")
+                        self.last_wake = {"kind": "cold_boot", "seconds": round(time.monotonic() - started, 2)}
+                        self.touch()
                         self.state = "ready"
                         self.phase = "ready"
                         return
@@ -586,6 +681,446 @@ class VM:
                 self.stop()
                 self.state = "error"
                 raise
+
+    # ---- activity accounting -------------------------------------------
+
+    def touch(self):
+        with self.activity:
+            self.last_activity = time.monotonic()
+
+    def begin_activity(self):
+        """Count one guest-bound request; only a ready VM accepts it."""
+        with self.activity:
+            if self.state != "ready":
+                return False
+            self.active += 1
+            self.last_activity = time.monotonic()
+            return True
+
+    def end_activity(self):
+        with self.activity:
+            self.active = max(0, self.active - 1)
+            self.last_activity = time.monotonic()
+
+    def begin_hibernation(self, now=None):
+        """Atomically move an idle ready VM to hibernating; False otherwise."""
+        if not self.hibernation_enabled():
+            return False
+        now = time.monotonic() if now is None else now
+        with self.activity:
+            if (self.state != "ready" or self.active or now < self.hibernate_not_before
+                    or now - self.last_activity < self.c.get("desktop_idle_seconds", 900)
+                    or (self.root / "resources-desired.restart-hold.json").exists()):
+                return False
+            if self.process is None or self.process.poll() is not None:
+                return False
+            self.state = "hibernating"
+            self.phase = "quiescing"
+            return True
+
+    # ---- snapshot files --------------------------------------------------
+
+    _digests = {}
+
+    @classmethod
+    def file_digest(cls, path):
+        info = os.stat(path)
+        key = (str(path), info.st_dev, info.st_ino, info.st_size, info.st_mtime_ns)
+        digest = cls._digests.get(key)
+        if digest is None:
+            value = hashlib.sha256()
+            with open(path, "rb") as stream:
+                for chunk in iter(lambda: stream.read(1024 * 1024), b""):
+                    value.update(chunk)
+            digest = cls._digests[key] = value.hexdigest()
+        return digest
+
+    def snapshot_identity(self):
+        """Everything a restored guest depends on beside the workspace disk.
+
+        Firecracker restores only on the same binary, kernel image, machine
+        shape and host CPU; the read-only rootfs must also be the same file,
+        or the guest's page cache would no longer match its root disk.
+        """
+        image, bins = Path(self.c["image_dir"]), Path(self.c["bin_dir"])
+        rootfs = (image / "rootfs.ext4").stat()
+        cpu = []
+        try:
+            for line in Path("/proc/cpuinfo").read_text().splitlines():
+                key = line.split(":", 1)[0].strip()
+                if key in ("vendor_id", "model name", "flags") and line not in cpu:
+                    cpu.append(line)
+                if key == "processor" and cpu:
+                    break
+        except OSError:
+            pass
+        return {"format": SNAPSHOT_FORMAT,
+                "firecracker": self.file_digest(bins / "firecracker"),
+                "jailer": self.file_digest(bins / "jailer"),
+                "vmlinux": self.file_digest(image / "vmlinux"),
+                "rootfs": [str(image / "rootfs.ext4"), rootfs.st_dev, rootfs.st_ino,
+                           rootfs.st_size, rootfs.st_mtime_ns],
+                "machine": self.firecracker_config(),
+                "host_kernel": os.uname().release,
+                "cpu": hashlib.sha256("\n".join(cpu).encode()).hexdigest()}
+
+    def disk_fingerprint(self):
+        info = (self.root / "workspace.ext4").stat()
+        return [info.st_dev, info.st_ino, info.st_size, info.st_mtime_ns, info.st_ctime_ns]
+
+    def sync_dir(self, path):
+        fd = os.open(path, os.O_RDONLY | os.O_DIRECTORY)
+        try:
+            os.fsync(fd)
+        finally:
+            os.close(fd)
+
+    def discard_snapshot(self):
+        """Remove saved guest memory. The commit marker goes first."""
+        directory = self.snapshot_dir
+        if directory.is_symlink():
+            directory.unlink()
+            return
+        if not directory.exists():
+            return
+        (directory / "meta.json").unlink(missing_ok=True)
+        self.sync_dir(directory)
+        for item in directory.iterdir():
+            if item.is_dir() and not item.is_symlink():
+                shutil.rmtree(item)
+            else:
+                item.unlink(missing_ok=True)
+        directory.rmdir()
+        self.sync_dir(self.root)
+        self.hibernated_at = ""
+
+    def snapshot_problem(self):
+        """None when the saved snapshot may be restored, else the reason."""
+        directory = self.snapshot_dir
+        meta_path = directory / "meta.json"
+        try:
+            if directory.is_symlink() or not directory.is_dir():
+                return "no snapshot"
+            if meta_path.is_symlink() or not meta_path.is_file():
+                return "no snapshot"
+            meta = json.loads(meta_path.read_text())
+            if not isinstance(meta, dict) or meta.get("format") != SNAPSHOT_FORMAT:
+                return "unsupported snapshot format"
+            if meta.get("identity") != self.snapshot_identity():
+                return "snapshot belongs to another release or machine configuration"
+            if self.desired_resources() != self.current_resources():
+                return "resource change pending"
+            if meta.get("disk") != self.disk_fingerprint():
+                return "workspace disk changed since the snapshot"
+            for name in SNAPSHOT_FILES:
+                info = (directory / name).lstat()
+                if (not stat.S_ISREG(info.st_mode) or info.st_uid != self.snapshot_owner or info.st_mode & 0o077
+                        or info.st_nlink != 1 or info.st_size != meta.get("sizes", {}).get(name)):
+                    return "snapshot file " + name + " is not the saved file"
+            if meta["sizes"]["memory"] != self.c.get("memory_mib", 4096) * 1024**2:
+                return "snapshot memory size differs"
+            if self.file_digest(directory / "vmstate") != meta.get("vmstate_sha256"):
+                return "snapshot state is corrupt"
+            return None
+        except (OSError, ValueError, KeyError, TypeError) as error:
+            return "snapshot unreadable: " + type(error).__name__
+
+    def persist_meta(self, value):
+        path = self.snapshot_dir / "meta.json"
+        temporary = self.snapshot_dir / "meta.json.tmp"
+        fd = os.open(temporary, os.O_WRONLY | os.O_CREAT | os.O_TRUNC | os.O_NOFOLLOW, 0o600)
+        with os.fdopen(fd, "w") as stream:
+            json.dump(value, stream)
+            stream.flush()
+            os.fsync(stream.fileno())
+        os.replace(temporary, path)
+        self.sync_dir(self.snapshot_dir)
+
+    # ---- Firecracker API -------------------------------------------------
+
+    def api_request(self, method, path, body=None, timeout=10):
+        payload = json.dumps(body).encode() if body is not None else b""
+        with self.connect_unix(self.jail / "run" / "api.sock", timeout) as sock:
+            sock.sendall((f"{method} {path} HTTP/1.1\r\nHost: localhost\r\nAccept: application/json\r\n"
+                          f"Content-Type: application/json\r\nContent-Length: {len(payload)}\r\n"
+                          "Connection: close\r\n\r\n").encode() + payload)
+            response = http.client.HTTPResponse(sock)
+            response.begin()
+            data = response.read(65536)
+        if response.status not in (200, 204):
+            detail = data[:300].decode("utf-8", "replace").strip()
+            raise RuntimeError(f"Firecracker {method} {path} returned {response.status}: {detail}")
+        return data
+
+    def end_firecracker(self):
+        """Kill this VM's Firecracker (paused or failed) and wait for it."""
+        process = self.process
+        if process is None:
+            return
+        if process.poll() is None:
+            try:
+                signal_process_group(process, signal.SIGKILL)
+            except PermissionError:
+                if not self.c.get("worker_private_sysctls") or self.c.get("cgroup_parent") != "tofi-vms":
+                    raise
+                # The confined Worker cannot signal the jailer UID, but it owns
+                # this VM's cgroup leaf. Kill only a leaf that holds this PID.
+                leaf = Path("/sys/fs/cgroup") / "tofi-vms" / self.c["id"]
+                if leaf.is_symlink() or not leaf.is_dir():
+                    raise RuntimeError("VM cgroup leaf unavailable")
+                if str(process.pid) not in (leaf / "cgroup.procs").read_text().split():
+                    raise RuntimeError("VM process is outside its cgroup leaf")
+                (leaf / "cgroup.kill").write_text("1")
+            process.wait(timeout=15)
+        self.process = None
+
+    def quiesce_guest(self):
+        """Ask the guest for in-flight work and flush its filesystems.
+
+        Returns a list of busy reasons; an empty list means idle and synced.
+        """
+        body = json.dumps({"idle_seconds": self.c.get("desktop_idle_seconds", 900)})
+        status, value = self.guest_call("POST", "/v1/quiesce", body, timeout=30)
+        if status == 200 and isinstance(value, dict) and value.get("idle") is True:
+            return []
+        if status == 409 and isinstance(value, dict) and isinstance(value.get("busy"), list):
+            return [str(item)[:64] for item in value["busy"][:16]] or ["busy"]
+        raise RuntimeError("guest does not support hibernation")
+
+    # ---- hibernate / restore --------------------------------------------
+
+    def hibernate(self, wait_for_idle=True, fallback_boot=True):
+        """Snapshot a VM in state "hibernating" and end its Firecracker.
+
+        Returns True when the computer is hibernated. A busy guest or a
+        failure before the VM was paused returns it to ready untouched.
+        """
+        with self.lock:
+            if self.state != "hibernating":
+                return False
+            started = time.monotonic()
+            paused = False
+            jail_snapshot = self.jail / "snapshot"
+            try:
+                self.phase = "quiescing"
+                busy = self.quiesce_guest()
+                if busy and wait_for_idle:
+                    self.hibernate_not_before = time.monotonic() + HIBERNATE_BUSY_BACKOFF_SECONDS
+                    self.state, self.phase = "ready", "ready"
+                    return False
+                memory = self.c.get("memory_mib", 4096) * 1024**2
+                if shutil.disk_usage(self.root).free < memory + HIBERNATE_DISK_MARGIN_BYTES:
+                    raise RuntimeError("insufficient disk space for a snapshot")
+                identity = self.snapshot_identity()
+                self.discard_snapshot()
+                if jail_snapshot.exists():
+                    shutil.rmtree(jail_snapshot)
+                jail_snapshot.mkdir(mode=0o700)
+                os.chown(jail_snapshot, self.uid, self.uid)
+                self.phase = "pausing"
+                self.api_request("PATCH", "/vm", {"state": "Paused"})
+                paused = True
+                self.phase = "saving"
+                self.api_request("PUT", "/snapshot/create",
+                                 {"snapshot_type": "Full", "snapshot_path": "/snapshot/vmstate",
+                                  "mem_file_path": "/snapshot/memory"},
+                                 timeout=SNAPSHOT_CREATE_SECONDS)
+                self.phase = "releasing"
+                # From here the paused VM is never resumed: the snapshot owns
+                # its memory, and the workspace disk stays exactly as saved.
+                self.end_firecracker()
+                paused = False
+                self.snapshot_dir.mkdir(mode=0o700, exist_ok=True)
+                os.chown(self.snapshot_dir, self.snapshot_owner, self.snapshot_owner)
+                os.chmod(self.snapshot_dir, 0o700)
+                sizes = {}
+                for name in SNAPSHOT_FILES:
+                    source = jail_snapshot / name
+                    info = source.lstat()
+                    if not stat.S_ISREG(info.st_mode) or info.st_nlink != 1:
+                        raise RuntimeError("Firecracker wrote an unexpected snapshot file")
+                    target = self.snapshot_dir / name
+                    os.replace(source, target)
+                    os.chown(target, self.snapshot_owner, self.snapshot_owner)
+                    os.chmod(target, 0o600)
+                # Unwritten guest pages are zero; keep them as holes on disk.
+                try:
+                    run("fallocate", "--dig-holes", str(self.snapshot_dir / "memory"), check=False)
+                except OSError:
+                    pass
+                for name in SNAPSHOT_FILES:
+                    with (self.snapshot_dir / name).open("rb") as stream:
+                        os.fsync(stream.fileno())
+                    sizes[name] = (self.snapshot_dir / name).stat().st_size
+                shutil.rmtree(self.jail.parent)
+                with (self.root / "workspace.ext4").open("rb") as stream:
+                    os.fsync(stream.fileno())
+                created = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
+                self.persist_meta({"format": SNAPSHOT_FORMAT, "identity": identity,
+                                   "disk": self.disk_fingerprint(), "sizes": sizes,
+                                   "vmstate_sha256": self.file_digest(self.snapshot_dir / "vmstate"),
+                                   "created_at": created})
+                self.hibernated_at = created
+                self.state, self.phase = "hibernated", "hibernated"
+                print(f"hibernated in {time.monotonic() - started:.2f}s", file=sys.stderr, flush=True)
+                return True
+            except BaseException as error:
+                failure = str(error)[:300]
+                print("hibernation failed: " + failure, file=sys.stderr, flush=True)
+                self.hibernate_not_before = time.monotonic() + 10 * HIBERNATE_BUSY_BACKOFF_SECONDS
+                try:
+                    self.discard_snapshot()
+                    if jail_snapshot.exists():
+                        shutil.rmtree(jail_snapshot)
+                except OSError:
+                    pass
+                if self.process is not None and self.process.poll() is None:
+                    try:
+                        if paused:
+                            self.api_request("PATCH", "/vm", {"state": "Resumed"})
+                        self.state, self.phase = "ready", "ready"
+                        self.touch()
+                        return False
+                    except (OSError, ValueError, RuntimeError, http.client.HTTPException):
+                        pass
+                if not fallback_boot:
+                    self.state = "error"
+                    return False
+                # The VM is gone or cannot run again: boot it from its disk.
+                self.state = "starting"
+                try:
+                    self.start()
+                except Exception:
+                    pass
+                return False
+
+    def resume(self):
+        """Restore a hibernated VM; any snapshot doubt cold boots instead."""
+        with self.lock:
+            if self.state != "resuming":
+                return
+            started = time.monotonic()
+            self.error = ""
+            try:
+                self.phase = "checking"
+                problem = self.snapshot_problem()
+                if problem:
+                    raise SnapshotRejected(problem)
+                host = self.host_resources()
+                headroom = self.c.get("host_memory_headroom_mib", 2048)
+                if self.c.get("memory_mib", 4096) + 512 + headroom > host["memory_available_mib"]:
+                    # A cold boot would need the same memory; keep the snapshot.
+                    self.state, self.phase = "hibernated", "hibernated"
+                    self.error = "insufficient host memory to resume"
+                    return
+                self.phase = "storage"
+                self.prepare_jail()
+                self.attach_workspace()
+                jail_snapshot = self.jail / "snapshot"
+                jail_snapshot.mkdir(mode=0o700)
+                os.chown(jail_snapshot, self.uid, self.uid)
+                for name in SNAPSHOT_FILES:
+                    target = jail_snapshot / name
+                    os.link(self.snapshot_dir / name, target)
+                    os.chown(target, self.uid, self.uid)
+                # Consume the snapshot before the guest can run: once resumed it
+                # writes the workspace disk and this memory may never return.
+                (self.snapshot_dir / "meta.json").unlink()
+                self.sync_dir(self.snapshot_dir)
+                self.phase = "network"
+                if not self.network_owned:
+                    self.network_up()
+                self.phase = "restoring"
+                self.launch(self.jailer_command(config_file=False))
+                deadline = time.monotonic() + 10
+                while True:
+                    if self.process.poll() is not None:
+                        raise RuntimeError("Firecracker exited before restore")
+                    try:
+                        self.api_request("GET", "/", timeout=1)
+                        break
+                    except (OSError, RuntimeError, http.client.HTTPException):
+                        if time.monotonic() > deadline:
+                            raise RuntimeError("Firecracker API did not start")
+                        time.sleep(.02)
+                self.api_request("PUT", "/snapshot/load",
+                                 {"snapshot_path": "/snapshot/vmstate",
+                                  "mem_backend": {"backend_type": "File", "backend_path": "/snapshot/memory"},
+                                  "resume_vm": True},
+                                 timeout=60)
+                self.phase = "verifying"
+                # KVM_CLOCK_REALTIME is absent on some hosts (nested KVM), so
+                # the guest learns the elapsed hibernation from the host.
+                clock_synced = self.sync_guest_clock()
+                deadline = time.monotonic() + RESUME_READY_SECONDS
+                while True:
+                    if self.process.poll() is not None:
+                        raise RuntimeError("Firecracker exited after restore")
+                    try:
+                        self.guest_request("GET", "/health", timeout=3)
+                        break
+                    except (OSError, ValueError, RuntimeError, http.client.HTTPException):
+                        if time.monotonic() > deadline:
+                            raise RuntimeError("restored guest did not answer")
+                        time.sleep(.05)
+                # The mapped memory file stays allocated until Firecracker
+                # exits; only its names are removed now.
+                self.discard_snapshot()
+                shutil.rmtree(jail_snapshot, ignore_errors=True)
+                self.last_wake = {"kind": "restore", "seconds": round(time.monotonic() - started, 2),
+                                  "clock_synced": clock_synced}
+                print(f"restored in {self.last_wake['seconds']}s", file=sys.stderr, flush=True)
+                self.touch()
+                self.state, self.phase = "ready", "ready"
+            except BaseException as error:
+                print("restore rejected, cold booting: " + str(error)[:300], file=sys.stderr, flush=True)
+                # Only fixed reasons reach the App; host paths stay in the log.
+                reason = str(error) if isinstance(error, SnapshotRejected) else "restore failed"
+                try:
+                    self.end_firecracker()
+                except (OSError, RuntimeError, subprocess.SubprocessError):
+                    pass
+                self.state = "starting"
+                try:
+                    self.start()
+                finally:
+                    if self.last_wake and self.last_wake.get("kind") == "cold_boot":
+                        self.last_wake["fallback_reason"] = reason
+
+    def sync_guest_clock(self):
+        """Set the restored guest's wall clock to the host's; True when set.
+
+        The restored guest resumes with the time of the snapshot. Its root
+        clock setter (guest port GUEST_CLOCK_PORT) accepts only the host.
+        """
+        deadline = time.monotonic() + 5
+        while True:
+            try:
+                with self.connect_unix(self.vsock, 2) as sock:
+                    sock.sendall(f"CONNECT {GUEST_CLOCK_PORT}\n".encode())
+                    reply = b""
+                    while not reply.endswith(b"\n") and len(reply) < 200:
+                        part = sock.recv(64)
+                        if not part:
+                            break
+                        reply += part
+                    if not reply.startswith(b"OK "):
+                        raise OSError("guest clock setter unavailable")
+                    sock.sendall(f"{time.time_ns()}\n".encode())
+                    answer = b""
+                    while not answer.endswith(b"\n") and len(answer) < 200:
+                        part = sock.recv(64)
+                        if not part:
+                            break
+                        answer += part
+                    if answer.strip() == b"OK":
+                        return True
+                    raise OSError("guest clock setter refused: " + answer.decode("utf-8", "replace").strip()[:80])
+            except OSError as error:
+                if time.monotonic() > deadline:
+                    print("guest clock not synchronized: " + str(error)[:200], file=sys.stderr, flush=True)
+                    return False
+                time.sleep(.1)
 
     def stop(self):
         with self.lock:
@@ -625,14 +1160,16 @@ class VM:
         intentionally preserved.
         """
         with self.lock:
-            if self.state not in ("ready", "stopped", "error"):
+            if self.state not in ("ready", "stopped", "error", "hibernated"):
                 raise RuntimeError("computer is busy; retry after it is ready")
             self.state = "purging"
             self.phase = "stopping"
             self.error = ""
             self.stop()
+            # Saved guest memory describes the disk being replaced.
+            self.discard_snapshot()
             disk = self.root / "workspace.ext4"
-            checkpoint = self.root / ("workspace-before-purge-" + str(time.time_ns()) + ".ext4")
+            checkpoint =self.root / ("workspace-before-purge-" + str(time.time_ns()) + ".ext4")
             temporary = self.root / ("workspace-purge-" + str(time.time_ns()) + ".ext4")
             try:
                 if disk.exists():
@@ -668,15 +1205,23 @@ class VM:
                 raise
 
     def info(self):
-        if self.process and self.process.poll() is not None:
+        # Hibernation and restore end or replace Firecracker on purpose.
+        if (self.process and self.process.poll() is not None
+                and self.state not in ("hibernating", "resuming")):
             self.state = "error"
             self.error = "microVM stopped unexpectedly"
-        return {"kind": "firecracker", "id": self.c["id"], "state": self.state, "phase": self.phase,
-                "workspace_root": "/workspace", "browser": "Google Chrome",
-                "error": self.error, "vcpus": self.c.get("vcpus", 2),
-                "memory_mib": self.c.get("memory_mib", 4096),
-                "disk_gib": self.current_resources()["disk_gib"],
-                "desktop_idle_seconds": self.c.get("desktop_idle_seconds", 900)}
+        value = {"kind": "firecracker", "id": self.c["id"], "state": self.state, "phase": self.phase,
+                 "workspace_root": "/workspace", "browser": "Google Chrome",
+                 "error": self.error, "vcpus": self.c.get("vcpus", 2),
+                 "memory_mib": self.c.get("memory_mib", 4096),
+                 "disk_gib": self.current_resources()["disk_gib"],
+                 "desktop_idle_seconds": self.c.get("desktop_idle_seconds", 900),
+                 "hibernation": self.hibernation_enabled()}
+        if self.state == "hibernated" and self.hibernated_at:
+            value["hibernated_at"] = self.hibernated_at
+        if self.last_wake:
+            value["last_wake"] = dict(self.last_wake)
+        return value
 
 
 class Handler(http.server.BaseHTTPRequestHandler):
@@ -700,8 +1245,13 @@ class Handler(http.server.BaseHTTPRequestHandler):
         # protocol, desktop allocation, lifecycle action or host command.
         if not re.fullmatch(r"/v1/desktop/stream\?bot_id=[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}(?:&cursor=hidden)?", self.path):
             return self.json(400, {"error": "invalid stream request"})
-        if self.server.vm.info()["state"] != "ready":
-            return self.json(503, {"error": "microVM is not ready"})
+        with self.server.guest_use() as ready:
+            if not ready:
+                return self.json(503, {"error": "microVM is not ready"})
+            # A live viewer keeps the computer awake for the whole stream.
+            return self.forward_stream()
+
+    def forward_stream(self):
         forwarded = False
         try:
             with self.server.vm.connect() as guest:
@@ -742,12 +1292,12 @@ class Handler(http.server.BaseHTTPRequestHandler):
             # Validate JSON before crossing the privilege boundary, while
             # preserving the guest's endpoint-specific request schema.
             body = json.dumps(value, separators=(",", ":")).encode()
-            if self.path == "/v1/oauth/start":
-                if not self.server.ensure_ready():
+            # Only starting a flow may boot a stopped computer; every OAuth
+            # step wakes a hibernated one.
+            with self.server.guest_use(timeout=35, start_stopped=self.path == "/v1/oauth/start") as ready:
+                if not ready:
                     return self.json(503, {"error": "microVM is not ready"})
-            elif self.server.vm.info()["state"] != "ready":
-                return self.json(503, {"error": "microVM is not ready"})
-            result = self.server.vm.guest_request("POST", self.path, body, timeout=10)
+                result = self.server.vm.guest_request("POST", self.path, body, timeout=10)
             if not isinstance(result, dict):
                 raise ValueError("invalid OAuth response")
             return self.json(200, result)
@@ -796,8 +1346,12 @@ class Handler(http.server.BaseHTTPRequestHandler):
     def runner(self, method):
         if not re.fullmatch(r"/v1/runner/(?:v1/plugins(?:/[a-z0-9_-]{1,64}(?:/(?:tools|call|gog/(?:start|finish|status|send|check|disconnect)))?)?|mcp/[a-z0-9_-]{1,64})", self.path):
             return self.json(404, {"error": "Runner endpoint not found"})
-        if self.server.vm.state != "ready":
-            return self.json(503, {"error": "account Runner guest not ready"})
+        with self.server.guest_use() as ready:
+            if not ready:
+                return self.json(503, {"error": "account Runner guest not ready"})
+            return self.runner_forward(method)
+
+    def runner_forward(self, method):
         sent = False
         try:
             length = int(self.headers.get("Content-Length", "0"))
@@ -853,8 +1407,13 @@ class Handler(http.server.BaseHTTPRequestHandler):
         sent = False
         if not re.fullmatch(r"/v1/blobs/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}", self.path):
             return self.json(404, {"error": "not found"})
-        if self.server.vm.state != "ready":
-            return self.json(503, {"error": "guest file storage not ready"})
+        with self.server.guest_use() as ready:
+            if not ready:
+                return self.json(503, {"error": "guest file storage not ready"})
+            return self.blob_forward(method)
+
+    def blob_forward(self, method):
+        sent = False
         try:
             length = int(self.headers.get("Content-Length", "0"))
             if length < 0 or length > MAX_BLOB or self.headers.get("Transfer-Encoding") or (method != "PUT" and length != 0):
@@ -974,8 +1533,15 @@ class Handler(http.server.BaseHTTPRequestHandler):
             if "write_identity" in value and (value.get("action") != "files.write"
                                               or not isinstance(value["write_identity"], dict)):
                 return self.json(400, {"error": "invalid write identity"})
-            if self.server.vm.info()["state"] != "ready":
+        except (ValueError, TypeError):
+            return self.json(400, {"error": "invalid request"})
+        with self.server.guest_use() as ready:
+            if not ready:
                 return self.json(503, {"ok": False, "error": "microVM is not ready"})
+            return self.action_forward(body)
+
+    def action_forward(self, body):
+        try:
             with self.server.vm.connect() as guest:
                 guest.sendall(f"POST /v1/action HTTP/1.1\r\nHost: guest\r\nContent-Type: application/json\r\nContent-Length: {len(body)}\r\nConnection: close\r\n\r\n".encode() + body)
                 self.connection.settimeout(None)
@@ -1031,31 +1597,128 @@ class Server(socketserver.ThreadingMixIn, socketserver.UnixStreamServer):
         # Keep the canonical configured address; the temporary fd path stops
         # being usable once bind completes and must never become service state.
 
-    def ensure_ready(self, timeout=35):
-        """Return when this server's existing VM is ready.
+    def acquire_guest(self, timeout=WAKE_WAIT_SECONDS, start_stopped=False):
+        """Count one guest-bound request once the VM is ready.
 
-        Preparation is serialized by the same lock used by retry/restart, so
-        concurrent OAuth requests wait for one VM rather than creating one.
+        A hibernated computer is restored (or cold booted when its snapshot is
+        rejected); a request arriving while it hibernates waits for that to
+        finish and then restores it. A stopped or failed computer is started
+        only when start_stopped is set. Preparation is serialized by the same
+        lock used by retry/restart, so concurrent requests share one VM.
         """
-        if self.vm.info()["state"] == "ready":
-            return True
-        if self.vm.state in ("stopped", "error"):
-            self.prepare()
         deadline = time.monotonic() + timeout
-        while time.monotonic() < deadline:
-            state = self.vm.info()["state"]
-            if state == "ready":
+        woke = False
+        while True:
+            if self.vm.begin_activity():
                 return True
-            if state == "error":
+            state = self.vm.info()["state"]
+            if state == "hibernated":
+                if self.vm.error and woke:
+                    return False  # restore refused, e.g. no host memory
+                woke = self.wake() or woke
+            elif state in ("stopped", "error") and start_stopped and not woke:
+                self.prepare()
+                woke = True
+            elif state == "error" or (state not in ("hibernating", "resuming") and not woke):
+                return False
+            if time.monotonic() >= deadline:
                 return False
             time.sleep(.05)
+
+    @contextlib.contextmanager
+    def guest_use(self, timeout=WAKE_WAIT_SECONDS, start_stopped=False):
+        ready = self.acquire_guest(timeout, start_stopped)
+        try:
+            yield ready
+        finally:
+            if ready:
+                self.vm.end_activity()
+
+    def ensure_ready(self, timeout=35):
+        """Return when this server's existing VM is ready (or restored)."""
+        if self.acquire_guest(timeout, start_stopped=True):
+            self.vm.end_activity()
+            return True
         return False
+
+    def busy(self):
+        return getattr(self, "preparation", None) is not None and self.preparation.is_alive()
+
+    def wake(self):
+        """Restore a hibernated computer in the background."""
+        with self.preparation_lock:
+            if self.busy() or self.vm.state != "hibernated":
+                return False
+            self.vm.state, self.vm.phase, self.vm.error = "resuming", "checking", ""
+            def work():
+                try:
+                    with Path("/run/tofi-firecracker-locks/boot-admission.lock").open("a") as admission:
+                        fcntl.flock(admission, fcntl.LOCK_EX)
+                        self.vm.resume()
+                except Exception:
+                    pass  # resume/start retain the concrete error for the UI.
+            self.preparation = threading.Thread(target=work, daemon=True)
+            self.preparation.start()
+            return True
+
+    def maybe_hibernate(self, wait_for_idle=True):
+        """Start hibernating an idle ready computer; True when started."""
+        with self.preparation_lock:
+            if self.busy():
+                return False
+            lease = (self.vm.root / "ops.lock").open("a")
+            try:
+                fcntl.flock(lease, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            except BlockingIOError:
+                lease.close()
+                return False
+            if not self.vm.begin_hibernation():
+                lease.close()
+                return False
+            def work():
+                with lease:
+                    try:
+                        self.vm.hibernate(wait_for_idle=wait_for_idle)
+                    except Exception as error:
+                        print("hibernation error: " + str(error)[:300], file=sys.stderr, flush=True)
+            self.preparation = threading.Thread(target=work, daemon=True)
+            self.preparation.start()
+            return True
+
+    def idle_monitor(self, stopping):
+        while not stopping.wait(HIBERNATE_POLL_SECONDS):
+            try:
+                self.maybe_hibernate()
+            except Exception as error:
+                print("idle monitor: " + str(error)[:300], file=sys.stderr, flush=True)
+
+    def hibernate_for_exit(self):
+        vm = self.vm
+        if not vm.hibernation_enabled() or vm.c.get("memory_mib", 4096) > EXIT_HIBERNATE_MAX_MIB or self.busy():
+            return False
+        with vm.activity:
+            if vm.state != "ready" or vm.process is None or vm.process.poll() is not None:
+                return False
+            vm.state, vm.phase = "hibernating", "quiescing"
+        return vm.hibernate(wait_for_idle=False, fallback_boot=False)
+
+    def boot(self):
+        """Initial manager start: keep a valid snapshot hibernated (lazy)."""
+        if self.vm.hibernation_enabled() and self.vm.snapshot_problem() is None:
+            with self.vm.activity:
+                self.vm.state, self.vm.phase = "hibernated", "hibernated"
+                meta = self.vm.snapshot_dir / "meta.json"
+                self.vm.hibernated_at = json.loads(meta.read_text()).get("created_at", "")
+            return
+        # A rejected snapshot can never be restored: free its disk now.
+        self.vm.discard_snapshot()
+        self.prepare()
 
     def restart(self):
         with self.preparation_lock:
             if getattr(self, "preparation", None) is not None and self.preparation.is_alive():
                 return False
-            if self.vm.state not in ("ready", "error", "stopped"):
+            if self.vm.state not in ("ready", "error", "stopped", "hibernated"):
                 return False
             original = self.vm.current_resources()
             desired = self.vm.resources()["desired"]
@@ -1107,6 +1770,9 @@ class Server(socketserver.ThreadingMixIn, socketserver.UnixStreamServer):
         restart would neither fix it nor spare the work in progress.
         """
         state = self.vm.info()["state"]
+        if state in ("hibernating", "hibernated"):
+            # Deliberately not running: never a reason for a recovery restart.
+            return {"state": state, "guest": "hibernated"}
         if state != "ready":
             return {"state": state, "guest": "not_ready"}
         try:
@@ -1126,6 +1792,8 @@ class Server(socketserver.ThreadingMixIn, socketserver.UnixStreamServer):
         state = self.vm.info()["state"]
         if state in ("error", "stopped"):
             return "starting" if self.prepare() else None
+        if state in ("hibernating", "hibernated"):
+            return "responsive"
         if state != "ready":
             return None
         for attempt in range(RECOVER_PROBES):
@@ -1147,6 +1815,8 @@ class Server(socketserver.ThreadingMixIn, socketserver.UnixStreamServer):
                 return self.vm.purge_workspace()
 
     def prepare(self):
+        if self.vm.state == "hibernated":
+            return self.wake()
         with self.preparation_lock:
             if getattr(self, "preparation", None) is not None and self.preparation.is_alive():
                 return False
@@ -1205,13 +1875,19 @@ def main():
         threading.Thread(target=server.shutdown, daemon=True).start()
     signal.signal(signal.SIGTERM, stop)
     signal.signal(signal.SIGINT, stop)
+    threading.Thread(target=server.idle_monitor, args=(stopping,), daemon=True).start()
     try:
-        server.prepare()
+        server.boot()
         server.serve_forever(poll_interval=.25)
     finally:
         server.server_close()
-        vm.stop()
-        socket_path.unlink(missing_ok=True)
+        try:
+            # A Worker restart or deploy keeps the computer's tabs and
+            # logins: hibernate instead of shutting the guest down.
+            server.hibernate_for_exit()
+        finally:
+            vm.stop()
+            socket_path.unlink(missing_ok=True)
 
 
 if __name__ == "__main__":

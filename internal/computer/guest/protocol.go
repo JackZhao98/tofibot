@@ -176,6 +176,10 @@ func (s *Service) handle(w http.ResponseWriter, r *http.Request) {
 		s.handleOAuth(w, r)
 		return
 	}
+	if r.URL.Path == "/v1/quiesce" {
+		s.handleQuiesce(w, r)
+		return
+	}
 	if r.URL.Path == "/v1/desktop/stream" {
 		s.handleDesktopStream(w, r)
 		return
