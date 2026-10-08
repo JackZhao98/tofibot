@@ -1,16 +1,14 @@
 import assert from "node:assert/strict";
-import {execFile} from "node:child_process";
 import {mkdtemp, readFile, rm, writeFile} from "node:fs/promises";
-import {tmpdir} from "node:os";
 import {dirname, join, basename} from "node:path";
 import {fileURLToPath, pathToFileURL} from "node:url";
-import {promisify} from "node:util";
+import {openUiModules} from "./ui-modules.mjs";
 
 const ui = dirname(dirname(fileURLToPath(import.meta.url)));
-const output = await mkdtemp(join(tmpdir(), "tofi-auto-review-"));
+// Load through Vite so the i18n catalogs resolve; assertions pin the shipped zh-CN copy.
+const modules = await openUiModules({language: "zh-CN"});
 try {
-  await promisify(execFile)(join(ui, "node_modules/.bin/tsc"), ["src/questionTimeline.ts", "--ignoreConfig", "--target", "ES2022", "--module", "ES2022", "--moduleResolution", "Bundler", "--jsx", "react-jsx", "--types", "vite/client", "--outDir", output, "--skipLibCheck", "--strict", "--declaration", "false", "--pretty", "false"], {cwd: ui});
-  const {reconcileQuestion, buildQuestionTimeline, autoReviewPresentation} = await import(pathToFileURL(join(output, "questionTimeline.js")));
+  const {reconcileQuestion, buildQuestionTimeline, autoReviewPresentation} = await modules.load("/src/questionTimeline.ts");
   const approved = {question_id: "synthetic", conversation_id: "c", run_id: "r", bot_id: "b", type: "question", question_type: "approval", question: "Allow?", status: "answered", answer: true, answered_by: "auto-review", created_at: "2026-01-01T00:00:00Z", updated_at: "2026-01-01T00:00:01.000001Z", approval: {action: "read", target: "public fact", impact: "read", review: {source: "auto-review", status: "approved", reason: "synthetic <script>untrusted</script>", model: "codex-auto-review"}}};
   const invalidated = {...approved, status: "pending", answer: undefined, answered_by: undefined, updated_at: "2026-01-01T00:00:01.000002Z", approval: {...approved.approval, review: {...approved.approval.review, status: "invalidated", reason: "Mode changed; human review required."}}};
   assert.deepEqual(reconcileQuestion(invalidated, approved), invalidated, "off-switch SSE must replace an old locally cached auto approval");
@@ -50,8 +48,12 @@ try {
   }
   const v5Reviewing={...awaitingHuman,approval:{...human.approval,review:{...human.approval.review,status:"reviewing",policy_version:"mcp-all-external-v5"}}};
   assert.equal(autoReviewPresentation(v5Reviewing).badge,"AutoReview 审查中");
+  await modules.setLanguage("en");
+  assert.equal(autoReviewPresentation(v5Reviewing).badge,"AutoReview checking","English copy comes from the en catalog");
+  assert.equal(autoReviewPresentation(v5Denied).label,"Denied by policy");
+  await modules.setLanguage("zh-CN");
   console.log("PASS AutoReview UI reconnect, off switch, expiry and human decision provenance");
-} finally {await rm(output, {recursive: true, force: true});}
+} finally {await modules.close();}
 
 // Optional finite rendering acceptance. The supplied Playwright/Chrome are local
 // tools; every API response and displayed identity below is newly synthetic.
@@ -70,7 +72,8 @@ if (process.env.TOFI_AUTOREVIEW_RENDERED === "1") {
     assert.notEqual(offlineFoundations, foundations, "Expected the known remote font import");
     await writeFile(join(fixture, "foundations.css"), offlineFoundations);
     await writeFile(join(fixture,"index.html"),'<div id="root"></div><script type="module" src="./main.tsx"></script>');
-    await writeFile(join(fixture,"main.tsx"),`import React from 'react';import {createRoot} from 'react-dom/client';import {TimezoneProvider} from '../src/UserTimezone';import {AutoReviewSettings} from '../src/AutoReviewSettings';import {QuestionCard} from '../src/QuestionCard';import '../src/styles.css';import '../src/settings-system.css';import './foundations.css';const status=new URLSearchParams(location.search).get('status')||'context_required';const state=new URLSearchParams(location.search).get('state')||'pending';const item={question_id:'synthetic-question',conversation_id:'synthetic-conversation',bot_id:'synthetic-bot',run_id:'synthetic-run',type:'question',question_type:'approval',question:'Synthetic bounded operation',status:state,created_at:'2026-01-01T00:00:00Z',approval:{review_only:status.startsWith('shadow_'),action:'Synthetic read',target:'Synthetic fact',impact:'Synthetic effect',review:{source:'auto-review',status,reason:'Synthetic <script>untrusted</script>',model:'codex-auto-review'}}};createRoot(document.getElementById('root')!).render(<TimezoneProvider><AutoReviewSettings/><QuestionCard item={item as any} bot={undefined} group={false} archived={false} onChanged={async()=>{}}/></TimezoneProvider>);`);
+    await writeFile(join(fixture,"main.tsx"),`import React from 'react';import {createRoot} from 'react-dom/client';import {i18nReady,setLanguage} from '../src/i18n';import {TimezoneProvider} from '../src/UserTimezone';import {AutoReviewSettings} from '../src/AutoReviewSettings';import {QuestionCard} from '../src/QuestionCard';import '../src/styles.css';import '../src/settings-system.css';import './foundations.css';const status=new URLSearchParams(location.search).get('status')||'context_required';const state=new URLSearchParams(location.search).get('state')||'pending';const item={question_id:'synthetic-question',conversation_id:'synthetic-conversation',bot_id:'synthetic-bot',run_id:'synthetic-run',type:'question',question_type:'approval',question:'Synthetic bounded operation',status:state,created_at:'2026-01-01T00:00:00Z',approval:{review_only:status.startsWith('shadow_'),action:'Synthetic read',target:'Synthetic fact',impact:'Synthetic effect',review:{source:'auto-review',status,reason:'Synthetic <script>untrusted</script>',model:'codex-auto-review'}}};// Assertions pin the shipped zh-CN copy; render once its catalog is in.
+void i18nReady.then(()=>setLanguage('zh-CN')).then(()=>createRoot(document.getElementById('root')!).render(<TimezoneProvider><AutoReviewSettings/><QuestionCard item={item as any} bot={undefined} group={false} archived={false} onChanged={async()=>{}}/></TimezoneProvider>));`);
     server = await createServer({configFile:false,root:ui,plugins:[react()],server:{host:"127.0.0.1",port:0},logLevel:"error"});
     await server.listen();
     const origin = `http://127.0.0.1:${server.httpServer.address().port}`;

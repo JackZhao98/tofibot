@@ -1,0 +1,130 @@
+{
+  "memory": {
+    "error": {
+      "edit_conflict": "編集中にこのメモリーが変更されました。下書きは残っています。キャンセルして開き直し、内容を確認してください。",
+      "save": "メモリーを保存できませんでした"
+    },
+    "field": {
+      "title": "タイトル",
+      "description": "説明",
+      "content": "メモリーの全文",
+      "content_placeholder": "長く覚えておきたい事実を書いてください…"
+    },
+    "create": {
+      "title_aria": "新しいメモリーのタイトル",
+      "description_aria": "新しいメモリーの説明",
+      "content_aria": "新しいメモリー"
+    },
+    "edit": {
+      "title_aria": "メモリーのタイトルを編集",
+      "description_aria": "メモリーの説明を編集",
+      "content_aria": "メモリーを編集"
+    },
+    "heading": {
+      "group": "グループの共有メモリー",
+      "bot": "この Bot のメモリー"
+    },
+    "close_aria": "メモリーを閉じる",
+    "note": {
+      "group": "ここのメモリーはグループのメンバーで共有されます。モデルを切り替えても保存済みのメモリーとチャット履歴は残りますが、モデルによって使い方が異なる場合があります。",
+      "bot": "この Bot のメモリーはここに保存されます。モデルを切り替えても保存済みのメモリーとチャット履歴は残りますが、モデルによって使い方が異なる場合があります。"
+    },
+    "save_memory": "メモリーを保存",
+    "search": "メモリーを検索",
+    "save": "保存",
+    "cancel": "キャンセル",
+    "view_full": "メモリーの全文を表示",
+    "revision": "リビジョン {{revision}}",
+    "edit_action": "編集",
+    "delete": "削除",
+    "delete_question": "このメモリーを削除しますか？",
+    "no_match": "一致するメモリーはありません。",
+    "empty_short": "メモリーはまだありません。",
+    "empty_title": "メモリーはまだありません",
+    "empty": {
+      "group": "このグループで保存した共有メモリーがここに表示されます。",
+      "bot": "この Bot が保存したメモリーがここに表示されます。"
+    },
+    "cat_name": "もち"
+  },
+  "apiError": {
+    "archive_busy": "まだ終わっていないタスクがあります。終わるまで待つか、停止してから復元してください。",
+    "no_active_members": "このグループには利用できるメンバーがいません。復元後、Bot を 1 つ以上追加してください。",
+    "archive_blocked": "この会話は現在利用できません。復元してから続けてください。"
+  },
+  "archive": {
+    "error": {
+      "failed": "アーカイブの操作に失敗しました。しばらくしてから再試行してください。",
+      "bot_missing": "この Bot のプロフィールが見つからないため、復元できません。"
+    },
+    "title": "以前のアーカイブ",
+    "close_aria": "アーカイブを閉じる",
+    "schedule_note": "復元後、スケジュールタスクは手動で有効にしてください。",
+    "reload": "再読み込み",
+    "loading": "アーカイブを読み込み中…",
+    "empty": "アーカイブはありません。",
+    "group_meta_other": "メンバー {{count}} 人 · グループ",
+    "dm_meta": "Bot · 過去の DM",
+    "delete_bot": "Bot を削除",
+    "delete_group": "グループを削除",
+    "restoring": "復元中…",
+    "restore": "復元"
+  },
+  "inspector": {
+    "error": {
+      "read": "読み込めませんでした。",
+      "copy": "コピーできませんでした。テキストを選択してコピーしてください。"
+    },
+    "tools": "ツール一覧",
+    "system_prompt": "システムプロンプト",
+    "retry": "再試行",
+    "loading": "読み込み中…",
+    "last_run": "前回の実行 · {{time}}",
+    "builtin_note": "組み込みツールです。拡張ツールは実行後に表示されます。",
+    "search": "ツールを検索",
+    "preview_caption": "現在の構成のプレビュー",
+    "copied": "コピーしました",
+    "copy": "コピー",
+    "runtime_note": "実行時には履歴、メモリー、拡張機能のコンテキストも加わります。"
+  },
+  "debug": {
+    "mode": "デバッグモード",
+    "mode_hint": "ツール呼び出しと診断情報を表示",
+    "no_bots": "Bot はまだありません。"
+  },
+  "avatar": {
+    "aria": "Bot のアバター",
+    "state_aria": "プレビューの状態",
+    "state": {
+      "sleeping": "おやすみ",
+      "awake": "起きてる",
+      "working": "作業中"
+    },
+    "sizes_aria": "画面上でのアバターの実際のサイズ",
+    "palette": "毛色",
+    "palette_count_other": "{{count}} 種類",
+    "palettes_aria": "ネコの毛色",
+    "shape": "体型",
+    "random": "ランダム",
+    "shapes_aria": "ネコの体型",
+    "pattern": "柄",
+    "patterns_aria": "ネコの柄",
+    "fixed_palette": "配色は固定"
+  },
+  "package": {
+    "invalid_json": "有効な Bot 共有パッケージではありません。",
+    "invalid_format": "Bot 共有パッケージの形式が正しくありません。",
+    "unsupported_version": "この共有パッケージのバージョンは、現在の Tofi ではサポートされていません。",
+    "missing_bot": "共有パッケージに Bot の構成がありません。",
+    "invalid_name": "共有パッケージの Bot 名が無効です。",
+    "invalid_instructions": "共有パッケージの Bot の指示が無効です。",
+    "invalid_model": "共有パッケージのモデル設定が無効です。",
+    "invalid_reasoning": "共有パッケージの推論設定が無効です。",
+    "invalid_avatar": "共有パッケージのアバター設定が無効です。"
+  },
+  "identity": {
+    "profile_aria": "{{name}} のプロフィール",
+    "mention": "{{name}} をメンション",
+    "open_dm": "DM を開く"
+  }
+}

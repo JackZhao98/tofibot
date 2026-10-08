@@ -1,0 +1,132 @@
+{
+  "memory": {
+    "error": {
+      "edit_conflict": "Diese Erinnerung wurde während deiner Bearbeitung geändert. Dein Entwurf bleibt erhalten; brich ab und öffne sie erneut, um zu vergleichen.",
+      "save": "Erinnerung konnte nicht gespeichert werden"
+    },
+    "field": {
+      "title": "Titel",
+      "description": "Beschreibung",
+      "content": "Vollständige Erinnerung",
+      "content_placeholder": "Notier eine Tatsache, die langfristig im Gedächtnis bleiben soll…"
+    },
+    "create": {
+      "title_aria": "Titel der neuen Erinnerung",
+      "description_aria": "Beschreibung der neuen Erinnerung",
+      "content_aria": "Neue Erinnerung"
+    },
+    "edit": {
+      "title_aria": "Titel der Erinnerung bearbeiten",
+      "description_aria": "Beschreibung der Erinnerung bearbeiten",
+      "content_aria": "Erinnerung bearbeiten"
+    },
+    "heading": {
+      "group": "Gemeinsame Erinnerungen der Gruppe",
+      "bot": "Erinnerungen dieses Bots"
+    },
+    "close_aria": "Erinnerungen schließen",
+    "note": {
+      "group": "Diese Erinnerungen teilen alle Mitglieder der Gruppe. Beim Modellwechsel bleiben gespeicherte Erinnerungen und Chatverlauf erhalten; verschiedene Modelle nutzen sie aber unterschiedlich.",
+      "bot": "Hier liegen die Erinnerungen dieses Bots. Beim Modellwechsel bleiben gespeicherte Erinnerungen und Chatverlauf erhalten; verschiedene Modelle nutzen sie aber unterschiedlich."
+    },
+    "save_memory": "Erinnerung speichern",
+    "search": "Erinnerungen durchsuchen",
+    "save": "Speichern",
+    "cancel": "Abbrechen",
+    "view_full": "Vollständige Erinnerung anzeigen",
+    "revision": "Revision {{revision}}",
+    "edit_action": "Bearbeiten",
+    "delete": "Löschen",
+    "delete_question": "Diese Erinnerung löschen?",
+    "no_match": "Keine passenden Erinnerungen.",
+    "empty_short": "Noch keine Erinnerungen.",
+    "empty_title": "Noch keine Erinnerungen",
+    "empty": {
+      "group": "Gemeinsame Erinnerungen dieser Gruppe erscheinen hier.",
+      "bot": "Erinnerungen, die dieser Bot speichert, erscheinen hier."
+    },
+    "cat_name": "Mochi"
+  },
+  "apiError": {
+    "archive_busy": "Es laufen noch Aufgaben. Warte, bis sie fertig sind, oder stoppe sie, und stelle dann wieder her.",
+    "no_active_members": "Diese Gruppe hat keine verfügbaren Mitglieder. Füge nach dem Wiederherstellen mindestens einen Bot hinzu.",
+    "archive_blocked": "Diese Unterhaltung ist nicht verfügbar. Stelle sie wieder her, um fortzufahren."
+  },
+  "archive": {
+    "error": {
+      "failed": "Archivaktion fehlgeschlagen. Versuch es später noch einmal.",
+      "bot_missing": "Das Profil dieses Bots wurde nicht gefunden, daher ist keine Wiederherstellung möglich."
+    },
+    "title": "Altes Archiv",
+    "close_aria": "Archiv schließen",
+    "schedule_note": "Nach dem Wiederherstellen musst du geplante Aufgaben manuell wieder aktivieren.",
+    "reload": "Neu laden",
+    "loading": "Archiv wird geladen…",
+    "empty": "Keine archivierten Einträge.",
+    "group_meta_one": "{{count}} Mitglied · Gruppe",
+    "group_meta_other": "{{count}} Mitglieder · Gruppe",
+    "dm_meta": "Bot · frühere Direktnachrichten",
+    "delete_bot": "Bot löschen",
+    "delete_group": "Gruppe löschen",
+    "restoring": "Wird wiederhergestellt…",
+    "restore": "Wiederherstellen"
+  },
+  "inspector": {
+    "error": {
+      "read": "Konnte gerade nicht geladen werden.",
+      "copy": "Kopieren fehlgeschlagen. Markier den Text, um ihn zu kopieren."
+    },
+    "tools": "Werkzeugkatalog",
+    "system_prompt": "Systemprompt",
+    "retry": "Erneut versuchen",
+    "loading": "Wird geladen…",
+    "last_run": "Letzter Lauf · {{time}}",
+    "builtin_note": "Integrierte Werkzeuge; Erweiterungswerkzeuge erscheinen nach einem Lauf.",
+    "search": "Werkzeuge suchen",
+    "preview_caption": "Vorschau der aktuellen Konfiguration",
+    "copied": "Kopiert",
+    "copy": "Kopieren",
+    "runtime_note": "Zur Laufzeit kommen Verlauf, Erinnerungen und Erweiterungskontext hinzu."
+  },
+  "debug": {
+    "mode": "Debug-Modus",
+    "mode_hint": "Werkzeugaufrufe und Diagnosen anzeigen",
+    "no_bots": "Noch keine Bots."
+  },
+  "avatar": {
+    "aria": "Bot-Avatar",
+    "state_aria": "Vorschauzustand",
+    "state": {
+      "sleeping": "Schläft",
+      "awake": "Wach",
+      "working": "Arbeitet"
+    },
+    "sizes_aria": "Tatsächliche Avatargrößen in der Oberfläche",
+    "palette": "Fellfarbe",
+    "palette_count_one": "{{count}} Option",
+    "palette_count_other": "{{count}} Optionen",
+    "palettes_aria": "Fellfarbe der Katze",
+    "shape": "Statur",
+    "random": "Zufällig",
+    "shapes_aria": "Statur der Katze",
+    "pattern": "Muster",
+    "patterns_aria": "Fellmuster der Katze",
+    "fixed_palette": "Feste Farben"
+  },
+  "package": {
+    "invalid_json": "Das ist kein gültiges Bot-Paket.",
+    "invalid_format": "Das Format des Bot-Pakets ist ungültig.",
+    "unsupported_version": "Diese Paketversion wird von dieser Tofi-Version nicht unterstützt.",
+    "missing_bot": "Dem Paket fehlt die Bot-Konfiguration.",
+    "invalid_name": "Der Bot-Name im Paket ist ungültig.",
+    "invalid_instructions": "Die Bot-Anweisungen im Paket sind ungültig.",
+    "invalid_model": "Die Modelleinstellung im Paket ist ungültig.",
+    "invalid_reasoning": "Die Reasoning-Einstellung im Paket ist ungültig.",
+    "invalid_avatar": "Die Avatar-Einstellung im Paket ist ungültig."
+  },
+  "identity": {
+    "profile_aria": "Profil von {{name}}",
+    "mention": "{{name}} erwähnen",
+    "open_dm": "Direktnachricht öffnen"
+  }
+}

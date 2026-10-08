@@ -2,12 +2,14 @@ import { lazy, Suspense, useEffect, useLayoutEffect, useRef, useState } from "re
 import { createPortal } from "react-dom";
 import type { Message, Reaction } from "./types";
 import { TofiIcon } from "./icons";
+import { useTranslation } from "./i18n";
 import "./message-reactions.css";
 const EmojiPicker = lazy(() => import("./ReactionEmojiPicker"));
 const choices = ["👍", "❤️", "😂", "🎉", "👀", "🙌", "🤔", "🐱"];
 type MenuPosition = { x: number; y: number } | null;
 
 export function MessageReactions({ message, botNames, onSet, menuPosition, onCloseMenu }: { message: Message; botNames: Map<string, string>; onSet: (emoji: string, present: boolean) => Promise<void>; menuPosition: MenuPosition; onCloseMenu: () => void }) {
+  const { t } = useTranslation("chat");
   const [pending, setPending] = useState(false);
   const pendingRef = useRef(false);
   const [showPicker, setShowPicker] = useState(false);
@@ -56,20 +58,20 @@ export function MessageReactions({ message, botNames, onSet, menuPosition, onClo
     if (pendingRef.current) return;
     pendingRef.current = true; setPending(true); setError("");
     try { await onSet(emoji, present); closeRef.current(); }
-    catch (cause) { setError(cause instanceof Error ? cause.message : "回应失败，请重试"); }
+    catch (cause) { setError(cause instanceof Error ? cause.message : t("reactions.failed")); }
     finally { pendingRef.current = false; setPending(false); }
   };
 
   return <>
     {grouped.size > 0 && <div className={`message-reactions${message.role === "user" ? " is-user" : ""}`}>
       {[...grouped].map(([emoji, actors]) => {
-        const names = actors.map(actor => actor.actor_type === "user" ? "你" : botNames.get(actor.actor_id ?? "") ?? "助理").join("、");
-        return <button key={emoji} type="button" className={`reaction-chip${mine(emoji) ? " mine" : ""}`} title={names} aria-label={`${emoji}，${actors.length} 人回应${mine(emoji) ? "；点击移除我的回应" : "；点击加入回应"}`} aria-pressed={mine(emoji)} disabled={pending} onClick={() => void toggle(emoji, !mine(emoji))}><span>{emoji}</span><span className="reaction-count">{actors.length}</span></button>;
+        const names = actors.map(actor => actor.actor_type === "user" ? t("message.you") : botNames.get(actor.actor_id ?? "") ?? t("reactions.assistant")).join(t("list.separator"));
+        return <button key={emoji} type="button" className={`reaction-chip${mine(emoji) ? " mine" : ""}`} title={names} aria-label={mine(emoji) ? t("reactions.chip_mine", { emoji, count: actors.length }) : t("reactions.chip_join", { emoji, count: actors.length })} aria-pressed={mine(emoji)} disabled={pending} onClick={() => void toggle(emoji, !mine(emoji))}><span>{emoji}</span><span className="reaction-count">{actors.length}</span></button>;
       })}
     </div>}
     {!menuPosition && error && <span className="reaction-error" role="alert">{error}</span>}
-    {menuPosition && createPortal(<div ref={menu} className={`reaction-context-menu${showPicker ? " has-emoji-picker" : ""}`} role="dialog" aria-label="选择消息回应" style={position} aria-busy={pending}>
-      {!showPicker ? <div className="reaction-options" role="group" aria-label="常用表情">{choices.map(emoji => <button key={emoji} type="button" aria-label={`回应 ${emoji}`} aria-pressed={mine(emoji)} disabled={pending} onClick={() => void toggle(emoji, !mine(emoji))}>{emoji}</button>)}<button type="button" aria-label="更多表情" title="更多表情" disabled={pending} onClick={() => setShowPicker(true)}><TofiIcon name="plus" size={18} /></button></div> : <div inert={pending}><Suspense fallback={<p className="reaction-picker-loading" role="status">正在加载表情…</p>}><EmojiPicker onSelect={emoji => void toggle(emoji, !mine(emoji))} /></Suspense></div>}
+    {menuPosition && createPortal(<div ref={menu} className={`reaction-context-menu${showPicker ? " has-emoji-picker" : ""}`} role="dialog" aria-label={t("reactions.menu")} style={position} aria-busy={pending}>
+      {!showPicker ? <div className="reaction-options" role="group" aria-label={t("reactions.common")}>{choices.map(emoji => <button key={emoji} type="button" aria-label={t("reactions.react_with", { emoji })} aria-pressed={mine(emoji)} disabled={pending} onClick={() => void toggle(emoji, !mine(emoji))}>{emoji}</button>)}<button type="button" aria-label={t("reactions.more")} title={t("reactions.more")} disabled={pending} onClick={() => setShowPicker(true)}><TofiIcon name="plus" size={18} /></button></div> : <div inert={pending}><Suspense fallback={<p className="reaction-picker-loading" role="status">{t("reactions.loading")}</p>}><EmojiPicker onSelect={emoji => void toggle(emoji, !mine(emoji))} /></Suspense></div>}
       {error && <p role="alert">{error}</p>}
     </div>, document.body)}
   </>;

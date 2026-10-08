@@ -5,9 +5,11 @@ import "./motion-lab.css";
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { MotionLab } from "./MotionLab";
+import { i18nReady } from "../i18n";
 
-createRoot(document.getElementById("root")!).render(
+// Demos reuse app cards, which read the UI catalogs; render once they load.
+void i18nReady.finally(() => createRoot(document.getElementById("root")!).render(
   <StrictMode>
     <MotionLab />
   </StrictMode>,
-);
+));

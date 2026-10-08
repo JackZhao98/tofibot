@@ -1,0 +1,390 @@
+{
+  "action": {
+    "cancel": "Cancel"
+  },
+  "auth": {
+    "bot_token": "Bot token",
+    "integration_token": "Integration token",
+    "none": "No key needed",
+    "oauth": "OAuth",
+    "token": "Access token"
+  },
+  "browser": {
+    "added": "Added",
+    "back": "Added",
+    "custom": "Custom MCP",
+    "empty": "No matching services. You can add a custom MCP.",
+    "held_label": "Services not available yet",
+    "held_title": "Not available yet",
+    "intro": "Pick a preset, then confirm access and tool connection after adding.",
+    "read_only_tools": "Read-only tools",
+    "retired": "No longer maintained",
+    "retired_origin": "Former provider project",
+    "search": "Search services",
+    "services": "Services",
+    "title": "Add a service"
+  },
+  "callback": {
+    "copied": "Copied",
+    "copy": "Copy URL",
+    "copy_failed": "Couldn't copy. Select the URL and copy it manually",
+    "desktop": "App redirect URL",
+    "web": "Web redirect URL"
+  },
+  "catalog": {
+    "context7": {
+      "description": "Get up-to-date library docs and examples.",
+      "note": "Context7 docs also list the Authorization: Bearer form. This preset uses the verified Context7-API-Key header.",
+      "setup": {
+        "create_key": "Create an API key in the Context7 dashboard.",
+        "enter_key": "In Tofi, enter the key in the Context7-API-Key header."
+      }
+    },
+    "github": {
+      "description": "Repositories, issues and pull requests.",
+      "note": "The official remote server is hosted by GitHub. Availability and toolsets may depend on your account or Copilot eligibility.",
+      "setup": {
+        "check_scope": "Before connecting, review the GitHub MCP toolsets and repository permissions.",
+        "prepare_pat": "Prepare a fine-grained PAT with the narrowest permissions and enter it in Tofi as a Bearer token."
+      }
+    },
+    "github_readonly": {
+      "description": "Read repositories, issues and pull requests.",
+      "name": "GitHub (read-only)",
+      "note": "Read-only endpoint hosted by GitHub. Tofi's tool approvals and allow/block rules still apply. Source and settings are checked but not yet tested with a real account.",
+      "setup": {
+        "create_pat": "Create a fine-grained PAT with read access to only the repositories you need.",
+        "enter_token": "Enter the PAT in the private token field below. Don't paste it into chat or the headers JSON.",
+        "verify": "After adding, check the connection and available tools. Account and organization policies still apply."
+      }
+    },
+    "google_calendar": {
+      "description": "View events and free time.",
+      "note": "This preset only reads events and checks free/busy. Enable calendar-json.googleapis.com and calendarmcp.googleapis.com."
+    },
+    "google_docs": {
+      "description": "Read and edit documents.",
+      "note": "Google Docs MCP is in Developer Preview. Enable docs.googleapis.com and docsmcp.googleapis.com."
+    },
+    "google_drive": {
+      "description": "Find and organize files in the cloud.",
+      "note": "Google Drive MCP is in Developer Preview. Enable drive.googleapis.com and drivemcp.googleapis.com."
+    },
+    "google_gmail": {
+      "description": "Find emails, read them and write drafts.",
+      "note": "Google Workspace Developer Preview. Enable gmail.googleapis.com and gmailmcp.googleapis.com. Some tools may require gmail.modify or mail.google.com."
+    },
+    "google_setup": {
+      "client_credentials": "Enter the Client ID and Secret below, then finish Google authorization after adding.",
+      "consent_screen": "Set up the OAuth consent screen and test users, then create a Web application client and register the redirect URL.",
+      "enable_apis": "In your Google Cloud project, enable the product API and its MCP service.",
+      "preview_access": "Make sure you have access to the Google Workspace Developer Preview."
+    },
+    "google_sheets": {
+      "description": "Read data and edit sheets and formulas.",
+      "note": "Google Sheets MCP is in Developer Preview. Enable sheets.googleapis.com and sheetsmcp.googleapis.com."
+    },
+    "google_slides": {
+      "description": "Read and build presentations.",
+      "note": "Google Slides MCP is in Developer Preview. Enable slides.googleapis.com and slidesmcp.googleapis.com."
+    },
+    "linear": {
+      "description": "Manage projects, issues and comments.",
+      "note": "Linear's main transport is Streamable HTTP. /mcp/readonly offers read tools only; /sse is a deprecated compatibility path.",
+      "setup": {
+        "check_scope": "Before connecting, review team and workspace permissions.",
+        "prepare_key": "Prepare a Linear API key or Bearer token. If you don't need write access, use the read-only endpoint."
+      }
+    },
+    "linear_readonly": {
+      "description": "Find projects, issues and comments.",
+      "name": "Linear (read-only)",
+      "note": "Linear documents this endpoint as read-only tools. Tofi's tool approvals and allow/block rules still apply. Settings are checked but not yet tested with a real account.",
+      "setup": {
+        "create_key": "Create a Linear API key with Read permission only, scoped to the teams you need.",
+        "enter_token": "Enter the key in the private token field below.",
+        "verify": "After adding, confirm the granted scope and the tool connection."
+      }
+    },
+    "microsoft_learn": {
+      "description": "Search official technical docs and code samples.",
+      "setup": {
+        "no_account": "No account or key needed. The public docs are available as soon as you add it."
+      }
+    },
+    "notion": {
+      "description": "Find and organize your knowledge base.",
+      "note": "Notion now focuses on its hosted remote MCP. Enterprise admins can restrict which AI apps can connect.",
+      "setup": {
+        "auto_client": "Tofi requests an OAuth client from the service, so you don't need to enter a Client ID.",
+        "check_access": "Make sure the connected identity has the page access you expect.",
+        "choose_workspace": "After adding, click Connect and choose the Notion workspace to link."
+      }
+    }
+  },
+  "diagnostics_separator": "; ",
+  "docs": {
+    "community": "Community project docs",
+    "retired": "Legacy project docs",
+    "vendor": "Setup docs"
+  },
+  "error": {
+    "auth_incomplete": "Authorization wasn't completed. Connect again.",
+    "auth_timeout": "Authorization still isn't complete. Try again.",
+    "discovery_failed": "Couldn't load tools. Check the server URL and credentials, then try again.",
+    "endpoint_changed_headers": "The server URL changed. Re-enter or remove the saved header credentials before saving.",
+    "endpoint_changed_oauth": "The server URL changed. Fill in the OAuth settings for the new URL before saving.",
+    "invalid_auth_url": "Invalid authorization URL",
+    "metadata_changed_secret": "The authorization metadata URL changed. Re-enter or clear the saved Client Secret before saving.",
+    "needs_bot": "Create a Bot first to authorize on the shared computer.",
+    "oauth_discovery_failed": "Couldn't read authorization details or register a client. Check the server URL and try again.",
+    "oauth_start_failed": "Couldn't start authorization. Check the server URL and try again.",
+    "offline": "Can't reach the server. Try again.",
+    "redirect_needs_https": "Authorization needs an HTTPS address or a localhost tunnel to Tofi. A private-network HTTP address can't receive the redirect.",
+    "tools_failed": "Couldn't load tools. Try again."
+  },
+  "form": {
+    "add": "Add",
+    "advanced": "Advanced settings",
+    "allowlist": "Allowed tools",
+    "allowlist_hint": "Leave blank to allow all",
+    "client_id": "OAuth Client ID",
+    "client_id_optional": "OAuth Client ID (leave blank to register automatically)",
+    "client_secret": "Client Secret",
+    "client_secret_hint": "If the service requires one",
+    "comma_separated": "Comma-separated",
+    "custom_description": "Connects to the workspace; Bots discover its tools as needed.",
+    "custom_title": "Custom MCP",
+    "denylist": "Blocked tools",
+    "edit_title": "Edit service",
+    "google_prepare": "Before you connect",
+    "guide": "Setup instructions",
+    "guide_heading": "Setup guide",
+    "headers": "Request headers",
+    "headers_invalid": "Headers must be a JSON object of names and text values",
+    "headers_note": "Dots or an empty value keep the saved credential; delete the field to remove it. If you change the server URL, re-enter or remove credentials.",
+    "metadata_url": "Authorization metadata URL",
+    "name": "Service ID",
+    "name_invalid": "Service ID must be 1–64 letters, digits, dots, underscores or hyphens",
+    "save": "Save",
+    "saving": "Saving…",
+    "scopes": "Scopes",
+    "token": "Access token",
+    "token_keep": "Leave blank to keep the saved token",
+    "token_paste": "Paste the token from the service",
+    "transport": "Transport",
+    "url": "Server URL"
+  },
+  "google": {
+    "docs": "Official setup docs",
+    "enable_api": "Enable product API",
+    "enable_mcp": "Enable MCP service",
+    "help": "Google setup help",
+    "links_label": "{{name}} setup links",
+    "nav_label": "Google Cloud settings for {{name}}",
+    "project_hint": "In Google Cloud, choose the same project as the OAuth client. While the app is in testing, add your account as a test user under Audience.",
+    "redirect_hint": "In Google Auth Platform → Clients, open your Web application and add each URL you'll use under Authorized redirect URIs (not JavaScript origins). Both entry points can share these credentials. Address, port and path must match exactly. The shared computer's dynamic HTTP redirect can't use this fixed setup; use HTTPS or the app instead.",
+    "test_users": "Set up test users"
+  },
+  "held": {
+    "discord": {
+      "description": "Community-maintained Discord Bot connection.",
+      "reason": "We haven't verified a compatible install method and permissions yet, so it can't be added."
+    },
+    "notion_token": {
+      "description": "Legacy local MCP server, no longer maintained.",
+      "name": "Notion token server (legacy)",
+      "reason": "The provider no longer maintains or supports this local server. It's listed for reference only and isn't in the first wave of support. To connect Notion, use the OAuth connection above."
+    },
+    "slack": {
+      "description": "Remote MCP server provided by Slack.",
+      "reason": "Requires registering a Slack app and user authorization. A Bot token doesn't work for this."
+    },
+    "yahoo_finance": {
+      "description": "Community-maintained market data lookup.",
+      "reason": "No installable compatible version verified yet. The community server needs no token."
+    }
+  },
+  "local": {
+    "attach": "Connect to Tofi",
+    "custom": {
+      "args": "Arguments (one per line)",
+      "binary": "Executable",
+      "env": "Environment variables (KEY=value per line, saved as a private file)",
+      "install": "Install plugin",
+      "intro": "Specify a pinned version and executable. The install command runs inside the Runner, and the plugin runs with the Runner's permissions.",
+      "package": "Package name",
+      "plugin_id": "Plugin ID",
+      "runtime": "Runtime",
+      "title": "Install another local MCP",
+      "version": "Pinned version"
+    },
+    "gog": {
+      "install": "Install gogcli",
+      "installing": "Installing…",
+      "intro": "A pinned gogcli version ships in the Runner image. Choose read-only, or allow reading and sending. Each email still needs your approval before it's sent.",
+      "title": "Personal Gmail · gogcli"
+    },
+    "google": {
+      "client_json": "OAuth client JSON",
+      "client_setup": "In Google Cloud, create a <strong>Web application</strong> OAuth client, add the address below under “Authorized redirect URIs”, then upload the downloaded JSON.",
+      "connect": "Connect Google",
+      "connected_as": "Authorized as {{email}}",
+      "continue": "Continue to Google authorization",
+      "disconnect": "Disconnect Google",
+      "disconnect_confirm": "Remove the saved Google authorization from the Runner?",
+      "disconnect_submit": "Disconnect",
+      "disconnected": "Google authorization removed from the Runner.",
+      "email": "Google email",
+      "finish_in_google": "Finish authorizing on the Google page. The status updates when you return to Tofi.",
+      "generating_link": "Creating the Google authorization link…",
+      "granted_read_send": "Read and send authorized. Each email still needs confirmation before sending.",
+      "granted_readonly": "Read access only. To send, disconnect and choose read and send again.",
+      "invalid_json": "Upload a valid Google OAuth client JSON.",
+      "needs_https": "Open this page from Tofi's configured public HTTPS address.",
+      "open_console": "Open Google Cloud",
+      "preparing": "Preparing authorization…",
+      "preparing_popup": "Preparing Google authorization…",
+      "scope": "Gmail access",
+      "scope_read_send": "Read and send: I confirm every email",
+      "scope_readonly": "Read-only: search and view email",
+      "verified": "Personal Gmail read access verified.",
+      "verify": "Verify Gmail access",
+      "verifying": "Verifying…",
+      "waiting": "Waiting for Google authorization"
+    },
+    "intro": "Plugins install in a separate Runner container, start on demand and sleep when idle.",
+    "notice": {
+      "attached": "{{id}} is connected to Tofi.",
+      "installed": "{{id}} installed. Its tools start when used.",
+      "removed": "{{id}} removed."
+    },
+    "remove": "Remove",
+    "remove_confirm": "Remove the plugin and its saved authorization?",
+    "remove_submit": "Remove",
+    "state": {
+      "not_installed": "Not installed",
+      "ready": "Running",
+      "sleeping": "Asleep",
+      "starting": "Starting"
+    },
+    "title": "Local MCP",
+    "unavailable": "Local MCP Runner unavailable",
+    "unavailable_hint": "Check that the Runner container is running.",
+    "plugin_count_one": "{{count}} plugin",
+    "plugin_count_other": "{{count}} plugins"
+  },
+  "mcp": {
+    "add": "Add service",
+    "added": "Added",
+    "back": "Back",
+    "cancel_auth": "Cancel authorization",
+    "confirm": {
+      "disconnect": "Disconnect {{name}}?",
+      "disconnect_submit": "Disconnect",
+      "remove": "Remove {{name}}?",
+      "remove_submit": "Remove"
+    },
+    "connect": "Connect",
+    "continue_auth": "Continue authorization",
+    "empty": "Connect your tools",
+    "loading": "Loading services…",
+    "menu": {
+      "disconnect": "Disconnect",
+      "edit": "Edit settings",
+      "refresh": "Refresh tools",
+      "remove": "Remove service"
+    },
+    "more_actions": "More actions for {{name}}"
+  },
+  "oauth": {
+    "help_body": "The sign-in method follows how you opened Tofi and works for Google, Notion and other OAuth services. A client you configure yourself needs the full redirect URL below registered in the service's console; services with automatic registration, like Notion, are handled by Tofi.",
+    "help_title": "Sign-in method and limits",
+    "linked": "{{title}} authorized",
+    "waiting": "Waiting for {{title}} authorization"
+  },
+  "origin": {
+    "community": "Community maintained",
+    "preset": "Connection preset",
+    "vendor": "Maintained by provider"
+  },
+  "route": {
+    "desktop": "Sign in with your system browser; you'll come back to this app when done. The shared computer isn't used.",
+    "desktop_outdated": "This app version can't authorize locally yet. Update the app. Tofi won't switch to the shared computer on its own.",
+    "http_blocked": "A plain HTTP connection can't receive the redirect safely, and no shared computer is set up. Use HTTPS or the Tofi app.",
+    "loading": "Loading sign-in settings…",
+    "public_origin_missing": "Set TOFI_PUBLIC_ORIGIN (the public HTTPS address) on the server, then try again.",
+    "vm": "You're connected over plain HTTP, so only this entry point authorizes on the shared computer. The service must support a local redirect. HTTPS or the Tofi app is recommended.",
+    "web": "Sign in with this device's browser; the provider returns to Tofi's HTTPS server. The shared computer isn't used."
+  },
+  "skillCatalog": {
+    "document_delivery": {
+      "description": "Create documents, spreadsheets and slides, check them, then send to chat.",
+      "title": "Document delivery"
+    },
+    "research": {
+      "description": "Check sources and turn research into a deliverable file.",
+      "title": "Research"
+    },
+    "web_review": {
+      "description": "Use the page for real and record issues with repro steps.",
+      "title": "Web review"
+    }
+  },
+  "skills": {
+    "choose_folder": "Choose folder",
+    "error": {
+      "missing_content": "Choose a folder that contains SKILL.md, or open Manual edit and enter a name and content.",
+      "name_taken": "That name is already taken. Choose another.",
+      "no_skill_md": "The folder needs SKILL.md at its root",
+      "too_large": "A Skill can be at most 1 MB",
+      "too_many_files": "Up to {{max}} files"
+    },
+    "folder_label": "Choose Skill folder",
+    "install": "Install Skill",
+    "install_submit": "Install",
+    "installed": "Installed",
+    "installed_notice": "Installed. Every Bot can read it when needed",
+    "installing": "Installing…",
+    "loading": "Loading…",
+    "manual": "Manual edit",
+    "name": "Name",
+    "needs_skill_md": "Contains SKILL.md",
+    "reload": "Reload",
+    "remove": "Remove",
+    "remove_confirm": "Remove this Skill?",
+    "removed": "Skill removed",
+    "saved": "Saved",
+    "scope": "Shared across the workspace · read on demand",
+    "starters": "Tofi work Skills",
+    "support_note": "Instructions and reference files are supported. Bundled scripts never run automatically.",
+    "file_count_one": "{{count}} file",
+    "file_count_other": "{{count}} files"
+  },
+  "status": {
+    "authorizing": "Opening authorization…",
+    "checking": "Loading tools…",
+    "failed": "Connection failed",
+    "needs_auth": "Authorization needed",
+    "removing": "Working…",
+    "unverified": "Not verified yet",
+    "waiting": "Waiting for authorization",
+    "tools_one": "{{count}} tool",
+    "tools_other": "{{count}} tools"
+  },
+  "vm": {
+    "cancel": "Cancel authorization",
+    "cancel_failed": "Couldn't cancel. Try again. Authorization ends on its own when it times out.",
+    "cancelling": "Canceling…",
+    "dialog_label": "{{title}} authorization",
+    "end": {
+      "denied": "Authorization was canceled. You can connect again.",
+      "error": "Authorization wasn't completed. Try again.",
+      "expired": "Authorization timed out. Connect again."
+    },
+    "footer": "You'll return automatically when done. Other Bots' screen actions are queued.",
+    "reconnecting": "Connection interrupted. Retrying…",
+    "screen_alt": "Shared computer",
+    "subtitle": "Finish authorizing on the shared computer"
+  }
+}

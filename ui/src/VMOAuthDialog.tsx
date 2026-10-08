@@ -3,13 +3,18 @@ import { createPortal } from "react-dom";
 import { api, request } from "./api";
 import { DesktopVideo, type DesktopVideoState } from "./DesktopVideo";
 import { RemoteDesktopControl, type RemoteControlHandle } from "./RemoteDesktopControl";
+import { i18n, useTranslation } from "./i18n";
 
 export type VMOAuthSession = { session_id: string; bot_id: string; status: string; error?: string };
+const endKeys = { denied: "extensions:vm.end.denied", expired: "extensions:vm.end.expired", error: "extensions:vm.end.error" } as const;
+const endText = (status: string) => status in endKeys ? i18n.t(endKeys[status as keyof typeof endKeys]) : undefined;
+
 type Props = { session: VMOAuthSession; serverName: string; title: string; onFinish: (status: string, error?: string) => void };
 
 // The browser only receives lifecycle status. Authorization codes, state and
 // tokens stay in the guest/control-plane OAuth flow.
 export function VMOAuthDialog({ session, serverName, title, onFinish }: Props) {
+  const { t } = useTranslation("extensions");
   const base = `/api/extensions/mcp/${encodeURIComponent(serverName)}/oauth/vm/${encodeURIComponent(session.session_id)}`;
   const control = useRef<RemoteControlHandle | null>(null);
   const finish = useRef(onFinish); finish.current = onFinish;
@@ -36,11 +41,11 @@ export function VMOAuthDialog({ session, serverName, title, onFinish }: Props) {
         if (!["pending", "preparing"].includes(state.status)) {
           terminal.current = true;
           await control.current?.release();
-          if (alive) finish.current(state.status, state.error || ({ denied: "授权已取消，可重新连接。", expired: "授权已超时，请重新连接。", error: "授权未完成，请重试。" } as Record<string, string>)[state.status]);
+          if (alive) finish.current(state.status, state.error || endText(state.status));
           return;
         }
       } catch {
-        if (alive) setConnectionError("连接暂时中断，正在重试…");
+        if (alive) setConnectionError(i18n.t("extensions:vm.reconnecting"));
       }
       if (alive) timer = setTimeout(poll, 1500);
     };
@@ -96,17 +101,17 @@ export function VMOAuthDialog({ session, serverName, title, onFinish }: Props) {
       await control.current?.release();
       await request(base + "/cancel", { method: "POST", body: "{}", signal: AbortSignal.timeout(15000) });
       terminal.current = true; finish.current("cancelled");
-    } catch { setConnectionError("暂时无法取消，请重试。授权会在超时后自动结束。"); setClosing(false); }
+    } catch { setConnectionError(t("vm.cancel_failed")); setClosing(false); }
   }
 
   return createPortal(<div className="mcp-oauth-overlay">
-    <div ref={pane} className="mcp-oauth-dialog mcp-settings" role="dialog" aria-modal="true" aria-label={`${title} 授权`} tabIndex={-1}>
-      <header><div><strong>{title}</strong><span>在共享电脑中完成授权</span></div><button className="mcp-button" disabled={closing} onClick={() => void cancel()}>{closing ? "取消中…" : "取消授权"}</button></header>
+    <div ref={pane} className="mcp-oauth-dialog mcp-settings" role="dialog" aria-modal="true" aria-label={t("vm.dialog_label", { title })} tabIndex={-1}>
+      <header><div><strong>{title}</strong><span>{t("vm.subtitle")}</span></div><button className="mcp-button" disabled={closing} onClick={() => void cancel()}>{closing ? t("vm.cancelling") : t("vm.cancel")}</button></header>
       <RemoteDesktopControl botId={session.bot_id} enabled={!closing} expanded onControlChange={setOwned} controlRef={control}>
-        {videoState === "fallback" && poster && <img className="computer-screen" src={poster} alt="共享电脑" draggable={false}/>}
+        {videoState === "fallback" && poster && <img className="computer-screen" src={poster} alt={t("vm.screen_alt")} draggable={false}/>}
         <DesktopVideo botId={session.bot_id} enabled cursor={owned ? "hidden" : "visible"} poster={poster} className={`computer-screen${videoState === "fallback" ? " mcp-oauth-video-hidden" : ""}`} onState={setVideoState}/>
       </RemoteDesktopControl>
-      <footer role="status">{connectionError || "完成后自动返回；其他 Bot 的图形操作正在排队。"}</footer>
+      <footer role="status">{connectionError || t("vm.footer")}</footer>
     </div>
   </div>, document.body);
 }

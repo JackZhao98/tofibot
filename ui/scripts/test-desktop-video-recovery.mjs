@@ -5,10 +5,13 @@ import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { promisify } from "node:util";
+import { fixedTranslation } from "./i18n-harness.mjs";
 
 const root = dirname(dirname(fileURLToPath(import.meta.url)));
 const out = await mkdtemp(join(tmpdir(), "tofi-desktop-recovery-"));
 const originalFetch = globalThis.fetch;
+// The panel's copy is asserted in zh-CN, the shipped catalog.
+const zh = await fixedTranslation("zh-CN");
 const deferred = () => {
   let resolve;
   const promise = new Promise(done => { resolve = done; });
@@ -64,7 +67,8 @@ try {
     .replace(/^import .* from "\.\/api";$/m, "const { api, ApiError, request } = globalThis.__desktopHarness;")
     .replace(/^import .* from "\.\/DesktopVideo";$/m, "const { DesktopVideo } = globalThis.__desktopHarness;")
     .replace(/^import .* from "\.\/icons";$/m, "const { TofiIcon } = globalThis.__desktopHarness;")
-    .replace(/^import .* from "\.\/RemoteDesktopControl";$/m, "const { RemoteDesktopControl } = globalThis.__desktopHarness;");
+    .replace(/^import .* from "\.\/RemoteDesktopControl";$/m, "const { RemoteDesktopControl } = globalThis.__desktopHarness;")
+    .replace(/^import .* from "\.\/i18n";$/m, "const { i18n, useTranslation } = globalThis.__desktopHarness;");
   const isolatedSource = source
     .replace(/^import .* from "\.\/BotAvatar";$/m, "const BotAvatar = () => null;")
     .replace(/^import .* from "\.\/DesktopPointerMarker";$/m, "const DesktopPointerMarker = () => null;")
@@ -91,6 +95,7 @@ try {
     const timers = new Map();
     let timerID = 0;
     const hooks = {
+      i18n: zh.i18n, useTranslation: zh.useTranslation,
       jsx: (type, props) => ({ type, props }), jsxs: (type, props) => ({ type, props }),
       DesktopVideo: function DesktopVideo() {}, RemoteDesktopControl: function RemoteDesktopControl() {},
       request: async () => ({owner:null,waiting:[]}),

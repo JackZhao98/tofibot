@@ -1,0 +1,132 @@
+{
+  "memory": {
+    "error": {
+      "edit_conflict": "This memory changed while you were editing. Your draft is kept; cancel and reopen it to compare.",
+      "save": "Couldn't save the memory"
+    },
+    "field": {
+      "title": "Title",
+      "description": "Summary",
+      "content": "Full memory",
+      "content_placeholder": "Write down a fact worth remembering long-term…"
+    },
+    "create": {
+      "title_aria": "New memory title",
+      "description_aria": "New memory summary",
+      "content_aria": "New memory"
+    },
+    "edit": {
+      "title_aria": "Edit memory title",
+      "description_aria": "Edit memory summary",
+      "content_aria": "Edit memory"
+    },
+    "heading": {
+      "group": "Group shared memory",
+      "bot": "This Bot's memory"
+    },
+    "close_aria": "Close memory",
+    "note": {
+      "group": "Memories here are shared by everyone in this group. Switching models keeps saved memories and chat history, though different models may use them differently.",
+      "bot": "This Bot's memories are kept here. Switching models keeps saved memories and chat history, though different models may use them differently."
+    },
+    "save_memory": "Save memory",
+    "search": "Search memories",
+    "save": "Save",
+    "cancel": "Cancel",
+    "view_full": "View full memory",
+    "revision": "Revision {{revision}}",
+    "edit_action": "Edit",
+    "delete": "Delete",
+    "delete_question": "Delete this memory?",
+    "no_match": "No matching memories.",
+    "empty_short": "No memories yet.",
+    "empty_title": "No memories yet",
+    "empty": {
+      "group": "Shared memories saved in this group will appear here.",
+      "bot": "Memories this Bot saves will appear here."
+    },
+    "cat_name": "Mochi"
+  },
+  "apiError": {
+    "archive_busy": "Some tasks are still running. Wait for them to finish or stop them, then restore.",
+    "no_active_members": "This group has no available members. After restoring, add at least one Bot.",
+    "archive_blocked": "This conversation is unavailable. Restore it to continue."
+  },
+  "archive": {
+    "error": {
+      "failed": "Archive action failed. Try again later.",
+      "bot_missing": "Can't find this Bot's profile, so it can't be restored."
+    },
+    "title": "Old archive",
+    "close_aria": "Close archive",
+    "schedule_note": "After restoring, scheduled tasks must be turned back on manually.",
+    "reload": "Reload",
+    "loading": "Loading archive…",
+    "empty": "No archived items.",
+    "group_meta_one": "{{count}} member · Group",
+    "group_meta_other": "{{count}} members · Group",
+    "dm_meta": "Bot · past direct messages",
+    "delete_bot": "Delete Bot",
+    "delete_group": "Delete group",
+    "restoring": "Restoring…",
+    "restore": "Restore"
+  },
+  "inspector": {
+    "error": {
+      "read": "Couldn't load it right now.",
+      "copy": "Couldn't copy. Select the text to copy it."
+    },
+    "tools": "Tool catalog",
+    "system_prompt": "System prompt",
+    "retry": "Retry",
+    "loading": "Loading…",
+    "last_run": "Last run · {{time}}",
+    "builtin_note": "Built-in tools; extension tools appear after a run.",
+    "search": "Search tools",
+    "preview_caption": "Current configuration preview",
+    "copied": "Copied",
+    "copy": "Copy",
+    "runtime_note": "At run time, history, memory and extension context are added too."
+  },
+  "debug": {
+    "mode": "Debug mode",
+    "mode_hint": "Show tool calls and diagnostics",
+    "no_bots": "No Bots yet."
+  },
+  "avatar": {
+    "aria": "Bot avatar",
+    "state_aria": "Preview state",
+    "state": {
+      "sleeping": "Asleep",
+      "awake": "Awake",
+      "working": "Working"
+    },
+    "sizes_aria": "Actual avatar sizes in the interface",
+    "palette": "Coat",
+    "palette_count_one": "{{count}} option",
+    "palette_count_other": "{{count}} options",
+    "palettes_aria": "Cat coat color",
+    "shape": "Body",
+    "random": "Random",
+    "shapes_aria": "Cat body shape",
+    "pattern": "Pattern",
+    "patterns_aria": "Cat coat pattern",
+    "fixed_palette": "Fixed colors"
+  },
+  "package": {
+    "invalid_json": "This isn't a valid Bot package.",
+    "invalid_format": "The Bot package format isn't valid.",
+    "unsupported_version": "This version of the package isn't supported by this Tofi.",
+    "missing_bot": "The package has no Bot configuration.",
+    "invalid_name": "The Bot name in the package isn't valid.",
+    "invalid_instructions": "The Bot instructions in the package aren't valid.",
+    "invalid_model": "The model setting in the package isn't valid.",
+    "invalid_reasoning": "The reasoning setting in the package isn't valid.",
+    "invalid_avatar": "The avatar setting in the package isn't valid."
+  },
+  "identity": {
+    "profile_aria": "{{name}}'s profile",
+    "mention": "Mention {{name}}",
+    "open_dm": "Open direct message"
+  }
+}

@@ -1,0 +1,6 @@
+{
+  "note": "Ceiling of hardcoded UI text per file. Only ever shrinks; regenerate with npm run test:i18n -- --update-baseline.",
+  "files": {
+
+  }
+}

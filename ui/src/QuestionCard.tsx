@@ -9,9 +9,12 @@ import { useUserTimezone } from "./UserTimezone";
 import type { Bot } from "./types";
 import { autoReviewPresentation, reconcileQuestion, type Question } from "./questionTimeline";
 import { userFormAnswerRows, userFormIdentity, userFormSchemaError, validateUserForm } from "./userForm";
-import { canAnswerQuestion, presentTaskIssue, taskLocale, taskText } from "./taskIssuePresentation";
+import { canAnswerQuestion, presentTaskIssue } from "./taskIssuePresentation";
+import { i18n, useTranslation } from "./i18n";
+import { formatNumber } from "./i18n/format";
 import { TaskIssueCard } from "./TaskIssueCard";
 import "./question-card.css";
+import { intlLocale } from "./i18n/format";
 
 /** A separate read failure must not prevent ordinary conversation history loading. */
 export function useQuestions(conversationId: string | null) {
@@ -35,7 +38,7 @@ export function useQuestions(conversationId: string | null) {
       setSnapshot({ id: conversationId, items: (result.questions ?? []).filter(q => q.conversation_id === conversationId) });
       setFailure(null);
     } catch (cause) {
-      if (!pending.signal.aborted && version === generation.current && sequence === requestSequence.current) setFailure({ id: conversationId, text: cause instanceof Error ? cause.message : "读取问题失败" });
+      if (!pending.signal.aborted && version === generation.current && sequence === requestSequence.current) setFailure({ id: conversationId, text: cause instanceof Error ? cause.message : i18n.t("tasks:question.load_failed") });
     } finally {
       if (version === generation.current && sequence === requestSequence.current) setLoading(false);
     }
@@ -58,10 +61,12 @@ export function useQuestions(conversationId: string | null) {
 }
 
 function answerLabel(item: Question) {
-  if (typeof item.answer === "boolean") return item.answer ? "是" : "否";
+  const t = i18n.getFixedT(null, "tasks");
+  if (typeof item.answer === "boolean") return item.answer ? t("question.yes") : t("question.no");
   const label = (id: string) => item.options?.find(option => option.id === id)?.label ?? id;
-  if (Array.isArray(item.answer)) return item.answer.map(label).join("、");
-  if (item.answer && typeof item.answer === "object" && "other_text" in item.answer && typeof item.answer.other_text === "string" && Array.isArray(item.answer.values)) return [...item.answer.values.map(label), `其他：${item.answer.other_text}`].join("、");
+  const separator = t("question.list_separator");
+  if (Array.isArray(item.answer)) return item.answer.map(label).join(separator);
+  if (item.answer && typeof item.answer === "object" && "other_text" in item.answer && typeof item.answer.other_text === "string" && Array.isArray(item.answer.values)) return [...item.answer.values.map(label), t("question.other_answer", { text: item.answer.other_text })].join(separator);
   return item.question_type === "single_choice" && typeof item.answer === "string" ? label(item.answer) : String(item.answer ?? "");
 }
 
@@ -83,8 +88,7 @@ function BinaryQuestionCard({ item, bot, group, archived, onChanged }: QuestionC
   const sending = useRef(false);
   const controller = useRef<AbortController | null>(null);
   const current = reconcileQuestion(item, resolved);
-  const locale = taskLocale();
-  const t = (zh: string, en: string) => taskText(locale, zh, en);
+  const { t } = useTranslation("tasks");
   const record = useRef<HTMLElement>(null);
   const restoreFocus = useRef(false);
   const answerable = canAnswerQuestion(current, Boolean(archived));
@@ -107,32 +111,32 @@ function BinaryQuestionCard({ item, bot, group, archived, onChanged }: QuestionC
     try {
       const result = await request<{ question: Question }>(`/api/questions/${encodeURIComponent(item.question_id)}${value === null ? "" : "/answer"}`, { method:value === null ? "DELETE" : "POST", body:value === null ? undefined : JSON.stringify({ value }), signal:pending.signal });
       setResolved(result.question);
-      try { await onChanged(result.question); } catch { if (!pending.signal.aborted) setError("回答已接收，列表刷新失败，请刷新页面查看。"); }
+      try { await onChanged(result.question); } catch { if (!pending.signal.aborted) setError(t("question.answered_refresh_failed")); }
     } catch (cause) {
       if (pending.signal.aborted) return;
-      setError(cause instanceof Error ? cause.message : "提交未完成，请重试。");
+      setError(cause instanceof Error ? cause.message : t("question.submit_failed"));
       if (cause instanceof ApiError && (cause.status === 404 || cause.status === 409)) {
-        try { await onChanged(); } catch { if (!pending.signal.aborted) setError("问题状态已变化，请刷新页面后再操作。"); }
+        try { await onChanged(); } catch { if (!pending.signal.aborted) setError(t("question.state_changed")); }
       }
     } finally { sending.current = false; if (!pending.signal.aborted) setBusy(undefined); }
   }
   const validTime = Number.isFinite(Date.parse(item.created_at));
   if (approval && !answerable && !archived) {
-    const issue = presentTaskIssue({ run: { id:current.run_id, conversation_id:current.conversation_id, bot_id:current.bot_id, status:current.status === "pending" ? "running" : "done", created_at:current.created_at, updated_at:current.updated_at ?? current.created_at }, questions:[current], locale });
+    const issue = presentTaskIssue({ run: { id:current.run_id, conversation_id:current.conversation_id, bot_id:current.bot_id, status:current.status === "pending" ? "running" : "done", created_at:current.created_at, updated_at:current.updated_at ?? current.created_at }, questions:[current] });
     return <article ref={record} className="binary-question-message" data-question-id={item.question_id} tabIndex={-1}>
-      {issue ? <TaskIssueCard issue={issue} locale={locale} onAction={() => { if (issue.action === "open_tools") window.dispatchEvent(new Event("tofi:open-tool-settings")); }} /> : <section className="task-question-record"><p>{reviewOnly || review?.status.startsWith("shadow") ? t("观察记录，不提供执行权限。", "Observation only; it does not grant execution permission.") : review?.status === "reviewing" ? t("执行前检查中", "Checking before execution") : current.status === "answered" && current.answer === true ? t("已批准，操作尚未确认完成。", "Approved; execution is not yet confirmed.") : t("此提案已结束。", "This proposal ended.")}</p><details><summary>{t("查看决定记录", "View decision record")}</summary><p>{current.status} · {review?.status}</p><p>{current.question_id}</p></details></section>}
+      {issue ? <TaskIssueCard issue={issue} onAction={() => { if (issue.action === "open_tools") window.dispatchEvent(new Event("tofi:open-tool-settings")); }} /> : <section className="task-question-record"><p>{reviewOnly || review?.status.startsWith("shadow") ? t("record.observation_only") : review?.status === "reviewing" ? t("phase.reviewing") : current.status === "answered" && current.answer === true ? t("record.approved_unconfirmed") : t("record.proposal_ended")}</p><details><summary>{t("record.view_decision")}</summary><p>{current.status} · {review?.status}</p><p>{current.question_id}</p></details></section>}
       {error && <p role="alert">{error}</p>}
     </article>;
   }
-  return <article ref={record} className={`binary-question-message${group ? " is-group" : " is-dm"}`} data-question-id={item.question_id} tabIndex={-1} aria-label={`${bot?.name ?? "Bot"} 的问题`}>
+  return <article ref={record} className={`binary-question-message${group ? " is-group" : " is-dm"}`} data-question-id={item.question_id} tabIndex={-1} aria-label={t("question.aria", { name: bot?.name ?? "Bot" })}>
     {group && <div className="message-meta"><strong>{bot?.name ?? "Bot"}</strong></div>}
-    <ApprovalCard title={<MessageMarkdown content={item.question} />} avatar={group ? <BotAvatar id={item.bot_id} mini /> : undefined} badge={approval ? t("需要你批准", "Your approval is needed") : t("需要你回答", "Your input is needed")}
-      time={validTime ? new Intl.DateTimeFormat("zh-CN", { timeZone:timezone, hour:"2-digit", minute:"2-digit", hourCycle:"h23" }).format(new Date(item.created_at)) : undefined}
-      exactTime={item.created_at} facts={approval ? [{ label:t("动作", "Action"), value:approval.action }, { label:t("对象", "Target"), value:approval.target }, { label:t("影响", "Impact"), value:approval.impact }] : undefined} payload={approval?.payload}
-      acceptLabel={approval ? approval.approve_label || t("批准此操作", "Approve action") : t("是", "Yes")} declineLabel={approval ? approval.deny_label || t("不批准", "Decline") : t("否", "No")} onAnswer={value => void answer(value)} busy={busy} disabled={!answerable}
-      secondaryAction={answerable && <><button type="button" disabled={Boolean(busy)} onClick={() => void answer(null)}>{busy === "cancel" ? t("取消中…", "Cancelling…") : approval ? t("取消审批", "Cancel proposal") : t("取消问题", "Cancel question")}</button>{approval?.draft_id && <button type="button" onClick={() => { const node = [...document.querySelectorAll<HTMLElement>("[data-draft-id]")].find(element => element.dataset.draftId === approval.draft_id); node?.scrollIntoView({ behavior:"smooth", block:"center" }); }} >查看草稿</button>}</>}
-      note={reviewInProgress ? "正在评估这一次提案的风险及授权；需要你确认时会显示审批选项。" : reviewOnly ? "观察记录不提供执行权限，也不改变原有执行路径。" : archived ? "恢复会话后可回答。" : reviewBlocked ? "此提案不可执行；批准不能修复配置或上下文缺口。" : approval ? t("此操作尚未执行。批准本身不代表操作成功。", "This action has not been executed. Approval does not confirm execution.") : undefined} error={error}
-      resolution={reviewInProgress ? {label:"审查中 · 暂无需人工审批",accepted:false} : reviewOnly ? {label:"观察记录 · 无执行权限", accepted:false} : reviewBlocked && (current.status === "pending" || review?.policy_version === "mcp-all-external-v5") ? {label:reviewPresentation?.label ?? "不可执行", accepted:false} : current.status === "pending" ? undefined : { label:current.status === "answered" ? autoApproved ? "AutoReview 自动批准" : approval ? "人工已决定" : "已回答" : current.status === "expired" ? "已过期" : current.status === "run_done" ? "任务已结束" : "已取消", answer:current.status === "answered" ? approval ? current.answer === true ? approval.approve_label || "已批准" : approval.deny_label || "未批准" : answerLabel(current) : undefined, accepted:current.status === "answered" && current.answer === true }} />
+    <ApprovalCard title={<MessageMarkdown content={item.question} />} avatar={group ? <BotAvatar id={item.bot_id} mini /> : undefined} badge={approval ? t("phase.needs_approval") : t("phase.needs_answer")}
+      time={validTime ? new Intl.DateTimeFormat(intlLocale(), { timeZone:timezone, hour:"2-digit", minute:"2-digit", hourCycle:"h23" }).format(new Date(item.created_at)) : undefined}
+      exactTime={item.created_at} facts={approval ? [{ label:t("record.action"), value:approval.action }, { label:t("record.target"), value:approval.target }, { label:t("record.impact"), value:approval.impact }] : undefined} payload={approval?.payload}
+      acceptLabel={approval ? approval.approve_label || t("question.approve") : t("question.yes")} declineLabel={approval ? approval.deny_label || t("question.decline") : t("question.no")} onAnswer={value => void answer(value)} busy={busy} disabled={!answerable}
+      secondaryAction={answerable && <><button type="button" disabled={Boolean(busy)} onClick={() => void answer(null)}>{busy === "cancel" ? t("question.cancelling") : approval ? t("question.cancel_proposal") : t("question.cancel_question")}</button>{approval?.draft_id && <button type="button" onClick={() => { const node = [...document.querySelectorAll<HTMLElement>("[data-draft-id]")].find(element => element.dataset.draftId === approval.draft_id); node?.scrollIntoView({ behavior:"smooth", block:"center" }); }} >{t("question.view_draft")}</button>}</>}
+      note={reviewInProgress ? t("question.note.reviewing") : reviewOnly ? t("question.note.observation") : archived ? t("question.note.archived") : reviewBlocked ? t("question.note.blocked") : approval ? t("question.not_executed_yet") : undefined} error={error}
+      resolution={reviewInProgress ? {label:t("question.resolution.reviewing"),accepted:false} : reviewOnly ? {label:t("question.resolution.observation"), accepted:false} : reviewBlocked && (current.status === "pending" || review?.policy_version === "mcp-all-external-v5") ? {label:reviewPresentation?.label ?? t("review.label.not_executable"), accepted:false} : current.status === "pending" ? undefined : { label:current.status === "answered" ? autoApproved ? t("question.resolution.auto_approved") : approval ? t("question.resolution.human_decided") : t("status.answered") : current.status === "expired" ? t("status.expired") : current.status === "run_done" ? t("question.resolution.run_done") : t("status.cancelled"), answer:current.status === "answered" ? approval ? current.answer === true ? approval.approve_label || t("question.resolution.approved") : approval.deny_label || t("status.approval_denied") : answerLabel(current) : undefined, accepted:current.status === "answered" && current.answer === true }} />
 
 
   </article>;
@@ -140,6 +144,7 @@ function BinaryQuestionCard({ item, bot, group, archived, onChanged }: QuestionC
 
 function UserFormCard({ item, bot, group, archived, onChanged }: QuestionCardProps) {
   const title = useId();
+  const { t } = useTranslation("tasks");
   const privacy = `${title}-privacy`;
   const form = useRef<HTMLFormElement | null>(null);
   const mounted = useRef(false);
@@ -182,7 +187,7 @@ function UserFormCard({ item, bot, group, archived, onChanged }: QuestionCardPro
       const errors = validateUserForm(fields, values);
       setFieldErrors(errors);
       if (Object.keys(errors).length) {
-        setError("请检查标出的字段后再提交。");
+        setError(t("form.check_fields"));
         const first = fields.find(field => Object.hasOwn(errors, field.id));
         const control = first && form.current.elements.namedItem(first.id);
         if (control instanceof HTMLElement) control.focus();
@@ -204,10 +209,10 @@ function UserFormCard({ item, bot, group, archived, onChanged }: QuestionCardPro
       // Server/network messages may echo an input. Only fixed UI copy is safe here.
       if (cause instanceof ApiError && (cause.status === 409 || cause.status === 404)) {
         clearUserForm(form.current);
-        setError("表单状态已变化，请确认刷新后的状态再操作。");
-        try { await onChanged(); } catch { if (mounted.current) setError("无法刷新表单状态，请刷新页面后再操作。"); }
+        setError(t("form.state_changed"));
+        try { await onChanged(); } catch { if (mounted.current) setError(t("form.refresh_failed")); }
       } else {
-        setError(cancel ? "取消未完成，输入已清空，请重试取消。" : "提交未完成，输入已保留，请检查后重试。");
+        setError(cancel ? t("form.cancel_failed") : t("form.submit_failed"));
       }
       return;
     } finally {
@@ -219,7 +224,7 @@ function UserFormCard({ item, bot, group, archived, onChanged }: QuestionCardPro
     setResolved(result.question);
     // Acceptance clears the draft even if the following list refresh fails.
     try { await onChanged(result.question); }
-    catch { if (mounted.current) setError(cancel ? "已取消，状态刷新失败，请刷新页面查看。" : "已接收回答，状态刷新失败，请刷新页面查看。"); }
+    catch { if (mounted.current) setError(cancel ? t("form.cancelled_refresh_failed") : t("form.answered_refresh_failed")); }
   }
 
   return <article className={`question-message${group ? " is-group" : " is-dm"}`} data-question-id={item.question_id} tabIndex={-1}>
@@ -228,13 +233,13 @@ function UserFormCard({ item, bot, group, archived, onChanged }: QuestionCardPro
       <form ref={attachForm} className={`question-card question-form ${active ? "is-pending" : "is-resolved"}`}
         aria-labelledby={title} aria-describedby={active ? privacy : undefined} aria-busy={Boolean(busy)}
         autoComplete="off" noValidate onSubmit={event => { event.preventDefault(); void finish(); }}>
-        {active && <span className="question-state">需要你填写</span>}
+        {active && <span className="question-state">{t("form.needs_input")}</span>}
         <div id={title} className="question-prompt"><MessageMarkdown content={item.question} /></div>
-        <p className="question-form-target"><span>目标网站</span> <span>{item.source_url || "未指定"}</span></p>
+        <p className="question-form-target"><span>{t("form.target_site")}</span> <span>{item.source_url || t("form.unspecified")}</span></p>
         {active ? <>
           <div id={privacy} className="question-form-privacy">
-            <p>普通字段会以明文提供给 Bot；密码通过私密输入提供，不会作为明文回答显示给 Bot。密码中的空格会保留。</p>
-            <p>提交后 Bot 将继续任务，不代表已向网站提交。</p>
+            <p>{t("form.privacy_fields")}</p>
+            <p>{t("form.privacy_continue")}</p>
           </div>
           {schemaError ? <p className="error-text" role="alert">{schemaError}</p> : <fieldset className="question-form-fields" disabled={Boolean(busy) || archived} aria-labelledby={title}>
             {fields.map((field, index) => {
@@ -246,19 +251,19 @@ function UserFormCard({ item, bot, group, archived, onChanged }: QuestionCardPro
                 "aria-invalid": Boolean(fieldError), "aria-describedby": fieldError ? `${id}-error ${privacy}` : privacy,
               };
               return <div className="question-form-field" key={field.id}>
-                <label htmlFor={id}><span>{field.label}{field.type === "password" && <span className="question-form-private"> · 私密输入</span>}</span><span className="question-form-optional">{field.required ? "必填" : "选填"}</span></label>
+                <label htmlFor={id}><span>{field.label}{field.type === "password" && <span className="question-form-private"> · {t("form.private_field")}</span>}</span><span className="question-form-optional">{field.required ? t("form.required") : t("form.optional")}</span></label>
                 {field.type === "textarea" ? <textarea {...attributes} rows={3} />
                   : <input {...attributes} type={field.type} autoCapitalize="none" autoCorrect="off" spellCheck={false} />}
                 {fieldError && <p id={`${id}-error`} className="error-text">{fieldError}</p>}
               </div>;
             })}
           </fieldset>}
-          {archived ? <p className="field-note">恢复会话后可填写。</p> : <div className="question-actions">
-            <button className="text-button" type="button" disabled={Boolean(busy)} onClick={() => void finish(true)}>{busy === "cancel" ? "取消中…" : "取消"}</button>
-            <button className="primary-button" type="submit" disabled={Boolean(busy) || Boolean(schemaError)}>{busy === "submit" ? "提交中…" : "提交并继续"}</button>
+          {archived ? <p className="field-note">{t("form.archived")}</p> : <div className="question-actions">
+            <button className="text-button" type="button" disabled={Boolean(busy)} onClick={() => void finish(true)}>{busy === "cancel" ? t("question.cancelling") : t("question.cancel")}</button>
+            <button className="primary-button" type="submit" disabled={Boolean(busy) || Boolean(schemaError)}>{busy === "submit" ? t("question.submitting") : t("form.submit")}</button>
           </div>}
         </> : <div className="question-result" role="status">
-          <span>{current.status === "answered" ? "已提交回答" : current.status === "expired" ? "已过期" : current.status === "run_done" ? "任务已结束" : "已取消"}</span>
+          <span>{current.status === "answered" ? t("form.submitted") : current.status === "expired" ? t("status.expired") : current.status === "run_done" ? t("question.resolution.run_done") : t("status.cancelled")}</span>
           {current.status === "answered" && <dl className="question-form-summary">{userFormAnswerRows(fields, current.answer).map(row => <div key={row.id}><dt>{row.label}</dt><dd>{row.value}</dd></div>)}</dl>}
         </div>}
         {error && <p className="error-text" role="alert">{error}</p>}
@@ -273,6 +278,7 @@ function clearUserForm(form: HTMLFormElement | null) {
 
 function LegacyQuestionCard({ item, bot, group, archived, onChanged }: QuestionCardProps) {
   const title = useId();
+  const { t } = useTranslation("tasks");
   const [text, setText] = useState("");
   const [selection, setSelection] = useState<string[]>([]);
   const [otherSelected, setOtherSelected] = useState(false);
@@ -297,7 +303,7 @@ function LegacyQuestionCard({ item, bot, group, archived, onChanged }: QuestionC
     const timer = window.setTimeout(() => { closing.current = false; setSettled(true); }, window.matchMedia("(prefers-reduced-motion: reduce)").matches ? 0 : 440);
     return () => window.clearTimeout(timer);
   }, [active, current.status, selectedCount]);
-  const options = item.question_type === "yes_no" ? [{ id: "yes", label: "是" }, { id: "no", label: "否" }] : item.options ?? [];
+  const options = item.question_type === "yes_no" ? [{ id: "yes", label: t("question.yes") }, { id: "no", label: t("question.no") }] : item.options ?? [];
   const minimum = Math.max(1, item.min_selections ?? 1);
   const maximum = item.question_type === "multi_choice" ? item.max_selections || options.length + (allowOther ? 1 : 0) : 1;
   const valid = item.question_type === "text" ? Boolean(text.trim()) : selectedCount >= minimum && selectedCount <= maximum && (!otherSelected || (allowOther && Boolean(otherText.trim()) && [...otherText.trim()].length <= 4000));
@@ -310,35 +316,35 @@ function LegacyQuestionCard({ item, bot, group, archived, onChanged }: QuestionC
       const result = await request<{ question: Question }>(`/api/questions/${encodeURIComponent(item.question_id)}${cancel ? "" : "/answer"}`, cancel ? { method: "DELETE" } : { method: "POST", body: JSON.stringify(answer) });
       setResolved(result.question);
       setOtherText("");
-      try { await onChanged(result.question); } catch { setError("回答已接收，列表刷新失败，请刷新页面查看。"); }
+      try { await onChanged(result.question); } catch { setError(t("question.answered_refresh_failed")); }
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "提交未完成，请重试。");
-      if (cause instanceof ApiError && (cause.status === 404 || cause.status === 409)) { try { await onChanged(); } catch { setError("问题状态已变化，请刷新页面后再操作。"); } }
+      setError(cause instanceof Error ? cause.message : t("question.submit_failed"));
+      if (cause instanceof ApiError && (cause.status === 404 || cause.status === 409)) { try { await onChanged(); } catch { setError(t("question.state_changed")); } }
     } finally { submitting.current = false; setBusy(false); }
   }
   return <article className={`question-message${group ? " is-group" : " is-dm"}`} data-question-id={item.question_id} tabIndex={-1}>
     {group && <BotAvatar id={item.bot_id} mini />}
     <div className="question-body">{group && <div className="message-meta"><strong>{bot?.name ?? "Bot"}</strong></div>}
       <form className={`question-card ${active ? "is-pending" : foldAnswer ? "is-folding" : "is-resolved"}${current.status === "expired" ? " is-expired" : ""}${current.status === "answered" ? " is-answered" : ""}`} aria-labelledby={title} onSubmit={event => { event.preventDefault(); void finish(); }}>
-        {(active || foldAnswer) && <span className="question-state">需要你决定</span>}
+        {(active || foldAnswer) && <span className="question-state">{t("question.needs_decision")}</span>}
         <div id={title} className="question-prompt"><MessageMarkdown content={item.question} /></div>
         {active || foldAnswer ? <>
-          {item.question_type === "text" ? <textarea aria-labelledby={title} value={text} onChange={event => setText(event.target.value)} rows={3} disabled={busy || archived || !active} placeholder="输入回答…" /> : <fieldset className="question-options" disabled={busy || archived || !active} aria-labelledby={title}>
+          {item.question_type === "text" ? <textarea aria-labelledby={title} value={text} onChange={event => setText(event.target.value)} rows={3} disabled={busy || archived || !active} placeholder={t("question.answer_placeholder")} /> : <fieldset className="question-options" disabled={busy || archived || !active} aria-labelledby={title}>
             {options.map(option => <label key={option.id} className={`${selection.includes(option.id) ? "selected" : ""}${foldAnswer && !selection.includes(option.id) ? " is-fold-away" : ""}`}>
               <input type={item.question_type === "multi_choice" ? "checkbox" : "radio"} name={item.question_id} value={option.id} checked={selection.includes(option.id)} disabled={item.question_type === "multi_choice" && !selection.includes(option.id) && selectedCount >= maximum} onChange={() => { if (item.question_type !== "multi_choice") setOtherSelected(false); setSelection(current => item.question_type === "multi_choice" ? current.includes(option.id) ? current.filter(id => id !== option.id) : [...current, option.id] : [option.id]); }} /><span>{option.label}</span>
             </label>)}
             {allowOther && <label className={`${otherSelected ? "selected" : ""}${foldAnswer && !otherSelected ? " is-fold-away" : ""}`}>
-              <input type={item.question_type === "multi_choice" ? "checkbox" : "radio"} name={item.question_id} checked={otherSelected} disabled={item.question_type === "multi_choice" && !otherSelected && selectedCount >= maximum} onChange={() => { if (item.question_type !== "multi_choice") setSelection([]); setOtherSelected(value => item.question_type === "multi_choice" ? !value : true); }} /><span>其他回答</span>
+              <input type={item.question_type === "multi_choice" ? "checkbox" : "radio"} name={item.question_id} checked={otherSelected} disabled={item.question_type === "multi_choice" && !otherSelected && selectedCount >= maximum} onChange={() => { if (item.question_type !== "multi_choice") setSelection([]); setOtherSelected(value => item.question_type === "multi_choice" ? !value : true); }} /><span>{t("question.other_option")}</span>
             </label>}
           </fieldset>}
           {allowOther && otherSelected && !foldAnswer && <div className="question-other-answer">
-            <label htmlFor={`${title}-other`}>你的回答</label>
-            <textarea id={`${title}-other`} value={otherText} onChange={event => setOtherText(event.target.value)} rows={3} disabled={busy || archived || !active} placeholder="说说你的想法…" aria-describedby={`${title}-other-note`} />
-            <p id={`${title}-other-note`} className={[...otherText.trim()].length > 4000 ? "error-text" : "field-note"}>最多 4,000 字；不要填写密码或密钥。</p>
+            <label htmlFor={`${title}-other`}>{t("question.your_answer")}</label>
+            <textarea id={`${title}-other`} value={otherText} onChange={event => setOtherText(event.target.value)} rows={3} disabled={busy || archived || !active} placeholder={t("question.other_placeholder")} aria-describedby={`${title}-other-note`} />
+            <p id={`${title}-other-note`} className={[...otherText.trim()].length > 4000 ? "error-text" : "field-note"}>{t("question.other_note", { limit: formatNumber(4000) })}</p>
           </div>}
-          {item.question_type === "multi_choice" && <p className="field-note">{minimum === maximum ? `选择 ${minimum} 项` : `选择 ${minimum}–${maximum} 项`}</p>}
-          {foldAnswer ? null : archived ? <p className="field-note">恢复会话后可回答。</p> : <div className="question-actions"><button className="text-button" type="button" disabled={busy} onClick={() => void finish(true)}>取消</button><button className="primary-button" disabled={busy || !valid}>{busy ? "提交中…" : error ? "重试提交" : "提交回答"}</button></div>}
-        </> : <div className="question-result" role="status">{!isDesktop && current.status === "answered" && <TofiIcon name="check" size={15} variant="filled" aria-hidden="true" />}<span>{current.status === "answered" ? "已回答" : current.status === "expired" ? "已过期" : current.status === "run_done" ? "任务已结束" : "已取消"}</span>{current.status === "answered" && <p>{answerLabel(current)}</p>}</div>}
+          {item.question_type === "multi_choice" && <p className="field-note">{minimum === maximum ? t("question.select_exact", { count: minimum }) : t("question.select_range", { min: minimum, max: maximum })}</p>}
+          {foldAnswer ? null : archived ? <p className="field-note">{t("question.note.archived")}</p> : <div className="question-actions"><button className="text-button" type="button" disabled={busy} onClick={() => void finish(true)}>{t("question.cancel")}</button><button className="primary-button" disabled={busy || !valid}>{busy ? t("question.submitting") : error ? t("question.retry_submit") : t("question.submit_answer")}</button></div>}
+        </> : <div className="question-result" role="status">{!isDesktop && current.status === "answered" && <TofiIcon name="check" size={15} variant="filled" aria-hidden="true" />}<span>{current.status === "answered" ? t("status.answered") : current.status === "expired" ? t("status.expired") : current.status === "run_done" ? t("question.resolution.run_done") : t("status.cancelled")}</span>{current.status === "answered" && <p>{answerLabel(current)}</p>}</div>}
         {error && <p className="error-text" role="alert">{error}</p>}
       </form>
     </div>

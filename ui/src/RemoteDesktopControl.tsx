@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
 import { BotAvatar } from "./BotAvatar";
 import { ApiError, request } from "./api";
 import { isDesktop } from "./desktop";
+import { useTranslation } from "./i18n";
 
 type InputEvent = { type: string; [key: string]: unknown };
 export type RemoteControlHandle = { release: () => Promise<void>; acquire: () => Promise<void> };
@@ -12,6 +13,7 @@ const keys: Record<string, string> = { Enter: "Return", Escape: "Escape", Backsp
 // Input ownership is separate from watching video. One ordered queue delivers
 // edges/text; only adjacent pointer moves may be coalesced.
 export function RemoteDesktopControl({ botId, enabled, blocked = false, takeoverRun, expanded, onExpand, waiting = false, onControlChange, controlRef, children }: Props) {
+  const { t } = useTranslation("computer");
   const touchInput = useRef(false);
   const activePointer = useRef<number | null>(null);
   const pointerControl = useRef(false);
@@ -39,7 +41,7 @@ export function RemoteDesktopControl({ botId, enabled, blocked = false, takeover
   useEffect(() => { onControlChange(owned); return () => onControlChange(false); }, [owned, onControlChange]);
   const call = async (action: string, args: Record<string, unknown>, keepalive = false) => {
     const response = await request<{ ok: boolean; result?: Record<string, unknown>; error?: string }>("/api/computers/firecracker/actions", { method: "POST", body: JSON.stringify({ bot_id: botId, action: `desktop.control.${action}`, args }), keepalive, signal: AbortSignal.timeout(10000) });
-    if (!response.ok) throw new Error(response.error || "桌面控制失败");
+    if (!response.ok) throw new Error(response.error || t("remote.error.control_failed"));
     return response.result ?? {};
   };
   async function release() {
@@ -69,12 +71,12 @@ export function RemoteDesktopControl({ botId, enabled, blocked = false, takeover
     if (!enabled || (blocked && !takeoverRun) || !expanded || session.current || acquiring.current) return;
     const version = ++epoch.current;
     acquiring.current = true;
-    setPending(true); setError(""); setNotice(takeoverRun ? "正在等待当前操作完成…" : "");
+    setPending(true); setError(""); setNotice(takeoverRun ? t("remote.notice.waiting_current") : "");
     try {
       if (epoch.current !== version) return;
       const result = await call("acquire", takeoverRun ? { expected_owner: takeoverRun.id } : {});
       const id = String(result.control_id ?? "");
-      if (!id) throw new Error("没有取得桌面控制权");
+      if (!id) throw new Error(t("remote.error.no_control"));
       if (epoch.current !== version) { void call("release", { control_id: id }, true); return; }
       session.current = id; lastActivity.current = Date.now(); seq.current = 0; sending.current = false;
       setOwned(true);
@@ -83,9 +85,9 @@ export function RemoteDesktopControl({ botId, enabled, blocked = false, takeover
     } catch (cause) {
       if (epoch.current !== version) return;
       if (cause instanceof ApiError && (cause.status === 409 || cause.code === "computer_busy")) {
-        setNotice("桌面刚刚仍在切换控制，请稍后再试。");
+        setNotice(t("remote.notice.switching"));
         setError("");
-      } else setError(cause instanceof Error ? cause.message : "无法接管桌面");
+      } else setError(cause instanceof Error ? cause.message : t("remote.error.take_failed"));
     }
     finally { if (epoch.current === version) { acquiring.current = false; setPending(false); } }
   }
@@ -110,11 +112,11 @@ export function RemoteDesktopControl({ botId, enabled, blocked = false, takeover
         const events = queue.current.splice(0, Math.min(64, barrier < 0 ? 64 : barrier));
         sendingActivity.current = events.some(event => event.type !== "move");
         const result = await call("input", { control_id: id, seq: ++seq.current, events });
-        if (isCurrent() && result.warning === "text_not_accepted") setError("当前窗口未接收文本，请先点击输入位置");
+        if (isCurrent() && result.warning === "text_not_accepted") setError(t("remote.error.text_rejected"));
         else if (isCurrent() && events.some(event => event.type === "text")) setError("");
       }
     }
-    catch (cause) { if (isCurrent()) { setError(cause instanceof Error ? cause.message : "连接中断，请重新接管"); release(); } }
+    catch (cause) { if (isCurrent()) { setError(cause instanceof Error ? cause.message : t("remote.error.interrupted")); release(); } }
     finally { if (isCurrent()) { sending.current = false; sendingActivity.current = false; if (queue.current.length) void flush(); } }
   }
   function enqueue(event: InputEvent) {
@@ -123,7 +125,7 @@ export function RemoteDesktopControl({ botId, enabled, blocked = false, takeover
     if (event.type === "move" && queue.current.at(-1)?.type === "move") queue.current[queue.current.length - 1] = event;
     else if (event.type === "text" && queue.current.at(-1)?.type === "text") queue.current[queue.current.length - 1].text = String(queue.current.at(-1)?.text ?? "") + String(event.text ?? "");
     else queue.current.push(event);
-    if (queue.current.length > 512) { setError("输入连接过慢，请重新接管"); release(); return; }
+    if (queue.current.length > 512) { setError(t("remote.error.too_slow")); release(); return; }
     if (timer.current === undefined) timer.current = setTimeout(() => { timer.current = undefined; void flush(); }, 16);
   }
   useEffect(() => {
@@ -132,8 +134,8 @@ export function RemoteDesktopControl({ botId, enabled, blocked = false, takeover
       const id = session.current;
       const version = epoch.current;
       if (id) void call("renew", { control_id: id, interacting: Date.now() - lastActivity.current < 15000 || composing.current || pressed.current.size > 0 || activePointer.current !== null || queue.current.some(event => event.type !== "move") || sendingActivity.current }).then(result => {
-        if (session.current === id && epoch.current === version && result.released === true) { void release(); setNotice("已交给等待中的 Bot"); }
-      }).catch(() => { if (session.current === id && epoch.current === version) { setError("控制连接已断开，请重新接管"); release(); } });
+        if (session.current === id && epoch.current === version && result.released === true) { void release(); setNotice(t("remote.notice.handed_to_bot")); }
+      }).catch(() => { if (session.current === id && epoch.current === version) { setError(t("remote.error.disconnected")); release(); } });
     }, 5000);
     const lostFocus = () => release();
     const visibility = () => { if (document.hidden) release(); };
@@ -179,12 +181,12 @@ export function RemoteDesktopControl({ botId, enabled, blocked = false, takeover
     enqueue({ type: "clipboard-barrier" });
   }
   return <div className={`remote-desktop ${owned ? "in-control" : ""}`}>
-    {expanded && isDesktop && <div className="remote-control-bar"><span className="remote-owner-status">{!owned && takeoverRun && <BotAvatar id={takeoverRun.botId ?? botId} mini animated={false} />}<span>{owned ? "你正在控制" : pending ? "等待操作完成…" : takeoverRun ? `${takeoverRun.name} 正在控制` : blocked ? "其他窗口正在控制" : !enabled ? "正在连接…" : "点击画面接管"}</span></span><div className="remote-control-actions">{owned && (touchMode || touchInput.current) && <button className="secondary-button" aria-label={keyboardOpen ? "收起远程键盘" : "打开远程键盘"} onPointerDown={event => event.preventDefault()} onClick={() => { if (keyboardOpen) input.current?.blur(); else input.current?.focus({ preventScroll: true }); setKeyboardOpen(!keyboardOpen); }}>{keyboardOpen ? "收起键盘" : "键盘"}</button>}{owned && <button className="secondary-button" onClick={() => void release()}>释放控制</button>}</div></div>}
-    {expanded && !isDesktop && owned && (touchMode || touchInput.current) && <div className="remote-control-bar is-touch-keys"><button className="secondary-button" aria-label={keyboardOpen ? "收起远程键盘" : "打开远程键盘"} onPointerDown={event => event.preventDefault()} onClick={() => { if (keyboardOpen) input.current?.blur(); else input.current?.focus({ preventScroll: true }); setKeyboardOpen(!keyboardOpen); }}>{keyboardOpen ? "收起键盘" : "键盘"}</button></div>}
-    {owned && waiting && <p className="field-note" role="status">Bot 请求使用电脑，将在你停止操作 15 秒后接手。</p>}
+    {expanded && isDesktop && <div className="remote-control-bar"><span className="remote-owner-status">{!owned && takeoverRun && <BotAvatar id={takeoverRun.botId ?? botId} mini animated={false} />}<span>{owned ? t("remote.status.you") : pending ? t("remote.status.waiting") : takeoverRun ? t("remote.status.bot", { name: takeoverRun.name }) : blocked ? t("remote.status.other_window") : !enabled ? t("remote.status.connecting") : t("remote.status.click_to_take")}</span></span><div className="remote-control-actions">{owned && (touchMode || touchInput.current) && <button className="secondary-button" aria-label={keyboardOpen ? t("remote.keyboard.hide_aria") : t("remote.keyboard.open_aria")} onPointerDown={event => event.preventDefault()} onClick={() => { if (keyboardOpen) input.current?.blur(); else input.current?.focus({ preventScroll: true }); setKeyboardOpen(!keyboardOpen); }}>{keyboardOpen ? t("remote.keyboard.hide") : t("remote.keyboard.open")}</button>}{owned && <button className="secondary-button" onClick={() => void release()}>{t("remote.release")}</button>}</div></div>}
+    {expanded && !isDesktop && owned && (touchMode || touchInput.current) && <div className="remote-control-bar is-touch-keys"><button className="secondary-button" aria-label={keyboardOpen ? t("remote.keyboard.hide_aria") : t("remote.keyboard.open_aria")} onPointerDown={event => event.preventDefault()} onClick={() => { if (keyboardOpen) input.current?.blur(); else input.current?.focus({ preventScroll: true }); setKeyboardOpen(!keyboardOpen); }}>{keyboardOpen ? t("remote.keyboard.hide") : t("remote.keyboard.open")}</button></div>}
+    {owned && waiting && <p className="field-note" role="status">{t("remote.bot_waiting")}</p>}
     {notice && <p className="field-note" role="status">{notice}</p>}
     {error && <p className="error-text">{error}</p>}
-    <div ref={surface} className="remote-desktop-surface" role="group" aria-label={expanded ? "远程桌面操作区域" : "共享电脑画面预览；拖动可移动"}
+    <div ref={surface} className="remote-desktop-surface" role="group" aria-label={expanded ? t("remote.surface_aria") : t("remote.surface_preview_aria")}
       onClick={() => { if (!expanded) onExpand?.(); }}
       onContextMenu={event => event.preventDefault()}
       onPointerDown={event => {
@@ -204,7 +206,7 @@ export function RemoteDesktopControl({ botId, enabled, blocked = false, takeover
       onPointerUp={event => { if (owned && expanded && activePointer.current === event.pointerId) { enqueue({ type: "up", button: event.button === 2 ? 3 : event.button === 1 ? 2 : 1, ...point(event.clientX, event.clientY) }); if (pointerControl.current) enqueue({ type: "keyup", key: "Control_L" }); pointerControl.current = false; } if (activePointer.current === event.pointerId) activePointer.current = null; if (event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId); }}
       onPointerCancel={() => { activePointer.current = null; pointerControl.current = false; enqueue({ type: "reset" }); }}>
       {children}
-      <textarea ref={input} tabIndex={owned ? 0 : -1} className="remote-keyboard-input" aria-label="远程桌面键盘输入" autoCapitalize="off" autoCorrect="off" spellCheck={false}
+      <textarea ref={input} tabIndex={owned ? 0 : -1} className="remote-keyboard-input" aria-label={t("remote.keyboard_input_aria")} autoCapitalize="off" autoCorrect="off" spellCheck={false}
         onBlur={() => { composing.current = false; committed.current = ""; if (input.current) input.current.value = ""; pressed.current.clear(); enqueue({ type: "reset" }); }}
         onKeyDown={event => {
           if (!session.current) return;
@@ -247,6 +249,6 @@ export function RemoteDesktopControl({ botId, enabled, blocked = false, takeover
         onCopy={event => { event.preventDefault(); event.stopPropagation(); void copy(false); }}
         onCut={event => { event.preventDefault(); event.stopPropagation(); void copy(true); }} />
     </div>
-    {copyText !== null && <div className="remote-copy-fallback"><p>浏览器未允许自动写入本机剪贴板，请复制以下文字。</p><textarea aria-label="从远程桌面复制的文字" readOnly value={copyText} onFocus={event => event.currentTarget.select()} /><button className="secondary-button" onClick={() => setCopyText(null)}>关闭</button></div>}
+    {copyText !== null && <div className="remote-copy-fallback"><p>{t("remote.copy.note")}</p><textarea aria-label={t("remote.copy.aria")} readOnly value={copyText} onFocus={event => event.currentTarget.select()} /><button className="secondary-button" onClick={() => setCopyText(null)}>{t("remote.copy.close")}</button></div>}
   </div>;
 }

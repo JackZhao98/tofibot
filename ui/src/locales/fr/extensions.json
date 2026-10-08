@@ -1,0 +1,393 @@
+{
+  "action": {
+    "cancel": "Annuler"
+  },
+  "auth": {
+    "bot_token": "Jeton de Bot",
+    "integration_token": "Jeton d’intégration",
+    "none": "Aucune clé requise",
+    "oauth": "OAuth",
+    "token": "Jeton d’accès"
+  },
+  "browser": {
+    "added": "Ajouté",
+    "back": "Ajoutés",
+    "custom": "MCP personnalisé",
+    "empty": "Aucun service correspondant. Vous pouvez ajouter un MCP personnalisé.",
+    "held_label": "Services pas encore disponibles",
+    "held_title": "Pas encore disponibles",
+    "intro": "Choisissez un préréglage, puis vérifiez l’autorisation et la connexion des outils après l’ajout.",
+    "read_only_tools": "Outils en lecture seule",
+    "retired": "Plus maintenu",
+    "retired_origin": "Ancien projet du fournisseur",
+    "search": "Rechercher un service",
+    "services": "Services",
+    "title": "Ajouter un service"
+  },
+  "callback": {
+    "copied": "Copié",
+    "copy": "Copier l’URL",
+    "copy_failed": "Copie impossible. Sélectionnez l’URL et copiez-la manuellement",
+    "desktop": "URL de redirection de l’application",
+    "web": "URL de redirection Web"
+  },
+  "catalog": {
+    "context7": {
+      "description": "Obtenez la documentation et les exemples à jour des bibliothèques.",
+      "note": "La documentation Context7 mentionne aussi la forme Authorization: Bearer. Ce préréglage utilise l’en-tête vérifié Context7-API-Key.",
+      "setup": {
+        "create_key": "Créez une clé API dans le tableau de bord Context7.",
+        "enter_key": "Dans Tofi, saisissez la clé dans l’en-tête Context7-API-Key."
+      }
+    },
+    "github": {
+      "description": "Dépôts, issues et pull requests.",
+      "note": "Le serveur distant officiel est hébergé par GitHub. La disponibilité et les toolsets peuvent dépendre de votre compte ou de votre éligibilité à Copilot.",
+      "setup": {
+        "check_scope": "Avant de vous connecter, vérifiez les toolsets GitHub MCP et les droits sur les dépôts.",
+        "prepare_pat": "Préparez un PAT fine-grained aux droits les plus restreints possible et saisissez-le dans Tofi comme jeton Bearer."
+      }
+    },
+    "github_readonly": {
+      "description": "Lisez dépôts, issues et pull requests.",
+      "name": "GitHub (lecture seule)",
+      "note": "Point de terminaison en lecture seule hébergé par GitHub. Les confirmations d’outils et les règles d’autorisation/blocage de Tofi s’appliquent toujours. Source et configuration vérifiées, pas encore testées avec un vrai compte.",
+      "setup": {
+        "create_pat": "Créez un PAT fine-grained limité aux dépôts nécessaires, en lecture seule.",
+        "enter_token": "Saisissez le PAT dans le champ de jeton privé ci-dessous, pas dans le chat ni dans le JSON des en-têtes.",
+        "verify": "Après l’ajout, vérifiez la connexion et les outils disponibles. Les règles du compte et de l’organisation s’appliquent toujours."
+      }
+    },
+    "google_calendar": {
+      "description": "Consultez vos événements et disponibilités.",
+      "note": "Ce préréglage se limite à la lecture des événements et des disponibilités. Activez calendar-json.googleapis.com et calendarmcp.googleapis.com."
+    },
+    "google_docs": {
+      "description": "Lisez et modifiez vos documents.",
+      "note": "Google Docs MCP est en Developer Preview. Activez docs.googleapis.com et docsmcp.googleapis.com."
+    },
+    "google_drive": {
+      "description": "Trouvez et organisez vos fichiers dans le cloud.",
+      "note": "Google Drive MCP est en Developer Preview. Activez drive.googleapis.com et drivemcp.googleapis.com."
+    },
+    "google_gmail": {
+      "description": "Trouvez et lisez vos e-mails, rédigez des brouillons.",
+      "note": "Google Workspace Developer Preview. Activez gmail.googleapis.com et gmailmcp.googleapis.com. Certains outils peuvent exiger gmail.modify ou mail.google.com."
+    },
+    "google_setup": {
+      "client_credentials": "Saisissez l’ID client et le secret ci-dessous, puis terminez l’autorisation Google après l’ajout.",
+      "consent_screen": "Configurez l’écran de consentement OAuth et les utilisateurs test, puis créez un client Application Web et enregistrez l’URL de redirection.",
+      "enable_apis": "Dans votre projet Google Cloud, activez l’API du produit et son service MCP.",
+      "preview_access": "Vérifiez que vous avez accès à la Google Workspace Developer Preview."
+    },
+    "google_sheets": {
+      "description": "Lisez les données, modifiez feuilles et formules.",
+      "note": "Google Sheets MCP est en Developer Preview. Activez sheets.googleapis.com et sheetsmcp.googleapis.com."
+    },
+    "google_slides": {
+      "description": "Lisez et créez des présentations.",
+      "note": "Google Slides MCP est en Developer Preview. Activez slides.googleapis.com et slidesmcp.googleapis.com."
+    },
+    "linear": {
+      "description": "Gérez projets, tâches et commentaires.",
+      "note": "Le transport principal de Linear est Streamable HTTP. /mcp/readonly ne propose que des outils de lecture ; /sse est un chemin de compatibilité obsolète.",
+      "setup": {
+        "check_scope": "Avant de vous connecter, vérifiez les droits de l’équipe et de l’espace de travail.",
+        "prepare_key": "Préparez une clé API Linear ou un jeton Bearer. Sans besoin d’écriture, choisissez le point de terminaison en lecture seule."
+      }
+    },
+    "linear_readonly": {
+      "description": "Trouvez projets, tâches et commentaires.",
+      "name": "Linear (lecture seule)",
+      "note": "D’après la documentation Linear, ce point de terminaison ne propose que des outils de lecture. Les confirmations d’outils et les règles d’autorisation/blocage de Tofi s’appliquent toujours. Configuration vérifiée, pas encore testée avec un vrai compte.",
+      "setup": {
+        "create_key": "Créez une clé API Linear avec la seule permission Read, limitée aux équipes nécessaires.",
+        "enter_token": "Saisissez la clé dans le champ de jeton privé ci-dessous.",
+        "verify": "Après l’ajout, vérifiez la portée accordée et la connexion des outils."
+      }
+    },
+    "microsoft_learn": {
+      "description": "Recherchez dans la documentation technique officielle et les exemples de code.",
+      "setup": {
+        "no_account": "Aucun compte ni clé requis : la documentation publique est disponible dès l’ajout."
+      }
+    },
+    "notion": {
+      "description": "Recherchez et organisez votre base de connaissances.",
+      "note": "Notion privilégie désormais son MCP distant hébergé. Les admins Enterprise peuvent restreindre les applications d’IA autorisées.",
+      "setup": {
+        "auto_client": "Tofi demande un client OAuth au service : inutile de saisir un ID client.",
+        "check_access": "Vérifiez que l’identité connectée a bien les accès aux pages attendus.",
+        "choose_workspace": "Après l’ajout, cliquez sur Connecter et choisissez l’espace de travail Notion."
+      }
+    }
+  },
+  "diagnostics_separator": " ; ",
+  "docs": {
+    "community": "Docs du projet communautaire",
+    "retired": "Docs de l’ancien projet",
+    "vendor": "Documentation d’intégration"
+  },
+  "error": {
+    "auth_incomplete": "Autorisation non terminée. Reconnectez-vous.",
+    "auth_timeout": "L’autorisation n’est toujours pas terminée. Réessayez.",
+    "discovery_failed": "Impossible de charger les outils. Vérifiez l’URL du serveur et les identifiants, puis réessayez.",
+    "endpoint_changed_headers": "L’URL du serveur a changé. Saisissez à nouveau ou supprimez les identifiants d’en-tête enregistrés avant d’enregistrer.",
+    "endpoint_changed_oauth": "L’URL du serveur a changé. Renseignez les réglages OAuth de la nouvelle URL avant d’enregistrer.",
+    "invalid_auth_url": "URL d’autorisation non valide",
+    "metadata_changed_secret": "L’URL des métadonnées d’autorisation a changé. Saisissez à nouveau ou effacez le code secret du client enregistré avant d’enregistrer.",
+    "needs_bot": "Créez d’abord un Bot pour autoriser via l’ordinateur partagé.",
+    "oauth_discovery_failed": "Impossible de lire les informations d’autorisation ou d’enregistrer un client. Vérifiez l’URL du serveur et réessayez.",
+    "oauth_start_failed": "Impossible de lancer l’autorisation. Vérifiez l’URL du serveur et réessayez.",
+    "offline": "Serveur injoignable. Réessayez.",
+    "redirect_needs_https": "L’autorisation nécessite une adresse HTTPS ou un tunnel localhost vers Tofi. Une adresse HTTP du réseau local ne peut pas recevoir la redirection.",
+    "tools_failed": "Impossible de charger les outils. Réessayez."
+  },
+  "form": {
+    "add": "Ajouter",
+    "advanced": "Réglages avancés",
+    "allowlist": "Outils autorisés",
+    "allowlist_hint": "Laissez vide pour tout autoriser",
+    "client_id": "ID client OAuth",
+    "client_id_optional": "ID client OAuth (laisser vide pour l’enregistrement automatique)",
+    "client_secret": "Code secret du client",
+    "client_secret_hint": "Si le service l’exige",
+    "comma_separated": "Séparées par des virgules",
+    "custom_description": "Connecté à l’espace de travail ; les Bots découvrent les outils selon leurs besoins.",
+    "custom_title": "MCP personnalisé",
+    "denylist": "Outils bloqués",
+    "edit_title": "Modifier le service",
+    "google_prepare": "Avant de vous connecter",
+    "guide": "Instructions d’intégration",
+    "guide_heading": "Guide d’intégration",
+    "headers": "En-têtes de requête",
+    "headers_invalid": "Les en-têtes doivent être un objet JSON de noms et de valeurs texte",
+    "headers_note": "Des points ou une valeur vide conservent l’identifiant enregistré ; supprimez le champ pour le retirer. Si vous changez l’URL du serveur, saisissez à nouveau ou supprimez les identifiants.",
+    "metadata_url": "URL des métadonnées d’autorisation",
+    "name": "Identifiant du service",
+    "name_invalid": "L’identifiant du service doit contenir 1 à 64 lettres, chiffres, points, tirets bas ou tirets",
+    "save": "Enregistrer",
+    "saving": "Enregistrement…",
+    "scopes": "Portées",
+    "token": "Jeton d’accès",
+    "token_keep": "Laissez vide pour garder le jeton enregistré",
+    "token_paste": "Collez le jeton fourni par le service",
+    "transport": "Transport",
+    "url": "URL du serveur"
+  },
+  "google": {
+    "docs": "Documentation officielle",
+    "enable_api": "Activer l’API du produit",
+    "enable_mcp": "Activer le service MCP",
+    "help": "Aide à la configuration Google",
+    "links_label": "Liens de configuration {{name}}",
+    "nav_label": "Réglages Google Cloud pour {{name}}",
+    "project_hint": "Dans Google Cloud, choisissez le même projet que le client OAuth. Tant que l’application est en mode test, ajoutez votre compte comme utilisateur test dans Audience.",
+    "redirect_hint": "Dans Google Auth Platform → Clients, ouvrez votre application Web et ajoutez chaque URL utilisée dans Authorized redirect URIs (pas dans JavaScript origins). Les deux accès peuvent partager ces identifiants. Adresse, port et chemin doivent correspondre exactement. La redirection HTTP dynamique de l’ordinateur partagé ne fonctionne pas avec cette configuration fixe ; préférez HTTPS ou l’application.",
+    "test_users": "Configurer les utilisateurs test"
+  },
+  "held": {
+    "discord": {
+      "description": "Connexion de Bot Discord maintenue par la communauté.",
+      "reason": "Méthode d’installation et autorisations compatibles pas encore vérifiées : ajout impossible pour l’instant."
+    },
+    "notion_token": {
+      "description": "Ancien serveur MCP local, plus maintenu.",
+      "name": "Serveur à jeton Notion (ancien)",
+      "reason": "Le fournisseur ne maintient ni ne prend plus en charge ce serveur local. Il n’est listé qu’à titre de référence et ne fait pas partie de la première vague. Pour connecter Notion, utilisez la connexion OAuth ci-dessus."
+    },
+    "slack": {
+      "description": "Serveur MCP distant fourni par Slack.",
+      "reason": "Nécessite d’enregistrer une application Slack et une autorisation utilisateur ; un jeton de Bot ne convient pas ici."
+    },
+    "yahoo_finance": {
+      "description": "Consultation de cours maintenue par la communauté.",
+      "reason": "Aucune version compatible installable vérifiée pour l’instant. La solution communautaire ne nécessite pas de jeton."
+    }
+  },
+  "local": {
+    "attach": "Connecter à Tofi",
+    "custom": {
+      "args": "Arguments (un par ligne)",
+      "binary": "Exécutable",
+      "env": "Variables d’environnement (KEY=value par ligne, enregistrées dans un fichier privé)",
+      "install": "Installer le plugin",
+      "intro": "Indiquez une version figée et l’exécutable. La commande d’installation s’exécute dans le Runner, et le code du plugin tourne avec les droits du Runner.",
+      "package": "Nom du paquet",
+      "plugin_id": "ID du plugin",
+      "runtime": "Environnement d’exécution",
+      "title": "Installer un autre MCP local",
+      "version": "Version figée"
+    },
+    "gog": {
+      "install": "Installer gogcli",
+      "installing": "Installation…",
+      "intro": "Une version figée de gogcli est incluse dans l’image Runner. Choisissez la lecture seule, ou autorisez lecture et envoi. Chaque e-mail doit toujours être confirmé avant envoi.",
+      "title": "Gmail personnel · gogcli"
+    },
+    "google": {
+      "client_json": "JSON du client OAuth",
+      "client_setup": "Dans Google Cloud, créez un client OAuth de type <strong>Application Web</strong>, ajoutez l’adresse ci-dessous dans « URI de redirection autorisés », puis importez le JSON téléchargé.",
+      "connect": "Connecter Google",
+      "connected_as": "Autorisé : {{email}}",
+      "continue": "Continuer vers l’autorisation Google",
+      "disconnect": "Déconnecter Google",
+      "disconnect_confirm": "Supprimer l’autorisation Google enregistrée dans le Runner ?",
+      "disconnect_submit": "Révoquer l’autorisation",
+      "disconnected": "Autorisation Google supprimée du Runner.",
+      "email": "E-mail Google",
+      "finish_in_google": "Terminez l’autorisation sur la page Google. L’état se met à jour à votre retour dans Tofi.",
+      "generating_link": "Création du lien d’autorisation Google…",
+      "granted_read_send": "Lecture et envoi autorisés. Chaque e-mail doit toujours être confirmé avant envoi.",
+      "granted_readonly": "Lecture seule autorisée. Pour envoyer, déconnectez puis choisissez lecture et envoi.",
+      "invalid_json": "Importez un JSON de client OAuth Google valide.",
+      "needs_https": "Ouvrez cette page depuis l’adresse HTTPS publique configurée pour Tofi.",
+      "open_console": "Ouvrir Google Cloud",
+      "preparing": "Préparation de l’autorisation…",
+      "preparing_popup": "Préparation de l’autorisation Google…",
+      "scope": "Accès Gmail",
+      "scope_read_send": "Lecture et envoi : je confirme chaque e-mail",
+      "scope_readonly": "Lecture seule : rechercher et consulter les e-mails",
+      "verified": "Lecture du Gmail personnel vérifiée.",
+      "verify": "Vérifier la lecture Gmail",
+      "verifying": "Vérification…",
+      "waiting": "En attente de l’autorisation Google"
+    },
+    "intro": "Les plugins s’installent dans un conteneur Runner dédié, démarrent à la demande et se mettent en veille au repos.",
+    "notice": {
+      "attached": "{{id}} est connecté à Tofi.",
+      "installed": "{{id}} installé. Ses outils démarrent à l’usage.",
+      "removed": "{{id}} supprimé."
+    },
+    "remove": "Supprimer",
+    "remove_confirm": "Supprimer le plugin et son autorisation enregistrée ?",
+    "remove_submit": "Supprimer",
+    "state": {
+      "not_installed": "Non installé",
+      "ready": "En cours",
+      "sleeping": "En veille",
+      "starting": "Démarrage"
+    },
+    "title": "MCP local",
+    "unavailable": "Runner MCP local indisponible",
+    "unavailable_hint": "Vérifiez que le conteneur Runner est démarré.",
+    "plugin_count_one": "{{count}} plugin",
+    "plugin_count_many": "{{count}} de plugins",
+    "plugin_count_other": "{{count}} plugins"
+  },
+  "mcp": {
+    "add": "Ajouter un service",
+    "added": "Ajoutés",
+    "back": "Retour",
+    "cancel_auth": "Annuler l’autorisation",
+    "confirm": {
+      "disconnect": "Révoquer l’autorisation de {{name}} ?",
+      "disconnect_submit": "Révoquer",
+      "remove": "Supprimer {{name}} ?",
+      "remove_submit": "Supprimer"
+    },
+    "connect": "Connecter",
+    "continue_auth": "Poursuivre l’autorisation",
+    "empty": "Connectez vos outils",
+    "loading": "Chargement des services…",
+    "menu": {
+      "disconnect": "Révoquer l’autorisation",
+      "edit": "Modifier la configuration",
+      "refresh": "Actualiser les outils",
+      "remove": "Supprimer le service"
+    },
+    "more_actions": "Autres actions pour {{name}}"
+  },
+  "oauth": {
+    "help_body": "Le mode de connexion suit la façon dont vous avez ouvert Tofi et fonctionne pour Google, Notion et les autres services OAuth. Pour un client configuré manuellement, enregistrez l’URL de redirection complète ci-dessous dans la console du service ; les services à enregistrement automatique comme Notion sont gérés par Tofi.",
+    "help_title": "Mode de connexion et limites",
+    "linked": "{{title}} autorisé",
+    "waiting": "En attente de l’autorisation {{title}}"
+  },
+  "origin": {
+    "community": "Maintenu par la communauté",
+    "preset": "Préréglage de connexion",
+    "vendor": "Maintenu par le fournisseur"
+  },
+  "route": {
+    "desktop": "Connectez-vous dans le navigateur du système ; vous revenez automatiquement à l’application ensuite. L’ordinateur partagé n’est pas utilisé.",
+    "desktop_outdated": "Cette version de l’application ne prend pas encore en charge l’autorisation locale. Mettez-la à jour. L’ordinateur partagé n’est pas utilisé à la place.",
+    "http_blocked": "Une connexion HTTP directe ne peut pas recevoir la redirection en toute sécurité, et aucun ordinateur partagé n’est configuré. Utilisez HTTPS ou l’application Tofi.",
+    "loading": "Chargement des réglages d’autorisation…",
+    "public_origin_missing": "Définissez TOFI_PUBLIC_ORIGIN (l’adresse HTTPS publique) sur le serveur, puis réessayez.",
+    "vm": "Vous êtes connecté en HTTP direct : seul cet accès autorise via l’ordinateur partagé. Le service doit accepter une redirection locale. HTTPS ou l’application Tofi est recommandé.",
+    "web": "Connectez-vous dans le navigateur de cet appareil ; la redirection revient vers le serveur HTTPS de Tofi. L’ordinateur partagé n’est pas utilisé."
+  },
+  "skillCatalog": {
+    "document_delivery": {
+      "description": "Créez documents, feuilles de calcul et présentations, vérifiez-les, puis envoyez-les dans le chat.",
+      "title": "Livraison de documents"
+    },
+    "research": {
+      "description": "Vérifiez les sources et transformez la recherche en fichier livrable.",
+      "title": "Recherche documentaire"
+    },
+    "web_review": {
+      "description": "Utilisez réellement la page et notez les problèmes avec les étapes de reproduction.",
+      "title": "Recette web"
+    }
+  },
+  "skills": {
+    "choose_folder": "Choisir un dossier",
+    "error": {
+      "missing_content": "Choisissez un dossier contenant SKILL.md, ou ouvrez Modifier manuellement pour saisir un nom et un contenu.",
+      "name_taken": "Ce nom existe déjà. Choisissez-en un autre.",
+      "no_skill_md": "Le dossier doit contenir SKILL.md à la racine",
+      "too_large": "Un Skill ne peut pas dépasser 1 Mo",
+      "too_many_files": "{{max}} fichiers maximum"
+    },
+    "folder_label": "Choisir le dossier du Skill",
+    "install": "Installer un Skill",
+    "install_submit": "Installer",
+    "installed": "Installé",
+    "installed_notice": "Installé. Tous les Bots peuvent le lire au besoin",
+    "installing": "Installation…",
+    "loading": "Chargement…",
+    "manual": "Modifier manuellement",
+    "name": "Nom",
+    "needs_skill_md": "Contenant SKILL.md",
+    "reload": "Recharger",
+    "remove": "Supprimer",
+    "remove_confirm": "Supprimer ce Skill ?",
+    "removed": "Skill supprimé",
+    "saved": "Enregistré",
+    "scope": "Partagé dans l’espace de travail · lu à la demande",
+    "starters": "Skills de travail Tofi",
+    "support_note": "Instructions et fichiers de référence pris en charge ; les scripts fournis ne s’exécutent jamais automatiquement.",
+    "file_count_one": "{{count}} fichier",
+    "file_count_many": "{{count}} de fichiers",
+    "file_count_other": "{{count}} fichiers"
+  },
+  "status": {
+    "authorizing": "Ouverture de l’autorisation…",
+    "checking": "Chargement des outils…",
+    "failed": "Échec de la connexion",
+    "needs_auth": "Autorisation requise",
+    "removing": "Traitement…",
+    "unverified": "Pas encore vérifié",
+    "waiting": "En attente d’autorisation",
+    "tools_one": "{{count}} outil",
+    "tools_many": "{{count}} d’outils",
+    "tools_other": "{{count}} outils"
+  },
+  "vm": {
+    "cancel": "Annuler l’autorisation",
+    "cancel_failed": "Annulation impossible. Réessayez. L’autorisation se termine d’elle-même à l’expiration du délai.",
+    "cancelling": "Annulation…",
+    "dialog_label": "Autorisation {{title}}",
+    "end": {
+      "denied": "Autorisation annulée. Vous pouvez vous reconnecter.",
+      "error": "Autorisation non terminée. Réessayez.",
+      "expired": "L’autorisation a expiré. Reconnectez-vous."
+    },
+    "footer": "Retour automatique une fois terminé. Les actions à l’écran des autres Bots sont en file d’attente.",
+    "reconnecting": "Connexion interrompue. Nouvelle tentative…",
+    "screen_alt": "Ordinateur partagé",
+    "subtitle": "Terminez l’autorisation sur l’ordinateur partagé"
+  }
+}

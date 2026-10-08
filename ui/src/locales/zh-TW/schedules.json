@@ -1,0 +1,80 @@
+{
+  "display": {
+    "title": "排程任務",
+    "description": "依排程執行的任務；在「管理」中查看完整指令。"
+  },
+  "run": {
+    "cadence": {
+      "once": "僅一次",
+      "daily_at": "每天 {{time}}",
+      "daily": "每天",
+      "interval": "依間隔執行",
+      "days_other": "每 {{count}} 天",
+      "hours_other": "每 {{count}} 小時",
+      "minutes_other": "每 {{count}} 分鐘",
+      "seconds_other": "每 {{count}} 秒"
+    },
+    "with_zone": "{{recurrence}}（{{zone}}）",
+    "created_by_user": "由你建立",
+    "created_by_bot": "由助理建立",
+    "occurrence": "第 {{number}} 次",
+    "planned_unknown": "待確認",
+    "planned_description": "預定觸發：{{date}} {{time}} · {{zone}}",
+    "planned_description_unknown": "預定觸發時間待確認",
+    "triggered_on": "排程觸發 · {{date}}",
+    "metadata_fallback": "排程任務",
+    "created_on": "{{date}}建立",
+    "metadata_snapshot": "本次觸發時儲存的排程頻率",
+    "metadata_no_snapshot": "本次觸發紀錄；未儲存當時的頻率",
+    "status_description": "狀態更新：{{date}} {{time}} · {{zone}}",
+    "retry_failed": "重新執行的請求未成功，請稍後再試。",
+    "retrying": "正在重試…",
+    "retry": "重試",
+    "confirm_before_retry": "為避免重複執行外部操作，請確認後再重試。"
+  },
+  "row": {
+    "status": {
+      "waiting": "等待回覆",
+      "queued": "排隊中",
+      "running": "執行中",
+      "published": "結果已寫入對話",
+      "done": "執行已結束",
+      "failed": "執行失敗",
+      "cancelled": "已停止",
+      "interrupted": "已中斷",
+      "unknown": "狀態不明",
+      "turn_running": "本輪執行中",
+      "turn_done": "本輪已結束",
+      "turn_failed": "本輪失敗",
+      "turn_cancelled": "本輪已停止",
+      "turn_interrupted": "本輪已中斷"
+    },
+    "failure": {
+      "receipt_missing": "本輪沒有確認完成結果，不算已交付。",
+      "incomplete": "本輪未完成，任務紀錄會保留。",
+      "receipt_missing_confirm": "本輪沒有確認完成結果，不算已交付。為避免重複執行外部操作，請確認後再重試。",
+      "incomplete_confirm": "本輪未完成，任務紀錄會保留。為避免重複執行外部操作，請確認後再重試。"
+    },
+    "note": {
+      "partial_status": "暫時無法取得完整執行狀態；這裡只顯示主執行的狀態。",
+      "unpublished": "未確認本次最終回覆已寫入目前對話；執行結束不代表結果已交付。"
+    },
+    "manage_instructions": "管理 · 完整執行指令",
+    "technical_reason": "查看技術原因",
+    "rerunning": "正在重新執行…",
+    "rerun": "重新執行本輪"
+  },
+  "editor": {
+    "edit": "編輯",
+    "conflict": "這個排程在你編輯期間已變更。草稿已保留，請取消後重新開啟核對。",
+    "save_failed": "暫時無法儲存排程",
+    "title": "標題",
+    "title_aria": "編輯排程標題",
+    "description": "說明",
+    "description_aria": "編輯排程說明",
+    "instructions": "完整執行指令",
+    "instructions_aria": "編輯排程執行指令",
+    "cancel": "取消",
+    "save": "儲存"
+  }
+}

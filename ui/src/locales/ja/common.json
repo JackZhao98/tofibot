@@ -1,0 +1,23 @@
+{
+  "nav": {
+    "settings": "設定",
+    "usage": "使用量",
+    "connection": "サーバーと接続",
+    "archived": "アーカイブした会話"
+  },
+  "theme": {
+    "label": "外観",
+    "system": "システム",
+    "light": "ライト",
+    "dark": "ダーク"
+  },
+  "time": {
+    "unknown": "時刻未確認"
+  },
+  "action": {
+    "retry": "再試行"
+  },
+  "apiError": {
+    "request_failed": "リクエストに失敗しました（{{status}}）"
+  }
+}

@@ -3,15 +3,26 @@ import type { Root, Element } from "hast";
 import Markdown, { type Components } from "react-markdown";
 import remarkGfm from "remark-gfm";
 import remarkCjkFriendly from "remark-cjk-friendly/parseOnly";
+import { useTranslation } from "./i18n";
 
 // Stable renderer identities preserve focus and horizontal scroll during chat updates.
+// Renderers are components, so each reads the active language itself.
 const components: Components = {
   a: ({ children, href }) => <a href={href} target="_blank" rel="noopener noreferrer">{children}</a>,
-  table: ({ children }) => <div className="message-table" tabIndex={0} role="region" aria-label="消息表格，可横向滚动"><table>{children}</table></div>,
-  pre: ({ children }) => <pre className="message-code" tabIndex={0} role="region" aria-label="代码，可横向滚动">{children}</pre>,
-  img: ({ src, alt }) => src?.startsWith("/api/attachments/")
-    ? <img className="message-image" src={src} alt={alt ?? "图片"} loading="lazy" />
-    : <a href={src} target="_blank" rel="noopener noreferrer">{alt || "查看图片"}</a>,
+  table: ({ children }) => {
+    const { t } = useTranslation("chat");
+    return <div className="message-table" tabIndex={0} role="region" aria-label={t("markdown.table")}><table>{children}</table></div>;
+  },
+  pre: ({ children }) => {
+    const { t } = useTranslation("chat");
+    return <pre className="message-code" tabIndex={0} role="region" aria-label={t("markdown.code")}>{children}</pre>;
+  },
+  img: ({ src, alt }) => {
+    const { t } = useTranslation("chat");
+    return src?.startsWith("/api/attachments/")
+      ? <img className="message-image" src={src} alt={alt ?? t("markdown.image")} loading="lazy" />
+      : <a href={src} target="_blank" rel="noopener noreferrer">{alt || t("markdown.view_image")}</a>;
+  },
 };
 
 // Insert a structured mention after Markdown parsing; task text cannot create one.

@@ -1,0 +1,387 @@
+{
+  "action": {
+    "cancel": "取消"
+  },
+  "auth": {
+    "bot_token": "Bot 權杖",
+    "integration_token": "Integration token",
+    "none": "不需金鑰",
+    "oauth": "OAuth 授權",
+    "token": "存取權杖"
+  },
+  "browser": {
+    "added": "已新增",
+    "back": "已新增",
+    "custom": "自訂 MCP",
+    "empty": "找不到符合的服務。可以新增自訂 MCP。",
+    "held_label": "暫不可新增的服務",
+    "held_title": "暫不可新增",
+    "intro": "選擇連線預設，新增後確認授權與工具連線。",
+    "read_only_tools": "唯讀工具",
+    "retired": "已停止維護",
+    "retired_origin": "提供者舊專案",
+    "search": "搜尋服務",
+    "services": "服務連線",
+    "title": "新增服務"
+  },
+  "callback": {
+    "copied": "已複製",
+    "copy": "複製網址",
+    "copy_failed": "複製失敗，請選取網址手動複製",
+    "desktop": "用戶端重新導向網址",
+    "web": "網頁版重新導向網址"
+  },
+  "catalog": {
+    "context7": {
+      "description": "取得目前版本的函式庫文件與範例。",
+      "note": "Context7 文件也列出 Authorization: Bearer 形式；此預設使用已驗證的 Context7-API-Key 請求標頭。",
+      "setup": {
+        "create_key": "在 Context7 主控台建立 API 金鑰。",
+        "enter_key": "在 Tofi 中以 Context7-API-Key 請求標頭填入金鑰。"
+      }
+    },
+    "github": {
+      "description": "儲存庫、Issue 與 Pull Request。",
+      "note": "官方遠端伺服器由 GitHub 託管；可用性與 toolset 可能受帳號或 Copilot 資格影響。",
+      "setup": {
+        "check_scope": "連線前檢查 GitHub MCP 的 toolset 與儲存庫權限。",
+        "prepare_pat": "準備權限盡量縮小的 fine-grained PAT，並在 Tofi 中以 Bearer token 填入。"
+      }
+    },
+    "github_readonly": {
+      "description": "讀取儲存庫、Issue 與 Pull Request。",
+      "name": "GitHub 唯讀",
+      "note": "由 GitHub 託管的唯讀端點；Tofi 的工具確認與允許/停用規則仍然適用。來源與設定已核對，尚未以真實帳號驗證。",
+      "setup": {
+        "create_pat": "建立僅涵蓋所需儲存庫與讀取權限的 fine-grained PAT。",
+        "enter_token": "在下方的私密權杖欄位填寫 PAT；不必貼到聊天或請求標頭 JSON。",
+        "verify": "新增後檢查服務連線與可用工具；帳號及組織政策仍然適用。"
+      }
+    },
+    "google_calendar": {
+      "description": "查看行程與空閒時間。",
+      "note": "目前的預設僅提供行程讀取與空閒查詢。需啟用 calendar-json.googleapis.com、calendarmcp.googleapis.com。"
+    },
+    "google_docs": {
+      "description": "閱讀和編輯文件。",
+      "note": "Google Docs MCP 屬於 Developer Preview；請啟用 docs.googleapis.com 和 docsmcp.googleapis.com。"
+    },
+    "google_drive": {
+      "description": "尋找和整理雲端檔案。",
+      "note": "Google Drive MCP 屬於 Developer Preview；請啟用 drive.googleapis.com 和 drivemcp.googleapis.com。"
+    },
+    "google_gmail": {
+      "description": "尋找郵件、閱讀內容、撰寫草稿。",
+      "note": "Google Workspace Developer Preview；請啟用 gmail.googleapis.com 和 gmailmcp.googleapis.com。部分工具可能需要 gmail.modify 或 mail.google.com。"
+    },
+    "google_setup": {
+      "client_credentials": "填寫下方的 Client ID 和 Secret，新增後完成 Google 授權。",
+      "consent_screen": "設定 OAuth 同意畫面與測試使用者，建立網頁應用程式用戶端並登記重新導向網址。",
+      "enable_apis": "在 Google Cloud 專案中啟用對應的產品 API 和 MCP 服務。",
+      "preview_access": "確認已取得 Google Workspace Developer Preview 存取資格。"
+    },
+    "google_sheets": {
+      "description": "讀取資料、編輯試算表與公式。",
+      "note": "Google Sheets MCP 屬於 Developer Preview；請啟用 sheets.googleapis.com 和 sheetsmcp.googleapis.com。"
+    },
+    "google_slides": {
+      "description": "閱讀和製作簡報。",
+      "note": "Google Slides MCP 屬於 Developer Preview；請啟用 slides.googleapis.com 和 slidesmcp.googleapis.com。"
+    },
+    "linear": {
+      "description": "管理專案、任務與留言。",
+      "note": "Linear 的主要傳輸方式是 Streamable HTTP；/mcp/readonly 只提供讀取工具，/sse 是已淘汰的相容路徑。",
+      "setup": {
+        "check_scope": "連線前檢查團隊與工作區權限。",
+        "prepare_key": "準備 Linear API 金鑰或 Bearer token；不需要寫入權限時請選擇唯讀端點。"
+      }
+    },
+    "linear_readonly": {
+      "description": "尋找專案、任務與留言。",
+      "name": "Linear 唯讀",
+      "note": "Linear 文件說明此端點僅提供讀取工具；Tofi 的工具確認與允許/停用規則仍然適用。連線設定已核對，尚未以真實帳號驗證。",
+      "setup": {
+        "create_key": "建立只含 Read 權限、僅涵蓋所需團隊的 Linear API 金鑰。",
+        "enter_token": "在下方的私密權杖欄位填寫金鑰。",
+        "verify": "新增後確認授權範圍與工具連線。"
+      }
+    },
+    "microsoft_learn": {
+      "description": "搜尋官方技術文件與程式碼範例。",
+      "setup": {
+        "no_account": "不需要帳號或金鑰，新增後即可使用官方公開文件。"
+      }
+    },
+    "notion": {
+      "description": "尋找和整理知識庫。",
+      "note": "Notion 目前優先維護託管的遠端 MCP；Enterprise 管理員可以限制可連線的 AI 應用程式。",
+      "setup": {
+        "auto_client": "Tofi 會向服務申請 OAuth 用戶端，不需手動填寫 Client ID。",
+        "check_access": "確認連線身分的頁面權限符合預期。",
+        "choose_workspace": "新增後點選授權，選擇要連線的 Notion 工作區。"
+      }
+    }
+  },
+  "diagnostics_separator": "；",
+  "docs": {
+    "community": "社群專案文件",
+    "retired": "舊專案文件",
+    "vendor": "串接文件"
+  },
+  "error": {
+    "auth_incomplete": "授權未完成，請重新連線。",
+    "auth_timeout": "授權尚未完成，請再試一次。",
+    "discovery_failed": "無法讀取工具，請檢查服務網址與憑證後再試一次。",
+    "endpoint_changed_headers": "服務網址已變更，請重新輸入或移除已儲存的請求標頭憑證後再儲存。",
+    "endpoint_changed_oauth": "服務網址已變更，請為新網址重新填寫 OAuth 設定後再儲存。",
+    "invalid_auth_url": "授權網址無效",
+    "metadata_changed_secret": "授權中繼資料網址已變更，請重新輸入或清除已儲存的 Client Secret 後再儲存。",
+    "needs_bot": "請先建立一個 Bot，即可使用共用電腦授權。",
+    "oauth_discovery_failed": "無法讀取授權資訊或註冊用戶端，請檢查服務網址後再試一次。",
+    "oauth_start_failed": "暫時無法開始授權，請檢查服務網址後再試一次。",
+    "offline": "無法連線至伺服器，請再試一次。",
+    "redirect_needs_https": "授權需要 HTTPS 網址，或透過 localhost 通道連線至 Tofi。內部網路的 HTTP 網址無法完成重新導向。",
+    "tools_failed": "無法讀取工具，請再試一次。"
+  },
+  "form": {
+    "add": "新增",
+    "advanced": "進階設定",
+    "allowlist": "允許的工具",
+    "allowlist_hint": "留空即允許全部",
+    "client_id": "OAuth Client ID",
+    "client_id_optional": "OAuth Client ID（可留空以自動註冊）",
+    "client_secret": "Client Secret",
+    "client_secret_hint": "服務要求時填寫",
+    "comma_separated": "以逗號分隔",
+    "custom_description": "連線至工作區，Bot 依需要探索工具。",
+    "custom_title": "自訂 MCP",
+    "denylist": "停用的工具",
+    "edit_title": "編輯服務",
+    "google_prepare": "連線前準備",
+    "guide": "串接說明",
+    "guide_heading": "串接指南",
+    "headers": "請求標頭",
+    "headers_invalid": "請求標頭必須是名稱與文字值的 JSON 物件",
+    "headers_note": "圓點或空值會保留現有憑證；刪除對應欄位即可移除。變更服務網址時，請重新輸入或移除憑證。",
+    "metadata_url": "授權中繼資料網址",
+    "name": "服務識別碼",
+    "name_invalid": "服務識別碼請使用 1–64 個英文字母、數字、點、底線或連字號",
+    "save": "儲存",
+    "saving": "儲存中…",
+    "scopes": "權限範圍",
+    "token": "存取權杖",
+    "token_keep": "留空以保留現有權杖",
+    "token_paste": "貼上服務提供的權杖",
+    "transport": "連線方式",
+    "url": "服務網址"
+  },
+  "google": {
+    "docs": "官方串接文件",
+    "enable_api": "啟用產品 API",
+    "enable_mcp": "啟用 MCP 服務",
+    "help": "Google 設定說明",
+    "links_label": "{{name}} 設定連結",
+    "nav_label": "{{name}} 的 Google Cloud 設定",
+    "project_hint": "在 Google Cloud 中選擇與 OAuth Client 相同的專案。應用程式處於測試模式時，請在 Audience 中將目前帳號新增為測試使用者。",
+    "redirect_hint": "在 Google Auth Platform → Clients 的 Web application 中，將需要使用的網址逐一加入 Authorized redirect URIs（不是 JavaScript origins）。兩種入口可共用這組憑證。網址、連接埠、路徑必須完全一致；HTTP 共用電腦的動態重新導向不適用此固定網址設定，建議改用 HTTPS 或用戶端。",
+    "test_users": "設定測試使用者"
+  },
+  "held": {
+    "discord": {
+      "description": "社群維護的 Discord Bot 連線。",
+      "reason": "尚未核實相容的安裝方式與連線權限，暫不開放新增。"
+    },
+    "notion_token": {
+      "description": "已停止維護的舊版本機 MCP 服務。",
+      "name": "Notion 權杖服務（舊版）",
+      "reason": "提供者已停止維護與支援此本機服務，僅供參考，不在首批支援範圍內。要連線 Notion，請使用上方的 OAuth 連線。"
+    },
+    "slack": {
+      "description": "Slack 提供的遠端 MCP 服務。",
+      "reason": "需要註冊 Slack 應用程式並完成使用者授權；Bot token 不適用於此連線。"
+    },
+    "yahoo_finance": {
+      "description": "社群維護的行情查詢方案。",
+      "reason": "尚未核實可安裝的相容版本；社群方案不需要 Token。"
+    }
+  },
+  "local": {
+    "attach": "接入 Tofi",
+    "custom": {
+      "args": "啟動參數（每行一個）",
+      "binary": "執行檔",
+      "env": "環境變數（每行 KEY=value，以私密檔案儲存）",
+      "install": "安裝外掛程式",
+      "intro": "指定固定版本與執行檔。安裝指令會在 Runner 內執行；外掛程式碼將以 Runner 的權限執行。",
+      "package": "套件名稱",
+      "plugin_id": "外掛程式 ID",
+      "runtime": "執行環境",
+      "title": "安裝其他本機 MCP",
+      "version": "固定版本"
+    },
+    "gog": {
+      "install": "安裝 gogcli",
+      "installing": "正在安裝…",
+      "intro": "固定版本的 gogcli 已包含在 Runner 映像檔中。可選擇唯讀，或授權讀取及傳送。傳送郵件仍需逐封確認。",
+      "title": "個人 Gmail · gogcli"
+    },
+    "google": {
+      "client_json": "OAuth 用戶端 JSON",
+      "client_setup": "在 Google Cloud 建立<strong>網頁應用程式</strong> OAuth 用戶端，將下方網址加入「已授權的重新導向 URI」，再上傳下載的 JSON。",
+      "connect": "連結 Google",
+      "connected_as": "已授權 {{email}}",
+      "continue": "繼續開啟 Google 授權頁面",
+      "disconnect": "中斷 Google",
+      "disconnect_confirm": "要從 Runner 移除已儲存的 Google 授權嗎？",
+      "disconnect_submit": "中斷授權",
+      "disconnected": "Google 授權已從 Runner 移除。",
+      "email": "Google 電子郵件",
+      "finish_in_google": "請在 Google 頁面完成授權；返回 Tofi 後會更新連線狀態。",
+      "generating_link": "正在產生 Google 授權連結…",
+      "granted_read_send": "已授權讀取及傳送；傳送前仍需逐封確認。",
+      "granted_readonly": "目前僅授權讀取。若要傳送，請中斷後重新選擇讀取及傳送。",
+      "invalid_json": "請上傳有效的 Google OAuth 用戶端 JSON。",
+      "needs_https": "請透過 Tofi 設定的公開 HTTPS 網址開啟此頁面。",
+      "open_console": "開啟 Google Cloud",
+      "preparing": "正在準備授權…",
+      "preparing_popup": "正在準備 Google 授權…",
+      "scope": "Gmail 權限",
+      "scope_read_send": "讀取及傳送：每封郵件都要我確認",
+      "scope_readonly": "唯讀：搜尋及檢視郵件",
+      "verified": "個人 Gmail 讀取已驗證。",
+      "verify": "驗證 Gmail 讀取",
+      "verifying": "正在驗證…",
+      "waiting": "等待 Google 授權"
+    },
+    "intro": "外掛程式安裝在獨立的 Runner 容器中，依需要啟動，閒置後自動休眠。",
+    "notice": {
+      "attached": "{{id}} 已接入 Tofi。",
+      "installed": "{{id}} 已安裝；工具會在使用時啟動。",
+      "removed": "{{id}} 已移除。"
+    },
+    "remove": "移除",
+    "remove_confirm": "要移除外掛程式及已儲存的授權嗎？",
+    "remove_submit": "確定移除",
+    "state": {
+      "not_installed": "未安裝",
+      "ready": "執行中",
+      "sleeping": "已休眠",
+      "starting": "啟動中"
+    },
+    "title": "本機 MCP",
+    "unavailable": "本機 MCP Runner 暫時無法使用",
+    "unavailable_hint": "請檢查 Runner 容器是否已啟動。",
+    "plugin_count_other": "{{count}} 個外掛程式"
+  },
+  "mcp": {
+    "add": "新增服務",
+    "added": "已新增",
+    "back": "返回",
+    "cancel_auth": "取消授權",
+    "confirm": {
+      "disconnect": "中斷 {{name}} 的授權？",
+      "disconnect_submit": "中斷",
+      "remove": "移除 {{name}}？",
+      "remove_submit": "移除"
+    },
+    "connect": "連線",
+    "continue_auth": "繼續授權",
+    "empty": "連接你的工具",
+    "loading": "正在讀取服務…",
+    "menu": {
+      "disconnect": "中斷授權",
+      "edit": "編輯設定",
+      "refresh": "重新整理工具",
+      "remove": "移除服務"
+    },
+    "more_actions": "{{name}} 的更多操作"
+  },
+  "oauth": {
+    "help_body": "授權方式會自動依入口決定，適用於 Google、Notion 和其他 OAuth 服務。手動設定的用戶端需在服務後台登記下方完整的重新導向網址；Notion 等支援自動註冊的服務由 Tofi 處理。",
+    "help_title": "登入方式與限制",
+    "linked": "{{title}} 已授權",
+    "waiting": "等待 {{title}} 授權"
+  },
+  "origin": {
+    "community": "社群維護",
+    "preset": "連線預設",
+    "vendor": "由提供者維護"
+  },
+  "route": {
+    "desktop": "在系統瀏覽器登入，完成後自動返回此用戶端。不使用共用電腦。",
+    "desktop_outdated": "此用戶端版本尚不支援本機授權，請更新用戶端。不會自動改用共用電腦。",
+    "http_blocked": "HTTP 直連無法安全地重新導向，且未設定共用電腦。請改用 HTTPS 或 Tofi 用戶端。",
+    "loading": "正在讀取授權設定…",
+    "public_origin_missing": "請為伺服器設定正確的 TOFI_PUBLIC_ORIGIN（公開 HTTPS 網址）後再試一次。",
+    "vm": "目前透過 HTTP 直連，僅此入口使用共用電腦授權。服務需支援本機重新導向；建議改用 HTTPS 或 Tofi 用戶端。",
+    "web": "在目前裝置的瀏覽器登入，並重新導向回 Tofi 的 HTTPS 伺服器。不使用共用電腦。"
+  },
+  "skillCatalog": {
+    "document_delivery": {
+      "description": "製作文件、試算表與簡報，檢查後傳送到聊天。",
+      "title": "文件交付"
+    },
+    "research": {
+      "description": "核對來源，將研究整理成可交付的檔案。",
+      "title": "資料研究"
+    },
+    "web_review": {
+      "description": "實際操作頁面，記錄問題與重現步驟。",
+      "title": "網頁驗收"
+    }
+  },
+  "skills": {
+    "choose_folder": "選擇資料夾",
+    "error": {
+      "missing_content": "請選擇含有 SKILL.md 的資料夾，或展開手動編輯填寫名稱與內容。",
+      "name_taken": "這個名稱已存在，請換一個名稱。",
+      "no_skill_md": "資料夾根目錄需要 SKILL.md",
+      "too_large": "Skill 內容最多 1 MB",
+      "too_many_files": "最多 {{max}} 個檔案"
+    },
+    "folder_label": "選擇 Skill 資料夾",
+    "install": "安裝 Skill",
+    "install_submit": "安裝",
+    "installed": "已安裝",
+    "installed_notice": "已安裝，所有 Bot 皆可依需要讀取",
+    "installing": "安裝中…",
+    "loading": "正在讀取…",
+    "manual": "手動編輯",
+    "name": "名稱",
+    "needs_skill_md": "包含 SKILL.md",
+    "reload": "重新載入",
+    "remove": "移除",
+    "remove_confirm": "要移除這個 Skill 嗎？",
+    "removed": "Skill 已移除",
+    "saved": "已儲存",
+    "scope": "工作區共用 · 依需要讀取",
+    "starters": "Tofi 工作技能",
+    "support_note": "支援說明與參考檔案；不會自動執行附帶的指令碼。",
+    "file_count_other": "{{count}} 個檔案"
+  },
+  "status": {
+    "authorizing": "正在開啟授權…",
+    "checking": "正在讀取工具…",
+    "failed": "連線失敗",
+    "needs_auth": "需要授權",
+    "removing": "處理中…",
+    "unverified": "尚未驗證",
+    "waiting": "等待授權",
+    "tools_other": "{{count}} 個工具"
+  },
+  "vm": {
+    "cancel": "取消授權",
+    "cancel_failed": "暫時無法取消，請再試一次。授權會在逾時後自動結束。",
+    "cancelling": "取消中…",
+    "dialog_label": "{{title}} 授權",
+    "end": {
+      "denied": "授權已取消，可重新連線。",
+      "error": "授權未完成，請再試一次。",
+      "expired": "授權已逾時，請重新連線。"
+    },
+    "footer": "完成後自動返回；其他 Bot 的畫面操作正在排隊。",
+    "reconnecting": "連線暫時中斷，正在重試…",
+    "screen_alt": "共用電腦",
+    "subtitle": "在共用電腦中完成授權"
+  }
+}

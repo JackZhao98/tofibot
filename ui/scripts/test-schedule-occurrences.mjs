@@ -5,14 +5,12 @@ import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { promisify } from "node:util";
+import { openUiModules } from "./ui-modules.mjs";
 
 const root = dirname(dirname(fileURLToPath(import.meta.url)));
-const output = await mkdtemp(join(tmpdir(), "tofi-occurrence-checks-"));
+const ui = await openUiModules();
 try {
-  await promisify(execFile)(join(root, "node_modules/.bin/tsc"), ["src/scheduleOccurrences.ts", "--ignoreConfig", "--target", "ES2022", "--module", "ES2022", "--moduleResolution", "Bundler", "--outDir", output, "--skipLibCheck", "--declaration", "false", "--pretty", "false"], { cwd: root });
-  const compiled = join(output, "scheduleOccurrences.js");
-  await writeFile(compiled, (await readFile(compiled, "utf8")).replace('from "./timezone"', 'from "./timezone.js"'));
-  const { occurrenceRootKey, loadScheduleOccurrences, hasActiveOccurrence } = await import(pathToFileURL(compiled));
+  const { occurrenceRootKey, loadScheduleOccurrences, hasActiveOccurrence } = await ui.load("/src/scheduleOccurrences.ts");
   const id = n => `00000000-0000-0000-0000-${String(n).padStart(12, "0")}`;
   const item = (root, status = "done", extra = {}) => ({ root_run_id: root, schedule_id: id(1000), status_run_id: id(1001), execution_status: status, scheduled_for_utc: "2026-09-22T00:00:00Z", result_in_conversation: false, ...extra });
   assert.equal(occurrenceRootKey([id(2), "", "bad", id(1), id(2)]), `${id(1)},${id(2)}`);
@@ -78,5 +76,5 @@ try {
   }), /second batch failed/);
   console.log("schedule occurrences: PASS (exact roots, batching, invalid/foreign IDs, historical outcomes, bounded failure diagnostics, empty/error, cancellation, atomic batch failure)");
 } finally {
-  await rm(output, { recursive: true, force: true });
+  await ui.close();
 }

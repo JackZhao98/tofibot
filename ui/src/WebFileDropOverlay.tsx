@@ -1,6 +1,7 @@
 import { useEffect, useEffectEvent, useState, type RefObject } from "react";
 import { createPortal } from "react-dom";
 import { TofiIcon } from "./icons";
+import { useTranslation } from "./i18n";
 
 /** A window-level drop target; files are only added to the current draft. */
 export function WebFileDropOverlay({ inputRef, enabled, onDrop }: {
@@ -8,6 +9,7 @@ export function WebFileDropOverlay({ inputRef, enabled, onDrop }: {
   enabled: boolean;
   onDrop: (files: FileList, origin: { x: number; y: number }) => void;
 }) {
+  const { t } = useTranslation("chat");
   const [dragging, setDragging] = useState(false);
   const receiveFiles = useEffectEvent(onDrop);
 
@@ -69,7 +71,7 @@ export function WebFileDropOverlay({ inputRef, enabled, onDrop }: {
     <div className={`web-drop-overlay${enabled && dragging ? " is-dragging" : ""}`} aria-hidden={!enabled || !dragging}>
       <div className="web-drop-zone" role="status">
         <span className="web-drop-arrow"><TofiIcon name="upload" size={26} /></span>
-        <span>松手，添加到消息</span>
+        <span>{t("composer.drop_release")}</span>
       </div>
     </div>,
     document.body,

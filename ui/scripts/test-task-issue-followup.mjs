@@ -13,6 +13,11 @@ const evidence=join(ui,"../review-evidence");
 const server=await createServer({configFile:false,root:ui,server:{middlewareMode:true,hmr:false,ws:false},logLevel:"error"});
 const originalDocument=globalThis.document;
 try {
+  // MailDraftCard follows the active UI language; the loop below switches it.
+  const i18n=await server.ssrLoadModule("/src/i18n/index.ts");
+  await i18n.i18nReady;
+  await i18n.loadLanguage("en");
+  await i18n.loadLanguage("zh-CN");
   const p=await server.ssrLoadModule("/src/taskIssuePresentation.ts");
   const {TaskRunBlock}=await server.ssrLoadModule("/src/TaskRunBlock.tsx");
   const {MailDraftCard}=await server.ssrLoadModule("/src/MailDraftCard.tsx");
@@ -87,6 +92,7 @@ try {
   // stable labels without leaking subject, recipient or body while closed.
   const languages=[];
   for(const locale of ["zh-CN","en"]) {
+    await i18n.setLanguage(locale);
     const html=render([uncertainTool,secondTool],[uncertainDraft,sentDraft],locale);
     const text=closedText(html),view=familyView([uncertainTool,secondTool],[uncertainDraft,sentDraft],locale);
     const a=draftLabel(uncertainDraft,locale),b=draftLabel(sentDraft,locale);

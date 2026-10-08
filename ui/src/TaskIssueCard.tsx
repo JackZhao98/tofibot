@@ -1,17 +1,18 @@
 import { useEffect, useId, useRef, useState } from "react";
 import { TofiIcon } from "./icons";
-import { taskDiagnostics, taskLocale, taskText, type TaskIssueView, type TaskLocale } from "./taskIssuePresentation";
+import { taskDiagnostics, type TaskIssueView } from "./taskIssuePresentation";
+import { useTranslation, type Language } from "./i18n";
 import "./task-issue-card.css";
 
 /** Neutral section: the task's single announcement channel owns live speech. */
-export function TaskIssueCard({ issue, locale = taskLocale(), onAction, onFeedback, onOpenStep }: { issue: TaskIssueView; locale?: TaskLocale; onAction?: () => void | Promise<void>; onFeedback?: (text:string) => void; onOpenStep?: (runId: string, callId: string) => void }) {
+export function TaskIssueCard({ issue, locale, onAction, onFeedback, onOpenStep }: { issue: TaskIssueView; /** Pins one language (tests, fixtures); the active UI language otherwise. */ locale?: Language; onAction?: () => void | Promise<void>; onFeedback?: (text:string) => void; onOpenStep?: (runId: string, callId: string) => void }) {
   const heading = useId();
   const details = useRef<HTMLDetailsElement>(null);
   const diagnostics = useRef<HTMLPreElement>(null);
   const inFlight = useRef(false);
   const [busy, setBusy] = useState(false);
   const [feedback, setFeedback] = useState("");
-  const t = (zh: string, en: string) => taskText(locale, zh, en);
+  const { t } = useTranslation("tasks", { lng: locale });
   const diagnosticText = taskDiagnostics(issue);
   useEffect(() => { setFeedback(""); }, [diagnosticText]);
   function report(text: string) { setFeedback(text); onFeedback?.(text); }
@@ -23,10 +24,10 @@ export function TaskIssueCard({ issue, locale = taskLocale(), onAction, onFeedba
         try {
           if (!navigator.clipboard) throw new Error("clipboard unavailable");
           await navigator.clipboard.writeText(taskDiagnostics(issue));
-          report(t("已复制诊断信息。", "Diagnostics copied."));
+          report(t("step.copied"));
         } catch {
           if (details.current) details.current.open = true;
-          report(t("未能复制，请选择下方诊断信息后手动复制。", "Copy failed. Select the diagnostics below and copy them manually."));
+          report(t("issue.copy_failed"));
           diagnostics.current?.focus();
         }
       } else if (issue.action === "verify_steps") {
@@ -34,7 +35,7 @@ export function TaskIssueCard({ issue, locale = taskLocale(), onAction, onFeedba
         diagnostics.current?.focus();
       } else await onAction?.();
     } catch {
-      report(t("部分状态暂时无法更新。已确认的记录保留。", "Some status updates are unavailable. Confirmed records are retained."));
+      report(t("issue.status_unavailable"));
     } finally { inFlight.current = false; setBusy(false); }
   }
   return <section className="task-issue-card" data-issue-kind={issue.kind} data-issue-phase={issue.phase} aria-labelledby={heading} aria-busy={busy}>
@@ -45,8 +46,8 @@ export function TaskIssueCard({ issue, locale = taskLocale(), onAction, onFeedba
       return <p className="task-issue-fact" key={index}>{link && onOpenStep && fact.startsWith(link.label) ? <><button type="button" className="task-fact-link" onClick={() => onOpenStep(link.runId, link.callId)}>{link.label}</button>{fact.slice(link.label.length)}</> : fact}</p>;
     })}
     {issue.secondary.map((cause, index) => <p className="task-issue-context" key={index}>{cause}</p>)}
-    <div className="task-issue-actions"><button type="button" className="secondary-button" disabled={busy} onClick={() => void act()}>{issue.action === "copy_diagnostics" && <TofiIcon name="copy" size={16} aria-hidden="true" />}{busy ? t("处理中…", "Working…") : issue.actionLabel}</button></div>
-    <details className="task-issue-technical" ref={details}><summary>{t("技术详情", "Technical details")}</summary><pre ref={diagnostics} tabIndex={0} aria-label={t("诊断信息", "Diagnostics")}>{taskDiagnostics(issue)}</pre></details>
+    <div className="task-issue-actions"><button type="button" className="secondary-button" disabled={busy} onClick={() => void act()}>{issue.action === "copy_diagnostics" && <TofiIcon name="copy" size={16} aria-hidden="true" />}{busy ? t("issue.working") : issue.actionLabel}</button></div>
+    <details className="task-issue-technical" ref={details}><summary>{t("step.technical_details")}</summary><pre ref={diagnostics} tabIndex={0} aria-label={t("issue.diagnostics")}>{taskDiagnostics(issue)}</pre></details>
     {feedback && <p className="task-issue-feedback">{feedback}</p>}
   </section>;
 }

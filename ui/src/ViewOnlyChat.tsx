@@ -4,6 +4,7 @@ import { request } from "./api";
 import { BotAvatar } from "./BotAvatar";
 import { MessageMarkdown } from "./MessageMarkdown";
 import { TofiIcon } from "./icons";
+import { useTranslation } from "./i18n";
 import type { Bot, Conversation, Message } from "./types";
 import { mergeViewOnlyHistory, type ViewOnlyHistory, type ViewOnlyHistoryPage } from "./viewOnlyHistory";
 
@@ -33,6 +34,7 @@ function Participant({ ids, name }: { ids: string[]; name: string }) {
 }
 
 export function ViewOnlyChat({ target, bots, onClose, returnFocus, card = false }: { target: ViewOnlyChatTarget; bots: Bot[]; onClose: () => void; returnFocus?: HTMLElement | null; card?: boolean }) {
+  const { t } = useTranslation("chat");
   const dialogRef = useRef<HTMLDivElement>(null);
   const closeRef = useRef<HTMLButtonElement>(null);
   const botById = useMemo(() => new Map(bots.map((bot) => [bot.id, bot])), [bots]);
@@ -73,21 +75,22 @@ export function ViewOnlyChat({ target, bots, onClose, returnFocus, card = false 
   const sourceIDs = participantIds(target.source, target.sourceBotIds);
   const targetIDs = participantIds(target.target, target.targetBotIds);
 
-  return createPortal(<div ref={dialogRef} className={`view-only-chat${card ? " is-card" : ""}`} role="dialog" aria-modal={card ? undefined : true} aria-label="只读转发对话">
+  return createPortal(<div ref={dialogRef} className={`view-only-chat${card ? " is-card" : ""}`} role="dialog" aria-modal={card ? undefined : true} aria-label={t("viewOnly.label")}>
     <header className="view-only-chat-header">
       <div className="view-only-chat-identity">
         <Participant ids={sourceIDs} name={target.sourceName ?? target.source.name} />
         <span className="view-only-chat-arrow" aria-hidden="true"><TofiIcon name="bot-handoff" size={24} style={{ verticalAlign: "middle" }} /></span>
         <Participant ids={targetIDs} name={target.targetName ?? target.target.name} />
       </div>
-      <button ref={closeRef} type="button" className="view-only-chat-close" aria-label="关闭只读对话" data-hint="关闭只读对话" onClick={onClose}><TofiIcon name="close" size={20} /></button>
+      <button ref={closeRef} type="button" className="view-only-chat-close" aria-label={t("viewOnly.close_label")} data-hint={t("viewOnly.close_label")} onClick={onClose}><TofiIcon name="close" size={20} /></button>
     </header>
     <ViewOnlyChatHistory key={JSON.stringify([target.target.id, target.runId ?? null])} conversationId={target.target.id} runId={target.runId} botById={botById} closeRef={closeRef} />
-    <footer className="view-only-chat-footer"><span><TofiIcon name="lock" size={16} /> 只读对话</span><button type="button" className="secondary-button" onClick={onClose}>关闭</button></footer>
+    <footer className="view-only-chat-footer"><span><TofiIcon name="lock" size={16} /> {t("viewOnly.read_only")}</span><button type="button" className="secondary-button" onClick={onClose}>{t("viewOnly.close")}</button></footer>
   </div>, document.body);
 }
 
 function ViewOnlyChatHistory({ conversationId, runId, botById, closeRef }: { conversationId: string; runId?: string; botById: Map<string, Bot>; closeRef: RefObject<HTMLButtonElement | null> }) {
+  const { t } = useTranslation(["chat", "common"]);
   const [history, setHistory] = useState<ViewOnlyHistory | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -122,12 +125,12 @@ function ViewOnlyChatHistory({ conversationId, runId, botById, closeRef }: { con
         const anchor = Array.from(body?.querySelectorAll<HTMLElement>('[data-message-id]') ?? []).find(element => element.getBoundingClientRect().bottom > (body?.getBoundingClientRect().top ?? 0));
         const focused = document.activeElement === loadRef.current;
         prepend.current = { anchor, top: anchor?.getBoundingClientRect().top, focusId: focused ? added[0]?.id : undefined, focusStart: focused && !added.length && !next.hasMore };
-        setAnnouncement(added.length ? `已载入 ${added.length} 条更早消息` : next.hasMore ? "已读取更早记录，暂无匹配消息" : "已到对话开头");
+        setAnnouncement(added.length ? t("viewOnly.loaded_older", { count: added.length }) : next.hasMore ? t("viewOnly.no_match_older") : t("viewOnly.at_start"));
       }
       latest.current = next;
       setHistory(next);
     } catch {
-      if (!controller.signal.aborted) setError(previous ? "暂时无法读取更早消息。" : "暂时无法读取这段转发对话。");
+      if (!controller.signal.aborted) setError(previous ? t("viewOnly.older_failed") : t("viewOnly.load_failed"));
     } finally {
       if (!controller.signal.aborted) setLoading(false);
       if (requestRef.current === controller) requestRef.current = null;
@@ -156,15 +159,15 @@ function ViewOnlyChatHistory({ conversationId, runId, botById, closeRef }: { con
   }, [history]);
 
   return <main ref={bodyRef} className="view-only-chat-body" aria-busy={loading}>
-    {!history && loading && <div className="inline-state" role="status"><div className="spinner" />读取转发对话…</div>}
+    {!history && loading && <div className="inline-state" role="status"><div className="spinner" />{t("viewOnly.loading")}</div>}
     {error && <div className="history-error" role="alert">{error}</div>}
-    {(history?.hasMore || error) && <button ref={loadRef} type="button" className="load-older" style={{ minHeight: 44 }} aria-controls={listId} aria-disabled={loading} onClick={() => void loadPage()}>{loading ? "读取更早消息…" : error ? history ? "重试读取更早消息" : "重试" : "查看更早消息"}</button>}
-    {history && !history.hasMore && <p ref={startRef} tabIndex={-1} className="muted" style={{ textAlign: "center", fontSize: 12 }}>已到对话开头</p>}
+    {(history?.hasMore || error) && <button ref={loadRef} type="button" className="load-older" style={{ minHeight: 44 }} aria-controls={listId} aria-disabled={loading} onClick={() => void loadPage()}>{loading ? t("viewOnly.loading_older") : error ? history ? t("viewOnly.retry_older") : t("common:action.retry") : t("history.load_older")}</button>}
+    {history && !history.hasMore && <p ref={startRef} tabIndex={-1} className="muted" style={{ textAlign: "center", fontSize: 12 }}>{t("viewOnly.at_start")}</p>}
     <span className="sr-only" role="status" aria-live="polite">{announcement}</span>
-    {history && !history.messages.length && <div className="conversation-empty"><h2>{history.hasMore ? "暂未找到匹配消息" : "暂无消息"}</h2></div>}
+    {history && !history.messages.length && <div className="conversation-empty"><h2>{history.hasMore ? t("viewOnly.no_match") : t("viewOnly.empty")}</h2></div>}
     <div id={listId} className="view-only-message-list">{history?.messages.map((message: Message) => {
       const bot = message.sender_bot_id ? botById.get(message.sender_bot_id) : undefined;
-      const label = bot?.name ?? message.sender_bot_name ?? (message.role === "user" ? "你" : "Bot");
+      const label = bot?.name ?? message.sender_bot_name ?? (message.role === "user" ? t("message.you") : "Bot");
       const user = message.role === "user" && !message.sender_bot_id;
       return <article className={`view-only-message ${user ? "is-user" : "is-bot"}`} key={message.id} data-message-id={message.id} tabIndex={-1} data-focused={(runId !== undefined && message.run_id === runId) || undefined}>
         {!user && <BotAvatar id={message.sender_bot_id ?? "bot"} mini />}
