@@ -1,14 +1,8 @@
 import assert from "node:assert/strict";
-import { execFileSync } from "node:child_process";
-import { mkdtemp, rm } from "node:fs/promises";
-import { tmpdir } from "node:os";
-import { dirname, join } from "node:path";
-import { fileURLToPath, pathToFileURL } from "node:url";
-const root = dirname(dirname(fileURLToPath(import.meta.url)));
-const output = await mkdtemp(join(tmpdir(), "tofi-oauth-routing-"));
+import { openUiModules } from "./ui-modules.mjs";
+const ui = await openUiModules({ language: "zh-CN" });
 try {
-  execFileSync(join(root, "node_modules/.bin/tsc"), ["src/mcpOAuthRoute.ts", "--ignoreConfig", "--target", "ES2022", "--module", "ES2022", "--moduleResolution", "Bundler", "--outDir", output, "--skipLibCheck"], { cwd: root });
-  const { mcpOAuthRoute } = await import(pathToFileURL(join(output, "mcpOAuthRoute.js")));
+  const { mcpOAuthRoute } = await ui.load("/src/mcpOAuthRoute.ts");
   const options = { vm_available: true, web_callback_origin: "https://tofi.example", desktop_redirect_uri: "http://127.0.0.1:43821/oauth/callback" };
   assert.equal(mcpOAuthRoute("https:", false, false, options).mode, "web", "HTTPS never prefers an available VM");
   assert.equal(mcpOAuthRoute("http:", true, true, options).mode, "desktop", "native loopback is not an insecure Web session");
@@ -18,5 +12,10 @@ try {
   assert.equal(mcpOAuthRoute("http:", false, false, { ...options, vm_available: false }).mode, "blocked");
   assert.equal(mcpOAuthRoute("https:", false, false, { ...options, web_callback_origin: "" }).mode, "blocked");
   assert.equal(mcpOAuthRoute("https:", false, false, null).mode, "blocked");
+  assert.equal(mcpOAuthRoute("https:", false, false, options).note, "在当前设备的浏览器登录，回调 Tofi 的 HTTPS 服务器。不使用共享电脑。");
+  assert.equal(mcpOAuthRoute("http:", true, false, options).note, "此客户端版本尚不支持本地授权，请升级客户端。不会自动改用共享电脑。");
+  assert.equal(mcpOAuthRoute("https:", false, false, null).note, "正在读取授权配置…");
+  await ui.setLanguage("en");
+  assert.equal(mcpOAuthRoute("http:", false, false, { ...options, vm_available: false }).note, "A plain HTTP connection can't receive the redirect safely, and no shared computer is set up. Use HTTPS or the Tofi app.");
   console.log("MCP OAuth entry routing: PASS");
-} finally { await rm(output, { recursive: true, force: true }); }
+} finally { await ui.close(); }
