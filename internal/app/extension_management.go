@@ -22,6 +22,9 @@ func (s *Server) routeExtensions(w http.ResponseWriter, r *http.Request, p strin
 		return true
 	}
 	if s.routeLocalMCP(w,r,p) { return true }
+	if s.routeSkillAccess(w, r, p) {
+		return true
+	}
 	if s.routeVMOAuth(w, r, p) {
 		return true
 	}
@@ -156,7 +159,32 @@ func (s *Server) routeExtensions(w http.ResponseWriter, r *http.Request, p strin
 		return true
 	case p == "extensions/skills" && r.Method == http.MethodGet:
 		v, d := s.extensions.ListSkills()
-		writeJSON(w, 200, map[string]any{"skills": v, "diagnostics": d})
+		access, err := s.store.skillAccessMap()
+		if err != nil {
+			writeErr(w, 500, "internal", "skill access unavailable")
+			return true
+		}
+		active, err := s.store.activeBotSet()
+		if err != nil {
+			writeErr(w, 500, "internal", "skill access unavailable")
+			return true
+		}
+		out := make([]skillWithAccess, 0, len(v))
+		for _, x := range v {
+			view := accessViewFor(access, x.Name)
+			if view.Mode == "selected" {
+				// Rows for archived or deleted Bots are kept but not shown.
+				kept := []string{}
+				for _, id := range view.BotIDs {
+					if active[id] {
+						kept = append(kept, id)
+					}
+				}
+				view.BotIDs = kept
+			}
+			out = append(out, skillWithAccess{SkillView: x, Access: view})
+		}
+		writeJSON(w, 200, map[string]any{"skills": out, "diagnostics": d})
 		return true
 	case p == "extensions/skills" && r.Method == http.MethodPost:
 		var in struct {
@@ -184,7 +212,7 @@ func (s *Server) routeExtensions(w http.ResponseWriter, r *http.Request, p strin
 		return true
 	case strings.HasPrefix(p, "extensions/skills/") && r.Method == http.MethodDelete:
 		name := strings.TrimPrefix(p, "extensions/skills/")
-		if e := s.extensions.DeleteSkill(name); e != nil {
+		if e := s.deleteSkill(name); e != nil {
 			writeErr(w, 404, "extensions", e.Error())
 		} else {
 			s.writeExtensionSaved(w, http.StatusOK)

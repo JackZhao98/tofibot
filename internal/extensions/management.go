@@ -47,50 +47,8 @@ type OAuthView struct {
 	Connected             bool     `json:"connected"`
 }
 type SkillView struct {
-	Name        string          `json:"name"`
-	Description string          `json:"description"`
-	Enabled     map[string]bool `json:"enabled,omitempty"`
-}
-
-// SetSkillEnabled stores the per-Bot activation switch separately from the
-// skill source, so changing one Bot never rewrites user supplied content.
-func (m *Manager) SetSkillEnabled(botID, name string, enabled bool) error {
-	if botID == "" || !skillNamePattern.MatchString(name) {
-		return errors.New("invalid skill or bot")
-	}
-	m.mu.Lock()
-	defer m.mu.Unlock()
-	if _, ok := os.Stat(filepath.Join(m.cfg.SkillsDir, name)); ok != nil {
-		return os.ErrNotExist
-	}
-	p := filepath.Join(m.cfg.SkillsDir, ".enabled.json")
-	state, e := loadSkillState(m.cfg.SkillsDir)
-	if e != nil {
-		return e
-	}
-	if state[botID] == nil {
-		state[botID] = map[string]bool{}
-	}
-	state[botID][name] = enabled
-	return writeJSON0600(p, state)
-}
-
-func loadSkillState(root string) (map[string]map[string]bool, error) {
-	state := map[string]map[string]bool{}
-	if strings.TrimSpace(root) == "" {
-		return state, nil
-	}
-	b, err := os.ReadFile(filepath.Join(root, ".enabled.json"))
-	if errors.Is(err, os.ErrNotExist) {
-		return state, nil
-	}
-	if err != nil {
-		return nil, err
-	}
-	if err := json.Unmarshal(b, &state); err != nil {
-		return nil, err
-	}
-	return state, nil
+	Name        string `json:"name"`
+	Description string `json:"description"`
 }
 
 func validExtensionName(s string) bool {
@@ -457,22 +415,22 @@ func (m *Manager) ListSkills() ([]SkillView, []Diagnostic) {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 	s, d := loadSkills(m.cfg.SkillsDir)
-	state, err := loadSkillState(m.cfg.SkillsDir)
-	if err != nil {
-		d = append(d, Diagnostic{Message: "read skill activation state: " + publicDiagnostic(err)})
-	}
 	out := make([]SkillView, 0, len(s))
 	for _, x := range s {
-		enabled := map[string]bool{}
-		for bot, skills := range state {
-			if skills[x.Name] {
-				enabled[bot] = true
-			}
-		}
-		out = append(out, SkillView{Name: x.Name, Description: x.Description, Enabled: enabled})
+		out = append(out, SkillView{Name: x.Name, Description: x.Description})
 	}
 	return out, d
 }
+// SkillExists reports whether a skill directory of that name is installed,
+// even if its manifest is currently unreadable.
+func (m *Manager) SkillExists(name string) bool {
+	if !skillNamePattern.MatchString(name) || strings.TrimSpace(m.cfg.SkillsDir) == "" {
+		return false
+	}
+	info, err := os.Stat(filepath.Join(m.cfg.SkillsDir, name))
+	return err == nil && info.IsDir()
+}
+
 func (m *Manager) DeleteSkill(name string) error {
 	if !skillNamePattern.MatchString(name) {
 		return errors.New("invalid skill name")

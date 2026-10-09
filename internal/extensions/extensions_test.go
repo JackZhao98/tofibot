@@ -135,9 +135,6 @@ func TestSkillPromptBoundedWithDiagnostic(t *testing.T) {
 	if err := mgr.InstallSkill("large", map[string][]byte{"SKILL.md": []byte("---\nname: large\ndescription: large\n---\n" + body)}); err != nil {
 		t.Fatal(err)
 	}
-	if err := mgr.SetSkillEnabled("bot", "large", true); err != nil {
-		t.Fatal(err)
-	}
 	p, err := mgr.PrepareForBot(context.Background(), "bot")
 	if err != nil {
 		t.Fatal(err)

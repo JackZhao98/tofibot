@@ -331,6 +331,28 @@
     }
   },
   "skills": {
+    "access": {
+      "label": "谁能用",
+      "all": "所有 Bot",
+      "change": "更改",
+      "change_for": "更改谁能使用 {{name}}",
+      "sheet_title": "谁能使用 {{name}}",
+      "mode_all": "所有 Bot",
+      "mode_all_hint": "所有 Bot，包括之后新增的 Bot。",
+      "mode_selected": "仅限所选 Bot",
+      "mode_selected_hint": "其他 Bot 看不到也读取不了这个 Skill。",
+      "bots_label": "Bot",
+      "no_bots": "还没有 Bot。",
+      "pick_required": "请至少选择一个 Bot，或选择“所有 Bot”。",
+      "save": "保存",
+      "saving": "正在保存…",
+      "error": {
+        "unknown_bot": "所选的某个 Bot 已不存在或已归档。请重新打开此面板再试。",
+        "save_failed": "无法保存，请重试。"
+      },
+      "some_other": "{{total}} 个 Bot 中的 {{selected}} 个",
+      "none_available": "仅限已不存在的 Bot，当前没有 Bot 能使用"
+    },
     "choose_folder": "选择文件夹",
     "error": {
       "missing_content": "请选择含 SKILL.md 的文件夹，或展开手动编辑填写名称和内容。",
@@ -343,7 +365,7 @@
     "install": "安装 Skill",
     "install_submit": "安装",
     "installed": "已安装",
-    "installed_notice": "已安装，所有 Bot 均可按需读取",
+    "installed_notice": "已安装，所有 Bot 均可按需读取；可在“谁能用”中限定范围",
     "installing": "安装中…",
     "loading": "正在读取…",
     "manual": "手动编辑",
@@ -354,7 +376,7 @@
     "remove_confirm": "移除这个 Skill？",
     "removed": "Skill 已移除",
     "saved": "已保存",
-    "scope": "工作区共享 · 按需读取",
+    "scope": "工作区 Skill · 按需读取 · 可限定给指定 Bot",
     "starters": "Tofi 工作技能",
     "support_note": "支持说明与参考文件；不自动运行附带脚本。",
     "file_count_other": "{{count}} 个文件"

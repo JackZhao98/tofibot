@@ -47,7 +47,7 @@ func (s *Server) extensionManagementTools(c Conversation, r Run) []Tool {
 		"files":           map[string]any{"type": "object", "additionalProperties": map[string]any{"type": "string"}, "description": "Complete local skill files as UTF-8 strings, including SKILL.md with matching name; no downloading or execution. Installation does not overwrite an existing skill."},
 		"test_connection": map[string]any{"type": "boolean", "description": "Must be true for mcp_test, only when the user requested connecting/testing. Other actions never test automatically."},
 	}
-	return []Tool{{Name: "manage_extensions", Description: "Manage the user's workspace-wide MCP servers and installed Skills using Tofi's existing settings. Every Bot can access installed resources; there is no per-Bot grant or activation setting. Read/list first before changes. MCP update requires the complete desired URL; omitted policy lists, headers and OAuth retain existing values. Tool allow/deny lists are global server policies. Never expose credentials or perform OAuth authorization; tell the user to finish authorization in Settings. Test network connections only when explicitly requested using mcp_test with test_connection=true. Delete actions remove user configuration/skill files and require user intent.", Parameters: objectSchema(properties, []string{"action"}), Identity: extensionRecoveryIdentity, Execute: func(ctx context.Context, raw json.RawMessage) (string, error) {
+	return []Tool{{Name: "manage_extensions", Description: "Manage the user's workspace-wide MCP servers and installed Skills using Tofi's existing settings. MCP servers are available to every Bot. Skills are available to every Bot unless the user limited a skill to selected Bots in Settings; skill_list shows only the skills the current Bot may use, and Bots cannot change skill access. Read/list first before changes. MCP update requires the complete desired URL; omitted policy lists, headers and OAuth retain existing values. Tool allow/deny lists are global server policies. Never expose credentials or perform OAuth authorization; tell the user to finish authorization in Settings. Test network connections only when explicitly requested using mcp_test with test_connection=true. Delete actions remove user configuration/skill files and require user intent.", Parameters: objectSchema(properties, []string{"action"}), Identity: extensionRecoveryIdentity, Execute: func(ctx context.Context, raw json.RawMessage) (string, error) {
 		return s.executeExtensionManagement(ctx, c, r, raw)
 	}}}
 }
@@ -216,7 +216,7 @@ func (s *Server) executeExtensionManagement(ctx context.Context, c Conversation,
 		}
 		result = extensionOAuthRequired()
 	case "skill_list":
-		skills, diagnostics := s.extensions.ListSkills()
+		skills, diagnostics := s.extensions.SkillsForBot(ctx, r.BotID)
 		result = map[string]any{"skills": skills, "diagnostic_count": len(diagnostics)}
 	case "skill_install":
 		files := make(map[string][]byte, len(x.Files))
@@ -226,10 +226,16 @@ func (s *Server) executeExtensionManagement(ctx context.Context, c Conversation,
 		if err = s.extensionToolActive(ctx, c, r); err != nil {
 			return "", err
 		}
+		if err = s.restrictedSkillGuard(r.BotID, x.Name); err != nil {
+			return "", err
+		}
 		err = s.extensions.InstallSkill(x.Name, files)
 		mutated = err == nil
 	case "skill_delete":
-		err = s.extensions.DeleteSkill(x.Name)
+		if err = s.restrictedSkillGuard(r.BotID, x.Name); err != nil {
+			return "", err
+		}
+		err = s.deleteSkill(x.Name)
 		mutated = err == nil
 	default:
 		return "", tooloutcome.InvalidArguments("unsupported extension action")
