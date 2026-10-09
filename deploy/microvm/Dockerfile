@@ -1,7 +1,7 @@
-FROM node:22-bookworm-slim AS node-runtime
-FROM golang:1.26.8-bookworm@sha256:a688600ca24f8a4d3ca77f95b0dd40704a9fc787c826660eb7ba0b641b8b175d AS gogcli-build
+FROM mirror.gcr.io/library/node:22-bookworm-slim AS node-runtime
+FROM mirror.gcr.io/library/golang:1.26.8-bookworm@sha256:a688600ca24f8a4d3ca77f95b0dd40704a9fc787c826660eb7ba0b641b8b175d AS gogcli-build
 RUN CGO_ENABLED=0 GOBIN=/out go install github.com/openclaw/gogcli/cmd/gog@v0.40.0
-FROM ubuntu:24.04 AS computer-base
+FROM mirror.gcr.io/library/ubuntu:24.04 AS computer-base
 ARG DEBIAN_FRONTEND=noninteractive
 RUN apt-get update && apt-get install -y --no-install-recommends \
     ca-certificates curl wget gnupg bash coreutils util-linux iproute2 procps \

@@ -1,5 +1,5 @@
 # Build from the repository root: docker build -f deploy/microvm/Worker.Dockerfile .
-FROM python:3.12-slim
+FROM mirror.gcr.io/library/python:3.12-slim
 # Keep util-linux on the mount(2) sequence covered by the confined Worker policy.
 ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1 LIBMOUNT_FORCE_MOUNT2=always
 WORKDIR /opt/tofi-worker

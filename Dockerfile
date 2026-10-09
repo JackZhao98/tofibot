@@ -1,12 +1,12 @@
 # Build the shared browser UI first, then compile the Go control plane.
-FROM node:22-alpine AS ui-build
+FROM mirror.gcr.io/library/node:22-alpine AS ui-build
 WORKDIR /src/ui
 COPY ui/package.json ui/package-lock.json ./
 RUN npm ci
 COPY ui/ ./
 RUN npm run build
 
-FROM golang:1.25.11-alpine AS go-build
+FROM mirror.gcr.io/library/golang:1.25.11-alpine AS go-build
 WORKDIR /src
 ENV CGO_ENABLED=0 GOOS=linux
 COPY go.mod go.sum ./
@@ -19,7 +19,7 @@ FROM scratch AS guest-artifact
 COPY --from=go-build /out/tofi-guest /tofi-guest
 
 # The runtime image contains one non-root process and a named persistent data volume.
-FROM alpine:3.22
+FROM mirror.gcr.io/library/alpine:3.22
 RUN apk add --no-cache ca-certificates \
   && addgroup -S -g 10001 tofi && adduser -S -u 10001 -G tofi -h /app tofi \
   && mkdir -p /app/data /app/ui \
