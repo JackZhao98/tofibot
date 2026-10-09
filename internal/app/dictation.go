@@ -21,16 +21,16 @@ const (
 	maxDictationBytes       = 25 << 20
 )
 
+// The UI renders each model's hint and price from its own i18n catalog
+// (settings:dictation.model.<id>.*); the server sends identity only.
 type dictationModelOption struct {
-	ID          string `json:"id"`
-	Name        string `json:"name"`
-	Description string `json:"description"`
-	Cost        string `json:"cost"`
+	ID   string `json:"id"`
+	Name string `json:"name"`
 }
 
 var dictationModels = []dictationModelOption{
-	{ID: "gpt-4o-mini-transcribe", Name: "GPT-4o mini Transcribe", Description: "更便宜，适合日常 Dictate。", Cost: "$0.003 / 分钟"},
-	{ID: "gpt-4o-transcribe", Name: "GPT-4o Transcribe", Description: "识别质量更高，成本更高。", Cost: "$0.006 / 分钟"},
+	{ID: "gpt-4o-mini-transcribe", Name: "GPT-4o mini Transcribe"},
+	{ID: "gpt-4o-transcribe", Name: "GPT-4o Transcribe"},
 }
 
 func migrateDictationSettings(db *sql.DB) error {
