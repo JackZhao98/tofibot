@@ -344,6 +344,47 @@ if __name__ == "__main__":
     unittest.main()
 
 class ImmutableReserveTests(unittest.TestCase):
+    def test_release_inode_bound_into_the_jail_gets_no_credit(self):
+        # manager.attach_immutable_image bind-mounts the sealed release file
+        # read-only into the jail: the jail path then resolves to the release
+        # inode (one link, root-owned, 0444) but occupies no space of its own.
+        from unittest.mock import patch
+        from types import SimpleNamespace
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary).resolve()
+            host = {"total_bytes": 100*GiB, "available_bytes": 40*GiB,
+                    "filesystem_type": "ext4", "filesystem_device": root.stat().st_dev}
+            identity = str(uuid.uuid4())
+            jail = root/identity/"jails"/"firecracker"/("ac-"+identity)/"root"
+            jail.mkdir(parents=True)
+            image = jail/"rootfs.ext4"
+            with image.open("wb") as stream:
+                stream.write(b"x"*(128*1024))
+                stream.truncate(1024*1024)
+            image.chmod(0o444)
+            release = root/"release"
+            release.mkdir()
+            # A symlink models the bind: both paths stat to one inode with
+            # st_nlink 1, which a hard link could not.
+            (release/"rootfs.ext4").symlink_to(image)
+            real_fstat, real_path = capacity.os.fstat, capacity._trusted_regular_path
+            def owned(info):
+                return SimpleNamespace(**{name: (0 if name == "st_uid" else getattr(info, name))
+                    for name in ("st_dev", "st_ino", "st_uid", "st_mode", "st_size", "st_nlink", "st_blocks")})
+            def ledger_for(shared):
+                ledger = capacity.CapacityLedger(root/("ledger-%s.sqlite" % bool(shared)), root, GiB, 2*GiB,
+                    metrics=lambda: dict(host), per_account_internal_reserved_bytes=8*GiB,
+                    immutable_image_sizes={"rootfs.ext4": 1024*1024}, shared_image_dir=shared)
+                ledger.reserve(identity, 8*GiB)
+                return ledger
+            with patch.object(capacity.os, "fstat", side_effect=lambda fd: owned(real_fstat(fd))), \
+                    patch.object(capacity, "_trusted_regular_path", side_effect=lambda path: owned(real_path(path))):
+                self.assertGreater(ledger_for(None).snapshot()["internal_allocated_bytes"], 0)
+                self.assertEqual(ledger_for(release).snapshot()["internal_allocated_bytes"], 0)
+                # An unreadable release gives no credit rather than guessing.
+                (release/"rootfs.ext4").unlink()
+                self.assertEqual(ledger_for(release).snapshot()["internal_allocated_bytes"], 0)
+
     def test_known_copy_growth_removal_and_untrusted_files(self):
         from unittest.mock import patch
         from types import SimpleNamespace

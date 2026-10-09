@@ -88,19 +88,153 @@ OAUTH_PATHS = frozenset((
 
 
 def attach_immutable_image(source, target):
-    """Attach a sealed release image across separate read-only bind mounts."""
+    """Attach a sealed release image to a jail; returns how it was attached.
+
+    "link": a hard link (release and jail on one mount, no copy).
+    "bind": a read-only bind mount of the release file over a placeholder in
+    the jail. The confined Worker sees the release and its state directory as
+    separate bind mounts, where link(2) fails with EXDEV; a bind mount shares
+    the release inode without writing anything, so a cold start or resume no
+    longer copies the 5 GiB root image. Firecracker opens it O_RDONLY
+    (is_read_only), the mount itself is read-only and the file is root-owned
+    0444, so neither the guest nor the jailed Firecracker can change the
+    shared release. The jailer's recursive bind of its chroot carries the
+    mount into the VM's own mount namespace.
+    "copy": a sparse copy, only when neither is possible.
+    """
     try:
         os.link(source, target)
+        return "link"
     except OSError as error:
         if error.errno not in (errno.EXDEV, errno.EROFS):
             raise
-        # Copies live only in the disposable owned jail. Admission reserves the
-        # full image sizes before launch; the immutable source is never changed.
-        with open(source, "rb") as incoming, open(target, "xb") as outgoing:
-            shutil.copyfileobj(incoming, outgoing, 1024 * 1024)
-            outgoing.flush()
-            os.fsync(outgoing.fileno())
-        os.chmod(target, 0o444)
+    if bind_readonly(source, target):
+        return "bind"
+    # Copies live only in the disposable owned jail. Admission reserves the
+    # full image sizes before launch; the immutable source is never changed.
+    copy_sparse(source, target)
+    os.chmod(target, 0o444)
+    return "copy"
+
+
+def _same_inode(a, b):
+    return (a.st_dev, a.st_ino) == (b.st_dev, b.st_ino)
+
+
+def bind_readonly(source, target):
+    """Bind-mount `source` read-only over a new placeholder `target`.
+
+    True only when `target` now resolves to the source inode on a read-only
+    mount. Any failure leaves no mount and no placeholder behind.
+    """
+    # O_EXCL: never mount over, or remove, a file this call did not create.
+    os.close(os.open(target, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, 0o444))
+    mounted = False
+    try:
+        if run("mount", "--bind", str(source), str(target), check=False).returncode != 0:
+            return False
+        mounted = True
+        # A bind inherits the source mount's read-only flag (the Worker's
+        # release volume is read-only); remount only when it did not.
+        if not os.statvfs(target).f_flag & os.ST_RDONLY:
+            run("mount", "-o", "remount,bind,ro", str(target), check=False)
+        if not os.statvfs(target).f_flag & os.ST_RDONLY or not _same_inode(os.stat(source), os.stat(target)):
+            return False
+        mounted = False
+        return True
+    except (OSError, subprocess.SubprocessError):
+        return False
+    finally:
+        if mounted:
+            run("umount", str(target), check=False)
+        with contextlib.suppress(OSError):
+            if mounted or not _same_inode(os.stat(source), os.stat(target)):
+                os.unlink(target)
+
+
+# Linux FICLONE: share extents when source and target are on one mount.
+FICLONE = 0x40049409
+
+
+def copy_sparse(source, target):
+    """Copy only the allocated ranges of `source`; holes stay holes.
+
+    The 5 GiB root image is mostly holes. A dense copy wrote all of it on
+    every start and resume. The jail is disposable and rebuilt after a crash,
+    so the copy is not fsynced.
+    """
+    with open(source, "rb") as incoming, open(target, "xb") as outgoing:
+        src, dst = incoming.fileno(), outgoing.fileno()
+        size = os.fstat(src).st_size
+        try:
+            fcntl.ioctl(dst, FICLONE, src)
+            return
+        except OSError:
+            pass
+        offset = 0
+        while offset < size:
+            try:
+                start = os.lseek(src, offset, os.SEEK_DATA)
+                end = os.lseek(src, start, os.SEEK_HOLE)
+            except OSError as error:
+                if error.errno == errno.ENXIO:
+                    break  # only a hole remains
+                if error.errno not in (errno.EINVAL, errno.EOPNOTSUPP):
+                    raise
+                start, end = offset, size  # no hole reporting: copy the rest
+            _copy_range(src, dst, start, min(end, size))
+            offset = end
+        os.ftruncate(dst, size)
+
+
+def _copy_range(src, dst, start, end):
+    position = start
+    while position < end:
+        count = min(end - position, 64 * 1024 * 1024)
+        copied = 0
+        if hasattr(os, "copy_file_range"):
+            try:
+                copied = os.copy_file_range(src, dst, count, position, position)
+            except OSError as error:
+                if error.errno not in (errno.EXDEV, errno.ENOSYS, errno.EINVAL, errno.EOPNOTSUPP):
+                    raise
+        if copied <= 0:
+            chunk = os.pread(src, min(count, 1024 * 1024), position)
+            if not chunk:
+                raise OSError(errno.EIO, "source image shrank during copy")
+            # All-zero chunks stay holes in the copy.
+            if chunk.count(0) != len(chunk):
+                os.pwrite(dst, chunk, position)
+            copied = len(chunk)
+        position += copied
+
+
+def mounts_under(directory, mountinfo="/proc/self/mountinfo"):
+    """Mount points strictly below `directory` in this mount namespace, deepest first."""
+    prefix = str(directory).rstrip("/") + "/"
+    points = set()
+    try:
+        lines = Path(mountinfo).read_text().splitlines()
+    except OSError:
+        return []
+    for line in lines:
+        fields = line.split()
+        if len(fields) < 5:
+            continue
+        point = re.sub(r"\\([0-7]{3})", lambda m: chr(int(m.group(1), 8)), fields[4])
+        if point.startswith(prefix):
+            points.add(point)
+    return sorted(points, key=lambda p: (-p.count("/"), p))
+
+
+def remove_jail_tree(directory):
+    """Unmount attached release images, then delete a disposable jail."""
+    for point in mounts_under(directory):
+        result = run("umount", point, check=False)
+        if result.returncode != 0:
+            raise RuntimeError(command_error("umount of a jail image", result))
+    if directory.exists():
+        shutil.rmtree(directory)
 
 
 def run(*args, check=True):
@@ -209,6 +343,8 @@ class VM:
         self.jail = self.root / "jails" / "firecracker" / self.c["id"] / "root"
         self.vsock = self.jail / "run" / "v.sock"
         self.log = None
+        # How each release image reached the jail ("link", "bind", "copy").
+        self.image_attach = {}
         self.network_owned = False
         self.abort = threading.Event()
         # Snapshot files live beside the workspace disk, root-owned, never in
@@ -568,8 +704,7 @@ class VM:
         # Jailer creates device nodes which cannot be reused on the next
         # launch. Only its disposable jail is replaced; the workspace disk and
         # any snapshot live outside this directory.
-        if self.jail.parent.exists():
-            shutil.rmtree(self.jail.parent)
+        remove_jail_tree(self.jail.parent)
         self.jail.mkdir(parents=True, exist_ok=True)
         (self.jail / "run").mkdir(exist_ok=True)
         for item in (self.jail, self.jail / "run"):
@@ -578,8 +713,8 @@ class VM:
             target = self.jail / name
             if target.exists():
                 target.unlink()
-            # Shared immutable images are mounted read-only by Firecracker.
-            attach_immutable_image(Path(self.c["image_dir"]) / name, target)
+            # Shared immutable images are opened read-only by Firecracker.
+            self.image_attach[name] = attach_immutable_image(Path(self.c["image_dir"]) / name, target)
 
     def attach_workspace(self):
         data = self.root / "workspace.ext4"
@@ -632,6 +767,7 @@ class VM:
             self.state = "starting"
             self.phase = "storage"
             self.error = ""
+            storage_started = time.monotonic()
             try:
                 # A cold boot changes the workspace disk under any saved guest
                 # memory, so that snapshot can never be restored afterwards.
@@ -650,6 +786,7 @@ class VM:
                     if check.returncode not in (0, 1, 2):
                         raise RuntimeError("workspace filesystem needs offline repair; existing disk preserved")
                 self.attach_workspace()
+                storage_seconds = round(time.monotonic() - storage_started, 2)
                 self.phase = "network"
                 self.network_up()
                 config = self.firecracker_config()
@@ -668,7 +805,9 @@ class VM:
                     try:
                         self.phase = "verifying"
                         self.guest_request("GET", "/health")
-                        self.last_wake = {"kind": "cold_boot", "seconds": round(time.monotonic() - started, 2)}
+                        self.last_wake = {"kind": "cold_boot", "seconds": round(time.monotonic() - started, 2),
+                                          "storage_seconds": storage_seconds,
+                                          "image_attach": dict(self.image_attach)}
                         self.touch()
                         self.state = "ready"
                         self.phase = "ready"
@@ -959,7 +1098,12 @@ class VM:
                     with (self.snapshot_dir / name).open("rb") as stream:
                         os.fsync(stream.fileno())
                     sizes[name] = (self.snapshot_dir / name).stat().st_size
-                shutil.rmtree(self.jail.parent)
+                try:
+                    remove_jail_tree(self.jail.parent)
+                except (OSError, RuntimeError) as error:
+                    # The saved snapshot is complete; prepare_jail retries the
+                    # removal (and refuses to launch) before the next use.
+                    print("jail cleanup deferred: " + str(error)[:200], file=sys.stderr, flush=True)
                 with (self.root / "workspace.ext4").open("rb") as stream:
                     os.fsync(stream.fileno())
                 created = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
@@ -1021,6 +1165,7 @@ class VM:
                     self.error = "insufficient host memory to resume"
                     return
                 self.phase = "storage"
+                storage_started = time.monotonic()
                 self.prepare_jail()
                 self.attach_workspace()
                 jail_snapshot = self.jail / "snapshot"
@@ -1034,6 +1179,7 @@ class VM:
                 # writes the workspace disk and this memory may never return.
                 (self.snapshot_dir / "meta.json").unlink()
                 self.sync_dir(self.snapshot_dir)
+                storage_seconds = round(time.monotonic() - storage_started, 2)
                 self.phase = "network"
                 if not self.network_owned:
                     self.network_up()
@@ -1075,7 +1221,8 @@ class VM:
                 self.discard_snapshot()
                 shutil.rmtree(jail_snapshot, ignore_errors=True)
                 self.last_wake = {"kind": "restore", "seconds": round(time.monotonic() - started, 2),
-                                  "clock_synced": clock_synced}
+                                  "clock_synced": clock_synced, "storage_seconds": storage_seconds,
+                                  "image_attach": dict(self.image_attach)}
                 print(f"restored in {self.last_wake['seconds']}s", file=sys.stderr, flush=True)
                 self.touch()
                 self.state, self.phase = "ready", "ready"

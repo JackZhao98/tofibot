@@ -51,7 +51,7 @@ class Broker:
             per_account_internal_reserved_bytes=config.get("per_account_internal_reserved_bytes", 0),
             external_disks=config.get("external_disks", ()),
             immutable_image_sizes=config.get("_validated_immutable_image_sizes"),
-            snapshot_reserve=self.snapshot_reserve)
+            snapshot_reserve=self.snapshot_reserve, shared_image_dir=self.release)
         os.chmod(self.ledger.database, 0o600)
         with self.ledger.connection() as db:
             account_adoption.initialize(db)
