@@ -13,6 +13,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import time
 import unittest
 from unittest import mock
 
@@ -791,7 +792,9 @@ class LifecycleTests(LifecycleBase):
         with self.assertRaisesRegex(tofi_host.HostError, 'Purge cancelled'):
             tofi_host.uninstall(purge=True, confirm='wrong-host')
         self.assertTrue(self.P.data.exists())
+        tofi_host.write_json(self.P.latest_cache, {'version': NEW})
         tofi_host.uninstall(purge=True, confirm=tofi_host.socket.gethostname())
+        self.assertFalse(self.P.latest_cache.parent.exists())
         self.assertFalse(self.P.var.exists())
         self.assertFalse(self.P.etc.exists())
         self.assertFalse(self.P.apparmor_profile.exists())
@@ -862,6 +865,425 @@ class ResumeTests(LifecycleBase):
                 continue
             tofi_host.remove_tree(child)
         self.start_services.reset_mock(side_effect=True)
+
+
+ACCOUNTS = {
+    'running': '3f2a9c1e-0000-4000-8000-000000000001',
+    'hibernated': '9b77d0aa-0000-4000-8000-000000000002',
+    'stopped': 'c0ffee00-0000-4000-8000-000000000003',
+    'unresponsive': 'd00dfeed-0000-4000-8000-000000000004',
+    'busy': 'e1e1e1e1-0000-4000-8000-000000000005',
+}
+OLDER = 'v0.0.9'
+
+
+class FakeWorker:
+    """The Worker broker and computer control sockets behind CONTROL_PROBE."""
+
+    def __init__(self, release=OLD):
+        self.release = release
+        self.rows = []
+        self.managers = {}
+        self.upgrades = []
+
+    def computer(self, key, running=True, snapshot=None, state='ready', release=None, health='ok',
+                 busy=(), ledger='ready', rss=612, wake=None):
+        account = ACCOUNTS[key]
+        self.rows.append({'account_id': account, 'slot': len(self.rows) + 1, 'state': ledger,
+                          'quota_bytes': 8 * tofi_host.GIB, 'running': running,
+                          'config_release': release or self.release,
+                          'snapshot': {'release': snapshot, 'created_at': '2026-10-08T01:02:03Z'} if snapshot else None})
+        if running:
+            info = {'state': state, 'release': release or self.release, 'error': ''}
+            if wake:
+                info['last_wake'] = wake
+            self.managers[account] = {
+                '/v1/info': info,
+                '/v1/resources': {'memory': {'host_rss_mib': rss if state == 'ready' else None}},
+                '/v1/health': {'state': state, 'guest': health},
+                '/v1/busy': {'state': state, 'release': release or self.release, 'busy': list(busy)},
+            }
+        return account
+
+    def __call__(self, calls):
+        replies = []
+        for call in calls:
+            if call['socket'] == '/run/tofi/broker.sock':
+                assert call['peer_pid'] == 4242
+                body = call['body']
+                if body['op'] == 'computers':
+                    replies.append({'status': 200, 'body': {'release': self.release, 'computers': self.rows}})
+                elif body['op'] == 'upgrade':
+                    self.upgrades.append(body['account_id'])
+                    row = next(r for r in self.rows if r['account_id'] == body['account_id'])
+                    replies.append({'status': 200, 'body': {
+                        'account_id': row['account_id'], 'release': self.release,
+                        'stopped': bool(row['running']), 'discarded_snapshot': bool(row['snapshot'])}})
+                else:
+                    replies.append({'status': 400, 'body': {'error': 'request rejected'}})
+                continue
+            account = call['socket'].split('/')[4]
+            answer = self.managers.get(account, {}).get(call['path'])
+            replies.append({'status': 200, 'body': answer} if answer else {'error': 'not running'})
+        return replies
+
+
+class ComputerCase(LifecycleBase):
+    def setUp(self):
+        super().setUp()
+        self.worker = FakeWorker()
+        mock.patch.object(tofi_host, 'worker_pid', return_value=4242).start()
+        self.calls = mock.patch.object(tofi_host, 'control_calls', side_effect=self.worker).start()
+        self.fetch = mock.patch.object(tofi_host, 'fetch_manifest', return_value=tofi_host.validate_manifest(manifest())).start()
+
+    def snapshot_file(self, account, release):
+        """A hibernated computer's snapshot meta as the manager writes it."""
+        directory = self.P.worker_state / account / 'snapshot'
+        directory.mkdir(parents=True, exist_ok=True)
+        (directory / 'meta.json').write_text(json.dumps({'format': 1, 'release': release,
+                                                         'created_at': '2026-10-08T01:02:03Z'}))
+
+    def fleet(self):
+        """One computer in each state; the hibernated one holds an older snapshot."""
+        w = self.worker
+        w.computer('running', wake={'kind': 'restore', 'seconds': 2.1})
+        w.computer('hibernated', running=False, snapshot=OLDER)
+        w.computer('stopped', running=False)
+        w.computer('unresponsive', health='unresponsive')
+        return w
+
+    def main(self, *argv):
+        sys.stdout.seek(0)
+        sys.stdout.truncate()
+        with mock.patch('sys.stderr', new_callable=io.StringIO) as err:
+            code = tofi_host.main(list(argv))
+        self.stderr = err.getvalue()
+        return code, sys.stdout.getvalue()
+
+
+class StatusTests(ComputerCase):
+    def test_status_json_reports_versions_latest_and_computers(self):
+        self.installed()
+        self.fleet()
+        with mock.patch.object(tofi_host, 'project_containers', return_value=[]), \
+                mock.patch.object(tofi_host, 'health', return_value=True):
+            code, out = self.main('status', '--json')
+        self.assertEqual(code, 0)
+        result = json.loads(out)
+        versions = result['versions']
+        self.assertEqual((versions['installed'], versions['latest'], versions['update_available']), (OLD, NEW, True))
+        self.assertEqual((versions['app_image'], versions['guest']), (image('app', '1'), OLD))
+        rows = {row['short']: row for row in result['computers']}
+        self.assertEqual(list(rows), ['3f2a9c1e', '9b77d0aa', 'c0ffee00', 'd00dfeed'])
+        running = rows['3f2a9c1e']
+        self.assertEqual((running['state'], running['release'], running['upgrade_pending'], running['memory_rss_mib']),
+                         ('running', OLD, False, 612))
+        self.assertEqual(running['last_wake'], {'kind': 'restore', 'seconds': 2.1})
+        hibernated = rows['9b77d0aa']
+        self.assertEqual((hibernated['state'], hibernated['release'], hibernated['upgrade_pending'],
+                          hibernated['memory_rss_mib'], hibernated['hibernated_at']),
+                         ('hibernated', OLDER, True, None, '2026-10-08T01:02:03Z'))
+        self.assertEqual((rows['c0ffee00']['state'], rows['c0ffee00']['release'], rows['c0ffee00']['upgrade_pending']),
+                         ('stopped', None, False))
+        self.assertEqual(rows['d00dfeed']['state'], 'unresponsive')
+        # Status never asks a guest whether it is busy, and never asks stopped computers anything.
+        asked = [c['path'] for batch in self.calls.call_args_list for c in batch.args[0]]
+        self.assertNotIn('/v1/busy', asked)
+        sockets = {c['socket'] for batch in self.calls.call_args_list for c in batch.args[0]}
+        self.assertNotIn(tofi_host.control_socket(ACCOUNTS['stopped']), sockets)
+
+    def test_status_human_output(self):
+        self.installed()
+        self.fleet()
+        with mock.patch.object(tofi_host, 'project_containers', return_value=[]), \
+                mock.patch.object(tofi_host, 'health', return_value=True):
+            code, out = self.main('status')
+        self.assertEqual(code, 0)
+        self.assertIn('TOFI %s · installed · healthy\n' % OLD, out)
+        self.assertIn('  Latest       %s available · sudo tofi update --check\n' % NEW, out)
+        self.assertIn('  App          ghcr.io/jackzhao98/tofi@sha256:111111111111\n', out)
+        self.assertIn('  Guest        %s\n' % OLD, out)
+        self.assertIn('Computers (4)\n', out)
+        self.assertIn('  ACCOUNT   STATE         GUEST   UPGRADE  MEMORY   LAST WAKE\n', out)
+        self.assertIn('  3f2a9c1e  running       v0.1.0  -        612 MiB  restore 2.1s\n', out)
+        self.assertIn('  9b77d0aa  hibernated    v0.0.9  pending  -        -\n', out)
+        self.assertIn('  c0ffee00  stopped       -       -        -        -\n', out)
+        self.assertIn('  d00dfeed  unresponsive  v0.1.0  -        612 MiB  -\n', out)
+        self.assertIn('1 computer is on an older Guest than v0.1.0', out)
+        self.assertIn('Switch now: sudo tofi computers upgrade --all', out)
+        self.assertIn('  Open         ', out)  # not a terminal: no banner, so access lines are here
+
+    def test_status_survives_a_stopped_worker_and_offline_release_check(self):
+        self.installed()
+        tofi_host.worker_pid.side_effect = tofi_host.HostError('The Worker is not running; start TOFI with `sudo tofi start`.')
+        self.fetch.side_effect = tofi_host.HostError('Cannot download the release manifest (offline).')
+        with mock.patch.object(tofi_host, 'project_containers', return_value=[]), \
+                mock.patch.object(tofi_host, 'health', return_value=False):
+            code, out = self.main('status')
+        self.assertEqual(code, 0)
+        self.assertIn('NOT healthy', out)
+        self.assertIn('  Latest       unknown (Cannot download the release manifest (offline).)\n', out)
+        self.assertIn('Computers    unknown (The Worker is not running', out)
+
+    def test_latest_release_is_cached_and_kept_offline(self):
+        first = tofi_host.latest_release()
+        self.assertEqual((first['version'], first['error']), (NEW, None))
+        self.assertEqual(self.fetch.call_count, 1)
+        self.assertEqual(self.fetch.call_args.kwargs, {'timeout': 5})
+        tofi_host.latest_release()
+        self.assertEqual(self.fetch.call_count, 1)  # within the cache lifetime
+        self.fetch.side_effect = tofi_host.HostError('offline')
+        with mock.patch.object(tofi_host.time, 'time', return_value=time.time() + tofi_host.LATEST_TTL_SECONDS + 1):
+            stale = tofi_host.latest_release()
+        self.assertEqual((stale['version'], stale['error'], stale['checked_at']),
+                         (NEW, 'offline', first['checked_at']))
+        tofi_host.latest_release()
+        self.assertEqual(self.fetch.call_count, 2)  # a failed check is retried only after a while
+        self.P.latest_cache.unlink()
+        self.assertEqual((tofi_host.latest_release()['version'], tofi_host.latest_release()['error']),
+                         (None, 'offline'))
+
+    def test_version_ordering(self):
+        self.assertTrue(tofi_host.is_newer('v0.1.0', 'v0.1.0-rc.6'))
+        self.assertTrue(tofi_host.is_newer('v0.1.0-rc.10', 'v0.1.0-rc.9'))
+        self.assertFalse(tofi_host.is_newer('v0.1.0-rc.6', 'v0.1.0'))
+        self.assertFalse(tofi_host.is_newer(None, 'v0.1.0'))
+
+    def test_computer_states(self):
+        row = {'account_id': ACCOUNTS['running'], 'state': 'ready', 'config_release': OLD, 'snapshot': None}
+        for manager_state, shown, running in (('ready', 'running', True), ('resuming', 'starting', True),
+                                              ('starting', 'starting', True), ('restarting', 'restarting', True),
+                                              ('purging', 'restarting', True), ('hibernating', 'hibernating', True),
+                                              ('hibernated', 'hibernated', False), ('stopped', 'stopped', False),
+                                              ('error', 'error', False)):
+            with self.subTest(state=manager_state):
+                result = tofi_host.computer_row(row, {'/v1/info': {'state': manager_state, 'release': OLD}}, NEW)
+                self.assertEqual((result['state'], result['running']), (shown, running))
+        disabled = tofi_host.computer_row(dict(row, state='disabled'), {}, NEW)
+        self.assertEqual((disabled['state'], disabled['upgrade_pending']), ('disabled', False))
+        older = tofi_host.computer_row(row, {'/v1/info': {'state': 'ready'}}, NEW)
+        self.assertEqual((older['release'], older['upgrade_pending']), (OLD, True))  # an older manager: config
+
+    def test_control_probe_only_reaches_sockets_under_run_tofi(self):
+        calls = [{'socket': '/tmp/elsewhere.sock', 'method': 'GET', 'path': '/v1/info'},
+                 {'socket': '/run/tofi/../etc/x.sock', 'method': 'GET', 'path': '/v1/info'},
+                 {'socket': '/run/tofi/accounts/%s/control.sock' % ACCOUNTS['stopped'], 'method': 'GET',
+                  'path': '/v1/info', 'timeout': 1}]
+        result = subprocess.run([sys.executable, '-I', '-c', tofi_host.CONTROL_PROBE, json.dumps(calls)],
+                                capture_output=True, text=True, timeout=30, check=True)
+        replies = json.loads(result.stdout)
+        self.assertIn('outside /run/tofi', replies[0]['error'])
+        self.assertIn('outside /run/tofi', replies[1]['error'])
+        self.assertEqual(replies[2], {'error': 'not running'})
+
+    def test_control_calls_runs_the_probe_as_the_app_uid(self):
+        mock.patch.stopall()
+        mock.patch.object(tofi_host, 'run', side_effect=lambda args, **kw: (
+            self.commands.append((args, kw)) or completed(json.dumps([{'status': 200, 'body': {'ok': True}}])))).start()
+        self.commands.clear()
+        self.assertEqual(tofi_host.control_calls([{'socket': '/run/tofi/broker.sock', 'method': 'GET',
+                                                    'path': '/v1/info'}]), [{'status': 200, 'body': {'ok': True}}])
+        args, kw = self.commands[0]
+        self.assertEqual(args[:3], [sys.executable, '-I', '-c'])
+        self.assertEqual((kw['user'], kw['group'], kw['extra_groups'], kw['timeout']), (10001, 10001, [], 25))
+        tofi_host.run.side_effect = lambda args, **kw: completed('[]')
+        with self.assertRaisesRegex(tofi_host.HostError, 'unexpected reply'):
+            tofi_host.control_calls([{'socket': '/run/tofi/broker.sock', 'method': 'GET', 'path': '/'}])
+
+    def test_broker_errors_are_named(self):
+        self.worker.rows = None
+        with self.assertRaisesRegex(tofi_host.HostError, 'no computer list'):
+            tofi_host.computers_report(OLD)
+        tofi_host.control_calls.side_effect = lambda calls: [{'status': 409, 'body': {'error': 'computer disabled'}}]
+        with self.assertRaisesRegex(tofi_host.HostError, 'refused upgrade: computer disabled'):
+            tofi_host.broker_request({'op': 'upgrade', 'account_id': ACCOUNTS['running']})
+        tofi_host.control_calls.side_effect = lambda calls: [{'error': 'not running'}]
+        with self.assertRaisesRegex(tofi_host.HostError, 'broker is unreachable'):
+            tofi_host.broker_request({'op': 'computers'})
+
+
+class UpdateCheckTests(ComputerCase):
+    def test_up_to_date_exits_0_and_touches_nothing(self):
+        self.installed()
+        self.fetch.return_value = tofi_host.validate_manifest(manifest(OLD, '1'))
+        env_bytes, state_bytes = self.P.env_file.read_bytes(), self.P.state_file.read_bytes()
+        code, out = self.main('update', '--check')
+        self.assertEqual(code, 0)
+        self.assertIn('Available    %s  (up to date)' % OLD, out)
+        self.assertNotIn('Apply with', out)
+        self.assertEqual((self.P.env_file.read_bytes(), self.P.state_file.read_bytes()), (env_bytes, state_bytes))
+        for call in (self.pull, self.stopped, self.start_services, self.install_bundle, self.fetch_guest):
+            call.assert_not_called()
+
+    def test_update_available_exits_10_with_components_schema_and_computers(self):
+        self.installed()
+        w = self.fleet()
+        w.computer('busy', busy=['run_lease'])
+        code, out = self.main('update', '--check')
+        self.assertEqual(code, tofi_host.UPDATE_AVAILABLE_EXIT)
+        self.assertIn('Available    %s  (update available)' % NEW, out)
+        rows = [line.split() for line in out.splitlines()[3:9]]
+        self.assertEqual(rows, [
+            ['COMPONENT', 'INSTALLED', 'AVAILABLE'],
+            ['Host', 'bundle', OLD, NEW, 'changes'],
+            ['App', 'image', 'sha256:111111111111', 'sha256:222222222222', 'changes'],
+            ['Worker', 'image', 'sha256:111111111111', 'sha256:222222222222', 'changes'],
+            ['Guest', 'release', OLD, NEW, 'changes'],
+            ['Data', 'schema', 'tofi-account-data-v1', 'tofi-account-data-v1', 'compatible']])
+        self.assertIn('Computers    5 total: 3 running, 1 hibernated', out)
+        self.assertIn('e1e1e1e1 is busy (run_lease): its current task is interrupted.', out)
+        self.assertIn('The Guest changes to %s' % NEW, out)
+        self.assertIn('Apply with: sudo tofi update\n', out)
+        self.stopped.assert_not_called()
+        self.pull.assert_not_called()
+        self.assertEqual(json.loads(self.P.latest_cache.read_text())['version'], NEW)
+        code, out = self.main('update', '--check', '--json')
+        report = json.loads(out)
+        self.assertEqual((code, report['update_available'], report['data_schema']['compatible']),
+                         (10, True, True))
+        self.assertEqual([c['name'] for c in report['components'] if c['changes']],
+                         ['version', 'app', 'worker', 'guest'])
+
+    def test_schema_change_and_explicit_version(self):
+        self.installed()
+        changed = manifest()
+        changed['data_schema'] = 'tofi-account-data-v2'
+        self.fetch.return_value = tofi_host.validate_manifest(changed)
+        code, out = self.main('update', '--check', '--version', NEW)
+        self.assertEqual(code, 10)
+        self.fetch.assert_called_with(NEW)
+        self.assertIn('CHANGES: back up /var/lib/tofi; needs --allow-schema-change', out)
+        self.assertIn('Apply with: sudo tofi update --version %s --allow-schema-change' % NEW, out)
+        self.assertFalse(self.P.latest_cache.exists())  # only the latest release is cached
+
+    def test_errors_exit_1(self):
+        self.installed()
+        self.fetch.side_effect = tofi_host.HostError('Cannot download the release manifest (offline).')
+        self.assertEqual(self.main('update', '--check')[0], 1)
+        self.assertEqual(self.stderr, 'tofi: Cannot download the release manifest (offline).\n')
+        self.fetch.side_effect = None
+        state = json.loads(self.P.state_file.read_text())
+        state['phase'] = 'upgrade-failed'
+        self.P.state_file.write_text(json.dumps(state))
+        self.assertEqual(self.main('update', '--check')[0], 1)
+        self.assertEqual(self.main('update', '--json')[0], 1)
+
+    def test_unreachable_worker_is_reported_not_fatal(self):
+        self.installed()
+        tofi_host.worker_pid.side_effect = tofi_host.HostError('The Worker is not running.')
+        code, out = self.main('update', '--check')
+        self.assertEqual(code, 10)
+        self.assertIn('Computers    unknown (The Worker is not running.)', out)
+
+
+class ComputersUpgradeTests(ComputerCase):
+    def test_list(self):
+        self.installed()
+        self.fleet()
+        code, out = self.main('computers')
+        self.assertEqual(code, 0)
+        self.assertTrue(out.startswith('  ACCOUNT   STATE'))
+        self.assertIn('9b77d0aa  hibernated    v0.0.9  pending', out)
+        code, out = self.main('computers', '--json')
+        self.assertEqual([row['state'] for row in json.loads(out)['computers']],
+                         ['running', 'hibernated', 'stopped', 'unresponsive'])
+        self.worker.rows = []
+        self.assertIn('No account computers yet.', self.main('computers')[1])
+
+    def test_idle_and_hibernated_computers_switch_and_busy_ones_are_deferred(self):
+        self.installed()
+        w = self.worker
+        w.computer('running', release=OLDER)
+        w.computer('hibernated', running=False, snapshot=OLDER)
+        w.computer('busy', release=OLDER, busy=['run_lease', 'viewer'])
+        w.computer('stopped', running=False)
+        code, out = self.main('computers', 'upgrade', '--all')
+        self.assertEqual(code, 2)
+        self.assertEqual(w.upgrades, [ACCOUNTS['running'], ACCOUNTS['hibernated']])
+        self.assertIn('  3f2a9c1e  running     v0.0.9  v0.1.0  upgraded  stopped; next start boots v0.1.0\n', out)
+        self.assertIn('  9b77d0aa  hibernated  v0.0.9  v0.1.0  upgraded  snapshot discarded; next start boots v0.1.0\n', out)
+        self.assertIn('  e1e1e1e1  running     v0.0.9  v0.1.0  deferred  busy (run_lease, viewer); retry when idle or use --force\n', out)
+        self.assertIn('  c0ffee00  stopped     -       v0.1.0  current   next start boots v0.1.0\n', out)
+        self.assertIn('  1 current, 1 deferred, 2 upgraded\n', out)
+        journal = json.loads(self.P.state_file.read_text())
+        self.assertEqual(journal['phase'], 'installed')
+        self.assertEqual([r['result'] for r in journal['last_computers_upgrade']['results']],
+                         ['upgraded', 'upgraded', 'deferred', 'current'])
+
+    def test_force_asks_then_restarts_busy_computers(self):
+        self.installed()
+        self.worker.computer('busy', release=OLDER, busy=['terminal_job'])
+        with self.assertRaisesRegex(tofi_host.HostError, 'cancelled; nothing was changed'):
+            tofi_host.upgrade_computers(all_computers=True, force=True, confirm='no')
+        self.assertEqual(self.worker.upgrades, [])
+        report = tofi_host.upgrade_computers(all_computers=True, force=True, confirm='yes')
+        self.assertEqual([r['result'] for r in report['results']], ['upgraded'])
+        self.assertEqual(tofi_host.upgrade_exit_code(report), 0)
+        # A busy probe that failed counts as busy.
+        self.worker.managers[ACCOUNTS['busy']]['/v1/busy'] = None
+        report = tofi_host.upgrade_computers(all_computers=True)
+        self.assertEqual(report['results'][0]['note'], 'busy (state unknown); retry when idle or use --force')
+
+    def test_one_account_by_prefix(self):
+        self.installed()
+        self.worker.computer('running', release=OLDER)
+        self.worker.computer('hibernated', running=False, snapshot=OLDER)
+        code, out = self.main('computers', 'upgrade', '--account', '9b77d0aa')
+        self.assertEqual((code, self.worker.upgrades), (0, [ACCOUNTS['hibernated']]))
+        for account, message in (('9b77', 'No computer matches'), ('nope-0000', 'No computer matches')):
+            with self.assertRaisesRegex(tofi_host.HostError, message):
+                tofi_host.upgrade_computers(account=account)
+        self.worker.rows.append(dict(self.worker.rows[0], account_id='3f2a9c1e-ffff-4000-8000-00000000000f'))
+        with self.assertRaisesRegex(tofi_host.HostError, 'several computers'):
+            tofi_host.upgrade_computers(account='3f2a9c1e')
+
+    def test_needs_a_selection_an_installed_phase_and_the_lock(self):
+        with self.assertRaises(SystemExit):
+            tofi_host.parse_args(['computers', 'upgrade'])
+        with self.assertRaisesRegex(tofi_host.HostError, '--all, or --account'):
+            tofi_host.upgrade_computers()
+        self.installed(phase='upgrade-failed')
+        with self.assertRaisesRegex(tofi_host.HostError, 'phase installed'):
+            tofi_host.upgrade_computers(all_computers=True)
+        with tofi_host.lifecycle_lock():
+            with self.assertRaisesRegex(tofi_host.HostError, 'Another tofi operation'):
+                tofi_host.upgrade_computers(all_computers=True)
+
+    def test_unreferenced_guest_releases_are_removed_afterwards(self):
+        self.installed()
+        for version in (OLDER, 'v0.0.8', 'v0.0.7'):
+            self.make_guest(version)
+        (self.P.guest / '.v0.0.6.partial').mkdir()
+        self.snapshot_file(ACCOUNTS['hibernated'], 'v0.0.7')  # stays hibernated (deferred elsewhere)
+        self.worker.computer('running', release=OLDER)
+        self.worker.computer('busy', release='v0.0.8', busy=['viewer'])
+        report = tofi_host.upgrade_computers(all_computers=True)
+        self.assertEqual(report['removed_releases'], [OLDER])  # v0.0.8: still used by the deferred computer
+        self.assertEqual(sorted(p.name for p in self.P.guest.iterdir()), ['.v0.0.6.partial', 'v0.0.7', 'v0.0.8', OLD])
+        self.assertIn('Removed unused Guest releases: v0.0.9', tofi_host.render_upgrade(report))
+        self.worker.managers[ACCOUNTS['busy']]['/v1/busy']['busy'] = []
+        self.assertEqual(tofi_host.upgrade_computers(all_computers=True)['removed_releases'], ['v0.0.8'])
+
+
+class GuestRetentionTests(ComputerCase):
+    def test_update_keeps_guest_releases_that_snapshots_were_taken_with(self):
+        self.installed()
+        for version in (OLDER, 'v0.0.8'):
+            self.make_guest(version)
+        self.snapshot_file(ACCOUNTS['hibernated'], OLDER)
+        (self.P.worker_state / ACCOUNTS['stopped']).mkdir(parents=True)
+        self.assertEqual(tofi_host.guest_references(), {OLDER})
+        self.worker.computer('running', busy=['run_lease'])
+        tofi_host.upgrade(manifest_path=str(self.write_manifest(manifest())))
+        self.assertEqual(sorted(p.name for p in self.P.guest.iterdir()), [OLDER, OLD, NEW])
+        out = sys.stdout.getvalue()
+        self.assertIn('3f2a9c1e is busy (run_lease): its current task is interrupted.', out)
+        self.assertIn('Hibernated computers still hold snapshots from %s: each cold-boots on %s' % (OLDER, NEW), out)
+
+    def test_update_proceeds_when_the_worker_cannot_be_asked(self):
+        self.installed()
+        tofi_host.worker_pid.side_effect = tofi_host.HostError('The Worker is not running.')
+        self.assertTrue(tofi_host.upgrade(manifest_path=str(self.write_manifest(manifest())))['upgraded'])
 
 
 

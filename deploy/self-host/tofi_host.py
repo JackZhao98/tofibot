@@ -41,6 +41,7 @@ else:
 sys.path.insert(0, str(MICROVM))
 
 from account_release_check import PROTOCOL, validate_release  # noqa: E402
+from manager import snapshot_release  # noqa: E402
 from worker_entrypoint import validate_config  # noqa: E402
 
 GIB = 1024 ** 3
@@ -137,6 +138,8 @@ class Paths:
         self.worker = self.var / 'worker'
         self.guest = self.var / 'guest'
         self.caddy = self.var / 'caddy'
+        self.worker_state = self.worker / 'state'
+        self.latest_cache = root / 'var/cache/tofi/latest-release.json'
         self.opt = root / 'opt/tofi'
         self.releases = self.opt / 'releases'
         self.current = self.opt / 'current'
@@ -421,10 +424,10 @@ def https_open(url, timeout=60):
     return opener.open(url, timeout=timeout)
 
 
-def fetch_manifest(version=None):
+def fetch_manifest(version=None, timeout=60):
     url = manifest_url(version)
     try:
-        with https_open(url) as response:
+        with https_open(url, timeout=timeout) as response:
             manifest = json.loads(response.read(MIB))
     except (OSError, ValueError) as error:
         raise HostError('Cannot download the release manifest %s (%s).' % (url, error)) from error
@@ -1484,6 +1487,7 @@ def upgrade(version=None, manifest_path=None, allow_schema_change=False):
         install_bundle(manifest)
         bundle = P.releases / manifest['version']
         fetch_guest(manifest['guest'], bundle_manager(bundle))
+        announce_computer_impact(previous['env'], manifest)
         state['transaction'] = {'kind': 'upgrade', 'step': 'stop-old', 'previous': previous,
                                 'candidate_version': manifest['version']}
         state['phase'] = 'upgrading'
@@ -1515,7 +1519,28 @@ def upgrade(version=None, manifest_path=None, allow_schema_change=False):
         prune_releases(keep=[manifest['version'], previous['bundle']],
                        keep_guests=[candidate['TOFI_GUEST_VERSION'], previous['env']['TOFI_GUEST_VERSION']])
         say('Updated to %s.' % manifest['version'])
+        older = sorted(guest_references() - {candidate['TOFI_GUEST_VERSION']})
+        if older:
+            say('Hibernated computers still hold snapshots from %s: each cold-boots on %s at its next use. '
+                'See `sudo tofi computers`; switch them now with `sudo tofi computers upgrade --all`.'
+                % (', '.join(older), candidate['TOFI_GUEST_VERSION']))
         return {'upgraded': True, 'version': manifest['version'], 'data_retained': True}
+
+
+def announce_computer_impact(env, manifest):
+    """Before an update stops the Worker, say what happens to the computers.
+
+    Best effort: an unreachable Worker never blocks an update.
+    """
+    try:
+        rows = computers_report(env.get('TOFI_GUEST_VERSION'), busy=True)
+    except (HostError, OSError, ValueError, subprocess.SubprocessError):
+        return
+    components = [{'name': 'guest', 'installed': env.get('TOFI_GUEST_VERSION'),
+                   'available': manifest['guest']['version'],
+                   'changes': env.get('TOFI_GUEST_VERSION') != manifest['guest']['version']}]
+    for line in update_impact_lines(rows, components):
+        say(line.strip())
 
 
 def discard_candidate(version, guest_version, previous):
@@ -1573,14 +1598,13 @@ def rollback(state):
 
 
 def prune_releases(keep, keep_guests):
+    """Drop host bundles outside `keep`, and Guest releases outside
+    `keep_guests` that no hibernated computer's snapshot was taken with."""
     for entry in P.releases.iterdir() if P.releases.is_dir() else []:
         if entry.name.startswith('.') or entry.name in keep:
             continue
         remove_tree(entry)
-    for entry in P.guest.iterdir() if P.guest.is_dir() else []:
-        if entry.name.startswith('.') or entry.name in keep_guests:
-            continue
-        remove_tree(entry)
+    prune_guests(keep_guests)
 
 
 def uninstall(purge=False, confirm=None):
@@ -1647,13 +1671,15 @@ def purge_everything(state, confirm):
         if path.is_symlink() or path.exists():
             path.unlink()
     run(['systemctl', 'daemon-reload'], check=False)
-    for path in (P.var, P.etc, P.run_dir, P.opt):
+    for path in (P.var, P.etc, P.run_dir, P.opt, P.latest_cache.parent):
         remove_tree(path)
     say('TOFI and all of its data were removed.')
     return {'purged': True}
 
 
-def status():
+def status(details=False):
+    """Journal, services, health and URLs; with `details` (the `tofi status`
+    command) also versions, the latest release and every account computer."""
     state = load_state()
     if state is None:
         return {'installed': False}
@@ -1676,12 +1702,78 @@ def status():
     result['setup_key_pending'] = read_setup_secret() is not None
     try:
         env = read_env()
-        result['urls'] = access_urls(env)
-        if app_scheme(env) == 'https':
-            result['certificate_sha256'] = certificate_fingerprint()
     except (OSError, HostError):
-        pass
+        env = None
+    if env is not None:
+        try:
+            result['urls'] = access_urls(env)
+            if app_scheme(env) == 'https':
+                result['certificate_sha256'] = certificate_fingerprint()
+        except (OSError, HostError):
+            pass
+    if details and env is not None:
+        result['versions'] = versions_report(env)
+        if state.get('last_computers_upgrade'):
+            result['last_computers_upgrade'] = state['last_computers_upgrade']
+        try:
+            result['computers'] = computers_report(env.get('TOFI_GUEST_VERSION'))
+        except (HostError, OSError, ValueError, subprocess.SubprocessError) as error:
+            result['computers_error'] = str(error)
     return result
+
+
+def render_status(result, with_access=True):
+    """`tofi status` for people (`--json` prints `result` itself)."""
+    if not result.get('phase'):
+        return 'TOFI is not installed. Install it with install.sh.\n'
+    versions = result.get('versions') or {}
+    lines = ['TOFI %s · %s · %s' % (result.get('version') or '?', result['phase'],
+                                    'healthy' if result.get('healthy') else 'NOT healthy')]
+
+    def row(label, value):
+        lines.append('  %-12s %s' % (label, value))
+
+    if versions:
+        latest = versions.get('latest')
+        if latest is None:
+            text = 'unknown (%s)' % (versions.get('latest_error') or 'not checked')
+        elif versions.get('update_available'):
+            text = '%s available · sudo tofi update --check' % latest
+        else:
+            text = '%s (up to date)' % latest
+        if latest and versions.get('latest_error'):
+            text += ' · checked %s, offline now' % versions.get('latest_checked_at')
+        row('Latest', text)
+        row('App', short_image(versions.get('app_image')))
+        row('Worker', short_image(versions.get('worker_image')))
+        row('Guest', versions.get('guest') or '-')
+    services = result.get('services')
+    if isinstance(services, dict):
+        row('Services', ' · '.join('%s %s' % item for item in sorted(services.items())) or 'none running')
+    elif services:
+        row('Services', services)
+    if with_access:
+        for index, url in enumerate(result.get('urls') or []):
+            row('Open' if index == 0 else '', url)
+        if result.get('certificate_sha256'):
+            row('Certificate', 'SHA256 ' + result['certificate_sha256'])
+        if result.get('setup_key_pending'):
+            row('Setup key', 'pending · sudo tofi setup-secret')
+    if result.get('transaction'):
+        row('Pending', '%(kind)s at step %(step)s · sudo tofi install resumes it' % result['transaction'])
+    if result.get('last_error'):
+        row('Last error', result['last_error'].get('message'))
+    if result.get('last_update_failure'):
+        failure = result['last_update_failure']
+        row('Update', 'to %s rejected at %s: %s' % (failure.get('version'), failure.get('at'), failure.get('message')))
+    if 'computers' in result or 'computers_error' in result:
+        lines.append('')
+        if 'computers' in result:
+            lines.append('Computers (%d)' % len(result['computers']))
+            lines += render_computers(result['computers'], versions.get('guest'))
+        else:
+            lines.append('Computers    unknown (%s)' % result['computers_error'])
+    return '\n'.join(lines) + '\n'
 
 
 def status_banner():
@@ -1695,6 +1787,512 @@ def status_banner():
             'fingerprint': certificate_fingerprint() if app_scheme(env) == 'https' else None,
             'local_only': not env.get('TOFI_DOMAIN') and env.get('TOFI_BIND') != '0.0.0.0'}
     return render_banner(info, color_mode(sys.stdout), terminal_width())
+
+
+# --------------------------------------------------------------------------
+# Versions: what is installed and what `tofi update` would install
+
+# Remember the latest published release this long; retry a failed check sooner.
+LATEST_TTL_SECONDS = 6 * 3600
+LATEST_RETRY_SECONDS = 600
+UPDATE_AVAILABLE_EXIT = 10
+
+
+def iso_now():
+    return time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime())
+
+
+def version_key(version):
+    """Sort key for vMAJOR.MINOR.PATCH[-rc.N]; a final release sorts after its rcs."""
+    match = re.match(r'^v(\d+)\.(\d+)\.(\d+)(?:-rc\.(\d+))?$', str(version or ''))
+    if not match:
+        return None
+    major, minor, patch, rc = match.groups()
+    return (int(major), int(minor), int(patch), rc is None, int(rc or 0))
+
+
+def is_newer(candidate, installed):
+    new, old = version_key(candidate), version_key(installed)
+    return new is not None and old is not None and new > old
+
+
+def short_image(reference):
+    """ghcr.io/x/tofi@sha256:<64 hex> -> ghcr.io/x/tofi@sha256:<12 hex>."""
+    name, separator, digest = str(reference or '').partition('@sha256:')
+    return '%s@sha256:%s' % (name, digest[:12]) if separator else str(reference or '-')
+
+
+def short_digest(reference):
+    """repo@sha256:<64 hex> -> sha256:<12 hex> (the repository is fixed per role)."""
+    digest = str(reference or '').partition('@sha256:')[2]
+    return 'sha256:' + digest[:12] if digest else str(reference or '-')
+
+
+def latest_release(refresh=False, timeout=5):
+    """The release `tofi update` would install, cached; never raises.
+
+    Returns {'version', 'guest', 'checked_at', 'error'}. Offline, the last
+    successful answer is kept (with the error); with none, version is None.
+    """
+    try:
+        cached = json.loads(P.latest_cache.read_text())
+        if not isinstance(cached, dict):
+            cached = None
+    except (OSError, ValueError):
+        cached = None
+    if cached and not refresh:
+        age = time.time() - float(cached.get('attempted') or 0)
+        if age < (LATEST_RETRY_SECONDS if cached.get('error') else LATEST_TTL_SECONDS):
+            return cached
+    try:
+        manifest = fetch_manifest(timeout=timeout)
+        entry = {'version': manifest['version'], 'guest': manifest['guest']['version'],
+                 'checked_at': iso_now(), 'error': None}
+    except HostError as error:
+        entry = dict(cached or {'version': None, 'guest': None, 'checked_at': None})
+        entry['error'] = str(error)[:300]
+    entry['attempted'] = time.time()
+    try:
+        write_json(P.latest_cache, entry, 0o644)
+    except OSError:
+        pass
+    return entry
+
+
+def remember_latest(manifest):
+    """Record a freshly downloaded latest manifest (from `update --check`)."""
+    entry = {'version': manifest['version'], 'guest': manifest['guest']['version'],
+             'checked_at': iso_now(), 'error': None, 'attempted': time.time()}
+    try:
+        write_json(P.latest_cache, entry, 0o644)
+    except OSError:
+        pass
+
+
+def versions_report(env, refresh=False):
+    latest = latest_release(refresh=refresh)
+    installed = env.get('TOFI_VERSION')
+    return {'installed': installed, 'latest': latest.get('version'),
+            'latest_checked_at': latest.get('checked_at'), 'latest_error': latest.get('error'),
+            'update_available': is_newer(latest.get('version'), installed),
+            'app_image': env.get('TOFI_APP_IMAGE'), 'worker_image': env.get('TOFI_WORKER_IMAGE'),
+            'guest': env.get('TOFI_GUEST_VERSION')}
+
+
+def check_update(version=None, manifest_path=None):
+    """`tofi update --check`: what an update would change; touches nothing."""
+    require_root()
+    state = load_state()
+    if state is None:
+        raise HostError('TOFI is not installed; run install.sh.')
+    if state['phase'] != 'installed':
+        raise HostError('TOFI is in phase %s; run `sudo tofi install` to resume first.' % state['phase'])
+    env = read_env()
+    if manifest_path:
+        manifest = load_manifest_file(manifest_path)
+    else:
+        manifest = fetch_manifest(version)
+        if not version:
+            remember_latest(manifest)
+    components = [('version', env.get('TOFI_VERSION'), manifest['version']),
+                  ('app', env.get('TOFI_APP_IMAGE'), manifest['images']['app']),
+                  ('worker', env.get('TOFI_WORKER_IMAGE'), manifest['images']['worker']),
+                  ('guest', env.get('TOFI_GUEST_VERSION'), manifest['guest']['version'])]
+    if env.get('TOFI_DOMAIN'):
+        components.append(('caddy', env.get('TOFI_CADDY_IMAGE'), manifest['images']['caddy']))
+    try:
+        installed_schema = image_label(env['TOFI_APP_IMAGE'], DATA_SCHEMA_LABEL)
+    except (OSError, ValueError, IndexError, KeyError, subprocess.SubprocessError):
+        installed_schema = None
+    schema = {'installed': installed_schema, 'available': manifest['data_schema'],
+              'compatible': None if installed_schema is None else installed_schema == manifest['data_schema']}
+    report = {'installed': env.get('TOFI_VERSION'), 'available': manifest['version'],
+              'update_available': manifest['version'] != env.get('TOFI_VERSION'),
+              'downgrade': is_newer(env.get('TOFI_VERSION'), manifest['version']),
+              'components': [{'name': name, 'installed': old, 'available': new, 'changes': old != new}
+                             for name, old, new in components],
+              'data_schema': schema,
+              'apply': 'sudo tofi update' + (' --version ' + manifest['version'] if version else
+                                             ' --manifest ' + str(manifest_path) if manifest_path else '')}
+    if not schema['compatible'] and report['update_available']:
+        report['apply'] += ' --allow-schema-change'
+    try:
+        report['computers'] = computers_report(env.get('TOFI_GUEST_VERSION'), busy=True)
+    except HostError as error:
+        report['computers'] = None
+        report['computers_error'] = str(error)
+    return report
+
+
+def render_update_check(report):
+    state = 'up to date' if not report['update_available'] else (
+        'older release' if report['downgrade'] else 'update available')
+    lines = ['Installed    %s' % report['installed'], 'Available    %s  (%s)' % (report['available'], state), '']
+    labels = {'version': 'Host bundle', 'app': 'App image', 'worker': 'Worker image',
+              'guest': 'Guest release', 'caddy': 'Caddy image'}
+    table = []
+    for item in report['components']:
+        show = short_digest if item['name'] in ('app', 'worker', 'caddy') else str
+        table.append([labels[item['name']], show(item['installed']), show(item['available']),
+                      'changes' if item['changes'] else 'same'])
+    schema = report['data_schema']
+    verdict = {True: 'compatible', False: 'CHANGES: back up /var/lib/tofi; needs --allow-schema-change',
+               None: 'installed schema unknown'}[schema['compatible']]
+    table.append(['Data schema', schema['installed'] or '?', schema['available'], verdict])
+    lines += format_table(['COMPONENT', 'INSTALLED', 'AVAILABLE', ''], table)
+    if report['update_available']:
+        lines.append('')
+        if report.get('computers') is None:
+            lines.append('Computers    unknown (%s)' % report.get('computers_error', 'Worker not reachable'))
+        else:
+            lines += update_impact_lines(report['computers'], report['components'])
+        lines += ['', 'Apply with: ' + report['apply']]
+    return '\n'.join(lines) + '\n'
+
+
+def update_impact_lines(computers, components):
+    """What an update does to the account computers, in plain sentences."""
+    guest = next((c for c in components if c['name'] == 'guest'), None)
+    running = [c for c in computers if c['running']]
+    hibernated = [c for c in computers if c['state'] == 'hibernated']
+    lines = ['Computers    %d total: %d running, %d hibernated' % (len(computers), len(running), len(hibernated))]
+    if running:
+        lines.append('  The update restarts the Worker: running computers are hibernated first.')
+    for row in running:
+        if row['busy'] != []:
+            lines.append('  %s is busy (%s): its current task is interrupted.'
+                         % (row['short'], ', '.join(row['busy'] or ['state unknown'])))
+    if guest and guest['changes'] and (running or hibernated):
+        lines.append('  The Guest changes to %s: each of them cold-boots on it at its next use '
+                     '(open pages are not kept; the workspace disk is).' % guest['available'])
+    return lines
+
+
+# --------------------------------------------------------------------------
+# Account computers: read through the Worker broker and each control socket
+
+# Runs as the App uid (10001), the only identity the broker and the computer
+# control sockets accept, like BROKER_PROBE. Each call is independent: an
+# unreachable computer is reported, never fatal. Only sockets under /run/tofi.
+CONTROL_PROBE = r"""import http.client, json, socket, struct, sys
+replies = []
+for call in json.loads(sys.argv[1]):
+    try:
+        if not call['socket'].startswith('/run/tofi/') or '..' in call['socket']:
+            raise ValueError('socket outside /run/tofi')
+        with socket.socket(socket.AF_UNIX) as connection:
+            connection.settimeout(call.get('timeout', 10))
+            connection.connect(call['socket'])
+            pid, uid, gid = struct.unpack('3i', connection.getsockopt(socket.SOL_SOCKET, socket.SO_PEERCRED, 12))
+            if uid != 0 or (call.get('peer_pid') and pid != call['peer_pid']):
+                raise ValueError('socket peer is not the Worker')
+            client = http.client.HTTPConnection('tofi-worker', timeout=call.get('timeout', 10))
+            client.sock = connection
+            body = json.dumps(call['body']) if 'body' in call else None
+            client.request(call['method'], call['path'], body=body,
+                           headers={'Content-Type': 'application/json'} if body is not None else {})
+            response = client.getresponse()
+            data = response.read(4194305)
+            if len(data) > 4194304:
+                raise ValueError('reply too large')
+            replies.append({'status': response.status, 'body': json.loads(data)})
+    except (FileNotFoundError, ConnectionRefusedError):
+        replies.append({'error': 'not running'})
+    except (OSError, ValueError, KeyError, http.client.HTTPException) as error:
+        replies.append({'error': (type(error).__name__ + ': ' + str(error))[:200]})
+print(json.dumps(replies))
+"""
+
+# Manager states as `tofi computers` shows them.
+COMPUTER_STATES = {'ready': 'running', 'starting': 'starting', 'resuming': 'starting',
+                   'restarting': 'restarting', 'purging': 'restarting', 'hibernating': 'hibernating',
+                   'hibernated': 'hibernated', 'stopped': 'stopped', 'error': 'error'}
+RUNNING_STATES = {'running', 'starting', 'restarting', 'hibernating', 'unresponsive'}
+
+
+def worker_pid():
+    workers = [c for c in project_containers() if service_of(c) == 'worker']
+    if len(workers) != 1 or not workers[0]['State'].get('Running'):
+        raise HostError('The Worker is not running; start TOFI with `sudo tofi start`.')
+    return int(workers[0]['State']['Pid'])
+
+
+def control_calls(calls):
+    """Run CONTROL_PROBE as uid 10001; one reply per call."""
+    budget = 15 + sum(call.get('timeout', 10) for call in calls)
+    try:
+        result = run([sys.executable, '-I', '-c', CONTROL_PROBE, json.dumps(calls)],
+                     user=APP_UID, group=APP_UID, extra_groups=[], cwd='/', timeout=budget)
+        replies = json.loads(result.stdout)
+    except subprocess.CalledProcessError as error:
+        raise HostError('The computer probe failed: %s' % (error.stderr or '').strip()[-300:]) from error
+    except subprocess.TimeoutExpired as error:
+        raise HostError('The computer probe did not finish within %d s.' % budget) from error
+    except ValueError as error:
+        raise HostError('The computer probe returned an unreadable reply.') from error
+    if not isinstance(replies, list) or len(replies) != len(calls):
+        raise HostError('The computer probe returned an unexpected reply.')
+    return replies
+
+
+def broker_request(body, timeout=60):
+    """One request to the Worker broker (peer verified as the Worker process)."""
+    reply = control_calls([{'socket': RUN_REAL + '/broker.sock', 'peer_pid': worker_pid(), 'method': 'POST',
+                            'path': '/v1/accounts', 'body': body, 'timeout': timeout}])[0]
+    if 'error' in reply:
+        raise HostError('The Worker broker is unreachable (%s); see `tofi logs worker`.' % reply['error'])
+    value = reply.get('body')
+    if reply.get('status') != 200 or not isinstance(value, dict):
+        detail = value.get('error') if isinstance(value, dict) else None
+        raise HostError('The Worker refused %s: %s' % (body.get('op'), detail or 'HTTP %s' % reply.get('status')))
+    return value
+
+
+def control_socket(account):
+    return '%s/accounts/%s/control.sock' % (RUN_REAL, account)
+
+
+def reply_body(reply):
+    if isinstance(reply, dict) and reply.get('status') == 200 and isinstance(reply.get('body'), dict):
+        return reply['body']
+    return None
+
+
+def computers_report(installed_guest, busy=False):
+    """One row per account computer (see computer_row).
+
+    Raises HostError when the Worker cannot be asked; a single computer
+    that does not answer only blanks its own fields.
+    """
+    inventory = broker_request({'op': 'computers'})
+    rows = inventory.get('computers')
+    if not isinstance(rows, list):
+        raise HostError('The Worker returned no computer list; is it older than this tofi command?')
+    installed_guest = installed_guest or inventory.get('release')
+    paths = ['/v1/info', '/v1/resources', '/v1/health'] + (['/v1/busy'] if busy else [])
+    calls, owners = [], []
+    for index, row in enumerate(rows):
+        if row.get('running') is False:
+            continue  # no manager process: nothing to ask
+        for path in paths:
+            calls.append({'socket': control_socket(row['account_id']), 'method': 'GET', 'path': path,
+                          'timeout': 45 if path == '/v1/busy' else 10})
+            owners.append((index, path))
+    replies = control_calls(calls) if calls else []
+    answers = {}
+    for (index, path), reply in zip(owners, replies):
+        answers.setdefault(index, {})[path] = reply_body(reply)
+    return [computer_row(row, answers.get(index, {}), installed_guest, busy) for index, row in enumerate(rows)]
+
+
+def computer_row(row, answers, installed_guest, busy=False):
+    """Join the broker's inventory with what the computer's manager says.
+
+    release: the Guest a running computer runs, or the one a hibernated
+    computer's snapshot was taken with; None for a stopped computer (its
+    next start uses the installed Guest). busy: [] idle, a list of reasons,
+    or None when a running computer could not be asked.
+    """
+    info = answers.get('/v1/info')
+    health = answers.get('/v1/health') or {}
+    snapshot = row.get('snapshot') or None
+    release = None
+    if info:
+        state = COMPUTER_STATES.get(info.get('state'), str(info.get('state')))
+        if state == 'running' and health.get('guest') == 'unresponsive':
+            state = 'unresponsive'
+        release = info.get('release') or row.get('config_release')
+    elif snapshot:
+        state = 'hibernated'
+    else:
+        state = 'stopped'
+    if state == 'hibernated' and snapshot:
+        release = snapshot.get('release')
+    elif state in ('stopped', 'error'):
+        release = None
+    if row.get('state') == 'disabled':
+        state = 'disabled'
+    running = state in RUNNING_STATES
+    memory = ((answers.get('/v1/resources') or {}).get('memory') or {}).get('host_rss_mib')
+    report = answers.get('/v1/busy')
+    return {
+        'account_id': row['account_id'], 'short': row['account_id'][:8], 'state': state,
+        'running': running, 'release': release,
+        'upgrade_pending': bool(release and installed_guest and release != installed_guest),
+        'memory_rss_mib': memory if running else None,
+        'last_wake': (info or {}).get('last_wake'),
+        'hibernated_at': ((info or {}).get('hibernated_at') or (snapshot or {}).get('created_at') or None)
+        if state == 'hibernated' else None,
+        'error': (info or {}).get('error') or None,
+        'busy': (report.get('busy') if report else None) if busy and running else [],
+    }
+
+
+def describe_wake(wake):
+    if not isinstance(wake, dict) or 'kind' not in wake:
+        return '-'
+    text = '%s %ss' % ('restore' if wake['kind'] == 'restore' else 'cold boot', wake.get('seconds', '?'))
+    if wake.get('fallback_reason'):
+        text += ' (%s)' % wake['fallback_reason']
+    return text
+
+
+def format_table(headers, rows):
+    widths = [max(len(str(value)) for value in column) for column in zip(headers, *rows)]
+    return ['  ' + '  '.join(str(value).ljust(width) for value, width in zip(line, widths)).rstrip()
+            for line in [headers] + rows]
+
+
+def render_computers(rows, installed_guest):
+    if not rows:
+        return ['  No account computers yet.']
+    table = [[row['short'], row['state'], row['release'] or '-', 'pending' if row['upgrade_pending'] else '-',
+              '%d MiB' % row['memory_rss_mib'] if row['memory_rss_mib'] is not None else '-',
+              describe_wake(row['last_wake'])] for row in rows]
+    lines = format_table(['ACCOUNT', 'STATE', 'GUEST', 'UPGRADE', 'MEMORY', 'LAST WAKE'], table)
+    pending = [row for row in rows if row['upgrade_pending']]
+    if pending:
+        lines.append('')
+        lines.append('  %d computer%s an older Guest than %s; a hibernated one cold-boots on %s at its next use.'
+                     % (len(pending), ' is on' if len(pending) == 1 else 's are on', installed_guest, installed_guest))
+        lines.append('  Switch now: sudo tofi computers upgrade --all')
+    return lines
+
+
+def select_computers(rows, account=None):
+    if not account:
+        return rows
+    matches = [row for row in rows if row['account_id'] == account]
+    if not matches and len(account) >= 8:
+        matches = [row for row in rows if row['account_id'].startswith(account)]
+    if not matches:
+        raise HostError('No computer matches %r; `sudo tofi computers` lists them.' % account)
+    if len(matches) > 1:
+        raise HostError('%r matches several computers; give more of the id.' % account)
+    return matches
+
+
+def confirm_force(busy, confirm=None):
+    """Ask on the terminal before interrupting busy computers; without a tty --force decides."""
+    if confirm is None:
+        try:
+            with open('/dev/tty') as tty:
+                print('%d busy computer%s will be restarted and running tasks interrupted: %s'
+                      % (len(busy), '' if len(busy) == 1 else 's',
+                         ', '.join('%s (%s)' % (row['short'], ', '.join(row['busy'] or ['state unknown']))
+                                   for row in busy)))
+                print('Type "yes" to continue: ', end='', flush=True)
+                confirm = tty.readline().strip()
+        except OSError:
+            confirm = 'yes'
+    if confirm != 'yes':
+        raise HostError('Upgrade cancelled; nothing was changed.')
+
+
+def upgrade_computers(account=None, all_computers=False, force=False, confirm=None):
+    """`tofi computers upgrade`: move computers off older Guest releases.
+
+    Idle, hibernated and stopped computers switch now; busy ones (Bot run,
+    viewer, human control, terminal job, or not answering) are deferred
+    unless --force. Nothing is started: the next start boots the installed
+    Guest. Then Guest releases no computer references are removed. Holds the
+    lifecycle lock; the installation stays in phase "installed" (services
+    keep running) and the outcome is journalled as last_computers_upgrade.
+    """
+    if bool(account) == bool(all_computers):
+        raise HostError('Choose the computers: --all, or --account <id>.')
+    with lifecycle_lock():
+        state = load_state()
+        if state is None or state['phase'] != 'installed':
+            raise HostError('Computers can be upgraded only in phase installed; '
+                            'run `sudo tofi install` to resume first.')
+        installed = read_env()['TOFI_GUEST_VERSION']
+        targets = select_computers(computers_report(installed, busy=True), account)
+        busy = [row for row in targets if row['upgrade_pending'] and row['running'] and row['busy'] != []]
+        if busy and force:
+            confirm_force(busy, confirm)
+        results = []
+        for row in targets:
+            entry = {'account_id': row['account_id'], 'short': row['short'], 'state': row['state'],
+                     'from': row['release'], 'to': installed}
+            if not row['upgrade_pending']:
+                entry.update(result='current', note='' if row['release'] else 'next start boots ' + installed)
+            elif row in busy and not force:
+                entry.update(result='deferred', note='busy (%s); retry when idle or use --force'
+                             % ', '.join(row['busy'] or ['state unknown']))
+            else:
+                try:
+                    reply = broker_request({'op': 'upgrade', 'account_id': row['account_id']}, timeout=300)
+                    done = (['stopped'] if reply.get('stopped') else []) + (
+                        ['snapshot discarded'] if reply.get('discarded_snapshot') else [])
+                    entry.update(result='upgraded', note='; '.join(done + ['next start boots ' + installed]))
+                except HostError as error:
+                    entry.update(result='failed', note=str(error))
+            results.append(entry)
+        # A computer left on its release (deferred, failed) still uses it.
+        removed = prune_guests([installed] + [item['from'] for item in results
+                                              if item['result'] in ('deferred', 'failed') and item['from']])
+        state['last_computers_upgrade'] = {
+            'at': iso_now(), 'guest': installed, 'removed_releases': removed,
+            'results': [{'account_id': item['account_id'], 'result': item['result']} for item in results]}
+        save_state(state)
+        return {'guest': installed, 'results': results, 'removed_releases': removed}
+
+
+def render_upgrade(report):
+    if not report['results']:
+        return '  No account computers yet.\n'
+    table = [[r['short'], r['state'], r['from'] or '-', r['to'], r['result'], r['note']] for r in report['results']]
+    lines = format_table(['ACCOUNT', 'STATE', 'FROM', 'TO', 'RESULT', 'NOTE'], table)
+    counts = {}
+    for item in report['results']:
+        counts[item['result']] = counts.get(item['result'], 0) + 1
+    lines += ['', '  ' + ', '.join('%d %s' % (n, name) for name, n in sorted(counts.items()))]
+    if report['removed_releases']:
+        lines.append('  Removed unused Guest releases: ' + ', '.join(report['removed_releases']))
+    return '\n'.join(lines) + '\n'
+
+
+def upgrade_exit_code(report):
+    """0 every chosen computer is on the installed Guest; 2 some deferred; 1 a failure."""
+    results = {item['result'] for item in report['results']}
+    if 'failed' in results:
+        return 1
+    return 2 if 'deferred' in results else 0
+
+
+# --------------------------------------------------------------------------
+# Guest release retention
+
+
+def guest_references():
+    """Guest releases that hibernated computers' snapshots were taken with.
+
+    Read from the host files, so pruning never depends on the Worker being
+    up. Such a release is kept: rolling back to it restores those computers
+    with their open pages.
+    """
+    references = set()
+    root = P.worker_state
+    for entry in sorted(root.iterdir()) if root.is_dir() and not root.is_symlink() else []:
+        if entry.is_symlink() or not entry.is_dir():
+            continue
+        snapshot = snapshot_release(entry)
+        if snapshot:
+            references.add(snapshot[0])
+    return references
+
+
+def prune_guests(keep):
+    """Remove Guest releases outside `keep` that no computer references."""
+    keep = set(keep) | guest_references()
+    removed = []
+    for entry in sorted(P.guest.iterdir()) if P.guest.is_dir() else []:
+        if entry.name.startswith('.') or entry.name in keep:
+            continue
+        remove_tree(entry)
+        removed.append(entry.name)
+    return removed
 
 
 # --------------------------------------------------------------------------
@@ -1806,13 +2404,29 @@ def parse_args(argv):
     install_parser.add_argument('--lan', action='store_true', help=argparse.SUPPRESS)
     install_parser.add_argument('--port', type=int)
     install_parser.add_argument('--yes', action='store_true')
-    sub.add_parser('status')
+    status_parser = sub.add_parser('status', help='versions, services, health and account computers')
+    status_parser.add_argument('--json', action='store_true', help='machine-readable output')
     sub.add_parser('start')
     sub.add_parser('stop')
     update_parser = sub.add_parser('update')
     update_parser.add_argument('--version')
     update_parser.add_argument('--manifest', help='use a local manifest instead of GitHub Releases')
     update_parser.add_argument('--allow-schema-change', action='store_true')
+    update_parser.add_argument('--check', action='store_true',
+                               help='report what would change and exit 0 (up to date), 10 (update available) '
+                                    'or 1 (error); changes nothing')
+    update_parser.add_argument('--json', action='store_true', help='with --check: machine-readable output')
+    computers_parser = sub.add_parser('computers', help='list account computers and their Guest release')
+    computers_parser.add_argument('--json', action='store_true', help='machine-readable output')
+    computers_sub = computers_parser.add_subparsers(dest='computers_command')
+    upgrade_parser = computers_sub.add_parser(
+        'upgrade', help='move computers on an older Guest release to the installed one')
+    which = upgrade_parser.add_mutually_exclusive_group(required=True)
+    which.add_argument('--all', action='store_true', help='every computer on an older Guest')
+    which.add_argument('--account', help='one computer: its account id or an 8+ character prefix')
+    upgrade_parser.add_argument('--force', action='store_true',
+                                help='also restart busy computers (asks first on a terminal; tasks are interrupted)')
+    upgrade_parser.add_argument('--json', action='store_true', help='machine-readable output')
     uninstall_parser = sub.add_parser('uninstall')
     uninstall_parser.add_argument('--purge', action='store_true')
     uninstall_parser.add_argument('--confirm-hostname', help='non-interactive purge confirmation')
@@ -1855,11 +2469,28 @@ def main(argv=None):
             install(args.manifest, install_options(args))
             return 0
         if args.command == 'status':
-            result = status()
-            if result.get('phase') == 'installed' and color_mode(sys.stdout, {}) is not None:
-                # Interactive terminal: banner first; pipes get the JSON only.
+            result = status(details=True)
+            if args.json:
+                print(json.dumps(result, indent=2))
+                return 0
+            banner = result.get('phase') == 'installed' and color_mode(sys.stdout, {}) is not None
+            if banner:
+                # Interactive terminal: the install banner (URLs, setup key) first.
                 sys.stdout.write(status_banner() + '\n')
-            print(json.dumps(result, indent=2))
+            sys.stdout.write(render_status(result, with_access=not banner))
+            return 0
+        if args.command == 'computers':
+            if args.computers_command == 'upgrade':
+                report = upgrade_computers(args.account, args.all, args.force)
+                sys.stdout.write(json.dumps(report, indent=2) + '\n' if args.json else render_upgrade(report))
+                return upgrade_exit_code(report)
+            require_root()
+            env = read_env()
+            rows = computers_report(env.get('TOFI_GUEST_VERSION'))
+            if args.json:
+                print(json.dumps({'guest': env.get('TOFI_GUEST_VERSION'), 'computers': rows}, indent=2))
+            else:
+                sys.stdout.write('\n'.join(render_computers(rows, env.get('TOFI_GUEST_VERSION'))) + '\n')
             return 0
         if args.command == 'regenerate-cert':
             regenerate_certificate()
@@ -1871,6 +2502,12 @@ def main(argv=None):
             stop()
             return 0
         if args.command == 'update':
+            if args.check:
+                report = check_update(args.version, args.manifest)
+                sys.stdout.write(json.dumps(report, indent=2) + '\n' if args.json else render_update_check(report))
+                return UPDATE_AVAILABLE_EXIT if report['update_available'] else 0
+            if args.json:
+                raise HostError('--json is only used with --check.')
             upgrade(args.version, args.manifest, args.allow_schema_change)
             return 0
         if args.command == 'uninstall':
