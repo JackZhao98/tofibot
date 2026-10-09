@@ -50,6 +50,9 @@ func TestDictationSettingsAndTranscription(t *testing.T) {
 	if initial.Code != http.StatusOK || !strings.Contains(initial.Body.String(), "gpt-4o-mini-transcribe") || !strings.Contains(initial.Body.String(), "gpt-4o-transcribe") {
 		t.Fatalf("initial settings: %d %s", initial.Code, initial.Body.String())
 	}
+	if strings.Contains(initial.Body.String(), `"description"`) || strings.Contains(initial.Body.String(), `"cost"`) {
+		t.Fatalf("settings must not carry display copy (the UI renders it from i18n): %s", initial.Body.String())
+	}
 
 	save := httptest.NewRecorder()
 	server.Handler().ServeHTTP(save, httptest.NewRequest(http.MethodPut, "/api/dictation-settings", strings.NewReader(`{"model":"gpt-4o-transcribe"}`)))

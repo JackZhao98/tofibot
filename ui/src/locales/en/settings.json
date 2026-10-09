@@ -27,50 +27,47 @@
   },
   "shell": {
     "group": {
-      "preferences": "Preferences",
+      "you": "You",
+      "bots": "Bots can use",
       "workspace": "Workspace",
-      "advanced": "Advanced",
-      "admin": "Administration"
+      "system": "System"
     },
     "page": {
-      "account": {
+      "general": {
         "name": "General",
         "description": "Make Tofi fit your day"
       },
-      "models": {
-        "name": "Models and reasoning",
-        "description": "Model and reasoning effort for Bots that follow the global setting"
-      },
-      "dictate": {
-        "name": "Dictation",
-        "description": "Choose the dictation model"
-      },
-      "usage": {
-        "name": "Usage",
-        "description": "Model usage and context compaction for each agent"
-      },
-      "computers": {
-        "name": "Computers and resources",
-        "description": "Shared Linux computer, storage and runtime resources"
-      },
-      "credentials": {
-        "name": "Keys and environment",
-        "description": "Environment variables and SSH keys for the computer"
-      },
-      "mcp": {
-        "name": "Tools",
+      "connections": {
+        "name": "Connections",
         "description": "Connect outside services to extend what Bots can do"
       },
       "skills": {
         "name": "Skills",
         "description": "Manage reusable ways of working"
       },
-      "connection": {
-        "name": "Models and connection",
-        "description": "Connect Codex or add an OpenAI or Claude API key, and see the server connection"
+      "approvals": {
+        "name": "Approvals",
+        "description": "Who checks a Bot's actions before they run."
       },
-      "debug": {
-        "name": "Debug"
+      "models": {
+        "name": "Models",
+        "description": "Where Bots get their brains, and which they use by default."
+      },
+      "computer": {
+        "name": "Computer",
+        "description": "Shared Linux computer, storage and runtime resources"
+      },
+      "keys": {
+        "name": "Keys & secrets",
+        "description": "Environment variables and SSH keys for the computer"
+      },
+      "usage": {
+        "name": "Usage",
+        "description": "Model usage and context compaction for each agent"
+      },
+      "advanced": {
+        "name": "Advanced",
+        "description": "Server details, data transfer, debugging and Start over."
       },
       "admin": {
         "name": "Admin console",
@@ -88,7 +85,23 @@
     "leave_close": "Closing settings discards what you haven't saved.",
     "leave_switch": "Save or discard your changes before switching categories.",
     "keep_editing": "Keep editing",
-    "save_continue": "Save and continue"
+    "save_continue": "Save and continue",
+    "back": "Back",
+    "attention": "Needs attention: {{count}}",
+    "account": {
+      "role": {
+        "admin": "Admin",
+        "member": "Member"
+      }
+    },
+    "hint": {
+      "computer": {
+        "ready": "Running",
+        "starting": "Starting",
+        "stopped": "Stopped",
+        "waiting": "Waiting"
+      }
+    }
   },
   "appearance": {
     "title": "Appearance",
@@ -110,7 +123,7 @@
     "legacy_effort": "Keep previous setting ({{effort}})",
     "model_default": "Model default",
     "model_default_effort": "Model default ({{effort}})",
-    "no_models": "No models available yet. Connect Codex on the Models and connection page in Settings, or add an OpenAI or Claude API key.",
+    "no_models": "No models available yet. Connect Codex on the Models page in Settings, or add an OpenAI or Claude API key.",
     "open_settings": "Open settings",
     "cached_list": "Showing the most recently fetched model list.",
     "partial_list": "Some providers' model lists aren't available right now.",
@@ -119,11 +132,12 @@
     "note_following": "Uses the global model and reasoning effort from the Models page in Settings. Global changes apply from the next message. Switching a Bot's model keeps its saved memories and chat history. Memories stay with their Bot or group; different models may use them differently.",
     "choose_first": "Choose a model first.",
     "saved": "Saved. Bots that follow the global setting use it from their next message.",
-    "global_title": "Global model",
+    "global_title": "Defaults for new Bots",
     "global_description": "Bots set to Follow global use this model and reasoning effort. New Bots follow global by default.",
     "global_description_followers_one": "Bots set to Follow global use this model and reasoning effort; {{count}} Bot follows it now. New Bots follow global by default.",
     "global_description_followers_other": "Bots set to Follow global use this model and reasoning effort; {{count}} Bots follow it now. New Bots follow global by default.",
-    "global_description_no_followers": "Bots set to Follow global use this model and reasoning effort; no Bots follow it now. New Bots follow global by default."
+    "global_description_no_followers": "Bots set to Follow global use this model and reasoning effort; no Bots follow it now. New Bots follow global by default.",
+    "effort_hint": "Model default: {{effort}}"
   },
   "effort": {
     "none": "Off",
@@ -316,7 +330,7 @@
     "model_label": "Transcription model",
     "api_price": "API reference price {{cost}}",
     "codex_account": "Uses your connected Codex account.",
-    "not_configured": "Connect Codex in connection settings, or set up a server-side transcription API key.",
+    "not_configured": "Connect Codex on the Models page, or set up a server-side transcription API key.",
     "loading": "Loading Dictate settings…",
     "needs_https": "Dictation needs HTTPS. Open Tofi over HTTPS.",
     "unsupported_browser": "This browser doesn't support dictation recording.",
@@ -325,7 +339,18 @@
     "unavailable": "Dictation isn't available right now.",
     "recording_failed": "Recording failed. Check microphone permission and try again.",
     "permission_needed": "Dictation needs microphone permission.",
-    "start_failed": "Couldn't start recording. Check your microphone and try again."
+    "start_failed": "Couldn't start recording. Check your microphone and try again.",
+    "title": "Dictation",
+    "model": {
+      "gpt-4o-mini-transcribe": {
+        "hint": "Cheaper, good for everyday use.",
+        "price": "$0.003 / min"
+      },
+      "gpt-4o-transcribe": {
+        "hint": "Higher accuracy, higher cost.",
+        "price": "$0.006 / min"
+      }
+    }
   },
   "purge": {
     "failed": "Reset failed. Try again later.",
@@ -416,5 +441,33 @@
       "file_oversized": "The bundle is too large.",
       "decrypt_failed": "Couldn't decrypt. Check the passphrase, the file version, and whether the file is damaged."
     }
+  },
+  "status": {
+    "ok": "Connected",
+    "need": "Needs setup",
+    "bad": "Failed",
+    "asleep": "Asleep",
+    "testing": "Checking"
+  },
+  "banner": {
+    "details": "Technical details"
+  },
+  "general": {
+    "region": "Language and region",
+    "moved_title": "Looking for export, server info or Start over?",
+    "moved_body": "They moved to Advanced.",
+    "open_advanced": "Open Advanced"
+  },
+  "approvals": {
+    "heading": "Reviewer",
+    "draft_label": "Reviewer",
+    "soon_title": "More controls are on the way",
+    "soon_body": "Trust defaults and always-allowed rules arrive with the Connections update."
+  },
+  "advanced": {
+    "server": "Server",
+    "data": "Data",
+    "debug": "Debug",
+    "danger": "Danger zone"
   }
 }
