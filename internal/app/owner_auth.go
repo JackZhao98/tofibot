@@ -11,13 +11,11 @@ import (
 	"fmt"
 	"net"
 	"net/http"
-	"net/mail"
 	"os"
 	"path/filepath"
 	"strings"
 	"sync"
 	"time"
-	"unicode"
 
 	"golang.org/x/crypto/argon2"
 )
@@ -347,21 +345,9 @@ func (a *ownerAuth) allowAttempt(r *http.Request) bool {
 	}
 	return tx.Commit() == nil
 }
-func validateOwner(username, email, password string) bool {
-	if len(username) < 3 || len(username) > 64 || len(email) > 254 || len(password) < 12 || len(password) > 1024 {
-		return false
-	}
-	for _, c := range username {
-		if !unicode.IsLetter(c) && !unicode.IsDigit(c) && c != '_' && c != '-' && c != '.' {
-			return false
-		}
-	}
-	addr, err := mail.ParseAddress(email)
-	return err == nil && addr.Address == email
-}
 func (s *Server) handleOwnerAuth(w http.ResponseWriter, r *http.Request) bool {
 	p := r.URL.Path
-	if p != "/api/auth/session" && p != "/api/auth/setup" && p != "/api/auth/login" && p != "/api/auth/logout" {
+	if p != "/api/auth/session" && p != "/api/auth/setup" && p != "/api/auth/setup/verify" && p != "/api/auth/login" && p != "/api/auth/logout" {
 		return false
 	}
 	if (p == "/api/auth/session" && r.Method != http.MethodGet) || (p != "/api/auth/session" && r.Method != http.MethodPost) {
@@ -418,6 +404,23 @@ func (s *Server) handleOwnerAuth(w http.ResponseWriter, r *http.Request) bool {
 		writeErr(w, 429, "rate_limited", "too many authentication attempts; try again later")
 		return true
 	}
+	if p == "/api/auth/setup/verify" {
+		var v struct {
+			BootstrapSecret string `json:"bootstrap_secret"`
+		}
+		if decodeStrict(r, 8<<10, &v) != nil {
+			writeErr(w, 400, "invalid_request", "invalid setup request")
+			return true
+		}
+		var saved []byte
+		err := a.store.db.QueryRow(`SELECT bootstrap_hash FROM owner_auth_settings WHERE id=1`).Scan(&saved)
+		if !verifyBootstrapSecret(saved, err, v.BootstrapSecret) {
+			writeErr(w, 401, "invalid_bootstrap", "setup secret is invalid or already consumed")
+			return true
+		}
+		writeJSON(w, 200, map[string]bool{"valid": true})
+		return true
+	}
 	if p == "/api/auth/setup" {
 		var v struct {
 			BootstrapSecret string `json:"bootstrap_secret"`
@@ -431,8 +434,8 @@ func (s *Server) handleOwnerAuth(w http.ResponseWriter, r *http.Request) bool {
 		}
 		v.Username = strings.TrimSpace(v.Username)
 		v.Email = strings.ToLower(strings.TrimSpace(v.Email))
-		if !validateOwner(v.Username, v.Email, v.Password) {
-			writeErr(w, 400, "invalid_request", "use a 3–64 character username, a valid email, and a 12–1024 byte password")
+		if e := checkAccountFields(v.Username, v.Email, v.Password); e != nil {
+			writeFieldErr(w, 400, e)
 			return true
 		}
 		secretHash := sha256.Sum256([]byte(v.BootstrapSecret))
@@ -579,4 +582,11 @@ func (a *ownerAuth) close() {
 			req.cancel()
 		}
 	}
+}
+
+// verifyBootstrapSecret is the shared constant-time check behind the
+// non-consuming verify route. It never logs or returns the secret.
+func verifyBootstrapSecret(saved []byte, queryErr error, secret string) bool {
+	hash := sha256.Sum256([]byte(secret))
+	return secret != "" && queryErr == nil && len(saved) == sha256.Size && subtle.ConstantTimeCompare(saved, hash[:]) == 1
 }

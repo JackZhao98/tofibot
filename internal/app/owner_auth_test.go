@@ -297,7 +297,7 @@ func TestOwnerBootstrapRejectsUnsafeFilesAndConcurrentClaim(t *testing.T) {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			w := ownerCall(s, "POST", "/api/auth/setup", map[string]string{"bootstrap_secret": secret, "username": "synthetic-owner", "email": "synthetic@example.invalid", "password": testOwnerPassword}, nil, true)
+			w := ownerCall(s, "POST", "/api/auth/setup", map[string]string{"bootstrap_secret": secret, "username": "synthetic-owner", "email": "founder@example.invalid", "password": testOwnerPassword}, nil, true)
 			codes <- w.Code
 		}()
 	}
