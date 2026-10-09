@@ -47,3 +47,7 @@ __pycache__/
 *.swp
 
 # Sibling desktop/archive projects are outside this repository.
+
+# Settings redesign screenshots and test fixtures
+/artifacts/
+/ui/.settings-shell-*/
