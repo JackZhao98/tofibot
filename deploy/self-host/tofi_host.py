@@ -39,10 +39,16 @@ else:
     MICROVM = HERE.parent / 'microvm'
     ASSETS = HERE
 sys.path.insert(0, str(MICROVM))
+# The terminal UI module ships beside this file (lib/ in the bundle).
+sys.path.insert(0, str(HERE))
 
 from account_release_check import PROTOCOL, validate_release  # noqa: E402
 from manager import snapshot_release  # noqa: E402
 from worker_entrypoint import validate_config  # noqa: E402
+import tofi_tui  # noqa: E402
+# Palette, art and colour rules live in tofi_tui (shared with install.sh).
+from tofi_tui import (BANNER_ART, BANNER_MIN_WIDTH, BANNER_REGIONS, COLORS, TAGLINE,  # noqa: E402,F401
+                      Paint, color_mode, render_art, terminal_width)
 
 GIB = 1024 ** 3
 MIB = 1024 ** 2
@@ -98,7 +104,11 @@ ENV_KEYS = ['TOFI_VERSION', 'TOFI_DOMAIN', 'TOFI_EMAIL', 'TOFI_HTTP_PORT', 'TOFI
             'TOFI_PUBLIC_ORIGIN', 'TOFI_APP_IMAGE', 'TOFI_WORKER_IMAGE',
             'TOFI_CADDY_IMAGE', 'TOFI_GUEST_VERSION', 'TOFI_CPU_BUDGET',
             'TOFI_MEMORY_BUDGET_MIB', 'TOFI_WORKER_MEMORY_LIMIT', 'TOFI_TLS_CERT_FILE',
-            'TOFI_TLS_KEY_FILE', 'TOFI_OWNER_ALLOW_LAN_HTTP']
+            'TOFI_TLS_KEY_FILE', 'TOFI_OWNER_ALLOW_LAN_HTTP', 'TOFI_COMPUTER_BACKEND']
+# How account computers run. Only KVM (Firecracker) exists today; the value is
+# recorded so later releases can add backends without guessing.
+COMPUTER_BACKENDS = {'kvm': None, 'gvisor': 'not supported yet (coming in a later release)',
+                     'container': 'not supported yet (coming in a later release)'}
 
 
 class HostError(Exception):
@@ -175,10 +185,12 @@ def run(args, check=True, timeout=300, **kwargs):
 
 
 def say(message=''):
+    tofi_tui.clear_spinner_line()
     print(message, flush=True)
 
 
 def warn(message):
+    tofi_tui.clear_spinner_line()
     print('WARNING: ' + message, file=sys.stderr, flush=True)
 
 
@@ -849,6 +861,7 @@ def render_env(manifest, options, budgets):
         'TOFI_TLS_CERT_FILE': cert,
         'TOFI_TLS_KEY_FILE': key,
         'TOFI_OWNER_ALLOW_LAN_HTTP': allow_lan_http,
+        'TOFI_COMPUTER_BACKEND': options.get('computer') or 'kvm',
     }
 
 
@@ -1209,20 +1222,26 @@ def systemd_start():
 
 
 def fresh_install(manifest, options):
-    say('[10/12] Preparing host configuration, images and the computer release')
-    for message in preflight(options):
-        warn(message)
-    bundle = ASSETS
-    budgets = runtime_budgets()
-    env = render_env(manifest, options, budgets)
-    prepare_directories()
-    pull_images(env, manifest['data_schema'])
-    fetch_guest(manifest['guest'], bundle_manager(bundle))
-    apply_host_config(bundle, env)
-    state = new_state(manifest['version'])
-    save_state(state)
-    say('[11/12] Starting the Worker, then the App')
-    finish_install(state, env)
+    progress = tofi_tui.Progress(tofi_tui.UI(sys.stdout))
+    try:
+        progress.begin(10, 'Preparing host configuration, images and the computer release')
+        for message in preflight(options):
+            warn(message)
+        bundle = ASSETS
+        budgets = runtime_budgets()
+        env = render_env(manifest, options, budgets)
+        prepare_directories()
+        pull_images(env, manifest['data_schema'])
+        fetch_guest(manifest['guest'], bundle_manager(bundle))
+        apply_host_config(bundle, env)
+        state = new_state(manifest['version'])
+        save_state(state)
+        progress.begin(11, 'Starting the Worker, then the App')
+        finish_install(state, env)
+        progress.end()
+    except BaseException:
+        progress.end(ok=False)
+        raise
     return final_message(env)
 
 
@@ -1238,7 +1257,12 @@ def finish_install(state, env):
 
 
 def final_message(env):
-    say('[12/12] TOFI is running')
+    ui = tofi_tui.UI(sys.stdout)
+    if ui.fancy:
+        ui.mark('ok', 'TOFI is running')
+        ui.write()
+    else:
+        say('[12/12] TOFI is running')
     secret = read_setup_secret()
     urls = access_urls(env)
     info = {'version': env.get('TOFI_VERSION', ''), 'urls': urls, 'setup_key': secret,
@@ -1252,90 +1276,6 @@ def final_message(env):
 
 # --------------------------------------------------------------------------
 # End-of-install banner (also the `tofi status` header)
-
-BANNER_ART = [
-    '   ▄▄              ▄▄▄  ▄▄        ▄▀▄   ▄▀▄',
-    ' ▀▀██▀▀  ▄▄▄▄▄   ▄██▀   ▀▀       █  ▀▀▀▀▀  █',
-    '   ██   ██▀  ▀██ ▀██▀▀  ██       █  ●   ●  █',
-    '   ██▄▄ ██▄  ▄██  ██    ██        ▀▄▄▄▄▄▄▄▀',
-    '    ▀▀▀  ▀▀▀▀▀    ▀▀    ▀▀   ',
-]
-# Column ranges of the letters t, o, f, i and the cat in BANNER_ART.
-BANNER_REGIONS = [(0, 8, 'cream'), (8, 17, 'peach'), (17, 23, 'cream'), (23, 28, 'cream'), (28, 99, 'cat')]
-BANNER_MIN_WIDTH = 60
-TAGLINE = 'your crew is awake'
-COLORS = {  # (truecolor RGB, 256-color index)
-    'cream': ((0xF3, 0xEA, 0xDB), 230),
-    'peach': ((0xE8, 0x95, 0x6D), 209),
-    'teal': ((0x7F, 0xD1, 0xC1), 115),
-}
-
-
-def color_mode(stream, environ=None):
-    """'truecolor', '256' or None (plain text: NO_COLOR, TERM=dumb, not a tty)."""
-    environ = os.environ if environ is None else environ
-    if 'NO_COLOR' in environ or environ.get('TERM') == 'dumb':
-        return None
-    try:
-        if not stream.isatty():
-            return None
-    except (AttributeError, ValueError):
-        return None
-    if environ.get('COLORTERM', '').lower() in ('truecolor', '24bit'):
-        return 'truecolor'
-    return '256'
-
-
-def terminal_width():
-    return shutil.get_terminal_size((80, 24)).columns
-
-
-class Paint:
-    def __init__(self, mode):
-        self.mode = mode
-
-    def _wrap(self, codes, text):
-        if not self.mode or not text:
-            return text
-        return '\033[%sm%s\033[0m' % (';'.join(codes), text)
-
-    def fg(self, name):
-        rgb, index = COLORS[name]
-        if self.mode == 'truecolor':
-            return '38;2;%d;%d;%d' % rgb
-        return '38;5;%d' % index
-
-    def color(self, name, text, *extra):
-        return self._wrap(list(extra) + [self.fg(name)], text)
-
-    def dim(self, text):
-        return self._wrap(['2'], text)
-
-    def bold(self, text):
-        return self._wrap(['1'], text)
-
-    def link(self, text):
-        return self._wrap(['1', '4', self.fg('teal')], text)
-
-
-def render_art(paint, version):
-    lines = []
-    for number, row in enumerate(BANNER_ART):
-        out = []
-        for start, end, role in BANNER_REGIONS:
-            part = row[start:end]
-            if role == 'cat':
-                # Outline peach, eyes teal; spaces stay uncoloured.
-                out.append(re.sub(r'●|[^ ●]+', lambda m: paint.color(
-                    'teal' if m.group() == '●' else 'peach', m.group()), part))
-            else:
-                out.append(re.sub(r'\S+', lambda m: paint.color(role, m.group()), part))
-        line = ''.join(out)
-        if number == len(BANNER_ART) - 1:
-            line += paint.dim('v%s · %s' % (version.lstrip('v'), TAGLINE))
-        lines.append(line.rstrip())
-    return lines
-
 
 def render_banner(info, mode=None, width=80):
     """The end-of-install summary. `mode` is color_mode(); None is plain text."""
@@ -2360,7 +2300,17 @@ def doctor():
             raise HostError('missing or expires within 30 days; run `sudo tofi regenerate-cert`')
         return 'SHA256 ' + (certificate_fingerprint() or '?')
 
+    def computer_backend():
+        backend = read_env().get('TOFI_COMPUTER_BACKEND') or 'kvm'
+        if backend not in COMPUTER_BACKENDS:
+            raise HostError('unknown TOFI_COMPUTER_BACKEND=%s in /etc/tofi/tofi.env' % backend)
+        if COMPUTER_BACKENDS[backend]:
+            raise HostError('%s is %s; set TOFI_COMPUTER_BACKEND=kvm' % (backend, COMPUTER_BACKENDS[backend]))
+        return 'kvm (Firecracker)'
+
+    host_card()
     check('KVM device', kvm)
+    check('Computer backend', computer_backend)
     check('cgroup v2', lambda: P.cgroup_controllers.read_text() and None)
     check('AppArmor profile', apparmor_loaded)
     check('/run/tofi ownership', run_dir)
@@ -2375,6 +2325,20 @@ def doctor():
         say('%-4s %-20s %s' % (result, name, detail))
     # Advisories are printed but never fail the doctor.
     return all(result in ('ok', 'WARN') for result, _, _ in checks)
+
+
+def host_card(stream=None):
+    """The installer's "This machine" card, for `tofi doctor`."""
+    root = '' if str(P.root) == '/' else str(P.root)
+    environ = {'TOFI_TEST_ROOT': root, 'TOFI_DEV_KVM': str(P.dev_kvm), 'TOFI_DEV_TUN': str(P.dev_tun)}
+    try:
+        port = int(read_env().get('TOFI_HTTP_PORT') or DEFAULT_PORT)
+    except (OSError, ValueError, HostError):
+        port = DEFAULT_PORT
+    facts = tofi_tui.detect(tofi_tui.Host(environ), environ, port=port, lookup_public=False)
+    ui = tofi_tui.UI(stream or sys.stdout)
+    ui.card('This machine', tofi_tui.machine_rows(facts, fresh=facts['phase'] is None))
+    return facts
 
 
 def version():
@@ -2403,6 +2367,9 @@ def parse_args(argv):
                                 help='listen on 127.0.0.1 only (still HTTPS); reach it with an SSH tunnel')
     install_parser.add_argument('--lan', action='store_true', help=argparse.SUPPRESS)
     install_parser.add_argument('--port', type=int)
+    install_parser.add_argument('--computer', default='kvm',
+                                help='how account computers run: kvm (Firecracker); gvisor and container '
+                                     'are not supported yet')
     install_parser.add_argument('--yes', action='store_true')
     status_parser = sub.add_parser('status', help='versions, services, health and account computers')
     status_parser.add_argument('--json', action='store_true', help='machine-readable output')
@@ -2450,6 +2417,12 @@ def install_options(args):
         raise HostError('Use either --lan or --local-only, not both.')
     if args.email and not args.domain:
         raise HostError('--email is only used with --domain.')
+    computer = (getattr(args, 'computer', None) or 'kvm').lower()
+    if computer not in COMPUTER_BACKENDS:
+        raise HostError('--computer must be kvm, gvisor or container.')
+    if COMPUTER_BACKENDS[computer]:
+        raise HostError('--computer %s is %s; only kvm (Firecracker) is available.'
+                        % (computer, COMPUTER_BACKENDS[computer]))
     domain = (args.domain or '').lower().rstrip('.')
     if domain and not DOMAIN_RE.match(domain):
         raise HostError('%r is not a valid domain name.' % args.domain)
@@ -2457,7 +2430,7 @@ def install_options(args):
     # --lan is the old name for that default and is kept as an alias.
     return {'domain': domain, 'email': args.email or '', 'lan': args.lan, 'local_only': local_only,
             'port': port, 'port_given': args.port is not None,
-            'bind': '127.0.0.1' if local_only else '0.0.0.0', 'yes': args.yes}
+            'bind': '127.0.0.1' if local_only else '0.0.0.0', 'yes': args.yes, 'computer': computer}
 
 
 def main(argv=None):
