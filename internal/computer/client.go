@@ -75,6 +75,12 @@ type WakeInfo struct {
 	Kind           string  `json:"kind"`
 	Seconds        float64 `json:"seconds"`
 	FallbackReason string  `json:"fallback_reason,omitempty"`
+	// StorageSeconds is the jail and disk preparation part of the wake;
+	// ImageAttach says how each release image reached the jail ("link",
+	// "bind" or the 5 GiB "copy" fallback). ClockSynced is set on a restore.
+	StorageSeconds *float64          `json:"storage_seconds,omitempty"`
+	ImageAttach    map[string]string `json:"image_attach,omitempty"`
+	ClockSynced    *bool             `json:"clock_synced,omitempty"`
 }
 
 type Action struct {

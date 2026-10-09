@@ -1046,7 +1046,11 @@ func (s *Server) routeComputers(w http.ResponseWriter, r *http.Request, path str
 				source = "viewer"
 			}
 			result, err := s.microVMActionFromSource(r.Context(), Run{BotID: v.BotID, ID: runID}, v.Action, v.Args, source)
-			if err != nil {
+			if o, ok := tooloutcome.FromError(err); ok && (o.Code == "computer_restarting" || o.Code == "computer_unresponsive") {
+				// The watchdog refused the call before it reached the guest:
+				// keep its typed reason instead of a generic gateway failure.
+				writeErr(w, http.StatusServiceUnavailable, o.Code, o.Message)
+			} else if err != nil {
 				writeErr(w, http.StatusBadGateway, "computer_action_failed", err.Error())
 			} else {
 				var decoded any
