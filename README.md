@@ -41,10 +41,18 @@ curl -fsSL https://raw.githubusercontent.com/JackZhao98/tofibot/main/install.sh 
 curl -fsSL https://raw.githubusercontent.com/JackZhao98/tofibot/main/install.sh | sudo bash -s -- --local-only
 ```
 
-Afterwards use `sudo tofi status | start | stop | update | logs | doctor |
-setup-secret | regenerate-cert | uninstall`. `tofi update` keeps your data and restores the previous
+Afterwards use `sudo tofi status | start | stop | update | computers | logs |
+doctor | setup-secret | regenerate-cert | uninstall`. `tofi update` keeps your data and restores the previous
 version automatically if the new one does not come up. `tofi uninstall` keeps all
 data; `tofi uninstall --purge` deletes it. Details: `deploy/self-host/README.md`.
+
+```sh
+sudo tofi status                    # versions (installed / latest), services, every account computer
+sudo tofi update --check            # what an update would change; exit 0 up to date, 10 available
+sudo tofi update                    # apply it (rolls back by itself if the new version fails)
+sudo tofi computers                 # each computer: state, Guest release, pending upgrade, memory, last wake
+sudo tofi computers upgrade --all   # move idle computers off an older Guest; busy ones are deferred
+```
 
 ## Build and run from source
 

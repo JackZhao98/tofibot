@@ -121,8 +121,11 @@ Later accounts are created by the Admin. Then open Settings -> Model provider.
 
 | Command | Effect |
 |---|---|
-| `tofi status` | Journal phase, container states, health, URLs and certificate fingerprint (JSON; in a terminal the install summary first) |
+| `tofi status [--json]` | Installed and latest version, App/Worker images, Guest release, services, health, URLs, certificate fingerprint and one row per account computer (in a terminal the install summary first) |
+| `tofi computers [--json]` | The account computer rows alone: state, Guest release, pending upgrade, memory, last wake |
+| `tofi computers upgrade --all \| --account <id> [--force]` | Move computers on an older Guest release to the installed one (idle ones now, busy ones deferred unless `--force`), then remove Guest releases no computer uses |
 | `tofi start` / `tofi stop` | Start (Worker first, readiness, App) / stop cleanly; never removes data |
+| `tofi update --check [--version X] [--json]` | Report what an update would change (versions, image digests, Guest, data schema, effect on computers) without touching anything; exit 0 up to date, 10 update available, 1 error |
 | `tofi update [--version X] [--allow-schema-change]` | Pull and check the new images and Guest before stopping anything; refuse a different `io.tofi.data-schema` unless allowed; on failure restore the previous images, Guest pin and host files with the current data ("update rejected; previous version restored") |
 | `tofi uninstall` | Stop and remove containers; keep `/etc/tofi`, `/var/lib/tofi`, images, AppArmor profile; journal `stopped-retained` |
 | `tofi uninstall --purge` | After you type the hostname: remove containers, images, profile, unit and every TOFI directory including all data |
@@ -132,8 +135,115 @@ Later accounts are created by the Admin. Then open Settings -> Model provider.
 | `tofi doctor` | Check KVM, cgroup, profile, `/run/tofi`, Worker config, Guest release, images, disk, health |
 | `tofi version` | Host tool, installed release and images |
 
-Mutating commands (`install`, `start`, `stop`, `update`, `uninstall`) take the
-host lock; a second one at the same time is refused.
+Mutating commands (`install`, `start`, `stop`, `update`, `uninstall`,
+`computers upgrade`, `regenerate-cert`) take the host lock; a second one at the
+same time is refused.
+
+## Versions and account computers
+
+`tofi status` shows what is installed and what `tofi update` would install:
+
+```
+$ sudo tofi status
+TOFI v0.1.0 · installed · healthy
+  Latest       v0.2.0 available · sudo tofi update --check
+  App          ghcr.io/jackzhao98/tofi@sha256:111111111111
+  Worker       ghcr.io/jackzhao98/tofi-worker@sha256:111111111111
+  Guest        v0.1.0
+  Services     app healthy · worker running
+
+Computers (4)
+  ACCOUNT   STATE       GUEST   UPGRADE  MEMORY   LAST WAKE
+  3f2a9c1e  running     v0.1.0  -        612 MiB  restore 2.1s
+  9b77d0aa  hibernated  v0.0.9  pending  -        -
+  c0ffee00  stopped     -       -        -        -
+  e1e1e1e1  running     v0.1.0  -        612 MiB  cold boot 14.2s
+
+  1 computer is on an older Guest than v0.1.0; a hibernated one cold-boots on v0.1.0 at its next use.
+  Switch now: sudo tofi computers upgrade --all
+```
+
+"Latest" is the newest published release (`releases/latest`, which never
+serves `-rc` prereleases), checked at most every 6 hours and cached in
+`/var/cache/tofi/latest-release.json`; offline it shows the last answer or
+"unknown" and never fails. A computer's state is `running`, `starting`,
+`restarting`, `hibernating`, `hibernated`, `stopped`, `unresponsive` (its
+guest stopped answering), `error` or `disabled`. GUEST is the release a running
+computer runs, or the one a hibernated computer's snapshot was taken with; a
+stopped computer has none (its next start uses the installed Guest). MEMORY is
+the Firecracker process RSS. The rows come from the Worker broker (`computers`
+operation) and each computer's control socket (`/v1/info`, `/v1/resources`,
+`/v1/health`), asked as uid 10001 like the readiness probe; asking never starts
+or wakes a computer.
+
+Before updating:
+
+```
+$ sudo tofi update --check
+Installed    v0.1.0
+Available    v0.2.0  (update available)
+
+  COMPONENT      INSTALLED             AVAILABLE
+  Host bundle    v0.1.0                v0.2.0                changes
+  App image      sha256:111111111111   sha256:222222222222   changes
+  Worker image   sha256:111111111111   sha256:222222222222   changes
+  Guest release  v0.1.0                v0.2.0                changes
+  Data schema    tofi-account-data-v1  tofi-account-data-v1  compatible
+
+Computers    4 total: 2 running, 1 hibernated
+  The update restarts the Worker: running computers are hibernated first.
+  e1e1e1e1 is busy (run_lease): its current task is interrupted.
+  The Guest changes to v0.2.0: each of them cold-boots on it at its next use (open pages are not kept; the workspace disk is).
+
+Apply with: sudo tofi update
+$ echo $?
+10
+```
+
+`--version X` checks a specific release; `--json` prints the same report for
+scripts. Exit code 0 means up to date, 10 an update is available, anything else
+an error (for example no network).
+
+What an update does to the computers: every computer runs inside the Worker
+container, which only mounts the installed Guest release, so `tofi update`
+(which restarts the Worker) hibernates each running computer and nothing keeps
+running on the old Guest. A hibernation snapshot belongs to the release it was
+taken with (Firecracker, kernel and root filesystem); under a new Guest the
+computer cold-boots from its workspace disk at its next use instead of
+restoring, so open pages are lost but files are kept. Busy work (a Bot run, a
+viewer, a terminal job) is interrupted by the update; check with
+`tofi update --check` first.
+
+Guest releases stay on disk while anything needs them: the installed one, the
+previous one (for rollback) and every release a hibernated computer's snapshot
+was taken with (a rollback to it restores those computers with their pages).
+`tofi computers upgrade` makes the switch explicit and frees that space:
+
+```
+$ sudo tofi computers upgrade --all
+  ACCOUNT   STATE       FROM    TO      RESULT    NOTE
+  3f2a9c1e  running     v0.0.9  v0.1.0  upgraded  stopped; next start boots v0.1.0
+  9b77d0aa  hibernated  v0.0.9  v0.1.0  upgraded  snapshot discarded; next start boots v0.1.0
+  c0ffee00  stopped     -       v0.1.0  current   next start boots v0.1.0
+  e1e1e1e1  running     v0.0.9  v0.1.0  deferred  busy (run_lease); retry when idle or use --force
+
+  1 current, 1 deferred, 2 upgraded
+  Removed unused Guest releases: v0.0.9
+```
+
+For each computer on an older Guest: a hibernated one has its old snapshot
+discarded (the workspace disk stays); an idle running one is stopped; a busy
+one (Bot run lease, live viewer, human control, desktop operation, terminal job
+or output, or no answer) is reported `deferred` and left alone. Nothing is
+started: each computer boots the installed Guest when it is next used.
+`--account <id>` takes a full account id or an 8+ character prefix. `--force`
+also stops busy computers after you type `yes` on the terminal (without a
+terminal, `--force` alone decides); their running tasks are interrupted.
+Afterwards Guest releases that are neither installed nor used by a remaining
+computer are removed. Exit code 0: every chosen computer is on the installed
+Guest; 2: some were deferred; 1: an error. The host stays in phase `installed`
+(services keep running); the outcome is recorded as `last_computers_upgrade` in
+the journal.
 
 ## Files
 
@@ -152,7 +262,8 @@ host lock; a second one at the same time is refused.
 /etc/systemd/system/tofi.service
 /var/lib/tofi/data/            App data (uid 10001, 0700)
 /var/lib/tofi/worker/          Worker state, ledger, account disks (root, 0700)
-/var/lib/tofi/guest/<ver>/     sealed Guest release (0555)
+/var/lib/tofi/guest/<ver>/     sealed Guest releases (0555): installed, previous, and any a snapshot uses
+/var/cache/tofi/latest-release.json  last answer of the latest-release check
 /var/lib/tofi/caddy/           certificates (with --domain)
 /run/tofi/{broker.sock,accounts/}
 ```
@@ -235,6 +346,8 @@ then also checks that the session cookie is `Secure`.
 - Behind Caddy the App does not see TLS, so session cookies lack `Secure`
   (no `X-Forwarded-Proto` support yet).
 - A new Guest release on update must boot accounts created under the previous
-  one; covered only by clean-host acceptance.
+  one. The Worker regenerates each computer's manager config for the new release
+  on its next start (an older Worker refused with "existing generated artifact
+  differs"); covered by unit tests and only by clean-host acceptance on KVM.
 - Not supported: container-only computers, macOS/Windows servers, adopting an
   existing deployment, multi-node, unattended updates, backups beyond retained data.
