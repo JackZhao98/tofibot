@@ -17,7 +17,8 @@ func TestHibernatedComputerActionGoesToTheManagerWithoutPreparing(t *testing.T) 
 		switch r.URL.Path {
 		case "/v1/info":
 			_ = json.NewEncoder(w).Encode(map[string]any{"kind": "firecracker", "state": "hibernated", "hibernation": true,
-				"hibernated_at": "2026-10-08T00:00:00Z", "last_wake": map[string]any{"kind": "restore", "seconds": 1.6}})
+				"hibernated_at": "2026-10-08T00:00:00Z", "last_wake": map[string]any{"kind": "restore", "seconds": 1.6, "clock_synced": true,
+					"storage_seconds": 0.04, "image_attach": map[string]any{"rootfs.ext4": "bind", "vmlinux": "bind"}}})
 		case "/v1/prepare", "/v1/retry":
 			prepares.Add(1)
 		case "/v1/action":
@@ -43,5 +44,11 @@ func TestHibernatedComputerActionGoesToTheManagerWithoutPreparing(t *testing.T) 
 	info, err := c.Info(ctx)
 	if err != nil || !info.Hibernation || info.HibernatedAt == "" || info.LastWake == nil || info.LastWake.Kind != "restore" {
 		t.Fatalf("info = %+v %v", info, err)
+	}
+	// The manager's wake diagnostics reach the App's info API unchanged.
+	wake := info.LastWake
+	if wake.StorageSeconds == nil || *wake.StorageSeconds != 0.04 || wake.ClockSynced == nil || !*wake.ClockSynced ||
+		wake.ImageAttach["rootfs.ext4"] != "bind" || wake.ImageAttach["vmlinux"] != "bind" {
+		t.Fatalf("last_wake = %+v", wake)
 	}
 }
