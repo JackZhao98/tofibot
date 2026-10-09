@@ -27,23 +27,52 @@
   },
   "shell": {
     "group": {
-      "preferences": "個人設定",
+      "you": "あなた",
+      "bots": "Bot が使うもの",
       "workspace": "ワークスペース",
-      "advanced": "詳細",
-      "admin": "管理"
+      "system": "システム"
     },
     "page": {
-      "account": { "name": "一般", "description": "Tofi を毎日の使い方に合わせる" },
-      "models": { "name": "モデルと推論", "description": "グローバル設定に従う Bot のモデルと推論の強さ" },
-      "dictate": { "name": "音声入力", "description": "音声入力のモデルを選ぶ" },
-      "usage": { "name": "使用量", "description": "Agent ごとのモデル使用量とコンテキスト圧縮の状況" },
-      "computers": { "name": "コンピュータとリソース", "description": "共有 Linux コンピュータ、ストレージ、実行リソース" },
-      "credentials": { "name": "キーと環境", "description": "コンピュータで使う環境変数と SSH キーを設定" },
-      "mcp": { "name": "ツール", "description": "外部サービスに接続して Bot の機能を広げる" },
-      "skills": { "name": "Skills", "description": "再利用できる作業手順を管理" },
-      "connection": { "name": "モデルと接続", "description": "Codex に接続するか OpenAI・Claude の APIキーを追加し、サーバー接続を確認" },
-      "debug": { "name": "デバッグ" },
-      "admin": { "name": "Admin コンソール", "description": "アカウントの招待・管理・無効化" }
+      "general": {
+        "name": "一般",
+        "description": "Tofi を毎日の使い方に合わせる"
+      },
+      "connections": {
+        "name": "接続",
+        "description": "外部サービスに接続して Bot の機能を広げる"
+      },
+      "skills": {
+        "name": "Skills",
+        "description": "再利用できる作業手順を管理"
+      },
+      "approvals": {
+        "name": "承認",
+        "description": "Bot の操作を実行前に誰が確認するかを決めます。"
+      },
+      "models": {
+        "name": "モデル",
+        "description": "Bot の頭脳の提供元と、既定で使うモデル。"
+      },
+      "computer": {
+        "name": "コンピュータ",
+        "description": "共有 Linux コンピュータ、ストレージ、実行リソース"
+      },
+      "keys": {
+        "name": "キーとシークレット",
+        "description": "コンピュータで使う環境変数と SSH キーを設定"
+      },
+      "usage": {
+        "name": "使用量",
+        "description": "Agent ごとのモデル使用量とコンテキスト圧縮の状況"
+      },
+      "advanced": {
+        "name": "詳細設定",
+        "description": "サーバー情報、データ移行、デバッグ、最初からやり直す。"
+      },
+      "admin": {
+        "name": "Admin コンソール",
+        "description": "アカウントの招待・管理・無効化"
+      }
     },
     "category": "設定カテゴリ",
     "title": "設定",
@@ -56,7 +85,23 @@
     "leave_close": "設定を閉じると、保存していない入力は失われます。",
     "leave_switch": "カテゴリを切り替える前に、変更を保存するか破棄してください。",
     "keep_editing": "編集を続ける",
-    "save_continue": "保存して続ける"
+    "save_continue": "保存して続ける",
+    "back": "戻る",
+    "attention": "要対応：{{count}}",
+    "account": {
+      "role": {
+        "admin": "管理者",
+        "member": "メンバー"
+      }
+    },
+    "hint": {
+      "computer": {
+        "ready": "稼働中",
+        "starting": "起動中",
+        "stopped": "停止中",
+        "waiting": "待機中"
+      }
+    }
   },
   "appearance": {
     "title": "外観",
@@ -78,7 +123,7 @@
     "legacy_effort": "以前の設定を使う（{{effort}}）",
     "model_default": "モデルの既定",
     "model_default_effort": "モデルの既定（{{effort}}）",
-    "no_models": "使えるモデルがまだありません。設定の「モデルと接続」で Codex に接続するか、OpenAI / Claude の APIキーを追加してください。",
+    "no_models": "使えるモデルがまだありません。設定の「モデル」で Codex に接続するか、OpenAI / Claude の APIキーを追加してください。",
     "open_settings": "設定を開く",
     "cached_list": "最後に取得したモデル一覧を表示しています。",
     "partial_list": "一部のプロバイダのモデル一覧を現在取得できません。",
@@ -87,10 +132,11 @@
     "note_following": "設定の「モデル」ページにあるグローバルのモデルと推論の強さを使います。グローバル設定の変更は次のメッセージから反映されます。Bot のモデルを切り替えても、保存済みのメモリとチャット履歴は残ります。メモリは各 Bot またはグループに保存され、モデルによって使われ方が異なる場合があります。",
     "choose_first": "先にモデルを選んでください。",
     "saved": "保存しました。グローバルに従う Bot は次のメッセージからこの設定を使います。",
-    "global_title": "グローバルモデル",
+    "global_title": "新しい Bot の既定値",
     "global_description": "「グローバルに従う」に設定した Bot は、ここのモデルと推論の強さを使います。新しい Bot は既定でグローバルに従います。",
     "global_description_followers_other": "「グローバルに従う」に設定した Bot は、ここのモデルと推論の強さを使います。現在 {{count}} 個の Bot が従っています。新しい Bot は既定でグローバルに従います。",
-    "global_description_no_followers": "「グローバルに従う」に設定した Bot は、ここのモデルと推論の強さを使います。現在従っている Bot はありません。新しい Bot は既定でグローバルに従います。"
+    "global_description_no_followers": "「グローバルに従う」に設定した Bot は、ここのモデルと推論の強さを使います。現在従っている Bot はありません。新しい Bot は既定でグローバルに従います。",
+    "effort_hint": "モデルの既定：{{effort}}"
   },
   "effort": {
     "none": "オフ",
@@ -279,7 +325,7 @@
     "model_label": "文字起こしモデル",
     "api_price": "API 参考価格 {{cost}}",
     "codex_account": "接続済みの Codex アカウントを使います。",
-    "not_configured": "接続設定で Codex に接続するか、サーバー側の文字起こし用 APIキーを設定してください。",
+    "not_configured": "「モデル」ページで Codex に接続するか、サーバー側の文字起こし用 APIキーを設定してください。",
     "loading": "Dictate の設定を読み込み中…",
     "needs_https": "音声入力には HTTPS が必要です。HTTPS で Tofi を開いてください。",
     "unsupported_browser": "このブラウザは録音による音声入力に対応していません。",
@@ -288,7 +334,18 @@
     "unavailable": "現在、音声入力は使用できません。",
     "recording_failed": "録音に失敗しました。マイクの権限を確認してからもう一度お試しください。",
     "permission_needed": "音声入力を始めるにはマイクの権限が必要です。",
-    "start_failed": "録音を開始できませんでした。マイクを確認してからもう一度お試しください。"
+    "start_failed": "録音を開始できませんでした。マイクを確認してからもう一度お試しください。",
+    "title": "音声入力",
+    "model": {
+      "gpt-4o-mini-transcribe": {
+        "hint": "低コストで、日常の音声入力向き。",
+        "price": "$0.003 / 分"
+      },
+      "gpt-4o-transcribe": {
+        "hint": "認識精度は高めで、コストも高め。",
+        "price": "$0.006 / 分"
+      }
+    }
   },
   "purge": {
     "failed": "リセットに失敗しました。しばらくしてからもう一度お試しください。",
@@ -375,5 +432,33 @@
       "file_oversized": "パッケージが大きすぎます。",
       "decrypt_failed": "復号できませんでした。パスフレーズ、ファイルのバージョン、ファイルの破損を確認してください。"
     }
+  },
+  "status": {
+    "ok": "接続済み",
+    "need": "要設定",
+    "bad": "失敗",
+    "asleep": "スリープ中",
+    "testing": "確認中"
+  },
+  "banner": {
+    "details": "技術的な詳細"
+  },
+  "general": {
+    "region": "言語と地域",
+    "moved_title": "エクスポート、サーバー情報、最初からやり直す機能をお探しですか？",
+    "moved_body": "これらは「詳細設定」に移動しました。",
+    "open_advanced": "「詳細設定」を開く"
+  },
+  "approvals": {
+    "heading": "レビュアー",
+    "draft_label": "レビュアー",
+    "soon_title": "操作の設定は今後追加されます",
+    "soon_body": "信頼の既定値と常に許可するルールは、接続のアップデートで追加されます。"
+  },
+  "advanced": {
+    "server": "サーバー",
+    "data": "データ",
+    "debug": "デバッグ",
+    "danger": "危険な操作"
   }
 }

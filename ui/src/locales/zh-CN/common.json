@@ -2,7 +2,7 @@
   "nav": {
     "settings": "设置",
     "usage": "用量",
-    "connection": "服务器与连接",
+    "connection": "模型与提供方",
     "archived": "已归档的对话"
   },
   "theme": {

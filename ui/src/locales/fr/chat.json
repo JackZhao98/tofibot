@@ -8,7 +8,7 @@
     "archive_blocked": "Cette conversation est archivée. Restaurez-la pour envoyer des messages.",
     "archive_busy": "Des tâches sont encore en cours. Attendez qu’elles se terminent ou arrêtez-les avant d’archiver.",
     "delete_busy": "Des tâches liées sont encore en cours. Arrêtez-les, puis réessayez de supprimer.",
-    "model_unconfigured": "Aucun modèle configuré. Connectez Codex ou ajoutez une clé API dans Réglages › Modèles et connexions.",
+    "model_unconfigured": "Aucun modèle configuré. Connectez Codex ou ajoutez une clé API dans Réglages › Modèles.",
     "no_active_members": "Ce groupe n’a aucun membre actif. Après la restauration, ajoutez au moins un Bot."
   },
   "attachment": {

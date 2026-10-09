@@ -27,23 +27,52 @@
   },
   "shell": {
     "group": {
-      "preferences": "Préférences",
+      "you": "Vous",
+      "bots": "Utilisé par les Bots",
       "workspace": "Espace de travail",
-      "advanced": "Avancé",
-      "admin": "Administration"
+      "system": "Système"
     },
     "page": {
-      "account": { "name": "Général", "description": "Adaptez Tofi à votre quotidien" },
-      "models": { "name": "Modèles et raisonnement", "description": "Modèle et effort de raisonnement des Bots qui suivent le réglage global" },
-      "dictate": { "name": "Dictée", "description": "Choisir le modèle de dictée" },
-      "usage": { "name": "Utilisation", "description": "Consommation des modèles et compression du contexte par agent" },
-      "computers": { "name": "Ordinateurs et ressources", "description": "Ordinateur Linux partagé, stockage et ressources d’exécution" },
-      "credentials": { "name": "Clés et environnement", "description": "Variables d’environnement et clés SSH de l’ordinateur" },
-      "mcp": { "name": "Outils", "description": "Connectez des services externes pour étendre les Bots" },
-      "skills": { "name": "Skills", "description": "Gérer des méthodes de travail réutilisables" },
-      "connection": { "name": "Modèles et connexion", "description": "Connectez Codex ou ajoutez une clé API OpenAI ou Claude, et consultez la connexion au serveur" },
-      "debug": { "name": "Débogage" },
-      "admin": { "name": "Console Admin", "description": "Inviter, gérer et désactiver des comptes" }
+      "general": {
+        "name": "Général",
+        "description": "Adaptez Tofi à votre quotidien"
+      },
+      "connections": {
+        "name": "Connexions",
+        "description": "Connectez des services externes pour étendre les Bots"
+      },
+      "skills": {
+        "name": "Skills",
+        "description": "Gérer des méthodes de travail réutilisables"
+      },
+      "approvals": {
+        "name": "Approbations",
+        "description": "Qui vérifie les actions d’un Bot avant leur exécution."
+      },
+      "models": {
+        "name": "Modèles",
+        "description": "D’où viennent les modèles des Bots et lequel est utilisé par défaut."
+      },
+      "computer": {
+        "name": "Ordinateur",
+        "description": "Ordinateur Linux partagé, stockage et ressources d’exécution"
+      },
+      "keys": {
+        "name": "Clés et secrets",
+        "description": "Variables d’environnement et clés SSH de l’ordinateur"
+      },
+      "usage": {
+        "name": "Utilisation",
+        "description": "Consommation des modèles et compression du contexte par agent"
+      },
+      "advanced": {
+        "name": "Avancé",
+        "description": "Infos serveur, transfert de données, débogage et réinitialisation."
+      },
+      "admin": {
+        "name": "Console Admin",
+        "description": "Inviter, gérer et désactiver des comptes"
+      }
     },
     "category": "Catégorie de réglages",
     "title": "Réglages",
@@ -56,7 +85,23 @@
     "leave_close": "Fermer les réglages efface ce que vous n’avez pas enregistré.",
     "leave_switch": "Enregistrez ou annulez vos modifications avant de changer de catégorie.",
     "keep_editing": "Continuer à modifier",
-    "save_continue": "Enregistrer et continuer"
+    "save_continue": "Enregistrer et continuer",
+    "back": "Retour",
+    "attention": "À traiter : {{count}}",
+    "account": {
+      "role": {
+        "admin": "Admin",
+        "member": "Membre"
+      }
+    },
+    "hint": {
+      "computer": {
+        "ready": "En marche",
+        "starting": "Démarrage",
+        "stopped": "Arrêté",
+        "waiting": "En attente"
+      }
+    }
   },
   "appearance": {
     "title": "Apparence",
@@ -78,7 +123,7 @@
     "legacy_effort": "Garder l’ancien réglage ({{effort}})",
     "model_default": "Par défaut du modèle",
     "model_default_effort": "Par défaut du modèle ({{effort}})",
-    "no_models": "Aucun modèle disponible pour l’instant. Connectez Codex dans Réglages, page Modèles et connexion, ou ajoutez une clé API OpenAI ou Claude.",
+    "no_models": "Aucun modèle disponible pour l’instant. Connectez Codex dans Réglages, page Modèles, ou ajoutez une clé API OpenAI ou Claude.",
     "open_settings": "Ouvrir les réglages",
     "cached_list": "Affichage de la dernière liste de modèles récupérée.",
     "partial_list": "Les listes de modèles de certains fournisseurs sont indisponibles pour le moment.",
@@ -87,12 +132,13 @@
     "note_following": "Utilise le modèle et l’effort de raisonnement globaux de la page Modèles des réglages. Les changements globaux s’appliquent dès le message suivant. Changer le modèle d’un Bot conserve ses souvenirs et son historique de discussion. Les souvenirs restent attachés à leur Bot ou groupe ; chaque modèle peut les exploiter différemment.",
     "choose_first": "Choisissez d’abord un modèle.",
     "saved": "Enregistré. Les Bots qui suivent le global l’utilisent dès leur prochain message.",
-    "global_title": "Modèle global",
+    "global_title": "Valeurs par défaut des nouveaux Bots",
     "global_description": "Les Bots réglés sur « Suivre le global » utilisent ce modèle et cet effort de raisonnement. Les nouveaux Bots suivent le global par défaut.",
     "global_description_followers_one": "Les Bots réglés sur « Suivre le global » utilisent ce modèle et cet effort de raisonnement ; {{count}} Bot le suit actuellement. Les nouveaux Bots suivent le global par défaut.",
     "global_description_followers_many": "Les Bots réglés sur « Suivre le global » utilisent ce modèle et cet effort de raisonnement ; {{count}} de Bots le suivent actuellement. Les nouveaux Bots suivent le global par défaut.",
     "global_description_followers_other": "Les Bots réglés sur « Suivre le global » utilisent ce modèle et cet effort de raisonnement ; {{count}} Bots le suivent actuellement. Les nouveaux Bots suivent le global par défaut.",
-    "global_description_no_followers": "Les Bots réglés sur « Suivre le global » utilisent ce modèle et cet effort de raisonnement ; aucun Bot ne le suit actuellement. Les nouveaux Bots suivent le global par défaut."
+    "global_description_no_followers": "Les Bots réglés sur « Suivre le global » utilisent ce modèle et cet effort de raisonnement ; aucun Bot ne le suit actuellement. Les nouveaux Bots suivent le global par défaut.",
+    "effort_hint": "Valeur par défaut du modèle : {{effort}}"
   },
   "effort": {
     "none": "Désactivé",
@@ -289,7 +335,7 @@
     "model_label": "Modèle de transcription",
     "api_price": "Prix de référence API {{cost}}",
     "codex_account": "Utilise votre compte Codex connecté.",
-    "not_configured": "Connectez Codex dans les réglages de connexion, ou configurez une clé API de transcription côté serveur.",
+    "not_configured": "Connectez Codex dans la page Modèles, ou configurez une clé API de transcription côté serveur.",
     "loading": "Chargement des réglages de Dictate…",
     "needs_https": "La dictée nécessite HTTPS. Ouvrez Tofi en HTTPS.",
     "unsupported_browser": "Ce navigateur ne prend pas en charge l’enregistrement pour la dictée.",
@@ -298,7 +344,18 @@
     "unavailable": "La dictée est indisponible pour le moment.",
     "recording_failed": "Échec de l’enregistrement. Vérifiez l’autorisation du microphone et réessayez.",
     "permission_needed": "La dictée nécessite l’autorisation du microphone.",
-    "start_failed": "Impossible de démarrer l’enregistrement. Vérifiez votre microphone et réessayez."
+    "start_failed": "Impossible de démarrer l’enregistrement. Vérifiez votre microphone et réessayez.",
+    "title": "Dictée",
+    "model": {
+      "gpt-4o-mini-transcribe": {
+        "hint": "Moins cher, adapté à un usage courant.",
+        "price": "0,003 $ / min"
+      },
+      "gpt-4o-transcribe": {
+        "hint": "Meilleure précision, coût plus élevé.",
+        "price": "0,006 $ / min"
+      }
+    }
   },
   "purge": {
     "failed": "Échec de la réinitialisation. Réessayez plus tard.",
@@ -393,5 +450,33 @@
       "file_oversized": "Le paquet est trop volumineux.",
       "decrypt_failed": "Déchiffrement impossible. Vérifiez la phrase secrète, la version du fichier et s’il est endommagé."
     }
+  },
+  "status": {
+    "ok": "Connecté",
+    "need": "À configurer",
+    "bad": "Échec",
+    "asleep": "En veille",
+    "testing": "Vérification"
+  },
+  "banner": {
+    "details": "Détails techniques"
+  },
+  "general": {
+    "region": "Langue et région",
+    "moved_title": "Vous cherchez l’export, les infos serveur ou Repartir de zéro ?",
+    "moved_body": "Ils se trouvent désormais dans Avancé.",
+    "open_advanced": "Ouvrir Avancé"
+  },
+  "approvals": {
+    "heading": "Relecteur",
+    "draft_label": "Relecteur",
+    "soon_title": "D’autres réglages arrivent",
+    "soon_body": "Les valeurs de confiance par défaut et les règles toujours autorisées arriveront avec la mise à jour des Connexions."
+  },
+  "advanced": {
+    "server": "Serveur",
+    "data": "Données",
+    "debug": "Débogage",
+    "danger": "Zone de danger"
   }
 }
