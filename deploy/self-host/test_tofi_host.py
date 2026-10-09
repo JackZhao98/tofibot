@@ -1001,11 +1001,10 @@ class StatusTests(ComputerCase):
                 mock.patch.object(tofi_host, 'health', return_value=True):
             code, out = self.main('status')
         self.assertEqual(code, 0)
-        self.assertIn('TOFI %s · installed · healthy\n' % OLD, out)
-        self.assertIn('  Latest       %s available · sudo tofi update --check\n' % NEW, out)
-        self.assertIn('  App          ghcr.io/jackzhao98/tofi@sha256:111111111111\n', out)
-        self.assertIn('  Guest        %s\n' % OLD, out)
-        self.assertIn('Computers (4)\n', out)
+        self.assertIn('tofi %s · healthy\n' % OLD, out)
+        self.assertIn('  Version      %s · %s available · sudo tofi update\n' % (OLD, NEW), out)
+        self.assertNotIn('ghcr.io', out)
+        self.assertIn('  Computers    4 · 1 running · 1 hibernated · 1 stopped · 1 unresponsive\n', out)
         self.assertIn('  ACCOUNT   STATE         GUEST   UPGRADE  MEMORY   LAST WAKE\n', out)
         self.assertIn('  3f2a9c1e  running       v0.1.0  -        612 MiB  restore 2.1s\n', out)
         self.assertIn('  9b77d0aa  hibernated    v0.0.9  pending  -        -\n', out)
@@ -1013,7 +1012,8 @@ class StatusTests(ComputerCase):
         self.assertIn('  d00dfeed  unresponsive  v0.1.0  -        612 MiB  -\n', out)
         self.assertIn('1 computer is on an older Guest than v0.1.0', out)
         self.assertIn('Switch now: sudo tofi computers upgrade --all', out)
-        self.assertIn('  Open         ', out)  # not a terminal: no banner, so access lines are here
+        self.assertIn('  Open         ', out)
+        self.assertNotIn('\033', out)
 
     def test_status_survives_a_stopped_worker_and_offline_release_check(self):
         self.installed()
@@ -1024,7 +1024,8 @@ class StatusTests(ComputerCase):
             code, out = self.main('status')
         self.assertEqual(code, 0)
         self.assertIn('NOT healthy', out)
-        self.assertIn('  Latest       unknown (Cannot download the release manifest (offline).)\n', out)
+        self.assertIn("  Version      %s · couldn't check for updates\n" % OLD, out)
+        self.assertNotIn('Cannot download', out)
         self.assertIn('Computers    unknown (The Worker is not running', out)
 
     def test_latest_release_is_cached_and_kept_offline(self):
@@ -1421,6 +1422,142 @@ class TLSTests(HostCase):
             result = tofi_host.status()
         self.assertEqual(result['urls'], ['https://10.0.10.39:8321', 'https://192.168.7.2:8321'])
         self.assertEqual(result['certificate_sha256'], tofi_host.certificate_fingerprint())
+
+
+STATUS_FP = ':'.join('%02X' % n for n in range(1, 33))
+STATUS_KEY = 'synthetic-setup-key-never-print-me'
+
+
+def status_result(**extra):
+    result = {
+        'phase': 'installed', 'version': 'v0.1.0-rc.12', 'healthy': True,
+        'services': {'app': 'healthy', 'worker': 'running'},
+        'urls': ['https://10.0.10.56:8321'], 'certificate_sha256': STATUS_FP,
+        'setup_key_pending': True, 'setup_key': STATUS_KEY,
+        'versions': {'installed': 'v0.1.0-rc.12', 'latest': None, 'update_available': False,
+                     'latest_error': 'Cannot download the release manifest https://github.com/x/releases/latest/'
+                                     'download/manifest.json (HTTP Error 404: Not Found).',
+                     'latest_checked_at': None, 'app_image': image('app', 'a'), 'worker_image': image('worker', 'b'),
+                     'guest': 'v0.1.0-rc.12'},
+        'computers': [],
+    }
+    result.update(extra)
+    return result
+
+
+def status_versions(**values):
+    result = status_result()
+    result['versions'].update(values)
+    return result
+
+
+class RenderStatusTests(unittest.TestCase):
+    ACCESS = {'domain': '', 'port': '8321', 'local_only': False}
+
+    def render(self, result=None, **kwargs):
+        kwargs.setdefault('access', self.ACCESS)
+        return tofi_host.render_status(result or status_result(), **kwargs)
+
+    def test_default_view_is_compact(self):
+        text = self.render()
+        self.assertTrue(text.startswith('tofi v0.1.0-rc.12 · healthy\n\n'), text)
+        self.assertIn('  Open         https://10.0.10.56:8321\n', text)
+        self.assertIn('  Certificate  SHA256 01:02:03:04 … 1D:1E:1F:20\n', text)
+        self.assertIn('  Admin        not created yet · sudo tofi setup-secret\n', text)
+        self.assertIn('  Version      v0.1.0-rc.12 · no stable release yet\n', text)
+        self.assertIn('  Services     app healthy · worker running\n', text)
+        self.assertIn('  Computers    none yet\n', text)
+        self.assertTrue(text.endswith('\n  tofi update · tofi logs · tofi computers · tofi doctor\n'))
+        for noise in ('App ', 'Worker', 'Guest', 'ghcr.io', 'github.com', 'HTTP Error', STATUS_FP):
+            self.assertNotIn(noise, text)
+        self.assertTrue(all(len(line) <= 80 for line in text.splitlines()), text)
+
+    def test_setup_key_value_is_never_printed(self):
+        for verbose in (False, True):
+            self.assertNotIn(STATUS_KEY, self.render(verbose=verbose))
+
+    def test_no_admin_row_once_the_admin_exists(self):
+        text = self.render(status_result(setup_key_pending=False))
+        self.assertNotIn('Admin', text)
+
+    def test_update_available(self):
+        text = self.render(status_versions(latest='v0.1.0', update_available=True, latest_error=None))
+        self.assertIn('  Version      v0.1.0-rc.12 · v0.1.0 available · sudo tofi update\n', text)
+
+    def test_up_to_date(self):
+        text = self.render(status_versions(latest='v0.1.0-rc.12', latest_error=None))
+        self.assertIn('  Version      v0.1.0-rc.12 · up to date\n', text)
+
+    def test_other_check_error(self):
+        text = self.render(status_versions(latest_error='Cannot download the release manifest (timed out).'))
+        self.assertIn("  Version      v0.1.0-rc.12 · couldn't check for updates\n", text)
+        self.assertNotIn('timed out', text)
+
+    def test_stale_latest_with_error_is_not_a_failure_in_default_view(self):
+        text = self.render(status_versions(latest='v0.1.0-rc.12', latest_error='offline',
+                                           latest_checked_at='2026-10-08T01:00:00Z'))
+        self.assertIn('· up to date\n', text)
+        self.assertNotIn('offline', text)
+        self.assertIn('checked 2026-10-08T01:00:00Z, offline now', self.render(
+            status_versions(latest='v0.1.0-rc.12', latest_error='offline',
+                            latest_checked_at='2026-10-08T01:00:00Z'), verbose=True))
+
+    def test_domain_install_has_no_certificate_row(self):
+        text = self.render(status_result(urls=['https://tofi.example.com']),
+                           access={'domain': 'tofi.example.com', 'port': '443', 'local_only': False})
+        self.assertIn('  Open         https://tofi.example.com\n', text)
+        self.assertNotIn('Certificate', text)
+
+    def test_local_only_hint(self):
+        text = self.render(status_result(urls=['https://127.0.0.1:8321']),
+                           access={'domain': '', 'port': '8321', 'local_only': True})
+        self.assertIn('  Open         https://127.0.0.1:8321\n'
+                      '               this server only · ssh -L 8321:127.0.0.1:8321 <user>@<server>\n', text)
+
+    def test_several_urls(self):
+        text = self.render(status_result(urls=['https://10.0.10.56:8321', 'https://192.168.7.2:8321']))
+        self.assertIn('  Open         https://10.0.10.56:8321\n               https://192.168.7.2:8321\n', text)
+
+    def test_verbose_adds_images_full_fingerprint_and_raw_error(self):
+        text = self.render(verbose=True)
+        self.assertIn('  Certificate  SHA256 %s\n' % STATUS_FP, text)
+        self.assertIn('  App          ghcr.io/jackzhao98/tofi@sha256:' + 'a' * 12, text)
+        self.assertIn('  Worker       ', text)
+        self.assertIn('  Guest        v0.1.0-rc.12\n', text)
+        self.assertIn('HTTP Error 404', text)
+
+    def test_computers_summary_and_table(self):
+        rows = [{'short': 'aaaaaaaa', 'state': 'running', 'release': OLD, 'upgrade_pending': False,
+                 'memory_rss_mib': 600, 'last_wake': None},
+                {'short': 'bbbbbbbb', 'state': 'hibernated', 'release': OLD, 'upgrade_pending': False,
+                 'memory_rss_mib': None, 'last_wake': None}]
+        with mock.patch.object(tofi_host, 'describe_wake', return_value='-'):
+            text = self.render(status_result(computers=rows))
+        self.assertIn('  Computers    2 · 1 running · 1 hibernated\n', text)
+        self.assertIn('  ACCOUNT   STATE', text)
+        self.assertIn('  aaaaaaaa  running', text)
+
+    def test_computers_error(self):
+        text = self.render(status_result(computers_error='The Worker is not running'))
+        self.assertIn('  Computers    unknown (The Worker is not running)\n', text)
+
+    def test_not_healthy_and_phase(self):
+        text = self.render(status_result(phase='failed', healthy=False,
+                                         last_error={'message': 'boom'},
+                                         transaction={'kind': 'update', 'step': 'pull'}))
+        self.assertTrue(text.startswith('tofi v0.1.0-rc.12 · NOT healthy · failed\n'))
+        self.assertIn('  Last error   boom\n', text)
+        self.assertIn('  Pending      update at step pull · sudo tofi install resumes it\n', text)
+
+    def test_not_installed(self):
+        self.assertEqual(tofi_host.render_status({'installed': False}),
+                         'TOFI is not installed. Install it with install.sh.\n')
+
+    def test_plain_without_color_mode_and_colored_with_one(self):
+        self.assertNotIn('\033', self.render(mode=None))
+        colored = self.render(mode='256')
+        self.assertIn('\033[', colored)
+        self.assertEqual(re.sub(r'\033\[[0-9;]*m', '', colored), self.render(mode=None))
 
 
 class AddressTests(unittest.TestCase):
