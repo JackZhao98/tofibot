@@ -6,6 +6,7 @@ import { useDebugMode } from "./debugMode";
 import { TofiIcon } from "./icons";
 import { skillCatalog } from "./skillCatalog";
 import { MCPSettings } from "./MCPSettings";
+import { Banner } from "./settings/components";
 import { i18n, useTranslation } from "./i18n";
 import "./extensions-system.css";
 
@@ -40,7 +41,7 @@ function SkillsSettings({refreshToken=0}:{refreshToken?:number}) {
   if(busy)return;setBusy(true);setError("");setNotice("");try{await fn();setNotice(success??t("skills.saved"));await refresh();}catch(e){setError(message(e));}finally{setBusy(false);}
  }
  return <div className="extension-panel">
- {error&&!skillForm&&<p className="error-banner" role="alert">{error}</p>}{notice&&<p className="extension-notice" role="status">{notice}</p>}
+ {error&&!skillForm&&<Banner tone="error" title={error}/>}{notice&&<p className="extension-notice" role="status">{notice}</p>}
    <div className="extension-toolbar"><span className="extension-global">{t("skills.scope")}</span><button className="secondary-button" disabled={busy} onClick={()=>setSkillForm(!skillForm)}><TofiIcon name="plus" size={16}/>{t("skills.install")}</button></div>
    {skillForm&&<form className="extension-form" aria-busy={busy} onSubmit={e=>{e.preventDefault();if(busy)return;if(!/^[a-zA-Z0-9_\-]+$/.test(skillName)||!skillText.trim()){setError(t("skills.error.missing_content"));return;}void act(async()=>{await request("/api/extensions/skills",post({name:skillName,files:{...skillFiles,"SKILL.md":skillText}}));setSkillForm(false);setSkillFiles({});setSkillText("");setSkillName("");});}}>
     <fieldset className="form-fields" disabled={busy}>

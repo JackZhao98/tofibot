@@ -99,19 +99,19 @@
     "task_did_not_finish": "La tâche n’a pas abouti.",
     "model_unconfigured": {
       "codex": "Aucun compte Codex n’est connecté à cet espace de travail, le modèle ne peut donc pas être appelé.",
-      "codex_next": "Connectez un compte dans Réglages › Modèles et connexions, puis réessayez.",
+      "codex_next": "Connectez un compte dans Réglages › Modèles, puis réessayez.",
       "api_key": "Cet espace de travail n’a pas de clé API {{provider}}, ce modèle ne peut donc pas être appelé.",
-      "api_key_next": "Ajoutez une clé API {{provider}} dans Réglages › Modèles et connexions, ou associez le Bot à un modèle connecté, puis réessayez.",
+      "api_key_next": "Ajoutez une clé API {{provider}} dans Réglages › Modèles, ou associez le Bot à un modèle connecté, puis réessayez.",
       "any": "Aucun fournisseur de modèle n’est disponible dans cet espace de travail, le modèle ne peut donc pas être appelé.",
-      "any_next": "Connectez Codex ou ajoutez une clé API dans Réglages › Modèles et connexions, puis réessayez."
+      "any_next": "Connectez Codex ou ajoutez une clé API dans Réglages › Modèles, puis réessayez."
     },
     "model_auth": {
       "codex": "La connexion au compte Codex n’est plus valide et le modèle a refusé cette requête.",
-      "codex_next": "Reconnectez-vous dans Réglages › Modèles et connexions, puis réessayez.",
+      "codex_next": "Reconnectez-vous dans Réglages › Modèles, puis réessayez.",
       "api_key": "La clé API {{provider}} n’est plus valide et le modèle a refusé cette requête.",
-      "api_key_next": "Mettez à jour la clé API {{provider}} dans Réglages › Modèles et connexions, puis réessayez.",
+      "api_key_next": "Mettez à jour la clé API {{provider}} dans Réglages › Modèles, puis réessayez.",
       "any": "Les identifiants du compte du modèle ne sont plus valides et le modèle a refusé cette requête.",
-      "any_next": "Reconnectez-vous ou mettez à jour la clé API dans Réglages › Modèles et connexions, puis réessayez."
+      "any_next": "Reconnectez-vous ou mettez à jour la clé API dans Réglages › Modèles, puis réessayez."
     },
     "model_quota": {
       "codex": "Le compte Codex a atteint sa limite d’utilisation et le modèle a refusé cette requête.",

@@ -99,19 +99,19 @@
     "task_did_not_finish": "Die Aufgabe wurde nicht abgeschlossen.",
     "model_unconfigured": {
       "codex": "In diesem Workspace ist kein Codex-Konto verbunden, daher kann das Modell nicht aufgerufen werden.",
-      "codex_next": "Verbinde unter Einstellungen › Modelle und Verbindungen ein Konto und versuche es dann erneut.",
+      "codex_next": "Verbinde unter Einstellungen › Modelle ein Konto und versuche es dann erneut.",
       "api_key": "In diesem Workspace gibt es keinen API-Schlüssel für {{provider}}, daher kann dieses Modell nicht aufgerufen werden.",
-      "api_key_next": "Füge unter Einstellungen › Modelle und Verbindungen einen API-Schlüssel für {{provider}} hinzu oder stelle den Bot auf ein verbundenes Modell um. Versuche es dann erneut.",
+      "api_key_next": "Füge unter Einstellungen › Modelle einen API-Schlüssel für {{provider}} hinzu oder stelle den Bot auf ein verbundenes Modell um. Versuche es dann erneut.",
       "any": "In diesem Workspace ist kein Modellanbieter verfügbar, daher kann das Modell nicht aufgerufen werden.",
-      "any_next": "Verbinde Codex oder füge unter Einstellungen › Modelle und Verbindungen einen API-Schlüssel hinzu. Versuche es dann erneut."
+      "any_next": "Verbinde Codex oder füge unter Einstellungen › Modelle einen API-Schlüssel hinzu. Versuche es dann erneut."
     },
     "model_auth": {
       "codex": "Die Anmeldung beim Codex-Konto ist nicht mehr gültig, das Modell hat diese Anfrage abgelehnt.",
-      "codex_next": "Verbinde dich unter Einstellungen › Modelle und Verbindungen neu und versuche es dann erneut.",
+      "codex_next": "Verbinde dich unter Einstellungen › Modelle neu und versuche es dann erneut.",
       "api_key": "Der API-Schlüssel für {{provider}} ist nicht mehr gültig, das Modell hat diese Anfrage abgelehnt.",
-      "api_key_next": "Aktualisiere den API-Schlüssel für {{provider}} unter Einstellungen › Modelle und Verbindungen und versuche es dann erneut.",
+      "api_key_next": "Aktualisiere den API-Schlüssel für {{provider}} unter Einstellungen › Modelle und versuche es dann erneut.",
       "any": "Die Zugangsdaten des Modellkontos sind nicht mehr gültig, das Modell hat diese Anfrage abgelehnt.",
-      "any_next": "Verbinde dich neu oder aktualisiere den API-Schlüssel unter Einstellungen › Modelle und Verbindungen. Versuche es dann erneut."
+      "any_next": "Verbinde dich neu oder aktualisiere den API-Schlüssel unter Einstellungen › Modelle. Versuche es dann erneut."
     },
     "model_quota": {
       "codex": "Das Codex-Konto hat sein Nutzungslimit erreicht, das Modell hat diese Anfrage abgelehnt.",

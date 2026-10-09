@@ -8,7 +8,7 @@
     "archive_blocked": "封存的對話無法傳送訊息，請先還原再繼續。",
     "archive_busy": "還有未完成的任務，請等它結束或先停止後再封存。",
     "delete_busy": "還有相關任務正在執行。請先停止任務，再重試刪除。",
-    "model_unconfigured": "尚未設定模型。請在設定的「模型與連線」頁面連接 Codex 或新增 API 金鑰。",
+    "model_unconfigured": "尚未設定模型。請在設定的「模型」頁面連接 Codex 或新增 API 金鑰。",
     "no_active_members": "這個群組沒有可用成員，還原後請先新增至少一個 Bot。"
   },
   "attachment": {

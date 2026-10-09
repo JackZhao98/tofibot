@@ -8,7 +8,7 @@
     "archive_blocked": "Diese Unterhaltung ist archiviert. Stelle sie wieder her, um Nachrichten zu senden.",
     "archive_busy": "Es laufen noch Aufgaben. Warte, bis sie fertig sind, oder stoppe sie vor dem Archivieren.",
     "delete_busy": "Zugehörige Aufgaben laufen noch. Stoppe sie und versuche dann erneut zu löschen.",
-    "model_unconfigured": "Kein Modell eingerichtet. Verbinde Codex oder füge unter Einstellungen › Modelle und Verbindungen einen API-Schlüssel hinzu.",
+    "model_unconfigured": "Kein Modell eingerichtet. Verbinde Codex oder füge unter Einstellungen › Modelle einen API-Schlüssel hinzu.",
     "no_active_members": "Diese Gruppe hat keine aktiven Mitglieder. Füge nach dem Wiederherstellen mindestens einen Bot hinzu."
   },
   "attachment": {

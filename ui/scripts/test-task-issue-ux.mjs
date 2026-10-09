@@ -46,7 +46,7 @@ try {
   const item=view({...scenario("busy"),run:{...run,model,status:"failed",failure:{code:"model_unconfigured",source:"runtime",message:""}},tools:[],summaries:[zero]});
   assert.equal(item.kind,"model_unconfigured");assert.equal(item.action,"open_codex");assert.equal(item.actionLabel,label);assert(item.facts.join(" ").includes(needle),model);
   if(!model.startsWith("codex-"))assert(!item.facts.join(" ").includes("Codex 账户"),model);
-  assert(item.facts.join(" ").includes("模型与连接"));
+  assert(item.facts.join(" ").includes("「模型」页"));
  }
  for(const code of ["model_auth_invalid","model_quota_exhausted"]){const item=view({...scenario("busy"),run:{...run,model:"claude-sonnet-5-5",status:"failed",failure:{code,source:"runtime",message:""}},tools:[],summaries:[zero]});assert(!item.facts.join(" ").includes("Codex"),code);assert(item.facts.join(" ").includes("Claude API"),code);}
  const unloaded=view({...scenario("busy"),run:{...run,status:"failed",failure:{code:"model_auth_invalid",source:"runtime",message:""}},tools:[],summaries:[]});

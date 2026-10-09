@@ -99,19 +99,19 @@
     "task_did_not_finish": "任务未完成。",
     "model_unconfigured": {
       "codex": "工作区没有连接 Codex 账户，模型无法调用。",
-      "codex_next": "在设置的「模型与连接」页连接账户后重试。",
+      "codex_next": "在设置的「模型」页连接账户后重试。",
       "api_key": "工作区没有配置 {{provider}} API key，这个模型无法调用。",
-      "api_key_next": "在设置的「模型与连接」页添加 {{provider}} API key，或为 Bot 换一个已连接的模型后重试。",
+      "api_key_next": "在设置的「模型」页添加 {{provider}} API key，或为 Bot 换一个已连接的模型后重试。",
       "any": "工作区没有可用的模型提供方，模型无法调用。",
-      "any_next": "在设置的「模型与连接」页连接 Codex 或添加 API key 后重试。"
+      "any_next": "在设置的「模型」页连接 Codex 或添加 API key 后重试。"
     },
     "model_auth": {
       "codex": "Codex 账户的登录已失效，模型拒绝了这次调用。",
-      "codex_next": "在设置的「模型与连接」页重新连接后重试。",
+      "codex_next": "在设置的「模型」页重新连接后重试。",
       "api_key": "{{provider}} API key 已失效，模型拒绝了这次调用。",
-      "api_key_next": "在设置的「模型与连接」页更新 {{provider}} API key 后重试。",
+      "api_key_next": "在设置的「模型」页更新 {{provider}} API key 后重试。",
       "any": "模型账户的凭证已失效，模型拒绝了这次调用。",
-      "any_next": "在设置的「模型与连接」页重新连接或更新 API key 后重试。"
+      "any_next": "在设置的「模型」页重新连接或更新 API key 后重试。"
     },
     "model_quota": {
       "codex": "Codex 账户的用量额度已用尽，模型拒绝了这次调用。",

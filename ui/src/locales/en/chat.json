@@ -8,7 +8,7 @@
     "archive_blocked": "This conversation is archived. Restore it to send messages.",
     "archive_busy": "Some tasks are still running. Wait for them to finish or stop them before archiving.",
     "delete_busy": "Related tasks are still running. Stop them, then try deleting again.",
-    "model_unconfigured": "No model is set up. Connect Codex or add an API key in Settings › Models and connections.",
+    "model_unconfigured": "No model is set up. Connect Codex or add an API key in Settings › Models.",
     "no_active_members": "This group has no active members. After restoring it, add at least one Bot."
   },
   "attachment": {

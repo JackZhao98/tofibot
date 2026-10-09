@@ -238,7 +238,6 @@ input,textarea,select{width:100%;margin-top:7px;resize:vertical}
 .empty-workspace{display:grid;place-items:center;align-content:center;min-height:100%;padding:30px;text-align:center}
 .empty-workspace h1{margin:0 0 14px;color:var(--text);font-size:30px;letter-spacing:-.045em;line-height:1.08}
 .empty-workspace .muted{max-width:390px;margin:0 0 18px}
-.settings-tabs{display:flex;gap:5px;padding:18px 18px 0}
 .computer-detail{overflow-y:auto}
 .computer-detail .detail-heading{padding-bottom:4px}
 .computer-detail .detail-heading h2{font-size:18px}
@@ -286,8 +285,6 @@ input,textarea,select{width:100%;margin-top:7px;resize:vertical}
 .computer-technical dl>div{display:grid;grid-template-columns:64px minmax(0,1fr);gap:8px;font-size:11px}
 .computer-technical dt{color:var(--muted)}
 .computer-technical dd{margin:0;overflow-wrap:anywhere;color:var(--text-soft)}
-.settings-tabs button{flex:1}
-.settings-tabs button:last-child{display:grid;place-items:center;width:32px;height:32px;flex:0 0 32px;padding:0;font-size:20px;line-height:1}
 .extension-panel{padding:18px 21px;font-size:13px}
 .extension-panel .muted{line-height:1.6}
 .extension-list{margin-top:18px}
@@ -347,9 +344,6 @@ html[data-desktop] .unread-badge{width:8px;min-width:8px;height:8px;padding:0;co
 }
 
 @media(max-width:767px){
-  .settings-tabs{position:sticky;top:0;bottom:auto;width:100%;height:auto;display:grid;grid-template-columns:repeat(4,minmax(0,1fr))}
-  .settings-tabs button{min-width:0;justify-content:center;text-align:center}
-  .detail-pane:has(.settings-tabs)>:not(.settings-tabs){margin-left:0}
 }
 
 @media(prefers-reduced-motion:reduce){*,*::before,*::after{scroll-behavior:auto!important;animation-duration:.001ms!important;animation-iteration-count:1!important;transition-duration:.001ms!important}

@@ -10,6 +10,7 @@ import { isDesktop } from "./desktop";
 import { mcpOAuthRoute, type OAuthOptions, type OAuthRoute } from "./mcpOAuthRoute";
 import { CatStage, type CatHandle } from "./CatStage";
 import { LocalMCPPanel } from "./LocalMCPPanel";
+import { Banner } from "./settings/components";
 import { mcpTokenHeaders } from "./mcpTokenHeaders";
 import { i18n, useTranslation } from "./i18n";
 import "./mcp-test-motion.css";
@@ -306,7 +307,7 @@ function MCPForm({initial,preset,options,route,busy,onSave,onCancel}:{initial:MC
    {oauth&&<><label>{t("form.scopes")}<input value={scopes} onChange={e=>setScopes(e.target.value)} placeholder={t("form.comma_separated")}/></label><label>{t("form.metadata_url")}<input type="url" value={metadata} onChange={e=>setMetadata(e.target.value)}/></label></>}
    <label>{t("form.allowlist")}<input value={allow} onChange={e=>setAllow(e.target.value)} placeholder={t("form.allowlist_hint")}/></label><label>{t("form.denylist")}<input value={deny} onChange={e=>setDeny(e.target.value)} placeholder={t("form.comma_separated")}/></label>
   </Disclosure>
-  {error&&<p role="alert" className="error-banner">{error}</p>}
+  {error&&<Banner tone="error" title={error}/>}
   <div className="extension-actions"><button className="primary-button" disabled={busy} type="submit">{busy?t("form.saving"):initial?t("form.save"):t("form.add")}</button><button disabled={busy} type="button" onClick={onCancel}>{t("action.cancel")}</button></div>
   </fieldset>
  </form>;
