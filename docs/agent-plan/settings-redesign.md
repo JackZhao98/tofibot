@@ -1,6 +1,6 @@
 # Settings Redesign: Implementation Contract
 
-Status: approved by owner 2026-10-09. Implement in phases; each phase is one branch and one PR into `main`.
+Status: approved by owner 2026-10-09. Phase 1 (fb74527) and Phase 2 (d43d8dc) shipped in v0.1.0-rc.12. Phase 3 waits on tools-redesign WS2 and WS6.
 
 Design reference: the owner's Claude Design document "TOFI 设置页重设计". It is not in the repo; the dispatcher gives its local path. When this contract and the design disagree, this contract wins. Section 1.3 lists the known differences.
 
