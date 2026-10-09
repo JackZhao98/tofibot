@@ -40,6 +40,19 @@ class SupervisorTests(unittest.TestCase):
             kill.assert_called_once_with(101,worker.signal.SIGTERM)
         self.assertIn(ids[1],self.supervisor.processes)
 
+    def test_running_reports_only_a_live_manager(self):
+        identity=str(uuid.uuid4());proc=Mock(pid=404);proc.poll.return_value=None
+        self.launch.return_value=proc
+        self.assertFalse(self.supervisor.running(identity))
+        self.supervisor.ensure(identity,self.root/(identity+".json"))
+        self.assertTrue(self.supervisor.running(identity))
+        proc.poll.return_value=0
+        self.assertFalse(self.supervisor.running(identity))
+        with self.assertRaises(ValueError):self.supervisor.running("../other")
+        broker=object.__new__(worker.WorkerBroker)
+        broker.supervisor=self.supervisor
+        self.assertFalse(broker.manager_running(identity))
+
     def test_no_pid_reuse_kill_and_unresolved_cleanup_blocks_restart(self):
         identity=str(uuid.uuid4());proc=Mock(pid=303);proc.poll.return_value=None
         proc.wait.side_effect=[subprocess.TimeoutExpired("manager",60),0]

@@ -197,6 +197,13 @@ class HibernateTests(Fixture):
         self.assertTrue(self.vm.hibernated_at)
         self.vm.start.assert_not_called()
 
+    def test_snapshot_records_its_release(self):
+        self.prepare()
+        with mock.patch.object(manager, "run"):
+            self.assertTrue(self.vm.hibernate())
+        self.assertEqual(json.loads((self.vm.snapshot_dir / "meta.json").read_text())["release"], "image")
+        self.assertEqual(manager.snapshot_release(self.base / "state")[0], "image")
+
     def test_busy_guest_stays_running_and_is_asked_again_later(self):
         calls = self.prepare(busy=["terminal_job"])
         self.assertFalse(self.vm.hibernate())
@@ -413,6 +420,66 @@ class ServerTests(Fixture):
         self.vm.state = "ready"
         self.vm.last_activity = time.monotonic()
         self.assertFalse(server.maybe_hibernate())
+
+
+class ReleaseReportTests(Fixture):
+    """The Guest release each computer runs or would wake on (`tofi computers`)."""
+
+    server = ServerTests.server
+
+    def test_info_names_the_release_directory(self):
+        self.assertEqual(self.vm.info()["release"], "image")
+        self.assertEqual(manager.release_name("/var/lib/tofi/guest/v0.1.0-rc.6"), "v0.1.0-rc.6")
+
+    def test_snapshot_release_from_meta_and_from_older_snapshots(self):
+        state = self.base / "state"
+        self.assertIsNone(manager.snapshot_release(state))
+        self.write_snapshot()
+        # A snapshot written before meta.json named its release: the rootfs path.
+        self.assertEqual(manager.snapshot_release(state), ("image", "2026-10-08T00:00:00Z"))
+        meta = json.loads((self.vm.snapshot_dir / "meta.json").read_text())
+        meta["release"] = "v0.1.0-rc.6"
+        self.vm.persist_meta(meta)
+        self.assertEqual(manager.snapshot_release(state), ("v0.1.0-rc.6", "2026-10-08T00:00:00Z"))
+        (self.vm.snapshot_dir / "meta.json").write_text("{not json")
+        self.assertIsNone(manager.snapshot_release(state))
+
+    def test_busy_report_for_states_without_a_running_guest(self):
+        server = self.server()
+        self.vm.guest_call = mock.Mock(side_effect=AssertionError("must not reach the guest"))
+        for state in ("stopped", "hibernated", "error"):
+            self.vm.state = state
+            self.assertEqual(server.activity_report(), {"state": state, "release": "image", "busy": []})
+        for state in ("starting", "resuming", "hibernating", "restarting"):
+            self.vm.state = state
+            self.assertEqual(server.activity_report()["busy"], ["maintenance"])
+
+    def test_busy_report_asks_the_guest_without_counting_as_use(self):
+        server = self.server()
+        self.running_process()
+        self.vm.state = "ready"
+        idle_since = time.monotonic() - 500
+        self.vm.last_activity = idle_since
+        seen = {}
+
+        def quiesce():
+            seen["active"] = self.vm.active
+            self.assertFalse(self.vm.begin_hibernation(time.monotonic() + 10**6))
+            return ["run_lease", "viewer"]
+        self.vm.quiesce_guest = mock.Mock(side_effect=quiesce)
+        self.assertEqual(server.activity_report()["busy"], ["run_lease", "viewer"])
+        self.assertEqual(seen["active"], 1)  # hibernation is held off during the probe
+        self.assertEqual(self.vm.active, 0)
+        self.assertEqual(self.vm.last_activity, idle_since)  # never keeps it awake
+        self.vm.quiesce_guest = mock.Mock(return_value=[])
+        self.vm.active = 1
+        self.assertEqual(server.activity_report()["busy"], ["guest_request"])
+        self.vm.active = 0
+        self.assertEqual(server.activity_report()["busy"], [])
+        self.vm.quiesce_guest = mock.Mock(side_effect=OSError("vsock"))
+        report = server.activity_report()
+        self.assertEqual((report["busy"], report["guest"]), ([], "unresponsive"))
+        self.assertEqual(self.vm.active, 0)
 
 
 if __name__ == "__main__":

@@ -257,5 +257,150 @@ class BrokerTests(unittest.TestCase):
         self.assertEqual(path.read_text(),"unexpected")
 
 
+class GuestReleaseTests(unittest.TestCase):
+    """Guest release changes (`tofi update`) and `tofi computers` broker ops."""
+    setUp = BrokerTests.setUp
+    tearDown = BrokerTests.tearDown
+
+    def release(self, name):
+        directory = Path(self.temp.name) / name
+        directory.mkdir()
+        (directory / "manager.py").write_text("# synthetic trusted release")
+        return directory
+
+    def worker(self, release_dir, running=()):
+        """A broker on `release_dir` that supervises managers itself."""
+        b = broker.Broker(dict(self.config, release_dir=str(release_dir)), self.run, self.b.ledger.metrics)
+        b.manager_running = lambda identity: identity in running
+        b.start_manager = Mock()  # the Worker supervisor, not systemd units
+        return b
+
+    def snapshot(self, identity, release, created="2026-10-08T00:00:00Z"):
+        directory = Path(self.config["state_root"]) / identity / "snapshot"
+        directory.mkdir(parents=True)
+        for name in ("memory", "vmstate"):
+            (directory / name).write_bytes(b"x")
+        (directory / "meta.json").write_text(json.dumps({"format": 1, "created_at": created, "identity": {
+            "rootfs": ["/var/lib/tofi/guest/%s/rootfs.ext4" % release, 1, 2, 3, 4]}}))
+        return directory
+
+    def config_path(self, identity):
+        return Path(self.config["config_root"]) / (identity + ".json")
+
+    def test_ensure_after_a_guest_release_change_regenerates_the_manager_config(self):
+        identity = str(uuid.uuid4())
+        self.b.dispatch(dict(op="reserve", account_id=identity, quota_gib=8))
+        with patch.object(self.b, "runtime_admission"):
+            self.b.dispatch(dict(op="ensure", account_id=identity))
+        old = json.loads(self.config_path(identity).read_text())
+        newer = self.worker(self.release("v2"))
+        with patch.object(newer, "runtime_admission"):
+            newer.dispatch(dict(op="ensure", account_id=identity))
+        cfg = json.loads(self.config_path(identity).read_text())
+        self.assertEqual(cfg["image_dir"], str(Path(self.temp.name) / "v2"))
+        self.assertEqual(cfg["bin_dir"], str(Path(self.temp.name) / "v2" / "bin"))
+        self.assertEqual(dict(cfg, image_dir=old["image_dir"], bin_dir=old["bin_dir"]), old)
+        self.assertEqual(newer.config_release(identity), "v2")
+        # The owned manifest follows the new file; a later crash retry is idempotent.
+        with patch.object(newer, "runtime_admission"):
+            newer.dispatch(dict(op="ensure", account_id=identity))
+
+    def test_regeneration_still_refuses_a_file_changed_outside_the_broker(self):
+        identity = str(uuid.uuid4())
+        self.b.dispatch(dict(op="reserve", account_id=identity, quota_gib=8))
+        with patch.object(self.b, "runtime_admission"):
+            self.b.dispatch(dict(op="ensure", account_id=identity))
+        path = self.config_path(identity)
+        path.write_text(path.read_text().replace('"vcpus": 2', '"vcpus": 9'))
+        newer = self.worker(self.release("v2"))
+        with patch.object(newer, "runtime_admission"), self.assertRaises(broker.AdmissionError):
+            newer.dispatch(dict(op="ensure", account_id=identity))
+        self.assertIn('"vcpus": 9', path.read_text())
+
+    def test_a_running_manager_keeps_its_config_until_its_next_start(self):
+        identity = str(uuid.uuid4())
+        self.b.dispatch(dict(op="reserve", account_id=identity, quota_gib=8))
+        with patch.object(self.b, "runtime_admission"):
+            self.b.dispatch(dict(op="ensure", account_id=identity))
+        before = self.config_path(identity).read_text()
+        newer = self.worker(self.release("v2"), running={identity})
+        with patch.object(newer, "runtime_admission"):
+            newer.dispatch(dict(op="ensure", account_id=identity))
+        self.assertEqual(self.config_path(identity).read_text(), before)
+
+    def test_computers_lists_ledger_process_and_releases(self):
+        ids = sorted(str(uuid.uuid4()) for _ in range(3))
+        for identity in ids:
+            self.b.dispatch(dict(op="reserve", account_id=identity, quota_gib=8))
+        with patch.object(self.b, "runtime_admission"):
+            self.b.dispatch(dict(op="ensure", account_id=ids[0]))
+        self.snapshot(ids[1], "v1")
+        current = self.worker(self.release("v2"), running={ids[0]})
+        result = current.dispatch(dict(op="computers"))
+        self.assertEqual(result["release"], "v2")
+        rows = {row["account_id"]: row for row in result["computers"]}
+        self.assertEqual(sorted(rows), ids)
+        self.assertEqual((rows[ids[0]]["running"], rows[ids[0]]["config_release"], rows[ids[0]]["snapshot"]),
+                         (True, "release", None))
+        self.assertEqual((rows[ids[1]]["running"], rows[ids[1]]["snapshot"]),
+                         (False, {"release": "v1", "created_at": "2026-10-08T00:00:00Z"}))
+        self.assertEqual((rows[ids[2]]["state"], rows[ids[2]]["quota_bytes"], rows[ids[2]]["config_release"]),
+                         ("reserved", 8 * 1024**3, None))
+        with self.assertRaises(ValueError):
+            current.dispatch(dict(op="computers", account_id=ids[0]))
+        self.assertIsNone(self.b.dispatch(dict(op="computers"))["computers"][0]["running"])
+
+    def test_upgrade_discards_only_a_snapshot_of_another_release(self):
+        ids = [str(uuid.uuid4()) for _ in range(2)]
+        for identity in ids:
+            self.b.dispatch(dict(op="reserve", account_id=identity, quota_gib=8))
+        old = self.snapshot(ids[0], "v1")
+        disk = old.parent / "workspace.ext4"
+        disk.write_bytes(b"workspace")
+        current_snapshot = self.snapshot(ids[1], "v2")
+        current = self.worker(self.release("v2"))
+        result = current.dispatch(dict(op="upgrade", account_id=ids[0]))
+        self.assertEqual(result, {"account_id": ids[0], "release": "v2", "previous_release": "v1",
+                                  "stopped": False, "discarded_snapshot": True})
+        self.assertFalse(old.exists())
+        self.assertEqual(disk.read_bytes(), b"workspace")
+        result = current.dispatch(dict(op="upgrade", account_id=ids[1]))
+        self.assertFalse(result["discarded_snapshot"])
+        self.assertTrue((current_snapshot / "meta.json").exists())
+        self.run.assert_not_called()
+
+    def test_upgrade_stops_a_manager_running_an_older_release(self):
+        identity = str(uuid.uuid4())
+        self.b.dispatch(dict(op="reserve", account_id=identity, quota_gib=8))
+        with patch.object(self.b, "runtime_admission"):
+            self.b.dispatch(dict(op="ensure", account_id=identity))
+        running = {identity}
+        current = self.worker(self.release("v2"), running=running)
+        with current.ledger.connection() as db:
+            db.execute("INSERT INTO runtime_claims VALUES(?,?,?)", (identity, 2, 2560))
+        current.stop_manager = Mock(side_effect=lambda i, unit: (running.discard(i), self.snapshot(i, "release")))
+        result = current.dispatch(dict(op="upgrade", account_id=identity))
+        current.stop_manager.assert_called_once()
+        self.assertEqual((result["previous_release"], result["stopped"], result["discarded_snapshot"]),
+                         ("release", True, True))
+        with current.ledger.connection() as db:
+            self.assertIsNone(db.execute("SELECT 1 FROM runtime_claims WHERE account_id=?", (identity,)).fetchone())
+        # The next start runs the current release; that manager is left running.
+        with patch.object(current, "runtime_admission"):
+            current.dispatch(dict(op="ensure", account_id=identity))
+        running.add(identity)
+        current.stop_manager.reset_mock()
+        self.assertFalse(current.dispatch(dict(op="upgrade", account_id=identity))["stopped"])
+        current.stop_manager.assert_not_called()
+
+    def test_upgrade_needs_a_registered_computer_and_known_process_state(self):
+        identity = str(uuid.uuid4())
+        with self.assertRaises(broker.AdmissionError):
+            self.worker(self.release("v2")).dispatch(dict(op="upgrade", account_id=identity))
+        self.b.dispatch(dict(op="reserve", account_id=identity, quota_gib=8))
+        with self.assertRaisesRegex(broker.AdmissionError, "unknown"):
+            self.b.dispatch(dict(op="upgrade", account_id=identity))
+
+
 if __name__ == "__main__":
     unittest.main()
