@@ -34,11 +34,15 @@ acceptance: ui-build
 	python3 scripts/acceptance.py
 
 # Self-host installer and release tooling (see deploy/self-host/README.md).
-.PHONY: self-host-test self-host-lint self-host-config release-bundle release-manifest
+.PHONY: self-host-test self-host-lint self-host-embed self-host-config release-bundle release-manifest
 self-host-test:
 	python3 -m unittest discover -s deploy/microvm -p 'test_*.py'
 	python3 -m unittest discover -s deploy/self-host -p 'test_*.py'
 	python3 -m unittest discover -s scripts/release -p 'test_*.py'
+
+# install.sh carries a copy of deploy/self-host/tofi_tui.py; refresh it after editing that file.
+self-host-embed:
+	python3 deploy/self-host/tofi_tui.py embed install.sh
 
 self-host-lint:
 	bash -n install.sh deploy/self-host/bin/tofi scripts/release/make_bundle.sh

@@ -25,21 +25,113 @@ Also required: `/dev/net/tun`, cgroup v2 and AppArmor enabled in the kernel. The
 first account reserves an 8 GiB workspace disk plus 8 GiB internal space. Other
 distributions can try `TOFI_ALLOW_UNSUPPORTED=1`.
 
-## Options
+## Interactive install
 
-`install.sh` accepts (after `sudo bash -s --`):
+In a terminal, `curl ... | sudo bash` is interactive. Answers are read from
+`/dev/tty` (stdin is the curl pipe), and nothing on the host changes until you
+confirm:
 
-- `--version vX.Y.Z` — a specific release (default: the latest; `-rc.N`
-  prereleases only when named).
-- `--domain NAME [--email ADDRESS]` — public HTTPS through a Caddy sidecar with
-  automatic certificates. Ports 80 and 443 must be free and DNS must point here.
-  Sets `TOFI_PUBLIC_ORIGIN=https://NAME`.
-- `--local-only` — publish on `127.0.0.1` only (still HTTPS). From your computer
-  run `ssh -L 8321:127.0.0.1:8321 user@server` and open `https://localhost:8321`.
-- `--lan` — accepted for compatibility; it is the default now (there is no
-  plain-HTTP mode any more).
-- `--port PORT` — App port (default 8321).
-- `--yes` — no questions.
+1. **This machine**: a card listing OS and arch, CPUs, RAM and swap, free disk,
+   the Docker version (or "will be installed"), KVM (with the reason when it is
+   missing, for example "no /dev/kvm — the CPU does not expose virtualization;
+   enable nested virtualization on cloud VMs"), cgroup v2, AppArmor and TUN,
+   ports 8321/80/443 (and which process holds a busy one), any existing
+   installation (not installed, installed vX, stopped with data retained,
+   interrupted install/update/uninstall), and the LAN and public IPv4 addresses.
+   Low-RAM, no-swap and disk advisories follow. A hard failure (not Linux
+   x86_64, unsupported distribution without `TOFI_ALLOW_UNSUPPORTED=1`, no KVM,
+   not root, too small) is reported after the whole card, with every reason,
+   and exits 1.
+2. **How should each account's computer run?** `KVM (Firecracker)` is the
+   default. `gVisor container` and `Plain container` are listed dimmed with
+   "not supported yet (coming in a later release)". Without `/dev/kvm` all three
+   are dimmed and the installer explains why it cannot continue. The choice is
+   stored as `TOFI_COMPUTER_BACKEND=kvm` in `/etc/tofi/tofi.env`.
+3. **How will you open TOFI?** `By IP over HTTPS (self-signed)` (default, shows
+   `https://<first LAN IP>:8321`), `With a domain (automatic HTTPS)` (dimmed with
+   "not supported: ports 80/443 in use by <process>" when they are taken), or
+   `This machine only (SSH tunnel)`.
+4. Follow-ups. Domain: host name syntax is checked, and you are asked again if
+   it is invalid. Its A/AAAA records are resolved, and you get a warning (not a
+   failure) if they do not point at this host. Email for Let's Encrypt is
+   optional. Port: 8321 by default, or the next free port when 8321 is taken
+   (the warning names the process); it must be between 1024 and 65535 and free.
+5. Version: the latest stable release. If only prereleases exist, the installer
+   says so and asks `Install prerelease vX-rc.N? [y/N]`; it never installs a
+   prerelease silently.
+6. A **Ready to install** card, then `Nothing has changed yet. Proceed? [Y/n]`.
+
+After you confirm, each step is one line with a spinner that ends in ✓ (apt and
+Docker output go to `/var/log/tofi-install.log`), ending with the usual banner.
+
+Every prompt: Enter takes the default; spaces and case are ignored; a number or
+a name works (`1`, `kvm`, `domain`, `local`). In a capable terminal ↑/↓ and
+Enter move through the choices (set `TOFI_PROMPT=plain` for typed answers
+instead). Picking a dimmed option prints its reason and asks again. After 5
+invalid answers the installer stops ("Too many invalid answers — cancelled,
+nothing was changed.", exit 1). Ctrl-C before Proceed prints
+"Cancelled — nothing was changed." and exits 130. End of input (Ctrl-D) exits 1
+without changes. Answering `n` at Proceed exits 1 without changes.
+
+Running the installer again:
+
+- installed, same version: prints the status and exits 0 without questions;
+- `--version` different from the installed one: says to use
+  `sudo tofi update --version X` (exit 1);
+- uninstalled with data retained: asks only
+  `Start the existing installation with its data? [Y/n]`;
+- interrupted install, update or uninstall: explains what it found and resumes
+  it without questions.
+
+The installer UI is `deploy/self-host/tofi_tui.py`. `install.sh` carries an exact
+copy, because it runs before anything is downloaded; refresh the copy with
+`make self-host-embed`, and a test fails if they differ. The host bundle ships
+the same module, so `tofi doctor` prints the same card and the banner uses the
+same palette. If `python3` is missing (some minimal images), install.sh falls
+back to the plain checks plus a single Proceed confirmation, and options come
+from flags. `TOFI_INSTALLER_UI=plain` forces that fallback.
+
+Output follows the banner rules. With `NO_COLOR` you get glyphs without colour.
+With `TERM=dumb` or output that is not a terminal you get plain
+`[n/12] step` lines, and dimmed options keep their "not supported" text. The UI
+never draws wider than 76 columns, and below 60 columns it drops the art and
+frames.
+
+## Options and automation
+
+Flags answer their question in advance; the question is shown as
+"(set by --domain)". A variable works when its flag is absent. Flags win over
+variables, and an exposure flag (`--domain`, `--local-only`, `--lan`) wins over
+every exposure variable. With `sudo`, pass variables after it:
+`curl ... | sudo TOFI_DOMAIN=tofi.example.com bash`.
+
+| Flag | Variable | Meaning |
+|---|---|---|
+| `--computer kvm` | `TOFI_COMPUTER` | how computers run; `gvisor`/`container` exit "not supported yet" |
+| `--domain NAME` | `TOFI_DOMAIN` | public HTTPS through Caddy (ports 80/443 free, DNS here); sets `TOFI_PUBLIC_ORIGIN` |
+| `--email ADDRESS` | `TOFI_EMAIL` | Let's Encrypt contact (with `--domain`) |
+| `--local-only` | `TOFI_LOCAL_ONLY=1` | `127.0.0.1` only (still HTTPS): `ssh -L 8321:127.0.0.1:8321 user@server` |
+| `--port PORT` | `TOFI_PORT` | App port, 1024-65535 (default 8321) |
+| `--version vX.Y.Z[-rc.N]` | `TOFI_VERSION` | a specific release (default: latest stable) |
+| `--yes`, `--non-interactive` | `TOFI_YES=1`, `TOFI_NON_INTERACTIVE=1` | no questions |
+| `--lan` | | accepted for compatibility; the default |
+| | `CI` (any value) | no questions |
+| | `TOFI_PUBLIC_IP=ADDR` or `none` | public address shown and used for the DNS check; `none` skips the one HTTPS lookup (`cloudflare.com/cdn-cgi/trace`, 3 s) |
+| | `TOFI_PROMPT=plain` | typed answers instead of arrow keys |
+| | `TOFI_ALLOW_UNSUPPORTED=1` | try a distribution other than Ubuntu 22.04/24.04, Debian 12/13 |
+
+The installer is non-interactive when any of these holds: `--yes`, `CI` is set,
+stdout is not a terminal, or `/dev/tty` cannot be opened. It then never blocks
+or asks. It uses flags, variables and defaults, prints the card and the plan,
+and stops with an error (exit 1, nothing changed) for anything it would have
+asked about: the default port is taken (the error names the next free port),
+or only prereleases exist (the error names the newest one to pass with
+`--version`). For automation:
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/JackZhao98/tofibot/main/install.sh \
+  | sudo bash -s -- --yes --version v0.1.0 --domain tofi.example.com --email ops@example.com
+```
 
 ### Default: self-signed HTTPS on every interface
 
@@ -78,8 +170,10 @@ and `TOFI_OWNER_ALLOW_LAN_HTTP=0` to `/etc/tofi/tofi.env`, run
 1. Root and `Linux x86_64`.
 2. Supported distribution from `/etc/os-release`.
 3. `/dev/kvm`, `/dev/net/tun`, cgroup v2, AppArmor.
-4. CPU, memory, disk and free ports (8321 on any address). Steps 1-4 change
-   nothing on the host.
+4. CPU, memory, disk and free ports (8321 on any address), the "This machine"
+   card, then the questions (in a terminal) and Proceed. Steps 1-4 change
+   nothing on the host; they only read (plus, for a fresh install, the latest
+   release manifest from GitHub and one public-IP lookup).
 5. `apt-get install ca-certificates curl tar zstd python3 e2fsprogs apparmor apparmor-utils openssl iproute2`.
 6. Docker Engine + Compose plugin from Docker's apt repository when missing
    (falls back to get.docker.com for brand-new distributions); verifies Docker
@@ -132,7 +226,7 @@ Later accounts are created by the Admin. Then open Settings -> Model provider.
 | `tofi setup-secret` | Print the pending setup key |
 | `tofi regenerate-cert` | Replace the self-signed certificate (new names/IPs, new fingerprint) and restart the App |
 | `tofi logs [app\|worker\|caddy]` | Follow container logs |
-| `tofi doctor` | Check KVM, cgroup, profile, `/run/tofi`, Worker config, Guest release, images, disk, health |
+| `tofi doctor` | The installer's "This machine" card, then check KVM, computer backend, cgroup, profile, `/run/tofi`, Worker config, Guest release, images, disk, health |
 | `tofi version` | Host tool, installed release and images |
 
 Mutating commands (`install`, `start`, `stop`, `update`, `uninstall`,
@@ -251,7 +345,7 @@ the journal.
 /usr/local/bin/tofi -> /opt/tofi/current/bin/tofi
 /opt/tofi/releases/<ver>/      host tool bundle (+ manifest.json); current and previous kept
 /opt/tofi/current -> releases/<ver>
-/etc/tofi/tofi.env             0600: version, exposure, pinned images, Guest version, budgets
+/etc/tofi/tofi.env             0600: version, exposure, pinned images, Guest version, budgets, TOFI_COMPUTER_BACKEND
 /etc/tofi/worker.json          Worker config (bind-mounted read-only)
 /etc/tofi/worker.seccomp.json  Worker seccomp profile
 /etc/tofi/Caddyfile            only with --domain

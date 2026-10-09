@@ -83,7 +83,7 @@ class BundleTests(unittest.TestCase):
                 self.assertEqual(tofi.mode & 0o777, 0o755)
                 self.assertEqual((tofi.uid, tofi.gid), (0, 0))
                 self.assertEqual(tar.extractfile('VERSION').read().decode().strip(), VERSION)
-            expected = {'bin/tofi', 'lib/tofi_host.py', 'compose.yaml', 'Caddyfile.tmpl',
+            expected = {'bin/tofi', 'lib/tofi_host.py', 'lib/tofi_tui.py', 'compose.yaml', 'Caddyfile.tmpl',
                         'worker.apparmor.template', 'worker.seccomp.json', 'tofi.service', 'tofi.conf',
                         'lib/microvm/manager.py', 'lib/microvm/worker_entrypoint.py',
                         'lib/microvm/account_release_check.py', 'lib/microvm/account_capacity.py',
