@@ -11,7 +11,8 @@ Use synthetic data for tests. Source build success is not deployment proof.
 The dedicated-host installer is `install.sh` -> `deploy/self-host/tofi_host.py`
 (released by `.github/workflows/release.yml`); treat it as release-candidate
 until clean Linux/KVM acceptance in docs/agent-plan/one-command-install.md passes,
-and change it, its compose.yaml and the release workflow together. Never read or export credentials for a
+and change it, its compose.yaml and the release workflow together. Its interactive UI is
+`deploy/self-host/tofi_tui.py`, embedded verbatim in install.sh (`make self-host-embed` after edits). Never read or export credentials for a
 source-tree review. Retain third-party notices and verify release contents.
 
 Web UI text is localized: user-visible strings live in `ui/src/locales/<lang>/<namespace>.json`

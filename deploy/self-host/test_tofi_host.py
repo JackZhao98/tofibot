@@ -8,6 +8,7 @@ import hashlib
 import io
 import json
 import os
+import re
 from pathlib import Path
 import shutil
 import subprocess
@@ -19,6 +20,7 @@ from unittest import mock
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import tofi_host  # noqa: E402
+import tofi_tui  # noqa: E402
 
 HERE = Path(__file__).resolve().parent
 GUEST_SHA = 'a' * 64
@@ -1537,6 +1539,239 @@ class BannerTests(unittest.TestCase):
         self.assertIn('ssh -L 8321:127.0.0.1:8321', text)
         self.assertNotIn('Cloud server', text)
         self.assertNotIn('public IP', text)
+
+
+class Tty(io.StringIO):
+    encoding = 'utf-8'
+
+    def isatty(self):
+        return True
+
+
+def plain(text):
+    return re.sub('\033\\[[0-9;]*m', '', text)
+
+
+class ComputerBackendTests(HostCase):
+    def args(self, *extra):
+        return tofi_host.parse_args(['install', '--manifest', 'm.json', *extra])
+
+    def test_backend_is_recorded_in_tofi_env(self):
+        options = tofi_host.install_options(self.args())
+        self.assertEqual(options['computer'], 'kvm')
+        env = tofi_host.render_env(manifest(), options, {'cpu': 3, 'memory_mib': 6144})
+        self.assertEqual(env['TOFI_COMPUTER_BACKEND'], 'kvm')
+        self.assertIn('TOFI_COMPUTER_BACKEND=kvm\n', tofi_host.format_env(env))
+
+    def test_other_backends_are_refused_as_not_supported_yet(self):
+        for backend in ('gvisor', 'container'):
+            with self.assertRaisesRegex(tofi_host.HostError, r'not supported yet \(coming in a later release\)'):
+                tofi_host.install_options(self.args('--computer', backend))
+        with self.assertRaisesRegex(tofi_host.HostError, 'must be kvm, gvisor or container'):
+            tofi_host.install_options(self.args('--computer', 'xen'))
+
+    def test_doctor_shows_the_machine_card_and_backend(self):
+        self.installed()
+        for name in ('health', 'inspect_image', 'validate_release', 'certificate_usable'):
+            patcher = mock.patch.object(tofi_host, name, return_value=True)
+            patcher.start()
+            self.addCleanup(patcher.stop)
+        tofi_host.doctor()
+        out = sys.stdout.getvalue()
+        self.assertLess(out.index('This machine'), out.index('KVM device'))
+        self.assertIn('TOFI     installed v0.1.0', out)
+        self.assertRegex(out, r'ok +Computer backend +kvm \(Firecracker\)')
+        env = tofi_host.read_env()
+        env['TOFI_COMPUTER_BACKEND'] = 'gvisor'
+        tofi_host.write_env(env)
+        sys.stdout.truncate(0)
+        sys.stdout.seek(0)
+        self.assertFalse(tofi_host.doctor())
+        self.assertRegex(sys.stdout.getvalue(), r'FAIL +Computer backend +gvisor is not supported yet')
+
+
+class ProgressTests(unittest.TestCase):
+    def test_plain_progress_keeps_step_numbers(self):
+        out = io.StringIO()
+        progress = tofi_tui.Progress(tofi_tui.UI(out, {}))
+        progress.begin(10, 'Preparing')
+        progress.begin(11, 'Starting')
+        progress.end()
+        self.assertEqual(out.getvalue(), '[10/12] Preparing\n[11/12] Starting\n')
+
+    def test_terminal_progress_spins_then_checks(self):
+        out = Tty()
+        ui = tofi_tui.UI(out, {'TERM': 'xterm', 'NO_COLOR': '1'}, width=80)
+        progress = tofi_tui.Progress(ui)
+        progress.begin(10, 'Preparing')
+        time.sleep(0.25)
+        ui.write('a note in between')
+        progress.begin(11, 'Starting')
+        progress.end(ok=False)
+        text = out.getvalue()
+        self.assertIn('\r\x1b[K  ⠋ Preparing', text)
+        self.assertIn('a note in between\n', text)
+        self.assertIn('  ✓ Preparing\n', text)
+        self.assertTrue(text.endswith('  ✗ Starting\n'), text)
+        self.assertNotIn('[10/12]', text)
+
+
+class TuiTests(unittest.TestCase):
+    def setUp(self):
+        self.temp = tempfile.TemporaryDirectory(prefix='tofi-tui-')
+        self.addCleanup(self.temp.cleanup)
+        self.root = Path(self.temp.name)
+        self.host = tofi_tui.Host({'TOFI_TEST_ROOT': str(self.root)})
+
+    def write(self, relative, text):
+        path = self.root / relative
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(text)
+
+    def test_ports_name_the_listening_process(self):
+        self.write('proc/net/tcp', '  sl local rem st\n'
+                   '   0: 00000000:0050 00000000:0000 0A 00000000:00000000 00:00000000 00000000 0 0 555 1\n'
+                   '   1: 0100007F:2081 00000000:0000 01 00000000:00000000 00:00000000 00000000 0 0 556 1\n')
+        self.write('proc/net/tcp6', '  sl local rem st\n'
+                   '   0: 00000000000000000000000000000000:01BB 00000000000000000000000000000000:0000 0A '
+                   '00000000:00000000 00:00000000 00000000 0 0 557 1\n')
+        (self.root / 'proc/812/fd').mkdir(parents=True)
+        os.symlink('socket:[555]', str(self.root / 'proc/812/fd/6'))
+        self.write('proc/812/comm', 'nginx\n')
+        ports = tofi_tui.Ports(self.host)
+        self.assertEqual(ports.describe(80), 'in use by nginx (pid 812)')
+        self.assertEqual(ports.describe(443), 'in use')          # owner not visible
+        self.assertEqual(ports.describe(8321), 'free')           # 0x2081 is connected, not listening
+        self.assertEqual(ports.next_free(79), 81)
+
+    def test_kvm_reasons(self):
+        self.assertIn('enable nested virtualization on cloud VMs, or use bare metal', tofi_tui.kvm_reason(self.host))
+        self.write('proc/cpuinfo', 'flags\t\t: fpu sse2 hypervisor\n')
+        self.assertIn('does not expose virtualization', tofi_tui.kvm_reason(self.host))
+        self.write('proc/cpuinfo', 'flags\t\t: fpu svm\n')
+        self.assertIn('modprobe kvm_intel (or kvm_amd)', tofi_tui.kvm_reason(self.host))
+
+    def test_installed_state(self):
+        self.assertEqual(tofi_tui.installed_state(self.host), (None, None, None))
+        self.write('etc/tofi/install-state.json', '{"phase": "stopped-retained"}')
+        self.assertIn('no TOFI_VERSION', tofi_tui.installed_state(self.host)[2])
+        self.write('etc/tofi/tofi.env', '# managed\nTOFI_VERSION=v0.1.0\n')
+        self.assertEqual(tofi_tui.installed_state(self.host), ('stopped-retained', 'v0.1.0', None))
+        self.assertEqual(tofi_tui.describe_phase('upgrade-failed', 'v0.1.0'),
+                         ('warn', 'interrupted update (upgrade-failed), v0.1.0'))
+
+    def facts(self, **extra):
+        facts = {'host': self.host, 'platform': 'Linux x86_64', 'uid': '0',
+                 'os': {'NAME': 'Debian GNU/Linux', 'ID': 'debian', 'VERSION_ID': '12'}, 'cpus': 4,
+                 'memory_mib': 7960, 'swap_mib': 0, 'disk_gib': 35, 'docker': None, 'kvm': True,
+                 'kvm_reason': None, 'tun': True, 'cgroup2': True, 'apparmor': 'Y',
+                 'ports': tofi_tui.Ports(self.host), 'port': 8321, 'phase': None, 'installed': None,
+                 'journal_error': None, 'lan': ['192.168.1.20'], 'public': []}
+        facts.update(extra)
+        return facts
+
+    def test_machine_rows_and_checks(self):
+        rows = {label: (kind, text) for kind, label, text in tofi_tui.machine_rows(self.facts())}
+        self.assertEqual(rows['System'], ('ok', 'Debian 12 · Linux x86_64'))
+        self.assertEqual(rows['RAM'], ('warn', '7.8 GiB · no swap'))
+        self.assertEqual(rows['Disk'], ('warn', '35 GiB free under /var/lib'))
+        self.assertEqual(rows['Docker'], ('info', 'not installed — will be installed'))
+        failures, warnings = tofi_tui.check_host(self.facts(), {})
+        self.assertEqual(failures, [])
+        self.assertEqual(len(warnings), 2)   # no swap, disk under 40 GiB
+        failures, _ = tofi_tui.check_host(self.facts(kvm=False, kvm_reason='no /dev/kvm', apparmor='N', cpus=1), {})
+        self.assertEqual([f.split(' ')[0] for f in failures], ['KVM', 'AppArmor', 'TOFI'])
+
+    def test_card_framed_plain_and_narrow(self):
+        rows = [('ok', 'System', 'Ubuntu 24.04'),
+                ('bad', 'KVM', 'no /dev/kvm — enable nested virtualization on cloud VMs, or use bare metal')]
+        out = Tty()
+        ui = tofi_tui.UI(out, {'TERM': 'xterm', 'COLORTERM': 'truecolor'}, width=200)
+        ui.card('This machine', rows)
+        lines = [plain(line) for line in out.getvalue().splitlines() if line]
+        self.assertEqual({len(line) for line in lines}, {76})       # never wider than 76 columns
+        self.assertTrue(lines[0].startswith('╭─ This machine ─'))
+        self.assertIn('\033[38;2;127;209;193m✓', out.getvalue())   # teal check
+        self.assertIn('\033[2m✗', out.getvalue())                   # dim cross
+        out = Tty()
+        tofi_tui.UI(out, {'TERM': 'xterm'}, width=40).card('This machine', rows)
+        self.assertNotIn('╭', out.getvalue())
+        self.assertTrue(all(len(plain(line)) <= 40 for line in out.getvalue().splitlines()))
+        out = io.StringIO()
+        tofi_tui.UI(out, {}).card('This machine', rows)
+        self.assertEqual(out.getvalue().splitlines()[:2], ['This machine', '  ✓ System  Ubuntu 24.04'])
+        self.assertNotIn('\033', out.getvalue())
+
+    def test_ascii_glyphs_when_the_terminal_is_not_utf8(self):
+        class Ascii(Tty):
+            encoding = 'ANSI_X3.4-1968'
+        ui = tofi_tui.UI(Ascii(), {'TERM': 'xterm', 'NO_COLOR': '1'}, width=70)
+        ui.card('X', [('ok', 'A', 'b')])
+        self.assertIn('+ A', ui.out.getvalue())
+        self.assertNotIn('✓', ui.out.getvalue())
+
+    def test_unsupported_options_stay_readable_without_colour(self):
+        ui = tofi_tui.UI(io.StringIO(), {})
+        prompter = tofi_tui.Prompter(ui, -1, {'TOFI_PROMPT': 'plain'})
+        options = [tofi_tui.Option('kvm', 'KVM (Firecracker)'),
+                   tofi_tui.Option('gvisor', 'gVisor container', unsupported=tofi_tui.NOT_YET)]
+        self.assertEqual(prompter.option_lines(options, 0, 0, True), [
+            '  ❯ 1) KVM (Firecracker)  (recommended)',
+            '    2) gVisor container — not supported yet (coming in a later release)'])
+        colour = tofi_tui.Prompter(tofi_tui.UI(Tty(), {'TERM': 'xterm'}), -1, {'TOFI_PROMPT': 'plain'})
+        lines = colour.option_lines(options, 0, 0, True)
+        self.assertTrue(lines[1].startswith('    \033[2m2) gVisor'), lines[1])
+        self.assertEqual(prompter.resolve(' GVISOR ', options), 1)
+        self.assertEqual(prompter.resolve('2', options), 1)
+        self.assertIsNone(prompter.resolve('3', options))
+
+    def test_validators(self):
+        self.assertEqual(tofi_tui.validate_domain(' TOFI.Example.com. '), ('tofi.example.com', None))
+        self.assertIsNotNone(tofi_tui.validate_domain('localhost')[1])
+        self.assertEqual(tofi_tui.validate_email(''), ('', None))
+        self.assertIsNotNone(tofi_tui.validate_email('a@b')[1])
+        ports = mock.Mock(busy=lambda port: port == 9000, describe=lambda port: 'in use by x',
+                          next_free=lambda port: port + 1)
+        validate = tofi_tui.port_validator(ports)
+        self.assertEqual(validate('9001'), ('9001', None))
+        self.assertEqual(validate('9000')[1], 'Port 9000 is in use by x; 9001 is free.')
+        self.assertIsNotNone(validate('80')[1])
+        self.assertIsNotNone(validate('70000')[1])
+
+    def test_release_resolution(self):
+        answers = {}
+
+        def curl(url, timeout=20):
+            return answers.get(url, (22, ''))
+        with mock.patch.object(tofi_tui, 'curl_text', side_effect=curl):
+            answers[tofi_tui.RELEASES_URL + '/latest/download/manifest.json'] = (0, '{"version": "v0.2.0"}')
+            self.assertEqual(tofi_tui.resolve_release(), ('stable', 'v0.2.0'))
+            answers.clear()
+            answers[tofi_tui.RELEASES_API] = (0, json.dumps([{'tag_name': 'nightly', 'draft': False},
+                                                              {'tag_name': 'v0.1.0-rc.3', 'draft': True},
+                                                              {'tag_name': 'v0.1.0-rc.2', 'draft': False}]))
+            self.assertEqual(tofi_tui.resolve_release(), ('prerelease', 'v0.1.0-rc.2'))
+            answers.clear()
+            self.assertEqual(tofi_tui.resolve_release(), ('none', None))
+            answers[tofi_tui.RELEASES_URL + '/latest/download/manifest.json'] = (6, '')
+            self.assertEqual(tofi_tui.resolve_release(), ('offline', 'curl exit 6'))
+
+    def test_dns_warning(self):
+        facts = self.facts(public=['203.0.113.5'])
+        with mock.patch.object(tofi_tui, 'resolve_dns', return_value=['203.0.113.5']):
+            self.assertIsNone(tofi_tui.dns_warning('tofi.example.com', facts))
+        with mock.patch.object(tofi_tui, 'resolve_dns', return_value=['198.51.100.1']):
+            self.assertIn('points at 198.51.100.1, not at this server (203.0.113.5)',
+                          tofi_tui.dns_warning('tofi.example.com', facts))
+        with mock.patch.object(tofi_tui, 'resolve_dns', return_value=None):
+            self.assertIn('does not resolve yet', tofi_tui.dns_warning('tofi.example.com', facts))
+
+    def test_banner_palette_is_shared(self):
+        self.assertIs(tofi_host.Paint, tofi_tui.Paint)
+        self.assertIs(tofi_host.color_mode, tofi_tui.color_mode)
+        header = tofi_tui.render_art(tofi_tui.Paint(None), note='installer')
+        self.assertEqual(header[:4], [line.rstrip() for line in tofi_host.BANNER_ART[:4]])
+        self.assertTrue(header[4].endswith('installer'))
 
 
 if __name__ == '__main__':
