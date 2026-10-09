@@ -104,7 +104,13 @@ ENV_KEYS = ['TOFI_VERSION', 'TOFI_DOMAIN', 'TOFI_EMAIL', 'TOFI_HTTP_PORT', 'TOFI
             'TOFI_PUBLIC_ORIGIN', 'TOFI_APP_IMAGE', 'TOFI_WORKER_IMAGE',
             'TOFI_CADDY_IMAGE', 'TOFI_GUEST_VERSION', 'TOFI_CPU_BUDGET',
             'TOFI_MEMORY_BUDGET_MIB', 'TOFI_WORKER_MEMORY_LIMIT', 'TOFI_TLS_CERT_FILE',
-            'TOFI_TLS_KEY_FILE', 'TOFI_OWNER_ALLOW_LAN_HTTP', 'TOFI_COMPUTER_BACKEND']
+            'TOFI_TLS_KEY_FILE', 'TOFI_OWNER_ALLOW_LAN_HTTP', 'TOFI_COMPUTER_BACKEND',
+            'TOFI_TRUSTED_PROXIES']
+# Reverse proxies whose X-Forwarded-For the App believes when it keys sign-in
+# rate limits. With --domain the only peer is the Caddy container, whose address
+# is somewhere in Docker's default bridge pools (the App port is bound to
+# loopback, so nothing else can reach it). Direct installs trust nobody.
+LOCAL_PROXY_CIDRS = '172.16.0.0/12,192.168.0.0/16'
 # How account computers run. Only KVM (Firecracker) exists today; the value is
 # recorded so later releases can add backends without guessing.
 COMPUTER_BACKENDS = {'kvm': None, 'gvisor': 'not supported yet (coming in a later release)',
@@ -838,12 +844,14 @@ def render_env(manifest, options, budgets):
         origin = 'https://' + domain
         cert = key = ''
         allow_lan_http = '1'
+        trusted_proxies = LOCAL_PROXY_CIDRS
     else:
         # Direct mode always serves HTTPS with the host's self-signed certificate.
         bind = options['bind']
         origin = ''
         cert, key = TLS_REAL + '/cert.pem', TLS_REAL + '/key.pem'
         allow_lan_http = '0'
+        trusted_proxies = ''
     return {
         'TOFI_VERSION': manifest['version'],
         'TOFI_DOMAIN': domain,
@@ -862,6 +870,7 @@ def render_env(manifest, options, budgets):
         'TOFI_TLS_KEY_FILE': key,
         'TOFI_OWNER_ALLOW_LAN_HTTP': allow_lan_http,
         'TOFI_COMPUTER_BACKEND': options.get('computer') or 'kvm',
+        'TOFI_TRUSTED_PROXIES': trusted_proxies,
     }
 
 
