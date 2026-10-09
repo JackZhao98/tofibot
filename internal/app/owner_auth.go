@@ -32,6 +32,7 @@ type ownerAuth struct {
 	mu            sync.Mutex // Serializes session validation/registration with revocation.
 	active        map[string]map[*ownerRequest]struct{}
 	hashing       chan struct{}
+	trusted       []*net.IPNet // reverse proxies whose X-Forwarded-For is believed
 }
 type ownerRequest struct{ cancel context.CancelFunc }
 type ownerIdentity struct {
@@ -73,6 +74,9 @@ func initializeOwnerAuth(s *Store, c Config) (*ownerAuth, error) {
 	host, _, _ := net.SplitHostPort(c.Listen)
 	ip := net.ParseIP(host)
 	a := &ownerAuth{allowLAN: c.OwnerAllowLANHTTP || os.Getenv("TOFI_OWNER_ALLOW_LAN_HTTP") == "1", store: s, bootstrapPath: filepath.Join(c.DataDir, "owner-bootstrap.secret"), allowLoopback: (c.OwnerAllowLoopbackHTTP || os.Getenv("TOFI_OWNER_ALLOW_LOOPBACK_HTTP") == "1") && ip != nil && ip.IsLoopback(), active: make(map[string]map[*ownerRequest]struct{}), hashing: make(chan struct{}, 2)}
+	if a.trusted, err = parseTrustedProxies(os.Getenv("TOFI_TRUSTED_PROXIES")); err != nil {
+		return nil, err
+	}
 	var saved []byte
 	var consumed bool
 	if enabled != 0 {
@@ -315,9 +319,7 @@ func (a *ownerAuth) hash(ctx context.Context, password string, salt []byte) ([]b
 // Count failed and successful attempts alike. Durable global and per-peer bounds
 // limit password hashing and do not trust proxy-supplied client addresses.
 func (a *ownerAuth) allowAttempt(r *http.Request) bool {
-	host, _, _ := net.SplitHostPort(r.RemoteAddr)
-	sum := sha256.Sum256([]byte(host))
-	peer := base64.RawURLEncoding.EncodeToString(sum[:])
+	peer := a.peerBucket(r)
 	now := time.Now().Unix()
 	tx, err := a.store.db.Begin()
 	if err != nil {
@@ -399,10 +401,21 @@ func (s *Server) handleOwnerAuth(w http.ResponseWriter, r *http.Request) bool {
 		writeErr(w, 400, "password_transport_required", "use HTTPS or an explicitly configured LAN HTTP or loopback SSH ingress")
 		return true
 	}
-	if !a.allowAttempt(r) {
+	limit := func() bool {
+		if a.allowAttempt(r) {
+			return true
+		}
 		w.Header().Set("Retry-After", "900")
 		writeErr(w, 429, "rate_limited", "too many authentication attempts; try again later")
-		return true
+		return false
+	}
+	// A closed setup is a cheap read; it must never spend the attempt budget.
+	if p != "/api/auth/login" {
+		var consumed, owners int
+		if a.store.db.QueryRow(`SELECT COALESCE((SELECT bootstrap_hash IS NULL FROM owner_auth_settings WHERE id=1),0), (SELECT COUNT(*) FROM workspace_owner)`).Scan(&consumed, &owners) == nil && (consumed != 0 || owners != 0) {
+			writeErr(w, 409, "setup_unavailable", "owner setup is no longer available")
+			return true
+		}
 	}
 	if p == "/api/auth/setup/verify" {
 		var v struct {
@@ -410,6 +423,9 @@ func (s *Server) handleOwnerAuth(w http.ResponseWriter, r *http.Request) bool {
 		}
 		if decodeStrict(r, 8<<10, &v) != nil {
 			writeErr(w, 400, "invalid_request", "invalid setup request")
+			return true
+		}
+		if !limit() {
 			return true
 		}
 		var saved []byte
@@ -432,17 +448,23 @@ func (s *Server) handleOwnerAuth(w http.ResponseWriter, r *http.Request) bool {
 			writeErr(w, 400, "invalid_request", "invalid setup request")
 			return true
 		}
-		v.Username = strings.TrimSpace(v.Username)
-		v.Email = strings.ToLower(strings.TrimSpace(v.Email))
-		if e := checkAccountFields(v.Username, v.Email, v.Password); e != nil {
-			writeFieldErr(w, 400, e)
+		if !limit() {
 			return true
 		}
+		v.Username = strings.TrimSpace(v.Username)
+		v.Email = strings.ToLower(strings.TrimSpace(v.Email))
+		// Secret first, then per-field errors, as in accounts mode.
 		secretHash := sha256.Sum256([]byte(v.BootstrapSecret))
 		var saved []byte
 		err := a.store.db.QueryRow(`SELECT bootstrap_hash FROM owner_auth_settings WHERE id=1`).Scan(&saved)
 		if err != nil || subtle.ConstantTimeCompare(saved, secretHash[:]) != 1 {
 			writeErr(w, 401, "invalid_bootstrap", "setup secret is invalid or already consumed")
+			return true
+		}
+		if e := checkAccountFields(v.Username, v.Email, v.Password); e != nil {
+			// Validation failures are not guesses at the secret.
+			a.refundAttempt(r)
+			writeFieldErr(w, 400, e)
 			return true
 		}
 		salt := make([]byte, 16)
@@ -481,6 +503,9 @@ func (s *Server) handleOwnerAuth(w http.ResponseWriter, r *http.Request) bool {
 		// A stale file cannot authorize setup once its durable hash is consumed.
 		_ = removeOwnerBootstrap(a.bootstrapPath)
 	} else {
+		if !limit() {
+			return true
+		}
 		var v struct {
 			Identifier string `json:"identifier"`
 			Password   string `json:"password"`
@@ -589,4 +614,15 @@ func (a *ownerAuth) close() {
 func verifyBootstrapSecret(saved []byte, queryErr error, secret string) bool {
 	hash := sha256.Sum256([]byte(secret))
 	return secret != "" && queryErr == nil && len(saved) == sha256.Size && subtle.ConstantTimeCompare(saved, hash[:]) == 1
+}
+
+func (a *ownerAuth) peerBucket(r *http.Request) string {
+	sum := sha256.Sum256([]byte(clientIP(r, a.trusted)))
+	return base64.RawURLEncoding.EncodeToString(sum[:])
+}
+
+// refundAttempt gives back one attempt for a request that was rejected before
+// it could test any secret (field validation).
+func (a *ownerAuth) refundAttempt(r *http.Request) {
+	_, _ = a.store.db.Exec(`UPDATE owner_auth_attempts SET attempts=attempts-1 WHERE attempts>0 AND bucket IN ('global',?)`, a.peerBucket(r))
 }

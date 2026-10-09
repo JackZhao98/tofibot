@@ -7,7 +7,7 @@ import blocklist from "./password-blocklist.json";
  */
 export const PASSWORD_MIN_CHARS = 12;
 export const PASSWORD_MAX_BYTES = 1024;
-const IDENTITY_CONTAINS_MIN = 3;
+const IDENTITY_CONTAINS_MIN = 4;
 
 const common = new Set((blocklist as string[]).map(item => item.toLowerCase()));
 
@@ -56,6 +56,10 @@ export function passwordRules(password: string, username: string, email: string)
   };
 }
 
-export const USERNAME_PATTERN = /^[\p{L}\p{N}_.-]{3,64}$/u;
+/** Letters, decimal digits and . _ -, 3 to 64 UTF-8 bytes: the server counts bytes, not characters. */
+export function validUsername(value: string): boolean {
+  const bytes = new TextEncoder().encode(value).length;
+  return bytes >= 3 && bytes <= 64 && /^[\p{L}\p{Nd}_.-]+$/u.test(value);
+}
 /** Loose on purpose: the server parses addresses strictly and answers per field. */
 export const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+$/;
