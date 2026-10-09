@@ -1662,43 +1662,81 @@ def status(details=False):
     return result
 
 
-def render_status(result, with_access=True):
-    """`tofi status` for people (`--json` prints `result` itself)."""
+def status_access(env):
+    """What render_status needs to know about how this install is reached."""
+    return {'domain': env.get('TOFI_DOMAIN', ''), 'port': env.get('TOFI_HTTP_PORT') or str(DEFAULT_PORT),
+            'local_only': not env.get('TOFI_DOMAIN') and env.get('TOFI_BIND') != '0.0.0.0'}
+
+
+def short_fingerprint(fingerprint):
+    groups = str(fingerprint).split(':')
+    if len(groups) <= 9:
+        return str(fingerprint)
+    return '%s … %s' % (':'.join(groups[:4]), ':'.join(groups[-4:]))
+
+
+def version_summary(result, verbose):
+    """The Version row: installed version and whether anything newer is out."""
+    versions = result.get('versions') or {}
+    text = str(result.get('version') or '?')
+    latest, error = versions.get('latest'), versions.get('latest_error')
+    if latest is None:
+        # A 404 on latest/download means no stable (non-prerelease) release exists yet.
+        if error and 'HTTP Error 404' in str(error):
+            note = 'no stable release yet'
+        else:
+            note = "couldn't check for updates"
+    elif versions.get('update_available'):
+        note = '%s available · sudo tofi update' % latest
+    else:
+        note = 'up to date'
+    text += ' · ' + note
+    if verbose and latest is None:
+        text += ' (%s)' % (error or 'not checked')
+    elif verbose and error:
+        text += ' · checked %s, offline now' % versions.get('latest_checked_at')
+    return text
+
+
+def render_status(result, mode=None, verbose=False, access=None):
+    """`tofi status` for people (`--json` prints `result` itself). `mode` is color_mode()."""
     if not result.get('phase'):
         return 'TOFI is not installed. Install it with install.sh.\n'
+    paint = Paint(mode)
+    access = access or {}
     versions = result.get('versions') or {}
-    lines = ['TOFI %s · %s · %s' % (result.get('version') or '?', result['phase'],
-                                    'healthy' if result.get('healthy') else 'NOT healthy')]
+    healthy = bool(result.get('healthy'))
+    header = 'tofi %s · %s' % (result.get('version') or '?',
+                               paint.color('teal', 'healthy') if healthy else paint.color('peach', 'NOT healthy'))
+    if result['phase'] != 'installed':
+        header += ' · ' + result['phase']
+    lines = [paint.bold(header), '']
 
     def row(label, value):
-        lines.append('  %-12s %s' % (label, value))
+        lines.append('  ' + (paint.dim(label.ljust(13)) if label else ' ' * 13) + value)
 
-    if versions:
-        latest = versions.get('latest')
-        if latest is None:
-            text = 'unknown (%s)' % (versions.get('latest_error') or 'not checked')
-        elif versions.get('update_available'):
-            text = '%s available · sudo tofi update --check' % latest
-        else:
-            text = '%s (up to date)' % latest
-        if latest and versions.get('latest_error'):
-            text += ' · checked %s, offline now' % versions.get('latest_checked_at')
-        row('Latest', text)
-        row('App', short_image(versions.get('app_image')))
-        row('Worker', short_image(versions.get('worker_image')))
-        row('Guest', versions.get('guest') or '-')
+    urls = result.get('urls') or []
+    for index, url in enumerate(urls):
+        row('Open' if index == 0 else '', url)
+    if urls and access.get('local_only'):
+        port = access.get('port') or str(DEFAULT_PORT)
+        row('', paint.dim('this server only · ssh -L %s:127.0.0.1:%s <user>@<server>' % (port, port)))
+    if result.get('certificate_sha256') and not access.get('domain'):
+        fingerprint = result['certificate_sha256']
+        row('Certificate', 'SHA256 ' + (fingerprint if verbose else short_fingerprint(fingerprint)))
+    if result.get('setup_key_pending'):
+        row('Admin', 'not created yet · sudo tofi setup-secret')
+    if versions or result.get('version'):
+        row('Version', version_summary(result, verbose))
     services = result.get('services')
     if isinstance(services, dict):
         row('Services', ' · '.join('%s %s' % item for item in sorted(services.items())) or 'none running')
     elif services:
         row('Services', services)
-    if with_access:
-        for index, url in enumerate(result.get('urls') or []):
-            row('Open' if index == 0 else '', url)
-        if result.get('certificate_sha256'):
-            row('Certificate', 'SHA256 ' + result['certificate_sha256'])
-        if result.get('setup_key_pending'):
-            row('Setup key', 'pending · sudo tofi setup-secret')
+    if verbose and versions:
+        row('App', short_image(versions.get('app_image')))
+        row('Worker', short_image(versions.get('worker_image')))
+        row('Guest', versions.get('guest') or '-')
     if result.get('transaction'):
         row('Pending', '%(kind)s at step %(step)s · sudo tofi install resumes it' % result['transaction'])
     if result.get('last_error'):
@@ -1706,27 +1744,23 @@ def render_status(result, with_access=True):
     if result.get('last_update_failure'):
         failure = result['last_update_failure']
         row('Update', 'to %s rejected at %s: %s' % (failure.get('version'), failure.get('at'), failure.get('message')))
-    if 'computers' in result or 'computers_error' in result:
-        lines.append('')
-        if 'computers' in result:
-            lines.append('Computers (%d)' % len(result['computers']))
-            lines += render_computers(result['computers'], versions.get('guest'))
+    computers = result.get('computers')
+    if 'computers_error' in result:
+        row('Computers', 'unknown (%s)' % result['computers_error'])
+    elif computers is not None:
+        if not computers:
+            row('Computers', 'none yet')
         else:
-            lines.append('Computers    unknown (%s)' % result['computers_error'])
+            counts = {}
+            for item in computers:
+                counts[item['state']] = counts.get(item['state'], 0) + 1
+            order = [s for s in ('running', 'hibernated') if s in counts] + sorted(
+                s for s in counts if s not in ('running', 'hibernated'))
+            row('Computers', ' · '.join(['%d' % len(computers)] + ['%d %s' % (counts[s], s) for s in order]))
+            lines.append('')
+            lines += render_computers(computers, versions.get('guest'))
+    lines += ['', '  ' + paint.dim('tofi update · tofi logs · tofi computers · tofi doctor')]
     return '\n'.join(lines) + '\n'
-
-
-def status_banner():
-    """The install banner as a `tofi status` header (terminals only)."""
-    try:
-        env = read_env()
-    except (OSError, HostError):
-        return ''
-    info = {'version': env.get('TOFI_VERSION', ''), 'urls': access_urls(env), 'setup_key': read_setup_secret(),
-            'domain': env.get('TOFI_DOMAIN', ''), 'port': env.get('TOFI_HTTP_PORT') or str(DEFAULT_PORT),
-            'fingerprint': certificate_fingerprint() if app_scheme(env) == 'https' else None,
-            'local_only': not env.get('TOFI_DOMAIN') and env.get('TOFI_BIND') != '0.0.0.0'}
-    return render_banner(info, color_mode(sys.stdout), terminal_width())
 
 
 # --------------------------------------------------------------------------
@@ -2373,6 +2407,8 @@ def parse_args(argv):
     install_parser.add_argument('--yes', action='store_true')
     status_parser = sub.add_parser('status', help='versions, services, health and account computers')
     status_parser.add_argument('--json', action='store_true', help='machine-readable output')
+    status_parser.add_argument('--verbose', '-v', action='store_true',
+                               help='also image digests, the full certificate fingerprint and the update check')
     sub.add_parser('start')
     sub.add_parser('stop')
     update_parser = sub.add_parser('update')
@@ -2446,11 +2482,11 @@ def main(argv=None):
             if args.json:
                 print(json.dumps(result, indent=2))
                 return 0
-            banner = result.get('phase') == 'installed' and color_mode(sys.stdout, {}) is not None
-            if banner:
-                # Interactive terminal: the install banner (URLs, setup key) first.
-                sys.stdout.write(status_banner() + '\n')
-            sys.stdout.write(render_status(result, with_access=not banner))
+            try:
+                access = status_access(read_env())
+            except (OSError, HostError):
+                access = {}
+            sys.stdout.write(render_status(result, color_mode(sys.stdout), args.verbose, access))
             return 0
         if args.command == 'computers':
             if args.computers_command == 'upgrade':
