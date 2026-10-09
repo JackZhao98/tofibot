@@ -864,7 +864,8 @@ def render_caddyfile(bundle, domain, email):
 def render_apparmor(bundle):
     template = (Path(bundle) / 'worker.apparmor.template').read_text()
     return (template.replace('tofi-account-worker', 'tofi-worker')
-                    .replace('/var/lib/tofi-worker', VAR_REAL + '/worker'))
+                    .replace('/var/lib/tofi-worker', VAR_REAL + '/worker')
+                    .replace('/var/lib/tofi-guest', VAR_REAL + '/guest'))
 
 
 def bundle_manager(bundle):

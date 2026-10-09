@@ -397,7 +397,31 @@ class RenderTests(HostCase):
         self.assertEqual({'/snapshot/' + name for name in rule.group(1).split(',')}, written)
         self.assertIn('w', rule.group(2))
 
-    def test_manifest_validation(self):
+    def test_apparmor_profile_lets_the_worker_bind_release_images_into_jails(self):
+        # rc.5 acceptance: link(2) from the read-only release volume into the
+        # jail fails with EXDEV, and the dense 5 GiB copy cost ~7.6 s on every
+        # start and resume. manager.py now bind-mounts the release file
+        # read-only over a jail placeholder and unmounts it before removal.
+        import re
+        source = (HERE.parent / 'microvm' / 'manager.py').read_text()
+        names = re.search(r'for name in \(("vmlinux", "rootfs.ext4")\):\n\s+target = self.jail / name', source)
+        self.assertIsNotNone(names, 'manager attaches exactly these release images')
+        self.assertIn('run("mount", "--bind", str(source), str(target)', source)
+        self.assertIn('run("umount", point', source)
+        profile = tofi_host.render_apparmor(HERE)
+        bind = re.search(r'^\s*mount options=\(bind\) (/var/lib/tofi/guest/\S+) -> (\S+),$', profile, re.M)
+        self.assertIsNotNone(bind, 'profile must allow the release image bind mount')
+        self.assertEqual(bind.group(1), '/var/lib/tofi/guest/*/{vmlinux,rootfs.ext4}')
+        target = bind.group(2)
+        self.assertTrue(target.startswith('/var/lib/tofi/worker/state/'), target)
+        self.assertTrue(target.endswith('/root/{vmlinux,rootfs.ext4}'), target)
+        self.assertIn('/jails/firecracker/ac-', target)
+        self.assertRegex(profile, r'(?m)^\s*umount ' + re.escape(target) + ',$')
+        # The jail path pattern is the same one the jailer's rbind is allowed on.
+        jail = target[:-len('{vmlinux,rootfs.ext4}')]
+        self.assertIn('mount options=(rbind) %s -> %s,' % (jail, jail), profile)
+        self.assertNotIn('/var/lib/tofi-guest', profile)
+
         tofi_host.validate_manifest(manifest())
         bad = manifest()
         bad['images']['app'] = 'ghcr.io/jackzhao98/tofi:latest'
