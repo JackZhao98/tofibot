@@ -305,10 +305,14 @@ func (m *Manager) prepareMode(ctx context.Context, botID string, scoped, discove
 	var skillDiags []Diagnostic
 	if m.cfg.SkillsDir != "" {
 		skills, skillDiags = loadSkillsMode(m.cfg.SkillsDir, discoverable)
-		skills, skillDiags = m.filterSkillsForBot(ctx, botID, skills, skillDiags)
 	}
 	servers = cloneServers(servers)
 	m.mu.RUnlock()
+	// The access lookup may touch the database, so it runs outside m.mu. Nothing
+	// below sees the unfiltered slice.
+	if m.cfg.SkillsDir != "" {
+		skills, skillDiags = m.filterSkillsForBot(ctx, botID, skills, skillDiags)
+	}
 	if m.cfg.ServerUsable != nil {
 		for name := range servers {
 			if !m.cfg.ServerUsable(ctx, name) {

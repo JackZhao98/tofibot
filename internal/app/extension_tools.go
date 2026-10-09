@@ -226,9 +226,15 @@ func (s *Server) executeExtensionManagement(ctx context.Context, c Conversation,
 		if err = s.extensionToolActive(ctx, c, r); err != nil {
 			return "", err
 		}
+		if err = s.restrictedSkillGuard(r.BotID, x.Name); err != nil {
+			return "", err
+		}
 		err = s.extensions.InstallSkill(x.Name, files)
 		mutated = err == nil
 	case "skill_delete":
+		if err = s.restrictedSkillGuard(r.BotID, x.Name); err != nil {
+			return "", err
+		}
 		err = s.deleteSkill(x.Name)
 		mutated = err == nil
 	default:

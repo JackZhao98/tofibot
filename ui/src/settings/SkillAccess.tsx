@@ -22,7 +22,8 @@ export function SkillAccessRow({skill, access, bots, disabled, onChange}: {skill
   const {t} = useTranslation("extensions");
   const active = bots.filter(bot => !bot.archived);
   const shown = accessBots(access, active);
-  const summary = access.mode === "all" ? t("skills.access.all") : t("skills.access.some", {selected: shown.length, total: active.length});
+  const orphaned = access.mode === "selected" && shown.length === 0;
+  const summary = access.mode === "all" ? t("skills.access.all") : orphaned ? t("skills.access.none_available") : t("skills.access.some", {count: active.length, selected: shown.length, total: active.length});
   const chips = shown.slice(0, MAX_CHIPS);
   const copy = <>
     <span className="skill-access-chips" data-testid={`skill-access-chips-${skill}`}>

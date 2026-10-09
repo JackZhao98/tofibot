@@ -164,9 +164,25 @@ func (s *Server) routeExtensions(w http.ResponseWriter, r *http.Request, p strin
 			writeErr(w, 500, "internal", "skill access unavailable")
 			return true
 		}
+		active, err := s.store.activeBotSet()
+		if err != nil {
+			writeErr(w, 500, "internal", "skill access unavailable")
+			return true
+		}
 		out := make([]skillWithAccess, 0, len(v))
 		for _, x := range v {
-			out = append(out, skillWithAccess{SkillView: x, Access: accessViewFor(access, x.Name)})
+			view := accessViewFor(access, x.Name)
+			if view.Mode == "selected" {
+				// Rows for archived or deleted Bots are kept but not shown.
+				kept := []string{}
+				for _, id := range view.BotIDs {
+					if active[id] {
+						kept = append(kept, id)
+					}
+				}
+				view.BotIDs = kept
+			}
+			out = append(out, skillWithAccess{SkillView: x, Access: view})
 		}
 		writeJSON(w, 200, map[string]any{"skills": out, "diagnostics": d})
 		return true

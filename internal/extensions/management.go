@@ -421,6 +421,16 @@ func (m *Manager) ListSkills() ([]SkillView, []Diagnostic) {
 	}
 	return out, d
 }
+// SkillExists reports whether a skill directory of that name is installed,
+// even if its manifest is currently unreadable.
+func (m *Manager) SkillExists(name string) bool {
+	if !skillNamePattern.MatchString(name) || strings.TrimSpace(m.cfg.SkillsDir) == "" {
+		return false
+	}
+	info, err := os.Stat(filepath.Join(m.cfg.SkillsDir, name))
+	return err == nil && info.IsDir()
+}
+
 func (m *Manager) DeleteSkill(name string) error {
 	if !skillNamePattern.MatchString(name) {
 		return errors.New("invalid skill name")

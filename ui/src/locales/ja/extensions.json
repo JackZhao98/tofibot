@@ -334,7 +334,6 @@
     "access": {
       "label": "利用できる Bot",
       "all": "すべての Bot",
-      "some": "{{total}} 個中 {{selected}} 個の Bot",
       "change": "変更",
       "change_for": "{{name}} を利用できる Bot を変更",
       "sheet_title": "{{name}} を利用できる Bot",
@@ -350,7 +349,9 @@
       "error": {
         "unknown_bot": "選択した Bot の 1 つが存在しないか、アーカイブされています。このシートを開き直してもう一度お試しください。",
         "save_failed": "保存できませんでした。もう一度お試しください。"
-      }
+      },
+      "some_other": "{{total}} 個中 {{selected}} 個の Bot",
+      "none_available": "存在しない Bot にのみ限定されています。利用できる Bot はありません"
     },
     "choose_folder": "フォルダを選択",
     "error": {
