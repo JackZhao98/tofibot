@@ -128,7 +128,7 @@ func TestOwnerBootstrapPersistenceAndWorkspaceRetention(t *testing.T) {
 		t.Fatal("session did not survive restart")
 	}
 	w = ownerCall(s2, "POST", "/api/auth/setup", map[string]string{"bootstrap_secret": strings.TrimSpace(string(before)), "username": "new-owner", "email": "new@example.invalid", "password": testOwnerPassword}, nil, true)
-	if w.Code != 401 {
+	if w.Code != 409 {
 		t.Fatal("consumed bootstrap reused")
 	}
 }
@@ -297,7 +297,7 @@ func TestOwnerBootstrapRejectsUnsafeFilesAndConcurrentClaim(t *testing.T) {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			w := ownerCall(s, "POST", "/api/auth/setup", map[string]string{"bootstrap_secret": secret, "username": "synthetic-owner", "email": "synthetic@example.invalid", "password": testOwnerPassword}, nil, true)
+			w := ownerCall(s, "POST", "/api/auth/setup", map[string]string{"bootstrap_secret": secret, "username": "synthetic-owner", "email": "founder@example.invalid", "password": testOwnerPassword}, nil, true)
 			codes <- w.Code
 		}()
 	}

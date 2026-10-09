@@ -232,8 +232,8 @@ func (g *AccountGateway) create(ctx context.Context, username, email, password s
 	if a.Username == "" {
 		a.Username = "user-" + a.ID
 	}
-	if !validateOwner(a.Username, a.Email, password) {
-		return Account{}, errors.New("invalid account fields or password")
+	if e := checkAccountFields(a.Username, a.Email, password); e != nil {
+		return Account{}, e
 	}
 	salt := make([]byte, 16)
 	if _, err := rand.Read(salt); err != nil {
@@ -388,13 +388,45 @@ func (g *AccountGateway) handle(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, 200, value)
 		return
 	}
-	if (r.URL.Path == "/api/auth/setup" || r.URL.Path == "/api/auth/login") && r.Method == http.MethodPost {
+	if (r.URL.Path == "/api/auth/setup" || r.URL.Path == "/api/auth/setup/verify" || r.URL.Path == "/api/auth/login") && r.Method == http.MethodPost {
 		if !g.auth.transportOK(r) {
 			writeErr(w, 403, "transport", "secure password transport required")
 			return
 		}
-		if !g.auth.allowAttempt(r) {
+		limit := func() bool {
+			if g.auth.allowAttempt(r) {
+				return true
+			}
 			writeErr(w, 429, "rate_limited", "try later")
+			return false
+		}
+		// A closed setup is a cheap read; it must never spend the attempt budget.
+		if r.URL.Path != "/api/auth/login" {
+			var consumed int
+			var accounts bool
+			if g.root.store.db.QueryRow(`SELECT (SELECT consumed FROM account_bootstrap WHERE id=1), EXISTS(SELECT 1 FROM accounts)`).Scan(&consumed, &accounts) == nil && (consumed != 0 || accounts) {
+				writeErr(w, 409, "setup_unavailable", "setup unavailable")
+				return
+			}
+		}
+		if r.URL.Path == "/api/auth/setup/verify" {
+			var in struct {
+				BootstrapSecret string `json:"bootstrap_secret"`
+			}
+			if decodeStrict(r, 8<<10, &in) != nil {
+				writeErr(w, 400, "invalid_request", "invalid setup request")
+				return
+			}
+			if !limit() {
+				return
+			}
+			var saved []byte
+			err := g.root.store.db.QueryRow(`SELECT bootstrap_hash FROM owner_auth_settings WHERE id=1`).Scan(&saved)
+			if !verifyBootstrapSecret(saved, err, in.BootstrapSecret) {
+				writeErr(w, 401, "invalid_bootstrap", "setup secret is invalid or already consumed")
+				return
+			}
+			writeJSON(w, 200, map[string]bool{"valid": true})
 			return
 		}
 		if r.URL.Path == "/api/auth/setup" {
@@ -406,10 +438,20 @@ func (g *AccountGateway) handle(w http.ResponseWriter, r *http.Request) {
 				writeErr(w, 400, "invalid_request", "invalid account")
 				return
 			}
+			if !limit() {
+				return
+			}
 			created, err := g.create(r.Context(), in.Username, in.Email, in.Password, true, in.BootstrapSecret)
 			if err != nil {
 				if errors.Is(err, errInvalidAccountBootstrap) {
 					writeErr(w, 401, "invalid_bootstrap", "setup secret is invalid or already consumed")
+					return
+				}
+				var fe *accountFieldError
+				if errors.As(err, &fe) {
+					// Validation failures are not guesses at the secret.
+					g.auth.refundAttempt(r)
+					writeFieldErr(w, 400, fe)
 					return
 				}
 				writeErr(w, 409, "setup_unavailable", "setup unavailable or invalid fields")
@@ -417,6 +459,9 @@ func (g *AccountGateway) handle(w http.ResponseWriter, r *http.Request) {
 			}
 			a = created
 		} else {
+			if !limit() {
+				return
+			}
 			var in struct{ Identifier, Password string }
 			if decodeStrict(r, 8<<10, &in) != nil || len(in.Password) > 1024 || len(in.Identifier) > 254 {
 				writeErr(w, 400, "invalid_request", "invalid login")
@@ -479,6 +524,11 @@ func (g *AccountGateway) handle(w http.ResponseWriter, r *http.Request) {
 			}
 			created, err := g.create(r.Context(), in.Username, in.Email, in.Password, false, "")
 			if err != nil {
+				var fe *accountFieldError
+				if errors.As(err, &fe) {
+					writeFieldErr(w, 400, fe)
+					return
+				}
 				writeErr(w, 400, "invalid_account", "invalid or duplicate account")
 				return
 			}

@@ -1,38 +1,16 @@
-import { createContext, Fragment, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from "react";
+import { createContext, Fragment, useCallback, useContext, useEffect, useId, useRef, useState, type ReactNode } from "react";
 import { BrandLogo } from "./BrandLogo";
 import { useAppearance } from "./InteractionSystem";
 import { TofiIcon } from "./icons";
 import { hydrateDesktopState, isDesktop, flushDesktopState } from "./desktop";
-import { i18n, Trans, useTranslation } from "./i18n";
+import { i18n, useTranslation } from "./i18n";
+import { authRequest, type OwnerSession } from "./ownerAuthApi";
+import { OwnerSetup, PasswordChecklist } from "./OwnerSetup";
+import { AuthLanguageSwitch } from "./AuthLanguageSwitch";
 
-type OwnerSession = { enabled: boolean; setup_required: boolean; authenticated: boolean; password_transport_allowed: boolean; multi_account?: boolean; owner?: { id?: string; must_change_password?: boolean; username: string; email: string; role?: string } };
 export function useOwnerSession(){return useContext(SessionContext).session}
 const SessionContext = createContext<{ session: OwnerSession | null; logout: () => Promise<void> }>({ session: null, logout: async () => {} });
 const anonymous: OwnerSession = { enabled: false, setup_required: false, authenticated: false, password_transport_allowed: false };
-
-async function authRequest(path: string, body?: unknown, signal?: AbortSignal): Promise<OwnerSession> {
-  const controller = new AbortController();
-  const timeout = window.setTimeout(() => controller.abort(), 15_000);
-  const aborted = () => controller.abort();
-  signal?.addEventListener("abort", aborted, { once: true });
-  if (signal?.aborted) controller.abort();
-  try {
-  const response = await fetch(`/api/auth/${path}`, { method: body ? "POST" : "GET", credentials: "same-origin", cache: "no-store", signal: controller.signal,
-    headers: body ? { "Content-Type": "application/json" } : undefined, body: body ? JSON.stringify(body) : undefined });
-  const value = await response.json().catch(() => null);
-  if (!response.ok) {
-    // The server answers with a stable code; the words live in the catalog.
-    const code: unknown = value?.error?.code;
-    const known = ["invalid_credentials", "invalid_bootstrap", "setup_unavailable", "rate_limited", "password_transport_required"] as const;
-    const key = code === "invalid_request" ? (path === "setup" ? "error.invalid_setup_request" : "error.invalid_request")
-      : known.find(item => item === code) ? `error.${code as typeof known[number]}` as const : "error.unavailable";
-    throw new Error(i18n.t(key, { ns: "auth" }));
-  }
-  if (!value || typeof value.enabled !== "boolean") throw new Error(i18n.t("auth:error.invalid_session"));
-  return value;
-  } catch (cause) { if (controller.signal.aborted) throw new Error(i18n.t("auth:error.timeout")); throw cause; }
-  finally { window.clearTimeout(timeout); signal?.removeEventListener("abort", aborted); }
-}
 
 export function OwnerSessionGate({ children }: { children: ReactNode }) {
   useAppearance();
@@ -97,13 +75,20 @@ export function OwnerSessionGate({ children }: { children: ReactNode }) {
     try { const next = await authRequest("logout", {}); setExpired(false); setSession(next); }
     finally { loggingOut.current = false; }
   }
+  // The POST may have consumed setup or issued a cookie, but only a fresh
+  // identity/session check may open the workspace. Retire the old form so a
+  // failed check exposes reconnect, not another POST.
+  const rulesID = useId();
+  const [newPassword, setNewPassword] = useState("");
+  const finishAuth = async () => { setExpired(false); sessionRef.current = null; setSession(null); setChecked(false); await refresh(); };
   const mustChange = Boolean(session?.authenticated && session?.owner?.must_change_password);
   const allowed = checked && session && (!session.enabled || session.authenticated) && !mustChange;
   return <SessionContext.Provider value={{ session, logout }}>{allowed ? <Fragment key={`${instanceID}:${session?.owner?.id ?? "legacy"}`}>{children}</Fragment> : <div className="owner-gate">
     <div className="native-titlebar" aria-hidden="true" />
+    <AuthLanguageSwitch />
     <section className="owner-card">
       <BrandLogo variant="calico" />
-      {!session ? <><h1>{t("gate.connect_title")}</h1>{error ? <><p className="owner-error" role="alert">{error}</p><button className="primary-button" onClick={() => void refresh()}>{t("gate.reconnect")}</button></> : <div className="owner-loading"><span className="spinner" />{t("gate.connecting")}</div>}</> : <>
+      {!session ? <><h1>{t("gate.connect_title")}</h1>{error ? <><p className="owner-error" role="alert">{error}</p><button className="primary-button" onClick={() => void refresh()}>{t("gate.reconnect")}</button></> : <div className="owner-loading"><span className="spinner" />{t("gate.connecting")}</div>}</> : session.setup_required && session.password_transport_allowed && !mustChange ? <OwnerSetup onDone={finishAuth} /> : <>
         <h1>{mustChange ? t("gate.title.set_password") : session.setup_required ? t("gate.title.welcome_new") : expired ? t("gate.title.sign_in_again") : t("gate.title.welcome_back")}</h1>
         <p className="owner-subtitle">{mustChange ? t("gate.subtitle.change_initial") : session.setup_required ? t("gate.subtitle.create_admin") : t("gate.subtitle.sign_in")}</p>
         {!session.password_transport_allowed ? <p className="owner-error" role="alert">{t("error.password_transport_required")}</p> : <form onSubmit={async event => {
@@ -112,27 +97,18 @@ export function OwnerSessionGate({ children }: { children: ReactNode }) {
           const data = new FormData(form);
           setPending(true); setError("");
           try {
-            await authRequest(mustChange ? "password" : session.setup_required ? "setup" : "login", mustChange ? {current_password:data.get("current_password"),password:data.get("password")} : session.setup_required
-              ? { username: data.get("username"), email: data.get("email"), password: data.get("password"), bootstrap_secret: data.get("bootstrap_secret") }
-              : { identifier: data.get("identifier"), password: data.get("password") });
-            form.reset(); setExpired(false);
-            // The POST may have consumed setup or issued a cookie, but only a
-            // fresh identity/session check may open the workspace. Retire the
-            // old form so a failed check exposes reconnect, not another POST.
-            sessionRef.current = null;
-            setSession(null); setChecked(false);
-            await refresh();
+            await authRequest(mustChange ? "password" : "login", mustChange ? {current_password:data.get("current_password"),password:data.get("password")} : { identifier: data.get("identifier"), password: data.get("password") });
+            form.reset(); setNewPassword("");
+            await finishAuth();
           } catch (cause) { setError(cause instanceof Error ? cause.message : t("error.login_failed")); }
           finally { setPending(false); }
         }}>
-          {mustChange ? <label>{t("field.current_initial_password")}<input name="current_password" type="password" autoComplete="current-password" required disabled={pending}/></label> : session.setup_required ? <>
-            <label>{t("field.username")}<input name="username" autoComplete="username" autoCapitalize="none" spellCheck={false} required maxLength={64} disabled={pending} /></label>
-            <label>{t("field.email")}<input name="email" type="email" autoComplete="email" autoCapitalize="none" spellCheck={false} required disabled={pending} /></label>
-          </> : <label>{t("field.identifier")}<input name="identifier" autoComplete="username" autoCapitalize="none" spellCheck={false} required autoFocus disabled={pending} /></label>}
-          <label>{t("field.password")}<input name="password" type="password" autoComplete={session.setup_required || mustChange ? "new-password" : "current-password"} required minLength={session.setup_required || mustChange ? 12 : undefined} maxLength={1024} disabled={pending} /></label>
-          {session.setup_required && <label>{t("field.setup_key")}<input name="bootstrap_secret" type="password" autoComplete="off" spellCheck={false} required disabled={pending} /><small><Trans t={t} i18nKey="field.setup_key_hint" components={{ code: <code /> }} /></small></label>}
+          {mustChange ? <label>{t("field.current_initial_password")}<input name="current_password" type="password" autoComplete="current-password" required disabled={pending}/></label>
+            : <label>{t("field.identifier")}<input name="identifier" autoComplete="username" autoCapitalize="none" spellCheck={false} required autoFocus disabled={pending} /></label>}
+          <label>{t("field.password")}<input name="password" type="password" autoComplete={mustChange ? "new-password" : "current-password"} required minLength={mustChange ? 12 : undefined} maxLength={1024} disabled={pending} aria-describedby={mustChange ? rulesID : undefined} onChange={mustChange ? event => setNewPassword(event.target.value) : undefined} /></label>
+          {mustChange && <PasswordChecklist id={rulesID} password={newPassword} username={session.owner?.username ?? ""} email={session.owner?.email ?? ""} />}
           {error && <p className="owner-error" role="alert">{error}</p>}
-          <button className="primary-button" disabled={pending}>{pending ? t("gate.submit.wait") : mustChange ? t("gate.submit.update_password") : session.setup_required ? t("gate.submit.create_account") : t("gate.submit.sign_in")}</button>
+          <button className="primary-button" disabled={pending}>{pending ? t("gate.submit.wait") : mustChange ? t("gate.submit.update_password") : t("gate.submit.sign_in")}</button>
         </form>}
       </>}
       {isDesktop && <a className="owner-switch" href="/__desktop/setup">{t("gate.switch_server")}</a>}
