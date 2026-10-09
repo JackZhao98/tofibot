@@ -204,7 +204,7 @@ jobs:
       - name: Pin Caddy by digest
         id: caddy
         run: |
-          digest=$(docker buildx imagetools inspect "docker.io/library/caddy:$CADDY_TAG" --format '{{json .Manifest}}' \
+          digest=$(docker buildx imagetools inspect "mirror.gcr.io/library/caddy:$CADDY_TAG" --format '{{json .Manifest}}' \
             | python3 -c 'import json,sys; print(json.load(sys.stdin)["digest"])')
           echo "digest=$digest" >> "$GITHUB_OUTPUT"
       - name: manifest.json
