@@ -49,6 +49,8 @@
     "expand": "Agrandir",
     "hide_aria": "Masquer l'ordinateur partagé",
     "minimize": "Réduire dans la barre",
+    "close": "Fermer",
+    "close_aria": "Fermer l'ordinateur partagé",
     "title": "Ordinateur partagé",
     "status": {
       "failed": "Échec de la connexion",
@@ -86,7 +88,16 @@
       "browser": "Navigateur"
     },
     "video_aria": "Vidéo en direct du bureau du Bot",
-    "pointer_click": "{{name}} · clic"
+    "pointer_click": "{{name}} · clic",
+    "placeholder": {
+      "elapsed": "{{status}} · {{seconds}} s",
+      "waking": "Réveil de l'ordinateur",
+      "connecting": "Connexion à l'écran",
+      "resuming": "Reprise depuis l'hibernation",
+      "hibernated": "En hibernation. Il se réveille dès qu'un Bot en a besoin.",
+      "hibernating": "Passage en hibernation…",
+      "retry": "Réessayer"
+    }
   },
   "floating": {
     "open": "Ouvrir l'ordinateur partagé",

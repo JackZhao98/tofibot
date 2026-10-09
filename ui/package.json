@@ -28,6 +28,7 @@
     "test:motion-lab": "node scripts/test-motion-lab.mjs",
     "preview": "vite preview",
     "test:auto-review": "node scripts/test-auto-review.mjs",
+    "test:computer-window": "node scripts/test-computer-window.mjs",
     "test:model-catalog": "node scripts/test-model-catalog.mjs",
     "test:settings-shell": "node scripts/test-settings-shell.mjs",
     "test:i18n": "node scripts/check-i18n.mjs"

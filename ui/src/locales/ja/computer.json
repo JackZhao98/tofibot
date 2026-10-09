@@ -47,6 +47,8 @@
     "expand": "拡大",
     "hide_aria": "共有コンピューターを隠す",
     "minimize": "最小化",
+    "close": "閉じる",
+    "close_aria": "共有コンピューターを閉じる",
     "title": "共有コンピューター",
     "status": {
       "failed": "接続に失敗しました",
@@ -84,7 +86,16 @@
       "browser": "ブラウザ"
     },
     "video_aria": "Bot のデスクトップのライブ映像",
-    "pointer_click": "{{name}} · クリック"
+    "pointer_click": "{{name}} · クリック",
+    "placeholder": {
+      "elapsed": "{{status}} · {{seconds}}秒",
+      "waking": "コンピューターを起こしています",
+      "connecting": "画面に接続中",
+      "resuming": "休止状態から復帰中",
+      "hibernated": "休止中です。Bot が必要とすると自動で復帰します。",
+      "hibernating": "休止状態に入っています…",
+      "retry": "再試行"
+    }
   },
   "floating": {
     "open": "共有コンピューターを開く",
