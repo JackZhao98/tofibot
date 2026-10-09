@@ -1358,9 +1358,11 @@ class VM:
                 raise
 
     def info(self):
-        # Hibernation and restore end or replace Firecracker on purpose.
+        # Hibernation, restore, a restart (watchdog recovery, Retry, resource
+        # change) and a purge end or replace Firecracker on purpose: between
+        # its kill and stop() clearing the process, the exit is expected.
         if (self.process and self.process.poll() is not None
-                and self.state not in ("hibernating", "resuming")):
+                and self.state not in ("hibernating", "resuming", "restarting", "purging")):
             self.state = "error"
             self.error = "microVM stopped unexpectedly"
         value = {"kind": "firecracker", "id": self.c["id"], "state": self.state, "phase": self.phase,
