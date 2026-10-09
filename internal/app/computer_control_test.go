@@ -155,3 +155,38 @@ func TestComputerControlRejectsGraphicalOwnerAndCrossSite(t *testing.T) {
 		}
 	}
 }
+
+func TestHumanComputerActionKeepsWatchdogRestartingCode(t *testing.T) {
+	s, err := NewServer(Config{DataDir: t.TempDir()})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer s.Close()
+	fake := &inputControlTransport{}
+	s.microVM, _ = computer.New(computer.Config{Socket: "/test.sock", Client: &http.Client{Transport: fake}})
+	s.computerWatchdog = newComputerWatchdog(s.microVM)
+	s.computerWatchdog.state = computerRestarting
+	s.computerWatchdog.restartingSince = time.Now()
+	bot, err := s.store.CreateBot("restarting", "", "model")
+	if err != nil {
+		t.Fatal(err)
+	}
+	raw, _ := json.Marshal(map[string]any{"bot_id": bot.ID, "action": "shell.exec", "args": map[string]any{"command": "true"}})
+	response := httptest.NewRecorder()
+	s.Handler().ServeHTTP(response, httptest.NewRequest(http.MethodPost, "http://tofi.local/api/computers/firecracker/actions", bytes.NewReader(raw)))
+	var body struct {
+		Error struct {
+			Code string `json:"code"`
+		} `json:"error"`
+	}
+	if err := json.Unmarshal(response.Body.Bytes(), &body); err != nil || response.Code != http.StatusServiceUnavailable || body.Error.Code != "computer_restarting" {
+		t.Fatalf("restarting action = %d %s", response.Code, response.Body.String())
+	}
+	fake.mu.Lock()
+	defer fake.mu.Unlock()
+	for _, action := range fake.actions {
+		if action.Name == "shell.exec" {
+			t.Fatalf("restarting action reached the guest: %+v", action)
+		}
+	}
+}
