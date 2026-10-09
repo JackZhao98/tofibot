@@ -65,6 +65,7 @@ try {
     .replace(/^import .* from "react\/jsx-runtime";$/m, "const { jsx: _jsx, jsxs: _jsxs } = globalThis.__desktopHarness;")
     .replace(/^import .* from "react";$/m, "const { useEffect, useRef, useState } = globalThis.__desktopHarness; const useLayoutEffect = useEffect;")
     .replace(/^import .* from "\.\/api";$/m, "const { api, ApiError, request } = globalThis.__desktopHarness;")
+    .replace(/^import .* from "\.\/DesktopPlaceholder";$/m, "const DesktopPlaceholder = () => null;")
     .replace(/^import .* from "\.\/DesktopVideo";$/m, "const { DesktopVideo } = globalThis.__desktopHarness;")
     .replace(/^import .* from "\.\/icons";$/m, "const { TofiIcon } = globalThis.__desktopHarness;")
     .replace(/^import .* from "\.\/RemoteDesktopControl";$/m, "const { RemoteDesktopControl } = globalThis.__desktopHarness;")

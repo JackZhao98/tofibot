@@ -48,6 +48,8 @@
     "expand": "Enlarge",
     "hide_aria": "Hide shared computer",
     "minimize": "Minimize",
+    "close": "Close",
+    "close_aria": "Close shared computer",
     "title": "Shared computer",
     "status": {
       "failed": "Connection failed",
@@ -85,7 +87,16 @@
       "browser": "Browser"
     },
     "video_aria": "Live video of the Bot's desktop",
-    "pointer_click": "{{name}} · click"
+    "pointer_click": "{{name}} · click",
+    "placeholder": {
+      "elapsed": "{{status}} · {{seconds}}s",
+      "waking": "Waking the computer",
+      "connecting": "Connecting to the screen",
+      "resuming": "Resuming from hibernation",
+      "hibernated": "Hibernated. It wakes when a Bot needs it.",
+      "hibernating": "Going to sleep…",
+      "retry": "Retry"
+    }
   },
   "floating": {
     "open": "Open shared computer",

@@ -162,7 +162,7 @@ html[data-desktop] .message-avatar .avatar{width:38px;height:38px}
 .computer-detail:not(.is-expanded) .computer-stop-button:disabled{display:none}
 .computer-detail:not(.is-expanded) .computer-screen-toolbar{display:none}
 .computer-detail:not(.is-expanded) .computer-screen-wrap{margin:16px 0 0;padding:0;border:0;background:var(--desktop-screen);border-radius:16px;overflow:hidden}
-.computer-detail:not(.is-expanded) .remote-desktop-surface{aspect-ratio:16/9;display:grid;place-items:center;border-radius:16px}
+.computer-detail:not(.is-expanded) .remote-desktop-surface{aspect-ratio:8/5;display:grid;place-items:center;border-radius:16px}
 .computer-detail:not(.is-expanded) .computer-screen{width:100%;height:100%;max-height:none;object-fit:contain}
 .remote-preview-hint{display:none}
 .desktop-launch-preview{width:100%;aspect-ratio:16/9;display:grid;place-items:center;background:var(--desktop-screen)!important;border:1px solid var(--desktop-controls-edge);border-radius:16px;margin:16px 0 0;color:var(--desktop-controls-ink)!important}
