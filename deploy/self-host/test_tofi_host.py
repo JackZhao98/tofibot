@@ -358,6 +358,11 @@ class RenderTests(HostCase):
         self.assertEqual((tls['TOFI_BIND'], tls['TOFI_PUBLIC_ORIGIN']), ('127.0.0.1', 'https://tofi.example.com'))
         self.assertEqual((tls['TOFI_TLS_CERT_FILE'], tls['TOFI_TLS_KEY_FILE']), ('', ''))
         self.assertEqual(tls['TOFI_OWNER_ALLOW_LAN_HTTP'], '1', 'Caddy reaches the App over the bridge')
+        # Only the local Caddy container is trusted for X-Forwarded-For, and only with --domain.
+        self.assertEqual(tls['TOFI_TRUSTED_PROXIES'], '172.16.0.0/12,192.168.0.0/16')
+        self.assertEqual((default['TOFI_TRUSTED_PROXIES'], local['TOFI_TRUSTED_PROXIES']), ('', ''))
+        self.assertIn('TOFI_TRUSTED_PROXIES=172.16.0.0/12,192.168.0.0/16\n', tofi_host.format_env(tls))
+        self.assertIn('TOFI_TRUSTED_PROXIES: ${TOFI_TRUSTED_PROXIES:-}', (HERE / 'compose.yaml').read_text())
         for argv in (['--lan', '--local-only'], ['--domain', 'tofi.example.com', '--local-only'],
                      ['--domain', 'tofi.example.com', '--lan']):
             with self.subTest(argv=argv), self.assertRaises(tofi_host.HostError):
@@ -1699,6 +1704,18 @@ class ComputerBackendTests(HostCase):
         env = tofi_host.render_env(manifest(), options, {'cpu': 3, 'memory_mib': 6144})
         self.assertEqual(env['TOFI_COMPUTER_BACKEND'], 'kvm')
         self.assertIn('TOFI_COMPUTER_BACKEND=kvm\n', tofi_host.format_env(env))
+
+    def test_trusted_proxies_survive_a_rewrite_of_tofi_env(self):
+        # An operator behind an external reverse proxy adds the value by hand;
+        # `tofi update` rebuilds the file from the installed env and must keep it.
+        env = tofi_host.render_env(manifest(), tofi_host.install_options(self.args()), {'cpu': 3, 'memory_mib': 6144})
+        env['TOFI_TRUSTED_PROXIES'] = '10.0.10.0/24'
+        path = self.P.env_file
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(tofi_host.format_env(env))
+        candidate = dict(tofi_host.read_env(path), TOFI_VERSION='v9.9.9')
+        tofi_host.write_env(candidate)
+        self.assertEqual(tofi_host.read_env(path)['TOFI_TRUSTED_PROXIES'], '10.0.10.0/24')
 
     def test_other_backends_are_refused_as_not_supported_yet(self):
         for backend in ('gvisor', 'container'):

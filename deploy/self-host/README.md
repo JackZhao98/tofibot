@@ -165,6 +165,27 @@ Installs made before this default (plain HTTP on `127.0.0.1`) keep their
 and `TOFI_OWNER_ALLOW_LAN_HTTP=0` to `/etc/tofi/tofi.env`, run
 `sudo tofi regenerate-cert`, then `sudo tofi stop && sudo tofi start`.
 
+### Behind another reverse proxy
+
+Sign-in, setup and password attempts are rate limited per client address. Behind
+a proxy the App only sees the proxy's address, so every visitor would share one
+budget and a single abuser could lock everyone out. Tell the App which proxies to
+believe with `TOFI_TRUSTED_PROXIES` (comma-separated IPs or CIDRs; default empty,
+which ignores `X-Forwarded-For`). Only when the direct peer is in that list does
+the App read `X-Forwarded-For`, walking it from the right and taking the first
+address that is not itself a trusted proxy. The proxy must set or append the
+header and must not pass a client-supplied value through unchecked (Caddy's
+`reverse_proxy` and nginx's `$proxy_add_x_forwarded_for` both append).
+
+- `--domain` installs (the bundled Caddy container) get
+  `TOFI_TRUSTED_PROXIES=172.16.0.0/12,192.168.0.0/16`, Docker's bridge ranges;
+  with `--domain` the App port is bound to loopback, so only Caddy can reach it.
+- Direct installs trust nobody (empty).
+- For a proxy on another host, add `TOFI_TRUSTED_PROXIES=10.0.10.0/24` (the
+  proxy's address or subnet) to `/etc/tofi/tofi.env`, then
+  `sudo tofi stop && sudo tofi start`. `tofi update` keeps the value. An invalid
+  entry stops the App at start with a clear error.
+
 ## What install.sh does
 
 1. Root and `Linux x86_64`.

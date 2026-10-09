@@ -81,6 +81,10 @@ services:
       TOFI_TLS_CERT_FILE: ${TOFI_TLS_CERT_FILE:-}
       TOFI_TLS_KEY_FILE: ${TOFI_TLS_KEY_FILE:-}
       TOFI_OWNER_ALLOW_LAN_HTTP: ${TOFI_OWNER_ALLOW_LAN_HTTP:-1}
+      # Proxies whose X-Forwarded-For is believed for sign-in rate limits (comma
+      # separated IPs/CIDRs). Empty: the header is ignored. --domain installs set
+      # Docker's bridge ranges; see README "Behind another reverse proxy".
+      TOFI_TRUSTED_PROXIES: ${TOFI_TRUSTED_PROXIES:-}
       TOFI_MULTI_ACCOUNT: "1"
       TOFI_ACCOUNT_MAINTENANCE: "0"
       TOFI_ACCOUNT_PROVISIONER_SOCKET: /run/tofi/broker.sock
