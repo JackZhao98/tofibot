@@ -431,6 +431,15 @@ function Workspace() {
   const desktopPresence = useDesktopPresence(Boolean(activeId));
   // Keep in sync with conversation-workspace.css: three columns need room for chat.
   const [compactViewport, setCompactViewport] = useState(() => typeof window !== "undefined" && window.matchMedia("(max-width: 1099px)").matches);
+  // The computer opens as a small floating window; the last size lives only as long as this page.
+  const [desktopSize, setDesktopSize] = useState<"small" | "big">("small");
+  const [desktopSheet, setDesktopSheet] = useState(() => typeof window !== "undefined" && window.matchMedia("(max-width: 700px)").matches);
+  useEffect(() => {
+    const media = window.matchMedia("(max-width: 700px)");
+    const sync = () => setDesktopSheet(media.matches);
+    media.addEventListener("change", sync);
+    return () => media.removeEventListener("change", sync);
+  }, []);
   const [scheduleRefresh, setScheduleRefresh] = useState(0);
   const [error, setError] = useState("");
   const [snapshotError, setSnapshotError] = useState("");
@@ -940,7 +949,10 @@ function Workspace() {
     start.call(document, () => flushSync(update));
   }
   const desktopBot = activeBot ?? (active?.kind === "group" ? botById.get(active.bot_ids[0]) : undefined);
-  const desktopExpanded = Boolean(desktopBot && panel === "desktop");
+  const desktopOpen = Boolean(desktopBot && panel === "desktop");
+  // Narrow screens skip the small window: the big view is a full-screen sheet.
+  const desktopExpanded = desktopOpen && (desktopSheet || desktopSize === "big");
+  const desktopSmall = desktopOpen && !desktopExpanded;
   useEffect(() => {
     if (panel === "desktop" && !desktopBot) setPanel(null);
   }, [panel, desktopBot]);
@@ -1840,7 +1852,7 @@ function Workspace() {
           {displayedPanel === "members" && active?.kind === "group" && <MembersPanel refreshToken={scheduleRefresh} onOpenWork={() => setPanel("schedule")} conversation={active} bots={bots} onClose={() => setPanel(null)} onOpen={(id) => { selectConversation(id); setMobileList(false); setPanel(null); }} onSaved={updateGroup} onReload={reloadGroup} />}
         </aside>
       </div>
-      {desktopBot && (desktopExpanded || activeDesktopOwner) && <FloatingDesktop expanded={desktopExpanded} activityLabel={activeDesktopOwner ? t("computer.in_use", { name: botById.get(activeDesktopOwner.bot_id)?.name ?? "Bot" }) : undefined} onOpen={() => setPanel("desktop")} onClose={() => setPanel(null)}><BotDesktopPanel presence={desktopPresence} autoConnect={Boolean(activeDesktopOwner)} passivePreview={!desktopExpanded} expanded={desktopExpanded} botId={desktopBot.id} botName={desktopBot.name} members={bots.map(bot => ({ id: bot.id, name: bot.name }))} onClose={(reason) => { if (reason === "shutdown") { setDesktopReady(false); setComputerInfo({ state: "stopped" }); } setPanel(null); }} onReadyChange={setDesktopReady} onExpandedChange={expanded => setPanel(expanded ? "desktop" : null)} /></FloatingDesktop>}
+      {desktopBot && (desktopOpen || activeDesktopOwner) && <FloatingDesktop expanded={desktopExpanded} small={desktopSmall} sheet={desktopSheet} activityLabel={activeDesktopOwner ? t("computer.in_use", { name: botById.get(activeDesktopOwner.bot_id)?.name ?? "Bot" }) : undefined} onOpen={() => { setDesktopSize("big"); setPanel("desktop"); }} onShrink={() => setDesktopSize("small")} onClose={() => setPanel(null)}><BotDesktopPanel presence={desktopPresence} autoConnect={Boolean(activeDesktopOwner)} passivePreview={!desktopOpen} expanded={desktopExpanded} sheet={desktopSheet} botId={desktopBot.id} botName={desktopBot.name} members={bots.map(bot => ({ id: bot.id, name: bot.name }))} onClose={(reason) => { if (reason === "shutdown") { setDesktopReady(false); setComputerInfo({ state: "stopped" }); } setPanel(null); }} onReadyChange={setDesktopReady} onExpandedChange={expanded => { setDesktopSize(expanded ? "big" : "small"); setPanel("desktop"); }} /></FloatingDesktop>}
       {deleteTarget && <DeleteConversationDialog target={deleteTarget} onDelete={deleteConversation} onClose={() => setDeleteTarget(null)} />}
       {viewOnlyChat && <ViewOnlyChat target={viewOnlyChat} bots={bots} card={!isDesktop && !compactViewport} returnFocus={viewOnlyChatTriggerRef.current} onClose={() => setViewOnlyChat(null)} />}
     </div>

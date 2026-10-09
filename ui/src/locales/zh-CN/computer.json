@@ -47,6 +47,8 @@
     "expand": "放大",
     "hide_aria": "隐藏共享电脑",
     "minimize": "最小化",
+    "close": "关闭",
+    "close_aria": "关闭共享电脑",
     "title": "共享电脑",
     "status": {
       "failed": "连接失败",
@@ -84,7 +86,16 @@
       "browser": "浏览器"
     },
     "video_aria": "Bot 当前桌面实时视频",
-    "pointer_click": "{{name}} · 点击"
+    "pointer_click": "{{name}} · 点击",
+    "placeholder": {
+      "elapsed": "{{status}} · {{seconds}} 秒",
+      "waking": "正在唤醒电脑",
+      "connecting": "正在连接屏幕",
+      "resuming": "正在从休眠中恢复",
+      "hibernated": "已休眠，Bot 需要时会自动唤醒。",
+      "hibernating": "正在进入休眠…",
+      "retry": "重试"
+    }
   },
   "floating": {
     "open": "打开共享电脑",

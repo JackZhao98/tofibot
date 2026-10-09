@@ -47,6 +47,8 @@
     "expand": "放大",
     "hide_aria": "隱藏共享電腦",
     "minimize": "最小化",
+    "close": "關閉",
+    "close_aria": "關閉共用電腦",
     "title": "共享電腦",
     "status": {
       "failed": "連線失敗",
@@ -84,7 +86,16 @@
       "browser": "瀏覽器"
     },
     "video_aria": "Bot 目前桌面的即時影像",
-    "pointer_click": "{{name}} · 點擊"
+    "pointer_click": "{{name}} · 點擊",
+    "placeholder": {
+      "elapsed": "{{status}} · {{seconds}} 秒",
+      "waking": "正在喚醒電腦",
+      "connecting": "正在連接螢幕",
+      "resuming": "正在從休眠中恢復",
+      "hibernated": "已休眠，Bot 需要時會自動喚醒。",
+      "hibernating": "正在進入休眠…",
+      "retry": "重試"
+    }
   },
   "floating": {
     "open": "開啟共享電腦",
