@@ -128,7 +128,7 @@ func TestOwnerBootstrapPersistenceAndWorkspaceRetention(t *testing.T) {
 		t.Fatal("session did not survive restart")
 	}
 	w = ownerCall(s2, "POST", "/api/auth/setup", map[string]string{"bootstrap_secret": strings.TrimSpace(string(before)), "username": "new-owner", "email": "new@example.invalid", "password": testOwnerPassword}, nil, true)
-	if w.Code != 401 {
+	if w.Code != 409 {
 		t.Fatal("consumed bootstrap reused")
 	}
 }

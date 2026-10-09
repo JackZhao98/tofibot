@@ -21,6 +21,8 @@ func TestPasswordPolicy(t *testing.T) {
 		{"contains email local part", "alice", "quartermaster@example.test", "xx-Quartermaster-77", "password_contains_identity"},
 		{"equals email", "alice", "alice@example.test", "alice@example.test", "password_contains_identity"},
 		{"short token only matched by equality", "ab", "ab@example.test", "zzabzzabzz-QW9", ""},
+		{"three-character token is not substring-matched", "abc", "q@example.test", "zzabczz-Qw9!x", ""},
+		{"four-character token is substring-matched", "abcd", "q@example.test", "zzABCDzz-Qw9!x", "password_contains_identity"},
 		{"max bytes accepted", "alice", "a@example.test", strings.Repeat("xK9", 341) + "q", ""},
 		{"over max bytes rejected", "alice", "a@example.test", strings.Repeat("xK9", 342), "weak_password"},
 		{"repeated unit", "alice", "a@example.test", "zzzzzzzzzzzz", "common_password"},

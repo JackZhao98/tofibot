@@ -27,7 +27,7 @@ const (
 	emailMaxBytes    = 254
 	// An identity token shorter than this is only rejected on equality: a
 	// two-letter mailbox would otherwise forbid most passwords.
-	identityContainsMin = 3
+	identityContainsMin = 4
 )
 
 //go:embed password_blocklist.json

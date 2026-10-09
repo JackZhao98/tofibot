@@ -91,6 +91,7 @@ func (g *AccountGateway) manageAccount(w http.ResponseWriter, r *http.Request, a
 			return true
 		}
 		if e := checkPassword(a.Username, a.Email, in.Password); e != nil {
+			g.auth.refundAttempt(r)
 			writeFieldErr(w, 400, e)
 			return true
 		}

@@ -1,7 +1,7 @@
 import { useEffect, useId, useMemo, useRef, useState, type ReactNode } from "react";
 import { Trans, useTranslation } from "./i18n";
 import { AuthError, authRequest, verifySetupKey, type AuthField } from "./ownerAuthApi";
-import { EMAIL_PATTERN, USERNAME_PATTERN, passwordRules } from "./passwordPolicy";
+import { EMAIL_PATTERN, passwordRules, validUsername } from "./passwordPolicy";
 import "./owner-setup.css";
 
 type Field = AuthField | "confirm" | "key";
@@ -61,7 +61,7 @@ export function OwnerSetup({ onDone }: { onDone: () => Promise<void> }) {
   const shown = (field: Field) => touched[field] || submitted;
   const clientErrors: Partial<Record<Field, string>> = {};
   if (!values.username.trim()) clientErrors.username = t("setup.error.username_required");
-  else if (!USERNAME_PATTERN.test(values.username.trim())) clientErrors.username = t("error.invalid_username");
+  else if (!validUsername(values.username.trim())) clientErrors.username = t("error.invalid_username");
   if (!values.email.trim()) clientErrors.email = t("setup.error.email_required");
   else if (!EMAIL_PATTERN.test(values.email.trim())) clientErrors.email = t("error.invalid_email");
   if (!values.password) clientErrors.password = t("setup.error.password_required");
@@ -138,7 +138,7 @@ export function OwnerSetup({ onDone }: { onDone: () => Promise<void> }) {
     {head}
     <form onSubmit={register} noValidate data-step="register">
       <FieldShell id={ids.username} label={t("field.username")} error={errorFor("username")}>
-        <input ref={usernameRef} id={ids.username} name="username" autoComplete="username" autoCapitalize="none" spellCheck={false} maxLength={64} required disabled={pending}
+        <input ref={usernameRef} id={ids.username} name="username" autoComplete="username" autoCapitalize="none" spellCheck={false} required disabled={pending}
           value={values.username} aria-invalid={invalid("username")} aria-describedby={describedBy("username")}
           onChange={event => set("username", event.target.value)} onBlur={() => blur("username")} />
       </FieldShell>
