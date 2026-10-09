@@ -80,7 +80,7 @@ class CapacityLedger:
     def __init__(self, database, state_root, headroom_bytes, warning_bytes,
                  metrics=None, reserved_slots=(), external_reserved_bytes=0,
                  per_account_internal_reserved_bytes=0, external_disks=(), immutable_image_sizes=None,
-                 snapshot_reserve=None):
+                 snapshot_reserve=None, shared_image_dir=None):
         if not 0 <= headroom_bytes <= warning_bytes:
             raise ValueError("invalid capacity thresholds")
         for value in (external_reserved_bytes, per_account_internal_reserved_bytes):
@@ -100,6 +100,10 @@ class CapacityLedger:
         # snapshot_reserve(account_id) returns the bytes promised for that
         # file (its configured guest RAM); None keeps no such promise.
         self.snapshot_reserve = snapshot_reserve
+        # The sealed release directory. A jail image that is this release's
+        # own inode (a read-only bind mount, manager.attach_immutable_image)
+        # occupies no space of its own and receives no allocation credit.
+        self.shared_image_dir = Path(shared_image_dir) if shared_image_dir else None
         if (any(name not in ("rootfs.ext4", "vmlinux") or type(size) is not int or size <= 0
                 for name, size in self.immutable_image_sizes.items())
                 or sum(self.immutable_image_sizes.values()) > self.per_account_internal_reserved):
@@ -298,9 +302,18 @@ class CapacityLedger:
 
     def _internal_capacity(self, accounts, device, filesystem_type, known_inodes):
         # Only independent immutable copies consume the internal promise. Shared
-        # release hardlinks and unidentified filesystems receive no credit.
+        # release hardlinks, read-only bind mounts of the release itself and
+        # unidentified filesystems receive no credit.
         if filesystem_type != "ext4":
             return 0
+        shared = set()
+        if self.shared_image_dir is not None:
+            for name in self.immutable_image_sizes:
+                try:
+                    info = os.stat(self.shared_image_dir / name)
+                except OSError:
+                    return 0  # cannot tell copies from the release: no credit
+                shared.add((info.st_dev, info.st_ino))
         allocated = 0
         for account in accounts:
             jail = self.root / account["account_id"] / "jails" / "firecracker" / ("ac-" + account["account_id"]) / "root"
@@ -320,7 +333,7 @@ class CapacityLedger:
                     identity = (info.st_dev, info.st_ino)
                     if (not stat.S_ISREG(info.st_mode) or info.st_uid != 0 or info.st_mode & 0o222
                             or info.st_dev != device or info.st_size != size or info.st_nlink != 1
-                            or identity in known_inodes):
+                            or identity in known_inodes or identity in shared):
                         continue
                     current = _trusted_regular_path(path)
                     if (current.st_dev, current.st_ino, current.st_size, current.st_blocks,
