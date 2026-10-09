@@ -26,6 +26,7 @@ const portableMaxRecords = 20000
 
 var portableDefaultCategories = []string{"bot_config", "chats", "memories", "schedules", "attachments", "settings"}
 var portableCategories = append(append([]string(nil), portableDefaultCategories...), portableEnvironmentCategory)
+// extensions_and_skills also covers skill_access (per-Bot skill restrictions).
 var portableExcluded = []string{"credentials", "private_ssh_keys", "attachments", "guest_files_and_disk", "extensions_and_skills", "work_items", "mail_drafts", "run_and_tool_history", "reactions", "summaries", "browser_preferences", "authentication_and_approvals"}
 
 type portableOrigin struct {

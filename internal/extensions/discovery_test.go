@@ -324,9 +324,6 @@ func TestDiscoverableSkillBodyLoadedOnlyOnRead(t *testing.T) {
 	if err := mgr.InstallSkill("alpha", map[string][]byte{"SKILL.md": []byte(manifest + "ORIGINAL_PRIVATE_BODY"), "guide.txt": []byte("supporting")}); err != nil {
 		t.Fatal(err)
 	}
-	if err := mgr.SetSkillEnabled("bot", "alpha", true); err != nil {
-		t.Fatal(err)
-	}
 	p, err := mgr.PrepareDiscoverableForBot(context.Background(), "bot")
 	if err != nil {
 		t.Fatal(err)

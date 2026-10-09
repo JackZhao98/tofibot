@@ -198,9 +198,6 @@ func TestOAuthMCPBotPolicySkillScopeRefreshAndDisconnect(t *testing.T) {
 	if err := mgr.InstallSkill("alpha", map[string][]byte{"SKILL.md": []byte("---\nname: alpha\ndescription: scoped skill\n---\nprivate instructions")}); err != nil {
 		t.Fatal(err)
 	}
-	if err := mgr.SetSkillEnabled("allowed", "alpha", true); err != nil {
-		t.Fatal(err)
-	}
 
 	sid, authorizationURL, err := mgr.OAuthStart(context.Background(), "fixture", "http://localhost/callback")
 	if err != nil {

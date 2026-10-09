@@ -22,6 +22,9 @@ func (s *Server) routeExtensions(w http.ResponseWriter, r *http.Request, p strin
 		return true
 	}
 	if s.routeLocalMCP(w,r,p) { return true }
+	if s.routeSkillAccess(w, r, p) {
+		return true
+	}
 	if s.routeVMOAuth(w, r, p) {
 		return true
 	}
@@ -156,7 +159,16 @@ func (s *Server) routeExtensions(w http.ResponseWriter, r *http.Request, p strin
 		return true
 	case p == "extensions/skills" && r.Method == http.MethodGet:
 		v, d := s.extensions.ListSkills()
-		writeJSON(w, 200, map[string]any{"skills": v, "diagnostics": d})
+		access, err := s.store.skillAccessMap()
+		if err != nil {
+			writeErr(w, 500, "internal", "skill access unavailable")
+			return true
+		}
+		out := make([]skillWithAccess, 0, len(v))
+		for _, x := range v {
+			out = append(out, skillWithAccess{SkillView: x, Access: accessViewFor(access, x.Name)})
+		}
+		writeJSON(w, 200, map[string]any{"skills": out, "diagnostics": d})
 		return true
 	case p == "extensions/skills" && r.Method == http.MethodPost:
 		var in struct {
@@ -184,7 +196,7 @@ func (s *Server) routeExtensions(w http.ResponseWriter, r *http.Request, p strin
 		return true
 	case strings.HasPrefix(p, "extensions/skills/") && r.Method == http.MethodDelete:
 		name := strings.TrimPrefix(p, "extensions/skills/")
-		if e := s.extensions.DeleteSkill(name); e != nil {
+		if e := s.deleteSkill(name); e != nil {
 			writeErr(w, 404, "extensions", e.Error())
 		} else {
 			s.writeExtensionSaved(w, http.StatusOK)
