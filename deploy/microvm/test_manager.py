@@ -584,7 +584,10 @@ class ProxyTests(unittest.TestCase):
 
 
 class StopCoordinationTests(unittest.TestCase):
-    def test_changed_uid_waits_for_supervisor_then_cleans_network(self):
+    def test_changed_uid_kills_own_leaf_then_cleans_network(self):
+        # rc.5 acceptance: a watchdog restart of a hung guest waited 75 s for a
+        # supervisor fallback that only runs on manager exit, failed twice and
+        # left the computer in error with the stopped Firecracker still alive.
         vm = manager.VM(dict(config(), worker_private_sysctls=True, cgroup_parent="tofi-vms"))
         proc = mock.Mock(pid=44)
         proc.poll.return_value = None
@@ -592,9 +595,11 @@ class StopCoordinationTests(unittest.TestCase):
         vm.process = proc
         vm.guest_request = mock.Mock()
         vm.network_down = mock.Mock()
+        vm.kill_vm_leaf = mock.Mock()
         with mock.patch.object(manager, "signal_process_group", side_effect=PermissionError):
             vm.stop()
-        self.assertEqual(proc.wait.call_args_list, [mock.call(timeout=10),mock.call(timeout=75)])
+        vm.kill_vm_leaf.assert_called_once_with(proc)
+        self.assertEqual(proc.wait.call_args_list, [mock.call(timeout=10),mock.call(timeout=15)])
         vm.network_down.assert_called_once()
         self.assertEqual(vm.state,"stopped")
         vm.stop()
@@ -603,12 +608,29 @@ class StopCoordinationTests(unittest.TestCase):
     def test_unresolved_vm_never_tears_down_network(self):
         vm = manager.VM(dict(config(), worker_private_sysctls=True, cgroup_parent="tofi-vms"))
         proc = mock.Mock(pid=44);proc.poll.return_value=None
-        proc.wait.side_effect = subprocess.TimeoutExpired("vm",75)
-        vm.process=proc;vm.guest_request=mock.Mock();vm.network_down=mock.Mock()
+        proc.wait.side_effect = subprocess.TimeoutExpired("vm",15)
+        vm.process=proc;vm.guest_request=mock.Mock();vm.network_down=mock.Mock();vm.kill_vm_leaf=mock.Mock()
         with mock.patch.object(manager,"signal_process_group",side_effect=PermissionError):
             with self.assertRaises(subprocess.TimeoutExpired): vm.stop()
         vm.network_down.assert_not_called()
         self.assertIs(vm.process,proc)
+
+    def test_kill_vm_leaf_requires_confined_worker_and_owned_pid(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            vm = manager.VM(dict(config(), worker_private_sysctls=True, cgroup_parent="tofi-vms"))
+            leaf = Path(tmp) / "tofi-vms" / vm.c["id"]
+            leaf.mkdir(parents=True)
+            (leaf / "cgroup.procs").write_text("44\n")
+            (leaf / "cgroup.kill").write_text("")
+            real = Path
+            with mock.patch.object(manager, "Path", side_effect=lambda *a: real(tmp) if a == ("/sys/fs/cgroup",) else real(*a)):
+                with self.assertRaisesRegex(RuntimeError, "outside"):
+                    vm.kill_vm_leaf(mock.Mock(pid=45))
+                self.assertEqual((leaf / "cgroup.kill").read_text(), "")
+                vm.kill_vm_leaf(mock.Mock(pid=44))
+            self.assertEqual((leaf / "cgroup.kill").read_text(), "1")
+        with self.assertRaises(PermissionError):
+            manager.VM(config()).kill_vm_leaf(mock.Mock(pid=44))
 
     def test_partial_network_cleanup_retains_ownership_and_can_retry(self):
         vm=manager.VM(config());vm.network_owned=True
