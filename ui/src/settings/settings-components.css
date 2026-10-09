@@ -1,0 +1,132 @@
+/* Shared settings components and the page-level restyle of the existing panels. Tokens only (design-tokens.css). */
+.workspace .settings-page-body .settings-stack{display:grid;gap:22px;align-content:start;min-width:0}
+.workspace .settings-page-body .settings-two{display:grid;gap:22px 28px;align-items:start;min-width:0}
+@container (min-width:1000px){.workspace .settings-page-body .settings-two{grid-template-columns:minmax(0,1.35fr) minmax(0,1fr)}}
+.workspace .settings-page-body .settings-two>*{min-width:0}
+
+/* Section */
+.workspace .settings-page-body .settings-sec,.workspace .settings-page-body .settings-section.dictation-settings{margin:0;min-width:0}
+.settings-sec-head{display:flex;align-items:baseline;gap:10px;margin:0 0 10px}
+.workspace .settings-page-body .settings-sec-head h4{margin:0;color:var(--ink);font:600 16px/1.3 var(--display)}
+.settings-sec-hint{color:var(--muted);font:12px/1.4 var(--body)}
+.workspace .settings-page-body .settings-sec-desc{margin:-4px 0 12px;color:var(--muted);font:13px/1.6 var(--body)}
+
+/* Card and row */
+.settings-card{min-width:0;border:1px solid var(--line-soft);border-radius:18px;background:var(--surface)}
+.settings-card>*+*{border-top:1px solid var(--line-soft)}
+.settings-card>:first-child{border-top-left-radius:17px;border-top-right-radius:17px}
+.settings-card>:last-child{border-bottom-left-radius:17px;border-bottom-right-radius:17px}
+.settings-row-v2{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:14px 16px}
+.settings-row-copy{flex:1;min-width:0}
+.workspace .settings-page-body .settings-row-copy label,.settings-row-copy strong{display:block;margin:0;color:var(--ink);font:600 14px/1.4 var(--body)}
+.workspace .settings-page-body .settings-row-copy p{margin:2px 0 0;color:var(--muted);font:12.5px/1.5 var(--body);overflow-wrap:anywhere}
+.settings-row-control{flex:none;max-width:55%;min-width:0}
+.workspace .settings-page-body .settings-row-control :is(select,input:not([type="checkbox"]):not([type="radio"])){width:auto;min-width:200px;max-width:100%;min-height:40px;padding:8px 12px;border-radius:10px;background:var(--surface-2)}
+.workspace .settings-page-body .settings-card-note{margin:0;padding:12px 16px;color:var(--muted);font:12.5px/1.6 var(--body);overflow-wrap:anywhere}
+.settings-card.settings-flush>*{margin:0;padding:16px;border:0;border-radius:0;background:transparent;box-shadow:none}
+.settings-card.settings-flush>.connection-info{margin:0}
+@media(max-width:700px){
+  .settings-row-v2:not(.is-inline){flex-direction:column;align-items:stretch;gap:10px}
+  .settings-row-v2:not(.is-inline) .settings-row-control{max-width:none}
+  .workspace .settings-page-body .settings-row-v2:not(.is-inline) .settings-row-control :is(select,input:not([type="checkbox"]):not([type="radio"])){width:100%;min-height:44px}
+  .settings-row-v2.is-inline .settings-row-control{max-width:60%}
+}
+
+/* Status badge: icon plus text, never color alone. Text uses the -text token on a tint. */
+.status-badge{display:inline-flex;align-items:center;gap:5px;flex:none;padding:3px 9px;border-radius:999px;font:600 11px/1.4 var(--mono);white-space:nowrap}
+.status-badge>svg{flex:none}
+.status-badge.is-ok{color:var(--green-text);background:color-mix(in srgb,var(--green) 16%,transparent)}
+.status-badge.is-need{color:var(--honey-text);background:color-mix(in srgb,var(--honey) 18%,transparent)}
+.status-badge.is-bad{color:var(--danger-text);background:color-mix(in srgb,var(--danger) 16%,transparent)}
+.status-badge.is-asleep{color:var(--muted);background:color-mix(in srgb,var(--muted) 14%,transparent)}
+.status-badge.is-testing{color:var(--lagoon-text);background:color-mix(in srgb,var(--lagoon) 16%,transparent)}
+
+/* Banner */
+.settings-banner{display:flex;align-items:flex-start;gap:12px;padding:13px 16px;border:1px solid var(--line-soft);border-radius:14px;background:var(--surface-2);min-width:0}
+.settings-banner>svg{flex:none;margin-top:1px}
+.settings-banner-copy{flex:1;min-width:0}
+.settings-banner-copy strong{display:block;color:var(--ink);font:600 14px/1.4 var(--body);overflow-wrap:anywhere}
+.workspace .settings-page-body .settings-banner-copy p{margin:2px 0 0;color:var(--ink-soft);font:13px/1.5 var(--body)}
+.settings-banner.is-error{border-color:color-mix(in srgb,var(--danger) 45%,var(--line-soft));background:color-mix(in srgb,var(--danger) 9%,var(--surface))}
+.settings-banner.is-error>svg{color:var(--danger-text)}
+.settings-banner.is-warn{border-color:color-mix(in srgb,var(--honey) 50%,var(--line-soft));background:color-mix(in srgb,var(--honey) 10%,var(--surface))}
+.settings-banner.is-warn>svg{color:var(--honey-text)}
+.settings-banner.is-info>svg{color:var(--lagoon-text)}
+.settings-banner-action{flex:none;align-self:center;min-height:36px;padding:6px 12px;font-size:13px}
+.settings-banner-more{margin-top:6px;padding:0;border:0;background:transparent;color:var(--muted);font:600 11px/1.4 var(--mono);text-decoration:underline;text-underline-offset:3px}
+.settings-banner-details{margin:8px 0 0;padding:10px 12px;border-radius:10px;background:var(--sunk);color:var(--ink-soft);font:12px/1.5 var(--mono);white-space:pre-wrap;overflow-wrap:anywhere}
+@media(max-width:700px){.settings-banner{flex-wrap:wrap}.settings-banner-action{margin-left:30px}}
+
+/* Danger zone */
+.danger-zone{padding:16px;border:1.5px dashed var(--danger);border-radius:18px;min-width:0}
+.danger-zone>h4{margin:0 0 12px;color:var(--danger-text);font:600 11px/1.3 var(--mono);letter-spacing:.14em;text-transform:uppercase}
+.workspace .settings-page-body .danger-zone .purge-section{margin:0;padding:0;border:0}
+.danger-zone .purge-button{background:var(--danger);border-color:var(--line);color:var(--on-danger)}
+
+/* Segmented */
+.segmented{display:inline-flex;gap:2px;padding:3px;border:1px solid var(--line-soft);border-radius:12px;background:var(--sunk);max-width:100%}
+.workspace .settings-page-body .segmented>button{min-height:34px;padding:6px 12px;border:2px solid transparent;border-radius:9px;background:transparent;color:var(--muted);font:600 12px/1 var(--mono);white-space:nowrap;transition:background-color 120ms,color 120ms,box-shadow 120ms}
+.workspace .settings-page-body .segmented>button:hover:not(:disabled){color:var(--ink)}
+.workspace .settings-page-body .segmented>button[aria-checked="true"]{border-color:var(--line);background:var(--surface);color:var(--ink);box-shadow:var(--hard-sm)}
+.workspace .settings-page-body .segmented>button:disabled{opacity:.5;cursor:not-allowed}
+.workspace .settings-page-body .segmented>button:focus-visible{outline:2px solid var(--focus);outline-offset:2px}
+
+/* General: account card, appearance thumbnails, language and region rows, notifications */
+.workspace .settings-page-body .owner-account{display:flex;flex-wrap:nowrap;align-items:center;gap:14px;margin:0;padding:14px 16px;border:1px solid var(--line-soft);border-radius:18px;background:var(--surface)}
+.owner-account-avatar{display:grid;place-items:center;flex:none;width:44px;height:44px;border:2px solid var(--line);border-radius:50%;background:var(--iris);color:var(--on-block);font:600 18px/1 var(--display)}
+.workspace .settings-page-body .owner-account>div{display:grid;gap:2px;flex:1;min-width:0}
+.workspace .settings-page-body .owner-account strong{font:600 15px/1.3 var(--display);color:var(--ink)}
+.workspace .settings-page-body .owner-account span{font-size:12.5px}
+.settings-ghost-button{display:inline-flex;align-items:center;gap:6px;flex:none;min-height:36px;padding:6px 10px;border:0;border-radius:10px;background:transparent;color:var(--ink-soft);font:500 13px/1 var(--body)}
+.settings-ghost-button:hover:not(:disabled){background:var(--surface-2);color:var(--ink)}
+.settings-ghost-button:focus-visible{outline:2px solid var(--focus);outline-offset:2px}
+.workspace .settings-page-body .appearance-setting{padding:0;margin:0;border:0}
+.workspace .settings-page-body .appearance-setting h3{margin:0 0 10px;font:600 16px/1.3 var(--display)}
+.workspace .settings-page-body .appearance-options{gap:12px}
+.workspace .settings-page-body .appearance-options button{padding:8px;border:2px solid var(--line-soft);border-radius:16px;background:var(--surface);color:var(--ink-soft);font:600 12px/1.2 var(--mono);transition:box-shadow 120ms,border-color 120ms}
+.workspace .settings-page-body .appearance-options button:hover{background:var(--surface-2)}
+.workspace .settings-page-body .appearance-options button[aria-pressed="true"]{border-color:var(--line);box-shadow:var(--hard-sm);color:var(--ink);background:var(--surface)}
+.workspace .settings-page-body .appearance-options .theme-swatch{height:56px;border-radius:8px}
+.settings-region{display:grid}
+.workspace .settings-page-body .settings-region .timezone-setting{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:10px 16px;margin:0;padding:14px 16px;border:0}
+.workspace .settings-page-body .settings-region .timezone-setting>div:first-child{flex:1;min-width:180px}
+.workspace .settings-page-body .settings-region .timezone-setting h3{font:600 14px/1.4 var(--body)}
+.workspace .settings-page-body .settings-region .timezone-setting .field-note{margin:2px 0 0;font:12.5px/1.5 var(--body)}
+.workspace .settings-page-body .settings-region .timezone-setting form{display:block;flex:none;max-width:55%}
+.workspace .settings-page-body .settings-region .timezone-select{display:block;margin:0}
+.workspace .settings-page-body .settings-region .timezone-select{font-size:0}
+.workspace .settings-page-body .settings-region .timezone-select select{width:auto;min-width:200px;max-width:100%;min-height:40px;padding:8px 12px;border-radius:10px;background:var(--surface-2);font-size:14px}
+.workspace .settings-page-body .settings-region .language-setting>label{flex:none;max-width:55%}
+.workspace .settings-page-body .settings-region .timezone-error,.workspace .settings-page-body .settings-region .settings-feedback{flex-basis:100%}
+.workspace .settings-page-body .notification-setting{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:8px 16px;margin:0;padding:14px 16px;border:0}
+.workspace .settings-page-body .notification-setting>strong{flex:1 1 240px;font:600 14px/1.4 var(--body)}
+.workspace .settings-page-body .notification-setting .field-note{flex:1 1 100%;order:3;margin:-4px 0 0;font:12.5px/1.5 var(--body)}
+.workspace .settings-page-body .notification-setting>.secondary-button,.workspace .settings-page-body .notification-setting>.notification-status{flex:none;margin:0}
+@media(max-width:700px){
+  .workspace .settings-page-body .settings-region .timezone-setting form,.workspace .settings-page-body .settings-region .language-setting>label{flex-basis:100%;max-width:none}
+  .workspace .settings-page-body .settings-region .timezone-select select{width:100%;min-height:44px}
+}
+
+/* Models: providers as rows of one card, status as badges */
+.workspace .settings-page-body .model-providers{margin:0}
+.settings-card.provider-list{display:grid;gap:0}
+.workspace .settings-page-body .settings-card>.detail-content.provider-card,.settings-card>.provider-card{margin:0;padding:14px 16px;border:0;border-radius:0;background:transparent}
+.provider-card-head{margin:0 0 10px}
+.provider-card-marks{display:flex;align-items:center;gap:8px;flex:none}
+.provider-card .codex-status{margin:0 0 12px;padding:0;border:0;background:transparent;color:var(--muted);font:12px/1.5 var(--body)}
+.provider-card .codex-status .status-dot{display:none}
+.workspace .settings-page-body .model-fields-rows{margin:0;min-width:0}
+.workspace .settings-page-body .model-fields-rows .field-note{margin:8px 0 0}
+
+/* Connections, skills: extension cards */
+.workspace .settings-page-body .extension-panel .extension-card{border:1px solid var(--line-soft);border-radius:18px;background:var(--surface)}
+.workspace .settings-page-body .extension-panel>.settings-banner{margin-bottom:14px}
+
+/* Advanced: debug row inside the card */
+.settings-card.settings-flush .settings-section{margin:0}
+.workspace .settings-page-body .legacy-archive-entry{margin:0;padding:14px 16px;border:1px solid var(--line-soft);border-radius:14px}
+.workspace .settings-page-body .settings-card .provider-card .codex-status{padding:0;border:0;border-radius:0;background:transparent}
+@media(max-width:700px){.workspace .settings-page-body .provider-card-head .settings-tag{display:none}}
+@media(max-width:700px){.workspace .settings-page-body .notification-setting>.notification-status{flex:1 1 100%;margin:0;overflow-wrap:anywhere;text-align:left}.settings-banner-copy{flex:1 1 calc(100% - 32px)}}
+.workspace .settings-page-body .notification-setting>.notification-status{max-width:100%;overflow-wrap:anywhere}
+.workspace .settings-page-body .usage-page{max-width:none;margin:0}

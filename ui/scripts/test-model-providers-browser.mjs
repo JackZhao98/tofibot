@@ -128,7 +128,7 @@ void i18nReady.then(()=>setLanguage('zh-CN')).then(()=>createRoot(document.getEl
   // No provider: generic note pointing at the connection page.
   catalog = {models: [], source: "live", warning: ""};
   await page.goto(at);
-  await page.getByText("还没有可用的模型。在设置的「模型与连接」页连接 Codex，或添加 OpenAI / Claude API key。").waitFor({timeout: 10000});
+  await page.getByText("还没有可用的模型。在设置的「模型」页连接 Codex，或添加 OpenAI / Claude API key。").waitFor({timeout: 10000});
   assert(!(await page.getByTestId("picker").innerText()).includes("暂未获取到 Codex"));
   // Unknown saved id keeps the current-configuration option.
   catalog = {models, source: "live", warning: ""};

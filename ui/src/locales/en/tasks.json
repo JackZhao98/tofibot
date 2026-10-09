@@ -99,19 +99,19 @@
     "task_did_not_finish": "The task did not finish.",
     "model_unconfigured": {
       "codex": "This workspace has no Codex account connected, so the model cannot be called.",
-      "codex_next": "Connect an account under Settings › Models and connections, then retry.",
+      "codex_next": "Connect an account under Settings › Models, then retry.",
       "api_key": "This workspace has no {{provider}} API key, so this model cannot be called.",
-      "api_key_next": "Add a {{provider}} API key under Settings › Models and connections, or switch the bot to a connected model, then retry.",
+      "api_key_next": "Add a {{provider}} API key under Settings › Models, or switch the bot to a connected model, then retry.",
       "any": "This workspace has no model provider available, so the model cannot be called.",
-      "any_next": "Connect Codex or add an API key under Settings › Models and connections, then retry."
+      "any_next": "Connect Codex or add an API key under Settings › Models, then retry."
     },
     "model_auth": {
       "codex": "The Codex account sign-in is no longer valid, and the model rejected this request.",
-      "codex_next": "Reconnect under Settings › Models and connections, then retry.",
+      "codex_next": "Reconnect under Settings › Models, then retry.",
       "api_key": "The {{provider}} API key is no longer valid, and the model rejected this request.",
-      "api_key_next": "Update the {{provider}} API key under Settings › Models and connections, then retry.",
+      "api_key_next": "Update the {{provider}} API key under Settings › Models, then retry.",
       "any": "The model account credentials are no longer valid, and the model rejected this request.",
-      "any_next": "Reconnect or update the API key under Settings › Models and connections, then retry."
+      "any_next": "Reconnect or update the API key under Settings › Models, then retry."
     },
     "model_quota": {
       "codex": "The Codex account has reached its usage limit, and the model rejected this request.",

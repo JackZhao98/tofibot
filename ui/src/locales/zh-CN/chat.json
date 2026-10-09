@@ -8,7 +8,7 @@
     "archive_blocked": "归档中的会话不能发送消息，请先恢复后再继续。",
     "archive_busy": "还有未完成的任务，请等它结束或先停止后再归档。",
     "delete_busy": "还有关联任务正在执行。请先停止任务，再重试删除。",
-    "model_unconfigured": "模型尚未配置，请在设置的「模型与连接」页连接 Codex 或添加 API key。",
+    "model_unconfigured": "模型尚未配置，请在设置的「模型」页连接 Codex 或添加 API key。",
     "no_active_members": "这个群没有可用成员，恢复后请先添加至少一位 Bot。"
   },
   "attachment": {

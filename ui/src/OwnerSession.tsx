@@ -140,15 +140,27 @@ export function OwnerSessionGate({ children }: { children: ReactNode }) {
   </div>}</SessionContext.Provider>;
 }
 
+/** Name, initial and "email · role" line for the settings account card. Single-owner mode has no session owner, so it falls back to the product name with no email. */
+export function useAccountIdentity() {
+  const session = useOwnerSession();
+  const { t } = useTranslation("settings");
+  const owner = session?.enabled ? session.owner : undefined;
+  const name = owner?.username || "Tofi";
+  const email = owner && !owner.email.endsWith("@account.invalid") ? owner.email : "";
+  const role = owner?.role ? (owner.role === "admin" ? t("shell.account.role.admin") : t("shell.account.role.member")) : "";
+  return { name, initial: Array.from(name)[0]?.toUpperCase() ?? "T", detail: [email, role].filter(Boolean).join(" · "), signedIn: Boolean(owner) };
+}
+
 export function OwnerAccount() {
   const { session, logout } = useContext(SessionContext);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const { t } = useTranslation("auth");
+  const identity = useAccountIdentity();
   if (!session?.enabled || !session.owner) return null;
-  return <section className="owner-account"><div><strong>{session.owner.username}</strong><span>{session.owner.email.endsWith("@account.invalid")?"":session.owner.email}{session.owner.role === "admin" && " · admin"}</span></div><button className="secondary-button" disabled={busy} onClick={() => {
+  return <section className="owner-account"><span className="owner-account-avatar" aria-hidden="true">{identity.initial}</span><div><strong>{identity.name}</strong>{identity.detail && <span>{identity.detail}</span>}</div><button className="settings-ghost-button" disabled={busy} onClick={() => {
     setBusy(true); setError(""); void logout().catch(cause => setError(cause.message)).finally(() => setBusy(false));
-  }}>{busy ? t("account.signing_out") : t("account.sign_out")}</button>{error && <p className="owner-error" role="alert">{error}</p>}</section>;
+  }}><TofiIcon name="logout" size={16} />{busy ? t("account.signing_out") : t("account.sign_out")}</button>{error && <p className="owner-error" role="alert">{error}</p>}</section>;
 }
 
 /** The compact identity dock shares the authenticated session with Settings. */

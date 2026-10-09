@@ -27,6 +27,7 @@ import "./desktop-system.css";
 import "./conversation-workspace.css";
 import "./v2-foundations.css";
 import "./v2-app.css";
+import "./settings/settings-components.css";
 import "./web-tool-steps.css";
 import "./web-mention.css";
 import "./web-file-drop.css";

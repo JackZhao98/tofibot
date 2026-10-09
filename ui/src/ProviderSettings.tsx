@@ -6,6 +6,7 @@ import type {ModelProviderStatus} from "./types";
 import "./provider-settings.css";
 import { intlLocale } from "./i18n/format";
 import { useTranslation } from "./i18n";
+import { SettingsCard, SettingsSection, StatusBadge } from "./settings/components";
 
 type KeyProvider = "openai" | "anthropic";
 const keyProviders = [
@@ -27,14 +28,13 @@ export function ModelProviders({codex, refreshToken, onConfigured}: {codex: Reac
   return () => controller.abort();
  }, [refreshToken, version]);
  const update = (next: ModelProviderStatus) => setProviders(current => current ? current.some(item => item.id === next.id) ? current.map(item => item.id === next.id ? next : item) : [...current, next] : [next]);
- return <section className="model-providers" aria-labelledby="model-providers-title">
-  <div className="model-providers-heading"><h3 id="model-providers-title">{t("providers.title")}</h3><p className="settings-description">{t("providers.description")}</p></div>
+ return <SettingsSection className="model-providers" title={t("providers.title")} description={t("providers.description")}>
   {error && <p className="error-text" role="alert">{error} <button type="button" className="text-button" onClick={() => setVersion(value => value + 1)}>{t("action.retry")}</button></p>}
-  <div className="provider-list">
+  <SettingsCard className="provider-list">
    {codex}
    {keyProviders.map(item => <ApiKeyProviderCard key={item.id} {...item} status={providers?.find(provider => provider.id === item.id)} loading={!providers && !error} onChange={next => { if (next) update(next); else setVersion(value => value + 1); onConfigured(); }} />)}
-  </div>
- </section>;
+  </SettingsCard>
+ </SettingsSection>;
 }
 
 function ApiKeyProviderCard({id, label, description, placeholder, status, loading, onChange}: {id: KeyProvider; label: string; description: DescriptionKey; placeholder: string; status?: ModelProviderStatus; loading: boolean; onChange: (next: ModelProviderStatus | null) => void}) {
@@ -75,7 +75,7 @@ function ApiKeyProviderCard({id, label, description, placeholder, status, loadin
   onChange(null);
  }
  return <article className="detail-content provider-card" aria-labelledby={`${inputId}-title`} aria-busy={verifying || loading}>
-  <div className="provider-card-head"><div><h3 id={`${inputId}-title`}>{label}</h3><p>{t(description)}</p></div><span className="settings-tag">{t("providers.api_key_tag")}</span></div>
+  <div className="provider-card-head"><div><h3 id={`${inputId}-title`}>{label}</h3><p>{t(description)}</p></div><span className="provider-card-marks"><StatusBadge state={loading ? "testing" : !configured ? "need" : failed ? "bad" : "ok"} /><span className="settings-tag">{t("providers.api_key_tag")}</span></span></div>
   <div className={`codex-status provider-status ${state}`} role="status"><span className="status-dot" />{statusText}</div>
   <form className="provider-key-form" onSubmit={event => void save(event)}>
    <label htmlFor={inputId}>{configured ? t("providers.replace_label", {provider: label}) : t("providers.key_label", {provider: label})}</label>

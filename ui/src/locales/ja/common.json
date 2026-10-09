@@ -2,7 +2,7 @@
   "nav": {
     "settings": "設定",
     "usage": "使用量",
-    "connection": "サーバーと接続",
+    "connection": "モデルとプロバイダ",
     "archived": "アーカイブした会話"
   },
   "theme": {

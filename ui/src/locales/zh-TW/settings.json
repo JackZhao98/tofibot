@@ -27,23 +27,52 @@
   },
   "shell": {
     "group": {
-      "preferences": "偏好",
+      "you": "你",
+      "bots": "Bot 可用",
       "workspace": "工作區",
-      "advanced": "進階",
-      "admin": "管理"
+      "system": "系統"
     },
     "page": {
-      "account": { "name": "一般", "description": "讓 Tofi 更貼近你的日常" },
-      "models": { "name": "模型與思考", "description": "設定跟隨全域的 Bot 所使用的模型與思考強度" },
-      "dictate": { "name": "語音聽寫", "description": "選擇語音聽寫模型" },
-      "usage": { "name": "用量", "description": "查看 Agent 的模型用量與脈絡壓縮進度" },
-      "computers": { "name": "電腦與資源", "description": "共用的 Linux 電腦、儲存空間與執行資源" },
-      "credentials": { "name": "金鑰與環境", "description": "直接設定電腦需要的環境變數和 SSH 金鑰" },
-      "mcp": { "name": "工具", "description": "連接外部服務，擴充 Bot 的能力" },
-      "skills": { "name": "Skills", "description": "管理可重複使用的工作方法" },
-      "connection": { "name": "模型與連線", "description": "連接 Codex 或新增 OpenAI、Claude API 金鑰，並查看伺服器連線" },
-      "debug": { "name": "偵錯" },
-      "admin": { "name": "Admin 主控台", "description": "邀請、管理和停用帳號" }
+      "general": {
+        "name": "一般",
+        "description": "讓 Tofi 更貼近你的日常"
+      },
+      "connections": {
+        "name": "連線",
+        "description": "連接外部服務，擴充 Bot 的能力"
+      },
+      "skills": {
+        "name": "Skills",
+        "description": "管理可重複使用的工作方法"
+      },
+      "approvals": {
+        "name": "核准",
+        "description": "決定 Bot 的操作在執行前由誰把關。"
+      },
+      "models": {
+        "name": "模型",
+        "description": "Bot 的大腦從哪來，預設用哪一個。"
+      },
+      "computer": {
+        "name": "電腦",
+        "description": "共用的 Linux 電腦、儲存空間與執行資源"
+      },
+      "keys": {
+        "name": "金鑰與機密",
+        "description": "直接設定電腦需要的環境變數和 SSH 金鑰"
+      },
+      "usage": {
+        "name": "用量",
+        "description": "查看 Agent 的模型用量與脈絡壓縮進度"
+      },
+      "advanced": {
+        "name": "進階",
+        "description": "伺服器資訊、資料搬移、除錯與從頭開始。"
+      },
+      "admin": {
+        "name": "Admin 主控台",
+        "description": "邀請、管理和停用帳號"
+      }
     },
     "category": "設定分類",
     "title": "設定",
@@ -56,7 +85,23 @@
     "leave_close": "關閉設定會遺失尚未儲存的內容。",
     "leave_switch": "切換分類前，請先儲存或捨棄目前的變更。",
     "keep_editing": "繼續編輯",
-    "save_continue": "儲存並繼續"
+    "save_continue": "儲存並繼續",
+    "back": "返回",
+    "attention": "需要處理：{{count}}",
+    "account": {
+      "role": {
+        "admin": "管理員",
+        "member": "成員"
+      }
+    },
+    "hint": {
+      "computer": {
+        "ready": "執行中",
+        "starting": "啟動中",
+        "stopped": "已停止",
+        "waiting": "等待中"
+      }
+    }
   },
   "appearance": {
     "title": "外觀",
@@ -78,7 +123,7 @@
     "legacy_effort": "沿用舊設定（{{effort}}）",
     "model_default": "模型預設",
     "model_default_effort": "模型預設（{{effort}}）",
-    "no_models": "目前還沒有可用的模型。請在設定的「模型與連線」頁面連接 Codex，或新增 OpenAI / Claude API 金鑰。",
+    "no_models": "目前還沒有可用的模型。請在設定的「模型」頁面連接 Codex，或新增 OpenAI / Claude API 金鑰。",
     "open_settings": "前往設定",
     "cached_list": "目前顯示的是最近一次取得的模型清單。",
     "partial_list": "暫時無法取得部分模型供應商的清單。",
@@ -87,10 +132,11 @@
     "note_following": "使用設定中「模型」頁面的全域模型和思考強度，全域變更會從下一則訊息起生效。切換 Bot 的模型會保留已儲存的記憶和聊天紀錄。記憶儲存在對應的 Bot 或群組中；不同模型運用這些內容的方式可能不同。",
     "choose_first": "請先選擇模型。",
     "saved": "已儲存，跟隨全域的 Bot 會從下一則訊息起使用這組設定。",
-    "global_title": "全域模型",
+    "global_title": "新 Bot 的預設設定",
     "global_description": "設為「跟隨全域」的 Bot 會使用這裡的模型和思考強度。新建立的 Bot 預設跟隨全域。",
     "global_description_followers_other": "設為「跟隨全域」的 Bot 會使用這裡的模型和思考強度，目前有 {{count}} 個 Bot 跟隨。新建立的 Bot 預設跟隨全域。",
-    "global_description_no_followers": "設為「跟隨全域」的 Bot 會使用這裡的模型和思考強度，目前沒有 Bot 跟隨。新建立的 Bot 預設跟隨全域。"
+    "global_description_no_followers": "設為「跟隨全域」的 Bot 會使用這裡的模型和思考強度，目前沒有 Bot 跟隨。新建立的 Bot 預設跟隨全域。",
+    "effort_hint": "模型預設：{{effort}}"
   },
   "effort": {
     "none": "關閉",
@@ -279,7 +325,7 @@
     "model_label": "轉錄模型",
     "api_price": "API 參考價 {{cost}}",
     "codex_account": "使用已連接的 Codex 帳號。",
-    "not_configured": "請在連線設定中連接 Codex，或設定伺服器端的轉錄 API 金鑰。",
+    "not_configured": "請在「模型」頁連接 Codex，或設定伺服器端的轉錄 API 金鑰。",
     "loading": "正在讀取 Dictate 設定…",
     "needs_https": "語音聽寫需要 HTTPS 位址，請透過 HTTPS 開啟 Tofi。",
     "unsupported_browser": "這個瀏覽器不支援錄音聽寫。",
@@ -288,7 +334,18 @@
     "unavailable": "目前無法使用語音聽寫。",
     "recording_failed": "錄音失敗，請檢查麥克風權限後再試。",
     "permission_needed": "需要麥克風權限才能開始聽寫。",
-    "start_failed": "無法開始錄音，請檢查麥克風後再試。"
+    "start_failed": "無法開始錄音，請檢查麥克風後再試。",
+    "title": "語音聽寫",
+    "model": {
+      "gpt-4o-mini-transcribe": {
+        "hint": "較便宜，適合日常聽寫。",
+        "price": "$0.003 / 分鐘"
+      },
+      "gpt-4o-transcribe": {
+        "hint": "辨識更準，成本較高。",
+        "price": "$0.006 / 分鐘"
+      }
+    }
   },
   "purge": {
     "failed": "重設失敗，請稍後再試。",
@@ -375,5 +432,33 @@
       "file_oversized": "資料套件過大。",
       "decrypt_failed": "無法解密：請檢查密碼、檔案版本，或檔案是否損毀。"
     }
+  },
+  "status": {
+    "ok": "已連線",
+    "need": "待設定",
+    "bad": "失敗",
+    "asleep": "休眠中",
+    "testing": "檢查中"
+  },
+  "banner": {
+    "details": "技術詳情"
+  },
+  "general": {
+    "region": "語言與地區",
+    "moved_title": "在找匯出、伺服器資訊或從頭開始？",
+    "moved_body": "它們已移到「進階」。",
+    "open_advanced": "開啟「進階」"
+  },
+  "approvals": {
+    "heading": "審查員",
+    "draft_label": "審查員",
+    "soon_title": "更多控制即將推出",
+    "soon_body": "信任預設值和一律允許的規則將隨「連線」更新一起推出。"
+  },
+  "advanced": {
+    "server": "伺服器",
+    "data": "資料",
+    "debug": "除錯",
+    "danger": "危險區"
   }
 }

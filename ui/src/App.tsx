@@ -7,10 +7,9 @@ import { mergeMessageTimeline } from "./messageTimeline";
 import { textareaCaretRect } from "./textareaCaret";
 import { DelayedFeedback } from "./DelayedFeedback";
 import { WebFileDropOverlay } from "./WebFileDropOverlay";
-import { OwnerAccount, SidebarAccount } from "./OwnerSession";
+import { SidebarAccount } from "./OwnerSession";
 import { desktopState, updateDesktopState, isDesktop, type DesktopCommand } from "./desktop";
-import {TimezoneProvider, TimezoneSetting, useUserTimezone} from "./UserTimezone";
-import { LanguageSetting } from "./LanguageSetting";
+import {TimezoneProvider, useUserTimezone} from "./UserTimezone";
 import {dateInTimezone, formatZonedTime} from "./timezone";
 import {MessageAttachment} from "./MessageAttachment";
 import {MessageReactions} from "./MessageReactions";
@@ -20,32 +19,25 @@ import { toolDisplayState, toolDisplayLabel } from "./toolTimeline";
 import { taskStateLabel } from "./ConversationTaskStatus";
 import { MailDraftCard, useMailDrafts } from "./MailDraftCard";
 import { buildQuestionTimeline, compareQuestionTime } from "./questionTimeline";
-import { BotInspector, DebugSettings } from "./BotInspector";
+import { BotInspector } from "./BotInspector";
 import { useDebugMode } from "./debugMode";
-import {AdminAccounts} from "./AdminAccounts";
-import { SettingsShell, type SettingsTab } from "./SettingsShell";
-import { DictationSettings } from "./DictationSettings";
-import { ModelDefaults, ModelFields } from "./ModelSettings";
+import { SettingsShell, type SettingsEntry, type SettingsTab, type SettingsView } from "./SettingsShell";
+import { SettingsPages } from "./settings/SettingsPages";
+import { subscribeSettingsDeepLinks } from "./settings/deepLinks";
+import { StatusBadge } from "./settings/components";
+import { ModelFields } from "./ModelSettings";
 import { followsGlobal } from "./modelCatalog";
-import { ModelProviders } from "./ProviderSettings";
-import { AutoReviewSettings } from "./AutoReviewSettings";
-import { ComputerCredentials } from "./ComputerCredentials";
-import { ComputerResources } from "./ComputerResources";
 import { SecretInputs } from "./SecretInputCard";
 import { BotIdentityCard } from "./BotIdentityCard";
-import { ActionHints, AppearancePicker, ConfirmAction, Disclosure, useAppearance, useSurfacePresence } from "./InteractionSystem";
+import { ActionHints, ConfirmAction, Disclosure, useAppearance, useSurfacePresence } from "./InteractionSystem";
 import { useConversationScroll } from "./useConversationScroll";
 import { conversationPath, readConversationRoute } from "./conversationRoute";
 import { useConversationNavigation } from "./useConversationNavigation";
-import { ComputerPanel } from "./ComputerPanel";
 import { BotDesktopPanel } from "./BotDesktopPanel";
 import { FloatingDesktop } from "./FloatingDesktop";
 import { useDesktopPresence } from "./desktopPresence";
 import { WorkPanel, WorkPreview } from "./WorkPanel";
 import { TeamBoard } from "./TeamBoard";
-import { UsagePanel } from "./UsagePanel";
-import { ExtensionPanel } from "./ExtensionPanel";
-import { ConnectionInfo } from "./ConnectionInfo";
 import { ArchivePanel } from "./ArchivePanel";
 import { DeleteConversationDialog, type DeleteTarget } from "./DeleteConversationDialog";
 import { ViewOnlyChat, type ViewOnlyChatTarget } from "./ViewOnlyChat";
@@ -54,8 +46,6 @@ import { occurrenceRootKey, type ScheduleOccurrence } from "./scheduleOccurrence
 import { useScheduleOccurrences } from "./useScheduleOccurrences";
 import { useScheduleMetadata } from "./useScheduleMetadata";
 import type { Schedule } from "./types";
-import { WorkspacePurgeSettings } from "./WorkspacePurgeSettings";
-import { PortabilitySettings } from "./PortabilitySettings";
 import { TofiIcon as Icon, type TofiIconName } from "./icons";
 import { ComposerGlyph } from "./ComposerGlyph";
 import { intlLocale } from "./i18n/format";
@@ -430,7 +420,10 @@ function Workspace() {
   const [memories, setMemories] = useState<Memory[]>([]);
   const [portabilityFile, setPortabilityFile] = useState<File>();
   const [portabilityBotID, setPortabilityBotID] = useState("");
-  const [settingsTab, setSettingsTab] = useState<SettingsTab>("account");
+  const [settingsTab, setSettingsTab] = useState<SettingsTab>("general");
+  const [settingsEntry, setSettingsEntry] = useState<SettingsEntry>({ seq: 0, view: "home" });
+  /** Opens Settings on a tab. On a narrow screen a deep link lands on the page itself; the plain Settings button lands on the list. */
+  const openSettings = (tab: SettingsTab, view: SettingsView = "page") => { setSettingsTab(tab); setSettingsEntry(current => ({ seq: current.seq + 1, view })); setPanel("settings"); };
   const [usageBotId, setUsageBotId] = useState("");
   const [panel, setPanel] = useState<Panel>(null);
   const displayedPanel = useSurfacePresence(panel, 380);
@@ -588,7 +581,7 @@ function Workspace() {
     const focus = document.activeElement;
     if (focus instanceof Element && focus.closest(".terminal-panel,.remote-desktop-surface,.remote-desktop.in-control,.xterm")) return;
     if (document.querySelector('[role="dialog"][aria-modal="true"]') && command !== "settings") return;
-    if (command === "settings") setPanel(current => current === "settings" ? null : "settings");
+    if (command === "settings") { setSettingsEntry(current => ({ seq: current.seq + 1, view: "home" })); setPanel(current => current === "settings" ? null : "settings"); }
     else if (command === "toggle-sidebar") setSidebarCollapsed(value => !value);
     else if (command === "new-conversation") { setCreateMenuOpen(true); setSidebarCollapsed(false); setPanel(null); }
     else if (command === "search") {
@@ -1124,11 +1117,7 @@ function Workspace() {
     setMobileList(false);
   }
   useEffect(() => {
-    const openTools = () => { setSettingsTab("mcp"); setPanel("settings"); };
-    const openCodex = () => { setSettingsTab("connection"); setPanel("settings"); };
-    window.addEventListener("tofi:open-tool-settings", openTools);
-    window.addEventListener("tofi:open-codex-settings", openCodex);
-    return () => { window.removeEventListener("tofi:open-tool-settings", openTools); window.removeEventListener("tofi:open-codex-settings", openCodex); };
+    return subscribeSettingsDeepLinks(tab => openSettings(tab));
   }, []);
 
   const updateConversationPreview = useCallback((next: Message) => {
@@ -1470,8 +1459,7 @@ function Workspace() {
   async function importBotPackage(file: File) {
     setPortabilityFile(file);
     setPortabilityBotID("");
-    setSettingsTab("account");
-    setPanel("settings");
+    openSettings("advanced");
     setCreateMenuOpen(false);
   }
 
@@ -1622,7 +1610,7 @@ function Workspace() {
   }
   function renderTaskOwner(owner: TaskOwner) {
     return <TaskRunBlock key={owner.key} owner={owner} liveStatus={runLiveStatus(owner.family.latest)} liveAvatar={<BotAvatar id={owner.family.latest.bot_id} mini motion={owner.family.latest.status === "waiting" ? "awake" : "working"} />} tools={loadedToolActivities} questions={questions.items} drafts={mailDrafts.items} messages={messageRecords} summaries={terminalToolSummaries} details={toolDetailState} connected={streamConnected} botName={botById.get(owner.family.latest.bot_id)?.name ?? "Bot"} showName={active?.kind === "group"}
-      onOpenTools={() => { setSettingsTab("mcp"); setPanel("settings"); }}
+      onOpenTools={() => openSettings("connections")}
       onFeedback={text => window.dispatchEvent(new CustomEvent("tofi:task-feedback", {detail:{conversationId:owner.family.latest.conversation_id,text}}))}
       onRefresh={refreshTaskStatus} onLoadDetails={loadToolDetails}
       renderMessage={message => <MessageBubble key={message.id} message={message} sender={botById.get(owner.family.latest.bot_id)} run={message.run_id ? runById.get(message.run_id) : undefined} showAvatar={false} showIdentity={false} />}
@@ -1725,7 +1713,7 @@ function Workspace() {
             {!visibleSidebarConversations.length && <div className="empty-copy"><p>{query ? t("sidebar.no_match") : t("sidebar.empty")}</p>{!query && <button className="primary-button sidebar-empty-create" disabled={newBotBusy} onClick={() => void createNewBot()}>{newBotBusy ? t("create.creating") : t("create.create_bot")}</button>}</div>}
             {hiddenBots.length > 0 && <section className="hidden-bots-section"><button type="button" className="hidden-bots-toggle" aria-expanded={hiddenBotsOpen} onClick={() => setHiddenBotsOpen((open) => !open)}><span>{t("sidebar.hidden_bots")}</span><Icon name="chevron-right" size={16} /></button>{hiddenBotsOpen && hiddenBots.map(hiddenBotRow)}</section>}
           </div>
-          <div className="sidebar-footer"><SidebarAccount connected={streamConnected} onSettings={() => { setPortabilityBotID(""); setPortabilityFile(undefined); setSettingsTab("account"); setPanel("settings"); }} onUsage={() => { setUsageBotId(""); setSettingsTab("usage"); setPanel("settings"); }} onConnection={() => { setSettingsTab("connection"); setPanel("settings"); }} onArchive={() => setPanel("archive")} /></div>
+          <div className="sidebar-footer"><SidebarAccount connected={streamConnected} onSettings={() => { setPortabilityBotID(""); setPortabilityFile(undefined); openSettings("general", "home"); }} onUsage={() => { setUsageBotId(""); openSettings("usage"); }} onConnection={() => openSettings("models")} onArchive={() => setPanel("archive")} /></div>
         </aside>
         {sidebarContextMenu && <div className="sidebar-context-menu" style={{ left: sidebarContextMenu.x, top: sidebarContextMenu.y }} role="menu" onClick={(event) => event.stopPropagation()}>
           <button role="menuitem" onClick={() => togglePinned(sidebarContextMenu.conversation)}><Icon name="pin" size={17} />{sidebarLayout.pinned.includes(sidebarContextMenu.conversation.id) ? t("sidebar.unpin") : t("sidebar.pin")}</button>
@@ -1842,8 +1830,8 @@ function Workspace() {
         {modalPanelOpen && <button type="button" className="detail-backdrop" aria-label={t("detail.close")} onClick={() => { if (displayedPanel === "settings") window.dispatchEvent(new Event("tofi-settings-close")); else if (!detailPaneRef.current?.querySelector('[aria-busy="true"]')) setPanel(null); }} />}
         <aside ref={detailPaneRef} className={`detail-pane ${displayedPanel !== "settings" && displayedPanel !== "desktop" ? "context-panel" : ""} ${(panel === "bot-edit" || displayedPanel) && displayedPanel !== "desktop" ? "visible" : ""} ${!panel && displayedPanel && displayedPanel !== "desktop" ? "surface-exiting" : ""}`} inert={!panel || undefined} role={modalPanelOpen ? "dialog" : undefined} aria-modal={modalPanelOpen ? true : undefined} aria-label={panel === "settings" ? t("common:nav.settings") : panel === "terminal" ? t("header.terminal") : t("detail.label")} tabIndex={modalPanelOpen ? -1 : undefined}>
           {displayedPanel === "group-create" && <BotPanel key="new-group" bots={bots.filter((bot) => !bot.archived)} onClose={() => setPanel(null)} onUpdate={updateBot} onCreateGroup={createGroup} />}
-          {(panel === "bot-edit" || displayedPanel === "bot-edit") && <BotPanel onExportData={id => { setPortabilityBotID(id); setPortabilityFile(undefined); setSettingsTab("account"); setPanel("settings"); }} refreshToken={scheduleRefresh} memories={memories} onOpenWork={() => setPanel("schedule")} onOpenMemory={() => setPanel("memory")} key={activeBot?.id ?? "edit-empty"} bots={bots} activeBot={activeBot} onClose={() => transitionBotPanel(false)} onUpdate={updateBot} onCreateGroup={createGroup} />}
-          {displayedPanel === "settings" && <SettingsShell tab={settingsTab} onTab={setSettingsTab} onClose={()=>setPanel(null)} renderPage={(page) => page === "admin" ? <AdminAccounts/> : page === "account" ? <><OwnerAccount /><AppearancePicker value={appearance.preference} onChange={appearance.choose} /><LanguageSetting /><TimezoneSetting /><NotificationSetting /><PortabilitySettings bots={bots} initialFile={portabilityFile} initialBotID={portabilityBotID} onInitialFileConsumed={() => setPortabilityFile(undefined)} /><WorkspacePurgeSettings />{conversations.some(conversation => conversation.archived) && <div className="legacy-archive-entry"><span>{t("detail.legacy_archive")}</span><button className="text-button" onClick={() => setPanel("archive")}>{t("detail.manage")}</button></div>}</> : page === "usage" ? <UsagePanel preferredBotId={usageBotId} timezone={timezone} /> : page === "debug" ? <DebugSettings bots={bots.filter(bot=>!bot.archived)} conversation={active}/> : page === "models" ? <><ModelDefaults bots={bots}/><AutoReviewSettings/></> : page === "dictate" ? <DictationSettings/> : page === "connection" ? <><ModelProviders refreshToken={codexStatusRefresh} onConfigured={() => void refreshIndex()} codex={<CodexPanel refreshToken={codexStatusRefresh} onConfigured={() => void refreshIndex()} />} /><ConnectionInfo /></> : page === "computers" ? <><ComputerResources/><ComputerPanel /></> : page === "credentials" ? <ComputerCredentials bots={bots.filter(bot=>!bot.archived)}/> : <ExtensionPanel bots={bots} kind={page} refreshToken={extensionRefresh} />} />}
+          {(panel === "bot-edit" || displayedPanel === "bot-edit") && <BotPanel onExportData={id => { setPortabilityBotID(id); setPortabilityFile(undefined); openSettings("advanced"); }} refreshToken={scheduleRefresh} memories={memories} onOpenWork={() => setPanel("schedule")} onOpenMemory={() => setPanel("memory")} key={activeBot?.id ?? "edit-empty"} bots={bots} activeBot={activeBot} onClose={() => transitionBotPanel(false)} onUpdate={updateBot} onCreateGroup={createGroup} />}
+          {displayedPanel === "settings" && <SettingsShell tab={settingsTab} onTab={setSettingsTab} onClose={() => setPanel(null)} entry={settingsEntry} refreshToken={extensionRefresh} renderPage={(page) => <SettingsPages page={page} bots={bots} conversation={active} timezone={timezone} usageBotId={usageBotId} portabilityBotID={portabilityBotID} portabilityFile={portabilityFile} onPortabilityFileConsumed={() => setPortabilityFile(undefined)} appearance={appearance} extensionRefresh={extensionRefresh} slots={{ codex: <CodexPanel refreshToken={codexStatusRefresh} onConfigured={() => void refreshIndex()} />, notifications: <NotificationSetting />, providersRefresh: codexStatusRefresh, onProvidersConfigured: () => void refreshIndex(), legacyArchive: conversations.some(conversation => conversation.archived) ? <div className="legacy-archive-entry"><span>{t("detail.legacy_archive")}</span><button className="text-button" onClick={() => setPanel("archive")}>{t("detail.manage")}</button></div> : null }} openTab={(tab) => openSettings(tab)} />} />}
           {displayedPanel === "archive" && <ArchivePanel onClose={() => setPanel(null)} onOpen={(id) => { selectConversation(id); setMobileList(false); setPanel(null); }} onLoaded={mergeArchived} onChanged={refreshAfterArchive} onDelete={confirmDelete} />}
           {displayedPanel === "terminal" && desktopBot && <Suspense fallback={<DelayedFeedback><div className="inline-state" role="status">{t("detail.loading_terminal")}</div></DelayedFeedback>}><TerminalPanel key={desktopBot.id} botId={desktopBot.id} botName={desktopBot.name} onClose={() => setPanel(null)} /></Suspense>}
           {displayedPanel === "memory" && activeId && <MemoryPanel key={activeId} memories={memories} conversationId={activeId} scope={active?.kind === "group" ? "group" : "bot"} onClose={() => setPanel(null)} onCreate={async (input) => { const memory = await api.createMemory(activeId, input); setMemories((current) => [...current.filter((item) => item.id !== memory.id), memory]); }} onUpdate={async (id, input) => { const memory = await api.updateMemory(id, input); setMemories((current) => current.map((item) => item.id === id ? memory : item)); }} onDelete={async (id) => { await api.deleteMemory(id); setMemories((current) => current.filter((item) => item.id !== id)); }} />}
@@ -2448,7 +2436,7 @@ export function CodexPanel({ refreshToken, onConfigured }: { refreshToken: numbe
     finally { setWorking(false); }
   }
   async function disconnect() { ++statusRequest.current; setWorking(true); setError(""); try { await api.codexDisconnect(); setConnected(false); setExpiresAt(undefined); onConfigured(); } catch (cause) { setError(errorText(cause)); } finally { setWorking(false); } }
-  return <article className="detail-content provider-card" aria-labelledby="codex-provider-title" aria-busy={working}><div className="provider-card-head"><div><h3 id="codex-provider-title">Codex</h3><p>{t("codex.description")}</p></div><span className="settings-tag">{t("codex.tag")}</span></div><div className={`codex-status ${connected === true ? "connected" : connected === false ? "missing" : "unknown"}`} role="status"><span className="status-dot" />{connected === true ? check === "checking" ? t("codex.verifying") : check === "ok" ? t("codex.connected_verified") : check === "unverified" ? t("codex.connected_unverified") : t("codex.connected") : connected === false ? needsReconnect ? t("codex.needs_reconnect") : t("codex.not_connected") : working ? t("codex.reading_status") : t("codex.status_unknown")}</div>{expiresAt && connected && check !== "unverified" && <p className="field-note">{t("codex.expires", { date: new Date(expiresAt).toLocaleString(intlLocale()) })}</p>}{connected && check === "unverified" && <p className="field-note">{t("codex.unverified_note")} <button className="text-button" onClick={() => setStatusRefresh(value => value + 1)} disabled={working}>{t("codex.reverify")}</button></p>}{session ? <div className="verification-card"><p>{t("codex.enter_code")}</p><code>{session.code}</code><a href={session.url} target="_blank" rel="noreferrer">{t("codex.open_verification")} <Icon name="external-link" size={16} style={{ verticalAlign: "middle" }} /></a></div> : connected === true ? <button className="secondary-button" onClick={() => void disconnect()} disabled={working}>{t("codex.disconnect")}</button> : connected === null ? <button className="secondary-button" onClick={() => setStatusRefresh(value => value + 1)} disabled={working}>{working ? t("codex.reading") : t("codex.retry_status")}</button> : <button className="primary-button" onClick={() => void connect()} disabled={working}>{working ? t("codex.connecting") : needsReconnect ? t("codex.reconnect") : t("codex.connect")}</button>}{error && <p className="error-text">{error}</p>}</article>;
+  return <article className="detail-content provider-card" aria-labelledby="codex-provider-title" aria-busy={working}><div className="provider-card-head"><div><h3 id="codex-provider-title">Codex</h3><p>{t("codex.description")}</p></div><span className="provider-card-marks"><StatusBadge state={connected === true ? (needsReconnect ? "bad" : "ok") : connected === false ? "need" : "testing"} /><span className="settings-tag">{t("codex.tag")}</span></span></div><div className={`codex-status ${connected === true ? "connected" : connected === false ? "missing" : "unknown"}`} role="status"><span className="status-dot" />{connected === true ? check === "checking" ? t("codex.verifying") : check === "ok" ? t("codex.connected_verified") : check === "unverified" ? t("codex.connected_unverified") : t("codex.connected") : connected === false ? needsReconnect ? t("codex.needs_reconnect") : t("codex.not_connected") : working ? t("codex.reading_status") : t("codex.status_unknown")}</div>{expiresAt && connected && check !== "unverified" && <p className="field-note">{t("codex.expires", { date: new Date(expiresAt).toLocaleString(intlLocale()) })}</p>}{connected && check === "unverified" && <p className="field-note">{t("codex.unverified_note")} <button className="text-button" onClick={() => setStatusRefresh(value => value + 1)} disabled={working}>{t("codex.reverify")}</button></p>}{session ? <div className="verification-card"><p>{t("codex.enter_code")}</p><code>{session.code}</code><a href={session.url} target="_blank" rel="noreferrer">{t("codex.open_verification")} <Icon name="external-link" size={16} style={{ verticalAlign: "middle" }} /></a></div> : connected === true ? <button className="secondary-button" onClick={() => void disconnect()} disabled={working}>{t("codex.disconnect")}</button> : connected === null ? <button className="secondary-button" onClick={() => setStatusRefresh(value => value + 1)} disabled={working}>{working ? t("codex.reading") : t("codex.retry_status")}</button> : <button className="primary-button" onClick={() => void connect()} disabled={working}>{working ? t("codex.connecting") : needsReconnect ? t("codex.reconnect") : t("codex.connect")}</button>}{error && <p className="error-text">{error}</p>}</article>;
 }
 
 function DictationControls({ elapsed, levels, busy, onCancel, onConfirm }: { elapsed: number; levels: number[]; busy: boolean; onCancel: () => void; onConfirm: () => void }) {
@@ -2856,7 +2844,7 @@ function BotPanel({ bots, activeBot, onExportData, onClose, onUpdate, onCreateGr
 export default App;
 export { WorkingMembers, Composer, DictationControls, WebToolActivityRun };
 
-function NotificationSetting() {
+export function NotificationSetting() {
   const { t } = useTranslation("chat");
   const [permission, setPermission] = useState("Notification" in window ? Notification.permission : "unsupported");
   return <div className="notification-setting"><strong>{t("notifications.title")}</strong><p className="field-note">{t("notifications.description")}</p>{permission === "default" ? <button className="secondary-button" onClick={() => void Notification.requestPermission().then(setPermission)}>{t("notifications.enable")}</button> : <p className="notification-status" role="status">{permission === "granted" ? t("notifications.on") : permission === "unsupported" ? t("notifications.unsupported") : t("notifications.off")}</p>}</div>;

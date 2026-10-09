@@ -94,7 +94,7 @@ void i18nReady.then(()=>setLanguage('zh-CN')).then(()=>createRoot(document.getEl
       await page.setViewportSize(viewport);
       for(const [status,state] of [["shadow_allow","run_done"],["shadow_deny","run_done"],["shadow_unavailable","run_done"],["setup_required","pending"],["context_required","pending"],["unavailable","pending"],["policy_denied","pending"],["terminal","pending"],["approved","expired"],["approved","cancelled"],["approved","run_done"]]){
         await page.goto(`${origin}/${basename(fixture)}/index.html?status=${status}&state=${state}`);
-        const settings=page.locator("section").filter({has:page.getByRole("heading",{name:"AutoReview",exact:true})});
+        const settings=page.locator("section").filter({has:page.getByRole("heading",{name:"审查员",exact:true})});
         await settings.getByText("审查范围：所有外部工具。",{exact:false}).waitFor({timeout:10000});
         assert.equal(await settings.getByRole("combobox").inputValue(),"off");
         for (const [mode, text] of [["shadow","不新增等待或执行权限"],["auto","高风险、需要确认的提案仍须由你批准"],["off","不请求审查"]]) {
