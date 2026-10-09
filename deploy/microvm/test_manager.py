@@ -605,6 +605,19 @@ class StopCoordinationTests(unittest.TestCase):
         vm.stop()
         self.assertEqual(vm.network_down.call_count,2)
 
+    def test_deliberate_kill_is_not_reported_as_an_unexpected_stop(self):
+        # rc.6 acceptance: a watchdog restart showed state "error" ("microVM
+        # stopped unexpectedly") for the moment between cgroup.kill and stop()
+        # clearing the process.
+        vm = manager.VM(config())
+        proc = mock.Mock(pid=44); proc.poll.return_value = -9
+        vm.process = proc
+        for state in ("restarting", "purging"):
+            vm.state, vm.error = state, ""
+            self.assertEqual((vm.info()["state"], vm.info()["error"]), (state, ""))
+        vm.state = "ready"
+        self.assertEqual((vm.info()["state"], vm.info()["error"]), ("error", "microVM stopped unexpectedly"))
+
     def test_unresolved_vm_never_tears_down_network(self):
         vm = manager.VM(dict(config(), worker_private_sysctls=True, cgroup_parent="tofi-vms"))
         proc = mock.Mock(pid=44);proc.poll.return_value=None
