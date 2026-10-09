@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/JackZhao98/tofibot/internal/extensions"
+	"github.com/JackZhao98/tofibot/internal/tooloutcome"
 )
 
 // skill_access restricts a skill to selected Bots. A skill with no rows is
@@ -134,7 +135,55 @@ func (s *Server) deleteSkill(name string) error {
 	if err := s.extensions.DeleteSkill(name); err != nil {
 		return err
 	}
+	// Rows are keyed by manifest name, files by directory name: keep the rows
+	// if a skill of that name is still installed.
+	views, _ := s.extensions.ListSkills()
+	for _, v := range views {
+		if v.Name == name {
+			return nil
+		}
+	}
 	return s.store.deleteSkillAccess(name)
+}
+
+// restrictedSkillGuard protects restricted skills from the model-facing
+// manage_extensions tool (delete or install over an existing name). A Bot that
+// may not use the skill gets the same answer as for a missing skill, and a Bot
+// that may use it is told restricted skills are managed in Settings only. An
+// unreadable access table fails closed.
+func (s *Server) restrictedSkillGuard(botID, name string) error {
+	restricted, err := s.store.skillAccessMap()
+	if err != nil {
+		return tooloutcome.InvalidArguments("skill not found")
+	}
+	ids := restricted[name]
+	if len(ids) == 0 {
+		return nil
+	}
+	for _, id := range ids {
+		if botID != "" && id == botID {
+			return tooloutcome.InvalidArguments("This skill is limited to selected Bots. Limited skills can only be changed or removed by the user in Settings.")
+		}
+	}
+	return tooloutcome.InvalidArguments("skill not found")
+}
+
+// activeBotSet returns the ids of existing, non-archived Bots.
+func (s *Store) activeBotSet() (map[string]bool, error) {
+	rows, err := s.db.Query(`SELECT id FROM bots WHERE archived=0`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := map[string]bool{}
+	for rows.Next() {
+		var id string
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		out[id] = true
+	}
+	return out, rows.Err()
 }
 
 type skillWithAccess struct {
@@ -159,14 +208,7 @@ func (s *Server) routeSkillAccess(w http.ResponseWriter, r *http.Request, p stri
 		writeErr(w, 400, "invalid_request", "mode must be all or selected")
 		return true
 	}
-	views, _ := s.extensions.ListSkills()
-	found := false
-	for _, v := range views {
-		if v.Name == name {
-			found = true
-		}
-	}
-	if !found {
+	if !s.extensions.SkillExists(name) {
 		writeErr(w, 404, "not_found", "skill not found")
 		return true
 	}

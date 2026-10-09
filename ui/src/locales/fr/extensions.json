@@ -336,7 +336,6 @@
     "access": {
       "label": "Qui peut l’utiliser",
       "all": "Tous les Bots",
-      "some": "{{selected}} Bots sur {{total}}",
       "change": "Modifier",
       "change_for": "Modifier qui peut utiliser {{name}}",
       "sheet_title": "Qui peut utiliser {{name}}",
@@ -352,7 +351,11 @@
       "error": {
         "unknown_bot": "L’un des Bots choisis n’existe plus ou est archivé. Rouvrez cette feuille et réessayez.",
         "save_failed": "Enregistrement impossible. Réessayez."
-      }
+      },
+      "some_one": "{{selected}} Bot sur {{total}}",
+      "some_many": "{{selected}} Bots sur {{total}}",
+      "some_other": "{{selected}} Bots sur {{total}}",
+      "none_available": "Limité à des Bots qui n’existent plus. Aucun Bot ne peut l’utiliser"
     },
     "choose_folder": "Choisir un dossier",
     "error": {

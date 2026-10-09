@@ -335,7 +335,6 @@
     "access": {
       "label": "Who can use it",
       "all": "All Bots",
-      "some": "{{selected}} of {{total}} Bots",
       "change": "Change",
       "change_for": "Change who can use {{name}}",
       "sheet_title": "Who can use {{name}}",
@@ -351,7 +350,10 @@
       "error": {
         "unknown_bot": "One of the selected Bots no longer exists or is archived. Reopen this sheet and try again.",
         "save_failed": "Could not save. Try again."
-      }
+      },
+      "some_one": "{{selected}} of {{total}} Bot",
+      "some_other": "{{selected}} of {{total}} Bots",
+      "none_available": "Limited to Bots that no longer exist. No Bot can use it."
     },
     "choose_folder": "Choose folder",
     "error": {

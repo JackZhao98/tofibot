@@ -334,7 +334,6 @@
     "access": {
       "label": "誰能用",
       "all": "所有 Bot",
-      "some": "{{total}} 個 Bot 中的 {{selected}} 個",
       "change": "變更",
       "change_for": "變更誰能使用 {{name}}",
       "sheet_title": "誰能使用 {{name}}",
@@ -350,7 +349,9 @@
       "error": {
         "unknown_bot": "所選的某個 Bot 已不存在或已封存。請重新開啟此面板再試一次。",
         "save_failed": "無法儲存，請再試一次。"
-      }
+      },
+      "some_other": "{{total}} 個 Bot 中的 {{selected}} 個",
+      "none_available": "僅限已不存在的 Bot，目前沒有 Bot 能使用"
     },
     "choose_folder": "選擇資料夾",
     "error": {

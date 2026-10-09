@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"net/http"
+	"path/filepath"
 	"strings"
 	"testing"
 )
@@ -12,16 +13,18 @@ type skillAccessFixtureEnv struct {
 	s       *Server
 	handler http.Handler
 	a, b, c Bot
+	skills  string
 }
 
 func newSkillAccessEnv(t *testing.T) skillAccessFixtureEnv {
 	t.Helper()
-	s, err := NewServer(Config{DataDir: t.TempDir()})
+	root := t.TempDir()
+	s, err := NewServer(Config{DataDir: root, SkillsDir: filepath.Join(root, "skills")})
 	if err != nil {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { s.Close() })
-	env := skillAccessFixtureEnv{s: s, handler: s.Handler()}
+	env := skillAccessFixtureEnv{s: s, handler: s.Handler(), skills: filepath.Join(root, "skills")}
 	for i, dst := range []*Bot{&env.a, &env.b, &env.c} {
 		bot, err := s.store.CreateBot([]string{"Alpha Bot", "Bravo Bot", "Charlie Bot"}[i], "", "model")
 		if err != nil {
@@ -153,8 +156,11 @@ func TestSkillAccessCascadesOnDeleteSkillAndSurvivesBotArchive(t *testing.T) {
 	if _, err := e.s.store.SetBotArchived(e.a.ID, true); err != nil {
 		t.Fatal(err)
 	}
-	if got := e.list(t)["deploy"].Access; got.Mode != "selected" || len(got.BotIDs) != 1 {
-		t.Fatalf("archive changed rows: %+v", got)
+	if m, _ := e.s.store.skillAccessMap(); len(m["deploy"]) != 1 {
+		t.Fatalf("archive changed rows: %v", m)
+	}
+	if got := e.list(t)["deploy"].Access; got.Mode != "selected" || len(got.BotIDs) != 0 {
+		t.Fatalf("view should hide archived Bots: %+v", got)
 	}
 	status, body := extensionHTTP(t, e.handler, http.MethodDelete, "/api/extensions/skills/deploy", nil)
 	if status != http.StatusOK {

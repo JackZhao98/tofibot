@@ -123,3 +123,26 @@ func TestNoAccessHookLeavesEverySkillGlobalAndLegacyStateIgnored(t *testing.T) {
 		t.Fatalf("legacy file hid skills: %q", p.Instructions)
 	}
 }
+
+func TestRestrictedSkillThroughCallGateEntryPointAndTraversal(t *testing.T) {
+	mgr := skillAccessFixture(t, alphaOnlyForBotA)
+	gate := func(context.Context, MCPCallApproval) error { return errors.New("synthetic denied") }
+	denied, err := mgr.PrepareDiscoverableForBotWithCallGate(context.Background(), "bot-b", nil, gate)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer denied.Close()
+	if strings.Contains(denied.Instructions, "alpha") || !strings.Contains(denied.Instructions, "beta") {
+		t.Fatalf("instructions = %q", denied.Instructions)
+	}
+	if _, err := discoveryTool(t, denied, "read_skill").Execute(context.Background(), json.RawMessage(`{"name":"alpha"}`)); err == nil {
+		t.Fatal("restricted skill readable through the real entry point")
+	}
+	// An allowed skill must not reach a restricted sibling by traversal.
+	for _, path := range []string{"../alpha/SKILL.md", "../alpha/guide.txt", "sub/../../alpha/SKILL.md"} {
+		out, err := discoveryTool(t, denied, "read_skill_file").Execute(context.Background(), json.RawMessage(`{"name":"beta","path":"`+path+`"}`))
+		if err == nil || strings.Contains(out, "BODY_alpha") || strings.Contains(out, "file_alpha") {
+			t.Fatalf("traversal %q: out=%q err=%v", path, out, err)
+		}
+	}
+}
