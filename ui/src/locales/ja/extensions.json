@@ -331,6 +331,27 @@
     }
   },
   "skills": {
+    "access": {
+      "label": "利用できる Bot",
+      "all": "すべての Bot",
+      "some": "{{total}} 個中 {{selected}} 個の Bot",
+      "change": "変更",
+      "change_for": "{{name}} を利用できる Bot を変更",
+      "sheet_title": "{{name}} を利用できる Bot",
+      "mode_all": "すべての Bot",
+      "mode_all_hint": "今後追加する Bot を含め、すべての Bot が利用できます。",
+      "mode_selected": "選択した Bot のみ",
+      "mode_selected_hint": "ほかの Bot にはこの Skill が表示されず、読み込めません。",
+      "bots_label": "Bot",
+      "no_bots": "Bot がまだありません。",
+      "pick_required": "Bot を 1 つ以上選ぶか、「すべての Bot」を選んでください。",
+      "save": "保存",
+      "saving": "保存中…",
+      "error": {
+        "unknown_bot": "選択した Bot の 1 つが存在しないか、アーカイブされています。このシートを開き直してもう一度お試しください。",
+        "save_failed": "保存できませんでした。もう一度お試しください。"
+      }
+    },
     "choose_folder": "フォルダを選択",
     "error": {
       "missing_content": "SKILL.md を含むフォルダを選ぶか、「手動で編集」を開いて名前と内容を入力してください。",
@@ -343,7 +364,7 @@
     "install": "Skill をインストール",
     "install_submit": "インストール",
     "installed": "インストール済み",
-    "installed_notice": "インストールしました。すべての Bot が必要に応じて読み込めます",
+    "installed_notice": "インストールしました。すべての Bot が必要に応じて読み込めます。「利用できる Bot」で範囲を限定できます",
     "installing": "インストール中…",
     "loading": "読み込み中…",
     "manual": "手動で編集",
@@ -354,7 +375,7 @@
     "remove_confirm": "この Skill を削除しますか？",
     "removed": "Skill を削除しました",
     "saved": "保存しました",
-    "scope": "ワークスペースで共有 · 必要時に読み込み",
+    "scope": "ワークスペースの Skill · 必要時に読み込み · 特定の Bot に限定可能",
     "starters": "Tofi のお仕事 Skill",
     "support_note": "説明と参考ファイルに対応しています。同梱のスクリプトは自動実行されません。",
     "file_count_other": "{{count}} 個のファイル"

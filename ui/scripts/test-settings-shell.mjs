@@ -63,7 +63,7 @@ import {SettingsPages} from '../src/settings/SettingsPages';
 import {subscribeSettingsDeepLinks} from '../src/settings/deepLinks';
 import {CodexPanel,NotificationSetting} from '../src/App';
 const query=new URLSearchParams(location.search);
-const bots=[{id:'bot_research',name:'Research Bot',archived:false,model:'default',reasoning_effort:'default'},{id:'bot_inbox',name:'Inbox Bot',archived:false,model:'gpt-6-luna',reasoning_effort:'medium'}] as any;
+const bots=[{id:'bot_research',name:'Research Bot',archived:false,model:'default',reasoning_effort:'default'},{id:'bot_inbox',name:'Inbox Bot',archived:false,model:'gpt-6-luna',reasoning_effort:'medium'},{id:'bot_notes',name:'Notes Bot',archived:false,model:'default',reasoning_effort:'default'},{id:'bot_old',name:'Retired Bot',archived:true,model:'default',reasoning_effort:'default'}] as any;
 function Fixture(){
  const appearance=useAppearance();
  const [tab,setTab]=useState<SettingsTab>((query.get('tab') as SettingsTab)||'general');
@@ -81,7 +81,8 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
   const origin = `http://127.0.0.1:${server.httpServer.address().port}`;
   browser = await chromium.launch({executablePath: process.env.TOFI_TEST_CHROME || undefined});
 
-  const requested = [], unexpected = [], writes = [];
+  const requested = [], unexpected = [], writes = [], accessWrites = [];
+  const skillAccess = new Map();
   const INSTANCE = "0b1c2d3e-4f50-4a6b-8c7d-9e0f1a2b3c4d";
   const providers = [
     {id: "codex", label: "Codex", kind: "oauth", configured: true, status: "connected"},
@@ -100,7 +101,7 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
     if (path === "/api/auth/session") return query.get("admin") === "0"
       ? {enabled: true, setup_required: false, authenticated: true, password_transport_allowed: true, multi_account: false, owner: {id: "acct_sample", username: "Ada Sample", email: "ada@example.test", role: "owner"}}
       : {enabled: true, setup_required: false, authenticated: true, password_transport_allowed: true, multi_account: true, owner: {id: "acct_sample", username: "Ada Sample", email: "ada@example.test", role: "admin"}};
-    if (path === "/api/bots") return {bots: [{id: "bot_research", name: "Research Bot", archived: false}, {id: "bot_inbox", name: "Inbox Bot", archived: false}]};
+    if (path === "/api/bots") return {bots: [{id: "bot_research", name: "Research Bot", archived: false}, {id: "bot_inbox", name: "Inbox Bot", archived: false}, {id: "bot_notes", name: "Notes Bot", archived: false}, {id: "bot_old", name: "Retired Bot", archived: true}]};
     if (path === "/api/preferences") return {timezone: "America/Los_Angeles", timezone_configured: true};
     if (path === "/api/extensions/mcp" && method === "GET") return {servers: [
       {name: "acme_docs", url: "https://mcp.example.test/docs", oauth: {client_id: "sample", connected: false}},
@@ -110,7 +111,7 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
     if (/^\/api\/extensions\/mcp\/[^/]+\/test$/.test(path) && method === "POST") return {ok: true, tool_count: 8};
     if (path === "/api/extensions/oauth-options") return {vm_available: false, web_callback_origin: "https://tofi.example.test", desktop_redirect_uri: ""};
     if (path === "/api/extensions/local-mcp") return {available: false, reason: "sample"};
-    if (path === "/api/extensions/skills") return {skills: [{name: "research-assistant", description: "Research and verify sources"}, {name: "weekly-report", description: "Draft the weekly status report"}]};
+    if (path === "/api/extensions/skills") return {skills: [{name: "research-assistant", description: "Research and verify sources"}, {name: "weekly-report", description: "Draft the weekly status report"}].map(skill => ({...skill, access: skillAccess.get(skill.name) ?? {mode: "all"}}))};
     if (path === "/api/auto-review-settings") return {mode: "shadow", revision: 1, review_scope: "all_external_tools"};
     if (path === "/api/providers") return {providers};
     if (path === "/api/auth/codex") return {connected: true, expires_at: Date.parse("2026-11-01T00:00:00Z")};
@@ -144,6 +145,13 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
       if (url.origin !== origin) { await route.abort(); return; }
       if (!url.pathname.startsWith("/api/")) { await route.continue(); return; }
       requested.push(`${method} ${url.pathname}`);
+      if (method === "PUT" && /^\/api\/extensions\/skills\/[^/]+\/access$/.test(url.pathname)) {
+        const payload = JSON.parse(request.postData() ?? "{}"), name = url.pathname.split("/")[4];
+        accessWrites.push(`${method} ${url.pathname} ${request.postData()}`);
+        skillAccess.set(name, payload.mode === "all" ? {mode: "all"} : {mode: "selected", bot_ids: payload.bot_ids});
+        await route.fulfill({contentType: "application/json", body: JSON.stringify({ok: true, access: skillAccess.get(name)})});
+        return;
+      }
       const body = stub(url, method, new URLSearchParams(page.url().split("?")[1] ?? ""));
       if (body === undefined) { unexpected.push(`${method} ${url.pathname}`); await route.fulfill({status: 404, contentType: "application/json", body: JSON.stringify({error: {message: "not stubbed", code: "not_found"}})}); return; }
       if (method !== "GET" && !/\/(test|verify)$/.test(url.pathname)) writes.push(`${method} ${url.pathname}`);
@@ -323,6 +331,62 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
     console.log("PASS german: Verbindungen, Genehmigungen and Schlüssel & Geheimnisse fit the 248px rail in at most two lines, no clipping");
   }
 
+  // ---- 7b. Skill access (Phase 2, 3.5 #2): change access to one Bot; the card shows "1 of 3 Bots"; reload keeps it.
+  {
+    skillAccess.clear(); accessWrites.length = 0;
+    const card = (page, name) => page.locator('.settings-page-body[data-page="skills"] .extension-card').filter({hasText: name});
+    const summary = (page, name) => card(page, name).locator(".skill-access-summary");
+    const {page, close} = await open({tab: "skills"});
+    await card(page, "research-assistant").waitFor();
+    assert.equal((await summary(page, "research-assistant").textContent()).trim(), "All Bots", "default access is All Bots");
+    assert.equal((await summary(page, "weekly-report").textContent()).trim(), "All Bots");
+    assert.equal(await card(page, "research-assistant").getByText("Who can use it", {exact: true}).count(), 1);
+    // Escape closes the sheet without writing.
+    await card(page, "research-assistant").getByRole("button", {name: "Change"}).click();
+    const sheet = page.getByRole("dialog", {name: "Who can use research-assistant"});
+    await sheet.waitFor();
+    assert.equal(await sheet.getByRole("radio", {name: /^All Bots/}).isChecked(), true);
+    assert.equal(await sheet.getByRole("checkbox").count(), 3, "checklist lists the three non-archived Bots");
+    assert.equal(await sheet.getByRole("checkbox").first().isDisabled(), true, "checklist is disabled while All Bots is chosen");
+    await page.keyboard.press("Escape");
+    await sheet.waitFor({state: "detached"});
+    assert.deepEqual(accessWrites, [], "closing the sheet writes nothing");
+    // Only selected Bots needs at least one Bot.
+    await card(page, "research-assistant").getByRole("button", {name: "Change"}).click();
+    await sheet.waitFor();
+    await sheet.getByRole("radio", {name: /^Only selected Bots/}).check();
+    assert.equal(await sheet.getByRole("button", {name: "Save"}).isDisabled(), true, "Save needs a Bot");
+    await sheet.getByRole("checkbox", {name: "Research Bot"}).check();
+    await sheet.getByRole("button", {name: "Save"}).click();
+    await sheet.waitFor({state: "detached"});
+    assert.deepEqual(accessWrites, ['PUT /api/extensions/skills/research-assistant/access {"mode":"selected","bot_ids":["bot_research"]}']);
+    await page.waitForFunction(() => document.querySelector('.settings-page-body[data-page="skills"]')?.innerText.includes("1 of 3 Bots"));
+    assert.equal((await summary(page, "research-assistant").textContent()).trim(), "1 of 3 Bots");
+    assert.equal((await summary(page, "weekly-report").textContent()).trim(), "All Bots", "the other skill is untouched");
+    await page.reload();
+    await card(page, "research-assistant").waitFor();
+    await page.waitForFunction(() => document.querySelector('.settings-page-body[data-page="skills"]')?.innerText.includes("1 of 3 Bots"));
+    assert.equal((await summary(page, "research-assistant").textContent()).trim(), "1 of 3 Bots", "reload keeps the restriction");
+    // Back to All Bots.
+    await card(page, "research-assistant").getByRole("button", {name: "Change"}).click();
+    await sheet.waitFor();
+    assert.equal(await sheet.getByRole("checkbox", {name: "Research Bot"}).isChecked(), true, "the sheet reopens with the saved selection");
+    await sheet.getByRole("radio", {name: /^All Bots/}).check();
+    await sheet.getByRole("button", {name: "Save"}).click();
+    await sheet.waitFor({state: "detached"});
+    assert.equal(accessWrites.at(-1), 'PUT /api/extensions/skills/research-assistant/access {"mode":"all"}');
+    await page.waitForFunction(() => !document.querySelector('.settings-page-body[data-page="skills"]')?.innerText.includes("1 of 3 Bots"));
+    await close();
+    for (const lang of ["zh-CN", "de"]) {
+      const view = await open({tab: "skills", lang});
+      await card(view.page, "research-assistant").waitFor();
+      const text = (await summary(view.page, "research-assistant").textContent()).trim();
+      assert.notEqual(text, "All Bots", `${lang}: the access summary is translated`);
+      await view.close();
+    }
+    console.log("PASS skill access: All Bots by default, sheet needs a Bot, saving shows 1 of 3 Bots, reload keeps it, back to All Bots, translated");
+  }
+
   // ---- 8. Screenshots.
   if (shots) {
     let count = 0;
@@ -360,6 +424,32 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
       await mobile.close();
     }
     console.log(`PASS screenshots: ${count} saved to ${shots}`);
+  }
+
+  // ---- 9. Phase 2 screenshots: Skills page with an "All Bots" card, a "1 of 3 Bots" card and the open sheet.
+  if (process.env.SKILL_ACCESS_SHOTS) {
+    const dir = process.env.SKILL_ACCESS_SHOTS;
+    await mkdir(dir, {recursive: true});
+    let count = 0;
+    for (const theme of ["light", "dark"]) for (const [label, size] of [["desktop", {width: 1440, height: 900}], ["mobile", {width: 390, height: 844}]]) {
+      skillAccess.clear();
+      skillAccess.set("research-assistant", {mode: "selected", bot_ids: ["bot_research"]});
+      const {page, close} = await open({tab: "skills"}, {...size, theme});
+      if (label === "mobile") { await page.locator(".settings-mhome [data-tab=\"skills\"]").click().catch(() => {}); }
+      const cards = page.locator('.settings-page-body[data-page="skills"] .extension-card');
+      await cards.first().waitFor();
+      await page.waitForFunction(() => document.querySelector('.settings-page-body[data-page="skills"]')?.innerText.includes("1 of 3 Bots"));
+      await page.waitForTimeout(900);
+      await page.screenshot({path: join(dir, `skills-${label}-${theme}.png`)}); count++;
+      await cards.filter({hasText: "weekly-report"}).getByRole("button", {name: "Change"}).click();
+      await page.locator(".sheet").waitFor();
+      await page.getByRole("radio", {name: /^Only selected Bots/}).check();
+      await page.getByRole("checkbox", {name: "Inbox Bot"}).check();
+      await page.waitForTimeout(500);
+      await page.screenshot({path: join(dir, `skills-${label}-${theme}-sheet.png`)}); count++;
+      await close();
+    }
+    console.log(`PASS skill access screenshots: ${count} saved to ${dir}`);
   }
 
   assert.deepEqual(unexpected, [], `unexpected requests or page errors: ${unexpected.join("; ")}`);

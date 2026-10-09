@@ -332,6 +332,27 @@
     }
   },
   "skills": {
+    "access": {
+      "label": "Who can use it",
+      "all": "All Bots",
+      "some": "{{selected}} of {{total}} Bots",
+      "change": "Change",
+      "change_for": "Change who can use {{name}}",
+      "sheet_title": "Who can use {{name}}",
+      "mode_all": "All Bots",
+      "mode_all_hint": "Every Bot, including Bots you add later.",
+      "mode_selected": "Only selected Bots",
+      "mode_selected_hint": "Other Bots cannot see or read this Skill.",
+      "bots_label": "Bots",
+      "no_bots": "There are no Bots yet.",
+      "pick_required": "Select at least one Bot, or choose All Bots.",
+      "save": "Save",
+      "saving": "Saving…",
+      "error": {
+        "unknown_bot": "One of the selected Bots no longer exists or is archived. Reopen this sheet and try again.",
+        "save_failed": "Could not save. Try again."
+      }
+    },
     "choose_folder": "Choose folder",
     "error": {
       "missing_content": "Choose a folder that contains SKILL.md, or open Manual edit and enter a name and content.",
@@ -344,7 +365,7 @@
     "install": "Install Skill",
     "install_submit": "Install",
     "installed": "Installed",
-    "installed_notice": "Installed. Every Bot can read it when needed",
+    "installed_notice": "Installed. Every Bot can read it when needed; use Who can use it to limit it",
     "installing": "Installing…",
     "loading": "Loading…",
     "manual": "Manual edit",
@@ -355,7 +376,7 @@
     "remove_confirm": "Remove this Skill?",
     "removed": "Skill removed",
     "saved": "Saved",
-    "scope": "Shared across the workspace · read on demand",
+    "scope": "Workspace Skills · read on demand · limit to selected Bots",
     "starters": "Tofi work Skills",
     "support_note": "Instructions and reference files are supported. Bundled scripts never run automatically.",
     "file_count_one": "{{count}} file",
