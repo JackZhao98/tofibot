@@ -23,8 +23,18 @@ computer, so nested virtualization must be enabled on cloud VMs.
 curl -fsSL https://raw.githubusercontent.com/JackZhao98/tofibot/main/install.sh | sudo bash
 ```
 
-The script checks the host, installs Docker if needed, downloads a release whose
-images and files are pinned by digest and checksum, and starts TOFI. It prints
+In a terminal the installer first shows what it found on the machine (OS, CPU,
+RAM, disk, Docker, KVM, ports, existing install, addresses). It then asks how
+account computers run (KVM/Firecracker today; gVisor and plain containers are
+listed as not supported yet) and how you will open TOFI (by IP with self-signed
+HTTPS, a domain with automatic HTTPS, or this machine only). It also asks for
+the port, and the default for each question is marked. A summary follows,
+together with `Proceed? [Y/n]`, and nothing is changed before you confirm.
+Ctrl-C or `n` leaves the machine untouched. For automation, add `--yes` (or set
+`CI`), and answer with flags or `TOFI_*` variables; the full table is in
+`deploy/self-host/README.md`. Then the script installs Docker if needed,
+downloads a release whose images and files are pinned by digest and checksum,
+and starts TOFI. It prints
 the addresses and a one-time **setup key**; enter the key on the first page to
 create the Admin account, then open Settings -> Model provider.
 
@@ -39,6 +49,8 @@ server, allow TCP 8321 in its firewall or security group. Other choices:
 curl -fsSL https://raw.githubusercontent.com/JackZhao98/tofibot/main/install.sh | sudo bash -s -- --domain tofi.example.com --email you@example.com
 # This server only (127.0.0.1, still HTTPS); reach it with ssh -L 8321:127.0.0.1:8321
 curl -fsSL https://raw.githubusercontent.com/JackZhao98/tofibot/main/install.sh | sudo bash -s -- --local-only
+# No questions (scripts, cloud-init): flags and defaults only
+curl -fsSL https://raw.githubusercontent.com/JackZhao98/tofibot/main/install.sh | sudo bash -s -- --yes --port 8321
 ```
 
 Afterwards use `sudo tofi status | start | stop | update | computers | logs |

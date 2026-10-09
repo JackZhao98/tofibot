@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Build the host bundle tofi-host-<version>.tar.gz that install.sh unpacks to
 # /opt/tofi/releases/<version>. Layout:
-#   bin/tofi  lib/tofi_host.py  lib/microvm/*.py  compose.yaml  Caddyfile.tmpl
+#   bin/tofi  lib/tofi_host.py  lib/tofi_tui.py  lib/microvm/*.py  compose.yaml  Caddyfile.tmpl
 #   worker.apparmor.template  worker.seccomp.json  tofi.service  tofi.conf  VERSION
 # The archive is reproducible: sorted entries, root ownership, fixed mtime
 # (SOURCE_DATE_EPOCH, default the commit time of HEAD).
@@ -29,6 +29,7 @@ trap 'rm -rf "$stage"' EXIT
 mkdir -p "$stage/bin" "$stage/lib/microvm"
 install -m 0755 "$self_host/bin/tofi" "$stage/bin/tofi"
 install -m 0644 "$self_host/tofi_host.py" "$stage/lib/tofi_host.py"
+install -m 0644 "$self_host/tofi_tui.py" "$stage/lib/tofi_tui.py"
 for module in "${microvm_modules[@]}"; do
   install -m 0644 "$microvm/$module" "$stage/lib/microvm/$module"
 done
