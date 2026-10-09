@@ -381,6 +381,22 @@ class RenderTests(HostCase):
         self.assertIn('/var/lib/tofi/worker/** rwkl', profile)
         self.assertNotIn('tofi-account-worker', profile)
 
+    def test_apparmor_profile_lets_firecracker_write_its_snapshot(self):
+        # rc.5 acceptance: hibernation failed with EACCES (apparmor DENIED
+        # mknod /snapshot/vmstate) because the confined, jailed Firecracker
+        # could not create the files manager.py asks it to write.
+        import re
+        source = (HERE.parent / 'microvm' / 'manager.py').read_text()
+        written = set(re.findall(r'"(?:snapshot_path|mem_file_path)": "(/snapshot/[a-z]+)"', source))
+        self.assertEqual(written, {'/snapshot/vmstate', '/snapshot/memory'})
+        files = re.search(r'^SNAPSHOT_FILES = \(([^)]*)\)', source, re.M).group(1)
+        self.assertEqual({'/snapshot/' + name for name in re.findall(r'"([a-z]+)"', files)}, written)
+        profile = tofi_host.render_apparmor(HERE)
+        rule = re.search(r'^\s*/snapshot/\{([a-z,]+)\} (\w+),$', profile, re.M)
+        self.assertIsNotNone(rule, 'profile must allow the jailed snapshot files')
+        self.assertEqual({'/snapshot/' + name for name in rule.group(1).split(',')}, written)
+        self.assertIn('w', rule.group(2))
+
     def test_manifest_validation(self):
         tofi_host.validate_manifest(manifest())
         bad = manifest()
