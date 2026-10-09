@@ -126,15 +126,14 @@ try {
     await shell(page, "is-expanded").waitFor();
     await page.getByRole("button", { name: "Shrink shared computer" }).click();
     await shell(page, "is-small").waitFor();
-    // Close from big removes the window entirely; reopening restores the last size (this page only).
+    // Close from big removes the window entirely; the header button always reopens small.
     await page.getByRole("button", { name: "Enlarge shared computer" }).click();
     await shell(page, "is-expanded").waitFor();
     await page.getByRole("button", { name: "Close shared computer" }).click();
     await page.waitForFunction(() => !document.querySelector(".desktop-floating-shell"));
     await button.click();
-    await shell(page, "is-expanded").waitFor();
-    await page.keyboard.press("Escape");
     await shell(page, "is-small").waitFor();
+    assert.equal(await shell(page, "is-expanded").count(), 0, "every open from the header button starts small");
     await page.locator("[data-desktop-frame]").hover();
     await page.getByRole("button", { name: "Close shared computer" }).click();
     await page.waitForFunction(() => !document.querySelector(".desktop-floating-shell"));
