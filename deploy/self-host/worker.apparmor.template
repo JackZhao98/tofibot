@@ -6,6 +6,9 @@ profile tofi-account-worker flags=(attach_disconnected,mediate_deleted) {
   / rw,
   /run/ rw,
   /firecracker.pid rw,
+  # Hibernation: the jailed Firecracker writes its snapshot inside its chroot
+  # (manager.py: snapshot_path /snapshot/vmstate, mem_file_path /snapshot/memory).
+  /snapshot/{vmstate,memory} rw,
   /dev/userfaultfd rw,
   /run/** rwkl,
   /tmp/** rwkl,

@@ -861,18 +861,25 @@ class VM:
             try:
                 signal_process_group(process, signal.SIGKILL)
             except PermissionError:
-                if not self.c.get("worker_private_sysctls") or self.c.get("cgroup_parent") != "tofi-vms":
-                    raise
-                # The confined Worker cannot signal the jailer UID, but it owns
-                # this VM's cgroup leaf. Kill only a leaf that holds this PID.
-                leaf = Path("/sys/fs/cgroup") / "tofi-vms" / self.c["id"]
-                if leaf.is_symlink() or not leaf.is_dir():
-                    raise RuntimeError("VM cgroup leaf unavailable")
-                if str(process.pid) not in (leaf / "cgroup.procs").read_text().split():
-                    raise RuntimeError("VM process is outside its cgroup leaf")
-                (leaf / "cgroup.kill").write_text("1")
+                self.kill_vm_leaf(process)
             process.wait(timeout=15)
         self.process = None
+
+    def kill_vm_leaf(self, process):
+        """Kill this VM through its cgroup leaf when signals are refused.
+
+        The confined Worker cannot signal the jailer UID, but it owns this VM's
+        cgroup leaf. Kill only a leaf that holds this PID; cgroup.kill also
+        ends a stopped (SIGSTOP) or wedged Firecracker.
+        """
+        if not self.c.get("worker_private_sysctls") or self.c.get("cgroup_parent") != "tofi-vms":
+            raise PermissionError("cannot signal the VM process")
+        leaf = Path("/sys/fs/cgroup") / "tofi-vms" / self.c["id"]
+        if leaf.is_symlink() or not leaf.is_dir():
+            raise RuntimeError("VM cgroup leaf unavailable")
+        if str(process.pid) not in (leaf / "cgroup.procs").read_text().split():
+            raise RuntimeError("VM process is outside its cgroup leaf")
+        (leaf / "cgroup.kill").write_text("1")
 
     def quiesce_guest(self):
         """Ask the guest for in-flight work and flush its filesystems.
@@ -1137,13 +1144,12 @@ class VM:
                             signal_process_group(self.process, signal.SIGKILL)
                             self.process.wait(timeout=5)
                     except PermissionError:
-                        if not self.c.get("worker_private_sysctls") or self.c.get("cgroup_parent") != "tofi-vms":
-                            raise
                         # The confined Worker cannot signal the changed UID.
-                        # Its supervisor verifies and empties only this VM leaf.
-                        # Stay alive so its bounded fallback can release wait()
-                        # and this manager can clean its own network afterward.
-                        self.process.wait(timeout=75)
+                        # Empty this VM's own verified cgroup leaf instead: an
+                        # in-manager restart (watchdog recovery, Retry) has no
+                        # supervisor fallback, which only runs on manager exit.
+                        self.kill_vm_leaf(self.process)
+                        self.process.wait(timeout=15)
             self.process = None
             if self.log:
                 self.log.close()
