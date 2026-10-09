@@ -513,6 +513,10 @@ func (g *AccountGateway) handle(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, 403, "unavailable", "account management surface not available")
 		return
 	}
+	if r.Method == http.MethodPut && strings.HasPrefix(r.URL.Path, "/api/extensions/skills/") && strings.HasSuffix(r.URL.Path, "/access") && a.Role != "admin" {
+		writeErr(w, 403, "forbidden", "admin required")
+		return
+	}
 	if strings.HasPrefix(r.URL.Path, "/api/computer/resources") && r.Method != http.MethodGet {
 		writeErr(w, 403, "quota_management_required", "computer allocation requires central capacity management")
 		return

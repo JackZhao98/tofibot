@@ -332,6 +332,29 @@
     }
   },
   "skills": {
+    "access": {
+      "label": "Wer darf ihn nutzen",
+      "all": "Alle Bots",
+      "change": "Ändern",
+      "change_for": "Ändern, wer {{name}} nutzen darf",
+      "sheet_title": "Wer darf {{name}} nutzen",
+      "mode_all": "Alle Bots",
+      "mode_all_hint": "Jeder Bot, auch später hinzugefügte.",
+      "mode_selected": "Nur ausgewählte Bots",
+      "mode_selected_hint": "Andere Bots sehen diesen Skill nicht und können ihn nicht lesen.",
+      "bots_label": "Bots",
+      "no_bots": "Es gibt noch keine Bots.",
+      "pick_required": "Wähle mindestens einen Bot oder „Alle Bots“.",
+      "save": "Speichern",
+      "saving": "Wird gespeichert…",
+      "error": {
+        "unknown_bot": "Einer der ausgewählten Bots existiert nicht mehr oder ist archiviert. Öffne dieses Fenster erneut und versuche es noch einmal.",
+        "save_failed": "Speichern nicht möglich. Versuche es erneut."
+      },
+      "some_one": "{{selected}} von {{total}} Bot",
+      "some_other": "{{selected}} von {{total}} Bots",
+      "none_available": "Auf Bots beschränkt, die nicht mehr existieren. Kein Bot kann ihn nutzen"
+    },
     "choose_folder": "Ordner wählen",
     "error": {
       "missing_content": "Wählen Sie einen Ordner mit SKILL.md oder öffnen Sie „Manuell bearbeiten“ und geben Sie Name und Inhalt ein.",
@@ -344,7 +367,7 @@
     "install": "Skill installieren",
     "install_submit": "Installieren",
     "installed": "Installiert",
-    "installed_notice": "Installiert. Alle Bots können ihn bei Bedarf lesen",
+    "installed_notice": "Installiert. Alle Bots können ihn bei Bedarf lesen; unter „Wer darf ihn nutzen“ lässt sich das einschränken",
     "installing": "Wird installiert…",
     "loading": "Wird geladen…",
     "manual": "Manuell bearbeiten",
@@ -355,7 +378,7 @@
     "remove_confirm": "Diesen Skill entfernen?",
     "removed": "Skill entfernt",
     "saved": "Gespeichert",
-    "scope": "Im Workspace geteilt · bei Bedarf gelesen",
+    "scope": "Workspace-Skills · bei Bedarf gelesen · auf ausgewählte Bots beschränkbar",
     "starters": "Tofi-Arbeits-Skills",
     "support_note": "Anleitungen und Referenzdateien werden unterstützt; mitgelieferte Skripte laufen nie automatisch.",
     "file_count_one": "{{count}} Datei",

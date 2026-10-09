@@ -333,6 +333,30 @@
     }
   },
   "skills": {
+    "access": {
+      "label": "Qui peut l’utiliser",
+      "all": "Tous les Bots",
+      "change": "Modifier",
+      "change_for": "Modifier qui peut utiliser {{name}}",
+      "sheet_title": "Qui peut utiliser {{name}}",
+      "mode_all": "Tous les Bots",
+      "mode_all_hint": "Chaque Bot, y compris ceux que vous ajouterez plus tard.",
+      "mode_selected": "Seulement les Bots choisis",
+      "mode_selected_hint": "Les autres Bots ne voient pas ce Skill et ne peuvent pas le lire.",
+      "bots_label": "Bots",
+      "no_bots": "Aucun Bot pour le moment.",
+      "pick_required": "Choisissez au moins un Bot, ou « Tous les Bots ».",
+      "save": "Enregistrer",
+      "saving": "Enregistrement…",
+      "error": {
+        "unknown_bot": "L’un des Bots choisis n’existe plus ou est archivé. Rouvrez cette feuille et réessayez.",
+        "save_failed": "Enregistrement impossible. Réessayez."
+      },
+      "some_one": "{{selected}} Bot sur {{total}}",
+      "some_many": "{{selected}} Bots sur {{total}}",
+      "some_other": "{{selected}} Bots sur {{total}}",
+      "none_available": "Limité à des Bots qui n’existent plus. Aucun Bot ne peut l’utiliser"
+    },
     "choose_folder": "Choisir un dossier",
     "error": {
       "missing_content": "Choisissez un dossier contenant SKILL.md, ou ouvrez Modifier manuellement pour saisir un nom et un contenu.",
@@ -345,7 +369,7 @@
     "install": "Installer un Skill",
     "install_submit": "Installer",
     "installed": "Installé",
-    "installed_notice": "Installé. Tous les Bots peuvent le lire au besoin",
+    "installed_notice": "Installé. Tous les Bots peuvent le lire au besoin ; « Qui peut l’utiliser » permet de le restreindre",
     "installing": "Installation…",
     "loading": "Chargement…",
     "manual": "Modifier manuellement",
@@ -356,7 +380,7 @@
     "remove_confirm": "Supprimer ce Skill ?",
     "removed": "Skill supprimé",
     "saved": "Enregistré",
-    "scope": "Partagé dans l’espace de travail · lu à la demande",
+    "scope": "Skills de l’espace de travail · lus à la demande · limitables à certains Bots",
     "starters": "Skills de travail Tofi",
     "support_note": "Instructions et fichiers de référence pris en charge ; les scripts fournis ne s’exécutent jamais automatiquement.",
     "file_count_one": "{{count}} fichier",

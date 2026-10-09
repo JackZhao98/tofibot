@@ -331,6 +331,28 @@
     }
   },
   "skills": {
+    "access": {
+      "label": "사용 가능한 Bot",
+      "all": "모든 Bot",
+      "change": "변경",
+      "change_for": "{{name}}을(를) 사용할 수 있는 Bot 변경",
+      "sheet_title": "{{name}}을(를) 사용할 수 있는 Bot",
+      "mode_all": "모든 Bot",
+      "mode_all_hint": "나중에 추가하는 Bot을 포함한 모든 Bot이 사용합니다.",
+      "mode_selected": "선택한 Bot만",
+      "mode_selected_hint": "다른 Bot은 이 Skill을 보거나 읽을 수 없습니다.",
+      "bots_label": "Bot",
+      "no_bots": "아직 Bot이 없습니다.",
+      "pick_required": "Bot을 하나 이상 선택하거나 ‘모든 Bot’을 선택하세요.",
+      "save": "저장",
+      "saving": "저장 중…",
+      "error": {
+        "unknown_bot": "선택한 Bot 중 하나가 없어졌거나 보관되었습니다. 이 시트를 다시 열고 다시 시도하세요.",
+        "save_failed": "저장하지 못했습니다. 다시 시도하세요."
+      },
+      "some_other": "Bot {{total}}개 중 {{selected}}개",
+      "none_available": "더 이상 없는 Bot으로만 제한되어 있습니다. 사용할 수 있는 Bot이 없습니다"
+    },
     "choose_folder": "폴더 선택",
     "error": {
       "missing_content": "SKILL.md가 있는 폴더를 선택하거나, 직접 편집을 열어 이름과 내용을 입력하세요.",
@@ -343,7 +365,7 @@
     "install": "Skill 설치",
     "install_submit": "설치",
     "installed": "설치됨",
-    "installed_notice": "설치되었습니다. 모든 Bot이 필요할 때 읽을 수 있습니다",
+    "installed_notice": "설치되었습니다. 모든 Bot이 필요할 때 읽을 수 있으며, ‘사용 가능한 Bot’에서 범위를 제한할 수 있습니다",
     "installing": "설치 중…",
     "loading": "불러오는 중…",
     "manual": "직접 편집",
@@ -354,7 +376,7 @@
     "remove_confirm": "이 Skill을 삭제할까요?",
     "removed": "Skill이 삭제되었습니다",
     "saved": "저장됨",
-    "scope": "워크스페이스 공유 · 필요할 때 읽기",
+    "scope": "워크스페이스 Skill · 필요할 때 읽기 · 선택한 Bot으로 제한 가능",
     "starters": "Tofi 업무 Skill",
     "support_note": "설명과 참고 파일을 지원합니다. 함께 포함된 스크립트는 자동으로 실행되지 않습니다.",
     "file_count_other": "파일 {{count}}개"
