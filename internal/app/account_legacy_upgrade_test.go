@@ -101,7 +101,7 @@ func TestAccountLegacyOwnerUpgradeDisableRestoreAcrossRestart(t *testing.T) {
 		t.Fatalf("promote invited account: %d %s", promoted.Code, promoted.Body.String())
 	}
 	adminCookie = accountCookie(t, g, invited)
-	newTenant, err := g.create(context.Background(), "new-tenant", "tenant@example.test", "TenantPassword123!", false, "")
+	newTenant, err := g.create(context.Background(), "new-tenant", "tenant@example.test", "Orchard-Lantern-9051", false, "")
 	if err != nil {
 		t.Fatal(err)
 	}

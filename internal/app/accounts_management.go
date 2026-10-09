@@ -86,8 +86,13 @@ func (g *AccountGateway) manageAccount(w http.ResponseWriter, r *http.Request, a
 			CurrentPassword string `json:"current_password"`
 			Password        string `json:"password"`
 		}
-		if decodeStrict(r, 8<<10, &in) != nil || len(in.CurrentPassword) > 1024 || !validateOwner(a.Username, a.Email, in.Password) {
+		if decodeStrict(r, 8<<10, &in) != nil || len(in.CurrentPassword) > 1024 {
 			writeErr(w, 400, "invalid_request", "invalid password")
+			return true
+		}
+		if e := checkPassword(a.Username, a.Email, in.Password); e != nil {
+			g.auth.refundAttempt(r)
+			writeFieldErr(w, 400, e)
 			return true
 		}
 		var salt, saved []byte
@@ -182,8 +187,15 @@ func (g *AccountGateway) manageAccount(w http.ResponseWriter, r *http.Request, a
 	}
 	var salt, hash []byte
 	if in.Password != "" {
-		if !g.auth.transportOK(r) || len(in.Password) < 12 || len(in.Password) > 1024 {
+		if !g.auth.transportOK(r) {
 			writeErr(w, 400, "invalid_request", "invalid initial password")
+			return true
+		}
+		// The target's identity is part of the policy; an unknown id fails later.
+		var targetName, targetEmail string
+		_ = g.root.store.db.QueryRow(`SELECT username,email FROM accounts WHERE id=?`, id).Scan(&targetName, &targetEmail)
+		if e := checkPassword(targetName, targetEmail, in.Password); e != nil {
+			writeFieldErr(w, 400, e)
 			return true
 		}
 		salt = make([]byte, 16)
