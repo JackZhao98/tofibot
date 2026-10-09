@@ -15,6 +15,7 @@ import subprocess
 
 from account_capacity import AdmissionError, CapacityLedger, account_id
 import account_adoption
+from manager import snapshot_release
 
 
 
@@ -488,6 +489,8 @@ class Broker:
                 for computer in snapshot["accounts"]:
                     computer["pending_quota"] = computer["account_id"] in pending
                 return snapshot
+        if op == "computers" and set(request) == {"op"}:
+            return self.computers()
         identity, name, unit = self.identity(request.get("account_id"))
         if op in ("reserve", "quota") and set(request) == {"op", "account_id", "quota_gib"}:
             if op == "quota":
@@ -508,6 +511,8 @@ class Broker:
             self._assert_no_resize_fence(identity)
             self.ledger.abort_unprovisioned(identity)
             return {"aborted": True}
+        if op == "upgrade":
+            return self.upgrade(identity, unit)
         if op not in ("ensure", "stop", "disable", "restore"):
             raise ValueError("operation not allowed")
         with self.ledger.connection() as db:
@@ -557,7 +562,16 @@ class Broker:
             cfg["hibernate"] = False
         cfg = self.manager_config(cfg)
         config_path = Path(self.c["config_root"]) / (identity + ".json")
-        self.write_owned(config_path, json.dumps(cfg, sort_keys=True) + "\n", 0o600)
+        content = json.dumps(cfg, sort_keys=True) + "\n"
+        if config_path.exists() and not config_path.is_symlink() and config_path.read_text() != content:
+            # A Guest release change (`tofi update`) or new resource settings
+            # regenerate this broker-owned file; only a file that still matches
+            # the owned manifest is replaced. A running manager already read
+            # its file and keeps it until its next start.
+            if not self.manager_running(identity):
+                self.replace_owned(config_path, content, 0o600)
+        else:
+            self.write_owned(config_path, content, 0o600)
         self.start_manager(identity, unit, config_path)
         return {"account_id": identity, "socket": str(sockets / "control.sock"), "slot": row["slot"]}
 
@@ -570,6 +584,78 @@ class Broker:
                 raise AdmissionError("offline workspace resize unresolved")
         if adoption:
             account_adoption.proof(self, identity)
+
+    # ---- Guest release of each computer (`tofi computers`) -----------------
+
+    def manager_running(self, identity):
+        """True/False when this broker supervises managers itself; None when unknown."""
+        return None
+
+    def config_release(self, identity):
+        """The Guest release named by the generated manager config, or None."""
+        path = Path(self.c["config_root"]) / (account_id(identity) + ".json")
+        try:
+            if path.is_symlink():
+                return None
+            return Path(json.loads(path.read_text())["image_dir"]).name
+        except (OSError, ValueError, KeyError, TypeError):
+            return None
+
+    def snapshot_of(self, identity):
+        state = Path(self.c["state_root"]) / account_id(identity)
+        return None if state.is_symlink() else snapshot_release(state)
+
+    def computers(self):
+        """Read-only inventory: ledger state, manager process and Guest releases.
+
+        "release" is the Guest this Worker starts computers on. A computer's
+        own release comes from its running manager (config_release) or, when
+        hibernated, from its snapshot; the host CLI joins this with each
+        manager's /v1/info.
+        """
+        with self.ledger.connection() as db:
+            records = [dict(row) for row in db.execute(
+                "SELECT account_id,slot,state,quota_bytes FROM computers ORDER BY account_id")]
+        rows = []
+        for record in records:
+            identity = account_id(record["account_id"])
+            snapshot = self.snapshot_of(identity)
+            rows.append(dict(record, running=self.manager_running(identity),
+                             config_release=self.config_release(identity),
+                             snapshot={"release": snapshot[0], "created_at": snapshot[1]} if snapshot else None))
+        return {"release": self.release.name, "computers": rows}
+
+    def upgrade(self, identity, unit):
+        """Move one computer off an older Guest release (`tofi computers upgrade`).
+
+        A manager running an older release is stopped (the host CLI checks
+        that it is idle first, or was told --force). A snapshot taken on an
+        older release can never be restored by this Worker, so it is
+        discarded: the workspace disk is kept and the next start cold boots
+        on the current release. Nothing is started here.
+        """
+        with self.ledger.connection() as db:
+            if db.execute("SELECT 1 FROM computers WHERE account_id=?", (identity,)).fetchone() is None:
+                raise AdmissionError("unregistered account computer")
+        current = self.release.name
+        running = self.manager_running(identity)
+        if running is None:
+            raise AdmissionError("computer process state unknown; upgrade not supported here")
+        before = self.config_release(identity) if running else None
+        stopped = False
+        if running and before != current:
+            self.stop_manager(identity, unit)
+            with self.ledger.connection() as db:
+                db.execute("DELETE FROM runtime_claims WHERE account_id=?", (identity,))
+            stopped = True
+        snapshot = self.snapshot_of(identity)
+        discarded = False
+        if snapshot and snapshot[0] != current and not self.manager_running(identity):
+            before = before or snapshot[0]
+            self.discard_snapshot(identity)
+            discarded = True
+        return {"account_id": identity, "release": current, "previous_release": before,
+                "stopped": stopped, "discarded_snapshot": discarded}
 
     def stop_manager(self, identity, unit):
         self.run(["/usr/bin/systemctl", "stop", unit])

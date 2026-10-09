@@ -44,6 +44,13 @@ class ProcessSupervisor:
                               start_new_session=True)
             self.processes[identity] = proc
 
+    def running(self, identity):
+        """True while this Worker's manager process for the account is alive."""
+        identity = account_id(identity)
+        with self.lock:
+            proc = self.processes.get(identity)
+            return bool(proc) and proc.poll() is None
+
     def assert_vm_stopped(self, identity):
         group = self.cgroups / ("ac-" + account_id(identity))
         if group.is_symlink():
@@ -184,3 +191,6 @@ class WorkerBroker(Broker):
 
     def stop_manager(self, identity, unit):
         self.supervisor.stop(identity)
+
+    def manager_running(self, identity):
+        return self.supervisor.running(identity)

@@ -277,6 +277,33 @@ def signal_process_group(process, sig):
         process.send_signal(sig)
 
 
+def release_name(image_dir):
+    """The Guest release a computer runs: its sealed release directory name."""
+    return Path(image_dir).name
+
+
+def snapshot_release(state_dir):
+    """(Guest release, created_at) of a computer's saved snapshot, or None.
+
+    Read-only and path-safe: the host CLI and the Worker broker use it to see
+    which release a hibernated computer would wake on. Snapshots written
+    before meta.json carried "release" name it through their rootfs path.
+    """
+    directory = Path(state_dir) / "snapshot"
+    meta_path = directory / "meta.json"
+    try:
+        if directory.is_symlink() or meta_path.is_symlink() or not meta_path.is_file():
+            return None
+        meta = json.loads(meta_path.read_text())
+        release = meta.get("release")
+        if not isinstance(release, str) or not release:
+            release = release_name(Path(meta["identity"]["rootfs"][0]).parent)
+        created = meta.get("created_at")
+        return release, created if isinstance(created, str) else ""
+    except (OSError, ValueError, KeyError, IndexError, TypeError, AttributeError):
+        return None
+
+
 class SnapshotRejected(RuntimeError):
     """A saved snapshot that must not be restored; the reason is path-free."""
 
@@ -1110,7 +1137,8 @@ class VM:
                 self.persist_meta({"format": SNAPSHOT_FORMAT, "identity": identity,
                                    "disk": self.disk_fingerprint(), "sizes": sizes,
                                    "vmstate_sha256": self.file_digest(self.snapshot_dir / "vmstate"),
-                                   "created_at": created})
+                                   "created_at": created,
+                                   "release": release_name(self.c["image_dir"])})
                 self.hibernated_at = created
                 self.state, self.phase = "hibernated", "hibernated"
                 print(f"hibernated in {time.monotonic() - started:.2f}s", file=sys.stderr, flush=True)
@@ -1371,7 +1399,8 @@ class VM:
                  "memory_mib": self.c.get("memory_mib", 4096),
                  "disk_gib": self.current_resources()["disk_gib"],
                  "desktop_idle_seconds": self.c.get("desktop_idle_seconds", 900),
-                 "hibernation": self.hibernation_enabled()}
+                 "hibernation": self.hibernation_enabled(),
+                 "release": release_name(self.c["image_dir"])}
         if self.state == "hibernated" and self.hibernated_at:
             value["hibernated_at"] = self.hibernated_at
         if self.last_wake:
@@ -1484,6 +1513,9 @@ class Handler(http.server.BaseHTTPRequestHandler):
         if self.path == "/v1/health":
             # Observational only: probes the guest agent, never starts a VM.
             return self.json(200, self.server.guest_health())
+        if self.path == "/v1/busy":
+            # Observational only: never starts, wakes or keeps a VM awake.
+            return self.json(200, self.server.activity_report())
         if self.path.startswith("/v1/desktop/stream"):
             return self.stream_desktop()
         if self.path != "/v1/info":
@@ -1798,6 +1830,41 @@ class Server(socketserver.ThreadingMixIn, socketserver.UnixStreamServer):
 
     def busy(self):
         return getattr(self, "preparation", None) is not None and self.preparation.is_alive()
+
+    def activity_report(self):
+        """What a restart would interrupt now: {"state", "release", "busy": [...]}.
+
+        Read-only for the host operator (`tofi computers upgrade`). A ready
+        guest is asked through the same /v1/quiesce check hibernation uses
+        (Bot run lease, human viewer or control, desktop operation, terminal
+        job). The probe holds off hibernation while it runs but, unlike a
+        guest request, does not count as use: it never keeps a computer awake.
+        """
+        vm = self.vm
+        state = vm.info()["state"]
+        report = {"state": state, "release": release_name(vm.c["image_dir"]), "busy": []}
+        if state in ("stopped", "hibernated", "error"):
+            return report
+        if state != "ready" or self.busy():
+            report["busy"] = ["maintenance"]
+            return report
+        with vm.activity:
+            if vm.state != "ready":
+                report["busy"] = ["maintenance"]
+                return report
+            requests = vm.active
+            vm.active += 1
+        try:
+            reasons = ["guest_request"] if requests else []
+            try:
+                reasons += vm.quiesce_guest()
+            except (OSError, ValueError, RuntimeError, http.client.HTTPException):
+                report["guest"] = "unresponsive"
+            report["busy"] = sorted(set(reasons))
+            return report
+        finally:
+            with vm.activity:
+                vm.active = max(0, vm.active - 1)
 
     def wake(self):
         """Restore a hibernated computer in the background."""
