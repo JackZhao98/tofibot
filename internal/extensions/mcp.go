@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log"
 	"net/http"
 	"net/url"
 	"os"
@@ -75,6 +76,10 @@ type Config struct {
 	// ServerUsable may hide a configured server from a run while its setup is
 	// incomplete (for example, no connected account). Nil offers every server.
 	ServerUsable func(context.Context, string) bool
+	// SkillAccess reports which of the named skills the Bot may use. Skills
+	// are workspace-wide unless restricted to selected Bots. Nil permits every
+	// skill; a returned error makes the run drop every skill (fail closed).
+	SkillAccess func(ctx context.Context, botID string, names []string) (map[string]bool, error)
 }
 
 type Manager struct {
@@ -300,6 +305,7 @@ func (m *Manager) prepareMode(ctx context.Context, botID string, scoped, discove
 	var skillDiags []Diagnostic
 	if m.cfg.SkillsDir != "" {
 		skills, skillDiags = loadSkillsMode(m.cfg.SkillsDir, discoverable)
+		skills, skillDiags = m.filterSkillsForBot(ctx, botID, skills, skillDiags)
 	}
 	servers = cloneServers(servers)
 	m.mu.RUnlock()
@@ -343,9 +349,11 @@ func (m *Manager) prepareMode(ctx context.Context, botID string, scoped, discove
 		}
 	}
 	if m.cfg.SkillsDir != "" {
-		// Installed skills are workspace-wide. The old per-Bot state file is
-		// intentionally ignored so one Bot cannot hide a shared resource from
-		// another Bot.
+		// Installed skills are workspace-wide by default and may be restricted
+		// to selected Bots (Config.SkillAccess). skills was already filtered
+		// for botID above, so the tools and index built below can never name,
+		// list or read a skill this Bot may not use. The old per-Bot
+		// .enabled.json state file is intentionally ignored.
 		p.Diagnostics = append(p.Diagnostics, skillDiags...)
 		if discoverable {
 			lazyTools, lazyClose := lazyDiscoverableMCPTools(ctx, m, servers, m.cfg.DiscoveryTimeout, m.cfg.MaxToolResult, cachedTools, gate, enforceApproval)
@@ -415,6 +423,43 @@ func (m *Manager) prepareMode(ctx context.Context, botID string, scoped, discove
 		}
 	}
 	return p, nil
+}
+
+// filterSkillsForBot drops skills the Bot may not use. When the access lookup
+// fails every skill is dropped: unknown must never be treated as allowed.
+func (m *Manager) filterSkillsForBot(ctx context.Context, botID string, skills []Skill, diags []Diagnostic) ([]Skill, []Diagnostic) {
+	if m.cfg.SkillAccess == nil || len(skills) == 0 {
+		return skills, diags
+	}
+	names := make([]string, len(skills))
+	for i, s := range skills {
+		names[i] = s.Name
+	}
+	allowed, err := m.cfg.SkillAccess(ctx, botID, names)
+	if err != nil {
+		log.Printf("skill access lookup failed; skills withheld from run: %v", err)
+		return nil, append(diags, Diagnostic{Message: "skills unavailable: access check failed"})
+	}
+	kept := make([]Skill, 0, len(skills))
+	for _, s := range skills {
+		if allowed[s.Name] {
+			kept = append(kept, s)
+		}
+	}
+	return kept, diags
+}
+
+// SkillsForBot lists the skills the Bot may use, failing closed on error.
+func (m *Manager) SkillsForBot(ctx context.Context, botID string) ([]SkillView, []Diagnostic) {
+	m.mu.RLock()
+	s, d := loadSkills(m.cfg.SkillsDir)
+	m.mu.RUnlock()
+	s, d = m.filterSkillsForBot(ctx, botID, s, d)
+	out := make([]SkillView, 0, len(s))
+	for _, x := range s {
+		out = append(out, SkillView{Name: x.Name, Description: x.Description})
+	}
+	return out, d
 }
 
 func truncateUTF8(s string, maxBytes int) string {
