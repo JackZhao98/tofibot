@@ -48,6 +48,8 @@
     "expand": "Vergrößern",
     "hide_aria": "Gemeinsamen Computer ausblenden",
     "minimize": "Minimieren",
+    "close": "Schließen",
+    "close_aria": "Gemeinsamen Computer schließen",
     "title": "Gemeinsamer Computer",
     "status": {
       "failed": "Verbindung fehlgeschlagen",
@@ -85,7 +87,16 @@
       "browser": "Browser"
     },
     "video_aria": "Live-Video vom Desktop des Bots",
-    "pointer_click": "{{name}} · Klick"
+    "pointer_click": "{{name}} · Klick",
+    "placeholder": {
+      "elapsed": "{{status}} · {{seconds}} s",
+      "waking": "Computer wird geweckt",
+      "connecting": "Verbindung zum Bildschirm wird hergestellt",
+      "resuming": "Wird aus dem Ruhezustand geholt",
+      "hibernated": "Im Ruhezustand. Er wacht auf, sobald ein Bot ihn braucht.",
+      "hibernating": "Wechselt in den Ruhezustand…",
+      "retry": "Erneut versuchen"
+    }
   },
   "floating": {
     "open": "Gemeinsamen Computer öffnen",
