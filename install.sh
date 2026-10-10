@@ -53,6 +53,7 @@ EMAIL=
 LOCAL_ONLY=0
 PORT=
 COMPUTER=
+AUTO_UPDATE=
 ASSUME_YES=0
 EXISTING=0
 OS_ID=
@@ -221,6 +222,8 @@ advance (the variable in brackets does the same, e.g. sudo TOFI_PORT=9000 bash).
   --email ADDRESS      contact address for the certificate authority (with --domain) [TOFI_EMAIL]
   --local-only         listen on 127.0.0.1 only (still HTTPS; use an SSH tunnel) [TOFI_LOCAL_ONLY=1]
   --port PORT          App port (default 8321) [TOFI_PORT]
+  --auto-update        install fix releases (same x.y, newer patch) automatically overnight
+  --no-auto-update     update only when you run 'sudo tofi update' (--yes alone turns it on)
   --version vX.Y.Z     install this release (default: the latest stable release) [TOFI_VERSION]
   --yes, --non-interactive
                        ask nothing: use options and defaults [TOFI_YES=1; also CI=1 or no terminal]
@@ -240,6 +243,8 @@ parse_args() {
       --port) [[ $# -ge 2 ]] || die "--port needs a number."; PORT=$2; shift 2 ;;
       --computer) [[ $# -ge 2 ]] || die "--computer needs kvm, gvisor or container."; COMPUTER=$2; shift 2 ;;
       --local-only) LOCAL_ONLY=1; exposure_flag=1; shift ;;
+      --auto-update) AUTO_UPDATE="patch"; shift ;;
+      --no-auto-update) AUTO_UPDATE="off"; shift ;;
       # --lan used to mean plain HTTP on every interface; HTTPS on every
       # interface is now the default, so it is accepted as an alias of it.
       --lan) exposure_flag=1; shift ;;
@@ -324,6 +329,7 @@ run_tui() {
       PORT) PORT=$value ;;
       EXISTING) EXISTING=$value ;;
       COMPUTER) COMPUTER=$value ;;
+      AUTO_UPDATE) AUTO_UPDATE=$value ;;
     esac
   done < "$RESULT_FILE"
   rm -f "$RESULT_FILE"
@@ -663,6 +669,8 @@ hand_off() {
   [[ -n $EMAIL ]] && args+=(--email "$EMAIL")
   [[ $LOCAL_ONLY == 1 ]] && args+=(--local-only)
   [[ -n $PORT ]] && args+=(--port "$PORT")
+  [[ $AUTO_UPDATE == patch ]] && args+=(--auto-update)
+  [[ $AUTO_UPDATE == off ]] && args+=(--no-auto-update)
   [[ $ASSUME_YES == 1 ]] && args+=(--yes)
   STEP_DONE_TEXT="Host tools ready; 'tofi install' takes over"
   step_ok
@@ -1832,6 +1840,8 @@ def parse_installer_args(argv, environ):
     parser.add_argument('--computer')
     parser.add_argument('--local-only', action='store_true')
     parser.add_argument('--lan', action='store_true')
+    parser.add_argument('--auto-update', dest='auto_update', action='store_true', default=None)
+    parser.add_argument('--no-auto-update', dest='auto_update', action='store_false')
     parser.add_argument('--yes', '-y', '--non-interactive', dest='yes', action='store_true')
     args = parser.parse_args(argv)
     # Flags win; environment variables stand in for missing flags; each remembers where it came from.
@@ -1851,6 +1861,8 @@ def parse_installer_args(argv, environ):
         chosen['local_only'] = (True, 'TOFI_LOCAL_ONLY')
     if args.lan:
         chosen['lan'] = (True, '--lan')
+    if args.auto_update is not None:
+        chosen['auto_update'] = (args.auto_update, '--auto-update' if args.auto_update else '--no-auto-update')
     yes = args.yes or environ.get('TOFI_YES') == '1' or environ.get('TOFI_NON_INTERACTIVE') == '1'
     return args.result, chosen, yes
 
@@ -2126,6 +2138,25 @@ class Installer:
                 return self.fail(["No release found: GitHub's 'latest' skips pre-releases and none is listed; "
                                   'pass one with --version (see %s).' % RELEASES_URL])
 
+        # d2. Fix releases: installed overnight when nothing is running (patch releases only).
+        question = 'Install fix releases automatically? (recommended)'
+        if self.source('auto_update'):
+            auto_update = bool(self.value('auto_update'))
+            sources['auto_update'] = self.source('auto_update')
+            if interactive:
+                self.set_by(question, 'Yes' if auto_update else 'No', self.source('auto_update'))
+                ui.write()
+        elif interactive:
+            ui.title(question)
+            ui.para('Patch releases (same x.y, for example %s) install overnight, only when no Bot run is active, '
+                    'after a backup, and roll back by themselves if they fail. Anything bigger waits for you.'
+                    % 'v0.1.1')
+            auto_update = self.ask.confirm('Turn on automatic fix releases?', True)
+            ui.write()
+        else:
+            # Without a terminal tofi itself applies the --yes default (yes with --yes, otherwise no).
+            auto_update = None
+
         # e. Summary and confirmation.
         source_note = lambda key: ('  (set by %s)' % sources[key]) if key in sources else ''  # noqa: E731
         rows = [('ok', 'Release', '%s %s' % (version, version_note)),
@@ -2140,6 +2171,9 @@ class Installer:
         else:
             rows.append(('ok', 'Open', '%s (self-signed)%s' % (access_url('ip', facts, port), source_note('access'))))
             rows.append(('info', 'Firewall', 'on a cloud server allow TCP %d' % port))
+        if auto_update is not None:
+            rows.append(('ok', 'Updates', ('automatic fix releases (patch only, backed up first)' if auto_update
+                                           else 'manual: sudo tofi update') + source_note('auto_update')))
         rows.append(('info', 'Changes', 'apt packages, Docker if missing, /opt/tofi, /etc/tofi; data in '
                      '/var/lib/tofi'))
         ui.card('Ready to install', rows)
@@ -2152,7 +2186,8 @@ class Installer:
             ui.title('Installing TOFI %s' % version)
         result = {'ACTION': 'install', 'VERSION': version, 'DOMAIN': domain, 'EMAIL': email,
                   'LOCAL_ONLY': '1' if mode == 'local' else '0', 'COMPUTER': 'kvm', 'EXISTING': '0',
-                  'PORT': str(port) if (self.source('port') or port != DEFAULT_PORT) else ''}
+                  'PORT': str(port) if (self.source('port') or port != DEFAULT_PORT) else '',
+                  'AUTO_UPDATE': '' if auto_update is None else 'patch' if auto_update else 'off'}
         write_result(self.result_path, result)
         return 0
 
