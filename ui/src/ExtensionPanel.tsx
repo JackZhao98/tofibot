@@ -9,6 +9,7 @@ import { MCPSettings } from "./MCPSettings";
 import { Banner } from "./settings/components";
 import { SkillAccessRow, SkillAccessSheet, type SkillAccess } from "./settings/SkillAccess";
 import { i18n, useTranslation } from "./i18n";
+import { CATS, EmptyState } from "./EmptyCat";
 import "./extensions-system.css";
 
 type Skill = {name:string; description:string; access?:SkillAccess};
@@ -60,6 +61,7 @@ function SkillsSettings({bots,refreshToken=0}:{bots:Bot[];refreshToken?:number})
 
    {loading&&!loaded&&<p className="field-note" role="status">{t("skills.loading")}</p>}
    {!skillForm&&loaded&&skillCatalog.some(item=>!skills.some(s=>s.name===item.name))&&<section className="integration-section skill-starters"><h3>{t("skills.starters")}</h3><div className="integration-grid">{skillCatalog.filter(item=>!skills.some(s=>s.name===item.name)).map(skill=><button className="integration-tile" disabled={busy||skills.some(s=>s.name===skill.name)} key={skill.name} onClick={()=>void act(()=>request("/api/extensions/skills",post({name:skill.name,files:{"SKILL.md":skill.body}})),t("skills.installed_notice"))}><span className="service-mark"><TofiIcon name="skill" size={20}/></span><span><strong>{skill.title}</strong><small>{skill.description}</small></span>{skills.some(s=>s.name===skill.name)?<span className="integration-added">{t("skills.installed")}</span>:<TofiIcon name="plus" size={16}/>}</button>)}</div></section>}
+   {!skillForm&&loaded&&!error&&!skills.length&&<EmptyState name="skills-empty" className="extension-empty" look={CATS.taro} pose="curious" size={72} title={t("skills.empty")}><p>{t("skills.empty_hint")}</p></EmptyState>}
    <div className="extension-list">{skills.map(skill=><article key={skill.name} className="extension-card"><strong>{skillCatalog.find(item=>item.name===skill.name)?.title??skill.name}</strong><p>{skillCatalog.find(item=>item.name===skill.name)?.description??skill.description}</p><div className="skill-access"><SkillAccessRow skill={skill.name} access={skill.access??{mode:"all"}} bots={bots} disabled={busy} onChange={()=>setAccessSkill(skill)}/></div><div className="extension-actions"><ConfirmAction label={t("skills.remove")} question={t("skills.remove_confirm")} disabled={busy} onConfirm={()=>act(()=>request(`/api/extensions/skills/${encodeURIComponent(skill.name)}`,{method:"DELETE"}),t("skills.removed"))}/></div></article>)}</div>
  {accessSkill&&<SkillAccessSheet skill={accessSkill.name} title={skillCatalog.find(item=>item.name===accessSkill.name)?.title??accessSkill.name} access={accessSkill.access??{mode:"all"}} bots={bots} onClose={()=>setAccessSkill(null)} onSaved={()=>{setAccessSkill(null);setNotice(t("skills.saved"));void refresh();}}/>}
  {(error||debug)&&<button className="extension-refresh text-button" disabled={busy||loading} onClick={()=>{setLoading(true);void refresh()}}>{t("skills.reload")}</button>}

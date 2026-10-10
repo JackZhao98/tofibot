@@ -180,10 +180,10 @@
     "minutes_seconds": "{{minutes}}分{{seconds}}秒"
   },
   "empty": {
-    "cat_name": "おもち",
     "first_bot_body": "Bot にはそれぞれ専用の DM があります。複数の Bot をグループに入れて、実際のメッセージをもとに協力させましょう。",
     "first_bot_title": "最初の Bot を作成",
-    "start_chat": "チャットを始めましょう"
+    "start_chat": "チャットを始めましょう",
+    "start_chat_body": "メッセージを送るか、タスクを任せてみましょう。"
   },
   "error": {
     "bot_missing": "この Bot が見つかりません。",

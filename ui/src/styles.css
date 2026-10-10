@@ -235,9 +235,6 @@ input,textarea,select{width:100%;margin-top:7px;resize:vertical}
 .memory-footer{justify-content:space-between;margin-top:10px;color:var(--muted);font:11px ui-monospace,monospace}
 .memory-footer button{margin-left:10px;padding:0;font-size:11px}
 .danger-link:hover{color:var(--danger-text)!important}
-.empty-workspace{display:grid;place-items:center;align-content:center;min-height:100%;padding:30px;text-align:center}
-.empty-workspace h1{margin:0 0 14px;color:var(--text);font-size:30px;letter-spacing:-.045em;line-height:1.08}
-.empty-workspace .muted{max-width:390px;margin:0 0 18px}
 .computer-detail{overflow-y:auto}
 .computer-detail .detail-heading{padding-bottom:4px}
 .computer-detail .detail-heading h2{font-size:18px}
