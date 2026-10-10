@@ -3,7 +3,7 @@ package app
 import (
 	"context"
 	"encoding/json"
-	"slices"
+	"strings"
 	"testing"
 )
 
@@ -65,39 +65,6 @@ func TestChatSegmentsBoundedAndFinalFollows(t *testing.T) {
 	}
 }
 
-func TestChatMessagePurposeLabelsStoredKind(t *testing.T) {
-	s, r, _ := streamFixture(t)
-	defer s.Close()
-	ctx := context.Background()
-	for _, tc := range []struct{ call, purpose, want string }{
-		{"a", "answer", "segment"},
-		{"s", "status", "progress"},
-		{"omitted", "", "segment"},
-		{"unknown", "whatever", "segment"},
-	} {
-		m, err := s.publishChatMessage(ctx, r, tc.call, "Synthetic note "+tc.call, normalizeChatPurpose(tc.purpose))
-		if err != nil || m.Kind != tc.want {
-			t.Fatalf("purpose %q: kind=%q want %q err=%v", tc.purpose, m.Kind, tc.want, err)
-		}
-	}
-}
-
-func TestChatToolSchemaRequiresPurposeEnum(t *testing.T) {
-	srv := &Server{}
-	tool := srv.chatSegmentTool(Conversation{}, Run{})
-	b, _ := json.Marshal(tool.Parameters)
-	var schema struct {
-		Required   []string                  `json:"required"`
-		Properties map[string]map[string]any `json:"properties"`
-	}
-	if err := json.Unmarshal(b, &schema); err != nil {
-		t.Fatal(err)
-	}
-	if !slices.Contains(schema.Required, "purpose") || schema.Properties["purpose"]["enum"] == nil {
-		t.Fatalf("schema=%s", b)
-	}
-}
-
 // Incident shape: a mid-run plain reply answers the user, the run keeps
 // working, and the final message talks about something else.
 func TestMidRunReplyStaysUnfoldableKind(t *testing.T) {
@@ -118,16 +85,57 @@ func TestMidRunReplyStaysUnfoldableKind(t *testing.T) {
 	}
 }
 
-func TestStatusNoteCountsAsProgressReport(t *testing.T) {
+func TestChatToolHasNoPurposeParameter(t *testing.T) {
+	tool := (&Server{}).chatSegmentTool(Conversation{}, Run{})
+	b, _ := json.Marshal(tool.Parameters)
+	if strings.Contains(string(b), "purpose") {
+		t.Fatalf("schema=%s", b)
+	}
+}
+
+func TestChatSegmentCapCountsOnlyToolSentMessages(t *testing.T) {
 	s, r, _ := streamFixture(t)
 	defer s.Close()
+	ctx := context.Background()
+	if _, err := s.BeginStream(r); err != nil {
+		t.Fatal(err)
+	}
+	// Untagged mid-run turns are segments too; they must not use up the cap.
+	for i := 1; i <= 4; i++ {
+		if _, _, err := s.AppendStreamDelta(ctx, r.ID, "Turn text"); err != nil {
+			t.Fatal(err)
+		}
+		if _, ok, err := s.PublishAssistantTurn(ctx, r.ID, i, "Turn text "+string(rune('a'+i))); err != nil || !ok {
+			t.Fatal(ok, err)
+		}
+	}
+	for _, id := range []string{"a", "b", "c"} {
+		if _, err := s.PublishChatSegment(ctx, r, id, "Tool message "+id); err != nil {
+			t.Fatalf("%s: %v", id, err)
+		}
+	}
+	if _, err := s.PublishChatSegment(ctx, r, "d", "One too many"); err == nil {
+		t.Fatal("fourth tool message must hit the cap")
+	}
+}
+
+func TestProgressNoteCountsAsProgressReport(t *testing.T) {
+	s, r, _ := streamFixture(t)
+	defer s.Close()
+	ctx := context.Background()
 	if ok, err := s.hasProgressReport(r.ID); err != nil || ok {
 		t.Fatalf("empty run: ok=%v err=%v", ok, err)
 	}
-	if _, err := s.publishChatMessage(context.Background(), r, "st", "Checking the page now.", chatPurposeStatus); err != nil {
+	if _, err := s.BeginStream(r); err != nil {
+		t.Fatal(err)
+	}
+	if _, _, err := s.AppendStreamDelta(ctx, r.ID, "x"); err != nil {
+		t.Fatal(err)
+	}
+	if _, _, err := s.PublishAssistantTurn(ctx, r.ID, 1, "<progress>Checking the page now.</progress>"); err != nil {
 		t.Fatal(err)
 	}
 	if ok, err := s.hasProgressReport(r.ID); err != nil || !ok {
-		t.Fatalf("status note must count: ok=%v err=%v", ok, err)
+		t.Fatalf("progress note must count: ok=%v err=%v", ok, err)
 	}
 }

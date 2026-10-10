@@ -8,7 +8,6 @@ import (
 	"database/sql"
 	"encoding/json"
 	"errors"
-	"strings"
 	"sync"
 	"time"
 
@@ -165,9 +164,9 @@ func (s *Store) PublishDemotedDraft(runID string, turnIndex int, content string)
 	return s.publishAssistantTurn(context.Background(), runID, turnIndex, content, true)
 }
 
-// An unlabeled mid-run assistant turn is stored as kind "segment": a visible
-// message that is never folded away. Only a turn the Bot explicitly labels
-// purpose=status (send_chat_message) is stored as foldable kind "progress".
+// A mid-run assistant turn is split by its <progress> tags (see progress_tag.go):
+// text inside a tag is stored as foldable kind "progress", text outside as kind
+// "segment", a visible message that is never folded away. Tags are not stored.
 // Legacy rows keep kind "progress" and keep folding.
 func (s *Store) publishAssistantTurn(ctx context.Context, runID string, turnIndex int, content string, terminal bool) (Message, bool, error) {
 	if err := ctx.Err(); err != nil {
@@ -176,11 +175,25 @@ func (s *Store) publishAssistantTurn(ctx context.Context, runID string, turnInde
 	if turnIndex < 1 || turnIndex > maxAssistantTurns {
 		return Message{}, false, errors.New("assistant turn index out of range")
 	}
-	if strings.TrimSpace(content) == "" {
-		return Message{}, false, errors.New("assistant turn content is empty")
-	}
 	if len([]rune(content)) > maxStreamDraftRunes {
 		return Message{}, false, errors.New("assistant turn content exceeds maximum size")
+	}
+	parts := splitProgress(content)
+	if len(parts) == 0 {
+		return Message{}, false, errors.New("assistant turn content is empty")
+	}
+	return s.publishAssistantParts(ctx, runID, turnIndex, parts, terminal)
+}
+
+// publishAssistantParts stores parts as consecutive messages. The first takes
+// the draft's identity and sequence; the draft then rotates. turnIndex 0 skips
+// the replay record (used for notes that precede a run's final answer).
+func (s *Store) publishAssistantParts(ctx context.Context, runID string, turnIndex int, parts []textPart, terminal bool) (Message, bool, error) {
+	if err := ctx.Err(); err != nil {
+		return Message{}, false, err
+	}
+	if len(parts) == 0 {
+		return Message{}, false, errors.New("assistant turn content is empty")
 	}
 
 	tx, err := s.db.BeginTx(ctx, nil)
@@ -229,14 +242,17 @@ func (s *Store) publishAssistantTurn(ctx context.Context, runID string, turnInde
 	// Return the original immutable message and leave the new active draft
 	// untouched. A different payload for the same turn is a protocol error.
 	var priorMessageID string
-	err = tx.QueryRow(`SELECT message_id FROM stream_assistant_turns WHERE run_id=? AND turn_index=?`, runID, turnIndex).
-		Scan(&priorMessageID)
+	err = sql.ErrNoRows
+	if turnIndex > 0 {
+		err = tx.QueryRow(`SELECT message_id FROM stream_assistant_turns WHERE run_id=? AND turn_index=?`, runID, turnIndex).
+			Scan(&priorMessageID)
+	}
 	if err == nil {
 		var priorContent string
 		if err = tx.QueryRow(`SELECT content FROM messages WHERE id=?`, priorMessageID).Scan(&priorContent); err != nil {
 			return Message{}, false, err
 		}
-		if priorContent != content {
+		if priorContent != parts[0].Text {
 			return Message{}, false, errors.New("assistant turn replay conflicts with prior content")
 		}
 		m, scanErr := scanMsg(tx.QueryRow(`SELECT id,conversation_id,seq,role,kind,sender_bot_id,run_id,content,notice_data,created_at FROM messages WHERE id=?`, priorMessageID))
@@ -249,27 +265,46 @@ func (s *Store) publishAssistantTurn(ctx context.Context, runID string, turnInde
 		return Message{}, false, err
 	}
 
-	seq := draft.Seq
-	if seq == 0 {
-		if err = tx.QueryRow(nextMessageSeqSQL, runConversationID, runConversationID, streamDraftActive).Scan(&seq); err != nil {
+	t := now()
+	var first Message
+	for i, part := range parts {
+		kind := "segment"
+		if part.Progress {
+			kind = "progress"
+		}
+		id, createdAt, seq := uuid.NewString(), t, int64(0)
+		if i == 0 {
+			id, seq = draft.MessageID, draft.Seq
+			if draft.Seq > 0 && draft.CreatedAt != "" {
+				createdAt = draft.CreatedAt
+			}
+		}
+		if seq == 0 {
+			if err = tx.QueryRow(nextMessageSeqSQL, runConversationID, runConversationID, streamDraftActive).Scan(&seq); err != nil {
+				return Message{}, false, err
+			}
+		}
+		m := Message{ID: id, ConversationID: runConversationID, Seq: seq, Role: "assistant", Kind: kind, SenderBotID: runBotID, RunID: runID, Content: part.Text, CreatedAt: createdAt}
+		if _, err = tx.Exec(`INSERT INTO messages(id,conversation_id,seq,role,kind,sender_bot_id,run_id,content,created_at) VALUES(?,?,?,?,?,?,?,?,?)`, m.ID, m.ConversationID, m.Seq, m.Role, m.Kind, m.SenderBotID, m.RunID, m.Content, m.CreatedAt); err != nil {
 			return Message{}, false, err
 		}
-	}
-	t := now()
-	createdAt := t
-	if draft.Seq > 0 && draft.CreatedAt != "" {
-		createdAt = draft.CreatedAt
-	}
-	m := Message{ID: draft.MessageID, ConversationID: runConversationID, Seq: seq, Role: "assistant", Kind: "segment", SenderBotID: runBotID, RunID: runID, Content: content, CreatedAt: createdAt}
-	if _, err = tx.Exec(`INSERT INTO messages(id,conversation_id,seq,role,kind,sender_bot_id,run_id,content,created_at) VALUES(?,?,?,?,?,?,?,?,?)`, m.ID, m.ConversationID, m.Seq, m.Role, m.Kind, m.SenderBotID, m.RunID, m.Content, m.CreatedAt); err != nil {
-		return Message{}, false, err
-	}
-	b, marshalErr := json.Marshal(m)
-	if marshalErr != nil {
-		return Message{}, false, marshalErr
-	}
-	if _, err = tx.Exec(`INSERT INTO events(conversation_id,type,data,created_at) VALUES(?,?,?,?)`, runConversationID, "message", string(b), t); err != nil {
-		return Message{}, false, err
+		b, marshalErr := json.Marshal(m)
+		if marshalErr != nil {
+			return Message{}, false, marshalErr
+		}
+		if _, err = tx.Exec(`INSERT INTO events(conversation_id,type,data,created_at) VALUES(?,?,?,?)`, runConversationID, "message", string(b), t); err != nil {
+			return Message{}, false, err
+		}
+		if i == 0 {
+			first = m
+			// Free the draft's reserved sequence so the next part (and the next
+			// draft) number after this message, not on top of it.
+			if rotateDraft {
+				if _, err = tx.Exec(`UPDATE stream_drafts SET seq=0 WHERE run_id=? AND status=?`, runID, streamDraftActive); err != nil {
+					return Message{}, false, err
+				}
+			}
+		}
 	}
 	if _, err = tx.Exec(`UPDATE conversations SET updated_at=? WHERE id=?`, t, runConversationID); err != nil {
 		return Message{}, false, err
@@ -281,8 +316,10 @@ func (s *Store) publishAssistantTurn(ctx context.Context, runID string, turnInde
 			return Message{}, false, err
 		}
 	}
-	if _, err = tx.Exec(`INSERT INTO stream_assistant_turns(run_id,turn_index,message_id,created_at) VALUES(?,?,?,?)`, runID, turnIndex, m.ID, t); err != nil {
-		return Message{}, false, err
+	if turnIndex > 0 {
+		if _, err = tx.Exec(`INSERT INTO stream_assistant_turns(run_id,turn_index,message_id,created_at) VALUES(?,?,?,?)`, runID, turnIndex, first.ID, t); err != nil {
+			return Message{}, false, err
+		}
 	}
 	if err = ctx.Err(); err != nil {
 		return Message{}, false, err
@@ -290,7 +327,7 @@ func (s *Store) publishAssistantTurn(ctx context.Context, runID string, turnInde
 	if err = tx.Commit(); err != nil {
 		return Message{}, false, err
 	}
-	return m, true, nil
+	return first, true, nil
 }
 
 func (s *Store) CancelStream(runID string) error {
@@ -341,6 +378,14 @@ func (s *Store) StreamControls(ctx context.Context, run Run, onError func(error)
 	}
 	var mu sync.Mutex
 	var buffer []rune
+	// Live drafts never show <progress> tags: the same scanner that splits the
+	// stored turn strips them here, holding back a tag cut by a chunk boundary.
+	var tags progressScanner
+	appendLocked := func(parts []textPart) {
+		for _, part := range parts {
+			buffer = append(buffer, []rune(part.Text)...)
+		}
+	}
 	var persisted time.Time
 	failed := false
 	flushLocked := func() {
@@ -364,14 +409,22 @@ func (s *Store) StreamControls(ctx context.Context, run Run, onError func(error)
 			if failed || ctx.Err() != nil {
 				return
 			}
-			buffer = append(buffer, []rune(text)...)
+			appendLocked(tags.feed(text))
 			if persisted.IsZero() || time.Since(persisted) >= streamFlushInterval || len(buffer) >= maxStreamDeltaRunes {
 				flushLocked()
 			}
-		}, func() { mu.Lock(); defer mu.Unlock(); flushLocked() }, func() {
+		}, func() {
+			// A flush marks the end of a turn's text: a held-back "<pro" was
+			// plain text after all, and the next turn starts outside any note.
+			mu.Lock()
+			defer mu.Unlock()
+			appendLocked(tags.finish())
+			flushLocked()
+		}, func() {
 			mu.Lock()
 			defer mu.Unlock()
 			buffer = nil
+			tags.finish()
 			if failed || ctx.Err() != nil {
 				return
 			}
