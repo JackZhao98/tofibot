@@ -265,31 +265,203 @@
   },
   "admin": {
     "capacity_unavailable": "Computer capacity isn't available. Refresh and try again.",
-    "intro": "Only an Admin can create accounts in advance. Users must change the initial password at first sign-in. Deactivating keeps the workspace and signs the user out.",
-    "capacity": "Assignable computer capacity: {{size}} GiB. Expanding stops the computer; reconnect when it's done. Shrinking needs separate offline work, and deactivating doesn't free capacity.",
-    "capacity_low": "Assignable computer capacity: {{size}} GiB · Space is running low, assign carefully. Expanding stops the computer; reconnect when it's done. Shrinking needs separate offline work, and deactivating doesn't free capacity.",
-    "name_required": "Enter a username or email",
-    "add_title": "Add account",
-    "username": "Username",
-    "email": "Email",
-    "initial_password": "Initial password",
-    "create": "Create account",
+    "intro": "Create accounts, choose who is an Admin and set how much computer disk each account gets. Members change their initial password at first sign-in.",
+    "summary": {
+      "title": "Computer capacity",
+      "total": "Host disk",
+      "allocated": "Allocated",
+      "free": "Free to assign",
+      "low": "Space is running low. Assign carefully."
+    },
+    "accounts": {
+      "title": "Accounts",
+      "empty": "No accounts yet."
+    },
+    "add": "Add account",
+    "open": "Open {{name}}",
+    "you": "You",
     "no_email": "No email set",
-    "role_admin": "Admin",
-    "role_user": "Member",
-    "state_disabled": "Deactivated",
-    "state_must_change": "Waiting for initial password change",
-    "state_active": "Active",
-    "enable": "Reactivate account",
-    "disable": "Deactivate account",
-    "make_user": "Make member",
-    "make_admin": "Make Admin",
-    "reset_password": "Reset initial password",
-    "quota_pending": "Expansion hasn't finished; the reserved capacity is held. Retry this quota once the computer cleanup is done.",
-    "quota_label": "Computer capacity (GiB)",
-    "quota_save": "Save capacity and stop computer",
-    "new_password": "New initial password",
-    "reset_submit": "Update and sign out"
+    "back": "Accounts",
+    "copy": "Copy",
+    "copied": "Copied",
+    "role": {
+      "admin": "Admin",
+      "user": "Member"
+    },
+    "status": {
+      "active": "Active",
+      "deactivated": "Deactivated",
+      "deleting": "Deleting",
+      "delete_failed": "Deletion stopped",
+      "must_change": "Awaiting first sign-in"
+    },
+    "computer": {
+      "none": "No computer",
+      "reserved": "Not started",
+      "ready": "Ready",
+      "disabled": "Stopped"
+    },
+    "create": {
+      "title": "Add account",
+      "username": "Username",
+      "email": "Email",
+      "password": "Initial password",
+      "password_note": "At least 12 characters. The person must replace it at first sign-in.",
+      "submit": "Create account",
+      "name_required": "Enter a username or email"
+    },
+    "detail": {
+      "role": {
+        "title": "Role",
+        "label": "Role",
+        "help": "Admins manage accounts, capacity and updates. Members use their own workspace.",
+        "self": "You can't change your own role.",
+        "last": "This is the last active Admin. Make another account an Admin first.",
+        "deleting": "This account is being deleted."
+      },
+      "computer": {
+        "title": "Computer",
+        "state": "State",
+        "disk": "Disk quota",
+        "disk_help": "Reserved disk for this account's computer. It can be raised, never lowered.",
+        "disk_note": "Changing the quota stops the computer. It starts again the next time the account needs it.",
+        "disk_pending": "A resize hasn't finished; the reserved capacity is held. Save the same size again once the computer cleanup is done.",
+        "saved": "Saved. The computer was stopped and will restart on demand.",
+        "option": "{{size}} GiB",
+        "current": "current",
+        "no_room": "not enough free space",
+        "save_label": "Apply",
+        "save": "Save {{size}} GiB and stop computer",
+        "none": "No computer has been provisioned for this account yet."
+      },
+      "signin": {
+        "title": "Sign-in",
+        "label": "Reset password",
+        "help": "Creates a one-time password and signs the account out. The person must choose their own at next sign-in.",
+        "deleting": "Not available while the account is being deleted.",
+        "action": "Reset password"
+      },
+      "reset": {
+        "confirm_title": "Reset password for {{name}}?",
+        "confirm_body": "The account is signed out everywhere and gets a new one-time password, shown once on the next screen.",
+        "confirm_action": "Reset and sign out",
+        "done_title": "One-time password",
+        "done_body": "Give this password to {{name}}. They must replace it at first sign-in.",
+        "password": "One-time password",
+        "once": "Shown once. It can't be displayed again after you close this.",
+        "done": "I've copied it"
+      },
+      "danger": {
+        "title": "Danger zone",
+        "deactivate_label": "Deactivate account",
+        "deactivate_help": "Signs the account out and stops its computer. Bots, conversations, memory and the disk are kept.",
+        "deactivate_action": "Deactivate",
+        "deactivate_self": "You can't deactivate the account you are signed in with.",
+        "deactivate_last": "This is the last active Admin, so it can't be deactivated.",
+        "reactivate_label": "Reactivate account",
+        "reactivate_help": "Lets the account sign in again with its Bots and data.",
+        "reactivate_deleting": "Deletion has started and can't be reversed. Retry it above.",
+        "reactivate_action": "Reactivate",
+        "delete_label": "Delete account",
+        "delete_help": "Permanently removes the account, its Bots, conversations, memory, files and computer, and frees the disk.",
+        "delete_action": "Delete account…",
+        "delete_self": "You can't delete the account you are signed in with.",
+        "delete_legacy": "The original owner account and its computer can't be deleted.",
+        "delete_running": "Deletion is in progress.",
+        "delete_need_deactivate": "Deactivate the account first. Only a deactivated account can be deleted."
+      }
+    },
+    "delete": {
+      "title": "Delete {{name}}?",
+      "lead": "This permanently deletes:",
+      "item_bots": "All Bots and their settings",
+      "item_chats": "All conversations",
+      "item_memory": "All memory",
+      "item_files": "Files and attachments",
+      "item_computer": "The computer and its disk — {{size}} GiB will be freed",
+      "item_computer_none": "The computer, if one exists",
+      "irreversible": "This can't be undone.",
+      "export_note": "Before anything is removed, an encrypted copy of the Bots, conversations, memory and schedules is saved for 30 days. Credentials and computer files are not included.",
+      "confirm_label": "Type {{name}} to confirm",
+      "confirm_action": "Delete account",
+      "progress_title": "Deleting {{name}}",
+      "steps_label": "Deletion steps",
+      "working": "Deleting. Keep this window open.",
+      "retry_body": "Deletion stopped part-way. Retrying continues from where it stopped.",
+      "retry_action": "Retry deletion",
+      "close": "Close",
+      "step": {
+        "export": "Saving an encrypted export",
+        "computer": "Removing the computer and freeing its disk",
+        "data": "Removing Bots, conversations and files",
+        "sessions": "Removing sign-ins",
+        "record": "Removing the account"
+      }
+    },
+    "deleting": {
+      "running": "Deletion in progress",
+      "body": "The account is being removed. Retry if it seems stuck.",
+      "stopped": "Deletion stopped at: {{step}}",
+      "error": {
+        "generic": "Something failed. Nothing further was removed; retry to continue.",
+        "export_failed": "The export couldn't be saved or verified, so nothing was deleted.",
+        "computer_unavailable": "The computer service didn't confirm the removal.",
+        "computer_unverified": "The computer service answered, but the removal couldn't be verified.",
+        "data_failed": "The account's data folder couldn't be removed.",
+        "sessions_failed": "The account's sign-ins couldn't be removed.",
+        "record_failed": "The account record couldn't be removed."
+      }
+    },
+    "result": {
+      "title": "{{name}} was deleted",
+      "body": "The account and its computer are gone. An encrypted copy of the Bots was saved. Send the link and the passphrase separately.",
+      "link": "Download link",
+      "passphrase": "Passphrase",
+      "once": "Shown once. Tofi doesn't keep it after you continue.",
+      "expires": "Available until {{date}}.",
+      "message_label": "Message to send",
+      "message": "Your TOFI account was closed. Download your Bots: {{link}} (passphrase sent separately), available until {{date}}. Import it in Tofi: Settings → Advanced → Data transfer, then enter the passphrase.",
+      "message_note": "Send the passphrase in a different message or channel.",
+      "copy_message": "Copy message",
+      "done": "I've saved the passphrase"
+    },
+    "exports": {
+      "title": "Exports of deleted accounts",
+      "help": "Encrypted copies of deleted accounts' Bots, kept for 30 days. Passphrases are shown once, when the account is deleted; afterwards you can copy the link or delete the export.",
+      "empty": "No exports.",
+      "created": "Created {{date}}",
+      "expires": "expires {{date}}",
+      "size": "{{value}} MB",
+      "copy_link": "Copy link",
+      "show_passphrase": "Show passphrase",
+      "delete": "Delete export",
+      "delete_title": "Delete the export of {{name}}?",
+      "delete_body": "The download link stops working and the file is removed. This can't be undone.",
+      "passphrase_gone": "The passphrase was shown once and isn't stored.",
+      "link_unavailable": "The download link can't be rebuilt because this server's export key is missing or changed. Delete this export; the account's data can't be exported again."
+    },
+    "error": {
+      "generic": "That didn't work. Refresh and try again.",
+      "self_lockout": "You can't do that to your own account.",
+      "last_admin": "The last active Admin can't be changed or removed.",
+      "account_deleting": "This account is being deleted.",
+      "account_not_deactivated": "Deactivate the account before deleting it.",
+      "legacy_account_not_deletable": "The original owner account and its computer can't be deleted.",
+      "confirmation_mismatch": "The username you typed doesn't match.",
+      "delete_in_progress": "This account is already being deleted.",
+      "account_delete_failed": "Deletion stopped. Retry to continue.",
+      "account_change_rejected": "The account changed or is protected. Refresh and try again.",
+      "quota_not_applied": "The disk size wasn't applied. Growing needs free capacity and a finished computer cleanup; shrinking isn't supported here.",
+      "quota_unverified": "The new disk size couldn't be verified. Refresh before trying again.",
+      "computer_transition_pending": "The account change was saved, but the computer step needs a retry.",
+      "weak_password": "Use at least 12 characters.",
+      "password_contains_identity": "The password can't contain the username or email.",
+      "common_password": "That password is too common.",
+      "invalid_account": "The username or email is invalid or already taken.",
+      "forbidden": "Only an Admin can do that.",
+      "export_in_use": "That export is still tied to an account whose deletion hasn't finished.",
+      "passphrase_unavailable": "The passphrase isn't available."
+    }
   },
   "connection": {
     "label": "Current server connection",
@@ -439,7 +611,8 @@
       "insecure_context": "Open this page over HTTPS or a secure local address.",
       "bundle_too_large": "The bundle is over 16 MiB. Export less data.",
       "file_oversized": "The bundle is too large.",
-      "decrypt_failed": "Couldn't decrypt. Check the passphrase, the file version, and whether the file is damaged."
+      "decrypt_failed": "Couldn't decrypt. Check the passphrase, the file version, and whether the file is damaged.",
+      "file_damaged": "This file is damaged or isn't a Tofi export."
     }
   },
   "status": {

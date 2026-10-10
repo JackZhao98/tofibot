@@ -264,32 +264,204 @@
     "recheck": "Erneut prüfen"
   },
   "admin": {
-    "capacity_unavailable": "Die Computerkapazität ist nicht verfügbar. Lade neu und versuch es erneut.",
-    "intro": "Nur ein Admin kann Konten im Voraus anlegen. Nutzer müssen das Startpasswort bei der ersten Anmeldung ändern. Deaktivieren behält den Workspace und meldet den Nutzer ab.",
-    "capacity": "Zuweisbare Computerkapazität: {{size}} GiB. Eine Erweiterung stoppt den Computer; verbinde dich danach neu. Verkleinern erfordert einen separaten Offline-Vorgang, und Deaktivieren gibt keine Kapazität frei.",
-    "capacity_low": "Zuweisbare Computerkapazität: {{size}} GiB · Der Speicher wird knapp, weise ihn sparsam zu. Eine Erweiterung stoppt den Computer; verbinde dich danach neu. Verkleinern erfordert einen separaten Offline-Vorgang, und Deaktivieren gibt keine Kapazität frei.",
-    "name_required": "Gib einen Benutzernamen oder eine E-Mail-Adresse ein",
-    "add_title": "Konto hinzufügen",
-    "username": "Benutzername",
-    "email": "E-Mail",
-    "initial_password": "Startpasswort",
-    "create": "Konto erstellen",
+    "capacity_unavailable": "Die Computerkapazität ist nicht verfügbar. Aktualisiere die Seite und versuche es erneut.",
+    "intro": "Lege Konten an, bestimme, wer Admin ist, und stelle ein, wie viel Computerspeicher jedes Konto bekommt. Mitglieder ändern ihr Startpasswort bei der ersten Anmeldung.",
+    "summary": {
+      "title": "Computerkapazität",
+      "total": "Host-Speicher",
+      "allocated": "Zugewiesen",
+      "free": "Noch frei",
+      "low": "Der Speicherplatz wird knapp. Weise ihn sorgfältig zu."
+    },
+    "accounts": {
+      "title": "Konten",
+      "empty": "Noch keine Konten."
+    },
+    "add": "Konto hinzufügen",
+    "open": "{{name}} öffnen",
+    "you": "Du",
     "no_email": "Keine E-Mail hinterlegt",
-    "role_admin": "Admin",
-    "role_user": "Mitglied",
-    "state_disabled": "Deaktiviert",
-    "state_must_change": "Wartet auf Änderung des Startpassworts",
-    "state_active": "Aktiv",
-    "enable": "Konto reaktivieren",
-    "disable": "Konto deaktivieren",
-    "make_user": "Zum Mitglied machen",
-    "make_admin": "Zum Admin machen",
-    "reset_password": "Startpasswort zurücksetzen",
-    "quota_pending": "Die Erweiterung ist noch nicht abgeschlossen; die reservierte Kapazität bleibt vorgemerkt. Versuch es mit diesem Kontingent erneut, sobald die Bereinigung des Computers fertig ist.",
-    "quota_label": "Computerkapazität (GiB)",
-    "quota_save": "Kapazität speichern und Computer stoppen",
-    "new_password": "Neues Startpasswort",
-    "reset_submit": "Aktualisieren und abmelden"
+    "back": "Konten",
+    "copy": "Kopieren",
+    "copied": "Kopiert",
+    "role": {
+      "admin": "Admin",
+      "user": "Mitglied"
+    },
+    "status": {
+      "active": "Aktiv",
+      "deactivated": "Deaktiviert",
+      "deleting": "Wird gelöscht",
+      "delete_failed": "Löschen angehalten",
+      "must_change": "Wartet auf erste Anmeldung"
+    },
+    "computer": {
+      "none": "Kein Computer",
+      "reserved": "Nicht gestartet",
+      "ready": "Bereit",
+      "disabled": "Gestoppt"
+    },
+    "create": {
+      "title": "Konto hinzufügen",
+      "username": "Benutzername",
+      "email": "E-Mail",
+      "password": "Startpasswort",
+      "password_note": "Mindestens 12 Zeichen. Die Person muss es bei der ersten Anmeldung ersetzen.",
+      "submit": "Konto erstellen",
+      "name_required": "Gib einen Benutzernamen oder eine E-Mail-Adresse ein"
+    },
+    "detail": {
+      "role": {
+        "title": "Rolle",
+        "label": "Rolle",
+        "help": "Admins verwalten Konten, Kapazität und Updates. Mitglieder nutzen ihren eigenen Arbeitsbereich.",
+        "self": "Du kannst deine eigene Rolle nicht ändern.",
+        "last": "Das ist der letzte aktive Admin. Mache zuerst ein anderes Konto zum Admin.",
+        "deleting": "Dieses Konto wird gerade gelöscht."
+      },
+      "computer": {
+        "title": "Computer",
+        "state": "Status",
+        "disk": "Speicherkontingent",
+        "disk_help": "Reservierter Speicher für den Computer dieses Kontos. Er kann nur vergrößert werden.",
+        "disk_note": "Eine Änderung des Kontingents stoppt den Computer. Er startet wieder, sobald das Konto ihn braucht.",
+        "disk_pending": "Eine Größenänderung ist nicht abgeschlossen; die reservierte Kapazität bleibt belegt. Speichere dieselbe Größe erneut, sobald die Bereinigung des Computers fertig ist.",
+        "saved": "Gespeichert. Der Computer wurde gestoppt und startet bei Bedarf neu.",
+        "option": "{{size}} GiB",
+        "current": "aktuell",
+        "no_room": "nicht genug freier Platz",
+        "save_label": "Anwenden",
+        "save": "{{size}} GiB speichern und Computer stoppen",
+        "none": "Für dieses Konto wurde noch kein Computer eingerichtet."
+      },
+      "signin": {
+        "title": "Anmeldung",
+        "label": "Passwort zurücksetzen",
+        "help": "Erzeugt ein Einmalpasswort und meldet das Konto ab. Die Person muss bei der nächsten Anmeldung ein eigenes wählen.",
+        "deleting": "Nicht verfügbar, solange das Konto gelöscht wird.",
+        "action": "Passwort zurücksetzen"
+      },
+      "reset": {
+        "confirm_title": "Passwort für {{name}} zurücksetzen?",
+        "confirm_body": "Das Konto wird überall abgemeldet und erhält ein neues Einmalpasswort, das auf der nächsten Seite einmalig angezeigt wird.",
+        "confirm_action": "Zurücksetzen und abmelden",
+        "done_title": "Einmalpasswort",
+        "done_body": "Gib dieses Passwort an {{name}} weiter. Es muss bei der ersten Anmeldung ersetzt werden.",
+        "password": "Einmalpasswort",
+        "once": "Wird nur einmal angezeigt. Nach dem Schließen ist es nicht mehr abrufbar.",
+        "done": "Ich habe es kopiert"
+      },
+      "danger": {
+        "title": "Gefahrenbereich",
+        "deactivate_label": "Konto deaktivieren",
+        "deactivate_help": "Meldet das Konto ab und stoppt seinen Computer. Bots, Unterhaltungen, Gedächtnis und Speicher bleiben erhalten.",
+        "deactivate_action": "Deaktivieren",
+        "deactivate_self": "Du kannst das Konto, mit dem du angemeldet bist, nicht deaktivieren.",
+        "deactivate_last": "Das ist der letzte aktive Admin und kann nicht deaktiviert werden.",
+        "reactivate_label": "Konto reaktivieren",
+        "reactivate_help": "Das Konto kann sich wieder mit seinen Bots und Daten anmelden.",
+        "reactivate_deleting": "Das Löschen hat begonnen und lässt sich nicht rückgängig machen. Wiederhole es oben.",
+        "reactivate_action": "Reaktivieren",
+        "delete_label": "Konto löschen",
+        "delete_help": "Entfernt das Konto, seine Bots, Unterhaltungen, sein Gedächtnis, seine Dateien und den Computer dauerhaft und gibt den Speicher frei.",
+        "delete_action": "Konto löschen …",
+        "delete_self": "Du kannst das Konto, mit dem du angemeldet bist, nicht löschen.",
+        "delete_legacy": "Das ursprüngliche Inhaberkonto und sein Computer können nicht gelöscht werden.",
+        "delete_running": "Das Löschen läuft.",
+        "delete_need_deactivate": "Deaktiviere das Konto zuerst. Nur deaktivierte Konten können gelöscht werden."
+      }
+    },
+    "delete": {
+      "title": "{{name}} löschen?",
+      "lead": "Das wird dauerhaft gelöscht:",
+      "item_bots": "Alle Bots und ihre Einstellungen",
+      "item_chats": "Alle Unterhaltungen",
+      "item_memory": "Das gesamte Gedächtnis",
+      "item_files": "Dateien und Anhänge",
+      "item_computer": "Der Computer und sein Speicher – {{size}} GiB werden frei",
+      "item_computer_none": "Der Computer, falls vorhanden",
+      "irreversible": "Das lässt sich nicht rückgängig machen.",
+      "export_note": "Bevor etwas entfernt wird, speichern wir 30 Tage lang eine verschlüsselte Kopie der Bots, Unterhaltungen, Erinnerungen und Zeitpläne. Zugangsdaten und Computerdateien sind nicht enthalten.",
+      "confirm_label": "Gib zur Bestätigung {{name}} ein",
+      "confirm_action": "Konto löschen",
+      "progress_title": "{{name}} wird gelöscht",
+      "steps_label": "Löschschritte",
+      "working": "Wird gelöscht. Lass dieses Fenster geöffnet.",
+      "retry_body": "Das Löschen wurde unterbrochen. Beim erneuten Versuch geht es dort weiter, wo es aufgehört hat.",
+      "retry_action": "Löschen wiederholen",
+      "close": "Schließen",
+      "step": {
+        "export": "Verschlüsselten Export speichern",
+        "computer": "Computer entfernen und Speicher freigeben",
+        "data": "Bots, Unterhaltungen und Dateien entfernen",
+        "sessions": "Anmeldungen entfernen",
+        "record": "Konto entfernen"
+      }
+    },
+    "deleting": {
+      "running": "Löschen läuft",
+      "body": "Das Konto wird entfernt. Wiederhole den Vorgang, falls er hängt.",
+      "stopped": "Das Löschen stoppte bei: {{step}}",
+      "error": {
+        "generic": "Etwas ist fehlgeschlagen. Es wurde nichts weiter entfernt; wiederhole den Vorgang, um fortzufahren.",
+        "export_failed": "Der Export konnte nicht gespeichert oder geprüft werden, deshalb wurde nichts gelöscht.",
+        "computer_unavailable": "Der Computerdienst hat das Entfernen nicht bestätigt.",
+        "computer_unverified": "Der Computerdienst hat geantwortet, das Entfernen ließ sich aber nicht prüfen.",
+        "data_failed": "Der Datenordner des Kontos konnte nicht entfernt werden.",
+        "sessions_failed": "Die Anmeldungen des Kontos konnten nicht entfernt werden.",
+        "record_failed": "Der Kontoeintrag konnte nicht entfernt werden."
+      }
+    },
+    "result": {
+      "title": "{{name}} wurde gelöscht",
+      "body": "Das Konto und sein Computer sind entfernt. Eine verschlüsselte Kopie der Bots wurde gespeichert. Sende Link und Passphrase getrennt.",
+      "link": "Download-Link",
+      "passphrase": "Passphrase",
+      "once": "Wird nur einmal angezeigt. Tofi speichert sie danach nicht.",
+      "expires": "Verfügbar bis {{date}}.",
+      "message_label": "Nachricht zum Versenden",
+      "message": "Dein TOFI-Konto wurde geschlossen. Lade deine Bots herunter: {{link}} (Passphrase folgt separat), verfügbar bis {{date}}. Importiere sie in Tofi: Einstellungen → Erweitert → Datenübertragung, dann die Passphrase eingeben.",
+      "message_note": "Sende die Passphrase in einer anderen Nachricht oder über einen anderen Kanal.",
+      "copy_message": "Nachricht kopieren",
+      "done": "Ich habe die Passphrase gespeichert"
+    },
+    "exports": {
+      "title": "Exporte gelöschter Konten",
+      "help": "Verschlüsselte Kopien der Bots gelöschter Konten, 30 Tage aufbewahrt. Passphrasen werden nur einmal beim Löschen des Kontos angezeigt; danach kannst du den Link kopieren oder den Export löschen.",
+      "empty": "Keine Exporte.",
+      "created": "Erstellt am {{date}}",
+      "expires": "läuft am {{date}} ab",
+      "size": "{{value}} MB",
+      "copy_link": "Link kopieren",
+      "show_passphrase": "Passphrase anzeigen",
+      "delete": "Export löschen",
+      "delete_title": "Export von {{name}} löschen?",
+      "delete_body": "Der Download-Link funktioniert nicht mehr und die Datei wird entfernt. Das lässt sich nicht rückgängig machen.",
+      "passphrase_gone": "Die Passphrase wurde einmal angezeigt und nicht gespeichert.",
+      "link_unavailable": "Der Download-Link lässt sich nicht wiederherstellen, weil der Export-Schlüssel dieses Servers fehlt oder sich geändert hat. Lösche diesen Export; die Daten des Kontos können nicht erneut exportiert werden."
+    },
+    "error": {
+      "generic": "Das hat nicht geklappt. Aktualisiere die Seite und versuche es erneut.",
+      "self_lockout": "Das ist beim eigenen Konto nicht möglich.",
+      "last_admin": "Der letzte aktive Admin kann nicht geändert oder entfernt werden.",
+      "account_deleting": "Dieses Konto wird gerade gelöscht.",
+      "account_not_deactivated": "Deaktiviere das Konto, bevor du es löschst.",
+      "legacy_account_not_deletable": "Das ursprüngliche Inhaberkonto und sein Computer können nicht gelöscht werden.",
+      "confirmation_mismatch": "Der eingegebene Benutzername stimmt nicht überein.",
+      "delete_in_progress": "Dieses Konto wird bereits gelöscht.",
+      "account_delete_failed": "Das Löschen wurde angehalten. Wiederhole den Vorgang, um fortzufahren.",
+      "account_change_rejected": "Das Konto wurde geändert oder ist geschützt. Aktualisiere die Seite und versuche es erneut.",
+      "quota_not_applied": "Die Speichergröße wurde nicht übernommen. Vergrößern braucht freie Kapazität und eine abgeschlossene Bereinigung des Computers; Verkleinern wird hier nicht unterstützt.",
+      "quota_unverified": "Die neue Speichergröße ließ sich nicht prüfen. Aktualisiere die Seite, bevor du es erneut versuchst.",
+      "computer_transition_pending": "Die Kontoänderung wurde gespeichert, der Computerschritt muss aber wiederholt werden.",
+      "weak_password": "Verwende mindestens 12 Zeichen.",
+      "password_contains_identity": "Das Passwort darf weder Benutzernamen noch E-Mail enthalten.",
+      "common_password": "Dieses Passwort ist zu verbreitet.",
+      "invalid_account": "Benutzername oder E-Mail sind ungültig oder bereits vergeben.",
+      "forbidden": "Das darf nur ein Admin.",
+      "export_in_use": "Dieser Export gehört noch zu einem Konto, dessen Löschung nicht abgeschlossen ist.",
+      "passphrase_unavailable": "Die Passphrase ist nicht verfügbar."
+    }
   },
   "connection": {
     "label": "Aktuelle Serververbindung",
@@ -439,7 +611,8 @@
       "insecure_context": "Öffne diese Seite über HTTPS oder eine sichere lokale Adresse.",
       "bundle_too_large": "Das Paket ist größer als 16 MiB. Exportiere weniger Daten.",
       "file_oversized": "Das Paket ist zu groß.",
-      "decrypt_failed": "Entschlüsseln fehlgeschlagen. Prüfe die Passphrase, die Dateiversion und ob die Datei beschädigt ist."
+      "decrypt_failed": "Entschlüsseln fehlgeschlagen. Prüfe die Passphrase, die Dateiversion und ob die Datei beschädigt ist.",
+      "file_damaged": "Diese Datei ist beschädigt oder kein Tofi-Export."
     }
   },
   "status": {

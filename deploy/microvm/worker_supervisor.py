@@ -194,3 +194,17 @@ class WorkerBroker(Broker):
 
     def manager_running(self, identity):
         return self.supervisor.running(identity)
+
+    def remove_cgroup_leaf(self, identity):
+        """rmdir tofi-vms/ac-<id> once the VM is stopped. A missing leaf is fine; a busy or
+        unexpected one is left alone with a warning (the computer's files are removed regardless)."""
+        leaf = self.supervisor.cgroups / ("ac-" + account_id(identity))
+        if leaf.is_symlink():
+            print("warning: unexpected VM cgroup path left in place", file=sys.stderr)
+            return
+        try:
+            os.rmdir(leaf)
+        except FileNotFoundError:
+            pass
+        except OSError as exc:
+            print("warning: VM cgroup leaf not removed (%s)" % exc.strerror, file=sys.stderr)

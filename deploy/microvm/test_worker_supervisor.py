@@ -72,6 +72,25 @@ class SupervisorTests(unittest.TestCase):
         with self.assertRaises(worker.AdmissionError):self.supervisor.ensure(identity,self.root/"other.json")
         self.launch.assert_not_called()
 
+    def test_delete_removes_only_the_empty_cgroup_leaf(self):
+        broker=object.__new__(worker.WorkerBroker);broker.supervisor=self.supervisor
+        identity=str(uuid.uuid4());other=str(uuid.uuid4())
+        parent=self.root/"cgroups"
+        for name in (identity,other):(parent/("ac-"+name)).mkdir(parents=True)
+        broker.remove_cgroup_leaf(identity)
+        self.assertFalse((parent/("ac-"+identity)).exists())
+        self.assertTrue((parent/("ac-"+other)).exists())
+        broker.remove_cgroup_leaf(identity)  # already gone: fine
+        # A busy leaf (here: not empty) is left in place without raising.
+        (parent/("ac-"+other)/"child").mkdir()
+        broker.remove_cgroup_leaf(other)
+        self.assertTrue((parent/("ac-"+other)).exists())
+        # A symlink is never followed or removed.
+        link=parent/("ac-"+str(uuid.uuid4()));target=self.root/"target";target.mkdir()
+        link.symlink_to(target)
+        broker.remove_cgroup_leaf(link.name[3:])
+        self.assertTrue(link.is_symlink() and target.exists())
+
     def test_worker_manager_and_supervisor_share_the_same_vm_parent(self):
         broker=object.__new__(worker.WorkerBroker)
         broker.c={"host_memory_headroom_mib":1024}
