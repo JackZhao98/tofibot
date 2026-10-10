@@ -18,7 +18,7 @@ spec.loader.exec_module(broker)
 
 class BrokerTests(unittest.TestCase):
     def setUp(self):
-        self.temp = tempfile.TemporaryDirectory(dir="/tmp")
+        self.temp = tempfile.TemporaryDirectory(dir=os.path.realpath("/tmp"))
         root = Path(self.temp.name)
         release = root / "release"
         release.mkdir()
@@ -255,6 +255,159 @@ class BrokerTests(unittest.TestCase):
         with self.assertRaises(broker.AdmissionError):
             self.b.write_owned(bad,"complete\n",0o600)
         self.assertEqual(path.read_text(),"unexpected")
+
+class DeleteComputerTests(BrokerTests):
+    """Broker op `delete`: reclaim a disabled computer, nothing else."""
+
+    def setUp(self):
+        super().setUp()
+        self.ids = [str(uuid.uuid4()), str(uuid.uuid4())]
+        self.state, self.config_root = Path(self.config["state_root"]), Path(self.config["config_root"])
+        self.sockets, self.units = Path(self.config["socket_root"]), Path(self.config["unit_root"])
+        for identity in self.ids:
+            self.b.dispatch(dict(op="reserve", account_id=identity, quota_gib=8))
+            (self.state / identity / "jails" / "firecracker" / "root").mkdir(parents=True)
+            (self.state / identity / "workspace.ext4").write_bytes(b"disk")
+            (self.state / identity / "snapshot").mkdir()
+            (self.state / identity / "snapshot" / "memory").write_bytes(b"m")
+            (self.sockets / identity).mkdir()
+            (self.sockets / identity / "control.sock").write_bytes(b"")
+            self.b.write_owned(self.config_root / (identity + ".json"), "{}\n", 0o600)
+            (self.units / ("tofi-computer-ac-" + identity + ".service")).write_text("unit")
+
+    def artifacts(self, identity):
+        return [self.state / identity, self.sockets / identity, self.config_root / (identity + ".json"),
+                self.units / ("tofi-computer-ac-" + identity + ".service")]
+
+    def owned(self, identity):
+        with self.b.ledger.connection() as db:
+            return db.execute("SELECT COUNT(*) FROM owned_files WHERE path LIKE ?", ("%" + identity + "%",)).fetchone()[0]
+
+    def test_delete_requires_disabled(self):
+        victim = self.ids[0]
+        with self.assertRaises(broker.AdmissionError):
+            self.b.dispatch(dict(op="delete", account_id=victim))
+        self.assertTrue(all(path.exists() for path in self.artifacts(victim)))
+        self.assertEqual(self.b._slot(victim), 2)  # row retained (slot 1 is reserved)
+        self.b.dispatch(dict(op="restore", account_id=victim))
+        with self.assertRaises(broker.AdmissionError):
+            self.b.dispatch(dict(op="delete", account_id=victim))
+
+    def test_delete_removes_only_that_account_and_releases_quota_and_slot(self):
+        victim, keeper = self.ids
+        self.b.dispatch(dict(op="disable", account_id=victim))
+        before = self.b.ledger.snapshot()
+        slot = self.b._slot(victim)
+        result = self.b.dispatch(dict(op="delete", account_id=victim))
+        self.assertEqual(result, {"account_id": victim, "deleted": True, "released_bytes": 8*1024**3, "slot": slot})
+        self.assertFalse(any(path.exists() for path in self.artifacts(victim)))
+        self.assertTrue(all(path.exists() for path in self.artifacts(keeper)))
+        self.assertEqual(self.owned(victim), 0)
+        self.assertEqual(self.owned(keeper), 1)
+        after = self.b.ledger.snapshot()
+        self.assertEqual(after["promised_bytes"], before["promised_bytes"] - 8*1024**3)
+        self.assertGreaterEqual(after["admission_remaining_bytes"] - before["admission_remaining_bytes"], 8*1024**3)
+        self.assertEqual([row["account_id"] for row in after["accounts"]], [keeper])
+        # The released slot is available to the next computer.
+        newcomer = str(uuid.uuid4())
+        self.assertEqual(self.b.dispatch(dict(op="reserve", account_id=newcomer, quota_gib=8))["slot"], slot)
+        with self.assertRaises(broker.AdmissionError):
+            self.b.dispatch(dict(op="ensure", account_id=victim))
+
+    def test_delete_is_idempotent_and_clears_runtime_claim_and_fence(self):
+        victim = self.ids[0]
+        self.b.dispatch(dict(op="disable", account_id=victim))
+        with self.b.ledger.connection() as db:
+            db.execute("INSERT INTO runtime_claims VALUES(?,?,?)", (victim, 1, 512))
+            db.execute("INSERT INTO resize_fences(account_id,target_bytes,original_bytes) VALUES(?,?,?)", (victim, 16*1024**3, 8*1024**3))
+        self.b.dispatch(dict(op="delete", account_id=victim))
+        again = self.b.dispatch(dict(op="delete", account_id=victim))
+        self.assertEqual(again["released_bytes"], 0)
+        self.assertTrue(again["deleted"])
+        with self.b.ledger.connection() as db:
+            for table in ("runtime_claims", "resize_fences", "computers"):
+                self.assertIsNone(db.execute(f"SELECT 1 FROM {table} WHERE account_id=?", (victim,)).fetchone())
+        # An identity that never existed is also a clean no-op.
+        self.assertTrue(self.b.dispatch(dict(op="delete", account_id=str(uuid.uuid4())))["deleted"])
+
+    def test_delete_resumes_after_a_failed_stop_without_losing_the_row(self):
+        victim = self.ids[0]
+        self.b.dispatch(dict(op="disable", account_id=victim))
+        self.run.side_effect = OSError("synthetic stop failure")
+        with self.assertRaises(OSError):
+            self.b.dispatch(dict(op="delete", account_id=victim))
+        self.assertTrue(all(path.exists() for path in self.artifacts(victim)))
+        self.assertEqual(self.b.ledger.snapshot()["promised_bytes"], 16*1024**3)
+        self.run.side_effect = None
+        self.b.dispatch(dict(op="delete", account_id=victim))
+        self.assertEqual(self.b.ledger.snapshot()["promised_bytes"], 8*1024**3)
+
+    def test_delete_resumes_after_files_were_removed_but_row_remains(self):
+        victim = self.ids[0]
+        self.b.dispatch(dict(op="disable", account_id=victim))
+        import shutil
+        shutil.rmtree(self.state / victim)  # a previous attempt got this far
+        self.b.dispatch(dict(op="delete", account_id=victim))
+        self.assertFalse(any(path.exists() for path in self.artifacts(victim)))
+        self.assertEqual(self.b.ledger.snapshot()["promised_bytes"], 8*1024**3)
+
+    def test_delete_refuses_symlinks_before_removing_anything(self):
+        victim, keeper = self.ids
+        self.b.dispatch(dict(op="disable", account_id=victim))
+        for kind in ("state", "sockets", "config"):
+            with self.subTest(kind=kind):
+                target = {"state": self.state / victim, "sockets": self.sockets / victim,
+                          "config": self.config_root / (victim + ".json")}[kind]
+                backup = target.with_name(target.name + ".moved")
+                target.rename(backup)
+                target.symlink_to((self.state / keeper) if kind != "config" else (self.config_root / (keeper + ".json")))
+                with self.assertRaises(broker.AdmissionError):
+                    self.b.dispatch(dict(op="delete", account_id=victim))
+                self.assertTrue(all(path.exists() for path in self.artifacts(keeper)))
+                self.assertTrue((self.state / keeper / "workspace.ext4").exists())
+                with self.b.ledger.connection() as db:
+                    self.assertEqual(db.execute("SELECT COUNT(*) FROM computers").fetchone()[0], 2)
+                for other in ("state", "sockets", "config"):
+                    if other != kind:  # nothing else of the victim was removed
+                        path = {"state": self.state / victim, "sockets": self.sockets / victim,
+                                "config": self.config_root / (victim + ".json")}[other]
+                        self.assertTrue(path.exists() or path.is_symlink() or (path.with_name(path.name + ".moved")).exists())
+                target.unlink()
+                backup.rename(target)
+
+    def test_delete_refuses_a_jail_that_still_has_mounts(self):
+        victim = self.ids[0]
+        self.b.dispatch(dict(op="disable", account_id=victim))
+        point = str(self.state / victim / "jails" / "firecracker" / "root" / "rootfs.ext4")
+        with patch.object(self.b, "mounts_below", return_value=[point]):
+            with self.assertRaises(broker.AdmissionError):
+                self.b.dispatch(dict(op="delete", account_id=victim))
+        umounts = [call.args[0] for call in self.run.call_args_list if call.args and call.args[0][:1] == ["umount"]]
+        self.assertEqual(umounts, [["umount", point]])
+        self.assertTrue((self.state / victim / "workspace.ext4").exists())
+        self.assertEqual(self.b.ledger.snapshot()["promised_bytes"], 16*1024**3)
+
+    def test_delete_refuses_an_adopted_legacy_computer(self):
+        victim = self.ids[0]
+        self.b.dispatch(dict(op="disable", account_id=victim))
+        with self.b.ledger.connection() as db:
+            db.execute("INSERT INTO legacy_adoptions(account_id,instance_id,asset_id,source_disk,source_config,device,inode,quota_bytes,phase) "
+                       "VALUES(?,?,?,?,?,?,?,?,?)", (victim, "i", "personal", "/d", "/c", 1, 1, 8*1024**3, "worker"))
+        with self.assertRaises(broker.AdmissionError):
+            self.b.dispatch(dict(op="delete", account_id=victim))
+        self.assertTrue((self.state / victim / "workspace.ext4").exists())
+
+    def test_delete_rejects_extra_fields_and_bad_identity(self):
+        with self.assertRaises(ValueError):
+            self.b.dispatch(dict(op="delete", account_id=self.ids[0], quota_gib=8))
+        for bad in ("../" + self.ids[0], "legacy-owner", ""):
+            with self.assertRaises(ValueError):
+                self.b.dispatch(dict(op="delete", account_id=bad))
+
+
+for _name in dir(BrokerTests):  # reuse BrokerTests.setUp only; do not rerun its tests
+    if _name.startswith("test_") and _name not in DeleteComputerTests.__dict__:
+        setattr(DeleteComputerTests, _name, None)
 
 
 class GuestReleaseTests(unittest.TestCase):
