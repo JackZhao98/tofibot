@@ -618,7 +618,8 @@
     "drop_hint": "or drop a file here",
     "environment_help": "Off by default. Check each record you want to include.",
     "import_environment_help": "Off by default. Check each record to restore as an inactive copy.",
-    "recovery_help": "Inactive copies you can re-export or delete."
+    "recovery_help": "Inactive copies you can re-export or delete.",
+    "environment_label": "Environment credentials"
   },
   "status": {
     "ok": "Connected",
