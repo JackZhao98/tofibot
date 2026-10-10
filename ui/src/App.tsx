@@ -68,7 +68,7 @@ import { flipList } from "./motion-lab/lib/flip";
 import { flySentMessage } from "./sendFlight";
 import { activeBotRuns, botRecentlyActive, latestBotWorkTime, latestHumanMessageTime } from "./botActivity";
 import { reconcileToolActivity, activeToolForRun, buildToolRunAnchors, buildToolSummaryAnchors, buildToolTimeline, compareToolActivities, elapsedToolSeconds, orderToolActivities, toolActionLabel, toolArgumentPreview, toolAttemptIssues } from "./toolTimeline";
-import { foldCompletedProgress } from "./runProgress";
+import { foldCompletedProgress, isMidRunKind } from "./runProgress";
 import { mergeRunUpdates } from "./runMerge";
 import { buildRetryFamilies, isTerminalRun, retryFamilyAnchor } from "./runFamily";
 import { composerClientMessageId, composerDraftMatchesMessage, composerMessageContent, composerMessageSignature, type ComposerReply } from "./composerDraft";
@@ -1043,7 +1043,7 @@ function Workspace() {
     const running = live.some(run => run.status === "running");
     const busy = new Set([
       ...loadedToolActivities.map(activity => activity.run_id),
-      ...messageRecords.filter(message => message.kind === "progress" && message.run_id).map(message => message.run_id!),
+      ...messageRecords.filter(message => isMidRunKind(message.kind) && message.run_id).map(message => message.run_id!),
       ...Object.values(drafts).filter(draft => draft.content.trim()).map(draft => draft.run_id),
     ]);
     return live.filter(run => (run.status === "running" || !running) && !busy.has(run.id)).sort((a, b) => a.created_at.localeCompare(b.created_at));
@@ -1054,7 +1054,7 @@ function Workspace() {
     const known = new Set(terminalToolSummaries.map(summary => summary.run_id));
     const evidence = new Set([
       ...loadedToolActivities.map(activity => activity.run_id),
-      ...messageRecords.filter(message => message.kind === "progress" && message.run_id).map(message => message.run_id!),
+      ...messageRecords.filter(message => isMidRunKind(message.kind) && message.run_id).map(message => message.run_id!),
     ]);
     return buildToolRunAnchors(messages, terminalSummaryRunIDs.filter(runID => !supersededRunIDs.has(runID) && !ownedRunIDs.has(runID) && toolSummaryState[runID]?.loading && !known.has(runID) && evidence.has(runID)).map(run_id => ({ run_id })), runs);
   }, [messages, messageRecords, loadedToolActivities, terminalSummaryRunIDs, toolSummaryState, terminalToolSummaries, runs, supersededRunIDs, ownedRunIDs]);

@@ -165,6 +165,10 @@ func (s *Store) PublishDemotedDraft(runID string, turnIndex int, content string)
 	return s.publishAssistantTurn(context.Background(), runID, turnIndex, content, true)
 }
 
+// An unlabeled mid-run assistant turn is stored as kind "segment": a visible
+// message that is never folded away. Only a turn the Bot explicitly labels
+// purpose=status (send_chat_message) is stored as foldable kind "progress".
+// Legacy rows keep kind "progress" and keep folding.
 func (s *Store) publishAssistantTurn(ctx context.Context, runID string, turnIndex int, content string, terminal bool) (Message, bool, error) {
 	if err := ctx.Err(); err != nil {
 		return Message{}, false, err
@@ -256,7 +260,7 @@ func (s *Store) publishAssistantTurn(ctx context.Context, runID string, turnInde
 	if draft.Seq > 0 && draft.CreatedAt != "" {
 		createdAt = draft.CreatedAt
 	}
-	m := Message{ID: draft.MessageID, ConversationID: runConversationID, Seq: seq, Role: "assistant", Kind: "progress", SenderBotID: runBotID, RunID: runID, Content: content, CreatedAt: createdAt}
+	m := Message{ID: draft.MessageID, ConversationID: runConversationID, Seq: seq, Role: "assistant", Kind: "segment", SenderBotID: runBotID, RunID: runID, Content: content, CreatedAt: createdAt}
 	if _, err = tx.Exec(`INSERT INTO messages(id,conversation_id,seq,role,kind,sender_bot_id,run_id,content,created_at) VALUES(?,?,?,?,?,?,?,?,?)`, m.ID, m.ConversationID, m.Seq, m.Role, m.Kind, m.SenderBotID, m.RunID, m.Content, m.CreatedAt); err != nil {
 		return Message{}, false, err
 	}
