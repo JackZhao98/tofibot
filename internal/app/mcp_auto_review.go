@@ -8,6 +8,8 @@ import (
 	"encoding/json"
 	"errors"
 	"io"
+	"log"
+	"strconv"
 	"strings"
 	"time"
 	"unicode/utf8"
@@ -32,7 +34,78 @@ type MCPReviewDisplay struct {
 	ConfirmationRequired bool               `json:"confirmation_required"`
 	PolicyVersion        string             `json:"policy_version,omitempty"`
 	ContextFailure       *MCPContextFailure `json:"context_failure,omitempty"`
+	// FailureCategory names why an "unavailable" review produced no judgment
+	// (one of the mcpReviewFailure* constants). Never carries content.
+	FailureCategory string `json:"failure_category,omitempty"`
 }
+
+// Reviewer failure categories. They are stored on the review row, shown in the
+// stored reason and logged once per failed request; none carries arguments,
+// prompt or response content.
+const (
+	mcpReviewFailureNotConfigured = "reviewer_not_configured"
+	mcpReviewFailureInputInvalid  = "input_invalid"
+	mcpReviewFailureInputTooLarge = "input_too_large"
+	mcpReviewFailureProvider      = "provider_error"
+	mcpReviewFailureTimeout       = "timeout"
+	mcpReviewFailureMalformed     = "malformed_response"
+	mcpReviewFailureEmpty         = "empty_response"
+
+	mcpReviewInputLimit = 100 << 10
+)
+
+// mcpReviewFailure is a technical gap of the reviewer request. Detail is a
+// fixed token (validation rule, HTTP status class, byte count), never text
+// from the prompt, the provider body or the response.
+type mcpReviewFailure struct {
+	Category string
+	Detail   string
+}
+
+func (f *mcpReviewFailure) Error() string {
+	if f.Detail == "" {
+		return f.Category
+	}
+	return f.Category + ": " + f.Detail
+}
+
+// Only a malformed or empty answer earns one fresh request: the reviewer was
+// reached and answered, so a second identical request may well succeed.
+// Timeouts, provider errors and oversized input are not retried.
+func (f *mcpReviewFailure) retryable() bool {
+	return f.Category == mcpReviewFailureMalformed || f.Category == mcpReviewFailureEmpty
+}
+
+// mcpReviewFailureReason is the stored, user-visible reason for a failed
+// review: the named category and its token, never upstream content.
+func mcpReviewFailureReason(f *mcpReviewFailure) string {
+	const tail = " No policy judgment or execution permission was established."
+	var what string
+	switch f.Category {
+	case mcpReviewFailureNotConfigured:
+		what = "no reviewer model is configured"
+	case mcpReviewFailureInputInvalid:
+		what = "the review packet could not be encoded"
+	case mcpReviewFailureInputTooLarge:
+		what = "the review packet exceeded the reviewer input limit"
+	case mcpReviewFailureProvider:
+		what = "the reviewer model request failed"
+	case mcpReviewFailureTimeout:
+		what = "the reviewer did not answer within the time budget"
+	case mcpReviewFailureMalformed:
+		what = "the reviewer answer failed validation, also after one retry"
+	case mcpReviewFailureEmpty:
+		what = "the reviewer returned no answer, also after one retry"
+	default:
+		what = "the reviewer was unavailable"
+	}
+	return "AutoReview failed (" + f.Error() + "): " + what + "." + tail
+}
+
+// mcpReviewParseError names the validation rule a reviewer answer failed.
+type mcpReviewParseError struct{ Rule string }
+
+func (e *mcpReviewParseError) Error() string { return "invalid reviewer response: " + e.Rule }
 
 // Memories and summaries are deliberately absent: they are untrusted, change
 // independently of authorization and only add size and digest volatility.
@@ -227,62 +300,184 @@ func mcpReviewDisposition(x mcpReviewResult) string {
 	return "unavailable"
 }
 
+// stripReviewCodeFence removes one Markdown code fence (optionally tagged
+// json) that wraps the whole answer. This is the only tolerated deviation:
+// the fence carries no meaning, and the inner object still faces every
+// schema, type, digest and contradiction check unchanged. Prose before or
+// after the fence is not tolerated.
+func stripReviewCodeFence(text string) (string, bool) {
+	trimmed := strings.TrimSpace(text)
+	if len(trimmed) < 6 || !strings.HasPrefix(trimmed, "```") || !strings.HasSuffix(trimmed, "```") {
+		return text, false
+	}
+	inner := strings.TrimSuffix(strings.TrimPrefix(trimmed, "```"), "```")
+	if rest := strings.TrimPrefix(strings.TrimPrefix(inner, "json"), "JSON"); rest != inner && (rest == "" || rest[0] == '\n' || rest[0] == '\r' || rest[0] == ' ') {
+		inner = rest
+	}
+	return strings.TrimSpace(inner), true
+}
+
 // Strict v5: all five fields, correct types, no duplicates/unknown fields/tools.
 // Missing context cannot be repaired by confirmation. A denial is terminal.
-func parseMCPReview(resp *provider.ChatResponse, expected string) (mcpReviewResult, error) {
-	var out mcpReviewResult
-	if resp == nil || len(resp.ToolCalls) > 0 || len(resp.Content) == 0 || len(resp.Content) > 4096 || !utf8.ValidString(resp.Content) {
-		return out, errors.New("invalid response")
+// Every rejection names its rule so the failure can be recorded without the
+// response text; fenced reports whether a code fence was stripped.
+func parseMCPReview(resp *provider.ChatResponse, expected string) (out mcpReviewResult, fenced bool, err error) {
+	rule := func(name string) (mcpReviewResult, bool, error) {
+		return mcpReviewResult{}, fenced, &mcpReviewParseError{Rule: name}
 	}
-	d := json.NewDecoder(strings.NewReader(resp.Content))
+	if resp == nil {
+		return rule("nil_response")
+	}
+	if len(resp.ToolCalls) > 0 {
+		return rule("tool_call")
+	}
+	if strings.TrimSpace(resp.Content) == "" {
+		if resp.Reasoning != "" {
+			return rule("no_text_with_reasoning")
+		}
+		return rule("no_text")
+	}
+	if len(resp.Content) > 4096 {
+		return rule("too_long")
+	}
+	if !utf8.ValidString(resp.Content) {
+		return rule("invalid_utf8")
+	}
+	content, fenced := stripReviewCodeFence(resp.Content)
+	d := json.NewDecoder(strings.NewReader(content))
 	t, err := d.Token()
 	if err != nil || t != json.Delim('{') {
-		return out, errors.New("invalid response")
+		return rule("not_json")
 	}
 	values := map[string]string{}
 	seen := map[string]bool{}
 	for d.More() {
 		token, err := d.Token()
 		key, ok := token.(string)
-		if err != nil || !ok || seen[key] {
-			return out, errors.New("invalid or duplicate response key")
+		if err != nil || !ok {
+			return rule("not_json")
+		}
+		if seen[key] {
+			return rule("duplicate_key")
 		}
 		seen[key] = true
 		switch key {
 		case "confirmation_required":
 			var value any
 			if d.Decode(&value) != nil {
-				return out, errors.New("invalid confirmation field")
+				return rule("not_json")
 			}
 			flag, ok := value.(bool)
 			if !ok {
-				return out, errors.New("invalid confirmation field")
+				return rule("invalid_field_type")
 			}
 			out.ConfirmationRequired = flag
 		case "decision", "reason", "context_digest", "risk_level":
 			var v string
 			if d.Decode(&v) != nil {
-				return out, errors.New("invalid response field")
+				return rule("invalid_field_type")
 			}
 			values[key] = v
 		default:
-			return out, errors.New("unknown response field")
+			return rule("unknown_field")
 		}
 	}
-	if _, err = d.Token(); err != nil || d.Decode(new(any)) != io.EOF || len(seen) != 5 {
-		return out, errors.New("incomplete response")
+	if _, err = d.Token(); err != nil {
+		return rule("not_json")
+	}
+	if d.Decode(new(any)) != io.EOF {
+		return rule("trailing_text")
+	}
+	if len(seen) != 5 {
+		return rule("missing_field")
 	}
 	out.Decision, out.Reason, out.ContextDigest, out.RiskLevel = values["decision"], values["reason"], values["context_digest"], values["risk_level"]
-	if out.Decision != "allow" && out.Decision != "deny" && out.Decision != "needs_human" && out.Decision != "context_gap" || strings.TrimSpace(out.Reason) == "" || len(out.Reason) > 600 || out.ContextDigest != expected || out.RiskLevel != "low" && out.RiskLevel != "medium" && out.RiskLevel != "high" && out.RiskLevel != "unknown" {
-		return mcpReviewResult{}, errors.New("invalid response")
+	if out.Decision != "allow" && out.Decision != "deny" && out.Decision != "needs_human" && out.Decision != "context_gap" {
+		return rule("invalid_decision")
+	}
+	if strings.TrimSpace(out.Reason) == "" {
+		return rule("empty_reason")
+	}
+	if len(out.Reason) > 600 {
+		return rule("reason_too_long")
+	}
+	if out.ContextDigest != expected {
+		return rule("digest_mismatch")
+	}
+	if out.RiskLevel != "low" && out.RiskLevel != "medium" && out.RiskLevel != "high" && out.RiskLevel != "unknown" {
+		return rule("invalid_risk_level")
 	}
 	if out.Decision == "allow" && out.RiskLevel == "unknown" || out.Decision == "needs_human" && !out.ConfirmationRequired || out.Decision == "context_gap" && (out.RiskLevel != "unknown" || out.ConfirmationRequired) || out.Decision == "deny" && out.ConfirmationRequired {
-		return mcpReviewResult{}, errors.New("contradictory response")
+		return rule("contradictory")
 	}
-	return out, nil
+	return out, fenced, nil
 }
 
-func (s *Server) requestMCPReview(ctx context.Context, call extensions.MCPCallApproval, x mcpReviewContext, digest string) (mcpReviewResult, error) {
+// classifyMCPReviewFailure maps one reviewer request outcome to a failure
+// category. The detail is an error class, HTTP status or validation rule;
+// provider bodies and response text never reach it.
+func classifyMCPReviewFailure(ctx context.Context, resp *provider.ChatResponse, err error, digest string) (mcpReviewResult, bool, *mcpReviewFailure) {
+	if ctx.Err() != nil || errors.Is(err, context.DeadlineExceeded) || errors.Is(err, context.Canceled) {
+		detail := "deadline_exceeded"
+		if errors.Is(ctx.Err(), context.Canceled) || ctx.Err() == nil && errors.Is(err, context.Canceled) {
+			detail = "context_canceled"
+		}
+		return mcpReviewResult{}, false, &mcpReviewFailure{mcpReviewFailureTimeout, detail}
+	}
+	if err != nil {
+		detail := "request_failed"
+		var incomplete *provider.IncompleteResponseError
+		var refusal *provider.RefusalError
+		var idle *provider.StreamIdleError
+		var wall *provider.StreamWallCapError
+		if api, ok := provider.AsAPIError(err); ok {
+			detail = "http_" + strconv.Itoa(api.StatusCode)
+		} else if errors.As(err, &incomplete) {
+			detail = "incomplete_" + strings.Map(func(r rune) rune {
+				if r >= 'a' && r <= 'z' || r >= '0' && r <= '9' || r == '_' {
+					return r
+				}
+				return '_'
+			}, strings.ToLower(incomplete.Reason))
+		} else if errors.As(err, &refusal) {
+			detail = "refusal"
+		} else if errors.As(err, &idle) {
+			detail = "stream_idle"
+		} else if errors.As(err, &wall) {
+			detail = "stream_wall_cap"
+		} else if errors.Is(err, provider.ErrStreamIncomplete) {
+			detail = "stream_incomplete"
+		}
+		return mcpReviewResult{}, false, &mcpReviewFailure{mcpReviewFailureProvider, detail}
+	}
+	result, fenced, parseErr := parseMCPReview(resp, digest)
+	if parseErr == nil {
+		return result, fenced, nil
+	}
+	var rule *mcpReviewParseError
+	if !errors.As(parseErr, &rule) {
+		return mcpReviewResult{}, fenced, &mcpReviewFailure{mcpReviewFailureMalformed, "unknown"}
+	}
+	switch rule.Rule {
+	case "nil_response", "no_text", "no_text_with_reasoning":
+		return mcpReviewResult{}, fenced, &mcpReviewFailure{mcpReviewFailureEmpty, rule.Rule}
+	}
+	return mcpReviewResult{}, fenced, &mcpReviewFailure{mcpReviewFailureMalformed, rule.Rule}
+}
+
+// One failure line per failed reviewer request. It names the run, tool,
+// category, model and latency; arguments, prompt and response text never
+// appear here.
+func logMCPReviewFailure(r Run, call extensions.MCPCallApproval, model string, attempt int, latency time.Duration, f *mcpReviewFailure) {
+	log.Printf("[auto-review] reviewer failure run=%s server=%s tool=%s category=%s detail=%s model=%s attempt=%d latency_ms=%d", r.ID, call.Server, call.Tool, f.Category, f.Detail, model, attempt, latency.Milliseconds())
+}
+
+// requestMCPReview makes the reviewer request for one reserved review. Every
+// attempt is a fresh request with the identical bound input and digest; a
+// malformed or empty answer earns exactly one more attempt inside the same
+// autoReviewTimeout budget. The reservation row is untouched here, so a retry
+// is never a second review. Reviewer usage is attributed to the run.
+func (s *Server) requestMCPReview(ctx context.Context, r Run, call extensions.MCPCallApproval, x mcpReviewContext, digest string) (mcpReviewResult, *mcpReviewFailure) {
 	ctx, cancel := context.WithTimeout(ctx, autoReviewTimeout)
 	defer cancel()
 	p, model := s.autoReviewProvider, codexReviewModel
@@ -290,22 +485,53 @@ func (s *Server) requestMCPReview(ctx context.Context, call extensions.MCPCallAp
 		var err error
 		p, model, err = s.backgroundProvider(ctx, backgroundReview) // No retry/fallback wrapper.
 		if err != nil {
-			return mcpReviewResult{}, errors.New("reviewer unavailable")
+			f := &mcpReviewFailure{mcpReviewFailureNotConfigured, ""}
+			logMCPReviewFailure(r, call, s.backgroundModel(backgroundReview), 0, 0, f)
+			return mcpReviewResult{}, f
 		}
 	}
 	raw, err := mcpReviewInput(call, x, digest)
-	if err != nil || len(raw) > 100<<10 {
-		return mcpReviewResult{}, errors.New("review input unavailable")
+	if err != nil {
+		f := &mcpReviewFailure{mcpReviewFailureInputInvalid, "encoding"}
+		logMCPReviewFailure(r, call, model, 0, 0, f)
+		return mcpReviewResult{}, f
 	}
-	resp, err := p.Chat(ctx, &provider.ChatRequest{Model: model, System: mcpAutoReviewPrompt, Messages: []provider.Message{{Role: "user", Content: string(raw)}}, Tools: nil})
-	if err != nil || ctx.Err() != nil {
-		return mcpReviewResult{}, errors.New("reviewer request failed or timed out")
+	if len(raw) > mcpReviewInputLimit {
+		f := &mcpReviewFailure{mcpReviewFailureInputTooLarge, strconv.Itoa(len(raw)) + "_bytes_limit_" + strconv.Itoa(mcpReviewInputLimit)}
+		logMCPReviewFailure(r, call, model, 0, 0, f)
+		return mcpReviewResult{}, f
 	}
-	return parseMCPReview(resp, digest)
+	var failure *mcpReviewFailure
+	for attempt := 1; attempt <= 2; attempt++ {
+		started := time.Now()
+		resp, err := p.Chat(ctx, &provider.ChatRequest{Model: model, System: mcpAutoReviewPrompt, Messages: []provider.Message{{Role: "user", Content: string(raw)}}, Tools: nil})
+		if resp != nil {
+			if e := s.store.recordAuxiliaryModelUsage(r.ID, model, resp.Usage.InputTokens, resp.Usage.OutputTokens); e != nil {
+				log.Printf("[usage] reviewer usage for run %s: %v", r.ID, e)
+			}
+		}
+		var result mcpReviewResult
+		var fenced bool
+		result, fenced, failure = classifyMCPReviewFailure(ctx, resp, err, digest)
+		if failure == nil {
+			if fenced {
+				log.Printf("[auto-review] reviewer answer tolerated run=%s server=%s tool=%s note=code_fence model=%s attempt=%d latency_ms=%d", r.ID, call.Server, call.Tool, model, attempt, time.Since(started).Milliseconds())
+			}
+			return result, nil
+		}
+		logMCPReviewFailure(r, call, model, attempt, time.Since(started), failure)
+		if !failure.retryable() || ctx.Err() != nil {
+			break
+		}
+	}
+	return mcpReviewResult{}, failure
 }
 
 // Begin once, before the provider request. Resumes/restarts cannot issue it
-// again. A native human answer never substitutes for the v5 risk assessment.
+// again: the reservation row is inserted once, and the only repeat request is
+// the single in-process retry inside requestMCPReview for a malformed or
+// empty answer, under the same reservation, budget, input and digest. A
+// native human answer never substitutes for the v5 risk assessment.
 func (s *Server) reviewNewMCPProposal(ctx context.Context, c Conversation, r Run, call extensions.MCPCallApproval, q Question) error {
 	settings, err := s.store.getAutoReviewSettings()
 	if err != nil {
@@ -325,7 +551,7 @@ func (s *Server) reviewMCPProposal(ctx context.Context, c Conversation, r Run, c
 			diagnostic = failure[0]
 		}
 		if shadow {
-			return s.store.setMCPReviewDisplay(q.ID, MCPReviewDisplay{autoReviewActor, "shadow_" + status, reason, "codex-auto-review", "", false, autoReviewPolicyVersion, diagnostic})
+			return s.store.setMCPReviewDisplay(q.ID, MCPReviewDisplay{autoReviewActor, "shadow_" + status, reason, "codex-auto-review", "", false, autoReviewPolicyVersion, diagnostic, ""})
 		}
 		return s.closeMCPReviewGap(q.ID, status, reason, diagnostic)
 	}
@@ -338,7 +564,7 @@ func (s *Server) reviewMCPProposal(ctx context.Context, c Conversation, r Run, c
 		if _, ok := tooloutcome.FromError(terminalErr); !ok {
 			return terminalErr
 		}
-		if err := s.store.setMCPReviewDisplay(q.ID, MCPReviewDisplay{autoReviewActor, "terminal", terminalErr.Error(), "codex-auto-review", "", false, autoReviewPolicyVersion, nil}); err != nil {
+		if err := s.store.setMCPReviewDisplay(q.ID, MCPReviewDisplay{autoReviewActor, "terminal", terminalErr.Error(), "codex-auto-review", "", false, autoReviewPolicyVersion, nil, ""}); err != nil {
 			return err
 		}
 		return terminalErr
@@ -386,21 +612,21 @@ func (s *Server) reviewMCPProposal(ctx context.Context, c Conversation, r Run, c
 		}
 		// A duplicate cannot reserve or replay another reviewer request. Claim
 		// must still validate the exact card's review and action-level fences.
-		return s.store.setMCPReviewDisplay(q.ID, MCPReviewDisplay{autoReviewActor, "not_reviewed", "No new review was reserved for this exact proposal. Existing action-level review and execution claims remain authoritative.", "codex-auto-review", "", false, autoReviewPolicyVersion, nil})
+		return s.store.setMCPReviewDisplay(q.ID, MCPReviewDisplay{autoReviewActor, "not_reviewed", "No new review was reserved for this exact proposal. Existing action-level review and execution claims remain authoritative.", "codex-auto-review", "", false, autoReviewPolicyVersion, nil, ""})
 	}
 	displayStatus := "reviewing"
 	if shadow {
 		displayStatus = "shadow_reviewing"
 	}
-	if err = s.store.setMCPReviewDisplay(q.ID, MCPReviewDisplay{autoReviewActor, displayStatus, "Assessing the exact proposal's authorization, effects and data flow.", "codex-auto-review", "", false, autoReviewPolicyVersion, nil}); err != nil {
+	if err = s.store.setMCPReviewDisplay(q.ID, MCPReviewDisplay{autoReviewActor, displayStatus, "Assessing the exact proposal's authorization, effects and data flow.", "codex-auto-review", "", false, autoReviewPolicyVersion, nil, ""}); err != nil {
 		return err
 	}
 	request := func(reviewCtx context.Context) error {
-		result, requestErr := s.requestMCPReview(reviewCtx, call, x, digest)
-		if requestErr != nil {
-			result = mcpReviewResult{Reason: "AutoReview was unavailable, timed out or returned an invalid response. No policy judgment or execution permission was established.", ContextDigest: digest, RiskLevel: "unknown"}
+		result, failure := s.requestMCPReview(reviewCtx, r, call, x, digest)
+		if failure != nil {
+			result = mcpReviewResult{Reason: mcpReviewFailureReason(failure), ContextDigest: digest, RiskLevel: "unknown"}
 		}
-		return s.finishMCPReview(reviewCtx, c, r, call, q.ID, settings, result)
+		return s.finishMCPReview(reviewCtx, c, r, call, q.ID, settings, result, failure)
 	}
 	if shadow {
 		s.startShadowMCPReview(func(reviewCtx context.Context) { _ = request(reviewCtx) })
@@ -430,8 +656,17 @@ func (s *Server) retireTransientMCPReview(r Run, call extensions.MCPCallApproval
 	return err
 }
 
+// mcpReviewFailureColumns is the stored (category, detail) pair; both empty
+// when the reviewer answered.
+func mcpReviewFailureColumns(f *mcpReviewFailure) (string, string) {
+	if f == nil {
+		return "", ""
+	}
+	return f.Category, f.Detail
+}
+
 func (s *Server) closeMCPReviewGap(id, status, reason string, diagnostic *MCPContextFailure) error {
-	if err := s.store.setMCPReviewDisplay(id, MCPReviewDisplay{autoReviewActor, status, reason, "codex-auto-review", "", false, autoReviewPolicyVersion, diagnostic}); err != nil {
+	if err := s.store.setMCPReviewDisplay(id, MCPReviewDisplay{autoReviewActor, status, reason, "codex-auto-review", "", false, autoReviewPolicyVersion, diagnostic, ""}); err != nil {
 		return err
 	}
 	// Keep a genuine human answer truthful; it cannot repair a technical gap.
@@ -476,9 +711,9 @@ func (s *Store) setMCPReviewDisplay(id string, display MCPReviewDisplay) error {
 	return tx.Commit()
 }
 
-func (s *Server) finishMCPReview(ctx context.Context, c Conversation, r Run, call extensions.MCPCallApproval, id string, initial autoReviewSettings, result mcpReviewResult) error {
+func (s *Server) finishMCPReview(ctx context.Context, c Conversation, r Run, call extensions.MCPCallApproval, id string, initial autoReviewSettings, result mcpReviewResult, failure *mcpReviewFailure) error {
 	if initial.Mode == "shadow" {
-		return s.finishShadowMCPReview(c, r, call, id, initial, result)
+		return s.finishShadowMCPReview(c, r, call, id, initial, result, failure)
 	}
 	tx, err := s.store.db.Begin()
 	if err != nil {
@@ -543,9 +778,14 @@ func (s *Server) finishMCPReview(ctx context.Context, c Conversation, r Run, cal
 		}
 	}
 	q.UpdatedAt = now()
-	q.Approval.Review = &MCPReviewDisplay{autoReviewActor, status, result.Reason, "codex-auto-review", result.RiskLevel, result.ConfirmationRequired, autoReviewPolicyVersion, contextFailure}
+	failureCategory, failureDetail := mcpReviewFailureColumns(failure)
+	display := &MCPReviewDisplay{autoReviewActor, status, result.Reason, "codex-auto-review", result.RiskLevel, result.ConfirmationRequired, autoReviewPolicyVersion, contextFailure, ""}
+	if status == "unavailable" {
+		display.FailureCategory = failureCategory
+	}
+	q.Approval.Review = display
 	raw, _ := json.Marshal(q.Approval)
-	if _, err = tx.Exec(`UPDATE mcp_auto_reviews SET status=?,decision=?,reason=?,risk_level=?,confirmation_required=?,expires_at=? WHERE question_id=?`, status, result.Decision, result.Reason, result.RiskLevel, boolInt(result.ConfirmationRequired), q.ExpiresAt, id); err != nil {
+	if _, err = tx.Exec(`UPDATE mcp_auto_reviews SET status=?,decision=?,reason=?,risk_level=?,confirmation_required=?,expires_at=?,failure_category=?,failure_detail=? WHERE question_id=?`, status, result.Decision, result.Reason, result.RiskLevel, boolInt(result.ConfirmationRequired), q.ExpiresAt, failureCategory, failureDetail, id); err != nil {
 		return err
 	}
 	if _, err = tx.Exec(`UPDATE questions SET status=?,answer_json=?,answered_by=?,expires_at=?,approval_json=?,updated_at=? WHERE id=?`, q.Status, nullString(string(q.Answer)), nullString(q.AnsweredBy), q.ExpiresAt, string(raw), q.UpdatedAt, id); err != nil {

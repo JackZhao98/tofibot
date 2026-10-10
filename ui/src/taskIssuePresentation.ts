@@ -13,7 +13,7 @@ const tasksT = (locale?: Language) => i18n.getFixedT(locale ?? null, "tasks");
 export type TaskIssueKind = "provider_busy" | "model_unconfigured" | "model_auth" | "model_quota" | "tool_setup" | "review_context" | "review_unavailable" | "expired" | "human_denied" | "policy_denied" | "uncertain_effect" | "connection_status" | "runtime_connection" | "unknown_failure";
 export type TaskAction = "open_tools" | "open_codex" | "copy_diagnostics" | "view_activity" | "verify_steps" | "refresh_status";
 export type ExecutionState = "not_executed" | "in_progress" | "completed" | "unknown";
-export type TaskEvidence = { source: "run" | "tool" | "question" | "draft" | "connection"; id: string; code?: string; status?: string; certainty?: string; model?: string; updatedAt?: string; contextCode?: string };
+export type TaskEvidence = { source: "run" | "tool" | "question" | "draft" | "connection"; id: string; code?: string; status?: string; certainty?: string; model?: string; updatedAt?: string; contextCode?: string; failureCategory?: string };
 /** A fact that names one tool step can open that step in the activity record. */
 export type TaskFactLink = { runId: string; callId: string; label: string };
 /** The one-glance form of an uncertain-effect card: what, and what to check. */
@@ -163,7 +163,7 @@ export function presentTaskIssue({ run, family, tools = [], questions = [], draf
       }
       if (questionUnknown(question)) add("uncertain_effect");
     }
-    evidence.push({ source: "question", id: question.question_id, status: review?.status ?? question.status, certainty: question.outcome?.execution_certainty, model: review?.model, updatedAt: question.updated_at, contextCode: review?.context_failure?.code });
+    evidence.push({ source: "question", id: question.question_id, status: review?.status ?? question.status, certainty: question.outcome?.execution_certainty, model: review?.model, updatedAt: question.updated_at, contextCode: review?.context_failure?.code, failureCategory: review?.failure_category });
   }
   for (const draft of drafts) {
     if (draft.status === "unknown") add("uncertain_effect");
@@ -240,7 +240,7 @@ export function presentTaskIssue({ run, family, tools = [], questions = [], draf
 export function taskDiagnostics(issue: TaskIssueView) {
   const token = (value?: string) => value && /^[a-zA-Z0-9_.:/-]{1,160}$/.test(value) ? value : undefined;
   const timestamp = (value?: string) => value && /^\d{4}-\d{2}-\d{2}T[\d:.+-]+Z?$/.test(value) && Number.isFinite(Date.parse(value)) ? value : undefined;
-  return JSON.stringify({ records_complete: issue.recordsComplete, evidence: issue.evidence.map(item => ({ source: item.source, id: token(item.id), code: token(item.code), status: token(item.status), certainty: token(item.certainty), model: token(item.model), updated_at: timestamp(item.updatedAt), context_code: token(item.contextCode) })) }, null, 2);
+  return JSON.stringify({ records_complete: issue.recordsComplete, evidence: issue.evidence.map(item => ({ source: item.source, id: token(item.id), code: token(item.code), status: token(item.status), certainty: token(item.certainty), model: token(item.model), updated_at: timestamp(item.updatedAt), context_code: token(item.contextCode), failure_category: token(item.failureCategory) })) }, null, 2);
 }
 
 export function taskPhaseLabel(input: TaskPresentationInput) {

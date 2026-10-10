@@ -392,6 +392,16 @@
       "auto_invalidated": "自动决定失效",
       "not_eligible": "未获自动执行资格",
       "not_rereviewed": "未重复审查"
+    },
+    "failure": {
+      "title": "审查未能完成的原因",
+      "reviewer_not_configured": "未配置审查模型",
+      "input_invalid": "无法生成审查数据包",
+      "input_too_large": "审查数据包超出审查模型的输入上限",
+      "provider_error": "审查模型请求失败",
+      "timeout": "审查模型未在时限内作答",
+      "malformed_response": "审查模型的回答未通过校验，重试一次后仍然如此",
+      "empty_response": "审查模型未返回回答，重试一次后仍然如此"
     }
   },
   "run_failure": {
