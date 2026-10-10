@@ -10,6 +10,12 @@ import "strings"
 // Rules: "<progress>" outside a note opens one; "</progress>" inside closes it.
 // A stray close tag or a nested open tag is dropped. An unclosed note runs to
 // the end of the text. A tag split across chunks is held back until decidable.
+//
+// Markdown code is literal: inside an inline code span (`...`, closed by a run
+// of the same length, ending at the latest at the line end) or a fenced block
+// (``` or ~~~ at a line start, closed by a fence of at least that length at a
+// line start) a tag is text, so an answer can discuss the HTML <progress>
+// element. A backtick run cut by a chunk boundary is held back like a tag.
 const (
 	progressOpenTag  = "<progress>"
 	progressCloseTag = "</progress>"
@@ -21,8 +27,12 @@ type textPart struct {
 }
 
 type progressScanner struct {
-	inside  bool
-	pending string // trailing bytes that may still become a tag
+	inside   bool
+	pending  string // trailing bytes that may still become a tag or a longer backtick run
+	code     int    // >0: inside code opened by a run of this many codeChar bytes
+	codeChar byte   // '`' or '~'
+	fence    bool   // the open code is a fenced block (closes only at a line start)
+	midLine  bool   // a non-blank byte was seen on the current line
 }
 
 // feed consumes a chunk and returns the parts that are now decided.
@@ -38,26 +48,63 @@ func (p *progressScanner) feed(chunk string) []textPart {
 		}
 	}
 	for i := 0; i < len(in); {
-		if in[i] != '<' {
-			buf.WriteByte(in[i])
-			i++
-			continue
-		}
-		rest := in[i:]
+		ch := in[i]
 		switch {
-		case hasPrefixFold(rest, progressOpenTag):
-			flush()
-			p.inside = true // a nested open tag inside a note is simply dropped
-			i += len(progressOpenTag)
-		case hasPrefixFold(rest, progressCloseTag):
-			flush()
-			p.inside = false // a stray close tag outside a note is simply dropped
-			i += len(progressCloseTag)
-		case len(rest) < len(progressCloseTag) && (hasPrefixFold(progressOpenTag, rest) || hasPrefixFold(progressCloseTag, rest)):
-			p.pending = rest // possibly a tag cut by the chunk boundary
-			i = len(in)
+		case ch == '`' || ch == '~':
+			j := i + 1
+			for j < len(in) && in[j] == ch {
+				j++
+			}
+			if j == len(in) {
+				p.pending = in[i:] // the run may continue in the next chunk
+				i = j
+				continue
+			}
+			n := j - i
+			switch {
+			case p.code == 0 && n >= 3 && !p.midLine:
+				p.code, p.codeChar, p.fence = n, ch, true
+			case p.code == 0 && ch == '`':
+				p.code, p.codeChar, p.fence = n, ch, false
+			case p.code > 0 && ch == p.codeChar && p.fence && n >= p.code && !p.midLine:
+				p.code = 0
+			case p.code > 0 && ch == p.codeChar && !p.fence && n == p.code:
+				p.code = 0
+			}
+			buf.WriteString(in[i:j])
+			p.midLine = true
+			i = j
+		case ch == '\n':
+			buf.WriteByte(ch)
+			p.midLine = false
+			if !p.fence {
+				p.code = 0 // an inline span never crosses a line end
+			}
+			i++
+		case ch == '<' && p.code == 0:
+			rest := in[i:]
+			switch {
+			case hasPrefixFold(rest, progressOpenTag):
+				flush()
+				p.inside = true // a nested open tag inside a note is simply dropped
+				i += len(progressOpenTag)
+			case hasPrefixFold(rest, progressCloseTag):
+				flush()
+				p.inside = false // a stray close tag outside a note is simply dropped
+				i += len(progressCloseTag)
+			case len(rest) < len(progressCloseTag) && (hasPrefixFold(progressOpenTag, rest) || hasPrefixFold(progressCloseTag, rest)):
+				p.pending = rest // possibly a tag cut by the chunk boundary
+				i = len(in)
+			default:
+				buf.WriteByte('<')
+				p.midLine = true
+				i++
+			}
 		default:
-			buf.WriteByte('<')
+			buf.WriteByte(ch)
+			if ch != ' ' && ch != '\t' && ch != '\r' {
+				p.midLine = true
+			}
 			i++
 		}
 	}
@@ -71,7 +118,7 @@ func (p *progressScanner) finish() []textPart {
 	if p.pending != "" {
 		out = []textPart{{Text: p.pending, Progress: p.inside}}
 	}
-	p.pending, p.inside = "", false
+	*p = progressScanner{}
 	return out
 }
 

@@ -1,5 +1,7 @@
 package app
 
+import "strings"
+
 const (
 	scheduleMissingReceiptError = "scheduled task returned without confirming a completed result"
 	scheduleUnconfirmedLabel    = "\n\nUNCONFIRMED assistant output (not proof of completion):\n"
@@ -10,7 +12,7 @@ const (
 // Content is the runtime's public final text (reasoning is already excluded),
 // never a transcript, stream draft, tool result or an infrastructure error.
 func scheduleFailureDetail(content string, bot Bot) string {
-	content = cleanBotOutput(content, bot)
+	content = strings.TrimSpace(stripProgressTags(cleanBotOutput(content, bot)))
 	if content == "" {
 		return scheduleMissingReceiptError
 	}

@@ -3419,7 +3419,15 @@ func (s *Server) execute(c Conversation, r Run) {
 		}
 		demotedMu.Unlock()
 		publishDemotedDraft()
-		if _, _, err := s.store.finishRunBudget(r.ID, c.ID, r.BotID, cleanBotOutput(res.Content, botCfg), res.BudgetReason); err != nil {
+		// Partial output is split like a final turn: notes fold, the rest is
+		// the answer, and a tag never reaches the stored message.
+		notes, answer := finalSplit(cleanBotOutput(res.Content, botCfg))
+		if len(notes) > 0 && strings.TrimSpace(answer) != "" {
+			if _, _, err := s.store.publishAssistantParts(ctx, r.ID, 0, notes, false); err != nil {
+				log.Printf("[run] publish budget-turn notes %s: %v", r.ID, err)
+			}
+		}
+		if _, _, err := s.store.finishRunBudget(r.ID, c.ID, r.BotID, answer, res.BudgetReason); err != nil {
 			s.failRun(c, r, err)
 		}
 		return
