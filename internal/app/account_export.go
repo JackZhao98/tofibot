@@ -17,6 +17,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -24,7 +25,6 @@ import (
 	"strings"
 	"sync"
 	"time"
-
 )
 
 // Deleting an account first writes a passphrase-encrypted copy of its Bot setup
@@ -41,18 +41,21 @@ const exportTables = `CREATE TABLE IF NOT EXISTS deleted_account_exports(
  token_hash BLOB NOT NULL, passphrase_sealed BLOB, attachments INTEGER NOT NULL DEFAULT 0, counts_json TEXT NOT NULL DEFAULT '{}')`
 
 type deletedExport struct {
-	ID             string         `json:"id"`
-	Username       string         `json:"username"`
-	Email          string         `json:"email,omitempty"`
-	CreatedAt      int64          `json:"created_at"`
-	ExpiresAt      int64          `json:"expires_at"`
-	Size           int64          `json:"size"`
-	SHA256         string         `json:"sha256,omitempty"`
-	LinkPath       string         `json:"link_path"`
-	Passphrase     string         `json:"passphrase,omitempty"`
-	PassphraseOpen bool           `json:"passphrase_pending"`
-	Attachments    bool           `json:"attachments_included"`
-	Counts         map[string]int `json:"counts,omitempty"`
+	ID        string `json:"id"`
+	Username  string `json:"username"`
+	Email     string `json:"email,omitempty"`
+	CreatedAt int64  `json:"created_at"`
+	ExpiresAt int64  `json:"expires_at"`
+	Size      int64  `json:"size"`
+	SHA256    string `json:"sha256,omitempty"`
+	LinkPath  string `json:"link_path"`
+	// Set when the install's link key is missing or no longer matches this row.
+	LinkUnavailable       bool           `json:"link_unavailable,omitempty"`
+	PassphraseUnavailable bool           `json:"passphrase_unavailable,omitempty"`
+	Passphrase            string         `json:"passphrase,omitempty"`
+	PassphraseOpen        bool           `json:"passphrase_pending"`
+	Attachments           bool           `json:"attachments_included"`
+	Counts                map[string]int `json:"counts,omitempty"`
 }
 
 func (g *AccountGateway) exportDir() string {
@@ -72,10 +75,13 @@ func (g *AccountGateway) exportDirReady() (string, error) {
 	return dir, nil
 }
 
-// linkKey is a per-installation random key kept beside the exports. Download
-// tokens and the sealed pending passphrase derive from it, so the database
-// alone (which stores only token hashes) cannot reconstruct a link.
-func (g *AccountGateway) linkKey() ([]byte, error) {
+// linkKey is a per-installation random key kept beside the exports. It has two
+// uses, kept apart by domain separation: download tokens are HMAC(key,
+// "link:"+id) and the pending passphrase is sealed under HMAC(key,
+// "passphrase"). The database alone (which stores only token hashes) cannot
+// reconstruct a link. Only an export being created may mint a missing key;
+// readers treat a missing or malformed key as "links unavailable".
+func (g *AccountGateway) linkKey(create bool) ([]byte, error) {
 	dir, err := g.exportDirReady()
 	if err != nil {
 		return nil, err
@@ -87,6 +93,9 @@ func (g *AccountGateway) linkKey() ([]byte, error) {
 		}
 		return data, nil
 	}
+	if !create {
+		return nil, errors.New("export link key is missing")
+	}
 	key := make([]byte, 32)
 	if _, err = rand.Read(key); err != nil {
 		return nil, err
@@ -94,7 +103,7 @@ func (g *AccountGateway) linkKey() ([]byte, error) {
 	f, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o600)
 	if err != nil {
 		if errors.Is(err, os.ErrExist) {
-			return g.linkKey()
+			return g.linkKey(create)
 		}
 		return nil, err
 	}
@@ -310,7 +319,7 @@ func (g *AccountGateway) exportAccount(ctx context.Context, a Account) error {
 	if err != nil {
 		return err
 	}
-	key, err := g.linkKey()
+	key, err := g.linkKey(true)
 	if err != nil {
 		return err
 	}
@@ -336,12 +345,10 @@ func (g *AccountGateway) exportAccount(ctx context.Context, a Account) error {
 	}
 	id := base64.RawURLEncoding.EncodeToString(raw)
 	file := filepath.Join(dir, id+".tofi")
-	sidecar := filepath.Join(dir, id+".json")
 	committed := false
 	defer func() {
 		if !committed {
 			os.Remove(file)
-			os.Remove(sidecar)
 		}
 	}()
 	digest := sha256.Sum256(sealed)
@@ -351,11 +358,7 @@ func (g *AccountGateway) exportAccount(ctx context.Context, a Account) error {
 	if strings.HasSuffix(email, "@account.invalid") {
 		email = ""
 	}
-	meta, _ := json.Marshal(map[string]any{"username": a.Username, "email": email, "created_at": created.Unix(), "expires_at": expires.Unix(), "size": len(sealed), "sha256": fmt.Sprintf("%x", digest)})
 	if err = writeExportFile(file, sealed); err != nil {
-		return err
-	}
-	if err = writeExportFile(sidecar, meta); err != nil {
 		return err
 	}
 	// Verify what is on disk, not what was in memory: hash, decrypt, parse.
@@ -402,24 +405,37 @@ func writeExportFile(path string, data []byte) error {
 
 func (g *AccountGateway) exportRow(ctx context.Context, where string, arg any, withPassphrase bool) (deletedExport, error) {
 	var x deletedExport
-	var sealed []byte
+	var sealed, tokenHash []byte
 	var attachments int
 	var counts string
-	err := g.root.store.db.QueryRowContext(ctx, `SELECT id,username,email,created_at,expires_at,size,sha256,passphrase_sealed,attachments,counts_json FROM deleted_account_exports WHERE `+where, arg).Scan(&x.ID, &x.Username, &x.Email, &x.CreatedAt, &x.ExpiresAt, &x.Size, &x.SHA256, &sealed, &attachments, &counts)
+	err := g.root.store.db.QueryRowContext(ctx, `SELECT id,username,email,created_at,expires_at,size,sha256,token_hash,passphrase_sealed,attachments,counts_json FROM deleted_account_exports WHERE `+where, arg).Scan(&x.ID, &x.Username, &x.Email, &x.CreatedAt, &x.ExpiresAt, &x.Size, &x.SHA256, &tokenHash, &sealed, &attachments, &counts)
 	if err != nil {
 		return x, err
 	}
 	x.Attachments = attachments == 1
 	json.Unmarshal([]byte(counts), &x.Counts)
 	x.PassphraseOpen = len(sealed) > 0
-	key, err := g.linkKey()
-	if err != nil {
-		return x, err
+	// A missing, malformed or replaced key cannot rebuild the link or open the
+	// sealed passphrase. Say so per row instead of failing the whole list.
+	key, kerr := g.linkKey(false)
+	if kerr == nil {
+		token := exportToken(key, x.ID)
+		if sum := sha256.Sum256([]byte(token)); subtle.ConstantTimeCompare(sum[:], tokenHash) == 1 {
+			x.LinkPath = "/exports/" + token
+		} else {
+			kerr = errors.New("export link key does not match")
+		}
 	}
-	x.LinkPath = "/exports/" + exportToken(key, x.ID)
+	if kerr != nil {
+		x.LinkUnavailable = true
+		if x.PassphraseOpen {
+			x.PassphraseUnavailable = true
+		}
+		return x, nil
+	}
 	if withPassphrase && len(sealed) > 0 {
 		if x.Passphrase, err = openSmall(key, sealed); err != nil {
-			return x, err
+			x.Passphrase, x.PassphraseUnavailable = "", true
 		}
 	}
 	return x, nil
@@ -452,10 +468,13 @@ func (g *AccountGateway) sweepDeletedExports(now time.Time) (int, error) {
 		}
 	}
 	rows.Close()
+	removed := 0
 	for _, id := range expired {
 		if err = g.removeExport(id); err != nil {
-			return 0, err
+			log.Printf("deleted-account export %s: retention removal failed: %v", id, err)
+			continue
 		}
+		removed++
 	}
 	entries, _ := os.ReadDir(dir)
 	for _, e := range entries {
@@ -467,7 +486,7 @@ func (g *AccountGateway) sweepDeletedExports(now time.Time) (int, error) {
 			}
 		}
 	}
-	return len(expired), nil
+	return removed, nil
 }
 
 func (g *AccountGateway) removeExport(id string) error {
@@ -475,8 +494,10 @@ func (g *AccountGateway) removeExport(id string) error {
 		return errors.New("invalid export id")
 	}
 	dir := g.exportDir()
-	os.Remove(filepath.Join(dir, id+".tofi"))
-	os.Remove(filepath.Join(dir, id+".json"))
+	if err := os.Remove(filepath.Join(dir, id+".tofi")); err != nil && !errors.Is(err, os.ErrNotExist) {
+		return err
+	}
+	os.Remove(filepath.Join(dir, id+".json")) // sidecar written by earlier versions
 	_, err := g.root.store.db.Exec(`DELETE FROM deleted_account_exports WHERE id=?`, id)
 	return err
 }
@@ -555,6 +576,13 @@ func (g *AccountGateway) adminExports(w http.ResponseWriter, r *http.Request, a 
 	}
 	switch {
 	case len(parts) == 1 && r.Method == http.MethodDelete:
+		// While the account is still being deleted a retry would otherwise export an emptied store.
+		var inUse bool
+		g.root.store.db.QueryRowContext(r.Context(), `SELECT EXISTS(SELECT 1 FROM accounts a JOIN deleted_account_exports e ON e.account_id=a.id WHERE e.id=? AND a.deleting=1)`, id).Scan(&inUse)
+		if inUse {
+			writeErr(w, 409, "export_in_use", "the account is still being deleted; finish the deletion first")
+			return true
+		}
 		if err := g.removeExport(id); err != nil {
 			writeErr(w, 500, "storage", "cannot delete export")
 			return true
@@ -581,22 +609,35 @@ func (g *AccountGateway) adminExports(w http.ResponseWriter, r *http.Request, a 
 
 // ---- public download -----------------------------------------------------
 
+// downloadLimiter bounds guessing without letting anyone shut real downloads
+// out: every request counts against its peer (20/min), and only lookups that
+// found nothing count toward the global cap (200/min).
 type downloadLimiter struct {
 	mu     sync.Mutex
 	window time.Time
 	peers  map[string]int
-	total  int
+	misses int
+}
+
+func (l *downloadLimiter) roll(now time.Time) {
+	if l.peers == nil || now.Sub(l.window) >= time.Minute {
+		l.window, l.peers, l.misses = now, map[string]int{}, 0
+	}
 }
 
 func (l *downloadLimiter) allow(peer string, now time.Time) bool {
 	l.mu.Lock()
 	defer l.mu.Unlock()
-	if l.peers == nil || now.Sub(l.window) >= time.Minute {
-		l.window, l.peers, l.total = now, map[string]int{}, 0
-	}
+	l.roll(now)
 	l.peers[peer]++
-	l.total++
-	return l.peers[peer] <= 20 && l.total <= 200
+	return l.peers[peer] <= 20 && l.misses <= 200
+}
+
+func (l *downloadLimiter) miss(now time.Time) {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	l.roll(now)
+	l.misses++
 }
 
 func (g *AccountGateway) serveDeletedExport(w http.ResponseWriter, r *http.Request) {
@@ -632,7 +673,7 @@ func (g *AccountGateway) serveDeletedExport(w http.ResponseWriter, r *http.Reque
 		}
 		rows.Close()
 	}
-	notFound := func() { writeErr(w, 404, "not_found", "not found") }
+	notFound := func() { g.downloads.miss(time.Now()); writeErr(w, 404, "not_found", "not found") }
 	if found == "" || len(token) != 43 {
 		notFound()
 		return
