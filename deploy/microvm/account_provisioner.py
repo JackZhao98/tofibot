@@ -578,6 +578,9 @@ class Broker:
         self.start_manager(identity, unit, config_path)
         return {"account_id": identity, "socket": str(sockets / "control.sock"), "slot": row["slot"]}
 
+    def remove_cgroup_leaf(self, identity):
+        """Hook: remove the account's now-empty VM cgroup leaf. The base broker has none."""
+
     def mounts_below(self, directory):
         return mounts_under(directory)
 
@@ -631,6 +634,7 @@ class Broker:
         self.stop_manager(identity, unit)
         with self.ledger.connection() as db:
             db.execute("DELETE FROM runtime_claims WHERE account_id=?", (identity,))
+        self.remove_cgroup_leaf(identity)
         if state is not None:
             for point in self.mounts_below(state):
                 self.run(["umount", point])
