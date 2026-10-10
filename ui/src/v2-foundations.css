@@ -1,6 +1,5 @@
 /* Final V2 primitives shared by every Web surface. Component-specific geometry
    belongs to the owning surface, not to the old global control rules. */
-@import url("https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&family=JetBrains+Mono:wght@400;600&display=swap");
 
 :root { color:var(--ink); background:var(--bg); }
 body { color:var(--ink); background:var(--bg); font-family:var(--body); }

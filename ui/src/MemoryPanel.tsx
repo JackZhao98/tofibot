@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { CATS, EmptyState } from "./EmptyCat";
 import { TofiIcon as Icon } from "./icons";
 import { ConfirmAction } from "./InteractionSystem";
 import { useDebugMode } from "./debugMode";
@@ -60,6 +61,6 @@ export function MemoryPanel({ memories, scope = "bot", onClose, onCreate, onUpda
         <details className="memory-details"><summary>{t("memory.view_full")}</summary><p>{memory.content}</p></details>
         <div className="memory-footer">{debug && <span>{t("memory.revision", { revision: memory.revision })}</span>}<span><button disabled={busy} onClick={() => { const initial = { title: memory.title || "", description: memory.description || "", content: memory.content }; setEditing(memory.id); setBaseline(initial); setEdit(initial); setError(""); }}>{t("memory.edit_action")}</button><ConfirmAction label={t("memory.delete")} question={t("memory.delete_question")} disabled={busy} onConfirm={() => save(() => onDelete(memory.id), () => {})} /></span></div>
       </>}</div>;
-    })}{!visible.length && !!memories.length && <div className="panel-empty">{t("memory.no_match")}</div>}{!memories.length && (isDesktop ? <div className="panel-empty">{t("memory.empty_short")}</div> : <div className="panel-empty web-memory-empty"><WakeableCat config={{ shape: "loaf", pattern: "solid", palette: "ivory" }} name={t("memory.cat_name")} size={84} /><strong>{t("memory.empty_title")}</strong><p>{scope === "group" ? t("memory.empty.group") : t("memory.empty.bot")}</p></div>)}</div>
+    })}{!visible.length && !!memories.length && <EmptyState name="memory-no-match" className="panel-empty is-compact" look={CATS.azuki} pose="curious"><p>{t("memory.no_match")}</p></EmptyState>}{!memories.length && <EmptyState name="memory-empty" className="panel-empty web-memory-empty is-card" look={CATS.mochi} pose="asleep" size={72} title={t("memory.empty_title")}><p>{scope === "group" ? t("memory.empty.group") : t("memory.empty.bot")}</p></EmptyState>}</div>
   </div>;
 }

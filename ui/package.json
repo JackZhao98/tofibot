@@ -31,7 +31,8 @@
     "test:computer-window": "node scripts/test-computer-window.mjs",
     "test:model-catalog": "node scripts/test-model-catalog.mjs",
     "test:settings-shell": "node scripts/test-settings-shell.mjs",
-    "test:i18n": "node scripts/check-i18n.mjs"
+    "test:i18n": "node scripts/check-i18n.mjs",
+    "test:empty-states": "node scripts/test-empty-states.mjs"
   },
   "dependencies": {
     "@emoji-mart/data": "1.2.1",

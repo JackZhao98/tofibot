@@ -1,4 +1,5 @@
 import { createContext, Fragment, useCallback, useContext, useEffect, useId, useRef, useState, type ReactNode } from "react";
+import { CATS, EmptyCat } from "./EmptyCat";
 import { BrandLogo } from "./BrandLogo";
 import { useAppearance } from "./InteractionSystem";
 import { TofiIcon } from "./icons";
@@ -88,7 +89,7 @@ export function OwnerSessionGate({ children }: { children: ReactNode }) {
     <AuthLanguageSwitch />
     <section className="owner-card">
       <BrandLogo variant="calico" />
-      {!session ? <><h1>{t("gate.connect_title")}</h1>{error ? <><p className="owner-error" role="alert">{error}</p><button className="primary-button" onClick={() => void refresh()}>{t("gate.reconnect")}</button></> : <div className="owner-loading"><span className="spinner" />{t("gate.connecting")}</div>}</> : session.setup_required && session.password_transport_allowed && !mustChange ? <OwnerSetup onDone={finishAuth} /> : <>
+      {!session ? <><h1>{t("gate.connect_title")}</h1>{error ? <><EmptyCat look={CATS.nori} pose="asleep" size={72} name="gate-offline" /><p className="owner-error" role="alert">{error}</p><button className="primary-button" onClick={() => void refresh()}>{t("gate.reconnect")}</button></> : <div className="owner-loading"><span className="spinner" />{t("gate.connecting")}</div>}</> : session.setup_required && session.password_transport_allowed && !mustChange ? <OwnerSetup onDone={finishAuth} /> : <>
         <h1>{mustChange ? t("gate.title.set_password") : session.setup_required ? t("gate.title.welcome_new") : expired ? t("gate.title.sign_in_again") : t("gate.title.welcome_back")}</h1>
         <p className="owner-subtitle">{mustChange ? t("gate.subtitle.change_initial") : session.setup_required ? t("gate.subtitle.create_admin") : t("gate.subtitle.sign_in")}</p>
         {!session.password_transport_allowed ? <p className="owner-error" role="alert">{t("error.password_transport_required")}</p> : <form onSubmit={async event => {

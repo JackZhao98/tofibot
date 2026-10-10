@@ -354,6 +354,8 @@
       "none_available": "더 이상 없는 Bot으로만 제한되어 있습니다. 사용할 수 있는 Bot이 없습니다"
     },
     "choose_folder": "폴더 선택",
+    "empty": "설치된 Skill이 없습니다",
+    "empty_hint": "하나 설치하면 Bot이 반복해서 쓸 수 있는 작업 방식을 익힙니다.",
     "error": {
       "missing_content": "SKILL.md가 있는 폴더를 선택하거나, 직접 편집을 열어 이름과 내용을 입력하세요.",
       "name_taken": "이미 있는 이름입니다. 다른 이름을 사용하세요.",
@@ -361,6 +363,7 @@
       "too_large": "Skill 내용은 최대 1MB입니다",
       "too_many_files": "파일은 최대 {{max}}개입니다"
     },
+    "file_count_other": "파일 {{count}}개",
     "folder_label": "Skill 폴더 선택",
     "install": "Skill 설치",
     "install_submit": "설치",
@@ -378,8 +381,7 @@
     "saved": "저장됨",
     "scope": "워크스페이스 Skill · 필요할 때 읽기 · 선택한 Bot으로 제한 가능",
     "starters": "Tofi 업무 Skill",
-    "support_note": "설명과 참고 파일을 지원합니다. 함께 포함된 스크립트는 자동으로 실행되지 않습니다.",
-    "file_count_other": "파일 {{count}}개"
+    "support_note": "설명과 참고 파일을 지원합니다. 함께 포함된 스크립트는 자동으로 실행되지 않습니다."
   },
   "status": {
     "authorizing": "승인 화면을 여는 중…",
