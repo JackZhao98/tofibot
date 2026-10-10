@@ -117,3 +117,17 @@ func TestMidRunReplyStaysUnfoldableKind(t *testing.T) {
 		t.Fatal(err, done)
 	}
 }
+
+func TestStatusNoteCountsAsProgressReport(t *testing.T) {
+	s, r, _ := streamFixture(t)
+	defer s.Close()
+	if ok, err := s.hasProgressReport(r.ID); err != nil || ok {
+		t.Fatalf("empty run: ok=%v err=%v", ok, err)
+	}
+	if _, err := s.publishChatMessage(context.Background(), r, "st", "Checking the page now.", chatPurposeStatus); err != nil {
+		t.Fatal(err)
+	}
+	if ok, err := s.hasProgressReport(r.ID); err != nil || !ok {
+		t.Fatalf("status note must count: ok=%v err=%v", ok, err)
+	}
+}
