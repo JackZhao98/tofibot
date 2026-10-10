@@ -138,4 +138,24 @@ assert.equal(toolDisplayLabel({...tool,status:"completed"}),"结果待核实");
  // The desktop and memory panels are localized; they must carry no hardcoded CJK copy (comments aside).
  for(const file of ["src/BotDesktopPanel.tsx","src/MemoryPanel.tsx"]) {const code=(await readFile(join(ui,file),"utf8")).replace(/\/\*[\s\S]*?\*\//g,"").replace(/\/\/.*$/gm,"");assert(!/[\p{sc=Han}\p{sc=Hiragana}\p{sc=Katakana}\p{sc=Hangul}]/u.test(code),`${file} has hardcoded CJK text`);}
  console.log("PASS 8: bilingual copy, collapsed activity, semantic sections, 44px/reduced motion, desktop/memory panels free of hardcoded CJK");
+ // 9. Definite failures stay on their step; genuinely uncertain actions get one compact card.
+ const profileFail={...tool,name:"set_bot_profile",arguments:'{"name":"tofi"}',status:"failed",outcome:{code:"invalid_arguments",status:"validation_error",execution_certainty:"not_executed",message:"PRIVATE_BODY",next_action:"repair_arguments"}};
+ const recovered={...scenario("done"),tools:[profileFail,{...tool,call_id:"synthetic-call-2",name:"set_bot_profile",status:"completed",outcome:undefined,result:"ok",started_at:"2026-10-05T10:00:04Z"}]};
+ assert.equal(view(recovered),undefined,"a recovered definite failure raises no card");
+ const recoveredHtml=markup(recovered);
+ assert(!recoveredHtml.includes("task-issue-card"));assert(recoveredHtml.includes("task-step is-not_executed is-problem"));
+ assert(recoveredHtml.includes("task-step-reason"),"one-line reason beside the failed step");assert(recoveredHtml.includes("保存 Bot 资料"));assert(!recoveredHtml.includes("检查文档"));
+ for(const locale of ["en","zh-CN"]){
+  const u=scenario("unknown"),uhtml=markup({...u,drafts:[]},locale),text=uhtml.replace(/<details[\s\S]*?<\/details>/g," ").replace(/<[^>]+>/g," ").replace(/&#x27;/g,"'").replace(/\s+/g," ");
+  assert.equal((uhtml.match(/class="task-issue-card"/g)||[]).length,1);assert(uhtml.includes('data-compact="true"'));
+  const copy=locale==="en"?{title:"Not sure this went through",sentence:"Check the service this action used before trying again.",button:"How to check"}:{title:"不确定是否已完成",sentence:"重试前，请先到该操作使用的服务里核对。",button:"如何核对"};
+  for(const part of Object.values(copy))assert(text.includes(part),`${locale}: ${part}`);
+  for(const gone of ["retained","fully loaded","may have taken effect","已保留","尚未完整加载","可能已生效"])assert(!text.includes(gone),`${locale}: dropped copy ${gone}`);
+  assert((text.match(/\d\d:\d\d:\d\d/g)||[]).length===0,"no per-call clock lines in the closed card");
+ }
+ const App=await server.ssrLoadModule("/src/thinkingHeadline.ts");
+ assert.equal(App.thinkingHeadline("I role for myself too—something like a planner for later"),"","plain prose is never sliced into a status");
+ assert.equal(App.thinkingHeadline("**Choosing a name**\nThe user wants"),"Choosing a name");
+ assert.equal(App.thinkingHeadline("**Working out which of the available tools fits best here**"),"Working out which of the available\u2026");
+ console.log("PASS 9: recovered definite failure has no card, profile step is named, uncertain action is one compact card, thinking status is never a mid-sentence slice");
 } finally {await server.close();}

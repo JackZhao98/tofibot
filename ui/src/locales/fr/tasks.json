@@ -11,7 +11,7 @@
       "expired": "Approbation expirée",
       "human_denied": "Vous avez refusé cette action",
       "policy_denied": "Cette action n’a pas passé le contrôle de sécurité",
-      "uncertain_effect": "Résultat d’exécution à vérifier",
+      "uncertain_effect": "Résultat incertain",
       "connection_status": "Connexion perdue, état non confirmé",
       "runtime_connection": "Connexion interrompue, la tâche n’a pas abouti",
       "unknown_failure": "La tâche n’a pas abouti"
@@ -22,7 +22,7 @@
       "open_model_connections": "Ouvrir les connexions aux modèles",
       "copy_diagnostics": "Copier le diagnostic",
       "view_activity": "Voir l’activité",
-      "verify_steps": "Voir les étapes de vérification",
+      "verify_steps": "Comment vérifier",
       "refresh_status": "Actualiser l’état"
     },
     "working": "En cours…",
@@ -84,13 +84,13 @@
     "config_changed": "Les réglages de l’outil ont changé, approuvez à nouveau",
     "tool_timeout": "Pas de réponse à temps, arrêté",
     "computer_restarting": "L’ordinateur redémarre ; cette étape n’a pas été exécutée",
-    "computer_unresponsive": "L’ordinateur ne répond pas ; cette étape n’a pas été exécutée"
+    "computer_unresponsive": "L’ordinateur ne répond pas ; cette étape n’a pas été exécutée",
+    "tool_rejected": "Refusé avant exécution, rien n'a changé"
   },
   "fact": {
     "labelled": "{{label}} : {{text}}",
     "execution_needs_checking": "Le résultat de l’exécution est à vérifier.",
     "sending_needs_checking": "Le résultat de l’envoi est à vérifier.",
-    "may_have_taken_effect": "Les actions non confirmées ci-dessus ont peut-être pris effet. Vérifiez avant de réessayer.",
     "check_sent_mail": "Consultez les messages envoyés dans votre messagerie et comparez l’heure, le destinataire et l’objet.",
     "check_target_service": "Consultez l’historique de cette action dans le service cible. Si rien n’est confirmé, laissez le résultat non confirmé.",
     "may_still_be_running": "La tâche est peut-être encore en cours. L’actualisation ne fait que lire le dernier état.",
@@ -318,7 +318,8 @@
       "command": "Exécution d’une commande",
       "computer": "Utilisation de l’ordinateur",
       "contact": "Contact d’un membre",
-      "call": "Appel de {{name}}"
+      "call": "Appel de {{name}}",
+      "profile": "Enregistrement du profil du Bot"
     },
     "title": {
       "form": "En attente de votre formulaire",
@@ -337,7 +338,8 @@
       "command": "Exécuter une commande",
       "computer": "Utiliser l’ordinateur",
       "contact": "Contacter un membre",
-      "call": "Appeler {{name}}"
+      "call": "Appeler {{name}}",
+      "profile": "Enregistrer le profil du Bot"
     },
     "step_action": {
       "desktop_capture": "Capture d’écran",
@@ -445,5 +447,9 @@
     "cancel": "Annuler",
     "submitting": "Envoi…",
     "submit": "Envoyer en privé"
+  },
+  "compact": {
+    "check_service": "Vérifiez le service utilisé avant de réessayer.",
+    "check_mail": "Vérifiez vos e-mails envoyés avant de réessayer."
   }
 }

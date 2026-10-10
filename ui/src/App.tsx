@@ -1,3 +1,4 @@
+import { thinkingHeadline } from "./thinkingHeadline";
 import { TaskRunBlock } from "./TaskRunBlock";
 import { buildTaskOwners, presentTaskIssue, taskPhaseLabel, type TaskOwner } from "./taskIssuePresentation";
 import { i18n, useTranslation } from "./i18n";
@@ -2155,13 +2156,6 @@ export function RunStatusAnnouncement({ conversationId, runs, botById, ready, ta
 }
 
 type RunSignal = { thinking?: string; retryUntil?: number };
-
-/** The headline of a reasoning summary: its bold title, else its first line, kept short. */
-export function thinkingHeadline(text: string): string {
-  const bold = [...text.matchAll(/\*\*([^*\n]{2,80})\*\*/g)].at(-1)?.[1];
-  const line = (bold ?? text.split("\n").map(part => part.trim()).filter(Boolean)[0] ?? "").replace(/[*_`#]/g, "").trim();
-  return line.length > 36 ? `${line.slice(0, 35)}…` : line;
-}
 
 function WorkingMembers({ isGroup, companionBotId, companionMotion, workingBotIds, runs, drafts, botById, toolActivities, signals = {}, connected }: { isGroup: boolean; companionBotId?: string; companionMotion?: AvatarMotion; workingBotIds: string[]; drafts: StreamDraft[]; runs: Run[]; botById: Map<string, Bot>; toolActivities: ToolActivity[]; signals?: Record<string, RunSignal>; connected: boolean }) {
   const { t } = useTranslation("chat");

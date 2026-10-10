@@ -11,7 +11,7 @@
       "expired": "核准已過期",
       "human_denied": "你未核准此操作",
       "policy_denied": "此操作未通過安全檢查",
-      "uncertain_effect": "執行結果待核實",
+      "uncertain_effect": "不確定是否已完成",
       "connection_status": "連線中斷，狀態待確認",
       "runtime_connection": "連線中斷，任務未完成",
       "unknown_failure": "任務未完成"
@@ -22,7 +22,7 @@
       "open_model_connections": "開啟模型連線設定",
       "copy_diagnostics": "複製診斷資訊",
       "view_activity": "查看執行紀錄",
-      "verify_steps": "查看核實步驟",
+      "verify_steps": "如何核對",
       "refresh_status": "重新整理狀態"
     },
     "working": "處理中…",
@@ -84,13 +84,13 @@
     "config_changed": "工具設定已變更，需要重新核准",
     "tool_timeout": "逾時未回應，已停止",
     "computer_restarting": "電腦正在重新啟動，此步驟未執行",
-    "computer_unresponsive": "電腦沒有回應，此步驟未執行"
+    "computer_unresponsive": "電腦沒有回應，此步驟未執行",
+    "tool_rejected": "執行前被拒絕，未做任何變更"
   },
   "fact": {
     "labelled": "{{label}}：{{text}}",
     "execution_needs_checking": "執行結果待核實。",
     "sending_needs_checking": "傳送結果待核實。",
-    "may_have_taken_effect": "以上待核實的操作可能已經生效；再次操作前請先核實。",
     "check_sent_mail": "請檢查郵件服務中的寄件備份，核對時間、收件人與主旨。",
     "check_target_service": "請在目標服務中核對這次操作的紀錄。無法確認時，請保持結果待核實。",
     "may_still_be_running": "任務可能仍在執行。重新整理只會讀取最新狀態。",
@@ -308,7 +308,8 @@
       "command": "正在執行指令",
       "computer": "正在操作電腦",
       "contact": "正在聯絡成員",
-      "call": "正在呼叫 {{name}}"
+      "call": "正在呼叫 {{name}}",
+      "profile": "正在儲存 Bot 資料"
     },
     "title": {
       "form": "等待你填寫表單",
@@ -327,7 +328,8 @@
       "command": "執行指令",
       "computer": "操作電腦",
       "contact": "聯絡成員",
-      "call": "呼叫 {{name}}"
+      "call": "呼叫 {{name}}",
+      "profile": "儲存 Bot 資料"
     },
     "step_action": {
       "desktop_capture": "截圖",
@@ -435,5 +437,9 @@
     "cancel": "取消",
     "submitting": "提交中…",
     "submit": "私密提交"
+  },
+  "compact": {
+    "check_service": "重試前，請先到該操作使用的服務核對。",
+    "check_mail": "重試前，請先查看寄件備份。"
   }
 }

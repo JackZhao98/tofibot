@@ -6,7 +6,7 @@ import { buildRetryFamilies, retryFamilyAnchor, isTerminalRun } from "./runFamil
 import type { Message, Run, ToolActivity, ToolActivityRunSummary } from "./types";
 import { providerForModel } from "./modelCatalog";
 import { i18n, type Language } from "./i18n";
-import { formatClock } from "./i18n/format";
+import { formatClock, formatList } from "./i18n/format";
 
 /** Text for one language, or the active UI language when none is given (tests pin one). */
 const tasksT = (locale?: Language) => i18n.getFixedT(locale ?? null, "tasks");
@@ -16,7 +16,9 @@ export type ExecutionState = "not_executed" | "in_progress" | "completed" | "unk
 export type TaskEvidence = { source: "run" | "tool" | "question" | "draft" | "connection"; id: string; code?: string; status?: string; certainty?: string; model?: string; updatedAt?: string; contextCode?: string };
 /** A fact that names one tool step can open that step in the activity record. */
 export type TaskFactLink = { runId: string; callId: string; label: string };
-export type TaskIssueView = { kind: TaskIssueKind; phase: "active" | "finishing" | "terminal"; title: string; facts: string[]; links: (TaskFactLink | undefined)[]; secondary: string[]; action: TaskAction; actionLabel: string; evidence: TaskEvidence[]; recordsComplete: boolean };
+/** The one-glance form of an uncertain-effect card: what, and what to check. */
+export type TaskIssueCompact = { subject: string; sentence: string; link?: TaskFactLink };
+export type TaskIssueView = { compact?: TaskIssueCompact; kind: TaskIssueKind; phase: "active" | "finishing" | "terminal"; title: string; facts: string[]; links: (TaskFactLink | undefined)[]; secondary: string[]; action: TaskAction; actionLabel: string; evidence: TaskEvidence[]; recordsComplete: boolean };
 export type TaskFamily = ReturnType<typeof buildRetryFamilies>[number];
 export type TaskOwner = { key: string; family: TaskFamily; anchor?: { kind: "message" | "question" | "draft"; id: string } };
 
@@ -104,7 +106,7 @@ const outcomeCodeKeys = {
   // Readiness checks run before anything is sent: "mcp_" + the method readiness state.
   mcp_auth_required: "outcome.auth_required", mcp_unavailable: "outcome.unavailable",
   mcp_not_configured: "outcome.not_configured", mcp_unknown: "outcome.unknown", mcp_ready: "outcome.ready",
-  mcp_config_changed: "outcome.config_changed",
+  mcp_config_changed: "outcome.config_changed", tool_rejected: "outcome.tool_rejected",
   // A computer or tool that stopped answering; the step failed, the task can go on.
   tool_timeout: "outcome.tool_timeout", computer_restarting: "outcome.computer_restarting",
   computer_unresponsive: "outcome.computer_unresponsive",
@@ -200,7 +202,6 @@ export function presentTaskIssue({ run, family, tools = [], questions = [], draf
     for (const tool of tools.filter(tool => toolExecutionState(tool) === "unknown")) pushToolFact(tool, t("fact.execution_needs_checking"));
     for (const question of questions.filter(questionUnknown)) facts.push(t("fact.labelled", { label: taskQuestionLabel(question, locale), text: t("fact.execution_needs_checking") }));
     for (const draft of drafts.filter(draft => draft.status === "unknown")) facts.push(t("fact.labelled", { label: taskDraftLabel(draft, locale), text: t("fact.sending_needs_checking") }));
-    facts.push(t("fact.may_have_taken_effect"));
   }
   // Steps that did not run are marked on the steps themselves.
   if (drafts.some(draft => draft.status === "unknown")) facts.push(t("fact.check_sent_mail"));
@@ -217,14 +218,22 @@ export function presentTaskIssue({ run, family, tools = [], questions = [], draf
   if (kind === "model_quota") facts.push(t(`fact.model_quota.${model}`, { provider: keyLabel }), t(`fact.model_quota.${model}_next`, { provider: keyLabel }));
   if (noToolSteps) facts.push(t("fact.no_tool_steps"));
   if (kind === "expired") facts.push(phase === "finishing" ? t("fact.finishing_results_kept") : t("fact.stopped_results_kept"));
-  if (tools.some(tool => toolExecutionState(tool) === "completed")) facts.push(t("fact.completed_steps_kept"));
+  if (kind !== "uncertain_effect" && tools.some(tool => toolExecutionState(tool) === "completed")) facts.push(t("fact.completed_steps_kept"));
   const complete = noToolSteps || (recordsComplete && (!summary || tools.filter(tool => tool.run_id === run.id).length >= summary.tool_count));
   const secondary = causes.filter(cause => cause !== kind && cause !== "unknown_failure").map(cause => cause === "provider_busy" ? t("secondary.then_provider_busy") : t(`issue.title.${cause}`));
   if (priorUnknown) secondary.unshift(run.status === "done" ? t("secondary.later_attempt_ended") : t("secondary.later_attempt", { phase: taskPhaseLabel({run, tools:tools.filter(tool => tool.run_id === run.id), questions:questions.filter(question => question.run_id === run.id), drafts:drafts.filter(draft => draft.run_id === run.id), locale}) }));
-  if (!complete) secondary.push(t("secondary.records_incomplete"));
+  if (!complete && kind !== "uncertain_effect") secondary.push(t("secondary.records_incomplete"));
+  let compact: TaskIssueCompact | undefined;
+  if (kind === "uncertain_effect") {
+    const unknownTools = tools.filter(tool => toolExecutionState(tool) === "unknown");
+    const unknownDrafts = drafts.filter(draft => draft.status === "unknown");
+    const names = [...new Set([...unknownTools.map(tool => toolStepTitle(tool)), ...questions.filter(questionUnknown).map(() => t("label.object.question")), ...unknownDrafts.map(() => t("label.object.draft"))])];
+    const first = unknownTools[0];
+    compact = { subject: formatList(names, "conjunction", locale), sentence: unknownDrafts.length ? t("compact.check_mail") : t("compact.check_service"), link: first ? { runId: first.run_id, callId: first.call_id, label: toolStepTitle(first) } : undefined };
+  }
   evidence.push({ source: "run", id: run.id, status: run.status, code: overloaded ? "server_is_overloaded" : run.failure?.code, model: run.model, updatedAt: run.updated_at });
   if (!connected) evidence.push({ source: "connection", id: run.id, status: "disconnected" });
-  return { kind, phase, title: t(`issue.title.${kind}`), facts, links, secondary, action, actionLabel: action === "open_codex" && provider !== "codex" ? t("issue.action.open_model_connections") : t(`issue.action.${action}`), evidence, recordsComplete: complete };
+  return { compact, kind, phase, title: t(`issue.title.${kind}`), facts, links, secondary, action, actionLabel: action === "open_codex" && provider !== "codex" ? t("issue.action.open_model_connections") : t(`issue.action.${action}`), evidence, recordsComplete: complete };
 }
 
 /** Diagnostics never contain arguments, results, prose errors, mail or reasoning. */
