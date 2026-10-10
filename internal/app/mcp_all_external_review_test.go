@@ -9,6 +9,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -159,8 +160,9 @@ func TestAllExternalReviewShadowExemptionNeverWaitsOrGrantsPermission(t *testing
 			f := newAutoReviewFixture(t)
 			_ = f.s.store.putAutoReviewMode("shadow")
 			started, release := make(chan struct{}), make(chan struct{})
+			var startedOnce sync.Once
 			f.p.reply = func(ctx context.Context, req *provider.ChatRequest) (*provider.ChatResponse, error) {
-				close(started)
+				startedOnce.Do(func() { close(started) }) // a malformed answer is requested once more
 				select {
 				case <-release:
 				case <-ctx.Done():
@@ -198,8 +200,15 @@ func TestAllExternalReviewShadowExemptionNeverWaitsOrGrantsPermission(t *testing
 			if decision == "malformed" {
 				status = "shadow_unavailable"
 			}
-			if q.Approval.Review.Status != status || q.AnsweredBy != "" || q.Status != questionRunDone || f.p.calls.Load() != 1 || f.effects.Load() != 1 {
+			wantCalls := int32(1)
+			if decision == "malformed" {
+				wantCalls = 2 // one fresh request for a malformed answer, then shadow_unavailable
+			}
+			if q.Approval.Review.Status != status || q.AnsweredBy != "" || q.Status != questionRunDone || f.p.calls.Load() != wantCalls || f.effects.Load() != 1 {
 				t.Fatal("Shadow advice gained authority", q)
+			}
+			if decision == "malformed" && q.Approval.Review.FailureCategory != mcpReviewFailureMalformed {
+				t.Fatal("shadow failure category missing", q.Approval.Review)
 			}
 			if _, _, err := f.s.store.AnswerQuestion(q.ID, "synthetic-human", true); err == nil {
 				t.Fatal("advice card became approval")

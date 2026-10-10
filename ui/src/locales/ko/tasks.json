@@ -392,6 +392,16 @@
       "auto_invalidated": "자동 결정 무효",
       "not_eligible": "자동 실행 대상 아님",
       "not_rereviewed": "재검토 안 됨"
+    },
+    "failure": {
+      "title": "검토를 완료하지 못한 이유",
+      "reviewer_not_configured": "검토 모델이 설정되어 있지 않습니다",
+      "input_invalid": "검토 데이터를 준비할 수 없습니다",
+      "input_too_large": "검토 데이터가 검토 모델의 입력 한도를 초과했습니다",
+      "provider_error": "검토 모델 요청이 실패했습니다",
+      "timeout": "검토 모델이 제한 시간 안에 응답하지 않았습니다",
+      "malformed_response": "검토 모델의 응답이 검증을 통과하지 못했습니다(1회 재시도 후에도 동일)",
+      "empty_response": "검토 모델이 응답을 반환하지 않았습니다(1회 재시도 후에도 동일)"
     }
   },
   "run_failure": {

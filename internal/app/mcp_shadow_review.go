@@ -58,12 +58,12 @@ func (s *Server) shadowExemptMCPCall(ctx context.Context, c Conversation, r Run,
 		return err
 	}
 	if payload == "" {
-		return s.store.setMCPReviewDisplay(q.ID, MCPReviewDisplay{autoReviewActor, "shadow_context_required", "Complete arguments are unavailable for safe review; the original host execution policy remains in force.", "codex-auto-review", "", false, autoReviewPolicyVersion, nil})
+		return s.store.setMCPReviewDisplay(q.ID, MCPReviewDisplay{autoReviewActor, "shadow_context_required", "Complete arguments are unavailable for safe review; the original host execution policy remains in force.", "codex-auto-review", "", false, autoReviewPolicyVersion, nil, ""})
 	}
 	return s.reviewNewMCPProposal(ctx, c, r, call, q)
 }
 
-func (s *Server) finishShadowMCPReview(c Conversation, r Run, call extensions.MCPCallApproval, id string, initial autoReviewSettings, result mcpReviewResult) error {
+func (s *Server) finishShadowMCPReview(c Conversation, r Run, call extensions.MCPCallApproval, id string, initial autoReviewSettings, result mcpReviewResult, failure *mcpReviewFailure) error {
 	tx, err := s.store.db.Begin()
 	if err != nil {
 		return err
@@ -95,10 +95,15 @@ func (s *Server) finishShadowMCPReview(c Conversation, r Run, call extensions.MC
 		status = "shadow_unavailable"
 	}
 	// Advice never changes a human answer, expiry, cancellation or run state.
-	q.Approval.Review = &MCPReviewDisplay{autoReviewActor, status, result.Reason, "codex-auto-review", result.RiskLevel, result.ConfirmationRequired, autoReviewPolicyVersion, nil}
+	failureCategory, failureDetail := mcpReviewFailureColumns(failure)
+	display := &MCPReviewDisplay{autoReviewActor, status, result.Reason, "codex-auto-review", result.RiskLevel, result.ConfirmationRequired, autoReviewPolicyVersion, nil, ""}
+	if status == "shadow_unavailable" {
+		display.FailureCategory = failureCategory
+	}
+	q.Approval.Review = display
 	q.UpdatedAt = now()
 	raw, _ := json.Marshal(q.Approval)
-	if _, err = tx.Exec(`UPDATE mcp_auto_reviews SET status=?,decision=?,reason=?,risk_level=?,confirmation_required=? WHERE question_id=?`, status, result.Decision, result.Reason, result.RiskLevel, boolInt(result.ConfirmationRequired), id); err != nil {
+	if _, err = tx.Exec(`UPDATE mcp_auto_reviews SET status=?,decision=?,reason=?,risk_level=?,confirmation_required=?,failure_category=?,failure_detail=? WHERE question_id=?`, status, result.Decision, result.Reason, result.RiskLevel, boolInt(result.ConfirmationRequired), failureCategory, failureDetail, id); err != nil {
 		return err
 	}
 	if _, err = tx.Exec(`UPDATE questions SET approval_json=?,updated_at=? WHERE id=?`, string(raw), q.UpdatedAt, id); err != nil {

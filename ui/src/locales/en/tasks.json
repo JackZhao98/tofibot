@@ -397,6 +397,16 @@
       "auto_invalidated": "Automatic decision invalid",
       "not_eligible": "Not eligible for automatic execution",
       "not_rereviewed": "Not reviewed again"
+    },
+    "failure": {
+      "title": "Why the review could not finish",
+      "reviewer_not_configured": "No reviewer model is configured",
+      "input_invalid": "The review packet could not be prepared",
+      "input_too_large": "The review packet exceeded the reviewer's input limit",
+      "provider_error": "The reviewer model request failed",
+      "timeout": "The reviewer did not answer within the time budget",
+      "malformed_response": "The reviewer's answer failed validation, also after one retry",
+      "empty_response": "The reviewer returned no answer, also after one retry"
     }
   },
   "run_failure": {
