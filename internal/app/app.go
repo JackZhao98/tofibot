@@ -919,7 +919,7 @@ func (s *Store) ListConversations(includeArchived ...bool) ([]Conversation, erro
 		(SELECT MAX(user_msg.created_at) FROM messages user_msg WHERE user_msg.conversation_id=c.id AND user_msg.role='user' AND user_msg.run_id IS NULL),
 		lm.id,lm.seq,lm.role,lm.kind,lm.sender_bot_id,substr(lm.content,1,160),lm.created_at,
 		CASE WHEN lm.kind='user_message' THEN 0 WHEN lm.run_id IS NOT NULL AND EXISTS (SELECT 1 FROM runs preview_run WHERE preview_run.id=lm.run_id AND preview_run.origin_conversation_id<>lm.conversation_id) THEN 1 ELSE 0 END,
-		COALESCE(cr.read_seq,0), (SELECT COUNT(*) FROM messages unread WHERE unread.conversation_id=c.id AND unread.seq>COALESCE(cr.read_seq,0) AND unread.role='assistant' AND unread.kind NOT IN ('notice','message_ref','bot_result') AND (unread.kind='user_message' OR NOT EXISTS (SELECT 1 FROM runs unread_run WHERE unread_run.id=unread.run_id AND unread_run.origin_conversation_id<>unread.conversation_id)))
+		COALESCE(cr.read_seq,0), (SELECT COUNT(*) FROM messages unread WHERE unread.conversation_id=c.id AND unread.seq>COALESCE(cr.read_seq,0) AND unread.role='assistant' AND unread.kind NOT IN ('notice','message_ref','bot_result','progress') AND (unread.kind='user_message' OR NOT EXISTS (SELECT 1 FROM runs unread_run WHERE unread_run.id=unread.run_id AND unread_run.origin_conversation_id<>unread.conversation_id)))
         FROM conversations c
         LEFT JOIN conversation_reads cr ON cr.conversation_id=c.id
 		LEFT JOIN messages lm ON lm.conversation_id=c.id
