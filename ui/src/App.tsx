@@ -8,6 +8,7 @@ import { textareaCaretRect } from "./textareaCaret";
 import { DelayedFeedback } from "./DelayedFeedback";
 import { WebFileDropOverlay } from "./WebFileDropOverlay";
 import { SidebarAccount } from "./OwnerSession";
+import { UpdateBanner } from "./UpdateNotice";
 import { desktopState, updateDesktopState, isDesktop, type DesktopCommand } from "./desktop";
 import {TimezoneProvider, useUserTimezone} from "./UserTimezone";
 import {dateInTimezone, formatZonedTime} from "./timezone";
@@ -1712,6 +1713,7 @@ function Workspace() {
 
   return (
     <div inert={Boolean(deleteTarget || (viewOnlyChat && (isDesktop || compactViewport))) || undefined} className={`workspace${keyboardViewportOpen ? " keyboard-viewport-open" : ""}`} style={viewportHeight ? { "--viewport-height": `${viewportHeight}px` } as React.CSSProperties : undefined}>
+      <UpdateBanner />
       {workspaceError && indexInitialized.current && <div className="stream-status workspace-status" role="alert">{t("workspace.refresh_failed")}<button className="secondary-button" onClick={() => void refreshIndex()}>{t("common:action.retry")}</button></div>}
       {computerInfo && (computerInfo.state !== "ready" || computerHealthAlert(computerInfo.health)) && panel !== "desktop" && <div className="stream-status workspace-status computer-preparing" role="status"><strong>{computerInfo.health?.state === "unresponsive" ? t("computer.health_unresponsive") : computerInfo.health?.state === "restarting" ? t("computer.health_restarting") : computerInfo.state === "starting" ? t("computer.starting") : computerInfo.state === "hibernated" ? t("computer.hibernated") : computerInfo.state === "hibernating" ? t("computer.hibernating") : computerInfo.state === "resuming" ? t("computer.resuming") : computerInfo.state === "error" ? t("computer.failed") : computerInfo.state === "stopped" ? t("computer.stopped") : t("computer.unavailable")}</strong><span>{(computerInfo.state === "starting" || computerInfo.state === "resuming") && computerInfo.phase ? ` · ${computerPhaseKeys[computerInfo.phase] ? t(computerPhaseKeys[computerInfo.phase]) : computerInfo.phase}` : ""}{computerInfo.error ? ` · ${computerInfo.error}` : ""}</span>{(computerInfo.state === "error" || computerInfo.state === "stopped" || computerInfo.health?.state === "unresponsive") && <button className="secondary-button" onClick={() => void api.computerRetry().then(() => api.computerInfo()).then(setComputerInfo).catch(cause => setError(errorText(cause)))}>{t("common:action.retry")}</button>}</div>}
       <div className="native-titlebar" aria-hidden="true" /><ActionHints /><div className={`workspace-grid${sidebarCollapsed ? " sidebar-collapsed" : ""}${contextPanelOpen ? " context-open" : ""}${contextPanelOpen || viewOnlyChat ? " card-open" : ""}${activeBot ? " bot-panel-ready" : ""}${panel === "bot-edit" ? " bot-panel-open" : ""}${displayedPanel === "terminal" ? " terminal-context" : ""}`}>
