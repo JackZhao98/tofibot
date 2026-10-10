@@ -1,9 +1,9 @@
 // Settings polish audit: opens every Settings tab and sub-state (stubbed API, synthetic data), at 1440x900 and
-// 390x844, light and dark, scrolls the whole page, and fails on UI that looks like raw browser fallback or is misaligned.
+// 1180x820, 1024x768 (tablet) and 390x844, light and dark (POLISH_BROWSER=webkit runs it in WebKit), scrolls the whole page, and fails on UI that looks like raw browser fallback or is misaligned.
 //
 //   PLAYWRIGHT_MODULE=/path/to/playwright/index.mjs npm run test:settings-polish
 //   POLISH_SHOTS=<dir>   also saves a full-page screenshot of every scenario (and violations.json) there
-//   POLISH_ONLY=<regex>  only scenarios whose id matches;  POLISH_VIEWPORTS=1440,390;  POLISH_THEMES=light,dark
+//   POLISH_ONLY=<regex>  only scenarios whose id matches;  POLISH_VIEWPORTS=1440,1180,1024,390;  POLISH_THEMES=light,dark
 //
 // Rules (a visible element is one with a layout box, visibility visible, and not visually hidden):
 //  native-checkbox / native-radio / native-select / native-input-<type>
@@ -17,6 +17,8 @@
 //  clipped-scroll a scrollable box inside a card whose content is cut off (render the full list instead)
 //  multi-details / floating-details  at most one "Details" disclosure per card, never outside a card
 //  overflow      390px only: the document, or any visible element, is wider than the viewport or its clipping parent
+//  text-overflow every visible chip, button, badge, label and service mark: scrollWidth must not exceed clientWidth + 1
+//                (text cut off by its own box), at every viewport
 //  font-size     text under 12px, except the explicit exception: mono, >= 10px, and either uppercase with letter
 //                spacing (section/danger labels) or the nav count pill (.settings-count)
 import assert from "node:assert/strict";
@@ -26,7 +28,8 @@ import {fileURLToPath, pathToFileURL} from "node:url";
 
 const ui = dirname(dirname(fileURLToPath(import.meta.url)));
 if (!process.env.PLAYWRIGHT_MODULE) { console.log("SKIP: PLAYWRIGHT_MODULE is not set"); process.exit(0); }
-const {chromium} = await import(pathToFileURL(process.env.PLAYWRIGHT_MODULE));
+const {chromium, webkit} = await import(pathToFileURL(process.env.PLAYWRIGHT_MODULE));
+const engine = process.env.POLISH_BROWSER === "webkit" ? webkit : chromium;
 const {createServer} = await import("vite");
 const {default: react} = await import("@vitejs/plugin-react");
 
@@ -35,7 +38,8 @@ const {default: react} = await import("@vitejs/plugin-react");
 const ALLOWED_BUTTON_CLASSES = ["primary-button", "secondary-button", "text-button", "settings-ghost-button", "admin-danger-button", "purge-button", "close-button", "settings-banner-more", "mcp-button", "settings-mrow", "settings-back", "admin-row", "disclosure-toggle", "integration-tile", "integration-custom", "extension-back", "settings-dismiss", "danger-link", "onb-choice", "onb-quiet", "onb-skip", "onb-later", "onb-tile", "onb-service-main", "onb-primary", "update-banner-dismiss"];
 const ALLOWED_BUTTON_CONTAINERS = [".segmented", ".settings-tabs", ".settings-segment", ".credential-tabs", ".appearance-options", ".onb-seg", ".emoji-mart", ".usage-agents", ".usage-ranges"];
 
-const VIEWPORTS = (process.env.POLISH_VIEWPORTS ?? "1440,390").split(",").map(width => width === "1440" ? ["1440", 1440, 900] : ["390", 390, 844]);
+const SIZES = {"1440": [1440, 900], "1180": [1180, 820], "1024": [1024, 768], "390": [390, 844]};
+const VIEWPORTS = (process.env.POLISH_VIEWPORTS ?? "1440,1180,1024,390").split(",").map(width => [width, ...SIZES[width]]);
 const THEMES = (process.env.POLISH_THEMES ?? "light,dark").split(",");
 const only = process.env.POLISH_ONLY ? new RegExp(process.env.POLISH_ONLY) : null;
 const shots = process.env.POLISH_SHOTS;
@@ -167,6 +171,19 @@ function auditPage(opts) {
   }
   for (const [card, count] of perCard) if (count > 1) add("multi-details", card, `${count} Details disclosures in one card`);
 
+  // ---- text cut off by its own box (every viewport): chips, buttons, badges, labels, service marks
+  for (const el of document.querySelectorAll("button, label, .status-badge, [class*=chip], [class*=badge], .service-mark, .onb-queue li, .onb-steps span, .onb-count, .onb-tile code")) {
+    if (!inRoots(el) || el.closest("svg") || !visible(el)) continue;
+    const s = style(el);
+    if (s.display === "inline" || /auto|scroll/.test(s.overflowX)) continue;
+    // An avatar or icon box holds only an SVG (its <title> is not painted text): nothing to cut off.
+    const textWalker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
+    let painted = false;
+    for (let n = textWalker.nextNode(); n; n = textWalker.nextNode()) if (n.nodeValue.trim() && !n.parentElement.closest("svg")) { painted = true; break; }
+    if (!painted) continue;
+    if (el.scrollWidth > el.clientWidth + 1) add("text-overflow", el, `${el.scrollWidth}px content in a ${el.clientWidth}px box "${el.textContent.trim().slice(0, 30)}"`);
+  }
+
   // ---- overflow (phones)
   if (mobile) {
     const doc = document.documentElement;
@@ -226,7 +243,7 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
   server = await createServer({configFile: false, root: ui, plugins: [react()], server: {host: "127.0.0.1", port: 0, hmr: false}, logLevel: "error"});
   await server.listen();
   const origin = `http://127.0.0.1:${server.httpServer.address().port}`;
-  browser = await chromium.launch({executablePath: process.env.TOFI_TEST_CHROME || undefined});
+  browser = await engine.launch(engine === chromium ? {executablePath: process.env.TOFI_TEST_CHROME || undefined} : {});
 
   // ---- Stubbed API: neutral sample data only.
   const INSTANCE = "0b1c2d3e-4f50-4a6b-8c7d-9e0f1a2b3c4d";
@@ -465,6 +482,8 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
       if (path === "/api/model-settings") return json({model: "codex-gpt-6-sol", reasoning_effort: "medium"});
       if (path === "/api/extensions/oauth-options") return json({vm_available: false, web_callback_origin: "", desktop_redirect_uri: ""});
       if (path === "/api/extensions/mcp" && method === "GET") return json({servers: state.mcp});
+      if (path === "/api/extensions/mcp") { const server = bodyOf(); state.mcp = [...state.mcp.filter(item => item.name !== server.name), server]; return json({}); }
+      if (/^\/api\/extensions\/mcp\/[^/]+\/test$/.test(path)) return json({ok: true, tool_count: 7});
       if (path.endsWith("/messages")) return json({messages: [], drafts: [], has_more: false, event_cursor: 0});
       if (path.endsWith("/runs")) return json({runs: []});
       if (path.endsWith("/tools")) return json({activities: [], summaries: [], tool_count: 0, has_more: false});
@@ -487,6 +506,9 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
   onb("connected", async ({page}) => { await page.getByRole("button", {name: /Let.s set up your crew/}).click(); await page.getByRole("radio").first().waitFor(); await page.locator(".onb-choice").nth(1).click(); await page.locator("#onb-key").fill("sk-proj-synthetic-0000000000"); await page.locator(".onb-keyrow button").click(); await page.locator("#onb-key-error").waitFor(); await page.locator(".onb-keyrow button").click(); await page.locator(".onb-connected").waitFor(); await page.locator(".onb-advanced .disclosure-toggle").click().catch(() => {}); await page.waitForTimeout(700); });
   onb("services", async ({page}) => { await page.getByRole("button", {name: /Let.s set up your crew/}).click(); await page.getByRole("radio").first().waitFor(); await page.locator(".onb-choice").nth(1).click(); await page.locator("#onb-key").fill("sk-proj-synthetic-0000000000"); await page.locator(".onb-keyrow button").click(); await page.locator("#onb-key-error").waitFor(); await page.locator(".onb-keyrow button").click(); await page.locator(".onb-connected").waitFor(); await page.locator(".onb-foot .onb-primary").click(); await page.locator(".onb-tiles").waitFor(); await page.locator("[data-integration-id='github']").click(); await page.locator("[data-integration-id='linear']").click(); await page.waitForTimeout(700); });
   onb("services-walk", async ({page}) => { await page.getByRole("button", {name: /Let.s set up your crew/}).click(); await page.getByRole("radio").first().waitFor(); await page.locator(".onb-choice").nth(1).click(); await page.locator("#onb-key").fill("sk-proj-synthetic-0000000000"); await page.locator(".onb-keyrow button").click(); await page.locator("#onb-key-error").waitFor(); await page.locator(".onb-keyrow button").click(); await page.locator(".onb-connected").waitFor(); await page.locator(".onb-foot .onb-primary").click(); await page.locator(".onb-tiles").waitFor(); await page.locator("[data-integration-id='github']").click(); await page.locator("[data-integration-id='linear']").click(); await page.locator(".onb-foot .onb-primary").click(); await page.locator(".onb-queue").waitFor(); await page.locator(".onb-service-form input[type=password]").fill("synthetic-token").catch(() => {}); await page.waitForTimeout(700); });
+
+  onb("services-summary", async ({page}) => { await page.getByRole("button", {name: /Let.s set up your crew/}).click(); await page.getByRole("radio").first().waitFor(); await page.locator(".onb-choice").nth(1).click(); await page.locator("#onb-key").fill("sk-proj-synthetic-0000000000"); await page.locator(".onb-keyrow button").click(); await page.locator("#onb-key-error").waitFor(); await page.locator(".onb-keyrow button").click(); await page.locator(".onb-connected").waitFor(); await page.locator(".onb-foot .onb-primary").click(); await page.locator(".onb-tiles").waitFor(); await page.locator("[data-integration-id='github']").click(); await page.locator("[data-integration-id='linear']").click(); await page.locator(".onb-foot .onb-primary").click(); await page.locator(".onb-queue").waitFor(); await page.locator(".onb-foot .onb-quiet").click(); await page.locator(".onb-queue li[data-state=skipped], .onb-queue li[data-state=now]").first().waitFor(); await page.locator(".onb-foot .onb-quiet").click(); await page.locator(".onb-summary").waitFor(); await page.waitForTimeout(700); });
+  onb("services-connected", async ({page}) => { await page.getByRole("button", {name: /Let.s set up your crew/}).click(); await page.getByRole("radio").first().waitFor(); await page.locator(".onb-choice").nth(1).click(); await page.locator("#onb-key").fill("sk-proj-synthetic-0000000000"); await page.locator(".onb-keyrow button").click(); await page.locator("#onb-key-error").waitFor(); await page.locator(".onb-keyrow button").click(); await page.locator(".onb-connected").waitFor(); await page.locator(".onb-foot .onb-primary").click(); await page.locator(".onb-tiles").waitFor(); await page.locator("[data-integration-id='microsoft-learn']").click(); await page.locator(".onb-foot .onb-primary").click(); await page.locator(".onb-service-main").click(); await page.locator(".onb-service-done").waitFor(); await page.locator(".onb-foot .onb-primary").click(); await page.locator(".onb-summary").waitFor(); await page.waitForTimeout(700); });
 
   // ---- Walk everything.
   const scrollThrough = async (page, selector) => {
