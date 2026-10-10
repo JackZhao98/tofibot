@@ -1,12 +1,8 @@
-import { TofiIcon, type TofiIconName } from "./icons";
+import { TofiIcon } from "./icons";
+import { ServiceMark } from "./ServiceMark";
 import { CATS, EmptyState } from "./EmptyCat";
 import { useTranslation } from "./i18n";
 import { heldIntegrations, integrationAuthLabel, integrationCatalog, integrationOriginLabel, matchesIntegration, type IntegrationPreset } from "./integrationCatalog";
-
-export function ServiceMark({name}:{name:string}) {
- const icon:TofiIconName = /Calendar/.test(name)?"calendar":/Drive/.test(name)?"folder":/Gmail/.test(name)?"inbox":/Docs|Sheets|Slides/.test(name)?"file-text":/GitHub/.test(name)?"code":/Notion|Context7/.test(name)?"book-open":"mcp";
- return <span className={`service-mark${/Google|Gmail/.test(name)?" service-mark-google":""}`} aria-hidden="true"><TofiIcon name={icon} size={22}/></span>;
-}
 
 export function IntegrationBrowser({query,servers,onQueryChange,onBack,onSelect,onCustom}:{query:string;servers:{url:string}[];onQueryChange:(query:string)=>void;onBack:()=>void;onSelect:(preset:IntegrationPreset)=>void;onCustom:()=>void}) {
  const { t } = useTranslation("extensions");
