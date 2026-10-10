@@ -26,6 +26,11 @@ type Account struct {
 	Disabled           bool   `json:"disabled"`
 	MustChangePassword bool   `json:"must_change_password"`
 	Legacy             bool   `json:"-"`
+	// Deleting accounts are always disabled; the step/error pair tells the
+	// admin where a stopped deletion will resume. Both are codes, not upstream text.
+	Deleting    bool   `json:"deleting"`
+	DeleteStep  string `json:"delete_step,omitempty"`
+	DeleteError string `json:"delete_error,omitempty"`
 }
 type AccountGateway struct {
 	root                *Server
@@ -37,6 +42,11 @@ type AccountGateway struct {
 	closed              bool
 	runtimeFactory      func(Config) (*Server, error)
 	legacyComputerPhase string
+	deleteRunning       map[string]bool
+	// deleteHook lets tests fail a deletion step; nil in production.
+	deleteHook func(step string) error
+	downloads  downloadLimiter
+	sweepStop  chan struct{}
 }
 
 func NewAccountGateway(c Config) (*AccountGateway, error) {
@@ -81,6 +91,10 @@ func NewAccountGateway(c Config) (*AccountGateway, error) {
 		root.Close()
 		return nil, err
 	}
+	if err = ensureAccountDeleteColumns(tx); err != nil {
+		root.Close()
+		return nil, err
+	}
 	if err = tx.Commit(); err != nil {
 		root.Close()
 		return nil, err
@@ -120,6 +134,7 @@ func NewAccountGateway(c Config) (*AccountGateway, error) {
 			return nil, err
 		}
 	}
+	g.startExportSweeper()
 	return g, nil
 }
 func (g *AccountGateway) Close() error {
@@ -129,6 +144,10 @@ func (g *AccountGateway) Close() error {
 		return nil
 	}
 	g.closed = true
+	if g.sweepStop != nil {
+		close(g.sweepStop)
+		g.sweepStop = nil
+	}
 	for id := range g.active {
 		g.cancelAccount(id)
 	}
@@ -352,6 +371,10 @@ func (g *AccountGateway) workspace(a Account) (*Server, error) {
 func (g *AccountGateway) handle(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("X-Content-Type-Options", "nosniff")
 	w.Header().Set("Cache-Control", "no-store")
+	if strings.HasPrefix(r.URL.Path, "/exports/") {
+		g.serveDeletedExport(w, r)
+		return
+	}
 	if !strings.HasPrefix(r.URL.Path, "/api/") {
 		g.root.handle(w, r)
 		return
@@ -510,6 +533,9 @@ func (g *AccountGateway) handle(w http.ResponseWriter, r *http.Request) {
 		g.adminCapacity(w, r, a)
 		return
 	}
+	if g.adminExports(w, r, a) {
+		return
+	}
 	if r.URL.Path == "/api/admin/accounts" {
 		if a.Role != "admin" {
 			writeErr(w, 403, "forbidden", "admin required")
@@ -535,7 +561,7 @@ func (g *AccountGateway) handle(w http.ResponseWriter, r *http.Request) {
 			writeJSON(w, 201, created)
 			return
 		case http.MethodGet:
-			rows, err := g.root.store.db.Query(`SELECT id,username,email,role,disabled,must_change_password FROM accounts ORDER BY created_at,id`)
+			rows, err := g.root.store.db.Query(`SELECT id,username,email,role,disabled,must_change_password,deleting,delete_step,delete_error FROM accounts ORDER BY created_at,id`)
 			if err != nil {
 				writeErr(w, 500, "storage", "cannot list accounts")
 				return
@@ -544,7 +570,7 @@ func (g *AccountGateway) handle(w http.ResponseWriter, r *http.Request) {
 			items := []Account{}
 			for rows.Next() {
 				var item Account
-				if rows.Scan(&item.ID, &item.Username, &item.Email, &item.Role, &item.Disabled, &item.MustChangePassword) != nil {
+				if rows.Scan(&item.ID, &item.Username, &item.Email, &item.Role, &item.Disabled, &item.MustChangePassword, &item.Deleting, &item.DeleteStep, &item.DeleteError) != nil {
 					writeErr(w, 500, "storage", "cannot list accounts")
 					return
 				}

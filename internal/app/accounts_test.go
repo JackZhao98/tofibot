@@ -222,7 +222,7 @@ func TestAccountDisableRestoreRevokesRequestsAndRetainsWorkspace(t *testing.T) {
 		t.Fatal("cannot register active request")
 	}
 	defer cleanup()
-	w := accountRequest(g, "DELETE", "/api/admin/accounts/"+user.ID, "", adminCookie)
+	w := accountRequest(g, "PATCH", "/api/admin/accounts/"+user.ID, `{"disabled":true}`, adminCookie)
 	if w.Code != 200 {
 		t.Fatalf("disable %d %s", w.Code, w.Body.String())
 	}
