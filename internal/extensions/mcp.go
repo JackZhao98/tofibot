@@ -86,6 +86,7 @@ type Manager struct {
 	mcpConfigFence     sync.RWMutex // Dispatch/configuration fence, separate from OAuth cache locking.
 	cfg                Config
 	mu                 sync.RWMutex
+	statusMu           sync.Mutex // guards the last-known status file
 	oauth              map[string]oauthSession
 	oauthState         map[string]string
 	tokenStores        map[string]*FileTokenStore

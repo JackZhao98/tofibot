@@ -308,7 +308,6 @@
   "oauth": {
     "help_body": "授权方式自动跟随入口，适用于 Google、Notion 和其他 OAuth 服务。手动配置的客户端需在服务后台登记下方完整回调地址；Notion 等支持自动注册的服务由 Tofi 处理。",
     "help_title": "登录方式与限制",
-    "linked": "{{title}} 已授权",
     "waiting": "等待 {{title}} 授权"
   },
   "origin": {
@@ -394,13 +393,14 @@
   },
   "status": {
     "authorizing": "正在打开授权…",
+    "checked": "{{when}}已检查",
     "checking": "正在读取工具…",
+    "connected_tools_other": "已连接 · {{count}} 个工具",
     "failed": "连接失败",
     "needs_auth": "需要授权",
     "removing": "处理中…",
     "unverified": "尚未验证",
-    "waiting": "等待授权",
-    "tools_other": "{{count}} 个工具"
+    "waiting": "等待授权"
   },
   "vm": {
     "cancel": "取消授权",

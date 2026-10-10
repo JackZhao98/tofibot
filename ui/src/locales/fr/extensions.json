@@ -310,7 +310,6 @@
   "oauth": {
     "help_body": "Le mode de connexion suit la façon dont vous avez ouvert Tofi et fonctionne pour Google, Notion et les autres services OAuth. Pour un client configuré manuellement, enregistrez l’URL de redirection complète ci-dessous dans la console du service ; les services à enregistrement automatique comme Notion sont gérés par Tofi.",
     "help_title": "Mode de connexion et limites",
-    "linked": "{{title}} autorisé",
     "waiting": "En attente de l’autorisation {{title}}"
   },
   "origin": {
@@ -400,15 +399,16 @@
   },
   "status": {
     "authorizing": "Ouverture de l’autorisation…",
+    "checked": "Vérifié {{when}}",
     "checking": "Chargement des outils…",
+    "connected_tools_many": "Connecté · {{count}} d’outils",
+    "connected_tools_one": "Connecté · {{count}} outil",
+    "connected_tools_other": "Connecté · {{count}} outils",
     "failed": "Échec de la connexion",
     "needs_auth": "Autorisation requise",
     "removing": "Traitement…",
     "unverified": "Pas encore vérifié",
-    "waiting": "En attente d’autorisation",
-    "tools_one": "{{count}} outil",
-    "tools_many": "{{count}} d’outils",
-    "tools_other": "{{count}} outils"
+    "waiting": "En attente d’autorisation"
   },
   "vm": {
     "cancel": "Annuler l’autorisation",

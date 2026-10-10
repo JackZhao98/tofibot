@@ -308,7 +308,6 @@
   "oauth": {
     "help_body": "認可方法は開いた入口に合わせて自動で決まり、Google、Notion などの OAuth サービスに対応します。手動で設定したクライアントは、下のリダイレクト URL をそのままサービスの管理画面に登録してください。Notion など自動登録に対応したサービスは Tofi が処理します。",
     "help_title": "ログイン方法と制限",
-    "linked": "{{title}} を認可済み",
     "waiting": "{{title}} の認可を待っています"
   },
   "origin": {
@@ -394,13 +393,14 @@
   },
   "status": {
     "authorizing": "認可を開いています…",
+    "checked": "{{when}}に確認",
     "checking": "ツールを読み込み中…",
+    "connected_tools_other": "接続済み · ツール {{count}} 件",
     "failed": "接続に失敗しました",
     "needs_auth": "認可が必要です",
     "removing": "処理中…",
     "unverified": "未確認",
-    "waiting": "認可を待っています",
-    "tools_other": "ツール {{count}} 個"
+    "waiting": "認可を待っています"
   },
   "vm": {
     "cancel": "認可をキャンセル",
