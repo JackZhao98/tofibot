@@ -1,0 +1,14 @@
+.update-banner{position:relative;display:flex;align-items:center;gap:10px;flex-shrink:0;padding:8px 16px;border-bottom:1px solid var(--line-soft);background:color-mix(in srgb,var(--lagoon) 10%,var(--surface));color:var(--ink);font:13px/1.45 var(--body)}
+.update-banner>svg{flex:none;color:var(--lagoon-text)}
+.update-banner p{flex:1;min-width:0;margin:0;overflow-wrap:anywhere}
+.update-banner code{padding:1px 6px;border-radius:6px;background:var(--sunk);font:12px var(--mono)}
+.update-banner-link{flex:none;color:var(--ink);font-weight:600;text-decoration:underline;text-underline-offset:3px}
+.update-banner-dismiss{flex:none;display:grid;place-items:center;width:32px;height:32px;padding:0;border:0;border-radius:8px;background:transparent;color:var(--muted);cursor:pointer}
+.update-banner-dismiss:hover{background:var(--sunk);color:var(--ink)}
+@media(max-width:700px){.update-banner{flex-wrap:wrap;padding:10px 44px 10px 12px}.update-banner p{flex:1 1 calc(100% - 30px)}.update-banner-link{margin-left:26px}.update-banner-dismiss{position:absolute;top:6px;right:6px}}
+.version-card .version-value{display:inline-flex;align-items:center;flex-wrap:wrap;justify-content:flex-end;gap:10px;color:var(--ink);font:13px/1.4 var(--body)}
+.version-card .version-value code{font:13px var(--mono)}
+.version-card .version-value a{color:var(--ink);text-decoration:underline;text-underline-offset:3px}
+.version-card .version-muted{color:var(--muted)}
+.version-card .settings-row-copy code{padding:1px 6px;border-radius:6px;background:var(--sunk);font:12px var(--mono);overflow-wrap:anywhere}
+@media(max-width:700px){.version-card .version-value{justify-content:flex-start}}

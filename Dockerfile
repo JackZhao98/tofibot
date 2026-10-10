@@ -12,7 +12,8 @@ ENV CGO_ENABLED=0 GOOS=linux
 COPY go.mod go.sum ./
 RUN go mod download
 COPY . ./
-RUN go build -trimpath -ldflags="-s -w" -o /out/tofi ./cmd/tofi \
+ARG TOFI_VERSION=dev
+RUN go build -trimpath -ldflags="-s -w -X github.com/JackZhao98/tofibot/internal/app.Version=${TOFI_VERSION}" -o /out/tofi ./cmd/tofi \
   && go build -trimpath -ldflags="-s -w" -o /out/tofi-guest ./cmd/tofi-guest
 
 FROM scratch AS guest-artifact
