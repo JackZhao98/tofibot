@@ -180,10 +180,10 @@
     "minutes_seconds": "{{minutes}} min {{seconds}} s"
   },
   "empty": {
-    "cat_name": "Mochi",
     "first_bot_body": "Every Bot has its own direct message. Put several Bots in a group so they can work together on real messages.",
     "first_bot_title": "Create your first Bot",
-    "start_chat": "Start chatting"
+    "start_chat": "Start chatting",
+    "start_chat_body": "Send a message, or hand over a task."
   },
   "error": {
     "bot_missing": "Couldn't find this Bot.",

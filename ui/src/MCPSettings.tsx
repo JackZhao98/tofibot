@@ -13,6 +13,7 @@ import { LocalMCPPanel } from "./LocalMCPPanel";
 import { Banner } from "./settings/components";
 import { mcpTokenHeaders } from "./mcpTokenHeaders";
 import { i18n, useTranslation } from "./i18n";
+import { CATS, EmptyState } from "./EmptyCat";
 import "./mcp-test-motion.css";
 import "./oauth-link-motion.css";
 
@@ -123,7 +124,7 @@ export function MCPSettings({refreshToken=0,bots=[]}:{refreshToken?:number;bots?
    <div className="mcp-toolbar"><h3>{t("mcp.added")} <span>{servers.length||""}</span></h3><button className="mcp-button" onClick={()=>setBrowse(true)}><TofiIcon name="plus" size={16}/>{t("mcp.add")}</button></div>
    {listError&&<div className="mcp-list-error" role="alert"><span>{listError}</span><button className="mcp-button" onClick={()=>void refresh()}>{t("common:action.retry")}</button></div>}
    {!loaded&&<p className="mcp-placeholder">{t("mcp.loading")}</p>}
-   {loaded&&!listError&&servers.length===0&&<div className="extension-empty"><TofiIcon name="plug" size={24}/><h3>{t("mcp.empty")}</h3></div>}
+   {loaded&&!listError&&servers.length===0&&<EmptyState name="mcp-empty" className="extension-empty" look={CATS.yuzu} pose="curious" size={72} title={t("mcp.empty")}/>}
    <div className="mcp-rows">{servers.map(server=><MCPRow key={server.name} route={route} botId={bots.find(bot=>!bot.archived)?.id} server={server} checkRequest={checks[server.name]??0} refresh={refresh} onEdit={()=>setEditor({server,preset:presetFor(server)})} onRemoved={()=>{setServers(items=>items.filter(item=>item.name!==server.name));void refresh();}}/>)}</div>
   </>}
  </div>;

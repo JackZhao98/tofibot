@@ -1,4 +1,5 @@
 import { useEffect, useId, useLayoutEffect, useMemo, useRef, useState, type RefObject } from "react";
+import { CATS, EmptyState } from "./EmptyCat";
 import { createPortal } from "react-dom";
 import { request } from "./api";
 import { BotAvatar } from "./BotAvatar";
@@ -164,7 +165,7 @@ function ViewOnlyChatHistory({ conversationId, runId, botById, closeRef }: { con
     {(history?.hasMore || error) && <button ref={loadRef} type="button" className="load-older" style={{ minHeight: 44 }} aria-controls={listId} aria-disabled={loading} onClick={() => void loadPage()}>{loading ? t("viewOnly.loading_older") : error ? history ? t("viewOnly.retry_older") : t("common:action.retry") : t("history.load_older")}</button>}
     {history && !history.hasMore && <p ref={startRef} tabIndex={-1} className="muted" style={{ textAlign: "center", fontSize: 12 }}>{t("viewOnly.at_start")}</p>}
     <span className="sr-only" role="status" aria-live="polite">{announcement}</span>
-    {history && !history.messages.length && <div className="conversation-empty"><h2>{history.hasMore ? t("viewOnly.no_match") : t("viewOnly.empty")}</h2></div>}
+    {history && !history.messages.length && <EmptyState name="view-only-empty" className="conversation-empty" look={CATS.mochi} pose={history.hasMore ? "curious" : "asleep"}><h2>{history.hasMore ? t("viewOnly.no_match") : t("viewOnly.empty")}</h2></EmptyState>}
     <div id={listId} className="view-only-message-list">{history?.messages.map((message: Message) => {
       const bot = message.sender_bot_id ? botById.get(message.sender_bot_id) : undefined;
       const label = bot?.name ?? message.sender_bot_name ?? (message.role === "user" ? t("message.you") : "Bot");

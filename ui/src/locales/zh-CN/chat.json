@@ -180,10 +180,10 @@
     "minutes_seconds": "{{minutes}} 分 {{seconds}} 秒"
   },
   "empty": {
-    "cat_name": "糯米",
     "first_bot_body": "每个 Bot 都有唯一私信。把多个 Bot 放进群里，让它们围绕真实消息协作。",
     "first_bot_title": "创建你的第一个 Bot",
-    "start_chat": "开始聊天"
+    "start_chat": "开始聊天",
+    "start_chat_body": "发条消息，或者交给它一件事。"
   },
   "error": {
     "bot_missing": "找不到这个 Bot。",

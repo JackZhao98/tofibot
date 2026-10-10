@@ -1,4 +1,5 @@
 import { scheduleDisplay } from "./displayMetadata";
+import { CATS, EmptyState } from "./EmptyCat";
 import { ScheduleEditor } from "./ScheduleEditor";
 import { DelayedFeedback } from "./DelayedFeedback";
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
@@ -144,7 +145,7 @@ function WorkPanelView({ conversation, conversations, bots, refreshToken, onClos
     {operationError && <div className="error-banner" role="alert">{operationError.text}<button className="text-button" disabled={!!pending} onClick={() => void mutate(operationError.id, operationError.retry)}>{t("panel.retry_action")}</button></div>}
     {error && <div className="error-banner" role="alert">{error}<button className="text-button" disabled={!!pending} onClick={() => void reload()}>{t("panel.reload")}</button></div>}
     {loading && <DelayedFeedback><div className="inline-state">{t("panel.loading")}</div></DelayedFeedback>}
-    {!loading && !error && !goals.length && !tasks.length && !visibleSchedules.length && <div className="work-empty"><span aria-hidden="true"><TofiIcon name={history ? "check-circle" : "checklist"} size={24} variant={history ? "filled" : "outline"} /></span><p>{history ? t("panel.empty_history") : t("panel.empty")}</p></div>}
+    {!loading && !error && !goals.length && !tasks.length && !visibleSchedules.length && <EmptyState name={history ? "work-history-empty" : "work-empty"} className="work-empty" look={history ? CATS.kiwi : CATS.taro} pose={history ? "asleep" : "curious"}><p>{history ? t("panel.empty_history") : t("panel.empty")}</p></EmptyState>}
     {!!goals.length && <section className="work-section"><h3>{t("panel.goals")} <span>{goals.length}</span></h3>{goals.map(renderItem)}</section>}
     {!!tasks.length && <section className="work-section"><h3>{t("panel.tasks")} <span>{tasks.length}</span></h3>{tasks.map(renderItem)}</section>}
     {!!visibleSchedules.length && <section className="work-section"><h3>{history ? t("panel.schedules_ended") : t("panel.schedules")}<span>{preference.timezone}</span></h3><div className="work-timeline">{visibleSchedules.map(item => {

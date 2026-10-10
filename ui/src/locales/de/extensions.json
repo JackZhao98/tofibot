@@ -356,6 +356,8 @@
       "none_available": "Auf Bots beschränkt, die nicht mehr existieren. Kein Bot kann ihn nutzen"
     },
     "choose_folder": "Ordner wählen",
+    "empty": "Noch keine Skills installiert",
+    "empty_hint": "Installiere eines, damit deine Bots eine wiederholbare Arbeitsweise lernen.",
     "error": {
       "missing_content": "Wählen Sie einen Ordner mit SKILL.md oder öffnen Sie „Manuell bearbeiten“ und geben Sie Name und Inhalt ein.",
       "name_taken": "Dieser Name existiert bereits. Wählen Sie einen anderen.",
@@ -363,6 +365,8 @@
       "too_large": "Ein Skill darf höchstens 1 MB groß sein",
       "too_many_files": "Höchstens {{max}} Dateien"
     },
+    "file_count_one": "{{count}} Datei",
+    "file_count_other": "{{count}} Dateien",
     "folder_label": "Skill-Ordner wählen",
     "install": "Skill installieren",
     "install_submit": "Installieren",
@@ -380,9 +384,7 @@
     "saved": "Gespeichert",
     "scope": "Workspace-Skills · bei Bedarf gelesen · auf ausgewählte Bots beschränkbar",
     "starters": "Tofi-Arbeits-Skills",
-    "support_note": "Anleitungen und Referenzdateien werden unterstützt; mitgelieferte Skripte laufen nie automatisch.",
-    "file_count_one": "{{count}} Datei",
-    "file_count_other": "{{count}} Dateien"
+    "support_note": "Anleitungen und Referenzdateien werden unterstützt; mitgelieferte Skripte laufen nie automatisch."
   },
   "status": {
     "authorizing": "Autorisierung wird geöffnet…",

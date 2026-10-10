@@ -354,6 +354,8 @@
       "none_available": "僅限已不存在的 Bot，目前沒有 Bot 能使用"
     },
     "choose_folder": "選擇資料夾",
+    "empty": "尚未安裝 Skill",
+    "empty_hint": "安裝一個，讓 Bot 學會一套可重複的做事方法。",
     "error": {
       "missing_content": "請選擇含有 SKILL.md 的資料夾，或展開手動編輯填寫名稱與內容。",
       "name_taken": "這個名稱已存在，請換一個名稱。",
@@ -361,6 +363,7 @@
       "too_large": "Skill 內容最多 1 MB",
       "too_many_files": "最多 {{max}} 個檔案"
     },
+    "file_count_other": "{{count}} 個檔案",
     "folder_label": "選擇 Skill 資料夾",
     "install": "安裝 Skill",
     "install_submit": "安裝",
@@ -378,8 +381,7 @@
     "saved": "已儲存",
     "scope": "工作區 Skill · 依需要讀取 · 可限定給指定 Bot",
     "starters": "Tofi 工作技能",
-    "support_note": "支援說明與參考檔案；不會自動執行附帶的指令碼。",
-    "file_count_other": "{{count}} 個檔案"
+    "support_note": "支援說明與參考檔案；不會自動執行附帶的指令碼。"
   },
   "status": {
     "authorizing": "正在開啟授權…",

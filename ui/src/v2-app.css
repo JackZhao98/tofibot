@@ -570,7 +570,6 @@ html:not([data-desktop]) .workspace .composer .working-member.work-companion .wo
   .workspace .sidebar-account-menu { background:var(--surface); -webkit-backdrop-filter:none; backdrop-filter:none; }
 }
 html:not([data-desktop]) .workspace .conversation-empty{align-content:center;justify-items:center;gap:6px}
-html:not([data-desktop]) .workspace .conversation-empty .wakeable-cat{margin-bottom:4px}
 html:not([data-desktop]) .workspace .web-memory-empty{display:grid;justify-items:center;align-content:center;gap:4px;min-height:214px;background:var(--dots);border:1px solid var(--line-soft);border-radius:16px;text-align:center}
 html:not([data-desktop]) .workspace .web-memory-empty strong{margin-top:8px;color:var(--ink);font:700 18px/1.2 var(--display)}
 html:not([data-desktop]) .workspace .web-memory-empty p{margin:0;color:var(--muted);font:var(--type-meta)}

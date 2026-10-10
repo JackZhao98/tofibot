@@ -356,6 +356,8 @@
       "none_available": "Limited to Bots that no longer exist. No Bot can use it."
     },
     "choose_folder": "Choose folder",
+    "empty": "No Skills installed yet",
+    "empty_hint": "Install one to teach your Bots a repeatable way of working.",
     "error": {
       "missing_content": "Choose a folder that contains SKILL.md, or open Manual edit and enter a name and content.",
       "name_taken": "That name is already taken. Choose another.",
@@ -363,6 +365,8 @@
       "too_large": "A Skill can be at most 1 MB",
       "too_many_files": "Up to {{max}} files"
     },
+    "file_count_one": "{{count}} file",
+    "file_count_other": "{{count}} files",
     "folder_label": "Choose Skill folder",
     "install": "Install Skill",
     "install_submit": "Install",
@@ -380,9 +384,7 @@
     "saved": "Saved",
     "scope": "Workspace Skills · read on demand · limit to selected Bots",
     "starters": "Tofi work Skills",
-    "support_note": "Instructions and reference files are supported. Bundled scripts never run automatically.",
-    "file_count_one": "{{count}} file",
-    "file_count_other": "{{count}} files"
+    "support_note": "Instructions and reference files are supported. Bundled scripts never run automatically."
   },
   "status": {
     "authorizing": "Opening authorization…",

@@ -180,10 +180,10 @@
     "minutes_seconds": "{{minutes}} min {{seconds}} s"
   },
   "empty": {
-    "cat_name": "Mochi",
     "first_bot_body": "Chaque Bot a sa propre conversation privée. Réunissez plusieurs Bots dans un groupe pour qu’ils collaborent sur de vrais messages.",
     "first_bot_title": "Créez votre premier Bot",
-    "start_chat": "Commencez à discuter"
+    "start_chat": "Commencez à discuter",
+    "start_chat_body": "Envoyez un message ou confiez-lui une tâche."
   },
   "error": {
     "bot_missing": "Bot introuvable.",

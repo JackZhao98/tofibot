@@ -358,6 +358,8 @@
       "none_available": "Limité à des Bots qui n’existent plus. Aucun Bot ne peut l’utiliser"
     },
     "choose_folder": "Choisir un dossier",
+    "empty": "Aucun Skill installé pour l’instant",
+    "empty_hint": "Installez-en un pour apprendre à vos Bots une méthode de travail réutilisable.",
     "error": {
       "missing_content": "Choisissez un dossier contenant SKILL.md, ou ouvrez Modifier manuellement pour saisir un nom et un contenu.",
       "name_taken": "Ce nom existe déjà. Choisissez-en un autre.",
@@ -365,6 +367,9 @@
       "too_large": "Un Skill ne peut pas dépasser 1 Mo",
       "too_many_files": "{{max}} fichiers maximum"
     },
+    "file_count_many": "{{count}} de fichiers",
+    "file_count_one": "{{count}} fichier",
+    "file_count_other": "{{count}} fichiers",
     "folder_label": "Choisir le dossier du Skill",
     "install": "Installer un Skill",
     "install_submit": "Installer",
@@ -382,10 +387,7 @@
     "saved": "Enregistré",
     "scope": "Skills de l’espace de travail · lus à la demande · limitables à certains Bots",
     "starters": "Skills de travail Tofi",
-    "support_note": "Instructions et fichiers de référence pris en charge ; les scripts fournis ne s’exécutent jamais automatiquement.",
-    "file_count_one": "{{count}} fichier",
-    "file_count_many": "{{count}} de fichiers",
-    "file_count_other": "{{count}} fichiers"
+    "support_note": "Instructions et fichiers de référence pris en charge ; les scripts fournis ne s’exécutent jamais automatiquement."
   },
   "status": {
     "authorizing": "Ouverture de l’autorisation…",

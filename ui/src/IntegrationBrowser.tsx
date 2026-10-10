@@ -1,4 +1,5 @@
 import { TofiIcon, type TofiIconName } from "./icons";
+import { CATS, EmptyState } from "./EmptyCat";
 import { useTranslation } from "./i18n";
 import { heldIntegrations, integrationAuthLabel, integrationCatalog, integrationOriginLabel, matchesIntegration, type IntegrationPreset } from "./integrationCatalog";
 
@@ -23,7 +24,7 @@ export function IntegrationBrowser({query,servers,onQueryChange,onBack,onSelect,
    })}</div></section>;
   })}
   {held.length>0&&<section className="integration-section integration-held" aria-label={t("browser.held_label")}><h3>{t("browser.held_title")}</h3><ul>{held.map(item=><li key={item.id} data-held-integration-id={item.id}><ServiceMark name={item.name}/><div><strong>{item.name}</strong><small>{integrationAuthLabel(item.auth)} · {item.maintenance==="retired"?`${t("browser.retired_origin")} · ${t("browser.retired")}`:integrationOriginLabel(item.upstream)}</small><p>{item.reason}</p><a href={item.docsURL} target="_blank" rel="noopener noreferrer">{item.maintenance==="retired"?t("docs.retired"):item.upstream==="community"?t("docs.community"):t("docs.vendor")}<TofiIcon name="external-link" size={14}/></a></div></li>)}</ul></section>}
-  {matching.length===0&&held.length===0&&<p className="mcp-placeholder" role="status">{t("browser.empty")}</p>}
+  {matching.length===0&&held.length===0&&<EmptyState name="integrations-no-match" className="mcp-placeholder is-compact" role="status" look={CATS.yuzu} pose="curious"><p>{t("browser.empty")}</p></EmptyState>}
   <button className="integration-custom" onClick={onCustom}><TofiIcon name="plus" size={20}/><span>{t("browser.custom")}</span><TofiIcon name="chevron-right" size={16}/></button>
  </>;
 }

@@ -180,10 +180,10 @@
     "minutes_seconds": "{{minutes}}분 {{seconds}}초"
   },
   "empty": {
-    "cat_name": "찹쌀이",
     "first_bot_body": "Bot마다 전용 DM이 있습니다. 여러 Bot을 그룹에 넣어 실제 메시지를 두고 함께 일하게 하세요.",
     "first_bot_title": "첫 Bot 만들기",
-    "start_chat": "채팅 시작"
+    "start_chat": "채팅 시작",
+    "start_chat_body": "메시지를 보내거나 작업을 맡겨 보세요."
   },
   "error": {
     "bot_missing": "이 Bot을 찾을 수 없습니다.",
