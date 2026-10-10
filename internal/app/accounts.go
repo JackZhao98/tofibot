@@ -563,6 +563,14 @@ func (g *AccountGateway) handle(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, 403, "unavailable", "account management surface not available")
 		return
 	}
+	if r.URL.Path == "/api/system/update" {
+		if a.Role != "admin" {
+			writeErr(w, 403, "forbidden", "admin required")
+			return
+		}
+		serveSystemUpdate(w, r)
+		return
+	}
 	if r.Method == http.MethodPut && strings.HasPrefix(r.URL.Path, "/api/extensions/skills/") && strings.HasSuffix(r.URL.Path, "/access") && a.Role != "admin" {
 		writeErr(w, 403, "forbidden", "admin required")
 		return

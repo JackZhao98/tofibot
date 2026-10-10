@@ -87,7 +87,9 @@ jobs:
           sbom: false
           no-cache: true
           pull: true
-          build-args: TOFI_SOURCE_COMMIT=${{ steps.commit.outputs.sha }}
+          build-args: |
+            TOFI_SOURCE_COMMIT=${{ steps.commit.outputs.sha }}
+            TOFI_VERSION=${{ needs.version.outputs.tag }}
           tags: ${{ env.REGISTRY }}/${{ env.IMAGE_OWNER }}/tofi:${{ needs.version.outputs.tag }}
           labels: |
             org.opencontainers.image.source=https://github.com/${{ github.repository }}

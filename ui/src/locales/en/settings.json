@@ -468,6 +468,30 @@
     "server": "Server",
     "data": "Data",
     "debug": "Debug",
-    "danger": "Danger zone"
+    "danger": "Danger zone",
+    "version": "Version"
+  },
+  "update": {
+    "banner": {
+      "available": "Tofi {{version}} is available. Run <code>sudo tofi update</code> on the server.",
+      "automatic": "Tofi {{version}} is available and will install automatically overnight.",
+      "whats_new": "What's new",
+      "dismiss": "Dismiss update notice"
+    },
+    "card": {
+      "current": "Installed version",
+      "latest": "Latest release",
+      "checked": "Last checked",
+      "auto": "Automatic fix releases",
+      "status_current": "Up to date",
+      "status_available": "Update available",
+      "never": "Not checked yet",
+      "unknown": "Not checked yet",
+      "notes": "Release notes",
+      "auto_on": "On",
+      "auto_off": "Off",
+      "install_hint": "Run <code>sudo tofi update</code> on the server to install it.",
+      "auto_hint": "Turn it on or off from the server: <on>sudo tofi config auto-update on</on> or <off>sudo tofi config auto-update off</off>"
+    }
   }
 }

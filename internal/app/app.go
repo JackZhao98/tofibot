@@ -2494,6 +2494,8 @@ func (s *Server) route(w http.ResponseWriter, r *http.Request) {
 			"auth":             s.ownerAuthInfo(),
 			"tenancy":          map[string]string{"mode": "single"},
 		})
+	case p == "system/update":
+		serveSystemUpdate(w, r)
 	case p == "config":
 		writeJSON(w, 200, map[string]any{"model_configured": s.modelConfigured(), "default_model": s.defaultModel, "provider": s.activeProvider()})
 	case p == "auth/codex" || p == "auth/codex/connect" || p == "auth/codex/verify" || strings.HasPrefix(p, "auth/codex/connect/"):
