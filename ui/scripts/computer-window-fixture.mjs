@@ -27,6 +27,7 @@ export async function installStubs(page, state) {
     if (p === "/api/conversations") return json({ conversations: [CONVERSATION] });
     if (p === "/api/computers/firecracker/info") return json(state.info);
     if (p === "/api/computers/firecracker/retry") { state.retries = (state.retries ?? 0) + 1; return json({ accepted: true }); }
+    if (p === "/api/computers/firecracker/wake") { state.wakes = (state.wakes ?? 0) + 1; state.onWake?.(); return json({ accepted: true, state: "resuming" }, 202); }
     if (p === "/api/computers/firecracker/actions") {
       if (state.capture === "pending") return; // never answers: the screen is not ready
       if (state.capture === "fail") return json({ error: { message: "Synthetic: desktop is not reachable", code: "unreachable" } }, 500);

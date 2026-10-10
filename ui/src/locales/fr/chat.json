@@ -123,8 +123,6 @@
     "unavailable": "Ordinateur partagé indisponible",
     "health_restarting": "L’ordinateur partagé ne répond plus · redémarrage en cours",
     "health_unresponsive": "L’ordinateur partagé ne répond pas",
-    "hibernated": "Ordinateur partagé en veille · reprend avec vos onglets à la prochaine utilisation",
-    "hibernating": "Mise en veille de l’ordinateur partagé",
     "resuming": "Réveil de l’ordinateur partagé"
   },
   "computer_phase": {

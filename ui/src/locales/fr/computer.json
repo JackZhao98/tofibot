@@ -20,6 +20,7 @@
       "storage": "Préparation du stockage",
       "network": "Préparation du réseau",
       "booting": "Démarrage de la machine virtuelle",
+      "restoring": "Restauration de la session",
       "verifying": "Vérification de Linux et Chrome",
       "ready": "Prêt"
     },
@@ -94,7 +95,8 @@
       "waking": "Réveil de l'ordinateur",
       "connecting": "Connexion à l'écran",
       "resuming": "Reprise depuis l'hibernation",
-      "hibernated": "En hibernation. Il se réveille dès qu'un Bot en a besoin.",
+      "resuming_phase": "Réveil · {{phase}}",
+      "hibernated": "En veille · réveil en cours…",
       "hibernating": "Passage en hibernation…",
       "retry": "Réessayer"
     }

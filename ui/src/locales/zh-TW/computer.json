@@ -18,6 +18,7 @@
       "storage": "準備儲存空間",
       "network": "準備網路",
       "booting": "啟動虛擬機器",
+      "restoring": "還原工作階段",
       "verifying": "驗證 Linux 與 Chrome",
       "ready": "就緒"
     },
@@ -92,7 +93,8 @@
       "waking": "正在喚醒電腦",
       "connecting": "正在連接螢幕",
       "resuming": "正在從休眠中恢復",
-      "hibernated": "已休眠，Bot 需要時會自動喚醒。",
+      "resuming_phase": "正在喚醒 · {{phase}}",
+      "hibernated": "休眠中 · 正在喚醒…",
       "hibernating": "正在進入休眠…",
       "retry": "重試"
     }

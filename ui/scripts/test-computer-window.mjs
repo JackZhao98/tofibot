@@ -82,10 +82,39 @@ try {
     state.info = info("resuming");
     await page.getByText("Resuming from hibernation").waitFor({ timeout: 6000 });
     state.info = info("hibernated");
-    await page.getByText(/Hibernated\./).waitFor({ timeout: 6000 });
+    await page.getByText(/Asleep/).waitFor({ timeout: 6000 });
     assert.deepEqual(errors, []);
     results.push("small loading");
     await context.close();
+  }
+
+  // 1b. Opening the window wakes a hibernated computer; asleep is normal, so no banner across the top.
+  {
+    const state = { info: info("hibernated"), capture: "image", requests: [], wakes: 0 };
+    state.onWake = () => {
+      state.info = info("resuming", { phase: "restoring" });
+      setTimeout(() => { state.info = info("ready"); }, 2500);
+    };
+    const { context, page, errors, button } = await open({ state });
+    await page.waitForResponse(response => response.url().endsWith("/api/computers/firecracker/info"));
+    await page.waitForTimeout(2200); // two more polls
+    assert.equal(await page.locator(".computer-preparing").count(), 0, "no banner for a hibernated computer");
+    assert.equal(state.wakes, 0, "nothing wakes it before the window opens");
+    await button.click();
+    await shell(page, "is-small").waitFor();
+    await page.getByText("Waking · Restoring session").waitFor({ timeout: 6000 });
+    assert.equal(state.wakes, 1, "opening the small window wakes the computer once");
+    assert.equal(await page.locator(".computer-preparing").count(), 0, "no banner while the window shows the waking state");
+    await page.locator("[data-desktop-frame].desktop-live-screen").waitFor({ timeout: 15000 });
+    assert.equal(state.wakes, 1, "a single wake request in total");
+    assert.equal(await page.locator(".desktop-placeholder").count(), 0, "the viewer connected by itself once ready");
+    assert.deepEqual(errors, []);
+    results.push("wake on open");
+    await context.close();
+    // Real problems still get the banner.
+    const stopped = await open({ state: { info: info("stopped"), capture: "image", requests: [] } });
+    await stopped.page.locator(".computer-preparing").waitFor({ timeout: 6000 });
+    await stopped.context.close();
   }
 
   // 2. Ready: click -> big, Escape -> small, shrink/expand controls, close; last size is remembered for the page only.

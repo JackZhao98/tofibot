@@ -83,7 +83,7 @@ const PASSIVE_VIEWER_RETRY_DELAY_MS = 2500;
 const VIEWER_CONNECT_ATTEMPTS = 6;
 const VIEWER_CONNECT_RETRY_DELAY_MS = 350;
 
-const phaseKeys = { checking: "desktop.phase.checking", storage: "desktop.phase.storage", network: "desktop.phase.network", booting: "desktop.phase.booting", verifying: "desktop.phase.verifying", ready: "desktop.phase.ready" } as const;
+const phaseKeys = { checking: "desktop.phase.checking", storage: "desktop.phase.storage", network: "desktop.phase.network", booting: "desktop.phase.booting", restoring: "desktop.phase.restoring", verifying: "desktop.phase.verifying", ready: "desktop.phase.ready" } as const;
 const stateKeys = { starting: "desktop.state.starting", ready: "desktop.state.ready", error: "desktop.state.error", stopped: "desktop.state.stopped" } as const;
 const known = <T extends object>(keys: T, value: string): value is Extract<keyof T, string> => Object.prototype.hasOwnProperty.call(keys, value);
 
@@ -564,6 +564,20 @@ export function BotDesktopPanel({ botId, botName, members = [], autoConnect = fa
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [passivePreview, info?.state, ownershipUnavailable, ownership?.owner, busy]);
 
+  // Opening the window is an explicit request to use the computer: a hibernated one is resumed
+  // through the same server path a Bot tool call uses. Once per hibernation; a failure waits for Retry.
+  const wakeRequested = useRef(false);
+  useEffect(() => {
+    if (info?.state !== "hibernated") { wakeRequested.current = false; return; }
+    if (passivePreview || wakeRequested.current) return;
+    wakeRequested.current = true;
+    const current = generation.current;
+    void api.computerWake()
+      .then(() => api.computerInfo())
+      .then(next => { if (generation.current === current) { infoRef.current = next; setInfo(next); } })
+      .catch(cause => { if (generation.current === current) setError(errorText(cause)); });
+  }, [passivePreview, info?.state]);
+
   useEffect(() => {
     if (passivePreview || opened.current || info?.state !== "ready" || ownershipUnavailable || connectionLost || busy) return;
     opened.current = true;
@@ -738,7 +752,7 @@ export function BotDesktopPanel({ botId, botName, members = [], autoConnect = fa
   const placeholder: { tone: DesktopPlaceholderTone; status: string } = failedReason ? { tone: "failed", status: failedReason }
     : info?.state === "hibernated" ? { tone: "hibernated", status: t("desktop.placeholder.hibernated") }
     : info?.state === "hibernating" ? { tone: "hibernated", status: t("desktop.placeholder.hibernating") }
-    : info?.state === "resuming" ? { tone: "resuming", status: t("desktop.placeholder.resuming") }
+    : info?.state === "resuming" ? { tone: "resuming", status: info.phase && info.phase !== "hibernated" ? t("desktop.placeholder.resuming_phase", { phase: phaseText(info.phase) }) : t("desktop.placeholder.resuming") }
     : passivePreview ? { tone: "connecting", status: t("desktop.status.connecting_preview") }
     : info?.state === "ready" ? { tone: "connecting", status: t("desktop.placeholder.connecting") }
     : { tone: "waking", status: info?.phase ? phaseText(info.phase) : t("desktop.placeholder.waking") };
