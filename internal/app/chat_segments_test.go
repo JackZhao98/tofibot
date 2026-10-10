@@ -2,6 +2,8 @@ package app
 
 import (
 	"context"
+	"encoding/json"
+	"slices"
 	"testing"
 )
 
@@ -60,5 +62,72 @@ func TestChatSegmentsBoundedAndFinalFollows(t *testing.T) {
 	final, done, err := s.FinishRun(r.ID, c.ID, r.BotID, "Conclusion.")
 	if err != nil || !done || final.Kind != "" || final.Seq != 4 {
 		t.Fatalf("final: %+v %v %v", final, done, err)
+	}
+}
+
+func TestChatMessagePurposeLabelsStoredKind(t *testing.T) {
+	s, r, _ := streamFixture(t)
+	defer s.Close()
+	ctx := context.Background()
+	for _, tc := range []struct{ call, purpose, want string }{
+		{"a", "answer", "segment"},
+		{"s", "status", "progress"},
+		{"omitted", "", "segment"},
+		{"unknown", "whatever", "segment"},
+	} {
+		m, err := s.publishChatMessage(ctx, r, tc.call, "Synthetic note "+tc.call, normalizeChatPurpose(tc.purpose))
+		if err != nil || m.Kind != tc.want {
+			t.Fatalf("purpose %q: kind=%q want %q err=%v", tc.purpose, m.Kind, tc.want, err)
+		}
+	}
+}
+
+func TestChatToolSchemaRequiresPurposeEnum(t *testing.T) {
+	srv := &Server{}
+	tool := srv.chatSegmentTool(Conversation{}, Run{})
+	b, _ := json.Marshal(tool.Parameters)
+	var schema struct {
+		Required   []string                  `json:"required"`
+		Properties map[string]map[string]any `json:"properties"`
+	}
+	if err := json.Unmarshal(b, &schema); err != nil {
+		t.Fatal(err)
+	}
+	if !slices.Contains(schema.Required, "purpose") || schema.Properties["purpose"]["enum"] == nil {
+		t.Fatalf("schema=%s", b)
+	}
+}
+
+// Incident shape: a mid-run plain reply answers the user, the run keeps
+// working, and the final message talks about something else.
+func TestMidRunReplyStaysUnfoldableKind(t *testing.T) {
+	s, r, c := streamFixture(t)
+	defer s.Close()
+	if _, err := s.BeginStream(r); err != nil {
+		t.Fatal(err)
+	}
+	if _, _, err := s.AppendStreamDelta(context.Background(), r.ID, "OK, changed to 2:30 daily."); err != nil {
+		t.Fatal(err)
+	}
+	mid, ok, err := s.PublishAssistantTurn(context.Background(), r.ID, 1, "OK, changed to 2:30 daily.")
+	if err != nil || !ok || mid.Kind == "progress" {
+		t.Fatalf("mid-run reply must not be foldable progress: %+v ok=%v err=%v", mid, ok, err)
+	}
+	if _, done, err := s.FinishRun(r.ID, c.ID, r.BotID, "Other work finished."); err != nil || !done {
+		t.Fatal(err, done)
+	}
+}
+
+func TestStatusNoteCountsAsProgressReport(t *testing.T) {
+	s, r, _ := streamFixture(t)
+	defer s.Close()
+	if ok, err := s.hasProgressReport(r.ID); err != nil || ok {
+		t.Fatalf("empty run: ok=%v err=%v", ok, err)
+	}
+	if _, err := s.publishChatMessage(context.Background(), r, "st", "Checking the page now.", chatPurposeStatus); err != nil {
+		t.Fatal(err)
+	}
+	if ok, err := s.hasProgressReport(r.ID); err != nil || !ok {
+		t.Fatalf("status note must count: ok=%v err=%v", ok, err)
 	}
 }

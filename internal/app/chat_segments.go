@@ -19,7 +19,7 @@ const chatSegmentCadence = 420 * time.Millisecond
 
 func (s *Store) paceChatSegment(ctx context.Context, runID string) error {
 	var sentAt string
-	err := s.db.QueryRowContext(ctx, `SELECT created_at FROM messages WHERE run_id=? AND kind='segment' ORDER BY seq DESC LIMIT 1`, runID).Scan(&sentAt)
+	err := s.db.QueryRowContext(ctx, `SELECT created_at FROM messages WHERE run_id=? AND kind='segment' AND client_message_id LIKE 'chat-segment:%' ORDER BY seq DESC LIMIT 1`, runID).Scan(&sentAt)
 	if err == sql.ErrNoRows {
 		return nil
 	}
@@ -48,6 +48,31 @@ func (s *Store) paceChatSegment(ctx context.Context, runID string) error {
 // continues. The provider call ID makes recovery/retries safe, and the steering
 // check shares the same transaction as publication so an interjection wins.
 func (s *Store) PublishChatSegment(ctx context.Context, run Run, callID, content string) (Message, error) {
+	return s.publishChatMessage(ctx, run, callID, content, chatPurposeAnswer)
+}
+
+// Purposes a Bot can label a mid-run message with. Anything but "status" is an
+// answer: an unknown or missing value must never hide a message.
+const (
+	chatPurposeAnswer = "answer"
+	chatPurposeStatus = "status"
+	maxStatusMessages = 20
+)
+
+func normalizeChatPurpose(v string) string {
+	if strings.EqualFold(strings.TrimSpace(v), chatPurposeStatus) {
+		return chatPurposeStatus
+	}
+	return chatPurposeAnswer
+}
+
+// publishChatMessage stores an answer as kind "segment" (always visible) and a
+// status note as kind "progress" (folded under the final answer once done).
+func (s *Store) publishChatMessage(ctx context.Context, run Run, callID, content, purpose string) (Message, error) {
+	kind, limit := "segment", maxChatSegments
+	if purpose == chatPurposeStatus {
+		kind, limit = "progress", maxStatusMessages
+	}
 	content = strings.TrimSpace(content)
 	if content == "" || utf8.RuneCountInString(content) > 1200 {
 		return Message{}, errors.New("message must contain 1 to 1200 characters")
@@ -88,17 +113,17 @@ func (s *Store) PublishChatSegment(ctx context.Context, run Run, callID, content
 	if successors > 0 {
 		return Message{}, errors.New("run has been interrupted by a newer message")
 	}
-	if err = tx.QueryRowContext(ctx, `SELECT COUNT(*) FROM messages WHERE run_id=? AND kind='segment'`, run.ID).Scan(&count); err != nil {
+	if err = tx.QueryRowContext(ctx, `SELECT COUNT(*) FROM messages WHERE run_id=? AND kind=? AND client_message_id LIKE 'chat-segment:%'`, run.ID, kind).Scan(&count); err != nil {
 		return Message{}, err
 	}
-	if count >= maxChatSegments {
+	if count >= limit {
 		return Message{}, errors.New("chat segment limit reached; finish the reply")
 	}
 	var seq int64
 	if err = tx.QueryRowContext(ctx, nextMessageSeqSQL, run.ConversationID, run.ConversationID, streamDraftActive).Scan(&seq); err != nil {
 		return Message{}, err
 	}
-	m := Message{ID: uuid.NewString(), ConversationID: run.ConversationID, Seq: seq, Role: "assistant", Kind: "segment", SenderBotID: run.BotID, RunID: run.ID, Content: content, CreatedAt: now()}
+	m := Message{ID: uuid.NewString(), ConversationID: run.ConversationID, Seq: seq, Role: "assistant", Kind: kind, SenderBotID: run.BotID, RunID: run.ID, Content: content, CreatedAt: now()}
 	if _, err = tx.ExecContext(ctx, `INSERT INTO messages(id,conversation_id,seq,role,kind,sender_bot_id,run_id,content,created_at,client_message_id) VALUES(?,?,?,?,?,?,?,?,?,?)`, m.ID, m.ConversationID, m.Seq, m.Role, m.Kind, m.SenderBotID, m.RunID, m.Content, m.CreatedAt, clientID); err != nil {
 		return Message{}, err
 	}
@@ -121,17 +146,21 @@ func (s *Store) PublishChatSegment(ctx context.Context, run Run, callID, content
 }
 
 func (s *Server) chatSegmentTool(_ Conversation, r Run) Tool {
-	return Tool{Name: "send_chat_message", Description: "Send one concise, self-contained conversational message to the user while you continue this run. Use for a distinct semantic beat when a response naturally benefits from multiple messages. Send at most three; leave the remaining conclusion for your final answer. Do not use for routine progress, private reasoning, partial code, or filler. A newer user message interrupts further delivery.", Parameters: objectSchema(map[string]any{"content": map[string]any{"type": "string", "description": "One complete conversational message, at most 1200 characters"}}, []string{"content"}), Execute: func(ctx context.Context, raw json.RawMessage) (string, error) {
+	return Tool{Name: "send_chat_message", Description: "Send one concise, self-contained message to the user while you continue this run. Set purpose to label it. purpose=answer: it answers or confirms something for the user and must stay visible, e.g. \"Done, the report now runs daily at 2:30.\" (at most three per run; leave the remaining conclusion for your final answer). purpose=status: a transient note on what you are doing, folded away when the run finishes, e.g. \"Checking the page now.\" Do not use for private reasoning, partial code, or filler. A newer user message interrupts further delivery.", Parameters: objectSchema(map[string]any{"content": map[string]any{"type": "string", "description": "One complete conversational message, at most 1200 characters"}, "purpose": map[string]any{"type": "string", "enum": []string{chatPurposeAnswer, chatPurposeStatus}, "description": "answer: answers or confirms something to the user, stays visible. status: transient note about what you are doing."}}, []string{"content", "purpose"}), Execute: func(ctx context.Context, raw json.RawMessage) (string, error) {
 		var in struct {
 			Content string `json:"content"`
+			Purpose string `json:"purpose"`
 		}
 		if json.Unmarshal(raw, &in) != nil {
 			return "", errors.New("invalid message")
 		}
-		if err := s.store.paceChatSegment(ctx, r.ID); err != nil {
-			return "", err
+		purpose := normalizeChatPurpose(in.Purpose)
+		if purpose == chatPurposeAnswer {
+			if err := s.store.paceChatSegment(ctx, r.ID); err != nil {
+				return "", err
+			}
 		}
-		m, err := s.store.PublishChatSegment(ctx, r, runtime.ToolCallID(ctx), in.Content)
+		m, err := s.store.publishChatMessage(ctx, r, runtime.ToolCallID(ctx), in.Content, purpose)
 		if err != nil {
 			return "", err
 		}

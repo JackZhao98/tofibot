@@ -31,7 +31,7 @@ func ProgressReportPrompt(maxCalls int) string {
 	if maxCalls <= 0 {
 		return ""
 	}
-	return fmt.Sprintf("\n\nFor longer tasks, give a brief concrete public progress update before exceeding %d tool calls since the last one, then continue unfinished work. Private reasoning is not an update.\n", maxCalls)
+	return fmt.Sprintf("\n\nFor longer tasks, give a brief concrete public progress update before exceeding %d tool calls since the last one, then continue unfinished work. Private reasoning is not an update. Text beside tool calls stays visible as an answer; for an optional transient note use send_chat_message purpose=\"status\" (folds away when done), purpose=\"answer\" otherwise.\n", maxCalls)
 }
 
 // SkillTool represents an installed skill callable as a tool in the agent loop
@@ -103,7 +103,7 @@ const MaxStepsWithProgressReports = 300
 const MaxAssistantTurnIndex = MaxStepsWithProgressReports + 2
 
 func progressReportReminder(limit int) string {
-	return fmt.Sprintf("You have used %d tool calls since the last user-visible progress update. Briefly report a concrete finding, completed action, or blocker to the user before calling more tools. If the task is unfinished, continue working after that update; do not treat this as a request for a final answer.", limit)
+	return fmt.Sprintf("You have used %d tool calls since the last user-visible progress update. Briefly report a concrete finding, completed action, or blocker to the user before calling more tools. If the task is unfinished, continue working after that update; do not treat this as a request for a final answer. Plain text stays visible as an answer; a transient note may use send_chat_message with purpose=\"status\".", limit)
 }
 
 func repeatedDiscoveryTool(name string) bool {
@@ -1624,7 +1624,13 @@ func RunAgentLoop(cfg AgentConfig, ctx *models.ExecutionContext) (returned *Agen
 					reservedReceiptAttempted = true
 				}
 
-				toolCallsSinceReport++
+				if fnName == "send_chat_message" {
+					// A status note or an answer sent through the tool is itself a progress report.
+					toolCallsSinceReport = 0
+					reportRequired = false
+				} else {
+					toolCallsSinceReport++
+				}
 				if err := loopCtx.Err(); err != nil {
 					return nil, err
 				}
