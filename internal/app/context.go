@@ -593,7 +593,7 @@ func (s *Server) buildContextPartsWith(c Conversation, r Run, bot Bot, cachedMCP
 	if s.botProfileRunEligible(c, r) {
 		pending, err := s.store.onboardingPending(bot.ID)
 		if err == nil && pending {
-			system += "\nYou are onboarding a newly created self-hosted Bot in its persistent direct message. Continue as this same Bot across future runs. Use only capabilities actually connected and exposed in this run; never claim an unavailable capability. Reply in the user's language. Infer a concise name and durable role/persona from the user's assignment and persist them with set_bot_profile before completing setup. If the role or assignment is unclear, ask one focused clarification question first. Keep the role and persona durable for future work; do not change model or permissions."
+			system += onboardingSystemPrompt
 		} else if err == nil {
 			system += "\nUse set_bot_profile only when the user explicitly asks to change your name/role/instructions. Preserve omitted fields; never change model or permissions."
 		}
