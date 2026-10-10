@@ -1,3 +1,4 @@
+import { useEffect, useRef } from "react";
 import { BotAvatar } from "./BotAvatar";
 import { useTranslation } from "./i18n";
 import { ONBOARDING_STEPS, type OnboardingStep } from "./onboardingFlow";
@@ -19,8 +20,19 @@ export function FinishSetupChip({ step, onClick }: { step: OnboardingStep; onCli
 /** Above the composer when no model exists: why the box is disabled, and one button that reopens setup. */
 export function ModelBanner({ botId, name, onConnect }: { botId?: string; name: string; onConnect: () => void }) {
   const { t } = useTranslation("chat");
+  const box = useRef<HTMLDivElement>(null);
+  // The perched cat sits on the composer row; while the banner is up it rides on the banner's top edge instead.
+  useEffect(() => {
+    const node = box.current, host = node?.closest<HTMLElement>(".composer");
+    if (!node || !host) return;
+    const sync = () => host.style.setProperty("--banner-lift", `${node.offsetHeight + 10}px`);
+    sync();
+    const observer = typeof ResizeObserver === "function" ? new ResizeObserver(sync) : null;
+    observer?.observe(node);
+    return () => { observer?.disconnect(); host.style.removeProperty("--banner-lift"); };
+  }, []);
   return (
-    <div className="model-banner" role="status" data-model-banner="true">
+    <div ref={box} className="model-banner" role="status" data-model-banner="true">
       {botId && <span className="model-banner-cat" aria-hidden="true"><BotAvatar id={botId} mini /></span>}
       <div className="model-banner-copy">
         <strong>{t("onboarding.banner_title")}</strong>

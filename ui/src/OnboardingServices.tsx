@@ -20,13 +20,11 @@ export const onboardingTiles = [
   { id: "robinhood", badge: "official" },
   { id: "context7", badge: "token" },
   { id: "microsoft-learn", badge: "none" },
-  { id: "google-calendar", badge: "setup" },
-  { id: "google-drive", badge: "setup" },
 ] as const satisfies readonly { id: string; badge: Badge }[];
 type TileId = (typeof onboardingTiles)[number]["id"];
 const purposeKeys = {
   github: "onboarding.purpose.github", notion: "onboarding.purpose.notion", linear: "onboarding.purpose.linear", robinhood: "onboarding.purpose.robinhood",
-  context7: "onboarding.purpose.context7", "microsoft-learn": "onboarding.purpose.microsoft_learn", "google-calendar": "onboarding.purpose.google_calendar", "google-drive": "onboarding.purpose.google_drive",
+  context7: "onboarding.purpose.context7", "microsoft-learn": "onboarding.purpose.microsoft_learn",
 } as const satisfies Record<TileId, string>;
 const badgeKeys = { sign_in: "onboarding.badge.sign_in", official: "onboarding.badge.official", token: "onboarding.badge.token", none: "onboarding.badge.none", setup: "onboarding.badge.setup" } as const satisfies Record<Badge, string>;
 

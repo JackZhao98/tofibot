@@ -219,7 +219,7 @@ async function walkthrough({ width, height, theme, locale = "en-US", shotsOn = t
     // 3. Services.
     await page.locator(".onb-foot .onb-primary").click();
     await page.locator(".onb-tiles").waitFor();
-    assert.equal(await page.locator(".onb-tile").count(), 8);
+    assert.equal(await page.locator(".onb-tile").count(), 6);
     const names = await page.locator(".onb-tile strong").allInnerTexts();
     assert.ok(!names.includes("Slack") && !names.includes("Discord"), "no tile without a working connect path");
     assert.ok(names.includes("Robinhood"));
@@ -279,6 +279,14 @@ try {
     assert.equal(await page.locator(".composer textarea").isDisabled(), true, "the composer is disabled without a model");
     assert.ok(Number(await page.locator(".composer-row").evaluate(node => getComputedStyle(node).opacity)) < 1, "and translucent");
     assert.equal(await page.getByText("No model set up").count(), 0, "the bare line is gone");
+    await page.waitForTimeout(600);
+    {
+      const cat = await page.locator(".composer-perch").boundingBox();
+      const button = await page.locator("[data-model-banner] button").boundingBox();
+      assert.ok(cat && button, "perched cat and Connect button are laid out");
+      assert.equal(cat.x < button.x + button.width && cat.x + cat.width > button.x && cat.y < button.y + button.height && cat.y + cat.height > button.y, false, "1440 light: cat clear of Connect");
+      assert.ok(cat.y >= 0 && cat.x >= 0, "the cat is fully on screen");
+    }
     currentShot = "1440x900-light";
     await shoot(page, "10-after-skip-banner-chip");
     currentShot = null;
@@ -288,6 +296,18 @@ try {
     assert.match(await page.locator(".onb-count").innerText(), /^2 of 3/);
     assert.deepEqual(errors, []);
     await context.close();
+    for (const [w, h, theme] of [[1440, 900, "dark"], [390, 844, "light"], [390, 844, "dark"]]) {
+      const view = await open(makeServer({ bots: 1, onboarding: { step: 1, completed: false, skipped: true } }), { width: w, height: h, theme, url: "/b/bot_1" });
+      await view.page.locator("[data-model-banner]").waitFor();
+      await view.page.waitForTimeout(600);
+      const cat = await view.page.locator(".composer-perch").boundingBox();
+      const button = await view.page.locator("[data-model-banner] button").boundingBox();
+      if (cat) {
+        assert.equal(cat.x < button.x + button.width && cat.x + cat.width > button.x && cat.y < button.y + button.height && cat.y + cat.height > button.y, false, `${w} ${theme}: cat clear of Connect`);
+        assert.ok(cat.y >= 0, `${w} ${theme}: cat on screen`);
+      }
+      await view.context.close();
+    }
     const second = await open(makeServer({ onboarding: { step: 1, completed: false, skipped: true } }));
     await second.page.locator("[data-finish-setup]").click();
     await second.page.locator(".onb-choices").waitFor();
