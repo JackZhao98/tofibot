@@ -371,6 +371,7 @@ html:not([data-desktop]) .workspace .mention-menu-hint { margin:5px 4px 0; paddi
 .workspace .working-member .avatar { width:52px; height:52px; margin:0 0 -6px; }
 html:not([data-desktop]) .workspace .composer .composer-row { position:relative; }
 html:not([data-desktop]) .workspace .composer-perch { position:absolute; z-index:2; right:84px; top:-74px; width:84px; height:84px; pointer-events:none; }
+html:not([data-desktop]) .workspace .composer.is-no-model .composer-perch { top:calc(-74px - var(--banner-lift,0px)); }
 html:not([data-desktop]) .workspace .composer-perch .lab-cat { display:block; width:100%; height:100%; }
 html:not([data-desktop]) .workspace .work-companion>.avatar { display:none; }
 html:not([data-desktop]) .workspace .work-companion:not(:has(.working-label)) { display:none; }

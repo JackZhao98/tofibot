@@ -208,7 +208,7 @@ export const integrationCatalog: IntegrationPreset[] = [
     get description() { return i18n.t("extensions:catalog.robinhood.description"); },
     category: "service",
     url: "https://agent.robinhood.com/mcp/trading",
-    docsURL: "https://robinhood.com/",
+    docsURL: "https://robinhood.com/newsroom/robinhood-is-now-open-to-agents/",
     upstream: "vendor",
     get setup() {
       return [

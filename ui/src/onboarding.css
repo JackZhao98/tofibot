@@ -88,7 +88,7 @@
 .onb-advanced .model-fields { margin-top:8px; }
 
 /* 3. Services */
-.onb-tiles { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:10px; }
+.onb-tiles { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:10px; }
 .onb-tile { position:relative; display:grid; align-content:start; justify-items:start; gap:4px; padding:12px; min-width:0; text-align:left; border:2px solid var(--line-soft); border-radius:14px; background:var(--surface); color:var(--ink); cursor:pointer; font:inherit; }
 .onb-tile strong { font:600 13.5px/1.3 var(--display); overflow-wrap:anywhere; }
 .onb-tile small { color:var(--ink-soft); font-size:12px; line-height:1.45; overflow-wrap:anywhere; }
