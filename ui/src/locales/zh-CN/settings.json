@@ -432,7 +432,8 @@
       "delete": "删除备份",
       "delete_title": "删除 {{name}} 的备份？",
       "delete_body": "下载链接将失效，文件会被删除，此操作无法撤销。",
-      "passphrase_gone": "口令只显示过一次，未被保存。"
+      "passphrase_gone": "口令只显示过一次，未被保存。",
+      "link_unavailable": "无法重建下载链接：此服务器的导出密钥已丢失或已更改。请删除此备份；该账号的数据无法再次导出。"
     },
     "error": {
       "generic": "这次没有成功，请刷新后重试。",
@@ -452,7 +453,9 @@
       "password_contains_identity": "密码不能包含用户名或邮箱。",
       "common_password": "这个密码太常见了。",
       "invalid_account": "用户名或邮箱无效，或已被占用。",
-      "forbidden": "只有 Admin 才能执行此操作。"
+      "forbidden": "只有 Admin 才能执行此操作。",
+      "export_in_use": "该备份所属账号的删除尚未完成。",
+      "passphrase_unavailable": "口令不可用。"
     }
   },
   "connection": {

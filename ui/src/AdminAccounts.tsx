@@ -133,10 +133,11 @@ export function AdminAccounts() {
             <strong>{item.username}</strong>
             <span>{t("admin.exports.created", {date: formatDateTime(item.created_at * 1000, {dateStyle: "medium"})})} · {t("admin.exports.expires", {date: formatDateTime(item.expires_at * 1000, {dateStyle: "medium"})})} · {t("admin.exports.size", {value: formatNumber(Math.max(0.1, Math.round((item.size / 2 ** 20) * 10) / 10))})}</span>
             {!item.passphrase_pending && <span className="admin-export-gone">{t("admin.exports.passphrase_gone")}</span>}
+            {item.link_unavailable && <span className="admin-export-gone" role="status">{t("admin.exports.link_unavailable")}</span>}
           </div>
           <div className="admin-export-actions">
-            <CopyButton value={absoluteLink(item.link_path)} label={t("admin.exports.copy_link")}/>
-            {item.passphrase_pending && <button type="button" className="secondary-button" onClick={() => setExportAction({kind: "passphrase", item})}>{t("admin.exports.show_passphrase")}</button>}
+            {!item.link_unavailable && <CopyButton value={absoluteLink(item.link_path)} label={t("admin.exports.copy_link")}/>}
+            {item.passphrase_pending && !item.passphrase_unavailable && <button type="button" className="secondary-button" onClick={() => setExportAction({kind: "passphrase", item})}>{t("admin.exports.show_passphrase")}</button>}
             <button type="button" className="admin-danger-button" disabled={busy} onClick={() => setExportAction({kind: "delete", item})}>{t("admin.exports.delete")}</button>
           </div>
         </div>)}

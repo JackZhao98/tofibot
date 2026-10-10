@@ -442,7 +442,8 @@
       "delete": "Supprimer l’export",
       "delete_title": "Supprimer l’export de {{name}} ?",
       "delete_body": "Le lien de téléchargement cessera de fonctionner et le fichier sera supprimé. Cette action est irréversible.",
-      "passphrase_gone": "La phrase secrète a été affichée une fois et n’est pas conservée."
+      "passphrase_gone": "La phrase secrète a été affichée une fois et n’est pas conservée.",
+      "link_unavailable": "Le lien de téléchargement ne peut pas être reconstruit : la clé d’export de ce serveur est absente ou a changé. Supprimez cet export ; les données du compte ne pourront plus être exportées."
     },
     "error": {
       "generic": "Cela n’a pas fonctionné. Actualisez puis réessayez.",
@@ -462,7 +463,9 @@
       "password_contains_identity": "Le mot de passe ne peut pas contenir le nom d’utilisateur ni l’e-mail.",
       "common_password": "Ce mot de passe est trop courant.",
       "invalid_account": "Le nom d’utilisateur ou l’e-mail est invalide ou déjà utilisé.",
-      "forbidden": "Seul un Admin peut faire cela."
+      "forbidden": "Seul un Admin peut faire cela.",
+      "export_in_use": "Cet export est encore lié à un compte dont la suppression n’est pas terminée.",
+      "passphrase_unavailable": "La phrase secrète n’est pas disponible."
     }
   },
   "connection": {

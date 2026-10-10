@@ -35,6 +35,8 @@ export type DeletedExport = {
   link_path: string;
   passphrase?: string;
   passphrase_pending: boolean;
+  link_unavailable?: boolean;
+  passphrase_unavailable?: boolean;
   attachments_included?: boolean;
 };
 
@@ -58,7 +60,7 @@ export const adminApi = {
   removeExport: (id: string) => request<unknown>(`/api/admin/deleted-exports/${encodeURIComponent(id)}`, {method: "DELETE"}),
 };
 
-const errorCodes = ["self_lockout", "last_admin", "account_deleting", "account_not_deactivated", "legacy_account_not_deletable", "confirmation_mismatch", "delete_in_progress", "account_delete_failed", "account_change_rejected", "quota_not_applied", "quota_unverified", "computer_transition_pending", "weak_password", "password_contains_identity", "common_password", "invalid_account", "forbidden"] as const;
+const errorCodes = ["self_lockout", "last_admin", "account_deleting", "account_not_deactivated", "legacy_account_not_deletable", "confirmation_mismatch", "delete_in_progress", "account_delete_failed", "account_change_rejected", "quota_not_applied", "quota_unverified", "computer_transition_pending", "weak_password", "password_contains_identity", "common_password", "invalid_account", "forbidden", "export_in_use", "passphrase_unavailable"] as const;
 
 /** Words for a failed admin call, from the server's stable code. Resolved at call time, never stored. */
 export function adminError(cause: unknown): string {

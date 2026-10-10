@@ -437,7 +437,8 @@
       "delete": "Delete export",
       "delete_title": "Delete the export of {{name}}?",
       "delete_body": "The download link stops working and the file is removed. This can't be undone.",
-      "passphrase_gone": "The passphrase was shown once and isn't stored."
+      "passphrase_gone": "The passphrase was shown once and isn't stored.",
+      "link_unavailable": "The download link can't be rebuilt because this server's export key is missing or changed. Delete this export; the account's data can't be exported again."
     },
     "error": {
       "generic": "That didn't work. Refresh and try again.",
@@ -457,7 +458,9 @@
       "password_contains_identity": "The password can't contain the username or email.",
       "common_password": "That password is too common.",
       "invalid_account": "The username or email is invalid or already taken.",
-      "forbidden": "Only an Admin can do that."
+      "forbidden": "Only an Admin can do that.",
+      "export_in_use": "That export is still tied to an account whose deletion hasn't finished.",
+      "passphrase_unavailable": "The passphrase isn't available."
     }
   },
   "connection": {
