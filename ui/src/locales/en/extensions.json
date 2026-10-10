@@ -120,6 +120,15 @@
         "check_access": "Make sure the connected identity has the page access you expect.",
         "choose_workspace": "After adding, click Connect and choose the Notion workspace to link."
       }
+    },
+    "robinhood": {
+      "description": "Quotes and positions; trades only in your Agentic account.",
+      "note": "Robinhood’s official remote MCP. It can only trade in your Agentic account, and Tofi still asks before acting.",
+      "setup": {
+        "auto_client": "Tofi requests an OAuth client from Robinhood, so you don’t need to enter a Client ID.",
+        "sign_in": "After adding, click Connect and sign in to Robinhood.",
+        "agentic_account": "Trades are limited to your Agentic account; your other accounts stay out of reach."
+      }
     }
   },
   "diagnostics_separator": "; ",

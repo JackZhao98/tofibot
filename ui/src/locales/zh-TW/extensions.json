@@ -120,6 +120,15 @@
         "check_access": "確認連線身分的頁面權限符合預期。",
         "choose_workspace": "新增後點選授權，選擇要連線的 Notion 工作區。"
       }
+    },
+    "robinhood": {
+      "description": "行情和持倉；只在你的 Agentic 帳戶裡交易。",
+      "note": "Robinhood 官方的遠端 MCP。它只能在你的 Agentic 帳戶裡交易，Tofi 行動前仍會先問你。",
+      "setup": {
+        "auto_client": "Tofi 會向 Robinhood 申請 OAuth 用戶端，你不用填 Client ID。",
+        "sign_in": "新增後點「連接」，再登入 Robinhood。",
+        "agentic_account": "交易只限你的 Agentic 帳戶，其他帳戶碰不到。"
+      }
     }
   },
   "diagnostics_separator": "；",
