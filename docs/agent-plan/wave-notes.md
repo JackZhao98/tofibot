@@ -1,6 +1,6 @@
-# Next release wave (after v0.1.0)
+# Release wave v0.1.1 (shipped 2026-10-10)
 
-Changes merged to `main` that have not shipped yet. The owner reviews this list before a release is cut (no release until the owner says so).
+Shipped as v0.1.1 (tag on 1ec7e00) after the owner approved; production upgraded the same day. Earlier text kept for the record: The owner reviews this list before a release is cut (no release until the owner says so).
 
 | # | Change | Status | Verification | Commits |
 |---|---|---|---|---|
