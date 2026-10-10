@@ -613,7 +613,13 @@
       "file_oversized": "Das Paket ist zu groß.",
       "decrypt_failed": "Entschlüsseln fehlgeschlagen. Prüfe die Passphrase, die Dateiversion und ob die Datei beschädigt ist.",
       "file_damaged": "Diese Datei ist beschädigt oder kein Tofi-Export."
-    }
+    },
+    "summary": "Kontodaten oder einen einzelnen Bot zwischen Servern übertragen. Bundles sind verschlüsselt, Importe werden vorab geprüft.",
+    "drop_hint": "oder Datei hierher ziehen",
+    "environment_help": "Standardmäßig aus. Jeden gewünschten Eintrag einzeln anhaken.",
+    "import_environment_help": "Standardmäßig aus. Jeden Eintrag einzeln anhaken, der als inaktive Kopie wiederhergestellt werden soll.",
+    "recovery_help": "Inaktive Kopien, die du erneut exportieren oder löschen kannst.",
+    "environment_label": "Umgebungs-Zugangsdaten"
   },
   "status": {
     "ok": "Verbunden",
@@ -666,5 +672,8 @@
       "install_hint": "Führe auf dem Server <code>sudo tofi update</code> aus, um es zu installieren.",
       "auto_hint": "Ändere das auf dem Server: <on>sudo tofi config auto-update on</on> oder <off>sudo tofi config auto-update off</off>"
     }
+  },
+  "disclosure": {
+    "details": "Details"
   }
 }

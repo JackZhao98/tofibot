@@ -604,7 +604,13 @@
       "file_oversized": "パッケージが大きすぎます。",
       "decrypt_failed": "復号できませんでした。パスフレーズ、ファイルのバージョン、ファイルの破損を確認してください。",
       "file_damaged": "このファイルは破損しているか、Tofi のエクスポートではありません。"
-    }
+    },
+    "summary": "アカウントデータまたは単一の Bot をサーバー間で移行します。バンドルは暗号化され、インポート前に確認されます。",
+    "drop_hint": "またはここにファイルをドロップ",
+    "environment_help": "既定ではオフです。含めるレコードを個別にチェックしてください。",
+    "import_environment_help": "既定ではオフです。無効なコピーとして復元するレコードを個別にチェックしてください。",
+    "recovery_help": "無効なコピーです。再エクスポートまたは削除できます。",
+    "environment_label": "環境の認証情報"
   },
   "status": {
     "ok": "接続済み",
@@ -657,5 +663,8 @@
       "install_hint": "サーバーで <code>sudo tofi update</code> を実行するとインストールできます。",
       "auto_hint": "サーバーで切り替えます：<on>sudo tofi config auto-update on</on> または <off>sudo tofi config auto-update off</off>"
     }
+  },
+  "disclosure": {
+    "details": "詳細"
   }
 }

@@ -7,7 +7,7 @@
 .admin-capacity{padding:16px}
 .admin-capacity dl{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin:0}
 .admin-capacity dl>div{display:grid;gap:4px;min-width:0}
-.admin-capacity dt{color:var(--muted);font:600 11px/1.3 var(--mono);letter-spacing:.06em;text-transform:uppercase}
+.admin-capacity dt{color:var(--muted);font:600 12px/1.3 var(--mono);letter-spacing:.06em;text-transform:uppercase}
 .admin-capacity dd{margin:0;color:var(--ink);font:600 22px/1.2 var(--display);overflow-wrap:anywhere}
 .admin-capacity dd small{color:var(--muted);font:600 12px/1 var(--mono)}
 .admin-capacity-low{display:flex;align-items:center;gap:8px;margin:12px 0 0;color:var(--honey-text);font:13px/1.5 var(--body)}
@@ -25,11 +25,11 @@
 .admin-avatar.is-large{width:56px;height:56px;font-size:22px}
 .admin-row-main{display:grid;gap:2px;min-width:0}
 .admin-row-main strong{display:flex;align-items:baseline;gap:8px;color:var(--ink);font:600 14px/1.4 var(--body);overflow-wrap:anywhere}
-.admin-row-main small,.admin-detail-head h3 small{color:var(--muted);font:600 11px/1 var(--mono)}
+.admin-row-main small,.admin-detail-head h3 small{color:var(--muted);font:600 12px/1 var(--mono)}
 .admin-row-email{color:var(--muted);font:12.5px/1.4 var(--body);overflow-wrap:anywhere}
 .admin-row-computer{color:var(--ink-soft);font:12.5px/1.4 var(--body);overflow-wrap:anywhere}
 .admin-badges{display:inline-flex;flex-wrap:wrap;align-items:center;gap:6px}
-.admin-role{display:inline-flex;align-items:center;padding:3px 9px;border:1px solid var(--line-soft);border-radius:999px;background:var(--surface-2);color:var(--ink-soft);font:600 11px/1.4 var(--mono);white-space:nowrap}
+.admin-role{display:inline-flex;align-items:center;padding:3px 9px;border:1px solid var(--line-soft);border-radius:999px;background:var(--surface-2);color:var(--ink-soft);font:600 12px/1.4 var(--mono);white-space:nowrap}
 
 /* Detail */
 .admin-detail{display:grid;gap:22px;align-content:start;min-width:0}

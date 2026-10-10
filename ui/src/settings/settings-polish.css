@@ -1,0 +1,98 @@
+/* Polish layer: one look for controls inside Settings, sheets and onboarding. Tokens only (design-tokens.css).
+   Audited by scripts/test-settings-polish.mjs: no native-looking controls, 12px floor for text, 12px card inset. */
+
+/* Controls inherit the body stack unless a component sets its own font (zero specificity on purpose). */
+:where(.settings-shell,.sheet,[data-onboarding]) :where(button,input,select,textarea){font-family:var(--body)}
+:where(.settings-shell,.sheet,[data-onboarding]) :where(.settings-count,.status-badge,code){font-family:var(--mono)}
+
+/* Help text never drops below 12px. */
+.workspace .settings-page-body :is(.field-note,.error-text,.settings-feedback),.sheet :is(.field-note,.error-text),[data-onboarding] :is(.field-note,.error-text){font-size:12px;line-height:1.55}
+.workspace .settings-page-body small,.sheet small{font-size:12px}
+.status-badge{font-size:12px}
+.workspace .settings-page-body .settings-tag{font-size:12px;letter-spacing:0}
+
+/* Select: one custom control (no native chevron on the field itself). */
+.workspace .settings-page-body select,.sheet select,[data-onboarding] select{appearance:none;-webkit-appearance:none;padding-right:38px;cursor:pointer;
+  background-image:linear-gradient(45deg,transparent 50%,var(--ink-soft) 50%),linear-gradient(135deg,var(--ink-soft) 50%,transparent 50%)!important;
+  background-position:calc(100% - 19px) 50%,calc(100% - 14px) 50%!important;background-size:5px 5px,5px 5px!important;background-repeat:no-repeat!important}
+.workspace .settings-page-body select:disabled,.sheet select:disabled{cursor:not-allowed}
+
+/* Connection value (server address, instance id) */
+.settings-row-control .connection-value{display:block;max-width:100%;color:var(--ink);font:13px/1.5 var(--mono);overflow-wrap:anywhere;text-align:right}
+.settings-row-control>a.secondary-button{text-decoration:none;min-height:36px;padding:6px 12px;font-size:13px}
+@media(max-width:700px){.settings-row-control .connection-value{text-align:left}}
+
+/* File picker: styled button, file-name chip, optional drop zone. The native input is hidden. */
+.file-picker{display:flex;flex-wrap:wrap;align-items:center;gap:10px 14px;min-width:0;padding:14px 16px;border:1.5px dashed var(--line-soft);border-radius:14px;background:var(--surface-2);transition:border-color 120ms,background-color 120ms}
+.file-picker.is-dragging{border-color:var(--line);background:var(--surface)}
+.file-picker>.secondary-button{min-height:38px;padding:7px 14px;font-size:13px}
+.file-picker-hint{color:var(--muted);font:12.5px/1.4 var(--body)}
+.file-chip{display:inline-flex;align-items:center;gap:6px;min-width:0;max-width:100%;padding:5px 10px;border:1px solid var(--line-soft);border-radius:999px;background:var(--surface);color:var(--ink);font:12.5px/1.4 var(--mono)}
+.file-chip>svg{flex:none;color:var(--muted)}
+.file-chip>span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+
+/* Resource labels are mono section labels: uppercase and tracked, so the 10px label token is by design. */
+.resource-grid span{text-transform:uppercase;letter-spacing:var(--label-tracking)}
+
+/* Search field: room for the leading icon. */
+.workspace .settings-page-body .integration-search input{padding-left:42px}
+
+/* Danger zone: spaced copy, the confirmation as a standard row, the action right-aligned like every card footer. */
+.danger-zone .purge-section{display:grid;gap:8px}
+.workspace .settings-page-body .danger-zone .purge-section :is(h3,p){margin:0}
+.workspace .settings-page-body .danger-zone .purge-section .settings-description{color:var(--ink-soft)}
+.danger-zone .purge-section .settings-row-v2{padding-left:0;padding-right:0}
+.purge-actions{display:flex;justify-content:flex-end;padding-top:4px}
+/* Debug toggle: no trailing space inside its card. */
+.workspace .settings-page-body .settings-card .debug-toggle{margin:0;padding:14px 16px}
+.workspace .settings-page-body .settings-card .settings-section{margin:0}
+@media(max-width:700px){.workspace .settings-page-body .settings-row-control :is(select,input:not([type="checkbox"]):not([type="radio"])){width:100%}}
+/* Danger zone: spaced copy, the confirmation as a standard row, the action right-aligned like every card footer. */
+.danger-zone .purge-section{display:grid;gap:8px}
+.workspace .settings-page-body .danger-zone .purge-section :is(h3,p){margin:0}
+.workspace .settings-page-body .danger-zone .purge-section .settings-description{color:var(--ink-soft)}
+.danger-zone .purge-section .settings-row-v2{padding-left:0;padding-right:0}
+.purge-actions{display:flex;justify-content:flex-end;padding-top:4px}
+/* Debug toggle: no trailing space inside its card. */
+.workspace .settings-page-body .settings-card .debug-toggle{margin:0;padding:14px 16px}
+.workspace .settings-page-body .settings-card .settings-section{margin:0}
+@media(max-width:700px){.workspace .settings-page-body .settings-row-control :is(select,input:not([type="checkbox"]):not([type="radio"])){width:100%}}
+/* Fields read as fields: a visible hairline instead of a tint-on-tint pill. */
+.workspace .settings-page-body :is(input:not([type="checkbox"]):not([type="radio"]),textarea,select),.sheet :is(input:not([type="checkbox"]):not([type="radio"]),textarea,select){border-color:var(--line-soft);background-color:var(--surface-2)}
+.workspace .settings-page-body :is(input:not([type="checkbox"]):not([type="radio"]),textarea,select):focus{border-color:var(--line);background-color:var(--surface)}
+/* Debug row reads like every other settings row. */
+.workspace .settings-page-body .debug-toggle>span{display:grid;gap:2px;color:var(--ink);font:600 14px/1.4 var(--body)}
+.workspace .settings-page-body .debug-toggle small{margin:0;color:var(--muted);font:12.5px/1.5 var(--body)}
+/* Selects keep the chevron clear of long values (ellipsis, never overlap). */
+.workspace .settings-page-body :is(select,.settings-row-control select),.sheet select,[data-onboarding] select{padding-right:38px;text-overflow:ellipsis;white-space:nowrap}
+[data-onboarding] .model-fields select{width:100%}
+/* Provider key form: a lone Save sits right, like every card footer. */
+.workspace .settings-page-body .provider-key-form{display:grid}
+.workspace .settings-page-body .provider-key-form>.primary-button{justify-self:end}
+/* Starter grids: an odd last tile spans the row instead of dangling. */
+.workspace .settings-page-body .integration-grid>:last-child:nth-child(odd){grid-column:1/-1}
+/* Admin uses the full page width like every other tab. */
+.workspace .settings-page-body .admin-accounts{max-width:none}
+/* Usage on phones: the Bot chips wrap instead of scrolling sideways with cut-off names. */
+@media(max-width:700px){.workspace .usage-agents{flex-wrap:wrap;overflow:visible}.workspace .usage-agents button{max-width:none}}
+/* Keys: saved variables and keys form one card; forms end with the action on the right. */
+.workspace .settings-page-body .credential-list{border:1px solid var(--line-soft);border-radius:18px;background:var(--surface);overflow:hidden}
+.workspace .settings-page-body .credential-list:empty{display:none}
+.workspace .settings-page-body .credential-list .credential-row{padding:14px 16px;border-bottom:1px solid var(--line-soft)}
+.workspace .settings-page-body .credential-list>.credential-row:last-child,.workspace .settings-page-body .credential-list>.ssh-key-row:last-child{border-bottom:0}
+.workspace .settings-page-body .credential-list>.ssh-key-row+.ssh-key-row{border-top:1px solid var(--line-soft)}
+.workspace .settings-page-body .credential-list .ssh-key-row>.credential-row{border-bottom:0}
+.workspace .settings-page-body .credential-list .ssh-public-key{display:block;width:calc(100% - 32px);margin:0 16px 14px}
+.computer-credentials .credential-form .primary-button{justify-self:end;width:auto}
+@media(max-width:700px){.workspace .settings-page-body .credential-list .credential-row{flex-wrap:wrap}.workspace .settings-page-body .credential-list .credential-copy{flex:1 1 100%;min-width:0}.workspace .settings-page-body .credential-list .credential-actions{flex:1 1 100%}}
+/* Connections: each service is a card, like Skills. */
+.workspace .settings-page-body .mcp-settings .mcp-service,.workspace .settings-page-body .mcp-settings .mcp-service:first-child{padding:14px 16px;margin:0 0 10px;border:1px solid var(--line-soft);border-radius:18px;background:var(--surface)}
+.workspace .settings-page-body .mcp-settings .mcp-service-error{margin-left:52px}
+/* Providers: one card, rows divided by hairlines like every other card. */
+.workspace .settings-page-body .settings-card>.provider-card+.provider-card{border-top:1px solid var(--line-soft)}
+/* Notifications: title, then status, then note, stacked on the card inset. */
+.workspace .settings-page-body .notification-setting{flex-direction:column;flex-wrap:nowrap;align-items:flex-start;justify-content:flex-start;gap:4px}
+.workspace .settings-page-body .notification-setting>strong{flex:none}
+.workspace .settings-page-body .notification-setting>.notification-status{order:2;flex:none;max-width:100%;color:var(--ink-soft);font:13px/1.5 var(--body);text-align:left}
+.workspace .settings-page-body .notification-setting .field-note{order:3;margin:0}
+.workspace .settings-page-body .notification-setting>.secondary-button{order:4;margin-top:6px}
