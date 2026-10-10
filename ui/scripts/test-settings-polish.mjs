@@ -310,11 +310,13 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
     if (path === "/api/preferences") return {timezone: "America/Los_Angeles", timezone_configured: true};
     if (path === "/api/extensions/mcp" && method === "GET") return {servers: [
       {name: "acme_docs", url: "https://mcp.example.test/docs", oauth: {client_id: "sample", connected: false}},
-      {name: "acme_tracker", url: "https://mcp.example.test/tracker", oauth: {client_id: "sample", connected: true}},
+      {name: "acme_tracker", url: "https://mcp.example.test/tracker", oauth: {client_id: "sample", connected: true}, status: {checked_at: "2026-10-09T09:30:00Z", ok: true, tool_count: 49}},
       {name: "notes_search", url: "https://mcp.example.test/notes", headers: {}},
     ]};
     if (/^\/api\/extensions\/mcp\/[^/]+\/test$/.test(path) && method === "POST") return {ok: true, tool_count: 8};
-    if (path === "/api/extensions/oauth-options") return {vm_available: false, web_callback_origin: "https://tofi.example.test", desktop_redirect_uri: ""};
+    if (path === "/api/extensions/oauth-options") return {vm_available: true, web_callback_origin: "https://tofi.example.test", desktop_redirect_uri: ""};
+    if (/\/oauth\/vm\/start$/.test(path) && method === "POST") return {session_id: "sess_vm", bot_id: "bot_research", status: "pending"};
+    if (/\/oauth\/vm\/[^/]+\/status$/.test(path)) return {session_id: "sess_vm", bot_id: "bot_research", status: "pending"};
     if (path === "/api/extensions/local-mcp") return {available: false, reason: "sample"};
     if (path === "/api/extensions/skills") return {skills: [{name: "research-assistant", description: "Research and verify sources", access: {mode: "all"}}, {name: "weekly-report", description: "Draft the weekly status report", access: {mode: "selected", bot_ids: ["bot_research"]}}]};
     if (path === "/api/auto-review-settings") return {mode: "shadow", revision: 1, review_scope: "all_external_tools"};
@@ -376,6 +378,13 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
   const tabScenario = (id, tab) => scenarios.push({id, tab, run: async () => {}});
   for (const tab of ["general", "connections", "skills", "approvals", "models", "computer", "keys", "usage", "advanced", "admin"]) tabScenario(tab, tab);
   scenarios.push(
+    // Sign-in in progress is the only place the key diagram appears; its provider label must sit under the key, not over it.
+    {id: "connections-signin", tab: "connections", run: async ({page}) => {
+      await click(page.locator('.mcp-service[aria-label="acme_docs"]').getByRole("button", {name: /^Connect/}), "Connections: Connect");
+      await page.locator(".web-oauth-provider").waitFor({timeout: 4000}).catch(() => warnings.push("step skipped: sign-in diagram did not appear"));
+      const boxes = await page.evaluate(() => { const p = document.querySelector(".web-oauth-provider"); if (!p) return null; const a = p.querySelector("svg").getBoundingClientRect(), b = p.querySelector("small").getBoundingClientRect(); return {iconBottom: a.bottom, labelTop: b.top}; });
+      if (boxes && boxes.labelTop < boxes.iconBottom - 0.5) throw new Error(`provider label overlaps the key icon (${boxes.labelTop} < ${boxes.iconBottom})`);
+    }},
     {id: "connections-add", tab: "connections", run: async ({page}) => { await click(page.getByRole("button", {name: /^Add/}), "Connections: Add"); await page.waitForTimeout(500); }},
     {id: "skills-install", tab: "skills", run: async ({page}) => { await click(page.getByRole("button", {name: /Add skill|Install/}), "Skills: install"); await page.waitForTimeout(500); }},
     {id: "skills-access-sheet", tab: "skills", container: ".sheet", run: async ({page}) => { await click(page.getByRole("button", {name: "Change"}).first(), "Skills: Change"); await page.locator(".sheet").waitFor({timeout: 4000}).catch(() => {}); await page.getByRole("radio", {name: /^Only selected Bots/}).check().catch(() => {}); await page.waitForTimeout(400); }},

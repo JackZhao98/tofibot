@@ -38,6 +38,8 @@ type MCPServerView struct {
 	// Retained for reading legacy config files; per-Bot grants are ignored.
 	BotAllowlists map[string][]string `json:"-"`
 	OAuth         *OAuthView          `json:"oauth,omitempty"`
+	// Status is the persisted result of the last check; nil if never checked.
+	Status *MCPStatus `json:"status,omitempty"`
 }
 type OAuthView struct {
 	ClientID              string   `json:"client_id"`
@@ -101,6 +103,7 @@ func (m *Manager) ListMCP() ([]MCPServerView, error) {
 	}
 	sort.Strings(names)
 	out := make([]MCPServerView, 0, len(names))
+	statuses := m.loadStatuses()
 	for _, n := range names {
 		c := cfg[n]
 		var oauth *OAuthView
@@ -113,7 +116,12 @@ func (m *Manager) ListMCP() ([]MCPServerView, error) {
 				oauth.Connected = true
 			}
 		}
-		out = append(out, MCPServerView{Name: n, URL: c.URL, Transport: c.Transport, Headers: maskedHeaders(c.Headers), ToolAllowlist: append([]string(nil), c.ToolAllowlist...), ToolDenylist: append([]string(nil), c.ToolDenylist...), BotAllowlists: c.BotAllowlists, OAuth: oauth})
+		var status *MCPStatus
+		if st, ok := statuses[n]; ok && st.URL == c.URL {
+			st := st
+			status = &st
+		}
+		out = append(out, MCPServerView{Name: n, URL: c.URL, Transport: c.Transport, Headers: maskedHeaders(c.Headers), ToolAllowlist: append([]string(nil), c.ToolAllowlist...), ToolDenylist: append([]string(nil), c.ToolDenylist...), BotAllowlists: c.BotAllowlists, OAuth: oauth, Status: status})
 	}
 	return out, nil
 }
@@ -251,6 +259,7 @@ func (m *Manager) DeleteMCP(name string) error {
 		return err
 	}
 	m.invalidateCatalogs(name)
+	m.forgetStatus(name)
 	return invalidateErr
 }
 
@@ -263,25 +272,33 @@ type MCPInspection struct {
 // InspectMCP connects to an MCP server and reports its discovered tool count
 // together with diagnostics suitable for the settings UI.
 func (m *Manager) InspectMCP(ctx context.Context, name string) MCPInspection {
+	inspection, url, known := m.inspectMCP(ctx, name)
+	if known {
+		m.recordStatus(name, url, inspection)
+	}
+	return inspection
+}
+
+func (m *Manager) inspectMCP(ctx context.Context, name string) (MCPInspection, string, bool) {
 	m.mu.RLock()
 	cfg, e := loadServers(m.cfg.MCPConfigPath)
 	m.mu.RUnlock()
 	if e != nil {
-		return MCPInspection{Diagnostics: []Diagnostic{{Server: name, Message: e.Error()}}}
+		return MCPInspection{Diagnostics: []Diagnostic{{Server: name, Message: e.Error()}}}, "", false
 	}
 	c, ok := cfg[name]
 	if !ok {
-		return MCPInspection{Diagnostics: []Diagnostic{{Server: name, Message: "MCP server not found"}}}
+		return MCPInspection{Diagnostics: []Diagnostic{{Server: name, Message: "MCP server not found"}}}, "", false
 	}
 	discovery, cancel := context.WithTimeout(ctx, m.cfg.DiscoveryTimeout)
 	defer cancel()
 	tools, cli, e := m.prepareServer(ctx, discovery, name, c, nil, map[string]int{}, nil)
 	if e != nil {
 		authRequired := c.OAuth != nil && oauthAuthorizationRequired(e)
-		return MCPInspection{AuthRequired: authRequired, Diagnostics: []Diagnostic{mcpInspectionDiagnostic(name, c.URL, e)}}
+		return MCPInspection{AuthRequired: authRequired, Diagnostics: []Diagnostic{mcpInspectionDiagnostic(name, c.URL, e)}}, c.URL, true
 	}
 	defer cli.Close()
-	return MCPInspection{ToolCount: len(tools)}
+	return MCPInspection{ToolCount: len(tools)}, c.URL, true
 }
 
 func oauthAuthorizationRequired(err error) bool {
