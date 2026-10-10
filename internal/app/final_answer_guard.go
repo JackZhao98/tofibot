@@ -33,6 +33,6 @@ func (s *Store) finalAnswerRequired(runID string) (bool, error) {
 // turn the user can already see.
 func (s *Store) hasProgressReport(runID string) (bool, error) {
 	var found int
-	err := s.db.QueryRow(`SELECT EXISTS(SELECT 1 FROM messages WHERE run_id=? AND role='assistant' AND (kind='progress' OR (kind='segment' AND client_message_id IS NULL)) AND TRIM(content)<>'')`, runID).Scan(&found)
+	err := s.db.QueryRow(`SELECT EXISTS(SELECT 1 FROM messages WHERE run_id=? AND role='assistant' AND kind IN ('progress','segment') AND TRIM(content)<>'')`, runID).Scan(&found)
 	return found != 0, err
 }
