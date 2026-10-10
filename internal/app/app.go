@@ -2470,7 +2470,7 @@ func (s *Server) route(w http.ResponseWriter, r *http.Request) {
 	if s.routeMailDrafts(w, r, p) {
 		return
 	}
-	if s.routePreferences(w, r, p) {
+	if s.routePreferences(w, r, p) || s.routeOnboarding(w, r, p) {
 		return
 	}
 	switch {
@@ -2633,6 +2633,7 @@ func (s *Server) bots(w http.ResponseWriter, r *http.Request) {
 			ReasoningEffort  string `json:"reasoning_effort"`
 			Onboarding       bool   `json:"onboarding"`
 			ClientCreationID string `json:"client_creation_id"`
+			Locale           string `json:"locale"`
 		}
 		if decode(r, &x) != nil {
 			writeErr(w, 400, "invalid_request", "invalid request")
@@ -2651,7 +2652,7 @@ func (s *Server) bots(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		if x.Onboarding {
-			b, duplicate, e := s.store.CreateOnboardingBotWithReasoning(x.ClientCreationID, x.Model, x.ReasoningEffort)
+			b, duplicate, e := s.store.createOnboardingBot(x.ClientCreationID, x.Model, x.ReasoningEffort, s.onboardingLocale(x.Locale), false)
 			if e != nil {
 				writeErr(w, 400, "invalid_request", e.Error())
 				return

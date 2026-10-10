@@ -52,7 +52,10 @@ export const api = {
     return { bots: result.bots ?? [] };
   },
   createBot: (input: Pick<Bot, "name" | "instructions" | "model" | "reasoning_effort">) => request<Bot>("/api/bots", json(input)),
-  createNewBot: (client_creation_id: string) => request<Bot>("/api/bots", json({ onboarding: true, client_creation_id })),
+  createNewBot: (client_creation_id: string) => request<Bot>("/api/bots", json({ onboarding: true, client_creation_id, locale: i18n.resolvedLanguage ?? i18n.language })),
+  onboardingState: () => request<unknown>("/api/onboarding"),
+  putOnboarding: (update: { step?: number; completed?: boolean; skipped?: boolean }) => request<unknown>("/api/onboarding", { method: "PUT", body: JSON.stringify(update) }),
+  firstBot: () => request<{ bot: Bot; created: boolean }>("/api/onboarding/first-bot", json({ locale: i18n.resolvedLanguage ?? i18n.language })),
   updateBot: (id: string, input: Partial<Pick<Bot, "name" | "instructions" | "model" | "reasoning_effort">>) => request<Bot>(`/api/bots/${encodeURIComponent(id)}`, { method: "PATCH", body: JSON.stringify(input) }),
   conversations: async (includeArchived = false) => {
     const result = await request<{ conversations: Conversation[] | null }>(`/api/conversations${includeArchived ? "?include_archived=true" : ""}`);

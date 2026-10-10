@@ -24,6 +24,8 @@ export type IntegrationPreset = {
   /** Human-readable prerequisites shown before saving the form. */
   setup: string[];
   auth: "oauth" | "token" | "none";
+  /** OAuth client is registered on the fly (dynamic client registration), so no Client ID is asked for. */
+  dcr?: true;
   /** Suggested API scopes; the provider may grant a narrower set. */
   scopes?: string[];
   /** Optional OAuth authorization-server metadata endpoint. */
@@ -196,7 +198,28 @@ export const integrationCatalog: IntegrationPreset[] = [
       ];
     },
     auth: "oauth",
+    dcr: true,
     get note() { return i18n.t("extensions:catalog.notion.note"); },
+    status: "active",
+  },
+  {
+    id: "robinhood",
+    name: "Robinhood",
+    get description() { return i18n.t("extensions:catalog.robinhood.description"); },
+    category: "service",
+    url: "https://agent.robinhood.com/mcp/trading",
+    docsURL: "https://robinhood.com/newsroom/robinhood-is-now-open-to-agents/",
+    upstream: "vendor",
+    get setup() {
+      return [
+        i18n.t("extensions:catalog.robinhood.setup.auto_client"),
+        i18n.t("extensions:catalog.robinhood.setup.sign_in"),
+        i18n.t("extensions:catalog.robinhood.setup.agentic_account"),
+      ];
+    },
+    auth: "oauth",
+    dcr: true,
+    get note() { return i18n.t("extensions:catalog.robinhood.note"); },
     status: "active",
   },
   {

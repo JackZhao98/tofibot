@@ -120,6 +120,15 @@
         "check_access": "接続したアカウントのページ権限が想定どおりか確認します。",
         "choose_workspace": "追加後に「接続」をクリックし、接続する Notion ワークスペースを選びます。"
       }
+    },
+    "robinhood": {
+      "description": "相場とポジション。取引は Agentic アカウント内のみ。",
+      "note": "Robinhood 公式のリモート MCP です。取引できるのは Agentic アカウントだけで、Tofi は実行前に必ず確認します。",
+      "setup": {
+        "auto_client": "Tofi が Robinhood に OAuth クライアントを自動で登録するため、Client ID の入力は不要です。",
+        "sign_in": "追加後に「接続」を押して Robinhood にサインインします。",
+        "agentic_account": "取引は Agentic アカウントに限られ、ほかのアカウントには触れません。"
+      }
     }
   },
   "diagnostics_separator": "；",
