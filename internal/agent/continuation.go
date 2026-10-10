@@ -138,7 +138,9 @@ func ValidateContinuation(c *Continuation) error {
 		trackedUsage.OutputTokens += usage.OutputTokens
 		trackedCalls += usage.APICallCount
 	}
-	if trackedUsage != c.TotalUsage || trackedCalls != c.LLMCalls {
+	// ModelUsage tracks input and output tokens only; TotalUsage also carries
+	// cache reads/writes, so compare just the fields both sides record.
+	if trackedUsage.InputTokens != c.TotalUsage.InputTokens || trackedUsage.OutputTokens != c.TotalUsage.OutputTokens || trackedCalls != c.LLMCalls {
 		return errors.New("agent continuation usage counters do not match model usage")
 	}
 	return nil
