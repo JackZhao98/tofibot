@@ -161,7 +161,11 @@ func (g *AccountGateway) manageAccount(w http.ResponseWriter, r *http.Request, a
 		writeErr(w, 404, "not_found", "account not found")
 		return true
 	}
-	if r.Method != http.MethodPatch && r.Method != http.MethodDelete {
+	if r.Method == http.MethodDelete {
+		g.deleteAccount(w, r, a, id)
+		return true
+	}
+	if r.Method != http.MethodPatch {
 		writeErr(w, 405, "method_not_allowed", "unsupported method")
 		return true
 	}
@@ -170,10 +174,7 @@ func (g *AccountGateway) manageAccount(w http.ResponseWriter, r *http.Request, a
 		Role     *string `json:"role"`
 		Password string  `json:"initial_password"`
 	}
-	if r.Method == http.MethodDelete {
-		value := true
-		in.Disabled = &value
-	} else if decodeStrict(r, 8<<10, &in) != nil {
+	if decodeStrict(r, 8<<10, &in) != nil {
 		writeErr(w, 400, "invalid_request", "invalid account change")
 		return true
 	}
@@ -221,7 +222,11 @@ func (g *AccountGateway) manageAccount(w http.ResponseWriter, r *http.Request, a
 			err = errors.New("admin required")
 		}
 		if err == nil {
-			err = tx.QueryRowContext(r.Context(), `SELECT id,username,email,role,disabled,must_change_password,legacy FROM accounts WHERE id=?`, id).Scan(&target.ID, &target.Username, &target.Email, &target.Role, &target.Disabled, &target.MustChangePassword, &target.Legacy)
+			err = tx.QueryRowContext(r.Context(), `SELECT id,username,email,role,disabled,must_change_password,legacy,deleting FROM accounts WHERE id=?`, id).Scan(&target.ID, &target.Username, &target.Email, &target.Role, &target.Disabled, &target.MustChangePassword, &target.Legacy, &target.Deleting)
+		}
+		if err == nil && target.Deleting {
+			// A deletion in progress is finished or retried, never reversed.
+			err = errAccountDeleting
 		}
 		if err == nil {
 			disabled := target.Disabled
@@ -273,6 +278,10 @@ func (g *AccountGateway) manageAccount(w http.ResponseWriter, r *http.Request, a
 		}
 	}
 	g.mu.Unlock()
+	if errors.Is(err, errAccountDeleting) {
+		writeErr(w, 409, "account_deleting", "account is being deleted")
+		return true
+	}
 	if err != nil {
 		writeErr(w, 409, "account_change_rejected", "account missing, changed, or last admin protected")
 		return true

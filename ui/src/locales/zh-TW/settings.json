@@ -259,32 +259,204 @@
     "recheck": "重新檢查"
   },
   "admin": {
-    "capacity_unavailable": "暫時無法取得電腦容量，請重新整理後再試",
-    "intro": "只有 Admin 可以預先建立帳號。使用者首次登入時必須更換初始密碼；停用會保留工作區，並登出該使用者。",
-    "capacity": "可分配的電腦容量 {{size}} GiB。擴充容量會停止電腦，完成後即可重新連線；縮減磁碟需另行離線處理，停用帳號不會釋出容量。",
-    "capacity_low": "可分配的電腦容量 {{size}} GiB · 剩餘空間不足，請謹慎分配。擴充容量會停止電腦，完成後即可重新連線；縮減磁碟需另行離線處理，停用帳號不會釋出容量。",
-    "name_required": "請填寫使用者名稱或電子郵件",
-    "add_title": "新增帳號",
-    "username": "使用者名稱",
-    "email": "電子郵件",
-    "initial_password": "初始密碼",
-    "create": "建立帳號",
+    "capacity_unavailable": "目前無法取得電腦容量，請重新整理後再試",
+    "intro": "建立帳號、指定誰是 Admin，並設定每個帳號的電腦磁碟大小。成員首次登入時需要更換初始密碼。",
+    "summary": {
+      "title": "電腦容量",
+      "total": "主機磁碟",
+      "allocated": "已配置",
+      "free": "可配置",
+      "low": "剩餘空間不多，請謹慎配置。"
+    },
+    "accounts": {
+      "title": "帳號",
+      "empty": "還沒有帳號。"
+    },
+    "add": "新增帳號",
+    "open": "開啟 {{name}}",
+    "you": "你",
     "no_email": "未設定電子郵件",
-    "role_admin": "Admin",
-    "role_user": "一般使用者",
-    "state_disabled": "已停用",
-    "state_must_change": "等待更換初始密碼",
-    "state_active": "正常",
-    "enable": "恢復帳號",
-    "disable": "停用帳號",
-    "make_user": "設為一般使用者",
-    "make_admin": "設為 Admin",
-    "reset_password": "重設初始密碼",
-    "quota_pending": "擴充尚未完成，已保留預留的容量；請在電腦清理完成後重試此配額。",
-    "quota_label": "電腦容量（GiB）",
-    "quota_save": "儲存容量並停止電腦",
-    "new_password": "新的初始密碼",
-    "reset_submit": "更新並登出"
+    "back": "帳號",
+    "copy": "複製",
+    "copied": "已複製",
+    "role": {
+      "admin": "Admin",
+      "user": "一般使用者"
+    },
+    "status": {
+      "active": "正常",
+      "deactivated": "已停用",
+      "deleting": "刪除中",
+      "delete_failed": "刪除已中斷",
+      "must_change": "等待首次登入"
+    },
+    "computer": {
+      "none": "沒有電腦",
+      "reserved": "未啟動",
+      "ready": "就緒",
+      "disabled": "已停止"
+    },
+    "create": {
+      "title": "新增帳號",
+      "username": "使用者名稱",
+      "email": "電子郵件",
+      "password": "初始密碼",
+      "password_note": "至少 12 個字元。對方首次登入時必須更換。",
+      "submit": "建立帳號",
+      "name_required": "請輸入使用者名稱或電子郵件"
+    },
+    "detail": {
+      "role": {
+        "title": "角色",
+        "label": "角色",
+        "help": "Admin 可以管理帳號、容量與更新；成員使用自己的工作區。",
+        "self": "無法變更自己的角色。",
+        "last": "這是最後一位正常的 Admin，請先將另一個帳號設為 Admin。",
+        "deleting": "此帳號正在刪除。"
+      },
+      "computer": {
+        "title": "電腦",
+        "state": "狀態",
+        "disk": "磁碟配額",
+        "disk_help": "為此帳號的電腦預留的磁碟，只能調大，不能調小。",
+        "disk_note": "變更配額會停止電腦，帳號下次需要時會重新啟動。",
+        "disk_pending": "上一次調整尚未完成，預留容量仍被佔用。電腦清理完成後，請再次儲存相同的大小。",
+        "saved": "已儲存。電腦已停止，需要時會自動重新啟動。",
+        "option": "{{size}} GiB",
+        "current": "目前",
+        "no_room": "可用空間不足",
+        "save_label": "套用",
+        "save": "儲存 {{size}} GiB 並停止電腦",
+        "none": "這個帳號還沒有配置電腦。"
+      },
+      "signin": {
+        "title": "登入",
+        "label": "重設密碼",
+        "help": "產生一次性密碼並讓帳號登出，對方下次登入時必須自行設定新密碼。",
+        "deleting": "帳號刪除期間無法使用。",
+        "action": "重設密碼"
+      },
+      "reset": {
+        "confirm_title": "要重設 {{name}} 的密碼嗎？",
+        "confirm_body": "此帳號會在所有裝置上登出，並取得新的一次性密碼，下一步只會顯示一次。",
+        "confirm_action": "重設並登出",
+        "done_title": "一次性密碼",
+        "done_body": "請將這組密碼交給 {{name}}，對方首次登入時必須更換。",
+        "password": "一次性密碼",
+        "once": "只顯示一次，關閉後無法再次檢視。",
+        "done": "我已複製"
+      },
+      "danger": {
+        "title": "危險區域",
+        "deactivate_label": "停用帳號",
+        "deactivate_help": "讓帳號登出並停止其電腦。Bot、對話、記憶與磁碟都會保留。",
+        "deactivate_action": "停用",
+        "deactivate_self": "無法停用你目前登入的帳號。",
+        "deactivate_last": "這是最後一位正常的 Admin，無法停用。",
+        "reactivate_label": "恢復帳號",
+        "reactivate_help": "讓帳號帶著原有的 Bot 與資料重新登入。",
+        "reactivate_deleting": "刪除已經開始，無法復原，請在上方重試。",
+        "reactivate_action": "恢復",
+        "delete_label": "刪除帳號",
+        "delete_help": "永久刪除帳號及其 Bot、對話、記憶、檔案與電腦，並釋放磁碟。",
+        "delete_action": "刪除帳號…",
+        "delete_self": "無法刪除你目前登入的帳號。",
+        "delete_legacy": "原始擁有者帳號及其電腦無法刪除。",
+        "delete_running": "正在刪除。",
+        "delete_need_deactivate": "請先停用此帳號，只有已停用的帳號才能刪除。"
+      }
+    },
+    "delete": {
+      "title": "要刪除 {{name}} 嗎？",
+      "lead": "以下內容將被永久刪除：",
+      "item_bots": "所有 Bot 及其設定",
+      "item_chats": "所有對話",
+      "item_memory": "所有記憶",
+      "item_files": "檔案與附件",
+      "item_computer": "電腦及其磁碟，將釋放 {{size}} GiB",
+      "item_computer_none": "電腦（若有）",
+      "irreversible": "此操作無法復原。",
+      "export_note": "刪除任何內容之前，會先將 Bot、對話、記憶與排程加密備份並保存 30 天，不含憑證與電腦檔案。",
+      "confirm_label": "輸入 {{name}} 以確認",
+      "confirm_action": "刪除帳號",
+      "progress_title": "正在刪除 {{name}}",
+      "steps_label": "刪除步驟",
+      "working": "正在刪除，請保持此視窗開啟。",
+      "retry_body": "刪除在中途停止了，重試會從停下的地方繼續。",
+      "retry_action": "重試刪除",
+      "close": "關閉",
+      "step": {
+        "export": "儲存加密備份",
+        "computer": "移除電腦並釋放磁碟",
+        "data": "移除 Bot、對話與檔案",
+        "sessions": "移除登入狀態",
+        "record": "移除帳號"
+      }
+    },
+    "deleting": {
+      "running": "正在刪除",
+      "body": "帳號正在移除，若看起來卡住了請重試。",
+      "stopped": "刪除停在：{{step}}",
+      "error": {
+        "generic": "發生錯誤，後續內容沒有被刪除，請重試以繼續。",
+        "export_failed": "備份未能儲存或驗證，所以沒有刪除任何內容。",
+        "computer_unavailable": "電腦服務沒有確認移除。",
+        "computer_unverified": "電腦服務有回應，但無法驗證移除結果。",
+        "data_failed": "無法刪除此帳號的資料資料夾。",
+        "sessions_failed": "無法移除此帳號的登入狀態。",
+        "record_failed": "無法移除帳號紀錄。"
+      }
+    },
+    "result": {
+      "title": "已刪除 {{name}}",
+      "body": "帳號及其電腦已移除，Bot 的加密備份已儲存。請將連結與密語分開傳送。",
+      "link": "下載連結",
+      "passphrase": "密語",
+      "once": "只顯示一次，繼續之後 Tofi 不會保留。",
+      "expires": "有效期限至 {{date}}。",
+      "message_label": "要傳送的訊息",
+      "message": "你的 TOFI 帳號已關閉。下載你的 Bot：{{link}}（密語另行傳送），有效期限至 {{date}}。在 Tofi 中匯入：設定 → 進階 → 資料搬移，然後輸入密語。",
+      "message_note": "請以另一則訊息或另一個管道傳送密語。",
+      "copy_message": "複製訊息",
+      "done": "我已儲存密語"
+    },
+    "exports": {
+      "title": "已刪除帳號的備份",
+      "help": "已刪除帳號的 Bot 加密備份，保留 30 天。密語只在刪除帳號時顯示一次，之後只能複製連結或刪除備份。",
+      "empty": "沒有備份。",
+      "created": "建立於 {{date}}",
+      "expires": "{{date}} 到期",
+      "size": "{{value}} MB",
+      "copy_link": "複製連結",
+      "show_passphrase": "顯示密語",
+      "delete": "刪除備份",
+      "delete_title": "要刪除 {{name}} 的備份嗎？",
+      "delete_body": "下載連結將失效，檔案會被刪除，此操作無法復原。",
+      "passphrase_gone": "密語只顯示過一次，並未儲存。",
+      "link_unavailable": "無法重建下載連結：此伺服器的匯出金鑰已遺失或已變更。請刪除此備份；該帳號的資料無法再次匯出。"
+    },
+    "error": {
+      "generic": "這次沒有成功，請重新整理後再試。",
+      "self_lockout": "無法對自己的帳號執行此操作。",
+      "last_admin": "無法變更或移除最後一位正常的 Admin。",
+      "account_deleting": "此帳號正在刪除。",
+      "account_not_deactivated": "請先停用帳號再刪除。",
+      "legacy_account_not_deletable": "原始擁有者帳號及其電腦無法刪除。",
+      "confirmation_mismatch": "輸入的使用者名稱不相符。",
+      "delete_in_progress": "此帳號已在刪除中。",
+      "account_delete_failed": "刪除已中斷，請重試以繼續。",
+      "account_change_rejected": "帳號已變更或受保護，請重新整理後再試。",
+      "quota_not_applied": "磁碟大小未生效。擴充需要有可用容量且電腦清理已完成；這裡不支援縮小。",
+      "quota_unverified": "無法驗證新的磁碟大小，請重新整理後再試。",
+      "computer_transition_pending": "帳號變更已儲存，但電腦這一步需要重試。",
+      "weak_password": "請至少使用 12 個字元。",
+      "password_contains_identity": "密碼不能包含使用者名稱或電子郵件。",
+      "common_password": "這個密碼太常見了。",
+      "invalid_account": "使用者名稱或電子郵件無效，或已被使用。",
+      "forbidden": "只有 Admin 才能執行此操作。",
+      "export_in_use": "該備份所屬帳號的刪除尚未完成。",
+      "passphrase_unavailable": "密語無法使用。"
+    }
   },
   "connection": {
     "label": "目前的伺服器連線",
@@ -430,7 +602,8 @@
       "insecure_context": "請在 HTTPS 或本機安全頁面中操作。",
       "bundle_too_large": "資料套件超過 16 MiB，請減少匯出內容。",
       "file_oversized": "資料套件過大。",
-      "decrypt_failed": "無法解密：請檢查密碼、檔案版本，或檔案是否損毀。"
+      "decrypt_failed": "無法解密：請檢查密碼、檔案版本，或檔案是否損毀。",
+      "file_damaged": "此檔案已損毀，或不是 Tofi 匯出檔。"
     }
   },
   "status": {

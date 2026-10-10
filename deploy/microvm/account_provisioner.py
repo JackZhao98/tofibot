@@ -10,12 +10,13 @@ import socket
 import socketserver
 import stat
 import sqlite3
+import shutil
 import struct
 import subprocess
 
 from account_capacity import AdmissionError, CapacityLedger, account_id
 import account_adoption
-from manager import snapshot_release
+from manager import mounts_under, snapshot_release
 
 
 
@@ -513,6 +514,8 @@ class Broker:
             return {"aborted": True}
         if op == "upgrade":
             return self.upgrade(identity, unit)
+        if op == "delete":
+            return self.delete_computer(identity, unit)
         if op not in ("ensure", "stop", "disable", "restore"):
             raise ValueError("operation not allowed")
         with self.ledger.connection() as db:
@@ -574,6 +577,93 @@ class Broker:
             self.write_owned(config_path, content, 0o600)
         self.start_manager(identity, unit, config_path)
         return {"account_id": identity, "socket": str(sockets / "control.sock"), "slot": row["slot"]}
+
+    def remove_cgroup_leaf(self, identity):
+        """Hook: remove the account's now-empty VM cgroup leaf. The base broker has none."""
+
+    def mounts_below(self, directory):
+        return mounts_under(directory)
+
+    def _own_path(self, root_key, *names):
+        """Return a path below a trusted root, or None if absent.
+
+        Only the account's own fixed names are ever joined; a symlink at the
+        target, or a target that does not resolve directly below its root,
+        refuses the whole operation before anything is removed.
+        """
+        root = Path(self.c[root_key])
+        path = root.joinpath(*names)
+        try:
+            info = path.lstat()
+        except FileNotFoundError:
+            return None
+        if stat.S_ISLNK(info.st_mode):
+            raise AdmissionError("unexpected account path symlink")
+        if path.resolve().parent != root.resolve() and len(names) == 1:
+            raise AdmissionError("account path escapes its root")
+        return path
+
+    def delete_computer(self, identity, unit):
+        """Reclaim a disabled computer: its files, jail leftovers and ledger row.
+
+        Everything removed is named by this account's UUID below the broker's
+        own roots (state/<id>, socket/<id>, config/<id>.json, its unit file).
+        The ledger row (quota bytes and slot) goes last, in one transaction,
+        so a failure part-way leaves a retryable disabled computer. Repeating
+        the request after success is a no-op.
+        """
+        with self.ledger.connection() as db:
+            adoption = db.execute("SELECT 1 FROM legacy_adoptions WHERE account_id=?", (identity,)).fetchone()
+            row = db.execute("SELECT * FROM computers WHERE account_id=?", (identity,)).fetchone()
+        if adoption:
+            raise AdmissionError("an adopted legacy computer cannot be deleted")
+        if row is not None and row["state"] != "disabled":
+            raise AdmissionError("computer must be disabled before delete")
+        # Validate every target before touching any of them.
+        state = self._own_path("state_root", identity)
+        sockets = self._own_path("socket_root", identity)
+        config_path = self._own_path("config_root", identity + ".json")
+        pending_config = self._own_path("config_root", identity + ".json.pending")
+        unit_path = self._own_path("unit_root", unit)
+        for path in (state, sockets):
+            if path is not None and not stat.S_ISDIR(path.lstat().st_mode):
+                raise AdmissionError("unexpected account path type")
+        for path in (config_path, pending_config, unit_path):
+            if path is not None and not stat.S_ISREG(path.lstat().st_mode):
+                raise AdmissionError("unexpected account path type")
+        self.stop_manager(identity, unit)
+        with self.ledger.connection() as db:
+            db.execute("DELETE FROM runtime_claims WHERE account_id=?", (identity,))
+        self.remove_cgroup_leaf(identity)
+        if state is not None:
+            for point in self.mounts_below(state):
+                self.run(["umount", point])
+            # Never delete through a mount: that would reach the shared release.
+            if self.mounts_below(state):
+                raise AdmissionError("account jail still has mounted images")
+            shutil.rmtree(state)
+        if sockets is not None:
+            shutil.rmtree(sockets)
+        owned = []
+        for path in (config_path, pending_config, unit_path):
+            if path is not None:
+                path.unlink()
+                owned.append(str(path))
+        if unit_path is not None:
+            self.run(["/usr/bin/systemctl", "daemon-reload"])
+        released = {"account_id": identity, "deleted": True, "released_bytes": 0, "slot": None}
+        with self.ledger.connection() as db:
+            db.execute("BEGIN IMMEDIATE")
+            for path in owned:
+                db.execute("DELETE FROM owned_files WHERE path=?", (path,))
+            db.execute("DELETE FROM resize_fences WHERE account_id=?", (identity,))
+            current = db.execute("SELECT quota_bytes,slot FROM computers WHERE account_id=?", (identity,)).fetchone()
+            if current is not None:
+                released["released_bytes"], released["slot"] = current["quota_bytes"], current["slot"]
+            db.execute("DELETE FROM runtime_claims WHERE account_id=?", (identity,))
+            db.execute("DELETE FROM computers WHERE account_id=?", (identity,))
+            db.execute("COMMIT")
+        return released
 
     def _assert_no_resize_fence(self, identity):
         with self.ledger.connection() as db:

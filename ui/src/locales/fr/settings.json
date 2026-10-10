@@ -269,32 +269,204 @@
     "recheck": "Vérifier à nouveau"
   },
   "admin": {
-    "capacity_unavailable": "La capacité de l’ordinateur est indisponible. Actualisez la page et réessayez.",
-    "intro": "Seul un Admin peut créer des comptes à l’avance. Les utilisateurs doivent changer le mot de passe initial à la première connexion. La désactivation conserve l’espace de travail et déconnecte l’utilisateur.",
-    "capacity": "Capacité d’ordinateur attribuable : {{size}} Gio. Une extension arrête l’ordinateur ; reconnectez-vous une fois terminée. La réduction demande une opération hors ligne distincte, et la désactivation ne libère pas de capacité.",
-    "capacity_low": "Capacité d’ordinateur attribuable : {{size}} Gio · Espace restant faible, attribuez avec prudence. Une extension arrête l’ordinateur ; reconnectez-vous une fois terminée. La réduction demande une opération hors ligne distincte, et la désactivation ne libère pas de capacité.",
-    "name_required": "Saisissez un nom d’utilisateur ou une adresse e-mail",
-    "add_title": "Ajouter un compte",
-    "username": "Nom d’utilisateur",
-    "email": "E-mail",
-    "initial_password": "Mot de passe initial",
-    "create": "Créer le compte",
+    "capacity_unavailable": "La capacité de l’ordinateur n’est pas disponible. Actualisez puis réessayez.",
+    "intro": "Créez des comptes, choisissez qui est Admin et réglez l’espace disque de l’ordinateur de chaque compte. Les membres changent leur mot de passe initial à la première connexion.",
+    "summary": {
+      "title": "Capacité des ordinateurs",
+      "total": "Disque de l’hôte",
+      "allocated": "Alloué",
+      "free": "Libre à attribuer",
+      "low": "L’espace se raréfie. Attribuez-le avec prudence."
+    },
+    "accounts": {
+      "title": "Comptes",
+      "empty": "Aucun compte pour l’instant."
+    },
+    "add": "Ajouter un compte",
+    "open": "Ouvrir {{name}}",
+    "you": "Vous",
     "no_email": "Aucun e-mail défini",
-    "role_admin": "Admin",
-    "role_user": "Membre",
-    "state_disabled": "Désactivé",
-    "state_must_change": "Mot de passe initial à changer",
-    "state_active": "Actif",
-    "enable": "Réactiver le compte",
-    "disable": "Désactiver le compte",
-    "make_user": "Passer en membre",
-    "make_admin": "Passer en Admin",
-    "reset_password": "Réinitialiser le mot de passe initial",
-    "quota_pending": "L’extension n’est pas terminée ; la capacité réservée est conservée. Réessayez ce quota une fois le nettoyage de l’ordinateur terminé.",
-    "quota_label": "Capacité de l’ordinateur (Gio)",
-    "quota_save": "Enregistrer la capacité et arrêter l’ordinateur",
-    "new_password": "Nouveau mot de passe initial",
-    "reset_submit": "Mettre à jour et déconnecter"
+    "back": "Comptes",
+    "copy": "Copier",
+    "copied": "Copié",
+    "role": {
+      "admin": "Admin",
+      "user": "Membre"
+    },
+    "status": {
+      "active": "Actif",
+      "deactivated": "Désactivé",
+      "deleting": "Suppression en cours",
+      "delete_failed": "Suppression interrompue",
+      "must_change": "Première connexion en attente"
+    },
+    "computer": {
+      "none": "Aucun ordinateur",
+      "reserved": "Non démarré",
+      "ready": "Prêt",
+      "disabled": "Arrêté"
+    },
+    "create": {
+      "title": "Ajouter un compte",
+      "username": "Nom d’utilisateur",
+      "email": "E-mail",
+      "password": "Mot de passe initial",
+      "password_note": "12 caractères minimum. La personne devra le remplacer à sa première connexion.",
+      "submit": "Créer le compte",
+      "name_required": "Saisissez un nom d’utilisateur ou un e-mail"
+    },
+    "detail": {
+      "role": {
+        "title": "Rôle",
+        "label": "Rôle",
+        "help": "Les Admins gèrent les comptes, la capacité et les mises à jour. Les membres utilisent leur propre espace de travail.",
+        "self": "Vous ne pouvez pas modifier votre propre rôle.",
+        "last": "C’est le dernier Admin actif. Nommez d’abord un autre compte Admin.",
+        "deleting": "Ce compte est en cours de suppression."
+      },
+      "computer": {
+        "title": "Ordinateur",
+        "state": "État",
+        "disk": "Quota de disque",
+        "disk_help": "Disque réservé à l’ordinateur de ce compte. Il peut être augmenté, jamais réduit.",
+        "disk_note": "Modifier le quota arrête l’ordinateur. Il redémarre la prochaine fois que le compte en a besoin.",
+        "disk_pending": "Un redimensionnement n’est pas terminé ; la capacité réservée est conservée. Enregistrez de nouveau la même taille une fois le nettoyage de l’ordinateur terminé.",
+        "saved": "Enregistré. L’ordinateur a été arrêté et redémarrera à la demande.",
+        "option": "{{size}} Gio",
+        "current": "actuel",
+        "no_room": "espace libre insuffisant",
+        "save_label": "Appliquer",
+        "save": "Enregistrer {{size}} Gio et arrêter l’ordinateur",
+        "none": "Aucun ordinateur n’a encore été provisionné pour ce compte."
+      },
+      "signin": {
+        "title": "Connexion",
+        "label": "Réinitialiser le mot de passe",
+        "help": "Crée un mot de passe à usage unique et déconnecte le compte. La personne devra choisir le sien à la prochaine connexion.",
+        "deleting": "Indisponible pendant la suppression du compte.",
+        "action": "Réinitialiser le mot de passe"
+      },
+      "reset": {
+        "confirm_title": "Réinitialiser le mot de passe de {{name}} ?",
+        "confirm_body": "Le compte est déconnecté partout et reçoit un nouveau mot de passe à usage unique, affiché une seule fois à l’écran suivant.",
+        "confirm_action": "Réinitialiser et déconnecter",
+        "done_title": "Mot de passe à usage unique",
+        "done_body": "Transmettez ce mot de passe à {{name}}. Il devra le remplacer à la première connexion.",
+        "password": "Mot de passe à usage unique",
+        "once": "Affiché une seule fois. Impossible de le revoir après fermeture.",
+        "done": "Je l’ai copié"
+      },
+      "danger": {
+        "title": "Zone dangereuse",
+        "deactivate_label": "Désactiver le compte",
+        "deactivate_help": "Déconnecte le compte et arrête son ordinateur. Les Bots, conversations, la mémoire et le disque sont conservés.",
+        "deactivate_action": "Désactiver",
+        "deactivate_self": "Vous ne pouvez pas désactiver le compte avec lequel vous êtes connecté.",
+        "deactivate_last": "C’est le dernier Admin actif, il ne peut pas être désactivé.",
+        "reactivate_label": "Réactiver le compte",
+        "reactivate_help": "Permet au compte de se reconnecter avec ses Bots et ses données.",
+        "reactivate_deleting": "La suppression a commencé et ne peut pas être annulée. Relancez-la ci-dessus.",
+        "reactivate_action": "Réactiver",
+        "delete_label": "Supprimer le compte",
+        "delete_help": "Supprime définitivement le compte, ses Bots, conversations, sa mémoire, ses fichiers et son ordinateur, et libère le disque.",
+        "delete_action": "Supprimer le compte…",
+        "delete_self": "Vous ne pouvez pas supprimer le compte avec lequel vous êtes connecté.",
+        "delete_legacy": "Le compte du propriétaire d’origine et son ordinateur ne peuvent pas être supprimés.",
+        "delete_running": "Suppression en cours.",
+        "delete_need_deactivate": "Désactivez d’abord le compte. Seul un compte désactivé peut être supprimé."
+      }
+    },
+    "delete": {
+      "title": "Supprimer {{name}} ?",
+      "lead": "Ceci sera supprimé définitivement :",
+      "item_bots": "Tous les Bots et leurs réglages",
+      "item_chats": "Toutes les conversations",
+      "item_memory": "Toute la mémoire",
+      "item_files": "Fichiers et pièces jointes",
+      "item_computer": "L’ordinateur et son disque — {{size}} Gio seront libérés",
+      "item_computer_none": "L’ordinateur, s’il existe",
+      "irreversible": "Cette action est irréversible.",
+      "export_note": "Avant toute suppression, une copie chiffrée des Bots, conversations, mémoires et planifications est conservée 30 jours. Les identifiants et les fichiers de l’ordinateur n’y figurent pas.",
+      "confirm_label": "Saisissez {{name}} pour confirmer",
+      "confirm_action": "Supprimer le compte",
+      "progress_title": "Suppression de {{name}}",
+      "steps_label": "Étapes de suppression",
+      "working": "Suppression en cours. Gardez cette fenêtre ouverte.",
+      "retry_body": "La suppression s’est arrêtée en cours de route. Réessayer reprend là où elle s’est arrêtée.",
+      "retry_action": "Relancer la suppression",
+      "close": "Fermer",
+      "step": {
+        "export": "Enregistrement d’un export chiffré",
+        "computer": "Suppression de l’ordinateur et libération du disque",
+        "data": "Suppression des Bots, conversations et fichiers",
+        "sessions": "Suppression des connexions",
+        "record": "Suppression du compte"
+      }
+    },
+    "deleting": {
+      "running": "Suppression en cours",
+      "body": "Le compte est en cours de suppression. Réessayez si cela semble bloqué.",
+      "stopped": "La suppression s’est arrêtée à : {{step}}",
+      "error": {
+        "generic": "Une étape a échoué. Rien d’autre n’a été supprimé ; réessayez pour continuer.",
+        "export_failed": "L’export n’a pas pu être enregistré ou vérifié, rien n’a donc été supprimé.",
+        "computer_unavailable": "Le service d’ordinateur n’a pas confirmé la suppression.",
+        "computer_unverified": "Le service d’ordinateur a répondu, mais la suppression n’a pas pu être vérifiée.",
+        "data_failed": "Le dossier de données du compte n’a pas pu être supprimé.",
+        "sessions_failed": "Les connexions du compte n’ont pas pu être supprimées.",
+        "record_failed": "L’enregistrement du compte n’a pas pu être supprimé."
+      }
+    },
+    "result": {
+      "title": "{{name}} a été supprimé",
+      "body": "Le compte et son ordinateur ont disparu. Une copie chiffrée des Bots a été enregistrée. Envoyez le lien et la phrase secrète séparément.",
+      "link": "Lien de téléchargement",
+      "passphrase": "Phrase secrète",
+      "once": "Affichée une seule fois. Tofi ne la conserve pas après cette étape.",
+      "expires": "Disponible jusqu’au {{date}}.",
+      "message_label": "Message à envoyer",
+      "message": "Votre compte TOFI a été fermé. Téléchargez vos Bots : {{link}} (phrase secrète envoyée séparément), disponible jusqu’au {{date}}. Importez-les dans Tofi : Réglages → Avancé → Transfert de données, puis saisissez la phrase secrète.",
+      "message_note": "Envoyez la phrase secrète dans un autre message ou par un autre canal.",
+      "copy_message": "Copier le message",
+      "done": "J’ai enregistré la phrase secrète"
+    },
+    "exports": {
+      "title": "Exports des comptes supprimés",
+      "help": "Copies chiffrées des Bots des comptes supprimés, conservées 30 jours. Les phrases secrètes ne sont affichées qu’une fois, à la suppression ; ensuite vous pouvez copier le lien ou supprimer l’export.",
+      "empty": "Aucun export.",
+      "created": "Créé le {{date}}",
+      "expires": "expire le {{date}}",
+      "size": "{{value}} Mo",
+      "copy_link": "Copier le lien",
+      "show_passphrase": "Afficher la phrase secrète",
+      "delete": "Supprimer l’export",
+      "delete_title": "Supprimer l’export de {{name}} ?",
+      "delete_body": "Le lien de téléchargement cessera de fonctionner et le fichier sera supprimé. Cette action est irréversible.",
+      "passphrase_gone": "La phrase secrète a été affichée une fois et n’est pas conservée.",
+      "link_unavailable": "Le lien de téléchargement ne peut pas être reconstruit : la clé d’export de ce serveur est absente ou a changé. Supprimez cet export ; les données du compte ne pourront plus être exportées."
+    },
+    "error": {
+      "generic": "Cela n’a pas fonctionné. Actualisez puis réessayez.",
+      "self_lockout": "Impossible de faire cela sur votre propre compte.",
+      "last_admin": "Le dernier Admin actif ne peut être ni modifié ni supprimé.",
+      "account_deleting": "Ce compte est en cours de suppression.",
+      "account_not_deactivated": "Désactivez le compte avant de le supprimer.",
+      "legacy_account_not_deletable": "Le compte du propriétaire d’origine et son ordinateur ne peuvent pas être supprimés.",
+      "confirmation_mismatch": "Le nom d’utilisateur saisi ne correspond pas.",
+      "delete_in_progress": "Ce compte est déjà en cours de suppression.",
+      "account_delete_failed": "La suppression s’est arrêtée. Réessayez pour continuer.",
+      "account_change_rejected": "Le compte a changé ou est protégé. Actualisez puis réessayez.",
+      "quota_not_applied": "La taille du disque n’a pas été appliquée. Agrandir demande de la capacité libre et un nettoyage terminé de l’ordinateur ; la réduction n’est pas prise en charge ici.",
+      "quota_unverified": "La nouvelle taille du disque n’a pas pu être vérifiée. Actualisez avant de réessayer.",
+      "computer_transition_pending": "La modification du compte est enregistrée, mais l’étape de l’ordinateur doit être relancée.",
+      "weak_password": "Utilisez au moins 12 caractères.",
+      "password_contains_identity": "Le mot de passe ne peut pas contenir le nom d’utilisateur ni l’e-mail.",
+      "common_password": "Ce mot de passe est trop courant.",
+      "invalid_account": "Le nom d’utilisateur ou l’e-mail est invalide ou déjà utilisé.",
+      "forbidden": "Seul un Admin peut faire cela.",
+      "export_in_use": "Cet export est encore lié à un compte dont la suppression n’est pas terminée.",
+      "passphrase_unavailable": "La phrase secrète n’est pas disponible."
+    }
   },
   "connection": {
     "label": "Connexion actuelle au serveur",
@@ -448,7 +620,8 @@
       "insecure_context": "Ouvrez cette page en HTTPS ou depuis une adresse locale sécurisée.",
       "bundle_too_large": "Le paquet dépasse 16 Mio. Exportez moins de données.",
       "file_oversized": "Le paquet est trop volumineux.",
-      "decrypt_failed": "Déchiffrement impossible. Vérifiez la phrase secrète, la version du fichier et s’il est endommagé."
+      "decrypt_failed": "Déchiffrement impossible. Vérifiez la phrase secrète, la version du fichier et s’il est endommagé.",
+      "file_damaged": "Ce fichier est endommagé ou n’est pas un export Tofi."
     }
   },
   "status": {

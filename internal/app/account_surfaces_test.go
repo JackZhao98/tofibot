@@ -31,7 +31,7 @@ func TestAccountProtectedSurfacesRejectInvalidSessionStates(t *testing.T) {
 	activeCookie := accountCookie(t, g, active)
 	forcedCookie := accountCookie(t, g, forced)
 	adminCookie := accountCookie(t, g, admin)
-	if w := accountRequest(g, "DELETE", "/api/admin/accounts/"+active.ID, "", adminCookie); w.Code != 200 {
+	if w := accountRequest(g, "PATCH", "/api/admin/accounts/"+active.ID, `{"disabled":true}`, adminCookie); w.Code != 200 {
 		t.Fatalf("disable active account: %d", w.Code)
 	}
 
@@ -184,7 +184,7 @@ func TestAccountLiveSSEIsOwnConversationAndEndsOnDisable(t *testing.T) {
 	if !scanner.Scan() || scanner.Text() != ": connected" {
 		t.Fatalf("no initial frame: %v", scanner.Err())
 	}
-	if disabled := accountRequest(g, http.MethodDelete, "/api/admin/accounts/"+owner.ID, "", accountCookie(t, g, admin)); disabled.Code != 200 {
+	if disabled := accountRequest(g, http.MethodPatch, "/api/admin/accounts/"+owner.ID, `{"disabled":true}`, accountCookie(t, g, admin)); disabled.Code != 200 {
 		t.Fatalf("disable %d %s", disabled.Code, disabled.Body.String())
 	}
 	if _, err := io.Copy(io.Discard, response.Body); err != nil {
