@@ -139,10 +139,90 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
       periods: {"24h": [{bot_id: "bot_research", input_tokens: 90000, output_tokens: 12000, requests: 5, equivalent_usd: 0.42, unpriced_requests: 0}], "7d": [{bot_id: "bot_research", input_tokens: 310000, output_tokens: 42000, requests: 14, equivalent_usd: 1.9, unpriced_requests: 0}], "30d": [{bot_id: "bot_research", input_tokens: 310000, output_tokens: 42000, requests: 14, equivalent_usd: 1.9, unpriced_requests: 0}]},
       calls: [{id: 1, bot_id: "bot_research", bot_name: "Research Bot", conversation_name: "Weekly summary", model: "codex-gpt-6-sol", input_tokens: 18000, output_tokens: 2100, equivalent_usd: 0.09, price_known: true, trigger_content: "Summarize the week", occurred_at: day(0)}],
       price_source: "sample", price_as_of: "2026-10-01", note: ""};
-    if (path === "/api/admin/accounts") return [{id: "acct_sample", username: "Ada Sample", email: "ada@example.test", role: "admin", status: "active", created_at: day(30)}, {id: "acct_two", username: "Sam Example", email: "sam@example.test", role: "member", status: "active", created_at: day(9)}];
-    if (path === "/api/admin/capacity") return {available_bytes: 80e9, admission_remaining_bytes: 60e9, warning: false, accounts: []};
     return undefined;
   };
+  // ---- Admin console stub: the real response shapes, mutable so flows can be driven end to end.
+  const GIB = 2 ** 30;
+  const adminState = {};
+  const adminWrites = [];
+  function resetAdmin() {
+    adminState.accounts = [
+      {id: "acct_sample", username: "Ada Sample", email: "ada@example.test", role: "admin", disabled: false, must_change_password: false, deleting: false},
+      {id: "acct_two", username: "Sam Example", email: "sam@example.test", role: "user", disabled: false, must_change_password: false, deleting: false},
+      {id: "acct_three", username: "Lee Example", email: "lee@example.test", role: "user", disabled: true, must_change_password: false, deleting: false},
+      {id: "acct_four", username: "Max Example", email: "acct_four@account.invalid", role: "user", disabled: true, must_change_password: false, deleting: true, delete_step: "computer", delete_error: "computer_unavailable"},
+    ];
+    adminState.disks = {acct_sample: [16, "ready"], acct_two: [8, "ready"], acct_three: [8, "disabled"], acct_four: [8, "disabled"]};
+    adminState.exports = [
+      {id: "exp_old", username: "Kim Example", email: "kim@example.test", created_at: Math.floor(Date.parse("2026-09-30T10:00:00Z") / 1000), expires_at: Math.floor(Date.parse("2026-10-30T10:00:00Z") / 1000), size: 3_400_000, link_path: "/exports/" + "A".repeat(43), passphrase_pending: false},
+      {id: "exp_new", username: "Joy Example", email: "", created_at: Math.floor(Date.parse("2026-10-08T10:00:00Z") / 1000), expires_at: Math.floor(Date.parse("2026-11-07T10:00:00Z") / 1000), size: 820_000, link_path: "/exports/" + "B".repeat(43), passphrase_pending: true},
+    ];
+    adminState.failDelete = 0;
+    adminState.lastDeleted = null;
+    adminWrites.length = 0;
+  }
+  resetAdmin();
+  function adminStub(url, method, postData) {
+    const path = url.pathname, json = (status, body) => ({status, body});
+    const bodyOf = () => { try { return JSON.parse(postData || "{}"); } catch { return {}; } };
+    if (method !== "GET") adminWrites.push(`${method} ${path} ${postData ?? ""}`.trim());
+    if (path === "/api/admin/accounts" && method === "GET") return json(200, adminState.accounts);
+    if (path === "/api/admin/accounts" && method === "POST") {
+      const input = bodyOf();
+      adminState.accounts.push({id: "acct_new", username: input.username, email: input.email || "acct_new@account.invalid", role: "user", disabled: false, must_change_password: true, deleting: false});
+      adminState.disks.acct_new = [8, "reserved"];
+      return json(201, adminState.accounts.at(-1));
+    }
+    if (path === "/api/admin/capacity") {
+      const accounts = adminState.accounts.filter(a => adminState.disks[a.id]).map(a => ({account_id: a.id, quota_bytes: adminState.disks[a.id][0] * GIB, logical_bytes: adminState.disks[a.id][0] * GIB, state: adminState.disks[a.id][1], pending_quota: false}));
+      return json(200, {total_bytes: 500 * GIB, available_bytes: 300 * GIB, allocated_bytes: 100 * GIB, promised_bytes: accounts.reduce((sum, a) => sum + a.quota_bytes, 0), admission_remaining_bytes: 120 * GIB, warning: false, accounts});
+    }
+    if (path === "/api/admin/deleted-exports" && method === "GET") return json(200, adminState.exports.map(({passphrase, ...rest}) => rest));
+    let match = /^\/api\/admin\/deleted-exports\/([^/]+)(?:\/(passphrase|ack))?$/.exec(path);
+    if (match) {
+      const item = adminState.exports.find(x => x.id === match[1]);
+      if (!item) return json(404, {error: {code: "not_found", message: "export not found"}});
+      if (match[2] === "passphrase") return item.passphrase_pending ? json(200, {passphrase: "ABCD-EFGH-IJKL-MNOP-QRST-UVWX-YZ23-4567"}) : json(409, {error: {code: "passphrase_unavailable", message: "gone"}});
+      if (match[2] === "ack") { item.passphrase_pending = false; return json(200, {id: item.id, passphrase_pending: false}); }
+      if (method === "DELETE") { adminState.exports = adminState.exports.filter(x => x !== item); return json(200, {id: item.id, deleted: true}); }
+    }
+    match = /^\/api\/admin\/accounts\/([^/]+)\/quota$/.exec(path);
+    if (match) {
+      adminState.disks[match[1]][0] = bodyOf().quota_gib;
+      return json(200, {quota_bytes: bodyOf().quota_gib * GIB, applied: true});
+    }
+    match = /^\/api\/admin\/accounts\/([^/]+)$/.exec(path);
+    if (match) {
+      const account = adminState.accounts.find(a => a.id === match[1]);
+      if (!account) return json(404, {error: {code: "not_found", message: "account not found"}});
+      if (method === "PATCH") {
+        const input = bodyOf();
+        if (account.deleting) return json(409, {error: {code: "account_deleting", message: "account is being deleted"}});
+        if (input.role) account.role = input.role;
+        if (typeof input.disabled === "boolean") account.disabled = input.disabled;
+        if (input.initial_password) account.must_change_password = true;
+        return json(200, account);
+      }
+      if (method === "DELETE") {
+        const input = bodyOf();
+        if (!account.disabled) return json(409, {error: {code: "account_not_deactivated", message: "deactivate first"}});
+        if (input.confirm_username !== account.username) return json(400, {error: {code: "confirmation_mismatch", message: "mismatch"}});
+        if (adminState.failDelete > 0) {
+          adminState.failDelete--;
+          account.deleting = true; account.delete_step = "computer"; account.delete_error = "computer_unavailable";
+          return json(503, {error: {code: "account_delete_failed", message: "stopped"}});
+        }
+        adminState.accounts = adminState.accounts.filter(a => a !== account);
+        delete adminState.disks[account.id];
+        const created = Math.floor(Date.parse("2026-10-09T12:00:00Z") / 1000);
+        const exported = {id: "exp_" + account.id, username: account.username, email: account.email, created_at: created, expires_at: created + 30 * 86400, size: 1_250_000, link_path: "/exports/" + "C".repeat(43), passphrase: "ABCD-EFGH-IJKL-MNOP-QRST-UVWX-YZ23-4567", passphrase_pending: true};
+        adminState.exports.unshift({...exported, passphrase: undefined});
+        adminState.lastDeleted = account.id;
+        return json(200, {id: account.id, deleted: true, export: exported});
+      }
+    }
+    return json(404, {error: {code: "not_found", message: "not stubbed"}});
+  }
   async function open(params = {}, {width = 1440, height = 900, theme = "light", reduced = false, locale = "en-US"} = {}) {
     const context = await browser.newContext({viewport: {width, height}, reducedMotion: reduced ? "reduce" : "no-preference", colorScheme: theme, locale});
     await context.addInitScript(value => { try { localStorage.setItem("tofi:appearance", value); } catch {} }, theme);
@@ -158,6 +238,11 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
         accessWrites.push(`${method} ${url.pathname} ${request.postData()}`);
         skillAccess.set(name, payload.mode === "all" ? {mode: "all"} : {mode: "selected", bot_ids: payload.bot_ids});
         await route.fulfill({contentType: "application/json", body: JSON.stringify({ok: true, access: skillAccess.get(name)})});
+        return;
+      }
+      if (url.pathname.startsWith("/api/admin/")) {
+        const answer = adminStub(url, method, request.postData());
+        await route.fulfill({status: answer.status, contentType: "application/json", body: JSON.stringify(answer.body)});
         return;
       }
       const body = stub(url, method, new URLSearchParams(page.url().split("?")[1] ?? ""));
@@ -393,6 +478,283 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
       await view.close();
     }
     console.log("PASS skill access: All Bots by default, sheet needs a Bot, saving shows 1 of 3 Bots, reload keeps it, back to All Bots, translated");
+  }
+
+  // ---- 7c. Admin console: list, detail, role, disk, password, deactivation and the delete flow (stubbed API).
+  {
+    const adminTab = (page, mobile) => mobile ? page.locator('.settings-mhome [data-tab="admin"]').click() : Promise.resolve();
+    const openAdmin = async (params = {}, size = {}) => {
+      resetAdmin();
+      const view = await open({admin: "1", tab: "admin", ...params}, size);
+      if (size.width && size.width < 700) await adminTab(view.page, true);
+      const body = view.page.locator('.settings-page-body[data-page="admin"]');
+      await body.locator(".admin-row").first().waitFor({timeout: 15000});
+      return {...view, body};
+    };
+    const text = async locator => (await locator.innerText()).replace(/\s+/g, " ").trim();
+    const { page, close, body } = await openAdmin();
+    // List: capacity summary, rows with avatar, role, status and computer summary.
+    assert.deepEqual((await body.locator(".admin-capacity dd").allInnerTexts()).map(item => item.replace(/\s+/g, " ").trim()), ["500 GiB", "40 GiB", "120 GiB"], "host capacity: total, allocated, free");
+    assert.equal(await body.locator(".admin-row").count(), 4);
+    assert.equal(await body.getByRole("button", {name: "Add account"}).count(), 1, "Add account is a primary action on the list");
+    const row = id => body.locator(`.admin-row[data-account="${id}"]`);
+    assert.match(await text(row("acct_sample")), /A.*Ada Sample.*You.*Admin.*Active.*Ready · 16 GiB/);
+    assert.match(await text(row("acct_two")), /Sam Example.*Member.*Active.*Ready · 8 GiB/);
+    assert.match(await text(row("acct_three")), /Lee Example.*Member.*Deactivated.*Stopped · 8 GiB/);
+    assert.match(await text(row("acct_four")), /Max Example.*No email set.*Deletion stopped/);
+    assert.equal(await row("acct_two").locator(".admin-avatar").innerText(), "S");
+    // The exports section: link copy for both, "Show passphrase" only while it was never acknowledged.
+    assert.equal(await body.locator(".admin-export").count(), 2);
+    assert.match(await text(body.locator('[data-export="exp_old"]')), /Kim Example.*Created.*expires.*3\.2 MB.*shown once and isn't stored/);
+    assert.equal(await body.locator('[data-export="exp_old"]').getByRole("button", {name: "Show passphrase"}).count(), 0);
+    assert.equal(await body.locator('[data-export="exp_new"]').getByRole("button", {name: "Show passphrase"}).count(), 1);
+    // No bare internal ids anywhere on the list.
+    assert.ok(!/acct_(sample|two|three|four)/.test(await body.innerText()), "no raw ids on the list");
+
+    // Detail for an ordinary member: Role, Computer, Sign-in, Danger zone.
+    await row("acct_two").click();
+    const detail = body.locator('[data-testid="admin-detail"]');
+    await detail.waitFor();
+    assert.equal(await body.locator(".admin-row").count(), 0, "the list is replaced by the detail");
+    for (const title of ["Role", "Computer", "Sign-in", "Danger zone"]) assert.ok(await detail.getByText(title, {exact: true}).first().isVisible(), `section ${title}`);
+    const segmented = detail.getByRole("radiogroup", {name: "Role"});
+    assert.equal(await segmented.getByRole("radio", {name: "Member"}).getAttribute("aria-checked"), "true");
+    assert.equal(await segmented.getByRole("radio", {name: "Admin"}).isDisabled(), false, "another member's role can be changed");
+    const deleteButton = detail.getByRole("button", {name: "Delete account…"});
+    assert.equal(await deleteButton.isDisabled(), true, "Delete is disabled until the account is deactivated");
+    assert.match(await text(detail), /Deactivate the account first\. Only a deactivated account can be deleted\./);
+    // Disk: only sizes of at least the current one; sizes that do not fit the free capacity are disabled and say why.
+    const select = detail.getByLabel("Disk quota");
+    assert.deepEqual(await select.locator("option").evaluateAll(options => options.map(option => option.value)), ["8", "16", "32", "64", "128", "256", "512", "1024"]);
+    assert.deepEqual(await select.locator("option:disabled").evaluateAll(options => options.map(option => option.value)), ["256", "512", "1024"], "120 GiB free: growing by more than that is disabled");
+    assert.match(await text(select.locator("option").nth(0)), /8 GiB · current/);
+    assert.match(await text(detail), /Changing the quota stops the computer/);
+    const save = detail.getByRole("button", {name: /^Save .* GiB and stop computer$/});
+    assert.equal(await save.isDisabled(), true, "nothing to save yet");
+    await select.selectOption("32");
+    assert.equal((await save.textContent()).trim(), "Save 32 GiB and stop computer", "the button names the consequence");
+    adminWrites.length = 0;
+    await save.click();
+    await detail.getByText("Saved. The computer was stopped and will restart on demand.").waitFor();
+    assert.deepEqual(adminWrites, ['PATCH /api/admin/accounts/acct_two/quota {"quota_gib":32}']);
+    assert.equal(await select.inputValue(), "32");
+    // Role change.
+    adminWrites.length = 0;
+    await segmented.getByRole("radio", {name: "Admin"}).click();
+    await page.waitForFunction(() => document.querySelector('[data-testid="admin-detail"] [role="radio"][aria-checked="true"]')?.textContent === "Admin");
+    assert.deepEqual(adminWrites, ['PATCH /api/admin/accounts/acct_two {"role":"admin"}']);
+    await segmented.getByRole("radio", {name: "Member"}).click();
+    await page.waitForFunction(() => document.querySelector('[data-testid="admin-detail"] [role="radio"][aria-checked="true"]')?.textContent === "Member");
+    // Reset password: confirmation, then the one-time password shown once with Copy.
+    adminWrites.length = 0;
+    await detail.getByRole("button", {name: "Reset password"}).click();
+    const reset = page.getByRole("dialog", {name: "Reset password for Sam Example?"});
+    await reset.waitFor();
+    await reset.getByRole("button", {name: "Reset and sign out"}).click();
+    const once = page.getByRole("dialog", {name: "One-time password"});
+    await once.waitFor();
+    const password = await once.locator("input").inputValue();
+    assert.match(password, /^[A-Za-z0-9]{20}$/, "a 20 character one-time password");
+    assert.equal(adminWrites.length, 1);
+    assert.equal(JSON.parse(adminWrites[0].split(" ").slice(2).join(" ")).initial_password, password, "the shown password is the one that was set");
+    assert.ok(await once.getByRole("button", {name: "Copy"}).isVisible());
+    await page.keyboard.press("Escape");
+    assert.equal(await once.count(), 1, "the one-time password sheet only closes with its button");
+    await once.getByRole("button", {name: "I've copied it"}).click();
+    await once.waitFor({state: "detached"});
+    // Deactivate / reactivate.
+    adminWrites.length = 0;
+    await detail.getByRole("button", {name: "Deactivate", exact: true}).click();
+    await detail.getByRole("button", {name: "Reactivate"}).waitFor();
+    assert.deepEqual(adminWrites, ['PATCH /api/admin/accounts/acct_two {"disabled":true}']);
+    assert.equal(await deleteButton.isDisabled(), false, "a deactivated account can be deleted");
+    await detail.getByRole("button", {name: "Reactivate"}).click();
+    await detail.getByRole("button", {name: "Deactivate", exact: true}).waitFor();
+
+    // Your own account: nothing destructive is offered; each dead end is explained.
+    await detail.getByRole("button", {name: "Accounts"}).click();
+    await row("acct_sample").click();
+    await detail.waitFor();
+    const mine = detail.getByRole("radiogroup", {name: "Role"});
+    assert.equal(await mine.getByRole("radio", {name: "Member"}).isDisabled(), true);
+    assert.equal(await mine.getByRole("radio", {name: "Admin"}).isDisabled(), true);
+    assert.equal(await detail.getByRole("button", {name: "Deactivate", exact: true}).isDisabled(), true);
+    assert.equal(await detail.getByRole("button", {name: "Delete account…"}).isDisabled(), true);
+    const mineText = await text(detail);
+    for (const reason of ["You can't change your own role.", "You can't deactivate the account you are signed in with.", "You can't delete the account you are signed in with."]) assert.ok(mineText.includes(reason), reason);
+    await detail.getByRole("button", {name: "Accounts"}).click();
+
+    // Delete: only a deactivated account; the sheet lists what goes and needs the exact username.
+    await row("acct_three").click();
+    await detail.waitFor();
+    adminWrites.length = 0;
+    await detail.getByRole("button", {name: "Delete account…"}).click();
+    await page.getByRole("dialog", {name: "Delete Lee Example?"}).waitFor();
+    const sheet = page.locator(".admin-delete-sheet");
+    const sheetText = await text(sheet);
+    for (const line of ["All Bots and their settings", "All conversations", "All memory", "Files and attachments", "The computer and its disk — 8 GiB will be freed", "This can't be undone.", "encrypted copy", "30 days"]) assert.ok(sheetText.includes(line), `delete sheet says: ${line}`);
+    const confirm = sheet.getByRole("button", {name: "Delete account", exact: true});
+    assert.equal(await confirm.isDisabled(), true);
+    const field = sheet.getByLabel("Type Lee Example to confirm");
+    await field.fill("lee example");
+    assert.equal(await confirm.isDisabled(), true, "the username must match exactly, case included");
+    await field.fill("Lee Example");
+    assert.equal(await confirm.isDisabled(), false);
+    // First attempt stops part-way: the account stays Deleting, the sheet shows where and offers Retry.
+    adminState.failDelete = 1;
+    await confirm.click();
+    await sheet.getByText("Deletion stopped at: Removing the computer and freeing its disk").waitFor();
+    assert.match(await text(sheet), /The computer service didn't confirm the removal\./);
+    assert.deepEqual(adminWrites, ['DELETE /api/admin/accounts/acct_three {"confirm_username":"Lee Example"}']);
+    const retry = sheet.getByRole("button", {name: "Retry deletion"});
+    assert.equal(await retry.isEnabled(), true);
+    await retry.click();
+    // Success: the result sheet with link and passphrase separately, a message to send, closes only on acknowledgement.
+    const result = page.getByRole("dialog", {name: "Lee Example was deleted"});
+    await result.waitFor();
+    assert.equal(await result.getByLabel("Download link").inputValue(), `${new URL(page.url()).origin}/exports/${"C".repeat(43)}`);
+    assert.equal(await result.getByLabel("Passphrase").inputValue(), "ABCD-EFGH-IJKL-MNOP-QRST-UVWX-YZ23-4567");
+    assert.equal(await result.getByRole("button", {name: "Copy", exact: true}).count(), 2, "link and passphrase each have Copy");
+    const message = await result.getByLabel("Message to send").inputValue();
+    assert.match(message, /^Your TOFI account was closed\. Download your Bots: http.*\/exports\/C+ \(passphrase sent separately\), available until November 8, 2026\.$/);
+    assert.ok(!message.includes("ABCD-EFGH"), "the message never carries the passphrase");
+    await page.keyboard.press("Escape");
+    assert.equal(await result.count(), 1);
+    adminWrites.length = 0;
+    await result.getByRole("button", {name: "I've saved the passphrase"}).click();
+    await result.waitFor({state: "detached"});
+    assert.deepEqual(adminWrites, ["POST /api/admin/deleted-exports/exp_acct_three/ack"]);
+    await body.locator(".admin-row").first().waitFor();
+    assert.equal(await body.locator(".admin-row").count(), 3, "the deleted account left the list");
+    assert.match(await text(body.locator('[data-export="exp_acct_three"]')), /Lee Example.*1\.2 MB.*isn't stored/);
+    // A stopped deletion is visible on the account and resumable from its detail.
+    await row("acct_four").click();
+    await detail.waitFor();
+    const banner = detail.locator(".settings-banner");
+    assert.match(await text(banner), /Deletion stopped at: Removing the computer and freeing its disk.*The computer service didn't confirm the removal\./);
+    assert.equal(await detail.getByRole("button", {name: "Reactivate"}).isDisabled(), true, "a deleting account cannot be reactivated");
+    adminWrites.length = 0;
+    await banner.getByRole("button", {name: "Retry deletion"}).click();
+    const resume = page.getByRole("dialog", {name: "Deleting Max Example"});
+    await resume.waitFor();
+    assert.equal(await resume.getByLabel(/Type/).count(), 0, "resuming needs no second confirmation");
+    await resume.getByRole("button", {name: "Retry deletion"}).click();
+    await page.getByRole("dialog", {name: "Max Example was deleted"}).getByRole("button", {name: "I've saved the passphrase"}).click();
+    await body.locator(".admin-row").first().waitFor();
+    assert.equal(await body.locator(".admin-row").count(), 2);
+    assert.deepEqual(adminWrites.slice(0, 1), ['DELETE /api/admin/accounts/acct_four {"confirm_username":"Max Example"}']);
+    // Exports: copy link, show a pending passphrase, delete.
+    await body.locator('[data-export="exp_new"]').getByRole("button", {name: "Show passphrase"}).click();
+    const shown = page.getByRole("dialog", {name: "Joy Example was deleted"});
+    await shown.waitFor();
+    await shown.getByLabel("Passphrase").waitFor();
+    await page.waitForFunction(() => [...document.querySelectorAll(".admin-result-sheet input")].some(input => input.value.startsWith("ABCD-")));
+    await shown.getByRole("button", {name: "I've saved the passphrase"}).click();
+    await shown.waitFor({state: "detached"});
+    assert.equal(await body.locator('[data-export="exp_new"]').getByRole("button", {name: "Show passphrase"}).count(), 0, "after acknowledgement the passphrase is gone");
+    adminWrites.length = 0;
+    await body.locator('[data-export="exp_old"]').getByRole("button", {name: "Delete export"}).click();
+    await page.getByRole("dialog", {name: "Delete the export of Kim Example?"}).getByRole("button", {name: "Delete export"}).click();
+    await page.waitForFunction(() => !document.querySelector('[data-export="exp_old"]'));
+    assert.deepEqual(adminWrites, ["DELETE /api/admin/deleted-exports/exp_old"]);
+    // Create.
+    adminWrites.length = 0;
+    await body.getByRole("button", {name: "Add account"}).click();
+    const create = page.getByRole("dialog", {name: "Add account"});
+    await create.getByLabel("Username").fill("Nia Example");
+    await create.getByLabel("Initial password").fill("synthetic-pass-12345");
+    await create.getByRole("button", {name: "Create account"}).click();
+    await body.locator('.admin-row[data-account="acct_new"]').waitFor();
+    assert.match(adminWrites[0], /^POST \/api\/admin\/accounts \{"username":"Nia Example","email":"","password":"synthetic-pass-12345"\}$/);
+    assert.match(await text(body.locator('.admin-row[data-account="acct_new"]')), /Awaiting first sign-in.*Not started · 8 GiB/);
+    await close();
+
+    // Mobile 390: the list stacks, the detail is a pushed page with a way back, nothing scrolls sideways.
+    const mobile = await openAdmin({}, {width: 390, height: 844});
+    const overflow = async view => view.page.evaluate(() => { const el = document.querySelector(".settings-page-body:not([hidden])"); return [el.scrollWidth, el.clientWidth, document.documentElement.scrollWidth, innerWidth]; });
+    let widths = await overflow(mobile);
+    assert.ok(widths[0] <= widths[1] && widths[2] <= widths[3], `list does not scroll sideways ${widths}`);
+    await mobile.body.locator('.admin-row[data-account="acct_three"]').click();
+    const pushed = mobile.body.locator('[data-testid="admin-detail"]');
+    await pushed.waitFor();
+    await mobile.page.waitForTimeout(400);
+    widths = await overflow(mobile);
+    assert.ok(widths[0] <= widths[1] && widths[2] <= widths[3], `detail does not scroll sideways ${widths}`);
+    await pushed.getByRole("button", {name: "Delete account…"}).click();
+    const mobileSheet = mobile.page.getByRole("dialog", {name: "Delete Lee Example?"});
+    await mobileSheet.waitFor();
+    const box = await mobileSheet.boundingBox();
+    assert.ok(box.x >= 0 && box.x + box.width <= 390, "the delete sheet fits a 390px screen");
+    await mobileSheet.getByRole("button", {name: "Cancel"}).click();
+    await pushed.getByRole("button", {name: "Accounts"}).click();
+    await mobile.body.locator(".admin-row").first().waitFor();
+    await mobile.close();
+
+    // Every locale: real words, no catalog key paths leaking, the delete sheet and detail render.
+    for (const lang of LANGS.filter(code => code !== "en")) {
+      const view = await openAdmin({lang});
+      const catalog = catalogs[lang].admin;
+      assert.notEqual(catalog.add, catalogs.en.admin.add, `${lang}: Add account is translated`);
+      assert.notEqual(catalog.delete.confirm_action, catalogs.en.admin.delete.confirm_action, `${lang}: Delete account is translated`);
+      await view.body.locator('.admin-row[data-account="acct_three"]').click();
+      await view.body.locator('[data-testid="admin-detail"]').waitFor();
+      await view.page.locator(".admin-detail .admin-danger-rows button:not([disabled])").last().click();
+      await view.page.locator(".admin-delete-sheet").waitFor();
+      const shown = await view.page.evaluate(() => document.querySelector(".settings-page-body:not([hidden])").innerText + " " + (document.querySelector(".admin-delete-sheet")?.innerText ?? ""));
+      assert.ok(!/\badmin\.[a-z_]+\.?[a-z_]*/.test(shown), `${lang}: a catalog key path is showing: ${shown.match(/\badmin\.[a-z_.]+/)?.[0]}`);
+      assert.ok(shown.includes("8 GiB") || shown.includes("8 Gio"), `${lang}: freed disk size is shown`);
+      await view.close();
+    }
+    console.log("PASS admin console: list with capacity, roles, statuses and exports; detail with role, disk, password, deactivate; own-account guards; delete sheet, stop and retry, result sheet and acknowledgement; mobile push; 7 locales");
+  }
+
+
+  // ---- 7d. Admin console screenshots (ADMIN_SHOTS=<dir>): list, detail, delete sheet, stopped and retry states, result sheet.
+  if (process.env.ADMIN_SHOTS) {
+    const dir = process.env.ADMIN_SHOTS;
+    await mkdir(dir, {recursive: true});
+    let count = 0;
+    for (const theme of ["light", "dark"]) for (const [label, size] of [["1440", {width: 1440, height: 900}], ["390", {width: 390, height: 844}]]) {
+      resetAdmin();
+      const view = await open({admin: "1", tab: "admin"}, {...size, theme});
+      if (size.width < 700) await view.page.locator('.settings-mhome [data-tab="admin"]').click();
+      const body = view.page.locator('.settings-page-body[data-page="admin"]');
+      await body.locator(".admin-row").first().waitFor({timeout: 15000});
+      const shot = async name => { await view.page.waitForTimeout(450); await view.page.screenshot({path: join(dir, `admin-${label}-${theme}-${name}.png`)}); count++; };
+      const bottom = () => body.evaluate(element => { element.scrollTop = element.scrollHeight; });
+      const top = () => body.evaluate(element => { element.scrollTop = 0; });
+      const detail = body.locator('[data-testid="admin-detail"]');
+      const back = () => detail.getByRole("button", {name: "Accounts"}).click();
+      await shot("1-list");
+      await bottom(); await shot("2-list-exports"); await top();
+      await body.locator('.admin-row[data-account="acct_two"]').click();
+      await detail.waitFor(); await shot("3-detail");
+      await bottom(); await shot("4-detail-danger"); await top();
+      await back();
+      await body.locator('.admin-row[data-account="acct_three"]').click();
+      await detail.waitFor();
+      await detail.getByRole("button", {name: "Delete account…"}).click();
+      const sheet = view.page.locator(".admin-delete-sheet");
+      await sheet.waitFor();
+      await sheet.getByLabel(/^Type/).fill("Lee Example");
+      await shot("5-delete-sheet");
+      adminState.failDelete = 1;
+      await sheet.getByRole("button", {name: "Delete account", exact: true}).click();
+      await sheet.getByText("Deletion stopped at", {exact: false}).waitFor();
+      await shot("6-deleting-failed-retry");
+      await sheet.getByRole("button", {name: "Retry deletion"}).click();
+      const result = view.page.locator(".admin-result-sheet");
+      await result.waitFor();
+      await shot("7-result-sheet");
+      await result.getByRole("button", {name: "I've saved the passphrase"}).click();
+      await result.waitFor({state: "detached"});
+      await body.locator('.admin-row[data-account="acct_four"]').click();
+      await detail.waitFor(); await shot("8-deleting-state");
+      await detail.locator(".settings-banner").getByRole("button", {name: "Retry deletion"}).click();
+      await sheet.waitFor(); await shot("9-retry-sheet");
+      await view.close();
+    }
+    console.log(`PASS admin screenshots: ${count} saved to ${dir}`);
   }
 
   // ---- 8. Screenshots.
