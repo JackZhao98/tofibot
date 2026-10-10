@@ -123,3 +123,7 @@ TOFI is split into two licenses:
 Third-party Web dependency notices are in `ui/THIRD_PARTY_NOTICES.md` and
 `ui/public/licenses`. The header uses the project's original four-cat artwork
 and Fredoka lettering; the font notice is in `assets/OFL-Fredoka.txt`.
+
+The Web app also self-hosts Fredoka and JetBrains Mono. Both fonts stay under
+the SIL Open Font License 1.1 (not PolyForm Shield); their license texts,
+sources and checksums are in `ui/THIRD_PARTY_NOTICES.md` and `ui/public/licenses`.

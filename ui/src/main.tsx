@@ -3,6 +3,7 @@ import { createRoot } from "react-dom/client";
 import App from "./App";
 import { OwnerSessionGate } from "./OwnerSession";
 import { i18nReady, useLanguage } from "./i18n";
+import "./fonts.css";
 import "./styles.css";
 
 /** Re-renders the tree on a language switch so helpers that read the active language refresh too. */

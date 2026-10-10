@@ -1,4 +1,4 @@
-@import url("https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&family=JetBrains+Mono:wght@400;600&display=swap");
+@import "../fonts.css";
 
 /* Motion Lab page chrome. Colours come only from design-tokens.css. */
 :root { --hard-ink:#2a2019; --lab-max:1160px; }
