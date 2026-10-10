@@ -39,7 +39,10 @@ updated_at TEXT NOT NULL
 	if err != nil {
 		return err
 	}
-	return ensureColumn(db, "user_preferences", "language", `ALTER TABLE user_preferences ADD COLUMN language TEXT NOT NULL DEFAULT ''`)
+	if err = ensureColumn(db, "user_preferences", "language", `ALTER TABLE user_preferences ADD COLUMN language TEXT NOT NULL DEFAULT ''`); err != nil {
+		return err
+	}
+	return migrateOnboardingState(db)
 }
 
 func (s *Store) userPreferences() (userPreferences, error) {

@@ -28,7 +28,7 @@ func TestOnboardingCreationIsIdempotentAndSurvivesRestart(t *testing.T) {
 	if err != nil || len(messages) != 1 {
 		t.Fatalf("initial messages=%d err=%v", len(messages), err)
 	}
-	if messages[0].Role != "assistant" || messages[0].Kind != "" || messages[0].SenderBotID != b.ID || !strings.Contains(messages[0].Content, "What would you like me to help with") {
+	if messages[0].Role != "assistant" || messages[0].Kind != "" || messages[0].SenderBotID != b.ID || messages[0].Content != onboardingWelcome("en") {
 		t.Fatalf("unexpected welcome=%+v", messages[0])
 	}
 	var pending int
@@ -107,7 +107,7 @@ func TestOnboardingContextAndProfileToolPersistDurableProfile(t *testing.T) {
 		t.Fatal(err)
 	}
 	s.execute(c, run)
-	if !strings.Contains(engine.system, "newly created self-hosted Bot") || !strings.Contains(engine.system, "persistent direct message") || !strings.Contains(engine.system, "actually connected") || !strings.Contains(engine.system, "user's language") || !strings.Contains(engine.system, "one focused clarification") {
+	if !strings.Contains(engine.system, "newly created self-hosted Bot") || !strings.Contains(engine.system, "persistent direct message") || !strings.Contains(engine.system, "actually connected") || !strings.Contains(engine.system, "user's language") || !strings.Contains(engine.system, "one clarification question at a time") {
 		t.Fatalf("setup context omitted required guidance: %q", engine.system)
 	}
 	found := false
