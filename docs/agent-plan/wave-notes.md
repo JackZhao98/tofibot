@@ -11,6 +11,7 @@ Changes merged to `main` that have not shipped yet. The owner reviews this list 
 | 5 | Admin console: capacity card, account list → detail (role, computer disk, reset password, danger zone); mobile pushed page | merged | go test, settings-shell (admin flow), i18n: exit 0 | 08048a0 |
 | 6 | Delete account (after deactivation): encrypted export first (importable in Data transfer with the passphrase; link valid 30 days), then computer + disk removed, quota and slot freed, data removed; resumable; legacy owner refused | merged after Fable review (no blockers; 1 major + 7 minor fixed) | go test, microvm suite, test:portability, settings-shell: exit 0 | 08048a0 |
 | 7 | Robinhood added to the connection catalog (official MCP, sign in with Robinhood); first Bot asks its name and job in chat | merged with #3 | as #3 | 7e78754 |
+| 8 | Settings polish: every native control and fallback font removed (1,119 audit violations → 0); Data transfer and Server rebuilt as cards; one Details per card; consistent input widths and footer buttons; Enter decrypts on import; new `test:settings-polish` audit (156 runs, also catches clipped scroll boxes and floating Details) | merged | settings-polish 0 violations, settings-shell, portability, onboarding, empty-states, auto-review, go test: exit 0 | 91cd754 |
 
 Known flaky Go tests seen this wave (pass on rerun): TestCancelDoesNotBecomeDone, TestUsageRecordsRunContextAndAgentTool; see installer-backlog item 3.
 
@@ -34,4 +35,4 @@ Known flaky Go tests seen this wave (pass on rerun): TestCancelDoesNotBecomeDone
 
 ### Small issues seen during acceptance (not fixed yet)
 
-- Pressing Enter in the import passphrase field does not decrypt; you have to click "Decrypt and view".
+- ~~Enter in the import passphrase field does not decrypt~~ (fixed in #8).
