@@ -392,6 +392,16 @@
       "auto_invalidated": "自動決定失效",
       "not_eligible": "不符合自動執行資格",
       "not_rereviewed": "未重複審查"
+    },
+    "failure": {
+      "title": "審查未能完成的原因",
+      "reviewer_not_configured": "未設定審查模型",
+      "input_invalid": "無法產生審查資料包",
+      "input_too_large": "審查資料包超出審查模型的輸入上限",
+      "provider_error": "審查模型請求失敗",
+      "timeout": "審查模型未在時限內作答",
+      "malformed_response": "審查模型的回答未通過驗證，重試一次後仍然如此",
+      "empty_response": "審查模型未回傳回答，重試一次後仍然如此"
     }
   },
   "run_failure": {

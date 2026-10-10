@@ -104,7 +104,9 @@ func mcpSchemaAvailable(raw json.RawMessage) bool {
 }
 
 // Technical gaps are not policy decisions. They close this proposal without
-// asking the user to approve an unknown operation or retrying the reviewer.
+// asking the user to approve an unknown operation. The reviewer is never
+// re-run for a closed proposal; the only repeat request is the single
+// in-process retry in requestMCPReview for a malformed or empty answer.
 func mcpReviewBlocked(status, reason string, failure ...*MCPContextFailure) error {
 	code, outcome, next := "mcp_review_unavailable", tooloutcome.Permanent, "explain_blocker"
 	switch status {

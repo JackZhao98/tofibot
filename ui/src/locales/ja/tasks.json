@@ -392,6 +392,16 @@
       "auto_invalidated": "自動判断は無効",
       "not_eligible": "自動実行の対象外",
       "not_rereviewed": "再レビューなし"
+    },
+    "failure": {
+      "title": "レビューを完了できなかった理由",
+      "reviewer_not_configured": "レビュー用モデルが設定されていません",
+      "input_invalid": "レビュー用データを準備できませんでした",
+      "input_too_large": "レビュー用データがモデルの入力上限を超えました",
+      "provider_error": "レビュー用モデルへのリクエストが失敗しました",
+      "timeout": "レビュー用モデルが制限時間内に応答しませんでした",
+      "malformed_response": "レビュー用モデルの回答が検証に失敗しました（1 回の再試行後も同様）",
+      "empty_response": "レビュー用モデルが回答を返しませんでした（1 回の再試行後も同様）"
     }
   },
   "run_failure": {

@@ -402,6 +402,16 @@
       "auto_invalidated": "Décision automatique caduque",
       "not_eligible": "Non éligible à l’exécution automatique",
       "not_rereviewed": "Non revérifié"
+    },
+    "failure": {
+      "title": "Pourquoi la vérification n'a pas pu aboutir",
+      "reviewer_not_configured": "Aucun modèle de vérification n'est configuré",
+      "input_invalid": "Le paquet de vérification n'a pas pu être préparé",
+      "input_too_large": "Le paquet de vérification dépasse la limite d'entrée du modèle",
+      "provider_error": "La requête au modèle de vérification a échoué",
+      "timeout": "Le modèle de vérification n'a pas répondu dans le délai imparti",
+      "malformed_response": "La réponse du modèle de vérification n'a pas passé la validation, même après une nouvelle tentative",
+      "empty_response": "Le modèle de vérification n'a renvoyé aucune réponse, même après une nouvelle tentative"
     }
   },
   "run_failure": {
