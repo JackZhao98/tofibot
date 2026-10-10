@@ -121,6 +121,9 @@ func TestCompactionContinuesTranscriptWithReasoning(t *testing.T) {
 			t.Fatalf("message %d reasoning not replayed", i)
 		}
 	}
+	if req.ToolChoice != provider.ToolChoiceNone {
+		t.Fatalf("handoff call ToolChoice = %q, want none", req.ToolChoice)
+	}
 	if ask := req.Messages[len(req.Messages)-1]; ask.Role != "user" || !strings.Contains(ask.Content, "Current line of thinking") {
 		t.Fatalf("last message = %+v", ask)
 	}
@@ -153,10 +156,10 @@ func TestCompactionFallsBackToFlattenedText(t *testing.T) {
 }
 
 func TestCompactionThresholdByProvider(t *testing.T) {
-	if got := compactionThreshold("claude-opus-5"); got != 0.70 {
+	if got := compactionThreshold("claude-opus-5", "", 1000000); got != 0.70 {
 		t.Fatalf("anthropic threshold = %v", got)
 	}
-	if got := compactionThreshold("test-model"); got != 0.80 {
+	if got := compactionThreshold("test-model", "", 200000); got != 0.80 {
 		t.Fatalf("default threshold = %v", got)
 	}
 }
@@ -204,5 +207,75 @@ func TestContextBreakdownIsReportedWithEstimate(t *testing.T) {
 	_, err := runLoop(t, AgentConfig{Provider: p, Prompt: "go", OnContextEstimate: func(n int) { total = n }, OnContextBreakdown: func(b ContextBreakdown) { got = b }})
 	if err != nil || total == 0 || got.Total() != total {
 		t.Fatalf("err=%v total=%d breakdown=%+v", err, total, got)
+	}
+}
+
+func TestCompactionThresholdLeavesRoomForMaxTokens(t *testing.T) {
+	const model = "claude-sonnet-4-20250514" // 200k window, 64k output
+	window := provider.GetContextWindow(model)
+	if window != 200000 {
+		t.Fatalf("window = %d", window)
+	}
+	for _, effort := range []string{"", "low", "high", "xhigh", "max"} {
+		th := compactionThreshold(model, effort, window)
+		if used := int(float64(window)*th) + provider.AnthropicOutputReserve(model, effort); used > window {
+			t.Fatalf("effort %q: threshold %.3f + reserve overflows the window (%d)", effort, th, used)
+		}
+	}
+	// Only "max" reserves the full 64k on a 200k budget-thinking model.
+	if th := compactionThreshold(model, "max", window); th >= 0.70 {
+		t.Fatalf("max effort threshold = %v, want below 0.70", th)
+	}
+	for _, effort := range []string{"", "high"} {
+		if th := compactionThreshold(model, effort, window); th != 0.70 {
+			t.Fatalf("effort %q threshold = %v, want 0.70", effort, th)
+		}
+	}
+}
+
+func TestMaxEffort200kCompactsBeforeOverflow(t *testing.T) {
+	const model = "claude-sonnet-4-20250514"
+	var history []provider.Message
+	for i := 0; len(history) == 0 || EstimateContextUsage("", history, nil) < 138000; i++ {
+		role := "user"
+		if i%2 == 1 {
+			role = "assistant"
+		}
+		history = append(history, provider.Message{Role: role, Content: strings.Repeat("alpha beta gamma ", 300)})
+	}
+	if history[len(history)-1].Role != "user" {
+		history = append(history, provider.Message{Role: "user", Content: "continue"})
+	}
+	est := EstimateContextUsage("", history, nil)
+	if est < 138000 || est > 142000 {
+		t.Fatalf("estimate = %d, want ~138k", est)
+	}
+	// The window leaves no room for max_tokens at this size: it must compact
+	// first, not send the call and recover from the overflow error.
+	if est+provider.AnthropicOutputReserve(model, "max") <= 200000 {
+		t.Fatalf("scenario does not exercise the clamp")
+	}
+	p := &scriptedProvider{steps: []scriptStep{
+		reply(provider.ChatResponse{Content: "compacted summary"}),
+		func(_ context.Context, req *provider.ChatRequest, _ func(provider.StreamDelta)) (*provider.ChatResponse, error) {
+			if !strings.Contains(req.Messages[0].Content, "compacted summary") {
+				return nil, fmt.Errorf("main call was not made on compacted context")
+			}
+			return &provider.ChatResponse{Content: "final"}, nil
+		},
+	}}
+	compacted := 0
+	result, err := runLoop(t, AgentConfig{Provider: p, Model: model, ReasoningEffort: "max", Messages: history, OnCompact: func(int, int) { compacted++ }})
+	if err != nil || result.Content != "final" || compacted != 1 || len(p.requests) != 2 {
+		t.Fatalf("result=%+v err=%v compacted=%d calls=%d", result, err, compacted, len(p.requests))
+	}
+}
+
+func TestEstimateSkipsReasoningWhenReplayDisabled(t *testing.T) {
+	messages := longTranscript(2, func(int) []provider.ReasoningItem { return anthropicThinking(strings.Repeat("t", 40000)) })
+	on := EstimateContextBreakdownReplay("", messages, nil, true)
+	off := EstimateContextBreakdownReplay("", messages, nil, false)
+	if on.Reasoning == 0 || off.Reasoning != 0 || on.Messages != off.Messages {
+		t.Fatalf("on=%+v off=%+v", on, off)
 	}
 }

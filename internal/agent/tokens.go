@@ -132,6 +132,14 @@ func EstimateContextUsage(system string, messages []provider.Message, tools []pr
 
 // EstimateContextBreakdown is EstimateContextUsage split into its parts.
 func EstimateContextBreakdown(system string, messages []provider.Message, tools []provider.Tool) ContextBreakdown {
+	return EstimateContextBreakdownReplay(system, messages, tools, true)
+}
+
+// EstimateContextBreakdownReplay is EstimateContextBreakdown aware of whether
+// reasoning is replayed. When replay is off (the provider rejected it once, see
+// ChatRequest.OmitReasoningReplay) reasoning items are not sent, so the
+// Reasoning bucket stays zero.
+func EstimateContextBreakdownReplay(system string, messages []provider.Message, tools []provider.Tool, replay bool) ContextBreakdown {
 	var b ContextBreakdown
 
 	// System prompt
@@ -146,6 +154,9 @@ func EstimateContextBreakdown(system string, messages []provider.Message, tools 
 			b.Messages += 4 // tool call framing
 			b.Messages += estimateStringTokens(tc.Name)
 			b.Messages += estimateStringTokens(tc.Arguments)
+		}
+		if !replay {
+			continue
 		}
 		for _, item := range msg.ReasoningItems {
 			b.Reasoning += estimateReasoningTokens(item)

@@ -298,6 +298,9 @@ func (o *openaiResponses) buildPayload(req *ChatRequest, stream bool) map[string
 			tools = append(tools, tool)
 		}
 		payload["tools"] = tools
+		if req.ToolChoice == ToolChoiceNone {
+			payload["tool_choice"] = "none"
+		}
 	}
 
 	return payload

@@ -272,6 +272,12 @@ func anthropicMaxTokens(model string, thinking anthropicThinking) int {
 	return min(want, limit)
 }
 
+// AnthropicOutputReserve is the max_tokens a request for model at effort asks
+// for. Callers use it to keep input + reserve within the context window.
+func AnthropicOutputReserve(model, effort string) int {
+	return anthropicMaxTokens(model, anthropicThinkingFor(model, effort))
+}
+
 func cacheControl() map[string]any { return map[string]any{"type": "ephemeral"} }
 
 // buildPayload constructs the Messages API body and the beta headers it needs.
@@ -341,6 +347,9 @@ func (a *anthropicProvider) buildPayload(req *ChatRequest) (map[string]any, []st
 		// Tools render first; one breakpoint caches the whole tool set.
 		tools[len(tools)-1]["cache_control"] = cacheControl()
 		payload["tools"] = tools
+		if req.ToolChoice == ToolChoiceNone {
+			payload["tool_choice"] = map[string]any{"type": "none"}
+		}
 	}
 	return payload, betas
 }
