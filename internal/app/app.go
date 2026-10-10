@@ -3106,7 +3106,11 @@ func (s *Server) execute(c Conversation, r Run) {
 	// the reply. Durable history maintenance runs after the response is saved.
 	cachedMCPTools := s.store.recentCapabilitySchemas(contextConversationID(c, botCfg), botCfg.ID, r.CreatedAt)
 	pm, system := s.buildContextPartsWith(c, r, botCfg, cachedMCPTools)
-	tools := append(s.tools(c, r), s.longTermMemoryTools(c, r)...)
+	memoryTools := s.longTermMemoryTools(c, r)
+	for i := range memoryTools {
+		memoryTools[i].Local = true
+	}
+	tools := append(s.tools(c, r), memoryTools...)
 	if r.Kind != runKindTriage {
 		tools = append(tools, s.contextUsageTool(r.ID))
 	}
@@ -3619,6 +3623,25 @@ func (s *Store) AddAssistant(conv, bot, run, content string) (Message, error) {
 	return m, err
 }
 func (s *Server) tools(c Conversation, r Run) []Tool {
+	all := s.toolsUnmarked(c, r)
+	for i := range all {
+		if all[i].Identity == nil && all[i].ResolveIdentity == nil && !externalEffectToolSets(all[i].Name) {
+			all[i].Local = true
+		}
+	}
+	return all
+}
+
+// externalEffectToolSets names backend tools that reach a computer, VM or
+// remote provider. Their unclassified errors stay uncertain; every other
+// backend tool writes only this process's store and refuses before commit.
+func externalEffectToolSets(name string) bool {
+	return strings.HasPrefix(name, "computer_") || strings.HasPrefix(name, "browser.") || strings.HasPrefix(name, "desktop.") ||
+		strings.HasPrefix(name, "terminal.") || strings.HasPrefix(name, "files.") || strings.HasPrefix(name, "timezone.") ||
+		name == "generate_image" || name == "publish_file" || name == "call_mcp_tool"
+}
+
+func (s *Server) toolsUnmarked(c Conversation, r Run) []Tool {
 	base := []Tool{{Name: "save_memory", Description: "Save scoped factual memory with a concise localized title and user-facing description. Content is the faithful memory body, not an execution prompt; preserve facts and quoted user wording. Write any assistant-authored instructions in English.", Parameters: objectSchema(memoryInputProperties(), []string{"title", "description", "content"}), Execute: func(ctx context.Context, b json.RawMessage) (string, error) {
 		var x MemoryInput
 		if json.Unmarshal(b, &x) != nil || strings.TrimSpace(x.Content) == "" {

@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/JackZhao98/tofibot/internal/tooloutcome"
 	"github.com/google/uuid"
 )
 
@@ -178,10 +179,11 @@ func onboardingProfileTool(s *Server, c Conversation, r Run) (Tool, bool) {
 	}
 	return Tool{
 		Name:        "set_bot_profile",
-		Description: "Set or update this Bot's concise name and durable role/persona. Use only when the user asks to set or change the profile. Omitted fields are preserved; model and permissions are unchanged.",
+		Description: "Set or update this Bot's concise name and durable role/persona. Use only when the user asks to set or change the profile, or during initial setup. While initial setup is pending, BOTH name and instructions are required in the same call; afterwards omitted fields are preserved. Model and permissions are unchanged.",
+		Local:       true,
 		Parameters: objectSchema(map[string]any{
-			"name":         map[string]any{"type": "string", "description": "A concise name for this Bot; omit to preserve the current name"},
-			"instructions": map[string]any{"type": "string", "description": "Durable role and persona instructions; omit to preserve the current instructions"},
+			"name":         map[string]any{"type": "string", "description": "A concise name for this Bot (required during initial setup; afterwards omit to preserve the current name)"},
+			"instructions": map[string]any{"type": "string", "description": "Durable role and persona instructions (required during initial setup; afterwards omit to preserve the current instructions)"},
 		}, nil),
 		Execute: func(ctx context.Context, raw json.RawMessage) (string, error) {
 			if err := ctx.Err(); err != nil {
@@ -192,28 +194,32 @@ func onboardingProfileTool(s *Server, c Conversation, r Run) (Tool, bool) {
 				Instructions *string `json:"instructions"`
 			}
 			if err := json.Unmarshal(raw, &x); err != nil {
-				return "", errors.New("name or instructions is required")
+				return "", tooloutcome.InvalidArguments("name or instructions is required")
 			}
 			if x.Name == nil && x.Instructions == nil {
-				return "", errors.New("name or instructions is required")
+				return "", tooloutcome.InvalidArguments("name or instructions is required")
 			}
 			var err error
 			if x.Name != nil {
 				value, e := normalizeTeamText(*x.Name, "name", maxTeamNameRunes)
 				if e != nil {
-					return "", e
+					return "", tooloutcome.InvalidArguments(e.Error())
 				}
 				x.Name = &value
 			}
 			if x.Instructions != nil {
 				value, e := normalizeTeamText(*x.Instructions, "instructions", maxSystemRunes)
 				if e != nil {
-					return "", e
+					return "", tooloutcome.InvalidArguments(e.Error())
 				}
 				x.Instructions = &value
 			}
 			updated, err := s.store.setBotProfile(ctx, r, c, x.Name, x.Instructions)
 			if err != nil {
+				var missing *profileMissingError
+				if errors.As(err, &missing) {
+					return "", tooloutcome.InvalidArguments(missing.Error())
+				}
 				return "", err
 			}
 			encoded, err := json.Marshal(updated)
@@ -307,8 +313,15 @@ func (s *Store) setBotProfile(ctx context.Context, r Run, c Conversation, name, 
 	}
 	profileChanged := old.Name != b.Name || old.Instructions != b.Instructions
 	if markerStatus == "pending" {
-		if b.Name == "" || b.Instructions == "" {
-			return Bot{}, errors.New("initial Bot profile requires name and instructions")
+		var missing []string
+		if name == nil || b.Name == "" {
+			missing = append(missing, "name")
+		}
+		if instructions == nil || b.Instructions == "" {
+			missing = append(missing, "instructions")
+		}
+		if len(missing) > 0 {
+			return Bot{}, &profileMissingError{fields: missing}
 		}
 		markerUpdate, e := tx.Exec(`UPDATE bot_onboarding SET status='completed',updated_at=? WHERE bot_id=? AND status='pending'`, t, b.ID)
 		if e != nil {
@@ -340,4 +353,11 @@ func (s *Store) setBotProfile(ctx context.Context, r Run, c Conversation, name, 
 		return Bot{}, err
 	}
 	return b, nil
+}
+
+// profileMissingError is a pre-write refusal: initial setup needs both fields in one call.
+type profileMissingError struct{ fields []string }
+
+func (e *profileMissingError) Error() string {
+	return "Initial Bot setup requires both name and instructions in one set_bot_profile call; missing: " + strings.Join(e.fields, ", ") + ". Nothing was saved. Call again with both fields."
 }
