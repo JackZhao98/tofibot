@@ -11,6 +11,7 @@
 .extension-row-heading{display:flex;align-items:center;gap:12px;padding-right:100px;min-height:42px}
 .extension-row-heading strong{font-size:14px;font-weight:550}.extension-row-heading small{display:block;margin-top:4px;font-size:12px}
 .service-mark{display:grid;place-items:center;flex:0 0 40px;width:40px;height:40px;border:1px solid var(--line-soft);border-radius:12px;background:var(--surface-2);font:600 15px/1 var(--display);color:var(--ink)}
+.service-mark-letter{color:#fff;border:2px solid var(--line);font:700 16px/1 var(--display)}
 .service-mark-google{color:var(--blue-text);font-size:24px;font-weight:600}
 .extension-row-heading+.extension-actions{position:absolute;right:0;top:20px;margin:0;gap:6px}
 .extension-panel .extension-actions button{font-size:12px;min-height:34px;padding:7px 12px}

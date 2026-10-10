@@ -5,14 +5,14 @@ import { CATS, EmptyCat } from "./EmptyCat";
 import { TofiIcon } from "./icons";
 import { Disclosure } from "./InteractionSystem";
 import { effortLabels } from "./ModelSettings";
-import { OnboardingServices } from "./OnboardingServices";
+import { OnboardingServices, type ServicesStatus } from "./OnboardingServices";
 import { effortForModel, groupModels, modelEfforts, providerForModel, providerLabels, shortEffortLabel } from "./modelCatalog";
 import { ONBOARDING_STEPS, type OnboardingStep } from "./onboardingFlow";
 import { useTranslation } from "./i18n";
 import type { Bot, ModelCatalog } from "./types";
 import "./onboarding.css";
 
-type Meta = { connected: boolean; queue: { index: number; total: number } | null };
+type Meta = { connected: boolean; queue: ServicesStatus };
 
 export type OnboardingProps = {
   initialStep: OnboardingStep;
@@ -57,7 +57,7 @@ export function Onboarding(props: OnboardingProps) {
   const titleId = useId();
   // Stable callbacks that return the same state when nothing changed, so a child's effect cannot loop.
   const onConnected = useCallback((connected: boolean) => setMeta(current => current.connected === connected ? current : { ...current, connected }), []);
-  const onQueue = useCallback((queue: Meta["queue"]) => setMeta(current => current.queue?.index === queue?.index && current.queue?.total === queue?.total ? current : { ...current, queue }), []);
+  const onQueue = useCallback((queue: Meta["queue"]) => setMeta(current => JSON.stringify(current.queue) === JSON.stringify(queue) ? current : { ...current, queue }), []);
   const go = useCallback((next: OnboardingStep) => {
     setDirection(next > step ? "forward" : "back");
     setStepState(next);
@@ -74,17 +74,17 @@ export function Onboarding(props: OnboardingProps) {
     if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus(); }
     else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
   };
-  const status = step === 1 ? "" : step === 2 ? t(meta.connected ? "onboarding.status_done" : "onboarding.status_required") : meta.queue ? t("onboarding.status_app", { index: meta.queue.index, total: meta.queue.total }) : t("onboarding.status_optional");
+  const status = step === 1 ? "" : step === 2 ? t(meta.connected ? "onboarding.status_done" : "onboarding.status_required") : meta.queue?.kind === "walk" ? t("onboarding.status_app", { name: meta.queue.name, index: meta.queue.index, total: meta.queue.total }) : meta.queue?.kind === "summary" ? t("onboarding.status_done") : t("onboarding.status_optional");
   const skipLabel = step === 1 ? t("onboarding.skip") : step === 2 ? t("onboarding.not_now") : t("onboarding.skip");
   const skip = () => step === 3 ? props.onFinish(props.bot?.id) : props.onSkip();
   return (
     <div className="onb-scrim" data-onboarding="true" data-step={step}>
       <section ref={sheet} className="onb-sheet" role="dialog" aria-modal="true" aria-labelledby={titleId} onKeyDown={trap}>
         <header className="onb-head">
-          <div className="onb-progress" role="progressbar" aria-valuemin={1} aria-valuemax={ONBOARDING_STEPS} aria-valuenow={step} aria-valuetext={t("onboarding.progress", { step, total: ONBOARDING_STEPS })}>
+          <div className="onb-progress" role="progressbar" aria-valuemin={1} aria-valuemax={ONBOARDING_STEPS} aria-valuenow={step} aria-valuetext={t("onboarding.step_of", { step, total: ONBOARDING_STEPS })}>
             {[1, 2, 3].map(index => <i key={index} data-state={index < step ? "done" : index === step ? "current" : "todo"} />)}
           </div>
-          <span className="onb-count">{t("onboarding.progress", { step, total: ONBOARDING_STEPS })}{status && <> · {status}</>}</span>
+          <span className="onb-count">{t("onboarding.step_of", { step, total: ONBOARDING_STEPS })}{status && <> · {status}</>}</span>
           <button type="button" className="onb-skip" onClick={skip}>{skipLabel}</button>
         </header>
         <div className="onb-step" data-dir={direction} key={step}>
