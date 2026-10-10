@@ -6,7 +6,7 @@ updated, restored and rolled back for real). Synthetic data only: the admin,
 password, Bot, skill, preference and key are generated here and the state file
 that holds the password stays on the host (mode 0600); never export it.
 
-    sudo python3 upgrade_acceptance.py --from v0.1.0-rc.4 --to v0.1.0-rc.5 \\
+    sudo TOFI_ACCEPTANCE_LOCAL_APP_IMAGE=1 python3 upgrade_acceptance.py --from v0.1.0-rc.4 --to v0.1.0-rc.5 \\
          --broken-manifest /root/broken-manifest.json
 
 Steps (each is asserted; the first failure stops the run with exit 1, a full

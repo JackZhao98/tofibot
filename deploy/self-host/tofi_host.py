@@ -430,7 +430,15 @@ DOMAIN_RE = re.compile(r'^(?=.{1,253}$)([a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?\.)+[a
 EMAIL_RE = re.compile(r'^[^@\s]+@[^@\s]+\.[^@\s]+$')
 
 
-def validate_manifest(manifest):
+# Upgrade acceptance only: with a LOCAL manifest file (never a downloaded one)
+# and this variable set to 1, the App image may come from a loopback registry,
+# so a test VM can stage a release whose App deliberately fails its health
+# check and prove the rollback. See upgrade_acceptance.py.
+ACCEPTANCE_LOCAL_APP_ENV = 'TOFI_ACCEPTANCE_LOCAL_APP_IMAGE'
+LOOPBACK_REGISTRIES = ('localhost:', '127.0.0.1:')
+
+
+def validate_manifest(manifest, allow_loopback_app=False):
     """Check the shape of a release manifest.json and return it."""
     if not isinstance(manifest, dict) or manifest.get('schema') != 1:
         raise HostError('The release manifest has an unsupported schema (expected 1).')
@@ -443,7 +451,8 @@ def validate_manifest(manifest):
     for role, repo in IMAGE_REPOS.items():
         reference = images[role]
         name, _, digest = str(reference).partition('@sha256:')
-        if name != repo or not SHA_RE.match(digest):
+        loopback_app = allow_loopback_app and role == 'app' and name.startswith(LOOPBACK_REGISTRIES)
+        if (name != repo and not loopback_app) or not SHA_RE.match(digest):
             raise HostError('The %s image must be pinned as %s@sha256:<digest>; got %r.' % (role, repo, reference))
     download = '%s/download/%s/' % (RELEASE_BASE, version)
     guest = manifest.get('guest')
@@ -484,7 +493,7 @@ def load_manifest_file(path):
         manifest = json.loads(Path(path).read_text())
     except (OSError, ValueError) as error:
         raise HostError('Cannot read release manifest %s (%s).' % (path, error)) from error
-    return validate_manifest(manifest)
+    return validate_manifest(manifest, allow_loopback_app=os.environ.get(ACCEPTANCE_LOCAL_APP_ENV) == '1')
 
 
 def manifest_url(version=None):
