@@ -62,6 +62,7 @@ import {SettingsShell,type SettingsEntry,type SettingsTab,type SettingsView} fro
 import {SettingsPages} from '../src/settings/SettingsPages';
 import {subscribeSettingsDeepLinks} from '../src/settings/deepLinks';
 import {CodexPanel,NotificationSetting} from '../src/App';
+import {UpdateBanner} from '../src/UpdateNotice';
 const query=new URLSearchParams(location.search);
 const bots=[{id:'bot_research',name:'Research Bot',archived:false,model:'default',reasoning_effort:'default'},{id:'bot_inbox',name:'Inbox Bot',archived:false,model:'gpt-6-luna',reasoning_effort:'medium'},{id:'bot_notes',name:'Notes Bot',archived:false,model:'default',reasoning_effort:'default'},{id:'bot_old',name:'Retired Bot',archived:true,model:'default',reasoning_effort:'default'}] as any;
 function Fixture(){
@@ -72,7 +73,7 @@ function Fixture(){
  const openSettings=(next:SettingsTab,view:SettingsView='page')=>{setTab(next);setEntry(current=>({seq:current.seq+1,view}))};
  useEffect(()=>subscribeSettingsDeepLinks(next=>openSettings(next)),[]);
  useEffect(()=>{(window as any).__closed=closed},[closed]);
- return <div className="workspace"><div className="workspace-grid"><aside className="detail-pane visible" role="dialog" aria-modal="true">{!closed&&<SettingsShell tab={tab} onTab={setTab} onClose={()=>setClosed(true)} entry={entry} refreshToken={0} renderPage={page=><SettingsPages page={page} bots={bots} timezone="America/Los_Angeles" usageBotId="" portabilityBotID="" onPortabilityFileConsumed={()=>{}} appearance={appearance} extensionRefresh={0} openTab={next=>openSettings(next)} slots={{codex:<CodexPanel refreshToken={0} onConfigured={()=>{}}/>,notifications:<NotificationSetting/>,providersRefresh:0,onProvidersConfigured:()=>{},legacyArchive:null}}/>}/>}</aside></div></div>;
+ return <div className="workspace"><UpdateBanner/><div className="workspace-grid"><aside className="detail-pane visible" role="dialog" aria-modal="true">{!closed&&<SettingsShell tab={tab} onTab={setTab} onClose={()=>setClosed(true)} entry={entry} refreshToken={0} renderPage={page=><SettingsPages page={page} bots={bots} timezone="America/Los_Angeles" usageBotId="" portabilityBotID="" onPortabilityFileConsumed={()=>{}} appearance={appearance} extensionRefresh={0} openTab={next=>openSettings(next)} slots={{codex:<CodexPanel refreshToken={0} onConfigured={()=>{}}/>,notifications:<NotificationSetting/>,providersRefresh:0,onProvidersConfigured:()=>{},legacyArchive:null}}/>}/>}</aside></div></div>;
 }
 void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>createRoot(document.getElementById('root')!).render(<TimezoneProvider><OwnerSessionGate><Fixture/></OwnerSessionGate></TimezoneProvider>));
 `);
@@ -83,6 +84,7 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
 
   const requested = [], unexpected = [], writes = [], accessWrites = [];
   const skillAccess = new Map();
+  const updateState = {latest: "v0.1.0"};
   const INSTANCE = "0b1c2d3e-4f50-4a6b-8c7d-9e0f1a2b3c4d";
   const providers = [
     {id: "codex", label: "Codex", kind: "oauth", configured: true, status: "connected"},
@@ -98,7 +100,13 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
   const stub = (url, method, query) => {
     const path = url.pathname;
     if (path === "/api/server-info") return {service: "tofi", protocol_version: 1, instance_id: INSTANCE, auth: {mode: "owner"}};
-    if (path === "/api/auth/session") return query.get("admin") === "0"
+    if (path === "/api/system/update") {
+      if (query.get("role") === "user") return undefined;
+      return {current: "v0.1.0", latest: updateState.latest, update_available: updateState.latest !== "v0.1.0", notes_url: `https://github.com/example/tofibot/releases/tag/${updateState.latest}`, checked_at: "2026-10-09T09:30:00Z", auto_update: query.get("auto") === "patch" ? "patch" : "off"};
+    }
+    if (path === "/api/auth/session") return query.get("role") === "user"
+      ? {enabled: true, setup_required: false, authenticated: true, password_transport_allowed: true, multi_account: true, owner: {id: "acct_user", username: "Sam Example", email: "sam@example.test", role: "user"}}
+      : query.get("admin") === "0"
       ? {enabled: true, setup_required: false, authenticated: true, password_transport_allowed: true, multi_account: false, owner: {id: "acct_sample", username: "Ada Sample", email: "ada@example.test", role: "owner"}}
       : {enabled: true, setup_required: false, authenticated: true, password_transport_allowed: true, multi_account: true, owner: {id: "acct_sample", username: "Ada Sample", email: "ada@example.test", role: "admin"}};
     if (path === "/api/bots") return {bots: [{id: "bot_research", name: "Research Bot", archived: false}, {id: "bot_inbox", name: "Inbox Bot", archived: false}, {id: "bot_notes", name: "Notes Bot", archived: false}, {id: "bot_old", name: "Retired Bot", archived: true}]};
@@ -450,6 +458,124 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
       await close();
     }
     console.log(`PASS skill access screenshots: ${count} saved to ${dir}`);
+  }
+
+  // ---- 10. Update notice: banner for admins, Version card, per-version dismissal.
+  {
+    const banner = '[data-update-banner]';
+    updateState.latest = "v0.1.1";
+    const admin = await open({admin: "1", auto: "off"});
+    await admin.page.locator(banner).waitFor({timeout: 15000});
+    const text = (await admin.page.locator(banner).innerText()).replace(/\s+/g, " ");
+    assert.match(text, /Tofi v0\.1\.1 is available\. Run sudo tofi update on the server\./);
+    assert.equal(await admin.page.locator(`${banner} a`).getAttribute("href"), "https://github.com/example/tofibot/releases/tag/v0.1.1");
+    assert.equal(await admin.page.locator(`${banner} a`).textContent(), "What's new");
+    // Dismissal persists for that version across a reload...
+    await admin.page.getByRole("button", {name: "Dismiss update notice"}).click();
+    assert.equal(await admin.page.locator(banner).count(), 0, "dismissed banner is gone");
+    assert.equal(await admin.page.evaluate(() => localStorage.getItem("tofi.update-notice.dismissed")), "v0.1.1");
+    await admin.page.reload();
+    await admin.page.locator(".settings-shell").waitFor();
+    await admin.page.waitForTimeout(800);
+    assert.equal(await admin.page.locator(banner).count(), 0, "dismissal survives a reload");
+    // ...but not for the next version.
+    updateState.latest = "v0.1.2";
+    await admin.page.reload();
+    await admin.page.locator(banner).waitFor({timeout: 15000});
+    assert.match(await admin.page.locator(banner).innerText(), /v0\.1\.2/);
+    await admin.close();
+
+    // Automatic-install wording only when auto_update=patch and the new version is a patch bump.
+    const auto = await open({admin: "1", auto: "patch"});
+    await auto.page.locator(banner).waitFor({timeout: 15000});
+    assert.match((await auto.page.locator(banner).innerText()).replace(/\s+/g, " "), /Tofi v0\.1\.2 is available and will install automatically overnight\./);
+    await auto.close();
+    updateState.latest = "v0.2.0";
+    const minor = await open({admin: "1", auto: "patch"});
+    await minor.page.locator(banner).waitFor({timeout: 15000});
+    assert.match(await minor.page.locator(banner).innerText(), /Run\s+sudo tofi update/, "a minor bump is never described as automatic");
+    await minor.close();
+
+    // Single-owner mode: the owner is the admin.
+    updateState.latest = "v0.1.1";
+    const owner = await open({admin: "0"});
+    await owner.page.locator(banner).waitFor({timeout: 15000});
+    await owner.close();
+
+    // A non-admin account never sees the banner and never asks for the data.
+    const before = requested.filter(line => line.endsWith("/api/system/update")).length;
+    const member = await open({role: "user"});
+    await member.page.waitForTimeout(1200);
+    assert.equal(await member.page.locator(banner).count(), 0, "banner hidden for a non-admin");
+    await member.page.locator('.settings-tabs [data-tab="advanced"]').click();
+    await member.page.locator('.settings-page-body[data-page="advanced"]').getByText("Danger zone", {exact: false}).first().waitFor();
+    assert.equal(await member.page.locator(".version-card").count(), 0, "Version card hidden for a non-admin");
+    assert.equal(requested.filter(line => line.endsWith("/api/system/update")).length, before, "non-admin made no /api/system/update request");
+    await member.close();
+
+    // Up to date: no banner; the Version card says so.
+    updateState.latest = "v0.1.0";
+    const current = await open({admin: "1", tab: "advanced"});
+    await current.page.locator(".version-card").waitFor({timeout: 15000});
+    await current.page.waitForTimeout(500);
+    assert.equal(await current.page.locator(banner).count(), 0, "no banner when up to date");
+    const card = (await current.page.locator(".version-card").innerText()).replace(/\s+/g, " ");
+    assert.match(card, /Installed version v0\.1\.0 Up to date/);
+    assert.match(card, /Latest release v0\.1\.0/);
+    assert.match(card, /Last checked Oct 9, 2026/);
+    assert.match(card, /Automatic fix releases .*sudo tofi config auto-update on or sudo tofi config auto-update off Off/);
+    await current.close();
+
+    // Update available + auto on: card shows the install hint and the state.
+    updateState.latest = "v0.1.1";
+    const pending = await open({admin: "1", tab: "advanced", auto: "patch"});
+    await pending.page.locator(".version-card").waitFor({timeout: 15000});
+    await pending.page.getByText("Update available", {exact: true}).waitFor();
+    const pendingCard = (await pending.page.locator(".version-card").innerText()).replace(/\s+/g, " ");
+    assert.match(pendingCard, /Run sudo tofi update on the server to install it\./);
+    assert.match(pendingCard, / On$/);
+    assert.equal(await pending.page.locator(".version-card [data-auto-update]").getAttribute("data-auto-update"), "patch");
+    assert.equal(await pending.page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), true);
+    await pending.close();
+    // No horizontal scroll at 390px.
+    const narrow = await open({admin: "1", tab: "advanced"}, {width: 390, height: 844});
+    await narrow.page.locator(".settings-mhome [data-tab=\"advanced\"]").click().catch(() => {});
+    await narrow.page.locator(".version-card").waitFor({timeout: 15000});
+    await narrow.page.waitForTimeout(500);
+    assert.equal(await narrow.page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), true, "no horizontal scroll at 390px");
+    await narrow.close();
+
+    // Translations render (Japanese banner and card).
+    const ja = await open({admin: "1", lang: "ja", tab: "advanced", auto: "off"});
+    await ja.page.locator(banner).waitFor({timeout: 15000});
+    assert.match((await ja.page.locator(banner).innerText()).replace(/\s+/g, " "), /Tofi v0\.1\.1 が公開されました/);
+    assert.match(await ja.page.locator(".version-card").innerText(), /現在のバージョン/);
+    await ja.close();
+    console.log("PASS update notice: banner for admins and the single owner, hidden for members, per-version dismissal, patch-only automatic wording, Version card, 390px, ja");
+
+    if (process.env.UPDATE_SHOTS) {
+      const dir = process.env.UPDATE_SHOTS;
+      await mkdir(dir, {recursive: true});
+      let count = 0;
+      updateState.latest = "v0.1.1";
+      for (const theme of ["light", "dark"]) for (const [label, size] of [["1440", {width: 1440, height: 900}], ["390", {width: 390, height: 844}]]) {
+        const {page, close} = await open({admin: "1", tab: "advanced", auto: "patch"}, {...size, theme});
+        await page.locator(banner).waitFor({timeout: 15000});
+        if (label === "390") await page.locator(".settings-mhome [data-tab=\"advanced\"]").click().catch(() => {});
+        await page.locator(".version-card").waitFor({timeout: 15000});
+        await page.waitForTimeout(900);
+        await page.screenshot({path: join(dir, `update-${label}-${theme}.png`)}); count++;
+        await close();
+        const manual = await open({admin: "1", tab: "advanced", auto: "off"}, {...size, theme});
+        await manual.page.locator(banner).waitFor({timeout: 15000});
+        if (label === "390") await manual.page.getByRole("button", {name: "Close settings"}).first().click();
+        if (label === "390") await manual.page.evaluate(() => document.querySelector("aside.detail-pane")?.remove());
+        await manual.page.waitForTimeout(700);
+        await manual.page.screenshot({path: join(dir, `update-manual-${label}-${theme}.png`)}); count++;
+        await manual.close();
+      }
+      console.log(`PASS update screenshots: ${count} saved to ${dir}`);
+    }
   }
 
   assert.deepEqual(unexpected, [], `unexpected requests or page errors: ${unexpected.join("; ")}`);

@@ -459,6 +459,30 @@
     "server": "服务器",
     "data": "数据",
     "debug": "调试",
-    "danger": "危险区"
+    "danger": "危险区",
+    "version": "版本"
+  },
+  "update": {
+    "banner": {
+      "available": "Tofi {{version}} 已发布。请在服务器上运行 <code>sudo tofi update</code>。",
+      "automatic": "Tofi {{version}} 已发布，将于夜间自动安装。",
+      "whats_new": "更新内容",
+      "dismiss": "关闭更新提示"
+    },
+    "card": {
+      "current": "当前版本",
+      "latest": "最新版本",
+      "checked": "上次检查",
+      "auto": "自动安装修复版本",
+      "status_current": "已是最新",
+      "status_available": "有可用更新",
+      "never": "尚未检查",
+      "unknown": "尚未检查",
+      "notes": "发布说明",
+      "auto_on": "开启",
+      "auto_off": "关闭",
+      "install_hint": "在服务器上运行 <code>sudo tofi update</code> 即可安装。",
+      "auto_hint": "请在服务器上开关：<on>sudo tofi config auto-update on</on> 或 <off>sudo tofi config auto-update off</off>"
+    }
   }
 }

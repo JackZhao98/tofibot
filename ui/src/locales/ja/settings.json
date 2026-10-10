@@ -459,6 +459,30 @@
     "server": "サーバー",
     "data": "データ",
     "debug": "デバッグ",
-    "danger": "危険な操作"
+    "danger": "危険な操作",
+    "version": "バージョン"
+  },
+  "update": {
+    "banner": {
+      "available": "Tofi {{version}} が公開されました。サーバーで <code>sudo tofi update</code> を実行してください。",
+      "automatic": "Tofi {{version}} が公開されました。夜間に自動でインストールされます。",
+      "whats_new": "新機能を見る",
+      "dismiss": "更新のお知らせを閉じる"
+    },
+    "card": {
+      "current": "現在のバージョン",
+      "latest": "最新リリース",
+      "checked": "最終確認",
+      "auto": "修正リリースの自動インストール",
+      "status_current": "最新です",
+      "status_available": "アップデートあり",
+      "never": "未確認",
+      "unknown": "未確認",
+      "notes": "リリースノート",
+      "auto_on": "オン",
+      "auto_off": "オフ",
+      "install_hint": "サーバーで <code>sudo tofi update</code> を実行するとインストールできます。",
+      "auto_hint": "サーバーで切り替えます：<on>sudo tofi config auto-update on</on> または <off>sudo tofi config auto-update off</off>"
+    }
   }
 }

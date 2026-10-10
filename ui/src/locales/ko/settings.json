@@ -459,6 +459,30 @@
     "server": "서버",
     "data": "데이터",
     "debug": "디버그",
-    "danger": "위험 구역"
+    "danger": "위험 구역",
+    "version": "버전"
+  },
+  "update": {
+    "banner": {
+      "available": "Tofi {{version}}이(가) 출시되었습니다. 서버에서 <code>sudo tofi update</code>를 실행하세요.",
+      "automatic": "Tofi {{version}}이(가) 출시되었으며 밤사이 자동으로 설치됩니다.",
+      "whats_new": "새로운 기능",
+      "dismiss": "업데이트 알림 닫기"
+    },
+    "card": {
+      "current": "설치된 버전",
+      "latest": "최신 릴리스",
+      "checked": "마지막 확인",
+      "auto": "수정 릴리스 자동 설치",
+      "status_current": "최신 상태",
+      "status_available": "업데이트 가능",
+      "never": "아직 확인 안 함",
+      "unknown": "아직 확인 안 함",
+      "notes": "릴리스 노트",
+      "auto_on": "켜짐",
+      "auto_off": "꺼짐",
+      "install_hint": "서버에서 <code>sudo tofi update</code>를 실행하면 설치됩니다.",
+      "auto_hint": "서버에서 켜고 끌 수 있습니다: <on>sudo tofi config auto-update on</on> 또는 <off>sudo tofi config auto-update off</off>"
+    }
   }
 }
