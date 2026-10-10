@@ -314,6 +314,15 @@ class DeleteComputerTests(BrokerTests):
         with self.assertRaises(broker.AdmissionError):
             self.b.dispatch(dict(op="ensure", account_id=victim))
 
+    def test_delete_asks_for_the_cgroup_leaf_after_stopping(self):
+        victim = self.ids[0]
+        self.b.dispatch(dict(op="disable", account_id=victim))
+        calls = []
+        self.run.side_effect = lambda *a, **k: calls.append("stop")
+        with patch.object(self.b, "remove_cgroup_leaf", side_effect=lambda i: calls.append(("leaf", i))):
+            self.b.dispatch(dict(op="delete", account_id=victim))
+        self.assertEqual(calls[:2], ["stop", ("leaf", victim)])
+
     def test_delete_is_idempotent_and_clears_runtime_claim_and_fence(self):
         victim = self.ids[0]
         self.b.dispatch(dict(op="disable", account_id=victim))
