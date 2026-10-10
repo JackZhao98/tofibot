@@ -321,7 +321,18 @@ def lifecycle_lock():
         os.close(fd)
 
 
+def settle_interrupted_restores():
+    """Put back /etc/tofi or the data directory if a restore was cut between
+    its two renames (nothing else can find the journal without /etc/tofi)."""
+    for target in (P.etc, P.data):
+        try:
+            restore_leftovers(target)
+        except OSError as error:
+            warn('Could not settle an interrupted restore of %s (%s).' % (target, error))
+
+
 def load_state():
+    settle_interrupted_restores()
     try:
         state = json.loads(P.state_file.read_text())
     except FileNotFoundError:
@@ -369,9 +380,12 @@ def complete(state, phase='installed', version=None):
 
 
 def read_env(path=None):
-    path = path or P.env_file
+    return parse_env(Path(path or P.env_file).read_text(), path or P.env_file)
+
+
+def parse_env(text, path='tofi.env'):
     values = {}
-    for line in Path(path).read_text().splitlines():
+    for line in text.splitlines():
         line = line.strip()
         if not line or line.startswith('#'):
             continue
@@ -1239,30 +1253,53 @@ def start_services(env, first_install=False, state=None):
 # Active-run guard: never stop the services under a running Bot
 
 
-def active_runs():
-    """Bot runs queued, running or waiting, read from the App database.
-
-    The database is opened read-only (mode=ro), so this can never write to or
-    lock the App's data. Anything unexpected (no table, unreadable file, an
-    old schema) counts as 0 with a warning: a broken database must never block
-    recovery.
-    """
-    database = P.data / 'tofi.db'
-    if not database.exists():
-        return 0
-    uri = 'file:%s?mode=ro' % urllib.parse.quote(str(database))
+def run_databases():
+    """The App databases that hold Bot runs: the root one and, in multi-account
+    mode (self-host), one per account under data/accounts/<id>/tofi.db."""
+    found = []
+    root = P.data / 'tofi.db'
+    if root.exists():
+        found.append(root)
+    accounts = P.data / 'accounts'
     try:
-        connection = sqlite3.connect(uri, uri=True, timeout=5)
+        entries = sorted(accounts.iterdir()) if accounts.is_dir() and not accounts.is_symlink() else []
+    except OSError as error:
+        warn('Could not list %s (%s); account runs are not counted.' % (accounts, error))
+        entries = []
+    for entry in entries:
+        database = entry / 'tofi.db'
+        if entry.is_dir() and not entry.is_symlink() and database.exists():
+            found.append(database)
+    return found
+
+
+def count_active_runs(database):
+    uri = 'file:%s?mode=ro' % urllib.parse.quote(str(database))
+    connection = sqlite3.connect(uri, uri=True, timeout=5)
+    try:
+        row = connection.execute(
+            'SELECT COUNT(*) FROM runs WHERE status IN (%s)' % ','.join('?' * len(ACTIVE_RUN_STATES)),
+            ACTIVE_RUN_STATES).fetchone()
+    finally:
+        connection.close()
+    return int(row[0])
+
+
+def active_runs():
+    """Bot runs queued, running or waiting, summed over every App database.
+
+    Each database is opened read-only (mode=ro), so this can never write to or
+    lock the App's data. Anything unexpected in one file (no table, unreadable
+    file, an old schema) counts that file as 0 with a warning: a broken
+    database must never block recovery.
+    """
+    total = 0
+    for database in run_databases():
         try:
-            row = connection.execute(
-                'SELECT COUNT(*) FROM runs WHERE status IN (%s)' % ','.join('?' * len(ACTIVE_RUN_STATES)),
-                ACTIVE_RUN_STATES).fetchone()
-        finally:
-            connection.close()
-        return int(row[0])
-    except (sqlite3.Error, OSError, ValueError, TypeError) as error:
-        warn('Could not count active Bot runs (%s); assuming none.' % error)
-        return 0
+            total += count_active_runs(database)
+        except (sqlite3.Error, OSError, ValueError, TypeError) as error:
+            warn('Could not count active Bot runs in %s (%s); assuming none.' % (database, error))
+    return total
 
 
 def plural(count, noun):
@@ -1380,17 +1417,51 @@ def archive_writer(path, compression):
         os.fsync(output.fileno())
 
 
-def write_archive(path, compression, root, exclude=None):
-    """Archive the tree at `root` (as './...', owners kept numerically)."""
+WORKER_META_DIRS = ('config', 'ledger', 'state')
+WORKER_META_MAX_FILE = 64 * MIB
+# Computer disks, jails, snapshots: never part of a backup (they can be huge and
+# a restore must not replace a disk with an older copy).
+WORKER_SKIP_PARTS = {'snapshot', 'snapshots', 'jail', 'rootfs', 'disks'}
+WORKER_SKIP_SUFFIXES = ('.ext4', '.img', '.raw', '.qcow2', '.mem', '.vmstate', '.snap', '.rootfs')
+
+
+def write_archive(path, compression, roots, exclude=None, max_file_bytes=None):
+    """Archive trees as './...' (a single root) or '<arcname>/...', owners kept numerically.
+
+    Only directories, regular files and links go in: FIFOs, devices (and
+    sockets, which tar skips) are left out with a warning, because a restore
+    refuses such entries. Files over `max_file_bytes` are left out with a warning.
+    """
+    if not isinstance(roots, list):
+        roots = [(roots, '.')]
+
     def keep(info):
         relative = info.name[2:] if info.name.startswith('./') else info.name
         if exclude is not None and relative != '.' and exclude(relative):
+            return None
+        if not (info.isreg() or info.isdir() or info.issym() or info.islnk()):
+            warn('Backup skips %s: not a regular file, directory or link.' % relative)
+            return None
+        if max_file_bytes is not None and info.isreg() and info.size > max_file_bytes:
+            warn('Backup skips %s: %s is over the %s limit for host metadata.'
+                 % (relative, human_bytes(info.size), human_bytes(max_file_bytes)))
             return None
         info.uname = info.gname = ''
         return info
 
     with archive_writer(path, compression) as tar:
-        tar.add(str(root), arcname='.', filter=keep)
+        for root, arcname in roots:
+            tar.add(str(root), arcname=arcname, filter=keep)
+
+
+def worker_meta_excluded(relative):
+    parts = relative.split('/')
+    return bool(WORKER_SKIP_PARTS & set(parts)) or parts[-1].endswith(WORKER_SKIP_SUFFIXES)
+
+
+def worker_meta_roots():
+    return [(P.worker / name, name) for name in WORKER_META_DIRS
+            if (P.worker / name).is_dir() and not (P.worker / name).is_symlink()]
 
 
 def etc_excluded(relative):
@@ -1489,16 +1560,21 @@ def backup_data(reason, env=None, note=None, check_space=True):
     try:
         write_archive(partial / data_name, compression, P.data)
         write_archive(partial / etc_name, 'gz', P.etc, exclude=etc_excluded)
+        worker_name = 'worker-meta.tar.gz'
+        write_archive(partial / worker_name, 'gz', worker_meta_roots(), exclude=worker_meta_excluded,
+                      max_file_bytes=WORKER_META_MAX_FILE)
         meta = {
             'schema': 1, 'id': backup_id, 'version': env.get('TOFI_VERSION'),
             'app_image': env.get('TOFI_APP_IMAGE'), 'worker_image': env.get('TOFI_WORKER_IMAGE'),
             'caddy_image': env.get('TOFI_CADDY_IMAGE'), 'guest': env.get('TOFI_GUEST_VERSION'),
             'created_at': iso_now(), 'reason': reason, 'note': note or '',
-            'archives': {'data': data_name, 'etc': etc_name},
+            'archives': {'data': data_name, 'etc': etc_name, 'worker': worker_name},
             'sizes': {'data_bytes': tree_bytes(P.data), 'etc_bytes': tree_bytes(P.etc),
                       'data_archive': (partial / data_name).stat().st_size,
-                      'etc_archive': (partial / etc_name).stat().st_size, 'estimate': estimate},
-            'sha256': {data_name: sha256_file(partial / data_name), etc_name: sha256_file(partial / etc_name)},
+                      'etc_archive': (partial / etc_name).stat().st_size,
+                      'worker_archive': (partial / worker_name).stat().st_size, 'estimate': estimate},
+            'sha256': {data_name: sha256_file(partial / data_name), etc_name: sha256_file(partial / etc_name),
+                       worker_name: sha256_file(partial / worker_name)},
         }
         write_json(partial / 'meta.json', meta, 0o600)
         os.rename(partial, final)
@@ -1518,7 +1594,7 @@ def read_backup_meta(directory):
         raise HostError('Backup %s has no readable meta.json (%s).' % (Path(directory).name, error)) from error
     archives = meta.get('archives') if isinstance(meta, dict) else None
     if (not isinstance(meta, dict) or meta.get('schema') != 1 or not isinstance(archives, dict)
-            or set(archives) != {'data', 'etc'} or not isinstance(meta.get('sha256'), dict)
+            or set(archives) not in ({'data', 'etc'}, {'data', 'etc', 'worker'}) or not isinstance(meta.get('sha256'), dict)
             or not isinstance(meta.get('sizes'), dict)):
         raise HostError('Backup %s has an unsupported meta.json.' % Path(directory).name)
     for name in archives.values():
@@ -1555,7 +1631,7 @@ def list_backups():
             meta = read_backup_meta(entry)
         except HostError:
             continue
-        size = sum(meta['sizes'].get(key) or 0 for key in ('data_archive', 'etc_archive'))
+        size = sum(meta['sizes'].get(key) or 0 for key in ('data_archive', 'etc_archive', 'worker_archive'))
         found.append({'id': entry.name, 'path': entry, 'meta': meta, 'size': size})
     found.sort(key=lambda item: (item['meta'].get('created_at') or '', item['id']), reverse=True)
     return found
@@ -1574,16 +1650,30 @@ def find_backup(backup_id):
     return matches[0]
 
 
+AUTOMATIC_REASONS = ('pre-update', 'pre-restore')
+
+
 def prune_backups(keep=BACKUP_KEEP):
-    """Keep the newest `keep` complete backups; drop the rest and half-written ones."""
+    """Keep the newest `keep` automatic (pre-update / pre-restore) backups and
+    drop the older ones and half-written leftovers. Manual backups are never
+    pruned; `tofi backups --remove <id>` deletes them."""
     removed = []
     for entry in sorted(P.backups.iterdir()) if P.backups.is_dir() else []:
         if entry.name.startswith('.') and entry.name.endswith('.partial'):
             remove_tree(entry)
-    for item in list_backups()[keep:]:
+    automatic = [item for item in list_backups() if item['meta'].get('reason') != 'manual']
+    for item in automatic[keep:]:
         remove_tree(item['path'])
         removed.append(item['id'])
     return removed
+
+
+def remove_backup(backup_id):
+    """`tofi backups --remove <id>`."""
+    with lifecycle_lock():
+        item = find_backup(backup_id)
+        remove_tree(item['path'])
+        return item['id']
 
 
 def render_backups(backups):
@@ -1593,7 +1683,9 @@ def render_backups(backups):
              human_bytes(item['size']), item['meta'].get('reason') or '-'
              ] for item in backups]
     lines = format_table(['ID', 'CREATED (UTC)', 'VERSION', 'SIZE', 'REASON'], rows)
-    lines += ['', '  Restore one with: sudo tofi restore <ID>   (kept: the last %d)' % BACKUP_KEEP]
+    lines += ['', '  Restore one with: sudo tofi restore <ID>',
+              '  Automatic backups (pre-update, pre-restore): the last %d are kept. Manual ones stay until you '
+              'remove them: sudo tofi backups --remove <ID>' % BACKUP_KEEP]
     return '\n'.join(lines) + '\n'
 
 
@@ -1654,6 +1746,34 @@ def commit_restore(target, temporary):
         warn('Restored, but could not remove the old copy %s (%s); delete it by hand.' % (old, error))
 
 
+def overlay_restore(source, target):
+    """Copy every file under `source` over `target`, one atomic rename each.
+
+    Nothing in `target` is deleted: computer disks and snapshots live there
+    and are not in the backup. A restored SQLite file drops its stale -wal/-shm.
+    """
+    source, target = Path(source), Path(target)
+    for directory, dirs, files in os.walk(str(source)):
+        relative = Path(directory).relative_to(source)
+        destination = target / relative
+        destination.mkdir(mode=0o700, parents=True, exist_ok=True)
+        for name in files:
+            origin, final = Path(directory) / name, destination / name
+            if origin.is_symlink():
+                if final.is_symlink() or final.exists():
+                    final.unlink()
+                os.symlink(os.readlink(origin), final)
+                continue
+            staged = destination / ('.%s.restore-new' % name)
+            shutil.copy2(origin, staged)
+            info = origin.stat()
+            os.chown(staged, info.st_uid, info.st_gid)
+            if name.endswith(('.sqlite', '.db')):
+                for suffix in ('-wal', '-shm'):
+                    Path(str(final) + suffix).unlink(missing_ok=True)
+            os.replace(staged, final)
+
+
 def restore_files(backup_id):
     """Replace /var/lib/tofi/data and /etc/tofi from backup `backup_id`.
 
@@ -1674,18 +1794,42 @@ def restore_files(backup_id):
         if P.state_file.exists():
             shutil.copy2(P.state_file, directory / P.state_file.name)
 
-    data_tmp = etc_tmp = None
+    data_tmp = etc_tmp = worker_tmp = None
     try:
         data_tmp = stage_restore(P.data, item['path'] / meta['archives']['data'], data_finish)
         etc_tmp = stage_restore(P.etc, item['path'] / meta['archives']['etc'], etc_finish)
+        if 'worker' in meta['archives']:
+            worker_tmp = stage_restore(P.var / 'worker-meta', item['path'] / meta['archives']['worker'])
     except BaseException:
-        for staged in (data_tmp, etc_tmp):
+        for staged in (data_tmp, etc_tmp, worker_tmp):
             if staged is not None:
                 remove_tree(staged)
         raise
     commit_restore(P.data, data_tmp)
     commit_restore(P.etc, etc_tmp)
+    if worker_tmp is not None:
+        try:
+            overlay_restore(worker_tmp, P.worker)
+        finally:
+            remove_tree(worker_tmp)
     return meta
+
+
+def backup_env(item):
+    """tofi.env as stored in a backup, parsed and checked as format_env would write it."""
+    meta = item['meta']
+    with archive_reader(item['path'] / meta['archives']['etc']) as tar:
+        for member in tar:
+            if member.name in ('./tofi.env', 'tofi.env') and member.isfile():
+                values = parse_env(tar.extractfile(member).read().decode(), 'backup ' + item['id'])
+                break
+        else:
+            raise HostError('Backup %s has no tofi.env.' % item['id'])
+    try:
+        format_env(values)
+    except HostError as error:
+        raise HostError('Backup %s has an unusable tofi.env (%s).' % (item['id'], error)) from error
+    return values
 
 
 # --------------------------------------------------------------------------
@@ -1713,18 +1857,18 @@ def version_parts(version):
 
 
 def auto_update_allowed(installed, candidate):
-    """Automatic updates install fix releases only: a stable `candidate` with
-    the installed major.minor and a higher patch. Never an rc, never a minor or
-    major bump, never a downgrade."""
+    """Automatic updates install stable releases only, within the installed
+    major.minor: a higher patch, or the stable release of the installed rc
+    (v0.1.0-rc.N -> v0.1.0). Never an rc, a minor or major bump, or a downgrade."""
     old, new = version_parts(installed), version_parts(candidate)
-    if old is None or new is None or new[3] is not None:
+    if old is None or new is None or new[3] is not None or new[:2] != old[:2]:
         return False
-    return new[:2] == old[:2] and new[2] > old[2]
+    return new[2] > old[2] or (new[2] == old[2] and old[3] is not None)
 
 
 AUTO_UPDATE_SERVICE_TEXT = """[Unit]
 Description=TOFI automatic fix-release update
-After=network-online.target docker.service
+After=network-online.target docker.service tofi.service
 Wants=network-online.target
 ConditionPathExists=/etc/tofi/install-state.json
 
@@ -2033,7 +2177,6 @@ def resume(state=None):
     state = state or load_state()
     if state is None:
         raise HostError('TOFI is not installed; run install.sh.')
-    restore_leftovers(P.data)
     phase = state['phase']
     if phase in INSTALL_PHASES:
         say('Resuming an interrupted install (%s).' % phase)
@@ -2067,7 +2210,6 @@ def start():
             raise HostError('TOFI is not installed; run install.sh.')
         if state['phase'] != 'installed':
             raise HostError('TOFI is in phase %s; run `sudo tofi install` to resume.' % state['phase'])
-        restore_leftovers(P.data)
         env = read_env()
         run(['systemd-tmpfiles', '--create', str(P.tmpfiles)], check=False)
         start_services(env)
@@ -2158,6 +2300,9 @@ def _upgrade(info, version, manifest_path, allow_schema_change, manifest, wait, 
         bundle = P.releases / manifest['version']
         fetch_guest(manifest['guest'], bundle_manager(bundle))
         announce_computer_impact(previous['env'], manifest)
+        # A value tofi cannot write back must never be found after the services are down.
+        format_env(candidate)
+        format_env(previous['env'])
         # The backup must fit, and no run may have started during the downloads.
         check_backup_space('the update')
         wait_for_idle('the update', 0, force)
@@ -2244,6 +2389,7 @@ def restore_backup(backup_id, yes=False, wait=0, force=False, confirm=None):
             raise HostError('Restore needs an installed TOFI in phase installed; run `sudo tofi install` first.')
         item = find_backup(backup_id)
         meta = verify_backup(item['path'])
+        backup_env(item)
         version = meta.get('version')
         if not isinstance(version, str) or not VERSION_RE.match(version):
             raise HostError('Backup %s records no valid version.' % item['id'])
@@ -2277,6 +2423,8 @@ def restore_backup(backup_id, yes=False, wait=0, force=False, confirm=None):
                             '(a backup of the current state, %s, plus the restored copy, %s, plus 1 GiB) but only %s '
                             'is free. Nothing was changed.'
                             % (human_bytes(need), human_bytes(current), human_bytes(incoming), human_bytes(free)))
+        format_env(candidate)
+        format_env(previous['env'])
         wait_for_idle('the restore', 0, force)
         state['transaction'] = {'kind': 'restore', 'step': 'stop-old', 'previous': previous,
                                 'candidate_version': version, 'restore_from': item['id'],
@@ -2507,6 +2655,22 @@ def purge_everything(state, confirm):
     return {'purged': True}
 
 
+def last_update_attempt():
+    """The newest line of update-history.jsonl, or None."""
+    try:
+        lines = P.update_history.read_text().splitlines()
+    except OSError:
+        return None
+    for line in reversed(lines[-20:]):
+        try:
+            entry = json.loads(line)
+        except ValueError:
+            continue
+        if isinstance(entry, dict):
+            return entry
+    return None
+
+
 def status(details=False):
     """Journal, services, health and URLs; with `details` (the `tofi status`
     command) also versions, the latest release and every account computer."""
@@ -2519,6 +2683,13 @@ def status(details=False):
               'last_error': state.get('last_error'), 'journal': str(P.state_file)}
     if state.get('last_update_failure'):
         result['last_update_failure'] = state['last_update_failure']
+    attempt = last_update_attempt()
+    if attempt and attempt.get('result') in ('rolled-back', 'failed'):
+        result['last_update_attempt'] = attempt
+    transaction = state.get('transaction') or {}
+    if state['phase'] in UPGRADE_PHASES:
+        previous = (transaction.get('previous') or {}).get('env') or {}
+        result['recover'] = {'rollback_to': previous.get('TOFI_VERSION'), 'backup': transaction.get('backup')}
     try:
         containers = project_containers()
         result['services'] = {service_of(c): c['State'].get('Health', {}).get('Status') or c['State'].get('Status')
@@ -2649,9 +2820,21 @@ def render_status(result, mode=None, verbose=False, access=None):
         row('Pending', '%(kind)s at step %(step)s · sudo tofi install resumes it' % result['transaction'])
     if result.get('last_error'):
         row('Last error', result['last_error'].get('message'))
+    attempt = result.get('last_update_attempt') or {}
     if result.get('last_update_failure'):
         failure = result['last_update_failure']
-        row('Update', 'to %s rejected at %s: %s' % (failure.get('version'), failure.get('at'), failure.get('message')))
+        how = ' (automatic)' if attempt.get('trigger') == 'auto' and attempt.get('to') == failure.get('version') else ''
+        row('Update', 'to %s rejected%s at %s: %s · previous version restored'
+            % (failure.get('version'), how, failure.get('at'), failure.get('message')))
+    elif attempt.get('result') == 'failed' and result['phase'] == 'installed':
+        row('Update', 'to %s failed%s at %s: %s · %s' % (
+            attempt.get('to'), ' (automatic)' if attempt.get('trigger') == 'auto' else '', attempt.get('at'),
+            attempt.get('error') or attempt.get('reason'), 'nothing was changed'
+            if 'rollback failed' not in str(attempt.get('error')) else 'rollback did not finish'))
+    if result.get('recover'):
+        target = result['recover'].get('rollback_to') or 'the previous version'
+        row('Run', 'sudo tofi install   finishes the rollback to %s; your data and backups are kept '
+            '(sudo tofi backups)' % target)
     computers = result.get('computers')
     if 'computers_error' in result:
         row('Computers', 'unknown (%s)' % result['computers_error'])
@@ -3363,6 +3546,7 @@ def parse_args(argv):
     add_guard_flags(backup_parser)
     backups_parser = sub.add_parser('backups', help='list backups')
     backups_parser.add_argument('--json', action='store_true', help='machine-readable output')
+    backups_parser.add_argument('--remove', metavar='ID', help='delete this backup')
     restore_parser = sub.add_parser('restore', help='restore a backup and switch to its version')
     restore_parser.add_argument('backup_id', help='an id from `tofi backups` (or a unique prefix)')
     restore_parser.add_argument('--yes', '-y', action='store_true', help='do not ask for confirmation')
@@ -3504,6 +3688,9 @@ def main(argv=None):
             return 0
         if args.command == 'backups':
             require_root()
+            if args.remove:
+                say('Removed backup %s.' % remove_backup(args.remove))
+                return 0
             backups = list_backups()
             if args.json:
                 print(json.dumps([dict(item['meta'], id=item['id'], size=item['size']) for item in backups], indent=2))

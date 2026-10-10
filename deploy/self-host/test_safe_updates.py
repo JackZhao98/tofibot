@@ -154,8 +154,9 @@ class BackupTests(BackupCase):
         self.assertEqual(oct(directory.stat().st_mode & 0o777), '0o700')
         self.assertEqual(oct(self.P.backups.stat().st_mode & 0o777), '0o700')
         data_name = 'data.tar.' + compression
-        self.assertEqual(meta['archives'], {'data': data_name, 'etc': 'etc.tar.gz'})
-        self.assertEqual(sorted(p.name for p in directory.iterdir()), sorted([data_name, 'etc.tar.gz', 'meta.json']))
+        self.assertEqual(meta['archives'], {'data': data_name, 'etc': 'etc.tar.gz', 'worker': 'worker-meta.tar.gz'})
+        self.assertEqual(sorted(p.name for p in directory.iterdir()),
+                         sorted([data_name, 'etc.tar.gz', 'worker-meta.tar.gz', 'meta.json']))
         for path in directory.iterdir():
             self.assertEqual(oct(path.stat().st_mode & 0o777), '0o600', path.name)
         for name in (data_name, 'etc.tar.gz'):
@@ -985,8 +986,13 @@ class AutoUpdateGatingTests(unittest.TestCase):
             ('v1.4.2', 'v1.4.3', True),
             ('v1.4.2', 'v1.5.0', False),
             ('v1.4.2', 'v2.4.3', False),
-            ('v0.1.0-rc.1', 'v0.1.0', False),
+            ('v0.1.0-rc.1', 'v0.1.0', True),
+            ('v0.1.0-rc.1', 'v0.1.1', True),
+            ('v0.1.0-rc.1', 'v0.1.1-rc.1', False),
+            ('v0.1.0-rc.1', 'v0.2.0', False),
+            ('v0.1.1', 'v0.1.0', False),
             ('v0.1.0-rc.1', 'v0.1.0-rc.2', False),
+            ('v0.1.0-rc.3', 'v0.1.0-rc.2', False),
             ('v0.1.0', 'garbage', False),
             ('garbage', 'v0.1.1', False),
             (None, 'v0.1.1', False),
@@ -1203,6 +1209,372 @@ class AutoUpdateUnitTests(base.LifecycleBase):
             env = tofi_host.render_env(manifest, {'port': 8321, 'bind': '0.0.0.0', 'auto_update': choice},
                                        {'cpu': 3, 'memory_mib': 6144})
             self.assertEqual(env['TOFI_AUTO_UPDATE'], expected)
+
+
+# ---------------------------------------------------------------- review follow-ups (M1, M2, m1-m7)
+
+
+class AccountDatabaseTests(base.HostCase):
+    """Self-host runs multi-account: runs live in data/accounts/<uuid>/tofi.db."""
+
+    def setUp(self):
+        super().setUp()
+        self.P.data.mkdir(parents=True)
+
+    def account_db(self, name, statuses):
+        directory = self.P.data / 'accounts' / name
+        directory.mkdir(parents=True)
+        make_runs_db(directory / 'tofi.db', statuses)
+        return directory / 'tofi.db'
+
+    def test_runs_are_summed_over_every_account_database(self):
+        self.account_db('11111111-1111-4111-8111-111111111111', ['running', 'completed'])
+        self.account_db('22222222-2222-4222-8222-222222222222', ['queued', 'waiting', 'failed'])
+        self.assertEqual(tofi_host.active_runs(), 3)
+        self.assertEqual([p.parent.name[:2] for p in tofi_host.run_databases()], ['11', '22'])
+
+    def test_legacy_root_database_still_counts_with_accounts(self):
+        make_runs_db(self.P.data / 'tofi.db', ['running'])
+        self.account_db('11111111-1111-4111-8111-111111111111', ['waiting', 'waiting'])
+        self.assertEqual(tofi_host.active_runs(), 3)
+
+    def test_one_broken_database_warns_and_the_others_still_count(self):
+        broken = self.account_db('11111111-1111-4111-8111-111111111111', ['running'])
+        broken.write_bytes(b'not a database' * 100)
+        self.account_db('22222222-2222-4222-8222-222222222222', ['running'])
+        with mock.patch('sys.stderr', new_callable=io.StringIO) as err:
+            self.assertEqual(tofi_host.active_runs(), 1)
+        self.assertIn(str(broken), err.getvalue())
+
+    def test_account_databases_are_opened_read_only(self):
+        path = self.account_db('11111111-1111-4111-8111-111111111111', ['running'])
+        before = path.read_bytes()
+        real = sqlite3.connect
+        seen = []
+        with mock.patch.object(tofi_host.sqlite3, 'connect', side_effect=lambda *a, **k: (
+                seen.append(a[0]), real(*a, **k))[1]):
+            tofi_host.active_runs()
+        self.assertTrue(all(uri.endswith('?mode=ro') for uri in seen) and seen)
+        self.assertEqual(path.read_bytes(), before)
+
+    def test_stray_files_and_links_under_accounts_are_ignored(self):
+        accounts = self.P.data / 'accounts'
+        accounts.mkdir()
+        (accounts / 'file.txt').write_text('x')
+        os.symlink(self.root, accounts / 'link')
+        self.assertEqual(tofi_host.active_runs(), 0)
+
+
+class InterruptedSwapTests(base.LifecycleBase):
+    """A crash between the two renames must never leave /etc/tofi or the data directory missing."""
+
+    def layout(self):
+        self.installed()
+        self.old = Path(str(self.P.etc) + '.restore-old')
+        self.tmp = Path(str(self.P.etc) + '.restore-tmp')
+        journal = self.P.state_file.read_text()
+        self.journal = journal
+        return journal
+
+    def test_crash_after_the_live_directory_was_moved_aside(self):
+        self.layout()
+        os.rename(self.P.etc, self.old)
+        self.tmp.mkdir()
+        (self.tmp / 'half-restored').write_text('x')
+        self.assertFalse(self.P.etc.exists())
+        state = tofi_host.load_state()
+        self.assertEqual(state['phase'], 'installed')
+        self.assertEqual(self.P.state_file.read_text(), self.journal)
+        self.assertFalse(self.old.exists() or self.tmp.exists())
+
+    def test_crash_after_the_new_directory_was_renamed_in(self):
+        self.layout()
+        shutil.copytree(self.P.etc, self.old)
+        (self.P.etc / 'restored-marker').write_text('new')
+        tofi_host.load_state()
+        self.assertTrue((self.P.etc / 'restored-marker').exists())
+        self.assertFalse(self.old.exists())
+
+    def test_crash_while_extracting_leaves_only_a_temp_directory(self):
+        self.layout()
+        self.tmp.mkdir()
+        tofi_host.load_state()
+        self.assertFalse(self.tmp.exists())
+        self.assertTrue(self.P.env_file.exists())
+
+    def test_data_directory_is_recovered_before_the_phase_check_in_start(self):
+        self.layout()
+        old = Path(str(self.P.data) + '.restore-old')
+        os.rename(self.P.data, old)
+        tofi_host.start()
+        self.assertEqual((self.P.data / 'tofi.db').read_bytes(), base.DATA)
+        self.assertFalse(old.exists())
+        # ...also when the phase would refuse the start.
+        os.rename(self.P.data, old)
+        state = json.loads(self.P.state_file.read_text())
+        state['phase'] = 'upgrade-failed'
+        self.P.state_file.write_text(json.dumps(state))
+        with self.assertRaisesRegex(HostError, 'phase upgrade-failed'):
+            tofi_host.start()
+        self.assertEqual((self.P.data / 'tofi.db').read_bytes(), base.DATA)
+
+    def test_every_cli_command_settles_leftovers_first(self):
+        self.layout()
+        os.rename(self.P.etc, self.old)
+        with mock.patch.object(tofi_host, 'project_containers', return_value=[]), \
+                mock.patch.object(tofi_host, 'health', return_value=True):
+            self.assertEqual(tofi_host.main(['status', '--json']), 0)
+        self.assertTrue(self.P.env_file.exists())
+
+    def test_a_real_failure_at_each_rename_of_the_etc_swap_keeps_a_complete_etc(self):
+        self.layout()
+        backup = BackupHelper(self).backup()
+        for failing_call in (1, 2):
+            with self.subTest(failing_call=failing_call):
+                real, calls = os.rename, []
+                etc_tmp = str(self.P.etc) + '.restore-tmp'
+
+                def rename(source, destination):
+                    calls.append(str(source))
+                    if str(source) in (str(self.P.etc), etc_tmp):
+                        if len([c for c in calls if c in (str(self.P.etc), etc_tmp)]) == failing_call:
+                            raise OSError('simulated failure')
+                    return real(source, destination)
+
+                values = tofi_host.read_env()
+                values['CUSTOM_X'] = 'live'
+                tofi_host.write_env(values)
+                with mock.patch.object(tofi_host.os, 'rename', side_effect=rename):
+                    with self.assertRaises(OSError):
+                        tofi_host.restore_files(backup['id'])
+                tofi_host.load_state()
+                self.assertTrue(self.P.env_file.exists())
+                self.assertTrue(self.P.state_file.exists())
+
+
+class BackupHelper:
+    def __init__(self, case):
+        self.case = case
+
+    def backup(self, reason='manual'):
+        return tofi_host.backup_data(reason, tofi_host.read_env())
+
+
+class BackupPolicyTests(BackupCase):
+    def test_prune_never_deletes_manual_backups(self):
+        self.seed()
+        manual = [self.backup('manual')['id'] for _ in range(2)]
+        automatic = [self.backup('pre-update')['id'] for _ in range(4)]
+        removed = tofi_host.prune_backups()
+        self.assertEqual(sorted(removed), [automatic[0]])
+        remaining = {item['id'] for item in tofi_host.list_backups()}
+        self.assertEqual(remaining, set(manual) | set(automatic[1:]))
+        # pre-restore counts as automatic.
+        self.backup('pre-restore')
+        self.assertEqual(len(tofi_host.prune_backups()), 1)
+        self.assertTrue(set(manual) <= {item['id'] for item in tofi_host.list_backups()})
+
+    def test_listing_says_manual_backups_are_kept_and_remove_deletes_one(self):
+        self.seed()
+        manual = self.backup('manual')
+        text = tofi_host.render_backups(tofi_host.list_backups())
+        self.assertIn('manual', text)
+        self.assertIn('Manual ones stay until you remove them: sudo tofi backups --remove <ID>', text)
+        with mock.patch.object(tofi_host, 'require_root'):
+            code = tofi_host.main(['backups', '--remove', manual['id']])
+        self.assertEqual(code, 0)
+        self.assertEqual(tofi_host.list_backups(), [])
+        self.assertFalse((self.P.backups / manual['id']).exists())
+        self.assertEqual(tofi_host.main(['backups', '--remove', 'nope']), 1)
+
+    def test_fifos_are_skipped_with_a_warning_and_the_backup_restores(self):
+        self.seed()
+        os.mkfifo(self.P.data / 'a-fifo')
+        with mock.patch('sys.stderr', new_callable=io.StringIO) as err:
+            meta = self.backup()
+        self.assertIn('Backup skips a-fifo', err.getvalue())
+        (self.P.data / 'a-fifo').unlink()
+        (self.P.data / 'tofi.db').write_bytes(b'changed')
+        tofi_host.restore_files(meta['id'])
+        self.assertEqual((self.P.data / 'tofi.db').read_bytes(), base.DATA)
+        self.assertFalse((self.P.data / 'a-fifo').exists())
+
+
+class WorkerMetadataTests(BackupCase):
+    def seed_worker(self):
+        self.seed()
+        (self.P.worker / 'ledger').mkdir(parents=True, exist_ok=True)
+        (self.P.worker / 'ledger' / 'ledger.sqlite').write_bytes(b'LEDGER v1')
+        (self.P.worker / 'config').mkdir(exist_ok=True)
+        (self.P.worker / 'config' / 'acct-1.json').write_text('{"quota": 1}')
+        account = self.P.worker_state / 'acct-1'
+        (account / 'snapshot').mkdir()
+        (account / 'snapshot' / 'meta.json').write_text('{"release": "v0"}')
+        (account / 'snapshot' / 'memory.bin').write_bytes(b'M' * 10)
+        (account / 'notes.json').write_text('{"small": true}')
+        (account / 'big-state.bin').write_bytes(b'B' * 1024)
+        return account
+
+    def worker_names(self, meta):
+        with tarfile.open(self.P.backups / meta['id'] / meta['archives']['worker']) as tar:
+            return {name[2:] if name.startswith('./') else name for name in tar.getnames()}
+
+    def test_small_metadata_is_backed_up_and_disks_snapshots_and_big_files_are_not(self):
+        account = self.seed_worker()
+        with mock.patch.object(tofi_host, 'WORKER_META_MAX_FILE', 512), \
+                mock.patch('sys.stderr', new_callable=io.StringIO) as err:
+            meta = self.backup()
+        names = self.worker_names(meta)
+        self.assertIn('ledger/ledger.sqlite', names)
+        self.assertIn('config/acct-1.json', names)
+        self.assertIn('state/acct-1/notes.json', names)
+        everything = ' '.join(names)
+        self.assertNotIn('workspace.img', everything)
+        self.assertNotIn('snapshot', everything)
+        self.assertNotIn('memory.bin', everything)
+        self.assertNotIn('big-state.bin', everything)
+        self.assertIn('Backup skips state/acct-1/big-state.bin', err.getvalue())
+        self.assertIn('over the', err.getvalue())
+        self.assertGreater(meta['sizes']['worker_archive'], 0)
+        self.assertTrue(account.exists())
+
+    def test_restore_overlays_metadata_without_touching_disks_or_snapshots(self):
+        account = self.seed_worker()
+        disk = self.P.worker_state / 'acct-1' / 'workspace.ext4'
+        disk.write_bytes(b'DISK-NEW')
+        meta = self.backup()
+        (self.P.worker / 'ledger' / 'ledger.sqlite').write_bytes(b'LEDGER v2')
+        Path(str(self.P.worker / 'ledger' / 'ledger.sqlite') + '-wal').write_bytes(b'stale')
+        (self.P.worker / 'config' / 'acct-2.json').write_text('{"new": 1}')
+        disk.write_bytes(b'DISK-NEWER')
+        (account / 'snapshot' / 'memory.bin').write_bytes(b'NEWER SNAPSHOT')
+        tofi_host.restore_files(meta['id'])
+        self.assertEqual((self.P.worker / 'ledger' / 'ledger.sqlite').read_bytes(), b'LEDGER v1')
+        self.assertFalse(Path(str(self.P.worker / 'ledger' / 'ledger.sqlite') + '-wal').exists())
+        self.assertEqual(disk.read_bytes(), b'DISK-NEWER')
+        self.assertEqual((account / 'snapshot' / 'memory.bin').read_bytes(), b'NEWER SNAPSHOT')
+        self.assertTrue((self.P.worker / 'config' / 'acct-2.json').exists(), 'nothing is deleted')
+        self.assertEqual([p.name for p in self.P.var.iterdir() if '.restore-' in p.name], [])
+        self.assertFalse([p for p in (self.P.worker / 'ledger').iterdir() if p.name.startswith('.')])
+
+    def test_rollback_restores_the_ledger_the_candidate_changed(self):
+        self.seed_worker()
+
+        def start(env, **kwargs):
+            if env['TOFI_VERSION'] == NEW:
+                (self.P.worker / 'ledger' / 'ledger.sqlite').write_bytes(b'LEDGER migrated by candidate')
+                raise HostError('candidate unhealthy')
+
+        self.start_services.side_effect = start
+        with self.assertRaisesRegex(HostError, 'update rejected'):
+            tofi_host.upgrade(manifest_path=str(self.write_manifest(base.manifest())))
+        self.assertEqual((self.P.worker / 'ledger' / 'ledger.sqlite').read_bytes(), b'LEDGER v1')
+
+    def test_old_backups_without_a_worker_archive_still_restore(self):
+        self.seed()
+        meta = self.backup()
+        directory = self.P.backups / meta['id']
+        (directory / meta['archives']['worker']).unlink()
+        stored = json.loads((directory / 'meta.json').read_text())
+        del stored['archives']['worker']
+        del stored['sha256']['worker-meta.tar.gz']
+        (directory / 'meta.json').write_text(json.dumps(stored))
+        (self.P.data / 'tofi.db').write_bytes(b'changed')
+        tofi_host.restore_files(meta['id'])
+        self.assertEqual((self.P.data / 'tofi.db').read_bytes(), base.DATA)
+
+
+class ValidateBeforeStoppingTests(BackupCase):
+    def test_update_refuses_an_unwritable_env_before_stopping(self):
+        self.seed()
+        values = tofi_host.read_env()
+        values['TOFI_DOMAIN'] = 'bad value'   # a space: tofi could not write this back
+        self.P.env_file.write_text('\n'.join('%s=%s' % item for item in values.items()) + '\n')
+        with self.assertRaisesRegex(HostError, 'Invalid value for TOFI_DOMAIN'):
+            tofi_host.upgrade(manifest_path=str(self.write_manifest(base.manifest())))
+        self.stopped.assert_not_called()
+        self.assertEqual(self.phase(), 'installed')
+
+    def test_restore_refuses_a_backup_with_an_unusable_env_before_stopping(self):
+        self.seed()
+        meta = self.backup()
+        directory = self.P.backups / meta['id']
+        etc = self.root / 'etc-edit'
+        etc.mkdir()
+        tofi_host.extract_archive(directory / meta['archives']['etc'], etc)
+        values = (etc / 'tofi.env').read_text().replace('TOFI_DOMAIN=', 'TOFI_DOMAIN=bad value')
+        (etc / 'tofi.env').write_text(values)
+        archive = directory / meta['archives']['etc']
+        archive.unlink()
+        tofi_host.write_archive(archive, 'gz', etc)
+        stored = json.loads((directory / 'meta.json').read_text())
+        stored['sha256'][archive.name] = tofi_host.sha256_file(archive)
+        (directory / 'meta.json').write_text(json.dumps(stored))
+        with self.assertRaisesRegex(HostError, 'unusable tofi.env'):
+            tofi_host.restore_backup(meta['id'], yes=True)
+        self.stopped.assert_not_called()
+
+    def test_backup_env_reads_the_stored_file(self):
+        self.seed()
+        add_custom_env(self)
+        meta = self.backup()
+        values = tofi_host.backup_env(tofi_host.find_backup(meta['id']))
+        self.assertEqual((values['CUSTOM_X'], values['TOFI_VERSION']), ('1', OLD))
+
+
+class StatusFailureTests(base.ComputerCase):
+    def history(self, **entry):
+        record = dict({'trigger': 'auto', 'from': OLD, 'to': 'v0.1.1', 'at': '2026-10-09T04:12:00Z'}, **entry)
+        self.P.update_history.parent.mkdir(parents=True, exist_ok=True)
+        with open(self.P.update_history, 'a') as stream:
+            stream.write(json.dumps(record) + '\n')
+
+    def status_text(self):
+        with mock.patch.object(tofi_host, 'project_containers', return_value=[]), \
+                mock.patch.object(tofi_host, 'health', return_value=True):
+            result = tofi_host.status(details=False)
+        return tofi_host.render_status(result, mode=None, access={})
+
+    def test_a_rejected_automatic_update_is_shown_with_version_time_reason_and_restore(self):
+        self.installed()
+        self.start_services.side_effect = [HostError('candidate unhealthy'), None]
+        values = tofi_host.read_env()
+        values['TOFI_AUTO_UPDATE'] = 'patch'
+        tofi_host.write_env(values)
+        self.fetch.return_value = tofi_host.validate_manifest(base.manifest('v0.1.1', '2'))
+        self.assertEqual(self.main('update', '--auto')[0], 1)
+        text = self.status_text()
+        self.assertRegex(text, r'Update +to v0\.1\.1 rejected \(automatic\) at 20\d\d-.*candidate unhealthy'
+                               r' · previous version restored')
+
+    def test_a_failed_attempt_that_changed_nothing_says_so(self):
+        self.installed()
+        self.history(result='failed', error='Not enough free disk space for the backup')
+        text = self.status_text()
+        self.assertIn('to v0.1.1 failed (automatic) at 2026-10-09T04:12:00Z: Not enough free disk space', text)
+        self.assertIn('nothing was changed', text)
+        self.history(result='updated')
+        self.assertNotIn('failed (automatic)', self.status_text())
+
+    def test_rollback_failed_says_exactly_what_to_run(self):
+        self.installed()
+        previous = tofi_host.snapshot()
+        state = json.loads(self.P.state_file.read_text())
+        state.update(phase='rollback-failed', last_error={'step': 'start-previous', 'message': 'worker not ready'},
+                     transaction={'kind': 'upgrade', 'step': 'start-previous', 'previous': previous,
+                                  'candidate_version': NEW, 'backup': 'b1', 'data_changed': True})
+        self.P.state_file.write_text(json.dumps(state))
+        text = self.status_text()
+        self.assertIn('Run          sudo tofi install   finishes the rollback to %s' % OLD, text)
+        self.assertIn('sudo tofi backups', text)
+
+
+class AutoUpdateServiceTests(unittest.TestCase):
+    def test_service_starts_after_tofi_and_readme_documents_the_proxy(self):
+        self.assertRegex(tofi_host.AUTO_UPDATE_SERVICE_TEXT, r'After=[^\n]*\btofi\.service')
+        readme = (base.HERE / 'README.md').read_text()
+        self.assertIn('HTTPS_PROXY', readme)
+        self.assertIn('systemctl edit tofi-auto-update.service', readme)
 
 
 class ComposePassthroughTests(unittest.TestCase):
