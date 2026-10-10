@@ -64,7 +64,7 @@ func TestProgressAfterThirtyModelTurnsIsPersistedAndRunCompletes(t *testing.T) {
 		t.Fatalf("finish: done=%v err=%v", done, err)
 	}
 	messages, _, err := s.Messages(conversation.ID, 0, 50)
-	if err != nil || len(messages) != 3 || messages[0].Kind != "progress" || messages[1].Kind != "progress" || messages[2].Content != result.Content {
+	if err != nil || len(messages) != 3 || messages[0].Kind != "segment" || messages[1].Kind != "segment" || messages[2].Content != result.Content {
 		t.Fatalf("messages=%+v err=%v", messages, err)
 	}
 }

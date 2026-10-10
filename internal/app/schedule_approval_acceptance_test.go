@@ -163,7 +163,7 @@ func TestScheduledMCPApprovalRestartHTTPDelivery(t *testing.T) {
 			if err := server.store.db.QueryRow(`SELECT COUNT(*) FROM tool_activities WHERE run_id=? AND name='complete_scheduled_task' AND status='completed'`, run.ID).Scan(&receipts); err != nil {
 				t.Fatal(err)
 			}
-			if err := server.store.db.QueryRow(`SELECT COUNT(*) FROM messages WHERE conversation_id=? AND run_id=? AND role='assistant' AND kind<>'progress'`, conversation.ID, run.ID).Scan(&replies); err != nil {
+			if err := server.store.db.QueryRow(`SELECT COUNT(*) FROM messages WHERE conversation_id=? AND run_id=? AND role='assistant' AND kind NOT IN ('progress','segment')`, conversation.ID, run.ID).Scan(&replies); err != nil {
 				t.Fatal(err)
 			}
 			if err := server.store.db.QueryRow(`SELECT COUNT(*) FROM mcp_call_approvals WHERE run_id=?`, run.ID).Scan(&approvals); err != nil {
@@ -202,7 +202,7 @@ func TestScheduledMCPApprovalRestartHTTPDelivery(t *testing.T) {
 				t.Fatalf("late approval changed decision: %+v", finalQuestion)
 			}
 			var finalReplies, claimedApprovals, occurrenceCount int
-			if err := server.store.db.QueryRow(`SELECT COUNT(*) FROM messages WHERE conversation_id=? AND run_id=? AND role='assistant' AND kind<>'progress'`, conversation.ID, run.ID).Scan(&finalReplies); err != nil {
+			if err := server.store.db.QueryRow(`SELECT COUNT(*) FROM messages WHERE conversation_id=? AND run_id=? AND role='assistant' AND kind NOT IN ('progress','segment')`, conversation.ID, run.ID).Scan(&finalReplies); err != nil {
 				t.Fatal(err)
 			}
 			if err := server.store.db.QueryRow(`SELECT COUNT(*) FROM mcp_call_approvals WHERE run_id=? AND claimed_at<>''`, run.ID).Scan(&claimedApprovals); err != nil {

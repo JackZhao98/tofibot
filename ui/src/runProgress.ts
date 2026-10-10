@@ -1,6 +1,9 @@
 import type { Message, Run } from "./types";
 
-/** Fold only a successfully finished run with a visible final answer. */
+/** Mid-run assistant messages: "progress" (status note or legacy row, foldable) and "segment" (answer, never folded). Neither is the run's final reply. */
+export const isMidRunKind = (kind: Message["kind"]) => kind === "progress" || kind === "segment";
+
+/** Fold only status notes (kind "progress", which also covers legacy rows) of a successfully finished run with a visible final answer. Answers (kind "segment") always stay visible. */
 export function foldCompletedProgress(messages: Message[], runs: Run[]) {
   const doneRuns = new Set(runs.filter(run => run.status === "done").map(run => run.id));
   const finalByRun = new Map<string, Message>();

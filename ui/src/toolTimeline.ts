@@ -1,4 +1,5 @@
 import type { Message, Run, ToolActivity, ToolActivityRunSummary } from "./types";
+import { isMidRunKind } from "./runProgress";
 import { i18n, type Language } from "./i18n";
 
 /** A failed request is not evidence that its external effect did not occur. */
@@ -218,8 +219,8 @@ export function buildToolRunAnchors<T extends { run_id: string }>(messages: Mess
   const messageIDs = new Set(messages.map(message => message.id));
   const runByID = new Map(runs.map(run => [run.id, run]));
   for (const message of [...messages].sort((a, b) => a.seq - b.seq)) {
-    if (message.role === "assistant" && message.kind !== "notice" && message.kind !== "progress" && message.run_id && !finalByRunID.has(message.run_id)) finalByRunID.set(message.run_id, message);
-    if (message.role === "assistant" && message.kind === "progress" && message.run_id) progressByRunID.set(message.run_id, message);
+    if (message.role === "assistant" && message.kind !== "notice" && !isMidRunKind(message.kind) && message.run_id && !finalByRunID.has(message.run_id)) finalByRunID.set(message.run_id, message);
+    if (message.role === "assistant" && isMidRunKind(message.kind) && message.run_id) progressByRunID.set(message.run_id, message);
   }
   for (const value of values) {
     const reply = finalByRunID.get(value.run_id);
@@ -269,7 +270,7 @@ export function buildToolTimeline(messages: Message[], activities: ToolActivity[
     const items = orderToolActivities([...calls.values()]);
     const reply = firstReply.get(runId);
     const run = runById.get(runId);
-    const reports = messages.filter(message => message.run_id === runId && message.role === "assistant" && message.kind === "progress").sort((a, b) => a.seq - b.seq);
+    const reports = messages.filter(message => message.run_id === runId && message.role === "assistant" && isMidRunKind(message.kind)).sort((a, b) => a.seq - b.seq);
     if (reports.length) {
       for (const activity of items) {
         const report = [...reports].reverse().find(message => compareTime(preciseTime(message.created_at), preciseTime(activity.started_at)) <= 0);
