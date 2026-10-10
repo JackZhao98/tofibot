@@ -3,7 +3,7 @@ html:not([data-desktop]) .web-pairing-card{gap:12px}
 html:not([data-desktop]) .web-pairing-route{display:grid;grid-template-columns:auto minmax(60px,1fr) auto;align-items:center;gap:10px}
 html:not([data-desktop]) .web-pairing-route span{display:grid;justify-items:center;gap:4px;color:var(--muted)}
 html:not([data-desktop]) .web-pairing-route svg{box-sizing:content-box;padding:11px;border:2px solid var(--line-soft);border-radius:15px;color:var(--ink);background:var(--surface)}
-html:not([data-desktop]) .web-pairing-route small{font-size:11px}
+html:not([data-desktop]) .web-pairing-route small{font-size:12px}
 html:not([data-desktop]) .web-pairing-route i{height:4px;margin-bottom:20px;border-radius:2px;background:repeating-linear-gradient(90deg,var(--lagoon-text) 0 5px,transparent 5px 11px);animation:web-pair-flow 600ms linear infinite}
 html:not([data-desktop]) .web-pairing-card.is-paired .web-pairing-route{grid-template-columns:auto minmax(60px,1fr) auto auto}
 html:not([data-desktop]) .web-pairing-card.is-paired .web-pairing-route i{background:var(--lagoon-text);animation:web-pair-connect 420ms ease-out both;transform-origin:left center}

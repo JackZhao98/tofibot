@@ -1,6 +1,7 @@
-import {useId, useState, type ReactNode} from "react";
+import {useId, useRef, useState, type ReactNode} from "react";
 import {TofiIcon, type TofiIconName} from "../icons";
 import {useTranslation} from "../i18n";
+import {Disclosure} from "../InteractionSystem";
 import "./settings-components.css";
 
 /** Section: a 16px display heading, an optional count or hint, an optional description. */
@@ -59,5 +60,25 @@ export function DangerZone({title, children}: {title: ReactNode; children: React
 export function Segmented<T extends string>({value, options, onChange, label, disabled = false}: {value: T; options: readonly {value: T; label: ReactNode}[]; onChange: (value: T) => void; label: string; disabled?: boolean}) {
   return <div className="segmented" role="radiogroup" aria-label={label}>
     {options.map(option => <button key={option.value} type="button" role="radio" aria-checked={value === option.value} disabled={disabled} onClick={() => onChange(option.value)}>{option.label}</button>)}
+  </div>;
+}
+
+/** Short help text stays visible; the long version sits behind a "Details" disclosure. */
+export function SettingsDetails({children}: {children: ReactNode}) {
+  const {t} = useTranslation("settings");
+  return <Disclosure title={t("disclosure.details")}>{children}</Disclosure>;
+}
+
+/** Styled file picker: a button, the chosen file name as a chip, and a drop zone. The native input stays hidden. */
+export function FilePicker({accept, label, fileName, onFile, disabled = false, dropHint}: {accept?: string; label: ReactNode; fileName?: string; onFile: (file: File) => void; disabled?: boolean; dropHint?: ReactNode}) {
+  const input = useRef<HTMLInputElement>(null);
+  const [dragging, setDragging] = useState(false);
+  return <div className={`file-picker${dragging ? " is-dragging" : ""}`}
+    onDragOver={event => { event.preventDefault(); if (!disabled) setDragging(true); }}
+    onDragLeave={event => { if (!event.currentTarget.contains(event.relatedTarget as Node)) setDragging(false); }}
+    onDrop={event => { event.preventDefault(); setDragging(false); const file = event.dataTransfer.files[0]; if (!disabled && file) onFile(file); }}>
+    <input ref={input} type="file" hidden accept={accept} onChange={event => { const file = event.currentTarget.files?.[0]; event.currentTarget.value = ""; if (file) onFile(file); }}/>
+    <button type="button" className="secondary-button" disabled={disabled} onClick={() => input.current?.click()}><TofiIcon name="folder-open" size={16} aria-hidden="true"/>{label}</button>
+    {fileName ? <span className="file-chip" title={fileName}><TofiIcon name="file" size={14} aria-hidden="true"/><span>{fileName}</span></span> : dropHint && <span className="file-picker-hint">{dropHint}</span>}
   </div>;
 }

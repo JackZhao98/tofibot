@@ -604,7 +604,12 @@
       "file_oversized": "資料套件過大。",
       "decrypt_failed": "無法解密：請檢查密碼、檔案版本，或檔案是否損毀。",
       "file_damaged": "此檔案已損毀，或不是 Tofi 匯出檔。"
-    }
+    },
+    "summary": "在伺服器之間遷移帳戶資料或單一 Bot。封裝檔會加密，匯入前會先檢查。",
+    "drop_hint": "或將檔案拖曳到此處",
+    "environment_help": "預設關閉，請逐筆勾選要包含的記錄。",
+    "import_environment_help": "預設關閉，請逐筆勾選要還原為未啟用副本的記錄。",
+    "recovery_help": "未啟用的副本，可重新匯出或刪除。"
   },
   "status": {
     "ok": "已連線",
@@ -657,5 +662,8 @@
       "install_hint": "在伺服器上執行 <code>sudo tofi update</code> 即可安裝。",
       "auto_hint": "請在伺服器上開關：<on>sudo tofi config auto-update on</on> 或 <off>sudo tofi config auto-update off</off>"
     }
+  },
+  "disclosure": {
+    "details": "詳細資訊"
   }
 }

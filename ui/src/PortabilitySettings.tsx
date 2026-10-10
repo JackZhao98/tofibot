@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { request } from "./api";
 import type { Bot } from "./types";
 import { getBotAvatarConfig, saveBotAvatarConfig } from "./avatarStore";
@@ -6,6 +6,7 @@ import type { AvatarConfig } from "./lib/tofi-avatar/index.js";
 import { decryptPortable, encryptPortable, isEncryptedPortable, MAX_PORTABLE_FILE_BYTES } from "./portabilityCrypto";
 import { ENVIRONMENT_CATEGORY, portabilityLabel as label, exportDefaultCategories, importDefaultCategories, checkPortableInput } from "./portabilitySelection";
 import "./portability.css";
+import { Banner, FilePicker, SettingsDetails, SettingsRow } from "./settings/components";
 import { useUserTimezone } from "./UserTimezone";
 import { i18n, useTranslation } from "./i18n";
 
@@ -126,54 +127,62 @@ export function PortabilitySettings({ bots, initialFile, initialBotID = "", onIn
     } catch (cause) { setError(message(cause)); } finally { setBusy(false); }
   }
   const encryptedFile = fileSource && isEncryptedPortable(fileSource);
-  return <section className="settings-section portability-section">
-    <h3>{t("portability.title")}</h3>
-    <p className="settings-description">{t("portability.description")}</p>
-    <p className="field-note">{t("portability.scope_note")}</p>
-    <p className="field-note">{t("portability.security_note")}</p>
-    <fieldset disabled={busy}>
-      <legend>{t("portability.export")}</legend>
-      <label>{t("portability.scope")}<select value={kind} onChange={event => { const next = event.target.value as "account" | "bot"; setKind(next); if (next === "bot") { setBotIDs(exportBots[0] ? [exportBots[0].id] : []); setIncluded(c => c.filter(x => x !== "settings" && x !== ENVIRONMENT_CATEGORY)); } }}><option value="account">{t("portability.scope_account")}</option><option value="bot">{t("portability.scope_bot")}</option></select></label>
-      <div className="portability-choices">{exportBots.map(bot => <label key={bot.id}><input type={kind === "bot" ? "radio" : "checkbox"} name="export-bots" checked={botIDs.includes(bot.id)} onChange={() => setBotIDs(kind === "bot" ? [bot.id] : toggle(botIDs, bot.id))}/>{bot.archived ? t("portability.bot_archived", { name: bot.name }) : bot.name}</label>)}</div>
-      <div className="portability-choices">{categories.filter(c => kind === "account" || c !== "settings" && c !== ENVIRONMENT_CATEGORY).map(c => <label key={c}><input type="checkbox" checked={included.includes(c)} disabled={c === "bot_config"} onChange={() => setIncluded(toggle(included, c))}/>{label(c)}</label>)}</div>
-      {kind === "account" && <div className="portability-sensitive">
-        <p className="field-note">{t("portability.environment_note")}</p>
-        <button type="button" onClick={() => void loadEnvironment()}>{t("portability.environment_load")}</button>
-        {included.includes(ENVIRONMENT_CATEGORY) && <div className="portability-choices">{environmentRecords.map(x => <label key={`${x.source_category}:${x.id}`}><input type="checkbox" checked={exportEnvironmentIDs.includes(x.id)} onChange={() => setExportEnvironmentIDs(toggle(exportEnvironmentIDs, x.id))} />{x.name || x.target} · {x.target} · {x.source_category === "active_vault" ? t("portability.source_active") : t("portability.source_inactive")}</label>)}</div>}
+  const choice = (key: string, input: ReactNode, text: ReactNode) => <label className="check-row" key={key}>{input}<span>{text}</span></label>;
+  const exportDisabled = (!botIDs.length && (exportBots.length > 0 || !included.includes(ENVIRONMENT_CATEGORY))) || (included.includes(ENVIRONMENT_CATEGORY) && !exportEnvironmentIDs.length) || exportPassword.length < 12 || exportPassword !== confirmPassword;
+  return <section className="portability-section" aria-label={t("portability.title")}>
+    <p className="portability-summary">{t("portability.summary")}</p>
+    <SettingsDetails><p>{t("portability.description")}</p><p>{t("portability.scope_note")}</p><p>{t("portability.security_note")}</p></SettingsDetails>
+    <fieldset className="settings-card portability-card" disabled={busy}>
+      <div className="portability-head"><h5>{t("portability.export")}</h5></div>
+      <SettingsRow label={t("portability.scope")} labelFor="portability-scope" control={<select id="portability-scope" value={kind} onChange={event => { const next = event.target.value as "account" | "bot"; setKind(next); if (next === "bot") { setBotIDs(exportBots[0] ? [exportBots[0].id] : []); setIncluded(c => c.filter(x => x !== "settings" && x !== ENVIRONMENT_CATEGORY)); } }}><option value="account">{t("portability.scope_account")}</option><option value="bot">{t("portability.scope_bot")}</option></select>}/>
+      <div className="portability-block">
+        <div className="portability-choices">{exportBots.map(bot => choice(bot.id, <input type={kind === "bot" ? "radio" : "checkbox"} name="export-bots" checked={botIDs.includes(bot.id)} onChange={() => setBotIDs(kind === "bot" ? [bot.id] : toggle(botIDs, bot.id))}/>, bot.archived ? t("portability.bot_archived", { name: bot.name }) : bot.name))}</div>
+      </div>
+      <div className="portability-block">
+        <div className="portability-choices">{categories.filter(c => kind === "account" || c !== "settings" && c !== ENVIRONMENT_CATEGORY).map(c => choice(c, <input type="checkbox" checked={included.includes(c)} disabled={c === "bot_config"} onChange={() => setIncluded(toggle(included, c))}/>, label(c)))}</div>
+      </div>
+      {kind === "account" && <div className="portability-block portability-sensitive">
+        <p className="portability-help">{t("portability.environment_help")}</p>
+        <SettingsDetails><p>{t("portability.environment_note")}</p></SettingsDetails>
+        <div className="portability-inline"><button type="button" className="secondary-button" onClick={() => void loadEnvironment()}>{t("portability.environment_load")}</button></div>
+        {included.includes(ENVIRONMENT_CATEGORY) && <div className="portability-choices">{environmentRecords.map(x => choice(`${x.source_category}:${x.id}`, <input type="checkbox" checked={exportEnvironmentIDs.includes(x.id)} onChange={() => setExportEnvironmentIDs(toggle(exportEnvironmentIDs, x.id))} />, `${x.name || x.target} · ${x.target} · ${x.source_category === "active_vault" ? t("portability.source_active") : t("portability.source_inactive")}`))}</div>}
       </div>}
-      <p className="field-note">{t("portability.dependency_note")}</p>
-      <label>{t("portability.password")}<input type="password" autoComplete="new-password" value={exportPassword} onChange={e => setExportPassword(e.target.value)} /></label>
-      <label>{t("portability.password_confirm")}<input type="password" autoComplete="new-password" value={confirmPassword} onChange={e => setConfirmPassword(e.target.value)} /></label>
-      <button type="button" disabled={(!botIDs.length && (exportBots.length > 0 || !included.includes(ENVIRONMENT_CATEGORY))) || (included.includes(ENVIRONMENT_CATEGORY) && !exportEnvironmentIDs.length) || exportPassword.length < 12 || exportPassword !== confirmPassword} onClick={() => void exportBundle()}>{t("portability.download")}</button>
-      {kind === "bot" && <p className="field-note">{t("portability.bot_note")}</p>}
+      <div className="portability-block"><SettingsDetails><p>{t("portability.dependency_note")}</p></SettingsDetails>{kind === "bot" && <p className="portability-help">{t("portability.bot_note")}</p>}</div>
+      <SettingsRow label={t("portability.password")} labelFor="portability-password" control={<input id="portability-password" type="password" autoComplete="new-password" value={exportPassword} onChange={e => setExportPassword(e.target.value)} />}/>
+      <SettingsRow label={t("portability.password_confirm")} labelFor="portability-password-confirm" control={<input id="portability-password-confirm" type="password" autoComplete="new-password" value={confirmPassword} onChange={e => setConfirmPassword(e.target.value)} />}/>
+      <div className="portability-actions"><button type="button" className="primary-button" disabled={exportDisabled} onClick={() => void exportBundle()}>{t("portability.download")}</button></div>
     </fieldset>
-    <fieldset disabled={busy}>
-      <legend>{t("portability.import")}</legend>
-      <label>{t("portability.choose_file")}<input type="file" accept=".json,.tofi,application/json" onChange={e => { const file = e.currentTarget.files?.[0]; e.currentTarget.value = ""; if (file) void loadFile(file); }} /></label>
-      {fileName && <p className="field-note">{fileName}</p>}
-      {encryptedFile && !bundle && <><label>{t("portability.decrypt_password")}<input type="password" autoComplete="off" value={importPassword} onChange={e => setImportPassword(e.target.value)} /></label><button type="button" onClick={() => void decrypt()}>{t("portability.decrypt")}</button></>}
-      {bundle && <>
-        <p>{t("portability.source", { format: bundle.format, version: bundle.version })}</p>
-        <div className="portability-choices">{bundle.bots?.map(bot => <label key={bot.id}><input type="checkbox" checked={importBotIDs.includes(bot.id)} onChange={() => { setImportBotIDs(toggle(importBotIDs, bot.id)); invalidate(); }} />{bot.name}</label>)}</div>
-        <div className="portability-choices">{bundle.included.map(c => <label key={c}><input type="checkbox" checked={importCategories.includes(c)} disabled={c === "bot_config"} onChange={() => { setImportCategories(toggle(importCategories, c)); invalidate(); }} />{c === "settings" ? t("portability.category_replaces", { label: label(c) }) : label(c)}</label>)}</div>
-        {bundle.included.includes(ENVIRONMENT_CATEGORY) && <div className="portability-sensitive"><p className="field-note">{t("portability.import_environment_note")}</p><div className="portability-choices">{bundle.vault_environment?.map(x => <label key={x.id}><input type="checkbox" disabled={!importCategories.includes(ENVIRONMENT_CATEGORY)} checked={importEnvironmentIDs.includes(x.id)} onChange={() => { setImportEnvironmentIDs(toggle(importEnvironmentIDs, x.id)); invalidate(); }} />{x.name || x.target} · {x.target} · {x.source_category === "inactive_recovery" ? t("portability.source_inactive") : t("portability.source_active")}</label>)}</div></div>}
-        <button type="button" disabled={Boolean(bundle.bots?.length && !importBotIDs.length) || (importCategories.includes(ENVIRONMENT_CATEGORY) && !importEnvironmentIDs.length)} onClick={() => void inspect()}>{t("portability.preview_button")}</button>
+    <fieldset className="settings-card portability-card" disabled={busy}>
+      <div className="portability-head"><h5>{t("portability.import")}</h5></div>
+      <div className="portability-block"><FilePicker accept=".json,.tofi,application/json" label={t("portability.choose_file")} fileName={fileName} dropHint={t("portability.drop_hint")} disabled={busy} onFile={file => void loadFile(file)}/></div>
+      {encryptedFile && !bundle && <>
+        <SettingsRow label={t("portability.decrypt_password")} labelFor="portability-decrypt" control={<input id="portability-decrypt" type="password" autoComplete="off" value={importPassword} onChange={e => setImportPassword(e.target.value)} onKeyDown={event => { if (event.key === "Enter" && importPassword && !busy) { event.preventDefault(); void decrypt(); } }} />}/>
+        <div className="portability-actions"><button type="button" className="secondary-button" onClick={() => void decrypt()}>{t("portability.decrypt")}</button></div>
       </>}
-      {preview && <div className="portability-preview" aria-live="polite">
-        <h4>{t("portability.preview_title")}</h4>
+      {bundle && <>
+        <div className="portability-block"><p className="portability-help">{t("portability.source", { format: bundle.format, version: bundle.version })}</p></div>
+        {Boolean(bundle.bots?.length) && <div className="portability-block"><div className="portability-choices">{bundle.bots?.map(bot => choice(bot.id, <input type="checkbox" checked={importBotIDs.includes(bot.id)} onChange={() => { setImportBotIDs(toggle(importBotIDs, bot.id)); invalidate(); }} />, bot.name))}</div></div>}
+        <div className="portability-block"><div className="portability-choices">{bundle.included.map(c => choice(c, <input type="checkbox" checked={importCategories.includes(c)} disabled={c === "bot_config"} onChange={() => { setImportCategories(toggle(importCategories, c)); invalidate(); }} />, c === "settings" ? t("portability.category_replaces", { label: label(c) }) : label(c)))}</div></div>
+        {bundle.included.includes(ENVIRONMENT_CATEGORY) && <div className="portability-block portability-sensitive"><p className="portability-help">{t("portability.import_environment_help")}</p><SettingsDetails><p>{t("portability.import_environment_note")}</p></SettingsDetails><div className="portability-choices">{bundle.vault_environment?.map(x => choice(x.id, <input type="checkbox" disabled={!importCategories.includes(ENVIRONMENT_CATEGORY)} checked={importEnvironmentIDs.includes(x.id)} onChange={() => { setImportEnvironmentIDs(toggle(importEnvironmentIDs, x.id)); invalidate(); }} />, `${x.name || x.target} · ${x.target} · ${x.source_category === "inactive_recovery" ? t("portability.source_inactive") : t("portability.source_active")}`))}</div></div>}
+        <div className="portability-actions"><button type="button" className="secondary-button" disabled={Boolean(bundle.bots?.length && !importBotIDs.length) || (importCategories.includes(ENVIRONMENT_CATEGORY) && !importEnvironmentIDs.length)} onClick={() => void inspect()}>{t("portability.preview_button")}</button></div>
+      </>}
+      {preview && <div className="portability-block portability-preview" aria-live="polite">
+        <h6>{t("portability.preview_title")}</h6>
         <p>{t("portability.attachment_space", { size: Math.ceil(preview.attachment_bytes / 1024) })}</p>
         <p>{t("portability.database_space", { size: Math.ceil(preview.estimated_bytes / 1024) })}</p>
         <dl>{Object.entries(preview.counts).map(([name, count]) => <div key={name}><dt>{label(name)}</dt><dd>{count}</dd></div>)}</dl>
         <p>{t("portability.bots_created", { names: preview.bots.map(bot => bot.name).join(t("portability.list_separator")) || t("portability.none") })}</p>
-        <p>{t("portability.preview_note")}</p>
-        {preview.conflicts.length > 0 && <><h4>{t("portability.conflicts")}</h4><ul>{preview.conflicts.map((c, i) => <li key={i}>{c}</li>)}</ul></>}
-        <h4>{t("portability.dependencies")}</h4><ul>{preview.dependencies.map((dependency, i) => <li key={i}>{dependency}</li>)}</ul>
-        {preview.vault_environment && <><h4>{t("portability.environment_title")}</h4><p>{t("portability.environment_summary", { count: preview.vault_environment.length, bytes: preview.vault_environment_bytes })}</p><ul>{preview.vault_environment.map(x => <li key={x.id}>{x.name || x.target} · {x.target} · {t("portability.inactive_restore")}</li>)}</ul></>}
-        <h4>{t("portability.warnings")}</h4><ul>{preview.warnings.map((warning, i) => <li key={i}>{warning}</li>)}</ul>
-        <button type="button" disabled={preview.can_apply === false} onClick={() => void apply()}>{t("portability.apply")}</button>
+        <SettingsDetails><p>{t("portability.preview_note")}</p></SettingsDetails>
+        {preview.conflicts.length > 0 && <><h6>{t("portability.conflicts")}</h6><ul>{preview.conflicts.map((c, i) => <li key={i}>{c}</li>)}</ul></>}
+        <h6>{t("portability.dependencies")}</h6><ul>{preview.dependencies.map((dependency, i) => <li key={i}>{dependency}</li>)}</ul>
+        {preview.vault_environment && <><h6>{t("portability.environment_title")}</h6><p>{t("portability.environment_summary", { count: preview.vault_environment.length, bytes: preview.vault_environment_bytes })}</p><ul>{preview.vault_environment.map(x => <li key={x.id}>{x.name || x.target} · {x.target} · {t("portability.inactive_restore")}</li>)}</ul></>}
+        <h6>{t("portability.warnings")}</h6><ul>{preview.warnings.map((warning, i) => <li key={i}>{warning}</li>)}</ul>
+        <div className="portability-inline"><button type="button" className="primary-button" disabled={preview.can_apply === false} onClick={() => void apply()}>{t("portability.apply")}</button></div>
       </div>}
     </fieldset>
-    {environmentLoaded && <div className="portability-sensitive"><h4>{t("portability.recovery_title")}</h4><p className="field-note">{t("portability.recovery_note")}</p>{environmentRecords.filter(x => x.source_category === "inactive_recovery").map(x => <div className="portability-recovery-row" key={x.id}><span>{x.name || x.target} · {x.target} · {t("portability.bytes", { count: x.bytes ?? 0 })} · {t("portability.inactive")}</span><button type="button" disabled={busy} onClick={() => void deleteRecovery(x.id)}>{t("portability.recovery_delete")}</button></div>)}</div>}
-    {busy && <p role="status">{t("action.processing")}</p>}{error && <p className="error-text" role="alert">{error}</p>}{done && <p role="status">{done}</p>}
+    {environmentLoaded && <div className="settings-card portability-card"><div className="portability-head"><h5>{t("portability.recovery_title")}</h5></div><div className="portability-block"><p className="portability-help">{t("portability.recovery_help")}</p><SettingsDetails><p>{t("portability.recovery_note")}</p></SettingsDetails></div>{environmentRecords.filter(x => x.source_category === "inactive_recovery").map(x => <div className="portability-recovery-row" key={x.id}><span>{x.name || x.target} · {x.target} · {t("portability.bytes", { count: x.bytes ?? 0 })} · {t("portability.inactive")}</span><button type="button" className="danger-link" disabled={busy} onClick={() => void deleteRecovery(x.id)}>{t("portability.recovery_delete")}</button></div>)}</div>}
+    {busy && <p className="portability-status" role="status">{t("action.processing")}</p>}
+    {error && <Banner tone="error" title={error}/>}
+    {done && <div role="status"><Banner tone="info" title={done}/></div>}
   </section>;
 }

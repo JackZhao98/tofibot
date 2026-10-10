@@ -1,0 +1,44 @@
+/* Polish layer: one look for controls inside Settings, sheets and onboarding. Tokens only (design-tokens.css).
+   Audited by scripts/test-settings-polish.mjs: no native-looking controls, 12px floor for text, 12px card inset. */
+
+/* Controls inherit the body stack unless a component sets its own font (zero specificity on purpose). */
+:where(.settings-shell,.sheet,[data-onboarding]) :where(button,input,select,textarea){font-family:var(--body)}
+:where(.settings-shell,.sheet,[data-onboarding]) :where(.settings-count,.status-badge,code){font-family:var(--mono)}
+
+/* Help text never drops below 12px. */
+.workspace .settings-page-body :is(.field-note,.error-text,.settings-feedback),.sheet :is(.field-note,.error-text),[data-onboarding] :is(.field-note,.error-text){font-size:12px;line-height:1.55}
+.workspace .settings-page-body small,.sheet small{font-size:12px}
+.status-badge{font-size:12px}
+.workspace .settings-page-body .settings-tag{font-size:12px;letter-spacing:0}
+
+/* Select: one custom control (no native chevron on the field itself). */
+.workspace .settings-page-body select,.sheet select,[data-onboarding] select{appearance:none;-webkit-appearance:none;padding-right:38px;cursor:pointer;
+  background-image:linear-gradient(45deg,transparent 50%,var(--ink-soft) 50%),linear-gradient(135deg,var(--ink-soft) 50%,transparent 50%)!important;
+  background-position:calc(100% - 19px) 50%,calc(100% - 14px) 50%!important;background-size:5px 5px,5px 5px!important;background-repeat:no-repeat!important}
+.workspace .settings-page-body select:disabled,.sheet select:disabled{cursor:not-allowed}
+
+/* Connection value (server address, instance id) */
+.settings-row-control .connection-value{display:block;max-width:100%;color:var(--ink);font:13px/1.5 var(--mono);overflow-wrap:anywhere;text-align:right}
+.settings-row-control>a.secondary-button{text-decoration:none;min-height:36px;padding:6px 12px;font-size:13px}
+@media(max-width:700px){.settings-row-control .connection-value{text-align:left}}
+
+/* File picker: styled button, file-name chip, optional drop zone. The native input is hidden. */
+.file-picker{display:flex;flex-wrap:wrap;align-items:center;gap:10px 14px;min-width:0;padding:14px 16px;border:1.5px dashed var(--line-soft);border-radius:14px;background:var(--surface-2);transition:border-color 120ms,background-color 120ms}
+.file-picker.is-dragging{border-color:var(--line);background:var(--surface)}
+.file-picker>.secondary-button{min-height:38px;padding:7px 14px;font-size:13px}
+.file-picker-hint{color:var(--muted);font:12.5px/1.4 var(--body)}
+.file-chip{display:inline-flex;align-items:center;gap:6px;min-width:0;max-width:100%;padding:5px 10px;border:1px solid var(--line-soft);border-radius:999px;background:var(--surface);color:var(--ink);font:12.5px/1.4 var(--mono)}
+.file-chip>svg{flex:none;color:var(--muted)}
+.file-chip>span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+
+/* Resource labels are mono section labels: uppercase and tracked, so the 10px label token is by design. */
+.resource-grid span{text-transform:uppercase;letter-spacing:var(--label-tracking)}
+
+/* Danger zone: spaced paragraphs, label above its field. */
+.danger-zone .purge-section{display:grid;gap:10px}
+.workspace .settings-page-body .danger-zone .purge-section :is(h3,p,label){margin:0}
+.workspace .settings-page-body .danger-zone .purge-section .settings-description{color:var(--ink-soft)}
+.danger-zone .purge-section .purge-button{justify-self:start}
+
+/* Search field: room for the leading icon. */
+.workspace .settings-page-body .integration-search input{padding-left:42px}
