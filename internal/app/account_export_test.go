@@ -92,19 +92,21 @@ func TestDeletedAccountExportIsEncryptedVerifiedAndExcludesSecrets(t *testing.T)
 	if containsPortable(b.Included, portableEnvironmentCategory) {
 		t.Fatal("environment credentials were selected")
 	}
-	// On disk: outside accounts/, 0600, with a sidecar and a recorded digest.
+	// On disk: outside accounts/, 0600, no plaintext metadata sidecar (it lives in the DB row).
 	entries, _ := os.ReadDir(filepath.Join(data, deletedExportDirName))
-	var sawTofi, sawMeta bool
+	var sawTofi bool
 	for _, e := range entries {
 		info, _ := e.Info()
 		if info.Mode().Perm() != 0o600 {
 			t.Fatalf("%s mode %v", e.Name(), info.Mode().Perm())
 		}
 		sawTofi = sawTofi || strings.HasSuffix(e.Name(), ".tofi")
-		sawMeta = sawMeta || strings.HasSuffix(e.Name(), ".json")
+		if strings.HasSuffix(e.Name(), ".json") {
+			t.Fatalf("plaintext sidecar written: %s", e.Name())
+		}
 	}
-	if !sawTofi || !sawMeta {
-		t.Fatal("export file or sidecar missing")
+	if !sawTofi {
+		t.Fatal("export file missing")
 	}
 	if len(fb.ops("delete")) != 1 {
 		t.Fatal("computer was not released after the export")

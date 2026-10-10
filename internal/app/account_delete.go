@@ -91,6 +91,14 @@ func (g *AccountGateway) beginAccountDelete(ctx context.Context, callerID, id, c
 		}
 		return target, &accountDeleteError{404, "not_found", "account not found"}
 	}
+	// A lingering runtime is closed synchronously, after the lock is released
+	// and before any export or removal step starts.
+	var closing *Server
+	defer func() {
+		if closing != nil {
+			closing.Close()
+		}
+	}()
 	g.mu.Lock()
 	defer g.mu.Unlock()
 	if g.closed {
@@ -146,7 +154,7 @@ func (g *AccountGateway) beginAccountDelete(ctx context.Context, callerID, id, c
 	g.cancelAccount(id)
 	if runtime := g.workspaces[id]; runtime != nil {
 		delete(g.workspaces, id)
-		go runtime.Close()
+		closing = runtime
 	}
 	g.deleteRunning[id] = true
 	target.Deleting = true
@@ -243,6 +251,11 @@ func (g *AccountGateway) deleteComputer(ctx context.Context, id string) error {
 	if g.config.AccountProvisionerSocket == "" {
 		return nil // no Worker: this deployment has no computer to reclaim
 	}
+	// A deactivation whose broker call failed (503 computer_transition_pending)
+	// leaves the account disabled here but not at the broker. Disabling is
+	// idempotent, and an already-removed or unregistered computer is tolerated:
+	// the delete below answers for the outcome.
+	_, _ = g.computerControl(ctx, map[string]string{"op": "disable", "account_id": id})
 	data, err := g.computerControl(ctx, map[string]string{"op": "delete", "account_id": id})
 	if err != nil {
 		return &accountDeleteError{code: "computer_unavailable", message: "computer deletion was not applied"}

@@ -18,6 +18,9 @@ type fakeBroker struct {
 	mu      sync.Mutex
 	calls   []map[string]string
 	failOps map[string]bool
+	// strict models the Worker: delete is refused unless the computer was disabled.
+	strict   bool
+	disabled map[string]bool
 }
 
 func (f *fakeBroker) ops(op string) []string {
@@ -50,7 +53,7 @@ func deleteFixture(t *testing.T) (*AccountGateway, *fakeBroker, string) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	fb := &fakeBroker{failOps: map[string]bool{}}
+	fb := &fakeBroker{failOps: map[string]bool{}, disabled: map[string]bool{}}
 	server := &http.Server{Handler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		var body map[string]any
 		json.NewDecoder(r.Body).Decode(&body)
@@ -63,6 +66,14 @@ func deleteFixture(t *testing.T) (*AccountGateway, *fakeBroker, string) {
 		fb.mu.Lock()
 		fb.calls = append(fb.calls, call)
 		fail := fb.failOps[call["op"]]
+		if fb.strict && !fail {
+			if call["op"] == "disable" {
+				fb.disabled[call["account_id"]] = true
+			}
+			if call["op"] == "delete" && !fb.disabled[call["account_id"]] {
+				fail = true
+			}
+		}
 		fb.mu.Unlock()
 		if fail {
 			w.WriteHeader(409)
