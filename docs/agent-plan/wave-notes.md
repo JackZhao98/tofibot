@@ -36,3 +36,9 @@ Known flaky Go tests seen this wave (pass on rerun): TestCancelDoesNotBecomeDone
 ### Small issues seen during acceptance (not fixed yet)
 
 - ~~Enter in the import passphrase field does not decrypt~~ (fixed in #8).
+
+## Next wave (after v0.1.2) — merged to main, not released
+
+1. **Onboarding connect step** (fix/onboarding-connect): service letter marks, "Connected ✓", no "Connect 0", an all-set screen with Continue, tablet viewports. test:onboarding (20 checks) and test:settings-polish (328 runs) exit 0, Chromium only.
+2. **Tool refusals are definite** (fix/tool-outcome-ux): local argument refusals show "Not executed" and no longer block the corrected retry; compact uncertain card; "Save the Bot's profile" label; thinking line not cut mid-sentence.
+3. **Reasoning kept within a task** (feat/run-resume-p1, Phase 0–1 of run-resume.md): microCompact no longer strips reasoning; Anthropic history edits skipped while thinking replays; compaction at 0.70 replays the transcript and adds a "Current line of thinking" section; compaction calls are accounted; context breakdown recorded. Live-model acceptance not run yet.
