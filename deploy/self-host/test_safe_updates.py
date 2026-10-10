@@ -1631,3 +1631,46 @@ class HealthWaitsForDockerTests(unittest.TestCase):
         result, calls = self.run_health([], attempts=1)
         self.assertTrue(result)
         self.assertEqual(calls, 0)
+
+
+class AcceptanceLoopbackImageTests(unittest.TestCase):
+    """Only a local manifest with the acceptance variable may name a loopback App image."""
+
+    def manifest(self, app=None, worker=None):
+        digest = 'a' * 64
+        value = {'schema': 1, 'version': 'v0.1.0-rc.98', 'data_schema': 'tofi-account-data-v1',
+                 'images': {role: '%s@sha256:%s' % (repo, digest) for role, repo in tofi_host.IMAGE_REPOS.items()}}
+        if app:
+            value['images']['app'] = app
+        if worker:
+            value['images']['worker'] = worker
+        return value
+
+    def test_loopback_app_rejected_without_flag(self):
+        with self.assertRaises(tofi_host.HostError):
+            tofi_host.validate_manifest(self.manifest(app='localhost:5000/broken@sha256:' + 'b' * 64))
+
+    def test_loopback_worker_rejected_even_with_flag(self):
+        with self.assertRaises(tofi_host.HostError):
+            tofi_host.validate_manifest(self.manifest(worker='localhost:5000/broken@sha256:' + 'b' * 64),
+                                        allow_loopback_app=True)
+
+    def test_remote_registry_rejected_even_with_flag(self):
+        with self.assertRaises(tofi_host.HostError):
+            tofi_host.validate_manifest(self.manifest(app='evil.example:5000/tofi@sha256:' + 'b' * 64),
+                                        allow_loopback_app=True)
+
+    def test_local_file_honors_flag_only_when_set(self):
+        import tempfile
+        path = Path(tempfile.mkdtemp()) / 'manifest.json'
+        path.write_text(json.dumps(self.manifest(app='localhost:5000/broken@sha256:' + 'b' * 64)))
+        with mock.patch.dict(os.environ, {tofi_host.ACCEPTANCE_LOCAL_APP_ENV: ''}):
+            with self.assertRaises(tofi_host.HostError):
+                tofi_host.load_manifest_file(path)
+        with mock.patch.dict(os.environ, {tofi_host.ACCEPTANCE_LOCAL_APP_ENV: '1'}), \
+                mock.patch.object(tofi_host, 'validate_manifest', wraps=tofi_host.validate_manifest) as validate:
+            try:
+                tofi_host.load_manifest_file(path)
+            except tofi_host.HostError as error:
+                self.assertNotIn('must be pinned', str(error))
+            self.assertTrue(validate.call_args.kwargs['allow_loopback_app'])
