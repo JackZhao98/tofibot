@@ -22,8 +22,8 @@ func TestPublishAssistantTurnThenFinishUsesRotatedDraft(t *testing.T) {
 	if first.ID != firstDraft.MessageID || first.ConversationID != c.ID || first.RunID != r.ID {
 		t.Fatalf("published message=%+v draft=%+v", first, firstDraft)
 	}
-	if first.Kind != "progress" {
-		t.Fatalf("published turn kind=%q, want progress", first.Kind)
+	if first.Kind != "segment" {
+		t.Fatalf("published turn kind=%q, want segment", first.Kind)
 	}
 	rotated, err := s.StreamDraft(r.ID)
 	if err != nil {
@@ -45,7 +45,7 @@ func TestPublishAssistantTurnThenFinishUsesRotatedDraft(t *testing.T) {
 	if err != nil || len(messages) != 2 || messages[0].ID != first.ID || messages[1].ID != final.ID {
 		t.Fatalf("messages after final=%+v err=%v", messages, err)
 	}
-	if messages[0].Kind != "progress" || messages[1].Kind != "" {
+	if messages[0].Kind != "segment" || messages[1].Kind != "" {
 		t.Fatalf("progress/final kinds=%q/%q", messages[0].Kind, messages[1].Kind)
 	}
 }

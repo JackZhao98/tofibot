@@ -17,6 +17,7 @@
     "test:timeline": "node scripts/test-tool-timeline.mjs",
     "test:run-family": "node scripts/test-run-family.mjs",
     "test:run-merge": "node scripts/test-run-merge.mjs",
+    "test:run-progress": "node scripts/test-run-progress.mjs",
     "test:mcp-oauth": "node scripts/test-mcp-oauth.mjs",
     "test:integration-catalog": "node scripts/test-integration-catalog.mjs",
     "test:oauth-completion": "node scripts/test-oauth-completion.mjs",
