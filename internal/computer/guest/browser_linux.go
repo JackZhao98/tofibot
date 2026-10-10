@@ -99,7 +99,7 @@ func (s *Service) browserControl(ctx context.Context, botID string, command brow
 	case "close":
 		return s.browserClosePage(ctx, botID, d, command.TargetID)
 	default:
-		return nil, errors.New("browser action supports navigate, snapshot, new, switch and close")
+		return nil, rejectedf("browser action supports navigate, snapshot, new, switch and close")
 	}
 }
 
@@ -112,10 +112,10 @@ func (s *Service) browserSnapshotPages(ctx context.Context, botID string, d *des
 	if targetID != "" {
 		page, ok := findBrowserPage(pages, targetID)
 		if !ok {
-			return nil, fmt.Errorf("browser target %q was not found", targetID)
+			return nil, rejectedf("browser target %q was not found", targetID)
 		}
 		if current == nil || current.TargetID != page.TargetID || source != "focused" {
-			return nil, fmt.Errorf("browser snapshot target_id %q is not the current focused page; use browser.action switch first", targetID)
+			return nil, rejectedf("browser snapshot target_id %q is not the current focused page; use browser.action switch first", targetID)
 		}
 		source = "requested"
 	}
@@ -137,11 +137,33 @@ func (s *Service) browserSnapshotPages(ctx context.Context, botID string, d *des
 func (s *Service) browserNavigatePage(ctx context.Context, botID string, d *desktop, rawURL, targetID string) (map[string]any, error) {
 	u, err := validateURL(rawURL)
 	if err != nil {
-		return nil, err
+		return nil, rejected(err)
+	}
+	if targetID == "" {
+		// No explicit target means "the page you are working in". Serialize
+		// these so that parallel navigates on a browser with no page do not
+		// each open a tab: the first opens one, later calls find it current
+		// and navigate it, exactly as if they had been issued sequentially.
+		s.browserImplicitMu.Lock()
+		defer s.browserImplicitMu.Unlock()
 	}
 	pages, err := s.inspectBrowserPages(ctx, d)
 	if err != nil {
 		return nil, err
+	}
+	if targetID == "" {
+		if current, _ := chooseCurrentPage(pages); current == nil {
+			// A cold-booted or just-cleaned browser has no page. Navigating
+			// has nothing to refuse: open a page and load the URL there.
+			opened, err := s.browserNewPage(ctx, botID, d, u.String())
+			if err != nil {
+				return nil, err
+			}
+			opened["action"] = "navigate"
+			opened["opened_new_page"] = true
+			opened["navigation_confirmed"] = true
+			return opened, nil
+		}
 	}
 	target, err := resolveBrowserTarget(pages, targetID)
 	if err != nil {
@@ -196,7 +218,7 @@ func (s *Service) browserNewPage(ctx context.Context, botID string, d *desktop, 
 	if strings.TrimSpace(rawURL) != "" {
 		u, err := validateURL(rawURL)
 		if err != nil {
-			return nil, err
+			return nil, rejected(err)
 		}
 		targetURL = u.String()
 	}
@@ -222,7 +244,7 @@ func (s *Service) browserNewPage(ctx context.Context, botID string, d *desktop, 
 
 func (s *Service) browserSwitchPage(ctx context.Context, d *desktop, targetID string) (map[string]any, error) {
 	if strings.TrimSpace(targetID) == "" {
-		return nil, errors.New("browser switch requires target_id")
+		return nil, rejectedf("browser switch requires target_id")
 	}
 	pages, err := s.inspectBrowserPages(ctx, d)
 	if err != nil {
@@ -230,7 +252,7 @@ func (s *Service) browserSwitchPage(ctx context.Context, d *desktop, targetID st
 	}
 	target, ok := findBrowserPage(pages, targetID)
 	if !ok {
-		return nil, fmt.Errorf("browser target %q was not found", targetID)
+		return nil, rejectedf("browser target %q was not found", targetID)
 	}
 	if err := s.bringBrowserPageToFront(ctx, d, target); err != nil {
 		return nil, err
@@ -244,7 +266,7 @@ func (s *Service) browserSwitchPage(ctx context.Context, d *desktop, targetID st
 
 func (s *Service) browserClosePage(ctx context.Context, botID string, d *desktop, targetID string) (map[string]any, error) {
 	if strings.TrimSpace(targetID) == "" {
-		return nil, errors.New("browser close requires target_id")
+		return nil, rejectedf("browser close requires target_id")
 	}
 	pages, err := s.inspectBrowserPages(ctx, d)
 	if err != nil {
@@ -252,7 +274,7 @@ func (s *Service) browserClosePage(ctx context.Context, botID string, d *desktop
 	}
 	target, ok := findBrowserPage(pages, targetID)
 	if !ok {
-		return nil, fmt.Errorf("browser target %q was not found", targetID)
+		return nil, rejectedf("browser target %q was not found", targetID)
 	}
 	if err := s.bringBrowserPageToFront(ctx, d, target); err != nil {
 		return nil, err
@@ -398,13 +420,13 @@ func resolveBrowserTarget(pages []browserPage, targetID string) (browserPage, er
 	if targetID != "" {
 		page, ok := findBrowserPage(pages, targetID)
 		if !ok {
-			return browserPage{}, fmt.Errorf("browser target %q was not found", targetID)
+			return browserPage{}, rejectedf("browser target %q was not found", targetID)
 		}
 		return page, nil
 	}
 	page, source := chooseCurrentPage(pages)
 	if page == nil {
-		return browserPage{}, fmt.Errorf("no focused visible browser page; specify target_id (current_source=%s)", source)
+		return browserPage{}, rejectedf("no focused visible browser page; use browser.navigate with a url to open one, or specify target_id (current_source=%s)", source)
 	}
 	return *page, nil
 }
