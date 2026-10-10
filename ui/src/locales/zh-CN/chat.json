@@ -123,8 +123,6 @@
     "unavailable": "共享电脑暂不可用",
     "health_restarting": "共享电脑无响应 · 正在重启",
     "health_unresponsive": "共享电脑无响应",
-    "hibernated": "共享电脑已休眠 · 下次使用时连同标签页一起恢复",
-    "hibernating": "共享电脑正在进入休眠",
     "resuming": "正在唤醒共享电脑"
   },
   "computer_phase": {

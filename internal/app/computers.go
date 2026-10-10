@@ -840,6 +840,37 @@ func (s *Server) routeComputers(w http.ResponseWriter, r *http.Request, path str
 		}{info, s.computerWatchdog.view()})
 		return true
 	}
+	if len(parts) == 2 && parts[0] == microVMComputerID && parts[1] == "wake" && r.Method == http.MethodPost {
+		if s.microVM == nil {
+			writeErr(w, http.StatusNotFound, "not_configured", "computer VM is not configured")
+			return true
+		}
+		// The person opened the computer window: resume a hibernated computer
+		// through the same manager path a Bot tool call uses. Idempotent; any
+		// other state (ready, resuming, starting, hibernating, ...) is a no-op.
+		// A computer still hibernating reports its state, and the window asks
+		// again once it has settled to hibernated.
+		info, err := s.microVMInfo(r.Context())
+		if err != nil {
+			writeErr(w, http.StatusServiceUnavailable, "computer_unavailable", err.Error())
+			return true
+		}
+		if info.State != computer.StateHibernated {
+			writeJSON(w, http.StatusOK, map[string]any{"accepted": false, "state": info.State})
+			return true
+		}
+		if err := s.microVM.Retry(r.Context()); err != nil {
+			// Lost a race with another wake: the computer is no longer hibernated.
+			if now, infoErr := s.microVMInfo(r.Context()); infoErr == nil && now.State != computer.StateHibernated {
+				writeJSON(w, http.StatusOK, map[string]any{"accepted": false, "state": now.State})
+				return true
+			}
+			writeErr(w, http.StatusBadGateway, "computer_wake_failed", err.Error())
+			return true
+		}
+		writeJSON(w, http.StatusAccepted, map[string]any{"accepted": true, "state": computer.StateResuming})
+		return true
+	}
 	if len(parts) == 2 && parts[0] == microVMComputerID && parts[1] == "retry" && r.Method == http.MethodPost {
 		if s.microVM == nil {
 			writeErr(w, http.StatusNotFound, "not_configured", "computer VM is not configured")

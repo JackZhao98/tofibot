@@ -7,18 +7,25 @@ function useComposerAnchor(active: boolean) {
   const [style, setStyle] = useState<CSSProperties>();
   useLayoutEffect(() => {
     if (!active) return;
+    // .composer spans the column; .composer-row is the visible bordered box. A notice (e.g. "Connect a model")
+    // can sit above the row inside .composer, so the top edge is the highest visible child, not the row.
+    const parts = () => {
+      const container = document.querySelector<HTMLElement>(".composer");
+      const row = container?.querySelector<HTMLElement>(".composer-row") ?? container;
+      return { container, row, children: container ? Array.from(container.children) as HTMLElement[] : [] };
+    };
     const place = () => {
-      // .composer spans the column; .composer-row is the visible bordered box.
-      const composer = document.querySelector<HTMLElement>(".composer .composer-row") ?? document.querySelector<HTMLElement>(".composer");
-      if (!composer) { setStyle(undefined); return; }
-      const box = composer.getBoundingClientRect();
+      const { row, children } = parts();
+      if (!row) { setStyle(undefined); return; }
+      const box = row.getBoundingClientRect();
+      const top = children.reduce((min, child) => { const r = child.getBoundingClientRect(); return r.height > 0 ? Math.min(min, r.top) : min; }, box.top);
       // The cat perches on the composer's top edge; the screen sits above it.
-      setStyle({ right: Math.max(16, window.innerWidth - box.right), bottom: Math.max(16, window.innerHeight - box.top + 64) });
+      setStyle({ right: Math.max(16, window.innerWidth - box.right), bottom: Math.max(16, window.innerHeight - top + 64) });
     };
     place();
-    const composer = document.querySelector(".composer .composer-row") ?? document.querySelector(".composer");
-    const observer = composer ? new ResizeObserver(place) : undefined;
-    if (composer) observer?.observe(composer);
+    const { container, row, children } = parts();
+    const observer = row ? new ResizeObserver(place) : undefined;
+    for (const target of new Set([container, row, ...children])) if (target) observer?.observe(target);
     window.addEventListener("resize", place);
     return () => { observer?.disconnect(); window.removeEventListener("resize", place); };
   }, [active]);

@@ -101,6 +101,7 @@ export const api = {
   toolActivityDetails: (id: string, runId: string, offset = 0) => request<ToolActivityDetailPage>(`/api/conversations/${encodeURIComponent(id)}/tools?${new URLSearchParams({ run_id: runId, offset: String(offset) })}`),
   computerInfo: () => request<{ kind: string; state: string; phase?: string; workspace_root?: string; browser?: string; error?: string; health?: ComputerHealth }>("/api/computers/firecracker/info"),
   computerRetry: () => request<{ accepted: boolean }>("/api/computers/firecracker/retry", { method: "POST" }),
+  computerWake: () => request<{ accepted: boolean; state?: string }>("/api/computers/firecracker/wake", { method: "POST" }),
   computerAction: (input: { bot_id: string; run_id?: string; action: string; args?: Record<string, unknown> }) => request<{ ok: boolean; result?: unknown; error?: string }>("/api/computers/firecracker/actions", { method: "POST", body: JSON.stringify(input) }),
 };
 

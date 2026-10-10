@@ -19,6 +19,7 @@
       "storage": "Speicher wird vorbereitet",
       "network": "Netzwerk wird vorbereitet",
       "booting": "VM wird gestartet",
+      "restoring": "Sitzung wird wiederhergestellt",
       "verifying": "Linux und Chrome werden geprüft",
       "ready": "Bereit"
     },
@@ -93,7 +94,8 @@
       "waking": "Computer wird geweckt",
       "connecting": "Verbindung zum Bildschirm wird hergestellt",
       "resuming": "Wird aus dem Ruhezustand geholt",
-      "hibernated": "Im Ruhezustand. Er wacht auf, sobald ein Bot ihn braucht.",
+      "resuming_phase": "Wird geweckt · {{phase}}",
+      "hibernated": "Im Ruhezustand · wird geweckt…",
       "hibernating": "Wechselt in den Ruhezustand…",
       "retry": "Erneut versuchen"
     }
