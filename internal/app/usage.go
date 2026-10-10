@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/JackZhao98/tofibot/internal/provider"
+	"github.com/JackZhao98/tofibot/internal/runtime"
 )
 
 // ContextUsage describes one measured run. Token totals are cumulative model
@@ -120,6 +121,11 @@ func migrateUsage(db *sql.DB) error {
 	if err != nil {
 		return err
 	}
+	for _, col := range []string{"estimated_system", "estimated_messages", "estimated_reasoning"} {
+		if err := ensureColumn(db, "run_usage", col, `ALTER TABLE run_usage ADD COLUMN `+col+` INTEGER NOT NULL DEFAULT 0`); err != nil {
+			return err
+		}
+	}
 	return pruneUsage(db, time.Now().UTC())
 }
 
@@ -137,6 +143,13 @@ func (s *Store) recordContextEstimate(runID, model string, estimated int) error 
 	_, err := s.db.Exec(`INSERT INTO run_usage(run_id,model,window_tokens,window_known,estimated_input,updated_at)
 	 VALUES(?,?,?,?,?,?) ON CONFLICT(run_id) DO UPDATE SET estimated_input=excluded.estimated_input,updated_at=excluded.updated_at`,
 		runID, model, window, known, estimated, now())
+	return err
+}
+
+// recordContextBreakdown stores the parts of the latest estimate. The row is
+// created by recordContextEstimate, which runs first at every report.
+func (s *Store) recordContextBreakdown(runID string, b runtime.ContextBreakdown) error {
+	_, err := s.db.Exec(`UPDATE run_usage SET estimated_system=?,estimated_messages=?,estimated_reasoning=? WHERE run_id=?`, b.System, b.Messages, b.Reasoning, runID)
 	return err
 }
 

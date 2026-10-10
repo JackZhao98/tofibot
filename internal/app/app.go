@@ -3333,6 +3333,12 @@ func (s *Server) execute(c Conversation, r Run) {
 				log.Printf("[usage] context estimate: %v", err)
 			}
 		},
+		OnContextBreakdown: func(b runtime.ContextBreakdown) {
+			if err := s.store.recordContextBreakdown(r.ID, b); err != nil {
+				log.Printf("[usage] context breakdown: %v", err)
+			}
+		},
+		OnReasoningReplayRejected: func() { s.store.PublishReasoningReplayOff(r) },
 		OnUsage: func(input, output int64) {
 			if err := s.store.recordModelUsage(r.ID, input, output); err != nil {
 				log.Printf("[usage] model usage: %v", err)

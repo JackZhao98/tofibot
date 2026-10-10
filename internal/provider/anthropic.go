@@ -525,6 +525,10 @@ func anthropicReplayBlocks(items []ReasoningItem) []json.RawMessage {
 	return nil
 }
 
+// HasAnthropicReplay reports whether msgs carry Anthropic thinking blocks that
+// the next request would replay.
+func HasAnthropicReplay(msgs []Message) bool { return hasAnthropicReplay(msgs) }
+
 func hasAnthropicReplay(msgs []Message) bool {
 	for _, msg := range msgs {
 		if len(anthropicReplayBlocks(msg.ReasoningItems)) > 0 {

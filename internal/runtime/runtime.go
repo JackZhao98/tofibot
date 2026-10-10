@@ -433,6 +433,8 @@ func (e *engine) Run(ctx context.Context, req Request) (Result, error) {
 		MaxRunDuration:             duration,
 		UserWaitDuration:           userWait.duration,
 		OnContextEstimate:          req.OnContextEstimate,
+		OnContextBreakdown:         contextBreakdownHook(req.OnContextBreakdown),
+		OnReasoningReplayRejected:  req.OnReasoningReplayRejected,
 		OnUsage:                    req.OnUsage,
 		OnCompact:                  req.OnCompact,
 		OnStreamChunk:              onStream,
@@ -541,4 +543,13 @@ func promptCacheKey(req Request) string {
 		return key
 	}
 	return req.RunID
+}
+
+func contextBreakdownHook(fn func(ContextBreakdown)) func(agent.ContextBreakdown) {
+	if fn == nil {
+		return nil
+	}
+	return func(b agent.ContextBreakdown) {
+		fn(ContextBreakdown{System: b.System, Messages: b.Messages, Reasoning: b.Reasoning})
+	}
 }

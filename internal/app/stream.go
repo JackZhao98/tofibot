@@ -505,6 +505,26 @@ func (s *Store) replaceEvent(previous int64, conv, typ string, v any) (int64, er
 	return id, tx.Commit()
 }
 
+// PublishReasoningReplayOff records, as a "run" event carrying the run snapshot
+// plus reasoning_replay:"off", that the provider rejected replayed reasoning
+// and later turns of this run continue without it.
+func (s *Store) PublishReasoningReplayOff(run Run) {
+	current, err := s.GetRun(run.ID)
+	if err != nil {
+		current = run
+	}
+	b, err := json.Marshal(current) // Run has its own MarshalJSON, so extend the encoded object
+	if err != nil {
+		return
+	}
+	var snapshot map[string]any
+	if json.Unmarshal(b, &snapshot) != nil {
+		return
+	}
+	snapshot["reasoning_replay"] = "off"
+	_, _ = s.Event(run.ConversationID, "run", snapshot)
+}
+
 // PublishRetry records a model-request backoff as a "retrying" event
 // {conversation_id, run_id, bot_id, attempt, wait_ms}. It carries no upstream
 // error text.
