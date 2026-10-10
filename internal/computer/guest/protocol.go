@@ -62,13 +62,16 @@ type ActionResponse struct {
 }
 
 type Service struct {
-	runnerMu      sync.Mutex
-	runner        *mcprunner.Runner
-	runnerHandler http.Handler
-	runnerToken   string
-	runnerClosed  bool
-	root          string
-	maxDesktop    int
+	runnerMu sync.Mutex
+	// browserImplicitMu serializes browser actions that act on the implicit
+	// current page, so concurrent calls cannot race to create the first page.
+	browserImplicitMu sync.Mutex
+	runner            *mcprunner.Runner
+	runnerHandler     http.Handler
+	runnerToken       string
+	runnerClosed      bool
+	root              string
+	maxDesktop        int
 	// maxBrowserTabs caps open page tabs in the shared Chrome; 0 disables.
 	maxBrowserTabs int
 	idleTimeout    time.Duration
@@ -251,6 +254,12 @@ func (s *Service) handle(w http.ResponseWriter, r *http.Request) {
 			writeJSON(w, http.StatusConflict, ActionResponse{OK: false, Error: o.Message, Outcome: &o})
 			return
 		}
+		var refusal *rejectedError
+		if errors.As(err, &refusal) {
+			// An explicit pre-action refusal proves nothing was performed.
+			writeRejection(w, refusal)
+			return
+		}
 		status := http.StatusInternalServerError
 		if errors.Is(err, errFileConflict) {
 			status = http.StatusConflict
@@ -285,6 +294,24 @@ func validateRequest(req ActionRequest) error {
 	}
 	return nil
 }
+
+// rejectedError marks a refusal made before the action touched anything
+// (argument validation, target resolution). It is the only guest error that
+// asserts "not executed"; every other failure stays ambiguous to the host.
+type rejectedError struct{ msg string }
+
+func (e *rejectedError) Error() string { return e.msg }
+
+func rejectedf(format string, args ...any) error {
+	return &rejectedError{msg: fmt.Sprintf(format, args...)}
+}
+
+func writeRejection(w http.ResponseWriter, refusal error) {
+	o := tooloutcome.New(tooloutcome.Validation, "action_rejected", "not_executed", refusal.Error()+" Nothing was changed.", "repair_arguments")
+	writeJSON(w, http.StatusBadRequest, ActionResponse{OK: false, Error: refusal.Error(), Outcome: &o})
+}
+
+func rejected(err error) error { return &rejectedError{msg: err.Error()} }
 
 var errInvalidAction = errors.New("unsupported action")
 var errFileConflict = errors.New("file_conflict")

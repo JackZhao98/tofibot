@@ -89,7 +89,10 @@ func computerRecoveryIdentity(bot, computerID, action string, raw json.RawMessag
 	}
 	encoded, _ := json.Marshal(args)
 	i := tooloutcome.OperationIdentity("computer/"+computerID+"/bot/"+bot, action, encoded)
-	if isReadOnlyMicroVMAction(action) || action == "browser.read" || action == "terminal.list" || action == "terminal.read" {
+	// Navigating, opening or switching a page only changes what the browser
+	// shows. It is an observation: a failed or uncertain one must never fence
+	// later calls as if an external effect had happened.
+	if isReadOnlyMicroVMAction(action) || action == "browser.read" || action == "browser.navigate" || action == "browser.new" || action == "browser.switch" || action == "terminal.list" || action == "terminal.read" {
 		i.Risk = tooloutcome.Observation
 	}
 	if action == "files.write" {
