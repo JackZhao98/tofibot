@@ -216,3 +216,45 @@ func TestMCPReadOnlyExemptionSurvivesSettingsButNotTargetChanges(t *testing.T) {
 		t.Fatalf("target change retained trust: %+v, %v", servers["new"], err)
 	}
 }
+
+// The remote readOnlyHint annotation reaches the proposal as an untrusted
+// hint for the host's scheduled effect fence; it still never bypasses the
+// gate. An absent or explicit false annotation reads as an effect.
+func TestMCPCallGateCarriesReadOnlyHintWithoutTrustingIt(t *testing.T) {
+	backend := fixtureServer("gate", "1")
+	var remoteCalls atomic.Int32
+	record := func(context.Context, *mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+		remoteCalls.Add(1)
+		return fixtureText("done"), nil
+	}
+	backend.AddTool(fixtureTool("fetch", func(tool *mcp.Tool) { tool.Annotations = &mcp.ToolAnnotations{ReadOnlyHint: true} }), record)
+	backend.AddTool(fixtureTool("publish", func(tool *mcp.Tool) { tool.Annotations = &mcp.ToolAnnotations{ReadOnlyHint: false} }), record)
+	backend.AddTool(fixtureTool("store"), record)
+	transport := syntheticMCPGateTransport{fixtureHTTPHandler(backend)}
+	manager := NewManager(Config{MCPConfigPath: filepath.Join(t.TempDir(), "mcp.json"), HTTPTransport: func(string) (http.RoundTripper, error) { return transport, nil }})
+	if err := manager.SaveMCP("fixture", MCPServerConfig{URL: "https://synthetic.invalid/mcp"}, false); err != nil {
+		t.Fatal(err)
+	}
+	hints := map[string]bool{}
+	gate := func(_ context.Context, call MCPCallApproval) error {
+		hints[call.Tool] = call.ReadOnlyHint
+		return errors.New("denied")
+	}
+	prepared, err := manager.PrepareDiscoverableForBotWithCallGate(context.Background(), "bot", nil, gate)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer prepared.Close()
+	if _, err := discoveryTool(t, prepared, "search_mcp_tools").Execute(context.Background(), json.RawMessage(`{"server":"fixture","query":"*"}`)); err != nil {
+		t.Fatal(err)
+	}
+	for _, tool := range []string{"fetch", "publish", "store"} {
+		_, err = discoveryTool(t, prepared, "call_mcp_tool").Execute(context.Background(), json.RawMessage(`{"name":"mcp_fixture__`+tool+`","arguments":{}}`))
+		if err == nil || !strings.Contains(err.Error(), "denied") {
+			t.Fatalf("%s: gate did not run: %v", tool, err)
+		}
+	}
+	if remoteCalls.Load() != 0 || len(hints) != 3 || !hints["fetch"] || hints["publish"] || hints["store"] {
+		t.Fatalf("remote=%d hints=%v", remoteCalls.Load(), hints)
+	}
+}

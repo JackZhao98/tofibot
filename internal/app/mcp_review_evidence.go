@@ -220,6 +220,66 @@ func mcpObservationOnlyActivity(a ToolActivity) bool {
 	return false
 }
 
+// Host-side classification of one recorded step for the scheduled effect
+// fence: does an unverified outcome on this step mean an external effect may
+// have happened? Only steps the host itself classifies as observations are
+// exempt (reads, snapshots, page navigation, tab management, local file and
+// screen reads). Remote metadata, the model's own effect labels and any tool
+// the host cannot parse count as effects. A prior MCP call counts as an
+// effect even when its server hinted read-only: the hint is not recorded
+// with the step, and owner-trusted read-only tools never record an unknown
+// certainty in the first place.
+func mcpUncertainEffectActivity(a ToolActivity) bool {
+	if mcpObservationOnlyActivity(a) {
+		return false
+	}
+	raw := json.RawMessage(a.Arguments)
+	if tooloutcome.DefaultIdentity(a.Name, raw).Risk == tooloutcome.Observation {
+		return false
+	}
+	switch a.Name {
+	case "computer_browser", "computer_desktop":
+		var in struct {
+			Action       string `json:"action"`
+			TargetAction string `json:"target_action"`
+		}
+		if a.Truncated || json.Unmarshal(raw, &in) != nil {
+			return true
+		}
+		return !computerObservationAction(in.Action, in.TargetAction)
+	case "computer_action":
+		var in struct {
+			Action string `json:"action"`
+			Args   struct {
+				Action string `json:"action"`
+			} `json:"args"`
+		}
+		if a.Truncated || json.Unmarshal(raw, &in) != nil {
+			return true
+		}
+		return !computerObservationAction(in.Action, in.Args.Action)
+	}
+	return true
+}
+
+// Actions that only read, capture or change which page or tab is shown.
+// Clicks, typing, keys, shell, terminal writes and file writes are effects:
+// the model's own effect label on a click is not host evidence.
+func computerObservationAction(action, target string) bool {
+	switch action {
+	case "browser.navigate", "navigate", "browser.read", "read", "browser.snapshot", "snapshot",
+		"desktop.capture", "desktop.snapshot", "capture",
+		"files.read", "files.list", "screen.capture", "host.info", "terminal.list", "terminal.read":
+		return true
+	case "browser.action":
+		switch target {
+		case "navigate", "snapshot", "new", "switch", "close":
+			return true
+		}
+	}
+	return false
+}
+
 // A human-approved resume rebuilds the reviewed packet from raw durable rows:
 // keep restores or drops each row before the count bound and truncation, so a
 // re-proposal or lookup cannot shift which reviewed records fit the window.
@@ -269,7 +329,7 @@ func readMCPRunToolEvidence(db reviewQuerier, r Run, strictEffects bool, bounds 
 			err = mcpContextFail(mcpContextToolsBinding)
 			break
 		}
-		if strictEffects && a.Outcome != nil && a.Outcome.Certainty == "unknown" {
+		if strictEffects && a.Outcome != nil && a.Outcome.Certainty == "unknown" && mcpUncertainEffectActivity(a) {
 			err = mcpContextFail(mcpContextToolsUncertain)
 			break
 		}

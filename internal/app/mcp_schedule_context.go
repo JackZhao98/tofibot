@@ -99,11 +99,30 @@ type mcpDelegationLineage struct {
 // Direct and group chat runs use the chat reader. Every chain with a parent
 // (scheduled or delegated) is admitted only through the account-aware chain
 // resolver, including inside the claim transaction.
+//
+// Without the proposal in hand the reader fences as if the proposal were an
+// effect (the conservative direction). Production review, completion and
+// claim paths pass the exact proposal through readMCPReviewContextFor.
 func (s *Server) readMCPReviewContext(db reviewQuerier, c Conversation, r Run) (mcpReviewContext, string, error) {
+	return s.readMCPReviewContextFor(db, c, r, mcpProposalEffect)
+}
+
+// mcpProposalFence says how the proposal under review relates to an earlier
+// unverified effect in a scheduled chain. A read-only proposal is never
+// fenced by earlier uncertainty; an effect is fenced by any earlier
+// unverified effect.
+type mcpProposalFence bool
+
+const (
+	mcpProposalEffect   mcpProposalFence = false
+	mcpProposalReadOnly mcpProposalFence = true
+)
+
+func (s *Server) readMCPReviewContextFor(db reviewQuerier, c Conversation, r Run, proposal mcpProposalFence) (mcpReviewContext, string, error) {
 	if r.Kind == runKindGroupChat || r.Kind != runKindSchedule && r.ParentRunID == "" {
 		return readMCPReviewContext(db, c, r)
 	}
-	return s.readMCPChainReviewContext(db, c, r)
+	return s.readMCPChainReviewContext(db, c, r, proposal)
 }
 
 const mcpScheduleRunSQL = `SELECT id,conversation_id,bot_id,status,error,parent_run_id,model,kind,origin_conversation_id,trigger_message_id,queue_seq,created_at,updated_at FROM runs WHERE id=?`
@@ -152,7 +171,7 @@ func mcpGroupRoundEdge(child, parent Run) bool {
 	return child.Kind == runKindGroupChat && parent.Kind == runKindGroupChat && child.ParentRunID == parent.ID && child.ConversationID == parent.ConversationID && child.TriggerMessageID == parent.TriggerMessageID
 }
 
-func (s *Server) readMCPChainReviewContext(db reviewQuerier, c Conversation, requested Run) (mcpReviewContext, string, error) {
+func (s *Server) readMCPChainReviewContext(db reviewQuerier, c Conversation, requested Run, proposal mcpProposalFence) (mcpReviewContext, string, error) {
 	var x mcpReviewContext
 	account := s.reviewAccountID()
 	if account == "" {
@@ -189,7 +208,7 @@ func (s *Server) readMCPChainReviewContext(db reviewQuerier, c Conversation, req
 	}
 	switch root := chain[len(chain)-1]; {
 	case root.Kind == runKindSchedule:
-		return s.readMCPScheduleChain(db, account, requested, chain, byID, triggers)
+		return s.readMCPScheduleChain(db, account, requested, chain, byID, triggers, proposal)
 	case root.Kind == "" || root.Kind == "chat" || root.Kind == runKindGroupChat:
 		return readMCPDelegatedChain(db, requested, chain, byID, triggers)
 	}
@@ -230,7 +249,7 @@ func readMCPDelegatedChain(db reviewQuerier, requested Run, chain []Run, byID ma
 	return x, digest, nil
 }
 
-func (s *Server) readMCPScheduleChain(db reviewQuerier, account string, requested Run, chain []Run, byID map[string]Run, triggers map[string]Message) (mcpReviewContext, string, error) {
+func (s *Server) readMCPScheduleChain(db reviewQuerier, account string, requested Run, chain []Run, byID map[string]Run, triggers map[string]Message, proposal mcpProposalFence) (mcpReviewContext, string, error) {
 	var x mcpReviewContext
 	root := chain[len(chain)-1]
 	for i, r := range chain {
@@ -273,7 +292,9 @@ func (s *Server) readMCPScheduleChain(db reviewQuerier, account string, requeste
 	if err := verifyMCPScheduleSources(db, record, lineage, &x); err != nil {
 		return x, "", err
 	}
-	if lineage.Ancestry, lineage.Contexts, _, err = readMCPChainContexts(db, chain, triggers, true, ""); err != nil {
+	// Scheduled ancestry keeps the stricter effect fence, but only for a
+	// proposal that is itself an effect: a read never re-executes anything.
+	if lineage.Ancestry, lineage.Contexts, _, err = readMCPChainContexts(db, chain, triggers, proposal == mcpProposalEffect, ""); err != nil {
 		return x, "", err
 	}
 	// The target conversation's text lives once, in its lineage context.
