@@ -51,6 +51,12 @@ async function run() {
   assert.equal(readonly.readOnly, true);
   assert.deepEqual(mcpTokenHeaders("{}", " synthetic-pat ", readonly), { Authorization: "Bearer synthetic-pat" });
   assert.equal(getIntegrationPreset("notion").auth, "oauth", "hosted Notion cannot be advertised as a PAT endpoint");
+  const robinhood = getIntegrationPreset("robinhood");
+  assert.equal(robinhood.url, "https://agent.robinhood.com/mcp/trading");
+  assert.equal(robinhood.auth, "oauth", "Robinhood signs in with OAuth, not an API key");
+  assert.equal(robinhood.dcr, true, "the client is registered dynamically, like Notion");
+  assert.equal(robinhood.upstream, "vendor");
+  assert.ok(!robinhood.metadataURL && !robinhood.scopes, "discovered from the server, nothing hard-coded");
   const linearReadOnly = getIntegrationPreset("linear-readonly");
   assert.equal(linearReadOnly.url, "https://mcp.linear.app/mcp/readonly");
   assert.equal(linearReadOnly.upstream, "vendor");

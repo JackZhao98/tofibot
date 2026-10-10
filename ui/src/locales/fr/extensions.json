@@ -120,6 +120,15 @@
         "check_access": "Vérifiez que l’identité connectée a bien les accès aux pages attendus.",
         "choose_workspace": "Après l’ajout, cliquez sur Connecter et choisissez l’espace de travail Notion."
       }
+    },
+    "robinhood": {
+      "description": "Cours et positions ; ordres seulement dans ton compte Agentic.",
+      "note": "Le MCP distant officiel de Robinhood. Il ne peut passer d’ordres que dans ton compte Agentic, et Tofi demande avant d’agir.",
+      "setup": {
+        "auto_client": "Tofi demande un client OAuth à Robinhood, tu n’as donc pas d’ID client à saisir.",
+        "sign_in": "Après l’ajout, clique sur Connecter et connecte-toi à Robinhood.",
+        "agentic_account": "Les ordres sont limités à ton compte Agentic ; tes autres comptes restent hors de portée."
+      }
     }
   },
   "diagnostics_separator": " ; ",

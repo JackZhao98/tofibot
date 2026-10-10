@@ -120,6 +120,15 @@
         "check_access": "Prüfen Sie, ob die verbundene Identität die erwarteten Seitenrechte hat.",
         "choose_workspace": "Klicken Sie nach dem Hinzufügen auf „Verbinden“ und wählen Sie den Notion-Workspace."
       }
+    },
+    "robinhood": {
+      "description": "Kurse und Positionen; Trades nur in deinem Agentic-Konto.",
+      "note": "Robinhoods offizieller Remote-MCP. Er kann nur in deinem Agentic-Konto handeln, und Tofi fragt vor jeder Aktion nach.",
+      "setup": {
+        "auto_client": "Tofi fordert bei Robinhood einen OAuth-Client an, du musst also keine Client-ID eingeben.",
+        "sign_in": "Klicke nach dem Hinzufügen auf Verbinden und melde dich bei Robinhood an.",
+        "agentic_account": "Trades sind auf dein Agentic-Konto begrenzt; deine anderen Konten bleiben unerreichbar."
+      }
     }
   },
   "diagnostics_separator": "; ",
