@@ -207,8 +207,14 @@ func TestAutoReviewV5MalformedAndOldContractsFailClosed(t *testing.T) {
 				response.Content = string(raw)
 				return response, nil
 			}
-			if err := f.execute(context.Background()); err == nil || f.effects.Load() != 0 || f.p.calls.Load() != 1 {
+			// A malformed answer earns exactly one fresh request; the same
+			// malformed answer twice closes the proposal as malformed_response.
+			if err := f.execute(context.Background()); err == nil || f.effects.Load() != 0 || f.p.calls.Load() != 2 {
 				t.Fatal("invalid response executed", err)
+			}
+			var category, detail string
+			if err := f.s.store.db.QueryRow(`SELECT failure_category,failure_detail FROM mcp_auto_reviews`).Scan(&category, &detail); err != nil || category != mcpReviewFailureMalformed || detail == "" {
+				t.Fatalf("failure category missing: %q %q %v", category, detail, err)
 			}
 		})
 	}

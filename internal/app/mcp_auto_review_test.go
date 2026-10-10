@@ -262,10 +262,12 @@ func TestAutoReviewNegativeCasesNeverExecute(t *testing.T) {
 				t.Fatal(err)
 			}
 			switch name {
-
 			case "missing_intent":
 				f.r.TriggerMessageID = ""
 				wantCalls = 0
+			case "malformed", "duplicate_keys", "tool_attempt", "digest_mismatch":
+				// One fresh request for a malformed answer; never for errors or timeouts.
+				wantCalls = 2
 			}
 			ctx, cancel := context.WithCancel(context.Background())
 			defer cancel()

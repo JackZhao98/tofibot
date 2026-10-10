@@ -4,6 +4,7 @@ package guest
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"os"
 	"os/exec"
@@ -265,6 +266,7 @@ func TestChromeStartArgsCreateFreshWindowWithoutRestoringTabs(t *testing.T) {
 	for _, want := range []string{
 		"--user-data-dir=/workspace/browser/" + testBot,
 		"--disable-session-crashed-bubble",
+		"--hide-crash-restore-bubble",
 		"--disk-cache-size=134217728",
 		"--media-cache-size=33554432",
 		"--disable-restore-session-state",
@@ -322,6 +324,66 @@ func TestClearBrowserSessionStatePreservesProfileData(t *testing.T) {
 		if err != nil || string(data) != "preserve" {
 			t.Fatalf("profile data %s changed: %q, %v", name, data, err)
 		}
+	}
+}
+
+func TestMarkChromeCleanExitClearsCrashStateAndKeepsPreferences(t *testing.T) {
+	defaultDir := t.TempDir()
+	path := filepath.Join(defaultDir, "Preferences")
+	if err := markChromeCleanExit(defaultDir); err != nil {
+		t.Fatalf("missing preferences must be a no-op: %v", err)
+	}
+	if _, err := os.Stat(path); !os.IsNotExist(err) {
+		t.Fatal("a fresh profile must not gain a Preferences file")
+	}
+	original := `{"account_info":[{"email":"synthetic@example.invalid"}],"profile":{"exit_type":"Crashed","exited_cleanly":false,"name":"Person 1","content_settings":{"exceptions":{"cookies":{"https://example.invalid,*":{"setting":1}}}}},"session":{"restore_on_startup":1}}`
+	if err := os.WriteFile(path, []byte(original), 0600); err != nil {
+		t.Fatal(err)
+	}
+	if err := markChromeCleanExit(defaultDir); err != nil {
+		t.Fatal(err)
+	}
+	raw, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var prefs map[string]any
+	if err := json.Unmarshal(raw, &prefs); err != nil {
+		t.Fatalf("preferences no longer parse: %v", err)
+	}
+	profile := prefs["profile"].(map[string]any)
+	if profile["exit_type"] != "Normal" || profile["exited_cleanly"] != true {
+		t.Fatalf("crash state remains: %v", profile)
+	}
+	if profile["name"] != "Person 1" || prefs["session"].(map[string]any)["restore_on_startup"] != float64(1) || len(prefs["account_info"].([]any)) != 1 {
+		t.Fatalf("other preferences changed: %s", raw)
+	}
+	settings := profile["content_settings"].(map[string]any)["exceptions"].(map[string]any)["cookies"].(map[string]any)
+	if _, ok := settings["https://example.invalid,*"]; !ok {
+		t.Fatalf("site settings lost: %s", raw)
+	}
+	if info, err := os.Stat(path); err != nil || info.Mode().Perm() != 0600 {
+		t.Fatalf("permissions changed: %v %v", info, err)
+	}
+	if _, err := os.Stat(path + ".tofi-tmp"); !os.IsNotExist(err) {
+		t.Fatal("temporary file left behind")
+	}
+	// A file Chrome cannot read is left for Chrome to rebuild, never replaced.
+	if err := os.WriteFile(path, []byte("{broken"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	if err := markChromeCleanExit(defaultDir); err != nil {
+		t.Fatal(err)
+	}
+	if raw, _ := os.ReadFile(path); string(raw) != "{broken" {
+		t.Fatalf("unreadable preferences were replaced: %s", raw)
+	}
+	// Session artifacts and the crash marker clear together before launch.
+	if err := os.WriteFile(path, []byte(`{"profile":{"exit_type":"Crashed","exited_cleanly":false}}`), 0600); err != nil {
+		t.Fatal(err)
+	}
+	if err := clearBrowserSessionState(filepath.Dir(defaultDir)); err != nil {
+		t.Fatal(err)
 	}
 }
 

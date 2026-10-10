@@ -101,9 +101,9 @@ func TestAutoReviewAuthorizedPrivateReadShadowAdviceDoesNotGrantExecution(t *tes
 		}
 		return reviewReply(req, "allow"), nil
 	}
-	result, err := f.s.requestMCPReview(context.Background(), call, x, mcpReviewDigest(x, call))
-	if err != nil || result.Decision != "allow" {
-		t.Fatalf("shadow advice rejected: %+v %v", result, err)
+	result, failure := f.s.requestMCPReview(context.Background(), f.r, call, x, mcpReviewDigest(x, call))
+	if failure != nil || result.Decision != "allow" {
+		t.Fatalf("shadow advice rejected: %+v %v", result, failure)
 	}
 	qs, _ := f.s.store.ListQuestions(f.c.ID)
 	if len(qs) != 0 || f.effects.Load() != 0 || f.p.calls.Load() != 1 {

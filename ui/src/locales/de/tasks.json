@@ -397,6 +397,16 @@
       "auto_invalidated": "Automatische Entscheidung ungültig",
       "not_eligible": "Nicht für automatische Ausführung geeignet",
       "not_rereviewed": "Nicht erneut geprüft"
+    },
+    "failure": {
+      "title": "Warum die Prüfung nicht abgeschlossen werden konnte",
+      "reviewer_not_configured": "Kein Prüfmodell konfiguriert",
+      "input_invalid": "Das Prüfpaket konnte nicht erstellt werden",
+      "input_too_large": "Das Prüfpaket überschreitet das Eingabelimit des Prüfmodells",
+      "provider_error": "Die Anfrage an das Prüfmodell ist fehlgeschlagen",
+      "timeout": "Das Prüfmodell hat nicht innerhalb des Zeitbudgets geantwortet",
+      "malformed_response": "Die Antwort des Prüfmodells hat die Validierung nicht bestanden, auch nach einem Wiederholungsversuch",
+      "empty_response": "Das Prüfmodell hat keine Antwort geliefert, auch nach einem Wiederholungsversuch"
     }
   },
   "run_failure": {

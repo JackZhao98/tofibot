@@ -186,6 +186,39 @@ func (s *Store) recordModelUsage(runID string, input, output int64) error {
 	return pruneUsage(s.db, t)
 }
 
+// recordAuxiliaryModelUsage attributes a background model call made on a
+// run's behalf (the MCP reviewer) to that run: its own usage_calls row under
+// the model actually called, the run's cumulative totals and the hourly
+// rollup. last_input stays the main model's context view.
+func (s *Store) recordAuxiliaryModelUsage(runID, model string, input, output int64) error {
+	t := time.Now().UTC()
+	stamp := t.Format(time.RFC3339Nano)
+	tx, err := s.db.Begin()
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	var botID, prompt string
+	if err = tx.QueryRow(`SELECT r.bot_id,COALESCE(m.content,'') FROM runs r LEFT JOIN messages m ON m.id=r.trigger_message_id WHERE r.id=?`, runID).Scan(&botID, &prompt); err != nil {
+		return err
+	}
+	price, known := usageEquivalent(model, input, output)
+	if _, err = tx.Exec(`UPDATE run_usage SET total_input=total_input+?,total_output=total_output+?,updated_at=? WHERE run_id=?`, input, output, stamp, runID); err != nil {
+		return err
+	}
+	if _, err = tx.Exec(`INSERT INTO usage_calls(run_id,bot_id,model,input_tokens,output_tokens,equivalent_usd,price_known,trigger_content,occurred_at) VALUES(?,?,?,?,?,?,?,?,?)`, runID, botID, model, input, output, price, known, prompt, stamp); err != nil {
+		return err
+	}
+	unknown := 0
+	if !known {
+		unknown = 1
+	}
+	if _, err = tx.Exec(`INSERT INTO usage_hourly(hour,bot_id,input_tokens,output_tokens,requests,equivalent_usd,unpriced_requests) VALUES(?,?,?,?,?,?,?) ON CONFLICT(hour,bot_id) DO UPDATE SET input_tokens=input_tokens+excluded.input_tokens,output_tokens=output_tokens+excluded.output_tokens,requests=requests+1,equivalent_usd=equivalent_usd+excluded.equivalent_usd,unpriced_requests=unpriced_requests+excluded.unpriced_requests`, t.Format("2006-01-02T15"), botID, input, output, 1, price, unknown); err != nil {
+		return err
+	}
+	return tx.Commit()
+}
+
 func (s *Store) usagePeriod(d time.Duration) ([]UsagePeriod, error) {
 	cutoff := time.Now().UTC().Add(-d)
 	// The thirty-day rollup has hour precision; the shorter windows use exact calls.

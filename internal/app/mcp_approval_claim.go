@@ -87,7 +87,7 @@ func (s *Server) claimMCPApproval(ctx context.Context, c Conversation, r Run, ca
 				failure := &MCPContextFailure{Code: mcpContextResumeChanged}
 				reason := "The reviewed evidence changed before the approved call resumed: " + mcpContextFailureReason(failure.Code) + "."
 				q.UpdatedAt = now()
-				q.Approval.Review = &MCPReviewDisplay{autoReviewActor, "context_required", reason, "codex-auto-review", "", false, autoReviewPolicyVersion, failure}
+				q.Approval.Review = &MCPReviewDisplay{autoReviewActor, "context_required", reason, "codex-auto-review", "", false, autoReviewPolicyVersion, failure, ""}
 				raw, _ := json.Marshal(q.Approval)
 				if _, err = tx.Exec(`UPDATE questions SET approval_json=?,updated_at=? WHERE id=?`, string(raw), q.UpdatedAt, id); err != nil {
 					return nil, err
@@ -137,7 +137,7 @@ func (s *Server) claimMCPApproval(ctx context.Context, c Conversation, r Run, ca
 			} else if s.extensions == nil || !mcpSchemaAvailable(call.Schema) || !s.extensions.MCPCallCurrent(call) {
 				q.Status, reviewState, reason = questionCancelled, "setup_required", "The current tool configuration or schema binding is unavailable. Approval cannot repair this setup gap."
 			}
-			q.Approval.Review = &MCPReviewDisplay{autoReviewActor, reviewState, reason, "codex-auto-review", "", false, autoReviewPolicyVersion, contextFailure}
+			q.Approval.Review = &MCPReviewDisplay{autoReviewActor, reviewState, reason, "codex-auto-review", "", false, autoReviewPolicyVersion, contextFailure, ""}
 			raw, _ := json.Marshal(q.Approval)
 			if _, err = tx.Exec(`UPDATE questions SET status=?,answer_json=NULL,answered_by=NULL,approval_json=?,updated_at=? WHERE id=?`, q.Status, string(raw), q.UpdatedAt, id); err != nil {
 				return nil, err

@@ -221,7 +221,10 @@ func chromeStartArgs(profile, display string, remotePort int, workarea ...int) [
 		"--no-first-run", "--no-default-browser-check", "--disable-gpu",
 		// Bound disposable caches while preserving profile cookies and login state.
 		"--disk-cache-size=134217728", "--media-cache-size=33554432",
-		"--disable-session-crashed-bubble", "--disable-restore-session-state",
+		// Both spellings: Chrome renamed the crash-restore bubble switch and
+		// ignores the one it does not know. The profile's exit_type is also
+		// marked clean before launch (markChromeCleanExit).
+		"--disable-session-crashed-bubble", "--hide-crash-restore-bubble", "--disable-restore-session-state",
 	}
 	args = append(args, chromeMemoryArgs()...)
 	return append(args,
@@ -373,6 +376,62 @@ func clearBrowserSessionState(profile string) error {
 		if err := os.Remove(path); err != nil && !os.IsNotExist(err) {
 			return fmt.Errorf("remove Chrome session artifact %s: %w", name, err)
 		}
+	}
+	return markChromeCleanExit(defaultDir)
+}
+
+// markChromeCleanExit rewrites the profile's last exit as clean. After an
+// upgrade or cold boot Chrome was not shut down by itself, so it records a
+// crash and shows "Restore pages? Chrome didn't shut down correctly" on the
+// next launch; the session state it would restore is already cleared above.
+// Only profile.exit_type and profile.exited_cleanly change; every other
+// preference (logins, site settings) is kept byte-for-byte as JSON.
+func markChromeCleanExit(defaultDir string) error {
+	path := filepath.Join(defaultDir, "Preferences")
+	info, err := os.Lstat(path)
+	if os.IsNotExist(err) {
+		return nil // a fresh profile has no crash state to clear
+	}
+	if err != nil {
+		return fmt.Errorf("inspect Chrome preferences: %w", err)
+	}
+	if info.Mode()&os.ModeSymlink != 0 || !info.Mode().IsRegular() {
+		return errors.New("Chrome preferences path is not a regular file")
+	}
+	raw, err := os.ReadFile(path)
+	if err != nil {
+		return fmt.Errorf("read Chrome preferences: %w", err)
+	}
+	var prefs map[string]json.RawMessage
+	if err := json.Unmarshal(raw, &prefs); err != nil || prefs == nil {
+		return nil // Chrome rebuilds an unreadable file itself; never replace it
+	}
+	profile := map[string]json.RawMessage{}
+	if existing, ok := prefs["profile"]; ok {
+		if err := json.Unmarshal(existing, &profile); err != nil || profile == nil {
+			return nil
+		}
+	}
+	if string(profile["exit_type"]) == `"Normal"` && string(profile["exited_cleanly"]) == "true" {
+		return nil
+	}
+	profile["exit_type"], profile["exited_cleanly"] = json.RawMessage(`"Normal"`), json.RawMessage("true")
+	encodedProfile, err := json.Marshal(profile)
+	if err != nil {
+		return fmt.Errorf("encode Chrome profile preferences: %w", err)
+	}
+	prefs["profile"] = encodedProfile
+	encoded, err := json.Marshal(prefs)
+	if err != nil {
+		return fmt.Errorf("encode Chrome preferences: %w", err)
+	}
+	tmp := path + ".tofi-tmp"
+	if err := os.WriteFile(tmp, encoded, info.Mode().Perm()); err != nil {
+		return fmt.Errorf("write Chrome preferences: %w", err)
+	}
+	if err := os.Rename(tmp, path); err != nil {
+		_ = os.Remove(tmp)
+		return fmt.Errorf("replace Chrome preferences: %w", err)
 	}
 	return nil
 }
