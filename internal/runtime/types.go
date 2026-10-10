@@ -40,6 +40,11 @@ type Tool struct {
 	// ApprovalExpiryReadOnly is set only by a backend-owned executor whose
 	// scoped observation is independently authorized. Remote metadata cannot set it.
 	ApprovalExpiryReadOnly bool
+	// Local marks a backend tool that validates and writes inside this process's
+	// own store (typically one transaction). An unclassified error from it means
+	// the call was refused before anything committed, so it is reported as a
+	// definite not-executed failure rather than an uncertain external effect.
+	Local bool
 }
 
 // ToolEvent describes one provider tool call and its lifecycle. Arguments and
