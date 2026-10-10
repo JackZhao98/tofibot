@@ -13,3 +13,25 @@ Changes merged to `main` that have not shipped yet. The owner reviews this list 
 | 7 | Robinhood added to the connection catalog (official MCP, sign in with Robinhood); first Bot asks its name and job in chat | merged with #3 | as #3 | 7e78754 |
 
 Known flaky Go tests seen this wave (pass on rerun): TestCancelDoesNotBecomeDone, TestUsageRecordsRunContextAndAgentTool; see installer-backlog item 3.
+
+## Acceptance on a fresh install (v0.1.1-rc.1, test VM, 2026-10-10)
+
+- One-line install of v0.1.1-rc.1: exit 0. `tofi status` shows the new compact view.
+- **Setup:** key first, then register. The admin was created, the onboarding sheet opened, and the welcome step showed 3 live cats.
+- **Fonts:** Fredoka 500–700 and JetBrains Mono 400/600 have status `loaded`.
+- **Model step, invalid OpenAI key:** shows the inline "That key didn't work…" error.
+- **"Not now":** shows the first-run hero (4 cats), the sidebar sleeping cat, and a "Finish setup 2 of 3" chip.
+- **Delete account:** deactivate → delete, then the account is gone. The promised quota went 16 GiB → 8 GiB. The export downloaded as `tofi-<user>-<date>.tofi`, and a tampered link returned 404.
+- **Export → import round trip** (member account with one Bot):
+  - The export counts showed 1 `bot_config` and 1 conversation.
+  - Data transfer: Decrypt and view (passphrase in lower case, no dashes, with spaces) → Preview import → Create copies. The Bot was restored in the admin account.
+  - After acknowledgement, the passphrase endpoint returns 409.
+- **Login limiter:** works. Repeated logins from one IP got 429; the test had to wait 15 minutes.
+- **Not verified (needs a real model):**
+  - the first Bot asking its name and job in chat;
+  - ChatGPT device sign-in end to end;
+  - a real OAuth connection.
+
+### Small issues seen during acceptance (not fixed yet)
+
+- Pressing Enter in the import passphrase field does not decrypt; you have to click "Decrypt and view".
