@@ -425,7 +425,7 @@
       "once": "Affichée une seule fois. Tofi ne la conserve pas après cette étape.",
       "expires": "Disponible jusqu’au {{date}}.",
       "message_label": "Message à envoyer",
-      "message": "Votre compte TOFI a été fermé. Téléchargez vos Bots : {{link}} (phrase secrète envoyée séparément), disponible jusqu’au {{date}}.",
+      "message": "Votre compte TOFI a été fermé. Téléchargez vos Bots : {{link}} (phrase secrète envoyée séparément), disponible jusqu’au {{date}}. Importez-les dans Tofi : Réglages → Avancé → Transfert de données, puis saisissez la phrase secrète.",
       "message_note": "Envoyez la phrase secrète dans un autre message ou par un autre canal.",
       "copy_message": "Copier le message",
       "done": "J’ai enregistré la phrase secrète"
@@ -617,7 +617,8 @@
       "insecure_context": "Ouvrez cette page en HTTPS ou depuis une adresse locale sécurisée.",
       "bundle_too_large": "Le paquet dépasse 16 Mio. Exportez moins de données.",
       "file_oversized": "Le paquet est trop volumineux.",
-      "decrypt_failed": "Déchiffrement impossible. Vérifiez la phrase secrète, la version du fichier et s’il est endommagé."
+      "decrypt_failed": "Déchiffrement impossible. Vérifiez la phrase secrète, la version du fichier et s’il est endommagé.",
+      "file_damaged": "Ce fichier est endommagé ou n’est pas un export Tofi."
     }
   },
   "status": {

@@ -415,7 +415,7 @@
       "once": "只顯示一次，繼續之後 Tofi 不會保留。",
       "expires": "有效期限至 {{date}}。",
       "message_label": "要傳送的訊息",
-      "message": "你的 TOFI 帳號已關閉。下載你的 Bot：{{link}}（密語另行傳送），有效期限至 {{date}}。",
+      "message": "你的 TOFI 帳號已關閉。下載你的 Bot：{{link}}（密語另行傳送），有效期限至 {{date}}。在 Tofi 中匯入：設定 → 進階 → 資料搬移，然後輸入密語。",
       "message_note": "請以另一則訊息或另一個管道傳送密語。",
       "copy_message": "複製訊息",
       "done": "我已儲存密語"
@@ -599,7 +599,8 @@
       "insecure_context": "請在 HTTPS 或本機安全頁面中操作。",
       "bundle_too_large": "資料套件超過 16 MiB，請減少匯出內容。",
       "file_oversized": "資料套件過大。",
-      "decrypt_failed": "無法解密：請檢查密碼、檔案版本，或檔案是否損毀。"
+      "decrypt_failed": "無法解密：請檢查密碼、檔案版本，或檔案是否損毀。",
+      "file_damaged": "此檔案已損毀，或不是 Tofi 匯出檔。"
     }
   },
   "status": {

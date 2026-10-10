@@ -415,7 +415,7 @@
       "once": "仅显示一次，继续之后 Tofi 不会保留。",
       "expires": "有效期至 {{date}}。",
       "message_label": "待发送的消息",
-      "message": "你的 TOFI 账号已关闭。下载你的 Bot：{{link}}（口令另行发送），有效期至 {{date}}。",
+      "message": "你的 TOFI 账号已关闭。下载你的 Bot：{{link}}（口令另行发送），有效期至 {{date}}。在 Tofi 中导入：设置 → 高级 → 数据迁移，然后输入口令。",
       "message_note": "请通过另一条消息或另一个渠道发送口令。",
       "copy_message": "复制消息",
       "done": "我已保存口令"
@@ -599,7 +599,8 @@
       "insecure_context": "请在 HTTPS 或本机安全页面中操作。",
       "bundle_too_large": "数据包超过 16 MiB，请减少导出内容。",
       "file_oversized": "数据包过大。",
-      "decrypt_failed": "无法解密：请检查口令、文件版本或文件是否损坏。"
+      "decrypt_failed": "无法解密：请检查口令、文件版本或文件是否损坏。",
+      "file_damaged": "此文件已损坏，或不是 Tofi 导出文件。"
     }
   },
   "status": {

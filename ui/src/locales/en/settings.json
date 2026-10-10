@@ -420,7 +420,7 @@
       "once": "Shown once. Tofi doesn't keep it after you continue.",
       "expires": "Available until {{date}}.",
       "message_label": "Message to send",
-      "message": "Your TOFI account was closed. Download your Bots: {{link}} (passphrase sent separately), available until {{date}}.",
+      "message": "Your TOFI account was closed. Download your Bots: {{link}} (passphrase sent separately), available until {{date}}. Import it in Tofi: Settings → Advanced → Data transfer, then enter the passphrase.",
       "message_note": "Send the passphrase in a different message or channel.",
       "copy_message": "Copy message",
       "done": "I've saved the passphrase"
@@ -608,7 +608,8 @@
       "insecure_context": "Open this page over HTTPS or a secure local address.",
       "bundle_too_large": "The bundle is over 16 MiB. Export less data.",
       "file_oversized": "The bundle is too large.",
-      "decrypt_failed": "Couldn't decrypt. Check the passphrase, the file version, and whether the file is damaged."
+      "decrypt_failed": "Couldn't decrypt. Check the passphrase, the file version, and whether the file is damaged.",
+      "file_damaged": "This file is damaged or isn't a Tofi export."
     }
   },
   "status": {

@@ -6,6 +6,7 @@ import (
 	"crypto/aes"
 	"crypto/cipher"
 	"crypto/hmac"
+	"crypto/pbkdf2"
 	"crypto/rand"
 	"crypto/sha256"
 	"crypto/subtle"
@@ -24,7 +25,6 @@ import (
 	"sync"
 	"time"
 
-	"golang.org/x/crypto/argon2"
 )
 
 // Deleting an account first writes a passphrase-encrypted copy of its Bot setup
@@ -126,37 +126,47 @@ func exportPassphrase() (string, error) {
 	return strings.Join(parts, "-"), nil
 }
 
+// The file is the same "tofi.encrypted" v1 envelope the Data transfer export
+// writes in the browser (PBKDF2-SHA256, 310000 iterations, AES-256-GCM, AAD
+// "tofi.encrypted:1"), so the existing import flow opens it unchanged.
 type exportEnvelope struct {
 	Format     string `json:"format"`
 	Version    int    `json:"version"`
 	KDF        string `json:"kdf"`
-	Time       uint32 `json:"kdf_time"`
-	MemoryKiB  uint32 `json:"kdf_memory_kib"`
-	Threads    uint8  `json:"kdf_threads"`
+	Iterations int    `json:"iterations"`
 	Salt       string `json:"salt"`
-	Nonce      string `json:"nonce"`
-	Cipher     string `json:"cipher"`
+	IV         string `json:"iv"`
 	Ciphertext string `json:"ciphertext"`
 }
 
-const exportFormat = "tofi.bundle.encrypted"
+const exportIterations = 310_000
 
-func exportAAD(e exportEnvelope) []byte {
-	return []byte(fmt.Sprintf("%s|%d|%s|%d|%d|%d|%s|%s", e.Format, e.Version, e.KDF, e.Time, e.MemoryKiB, e.Threads, e.Salt, e.Cipher))
+var exportAAD = []byte("tofi.encrypted:1")
+
+// canonicalPassphrase is what the key derives from: dashes and spaces removed,
+// upper-case. The browser tries the text as typed first and then this form, so a
+// passphrase pasted with or without dashes opens the file.
+func canonicalPassphrase(p string) string {
+	return strings.ToUpper(strings.NewReplacer("-", "", " ", "", "\t", "", "\n", "", "\r", "").Replace(p))
 }
 
-// sealExportFile encrypts a portability bundle (JSON) with argon2id + AES-256-GCM.
+func exportKey(passphrase string, salt []byte) ([]byte, error) {
+	return pbkdf2.Key(sha256.New, canonicalPassphrase(passphrase), salt, exportIterations, 32)
+}
+
 func sealExportFile(bundle []byte, passphrase string) ([]byte, error) {
 	salt := make([]byte, 16)
-	nonce := make([]byte, 12)
+	iv := make([]byte, 12)
 	if _, err := rand.Read(salt); err != nil {
 		return nil, err
 	}
-	if _, err := rand.Read(nonce); err != nil {
+	if _, err := rand.Read(iv); err != nil {
 		return nil, err
 	}
-	e := exportEnvelope{Format: exportFormat, Version: 1, KDF: "argon2id", Time: 3, MemoryKiB: 64 * 1024, Threads: 1, Salt: base64.RawStdEncoding.EncodeToString(salt), Nonce: base64.RawStdEncoding.EncodeToString(nonce), Cipher: "aes-256-gcm"}
-	key := argon2.IDKey([]byte(passphrase), salt, e.Time, e.MemoryKiB, e.Threads, 32)
+	key, err := exportKey(passphrase, salt)
+	if err != nil {
+		return nil, err
+	}
 	block, err := aes.NewCipher(key)
 	if err != nil {
 		return nil, err
@@ -165,22 +175,32 @@ func sealExportFile(bundle []byte, passphrase string) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	e.Ciphertext = base64.RawStdEncoding.EncodeToString(gcm.Seal(nil, nonce, bundle, exportAAD(e)))
+	e := exportEnvelope{Format: "tofi.encrypted", Version: 1, KDF: "PBKDF2-SHA256", Iterations: exportIterations,
+		Salt: base64.StdEncoding.EncodeToString(salt), IV: base64.StdEncoding.EncodeToString(iv),
+		Ciphertext: base64.StdEncoding.EncodeToString(gcm.Seal(nil, iv, bundle, exportAAD))}
 	return json.Marshal(e)
 }
 
+var errExportDamaged = errors.New("export file is damaged or unsupported")
+
+// openExportFile returns errExportDamaged for a malformed envelope and a
+// different error when the passphrase is wrong or the ciphertext was altered
+// (AES-GCM cannot tell those two apart).
 func openExportFile(file []byte, passphrase string) ([]byte, error) {
 	var e exportEnvelope
-	if json.Unmarshal(file, &e) != nil || e.Format != exportFormat || e.Version != 1 || e.KDF != "argon2id" || e.Cipher != "aes-256-gcm" || e.Time != 3 || e.MemoryKiB != 64*1024 || e.Threads != 1 {
-		return nil, errors.New("unsupported export file")
+	if json.Unmarshal(file, &e) != nil || e.Format != "tofi.encrypted" || e.Version != 1 || e.KDF != "PBKDF2-SHA256" || e.Iterations != exportIterations {
+		return nil, errExportDamaged
 	}
-	salt, err1 := base64.RawStdEncoding.DecodeString(e.Salt)
-	nonce, err2 := base64.RawStdEncoding.DecodeString(e.Nonce)
-	sealed, err3 := base64.RawStdEncoding.DecodeString(e.Ciphertext)
-	if err1 != nil || err2 != nil || err3 != nil || len(salt) != 16 || len(nonce) != 12 {
-		return nil, errors.New("malformed export file")
+	salt, err1 := base64.StdEncoding.DecodeString(e.Salt)
+	iv, err2 := base64.StdEncoding.DecodeString(e.IV)
+	sealed, err3 := base64.StdEncoding.DecodeString(e.Ciphertext)
+	if err1 != nil || err2 != nil || err3 != nil || len(salt) != 16 || len(iv) != 12 || len(sealed) < 16 {
+		return nil, errExportDamaged
 	}
-	key := argon2.IDKey([]byte(passphrase), salt, e.Time, e.MemoryKiB, e.Threads, 32)
+	key, err := exportKey(passphrase, salt)
+	if err != nil {
+		return nil, err
+	}
 	block, err := aes.NewCipher(key)
 	if err != nil {
 		return nil, err
@@ -189,7 +209,11 @@ func openExportFile(file []byte, passphrase string) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	return gcm.Open(nil, nonce, sealed, exportAAD(e))
+	plain, err := gcm.Open(nil, iv, sealed, exportAAD)
+	if err != nil {
+		return nil, errors.New("wrong passphrase or altered file")
+	}
+	return plain, nil
 }
 
 func sealSmall(key []byte, plain string) ([]byte, error) {
@@ -626,7 +650,10 @@ func (g *AccountGateway) serveDeletedExport(w http.ResponseWriter, r *http.Reque
 	}
 	defer f.Close()
 	w.Header().Set("Content-Type", "application/octet-stream")
-	w.Header().Set("Content-Disposition", `attachment; filename="tofi-account-export-`+found[:8]+`.tofi"`)
+	var username string
+	var created int64
+	g.root.store.db.QueryRowContext(r.Context(), `SELECT username,created_at FROM deleted_account_exports WHERE id=?`, found).Scan(&username, &created)
+	w.Header().Set("Content-Disposition", `attachment; filename="`+exportFileName(username, created)+`"`)
 	w.Header().Set("Content-Length", strconv.FormatInt(info.Size(), 10))
 	w.WriteHeader(200)
 	if r.Method == http.MethodGet {
@@ -639,4 +666,25 @@ func boolToInt(b bool) int {
 		return 1
 	}
 	return 0
+}
+
+// exportFileName is tofi-<username>-<date>.tofi with the username reduced to
+// header-safe characters.
+func exportFileName(username string, created int64) string {
+	var b strings.Builder
+	for _, r := range username {
+		if r < 128 && (r >= 'a' && r <= 'z' || r >= 'A' && r <= 'Z' || r >= '0' && r <= '9' || r == '-' || r == '_') {
+			b.WriteRune(r)
+		} else if b.Len() > 0 && !strings.HasSuffix(b.String(), "-") {
+			b.WriteByte('-')
+		}
+	}
+	name := strings.Trim(b.String(), "-")
+	if name == "" {
+		name = "account"
+	}
+	if len(name) > 40 {
+		name = name[:40]
+	}
+	return "tofi-" + name + "-" + time.Unix(created, 0).UTC().Format("2006-01-02") + ".tofi"
 }
