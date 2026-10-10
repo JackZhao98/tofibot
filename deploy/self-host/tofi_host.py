@@ -21,12 +21,15 @@ import platform
 import re
 import shutil
 import socket
+import sqlite3
 import ssl
 import stat
 import subprocess
 import sys
+import tarfile
 import tempfile
 import time
+import urllib.parse
 import urllib.request
 
 HERE = Path(__file__).resolve().parent
@@ -105,7 +108,7 @@ ENV_KEYS = ['TOFI_VERSION', 'TOFI_DOMAIN', 'TOFI_EMAIL', 'TOFI_HTTP_PORT', 'TOFI
             'TOFI_CADDY_IMAGE', 'TOFI_GUEST_VERSION', 'TOFI_CPU_BUDGET',
             'TOFI_MEMORY_BUDGET_MIB', 'TOFI_WORKER_MEMORY_LIMIT', 'TOFI_TLS_CERT_FILE',
             'TOFI_TLS_KEY_FILE', 'TOFI_OWNER_ALLOW_LAN_HTTP', 'TOFI_COMPUTER_BACKEND',
-            'TOFI_TRUSTED_PROXIES']
+            'TOFI_TRUSTED_PROXIES', 'TOFI_AUTO_UPDATE']
 # Reverse proxies whose X-Forwarded-For the App believes when it keys sign-in
 # rate limits. With --domain the only peer is the Caddy container, whose address
 # is somewhere in Docker's default bridge pools (the App port is bound to
@@ -117,8 +120,33 @@ COMPUTER_BACKENDS = {'kvm': None, 'gvisor': 'not supported yet (coming in a late
                      'container': 'not supported yet (coming in a later release)'}
 
 
+AUTO_UPDATE_SERVICE = 'tofi-auto-update.service'
+AUTO_UPDATE_TIMER = 'tofi-auto-update.timer'
+AUTO_UPDATE_MODES = ('patch', 'off')
+# Pre-update backups kept on disk; older ones are pruned after a good update.
+BACKUP_KEEP = 3
+BACKUP_FREE_FACTOR = 2
+BACKUP_FREE_MARGIN = GIB
+# Bot runs in these states are lost when the services stop.
+ACTIVE_RUN_STATES = ('queued', 'running', 'waiting')
+RUN_POLL_SECONDS = 15
+DEFAULT_WAIT_MINUTES = 10
+
+
 class HostError(Exception):
     """A refusal or failure with one actionable sentence for the operator."""
+
+
+class LockBusy(HostError):
+    """Another tofi operation holds the lifecycle lock."""
+
+
+class ActiveRunsError(HostError):
+    """Bot runs are still active, so the services must not be stopped."""
+
+    def __init__(self, message, count):
+        super().__init__(message)
+        self.count = count
 
 
 class Advisory(str):
@@ -156,6 +184,10 @@ class Paths:
         self.caddy = self.var / 'caddy'
         self.worker_state = self.worker / 'state'
         self.latest_cache = root / 'var/cache/tofi/latest-release.json'
+        self.backups = self.var / 'backups'
+        self.update_history = self.var / 'update-history.jsonl'
+        self.auto_service = root / 'etc/systemd/system' / AUTO_UPDATE_SERVICE
+        self.auto_timer = root / 'etc/systemd/system' / AUTO_UPDATE_TIMER
         self.opt = root / 'opt/tofi'
         self.releases = self.opt / 'releases'
         self.current = self.opt / 'current'
@@ -279,7 +311,7 @@ def lifecycle_lock():
         try:
             fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
         except BlockingIOError:
-            raise HostError('Another tofi operation is running (lock %s); wait for it to finish.' % lockfile)
+            raise LockBusy('Another tofi operation is running (lock %s); wait for it to finish.' % lockfile)
         current = os.stat(str(lockfile), follow_symlinks=False)
         if (current.st_dev, current.st_ino) != (info.st_dev, info.st_ino):
             raise HostError('The installer lock changed while it was being taken; retry.')
@@ -351,11 +383,22 @@ def read_env(path=None):
 
 
 def format_env(values):
+    """Render tofi.env: managed keys first (ENV_KEYS order), then every other
+    key of `values` verbatim in its original order, so operator-added lines
+    (a custom TOFI_* variable, a proxy list) survive install-resume, update,
+    rollback and restore. Comments other than the header are not kept."""
     lines = ['# Managed by tofi. Edit with care; run `sudo tofi stop && sudo tofi start` after changes.']
     for key in ENV_KEYS:
         value = str(values.get(key, ''))
         if '\n' in value or ' ' in value:
             raise HostError('Invalid value for %s' % key)
+        lines.append('%s=%s' % (key, value))
+    for key, value in values.items():
+        if key in ENV_KEYS:
+            continue
+        value = str(value)
+        if '\n' in value or '\r' in value or '\n' in key or '=' in key or not key:
+            raise HostError('Invalid line for %s in tofi.env' % (key or '(empty key)'))
         lines.append('%s=%s' % (key, value))
     return '\n'.join(lines) + '\n'
 
@@ -410,6 +453,16 @@ def validate_manifest(manifest):
     if not isinstance(manifest.get('data_schema'), str) or not manifest['data_schema']:
         raise HostError('The release manifest has no data_schema.')
     return manifest
+
+
+def manifest_notes_url(manifest):
+    """The release notes link, or None. notes_url is optional (older releases
+    have none) and cosmetic, so a malformed one is ignored, never an error."""
+    notes = manifest.get('notes_url')
+    if isinstance(notes, str) and notes.startswith('https://') and len(notes) <= 300 and not any(
+            c.isspace() or ord(c) < 32 for c in notes):
+        return notes
+    return None
 
 
 def load_manifest_file(path):
@@ -871,6 +924,7 @@ def render_env(manifest, options, budgets):
         'TOFI_OWNER_ALLOW_LAN_HTTP': allow_lan_http,
         'TOFI_COMPUTER_BACKEND': options.get('computer') or 'kvm',
         'TOFI_TRUSTED_PROXIES': trusted_proxies,
+        'TOFI_AUTO_UPDATE': options.get('auto_update') if options.get('auto_update') in AUTO_UPDATE_MODES else 'off',
     }
 
 
@@ -927,6 +981,7 @@ def apply_host_config(bundle, env):
     write_file(P.tmpfiles, (bundle / 'tofi.conf').read_text(), 0o644)
     run(['systemd-tmpfiles', '--create', str(P.tmpfiles)])
     write_file(P.unit, (bundle / 'tofi.service').read_text(), 0o644)
+    write_auto_update_units()
     run(['systemctl', 'daemon-reload'], check=False)
     return config
 
@@ -1181,6 +1236,631 @@ def start_services(env, first_install=False, state=None):
 
 
 # --------------------------------------------------------------------------
+# Active-run guard: never stop the services under a running Bot
+
+
+def active_runs():
+    """Bot runs queued, running or waiting, read from the App database.
+
+    The database is opened read-only (mode=ro), so this can never write to or
+    lock the App's data. Anything unexpected (no table, unreadable file, an
+    old schema) counts as 0 with a warning: a broken database must never block
+    recovery.
+    """
+    database = P.data / 'tofi.db'
+    if not database.exists():
+        return 0
+    uri = 'file:%s?mode=ro' % urllib.parse.quote(str(database))
+    try:
+        connection = sqlite3.connect(uri, uri=True, timeout=5)
+        try:
+            row = connection.execute(
+                'SELECT COUNT(*) FROM runs WHERE status IN (%s)' % ','.join('?' * len(ACTIVE_RUN_STATES)),
+                ACTIVE_RUN_STATES).fetchone()
+        finally:
+            connection.close()
+        return int(row[0])
+    except (sqlite3.Error, OSError, ValueError, TypeError) as error:
+        warn('Could not count active Bot runs (%s); assuming none.' % error)
+        return 0
+
+
+def plural(count, noun):
+    return '%d %s%s' % (count, noun, '' if count == 1 else 's')
+
+
+def wait_for_idle(action, wait_minutes=0, force=False):
+    """Return 0 when no Bot run is active, else wait up to `wait_minutes`
+    (polling every 15 s) and raise ActiveRunsError. `force` proceeds and
+    returns the count of runs that will be interrupted."""
+    count = active_runs()
+    if not count:
+        return 0
+    if force:
+        warn('%s active; --force interrupts them.' % plural(count, 'Bot run'))
+        return count
+    attempts = max(0, int(wait_minutes)) * 60 // RUN_POLL_SECONDS
+    if attempts:
+        say('%s %s active; waiting up to %s for them to finish before %s.'
+            % (plural(count, 'Bot run'), 'is' if count == 1 else 'are', plural(int(wait_minutes), 'minute'), action))
+    for _ in range(attempts):
+        time.sleep(RUN_POLL_SECONDS)
+        count = active_runs()
+        if not count:
+            say('Bot runs finished.')
+            return 0
+    raise ActiveRunsError(
+        '%s still active; %s would interrupt %s. Nothing was changed. Wait for %s to finish, allow longer with '
+        '--wait MINUTES, or add --force to interrupt %s.'
+        % (plural(count, 'Bot run'), action, 'it' if count == 1 else 'them', 'it' if count == 1 else 'them',
+           'it' if count == 1 else 'them'), count)
+
+
+# --------------------------------------------------------------------------
+# Backups: /var/lib/tofi/backups/<UTC timestamp>-<version>/{data.tar.*,etc.tar.gz,meta.json}
+#
+# Taken only while the services are stopped (SQLite is quiescent). The computer
+# disks under /var/lib/tofi/worker are never included.
+
+
+def human_bytes(value):
+    value = float(value)
+    for unit in ('B', 'KiB', 'MiB', 'GiB'):
+        if value < 1024 or unit == 'GiB':
+            return ('%d %s' % (value, unit)) if unit == 'B' else '%.1f %s' % (value, unit)
+        value /= 1024
+
+
+def tree_bytes(path):
+    """Apparent size of the regular files under `path` (links are not followed)."""
+    total = 0
+    for directory, _dirs, files in os.walk(str(path)):
+        for name in files:
+            try:
+                info = os.lstat(os.path.join(directory, name))
+            except OSError:
+                continue
+            if stat.S_ISREG(info.st_mode):
+                total += info.st_size
+    return total
+
+
+def free_bytes(path):
+    probe = Path(path)
+    while not probe.exists() and probe != probe.parent:
+        probe = probe.parent
+    info = os.statvfs(str(probe))
+    return info.f_bavail * info.f_frsize
+
+
+def check_backup_space(action='the update'):
+    """Refuse, before anything is stopped, when a backup would not fit.
+
+    Needs 2x the data and settings size plus 1 GiB free under /var/lib/tofi.
+    Returns the size estimate.
+    """
+    estimate = tree_bytes(P.data) + tree_bytes(P.etc)
+    need = BACKUP_FREE_FACTOR * estimate + BACKUP_FREE_MARGIN
+    free = free_bytes(P.var)
+    if free < need:
+        raise HostError(
+            'Not enough free disk space for the backup before %s: TOFI data and settings take %s, so a backup needs '
+            '%s free under /var/lib/tofi (2x plus 1 GiB) but only %s is free. Nothing was changed; free some '
+            'space and run it again.' % (action, human_bytes(estimate), human_bytes(need), human_bytes(free)))
+    return estimate
+
+
+def zstd_available():
+    return shutil.which('zstd') is not None
+
+
+@contextmanager
+def archive_writer(path, compression):
+    """A tarfile writing `path` compressed with 'zst' (zstd binary) or 'gz'."""
+    descriptor = os.open(str(path), os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+    with os.fdopen(descriptor, 'wb') as output:
+        if compression == 'zst':
+            process = subprocess.Popen(['zstd', '-q', '-T0', '-c'], stdin=subprocess.PIPE, stdout=output,
+                                       stderr=subprocess.DEVNULL)
+            try:
+                tar = tarfile.open(fileobj=process.stdin, mode='w|', format=tarfile.PAX_FORMAT)
+                yield tar
+                tar.close()
+                process.stdin.close()
+                if process.wait() != 0:
+                    raise HostError('zstd failed while compressing %s.' % path)
+            except BaseException:
+                process.kill()
+                process.wait()
+                raise
+        else:
+            with tarfile.open(fileobj=output, mode='w:gz', compresslevel=6, format=tarfile.PAX_FORMAT) as tar:
+                yield tar
+        output.flush()
+        os.fsync(output.fileno())
+
+
+def write_archive(path, compression, root, exclude=None):
+    """Archive the tree at `root` (as './...', owners kept numerically)."""
+    def keep(info):
+        relative = info.name[2:] if info.name.startswith('./') else info.name
+        if exclude is not None and relative != '.' and exclude(relative):
+            return None
+        info.uname = info.gname = ''
+        return info
+
+    with archive_writer(path, compression) as tar:
+        tar.add(str(root), arcname='.', filter=keep)
+
+
+def etc_excluded(relative):
+    """Not part of an /etc/tofi backup: the live journal and half-written files."""
+    return relative == 'install-state.json' or relative.startswith(('.tofi-write-', '.worker.apparmor'))
+
+
+@contextmanager
+def archive_reader(path):
+    path = str(path)
+    if path.endswith('.zst'):
+        if not zstd_available():
+            raise HostError('Restoring %s needs the zstd tool; install it (apt-get install zstd).' % path)
+        process = subprocess.Popen(['zstd', '-dc', path], stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
+        try:
+            with tarfile.open(fileobj=process.stdout, mode='r|') as tar:
+                yield tar
+            # Drain what tarfile left unread so zstd can report a truncated input.
+            while process.stdout.read(MIB):
+                pass
+            if process.wait() != 0:
+                raise HostError('The backup archive %s is damaged (zstd failed).' % path)
+        except BaseException:
+            process.kill()
+            process.wait()
+            raise
+        finally:
+            process.stdout.close()
+    else:
+        with tarfile.open(path, mode='r|gz') as tar:
+            yield tar
+
+
+def safe_members(tar):
+    """Yield archive members that stay inside the destination; refuse the rest."""
+    links = []
+    for member in tar:
+        parts = [part for part in member.name.split('/') if part not in ('', '.')]
+        if member.name.startswith('/') or '..' in parts:
+            raise HostError('The backup archive contains an unsafe path (%r); nothing was restored.' % member.name)
+        if not (member.isfile() or member.isdir() or member.issym() or member.islnk()):
+            raise HostError('The backup archive contains an unsupported entry (%r); nothing was restored.'
+                            % member.name)
+        if member.islnk():
+            target = [part for part in member.linkname.split('/') if part not in ('', '.')]
+            if member.linkname.startswith('/') or '..' in target:
+                raise HostError('The backup archive contains an unsafe link (%r); nothing was restored.' % member.name)
+        path = '/'.join(parts)
+        if any(path == link or path.startswith(link + '/') for link in links):
+            raise HostError('The backup archive writes through a symbolic link (%r); nothing was restored.'
+                            % member.name)
+        if member.issym():
+            links.append(path)
+        yield member
+
+
+def extract_archive(archive, destination):
+    options = {'filter': 'fully_trusted'} if hasattr(tarfile, 'fully_trusted_filter') else {}
+    try:
+        with archive_reader(archive) as tar:
+            tar.extractall(str(destination), members=safe_members(tar), numeric_owner=True, **options)
+    except HostError:
+        raise
+    except (tarfile.TarError, EOFError, OSError, ValueError) as error:
+        raise HostError('Cannot extract %s (%s).' % (Path(archive).name, error)) from error
+
+
+def backup_timestamp():
+    return time.strftime('%Y%m%dT%H%M%SZ', time.gmtime())
+
+
+def backup_data(reason, env=None, note=None, check_space=True):
+    """Archive /var/lib/tofi/data and /etc/tofi into a new backup; return its meta.
+
+    Call only while the services are stopped. The backup is assembled in a
+    hidden .partial directory and renamed when complete, so an interrupted
+    backup is never listed or restored.
+    """
+    env = env if env is not None else read_env()
+    estimate = check_backup_space('this backup') if check_space else tree_bytes(P.data) + tree_bytes(P.etc)
+    P.backups.mkdir(parents=True, exist_ok=True)
+    os.chmod(P.backups, 0o700)
+    stamp = backup_timestamp()
+    backup_id = '%s-%s' % (stamp, env.get('TOFI_VERSION') or 'unknown')
+    final = P.backups / backup_id
+    counter = 1
+    while final.exists():
+        counter += 1
+        final = P.backups / ('%s-%d' % (backup_id, counter))
+    backup_id = final.name
+    partial = P.backups / ('.%s.partial' % backup_id)
+    remove_tree(partial)
+    partial.mkdir(mode=0o700)
+    compression = 'zst' if zstd_available() else 'gz'
+    data_name, etc_name = 'data.tar.' + compression, 'etc.tar.gz'
+    try:
+        write_archive(partial / data_name, compression, P.data)
+        write_archive(partial / etc_name, 'gz', P.etc, exclude=etc_excluded)
+        meta = {
+            'schema': 1, 'id': backup_id, 'version': env.get('TOFI_VERSION'),
+            'app_image': env.get('TOFI_APP_IMAGE'), 'worker_image': env.get('TOFI_WORKER_IMAGE'),
+            'caddy_image': env.get('TOFI_CADDY_IMAGE'), 'guest': env.get('TOFI_GUEST_VERSION'),
+            'created_at': iso_now(), 'reason': reason, 'note': note or '',
+            'archives': {'data': data_name, 'etc': etc_name},
+            'sizes': {'data_bytes': tree_bytes(P.data), 'etc_bytes': tree_bytes(P.etc),
+                      'data_archive': (partial / data_name).stat().st_size,
+                      'etc_archive': (partial / etc_name).stat().st_size, 'estimate': estimate},
+            'sha256': {data_name: sha256_file(partial / data_name), etc_name: sha256_file(partial / etc_name)},
+        }
+        write_json(partial / 'meta.json', meta, 0o600)
+        os.rename(partial, final)
+    except BaseException as error:
+        remove_tree(partial)
+        if isinstance(error, OSError):
+            raise HostError('Cannot write the backup under %s (%s); nothing was changed.' % (P.backups, error)) from error
+        raise
+    say('Backup %s saved (%s).' % (backup_id, human_bytes(meta['sizes']['data_archive'] + meta['sizes']['etc_archive'])))
+    return meta
+
+
+def read_backup_meta(directory):
+    try:
+        meta = json.loads((Path(directory) / 'meta.json').read_text())
+    except (OSError, ValueError) as error:
+        raise HostError('Backup %s has no readable meta.json (%s).' % (Path(directory).name, error)) from error
+    archives = meta.get('archives') if isinstance(meta, dict) else None
+    if (not isinstance(meta, dict) or meta.get('schema') != 1 or not isinstance(archives, dict)
+            or set(archives) != {'data', 'etc'} or not isinstance(meta.get('sha256'), dict)
+            or not isinstance(meta.get('sizes'), dict)):
+        raise HostError('Backup %s has an unsupported meta.json.' % Path(directory).name)
+    for name in archives.values():
+        if not isinstance(name, str) or '/' in name or name.startswith('.'):
+            raise HostError('Backup %s names an unsafe archive file.' % Path(directory).name)
+    return meta
+
+
+def verify_backup(directory):
+    """Check every archive against meta.json's sha256; return meta."""
+    meta = read_backup_meta(directory)
+    for name in meta['archives'].values():
+        expected = meta['sha256'].get(name)
+        archive = Path(directory) / name
+        if not isinstance(expected, str) or not SHA_RE.match(expected):
+            raise HostError('Backup %s records no checksum for %s.' % (Path(directory).name, name))
+        try:
+            actual = sha256_file(archive)
+        except OSError as error:
+            raise HostError('Backup %s is missing %s (%s).' % (Path(directory).name, name, error)) from error
+        if actual != expected:
+            raise HostError('Backup %s is damaged: %s does not match its recorded checksum; nothing was restored.'
+                            % (Path(directory).name, name))
+    return meta
+
+
+def list_backups():
+    """Complete backups, newest first: [{'id', 'path', 'meta', 'size'}]."""
+    found = []
+    for entry in sorted(P.backups.iterdir()) if P.backups.is_dir() else []:
+        if entry.name.startswith('.') or not entry.is_dir():
+            continue
+        try:
+            meta = read_backup_meta(entry)
+        except HostError:
+            continue
+        size = sum(meta['sizes'].get(key) or 0 for key in ('data_archive', 'etc_archive'))
+        found.append({'id': entry.name, 'path': entry, 'meta': meta, 'size': size})
+    found.sort(key=lambda item: (item['meta'].get('created_at') or '', item['id']), reverse=True)
+    return found
+
+
+def find_backup(backup_id):
+    if not backup_id or '/' in backup_id or backup_id.startswith('.'):
+        raise HostError('%r is not a backup id; `sudo tofi backups` lists them.' % backup_id)
+    backups = list_backups()
+    exact = [item for item in backups if item['id'] == backup_id]
+    matches = exact or [item for item in backups if item['id'].startswith(backup_id)]
+    if not matches:
+        raise HostError('No backup matches %r; `sudo tofi backups` lists them.' % backup_id)
+    if len(matches) > 1:
+        raise HostError('%r matches several backups; give more of the id.' % backup_id)
+    return matches[0]
+
+
+def prune_backups(keep=BACKUP_KEEP):
+    """Keep the newest `keep` complete backups; drop the rest and half-written ones."""
+    removed = []
+    for entry in sorted(P.backups.iterdir()) if P.backups.is_dir() else []:
+        if entry.name.startswith('.') and entry.name.endswith('.partial'):
+            remove_tree(entry)
+    for item in list_backups()[keep:]:
+        remove_tree(item['path'])
+        removed.append(item['id'])
+    return removed
+
+
+def render_backups(backups):
+    if not backups:
+        return 'No backups yet. One is taken before every update; `sudo tofi backup` takes one now.\n'
+    rows = [[item['id'], item['meta'].get('created_at') or '-', item['meta'].get('version') or '-',
+             human_bytes(item['size']), item['meta'].get('reason') or '-'
+             ] for item in backups]
+    lines = format_table(['ID', 'CREATED (UTC)', 'VERSION', 'SIZE', 'REASON'], rows)
+    lines += ['', '  Restore one with: sudo tofi restore <ID>   (kept: the last %d)' % BACKUP_KEEP]
+    return '\n'.join(lines) + '\n'
+
+
+# --------------------------------------------------------------------------
+# Restoring a backup: extract beside the live directory, then swap by rename
+
+
+def restore_leftovers(target):
+    """Settle what an interrupted restore left beside `target`.
+
+    A missing `target` with a `.restore-old` beside it means the swap was cut
+    between its two renames: the old directory is the data, put it back.
+    """
+    target = Path(target)
+    old = target.with_name(target.name + '.restore-old')
+    temporary = target.with_name(target.name + '.restore-tmp')
+    if old.exists() or old.is_symlink():
+        if not (target.exists() or target.is_symlink()):
+            os.rename(old, target)
+            warn('Recovered %s from an interrupted restore.' % target)
+        else:
+            remove_tree(old)
+    remove_tree(temporary)
+
+
+def stage_restore(target, archive, finish=None):
+    """Extract `archive` into <target>.restore-tmp; the live directory is untouched."""
+    target = Path(target)
+    restore_leftovers(target)
+    temporary = target.with_name(target.name + '.restore-tmp')
+    temporary.mkdir(mode=0o700)
+    try:
+        extract_archive(archive, temporary)
+        if finish is not None:
+            finish(temporary)
+    except BaseException:
+        remove_tree(temporary)
+        raise
+    return temporary
+
+
+def commit_restore(target, temporary):
+    """Rename the live directory aside, rename the staged one in, then delete
+    the old one. The old copy is deleted only after the new one is in place."""
+    target = Path(target)
+    old = target.with_name(target.name + '.restore-old')
+    if target.exists() or target.is_symlink():
+        os.rename(target, old)
+    try:
+        os.rename(temporary, target)
+    except BaseException:
+        if old.exists():
+            os.rename(old, target)
+        raise
+    try:
+        remove_tree(old)
+    except OSError as error:
+        warn('Restored, but could not remove the old copy %s (%s); delete it by hand.' % (old, error))
+
+
+def restore_files(backup_id):
+    """Replace /var/lib/tofi/data and /etc/tofi from backup `backup_id`.
+
+    The archives are checked against meta.json's sha256 first; both trees are
+    extracted beside the live ones before either is touched; /etc/tofi keeps
+    the live install-state.json (the journal belongs to this host, not to the
+    backup). Returns the backup's meta.
+    """
+    item = find_backup(backup_id)
+    meta = verify_backup(item['path'])
+
+    def data_finish(directory):
+        os.chown(directory, APP_UID, APP_UID)
+        os.chmod(directory, 0o700)
+
+    def etc_finish(directory):
+        os.chmod(directory, 0o700)
+        if P.state_file.exists():
+            shutil.copy2(P.state_file, directory / P.state_file.name)
+
+    data_tmp = etc_tmp = None
+    try:
+        data_tmp = stage_restore(P.data, item['path'] / meta['archives']['data'], data_finish)
+        etc_tmp = stage_restore(P.etc, item['path'] / meta['archives']['etc'], etc_finish)
+    except BaseException:
+        for staged in (data_tmp, etc_tmp):
+            if staged is not None:
+                remove_tree(staged)
+        raise
+    commit_restore(P.data, data_tmp)
+    commit_restore(P.etc, etc_tmp)
+    return meta
+
+
+# --------------------------------------------------------------------------
+# Update history and automatic updates
+
+
+def record_update_history(entry):
+    """Append one JSON line to /var/lib/tofi/update-history.jsonl (never fatal)."""
+    entry = dict(entry, at=iso_now())
+    try:
+        P.update_history.parent.mkdir(parents=True, exist_ok=True)
+        descriptor = os.open(str(P.update_history), os.O_WRONLY | os.O_CREAT | os.O_APPEND, 0o600)
+        with os.fdopen(descriptor, 'a') as stream:
+            stream.write(json.dumps(entry, sort_keys=True) + '\n')
+    except OSError as error:
+        warn('Could not append to %s (%s).' % (P.update_history, error))
+
+
+def version_parts(version):
+    match = re.match(r'^v(\d+)\.(\d+)\.(\d+)(?:-rc\.(\d+))?$', str(version or ''))
+    if not match:
+        return None
+    major, minor, patch, rc = match.groups()
+    return int(major), int(minor), int(patch), rc
+
+
+def auto_update_allowed(installed, candidate):
+    """Automatic updates install fix releases only: a stable `candidate` with
+    the installed major.minor and a higher patch. Never an rc, never a minor or
+    major bump, never a downgrade."""
+    old, new = version_parts(installed), version_parts(candidate)
+    if old is None or new is None or new[3] is not None:
+        return False
+    return new[:2] == old[:2] and new[2] > old[2]
+
+
+AUTO_UPDATE_SERVICE_TEXT = """[Unit]
+Description=TOFI automatic fix-release update
+After=network-online.target docker.service
+Wants=network-online.target
+ConditionPathExists=/etc/tofi/install-state.json
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/tofi update --auto
+TimeoutStartSec=3h
+"""
+
+AUTO_UPDATE_TIMER_TEXT = """[Unit]
+Description=Daily check for TOFI fix releases
+
+[Timer]
+OnCalendar=*-*-* 04:00:00
+RandomizedDelaySec=45min
+Persistent=true
+Unit=tofi-auto-update.service
+
+[Install]
+WantedBy=timers.target
+"""
+
+
+def write_auto_update_units():
+    write_file(P.auto_service, AUTO_UPDATE_SERVICE_TEXT, 0o644)
+    write_file(P.auto_timer, AUTO_UPDATE_TIMER_TEXT, 0o644)
+
+
+def remove_auto_update_units():
+    run(['systemctl', 'disable', '--now', AUTO_UPDATE_TIMER], check=False)
+    for path in (P.auto_timer, P.auto_service):
+        if path.is_symlink() or path.exists():
+            path.unlink()
+
+
+def sync_auto_update_timer(env):
+    """Enable the timer exactly when TOFI_AUTO_UPDATE=patch."""
+    if not P.auto_timer.exists():
+        return
+    if env.get('TOFI_AUTO_UPDATE') == 'patch':
+        run(['systemctl', 'enable', '--now', AUTO_UPDATE_TIMER], check=False)
+    else:
+        run(['systemctl', 'disable', '--now', AUTO_UPDATE_TIMER], check=False)
+
+
+def auto_update_next_check():
+    """'HH:MM' of the next scheduled check, or None."""
+    try:
+        text = run(['systemctl', 'show', AUTO_UPDATE_TIMER, '-p', 'NextElapseUSecRealtime', '--value'],
+                   check=False, timeout=10).stdout
+    except (OSError, subprocess.SubprocessError):
+        return None
+    match = re.search(r'\b(\d{2}:\d{2}):\d{2}\b', text or '')
+    return match.group(1) if match else None
+
+
+def configure_auto_update(mode):
+    """`tofi config auto-update on|off`."""
+    if mode not in ('on', 'off'):
+        raise HostError('auto-update takes on or off.')
+    with lifecycle_lock():
+        state = load_state()
+        if state is None:
+            raise HostError('TOFI is not installed; run install.sh.')
+        env = read_env()
+        env['TOFI_AUTO_UPDATE'] = 'patch' if mode == 'on' else 'off'
+        write_env(env)
+        write_auto_update_units()
+        run(['systemctl', 'daemon-reload'], check=False)
+        sync_auto_update_timer(env)
+    if mode == 'on':
+        say('Automatic updates are on: fix releases (same major.minor, newer patch) install overnight '
+            'when no Bot run is active. Turn off with: sudo tofi config auto-update off')
+    else:
+        say('Automatic updates are off. Update by hand with: sudo tofi update')
+    say('The web page shows the new setting after the App restarts (sudo tofi stop && sudo tofi start).')
+    return {'auto_update': env['TOFI_AUTO_UPDATE']}
+
+
+def auto_update():
+    """`tofi update --auto`, run daily by tofi-auto-update.timer.
+
+    Does nothing unless TOFI_AUTO_UPDATE=patch. Installs only a newer patch of
+    the installed major.minor (never an rc, minor or major bump); never waits
+    for Bot runs (a busy host is skipped until tomorrow); one journal line and
+    one update-history.jsonl line per run. Returns {'result', ...}; 'failed'
+    means the update was rejected and rolled back.
+    """
+    require_root()
+    state = load_state()
+    if state is None:
+        raise HostError('TOFI is not installed; run install.sh.')
+    env = read_env()
+    if env.get('TOFI_AUTO_UPDATE') != 'patch':
+        say('tofi auto-update: off; nothing to do.')
+        return {'result': 'off'}
+    installed = env.get('TOFI_VERSION')
+
+    def done(result, message, recorded=False, **extra):
+        say('tofi auto-update: ' + message)
+        if not recorded:
+            record_update_history(dict(extra, trigger='auto', result=result, **{'from': installed}))
+        return dict(extra, result=result)
+
+    if state['phase'] != 'installed':
+        return done('skipped', 'skipped, TOFI is in phase %s.' % state['phase'], reason='phase')
+    try:
+        manifest = fetch_manifest()
+    except HostError as error:
+        return done('check-failed', 'could not check for a new release (%s).' % error, reason=str(error)[:200])
+    remember_latest(manifest)
+    candidate = manifest['version']
+    if not is_newer(candidate, installed):
+        return done('up-to-date', '%s is current.' % installed, to=candidate)
+    if not auto_update_allowed(installed, candidate):
+        return done('not-eligible', '%s is available but is not a fix release for %s; update by hand with '
+                    '`sudo tofi update` when ready.' % (candidate, installed), to=candidate)
+    rejected = (state.get('last_update_failure') or {}).get('version')
+    if rejected == candidate:
+        return done('skipped', '%s was rejected earlier on this host; not retrying.' % candidate,
+                    to=candidate, reason='rejected-before')
+    try:
+        upgrade(manifest=manifest, wait=0, trigger='auto')
+    except ActiveRunsError as error:
+        return done('skipped', 'skipped %s, %s active; trying again tomorrow.'
+                    % (candidate, plural(error.count, 'Bot run')), recorded=True, to=candidate, reason='active-runs')
+    except LockBusy as error:
+        return done('skipped', 'skipped %s, %s' % (candidate, error), to=candidate, reason='busy')
+    except HostError as error:
+        say('tofi auto-update: %s failed: %s' % (candidate, error))
+        return {'result': 'failed', 'to': candidate, 'error': str(error)}
+    say('tofi auto-update: updated %s -> %s.' % (installed, candidate))
+    return {'result': 'updated', 'to': candidate}
+
+
+# --------------------------------------------------------------------------
 # Lifecycle
 
 
@@ -1228,6 +1908,10 @@ def systemd_start():
     if P.unit.exists():
         run(['systemctl', 'enable', 'tofi.service'], check=False)
         run(['systemctl', 'start', 'tofi.service'], check=False, timeout=900)
+        try:
+            sync_auto_update_timer(read_env())
+        except (OSError, HostError):
+            pass
 
 
 def fresh_install(manifest, options):
@@ -1349,6 +2033,7 @@ def resume(state=None):
     state = state or load_state()
     if state is None:
         raise HostError('TOFI is not installed; run install.sh.')
+    restore_leftovers(P.data)
     phase = state['phase']
     if phase in INSTALL_PHASES:
         say('Resuming an interrupted install (%s).' % phase)
@@ -1382,16 +2067,18 @@ def start():
             raise HostError('TOFI is not installed; run install.sh.')
         if state['phase'] != 'installed':
             raise HostError('TOFI is in phase %s; run `sudo tofi install` to resume.' % state['phase'])
+        restore_leftovers(P.data)
         env = read_env()
         run(['systemd-tmpfiles', '--create', str(P.tmpfiles)], check=False)
         start_services(env)
         return {'started': True}
 
 
-def stop():
+def stop(wait=0, force=False):
     with lifecycle_lock():
         if load_state() is None:
             raise HostError('TOFI is not installed.')
+        wait_for_idle('stopping TOFI', wait, force)
         stopped()
         return {'stopped': True, 'data_retained': True}
 
@@ -1405,16 +2092,50 @@ def snapshot():
     }
 
 
-def upgrade(version=None, manifest_path=None, allow_schema_change=False):
+def upgrade(version=None, manifest_path=None, allow_schema_change=False, manifest=None,
+            wait=0, force=False, trigger='manual', confirm=None):
+    """Update to a release: back up, switch, start; on failure restore and roll back.
+
+    `wait` minutes are given to active Bot runs to finish (then refuse unless
+    `force`); `confirm(installed, manifest)` may cancel before anything is
+    downloaded. The outcome is appended to update-history.jsonl.
+    """
+    info = {}
+    try:
+        result = _upgrade(info, version, manifest_path, allow_schema_change, manifest, wait, force, confirm)
+    except LockBusy:
+        raise
+    except ActiveRunsError:
+        if info.get('to'):
+            record_update_history(dict(info, trigger=trigger, result='skipped' if trigger == 'auto' else 'refused',
+                                       reason='active-runs'))
+        raise
+    except HostError as error:
+        if info.get('to'):
+            rolled_back = str(error).startswith(('update rejected', 'restore failed'))
+            record_update_history(dict(info, trigger=trigger, result='rolled-back' if rolled_back else 'failed',
+                                       error=str(error)[:300]))
+        raise
+    if result.get('upgraded'):
+        record_update_history(dict(info, trigger=trigger, result='updated'))
+    return result
+
+
+def _upgrade(info, version, manifest_path, allow_schema_change, manifest, wait, force, confirm):
     with lifecycle_lock():
         state = load_state()
         if state is None or state['phase'] != 'installed':
             raise HostError('Update needs an installed TOFI in phase installed; run `sudo tofi install` first.')
-        manifest = load_manifest_file(manifest_path) if manifest_path else fetch_manifest(version)
+        if manifest is None:
+            manifest = load_manifest_file(manifest_path) if manifest_path else fetch_manifest(version)
         previous = snapshot()
+        info.update({'from': previous['env']['TOFI_VERSION'], 'to': manifest['version']})
         if manifest['version'] == previous['env']['TOFI_VERSION']:
             say('TOFI %s is already installed.' % manifest['version'])
             return {'upgraded': False, 'version': manifest['version']}
+        if confirm is not None:
+            confirm(previous['env']['TOFI_VERSION'], manifest)
+        wait_for_idle('the update', wait, force)
         candidate = dict(previous['env'])
         candidate.update({
             'TOFI_VERSION': manifest['version'],
@@ -1437,36 +2158,40 @@ def upgrade(version=None, manifest_path=None, allow_schema_change=False):
         bundle = P.releases / manifest['version']
         fetch_guest(manifest['guest'], bundle_manager(bundle))
         announce_computer_impact(previous['env'], manifest)
+        # The backup must fit, and no run may have started during the downloads.
+        check_backup_space('the update')
+        wait_for_idle('the update', 0, force)
         state['transaction'] = {'kind': 'upgrade', 'step': 'stop-old', 'previous': previous,
-                                'candidate_version': manifest['version']}
+                                'candidate_version': manifest['version'], 'backup': None, 'data_changed': False}
         state['phase'] = 'upgrading'
         save_state(state)
         try:
             stopped()
+            # Services are down, so SQLite is quiescent: back up before anything changes.
+            transition(state, 'upgrading', 'backup')
+            state['transaction']['backup'] = backup_data('pre-update', previous['env'], check_space=False)['id']
             transition(state, 'upgrading', 'switch-config')
             apply_host_config(bundle, candidate)
             switch_current(manifest['version'])
+            # From here the candidate may run migrations: rollback restores the backup.
+            state['transaction']['data_changed'] = True
             transition(state, 'upgrading', 'start-candidate')
             start_services(candidate)
             complete(state, version=manifest['version'])
         except BaseException as error:
-            failed(state, 'upgrade-failed', error)
-            try:
-                rollback(state)
-            except BaseException as rollback_error:
-                raise HostError('Update failed (%s) and rollback failed (%s); data is retained. '
-                                'Run `sudo tofi install` to retry.' % (error, rollback_error)) from error
-            # complete() cleared last_error; keep a record `tofi status` shows,
-            # and drop the rejected candidate's bundle and Guest release.
-            state['last_update_failure'] = {'version': manifest['version'], 'message': str(error)[:500],
-                                            'at': time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime())}
-            save_state(state)
-            discard_candidate(manifest['version'], candidate['TOFI_GUEST_VERSION'], previous)
-            raise HostError('update rejected; previous version restored (%s)' % error) from error
+            reject_candidate(state, error, manifest['version'], candidate['TOFI_GUEST_VERSION'], previous,
+                             'update rejected; previous version restored')
         state.pop('last_update_failure', None)
         save_state(state)
         prune_releases(keep=[manifest['version'], previous['bundle']],
                        keep_guests=[candidate['TOFI_GUEST_VERSION'], previous['env']['TOFI_GUEST_VERSION']])
+        try:
+            removed = prune_backups()
+        except OSError as error:
+            removed = []
+            warn('Could not prune old backups (%s).' % error)
+        if removed:
+            say('Removed older backups: %s.' % ', '.join(removed))
         say('Updated to %s.' % manifest['version'])
         older = sorted(guest_references() - {candidate['TOFI_GUEST_VERSION']})
         if older:
@@ -1474,6 +2199,143 @@ def upgrade(version=None, manifest_path=None, allow_schema_change=False):
                 'See `sudo tofi computers`; switch them now with `sudo tofi computers upgrade --all`.'
                 % (', '.join(older), candidate['TOFI_GUEST_VERSION']))
         return {'upgraded': True, 'version': manifest['version'], 'data_retained': True}
+
+
+def reject_candidate(state, error, version, guest_version, previous, message):
+    """A failed update or restore: roll back (restoring data if it may have
+    changed), keep a record `tofi status` shows, drop the rejected release,
+    and raise the operator-facing error."""
+    failed(state, 'upgrade-failed', error)
+    try:
+        rollback(state)
+    except BaseException as rollback_error:
+        raise HostError('Update failed (%s) and rollback failed (%s); data is retained. '
+                        'Run `sudo tofi install` to retry.' % (error, rollback_error)) from error
+    # complete() cleared last_error; keep a record `tofi status` shows,
+    # and drop the rejected candidate's bundle and Guest release.
+    state['last_update_failure'] = {'version': version, 'message': str(error)[:500],
+                                    'at': time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime())}
+    save_state(state)
+    discard_candidate(version, guest_version, previous)
+    raise HostError('%s (%s)' % (message, error)) from error
+
+
+def restore_manifest(version):
+    """The release manifest for `version`: the installed host bundle's copy, else GitHub's."""
+    local = P.releases / version / 'manifest.json'
+    if local.is_file():
+        try:
+            return load_manifest_file(local)
+        except HostError:
+            pass
+    return fetch_manifest(version)
+
+
+def restore_backup(backup_id, yes=False, wait=0, force=False, confirm=None):
+    """`tofi restore <id>`: put a backup's data and settings back and switch to its version.
+
+    Runs as an update-shaped transaction: the current state is backed up first
+    (reason pre-restore), and if the restored version does not start, rollback
+    restores that backup and starts the version that was running.
+    """
+    with lifecycle_lock():
+        state = load_state()
+        if state is None or state['phase'] != 'installed':
+            raise HostError('Restore needs an installed TOFI in phase installed; run `sudo tofi install` first.')
+        item = find_backup(backup_id)
+        meta = verify_backup(item['path'])
+        version = meta.get('version')
+        if not isinstance(version, str) or not VERSION_RE.match(version):
+            raise HostError('Backup %s records no valid version.' % item['id'])
+        if not yes:
+            if confirm is None:
+                raise HostError('Restore replaces all current data and settings with backup %s; '
+                                'add --yes to confirm.' % item['id'])
+            confirm(item, meta)
+        wait_for_idle('the restore', wait, force)
+        previous = snapshot()
+        manifest = restore_manifest(version)
+        candidate = dict(previous['env'])
+        candidate.update({
+            'TOFI_VERSION': version,
+            'TOFI_APP_IMAGE': meta.get('app_image') or manifest['images']['app'],
+            'TOFI_WORKER_IMAGE': meta.get('worker_image') or manifest['images']['worker'],
+            'TOFI_CADDY_IMAGE': meta.get('caddy_image') or manifest['images']['caddy'],
+            'TOFI_GUEST_VERSION': meta.get('guest') or manifest['guest']['version'],
+        })
+        pull_images(candidate, None)
+        install_bundle(manifest)
+        bundle = P.releases / version
+        fetch_guest(manifest['guest'], bundle_manager(bundle))
+        # Room for a backup of the current state plus the restored copy beside it.
+        current = tree_bytes(P.data) + tree_bytes(P.etc)
+        incoming = int(meta['sizes'].get('data_bytes') or 0) + int(meta['sizes'].get('etc_bytes') or 0)
+        need = current + incoming + BACKUP_FREE_MARGIN
+        free = free_bytes(P.var)
+        if free < need:
+            raise HostError('Not enough free disk space for the restore: it needs %s free under /var/lib/tofi '
+                            '(a backup of the current state, %s, plus the restored copy, %s, plus 1 GiB) but only %s '
+                            'is free. Nothing was changed.'
+                            % (human_bytes(need), human_bytes(current), human_bytes(incoming), human_bytes(free)))
+        wait_for_idle('the restore', 0, force)
+        state['transaction'] = {'kind': 'restore', 'step': 'stop-old', 'previous': previous,
+                                'candidate_version': version, 'restore_from': item['id'],
+                                'backup': None, 'data_changed': False}
+        state['phase'] = 'upgrading'
+        save_state(state)
+        try:
+            stopped()
+            transition(state, 'upgrading', 'backup')
+            pre_restore = backup_data('pre-restore', previous['env'], check_space=False)['id']
+            state['transaction']['backup'] = pre_restore
+            # The swap is atomic per directory, but treat the data as changed from here.
+            state['transaction']['data_changed'] = True
+            transition(state, 'upgrading', 'restore-data')
+            restore_files(item['id'])
+            env = read_env()
+            transition(state, 'upgrading', 'switch-config')
+            apply_host_config(bundle, env)
+            switch_current(version)
+            transition(state, 'upgrading', 'start-candidate')
+            start_services(env)
+            complete(state, version=version)
+        except BaseException as error:
+            reject_candidate(state, error, version, candidate['TOFI_GUEST_VERSION'], previous,
+                             'restore failed; previous state recovered')
+        state.pop('last_update_failure', None)
+        save_state(state)
+        prune_releases(keep=[version, previous['bundle']],
+                       keep_guests=[candidate['TOFI_GUEST_VERSION'], previous['env']['TOFI_GUEST_VERSION']])
+        say('Restored backup %s; TOFI %s is running with its data and settings.' % (item['id'], version))
+        return {'restored': item['id'], 'version': version, 'pre_restore_backup': pre_restore}
+
+
+def backup_now(note=None, wait=0, force=False):
+    """`tofi backup`: stop, back up, start again (only if it was running)."""
+    with lifecycle_lock():
+        state = load_state()
+        if state is None or state['phase'] != 'installed':
+            raise HostError('Backup needs an installed TOFI in phase installed; run `sudo tofi install` first.')
+        wait_for_idle('the backup', wait, force)
+        check_backup_space('the backup')
+        env = read_env()
+        was_running = any((c.get('State') or {}).get('Running') for c in project_containers())
+        stopped()
+        meta, failure = None, None
+        try:
+            meta = backup_data('manual', env, note, check_space=False)
+        except BaseException as error:
+            failure = error
+        if was_running:
+            try:
+                start_services(env)
+            except BaseException as error:
+                if failure is None:
+                    raise
+                warn('Could not start TOFI again after the failed backup (%s); run `sudo tofi start`.' % error)
+        if failure is not None:
+            raise failure
+        return meta
 
 
 def announce_computer_impact(env, manifest):
@@ -1525,12 +2387,29 @@ def install_bundle(manifest):
 
 
 def rollback(state):
-    """Restore the previous images, Guest pin and host config with CURRENT data."""
-    previous = state['transaction']['previous']
+    """Restore the previous images, Guest pin and host config.
+
+    If the candidate was started (it may have run schema migrations), the data
+    and settings are first restored from the pre-update backup, after its
+    checksums verify; otherwise the data is untouched.
+    """
+    transaction = state['transaction']
+    previous = transaction['previous']
     env = previous['env']
     try:
         transition(state, 'rolling-back', 'stop-candidate')
         stopped()
+        if transaction.get('data_changed') and not transaction.get('data_restored'):
+            backup_id = transaction.get('backup')
+            if backup_id:
+                transition(state, 'rolling-back', 'restore-data')
+                restore_files(backup_id)
+                transaction['data_restored'] = True
+                save_state(state)
+                say('Restored data and settings from backup %s.' % backup_id)
+            else:
+                warn('The candidate ran but no backup was taken (the update began with an older tofi); '
+                     'data stays as the candidate left it.')
         transition(state, 'rolling-back', 'restore-config')
         bundle = P.releases / previous['bundle'] if previous.get('bundle') else ASSETS
         apply_host_config(bundle, env)
@@ -1578,6 +2457,7 @@ def finish_uninstall(state):
     try:
         transition(state, 'uninstalling', 'stop-services')
         run(['systemctl', 'disable', 'tofi.service'], check=False)
+        remove_auto_update_units()
         stopped()
         transition(state, 'uninstalling', 'remove-services')
         if compose_file().exists():
@@ -1596,7 +2476,7 @@ def purge_everything(state, confirm):
     if confirm is None:
         try:
             with open('/dev/tty') as tty:
-                print('This permanently deletes all TOFI accounts, conversations and computer disks.')
+                print('This permanently deletes all TOFI accounts, conversations, computer disks and backups.')
                 print('Type the hostname (%s) to confirm: ' % hostname, end='', flush=True)
                 confirm = tty.readline().strip()
         except OSError:
@@ -1614,6 +2494,7 @@ def purge_everything(state, confirm):
     for reference in images:
         run(['docker', 'image', 'rm', reference], check=False)
     run(['systemctl', 'disable', 'tofi.service'], check=False)
+    remove_auto_update_units()
     if P.apparmor_profile.exists():
         run(['apparmor_parser', '-R', str(P.apparmor_profile)], check=False)
     for path in (P.unit, P.tmpfiles, P.apparmor_profile, P.bin_link):
@@ -1654,6 +2535,9 @@ def status(details=False):
     except (OSError, HostError):
         env = None
     if env is not None:
+        result['auto_update'] = env.get('TOFI_AUTO_UPDATE') == 'patch'
+        if details and result['auto_update']:
+            result['next_check'] = auto_update_next_check()
         try:
             result['urls'] = access_urls(env)
             if app_scheme(env) == 'https':
@@ -1715,8 +2599,15 @@ def render_status(result, mode=None, verbose=False, access=None):
     access = access or {}
     versions = result.get('versions') or {}
     healthy = bool(result.get('healthy'))
-    header = 'tofi %s · %s' % (result.get('version') or '?',
-                               paint.color('teal', 'healthy') if healthy else paint.color('peach', 'NOT healthy'))
+    service_states = result.get('services')
+    starting = isinstance(service_states, dict) and 'starting' in service_states.values()
+    if starting:
+        health_text = paint.color('peach', 'starting')
+    elif healthy:
+        health_text = paint.color('teal', 'healthy')
+    else:
+        health_text = paint.color('peach', 'NOT healthy')
+    header = 'tofi %s · %s' % (result.get('version') or '?', health_text)
     if result['phase'] != 'installed':
         header += ' · ' + result['phase']
     lines = [paint.bold(header), '']
@@ -1737,6 +2628,14 @@ def render_status(result, mode=None, verbose=False, access=None):
         row('Admin', 'not created yet · sudo tofi setup-secret')
     if versions or result.get('version'):
         row('Version', version_summary(result, verbose))
+    if 'auto_update' in result:
+        if result['auto_update']:
+            text = 'automatic (fix releases)'
+            if result.get('next_check'):
+                text += ' · next check ' + result['next_check']
+            row('Updates', text)
+        else:
+            row('Updates', 'manual')
     services = result.get('services')
     if isinstance(services, dict):
         row('Services', ' · '.join('%s %s' % item for item in sorted(services.items())) or 'none running')
@@ -1890,6 +2789,7 @@ def check_update(version=None, manifest_path=None):
     schema = {'installed': installed_schema, 'available': manifest['data_schema'],
               'compatible': None if installed_schema is None else installed_schema == manifest['data_schema']}
     report = {'installed': env.get('TOFI_VERSION'), 'available': manifest['version'],
+              'notes_url': manifest_notes_url(manifest),
               'update_available': manifest['version'] != env.get('TOFI_VERSION'),
               'downgrade': is_newer(env.get('TOFI_VERSION'), manifest['version']),
               'components': [{'name': name, 'installed': old, 'available': new, 'changes': old != new}
@@ -1910,7 +2810,10 @@ def check_update(version=None, manifest_path=None):
 def render_update_check(report):
     state = 'up to date' if not report['update_available'] else (
         'older release' if report['downgrade'] else 'update available')
-    lines = ['Installed    %s' % report['installed'], 'Available    %s  (%s)' % (report['available'], state), '']
+    lines = ['Installed    %s' % report['installed'], 'Available    %s  (%s)' % (report['available'], state)]
+    if report.get('notes_url'):
+        lines.append('Notes        %s' % report['notes_url'])
+    lines.append('')
     labels = {'version': 'Host bundle', 'app': 'App image', 'worker': 'Worker image',
               'guest': 'Guest release', 'caddy': 'Caddy image'}
     table = []
@@ -2414,13 +3317,29 @@ def parse_args(argv):
                                 help='how account computers run: kvm (Firecracker); gvisor and container '
                                      'are not supported yet')
     install_parser.add_argument('--yes', action='store_true')
+    auto = install_parser.add_mutually_exclusive_group()
+    auto.add_argument('--auto-update', dest='auto_update', action='store_true', default=None,
+                      help='install fix releases (same major.minor, newer patch) automatically overnight')
+    auto.add_argument('--no-auto-update', dest='auto_update', action='store_false',
+                      help='update only when you run `tofi update` (the default without --yes)')
     status_parser = sub.add_parser('status', help='versions, services, health and account computers')
     status_parser.add_argument('--json', action='store_true', help='machine-readable output')
     status_parser.add_argument('--verbose', '-v', action='store_true',
                                help='also image digests, the full certificate fingerprint and the update check')
     sub.add_parser('start')
-    sub.add_parser('stop')
+
+    def add_guard_flags(parser):
+        parser.add_argument('--wait', type=int, metavar='MINUTES',
+                            help='wait this long for active Bot runs to finish (default 10 on a terminal, 0 otherwise)')
+        parser.add_argument('--force', action='store_true', help='go ahead even if Bot runs are active (interrupts them)')
+
+    stop_parser = sub.add_parser('stop', help='stop TOFI (data is kept)')
+    add_guard_flags(stop_parser)
     update_parser = sub.add_parser('update')
+    update_parser.add_argument('--yes', '-y', action='store_true', help='do not ask for confirmation')
+    update_parser.add_argument('--auto', action='store_true',
+                               help='what the daily timer runs: install a fix release if TOFI_AUTO_UPDATE=patch')
+    add_guard_flags(update_parser)
     update_parser.add_argument('--version')
     update_parser.add_argument('--manifest', help='use a local manifest instead of GitHub Releases')
     update_parser.add_argument('--allow-schema-change', action='store_true')
@@ -2439,6 +3358,19 @@ def parse_args(argv):
     upgrade_parser.add_argument('--force', action='store_true',
                                 help='also restart busy computers (asks first on a terminal; tasks are interrupted)')
     upgrade_parser.add_argument('--json', action='store_true', help='machine-readable output')
+    backup_parser = sub.add_parser('backup', help='stop, back up data and settings, start again')
+    backup_parser.add_argument('--note', help='a short label stored with the backup')
+    add_guard_flags(backup_parser)
+    backups_parser = sub.add_parser('backups', help='list backups')
+    backups_parser.add_argument('--json', action='store_true', help='machine-readable output')
+    restore_parser = sub.add_parser('restore', help='restore a backup and switch to its version')
+    restore_parser.add_argument('backup_id', help='an id from `tofi backups` (or a unique prefix)')
+    restore_parser.add_argument('--yes', '-y', action='store_true', help='do not ask for confirmation')
+    add_guard_flags(restore_parser)
+    config_parser = sub.add_parser('config', help='change a setting')
+    config_sub = config_parser.add_subparsers(dest='config_command', required=True)
+    auto_parser = config_sub.add_parser('auto-update', help='install fix releases automatically overnight')
+    auto_parser.add_argument('mode', choices=['on', 'off'])
     uninstall_parser = sub.add_parser('uninstall')
     uninstall_parser.add_argument('--purge', action='store_true')
     uninstall_parser.add_argument('--confirm-hostname', help='non-interactive purge confirmation')
@@ -2449,6 +3381,15 @@ def parse_args(argv):
     sub.add_parser('doctor')
     sub.add_parser('version')
     return parser.parse_args(argv)
+
+
+def auto_update_choice(args):
+    """patch or off: the flag decides; without one, --yes means patch (the
+    default answer of the installer's question) and anything else means off."""
+    flag = getattr(args, 'auto_update', None)
+    if flag is None:
+        return 'patch' if getattr(args, 'yes', False) else 'off'
+    return 'patch' if flag else 'off'
 
 
 def install_options(args):
@@ -2475,7 +3416,45 @@ def install_options(args):
     # --lan is the old name for that default and is kept as an alias.
     return {'domain': domain, 'email': args.email or '', 'lan': args.lan, 'local_only': local_only,
             'port': port, 'port_given': args.port is not None,
-            'bind': '127.0.0.1' if local_only else '0.0.0.0', 'yes': args.yes, 'computer': computer}
+            'bind': '127.0.0.1' if local_only else '0.0.0.0', 'yes': args.yes, 'computer': computer,
+            'auto_update': auto_update_choice(args)}
+
+
+def guard_options(args, interactive_default):
+    """(wait minutes, force) for the active-run guard: --wait wins; otherwise
+    10 minutes on a terminal and 0 for scripts and timers."""
+    if args.wait is not None:
+        wait = args.wait
+    else:
+        wait = DEFAULT_WAIT_MINUTES if interactive_default and sys.stdin.isatty() else 0
+    if wait < 0:
+        raise HostError('--wait takes a number of minutes (0 or more).')
+    return wait, bool(args.force)
+
+
+def ask_yes(question):
+    try:
+        answer = input(question + ' [Y/n] ').strip().lower()
+    except EOFError:
+        answer = 'n'
+    return answer in ('', 'y', 'yes')
+
+
+def confirm_update(installed, manifest):
+    say('Update %s -> %s. TOFI stops briefly, a backup of data and settings is taken first, and it rolls '
+        'back by itself if the new version does not start.' % (installed, manifest['version']))
+    if manifest_notes_url(manifest):
+        say('Release notes: ' + manifest_notes_url(manifest))
+    if not ask_yes('Proceed?'):
+        raise HostError('Update cancelled; nothing was changed.')
+
+
+def confirm_restore(item, meta):
+    say('Restore backup %s (TOFI %s, taken %s, %s).' % (item['id'], meta.get('version'), meta.get('created_at'),
+                                                       meta.get('reason')))
+    say('All current data and settings are replaced; the current state is backed up first (pre-restore).')
+    if not ask_yes('Restore it?'):
+        raise HostError('Restore cancelled; nothing was changed.')
 
 
 def main(argv=None):
@@ -2517,16 +3496,41 @@ def main(argv=None):
             start()
             return 0
         if args.command == 'stop':
-            stop()
+            stop(*guard_options(args, interactive_default=True))
+            return 0
+        if args.command == 'backup':
+            meta = backup_now(args.note, *guard_options(args, interactive_default=True))
+            say('Backup id: %s' % meta['id'])
+            return 0
+        if args.command == 'backups':
+            require_root()
+            backups = list_backups()
+            if args.json:
+                print(json.dumps([dict(item['meta'], id=item['id'], size=item['size']) for item in backups], indent=2))
+            else:
+                sys.stdout.write(render_backups(backups))
+            return 0
+        if args.command == 'restore':
+            restore_backup(args.backup_id, args.yes, *guard_options(args, interactive_default=not args.yes),
+                           confirm=confirm_restore if sys.stdin.isatty() else None)
+            return 0
+        if args.command == 'config':
+            configure_auto_update(args.mode)
             return 0
         if args.command == 'update':
+            if args.auto:
+                if args.check or args.version or args.manifest or args.json:
+                    raise HostError('--auto cannot be combined with --check, --version, --manifest or --json.')
+                return 1 if auto_update()['result'] == 'failed' else 0
             if args.check:
                 report = check_update(args.version, args.manifest)
                 sys.stdout.write(json.dumps(report, indent=2) + '\n' if args.json else render_update_check(report))
                 return UPDATE_AVAILABLE_EXIT if report['update_available'] else 0
             if args.json:
                 raise HostError('--json is only used with --check.')
-            upgrade(args.version, args.manifest, args.allow_schema_change)
+            wait, force = guard_options(args, interactive_default=not args.yes)
+            upgrade(args.version, args.manifest, args.allow_schema_change, wait=wait, force=force,
+                    confirm=None if args.yes or not sys.stdin.isatty() else confirm_update)
             return 0
         if args.command == 'uninstall':
             uninstall(args.purge, args.confirm_hostname)
