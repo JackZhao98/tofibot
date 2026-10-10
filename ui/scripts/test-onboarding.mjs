@@ -13,7 +13,7 @@ import react from "@vitejs/plugin-react";
 if (!process.env.PLAYWRIGHT_MODULE) { console.log("SKIP: PLAYWRIGHT_MODULE is not set"); process.exit(0); }
 const { chromium } = await import(pathToFileURL(process.env.PLAYWRIGHT_MODULE).href);
 const ui = dirname(dirname(fileURLToPath(import.meta.url)));
-const shots = join(ui, "..", "artifacts", "onboarding");
+const shots = join(ui, "..", "artifacts", process.env.SHOTS_DIR || "onboarding");
 mkdirSync(shots, { recursive: true });
 
 const server = await createServer({ configFile: false, root: ui, plugins: [react()], server: { host: "127.0.0.1", port: 0, hmr: false }, logLevel: "error" });
@@ -130,7 +130,7 @@ async function assertNoTruncation(page, label) {
   await page.waitForTimeout(500); // let the step slide finish
   const clipped = await page.evaluate(() => {
     const bad = [];
-    for (const node of document.querySelectorAll(".onb-sheet button, .onb-sheet strong, .onb-sheet small, .onb-sheet h2, .onb-sheet p, .onb-sheet label, .onb-sheet span, .onb-sheet code, .onb-sheet a")) {
+    for (const node of document.querySelectorAll(".onb-sheet button, .onb-sheet li, .onb-sheet strong, .onb-sheet small, .onb-sheet h2, .onb-sheet p, .onb-sheet label, .onb-sheet span, .onb-sheet code, .onb-sheet a")) {
       const style = getComputedStyle(node);
       if (style.display === "none" || node.getClientRects().length === 0) continue;
       if (style.textOverflow === "ellipsis") bad.push(`ellipsis: ${node.textContent.trim().slice(0, 40)}`);
@@ -172,7 +172,7 @@ async function walkthrough({ width, height, theme, locale = "en-US", shotsOn = t
     await page.getByRole("radio").first().waitFor();
     assert.equal(await page.locator(".onb-choice[aria-checked='true']").count(), 1);
     assert.equal(await page.locator(".onb-choice").first().getAttribute("aria-checked"), "true", "ChatGPT is the default choice");
-    assert.ok((await page.locator(".onb-count").innerText()).startsWith(locale.startsWith("de") ? "2 von 3" : "2 of 3"));
+    assert.ok((await page.locator(".onb-count").innerText()).startsWith(locale.startsWith("de") ? "Schritt 2 von 3" : "Step 2 of 3"));
     assert.ok((await overflow(page)) <= 0);
     if (strict) await assertNoTruncation(page, "model default");
     await shoot(page, "2-model-default");
@@ -223,23 +223,50 @@ async function walkthrough({ width, height, theme, locale = "en-US", shotsOn = t
     const names = await page.locator(".onb-tile strong").allInnerTexts();
     assert.ok(!names.includes("Slack") && !names.includes("Discord"), "no tile without a working connect path");
     assert.ok(names.includes("Robinhood"));
+    const primary = page.locator(".onb-foot .onb-primary");
+    assert.equal(await primary.isDisabled(), true, "nothing selected: the primary waits");
+    assert.doesNotMatch(await primary.innerText(), /\d/, "never a count of 0");
+    assert.match(await primary.innerText(), /Select a service|Dienst auswählen/);
+    // Every named service wears its own letter mark, not a shared glyph.
+    const marks = await page.locator(".onb-tile").evaluateAll(tiles => tiles.map(tile => `${tile.dataset.integrationId}:${tile.querySelector(".service-mark")?.textContent}`));
+    assert.deepEqual(marks, ["github:G", "notion:N", "linear:L", "robinhood:R", "context7:C", "microsoft-learn:M"]);
     await page.locator("[data-integration-id='github']").click();
     await page.locator("[data-integration-id='linear']").click();
-    assert.match(await page.locator(".onb-foot .onb-primary").innerText(), /2/);
+    assert.match(await primary.innerText(), /2/);
+    assert.equal(await primary.isEnabled(), true);
     if (strict) await assertNoTruncation(page, "services pick");
     await shoot(page, "7-services-pick");
-    await page.locator(".onb-foot .onb-primary").click();
+    await primary.click();
     await page.locator(".onb-queue").waitFor();
     assert.deepEqual(await page.locator(".onb-queue li").evaluateAll(items => items.map(item => item.dataset.state)), ["now", "next"]);
+    assert.match(await page.locator(".onb-queue li").first().innerText(), /GitHub/, "chips name the service");
+    assert.match(await page.locator(".onb-queue li").nth(1).innerText(), /Linear/);
+    assert.match(await page.locator(".onb-title").innerText(), /GitHub/, "the title follows the service");
+    assert.doesNotMatch(await page.locator(".onb-title").innerText(), /Pick a few|Ein paar/);
+    await page.locator(".onb-count", { hasText: /GitHub/ }).waitFor();
+    assert.match(await page.locator(".onb-count").innerText(), /GitHub \(1 (of|von) 2\)/);
+    assert.equal(await page.locator(".onb-foot .onb-primary").count(), 1, "one primary action");
+    assert.equal(await page.locator(".onb-service-form button.primary-button").count(), 0, "no second Add button in the form");
+    assert.equal(await page.locator(".onb-service-form a.onb-link[href='https://github.com/settings/personal-access-tokens/new']").count(), 1, "token page link");
+    assert.equal(await page.locator(".onb-service-form").innerText().then(text => /\bPAT\b|Bearer|toolset/.test(text)), false, "no jargon in the main view");
+    assert.equal(await page.locator(".onb-foot .onb-primary").isDisabled(), true, "Connect waits for the token");
     await page.locator(".onb-service-form input[type=password]").fill("synthetic-token");
     if (strict) await assertNoTruncation(page, "services walk");
     await shoot(page, "8-services-walk");
-    await page.locator(".onb-service-main").click();
+    await page.locator(".onb-foot .onb-primary").click();
     await page.locator(".onb-service-done").waitFor();
     await shoot(page, "9-services-done");
     await page.locator(".onb-foot .onb-primary").click();
     assert.deepEqual(await page.locator(".onb-queue li").evaluateAll(items => items.map(item => item.dataset.state)), ["done", "now"]);
     await page.locator(".onb-foot .onb-quiet").click();
+    // The walk ends on a done state, never back on the pick screen.
+    await page.locator(".onb-summary").waitFor();
+    assert.equal(await page.locator(".onb-tiles").count(), 0, "not back on the pick screen");
+    assert.deepEqual(await page.locator(".onb-summary li").evaluateAll(items => items.map(item => item.dataset.serviceResult)), ["done", "skipped"]);
+    assert.equal(await page.locator(".onb-foot .onb-primary").isEnabled(), true);
+    if (strict) await assertNoTruncation(page, "services summary");
+    await shoot(page, "10-services-all-set");
+    await page.locator(".onb-foot .onb-primary").click();
 
     // 4. Lands in the first Bot's DM with the composer focused.
     await sheet(page).waitFor({ state: "detached" });
@@ -254,8 +281,8 @@ async function walkthrough({ width, height, theme, locale = "en-US", shotsOn = t
 
 try {
   // Shots and per-viewport assertions: desktop and phone, light and dark.
-  for (const [width, height] of [[1440, 900], [390, 844]]) for (const theme of ["light", "dark"]) {
-    await walkthrough({ width, height, theme });
+  for (const [width, height] of [[1440, 900], [1180, 820], [1024, 768], [390, 844]]) for (const theme of ["light", "dark"]) {
+    await walkthrough({ width, height, theme, strict: width > 700 && width < 1400 });
     pass(`walkthrough ${width}x${height} ${theme}: welcome, model, key error and success, services, DM focus`);
   }
 
@@ -288,12 +315,12 @@ try {
       assert.ok(cat.y >= 0 && cat.x >= 0, "the cat is fully on screen");
     }
     currentShot = "1440x900-light";
-    await shoot(page, "10-after-skip-banner-chip");
+    await shoot(page, "11-after-skip-banner-chip");
     currentShot = null;
     // The banner's Connect and the chip both reopen setup; a stored skip resumes at step 2.
     await page.locator("[data-model-banner] button").click();
     await page.locator(".onb-choices").waitFor();
-    assert.match(await page.locator(".onb-count").innerText(), /^2 of 3/);
+    assert.match(await page.locator(".onb-count").innerText(), /^Step 2 of 3/);
     assert.deepEqual(errors, []);
     await context.close();
     for (const [w, h, theme] of [[1440, 900, "dark"], [390, 844, "light"], [390, 844, "dark"]]) {
@@ -311,7 +338,7 @@ try {
     const second = await open(makeServer({ onboarding: { step: 1, completed: false, skipped: true } }));
     await second.page.locator("[data-finish-setup]").click();
     await second.page.locator(".onb-choices").waitFor();
-    assert.match(await second.page.locator(".onb-count").innerText(), /^2 of 3/, "Finish setup resumes at step 2");
+    assert.match(await second.page.locator(".onb-count").innerText(), /^Step 2 of 3/, "Finish setup resumes at step 2");
     await second.context.close();
     pass("welcome -> skip: Finish setup chip (2 of 3), composer banner, disabled composer, resume at step 2");
   }
@@ -321,7 +348,7 @@ try {
     const state = makeServer({ onboarding: { step: 2, completed: false, skipped: false } });
     const { page, context } = await open(state);
     await page.locator(".onb-choices").waitFor();
-    assert.match(await page.locator(".onb-count").innerText(), /^2 of 3 · required/);
+    assert.match(await page.locator(".onb-count").innerText(), /^Step 2 of 3 · required/);
     await page.getByRole("button", { name: "Not now" }).click();
     await page.locator("[data-finish-setup]").waitFor();
     assert.equal(state.onboarding.skipped, true);
@@ -331,7 +358,7 @@ try {
     await context.close();
     const fresh = await open(makeServer({ onboarding: { step: 2, completed: false, skipped: false } }));
     await fresh.page.locator(".onb-choices").waitFor();
-    assert.match(await fresh.page.locator(".onb-count").innerText(), /^2 of 3/, "an unfinished setup resumes on its step on any device");
+    assert.match(await fresh.page.locator(".onb-count").innerText(), /^Step 2 of 3/, "an unfinished setup resumes on its step on any device");
     await fresh.context.close();
     pass("model step: Not now stores the skip; progress resumes after a reload");
   }
@@ -356,7 +383,7 @@ try {
     await page.locator(".onb-connected").waitFor({ timeout: 8000 });
     assert.match(await page.locator(".onb-connected").innerText(), /ChatGPT/);
     assert.match(await page.locator(".onb-connected").innerText(), /Your first Bot is ready and waiting/);
-    assert.match(await page.locator(".onb-count").innerText(), /2 of 3 · done/);
+    assert.match(await page.locator(".onb-count").innerText(), /Step 2 of 3 · done/);
     assert.equal(state.bots.length, 1);
     assert.deepEqual(errors, []);
     await context.close();
@@ -420,6 +447,60 @@ try {
     pass("returning and completed accounts see no sheet, chip or banner");
   }
 
+  // The walk ends on a done state with Continue, which opens the Bot's DM (no way to get stuck).
+  {
+    const state = makeServer({ model: true, bots: 1, onboarding: { step: 3, completed: false, skipped: false } });
+    const { page, context, errors } = await open(state);
+    await page.locator(".onb-tiles").waitFor();
+    await page.locator("[data-integration-id='microsoft-learn']").click();
+    assert.match(await page.locator(".onb-foot .onb-primary").innerText(), /Connect 1/);
+    await page.locator(".onb-foot .onb-primary").click();
+    assert.match(await page.locator(".onb-foot .onb-primary").innerText(), /^Connect$/, "a no-sign-in service just says Connect");
+    await page.locator(".onb-foot .onb-primary").click();
+    await page.locator(".onb-service-done").waitFor();
+    assert.match(await page.locator(".onb-foot .onb-primary").innerText(), /Finish/, "the last service finishes");
+    await page.locator(".onb-foot .onb-primary").click();
+    await page.locator(".onb-summary").waitFor();
+    assert.match(await page.locator(".onb-title").innerText(), /all set/);
+    assert.match(await page.locator(".onb-summary li").first().innerText(), /Microsoft Learn[\s\S]*Connected/);
+    await page.locator(".onb-count", { hasText: /^Step 3 of 3 · done/ }).waitFor();
+    const cont = page.locator(".onb-foot .onb-primary");
+    assert.equal(await cont.isEnabled(), true);
+    assert.match(await cont.innerText(), /^Continue$/);
+    await cont.click();
+    await sheet(page).waitFor({ state: "detached" });
+    await page.locator(".composer textarea").waitFor();
+    assert.equal(state.onboarding.completed, true);
+    assert.deepEqual(errors, []);
+    await context.close();
+    pass("walk -> done state with enabled Continue -> the Bot's DM");
+  }
+
+  // Reopening the pick step with a service already connected: a clear Connected state and an enabled Continue.
+  {
+    const state = makeServer({ model: true, bots: 1, onboarding: { step: 3, completed: false, skipped: false } });
+    state.mcp = [{ name: "microsoft-learn", url: "https://learn.microsoft.com/api/mcp" }];
+    const { page, context } = await open(state, { width: 1024, height: 768 });
+    await page.locator(".onb-tiles").waitFor();
+    const tile = page.locator("[data-integration-id='microsoft-learn']");
+    await tile.locator(".status-badge").waitFor();
+    assert.match(await tile.innerText(), /Connected/);
+    assert.equal(await page.locator("button[data-integration-id='microsoft-learn']").count(), 0, "a connected service is not selectable");
+    assert.equal(await tile.evaluate(node => getComputedStyle(node).opacity), "1", "normal contrast, not greyed out");
+    const primary = page.locator(".onb-foot .onb-primary");
+    assert.equal(await primary.isEnabled(), true);
+    assert.match(await primary.innerText(), /^Continue$/);
+    await page.locator("[data-integration-id='github']").click();
+    assert.match(await primary.innerText(), /Connect 1/);
+    await page.locator("[data-integration-id='github']").click();
+    assert.match(await primary.innerText(), /^Continue$/);
+    await primary.click();
+    await sheet(page).waitFor({ state: "detached" });
+    assert.equal(state.onboarding.completed, true);
+    await context.close();
+    pass("pick step with a connected service: Connected badge, enabled Continue that finishes");
+  }
+
   // Reduced motion: no transitions or animations; the bubbles and the waiting dot are simply there.
   {
     const state = makeServer();
@@ -441,7 +522,7 @@ try {
   }
 
   // German: the longest labels wrap instead of being cut, on desktop and on a phone.
-  for (const [width, height] of [[1440, 900], [390, 844]]) {
+  for (const [width, height] of [[1440, 900], [1024, 768], [390, 844]]) {
     await walkthrough({ width, height, theme: "light", locale: "de-DE", shotsOn: false, strict: true });
     pass(`German at ${width}px: no truncation on any step`);
   }
