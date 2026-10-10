@@ -604,7 +604,13 @@
       "file_oversized": "패키지가 너무 큽니다.",
       "decrypt_failed": "복호화하지 못했습니다. 암호, 파일 버전, 파일 손상 여부를 확인하세요.",
       "file_damaged": "이 파일이 손상되었거나 Tofi 내보내기 파일이 아닙니다."
-    }
+    },
+    "summary": "계정 데이터나 Bot 하나를 서버 간에 옮깁니다. 번들은 암호화되며 가져오기 전에 먼저 확인합니다.",
+    "drop_hint": "또는 여기에 파일을 끌어다 놓기",
+    "environment_help": "기본적으로 꺼져 있습니다. 포함할 레코드를 하나씩 선택하세요.",
+    "import_environment_help": "기본적으로 꺼져 있습니다. 비활성 사본으로 복원할 레코드를 하나씩 선택하세요.",
+    "recovery_help": "비활성 사본입니다. 다시 내보내거나 삭제할 수 있습니다.",
+    "environment_label": "환경 자격 증명"
   },
   "status": {
     "ok": "연결됨",
@@ -657,5 +663,8 @@
       "install_hint": "서버에서 <code>sudo tofi update</code>를 실행하면 설치됩니다.",
       "auto_hint": "서버에서 켜고 끌 수 있습니다: <on>sudo tofi config auto-update on</on> 또는 <off>sudo tofi config auto-update off</off>"
     }
+  },
+  "disclosure": {
+    "details": "세부 정보"
   }
 }

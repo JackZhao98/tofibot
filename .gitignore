@@ -51,3 +51,4 @@ __pycache__/
 # Settings redesign screenshots and test fixtures
 /artifacts/
 /ui/.settings-shell-*/
+/ui/.settings-polish-*/

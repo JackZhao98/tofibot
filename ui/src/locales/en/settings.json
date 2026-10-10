@@ -613,7 +613,13 @@
       "file_oversized": "The bundle is too large.",
       "decrypt_failed": "Couldn't decrypt. Check the passphrase, the file version, and whether the file is damaged.",
       "file_damaged": "This file is damaged or isn't a Tofi export."
-    }
+    },
+    "summary": "Move account data or a single Bot between servers. Bundles are encrypted and imports are checked first.",
+    "drop_hint": "or drop a file here",
+    "environment_help": "Off by default. Check each record you want to include.",
+    "import_environment_help": "Off by default. Check each record to restore as an inactive copy.",
+    "recovery_help": "Inactive copies you can re-export or delete.",
+    "environment_label": "Environment credentials"
   },
   "status": {
     "ok": "Connected",
@@ -666,5 +672,8 @@
       "install_hint": "Run <code>sudo tofi update</code> on the server to install it.",
       "auto_hint": "Turn it on or off from the server: <on>sudo tofi config auto-update on</on> or <off>sudo tofi config auto-update off</off>"
     }
+  },
+  "disclosure": {
+    "details": "Details"
   }
 }

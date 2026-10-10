@@ -1,6 +1,6 @@
 import {useDebugMode} from "./debugMode";
 import { useEffect, useState } from "react";
-import "./ConnectionInfo.css";
+import { SettingsRow } from "./settings/components";
 import { useTranslation } from "./i18n";
 
 type DesktopConnection =
@@ -80,14 +80,12 @@ export function ConnectionInfo() {
     endpoint = state.loading ? t("connection.loading") : t("connection.unavailable");
     mode = t("connection.mode_desktop");
   }
-  return <section className="connection-info" aria-label={t("connection.label")}>
-    <div className="connection-info-heading"><h3>{t("connection.title")}</h3><span>{mode}</span></div>
-    <dl>
-      <div><dt>{connection?.connectionMode === "ssh" ? t("connection.server") : isDesktop ? t("connection.server_address") : t("connection.access_address")}</dt><dd>{endpoint}</dd></div>
-      {debug && <div><dt>{t("connection.instance_id")}</dt><dd className="connection-instance-id">{state.instanceID || (state.loading ? t("connection.confirming") : t("connection.unconfirmed"))}</dd></div>}
-    </dl>
-    {memorySession && <p role="status">{t("connection.memory_session")}</p>}
-    {isDesktop && <a className="text-button" href="/__desktop/setup">{t("connection.switch_server")}</a>}
-    {isDesktop && !state.loading && !connection && <p>{t("connection.local_entry", { origin: window.location.origin })}</p>}
-  </section>;
+  const addressLabel = connection?.connectionMode === "ssh" ? t("connection.server") : isDesktop ? t("connection.server_address") : t("connection.access_address");
+  return <>
+    <SettingsRow label={t("connection.title")} description={mode} control={isDesktop ? <a className="secondary-button" href="/__desktop/setup">{t("connection.switch_server")}</a> : undefined}/>
+    <SettingsRow label={addressLabel} control={<code className="connection-value">{endpoint}</code>}/>
+    {debug && <SettingsRow label={t("connection.instance_id")} control={<code className="connection-value">{state.instanceID || (state.loading ? t("connection.confirming") : t("connection.unconfirmed"))}</code>}/>}
+    {memorySession && <p className="settings-card-note" role="status">{t("connection.memory_session")}</p>}
+    {isDesktop && !state.loading && !connection && <p className="settings-card-note">{t("connection.local_entry", { origin: window.location.origin })}</p>}
+  </>;
 }

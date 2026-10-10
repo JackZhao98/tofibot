@@ -55,7 +55,7 @@ function SkillsSettings({bots,refreshToken=0}:{bots:Bot[];refreshToken?:number})
     </Disclosure>
     <p className="field-note">{t("skills.support_note")}</p>
     {error&&<p className="error-text" role="alert">{error}</p>}
-    <div className="extension-actions"><button disabled={busy} type="submit" className="primary-button">{busy?t("skills.installing"):t("skills.install_submit")}</button><button type="button" disabled={busy} onClick={()=>setSkillForm(false)}>{t("action.cancel")}</button></div>
+    <div className="extension-actions"><button disabled={busy} type="submit" className="primary-button">{busy?t("skills.installing"):t("skills.install_submit")}</button><button type="button" className="secondary-button" disabled={busy} onClick={()=>setSkillForm(false)}>{t("action.cancel")}</button></div>
     </fieldset>
    </form>}
 
