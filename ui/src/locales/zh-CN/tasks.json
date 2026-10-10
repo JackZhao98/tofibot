@@ -11,7 +11,7 @@
       "expired": "批准已过期",
       "human_denied": "你未批准此操作",
       "policy_denied": "此操作未通过安全检查",
-      "uncertain_effect": "执行结果待核实",
+      "uncertain_effect": "不确定是否已完成",
       "connection_status": "连接中断，状态待确认",
       "runtime_connection": "连接中断，任务未完成",
       "unknown_failure": "任务未完成"
@@ -22,7 +22,7 @@
       "open_model_connections": "打开模型连接设置",
       "copy_diagnostics": "复制诊断信息",
       "view_activity": "查看执行记录",
-      "verify_steps": "查看核实步骤",
+      "verify_steps": "如何核对",
       "refresh_status": "刷新状态"
     },
     "working": "处理中…",
@@ -84,13 +84,13 @@
     "config_changed": "工具设置已变更，需要重新批准",
     "tool_timeout": "超时未响应，已停止",
     "computer_restarting": "电脑正在重启，此步骤未执行",
-    "computer_unresponsive": "电脑无响应，此步骤未执行"
+    "computer_unresponsive": "电脑无响应，此步骤未执行",
+    "tool_rejected": "运行前被拒绝，未做任何更改"
   },
   "fact": {
     "labelled": "{{label}}: {{text}}",
     "execution_needs_checking": "执行结果待核实。",
     "sending_needs_checking": "发送结果待核实。",
-    "may_have_taken_effect": "以上待核实的操作可能已经生效；再次操作前请先核实。",
     "check_sent_mail": "请检查邮件服务中的已发送记录，核对时间、收件人与主题。",
     "check_target_service": "请在目标服务中核对这次操作的记录。无法确认时，请保持结果待核实。",
     "may_still_be_running": "任务可能仍在运行。刷新只读取最新状态。",
@@ -308,7 +308,8 @@
       "command": "正在运行命令",
       "computer": "正在操作电脑",
       "contact": "正在联系成员",
-      "call": "正在调用 {{name}}"
+      "call": "正在调用 {{name}}",
+      "profile": "正在保存 Bot 资料"
     },
     "title": {
       "form": "等待你填写表单",
@@ -327,7 +328,8 @@
       "command": "运行命令",
       "computer": "操作电脑",
       "contact": "联系成员",
-      "call": "调用 {{name}}"
+      "call": "调用 {{name}}",
+      "profile": "保存 Bot 资料"
     },
     "step_action": {
       "desktop_capture": "截屏",
@@ -435,5 +437,9 @@
     "cancel": "取消",
     "submitting": "提交中…",
     "submit": "私密提交"
+  },
+  "compact": {
+    "check_service": "重试前，请先到该操作使用的服务里核对。",
+    "check_mail": "重试前，请先查看已发送邮件。"
   }
 }

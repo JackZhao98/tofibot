@@ -11,7 +11,7 @@
       "expired": "承認の期限が切れました",
       "human_denied": "この操作を拒否しました",
       "policy_denied": "この操作は安全チェックを通過しませんでした",
-      "uncertain_effect": "実行結果の確認が必要です",
+      "uncertain_effect": "完了したか確認できません",
       "connection_status": "接続が切れたため、状態を確認できません",
       "runtime_connection": "接続が中断され、タスクは完了しませんでした",
       "unknown_failure": "タスクは完了しませんでした"
@@ -22,7 +22,7 @@
       "open_model_connections": "モデル接続を開く",
       "copy_diagnostics": "診断情報をコピー",
       "view_activity": "アクティビティを表示",
-      "verify_steps": "確認手順を見る",
+      "verify_steps": "確認方法",
       "refresh_status": "状態を更新"
     },
     "working": "処理中…",
@@ -84,13 +84,13 @@
     "config_changed": "ツール設定が変更されました。もう一度承認してください",
     "tool_timeout": "時間内に応答がなく、停止しました",
     "computer_restarting": "コンピューターを再起動中のため、このステップは実行されていません",
-    "computer_unresponsive": "コンピューターが応答しないため、このステップは実行されていません"
+    "computer_unresponsive": "コンピューターが応答しないため、このステップは実行されていません",
+    "tool_rejected": "実行前に拒否され、変更はありません"
   },
   "fact": {
     "labelled": "{{label}}：{{text}}",
     "execution_needs_checking": "実行結果の確認が必要です。",
     "sending_needs_checking": "送信結果の確認が必要です。",
-    "may_have_taken_effect": "上記の未確認の操作は反映されている可能性があります。再試行の前に確認してください。",
     "check_sent_mail": "メールサービスの送信記録で、日時・宛先・件名を照合してください。",
     "check_target_service": "対象サービスでこの操作の記録を確認してください。それでも確認できない場合は、未確認のままにしてください。",
     "may_still_be_running": "タスクはまだ実行中の可能性があります。更新は最新の状態を読み込むだけです。",
@@ -308,7 +308,8 @@
       "command": "コマンドを実行中",
       "computer": "コンピューターを操作中",
       "contact": "メンバーに連絡中",
-      "call": "{{name}}を呼び出し中"
+      "call": "{{name}}を呼び出し中",
+      "profile": "Bot のプロフィールを保存中"
     },
     "title": {
       "form": "フォームの入力を待っています",
@@ -327,7 +328,8 @@
       "command": "コマンドを実行",
       "computer": "コンピューターを操作",
       "contact": "メンバーに連絡",
-      "call": "{{name}}を呼び出す"
+      "call": "{{name}}を呼び出す",
+      "profile": "Bot のプロフィールを保存"
     },
     "step_action": {
       "desktop_capture": "スクリーンショット",
@@ -435,5 +437,9 @@
     "cancel": "キャンセル",
     "submitting": "送信中…",
     "submit": "非公開で送信"
+  },
+  "compact": {
+    "check_service": "再試行する前に、この操作で使ったサービスを確認してください。",
+    "check_mail": "再試行する前に、送信済みメールを確認してください。"
   }
 }
