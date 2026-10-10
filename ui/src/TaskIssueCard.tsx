@@ -38,16 +38,21 @@ export function TaskIssueCard({ issue, locale, onAction, onFeedback, onOpenStep 
       report(t("issue.status_unavailable"));
     } finally { inFlight.current = false; setBusy(false); }
   }
-  return <section className="task-issue-card" data-issue-kind={issue.kind} data-issue-phase={issue.phase} aria-labelledby={heading} aria-busy={busy}>
+  return <section className="task-issue-card" data-issue-kind={issue.kind} data-issue-phase={issue.phase} data-compact={issue.compact ? "true" : undefined} aria-labelledby={heading} aria-busy={busy}>
     <div className="task-issue-heading"><TofiIcon name={issue.kind === "uncertain_effect" ? "clock" : issue.kind === "tool_setup" ? "plug" : "alert"} size={20} aria-hidden="true" /><h3 id={heading} tabIndex={-1}>{issue.title}</h3></div>
+    {issue.compact ? <>
+      <p className="task-issue-fact task-issue-subject">{issue.compact.link && onOpenStep ? <button type="button" className="task-fact-link" onClick={() => onOpenStep(issue.compact!.link!.runId, issue.compact!.link!.callId)}>{issue.compact.link.label}</button> : null}{issue.compact.link && onOpenStep ? issue.compact.subject.slice(issue.compact.link.label.length) : issue.compact.subject}</p>
+      <p className="task-issue-context">{issue.compact.sentence}</p>
+    </> : <>
     {issue.facts.map((fact, index) => {
       const link = issue.links?.[index];
       // A named step opens its own record; the rest of the sentence stays plain text.
       return <p className="task-issue-fact" key={index}>{link && onOpenStep && fact.startsWith(link.label) ? <><button type="button" className="task-fact-link" onClick={() => onOpenStep(link.runId, link.callId)}>{link.label}</button>{fact.slice(link.label.length)}</> : fact}</p>;
     })}
     {issue.secondary.map((cause, index) => <p className="task-issue-context" key={index}>{cause}</p>)}
+    </>}
     <div className="task-issue-actions"><button type="button" className="secondary-button" disabled={busy} onClick={() => void act()}>{issue.action === "copy_diagnostics" && <TofiIcon name="copy" size={16} aria-hidden="true" />}{busy ? t("issue.working") : issue.actionLabel}</button></div>
-    <details className="task-issue-technical" ref={details}><summary>{t("step.technical_details")}</summary><pre ref={diagnostics} tabIndex={0} aria-label={t("issue.diagnostics")}>{taskDiagnostics(issue)}</pre></details>
+    <details className="task-issue-technical" ref={details}><summary>{t("step.technical_details")}</summary>{issue.compact && issue.facts.map((fact, index) => <p className="task-issue-context" key={index}>{fact}</p>)}<pre ref={diagnostics} tabIndex={0} aria-label={t("issue.diagnostics")}>{taskDiagnostics(issue)}</pre></details>
     {feedback && <p className="task-issue-feedback">{feedback}</p>}
   </section>;
 }

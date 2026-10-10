@@ -95,11 +95,11 @@ export function compareToolActivities(a: ToolActivity, b: ToolActivity) {
   return compareTime(preciseTime(a.started_at), preciseTime(b.started_at)) || a.call_id.localeCompare(b.call_id);
 }
 
-type ToolActionCode = "form" | "answer" | "secret_request" | "secret_use" | "search_tools" | "search_history" | "inspect_runs" | "computer_help" | "send_message" | "complete_schedule" | "connected_tool" | "browse" | "documents" | "command" | "computer" | "contact" | "call";
+type ToolActionCode = "form" | "answer" | "secret_request" | "secret_use" | "search_tools" | "search_history" | "inspect_runs" | "computer_help" | "send_message" | "complete_schedule" | "profile" | "connected_tool" | "browse" | "documents" | "command" | "computer" | "contact" | "call";
 const namedToolActions: Record<string, ToolActionCode> = {
   ask_user_form: "form", ask_user_question: "answer", request_secret_input: "secret_request", use_secret_input: "secret_use",
   search_mcp_tools: "search_tools", search_history: "search_history", inspect_recent_runs: "inspect_runs", computer_help: "computer_help",
-  send_chat_message: "send_message", complete_scheduled_task: "complete_schedule",
+  send_chat_message: "send_message", complete_scheduled_task: "complete_schedule", set_bot_profile: "profile",
 };
 
 /** What an observed tool event is doing, as a code; callers word it. */

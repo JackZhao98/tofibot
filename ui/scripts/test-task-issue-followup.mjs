@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import {readFile, writeFile} from "node:fs/promises";
+import {mkdir, readFile, writeFile} from "node:fs/promises";
 import {dirname, join} from "node:path";
 import {fileURLToPath} from "node:url";
 import {createServer} from "vite";
@@ -62,8 +62,14 @@ try {
   const visible=closedText(initialHTML);
   assert.equal((initialHTML.match(/data-task-owner=/g)??[]).length,1);
   assert.equal((initialHTML.match(/class="task-issue-card"/g)??[]).length,1);
-  assert(visible.includes(toolLabel(uncertainTool)));assert(visible.includes(draftLabel(uncertainDraft)));
-  assert(visible.includes("earlier action results still need checking"));
+  // Compact card: title, what, one sentence, one button. No per-call clock lines.
+  assert(visible.includes("Not sure this went through"));assert(visible.includes("Check your sent mail before trying again."));assert(visible.includes("How to check"));
+  assert(visible.includes(p.taskToolLabel(uncertainTool).replace(/^\S+\s/,"").split(" · ")[0]),"names the action");
+  assert(!visible.includes(toolLabel(uncertainTool)),"no per-call time line in the closed card");
+  assert(!visible.includes("Completed tool steps are retained")&&!visible.includes("not fully loaded")&&!visible.includes("may have taken effect"));
+  assert(initial.compact&&initial.compact.sentence==="Check your sent mail before trying again.");
+  assert.equal((initialHTML.match(/class="task-issue-fact/g)??[]).length,1,"one subject line");
+  assert(initialHTML.replace(/<[^>]+>/g," ").includes(draftLabel(uncertainDraft)),"per-object records stay in the collapsed details");
   assert(!initialHTML.includes(final.content),"normal latest final is not moved into the task owner");
   assert(!initialHTML.includes("approval-actions"));assert(!initialHTML.includes("Retry"));
 
@@ -96,12 +102,13 @@ try {
     const html=render([uncertainTool,secondTool],[uncertainDraft,sentDraft],locale);
     const text=closedText(html),view=familyView([uncertainTool,secondTool],[uncertainDraft,sentDraft],locale);
     const a=draftLabel(uncertainDraft,locale),b=draftLabel(sentDraft,locale);
-    assert.notEqual(a,b);assert(text.includes(`${a}: ${locale==="en"?"Sending result needs checking.":"发送结果待核实。"}`));
+    assert.notEqual(a,b);assert(html.replace(/<[^>]+>/g," ").replace(/&#x27;/g,"'").replace(/\s+/g," ").includes(`${a}: ${locale==="en"?"Sending result needs checking.":"发送结果待核实。"}`),"identity kept in details");
+    assert(!text.includes(a),"closed card does not repeat per-call labels");
     assert(text.includes(`${b}: ${locale==="en"?"Email was sent":"邮件已发送"}`));
     assert(!view.facts.some(fact=>fact.startsWith(b)),"confirmed draft B is not described as unknown");
     const diag=p.taskDiagnostics(view);
     for(const secret of [uncertainDraft.subject,uncertainDraft.to,uncertainDraft.body,sentDraft.subject,sentDraft.to,sentDraft.body]){assert(!text.includes(secret));assert(!diag.includes(secret));}
-    const reversed=closedText(render([secondTool,uncertainTool],[sentDraft,{...uncertainDraft,subject:"Changed private subject"}],locale));
+    const reversed=render([secondTool,uncertainTool],[sentDraft,{...uncertainDraft,subject:"Changed private subject"}],locale).replace(/<[^>]+>/g," ").replace(/&#x27;/g,"'").replace(/\s+/g," ");
     assert(reversed.includes(a));assert(reversed.includes(b));
     assert(view.facts.some(fact=>fact.startsWith(toolLabel(uncertainTool,locale))));
     assert(view.facts.some(fact=>fact.startsWith(toolLabel(secondTool,locale))));
@@ -112,6 +119,7 @@ try {
   console.log("PASS P2: bilingual closed-view identities for unknown A and sent B; scoped distinct calls; neutral labels stable through reordering/subject edit; diagnostics contain no private business text");
 
   const report={parent:"b5f008295b808a48d68819c6b6556e5b71713da2",mode:"CPU-only targeted SSR/components; no browser/listener",findings:["P1","P2"],ownerCount:1,issueCardCount:1,latestStatus:latest.status,latestFinalRemainsOutsideOwner:true,activityInitiallyOpen:false,exactObjectResolution:true,announcementFamilyInput:true,languages:languages.map(({html,...row})=>row),staticReproWidth:390,pixelLayoutRevalidated:false};
+  await mkdir(evidence,{recursive:true});
   await writeFile(join(evidence,"followup-repro.json"),JSON.stringify(report,null,2)+"\n");
   const styles=(await Promise.all(["styles.css","v2-foundations.css","task-issue-card.css","mail-draft-card.css"].map(file=>readFile(join(ui,"src",file),"utf8")))).join("\n").replace(/@import[^;]+;/g,"");
   const demo=languages.map(({locale,html})=>`<section class="repro" lang="${locale}"><h2>${locale} · 390px static component reproduction</h2>${html}<article class="normal-final">${final.content}</article></section>`).join("");
