@@ -560,3 +560,39 @@ func TestAnthropicWorkspaceCredentialSendsWorkspaceHeader(t *testing.T) {
 		t.Fatalf("key=%q workspace=%q", gotKey, gotWorkspace)
 	}
 }
+
+func TestToolChoiceNoneKeepsToolsAndIsOmittedByDefault(t *testing.T) {
+	tools := []Tool{{Name: "lookup", Parameters: map[string]any{"type": "object"}}}
+	msgs := []Message{{Role: "user", Content: "hi"}}
+	a, _ := (&anthropicProvider{}).buildPayload(&ChatRequest{Model: "claude-opus-5-5", ReasoningEffort: "high", Messages: msgs, Tools: tools, ToolChoice: ToolChoiceNone})
+	if tc, _ := a["tool_choice"].(map[string]any); tc["type"] != "none" || a["tools"] == nil {
+		t.Fatalf("anthropic payload: tool_choice=%v tools=%v", a["tool_choice"], a["tools"])
+	}
+	a, _ = (&anthropicProvider{}).buildPayload(&ChatRequest{Model: "claude-opus-5-5", Messages: msgs, Tools: tools})
+	if _, ok := a["tool_choice"]; ok {
+		t.Fatal("tool_choice set by default")
+	}
+	o := (&openaiResponses{}).buildPayload(&ChatRequest{Model: "gpt-4o", Messages: msgs, Tools: tools, ToolChoice: ToolChoiceNone}, true)
+	if o["tool_choice"] != "none" || o["tools"] == nil {
+		t.Fatalf("responses payload: tool_choice=%v tools=%v", o["tool_choice"], o["tools"])
+	}
+	o = (&openaiResponses{}).buildPayload(&ChatRequest{Model: "gpt-4o", Messages: msgs, Tools: tools}, true)
+	if _, ok := o["tool_choice"]; ok {
+		t.Fatal("tool_choice set by default")
+	}
+}
+
+func TestAnthropicMaxTokensFitsBudget(t *testing.T) {
+	const model = "claude-sonnet-4-20250514" // 200k window, 64k output
+	for effort, want := range map[string]int{"high": 32384, "xhigh": 48768, "max": 64000} {
+		payload, _ := (&anthropicProvider{}).buildPayload(&ChatRequest{Model: model, ReasoningEffort: effort, Messages: []Message{{Role: "user", Content: "hi"}}})
+		max := payload["max_tokens"].(int)
+		if max != want || max != AnthropicOutputReserve(model, effort) {
+			t.Fatalf("%s: max_tokens = %d, want %d (reserve %d)", effort, max, want, AnthropicOutputReserve(model, effort))
+		}
+		th, _ := payload["thinking"].(map[string]any)
+		if th == nil || th["budget_tokens"].(int) >= max {
+			t.Fatalf("%s: thinking %v not below max_tokens %d", effort, th, max)
+		}
+	}
+}
