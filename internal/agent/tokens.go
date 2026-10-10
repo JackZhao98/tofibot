@@ -111,37 +111,81 @@ func (t *TokenTracker) RestoreModelBreakdown(breakdown map[string]ModelUsage) {
 // screenshot is roughly 1–1.5K tokens.
 const imageTokenEstimate = 1500
 
+// ContextBreakdown splits an input estimate by what occupies the window:
+// system prompt plus tool definitions, message text/images/tool calls, and
+// replayed reasoning.
+type ContextBreakdown struct {
+	System    int
+	Messages  int
+	Reasoning int
+}
+
+// Total is the full estimated input tokens.
+func (b ContextBreakdown) Total() int { return b.System + b.Messages + b.Reasoning }
+
 // EstimateContextUsage estimates the total token count for a request
 // (system prompt + messages + tool definitions) before sending to the API.
 // Returns estimated input tokens.
 func EstimateContextUsage(system string, messages []provider.Message, tools []provider.Tool) int {
-	total := 0
+	return EstimateContextBreakdown(system, messages, tools).Total()
+}
+
+// EstimateContextBreakdown is EstimateContextUsage split into its parts.
+func EstimateContextBreakdown(system string, messages []provider.Message, tools []provider.Tool) ContextBreakdown {
+	var b ContextBreakdown
 
 	// System prompt
-	total += estimateStringTokens(system)
+	b.System += estimateStringTokens(system)
 
 	// Messages: content + overhead per message (~4 tokens for role/delimiters)
 	for _, msg := range messages {
-		total += 4 // message framing overhead
-		total += estimateStringTokens(msg.Content)
-		total += len(msg.ImageURLs) * imageTokenEstimate
+		b.Messages += 4 // message framing overhead
+		b.Messages += estimateStringTokens(msg.Content)
+		b.Messages += len(msg.ImageURLs) * imageTokenEstimate
 		for _, tc := range msg.ToolCalls {
-			total += 4 // tool call framing
-			total += estimateStringTokens(tc.Name)
-			total += estimateStringTokens(tc.Arguments)
+			b.Messages += 4 // tool call framing
+			b.Messages += estimateStringTokens(tc.Name)
+			b.Messages += estimateStringTokens(tc.Arguments)
 		}
-		// Replayed reasoning is opaque ciphertext; count it by size.
 		for _, item := range msg.ReasoningItems {
-			total += len(item.EncryptedContent) / 4
+			b.Reasoning += estimateReasoningTokens(item)
 		}
 	}
 
 	// Tool definitions eat context too
 	for _, tool := range tools {
-		total += estimateToolTokens(tool)
+		b.System += estimateToolTokens(tool)
 	}
 
-	return total
+	return b
+}
+
+// estimateReasoningTokens sizes one replayed reasoning item. OpenAI items are
+// opaque ciphertext, counted by size. An Anthropic item holds the turn's whole
+// content-block array; only its thinking blocks count here, since the text and
+// tool_use blocks are already counted from the message itself.
+func estimateReasoningTokens(item provider.ReasoningItem) int {
+	n := len(item.EncryptedContent) / 4
+	if item.Provider != "anthropic" || len(item.Content) == 0 {
+		return n
+	}
+	var blocks []struct {
+		Type     string `json:"type"`
+		Thinking string `json:"thinking"`
+		Data     string `json:"data"`
+	}
+	if json.Unmarshal(item.Content, &blocks) != nil {
+		return n
+	}
+	for _, blk := range blocks {
+		switch blk.Type {
+		case "thinking":
+			n += estimateStringTokens(blk.Thinking)
+		case "redacted_thinking":
+			n += len(blk.Data) / 4
+		}
+	}
+	return n
 }
 
 // CheckBudget validates whether the estimated context usage fits within
