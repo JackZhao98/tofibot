@@ -55,3 +55,10 @@ func InvalidArguments(message string) error {
 	o.RepairLimit = 3
 	return o.Err()
 }
+
+// Rejected reports a precondition refusal by a local tool: the call was
+// understood but refused before anything was written. It is a definite
+// failure, never an uncertain effect.
+func Rejected(message string) error {
+	return New(Permanent, "tool_rejected", "not_executed", message+" Nothing was changed.", "repair_arguments").Err()
+}

@@ -11,7 +11,7 @@
       "expired": "Approval expired",
       "human_denied": "You declined this action",
       "policy_denied": "This action did not pass the safety check",
-      "uncertain_effect": "Execution result needs checking",
+      "uncertain_effect": "Not sure this went through",
       "connection_status": "Connection lost; status is unconfirmed",
       "runtime_connection": "Connection interrupted; the task did not finish",
       "unknown_failure": "The task did not finish"
@@ -22,7 +22,7 @@
       "open_model_connections": "Open model connections",
       "copy_diagnostics": "Copy diagnostics",
       "view_activity": "View activity",
-      "verify_steps": "See verification steps",
+      "verify_steps": "How to check",
       "refresh_status": "Refresh status"
     },
     "working": "Working…",
@@ -84,13 +84,13 @@
     "config_changed": "Tool settings changed; approve again",
     "tool_timeout": "Didn't respond in time and was stopped",
     "computer_restarting": "The computer is restarting; this step didn't run",
-    "computer_unresponsive": "The computer isn't responding; this step didn't run"
+    "computer_unresponsive": "The computer isn't responding; this step didn't run",
+    "tool_rejected": "Refused before running; nothing changed"
   },
   "fact": {
     "labelled": "{{label}}: {{text}}",
     "execution_needs_checking": "Execution result needs checking.",
     "sending_needs_checking": "Sending result needs checking.",
-    "may_have_taken_effect": "The unconfirmed actions above may have taken effect. Check before trying again.",
     "check_sent_mail": "Check sent-mail records in your email service and compare the time, recipient, and subject.",
     "check_target_service": "Check this action's records in the target service. If still unconfirmed, keep the result unconfirmed.",
     "may_still_be_running": "The task may still be running. Refresh only reads the latest status.",
@@ -313,7 +313,8 @@
       "command": "Running a command",
       "computer": "Using the computer",
       "contact": "Contacting a member",
-      "call": "Calling {{name}}"
+      "call": "Calling {{name}}",
+      "profile": "Saving the Bot's profile"
     },
     "title": {
       "form": "Waiting for you to fill in a form",
@@ -332,7 +333,8 @@
       "command": "Run a command",
       "computer": "Use the computer",
       "contact": "Contact a member",
-      "call": "Call {{name}}"
+      "call": "Call {{name}}",
+      "profile": "Save the Bot's profile"
     },
     "step_action": {
       "desktop_capture": "Screenshot",
@@ -440,5 +442,9 @@
     "cancel": "Cancel",
     "submitting": "Submitting…",
     "submit": "Submit privately"
+  },
+  "compact": {
+    "check_service": "Check the service this action used before trying again.",
+    "check_mail": "Check your sent mail before trying again."
   }
 }

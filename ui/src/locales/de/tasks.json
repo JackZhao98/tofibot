@@ -11,7 +11,7 @@
       "expired": "Freigabe abgelaufen",
       "human_denied": "Du hast diese Aktion abgelehnt",
       "policy_denied": "Diese Aktion hat die Sicherheitsprüfung nicht bestanden",
-      "uncertain_effect": "Ausführungsergebnis prüfen",
+      "uncertain_effect": "Nicht sicher, ob das geklappt hat",
       "connection_status": "Verbindung getrennt, Status unbestätigt",
       "runtime_connection": "Verbindung unterbrochen, die Aufgabe wurde nicht abgeschlossen",
       "unknown_failure": "Die Aufgabe wurde nicht abgeschlossen"
@@ -22,7 +22,7 @@
       "open_model_connections": "Modellverbindungen öffnen",
       "copy_diagnostics": "Diagnose kopieren",
       "view_activity": "Aktivität ansehen",
-      "verify_steps": "Prüfschritte ansehen",
+      "verify_steps": "So prüfen Sie es",
       "refresh_status": "Status aktualisieren"
     },
     "working": "Wird bearbeitet…",
@@ -84,13 +84,13 @@
     "config_changed": "Tool-Einstellungen geändert, bitte erneut freigeben",
     "tool_timeout": "Keine Antwort rechtzeitig, abgebrochen",
     "computer_restarting": "Der Computer startet neu; dieser Schritt wurde nicht ausgeführt",
-    "computer_unresponsive": "Der Computer reagiert nicht; dieser Schritt wurde nicht ausgeführt"
+    "computer_unresponsive": "Der Computer reagiert nicht; dieser Schritt wurde nicht ausgeführt",
+    "tool_rejected": "Vor der Ausführung abgelehnt, nichts geändert"
   },
   "fact": {
     "labelled": "{{label}}: {{text}}",
     "execution_needs_checking": "Das Ausführungsergebnis muss geprüft werden.",
     "sending_needs_checking": "Das Versandergebnis muss geprüft werden.",
-    "may_have_taken_effect": "Die unbestätigten Aktionen oben könnten bereits wirksam sein. Prüfe das, bevor du es erneut versuchst.",
     "check_sent_mail": "Sieh in deinem E-Mail-Dienst bei den gesendeten Nachrichten nach und vergleiche Zeit, Empfänger und Betreff.",
     "check_target_service": "Prüfe die Einträge zu dieser Aktion im Zieldienst. Bleibt es unklar, lass das Ergebnis als unbestätigt stehen.",
     "may_still_be_running": "Die Aufgabe läuft möglicherweise noch. Aktualisieren liest nur den neuesten Status.",
@@ -313,7 +313,8 @@
       "command": "Führt einen Befehl aus",
       "computer": "Bedient den Computer",
       "contact": "Kontaktiert ein Mitglied",
-      "call": "Ruft {{name}} auf"
+      "call": "Ruft {{name}} auf",
+      "profile": "Speichert das Bot-Profil"
     },
     "title": {
       "form": "Wartet darauf, dass du ein Formular ausfüllst",
@@ -332,7 +333,8 @@
       "command": "Befehl ausführen",
       "computer": "Computer bedienen",
       "contact": "Mitglied kontaktieren",
-      "call": "{{name}} aufrufen"
+      "call": "{{name}} aufrufen",
+      "profile": "Bot-Profil speichern"
     },
     "step_action": {
       "desktop_capture": "Screenshot",
@@ -440,5 +442,9 @@
     "cancel": "Abbrechen",
     "submitting": "Wird gesendet…",
     "submit": "Privat senden"
+  },
+  "compact": {
+    "check_service": "Prüfen Sie den genutzten Dienst, bevor Sie es erneut versuchen.",
+    "check_mail": "Prüfen Sie Ihre gesendeten E-Mails, bevor Sie es erneut versuchen."
   }
 }

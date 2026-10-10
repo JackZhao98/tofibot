@@ -358,6 +358,11 @@ func (e *engine) Run(ctx context.Context, req Request) (Result, error) {
 							status, code, next = tooloutcome.Permanent, "unsupported_operation", "explain_blocker"
 						}
 						certainty, explanation := "unknown", executeErr.Error()+" Verify the target state before repeating this call."
+						if rawTool.Local && identity.Risk != tooloutcome.Observation && !errors.Is(executeErr, errors.ErrUnsupported) {
+							// Local tools refuse before committing; nothing was written.
+							status, code, next, certainty = tooloutcome.Permanent, "tool_rejected", "repair_arguments", "not_executed"
+							explanation = executeErr.Error() + " Nothing was changed. Fix the cause and call again if still needed."
+						}
 						if identity.Risk == tooloutcome.Observation {
 							status, code, next, certainty = tooloutcome.Permanent, "observation_failed", "explain_blocker", "no_side_effects"
 							explanation = executeErr.Error() + " This observation failed without side effects. Fix its precondition (for example, start what it reads) before retrying it, inspect another target, or explain the blocker."
