@@ -9,66 +9,26 @@ import { ServiceMark } from "./ServiceMark";
 import { googleAPIEnableURL, googleAudienceURL, integrationCatalog, type IntegrationPreset } from "./integrationCatalog";
 import { isDesktop } from "./desktop";
 import { mcpOAuthRoute, type OAuthOptions, type OAuthRoute } from "./mcpOAuthRoute";
-import { CatStage, type CatHandle } from "./CatStage";
+import { CatStage } from "./CatStage";
 import { LocalMCPPanel } from "./LocalMCPPanel";
 import { Banner } from "./settings/components";
 import { mcpTokenHeaders } from "./mcpTokenHeaders";
 import { i18n, useTranslation } from "./i18n";
+import { formatRelativeTime } from "./i18n/format";
 import { CATS, EmptyState } from "./EmptyCat";
-import "./mcp-test-motion.css";
 import "./oauth-link-motion.css";
 
-function OAuthLinkMotion({linked,title}:{linked:boolean;title:string}) {
+/** Shown only while the user is signing in; never in a resting card. */
+function OAuthLinkMotion({title}:{title:string}) {
  const { t } = useTranslation("extensions");
- const cat=useRef<CatHandle>(null);
- const mounted=useRef(linked);
- useEffect(()=>{
-  if(linked&&!mounted.current){
-   const timer=window.setTimeout(()=>{const handle=cat.current;if(handle)void handle.play("wake").then(()=>handle.play("happy"));},620);
-   mounted.current=linked;
-   return()=>window.clearTimeout(timer);
-  }
-  if(!linked&&mounted.current)void cat.current?.play("sleep");
-  mounted.current=linked;
- },[linked]);
- return <div className={`web-oauth-link${linked?" is-linked":""}`} aria-label={linked?t("oauth.linked",{title}):t("oauth.waiting",{title})}><span className="web-oauth-node"><CatStage config={{shape:"curl",pattern:"calico",palette:"calico"}} initialState={linked?"awake":"asleep"} ref={cat}/></span><svg viewBox="0 0 200 60" aria-hidden="true"><path className="web-oauth-wait" d="M6 44 Q100 -6 194 44"/><path className="web-oauth-done" d="M6 44 Q100 -6 194 44" pathLength={1}/></svg><span className="web-oauth-provider"><TofiIcon name="key" size={22}/><small>{title}</small><i><TofiIcon name="check" size={12} variant="filled"/></i></span></div>;
-}
-
-function MCPTestMotion({phase}:{phase:"checking"|"ready"|"error"}) {
- const plug=useRef<SVGGElement>(null);
- const approach=useRef<Animation|null>(null);
- const sequence=useRef(0);
- const [visualPhase,setVisualPhase]=useState<"checking"|"ready"|"error">("checking");
- useEffect(()=>{
-  const element=plug.current;
-  if(!element)return;
-  const id=++sequence.current;
-  if(window.matchMedia("(prefers-reduced-motion: reduce)").matches){setVisualPhase(phase);return;}
-  const startApproach=()=>element.animate({transform:["translateX(0)","translateX(10px)","translateX(8px)","translateX(15px)"],offset:[0,.5,.62,1]},{duration:1000,easing:"ease-in-out",fill:"forwards"});
-  if(phase==="checking"){
-   element.getAnimations().forEach(animation=>animation.cancel());
-   setVisualPhase("checking");
-   approach.current=startApproach();
-   return;
-  }
-  if(!approach.current)approach.current=startApproach();
-  void (async()=>{
-   try{await approach.current?.finished;}catch{return;}
-   if(sequence.current!==id)return;
-   const result=phase==="ready"
-    ?element.animate({transform:["translateX(15px)","translateX(22px)"]},{duration:120,easing:"cubic-bezier(.6,0,1,1)",fill:"forwards"})
-    :element.animate({transform:["translateX(15px)","translateX(19px)","translateX(-5px)","translateX(2px)","translateX(0)"],offset:[0,.15,.55,.8,1]},{duration:620,easing:"ease-out",fill:"forwards"});
-   try{await result.finished;}catch{return;}
-   if(sequence.current===id)setVisualPhase(phase);
-  })();
- },[phase]);
- useEffect(()=>()=>{sequence.current++;plug.current?.getAnimations().forEach(animation=>animation.cancel());},[]);
- return <svg className={`web-mcp-plug is-${visualPhase}`} viewBox="0 0 170 56" aria-hidden="true"><g ref={plug}><path className="web-mcp-cable" d="M-20 28 C 10 28, 22 28, 46 28"/><rect className="web-mcp-body" x="46" y="13" width="36" height="30" rx="8"/><rect className="web-mcp-prong" x="82" y="19" width="16" height="5" rx="1.5"/><rect className="web-mcp-prong" x="82" y="32" width="16" height="5" rx="1.5"/></g><rect className="web-mcp-socket" x="112" y="8" width="44" height="40" rx="10"/><rect className="web-mcp-hole" x="112" y="19" width="9" height="5"/><rect className="web-mcp-hole" x="112" y="32" width="9" height="5"/><g className="web-mcp-sparks"><path d="M108 8 l-6 -6"/><path d="M104 28 h-9"/><path d="M108 48 l-6 6"/></g></svg>;
+ return <div className="web-oauth-link" aria-label={t("oauth.waiting",{title})}><span className="web-oauth-node"><CatStage config={{shape:"curl",pattern:"calico",palette:"calico"}} initialState="asleep"/></span><svg viewBox="0 0 200 60" aria-hidden="true"><path className="web-oauth-wait" d="M6 44 Q100 -6 194 44"/></svg><span className="web-oauth-provider"><TofiIcon name="key" size={22}/><small>{title}</small></span></div>;
 }
 
 type OAuth = {client_id:string;client_secret?:string;scopes?:string[];auth_server_metadata_url?:string;connected?:boolean};
+type TestResult = {ok:boolean;tool_count?:number;auth_required?:boolean;diagnostics?:{message:string}[]};
 type MCPTransport = "streamable_http"|"sse";
-type MCP = {name:string;url:string;transport?:MCPTransport;headers?:Record<string,string>;tool_allowlist?:string[];tool_denylist?:string[];oauth?:OAuth};
+type MCPStatus = {checked_at:string;ok:boolean;tool_count:number;error_class?:"auth"|"failed"};
+type MCP = {name:string;url:string;transport?:MCPTransport;status?:MCPStatus;headers?:Record<string,string>;tool_allowlist?:string[];tool_denylist?:string[];oauth?:OAuth};
 const message=(e:unknown)=>{
  const text=e instanceof Error?e.message:String(e);
  if(text==="Failed to fetch")return i18n.t("extensions:error.offline");
@@ -134,15 +94,16 @@ export function MCPSettings({refreshToken=0,bots=[]}:{refreshToken?:number;bots?
 type Phase="idle"|"checking"|"ready"|"auth"|"authorizing"|"waiting"|"error"|"removing";
 function MCPRow({server,checkRequest,refresh,onEdit,onRemoved,route,botId}:{route:OAuthRoute;botId?:string;server:MCP;checkRequest:number;refresh:()=>Promise<void>;onEdit:()=>void;onRemoved:()=>void}) {
  const { t } = useTranslation(["extensions","common"]);
- const [phase,setPhase]=useState<Phase>(server.oauth&&!server.oauth.connected?"auth":"idle");
- const [testAttempted,setTestAttempted]=useState(false);
- const [count,setCount]=useState<number>();
- const [error,setError]=useState("");
+ const known=server.status;
+ const [phase,setPhase]=useState<Phase>(server.oauth&&!server.oauth.connected?"auth":known?(known.ok?"ready":known.error_class==="auth"?"auth":"error"):"idle");
+ const [count,setCount]=useState<number|undefined>(known?.ok?known.tool_count:undefined);
+ const [checkedAt,setCheckedAt]=useState<string|undefined>(known?.checked_at);
+ const [error,setError]=useState(known&&!known.ok&&known.error_class!=="auth"?i18n.t("extensions:error.tools_failed"):"");
  const [authURL,setAuthURL]=useState("");
  const [vmSession,setVMSession]=useState<VMOAuthSession|null>(null);
  const [menu,setMenu]=useState(false);
  const [confirm,setConfirm]=useState<"remove"|"disconnect"|null>(null);
- const alive=useRef(true);const operation=useRef(0);const abort=useRef<AbortController|null>(null);
+ const alive=useRef(true);const operation=useRef(0);const quietBase=useRef(0);const abort=useRef<AbortController|null>(null);
  const menuRef=useRef<HTMLDivElement>(null);const trigger=useRef<HTMLButtonElement>(null);
  const previouslyConnected=useRef(server.oauth?.connected);
  const authorizationPopup=useRef<Window|null>(null);
@@ -160,17 +121,43 @@ function MCPRow({server,checkRequest,refresh,onEdit,onRemoved,route,botId}:{rout
  },[menu]);
  const check=useCallback(async()=>{
   const id=++operation.current;abort.current?.abort();const controller=new AbortController();abort.current=controller;
-  setTestAttempted(true);
   setError("");setPhase("checking");
   try {
    const result=await request<{ok:boolean;tool_count?:number;auth_required?:boolean;diagnostics?:{message:string}[]}>(endpoint(server.name)+"/test",{...post({}),signal:controller.signal});
    if(!alive.current||operation.current!==id)return;
-   if(result.ok){setCount(result.tool_count??0);setPhase("ready");setAuthURL("");}
+   if(result.ok){setCount(result.tool_count??0);setCheckedAt(new Date().toISOString());setPhase("ready");setAuthURL("");}
    else if(result.auth_required){setPhase("auth");setCount(undefined);}
    else {setPhase("error");setError(result.diagnostics?.map(item=>message(item.message)).join(t("diagnostics_separator"))||t("error.tools_failed"));}
   } catch(e){if(alive.current&&operation.current===id){setPhase("error");setError(message(e));}}
  },[server.name,server.oauth?.connected]);
  useEffect(()=>{if(checkRequest>0)void check();},[checkRequest,check]);
+ // Quiet re-verification on open: no phase change, no motion. One retry absorbs a transient blip; only a repeated failure changes the card.
+ useEffect(()=>{
+  if((server.oauth&&!server.oauth.connected)||checkRequest>0)return;
+  const base=operation.current;let live=true;const controller=new AbortController();let timer=0;
+  const probe=async()=>{
+   try {
+    const r=await request<TestResult>(endpoint(server.name)+"/test",{...post({}),signal:controller.signal});
+    return r;
+   } catch(e){return controller.signal.aborted?null:{ok:false,diagnostics:[{message:e instanceof Error?e.message:String(e)}]} as TestResult;}
+  };
+  void (async()=>{
+   let r=await probe();
+   if(!live||!r)return;
+   if(!r.ok&&!r.auth_required){
+    await new Promise<void>(done=>{timer=window.setTimeout(done,1500);});
+    if(!live)return;
+    r=await probe();
+    if(!live||!r)return;
+   }
+   if(!alive.current||operation.current!==base)return;
+   if(r.ok){setCount(r.tool_count??0);setCheckedAt(new Date().toISOString());setError("");setPhase(p=>p==="idle"||p==="ready"||p==="error"?"ready":p);}
+   else if(r.auth_required){setPhase("auth");setCount(undefined);}
+   else {setPhase(p=>p==="idle"||p==="ready"||p==="error"?"error":p);setError(r.diagnostics?.map(item=>message(item.message)).join(t("diagnostics_separator"))||t("error.tools_failed"));}
+  })();
+  return()=>{live=false;window.clearTimeout(timer);controller.abort();};
+ // eslint-disable-next-line react-hooks/exhaustive-deps
+ },[server.name,server.url]);
  useEffect(()=>{if(!vmSession&&!previouslyConnected.current&&server.oauth?.connected&&checkRequest===0){setAuthURL("");void check();}else if(previouslyConnected.current&&!server.oauth?.connected){setCount(undefined);setPhase("auth");}previouslyConnected.current=server.oauth?.connected;},[server.oauth?.connected,checkRequest,check,vmSession]);
  useEffect(()=>{
   if(phase!=="waiting"||vmSession||isDesktop)return;
@@ -225,16 +212,15 @@ function MCPRow({server,checkRequest,refresh,onEdit,onRemoved,route,botId}:{rout
   catch(e){if(alive.current&&id===operation.current){setPhase("error");setError(message(e));}}
  }
  const needsAuth=Boolean(server.oauth)&&(!server.oauth?.connected||phase==="auth");
- const status=phase==="checking"?t("status.checking"):phase==="ready"?t("status.tools",{count:count??0}):phase==="authorizing"?t("status.authorizing"):phase==="waiting"?t("status.waiting"):phase==="removing"?t("status.removing"):error?t("status.failed"):needsAuth?t("status.needs_auth"):t("status.unverified");
+ const status=phase==="checking"?t("status.checking"):phase==="ready"?t("status.connected_tools",{count:count??0}):phase==="authorizing"?t("status.authorizing"):phase==="waiting"?t("status.waiting"):phase==="removing"?t("status.removing"):error?t("status.failed"):needsAuth?t("status.needs_auth"):t("status.unverified");
  return <article className="mcp-service" aria-label={display} data-state={error?"error":phase}>
-  <div className="mcp-service-row"><ServiceMark name={display}/><div className="mcp-service-identity"><strong>{display}</strong><span className="mcp-service-status" role="status"><i aria-hidden="true"/>{status}</span></div>
+  <div className="mcp-service-row"><ServiceMark name={display}/><div className="mcp-service-identity"><strong>{display}</strong><span className="mcp-service-status" role="status"><i aria-hidden="true"/>{status}{phase==="ready"&&checkedAt&&<small className="mcp-service-checked">{t("status.checked",{when:formatRelativeTime(checkedAt)})}</small>}</span></div>
    <div className="mcp-service-actions">{phase==="waiting"&&route.mode==="desktop"?<button className="mcp-button" onClick={()=>void window.tofiDesktop?.cancelMCPAuthorization?.(server.name).catch(e=>setError(message(e)))}>{t("mcp.cancel_auth")}</button>:phase==="waiting"&&authURL?<a className="mcp-button" href={authURL} target="_blank" rel="noopener noreferrer">{t("mcp.continue_auth")}</a>:needsAuth?<button className="mcp-button" disabled={busy||route.mode==="blocked"} onClick={()=>void authorize()}>{error?t("common:action.retry"):t("mcp.connect")}</button>:(phase==="idle"||phase==="error")?<button className="mcp-button" disabled={busy} onClick={()=>void check()}>{error?t("common:action.retry"):t("mcp.connect")}</button>:null}
    <div className="mcp-menu-anchor" ref={menuRef}><button ref={trigger} className="mcp-button mcp-menu-trigger" aria-label={t("mcp.more_actions",{name:display})} aria-expanded={menu} disabled={busy} onClick={()=>setMenu(value=>!value)}><TofiIcon name="more" size={20} variant={menu?"filled":"outline"}/></button>
     {menu&&<div className="mcp-menu"><button onClick={()=>{setMenu(false);onEdit();}}>{t("mcp.menu.edit")}</button><button onClick={()=>{setMenu(false);void check();}}>{t("mcp.menu.refresh")}</button>{server.oauth?.connected&&<button onClick={()=>{setMenu(false);setConfirm("disconnect");}}>{t("mcp.menu.disconnect")}</button>}<button className="mcp-menu-danger" onClick={()=>{setMenu(false);setConfirm("remove");}}>{t("mcp.menu.remove")}</button></div>}
    </div></div>
   </div>
-  {!isDesktop&&server.oauth&&["authorizing","waiting","ready"].includes(phase)&&<OAuthLinkMotion linked={phase==="ready"&&Boolean(server.oauth.connected)} title={display}/>}
-  {!isDesktop&&testAttempted&&["checking","ready","error"].includes(phase)&&<MCPTestMotion phase={phase as "checking"|"ready"|"error"}/>}
+  {!isDesktop&&server.oauth&&["authorizing","waiting"].includes(phase)&&<OAuthLinkMotion title={display}/>}
   {error&&<p className="mcp-service-error" role="alert">{error}</p>}
   {needsAuth&&<div className="mcp-login-note"><p role="status">{route.note}</p></div>}
   {preset?.googleAPIs&&<div className="mcp-service-setup"><Disclosure key={needsAuth||phase==="error"||error?"attention":"available"} title={t("google.help")} defaultOpen={Boolean(needsAuth||phase==="error"||error)}><GoogleSetupLinks preset={preset} docs/></Disclosure></div>}

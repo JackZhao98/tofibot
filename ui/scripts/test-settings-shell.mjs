@@ -113,10 +113,10 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
     if (path === "/api/preferences") return {timezone: "America/Los_Angeles", timezone_configured: true};
     if (path === "/api/extensions/mcp" && method === "GET") return {servers: [
       {name: "acme_docs", url: "https://mcp.example.test/docs", oauth: {client_id: "sample", connected: false}},
-      {name: "acme_tracker", url: "https://mcp.example.test/tracker", oauth: {client_id: "sample", connected: true}},
+      {name: "acme_tracker", url: "https://mcp.example.test/tracker", oauth: {client_id: "sample", connected: true}, status: {checked_at: "2026-10-09T09:30:00Z", ok: true, tool_count: 49}},
       {name: "notes_search", url: "https://mcp.example.test/notes", headers: {}},
     ]};
-    if (/^\/api\/extensions\/mcp\/[^/]+\/test$/.test(path) && method === "POST") return {ok: true, tool_count: 8};
+    if (/^\/api\/extensions\/mcp\/[^/]+\/test$/.test(path) && method === "POST") return query.get("testfail") ? {ok: false, tool_count: 0, diagnostics: [{server: "x", message: "MCP server connection or discovery failed"}]} : {ok: true, tool_count: 8};
     if (path === "/api/extensions/oauth-options") return {vm_available: false, web_callback_origin: "https://tofi.example.test", desktop_redirect_uri: ""};
     if (path === "/api/extensions/local-mcp") return {available: false, reason: "sample"};
     if (path === "/api/extensions/skills") return {skills: [{name: "research-assistant", description: "Research and verify sources"}, {name: "weekly-report", description: "Draft the weekly status report"}].map(skill => ({...skill, access: skillAccess.get(skill.name) ?? {mode: "all"}}))};
@@ -249,6 +249,8 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
       const body = stub(url, method, new URLSearchParams(page.url().split("?")[1] ?? ""));
       if (body === undefined) { unexpected.push(`${method} ${url.pathname}`); await route.fulfill({status: 404, contentType: "application/json", body: JSON.stringify({error: {message: "not stubbed", code: "not_found"}})}); return; }
       if (method !== "GET" && !/\/(test|verify)$/.test(url.pathname)) writes.push(`${method} ${url.pathname}`);
+      const delay = Number(new URLSearchParams(page.url().split("?")[1] ?? "").get("testdelay") ?? 0);
+      if (delay && /\/test$/.test(url.pathname)) await new Promise(resolve => setTimeout(resolve, delay));
       await route.fulfill({contentType: "application/json", body: JSON.stringify(body)});
     });
     const query = new URLSearchParams({lang: "en", ...params});
@@ -479,6 +481,40 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
       await view.close();
     }
     console.log("PASS skill access: All Bots by default, sheet needs a Bot, saving shows 1 of 3 Bots, reload keeps it, back to All Bots, translated");
+  }
+
+  // ---- 7f. Connections open on the cached state: no animation, no spinner; the quiet re-check updates in place or flips to the problem.
+  {
+    const card = (page, name) => page.locator(`.mcp-service[aria-label="${name}"]`);
+    const motion = ".web-mcp-plug, .web-oauth-link, .mcp-service[data-state=\"checking\"], .mcp-service[data-state=\"authorizing\"]";
+    const running = page => page.evaluate(() => document.getAnimations().filter(a => a.playState === "running" && a.effect?.target?.closest?.(".mcp-service")).length);
+    // Slow background check: the first paint must already be the cached "Connected" line.
+    const slow = await open({tab: "connections", testdelay: "1800"});
+    const tracker = card(slow.page, "acme_tracker");
+    await tracker.waitFor({timeout: 15000});
+    const first = (await tracker.locator(".mcp-service-status").textContent()).trim();
+    assert.match(first, /^Connected · 49 tools/, `cached status on first paint, got "${first}"`);
+    assert.equal(await slow.page.locator(motion).count(), 0, "no test animation while the quiet check runs");
+    assert.equal(await running(slow.page), 0, "nothing animates inside a connection card");
+    assert.equal(await tracker.locator(".mcp-menu-trigger").isDisabled(), false, "menu is not busy during the quiet check");
+    assert.equal(await tracker.getAttribute("data-state"), "ready");
+    await slow.page.waitForFunction(() => /Connected · 8 tools/.test(document.querySelector('.mcp-service[aria-label="acme_tracker"] .mcp-service-status')?.textContent ?? ""), null, {timeout: 10000});
+    assert.match(await tracker.locator(".mcp-service-checked").textContent(), /^Checked /, "tiny checked timestamp appears");
+    assert.equal(await slow.page.locator(motion).count(), 0);
+    await slow.close();
+    // Failing background check: one quiet retry, then the problem state with a named reason.
+    const before = requested.filter(line => /acme_tracker\/test$/.test(line)).length;
+    const bad = await open({tab: "connections", testfail: "1"});
+    const badTracker = card(bad.page, "acme_tracker");
+    await badTracker.waitFor({timeout: 15000});
+    assert.match((await badTracker.locator(".mcp-service-status").textContent()).trim(), /^Connected · 49 tools/, "starts from the cached state");
+    await bad.page.waitForFunction(() => document.querySelector('.mcp-service[aria-label="acme_tracker"]')?.getAttribute("data-state") === "error", null, {timeout: 12000});
+    assert.match(await badTracker.locator(".mcp-service-status").textContent(), /Connection failed/);
+    assert.ok((await badTracker.locator(".mcp-service-error").textContent()).trim().length > 5, "a named reason is shown");
+    assert.equal(requested.filter(line => /acme_tracker\/test$/.test(line)).length - before, 2, "one quiet retry before showing the problem");
+    assert.equal(await bad.page.locator(motion).count(), 0);
+    await bad.close();
+    console.log("PASS connections: cached Connected on first paint, no animation or spinner, quiet re-check, failure flips after one retry");
   }
 
   // ---- 7c. Admin console: list, detail, role, disk, password, deactivation and the delete flow (stubbed API).
