@@ -123,8 +123,6 @@
     "unavailable": "Gemeinsamer Computer nicht verfügbar",
     "health_restarting": "Gemeinsamer Computer reagiert nicht · Neustart läuft",
     "health_unresponsive": "Gemeinsamer Computer reagiert nicht",
-    "hibernated": "Gemeinsamer Computer im Ruhezustand · wird bei der nächsten Nutzung mit deinen Tabs fortgesetzt",
-    "hibernating": "Gemeinsamer Computer wechselt in den Ruhezustand",
     "resuming": "Gemeinsamer Computer wird aufgeweckt"
   },
   "computer_phase": {

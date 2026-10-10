@@ -18,6 +18,7 @@
       "storage": "准备存储",
       "network": "准备网络",
       "booting": "启动虚拟机",
+      "restoring": "恢复会话",
       "verifying": "验证 Linux 与 Chrome",
       "ready": "就绪"
     },
@@ -92,7 +93,8 @@
       "waking": "正在唤醒电脑",
       "connecting": "正在连接屏幕",
       "resuming": "正在从休眠中恢复",
-      "hibernated": "已休眠，Bot 需要时会自动唤醒。",
+      "resuming_phase": "正在唤醒 · {{phase}}",
+      "hibernated": "休眠中 · 正在唤醒…",
       "hibernating": "正在进入休眠…",
       "retry": "重试"
     }

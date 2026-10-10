@@ -123,8 +123,6 @@
     "unavailable": "共有コンピューターは現在利用できません",
     "health_restarting": "共有コンピューターが応答しません · 再起動中",
     "health_unresponsive": "共有コンピューターが応答しません",
-    "hibernated": "共有コンピューターはスリープ中 · 次回の使用時にタブごと復元します",
-    "hibernating": "共有コンピューターをスリープしています",
     "resuming": "共有コンピューターを復帰しています"
   },
   "computer_phase": {

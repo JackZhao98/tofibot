@@ -19,6 +19,7 @@
       "storage": "Preparing storage",
       "network": "Preparing network",
       "booting": "Starting virtual machine",
+      "restoring": "Restoring session",
       "verifying": "Verifying Linux and Chrome",
       "ready": "Ready"
     },
@@ -93,7 +94,8 @@
       "waking": "Waking the computer",
       "connecting": "Connecting to the screen",
       "resuming": "Resuming from hibernation",
-      "hibernated": "Hibernated. It wakes when a Bot needs it.",
+      "resuming_phase": "Waking · {{phase}}",
+      "hibernated": "Asleep · waking up…",
       "hibernating": "Going to sleep…",
       "retry": "Retry"
     }

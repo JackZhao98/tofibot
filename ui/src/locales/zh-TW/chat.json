@@ -123,8 +123,6 @@
     "unavailable": "共享電腦暫時無法使用",
     "health_restarting": "共用電腦沒有回應 · 正在重新啟動",
     "health_unresponsive": "共用電腦沒有回應",
-    "hibernated": "共享電腦已休眠 · 下次使用時連同分頁一起恢復",
-    "hibernating": "共享電腦正在進入休眠",
     "resuming": "正在喚醒共享電腦"
   },
   "computer_phase": {
