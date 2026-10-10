@@ -3233,7 +3233,7 @@ func (s *Server) execute(c Conversation, r Run) {
 				return persistErr
 			}
 			content = cleanBotOutput(content, botCfg)
-			if content == "" {
+			if len(splitProgress(content)) == 0 {
 				return ctx.Err()
 			}
 			message, _, err := s.store.PublishAssistantTurn(ctx, r.ID, turnIndex, content)
@@ -3488,6 +3488,10 @@ func (s *Server) execute(c Conversation, r Run) {
 		return
 	}
 	res.Content = cleanBotOutput(res.Content, botCfg)
+	// The final turn: <progress> notes publish ahead of the answer; the answer
+	// is everything else (or, if the whole turn was notes, the notes themselves).
+	finalNotes, finalAnswer := finalSplit(res.Content)
+	res.Content = finalAnswer
 	if c.Kind == "group" && !pendingAfterFinal && !hasHandoff(s.store, r.ID) {
 		if target, task := leadingMentionTarget(res.Content, c, s); target != "" && task != "" && !s.store.isGroupReturnMention(r, target) {
 			if depth := handoffDepth(s.store, r.ID); depth < maxHandoffRounds {
@@ -3519,7 +3523,7 @@ func (s *Server) execute(c Conversation, r Run) {
 			demoted = demotedDraft{}
 			demotedMu.Unlock()
 			if draft != "" {
-				res.Content = draft
+				finalNotes, res.Content = finalSplit(draft)
 			} else if progressed, err := s.store.hasProgressReport(r.ID); err != nil {
 				s.failRun(c, r, err)
 				return
@@ -3532,6 +3536,11 @@ func (s *Server) execute(c Conversation, r Run) {
 		}
 	}
 	resetDemotedDraft()
+	if len(finalNotes) > 0 && strings.TrimSpace(res.Content) != "" {
+		if _, _, err := s.store.publishAssistantParts(ctx, r.ID, 0, finalNotes, false); err != nil {
+			log.Printf("[run] publish final-turn notes %s: %v", r.ID, err)
+		}
+	}
 	if _, finished, fe := s.store.FinishRun(r.ID, c.ID, r.BotID, res.Content); fe != nil {
 		s.failRun(c, r, fe)
 		return
