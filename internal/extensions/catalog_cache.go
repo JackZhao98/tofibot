@@ -27,6 +27,8 @@ type MCPCatalogTool struct {
 	RemoteName  string         `json:"remote_name"`
 	Description string         `json:"description"`
 	InputSchema map[string]any `json:"input_schema"`
+	// ReadOnlyHint is the untrusted remote readOnlyHint annotation.
+	ReadOnlyHint bool `json:"read_only_hint,omitempty"`
 }
 
 type catalogCacheEntry struct {

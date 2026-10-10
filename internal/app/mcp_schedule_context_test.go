@@ -272,6 +272,36 @@ func (f *scheduledMCPFixture) toolEvidence(truncated, uncertain bool) {
 	}
 }
 
+// One recorded step whose outcome is unverified. Browser steps carry the
+// microVM tool's own argument shape; MCP steps carry call_mcp_tool's.
+func (f *scheduledMCPFixture) uncertainStep(callID, name, arguments string) {
+	f.t.Helper()
+	outcome := tooloutcome.New(tooloutcome.Uncertain, "synthetic_uncertain", "unknown", "Synthetic step result is unknown.", "verify_effect")
+	events := []runtime.ToolEvent{{CallID: callID, Name: name, Arguments: arguments, Status: "queued"}, {CallID: callID, Name: name, Status: "running"}, {CallID: callID, Name: name, Status: "failed", Result: outcome.JSON(), Outcome: &outcome}}
+	for _, event := range events {
+		if err := f.s.store.RecordToolEvent(f.c.ID, f.r.BotID, f.r.ID, event); err != nil {
+			f.t.Fatal(err)
+		}
+	}
+}
+
+func (f *scheduledMCPFixture) uncertainBrowserNavigate() {
+	f.uncertainStep("synthetic-navigate", "computer_browser", `{"action":"browser.navigate","url":"https://fixture.invalid/alpha"}`)
+}
+
+func (f *scheduledMCPFixture) uncertainMCPWrite(tool string) {
+	f.uncertainStep("synthetic-"+tool, "call_mcp_tool", `{"name":"mcp_schedule-fixture__`+tool+`","arguments":{"target":"alpha"}}`)
+}
+
+// Re-point the proposal at a tool outside the owner's trusted read-only list.
+// The remote hint is what the fixture's tools/list would have carried.
+func (f *scheduledMCPFixture) proposeTool(tool string, readOnlyHint bool) {
+	f.call.Tool, f.call.ReadOnlyHint, f.call.Description = tool, readOnlyHint, "Synthetic "+tool
+	if !f.s.extensions.MCPCallCurrent(f.call) {
+		f.t.Fatal("synthetic static configuration is not current")
+	}
+}
+
 func TestScheduledMCPContextBoundedLineage(t *testing.T) {
 	cases := []struct {
 		name   string
@@ -473,7 +503,34 @@ func TestScheduledMCPContextBoundedLineage(t *testing.T) {
 			}
 		}},
 		{"truncated tool result is flagged evidence", false, scheduleSourceChat, true, func(f *scheduledMCPFixture) { f.toolEvidence(true, false) }},
-		{"uncertain tool result", false, scheduleSourceChat, false, func(f *scheduledMCPFixture) { f.toolEvidence(false, true) }},
+		// The scheduled effect fence: an earlier unverified effect fences a
+		// later effect, never a read; an earlier unverified observation fences
+		// nothing. The proposal read_public is owner-trusted read-only.
+		{"uncertain effect does not fence a trusted read", false, scheduleSourceChat, true, func(f *scheduledMCPFixture) { f.toolEvidence(false, true) }},
+		{"uncertain effect does not fence a hinted read", false, scheduleSourceChat, true, func(f *scheduledMCPFixture) {
+			f.uncertainMCPWrite("write_record")
+			f.proposeTool("fetch_record", true)
+		}},
+		{"uncertain effect fences a later effect", false, scheduleSourceChat, false, func(f *scheduledMCPFixture) {
+			f.uncertainMCPWrite("write_record")
+			f.proposeTool("write_record", false)
+		}},
+		{"uncertain effect fences a different later effect", false, scheduleSourceChat, false, func(f *scheduledMCPFixture) {
+			f.uncertainMCPWrite("write_record")
+			f.proposeTool("send_notice", false)
+		}},
+		{"unknown tool with uncertain outcome fences a later effect", false, scheduleSourceChat, false, func(f *scheduledMCPFixture) {
+			f.toolEvidence(false, true)
+			f.proposeTool("write_record", false)
+		}},
+		{"uncertain browser navigate does not fence a later effect", false, scheduleSourceChat, true, func(f *scheduledMCPFixture) {
+			f.uncertainBrowserNavigate()
+			f.proposeTool("write_record", false)
+		}},
+		{"uncertain browser click fences a later effect", false, scheduleSourceChat, false, func(f *scheduledMCPFixture) {
+			f.uncertainStep("synthetic-click", "computer_browser", `{"action":"browser.click","click":"Send","effect":"none"}`)
+			f.proposeTool("write_record", false)
+		}},
 		{"malformed tool outcome", false, scheduleSourceChat, false, func(f *scheduledMCPFixture) {
 			f.toolEvidence(false, false)
 			f.exec(`UPDATE tool_activities SET outcome_json='{' WHERE run_id=?`, f.r.ID)
@@ -506,7 +563,7 @@ func TestScheduledMCPContextBoundedLineage(t *testing.T) {
 			if tc.setup != nil {
 				tc.setup(f)
 			}
-			x, digest, err := f.s.readMCPReviewContext(f.s.store.db, f.c, f.r)
+			x, digest, err := f.s.readMCPReviewContextFor(f.s.store.db, f.c, f.r, f.s.mcpProposalFence(f.call))
 			if tc.valid {
 				if err != nil || digest == "" || x.ScheduleLineage == nil || x.ScheduleLineage.Occurrence.RootRunID != f.root.ID {
 					t.Fatalf("valid lineage: %+v %q %v", x.ScheduleLineage, digest, err)
@@ -521,6 +578,11 @@ func TestScheduledMCPContextBoundedLineage(t *testing.T) {
 				}
 			} else if err == nil {
 				t.Fatal("unsupported lineage was eligible")
+			}
+			if strings.Contains(tc.name, "fences a") {
+				if diagnostic := mcpContextDiagnostic(err); diagnostic.Code != mcpContextToolsUncertain {
+					t.Fatalf("fence code: %+v", diagnostic)
+				}
 			}
 			q := f.question()
 			reviewErr := f.review(q)
