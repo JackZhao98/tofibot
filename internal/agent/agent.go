@@ -148,18 +148,20 @@ type AgentConfig struct {
 	// non-empty public content, before any associated tools are executed. The
 	// content is sanitized for public delivery; the agent's internal message
 	// remains unchanged.
-	OnAssistantTurn   func(turnIndex int, content string)
-	MaxContextTokens  int                                                       // 0 = auto-detect from model name
-	OnContextCompact  func(summary string, originalTokens, compactedTokens int) // Optional: called when context is compacted
-	OnProgress        func(status string, progress int, message string)         // Generic progress update
-	OnStepStart       func(toolName, args string)                               // Generic step start
-	OnStepDone        func(toolName, result string, durationMs int64)           // Generic step done
-	LiveUsage         *provider.Usage                                           // Optional: updated in real-time during agent loop for tools to read
-	OnContextEstimate func(estimatedInput int)                                  // Estimated input for the next model call, after pre-call compaction
-	OnUsage           func(inputTokens, outputTokens int64)                     // Provider-reported usage for one model call
-	OnCompact         func(originalTokens, compactedTokens int)                 // Successful in-run context compaction
-	Hooks             *Hooks                                                    // Optional: pre/post hooks for tool calls, API calls, compaction
-	OnMessage         func(msg provider.Message)                                // Optional: called immediately after each assistant/tool message is appended. Used for incremental chat session persistence so a browser refresh or hold doesn't lose in-progress turns. Internal synthetic user continuations are NOT emitted.
+	OnAssistantTurn           func(turnIndex int, content string)
+	MaxContextTokens          int                                                       // 0 = auto-detect from model name
+	OnContextCompact          func(summary string, originalTokens, compactedTokens int) // Optional: called when context is compacted
+	OnProgress                func(status string, progress int, message string)         // Generic progress update
+	OnStepStart               func(toolName, args string)                               // Generic step start
+	OnStepDone                func(toolName, result string, durationMs int64)           // Generic step done
+	LiveUsage                 *provider.Usage                                           // Optional: updated in real-time during agent loop for tools to read
+	OnContextEstimate         func(estimatedInput int)                                  // Estimated input for the next model call, after pre-call compaction
+	OnContextBreakdown        func(ContextBreakdown)                                    // Same estimate split into system/tools, messages and reasoning
+	OnReasoningReplayRejected func()                                                    // Provider rejected replayed reasoning; replay is off for the rest of the run
+	OnUsage                   func(inputTokens, outputTokens int64)                     // Provider-reported usage for one model call
+	OnCompact                 func(originalTokens, compactedTokens int)                 // Successful in-run context compaction
+	Hooks                     *Hooks                                                    // Optional: pre/post hooks for tool calls, API calls, compaction
+	OnMessage                 func(msg provider.Message)                                // Optional: called immediately after each assistant/tool message is appended. Used for incremental chat session persistence so a browser refresh or hold doesn't lose in-progress turns. Internal synthetic user continuations are NOT emitted.
 	// BeforeModelCall runs at the safe boundary immediately before a provider
 	// request. Callers may use it to observe durable steering input without
 	// interrupting an already-streaming response or an in-flight tool.
@@ -1008,6 +1010,30 @@ func RunAgentLoop(cfg AgentConfig, ctx *models.ExecutionContext) (returned *Agen
 	reasoningReplayDisabled := false
 	modelCallRecovered := false
 
+	// A compaction is a model call of its own: it counts against the run's
+	// call and cost budget, reaches the usage ledger, and keeps LLMCalls,
+	// TotalUsage and the per-model breakdown in step (ValidateContinuation
+	// requires all three to agree). A replay rejection seen there switches
+	// replay off before the next real request repeats it.
+	recordCompaction := func(c compaction) {
+		for _, usage := range c.Calls {
+			state = state.RecordAPICall(cfg.Model, usage)
+			if cfg.OnUsage != nil {
+				cfg.OnUsage(usage.InputTokens, usage.OutputTokens)
+			}
+		}
+		if cfg.LiveUsage != nil && len(c.Calls) > 0 {
+			*cfg.LiveUsage = state.TotalUsage
+		}
+		if c.ReplayRejected && !reasoningReplayDisabled {
+			ctx.Log("[Agent] Provider rejected replayed reasoning during compaction; disabled for this run")
+			reasoningReplayDisabled = true
+			if cfg.OnReasoningReplayRejected != nil {
+				cfg.OnReasoningReplayRejected()
+			}
+		}
+	}
+
 	finalRepairToolNames := make(map[string]bool, len(cfg.FinalResponseRepairTools))
 	for _, name := range cfg.FinalResponseRepairTools {
 		if declaredTools[name] {
@@ -1063,42 +1089,51 @@ func RunAgentLoop(cfg AgentConfig, ctx *models.ExecutionContext) (returned *Agen
 		// Extract messages from state for this iteration (written back at end of loop)
 		messages := state.Messages
 
+		// Anthropic thinking signatures bind the whole preceding prefix, so
+		// editing any old message makes the server drop every later thinking
+		// block. While replay is live, history is append-only and context
+		// pressure is left to full compaction.
+		historyPinned := !reasoningReplayDisabled && provider.HasAnthropicReplay(messages)
+
 		// Screenshots are re-sent with every request; keep only the newest.
-		messages = dropOldToolImages(messages, keepRecentToolImages)
+		if !historyPinned {
+			messages = dropOldToolImages(messages, keepRecentToolImages)
+		}
 
 		// Micro-compact: trim old tool results that LLM has already consumed,
 		// at coarse checkpoints so the cached request prefix stays stable.
-		estimatedInput := EstimateContextUsage(systemPrompt, messages, allTools)
-		if len(messages) > 8 && microCompactDue(messages, 6, estimatedInput, state.Tracker.ContextWindow()) {
+		breakdown := EstimateContextBreakdown(systemPrompt, messages, allTools)
+		estimatedInput := breakdown.Total()
+		if !historyPinned && len(messages) > 8 && microCompactDue(messages, 6, estimatedInput, state.Tracker.ContextWindow()) {
 			messages = microCompact(messages, 6)
-			estimatedInput = EstimateContextUsage(systemPrompt, messages, allTools)
+			breakdown = EstimateContextBreakdown(systemPrompt, messages, allTools)
+			estimatedInput = breakdown.Total()
 		}
 
 		// Pre-call context budget check — compact proactively before hitting the limit
-		if cfg.OnContextEstimate != nil {
-			cfg.OnContextEstimate(estimatedInput)
-		}
-		if !repairRequest && !finalRepairFinalRequest && state.Tracker.ShouldCompact(estimatedInput, 0.80) && len(messages) > 4 {
-			ctx.Log("[Agent] Pre-call compaction triggered: estimated %d tokens > 80%% of %d window", estimatedInput, state.Tracker.ContextWindow())
+		cfg.reportContext(breakdown)
+		compactAt := compactionThreshold(cfg.Model)
+		if !repairRequest && !finalRepairFinalRequest && state.Tracker.ShouldCompact(estimatedInput, compactAt) && len(messages) > 4 {
+			ctx.Log("[Agent] Pre-call compaction triggered: estimated %d tokens > %.0f%% of %d window", estimatedInput, compactAt*100, state.Tracker.ContextWindow())
 			cfg.Hooks.callPreCompact(len(messages), estimatedInput)
 			originalTokens := estimatedInput
 			originalCount := len(messages)
-			summary, compactErr := compactMessages(loopCtx, cfg.Provider, cfg.Model, cfg.ReasoningEffort, messages)
+			compacted, compactErr := compactTranscript(loopCtx, &cfg, systemPrompt, allTools, messages, reasoningReplayDisabled)
+			recordCompaction(compacted)
 			if compactErr != nil {
 				ctx.Log("[Agent] Pre-call compaction failed: %v", compactErr)
 			} else {
-				messages = compactAndRebuild(messages, summary)
+				messages = compactAndRebuild(messages, compacted.Summary)
 				// Reset InitialMsgCount so NewMessages() tracks only post-compaction additions
 				state = state.WithCompactedMessages(messages)
-				compactedTokens := EstimateContextUsage(systemPrompt, messages, allTools)
+				breakdown = EstimateContextBreakdown(systemPrompt, messages, allTools)
+				compactedTokens := breakdown.Total()
 				estimatedInput = compactedTokens
 				cfg.Hooks.callPostCompact(originalCount, len(messages), originalTokens, compactedTokens)
 				if cfg.OnCompact != nil {
 					cfg.OnCompact(originalTokens, compactedTokens)
 				}
-				if cfg.OnContextEstimate != nil {
-					cfg.OnContextEstimate(compactedTokens)
-				}
+				cfg.reportContext(breakdown)
 				ctx.Log("[Agent] Pre-call compacted to %d messages (~%d tokens)", len(messages), compactedTokens)
 			}
 		}
@@ -1241,7 +1276,8 @@ func RunAgentLoop(cfg AgentConfig, ctx *models.ExecutionContext) (returned *Agen
 				recoverNote = "Your previous attempt was aborted because it produced an over-long tool call. Keep tool arguments short; split large content into smaller steps."
 			case provider.IsStreamWatchdog(err), transientStreamFailure(err):
 			case provider.IsContextOverflow(err) && len(messages) > 4:
-				summary, compactErr := compactMessages(loopCtx, cfg.Provider, cfg.Model, cfg.ReasoningEffort, messages)
+				compacted, compactErr := compactFlattened(loopCtx, cfg.Provider, cfg.Model, cfg.ReasoningEffort, messages)
+				recordCompaction(compacted)
 				if compactErr != nil {
 					ctx.Log("[Agent] Overflow compaction failed: %v", compactErr)
 					recoverable = false
@@ -1249,7 +1285,7 @@ func RunAgentLoop(cfg AgentConfig, ctx *models.ExecutionContext) (returned *Agen
 				}
 				originalTokens := EstimateContextUsage(systemPrompt, messages, allTools)
 				originalCount := len(messages)
-				messages = compactAndRebuild(messages, summary)
+				messages = compactAndRebuild(messages, compacted.Summary)
 				state = state.WithCompactedMessages(messages)
 				compactedTokens := EstimateContextUsage(systemPrompt, messages, allTools)
 				cfg.Hooks.callPostCompact(originalCount, len(messages), originalTokens, compactedTokens)
@@ -1302,6 +1338,9 @@ func RunAgentLoop(cfg AgentConfig, ctx *models.ExecutionContext) (returned *Agen
 		if resp.ReasoningReplayRejected && !reasoningReplayDisabled {
 			ctx.Log("[Agent] Provider rejected replayed reasoning; disabled for this run")
 			reasoningReplayDisabled = true
+			if cfg.OnReasoningReplayRejected != nil {
+				cfg.OnReasoningReplayRejected()
+			}
 		}
 		apiDuration := time.Since(apiStart)
 		state = state.RecordAPICall(cfg.Model, resp.Usage)
@@ -2008,15 +2047,17 @@ func RunAgentLoop(cfg AgentConfig, ctx *models.ExecutionContext) (returned *Agen
 		}
 
 		// Post-call context compaction — use actual API-reported token count
-		if !repairRequest && !finalRepairFinalRequest && resp.Usage.InputTokens > int64(float64(state.Tracker.ContextWindow())*0.80) && len(messages) > 4 {
-			ctx.Log("[Agent] Post-call compaction triggered: %d tokens > 80%% of %d window", resp.Usage.InputTokens, state.Tracker.ContextWindow())
+		if !repairRequest && !finalRepairFinalRequest && resp.Usage.InputTokens > int64(float64(state.Tracker.ContextWindow())*compactionThreshold(cfg.Model)) && len(messages) > 4 {
+			ctx.Log("[Agent] Post-call compaction triggered: %d tokens > %.0f%% of %d window", resp.Usage.InputTokens, compactionThreshold(cfg.Model)*100, state.Tracker.ContextWindow())
 			originalTokens := int(resp.Usage.InputTokens)
 			cfg.Hooks.callPreCompact(len(messages), originalTokens)
 
-			summary, compactErr := compactMessages(loopCtx, cfg.Provider, cfg.Model, cfg.ReasoningEffort, messages)
+			compacted, compactErr := compactTranscript(loopCtx, &cfg, systemPrompt, allTools, messages, reasoningReplayDisabled)
+			recordCompaction(compacted)
 			if compactErr != nil {
 				ctx.Log("[Agent] Compaction failed: %v", compactErr)
 			} else {
+				summary := compacted.Summary
 				originalCount := len(messages)
 				messages = compactAndRebuild(messages, summary)
 				// Reset InitialMsgCount so NewMessages() tracks only post-compaction additions
@@ -2070,7 +2111,107 @@ func clipUTF8(s string, n int) string {
 	return s
 }
 
+// Anthropic runs keep history append-only to preserve thinking (see
+// historyPinned), so they compact earlier to leave headroom.
+func compactionThreshold(model string) float64 {
+	if info, ok := provider.GetModelInfo(model); ok && info.Provider == "anthropic" {
+		return 0.70
+	}
+	return 0.80
+}
+
+func (cfg *AgentConfig) reportContext(b ContextBreakdown) {
+	if cfg.OnContextEstimate != nil {
+		cfg.OnContextEstimate(b.Total())
+	}
+	if cfg.OnContextBreakdown != nil {
+		cfg.OnContextBreakdown(b)
+	}
+}
+
+// compactionHandoffPrompt asks the model, inside its own transcript, for a
+// handoff summary. Unlike the flattened path the model can read its own
+// reasoning here, so section 7 captures the thinking that would otherwise be
+// lost when the history is replaced.
+const compactionHandoffPrompt = "The context window is nearly full. Stop working on the task now and do not call any tools. " +
+	"Write a handoff summary of this conversation so you can continue from a fresh context. You MUST preserve:\n" +
+	"1. The current task goal and what the user originally asked for\n" +
+	"2. Key decisions made and their reasoning\n" +
+	"3. Important results, data, file paths, and code outputs\n" +
+	"4. What was accomplished so far (completed steps)\n" +
+	"5. What still needs to be done (pending steps)\n" +
+	"6. Any errors encountered and how they were resolved\n" +
+	"7. Current line of thinking: why you are taking the current path, what you ruled out and why, and the next step you intended to take\n\n" +
+	"Format as structured sections. Be concise but complete. Output in the same language as the conversation."
+
+// compactTranscript summarizes messages. When the transcript carries replayable
+// reasoning it continues the real transcript (same system prompt, tools and
+// replayed reasoning) with a handoff instruction, so the model can read its own
+// thinking. Any failure there, including a context overflow, falls back to the
+// flattened-text summarizer.
+func compactTranscript(ctx context.Context, cfg *AgentConfig, system string, tools []provider.Tool, messages []provider.Message, replayDisabled bool) (compaction, error) {
+	var out compaction
+	if !replayDisabled && hasReasoningItems(messages) && len(messages) > 0 && messages[len(messages)-1].Role != "assistant" {
+		req := &provider.ChatRequest{
+			Model:           cfg.Model,
+			ReasoningEffort: cfg.ReasoningEffort,
+			System:          system,
+			Messages:        append(append([]provider.Message(nil), messages...), provider.Message{Role: "user", Content: compactionHandoffPrompt}),
+			Tools:           tools,
+			PromptCacheKey:  cfg.PromptCacheKey,
+		}
+		resp, err := cfg.Provider.Chat(ctx, req)
+		if err == nil && resp != nil {
+			out.Calls = append(out.Calls, resp.Usage)
+			out.ReplayRejected = resp.ReasoningReplayRejected
+			if !resp.HasToolCalls() && strings.TrimSpace(resp.Content) != "" {
+				out.Summary = resp.Content
+				return out, nil
+			}
+		}
+	}
+	flat, err := compactFlattened(ctx, cfg.Provider, cfg.Model, cfg.ReasoningEffort, messages)
+	out.Calls = append(out.Calls, flat.Calls...)
+	out.Summary = flat.Summary
+	return out, err
+}
+
+// compaction is the outcome of one compaction attempt. Calls holds the usage
+// of every model call it made (the handoff call and, on fallback, the
+// flattened summarizer call), whether or not a summary came back.
+type compaction struct {
+	Summary        string
+	Calls          []provider.Usage
+	ReplayRejected bool
+}
+
+// compactFlattened is compactMessages with the summarizer call's usage.
+func compactFlattened(ctx context.Context, p provider.Provider, model, reasoningEffort string, messages []provider.Message) (compaction, error) {
+	resp, err := summarizeFlattened(ctx, p, model, reasoningEffort, messages)
+	if err != nil {
+		return compaction{}, err
+	}
+	return compaction{Summary: resp.Content, Calls: []provider.Usage{resp.Usage}}, nil
+}
+
+func hasReasoningItems(messages []provider.Message) bool {
+	for _, msg := range messages {
+		if len(msg.ReasoningItems) > 0 {
+			return true
+		}
+	}
+	return false
+}
+
 func compactMessages(ctx context.Context, p provider.Provider, model, reasoningEffort string, messages []provider.Message) (string, error) {
+	resp, err := summarizeFlattened(ctx, p, model, reasoningEffort, messages)
+	if err != nil {
+		return "", err
+	}
+	return resp.Content, nil
+}
+
+func summarizeFlattened(ctx context.Context, p provider.Provider, model, reasoningEffort string, messages []provider.Message) (*provider.ChatResponse, error) {
 	var entries []string
 	for _, msg := range messages {
 		if msg.Content == "" {
@@ -2124,9 +2265,12 @@ func compactMessages(ctx context.Context, p provider.Provider, model, reasoningE
 
 	resp, err := p.Chat(ctx, req)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
-	return resp.Content, nil
+	if resp == nil {
+		return nil, errors.New("summarizer returned no response")
+	}
+	return resp, nil
 }
 
 // Lazy capability results carry reusable schemas or scoped instructions. A
@@ -2167,8 +2311,6 @@ func microCompact(messages []provider.Message, keepRecentCount int) []provider.M
 
 	for i := 0; i < cutoff; i++ {
 		msg := &result[i]
-		// Older reasoning is no longer needed to continue the current chain.
-		msg.ReasoningItems = nil
 		if !microCompactable(*msg) {
 			continue
 		}

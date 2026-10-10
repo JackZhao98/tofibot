@@ -64,6 +64,10 @@ type ToolEvent struct {
 	Risk string `json:"risk,omitempty"`
 }
 
+// ContextBreakdown is an input-token estimate split into system prompt plus
+// tool definitions, message content, and replayed reasoning.
+type ContextBreakdown struct{ System, Messages, Reasoning int }
+
 type Request struct {
 	ApprovalExpiryRecovery bool
 	BotID                  string
@@ -90,6 +94,11 @@ type Request struct {
 	// OnThinking receives provider reasoning-summary deltas. They are never
 	// part of the answer and must not be mixed into OnDelta output.
 	OnThinking func(delta string)
+	// OnContextBreakdown reports the same estimate split by what fills it.
+	OnContextBreakdown func(ContextBreakdown)
+	// OnReasoningReplayRejected fires once when the provider rejects replayed
+	// reasoning and replay is switched off for the rest of the run.
+	OnReasoningReplayRejected func()
 	// OnRetry is called before the provider retries a failed model request
 	// after a backoff of wait.
 	OnRetry func(attempt int, wait time.Duration)
