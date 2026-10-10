@@ -6,10 +6,12 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/JackZhao98/tofibot/internal/runtime"
 )
 
 func prog(text string) textPart { return textPart{Text: text, Progress: true} }
-func ans(text string) textPart { return textPart{Text: text} }
+func ans(text string) textPart  { return textPart{Text: text} }
 
 func TestSplitProgress(t *testing.T) {
 	for _, tc := range []struct {
@@ -30,6 +32,15 @@ func TestSplitProgress(t *testing.T) {
 		{"garbage angle brackets stay text", "if a < b and <progres> and <progress x>", []textPart{ans("if a < b and <progres> and <progress x>")}},
 		{"adjacent same-kind merge", "a<progress>b</progress><progress>c</progress>d", []textPart{ans("a"), prog("bc"), ans("d")}},
 		{"empty", "", nil},
+		{"inline code keeps the tag literal", "The HTML `<progress>` element. <progress>checking</progress>", []textPart{ans("The HTML `<progress>` element."), prog("checking")}},
+		{"double-backtick span may hold a backtick", "``a ` <progress>`` <progress>n</progress>", []textPart{ans("``a ` <progress>``"), prog("n")}},
+		{"fenced block keeps tags literal", "<progress>x</progress>\n```html\n<progress></progress>\n```\n<progress>y</progress>", []textPart{prog("x"), ans("```html\n<progress></progress>\n```"), prog("y")}},
+		{"tilde fence", "~~~\n<progress>\n~~~\n<progress>y</progress>", []textPart{ans("~~~\n<progress>\n~~~"), prog("y")}},
+		{"longer fence closes a shorter one, not vice versa", "````\n```\n<progress>\n````\n<progress>y</progress>", []textPart{ans("````\n```\n<progress>\n````"), prog("y")}},
+		{"a mid-line triple run is an inline span, not a fence", "a ``` <progress> ``` <progress>n</progress>\nz", []textPart{ans("a ``` <progress> ```"), prog("n"), ans("z")}},
+		{"unclosed inline span ends at the line end", "a `b\n<progress>n</progress>", []textPart{ans("a `b"), prog("n")}},
+		{"code inside a note stays in the note", "<progress>run `</progress>` now</progress>done", []textPart{prog("run `</progress>` now"), ans("done")}},
+		{"tildes mid-line are text", "a ~~~ b <progress>n</progress>", []textPart{ans("a ~~~ b"), prog("n")}},
 	} {
 		if got := splitProgress(tc.in); !reflect.DeepEqual(got, tc.want) {
 			t.Errorf("%s: got %#v want %#v", tc.name, got, tc.want)
@@ -58,6 +69,60 @@ func TestScannerSplitAcrossChunksMatchesWholeText(t *testing.T) {
 	if whole != "已完成。checking <the> pageDone tail" {
 		t.Fatalf("whole=%q", whole)
 	}
+}
+
+// Every way of cutting the text into chunks must equal the whole-text result,
+// including cuts inside tags, backtick runs and fences.
+func TestScannerCodeAwareChunksMatchWholeText(t *testing.T) {
+	text := "Use `<progress>` here.\n<progress>scan ``a`b``</progress>\n```\n<progress></progress>\n```\nDone<progress>tail"
+	whole := stripProgressTags(text)
+	if whole != "Use `<progress>` here.\nscan ``a`b``\n```\n<progress></progress>\n```\nDonetail" {
+		t.Fatalf("whole=%q", whole)
+	}
+	scan := func(chunks ...string) string {
+		var sc progressScanner
+		var b strings.Builder
+		for _, chunk := range chunks {
+			for _, p := range sc.feed(chunk) {
+				b.WriteString(p.Text)
+			}
+		}
+		for _, p := range sc.finish() {
+			b.WriteString(p.Text)
+		}
+		return b.String()
+	}
+	for cut := 0; cut <= len(text); cut++ {
+		if got := scan(text[:cut], text[cut:]); got != whole {
+			t.Fatalf("cut %d: %q != %q", cut, got, whole)
+		}
+	}
+	short := "a ``<progress>`` <progress>n</progress>\n```\n<progress>\n```"
+	wholeShort := stripProgressTags(short)
+	for i := 0; i <= len(short); i++ {
+		for j := i; j <= len(short); j++ {
+			if got := scan(short[:i], short[i:j], short[j:]); got != wholeShort {
+				t.Fatalf("cuts %d,%d: %q != %q", i, j, got, wholeShort)
+			}
+		}
+	}
+	// A finished scanner starts the next turn outside code and outside a note.
+	var sc progressScanner
+	sc.feed("```\n<progress>")
+	sc.finish()
+	if got := splitProgressWith(&sc, "<progress>n</progress>ok"); !reflect.DeepEqual(got, []textPart{prog("n"), ans("ok")}) {
+		t.Fatalf("state leaked across finish: %#v", got)
+	}
+}
+
+func splitProgressWith(sc *progressScanner, text string) []textPart {
+	var parts []textPart
+	for _, p := range append(sc.feed(text), sc.finish()...) {
+		if p.Text = strings.TrimSpace(p.Text); p.Text != "" {
+			parts = append(parts, p)
+		}
+	}
+	return parts
 }
 
 func TestFinalSplit(t *testing.T) {
@@ -173,5 +238,71 @@ func TestFinalTurnNotesPrecedeVisibleAnswer(t *testing.T) {
 	msgs, _, err := s.Messages(c.ID, 0, 50)
 	if err != nil || len(msgs) != 2 || msgs[0].Kind != "progress" || msgs[1].Kind != "" || msgs[1].Content != "The report is ready." || msgs[0].Seq >= msgs[1].Seq {
 		t.Fatalf("msgs=%+v err=%v", msgs, err)
+	}
+}
+
+// A budget-exhausted final turn goes through the same split as a normal final
+// turn: its <progress> notes fold, the rest is the answer, no tag is stored.
+func TestBudgetExhaustedPartialOutputSplitsProgressTags(t *testing.T) {
+	s, run, messages := runReviewDraft(t, func(*Server, Run) func(context.Context, runtime.Request) (runtime.Result, error) {
+		return func(_ context.Context, req runtime.Request) (runtime.Result, error) {
+			req.OnDelta("<progress>re-checking</progress>Two mails so far.")
+			return runtime.Result{BudgetExhausted: true, BudgetReason: "time", Content: "<progress>re-checking</progress>Two mails so far."}, nil
+		}
+	})
+	if got, err := s.store.GetRun(run.ID); err != nil || got.Status != "failed" {
+		t.Fatalf("run=%+v err=%v", got, err)
+	}
+	var got []string
+	for _, m := range messages {
+		if m.Role != "assistant" {
+			continue
+		}
+		if strings.Contains(m.Content, "progress>") {
+			t.Fatalf("tag leaked into a stored message: %q", m.Content)
+		}
+		got = append(got, m.Kind+"|"+m.Content)
+	}
+	want := []string{"segment|" + demotedAnswer, "progress|re-checking", "|Two mails so far."}
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("got %q want %q", got, want)
+	}
+}
+
+func TestScheduleFailureDetailStripsProgressTags(t *testing.T) {
+	got := scheduleFailureDetail("<progress>looking</progress> No receipt.", Bot{})
+	if strings.Contains(got, "progress>") || !strings.HasSuffix(got, "looking No receipt.") {
+		t.Fatalf("detail=%q", got)
+	}
+}
+
+type taggedExpiryEngine struct{}
+
+func (taggedExpiryEngine) Run(context.Context, runtime.Request) (runtime.Result, error) {
+	return runtime.Result{Content: "<progress>reviewing the stopped steps</progress>The write was not executed; nothing else changed."}, nil
+}
+
+// The approval-expiry recovery stage resumes the run's transcript, so the
+// model may keep using <progress>; its conclusion must store no tag.
+func TestApprovalExpiryConclusionStoresNoProgressTag(t *testing.T) {
+	dir := t.TempDir()
+	s, _, r, q := expiryStoreFixture(t, dir)
+	if _, err := s.db.Exec(`UPDATE questions SET expires_at=? WHERE id=?`, time.Now().Add(-time.Minute).UTC().Format(time.RFC3339Nano), q.ID); err != nil {
+		t.Fatal(err)
+	}
+	s.Close()
+	server, err := NewServer(Config{DataDir: dir, IsolatedWorkspace: true, Engine: taggedExpiryEngine{}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer server.Close()
+	waitForRunStatus(t, server, r.ID, "failed")
+	assertExpiryConcluded(t, server.store, r, q)
+	var content string
+	if err := server.store.db.QueryRow(`SELECT content FROM messages WHERE run_id=? AND role='assistant' AND kind<>'progress'`, r.ID).Scan(&content); err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(content, "progress>") || !strings.HasSuffix(content, "The write was not executed; nothing else changed.") || strings.Contains(content, "reviewing the stopped steps") {
+		t.Fatalf("conclusion=%q", content)
 	}
 }
