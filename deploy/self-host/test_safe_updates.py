@@ -1585,3 +1585,49 @@ class ComposePassthroughTests(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
+
+class HealthWaitsForDockerTests(unittest.TestCase):
+    """A start only counts once Docker's health check agrees with /health."""
+
+    def run_health(self, docker_states, attempts=5):
+        class Response:
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *args):
+                return False
+
+            def read(self, n):
+                return b'{"ok": true}'
+
+        class Opener:
+            def open(self, url, timeout):
+                return Response()
+
+        env = {'TOFI_HTTP_PORT': '8321'}
+        with mock.patch.object(tofi_host.urllib.request, 'build_opener', return_value=Opener()), \
+                mock.patch.object(tofi_host, 'app_scheme', return_value='http'), \
+                mock.patch.object(tofi_host, 'app_docker_health', side_effect=docker_states) as docker, \
+                mock.patch.object(tofi_host.time, 'sleep'):
+            result = tofi_host.health(env, attempts=attempts)
+        return result, docker.call_count
+
+    def test_waits_until_docker_reports_healthy(self):
+        result, calls = self.run_health(['starting', 'starting', 'healthy'])
+        self.assertTrue(result)
+        self.assertEqual(calls, 3)
+
+    def test_unknown_docker_health_does_not_block(self):
+        result, calls = self.run_health([None])
+        self.assertTrue(result)
+        self.assertEqual(calls, 1)
+
+    def test_docker_never_healthy_times_out(self):
+        with self.assertRaises(tofi_host.HostError):
+            self.run_health(['starting'] * 3, attempts=3)
+
+    def test_single_probe_for_status_does_not_consult_docker(self):
+        result, calls = self.run_health([], attempts=1)
+        self.assertTrue(result)
+        self.assertEqual(calls, 0)

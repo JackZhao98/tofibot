@@ -1228,15 +1228,31 @@ def health(env=None, attempts=60):
         context.verify_mode = ssl.CERT_NONE
         handlers.append(urllib.request.HTTPSHandler(context=context))
     opener = urllib.request.build_opener(*handlers)
-    for _ in range(attempts):
+    for attempt in range(attempts):
         try:
             with opener.open(url, timeout=2) as response:
                 if json.loads(response.read(65536)).get('ok') is True:
-                    return True
+                    if attempts == 1 or app_docker_health() in (None, 'healthy'):
+                        return True
         except (OSError, ValueError):
             pass
         time.sleep(1)
     raise HostError('The App did not report healthy within %d s; see `tofi logs app`.' % attempts)
+
+
+def app_docker_health():
+    """Docker's own health verdict for the App ('starting', 'healthy', ...).
+
+    `tofi status` reports this value, so a start only counts as done once
+    Docker agrees with the /health probe. None when Docker cannot say.
+    """
+    try:
+        for container in project_containers():
+            if service_of(container) == 'app':
+                return (container.get('State') or {}).get('Health', {}).get('Status')
+    except (subprocess.SubprocessError, ValueError, OSError):
+        return None
+    return None
 
 
 def start_services(env, first_install=False, state=None):
