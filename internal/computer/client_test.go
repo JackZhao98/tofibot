@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"net"
 	"net/http"
@@ -14,6 +15,8 @@ import (
 	"syscall"
 	"testing"
 	"time"
+
+	"github.com/JackZhao98/tofibot/internal/tooloutcome"
 )
 
 func TestClientUsesFixedUnixSocketAndGuestEnvelope(t *testing.T) {
@@ -276,5 +279,28 @@ func TestReadinessWaitIsLimitedToAdmittedGuestActions(t *testing.T) {
 				t.Fatalf("err=%v requests=%d", err, requests)
 			}
 		})
+	}
+}
+
+func TestGuestStructuredRefusalIsDefiniteNotExecuted(t *testing.T) {
+	respond := func(status int, body string) (*Client, error) {
+		return New(Config{Client: &http.Client{Transport: actionReadinessTransport(func(r *http.Request) (*http.Response, error) {
+			resp := actionReadinessResponse(body)
+			resp.StatusCode, resp.Status = status, fmt.Sprintf("%d %s", status, http.StatusText(status))
+			return resp, nil
+		})}})
+	}
+	refusal := `{"ok":false,"error":"no focused visible browser page","outcome":{"version":1,"status":"validation_error","code":"action_rejected","execution_certainty":"not_executed","message":"no focused visible browser page Nothing was changed.","next_action":"repair_arguments"}}`
+	client, _ := respond(http.StatusBadRequest, refusal)
+	_, err := client.Action(context.Background(), Action{BotID: "b", Name: "browser.navigate"})
+	o, ok := tooloutcome.FromError(err)
+	if !ok || o.Certainty != "not_executed" || o.Code != "action_rejected" {
+		t.Fatalf("err=%v, want structured not_executed outcome", err)
+	}
+	// A bare 500 without the structured marker stays an unclassified error.
+	client, _ = respond(http.StatusInternalServerError, `{"ok":false,"error":"boom"}`)
+	_, err = client.Action(context.Background(), Action{BotID: "b", Name: "browser.navigate"})
+	if _, typed := tooloutcome.FromError(err); err == nil || typed {
+		t.Fatalf("err=%v, want plain untyped error", err)
 	}
 }
