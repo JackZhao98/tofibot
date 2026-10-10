@@ -616,7 +616,7 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
     assert.equal(await result.getByLabel("Passphrase").inputValue(), "ABCD-EFGH-IJKL-MNOP-QRST-UVWX-YZ23-4567");
     assert.equal(await result.getByRole("button", {name: "Copy", exact: true}).count(), 2, "link and passphrase each have Copy");
     const message = await result.getByLabel("Message to send").inputValue();
-    assert.match(message, /^Your TOFI account was closed\. Download your Bots: http.*\/exports\/C+ \(passphrase sent separately\), available until November 8, 2026\.$/);
+    assert.match(message, /^Your TOFI account was closed\. Download your Bots: http.*\/exports\/C+ \(passphrase sent separately\), available until November 8, 2026\. Import it in Tofi: Settings → Advanced → Data transfer, then enter the passphrase\.$/);
     assert.ok(!message.includes("ABCD-EFGH"), "the message never carries the passphrase");
     await page.keyboard.press("Escape");
     assert.equal(await result.count(), 1);
@@ -708,6 +708,43 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
     console.log("PASS admin console: list with capacity, roles, statuses and exports; detail with role, disk, password, deactivate; own-account guards; delete sheet, stop and retry, result sheet and acknowledgement; mobile push; 7 locales");
   }
 
+
+  // ---- 7e. Opening a deleted account's export: Advanced -> Data transfer asks for the passphrase (with or without dashes).
+  {
+    const {page, close} = await open({tab: "advanced"});
+    const section = page.locator('.settings-page-body[data-page="advanced"] .portability-section');
+    await section.waitFor();
+    await section.locator('input[type="file"]').setInputFiles(join(ui, "test-fixtures/server-sealed-export.tofi"));
+    const field = section.getByLabel("Decryption passphrase");
+    await field.waitFor();
+    assert.equal(await section.getByText("server-sealed-export.tofi").count(), 1, "the chosen file name is shown");
+    await field.fill("AAAA-BBBB-CCCC-DDDD-EEEE-FFFF-GGGG-HHHH");
+    await section.getByRole("button", {name: "Decrypt and view"}).click();
+    await section.getByText("Couldn't decrypt. Check the passphrase, the file version, and whether the file is damaged.").waitFor();
+    assert.equal(await section.getByText("Synthetic Helper").count(), 0, "nothing is shown after a wrong passphrase");
+    await field.fill("  abcd efgh ijkl mnop qrst uvwx yz23 4567 ");
+    await section.getByRole("button", {name: "Decrypt and view"}).click();
+    await section.getByText("Synthetic Helper").waitFor();
+    assert.equal(await section.getByLabel("Decryption passphrase").count(), 0, "the passphrase prompt is gone once opened");
+    assert.ok(await section.getByRole("button", {name: /preview/i}).count() > 0, "the unchanged preview step follows");
+    await close();
+    const damaged = await open({tab: "advanced"});
+    const dsection = damaged.page.locator('.settings-page-body[data-page="advanced"] .portability-section');
+    await dsection.waitFor();
+    await dsection.locator('input[type="file"]').setInputFiles({name: "broken.tofi", mimeType: "application/json", buffer: Buffer.from(JSON.stringify({format: "tofi.encrypted", version: 1, kdf: "PBKDF2-SHA256", iterations: 1, salt: "AA==", iv: "AA==", ciphertext: "AA=="}))});
+    await dsection.getByLabel("Decryption passphrase").fill("ABCD-EFGH-IJKL-MNOP-QRST-UVWX-YZ23-4567");
+    await dsection.getByRole("button", {name: "Decrypt and view"}).click();
+    await dsection.getByText("This file is damaged or isn't a Tofi export.").waitFor();
+    await damaged.close();
+    for (const lang of LANGS.filter(code => code !== "en")) {
+      assert.notEqual(catalogs[lang].portability.error.file_damaged, catalogs.en.portability.error.file_damaged, `${lang}: file_damaged is translated`);
+      const message = catalogs[lang].admin.result.message;
+      assert.notEqual(message, catalogs.en.admin.result.message, `${lang}: the message to send is translated`);
+      assert.ok(message.includes(catalogs[lang].portability.title) && message.includes(catalogs[lang].shell.page.advanced.name), `${lang}: the message names Advanced and Data transfer as this locale shows them`);
+    }
+    assert.ok(catalogs.en.admin.result.message.includes("Settings → Advanced → Data transfer, then enter the passphrase."));
+    console.log("PASS export import: passphrase prompt, wrong passphrase, with/without dashes, damaged file, preview step follows, message names the path in 7 locales");
+  }
 
   // ---- 7d. Admin console screenshots (ADMIN_SHOTS=<dir>): list, detail, delete sheet, stopped and retry states, result sheet.
   if (process.env.ADMIN_SHOTS) {

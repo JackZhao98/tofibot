@@ -39,16 +39,30 @@ export async function encryptPortable(source: string, password: string): Promise
 export function isEncryptedPortable(source: string): boolean {
   try { return (JSON.parse(source) as { format?: string }).format === "tofi.encrypted"; } catch { return false; }
 }
+/** The forms of a typed passphrase to try: as typed, then without dashes/spaces in upper case (the form
+ *  Tofi-generated export passphrases derive from, so they open with or without their dashes). */
+export function passphraseCandidates(typed: string): string[] {
+  const trimmed = typed.trim();
+  const canonical = trimmed.replace(/[\s-]+/g, "").toUpperCase();
+  return Array.from(new Set([typed, trimmed, canonical].filter(value => value.length > 0)));
+}
 export async function decryptPortable(source: string, password: string): Promise<string> {
   if (new TextEncoder().encode(source).length > MAX_PORTABLE_FILE_BYTES) throw new Error(i18n.t("settings:portability.error.file_oversized"));
   let clear: Uint8Array<ArrayBuffer> | undefined;
+  let salt: Uint8Array<ArrayBuffer>, iv: Uint8Array<ArrayBuffer>, ciphertext: Uint8Array<ArrayBuffer>;
   try {
     const envelope = JSON.parse(source) as Envelope;
     if (envelope.format !== "tofi.encrypted" || envelope.version !== 1 || envelope.kdf !== "PBKDF2-SHA256" || envelope.iterations !== ITERATIONS || Object.keys(envelope).length !== 7) throw new Error("invalid envelope");
-    const salt = unbase64(envelope.salt), iv = unbase64(envelope.iv), ciphertext = unbase64(envelope.ciphertext);
+    salt = unbase64(envelope.salt); iv = unbase64(envelope.iv); ciphertext = unbase64(envelope.ciphertext);
     if (salt.length !== 16 || iv.length !== 12 || ciphertext.length > MAX_CLEAR_BYTES + 16 || ciphertext.length < 16) throw new Error("invalid envelope");
-    clear = new Uint8Array(await crypto.subtle.decrypt({ name: "AES-GCM", iv, additionalData: aad }, await key(password, salt), ciphertext));
-    return new TextDecoder("utf-8", { fatal: true }).decode(clear);
-  } catch { throw new Error(i18n.t("settings:portability.error.decrypt_failed")); }
-  finally { clear?.fill(0); }
+  } catch { throw new Error(i18n.t("settings:portability.error.file_damaged")); }
+  try {
+    for (const candidate of passphraseCandidates(password)) {
+      try {
+        clear = new Uint8Array(await crypto.subtle.decrypt({ name: "AES-GCM", iv, additionalData: aad }, await key(candidate, salt), ciphertext));
+        return new TextDecoder("utf-8", { fatal: true }).decode(clear);
+      } catch (cause) { if (cause instanceof Error && cause.message === i18n.t("settings:portability.error.insecure_context")) throw cause; }
+    }
+    throw new Error(i18n.t("settings:portability.error.decrypt_failed"));
+  } finally { clear?.fill(0); }
 }
