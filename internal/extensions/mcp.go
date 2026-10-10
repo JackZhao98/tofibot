@@ -111,6 +111,9 @@ type CachedMCPTool struct {
 	Description   string         `json:"description"`
 	Parameters    map[string]any `json:"input_schema"`
 	SchemaVersion string         `json:"schema_version"`
+	// ReadOnlyHint is the remote tools/list annotation as last seen. It is an
+	// untrusted hint: absent or false means the tool is treated as an effect.
+	ReadOnlyHint bool `json:"read_only_hint,omitempty"`
 }
 
 // MCPCallApproval is an execution-time request for one exact tool call.
@@ -122,6 +125,11 @@ type MCPCallApproval struct {
 	Tool          string
 	ConfigVersion string
 	Arguments     json.RawMessage
+	// ReadOnlyHint is the remote tool's readOnlyHint annotation (absent or
+	// false reads as an effect). It is untrusted metadata: it never exempts a
+	// call from review or human confirmation. The host uses it only to decide
+	// whether an earlier unverified effect in a scheduled run fences this call.
+	ReadOnlyHint bool
 	// Recheck is a backend-owned readiness callback; it cannot grant approval.
 	Recheck func(context.Context) error
 	// OnClaim only disables transport retries after a durable backend claim.
@@ -175,6 +183,7 @@ type mcpToolSource struct {
 	server        string
 	remoteName    string
 	schemaVersion string
+	readOnlyHint  bool // untrusted remote annotation, see MCPCallApproval.ReadOnlyHint
 }
 
 type Prepared struct {
@@ -617,7 +626,7 @@ func (m *Manager) prepareServer(runCtx, discoveryCtx context.Context, name strin
 		toolName := uniqueToolName("mcp_"+name+"__"+remote.Name, usedNames)
 		params := toolSchema(remote)
 		if sources != nil {
-			sources[toolName] = mcpToolSource{server: name, remoteName: remote.Name, schemaVersion: m.schemaVersion(name, cfg)}
+			sources[toolName] = mcpToolSource{server: name, remoteName: remote.Name, schemaVersion: m.schemaVersion(name, cfg), readOnlyHint: remote.Annotations != nil && remote.Annotations.ReadOnlyHint}
 		}
 		r := remote
 		result = append(result, runtime.Tool{Name: toolName, Description: boundedDescription(remote.Description, toolName), Parameters: params, CheckReadiness: m.mcpMethodReadiness(name, cfg), Execute: func(callCtx context.Context, args json.RawMessage) (string, error) {

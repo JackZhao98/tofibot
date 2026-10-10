@@ -81,6 +81,23 @@ func mcpReviewDigest(x mcpReviewContext, call extensions.MCPCallApproval) string
 	return digestBytes(raw)
 }
 
+// A proposal is read-only for the scheduled effect fence when the owner
+// configured the exact tool as trusted read-only (host policy) or the remote
+// tools/list carried readOnlyHint for it (untrusted hint, captured on the
+// proposal at dispatch). Neither exempts the call from review itself; an
+// absent or false hint reads as an effect.
+func (s *Server) mcpProposalFence(call extensions.MCPCallApproval) mcpProposalFence {
+	if s.extensions != nil {
+		if requiresHuman, current := s.extensions.MCPCallRequiresHuman(call); current && !requiresHuman {
+			return mcpProposalReadOnly
+		}
+	}
+	if call.ReadOnlyHint {
+		return mcpProposalReadOnly
+	}
+	return mcpProposalEffect
+}
+
 func (s *Server) reviewAccountID() string {
 	if s.accountID != "" {
 		return s.accountID
@@ -345,7 +362,7 @@ func (s *Server) reviewMCPProposal(ctx context.Context, c Conversation, r Run, c
 	if call.Server == "" || call.Tool == "" || call.ConfigVersion == "" || !mcpSchemaAvailable(call.Schema) || s.reviewAccountID() == "" || s.extensions == nil || !s.extensions.MCPCallCurrent(call) {
 		return gap("setup_required", "Current tool configuration, schema or connection binding is unavailable. Approval cannot repair this setup gap.")
 	}
-	x, digest, contextErr := s.readMCPReviewContext(s.store.db, c, r)
+	x, digest, contextErr := s.readMCPReviewContextFor(s.store.db, c, r, s.mcpProposalFence(call))
 	digest = mcpReviewDigest(x, call)
 	if contextErr != nil {
 		diagnostic := mcpContextDiagnostic(contextErr)
@@ -476,7 +493,7 @@ func (s *Server) finishMCPReview(ctx context.Context, c Conversation, r Run, cal
 	if err != nil {
 		return err
 	}
-	x, _, contextErr := s.readMCPReviewContext(tx, c, r)
+	x, _, contextErr := s.readMCPReviewContextFor(tx, c, r, s.mcpProposalFence(call))
 	currentDigest := mcpReviewDigest(x, call)
 	status := "human_required"
 	var reviewStatus string

@@ -282,7 +282,7 @@ func lazyDiscoverableMCPTools(runCtx context.Context, m *Manager, servers map[st
 					continue
 				}
 				toolName := uniqueToolName("mcp_"+name+"__"+remote.RemoteName, usedNames)
-				toolSources[toolName] = mcpToolSource{server: name, remoteName: remote.RemoteName, schemaVersion: version}
+				toolSources[toolName] = mcpToolSource{server: name, remoteName: remote.RemoteName, schemaVersion: version, readOnlyHint: remote.ReadOnlyHint}
 				found = append(found, runtime.Tool{Name: toolName, Description: boundedDescription(remote.Description, toolName), Parameters: remote.InputSchema, CheckReadiness: slot.readinessCheck, Execute: slot.callTool(remote.RemoteName, func() { m.invalidateCatalogs(name) })})
 			}
 			slot.adopt(cli)
@@ -312,7 +312,7 @@ func lazyDiscoverableMCPTools(runCtx context.Context, m *Manager, servers map[st
 		rememberMetadata(found, true)
 		catalog := make([]MCPCatalogTool, 0, len(found))
 		for _, tool := range found {
-			catalog = append(catalog, MCPCatalogTool{RemoteName: toolSources[tool.Name].remoteName, Description: tool.Description, InputSchema: tool.Parameters})
+			catalog = append(catalog, MCPCatalogTool{RemoteName: toolSources[tool.Name].remoteName, Description: tool.Description, InputSchema: tool.Parameters, ReadOnlyHint: toolSources[tool.Name].readOnlyHint})
 		}
 		_ = m.catalog.Put(name, version, "catalog-v1", catalog)
 		return found, nil
@@ -331,7 +331,7 @@ func lazyDiscoverableMCPTools(runCtx context.Context, m *Manager, servers map[st
 			continue
 		}
 		seen[cachedTool.Name] = m.cachedMCPRuntimeTool(slotFor(cachedTool.Server), cachedTool)
-		toolSources[cachedTool.Name] = mcpToolSource{server: cachedTool.Server, remoteName: cachedTool.RemoteName, schemaVersion: cachedTool.SchemaVersion}
+		toolSources[cachedTool.Name] = mcpToolSource{server: cachedTool.Server, remoteName: cachedTool.RemoteName, schemaVersion: cachedTool.SchemaVersion, readOnlyHint: cachedTool.ReadOnlyHint}
 	}
 	type pageKey struct {
 		query        string
@@ -576,6 +576,7 @@ func lazyDiscoverableMCPTools(runCtx context.Context, m *Manager, servers map[st
 			Server        string         `json:"server,omitempty"`
 			RemoteName    string         `json:"remote_name,omitempty"`
 			SchemaVersion string         `json:"schema_version,omitempty"`
+			ReadOnlyHint  bool           `json:"read_only_hint,omitempty"`
 		}
 		out := struct {
 			Tools          []match      `json:"tools"`
@@ -651,7 +652,7 @@ func lazyDiscoverableMCPTools(runCtx context.Context, m *Manager, servers map[st
 			sourceMu.RLock()
 			source := toolSources[t.Name]
 			sourceMu.RUnlock()
-			out.Tools = append(out.Tools, match{Name: t.Name, Description: t.Description, Schema: t.Parameters, Server: source.server, RemoteName: source.remoteName, SchemaVersion: source.schemaVersion})
+			out.Tools = append(out.Tools, match{Name: t.Name, Description: t.Description, Schema: t.Parameters, Server: source.server, RemoteName: source.remoteName, SchemaVersion: source.schemaVersion, ReadOnlyHint: source.readOnlyHint})
 			data, err := json.Marshal(out)
 			if err != nil {
 				return "", err
@@ -661,7 +662,7 @@ func lazyDiscoverableMCPTools(runCtx context.Context, m *Manager, servers map[st
 				out.Tools = out.Tools[:len(out.Tools)-1]
 				out.Truncated = true
 				single := out
-				single.Tools = []match{{Name: t.Name, Description: t.Description, Schema: t.Parameters, Server: source.server, RemoteName: source.remoteName, SchemaVersion: source.schemaVersion}}
+				single.Tools = []match{{Name: t.Name, Description: t.Description, Schema: t.Parameters, Server: source.server, RemoteName: source.remoteName, SchemaVersion: source.schemaVersion, ReadOnlyHint: source.readOnlyHint}}
 				singleData, err := json.Marshal(single)
 				if err != nil {
 					return "", err
@@ -792,7 +793,7 @@ func lazyDiscoverableMCPTools(runCtx context.Context, m *Manager, servers map[st
 			return "", withMCPSchemaHint(err, t.Parameters)
 		}
 		schema, _ := json.Marshal(t.Parameters)
-		proposal := MCPCallApproval{Server: source.server, Tool: source.remoteName, ConfigVersion: metadataFingerprint(source.server, servers[source.server]), Arguments: append(json.RawMessage(nil), in.Arguments...), Description: t.Description, Schema: schema}
+		proposal := MCPCallApproval{Server: source.server, Tool: source.remoteName, ConfigVersion: metadataFingerprint(source.server, servers[source.server]), Arguments: append(json.RawMessage(nil), in.Arguments...), Description: t.Description, Schema: schema, ReadOnlyHint: source.readOnlyHint}
 		claimedDispatch := false
 		proposal.OnClaim = func() { claimedDispatch = true }
 		proposal.Recheck = func(checkCtx context.Context) error {
