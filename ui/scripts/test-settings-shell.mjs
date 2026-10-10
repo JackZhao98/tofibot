@@ -156,6 +156,7 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
     adminState.exports = [
       {id: "exp_old", username: "Kim Example", email: "kim@example.test", created_at: Math.floor(Date.parse("2026-09-30T10:00:00Z") / 1000), expires_at: Math.floor(Date.parse("2026-10-30T10:00:00Z") / 1000), size: 3_400_000, link_path: "/exports/" + "A".repeat(43), passphrase_pending: false},
       {id: "exp_new", username: "Joy Example", email: "", created_at: Math.floor(Date.parse("2026-10-08T10:00:00Z") / 1000), expires_at: Math.floor(Date.parse("2026-11-07T10:00:00Z") / 1000), size: 820_000, link_path: "/exports/" + "B".repeat(43), passphrase_pending: true},
+      {id: "exp_lost", username: "Rae Example", email: "", created_at: Math.floor(Date.parse("2026-10-01T10:00:00Z") / 1000), expires_at: Math.floor(Date.parse("2026-10-31T10:00:00Z") / 1000), size: 500_000, link_path: "", link_unavailable: true, passphrase_pending: true, passphrase_unavailable: true},
     ];
     adminState.failDelete = 0;
     adminState.lastDeleted = null;
@@ -504,7 +505,12 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
     assert.match(await text(row("acct_four")), /Max Example.*No email set.*Deletion stopped/);
     assert.equal(await row("acct_two").locator(".admin-avatar").innerText(), "S");
     // The exports section: link copy for both, "Show passphrase" only while it was never acknowledged.
-    assert.equal(await body.locator(".admin-export").count(), 2);
+    assert.equal(await body.locator(".admin-export").count(), 3);
+    const lost = body.locator('[data-export="exp_lost"]');
+    assert.match(await text(lost), /Rae Example.*export key is missing or changed/);
+    assert.equal(await lost.getByRole("button", {name: "Copy link"}).count(), 0, "no copy-link for a row whose link can't be rebuilt");
+    assert.equal(await lost.getByRole("button", {name: "Show passphrase"}).count(), 0);
+    assert.equal(await lost.getByRole("button", {name: "Delete export"}).count(), 1, "it can still be deleted");
     assert.match(await text(body.locator('[data-export="exp_old"]')), /Kim Example.*Created.*expires.*3\.2 MB.*shown once and isn't stored/);
     assert.equal(await body.locator('[data-export="exp_old"]').getByRole("button", {name: "Show passphrase"}).count(), 0);
     assert.equal(await body.locator('[data-export="exp_new"]').getByRole("button", {name: "Show passphrase"}).count(), 1);

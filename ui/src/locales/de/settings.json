@@ -437,7 +437,8 @@
       "delete": "Export löschen",
       "delete_title": "Export von {{name}} löschen?",
       "delete_body": "Der Download-Link funktioniert nicht mehr und die Datei wird entfernt. Das lässt sich nicht rückgängig machen.",
-      "passphrase_gone": "Die Passphrase wurde einmal angezeigt und nicht gespeichert."
+      "passphrase_gone": "Die Passphrase wurde einmal angezeigt und nicht gespeichert.",
+      "link_unavailable": "Der Download-Link lässt sich nicht wiederherstellen, weil der Export-Schlüssel dieses Servers fehlt oder sich geändert hat. Lösche diesen Export; die Daten des Kontos können nicht erneut exportiert werden."
     },
     "error": {
       "generic": "Das hat nicht geklappt. Aktualisiere die Seite und versuche es erneut.",
@@ -457,7 +458,9 @@
       "password_contains_identity": "Das Passwort darf weder Benutzernamen noch E-Mail enthalten.",
       "common_password": "Dieses Passwort ist zu verbreitet.",
       "invalid_account": "Benutzername oder E-Mail sind ungültig oder bereits vergeben.",
-      "forbidden": "Das darf nur ein Admin."
+      "forbidden": "Das darf nur ein Admin.",
+      "export_in_use": "Dieser Export gehört noch zu einem Konto, dessen Löschung nicht abgeschlossen ist.",
+      "passphrase_unavailable": "Die Passphrase ist nicht verfügbar."
     }
   },
   "connection": {
