@@ -308,7 +308,6 @@
   "oauth": {
     "help_body": "승인 방식은 접속 경로에 따라 자동으로 정해지며 Google, Notion 등 OAuth 서비스에 사용할 수 있습니다. 직접 설정한 클라이언트는 아래 전체 리디렉션 URL을 서비스 관리 화면에 등록해야 합니다. Notion처럼 자동 등록을 지원하는 서비스는 Tofi가 처리합니다.",
     "help_title": "로그인 방식과 제한",
-    "linked": "{{title}} 승인됨",
     "waiting": "{{title}} 승인 대기 중"
   },
   "origin": {
@@ -394,13 +393,14 @@
   },
   "status": {
     "authorizing": "승인 화면을 여는 중…",
+    "checked": "{{when}} 확인",
     "checking": "도구를 불러오는 중…",
+    "connected_tools_other": "연결됨 · 도구 {{count}}개",
     "failed": "연결 실패",
     "needs_auth": "승인 필요",
     "removing": "처리 중…",
     "unverified": "아직 확인되지 않음",
-    "waiting": "승인 대기 중",
-    "tools_other": "도구 {{count}}개"
+    "waiting": "승인 대기 중"
   },
   "vm": {
     "cancel": "승인 취소",

@@ -309,7 +309,6 @@
   "oauth": {
     "help_body": "The sign-in method follows how you opened Tofi and works for Google, Notion and other OAuth services. A client you configure yourself needs the full redirect URL below registered in the service's console; services with automatic registration, like Notion, are handled by Tofi.",
     "help_title": "Sign-in method and limits",
-    "linked": "{{title}} authorized",
     "waiting": "Waiting for {{title}} authorization"
   },
   "origin": {
@@ -397,14 +396,15 @@
   },
   "status": {
     "authorizing": "Opening authorization…",
+    "checked": "Checked {{when}}",
     "checking": "Loading tools…",
+    "connected_tools_one": "Connected · {{count}} tool",
+    "connected_tools_other": "Connected · {{count}} tools",
     "failed": "Connection failed",
     "needs_auth": "Authorization needed",
     "removing": "Working…",
     "unverified": "Not verified yet",
-    "waiting": "Waiting for authorization",
-    "tools_one": "{{count}} tool",
-    "tools_other": "{{count}} tools"
+    "waiting": "Waiting for authorization"
   },
   "vm": {
     "cancel": "Cancel authorization",

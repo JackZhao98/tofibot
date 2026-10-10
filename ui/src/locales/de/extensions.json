@@ -309,7 +309,6 @@
   "oauth": {
     "help_body": "Der Anmeldeweg richtet sich danach, wie Sie Tofi geöffnet haben, und gilt für Google, Notion und andere OAuth-Dienste. Bei selbst konfigurierten Clients tragen Sie die vollständige Weiterleitungs-URL unten im Dienst ein; Dienste mit automatischer Registrierung wie Notion übernimmt Tofi.",
     "help_title": "Anmeldeweg und Grenzen",
-    "linked": "{{title}} autorisiert",
     "waiting": "Warten auf Autorisierung für {{title}}"
   },
   "origin": {
@@ -397,14 +396,15 @@
   },
   "status": {
     "authorizing": "Autorisierung wird geöffnet…",
+    "checked": "Geprüft {{when}}",
     "checking": "Tools werden geladen…",
+    "connected_tools_one": "Verbunden · {{count}} Tool",
+    "connected_tools_other": "Verbunden · {{count}} Tools",
     "failed": "Verbindung fehlgeschlagen",
     "needs_auth": "Autorisierung erforderlich",
     "removing": "Wird bearbeitet…",
     "unverified": "Noch nicht geprüft",
-    "waiting": "Warten auf Autorisierung",
-    "tools_one": "{{count}} Tool",
-    "tools_other": "{{count}} Tools"
+    "waiting": "Warten auf Autorisierung"
   },
   "vm": {
     "cancel": "Autorisierung abbrechen",

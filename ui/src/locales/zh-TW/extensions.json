@@ -308,7 +308,6 @@
   "oauth": {
     "help_body": "授權方式會自動依入口決定，適用於 Google、Notion 和其他 OAuth 服務。手動設定的用戶端需在服務後台登記下方完整的重新導向網址；Notion 等支援自動註冊的服務由 Tofi 處理。",
     "help_title": "登入方式與限制",
-    "linked": "{{title}} 已授權",
     "waiting": "等待 {{title}} 授權"
   },
   "origin": {
@@ -394,13 +393,14 @@
   },
   "status": {
     "authorizing": "正在開啟授權…",
+    "checked": "{{when}}已檢查",
     "checking": "正在讀取工具…",
+    "connected_tools_other": "已連線 · {{count}} 個工具",
     "failed": "連線失敗",
     "needs_auth": "需要授權",
     "removing": "處理中…",
     "unverified": "尚未驗證",
-    "waiting": "等待授權",
-    "tools_other": "{{count}} 個工具"
+    "waiting": "等待授權"
   },
   "vm": {
     "cancel": "取消授權",
