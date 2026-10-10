@@ -1010,6 +1010,30 @@ func RunAgentLoop(cfg AgentConfig, ctx *models.ExecutionContext) (returned *Agen
 	reasoningReplayDisabled := false
 	modelCallRecovered := false
 
+	// A compaction is a model call of its own: it counts against the run's
+	// call and cost budget, reaches the usage ledger, and keeps LLMCalls,
+	// TotalUsage and the per-model breakdown in step (ValidateContinuation
+	// requires all three to agree). A replay rejection seen there switches
+	// replay off before the next real request repeats it.
+	recordCompaction := func(c compaction) {
+		for _, usage := range c.Calls {
+			state = state.RecordAPICall(cfg.Model, usage)
+			if cfg.OnUsage != nil {
+				cfg.OnUsage(usage.InputTokens, usage.OutputTokens)
+			}
+		}
+		if cfg.LiveUsage != nil && len(c.Calls) > 0 {
+			*cfg.LiveUsage = state.TotalUsage
+		}
+		if c.ReplayRejected && !reasoningReplayDisabled {
+			ctx.Log("[Agent] Provider rejected replayed reasoning during compaction; disabled for this run")
+			reasoningReplayDisabled = true
+			if cfg.OnReasoningReplayRejected != nil {
+				cfg.OnReasoningReplayRejected()
+			}
+		}
+	}
+
 	finalRepairToolNames := make(map[string]bool, len(cfg.FinalResponseRepairTools))
 	for _, name := range cfg.FinalResponseRepairTools {
 		if declaredTools[name] {
@@ -1094,11 +1118,12 @@ func RunAgentLoop(cfg AgentConfig, ctx *models.ExecutionContext) (returned *Agen
 			cfg.Hooks.callPreCompact(len(messages), estimatedInput)
 			originalTokens := estimatedInput
 			originalCount := len(messages)
-			summary, compactErr := compactTranscript(loopCtx, &cfg, systemPrompt, allTools, messages, reasoningReplayDisabled)
+			compacted, compactErr := compactTranscript(loopCtx, &cfg, systemPrompt, allTools, messages, reasoningReplayDisabled)
+			recordCompaction(compacted)
 			if compactErr != nil {
 				ctx.Log("[Agent] Pre-call compaction failed: %v", compactErr)
 			} else {
-				messages = compactAndRebuild(messages, summary)
+				messages = compactAndRebuild(messages, compacted.Summary)
 				// Reset InitialMsgCount so NewMessages() tracks only post-compaction additions
 				state = state.WithCompactedMessages(messages)
 				breakdown = EstimateContextBreakdown(systemPrompt, messages, allTools)
@@ -1251,7 +1276,8 @@ func RunAgentLoop(cfg AgentConfig, ctx *models.ExecutionContext) (returned *Agen
 				recoverNote = "Your previous attempt was aborted because it produced an over-long tool call. Keep tool arguments short; split large content into smaller steps."
 			case provider.IsStreamWatchdog(err), transientStreamFailure(err):
 			case provider.IsContextOverflow(err) && len(messages) > 4:
-				summary, compactErr := compactMessages(loopCtx, cfg.Provider, cfg.Model, cfg.ReasoningEffort, messages)
+				compacted, compactErr := compactFlattened(loopCtx, cfg.Provider, cfg.Model, cfg.ReasoningEffort, messages)
+				recordCompaction(compacted)
 				if compactErr != nil {
 					ctx.Log("[Agent] Overflow compaction failed: %v", compactErr)
 					recoverable = false
@@ -1259,7 +1285,7 @@ func RunAgentLoop(cfg AgentConfig, ctx *models.ExecutionContext) (returned *Agen
 				}
 				originalTokens := EstimateContextUsage(systemPrompt, messages, allTools)
 				originalCount := len(messages)
-				messages = compactAndRebuild(messages, summary)
+				messages = compactAndRebuild(messages, compacted.Summary)
 				state = state.WithCompactedMessages(messages)
 				compactedTokens := EstimateContextUsage(systemPrompt, messages, allTools)
 				cfg.Hooks.callPostCompact(originalCount, len(messages), originalTokens, compactedTokens)
@@ -2026,10 +2052,12 @@ func RunAgentLoop(cfg AgentConfig, ctx *models.ExecutionContext) (returned *Agen
 			originalTokens := int(resp.Usage.InputTokens)
 			cfg.Hooks.callPreCompact(len(messages), originalTokens)
 
-			summary, compactErr := compactTranscript(loopCtx, &cfg, systemPrompt, allTools, messages, reasoningReplayDisabled)
+			compacted, compactErr := compactTranscript(loopCtx, &cfg, systemPrompt, allTools, messages, reasoningReplayDisabled)
+			recordCompaction(compacted)
 			if compactErr != nil {
 				ctx.Log("[Agent] Compaction failed: %v", compactErr)
 			} else {
+				summary := compacted.Summary
 				originalCount := len(messages)
 				messages = compactAndRebuild(messages, summary)
 				// Reset InitialMsgCount so NewMessages() tracks only post-compaction additions
@@ -2121,7 +2149,8 @@ const compactionHandoffPrompt = "The context window is nearly full. Stop working
 // replayed reasoning) with a handoff instruction, so the model can read its own
 // thinking. Any failure there, including a context overflow, falls back to the
 // flattened-text summarizer.
-func compactTranscript(ctx context.Context, cfg *AgentConfig, system string, tools []provider.Tool, messages []provider.Message, replayDisabled bool) (string, error) {
+func compactTranscript(ctx context.Context, cfg *AgentConfig, system string, tools []provider.Tool, messages []provider.Message, replayDisabled bool) (compaction, error) {
+	var out compaction
 	if !replayDisabled && hasReasoningItems(messages) && len(messages) > 0 && messages[len(messages)-1].Role != "assistant" {
 		req := &provider.ChatRequest{
 			Model:           cfg.Model,
@@ -2131,11 +2160,38 @@ func compactTranscript(ctx context.Context, cfg *AgentConfig, system string, too
 			Tools:           tools,
 			PromptCacheKey:  cfg.PromptCacheKey,
 		}
-		if resp, err := cfg.Provider.Chat(ctx, req); err == nil && !resp.HasToolCalls() && strings.TrimSpace(resp.Content) != "" {
-			return resp.Content, nil
+		resp, err := cfg.Provider.Chat(ctx, req)
+		if err == nil && resp != nil {
+			out.Calls = append(out.Calls, resp.Usage)
+			out.ReplayRejected = resp.ReasoningReplayRejected
+			if !resp.HasToolCalls() && strings.TrimSpace(resp.Content) != "" {
+				out.Summary = resp.Content
+				return out, nil
+			}
 		}
 	}
-	return compactMessages(ctx, cfg.Provider, cfg.Model, cfg.ReasoningEffort, messages)
+	flat, err := compactFlattened(ctx, cfg.Provider, cfg.Model, cfg.ReasoningEffort, messages)
+	out.Calls = append(out.Calls, flat.Calls...)
+	out.Summary = flat.Summary
+	return out, err
+}
+
+// compaction is the outcome of one compaction attempt. Calls holds the usage
+// of every model call it made (the handoff call and, on fallback, the
+// flattened summarizer call), whether or not a summary came back.
+type compaction struct {
+	Summary        string
+	Calls          []provider.Usage
+	ReplayRejected bool
+}
+
+// compactFlattened is compactMessages with the summarizer call's usage.
+func compactFlattened(ctx context.Context, p provider.Provider, model, reasoningEffort string, messages []provider.Message) (compaction, error) {
+	resp, err := summarizeFlattened(ctx, p, model, reasoningEffort, messages)
+	if err != nil {
+		return compaction{}, err
+	}
+	return compaction{Summary: resp.Content, Calls: []provider.Usage{resp.Usage}}, nil
 }
 
 func hasReasoningItems(messages []provider.Message) bool {
@@ -2148,6 +2204,14 @@ func hasReasoningItems(messages []provider.Message) bool {
 }
 
 func compactMessages(ctx context.Context, p provider.Provider, model, reasoningEffort string, messages []provider.Message) (string, error) {
+	resp, err := summarizeFlattened(ctx, p, model, reasoningEffort, messages)
+	if err != nil {
+		return "", err
+	}
+	return resp.Content, nil
+}
+
+func summarizeFlattened(ctx context.Context, p provider.Provider, model, reasoningEffort string, messages []provider.Message) (*provider.ChatResponse, error) {
 	var entries []string
 	for _, msg := range messages {
 		if msg.Content == "" {
@@ -2201,9 +2265,12 @@ func compactMessages(ctx context.Context, p provider.Provider, model, reasoningE
 
 	resp, err := p.Chat(ctx, req)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
-	return resp.Content, nil
+	if resp == nil {
+		return nil, errors.New("summarizer returned no response")
+	}
+	return resp, nil
 }
 
 // Lazy capability results carry reusable schemas or scoped instructions. A
