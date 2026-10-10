@@ -63,14 +63,14 @@ func (s *Server) claimMCPApproval(ctx context.Context, c Conversation, r Run, ca
 		var revision int64
 		var confirmation int
 		err = tx.QueryRow(`SELECT account_id,conversation_id,run_id,action_hash,server,tool,config_fingerprint,arguments_digest,schema_digest,policy_version,context_digest,context_snapshot,provenance,status,settings_revision,expires_at,decision,risk_level,confirmation_required FROM mcp_auto_reviews WHERE question_id=?`, id).Scan(&account, &conv, &run, &hash, &server, &tool, &config, &args, &schema, &policy, &contextDigest, &snapshot, &provenance, &status, &revision, &expiry, &decision, &risk, &confirmation)
-		x, _, contextErr := s.readMCPReviewContext(tx, c, r)
+		x, _, contextErr := s.readMCPReviewContextFor(tx, c, r, s.mcpProposalFence(call))
 		digest := mcpReviewDigest(x, call)
 		disposition := mcpReviewDisposition(mcpReviewResult{Decision: decision, RiskLevel: risk, ConfirmationRequired: confirmation == 1})
 		automatic := q.AnsweredBy == autoReviewActor
 		contextValid := contextErr == nil && contextDigest == digest
 		if !automatic && !contextValid && contextErr == nil && err == nil {
 			contextValid = mcpHumanResumeContextMatches(ctx, tx, c, r, call, q, snapshot, contextDigest, func(db reviewQuerier) (mcpReviewContext, error) {
-				x, _, err := s.readMCPReviewContext(db, c, r)
+				x, _, err := s.readMCPReviewContextFor(db, c, r, s.mcpProposalFence(call))
 				return x, err
 			})
 		}
