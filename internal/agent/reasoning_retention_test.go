@@ -109,8 +109,8 @@ func TestCompactionContinuesTranscriptWithReasoning(t *testing.T) {
 	p := &scriptedProvider{steps: []scriptStep{reply(provider.ChatResponse{Content: "handoff"})}}
 	cfg := &AgentConfig{Provider: p, Model: "claude-opus-5"}
 	summary, err := compactTranscript(context.Background(), cfg, "SYS", tools, messages, false)
-	if err != nil || summary != "handoff" || len(p.requests) != 1 {
-		t.Fatalf("summary=%q err=%v calls=%d", summary, err, len(p.requests))
+	if err != nil || summary.Summary != "handoff" || len(p.requests) != 1 || len(summary.Calls) != 1 {
+		t.Fatalf("summary=%+v err=%v calls=%d", summary, err, len(p.requests))
 	}
 	req := p.requests[0]
 	if req.System != "SYS" || len(req.Tools) != 1 || len(req.Messages) != len(messages)+1 {
@@ -133,8 +133,8 @@ func TestCompactionFallsBackToFlattenedText(t *testing.T) {
 	}
 	p := &scriptedProvider{steps: []scriptStep{overflow, reply(provider.ChatResponse{Content: "flat"})}}
 	summary, err := compactTranscript(context.Background(), &AgentConfig{Provider: p, Model: "claude-opus-5"}, "SYS", nil, messages, false)
-	if err != nil || summary != "flat" || len(p.requests) != 2 {
-		t.Fatalf("summary=%q err=%v calls=%d", summary, err, len(p.requests))
+	if err != nil || summary.Summary != "flat" || len(p.requests) != 2 {
+		t.Fatalf("summary=%+v err=%v calls=%d", summary, err, len(p.requests))
 	}
 	if flat := p.requests[1]; len(flat.Messages) != 1 || len(flat.Messages[0].ReasoningItems) != 0 || !strings.Contains(flat.Messages[0].Content, "Conversation:") {
 		t.Fatalf("fallback request = %+v", flat)
