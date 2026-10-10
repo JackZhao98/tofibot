@@ -627,7 +627,8 @@
     "drop_hint": "ou déposez un fichier ici",
     "environment_help": "Désactivé par défaut. Cochez chaque entrée à inclure.",
     "import_environment_help": "Désactivé par défaut. Cochez chaque entrée à restaurer en copie inactive.",
-    "recovery_help": "Copies inactives que vous pouvez réexporter ou supprimer."
+    "recovery_help": "Copies inactives que vous pouvez réexporter ou supprimer.",
+    "environment_label": "Identifiants d'environnement"
   },
   "status": {
     "ok": "Connecté",

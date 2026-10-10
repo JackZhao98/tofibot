@@ -609,7 +609,8 @@
     "drop_hint": "或将文件拖到此处",
     "environment_help": "默认关闭，请逐条勾选要包含的记录。",
     "import_environment_help": "默认关闭，请逐条勾选要恢复为未启用副本的记录。",
-    "recovery_help": "未启用的副本，可重新导出或删除。"
+    "recovery_help": "未启用的副本，可重新导出或删除。",
+    "environment_label": "环境凭据"
   },
   "status": {
     "ok": "已连接",

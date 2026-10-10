@@ -91,7 +91,7 @@ function AdvancedPage({portabilityBotID,portabilityFile,onPortabilityFileConsume
   {admin&&<SettingsSection title={t("advanced.version")}><VersionCard/></SettingsSection>}
   <SettingsSection title={t("advanced.server")}><SettingsCard><ConnectionInfo/></SettingsCard></SettingsSection>
   <SettingsSection title={t("advanced.data")}><PortabilitySettings bots={bots} initialFile={portabilityFile} initialBotID={portabilityBotID} onInitialFileConsumed={onPortabilityFileConsumed}/></SettingsSection>
-  <SettingsSection title={t("advanced.debug")}><SettingsCard className="settings-flush"><DebugSettings bots={activeBots} conversation={conversation}/></SettingsCard></SettingsSection>
+  <SettingsSection title={t("advanced.debug")}><SettingsCard><DebugSettings bots={activeBots} conversation={conversation}/></SettingsCard></SettingsSection>
   <DangerZone title={t("advanced.danger")}><WorkspacePurgeSettings/></DangerZone>
  </div>;
 }

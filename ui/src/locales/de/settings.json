@@ -618,7 +618,8 @@
     "drop_hint": "oder Datei hierher ziehen",
     "environment_help": "Standardmäßig aus. Jeden gewünschten Eintrag einzeln anhaken.",
     "import_environment_help": "Standardmäßig aus. Jeden Eintrag einzeln anhaken, der als inaktive Kopie wiederhergestellt werden soll.",
-    "recovery_help": "Inaktive Kopien, die du erneut exportieren oder löschen kannst."
+    "recovery_help": "Inaktive Kopien, die du erneut exportieren oder löschen kannst.",
+    "environment_label": "Umgebungs-Zugangsdaten"
   },
   "status": {
     "ok": "Verbunden",

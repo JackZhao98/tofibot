@@ -14,6 +14,8 @@
 //  font-family   text and controls must compute to one of the --body / --display / --mono stacks
 //  card-padding  text or a control whose left edge is < 12px from the inner edge of its card (SettingsCard or any
 //                bordered, rounded, >= 200x56 box); a full-width button row is judged by its own left padding
+//  clipped-scroll a scrollable box inside a card whose content is cut off (render the full list instead)
+//  multi-details / floating-details  at most one "Details" disclosure per card, never outside a card
 //  overflow      390px only: the document, or any visible element, is wider than the viewport or its clipping parent
 //  font-size     text under 12px, except the explicit exception: mono, >= 10px, and either uppercase with letter
 //                spacing (section/danger labels) or the nav count pill (.settings-count)
@@ -149,6 +151,22 @@ function auditPage(opts) {
     if (gap + own < 12 - 0.5) add("card-padding", label, `${gap.toFixed(1)}px from ${name(card)}`);
   }
 
+  // ---- clipped inner scroll boxes: a scrollable element inside a card must show all of its content
+  for (const el of document.querySelectorAll("*")) {
+    if (!inRoots(el) || el.matches("textarea, input, select, svg, pre, .settings-page-body, .settings-tabs, .settings-mhome, .sheet, .onb-sheet, .onb-body, .onb-step") || !visible(el)) continue;
+    if (!/auto|scroll/.test(style(el).overflowY) || !cardOf(el)) continue;
+    if (el.scrollHeight > el.clientHeight + 2) add("clipped-scroll", el, `scrollHeight ${el.scrollHeight}px > clientHeight ${el.clientHeight}px`);
+  }
+  // ---- "Details" disclosures: at most one per card, always inside a card
+  const perCard = new Map();
+  for (const toggle of document.querySelectorAll(".disclosure-toggle")) {
+    if (!inRoots(toggle) || !visible(toggle) || toggle.textContent.trim() !== "Details") continue;
+    const card = cardOf(toggle);
+    if (!card) { add("floating-details", toggle, "a Details disclosure outside any card"); continue; }
+    perCard.set(card, (perCard.get(card) ?? 0) + 1);
+  }
+  for (const [card, count] of perCard) if (count > 1) add("multi-details", card, `${count} Details disclosures in one card`);
+
   // ---- overflow (phones)
   if (mobile) {
     const doc = document.documentElement;
@@ -201,7 +219,7 @@ function Fixture(){
  const [file,setFile]=useState<File|undefined>(undefined);
  const openSettings=(next:SettingsTab,view:SettingsView='page')=>{setTab(next);setEntry(current=>({seq:current.seq+1,view}))};
  useEffect(()=>subscribeSettingsDeepLinks(next=>openSettings(next)),[]);
- return <div className="workspace"><UpdateBanner/><div className="workspace-grid"><aside className="detail-pane visible" role="dialog" aria-modal="true">{!closed&&<SettingsShell tab={tab} onTab={setTab} onClose={()=>setClosed(true)} entry={entry} refreshToken={0} renderPage={page=><SettingsPages page={page} bots={bots} timezone="America/Los_Angeles" usageBotId="" portabilityBotID="" portabilityFile={file} onPortabilityFileConsumed={()=>setFile(undefined)} appearance={appearance} extensionRefresh={0} openTab={next=>openSettings(next)} slots={{codex:<CodexPanel refreshToken={0} onConfigured={()=>{}}/>,notifications:<NotificationSetting/>,providersRefresh:0,onProvidersConfigured:()=>{},legacyArchive:null}}/>}/>}</aside></div></div>;
+ return <div className="workspace"><UpdateBanner/><div className="workspace-grid"><button type="button" className="detail-backdrop" aria-label="Close"/><aside className="detail-pane visible" role="dialog" aria-modal="true">{!closed&&<SettingsShell tab={tab} onTab={setTab} onClose={()=>setClosed(true)} entry={entry} refreshToken={0} renderPage={page=><SettingsPages page={page} bots={bots} timezone="America/Los_Angeles" usageBotId="" portabilityBotID="" portabilityFile={file} onPortabilityFileConsumed={()=>setFile(undefined)} appearance={appearance} extensionRefresh={0} openTab={next=>openSettings(next)} slots={{codex:<CodexPanel refreshToken={0} onConfigured={()=>{}}/>,notifications:<NotificationSetting/>,providersRefresh:0,onProvidersConfigured:()=>{},legacyArchive:null}}/>}/>}</aside></div></div>;
 }
 void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>createRoot(document.getElementById('root')!).render(<TimezoneProvider><OwnerSessionGate><Fixture/></OwnerSessionGate></TimezoneProvider>));
 `);
@@ -486,7 +504,7 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
     const handle = await page.locator(selector).first().elementHandle().catch(() => null);
     const extra = handle ? await handle.evaluate(el => Math.max(0, Math.min(8000, el.scrollHeight - el.clientHeight))) : 0;
     if (extra > 0) {
-      await page.addStyleTag({content: ".workspace .detail-pane:has(.settings-tabs){height:calc(100dvh - 48px)!important;max-height:none!important}.sheet,.onb-sheet{max-height:none!important}"});
+      await page.addStyleTag({content: "@media(min-width:701px){.workspace .detail-pane:has(.settings-tabs){height:calc(100dvh - 48px)!important;max-height:none!important}}.sheet,.onb-sheet{max-height:none!important}"});
       await page.setViewportSize({width: base.width, height: base.height + extra + 60});
       await page.waitForTimeout(300);
     }
