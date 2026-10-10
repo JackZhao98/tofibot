@@ -1674,3 +1674,34 @@ class AcceptanceLoopbackImageTests(unittest.TestCase):
             except tofi_host.HostError as error:
                 self.assertNotIn('must be pinned', str(error))
             self.assertTrue(validate.call_args.kwargs['allow_loopback_app'])
+
+
+class StoppedToleratesCrashedCandidateTests(unittest.TestCase):
+    """Rollback must not give up because the rejected App crashed."""
+
+    def containers(self, exit_code):
+        return [{'Id': 'app1', 'Labels': {}, 'State': {'Running': False, 'ExitCode': exit_code}}]
+
+    def run_stopped(self, exit_code, tolerate):
+        with mock.patch.object(tofi_host, 'project_containers', return_value=self.containers(exit_code)), \
+                mock.patch.object(tofi_host, 'service_of', return_value='app'), \
+                mock.patch.object(tofi_host, 'run'), mock.patch.object(tofi_host, 'warn') as warned:
+            tofi_host.stopped(tolerate_unclean=tolerate)
+        return warned
+
+    def test_default_refuses_unclean_exit(self):
+        with self.assertRaises(tofi_host.HostError):
+            self.run_stopped(1, tolerate=False)
+
+    def test_tolerant_stop_warns_and_continues(self):
+        warned = self.run_stopped(1, tolerate=True)
+        self.assertTrue(warned.called)
+
+    def test_clean_exit_never_warns(self):
+        warned = self.run_stopped(0, tolerate=True)
+        self.assertFalse(warned.called)
+
+    def test_rollback_stops_candidate_tolerantly(self):
+        import inspect
+        source = inspect.getsource(tofi_host.rollback)
+        self.assertIn('stopped(tolerate_unclean=True)', source)

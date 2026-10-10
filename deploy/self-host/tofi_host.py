@@ -1146,8 +1146,13 @@ def service_of(container):
     return ((container.get('Config') or {}).get('Labels') or {}).get('com.docker.compose.service')
 
 
-def stopped():
-    """Stop every project container and prove the Worker and App exited cleanly."""
+def stopped(tolerate_unclean=False):
+    """Stop every project container and prove the Worker and App exited cleanly.
+
+    `tolerate_unclean` is for paths that discard or replace what ran (rollback,
+    restore, uninstall, purge, a plain stop): a container that crashed must
+    not strand the host down, so its exit is reported and the path continues.
+    """
     containers = project_containers()
     if containers:
         run(['docker', 'stop', '--time', '180'] + [c['Id'] for c in containers], timeout=600)
@@ -1157,6 +1162,9 @@ def stopped():
         if state.get('Running') or state.get('Restarting'):
             raise HostError('Container %s is still running after stop; inspect it with `docker ps`.' % service)
         if service in ('app', 'worker') and state.get('ExitCode') not in (0, None):
+            if tolerate_unclean:
+                warn('The %s container had exited uncleanly (exit %s); continuing.' % (service, state.get('ExitCode')))
+                continue
             raise HostError('The %s container stopped uncleanly (exit %s); data is retained. '
                             'Inspect `tofi logs %s` before starting again.' % (service, state.get('ExitCode'), service))
 
@@ -2246,7 +2254,7 @@ def stop(wait=0, force=False):
         if load_state() is None:
             raise HostError('TOFI is not installed.')
         wait_for_idle('stopping TOFI', wait, force)
-        stopped()
+        stopped(tolerate_unclean=True)
         return {'stopped': True, 'data_retained': True}
 
 
@@ -2457,7 +2465,7 @@ def restore_backup(backup_id, yes=False, wait=0, force=False, confirm=None):
         state['phase'] = 'upgrading'
         save_state(state)
         try:
-            stopped()
+            stopped(tolerate_unclean=True)
             transition(state, 'upgrading', 'backup')
             pre_restore = backup_data('pre-restore', previous['env'], check_space=False)['id']
             state['transaction']['backup'] = pre_restore
@@ -2571,7 +2579,7 @@ def rollback(state):
     env = previous['env']
     try:
         transition(state, 'rolling-back', 'stop-candidate')
-        stopped()
+        stopped(tolerate_unclean=True)
         if transaction.get('data_changed') and not transaction.get('data_restored'):
             backup_id = transaction.get('backup')
             if backup_id:
@@ -2631,7 +2639,7 @@ def finish_uninstall(state):
         transition(state, 'uninstalling', 'stop-services')
         run(['systemctl', 'disable', 'tofi.service'], check=False)
         remove_auto_update_units()
-        stopped()
+        stopped(tolerate_unclean=True)
         transition(state, 'uninstalling', 'remove-services')
         if compose_file().exists():
             compose('rm', '-f', '-s')
@@ -2657,7 +2665,7 @@ def purge_everything(state, confirm):
     if confirm != hostname:
         raise HostError('Purge cancelled: the typed hostname did not match %s.' % hostname)
     if state is not None:
-        stopped()
+        stopped(tolerate_unclean=True)
     if compose_file().exists() and P.env_file.exists():
         compose('down', '--remove-orphans')
     images = []
