@@ -214,11 +214,13 @@ func (c *Client) send(ctx context.Context, method, endpoint string, body any, ou
 	defer resp.Body.Close()
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		message, _ := io.ReadAll(io.LimitReader(resp.Body, 8<<10))
-		if action, ok := body.(Action); ok && action.Name == "files.write" && action.WriteIdentity != nil {
+		// A guest refusal that carries a structured not-executed outcome proves
+		// the action was never performed. Anything else stays unclassified.
+		if _, ok := body.(Action); ok {
 			var rejected ActionResult
 			if json.Unmarshal(message, &rejected) == nil && rejected.Outcome != nil {
 				o := *rejected.Outcome
-				if o.Version == 1 && o.Status == tooloutcome.Validation && (o.Code == "write_identity_changed" || o.Code == "invalid_arguments") && o.Certainty == "not_executed" {
+				if o.Version == 1 && o.Status == tooloutcome.Validation && o.Certainty == "not_executed" && o.NextAction != "" {
 					return o.Err()
 				}
 			}

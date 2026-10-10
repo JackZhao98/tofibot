@@ -178,3 +178,14 @@ func TestConsequentialClickNeedsHumanApprovalOfThatTarget(t *testing.T) {
 		t.Fatal("approval must cover exactly the approved target")
 	}
 }
+
+func TestBrowserPageNavigationIsAnObservation(t *testing.T) {
+	for _, action := range []string{"browser.navigate", "browser.new", "browser.switch", "browser.snapshot", "browser.read"} {
+		if computerRecoveryIdentity("bot", microVMComputerID, action, json.RawMessage(`{"url":"https://example.com"}`)).Risk != "observation" {
+			t.Fatalf("%s must be an observation", action)
+		}
+	}
+	if computerRecoveryIdentity("bot", microVMComputerID, "browser.click", json.RawMessage(`{"click":"x"}`)).Risk == "observation" {
+		t.Fatal("browser.click is not an observation")
+	}
+}
