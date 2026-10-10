@@ -221,7 +221,9 @@ jobs:
             --app-image "$APP" --worker-image "$WORKER" --caddy-image "$CADDY" \
             --guest-archive "dist/tofi-guest-$TAG-x86_64.tar.zst" \
             --guest-release-json dist/account-release.json \
-            --bundle "dist/tofi-host-$TAG.tar.gz" --out dist/manifest.json
+            --bundle "dist/tofi-host-$TAG.tar.gz" \
+            --notes-url "https://github.com/$GITHUB_REPOSITORY/releases/tag/$TAG" \
+            --out dist/manifest.json
           cat dist/manifest.json
           cp install.sh dist/install.sh
           rm dist/account-release.json

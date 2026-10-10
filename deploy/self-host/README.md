@@ -59,7 +59,11 @@ confirm:
 5. Version: the latest stable release. If only prereleases exist, the installer
    says so and asks `Install prerelease vX-rc.N? [y/N]`; it never installs a
    prerelease silently.
-6. A **Ready to install** card, then `Nothing has changed yet. Proceed? [Y/n]`.
+6. `Install fix releases automatically? (recommended)` [Y/n]: patch releases
+   (same x.y) install overnight when no Bot run is active, after a backup;
+   `--auto-update` / `--no-auto-update` answer it, and without a terminal
+   `--yes` means yes. See "Safe updates" below.
+7. A **Ready to install** card, then `Nothing has changed yet. Proceed? [Y/n]`.
 
 After you confirm, each step is one line with a spinner that ends in ✓ (apt and
 Docker output go to `/var/log/tofi-install.log`), ending with the usual banner.
@@ -113,6 +117,7 @@ every exposure variable. With `sudo`, pass variables after it:
 | `--local-only` | `TOFI_LOCAL_ONLY=1` | `127.0.0.1` only (still HTTPS): `ssh -L 8321:127.0.0.1:8321 user@server` |
 | `--port PORT` | `TOFI_PORT` | App port, 1024-65535 (default 8321) |
 | `--version vX.Y.Z[-rc.N]` | `TOFI_VERSION` | a specific release (default: latest stable) |
+| `--auto-update` / `--no-auto-update` | | install fix releases overnight / do not (default without a terminal: yes with `--yes`, otherwise no) |
 | `--yes`, `--non-interactive` | `TOFI_YES=1`, `TOFI_NON_INTERACTIVE=1` | no questions |
 | `--lan` | | accepted for compatibility; the default |
 | | `CI` (any value) | no questions |
@@ -239,9 +244,14 @@ Later accounts are created by the Admin. Then open Settings -> Model provider.
 | `tofi status [--json]` | Installed and latest version, App/Worker images, Guest release, services, health, URLs, certificate fingerprint and one row per account computer (in a terminal the install summary first) |
 | `tofi computers [--json]` | The account computer rows alone: state, Guest release, pending upgrade, memory, last wake |
 | `tofi computers upgrade --all \| --account <id> [--force]` | Move computers on an older Guest release to the installed one (idle ones now, busy ones deferred unless `--force`), then remove Guest releases no computer uses |
-| `tofi start` / `tofi stop` | Start (Worker first, readiness, App) / stop cleanly; never removes data |
+| `tofi start` / `tofi stop [--wait MINUTES] [--force]` | Start (Worker first, readiness, App) / stop cleanly; never removes data. `stop` waits for active Bot runs like `update` does (the systemd unit passes `--force` so shutdown is never refused) |
 | `tofi update --check [--version X] [--json]` | Report what an update would change (versions, image digests, Guest, data schema, effect on computers) without touching anything; exit 0 up to date, 10 update available, 1 error |
-| `tofi update [--version X] [--allow-schema-change]` | Pull and check the new images and Guest before stopping anything; refuse a different `io.tofi.data-schema` unless allowed; on failure restore the previous images, Guest pin and host files with the current data ("update rejected; previous version restored") |
+| `tofi update [--version X] [--yes] [--wait MINUTES] [--force] [--allow-schema-change]` | Pull and check the new images and Guest before stopping anything; refuse a different `io.tofi.data-schema` unless allowed; take a backup, then switch; on failure restore the backup, the previous images, Guest pin and host files ("update rejected; previous version restored"). Asks for confirmation on a terminal unless `--yes`; `--check` also prints the release notes link |
+| `tofi update --auto` | What the daily timer runs: nothing unless `TOFI_AUTO_UPDATE=patch`; installs only a newer patch of the installed major.minor, never an rc, never when a Bot run is active (skipped, not waited for) |
+| `tofi config auto-update on\|off` | Switch automatic fix releases and the systemd timer |
+| `tofi backup [--note TEXT]` | Stop, back up data and settings, start again |
+| `tofi backups [--json]` | List backups: id, time, version, size, reason |
+| `tofi restore <id> [--yes]` | Verify the backup's checksums, back up the current state (`pre-restore`), restore data and settings, and switch to that backup's version |
 | `tofi uninstall` | Stop and remove containers; keep `/etc/tofi`, `/var/lib/tofi`, images, AppArmor profile; journal `stopped-retained` |
 | `tofi uninstall --purge` | After you type the hostname: remove containers, images, profile, unit and every TOFI directory including all data |
 | `tofi setup-secret` | Print the pending setup key |
@@ -250,9 +260,65 @@ Later accounts are created by the Admin. Then open Settings -> Model provider.
 | `tofi doctor` | The installer's "This machine" card, then check KVM, computer backend, cgroup, profile, `/run/tofi`, Worker config, Guest release, images, disk, health |
 | `tofi version` | Host tool, installed release and images |
 
-Mutating commands (`install`, `start`, `stop`, `update`, `uninstall`,
-`computers upgrade`, `regenerate-cert`) take the host lock; a second one at the
-same time is refused.
+Mutating commands (`install`, `start`, `stop`, `update`, `backup`, `restore`,
+`config`, `uninstall`, `computers upgrade`, `regenerate-cert`) take the host
+lock; a second one at the same time is refused.
+
+## Safe updates
+
+Every update is built so that nothing is lost when it fails.
+
+- **Backup first.** After the services stop (SQLite is quiet) and before
+  anything changes, `tofi update` writes `/var/lib/tofi/backups/<UTC time>-<version>/`
+  (mode 0700): `data.tar.zst` (gzip when `zstd` is missing) of
+  `/var/lib/tofi/data`, `etc.tar.gz` of `/etc/tofi` (without the install
+  journal), and `meta.json` with the version, images, Guest, time, reason, sizes
+  and a sha256 of each archive. Computer disks (`/var/lib/tofi/worker`) are
+  never included. The last 3 backups are kept (pruned after a good update).
+- **Room check.** Before anything is stopped the update needs 2x the size of
+  data + settings plus 1 GiB free under `/var/lib/tofi`; otherwise it refuses and
+  prints the numbers.
+- **Rollback restores data.** If the new version was started (it may have run
+  schema migrations) and then failed, rollback verifies the backup's checksums,
+  restores data and settings from it and only then starts the previous images.
+  If the new version never started, the data is not touched. Restore is atomic
+  per directory: the archive is extracted to `<dir>.restore-tmp`, the live
+  directory is renamed aside, the new one renamed in, and only then is the old
+  one deleted. Data written while a rejected version was running is discarded
+  by design.
+- **Active-run guard.** `update`, `backup`, `restore` and `stop` count Bot runs
+  in `queued`, `running` or `waiting` (the database is opened read-only). With
+  any, they wait up to `--wait MINUTES` (default 10 on a terminal, 0 in scripts
+  and the timer), polling every 15 s, then refuse unless `--force`. If the count
+  cannot be read it is treated as 0 with a warning, so a broken database never
+  blocks recovery.
+- **Custom `tofi.env` lines survive.** Unknown keys are kept verbatim across
+  install-resume, update, rollback and restore.
+- **Automatic fix releases.** The installer asks `Install fix releases
+  automatically? (recommended)` (default yes; `--auto-update` /
+  `--no-auto-update`; without a terminal `--yes` means yes). It installs
+  `tofi-auto-update.timer` (daily 04:00 local, up to 45 min random delay,
+  `Persistent=true`) which runs `tofi update --auto`; `TOFI_AUTO_UPDATE` in
+  `tofi.env` is `patch` or `off`, switched with `sudo tofi config auto-update
+  on|off`. A rejected version is not retried every night. Each run appends one
+  line to `/var/lib/tofi/update-history.jsonl` and one to the journal
+  (`journalctl -u tofi-auto-update`). `tofi status` shows `Updates automatic
+  (fix releases) · next check 04:12` or `manual`.
+- **Release notes.** `manifest.json` carries an optional `notes_url`
+  (`https://github.com/<repo>/releases/tag/<version>`), printed by
+  `tofi update --check`.
+- **Acceptance.** `deploy/self-host/upgrade_acceptance.py --from vX --to vY
+  --broken-manifest M` (as root on a disposable VM) installs X, creates
+  synthetic data, updates to Y, forces a failing update and exercises
+  `tofi backups` / `tofi restore`; exit 0 is a pass.
+
+```
+$ sudo tofi backups
+  ID                       CREATED (UTC)         VERSION      SIZE      REASON
+  20261009T041203Z-v0.1.0  2026-10-09T04:12:03Z  v0.1.0       42.0 MiB  pre-update
+
+  Restore one with: sudo tofi restore <ID>   (kept: the last 3)
+```
 
 ## Versions and account computers
 
@@ -375,10 +441,13 @@ the journal.
 /etc/apparmor.d/tofi-worker
 /etc/tmpfiles.d/tofi.conf      d /run/tofi 0750 0 10001 -
 /etc/systemd/system/tofi.service
+/etc/systemd/system/tofi-auto-update.{service,timer}   automatic fix releases (timer enabled only when TOFI_AUTO_UPDATE=patch)
 /var/lib/tofi/data/            App data (uid 10001, 0700)
 /var/lib/tofi/worker/          Worker state, ledger, account disks (root, 0700)
 /var/lib/tofi/guest/<ver>/     sealed Guest releases (0555): installed, previous, and any a snapshot uses
 /var/cache/tofi/latest-release.json  last answer of the latest-release check
+/var/lib/tofi/backups/<UTC time>-<version>/   pre-update / manual / pre-restore backups (0700, last 3 kept)
+/var/lib/tofi/update-history.jsonl   one line per update attempt (manual and automatic)
 /var/lib/tofi/caddy/           certificates (with --domain)
 /run/tofi/{broker.sock,accounts/}
 ```
@@ -414,11 +483,11 @@ computers that all become busy again are not stopped by the Worker.
 `install-failed`, `installed`, `upgrading`, `upgrade-failed`, `rolling-back`,
 `rollback-failed`, `uninstalling`, `uninstall-failed`, `stopped-retained`), the
 current step and the last error. An update stores the previous `tofi.env`,
-`worker.json` and host bundle before it stops anything. Running `sudo tofi install`
+`worker.json` and host bundle before it stops anything, and a backup of the data and `/etc/tofi` right after. Running `sudo tofi install`
 (or install.sh again) resumes:
 
 - an interrupted install: re-applies host config and starts services;
-- an interrupted update or rollback: restores the previous version with current data;
+- an interrupted update or rollback: restores the previous version (and, if the new version had started, the pre-update backup of data and settings);
 - an interrupted uninstall: finishes it, keeping data.
 
 `tofi start` refuses while a transaction is pending. Nothing in this flow deletes
