@@ -463,6 +463,17 @@ class InstallScriptTests(InstallBase):
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertEqual(self.handoff()[3:], ['--local-only'])
 
+    def test_auto_update_flags_are_handed_to_tofi_install(self):
+        for env in ({}, {'TOFI_INSTALLER_UI': 'plain'}):
+            for flags, expected in ((['--auto-update'], ['--auto-update']),
+                                    (['--no-auto-update'], ['--no-auto-update']),
+                                    ([], [])):
+                with self.subTest(env=env, flags=flags):
+                    result = self.run_script('--local-only', '--yes', *flags, **env)
+                    self.assertEqual(result.returncode, 0, result.stderr)
+                    # Without a flag tofi decides: --yes means automatic fix releases.
+                    self.assertEqual(self.handoff()[3:], ['--local-only'] + expected + ['--yes'])
+
     def test_hand_off_latest_and_local_only(self):
         result = self.run_script('--local-only', '--yes')
         self.assertEqual(result.returncode, 0, result.stderr)
@@ -604,12 +615,14 @@ class InteractiveTests(InstallBase):
         term.expect("How should each account's computer run?").expect('Choose 1-3 or a name [1]:').line()
         term.expect('How will you open TOFI?').expect('[1]:').line()
         term.expect('Port for TOFI').expect('[8321]:').line()
+        term.expect('Install fix releases automatically? (recommended)')
+        term.expect('Turn on automatic fix releases? [Y/n]').line()
         term.expect('Ready to install')
         self.assertEqual(self.host_tree(), before, 'nothing changes before Proceed')
         self.assertEqual(self.changing_calls(), [])
         term.expect('Proceed? [Y/n]').line()
         self.assertEqual(term.finish(), 0, term.text)
-        self.assertEqual(self.handoff()[3:], [])
+        self.assertEqual(self.handoff()[3:], ['--auto-update'])
         for shown in ('1) KVM (Firecracker) (recommended)',
                       '1) By IP over HTTPS (self-signed) https://192.168.1.20:8321 (recommended)',
                       '2) gVisor container — not supported yet (coming in a later release)',
@@ -626,9 +639,10 @@ class InteractiveTests(InstallBase):
         term.expect('How will you open TOFI?').expect('Enter select')
         term.send('\x1b[B').send('\x1b[B').send('\r')   # this machine only
         term.expect('Port for TOFI').line('9100')
+        term.expect('Turn on automatic fix releases? [Y/n]').line()
         term.expect('Proceed? [Y/n]').line('YES')
         self.assertEqual(term.finish(), 0, term.text)
-        self.assertEqual(self.handoff()[3:], ['--local-only', '--port', '9100'])
+        self.assertEqual(self.handoff()[3:], ['--local-only', '--port', '9100', '--auto-update'])
         self.assertShown(term, '✓ This machine only (SSH tunnel)')
 
     def test_menu_accepts_numbers_and_typed_names(self):
@@ -636,9 +650,10 @@ class InteractiveTests(InstallBase):
         term.expect('Enter select').send('1')
         term.expect('How will you open TOFI?').expect('Enter select').send('LOCAL\r')
         term.expect('Port for TOFI').line()
+        term.expect('Turn on automatic fix releases? [Y/n]').line()
         term.expect('Proceed? [Y/n]').line()
         self.assertEqual(term.finish(), 0, term.text)
-        self.assertEqual(self.handoff()[3:], ['--local-only'])
+        self.assertEqual(self.handoff()[3:], ['--local-only', '--auto-update'])
 
     def test_choose_domain_with_validation_and_dns_warning(self):
         term = self.terminal(TOFI_PROMPT='plain', STUB_DNS='198.51.100.99')
@@ -650,9 +665,11 @@ class InteractiveTests(InstallBase):
         term.expect('tofi.example.com points at 198.51.100.99, not at this server (203.0.113.5)')
         term.expect("Email for Let's Encrypt").line('nope')
         term.expect("'nope' is not an email address").line('ops@example.com')
+        term.expect('Turn on automatic fix releases? [Y/n]').line()
         term.expect('Ready to install').expect('Proceed? [Y/n]').line('y')
         self.assertEqual(term.finish(), 0, term.text)
-        self.assertEqual(self.handoff()[3:], ['--domain', 'tofi.example.com', '--email', 'ops@example.com'])
+        self.assertEqual(self.handoff()[3:], ['--domain', 'tofi.example.com', '--email', 'ops@example.com',
+                                              '--auto-update'])
         self.assertShown(term, 'https://tofi.example.com (Let\'s Encrypt)')
         self.assertNotShown(term, 'Port for TOFI')
 
@@ -665,6 +682,7 @@ class InteractiveTests(InstallBase):
         term.expect('With a domain (automatic HTTPS) is not supported: port 443 in use by nginx (pid 812).')
         term.line('ip')
         term.expect('Port for TOFI').line()
+        term.expect('Turn on automatic fix releases? [Y/n]').line()
         term.expect('Proceed? [Y/n]').line()
         self.assertEqual(term.finish(), 0, term.text)
         # The colour version renders the unsupported row dim (SGR 2).
@@ -681,9 +699,10 @@ class InteractiveTests(InstallBase):
         term.line('80')
         term.expect("'80' is not a port between 1024 and 65535.")
         term.line()
+        term.expect('Turn on automatic fix releases? [Y/n]').line()
         term.expect('Proceed? [Y/n]').line()
         self.assertEqual(term.finish(), 0, term.text)
-        self.assertEqual(self.handoff()[3:], ['--port', '8322'])
+        self.assertEqual(self.handoff()[3:], ['--port', '8322', '--auto-update'])
 
     def test_five_invalid_answers_abort(self):
         before = self.host_tree()
@@ -699,8 +718,9 @@ class InteractiveTests(InstallBase):
 
     def test_ctrl_c_before_proceed_cancels_without_changes(self):
         before = self.host_tree()
-        answered = [('Choose 1-3', '\r'), ('Choose 1-3', '\r'), ('[8321]:', '\r')]
-        for prompt, count in (('Choose 1-3', 0), ('Port for TOFI', 2), ('Proceed?', 3)):
+        answered = [('Choose 1-3', '\r'), ('Choose 1-3', '\r'), ('[8321]:', '\r'),
+                    ('Turn on automatic fix releases?', '\r')]
+        for prompt, count in (('Choose 1-3', 0), ('Port for TOFI', 2), ('Turn on automatic', 3), ('Proceed?', 4)):
             with self.subTest(prompt=prompt):
                 term = self.terminal(TOFI_PROMPT='plain')
                 for earlier, key in answered[:count]:
@@ -722,6 +742,7 @@ class InteractiveTests(InstallBase):
         term.expect('[1]:').line()
         term.expect('[1]:').line()
         term.expect('[8321]:').line()
+        term.expect('Turn on automatic fix releases? [Y/n]').line()
         term.expect('Proceed? [Y/n]').line('maybe')
         term.expect('Answer y or n (Enter means yes).').line(' N ')
         term.expect('Cancelled — nothing was changed.')
@@ -742,19 +763,39 @@ class InteractiveTests(InstallBase):
                              TOFI_PROMPT='plain', STUB_DNS='203.0.113.5')
         term.expect("How should each account's computer run?").expect('[1]:').line()
         term.expect('With a domain (automatic HTTPS)  (set by --domain)')
+        term.expect('Turn on automatic fix releases? [Y/n]').line()
         term.expect('Proceed? [Y/n]').line()
         self.assertEqual(term.finish(), 0, term.text)
         self.assertNotShown(term, 'Domain name')
         self.assertNotShown(term, 'Email for')
         self.assertNotShown(term, 'Port for TOFI')
         self.assertEqual(self.handoff()[3:], ['--domain', 'tofi.example.com', '--email', 'ops@example.com',
-                                              '--port', '9000'])
+                                              '--port', '9000', '--auto-update'])
         term = self.terminal('--computer', 'kvm', '--local-only', TOFI_PROMPT='plain')
         term.expect('KVM (Firecracker)  (set by --computer)')
         term.expect('This machine only (SSH tunnel)  (set by --local-only)')
         term.expect('Port for TOFI').line()
+        term.expect('Turn on automatic fix releases? [Y/n]').line()
         term.expect('Proceed? [Y/n]').line()
         self.assertEqual(term.finish(), 0, term.text)
+        # A flag answers the auto-update question too.
+        term = self.terminal('--no-auto-update', '--local-only', TOFI_PROMPT='plain')
+        term.expect('[1]:').line()
+        term.expect('Port for TOFI').line()
+        term.expect('Install fix releases automatically? (recommended)')
+        term.expect('No  (set by --no-auto-update)')
+        term.expect('Proceed? [Y/n]').line()
+        self.assertEqual(term.finish(), 0, term.text)
+        self.assertNotShown(term, 'Turn on automatic fix releases?')
+        self.assertEqual(self.handoff()[3:], ['--local-only', '--no-auto-update'])
+        # Declining the question is remembered.
+        term = self.terminal('--local-only', TOFI_PROMPT='plain')
+        term.expect('[1]:').line()
+        term.expect('Port for TOFI').line()
+        term.expect('Turn on automatic fix releases? [Y/n]').line('n')
+        term.expect('Proceed? [Y/n]').line()
+        self.assertEqual(term.finish(), 0, term.text)
+        self.assertEqual(self.handoff()[3:], ['--local-only', '--no-auto-update'])
 
     def test_yes_ci_and_dumb_pipes_never_prompt(self):
         for args, extra in ((['--yes'], {}), (['--non-interactive'], {}), ([], {'CI': 'true'}),
@@ -791,7 +832,9 @@ class InteractiveTests(InstallBase):
             term.expect('[1]:').line()
         term.expect('[8321]:').line()
         term.expect('[y/N]').line('y')
-        term.expect('v0.1.0-rc.2 (prerelease, confirmed)').expect('Proceed? [Y/n]').line()
+        term.expect('Turn on automatic fix releases? [Y/n]').line()
+        term.expect('v0.1.0-rc.2 (prerelease, confirmed)')
+        term.expect('Proceed? [Y/n]').line()
         self.assertEqual(term.finish(), 0, term.text)
         self.assertIn('/releases/v0.1.0-rc.2/manifest.json', self.handoff()[2])
 

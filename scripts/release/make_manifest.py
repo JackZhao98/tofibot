@@ -46,7 +46,7 @@ def sha256_file(path):
 
 
 def build_manifest(version, images, guest_archive, guest_release_json, bundle, data_schema=DATA_SCHEMA,
-                   guest_version=None):
+                   guest_version=None, notes_url=None):
     guest_version = guest_version or version
     guest_archive = Path(guest_archive)
     bundle = Path(bundle)
@@ -74,6 +74,8 @@ def build_manifest(version, images, guest_archive, guest_release_json, bundle, d
         },
         'min_host': MIN_HOST,
         'data_schema': data_schema,
+        # Optional for readers: older manifests have none.
+        'notes_url': notes_url or '%s/tag/%s' % (tofi_host.RELEASE_BASE, version),
     }
     try:
         tofi_host.validate_manifest(manifest)
@@ -92,12 +94,13 @@ def main(argv=None):
     parser.add_argument('--guest-release-json', required=True)
     parser.add_argument('--bundle', required=True)
     parser.add_argument('--data-schema', default=DATA_SCHEMA)
+    parser.add_argument('--notes-url', help='release notes page (default: the GitHub release for --version)')
     parser.add_argument('--out', required=True)
     args = parser.parse_args(argv)
     images = {'app': args.app_image, 'worker': args.worker_image, 'caddy': args.caddy_image}
     try:
         manifest = build_manifest(args.version, images, args.guest_archive, args.guest_release_json,
-                                  args.bundle, args.data_schema)
+                                  args.bundle, args.data_schema, notes_url=args.notes_url)
     except (OSError, ValueError, KeyError) as error:
         print('make_manifest: ' + str(error), file=sys.stderr)
         return 1

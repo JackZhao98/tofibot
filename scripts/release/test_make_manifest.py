@@ -51,6 +51,29 @@ class ManifestTests(unittest.TestCase):
                                               'sha256': hashlib.sha256(b'synthetic bundle').hexdigest()})
         self.assertEqual(manifest['data_schema'], 'tofi-account-data-v1')
         self.assertEqual(manifest['min_host']['disk_gib'], 30)
+        self.assertEqual(manifest['notes_url'], 'https://github.com/JackZhao98/tofibot/releases/tag/%s' % VERSION)
+
+    def test_notes_url_override_and_host_validation_treats_it_as_optional(self):
+        manifest = make_manifest.build_manifest(VERSION, IMAGES, self.guest, self.release_json, self.bundle,
+                                                notes_url='https://example.com/notes')
+        self.assertEqual(manifest['notes_url'], 'https://example.com/notes')
+        self.assertEqual(make_manifest.tofi_host.manifest_notes_url(manifest), 'https://example.com/notes')
+        del manifest['notes_url']
+        make_manifest.tofi_host.validate_manifest(manifest)
+        self.assertIsNone(make_manifest.tofi_host.manifest_notes_url(manifest))
+        manifest['notes_url'] = 'javascript:alert(1)'
+        make_manifest.tofi_host.validate_manifest(manifest)
+        self.assertIsNone(make_manifest.tofi_host.manifest_notes_url(manifest))
+
+    def test_cli_notes_url_flag(self):
+        out = self.dir / 'm2.json'
+        code = make_manifest.main(['--version', VERSION, '--app-image', IMAGES['app'],
+                                   '--worker-image', IMAGES['worker'], '--caddy-image', IMAGES['caddy'],
+                                   '--guest-archive', str(self.guest), '--guest-release-json', str(self.release_json),
+                                   '--bundle', str(self.bundle), '--notes-url', 'https://example.com/n',
+                                   '--out', str(out)])
+        self.assertEqual(code, 0)
+        self.assertEqual(json.loads(out.read_text())['notes_url'], 'https://example.com/n')
 
     def test_rejects_tags_and_misnamed_artifacts(self):
         with self.assertRaisesRegex(ValueError, 'pinned'):

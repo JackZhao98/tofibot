@@ -635,6 +635,7 @@ class LifecycleBase(HostCase):
         self.label = mock.patch.object(tofi_host, 'image_label', return_value='tofi-account-data-v1').start()
         self.fetch_guest = mock.patch.object(tofi_host, 'fetch_guest', side_effect=lambda g, m: self.make_guest(g['version'])).start()
         self.install_bundle = mock.patch.object(tofi_host, 'install_bundle', side_effect=lambda m: self.make_bundle(m['version'])).start()
+        self.active_runs = mock.patch.object(tofi_host, 'active_runs', return_value=0).start()
         self.addCleanup(mock.patch.stopall)
 
     def write_manifest(self, value):
