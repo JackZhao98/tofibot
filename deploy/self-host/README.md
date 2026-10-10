@@ -272,9 +272,14 @@ Every update is built so that nothing is lost when it fails.
   anything changes, `tofi update` writes `/var/lib/tofi/backups/<UTC time>-<version>/`
   (mode 0700): `data.tar.zst` (gzip when `zstd` is missing) of
   `/var/lib/tofi/data`, `etc.tar.gz` of `/etc/tofi` (without the install
-  journal), and `meta.json` with the version, images, Guest, time, reason, sizes
+  journal), `worker-meta.tar.gz` (the small Worker files under
+  `/var/lib/tofi/worker/{config,ledger,state}`; disk images, snapshots and any
+  file over 64 MiB are skipped with a warning; a restore copies them over the
+  live ones and deletes nothing), and `meta.json` with the version, images, Guest, time, reason, sizes
   and a sha256 of each archive. Computer disks (`/var/lib/tofi/worker`) are
-  never included. The last 3 backups are kept (pruned after a good update).
+  never included. The last 3 automatic backups (`pre-update`, `pre-restore`) are kept, pruned
+  after a good update; `manual` backups (`tofi backup`) are never pruned: remove
+  one with `sudo tofi backups --remove <ID>`.
 - **Room check.** Before anything is stopped the update needs 2x the size of
   data + settings plus 1 GiB free under `/var/lib/tofi`; otherwise it refuses and
   prints the numbers.
@@ -304,6 +309,15 @@ Every update is built so that nothing is lost when it fails.
   line to `/var/lib/tofi/update-history.jsonl` and one to the journal
   (`journalctl -u tofi-auto-update`). `tofi status` shows `Updates automatic
   (fix releases) · next check 04:12` or `manual`.
+- **Behind a proxy.** The timer's service runs as root with no login
+  environment. If the server reaches GitHub through an HTTP proxy, give the
+  unit the proxy: `sudo systemctl edit tofi-auto-update.service` and add
+  `[Service]` / `Environment=HTTPS_PROXY=http://proxy.example:3128`, then
+  `sudo systemctl daemon-reload`. The release check and downloads honour
+  `HTTPS_PROXY` / `NO_PROXY`.
+- **When an automatic update fails** `tofi status` shows an `Update` row with the
+  version, time and reason, and whether the previous version was restored. If a
+  rollback itself did not finish, a `Run` row says to run `sudo tofi install`.
 - **Release notes.** `manifest.json` carries an optional `notes_url`
   (`https://github.com/<repo>/releases/tag/<version>`), printed by
   `tofi update --check`.
@@ -317,7 +331,8 @@ $ sudo tofi backups
   ID                       CREATED (UTC)         VERSION      SIZE      REASON
   20261009T041203Z-v0.1.0  2026-10-09T04:12:03Z  v0.1.0       42.0 MiB  pre-update
 
-  Restore one with: sudo tofi restore <ID>   (kept: the last 3)
+  Restore one with: sudo tofi restore <ID>
+  Automatic backups (pre-update, pre-restore): the last 3 are kept. Manual ones stay until you remove them: sudo tofi backups --remove <ID>
 ```
 
 ## Versions and account computers
@@ -446,7 +461,7 @@ the journal.
 /var/lib/tofi/worker/          Worker state, ledger, account disks (root, 0700)
 /var/lib/tofi/guest/<ver>/     sealed Guest releases (0555): installed, previous, and any a snapshot uses
 /var/cache/tofi/latest-release.json  last answer of the latest-release check
-/var/lib/tofi/backups/<UTC time>-<version>/   pre-update / manual / pre-restore backups (0700, last 3 kept)
+/var/lib/tofi/backups/<UTC time>-<version>/   pre-update / manual / pre-restore backups (0700; last 3 automatic kept, manual ones until removed)
 /var/lib/tofi/update-history.jsonl   one line per update attempt (manual and automatic)
 /var/lib/tofi/caddy/           certificates (with --domain)
 /run/tofi/{broker.sock,accounts/}
