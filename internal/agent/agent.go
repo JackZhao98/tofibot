@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"math"
 	"net/http"
 	"os"
 	"os/exec"
@@ -1102,17 +1103,17 @@ func RunAgentLoop(cfg AgentConfig, ctx *models.ExecutionContext) (returned *Agen
 
 		// Micro-compact: trim old tool results that LLM has already consumed,
 		// at coarse checkpoints so the cached request prefix stays stable.
-		breakdown := EstimateContextBreakdown(systemPrompt, messages, allTools)
+		breakdown := EstimateContextBreakdownReplay(systemPrompt, messages, allTools, !reasoningReplayDisabled)
 		estimatedInput := breakdown.Total()
 		if !historyPinned && len(messages) > 8 && microCompactDue(messages, 6, estimatedInput, state.Tracker.ContextWindow()) {
 			messages = microCompact(messages, 6)
-			breakdown = EstimateContextBreakdown(systemPrompt, messages, allTools)
+			breakdown = EstimateContextBreakdownReplay(systemPrompt, messages, allTools, !reasoningReplayDisabled)
 			estimatedInput = breakdown.Total()
 		}
 
 		// Pre-call context budget check — compact proactively before hitting the limit
 		cfg.reportContext(breakdown)
-		compactAt := compactionThreshold(cfg.Model)
+		compactAt := compactionThreshold(cfg.Model, cfg.ReasoningEffort, state.Tracker.ContextWindow())
 		if !repairRequest && !finalRepairFinalRequest && state.Tracker.ShouldCompact(estimatedInput, compactAt) && len(messages) > 4 {
 			ctx.Log("[Agent] Pre-call compaction triggered: estimated %d tokens > %.0f%% of %d window", estimatedInput, compactAt*100, state.Tracker.ContextWindow())
 			cfg.Hooks.callPreCompact(len(messages), estimatedInput)
@@ -1126,7 +1127,7 @@ func RunAgentLoop(cfg AgentConfig, ctx *models.ExecutionContext) (returned *Agen
 				messages = compactAndRebuild(messages, compacted.Summary)
 				// Reset InitialMsgCount so NewMessages() tracks only post-compaction additions
 				state = state.WithCompactedMessages(messages)
-				breakdown = EstimateContextBreakdown(systemPrompt, messages, allTools)
+				breakdown = EstimateContextBreakdownReplay(systemPrompt, messages, allTools, !reasoningReplayDisabled)
 				compactedTokens := breakdown.Total()
 				estimatedInput = compactedTokens
 				cfg.Hooks.callPostCompact(originalCount, len(messages), originalTokens, compactedTokens)
@@ -2047,8 +2048,8 @@ func RunAgentLoop(cfg AgentConfig, ctx *models.ExecutionContext) (returned *Agen
 		}
 
 		// Post-call context compaction — use actual API-reported token count
-		if !repairRequest && !finalRepairFinalRequest && resp.Usage.InputTokens > int64(float64(state.Tracker.ContextWindow())*compactionThreshold(cfg.Model)) && len(messages) > 4 {
-			ctx.Log("[Agent] Post-call compaction triggered: %d tokens > %.0f%% of %d window", resp.Usage.InputTokens, compactionThreshold(cfg.Model)*100, state.Tracker.ContextWindow())
+		if !repairRequest && !finalRepairFinalRequest && resp.Usage.InputTokens > int64(float64(state.Tracker.ContextWindow())*compactionThreshold(cfg.Model, cfg.ReasoningEffort, state.Tracker.ContextWindow())) && len(messages) > 4 {
+			ctx.Log("[Agent] Post-call compaction triggered: %d tokens > %.0f%% of %d window", resp.Usage.InputTokens, compactionThreshold(cfg.Model, cfg.ReasoningEffort, state.Tracker.ContextWindow())*100, state.Tracker.ContextWindow())
 			originalTokens := int(resp.Usage.InputTokens)
 			cfg.Hooks.callPreCompact(len(messages), originalTokens)
 
@@ -2113,9 +2114,20 @@ func clipUTF8(s string, n int) string {
 
 // Anthropic runs keep history append-only to preserve thinking (see
 // historyPinned), so they compact earlier to leave headroom.
-func compactionThreshold(model string) float64 {
+//
+// The threshold is also capped so window*threshold + the request's max_tokens
+// reserve fits the window: Anthropic rejects input+max_tokens > window, and a
+// 200k model at high effort reserves 64k, which would otherwise overflow from
+// ~136k input, before the 0.70 compaction (140k) could run.
+func compactionThreshold(model, effort string, window int) float64 {
 	if info, ok := provider.GetModelInfo(model); ok && info.Provider == "anthropic" {
-		return 0.70
+		threshold := 0.70
+		if window > 0 {
+			// 2% of the window is slack for the chars/4 input estimate.
+			headroom := float64(window-provider.AnthropicOutputReserve(model, effort)-window/50) / float64(window)
+			threshold = math.Min(threshold, math.Max(headroom, 0.30))
+		}
+		return threshold
 	}
 	return 0.80
 }
@@ -2159,6 +2171,9 @@ func compactTranscript(ctx context.Context, cfg *AgentConfig, system string, too
 			Messages:        append(append([]provider.Message(nil), messages...), provider.Message{Role: "user", Content: compactionHandoffPrompt}),
 			Tools:           tools,
 			PromptCacheKey:  cfg.PromptCacheKey,
+			// Tools stay in the request so the prefix and cache match the
+			// transcript, but this call must only produce text.
+			ToolChoice: provider.ToolChoiceNone,
 		}
 		resp, err := cfg.Provider.Chat(ctx, req)
 		if err == nil && resp != nil {

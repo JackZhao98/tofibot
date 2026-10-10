@@ -34,7 +34,14 @@ type ChatRequest struct {
 	// OmitReasoningReplay drops Message.ReasoningItems from the request after
 	// the provider rejected them once in this run.
 	OmitReasoningReplay bool
+	// ToolChoice constrains tool use for this request. Empty means the
+	// provider default (auto); ToolChoiceNone keeps Tools in the request but
+	// forbids calling them.
+	ToolChoice string
 }
+
+// ToolChoiceNone is ChatRequest.ToolChoice for a text-only turn.
+const ToolChoiceNone = "none"
 
 // ReasoningItem is replayable reasoning from one assistant turn.
 //
