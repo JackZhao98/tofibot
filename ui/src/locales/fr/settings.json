@@ -622,7 +622,12 @@
       "file_oversized": "Le paquet est trop volumineux.",
       "decrypt_failed": "Déchiffrement impossible. Vérifiez la phrase secrète, la version du fichier et s’il est endommagé.",
       "file_damaged": "Ce fichier est endommagé ou n’est pas un export Tofi."
-    }
+    },
+    "summary": "Transférez les données du compte ou un seul Bot d'un serveur à l'autre. Les lots sont chiffrés et les imports vérifiés au préalable.",
+    "drop_hint": "ou déposez un fichier ici",
+    "environment_help": "Désactivé par défaut. Cochez chaque entrée à inclure.",
+    "import_environment_help": "Désactivé par défaut. Cochez chaque entrée à restaurer en copie inactive.",
+    "recovery_help": "Copies inactives que vous pouvez réexporter ou supprimer."
   },
   "status": {
     "ok": "Connecté",
@@ -675,5 +680,8 @@
       "install_hint": "Exécutez <code>sudo tofi update</code> sur le serveur pour l'installer.",
       "auto_hint": "À modifier sur le serveur : <on>sudo tofi config auto-update on</on> ou <off>sudo tofi config auto-update off</off>"
     }
+  },
+  "disclosure": {
+    "details": "Détails"
   }
 }

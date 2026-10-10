@@ -14,7 +14,7 @@
 .onb-progress i::after { content:""; position:absolute; inset:0; border-radius:inherit; transform-origin:left; transform:scaleX(0); background:var(--clay); transition:transform .3s var(--ease-out, ease-out); }
 .onb-progress i[data-state="done"]::after { transform:scaleX(1); background:var(--green); }
 .onb-progress i[data-state="current"]::after { transform:scaleX(1); }
-.onb-count { flex:none; color:var(--muted); font:500 11px/1.2 var(--mono); white-space:nowrap; }
+.onb-count { flex:none; color:var(--muted); font:500 12px/1.2 var(--mono); white-space:nowrap; }
 .onb-skip { flex:none; border:0; background:none; padding:6px 4px; color:var(--ink); font:700 12px/1 var(--display); cursor:pointer; }
 .onb-skip:hover { color:var(--clay-text); }
 
@@ -47,7 +47,7 @@
 .onb-cat-slot { position:relative; display:grid; justify-items:center; }
 .onb-cat { --cat:clamp(72px,16vw,104px); }
 .onb-cat-slot:nth-child(2) .onb-cat { --cat:clamp(80px,18vw,116px); }
-.onb-bubble { position:absolute; bottom:calc(100% - 4px); left:50%; transform:translateX(-50%); padding:2px 9px; border:2px solid var(--line); border-radius:10px; background:var(--surface); color:var(--ink); font:700 11px/1.5 var(--display); font-style:normal; white-space:nowrap;
+.onb-bubble { position:absolute; bottom:calc(100% - 4px); left:50%; transform:translateX(-50%); padding:2px 9px; border:2px solid var(--line); border-radius:10px; background:var(--surface); color:var(--ink); font:700 12px/1.5 var(--display); font-style:normal; white-space:nowrap;
   animation:onb-pop .32s var(--ease-out, ease-out) both; animation-delay:calc(450ms + var(--n) * 250ms); }
 .onb-bubble::after { content:""; position:absolute; left:50%; bottom:-6px; width:8px; height:8px; margin-left:-4px; transform:rotate(45deg); background:var(--surface); border:solid var(--line); border-width:0 2px 2px 0; }
 .onb-foot-welcome .onb-primary { margin-left:0; }
@@ -61,7 +61,7 @@
 .onb-choice:disabled { opacity:.7; cursor:default; }
 .onb-choice-icon { display:grid; place-items:center; width:36px; height:36px; margin-bottom:6px; border-radius:10px; background:var(--surface-2); color:var(--ink); }
 .onb-choice[aria-checked="true"] .onb-choice-icon { background:var(--clay); color:var(--on-block); }
-.onb-choice-badge { position:absolute; top:10px; right:10px; padding:2px 6px; border-radius:4px; background:var(--lagoon); color:var(--on-block); font:700 9.5px/1.3 var(--mono); letter-spacing:.06em; text-transform:uppercase; }
+.onb-choice-badge { position:absolute; top:10px; right:10px; padding:2px 6px; border-radius:4px; background:var(--lagoon); color:var(--on-block); font:700 12px/1.3 var(--mono); letter-spacing:.06em; text-transform:uppercase; }
 .onb-panel { margin-top:12px; padding:16px; border-radius:14px; border:1px solid var(--line-soft); background:var(--surface-2); text-align:center; }
 .onb-keyform { text-align:left; display:grid; gap:10px; }
 .onb-keyhead { display:flex; align-items:baseline; justify-content:space-between; gap:8px 12px; flex-wrap:wrap; }
@@ -83,7 +83,7 @@
 .onb-connected p { margin:3px 0 0; color:var(--ink-soft); font-size:13px; line-height:1.5; }
 .onb-connected-cat { --cat:72px; }
 .onb-chips { display:flex; flex-wrap:wrap; gap:6px; margin-top:8px !important; }
-.onb-chips code, .onb-tile code { padding:2px 8px; border-radius:6px; border:1px solid var(--line-soft); background:var(--surface); color:var(--ink-soft); font:500 11px/1.5 var(--mono); }
+.onb-chips code, .onb-tile code { padding:2px 8px; border-radius:6px; border:1px solid var(--line-soft); background:var(--surface); color:var(--ink-soft); font:500 12px/1.5 var(--mono); }
 .onb-advanced { margin-top:14px; }
 .onb-advanced .model-fields { margin-top:8px; }
 
@@ -92,7 +92,7 @@
 .onb-tile { position:relative; display:grid; align-content:start; justify-items:start; gap:4px; padding:12px; min-width:0; text-align:left; border:2px solid var(--line-soft); border-radius:14px; background:var(--surface); color:var(--ink); cursor:pointer; font:inherit; }
 .onb-tile strong { font:600 13.5px/1.3 var(--display); overflow-wrap:anywhere; }
 .onb-tile small { color:var(--ink-soft); font-size:12px; line-height:1.45; overflow-wrap:anywhere; }
-.onb-tile code { margin-top:4px; max-width:100%; font-size:10.5px; }
+.onb-tile code { margin-top:4px; max-width:100%; font-size:12px; }
 .onb-tile[aria-pressed="true"] { border-color:var(--line); background:color-mix(in srgb, var(--clay) 14%, var(--surface)); }
 .onb-tile:disabled { opacity:.6; cursor:default; }
 .onb-tile-check { position:absolute; top:10px; right:10px; display:grid; place-items:center; width:18px; height:18px; border:2px solid var(--line-soft); border-radius:6px; color:var(--on-block); }
@@ -101,12 +101,12 @@
 .onb-foot-services .onb-later { flex:1 1 auto; }
 
 .onb-queue { display:flex; flex-wrap:wrap; gap:8px; margin:12px 0 14px; padding:0; list-style:none; }
-.onb-queue li { display:inline-flex; align-items:center; gap:8px; padding:4px 12px 4px 4px; border:1.5px solid var(--line-soft); border-radius:999px; color:var(--muted); font:500 11px/1.2 var(--mono); }
+.onb-queue li { display:inline-flex; align-items:center; gap:8px; padding:4px 12px 4px 4px; border:1.5px solid var(--line-soft); border-radius:999px; color:var(--muted); font:500 12px/1.2 var(--mono); }
 .onb-queue li[data-state="now"] { border-color:var(--line); color:var(--ink); }
 .onb-queue li[data-state="done"] { color:var(--green-text); }
 .onb-queue .service-mark { width:26px; height:26px; }
 .onb-steps { display:grid; grid-template-columns:repeat(3,1fr); gap:8px; margin:0 0 12px; padding:0; list-style:none; }
-.onb-steps li { display:grid; gap:4px; color:var(--muted); font:500 11px/1.3 var(--mono); }
+.onb-steps li { display:grid; gap:4px; color:var(--muted); font:500 12px/1.3 var(--mono); }
 .onb-steps i { height:3px; border-radius:99px; background:var(--line-soft); }
 .onb-steps li[data-state="current"] { color:var(--ink); font-weight:700; }
 .onb-steps li[data-state="current"] i { background:var(--clay); }
@@ -137,7 +137,7 @@
 .onb-adv-row label { font:600 13px/1.3 var(--display); }
 .onb-adv-row p { margin:2px 0 0; color:var(--ink-soft); font-size:12px; line-height:1.45; }
 .onb-adv-row select { flex:0 1 220px; max-width:100%; }
-.onb-advanced { border:1px solid var(--line-soft); border-radius:12px; padding:0 4px; }
+.onb-advanced { border:1px solid var(--line-soft); border-radius:12px; padding:0 12px; }
 .onb-advanced .disclosure-toggle { width:100%; }
 
 /* After onboarding: the sidebar chip and the composer banner */

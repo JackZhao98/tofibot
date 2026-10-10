@@ -74,6 +74,7 @@ function ApiKeyProviderCard({id, label, description, placeholder, status, loadin
   setNotice(t("providers.removed", {provider: label})); setError("");
   onChange(null);
  }
+ const saveButton = <button type="submit" className="primary-button" disabled={verifying || !key.trim() || (id === "anthropic" && !workspace.trim())}>{verifying ? t("providers.verifying") : t("providers.save")}</button>;
  return <article className="detail-content provider-card" aria-labelledby={`${inputId}-title`} aria-busy={verifying || loading}>
   <div className="provider-card-head"><div><h3 id={`${inputId}-title`}>{label}</h3><p>{t(description)}</p></div><span className="provider-card-marks"><StatusBadge state={loading ? "testing" : !configured ? "need" : failed ? "bad" : "ok"} /><span className="settings-tag">{t("providers.api_key_tag")}</span></span></div>
   <div className={`codex-status provider-status ${state}`} role="status"><span className="status-dot" />{statusText}</div>
@@ -81,11 +82,11 @@ function ApiKeyProviderCard({id, label, description, placeholder, status, loadin
    <label htmlFor={inputId}>{configured ? t("providers.replace_label", {provider: label}) : t("providers.key_label", {provider: label})}</label>
    <div className="provider-key-row">
     <input ref={input} id={inputId} name={`${id}-api-key`} type="password" autoComplete="off" spellCheck={false} autoCapitalize="off" autoCorrect="off" placeholder={placeholder} value={key} disabled={verifying} onChange={event => { setKey(event.target.value); setError(""); setNotice(""); }} aria-invalid={Boolean(error)} aria-describedby={error ? `${inputId}-error` : undefined} />
-    <button type="submit" className="primary-button" disabled={verifying || !key.trim() || (id === "anthropic" && !workspace.trim())}>{verifying ? t("providers.verifying") : t("providers.save")}</button>
+    {id !== "anthropic" && saveButton}
    </div>
    {id === "anthropic" && <><label htmlFor={`${inputId}-workspace`}>{t("providers.workspace_label")}</label>
     <input id={`${inputId}-workspace`} name="anthropic-workspace-id" type="text" autoComplete="off" spellCheck={false} autoCapitalize="off" autoCorrect="off" placeholder="wrkspc_…" value={workspace} required disabled={verifying} onChange={event => { setWorkspace(event.target.value); setError(""); }} />
-    <p className="field-note">{t("providers.workspace_note")}</p></>}
+    <p className="field-note">{t("providers.workspace_note")}</p>{saveButton}</>}
    {error && <p id={`${inputId}-error`} className="error-text" role="alert">{error}</p>}
    {notice && !error && <p className="field-note" role="status">{notice}</p>}
   </form>
