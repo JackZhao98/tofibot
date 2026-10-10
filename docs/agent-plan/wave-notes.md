@@ -8,6 +8,6 @@ Changes merged to `main` that have not shipped yet. The owner reviews this list 
 | 2 | First-run hero (4 live cats, dot-grid card); 19 empty states get a contextual live cat; at most 6 live cats at once | merged | test:empty-states (64 screenshots, reduced motion, 390px), settings-shell: exit 0 | f428d52 |
 | 3 | Onboarding sheet: Welcome → Connect a model (ChatGPT device sign-in or API key, required) → pick connections (optional) → first Bot DM; resumable, server-side state | in progress (owner's design received 2026-10-10) | — | — |
 | 4 | "Connect a model to start chatting" composer banner and a "Finish setup" sidebar chip | part of #3 | — | — |
-| 5 | Admin console redesigned: account list → detail, clear role / computer / sign-in / danger sections | in progress | — | — |
-| 6 | Delete account (after deactivation): removes data and the computer disk, frees its quota and slot; resumable on failure | in progress; needs Fable review before merge | — | — |
+| 5 | Admin console: capacity card, account list → detail (role, computer disk, reset password, danger zone); mobile pushed page | merged | go test, settings-shell (admin flow), i18n: exit 0 | 08048a0 |
+| 6 | Delete account (after deactivation): encrypted export first (importable in Data transfer with the passphrase; link valid 30 days), then computer + disk removed, quota and slot freed, data removed; resumable; legacy owner refused | merged after Fable review (no blockers; 1 major + 7 minor fixed) | go test, microvm suite, test:portability, settings-shell: exit 0 | 08048a0 |
 | 7 | Robinhood added to the connection catalog (official MCP, sign in with Robinhood) | part of #3 | — | — |
