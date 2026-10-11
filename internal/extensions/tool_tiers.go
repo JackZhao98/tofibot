@@ -441,6 +441,19 @@ func (m *Manager) ObserveTools(server string, cfg MCPServerConfig, tools []MCPTo
 	srv := s.serverLocked(server)
 	observed := make(map[string]bool, len(tools))
 	pending := map[string]MCPToolDescriptor{}
+	// A remote name listed more than once is one tools/call target with
+	// several run-facing schemas. No single descriptor describes it, so it is
+	// never classified: its digest covers every listing (an owner override
+	// binds to the whole set) and its auto tier is dropped (write).
+	listings := map[string][]string{}
+	for _, d := range tools {
+		if d.RemoteName == "" || len(d.RemoteName) > maxCatalogToolNameBytes {
+			continue
+		}
+		if digest := MCPToolDigest(MCPToolDescriptor{RemoteName: d.RemoteName, Description: d.Description, InputSchema: d.InputSchema, Annotations: d.Annotations}); digest != "" {
+			listings[d.RemoteName] = append(listings[d.RemoteName], digest)
+		}
+	}
 	for _, d := range tools {
 		if d.RemoteName == "" || len(d.RemoteName) > maxCatalogToolNameBytes || observed[d.RemoteName] {
 			continue
@@ -451,6 +464,13 @@ func (m *Manager) ObserveTools(server string, cfg MCPServerConfig, tools []MCPTo
 		}
 		if d.Digest == "" {
 			continue
+		}
+		duplicated := len(listings[d.RemoteName]) > 1
+		if duplicated {
+			all := append([]string(nil), listings[d.RemoteName]...)
+			sort.Strings(all)
+			sum := sha256.Sum256([]byte(strings.Join(all, "\n")))
+			d.Digest = hex.EncodeToString(sum[:])
 		}
 		observed[d.RemoteName] = true
 		rec := srv.Tools[d.RemoteName]
@@ -464,6 +484,11 @@ func (m *Manager) ObserveTools(server string, cfg MCPServerConfig, tools []MCPTo
 		rec.Digest = d.Digest
 		rec.Description = truncateUTF8(strings.TrimSpace(d.Description), maxTierDescriptionRune)
 		rec.AnnotationsPresent, rec.ReadOnlyHint, rec.DestructiveHint = d.Annotations.Present, d.Annotations.ReadOnly, d.Annotations.Destructive
+		if duplicated {
+			rec.Auto, rec.AutoDigest, rec.ModelTier = "", "", ""
+			rec.Reason = "listed more than once by the server; not classified"
+			continue
+		}
 		if rec.Auto == "" || rec.AutoDigest != rec.Digest {
 			pending[d.RemoteName] = d
 		}
@@ -739,18 +764,29 @@ func (m *Manager) RunToolReadOnly(runToolName string) bool {
 	for _, name := range cfg.TrustedReadOnlyTools {
 		candidates[name] = true
 	}
+	// Run names are sanitized (case-folded, punctuation mapped to '_'), so
+	// two distinct remote tools can share one run name; discovery suffixes
+	// the second. The recorded step does not say which one ran, so an
+	// ambiguous name is never an observation.
+	matched := ""
 	for name := range candidates {
 		if !strings.EqualFold(sanitizeToolName("mcp_"+server+"__"+name), runToolName) {
 			continue
 		}
-		var rec *mcpToolTierRecord
-		if srv != nil {
-			rec = srv.Tools[name]
+		if matched != "" {
+			return false
 		}
-		legacy := (srv == nil || !srv.MigratedTrusted) && trustedReadOnlyTool(cfg, name)
-		return resolveMCPToolTier(name, rec, legacy).Tier == MCPTierReadOnly
+		matched = name
 	}
-	return false
+	if matched == "" {
+		return false
+	}
+	var rec *mcpToolTierRecord
+	if srv != nil {
+		rec = srv.Tools[matched]
+	}
+	legacy := (srv == nil || !srv.MigratedTrusted) && trustedReadOnlyTool(cfg, matched)
+	return resolveMCPToolTier(matched, rec, legacy).Tier == MCPTierReadOnly
 }
 
 // clearToolTiersLocked forgets a server's policy. Callers hold the

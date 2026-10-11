@@ -44,6 +44,7 @@ Merge of model tier × remote annotations (annotations are untrusted and can onl
 ## 3. Storage and binding
 
 - Store: `<config dir>/mcp-tool-tiers.json`, mode 0600, atomic write, one record per `(server, remote tool name)`: `digest`, `auto`, `auto_digest`, `model_tier`, `reason` (bounded), `read_only_hint`, `destructive_hint`, `override`, `override_digest`, `classified_at`, `seen_at`. It holds no URL, header or credential. Tools absent from a complete `tools/list` are dropped on the next observation.
+- **A remote name listed more than once** in one `tools/list` is one `tools/call` target with several run-facing schemas. No single descriptor describes it, so it is never sent for classification and has no auto tier (`write`, reason `listed more than once by the server`); its digest covers every listing, so an owner override binds to the whole set and goes stale when any listing changes.
 - Writes (observation, classification, override) take the Manager's `mcpConfigFence` write lock, exactly like a config edit: a dispatch in flight completes under its read lock before the tier lands; nothing started after sees the old tier.
 - Every proposal (`MCPCallApproval`) carries `Tier` and `TierBinding` = digest of the stored record plus the effective tier, resolved from disk at proposal time (not from the run's config snapshot, so a tier change does not stall a running task: the model's retry simply carries the new binding).
 - `MCPCallCurrent` (and so `executeCurrentMCPCall`, the reviewer's setup checks and the claim binding) now requires both the config fingerprint and the tier binding to match the disk. `mcp_auto_reviews.tier_binding` stores the binding the review was made under; the claim compares it. Consequences:
@@ -55,7 +56,7 @@ Merge of model tier × remote annotations (annotations are untrusted and can onl
 
 ## 4. Classification pass
 
-`internal/app/mcp_tool_tiers.go`. Trigger: whenever a complete `tools/list` is observed (settings check, Re-check, or a run's discovery), the Manager reports the server and the app's single worker classifies the tools whose `auto_digest` differs from their `digest`. Batches of at most 20 tools / 48 KiB; the model answers one JSON object `{"tools":[{"name","tier","reason"}]}`; strict parse (known names only, valid tiers, bounded reason); a tool missing from the answer stays unclassified. Model: the review model (`backgroundReview`), the same seam tests use for the reviewer. Failure → nothing is written, the tools stay `write`, the next observation retries. Results are only recorded for the digest that was classified; a tool that changed during the pass is left unclassified.
+`internal/app/mcp_tool_tiers.go`. Trigger: whenever a complete `tools/list` is observed (settings check, Re-check, or a run's discovery), the Manager reports the server and the app's single worker classifies the tools whose `auto_digest` differs from their `digest`. Batches of at most 20 tools / 48 KiB; the model answers one JSON object `{"tools":[{"name","tier","reason"}]}`; strict parse (only names sent in *that batch*, valid tiers, bounded reason); a tool missing from the answer stays unclassified, and a label for a tool of another batch is dropped (the model never saw that tool's schema; a description in this batch cannot vouch for it). An input schema larger than 8 KiB is not sent (a marker replaces it); a `read_only` label for such a tool rests on the remote's description alone and is recorded as `write` (the owner can still set `read_only`). Model: the review model (`backgroundReview`), the same seam tests use for the reviewer. Failure → nothing is written, the tools stay `write`, the next observation retries. Results are only recorded for the digest that was classified; a tool that changed during the pass is left unclassified.
 
 ### 4a. Background queue and upgrade backfill
 
@@ -70,7 +71,7 @@ Existing installations have connected services whose tools were never classified
 
 ## 5. Fence predicate
 
-`mcpProposalFence` and the scheduled-run uncertain-effect predicate use the tier: a proposal is an observation only when its effective tier is `read_only`. The raw `readOnlyHint` is still captured but no longer decides anything.
+`mcpProposalFence` and the scheduled-run uncertain-effect predicate use the tier: a proposal is an observation only when its effective tier is `read_only`. The raw `readOnlyHint` is still captured but no longer decides anything. A recorded `call_mcp_tool` step names only the sanitized run tool name (`mcp_<server>__<tool>`, case-folded, punctuation mapped to `_`); when two remote tools of a server sanitize to the same run name the step is ambiguous and is never an observation.
 
 ## 6. Residual risks
 
