@@ -642,18 +642,36 @@ func TestScheduledMCPGateExecutesSyntheticToolOnce(t *testing.T) {
 		f.effects.Add(1)
 		return nil
 	}
+	// The owner-trusted read repeats on its own fresh card and claim in a
+	// scheduled run too; the action-level claim records its first dispatch.
+	for i := int32(1); i <= 2; i++ {
+		if err := execute(); err != nil || f.effects.Load() != i || f.p.calls.Load() != i {
+			t.Fatalf("trusted read %d: %v effects=%d reviewer=%d", i, err, f.effects.Load(), f.p.calls.Load())
+		}
+	}
+	if f.claimCount() != 1 {
+		t.Fatalf("read claims=%d", f.claimCount())
+	}
+	// An effect executes exactly once; its identical repeat is refused before dispatch.
+	f.proposeTool("publish_note", false)
 	if err := execute(); err != nil {
 		t.Fatal(err)
 	}
-	if err := execute(); err == nil {
-		t.Fatal("the MCP gate replayed the synthetic tool")
+	err := execute()
+	if out, ok := tooloutcome.FromError(err); !ok || out.Status != tooloutcome.Denied || out.Code != "approval_already_claimed" || out.Certainty != "not_executed" {
+		t.Fatalf("the MCP gate replayed the synthetic effect: %v", err)
 	}
-	if f.effects.Load() != 1 || f.p.calls.Load() != 1 || f.claimCount() != 1 {
+	if f.effects.Load() != 3 || f.p.calls.Load() != 3 || f.claimCount() != 2 {
 		t.Fatalf("gate effects=%d reviewer=%d claims=%d", f.effects.Load(), f.p.calls.Load(), f.claimCount())
 	}
 	questions, err := f.s.store.ListQuestions(f.c.ID)
-	if err != nil || len(questions) != 1 || questions[0].AnsweredBy != autoReviewActor || questions[0].Approval == nil || questions[0].Approval.Review == nil || questions[0].Approval.Review.Status != "approved" {
-		t.Fatalf("gate decision: %+v %v", questions, err)
+	if err != nil || len(questions) != 3 {
+		t.Fatalf("gate decisions: %+v %v", questions, err)
+	}
+	for _, q := range questions {
+		if q.AnsweredBy != autoReviewActor || q.Approval == nil || q.Approval.Review == nil || q.Approval.Review.Status != "approved" {
+			t.Fatalf("gate decision: %+v", q)
+		}
 	}
 }
 

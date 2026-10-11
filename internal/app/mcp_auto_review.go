@@ -560,7 +560,7 @@ func (s *Server) reviewMCPProposal(ctx context.Context, c Conversation, r Run, c
 		return err
 	}
 	q = current
-	if terminalErr := mcpReviewTerminal(ctx, s.store.db, q, r, call); !shadow && terminalErr != nil {
+	if terminalErr := mcpReviewTerminal(ctx, s.store.db, q, r, call, s.mcpProposalFence(call)); !shadow && terminalErr != nil {
 		if _, ok := tooloutcome.FromError(terminalErr); !ok {
 			return terminalErr
 		}
@@ -649,8 +649,19 @@ func (s *Server) retireTransientMCPReview(r Run, call extensions.MCPCallApproval
 		return err
 	}
 	q, err := s.store.GetQuestion(prior)
-	if err != nil || !mcpReviewRetryable(q) {
+	if err != nil {
 		return err
+	}
+	if s.mcpProposalFence(call) == mcpProposalReadOnly {
+		// A read-only proposal is claimed per card. Its predecessor's claimed
+		// card keeps its audit row under a released key so this repeat read is
+		// reviewed afresh; an effect's reservation stays with its one claim.
+		if _, err = s.store.db.Exec(`UPDATE mcp_auto_reviews SET action_hash=action_hash||':claimed:'||question_id WHERE question_id=? AND run_id=? AND action_hash=? AND EXISTS(SELECT 1 FROM mcp_call_approvals WHERE question_id=? AND claimed_at<>'')`, prior, r.ID, hash, prior); err != nil {
+			return err
+		}
+	}
+	if !mcpReviewRetryable(q) {
+		return nil
 	}
 	_, err = s.store.db.Exec(`UPDATE mcp_auto_reviews SET action_hash=action_hash||':retired:'||question_id WHERE question_id=? AND run_id=? AND action_hash=? AND status='context_required' AND NOT EXISTS(SELECT 1 FROM mcp_call_approvals WHERE question_id=? AND claimed_at<>'')`, prior, r.ID, hash, prior)
 	return err
@@ -737,7 +748,7 @@ func (s *Server) finishMCPReview(ctx context.Context, c Conversation, r Run, cal
 	}
 	var blocked error
 	var contextFailure *MCPContextFailure
-	terminalErr := mcpReviewTerminal(ctx, tx, q, r, call)
+	terminalErr := mcpReviewTerminal(ctx, tx, q, r, call, s.mcpProposalFence(call))
 	if terminalErr != nil {
 		if _, ok := tooloutcome.FromError(terminalErr); !ok {
 			return terminalErr
