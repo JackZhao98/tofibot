@@ -95,6 +95,7 @@ async function mockApi(page, state) {
     if (path === "/api/extensions/mcp" && method === "GET") return json({ servers: state.mcp });
     if (path === "/api/extensions/mcp") { const server = body(); state.mcp = [...state.mcp.filter(item => item.name !== server.name), server]; return json({}); }
     if (path.endsWith("/test") && path.startsWith("/api/extensions/mcp/")) return json({ ok: true, tool_count: 7 });
+    if (/^\/api\/extensions\/mcp\/[^/]+\/tools$/.test(path)) return json({ tools: [], read_only: 0, write: 0, high_risk: 0, pending: 0, unclassified: 0 });
     if (path.endsWith("/messages")) return json({ messages: [], drafts: [], has_more: false, event_cursor: 0 });
     if (path.endsWith("/runs")) return json({ runs: [] });
     if (path.endsWith("/tools")) return json({ activities: [], summaries: [], tool_count: 0, has_more: false });

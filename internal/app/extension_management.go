@@ -31,6 +31,9 @@ func (s *Server) routeExtensions(w http.ResponseWriter, r *http.Request, p strin
 	if s.routeDesktopOAuth(w, r, p) {
 		return true
 	}
+	if s.routeMCPToolTiers(w, r, p) {
+		return true
+	}
 	switch {
 	case strings.HasPrefix(p, "extensions/mcp/") && strings.HasSuffix(p, "/oauth/pending") && r.Method == http.MethodGet:
 		name := strings.TrimSuffix(strings.TrimPrefix(p, "extensions/mcp/"), "/oauth/pending")
@@ -120,6 +123,7 @@ func (s *Server) routeExtensions(w http.ResponseWriter, r *http.Request, p strin
 		if e != nil {
 			writeErr(w, 400, "extensions", e.Error())
 		} else {
+			s.enqueueMCPTierRefresh(in.Name)
 			s.writeExtensionSaved(w, http.StatusOK)
 		}
 		return true
@@ -141,6 +145,7 @@ func (s *Server) routeExtensions(w http.ResponseWriter, r *http.Request, p strin
 		if e != nil {
 			writeErr(w, 400, "extensions", e.Error())
 		} else {
+			s.enqueueMCPTierRefresh(name)
 			s.writeExtensionSaved(w, http.StatusOK)
 		}
 		return true

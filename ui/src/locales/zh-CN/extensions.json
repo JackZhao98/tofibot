@@ -400,7 +400,9 @@
     "needs_auth": "需要授权",
     "removing": "处理中…",
     "unverified": "尚未验证",
-    "waiting": "等待授权"
+    "waiting": "等待授权",
+    "read_only_count_other": "{{count}} 个只读",
+    "classifying": "正在分类工具…"
   },
   "vm": {
     "cancel": "取消授权",
@@ -416,5 +418,37 @@
     "reconnecting": "连接暂时中断，正在重试…",
     "screen_alt": "共享电脑",
     "subtitle": "在共享电脑中完成授权"
+  },
+  "tools": {
+    "changed": "已变更",
+    "empty": "还没有工具列表。连接并刷新后加载。",
+    "error": {
+      "classification_failed": "无法分类工具。未分类的工具每次调用都会审核。",
+      "recheck_failed": "无法刷新工具列表。"
+    },
+    "explain": "只读工具直接执行，不经审核。会改动数据的工具每次调用都会审核。高风险工具每次都先问你。",
+    "group": {
+      "read_only": "只读",
+      "write": "会改动数据",
+      "high_risk": "高风险"
+    },
+    "pending_other": "{{count}} 个工具待分类",
+    "recheck": "重新检查",
+    "rechecking": "正在检查…",
+    "select_label": "{{name}} 的级别",
+    "source": {
+      "owner": "你设置的",
+      "auto": "自动",
+      "unclassified": "未分类"
+    },
+    "tier": {
+      "auto": "自动",
+      "auto_resolved": "自动 · {{tier}}",
+      "read_only": "只读",
+      "write": "会改动数据",
+      "high_risk": "高风险"
+    },
+    "title": "工具 · {{count}}",
+    "classifying": "正在后台分类工具。工具完成分类前，每次调用都会审核。"
   }
 }

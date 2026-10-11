@@ -37,7 +37,7 @@ func TestAutoReviewV5UnlistedReadAndAuthorizedMediumWriteExecuteOnce(t *testing.
 				}
 				_, _ = f.s.store.SetRunStatus(r.ID, "running", "")
 				f.r, _ = f.s.store.GetRun(r.ID)
-				f.call.Tool = "create_draft"
+				f.call.Tool, f.call.TierBinding = "create_draft", ""
 				f.call.Description = "Create one private draft without publishing or sending."
 				f.call.Arguments = json.RawMessage(`{"title":"alpha"}`)
 				f.call.ReadOnlyHint = false
@@ -98,10 +98,10 @@ func TestAutoReviewV5UnlistedReadAndAuthorizedMediumWriteExecuteOnce(t *testing.
 				}
 				return
 			}
-			// A repeat of the hinted read is reviewed afresh on its own card; the
-			// used decision itself is never reused.
-			if err := f.execute(ctx); err != nil || f.effects.Load() != 2 || f.p.calls.Load() != 2 {
-				t.Fatal("repeat read refused or decision reused", err, f.effects.Load(), f.p.calls.Load())
+			// The remote readOnlyHint decides nothing: an unclassified hinted read
+			// is an effect, so its identical repeat is refused, never replayed.
+			if err := f.execute(ctx); err == nil || f.effects.Load() != 1 || f.p.calls.Load() != 1 {
+				t.Fatal("repeat hinted read replayed", err, f.effects.Load(), f.p.calls.Load())
 			}
 		})
 	}
@@ -359,7 +359,7 @@ func TestAutoReviewV5HistoricalGapsPermitIndependentVerificationWithoutReplay(t 
 		return v5ReviewReply(req, "context_gap", "unknown", false), nil
 	}
 	related := f.call
-	related.Tool = "complete_uncertain_effect"
+	related.Tool, related.TierBinding = "complete_uncertain_effect", ""
 	if err := f.s.approveMCPCall(context.Background(), f.c, f.r, related); err == nil || f.effects.Load() != 2 || f.p.calls.Load() != 3 {
 		t.Fatal("related context gap executed", err)
 	}
@@ -369,6 +369,7 @@ func TestAutoReviewV5HistoricalGapsPermitIndependentVerificationWithoutReplay(t 
 // completes before the reviewer returns. The advice stays attached to that snapshot.
 func TestAutoReviewV5ShadowCompletionUsesImmutableProposalSnapshot(t *testing.T) {
 	f := newAutoReviewFixture(t)
+	setSyntheticMCPHumanPolicy(t, f, false) // the host-exempt read_only route
 	_ = f.s.store.putAutoReviewMode("shadow")
 	for _, status := range []string{"queued", "running"} {
 		if err := f.s.store.RecordToolEvent(f.c.ID, f.r.BotID, f.r.ID, runtime.ToolEvent{CallID: "shadow-progress", Name: "call_mcp_tool", Arguments: `{"name":"mcp_fixture__read_public","arguments":{"target":"alpha"}}`, Status: status}); err != nil {
@@ -445,7 +446,7 @@ func TestAutoReviewV5AlternativeReceivesOriginalHumanRestriction(t *testing.T) {
 		return v5ReviewReply(req, "deny", "low", false), nil
 	}
 	alternative := f.call
-	alternative.Tool = "independent_alternative"
+	alternative.Tool, alternative.TierBinding = "independent_alternative", ""
 	if err := f.s.approveMCPCall(context.Background(), f.c, f.r, alternative); err == nil || f.effects.Load() != 0 || f.p.calls.Load() != 2 {
 		t.Fatal("alternative bypassed the original restriction", err)
 	}

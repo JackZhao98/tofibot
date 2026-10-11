@@ -366,7 +366,8 @@
       "needs_you": "判断が必要です",
       "auto_invalidated": "自動判断は無効になりました",
       "policy_needs_approval": "ポリシーにより手動承認が必要",
-      "already_reviewed": "レビュー済み"
+      "already_reviewed": "レビュー済み",
+      "high_risk_tool": "高リスクのツール · 判断が必要です"
     },
     "label": {
       "shadow_reviewing": "観察：レビュー中",
@@ -391,7 +392,8 @@
       "policy_needs_human": "ポリシーにより手動判断が必要",
       "auto_invalidated": "自動判断は無効",
       "not_eligible": "自動実行の対象外",
-      "not_rereviewed": "再レビューなし"
+      "not_rereviewed": "再レビューなし",
+      "high_risk_tool": "高リスクのツール：毎回人が判断します"
     },
     "failure": {
       "title": "レビューを完了できなかった理由",

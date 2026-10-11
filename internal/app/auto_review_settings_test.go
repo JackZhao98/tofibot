@@ -97,32 +97,11 @@ func TestAutoReviewPurgeResetsOffAndHumanMCPApprovalWorksWithoutRestart(t *testi
 					}
 					return
 				}
-				// The used human answer is never replayed: a repeat of the hinted
-				// read is a fresh human card, answered by a person again.
-				go func() { done <- f.execute(ctx) }()
-				var again Question
-				for deadline := time.Now().Add(5 * time.Second); ; {
-					pending, err := f.s.store.PendingQuestions(f.c.ID)
-					if err != nil {
-						t.Fatal(err)
-					}
-					if len(pending) == 1 && pending[0].ID != q.ID {
-						again = pending[0]
-						break
-					}
-					if time.Now().After(deadline) {
-						t.Fatal("repeat read did not get a fresh human card")
-					}
-					time.Sleep(5 * time.Millisecond)
-				}
-				if f.effects.Load() != want || f.p.calls.Load() != 0 || again.AnsweredBy != "" {
-					t.Fatalf("repeat read replayed the used answer: effects=%d reviewer=%d", f.effects.Load(), f.p.calls.Load())
-				}
-				if _, _, err = f.s.store.AnswerQuestion(again.ID, "human-after-purge", true); err != nil {
-					t.Fatal(err)
-				}
-				if err = waitReviewDone(t, done); err != nil || f.effects.Load() != want+1 || f.p.calls.Load() != 0 {
-					t.Fatalf("fresh human card did not execute the repeat read: %v effects=%d", err, f.effects.Load())
+				// The used human answer is never replayed: the tool is in the write
+				// tier (its remote readOnlyHint decides nothing), so the identical
+				// repeat is refused before dispatch instead of re-executed.
+				if err = f.execute(ctx); err == nil || f.effects.Load() != want || f.p.calls.Load() != 0 {
+					t.Fatalf("identical repeat replayed the used answer: %v effects=%d", err, f.effects.Load())
 				}
 			})
 		}

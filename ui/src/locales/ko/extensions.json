@@ -400,7 +400,9 @@
     "needs_auth": "승인 필요",
     "removing": "처리 중…",
     "unverified": "아직 확인되지 않음",
-    "waiting": "승인 대기 중"
+    "waiting": "승인 대기 중",
+    "read_only_count_other": "읽기 전용 {{count}}개",
+    "classifying": "도구 분류 중…"
   },
   "vm": {
     "cancel": "승인 취소",
@@ -416,5 +418,37 @@
     "reconnecting": "연결이 잠시 끊겼습니다. 다시 시도하는 중…",
     "screen_alt": "공유 컴퓨터",
     "subtitle": "공유 컴퓨터에서 승인을 완료하세요"
+  },
+  "tools": {
+    "changed": "변경됨",
+    "empty": "아직 도구 목록이 없습니다. 연결 후 새로고침하면 불러옵니다.",
+    "error": {
+      "classification_failed": "도구를 분류하지 못했습니다. 미분류 도구는 호출마다 검토합니다.",
+      "recheck_failed": "도구 목록을 새로고침하지 못했습니다."
+    },
+    "explain": "읽기 전용 도구는 검토 없이 실행됩니다. 데이터를 변경할 수 있는 도구는 호출마다 검토합니다. 고위험 도구는 매번 먼저 물어봅니다.",
+    "group": {
+      "read_only": "읽기 전용",
+      "write": "데이터 변경 가능",
+      "high_risk": "고위험"
+    },
+    "pending_other": "{{count}}개 도구 분류 대기 중",
+    "recheck": "다시 확인",
+    "rechecking": "확인 중…",
+    "select_label": "{{name}} 등급",
+    "source": {
+      "owner": "직접 설정",
+      "auto": "자동",
+      "unclassified": "미분류"
+    },
+    "tier": {
+      "auto": "자동",
+      "auto_resolved": "자동 · {{tier}}",
+      "read_only": "읽기 전용",
+      "write": "데이터 변경 가능",
+      "high_risk": "고위험"
+    },
+    "title": "도구 · {{count}}",
+    "classifying": "백그라운드에서 도구를 분류하고 있습니다. 분류가 끝나기 전까지는 호출마다 검토합니다."
   }
 }

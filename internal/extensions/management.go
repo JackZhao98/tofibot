@@ -214,7 +214,11 @@ func (m *Manager) SaveMCP(name string, c MCPServerConfig, updating bool) error {
 		c.OAuth.DynamicClientRedirectURI = ""
 	}
 	if exists && credentialTargetChanged(old, c) {
+		// A new destination is a new service: its tool policy starts over.
 		c.TrustedReadOnlyTools = nil
+		if err := m.clearToolTiersLocked(name); err != nil {
+			return err
+		}
 	}
 	// An empty client_id is valid when the provider advertises OAuth dynamic
 	// client registration. StartOAuth performs registration on first connect and
@@ -255,6 +259,7 @@ func (m *Manager) DeleteMCP(name string) error {
 	}
 	invalidateErr := m.invalidateCredentialLocked(name)
 	delete(cfg, name)
+	_ = m.clearToolTiersLocked(name)
 	if err := writeJSON0600(m.cfg.MCPConfigPath, serverFile{MCPServers: cfg}); err != nil {
 		return err
 	}

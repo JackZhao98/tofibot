@@ -58,7 +58,7 @@ func (s *Server) shadowExemptMCPCall(ctx context.Context, c Conversation, r Run,
 		return err
 	}
 	if payload == "" {
-		return s.store.setMCPReviewDisplay(q.ID, MCPReviewDisplay{autoReviewActor, "shadow_context_required", "Complete arguments are unavailable for safe review; the original host execution policy remains in force.", "codex-auto-review", "", false, autoReviewPolicyVersion, nil, ""})
+		return s.store.setMCPReviewDisplay(q.ID, MCPReviewDisplay{autoReviewActor, "shadow_context_required", "Complete arguments are unavailable for safe review; the original host execution policy remains in force.", "codex-auto-review", "", false, autoReviewPolicyVersion, nil, "", ""})
 	}
 	return s.reviewNewMCPProposal(ctx, c, r, call, q)
 }
@@ -96,7 +96,7 @@ func (s *Server) finishShadowMCPReview(c Conversation, r Run, call extensions.MC
 	}
 	// Advice never changes a human answer, expiry, cancellation or run state.
 	failureCategory, failureDetail := mcpReviewFailureColumns(failure)
-	display := &MCPReviewDisplay{autoReviewActor, status, result.Reason, "codex-auto-review", result.RiskLevel, result.ConfirmationRequired, autoReviewPolicyVersion, nil, ""}
+	display := &MCPReviewDisplay{autoReviewActor, status, result.Reason, "codex-auto-review", result.RiskLevel, result.ConfirmationRequired, autoReviewPolicyVersion, nil, "", ""}
 	if status == "shadow_unavailable" {
 		display.FailureCategory = failureCategory
 	}

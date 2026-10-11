@@ -64,28 +64,41 @@ func (s *Server) approveMCPCallOnce(ctx context.Context, c Conversation, r Run, 
 	if err != nil {
 		return err
 	}
-	if s.extensions != nil && settings.Mode != "auto" {
-		requiresHuman, current := s.extensions.MCPCallRequiresHuman(call)
-		if current && !requiresHuman {
-			prior, err := s.hasMCPApprovalHistory(r, call)
-			if err != nil {
-				return err
+	// The tool tier (docs/agent-plan/mcp-tool-tiers.md) decides the route:
+	// read_only executes without review in every mode; write is reviewed per
+	// call as before; high_risk asks a person every time, in every mode.
+	tier, tierCurrent := s.mcpCallTier(call)
+	if tierCurrent && tier == extensions.MCPTierReadOnly {
+		prior, err := s.hasMCPApprovalHistory(r, call)
+		if err != nil {
+			return err
+		}
+		if !prior {
+			if !mcpSchemaAvailable(call.Schema) {
+				return mcpReviewBlocked("setup_required", "The exact input schema is unavailable.")
 			}
-			if !prior {
-				if !mcpSchemaAvailable(call.Schema) {
-					return mcpReviewBlocked("setup_required", "The exact input schema is unavailable.")
+			if call.Recheck != nil {
+				if err := call.Recheck(ctx); err != nil {
+					return err
 				}
-				if call.Recheck != nil {
-					if err := call.Recheck(ctx); err != nil {
-						return err
-					}
-				}
-				if settings.Mode == "shadow" {
-					payload, _ := mcpApprovalPayload(call.Arguments)
-					return s.shadowExemptMCPCall(ctx, c, r, call, payload)
-				}
-				return nil
 			}
+			if settings.Mode == "shadow" {
+				payload, _ := mcpApprovalPayload(call.Arguments)
+				return s.shadowExemptMCPCall(ctx, c, r, call, payload)
+			}
+			return nil
+		}
+	}
+	highRisk := tierCurrent && tier == extensions.MCPTierHighRisk
+	if highRisk {
+		unattended, err := s.mcpRunUnattended(r)
+		if err != nil {
+			return err
+		}
+		if unattended {
+			// No person attends a scheduled chain. The call is refused before
+			// dispatch with a named reason; the run continues and reports it.
+			return tooloutcome.New(tooloutcome.Denied, "mcp_high_risk_unattended", "not_executed", "This tool is classed high risk: a person must approve each call, and no one attends this scheduled run. The call was not executed. Continue the remaining work and report that this step needs a person.", "explain_blocker").Err()
 		}
 	}
 
@@ -138,13 +151,17 @@ func (s *Server) approveMCPCallOnce(ctx context.Context, c Conversation, r Run, 
 					return err
 				}
 			}
+			impact := fmt.Sprintf("The external server may change data or contact others. Review the complete %d-byte argument payload below before approving.", len(call.Arguments))
+			if highRisk {
+				impact = fmt.Sprintf("This tool is classed high risk: it can delete, send, pay, or change access. A person decides each call. Review the complete %d-byte argument payload below before approving.", len(call.Arguments))
+			}
 			in, normalizeErr := normalizeQuestionInput(askQuestionInput{
 				Question: "Allow this external tool call?",
 				Type:     questionApproval,
 				Approval: &ApprovalDetails{
 					Action:  "Call " + call.Tool,
 					Target:  "MCP server " + call.Server,
-					Impact:  fmt.Sprintf("The external server may change data or contact others. Review the complete %d-byte argument payload below before approving.", len(call.Arguments)),
+					Impact:  impact,
 					Payload: payload,
 				},
 			})
@@ -160,7 +177,14 @@ func (s *Server) approveMCPCallOnce(ctx context.Context, c Conversation, r Run, 
 				return createErr
 			}
 			if settings.Mode != "auto" {
-				if _, createErr = s.store.Event(c.ID, "question", q.Card()); createErr != nil {
+				if highRisk {
+					// The card itself records why a person decides (decision source
+					// tool_tier); the display write publishes the card event.
+					createErr = s.store.setMCPReviewDisplay(q.ID, MCPReviewDisplay{Source: mcpDecisionSourceTier, Status: "human_required", Reason: mcpHighRiskTierResult("").Reason, RiskLevel: "high", ConfirmationRequired: true, DecisionSource: mcpDecisionSourceTier})
+				} else {
+					_, createErr = s.store.Event(c.ID, "question", q.Card())
+				}
+				if createErr != nil {
 					_, _ = s.store.db.Exec(`UPDATE questions SET status=?,updated_at=? WHERE id=? AND status=?`, questionCancelled, now(), q.ID, questionPending)
 					return createErr
 				}
@@ -266,6 +290,16 @@ func (s *Server) approveMCPCallOnce(ctx context.Context, c Conversation, r Run, 
 		call.OnClaim()
 	}
 	return ctx.Err()
+}
+
+// mcpRunUnattended says whether no person attends the run: a scheduled run,
+// or a run whose ancestry roots in a schedule occurrence.
+func (s *Server) mcpRunUnattended(r Run) (bool, error) {
+	if r.Kind == runKindSchedule {
+		return true, nil
+	}
+	task, err := s.store.scheduleTaskForRun(r)
+	return task != nil, err
 }
 
 func (s *Server) parkExpiredMCPApproval(ctx context.Context, c Conversation, id string) error {

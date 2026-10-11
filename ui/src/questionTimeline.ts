@@ -13,7 +13,7 @@ export type FormAnswer = Record<string, string | { secret_ref: string; value_hid
 export type OtherAnswer = { values: string[]; other_text: string };
 /** Why an "unavailable" review produced no judgment; a finite union so every member has catalog text. */
 export type ReviewFailureCategory = "reviewer_not_configured" | "input_invalid" | "input_too_large" | "provider_error" | "timeout" | "malformed_response" | "empty_response";
-export type ApprovalDetails = { action: string; target: string; impact: string; payload?: string; review_only?: boolean; review?: {source: "auto-review"; status: "reviewing" | "approved" | "shadow" | "human_required" | "invalidated" | "not_eligible" | "not_reviewed" | "setup_required" | "context_required" | "unavailable" | "policy_denied" | "terminal" | "human_decided" | "shadow_reviewing" | "shadow_allow" | "shadow_deny" | "shadow_needs_human" | "shadow_context_required" | "shadow_setup_required" | "shadow_unavailable" | "shadow_invalidated"; reason: string; model: string; risk_level?: "low" | "medium" | "high" | "unknown"; confirmation_required?: boolean; policy_version?: string; context_failure?: {code: string; observed?: number; limit?: number; observed_at_least?: boolean}; failure_category?: ReviewFailureCategory}; approve_label?: string; deny_label?: string; draft_id?: string };
+export type ApprovalDetails = { action: string; target: string; impact: string; payload?: string; review_only?: boolean; review?: {source: "auto-review" | "tool_tier"; status: "reviewing" | "approved" | "shadow" | "human_required" | "invalidated" | "not_eligible" | "not_reviewed" | "setup_required" | "context_required" | "unavailable" | "policy_denied" | "terminal" | "human_decided" | "shadow_reviewing" | "shadow_allow" | "shadow_deny" | "shadow_needs_human" | "shadow_context_required" | "shadow_setup_required" | "shadow_unavailable" | "shadow_invalidated"; reason: string; model: string; risk_level?: "low" | "medium" | "high" | "unknown"; confirmation_required?: boolean; policy_version?: string; context_failure?: {code: string; observed?: number; limit?: number; observed_at_least?: boolean}; failure_category?: ReviewFailureCategory; decision_source?: "tool_tier"}; approve_label?: string; deny_label?: string; draft_id?: string };
 export type QuestionAnswer = string | boolean | string[] | FormAnswer | OtherAnswer;
 export interface Question {
   question_id: string;
@@ -41,8 +41,8 @@ export interface Question {
 export type ConversationItem = { kind: "message"; message: Message } | { kind: "question"; question: Question } | { kind: "mail_draft"; draft: MailDraft };
 
 const shadowLabels = ["shadow_reviewing", "shadow_allow", "shadow_deny", "shadow_needs_human", "shadow_context_required", "shadow_setup_required", "shadow_unavailable", "shadow_invalidated"] as const;
-type ReviewBadge = "human_decided_shadow" | "shadow_keeps_policy" | "proposal_not_executable" | "human_decided" | "setup_not_ready" | "review_context_incomplete" | "review_incomplete" | "review_not_allowed" | "proposal_expired" | "proposal_ended" | "auto_approved" | "review_suggests_allow" | "reviewing" | "reviewing_manual" | "shadow_manual_policy" | "needs_you" | "auto_invalidated" | "policy_needs_approval" | "already_reviewed";
-type ReviewLabel = typeof shadowLabels[number] | "shadow_advice" | "setup_gap" | "context_gap" | "review_unavailable" | "policy_denied" | "proposal_invalid" | "not_executable" | "human_decision_valid" | "auto_approved" | "allow_advice" | "reviewing" | "policy_needs_human" | "auto_invalidated" | "not_eligible" | "not_rereviewed";
+type ReviewBadge = "human_decided_shadow" | "shadow_keeps_policy" | "proposal_not_executable" | "human_decided" | "setup_not_ready" | "review_context_incomplete" | "review_incomplete" | "review_not_allowed" | "proposal_expired" | "proposal_ended" | "auto_approved" | "review_suggests_allow" | "reviewing" | "reviewing_manual" | "shadow_manual_policy" | "needs_you" | "high_risk_tool" | "auto_invalidated" | "policy_needs_approval" | "already_reviewed";
+type ReviewLabel = typeof shadowLabels[number] | "shadow_advice" | "setup_gap" | "context_gap" | "review_unavailable" | "policy_denied" | "proposal_invalid" | "not_executable" | "human_decision_valid" | "auto_approved" | "allow_advice" | "reviewing" | "policy_needs_human" | "high_risk_tool" | "auto_invalidated" | "not_eligible" | "not_rereviewed";
 
 /** Readiness, terminal validity and policy advice are different server facts. */
 export function autoReviewPresentation(question: Question): {badge: string; label: string} | undefined {
@@ -71,7 +71,7 @@ export function autoReviewPresentation(question: Question): {badge: string; labe
   case "approved": return question.status === "answered" && question.answered_by === "auto-review" && question.answer === true ? view("auto_approved", "auto_approved") : view("review_suggests_allow", "allow_advice");
   case "reviewing": return view(review.policy_version === "mcp-all-external-v5" ? "reviewing" : "reviewing_manual", "reviewing");
   case "shadow": return view("shadow_manual_policy", "shadow_advice");
-  case "human_required": return view("needs_you", "policy_needs_human");
+  case "human_required": return review.decision_source === "tool_tier" ? view("high_risk_tool", "high_risk_tool") : view("needs_you", "policy_needs_human");
   case "invalidated": return view("auto_invalidated", "auto_invalidated");
   case "not_eligible": return view("policy_needs_approval", "not_eligible");
   case "not_reviewed": return view("already_reviewed", "not_rereviewed");
