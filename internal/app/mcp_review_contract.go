@@ -154,13 +154,19 @@ func mcpReviewDisplayBlock(q Question) error {
 	return nil
 }
 
-func mcpReviewTerminal(ctx context.Context, db reviewQuerier, q Question, r Run, call extensions.MCPCallApproval) error {
+// fence says whether the proposal is an effect: an effect is claimed once per
+// run and exact action, a read-only proposal once per card.
+func mcpReviewTerminal(ctx context.Context, db reviewQuerier, q Question, r Run, call extensions.MCPCallApproval, fence mcpProposalFence) error {
 	var claimed bool
-	if err := db.QueryRow(`SELECT EXISTS(SELECT 1 FROM mcp_call_execution_claims WHERE run_id=? AND action_hash=?) OR EXISTS(SELECT 1 FROM mcp_call_approvals WHERE question_id=? AND claimed_at<>'')`, r.ID, mcpApprovalHash(call), q.ID).Scan(&claimed); err != nil {
+	query, args := `EXISTS(SELECT 1 FROM mcp_call_approvals WHERE question_id=? AND claimed_at<>'')`, []any{q.ID}
+	if fence == mcpProposalEffect {
+		query, args = `EXISTS(SELECT 1 FROM mcp_call_execution_claims WHERE run_id=? AND action_hash=?) OR `+query, append([]any{r.ID, mcpApprovalHash(call)}, args...)
+	}
+	if err := db.QueryRow(`SELECT `+query, args...).Scan(&claimed); err != nil {
 		return err
 	}
 	if claimed {
-		return tooloutcome.New(tooloutcome.Uncertain, "approval_already_claimed", "unknown", "This exact proposal already claimed execution. Verify the existing result; approval cannot be reused.", "verify_effect").Err()
+		return tooloutcome.ApprovalAlreadyClaimed("This exact proposal already claimed execution; approval cannot be reused.")
 	}
 	if q.Status == questionExpired {
 		return tooloutcome.New(tooloutcome.Expired, "approval_window_expired", "not_executed", "This proposal expired and cannot execute or resume.", "finish_summary").Err()

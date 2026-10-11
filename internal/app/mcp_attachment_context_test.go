@@ -86,6 +86,7 @@ func TestMCPHistoricalAttachmentsIndependentTextExecutesOnce(t *testing.T) {
 	for _, association := range []string{"earlier_message", "unlinked"} {
 		t.Run(association, func(t *testing.T) {
 			f := newAutoReviewFixture(t)
+			setSyntheticMCPEffect(t, f)
 			old := seedHistoricalMCPAttachments(t, f, "Read the synthetic public fact for alpha and return it only here.")
 			if association == "unlinked" {
 				diagnosticExec(t, f, `DELETE FROM attachment_messages WHERE attachment_id='synthetic-old-file-1'`)
@@ -325,6 +326,7 @@ func TestMCPHistoricalAttachmentsUnknownToolAndUncertainReplay(t *testing.T) {
 	})
 	t.Run("uncertain effect", func(t *testing.T) {
 		f := newAutoReviewFixture(t)
+		setSyntheticMCPEffect(t, f)
 		old := seedHistoricalMCPAttachments(t, f, "Read the synthetic public fact for alpha and return it here.")
 		_ = f.s.store.putAutoReviewMode("auto")
 		f.p.reply = func(_ context.Context, req *provider.ChatRequest) (*provider.ChatResponse, error) {

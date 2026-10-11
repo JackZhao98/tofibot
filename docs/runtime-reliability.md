@@ -34,6 +34,13 @@ window atomically. A recorded answer is not evidence that the action executed.
 If it expires before dispatch, the consumed checkpoint can park again on the
 expired card. Duplicate renewal and answer requests cannot create duplicate
 effects. A checkpoint already claimed at a crash is interrupted, never replayed.
+An approval is one-shot per dispatch. An identical effect proposed again in the
+same run is refused before dispatch (`denied`, code `approval_already_claimed`,
+certainty `not_executed`): the refusal fences only that exact call, and the
+earlier dispatch keeps its own certainty. A read-only proposal (an owner-trusted
+read-only tool, or a remote `readOnlyHint`, the same predicate as the scheduled
+effect fence) has nothing to replay, so a repeat read is reviewed afresh on its
+own card and claim instead of being refused.
 
 Missing model narration after 15 calls no longer discards useful calls or kills
 the turn after three missing replies. The 300-step, active-duration, empty-response

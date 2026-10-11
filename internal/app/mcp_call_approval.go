@@ -104,6 +104,18 @@ func (s *Server) approveMCPCallOnce(ctx context.Context, c Conversation, r Run, 
 		FROM mcp_call_approvals a JOIN questions q ON q.id=a.question_id
 		WHERE a.run_id=? AND a.action_hash=? AND q.conversation_id=? AND q.bot_id=?
 		ORDER BY q.created_at DESC,q.id DESC LIMIT 1`, r.ID, hash, c.ID, r.BotID).Scan(&id, &status, &answer, &claimed, &expires)
+		if err == nil && claimed != "" && s.mcpProposalFence(call) == mcpProposalReadOnly {
+			// An approval is one-shot per dispatch. For an effect that makes the
+			// identical call a refusal below. A read-only proposal (owner-trusted
+			// read-only tool or remote readOnlyHint, the scheduled fence's own
+			// predicate) has nothing to replay: its repeat is reviewed afresh on
+			// its own card with its own claim, never executed on the used one.
+			id, status, answer, claimed, expires = "", "", sql.NullString{}, "", ""
+			err = s.store.db.QueryRow(`SELECT q.id,q.status,q.answer_json,a.claimed_at,COALESCE(q.expires_at,'')
+			FROM mcp_call_approvals a JOIN questions q ON q.id=a.question_id
+			WHERE a.run_id=? AND a.action_hash=? AND q.conversation_id=? AND q.bot_id=? AND a.claimed_at=''
+			ORDER BY q.created_at DESC,q.id DESC LIMIT 1`, r.ID, hash, c.ID, r.BotID).Scan(&id, &status, &answer, &claimed, &expires)
+		}
 		if err == nil && retry && claimed == "" && settings.Mode == "auto" {
 			prior, e := s.store.GetQuestion(id)
 			if e != nil {
@@ -175,7 +187,8 @@ func (s *Server) approveMCPCallOnce(ctx context.Context, c Conversation, r Run, 
 		answer = sql.NullString{String: string(q.Answer), Valid: len(q.Answer) > 0}
 	}
 	if claimed != "" {
-		return tooloutcome.New(tooloutcome.Uncertain, "approval_already_claimed", "unknown", "This exact external tool call already used its approval; inspect the result before proposing another action.", "verify_effect").Err()
+		// Refused before dispatch: the earlier dispatch keeps its own certainty.
+		return tooloutcome.ApprovalAlreadyClaimed("This exact external tool call already used its approval in this run.")
 	}
 	current, readErr := s.store.GetQuestion(id)
 	if readErr != nil {
