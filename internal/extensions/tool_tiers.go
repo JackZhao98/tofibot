@@ -4,9 +4,15 @@ package extensions
 // tool executes directly, a write tool is reviewed per call, a high_risk tool
 // asks a person every time. The contract is docs/agent-plan/mcp-tool-tiers.md.
 //
-// The store holds policy only (tool names, digests, tiers); it never holds a
-// URL, header or credential. Writes take the Manager's configuration fence so
-// a tier change orders against dispatch exactly like a settings edit.
+// The provider's own annotation is the authority for read_only: a tool the
+// server marks readOnlyHint=true executes without review, exactly as other
+// MCP hosts treat it. Everything else is reviewed per call; only the owner
+// can make a tool high_risk. No model is asked to classify anything.
+//
+// The store holds policy only (tool names, digests, observed annotations and
+// owner overrides); it never holds a URL, header or credential. Writes take
+// the Manager's configuration fence so a tier change orders against dispatch
+// exactly like a settings edit.
 
 import (
 	"crypto/sha256"
@@ -18,7 +24,6 @@ import (
 	"sort"
 	"strings"
 	"sync"
-	"time"
 )
 
 type MCPToolTier string
@@ -29,19 +34,23 @@ const (
 	MCPTierHighRisk MCPToolTier = "high_risk"
 )
 
+// Tier sources, as the UI shows them: the owner set it, the provider marked
+// the tool read only, or neither (reviewed each time).
 const (
-	mcpTierSourceOwner        = "owner"
-	mcpTierSourceAuto         = "auto"
-	mcpTierSourceUnclassified = "unclassified"
+	MCPTierSourceOwner    = "owner"
+	MCPTierSourceProvider = "provider"
+	MCPTierSourceDefault  = "default"
 
 	// A legacy trusted_read_only_tools entry binds to the first digest seen.
 	mcpTierLegacyDigest = "legacy"
 
 	maxTierToolsPerServer  = maxDiscoveredTools
-	maxTierReasonRunes     = 240
 	maxTierDescriptionRune = 512
 	maxTierFileBytes       = 4 << 20
-	tierFileVersion        = 1
+	// Version 1 files (model classification, background queue) are read and
+	// rewritten as version 2 on load: the dropped fields do not survive.
+	tierFileVersion       = 2
+	tierFileLegacyVersion = 1
 )
 
 func ValidMCPToolTier(s string) bool {
@@ -62,20 +71,6 @@ func mcpTierRank(t MCPToolTier) int {
 	return 1 // write, and anything unknown reads as write
 }
 
-// stricterMCPTier never returns read_only unless both sides are read_only.
-func stricterMCPTier(a, b MCPToolTier) MCPToolTier {
-	if mcpTierRank(a) >= mcpTierRank(b) {
-		if mcpTierRank(a) == 1 {
-			return MCPTierWrite
-		}
-		return a
-	}
-	if mcpTierRank(b) == 1 {
-		return MCPTierWrite
-	}
-	return b
-}
-
 // MCPToolAnnotations is the untrusted remote tools/list annotation set as
 // last seen. Present says whether the remote sent any annotations object.
 type MCPToolAnnotations struct {
@@ -84,7 +79,7 @@ type MCPToolAnnotations struct {
 	Destructive *bool `json:"destructive_hint,omitempty"`
 }
 
-// MCPToolDescriptor is what observation records and classification reads.
+// MCPToolDescriptor is what observation records.
 type MCPToolDescriptor struct {
 	Server      string             `json:"server"`
 	RemoteName  string             `json:"name"`
@@ -109,64 +104,22 @@ func MCPToolDigest(d MCPToolDescriptor) string {
 	return hex.EncodeToString(sum[:])
 }
 
-// MergeMCPToolTier applies the annotation rules of the contract to one model
-// tier: annotations can only tighten, never loosen.
-func MergeMCPToolTier(model MCPToolTier, a MCPToolAnnotations) MCPToolTier {
-	if !ValidMCPToolTier(string(model)) {
-		return ""
-	}
-	if model != MCPTierReadOnly {
-		return model
-	}
-	if a.Present && !a.ReadOnly {
-		return MCPTierWrite
-	}
-	if a.Destructive != nil && *a.Destructive {
-		return MCPTierWrite
-	}
-	return MCPTierReadOnly
-}
-
 type mcpToolTierRecord struct {
 	Digest             string `json:"digest"`
 	Description        string `json:"description,omitempty"`
-	Auto               string `json:"auto,omitempty"`
-	AutoDigest         string `json:"auto_digest,omitempty"`
-	ModelTier          string `json:"model_tier,omitempty"`
-	Reason             string `json:"reason,omitempty"`
 	AnnotationsPresent bool   `json:"annotations_present,omitempty"`
 	ReadOnlyHint       bool   `json:"read_only_hint,omitempty"`
 	DestructiveHint    *bool  `json:"destructive_hint,omitempty"`
-	Override           string `json:"override,omitempty"`
-	OverrideDigest     string `json:"override_digest,omitempty"`
-	ClassifiedAt       string `json:"classified_at,omitempty"`
+	// Duplicated marks a remote name listed more than once in one tools/list.
+	Duplicated     bool   `json:"duplicated,omitempty"`
+	Override       string `json:"override,omitempty"`
+	OverrideDigest string `json:"override_digest,omitempty"`
 }
 
 type mcpToolTierServer struct {
 	MigratedTrusted bool                          `json:"migrated_trusted"`
 	Tools           map[string]*mcpToolTierRecord `json:"tools"`
-	// Queue is the persisted classification queue state for this server; it
-	// is what lets a restart resume a pass without re-classifying anything.
-	Queue *MCPTierQueueState `json:"queue,omitempty"`
 }
-
-// MCPTierQueueState is the durable state of one server's classification
-// queue entry. Tools already classified are never re-sent: the queue only
-// drives when the pending tools of a server are tried again.
-type MCPTierQueueState struct {
-	State         string `json:"state"` // queued | running | done | failed
-	Attempts      int    `json:"attempts,omitempty"`
-	NextAttemptAt string `json:"next_attempt_at,omitempty"`
-	LastError     string `json:"last_error,omitempty"`
-	UpdatedAt     string `json:"updated_at,omitempty"`
-}
-
-const (
-	MCPTierQueueQueued  = "queued"
-	MCPTierQueueRunning = "running"
-	MCPTierQueueDone    = "done"
-	MCPTierQueueFailed  = "failed"
-)
 
 type mcpToolTierFile struct {
 	Version int                           `json:"version"`
@@ -177,13 +130,10 @@ type mcpToolTierStore struct {
 	mu      sync.RWMutex
 	path    string
 	servers map[string]*mcpToolTierServer
-	// pending holds the full descriptors of tools awaiting classification. It
-	// is process-local: after a restart the next tools/list repopulates it.
-	pending map[string]map[string]MCPToolDescriptor
 }
 
 func newMCPToolTierStore(configPath string) *mcpToolTierStore {
-	s := &mcpToolTierStore{servers: map[string]*mcpToolTierServer{}, pending: map[string]map[string]MCPToolDescriptor{}}
+	s := &mcpToolTierStore{servers: map[string]*mcpToolTierServer{}}
 	if strings.TrimSpace(configPath) == "" {
 		return s
 	}
@@ -193,7 +143,7 @@ func newMCPToolTierStore(configPath string) *mcpToolTierStore {
 		return s
 	}
 	var f mcpToolTierFile
-	if json.Unmarshal(raw, &f) != nil || f.Version != tierFileVersion {
+	if json.Unmarshal(raw, &f) != nil || f.Version != tierFileVersion && f.Version != tierFileLegacyVersion {
 		return s
 	}
 	for name, srv := range f.Servers {
@@ -208,14 +158,31 @@ func newMCPToolTierStore(configPath string) *mcpToolTierStore {
 				delete(srv.Tools, tool)
 				continue
 			}
-			if !ValidMCPToolTier(rec.Auto) {
-				rec.Auto, rec.AutoDigest = "", ""
-			}
 			if !ValidMCPToolTier(rec.Override) {
 				rec.Override, rec.OverrideDigest = "", ""
 			}
+			if f.Version == tierFileLegacyVersion {
+				// A version 1 record carries the first listing's annotations
+				// and never said whether the name was listed more than once
+				// (the model classifier, not the annotation, decided then).
+				// Carrying its readOnlyHint into version 2 would make a
+				// duplicated listing read_only until the server is listed
+				// again, and a call through a cached schema needs no fresh
+				// listing. The provider's mark is re-recorded by the next
+				// tools/list; until then the tool is reviewed. Digest,
+				// description and owner override survive.
+				rec.AnnotationsPresent, rec.ReadOnlyHint, rec.DestructiveHint, rec.Duplicated = false, false, nil, false
+			}
 		}
 		s.servers[name] = srv
+	}
+	if f.Version == tierFileLegacyVersion {
+		// Rewrite at once so the model-classification fields and the queue
+		// state of the old format are gone, not merely ignored. Owner
+		// overrides (including migrated trusted_read_only_tools) are kept.
+		s.mu.Lock()
+		_ = s.saveLocked()
+		s.mu.Unlock()
 	}
 	return s
 }
@@ -297,37 +264,31 @@ type MCPToolTierView struct {
 	Description     string      `json:"description,omitempty"`
 	Tier            MCPToolTier `json:"tier"`
 	Source          string      `json:"source"`
-	Auto            string      `json:"auto,omitempty"`
 	Override        string      `json:"override,omitempty"`
 	Changed         bool        `json:"changed,omitempty"`
-	Pending         bool        `json:"pending,omitempty"`
-	Reason          string      `json:"reason,omitempty"`
+	Duplicated      bool        `json:"duplicated,omitempty"`
 	ReadOnlyHint    bool        `json:"read_only_hint,omitempty"`
 	DestructiveHint *bool       `json:"destructive_hint,omitempty"`
-	ClassifiedAt    string      `json:"classified_at,omitempty"`
 	Binding         string      `json:"-"`
 }
 
-// resolveMCPToolTier is the single place the contract's precedence lives:
-// a fresh owner override wins; a stale one only tightens; a current auto
-// tier applies; everything else is write.
+// resolveMCPToolTier is the single place the contract's precedence lives: a
+// fresh owner override wins; a stale one only tightens; the provider's
+// readOnlyHint makes an unambiguous tool read_only; everything else is write.
 func resolveMCPToolTier(name string, rec *mcpToolTierRecord, legacyTrusted bool) MCPToolTierView {
-	view := MCPToolTierView{RemoteName: name, Tier: MCPTierWrite, Source: mcpTierSourceUnclassified}
+	view := MCPToolTierView{RemoteName: name, Tier: MCPTierWrite, Source: MCPTierSourceDefault}
 	override, overrideDigest := "", ""
 	if rec != nil {
-		view.Description, view.Reason, view.ClassifiedAt = rec.Description, rec.Reason, rec.ClassifiedAt
+		view.Description, view.Duplicated = rec.Description, rec.Duplicated
 		view.ReadOnlyHint, view.DestructiveHint = rec.ReadOnlyHint, rec.DestructiveHint
-		if rec.Auto != "" && rec.AutoDigest == rec.Digest && ValidMCPToolTier(rec.Auto) {
-			view.Tier, view.Source, view.Auto = MCPToolTier(rec.Auto), mcpTierSourceAuto, rec.Auto
-		} else {
-			view.Pending = true
-			if rec.AutoDigest != "" {
-				view.Changed = true
-			}
+		// A name listed more than once is one tools/call target with several
+		// schemas; no single annotation describes it, so the provider's mark
+		// does not apply. destructiveHint never changes the tier: it is passed
+		// to the reviewer as evidence.
+		if rec.AnnotationsPresent && rec.ReadOnlyHint && !rec.Duplicated {
+			view.Tier, view.Source = MCPTierReadOnly, MCPTierSourceProvider
 		}
 		override, overrideDigest = rec.Override, rec.OverrideDigest
-	} else {
-		view.Pending = true
 	}
 	if override == "" && legacyTrusted {
 		override, overrideDigest = string(MCPTierReadOnly), mcpTierLegacyDigest
@@ -336,11 +297,11 @@ func resolveMCPToolTier(name string, rec *mcpToolTierRecord, legacyTrusted bool)
 		view.Override = override
 		fresh := overrideDigest == mcpTierLegacyDigest || rec != nil && overrideDigest == rec.Digest
 		if fresh {
-			view.Tier, view.Source = MCPToolTier(override), mcpTierSourceOwner
+			view.Tier, view.Source = MCPToolTier(override), MCPTierSourceOwner
 		} else {
 			view.Changed = true
 			if mcpTierRank(MCPToolTier(override)) > mcpTierRank(view.Tier) {
-				view.Tier, view.Source = MCPToolTier(override), mcpTierSourceOwner
+				view.Tier, view.Source = MCPToolTier(override), MCPTierSourceOwner
 			}
 		}
 	}
@@ -414,15 +375,14 @@ func (m *Manager) tierBindingCurrent(call MCPCallApproval, cfg MCPServerConfig) 
 
 // ObserveTools records one complete tools/list for a server: digests, hints
 // and descriptions move, tools no longer offered are dropped, and legacy
-// trusted names are migrated once. It returns how many tools await
-// classification. Nothing here changes an existing tier except through the
-// digest binding described in the contract.
-func (m *Manager) ObserveTools(server string, cfg MCPServerConfig, tools []MCPToolDescriptor) (int, error) {
+// trusted names are migrated once. No model is consulted; the provider's
+// annotations recorded here are what resolve reads.
+func (m *Manager) ObserveTools(server string, cfg MCPServerConfig, tools []MCPToolDescriptor) error {
 	if !validExtensionName(server) {
-		return 0, errors.New("invalid MCP server name")
+		return errors.New("invalid MCP server name")
 	}
 	if len(tools) > maxTierToolsPerServer {
-		return 0, errors.New("MCP server exposed too many tools")
+		return errors.New("MCP server exposed too many tools")
 	}
 	m.mcpConfigFence.Lock()
 	defer m.mcpConfigFence.Unlock()
@@ -440,11 +400,10 @@ func (m *Manager) ObserveTools(server string, cfg MCPServerConfig, tools []MCPTo
 	s.migrateTrustedLocked(server, cfg)
 	srv := s.serverLocked(server)
 	observed := make(map[string]bool, len(tools))
-	pending := map[string]MCPToolDescriptor{}
 	// A remote name listed more than once is one tools/call target with
-	// several run-facing schemas. No single descriptor describes it, so it is
-	// never classified: its digest covers every listing (an owner override
-	// binds to the whole set) and its auto tier is dropped (write).
+	// several run-facing schemas. Its digest covers every listing (an owner
+	// override binds to the whole set) and the provider's readOnlyHint does
+	// not apply to it (write unless the owner decides).
 	listings := map[string][]string{}
 	for _, d := range tools {
 		if d.RemoteName == "" || len(d.RemoteName) > maxCatalogToolNameBytes {
@@ -484,14 +443,7 @@ func (m *Manager) ObserveTools(server string, cfg MCPServerConfig, tools []MCPTo
 		rec.Digest = d.Digest
 		rec.Description = truncateUTF8(strings.TrimSpace(d.Description), maxTierDescriptionRune)
 		rec.AnnotationsPresent, rec.ReadOnlyHint, rec.DestructiveHint = d.Annotations.Present, d.Annotations.ReadOnly, d.Annotations.Destructive
-		if duplicated {
-			rec.Auto, rec.AutoDigest, rec.ModelTier = "", "", ""
-			rec.Reason = "listed more than once by the server; not classified"
-			continue
-		}
-		if rec.Auto == "" || rec.AutoDigest != rec.Digest {
-			pending[d.RemoteName] = d
-		}
+		rec.Duplicated = duplicated
 	}
 	for name, rec := range srv.Tools {
 		// A migrated legacy name the server never offered stays until it is
@@ -500,75 +452,11 @@ func (m *Manager) ObserveTools(server string, cfg MCPServerConfig, tools []MCPTo
 			delete(srv.Tools, name)
 		}
 	}
-	s.pending[server] = pending
 	after, _ := json.Marshal(srv)
 	if string(before) != string(after) {
-		if err := s.saveLocked(); err != nil {
-			return len(pending), err
-		}
+		return s.saveLocked()
 	}
-	return len(pending), nil
-}
-
-// PendingToolClassification lists the tools of a server whose auto tier is
-// missing or stale, with the full descriptor the classifier needs.
-func (m *Manager) PendingToolClassification(server string) []MCPToolDescriptor {
-	s := m.tiers
-	s.mu.RLock()
-	defer s.mu.RUnlock()
-	out := make([]MCPToolDescriptor, 0, len(s.pending[server]))
-	for _, d := range s.pending[server] {
-		out = append(out, d)
-	}
-	sort.Slice(out, func(i, j int) bool { return out[i].RemoteName < out[j].RemoteName })
-	return out
-}
-
-// MCPToolClassification is one model answer for one tool at one digest.
-type MCPToolClassification struct {
-	RemoteName string
-	Digest     string
-	Tier       MCPToolTier
-	Reason     string
-}
-
-// RecordToolClassification stores model tiers merged with the annotations the
-// tool carried at that digest. An answer for a digest no longer current is
-// dropped: the tool changed during classification and stays write.
-func (m *Manager) RecordToolClassification(server string, results []MCPToolClassification) (int, error) {
-	if !validExtensionName(server) {
-		return 0, errors.New("invalid MCP server name")
-	}
-	m.mcpConfigFence.Lock()
-	defer m.mcpConfigFence.Unlock()
-	s := m.tiers
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	srv := s.servers[server]
-	if srv == nil {
-		return 0, nil
-	}
-	stamp := time.Now().UTC().Format(time.RFC3339)
-	recorded := 0
-	for _, r := range results {
-		rec := srv.Tools[r.RemoteName]
-		if rec == nil || rec.Digest == "" || rec.Digest != r.Digest || !ValidMCPToolTier(string(r.Tier)) {
-			continue
-		}
-		merged := MergeMCPToolTier(r.Tier, MCPToolAnnotations{Present: rec.AnnotationsPresent, ReadOnly: rec.ReadOnlyHint, Destructive: rec.DestructiveHint})
-		if merged == "" {
-			continue
-		}
-		rec.ModelTier, rec.Auto, rec.AutoDigest = string(r.Tier), string(merged), rec.Digest
-		rec.Reason = truncateUTF8(strings.Join(strings.Fields(r.Reason), " "), maxTierReasonRunes)
-		rec.ClassifiedAt = stamp
-		delete(s.pending[server], r.RemoteName)
-		recorded++
-	}
-	if recorded == 0 {
-		return 0, nil
-	}
-	return recorded, s.saveLocked()
+	return nil
 }
 
 // SetToolTierOverride binds an owner decision to the tool's current digest;
@@ -603,83 +491,10 @@ func (m *Manager) SetToolTierOverride(server, tool, tier string) (MCPToolTierVie
 
 // MCPToolTierList is the per-service summary the settings page shows.
 type MCPToolTierList struct {
-	Tools        []MCPToolTierView  `json:"tools"`
-	ReadOnly     int                `json:"read_only"`
-	Write        int                `json:"write"`
-	HighRisk     int                `json:"high_risk"`
-	Pending      int                `json:"pending"`
-	Unclassified int                `json:"unclassified"`
-	Queue        *MCPTierQueueState `json:"queue,omitempty"`
-}
-
-// SetTierQueueState persists the queue state of one server (fenced like any
-// policy write). An empty state removes the entry.
-func (m *Manager) SetTierQueueState(server string, state MCPTierQueueState) error {
-	if !validExtensionName(server) {
-		return errors.New("invalid MCP server name")
-	}
-	m.mcpConfigFence.Lock()
-	defer m.mcpConfigFence.Unlock()
-	s := m.tiers
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	srv := s.serverLocked(server)
-	if state.State == "" {
-		srv.Queue = nil
-	} else {
-		state.UpdatedAt = time.Now().UTC().Format(time.RFC3339)
-		copyState := state
-		srv.Queue = &copyState
-	}
-	return s.saveLocked()
-}
-
-// TierQueueState reads one server's persisted queue entry.
-func (m *Manager) TierQueueState(server string) (MCPTierQueueState, bool) {
-	s := m.tiers
-	s.mu.RLock()
-	defer s.mu.RUnlock()
-	if srv := s.servers[server]; srv != nil && srv.Queue != nil {
-		return *srv.Queue, true
-	}
-	return MCPTierQueueState{}, false
-}
-
-// TierBackfillCandidates lists configured servers whose tools may lack a
-// current tier: never observed, any recorded tool whose auto tier is missing
-// or stale, or a queue entry that did not finish. Servers whose recorded
-// tools are all current and whose queue is done are not candidates; only a
-// tool-list refresh can reopen them.
-func (m *Manager) TierBackfillCandidates() []string {
-	m.mu.RLock()
-	servers, err := loadServers(m.cfg.MCPConfigPath)
-	m.mu.RUnlock()
-	if err != nil {
-		return nil
-	}
-	s := m.tiers
-	s.mu.RLock()
-	defer s.mu.RUnlock()
-	var out []string
-	for name := range servers {
-		srv := s.servers[name]
-		candidate := srv == nil || len(srv.Tools) == 0
-		if srv != nil {
-			if srv.Queue != nil && srv.Queue.State != MCPTierQueueDone {
-				candidate = true
-			}
-			for _, rec := range srv.Tools {
-				if rec.Digest != "" && (rec.Auto == "" || rec.AutoDigest != rec.Digest) {
-					candidate = true
-				}
-			}
-		}
-		if candidate {
-			out = append(out, name)
-		}
-	}
-	sort.Strings(out)
-	return out
+	Tools    []MCPToolTierView `json:"tools"`
+	ReadOnly int               `json:"read_only"`
+	Write    int               `json:"write"`
+	HighRisk int               `json:"high_risk"`
 }
 
 func (m *Manager) ListToolTiers(server string) MCPToolTierList {
@@ -692,10 +507,6 @@ func (m *Manager) ListToolTiers(server string) MCPToolTierList {
 	defer s.mu.RUnlock()
 	out := MCPToolTierList{Tools: []MCPToolTierView{}}
 	srv := s.servers[server]
-	if srv != nil && srv.Queue != nil {
-		queue := *srv.Queue
-		out.Queue = &queue
-	}
 	names := map[string]bool{}
 	if srv != nil {
 		for name, rec := range srv.Tools {
@@ -724,12 +535,6 @@ func (m *Manager) ListToolTiers(server string) MCPToolTierList {
 			out.HighRisk++
 		default:
 			out.Write++
-		}
-		if view.Pending {
-			out.Pending++
-		}
-		if view.Source == mcpTierSourceUnclassified {
-			out.Unclassified++
 		}
 	}
 	sort.Slice(out.Tools, func(i, j int) bool { return out.Tools[i].RemoteName < out.Tools[j].RemoteName })
@@ -795,11 +600,10 @@ func (m *Manager) clearToolTiersLocked(server string) error {
 	s := m.tiers
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	if _, ok := s.servers[server]; !ok && s.pending[server] == nil {
+	if _, ok := s.servers[server]; !ok {
 		return nil
 	}
 	delete(s.servers, server)
-	delete(s.pending, server)
 	return s.saveLocked()
 }
 

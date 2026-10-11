@@ -54,7 +54,7 @@ export function autoReviewPresentation(question: Question): {badge: string; labe
   const label: ReviewLabel = (shadowLabels as readonly string[]).includes(review.status) ? review.status as ReviewLabel : "shadow_advice";
   return view(question.status === "answered" && question.answered_by && question.answered_by !== "auto-review" ? "human_decided_shadow" : "shadow_keeps_policy", label);
  }
- if (review.policy_version === "mcp-all-external-v5") {
+ if (review.policy_version?.startsWith("mcp-all-external-v")) {
   const blockedLabels: Record<string, ReviewLabel> = {setup_required:"setup_gap",context_required:"context_gap",unavailable:"review_unavailable",policy_denied:"policy_denied",terminal:question.status === "expired" ? "proposal_invalid" : "not_executable"};
   if (Object.hasOwn(blockedLabels, review.status)) return view("proposal_not_executable", blockedLabels[review.status]);
  }
@@ -69,7 +69,7 @@ export function autoReviewPresentation(question: Question): {badge: string; labe
  if (question.status === "cancelled" || question.status === "run_done" || review.status === "terminal") return view("proposal_ended", "not_executable");
  switch (review.status) {
   case "approved": return question.status === "answered" && question.answered_by === "auto-review" && question.answer === true ? view("auto_approved", "auto_approved") : view("review_suggests_allow", "allow_advice");
-  case "reviewing": return view(review.policy_version === "mcp-all-external-v5" ? "reviewing" : "reviewing_manual", "reviewing");
+  case "reviewing": return view(review.policy_version?.startsWith("mcp-all-external-v") ? "reviewing" : "reviewing_manual", "reviewing");
   case "shadow": return view("shadow_manual_policy", "shadow_advice");
   case "human_required": return review.decision_source === "tool_tier" ? view("high_risk_tool", "high_risk_tool") : view("needs_you", "policy_needs_human");
   case "invalidated": return view("auto_invalidated", "auto_invalidated");

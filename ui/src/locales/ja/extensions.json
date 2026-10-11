@@ -401,8 +401,7 @@
     "removing": "処理中…",
     "unverified": "未確認",
     "waiting": "認可を待っています",
-    "read_only_count_other": "読み取り専用 {{count}} 件",
-    "classifying": "ツールを分類中…"
+    "read_only_count_other": "読み取り専用 {{count}} 件"
   },
   "vm": {
     "cancel": "認可をキャンセル",
@@ -421,34 +420,30 @@
   },
   "tools": {
     "changed": "変更あり",
+    "duplicated": "複数回リストされています",
     "empty": "ツールはまだありません。接続して更新すると読み込まれます。",
     "error": {
-      "classification_failed": "ツールを分類できませんでした。未分類のツールは呼び出しごとに審査されます。",
-      "recheck_failed": "ツール一覧を更新できませんでした。"
+      "refresh_failed": "ツール一覧を更新できませんでした。"
     },
-    "explain": "読み取り専用ツールは審査なしで実行されます。データを変更できるツールは呼び出しごとに審査されます。高リスクのツールは毎回あなたに確認します。",
+    "explain": "提供元が読み取り専用と示したツールは審査なしで実行されます。その他のツールは呼び出しごとに審査され、あなたが依頼した呼び出しはそのまま実行、それ以外は先に確認します。「毎回確認」に設定したツールは常に確認します。",
     "group": {
-      "read_only": "読み取り専用",
-      "write": "データを変更可能",
-      "high_risk": "高リスク"
+      "read_only": "読み取り専用（提供元の表示）",
+      "write": "呼び出しごとに審査",
+      "high_risk": "毎回確認"
     },
-    "pending_other": "{{count}} 件のツールが分類待ちです",
-    "recheck": "再チェック",
-    "rechecking": "確認中…",
+    "refresh": "ツールを更新",
+    "refreshing": "更新中…",
     "select_label": "{{name}} のティア",
     "source": {
       "owner": "手動設定",
-      "auto": "自動",
-      "unclassified": "未分類"
+      "provider": "提供元の表示"
     },
     "tier": {
-      "auto": "自動",
-      "auto_resolved": "自動 · {{tier}}",
+      "auto": "自動（提供元）",
       "read_only": "読み取り専用",
-      "write": "データを変更可能",
-      "high_risk": "高リスク"
+      "write": "呼び出しごとに審査",
+      "high_risk": "毎回確認"
     },
-    "title": "ツール · {{count}}",
-    "classifying": "バックグラウンドでツールを分類しています。分類が済むまで呼び出しごとに審査されます。"
+    "title": "ツール · {{count}}"
   }
 }

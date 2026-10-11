@@ -297,19 +297,16 @@ func (f *scheduledMCPFixture) uncertainMCPWrite(tool string) {
 }
 
 // Re-point the proposal at a tool outside the owner's trusted read-only list.
-// readOnly makes it a classified read_only tool (the model's read_only merged
-// with the remote readOnlyHint, as one classification pass would record);
-// otherwise the tool is unclassified and therefore write.
+// readOnly makes it a tool the provider marks readOnlyHint (read_only tier, as
+// one tools/list would record); otherwise the tool is unmarked and therefore
+// write.
 func (f *scheduledMCPFixture) proposeTool(tool string, readOnly bool) {
 	f.call.Tool, f.call.ReadOnlyHint, f.call.Description = tool, readOnly, "Synthetic "+tool
 	if readOnly {
 		d := extensions.MCPToolDescriptor{RemoteName: tool, Description: "Synthetic " + tool, InputSchema: map[string]any{"type": "object"}, Annotations: extensions.MCPToolAnnotations{Present: true, ReadOnly: true}}
 		d.Digest = extensions.MCPToolDigest(d)
-		if _, err := f.s.extensions.ObserveTools("schedule-fixture", f.cfg, []extensions.MCPToolDescriptor{d}); err != nil {
+		if err := f.s.extensions.ObserveTools("schedule-fixture", f.cfg, []extensions.MCPToolDescriptor{d}); err != nil {
 			f.t.Fatal(err)
-		}
-		if n, err := f.s.extensions.RecordToolClassification("schedule-fixture", []extensions.MCPToolClassification{{RemoteName: tool, Digest: d.Digest, Tier: extensions.MCPTierReadOnly, Reason: "synthetic read"}}); err != nil || n != 1 {
-			f.t.Fatalf("classification not recorded: %d %v", n, err)
 		}
 	}
 	view := f.s.extensions.MCPToolTier("schedule-fixture", tool)
@@ -524,7 +521,7 @@ func TestScheduledMCPContextBoundedLineage(t *testing.T) {
 		// later effect, never a read; an earlier unverified observation fences
 		// nothing. The proposal read_public is owner-trusted read-only.
 		{"uncertain effect does not fence a trusted read", false, scheduleSourceChat, true, func(f *scheduledMCPFixture) { f.toolEvidence(false, true) }},
-		{"uncertain effect does not fence a classified read", false, scheduleSourceChat, true, func(f *scheduledMCPFixture) {
+		{"uncertain effect does not fence a provider-marked read", false, scheduleSourceChat, true, func(f *scheduledMCPFixture) {
 			f.uncertainMCPWrite("write_record")
 			f.proposeTool("fetch_record", true)
 		}},
@@ -621,11 +618,25 @@ func TestScheduledMCPAllToolReviewModesAndOneUse(t *testing.T) {
 	for _, tc := range []struct {
 		name, mode       string
 		reviews, effects int32
-	}{{"all tools allow", "auto", 1, 1}, {"shadow", "shadow", 1, 0}, {"off", "off", 0, 0}} {
+	}{{"all tools allow", "auto", 1, 1}, {"schedule-authorized write allowed at high risk", "auto", 1, 1}, {"shadow", "shadow", 1, 0}, {"off", "off", 0, 0}} {
 		t.Run(tc.name, func(t *testing.T) {
 			f := newScheduledMCPFixture(t, false, scheduleSourceChat)
 			if err := f.s.store.putAutoReviewMode(tc.mode); err != nil {
 				t.Fatal(err)
+			}
+			if strings.HasPrefix(tc.name, "schedule-authorized write") {
+				// The schedule's typed source authorization covers the write:
+				// an allow executes whatever risk level the reviewer records.
+				f.proposeTool("write_record", false)
+				f.p.reply = func(_ context.Context, req *provider.ChatRequest) (*provider.ChatResponse, error) {
+					var in struct {
+						Authorization []mcpAuthorizationEvidence `json:"authorization_evidence"`
+					}
+					if json.Unmarshal([]byte(req.Messages[0].Content), &in) != nil || len(in.Authorization) == 0 || in.Authorization[0].ScheduleSource == nil {
+						t.Error("schedule authorization missing from the packet")
+					}
+					return v5ReviewReply(req, "allow", "high", false), nil
+				}
 			}
 			q := f.question()
 			if err := f.review(q); err != nil {

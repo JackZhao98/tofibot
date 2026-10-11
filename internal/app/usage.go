@@ -113,11 +113,6 @@ func migrateUsage(db *sql.DB) error {
 	 output_tokens INTEGER NOT NULL, equivalent_usd REAL NOT NULL, price_known INTEGER NOT NULL,
 	 trigger_content TEXT NOT NULL, occurred_at TEXT NOT NULL);
 	 CREATE INDEX IF NOT EXISTS usage_calls_time ON usage_calls(occurred_at DESC);
-	 CREATE TABLE IF NOT EXISTS usage_background (
-	 id INTEGER PRIMARY KEY AUTOINCREMENT, kind TEXT NOT NULL, model TEXT NOT NULL,
-	 input_tokens INTEGER NOT NULL, output_tokens INTEGER NOT NULL, equivalent_usd REAL NOT NULL,
-	 price_known INTEGER NOT NULL, occurred_at TEXT NOT NULL);
-	 CREATE INDEX IF NOT EXISTS usage_background_occurred ON usage_background(occurred_at DESC);
 	 CREATE TABLE IF NOT EXISTS usage_hourly (
 	 hour TEXT NOT NULL, bot_id TEXT NOT NULL, input_tokens INTEGER NOT NULL,
 	 output_tokens INTEGER NOT NULL, requests INTEGER NOT NULL, equivalent_usd REAL NOT NULL,
@@ -222,15 +217,6 @@ func (s *Store) recordAuxiliaryModelUsage(runID, model string, input, output int
 		return err
 	}
 	return tx.Commit()
-}
-
-// recordBackgroundModelUsage records a background model call that serves
-// the workspace rather than one run (tool tier classification). It is priced
-// like every other call and kept under its own kind.
-func (s *Store) recordBackgroundModelUsage(kind, model string, input, output int64) error {
-	price, known := usageEquivalent(model, input, output)
-	_, err := s.db.Exec(`INSERT INTO usage_background(kind,model,input_tokens,output_tokens,equivalent_usd,price_known,occurred_at) VALUES(?,?,?,?,?,?,?)`, kind, model, input, output, price, known, time.Now().UTC().Format(time.RFC3339Nano))
-	return err
 }
 
 func (s *Store) usagePeriod(d time.Duration) ([]UsagePeriod, error) {

@@ -81,10 +81,6 @@ type Config struct {
 	// are workspace-wide unless restricted to selected Bots. Nil permits every
 	// skill; a returned error makes the run drop every skill (fail closed).
 	SkillAccess func(ctx context.Context, botID string, names []string) (map[string]bool, error)
-	// ToolsObserved runs after a complete tools/list was recorded for a server
-	// and some of its tools still await tier classification. The host owns the
-	// classifier; a nil hook leaves those tools in the write tier.
-	ToolsObserved func(server string, pending int)
 }
 
 type Manager struct {
@@ -134,8 +130,12 @@ type MCPCallApproval struct {
 	ConfigVersion string
 	Arguments     json.RawMessage
 	// ReadOnlyHint is the remote tool's readOnlyHint annotation as captured.
-	// It is untrusted metadata and decides nothing; the tier does.
+	// It is untrusted metadata; the gate reads the resolved Tier, not it.
 	ReadOnlyHint bool
+	// DestructiveHint is the remote tool's destructiveHint annotation as last
+	// observed (nil when the remote sent none). It never changes the tier; it
+	// reaches the reviewer as untrusted evidence.
+	DestructiveHint *bool
 	// Tier is the tool's effective review tier resolved from the disk store
 	// when the proposal was built, and TierBinding the digest of everything
 	// that produced it. MCPCallTier re-resolves both against the disk; a
@@ -635,10 +635,8 @@ func (m *Manager) prepareServer(runCtx, discoveryCtx context.Context, name strin
 	for _, remote := range listTools {
 		descriptors = append(descriptors, MCPToolDescriptor{Server: name, RemoteName: remote.Name, Description: remote.Description, InputSchema: toolSchema(remote), Annotations: mcpToolAnnotations(remote)})
 	}
-	if pending, err := m.ObserveTools(name, cfg, descriptors); err != nil {
+	if err := m.ObserveTools(name, cfg, descriptors); err != nil {
 		log.Printf("mcp tool tiers: record %s: %v", name, err)
-	} else if pending > 0 && m.cfg.ToolsObserved != nil {
-		m.cfg.ToolsObserved(name, pending)
 	}
 	result := make([]runtime.Tool, 0, len(listTools))
 	for _, remote := range listTools {
