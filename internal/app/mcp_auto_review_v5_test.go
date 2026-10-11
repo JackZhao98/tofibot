@@ -40,6 +40,7 @@ func TestAutoReviewV5UnlistedReadAndAuthorizedMediumWriteExecuteOnce(t *testing.
 				f.call.Tool = "create_draft"
 				f.call.Description = "Create one private draft without publishing or sending."
 				f.call.Arguments = json.RawMessage(`{"title":"alpha"}`)
+				f.call.ReadOnlyHint = false
 				f.execute = func(ctx context.Context) error {
 					if err := f.s.approveMCPCall(ctx, f.c, f.r, f.call); err != nil {
 						return err
@@ -91,8 +92,16 @@ func TestAutoReviewV5UnlistedReadAndAuthorizedMediumWriteExecuteOnce(t *testing.
 			if !foundDecision {
 				t.Fatal("durable reconnect event lost v5 decision fields")
 			}
-			if err := f.execute(ctx); err == nil || f.effects.Load() != 1 || f.p.calls.Load() != 1 {
-				t.Fatal("proposal/reviewer replayed", err)
+			if write {
+				if err := f.execute(ctx); err == nil || f.effects.Load() != 1 || f.p.calls.Load() != 1 {
+					t.Fatal("proposal/reviewer replayed", err)
+				}
+				return
+			}
+			// A repeat of the hinted read is reviewed afresh on its own card; the
+			// used decision itself is never reused.
+			if err := f.execute(ctx); err != nil || f.effects.Load() != 2 || f.p.calls.Load() != 2 {
+				t.Fatal("repeat read refused or decision reused", err, f.effects.Load(), f.p.calls.Load())
 			}
 		})
 	}
@@ -113,7 +122,7 @@ func TestAutoReviewV5RiskConfirmationAndHumanRace(t *testing.T) {
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			f := newAutoReviewFixture(t)
-			setSyntheticMCPHumanPolicy(t, f, true)
+			setSyntheticMCPEffect(t, f)
 			_ = f.s.store.putAutoReviewMode("auto")
 			f.p.reply = func(_ context.Context, req *provider.ChatRequest) (*provider.ChatResponse, error) {
 				q := waitReviewQuestion(t, f, "reviewing")
@@ -272,7 +281,7 @@ func TestAutoReviewV5AtomicClaimAndRestartRecheckRiskBindings(t *testing.T) {
 // independent verification proposal, while the original uncertain effect stays claimed.
 func TestAutoReviewV5HistoricalGapsPermitIndependentVerificationWithoutReplay(t *testing.T) {
 	f := newAutoReviewFixture(t)
-	setSyntheticMCPHumanPolicy(t, f, true)
+	setSyntheticMCPEffect(t, f)
 	_ = f.s.store.putAutoReviewMode("auto")
 	f.failTransient.Store(true)
 	err := f.execute(context.Background())

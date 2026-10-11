@@ -32,7 +32,7 @@ func TestAutoReviewV5HumanRequiredDurableResume(t *testing.T) {
 			if strings.HasPrefix(mutation, "attachment ") {
 				oldAttachmentMessage = seedHistoricalMCPAttachments(t, f, "Read the synthetic public fact for alpha.")
 			}
-			setSyntheticMCPHumanPolicy(t, f, true)
+			setSyntheticMCPEffect(t, f)
 			if err := f.s.store.putAutoReviewMode("auto"); err != nil {
 				t.Fatal(err)
 			}

@@ -1,6 +1,9 @@
 package tooloutcome
 
-import "context"
+import (
+	"context"
+	"strings"
+)
 
 type boundaryKey struct{}
 type executionIdentityKey struct{}
@@ -61,4 +64,13 @@ func InvalidArguments(message string) error {
 // failure, never an uncertain effect.
 func Rejected(message string) error {
 	return New(Permanent, "tool_rejected", "not_executed", message+" Nothing was changed.", "repair_arguments").Err()
+}
+
+// ApprovalAlreadyClaimed refuses a call before dispatch because the identical
+// action already spent its one-shot approval in this run. Nothing was sent by
+// the refused call, so its certainty is not_executed: the earlier dispatch's
+// certainty stays on the earlier record, and a refusal never fences later
+// work as an unverified effect. The identical action stays refused.
+func ApprovalAlreadyClaimed(detail string) error {
+	return New(Denied, "approval_already_claimed", "not_executed", strings.TrimSpace(detail)+" This call was refused before dispatch; nothing was sent now. Inspect the earlier call's recorded result instead of repeating this exact call.", "verify_effect").Err()
 }
