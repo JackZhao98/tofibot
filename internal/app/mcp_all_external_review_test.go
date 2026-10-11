@@ -45,7 +45,7 @@ func setSyntheticMCPHumanPolicy(t *testing.T, f *autoReviewFixture, requiresHuma
 		// A fixture that never ran discovery: record the tool as one tools/list would.
 		var schema map[string]any
 		_ = json.Unmarshal(f.call.Schema, &schema)
-		if _, err = f.s.extensions.ObserveTools(f.call.Server, extensions.MCPServerConfig{}, []extensions.MCPToolDescriptor{{RemoteName: f.call.Tool, Description: f.call.Description, InputSchema: schema, Annotations: extensions.MCPToolAnnotations{Present: f.call.ReadOnlyHint, ReadOnly: f.call.ReadOnlyHint}}}); err == nil {
+		if err = f.s.extensions.ObserveTools(f.call.Server, extensions.MCPServerConfig{}, []extensions.MCPToolDescriptor{{RemoteName: f.call.Tool, Description: f.call.Description, InputSchema: schema, Annotations: extensions.MCPToolAnnotations{Present: f.call.ReadOnlyHint, ReadOnly: f.call.ReadOnlyHint}}}); err == nil {
 			_, err = f.s.extensions.SetToolTierOverride(f.call.Server, f.call.Tool, tier)
 		}
 	}

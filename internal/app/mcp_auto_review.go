@@ -20,8 +20,8 @@ import (
 )
 
 const autoReviewActor = "auto-review"
-const autoReviewPolicyVersion = "mcp-all-external-v5"
-const autoReviewProvenance = "host-mcp-review-binding-v5"
+const autoReviewPolicyVersion = "mcp-all-external-v6"
+const autoReviewProvenance = "host-mcp-review-binding-v6"
 const autoReviewTimeout = 30 * time.Second
 const autoReviewValidity = 2 * time.Minute
 
@@ -161,9 +161,9 @@ func mcpReviewDigest(x mcpReviewContext, call extensions.MCPCallApproval) string
 }
 
 // A proposal is read-only for the scheduled effect fence exactly when its
-// resolved tier is read_only (owner override, or model classification merged
-// with the remote annotations; docs/agent-plan/mcp-tool-tiers.md). The raw
-// readOnlyHint decides nothing; a stale or unknown tier reads as an effect.
+// resolved tier is read_only (owner override, or the provider's readOnlyHint
+// on an unambiguous tool; docs/agent-plan/mcp-tool-tiers.md). The proposal's
+// raw hint is not consulted here; a stale or unknown tier reads as an effect.
 func (s *Server) mcpProposalFence(call extensions.MCPCallApproval) mcpProposalFence {
 	if tier, current := s.mcpCallTier(call); current && tier == extensions.MCPTierReadOnly {
 		return mcpProposalReadOnly
@@ -303,14 +303,21 @@ type mcpReviewResult struct {
 	Source string
 }
 
-// mcpHighRiskTierResult is the fixed verdict for a high_risk tool: a person
-// decides, the reviewer is not asked, and no allow can bypass it.
+// mcpHighRiskTierResult is the fixed verdict for a high_risk tool (the
+// owner's "Always ask me"): a person decides, the reviewer is not asked, and
+// no allow can bypass it.
 func mcpHighRiskTierResult(digest string) mcpReviewResult {
-	return mcpReviewResult{Decision: "needs_human", Reason: "This tool is classed high risk (it can delete, send, pay, or change access). A person decides each call; the reviewer is not consulted.", ContextDigest: digest, RiskLevel: "high", ConfirmationRequired: true, Source: mcpDecisionSourceTier}
+	return mcpReviewResult{Decision: "needs_human", Reason: mcpHighRiskReason, ContextDigest: digest, RiskLevel: "high", ConfirmationRequired: true, Source: mcpDecisionSourceTier}
 }
+
+// mcpHighRiskReason is the card's reason for an owner "Always ask me" tool.
+const mcpHighRiskReason = "You set this tool to always ask you. A person decides each call; the reviewer is not consulted."
 
 // This predicate is shared by completion and atomic claim. Reviewer assessment
 // is advice; backend bindings, denials and action claims remain authoritative.
+// A person is asked only when the reviewer says the action is not covered by
+// the user's request (needs_human) or cannot judge it (context_gap); an
+// allowed call executes at any recorded risk level.
 func mcpReviewDisposition(x mcpReviewResult) string {
 	if x.Decision != "allow" && x.Decision != "deny" && x.Decision != "needs_human" && x.Decision != "context_gap" || x.Decision == "allow" && x.RiskLevel == "unknown" || x.Decision == "needs_human" && !x.ConfirmationRequired || x.Decision == "context_gap" && (x.RiskLevel != "unknown" || x.ConfirmationRequired) || x.Decision == "deny" && x.ConfirmationRequired {
 		return "unavailable"
@@ -324,10 +331,14 @@ func mcpReviewDisposition(x mcpReviewResult) string {
 	if x.RiskLevel != "low" && x.RiskLevel != "medium" && x.RiskLevel != "high" {
 		return "unavailable"
 	}
-	if x.RiskLevel == "high" || x.ConfirmationRequired || x.Decision == "needs_human" {
+	if x.Decision == "needs_human" {
 		return "human_required"
 	}
 	if x.Decision == "allow" {
+		// The user's verified request is the trigger: an allowed call runs
+		// whatever its risk level. The level and reason are recorded, and a
+		// stray confirmation flag on an allow does not turn it into a card
+		// (the reviewer asks for a person with needs_human).
 		return "approved"
 	}
 	return "unavailable"
@@ -807,6 +818,12 @@ func (s *Server) finishMCPReview(ctx context.Context, c Conversation, r Run, cal
 		status, result.Reason = "invalidated", "The review was invalidated by changed settings or state; it cannot authorize execution."
 	} else {
 		status = mcpReviewDisposition(result)
+		if status == "approved" && len(mcpAuthorizationSources(x)) == 0 {
+			// The host, not the reviewer, holds the trigger: without a
+			// host-verified user request in the evidence an allow is only
+			// advice, and a person decides.
+			status, result.Reason = "human_required", "No host-verified user request covers this call; a person decides. Reviewer note: "+result.Reason
+		}
 		if (status == "approved" || status == "human_required") && q.Status == questionAnswered && q.AnsweredBy != autoReviewActor {
 			status = "human_decided"
 		}

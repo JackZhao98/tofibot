@@ -29,15 +29,13 @@ type TestResult = {ok:boolean;tool_count?:number;auth_required?:boolean;diagnost
 type MCPTransport = "streamable_http"|"sse";
 type MCPStatus = {checked_at:string;ok:boolean;tool_count:number;error_class?:"auth"|"failed"};
 type MCP = {name:string;url:string;transport?:MCPTransport;status?:MCPStatus;headers?:Record<string,string>;tool_allowlist?:string[];tool_denylist?:string[];oauth?:OAuth};
-/** Tool tiers (docs/agent-plan/mcp-tool-tiers.md): read_only runs freely, write is reviewed per call, high_risk always asks a person. */
+/** Tool tiers (docs/agent-plan/mcp-tool-tiers.md): read_only (marked by the provider, or by you) runs without review, write is reviewed each time, high_risk ("Always ask me") always asks a person. */
 export type ToolTier="read_only"|"write"|"high_risk";
-export type ToolTierView={name:string;description?:string;tier:ToolTier;source:"owner"|"auto"|"unclassified";auto?:ToolTier;override?:ToolTier;changed?:boolean;pending?:boolean;reason?:string;read_only_hint?:boolean;destructive_hint?:boolean;classified_at?:string};
-export type ToolTierQueue={state:"queued"|"running"|"done"|"failed";attempts?:number;next_attempt_at?:string;last_error?:string};
-export type ToolTierList={tools:ToolTierView[];read_only:number;write:number;high_risk:number;pending:number;unclassified:number;queue?:ToolTierQueue;classified?:number;checked?:boolean;error_class?:"auth"|"failed"|"classification_failed";diagnostics?:{message:string}[]};
-const classifying=(tiers:ToolTierList|null)=>tiers?.queue?.state==="queued"||tiers?.queue?.state==="running";
+export type ToolTierView={name:string;description?:string;tier:ToolTier;source:"owner"|"provider"|"default";override?:ToolTier;changed?:boolean;duplicated?:boolean;read_only_hint?:boolean;destructive_hint?:boolean};
+export type ToolTierList={tools:ToolTierView[];read_only:number;write:number;high_risk:number;checked?:boolean;error_class?:"auth"|"failed";diagnostics?:{message:string}[]};
 const TIERS:readonly ToolTier[]=["read_only","write","high_risk"];
 const toolsEndpoint=(name:string)=>`/api/extensions/mcp/${encodeURIComponent(name)}/tools`;
-const normalizeTiers=(value:Partial<ToolTierList>|null|undefined):ToolTierList=>({tools:Array.isArray(value?.tools)?value!.tools:[],read_only:value?.read_only??0,write:value?.write??0,high_risk:value?.high_risk??0,pending:value?.pending??0,unclassified:value?.unclassified??0,queue:value?.queue,classified:value?.classified,checked:value?.checked,error_class:value?.error_class,diagnostics:value?.diagnostics});
+const normalizeTiers=(value:Partial<ToolTierList>|null|undefined):ToolTierList=>({tools:Array.isArray(value?.tools)?value!.tools:[],read_only:value?.read_only??0,write:value?.write??0,high_risk:value?.high_risk??0,checked:value?.checked,error_class:value?.error_class,diagnostics:value?.diagnostics});
 const message=(e:unknown)=>{
  const text=e instanceof Error?e.message:String(e);
  if(text==="Failed to fetch")return i18n.t("extensions:error.offline");
@@ -145,8 +143,6 @@ function MCPRow({server,checkRequest,refresh,onEdit,onRemoved,route,botId}:{rout
  useEffect(()=>{void loadTiers();},[loadTiers]);
  useEffect(()=>{if(phase==="ready")void loadTiers();},[phase,count,loadTiers]);
  // Only a queue in motion is polled; a settled list is read once per check.
- const inProgress=classifying(tiers);
- useEffect(()=>{if(!inProgress)return;const timer=window.setInterval(()=>{if(!document.hidden)void loadTiers();},3000);return()=>window.clearInterval(timer);},[inProgress,loadTiers]);
  // Quiet re-verification on open: no phase change, no motion. One retry absorbs a transient blip; only a repeated failure changes the card.
  useEffect(()=>{
   if((server.oauth&&!server.oauth.connected)||checkRequest>0)return;
@@ -228,7 +224,7 @@ function MCPRow({server,checkRequest,refresh,onEdit,onRemoved,route,botId}:{rout
   catch(e){if(alive.current&&id===operation.current){setPhase("error");setError(message(e));}}
  }
  const needsAuth=Boolean(server.oauth)&&(!server.oauth?.connected||phase==="auth");
- const readOnlySummary=phase==="ready"&&tiers?inProgress?t("status.classifying"):tiers.tools.length>0?t("status.read_only_count",{count:tiers.read_only}):"":"";
+ const readOnlySummary=phase==="ready"&&tiers&&tiers.tools.length>0?t("status.read_only_count",{count:tiers.read_only}):"";
  const status=phase==="checking"?t("status.checking"):phase==="ready"?t("status.connected_tools",{count:count??0})+(readOnlySummary?` · ${readOnlySummary}`:""):phase==="authorizing"?t("status.authorizing"):phase==="waiting"?t("status.waiting"):phase==="removing"?t("status.removing"):error?t("status.failed"):needsAuth?t("status.needs_auth"):t("status.unverified");
  return <article className="mcp-service" aria-label={display} data-state={error?"error":phase}>
   <div className="mcp-service-row"><ServiceMark name={display}/><div className="mcp-service-identity"><strong>{display}</strong><span className="mcp-service-status" role="status"><i aria-hidden="true"/>{status}{phase==="ready"&&checkedAt&&<small className="mcp-service-checked">{t("status.checked",{when:formatRelativeTime(checkedAt)})}</small>}</span></div>
@@ -246,24 +242,23 @@ function MCPRow({server,checkRequest,refresh,onEdit,onRemoved,route,botId}:{rout
   {confirm&&<div className="mcp-confirm"><span>{confirm==="remove"?t("mcp.confirm.remove",{name:display}):t("mcp.confirm.disconnect",{name:display})}</span><button className="mcp-button" disabled={busy} onClick={()=>setConfirm(null)}>{t("action.cancel")}</button><button className="mcp-button mcp-danger" disabled={busy} onClick={()=>void confirmAction()}>{confirm==="remove"?t("mcp.confirm.remove_submit"):t("mcp.confirm.disconnect_submit")}</button></div>}
  </article>;
 }
-/** Tools grouped by tier, a per-tool selector, and Re-check. Copy stays in the extensions namespace. */
+/** Tools grouped by tier, a per-tool selector, and Refresh. Copy stays in the extensions namespace. */
 function ToolTierPanel({server,tiers,onChange,busy}:{server:string;tiers:ToolTierList;onChange:(value:ToolTierList)=>void;busy:boolean}) {
  const { t } = useTranslation("extensions");
- const [checking,setChecking]=useState(false);
+ const [refreshing,setRefreshing]=useState(false);
  const [saving,setSaving]=useState("");
  const [error,setError]=useState("");
  const alive=useRef(true);
  useEffect(()=>{alive.current=true;return()=>{alive.current=false;};},[]);
- async function recheck(){
-  setChecking(true);setError("");
+ async function refresh(){
+  setRefreshing(true);setError("");
   try {
-   const value=normalizeTiers(await request<ToolTierList>(toolsEndpoint(server)+"/classify",post({})));
+   const value=normalizeTiers(await request<ToolTierList>(toolsEndpoint(server)+"/refresh",post({})));
    if(!alive.current)return;
    onChange(value);
-   if(value.error_class==="classification_failed")setError(t("tools.error.classification_failed"));
-   else if(value.error_class)setError(value.diagnostics?.map(item=>message(item.message)).join(t("diagnostics_separator"))||t("tools.error.recheck_failed"));
+   if(value.error_class)setError(value.diagnostics?.map(item=>message(item.message)).join(t("diagnostics_separator"))||t("tools.error.refresh_failed"));
   } catch(e){if(alive.current)setError(message(e));}
-  finally {if(alive.current)setChecking(false);}
+  finally {if(alive.current)setRefreshing(false);}
  }
  async function setTier(tool:ToolTierView,value:string){
   setSaving(tool.name);setError("");
@@ -275,20 +270,18 @@ function ToolTierPanel({server,tiers,onChange,busy}:{server:string;tiers:ToolTie
   finally {if(alive.current)setSaving("");}
  }
  const groups=TIERS.map(tier=>({tier,tools:tiers.tools.filter(tool=>tool.tier===tier)}));
- return <div className="mcp-tools" aria-busy={checking}>
-  <div className="mcp-tools-head"><p>{t("tools.explain")}</p><button type="button" className="mcp-button" disabled={busy||checking} onClick={()=>void recheck()}>{checking?t("tools.rechecking"):t("tools.recheck")}</button></div>
-  {classifying(tiers)&&!checking&&<p className="mcp-tools-note" role="status">{t("tools.classifying")}</p>}
-  {tiers.pending>0&&!checking&&!classifying(tiers)&&<p className="mcp-tools-note" role="status">{t("tools.pending",{count:tiers.pending})}</p>}
+ return <div className="mcp-tools" aria-busy={refreshing}>
+  <div className="mcp-tools-head"><p>{t("tools.explain")}</p><button type="button" className="mcp-button" disabled={busy||refreshing} onClick={()=>void refresh()}>{refreshing?t("tools.refreshing"):t("tools.refresh")}</button></div>
   {error&&<p className="mcp-service-error mcp-tools-error" role="alert">{error}</p>}
   {tiers.tools.length===0&&<p className="mcp-tools-note">{t("tools.empty")}</p>}
   {groups.map(group=>group.tools.length>0&&<section key={group.tier} className="mcp-tool-group" data-tier={group.tier} aria-label={t(`tools.group.${group.tier}`)}>
    <h5>{t(`tools.group.${group.tier}`)}<span className="mcp-tool-count">{group.tools.length}</span></h5>
    <ul>{group.tools.map(tool=>{
-    const marker=tool.source==="owner"?t("tools.source.owner"):tool.source==="auto"?t("tools.source.auto"):t("tools.source.unclassified");
+    const marker=tool.source==="owner"?t("tools.source.owner"):tool.source==="provider"?t("tools.source.provider"):"";
     return <li key={tool.name} className="mcp-tool" data-source={tool.source} data-changed={tool.changed?"true":undefined}>
-     <div className="mcp-tool-copy"><code>{tool.name}</code><span className="mcp-tool-marks"><small className="mcp-tier-mark">{marker}</small>{tool.changed&&<small className="mcp-tier-mark is-changed">{t("tools.changed")}</small>}</span>{tool.description&&<p title={tool.reason||undefined}>{tool.description}</p>}</div>
-     <select className="mcp-tier-select" aria-label={t("tools.select_label",{name:tool.name})} value={tool.override??"auto"} disabled={busy||checking||saving===tool.name} onChange={e=>void setTier(tool,e.target.value)}>
-      <option value="auto">{tool.auto?t("tools.tier.auto_resolved",{tier:t(`tools.tier.${tool.auto}`)}):t("tools.tier.auto")}</option>
+     <div className="mcp-tool-copy"><code>{tool.name}</code><span className="mcp-tool-marks">{marker&&<small className="mcp-tier-mark">{marker}</small>}{tool.duplicated&&<small className="mcp-tier-mark">{t("tools.duplicated")}</small>}{tool.changed&&<small className="mcp-tier-mark is-changed">{t("tools.changed")}</small>}</span>{tool.description&&<p>{tool.description}</p>}</div>
+     <select className="mcp-tier-select" aria-label={t("tools.select_label",{name:tool.name})} value={tool.override??"auto"} disabled={busy||refreshing||saving===tool.name} onChange={e=>void setTier(tool,e.target.value)}>
+      <option value="auto">{t("tools.tier.auto")}</option>
       {TIERS.map(tier=><option key={tier} value={tier}>{t(`tools.tier.${tier}`)}</option>)}
      </select>
     </li>;

@@ -406,8 +406,7 @@
     "unverified": "Noch nicht geprüft",
     "waiting": "Warten auf Autorisierung",
     "read_only_count_one": "{{count}} nur lesend",
-    "read_only_count_other": "{{count}} nur lesend",
-    "classifying": "Tools werden eingestuft…"
+    "read_only_count_other": "{{count}} nur lesend"
   },
   "vm": {
     "cancel": "Autorisierung abbrechen",
@@ -426,35 +425,30 @@
   },
   "tools": {
     "changed": "Geändert",
+    "duplicated": "Mehrfach gelistet",
     "empty": "Noch keine Tools gelistet. Verbinden und aktualisieren, um sie zu laden.",
     "error": {
-      "classification_failed": "Tools konnten nicht eingestuft werden. Nicht eingestufte Tools werden bei jedem Aufruf geprüft.",
-      "recheck_failed": "Tool-Liste konnte nicht aktualisiert werden."
+      "refresh_failed": "Tool-Liste konnte nicht aktualisiert werden."
     },
-    "explain": "Nur lesende Tools laufen ohne Prüfung. Tools, die Daten ändern können, werden bei jedem Aufruf geprüft. Risikoreiche Tools fragen immer zuerst dich.",
+    "explain": "Tools, die der Anbieter als nur lesend markiert, laufen ohne Prüfung. Andere Tools werden bei jedem Aufruf geprüft: ein Aufruf, den du verlangt hast, läuft von selbst; alles andere fragt dich zuerst. Tools mit „Immer mich fragen“ fragen immer.",
     "group": {
-      "read_only": "Nur lesend",
-      "write": "Kann Daten ändern",
-      "high_risk": "Hohes Risiko"
+      "read_only": "Nur lesend (vom Anbieter markiert)",
+      "write": "Bei jedem Aufruf geprüft",
+      "high_risk": "Immer mich fragen"
     },
-    "pending_one": "{{count}} Tool wartet auf Einstufung",
-    "pending_other": "{{count}} Tools warten auf Einstufung",
-    "recheck": "Erneut prüfen",
-    "rechecking": "Wird geprüft…",
+    "refresh": "Tools aktualisieren",
+    "refreshing": "Wird aktualisiert…",
     "select_label": "Stufe für {{name}}",
     "source": {
       "owner": "Von dir gesetzt",
-      "auto": "Auto",
-      "unclassified": "Nicht eingestuft"
+      "provider": "Vom Anbieter markiert"
     },
     "tier": {
-      "auto": "Automatisch",
-      "auto_resolved": "Automatisch · {{tier}}",
+      "auto": "Automatisch (Anbieter)",
       "read_only": "Nur lesend",
-      "write": "Kann Daten ändern",
-      "high_risk": "Hohes Risiko"
+      "write": "Bei jedem Aufruf geprüft",
+      "high_risk": "Immer mich fragen"
     },
-    "title": "Tools · {{count}}",
-    "classifying": "Tools werden im Hintergrund eingestuft. Bis ein Tool eingestuft ist, wird es bei jedem Aufruf geprüft."
+    "title": "Tools · {{count}}"
   }
 }

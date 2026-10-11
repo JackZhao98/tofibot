@@ -45,7 +45,7 @@ func TestAutoReviewGenericPromptAndAuthorizationProvenance(t *testing.T) {
 	if err := json.Unmarshal(raw, &in); err != nil {
 		t.Fatal(err)
 	}
-	if in.Custom != "tofi-mcp-risk-advice-v5" || len(in.Authorization) != 2 || in.Authorization[0].MessageID != "human" || in.Authorization[1].MessageID != "answer" {
+	if in.Custom != "tofi-mcp-risk-advice-v6" || len(in.Authorization) != 2 || in.Authorization[0].MessageID != "human" || in.Authorization[1].MessageID != "answer" {
 		t.Fatalf("untrusted copies gained authorization: %+v", in)
 	}
 	if string(in.Arguments) != string(call.Arguments) || in.Binding["config_fingerprint"] != call.ConfigVersion || in.Binding["arguments_digest"] != digestBytes(call.Arguments) {

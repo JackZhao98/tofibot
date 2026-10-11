@@ -411,8 +411,7 @@
     "waiting": "En attente d’autorisation",
     "read_only_count_one": "{{count}} en lecture seule",
     "read_only_count_many": "{{count}} en lecture seule",
-    "read_only_count_other": "{{count}} en lecture seule",
-    "classifying": "Classement des outils…"
+    "read_only_count_other": "{{count}} en lecture seule"
   },
   "vm": {
     "cancel": "Annuler l’autorisation",
@@ -431,36 +430,30 @@
   },
   "tools": {
     "changed": "Modifié",
+    "duplicated": "Listé plusieurs fois",
     "empty": "Aucun outil listé pour l'instant. Connectez-vous et actualisez pour les charger.",
     "error": {
-      "classification_failed": "Impossible de classer les outils. Les outils non classés sont contrôlés à chaque appel.",
-      "recheck_failed": "Impossible d'actualiser la liste des outils."
+      "refresh_failed": "Impossible d'actualiser la liste des outils."
     },
-    "explain": "Les outils en lecture seule s'exécutent sans contrôle. Les outils qui peuvent modifier des données sont contrôlés à chaque appel. Les outils à haut risque vous demandent toujours d'abord.",
+    "explain": "Les outils que le fournisseur marque en lecture seule s'exécutent sans contrôle. Les autres outils sont contrôlés à chaque appel : un appel que vous avez demandé s'exécute seul ; tout le reste vous demande d'abord. Les outils réglés sur « Toujours me demander » demandent toujours.",
     "group": {
-      "read_only": "Lecture seule",
-      "write": "Peut modifier des données",
-      "high_risk": "Risque élevé"
+      "read_only": "Lecture seule (marqué par le fournisseur)",
+      "write": "Contrôlé à chaque appel",
+      "high_risk": "Toujours me demander"
     },
-    "pending_one": "{{count}} outil en attente de classement",
-    "pending_many": "{{count}} outils en attente de classement",
-    "pending_other": "{{count}} outils en attente de classement",
-    "recheck": "Revérifier",
-    "rechecking": "Vérification…",
+    "refresh": "Actualiser les outils",
+    "refreshing": "Actualisation…",
     "select_label": "Niveau de {{name}}",
     "source": {
       "owner": "Défini par vous",
-      "auto": "Auto",
-      "unclassified": "Non classé"
+      "provider": "Marqué par le fournisseur"
     },
     "tier": {
-      "auto": "Automatique",
-      "auto_resolved": "Automatique · {{tier}}",
+      "auto": "Automatique (fournisseur)",
       "read_only": "Lecture seule",
-      "write": "Peut modifier des données",
-      "high_risk": "Risque élevé"
+      "write": "Contrôlé à chaque appel",
+      "high_risk": "Toujours me demander"
     },
-    "title": "Outils · {{count}}",
-    "classifying": "Les outils sont classés en arrière-plan. Tant qu'un outil n'est pas classé, il est contrôlé à chaque appel."
+    "title": "Outils · {{count}}"
   }
 }

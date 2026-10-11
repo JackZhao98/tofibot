@@ -180,12 +180,6 @@ type Server struct {
 	shadowReviewCancel                   context.CancelFunc
 	shadowReviewContext                  context.Context
 	shadowReviewClosed                   bool
-	// Tool tier classification queue (mcp_tool_tiers.go), drained by one
-	// worker with the shadow-review lifetime.
-	mcpTierMu      sync.Mutex
-	mcpTierQueue   map[string]*mcpTierJob
-	mcpTierWorking bool
-	mcpTierBackoff func(attempt int) time.Duration // test seam; nil = exponential
 	isolatedWorkspace                    bool
 	localRunnerURL, localRunnerTokenFile string
 	ownerAuth                            *ownerAuth
@@ -2277,7 +2271,7 @@ func NewServer(c Config) (*Server, error) {
 	} else if switched > 0 {
 		log.Printf("[model-settings] %d Bot(s) now follow the global model", switched)
 	}
-	server.extensions = extensions.NewManager(extensions.Config{MCPConfigPath: c.MCPConfigPath, SkillsDir: c.SkillsDir, ExpandToolQuery: server.expandToolSearchQuery, HTTPTransport: server.localMCPTransport, ServerUsable: server.mcpServerUsable, SkillAccess: st.skillAccessFilter, ToolsObserved: server.enqueueMCPTierClassification})
+	server.extensions = extensions.NewManager(extensions.Config{MCPConfigPath: c.MCPConfigPath, SkillsDir: c.SkillsDir, ExpandToolQuery: server.expandToolSearchQuery, HTTPTransport: server.localMCPTransport, ServerUsable: server.mcpServerUsable, SkillAccess: st.skillAccessFilter})
 	if st.requireGuestAttachments && microVM != nil {
 		st.guestBlobs = microVM
 		st.cleanupDeletedAttachments()
@@ -2296,7 +2290,6 @@ func NewServer(c Config) (*Server, error) {
 	}
 	server.startSummaryWorkers()
 	server.startTerminalCleanup()
-	server.startMCPTierBackfill()
 	server.computerWatchdog.start()
 	server.startStuckRunSweeper()
 	for _, id := range workerIDs {
