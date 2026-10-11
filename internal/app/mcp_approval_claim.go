@@ -110,7 +110,7 @@ func (s *Server) claimMCPApproval(ctx context.Context, c Conversation, r Run, ca
 				if state != "policy_denied" && state != "context_required" {
 					state = "unavailable"
 				}
-				return nil, mcpReviewBlocked(state, "The exact v5 review or approval binding is invalid. No execution permission was established.")
+				return nil, mcpReviewBlocked(state, "The review or approval was made under an earlier policy or binding and is no longer valid; a fresh review is needed. No execution permission was established.")
 			}
 			// Never renew or reuse a model decision. A human may answer the
 			// original remaining window; an expired card uses existing fences.

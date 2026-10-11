@@ -797,7 +797,7 @@ func lazyDiscoverableMCPTools(runCtx context.Context, m *Manager, servers map[st
 		// The tier is resolved from the disk store, not the run snapshot, so a
 		// tier change never stalls a run: the retry carries the new binding.
 		tier := m.tiers.resolve(source.server, servers[source.server], source.remoteName)
-		proposal := MCPCallApproval{Server: source.server, Tool: source.remoteName, ConfigVersion: metadataFingerprint(source.server, servers[source.server]), Arguments: append(json.RawMessage(nil), in.Arguments...), Description: t.Description, Schema: schema, ReadOnlyHint: source.readOnlyHint, Tier: tier.Tier, TierBinding: tier.Binding}
+		proposal := MCPCallApproval{Server: source.server, Tool: source.remoteName, ConfigVersion: metadataFingerprint(source.server, servers[source.server]), Arguments: append(json.RawMessage(nil), in.Arguments...), Description: t.Description, Schema: schema, ReadOnlyHint: source.readOnlyHint, DestructiveHint: tier.DestructiveHint, Tier: tier.Tier, TierBinding: tier.Binding}
 		claimedDispatch := false
 		proposal.OnClaim = func() { claimedDispatch = true }
 		proposal.Recheck = func(checkCtx context.Context) error {

@@ -123,7 +123,6 @@ func (s *Server) routeExtensions(w http.ResponseWriter, r *http.Request, p strin
 		if e != nil {
 			writeErr(w, 400, "extensions", e.Error())
 		} else {
-			s.enqueueMCPTierRefresh(in.Name)
 			s.writeExtensionSaved(w, http.StatusOK)
 		}
 		return true
@@ -145,7 +144,6 @@ func (s *Server) routeExtensions(w http.ResponseWriter, r *http.Request, p strin
 		if e != nil {
 			writeErr(w, 400, "extensions", e.Error())
 		} else {
-			s.enqueueMCPTierRefresh(name)
 			s.writeExtensionSaved(w, http.StatusOK)
 		}
 		return true

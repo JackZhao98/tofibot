@@ -16,63 +16,66 @@ import (
 
 func boolPtr(v bool) *bool { return &v }
 
-// The merge table of docs/agent-plan/mcp-tool-tiers.md: annotations only tighten.
-func TestMCPToolTierMergeTable(t *testing.T) {
+// The resolution table of docs/agent-plan/mcp-tool-tiers.md: the provider's
+// readOnlyHint is the authority for read_only; destructiveHint changes no
+// tier; a duplicated listing is never read_only by annotation.
+func TestMCPToolTierProviderAnnotationTable(t *testing.T) {
 	for _, tc := range []struct {
-		name  string
-		model MCPToolTier
-		a     MCPToolAnnotations
-		want  MCPToolTier
+		name string
+		rec  *mcpToolTierRecord
+		want MCPToolTier
+		src  string
 	}{
-		{"read_only with no annotations", MCPTierReadOnly, MCPToolAnnotations{}, MCPTierReadOnly},
-		{"read_only with readOnlyHint", MCPTierReadOnly, MCPToolAnnotations{Present: true, ReadOnly: true}, MCPTierReadOnly},
-		{"read_only but readOnlyHint false", MCPTierReadOnly, MCPToolAnnotations{Present: true, ReadOnly: false}, MCPTierWrite},
-		{"read_only but destructiveHint true", MCPTierReadOnly, MCPToolAnnotations{Present: true, ReadOnly: true, Destructive: boolPtr(true)}, MCPTierWrite},
-		{"read_only with destructiveHint false", MCPTierReadOnly, MCPToolAnnotations{Present: true, ReadOnly: true, Destructive: boolPtr(false)}, MCPTierReadOnly},
-		{"write cannot be loosened by readOnlyHint", MCPTierWrite, MCPToolAnnotations{Present: true, ReadOnly: true}, MCPTierWrite},
-		{"high_risk stays", MCPTierHighRisk, MCPToolAnnotations{Present: true, ReadOnly: true}, MCPTierHighRisk},
-		{"invalid model tier", MCPToolTier("maybe"), MCPToolAnnotations{}, ""},
+		{"no record", nil, MCPTierWrite, MCPTierSourceDefault},
+		{"no annotations", &mcpToolTierRecord{Digest: "d"}, MCPTierWrite, MCPTierSourceDefault},
+		{"readOnlyHint true", &mcpToolTierRecord{Digest: "d", AnnotationsPresent: true, ReadOnlyHint: true}, MCPTierReadOnly, MCPTierSourceProvider},
+		{"annotations present, readOnlyHint false", &mcpToolTierRecord{Digest: "d", AnnotationsPresent: true}, MCPTierWrite, MCPTierSourceDefault},
+		{"readOnlyHint with destructiveHint true", &mcpToolTierRecord{Digest: "d", AnnotationsPresent: true, ReadOnlyHint: true, DestructiveHint: boolPtr(true)}, MCPTierReadOnly, MCPTierSourceProvider},
+		{"destructiveHint true alone is write, not high_risk", &mcpToolTierRecord{Digest: "d", AnnotationsPresent: true, DestructiveHint: boolPtr(true)}, MCPTierWrite, MCPTierSourceDefault},
+		{"duplicated listing with readOnlyHint", &mcpToolTierRecord{Digest: "d", AnnotationsPresent: true, ReadOnlyHint: true, Duplicated: true}, MCPTierWrite, MCPTierSourceDefault},
 	} {
-		if got := MergeMCPToolTier(tc.model, tc.a); got != tc.want {
-			t.Errorf("%s: got %q want %q", tc.name, got, tc.want)
+		if v := resolveMCPToolTier("x", tc.rec, false); v.Tier != tc.want || v.Source != tc.src {
+			t.Errorf("%s: got %s/%s want %s/%s", tc.name, v.Tier, v.Source, tc.want, tc.src)
 		}
 	}
 }
 
-// Resolution precedence: fresh override > current auto > write; a stale
-// override only tightens; everything binds to the tool digest.
+// Resolution precedence: fresh override > provider annotation > write; a
+// stale override only tightens; everything binds to the tool digest.
 func TestMCPToolTierResolutionAndOverrideStaleness(t *testing.T) {
 	rec := &mcpToolTierRecord{Digest: "d1"}
-	if v := resolveMCPToolTier("x", rec, false); v.Tier != MCPTierWrite || v.Source != mcpTierSourceUnclassified || !v.Pending || v.Changed {
-		t.Fatalf("unclassified: %+v", v)
+	if v := resolveMCPToolTier("x", rec, false); v.Tier != MCPTierWrite || v.Source != MCPTierSourceDefault || v.Changed {
+		t.Fatalf("default: %+v", v)
 	}
-	if v := resolveMCPToolTier("x", nil, true); v.Tier != MCPTierReadOnly || v.Source != mcpTierSourceOwner {
+	if v := resolveMCPToolTier("x", nil, true); v.Tier != MCPTierReadOnly || v.Source != MCPTierSourceOwner {
 		t.Fatalf("legacy trusted without record: %+v", v)
 	}
-	rec.Auto, rec.AutoDigest = string(MCPTierReadOnly), "d1"
-	auto := resolveMCPToolTier("x", rec, false)
-	if auto.Tier != MCPTierReadOnly || auto.Source != mcpTierSourceAuto || auto.Pending {
-		t.Fatalf("auto: %+v", auto)
+	rec.AnnotationsPresent, rec.ReadOnlyHint = true, true
+	provider := resolveMCPToolTier("x", rec, false)
+	if provider.Tier != MCPTierReadOnly || provider.Source != MCPTierSourceProvider {
+		t.Fatalf("provider: %+v", provider)
 	}
 	rec.Override, rec.OverrideDigest = string(MCPTierHighRisk), "d1"
 	owner := resolveMCPToolTier("x", rec, false)
-	if owner.Tier != MCPTierHighRisk || owner.Source != mcpTierSourceOwner || owner.Binding == auto.Binding {
+	if owner.Tier != MCPTierHighRisk || owner.Source != MCPTierSourceOwner || owner.Binding == provider.Binding {
 		t.Fatalf("fresh override: %+v", owner)
 	}
-	// The tool changed: auto tier is stale (write, pending, changed); the
-	// tightening override is kept, a loosening one is not.
+	// The tool changed: the tightening override is kept, a loosening one is not.
 	rec.Digest = "d2"
 	changed := resolveMCPToolTier("x", rec, false)
-	if changed.Tier != MCPTierHighRisk || !changed.Changed || !changed.Pending || changed.Source != mcpTierSourceOwner || changed.Binding == owner.Binding {
+	if changed.Tier != MCPTierHighRisk || !changed.Changed || changed.Source != MCPTierSourceOwner || changed.Binding == owner.Binding {
 		t.Fatalf("stale tightening override: %+v", changed)
 	}
+	rec.AnnotationsPresent, rec.ReadOnlyHint = false, false
 	rec.Override = string(MCPTierReadOnly)
-	if v := resolveMCPToolTier("x", rec, false); v.Tier != MCPTierWrite || !v.Changed || v.Source != mcpTierSourceUnclassified || v.Override != string(MCPTierReadOnly) {
+	if v := resolveMCPToolTier("x", rec, false); v.Tier != MCPTierWrite || !v.Changed || v.Source != MCPTierSourceDefault || v.Override != string(MCPTierReadOnly) {
 		t.Fatalf("stale loosening override must not apply: %+v", v)
 	}
-	rec.Auto, rec.AutoDigest = string(MCPTierHighRisk), "d2"
-	if v := resolveMCPToolTier("x", rec, false); v.Tier != MCPTierHighRisk || v.Source != mcpTierSourceAuto {
-		t.Fatalf("stale loosening override under a stricter auto: %+v", v)
+	// An owner write override over a provider read-only mark tightens.
+	rec.AnnotationsPresent, rec.ReadOnlyHint = true, true
+	rec.Override, rec.OverrideDigest = string(MCPTierWrite), "d2"
+	if v := resolveMCPToolTier("x", rec, false); v.Tier != MCPTierWrite || v.Source != MCPTierSourceOwner {
+		t.Fatalf("owner write over provider read-only: %+v", v)
 	}
 }
 
@@ -82,9 +85,10 @@ func tierDescriptor(name, description string, a MCPToolAnnotations) MCPToolDescr
 	return d
 }
 
-// The store: observation records digests, classification is cached by
-// digest, a description change resets the auto tier, overrides persist
-// across a restart, and legacy trusted names migrate once.
+// The store: observation records digests and the provider's annotations,
+// a description change stales an override, overrides persist across a
+// restart, legacy trusted names migrate once, and a tool the provider marks
+// read only is read_only at once.
 func TestMCPToolTierStoreLifecycle(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "mcp.json")
@@ -95,72 +99,59 @@ func TestMCPToolTierStoreLifecycle(t *testing.T) {
 	}
 	m := NewManager(Config{MCPConfigPath: path})
 	// Legacy trust is honoured before any observation and survives migration.
-	if v := m.MCPToolTier("svc", "legacy_read"); v.Tier != MCPTierReadOnly || v.Source != mcpTierSourceOwner {
+	if v := m.MCPToolTier("svc", "legacy_read"); v.Tier != MCPTierReadOnly || v.Source != MCPTierSourceOwner {
 		t.Fatalf("legacy before observation: %+v", v)
 	}
 	read := tierDescriptor("fetch", "Fetch a record", MCPToolAnnotations{Present: true, ReadOnly: true})
 	write := tierDescriptor("update", "Update a record", MCPToolAnnotations{})
 	legacy := tierDescriptor("legacy_read", "Legacy read", MCPToolAnnotations{})
-	pending, err := m.ObserveTools("svc", cfg, []MCPToolDescriptor{read, write, legacy})
-	if err != nil || pending != 3 {
-		t.Fatalf("observe: pending=%d err=%v", pending, err)
+	if err := m.ObserveTools("svc", cfg, []MCPToolDescriptor{read, write, legacy}); err != nil {
+		t.Fatalf("observe: %v", err)
 	}
-	if v := m.MCPToolTier("svc", "legacy_read"); v.Tier != MCPTierReadOnly || v.Source != mcpTierSourceOwner || v.Override != string(MCPTierReadOnly) {
+	if v := m.MCPToolTier("svc", "legacy_read"); v.Tier != MCPTierReadOnly || v.Source != MCPTierSourceOwner || v.Override != string(MCPTierReadOnly) {
 		t.Fatalf("legacy after observation: %+v", v)
 	}
-	if got := m.PendingToolClassification("svc"); len(got) != 3 {
-		t.Fatalf("pending list = %d", len(got))
+	if v := m.MCPToolTier("svc", "fetch"); v.Tier != MCPTierReadOnly || v.Source != MCPTierSourceProvider || !v.ReadOnlyHint {
+		t.Fatalf("provider-marked read: %+v", v)
 	}
-	// Unclassified tools are write (fail closed), never read_only.
-	if v := m.MCPToolTier("svc", "fetch"); v.Tier != MCPTierWrite || !v.Pending {
-		t.Fatalf("unclassified read: %+v", v)
+	if v := m.MCPToolTier("svc", "update"); v.Tier != MCPTierWrite || v.Source != MCPTierSourceDefault {
+		t.Fatalf("unmarked tool: %+v", v)
 	}
-	n, err := m.RecordToolClassification("svc", []MCPToolClassification{
-		{RemoteName: "fetch", Digest: read.Digest, Tier: MCPTierReadOnly, Reason: "reads"},
-		{RemoteName: "update", Digest: write.Digest, Tier: MCPTierWrite},
-		{RemoteName: "legacy_read", Digest: "stale-digest", Tier: MCPTierReadOnly}, // dropped: not the current digest
-		{RemoteName: "ghost", Digest: "x", Tier: MCPTierReadOnly},                  // dropped: never observed
-	})
-	if err != nil || n != 2 {
-		t.Fatalf("record: n=%d err=%v", n, err)
+	// The provider drops its mark: the tool is reviewed again at once.
+	unmarked := tierDescriptor("fetch", "Fetch a record", MCPToolAnnotations{Present: true})
+	if err := m.ObserveTools("svc", cfg, []MCPToolDescriptor{unmarked, write, legacy}); err != nil {
+		t.Fatal(err)
 	}
-	if v := m.MCPToolTier("svc", "fetch"); v.Tier != MCPTierReadOnly || v.Source != mcpTierSourceAuto || v.Reason != "reads" {
-		t.Fatalf("classified read: %+v", v)
+	if v := m.MCPToolTier("svc", "fetch"); v.Tier != MCPTierWrite {
+		t.Fatalf("dropped mark must fall back to write: %+v", v)
 	}
-	if got := m.PendingToolClassification("svc"); len(got) != 1 || got[0].RemoteName != "legacy_read" {
-		t.Fatalf("pending after classification = %+v", got)
-	}
-	// Re-observing unchanged tools classifies nothing again.
-	if pending, err = m.ObserveTools("svc", cfg, []MCPToolDescriptor{read, write, legacy}); err != nil || pending != 1 {
-		t.Fatalf("re-observe: pending=%d err=%v", pending, err)
-	}
-	// A description change resets the auto tier and marks the tool changed.
-	moved := tierDescriptor("fetch", "Fetch a record and email it", MCPToolAnnotations{Present: true, ReadOnly: true})
-	if pending, err = m.ObserveTools("svc", cfg, []MCPToolDescriptor{moved, write, legacy}); err != nil || pending != 2 {
-		t.Fatalf("changed observe: pending=%d err=%v", pending, err)
-	}
-	if v := m.MCPToolTier("svc", "fetch"); v.Tier != MCPTierWrite || !v.Changed || !v.Pending {
-		t.Fatalf("changed read must fall back to write: %+v", v)
-	}
-	// Owner override persists across a restart; a dropped tool disappears.
+	// Owner override persists across a restart; a description change stales
+	// it; a dropped tool disappears.
 	if _, err := m.SetToolTierOverride("svc", "update", string(MCPTierHighRisk)); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := m.SetToolTierOverride("svc", "fetch", string(MCPTierReadOnly)); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := m.SetToolTierOverride("svc", "never_seen", string(MCPTierReadOnly)); !errors.Is(err, os.ErrNotExist) {
 		t.Fatalf("override of an unobserved tool = %v", err)
 	}
+	moved := tierDescriptor("fetch", "Fetch a record and email it", MCPToolAnnotations{Present: true})
+	if err := m.ObserveTools("svc", cfg, []MCPToolDescriptor{moved, write, legacy}); err != nil {
+		t.Fatal(err)
+	}
 	again := NewManager(Config{MCPConfigPath: path})
-	if v := again.MCPToolTier("svc", "update"); v.Tier != MCPTierHighRisk || v.Source != mcpTierSourceOwner {
+	if v := again.MCPToolTier("svc", "update"); v.Tier != MCPTierHighRisk || v.Source != MCPTierSourceOwner {
 		t.Fatalf("override after restart: %+v", v)
 	}
-	if v := again.MCPToolTier("svc", "fetch"); v.Tier != MCPTierWrite || !v.Changed {
+	if v := again.MCPToolTier("svc", "fetch"); v.Tier != MCPTierWrite || !v.Changed || v.Override != string(MCPTierReadOnly) {
 		t.Fatalf("changed state after restart: %+v", v)
 	}
 	list := again.ListToolTiers("svc")
-	if len(list.Tools) != 3 || list.HighRisk != 1 || list.ReadOnly != 1 || list.Write != 1 || list.Pending != 2 {
+	if len(list.Tools) != 3 || list.HighRisk != 1 || list.ReadOnly != 1 || list.Write != 1 {
 		t.Fatalf("list = %+v", list)
 	}
-	if _, err := again.ObserveTools("svc", cfg, []MCPToolDescriptor{moved, legacy}); err != nil {
+	if err := again.ObserveTools("svc", cfg, []MCPToolDescriptor{moved, legacy}); err != nil {
 		t.Fatal(err)
 	}
 	if list := again.ListToolTiers("svc"); len(list.Tools) != 2 {
@@ -175,6 +166,116 @@ func TestMCPToolTierStoreLifecycle(t *testing.T) {
 	}
 	if b, _ := os.ReadFile(filepath.Join(dir, "mcp-tool-tiers.json")); strings.Contains(string(b), "synthetic.invalid") {
 		t.Fatal("tier file must not carry the endpoint")
+	}
+}
+
+// A version 1 tier file (model classification and background queue) is read
+// once and rewritten as version 2: owner overrides (including the migrated
+// trusted list) survive, the auto/model/queue fields do not, a tool the old
+// pass had labelled read_only without a provider mark is write again, and a
+// version 1 provider mark waits for the next tools/list (see the next test).
+func TestMCPToolTierFileMigrationDropsClassifierState(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "mcp.json")
+	cfg := MCPServerConfig{URL: "https://synthetic.invalid/mcp"}
+	raw, _ := json.Marshal(serverFile{MCPServers: map[string]MCPServerConfig{"svc": cfg}})
+	if err := os.WriteFile(path, raw, 0600); err != nil {
+		t.Fatal(err)
+	}
+	legacyFile := `{"version":1,"servers":{"svc":{"migrated_trusted":true,"queue":{"state":"running","attempts":2,"last_error":"timeout"},"tools":{
+	 "fetch":{"digest":"d-fetch","auto":"read_only","auto_digest":"d-fetch","model_tier":"read_only","reason":"model said so","classified_at":"2026-10-01T00:00:00Z"},
+	 "get":{"digest":"d-get","annotations_present":true,"read_only_hint":true,"auto":"read_only","auto_digest":"d-get","model_tier":"read_only"},
+	 "legacy_read":{"digest":"d-legacy","override":"read_only","override_digest":"d-legacy"},
+	 "send":{"digest":"d-send","auto":"high_risk","auto_digest":"d-send","model_tier":"high_risk","override":"high_risk","override_digest":"d-send"},
+	 "post":{"digest":"d-post","auto":"high_risk","auto_digest":"d-post","model_tier":"high_risk"}}}}}`
+	if err := os.WriteFile(filepath.Join(dir, "mcp-tool-tiers.json"), []byte(legacyFile), 0600); err != nil {
+		t.Fatal(err)
+	}
+	m := NewManager(Config{MCPConfigPath: path})
+	for name, want := range map[string]struct {
+		tier MCPToolTier
+		src  string
+	}{
+		"fetch":       {MCPTierWrite, MCPTierSourceDefault},     // the model's read_only is gone
+		"get":         {MCPTierWrite, MCPTierSourceDefault},     // a version 1 mark is re-recorded by the next tools/list
+		"legacy_read": {MCPTierReadOnly, MCPTierSourceOwner},    // migrated trusted entry stays an owner override
+		"send":        {MCPTierHighRisk, MCPTierSourceOwner},    // owner high_risk stays
+		"post":        {MCPTierWrite, MCPTierSourceDefault},     // the model's high_risk is gone: reviewed, not forced
+	} {
+		if v := m.MCPToolTier("svc", name); v.Tier != want.tier || v.Source != want.src {
+			t.Errorf("%s: %+v", name, v)
+		}
+	}
+	b, err := os.ReadFile(filepath.Join(dir, "mcp-tool-tiers.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, gone := range []string{`"queue"`, `"auto"`, `"auto_digest"`, `"model_tier"`, `"reason"`, `"classified_at"`, `"version": 1`} {
+		if strings.Contains(string(b), gone) {
+			t.Fatalf("migrated file still carries %s: %s", gone, b)
+		}
+	}
+	if !strings.Contains(string(b), `"version": 2`) || !strings.Contains(string(b), `"override": "high_risk"`) {
+		t.Fatalf("migrated file: %s", b)
+	}
+}
+
+// A version 1 record never said whether its name was listed more than once:
+// it carried the first listing's annotations and left the decision to the
+// model classifier. Its readOnlyHint therefore cannot make the tool read_only
+// after migration; a call through a cached schema needs no fresh tools/list,
+// so the mark is honoured only once the server has been listed again under
+// version 2, and a duplicated listing stays write then as the contract says.
+func TestMCPToolTierFileMigrationWaitsForObservation(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "mcp.json")
+	cfg := MCPServerConfig{URL: "https://synthetic.invalid/mcp"}
+	raw, _ := json.Marshal(serverFile{MCPServers: map[string]MCPServerConfig{"svc": cfg}})
+	if err := os.WriteFile(path, raw, 0600); err != nil {
+		t.Fatal(err)
+	}
+	// What version 1 wrote for a name listed twice (first listing read only,
+	// second a write with the same name) and for a name listed once.
+	legacyFile := `{"version":1,"servers":{"svc":{"migrated_trusted":true,"tools":{
+	 "twice":{"digest":"d-both","description":"Read","annotations_present":true,"read_only_hint":true,"reason":"listed more than once by the server; not classified"},
+	 "once":{"digest":"d-once","annotations_present":true,"read_only_hint":true,"auto":"read_only","auto_digest":"d-once","model_tier":"read_only"},
+	 "kept":{"digest":"d-kept","annotations_present":true,"read_only_hint":true,"override":"high_risk","override_digest":"d-kept"}}}}}`
+	if err := os.WriteFile(filepath.Join(dir, "mcp-tool-tiers.json"), []byte(legacyFile), 0600); err != nil {
+		t.Fatal(err)
+	}
+	m := NewManager(Config{MCPConfigPath: path})
+	for _, name := range []string{"twice", "once"} {
+		if v := m.MCPToolTier("svc", name); v.Tier != MCPTierWrite || v.Source != MCPTierSourceDefault || v.ReadOnlyHint {
+			t.Fatalf("%s after migration, before any tools/list: %+v", name, v)
+		}
+		if m.RunToolReadOnly("mcp_svc__" + name) {
+			t.Fatalf("%s is an observation for the fence before any tools/list", name)
+		}
+	}
+	if v := m.MCPToolTier("svc", "kept"); v.Tier != MCPTierHighRisk || v.Source != MCPTierSourceOwner || v.Changed {
+		t.Fatalf("owner override lost or stale across migration: %+v", v)
+	}
+	b, err := os.ReadFile(filepath.Join(dir, "mcp-tool-tiers.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(string(b), `"read_only_hint"`) || strings.Contains(string(b), `"annotations_present"`) {
+		t.Fatalf("migrated file still carries a version 1 provider mark: %s", b)
+	}
+	// The next tools/list decides: a single read-only listing is read_only,
+	// the duplicated name stays write.
+	readOnly := MCPToolAnnotations{Present: true, ReadOnly: true}
+	first := tierDescriptor("twice", "Read", readOnly)
+	second := tierDescriptor("twice", "Write", MCPToolAnnotations{Present: true})
+	once := tierDescriptor("once", "Read", readOnly)
+	if err := m.ObserveTools("svc", cfg, []MCPToolDescriptor{first, second, once}); err != nil {
+		t.Fatal(err)
+	}
+	if v := m.MCPToolTier("svc", "twice"); v.Tier != MCPTierWrite || v.Source != MCPTierSourceDefault || !v.Duplicated {
+		t.Fatalf("duplicated listing after re-observation: %+v", v)
+	}
+	if v := m.MCPToolTier("svc", "once"); v.Tier != MCPTierReadOnly || v.Source != MCPTierSourceProvider {
+		t.Fatalf("single read-only listing after re-observation: %+v", v)
 	}
 }
 
@@ -200,29 +301,33 @@ func TestMCPCallGateHonoursToolTier(t *testing.T) {
 		_, err := discoveryTool(t, p, "call_mcp_tool").Execute(context.Background(), json.RawMessage(`{"name":"mcp_fixture__fetch","arguments":{}}`))
 		return err
 	}
-	// Annotated read-only but unclassified: write tier, refused without a gate.
+	// The provider marks fetch readOnlyHint: it is read_only from the first
+	// discovery and executes with no gate at all, no model asked.
 	prepared, err := manager.PrepareDiscoverableForBotWithCallGate(context.Background(), "bot", nil, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := call(prepared); err == nil || !strings.Contains(err.Error(), "approval gate") || remoteCalls.Load() != 0 {
-		t.Fatalf("unclassified hinted read executed without a gate: %v calls=%d", err, remoteCalls.Load())
+	if err := call(prepared); err != nil || remoteCalls.Load() != 1 {
+		t.Fatalf("provider-marked read did not execute: %v calls=%d", err, remoteCalls.Load())
 	}
 	prepared.Close()
-	if v := manager.MCPToolTier("fixture", "fetch"); v.Tier != MCPTierWrite || !v.Pending || !v.ReadOnlyHint {
+	if v := manager.MCPToolTier("fixture", "fetch"); v.Tier != MCPTierReadOnly || v.Source != MCPTierSourceProvider || !v.ReadOnlyHint {
 		t.Fatalf("observed through discovery: %+v", v)
 	}
-	// Owner read_only override: executes with no gate at all.
-	if _, err := manager.SetToolTierOverride("fixture", "fetch", string(MCPTierReadOnly)); err != nil {
+	// The owner tightens it to write: refused without a gate.
+	if _, err := manager.SetToolTierOverride("fixture", "fetch", string(MCPTierWrite)); err != nil {
 		t.Fatal(err)
 	}
 	if prepared, err = manager.PrepareDiscoverableForBotWithCallGate(context.Background(), "bot", nil, nil); err != nil {
 		t.Fatal(err)
 	}
-	if err := call(prepared); err != nil || remoteCalls.Load() != 1 {
-		t.Fatalf("read_only did not execute: %v calls=%d", err, remoteCalls.Load())
+	if err := call(prepared); err == nil || !strings.Contains(err.Error(), "approval gate") || remoteCalls.Load() != 1 {
+		t.Fatalf("owner write override executed without a gate: %v calls=%d", err, remoteCalls.Load())
 	}
 	prepared.Close()
+	if _, err := manager.SetToolTierOverride("fixture", "fetch", ""); err != nil {
+		t.Fatal(err)
+	}
 	// The gate sees the tier and binding; a change under the gate stales the proposal.
 	var seen MCPCallApproval
 	gate := func(_ context.Context, c MCPCallApproval) error {
@@ -251,7 +356,7 @@ func TestMCPCallGateHonoursToolTier(t *testing.T) {
 	if err := manager.SaveMCP("fixture", MCPServerConfig{URL: "https://synthetic.invalid/other"}, true); err != nil {
 		t.Fatal(err)
 	}
-	if v := manager.MCPToolTier("fixture", "fetch"); v.Source != mcpTierSourceUnclassified || v.Override != "" {
+	if v := manager.MCPToolTier("fixture", "fetch"); v.Source != MCPTierSourceDefault || v.Override != "" {
 		t.Fatalf("policy survived an endpoint change: %+v", v)
 	}
 }
@@ -271,13 +376,7 @@ func TestMCPRunToolReadOnlyAmbiguousNameIsNeverObservation(t *testing.T) {
 	m := NewManager(Config{MCPConfigPath: path})
 	read := tierDescriptor("get_issue", "Read one issue", MCPToolAnnotations{Present: true, ReadOnly: true})
 	write := tierDescriptor("Get.Issue", "Assign and update one issue", MCPToolAnnotations{})
-	if _, err := m.ObserveTools("svc", cfg, []MCPToolDescriptor{read, write}); err != nil {
-		t.Fatal(err)
-	}
-	if _, err := m.RecordToolClassification("svc", []MCPToolClassification{
-		{RemoteName: "get_issue", Digest: read.Digest, Tier: MCPTierReadOnly},
-		{RemoteName: "Get.Issue", Digest: write.Digest, Tier: MCPTierWrite},
-	}); err != nil {
+	if err := m.ObserveTools("svc", cfg, []MCPToolDescriptor{read, write}); err != nil {
 		t.Fatal(err)
 	}
 	if m.MCPToolTier("svc", "get_issue").Tier != MCPTierReadOnly || m.MCPToolTier("svc", "Get.Issue").Tier != MCPTierWrite {
@@ -291,10 +390,7 @@ func TestMCPRunToolReadOnlyAmbiguousNameIsNeverObservation(t *testing.T) {
 	}
 	// An unambiguous read-only name still maps.
 	only := tierDescriptor("list_items", "List items", MCPToolAnnotations{Present: true, ReadOnly: true})
-	if _, err := m.ObserveTools("svc", cfg, []MCPToolDescriptor{only}); err != nil {
-		t.Fatal(err)
-	}
-	if _, err := m.RecordToolClassification("svc", []MCPToolClassification{{RemoteName: "list_items", Digest: only.Digest, Tier: MCPTierReadOnly}}); err != nil {
+	if err := m.ObserveTools("svc", cfg, []MCPToolDescriptor{only}); err != nil {
 		t.Fatal(err)
 	}
 	if !m.RunToolReadOnly("mcp_svc__list_items") {
@@ -303,9 +399,9 @@ func TestMCPRunToolReadOnlyAmbiguousNameIsNeverObservation(t *testing.T) {
 }
 
 // A remote name listed twice is one tools/call target with two run-facing
-// schemas. No single descriptor describes it: it is never sent for
-// classification, stays write, and an owner override binds to both listings.
-func TestMCPObserveToolsDuplicateListingIsNeverClassified(t *testing.T) {
+// schemas. No single annotation describes it: the provider's readOnlyHint
+// does not make it read_only, and an owner override binds to both listings.
+func TestMCPObserveToolsDuplicateListingIsNeverReadOnlyByAnnotation(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "mcp.json")
 	cfg := MCPServerConfig{URL: "https://synthetic.invalid/mcp"}
@@ -317,35 +413,36 @@ func TestMCPObserveToolsDuplicateListingIsNeverClassified(t *testing.T) {
 	first := tierDescriptor("fetch", "Fetch a record", MCPToolAnnotations{Present: true, ReadOnly: true})
 	second := MCPToolDescriptor{RemoteName: "fetch", Description: "Fetch a record", InputSchema: map[string]any{"type": "object", "properties": map[string]any{"recipients": map[string]any{"type": "array"}}}, Annotations: MCPToolAnnotations{Present: true, ReadOnly: true}}
 	second.Digest = MCPToolDigest(second)
-	pending, err := m.ObserveTools("svc", cfg, []MCPToolDescriptor{first, second})
-	if err != nil || pending != 0 {
-		t.Fatalf("duplicate listing queued for classification: pending=%d err=%v", pending, err)
+	if err := m.ObserveTools("svc", cfg, []MCPToolDescriptor{first, second}); err != nil {
+		t.Fatal(err)
 	}
-	if got := m.PendingToolClassification("svc"); len(got) != 0 {
-		t.Fatalf("pending = %+v", got)
-	}
-	for _, digest := range []string{first.Digest, second.Digest} {
-		if n, err := m.RecordToolClassification("svc", []MCPToolClassification{{RemoteName: "fetch", Digest: digest, Tier: MCPTierReadOnly}}); err != nil || n != 0 {
-			t.Fatalf("a single listing's digest classified the duplicated tool: n=%d err=%v", n, err)
-		}
-	}
-	if v := m.MCPToolTier("svc", "fetch"); v.Tier != MCPTierWrite || v.Source != mcpTierSourceUnclassified || !strings.Contains(v.Reason, "more than once") {
+	if v := m.MCPToolTier("svc", "fetch"); v.Tier != MCPTierWrite || v.Source != MCPTierSourceDefault || !v.Duplicated {
 		t.Fatalf("duplicated tool: %+v", v)
 	}
 	// The owner may still decide; the decision is bound to the whole set.
 	if _, err := m.SetToolTierOverride("svc", "fetch", string(MCPTierReadOnly)); err != nil {
 		t.Fatal(err)
 	}
-	if v := m.MCPToolTier("svc", "fetch"); v.Tier != MCPTierReadOnly || v.Source != mcpTierSourceOwner || v.Changed {
+	if v := m.MCPToolTier("svc", "fetch"); v.Tier != MCPTierReadOnly || v.Source != MCPTierSourceOwner || v.Changed {
 		t.Fatalf("override on duplicated tool: %+v", v)
 	}
 	changed := second
 	changed.InputSchema = map[string]any{"type": "object", "properties": map[string]any{"amount": map[string]any{"type": "number"}}}
 	changed.Digest = ""
-	if _, err := m.ObserveTools("svc", cfg, []MCPToolDescriptor{first, changed}); err != nil {
+	if err := m.ObserveTools("svc", cfg, []MCPToolDescriptor{first, changed}); err != nil {
 		t.Fatal(err)
 	}
 	if v := m.MCPToolTier("svc", "fetch"); v.Tier != MCPTierWrite || !v.Changed {
 		t.Fatalf("a changed second listing must stale the override: %+v", v)
+	}
+	// Listed once again: the provider's mark applies.
+	if err := m.ObserveTools("svc", cfg, []MCPToolDescriptor{first}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := m.SetToolTierOverride("svc", "fetch", ""); err != nil {
+		t.Fatal(err)
+	}
+	if v := m.MCPToolTier("svc", "fetch"); v.Tier != MCPTierReadOnly || v.Source != MCPTierSourceProvider || v.Duplicated {
+		t.Fatalf("single listing: %+v", v)
 	}
 }

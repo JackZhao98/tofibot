@@ -406,8 +406,7 @@
     "unverified": "Not verified yet",
     "waiting": "Waiting for authorization",
     "read_only_count_one": "{{count}} read only",
-    "read_only_count_other": "{{count}} read only",
-    "classifying": "Classifying tools…"
+    "read_only_count_other": "{{count}} read only"
   },
   "vm": {
     "cancel": "Cancel authorization",
@@ -426,35 +425,30 @@
   },
   "tools": {
     "changed": "Changed",
+    "duplicated": "Listed more than once",
     "empty": "No tools listed yet. Connect and refresh to load them.",
     "error": {
-      "classification_failed": "Couldn't classify the tools. Unclassified tools are reviewed per call.",
-      "recheck_failed": "Couldn't refresh the tool list."
+      "refresh_failed": "Couldn't refresh the tool list."
     },
-    "explain": "Read-only tools run without review. Tools that can change data are reviewed per call. High-risk tools always ask you first.",
+    "explain": "Tools the provider marks read only run without review. Other tools are reviewed each time: a call you asked for runs on its own; anything else asks you first. Tools set to always ask you always do.",
     "group": {
-      "read_only": "Read only",
-      "write": "Can change data",
-      "high_risk": "High risk"
+      "read_only": "Read only (marked by provider)",
+      "write": "Reviewed each time",
+      "high_risk": "Always ask me"
     },
-    "pending_one": "{{count}} tool awaiting classification",
-    "pending_other": "{{count}} tools awaiting classification",
-    "recheck": "Re-check",
-    "rechecking": "Checking…",
+    "refresh": "Refresh tools",
+    "refreshing": "Refreshing…",
     "select_label": "Tier for {{name}}",
     "source": {
       "owner": "Set by you",
-      "auto": "Auto",
-      "unclassified": "Not classified"
+      "provider": "Marked by provider"
     },
     "tier": {
-      "auto": "Automatic",
-      "auto_resolved": "Automatic · {{tier}}",
+      "auto": "Automatic (provider)",
       "read_only": "Read only",
-      "write": "Can change data",
-      "high_risk": "High risk"
+      "write": "Reviewed each time",
+      "high_risk": "Always ask me"
     },
-    "title": "Tools · {{count}}",
-    "classifying": "Classifying tools in the background. Until a tool is classified it is reviewed per call."
+    "title": "Tools · {{count}}"
   }
 }
