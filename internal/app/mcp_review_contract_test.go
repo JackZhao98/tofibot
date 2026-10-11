@@ -83,7 +83,7 @@ func TestAutoReviewAuthorizedPrivateReadShadowAdviceDoesNotGrantExecution(t *tes
 	intent := "Read at most twenty recent records from my connected account and summarize only to me here; do not modify or disclose them elsewhere."
 	x := mcpReviewContext{Intent: intent, IntentMessageID: "synthetic-user", Messages: []Message{{ID: "synthetic-user", Role: "user", Content: intent}}, MessageProvenance: []mcpMessageProvenance{{"synthetic-user", mcpHostUserIngress}}}
 	call := f.call
-	call.Tool = "read_private_records"
+	call.Tool, call.TierBinding = "read_private_records", ""
 	call.Arguments = json.RawMessage(`{"max":20,"include_body":true}`)
 	call.Schema = json.RawMessage(`{"type":"object","properties":{"max":{"type":"integer","minimum":1,"maximum":20},"include_body":{"type":"boolean"}},"required":["max","include_body"],"additionalProperties":false}`)
 	contract := "SYNTHETIC conditional facts: authenticated connected account belongs to the requesting user; bounded read-only access; results remain solely with that user in the current conversation; no writes or external disclosure."

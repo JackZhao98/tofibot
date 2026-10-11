@@ -2,78 +2,49 @@ package app
 
 import (
 	"context"
-	"encoding/json"
 	"testing"
 
 	"github.com/JackZhao98/tofibot/internal/tooloutcome"
 )
 
-// An approval is one-shot per dispatch. A read-only proposal (owner-trusted
-// read-only tool, or remote readOnlyHint: the scheduled fence's predicate) is
-// repeated on a fresh card with its own review and claim; an effect's
-// identical repeat is refused before dispatch and never re-executed.
-func TestMCPReadRepeatReviewedAfreshWhileEffectStaysOneShot(t *testing.T) {
+// A read_only tool (owner override, or classification merged with the
+// annotations) executes directly with no card and no reviewer, as often as
+// it is called; an effect keeps its one-shot approval: the identical repeat
+// is refused before dispatch and never re-executed. The remote readOnlyHint
+// alone decides nothing: an unclassified hinted read stays an effect.
+func TestMCPReadOnlyTierRepeatsFreelyWhileEffectStaysOneShot(t *testing.T) {
 	f := newAutoReviewFixture(t)
 	if err := f.s.store.putAutoReviewMode("auto"); err != nil {
 		t.Fatal(err)
 	}
 	hash := mcpApprovalHash(f.call)
-	// Owner-trusted read-only tool: identical read twice, each reviewed and claimed.
-	for i := int32(1); i <= 2; i++ {
-		if err := f.execute(context.Background()); err != nil {
-			t.Fatalf("trusted read %d: %v", i, err)
-		}
-		if f.effects.Load() != i || f.p.calls.Load() != i {
-			t.Fatalf("trusted read %d: effects=%d reviews=%d", i, f.effects.Load(), f.p.calls.Load())
-		}
+	// Unclassified hinted read: reviewed as an effect, one-shot.
+	if err := f.execute(context.Background()); err != nil || f.effects.Load() != 1 || f.p.calls.Load() != 1 {
+		t.Fatalf("hinted read first call: %v effects=%d reviews=%d", err, f.effects.Load(), f.p.calls.Load())
 	}
-	var cards, claimed, actionClaims int
-	if err := f.s.store.db.QueryRow(`SELECT COUNT(*),SUM(claimed_at<>'') FROM mcp_call_approvals WHERE run_id=? AND action_hash=?`, f.r.ID, hash).Scan(&cards, &claimed); err != nil || cards != 2 || claimed != 2 {
-		t.Fatalf("repeat read cards=%d claimed=%d err=%v", cards, claimed, err)
+	err := f.execute(context.Background())
+	if out, ok := tooloutcome.FromError(err); !ok || out.Status != tooloutcome.Denied || out.Code != "approval_already_claimed" || f.effects.Load() != 1 {
+		t.Fatalf("hinted read repeat must be one-shot like any effect: %v effects=%d", err, f.effects.Load())
 	}
-	if err := f.s.store.db.QueryRow(`SELECT COUNT(*) FROM mcp_call_execution_claims WHERE run_id=? AND action_hash=?`, f.r.ID, hash).Scan(&actionClaims); err != nil || actionClaims != 1 {
-		t.Fatalf("action-level claim rows=%d err=%v", actionClaims, err)
+	var cards int
+	if err := f.s.store.db.QueryRow(`SELECT COUNT(*) FROM mcp_call_approvals WHERE run_id=? AND action_hash=?`, f.r.ID, hash).Scan(&cards); err != nil || cards != 1 {
+		t.Fatalf("effect cards=%d err=%v", cards, err)
 	}
-	// Different arguments are a different proposal, never fenced by the other claim.
-	if err := f.executeArgs(context.Background(), `{"target":"beta"}`); err != nil || f.effects.Load() != 3 || f.p.calls.Load() != 3 {
-		t.Fatalf("different-argument read: %v effects=%d reviews=%d", err, f.effects.Load(), f.p.calls.Load())
-	}
-	// The remote readOnlyHint alone is the same predicate.
-	setSyntheticMCPHumanPolicy(t, f, true)
-	for i := int32(4); i <= 5; i++ {
-		if err := f.execute(context.Background()); err != nil || f.effects.Load() != i || f.p.calls.Load() != i {
-			t.Fatalf("hinted read %d: %v effects=%d reviews=%d", i, err, f.effects.Load(), f.p.calls.Load())
+	// Owner read_only override: repeats execute with no new card and no review.
+	setSyntheticMCPHumanPolicy(t, f, false)
+	for i := int32(2); i <= 3; i++ {
+		if err := f.executeArgs(context.Background(), `{"target":"beta"}`); err != nil || f.effects.Load() != i || f.p.calls.Load() != 1 {
+			t.Fatalf("read_only repeat %d: %v effects=%d reviews=%d", i, err, f.effects.Load(), f.p.calls.Load())
 		}
 	}
-	// An effect keeps its one-shot approval: the identical repeat is a
-	// pre-dispatch refusal, not an unverified effect. The proposal is bound
-	// directly (as the gate would bind a tool outside the trusted list with
-	// no remote hint), so the cached discovery catalog plays no part.
-	write := f.call
-	write.Tool, write.ReadOnlyHint, write.Description = "publish_note", false, "Synthetic publish"
-	publish := func(args string) error {
-		call := write
-		call.Arguments = json.RawMessage(args)
-		if err := f.s.approveMCPCall(context.Background(), f.c, f.r, call); err != nil {
-			return err
-		}
-		f.effects.Add(1)
-		return nil
+	if err := f.s.store.db.QueryRow(`SELECT COUNT(*) FROM mcp_call_approvals WHERE run_id=?`, f.r.ID).Scan(&cards); err != nil || cards != 1 {
+		t.Fatalf("read_only created cards: %d err=%v", cards, err)
 	}
-	if err := publish(`{"target":"alpha"}`); err != nil || f.effects.Load() != 6 || f.p.calls.Load() != 6 {
-		t.Fatalf("first effect: %v effects=%d reviews=%d", err, f.effects.Load(), f.p.calls.Load())
-	}
-	err := publish(`{"target":"alpha"}`)
-	out, ok := tooloutcome.FromError(err)
-	if !ok || out.Status != tooloutcome.Denied || out.Code != "approval_already_claimed" || out.Certainty != "not_executed" {
-		t.Fatalf("identical effect repeat = %v", err)
-	}
-	if f.effects.Load() != 6 || f.p.calls.Load() != 6 {
-		t.Fatalf("identical effect replayed: effects=%d reviews=%d", f.effects.Load(), f.p.calls.Load())
-	}
-	// A different-argument effect is its own proposal with its own review.
-	if err := publish(`{"target":"beta"}`); err != nil || f.effects.Load() != 7 || f.p.calls.Load() != 7 {
-		t.Fatalf("different-argument effect: %v effects=%d reviews=%d", err, f.effects.Load(), f.p.calls.Load())
+	// The exact action that already has approval history in this run does not
+	// take the exempt route: as a read_only proposal it is reviewed afresh on
+	// its own card (never replayed on the used approval), then executed.
+	if err := f.execute(context.Background()); err != nil || f.effects.Load() != 4 || f.p.calls.Load() != 2 {
+		t.Fatalf("history after tier change: %v effects=%d reviews=%d", err, f.effects.Load(), f.p.calls.Load())
 	}
 }
 
@@ -92,13 +63,13 @@ func TestMCPRefusedCallDoesNotFenceScheduledEffects(t *testing.T) {
 	refused, _ := tooloutcome.FromError(tooloutcome.ApprovalAlreadyClaimed("Synthetic refusal."))
 	insert("refused", refused.JSON())
 	var bounds mcpEvidenceBounds
-	records, err := readMCPRunToolEvidence(store.db, run, true, &bounds)
+	records, err := readMCPRunToolEvidence(store.db, run, true, &bounds, nil)
 	if err != nil || len(records) != 1 {
 		t.Fatalf("refusal fenced the scheduled effect: %v records=%d", err, len(records))
 	}
 	dispatched := tooloutcome.New(tooloutcome.Uncertain, "mcp_result_unknown", "unknown", "Synthetic lost response.", "verify_effect")
 	insert("dispatched", dispatched.JSON())
-	if _, err = readMCPRunToolEvidence(store.db, run, true, &bounds); err == nil || mcpContextDiagnostic(err).Code != mcpContextToolsUncertain {
+	if _, err = readMCPRunToolEvidence(store.db, run, true, &bounds, nil); err == nil || mcpContextDiagnostic(err).Code != mcpContextToolsUncertain {
 		t.Fatalf("dispatched unknown effect did not fence: %v", err)
 	}
 }

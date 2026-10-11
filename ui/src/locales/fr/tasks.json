@@ -376,7 +376,8 @@
       "needs_you": "Votre décision est requise",
       "auto_invalidated": "Décision automatique caduque",
       "policy_needs_approval": "La règle exige une approbation manuelle",
-      "already_reviewed": "Déjà vérifié"
+      "already_reviewed": "Déjà vérifié",
+      "high_risk_tool": "Outil à haut risque · votre décision est requise"
     },
     "label": {
       "shadow_reviewing": "Observation : vérification",
@@ -401,7 +402,8 @@
       "policy_needs_human": "La règle exige une décision manuelle",
       "auto_invalidated": "Décision automatique caduque",
       "not_eligible": "Non éligible à l’exécution automatique",
-      "not_rereviewed": "Non revérifié"
+      "not_rereviewed": "Non revérifié",
+      "high_risk_tool": "Outil à haut risque : une personne décide à chaque appel"
     },
     "failure": {
       "title": "Pourquoi la vérification n'a pas pu aboutir",

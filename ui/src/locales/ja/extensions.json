@@ -400,7 +400,9 @@
     "needs_auth": "認可が必要です",
     "removing": "処理中…",
     "unverified": "未確認",
-    "waiting": "認可を待っています"
+    "waiting": "認可を待っています",
+    "read_only_count_other": "読み取り専用 {{count}} 件",
+    "classifying": "ツールを分類中…"
   },
   "vm": {
     "cancel": "認可をキャンセル",
@@ -416,5 +418,37 @@
     "reconnecting": "接続が一時的に切れました。再試行中…",
     "screen_alt": "共有コンピュータ",
     "subtitle": "共有コンピュータで認可を完了します"
+  },
+  "tools": {
+    "changed": "変更あり",
+    "empty": "ツールはまだありません。接続して更新すると読み込まれます。",
+    "error": {
+      "classification_failed": "ツールを分類できませんでした。未分類のツールは呼び出しごとに審査されます。",
+      "recheck_failed": "ツール一覧を更新できませんでした。"
+    },
+    "explain": "読み取り専用ツールは審査なしで実行されます。データを変更できるツールは呼び出しごとに審査されます。高リスクのツールは毎回あなたに確認します。",
+    "group": {
+      "read_only": "読み取り専用",
+      "write": "データを変更可能",
+      "high_risk": "高リスク"
+    },
+    "pending_other": "{{count}} 件のツールが分類待ちです",
+    "recheck": "再チェック",
+    "rechecking": "確認中…",
+    "select_label": "{{name}} のティア",
+    "source": {
+      "owner": "手動設定",
+      "auto": "自動",
+      "unclassified": "未分類"
+    },
+    "tier": {
+      "auto": "自動",
+      "auto_resolved": "自動 · {{tier}}",
+      "read_only": "読み取り専用",
+      "write": "データを変更可能",
+      "high_risk": "高リスク"
+    },
+    "title": "ツール · {{count}}",
+    "classifying": "バックグラウンドでツールを分類しています。分類が済むまで呼び出しごとに審査されます。"
   }
 }

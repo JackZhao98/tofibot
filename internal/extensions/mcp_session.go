@@ -256,7 +256,7 @@ func (s *mcpSessionSlot) callTool(remoteName string, onError func()) func(contex
 			}
 			return "", mcpReadinessOutcome(mcpErrorReadiness(err)).Err()
 		}
-		out, err := s.m.callMCPToolObserved(callCtx, cli, remoteName, args, trustedReadOnlyTool(s.cfg, remoteName), mcpCallObserver{
+		out, err := s.m.callMCPToolObserved(callCtx, cli, remoteName, args, s.m.toolReadOnly(s.name, s.cfg, remoteName), mcpCallObserver{
 			connectionFailed: func() {
 				s.drop(cli)
 				s.m.invalidateMCPReadiness(s.name)

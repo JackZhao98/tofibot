@@ -41,7 +41,8 @@ func newProvenanceReviewFixture(t *testing.T) *autoReviewFixture {
 	m := extensions.NewManager(extensions.Config{MCPConfigPath: configPath, SkillsDir: filepath.Join(dir, "skills")})
 	// Pin the fixture protocol's binding; the production manager independently
 	// checks this value before review and claim. It never dials the fixture URL.
-	call := extensions.MCPCallApproval{Server: "fixture", Tool: "read_public", ConfigVersion: digestBytes(append([]byte("2026-07-28\x00fixture\x00"), encodedConfig...)), Schema: json.RawMessage(`{"type":"object"}`), Arguments: json.RawMessage(`{"target":"alpha"}`)}
+	tier := m.MCPToolTier("fixture", "read_public")
+	call := extensions.MCPCallApproval{Server: "fixture", Tool: "read_public", ConfigVersion: digestBytes(append([]byte("2026-07-28\x00fixture\x00"), encodedConfig...)), Schema: json.RawMessage(`{"type":"object"}`), Arguments: json.RawMessage(`{"target":"alpha"}`), Tier: tier.Tier, TierBinding: tier.Binding}
 	if !m.MCPCallCurrent(call) {
 		t.Fatal("synthetic durable configuration binding is not current")
 	}

@@ -43,8 +43,9 @@ type MCPServerConfig struct {
 	Headers       map[string]string `json:"headers,omitempty"`
 	ToolAllowlist []string          `json:"tool_allowlist,omitempty"`
 	ToolDenylist  []string          `json:"tool_denylist,omitempty"`
-	// TrustedReadOnlyTools is an owner-reviewed list of exact remote tool names.
-	// MCP annotations are untrusted hints and never grant this exemption.
+	// TrustedReadOnlyTools is the legacy owner list of exact remote tool
+	// names. It is migrated once into read_only owner overrides in the tool
+	// tier store (tool_tiers.go) and is no longer edited.
 	TrustedReadOnlyTools []string            `json:"trusted_read_only_tools,omitempty"`
 	BotAllowlists        map[string][]string `json:"bot_allowlists"`
 	OAuth                *OAuthConfig        `json:"oauth,omitempty"`
@@ -80,6 +81,10 @@ type Config struct {
 	// are workspace-wide unless restricted to selected Bots. Nil permits every
 	// skill; a returned error makes the run drop every skill (fail closed).
 	SkillAccess func(ctx context.Context, botID string, names []string) (map[string]bool, error)
+	// ToolsObserved runs after a complete tools/list was recorded for a server
+	// and some of its tools still await tier classification. The host owns the
+	// classifier; a nil hook leaves those tools in the write tier.
+	ToolsObserved func(server string, pending int)
 }
 
 type Manager struct {
@@ -100,6 +105,8 @@ type Manager struct {
 	readiness mcpReadinessCache
 	// now is a test seam for readiness freshness. Nil means time.Now.
 	now func() time.Time
+	// tiers is the per-tool review policy; see tool_tiers.go.
+	tiers *mcpToolTierStore
 }
 
 // CachedMCPTool is a bounded schema reference that a caller recovered from a
@@ -126,11 +133,15 @@ type MCPCallApproval struct {
 	Tool          string
 	ConfigVersion string
 	Arguments     json.RawMessage
-	// ReadOnlyHint is the remote tool's readOnlyHint annotation (absent or
-	// false reads as an effect). It is untrusted metadata: it never exempts a
-	// call from review or human confirmation. The host uses it only to decide
-	// whether an earlier unverified effect in a scheduled run fences this call.
+	// ReadOnlyHint is the remote tool's readOnlyHint annotation as captured.
+	// It is untrusted metadata and decides nothing; the tier does.
 	ReadOnlyHint bool
+	// Tier is the tool's effective review tier resolved from the disk store
+	// when the proposal was built, and TierBinding the digest of everything
+	// that produced it. MCPCallTier re-resolves both against the disk; a
+	// mismatch makes the proposal stale exactly like a configuration edit.
+	Tier        MCPToolTier
+	TierBinding string
 	// Recheck is a backend-owned readiness callback; it cannot grant approval.
 	Recheck func(context.Context) error
 	// OnClaim only disables transport retries after a durable backend claim.
@@ -149,24 +160,10 @@ func (m *Manager) MCPCallCurrent(call MCPCallApproval) bool {
 	return m.mcpCallCurrentLocked(call)
 }
 
-// MCPCallRequiresHuman reads the existing host execution policy for this exact
-// configuration. Remote descriptions, schemas and annotations cannot exempt a
-// call from human confirmation. The second result is false for stale setup.
-func (m *Manager) MCPCallRequiresHuman(call MCPCallApproval) (bool, bool) {
-	m.mcpConfigFence.RLock()
-	defer m.mcpConfigFence.RUnlock()
-	servers, err := loadServers(m.cfg.MCPConfigPath)
-	cfg, ok := servers[call.Server]
-	if err != nil || !ok || call.ConfigVersion == "" || metadataFingerprint(call.Server, cfg) != call.ConfigVersion {
-		return true, false
-	}
-	return !trustedReadOnlyTool(cfg, call.Tool), true
-}
-
 func (m *Manager) mcpCallCurrentLocked(call MCPCallApproval) bool {
 	servers, err := loadServers(m.cfg.MCPConfigPath)
 	cfg, ok := servers[call.Server]
-	return err == nil && ok && call.ConfigVersion != "" && metadataFingerprint(call.Server, cfg) == call.ConfigVersion
+	return err == nil && ok && call.ConfigVersion != "" && metadataFingerprint(call.Server, cfg) == call.ConfigVersion && m.tierBindingCurrent(call, cfg)
 }
 
 // Hold the configuration fence through dispatch so a settings edit cannot
@@ -185,6 +182,19 @@ type mcpToolSource struct {
 	remoteName    string
 	schemaVersion string
 	readOnlyHint  bool // untrusted remote annotation, see MCPCallApproval.ReadOnlyHint
+}
+
+// mcpToolAnnotations captures the untrusted tools/list annotations of one tool.
+func mcpToolAnnotations(t *mcp.Tool) MCPToolAnnotations {
+	if t == nil || t.Annotations == nil {
+		return MCPToolAnnotations{}
+	}
+	var destructive *bool
+	if t.Annotations.DestructiveHint != nil {
+		value := *t.Annotations.DestructiveHint
+		destructive = &value
+	}
+	return MCPToolAnnotations{Present: true, ReadOnly: t.Annotations.ReadOnlyHint, Destructive: destructive}
 }
 
 type Prepared struct {
@@ -206,7 +216,7 @@ func NewManager(cfg Config) *Manager {
 	if cfg.MaxToolResult <= 0 || cfg.MaxToolResult > maxToolResult {
 		cfg.MaxToolResult = maxToolResult
 	}
-	m := &Manager{cfg: cfg, tokenStores: map[string]*FileTokenStore{}, catalog: NewMCPCatalogCache(0, 0, 0), metadata: NewMCPCatalogCache(0, 0, 10*time.Minute)}
+	m := &Manager{cfg: cfg, tokenStores: map[string]*FileTokenStore{}, catalog: NewMCPCatalogCache(0, 0, 0), metadata: NewMCPCatalogCache(0, 0, 10*time.Minute), tiers: newMCPToolTierStore(cfg.MCPConfigPath)}
 	if cfg.MCPConfigPath != "" {
 		if root, err := filepath.Abs(filepath.Join(filepath.Dir(cfg.MCPConfigPath), "mcp-tool-index")); err == nil {
 			m.metadataDisk, _ = NewPersistentMCPMetadataIndex(root)
@@ -619,6 +629,17 @@ func (m *Manager) prepareServer(runCtx, discoveryCtx context.Context, name strin
 	for _, x := range botAllow {
 		bot[x] = true
 	}
+	// The complete list, before any allow/deny filter, is the policy record:
+	// the owner sees every tool the service offers and its tier.
+	descriptors := make([]MCPToolDescriptor, 0, len(listTools))
+	for _, remote := range listTools {
+		descriptors = append(descriptors, MCPToolDescriptor{Server: name, RemoteName: remote.Name, Description: remote.Description, InputSchema: toolSchema(remote), Annotations: mcpToolAnnotations(remote)})
+	}
+	if pending, err := m.ObserveTools(name, cfg, descriptors); err != nil {
+		log.Printf("mcp tool tiers: record %s: %v", name, err)
+	} else if pending > 0 && m.cfg.ToolsObserved != nil {
+		m.cfg.ToolsObserved(name, pending)
+	}
 	result := make([]runtime.Tool, 0, len(listTools))
 	for _, remote := range listTools {
 		if !mcpToolAllowed(allow, deny, bot, remote.Name) {
@@ -631,7 +652,7 @@ func (m *Manager) prepareServer(runCtx, discoveryCtx context.Context, name strin
 		}
 		r := remote
 		result = append(result, runtime.Tool{Name: toolName, Description: boundedDescription(remote.Description, toolName), Parameters: params, CheckReadiness: m.mcpMethodReadiness(name, cfg), Execute: func(callCtx context.Context, args json.RawMessage) (string, error) {
-			return m.callMCPTool(callCtx, cli, r.Name, args, trustedReadOnlyTool(cfg, r.Name))
+			return m.callMCPTool(callCtx, cli, r.Name, args, m.toolReadOnly(name, cfg, r.Name))
 		}})
 	}
 	return result, cli, nil
@@ -744,6 +765,11 @@ type mcpCallObserver struct {
 func (m *Manager) callMCPToolObserved(callCtx context.Context, cli *mcp.ClientSession, name string, args json.RawMessage, readOnly bool, observe mcpCallObserver) (string, error) {
 	if callCtx == nil {
 		callCtx = context.Background()
+	}
+	// The gate resolved the tier when it built the proposal; the transport
+	// must not re-read policy under the configuration fence it already holds.
+	if tierReadOnly, ok := callCtx.Value(mcpDispatchReadOnlyKey{}).(bool); ok {
+		readOnly = tierReadOnly
 	}
 	if claimed, _ := callCtx.Value(mcpClaimedDispatchKey{}).(bool); claimed {
 		readOnly = false

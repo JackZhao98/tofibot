@@ -230,7 +230,16 @@ func mcpObservationOnlyActivity(a ToolActivity) bool {
 // with the step, and owner-trusted read-only tools never record an unknown
 // certainty in the first place.
 func mcpUncertainEffectActivity(a ToolActivity) bool {
+	return mcpUncertainEffectActivityWith(a, nil)
+}
+
+// observation, when given, is the host's tier lookup: a recorded
+// call_mcp_tool step whose tool is currently read_only is an observation.
+func mcpUncertainEffectActivityWith(a ToolActivity, observation func(ToolActivity) bool) bool {
 	if mcpObservationOnlyActivity(a) {
+		return false
+	}
+	if observation != nil && observation(a) {
 		return false
 	}
 	raw := json.RawMessage(a.Arguments)
@@ -290,7 +299,7 @@ type mcpResumeQuerier struct {
 
 // One run's own records, newest first within a count bound. Unknown effects
 // are evidence for direct chat; scheduled ancestry keeps its stricter fence.
-func readMCPRunToolEvidence(db reviewQuerier, r Run, strictEffects bool, bounds *mcpEvidenceBounds) ([]ToolActivity, error) {
+func readMCPRunToolEvidence(db reviewQuerier, r Run, strictEffects bool, bounds *mcpEvidenceBounds, observation func(ToolActivity) bool) ([]ToolActivity, error) {
 	query, args := `SELECT conversation_id,bot_id,run_id,call_id,name,arguments,result,status,truncated,started_at,updated_at,outcome_json FROM tool_activities WHERE run_id=? AND name NOT IN `+mcpDiscoveryToolsSQL+` ORDER BY started_at DESC,call_id DESC`, []any{r.ID}
 	resume, _ := db.(*mcpResumeQuerier)
 	if resume == nil {
@@ -329,7 +338,7 @@ func readMCPRunToolEvidence(db reviewQuerier, r Run, strictEffects bool, bounds 
 			err = mcpContextFail(mcpContextToolsBinding)
 			break
 		}
-		if strictEffects && a.Outcome != nil && a.Outcome.Certainty == "unknown" && mcpUncertainEffectActivity(a) {
+		if strictEffects && a.Outcome != nil && a.Outcome.Certainty == "unknown" && mcpUncertainEffectActivityWith(a, observation) {
 			err = mcpContextFail(mcpContextToolsUncertain)
 			break
 		}

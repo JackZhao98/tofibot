@@ -232,7 +232,7 @@ func readMCPDelegatedChain(db reviewQuerier, requested Run, chain []Run, byID ma
 		return mcpReviewContext{}, "", err
 	}
 	rootKey := root.ConversationID + "\x00" + root.BotID
-	ancestry, contexts, rootRows, err := readMCPChainContexts(db, chain, triggers, false, rootKey)
+	ancestry, contexts, rootRows, err := readMCPChainContexts(db, chain, triggers, false, rootKey, nil)
 	if err != nil {
 		return mcpReviewContext{}, "", err
 	}
@@ -294,7 +294,7 @@ func (s *Server) readMCPScheduleChain(db reviewQuerier, account string, requeste
 	}
 	// Scheduled ancestry keeps the stricter effect fence, but only for a
 	// proposal that is itself an effect: a read never re-executes anything.
-	if lineage.Ancestry, lineage.Contexts, _, err = readMCPChainContexts(db, chain, triggers, proposal == mcpProposalEffect, ""); err != nil {
+	if lineage.Ancestry, lineage.Contexts, _, err = readMCPChainContexts(db, chain, triggers, proposal == mcpProposalEffect, "", s.mcpToolObservation); err != nil {
 		return x, "", err
 	}
 	// The target conversation's text lives once, in its lineage context.
@@ -313,7 +313,7 @@ func (s *Server) readMCPScheduleChain(db reviewQuerier, account string, requeste
 // Each distinct (conversation, bot) contributes one bounded window ending at
 // the nearest chain trigger in it; each chain run contributes its own records.
 // Records of skipKey are returned separately for the caller's own context.
-func readMCPChainContexts(db reviewQuerier, chain []Run, triggers map[string]Message, strictEffects bool, skipKey string) ([]mcpScheduleAncestor, []mcpScheduleConversation, []ToolActivity, error) {
+func readMCPChainContexts(db reviewQuerier, chain []Run, triggers map[string]Message, strictEffects bool, skipKey string, observation func(ToolActivity) bool) ([]mcpScheduleAncestor, []mcpScheduleConversation, []ToolActivity, error) {
 	var ancestry []mcpScheduleAncestor
 	var contexts []mcpScheduleConversation
 	var skipped []ToolActivity
@@ -345,7 +345,7 @@ func readMCPChainContexts(db reviewQuerier, chain []Run, triggers map[string]Mes
 		} else {
 			bounds = &mcpEvidenceBounds{}
 		}
-		activities, err := readMCPRunToolEvidence(db, r, strictEffects, bounds)
+		activities, err := readMCPRunToolEvidence(db, r, strictEffects, bounds, observation)
 		if err != nil {
 			return nil, nil, nil, err
 		}
