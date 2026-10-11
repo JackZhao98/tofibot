@@ -741,9 +741,10 @@ func lazyDiscoverableMCPTools(runCtx context.Context, m *Manager, servers map[st
 		sourceMu.RLock()
 		source, ok := toolSources[in.Name]
 		sourceMu.RUnlock()
-		// Only an existing owner-reviewed exact tool entry establishes read-only
-		// risk. Remote annotations, descriptions and model arguments cannot.
-		if ok && trustedReadOnlyTool(servers[source.server], source.remoteName) {
+		// Only the resolved read_only tier (owner override, or model
+		// classification merged with annotations) establishes read-only risk.
+		// Remote annotations alone, descriptions and model arguments cannot.
+		if ok && m.toolReadOnly(source.server, servers[source.server], source.remoteName) {
 			i.Risk = tooloutcome.Observation
 		}
 		return i
@@ -793,7 +794,10 @@ func lazyDiscoverableMCPTools(runCtx context.Context, m *Manager, servers map[st
 			return "", withMCPSchemaHint(err, t.Parameters)
 		}
 		schema, _ := json.Marshal(t.Parameters)
-		proposal := MCPCallApproval{Server: source.server, Tool: source.remoteName, ConfigVersion: metadataFingerprint(source.server, servers[source.server]), Arguments: append(json.RawMessage(nil), in.Arguments...), Description: t.Description, Schema: schema, ReadOnlyHint: source.readOnlyHint}
+		// The tier is resolved from the disk store, not the run snapshot, so a
+		// tier change never stalls a run: the retry carries the new binding.
+		tier := m.tiers.resolve(source.server, servers[source.server], source.remoteName)
+		proposal := MCPCallApproval{Server: source.server, Tool: source.remoteName, ConfigVersion: metadataFingerprint(source.server, servers[source.server]), Arguments: append(json.RawMessage(nil), in.Arguments...), Description: t.Description, Schema: schema, ReadOnlyHint: source.readOnlyHint, Tier: tier.Tier, TierBinding: tier.Binding}
 		claimedDispatch := false
 		proposal.OnClaim = func() { claimedDispatch = true }
 		proposal.Recheck = func(checkCtx context.Context) error {
@@ -816,7 +820,7 @@ func lazyDiscoverableMCPTools(runCtx context.Context, m *Manager, servers map[st
 			return "", err
 		}
 		if enforceApproval {
-			if approvalGate == nil && !trustedReadOnlyTool(servers[source.server], source.remoteName) {
+			if approvalGate == nil && tier.Tier != MCPTierReadOnly {
 				return "", tooloutcome.New(tooloutcome.Denied, "approval_gate_required", "not_executed", "MCP tool requires a run-scoped human approval gate.", "explain_blocker").Err()
 			}
 			// Review scope includes host-exempt reads. The account's mode and
@@ -827,6 +831,7 @@ func lazyDiscoverableMCPTools(runCtx context.Context, m *Manager, servers map[st
 				}
 			}
 		}
+		ctx = context.WithValue(ctx, mcpDispatchReadOnlyKey{}, tier.Tier == MCPTierReadOnly)
 		if claimedDispatch {
 			ctx = context.WithValue(ctx, mcpClaimedDispatchKey{}, true)
 		}

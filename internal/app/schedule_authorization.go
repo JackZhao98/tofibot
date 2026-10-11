@@ -395,7 +395,7 @@ func readScheduleChatSourceContext(db reviewQuerier, c Conversation, r Run) (mcp
 	}
 	// Persist the bounded text of the source run's prior calls and the current
 	// pending schedule mutation. Tool output supplies context, never consent.
-	if x.SourceToolResults, err = readMCPRunToolEvidence(db, r, false, bounds); err != nil {
+	if x.SourceToolResults, err = readMCPRunToolEvidence(db, r, false, bounds, nil); err != nil {
 		return x, "", err
 	}
 	x.Bounds = bounds.orNil()

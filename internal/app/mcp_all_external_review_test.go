@@ -7,7 +7,6 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
-	"path/filepath"
 	"strings"
 	"sync"
 	"testing"
@@ -16,6 +15,7 @@ import (
 	"github.com/JackZhao98/tofibot/internal/extensions"
 	"github.com/JackZhao98/tofibot/internal/provider"
 	"github.com/JackZhao98/tofibot/internal/runtime"
+	"github.com/JackZhao98/tofibot/internal/tooloutcome"
 )
 
 // setSyntheticMCPEffect makes the fixture's exact action an effect for the
@@ -30,34 +30,30 @@ func setSyntheticMCPEffect(t *testing.T, f *autoReviewFixture) {
 	setSyntheticMCPHumanPolicy(t, f, true)
 }
 
-// Only synthetic public configuration is edited. This is the pre-existing host
-// human-confirmation policy, not a qualification registry for the reviewer.
+// setSyntheticMCPHumanPolicy sets the fixture tool's owner tier override:
+// requiresHuman=false makes it read_only (executes without review),
+// requiresHuman=true clears the override so it is reviewed as write. The
+// captured proposal is rebound to the new tier exactly as discovery would.
 func setSyntheticMCPHumanPolicy(t *testing.T, f *autoReviewFixture, requiresHuman bool) {
 	t.Helper()
-	path := filepath.Join(f.dir, "mcp.json")
-	raw, err := os.ReadFile(path)
+	tier := string(extensions.MCPTierReadOnly)
+	if requiresHuman {
+		tier = ""
+	}
+	_, err := f.s.extensions.SetToolTierOverride(f.call.Server, f.call.Tool, tier)
+	if errors.Is(err, os.ErrNotExist) {
+		// A fixture that never ran discovery: record the tool as one tools/list would.
+		var schema map[string]any
+		_ = json.Unmarshal(f.call.Schema, &schema)
+		if _, err = f.s.extensions.ObserveTools(f.call.Server, extensions.MCPServerConfig{}, []extensions.MCPToolDescriptor{{RemoteName: f.call.Tool, Description: f.call.Description, InputSchema: schema, Annotations: extensions.MCPToolAnnotations{Present: f.call.ReadOnlyHint, ReadOnly: f.call.ReadOnlyHint}}}); err == nil {
+			_, err = f.s.extensions.SetToolTierOverride(f.call.Server, f.call.Tool, tier)
+		}
+	}
 	if err != nil {
 		t.Fatal(err)
 	}
-	var configs struct {
-		Servers map[string]extensions.MCPServerConfig `json:"mcpServers"`
-	}
-	if err := json.Unmarshal(raw, &configs); err != nil {
-		t.Fatal(err)
-	}
-	cfg := configs.Servers[f.call.Server]
-	if requiresHuman {
-		cfg.TrustedReadOnlyTools = nil
-	} else {
-		cfg.TrustedReadOnlyTools = []string{f.call.Tool}
-	}
-	configs.Servers[f.call.Server] = cfg
-	raw, _ = json.Marshal(configs)
-	if err := os.WriteFile(path, raw, 0600); err != nil {
-		t.Fatal(err)
-	}
-	encoded, _ := json.Marshal(cfg)
-	f.call.ConfigVersion = digestBytes(append([]byte("2026-07-28\x00"+f.call.Server+"\x00"), encoded...))
+	view := f.s.extensions.MCPToolTier(f.call.Server, f.call.Tool)
+	f.call.Tier, f.call.TierBinding = view.Tier, view.Binding
 	if !f.s.extensions.MCPCallCurrent(f.call) {
 		t.Fatal("synthetic policy binding is stale")
 	}
@@ -65,6 +61,7 @@ func setSyntheticMCPHumanPolicy(t *testing.T, f *autoReviewFixture, requiresHuma
 
 func TestAllExternalReviewDefaultOffAndScope(t *testing.T) {
 	f := newAutoReviewFixture(t)
+	setSyntheticMCPHumanPolicy(t, f, false)
 	w := httptest.NewRecorder()
 	f.s.autoReviewSettings(w, httptest.NewRequest(http.MethodGet, "/api/auto-review-settings", nil))
 	if w.Code != 200 || !strings.Contains(w.Body.String(), `"mode":"off"`) || !strings.Contains(w.Body.String(), `"review_scope":"all_external_tools"`) || strings.Contains(w.Body.String(), "eligible_tool_count") {
@@ -96,7 +93,7 @@ func TestAllExternalReviewEmptyRegistryUnknownToolAndUntrustedMetadata(t *testin
 			f := newAutoReviewFixture(t)
 			setSyntheticMCPHumanPolicy(t, f, true)
 			if unknown {
-				f.call.Tool = "new_unregistered_tool"
+				f.call.Tool, f.call.TierBinding = "new_unregistered_tool", ""
 				f.execute = func(ctx context.Context) error {
 					if err := f.s.approveMCPCall(ctx, f.c, f.r, f.call); err != nil {
 						return err
@@ -171,6 +168,7 @@ func TestAllExternalReviewShadowExemptionNeverWaitsOrGrantsPermission(t *testing
 	for _, decision := range []string{"allow", "deny", "needs_human", "context_gap", "malformed"} {
 		t.Run(decision, func(t *testing.T) {
 			f := newAutoReviewFixture(t)
+			setSyntheticMCPHumanPolicy(t, f, false) // read_only tier: the host-exempt read
 			_ = f.s.store.putAutoReviewMode("shadow")
 			started, release := make(chan struct{}), make(chan struct{})
 			var startedOnce sync.Once
@@ -347,6 +345,7 @@ func TestAllExternalReviewNativeToolResultsAreBoundUntrustedEvidence(t *testing.
 func TestAllExternalReviewShadowGapAndInterruptedAdvicePreserveOriginalHumanPath(t *testing.T) {
 	t.Run("exempt context gap", func(t *testing.T) {
 		f := newAutoReviewFixture(t)
+		setSyntheticMCPHumanPolicy(t, f, false)
 		_ = f.s.store.putAutoReviewMode("shadow")
 		_, _ = f.s.store.db.Exec(`DELETE FROM user_message_ingress WHERE message_id=?`, f.r.TriggerMessageID)
 		if err := f.execute(context.Background()); err != nil {
@@ -408,10 +407,11 @@ func TestAllExternalReviewClaimedReadOnlyTransportNeverRetries(t *testing.T) {
 	if err == nil || f.effects.Load() != 1 || f.p.calls.Load() != 1 {
 		t.Fatal("claimed read retried a dispatched operation", err, f.effects.Load())
 	}
-	// The transport never retries a claimed dispatch. A later identical read is
-	// the model's own decision: reviewed afresh on its own card, not replayed
-	// on the used approval and not refused as an unverified effect.
-	if err := f.execute(context.Background()); err == nil || f.effects.Load() != 2 || f.p.calls.Load() != 2 {
-		t.Fatal("uncertain claim replayed or repeat read refused", err, f.effects.Load(), f.p.calls.Load())
+	// The transport never retries a claimed dispatch, and the identical call
+	// (a write-tier effect: the remote readOnlyHint decides nothing) is refused
+	// before dispatch rather than replayed on the used approval.
+	err = f.execute(context.Background())
+	if out, ok := tooloutcome.FromError(err); !ok || out.Code != "approval_already_claimed" || f.effects.Load() != 1 || f.p.calls.Load() != 1 {
+		t.Fatal("uncertain claim replayed", err, f.effects.Load(), f.p.calls.Load())
 	}
 }

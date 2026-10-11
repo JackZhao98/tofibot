@@ -404,7 +404,10 @@
     "needs_auth": "Autorisierung erforderlich",
     "removing": "Wird bearbeitet…",
     "unverified": "Noch nicht geprüft",
-    "waiting": "Warten auf Autorisierung"
+    "waiting": "Warten auf Autorisierung",
+    "read_only_count_one": "{{count}} nur lesend",
+    "read_only_count_other": "{{count}} nur lesend",
+    "classifying": "Tools werden eingestuft…"
   },
   "vm": {
     "cancel": "Autorisierung abbrechen",
@@ -420,5 +423,38 @@
     "reconnecting": "Verbindung unterbrochen. Neuer Versuch…",
     "screen_alt": "Geteilter Computer",
     "subtitle": "Autorisierung auf dem geteilten Computer abschließen"
+  },
+  "tools": {
+    "changed": "Geändert",
+    "empty": "Noch keine Tools gelistet. Verbinden und aktualisieren, um sie zu laden.",
+    "error": {
+      "classification_failed": "Tools konnten nicht eingestuft werden. Nicht eingestufte Tools werden bei jedem Aufruf geprüft.",
+      "recheck_failed": "Tool-Liste konnte nicht aktualisiert werden."
+    },
+    "explain": "Nur lesende Tools laufen ohne Prüfung. Tools, die Daten ändern können, werden bei jedem Aufruf geprüft. Risikoreiche Tools fragen immer zuerst dich.",
+    "group": {
+      "read_only": "Nur lesend",
+      "write": "Kann Daten ändern",
+      "high_risk": "Hohes Risiko"
+    },
+    "pending_one": "{{count}} Tool wartet auf Einstufung",
+    "pending_other": "{{count}} Tools warten auf Einstufung",
+    "recheck": "Erneut prüfen",
+    "rechecking": "Wird geprüft…",
+    "select_label": "Stufe für {{name}}",
+    "source": {
+      "owner": "Von dir gesetzt",
+      "auto": "Auto",
+      "unclassified": "Nicht eingestuft"
+    },
+    "tier": {
+      "auto": "Automatisch",
+      "auto_resolved": "Automatisch · {{tier}}",
+      "read_only": "Nur lesend",
+      "write": "Kann Daten ändern",
+      "high_risk": "Hohes Risiko"
+    },
+    "title": "Tools · {{count}}",
+    "classifying": "Tools werden im Hintergrund eingestuft. Bis ein Tool eingestuft ist, wird es bei jedem Aufruf geprüft."
   }
 }

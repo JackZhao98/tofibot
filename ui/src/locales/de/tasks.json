@@ -371,7 +371,8 @@
       "needs_you": "Deine Entscheidung wird benötigt",
       "auto_invalidated": "Automatische Entscheidung nicht mehr gültig",
       "policy_needs_approval": "Richtlinie verlangt manuelle Freigabe",
-      "already_reviewed": "Bereits geprüft"
+      "already_reviewed": "Bereits geprüft",
+      "high_risk_tool": "Risikoreiches Tool · deine Entscheidung wird benötigt"
     },
     "label": {
       "shadow_reviewing": "Beobachtung: wird geprüft",
@@ -396,7 +397,8 @@
       "policy_needs_human": "Richtlinie verlangt manuelle Entscheidung",
       "auto_invalidated": "Automatische Entscheidung ungültig",
       "not_eligible": "Nicht für automatische Ausführung geeignet",
-      "not_rereviewed": "Nicht erneut geprüft"
+      "not_rereviewed": "Nicht erneut geprüft",
+      "high_risk_tool": "Risikoreiches Tool: ein Mensch entscheidet jeden Aufruf"
     },
     "failure": {
       "title": "Warum die Prüfung nicht abgeschlossen werden konnte",

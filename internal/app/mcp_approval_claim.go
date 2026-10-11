@@ -59,10 +59,10 @@ func (s *Server) claimMCPApproval(ctx context.Context, c Conversation, r Run, ca
 		return nil, settingsErr
 	}
 	if q.AnsweredBy == autoReviewActor || settings.Mode == "auto" {
-		var account, conv, run, hash, server, tool, config, args, schema, policy, contextDigest, snapshot, provenance, status, expiry, decision, risk string
+		var account, conv, run, hash, server, tool, config, tierBinding, args, schema, policy, contextDigest, snapshot, provenance, status, expiry, decision, risk string
 		var revision int64
 		var confirmation int
-		err = tx.QueryRow(`SELECT account_id,conversation_id,run_id,action_hash,server,tool,config_fingerprint,arguments_digest,schema_digest,policy_version,context_digest,context_snapshot,provenance,status,settings_revision,expires_at,decision,risk_level,confirmation_required FROM mcp_auto_reviews WHERE question_id=?`, id).Scan(&account, &conv, &run, &hash, &server, &tool, &config, &args, &schema, &policy, &contextDigest, &snapshot, &provenance, &status, &revision, &expiry, &decision, &risk, &confirmation)
+		err = tx.QueryRow(`SELECT account_id,conversation_id,run_id,action_hash,server,tool,config_fingerprint,tier_binding,arguments_digest,schema_digest,policy_version,context_digest,context_snapshot,provenance,status,settings_revision,expires_at,decision,risk_level,confirmation_required FROM mcp_auto_reviews WHERE question_id=?`, id).Scan(&account, &conv, &run, &hash, &server, &tool, &config, &tierBinding, &args, &schema, &policy, &contextDigest, &snapshot, &provenance, &status, &revision, &expiry, &decision, &risk, &confirmation)
 		x, _, contextErr := s.readMCPReviewContextFor(tx, c, r, s.mcpProposalFence(call))
 		digest := mcpReviewDigest(x, call)
 		disposition := mcpReviewDisposition(mcpReviewResult{Decision: decision, RiskLevel: risk, ConfirmationRequired: confirmation == 1})
@@ -76,7 +76,7 @@ func (s *Server) claimMCPApproval(ctx context.Context, c Conversation, r Run, ca
 		}
 		decisionPermitsClaim := disposition == "approved" || !automatic && disposition == "human_required"
 		statusPermitsClaim := status == "approved" || !automatic && (status == "human_required" || status == "human_decided")
-		binding := err == nil && confirmation >= 0 && confirmation <= 1 && decisionPermitsClaim && statusPermitsClaim && provenance == autoReviewProvenance && settings.Mode == "auto" && settings.Revision == revision && account == s.reviewAccountID() && conv == c.ID && run == r.ID && hash == mcpApprovalHash(call) && server == call.Server && tool == call.Tool && config == call.ConfigVersion && args == digestBytes(call.Arguments) && schema == digestBytes(call.Schema) && policy == autoReviewPolicyVersion && expiry == q.ExpiresAt && s.extensions != nil && s.extensions.MCPCallCurrent(call)
+		binding := err == nil && confirmation >= 0 && confirmation <= 1 && decisionPermitsClaim && statusPermitsClaim && provenance == autoReviewProvenance && settings.Mode == "auto" && settings.Revision == revision && account == s.reviewAccountID() && conv == c.ID && run == r.ID && hash == mcpApprovalHash(call) && server == call.Server && tool == call.Tool && config == call.ConfigVersion && tierBinding == call.TierBinding && args == digestBytes(call.Arguments) && schema == digestBytes(call.Schema) && policy == autoReviewPolicyVersion && expiry == q.ExpiresAt && s.extensions != nil && s.extensions.MCPCallCurrent(call)
 		deadline, e := time.Parse(time.RFC3339Nano, expiry)
 		binding = binding && e == nil && time.Now().Before(deadline)
 		valid := binding && contextValid
@@ -87,7 +87,7 @@ func (s *Server) claimMCPApproval(ctx context.Context, c Conversation, r Run, ca
 				failure := &MCPContextFailure{Code: mcpContextResumeChanged}
 				reason := "The reviewed evidence changed before the approved call resumed: " + mcpContextFailureReason(failure.Code) + "."
 				q.UpdatedAt = now()
-				q.Approval.Review = &MCPReviewDisplay{autoReviewActor, "context_required", reason, "codex-auto-review", "", false, autoReviewPolicyVersion, failure, ""}
+				q.Approval.Review = &MCPReviewDisplay{autoReviewActor, "context_required", reason, "codex-auto-review", "", false, autoReviewPolicyVersion, failure, "", ""}
 				raw, _ := json.Marshal(q.Approval)
 				if _, err = tx.Exec(`UPDATE questions SET approval_json=?,updated_at=? WHERE id=?`, string(raw), q.UpdatedAt, id); err != nil {
 					return nil, err
@@ -137,7 +137,7 @@ func (s *Server) claimMCPApproval(ctx context.Context, c Conversation, r Run, ca
 			} else if s.extensions == nil || !mcpSchemaAvailable(call.Schema) || !s.extensions.MCPCallCurrent(call) {
 				q.Status, reviewState, reason = questionCancelled, "setup_required", "The current tool configuration or schema binding is unavailable. Approval cannot repair this setup gap."
 			}
-			q.Approval.Review = &MCPReviewDisplay{autoReviewActor, reviewState, reason, "codex-auto-review", "", false, autoReviewPolicyVersion, contextFailure, ""}
+			q.Approval.Review = &MCPReviewDisplay{autoReviewActor, reviewState, reason, "codex-auto-review", "", false, autoReviewPolicyVersion, contextFailure, "", ""}
 			raw, _ := json.Marshal(q.Approval)
 			if _, err = tx.Exec(`UPDATE questions SET status=?,answer_json=NULL,answered_by=NULL,approval_json=?,updated_at=? WHERE id=?`, q.Status, string(raw), q.UpdatedAt, id); err != nil {
 				return nil, err

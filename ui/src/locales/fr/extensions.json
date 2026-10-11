@@ -408,7 +408,11 @@
     "needs_auth": "Autorisation requise",
     "removing": "Traitement…",
     "unverified": "Pas encore vérifié",
-    "waiting": "En attente d’autorisation"
+    "waiting": "En attente d’autorisation",
+    "read_only_count_one": "{{count}} en lecture seule",
+    "read_only_count_many": "{{count}} en lecture seule",
+    "read_only_count_other": "{{count}} en lecture seule",
+    "classifying": "Classement des outils…"
   },
   "vm": {
     "cancel": "Annuler l’autorisation",
@@ -424,5 +428,39 @@
     "reconnecting": "Connexion interrompue. Nouvelle tentative…",
     "screen_alt": "Ordinateur partagé",
     "subtitle": "Terminez l’autorisation sur l’ordinateur partagé"
+  },
+  "tools": {
+    "changed": "Modifié",
+    "empty": "Aucun outil listé pour l'instant. Connectez-vous et actualisez pour les charger.",
+    "error": {
+      "classification_failed": "Impossible de classer les outils. Les outils non classés sont contrôlés à chaque appel.",
+      "recheck_failed": "Impossible d'actualiser la liste des outils."
+    },
+    "explain": "Les outils en lecture seule s'exécutent sans contrôle. Les outils qui peuvent modifier des données sont contrôlés à chaque appel. Les outils à haut risque vous demandent toujours d'abord.",
+    "group": {
+      "read_only": "Lecture seule",
+      "write": "Peut modifier des données",
+      "high_risk": "Risque élevé"
+    },
+    "pending_one": "{{count}} outil en attente de classement",
+    "pending_many": "{{count}} outils en attente de classement",
+    "pending_other": "{{count}} outils en attente de classement",
+    "recheck": "Revérifier",
+    "rechecking": "Vérification…",
+    "select_label": "Niveau de {{name}}",
+    "source": {
+      "owner": "Défini par vous",
+      "auto": "Auto",
+      "unclassified": "Non classé"
+    },
+    "tier": {
+      "auto": "Automatique",
+      "auto_resolved": "Automatique · {{tier}}",
+      "read_only": "Lecture seule",
+      "write": "Peut modifier des données",
+      "high_risk": "Risque élevé"
+    },
+    "title": "Outils · {{count}}",
+    "classifying": "Les outils sont classés en arrière-plan. Tant qu'un outil n'est pas classé, il est contrôlé à chaque appel."
   }
 }

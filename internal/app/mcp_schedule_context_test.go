@@ -31,6 +31,7 @@ type scheduledMCPFixture struct {
 	r, root, source Run
 	schedule        Schedule
 	call            extensions.MCPCallApproval
+	cfg             extensions.MCPServerConfig
 	p               *reviewStub
 	effects         atomic.Int32
 }
@@ -102,8 +103,10 @@ func newScheduledMCPFixture(t *testing.T, group bool, sourceKind string) *schedu
 		t.Fatal(err)
 	}
 	f.s.extensions = extensions.NewManager(extensions.Config{MCPConfigPath: configPath, SkillsDir: filepath.Join(dir, "synthetic-skills")})
+	f.cfg = cfg
 	fingerprint := sha256.Sum256(append([]byte("2026-07-28\x00schedule-fixture\x00"), config...))
-	f.call = extensions.MCPCallApproval{Server: "schedule-fixture", Tool: "read_public", Description: "Synthetic public read", ConfigVersion: hex.EncodeToString(fingerprint[:]), Schema: json.RawMessage(`{"type":"object","properties":{"target":{"type":"string"}},"required":["target"],"additionalProperties":false}`), Arguments: json.RawMessage(`{"target":"alpha"}`)}
+	tier := f.s.extensions.MCPToolTier("schedule-fixture", "read_public")
+	f.call = extensions.MCPCallApproval{Server: "schedule-fixture", Tool: "read_public", Description: "Synthetic public read", ConfigVersion: hex.EncodeToString(fingerprint[:]), Schema: json.RawMessage(`{"type":"object","properties":{"target":{"type":"string"}},"required":["target"],"additionalProperties":false}`), Arguments: json.RawMessage(`{"target":"alpha"}`), Tier: tier.Tier, TierBinding: tier.Binding}
 	if !f.s.extensions.MCPCallCurrent(f.call) {
 		t.Fatal("synthetic static configuration is not current")
 	}
@@ -294,9 +297,23 @@ func (f *scheduledMCPFixture) uncertainMCPWrite(tool string) {
 }
 
 // Re-point the proposal at a tool outside the owner's trusted read-only list.
-// The remote hint is what the fixture's tools/list would have carried.
-func (f *scheduledMCPFixture) proposeTool(tool string, readOnlyHint bool) {
-	f.call.Tool, f.call.ReadOnlyHint, f.call.Description = tool, readOnlyHint, "Synthetic "+tool
+// readOnly makes it a classified read_only tool (the model's read_only merged
+// with the remote readOnlyHint, as one classification pass would record);
+// otherwise the tool is unclassified and therefore write.
+func (f *scheduledMCPFixture) proposeTool(tool string, readOnly bool) {
+	f.call.Tool, f.call.ReadOnlyHint, f.call.Description = tool, readOnly, "Synthetic "+tool
+	if readOnly {
+		d := extensions.MCPToolDescriptor{RemoteName: tool, Description: "Synthetic " + tool, InputSchema: map[string]any{"type": "object"}, Annotations: extensions.MCPToolAnnotations{Present: true, ReadOnly: true}}
+		d.Digest = extensions.MCPToolDigest(d)
+		if _, err := f.s.extensions.ObserveTools("schedule-fixture", f.cfg, []extensions.MCPToolDescriptor{d}); err != nil {
+			f.t.Fatal(err)
+		}
+		if n, err := f.s.extensions.RecordToolClassification("schedule-fixture", []extensions.MCPToolClassification{{RemoteName: tool, Digest: d.Digest, Tier: extensions.MCPTierReadOnly, Reason: "synthetic read"}}); err != nil || n != 1 {
+			f.t.Fatalf("classification not recorded: %d %v", n, err)
+		}
+	}
+	view := f.s.extensions.MCPToolTier("schedule-fixture", tool)
+	f.call.Tier, f.call.TierBinding = view.Tier, view.Binding
 	if !f.s.extensions.MCPCallCurrent(f.call) {
 		f.t.Fatal("synthetic static configuration is not current")
 	}
@@ -507,7 +524,7 @@ func TestScheduledMCPContextBoundedLineage(t *testing.T) {
 		// later effect, never a read; an earlier unverified observation fences
 		// nothing. The proposal read_public is owner-trusted read-only.
 		{"uncertain effect does not fence a trusted read", false, scheduleSourceChat, true, func(f *scheduledMCPFixture) { f.toolEvidence(false, true) }},
-		{"uncertain effect does not fence a hinted read", false, scheduleSourceChat, true, func(f *scheduledMCPFixture) {
+		{"uncertain effect does not fence a classified read", false, scheduleSourceChat, true, func(f *scheduledMCPFixture) {
 			f.uncertainMCPWrite("write_record")
 			f.proposeTool("fetch_record", true)
 		}},
@@ -642,14 +659,14 @@ func TestScheduledMCPGateExecutesSyntheticToolOnce(t *testing.T) {
 		f.effects.Add(1)
 		return nil
 	}
-	// The owner-trusted read repeats on its own fresh card and claim in a
-	// scheduled run too; the action-level claim records its first dispatch.
+	// The owner-trusted read (read_only tier) executes without review or
+	// card in a scheduled run too, as often as it is called.
 	for i := int32(1); i <= 2; i++ {
-		if err := execute(); err != nil || f.effects.Load() != i || f.p.calls.Load() != i {
+		if err := execute(); err != nil || f.effects.Load() != i || f.p.calls.Load() != 0 {
 			t.Fatalf("trusted read %d: %v effects=%d reviewer=%d", i, err, f.effects.Load(), f.p.calls.Load())
 		}
 	}
-	if f.claimCount() != 1 {
+	if f.claimCount() != 0 {
 		t.Fatalf("read claims=%d", f.claimCount())
 	}
 	// An effect executes exactly once; its identical repeat is refused before dispatch.
@@ -661,11 +678,11 @@ func TestScheduledMCPGateExecutesSyntheticToolOnce(t *testing.T) {
 	if out, ok := tooloutcome.FromError(err); !ok || out.Status != tooloutcome.Denied || out.Code != "approval_already_claimed" || out.Certainty != "not_executed" {
 		t.Fatalf("the MCP gate replayed the synthetic effect: %v", err)
 	}
-	if f.effects.Load() != 3 || f.p.calls.Load() != 3 || f.claimCount() != 2 {
+	if f.effects.Load() != 3 || f.p.calls.Load() != 1 || f.claimCount() != 1 {
 		t.Fatalf("gate effects=%d reviewer=%d claims=%d", f.effects.Load(), f.p.calls.Load(), f.claimCount())
 	}
 	questions, err := f.s.store.ListQuestions(f.c.ID)
-	if err != nil || len(questions) != 3 {
+	if err != nil || len(questions) != 1 {
 		t.Fatalf("gate decisions: %+v %v", questions, err)
 	}
 	for _, q := range questions {
