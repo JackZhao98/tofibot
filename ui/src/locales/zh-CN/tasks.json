@@ -366,7 +366,8 @@
       "needs_you": "需要你决定",
       "auto_invalidated": "自动决定已失效",
       "policy_needs_approval": "执行策略需人工批准",
-      "already_reviewed": "本提案已有审查记录"
+      "already_reviewed": "本提案已有审查记录",
+      "high_risk_tool": "高风险工具 · 需要你决定"
     },
     "label": {
       "shadow_reviewing": "观察审查中",
@@ -391,7 +392,8 @@
       "policy_needs_human": "策略需要人工决定",
       "auto_invalidated": "自动决定失效",
       "not_eligible": "未获自动执行资格",
-      "not_rereviewed": "未重复审查"
+      "not_rereviewed": "未重复审查",
+      "high_risk_tool": "高风险工具：每次调用由人决定"
     },
     "failure": {
       "title": "审查未能完成的原因",

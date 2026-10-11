@@ -37,7 +37,13 @@ type MCPReviewDisplay struct {
 	// FailureCategory names why an "unavailable" review produced no judgment
 	// (one of the mcpReviewFailure* constants). Never carries content.
 	FailureCategory string `json:"failure_category,omitempty"`
+	// DecisionSource says what produced a human_required status without a
+	// reviewer verdict: "tool_tier" when the tool's high_risk tier did.
+	DecisionSource string `json:"decision_source,omitempty"`
 }
+
+// mcpDecisionSourceTier marks a decision the tool tier made, not the reviewer.
+const mcpDecisionSourceTier = "tool_tier"
 
 // Reviewer failure categories. They are stored on the review row, shown in the
 // stored reason and logged once per failed request; none carries arguments,
@@ -154,21 +160,39 @@ func mcpReviewDigest(x mcpReviewContext, call extensions.MCPCallApproval) string
 	return digestBytes(raw)
 }
 
-// A proposal is read-only for the scheduled effect fence when the owner
-// configured the exact tool as trusted read-only (host policy) or the remote
-// tools/list carried readOnlyHint for it (untrusted hint, captured on the
-// proposal at dispatch). Neither exempts the call from review itself; an
-// absent or false hint reads as an effect.
+// A proposal is read-only for the scheduled effect fence exactly when its
+// resolved tier is read_only (owner override, or model classification merged
+// with the remote annotations; docs/agent-plan/mcp-tool-tiers.md). The raw
+// readOnlyHint decides nothing; a stale or unknown tier reads as an effect.
 func (s *Server) mcpProposalFence(call extensions.MCPCallApproval) mcpProposalFence {
-	if s.extensions != nil {
-		if requiresHuman, current := s.extensions.MCPCallRequiresHuman(call); current && !requiresHuman {
-			return mcpProposalReadOnly
-		}
-	}
-	if call.ReadOnlyHint {
+	if tier, current := s.mcpCallTier(call); current && tier == extensions.MCPTierReadOnly {
 		return mcpProposalReadOnly
 	}
 	return mcpProposalEffect
+}
+
+// mcpCallTier is MCPCallTier with the fail-closed answer for a missing Manager.
+func (s *Server) mcpCallTier(call extensions.MCPCallApproval) (extensions.MCPToolTier, bool) {
+	if s.extensions == nil {
+		return extensions.MCPTierWrite, false
+	}
+	return s.extensions.MCPCallTier(call)
+}
+
+// mcpToolObservation is the fence predicate's tier lookup for a recorded
+// call_mcp_tool step: the step is an observation only when the tool's
+// current tier is read_only.
+func (s *Server) mcpToolObservation(a ToolActivity) bool {
+	if s.extensions == nil || a.Name != "call_mcp_tool" || a.Truncated {
+		return false
+	}
+	var in struct {
+		Name string `json:"name"`
+	}
+	if json.Unmarshal([]byte(a.Arguments), &in) != nil || in.Name == "" {
+		return false
+	}
+	return s.extensions.RunToolReadOnly(in.Name)
 }
 
 func (s *Server) reviewAccountID() string {
@@ -239,7 +263,7 @@ func readMCPChatContext(db reviewQuerier, c Conversation, r Run) (mcpReviewConte
 	if x.LaterUserMessages, err = readMCPLaterUserMessages(db, c.ID, intentSeq); err != nil {
 		return x, err
 	}
-	if x.ToolResults, err = readMCPRunToolEvidence(db, r, false, bounds); err != nil {
+	if x.ToolResults, err = readMCPRunToolEvidence(db, r, false, bounds, nil); err != nil {
 		return x, err
 	}
 	if x.HumanRefusals, err = readMCPHumanRefusals(db, c.ID, bounds); err != nil {
@@ -274,6 +298,15 @@ func verifyMCPGroupRound(db reviewQuerier, c Conversation, r Run) error {
 type mcpReviewResult struct {
 	Decision, Reason, ContextDigest, RiskLevel string
 	ConfirmationRequired                       bool
+	// Source is set when the host, not the reviewer, produced the result
+	// (mcpDecisionSourceTier). It is never parsed from a model answer.
+	Source string
+}
+
+// mcpHighRiskTierResult is the fixed verdict for a high_risk tool: a person
+// decides, the reviewer is not asked, and no allow can bypass it.
+func mcpHighRiskTierResult(digest string) mcpReviewResult {
+	return mcpReviewResult{Decision: "needs_human", Reason: "This tool is classed high risk (it can delete, send, pay, or change access). A person decides each call; the reviewer is not consulted.", ContextDigest: digest, RiskLevel: "high", ConfirmationRequired: true, Source: mcpDecisionSourceTier}
 }
 
 // This predicate is shared by completion and atomic claim. Reviewer assessment
@@ -551,7 +584,7 @@ func (s *Server) reviewMCPProposal(ctx context.Context, c Conversation, r Run, c
 			diagnostic = failure[0]
 		}
 		if shadow {
-			return s.store.setMCPReviewDisplay(q.ID, MCPReviewDisplay{autoReviewActor, "shadow_" + status, reason, "codex-auto-review", "", false, autoReviewPolicyVersion, diagnostic, ""})
+			return s.store.setMCPReviewDisplay(q.ID, MCPReviewDisplay{autoReviewActor, "shadow_" + status, reason, "codex-auto-review", "", false, autoReviewPolicyVersion, diagnostic, "", ""})
 		}
 		return s.closeMCPReviewGap(q.ID, status, reason, diagnostic)
 	}
@@ -564,7 +597,7 @@ func (s *Server) reviewMCPProposal(ctx context.Context, c Conversation, r Run, c
 		if _, ok := tooloutcome.FromError(terminalErr); !ok {
 			return terminalErr
 		}
-		if err := s.store.setMCPReviewDisplay(q.ID, MCPReviewDisplay{autoReviewActor, "terminal", terminalErr.Error(), "codex-auto-review", "", false, autoReviewPolicyVersion, nil, ""}); err != nil {
+		if err := s.store.setMCPReviewDisplay(q.ID, MCPReviewDisplay{autoReviewActor, "terminal", terminalErr.Error(), "codex-auto-review", "", false, autoReviewPolicyVersion, nil, "", ""}); err != nil {
 			return err
 		}
 		return terminalErr
@@ -604,7 +637,7 @@ func (s *Server) reviewMCPProposal(ctx context.Context, c Conversation, r Run, c
 	if err := s.retireTransientMCPReview(r, call, q.ID); err != nil {
 		return err
 	}
-	_, err = s.store.db.Exec(`INSERT INTO mcp_auto_reviews(question_id,account_id,conversation_id,run_id,action_hash,server,tool,config_fingerprint,arguments_digest,schema_digest,policy_version,context_digest,context_snapshot,provenance,mode,settings_revision,status,decision,reason,expires_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,'reviewing','','',?)`, q.ID, s.reviewAccountID(), c.ID, r.ID, mcpApprovalHash(call), call.Server, call.Tool, call.ConfigVersion, digestBytes(call.Arguments), digestBytes(call.Schema), autoReviewPolicyVersion, digest, string(snapshot), autoReviewProvenance, settings.Mode, settings.Revision, q.ExpiresAt)
+	_, err = s.store.db.Exec(`INSERT INTO mcp_auto_reviews(question_id,account_id,conversation_id,run_id,action_hash,server,tool,config_fingerprint,tier_binding,arguments_digest,schema_digest,policy_version,context_digest,context_snapshot,provenance,mode,settings_revision,status,decision,reason,expires_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,'reviewing','','',?)`, q.ID, s.reviewAccountID(), c.ID, r.ID, mcpApprovalHash(call), call.Server, call.Tool, call.ConfigVersion, call.TierBinding, digestBytes(call.Arguments), digestBytes(call.Schema), autoReviewPolicyVersion, digest, string(snapshot), autoReviewProvenance, settings.Mode, settings.Revision, q.ExpiresAt)
 	if err != nil {
 		var reserved bool
 		if e := s.store.db.QueryRow(`SELECT EXISTS(SELECT 1 FROM mcp_auto_reviews WHERE run_id=? AND action_hash=?)`, r.ID, mcpApprovalHash(call)).Scan(&reserved); e != nil || !reserved {
@@ -612,16 +645,21 @@ func (s *Server) reviewMCPProposal(ctx context.Context, c Conversation, r Run, c
 		}
 		// A duplicate cannot reserve or replay another reviewer request. Claim
 		// must still validate the exact card's review and action-level fences.
-		return s.store.setMCPReviewDisplay(q.ID, MCPReviewDisplay{autoReviewActor, "not_reviewed", "No new review was reserved for this exact proposal. Existing action-level review and execution claims remain authoritative.", "codex-auto-review", "", false, autoReviewPolicyVersion, nil, ""})
+		return s.store.setMCPReviewDisplay(q.ID, MCPReviewDisplay{autoReviewActor, "not_reviewed", "No new review was reserved for this exact proposal. Existing action-level review and execution claims remain authoritative.", "codex-auto-review", "", false, autoReviewPolicyVersion, nil, "", ""})
 	}
 	displayStatus := "reviewing"
 	if shadow {
 		displayStatus = "shadow_reviewing"
 	}
-	if err = s.store.setMCPReviewDisplay(q.ID, MCPReviewDisplay{autoReviewActor, displayStatus, "Assessing the exact proposal's authorization, effects and data flow.", "codex-auto-review", "", false, autoReviewPolicyVersion, nil, ""}); err != nil {
+	if err = s.store.setMCPReviewDisplay(q.ID, MCPReviewDisplay{autoReviewActor, displayStatus, "Assessing the exact proposal's authorization, effects and data flow.", "codex-auto-review", "", false, autoReviewPolicyVersion, nil, "", ""}); err != nil {
 		return err
 	}
 	request := func(reviewCtx context.Context) error {
+		// A high_risk tool never reaches the reviewer: its verdict is fixed
+		// here, so an allow from the model cannot exist to be bypassed.
+		if tier, current := s.mcpCallTier(call); current && tier == extensions.MCPTierHighRisk {
+			return s.finishMCPReview(reviewCtx, c, r, call, q.ID, settings, mcpHighRiskTierResult(digest), nil)
+		}
 		result, failure := s.requestMCPReview(reviewCtx, r, call, x, digest)
 		if failure != nil {
 			result = mcpReviewResult{Reason: mcpReviewFailureReason(failure), ContextDigest: digest, RiskLevel: "unknown"}
@@ -677,7 +715,7 @@ func mcpReviewFailureColumns(f *mcpReviewFailure) (string, string) {
 }
 
 func (s *Server) closeMCPReviewGap(id, status, reason string, diagnostic *MCPContextFailure) error {
-	if err := s.store.setMCPReviewDisplay(id, MCPReviewDisplay{autoReviewActor, status, reason, "codex-auto-review", "", false, autoReviewPolicyVersion, diagnostic, ""}); err != nil {
+	if err := s.store.setMCPReviewDisplay(id, MCPReviewDisplay{autoReviewActor, status, reason, "codex-auto-review", "", false, autoReviewPolicyVersion, diagnostic, "", ""}); err != nil {
 		return err
 	}
 	// Keep a genuine human answer truthful; it cannot repair a technical gap.
@@ -790,9 +828,12 @@ func (s *Server) finishMCPReview(ctx context.Context, c Conversation, r Run, cal
 	}
 	q.UpdatedAt = now()
 	failureCategory, failureDetail := mcpReviewFailureColumns(failure)
-	display := &MCPReviewDisplay{autoReviewActor, status, result.Reason, "codex-auto-review", result.RiskLevel, result.ConfirmationRequired, autoReviewPolicyVersion, contextFailure, ""}
+	display := &MCPReviewDisplay{autoReviewActor, status, result.Reason, "codex-auto-review", result.RiskLevel, result.ConfirmationRequired, autoReviewPolicyVersion, contextFailure, "", ""}
 	if status == "unavailable" {
 		display.FailureCategory = failureCategory
+	}
+	if status == "human_required" || status == "human_decided" {
+		display.DecisionSource = result.Source
 	}
 	q.Approval.Review = display
 	raw, _ := json.Marshal(q.Approval)

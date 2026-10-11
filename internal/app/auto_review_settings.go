@@ -47,6 +47,9 @@ UPDATE mcp_auto_reviews SET status=CASE WHEN mode='shadow' THEN 'shadow_unavaila
 		// a fixed detail token (rule, HTTP status, byte count); never content.
 		{"failure_category", `ALTER TABLE mcp_auto_reviews ADD COLUMN failure_category TEXT NOT NULL DEFAULT ''`},
 		{"failure_detail", `ALTER TABLE mcp_auto_reviews ADD COLUMN failure_detail TEXT NOT NULL DEFAULT ''`},
+		// The tool tier binding the review was made under (tool_tiers.go). A
+		// tier change makes an unclaimed automatic decision invalid.
+		{"tier_binding", `ALTER TABLE mcp_auto_reviews ADD COLUMN tier_binding TEXT NOT NULL DEFAULT ''`},
 	} {
 		if err = ensureColumn(db, "mcp_auto_reviews", col.name, col.ddl); err != nil {
 			return err
@@ -141,7 +144,7 @@ func (s *Store) putAutoReviewMode(mode string) error {
 			q.AnsweredBy = ""
 		}
 		q.UpdatedAt = now()
-		display := MCPReviewDisplay{autoReviewActor, "invalidated", "AutoReview mode changed. The previous automatic decision cannot authorize execution.", "codex-auto-review", "", false, autoReviewPolicyVersion, nil, ""}
+		display := MCPReviewDisplay{autoReviewActor, "invalidated", "AutoReview mode changed. The previous automatic decision cannot authorize execution.", "codex-auto-review", "", false, autoReviewPolicyVersion, nil, "", ""}
 		if q.Status == questionExpired || q.Status == questionCancelled || q.Status == questionRunDone {
 			display.Status, display.Reason = "terminal", "This proposal has ended and remains non-executable."
 		}

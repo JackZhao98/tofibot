@@ -371,7 +371,8 @@
       "needs_you": "Your decision is needed",
       "auto_invalidated": "Automatic decision no longer valid",
       "policy_needs_approval": "Policy requires manual approval",
-      "already_reviewed": "Already reviewed"
+      "already_reviewed": "Already reviewed",
+      "high_risk_tool": "High-risk tool · your decision is needed"
     },
     "label": {
       "shadow_reviewing": "Observation: reviewing",
@@ -396,7 +397,8 @@
       "policy_needs_human": "Policy needs a manual decision",
       "auto_invalidated": "Automatic decision invalid",
       "not_eligible": "Not eligible for automatic execution",
-      "not_rereviewed": "Not reviewed again"
+      "not_rereviewed": "Not reviewed again",
+      "high_risk_tool": "High-risk tool: a person decides each call"
     },
     "failure": {
       "title": "Why the review could not finish",

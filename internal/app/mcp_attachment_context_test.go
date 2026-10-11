@@ -303,7 +303,7 @@ func TestMCPHistoricalAttachmentsUnknownToolAndUncertainReplay(t *testing.T) {
 	t.Run("previously unseen tool", func(t *testing.T) {
 		f := newProvenanceReviewFixture(t)
 		old := seedHistoricalMCPAttachments(t, f, "Read the synthetic public fact for alpha and return it here.")
-		f.call.Tool = "synthetic_previously_unseen_tool"
+		f.call.Tool, f.call.TierBinding = "synthetic_previously_unseen_tool", ""
 		f.call.Description = "Return one synthetic fact for the supplied target to this conversation, without changing data or contacting another recipient."
 		_ = f.s.store.putAutoReviewMode("auto")
 		f.p.reply = func(_ context.Context, req *provider.ChatRequest) (*provider.ChatResponse, error) {

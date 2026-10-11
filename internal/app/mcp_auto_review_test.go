@@ -60,6 +60,7 @@ func reviewReply(req *provider.ChatRequest, decision string) *provider.ChatRespo
 }
 
 type autoReviewFixture struct {
+	newManager func() *extensions.Manager // a fresh Manager over the same config and tier file (a restart)
 	dir           string
 	failRemote    atomic.Bool
 	failTransient atomic.Bool
@@ -107,8 +108,15 @@ func newAutoReviewFixture(t *testing.T) *autoReviewFixture {
 		return &mcp.CallToolResult{Content: []mcp.Content{&mcp.TextContent{Text: "synthetic public fact"}}}, nil
 	})
 	transport := syntheticMCPReviewTransport{mcp.NewStreamableHTTPHandler(func(*http.Request) *mcp.Server { return backend }, &mcp.StreamableHTTPOptions{Stateless: true, JSONResponse: true})}
-	m := extensions.NewManager(extensions.Config{MCPConfigPath: filepath.Join(dir, "mcp.json"), SkillsDir: filepath.Join(dir, "skills"), HTTPTransport: func(string) (http.RoundTripper, error) { return transport, nil }})
-	config, _ := json.Marshal(map[string]any{"mcpServers": map[string]extensions.MCPServerConfig{"fixture": {URL: "https://synthetic.invalid/mcp", TrustedReadOnlyTools: []string{"read_public"}}}})
+	newManager := func() *extensions.Manager {
+		return extensions.NewManager(extensions.Config{MCPConfigPath: filepath.Join(dir, "mcp.json"), SkillsDir: filepath.Join(dir, "skills"), HTTPTransport: func(string) (http.RoundTripper, error) { return transport, nil }})
+	}
+	m := newManager()
+	f.newManager = newManager
+	// The fixture tool starts in the write tier (reviewed per call); tests
+	// that need the read_only route set an owner override through
+	// setSyntheticMCPHumanPolicy. Its remote readOnlyHint decides nothing.
+	config, _ := json.Marshal(map[string]any{"mcpServers": map[string]extensions.MCPServerConfig{"fixture": {URL: "https://synthetic.invalid/mcp"}}})
 	if err := os.WriteFile(filepath.Join(dir, "mcp.json"), config, 0600); err != nil {
 		t.Fatal(err)
 	}

@@ -400,7 +400,9 @@
     "needs_auth": "需要授權",
     "removing": "處理中…",
     "unverified": "尚未驗證",
-    "waiting": "等待授權"
+    "waiting": "等待授權",
+    "read_only_count_other": "{{count}} 個唯讀",
+    "classifying": "正在分類工具…"
   },
   "vm": {
     "cancel": "取消授權",
@@ -416,5 +418,37 @@
     "reconnecting": "連線暫時中斷，正在重試…",
     "screen_alt": "共用電腦",
     "subtitle": "在共用電腦中完成授權"
+  },
+  "tools": {
+    "changed": "已變更",
+    "empty": "還沒有工具清單。連線並重新整理後載入。",
+    "error": {
+      "classification_failed": "無法分類工具。未分類的工具每次呼叫都會審核。",
+      "recheck_failed": "無法重新整理工具清單。"
+    },
+    "explain": "唯讀工具直接執行，不經審核。會更動資料的工具每次呼叫都會審核。高風險工具每次都先問你。",
+    "group": {
+      "read_only": "唯讀",
+      "write": "會更動資料",
+      "high_risk": "高風險"
+    },
+    "pending_other": "{{count}} 個工具待分類",
+    "recheck": "重新檢查",
+    "rechecking": "正在檢查…",
+    "select_label": "{{name}} 的級別",
+    "source": {
+      "owner": "你設定的",
+      "auto": "自動",
+      "unclassified": "未分類"
+    },
+    "tier": {
+      "auto": "自動",
+      "auto_resolved": "自動 · {{tier}}",
+      "read_only": "唯讀",
+      "write": "會更動資料",
+      "high_risk": "高風險"
+    },
+    "title": "工具 · {{count}}",
+    "classifying": "正在背景分類工具。工具完成分類前，每次呼叫都會審核。"
   }
 }

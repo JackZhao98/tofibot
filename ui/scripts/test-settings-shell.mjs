@@ -82,7 +82,7 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
   const origin = `http://127.0.0.1:${server.httpServer.address().port}`;
   browser = await chromium.launch({executablePath: process.env.TOFI_TEST_CHROME || undefined});
 
-  const requested = [], unexpected = [], writes = [], accessWrites = [];
+  const requested = [], unexpected = [], writes = [], accessWrites = [], tierWrites = [];
   const skillAccess = new Map();
   const updateState = {latest: "v0.1.0"};
   const INSTANCE = "0b1c2d3e-4f50-4a6b-8c7d-9e0f1a2b3c4d";
@@ -97,8 +97,20 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
     {id: "claude-opus-5-5", name: "Claude Opus 5.5", provider: "anthropic", reasoning_efforts: ["low", "medium", "high", "xhigh"], default_reasoning: "high"},
   ];
   const day = n => new Date(Date.UTC(2026, 9, 9 - n)).toISOString();
+  // Tool tiers per saved connection (docs/agent-plan/mcp-tool-tiers.md): the tracker has a classified list with every tier, marker and the changed flag; the others have none yet.
+  const toolTiers = name => name === "acme_tracker" ? {tools: [
+    {name: "search_issues", description: "Search issues by text, label and assignee", tier: "read_only", source: "auto", auto: "read_only", read_only_hint: true, reason: "Reads and lists only"},
+    {name: "get_issue", description: "Fetch one issue with its comments", tier: "read_only", source: "owner", auto: "read_only", override: "read_only"},
+    {name: "create_issue", description: "Create an issue in a project", tier: "write", source: "auto", auto: "write"},
+    {name: "update_issue", description: "Change title, status or assignee of an issue with a very long description that keeps going to exercise wrapping in the narrow layout", tier: "write", source: "unclassified", pending: true, changed: true},
+    {name: "delete_issue", description: "Delete an issue permanently", tier: "high_risk", source: "auto", auto: "high_risk", destructive_hint: true},
+    {name: "post_comment", description: "Post a comment visible to the whole team", tier: "high_risk", source: "owner", auto: "write", override: "high_risk", changed: true},
+  ], read_only: 2, write: 2, high_risk: 2, pending: 1, unclassified: 1} : name === "notes_search" ? {tools: [], read_only: 0, write: 0, high_risk: 0, pending: 0, unclassified: 0, queue: {state: "running", attempts: 0}} : {tools: [], read_only: 0, write: 0, high_risk: 0, pending: 0, unclassified: 0};
   const stub = (url, method, query) => {
     const path = url.pathname;
+    if (/^\/api\/extensions\/mcp\/[^/]+\/tools$/.test(path) && method === "GET") return toolTiers(path.split("/")[4]);
+    if (/^\/api\/extensions\/mcp\/[^/]+\/tools\/classify$/.test(path) && method === "POST") return {...toolTiers(path.split("/")[4]), checked: true, classified: 1, pending: 0};
+    if (/^\/api\/extensions\/mcp\/[^/]+\/tools\/[^/]+$/.test(path) && method === "PUT") { const name = decodeURIComponent(path.split("/")[6]); const tool = toolTiers(path.split("/")[4]).tools.find(item => item.name === name); return {ok: true, tool, summary: toolTiers(path.split("/")[4])}; }
     if (path === "/api/server-info") return {service: "tofi", protocol_version: 1, instance_id: INSTANCE, auth: {mode: "owner"}};
     if (path === "/api/system/update") {
       if (query.get("role") === "user") return undefined;
@@ -248,7 +260,8 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
       }
       const body = stub(url, method, new URLSearchParams(page.url().split("?")[1] ?? ""));
       if (body === undefined) { unexpected.push(`${method} ${url.pathname}`); await route.fulfill({status: 404, contentType: "application/json", body: JSON.stringify({error: {message: "not stubbed", code: "not_found"}})}); return; }
-      if (method !== "GET" && !/\/(test|verify)$/.test(url.pathname)) writes.push(`${method} ${url.pathname}`);
+      if (method === "PUT" && /^\/api\/extensions\/mcp\/[^/]+\/tools\/[^/]+$/.test(url.pathname)) tierWrites.push(`${method} ${url.pathname} ${request.postData()}`);
+      else if (method !== "GET" && !/\/(test|verify)$/.test(url.pathname)) writes.push(`${method} ${url.pathname}`);
       const delay = Number(new URLSearchParams(page.url().split("?")[1] ?? "").get("testdelay") ?? 0);
       if (delay && /\/test$/.test(url.pathname)) await new Promise(resolve => setTimeout(resolve, delay));
       await route.fulfill({contentType: "application/json", body: JSON.stringify(body)});
@@ -515,6 +528,32 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
     assert.equal(await bad.page.locator(motion).count(), 0);
     await bad.close();
     console.log("PASS connections: cached Connected on first paint, no animation or spinner, quiet re-check, failure flips after one retry");
+    // Tool tiers: the summary counts read-only tools, the disclosure groups tools by tier with markers, and the selector writes an owner override.
+    const tiersPage = await open({tab: "connections"});
+    const tiered = card(tiersPage.page, "acme_tracker");
+    await tiered.waitFor({timeout: 15000});
+    await tiersPage.page.waitForFunction(() => /read only/.test(document.querySelector('.mcp-service[aria-label="acme_tracker"] .mcp-service-status')?.textContent ?? ""), null, {timeout: 10000});
+    assert.match((await tiered.locator(".mcp-service-status").textContent()).trim(), /tools · 2 read only/, "read-only count in the summary");
+    await tiered.locator(".mcp-service-tools .disclosure-toggle").click();
+    await tiered.locator(".mcp-tool-group[data-tier=read_only]").waitFor();
+    assert.deepEqual(await tiered.locator(".mcp-tool-group h5").allTextContents(), ["Read only2", "Can change data2", "High risk2"], "three groups with counts");
+    assert.deepEqual(await tiered.locator(".mcp-tool[data-source=owner] code").allTextContents(), ["get_issue", "post_comment"], "owner overrides are marked");
+    assert.equal(await tiered.locator(".mcp-tool[data-changed=true]").count(), 2, "changed tools are marked");
+    assert.equal(await tiered.locator(".mcp-tier-mark.is-changed").first().textContent(), "Changed");
+    assert.equal(await tiered.locator(".mcp-tool[data-source=unclassified] .mcp-tier-mark").first().textContent(), "Not classified");
+    const selector = tiered.locator('.mcp-tier-select[aria-label="Tier for create_issue"]');
+    assert.equal(await selector.inputValue(), "auto");
+    assert.equal(await selector.evaluate(element => getComputedStyle(element).appearance), "none", "the tier selector is styled, not the UA select");
+    await selector.selectOption("high_risk");
+    await tiersPage.page.waitForTimeout(400);
+    assert.deepEqual(tierWrites, [`PUT /api/extensions/mcp/acme_tracker/tools/create_issue {"tier":"high_risk"}`], "the selector writes exactly one owner override");
+    assert.equal(await tiered.locator(".mcp-service-tools .mcp-tools-note").count(), 1, "pending classification is announced");
+    await tiersPage.page.waitForFunction(() => /Classifying tools/.test(document.querySelector('.mcp-service[aria-label="notes_search"] .mcp-service-status')?.textContent ?? ""), null, {timeout: 10000});
+    assert.equal(await tiersPage.page.locator('.mcp-service[aria-label="notes_search"]').evaluate(el => document.getAnimations().filter(a => a.playState === "running" && el.contains(a.effect?.target)).length), 0, "the classifying status is plain text, nothing animates");
+    const docs = card(tiersPage.page, "acme_docs");
+    assert.equal(await docs.locator(".mcp-service-tools").count(), 0, "a connection without a tool list has no tools disclosure");
+    await tiersPage.close();
+    console.log("PASS connections tools: read-only count, tier groups, markers, styled selector, one override write");
   }
 
   // ---- 7c. Admin console: list, detail, role, disk, password, deactivation and the delete flow (stubbed API).

@@ -109,3 +109,32 @@
 .mcp-oauth-dialog .mcp-oauth-video-hidden{display:none}
 .mcp-oauth-dialog>footer{padding:14px 0 0;min-height:20px}
 @media(max-width:767px){.mcp-oauth-overlay{padding:8px}.mcp-oauth-dialog{padding:14px;border-radius:16px;max-height:calc(100dvh - 16px)}}
+/* Tool tiers under a service card. Rows never scroll inside the card; the list renders in full. */
+.mcp-settings .mcp-service-tools{margin:10px 0 0 52px}
+.mcp-settings .mcp-service-tools .disclosure{margin:0}
+.mcp-settings .mcp-service-tools .disclosure-toggle{min-height:36px;padding:4px 0;font:var(--type-meta);color:var(--ink-soft)}
+.mcp-tools{display:flex;flex-direction:column;gap:12px;padding:4px 0 2px}
+.mcp-tools-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px}
+.mcp-tools-head p{margin:0;max-width:60ch;font-size:12px;line-height:1.6;color:var(--muted)}
+.mcp-tools-head .mcp-button{flex:none}
+.mcp-tools-note{margin:0;font-size:12px;line-height:1.6;color:var(--muted)}
+.mcp-tools .mcp-tools-error{margin:0}
+.mcp-tool-group h5{display:flex;align-items:center;gap:8px;margin:0 0 4px;font:600 12px/1.4 var(--display);letter-spacing:.01em;color:var(--ink-soft)}
+.mcp-tool-count{font:var(--type-meta);font-size:12px;color:var(--muted)}
+.mcp-tool-group ul{list-style:none;margin:0;padding:0}
+.mcp-tool{display:flex;align-items:center;justify-content:space-between;gap:12px;min-height:48px;padding:8px 0;border-top:1px solid var(--line-soft)}
+.mcp-tool-copy{display:flex;flex-direction:column;gap:2px;min-width:0;flex:1}
+.mcp-tool-copy code{font:500 12.5px/1.4 var(--mono);color:var(--ink);overflow-wrap:anywhere}
+.mcp-tool-copy p{margin:0;font-size:12px;line-height:1.5;color:var(--muted);display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.mcp-tool-marks{display:flex;flex-wrap:wrap;gap:6px}
+.mcp-tier-mark{display:inline-flex;align-items:center;min-height:20px;padding:0 7px;border-radius:999px;background:color-mix(in srgb,var(--text) 6%,transparent);font-size:12px;line-height:1.4;color:var(--muted);white-space:nowrap}
+.mcp-tier-mark.is-changed{background:color-mix(in srgb,var(--amber,#c98a1b) 16%,transparent);color:var(--ink)}
+.mcp-tool[data-source=owner] .mcp-tier-mark:first-child{background:color-mix(in srgb,var(--blue) 14%,transparent);color:var(--ink)}
+.workspace .settings-page-body .mcp-tier-select{flex:none;width:auto;min-width:148px;max-width:200px;min-height:36px;padding:6px 34px 6px 12px;border-radius:10px;font-size:13px}
+.mcp-tool-group[data-tier=high_risk] h5{color:var(--danger-text)}
+@media (max-width:700px){
+  .mcp-settings .mcp-service-tools{margin-left:0}
+  .mcp-tools-head{flex-direction:column;align-items:stretch}
+  .mcp-tool{flex-direction:column;align-items:stretch}
+  .workspace .settings-page-body .mcp-tier-select{width:100%;max-width:none;min-height:44px}
+}

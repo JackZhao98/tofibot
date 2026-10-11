@@ -366,7 +366,8 @@
       "needs_you": "결정 필요",
       "auto_invalidated": "자동 결정이 더 이상 유효하지 않음",
       "policy_needs_approval": "정책상 수동 승인 필요",
-      "already_reviewed": "이미 검토됨"
+      "already_reviewed": "이미 검토됨",
+      "high_risk_tool": "고위험 도구 · 결정 필요"
     },
     "label": {
       "shadow_reviewing": "관찰: 검토 중",
@@ -391,7 +392,8 @@
       "policy_needs_human": "정책상 수동 결정 필요",
       "auto_invalidated": "자동 결정 무효",
       "not_eligible": "자동 실행 대상 아님",
-      "not_rereviewed": "재검토 안 됨"
+      "not_rereviewed": "재검토 안 됨",
+      "high_risk_tool": "고위험 도구: 호출마다 사람이 결정"
     },
     "failure": {
       "title": "검토를 완료하지 못한 이유",

@@ -404,7 +404,10 @@
     "needs_auth": "Authorization needed",
     "removing": "Working…",
     "unverified": "Not verified yet",
-    "waiting": "Waiting for authorization"
+    "waiting": "Waiting for authorization",
+    "read_only_count_one": "{{count}} read only",
+    "read_only_count_other": "{{count}} read only",
+    "classifying": "Classifying tools…"
   },
   "vm": {
     "cancel": "Cancel authorization",
@@ -420,5 +423,38 @@
     "reconnecting": "Connection interrupted. Retrying…",
     "screen_alt": "Shared computer",
     "subtitle": "Finish authorizing on the shared computer"
+  },
+  "tools": {
+    "changed": "Changed",
+    "empty": "No tools listed yet. Connect and refresh to load them.",
+    "error": {
+      "classification_failed": "Couldn't classify the tools. Unclassified tools are reviewed per call.",
+      "recheck_failed": "Couldn't refresh the tool list."
+    },
+    "explain": "Read-only tools run without review. Tools that can change data are reviewed per call. High-risk tools always ask you first.",
+    "group": {
+      "read_only": "Read only",
+      "write": "Can change data",
+      "high_risk": "High risk"
+    },
+    "pending_one": "{{count}} tool awaiting classification",
+    "pending_other": "{{count}} tools awaiting classification",
+    "recheck": "Re-check",
+    "rechecking": "Checking…",
+    "select_label": "Tier for {{name}}",
+    "source": {
+      "owner": "Set by you",
+      "auto": "Auto",
+      "unclassified": "Not classified"
+    },
+    "tier": {
+      "auto": "Automatic",
+      "auto_resolved": "Automatic · {{tier}}",
+      "read_only": "Read only",
+      "write": "Can change data",
+      "high_risk": "High risk"
+    },
+    "title": "Tools · {{count}}",
+    "classifying": "Classifying tools in the background. Until a tool is classified it is reviewed per call."
   }
 }
