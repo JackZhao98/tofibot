@@ -171,8 +171,9 @@ func TestMCPToolTierStoreLifecycle(t *testing.T) {
 
 // A version 1 tier file (model classification and background queue) is read
 // once and rewritten as version 2: owner overrides (including the migrated
-// trusted list) survive, the auto/model/queue fields do not, and a tool the
-// old pass had labelled read_only without a provider mark is write again.
+// trusted list) survive, the auto/model/queue fields do not, a tool the old
+// pass had labelled read_only without a provider mark is write again, and a
+// version 1 provider mark waits for the next tools/list (see the next test).
 func TestMCPToolTierFileMigrationDropsClassifierState(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "mcp.json")
@@ -196,7 +197,7 @@ func TestMCPToolTierFileMigrationDropsClassifierState(t *testing.T) {
 		src  string
 	}{
 		"fetch":       {MCPTierWrite, MCPTierSourceDefault},     // the model's read_only is gone
-		"get":         {MCPTierReadOnly, MCPTierSourceProvider}, // the provider's mark stands
+		"get":         {MCPTierWrite, MCPTierSourceDefault},     // a version 1 mark is re-recorded by the next tools/list
 		"legacy_read": {MCPTierReadOnly, MCPTierSourceOwner},    // migrated trusted entry stays an owner override
 		"send":        {MCPTierHighRisk, MCPTierSourceOwner},    // owner high_risk stays
 		"post":        {MCPTierWrite, MCPTierSourceDefault},     // the model's high_risk is gone: reviewed, not forced
@@ -216,6 +217,65 @@ func TestMCPToolTierFileMigrationDropsClassifierState(t *testing.T) {
 	}
 	if !strings.Contains(string(b), `"version": 2`) || !strings.Contains(string(b), `"override": "high_risk"`) {
 		t.Fatalf("migrated file: %s", b)
+	}
+}
+
+// A version 1 record never said whether its name was listed more than once:
+// it carried the first listing's annotations and left the decision to the
+// model classifier. Its readOnlyHint therefore cannot make the tool read_only
+// after migration; a call through a cached schema needs no fresh tools/list,
+// so the mark is honoured only once the server has been listed again under
+// version 2, and a duplicated listing stays write then as the contract says.
+func TestMCPToolTierFileMigrationWaitsForObservation(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "mcp.json")
+	cfg := MCPServerConfig{URL: "https://synthetic.invalid/mcp"}
+	raw, _ := json.Marshal(serverFile{MCPServers: map[string]MCPServerConfig{"svc": cfg}})
+	if err := os.WriteFile(path, raw, 0600); err != nil {
+		t.Fatal(err)
+	}
+	// What version 1 wrote for a name listed twice (first listing read only,
+	// second a write with the same name) and for a name listed once.
+	legacyFile := `{"version":1,"servers":{"svc":{"migrated_trusted":true,"tools":{
+	 "twice":{"digest":"d-both","description":"Read","annotations_present":true,"read_only_hint":true,"reason":"listed more than once by the server; not classified"},
+	 "once":{"digest":"d-once","annotations_present":true,"read_only_hint":true,"auto":"read_only","auto_digest":"d-once","model_tier":"read_only"},
+	 "kept":{"digest":"d-kept","annotations_present":true,"read_only_hint":true,"override":"high_risk","override_digest":"d-kept"}}}}}`
+	if err := os.WriteFile(filepath.Join(dir, "mcp-tool-tiers.json"), []byte(legacyFile), 0600); err != nil {
+		t.Fatal(err)
+	}
+	m := NewManager(Config{MCPConfigPath: path})
+	for _, name := range []string{"twice", "once"} {
+		if v := m.MCPToolTier("svc", name); v.Tier != MCPTierWrite || v.Source != MCPTierSourceDefault || v.ReadOnlyHint {
+			t.Fatalf("%s after migration, before any tools/list: %+v", name, v)
+		}
+		if m.RunToolReadOnly("mcp_svc__" + name) {
+			t.Fatalf("%s is an observation for the fence before any tools/list", name)
+		}
+	}
+	if v := m.MCPToolTier("svc", "kept"); v.Tier != MCPTierHighRisk || v.Source != MCPTierSourceOwner || v.Changed {
+		t.Fatalf("owner override lost or stale across migration: %+v", v)
+	}
+	b, err := os.ReadFile(filepath.Join(dir, "mcp-tool-tiers.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(string(b), `"read_only_hint"`) || strings.Contains(string(b), `"annotations_present"`) {
+		t.Fatalf("migrated file still carries a version 1 provider mark: %s", b)
+	}
+	// The next tools/list decides: a single read-only listing is read_only,
+	// the duplicated name stays write.
+	readOnly := MCPToolAnnotations{Present: true, ReadOnly: true}
+	first := tierDescriptor("twice", "Read", readOnly)
+	second := tierDescriptor("twice", "Write", MCPToolAnnotations{Present: true})
+	once := tierDescriptor("once", "Read", readOnly)
+	if err := m.ObserveTools("svc", cfg, []MCPToolDescriptor{first, second, once}); err != nil {
+		t.Fatal(err)
+	}
+	if v := m.MCPToolTier("svc", "twice"); v.Tier != MCPTierWrite || v.Source != MCPTierSourceDefault || !v.Duplicated {
+		t.Fatalf("duplicated listing after re-observation: %+v", v)
+	}
+	if v := m.MCPToolTier("svc", "once"); v.Tier != MCPTierReadOnly || v.Source != MCPTierSourceProvider {
+		t.Fatalf("single read-only listing after re-observation: %+v", v)
 	}
 }
 
