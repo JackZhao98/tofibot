@@ -47,10 +47,20 @@ type mcpTierAnswer struct {
 	} `json:"tools"`
 }
 
+// mcpTierBatch is one bounded classification request: its JSON entries, the
+// descriptors it covers (the only names an answer may label) and the tools
+// whose input schema was too large to send.
+type mcpTierBatch struct {
+	Entries       []json.RawMessage
+	Tools         map[string]extensions.MCPToolDescriptor
+	SchemaOmitted map[string]bool
+}
+
 // mcpTierBatches splits pending tools into bounded requests. Every tool
 // appears in exactly one batch; an oversized schema is replaced by a marker
-// so the digest-bound answer still covers the tool.
-func mcpTierBatches(tools []extensions.MCPToolDescriptor) [][]json.RawMessage {
+// so the digest-bound answer still covers the tool, and the batch remembers
+// it so a read_only label without schema evidence is capped at write.
+func mcpTierBatches(tools []extensions.MCPToolDescriptor) []mcpTierBatch {
 	type entry struct {
 		Name        string         `json:"name"`
 		Description string         `json:"description"`
@@ -58,9 +68,15 @@ func mcpTierBatches(tools []extensions.MCPToolDescriptor) [][]json.RawMessage {
 		SchemaNote  string         `json:"input_schema_note,omitempty"`
 		Annotations map[string]any `json:"untrusted_annotations"`
 	}
-	var batches [][]json.RawMessage
-	var current []json.RawMessage
+	var batches []mcpTierBatch
+	current := mcpTierBatch{Tools: map[string]extensions.MCPToolDescriptor{}, SchemaOmitted: map[string]bool{}}
 	size := 0
+	flush := func() {
+		if len(current.Entries) > 0 {
+			batches = append(batches, current)
+		}
+		current, size = mcpTierBatch{Tools: map[string]extensions.MCPToolDescriptor{}, SchemaOmitted: map[string]bool{}}, 0
+	}
 	for _, tool := range tools {
 		description := strings.Join(strings.Fields(tool.Description), " ")
 		if utf8.RuneCountInString(description) > mcpTierDescRunes {
@@ -71,23 +87,25 @@ func mcpTierBatches(tools []extensions.MCPToolDescriptor) [][]json.RawMessage {
 			annotations["destructive_hint"] = *tool.Annotations.Destructive
 		}
 		e := entry{Name: tool.RemoteName, Description: description, Schema: tool.InputSchema, Annotations: annotations}
+		omitted := false
 		if raw, err := json.Marshal(tool.InputSchema); err != nil || len(raw) > mcpTierSchemaBytes {
-			e.Schema, e.SchemaNote = nil, "input schema omitted: larger than the classification limit"
+			e.Schema, e.SchemaNote, omitted = nil, "input schema omitted: larger than the classification limit", true
 		}
 		raw, err := json.Marshal(e)
 		if err != nil {
 			continue
 		}
-		if len(current) >= mcpTierBatchTools || size+len(raw) > mcpTierBatchBytes && len(current) > 0 {
-			batches = append(batches, current)
-			current, size = nil, 0
+		if len(current.Entries) >= mcpTierBatchTools || size+len(raw) > mcpTierBatchBytes && len(current.Entries) > 0 {
+			flush()
 		}
-		current = append(current, raw)
+		current.Entries = append(current.Entries, raw)
+		current.Tools[tool.RemoteName] = tool
+		if omitted {
+			current.SchemaOmitted[tool.RemoteName] = true
+		}
 		size += len(raw)
 	}
-	if len(current) > 0 {
-		batches = append(batches, current)
-	}
+	flush()
 	return batches
 }
 
@@ -152,17 +170,13 @@ func (s *Server) classifyMCPToolTiers(ctx context.Context, server string) (int, 
 	if err != nil {
 		return 0, err
 	}
-	byName := make(map[string]extensions.MCPToolDescriptor, len(pending))
-	for _, tool := range pending {
-		byName[tool.RemoteName] = tool
-	}
 	recorded := 0
 	for _, batch := range mcpTierBatches(pending) {
 		input, err := json.Marshal(struct {
 			Contract string            `json:"custom_contract"`
 			Server   string            `json:"server"`
 			Tools    []json.RawMessage `json:"tools"`
-		}{"tofi-mcp-tool-tier-v1", server, batch})
+		}{"tofi-mcp-tool-tier-v1", server, batch.Entries})
 		if err != nil {
 			return recorded, err
 		}
@@ -172,22 +186,34 @@ func (s *Server) classifyMCPToolTiers(ctx context.Context, server string) (int, 
 		resp, err := p.Chat(batchCtx, &provider.ChatRequest{Model: model, System: mcpToolTierPrompt, Messages: []provider.Message{{Role: "user", Content: string(input)}}})
 		cancelBatch()
 		if err != nil {
-			log.Printf("[tool-tiers] classification failed server=%s tools=%d model=%s latency_ms=%d err=%v", server, len(batch), model, time.Since(started).Milliseconds(), err)
+			log.Printf("[tool-tiers] classification failed server=%s tools=%d model=%s latency_ms=%d err=%v", server, len(batch.Entries), model, time.Since(started).Milliseconds(), err)
 			return recorded, err
 		}
 		if resp == nil || len(resp.ToolCalls) > 0 {
 			return recorded, errors.New("answer_invalid")
 		}
-		log.Printf("[tool-tiers] classified server=%s tools=%d model=%s input_tokens=%d output_tokens=%d latency_ms=%d", server, len(batch), model, resp.Usage.InputTokens, resp.Usage.OutputTokens, time.Since(started).Milliseconds())
+		log.Printf("[tool-tiers] classified server=%s tools=%d model=%s input_tokens=%d output_tokens=%d latency_ms=%d", server, len(batch.Entries), model, resp.Usage.InputTokens, resp.Usage.OutputTokens, time.Since(started).Milliseconds())
 		if s.store != nil {
 			if e := s.store.recordBackgroundModelUsage("mcp_tool_tiers", model, resp.Usage.InputTokens, resp.Usage.OutputTokens); e != nil {
 				log.Printf("[usage] tool tier classification usage: %v", e)
 			}
 		}
-		results, err := parseMCPTierAnswer(resp.Content, byName)
+		// An answer may only label the tools this batch sent: a name from
+		// another batch was never seen with its schema, whatever a
+		// description in this batch asked for.
+		results, err := parseMCPTierAnswer(resp.Content, batch.Tools)
 		if err != nil {
 			log.Printf("[tool-tiers] answer rejected server=%s rule=%v", server, err)
 			return recorded, err
+		}
+		for i := range results {
+			// Without its schema the model judged the description alone, and
+			// the description is the remote's own claim. Never read_only on
+			// that evidence; the owner can still set it.
+			if batch.SchemaOmitted[results[i].RemoteName] && results[i].Tier == extensions.MCPTierReadOnly {
+				results[i].Tier = extensions.MCPTierWrite
+				results[i].Reason = "input schema too large to classify; " + results[i].Reason
+			}
 		}
 		n, err := s.extensions.RecordToolClassification(server, results)
 		recorded += n

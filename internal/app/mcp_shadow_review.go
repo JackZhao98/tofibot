@@ -100,6 +100,11 @@ func (s *Server) finishShadowMCPReview(c Conversation, r Run, call extensions.MC
 	if status == "shadow_unavailable" {
 		display.FailureCategory = failureCategory
 	}
+	if status == "shadow_needs_human" {
+		// A high_risk tier verdict keeps its source on the card in shadow mode
+		// too: the person deciding sees that the tier, not the reviewer, asked.
+		display.DecisionSource = result.Source
+	}
 	q.Approval.Review = display
 	q.UpdatedAt = now()
 	raw, _ := json.Marshal(q.Approval)

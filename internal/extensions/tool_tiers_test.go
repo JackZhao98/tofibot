@@ -255,3 +255,97 @@ func TestMCPCallGateHonoursToolTier(t *testing.T) {
 		t.Fatalf("policy survived an endpoint change: %+v", v)
 	}
 }
+
+// Two remote tools whose run names sanitize to the same string (case,
+// punctuation) are distinct tools with distinct tiers; a recorded step names
+// only the run name, so the fence must treat the ambiguous name as an effect
+// rather than pick one of them.
+func TestMCPRunToolReadOnlyAmbiguousNameIsNeverObservation(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "mcp.json")
+	cfg := MCPServerConfig{URL: "https://synthetic.invalid/mcp"}
+	raw, _ := json.Marshal(serverFile{MCPServers: map[string]MCPServerConfig{"svc": cfg}})
+	if err := os.WriteFile(path, raw, 0600); err != nil {
+		t.Fatal(err)
+	}
+	m := NewManager(Config{MCPConfigPath: path})
+	read := tierDescriptor("get_issue", "Read one issue", MCPToolAnnotations{Present: true, ReadOnly: true})
+	write := tierDescriptor("Get.Issue", "Assign and update one issue", MCPToolAnnotations{})
+	if _, err := m.ObserveTools("svc", cfg, []MCPToolDescriptor{read, write}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := m.RecordToolClassification("svc", []MCPToolClassification{
+		{RemoteName: "get_issue", Digest: read.Digest, Tier: MCPTierReadOnly},
+		{RemoteName: "Get.Issue", Digest: write.Digest, Tier: MCPTierWrite},
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if m.MCPToolTier("svc", "get_issue").Tier != MCPTierReadOnly || m.MCPToolTier("svc", "Get.Issue").Tier != MCPTierWrite {
+		t.Fatal("tiers were not recorded per exact remote name")
+	}
+	// Map iteration order is randomized: a single lucky pass proves nothing.
+	for i := 0; i < 64; i++ {
+		if m.RunToolReadOnly("mcp_svc__get_issue") {
+			t.Fatalf("ambiguous run name read as an observation (iteration %d)", i)
+		}
+	}
+	// An unambiguous read-only name still maps.
+	only := tierDescriptor("list_items", "List items", MCPToolAnnotations{Present: true, ReadOnly: true})
+	if _, err := m.ObserveTools("svc", cfg, []MCPToolDescriptor{only}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := m.RecordToolClassification("svc", []MCPToolClassification{{RemoteName: "list_items", Digest: only.Digest, Tier: MCPTierReadOnly}}); err != nil {
+		t.Fatal(err)
+	}
+	if !m.RunToolReadOnly("mcp_svc__list_items") {
+		t.Fatal("unambiguous read-only run name must map")
+	}
+}
+
+// A remote name listed twice is one tools/call target with two run-facing
+// schemas. No single descriptor describes it: it is never sent for
+// classification, stays write, and an owner override binds to both listings.
+func TestMCPObserveToolsDuplicateListingIsNeverClassified(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "mcp.json")
+	cfg := MCPServerConfig{URL: "https://synthetic.invalid/mcp"}
+	raw, _ := json.Marshal(serverFile{MCPServers: map[string]MCPServerConfig{"svc": cfg}})
+	if err := os.WriteFile(path, raw, 0600); err != nil {
+		t.Fatal(err)
+	}
+	m := NewManager(Config{MCPConfigPath: path})
+	first := tierDescriptor("fetch", "Fetch a record", MCPToolAnnotations{Present: true, ReadOnly: true})
+	second := MCPToolDescriptor{RemoteName: "fetch", Description: "Fetch a record", InputSchema: map[string]any{"type": "object", "properties": map[string]any{"recipients": map[string]any{"type": "array"}}}, Annotations: MCPToolAnnotations{Present: true, ReadOnly: true}}
+	second.Digest = MCPToolDigest(second)
+	pending, err := m.ObserveTools("svc", cfg, []MCPToolDescriptor{first, second})
+	if err != nil || pending != 0 {
+		t.Fatalf("duplicate listing queued for classification: pending=%d err=%v", pending, err)
+	}
+	if got := m.PendingToolClassification("svc"); len(got) != 0 {
+		t.Fatalf("pending = %+v", got)
+	}
+	for _, digest := range []string{first.Digest, second.Digest} {
+		if n, err := m.RecordToolClassification("svc", []MCPToolClassification{{RemoteName: "fetch", Digest: digest, Tier: MCPTierReadOnly}}); err != nil || n != 0 {
+			t.Fatalf("a single listing's digest classified the duplicated tool: n=%d err=%v", n, err)
+		}
+	}
+	if v := m.MCPToolTier("svc", "fetch"); v.Tier != MCPTierWrite || v.Source != mcpTierSourceUnclassified || !strings.Contains(v.Reason, "more than once") {
+		t.Fatalf("duplicated tool: %+v", v)
+	}
+	// The owner may still decide; the decision is bound to the whole set.
+	if _, err := m.SetToolTierOverride("svc", "fetch", string(MCPTierReadOnly)); err != nil {
+		t.Fatal(err)
+	}
+	if v := m.MCPToolTier("svc", "fetch"); v.Tier != MCPTierReadOnly || v.Source != mcpTierSourceOwner || v.Changed {
+		t.Fatalf("override on duplicated tool: %+v", v)
+	}
+	changed := second
+	changed.InputSchema = map[string]any{"type": "object", "properties": map[string]any{"amount": map[string]any{"type": "number"}}}
+	changed.Digest = ""
+	if _, err := m.ObserveTools("svc", cfg, []MCPToolDescriptor{first, changed}); err != nil {
+		t.Fatal(err)
+	}
+	if v := m.MCPToolTier("svc", "fetch"); v.Tier != MCPTierWrite || !v.Changed {
+		t.Fatalf("a changed second listing must stale the override: %+v", v)
+	}
+}
