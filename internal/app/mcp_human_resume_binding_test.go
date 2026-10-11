@@ -37,7 +37,7 @@ func TestAutoReviewV5HumanRequiredDurableResume(t *testing.T) {
 				t.Fatal(err)
 			}
 			f.p.reply = func(_ context.Context, req *provider.ChatRequest) (*provider.ChatResponse, error) {
-				return v5ReviewReply(req, "allow", "high", true), nil
+				return v5ReviewReply(req, "needs_human", "high", true), nil
 			}
 			// Related evidence stays in the binding even while the approval's
 			// own lifecycle records are normalized.

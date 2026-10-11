@@ -112,10 +112,12 @@ func TestAutoReviewV5RiskConfirmationAndHumanRace(t *testing.T) {
 		name, decision, risk             string
 		confirmation, humanAnswer, allow bool
 	}{
-		{"high requires human", "allow", "high", false, false, false},
-		{"explicit confirmation", "allow", "medium", true, false, false},
+		// The user's verified request is the trigger: an allow executes at any
+		// risk level unless a person already refused.
+		{"high allow executes", "allow", "high", false, true, true},
+		{"allow with stray confirmation executes", "allow", "medium", true, true, true},
 		{"needs human", "needs_human", "low", true, false, false},
-		{"valid high confirmation once", "allow", "high", false, true, true},
+		{"human denial wins high allowance", "allow", "high", false, false, false},
 		{"human denial wins low allowance", "allow", "low", false, false, false},
 		{"human approval cannot override deny", "deny", "low", false, true, false},
 		{"human approval cannot repair unknown", "context_gap", "unknown", false, true, false},
@@ -156,17 +158,13 @@ func TestAutoReviewV5RiskConfirmationAndHumanRace(t *testing.T) {
 			}
 		})
 	}
-	// High/confirmation must remain pending until a real human decides.
-	for _, confirmation := range []bool{false, true} {
-		t.Run(map[bool]string{false: "high pending", true: "confirmation pending"}[confirmation], func(t *testing.T) {
+	// needs_human must remain pending until a real human decides, at any risk.
+	for _, risk := range []string{"low", "high"} {
+		t.Run("needs_human pending "+risk, func(t *testing.T) {
 			f := newAutoReviewFixture(t)
 			_ = f.s.store.putAutoReviewMode("auto")
-			risk := "high"
-			if confirmation {
-				risk = "low"
-			}
 			f.p.reply = func(_ context.Context, req *provider.ChatRequest) (*provider.ChatResponse, error) {
-				return v5ReviewReply(req, "allow", risk, confirmation), nil
+				return v5ReviewReply(req, "needs_human", risk, true), nil
 			}
 			done := make(chan error, 1)
 			go func() { done <- f.execute(context.Background()) }()
@@ -230,20 +228,20 @@ func TestAutoReviewV5MalformedAndOldContractsFailClosed(t *testing.T) {
 }
 
 func TestAutoReviewV5AtomicClaimAndRestartRecheckRiskBindings(t *testing.T) {
-	for _, mutation := range []string{"high", "confirmation", "deny", "old policy", "missing risk", "missing confirmation", "config", "expiry", "restart old policy"} {
+	for _, mutation := range []string{"needs_human", "context_gap", "deny", "old policy", "missing risk", "missing confirmation", "config", "expiry", "restart old policy"} {
 		t.Run(mutation, func(t *testing.T) {
 			f := newProvenanceReviewFixture(t)
 			setSyntheticMCPHumanPolicy(t, f, true)
 			q := createReviewedUnclaimed(t, f)
 			switch mutation {
-			case "high":
-				_, _ = f.s.store.db.Exec(`UPDATE mcp_auto_reviews SET risk_level='high' WHERE question_id=?`, q.ID)
-			case "confirmation":
-				_, _ = f.s.store.db.Exec(`UPDATE mcp_auto_reviews SET confirmation_required=1 WHERE question_id=?`, q.ID)
+			case "needs_human":
+				_, _ = f.s.store.db.Exec(`UPDATE mcp_auto_reviews SET decision='needs_human',confirmation_required=1 WHERE question_id=?`, q.ID)
+			case "context_gap":
+				_, _ = f.s.store.db.Exec(`UPDATE mcp_auto_reviews SET decision='context_gap',risk_level='unknown' WHERE question_id=?`, q.ID)
 			case "deny":
 				_, _ = f.s.store.db.Exec(`UPDATE mcp_auto_reviews SET decision='deny' WHERE question_id=?`, q.ID)
 			case "old policy", "restart old policy":
-				_, _ = f.s.store.db.Exec(`UPDATE mcp_auto_reviews SET policy_version='mcp-all-external-v4' WHERE question_id=?`, q.ID)
+				_, _ = f.s.store.db.Exec(`UPDATE mcp_auto_reviews SET policy_version='mcp-all-external-v5' WHERE question_id=?`, q.ID)
 			case "missing risk":
 				_, _ = f.s.store.db.Exec(`UPDATE mcp_auto_reviews SET risk_level='' WHERE question_id=?`, q.ID)
 			case "missing confirmation":

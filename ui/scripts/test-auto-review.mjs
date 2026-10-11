@@ -41,12 +41,12 @@ try {
   const humanWithShadowDeny={...human,approval:{...human.approval,review:{...human.approval.review,status:"shadow_deny"}}};
   assert.equal(autoReviewPresentation(humanWithShadowDeny).badge,"人工已决定 · 观察建议");
   assert.equal(autoReviewPresentation(humanWithShadowDeny).label,"观察建议拒绝");
-  const v5Denied={...human,approval:{...human.approval,review:{...human.approval.review,status:"policy_denied",risk_level:"low",confirmation_required:false,policy_version:"mcp-all-external-v5"}}};
+  const v5Denied={...human,approval:{...human.approval,review:{...human.approval.review,status:"policy_denied",risk_level:"low",confirmation_required:false,policy_version:"mcp-all-external-v6"}}};
   assert.equal(autoReviewPresentation(v5Denied).label,"策略判决拒绝","a human race must not label a hard denial as execution permission");
   for (const [status,label] of [["setup_required","配置缺口"],["context_required","上下文缺口"],["unavailable","审查不可用"],["terminal","不可执行"]]) {
     assert.equal(autoReviewPresentation({...v5Denied,approval:{...v5Denied.approval,review:{...v5Denied.approval.review,status}}}).label,label);
   }
-  const v5Reviewing={...awaitingHuman,approval:{...human.approval,review:{...human.approval.review,status:"reviewing",policy_version:"mcp-all-external-v5"}}};
+  const v5Reviewing={...awaitingHuman,approval:{...human.approval,review:{...human.approval.review,status:"reviewing",policy_version:"mcp-all-external-v6"}}};
   assert.equal(autoReviewPresentation(v5Reviewing).badge,"AutoReview 审查中");
   await modules.setLanguage("en");
   assert.equal(autoReviewPresentation(v5Reviewing).badge,"AutoReview checking","English copy comes from the en catalog");
