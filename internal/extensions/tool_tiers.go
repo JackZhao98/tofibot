@@ -161,6 +161,18 @@ func newMCPToolTierStore(configPath string) *mcpToolTierStore {
 			if !ValidMCPToolTier(rec.Override) {
 				rec.Override, rec.OverrideDigest = "", ""
 			}
+			if f.Version == tierFileLegacyVersion {
+				// A version 1 record carries the first listing's annotations
+				// and never said whether the name was listed more than once
+				// (the model classifier, not the annotation, decided then).
+				// Carrying its readOnlyHint into version 2 would make a
+				// duplicated listing read_only until the server is listed
+				// again, and a call through a cached schema needs no fresh
+				// listing. The provider's mark is re-recorded by the next
+				// tools/list; until then the tool is reviewed. Digest,
+				// description and owner override survive.
+				rec.AnnotationsPresent, rec.ReadOnlyHint, rec.DestructiveHint, rec.Duplicated = false, false, nil, false
+			}
 		}
 		s.servers[name] = srv
 	}
