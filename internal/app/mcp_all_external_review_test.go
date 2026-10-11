@@ -18,6 +18,18 @@ import (
 	"github.com/JackZhao98/tofibot/internal/runtime"
 )
 
+// setSyntheticMCPEffect makes the fixture's exact action an effect for the
+// one-shot tests: neither owner-trusted read-only nor remote readOnlyHint, so
+// a repeat of the identical call is refused instead of reviewed afresh.
+func setSyntheticMCPEffect(t *testing.T, f *autoReviewFixture) {
+	t.Helper()
+	if f.tool != nil {
+		f.tool.Annotations = nil
+	}
+	f.call.ReadOnlyHint = false
+	setSyntheticMCPHumanPolicy(t, f, true)
+}
+
 // Only synthetic public configuration is edited. This is the pre-existing host
 // human-confirmation policy, not a qualification registry for the reviewer.
 func setSyntheticMCPHumanPolicy(t *testing.T, f *autoReviewFixture, requiresHuman bool) {
@@ -126,6 +138,7 @@ func TestAllExternalReviewAutoFourOutcomes(t *testing.T) {
 	for _, decision := range []string{"allow", "deny", "needs_human", "context_gap"} {
 		t.Run(decision, func(t *testing.T) {
 			f := newAutoReviewFixture(t)
+			setSyntheticMCPEffect(t, f)
 			_ = f.s.store.putAutoReviewMode("auto")
 			f.p.reply = func(_ context.Context, req *provider.ChatRequest) (*provider.ChatResponse, error) {
 				return reviewReply(req, decision), nil
@@ -395,7 +408,10 @@ func TestAllExternalReviewClaimedReadOnlyTransportNeverRetries(t *testing.T) {
 	if err == nil || f.effects.Load() != 1 || f.p.calls.Load() != 1 {
 		t.Fatal("claimed read retried a dispatched operation", err, f.effects.Load())
 	}
-	if err := f.execute(context.Background()); err == nil || f.effects.Load() != 1 || f.p.calls.Load() != 1 {
-		t.Fatal("uncertain claim replayed", err)
+	// The transport never retries a claimed dispatch. A later identical read is
+	// the model's own decision: reviewed afresh on its own card, not replayed
+	// on the used approval and not refused as an unverified effect.
+	if err := f.execute(context.Background()); err == nil || f.effects.Load() != 2 || f.p.calls.Load() != 2 {
+		t.Fatal("uncertain claim replayed or repeat read refused", err, f.effects.Load(), f.p.calls.Load())
 	}
 }

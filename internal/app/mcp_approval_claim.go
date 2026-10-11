@@ -31,7 +31,7 @@ func (s *Server) claimMCPApproval(ctx context.Context, c Conversation, r Run, ca
 		return nil, err
 	}
 	if claimed != "" {
-		return nil, tooloutcome.New(tooloutcome.Uncertain, "approval_already_claimed", "unknown", "This approval already claimed execution. Verify the existing result before proposing another action.", "verify_effect").Err()
+		return nil, tooloutcome.ApprovalAlreadyClaimed("This approval already claimed execution.")
 	}
 	// A duplicate card cannot bypass an existing human denial/cancellation of
 	// the same exact proposal, even when separate runtimes produced the cards.
@@ -175,8 +175,11 @@ func (s *Server) claimMCPApproval(ctx context.Context, c Conversation, r Run, ca
 		if e != nil {
 			return nil, e
 		}
-		if inserted != 1 {
-			return nil, tooloutcome.New(tooloutcome.Uncertain, "approval_already_claimed", "unknown", "This exact external tool proposal already claimed execution. Verify its existing result before another action.", "verify_effect").Err()
+		// A read-only proposal (the scheduled fence's predicate) is claimed per
+		// card: a repeat read on its own fresh card is not a duplicate effect,
+		// so the action-level row only records the first dispatch for it.
+		if inserted != 1 && s.mcpProposalFence(call) == mcpProposalEffect {
+			return nil, tooloutcome.ApprovalAlreadyClaimed("This exact external tool proposal already claimed execution.")
 		}
 	}
 	if err = tx.Commit(); err != nil {

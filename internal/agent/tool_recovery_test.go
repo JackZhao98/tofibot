@@ -164,3 +164,30 @@ func TestEmptyArgumentsOutcomeIsConciseRepair(t *testing.T) {
 		t.Fatalf("outcome=%+v", o)
 	}
 }
+
+// A call refused before dispatch (its one-shot approval was already used) is
+// a denial of that exact call, not an unverified effect: it fences only the
+// identical arguments. Recorded as an uncertain effect, the same refusal
+// fenced every call of the operation, whatever its arguments.
+func TestRefusedApprovalFencesOnlyIdenticalArguments(t *testing.T) {
+	fetch := provider.ToolCall{ID: "fetch", Name: "call_mcp_tool", Arguments: `{"name":"mcp_notes__fetch","arguments":{"id":"3f5c"}}`}
+	other := `{"name":"mcp_notes__fetch","arguments":{"id":"https://notes.invalid/p/3f5c?pvs=204"}}`
+	legacy := []provider.Message{{Role: "assistant", ToolCalls: []provider.ToolCall{fetch}}, {Role: "tool", ToolCallID: fetch.ID, ToolOutcome: outcomePtr(tooloutcome.New(tooloutcome.Uncertain, "approval_already_claimed", "unknown", "Synthetic legacy refusal.", "verify_effect"))}}
+	if got := toolRecoveryGuard(legacy, "call_mcp_tool", other); got == nil || got.Code != "approval_already_claimed" {
+		t.Fatalf("legacy uncertain refusal did not fence other arguments: %+v", got)
+	}
+	refused, _ := tooloutcome.FromError(tooloutcome.ApprovalAlreadyClaimed("Synthetic refusal."))
+	if refused.Status != tooloutcome.Denied || refused.Certainty != "not_executed" {
+		t.Fatalf("refusal shape = %+v", refused)
+	}
+	messages := []provider.Message{{Role: "assistant", ToolCalls: []provider.ToolCall{fetch}}, {Role: "tool", ToolCallID: fetch.ID, ToolOutcome: &refused}}
+	if got := toolRecoveryGuard(messages, "call_mcp_tool", other); got != nil {
+		t.Fatalf("refusal fenced other arguments: %+v", got)
+	}
+	if got := toolRecoveryGuard(messages, "call_mcp_tool", `{"name":"mcp_notes__update","arguments":{"id":"3f5c"}}`); got != nil {
+		t.Fatalf("refusal fenced another operation: %+v", got)
+	}
+	if got := toolRecoveryGuard(messages, "call_mcp_tool", fetch.Arguments); got == nil || got.Code != "approval_already_claimed" {
+		t.Fatalf("identical refused call replayed: %+v", got)
+	}
+}

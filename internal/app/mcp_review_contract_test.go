@@ -158,7 +158,9 @@ func TestAutoReviewSetupContextAndTerminalStatesSpendNoReviewerRequest(t *testin
 			if !typed || out.Status == tooloutcome.NeedApproval || q.Status == questionPending || q.Approval.Review.Status != want || strings.Contains(q.Approval.Review.Reason, "Human review is required") {
 				t.Fatalf("gap/terminal state became an approval demand: q=%+v outcome=%+v err=%v", q, out, err)
 			}
-			if name == "expired" && (out.Status != tooloutcome.Expired || out.NextAction != "finish_summary") || name == "claimed" && out.Certainty != "unknown" {
+			// A claimed proposal is refused before dispatch: the earlier dispatch
+			// keeps its own certainty; this refusal executed nothing.
+			if name == "expired" && (out.Status != tooloutcome.Expired || out.NextAction != "finish_summary") || name == "claimed" && (out.Status != tooloutcome.Denied || out.Code != "approval_already_claimed" || out.Certainty != "not_executed") {
 				t.Fatal("terminal certainty or expiry fence changed")
 			}
 			if f.p.calls.Load() != 0 || f.effects.Load() != 0 || q.AnsweredBy != "" {
