@@ -650,7 +650,7 @@ class LifecycleTests(LifecycleBase):
         self.P.opt.mkdir(parents=True, exist_ok=True)
         os.symlink('releases/' + OLD, self.P.current)
         options = tofi_host.install_options(tofi_host.parse_args(['install', '--manifest', 'm.json']))
-        addresses = [('inet', '10.0.10.39'), ('inet', '192.168.7.2'), ('inet6', '2001:db8::39')]
+        addresses = [('inet', '192.0.2.39'), ('inet', '192.168.7.2'), ('inet6', '2001:db8::39')]
         with mock.patch.object(tofi_host, 'preflight', return_value=[]), \
                 mock.patch.object(tofi_host, 'ASSETS', self.P.releases / OLD), \
                 mock.patch.object(tofi_host, 'interface_addresses', return_value=addresses), \
@@ -662,12 +662,12 @@ class LifecycleTests(LifecycleBase):
         self.assertTrue(result['setup_key_pending'])
         out = sys.stdout.getvalue()
         self.assertIn('  Setup key   synthetic-setup-key   (one time)', out)
-        self.assertIn('  Open        https://10.0.10.39:8321\n              https://192.168.7.2:8321\n', out)
+        self.assertIn('  Open        https://192.0.2.39:8321\n              https://192.168.7.2:8321\n', out)
         self.assertNotIn('http://', out)
         self.assertNotIn('ssh -L', out)
         self.assertIn(tofi_host.certificate_fingerprint(), out)
         self.assertIn('Cloud server? allow TCP 8321', out)
-        self.assertEqual(result['urls'], ['https://10.0.10.39:8321', 'https://192.168.7.2:8321'])
+        self.assertEqual(result['urls'], ['https://192.0.2.39:8321', 'https://192.168.7.2:8321'])
         env = tofi_host.read_env()
         self.assertEqual(env['TOFI_BIND'], '0.0.0.0')
         self.assertEqual(env['TOFI_TLS_CERT_FILE'], '/etc/tofi-tls/cert.pem')
@@ -1298,7 +1298,7 @@ class GuestRetentionTests(ComputerCase):
 
 IP_ADDR_OUTPUT = r"""1: lo    inet 127.0.0.1/8 scope host lo\       valid_lft forever preferred_lft forever
 1: lo    inet6 ::1/128 scope host noprefixroute \       valid_lft forever preferred_lft forever
-2: ens18    inet 10.0.10.39/24 brd 10.0.10.255 scope global dynamic ens18\       valid_lft 86000sec
+2: ens18    inet 192.0.2.39/24 brd 192.0.2.255 scope global dynamic ens18\       valid_lft 86000sec
 2: ens18    inet6 2001:db8::39/64 scope global dynamic mngtmpaddr \       valid_lft 86000sec
 2: ens18    inet6 fe80::2:acff:fe15:75cc/64 scope link \       valid_lft forever preferred_lft forever
 3: docker0    inet 172.17.0.1/16 brd 172.17.255.255 scope global docker0\       valid_lft forever
@@ -1309,7 +1309,7 @@ IP_ADDR_OUTPUT = r"""1: lo    inet 127.0.0.1/8 scope host lo\       valid_lft fo
 
 
 class TLSTests(HostCase):
-    ADDRESSES = [('inet', '10.0.10.39'), ('inet6', '2001:db8::39'), ('inet', '192.168.7.2')]
+    ADDRESSES = [('inet', '192.0.2.39'), ('inet6', '2001:db8::39'), ('inet', '192.168.7.2')]
 
     def setUp(self):
         super().setUp()
@@ -1353,7 +1353,7 @@ class TLSTests(HostCase):
     def test_certificate_names_and_lifetime(self):
         self.installed()
         text = self.certificate_text()
-        for name in ('IP Address:10.0.10.39', 'IP Address:192.168.7.2', 'IP Address:2001:DB8:0:0:0:0:0:39',
+        for name in ('IP Address:192.0.2.39', 'IP Address:192.168.7.2', 'IP Address:2001:DB8:0:0:0:0:0:39',
                      'IP Address:127.0.0.1', 'DNS:localhost', 'DNS:' + tofi_host.certificate_hostname()):
             self.assertIn(name, text)
         self.assertIn('CN = ' + tofi_host.certificate_hostname(), text.replace('CN=', 'CN = '))
@@ -1388,7 +1388,7 @@ class TLSTests(HostCase):
 
     def test_access_urls(self):
         env = {'TOFI_BIND': '0.0.0.0', 'TOFI_HTTP_PORT': '8321', 'TOFI_TLS_CERT_FILE': '/etc/tofi-tls/cert.pem'}
-        self.assertEqual(tofi_host.access_urls(env), ['https://10.0.10.39:8321', 'https://192.168.7.2:8321'])
+        self.assertEqual(tofi_host.access_urls(env), ['https://192.0.2.39:8321', 'https://192.168.7.2:8321'])
         self.assertEqual(tofi_host.access_urls(dict(env, TOFI_BIND='127.0.0.1')), ['https://127.0.0.1:8321'])
         self.assertEqual(tofi_host.access_urls(dict(env, TOFI_DOMAIN='tofi.example.com')),
                          ['https://tofi.example.com'])
@@ -1426,7 +1426,7 @@ class TLSTests(HostCase):
         with mock.patch.object(tofi_host, 'project_containers', return_value=[]), \
                 mock.patch.object(tofi_host, 'health', return_value=True):
             result = tofi_host.status()
-        self.assertEqual(result['urls'], ['https://10.0.10.39:8321', 'https://192.168.7.2:8321'])
+        self.assertEqual(result['urls'], ['https://192.0.2.39:8321', 'https://192.168.7.2:8321'])
         self.assertEqual(result['certificate_sha256'], tofi_host.certificate_fingerprint())
 
 
@@ -1438,7 +1438,7 @@ def status_result(**extra):
     result = {
         'phase': 'installed', 'version': 'v0.1.0-rc.12', 'healthy': True,
         'services': {'app': 'healthy', 'worker': 'running'},
-        'urls': ['https://10.0.10.56:8321'], 'certificate_sha256': STATUS_FP,
+        'urls': ['https://192.0.2.56:8321'], 'certificate_sha256': STATUS_FP,
         'setup_key_pending': True, 'setup_key': STATUS_KEY,
         'versions': {'installed': 'v0.1.0-rc.12', 'latest': None, 'update_available': False,
                      'latest_error': 'Cannot download the release manifest https://github.com/x/releases/latest/'
@@ -1467,7 +1467,7 @@ class RenderStatusTests(unittest.TestCase):
     def test_default_view_is_compact(self):
         text = self.render()
         self.assertTrue(text.startswith('tofi v0.1.0-rc.12 · healthy\n\n'), text)
-        self.assertIn('  Open         https://10.0.10.56:8321\n', text)
+        self.assertIn('  Open         https://192.0.2.56:8321\n', text)
         self.assertIn('  Certificate  SHA256 01:02:03:04 … 1D:1E:1F:20\n', text)
         self.assertIn('  Admin        not created yet · sudo tofi setup-secret\n', text)
         self.assertIn('  Version      v0.1.0-rc.12 · no stable release yet\n', text)
@@ -1521,8 +1521,8 @@ class RenderStatusTests(unittest.TestCase):
                       '               this server only · ssh -L 8321:127.0.0.1:8321 <user>@<server>\n', text)
 
     def test_several_urls(self):
-        text = self.render(status_result(urls=['https://10.0.10.56:8321', 'https://192.168.7.2:8321']))
-        self.assertIn('  Open         https://10.0.10.56:8321\n               https://192.168.7.2:8321\n', text)
+        text = self.render(status_result(urls=['https://192.0.2.56:8321', 'https://192.168.7.2:8321']))
+        self.assertIn('  Open         https://192.0.2.56:8321\n               https://192.168.7.2:8321\n', text)
 
     def test_verbose_adds_images_full_fingerprint_and_raw_error(self):
         text = self.render(verbose=True)
@@ -1570,15 +1570,15 @@ class AddressTests(unittest.TestCase):
     def test_interface_addresses_skip_loopback_link_local_and_bridges(self):
         with mock.patch.object(tofi_host, 'run', return_value=completed(IP_ADDR_OUTPUT)):
             self.assertEqual(tofi_host.interface_addresses(),
-                             [('inet', '10.0.10.39'), ('inet6', '2001:db8::39'), ('inet', '192.168.7.2')])
+                             [('inet', '192.0.2.39'), ('inet6', '2001:db8::39'), ('inet', '192.168.7.2')])
 
     def test_hostname_fallback(self):
         def fake(args, check=True, **kwargs):
             if args[0] == 'ip':
                 raise FileNotFoundError('ip')
-            return completed('10.0.10.39 172.17.0.1 2001:db8::39 fe80::1\n')
+            return completed('192.0.2.39 172.17.0.1 2001:db8::39 fe80::1\n')
         with mock.patch.object(tofi_host, 'run', side_effect=fake):
-            self.assertEqual(tofi_host.interface_addresses(), [('inet', '10.0.10.39'), ('inet6', '2001:db8::39')])
+            self.assertEqual(tofi_host.interface_addresses(), [('inet', '192.0.2.39'), ('inet6', '2001:db8::39')])
 
 
 SPEC_ART = """\
@@ -1594,7 +1594,7 @@ KEY = 'synthetic-setup-key-0123456789abcdefghijklmnopqrstuvwxyz'
 
 class BannerTests(unittest.TestCase):
     def info(self, **extra):
-        values = {'version': 'v0.1.0', 'urls': ['https://10.0.10.39:8321', 'https://192.168.7.2:8321'],
+        values = {'version': 'v0.1.0', 'urls': ['https://192.0.2.39:8321', 'https://192.168.7.2:8321'],
                   'setup_key': KEY, 'domain': '', 'port': '8321', 'fingerprint': FINGERPRINT,
                   'local_only': False}
         values.update(extra)
@@ -1604,7 +1604,7 @@ class BannerTests(unittest.TestCase):
         text = tofi_host.render_banner(self.info(), None, 120)
         self.assertNotIn('\033', text)
         self.assertTrue(text.startswith(SPEC_ART), text)
-        self.assertIn('\n  Open        https://10.0.10.39:8321\n              https://192.168.7.2:8321\n', text)
+        self.assertIn('\n  Open        https://192.0.2.39:8321\n              https://192.168.7.2:8321\n', text)
         self.assertIn("              or your server's public IP\n", text)
         self.assertIn('\n  Setup key   %s   (one time)\n' % KEY, text)
         self.assertIn('\n  Next        enter the key, create your admin, connect a model\n', text)
@@ -1631,7 +1631,7 @@ class BannerTests(unittest.TestCase):
         self.assertIn(' \033[38;2;243;234;219m▀▀██▀▀\033[0m', text)  # t in cream
         self.assertIn('\033[38;2;232;149;109m▄▄▄▄▄', text)    # o in peach
         self.assertIn('\033[38;2;127;209;193m●', text)        # eyes in teal
-        self.assertIn('\033[1;4;38;2;127;209;193mhttps://10.0.10.39:8321\033[0m', text)
+        self.assertIn('\033[1;4;38;2;127;209;193mhttps://192.0.2.39:8321\033[0m', text)
         self.assertIn('\033[1m%s\033[0m' % KEY, text)
         self.assertEqual(self.strip(text), tofi_host.render_banner(self.info(), None, 120))
 
@@ -1657,7 +1657,7 @@ class BannerTests(unittest.TestCase):
 
     def test_narrow_terminal_skips_art(self):
         text = tofi_host.render_banner(self.info(), None, 59)
-        self.assertTrue(text.startswith('tofi v0.1.0 · your crew is awake\n\n  Open        https://10.0.10.39:8321\n'))
+        self.assertTrue(text.startswith('tofi v0.1.0 · your crew is awake\n\n  Open        https://192.0.2.39:8321\n'))
         self.assertNotIn('▄', text)
         self.assertIn('\n  Fingerprint SHA256\n  %s\n  Cloud server? allow TCP 8321\n' % FINGERPRINT, text)
         self.assertIn(KEY, text)
@@ -1710,13 +1710,13 @@ class ComputerBackendTests(HostCase):
         # An operator behind an external reverse proxy adds the value by hand;
         # `tofi update` rebuilds the file from the installed env and must keep it.
         env = tofi_host.render_env(manifest(), tofi_host.install_options(self.args()), {'cpu': 3, 'memory_mib': 6144})
-        env['TOFI_TRUSTED_PROXIES'] = '10.0.10.0/24'
+        env['TOFI_TRUSTED_PROXIES'] = '192.0.2.0/24'
         path = self.P.env_file
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(tofi_host.format_env(env))
         candidate = dict(tofi_host.read_env(path), TOFI_VERSION='v9.9.9')
         tofi_host.write_env(candidate)
-        self.assertEqual(tofi_host.read_env(path)['TOFI_TRUSTED_PROXIES'], '10.0.10.0/24')
+        self.assertEqual(tofi_host.read_env(path)['TOFI_TRUSTED_PROXIES'], '192.0.2.0/24')
 
     def test_other_backends_are_refused_as_not_supported_yet(self):
         for backend in ('gvisor', 'container'):

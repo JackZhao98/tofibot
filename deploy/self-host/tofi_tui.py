@@ -1120,6 +1120,83 @@ def validate_domain(answer):
     return domain, None
 
 
+MIN_PROXY_PREFIX = 8
+
+
+def parse_proxy_list(text):
+    """Proxy addresses typed as 'ip[,ip|cidr...]' (commas or spaces) -> (entries, error).
+
+    Entries are normalised and de-duplicated. A range that covers (nearly) the
+    whole internet is refused: everything inside it could forge the client
+    address the App rate-limits on."""
+    parts = [part for part in re.split(r'[\s,]+', (text or '').strip()) if part]
+    if not parts:
+        return None, 'Type the proxy address, for example 192.0.2.10 or 192.0.2.0/24.'
+    entries = []
+    for part in parts:
+        try:
+            network = ipaddress.ip_network(part, strict=False)
+        except ValueError:
+            return None, "'%s' is not an IP address or CIDR range; use something like 192.0.2.10 or " \
+                         "198.51.100.0/24." % part
+        if network.prefixlen < (MIN_PROXY_PREFIX if network.version == 4 else 16):
+            return None, "'%s' is too broad to trust as a proxy; give the proxy's own address or its subnet." % part
+        entry = str(network.network_address) if network.num_addresses == 1 else str(network)
+        if entry not in entries:
+            entries.append(entry)
+    return entries, None
+
+
+def validate_proxies(answer):
+    entries, error = parse_proxy_list(answer)
+    return (','.join(entries), None) if error is None else (None, error)
+
+
+def proxy_snippets(upstream, port, site='tofi.example.com'):
+    """Ready-to-paste Caddy and Nginx configuration for a proxy in front of TOFI.
+
+    TOFI listens on https://<upstream>:<port> with a self-signed certificate, so
+    certificate checking is switched off for that one hop only."""
+    target = '%s:%s' % (('[%s]' % upstream) if ':' in upstream else upstream, port)
+    caddy = '\n'.join([
+        '%s {' % site,
+        '    reverse_proxy https://%s {' % target,
+        '        # TOFI presents a self-signed certificate: skip verification for this upstream only.',
+        '        transport http {',
+        '            tls_insecure_skip_verify',
+        '        }',
+        '        # Stream server-sent events without buffering. Caddy already forwards Host,',
+        '        # X-Forwarded-For/Proto and WebSocket upgrades.',
+        '        flush_interval -1',
+        '    }',
+        '}'])
+    nginx = '\n'.join([
+        '# http { } level:',
+        'map $http_upgrade $connection_upgrade { default upgrade; \'\' close; }',
+        '',
+        'server {',
+        '    listen 443 ssl;',
+        '    server_name %s;' % site,
+        '    # ssl_certificate / ssl_certificate_key for %s go here.' % site,
+        '',
+        '    location / {',
+        '        proxy_pass https://%s;' % target,
+        '        # TOFI presents a self-signed certificate: skip verification for this hop only.',
+        '        proxy_ssl_verify off;',
+        '        proxy_http_version 1.1;',
+        '        proxy_set_header Host $host;',
+        '        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;',
+        '        proxy_set_header X-Forwarded-Proto $scheme;',
+        '        # WebSocket and server-sent events.',
+        '        proxy_set_header Upgrade $http_upgrade;',
+        '        proxy_set_header Connection $connection_upgrade;',
+        '        proxy_buffering off;',
+        '        proxy_read_timeout 3600s;',
+        '    }',
+        '}'])
+    return {'caddy': caddy, 'nginx': nginx}
+
+
 def validate_email(answer):
     answer = answer.strip()
     if not answer:
@@ -1147,6 +1224,7 @@ def parse_installer_args(argv, environ):
     parser.add_argument('--result', required=True)
     parser.add_argument('--version')
     parser.add_argument('--domain')
+    parser.add_argument('--behind-proxy', dest='behind_proxy')
     parser.add_argument('--email')
     parser.add_argument('--port')
     parser.add_argument('--computer')
@@ -1159,17 +1237,19 @@ def parse_installer_args(argv, environ):
     # Flags win; environment variables stand in for missing flags; each remembers where it came from.
     chosen = {}
     # An exposure flag (--domain, --local-only, --lan) also overrides exposure variables.
-    exposure_flag = bool(args.domain or args.local_only or args.lan)
+    exposure_flag = bool(args.domain or args.behind_proxy or args.local_only or args.lan)
     for name, env_name in (('version', 'TOFI_VERSION'), ('domain', 'TOFI_DOMAIN'), ('email', 'TOFI_EMAIL'),
-                           ('port', 'TOFI_PORT'), ('computer', 'TOFI_COMPUTER')):
+                           ('port', 'TOFI_PORT'), ('computer', 'TOFI_COMPUTER'),
+                           ('behind_proxy', 'TOFI_BEHIND_PROXY')):
         value = getattr(args, name)
         if value:
             chosen[name] = (value, '--' + name)
-        elif environ.get(env_name) and not (exposure_flag and name in ('domain', 'email')):
+        elif environ.get(env_name) and not (exposure_flag and name in ('domain', 'email', 'behind_proxy')):
             chosen[name] = (environ[env_name], env_name)
     if args.local_only:
         chosen['local_only'] = (True, '--local-only')
-    elif environ.get('TOFI_LOCAL_ONLY') == '1' and not exposure_flag and 'domain' not in chosen:
+    elif environ.get('TOFI_LOCAL_ONLY') == '1' and not exposure_flag and 'domain' not in chosen \
+            and 'behind_proxy' not in chosen:
         chosen['local_only'] = (True, 'TOFI_LOCAL_ONLY')
     if args.lan:
         chosen['lan'] = (True, '--lan')
@@ -1343,7 +1423,20 @@ class Installer:
 
         # b. Access.
         tls_busy = [p for p in (80, 443) if ports.busy(p)]
-        if self.source('domain'):
+        if self.source('domain') and self.source('behind_proxy'):
+            return self.fail(['--domain and --behind-proxy exclude each other: --domain runs the bundled Caddy '
+                              'on ports 80/443, --behind-proxy leaves TLS to the proxy you already run.'])
+        if self.source('behind_proxy') and self.source('local_only'):
+            return self.fail(['--behind-proxy and --local-only exclude each other: a proxy on another machine '
+                              'cannot reach a loopback-only App.'])
+        proxies = ''
+        if self.source('behind_proxy'):
+            entries, error = parse_proxy_list(self.value('behind_proxy'))
+            if error:
+                return self.fail(['--behind-proxy: ' + error])
+            proxies = ','.join(entries)
+            mode, sources['access'] = 'proxy', self.source('behind_proxy')
+        elif self.source('domain'):
             mode, sources['access'] = 'domain', self.source('domain')
         elif self.source('local_only'):
             mode, sources['access'] = 'local', self.source('local_only')
@@ -1358,26 +1451,41 @@ class Installer:
         port = int(self.value('port', DEFAULT_PORT))
         question = 'How will you open TOFI?'
         labels = {'ip': 'By IP over HTTPS (self-signed)', 'domain': 'With a domain (automatic HTTPS)',
-                  'local': 'This machine only (SSH tunnel)'}
+                  'local': 'This machine only (SSH tunnel)',
+                  'proxy': 'Behind your reverse proxy (self-signed upstream)'}
         if mode:
             if interactive:
                 self.set_by(question, labels[mode], sources['access'])
         elif interactive:
-            owners = sorted({ports.owner(p) or '' for p in tls_busy} - {''})
-            reason = None
-            if tls_busy:
-                reason = 'not supported: port%s %s in use%s' % (
-                    's' if len(tls_busy) > 1 else '', '/'.join(str(p) for p in tls_busy),
-                    ' by ' + ', '.join(owners) if owners else '')
-            choice = self.ask.choose(question, [
-                Option('ip', labels['ip'], detail=access_url('ip', facts, port),
-                       aliases=('ip', 'https', 'self-signed', 'by ip')),
-                Option('domain', labels['domain'], aliases=('domain', 'letsencrypt', "let's encrypt"),
-                       unsupported=reason),
-                Option('local', labels['local'], aliases=('local', 'local-only', 'ssh', 'tunnel', 'this machine')),
-            ], 0)
-            mode = choice.key
-            ui.write()
+            ui.title('Do you already run a reverse proxy in front of this server?')
+            ui.para('Caddy, Nginx, Traefik, a Cloudflare Tunnel... If one holds your domain and ports 80/443, '
+                    "TOFI's own HTTPS certificates cannot be issued: choose yes and TOFI serves its "
+                    'self-signed HTTPS on port %d for your proxy to forward to.' % port, 'info')
+            if self.ask.confirm('Is TOFI behind a reverse proxy you already run '
+                                '(Caddy, Nginx, Traefik, Cloudflare Tunnel...)?', False):
+                mode = 'proxy'
+                ui.write()
+                proxies = self.ask.ask_text(
+                    "Reverse proxy address (IP or CIDR; separate several with commas)", validate_proxies,
+                    hint="The address(es) TOFI will see the proxy connect from. Only these are believed "
+                         "when they send X-Forwarded-For (TOFI_TRUSTED_PROXIES).")
+                ui.write()
+            if mode is None:
+                owners = sorted({ports.owner(p) or '' for p in tls_busy} - {''})
+                reason = None
+                if tls_busy:
+                    reason = 'not supported: port%s %s in use%s' % (
+                        's' if len(tls_busy) > 1 else '', '/'.join(str(p) for p in tls_busy),
+                        ' by ' + ', '.join(owners) if owners else '')
+                choice = self.ask.choose(question, [
+                    Option('ip', labels['ip'], detail=access_url('ip', facts, port),
+                           aliases=('ip', 'https', 'self-signed', 'by ip')),
+                    Option('domain', labels['domain'], aliases=('domain', 'letsencrypt', "let's encrypt"),
+                           unsupported=reason),
+                    Option('local', labels['local'], aliases=('local', 'local-only', 'ssh', 'tunnel', 'this machine')),
+                ], 0)
+                mode = choice.key
+                ui.write()
         else:
             mode = 'ip'
 
@@ -1393,6 +1501,18 @@ class Installer:
             warning = dns_warning(domain, facts)
             if warning:
                 self.warnings([warning])
+                if interactive:
+                    ui.para('If %s does not reach this machine, the bundled Caddy cannot complete the Let\'s '
+                            'Encrypt challenge: no certificate is issued, browsers show an error and TOFI is '
+                            'unreachable by name until DNS is fixed. If a reverse proxy you already run owns '
+                            'this name, answer no here and restart the installer with the proxy option.'
+                            % domain, 'warn')
+                    if not self.ask.confirm('Continue installing with %s anyway?' % domain, False):
+                        ui.write(CANCELLED + ' Point the DNS record at this server, or answer yes to the '
+                                 'reverse proxy question, then run the installer again.')
+                        return 1
+                    ui.write()
+                # Without a terminal, --yes (or a CI run) is the confirmation; the warning stays in the log.
             if self.source('email'):
                 email = self.value('email')
             elif interactive:
@@ -1477,6 +1597,12 @@ class Installer:
             rows.append(('ok', 'Open', 'https://%s (Let\'s Encrypt)%s' % (domain, source_note('access'))))
             rows.append(('ok', 'Email', email or 'none'))
             rows.append(('info', 'Firewall', 'allow TCP 80 and 443; the App listens on 127.0.0.1:%d' % port))
+        elif mode == 'proxy':
+            rows.append(('ok', 'Open', 'through your reverse proxy; TOFI listens on %s (self-signed)%s'
+                         % (access_url('ip', facts, port), source_note('access'))))
+            rows.append(('ok', 'Proxy', '%s (trusted for X-Forwarded-For)' % proxies))
+            rows.append(('info', 'Firewall', 'allow TCP %d from the proxy only; snippets for Caddy and Nginx '
+                         'are printed after the install' % port))
         elif mode == 'local':
             rows.append(('ok', 'Open', 'https://127.0.0.1:%d via ssh -L %d:127.0.0.1:%d%s'
                          % (port, port, port, source_note('access'))))
@@ -1497,7 +1623,7 @@ class Installer:
         if ui.fancy:
             ui.title('Installing TOFI %s' % version)
         result = {'ACTION': 'install', 'VERSION': version, 'DOMAIN': domain, 'EMAIL': email,
-                  'LOCAL_ONLY': '1' if mode == 'local' else '0', 'COMPUTER': 'kvm', 'EXISTING': '0',
+                  'BEHIND_PROXY': proxies, 'LOCAL_ONLY': '1' if mode == 'local' else '0', 'COMPUTER': 'kvm', 'EXISTING': '0',
                   'PORT': str(port) if (self.source('port') or port != DEFAULT_PORT) else '',
                   'AUTO_UPDATE': '' if auto_update is None else 'patch' if auto_update else 'off'}
         write_result(self.result_path, result)
