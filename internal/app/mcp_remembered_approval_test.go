@@ -150,6 +150,16 @@ func TestRememberTargetKeyDerivation(t *testing.T) {
 	if k.Kind != mcpRememberTargetExact {
 		t.Fatalf("object identifier widened the key: %+v", k)
 	}
+	// Numeric identifiers keep their exact digits: two snowflake ids that
+	// round to the same float64 are different targets.
+	schema4 := json.RawMessage(`{"type":"object","properties":{"channel_id":{"type":"integer"},"text":{"type":"string"}}}`)
+	l, _ := mcpRememberTargetFor(schema4, json.RawMessage(`{"channel_id":1234567890123456789,"text":"a"}`))
+	m, _ := mcpRememberTargetFor(schema4, json.RawMessage(`{"channel_id":1234567890123456790,"text":"a"}`))
+	n, _ := mcpRememberTargetFor(schema3, json.RawMessage(`{"query":"faq","limit":9007199254740993}`))
+	o, _ := mcpRememberTargetFor(schema3, json.RawMessage(`{"query":"faq","limit":9007199254740992}`))
+	if l.Kind != mcpRememberTargetIdentifier || l.Key == m.Key || l.Summary != "channel_id = 1234567890123456789" || n.Key == o.Key {
+		t.Fatalf("numeric identifiers collided: l=%+v m=%+v n=%+v o=%+v", l, m, n, o)
+	}
 	if _, ok := mcpRememberTargetFor(json.RawMessage(`null`), json.RawMessage(`{"a":1}`)); ok {
 		t.Fatal("missing schema produced a target")
 	}
@@ -209,39 +219,150 @@ func TestRememberedApprovalSameTargetSkipsCardOffMode(t *testing.T) {
 	}
 }
 
-// Auto mode: the reviewer still assesses every call. Its needs_human is what
-// the grant answers; the reviewer is asked each time and its verdict and
-// risk stay on the record.
-func TestRememberedApprovalAutoModeStillReviews(t *testing.T) {
+// Auto mode: the reviewer's needs_human means "not covered by the user's
+// request" (mcp_review_contract.go), so a memory never decides there; the
+// card is not offered "remember" either. A reviewer deny stays a deny.
+func TestRememberedApprovalNeverDecidesInAutoMode(t *testing.T) {
 	f := newAutoReviewFixture(t)
 	setSyntheticMCPEffect(t, f)
+	grantID := approveAndRemember(t, f)
+	if grantID == "" || f.effects.Load() != 1 {
+		t.Fatalf("grant=%q effects=%d", grantID, f.effects.Load())
+	}
 	_ = f.s.store.putAutoReviewMode("auto")
 	f.p.reply = func(_ context.Context, req *provider.ChatRequest) (*provider.ChatResponse, error) {
 		return v5ReviewReply(req, "needs_human", "medium", true), nil
 	}
-	grantID := approveAndRemember(t, f)
-	if f.p.calls.Load() != 1 || f.effects.Load() != 1 {
-		t.Fatalf("first call: reviews=%d effects=%d", f.p.calls.Load(), f.effects.Load())
-	}
 	second := newFixtureRun(t, f, "")
-	if err := f.execute(context.Background()); err != nil || f.effects.Load() != 2 || f.p.calls.Load() != 2 {
-		t.Fatalf("remembered call: %v effects=%d reviews=%d", err, f.effects.Load(), f.p.calls.Load())
+	done := make(chan error, 1)
+	go func() { done <- f.execute(context.Background()) }()
+	q := pendingCard(t, f)
+	if q.RunID != second.ID || q.AnsweredBy != "" || q.Approval.Remember != nil || f.effects.Load() != 1 {
+		t.Fatalf("auto mode consulted or offered a memory: %+v effects=%d", q, f.effects.Load())
 	}
-	q := cardForRun(t, f, second.ID)
-	if q.AnsweredBy != rememberedApprovalActor || q.Approval.Review.Status != "human_required" || q.Approval.Review.RiskLevel != "medium" || q.Approval.Review.DecisionSource != mcpDecisionSourceRemembered || q.Approval.Review.GrantID != grantID {
-		t.Fatalf("auto-mode remembered record: %+v", q.Approval.Review)
+	// The reviewer ran; its verdict is on the record; the grant was not used.
+	deadline := time.Now().Add(5 * time.Second)
+	for f.p.calls.Load() < 1 && time.Now().Before(deadline) {
+		time.Sleep(5 * time.Millisecond)
 	}
-	var reviewStatus string
-	if err := f.s.store.db.QueryRow(`SELECT status FROM mcp_auto_reviews WHERE question_id=?`, q.ID).Scan(&reviewStatus); err != nil || reviewStatus != "human_required" {
-		t.Fatalf("review row = %q %v", reviewStatus, err)
+	if f.p.calls.Load() != 1 {
+		t.Fatalf("reviews=%d", f.p.calls.Load())
+	}
+	var uses int
+	if err := f.s.store.db.QueryRow(`SELECT use_count FROM mcp_remembered_approvals WHERE id=?`, grantID).Scan(&uses); err != nil || uses != 0 {
+		t.Fatalf("use count = %d %v", uses, err)
+	}
+	if code, _ := answerRoute(t, f, q.ID, `{"value":true,"remember":true}`); code != 400 {
+		t.Fatalf("remember from an auto-mode card: %d", code)
+	}
+	if _, _, err := f.s.store.AnswerQuestion(q.ID, "synthetic-human", false); err != nil {
+		t.Fatal(err)
+	}
+	if err := waitReviewDone(t, done); err == nil || f.effects.Load() != 1 {
+		t.Fatalf("declined call ran: %v", err)
 	}
 	// A reviewer deny is never overridden by a memory.
 	f.p.reply = func(_ context.Context, req *provider.ChatRequest) (*provider.ChatResponse, error) {
 		return v5ReviewReply(req, "deny", "high", false), nil
 	}
 	newFixtureRun(t, f, "")
-	if err := f.execute(context.Background()); err == nil || f.effects.Load() != 2 {
+	if err := f.execute(context.Background()); err == nil || f.effects.Load() != 1 {
 		t.Fatalf("memory overrode a deny: %v effects=%d", err, f.effects.Load())
+	}
+}
+
+// A memory decides only a run the owner's own host-ingress message triggered
+// (a chat or group round): a run with a parent, a run of another kind, or a
+// trigger without ingress provenance asks a person. The claim re-check must
+// also finish (no query on the store while the claim transaction holds the
+// single connection).
+func TestRememberedApprovalRequiresHumanTriggeredRun(t *testing.T) {
+	f := newAutoReviewFixture(t)
+	first := f.r
+	approveAndRemember(t, f)
+	askAgain := func(name string, mutate func(r Run)) {
+		t.Helper()
+		r := newFixtureRun(t, f, "")
+		mutate(r)
+		done := make(chan error, 1)
+		go func() { done <- f.execute(context.Background()) }()
+		q := pendingCard(t, f)
+		if q.RunID != r.ID || q.AnsweredBy != "" || q.Approval.Remember != nil || f.effects.Load() != 1 {
+			t.Fatalf("%s: used or offered a memory: %+v effects=%d", name, q, f.effects.Load())
+		}
+		if code, _ := answerRoute(t, f, q.ID, `{"value":true,"remember":true}`); code != 400 {
+			t.Fatalf("%s: remember accepted: %d", name, code)
+		}
+		// Cancel rather than decline: a human refusal of the exact action
+		// would rightly beat the memory for the rest of the conversation.
+		if _, err := f.s.store.CancelQuestion(q.ID); err != nil {
+			t.Fatal(err)
+		}
+		if err := waitReviewDone(t, done); err == nil {
+			t.Fatalf("%s: cancelled call ran", name)
+		}
+	}
+	askAgain("parented run", func(r Run) {
+		if _, err := f.s.store.db.Exec(`UPDATE runs SET parent_run_id=? WHERE id=?`, first.ID, r.ID); err != nil {
+			t.Fatal(err)
+		}
+		f.r.ParentRunID = first.ID
+	})
+	askAgain("message run", func(r Run) {
+		if _, err := f.s.store.db.Exec(`UPDATE runs SET kind=? WHERE id=?`, runKindMessage, r.ID); err != nil {
+			t.Fatal(err)
+		}
+		f.r.Kind = runKindMessage
+	})
+	askAgain("trigger without ingress provenance", func(r Run) {
+		if _, err := f.s.store.db.Exec(`DELETE FROM user_message_ingress WHERE message_id=?`, r.TriggerMessageID); err != nil {
+			t.Fatal(err)
+		}
+	})
+	// A plain human-triggered run still uses the memory.
+	newFixtureRun(t, f, "")
+	if err := f.execute(context.Background()); err != nil || f.effects.Load() != 2 {
+		t.Fatalf("human-triggered run did not use the memory: %v effects=%d", err, f.effects.Load())
+	}
+}
+
+// A remembered answer whose run has a parent is re-validated inside the
+// claim transaction; the store has one connection, so that check must not
+// query the store directly (it would wait forever).
+func TestRememberedClaimRecheckDoesNotDeadlock(t *testing.T) {
+	f := newAutoReviewFixture(t)
+	first := f.r
+	grantID := approveAndRemember(t, f)
+	r := newFixtureRun(t, f, "")
+	q, err := f.s.store.CreateQuestion(f.c.ID, r, askQuestionInput{Question: "Allow this external tool call?", Type: questionApproval, Approval: &ApprovalDetails{Action: "Call x", Target: "MCP server fixture", Impact: "i"}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err = f.s.store.db.Exec(`INSERT INTO mcp_call_approvals(question_id,run_id,action_hash,grant_id) VALUES(?,?,?,?)`, q.ID, r.ID, "h", grantID); err != nil {
+		t.Fatal(err)
+	}
+	if _, err = f.s.store.db.Exec(`UPDATE questions SET status='answered',answer_json='true',answered_by=? WHERE id=?`, rememberedApprovalActor, q.ID); err != nil {
+		t.Fatal(err)
+	}
+	if _, err = f.s.store.db.Exec(`UPDATE runs SET parent_run_id=? WHERE id=?`, first.ID, r.ID); err != nil {
+		t.Fatal(err)
+	}
+	r.ParentRunID = first.ID
+	q, _ = f.s.store.GetQuestion(q.ID)
+	tx, err := f.s.store.db.Begin()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer tx.Rollback()
+	done := make(chan bool, 1)
+	go func() { done <- f.s.rememberedClaimValid(tx, f.c, r, f.call, q) }()
+	select {
+	case valid := <-done:
+		if valid {
+			t.Fatal("a parented run's remembered answer was valid at claim")
+		}
+	case <-time.After(5 * time.Second):
+		t.Fatal("claim re-check deadlocked on the store connection")
 	}
 }
 

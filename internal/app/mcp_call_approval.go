@@ -170,10 +170,11 @@ func (s *Server) approveMCPCallOnce(ctx context.Context, c Conversation, r Run, 
 				return normalizeErr
 			}
 			// "Approve and remember in this chat" is offered only where a grant
-			// could later decide: never for the owner's "Always ask me" tier,
-			// never in an unattended run, and only with a derivable target.
+			// could later decide: never in auto mode, never for the owner's
+			// "Always ask me" tier, only in a run the owner's own message
+			// triggered, and only with a derivable target.
 			target, targetOK := mcpRememberTargetFor(call.Schema, call.Arguments)
-			rememberEligible := targetOK && s.rememberedApprovalUsable(r, call)
+			rememberEligible := targetOK && s.rememberedApprovalUsable(s.store.db, c, r, call)
 			if rememberEligible {
 				in.Approval.Remember = target.offer()
 			}

@@ -501,6 +501,11 @@ async function scenarioMigration(page, fx) {
 
 async function scenarioRemember(page, fx) {
   scenario = 'S9 approve and remember in this chat';
+  // A memory decides only outside auto mode (in auto mode the reviewer's
+  // needs_human means the request does not cover the call). Shadow mode:
+  // a person decides at creation, the reviewer still advises.
+  const mode = await fx.call('PUT', '/api/auto-review-settings', {mode: 'shadow'});
+  check('9: AutoReview switched to shadow through the API the UI uses', mode.status === 200 && mode.json?.mode === 'shadow', `${mode.status} ${mode.text.slice(0, 120)}`);
   const bot = await fx.bot('Notion S9');
   await openBot(page, fx, bot);
   const grants = async () => (await fx.call('GET', `/api/conversations/${bot.dm_conversation_id}/remembered-approvals`)).json?.grants ?? [];
@@ -509,8 +514,8 @@ async function scenarioRemember(page, fx) {
   let m = await mark(fx);
   await say(page, 'Update page page-remember-first with the budget draft');
   await waitCard(page);
-  let d = await since(fx, m);
-  check('9a: card for a different target offers "Approve and remember in this chat"', (await rememberButtons(page).count()) === 1 && d.calls.length === 0 && d.reviews.length === 1 && d.reviews[0].Decision === 'needs_human', JSON.stringify(d.reviews));
+  let d = await waitFor(async () => { const x = await since(fx, m); return x.reviews.length >= 1 ? x : null; }, 'shadow advice for the first card');
+  check('9a: card for a different target offers "Approve and remember in this chat"; the shadow reviewer advised needs_human', (await rememberButtons(page).count()) === 1 && d.calls.length === 0 && d.reviews.length === 1 && d.reviews[0].Decision === 'needs_human', JSON.stringify(d.reviews));
   const hint = await page.locator('.approval-remember-hint').first().innerText().catch(() => '');
   check('9a: the card says what "same target" binds to (page_id = page-budget)', hint.includes('page_id = page-budget'), hint);
   await shot(page, 's9a-card-remember-offer');
@@ -530,13 +535,14 @@ async function scenarioRemember(page, fx) {
   await waitSettled(fx, bot);
   d = await since(fx, m);
   check('9b: same target executes without a card', d.calls.length === 1 && d.calls[0].args.page_id === 'page-budget' && d.calls[0].args.content === 'Budget draft, second pass' && (await approveButtons(page).count()) === 0, JSON.stringify(d.calls));
-  check('9b: the reviewer was still asked (needs_human) and the memory replaced only the person', d.reviews.length === 1 && d.reviews[0].Decision === 'needs_human', JSON.stringify(d.reviews));
+  d = await waitFor(async () => { const x = await since(fx, m); return x.reviews.length >= 1 ? x : null; }, 'shadow advice for the remembered card');
+  check('9b: the shadow reviewer still advised (needs_human); the memory replaced only the person', d.reviews.length === 1 && d.reviews[0].Decision === 'needs_human', JSON.stringify(d.reviews));
   const q2 = await fx.sql(`select q.answered_by, a.grant_id, a.claimed_at, json_extract(q.approval_json,'$.review.decision_source') as source from questions q join mcp_call_approvals a on a.question_id=q.id where q.conversation_id='${bot.dm_conversation_id}' order by q.created_at desc limit 1`);
   check('9b: DB: decided by remembered-approval with decision source remembered_approval and the grant id, claimed once', q2.length === 1 && q2[0].answered_by === 'remembered-approval' && q2[0].source === 'remembered_approval' && q2[0].grant_id === g[0].id && q2[0].claimed_at !== '', JSON.stringify(q2));
   const activity = page.locator('.task-activity').last();
   if ((await activity.locator(':scope > summary').count()) && !(await activity.evaluate(node => node.open))) await activity.locator(':scope > summary').click();
-  await page.locator('.task-remembered-record').last().waitFor({timeout: 10000}).catch(() => {});
-  check('9b: the activity record says a remembered approval decided it (no one was asked)', (await bodyText(page)).includes('Approved by a remembered approval from this chat'), (await activity.innerText().catch(() => '')).replace(/\s+/g, ' ').slice(0, 200));
+  const record = await waitFor(async () => (await bodyText(page)).includes('Approved by a remembered approval from this chat'), 'remembered activity record', 15000).catch(() => false);
+  check('9b: the activity record says a remembered approval decided it (no one was asked)', record, (await activity.innerText().catch(() => '')).replace(/\s+/g, ' ').slice(0, 200));
   await shot(page, 's9b-remembered-no-card');
   // 9c: a different page still asks.
   m = await mark(fx);
@@ -570,6 +576,29 @@ async function scenarioRemember(page, fx) {
   await declineButtons(page).first().click();
   await waitSettled(fx, bot);
   await shot(page, 's9d-after-revoke-card');
+  // 9e: in auto mode a card for the same target is not offered the memory and a planted grant is not used.
+  m = await mark(fx);
+  await say(page, 'Update page page-remember-first with the budget draft');
+  await waitCard(page);
+  await rememberButtons(page).first().click();
+  await page.getByText('Budget page updated.').last().waitFor({timeout: 40000});
+  await waitSettled(fx, bot);
+  g = await grants();
+  check('9e: a fresh grant exists before switching to auto', g.length === 1, JSON.stringify(g));
+  const back = await fx.call('PUT', '/api/auto-review-settings', {mode: 'auto'});
+  check('9e: AutoReview switched back to auto', back.status === 200 && back.json?.mode === 'auto', `${back.status}`);
+  m = await mark(fx);
+  // The same target with arguments the person never refused (9d declined the
+  // "second pass" arguments; a human refusal of the exact action stays final).
+  await say(page, 'Update page page-remember-first with the budget draft, in auto mode');
+  await waitCard(page);
+  d = await since(fx, m);
+  check('9e: auto mode: the reviewer asked for a person and the memory did not answer; no remember offer', (await approveButtons(page).count()) === 1 && (await rememberButtons(page).count()) === 0 && d.calls.length === 0 && d.reviews.length === 1 && d.reviews[0].Decision === 'needs_human', JSON.stringify(d.reviews));
+  const q9e = await fx.sql(`select q.answered_by, q.status, json_extract(q.approval_json,'$.remember') as offer from questions q where q.conversation_id='${bot.dm_conversation_id}' order by q.created_at desc limit 1`);
+  check('9e: DB: the auto-mode card is pending, unanswered, with no remember offer', q9e.length === 1 && q9e[0].status === 'pending' && !q9e[0].answered_by && !q9e[0].offer, JSON.stringify(q9e));
+  await declineButtons(page).first().click();
+  await waitSettled(fx, bot);
+  await shot(page, 's9e-auto-mode-card');
 }
 
 // ---------------------------------------------------------------- main

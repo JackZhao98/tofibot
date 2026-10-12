@@ -9,6 +9,7 @@ package app
 // create, widen or extend one.
 
 import (
+	"bytes"
 	"crypto/sha256"
 	"database/sql"
 	"encoding/hex"
@@ -164,7 +165,7 @@ func mcpScalarIdentifier(v any) bool {
 	switch x := v.(type) {
 	case string:
 		return strings.TrimSpace(x) != ""
-	case float64, bool:
+	case json.Number, bool:
 		return true
 	case []any:
 		if len(x) == 0 {
@@ -172,7 +173,7 @@ func mcpScalarIdentifier(v any) bool {
 		}
 		for _, item := range x {
 			switch item.(type) {
-			case string, float64, bool:
+			case string, json.Number, bool:
 			default:
 				return false
 			}
@@ -182,13 +183,25 @@ func mcpScalarIdentifier(v any) bool {
 	return false
 }
 
+// mcpDecodeArguments keeps numbers as their exact literal: two identifiers
+// that would round to the same float64 (snowflake ids) stay distinct.
+func mcpDecodeArguments(raw json.RawMessage) (map[string]any, bool) {
+	dec := json.NewDecoder(bytes.NewReader(raw))
+	dec.UseNumber()
+	var args map[string]any
+	if dec.Decode(&args) != nil || args == nil {
+		return nil, false
+	}
+	return args, true
+}
+
 // mcpRememberTargetFor derives what "the same target" means for one call.
 // Identifier arguments named by the tool's own input schema bind the grant to
 // their exact values; without one, only the identical full arguments match.
 // The key never widens to "any arguments".
 func mcpRememberTargetFor(schema, arguments json.RawMessage) (mcpRememberTarget, bool) {
-	var args map[string]any
-	if json.Unmarshal(arguments, &args) != nil || args == nil {
+	args, ok := mcpDecodeArguments(arguments)
+	if !ok {
 		return mcpRememberTarget{}, false
 	}
 	var parsed map[string]any
@@ -237,15 +250,77 @@ func (t mcpRememberTarget) offer() *MCPRememberOffer {
 // ------------------------------------------------------------ eligibility
 
 // rememberedApprovalUsable says whether a grant may decide this call at all:
-// the tool's tier is current and not the owner's "Always ask me", and a
-// person attends the run. It says nothing about whether a grant exists.
-func (s *Server) rememberedApprovalUsable(r Run, call extensions.MCPCallApproval) bool {
+// AutoReview is not in auto mode (there the reviewer's needs_human means the
+// user's request does not cover the call, and a memory never answers that),
+// the tool's tier is current and not the owner's "Always ask me", and the
+// run is one the owner's own message triggered and a person attends. It says
+// nothing about whether a grant exists. db is the caller's transaction when
+// it holds one: the store has a single connection.
+func (s *Server) rememberedApprovalUsable(db reviewQuerier, c Conversation, r Run, call extensions.MCPCallApproval) bool {
+	settings, err := readAutoReviewSettings(db)
+	if err != nil || settings.Mode == "auto" {
+		return false
+	}
 	tier, current := s.mcpCallTier(call)
 	if !current || tier == extensions.MCPTierHighRisk || call.TierBinding == "" || call.ConfigVersion == "" {
 		return false
 	}
-	unattended, err := s.mcpRunUnattended(r)
-	return err == nil && !unattended
+	triggered, err := mcpRunHumanTriggered(db, c, r)
+	return err == nil && triggered
+}
+
+// mcpRunHumanTriggered says whether the owner's own host-ingress message in
+// this conversation triggered the run: a chat run without a parent, or a
+// group round whose every hop shares that trigger, with no schedule in its
+// ancestry. The same provenance rule the reviewer's evidence applies
+// (readMCPChatContext); a run another Bot, a tool result, a task or a
+// schedule started never qualifies.
+func mcpRunHumanTriggered(db reviewQuerier, c Conversation, r Run) (bool, error) {
+	if r.Kind == runKindSchedule || r.TriggerMessageID == "" || r.Kind != "" && r.Kind != "chat" && r.Kind != runKindGroupChat || r.ParentRunID != "" && r.Kind != runKindGroupChat {
+		return false, nil
+	}
+	var trigger, parent, kind sql.NullString
+	if err := db.QueryRow(`SELECT trigger_message_id,parent_run_id,kind FROM runs WHERE id=? AND conversation_id=? AND bot_id=?`, r.ID, c.ID, r.BotID).Scan(&trigger, &parent, &kind); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return false, nil
+		}
+		return false, err
+	}
+	if trigger.String != r.TriggerMessageID || parent.String != r.ParentRunID || kind.String != r.Kind {
+		return false, nil
+	}
+	if r.Kind == runKindGroupChat && verifyMCPGroupRound(db, c, r) != nil {
+		return false, nil
+	}
+	var role, conv, source string
+	var sender, messageKind sql.NullString
+	if err := db.QueryRow(`SELECT m.role,m.conversation_id,m.sender_bot_id,m.kind,`+mcpMessageProvenanceSQL+` FROM messages m WHERE m.id=?`, r.TriggerMessageID).Scan(&role, &conv, &sender, &messageKind, &source); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return false, nil
+		}
+		return false, err
+	}
+	if role != "user" || conv != c.ID || sender.String != "" || messageKind.String != "" && messageKind.String != "user_message" || source != mcpHostUserIngress {
+		return false, nil
+	}
+	rooted, err := mcpRunRootedInSchedule(db, r)
+	return err == nil && !rooted, err
+}
+
+// mcpRunRootedInSchedule is scheduleTaskForRun's predicate on the caller's
+// querier (safe inside a transaction).
+func mcpRunRootedInSchedule(db reviewQuerier, r Run) (bool, error) {
+	if r.ParentRunID == "" || r.Kind == runKindSchedule {
+		return r.Kind == runKindSchedule, nil
+	}
+	var rooted bool
+	err := db.QueryRow(`WITH RECURSIVE ancestors(id,parent_run_id,depth) AS (
+		SELECT id,parent_run_id,0 FROM runs WHERE id=?
+		UNION
+		SELECT parent.id,parent.parent_run_id,child.depth+1 FROM runs parent JOIN ancestors child ON parent.id=child.parent_run_id WHERE child.depth<?
+	)
+	SELECT EXISTS(SELECT 1 FROM ancestors a JOIN schedule_occurrences o ON o.run_id=a.id JOIN runs root ON root.id=o.run_id AND root.kind=?)`, r.ID, maxMCPAuthorizationAncestry, runKindSchedule).Scan(&rooted)
+	return rooted, err
 }
 
 // matchRememberedMCPApproval finds a live grant for this exact binding in
@@ -298,14 +373,14 @@ const mcpRememberedReason = "You approved this tool on this target earlier in th
 // rememberedClaimValid re-checks a remembered answer at claim time against
 // the grant it came from: live, same conversation and Bot, same server, tool,
 // config fingerprint, tier binding and target key, and the call still
-// eligible (tier not "Always ask me", run attended).
+// eligible (not auto mode, tier not "Always ask me", run human-triggered).
 func (s *Server) rememberedClaimValid(db reviewQuerier, c Conversation, r Run, call extensions.MCPCallApproval, q Question) bool {
 	var grantID string
 	if db.QueryRow(`SELECT grant_id FROM mcp_call_approvals WHERE question_id=?`, q.ID).Scan(&grantID) != nil || grantID == "" {
 		return false
 	}
 	target, ok := mcpRememberTargetFor(call.Schema, call.Arguments)
-	if !ok || !s.rememberedApprovalUsable(r, call) {
+	if !ok || !s.rememberedApprovalUsable(db, c, r, call) {
 		return false
 	}
 	var live bool
@@ -344,7 +419,8 @@ func withdrawRememberedAnswer(tx *sql.Tx, c Conversation, q Question) error {
 // rememberMCPApproval creates a grant from a card a human just approved. It
 // reads the binding the gate recorded on the approval row, never the request,
 // and refuses when the card is not an eligible MCP proposal, the tool moved
-// since, the tool is "Always ask me", or the run is unattended.
+// since, the tool is "Always ask me", AutoReview is in auto mode, or the run
+// is not one the owner's own message triggered.
 func (s *Server) rememberMCPApproval(q Question, actor string) (MCPRememberedApproval, error) {
 	if q.Type != questionApproval || q.Status != questionAnswered || strings.TrimSpace(string(q.Answer)) != "true" || q.AnsweredBy != actor || actor == "" || actor == autoReviewActor || actor == rememberedApprovalActor {
 		return MCPRememberedApproval{}, errRememberNotAvailable
@@ -366,7 +442,11 @@ func (s *Server) rememberMCPApproval(q Question, actor string) (MCPRememberedApp
 	if err != nil {
 		return MCPRememberedApproval{}, errRememberNotAvailable
 	}
-	if !s.rememberedApprovalUsable(run, probe) {
+	conversation, err := s.store.GetConversation(q.ConversationID)
+	if err != nil || run.ConversationID != conversation.ID || run.BotID != q.BotID {
+		return MCPRememberedApproval{}, errRememberNotAvailable
+	}
+	if !s.rememberedApprovalUsable(s.store.db, conversation, run, probe) {
 		return MCPRememberedApproval{}, errRememberStale
 	}
 	t := now()
