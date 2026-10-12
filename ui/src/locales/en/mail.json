@@ -10,7 +10,6 @@
     "declined_at": "Cancelled {{time}}",
     "view_record": "View draft record",
     "subject": "Subject",
-    "check_sent_records": "Check sent-mail records in your email service and compare the time, recipient, and subject.",
     "sending_needs_checking": "Sending result needs checking",
     "full_text": "Full email draft",
     "body": "Email body",

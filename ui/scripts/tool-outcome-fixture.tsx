@@ -37,6 +37,8 @@ const scenes: Record<string, { tools: object[]; liveStatus?: string; running?: b
   recovered: { tools: [tool("a", "2026-10-10T08:53:03Z", { outcome: definite }), tool("b", "2026-10-10T08:53:07Z", { arguments: '{"name":"tofi","instructions":"x"}', ...ok })] },
   // A genuinely uncertain external action.
   uncertain: { tools: [tool("a", "2026-10-10T08:53:03Z", { name: "call_mcp_tool", arguments: '{"name":"crm__create_record","arguments":{}}', outcome: { ...uncertain, code: "mcp_result_unknown" } })] },
+  // The Notion incident: a direct call to a name the run never had, then the real call.
+  notion: { tools: [tool("a", "2026-10-10T08:53:03Z", { name: "mcp_notion__notion-update-page", arguments: "{}", result: "Tool is not available in this run." }), tool("b", "2026-10-10T08:53:07Z", { name: "call_mcp_tool", arguments: '{"name":"mcp_notion__notion-fetch"}', ...ok })] },
   live: { tools: [], running: true, liveStatus: new URLSearchParams(location.search).get("status") ?? "Thinking" },
 };
 

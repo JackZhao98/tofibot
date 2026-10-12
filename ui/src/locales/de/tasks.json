@@ -11,7 +11,6 @@
       "expired": "Freigabe abgelaufen",
       "human_denied": "Du hast diese Aktion abgelehnt",
       "policy_denied": "Diese Aktion hat die Sicherheitsprüfung nicht bestanden",
-      "uncertain_effect": "Nicht sicher, ob das geklappt hat",
       "connection_status": "Verbindung getrennt, Status unbestätigt",
       "runtime_connection": "Verbindung unterbrochen, die Aufgabe wurde nicht abgeschlossen",
       "unknown_failure": "Die Aufgabe wurde nicht abgeschlossen"
@@ -22,7 +21,6 @@
       "open_model_connections": "Modellverbindungen öffnen",
       "copy_diagnostics": "Diagnose kopieren",
       "view_activity": "Aktivität ansehen",
-      "verify_steps": "So prüfen Sie es",
       "refresh_status": "Status aktualisieren"
     },
     "working": "Wird bearbeitet…",
@@ -89,10 +87,6 @@
   },
   "fact": {
     "labelled": "{{label}}: {{text}}",
-    "execution_needs_checking": "Das Ausführungsergebnis muss geprüft werden.",
-    "sending_needs_checking": "Das Versandergebnis muss geprüft werden.",
-    "check_sent_mail": "Sieh in deinem E-Mail-Dienst bei den gesendeten Nachrichten nach und vergleiche Zeit, Empfänger und Betreff.",
-    "check_target_service": "Prüfe die Einträge zu dieser Aktion im Zieldienst. Bleibt es unklar, lass das Ergebnis als unbestätigt stehen.",
     "may_still_be_running": "Die Aufgabe läuft möglicherweise noch. Aktualisieren liest nur den neuesten Status.",
     "no_cause_recorded": "Es wurde keine konkrete Ursache erfasst.",
     "cause_unconfirmed": "Ursache und Ausführungsergebnis sind noch nicht bestätigt.",
@@ -128,8 +122,6 @@
   },
   "secondary": {
     "then_provider_busy": "Danach war der Modelldienst ausgelastet, die Aufgabe wurde nicht abgeschlossen.",
-    "later_attempt_ended": "Der spätere Versuch ist beendet. Die Ergebnisse früherer Aktionen müssen noch geprüft werden.",
-    "later_attempt": "Späterer Versuch: {{phase}}",
     "records_incomplete": "Die Ausführungseinträge sind nicht vollständig geladen."
   },
   "phase": {
@@ -468,10 +460,6 @@
     "cancel": "Abbrechen",
     "submitting": "Wird gesendet…",
     "submit": "Privat senden"
-  },
-  "compact": {
-    "check_service": "Prüfen Sie den genutzten Dienst, bevor Sie es erneut versuchen.",
-    "check_mail": "Prüfen Sie Ihre gesendeten E-Mails, bevor Sie es erneut versuchen."
   },
   "remembered": {
     "title": "Gemerkte Genehmigungen",

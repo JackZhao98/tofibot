@@ -12,6 +12,9 @@ export function toolExecutionState(tool: Pick<ToolActivity, "status" | "outcome"
   if (outcome?.execution_certainty === "not_executed") return tool.status === "completed" ? "unknown" : "not_executed";
   if (tool.status === "completed") return "completed";
   if (tool.status === "running" || tool.status === "queued") return "in_progress";
+  // A failed row with no recorded outcome (for example a name the run never had)
+  // was refused before dispatch. Only an explicit unknown certainty is uncertain.
+  if (tool.status === "failed" && !outcome) return "not_executed";
   return "unknown";
 }
 
@@ -29,7 +32,7 @@ export interface ToolRunAnchors<T> {
 
 /** Summarize attempts, not whether the user's task was completed. */
 export function toolAttemptIssues(items: Pick<ToolActivity, "status" | "outcome">[]): string {
-  const failures = items.filter(item => item.status === "failed" && ["failed", "unknown"].includes(toolDisplayState(item))).length;
+  const failures = items.filter(item => item.status === "failed" && (!item.outcome || ["failed", "unknown"].includes(toolDisplayState(item)))).length;
   const interrupted = items.filter(item => item.status === "interrupted").length;
   const pending = items.filter(item => item.status === "queued" || item.status === "running").length;
   const t = i18n.getFixedT(null, "tasks");
@@ -115,9 +118,10 @@ function toolActionCode(activity: Pick<ToolActivity, "name" | "arguments">): Too
     try {
       const args = JSON.parse(activity.arguments) as { name?: unknown };
       if (typeof args.name === "string") {
-        const inner = toolActionCode({ name: args.name, arguments: "" });
-        // An unrecognised remote tool is described by its role, not its raw name.
-        if (inner !== "call") return inner;
+        // Only the connected service can name the role (a "web" connector browses). The
+        // remote tool's own verb must not: Notion's "fetch" is not browsing the web.
+        const service = args.name.split("__").slice(0, -1).join("__").toLowerCase();
+        if (service && /^mcp[_-]*(browser|web|crawl)/.test(service)) return "browse";
       }
     } catch { /* An unparseable call is not evidence of the remote action. */ }
     return "connected_tool";
