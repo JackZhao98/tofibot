@@ -186,6 +186,7 @@
       "interrupted": "已中斷",
       "expired": "已過期",
       "not_executed": "未執行",
+      "approved": "已核准",
       "unknown": "結果待核實",
       "unconfirmed": "狀態待確認"
     }
@@ -202,6 +203,9 @@
     "action": "動作",
     "target": "對象",
     "impact": "影響",
+    "review_reason": "原因",
+    "review_risk": "風險",
+    "risk": { "low": "低", "medium": "中", "high": "高", "unknown": "未評級" },
     "view_full_arguments": "查看完整參數",
     "proposal_ended": "此提案已結束。",
     "view_decision": "查看決定紀錄"

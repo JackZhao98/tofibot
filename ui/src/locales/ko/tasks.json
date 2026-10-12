@@ -186,6 +186,7 @@
       "interrupted": "중단됨",
       "expired": "만료됨",
       "not_executed": "실행 안 됨",
+      "approved": "승인됨",
       "unknown": "결과 확인 필요",
       "unconfirmed": "상태 미확인"
     }
@@ -202,6 +203,9 @@
     "action": "작업",
     "target": "대상",
     "impact": "영향",
+    "review_reason": "사유",
+    "review_risk": "위험도",
+    "risk": { "low": "낮음", "medium": "보통", "high": "높음", "unknown": "평가 안 됨" },
     "view_full_arguments": "전체 인수 보기",
     "proposal_ended": "이 제안은 종료되었습니다.",
     "view_decision": "결정 기록 보기"

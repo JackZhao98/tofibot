@@ -19,6 +19,9 @@
 //  overflow      390px only: the document, or any visible element, is wider than the viewport or its clipping parent
 //  text-overflow every visible chip, button, badge, label and service mark: scrollWidth must not exceed clientWidth + 1
 //                (text cut off by its own box), at every viewport
+//  select-chevron a custom-chevron <select> must reserve the chevron: computed padding-right >= 28px (the chevron sits within
+//                24px of the right edge), and a value wider than the text box must truncate with an ellipsis, so the
+//                text never runs under its chevron (catches padding rules losing a cascade fight)
 //  font-size     text under 12px, except the explicit exception: mono, >= 10px, and either uppercase with letter
 //                spacing (section/danger labels) or the nav count pill (.settings-count)
 import assert from "node:assert/strict";
@@ -99,6 +102,17 @@ function auditPage(opts) {
     if (!stackNames.has(family)) add("font-family", el, family.slice(0, 60));
     if (tag === "input" && (type === "checkbox" || type === "radio") && s.appearance !== "none") add("native-" + type, el, `appearance: ${s.appearance}`);
     else if (tag === "select" && s.appearance !== "none") add("native-select", el, `appearance: ${s.appearance}`);
+    if (tag === "select" && s.appearance === "none" && s.backgroundImage !== "none") {
+      const padRight = parseFloat(s.paddingRight), padLeft = parseFloat(s.paddingLeft);
+      if (padRight < 28) add("select-chevron", el, `padding-right ${padRight}px leaves the label under the chevron (needs >= 28px)`);
+      else {
+        const ctx = document.createElement("canvas").getContext("2d");
+        ctx.font = `${s.fontWeight} ${s.fontSize} ${s.fontFamily}`;
+        const label = el.selectedOptions[0]?.textContent ?? "";
+        const textBox = el.clientWidth - padLeft - padRight;
+        if (ctx.measureText(label).width > textBox + 1 && s.textOverflow !== "ellipsis") add("select-chevron", el, `value "${label.slice(0, 30)}" is wider than its text box without an ellipsis`);
+      }
+    }
     else if (tag === "input" && ["range", "number", "date", "time", "datetime-local", "month", "week", "color"].includes(type) && s.appearance !== "none") add("native-input-" + type, el, `appearance: ${s.appearance}`);
     if (tag === "button") {
       if (/^(outset|inset|ridge|groove)$/.test(s.borderTopStyle) || (s.backgroundColor === nativeButton.background && s.borderTopStyle === nativeButton.border && s.borderTopStyle !== "none")) add("native-button", el, `bg ${s.backgroundColor}, border ${s.borderTopStyle}`);
