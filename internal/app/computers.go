@@ -1049,12 +1049,17 @@ func (s *Server) routeComputers(w http.ResponseWriter, r *http.Request, path str
 			if isGraphicAction(v.Action) {
 				lease = s.computerLease(v.BotID)
 			}
-			if !lease.TryLock() {
-				log.Printf("[desktop] action denied bot=%s action=%s reason=computer-lease-busy", v.BotID, v.Action)
-				writeErr(w, http.StatusConflict, "computer_busy", "电脑正在被使用，请稍后重试")
-				return true
+			// A passive view capture is a read-only grab of the screen: it does not
+			// take the lease, claim ownership, mark an observation or count as
+			// human input, so it must not wait behind a Bot's own step.
+			if v.Action != "desktop.capture" {
+				if !lease.TryLock() {
+					log.Printf("[desktop] action denied bot=%s action=%s reason=computer-lease-busy", v.BotID, v.Action)
+					writeErr(w, http.StatusConflict, "computer_busy", "电脑正在被使用，请稍后重试")
+					return true
+				}
+				defer lease.Unlock()
 			}
-			defer lease.Unlock()
 			// Read-only inspection can share the Bot owner held by an active
 			// model run. Mutations must claim ownership for the whole run so a
 			// second DM/group sequence cannot interleave desktop operations.

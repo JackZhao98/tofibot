@@ -100,13 +100,6 @@
       "retry": "Retry"
     }
   },
-  "floating": {
-    "open": "Open shared computer",
-    "open_activity": "Open shared computer: {{activity}}",
-    "hide_mini_aria": "Collapse mini screen",
-    "collapse": "Collapse",
-    "peek_hint": "View only · click to enlarge"
-  },
   "remote": {
     "error": {
       "control_failed": "Desktop control failed",

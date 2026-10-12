@@ -34,7 +34,7 @@ export async function installStubs(page, state) {
       return json({ ok: true, result: { image_url: screenImage() } });
     }
     if (p === "/api/computer/desktop-ownership") return json(state.ownership ?? { owner: null, waiting: [] });
-    if (p.endsWith("/messages")) return json({ messages: [], has_more: false, event_cursor: 0 });
+    if (p.endsWith("/messages")) return json({ messages: state.messages ?? [], has_more: false, event_cursor: 0 });
     if (p.endsWith("/runs") || p.endsWith("/memories") || p.endsWith("/schedules") || p.endsWith("/work-items")) return json({ runs: [], memories: [], schedules: [], work_items: [] });
     if (p.endsWith("/tools")) return json({ activities: [], summaries: [] });
     if (p.endsWith("/events") || p === "/api/workspace/events") { await route.fulfill({ status: 200, contentType: "text/event-stream", body: ": synthetic\n\n" }); return; }

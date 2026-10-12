@@ -1,8 +1,7 @@
 import { useEffect, useId, useLayoutEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
-import { TofiIcon } from "./icons";
-import { i18n, useTranslation } from "./i18n";
+import { useTranslation } from "./i18n";
 
-/** Keeps the mini screen beside the composer's right edge, above the perched cat. */
+/** Docks the small screen in the right gutter (the viewport edge, past the message column), above the composer and its perched cat. */
 function useComposerAnchor(active: boolean) {
   const [style, setStyle] = useState<CSSProperties>();
   useLayoutEffect(() => {
@@ -20,7 +19,7 @@ function useComposerAnchor(active: boolean) {
       const box = row.getBoundingClientRect();
       const top = children.reduce((min, child) => { const r = child.getBoundingClientRect(); return r.height > 0 ? Math.min(min, r.top) : min; }, box.top);
       // The cat perches on the composer's top edge; the screen sits above it.
-      setStyle({ right: Math.max(16, window.innerWidth - box.right), bottom: Math.max(16, window.innerHeight - top + 64) });
+      setStyle({ right: 16, bottom: Math.max(16, window.innerHeight - top + 64) });
     };
     place();
     const { container, row, children } = parts();
@@ -32,49 +31,21 @@ function useComposerAnchor(active: boolean) {
   return style;
 }
 
-/** Activity shows a small live screen; only an explicit opening creates a dialog. */
-export function FloatingDesktop({ expanded, small = false, sheet = false, activityLabel, onOpen, onShrink, onClose, children }: {
+/** The window opens only on the user's explicit request (the header computer button). */
+export function FloatingDesktop({ expanded, small = false, sheet = false, onShrink, onClose, children }: {
   /** The big window (dialog). `small` is the floating picture-in-picture window; `sheet` is the narrow-screen full-screen form of the big one. */
-  expanded: boolean; small?: boolean; sheet?: boolean; activityLabel?: string; onOpen: () => void; onShrink?: () => void; onClose: () => void; children: ReactNode;
+  expanded: boolean; small?: boolean; sheet?: boolean; onShrink?: () => void; onClose: () => void; children: ReactNode;
 }) {
   const { t } = useTranslation("computer");
   const shellRef = useRef<HTMLDivElement>(null);
-  const launcherRef = useRef<HTMLButtonElement>(null);
   const returnFocusRef = useRef<HTMLElement | null>(null);
-  const pointerFocusRef = useRef<HTMLElement | null>(null);
-  const restoringFocusRef = useRef(false);
   const closeRef = useRef(onClose);
   closeRef.current = onClose;
   // Escape steps big -> small; only a window with no small form (the sheet) closes outright.
   const escapeRef = useRef<() => void>(onClose);
   escapeRef.current = !sheet && onShrink ? onShrink : onClose;
-  const windowed = expanded || small;
-  const [hovered, setHovered] = useState(false);
-  const [focused, setFocused] = useState(false);
-  const [dismissed, setDismissed] = useState(false);
   const contentId = useId();
-  // The mini screen is the collapsed form while a Bot works; hiding it leaves the launcher icon.
-  const [miniHidden, setMiniHidden] = useState(false);
-  const mini = !windowed && Boolean(activityLabel) && !miniHidden && window.matchMedia("(min-width: 768px)").matches;
-  const anchor = useComposerAnchor(mini || small);
-  const preview = !windowed && !mini && !dismissed && (hovered || focused);
-  const supportsPreview = () => window.matchMedia("(min-width: 768px) and (hover: hover) and (pointer: fine)").matches;
-  function openDesktop() {
-    const focusedElement = document.activeElement;
-    // Clicking the passive, non-focusable preview can blur the composer before
-    // click fires. Preserve the focus observed before that pointer's default.
-    returnFocusRef.current = focusedElement instanceof HTMLElement && focusedElement !== document.body ? focusedElement : pointerFocusRef.current;
-    pointerFocusRef.current = null;
-    setDismissed(true);
-    onOpen();
-  }
-
-  useEffect(() => {
-    const media = window.matchMedia("(min-width: 768px)");
-    const sync = () => { if (!media.matches) { setHovered(false); setFocused(false); } };
-    media.addEventListener("change", sync);
-    return () => media.removeEventListener("change", sync);
-  }, []);
+  const anchor = useComposerAnchor(small);
 
   useEffect(() => {
     if (!expanded) return;
@@ -89,7 +60,6 @@ export function FloatingDesktop({ expanded, small = false, sheet = false, activi
       if (event.key === "Escape") {
         event.preventDefault();
         event.stopPropagation();
-        setDismissed(true);
         escapeRef.current();
       } else if (event.key === "Tab") {
         const items = Array.from(shell.querySelectorAll<HTMLElement>('button:not([disabled]), input:not([disabled]), textarea:not([disabled]), select:not([disabled]), a[href], summary, [tabindex]:not([tabindex="-1"])'))
@@ -111,15 +81,11 @@ export function FloatingDesktop({ expanded, small = false, sheet = false, activi
       window.cancelAnimationFrame(frame);
       window.removeEventListener("keydown", escape, true);
       window.removeEventListener("keydown", keyboard);
-      setDismissed(true);
       // Do not override focus moved deliberately to another workspace surface.
       if (document.activeElement === document.body || shell?.contains(document.activeElement)) {
         const trigger = returnFocusRef.current;
-        restoringFocusRef.current = true;
         if (trigger?.isConnected && trigger !== document.body) trigger.focus({ preventScroll: true });
-        else if (launcherRef.current) launcherRef.current.focus({ preventScroll: true });
-        else document.querySelector<HTMLElement>(`[aria-label="${CSS.escape(i18n.t("computer:floating.open"))}"]`)?.focus({ preventScroll: true });
-        restoringFocusRef.current = false;
+        else document.querySelector<HTMLElement>("[data-computer-toggle]")?.focus({ preventScroll: true });
       }
       returnFocusRef.current = null;
     };
@@ -151,34 +117,10 @@ export function FloatingDesktop({ expanded, small = false, sheet = false, activi
     }
   }, [windowMode]);
 
-  if (mini) return <div ref={shellRef} className="desktop-floating-shell is-mini" style={anchor}>
-    <div className="desktop-mini">
-      <button type="button" className="desktop-mini-open" aria-label={t("floating.open_activity", { activity: activityLabel })} onClick={openDesktop} />
-      <div className="desktop-presence-canvas" inert aria-hidden="true">{children}</div>
-      <div className="desktop-mini-controls">
-        <button type="button" className="desktop-mini-control" aria-label={t("desktop.expand_aria")} title={t("desktop.expand")} onClick={openDesktop}><TofiIcon name="external-link" size={14} /></button>
-        <button type="button" className="desktop-mini-control" aria-label={t("floating.hide_mini_aria")} title={t("floating.collapse")} onClick={() => setMiniHidden(true)}><TofiIcon name="minus" size={14} /></button>
-      </div>
-      <p className="desktop-mini-status"><span className="desktop-presence-dot" aria-hidden="true" />{activityLabel}</p>
-    </div>
-  </div>;
-
   return <div ref={shellRef} className={`desktop-floating-shell${expanded ? " is-expanded" : ""}${small ? " is-small" : ""}${expanded && sheet ? " is-sheet" : ""}`} style={small ? anchor : undefined}
-    role={expanded ? "dialog" : small ? "group" : undefined} aria-modal={expanded || undefined} aria-label={windowed ? t("desktop.title") : undefined} tabIndex={expanded ? -1 : undefined}
-    onPointerEnter={event => { if (event.pointerType === "mouse" && supportsPreview()) { setDismissed(false); setHovered(true); } }}
-    onPointerLeave={() => setHovered(false)}>
-    {!windowed && <button ref={launcherRef} type="button" className="desktop-presence-launcher"
-      aria-label={activityLabel ? t("floating.open_activity", { activity: activityLabel }) : t("floating.open")} aria-expanded={false} aria-controls={preview ? contentId : undefined}
-      onFocus={() => { if (window.matchMedia("(min-width: 768px)").matches) { if (!restoringFocusRef.current) setDismissed(false); setFocused(true); } }} onBlur={() => setFocused(false)}
-      onKeyDown={event => { if (event.key === "Escape" && preview) { event.preventDefault(); setDismissed(true); } }}
-      onClick={openDesktop}>
-      <TofiIcon name="monitor" size={22} /><span className="desktop-presence-dot" aria-hidden="true" />
-    </button>}
-    {(windowed || preview) && <div id={contentId} className={windowed ? "desktop-presence-content" : "desktop-presence-peek"}
-      onPointerDownCapture={!windowed ? () => { pointerFocusRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null; } : undefined}
-      onClick={!windowed ? openDesktop : undefined}>
-      <div className="desktop-presence-canvas" inert={!windowed || undefined} aria-hidden={!windowed || undefined}>{children}</div>
-      {!windowed && <p className="desktop-presence-peek-hint">{t("floating.peek_hint")}</p>}
-    </div>}
+    role={expanded ? "dialog" : "group"} aria-modal={expanded || undefined} aria-label={t("desktop.title")} tabIndex={expanded ? -1 : undefined}>
+    <div id={contentId} className="desktop-presence-content">
+      <div className="desktop-presence-canvas">{children}</div>
+    </div>
   </div>;
 }

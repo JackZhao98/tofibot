@@ -117,7 +117,6 @@
   },
   "computer": {
     "failed": "Échec du démarrage de l’ordinateur partagé",
-    "in_use": "{{name}} utilise l’ordinateur",
     "starting": "Préparation de votre ordinateur partagé",
     "stopped": "Ordinateur partagé arrêté",
     "unavailable": "Ordinateur partagé indisponible",
@@ -215,7 +214,10 @@
     "shared_computer": "Ordinateur partagé",
     "team_board": "Tableau d’équipe",
     "terminal": "Terminal",
-    "usage": "Utilisation"
+    "usage": "Utilisation",
+    "computer_on": "Ordinateur partagé, allumé",
+    "computer_off": "Ordinateur partagé, éteint",
+    "computer_driving": "Ordinateur partagé, allumé. {{name}} y travaille"
   },
   "history": {
     "boundary_failed": "Impossible de charger la position non lue.",
