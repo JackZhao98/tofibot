@@ -101,13 +101,6 @@
       "retry": "Réessayer"
     }
   },
-  "floating": {
-    "open": "Ouvrir l'ordinateur partagé",
-    "open_activity": "Ouvrir l'ordinateur partagé : {{activity}}",
-    "hide_mini_aria": "Replier le mini-écran",
-    "collapse": "Replier",
-    "peek_hint": "Lecture seule · cliquez pour agrandir"
-  },
   "remote": {
     "error": {
       "control_failed": "Échec du contrôle du bureau",

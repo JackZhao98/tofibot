@@ -117,7 +117,6 @@
   },
   "computer": {
     "failed": "공유 컴퓨터를 준비하지 못했습니다",
-    "in_use": "{{name}}이(가) 컴퓨터를 사용하는 중",
     "starting": "공유 컴퓨터를 준비하는 중",
     "stopped": "공유 컴퓨터가 중지되었습니다",
     "unavailable": "공유 컴퓨터를 사용할 수 없습니다",
@@ -213,7 +212,10 @@
     "shared_computer": "공유 컴퓨터",
     "team_board": "팀 보드",
     "terminal": "터미널",
-    "usage": "사용량"
+    "usage": "사용량",
+    "computer_on": "공유 컴퓨터, 켜짐",
+    "computer_off": "공유 컴퓨터, 꺼짐",
+    "computer_driving": "공유 컴퓨터, 켜짐. {{name}}이(가) 작업 중"
   },
   "history": {
     "boundary_failed": "읽지 않은 위치를 불러오지 못했습니다.",

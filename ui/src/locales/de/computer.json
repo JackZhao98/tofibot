@@ -100,13 +100,6 @@
       "retry": "Erneut versuchen"
     }
   },
-  "floating": {
-    "open": "Gemeinsamen Computer öffnen",
-    "open_activity": "Gemeinsamen Computer öffnen: {{activity}}",
-    "hide_mini_aria": "Mini-Bildschirm ausblenden",
-    "collapse": "Ausblenden",
-    "peek_hint": "Nur ansehen · zum Vergrößern klicken"
-  },
   "remote": {
     "error": {
       "control_failed": "Desktop-Steuerung fehlgeschlagen",

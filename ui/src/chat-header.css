@@ -44,3 +44,11 @@ html:not([data-desktop]) .workspace .header-actions .header-more { display:flex;
 }
 html:not([data-desktop]) .workspace .header-actions :is(.computer-button,.ghost-button) { display:grid; place-items:center; }
 
+
+/* Shared computer button: green while the computer is powered on, neutral when asleep. A small static dot marks a Bot driving it. */
+html:not([data-desktop]) .workspace .header-actions .computer-button { position:relative; }
+html:not([data-desktop]) .workspace .header-actions .computer-button.is-on { background:color-mix(in srgb,var(--green) 24%,transparent); color:var(--green-text); }
+html:not([data-desktop]) .workspace .header-actions .computer-button.is-on:hover { background:color-mix(in srgb,var(--green) 34%,transparent); color:var(--green-text); }
+html:not([data-desktop]) .workspace .header-actions .computer-button.is-on[aria-pressed="true"] { background:color-mix(in srgb,var(--green) 34%,transparent); color:var(--green-text); }
+.computer-driven-dot { position:absolute; top:5px; right:5px; width:7px; height:7px; border-radius:50%; background:var(--green-text); box-shadow:0 0 0 2px var(--surface); }
+@media (forced-colors:active) { .computer-button.is-on { border:1px solid Highlight; } .computer-driven-dot { background:Highlight; } }

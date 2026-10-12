@@ -117,7 +117,6 @@
   },
   "computer": {
     "failed": "Gemeinsamer Computer konnte nicht starten",
-    "in_use": "{{name}} nutzt den Computer",
     "starting": "Dein gemeinsamer Computer wird vorbereitet",
     "stopped": "Gemeinsamer Computer gestoppt",
     "unavailable": "Gemeinsamer Computer nicht verfügbar",
@@ -214,7 +213,10 @@
     "shared_computer": "Gemeinsamer Computer",
     "team_board": "Teamboard",
     "terminal": "Terminal",
-    "usage": "Nutzung"
+    "usage": "Nutzung",
+    "computer_on": "Gemeinsamer Computer, an",
+    "computer_off": "Gemeinsamer Computer, aus",
+    "computer_driving": "Gemeinsamer Computer, an. {{name}} arbeitet darin"
   },
   "history": {
     "boundary_failed": "Ungelesen-Position konnte nicht geladen werden.",
