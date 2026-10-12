@@ -10,7 +10,6 @@
     "declined_at": "取消于 {{time}}",
     "view_record": "查看草稿记录",
     "subject": "主题",
-    "check_sent_records": "请先检查邮件服务的已发送记录，核对时间、收件人与主题。",
     "sending_needs_checking": "发送结果待核实",
     "full_text": "邮件草稿全文",
     "body": "邮件正文",

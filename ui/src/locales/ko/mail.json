@@ -10,7 +10,6 @@
     "declined_at": "{{time}} 취소함",
     "view_record": "초안 기록 보기",
     "subject": "제목",
-    "check_sent_records": "이메일 서비스의 보낸 메일 기록에서 시간, 받는 사람, 제목을 확인하세요.",
     "sending_needs_checking": "발송 결과 확인 필요",
     "full_text": "이메일 초안 전문",
     "body": "이메일 본문",

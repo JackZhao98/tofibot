@@ -1635,8 +1635,12 @@ func RunAgentLoop(cfg AgentConfig, ctx *models.ExecutionContext) (returned *Agen
 					return nil, err
 				}
 				if cfg.ToolsOnly && registry.Get(fnName) == nil {
+					// The name is not in this run's tool set, so nothing was dispatched:
+					// a definite not-executed outcome the model may repair and retry.
+					unavailable := tooloutcome.New(tooloutcome.Validation, "tool_unavailable", "not_executed",
+						fmt.Sprintf("Tool '%s' is not available in this run. Nothing was executed or changed. Search the available tools (or call the connected tool through call_mcp_tool) and call again.", fnName), "repair_arguments")
 					messages = appendAndEmit(messages, provider.Message{
-						Role: "tool", Content: fmt.Sprintf("Tool '%s' is not available in this run.", fnName), ToolCallID: callID, ToolName: fnName, ToolFailed: true,
+						Role: "tool", Content: unavailable.JSON(), ToolCallID: callID, ToolName: fnName, ToolFailed: true, ToolOutcome: &unavailable,
 					})
 					continue
 				}

@@ -3,7 +3,6 @@
 .task-issue-card{position:relative;min-width:0;border:1px solid var(--border-soft);border-radius:var(--radius-md);background:var(--surface-card);padding:var(--space-4)}
 .task-issue-heading{display:flex;align-items:flex-start;gap:var(--space-2);margin-block-end:var(--space-3)}
 .task-issue-heading>svg{flex:none;color:var(--status-error-text)}
-.task-issue-card[data-issue-kind="uncertain_effect"] .task-issue-heading>svg{color:var(--honey-text)}
 .task-issue-heading h3{font:var(--type-row-title);margin:0;min-width:0}
 .task-issue-fact,.task-issue-context,.task-issue-feedback{margin:var(--space-2) 0 0;font:var(--type-body)}
 .task-fact-link{display:inline;min-height:0;padding:0;border:0;background:none;color:var(--text-body);font:inherit;text-decoration:underline;text-decoration-color:var(--border-soft);text-underline-offset:3px;cursor:pointer}
