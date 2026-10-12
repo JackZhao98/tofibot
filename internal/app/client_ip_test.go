@@ -9,7 +9,7 @@ import (
 )
 
 func TestClientIPTrustedProxies(t *testing.T) {
-	trusted, err := parseTrustedProxies("10.0.10.0/24, 172.16.0.5 ,fd00::/8")
+	trusted, err := parseTrustedProxies("10.20.30.0/24, 172.16.0.5 ,fd00::/8")
 	if err != nil || len(trusted) != 3 {
 		t.Fatalf("parse: %v %v", trusted, err)
 	}
@@ -19,15 +19,15 @@ func TestClientIPTrustedProxies(t *testing.T) {
 		want         string
 	}{
 		{"untrusted peer with spoofed header keys by RemoteAddr", "203.0.113.9:4000", []string{"198.51.100.1"}, "203.0.113.9"},
-		{"trusted peer, single hop", "10.0.10.7:5000", []string{"198.51.100.23"}, "198.51.100.23"},
-		{"trusted peer, client-supplied prefix is ignored", "10.0.10.7:5000", []string{"1.2.3.4, 198.51.100.23"}, "198.51.100.23"},
-		{"chain of trusted proxies", "10.0.10.7:5000", []string{"198.51.100.23, 172.16.0.5, 10.0.10.8"}, "198.51.100.23"},
-		{"split header lines", "10.0.10.7:5000", []string{"1.2.3.4", "198.51.100.23, 10.0.10.8"}, "198.51.100.23"},
-		{"missing header", "10.0.10.7:5000", nil, "10.0.10.7"},
-		{"malformed header", "10.0.10.7:5000", []string{"not-an-ip"}, "10.0.10.7"},
-		{"malformed hop to the right of a good one", "10.0.10.7:5000", []string{"198.51.100.23, garbage"}, "10.0.10.7"},
-		{"all hops trusted", "10.0.10.7:5000", []string{"10.0.10.8, 172.16.0.5"}, "10.0.10.7"},
-		{"ipv6 client", "10.0.10.7:5000", []string{"2001:db8::1"}, "2001:db8::1"},
+		{"trusted peer, single hop", "10.20.30.7:5000", []string{"198.51.100.23"}, "198.51.100.23"},
+		{"trusted peer, client-supplied prefix is ignored", "10.20.30.7:5000", []string{"1.2.3.4, 198.51.100.23"}, "198.51.100.23"},
+		{"chain of trusted proxies", "10.20.30.7:5000", []string{"198.51.100.23, 172.16.0.5, 10.20.30.8"}, "198.51.100.23"},
+		{"split header lines", "10.20.30.7:5000", []string{"1.2.3.4", "198.51.100.23, 10.20.30.8"}, "198.51.100.23"},
+		{"missing header", "10.20.30.7:5000", nil, "10.20.30.7"},
+		{"malformed header", "10.20.30.7:5000", []string{"not-an-ip"}, "10.20.30.7"},
+		{"malformed hop to the right of a good one", "10.20.30.7:5000", []string{"198.51.100.23, garbage"}, "10.20.30.7"},
+		{"all hops trusted", "10.20.30.7:5000", []string{"10.20.30.8, 172.16.0.5"}, "10.20.30.7"},
+		{"ipv6 client", "10.20.30.7:5000", []string{"2001:db8::1"}, "2001:db8::1"},
 	}
 	for _, c := range cases {
 		r := httptest.NewRequest("POST", "/", nil)
@@ -41,9 +41,9 @@ func TestClientIPTrustedProxies(t *testing.T) {
 	}
 	// Default (no trusted proxies) never reads the header.
 	r := httptest.NewRequest("POST", "/", nil)
-	r.RemoteAddr = "10.0.10.7:5000"
+	r.RemoteAddr = "10.20.30.7:5000"
 	r.Header.Set("X-Forwarded-For", "198.51.100.23")
-	if got := clientIP(r, nil); got != "10.0.10.7" {
+	if got := clientIP(r, nil); got != "10.20.30.7" {
 		t.Fatalf("default: %s", got)
 	}
 	if _, err := parseTrustedProxies("10.0.0.0/33"); err == nil {
