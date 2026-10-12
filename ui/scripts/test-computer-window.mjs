@@ -337,26 +337,44 @@ try {
     await context.close();
   }
 
-  // 8. Placement: the small window never covers message text at 1440x900 or 1180x820.
-  for (const [width, height] of [[1440, 900], [1180, 820]]) {
+  // 8. Placement: while the small window is open the messages reflow beside it; nothing is covered, the composer stays usable.
+  for (const [width, height] of [[1440, 900], [1180, 820], [1024, 768]]) {
     const messages = Array.from({ length: 14 }, (_, index) => ({ id: `m${index}`, seq: index + 1, conversation_id: "conv-synthetic", role: index % 2 ? "assistant" : "user", content: "Synthetic message ".repeat(14), created_at: "2026-10-09T12:00:00Z" }));
     const state = { info: info("ready"), capture: "image", requests: [], messages };
     const { context, page, errors, button } = await open({ width, height, state });
+    const textRects = () => page.evaluate(() => {
+      const out = [];
+      const walker = document.createTreeWalker(document.querySelector(".message-scroll"), NodeFilter.SHOW_TEXT);
+      for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+        if (!node.textContent.trim()) continue;
+        const range = document.createRange(); range.selectNodeContents(node);
+        for (const r of range.getClientRects()) if (r.width > 0) out.push({ x: r.x, y: r.y, w: r.width, h: r.height });
+        const bubble = node.parentElement.closest(".bubble, .message-card, [class*=bubble]");
+        if (bubble) { const r = bubble.getBoundingClientRect(); out.push({ x: r.x, y: r.y, w: r.width, h: r.height }); }
+      }
+      return out;
+    });
+    await page.getByText("Synthetic message").first().waitFor();
+    const before = await textRects();
+    assert.ok(before.length > 5, `${width}: message text found (${before.length})`);
     await button.click();
     await shell(page, "is-small").waitFor();
     await page.locator("img.computer-screen, video").first().waitFor({ state: "attached", timeout: 10000 });
     await page.waitForTimeout(500);
     const box = await shell(page, "is-small").boundingBox();
-    const column = await page.locator(".composer .composer-row").first().boundingBox();
-    const covered = Math.max(0, column.x + column.width - box.x);
-    // The message column fills the space beside the sidebar, so a 392px window cannot avoid it entirely; it sits in the
-    // right gutter (viewport edge) so it covers only what the gutter cannot hold, never the composer, and ends above it.
-    assert.ok(Math.abs(width - (box.x + box.width) - 16) <= 1, `${width}x${height}: window docks at the viewport's right edge, got gap ${width - (box.x + box.width)}`);
-    assert.ok(box.y + box.height <= column.y, "window ends above the composer");
-    assert.ok(covered < box.width, `${width}x${height}: window overlaps ${covered}px of the ${box.width}px message column edge`);
-    console.log(`placement ${width}x${height}: window x=${box.x}..${box.x + box.width}, message column right edge ${column.x + column.width}, overlap ${covered}px`);
+    const text = await textRects();
+    const overlaps = text.filter(r => r.x < box.x + box.width && r.x + r.w > box.x && r.y < box.y + box.height && r.y + r.h > box.y);
+    assert.deepEqual(overlaps, [], `${width}x${height}: the small window covers ${overlaps.length} message text/bubble rects`);
+    const composer = await page.locator(".composer .composer-row").first().boundingBox();
+    assert.ok(box.y + box.height <= composer.y, "window ends above the composer");
+    assert.equal(await page.locator(".composer textarea, .composer [contenteditable]").first().isVisible(), true, "composer input stays visible");
     await shot(page, `quiet-placement-${width}`);
+    // Closing the window gives the width back.
+    await page.getByRole("button", { name: "Close shared computer" }).click({ trial: false }).catch(async () => { await page.locator("[data-desktop-frame]").hover(); await page.getByRole("button", { name: "Close shared computer" }).click(); });
+    await page.waitForFunction(() => !document.querySelector(".desktop-floating-shell"));
+    assert.equal(await page.evaluate(() => document.documentElement.hasAttribute("data-desktop-reserve")), false, "padding removed after close");
     assert.deepEqual(errors, []);
+    console.log(`placement ${width}x${height}: window x=${box.x}..${box.x + box.width}, ${text.length} text rects, 0 overlap`);
     await context.close();
   }
   results.push("placement");
