@@ -125,7 +125,11 @@ type mcpRememberTarget struct {
 
 // mcpIdentifierTokens are the last name token of an argument that names the
 // call's target: ids, keys, addresses, channels, recipients and paths.
-var mcpIdentifierTokens = map[string]bool{"id": true, "ids": true, "uid": true, "uuid": true, "guid": true, "key": true, "url": true, "uri": true, "path": true, "channel": true, "recipient": true, "recipients": true, "to": true, "cc": true, "bcc": true, "identifier": true, "slug": true, "handle": true}
+var mcpIdentifierTokens = map[string]bool{"id": true, "ids": true, "uid": true, "uuid": true, "guid": true, "key": true, "url": true, "uri": true, "path": true, "channel": true, "recipient": true, "recipients": true, "to": true, "cc": true, "bcc": true, "identifier": true, "slug": true, "handle": true,
+	// Containers the target lives in: a path binds together with its repo,
+	// a table with its database, a file with its folder. Every name here only
+	// makes a key more specific.
+	"owner": true, "org": true, "organization": true, "repo": true, "repository": true, "project": true, "workspace": true, "team": true, "branch": true, "database": true, "db": true, "table": true, "collection": true, "bucket": true, "folder": true, "parent": true, "space": true, "site": true, "calendar": true, "account": true, "user": true, "email": true, "phone": true}
 
 // mcpNameTokens splits snake_case, kebab-case and camelCase names.
 func mcpNameTokens(name string) []string {
@@ -195,10 +199,28 @@ func mcpDecodeArguments(raw json.RawMessage) (map[string]any, bool) {
 	return args, true
 }
 
+// mcpStructuredArgument says whether a value is an object or holds one: a
+// nested object may carry the real target (a recipient inside a message)
+// where no identifier name can see it, so such a call binds exact arguments.
+func mcpStructuredArgument(v any) bool {
+	switch x := v.(type) {
+	case map[string]any:
+		return true
+	case []any:
+		for _, item := range x {
+			if mcpStructuredArgument(item) {
+				return true
+			}
+		}
+	}
+	return false
+}
+
 // mcpRememberTargetFor derives what "the same target" means for one call.
 // Identifier arguments named by the tool's own input schema bind the grant to
-// their exact values; without one, only the identical full arguments match.
-// The key never widens to "any arguments".
+// their exact values; without one, or when any argument is an object (or an
+// array holding one), only the identical full arguments match. The key never
+// widens to "any arguments".
 func mcpRememberTargetFor(schema, arguments json.RawMessage) (mcpRememberTarget, bool) {
 	args, ok := mcpDecodeArguments(arguments)
 	if !ok {
@@ -216,7 +238,16 @@ func mcpRememberTargetFor(schema, arguments json.RawMessage) (mcpRememberTarget,
 	sort.Strings(names)
 	identifiers := map[string]any{}
 	var summary []string
+	structured := false
+	for _, value := range args {
+		if mcpStructuredArgument(value) {
+			structured = true
+		}
+	}
 	for _, name := range names {
+		if structured {
+			break
+		}
 		value, ok := args[name]
 		if !ok || !mcpIdentifierName(name) || !mcpScalarIdentifier(value) {
 			continue
