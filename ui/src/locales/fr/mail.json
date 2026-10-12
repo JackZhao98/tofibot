@@ -10,7 +10,6 @@
     "declined_at": "Annulé {{time}}",
     "view_record": "Voir l’historique du brouillon",
     "subject": "Objet",
-    "check_sent_records": "Consultez les messages envoyés dans votre messagerie et comparez l’heure, le destinataire et l’objet.",
     "sending_needs_checking": "Résultat de l’envoi à vérifier",
     "full_text": "Brouillon complet de l’e-mail",
     "body": "Corps de l’e-mail",

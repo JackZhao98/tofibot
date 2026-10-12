@@ -6,19 +6,17 @@ import { buildRetryFamilies, retryFamilyAnchor, isTerminalRun } from "./runFamil
 import type { Message, Run, ToolActivity, ToolActivityRunSummary } from "./types";
 import { providerForModel } from "./modelCatalog";
 import { i18n, type Language } from "./i18n";
-import { formatClock, formatList } from "./i18n/format";
+import { formatClock } from "./i18n/format";
 
 /** Text for one language, or the active UI language when none is given (tests pin one). */
 const tasksT = (locale?: Language) => i18n.getFixedT(locale ?? null, "tasks");
-export type TaskIssueKind = "provider_busy" | "model_unconfigured" | "model_auth" | "model_quota" | "tool_setup" | "review_context" | "review_unavailable" | "expired" | "human_denied" | "policy_denied" | "uncertain_effect" | "connection_status" | "runtime_connection" | "unknown_failure";
-export type TaskAction = "open_tools" | "open_codex" | "copy_diagnostics" | "view_activity" | "verify_steps" | "refresh_status";
+export type TaskIssueKind = "provider_busy" | "model_unconfigured" | "model_auth" | "model_quota" | "tool_setup" | "review_context" | "review_unavailable" | "expired" | "human_denied" | "policy_denied" | "connection_status" | "runtime_connection" | "unknown_failure";
+export type TaskAction = "open_tools" | "open_codex" | "copy_diagnostics" | "view_activity" | "refresh_status";
 export type ExecutionState = "not_executed" | "in_progress" | "completed" | "unknown";
 export type TaskEvidence = { source: "run" | "tool" | "question" | "draft" | "connection"; id: string; code?: string; status?: string; certainty?: string; model?: string; updatedAt?: string; contextCode?: string; failureCategory?: string };
 /** A fact that names one tool step can open that step in the activity record. */
 export type TaskFactLink = { runId: string; callId: string; label: string };
-/** The one-glance form of an uncertain-effect card: what, and what to check. */
-export type TaskIssueCompact = { subject: string; sentence: string; link?: TaskFactLink };
-export type TaskIssueView = { compact?: TaskIssueCompact; kind: TaskIssueKind; phase: "active" | "finishing" | "terminal"; title: string; facts: string[]; links: (TaskFactLink | undefined)[]; secondary: string[]; action: TaskAction; actionLabel: string; evidence: TaskEvidence[]; recordsComplete: boolean };
+export type TaskIssueView = { kind: TaskIssueKind; phase: "active" | "finishing" | "terminal"; title: string; facts: string[]; links: (TaskFactLink | undefined)[]; secondary: string[]; action: TaskAction; actionLabel: string; evidence: TaskEvidence[]; recordsComplete: boolean };
 export type TaskFamily = ReturnType<typeof buildRetryFamilies>[number];
 export type TaskOwner = { key: string; family: TaskFamily; anchor?: { kind: "message" | "question" | "draft"; id: string } };
 
@@ -52,7 +50,6 @@ export function canAnswerQuestion(question: Question, archived = false) {
 
 
 const category = (code?: string, status?: string): TaskIssueKind | undefined => {
-  if (code === "mcp_result_unknown" || status === "uncertain_effect") return "uncertain_effect";
   if (code === "approval_window_expired" || status === "approval_expired") return "expired";
   if (code === "mcp_review_policy_denied" || status === "policy_denied") return "policy_denied";
   if (code === "approval_denied" || status === "approval_denied") return "human_denied";
@@ -135,38 +132,30 @@ export function presentTaskIssue({ run, family, tools = [], questions = [], draf
   const t = tasksT(locale);
   // Defend against unrelated records even if the caller hands us a mixed page.
   const sameObjectScope = (item: {run_id: string; conversation_id: string; bot_id: string}) => item.conversation_id === run.conversation_id && item.bot_id === run.bot_id && (item.run_id === run.id || family?.attempts.some(attempt => attempt.id === item.run_id && attempt.conversation_id === item.conversation_id && attempt.bot_id === item.bot_id));
-  const questionUnknown = (question: Question) => !question.approval?.review_only && !question.approval?.review?.status.startsWith("shadow") && (question.outcome?.execution_certainty === "unknown" || question.outcome?.status === "uncertain_effect");
-  // A newer attempt cannot settle an earlier object's external effect. Keep only
-  // still-unknown earlier records, never revive resolved historical failures.
-  tools = tools.filter(item => sameObjectScope(item) && (item.run_id === run.id || toolExecutionState(item) === "unknown"));
-  questions = questions.filter(item => sameObjectScope(item) && (item.run_id === run.id || questionUnknown(item)));
-  drafts = drafts.filter(item => sameObjectScope(item) && (item.run_id === run.id || item.status === "unknown"));
-  const priorUnknown = [...tools, ...questions, ...drafts].some(item => item.run_id !== run.id);
+  // An uncertain result never raises a chat card: it shows as the step's own status in
+  // the work log, and the Bot explains it. Only this attempt's records can raise a card.
+  tools = tools.filter(item => sameObjectScope(item) && item.run_id === run.id);
+  questions = questions.filter(item => sameObjectScope(item) && item.run_id === run.id);
+  drafts = drafts.filter(item => sameObjectScope(item) && item.run_id === run.id);
   const causes: TaskIssueKind[] = [];
   const add = (kind?: TaskIssueKind) => { if (kind && !causes.includes(kind)) causes.push(kind); };
   const evidence: TaskEvidence[] = [];
   for (const tool of tools) {
-    const state = toolExecutionState(tool);
-    if (tool.run_id === run.id) add(category(tool.outcome?.code, tool.outcome?.status));
-    if (state === "unknown") add("uncertain_effect");
-    evidence.push({ source: "tool", id: tool.call_id, code: tool.outcome?.code, status: tool.outcome?.status ?? tool.status, certainty: state, updatedAt: tool.updated_at });
+    add(category(tool.outcome?.code, tool.outcome?.status));
+    evidence.push({ source: "tool", id: tool.call_id, code: tool.outcome?.code, status: tool.outcome?.status ?? tool.status, certainty: toolExecutionState(tool), updatedAt: tool.updated_at });
   }
   for (const question of questions) {
     const review = question.approval?.review;
     // Observations are read-only activity, never hard denials or permission.
     if (!question.approval?.review_only && !review?.status.startsWith("shadow")) {
-      if (question.run_id === run.id) {
-        add(category(undefined, review?.status));
-        add(category(undefined, question.outcome?.status));
-        if (question.status === "expired") add("expired");
-        if (question.question_type === "approval" && question.status === "answered" && question.answer === false && question.answered_by !== "auto-review") add("human_denied");
-      }
-      if (questionUnknown(question)) add("uncertain_effect");
+      add(category(undefined, review?.status));
+      add(category(undefined, question.outcome?.status));
+      if (question.status === "expired") add("expired");
+      if (question.question_type === "approval" && question.status === "answered" && question.answer === false && question.answered_by !== "auto-review") add("human_denied");
     }
     evidence.push({ source: "question", id: question.question_id, status: review?.status ?? question.status, certainty: question.outcome?.execution_certainty, model: review?.model, updatedAt: question.updated_at, contextCode: review?.context_failure?.code, failureCategory: review?.failure_category });
   }
   for (const draft of drafts) {
-    if (draft.status === "unknown") add("uncertain_effect");
     evidence.push({ source: "draft", id: draft.draft_id, status: draft.status, certainty: draft.status === "unknown" ? "unknown" : undefined, updatedAt: draft.updated_at });
   }
   if (run.stop_reason === "approval_expired" || run.finishing_reason === "approval_expired" || run.failure?.code === "approval_expired") add("expired");
@@ -185,27 +174,15 @@ export function presentTaskIssue({ run, family, tools = [], questions = [], draf
   const stepLevel: TaskIssueKind[] = ["review_context", "review_unavailable", "tool_setup", "policy_denied", "human_denied"];
   for (let index = causes.length - 1; index >= 0; index--) if (stepLevel.includes(causes[index])) causes.splice(index, 1);
   if (!causes.length) return undefined;
-  const priority: TaskIssueKind[] = ["uncertain_effect", "expired", "human_denied", "policy_denied", "tool_setup", "review_context", "review_unavailable", "connection_status", "model_unconfigured", "model_auth", "model_quota", "provider_busy", "runtime_connection", "unknown_failure"];
+  const priority: TaskIssueKind[] = ["expired", "human_denied", "policy_denied", "tool_setup", "review_context", "review_unavailable", "connection_status", "model_unconfigured", "model_auth", "model_quota", "provider_busy", "runtime_connection", "unknown_failure"];
   const kind = priority.find(value => causes.includes(value))!;
-  const action: TaskAction = kind === "uncertain_effect" ? "verify_steps" : kind === "tool_setup" ? "open_tools" : ["model_unconfigured", "model_auth", "model_quota"].includes(kind) ? "open_codex" : ["review_context", "review_unavailable"].includes(kind) ? "copy_diagnostics" : kind === "connection_status" ? "refresh_status" : "view_activity";
+  const action: TaskAction = kind === "tool_setup" ? "open_tools" : ["model_unconfigured", "model_auth", "model_quota"].includes(kind) ? "open_codex" : ["review_context", "review_unavailable"].includes(kind) ? "copy_diagnostics" : kind === "connection_status" ? "refresh_status" : "view_activity";
   // A zero tool count is a recorded fact: there is nothing more to load or verify.
   const noToolSteps = isTerminalRun(run) && summary?.tool_count === 0 && !tools.some(tool => tool.run_id === run.id);
   const phase = run.finishing_reason ? "finishing" : isTerminalRun(run) ? "terminal" : "active";
   const facts: string[] = [];
   const links: (TaskFactLink | undefined)[] = [];
-  const pushToolFact = (tool: ToolActivity, text: string) => {
-    const label = taskToolLabel(tool, locale);
-    links[facts.length] = { runId: tool.run_id, callId: tool.call_id, label };
-    facts.push(t("fact.labelled", { label, text }));
-  };
-  if (kind === "uncertain_effect") {
-    for (const tool of tools.filter(tool => toolExecutionState(tool) === "unknown")) pushToolFact(tool, t("fact.execution_needs_checking"));
-    for (const question of questions.filter(questionUnknown)) facts.push(t("fact.labelled", { label: taskQuestionLabel(question, locale), text: t("fact.execution_needs_checking") }));
-    for (const draft of drafts.filter(draft => draft.status === "unknown")) facts.push(t("fact.labelled", { label: taskDraftLabel(draft, locale), text: t("fact.sending_needs_checking") }));
-  }
   // Steps that did not run are marked on the steps themselves.
-  if (drafts.some(draft => draft.status === "unknown")) facts.push(t("fact.check_sent_mail"));
-  else if (kind === "uncertain_effect") facts.push(t("fact.check_target_service"));
   if (kind === "connection_status") facts.push(t("fact.may_still_be_running"));
   if (kind === "unknown_failure" && !facts.length) facts.push(noToolSteps ? t("fact.no_cause_recorded") : t("fact.cause_unconfirmed"));
   if (kind === "provider_busy") facts.push(t("fact.task_did_not_finish"));
@@ -218,22 +195,13 @@ export function presentTaskIssue({ run, family, tools = [], questions = [], draf
   if (kind === "model_quota") facts.push(t(`fact.model_quota.${model}`, { provider: keyLabel }), t(`fact.model_quota.${model}_next`, { provider: keyLabel }));
   if (noToolSteps) facts.push(t("fact.no_tool_steps"));
   if (kind === "expired") facts.push(phase === "finishing" ? t("fact.finishing_results_kept") : t("fact.stopped_results_kept"));
-  if (kind !== "uncertain_effect" && tools.some(tool => toolExecutionState(tool) === "completed")) facts.push(t("fact.completed_steps_kept"));
+  if (tools.some(tool => toolExecutionState(tool) === "completed")) facts.push(t("fact.completed_steps_kept"));
   const complete = noToolSteps || (recordsComplete && (!summary || tools.filter(tool => tool.run_id === run.id).length >= summary.tool_count));
   const secondary = causes.filter(cause => cause !== kind && cause !== "unknown_failure").map(cause => cause === "provider_busy" ? t("secondary.then_provider_busy") : t(`issue.title.${cause}`));
-  if (priorUnknown) secondary.unshift(run.status === "done" ? t("secondary.later_attempt_ended") : t("secondary.later_attempt", { phase: taskPhaseLabel({run, tools:tools.filter(tool => tool.run_id === run.id), questions:questions.filter(question => question.run_id === run.id), drafts:drafts.filter(draft => draft.run_id === run.id), locale}) }));
-  if (!complete && kind !== "uncertain_effect") secondary.push(t("secondary.records_incomplete"));
-  let compact: TaskIssueCompact | undefined;
-  if (kind === "uncertain_effect") {
-    const unknownTools = tools.filter(tool => toolExecutionState(tool) === "unknown");
-    const unknownDrafts = drafts.filter(draft => draft.status === "unknown");
-    const names = [...new Set([...unknownTools.map(tool => toolStepTitle(tool)), ...questions.filter(questionUnknown).map(() => t("label.object.question")), ...unknownDrafts.map(() => t("label.object.draft"))])];
-    const first = unknownTools[0];
-    compact = { subject: formatList(names, "conjunction", locale), sentence: unknownDrafts.length ? t("compact.check_mail") : t("compact.check_service"), link: first ? { runId: first.run_id, callId: first.call_id, label: toolStepTitle(first) } : undefined };
-  }
+  if (!complete) secondary.push(t("secondary.records_incomplete"));
   evidence.push({ source: "run", id: run.id, status: run.status, code: overloaded ? "server_is_overloaded" : run.failure?.code, model: run.model, updatedAt: run.updated_at });
   if (!connected) evidence.push({ source: "connection", id: run.id, status: "disconnected" });
-  return { compact, kind, phase, title: t(`issue.title.${kind}`), facts, links, secondary, action, actionLabel: action === "open_codex" && provider !== "codex" ? t("issue.action.open_model_connections") : t(`issue.action.${action}`), evidence, recordsComplete: complete };
+  return { kind, phase, title: t(`issue.title.${kind}`), facts, links, secondary, action, actionLabel: action === "open_codex" && provider !== "codex" ? t("issue.action.open_model_connections") : t(`issue.action.${action}`), evidence, recordsComplete: complete };
 }
 
 /** Diagnostics never contain arguments, results, prose errors, mail or reasoning. */

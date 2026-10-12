@@ -11,7 +11,6 @@
       "expired": "승인이 만료되었습니다",
       "human_denied": "이 작업을 거절했습니다",
       "policy_denied": "이 작업이 안전 검사를 통과하지 못했습니다",
-      "uncertain_effect": "완료되었는지 확인할 수 없습니다",
       "connection_status": "연결이 끊겨 상태를 확인할 수 없습니다",
       "runtime_connection": "연결이 끊겨 작업이 완료되지 않았습니다",
       "unknown_failure": "작업이 완료되지 않았습니다"
@@ -22,7 +21,6 @@
       "open_model_connections": "모델 연결 열기",
       "copy_diagnostics": "진단 정보 복사",
       "view_activity": "활동 보기",
-      "verify_steps": "확인 방법",
       "refresh_status": "상태 새로고침"
     },
     "working": "처리 중…",
@@ -89,10 +87,6 @@
   },
   "fact": {
     "labelled": "{{label}}: {{text}}",
-    "execution_needs_checking": "실행 결과를 확인해야 합니다.",
-    "sending_needs_checking": "발송 결과를 확인해야 합니다.",
-    "check_sent_mail": "이메일 서비스의 보낸 메일 기록에서 시간, 받는 사람, 제목을 확인하세요.",
-    "check_target_service": "대상 서비스에서 이 작업의 기록을 확인하세요. 확인할 수 없으면 결과를 미확인 상태로 두세요.",
     "may_still_be_running": "작업이 아직 실행 중일 수 있습니다. 새로고침은 최신 상태만 읽어 옵니다.",
     "no_cause_recorded": "구체적인 원인이 기록되지 않았습니다.",
     "cause_unconfirmed": "원인과 실행 결과가 아직 확인되지 않았습니다.",
@@ -128,8 +122,6 @@
   },
   "secondary": {
     "then_provider_busy": "이후 모델 서비스가 혼잡해 작업이 완료되지 않았습니다.",
-    "later_attempt_ended": "이후 시도가 종료되었습니다. 이전 작업 결과는 아직 확인이 필요합니다.",
-    "later_attempt": "이후 시도: {{phase}}",
     "records_incomplete": "실행 기록을 모두 불러오지 못했습니다."
   },
   "phase": {
@@ -463,10 +455,6 @@
     "cancel": "취소",
     "submitting": "제출 중…",
     "submit": "비공개로 제출"
-  },
-  "compact": {
-    "check_service": "다시 시도하기 전에 이 작업이 사용한 서비스를 확인하세요.",
-    "check_mail": "다시 시도하기 전에 보낸 메일함을 확인하세요."
   },
   "remembered": {
     "title": "기억된 승인",

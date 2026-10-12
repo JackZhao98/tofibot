@@ -11,7 +11,6 @@
       "expired": "Approval expired",
       "human_denied": "You declined this action",
       "policy_denied": "This action did not pass the safety check",
-      "uncertain_effect": "Not sure this went through",
       "connection_status": "Connection lost; status is unconfirmed",
       "runtime_connection": "Connection interrupted; the task did not finish",
       "unknown_failure": "The task did not finish"
@@ -22,7 +21,6 @@
       "open_model_connections": "Open model connections",
       "copy_diagnostics": "Copy diagnostics",
       "view_activity": "View activity",
-      "verify_steps": "How to check",
       "refresh_status": "Refresh status"
     },
     "working": "Working…",
@@ -89,10 +87,6 @@
   },
   "fact": {
     "labelled": "{{label}}: {{text}}",
-    "execution_needs_checking": "Execution result needs checking.",
-    "sending_needs_checking": "Sending result needs checking.",
-    "check_sent_mail": "Check sent-mail records in your email service and compare the time, recipient, and subject.",
-    "check_target_service": "Check this action's records in the target service. If still unconfirmed, keep the result unconfirmed.",
     "may_still_be_running": "The task may still be running. Refresh only reads the latest status.",
     "no_cause_recorded": "No specific cause was recorded.",
     "cause_unconfirmed": "The cause and execution result are not yet confirmed.",
@@ -128,8 +122,6 @@
   },
   "secondary": {
     "then_provider_busy": "The model service was then busy, and the task did not finish.",
-    "later_attempt_ended": "The later attempt ended; earlier action results still need checking.",
-    "later_attempt": "Later attempt: {{phase}}",
     "records_incomplete": "Execution records are not fully loaded."
   },
   "phase": {
@@ -468,10 +460,6 @@
     "cancel": "Cancel",
     "submitting": "Submitting…",
     "submit": "Submit privately"
-  },
-  "compact": {
-    "check_service": "Check the service this action used before trying again.",
-    "check_mail": "Check your sent mail before trying again."
   },
   "remembered": {
     "title": "Remembered approvals",

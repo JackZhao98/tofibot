@@ -11,7 +11,6 @@
       "expired": "批准已过期",
       "human_denied": "你未批准此操作",
       "policy_denied": "此操作未通过安全检查",
-      "uncertain_effect": "不确定是否已完成",
       "connection_status": "连接中断，状态待确认",
       "runtime_connection": "连接中断，任务未完成",
       "unknown_failure": "任务未完成"
@@ -22,7 +21,6 @@
       "open_model_connections": "打开模型连接设置",
       "copy_diagnostics": "复制诊断信息",
       "view_activity": "查看执行记录",
-      "verify_steps": "如何核对",
       "refresh_status": "刷新状态"
     },
     "working": "处理中…",
@@ -89,10 +87,6 @@
   },
   "fact": {
     "labelled": "{{label}}: {{text}}",
-    "execution_needs_checking": "执行结果待核实。",
-    "sending_needs_checking": "发送结果待核实。",
-    "check_sent_mail": "请检查邮件服务中的已发送记录，核对时间、收件人与主题。",
-    "check_target_service": "请在目标服务中核对这次操作的记录。无法确认时，请保持结果待核实。",
     "may_still_be_running": "任务可能仍在运行。刷新只读取最新状态。",
     "no_cause_recorded": "没有记录具体原因。",
     "cause_unconfirmed": "目前无法确认原因和执行结果。",
@@ -128,8 +122,6 @@
   },
   "secondary": {
     "then_provider_busy": "随后模型服务繁忙，任务未完成。",
-    "later_attempt_ended": "后续尝试已结束；此前操作的结果仍待核实。",
-    "later_attempt": "后续尝试: {{phase}}",
     "records_incomplete": "执行记录尚未完整加载。"
   },
   "phase": {
@@ -463,10 +455,6 @@
     "cancel": "取消",
     "submitting": "提交中…",
     "submit": "私密提交"
-  },
-  "compact": {
-    "check_service": "重试前，请先到该操作使用的服务里核对。",
-    "check_mail": "重试前，请先查看已发送邮件。"
   },
   "remembered": {
     "title": "记住的批准",

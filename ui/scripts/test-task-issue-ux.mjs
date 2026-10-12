@@ -66,9 +66,9 @@ try {
  const reviewRecords=visibleText(review.slice(review.indexOf('<div class="task-activity-records">')).replace(/<details class="task-step-technical">[\s\S]*?<\/details>/g,""));
  assert(review.includes('<details class="task-step-technical">'));assert(!review.includes("决定与执行前检查记录"));
  for(const raw of ["context_required","not_executed","synthetic-question-1"]) assert(!reviewRecords.includes(raw),`raw ${raw} leaked into review record`);
- // Issue facts name the step in words and link to it; no hash fingerprints remain.
+ // Issue facts name steps in words; no hash fingerprints remain.
  const factCard=markup(scenario("unknown"));
- assert(factCard.includes('class="task-fact-link"'));assert(!/工具调用 · [0-9A-F]{8}/.test(visibleText(factCard)));
+ assert(!/工具调用 · [0-9A-F]{8}/.test(visibleText(factCard)));
  assert(steps.includes("工作过程<span class=\"task-activity-detail\"> · 10 个工具"));
  // Production outcomes name the cause in a code; the step reads it in words.
  const prodBlocked={...scenario("busy"),run:{...run,status:"done"},tools:[{...tool,outcome:{version:1,status:"need_information",code:"mcp_review_context_missing",execution_certainty:"not_executed",message:"Necessary durable user authorization or context is missing"}}]};
@@ -114,15 +114,31 @@ try {
  assert.equal(view({run,questions:[{...question,status:"answered",answer:false,answered_by:"human"}]}),undefined);
  assert.equal(view({run,questions:[{...question,approval:{...question.approval,review:{...question.approval.review,status:"policy_denied"}}}]}),undefined);
  console.log("PASS 5: expiry reconciliation, finishing, refusals stay on steps, no old controls");
- // 6. Unknown outranks overload/expiry; verify before acting; another sent result retained.
- const unknown=scenario("unknown"), uv=view(unknown);assert.equal(uv.kind,"uncertain_effect");assert.equal(uv.action,"verify_steps");assert(uv.facts.join(" ").includes("已发送记录"));assert(markup(unknown).includes('data-draft-status="sent"'));
+ // 6. An uncertain effect never raises a chat card; the step row says "结果待核实" and the Bot explains.
+ const unknown=scenario("unknown");
+ const noUncertainCard=(html,where)=>{for(const gone of ["不确定是否已完成","Not sure this went through","如何核对","How to check",'data-issue-kind="uncertain_effect"','data-compact="true"'])assert(!html.includes(gone),`${where}: ${gone}`);};
+ const unknownDone={...unknown,run:{...run,status:"done"}};
+ assert.equal(view(unknownDone),undefined,"genuinely uncertain effect on a finished run: no card");
+ const uHtml=markup(unknownDone);noUncertainCard(uHtml,"uncertain");assert(!uHtml.includes("task-issue-card"));assert(uHtml.includes("结果待核实"),"row shows the status only");assert(uHtml.includes('data-draft-status="sent"'));
+ noUncertainCard(markup(unknown),"uncertain on a failed run");
+ assert.notEqual(view(unknown)?.kind,"uncertain_effect");
  assert.equal(p.toolExecutionState({...tool,status:"completed"}),"unknown");
  const completedTool={...tool,status:"completed",outcome:undefined,result:"Synthetic completed business result",updated_at:"2026-10-05T10:00:00.000000002Z"};
  assert.equal(reconcileToolActivity(completedTool,{...tool,updated_at:"2026-10-05T10:00:00.000000001Z"}).result,completedTool.result);
  const conflict=reconcileToolActivity(completedTool,{...tool,updated_at:completedTool.updated_at});assert.equal(p.toolExecutionState(conflict),"unknown");assert.equal(conflict.result,completedTool.result);
-assert.equal(toolDisplayLabel({...tool,status:"completed"}),"结果待核实");
- assert.equal(view({...expired,tools:unknown.tools}).kind,"uncertain_effect");assert(markup({...unknown,drafts:[{...draft,status:"sent",demo:true}]}).includes("Demo; not sent"));
- console.log("PASS 6: uncertain effects first, visible verification, conflict conservative, sent/demo independent");
+ assert.equal(toolDisplayLabel({...tool,status:"completed"}),"结果待核实");
+ assert.equal(view({...scenario("expired"),tools:unknown.tools}).kind,"expired");assert(markup({...unknown,drafts:[{...draft,status:"sent",demo:true}]}).includes("Demo; not sent"));
+ // No card for: an unknown tool name (failed row, no outcome), a definite refusal, a recorded approval.
+ const noOutcome={...tool,name:"mcp_notion__notion-update-page",status:"failed",outcome:undefined,result:"Tool 'mcp_notion__notion-update-page' is not available in this run."};
+ const doneRun={...scenario("busy"),run:{...run,status:"done"}};
+ assert.equal(p.toolExecutionState(noOutcome),"not_executed");assert.equal(toolDisplayLabel(noOutcome),"未执行");
+ const unavailable={...noOutcome,outcome:{version:1,status:"validation_error",code:"tool_unavailable",execution_certainty:"not_executed",message:"unavailable",next_action:"repair_arguments"}};
+ const refusal={...tool,outcome:{version:1,status:"permanent_failure",code:"tool_rejected",execution_certainty:"not_executed",message:"refused",next_action:"repair_arguments"}};
+ const approvedRow={...tool,name:"call_mcp_tool",status:"completed",outcome:{version:1,status:"approval_recorded",code:"approval_recorded",execution_certainty:"not_executed",message:"approved",next_action:"repeat_exact_call"}};
+ for(const [name,row] of [["unknown tool, no outcome",noOutcome],["unknown tool, structured outcome",unavailable],["definite refusal",refusal],["approval_recorded",approvedRow]]){
+  const f={...doneRun,tools:[row]},h=markup(f);assert.equal(view(f),undefined,name);assert(!h.includes("task-issue-card"),name);noUncertainCard(h,name);
+ }
+ console.log("PASS 6: uncertain effects show on the step only, never as a card; unknown tool, refusal and approval raise none");
  // 7. Durable anchor/key through all phases and reconnect; no success card; isolation.
  const ownerKey=p.buildTaskOwners([run],[request],[],[])[0].key;
  for(const status of ["queued","running","waiting","failed","done"]) {const owner=p.buildTaskOwners([{...run,status}],[request],[],[])[0];assert.equal(owner.key,ownerKey);assert.equal(owner.anchor.id,request.id);}
@@ -143,7 +159,7 @@ assert.equal(toolDisplayLabel({...tool,status:"completed"}),"结果待核实");
  // The desktop and memory panels are localized; they must carry no hardcoded CJK copy (comments aside).
  for(const file of ["src/BotDesktopPanel.tsx","src/MemoryPanel.tsx"]) {const code=(await readFile(join(ui,file),"utf8")).replace(/\/\*[\s\S]*?\*\//g,"").replace(/\/\/.*$/gm,"");assert(!/[\p{sc=Han}\p{sc=Hiragana}\p{sc=Katakana}\p{sc=Hangul}]/u.test(code),`${file} has hardcoded CJK text`);}
  console.log("PASS 8: bilingual copy, collapsed activity, semantic sections, 44px/reduced motion, desktop/memory panels free of hardcoded CJK");
- // 9. Definite failures stay on their step; genuinely uncertain actions get one compact card.
+ // 9. Definite failures stay on their step; genuinely uncertain actions show a row status only.
  const profileFail={...tool,name:"set_bot_profile",arguments:'{"name":"tofi"}',status:"failed",outcome:{code:"invalid_arguments",status:"validation_error",execution_certainty:"not_executed",message:"PRIVATE_BODY",next_action:"repair_arguments"}};
  const recovered={...scenario("done"),tools:[profileFail,{...tool,call_id:"synthetic-call-2",name:"set_bot_profile",status:"completed",outcome:undefined,result:"ok",started_at:"2026-10-05T10:00:04Z"}]};
  assert.equal(view(recovered),undefined,"a recovered definite failure raises no card");
@@ -151,16 +167,13 @@ assert.equal(toolDisplayLabel({...tool,status:"completed"}),"结果待核实");
  assert(!recoveredHtml.includes("task-issue-card"));assert(recoveredHtml.includes("task-step is-not_executed is-problem"));
  assert(recoveredHtml.includes("task-step-reason"),"one-line reason beside the failed step");assert(recoveredHtml.includes("保存 Bot 资料"));assert(!recoveredHtml.includes("检查文档"));
  for(const locale of ["en","zh-CN"]){
-  const u=scenario("unknown"),uhtml=markup({...u,drafts:[]},locale),text=uhtml.replace(/<details[\s\S]*?<\/details>/g," ").replace(/<[^>]+>/g," ").replace(/&#x27;/g,"'").replace(/\s+/g," ");
-  assert.equal((uhtml.match(/class="task-issue-card"/g)||[]).length,1);assert(uhtml.includes('data-compact="true"'));
-  const copy=locale==="en"?{title:"Not sure this went through",sentence:"Check the service this action used before trying again.",button:"How to check"}:{title:"不确定是否已完成",sentence:"重试前，请先到该操作使用的服务里核对。",button:"如何核对"};
-  for(const part of Object.values(copy))assert(text.includes(part),`${locale}: ${part}`);
-  for(const gone of ["retained","fully loaded","may have taken effect","已保留","尚未完整加载","可能已生效"])assert(!text.includes(gone),`${locale}: dropped copy ${gone}`);
-  assert((text.match(/\d\d:\d\d:\d\d/g)||[]).length===0,"no per-call clock lines in the closed card");
+  const u={...scenario("unknown"),run:{...run,status:"done"}},uhtml=markup({...u,drafts:[]},locale);
+  noUncertainCard(uhtml,locale);assert(!uhtml.includes("task-issue-card"),`${locale}: no card for an uncertain action`);
+  assert(uhtml.includes(locale==="en"?"Result needs checking":"结果待核实"),`${locale}: the step row carries the status`);
  }
  const App=await server.ssrLoadModule("/src/thinkingHeadline.ts");
  assert.equal(App.thinkingHeadline("I role for myself too—something like a planner for later"),"","plain prose is never sliced into a status");
  assert.equal(App.thinkingHeadline("**Choosing a name**\nThe user wants"),"Choosing a name");
  assert.equal(App.thinkingHeadline("**Working out which of the available tools fits best here**"),"Working out which of the available\u2026");
- console.log("PASS 9: recovered definite failure has no card, profile step is named, uncertain action is one compact card, thinking status is never a mid-sentence slice");
+ console.log("PASS 9: recovered definite failure has no card, profile step is named, uncertain action leaves only a row status, thinking status is never a mid-sentence slice");
 } finally {await server.close();}
