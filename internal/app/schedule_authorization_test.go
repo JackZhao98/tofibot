@@ -437,8 +437,12 @@ func TestScheduleAuthorizationMaterialEditsKeepOriginalConstraints(t *testing.T)
 		t.Fatalf("claim %v %v", runs, err)
 	}
 	occurrence, err := readScheduleOccurrenceAuthorization(store.db, runs[0].ID)
-	if err != nil || occurrence.Revision != 2 || len(occurrence.Snapshot.Revisions) != 2 || occurrence.Snapshot.ExecutionSpec.Content != replacement || !sameScheduleAuthorizationRevision(occurrence.Snapshot.Revisions[0], creation) {
+	creationRef, _ := scheduleAuthorizationReference(creation)
+	if err != nil || occurrence.Revision != 2 || occurrence.Snapshot.Format != scheduleAuthorizationSnapshotReferences || occurrence.Snapshot.boundRevisions() != 2 || len(occurrence.Snapshot.Revisions) != 0 || occurrence.Snapshot.ExecutionSpec.Content != replacement || occurrence.Snapshot.RevisionReferences[0] != creationRef {
 		t.Fatalf("occurrence lost prior intent: %+v %v", occurrence, err)
+	}
+	if chain, err := readScheduleAuthorizationChain(store.db, occurrence); err != nil || len(chain) != 2 || !sameScheduleAuthorizationRevision(chain[0], creation) {
+		t.Fatalf("bound chain unreadable: %v", err)
 	}
 	if _, err := store.PatchSchedule(x.ID, SchedulePatch{Content: &x.Content}); err != nil {
 		t.Fatal(err)
@@ -576,7 +580,7 @@ func TestScheduleAuthorizationOccurrenceScopeAndCursor(t *testing.T) {
 			}
 			r := runs[0]
 			frozen, err := readScheduleOccurrenceAuthorization(store.db, r.ID)
-			if err != nil || frozen.Revision != 1 || frozen.ScheduledForUTC != x.NextAtUTC || frozen.TriggerMessageID != r.TriggerMessageID || frozen.Snapshot.ExecutionSpec.Content != x.Content || frozen.Snapshot.ExecutionSpec.InitialAtUTC != x.NextAtUTC || len(frozen.Snapshot.Revisions) != 1 {
+			if err != nil || frozen.Revision != 1 || frozen.ScheduledForUTC != x.NextAtUTC || frozen.TriggerMessageID != r.TriggerMessageID || frozen.Snapshot.ExecutionSpec.Content != x.Content || frozen.Snapshot.ExecutionSpec.InitialAtUTC != x.NextAtUTC || frozen.Snapshot.boundRevisions() != 1 {
 				t.Fatalf("snapshot %+v %v", frozen, err)
 			}
 			current, revision, scope, err := readBoundScheduleAuthorization(store.db, x.ID, server.accountID)
@@ -749,8 +753,13 @@ func TestScheduleAuthorizationEvidenceLimitsKeepOrdinaryScheduling(t *testing.T)
 			if err != nil {
 				t.Fatal(err)
 			}
-			if name == "revision_chain" && len(frozen.Snapshot.Revisions) != 0 {
-				t.Fatal("overlimit chain truncated into apparent authority")
+			if name == "revision_chain" {
+				if frozen.Snapshot.boundRevisions() != 0 {
+					t.Fatal("overlimit chain truncated into apparent authority")
+				}
+				if _, err := readScheduleAuthorizationChain(store.db, frozen); !errors.Is(err, errScheduleAuthorizationChain) {
+					t.Fatal("overlimit chain verified", err)
+				}
 			}
 		})
 	}

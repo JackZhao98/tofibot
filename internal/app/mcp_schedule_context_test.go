@@ -921,3 +921,208 @@ func TestScheduledMCPClaimOrderingAndExistingFences(t *testing.T) {
 		})
 	}
 }
+
+// A chat-sourced content edit: the host captures the editing run's own
+// conversation window, which grows with every message before it.
+func (f *scheduledMCPFixture) chatContentEdit(content string) {
+	f.t.Helper()
+	_, run, _, err := f.s.store.AddUserRun(f.c.ID, f.bot.ID, "Change the schedule so it reads: "+content, "synthetic-schedule-native-edit-"+digestBytes([]byte(content))[:12])
+	if err != nil {
+		f.t.Fatal(err)
+	}
+	f.setStatus(run.ID, "running", "")
+	if run, err = f.s.store.GetRun(run.ID); err != nil {
+		f.t.Fatal(err)
+	}
+	if _, err = f.s.store.patchScheduleWithSource(f.schedule.ID, SchedulePatch{Content: &content}, f.s.scheduleChatSource(f.c, run)); err != nil {
+		f.t.Fatal(err)
+	}
+	f.setStatus(run.ID, "done", "")
+}
+
+// Finish the current occurrence and claim the next one as the review target.
+func (f *scheduledMCPFixture) nextOccurrence() {
+	f.t.Helper()
+	if root, err := f.s.store.GetRun(f.root.ID); err != nil {
+		f.t.Fatal(err)
+	} else if root.Status != "done" {
+		f.setStatus(f.root.ID, "done", "")
+	}
+	makeDue(f.t, f.s.store, f.schedule.ID, time.Now().Add(-time.Minute))
+	runs, err := f.s.store.ClaimDueSchedules(time.Now())
+	if err != nil || len(runs) != 1 {
+		f.t.Fatalf("claim occurrence: %+v %v", runs, err)
+	}
+	f.root = runs[0]
+	f.target(f.root)
+}
+
+// Three native-chat content edits over a long conversation: the durable
+// source contexts together exceed the 64 KiB snapshot limit. The occurrence
+// must still bind the whole chain and authorize an automatic MCP write.
+func growScheduledMCPChatEdits(f *scheduledMCPFixture) (total int) {
+	f.t.Helper()
+	f.setStatus(f.root.ID, "done", "")
+	filler := strings.Repeat("Synthetic earlier context line. ", 60)
+	for i := 0; i < 14; i++ {
+		_, run, _, err := f.s.store.AddUserRun(f.c.ID, f.bot.ID, fmt.Sprintf("%d %s", i, filler), fmt.Sprintf("synthetic-schedule-filler-%d", i))
+		if err != nil {
+			f.t.Fatal(err)
+		}
+		f.setStatus(run.ID, "running", "")
+		f.setStatus(run.ID, "done", "")
+	}
+	for i := 1; i <= 3; i++ {
+		f.chatContentEdit(fmt.Sprintf("Read synthetic alpha revision %d and report its public value.", i))
+	}
+	for n := int64(1); n <= 4; n++ {
+		r, err := readScheduleAuthorizationRevision(f.s.store.db, f.schedule.ID, n)
+		if err != nil || r.SourceKind != scheduleSourceChat {
+			f.t.Fatalf("revision %d is not native chat: %+v %v", n, r, err)
+		}
+		total += len(r.SourceContext)
+	}
+	if total <= maxScheduleAuthorizationBytes {
+		f.t.Fatalf("fixture source contexts total %d bytes, need more than %d", total, maxScheduleAuthorizationBytes)
+	}
+	f.nextOccurrence()
+	return total
+}
+
+func TestScheduledMCPOccurrenceSurvivesGrowingChatEdits(t *testing.T) {
+	f := newScheduledMCPFixture(t, false, scheduleSourceChat)
+	total := growScheduledMCPChatEdits(f)
+	record, err := readScheduleOccurrenceAuthorization(f.s.store.db, f.root.ID)
+	if err != nil || record.Revision != 4 {
+		t.Fatalf("occurrence %+v %v", record, err)
+	}
+	var stored int
+	if err := f.s.store.db.QueryRow(`SELECT length(snapshot_json) FROM schedule_occurrence_authorizations WHERE root_run_id=?`, f.root.ID).Scan(&stored); err != nil || stored >= total || stored > 16<<10 {
+		t.Fatalf("snapshot copies revision bodies: %d bytes of %d (%v)", stored, total, err)
+	}
+	t.Logf("durable source contexts %d bytes; occurrence snapshot %d bytes", total, stored)
+	if _, _, err := f.s.readMCPReviewContext(f.s.store.db, f.c, f.r); err != nil {
+		t.Fatalf("occurrence after growing chat edits lost automatic eligibility: %v", err)
+	}
+	q := f.approvedQuestion()
+	if err := f.claimEffect(q.ID); err != nil {
+		t.Fatal(err)
+	}
+	if f.effects.Load() != 1 || f.p.calls.Load() != 1 {
+		t.Fatal("automatic write did not execute once")
+	}
+}
+
+func TestScheduledMCPOccurrenceSnapshotBindsDurableRevisions(t *testing.T) {
+	for _, name := range []string{"tampered row", "deleted row", "reference snapshot", "legacy full snapshot", "legacy null snapshot", "overlimit chain"} {
+		t.Run(name, func(t *testing.T) {
+			f := newScheduledMCPFixture(t, false, scheduleSourceChat)
+			if name == "overlimit chain" {
+				for i := 0; i < maxScheduleAuthorizationRevisions; i++ {
+					value := fmt.Sprintf("Read only synthetic beta %d.", i)
+					if _, err := f.s.store.patchScheduleWithSource(f.schedule.ID, SchedulePatch{Content: &value}, f.s.scheduleFormSource("content_edit", map[string]string{"content": value})); err != nil {
+						t.Fatal(err)
+					}
+				}
+				f.nextOccurrence()
+			} else {
+				growScheduledMCPChatEdits(f)
+			}
+			record, err := readScheduleOccurrenceAuthorization(f.s.store.db, f.root.ID)
+			if err != nil {
+				t.Fatal(err)
+			}
+			rewrite := func(snapshot scheduleAuthorizationSnapshot) {
+				raw, err := json.Marshal(snapshot)
+				if err != nil {
+					t.Fatal(err)
+				}
+				f.exec(`DROP TRIGGER IF EXISTS schedule_occurrence_authorizations_immutable`)
+				f.exec(`UPDATE schedule_occurrence_authorizations SET snapshot_json=?,snapshot_digest=? WHERE root_run_id=?`, string(raw), digestBytes(raw), f.root.ID)
+			}
+			legacy := func() scheduleAuthorizationSnapshot {
+				snapshot := record.Snapshot
+				snapshot.Format, snapshot.RevisionReferences = 0, nil
+				for n := int64(1); n <= record.Revision; n++ {
+					r, err := readScheduleAuthorizationRevision(f.s.store.db, f.schedule.ID, n)
+					if err != nil {
+						t.Fatal(err)
+					}
+					snapshot.Revisions = append(snapshot.Revisions, r)
+				}
+				return snapshot
+			}
+			expect := ""
+			switch name {
+			case "tampered row":
+				f.exec(`DROP TRIGGER schedule_authorization_revisions_immutable`)
+				f.exec(`UPDATE schedule_authorization_revisions SET request_id='synthetic-forged-request' WHERE schedule_id=? AND revision=2`, f.schedule.ID)
+				expect = string(mcpContextSourceChain)
+			case "deleted row":
+				f.exec(`DELETE FROM schedule_authorization_revisions WHERE schedule_id=? AND revision=3`, f.schedule.ID)
+				expect = string(mcpContextSourceChain)
+			case "reference snapshot":
+				if record.Snapshot.Format != scheduleAuthorizationSnapshotReferences || len(record.Snapshot.Revisions) != 0 || len(record.Snapshot.RevisionReferences) != int(record.Revision) {
+					t.Fatalf("snapshot format %+v", record.Snapshot)
+				}
+				for i, ref := range record.Snapshot.RevisionReferences {
+					r, err := readScheduleAuthorizationRevision(f.s.store.db, f.schedule.ID, int64(i)+1)
+					if err != nil {
+						t.Fatal(err)
+					}
+					want, _ := scheduleAuthorizationReference(r)
+					if ref != want || ref.Digest == "" || ref.SourceKind != scheduleSourceChat || ref.SourceRunID == "" || ref.SourceMessageID == "" {
+						t.Fatalf("reference %d %+v", i, ref)
+					}
+				}
+			case "legacy full snapshot":
+				// A snapshot written before the reference format: the copied rows
+				// (here small enough to fit) still verify against the journal.
+				snapshot := legacy()
+				snapshot.Revisions = snapshot.Revisions[:1]
+				f.exec(`DROP TRIGGER IF EXISTS schedule_occurrence_authorizations_immutable`)
+				f.exec(`DELETE FROM schedule_authorization_revisions WHERE schedule_id=? AND revision>1`, f.schedule.ID)
+				f.exec(`UPDATE schedules SET authorization_revision=1 WHERE id=?`, f.schedule.ID)
+				f.exec(`UPDATE schedule_occurrence_authorizations SET revision=1 WHERE root_run_id=?`, f.root.ID)
+				snapshot.Revision = 1
+				snapshot.ExecutionSpec = snapshot.Revisions[0].ExecutionSpec
+				snapshot.ExecutionSpecDigest = snapshot.Revisions[0].ExecutionSpecDigest
+				f.exec(`UPDATE schedules SET content=? WHERE id=?`, snapshot.ExecutionSpec.Content, f.schedule.ID)
+				f.exec(`UPDATE messages SET content=? WHERE id=?`, snapshot.ExecutionSpec.Content, f.root.TriggerMessageID)
+				rewrite(snapshot)
+				if after, err := readScheduleOccurrenceAuthorization(f.s.store.db, f.root.ID); err != nil || after.Snapshot.Format != 0 || len(after.Snapshot.Revisions) != 1 {
+					t.Fatalf("legacy snapshot unreadable: %+v %v", after, err)
+				}
+			case "legacy null snapshot":
+				snapshot := legacy()
+				snapshot.Revisions = nil
+				rewrite(snapshot)
+				expect = string(mcpContextSourceChain)
+			case "overlimit chain":
+				if record.Snapshot.boundRevisions() != 0 {
+					t.Fatal("overlimit chain truncated into apparent authority")
+				}
+				expect = string(mcpContextSourceChain)
+			}
+			_, _, err = f.s.readMCPReviewContext(f.s.store.db, f.c, f.r)
+			if expect == "" {
+				if err != nil {
+					t.Fatal(err)
+				}
+				q := f.approvedQuestion()
+				if err := f.claimEffect(q.ID); err != nil || f.effects.Load() != 1 {
+					t.Fatal("verified chain refused automatic write", err)
+				}
+				return
+			}
+			assertContextDiagnostic(t, err, mcpContextFailureCode(expect))
+			q := f.question()
+			if err := f.review(q); err == nil {
+				t.Fatal("automatic review proceeded on a broken chain")
+			}
+			if err := f.claimEffect(q.ID); err == nil || f.effects.Load() != 0 {
+				t.Fatal("broken chain executed an effect")
+			}
+		})
+	}
+}

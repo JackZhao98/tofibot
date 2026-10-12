@@ -368,14 +368,15 @@ func (b *mcpEvidenceBounds) intent() *mcpTruncatedText {
 }
 
 func verifyMCPScheduleSources(db reviewQuerier, record scheduleOccurrenceAuthorization, lineage *mcpScheduleLineage, x *mcpReviewContext) error {
-	chain := record.Snapshot.Revisions
-	if record.Revision < 1 || record.Revision > maxScheduleAuthorizationRevisions || int64(len(chain)) != record.Revision {
+	// Every row below is the durable journal row, proven identical to what the
+	// occurrence snapshot bound (copied row or row digest, by snapshot format).
+	chain, err := readScheduleAuthorizationChain(db, record)
+	if err != nil {
 		return mcpContextFail(mcpContextSourceChain)
 	}
 	initial := chain[0].ExecutionSpec
 	for i, saved := range chain {
-		current, err := readScheduleAuthorizationRevision(db, record.ScheduleID, int64(i)+1)
-		if err != nil || !sameScheduleAuthorizationRevision(current, saved) || saved.PreviousRevision != int64(i) || saved.AccountID != record.AccountID || saved.ConversationID != initial.ConversationID || saved.BotID != initial.BotID || saved.RequestID == "" {
+		if saved.PreviousRevision != int64(i) || saved.AccountID != record.AccountID || saved.ConversationID != initial.ConversationID || saved.BotID != initial.BotID || saved.RequestID == "" {
 			return mcpContextFail(mcpContextSourceChain)
 		}
 		if saved.ExecutionSpec.AccountID != initial.AccountID || saved.ExecutionSpec.ConversationID != initial.ConversationID || saved.ExecutionSpec.BotID != initial.BotID || saved.ExecutionSpec.InitialAtUTC != initial.InitialAtUTC || saved.ExecutionSpec.Kind != initial.Kind || saved.ExecutionSpec.Timezone != initial.Timezone || saved.ExecutionSpec.IntervalSeconds != initial.IntervalSeconds || saved.ExecutionSpec.DailyTime != initial.DailyTime {
