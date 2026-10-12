@@ -99,13 +99,6 @@
       "retry": "再試行"
     }
   },
-  "floating": {
-    "open": "共有コンピューターを開く",
-    "open_activity": "共有コンピューターを開く：{{activity}}",
-    "hide_mini_aria": "ミニ画面をしまう",
-    "collapse": "しまう",
-    "peek_hint": "表示のみ · クリックで拡大"
-  },
   "remote": {
     "error": {
       "control_failed": "デスクトップの操作に失敗しました",

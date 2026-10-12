@@ -99,13 +99,6 @@
       "retry": "다시 시도"
     }
   },
-  "floating": {
-    "open": "공유 컴퓨터 열기",
-    "open_activity": "공유 컴퓨터 열기: {{activity}}",
-    "hide_mini_aria": "미니 화면 접기",
-    "collapse": "접기",
-    "peek_hint": "보기 전용 · 클릭하여 확대"
-  },
   "remote": {
     "error": {
       "control_failed": "데스크톱 제어 실패",

@@ -285,6 +285,99 @@ try {
     await shot(mobile.page, "sheet-failure-light-390");
     await mobile.context.close();
   }
+  // 7. Quiet by default: a Bot using the computer never opens a window or shows a pill. The header button reports the
+  //    power state (green on / neutral off, with aria-label + title, not colour alone) and a static dot while a Bot drives it.
+  {
+    const owner = { owner: { bot_id: "bot-synthetic", run_id: "run-1", kind: "bot", conversation_id: "conv-synthetic" }, waiting: [] };
+    const state = { info: info("hibernated"), capture: "image", requests: [], ownership: { owner: null, waiting: [] } };
+    const { context, page, errors, button } = await open({ state });
+    const bg = () => button.evaluate(element => getComputedStyle(element).backgroundColor);
+    await page.waitForResponse(response => response.url().endsWith("/api/computers/firecracker/info"));
+    await page.waitForTimeout(1500);
+    assert.equal(await button.getAttribute("data-computer-state"), "off");
+    assert.equal(await button.getAttribute("aria-label"), "Shared computer, off");
+    assert.equal(await button.getAttribute("title"), "Shared computer, off");
+    assert.equal(await button.evaluate(element => element.classList.contains("is-on")), false, "neutral when asleep");
+    const neutral = await bg();
+    // The computer comes up, then a Bot starts driving it: nothing opens on its own.
+    state.info = info("ready");
+    await page.waitForFunction(() => document.querySelector("[data-computer-toggle]")?.getAttribute("data-computer-state") === "on", null, { timeout: 8000 });
+    assert.equal(await button.getAttribute("aria-label"), "Shared computer, on");
+    await page.waitForTimeout(400); // past the colour transition
+    const green = await bg();
+    assert.notEqual(green, neutral, "the button changes colour when the computer is on");
+    const [r, g, b, a] = await page.evaluate(css => { const c = document.createElement("canvas").getContext("2d", { willReadFrequently: true }); c.clearRect(0, 0, 1, 1); c.fillStyle = css; c.fillRect(0, 0, 1, 1); return Array.from(c.getImageData(0, 0, 1, 1).data); }, green);
+    assert.ok(a > 0 && g > r && g > b, `powered-on background ${green} (rgba ${r},${g},${b},${a}) is green`);
+    state.ownership = owner;
+    await page.waitForFunction(() => document.querySelector("[data-computer-toggle]")?.getAttribute("data-computer-state") === "driven", null, { timeout: 8000 });
+    assert.match(await button.getAttribute("aria-label"), /Mochi is working in it/);
+    assert.equal(await page.locator(".computer-driven-dot").count(), 1, "a small dot marks a Bot driving the computer");
+    assert.equal(await page.locator(".computer-driven-dot").evaluate(element => getComputedStyle(element).animationName), "none", "the dot does not animate");
+    await page.waitForTimeout(2500);
+    assert.equal(await page.locator(".desktop-floating-shell").count(), 0, "a Bot using the computer never opens a window");
+    assert.equal(await page.getByText(/is using the computer/).count(), 0, "no 'using the computer' pill");
+    assert.equal(await page.locator(".desktop-mini-status, .desktop-presence-launcher").count(), 0);
+    assert.ok(!state.requests.includes("/api/computers/firecracker/actions"), "no capture is requested while the window is closed");
+    // Opening is the user's call, and frames arrive while the Bot holds the computer (the server serves view captures beside its lease).
+    const clicked = Date.now();
+    await button.click();
+    await shell(page, "is-small").waitFor();
+    await page.locator("[data-desktop-frame].desktop-live-screen").waitFor({ timeout: 4000 });
+    assert.ok(Date.now() - clicked < 2500, `first frame ${Date.now() - clicked}ms after opening`);
+    assert.equal(await page.getByText(/is using the computer/).count(), 0);
+    await shot(page, "quiet-open-driven-light-1440");
+    // Back to neutral when the computer sleeps.
+    await page.keyboard.press("Escape");
+    await page.getByRole("button", { name: "Close shared computer" }).click().catch(() => undefined);
+    state.ownership = { owner: null, waiting: [] };
+    state.info = info("hibernated");
+    await page.waitForFunction(() => document.querySelector("[data-computer-toggle]")?.getAttribute("data-computer-state") === "off", null, { timeout: 8000 });
+    assert.deepEqual(errors, []);
+    results.push("quiet button + no auto-open");
+    await context.close();
+  }
+
+  // 8. Placement: while the small window is open the messages reflow beside it; nothing is covered, the composer stays usable.
+  for (const [width, height] of [[1440, 900], [1180, 820], [1024, 768]]) {
+    const messages = Array.from({ length: 14 }, (_, index) => ({ id: `m${index}`, seq: index + 1, conversation_id: "conv-synthetic", role: index % 2 ? "assistant" : "user", content: "Synthetic message ".repeat(14), created_at: "2026-10-09T12:00:00Z" }));
+    const state = { info: info("ready"), capture: "image", requests: [], messages };
+    const { context, page, errors, button } = await open({ width, height, state });
+    const textRects = () => page.evaluate(() => {
+      const out = [];
+      const walker = document.createTreeWalker(document.querySelector(".message-scroll"), NodeFilter.SHOW_TEXT);
+      for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+        if (!node.textContent.trim()) continue;
+        const range = document.createRange(); range.selectNodeContents(node);
+        for (const r of range.getClientRects()) if (r.width > 0) out.push({ x: r.x, y: r.y, w: r.width, h: r.height });
+        const bubble = node.parentElement.closest(".bubble, .message-card, [class*=bubble]");
+        if (bubble) { const r = bubble.getBoundingClientRect(); out.push({ x: r.x, y: r.y, w: r.width, h: r.height }); }
+      }
+      return out;
+    });
+    await page.getByText("Synthetic message").first().waitFor();
+    const before = await textRects();
+    assert.ok(before.length > 5, `${width}: message text found (${before.length})`);
+    await button.click();
+    await shell(page, "is-small").waitFor();
+    await page.locator("img.computer-screen, video").first().waitFor({ state: "attached", timeout: 10000 });
+    await page.waitForTimeout(500);
+    const box = await shell(page, "is-small").boundingBox();
+    const text = await textRects();
+    const overlaps = text.filter(r => r.x < box.x + box.width && r.x + r.w > box.x && r.y < box.y + box.height && r.y + r.h > box.y);
+    assert.deepEqual(overlaps, [], `${width}x${height}: the small window covers ${overlaps.length} message text/bubble rects`);
+    const composer = await page.locator(".composer .composer-row").first().boundingBox();
+    assert.ok(box.y + box.height <= composer.y, "window ends above the composer");
+    assert.equal(await page.locator(".composer textarea, .composer [contenteditable]").first().isVisible(), true, "composer input stays visible");
+    await shot(page, `quiet-placement-${width}`);
+    // Closing the window gives the width back.
+    await page.getByRole("button", { name: "Close shared computer" }).click({ trial: false }).catch(async () => { await page.locator("[data-desktop-frame]").hover(); await page.getByRole("button", { name: "Close shared computer" }).click(); });
+    await page.waitForFunction(() => !document.querySelector(".desktop-floating-shell"));
+    assert.equal(await page.evaluate(() => document.documentElement.hasAttribute("data-desktop-reserve")), false, "padding removed after close");
+    assert.deepEqual(errors, []);
+    console.log(`placement ${width}x${height}: window x=${box.x}..${box.x + box.width}, ${text.length} text rects, 0 overlap`);
+    await context.close();
+  }
+  results.push("placement");
   console.log(`PASS computer window: ${results.join("; ")}`);
 } finally {
   await browser.close();

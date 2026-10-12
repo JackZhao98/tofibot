@@ -117,7 +117,6 @@
   },
   "computer": {
     "failed": "Shared computer failed to start",
-    "in_use": "{{name}} is using the computer",
     "starting": "Preparing your shared computer",
     "stopped": "Shared computer stopped",
     "unavailable": "Shared computer unavailable",
@@ -214,7 +213,10 @@
     "shared_computer": "Shared computer",
     "team_board": "Team board",
     "terminal": "Terminal",
-    "usage": "Usage"
+    "usage": "Usage",
+    "computer_on": "Shared computer, on",
+    "computer_off": "Shared computer, off",
+    "computer_driving": "Shared computer, on. {{name}} is working in it"
   },
   "history": {
     "boundary_failed": "Couldn't load your unread position.",
