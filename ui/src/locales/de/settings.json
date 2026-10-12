@@ -188,7 +188,7 @@
       "30d": "Letzte 30 Tage"
     },
     "load_failed": "Nutzung konnte nicht geladen werden. Versuch es erneut.",
-    "explanation": "Die Aufzeichnung begann mit dem Start dieser Funktion. Der Gegenwert wird aus öffentlichen API-Preisen geschätzt und entspricht nicht dem, was Codex tatsächlich berechnet oder spart. Cache-Treffer sind nicht verfügbar, daher wird jede Eingabe ohne Cache berechnet. Zusammenfassungsanfragen und Tool-Gebühren sind nicht enthalten.",
+    "explanation": "Die Aufzeichnung begann mit dem Start dieser Funktion. Der Gegenwert wird aus öffentlichen API-Preisen geschätzt und entspricht nicht dem, was Codex tatsächlich berechnet oder spart. Cache-Treffer sind nicht verfügbar, daher wird jede Eingabe ohne Cache berechnet. Kompaktierungs-Zusammenfassungen zählen zur Chat-Nutzung, Sicherheitsprüfungen werden separat ausgewiesen. Tool-Gebühren sind nicht enthalten.",
     "loading": "Nutzung wird geladen…",
     "no_agents": "Noch keine Agents.",
     "choose_agent": "Agent wählen",

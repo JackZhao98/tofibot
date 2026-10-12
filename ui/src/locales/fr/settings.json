@@ -189,7 +189,7 @@
       "30d": "30 derniers jours"
     },
     "load_failed": "Impossible de charger l’utilisation. Réessayez.",
-    "explanation": "L’enregistrement a commencé au lancement de cette fonctionnalité. Le coût équivalent est estimé à partir des tarifs publics de l’API ; ce n’est ni ce que Codex facture réellement, ni une économie. Les accès au cache ne sont pas disponibles : toute l’entrée est donc comptée au tarif sans cache. Les requêtes de résumé et les frais d’outils ne sont pas inclus.",
+    "explanation": "L’enregistrement a commencé au lancement de cette fonctionnalité. Le coût équivalent est estimé à partir des tarifs publics de l’API ; ce n’est ni ce que Codex facture réellement, ni une économie. Les accès au cache ne sont pas disponibles : toute l’entrée est donc comptée au tarif sans cache. Les résumés de compaction comptent dans l’usage des conversations ; les contrôles de sécurité sont listés à part. Les frais d’outils ne sont pas inclus.",
     "loading": "Chargement de l’utilisation…",
     "no_agents": "Aucun agent pour l’instant.",
     "choose_agent": "Choisir un agent",
