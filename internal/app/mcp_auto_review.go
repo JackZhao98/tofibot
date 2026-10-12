@@ -38,8 +38,12 @@ type MCPReviewDisplay struct {
 	// (one of the mcpReviewFailure* constants). Never carries content.
 	FailureCategory string `json:"failure_category,omitempty"`
 	// DecisionSource says what produced a human_required status without a
-	// reviewer verdict: "tool_tier" when the tool's high_risk tier did.
+	// reviewer verdict: "tool_tier" when the tool's high_risk tier did, or
+	// what decided a card in a person's place: "remembered_approval".
 	DecisionSource string `json:"decision_source,omitempty"`
+	// GrantID names the remembered approval that decided the card
+	// (mcp_remembered_approvals.id). Audit only; it never grants anything.
+	GrantID string `json:"grant_id,omitempty"`
 }
 
 // mcpDecisionSourceTier marks a decision the tool tier made, not the reviewer.
@@ -595,7 +599,7 @@ func (s *Server) reviewMCPProposal(ctx context.Context, c Conversation, r Run, c
 			diagnostic = failure[0]
 		}
 		if shadow {
-			return s.store.setMCPReviewDisplay(q.ID, MCPReviewDisplay{autoReviewActor, "shadow_" + status, reason, "codex-auto-review", "", false, autoReviewPolicyVersion, diagnostic, "", ""})
+			return s.store.setMCPReviewDisplay(q.ID, MCPReviewDisplay{autoReviewActor, "shadow_" + status, reason, "codex-auto-review", "", false, autoReviewPolicyVersion, diagnostic, "", "", ""})
 		}
 		return s.closeMCPReviewGap(q.ID, status, reason, diagnostic)
 	}
@@ -608,7 +612,7 @@ func (s *Server) reviewMCPProposal(ctx context.Context, c Conversation, r Run, c
 		if _, ok := tooloutcome.FromError(terminalErr); !ok {
 			return terminalErr
 		}
-		if err := s.store.setMCPReviewDisplay(q.ID, MCPReviewDisplay{autoReviewActor, "terminal", terminalErr.Error(), "codex-auto-review", "", false, autoReviewPolicyVersion, nil, "", ""}); err != nil {
+		if err := s.store.setMCPReviewDisplay(q.ID, MCPReviewDisplay{autoReviewActor, "terminal", terminalErr.Error(), "codex-auto-review", "", false, autoReviewPolicyVersion, nil, "", "", ""}); err != nil {
 			return err
 		}
 		return terminalErr
@@ -656,13 +660,13 @@ func (s *Server) reviewMCPProposal(ctx context.Context, c Conversation, r Run, c
 		}
 		// A duplicate cannot reserve or replay another reviewer request. Claim
 		// must still validate the exact card's review and action-level fences.
-		return s.store.setMCPReviewDisplay(q.ID, MCPReviewDisplay{autoReviewActor, "not_reviewed", "No new review was reserved for this exact proposal. Existing action-level review and execution claims remain authoritative.", "codex-auto-review", "", false, autoReviewPolicyVersion, nil, "", ""})
+		return s.store.setMCPReviewDisplay(q.ID, MCPReviewDisplay{autoReviewActor, "not_reviewed", "No new review was reserved for this exact proposal. Existing action-level review and execution claims remain authoritative.", "codex-auto-review", "", false, autoReviewPolicyVersion, nil, "", "", ""})
 	}
 	displayStatus := "reviewing"
 	if shadow {
 		displayStatus = "shadow_reviewing"
 	}
-	if err = s.store.setMCPReviewDisplay(q.ID, MCPReviewDisplay{autoReviewActor, displayStatus, "Assessing the exact proposal's authorization, effects and data flow.", "codex-auto-review", "", false, autoReviewPolicyVersion, nil, "", ""}); err != nil {
+	if err = s.store.setMCPReviewDisplay(q.ID, MCPReviewDisplay{autoReviewActor, displayStatus, "Assessing the exact proposal's authorization, effects and data flow.", "codex-auto-review", "", false, autoReviewPolicyVersion, nil, "", "", ""}); err != nil {
 		return err
 	}
 	request := func(reviewCtx context.Context) error {
@@ -726,7 +730,7 @@ func mcpReviewFailureColumns(f *mcpReviewFailure) (string, string) {
 }
 
 func (s *Server) closeMCPReviewGap(id, status, reason string, diagnostic *MCPContextFailure) error {
-	if err := s.store.setMCPReviewDisplay(id, MCPReviewDisplay{autoReviewActor, status, reason, "codex-auto-review", "", false, autoReviewPolicyVersion, diagnostic, "", ""}); err != nil {
+	if err := s.store.setMCPReviewDisplay(id, MCPReviewDisplay{autoReviewActor, status, reason, "codex-auto-review", "", false, autoReviewPolicyVersion, diagnostic, "", "", ""}); err != nil {
 		return err
 	}
 	// Keep a genuine human answer truthful; it cannot repair a technical gap.
@@ -749,6 +753,14 @@ func (s *Store) setMCPReviewDisplay(id string, display MCPReviewDisplay) error {
 	}
 	if q.Approval == nil {
 		return errors.New("missing proposal")
+	}
+	if q.Approval.Review != nil && display.GrantID == "" {
+		// A display rewrite (shadow advice, a later note) never erases the
+		// record that a remembered grant decided this card.
+		display.GrantID = q.Approval.Review.GrantID
+		if q.AnsweredBy == rememberedApprovalActor && display.DecisionSource == "" {
+			display.DecisionSource = q.Approval.Review.DecisionSource
+		}
 	}
 	q.Approval.Review = &display
 	if q.Status == questionPending && mcpReviewClosesProposal(display.Status) {
@@ -845,14 +857,32 @@ func (s *Server) finishMCPReview(ctx context.Context, c Conversation, r Run, cal
 	}
 	q.UpdatedAt = now()
 	failureCategory, failureDetail := mcpReviewFailureColumns(failure)
-	display := &MCPReviewDisplay{autoReviewActor, status, result.Reason, "codex-auto-review", result.RiskLevel, result.ConfirmationRequired, autoReviewPolicyVersion, contextFailure, "", ""}
+	display := &MCPReviewDisplay{autoReviewActor, status, result.Reason, "codex-auto-review", result.RiskLevel, result.ConfirmationRequired, autoReviewPolicyVersion, contextFailure, "", "", ""}
 	if status == "unavailable" {
 		display.FailureCategory = failureCategory
 	}
 	if status == "human_required" || status == "human_decided" {
 		display.DecisionSource = result.Source
 	}
+	// The reviewer asked for a person (or found no host-verified request). A
+	// grant the person made earlier in this chat for this server, tool and
+	// target decides in their place. Never for the owner's "Always ask me"
+	// tier: that verdict carries the tier as its source and is not consulted.
+	var grantID string
+	if status == "human_required" && q.Status == questionPending && result.Source != mcpDecisionSourceTier && s.rememberedApprovalUsable(r, call) {
+		if target, ok := mcpRememberTargetFor(call.Schema, call.Arguments); ok {
+			if grantID, err = s.matchRememberedMCPApproval(tx, c, r, call, target); err != nil {
+				return err
+			}
+		}
+	}
 	q.Approval.Review = display
+	if grantID != "" {
+		if err = applyRememberedMCPApproval(tx, c, &q, grantID); err != nil {
+			return err
+		}
+		display = q.Approval.Review
+	}
 	raw, _ := json.Marshal(q.Approval)
 	if _, err = tx.Exec(`UPDATE mcp_auto_reviews SET status=?,decision=?,reason=?,risk_level=?,confirmation_required=?,expires_at=?,failure_category=?,failure_detail=? WHERE question_id=?`, status, result.Decision, result.Reason, result.RiskLevel, boolInt(result.ConfirmationRequired), q.ExpiresAt, failureCategory, failureDetail, id); err != nil {
 		return err

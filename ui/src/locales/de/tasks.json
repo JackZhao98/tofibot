@@ -209,7 +209,8 @@
     "risk": { "low": "Niedrig", "medium": "Mittel", "high": "Hoch", "unknown": "Nicht bewertet" },
     "view_full_arguments": "Alle Argumente ansehen",
     "proposal_ended": "Dieser Vorschlag ist beendet.",
-    "view_decision": "Entscheidungsprotokoll ansehen"
+    "view_decision": "Entscheidungsprotokoll ansehen",
+    "remembered_decision": "Durch eine in diesem Chat gemerkte Genehmigung freigegeben; niemand wurde gefragt. Der Schritt unten zeigt, ob es ausgeführt wurde."
   },
   "question": {
     "approve": "Aktion freigeben",
@@ -237,7 +238,8 @@
       "auto_approved": "Von AutoReview freigegeben",
       "human_decided": "Manuell entschieden",
       "run_done": "Aufgabe beendet",
-      "approved": "Freigegeben"
+      "approved": "Freigegeben",
+      "remembered": "Durch gemerkte Genehmigung freigegeben"
     },
     "answered_refresh_failed": "Antwort erhalten, aber die Liste wurde nicht aktualisiert. Lade die Seite neu, um sie zu sehen.",
     "submit_failed": "Senden fehlgeschlagen. Versuch es noch einmal.",
@@ -254,7 +256,12 @@
     "cancel": "Abbrechen",
     "submitting": "Wird gesendet…",
     "retry_submit": "Erneut versuchen",
-    "submit_answer": "Antwort senden"
+    "submit_answer": "Antwort senden",
+    "remember": {
+      "hint_identifier": "Spätere Aufrufe dieses Tools für {{target}} in diesem Chat laufen ohne Rückfrage. Jederzeit im Konversationsmenü widerrufbar.",
+      "hint_exact": "Spätere Aufrufe dieses Tools mit genau diesen Argumenten in diesem Chat laufen ohne Rückfrage. Jederzeit im Konversationsmenü widerrufbar.",
+      "stale": "Genehmigt, aber nicht gemerkt: Das Tool oder seine Einstellungen haben sich geändert."
+    }
   },
   "form": {
     "schema": {
@@ -376,7 +383,8 @@
       "auto_invalidated": "Automatische Entscheidung nicht mehr gültig",
       "policy_needs_approval": "Richtlinie verlangt manuelle Freigabe",
       "already_reviewed": "Bereits geprüft",
-      "high_risk_tool": "Risikoreiches Tool · deine Entscheidung wird benötigt"
+      "high_risk_tool": "Risikoreiches Tool · deine Entscheidung wird benötigt",
+      "remembered": "Gemerkte Genehmigung"
     },
     "label": {
       "shadow_reviewing": "Beobachtung: wird geprüft",
@@ -402,7 +410,8 @@
       "auto_invalidated": "Automatische Entscheidung ungültig",
       "not_eligible": "Nicht für automatische Ausführung geeignet",
       "not_rereviewed": "Nicht erneut geprüft",
-      "high_risk_tool": "Risikoreiches Tool: ein Mensch entscheidet jeden Aufruf"
+      "high_risk_tool": "Risikoreiches Tool: ein Mensch entscheidet jeden Aufruf",
+      "remembered": "Durch eine in diesem Chat gemerkte Genehmigung entschieden"
     },
     "failure": {
       "title": "Warum die Prüfung nicht abgeschlossen werden konnte",
@@ -446,7 +455,8 @@
     "accept": "Freigeben",
     "decline": "Jetzt nicht",
     "payload_label": "Alle Tool-Argumente als Klartext",
-    "submitting": "Wird gesendet…"
+    "submitting": "Wird gesendet…",
+    "remember": "Genehmigen und in diesem Chat merken"
   },
   "secret": {
     "submit_failed": "Senden fehlgeschlagen. Prüfe, ob die Anfrage noch offen ist, und versuch es noch einmal.",
@@ -462,5 +472,21 @@
   "compact": {
     "check_service": "Prüfen Sie den genutzten Dienst, bevor Sie es erneut versuchen.",
     "check_mail": "Prüfen Sie Ihre gesendeten E-Mails, bevor Sie es erneut versuchen."
+  },
+  "remembered": {
+    "title": "Gemerkte Genehmigungen",
+    "lead": "Tool-Aufrufe, die du mit „in diesem Chat merken“ genehmigt hast. Sie gelten nur für diese Konversation, dasselbe Tool und dasselbe Ziel und enden von selbst nach 24 Stunden oder wenn sich das Tool ändert.",
+    "loading": "Wird geladen…",
+    "empty": "In diesem Chat ist nichts gemerkt.",
+    "target_identifier": "Ziel: {{target}}",
+    "target_exact": "Genau die genehmigten Argumente",
+    "expires": "Endet {{time}}",
+    "used_one": "{{count}}-mal verwendet",
+    "used_other": "{{count}}-mal verwendet",
+    "revoke": "Widerrufen",
+    "revoking": "Wird widerrufen…",
+    "revoke_failed": "Widerruf fehlgeschlagen. Erneut versuchen.",
+    "load_failed": "Gemerkte Genehmigungen konnten nicht geladen werden.",
+    "close": "Schließen"
   }
 }

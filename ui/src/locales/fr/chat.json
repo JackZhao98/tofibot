@@ -215,7 +215,8 @@
     "shared_computer": "Ordinateur partagé",
     "team_board": "Tableau d’équipe",
     "terminal": "Terminal",
-    "usage": "Utilisation"
+    "usage": "Utilisation",
+    "remembered_approvals": "Approbations mémorisées"
   },
   "history": {
     "boundary_failed": "Impossible de charger la position non lue.",

@@ -214,7 +214,8 @@
     "shared_computer": "Shared computer",
     "team_board": "Team board",
     "terminal": "Terminal",
-    "usage": "Usage"
+    "usage": "Usage",
+    "remembered_approvals": "Remembered approvals"
   },
   "history": {
     "boundary_failed": "Couldn't load your unread position.",

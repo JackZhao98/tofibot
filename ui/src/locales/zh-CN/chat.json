@@ -213,7 +213,8 @@
     "shared_computer": "共享电脑",
     "team_board": "团队看板",
     "terminal": "终端",
-    "usage": "用量"
+    "usage": "用量",
+    "remembered_approvals": "记住的批准"
   },
   "history": {
     "boundary_failed": "暂时无法加载未读位置。",

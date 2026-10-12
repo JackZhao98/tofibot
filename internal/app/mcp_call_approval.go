@@ -169,15 +169,51 @@ func (s *Server) approveMCPCallOnce(ctx context.Context, c Conversation, r Run, 
 			if normalizeErr != nil {
 				return normalizeErr
 			}
+			// "Approve and remember in this chat" is offered only where a grant
+			// could later decide: never for the owner's "Always ask me" tier,
+			// never in an unattended run, and only with a derivable target.
+			target, targetOK := mcpRememberTargetFor(call.Schema, call.Arguments)
+			rememberEligible := targetOK && s.rememberedApprovalUsable(r, call)
+			if rememberEligible {
+				in.Approval.Remember = target.offer()
+			}
 			q, createErr := s.store.CreateQuestion(c.ID, r, in)
 			if createErr != nil {
 				return createErr
 			}
-			if _, createErr = s.store.db.Exec(`INSERT INTO mcp_call_approvals(question_id,run_id,action_hash) VALUES(?,?,?)`, q.ID, r.ID, hash); createErr != nil {
+			targetKey, targetKind, targetSummary := "", "", ""
+			if rememberEligible {
+				targetKey, targetKind, targetSummary = target.Key, target.Kind, target.Summary
+			}
+			if _, createErr = s.store.db.Exec(`INSERT INTO mcp_call_approvals(question_id,run_id,action_hash,server,tool,config_fingerprint,tier_binding,target_key,target_kind,target_summary,remember_eligible) VALUES(?,?,?,?,?,?,?,?,?,?,?)`, q.ID, r.ID, hash, call.Server, call.Tool, call.ConfigVersion, call.TierBinding, targetKey, targetKind, targetSummary, boolInt(rememberEligible)); createErr != nil {
 				_, _ = s.store.db.Exec(`DELETE FROM questions WHERE id=? AND status=?`, q.ID, questionPending)
 				return createErr
 			}
-			if settings.Mode != "auto" {
+			// Off and shadow modes ask a person at creation. A grant the person
+			// made earlier in this chat decides in their place; the card is
+			// published once, already decided, and keeps its own claim.
+			remembered := false
+			if settings.Mode != "auto" && rememberEligible {
+				grantID, matchErr := s.matchRememberedMCPApproval(s.store.db, c, r, call, target)
+				if matchErr != nil {
+					return matchErr
+				}
+				if grantID != "" {
+					tx, txErr := s.store.db.Begin()
+					if txErr != nil {
+						return txErr
+					}
+					if applyErr := applyRememberedMCPApproval(tx, c, &q, grantID); applyErr != nil {
+						_ = tx.Rollback()
+						return applyErr
+					}
+					if txErr = tx.Commit(); txErr != nil {
+						return txErr
+					}
+					remembered = true
+				}
+			}
+			if settings.Mode != "auto" && !remembered {
 				if highRisk {
 					// The card itself records why a person decides (decision source
 					// tool_tier); the display write publishes the card event.
