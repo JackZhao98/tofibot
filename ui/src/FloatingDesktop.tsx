@@ -46,6 +46,19 @@ export function FloatingDesktop({ expanded, small = false, sheet = false, onShri
   escapeRef.current = !sheet && onShrink ? onShrink : onClose;
   const contentId = useId();
   const anchor = useComposerAnchor(small);
+  // Beside the small window the messages reflow instead of sitting under it (desktop widths only).
+  useLayoutEffect(() => {
+    if (!small) return;
+    const root = document.documentElement;
+    const apply = () => {
+      const width = shellRef.current?.getBoundingClientRect().width ?? 0;
+      if (window.innerWidth >= 1024 && width) { root.style.setProperty("--desktop-reserve", `${Math.ceil(width) + 32}px`); root.dataset.desktopReserve = ""; }
+      else { root.style.removeProperty("--desktop-reserve"); delete root.dataset.desktopReserve; }
+    };
+    apply();
+    window.addEventListener("resize", apply);
+    return () => { window.removeEventListener("resize", apply); root.style.removeProperty("--desktop-reserve"); delete root.dataset.desktopReserve; };
+  }, [small]);
 
   useEffect(() => {
     if (!expanded) return;
