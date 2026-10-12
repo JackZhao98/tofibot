@@ -13,7 +13,7 @@ export type FormAnswer = Record<string, string | { secret_ref: string; value_hid
 export type OtherAnswer = { values: string[]; other_text: string };
 /** Why an "unavailable" review produced no judgment; a finite union so every member has catalog text. */
 export type ReviewFailureCategory = "reviewer_not_configured" | "input_invalid" | "input_too_large" | "provider_error" | "timeout" | "malformed_response" | "empty_response";
-export type ApprovalDetails = { action: string; target: string; impact: string; payload?: string; review_only?: boolean; review?: {source: "auto-review" | "tool_tier"; status: "reviewing" | "approved" | "shadow" | "human_required" | "invalidated" | "not_eligible" | "not_reviewed" | "setup_required" | "context_required" | "unavailable" | "policy_denied" | "terminal" | "human_decided" | "shadow_reviewing" | "shadow_allow" | "shadow_deny" | "shadow_needs_human" | "shadow_context_required" | "shadow_setup_required" | "shadow_unavailable" | "shadow_invalidated"; reason: string; model: string; risk_level?: "low" | "medium" | "high" | "unknown"; confirmation_required?: boolean; policy_version?: string; context_failure?: {code: string; observed?: number; limit?: number; observed_at_least?: boolean}; failure_category?: ReviewFailureCategory; decision_source?: "tool_tier"}; approve_label?: string; deny_label?: string; draft_id?: string };
+export type ApprovalDetails = { action: string; target: string; impact: string; payload?: string; review_only?: boolean; review?: {source: "auto-review" | "tool_tier" | "remembered_approval"; status: "reviewing" | "approved" | "shadow" | "human_required" | "invalidated" | "not_eligible" | "not_reviewed" | "setup_required" | "context_required" | "unavailable" | "policy_denied" | "terminal" | "human_decided" | "shadow_reviewing" | "shadow_allow" | "shadow_deny" | "shadow_needs_human" | "shadow_context_required" | "shadow_setup_required" | "shadow_unavailable" | "shadow_invalidated"; reason: string; model: string; risk_level?: "low" | "medium" | "high" | "unknown"; confirmation_required?: boolean; policy_version?: string; context_failure?: {code: string; observed?: number; limit?: number; observed_at_least?: boolean}; failure_category?: ReviewFailureCategory; decision_source?: "tool_tier" | "remembered_approval"; grant_id?: string}; approve_label?: string; deny_label?: string; draft_id?: string; remember?: {kind: "identifier" | "exact"; target?: string} };
 export type QuestionAnswer = string | boolean | string[] | FormAnswer | OtherAnswer;
 export interface Question {
   question_id: string;
@@ -41,10 +41,13 @@ export interface Question {
 export type ConversationItem = { kind: "message"; message: Message } | { kind: "question"; question: Question } | { kind: "mail_draft"; draft: MailDraft };
 
 const shadowLabels = ["shadow_reviewing", "shadow_allow", "shadow_deny", "shadow_needs_human", "shadow_context_required", "shadow_setup_required", "shadow_unavailable", "shadow_invalidated"] as const;
-type ReviewBadge = "human_decided_shadow" | "shadow_keeps_policy" | "proposal_not_executable" | "human_decided" | "setup_not_ready" | "review_context_incomplete" | "review_incomplete" | "review_not_allowed" | "proposal_expired" | "proposal_ended" | "auto_approved" | "review_suggests_allow" | "reviewing" | "reviewing_manual" | "shadow_manual_policy" | "needs_you" | "high_risk_tool" | "auto_invalidated" | "policy_needs_approval" | "already_reviewed";
-type ReviewLabel = typeof shadowLabels[number] | "shadow_advice" | "setup_gap" | "context_gap" | "review_unavailable" | "policy_denied" | "proposal_invalid" | "not_executable" | "human_decision_valid" | "auto_approved" | "allow_advice" | "reviewing" | "policy_needs_human" | "high_risk_tool" | "auto_invalidated" | "not_eligible" | "not_rereviewed";
+type ReviewBadge = "remembered" | "human_decided_shadow" | "shadow_keeps_policy" | "proposal_not_executable" | "human_decided" | "setup_not_ready" | "review_context_incomplete" | "review_incomplete" | "review_not_allowed" | "proposal_expired" | "proposal_ended" | "auto_approved" | "review_suggests_allow" | "reviewing" | "reviewing_manual" | "shadow_manual_policy" | "needs_you" | "high_risk_tool" | "auto_invalidated" | "policy_needs_approval" | "already_reviewed";
+type ReviewLabel = typeof shadowLabels[number] | "remembered" | "shadow_advice" | "setup_gap" | "context_gap" | "review_unavailable" | "policy_denied" | "proposal_invalid" | "not_executable" | "human_decision_valid" | "auto_approved" | "allow_advice" | "reviewing" | "policy_needs_human" | "high_risk_tool" | "auto_invalidated" | "not_eligible" | "not_rereviewed";
 
 /** Readiness, terminal validity and policy advice are different server facts. */
+/** Host actor of a card decided by a remembered approval ("Approve and remember in this chat"). */
+export const REMEMBERED_APPROVAL_ACTOR = "remembered-approval";
+
 export function autoReviewPresentation(question: Question): {badge: string; label: string} | undefined {
  const review = question.approval?.review;
  if (!review) return undefined;
@@ -58,6 +61,7 @@ export function autoReviewPresentation(question: Question): {badge: string; labe
   const blockedLabels: Record<string, ReviewLabel> = {setup_required:"setup_gap",context_required:"context_gap",unavailable:"review_unavailable",policy_denied:"policy_denied",terminal:question.status === "expired" ? "proposal_invalid" : "not_executable"};
   if (Object.hasOwn(blockedLabels, review.status)) return view("proposal_not_executable", blockedLabels[review.status]);
  }
+ if ((question.status === "answered" || question.status === "run_done") && question.answered_by === REMEMBERED_APPROVAL_ACTOR) return view("remembered", "remembered");
  if (question.status === "answered" && question.answered_by && question.answered_by !== "auto-review") return view("human_decided", "human_decision_valid");
  switch (review.status) {
   case "setup_required": return view("setup_not_ready", "setup_gap");

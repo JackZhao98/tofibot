@@ -41,9 +41,9 @@ func (s *Server) claimMCPApproval(ctx context.Context, c Conversation, r Run, ca
 	if err = tx.QueryRow(`SELECT EXISTS(SELECT 1 FROM mcp_call_approvals a JOIN questions q ON q.id=a.question_id WHERE a.run_id=? AND a.action_hash=? AND q.id<>? AND ((q.status='cancelled' AND NOT EXISTS(SELECT 1 FROM mcp_auto_reviews v WHERE v.question_id=q.id AND v.action_hash=a.action_hash||':retired:'||q.id)) OR (q.status='answered' AND q.answer_json='false')))`, r.ID, mcpApprovalHash(call), id).Scan(&denied); err != nil {
 		return nil, err
 	}
-	if !denied && q.AnsweredBy == autoReviewActor {
-		// An automatic decision cannot outlive a human refusal of the same
-		// action elsewhere in the conversation or its task/schedule chain.
+	if !denied && (q.AnsweredBy == autoReviewActor || q.AnsweredBy == rememberedApprovalActor) {
+		// An automatic or remembered decision cannot outlive a human refusal
+		// of the same action elsewhere in the conversation or its chain.
 		if denied, err = mcpHumanRefusedAction(tx, c, r, mcpApprovalHash(call)); err != nil {
 			return nil, err
 		}
@@ -52,6 +52,18 @@ func (s *Server) claimMCPApproval(ctx context.Context, c Conversation, r Run, ca
 		return nil, tooloutcome.New(tooloutcome.Denied, "approval_denied", "not_executed", "This exact proposal was denied or cancelled. Do not execute or repeat it.", "explain_blocker").Err()
 	}
 	if q.Status == questionPending {
+		return nil, errAutoReviewInvalidated
+	}
+	if q.AnsweredBy == rememberedApprovalActor && !s.rememberedClaimValid(tx, c, r, call, q) {
+		// The grant was revoked, expired or outlived its binding (config, tier,
+		// target) between the decision and this claim. The card goes back to
+		// a person; nothing executes on a withdrawn memory.
+		if err = withdrawRememberedAnswer(tx, c, q); err != nil {
+			return nil, err
+		}
+		if err = tx.Commit(); err != nil {
+			return nil, err
+		}
 		return nil, errAutoReviewInvalidated
 	}
 	settings, settingsErr := readAutoReviewSettings(tx)
@@ -87,7 +99,7 @@ func (s *Server) claimMCPApproval(ctx context.Context, c Conversation, r Run, ca
 				failure := &MCPContextFailure{Code: mcpContextResumeChanged}
 				reason := "The reviewed evidence changed before the approved call resumed: " + mcpContextFailureReason(failure.Code) + "."
 				q.UpdatedAt = now()
-				q.Approval.Review = &MCPReviewDisplay{autoReviewActor, "context_required", reason, "codex-auto-review", "", false, autoReviewPolicyVersion, failure, "", ""}
+				q.Approval.Review = &MCPReviewDisplay{autoReviewActor, "context_required", reason, "codex-auto-review", "", false, autoReviewPolicyVersion, failure, "", "", ""}
 				raw, _ := json.Marshal(q.Approval)
 				if _, err = tx.Exec(`UPDATE questions SET approval_json=?,updated_at=? WHERE id=?`, string(raw), q.UpdatedAt, id); err != nil {
 					return nil, err
@@ -137,7 +149,7 @@ func (s *Server) claimMCPApproval(ctx context.Context, c Conversation, r Run, ca
 			} else if s.extensions == nil || !mcpSchemaAvailable(call.Schema) || !s.extensions.MCPCallCurrent(call) {
 				q.Status, reviewState, reason = questionCancelled, "setup_required", "The current tool configuration or schema binding is unavailable. Approval cannot repair this setup gap."
 			}
-			q.Approval.Review = &MCPReviewDisplay{autoReviewActor, reviewState, reason, "codex-auto-review", "", false, autoReviewPolicyVersion, contextFailure, "", ""}
+			q.Approval.Review = &MCPReviewDisplay{autoReviewActor, reviewState, reason, "codex-auto-review", "", false, autoReviewPolicyVersion, contextFailure, "", "", ""}
 			raw, _ := json.Marshal(q.Approval)
 			if _, err = tx.Exec(`UPDATE questions SET status=?,answer_json=NULL,answered_by=NULL,approval_json=?,updated_at=? WHERE id=?`, q.Status, string(raw), q.UpdatedAt, id); err != nil {
 				return nil, err

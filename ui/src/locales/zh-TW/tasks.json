@@ -208,7 +208,8 @@
     "risk": { "low": "低", "medium": "中", "high": "高", "unknown": "未評級" },
     "view_full_arguments": "查看完整參數",
     "proposal_ended": "此提案已結束。",
-    "view_decision": "查看決定紀錄"
+    "view_decision": "查看決定紀錄",
+    "remembered_decision": "由本對話中記住的核准放行，未詢問任何人。下方步驟顯示是否已執行。"
   },
   "question": {
     "approve": "核准此操作",
@@ -236,7 +237,8 @@
       "auto_approved": "AutoReview 自動核准",
       "human_decided": "已由人工決定",
       "run_done": "任務已結束",
-      "approved": "已核准"
+      "approved": "已核准",
+      "remembered": "由記住的核准放行"
     },
     "answered_refresh_failed": "已收到回答，但清單重新整理失敗，請重新整理頁面查看。",
     "submit_failed": "提交未完成，請重試。",
@@ -252,7 +254,12 @@
     "cancel": "取消",
     "submitting": "提交中…",
     "retry_submit": "重新提交",
-    "submit_answer": "提交回答"
+    "submit_answer": "提交回答",
+    "remember": {
+      "hint_identifier": "本對話中之後對 {{target}} 呼叫此工具將不再詢問。可隨時在對話選單中撤銷。",
+      "hint_exact": "本對話中之後以完全相同的參數呼叫此工具將不再詢問。可隨時在對話選單中撤銷。",
+      "stale": "已核准，但未記住：工具或其設定已變更。"
+    }
   },
   "form": {
     "schema": {
@@ -371,7 +378,8 @@
       "auto_invalidated": "自動決定已失效",
       "policy_needs_approval": "執行策略需人工核准",
       "already_reviewed": "此提案已有審查紀錄",
-      "high_risk_tool": "高風險工具 · 需要你決定"
+      "high_risk_tool": "高風險工具 · 需要你決定",
+      "remembered": "記住的核准"
     },
     "label": {
       "shadow_reviewing": "觀察審查中",
@@ -397,7 +405,8 @@
       "auto_invalidated": "自動決定失效",
       "not_eligible": "不符合自動執行資格",
       "not_rereviewed": "未重複審查",
-      "high_risk_tool": "高風險工具：每次呼叫由人決定"
+      "high_risk_tool": "高風險工具：每次呼叫由人決定",
+      "remembered": "由本對話中記住的核准決定"
     },
     "failure": {
       "title": "審查未能完成的原因",
@@ -441,7 +450,8 @@
     "accept": "核准",
     "decline": "暫不核准",
     "payload_label": "完整工具參數，純文字",
-    "submitting": "提交中…"
+    "submitting": "提交中…",
+    "remember": "核准並在本對話中記住"
   },
   "secret": {
     "submit_failed": "提交未完成，請確認請求仍有效後重試。",
@@ -457,5 +467,20 @@
   "compact": {
     "check_service": "重試前，請先到該操作使用的服務核對。",
     "check_mail": "重試前，請先查看寄件備份。"
+  },
+  "remembered": {
+    "title": "記住的核准",
+    "lead": "你以「在本對話中記住」核准過的工具呼叫。只對本對話、同一工具和同一目標生效，24 小時後或工具變更時自動失效。",
+    "loading": "載入中…",
+    "empty": "本對話中沒有記住的核准。",
+    "target_identifier": "目標：{{target}}",
+    "target_exact": "與已核准完全相同的參數",
+    "expires": "{{time}} 失效",
+    "used_other": "已使用 {{count}} 次",
+    "revoke": "撤銷",
+    "revoking": "正在撤銷…",
+    "revoke_failed": "撤銷失敗，請再試一次。",
+    "load_failed": "無法載入記住的核准。",
+    "close": "關閉"
   }
 }

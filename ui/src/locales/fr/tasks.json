@@ -210,7 +210,8 @@
     "risk": { "low": "Faible", "medium": "Moyen", "high": "Élevé", "unknown": "Non évalué" },
     "view_full_arguments": "Voir tous les arguments",
     "proposal_ended": "Cette proposition est close.",
-    "view_decision": "Voir l’historique de la décision"
+    "view_decision": "Voir l’historique de la décision",
+    "remembered_decision": "Autorisé par une approbation mémorisée dans cette discussion ; personne n'a été sollicité. L'étape ci-dessous indique si l'appel a eu lieu."
   },
   "question": {
     "approve": "Approuver l’action",
@@ -238,7 +239,8 @@
       "auto_approved": "Approuvé par AutoReview",
       "human_decided": "Décidé manuellement",
       "run_done": "Tâche terminée",
-      "approved": "Approuvé"
+      "approved": "Approuvé",
+      "remembered": "Autorisé par une approbation mémorisée"
     },
     "answered_refresh_failed": "Réponse reçue, mais la liste ne s’est pas actualisée. Rechargez la page pour la voir.",
     "submit_failed": "Envoi impossible. Réessayez.",
@@ -256,7 +258,12 @@
     "cancel": "Annuler",
     "submitting": "Envoi…",
     "retry_submit": "Réessayer",
-    "submit_answer": "Envoyer la réponse"
+    "submit_answer": "Envoyer la réponse",
+    "remember": {
+      "hint_identifier": "Les prochains appels de cet outil sur {{target}} dans cette discussion s'exécuteront sans demander. Révocable à tout moment depuis le menu de la conversation.",
+      "hint_exact": "Les prochains appels de cet outil avec exactement ces arguments dans cette discussion s'exécuteront sans demander. Révocable à tout moment depuis le menu de la conversation.",
+      "stale": "Approuvé, mais non mémorisé : l'outil ou ses réglages ont changé."
+    }
   },
   "form": {
     "schema": {
@@ -381,7 +388,8 @@
       "auto_invalidated": "Décision automatique caduque",
       "policy_needs_approval": "La règle exige une approbation manuelle",
       "already_reviewed": "Déjà vérifié",
-      "high_risk_tool": "Outil à haut risque · votre décision est requise"
+      "high_risk_tool": "Outil à haut risque · votre décision est requise",
+      "remembered": "Approbation mémorisée"
     },
     "label": {
       "shadow_reviewing": "Observation : vérification",
@@ -407,7 +415,8 @@
       "auto_invalidated": "Décision automatique caduque",
       "not_eligible": "Non éligible à l’exécution automatique",
       "not_rereviewed": "Non revérifié",
-      "high_risk_tool": "Outil à haut risque : une personne décide à chaque appel"
+      "high_risk_tool": "Outil à haut risque : une personne décide à chaque appel",
+      "remembered": "Décidé par une approbation mémorisée dans cette discussion"
     },
     "failure": {
       "title": "Pourquoi la vérification n'a pas pu aboutir",
@@ -451,7 +460,8 @@
     "accept": "Approuver",
     "decline": "Pas maintenant",
     "payload_label": "Arguments complets de l’outil, en texte brut",
-    "submitting": "Envoi…"
+    "submitting": "Envoi…",
+    "remember": "Approuver et mémoriser dans cette discussion"
   },
   "secret": {
     "submit_failed": "Envoi impossible. Vérifiez que la demande est toujours ouverte, puis réessayez.",
@@ -467,5 +477,22 @@
   "compact": {
     "check_service": "Vérifiez le service utilisé avant de réessayer.",
     "check_mail": "Vérifiez vos e-mails envoyés avant de réessayer."
+  },
+  "remembered": {
+    "title": "Approbations mémorisées",
+    "lead": "Appels d'outils que vous avez approuvés avec « mémoriser dans cette discussion ». Ils ne s'appliquent qu'à cette conversation, au même outil et à la même cible, et prennent fin d'eux-mêmes après 24 heures ou quand l'outil change.",
+    "loading": "Chargement…",
+    "empty": "Rien n'est mémorisé dans cette discussion.",
+    "target_identifier": "Cible : {{target}}",
+    "target_exact": "Exactement les arguments approuvés",
+    "expires": "Prend fin {{time}}",
+    "used_one": "utilisée {{count}} fois",
+    "used_many": "utilisée {{count}} fois",
+    "used_other": "utilisée {{count}} fois",
+    "revoke": "Révoquer",
+    "revoking": "Révocation…",
+    "revoke_failed": "Révocation impossible. Réessayez.",
+    "load_failed": "Impossible de charger les approbations mémorisées.",
+    "close": "Fermer"
   }
 }

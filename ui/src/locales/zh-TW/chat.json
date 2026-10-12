@@ -215,7 +215,8 @@
     "usage": "用量",
     "computer_on": "共享電腦,已開機",
     "computer_off": "共享電腦,已關機",
-    "computer_driving": "共享電腦,已開機。{{name}} 正在使用"
+    "computer_driving": "共享電腦,已開機。{{name}} 正在使用",
+    "remembered_approvals": "記住的核准"
   },
   "history": {
     "boundary_failed": "暫時無法載入未讀位置。",
