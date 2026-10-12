@@ -117,7 +117,6 @@
   },
   "computer": {
     "failed": "共享電腦準備失敗",
-    "in_use": "{{name}} 正在使用電腦",
     "starting": "正在準備你的共享電腦",
     "stopped": "共享電腦已停止",
     "unavailable": "共享電腦暫時無法使用",
@@ -213,7 +212,10 @@
     "shared_computer": "共享電腦",
     "team_board": "團隊看板",
     "terminal": "終端機",
-    "usage": "用量"
+    "usage": "用量",
+    "computer_on": "共享電腦,已開機",
+    "computer_off": "共享電腦,已關機",
+    "computer_driving": "共享電腦,已開機。{{name}} 正在使用"
   },
   "history": {
     "boundary_failed": "暫時無法載入未讀位置。",

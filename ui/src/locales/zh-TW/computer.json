@@ -99,13 +99,6 @@
       "retry": "重試"
     }
   },
-  "floating": {
-    "open": "開啟共享電腦",
-    "open_activity": "開啟共享電腦：{{activity}}",
-    "hide_mini_aria": "收起小螢幕",
-    "collapse": "收起",
-    "peek_hint": "僅供檢視 · 點擊放大"
-  },
   "remote": {
     "error": {
       "control_failed": "桌面控制失敗",

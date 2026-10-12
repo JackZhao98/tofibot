@@ -190,3 +190,42 @@ func TestHumanComputerActionKeepsWatchdogRestartingCode(t *testing.T) {
 		}
 	}
 }
+
+func TestViewerCaptureDuringBotLeaseKeepsLeaseAndDeniesHumanInput(t *testing.T) {
+	s, err := NewServer(Config{DataDir: t.TempDir()})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer s.Close()
+	fake := &inputControlTransport{}
+	s.microVM, _ = computer.New(computer.Config{Socket: "/test.sock", Client: &http.Client{Transport: fake}})
+	bot, _ := s.store.CreateBot("driven", "", "model")
+	if !s.claimComputerOwner(bot.ID, "bot-run") {
+		t.Fatal("claim")
+	}
+	lease := s.computerLease(bot.ID)
+	lease.Lock() // the Bot is mid-step
+	defer lease.Unlock()
+	call := func(action string) *httptest.ResponseRecorder {
+		raw, _ := json.Marshal(map[string]any{"bot_id": bot.ID, "action": action, "args": map[string]any{}})
+		w := httptest.NewRecorder()
+		s.Handler().ServeHTTP(w, httptest.NewRequest(http.MethodPost, "http://tofi.local/api/computers/firecracker/actions", bytes.NewReader(raw)))
+		return w
+	}
+	if w := call("desktop.capture"); w.Code != 200 {
+		t.Fatalf("capture during bot lease = %d %s", w.Code, w.Body.String())
+	}
+	s.computerOwnerMu.Lock()
+	owner, controls := s.computerOwners[bot.ID], len(s.computerControls)
+	s.computerOwnerMu.Unlock()
+	if owner != "bot-run" || controls != 0 {
+		t.Fatalf("capture changed ownership: owner=%q controls=%d", owner, controls)
+	}
+	if lease.TryLock() {
+		lease.Unlock()
+		t.Fatal("capture released the Bot's lease")
+	}
+	if w := call("desktop.click"); w.Code != 409 {
+		t.Fatalf("human click during bot lease = %d %s", w.Code, w.Body.String())
+	}
+}

@@ -99,13 +99,6 @@
       "retry": "重试"
     }
   },
-  "floating": {
-    "open": "打开共享电脑",
-    "open_activity": "打开共享电脑：{{activity}}",
-    "hide_mini_aria": "收起小屏",
-    "collapse": "收起",
-    "peek_hint": "仅查看 · 点击放大"
-  },
   "remote": {
     "error": {
       "control_failed": "桌面控制失败",

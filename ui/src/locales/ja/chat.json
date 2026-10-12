@@ -117,7 +117,6 @@
   },
   "computer": {
     "failed": "共有コンピューターの準備に失敗しました",
-    "in_use": "{{name}} がコンピューターを使用中",
     "starting": "共有コンピューターを準備中",
     "stopped": "共有コンピューターは停止しています",
     "unavailable": "共有コンピューターは現在利用できません",
@@ -213,7 +212,10 @@
     "shared_computer": "共有コンピューター",
     "team_board": "チームボード",
     "terminal": "ターミナル",
-    "usage": "使用量"
+    "usage": "使用量",
+    "computer_on": "共有コンピューター(オン)",
+    "computer_off": "共有コンピューター(オフ)",
+    "computer_driving": "共有コンピューター(オン)。{{name}} が作業中"
   },
   "history": {
     "boundary_failed": "未読位置を読み込めませんでした。",
