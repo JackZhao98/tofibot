@@ -29,6 +29,7 @@ export function UsagePanel({ preferredBotId, timezone }: { preferredBotId?: stri
   const [agents, setAgents] = useState<AgentUsageTotal[]>([]);
   const [contexts, setContexts] = useState<ContextUsage[]>([]);
   const [periods, setPeriods] = useState<Record<"24h" | "7d" | "30d", UsagePeriod[]>>({ "24h": [], "7d": [], "30d": [] });
+  const [reviewPeriods, setReviewPeriods] = useState<Record<"24h" | "7d" | "30d", UsagePeriod[]>>({ "24h": [], "7d": [], "30d": [] });
   const [calls, setCalls] = useState<UsageCall[]>([]);
   const [range, setRange] = useState<"24h" | "7d" | "30d">("7d");
   const [selected, setSelected] = useState("");
@@ -48,6 +49,7 @@ export function UsagePanel({ preferredBotId, timezone }: { preferredBotId?: stri
       setAgents(result.agents ?? []);
       setContexts(result.contexts ?? []);
       setPeriods(result.periods ?? { "24h": [], "7d": [], "30d": [] });
+      setReviewPeriods(result.review_periods ?? { "24h": [], "7d": [], "30d": [] });
       setCalls(result.calls ?? []);
       setError("");
     } catch (cause) { setError(fail(cause)); }
@@ -64,14 +66,17 @@ export function UsagePanel({ preferredBotId, timezone }: { preferredBotId?: stri
   const current = agents.find(agent => agent.bot_id === selectedId);
   const rows = useMemo(() => contexts.filter(row => row.bot_id === selectedId), [contexts, selectedId]);
   const periodRows = (periods[range] ?? []).filter(row => selectedId === "all" || row.bot_id === selectedId);
-  const total = periodRows.reduce((acc, row) => ({ input: acc.input + row.input_tokens, output: acc.output + row.output_tokens, requests: acc.requests + row.requests, usd: acc.usd + row.equivalent_usd, unpriced: acc.unpriced + row.unpriced_requests }), { input: 0, output: 0, requests: 0, usd: 0, unpriced: 0 });
+  const sum = (list: UsagePeriod[]) => list.reduce((acc, row) => ({ input: acc.input + row.input_tokens, output: acc.output + row.output_tokens, requests: acc.requests + row.requests, usd: acc.usd + row.equivalent_usd, unpriced: acc.unpriced + row.unpriced_requests }), { input: 0, output: 0, requests: 0, usd: 0, unpriced: 0 });
+  const total = sum(periodRows);
+  // Reviewer calls are reported apart from chat; the two never overlap.
+  const review = sum((reviewPeriods[range] ?? []).filter(row => selectedId === "all" || row.bot_id === selectedId));
   const cutoff = Date.now() - (range === "24h" ? 1 : range === "7d" ? 7 : 30) * 86400000;
   const visibleCalls = calls.filter(call => (selectedId === "all" || call.bot_id === selectedId) && new Date(call.occurred_at).getTime() >= cutoff);
   const dayKey = (date: Date) => new Intl.DateTimeFormat("en-CA", { timeZone: timezone, year: "numeric", month: "2-digit", day: "2-digit" }).format(date);
   const recentDays = Array.from({ length: 7 }, (_, index) => {
     const date = new Date(Date.now() - (6 - index) * 86400000);
     const key = dayKey(date);
-    return { key, label: new Intl.DateTimeFormat(intlLocale(), { timeZone: timezone, weekday: "short" }).format(date), requests: calls.filter(call => (selectedId === "all" || call.bot_id === selectedId) && dayKey(new Date(call.occurred_at)) === key).length };
+    return { key, label: new Intl.DateTimeFormat(intlLocale(), { timeZone: timezone, weekday: "short" }).format(date), requests: calls.filter(call => call.kind !== "review" && (selectedId === "all" || call.bot_id === selectedId) && dayKey(new Date(call.occurred_at)) === key).length };
   });
   const chartMax = Math.max(1, ...recentDays.map(day => day.requests));
 
@@ -82,9 +87,10 @@ export function UsagePanel({ preferredBotId, timezone }: { preferredBotId?: stri
       <nav className="usage-agents" aria-label={t("usage.choose_agent")}><button type="button" aria-current={selectedId === "all" ? "true" : undefined} onClick={() => setSelected("all")}><span><strong>{t("usage.all_bots")}</strong><small>{t("usage.combined")}</small></span></button>{agents.map(agent => <button type="button" key={agent.bot_id} aria-current={selectedId === agent.bot_id ? "true" : undefined} onClick={() => setSelected(agent.bot_id)}><BotAvatar id={agent.bot_id} mini /><span><strong>{agent.bot_name}</strong><small>{agent.runs ? t("usage.runs", { count: agent.runs, runs: count(agent.runs) }) : t("usage.no_records")}</small></span></button>)}</nav>
       <div className={`usage-detail${rolled ? " is-rolled" : ""}`} ref={detailRef}>
         <div className="usage-summary"><h3>{selectedId === "all" ? t("usage.all_bots") : current?.bot_name ?? t("usage.agent_fallback")}</h3><div className="usage-ranges" aria-label={t("usage.ranges")}>{ranges.map(([key, label]) => <button key={key} type="button" aria-pressed={range === key} onClick={() => setRange(key)}>{t(label)}</button>)}</div><div><span><small>{t("usage.input_tokens")}</small><strong><UsageReel text={count(total.input)} rolled={rolled}/></strong></span><span><small>{t("usage.output_tokens")}</small><strong><UsageReel text={count(total.output)} rolled={rolled}/></strong></span><span><small>{t("usage.requests")}</small><strong><UsageReel text={count(total.requests)} rolled={rolled}/></strong></span><span><small>{t("usage.api_equivalent")}</small><strong><UsageReel text={total.unpriced === total.requests && total.requests ? t("usage.no_price") : money(total.usd)} rolled={rolled}/></strong></span></div>{total.unpriced > 0 && <p>{t("usage.unpriced", { count: total.unpriced, requests: count(total.unpriced) })}</p>}<p><Trans t={t} i18nKey="usage.pricing_source" components={{ link: <a href="https://developers.openai.com/api/docs/pricing" target="_blank" rel="noreferrer" /> }} /></p></div>
+        <div className="usage-review" aria-label={t("usage.review_title")}><h4>{t("usage.review_title")}</h4>{review.requests === 0 ? <p>{t("usage.review_none")}</p> : <div><span><small>{t("usage.requests")}</small><strong>{count(review.requests)}</strong></span><span><small>{t("usage.input_tokens")}</small><strong>{count(review.input)}</strong></span><span><small>{t("usage.output_tokens")}</small><strong>{count(review.output)}</strong></span><span><small>{t("usage.api_equivalent")}</small><strong>{review.unpriced === review.requests ? t("usage.no_price") : money(review.usd)}</strong></span></div>}<p>{t("usage.review_note")}</p></div>
         {!isDesktop && <div className="web-usage-chart"><h4>{t("usage.chart_title")}</h4><div className="web-usage-bars" aria-label={t("usage.chart_label")}>{recentDays.map((day,index)=><span className="web-usage-bar" key={day.key}><i style={{"--h":`${day.requests/chartMax*100}%`,"--delay":`${200+index*60}ms`} as CSSProperties} title={t("usage.chart_bar", { day: day.label, count: day.requests })}/><small>{day.label}</small></span>)}</div></div>}
         <h4>{t("usage.calls_title")}</h4>
-        {!visibleCalls.length ? <EmptyState name="usage-no-calls" className="usage-empty is-compact" look={CATS.taro} pose="asleep"><p>{t("usage.no_calls")}</p></EmptyState> : <div className="usage-call-list">{visibleCalls.map(call => <details key={call.id} className="usage-call"><summary><time dateTime={call.occurred_at}>{new Intl.DateTimeFormat(intlLocale(), { timeZone: timezone, month:"numeric", day:"numeric", hour:"2-digit", minute:"2-digit" }).format(new Date(call.occurred_at))}</time><span>{call.bot_name} · {call.conversation_name}</span><strong>{call.price_known ? money(call.equivalent_usd) : t("usage.no_price")}</strong></summary><p>{call.model} · {t("usage.call_input", { value: count(call.input_tokens) })} · {t("usage.call_output", { value: count(call.output_tokens) })}</p><p>{t("usage.trigger", { content: call.trigger_content || t("usage.trigger_none") })}</p></details>)}</div>}
+        {!visibleCalls.length ? <EmptyState name="usage-no-calls" className="usage-empty is-compact" look={CATS.taro} pose="asleep"><p>{t("usage.no_calls")}</p></EmptyState> : <div className="usage-call-list">{visibleCalls.map(call => <details key={call.id} className="usage-call"><summary><time dateTime={call.occurred_at}>{new Intl.DateTimeFormat(intlLocale(), { timeZone: timezone, month:"numeric", day:"numeric", hour:"2-digit", minute:"2-digit" }).format(new Date(call.occurred_at))}</time><span>{call.kind === "review" && <em className="usage-call-kind">{t("usage.review_title")}</em>}{call.bot_name} · {call.conversation_name}</span><strong>{call.price_known ? money(call.equivalent_usd) : t("usage.no_price")}</strong></summary><p>{call.model} · {t("usage.call_input", { value: count(call.input_tokens) })} · {t("usage.call_output", { value: count(call.output_tokens) })}</p><p>{t("usage.trigger", { content: call.trigger_content || t("usage.trigger_none") })}</p></details>)}</div>}
         {selectedId !== "all" && <>
         <h4>{t("usage.contexts_title")}</h4>
         {!rows.length ? <EmptyState name="usage-no-contexts" className="usage-empty is-compact" look={CATS.taro} pose="asleep"><p>{t("usage.no_contexts")}</p></EmptyState> : rows.map(row => {

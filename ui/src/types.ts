@@ -22,6 +22,8 @@ export interface UsageCall {
   id: number; bot_id: string; bot_name: string; conversation_name: string; model: string;
   input_tokens: number; output_tokens: number; equivalent_usd: number; price_known: boolean;
   trigger_content: string; occurred_at: string;
+  /** "review" = MCP safety reviewer call; absent or "chat" = the Bot's own model. */
+  kind?: "chat" | "review";
 }
 
 export interface Bot {
