@@ -160,6 +160,32 @@ func TestRememberTargetKeyDerivation(t *testing.T) {
 	if l.Kind != mcpRememberTargetIdentifier || l.Key == m.Key || l.Summary != "channel_id = 1234567890123456789" || n.Key == o.Key {
 		t.Fatalf("numeric identifiers collided: l=%+v m=%+v n=%+v o=%+v", l, m, n, o)
 	}
+	// Containers bind with the target: the same path in another repo is
+	// another target; the branch binds too.
+	schema5 := json.RawMessage(`{"type":"object","properties":{"owner":{"type":"string"},"repo":{"type":"string"},"path":{"type":"string"},"branch":{"type":"string"},"content":{"type":"string"},"message":{"type":"string"}}}`)
+	p1, _ := mcpRememberTargetFor(schema5, json.RawMessage(`{"owner":"acme","repo":"site","path":"README.md","branch":"main","content":"a","message":"m1"}`))
+	p2, _ := mcpRememberTargetFor(schema5, json.RawMessage(`{"owner":"acme","repo":"site","path":"README.md","branch":"main","content":"b","message":"m2"}`))
+	p3, _ := mcpRememberTargetFor(schema5, json.RawMessage(`{"owner":"acme","repo":"other","path":"README.md","branch":"main","content":"a","message":"m1"}`))
+	p4, _ := mcpRememberTargetFor(schema5, json.RawMessage(`{"owner":"acme","repo":"site","path":"README.md","branch":"release","content":"a","message":"m1"}`))
+	if p1.Kind != mcpRememberTargetIdentifier || p1.Key != p2.Key || p1.Key == p3.Key || p1.Key == p4.Key || p1.Summary != "branch = main, owner = acme, path = README.md, repo = site" {
+		t.Fatalf("container binding: p1=%+v p3=%+v p4=%+v", p1, p3, p4)
+	}
+	// A nested object may hide the real target (the recipient inside a
+	// message): only identical arguments match, even with an identifier
+	// argument present.
+	schema6 := json.RawMessage(`{"type":"object","properties":{"user_id":{"type":"string"},"message":{"type":"object"}}}`)
+	r1, _ := mcpRememberTargetFor(schema6, json.RawMessage(`{"user_id":"me","message":{"to":"a@example.com","body":"hi"}}`))
+	r2, _ := mcpRememberTargetFor(schema6, json.RawMessage(`{"user_id":"me","message":{"to":"evil@example.com","body":"hi"}}`))
+	r3, _ := mcpRememberTargetFor(schema6, json.RawMessage(`{"message":{"body":"hi","to":"a@example.com"},"user_id":"me"}`))
+	if r1.Kind != mcpRememberTargetExact || r1.Summary != "" || r1.Key == r2.Key || r1.Key != r3.Key {
+		t.Fatalf("nested object widened the key: r1=%+v r2=%+v r3=%+v", r1, r2, r3)
+	}
+	schema7 := json.RawMessage(`{"type":"object","properties":{"channel":{"type":"string"},"blocks":{"type":"array"}}}`)
+	b1, _ := mcpRememberTargetFor(schema7, json.RawMessage(`{"channel":"C1","blocks":[{"type":"section","text":"x"}]}`))
+	b2, _ := mcpRememberTargetFor(schema7, json.RawMessage(`{"channel":"C1","blocks":[{"type":"section","text":"y"}]}`))
+	if b1.Kind != mcpRememberTargetExact || b1.Key == b2.Key {
+		t.Fatalf("array of objects widened the key: b1=%+v b2=%+v", b1, b2)
+	}
 	if _, ok := mcpRememberTargetFor(json.RawMessage(`null`), json.RawMessage(`{"a":1}`)); ok {
 		t.Fatal("missing schema produced a target")
 	}
