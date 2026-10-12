@@ -927,7 +927,9 @@ def render_env(manifest, options, budgets):
         origin = ''
         cert, key = TLS_REAL + '/cert.pem', TLS_REAL + '/key.pem'
         allow_lan_http = '0'
-        trusted_proxies = ''
+        # Behind a reverse proxy the user already runs: trust exactly the
+        # addresses they named; otherwise nobody.
+        trusted_proxies = options.get('behind_proxy') or ''
     return {
         'TOFI_VERSION': manifest['version'],
         'TOFI_DOMAIN': domain,
@@ -1981,6 +1983,65 @@ def configure_auto_update(mode):
     return {'auto_update': env['TOFI_AUTO_UPDATE']}
 
 
+def proxy_upstream(env):
+    """(address, port) a reverse proxy on another machine should forward to."""
+    port = env.get('TOFI_HTTP_PORT') or str(DEFAULT_PORT)
+    for family, address in interface_addresses():
+        if family == 'inet':
+            return address, port
+    return '<tofi-server-ip>', port
+
+
+def render_proxy_notes(env):
+    """Ready-to-paste Caddy and Nginx configuration, or '' when TOFI is not set up for a proxy."""
+    if env.get('TOFI_DOMAIN') or not env.get('TOFI_TRUSTED_PROXIES') or env.get('TOFI_BIND') != '0.0.0.0':
+        return ''
+    address, port = proxy_upstream(env)
+    snippets = tofi_tui.proxy_snippets(address, port)
+    return '\n'.join([
+        'Reverse proxy: TOFI trusts X-Forwarded-For only from %s.' % env['TOFI_TRUSTED_PROXIES'],
+        'Point your proxy at https://%s:%s (self-signed certificate; verification is skipped for that hop only).'
+        % (address, port),
+        'Replace tofi.example.com with the name your proxy serves.',
+        '', '# Caddy', snippets['caddy'], '', '# Nginx', snippets['nginx'], ''])
+
+
+def configure_trusted_proxies(proxies, clear=False):
+    """`tofi config trusted-proxies [IP|CIDR ...] [--clear]`: show, set or clear TOFI_TRUSTED_PROXIES."""
+    if clear and proxies:
+        raise HostError('Give proxy addresses or --clear, not both.')
+    with lifecycle_lock():
+        state = load_state()
+        if state is None:
+            raise HostError('TOFI is not installed; run install.sh.')
+        env = read_env()
+        if env.get('TOFI_DOMAIN'):
+            raise HostError('This install uses the bundled Caddy (--domain), which is already the only trusted '
+                            'proxy. Reinstall without --domain to sit behind your own proxy.')
+        if not proxies and not clear:
+            current = env.get('TOFI_TRUSTED_PROXIES') or ''
+            say('Trusted proxies: %s' % (current or 'none'))
+            return {'trusted_proxies': current}
+        if clear:
+            value = ''
+        else:
+            entries, error = tofi_tui.parse_proxy_list(','.join(proxies))
+            if error:
+                raise HostError(error)
+            value = ','.join(entries)
+        env['TOFI_TRUSTED_PROXIES'] = value
+        write_env(env)
+    if value:
+        say('Trusted proxies set to %s.' % value)
+        notes = render_proxy_notes(env)
+        if notes:
+            say(notes)
+    else:
+        say('No proxy is trusted any more: every visitor is seen at the address it connects from.')
+    say('Restart to apply: sudo tofi stop && sudo tofi start')
+    return {'trusted_proxies': value}
+
+
 def auto_update():
     """`tofi update --auto`, run daily by tofi-auto-update.timer.
 
@@ -2065,7 +2126,7 @@ def install(manifest_path, options):
         state = load_state()
         if state is not None:
             if state['phase'] == 'installed':
-                if (options.get('domain') or options.get('lan') or options.get('local_only')
+                if (options.get('domain') or options.get('behind_proxy') or options.get('lan') or options.get('local_only')
                         or options.get('port_given')):
                     warn('TOFI is already installed; exposure flags were ignored. Edit /etc/tofi/tofi.env to change them.')
                 say('TOFI %s is already installed.' % state.get('version'))
@@ -2141,6 +2202,9 @@ def final_message(env):
             'local_only': not env.get('TOFI_DOMAIN') and env.get('TOFI_BIND') != '0.0.0.0'}
     sys.stdout.write(render_banner(info, color_mode(sys.stdout), terminal_width()))
     sys.stdout.flush()
+    notes = render_proxy_notes(env)
+    if notes:
+        say(notes)
     return {'installed': True, 'url': urls[0], 'urls': urls, 'setup_key_pending': bool(secret)}
 
 
@@ -2652,6 +2716,63 @@ def finish_uninstall(state):
     return {'uninstalled': True, 'data_retained': True}
 
 
+IMAGE_ENV_KEYS = ('TOFI_APP_IMAGE', 'TOFI_WORKER_IMAGE', 'TOFI_CADDY_IMAGE')
+
+
+def installation_images(state):
+    """Image references that belong to this installation, current and previous.
+
+    Sources, nothing else: the current tofi.env, the env saved for a pending
+    rollback, and the manifest of every release bundle still under /opt/tofi.
+    Manifest images must come from TOFI's own repositories; nothing is ever
+    matched by name pattern or listed from `docker images`."""
+    references = []
+
+    def add(reference):
+        if reference and isinstance(reference, str) and reference not in references:
+            references.append(reference)
+
+    try:
+        env = read_env()
+    except OSError:
+        env = {}
+    for key in IMAGE_ENV_KEYS:
+        add(env.get(key))
+    previous = ((state or {}).get('transaction') or {}).get('previous') or {}
+    for key in IMAGE_ENV_KEYS:
+        add((previous.get('env') or {}).get(key))
+    try:
+        manifests = sorted(P.releases.glob('*/manifest.json'))
+    except OSError:
+        manifests = []
+    allowed = tuple(repository + '@' for repository in IMAGE_REPOS.values())
+    for path in manifests:
+        try:
+            images = json.loads(path.read_text()).get('images') or {}
+        except (OSError, ValueError, AttributeError):
+            continue
+        for role in IMAGE_REPOS:
+            reference = images.get(role) if isinstance(images, dict) else None
+            if isinstance(reference, str) and reference.startswith(allowed):
+                add(reference)
+    return references
+
+
+def remove_installation_images(references):
+    """`docker image rm` each reference, without force; say what happened."""
+    removed, kept = [], []
+    for reference in references:
+        result = run(['docker', 'image', 'rm', reference], check=False)
+        (removed if result.returncode == 0 else kept).append(reference)
+    for reference in removed:
+        say('Removed image %s' % reference)
+    for reference in kept:
+        say('Kept image %s (already gone, or still used by another container)' % reference)
+    if not references:
+        say('No TOFI images were recorded for this installation.')
+    return removed
+
+
 def purge_everything(state, confirm):
     hostname = socket.gethostname()
     if confirm is None:
@@ -2668,12 +2789,7 @@ def purge_everything(state, confirm):
         stopped(tolerate_unclean=True)
     if compose_file().exists() and P.env_file.exists():
         compose('down', '--remove-orphans')
-    images = []
-    if P.env_file.exists():
-        env = read_env()
-        images = [env.get(k) for k in ('TOFI_APP_IMAGE', 'TOFI_WORKER_IMAGE', 'TOFI_CADDY_IMAGE') if env.get(k)]
-    for reference in images:
-        run(['docker', 'image', 'rm', reference], check=False)
+    images = installation_images(state)
     run(['systemctl', 'disable', 'tofi.service'], check=False)
     remove_auto_update_units()
     if P.apparmor_profile.exists():
@@ -2684,6 +2800,7 @@ def purge_everything(state, confirm):
     run(['systemctl', 'daemon-reload'], check=False)
     for path in (P.var, P.etc, P.run_dir, P.opt, P.latest_cache.parent):
         remove_tree(path)
+    remove_installation_images(images)
     say('TOFI and all of its data were removed.')
     return {'purged': True}
 
@@ -3524,6 +3641,9 @@ def parse_args(argv):
     install_parser = sub.add_parser('install', help='install, or resume an interrupted operation')
     install_parser.add_argument('--manifest', help='verified release manifest.json (install.sh passes this)')
     install_parser.add_argument('--domain')
+    install_parser.add_argument('--behind-proxy', metavar='IP[,IP|CIDR...]',
+                                help='a reverse proxy you already run sits in front: keep the self-signed HTTPS '
+                                     'port and trust these proxy addresses for X-Forwarded-For')
     install_parser.add_argument('--email')
     install_parser.add_argument('--local-only', action='store_true',
                                 help='listen on 127.0.0.1 only (still HTTPS); reach it with an SSH tunnel')
@@ -3588,6 +3708,11 @@ def parse_args(argv):
     config_sub = config_parser.add_subparsers(dest='config_command', required=True)
     auto_parser = config_sub.add_parser('auto-update', help='install fix releases automatically overnight')
     auto_parser.add_argument('mode', choices=['on', 'off'])
+    proxy_parser = config_sub.add_parser('trusted-proxies', help='set, show or clear the reverse proxies trusted '
+                                         'for X-Forwarded-For')
+    proxy_parser.add_argument('proxies', nargs='*', metavar='IP|CIDR',
+                              help='proxy addresses (several allowed); none shows the current list')
+    proxy_parser.add_argument('--clear', action='store_true', help='trust no proxy')
     uninstall_parser = sub.add_parser('uninstall')
     uninstall_parser.add_argument('--purge', action='store_true')
     uninstall_parser.add_argument('--confirm-hostname', help='non-interactive purge confirmation')
@@ -3618,6 +3743,14 @@ def install_options(args):
         raise HostError('--domain already decides how TOFI is reached; drop --lan/--local-only.')
     if args.lan and local_only:
         raise HostError('Use either --lan or --local-only, not both.')
+    proxies = ''
+    if getattr(args, 'behind_proxy', None):
+        if args.domain or local_only:
+            raise HostError('--behind-proxy excludes --domain (bundled Caddy) and --local-only.')
+        entries, error = tofi_tui.parse_proxy_list(args.behind_proxy)
+        if error:
+            raise HostError('--behind-proxy: ' + error)
+        proxies = ','.join(entries)
     if args.email and not args.domain:
         raise HostError('--email is only used with --domain.')
     computer = (getattr(args, 'computer', None) or 'kvm').lower()
@@ -3631,7 +3764,7 @@ def install_options(args):
         raise HostError('%r is not a valid domain name.' % args.domain)
     # Default: HTTPS with a self-signed certificate on every interface.
     # --lan is the old name for that default and is kept as an alias.
-    return {'domain': domain, 'email': args.email or '', 'lan': args.lan, 'local_only': local_only,
+    return {'domain': domain, 'behind_proxy': proxies, 'email': args.email or '', 'lan': args.lan, 'local_only': local_only,
             'port': port, 'port_given': args.port is not None,
             'bind': '127.0.0.1' if local_only else '0.0.0.0', 'yes': args.yes, 'computer': computer,
             'auto_update': auto_update_choice(args)}
@@ -3735,7 +3868,10 @@ def main(argv=None):
                            confirm=confirm_restore if sys.stdin.isatty() else None)
             return 0
         if args.command == 'config':
-            configure_auto_update(args.mode)
+            if args.config_command == 'trusted-proxies':
+                configure_trusted_proxies(args.proxies, args.clear)
+            else:
+                configure_auto_update(args.mode)
             return 0
         if args.command == 'update':
             if args.auto:

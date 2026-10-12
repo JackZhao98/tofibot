@@ -47,13 +47,24 @@ confirm:
    "not supported yet (coming in a later release)". Without `/dev/kvm` all three
    are dimmed and the installer explains why it cannot continue. The choice is
    stored as `TOFI_COMPUTER_BACKEND=kvm` in `/etc/tofi/tofi.env`.
-3. **How will you open TOFI?** `By IP over HTTPS (self-signed)` (default, shows
+3. **Is TOFI behind a reverse proxy you already run (Caddy, Nginx, Traefik,
+   Cloudflare Tunnel...)?** Asked first, default no. Yes selects the direct
+   install (self-signed HTTPS on the port, no bundled Caddy), asks for the
+   proxy's IP address(es) or CIDR range(s) (several allowed, validated;
+   ranges wider than /8 are refused), writes them to `TOFI_TRUSTED_PROXIES`,
+   and after the install prints ready-to-paste Caddy and Nginx snippets for
+   the server's address (certificate verification is skipped for that one hop
+   only; WebSocket/SSE and `X-Forwarded-For`/`-Proto` headers are included).
+   No continues with the next question.
+   **How will you open TOFI?** `By IP over HTTPS (self-signed)` (default, shows
    `https://<first LAN IP>:8321`), `With a domain (automatic HTTPS)` (dimmed with
    "not supported: ports 80/443 in use by <process>" when they are taken), or
    `This machine only (SSH tunnel)`.
 4. Follow-ups. Domain: host name syntax is checked, and you are asked again if
-   it is invalid. Its A/AAAA records are resolved, and you get a warning (not a
-   failure) if they do not point at this host. Email for Let's Encrypt is
+   it is invalid. Its A/AAAA records are resolved. If they do not point at this
+   host the installer explains that certificate issuance will fail and asks
+   `Continue installing with <domain> anyway? [y/N]` (default no). Without a
+   terminal, `--yes` is the confirmation and a warning is printed. Email for Let's Encrypt is
    optional. Port: 8321 by default, or the next free port when 8321 is taken
    (the warning names the process); it must be between 1024 and 65535 and free.
 5. Version: the latest stable release. If only prereleases exist, the installer
@@ -105,7 +116,7 @@ frames.
 
 Flags answer their question in advance; the question is shown as
 "(set by --domain)". A variable works when its flag is absent. Flags win over
-variables, and an exposure flag (`--domain`, `--local-only`, `--lan`) wins over
+variables, and an exposure flag (`--domain`, `--behind-proxy`, `--local-only`, `--lan`) wins over
 every exposure variable. With `sudo`, pass variables after it:
 `curl ... | sudo TOFI_DOMAIN=tofi.example.com bash`.
 
@@ -113,6 +124,7 @@ every exposure variable. With `sudo`, pass variables after it:
 |---|---|---|
 | `--computer kvm` | `TOFI_COMPUTER` | how computers run; `gvisor`/`container` exit "not supported yet" |
 | `--domain NAME` | `TOFI_DOMAIN` | public HTTPS through Caddy (ports 80/443 free, DNS here); sets `TOFI_PUBLIC_ORIGIN` |
+| `--behind-proxy IP[,IP\|CIDR...]` | `TOFI_BEHIND_PROXY` | a proxy you already run sits in front: direct install, those addresses written to `TOFI_TRUSTED_PROXIES`, Caddy/Nginx snippets printed; excludes `--domain` and `--local-only` |
 | `--email ADDRESS` | `TOFI_EMAIL` | Let's Encrypt contact (with `--domain`) |
 | `--local-only` | `TOFI_LOCAL_ONLY=1` | `127.0.0.1` only (still HTTPS): `ssh -L 8321:127.0.0.1:8321 user@server` |
 | `--port PORT` | `TOFI_PORT` | App port, 1024-65535 (default 8321) |
@@ -185,10 +197,14 @@ header and must not pass a client-supplied value through unchecked (Caddy's
 - `--domain` installs (the bundled Caddy container) get
   `TOFI_TRUSTED_PROXIES=172.16.0.0/12,192.168.0.0/16`, Docker's bridge ranges;
   with `--domain` the App port is bound to loopback, so only Caddy can reach it.
-- Direct installs trust nobody (empty).
-- For a proxy on another host, add `TOFI_TRUSTED_PROXIES=10.0.10.0/24` (the
-  proxy's address or subnet) to `/etc/tofi/tofi.env`, then
-  `sudo tofi stop && sudo tofi start`. `tofi update` keeps the value. An invalid
+- Direct installs trust nobody (empty), unless installed with
+  `--behind-proxy` (below).
+- For a proxy on another host, install with `--behind-proxy 192.0.2.10` (or
+  answer yes to the proxy question), or later run
+  `sudo tofi config trusted-proxies 192.0.2.10 198.51.100.0/24` (no arguments
+  shows the list, `--clear` empties it; domain installs refuse), then
+  `sudo tofi stop && sudo tofi start`. Editing `TOFI_TRUSTED_PROXIES` in
+  `/etc/tofi/tofi.env` by hand works the same. `tofi update` keeps the value. An invalid
   entry stops the App at start with a clear error.
 
 ## What install.sh does
@@ -249,11 +265,12 @@ Later accounts are created by the Admin. Then open Settings -> Model provider.
 | `tofi update [--version X] [--yes] [--wait MINUTES] [--force] [--allow-schema-change]` | Pull and check the new images and Guest before stopping anything; refuse a different `io.tofi.data-schema` unless allowed; take a backup, then switch; on failure restore the backup, the previous images, Guest pin and host files ("update rejected; previous version restored"). Asks for confirmation on a terminal unless `--yes`; `--check` also prints the release notes link |
 | `tofi update --auto` | What the daily timer runs: nothing unless `TOFI_AUTO_UPDATE=patch`; installs only a newer patch of the installed major.minor, never an rc, never when a Bot run is active (skipped, not waited for) |
 | `tofi config auto-update on\|off` | Switch automatic fix releases and the systemd timer |
+| `tofi config trusted-proxies [IP\|CIDR ...] [--clear]` | Show, set or clear the reverse proxies trusted for `X-Forwarded-For`; printing the Caddy/Nginx snippets when set |
 | `tofi backup [--note TEXT]` | Stop, back up data and settings, start again |
 | `tofi backups [--json]` | List backups: id, time, version, size, reason |
 | `tofi restore <id> [--yes]` | Verify the backup's checksums, back up the current state (`pre-restore`), restore data and settings, and switch to that backup's version |
 | `tofi uninstall` | Stop and remove containers; keep `/etc/tofi`, `/var/lib/tofi`, images, AppArmor profile; journal `stopped-retained` |
-| `tofi uninstall --purge` | After you type the hostname: remove containers, images, profile, unit and every TOFI directory including all data |
+| `tofi uninstall --purge` | After you type the hostname: remove containers, TOFI's images, profile, unit and every TOFI directory including all data. Images removed are only those named by this installation (current `tofi.env`, a pending rollback, every release manifest under `/opt/tofi`), without force, so an image another container uses is kept; each removed or kept image is printed. Nothing is pruned |
 | `tofi setup-secret` | Print the pending setup key |
 | `tofi regenerate-cert` | Replace the self-signed certificate (new names/IPs, new fingerprint) and restart the App |
 | `tofi logs [app\|worker\|caddy]` | Follow container logs |
