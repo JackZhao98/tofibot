@@ -55,16 +55,41 @@ type scheduleAuthorizationRevision struct {
 	ExecutionSpecDigest string                `json:"execution_spec_digest"`
 }
 
+// A bounded, tamper-evident reference to one durable journal row. Digest
+// covers the canonical JSON of the complete row (the same encoding
+// sameScheduleAuthorizationRevision compares), so the source context is bound
+// without being copied into every occurrence snapshot.
+type scheduleAuthorizationRevisionReference struct {
+	ScheduleID          string `json:"schedule_id"`
+	Revision            int64  `json:"revision"`
+	PreviousRevision    int64  `json:"previous_revision"`
+	EventKind           string `json:"event_kind"`
+	SourceKind          string `json:"source_kind"`
+	RequestID           string `json:"request_id"`
+	SourceRunID         string `json:"source_run_id,omitempty"`
+	SourceMessageID     string `json:"source_message_id,omitempty"`
+	SourceDigest        string `json:"source_digest"`
+	ExecutionSpecDigest string `json:"execution_spec_digest"`
+	Digest              string `json:"digest"`
+}
+
+// Format 0 (legacy) snapshots carry the complete revision rows in Revisions;
+// format 1 snapshots carry RevisionReferences and re-read the immutable rows
+// at verification time. Both remain readable.
+const scheduleAuthorizationSnapshotReferences = 1
+
 type scheduleAuthorizationSnapshot struct {
-	ScheduleID          string                          `json:"schedule_id"`
-	AccountID           string                          `json:"account_id"`
-	RootRunID           string                          `json:"root_run_id"`
-	TriggerMessageID    string                          `json:"trigger_message_id"`
-	ScheduledForUTC     string                          `json:"scheduled_for_utc"`
-	Revision            int64                           `json:"revision"`
-	ExecutionSpec       scheduleExecutionSpec           `json:"execution_spec"`
-	ExecutionSpecDigest string                          `json:"execution_spec_digest"`
-	Revisions           []scheduleAuthorizationRevision `json:"revisions"`
+	ScheduleID          string                                   `json:"schedule_id"`
+	AccountID           string                                   `json:"account_id"`
+	RootRunID           string                                   `json:"root_run_id"`
+	TriggerMessageID    string                                   `json:"trigger_message_id"`
+	ScheduledForUTC     string                                   `json:"scheduled_for_utc"`
+	Revision            int64                                    `json:"revision"`
+	ExecutionSpec       scheduleExecutionSpec                    `json:"execution_spec"`
+	ExecutionSpecDigest string                                   `json:"execution_spec_digest"`
+	Format              int                                      `json:"format,omitempty"`
+	Revisions           []scheduleAuthorizationRevision          `json:"revisions,omitempty"`
+	RevisionReferences  []scheduleAuthorizationRevisionReference `json:"revision_references,omitempty"`
 }
 
 type scheduleOccurrenceAuthorization struct {
@@ -319,8 +344,22 @@ func snapshotScheduleAuthorizationTx(tx *sql.Tx, x Schedule, r Run, scheduledFor
 			chain = append(chain, entry)
 		}
 	}
+	// The snapshot binds each immutable journal row by digest instead of
+	// copying it: a schedule edited from chat several times carries the whole
+	// growing conversation window per revision, and copying those bodies pushed
+	// the snapshot past maxScheduleAuthorizationBytes, which silently removed
+	// automatic eligibility for every later occurrence.
+	var references []scheduleAuthorizationRevisionReference
+	for _, entry := range chain {
+		ref, err := scheduleAuthorizationReference(entry)
+		if err != nil {
+			references = nil
+			break
+		}
+		references = append(references, ref)
+	}
 	spec := scheduleExecutionScope(x, account, anchor)
-	snapshot := scheduleAuthorizationSnapshot{ScheduleID: x.ID, AccountID: account, RootRunID: r.ID, TriggerMessageID: r.TriggerMessageID, ScheduledForUTC: scheduledFor, Revision: revision, ExecutionSpec: spec, ExecutionSpecDigest: scheduleExecutionSpecDigest(spec), Revisions: chain}
+	snapshot := scheduleAuthorizationSnapshot{ScheduleID: x.ID, AccountID: account, RootRunID: r.ID, TriggerMessageID: r.TriggerMessageID, ScheduledForUTC: scheduledFor, Revision: revision, ExecutionSpec: spec, ExecutionSpecDigest: scheduleExecutionSpecDigest(spec), Format: scheduleAuthorizationSnapshotReferences, RevisionReferences: references}
 	b, err := json.Marshal(snapshot)
 	if err != nil {
 		return err
@@ -328,7 +367,7 @@ func snapshotScheduleAuthorizationTx(tx *sql.Tx, x Schedule, r Run, scheduledFor
 	if len(b) > maxScheduleAuthorizationBytes {
 		// Do not truncate a source chain into apparent authority. Its absence is
 		// explicitly ineligible; the original instruction/spec remains durable.
-		snapshot.Revisions = nil
+		snapshot.RevisionReferences = nil
 		b, err = json.Marshal(snapshot)
 		if err != nil {
 			return err
@@ -345,6 +384,64 @@ func sameScheduleAuthorizationRevision(a, b scheduleAuthorizationRevision) bool 
 	x, e1 := json.Marshal(a)
 	y, e2 := json.Marshal(b)
 	return e1 == nil && e2 == nil && bytes.Equal(x, y)
+}
+
+// The canonical digest of one complete journal row, including its source
+// context, execution spec and every identity column.
+func scheduleAuthorizationRevisionDigest(r scheduleAuthorizationRevision) (string, error) {
+	b, err := json.Marshal(r)
+	if err != nil {
+		return "", err
+	}
+	return digestBytes(b), nil
+}
+
+func scheduleAuthorizationReference(r scheduleAuthorizationRevision) (scheduleAuthorizationRevisionReference, error) {
+	digest, err := scheduleAuthorizationRevisionDigest(r)
+	if err != nil {
+		return scheduleAuthorizationRevisionReference{}, err
+	}
+	return scheduleAuthorizationRevisionReference{ScheduleID: r.ScheduleID, Revision: r.Revision, PreviousRevision: r.PreviousRevision, EventKind: r.EventKind, SourceKind: r.SourceKind, RequestID: r.RequestID, SourceRunID: r.SourceRunID, SourceMessageID: r.SourceMessageID, SourceDigest: r.SourceDigest, ExecutionSpecDigest: r.ExecutionSpecDigest, Digest: digest}, nil
+}
+
+// The number of revisions the occurrence snapshot bound, in either format.
+func (s scheduleAuthorizationSnapshot) boundRevisions() int {
+	if s.Format >= scheduleAuthorizationSnapshotReferences {
+		return len(s.RevisionReferences)
+	}
+	return len(s.Revisions)
+}
+
+var errScheduleAuthorizationChain = errors.New("schedule authorization source chain changed")
+
+// Re-read every durable journal row the occurrence snapshot bound and prove
+// each one is byte-for-byte what was snapshotted. A legacy snapshot compares
+// the copied rows; a reference snapshot compares the recomputed row digest.
+// Either way the returned chain is the verified durable rows, so native-chat
+// provenance checks keep reading the stored source context, not the snapshot.
+func readScheduleAuthorizationChain(db reviewQuerier, record scheduleOccurrenceAuthorization) ([]scheduleAuthorizationRevision, error) {
+	snapshot := record.Snapshot
+	if record.Revision < 1 || record.Revision > maxScheduleAuthorizationRevisions || int64(snapshot.boundRevisions()) != record.Revision {
+		return nil, errScheduleAuthorizationChain
+	}
+	chain := make([]scheduleAuthorizationRevision, 0, record.Revision)
+	for i := int64(0); i < record.Revision; i++ {
+		current, err := readScheduleAuthorizationRevision(db, record.ScheduleID, i+1)
+		if err != nil || current.ScheduleID != record.ScheduleID || current.Revision != i+1 || current.PreviousRevision != i {
+			return nil, errScheduleAuthorizationChain
+		}
+		if snapshot.Format >= scheduleAuthorizationSnapshotReferences {
+			want := snapshot.RevisionReferences[i]
+			got, err := scheduleAuthorizationReference(current)
+			if err != nil || want.Digest == "" || got != want {
+				return nil, errScheduleAuthorizationChain
+			}
+		} else if !sameScheduleAuthorizationRevision(current, snapshot.Revisions[i]) {
+			return nil, errScheduleAuthorizationChain
+		}
+		chain = append(chain, current)
+	}
+	return chain, nil
 }
 
 // Native schedule tools accept direct group roots as well as direct chats.
