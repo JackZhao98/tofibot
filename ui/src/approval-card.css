@@ -37,6 +37,10 @@
 .approval-card button:focus-visible { outline:2px solid var(--focus); outline-offset:3px; }
 .approval-secondary { margin-left:auto; }
 .approval-secondary button { padding:6px 0; border:0; background:none; box-shadow:none; color:var(--muted); font:13px/1.5 var(--body); text-decoration:underline; text-underline-offset:3px; cursor:pointer; }
+.approval-remember { display:flex; flex-wrap:wrap; align-items:center; gap:6px 12px; margin-top:4px; padding:0 4px 2px 0; }
+.approval-remember-button { padding:5px 0; border:0; background:none; box-shadow:none; color:var(--ink-soft); font:600 13px/1.5 var(--body); text-decoration:underline; text-underline-offset:3px; cursor:pointer; }
+.approval-remember-button:disabled { opacity:.58; cursor:default; }
+.approval-remember-hint { color:var(--muted); font:12px/1.5 var(--body); overflow-wrap:anywhere; }
 .approval-note { margin:8px 0 0; color:var(--muted); font:12px/1.6 var(--body); }
 .approval-error { margin:10px 0 0; color:var(--danger-text); font:13px/1.6 var(--body); overflow-wrap:anywhere; }
 .approval-fold { display:grid; grid-template-rows:1fr; opacity:1; transition:grid-template-rows 320ms cubic-bezier(.22,1,.36,1),opacity 200ms ease; }

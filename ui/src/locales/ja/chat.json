@@ -215,7 +215,8 @@
     "usage": "使用量",
     "computer_on": "共有コンピューター(オン)",
     "computer_off": "共有コンピューター(オフ)",
-    "computer_driving": "共有コンピューター(オン)。{{name}} が作業中"
+    "computer_driving": "共有コンピューター(オン)。{{name}} が作業中",
+    "remembered_approvals": "記憶した承認"
   },
   "history": {
     "boundary_failed": "未読位置を読み込めませんでした。",

@@ -217,7 +217,8 @@
     "usage": "Utilisation",
     "computer_on": "Ordinateur partagé, allumé",
     "computer_off": "Ordinateur partagé, éteint",
-    "computer_driving": "Ordinateur partagé, allumé. {{name}} y travaille"
+    "computer_driving": "Ordinateur partagé, allumé. {{name}} y travaille",
+    "remembered_approvals": "Approbations mémorisées"
   },
   "history": {
     "boundary_failed": "Impossible de charger la position non lue.",

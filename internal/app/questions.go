@@ -74,6 +74,10 @@ type ApprovalDetails struct {
 	ApproveLabel string `json:"approve_label,omitempty"`
 	DenyLabel    string `json:"deny_label,omitempty"`
 	DraftID      string `json:"draft_id,omitempty"`
+	// Remember is set by the internal MCP gate when "Approve and remember in
+	// this chat" is available for this proposal; it says what the grant
+	// would bind to. The model-visible request_approval tool cannot set it.
+	Remember *MCPRememberOffer `json:"remember,omitempty"`
 }
 
 type Question struct {
@@ -217,7 +221,7 @@ func normalizeQuestionInput(x askQuestionInput) (askQuestionInput, error) {
 		if x.Approval == nil {
 			return x, errors.New("approval details are required")
 		}
-		if x.Approval.Review != nil || x.Approval.ReviewOnly {
+		if x.Approval.Review != nil || x.Approval.ReviewOnly || x.Approval.Remember != nil {
 			return x, errors.New("AutoReview metadata is reserved for the internal MCP gate")
 		}
 		for _, field := range []*string{&x.Approval.Action, &x.Approval.Target, &x.Approval.Impact} {
@@ -590,6 +594,10 @@ func (s *Server) routeQuestions(w http.ResponseWriter, r *http.Request, p string
 			Values    []string          `json:"values"`
 			Fields    map[string]string `json:"fields"`
 			OtherText json.RawMessage   `json:"other_text"`
+			// Remember: "Approve and remember in this chat" for an eligible MCP
+			// proposal. The grant binds to what the gate recorded on the card,
+			// never to anything in this body.
+			Remember bool `json:"remember"`
 		}
 		var raw json.RawMessage
 		if err = decodeQuestionAnswer(r, &raw); err == nil {
@@ -640,10 +648,19 @@ func (s *Server) routeQuestions(w http.ResponseWriter, r *http.Request, p string
 		// This deployment has one human workspace. Never accept a client supplied
 		// sender identity: it could manufacture a Bot answerer.
 		actor := "human"
+		if body.Remember {
+			// Refused before the answer lands: a card that cannot be remembered
+			// (not an MCP proposal, "Always ask me", unattended) stays pending.
+			if value, ok := answer.(bool); !ok || !value || !s.rememberOfferedFor(q) {
+				writeErr(w, 400, "remember_not_available", errRememberNotAvailable.Error())
+				return true
+			}
+		}
+		var existing bool
 		if q.Type == questionForm {
 			q, _, err = s.AnswerUserForm(id, actor, body.Fields)
 		} else {
-			q, _, err = s.store.AnswerQuestion(id, actor, answer)
+			q, existing, err = s.store.AnswerQuestion(id, actor, answer)
 		}
 		if err != nil {
 			code := 400
@@ -656,9 +673,20 @@ func (s *Server) routeQuestions(w http.ResponseWriter, r *http.Request, p string
 			writeErr(w, code, "invalid_answer", err.Error())
 			return true
 		}
+		out := map[string]any{"question": q.Card()}
+		if body.Remember && !existing {
+			grant, rememberErr := s.rememberMCPApproval(q, actor)
+			if rememberErr != nil {
+				// The approval stands; only the memory was refused (the tool
+				// moved between the card and the answer).
+				out["remember_error"] = "remember_stale"
+			} else {
+				out["remembered"] = grant
+			}
+		}
 		_, _ = s.store.Event(q.ConversationID, "question", q.Card())
 		s.startConversationWorker(q.ConversationID)
-		writeJSON(w, 200, map[string]any{"question": q.Card()})
+		writeJSON(w, 200, out)
 		return true
 	}
 	if len(parts) == 1 && r.Method == http.MethodDelete {
@@ -708,7 +736,7 @@ func (s *Store) AnswerQuestion(id, actor string, answer any) (Question, bool, er
 	if err != nil {
 		return Question{}, false, err
 	}
-	if actor == "" || actor == q.BotID || actor == autoReviewActor {
+	if actor == "" || actor == q.BotID || actor == autoReviewActor || actor == rememberedApprovalActor {
 		return Question{}, false, ErrQuestionBotActor
 	}
 	if q.Status != questionPending {

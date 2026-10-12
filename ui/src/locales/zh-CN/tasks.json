@@ -208,7 +208,8 @@
     "risk": { "low": "低", "medium": "中", "high": "高", "unknown": "未评级" },
     "view_full_arguments": "查看完整参数",
     "proposal_ended": "此提案已结束。",
-    "view_decision": "查看决定记录"
+    "view_decision": "查看决定记录",
+    "remembered_decision": "由本对话中记住的批准放行，未询问任何人。下方步骤显示是否已执行。"
   },
   "question": {
     "approve": "批准此操作",
@@ -236,7 +237,8 @@
       "auto_approved": "AutoReview 自动批准",
       "human_decided": "人工已决定",
       "run_done": "任务已结束",
-      "approved": "已批准"
+      "approved": "已批准",
+      "remembered": "由记住的批准放行"
     },
     "answered_refresh_failed": "回答已接收，列表刷新失败，请刷新页面查看。",
     "submit_failed": "提交未完成，请重试。",
@@ -252,7 +254,12 @@
     "cancel": "取消",
     "submitting": "提交中…",
     "retry_submit": "重试提交",
-    "submit_answer": "提交回答"
+    "submit_answer": "提交回答",
+    "remember": {
+      "hint_identifier": "本对话中以后对 {{target}} 调用此工具将不再询问。可随时在对话菜单中撤销。",
+      "hint_exact": "本对话中以后用完全相同的参数调用此工具将不再询问。可随时在对话菜单中撤销。",
+      "stale": "已批准，但未记住：工具或其设置已变更。"
+    }
   },
   "form": {
     "schema": {
@@ -371,7 +378,8 @@
       "auto_invalidated": "自动决定已失效",
       "policy_needs_approval": "执行策略需人工批准",
       "already_reviewed": "本提案已有审查记录",
-      "high_risk_tool": "高风险工具 · 需要你决定"
+      "high_risk_tool": "高风险工具 · 需要你决定",
+      "remembered": "记住的批准"
     },
     "label": {
       "shadow_reviewing": "观察审查中",
@@ -397,7 +405,8 @@
       "auto_invalidated": "自动决定失效",
       "not_eligible": "未获自动执行资格",
       "not_rereviewed": "未重复审查",
-      "high_risk_tool": "高风险工具：每次调用由人决定"
+      "high_risk_tool": "高风险工具：每次调用由人决定",
+      "remembered": "由本对话中记住的批准决定"
     },
     "failure": {
       "title": "审查未能完成的原因",
@@ -441,7 +450,8 @@
     "accept": "批准",
     "decline": "暂不批准",
     "payload_label": "完整工具参数，纯文本",
-    "submitting": "提交中…"
+    "submitting": "提交中…",
+    "remember": "批准并在本对话中记住"
   },
   "secret": {
     "submit_failed": "提交未完成，请确认请求仍有效后重试。",
@@ -457,5 +467,20 @@
   "compact": {
     "check_service": "重试前，请先到该操作使用的服务里核对。",
     "check_mail": "重试前，请先查看已发送邮件。"
+  },
+  "remembered": {
+    "title": "记住的批准",
+    "lead": "你以“在本对话中记住”批准过的工具调用。只对本对话、同一工具和同一目标生效，24 小时后或工具变更时自动失效。",
+    "loading": "加载中…",
+    "empty": "本对话中没有记住的批准。",
+    "target_identifier": "目标：{{target}}",
+    "target_exact": "与已批准完全相同的参数",
+    "expires": "{{time}} 失效",
+    "used_other": "已使用 {{count}} 次",
+    "revoke": "撤销",
+    "revoking": "正在撤销…",
+    "revoke_failed": "撤销失败，请重试。",
+    "load_failed": "无法加载记住的批准。",
+    "close": "关闭"
   }
 }

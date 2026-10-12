@@ -215,7 +215,8 @@
     "usage": "用量",
     "computer_on": "共享电脑,已开机",
     "computer_off": "共享电脑,已关机",
-    "computer_driving": "共享电脑,已开机。{{name}} 正在使用"
+    "computer_driving": "共享电脑,已开机。{{name}} 正在使用",
+    "remembered_approvals": "记住的批准"
   },
   "history": {
     "boundary_failed": "暂时无法加载未读位置。",

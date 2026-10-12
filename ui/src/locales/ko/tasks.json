@@ -208,7 +208,8 @@
     "risk": { "low": "낮음", "medium": "보통", "high": "높음", "unknown": "평가 안 됨" },
     "view_full_arguments": "전체 인수 보기",
     "proposal_ended": "이 제안은 종료되었습니다.",
-    "view_decision": "결정 기록 보기"
+    "view_decision": "결정 기록 보기",
+    "remembered_decision": "이 채팅에서 기억된 승인으로 허용되었으며 아무에게도 묻지 않았습니다. 실행 여부는 아래 단계에 표시됩니다."
   },
   "question": {
     "approve": "작업 승인",
@@ -236,7 +237,8 @@
       "auto_approved": "AutoReview가 승인함",
       "human_decided": "수동으로 결정함",
       "run_done": "작업 종료",
-      "approved": "승인됨"
+      "approved": "승인됨",
+      "remembered": "기억된 승인으로 허용됨"
     },
     "answered_refresh_failed": "답변을 받았지만 목록을 새로고침하지 못했습니다. 페이지를 새로고침해 확인하세요.",
     "submit_failed": "제출하지 못했습니다. 다시 시도하세요.",
@@ -252,7 +254,12 @@
     "cancel": "취소",
     "submitting": "제출 중…",
     "retry_submit": "다시 시도",
-    "submit_answer": "답변 제출"
+    "submit_answer": "답변 제출",
+    "remember": {
+      "hint_identifier": "이 채팅에서 이후 {{target}}에 대한 이 도구 호출은 묻지 않고 실행됩니다. 대화 메뉴에서 언제든지 취소할 수 있습니다.",
+      "hint_exact": "이 채팅에서 이후 완전히 같은 인수로 이 도구를 호출하면 묻지 않고 실행됩니다. 대화 메뉴에서 언제든지 취소할 수 있습니다.",
+      "stale": "승인했지만 기억하지 못했습니다. 도구 또는 설정이 변경되었습니다."
+    }
   },
   "form": {
     "schema": {
@@ -371,7 +378,8 @@
       "auto_invalidated": "자동 결정이 더 이상 유효하지 않음",
       "policy_needs_approval": "정책상 수동 승인 필요",
       "already_reviewed": "이미 검토됨",
-      "high_risk_tool": "고위험 도구 · 결정 필요"
+      "high_risk_tool": "고위험 도구 · 결정 필요",
+      "remembered": "기억된 승인"
     },
     "label": {
       "shadow_reviewing": "관찰: 검토 중",
@@ -397,7 +405,8 @@
       "auto_invalidated": "자동 결정 무효",
       "not_eligible": "자동 실행 대상 아님",
       "not_rereviewed": "재검토 안 됨",
-      "high_risk_tool": "고위험 도구: 호출마다 사람이 결정"
+      "high_risk_tool": "고위험 도구: 호출마다 사람이 결정",
+      "remembered": "이 채팅에서 기억된 승인으로 결정됨"
     },
     "failure": {
       "title": "검토를 완료하지 못한 이유",
@@ -441,7 +450,8 @@
     "accept": "승인",
     "decline": "나중에",
     "payload_label": "전체 도구 인수, 일반 텍스트",
-    "submitting": "제출 중…"
+    "submitting": "제출 중…",
+    "remember": "승인하고 이 채팅에서 기억하기"
   },
   "secret": {
     "submit_failed": "제출하지 못했습니다. 요청이 아직 열려 있는지 확인한 후 다시 시도하세요.",
@@ -457,5 +467,20 @@
   "compact": {
     "check_service": "다시 시도하기 전에 이 작업이 사용한 서비스를 확인하세요.",
     "check_mail": "다시 시도하기 전에 보낸 메일함을 확인하세요."
+  },
+  "remembered": {
+    "title": "기억된 승인",
+    "lead": "“이 채팅에서 기억하기”로 승인한 도구 호출입니다. 이 대화, 같은 도구, 같은 대상에만 적용되며 24시간 후 또는 도구가 변경되면 자동으로 종료됩니다.",
+    "loading": "불러오는 중…",
+    "empty": "이 채팅에 기억된 승인이 없습니다.",
+    "target_identifier": "대상: {{target}}",
+    "target_exact": "승인한 것과 완전히 같은 인수",
+    "expires": "{{time}}에 종료",
+    "used_other": "{{count}}회 사용",
+    "revoke": "취소",
+    "revoking": "취소하는 중…",
+    "revoke_failed": "취소하지 못했습니다. 다시 시도하세요.",
+    "load_failed": "기억된 승인을 불러오지 못했습니다.",
+    "close": "닫기"
   }
 }
