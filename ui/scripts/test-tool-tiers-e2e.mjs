@@ -499,6 +499,79 @@ async function scenarioMigration(page, fx) {
   check('post-migration read executes with no review call', callsOf(d, 'notion-fetch').length === 1 && d.reviews.length === 0, JSON.stringify(d.calls));
 }
 
+async function scenarioRemember(page, fx) {
+  scenario = 'S9 approve and remember in this chat';
+  const bot = await fx.bot('Notion S9');
+  await openBot(page, fx, bot);
+  const grants = async () => (await fx.call('GET', `/api/conversations/${bot.dm_conversation_id}/remembered-approvals`)).json?.grants ?? [];
+  const rememberButtons = page => page.getByRole('button', {name: 'Approve and remember in this chat', exact: true});
+  // 9a: the card offers the memory; using it executes once and records a grant bound to the page id.
+  let m = await mark(fx);
+  await say(page, 'Update page page-remember-first with the budget draft');
+  await waitCard(page);
+  let d = await since(fx, m);
+  check('9a: card for a different target offers "Approve and remember in this chat"', (await rememberButtons(page).count()) === 1 && d.calls.length === 0 && d.reviews.length === 1 && d.reviews[0].Decision === 'needs_human', JSON.stringify(d.reviews));
+  const hint = await page.locator('.approval-remember-hint').first().innerText().catch(() => '');
+  check('9a: the card says what "same target" binds to (page_id = page-budget)', hint.includes('page_id = page-budget'), hint);
+  await shot(page, 's9a-card-remember-offer');
+  await rememberButtons(page).first().click();
+  await page.getByText('Budget page updated.').last().waitFor({timeout: 40000});
+  await waitSettled(fx, bot);
+  d = await since(fx, m);
+  check('9a: remembering executes exactly once on the proposed target', d.calls.length === 1 && d.calls[0].tool === 'notion-update-page' && d.calls[0].args.page_id === 'page-budget', JSON.stringify(d.calls));
+  let g = await grants();
+  check('9a: one grant, bound to notion-update-page on page_id = page-budget, 24h', g.length === 1 && g[0].tool === 'notion-update-page' && g[0].server === 'notion' && g[0].target_kind === 'identifier' && g[0].target_summary === 'page_id = page-budget' && Math.abs(Date.parse(g[0].expires_at) - Date.now() - 24 * 3600e3) < 120e3, JSON.stringify(g));
+  const q1 = await fx.sql(`select answered_by from questions where conversation_id='${bot.dm_conversation_id}'`);
+  check('9a: DB: the first card was answered by the human', q1.length === 1 && q1[0].answered_by === 'human', JSON.stringify(q1));
+  // 9b: same tool, same page, different content: reviewed again, no card, executed, audited.
+  m = await mark(fx);
+  await say(page, 'Update page page-remember-second with the second pass');
+  await page.getByText('Budget page updated again.').last().waitFor({timeout: 40000});
+  await waitSettled(fx, bot);
+  d = await since(fx, m);
+  check('9b: same target executes without a card', d.calls.length === 1 && d.calls[0].args.page_id === 'page-budget' && d.calls[0].args.content === 'Budget draft, second pass' && (await approveButtons(page).count()) === 0, JSON.stringify(d.calls));
+  check('9b: the reviewer was still asked (needs_human) and the memory replaced only the person', d.reviews.length === 1 && d.reviews[0].Decision === 'needs_human', JSON.stringify(d.reviews));
+  const q2 = await fx.sql(`select q.answered_by, a.grant_id, a.claimed_at, json_extract(q.approval_json,'$.review.decision_source') as source from questions q join mcp_call_approvals a on a.question_id=q.id where q.conversation_id='${bot.dm_conversation_id}' order by q.created_at desc limit 1`);
+  check('9b: DB: decided by remembered-approval with decision source remembered_approval and the grant id, claimed once', q2.length === 1 && q2[0].answered_by === 'remembered-approval' && q2[0].source === 'remembered_approval' && q2[0].grant_id === g[0].id && q2[0].claimed_at !== '', JSON.stringify(q2));
+  const activity = page.locator('.task-activity').last();
+  if ((await activity.locator(':scope > summary').count()) && !(await activity.evaluate(node => node.open))) await activity.locator(':scope > summary').click();
+  await page.locator('.task-remembered-record').last().waitFor({timeout: 10000}).catch(() => {});
+  check('9b: the activity record says a remembered approval decided it (no one was asked)', (await bodyText(page)).includes('Approved by a remembered approval from this chat'), (await activity.innerText().catch(() => '')).replace(/\s+/g, ' ').slice(0, 200));
+  await shot(page, 's9b-remembered-no-card');
+  // 9c: a different page still asks.
+  m = await mark(fx);
+  await say(page, 'Update page page-remember-other with the ledger draft');
+  await waitCard(page);
+  d = await since(fx, m);
+  check('9c: a different target asks again', (await approveButtons(page).count()) === 1 && d.calls.length === 0, JSON.stringify(d.calls));
+  await declineButtons(page).first().click();
+  await page.getByText('Ledger page was not changed.').last().waitFor({timeout: 40000});
+  await waitSettled(fx, bot);
+  // 9d: the conversation lists the grant; Revoke ends it; the same target asks again.
+  await page.getByRole('button', {name: 'More actions', exact: true}).click();
+  await page.getByRole('button', {name: 'Remembered approvals', exact: true}).click();
+  const sheet = page.locator('.remembered-sheet');
+  await sheet.waitFor({timeout: 10000});
+  await sheet.locator('.remembered-item').first().waitFor({timeout: 10000});
+  const sheetText = await sheet.innerText();
+  check('9d: "Remembered approvals" lists the grant with its tool and target', sheetText.includes('notion-update-page') && sheetText.includes('page_id = page-budget') && (await sheet.locator('.remembered-item').count()) === 1, sheetText.replace(/\s+/g, ' ').slice(0, 200));
+  await shot(page, 's9d-remembered-list');
+  await sheet.getByRole('button', {name: 'Revoke', exact: true}).click();
+  await sheet.getByText('Nothing is remembered in this chat.').waitFor({timeout: 10000});
+  g = await grants();
+  check('9d: Revoke removes the grant (list empty, API empty)', g.length === 0, JSON.stringify(g));
+  await sheet.getByRole('button', {name: 'Close', exact: true}).click();
+  await sheet.waitFor({state: 'detached', timeout: 10000});
+  m = await mark(fx);
+  await say(page, 'Update page page-remember-second with the second pass, after revoke');
+  await waitCard(page);
+  d = await since(fx, m);
+  check('9d: after Revoke the same target asks again', (await approveButtons(page).count()) === 1 && d.calls.length === 0, JSON.stringify(d.calls));
+  await declineButtons(page).first().click();
+  await waitSettled(fx, bot);
+  await shot(page, 's9d-after-revoke-card');
+}
+
 // ---------------------------------------------------------------- main
 buildFixture();
 let failedHard = false;
@@ -537,6 +610,7 @@ for (const browserName of Object.keys(BROWSERS)) {
             if (want('s4')) await scenarioReads(page, fx);
             if (want('s6')) await scenarioInjection(page, fx);
             if (want('s8')) await scenarioDefiniteRefusal(page, fx);
+            if (want('s9')) await scenarioRemember(page, fx);
             if (want('s5')) await scenarioAlwaysAsk(page, fx);
           } else if (want('s7')) {
             await scenarioMigration(page, fx);

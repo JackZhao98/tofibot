@@ -626,6 +626,9 @@ CREATE INDEX IF NOT EXISTS events_conversation ON events(conversation_id,id);`)
 	if err := migrateAutoReview(s.db); err != nil {
 		return err
 	}
+	if err := migrateRememberedApprovals(s.db); err != nil {
+		return err
+	}
 	if err := migrateModelSettings(s.db); err != nil {
 		return err
 	}
@@ -2464,7 +2467,7 @@ func (s *Server) route(w http.ResponseWriter, r *http.Request) {
 	if s.routeAttachments(w, r, p) || s.routeInbox(w, r, p) || s.routeSchedules(w, r, p) || s.routeWorkItems(w, r, p) || s.routeToolActivities(w, r, p) {
 		return
 	}
-	if s.routeQuestions(w, r, p) {
+	if s.routeRememberedApprovals(w, r, p) || s.routeQuestions(w, r, p) {
 		return
 	}
 	if s.routeMailDrafts(w, r, p) {

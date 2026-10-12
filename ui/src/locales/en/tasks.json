@@ -209,7 +209,8 @@
     "risk": { "low": "Low", "medium": "Medium", "high": "High", "unknown": "Not rated" },
     "view_full_arguments": "View full arguments",
     "proposal_ended": "This proposal ended.",
-    "view_decision": "View decision record"
+    "view_decision": "View decision record",
+    "remembered_decision": "Approved by a remembered approval from this chat; no one was asked. The step below shows whether it ran."
   },
   "question": {
     "approve": "Approve action",
@@ -237,7 +238,8 @@
       "auto_approved": "Approved by AutoReview",
       "human_decided": "Decided manually",
       "run_done": "Task ended",
-      "approved": "Approved"
+      "approved": "Approved",
+      "remembered": "Approved by a remembered approval"
     },
     "answered_refresh_failed": "Answer received, but the list didn't refresh. Reload the page to see it.",
     "submit_failed": "Couldn't submit. Try again.",
@@ -254,7 +256,12 @@
     "cancel": "Cancel",
     "submitting": "Submitting…",
     "retry_submit": "Retry",
-    "submit_answer": "Submit answer"
+    "submit_answer": "Submit answer",
+    "remember": {
+      "hint_identifier": "Later calls to this tool on {{target}} in this chat run without asking. Revoke any time from the conversation menu.",
+      "hint_exact": "Later calls to this tool with exactly these arguments in this chat run without asking. Revoke any time from the conversation menu.",
+      "stale": "Approved, but not remembered: the tool or its settings changed."
+    }
   },
   "form": {
     "schema": {
@@ -376,7 +383,8 @@
       "auto_invalidated": "Automatic decision no longer valid",
       "policy_needs_approval": "Policy requires manual approval",
       "already_reviewed": "Already reviewed",
-      "high_risk_tool": "High-risk tool · your decision is needed"
+      "high_risk_tool": "High-risk tool · your decision is needed",
+      "remembered": "Remembered approval"
     },
     "label": {
       "shadow_reviewing": "Observation: reviewing",
@@ -402,7 +410,8 @@
       "auto_invalidated": "Automatic decision invalid",
       "not_eligible": "Not eligible for automatic execution",
       "not_rereviewed": "Not reviewed again",
-      "high_risk_tool": "High-risk tool: a person decides each call"
+      "high_risk_tool": "High-risk tool: a person decides each call",
+      "remembered": "Decided by a remembered approval from this chat"
     },
     "failure": {
       "title": "Why the review could not finish",
@@ -446,7 +455,8 @@
     "accept": "Approve",
     "decline": "Not now",
     "payload_label": "Full tool arguments, plain text",
-    "submitting": "Submitting…"
+    "submitting": "Submitting…",
+    "remember": "Approve and remember in this chat"
   },
   "secret": {
     "submit_failed": "Couldn't submit. Make sure the request is still open, then try again.",
@@ -462,5 +472,21 @@
   "compact": {
     "check_service": "Check the service this action used before trying again.",
     "check_mail": "Check your sent mail before trying again."
+  },
+  "remembered": {
+    "title": "Remembered approvals",
+    "lead": "Tool calls you approved with “remember in this chat”. They apply only to this conversation, the same tool and target, and end on their own after 24 hours or when the tool changes.",
+    "loading": "Loading…",
+    "empty": "Nothing is remembered in this chat.",
+    "target_identifier": "Target: {{target}}",
+    "target_exact": "Exactly the approved arguments",
+    "expires": "Ends {{time}}",
+    "used_one": "used {{count}} time",
+    "used_other": "used {{count}} times",
+    "revoke": "Revoke",
+    "revoking": "Revoking…",
+    "revoke_failed": "Couldn't revoke. Try again.",
+    "load_failed": "Couldn't load remembered approvals.",
+    "close": "Close"
   }
 }

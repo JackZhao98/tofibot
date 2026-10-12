@@ -208,7 +208,8 @@
     "risk": { "low": "低", "medium": "中", "high": "高", "unknown": "未評価" },
     "view_full_arguments": "引数の全文を表示",
     "proposal_ended": "この提案は終了しました。",
-    "view_decision": "判断の記録を表示"
+    "view_decision": "判断の記録を表示",
+    "remembered_decision": "このチャットで記憶した承認により許可され、誰にも確認していません。実行されたかは下のステップに表示されます。"
   },
   "question": {
     "approve": "操作を承認",
@@ -236,7 +237,8 @@
       "auto_approved": "AutoReview が承認",
       "human_decided": "手動で判断済み",
       "run_done": "タスク終了",
-      "approved": "承認済み"
+      "approved": "承認済み",
+      "remembered": "記憶した承認により許可"
     },
     "answered_refresh_failed": "回答は受け付けましたが、一覧を更新できませんでした。ページを再読み込みしてください。",
     "submit_failed": "送信できませんでした。もう一度お試しください。",
@@ -252,7 +254,12 @@
     "cancel": "キャンセル",
     "submitting": "送信中…",
     "retry_submit": "再試行",
-    "submit_answer": "回答を送信"
+    "submit_answer": "回答を送信",
+    "remember": {
+      "hint_identifier": "このチャットでは以後、{{target}} に対するこのツールの呼び出しは確認なしで実行されます。会話メニューからいつでも取り消せます。",
+      "hint_exact": "このチャットでは以後、まったく同じ引数でのこのツールの呼び出しは確認なしで実行されます。会話メニューからいつでも取り消せます。",
+      "stale": "承認しましたが記憶されませんでした：ツールまたはその設定が変更されました。"
+    }
   },
   "form": {
     "schema": {
@@ -371,7 +378,8 @@
       "auto_invalidated": "自動判断は無効になりました",
       "policy_needs_approval": "ポリシーにより手動承認が必要",
       "already_reviewed": "レビュー済み",
-      "high_risk_tool": "高リスクのツール · 判断が必要です"
+      "high_risk_tool": "高リスクのツール · 判断が必要です",
+      "remembered": "記憶した承認"
     },
     "label": {
       "shadow_reviewing": "観察：レビュー中",
@@ -397,7 +405,8 @@
       "auto_invalidated": "自動判断は無効",
       "not_eligible": "自動実行の対象外",
       "not_rereviewed": "再レビューなし",
-      "high_risk_tool": "高リスクのツール：毎回人が判断します"
+      "high_risk_tool": "高リスクのツール：毎回人が判断します",
+      "remembered": "このチャットで記憶した承認により決定"
     },
     "failure": {
       "title": "レビューを完了できなかった理由",
@@ -441,7 +450,8 @@
     "accept": "承認",
     "decline": "今はしない",
     "payload_label": "ツール引数の全文（プレーンテキスト）",
-    "submitting": "送信中…"
+    "submitting": "送信中…",
+    "remember": "承認してこのチャットで記憶する"
   },
   "secret": {
     "submit_failed": "送信できませんでした。リクエストがまだ有効か確認して、もう一度お試しください。",
@@ -457,5 +467,20 @@
   "compact": {
     "check_service": "再試行する前に、この操作で使ったサービスを確認してください。",
     "check_mail": "再試行する前に、送信済みメールを確認してください。"
+  },
+  "remembered": {
+    "title": "記憶した承認",
+    "lead": "「このチャットで記憶する」で承認したツール呼び出しです。この会話、同じツール、同じ対象にのみ適用され、24 時間後またはツールの変更時に自動的に終了します。",
+    "loading": "読み込み中…",
+    "empty": "このチャットに記憶した承認はありません。",
+    "target_identifier": "対象：{{target}}",
+    "target_exact": "承認時とまったく同じ引数",
+    "expires": "{{time}} に終了",
+    "used_other": "{{count}} 回使用",
+    "revoke": "取り消す",
+    "revoking": "取り消し中…",
+    "revoke_failed": "取り消せませんでした。もう一度お試しください。",
+    "load_failed": "記憶した承認を読み込めませんでした。",
+    "close": "閉じる"
   }
 }

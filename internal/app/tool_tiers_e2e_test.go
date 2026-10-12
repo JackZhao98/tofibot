@@ -185,6 +185,12 @@ var e2ePlans = map[string]e2ePlan{
 	"page-team":     {Steps: []e2eStep{{Progress: "Checking the team page before I change it.", Tool: "notion-update-page", Args: map[string]any{"page_id": "page-private", "content": "New roster"}}}, Final: "I could not update that page: the change was refused."},
 	"page-refresh":  {Steps: []e2eStep{{Tool: "notion-fetch", Args: map[string]any{"id": "page-refresh"}}}, Final: "Fetched."},
 	"page-migrated": {Steps: []e2eStep{{Tool: "notion-fetch", Args: map[string]any{"id": "page-migrated"}}}, Final: "Fetched."},
+	// Remembered approvals (S9): three requests name pages the plan does not
+	// touch, so the reviewer asks for a person each time; two target the same
+	// page with different content, the third another page.
+	"page-remember-first":  {Steps: []e2eStep{{Tool: "notion-update-page", Args: map[string]any{"page_id": "page-budget", "content": "Budget draft"}}}, Final: "Budget page updated."},
+	"page-remember-second": {Steps: []e2eStep{{Tool: "notion-update-page", Args: map[string]any{"page_id": "page-budget", "content": "Budget draft, second pass"}}}, Final: "Budget page updated again."},
+	"page-remember-other":  {Steps: []e2eStep{{Tool: "notion-update-page", Args: map[string]any{"page_id": "page-ledger", "content": "Ledger draft"}}}, Final: "Ledger page was not changed."},
 }
 
 type e2eModel struct {

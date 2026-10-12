@@ -16,8 +16,11 @@ export interface ApprovalCardProps {
   acceptLabel?: string;
   declineLabel?: string;
   onAnswer: (accepted: boolean) => void;
+  /** "Approve and remember in this chat": offered only when the caller says a memory could later decide. */
+  onRemember?: () => void;
+  rememberHint?: string;
   resolution?: ApprovalResolution;
-  busy?: "accept" | "decline" | "cancel";
+  busy?: "accept" | "decline" | "cancel" | "remember";
   disabled?: boolean;
   error?: string;
   note?: string;
@@ -25,7 +28,7 @@ export interface ApprovalCardProps {
 }
 
 /** Shared visual card. Only the caller's confirmed result can resolve it. */
-export function ApprovalCard({ title, avatar, time, exactTime, badge: badgeText, facts = [], payload, acceptLabel: acceptText, declineLabel: declineText, onAnswer, resolution, busy, disabled, error, note, secondaryAction }: ApprovalCardProps) {
+export function ApprovalCard({ title, avatar, time, exactTime, badge: badgeText, facts = [], payload, acceptLabel: acceptText, declineLabel: declineText, onAnswer, onRemember, rememberHint, resolution, busy, disabled, error, note, secondaryAction }: ApprovalCardProps) {
   const { t } = useTranslation("tasks");
   const badge = badgeText ?? t("phase.needs_approval");
   const acceptLabel = acceptText ?? t("approval.accept");
@@ -50,6 +53,10 @@ export function ApprovalCard({ title, avatar, time, exactTime, badge: badgeText,
           <button type="button" className="approval-accept" disabled={disabled || Boolean(busy) || !pending} onClick={() => onAnswer(true)}>{busy === "accept" ? t("approval.submitting") : acceptLabel}</button>
           {secondaryAction && <span className="approval-secondary">{secondaryAction}</span>}
         </div>
+        {onRemember && <div className="approval-remember">
+          <button type="button" className="approval-remember-button" disabled={disabled || Boolean(busy) || !pending} onClick={onRemember}>{busy === "remember" ? t("approval.submitting") : t("approval.remember")}</button>
+          {rememberHint && <span className="approval-remember-hint">{rememberHint}</span>}
+        </div>}
         {note && <p className="approval-note">{note}</p>}
       </div>
     </div>
