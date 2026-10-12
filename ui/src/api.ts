@@ -26,7 +26,7 @@ const json = (body: unknown): RequestInit => ({ method: "POST", body: JSON.strin
 export const api = {
   serverInfo: (signal?: AbortSignal) => request<{ service: string; protocol_version: number; instance_id: string }>("/api/server-info", { signal }),
   config: () => request<Config>("/api/config"),
-  usage: () => request<{ contexts: ContextUsage[]; agents: AgentUsageTotal[]; periods: Record<"24h" | "7d" | "30d", UsagePeriod[]>; calls: UsageCall[]; price_source: string; price_as_of: string; note: string }>("/api/usage"),
+  usage: () => request<{ contexts: ContextUsage[]; agents: AgentUsageTotal[]; periods: Record<"24h" | "7d" | "30d", UsagePeriod[]>; review_periods?: Record<"24h" | "7d" | "30d", UsagePeriod[]>; calls: UsageCall[]; price_source: string; price_as_of: string; note: string }>("/api/usage"),
   dictationSettings: () => request<{ model: string; configured: boolean; auth_source: "api_key" | "codex" | ""; models: { id: string; name: string }[] }>("/api/dictation-settings"),
   saveDictationSettings: (model: string) => request<{ model: string }>("/api/dictation-settings", { method: "PUT", body: JSON.stringify({ model }) }),
   transcribeDictation: async (blob: Blob, signal?: AbortSignal) => {

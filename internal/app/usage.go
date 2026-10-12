@@ -54,7 +54,14 @@ type UsageCall struct {
 	PriceKnown       bool    `json:"price_known"`
 	TriggerContent   string  `json:"trigger_content"`
 	OccurredAt       string  `json:"occurred_at"`
+	// Kind is "chat" (the Bot's own model) or "review" (MCP safety reviewer).
+	Kind string `json:"kind"`
 }
+
+const (
+	usageKindChat   = "chat"
+	usageKindReview = "review"
+)
 
 type UsagePeriod struct {
 	BotID            string  `json:"bot_id"`
@@ -119,6 +126,20 @@ func migrateUsage(db *sql.DB) error {
 	 unpriced_requests INTEGER NOT NULL, PRIMARY KEY(hour,bot_id));
 	 CREATE INDEX IF NOT EXISTS usage_hourly_time ON usage_hourly(hour);`)
 	if err != nil {
+		return err
+	}
+	// Rows written before this column existed stay "chat": reviewer calls from
+	// that era cannot be told apart and remain inside the chat totals.
+	if err := ensureColumn(db, "usage_calls", "kind", `ALTER TABLE usage_calls ADD COLUMN kind TEXT NOT NULL DEFAULT 'chat'`); err != nil {
+		return err
+	}
+	// Reviewer spend is rolled up beside, never inside, the chat columns.
+	for _, col := range []string{"review_input_tokens", "review_output_tokens", "review_requests", "review_unpriced_requests"} {
+		if err := ensureColumn(db, "usage_hourly", col, `ALTER TABLE usage_hourly ADD COLUMN `+col+` INTEGER NOT NULL DEFAULT 0`); err != nil {
+			return err
+		}
+	}
+	if err := ensureColumn(db, "usage_hourly", "review_equivalent_usd", `ALTER TABLE usage_hourly ADD COLUMN review_equivalent_usd REAL NOT NULL DEFAULT 0`); err != nil {
 		return err
 	}
 	for _, col := range []string{"estimated_system", "estimated_messages", "estimated_reasoning"} {
@@ -206,27 +227,34 @@ func (s *Store) recordAuxiliaryModelUsage(runID, model string, input, output int
 	if _, err = tx.Exec(`UPDATE run_usage SET total_input=total_input+?,total_output=total_output+?,updated_at=? WHERE run_id=?`, input, output, stamp, runID); err != nil {
 		return err
 	}
-	if _, err = tx.Exec(`INSERT INTO usage_calls(run_id,bot_id,model,input_tokens,output_tokens,equivalent_usd,price_known,trigger_content,occurred_at) VALUES(?,?,?,?,?,?,?,?,?)`, runID, botID, model, input, output, price, known, prompt, stamp); err != nil {
+	if _, err = tx.Exec(`INSERT INTO usage_calls(run_id,bot_id,model,input_tokens,output_tokens,equivalent_usd,price_known,trigger_content,occurred_at,kind) VALUES(?,?,?,?,?,?,?,?,?,?)`, runID, botID, model, input, output, price, known, prompt, stamp, usageKindReview); err != nil {
 		return err
 	}
 	unknown := 0
 	if !known {
 		unknown = 1
 	}
-	if _, err = tx.Exec(`INSERT INTO usage_hourly(hour,bot_id,input_tokens,output_tokens,requests,equivalent_usd,unpriced_requests) VALUES(?,?,?,?,?,?,?) ON CONFLICT(hour,bot_id) DO UPDATE SET input_tokens=input_tokens+excluded.input_tokens,output_tokens=output_tokens+excluded.output_tokens,requests=requests+1,equivalent_usd=equivalent_usd+excluded.equivalent_usd,unpriced_requests=unpriced_requests+excluded.unpriced_requests`, t.Format("2006-01-02T15"), botID, input, output, 1, price, unknown); err != nil {
+	if _, err = tx.Exec(`INSERT INTO usage_hourly(hour,bot_id,input_tokens,output_tokens,requests,equivalent_usd,unpriced_requests,review_input_tokens,review_output_tokens,review_requests,review_equivalent_usd,review_unpriced_requests) VALUES(?,?,0,0,0,0,0,?,?,1,?,?) ON CONFLICT(hour,bot_id) DO UPDATE SET review_input_tokens=review_input_tokens+excluded.review_input_tokens,review_output_tokens=review_output_tokens+excluded.review_output_tokens,review_requests=review_requests+1,review_equivalent_usd=review_equivalent_usd+excluded.review_equivalent_usd,review_unpriced_requests=review_unpriced_requests+excluded.review_unpriced_requests`, t.Format("2006-01-02T15"), botID, input, output, price, unknown); err != nil {
 		return err
 	}
 	return tx.Commit()
 }
 
-func (s *Store) usagePeriod(d time.Duration) ([]UsagePeriod, error) {
+// usagePeriod sums one window for either chat or review calls. The two never
+// overlap: reviewer calls have kind "review" and their own hourly columns.
+func (s *Store) usagePeriod(d time.Duration, kind string) ([]UsagePeriod, error) {
 	cutoff := time.Now().UTC().Add(-d)
 	// The thirty-day rollup has hour precision; the shorter windows use exact calls.
-	query := `SELECT bot_id,SUM(input_tokens),SUM(output_tokens),COUNT(*),SUM(equivalent_usd),SUM(1-price_known) FROM usage_calls WHERE occurred_at>=? GROUP BY bot_id`
-	args := []any{cutoff.Format(time.RFC3339Nano)}
+	query := `SELECT bot_id,SUM(input_tokens),SUM(output_tokens),COUNT(*),SUM(equivalent_usd),SUM(1-price_known) FROM usage_calls WHERE occurred_at>=? AND kind=? GROUP BY bot_id`
+	args := []any{cutoff.Format(time.RFC3339Nano), kind}
 	if d > 7*24*time.Hour {
-		query = `SELECT bot_id,SUM(input_tokens),SUM(output_tokens),SUM(requests),SUM(equivalent_usd),SUM(unpriced_requests) FROM usage_hourly WHERE hour>=? GROUP BY bot_id`
-		args[0] = cutoff.Format("2006-01-02T15")
+		cols := `input_tokens,output_tokens,requests,equivalent_usd,unpriced_requests`
+		if kind == usageKindReview {
+			cols = `review_input_tokens,review_output_tokens,review_requests,review_equivalent_usd,review_unpriced_requests`
+		}
+		parts := strings.Split(cols, ",")
+		query = `SELECT bot_id,SUM(` + parts[0] + `),SUM(` + parts[1] + `),SUM(` + parts[2] + `),SUM(` + parts[3] + `),SUM(` + parts[4] + `) FROM usage_hourly WHERE hour>=? GROUP BY bot_id HAVING SUM(` + parts[2] + `)>0`
+		args = []any{cutoff.Format("2006-01-02T15")}
 	}
 	rows, err := s.db.Query(query, args...)
 	if err != nil {
@@ -248,7 +276,7 @@ func (s *Store) listUsageCalls() ([]UsageCall, error) {
 	if err := pruneUsage(s.db, time.Now().UTC()); err != nil {
 		return nil, err
 	}
-	rows, err := s.db.Query(`SELECT uc.id,uc.bot_id,COALESCE(b.name,'已删除 Bot'),COALESCE(c.name,'已删除对话'),uc.model,uc.input_tokens,uc.output_tokens,uc.equivalent_usd,uc.price_known,uc.trigger_content,uc.occurred_at FROM usage_calls uc JOIN runs r ON r.id=uc.run_id LEFT JOIN bots b ON b.id=uc.bot_id LEFT JOIN conversations c ON c.id=r.conversation_id ORDER BY uc.occurred_at DESC,uc.id DESC LIMIT 200`)
+	rows, err := s.db.Query(`SELECT uc.id,uc.bot_id,COALESCE(b.name,'已删除 Bot'),COALESCE(c.name,'已删除对话'),uc.model,uc.input_tokens,uc.output_tokens,uc.equivalent_usd,uc.price_known,uc.trigger_content,uc.occurred_at,uc.kind FROM usage_calls uc JOIN runs r ON r.id=uc.run_id LEFT JOIN bots b ON b.id=uc.bot_id LEFT JOIN conversations c ON c.id=r.conversation_id ORDER BY uc.occurred_at DESC,uc.id DESC LIMIT 200`)
 	if err != nil {
 		return nil, err
 	}
@@ -257,7 +285,7 @@ func (s *Store) listUsageCalls() ([]UsageCall, error) {
 	for rows.Next() {
 		var x UsageCall
 		var known int
-		if err = rows.Scan(&x.ID, &x.BotID, &x.BotName, &x.ConversationName, &x.Model, &x.InputTokens, &x.OutputTokens, &x.EquivalentUSD, &known, &x.TriggerContent, &x.OccurredAt); err != nil {
+		if err = rows.Scan(&x.ID, &x.BotID, &x.BotName, &x.ConversationName, &x.Model, &x.InputTokens, &x.OutputTokens, &x.EquivalentUSD, &known, &x.TriggerContent, &x.OccurredAt, &x.Kind); err != nil {
 			return nil, err
 		}
 		x.PriceKnown = known != 0
@@ -348,8 +376,11 @@ func (s *Server) routeUsage(w http.ResponseWriter, r *http.Request, path string)
 		return true
 	}
 	periods := make(map[string][]UsagePeriod)
+	reviewPeriods := make(map[string][]UsagePeriod)
 	for key, duration := range map[string]time.Duration{"24h": 24 * time.Hour, "7d": 7 * 24 * time.Hour, "30d": 30 * 24 * time.Hour} {
-		periods[key], err = s.store.usagePeriod(duration)
+		if periods[key], err = s.store.usagePeriod(duration, usageKindChat); err == nil {
+			reviewPeriods[key], err = s.store.usagePeriod(duration, usageKindReview)
+		}
 		if err != nil {
 			writeErr(w, 500, "storage", err.Error())
 			return true
@@ -360,7 +391,7 @@ func (s *Server) routeUsage(w http.ResponseWriter, r *http.Request, path string)
 		writeErr(w, 500, "storage", err.Error())
 		return true
 	}
-	writeJSON(w, 200, map[string]any{"contexts": rows, "agents": agents, "periods": periods, "calls": calls, "price_source": "https://developers.openai.com/api/docs/pricing", "price_as_of": "2026-09-25", "note": "API-equivalent estimate only, not Codex billing or savings. Input is priced uncached because cached tokens are not reported. Auxiliary summary calls and tool fees are excluded. Request detail retained seven days; thirty-day totals are hour-bucketed."})
+	writeJSON(w, 200, map[string]any{"contexts": rows, "agents": agents, "periods": periods, "review_periods": reviewPeriods, "calls": calls, "price_source": "https://developers.openai.com/api/docs/pricing", "price_as_of": "2026-09-25", "note": "API-equivalent estimate only, not Codex billing or savings. Input is priced uncached because cached tokens are not reported. Safety-review calls are reported separately in review_periods. Compaction summary calls are included in chat usage; tool fees are excluded. Request detail retained seven days; thirty-day totals are hour-bucketed."})
 	return true
 }
 
