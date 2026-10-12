@@ -864,25 +864,11 @@ func (s *Server) finishMCPReview(ctx context.Context, c Conversation, r Run, cal
 	if status == "human_required" || status == "human_decided" {
 		display.DecisionSource = result.Source
 	}
-	// The reviewer asked for a person (or found no host-verified request). A
-	// grant the person made earlier in this chat for this server, tool and
-	// target decides in their place. Never for the owner's "Always ask me"
-	// tier: that verdict carries the tier as its source and is not consulted.
-	var grantID string
-	if status == "human_required" && q.Status == questionPending && result.Source != mcpDecisionSourceTier && s.rememberedApprovalUsable(r, call) {
-		if target, ok := mcpRememberTargetFor(call.Schema, call.Arguments); ok {
-			if grantID, err = s.matchRememberedMCPApproval(tx, c, r, call, target); err != nil {
-				return err
-			}
-		}
-	}
+	// A remembered approval is never consulted here: in auto mode the
+	// reviewer's needs_human (or a missing host-verified request) means the
+	// user's request does not cover this call, and that is exactly the
+	// decision a memory must not take (mcp-tool-tiers.md §8.2).
 	q.Approval.Review = display
-	if grantID != "" {
-		if err = applyRememberedMCPApproval(tx, c, &q, grantID); err != nil {
-			return err
-		}
-		display = q.Approval.Review
-	}
 	raw, _ := json.Marshal(q.Approval)
 	if _, err = tx.Exec(`UPDATE mcp_auto_reviews SET status=?,decision=?,reason=?,risk_level=?,confirmation_required=?,expires_at=?,failure_category=?,failure_detail=? WHERE question_id=?`, status, result.Decision, result.Reason, result.RiskLevel, boolInt(result.ConfirmationRequired), q.ExpiresAt, failureCategory, failureDetail, id); err != nil {
 		return err
