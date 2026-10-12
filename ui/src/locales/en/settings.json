@@ -188,7 +188,7 @@
       "30d": "Last 30 days"
     },
     "load_failed": "Couldn't load usage. Try again.",
-    "explanation": "Recording started when this feature launched. Equivalent cost is estimated from public API prices, not what Codex actually charges or saves. Cache hits aren't available, so all input is priced as uncached. Summary requests and tool fees aren't included.",
+    "explanation": "Recording started when this feature launched. Equivalent cost is estimated from public API prices, not what Codex actually charges or saves. Cache hits aren't available, so all input is priced as uncached. Compaction summaries count as chat usage; safety reviews are listed separately. Tool fees aren't included.",
     "loading": "Loading usage…",
     "no_agents": "No agents yet.",
     "choose_agent": "Choose an agent",
