@@ -1,8 +1,8 @@
 # Installer and self-host backlog
 
-Items found while running v0.1.0 for real. Each one names the fix and how to check it. None are done yet.
+Items found while running v0.1.0 for real. Each one names the fix and how to check it. Items 1 and 2 are done (branch `feat/installer-behind-proxy`); 3 and 4 are open.
 
-## 1. Ask about an existing reverse proxy before offering `--domain` (agreed with owner 2026-10-10)
+## 1. Ask about an existing reverse proxy before offering `--domain` (agreed with owner 2026-10-10) - DONE
 
 **Problem**
 - Many self-hosters already run a reverse proxy (Caddy, Nginx, Traefik, a Cloudflare tunnel) on another machine, and it holds ports 80/443.
@@ -19,15 +19,19 @@ Items found while running v0.1.0 for real. Each one names the fix and how to che
 - When `--domain` is chosen and DNS does not resolve to this host, explain the consequence above and ask for confirmation. Do not just warn.
 - Add a flag for non-interactive installs: `--behind-proxy <ip[,ip…]>`.
 
+**Done:** the installer asks the proxy question first (`--behind-proxy`, `TOFI_BEHIND_PROXY`); a `--domain` whose DNS misses this host needs explicit confirmation; `tofi config trusted-proxies` sets or clears the list later; Caddy and Nginx snippets are printed. Tests: `deploy/self-host/test_install_proxy.py`. Still to do on a VM: the separate-Caddy check below.
+
 **Check**
 - `tofi_tui.py` and `tofi_host.py` tests cover the new question, the flag and the env written.
 - On a test VM, install behind a separate Caddy. The site works through the proxy, and the login limiter keys on the real client IP.
 
-## 2. `tofi uninstall --purge` leaves the TOFI Docker images
+## 2. `tofi uninstall --purge` leaves the TOFI Docker images - DONE
 
 **Problem:** after a purge, `ghcr.io/jackzhao98/tofi` and `tofi-worker` images stay on disk.
 
 **Fix:** purge removes the images referenced by the current and previous env (app, worker, caddy if domain), then prunes dangling layers. A plain uninstall keeps them.
+
+**Done:** purge removes the images named by the current env, a pending rollback and every release manifest (TOFI repositories only, no force, no prune of other layers), and prints each result. Dangling-layer pruning was left out on purpose: it would touch other users' images. Test: `PurgeImageTests` in `test_install_proxy.py`.
 
 **Check:** a unit test asserts the `docker rmi` calls. On a VM, `docker images` is empty after a purge.
 
