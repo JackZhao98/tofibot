@@ -60,3 +60,10 @@ html:not([data-desktop]) .web-usage-bar small{padding-bottom:6px;color:var(--mut
 html:not([data-desktop]) .usage-detail.is-rolled .web-usage-bar i{transform:scaleY(1)}
 html:not([data-desktop]) .usage-detail:not(.is-rolled) .web-usage-bar i{transition:none}
 @media(prefers-reduced-motion:reduce){html:not([data-desktop]) .web-usage-reel,html:not([data-desktop]) .web-usage-bar i{transition:none}}
+.workspace .usage-review { padding:4px 0 20px; border-bottom:1px solid var(--line-soft); }
+.workspace .usage-review>div { display:flex; flex-wrap:wrap; gap:16px 32px; }
+.workspace .usage-review>div>span { display:grid; gap:4px; }
+.workspace .usage-review small { color:var(--muted); font:12px/1.25 var(--body); }
+.workspace .usage-review strong { font:600 15px/1.2 var(--mono); font-variant-numeric:tabular-nums; }
+.workspace .usage-review p { margin:12px 0 0; color:var(--muted); font:12px/1.5 var(--body); }
+.workspace .usage-call-kind { margin-right:6px; padding:1px 6px; border:1px solid var(--line); border-radius:6px; color:var(--ink-soft); font-style:normal; font-size:12px; }

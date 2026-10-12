@@ -188,7 +188,7 @@
       "30d": "Letzte 30 Tage"
     },
     "load_failed": "Nutzung konnte nicht geladen werden. Versuch es erneut.",
-    "explanation": "Die Aufzeichnung begann mit dem Start dieser Funktion. Der Gegenwert wird aus öffentlichen API-Preisen geschätzt und entspricht nicht dem, was Codex tatsächlich berechnet oder spart. Cache-Treffer sind nicht verfügbar, daher wird jede Eingabe ohne Cache berechnet. Zusammenfassungsanfragen und Tool-Gebühren sind nicht enthalten.",
+    "explanation": "Die Aufzeichnung begann mit dem Start dieser Funktion. Der Gegenwert wird aus öffentlichen API-Preisen geschätzt und entspricht nicht dem, was Codex tatsächlich berechnet oder spart. Cache-Treffer sind nicht verfügbar, daher wird jede Eingabe ohne Cache berechnet. Kompaktierungs-Zusammenfassungen zählen zur Chat-Nutzung, Sicherheitsprüfungen werden separat ausgewiesen. Tool-Gebühren sind nicht enthalten.",
     "loading": "Nutzung wird geladen…",
     "no_agents": "Noch keine Agents.",
     "choose_agent": "Agent wählen",
@@ -204,6 +204,9 @@
     "requests": "Modellanfragen",
     "api_equivalent": "API-Gegenwert",
     "no_price": "Noch kein Preis",
+    "review_title": "Sicherheitsprüfung",
+    "review_note": "Aufrufe des Prüfmodells, getrennt von der Chat-Nutzung oben erfasst.",
+    "review_none": "Keine Sicherheitsprüfungen in diesem Zeitraum.",
     "unpriced_one": "{{requests}} Anfrage nutzte ein Modell ohne geprüften Preis und ist nicht eingerechnet.",
     "unpriced_other": "{{requests}} Anfragen nutzten Modelle ohne geprüften Preis und sind nicht eingerechnet.",
     "pricing_source": "Berechnet nach den <link>offiziellen OpenAI-API-Preisen</link> vom 2026-09-25. Die 30-Tage-Ansicht wird stündlich summiert, daher können die Ränder um weniger als eine Stunde abweichen.",

@@ -187,7 +187,7 @@
       "30d": "過去 30 天"
     },
     "load_failed": "讀取失敗，請再試一次",
-    "explanation": "從此功能上線後開始記錄。參考等值依公開 API 單價估算，並非 Codex 實際收費或節省的金額。無法取得快取命中量，所有輸入皆以非快取價格計算；不含摘要請求與工具費用。",
+    "explanation": "從此功能上線後開始記錄。參考等值依公開 API 單價估算，並非 Codex 實際收費或節省的金額。無法取得快取命中量，所有輸入皆以非快取價格計算；對話壓縮摘要計入對話用量，安全審查另列；不含工具費用。",
     "loading": "正在讀取用量…",
     "no_agents": "目前還沒有 Agent。",
     "choose_agent": "選擇 Agent",
@@ -202,6 +202,9 @@
     "requests": "模型請求",
     "api_equivalent": "API 參考等值",
     "no_price": "尚無報價",
+    "review_title": "安全審查",
+    "review_note": "審查模型的呼叫，與上方對話用量分開統計。",
+    "review_none": "此時段內沒有安全審查。",
     "unpriced_other": "有 {{requests}} 次請求使用的模型缺少可查證的報價，未計入金額。",
     "pricing_source": "依 2026-09-25 的 <link>OpenAI 官方 API 定價</link>計算；30 天檢視按小時彙總，邊界可能相差不到一小時。",
     "chart_title": "最近 7 天的請求",
