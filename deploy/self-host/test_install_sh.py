@@ -463,6 +463,22 @@ class InstallScriptTests(InstallBase):
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertEqual(self.handoff()[3:], ['--local-only'])
 
+    def test_behind_proxy_flag_is_handed_over_and_validated(self):
+        for env in ({}, {'TOFI_INSTALLER_UI': 'plain'}):
+            with self.subTest(env=env):
+                result = self.run_script('--behind-proxy', '192.0.2.10,198.51.100.4/24', '--yes', **env)
+                self.assertEqual(result.returncode, 0, result.stderr)
+                self.assertEqual(self.handoff()[3:], ['--behind-proxy', '192.0.2.10,198.51.100.0/24', '--yes']
+                                 if not env else ['--behind-proxy', '192.0.2.10,198.51.100.4/24', '--yes'])
+        result = self.run_script('--yes', TOFI_BEHIND_PROXY='192.0.2.10')
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(self.handoff()[3:], ['--behind-proxy', '192.0.2.10', '--yes'])
+        for flags in (['--behind-proxy', 'proxy.example.com'], ['--behind-proxy', '192.0.2.10', '--local-only'],
+                      ['--behind-proxy', '192.0.2.10', '--domain', 'tofi.example.com']):
+            result = self.run_script(*flags, '--yes')
+            self.assertNotEqual(result.returncode, 0, flags)
+            self.assertIn('behind-proxy', result.stderr + result.stdout)
+
     def test_auto_update_flags_are_handed_to_tofi_install(self):
         for env in ({}, {'TOFI_INSTALLER_UI': 'plain'}):
             for flags, expected in ((['--auto-update'], ['--auto-update']),
@@ -606,6 +622,11 @@ class InstallScriptTests(InstallBase):
         self.assertIn('KVM is not available (/dev/kvm)', result.stderr)
 
 
+def no_proxy(term):
+    """Answer the first exposure question (an existing reverse proxy?) with no."""
+    return term.expect('Tunnel...)? [y/N]').line('n')
+
+
 class InteractiveTests(InstallBase):
     """Real pty sessions: the child's /dev/tty and stdout are the terminal, stdin is a pipe."""
 
@@ -613,7 +634,7 @@ class InteractiveTests(InstallBase):
         before = self.host_tree()
         term = self.terminal(TOFI_PROMPT='plain')
         term.expect("How should each account's computer run?").expect('Choose 1-3 or a name [1]:').line()
-        term.expect('How will you open TOFI?').expect('[1]:').line()
+        no_proxy(term).expect('How will you open TOFI?').expect('[1]:').line()
         term.expect('Port for TOFI').expect('[8321]:').line()
         term.expect('Install fix releases automatically? (recommended)')
         term.expect('Turn on automatic fix releases? [Y/n]').line()
@@ -636,7 +657,7 @@ class InteractiveTests(InstallBase):
         term.send('\x1b[B').send('\r')   # down to gVisor, Enter: refused
         term.expect('gVisor container is not supported yet (coming in a later release).')
         term.send('\x1b[A').send('\r')   # back up to KVM
-        term.expect('How will you open TOFI?').expect('Enter select')
+        no_proxy(term).expect('How will you open TOFI?').expect('Enter select')
         term.send('\x1b[B').send('\x1b[B').send('\r')   # this machine only
         term.expect('Port for TOFI').line('9100')
         term.expect('Turn on automatic fix releases? [Y/n]').line()
@@ -648,7 +669,7 @@ class InteractiveTests(InstallBase):
     def test_menu_accepts_numbers_and_typed_names(self):
         term = self.terminal()
         term.expect('Enter select').send('1')
-        term.expect('How will you open TOFI?').expect('Enter select').send('LOCAL\r')
+        no_proxy(term).expect('How will you open TOFI?').expect('Enter select').send('LOCAL\r')
         term.expect('Port for TOFI').line()
         term.expect('Turn on automatic fix releases? [Y/n]').line()
         term.expect('Proceed? [Y/n]').line()
@@ -658,11 +679,13 @@ class InteractiveTests(InstallBase):
     def test_choose_domain_with_validation_and_dns_warning(self):
         term = self.terminal(TOFI_PROMPT='plain', STUB_DNS='198.51.100.99')
         term.expect('[1]:').line(' kvm ')
-        term.expect('How will you open TOFI?').expect('[1]:').line('Domain')
+        no_proxy(term).expect('How will you open TOFI?').expect('[1]:').line('Domain')
         term.expect('Domain name').line('not a domain')
         term.expect("'not a domain' is not a valid host name")
         term.line('TOFI.Example.com.')
         term.expect('tofi.example.com points at 198.51.100.99, not at this server (203.0.113.5)')
+        term.expect('no certificate is issued').expect('Continue installing with tofi.example.com anyway? [y/N]')
+        term.line('y')
         term.expect("Email for Let's Encrypt").line('nope')
         term.expect("'nope' is not an email address").line('ops@example.com')
         term.expect('Turn on automatic fix releases? [Y/n]').line()
@@ -673,10 +696,26 @@ class InteractiveTests(InstallBase):
         self.assertShown(term, 'https://tofi.example.com (Let\'s Encrypt)')
         self.assertNotShown(term, 'Port for TOFI')
 
+    def test_existing_reverse_proxy_is_asked_first(self):
+        term = self.terminal(TOFI_PROMPT='plain')
+        term.expect('[1]:').line()
+        term.expect('Tunnel...)? [y/N]').line('y')
+        term.expect('Reverse proxy address').line('proxy.example.com')
+        term.expect("'proxy.example.com' is not an IP address or CIDR range").line('0.0.0.0/0')
+        term.expect('too broad').line('192.0.2.10, 198.51.100.0/24')
+        term.expect('Port for TOFI').line()
+        term.expect('Turn on automatic fix releases? [Y/n]').line()
+        term.expect('Ready to install').expect('Proceed? [Y/n]').line()
+        self.assertEqual(term.finish(), 0, term.text)
+        self.assertEqual(self.handoff()[3:], ['--behind-proxy', '192.0.2.10,198.51.100.0/24', '--auto-update'])
+        self.assertNotShown(term, 'How will you open TOFI?')
+        self.assertShown(term, '192.0.2.10,198.51.100.0/24 (trusted for X-Forwarded-For)')
+
     def test_domain_option_is_dim_when_80_or_443_is_taken(self):
         self.listen(443, 'nginx', pid=812)
         term = self.terminal(TOFI_PROMPT='plain')
         term.expect('[1]:').line()
+        no_proxy(term)
         term.expect('2) With a domain (automatic HTTPS) — not supported: port 443 in use by nginx (pid 812)')
         term.expect('[1]:').line('2')
         term.expect('With a domain (automatic HTTPS) is not supported: port 443 in use by nginx (pid 812).')
@@ -692,7 +731,7 @@ class InteractiveTests(InstallBase):
         self.listen(8321, 'nginx')
         term = self.terminal(TOFI_PROMPT='plain')
         term.expect('[1]:').line()
-        term.expect('[1]:').line()
+        no_proxy(term).expect('[1]:').line()
         term.expect('Port 8321 is in use by nginx (pid 4242); 8322 is the next free one.').expect('[8322]:')
         term.line('8321')
         term.expect('Port 8321 is in use by nginx (pid 4242); 8322 is free.')
@@ -718,9 +757,10 @@ class InteractiveTests(InstallBase):
 
     def test_ctrl_c_before_proceed_cancels_without_changes(self):
         before = self.host_tree()
-        answered = [('Choose 1-3', '\r'), ('Choose 1-3', '\r'), ('[8321]:', '\r'),
-                    ('Turn on automatic fix releases?', '\r')]
-        for prompt, count in (('Choose 1-3', 0), ('Port for TOFI', 2), ('Turn on automatic', 3), ('Proceed?', 4)):
+        answered = [('Choose 1-3', '\r'), ('Tunnel...)? [y/N]', 'n\r'), ('Choose 1-3', '\r'),
+                    ('[8321]:', '\r'), ('Turn on automatic fix releases?', '\r')]
+        for prompt, count in (('Choose 1-3', 0), ('Tunnel...)? [y/N]', 1), ('Port for TOFI', 3),
+                              ('Turn on automatic', 4), ('Proceed?', 5)):
             with self.subTest(prompt=prompt):
                 term = self.terminal(TOFI_PROMPT='plain')
                 for earlier, key in answered[:count]:
@@ -740,7 +780,7 @@ class InteractiveTests(InstallBase):
         before = self.host_tree()
         term = self.terminal(TOFI_PROMPT='plain')
         term.expect('[1]:').line()
-        term.expect('[1]:').line()
+        no_proxy(term).expect('[1]:').line()
         term.expect('[8321]:').line()
         term.expect('Turn on automatic fix releases? [Y/n]').line()
         term.expect('Proceed? [Y/n]').line('maybe')
@@ -819,8 +859,8 @@ class InteractiveTests(InstallBase):
         self.only_prereleases()
         before = self.host_tree()
         term = self.terminal(TOFI_PROMPT='plain')
-        for _ in range(2):
-            term.expect('[1]:').line()
+        term.expect('[1]:').line()
+        no_proxy(term).expect('[1]:').line()
         term.expect('[8321]:').line()
         term.expect('No stable release is published yet. The newest is v0.1.0-rc.2')
         term.expect('Install prerelease v0.1.0-rc.2? [y/N]').line()
@@ -828,8 +868,8 @@ class InteractiveTests(InstallBase):
         self.assertEqual(term.finish(), 1)
         self.assert_no_side_effects(before)
         term = self.terminal(TOFI_PROMPT='plain')
-        for _ in range(2):
-            term.expect('[1]:').line()
+        term.expect('[1]:').line()
+        no_proxy(term).expect('[1]:').line()
         term.expect('[8321]:').line()
         term.expect('[y/N]').line('y')
         term.expect('Turn on automatic fix releases? [Y/n]').line()
