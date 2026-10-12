@@ -297,13 +297,21 @@ func (m *Manager) inspectMCP(ctx context.Context, name string) (MCPInspection, s
 	}
 	discovery, cancel := context.WithTimeout(ctx, m.cfg.DiscoveryTimeout)
 	defer cancel()
-	tools, cli, e := m.prepareServer(ctx, discovery, name, c, nil, map[string]int{}, nil)
+	sources := map[string]mcpToolSource{}
+	tools, cli, e := m.prepareServer(ctx, discovery, name, c, nil, map[string]int{}, sources)
 	if e != nil {
 		authRequired := c.OAuth != nil && oauthAuthorizationRequired(e)
 		return MCPInspection{AuthRequired: authRequired, Diagnostics: []Diagnostic{mcpInspectionDiagnostic(name, c.URL, e)}}, c.URL, true
 	}
 	defer cli.Close()
-	return MCPInspection{ToolCount: len(tools)}, c.URL, true
+	// Count callable tools by remote name: a name listed twice is one
+	// tools/call target (and one tier row in the Tools disclosure), so the
+	// connection status and the disclosure always agree.
+	unique := make(map[string]struct{}, len(tools))
+	for _, tool := range tools {
+		unique[sources[tool.Name].remoteName] = struct{}{}
+	}
+	return MCPInspection{ToolCount: len(unique)}, c.URL, true
 }
 
 func oauthAuthorizationRequired(err error) bool {

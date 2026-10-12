@@ -186,6 +186,7 @@
       "interrupted": "中断",
       "expired": "期限切れ",
       "not_executed": "未実行",
+      "approved": "承認済み",
       "unknown": "結果の確認が必要",
       "unconfirmed": "状態未確認"
     }
@@ -202,6 +203,9 @@
     "action": "操作",
     "target": "対象",
     "impact": "影響",
+    "review_reason": "理由",
+    "review_risk": "リスク",
+    "risk": { "low": "低", "medium": "中", "high": "高", "unknown": "未評価" },
     "view_full_arguments": "引数の全文を表示",
     "proposal_ended": "この提案は終了しました。",
     "view_decision": "判断の記録を表示"

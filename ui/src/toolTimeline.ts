@@ -3,8 +3,11 @@ import { isMidRunKind } from "./runProgress";
 import { i18n, type Language } from "./i18n";
 
 /** A failed request is not evidence that its external effect did not occur. */
-export function toolExecutionState(tool: Pick<ToolActivity, "status" | "outcome">): "not_executed" | "in_progress" | "completed" | "unknown" {
+export function toolExecutionState(tool: Pick<ToolActivity, "status" | "outcome">): "not_executed" | "in_progress" | "completed" | "unknown" | "approved" {
   const outcome = tool.outcome;
+  // A recorded human approval is a resolved wait step, not an effect: the actual
+  // execution is a separate call_mcp_tool activity, so nothing is uncertain here.
+  if (outcome?.status === "approval_recorded" && tool.status === "completed") return "approved";
   if (outcome?.status === "uncertain_effect" || outcome?.code === "mcp_result_unknown" || outcome?.execution_certainty === "unknown") return "unknown";
   if (outcome?.execution_certainty === "not_executed") return tool.status === "completed" ? "unknown" : "not_executed";
   if (tool.status === "completed") return "completed";
@@ -40,10 +43,11 @@ export function toolDisplayState(activity: Pick<ToolActivity,"status"|"outcome">
   const certainty = toolExecutionState(activity);
   if (certainty === "unknown") return "unknown";
   if (certainty === "not_executed") return "not_executed";
+  if (certainty === "approved") return "approved";
   return activity.status;
 }
 
-const displayStates = ["queued", "running", "completed", "failed", "interrupted", "expired", "not_executed", "unknown"] as const;
+const displayStates = ["queued", "running", "completed", "failed", "interrupted", "expired", "not_executed", "approved", "unknown"] as const;
 export function toolDisplayLabel(activity: Pick<ToolActivity,"status"|"outcome">, locale?: Language): string {
   const t = i18n.getFixedT(locale ?? null, "tasks");
   const state = toolDisplayState(activity) === "skipped" ? "not_executed" : toolDisplayState(activity);

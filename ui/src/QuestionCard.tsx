@@ -102,6 +102,12 @@ function BinaryQuestionCard({ item, bot, group, archived, onChanged }: QuestionC
   const reviewOnly = approval?.review_only === true;
   const reviewInProgress = review?.policy_version?.startsWith("mcp-all-external-v") && review.status === "reviewing";
   const reviewBlocked = ["setup_required", "context_required", "unavailable", "policy_denied", "terminal"].includes(review?.status ?? "");
+  // Why a person is asked: the reviewer's one-line reason (model text, shown as-is) and its risk level.
+  const riskLevel = review?.risk_level && ["low", "medium", "high", "unknown"].includes(review.risk_level) ? review.risk_level : undefined;
+  const whyAsked = approval && !reviewOnly && current.status === "pending" && review?.status === "human_required" ? [
+    ...(review.reason?.trim() ? [{ label:t("record.review_reason"), value:<span className="approval-review-reason" lang="en">{review.reason.trim()}</span> }] : []),
+    ...(riskLevel ? [{ label:t("record.review_risk"), value:<span className="approval-review-risk" data-risk={riskLevel}>{t(`record.risk.${riskLevel}`)}</span> }] : []),
+  ] : [];
   const autoApproved = current.answered_by === "auto-review" && current.status === "answered" && current.answer === true;
   useEffect(() => () => controller.current?.abort(), []);
   async function answer(value: boolean | null) {
@@ -132,7 +138,7 @@ function BinaryQuestionCard({ item, bot, group, archived, onChanged }: QuestionC
     {group && <div className="message-meta"><strong>{bot?.name ?? "Bot"}</strong></div>}
     <ApprovalCard title={<MessageMarkdown content={item.question} />} avatar={group ? <BotAvatar id={item.bot_id} mini /> : undefined} badge={approval ? t("phase.needs_approval") : t("phase.needs_answer")}
       time={validTime ? new Intl.DateTimeFormat(intlLocale(), { timeZone:timezone, hour:"2-digit", minute:"2-digit", hourCycle:"h23" }).format(new Date(item.created_at)) : undefined}
-      exactTime={item.created_at} facts={approval ? [{ label:t("record.action"), value:approval.action }, { label:t("record.target"), value:approval.target }, { label:t("record.impact"), value:approval.impact }] : undefined} payload={approval?.payload}
+      exactTime={item.created_at} facts={approval ? [{ label:t("record.action"), value:approval.action }, { label:t("record.target"), value:approval.target }, { label:t("record.impact"), value:approval.impact }, ...whyAsked] : undefined} payload={approval?.payload}
       acceptLabel={approval ? approval.approve_label || t("question.approve") : t("question.yes")} declineLabel={approval ? approval.deny_label || t("question.decline") : t("question.no")} onAnswer={value => void answer(value)} busy={busy} disabled={!answerable}
       secondaryAction={answerable && <><button type="button" disabled={Boolean(busy)} onClick={() => void answer(null)}>{busy === "cancel" ? t("question.cancelling") : approval ? t("question.cancel_proposal") : t("question.cancel_question")}</button>{approval?.draft_id && <button type="button" onClick={() => { const node = [...document.querySelectorAll<HTMLElement>("[data-draft-id]")].find(element => element.dataset.draftId === approval.draft_id); node?.scrollIntoView({ behavior:"smooth", block:"center" }); }} >{t("question.view_draft")}</button>}</>}
       note={reviewInProgress ? t("question.note.reviewing") : reviewOnly ? t("question.note.observation") : archived ? t("question.note.archived") : reviewBlocked ? t("question.note.blocked") : approval ? t("question.not_executed_yet") : undefined} error={error}

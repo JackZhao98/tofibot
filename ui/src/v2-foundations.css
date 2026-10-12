@@ -70,7 +70,7 @@ body { color:var(--ink); background:var(--bg); font-family:var(--body); }
 /* FormControls — preserve existing validation and input behaviour. */
 :is(input:not([type="checkbox"]):not([type="radio"]),textarea,select),
 .workspace .settings-page-body :is(input:not([type="checkbox"]):not([type="radio"]),textarea,select) {
-  min-height:42px; padding:10px 12px; border:2px solid transparent;
+  min-height:42px; padding:var(--field-pad-y,10px) 12px var(--field-pad-y,10px) 12px; border:2px solid transparent;
   border-radius:14px; background:var(--sunk); color:var(--ink); font:14px/1.5 var(--body);
   box-shadow:inset 0 2px 0 color-mix(in srgb,var(--desktop-controls-solid) 22%,transparent);
   transition:border-color 120ms,box-shadow 120ms,background-color 120ms,transform 120ms;

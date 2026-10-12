@@ -187,6 +187,7 @@
       "interrupted": "Interrupted",
       "expired": "Expired",
       "not_executed": "Not executed",
+      "approved": "Approved",
       "unknown": "Result needs checking",
       "unconfirmed": "Status unconfirmed"
     }
@@ -203,6 +204,9 @@
     "action": "Action",
     "target": "Target",
     "impact": "Impact",
+    "review_reason": "Reason",
+    "review_risk": "Risk",
+    "risk": { "low": "Low", "medium": "Medium", "high": "High", "unknown": "Not rated" },
     "view_full_arguments": "View full arguments",
     "proposal_ended": "This proposal ended.",
     "view_decision": "View decision record"
