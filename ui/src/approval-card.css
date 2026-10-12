@@ -17,6 +17,8 @@
 .approval-facts > div { display:grid; grid-template-columns:52px minmax(0,1fr); gap:10px; align-items:baseline; }
 .approval-facts dt { color:var(--muted); font:600 11px/1.5 var(--body); }
 .approval-facts dd { margin:0; color:var(--ink); overflow-wrap:anywhere; }
+.approval-review-reason { display:-webkit-box; -webkit-line-clamp:3; -webkit-box-orient:vertical; overflow:hidden; color:var(--ink-soft); }
+.approval-review-risk[data-risk="high"] { color:var(--danger-text); font-weight:600; }
 .approval-payload { min-width:0; margin-top:11px; color:var(--ink-soft); }
 .approval-payload summary { width:max-content; max-width:100%; cursor:pointer; font:600 12px/1.6 var(--body); text-decoration:underline; text-underline-offset:3px; }
 .approval-payload summary:focus-visible,.approval-payload pre:focus-visible { outline:2px solid var(--focus); outline-offset:3px; }

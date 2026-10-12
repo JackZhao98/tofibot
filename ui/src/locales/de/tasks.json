@@ -187,6 +187,7 @@
       "interrupted": "Unterbrochen",
       "expired": "Abgelaufen",
       "not_executed": "Nicht ausgeführt",
+      "approved": "Genehmigt",
       "unknown": "Ergebnis prüfen",
       "unconfirmed": "Status unbestätigt"
     }
@@ -203,6 +204,9 @@
     "action": "Aktion",
     "target": "Ziel",
     "impact": "Auswirkung",
+    "review_reason": "Grund",
+    "review_risk": "Risiko",
+    "risk": { "low": "Niedrig", "medium": "Mittel", "high": "Hoch", "unknown": "Nicht bewertet" },
     "view_full_arguments": "Alle Argumente ansehen",
     "proposal_ended": "Dieser Vorschlag ist beendet.",
     "view_decision": "Entscheidungsprotokoll ansehen"

@@ -82,6 +82,11 @@ try {
  const readinessHTML=stepWith({status:"permanent_failure",code:"mcp_auth_required"});assert(readinessHTML.includes("工具需要重新登录授权"));assert(!readinessHTML.includes("打开工具设置"));
  assert(stepWith({status:"permanent_failure",code:"mcp_review_setup_missing"}).includes("打开工具设置"));
  assert(!stepWith({status:"setup_required"}).includes("打开工具设置"));
+ // 2e. A recorded approval is a resolved wait step, never an uncertain effect (execution is a separate activity).
+ const approvedStep={...tool,name:"call_mcp_tool",status:"completed",outcome:{version:1,status:"approval_recorded",code:"approval_recorded",execution_certainty:"not_executed",message:"approved",next_action:"repeat_exact_call"}};
+ assert.equal(view({...scenario("busy"),run:{...run,status:"done"},tools:[approvedStep]}),undefined);
+ assert.equal(toolDisplayLabel(approvedStep),"已批准");assert(!markup({...scenario("busy"),run:{...run,status:"done"},tools:[approvedStep]}).includes("task-issue-card"));
+ console.log("PASS 2e: approval_recorded is not an uncertain effect");
  console.log("PASS 2d: readiness codes in words, certainty spellings, setup action keyed by code");
  // 3. Setup and context have different bounded actions; neither has controls.
  // Setup and context gaps live on the blocked step: setup offers tool settings there, context offers diagnostics.

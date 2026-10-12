@@ -20,6 +20,9 @@ try {
   assert(toolAttemptIssues([expired]) === "", "expired approval is not an execution-error alert");
   assert(toolDisplayLabel({...expired,status:"interrupted"}) === "未执行", "object-level not-executed certainty takes precedence over interrupted transport");
   assert(toolDisplayLabel({status:"failed",outcome:{code:"batch_skipped",execution_certainty:"not_executed"}}) === "未执行", "stale batch tails did not execute");
+  const approvedStep = {status:"completed",outcome:{status:"approval_recorded",code:"approval_recorded",execution_certainty:"not_executed"}};
+  assert(toolDisplayState(approvedStep) === "approved" && toolDisplayLabel(approvedStep) === "已批准", "recorded approval is a resolved step, not unknown");
+  assert(toolDisplayState({status:"completed",outcome:{status:"permanent_failure",execution_certainty:"not_executed"}}) === "unknown", "other completed-but-not-executed records stay unverified");
   const progress = { ...message("progress", 2, "2026-09-17T00:00:01Z"), kind: "progress" };
   const finalReply = message("final-reply", 3, "2026-09-17T00:00:03Z");
   const completed = foldCompletedProgress([progress, finalReply], [{ id: "r", status: "done" }]);

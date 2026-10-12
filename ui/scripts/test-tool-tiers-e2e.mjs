@@ -219,6 +219,8 @@ async function scenarioConnections(page, fx) {
   const t0 = Date.now();
   await openBot(page, fx, await fx.bot('Notion Settings'));
   await openConnections(page);
+  // The read-only summary arrives with the tier list a beat after the count; wait for it, then judge.
+  await page.locator('.mcp-service').first().getByText(/read only/).first().waitFor({timeout: 10000}).catch(() => {});
   const status = await page.locator('.mcp-service').first().innerText();
   const m = /Connected\s*·\s*(\d+) tools?\s*·\s*(\d+) read only/.exec(status);
   check('card shows "N tools · M read only" without a refresh', !!m && m[2] === '4', status.split('\n').slice(0, 4).join(' | '));
@@ -291,6 +293,7 @@ async function scenarioDifferentTarget(page, fx) {
   await page.getByText('View full arguments').first().click();
   const cardText = await page.locator('.approval-card').first().innerText();
   check('3a: card (full arguments) names the page that would change', cardText.includes('page-budget') && cardText.includes('Roadmap draft'), cardText.replace(/\s+/g, ' ').slice(0, 300));
+  check('3a: card shows the reviewer reason and risk level', cardText.includes(d.reviews[0].Reason) && /Reason/.test(cardText) && /Risk\s*\n?\s*High/i.test(cardText), cardText.replace(/\s+/g, ' ').slice(0, 400));
   await shot(page, 's3a-card-pending');
   await approveButtons(page).first().click();
   await page.getByText('Roadmap page updated.').last().waitFor({timeout: 40000});
