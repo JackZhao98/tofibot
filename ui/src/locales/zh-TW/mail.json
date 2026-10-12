@@ -10,7 +10,6 @@
     "declined_at": "取消於 {{time}}",
     "view_record": "查看草稿紀錄",
     "subject": "主旨",
-    "check_sent_records": "請先檢查郵件服務的寄件備份，核對時間、收件人與主旨。",
     "sending_needs_checking": "寄送結果待核實",
     "full_text": "郵件草稿全文",
     "body": "郵件內文",

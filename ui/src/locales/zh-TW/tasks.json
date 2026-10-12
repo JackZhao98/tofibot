@@ -11,7 +11,6 @@
       "expired": "核准已過期",
       "human_denied": "你未核准此操作",
       "policy_denied": "此操作未通過安全檢查",
-      "uncertain_effect": "不確定是否已完成",
       "connection_status": "連線中斷，狀態待確認",
       "runtime_connection": "連線中斷，任務未完成",
       "unknown_failure": "任務未完成"
@@ -22,7 +21,6 @@
       "open_model_connections": "開啟模型連線設定",
       "copy_diagnostics": "複製診斷資訊",
       "view_activity": "查看執行紀錄",
-      "verify_steps": "如何核對",
       "refresh_status": "重新整理狀態"
     },
     "working": "處理中…",
@@ -89,10 +87,6 @@
   },
   "fact": {
     "labelled": "{{label}}：{{text}}",
-    "execution_needs_checking": "執行結果待核實。",
-    "sending_needs_checking": "傳送結果待核實。",
-    "check_sent_mail": "請檢查郵件服務中的寄件備份，核對時間、收件人與主旨。",
-    "check_target_service": "請在目標服務中核對這次操作的紀錄。無法確認時，請保持結果待核實。",
     "may_still_be_running": "任務可能仍在執行。重新整理只會讀取最新狀態。",
     "no_cause_recorded": "沒有記錄具體原因。",
     "cause_unconfirmed": "目前無法確認原因和執行結果。",
@@ -128,8 +122,6 @@
   },
   "secondary": {
     "then_provider_busy": "隨後模型服務忙碌，任務未完成。",
-    "later_attempt_ended": "後續嘗試已結束；先前操作的結果仍待核實。",
-    "later_attempt": "後續嘗試：{{phase}}",
     "records_incomplete": "執行紀錄尚未完整載入。"
   },
   "phase": {
@@ -463,10 +455,6 @@
     "cancel": "取消",
     "submitting": "提交中…",
     "submit": "私密提交"
-  },
-  "compact": {
-    "check_service": "重試前，請先到該操作使用的服務核對。",
-    "check_mail": "重試前，請先查看寄件備份。"
   },
   "remembered": {
     "title": "記住的核准",

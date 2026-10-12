@@ -11,7 +11,6 @@
       "expired": "Approbation expirée",
       "human_denied": "Vous avez refusé cette action",
       "policy_denied": "Cette action n’a pas passé le contrôle de sécurité",
-      "uncertain_effect": "Résultat incertain",
       "connection_status": "Connexion perdue, état non confirmé",
       "runtime_connection": "Connexion interrompue, la tâche n’a pas abouti",
       "unknown_failure": "La tâche n’a pas abouti"
@@ -22,7 +21,6 @@
       "open_model_connections": "Ouvrir les connexions aux modèles",
       "copy_diagnostics": "Copier le diagnostic",
       "view_activity": "Voir l’activité",
-      "verify_steps": "Comment vérifier",
       "refresh_status": "Actualiser l’état"
     },
     "working": "En cours…",
@@ -89,10 +87,6 @@
   },
   "fact": {
     "labelled": "{{label}} : {{text}}",
-    "execution_needs_checking": "Le résultat de l’exécution est à vérifier.",
-    "sending_needs_checking": "Le résultat de l’envoi est à vérifier.",
-    "check_sent_mail": "Consultez les messages envoyés dans votre messagerie et comparez l’heure, le destinataire et l’objet.",
-    "check_target_service": "Consultez l’historique de cette action dans le service cible. Si rien n’est confirmé, laissez le résultat non confirmé.",
     "may_still_be_running": "La tâche est peut-être encore en cours. L’actualisation ne fait que lire le dernier état.",
     "no_cause_recorded": "Aucune cause précise n’a été enregistrée.",
     "cause_unconfirmed": "La cause et le résultat de l’exécution ne sont pas encore confirmés.",
@@ -128,8 +122,6 @@
   },
   "secondary": {
     "then_provider_busy": "Le service du modèle a ensuite été saturé et la tâche n’a pas abouti.",
-    "later_attempt_ended": "La tentative suivante est terminée. Les résultats des actions précédentes restent à vérifier.",
-    "later_attempt": "Tentative suivante : {{phase}}",
     "records_incomplete": "L’historique d’exécution n’est pas entièrement chargé."
   },
   "phase": {
@@ -473,10 +465,6 @@
     "cancel": "Annuler",
     "submitting": "Envoi…",
     "submit": "Envoyer en privé"
-  },
-  "compact": {
-    "check_service": "Vérifiez le service utilisé avant de réessayer.",
-    "check_mail": "Vérifiez vos e-mails envoyés avant de réessayer."
   },
   "remembered": {
     "title": "Approbations mémorisées",

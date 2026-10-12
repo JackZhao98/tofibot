@@ -41,6 +41,10 @@ try {
   assert(toolActionLabel({ name: "search_mcp_tools", arguments: "{}" }) === "正在查找可用工具", "tool discovery is not web browsing");
   assert(toolActionLabel({ name: "call_mcp_tool", arguments: '{"name":"mcp__web__search"}' }) === "正在浏览网页", "resolved connected web tool identifies browsing");
   assert(toolActionLabel({ name: "call_mcp_tool", arguments: '{"name":"mcp__crm__lookup"}' }) === "正在使用连接的工具", "an unrecognised remote tool is named by its role");
+  assert(toolActionLabel({ name: "call_mcp_tool", arguments: '{"name":"mcp_notion__notion-fetch"}' }) === "正在使用连接的工具", "a connected tool's verb (fetch) is not browsing the web");
+  assert(toolStepTitle({ name: "call_mcp_tool", arguments: '{"name":"mcp_notion__notion-fetch"}' }) === "使用连接的工具" && toolStepDetail({ name: "call_mcp_tool", arguments: '{"name":"mcp_notion__notion-fetch"}' }) === "notion-fetch", "call_mcp_tool rows read as the connected tool plus its name");
+  assert(toolDisplayState({ status: "failed", outcome: undefined }) === "not_executed", "a failed row with no outcome is not-executed, never uncertain");
+  assert(toolDisplayState({ status: "failed", outcome: { status: "uncertain_effect", code: "mcp_result_unknown", execution_certainty: "unknown" } }) === "unknown", "an explicit unknown certainty still shows as unverified");
   assert(toolActionLabel({ name: "custom_widget", arguments: "{}" }) === "正在调用 custom_widget", "an unknown local tool keeps its own name");
   assert(toolStepTitle({ name: "custom_widget", arguments: "{}" }) === "调用 custom_widget" && toolStepTitle({ name: "tofi_shell", arguments: "{}" }) === "运行命令", "record titles drop the live progress wording");
   assert(toolStepDetail({ name: "computer_action", arguments: '{"action":"desktop.capture"}' }) === "截屏", "desktop actions get a plain word");

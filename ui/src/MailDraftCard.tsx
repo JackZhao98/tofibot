@@ -4,8 +4,7 @@ import { BotAvatar } from "./BotAvatar";
 import { TofiIcon } from "./icons";
 import type { Bot } from "./types";
 import { flyMailDraft } from "./mailSendFlight";
-import { TaskIssueCard } from "./TaskIssueCard";
-import { presentTaskIssue, taskDraftLabel } from "./taskIssuePresentation";
+import { taskDraftLabel } from "./taskIssuePresentation";
 import { i18n, useTranslation } from "./i18n";
 import { formatClock } from "./i18n/format";
 import "./mail-draft-card.css";
@@ -98,8 +97,6 @@ export function MailDraftCard({ draft, bot, group, archived, onDemoAction, onCha
   </article>;
   return <article className={`mail-draft-message${group ? " is-group" : " is-dm"}`} data-draft-id={draft.draft_id} tabIndex={-1}>
     {group && <div className="mail-draft-identity"><BotAvatar id={draft.bot_id} mini /><strong>{bot?.name ?? "Bot"}</strong></div>}
-    {draft.status === "unknown" && !issueOwned && <TaskIssueCard issue={presentTaskIssue({run:{id:draft.run_id,conversation_id:draft.conversation_id,bot_id:draft.bot_id,status:"done",created_at:draft.created_at,updated_at:draft.updated_at},drafts:[draft]})!} />}
-    {draft.status === "unknown" && !issueOwned && <p className="task-issue-fact">{t("draft.check_sent_records")}</p>}
     {draft.status === "unknown" && <p className="task-record-meta">{taskDraftLabel(draft)}: {t("draft.sending_needs_checking")}</p>}
     {(pending || draft.status === "sending" || draft.status === "unknown") && <section ref={letterRef} className={`mail-draft-letter${pending && !animating ? " is-pending" : ""}`} aria-label={t("draft.full_text")}>
       <div className="mail-draft-stripe" aria-hidden="true" />

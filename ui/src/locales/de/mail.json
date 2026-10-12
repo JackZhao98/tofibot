@@ -10,7 +10,6 @@
     "declined_at": "Abgebrochen {{time}}",
     "view_record": "Entwurfsprotokoll ansehen",
     "subject": "Betreff",
-    "check_sent_records": "Sieh in deinem E-Mail-Dienst bei den gesendeten Nachrichten nach und vergleiche Zeit, Empfänger und Betreff.",
     "sending_needs_checking": "Versandergebnis prüfen",
     "full_text": "Vollständiger E-Mail-Entwurf",
     "body": "E-Mail-Text",

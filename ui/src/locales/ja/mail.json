@@ -10,7 +10,6 @@
     "declined_at": "{{time}}にキャンセル",
     "view_record": "下書きの記録を表示",
     "subject": "件名",
-    "check_sent_records": "メールサービスの送信記録で、日時・宛先・件名を照合してください。",
     "sending_needs_checking": "送信結果の確認が必要です",
     "full_text": "メール下書きの全文",
     "body": "本文",
