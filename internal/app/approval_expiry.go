@@ -207,7 +207,7 @@ func settleApprovalExpiryTx(tx *sql.Tx, runID, content string) error {
 		return err
 	}
 	var completed, notExecuted, uncertain int
-	if err = tx.QueryRow(`SELECT COALESCE(SUM(status='completed'),0),COALESCE(SUM(json_extract(NULLIF(outcome_json,''),'$.execution_certainty')='not_executed'),0),COALESCE(SUM(json_extract(NULLIF(outcome_json,''),'$.execution_certainty')='unknown'),0) FROM tool_activities WHERE run_id=?`, runID).Scan(&completed, &notExecuted, &uncertain); err != nil {
+	if err = tx.QueryRow(`SELECT COALESCE(SUM(status='completed' AND COALESCE(json_extract(NULLIF(outcome_json,''),'$.status'),'')<>'approval_recorded'),0),COALESCE(SUM(COALESCE(json_extract(NULLIF(outcome_json,''),'$.status'),'')<>'approval_recorded' AND json_extract(NULLIF(outcome_json,''),'$.execution_certainty')='not_executed'),0),COALESCE(SUM(json_extract(NULLIF(outcome_json,''),'$.execution_certainty')='unknown'),0) FROM tool_activities WHERE run_id=?`, runID).Scan(&completed, &notExecuted, &uncertain); err != nil {
 		return err
 	}
 	conclusion := fmt.Sprintf("审批已过期，本次工作已停止。记录保留：%d 个工具步骤已完成，%d 个步骤未执行。", completed, notExecuted)

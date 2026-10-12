@@ -188,6 +188,7 @@
       "interrupted": "Interrompu",
       "expired": "Expiré",
       "not_executed": "Non exécuté",
+      "approved": "Approuvé",
       "unknown": "Résultat à vérifier",
       "unconfirmed": "État non confirmé"
     }
@@ -204,6 +205,9 @@
     "action": "Action",
     "target": "Cible",
     "impact": "Impact",
+    "review_reason": "Motif",
+    "review_risk": "Risque",
+    "risk": { "low": "Faible", "medium": "Moyen", "high": "Élevé", "unknown": "Non évalué" },
     "view_full_arguments": "Voir tous les arguments",
     "proposal_ended": "Cette proposition est close.",
     "view_decision": "Voir l’historique de la décision"
