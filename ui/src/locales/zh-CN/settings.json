@@ -187,7 +187,7 @@
       "30d": "过去 30 天"
     },
     "load_failed": "读取失败，请重试",
-    "explanation": "记录从功能上线后开始。参考等值按公开 API 单价估算，并非 Codex 实际收费或节省金额。缓存命中量不可得，输入全部按非缓存价计算；不含摘要请求与工具费用。",
+    "explanation": "记录从功能上线后开始。参考等值按公开 API 单价估算，并非 Codex 实际收费或节省金额。缓存命中量不可得，输入全部按非缓存价计算；对话压缩摘要计入对话用量，安全审查单独列出；不含工具费用。",
     "loading": "正在读取 Usage…",
     "no_agents": "还没有 Agent。",
     "choose_agent": "选择 Agent",
@@ -202,6 +202,9 @@
     "requests": "模型请求",
     "api_equivalent": "API 参考等值",
     "no_price": "暂无报价",
+    "review_title": "安全审查",
+    "review_note": "审查模型的调用，与上方对话用量分开统计。",
+    "review_none": "此时段内没有安全审查。",
     "unpriced_other": "有 {{requests}} 次请求的模型缺少可核实报价，未计入金额。",
     "pricing_source": "按 2026-09-25 <link>OpenAI 官方 API 报价</link>计算；30 天视图按小时汇总，边界可能相差不足一小时。",
     "chart_title": "最近 7 天请求",

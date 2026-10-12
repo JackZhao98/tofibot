@@ -98,7 +98,7 @@ func TestUsagePeriodsPricesAndRetention(t *testing.T) {
 	if err != nil || len(calls) != 2 || calls[0].TriggerContent != "private prompt" || calls[1].EquivalentUSD != 5.5 {
 		t.Fatalf("calls=%+v err=%v", calls, err)
 	}
-	period, err := s.usagePeriod(24 * time.Hour)
+	period, err := s.usagePeriod(24*time.Hour, usageKindChat)
 	if err != nil || len(period) != 1 || period[0].Requests != 2 || period[0].InputTokens != 1_000_050 || period[0].EquivalentUSD <= 3 {
 		t.Fatalf("period=%+v err=%v", period, err)
 	}
@@ -113,11 +113,82 @@ func TestUsagePeriodsPricesAndRetention(t *testing.T) {
 	if err != nil || len(calls) != 0 {
 		t.Fatalf("retained calls=%+v err=%v", calls, err)
 	}
-	period, err = s.usagePeriod(30 * 24 * time.Hour)
+	period, err = s.usagePeriod(30*24*time.Hour, usageKindChat)
 	if err != nil || len(period) != 1 || period[0].Requests != 2 {
 		t.Fatalf("30d=%+v err=%v", period, err)
 	}
 	if _, ok := usageEquivalent("codex-unknown", 100, 100); ok {
 		t.Fatal("unknown model must not be priced")
+	}
+}
+
+func TestReviewUsageIsSeparateFromChat(t *testing.T) {
+	s, err := OpenStore(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer s.Close()
+	bot, err := s.CreateBot("reviewed", "", "codex-gpt-6-sol")
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, runs, _, err := s.AddUserRuns(bot.DMConversationID, "do it", "review-one", []runSpec{{BotID: bot.ID, Model: bot.Model}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err = s.recordContextEstimate(runs[0].ID, bot.Model, 100); err != nil {
+		t.Fatal(err)
+	}
+	if err = s.recordModelUsage(runs[0].ID, 1000, 100); err != nil {
+		t.Fatal(err)
+	}
+	if err = s.recordAuxiliaryModelUsage(runs[0].ID, "gpt-5-mini", 400, 40); err != nil {
+		t.Fatal(err)
+	}
+	if err = s.recordAuxiliaryModelUsage(runs[0].ID, "codex-auto-review", 200, 20); err != nil {
+		t.Fatal(err)
+	}
+	for _, window := range []time.Duration{24 * time.Hour, 30 * 24 * time.Hour} {
+		chat, err := s.usagePeriod(window, usageKindChat)
+		if err != nil || len(chat) != 1 || chat[0].Requests != 1 || chat[0].InputTokens != 1000 || chat[0].OutputTokens != 100 {
+			t.Fatalf("%v chat=%+v err=%v", window, chat, err)
+		}
+		review, err := s.usagePeriod(window, usageKindReview)
+		if err != nil || len(review) != 1 || review[0].Requests != 2 || review[0].InputTokens != 600 || review[0].OutputTokens != 60 || review[0].UnpricedRequests != 2 {
+			t.Fatalf("%v review=%+v err=%v", window, review, err)
+		}
+	}
+	calls, err := s.listUsageCalls()
+	kinds := map[string]int{}
+	for _, c := range calls {
+		kinds[c.Kind]++
+	}
+	if err != nil || kinds[usageKindChat] != 1 || kinds[usageKindReview] != 2 {
+		t.Fatalf("kinds=%v err=%v", kinds, err)
+	}
+	// Run totals still count everything the run cost, once.
+	totals, err := s.listAgentUsageTotals()
+	if err != nil || totals[0].InputTokens != 1600 {
+		t.Fatalf("totals=%+v err=%v", totals, err)
+	}
+	w := httptest.NewRecorder()
+	if !(&Server{store: s}).routeUsage(w, httptest.NewRequest(http.MethodGet, "/api/usage", nil), "usage") || w.Code != http.StatusOK {
+		t.Fatalf("response=%d %s", w.Code, w.Body.String())
+	}
+	var body struct {
+		Periods       map[string][]UsagePeriod `json:"periods"`
+		ReviewPeriods map[string][]UsagePeriod `json:"review_periods"`
+		Calls         []map[string]any         `json:"calls"`
+	}
+	if err = json.Unmarshal(w.Body.Bytes(), &body); err != nil {
+		t.Fatal(err)
+	}
+	for _, key := range []string{"24h", "7d", "30d"} {
+		if len(body.Periods[key]) != 1 || body.Periods[key][0].Requests != 1 || len(body.ReviewPeriods[key]) != 1 || body.ReviewPeriods[key][0].Requests != 2 {
+			t.Fatalf("%s periods=%+v review=%+v", key, body.Periods[key], body.ReviewPeriods[key])
+		}
+	}
+	if len(body.Calls) != 3 || body.Calls[0]["kind"] == nil {
+		t.Fatalf("calls=%v", body.Calls)
 	}
 }

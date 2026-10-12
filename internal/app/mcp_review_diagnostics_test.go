@@ -239,19 +239,19 @@ func TestAutoReviewRecordsReviewerUsage(t *testing.T) {
 	if err := f.execute(context.Background()); err != nil || f.p.calls.Load() != 2 {
 		t.Fatalf("execute: %v calls=%d", err, f.p.calls.Load())
 	}
-	rows, err := f.s.store.db.Query(`SELECT bot_id,model,input_tokens,output_tokens FROM usage_calls WHERE run_id=? ORDER BY id`, f.r.ID)
+	rows, err := f.s.store.db.Query(`SELECT bot_id,model,input_tokens,output_tokens,kind FROM usage_calls WHERE run_id=? ORDER BY id`, f.r.ID)
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer rows.Close()
 	var n int
 	for rows.Next() {
-		var botID, model string
+		var botID, model, kind string
 		var input, output int64
-		if err := rows.Scan(&botID, &model, &input, &output); err != nil {
+		if err := rows.Scan(&botID, &model, &input, &output, &kind); err != nil {
 			t.Fatal(err)
 		}
-		if botID != f.r.BotID || model != codexReviewModel || input != 1200 || output != 40 {
+		if botID != f.r.BotID || model != codexReviewModel || input != 1200 || output != 40 || kind != usageKindReview {
 			t.Fatalf("usage row bot=%s model=%s in=%d out=%d", botID, model, input, output)
 		}
 		n++
@@ -260,7 +260,7 @@ func TestAutoReviewRecordsReviewerUsage(t *testing.T) {
 		t.Fatalf("usage rows=%d want 2", n)
 	}
 	var hourly int64
-	if err := f.s.store.db.QueryRow(`SELECT COALESCE(SUM(requests),0) FROM usage_hourly WHERE bot_id=?`, f.r.BotID).Scan(&hourly); err != nil || hourly != 2 {
-		t.Fatalf("hourly requests=%d err=%v", hourly, err)
+	if err := f.s.store.db.QueryRow(`SELECT COALESCE(SUM(review_requests),0)-COALESCE(SUM(requests),0)*100 FROM usage_hourly WHERE bot_id=?`, f.r.BotID).Scan(&hourly); err != nil || hourly != 2 {
+		t.Fatalf("review minus 100*chat requests=%d err=%v (want review 2, chat 0)", hourly, err)
 	}
 }

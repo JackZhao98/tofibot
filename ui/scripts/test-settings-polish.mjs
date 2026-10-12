@@ -362,7 +362,8 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
     if (path === "/api/usage") return {contexts: [{run_id: "run_1", conversation_id: "conv_1", conversation_name: "Weekly summary", bot_id: "bot_research", bot_name: "Research Bot", run_status: "completed", model: "codex-gpt-6-sol", window_tokens: 200000, window_known: true, compact_at: 160000, estimated_input: 52000, last_input: 48000, total_input: 310000, total_output: 42000, compact_count: 1, updated_at: day(0)}],
       agents: [{bot_id: "bot_research", bot_name: "Research Bot", input_tokens: 310000, output_tokens: 42000, runs: 14, compactions: 1}, {bot_id: "bot_inbox", bot_name: "Inbox Bot", input_tokens: 120000, output_tokens: 18000, runs: 6, compactions: 0}],
       periods: {"24h": [{bot_id: "bot_research", input_tokens: 90000, output_tokens: 12000, requests: 5, equivalent_usd: 0.42, unpriced_requests: 0}], "7d": [{bot_id: "bot_research", input_tokens: 310000, output_tokens: 42000, requests: 14, equivalent_usd: 1.9, unpriced_requests: 0}], "30d": [{bot_id: "bot_research", input_tokens: 310000, output_tokens: 42000, requests: 14, equivalent_usd: 1.9, unpriced_requests: 0}]},
-      calls: [{id: 1, bot_id: "bot_research", bot_name: "Research Bot", conversation_name: "Weekly summary", model: "codex-gpt-6-sol", input_tokens: 18000, output_tokens: 2100, equivalent_usd: 0.09, price_known: true, trigger_content: "Summarize the week", occurred_at: day(0)}],
+      review_periods: {"24h": [{bot_id: "bot_research", input_tokens: 6400, output_tokens: 310, requests: 3, equivalent_usd: 0, unpriced_requests: 3}], "7d": [{bot_id: "bot_research", input_tokens: 21000, output_tokens: 980, requests: 9, equivalent_usd: 0.04, unpriced_requests: 2}], "30d": [{bot_id: "bot_research", input_tokens: 21000, output_tokens: 980, requests: 9, equivalent_usd: 0.04, unpriced_requests: 2}]},
+      calls: [{id: 1, bot_id: "bot_research", bot_name: "Research Bot", conversation_name: "Weekly summary", model: "codex-gpt-6-sol", input_tokens: 18000, output_tokens: 2100, equivalent_usd: 0.09, price_known: true, trigger_content: "Summarize the week", occurred_at: day(0), kind: "chat"}, {id: 2, bot_id: "bot_research", bot_name: "Research Bot", conversation_name: "Weekly summary", model: "gpt-5-mini", input_tokens: 2400, output_tokens: 110, equivalent_usd: 0, price_known: false, trigger_content: "Summarize the week", occurred_at: day(0), kind: "review"}],
       price_source: "sample", price_as_of: "2026-10-01", note: ""};
     return undefined;
   };
@@ -421,6 +422,17 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
     {id: "keys-add-env", tab: "keys", run: async ({page}) => { await click(page.getByRole("button", {name: /Add environment variable|Add variable/}), "Keys: add env"); await page.waitForTimeout(500); }},
     {id: "keys-ssh", tab: "keys", run: async ({page}) => { await click(page.getByRole("tab").nth(1), "Keys: SSH tab"); await page.waitForTimeout(400); await click(page.getByRole("button", {name: /Show public|public key/i}), "Keys: show public key"); await click(page.getByRole("button", {name: /Add (SSH )?key/}), "Keys: add key"); await page.waitForTimeout(500); }},
     {id: "computer-expanded", tab: "computer", run: async ({page}) => { await page.waitForTimeout(600); }},
+    {id: "usage-review", tab: "usage", run: async ({page}) => {
+      const block = page.locator(".usage-review");
+      await block.waitFor();
+      const text = (await block.innerText()).replace(/\s+/g, " ");
+      if (!/Safety review/.test(text) || !/Model requests\s*9/.test(text)) throw new Error(`Usage: safety review line missing or wrong: ${text}`);
+      await click(page.locator(".usage-ranges button").nth(0), "Usage: 24h range");
+      await page.waitForTimeout(400);
+      if (!/Model requests\s*3/.test((await block.innerText()).replace(/\s+/g, " "))) throw new Error("Usage: review line did not follow the period selector");
+      await click(page.locator(".usage-ranges button").nth(1), "Usage: back to 7 days");
+      await page.waitForTimeout(600);
+    }},
     {id: "usage-calls", tab: "usage", run: async ({page}) => { await click(page.locator(".usage-ranges button").nth(1), "Usage: second range"); await page.waitForTimeout(600); }},
     {id: "advanced-export-env", tab: "advanced", run: async ({page}) => {
       await click(page.getByRole("button", {name: /Show transferable environment credentials/}), "Advanced: load env");
