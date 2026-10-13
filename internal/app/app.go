@@ -486,7 +486,7 @@ CREATE TABLE IF NOT EXISTS messages(id TEXT PRIMARY KEY,conversation_id TEXT NOT
 CREATE TABLE IF NOT EXISTS message_reactions(message_id TEXT NOT NULL,actor_key TEXT NOT NULL,emoji TEXT NOT NULL,created_at TEXT NOT NULL,PRIMARY KEY(message_id,actor_key,emoji),FOREIGN KEY(message_id) REFERENCES messages(id) ON DELETE CASCADE);
 CREATE TABLE IF NOT EXISTS memories(id TEXT PRIMARY KEY,conversation_id TEXT NOT NULL,bot_id TEXT,content TEXT NOT NULL,revision INTEGER NOT NULL,created_at TEXT NOT NULL,updated_at TEXT NOT NULL,FOREIGN KEY(conversation_id) REFERENCES conversations(id) ON DELETE CASCADE);
 CREATE TABLE IF NOT EXISTS runs(id TEXT PRIMARY KEY,conversation_id TEXT NOT NULL,bot_id TEXT NOT NULL,status TEXT NOT NULL,error TEXT,parent_run_id TEXT,handoff_count INTEGER NOT NULL DEFAULT 0,model TEXT NOT NULL DEFAULT '',kind TEXT NOT NULL DEFAULT '',origin_conversation_id TEXT NOT NULL DEFAULT '',trigger_message_id TEXT NOT NULL DEFAULT '',queue_seq INTEGER NOT NULL DEFAULT 0,created_at TEXT NOT NULL,updated_at TEXT NOT NULL,FOREIGN KEY(conversation_id) REFERENCES conversations(id) ON DELETE CASCADE);
-CREATE TABLE IF NOT EXISTS run_wakes(run_id TEXT PRIMARY KEY,request TEXT NOT NULL,FOREIGN KEY(run_id) REFERENCES runs(id) ON DELETE CASCADE);
+CREATE TABLE IF NOT EXISTS run_wakes(run_id TEXT PRIMARY KEY,request TEXT NOT NULL,source TEXT NOT NULL DEFAULT 'wake',digest TEXT NOT NULL DEFAULT '',FOREIGN KEY(run_id) REFERENCES runs(id) ON DELETE CASCADE);
 CREATE TABLE IF NOT EXISTS run_waits(run_id TEXT PRIMARY KEY,conversation_id TEXT NOT NULL,bot_id TEXT NOT NULL,wait_for TEXT NOT NULL,lineage TEXT NOT NULL,status TEXT NOT NULL DEFAULT 'pending' CHECK(status IN ('pending','fulfilled','expired')),deadline_at TEXT NOT NULL,created_at TEXT NOT NULL,FOREIGN KEY(run_id) REFERENCES runs(id) ON DELETE CASCADE);
 CREATE TABLE IF NOT EXISTS run_steering(new_run_id TEXT NOT NULL,old_run_id TEXT NOT NULL,PRIMARY KEY(new_run_id,old_run_id),FOREIGN KEY(new_run_id) REFERENCES runs(id) ON DELETE CASCADE,FOREIGN KEY(old_run_id) REFERENCES runs(id) ON DELETE CASCADE);
 CREATE TABLE IF NOT EXISTS events(id INTEGER PRIMARY KEY AUTOINCREMENT,conversation_id TEXT NOT NULL,type TEXT NOT NULL,data TEXT NOT NULL,created_at TEXT NOT NULL,FOREIGN KEY(conversation_id) REFERENCES conversations(id) ON DELETE CASCADE);
@@ -543,6 +543,14 @@ CREATE INDEX IF NOT EXISTS events_conversation ON events(conversation_id,id);`)
 		{"description", `ALTER TABLE memories ADD COLUMN description TEXT NOT NULL DEFAULT ''`},
 	} {
 		if err = ensureColumn(s.db, "memories", col.name, col.ddl); err != nil {
+			return err
+		}
+	}
+	for _, col := range []struct{ name, ddl string }{
+		{"source", `ALTER TABLE run_wakes ADD COLUMN source TEXT NOT NULL DEFAULT 'wake'`},
+		{"digest", `ALTER TABLE run_wakes ADD COLUMN digest TEXT NOT NULL DEFAULT ''`},
+	} {
+		if err = ensureColumn(s.db, "run_wakes", col.name, col.ddl); err != nil {
 			return err
 		}
 	}
@@ -3465,6 +3473,12 @@ func (s *Server) execute(c Conversation, r Run) {
 		}
 		return
 	}
+	choiceReply, replied := s.replyChoice(r)
+	repliedFinal := replied && (strings.TrimSpace(choiceReply.text) != "" || s.store.hasPostedMessage(r.ID))
+	if replied {
+		// respond(reply) is the run's final message; later model text is dropped.
+		res.Content = s.replyFinalText(r, choiceReply)
+	}
 	if r.Kind == runKindSchedule || r.scheduleTask != nil {
 		if err := steeringBoundary(); err != nil {
 			if !steeringCancelled {
@@ -3487,7 +3501,7 @@ func (s *Server) execute(c Conversation, r Run) {
 			s.failRun(c, r, errors.New(scheduleFailureDetail(res.Content, botCfg)))
 			return
 		}
-		if cleanBotOutput(res.Content, botCfg) == "" {
+		if cleanBotOutput(res.Content, botCfg) == "" && !repliedFinal {
 			s.failRun(c, r, errors.New("scheduled task confirmed a result but returned no final answer"))
 			return
 		}
@@ -3549,7 +3563,7 @@ func (s *Server) execute(c Conversation, r Run) {
 			}
 		}
 	}
-	if res.Content == "" {
+	if res.Content == "" && !repliedFinal {
 		required, err := s.store.finalAnswerRequired(r.ID)
 		if err != nil {
 			s.failRun(c, r, err)
