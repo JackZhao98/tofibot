@@ -1,5 +1,5 @@
 import { thinkingHeadline } from "./thinkingHeadline";
-import { TaskRunBlock } from "./TaskRunBlock";
+import { TaskRunBlock, taskBlockVisible } from "./TaskRunBlock";
 import { markSenderGroups } from "./senderGroups";
 import { buildTaskOwners, presentTaskIssue, taskPhaseLabel, type TaskOwner } from "./taskIssuePresentation";
 import { i18n, useTranslation } from "./i18n";
@@ -262,12 +262,13 @@ function formatHoverTime(value: string, timeZone: string) {
 }
 
 /** Browser-mode message actions, revealed on hover or keyboard focus instead of a context menu. */
-function MessageHoverActions({ message, timezone, onReact, onReply }: { message: Message; timezone: string; onReact: (anchor: DOMRect) => void; onReply?: () => void }) {
+function MessageHoverActions({ message, timezone, onReact, onReply, onActivity, activityOpen }: { message: Message; timezone: string; onReact: (anchor: DOMRect) => void; onReply?: () => void; onActivity?: () => void; activityOpen?: boolean }) {
   const { t } = useTranslation("chat");
   return <div className="message-hover-actions" role="toolbar" aria-label={t("hover.toolbar")}>
     <time dateTime={message.created_at} title={`${formatExactTime(message.created_at, timezone)} · ${timezone}`}>{formatHoverTime(message.created_at, timezone)}</time>
     <button type="button" aria-label={t("hover.react")} data-hint={t("hover.react")} onClick={event => onReact(event.currentTarget.getBoundingClientRect())}><Icon name="emoji" size={16} /></button>
     {onReply && <button type="button" aria-label={t("hover.reply")} data-hint={t("hover.reply")} onClick={onReply}><Icon name="reply" size={16} /></button>}
+    {onActivity && <button type="button" className="message-activity-action" aria-label={activityOpen ? t("hover.hide_activity") : t("hover.view_activity")} aria-pressed={activityOpen} data-hint={activityOpen ? t("hover.hide_activity") : t("hover.view_activity")} onClick={onActivity}><Icon name="activity" size={16} /></button>}
   </div>;
 }
 
@@ -286,6 +287,8 @@ function jumpToMessage(target: HTMLElement | null | undefined) {
 /** Live rows in the conversation time the whole run, not just its first tool. */
 const ExpiryFinishingContext = createContext<ReadonlySet<string>>(new Set());
 const RunStartContext = createContext<ReadonlyMap<string, number>>(new Map());
+/** Whether chat shows Activity rows, and which runs were opened one by one from a message's action menu. */
+const ActivityViewContext = createContext<{ show: boolean; revealed: ReadonlySet<string> }>({ show: false, revealed: new Set() });
 
 function useNow(active: boolean, interval = 1000) {
   const [now, setNow] = useState(() => Date.now());
@@ -304,16 +307,32 @@ function SenderHead({ id, name }: { id: string; name: string }) {
   return <div className="sender-head"><div className="sender-avatar"><Avatar label={name} id={id} mini /></div><span className="sender-name">{name}</span></div>;
 }
 
+/** The one compact status line of a working run: "Browsing the web · 10s". Part of the Bot's sender group. */
+function CompactLiveLine({ label, botId, botName, at, showName, ariaLabel }: { label: string; botId: string; botName: string; at: string; showName: boolean; ariaLabel: string }) {
+  return <section className={`tool-message web-tool-run is-live live-run-status${showName ? " is-group" : ""}`} aria-label={ariaLabel} data-sender={showName ? botId : undefined} data-at={showName ? at : undefined}>
+    {showName && <SenderHead id={botId} name={botName} />}
+    <div className="web-tool-disclosure"><div className="web-tool-summary"><span className="web-tool-toggle"><span className="web-tool-live-label">{label}</span></span></div></div>
+  </section>;
+}
+
 function LiveRunStatus({ run, botName, showName }: { run: Run; botName: string; showName: boolean }) {
   const { t } = useTranslation("chat");
   const now = useNow(true);
   const started = Date.parse(run.created_at);
   const seconds = Number.isFinite(started) ? Math.max(0, Math.floor((now - started) / 1000)) : 0;
   const label = run.finishing_reason === "approval_expired" ? t("live.finishing") : run.status === "queued" ? t("live.waiting_start") : run.kind === "triage" ? t("live.triaging") : t("live.thinking");
-  return <section className={`tool-message web-tool-run is-live live-run-status${showName ? " is-group" : ""}`} aria-label={t("live.status_label", { name: botName })} data-sender={showName ? run.bot_id : undefined} data-at={showName ? run.created_at : undefined}>
-    {showName && <SenderHead id={run.bot_id} name={botName} />}
-    <div className="web-tool-disclosure"><div className="web-tool-summary"><span className="web-tool-toggle"><span className="web-tool-live-label">{label}{run.finishing_reason === "approval_expired" ? "" : ` · ${formatRunDuration(seconds * 1000, false)}`}</span></span></div></div>
-  </section>;
+  return <CompactLiveLine label={`${label}${run.finishing_reason === "approval_expired" ? "" : ` · ${formatRunDuration(seconds * 1000, false)}`}`} botId={run.bot_id} botName={botName} at={run.created_at} showName={showName} ariaLabel={t("live.status_label", { name: botName })} />;
+}
+
+/** A working run outside a task block while Activity is hidden: its current step as one line, no step list. */
+function LiveToolLine({ runId, items, now, botName, senderId }: { runId: string; items: ToolActivity[]; now: number; botName: string; senderId?: string }) {
+  const { t } = useTranslation("chat");
+  const finishing = useContext(ExpiryFinishingContext).has(runId);
+  const runStart = useContext(RunStartContext).get(runId);
+  const current = activeToolForRun(items, runId) ?? items.find(item => item.status === "queued");
+  const seconds = runStart !== undefined ? Math.max(0, Math.floor((now - runStart) / 1000)) : undefined;
+  const label = finishing ? t("live.finishing") : `${current ? toolActionLabel(current) : t("live.thinking")}${seconds === undefined ? "" : ` · ${formatRunDuration(seconds * 1000, false)}`}`;
+  return <CompactLiveLine label={label} botId={senderId ?? items[0]?.bot_id ?? ""} botName={botName} at={new Date(runStart ?? now).toISOString()} showName={Boolean(senderId)} ariaLabel={t("live.status_label", { name: botName })} />;
 }
 
 /** Short run durations keep their tenths; longer runs read as minutes and hours. */
@@ -368,7 +387,10 @@ function App() {
 
 function Workspace() {
   const { t } = useTranslation(["chat", "common"]);
-  const {timezone} = useUserTimezone();
+  const {timezone, showActivity} = useUserTimezone();
+  const [revealedRuns, setRevealedRuns] = useState<ReadonlySet<string>>(() => new Set());
+  const [tapActionsId, setTapActionsId] = useState("");
+  const activityView = useMemo(() => ({ show: showActivity, revealed: revealedRuns }), [showActivity, revealedRuns]);
   const appearance = useAppearance();
   const [sidebarCollapsed, setSidebarCollapsed] = useState(Boolean(desktopState().sidebarCollapsed));
   const sidebarListRef = useRef<HTMLDivElement | null>(null);
@@ -1015,6 +1037,8 @@ function Workspace() {
   const defaultSidebarConversations = visibleSidebarConversations.filter((conversation) => !sidebarLayout.pinned.includes(conversation.id) && !sectionedConversationIds.has(conversation.id));
   const runById = useMemo(() => new Map(runs.map((run) => [run.id, run])), [runs]);
   const activeRunIds = useMemo(() => new Set(runs.filter(run => run.status === "queued" || run.status === "running").map(run => run.id)), [runs]);
+  // Activity rows are off by default: only a working run (as one status line) or a run opened from its message's menu draws steps.
+  const keepActivityRun = useCallback((runId?: string) => showActivity || (runId !== undefined && (revealedRuns.has(runId) || activeRunIds.has(runId))), [showActivity, revealedRuns, activeRunIds]);
   const retryFamilies = useMemo(() => buildRetryFamilies(runs), [runs]);
   const runStarts = useMemo(() => new Map(runs.map(run => [run.id, Date.parse(run.created_at)] as const).filter(([, start]) => Number.isFinite(start))), [runs]);
   const retryAuditAnchors = useMemo(() => new Map(retryFamilies.map(family => [family.rootId, retryFamilyAnchor(family, messageRecords)])), [retryFamilies, messageRecords]);
@@ -1049,7 +1073,7 @@ function Workspace() {
   const summaryLoadingRunIDs = useMemo(() => new Set(Object.entries(toolSummaryState).filter(([, state]) => state.loading).map(([runID]) => runID)), [toolSummaryState]);
   const summaryErrorRunIDs = useMemo(() => new Set(Object.entries(toolSummaryState).filter(([, state]) => Boolean(state.error)).map(([runID]) => runID)), [toolSummaryState]);
   const aggregateToolRunIDs = useMemo(() => new Set([...summaryRunIDs, ...summaryLoadingRunIDs, ...summaryErrorRunIDs]), [summaryRunIDs, summaryLoadingRunIDs, summaryErrorRunIDs]);
-  const timelineToolActivities = useMemo(() => loadedToolActivities.filter(activity => !aggregateToolRunIDs.has(activity.run_id) && !supersededRunIDs.has(activity.run_id) && !ownedRunIDs.has(activity.run_id)), [loadedToolActivities, aggregateToolRunIDs, supersededRunIDs, ownedRunIDs]);
+  const timelineToolActivities = useMemo(() => loadedToolActivities.filter(activity => !aggregateToolRunIDs.has(activity.run_id) && !supersededRunIDs.has(activity.run_id) && !ownedRunIDs.has(activity.run_id) && keepActivityRun(activity.run_id)), [loadedToolActivities, aggregateToolRunIDs, supersededRunIDs, ownedRunIDs, keepActivityRun]);
   const toolTimeline = useMemo(() => {
     const visibleIds = new Set(messages.map(message => message.id));
     return buildToolTimeline(messageRecords.filter(message => visibleIds.has(message.id)), timelineToolActivities, runs);
@@ -1064,16 +1088,16 @@ function Workspace() {
     ]);
     return live.filter(run => (run.status === "running" || !running) && !busy.has(run.id)).sort((a, b) => a.created_at.localeCompare(b.created_at));
   }, [runs, activeId, loadedToolActivities, messageRecords, drafts]);
-  const toolSummaryAnchors = useMemo(() => buildToolSummaryAnchors(messages, terminalToolSummaries.filter(summary => !supersededRunIDs.has(summary.run_id) && !ownedRunIDs.has(summary.run_id)), toolDetailActivities, runs), [messages, terminalToolSummaries, toolDetailActivities, runs, supersededRunIDs, ownedRunIDs]);
-  const toolSummaryErrorAnchors = useMemo(() => buildToolRunAnchors(messages, terminalSummaryRunIDs.filter(runID => !supersededRunIDs.has(runID) && !ownedRunIDs.has(runID) && toolSummaryState[runID]?.error).map(run_id => ({ run_id })), runs), [messages, terminalSummaryRunIDs, toolSummaryState, runs, supersededRunIDs, ownedRunIDs]);
+  const toolSummaryAnchors = useMemo(() => buildToolSummaryAnchors(messages, terminalToolSummaries.filter(summary => !supersededRunIDs.has(summary.run_id) && !ownedRunIDs.has(summary.run_id) && keepActivityRun(summary.run_id)), toolDetailActivities, runs), [messages, terminalToolSummaries, toolDetailActivities, runs, supersededRunIDs, ownedRunIDs, keepActivityRun]);
+  const toolSummaryErrorAnchors = useMemo(() => buildToolRunAnchors(messages, terminalSummaryRunIDs.filter(runID => !supersededRunIDs.has(runID) && !ownedRunIDs.has(runID) && keepActivityRun(runID) && toolSummaryState[runID]?.error).map(run_id => ({ run_id })), runs), [messages, terminalSummaryRunIDs, toolSummaryState, runs, supersededRunIDs, ownedRunIDs, keepActivityRun]);
   const toolSummaryLoadingAnchors = useMemo(() => {
     const known = new Set(terminalToolSummaries.map(summary => summary.run_id));
     const evidence = new Set([
       ...loadedToolActivities.map(activity => activity.run_id),
       ...messageRecords.filter(message => isMidRunKind(message.kind) && message.run_id).map(message => message.run_id!),
     ]);
-    return buildToolRunAnchors(messages, terminalSummaryRunIDs.filter(runID => !supersededRunIDs.has(runID) && !ownedRunIDs.has(runID) && toolSummaryState[runID]?.loading && !known.has(runID) && evidence.has(runID)).map(run_id => ({ run_id })), runs);
-  }, [messages, messageRecords, loadedToolActivities, terminalSummaryRunIDs, toolSummaryState, terminalToolSummaries, runs, supersededRunIDs, ownedRunIDs]);
+    return buildToolRunAnchors(messages, terminalSummaryRunIDs.filter(runID => !supersededRunIDs.has(runID) && !ownedRunIDs.has(runID) && keepActivityRun(runID) && toolSummaryState[runID]?.loading && !known.has(runID) && evidence.has(runID)).map(run_id => ({ run_id })), runs);
+  }, [messages, messageRecords, loadedToolActivities, terminalSummaryRunIDs, toolSummaryState, terminalToolSummaries, runs, supersededRunIDs, ownedRunIDs, keepActivityRun]);
 
   useEffect(() => {
     if (!activeId || !terminalSummaryRunIDs.length) return;
@@ -1685,8 +1709,23 @@ function Workspace() {
     if (signal?.retryUntil && signal.retryUntil > Date.now()) return t("live.busy_retry_later");
     return signal?.thinking ? t("live.thinking_about", { headline: signal.thinking }) : run.status === "queued" ? t("live.waiting_start") : t("live.thinking");
   }
+  const runHasActivity = (runId: string) => loadedToolActivities.some(activity => activity.run_id === runId) || terminalToolSummaries.some(summary => summary.run_id === runId && summary.tool_count > 0) || messageRecords.some(message => message.run_id === runId && message.kind === "progress");
+  function toggleRunActivity(runId: string) {
+    const opening = !revealedRuns.has(runId);
+    setRevealedRuns(current => { const next = new Set(current); if (opening) next.add(runId); else next.delete(runId); return next; });
+    if (opening) window.setTimeout(() => messageListRef.current?.querySelector<HTMLElement>(`[data-activity-run="${CSS.escape(runId)}"], [data-run-id="${CSS.escape(runId)}"]`)?.scrollIntoView({ block: "nearest", behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" }), 60);
+  }
+  useEffect(() => {
+    if (!tapActionsId) return;
+    const close = (event: Event) => { if (!(event.target as HTMLElement).closest?.(".message-hover-host.is-actions-open")) setTapActionsId(""); };
+    document.addEventListener("pointerdown", close);
+    return () => document.removeEventListener("pointerdown", close);
+  }, [tapActionsId]);
+  const ownerRevealed = (owner: TaskOwner) => owner.family.attempts.some(attempt => revealedRuns.has(attempt.id));
+  // A block with nothing to show (Activity hidden, no card raised) draws nothing, so it must not count as a name label above a message.
+  const ownerDraws = (owner: TaskOwner) => taskBlockVisible({ owner, tools: loadedToolActivities, questions: questions.items, drafts: mailDrafts.items, messages: messageRecords, summaries: terminalToolSummaries, details: toolDetailState, connected: streamConnected, hideActivity: !showActivity, revealed: ownerRevealed(owner) });
   function renderTaskOwner(owner: TaskOwner) {
-    return <TaskRunBlock key={owner.key} owner={owner} senderHead={active?.kind === "group" ? <SenderHead id={owner.family.latest.bot_id} name={botById.get(owner.family.latest.bot_id)?.name ?? "Bot"} /> : undefined} liveStatus={runLiveStatus(owner.family.latest)} liveAvatar={<BotAvatar id={owner.family.latest.bot_id} mini motion={owner.family.latest.status === "waiting" ? "awake" : "working"} />} tools={loadedToolActivities} questions={questions.items} drafts={mailDrafts.items} messages={messageRecords} summaries={terminalToolSummaries} details={toolDetailState} connected={streamConnected} botName={botById.get(owner.family.latest.bot_id)?.name ?? "Bot"} showName={active?.kind === "group"}
+    return <TaskRunBlock key={owner.key} hideActivity={!showActivity} revealed={ownerRevealed(owner)} owner={owner} senderHead={active?.kind === "group" ? <SenderHead id={owner.family.latest.bot_id} name={botById.get(owner.family.latest.bot_id)?.name ?? "Bot"} /> : undefined} liveStatus={runLiveStatus(owner.family.latest)} liveAvatar={<BotAvatar id={owner.family.latest.bot_id} mini motion={owner.family.latest.status === "waiting" ? "awake" : "working"} />} tools={loadedToolActivities} questions={questions.items} drafts={mailDrafts.items} messages={messageRecords} summaries={terminalToolSummaries} details={toolDetailState} connected={streamConnected} botName={botById.get(owner.family.latest.bot_id)?.name ?? "Bot"} showName={active?.kind === "group"}
       onOpenTools={() => openSettings("connections")}
       onFeedback={text => window.dispatchEvent(new CustomEvent("tofi:task-feedback", {detail:{conversationId:owner.family.latest.conversation_id,text}}))}
       onRefresh={refreshTaskStatus} onLoadDetails={loadToolDetails}
@@ -1814,7 +1853,7 @@ function Workspace() {
             {teamBoardOpen && active.kind === "group" ? <TeamBoard key={active.id} conversation={active} bots={bots} timezone={timezone} onClose={() => setTeamBoardOpen(false)} onOpenWork={() => { setTeamBoardOpen(false); setPanel("schedule"); }} /> : <>
             <div className="chat-body">
               <div className="message-scroll" ref={viewport.scrollRef} onScroll={viewport.onScroll}>
-                <ExpiryFinishingContext.Provider value={new Set(runs.filter(run => run.finishing_reason === "approval_expired").map(run => run.id))}><RunStartContext.Provider value={runStarts}><div className="message-list" ref={messageListRef}>
+                <ExpiryFinishingContext.Provider value={new Set(runs.filter(run => run.finishing_reason === "approval_expired").map(run => run.id))}><RunStartContext.Provider value={runStarts}><ActivityViewContext.Provider value={activityView}><div className="message-list" ref={messageListRef}>
                   {viewport.boundaryError && <div className="history-error" role="alert">{t("history.boundary_failed")}<button onClick={viewport.retryBoundary}>{t("common:action.retry")}</button><button onClick={jumpLatest}>{t("history.view_latest")}</button></div>}
                   {historyError && !viewport.boundaryError && <div className="history-error history-error-older" role="alert"><span>{t("history.older_failed", { error: historyError })}</span><button onClick={() => void loadOlder()} disabled={loadingOlder}>{loadingOlder ? t("action.retrying") : t("common:action.retry")}</button></div>}
                   {hasMore && <button className="load-older" onClick={() => void loadOlder()} disabled={loadingOlder}>{loadingOlder ? t("action.loading") : t("history.load_older")}</button>}
@@ -1847,7 +1886,7 @@ function Workspace() {
                       const ownedBy = (item: { run_id: string; bot_id: string; conversation_id: string }) => taskOwners.some(owner => owner.family.attempts.some(run => run.id === item.run_id && run.bot_id === item.bot_id && run.conversation_id === item.conversation_id));
                       const anchorOf = (candidate: (typeof conversationItems)[number] | undefined) => candidate?.kind === "message" ? { kind: "message" as const, id: candidate.message.id } : candidate?.kind === "question" ? { kind: "question" as const, id: candidate.question.question_id } : candidate?.kind === "mail_draft" ? { kind: "draft" as const, id: candidate.draft.draft_id } : undefined;
                       const itemTime = (candidate: (typeof conversationItems)[number] | undefined) => candidate?.kind === "message" ? candidate.message.created_at : candidate?.kind === "question" ? candidate.question.created_at : candidate?.draft.created_at;
-                      const ownerAnchors = taskOwners.map(owner => ({ anchor: owner.anchor, botId: owner.family.latest.bot_id }));
+                      const ownerAnchors = taskOwners.filter(ownerDraws).map(owner => ({ anchor: owner.anchor, botId: owner.family.latest.bot_id }));
                       const drawnAbove = conversationItems[previousRenderedIndex(conversationItems, index, candidate => (candidate.kind === "question" ? ownedBy(candidate.question) : candidate.kind === "mail_draft" ? ownedBy(candidate.draft) : false) && !precedingBlockBotIds(anchorOf(candidate), ownerAnchors).length)];
                       const blockBotIds = active.kind === "group" ? precedingBlockBotIds(anchorOf(drawnAbove), ownerAnchors) : [];
                       const blockTime = itemTime(drawnAbove);
@@ -1855,7 +1894,7 @@ function Workspace() {
                       const showDivider = !previousTime || dateInTimezone(previousTime, timezone) !== dateInTimezone(message.created_at, timezone) || +new Date(message.created_at) - +new Date(previousTime) >= 10 * 60_000;
                       const showIdentity = (active.kind === "group" || message.kind === "forward_result" || message.kind === "notice" && runById.get(message.run_id ?? "")?.stop_reason === "approval_expired") && message.role !== "user" && (active.kind === "group" || !compact);
                       const processTools = toolTimeline.beforeMessageId.get(message.id) ?? [];
-                      const processProgress = (foldedProgress.progressByFinalId.get(message.id) ?? []).filter(note => !ownedRunIDs.has(note.run_id ?? ""));
+                      const processProgress = (foldedProgress.progressByFinalId.get(message.id) ?? []).filter(note => !ownedRunIDs.has(note.run_id ?? "") && keepActivityRun(note.run_id));
                       const afterTools = toolTimeline.afterMessageId.get(message.id) ?? [];
                       const processSummaryByRunID = new Map(toolSummaryAnchors.beforeMessageId.get(message.id)?.map(summary => [summary.run_id, summary]) ?? []);
                       for (const summary of terminalToolSummaries) if (!ownedRunIDs.has(summary.run_id) && processTools.some(activity => activity.run_id === summary.run_id)) processSummaryByRunID.set(summary.run_id, summary);
@@ -1879,12 +1918,15 @@ function Workspace() {
                       const replyTarget = replyMarker.ids.length ? replyMarker.ids.map(id => messageById.get(id)).find(isEarlierInChat) ?? (isEarlierInChat(runTrigger) ? runTrigger : undefined) : undefined;
                       const showReplyQuote = shouldShowReplyQuote(quoteTimeline, quoteIndexById.get(message.id) ?? -1, replyTarget);
                       const canReact = messageRecords.some(record => record.id === message.id);
+                      // "View activity" is offered on a Bot's message whose run did work (steps or progress notes), not on notices or user text.
+                      const activityRunId = message.role === "assistant" && message.run_id && message.kind !== "notice" && message.kind !== "message_ref" && runHasActivity(message.run_id) ? message.run_id : undefined;
                       return <div className={`message-block${arrivalIDs.current.has(message.id) ? " new-arrival" : ""}`} data-message-seq={message.seq} data-message-id={message.id} data-flip={message.id} tabIndex={-1} key={message.id} onContextMenu={canReact && isDesktop ? event => { event.preventDefault(); setReactionMenu({ messageId: message.id, x: event.clientX, y: event.clientY }); } : undefined}>
                         {showDivider && <div className="date-divider"><span>{formatDateDivider(message.created_at, timezone)}</span></div>}
                         {unread && <div className="unread-divider" aria-label={t("history.unread_below")}><span>{t("history.unread")}</span></div>}
-                        <div className={`message-hover-host${message.role === "user" ? " is-user" : ""}`}>
+                        <div className={`message-hover-host${message.role === "user" ? " is-user" : ""}${tapActionsId === message.id ? " is-actions-open" : ""}`} onClick={!isDesktop && canReact ? event => { if (!window.matchMedia("(hover: none)").matches || (event.target as HTMLElement).closest("a,button,summary,input,textarea,pre,[role=button],.message-hover-actions")) return; setTapActionsId(current => current === message.id ? "" : message.id); } : undefined}>
                         {!isDesktop && canReact && message.kind !== "notice" && message.kind !== "message_ref" && <MessageHoverActions message={message} timezone={timezone}
                           onReact={anchor => setReactionMenu({ messageId: message.id, x: anchor.left, y: anchor.bottom + 6 })}
+                          onActivity={activityRunId && !showActivity ? () => { setTapActionsId(""); toggleRunActivity(activityRunId); } : undefined} activityOpen={activityRunId ? revealedRuns.has(activityRunId) : false}
                           onReply={active.archived ? undefined : () => { updateComposerDraft(active.id, current => ({ ...current, reply: { id: message.id, name: message.role === "user" ? t("message.you") : message.sender_bot_name ?? (message.sender_bot_id ? botById.get(message.sender_bot_id)?.name : undefined) ?? "Bot", excerpt: previewText(readReplyMarker(message.content).body) || t("message.attachment") } })); document.querySelector<HTMLTextAreaElement>(".composer textarea")?.focus(); }} />}
                         <MessageBubble message={message} replyTarget={showReplyQuote ? replyTarget : undefined} replyTargetName={replyTarget?.role === "user" ? t("message.you") : replyTarget?.sender_bot_name ?? (replyTarget?.sender_bot_id ? botById.get(replyTarget.sender_bot_id)?.name ?? knownBotNames.current.get(replyTarget.sender_bot_id) : undefined)} senderName={message.sender_bot_name ?? (message.sender_bot_id ? knownBotNames.current.get(message.sender_bot_id) : undefined)} targetBot={message.notice?.to_bot_id ? botById.get(message.notice.to_bot_id) : undefined} sender={message.sender_bot_id ? botById.get(message.sender_bot_id) : undefined}
                           run={message.run_id ? runById.get(message.run_id) : undefined}
@@ -1907,7 +1949,7 @@ function Workspace() {
                   {taskOwners.filter(owner => !owner.anchor).map(renderTaskOwner)}
                   {!isDesktop && pendingRuns.filter(run => !ownedRunIDs.has(run.id)).map(run => <LiveRunStatus key={run.id} run={run} botName={run.kind === "triage" ? "Tofi" : botById.get(run.bot_id)?.name ?? "Bot"} showName={active.kind === "group"} />)}
                   {error && <div className="error-banner" role="alert">{error}</div>}
-                </div></RunStartContext.Provider></ExpiryFinishingContext.Provider>
+                </div></ActivityViewContext.Provider></RunStartContext.Provider></ExpiryFinishingContext.Provider>
               </div>
               {viewport.showJump && <button className="jump-latest" aria-label={t("history.jump_latest")} onClick={jumpLatest}><Icon name="arrow-down" size={18} variant="filled" />{viewport.newCount > 0 && <span className="jump-new-count">{t("history.new_count", { count: viewport.newCount })}</span>}</button>}
             </div>
@@ -2312,6 +2354,7 @@ function ToolActivityList({ activities, progress = [], summaries = [], summaryEr
     const interval = window.setInterval(() => setNow(Date.now()), isDesktop ? 1000 : 100);
     return () => window.clearInterval(interval);
   }, [hasLiveTool]);
+  const view = useContext(ActivityViewContext);
   if (!activities.length && !progress.length && !summaries.length && !Object.keys(summaryErrors).length && !Object.keys(summaryLoading).length) return null;
   const summariesByRunID = new Map(summaries.map(summary => [summary.run_id, summary]));
   const grouped = [...new Set([...activities.map((a) => a.run_id), ...progress.map(message => message.run_id).filter((id): id is string => Boolean(id)), ...summaries.map(summary => summary.run_id), ...Object.keys(summaryErrors), ...Object.keys(summaryLoading)])].map((runId) => {
@@ -2319,7 +2362,9 @@ function ToolActivityList({ activities, progress = [], summaries = [], summaryEr
     const notes = progress.filter(message => message.run_id === runId).sort((a, b) => a.seq - b.seq);
     return { runId, items: allItems, notes, summary: summariesByRunID.get(runId), summaryError: summaryErrors[runId], summaryLoading: summaryLoading[runId] };
   }).sort((a, b) => compareQuestionTime(a.notes[0]?.created_at ?? a.items[0]?.started_at ?? a.summary?.started_at ?? "", b.notes[0]?.created_at ?? b.items[0]?.started_at ?? b.summary?.started_at ?? "") || a.runId.localeCompare(b.runId));
-  return <div className="work-details" aria-label={t("tools.details")}>{grouped.map(({ runId, items, notes, summary, summaryError, summaryLoading: loadingSummary }) => <ToolActivityRun key={runId} runId={runId} items={items} notes={notes} summary={summary} summaryError={summaryError} summaryLoading={loadingSummary} detail={details[runId]} onLoadDetails={onLoadDetails} onRetrySummary={onRetrySummary} live={activeRunIds.has(runId)} now={now} timezone={timezone} botName={botById.get(items[0]?.bot_id ?? notes[0]?.sender_bot_id ?? summary?.bot_id ?? "")?.name ?? "Bot"} senderId={group ? items[0]?.bot_id ?? notes[0]?.sender_bot_id ?? summary?.bot_id ?? "" : undefined} />)}</div>;
+  const shown = grouped.filter(group => view.show || view.revealed.has(group.runId) || activeRunIds.has(group.runId));
+  if (!shown.length) return null;
+  return <div className="work-details" aria-label={t("tools.details")}>{shown.map(({ runId, items, notes, summary, summaryError, summaryLoading: loadingSummary }) => !view.show && !view.revealed.has(runId) ? <LiveToolLine key={runId} runId={runId} items={items} now={now} botName={botById.get(items[0]?.bot_id ?? notes[0]?.sender_bot_id ?? summary?.bot_id ?? "")?.name ?? "Bot"} senderId={group ? items[0]?.bot_id ?? notes[0]?.sender_bot_id ?? summary?.bot_id ?? "" : undefined} /> : <ToolActivityRun key={runId} runId={runId} items={items} notes={notes} summary={summary} summaryError={summaryError} summaryLoading={loadingSummary} detail={details[runId]} onLoadDetails={onLoadDetails} onRetrySummary={onRetrySummary} live={activeRunIds.has(runId)} now={now} timezone={timezone} botName={botById.get(items[0]?.bot_id ?? notes[0]?.sender_bot_id ?? summary?.bot_id ?? "")?.name ?? "Bot"} senderId={group ? items[0]?.bot_id ?? notes[0]?.sender_bot_id ?? summary?.bot_id ?? "" : undefined} />)}</div>;
 }
 
 type ToolRunProps = { senderId?: string; runId: string; items: ToolActivity[]; notes: Message[]; summary?: ToolActivityRunSummary; summaryError?: string; summaryLoading?: boolean; detail?: ToolDetailState; onLoadDetails?: (runId: string, offset: number) => Promise<void>; onRetrySummary?: (runId: string) => void; live: boolean; now: number; timezone: string; botName: string };
@@ -2358,7 +2403,8 @@ function toolRunTimes(items: ToolActivity[], notes: Message[], summary?: ToolAct
 function WebToolActivityRun({ runId, items, notes, summary, summaryError, summaryLoading, detail, onLoadDetails, onRetrySummary, live, now, timezone, botName, senderId }: ToolRunProps) {
   const { t } = useTranslation(["chat", "common"]);
   const finishing = useContext(ExpiryFinishingContext).has(runId);
-  const [expanded, setExpanded] = useState(false);
+  const revealedHere = useContext(ActivityViewContext).revealed.has(runId);
+  const [expanded, setExpanded] = useState(revealedHere);
   const stepsRef = useRef<HTMLOListElement>(null);
   const priorStepKeys = useRef("");
   const priorStepsHeight = useRef(0);
@@ -2400,7 +2446,9 @@ function WebToolActivityRun({ runId, items, notes, summary, summaryError, summar
     void animation.finished.finally(() => { if (growthAnimation.current === animation) { growthAnimation.current = null; steps.style.overflow = ""; } }).catch(() => undefined);
   }, [entries.length, expanded, live, stepKeys]);
   useEffect(() => () => { growthAnimation.current?.cancel(); }, []);
-  return <section className={`tool-message web-tool-run${live ? " is-live" : ` is-complete${issues ? " has-tool-issues" : ""}`}`} aria-label={t("tools.steps_label", { name: botName })} data-sender={senderId || undefined} data-at={senderId && Number.isFinite(lastTime) ? new Date(lastTime).toISOString() : undefined}>
+  // Opened from a message's "View activity": the steps are wanted at once.
+  useEffect(() => { if (revealedHere) loadDetails(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  return <section data-activity-run={runId} className={`tool-message web-tool-run${live ? " is-live" : ` is-complete${issues ? " has-tool-issues" : ""}`}`} aria-label={t("tools.steps_label", { name: botName })} data-sender={senderId || undefined} data-at={senderId && Number.isFinite(lastTime) ? new Date(lastTime).toISOString() : undefined}>
     {senderId && <SenderHead id={senderId} name={botName} />}
     <div className="web-tool-disclosure">
       <div className="web-tool-summary">

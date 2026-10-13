@@ -22,6 +22,10 @@ type userPreferences struct {
 	// Language is the Web UI language. Empty means automatic: the browser's
 	// preferred languages decide.
 	Language string `json:"language"`
+	// ShowActivity puts finished runs' Activity rows (tool steps) in the chat
+	// timeline. Off by default: the timeline shows the Bot's messages, and the
+	// steps stay one tap away behind a message's "View activity" action.
+	ShowActivity bool `json:"show_activity"`
 }
 
 // uiLanguages are the Web UI catalogs (ui/src/i18n/languages.ts).
@@ -42,12 +46,15 @@ updated_at TEXT NOT NULL
 	if err = ensureColumn(db, "user_preferences", "language", `ALTER TABLE user_preferences ADD COLUMN language TEXT NOT NULL DEFAULT ''`); err != nil {
 		return err
 	}
+	if err = ensureColumn(db, "user_preferences", "show_activity", `ALTER TABLE user_preferences ADD COLUMN show_activity INTEGER NOT NULL DEFAULT 0`); err != nil {
+		return err
+	}
 	return migrateOnboardingState(db)
 }
 
 func (s *Store) userPreferences() (userPreferences, error) {
 	var prefs userPreferences
-	err := s.db.QueryRow(`SELECT timezone,language FROM user_preferences WHERE id=1`).Scan(&prefs.Timezone, &prefs.Language)
+	err := s.db.QueryRow(`SELECT timezone,language,show_activity<>0 FROM user_preferences WHERE id=1`).Scan(&prefs.Timezone, &prefs.Language, &prefs.ShowActivity)
 	if err == sql.ErrNoRows {
 		err = nil
 	}
@@ -67,6 +74,23 @@ func (s *Store) putUserLanguage(language string) error {
 	defer tx.Rollback()
 	if _, err = tx.Exec(`INSERT INTO user_preferences(id,timezone,language,updated_at) VALUES(1,'',?,?)
 ON CONFLICT(id) DO UPDATE SET language=excluded.language,updated_at=excluded.updated_at`, language, now()); err != nil {
+		return err
+	}
+	if err = insertWorkspaceEventTx(tx, workspaceScopeConfig, now()); err != nil {
+		return err
+	}
+	return tx.Commit()
+}
+
+// putUserShowActivity stores whether Activity rows appear in the chat timeline.
+func (s *Store) putUserShowActivity(show bool) error {
+	tx, err := s.db.Begin()
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	if _, err = tx.Exec(`INSERT INTO user_preferences(id,timezone,show_activity,updated_at) VALUES(1,'',?,?)
+ON CONFLICT(id) DO UPDATE SET show_activity=excluded.show_activity,updated_at=excluded.updated_at`, show, now()); err != nil {
 		return err
 	}
 	if err = insertWorkspaceEventTx(tx, workspaceScopeConfig, now()); err != nil {
@@ -148,6 +172,7 @@ func (s *Server) preferences(w http.ResponseWriter, r *http.Request) {
 			Timezone       *string `json:"timezone"`
 			InitializeOnly bool    `json:"initialize_only"`
 			Language       *string `json:"language"`
+			ShowActivity   *bool   `json:"show_activity"`
 		}
 		dec := json.NewDecoder(io.LimitReader(r.Body, 16*1024))
 		dec.DisallowUnknownFields()
@@ -155,8 +180,8 @@ func (s *Server) preferences(w http.ResponseWriter, r *http.Request) {
 			writeErr(w, http.StatusBadRequest, "invalid_request", "expected one preferences object")
 			return
 		}
-		if body.Timezone == nil && body.Language == nil {
-			writeErr(w, http.StatusBadRequest, "invalid_request", "expected timezone or language")
+		if body.Timezone == nil && body.Language == nil && body.ShowActivity == nil {
+			writeErr(w, http.StatusBadRequest, "invalid_request", "expected timezone, language or show_activity")
 			return
 		}
 		if body.Language != nil {
@@ -170,12 +195,18 @@ func (s *Server) preferences(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 		}
+		if body.ShowActivity != nil {
+			if err := s.store.putUserShowActivity(*body.ShowActivity); err != nil {
+				writeErr(w, http.StatusInternalServerError, "preferences_unavailable", "preferences unavailable")
+				return
+			}
+		}
 		prefs, err := s.store.userPreferences()
 		if err != nil {
 			writeErr(w, http.StatusInternalServerError, "preferences_unavailable", "preferences unavailable")
 			return
 		}
-		response := map[string]any{"timezone": prefs.Timezone, "timezone_configured": prefs.TimezoneConfigured, "language": prefs.Language}
+		response := map[string]any{"timezone": prefs.Timezone, "timezone_configured": prefs.TimezoneConfigured, "language": prefs.Language, "show_activity": prefs.ShowActivity}
 		if body.Timezone != nil {
 			zone, err := s.store.putUserTimezone(strings.TrimSpace(*body.Timezone), body.InitializeOnly)
 			if err != nil {

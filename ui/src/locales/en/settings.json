@@ -638,7 +638,11 @@
     "region": "Language and region",
     "moved_title": "Looking for export, server info or Start over?",
     "moved_body": "They moved to Advanced.",
-    "open_advanced": "Open Advanced"
+    "open_advanced": "Open Advanced",
+    "chat": "Chat",
+    "activity_title": "Show activity in chats",
+    "activity_note": "Show the steps a Bot took under its replies. Off by default; you can still open them from a message's action menu.",
+    "activity_save_failed": "Couldn't save. Try again."
   },
   "approvals": {
     "heading": "Reviewer",

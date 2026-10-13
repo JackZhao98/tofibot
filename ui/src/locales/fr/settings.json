@@ -647,7 +647,11 @@
     "region": "Langue et région",
     "moved_title": "Vous cherchez l’export, les infos serveur ou Repartir de zéro ?",
     "moved_body": "Ils se trouvent désormais dans Avancé.",
-    "open_advanced": "Ouvrir Avancé"
+    "open_advanced": "Ouvrir Avancé",
+    "chat": "Discussion",
+    "activity_title": "Afficher l’activité dans les discussions",
+    "activity_note": "Affiche les étapes d’un Bot sous ses réponses. Désactivé par défaut ; elles restent accessibles depuis le menu d’actions d’un message.",
+    "activity_save_failed": "Échec de l’enregistrement. Réessayez."
   },
   "approvals": {
     "heading": "Relecteur",

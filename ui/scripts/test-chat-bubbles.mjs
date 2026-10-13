@@ -29,7 +29,10 @@ const bots = [mkBot("bot_a", "Ledger Cat", "dm_a"), mkBot("bot_b", "Simile Cat",
 const group = { id: "grp_1", kind: "group", name: "Synthetic Group", bot_ids: ["bot_a", "bot_b"], updated_at: iso(0), read_seq: 0, user_visible: true };
 const dm = { id: "dm_a", kind: "dm", name: "Ledger Cat", bot_id: "bot_a", bot_ids: ["bot_a"], updated_at: iso(0), read_seq: 0, user_visible: true };
 
-function build(conv) {
+// Per-test additions to the synthetic world: extra runs/messages/tools/summaries, open questions, run overrides.
+const emptyWorld = () => ({ messages: [], runs: [], tools: [], summaries: [], questions: [], showActivity: false });
+
+function build(conv, world = emptyWorld()) {
   const bot = (id) => ({ sender_bot_id: id, sender_bot_name: bots.find(b => b.id === id).name });
   let seq = 0;
   const msg = (id, role, content, at, extra = {}) => ({ id, conversation_id: conv, role, content, seq: ++seq, created_at: iso(at), ...extra });
@@ -54,10 +57,12 @@ function build(conv) {
   const tools = [tool("run_a", "bot_a", 1, 12), tool("run_a", "bot_a", 2, 25), tool("run_b", "bot_b", 1, 60), ...[0, 1, 2, 3, 4, 5, 6].map(n => tool("run_c", "bot_a", n, 410 + n * 6))];
   const summary = (run_id, bot_id, n, a) => ({ run_id, bot_id, tool_count: n, completed_count: n, failed_count: 0, interrupted_count: 0, pending_count: 0, started_at: iso(a), updated_at: iso(a + 30) });
   const summaries = [summary("run_a", "bot_a", 2, 12), summary("run_b", "bot_b", 1, 60), summary("run_c", "bot_a", 7, 410)];
-  return { messages, runs, tools, summaries };
+  const extraSeq = messages.length;
+  messages.push(...world.messages.map((m, i) => ({ conversation_id: conv, seq: extraSeq + i + 1, ...m })));
+  return { messages, runs: [...runs, ...world.runs.map(r => ({ conversation_id: conv, origin_conversation_id: conv, queue_seq: 1, model: "synthetic-model", ...r }))], tools: [...tools, ...world.tools.map(t => ({ conversation_id: conv, ...t }))], summaries: [...summaries, ...world.summaries] };
 }
 
-async function mockApi(page, convs) {
+async function mockApi(page, convs, world = emptyWorld()) {
   const external = [];
   page.on("request", request => { const url = new URL(request.url()); if (url.origin !== origin && !url.protocol.startsWith("data")) external.push(request.url()); });
   await page.route("**/api/**", route => {
@@ -65,9 +70,9 @@ async function mockApi(page, convs) {
     const path = url.pathname;
     const json = body => route.fulfill({ status: 200, json: body });
     const conv = path.split("/")[3] ?? "";
-    const data = build(conv);
+    const data = build(conv, world);
     if (path === "/api/server-info") return json({ service: "tofi", protocol_version: 1, instance_id: INSTANCE, auth: { mode: "none" } });
-    if (path === "/api/preferences") return json({ timezone: "UTC", timezone_configured: true });
+    if (path === "/api/preferences") return json({ timezone: "UTC", timezone_configured: true, show_activity: world.showActivity });
     if (path === "/api/config") return json({ model_configured: true, default_model: "synthetic-model", provider: "synthetic" });
     if (path === "/api/bots") return json({ bots });
     if (path === "/api/conversations") return json({ conversations: convs });
@@ -81,7 +86,7 @@ async function mockApi(page, convs) {
     if (path.startsWith("/api/computer")) return json({ owner: null, waiting: [] });
     if (path.endsWith("/memories")) return json({ memories: [] });
     if (path.endsWith("/schedules")) return json({ schedules: [] });
-    if (path === "/api/questions") return json({ questions: [] });
+    if (path === "/api/questions") return json({ questions: world.questions.map(q => ({ conversation_id: conv || q.conversation_id, ...q })) });
     if (path === "/api/mail-drafts") return json({ drafts: [] });
     if (path === "/api/secret-inputs") return json({ requests: [] });
     return json({});
@@ -89,13 +94,20 @@ async function mockApi(page, convs) {
   return external;
 }
 
-async function open(url, { width, height, theme }) {
-  const context = await browser.newContext({ viewport: { width, height }, locale: "zh-CN", colorScheme: theme, reducedMotion: "reduce", hasTouch: width < 1100 });
+async function open(url, { width, height, theme, world = emptyWorld(), touch = width < 1100, mobile = false, fakeEvents = false }) {
+  const context = await browser.newContext({ viewport: { width, height }, locale: "zh-CN", colorScheme: theme, reducedMotion: "reduce", hasTouch: touch, isMobile: mobile });
+  if (fakeEvents) await context.addInitScript(() => {
+    // A controllable event stream: tests push run/tool events as the server would.
+    window.__streams = [];
+    window.EventSource = class { constructor(url) { this.url = url; this.listeners = {}; window.__streams.push(this); setTimeout(() => this.onopen?.(), 0); } addEventListener(type, fn) { (this.listeners[type] ??= []).push(fn); } close() {} };
+    let id = 1000;
+    window.__emit = (type, data) => { id += 1; for (const stream of window.__streams) if (stream.url.includes("/events")) for (const fn of stream.listeners[type] ?? []) fn({ data: JSON.stringify(data), lastEventId: String(id) }); };
+  });
   await context.addInitScript(value => { try { localStorage.setItem("tofi:appearance", value); } catch {} }, theme);
   const page = await context.newPage();
   const errors = [];
   page.on("pageerror", error => errors.push(error.message));
-  const external = await mockApi(page, [group, dm]);
+  const external = await mockApi(page, [group, dm], world);
   await page.goto(origin + url);
   await page.locator(".message-block").first().waitFor();
   await page.evaluate(() => document.fonts.ready);
@@ -180,24 +192,137 @@ const viewports = [["1180x820", 1180, 820], ["1024x768", 1024, 768], ["1440x900"
 const results = [];
 let failed = 0;
 try {
-  for (const theme of ["light", "dark"]) for (const [name, width, height] of viewports) for (const [kind, url] of [["group", "/g/grp_1"], ["dm", "/b/bot_a"]]) {
-    const label = `${kind} ${name} ${theme}`;
-    const { page, context, errors, external } = await open(url, { width, height, theme });
+  for (const showActivity of [false, true]) for (const theme of ["light", "dark"]) for (const [name, width, height] of viewports) for (const [kind, url] of [["group", "/g/grp_1"], ["dm", "/b/bot_a"]]) {
+    const label = `${kind} ${name} ${theme}${showActivity ? " activity-on" : ""}`;
+    const world = { ...emptyWorld(), showActivity };
+    const { page, context, errors, external } = await open(url, { width, height, theme, world });
     try {
       const m = await page.evaluate(measure);
-      await page.screenshot({ path: join(shots, `${prefix}-${kind}-${name}-${theme}.png`), fullPage: false });
+      await page.screenshot({ path: join(shots, `${prefix}${showActivity ? "-activity-on" : ""}-${kind}-${name}-${theme}.png`), fullPage: false });
       await page.evaluate(() => { const scroller = document.querySelector(".message-list")?.closest(".messages, .chat-scroll, [data-scroll]") ?? document.querySelector(".message-list")?.parentElement; for (let el = scroller; el; el = el.parentElement) if (el.scrollHeight > el.clientHeight + 4) { el.scrollTop = el.scrollHeight; break; } });
       await page.waitForTimeout(300);
-      await page.screenshot({ path: join(shots, `${prefix}-${kind}-${name}-${theme}-end.png`), fullPage: false });
+      await page.screenshot({ path: join(shots, `${prefix}${showActivity ? "-activity-on" : ""}-${kind}-${name}-${theme}-end.png`), fullPage: false });
       assert.deepEqual(errors, [], `${label}: page errors`);
       assert.deepEqual(external, [], `${label}: external requests`);
       check(label, m, kind);
+      // Default: the timeline carries only the Bot's messages. Toggle on: Activity rows come back.
+      const rows = await page.evaluate(() => ({ blocks: document.querySelectorAll(".message-list .task-run-block").length, tool: document.querySelectorAll(".message-list .web-tool-run").length, activity: document.querySelectorAll(".message-list .task-activity").length, heads: document.querySelectorAll(".message-list .sender-head").length, text: document.querySelector(".message-list").textContent }));
+      if (showActivity) assert.ok(rows.activity + rows.tool > 0, `${label}: Activity rows return with the toggle on`);
+      else { assert.deepEqual([rows.blocks, rows.tool, rows.activity, rows.heads], [0, 0, 0, 0], `${label}: finished runs draw no Activity row, block or orphan name label`); assert.ok(!rows.text.includes("工作过程"), `${label}: no Activity text in the timeline`); }
       results.push(label);
       console.log("PASS", label);
     } catch (error) {
       failed++;
       console.log("FAIL", label, "\n  " + String(error.message).split("\n").slice(0, 8).join("\n  "));
     } finally { await context.close(); }
+  }
+
+  // ---- Activity hidden by default: live line, cards, "View activity", toggle, grouping -----------------------
+  const heroDir = join(ui, "..", "artifacts", "hide-activity");
+  mkdirSync(heroDir, { recursive: true });
+  const scenario = async (name, fn) => {
+    try { await fn(); results.push(name); console.log("PASS", name); }
+    catch (error) { failed++; console.log("FAIL", name, "\n  " + String(error.stack ?? error.message).split("\n").slice(0, 10).join("\n  ")); }
+  };
+  const lastMessageId = "a6";
+  const liveWorld = (conv) => ({
+    ...emptyWorld(),
+    messages: [{ id: "u3", role: "user", content: "@Simile Cat look something up on the web.", created_at: iso(900), run_id: "run_live" }],
+    runs: [{ id: "run_live", bot_id: "bot_b", conversation_id: conv, status: "running", trigger_message_id: "u3", created_at: new Date(Date.now() - 10_000).toISOString(), updated_at: new Date().toISOString() }],
+    tools: [{ bot_id: "bot_b", run_id: "run_live", call_id: "live_1", name: "computer_action", arguments: '{"action":"browser.navigate","url":"https://example.com/docs"}', result: "", status: "running", truncated: false, started_at: new Date(Date.now() - 5_000).toISOString(), updated_at: new Date().toISOString() }],
+  });
+  for (const [kind, url, conv] of [["group", "/g/grp_1", "grp_1"], ["dm", "/b/bot_a", "dm_a"]]) {
+    const botId = kind === "group" ? "bot_b" : "bot_a";
+    await scenario(`live status line ${kind}`, async () => {
+      const world = liveWorld(conv);
+      if (kind === "dm") { world.runs[0].bot_id = "bot_a"; world.tools[0].bot_id = "bot_a"; }
+      const { page, context, errors } = await open(url, { width: 1180, height: 820, theme: "light", world, fakeEvents: true });
+      try {
+        await page.waitForSelector(".task-run-live-line");
+        const live = await page.evaluate(() => ({ lines: [...document.querySelectorAll(".task-run-live-line")].map(el => el.textContent), steps: document.querySelectorAll(".task-step, .task-activity, .web-tool-run:not(.live-run-status)").length, heads: document.querySelectorAll(".message-list .task-run-block .sender-head").length, last: document.querySelector(".message-list").lastElementChild?.className ?? "" }));
+        assert.equal(live.lines.length, 1, "exactly one live status line");
+        assert.match(live.lines[0], /正在浏览网页 · \d+s/, "the live line names the current action and the elapsed time");
+        assert.equal(live.steps, 0, "no tool list while live");
+        assert.equal(live.heads, kind === "group" ? 1 : 0, "name once in a group, none in a direct chat");
+        await page.locator(".task-run-live-line").scrollIntoViewIfNeeded(); await page.waitForTimeout(200);
+        await page.screenshot({ path: join(heroDir, `after-live-${kind}-1180x820-light.png`) });
+        // The run ends without a message or card: the line and its name label disappear and nothing is left behind.
+        await page.evaluate(({ conv, botId }) => window.__emit("run", { conversation_id: conv, run: { id: "run_live", conversation_id: conv, bot_id: botId, status: "done", updated_at: new Date().toISOString() } }), { conv, botId: kind === "dm" ? "bot_a" : "bot_b" });
+        await page.waitForFunction(() => !document.querySelector(".task-run-live-line"));
+        const gone = await page.evaluate(() => ({ blocks: document.querySelectorAll('[data-run-id="run_live"]').length, heads: document.querySelectorAll(".message-list .sender-head").length, live: document.querySelectorAll(".live-run-status, .web-tool-run").length }));
+        assert.deepEqual(gone, { blocks: 0, heads: 0, live: 0 }, "a silent finished run renders nothing at all");
+        assert.deepEqual(errors, [], "page errors");
+      } finally { await context.close(); }
+    });
+  }
+  await scenario("cards stay when Activity is hidden", async () => {
+    const at = iso(1000);
+    const approval = { question_id: "q_pending", conversation_id: "dm_a", bot_id: "bot_a", run_id: "run_wait", type: "question", question_type: "approval", question: "Send the synthetic summary?", status: "pending", created_at: at, updated_at: at, approval: { action: "Send summary", target: "Synthetic target", impact: "Posts one message", review: { source: "auto-review", status: "human_required", model: "synthetic-review", policy_version: "v6" } } };
+    const world = {
+      ...emptyWorld(),
+      messages: [{ id: "u4", role: "user", content: "Do two things.", created_at: at }],
+      runs: [
+        { id: "run_wait", bot_id: "bot_a", conversation_id: "dm_a", status: "waiting", trigger_message_id: "u4", created_at: at, updated_at: at },
+        { id: "run_fail", bot_id: "bot_a", conversation_id: "dm_a", status: "failed", trigger_message_id: "u4", error: "boom", failure: { code: "execution_failed", source: "runtime", message: "boom" }, created_at: iso(1010), updated_at: iso(1030) },
+      ],
+      tools: [{ bot_id: "bot_a", run_id: "run_fail", call_id: "fail_1", name: "synthetic_tool", arguments: "{}", result: "oops", status: "completed", truncated: false, started_at: iso(1012), updated_at: iso(1015) }],
+      summaries: [{ run_id: "run_fail", bot_id: "bot_a", tool_count: 1, completed_count: 1, failed_count: 0, interrupted_count: 0, pending_count: 0, started_at: iso(1012), updated_at: iso(1015) }],
+      questions: [approval],
+    };
+    const { page, context, errors } = await open("/b/bot_a", { width: 1180, height: 820, theme: "light", world });
+    try {
+      await page.waitForSelector(".approval-card"); await page.waitForSelector(".task-issue-card");
+      const seen = await page.evaluate(() => ({ approval: document.querySelectorAll(".approval-card").length, issue: document.querySelectorAll(".task-issue-card").length, rows: document.querySelectorAll(".message-list .task-activity, .message-list .web-tool-run").length }));
+      assert.equal(seen.approval, 1, "the pending approval card is visible");
+      assert.ok(seen.issue >= 1, "the failed run's issue card is visible");
+      assert.equal(seen.rows, 0, "no Activity row beside the cards");
+      // The issue card's own "View activity" still opens the details although Activity is hidden.
+      await page.locator('.task-issue-card[data-issue-kind] button:has-text("查看执行记录")').first().click();
+      await page.waitForSelector(".task-activity[open]");
+      assert.ok(await page.locator(".task-activity[open] .task-step").count() >= 1, "the failed run's steps are listed");
+      await page.screenshot({ path: join(heroDir, "after-cards-dm-1180x820-light.png") });
+      assert.deepEqual(errors, [], "page errors");
+    } finally { await context.close(); }
+  });
+  for (const [kind, url] of [["group", "/g/grp_1"], ["dm", "/b/bot_a"]]) {
+    await scenario(`tap "View activity" on a message (${kind}, touch)`, async () => {
+      const { page, context, errors } = await open(url, { width: 1180, height: 820, theme: "light", touch: true, mobile: true });
+      try {
+        assert.ok(await page.evaluate(() => matchMedia("(hover: none)").matches), "the context has no hover, like an iPad");
+        const host = page.locator(`.message-block[data-message-id="a5"] .message-hover-host`);
+        assert.equal(await host.locator(".message-hover-actions").isVisible(), false, "actions are hidden until a tap");
+        await page.locator(`.message-block[data-message-id="a5"] .message-content`).first().tap();
+        await page.waitForSelector(`.message-block[data-message-id="a5"] .message-hover-actions`, { state: "visible" });
+        const action = host.locator('button[aria-label="查看工作过程"]');
+        assert.equal(await action.count(), 1, "the actions offer View activity");
+        // A message whose run did no work offers none.
+        assert.equal(await page.locator('.message-block[data-message-id="u1"] button[aria-label="查看工作过程"]').count(), 0, "a person's message has no activity action");
+        await action.tap();
+        await page.waitForSelector('.task-run-block[data-run-id="run_c"] .task-activity[open]');
+        assert.ok(await page.locator('.task-run-block[data-run-id="run_c"] .task-step').count() >= 7, "the run's seven steps load inside the opened details");
+        assert.equal(await page.locator('.task-run-block[data-run-id="run_a"]').count(), 0, "only the asked run opens");
+        await page.screenshot({ path: join(heroDir, `after-view-activity-${kind}-1180x820-light.png`) });
+        // Tapping again on the same message offers Hide activity.
+        await page.locator(`.message-block[data-message-id="a5"] .message-content`).first().tap();
+        await page.waitForSelector(`.message-block[data-message-id="a5"] .message-hover-actions`, { state: "visible" });
+        await host.locator('button[aria-label="收起工作过程"]').tap();
+        await page.waitForFunction(() => !document.querySelector('.task-run-block[data-run-id="run_c"]'));
+        assert.deepEqual(errors, [], "page errors");
+      } finally { await context.close(); }
+    });
+  }
+  await scenario("toggle on restores Activity rows and drops the action", async () => {
+    const { page, context } = await open("/g/grp_1", { width: 1180, height: 820, theme: "light", world: { ...emptyWorld(), showActivity: true } });
+    try {
+      const n = await page.evaluate(() => ({ rows: document.querySelectorAll(".message-list .task-activity").length, actions: document.querySelectorAll('[aria-label="查看工作过程"]').length, text: document.querySelector(".message-list").textContent.includes("工作过程") }));
+      assert.ok(n.rows >= 3 && n.text, "Activity rows are back");
+      assert.equal(n.actions, 0, "no View activity action when the rows are already shown");
+    } finally { await context.close(); }
+  });
+  // iPad screenshots of the shipped default, group and direct chat, both themes.
+  for (const theme of ["light", "dark"]) for (const [kind, url] of [["group", "/g/grp_1"], ["dm", "/b/bot_a"]]) {
+    const { page, context } = await open(url, { width: 1180, height: 820, theme });
+    try { await page.screenshot({ path: join(heroDir, `after-default-${kind}-1180x820-${theme}.png`) }); } finally { await context.close(); }
   }
 } finally { await browser.close(); await server.close(); }
 if (failed) { console.error(`${failed} chat bubble layout case(s) failed`); process.exit(1); }
