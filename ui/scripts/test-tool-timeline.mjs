@@ -6,7 +6,8 @@ const ui = await openUiModules({ language: "zh-CN" });
 
 try {
   const { activeToolForRun, buildToolRunAnchors, buildToolSummaryAnchors, buildToolTimeline, elapsedToolSeconds, orderToolActivities, toolActionLabel, toolArgumentPreview, toolAttemptIssues, toolDisplayLabel, toolDisplayState, toolStepDetail, toolStepTitle } = await ui.load("/src/toolTimeline.ts");
-  const { mergeMessageTimeline } = await ui.load("/src/messageTimeline.ts");
+  const { mergeMessageTimeline, precedingBlockBotId } = await ui.load("/src/messageTimeline.ts");
+  const { taskPhaseVisible } = await ui.load("/src/taskIssuePresentation.ts");
   const { foldCompletedProgress } = await ui.load("/src/runProgress.ts");
   const base = { conversation_id: "c", bot_id: "b", arguments: "", result: "", status: "completed", truncated: false, updated_at: "2026-09-17T00:00:09Z" };
   const message = (id, seq, created_at, run_id = "r") => ({ id, seq, created_at, run_id, conversation_id: "c", role: "assistant", content: id });
@@ -112,6 +113,13 @@ try {
   const committed = { ...message("streaming", 2, speaking.created_at), content: "Completed reply" };
   assert(mergeMessageTimeline([interrupt, committed], [speaking]).map(item => item.id).join(",") === "streaming,interrupt", "publication preserves position and deduplicates draft");
   assert(mergeMessageTimeline([interrupt], [{ ...speaking, seq: 0, content: "" }]).length === 1, "working-only draft must not create an empty bubble");
+  assert(!taskPhaseVisible({ status: "done" }), "a finished turn shows no status text (announced to screen readers only)");
+  assert(!taskPhaseVisible({ status: "running" }) && !taskPhaseVisible({ status: "queued" }) && !taskPhaseVisible({ status: "waiting" }), "live state belongs to the Activity row, not a phase line");
+  assert(taskPhaseVisible({ status: "cancelled" }) && taskPhaseVisible({ status: "interrupted" }), "an abnormal stop stays visible");
+  const owners = [{ anchor: { kind: "question", id: "q1" }, botId: "ledger" }, { anchor: { kind: "message", id: "m1" }, botId: "news" }, { anchor: { kind: "message", id: "m1" }, botId: "ledger" }];
+  assert(precedingBlockBotId({ kind: "question", id: "q1" }, owners) === "ledger", "a block above the next item names its Bot once");
+  assert(precedingBlockBotId({ kind: "message", id: "m1" }, owners) === "ledger", "the last block before the next item wins");
+  assert(precedingBlockBotId({ kind: "message", id: "other" }, owners) === undefined && precedingBlockBotId(undefined, owners) === undefined, "no adjacent block, no grouping");
   console.log("tool timeline checks: PASS (run ownership, cancelled history, pagination, overlapping requests, live activity, deduplication, precise ordering)");
 } finally {
   await ui.close();
