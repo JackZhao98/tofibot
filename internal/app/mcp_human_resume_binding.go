@@ -67,20 +67,20 @@ func mcpHumanResumeContextMatches(ctx context.Context, db reviewQuerier, c Conve
 	if !protocolMatch {
 		return false
 	}
-	var waiting ToolActivity
-	found := 0
+	// The waiting call was the proposal under review when the snapshot was
+	// taken, so the saved packet never lists it; it must not appear there.
 	known := map[string]bool{}
+	waitingListed := false
 	visitMCPReviewActivities(&saved, func(activities *[]ToolActivity) bool {
 		for _, a := range *activities {
 			known[a.RunID+"\x00"+a.CallID] = true
 			if a.RunID == r.ID && a.CallID == waitingID {
-				waiting, found = a, found+1
+				waitingListed = true
 			}
 		}
 		return true
 	})
-	shown, _ := mcpTruncate(waitingRow.Arguments, mcpEvidenceToolRunes)
-	if found != 1 || waiting.ConversationID != c.ID || waiting.BotID != r.BotID || waiting.Name != waitingRow.Name || waiting.Status != "running" || waiting.Result != "" || waiting.Outcome != nil || waiting.Arguments != shown || waiting.StartedAt != waitingRow.StartedAt {
+	if waitingListed {
 		return false
 	}
 	waitingStarted, e := time.Parse(time.RFC3339Nano, waitingRow.StartedAt)
@@ -94,11 +94,9 @@ func mcpHumanResumeContextMatches(ctx context.Context, db reviewQuerier, c Conve
 		}
 		switch {
 		case a.CallID == waitingID:
-			// Restore the raw row as reviewed: the full durable arguments with the
-			// reviewed lifecycle state, before bounding re-truncates them.
+			// The reviewed proposal's own row was excluded from the packet.
 			resumed++
-			a.Status, a.Result, a.Outcome, a.Truncated, a.UpdatedAt = waiting.Status, waiting.Result, nil, false, waiting.UpdatedAt
-			return true
+			return false
 		case a.CallID == activeID:
 			proposed++
 			return false
