@@ -55,6 +55,40 @@ try {
  assert.equal(generic.kind,"unknown_failure");assert.match(generic.facts.join(" "),/没有记录具体原因/);assert.equal(generic.recordsComplete,true);
  assert.equal(view({...scenario("busy"),run:{...run,status:"failed",failure:{code:"model_auth_invalid",source:"runtime",message:""}},tools:[],summaries:[zero]},"en").title,"Model account sign-in is no longer valid");
  console.log("PASS 2b: model account failures are named, routed to model settings, and zero-tool runs say so");
+
+ // 2f. A failed run names ONE decisive reason from durable facts: refused step, then run error class, then generic.
+ {
+  const failedRun={...run,status:"failed",error:"scheduled task returned without confirming a completed result",failure:{code:"execution_failed",source:"runtime",message:""}};
+  const refused=code=>({...tool,call_id:"c-"+code,name:"call_mcp_tool",arguments:'{"name":"notion__notion-create-pages"}',status:"failed",outcome:{code,status:"policy_denied",execution_certainty:"not_executed",message:"PRIVATE_BODY",next_action:"explain_blocker"}});
+  const one=(tools,over={},locale="en")=>view({...scenario("busy"),run:{...failedRun,...over},tools,summaries:[{...summary,tool_count:tools.length}],recordsComplete:false},locale);
+  const text=i=>i.facts.join(" | ");
+  for(const [code,needle] of [["mcp_needs_human_unattended",/go ahead.*unattended runs can't ask|needs your go-ahead/],["mcp_high_risk_unattended",/always ask you/],["mcp_review_context_missing",/schedule authorization couldn't be verified/],["mcp_review_unavailable",/pre-execution check was unavailable/]]){
+   const i=one([refused(code)]);assert.equal(i.kind,"unknown_failure",code);assert.match(text(i),needle,code);assert(text(i).includes("notion-create-pages"),code);
+   assert(!text(i).includes("not yet confirmed"),code);assert(!JSON.stringify(i.facts).includes("PRIVATE_BODY"));assert.equal(i.action,"view_activity");
+  }
+  // Decisive step beats run error; the latest refused step wins.
+  const later={...refused("mcp_high_risk_unattended"),call_id:"later",started_at:"2026-10-05T10:05:00Z"};
+  assert.match(text(one([refused("mcp_review_context_missing"),later])),/always ask you/);
+  // Plain failed step: named tool, no raw detail.
+  assert.match(text(one([{...refused("tool_x"),outcome:{code:"tool_x",status:"transient_failure",execution_certainty:"not_executed",message:"PRIVATE_BODY",next_action:""}}])),/A tool failed: notion-create-pages/);
+  // Run classes.
+  assert.match(text(one([],{error:"main-model api error (http 503): PRIVATE_SECRET"})),/model service was unavailable/);assert(!text(one([],{error:"api error (http 503): PRIVATE_SECRET"})).includes("PRIVATE_SECRET"));
+  assert.match(text(one([],{error:"x",failure:{code:"budget_exhausted",source:"runtime",message:""}})),/step budget/);
+  assert.match(text(one([])),/without confirming a result/);
+  // Nothing known: generic line only.
+  assert.match(text(one([],{error:"",failure:{code:"execution_failed",source:"runtime",message:""}})),/No specific cause was recorded|not yet confirmed/);
+  // Completed work and a posted reply are stated.
+  const done=view({...scenario("busy"),run:failedRun,tools:[{...tool,status:"completed",outcome:undefined},refused("mcp_needs_human_unattended")],summaries:[{...summary,tool_count:2}],replied:true},"en");
+  assert.match(text(done),/Completed tool steps are retained/);assert.match(text(done),/result is in the reply below/);
+  // Localized (zh-CN pinned) and no false "not fully loaded" line when the activity is present.
+  assert.match(text(one([refused("mcp_needs_human_unattended")],{},"zh-CN")),/继续/);
+  const loaded=one([refused("mcp_needs_human_unattended")]);assert.equal(loaded.recordsComplete,true);assert(!loaded.secondary.join(" ").includes("not fully loaded"));
+  const partial=view({...scenario("busy"),run:failedRun,tools:[refused("mcp_needs_human_unattended")],summaries:[{...summary,tool_count:5}]},"en");
+  assert.equal(partial.recordsComplete,false);assert(partial.secondary.join(" ").includes("not fully loaded"));
+  const html=markup({...scenario("busy"),run:failedRun,tools:[refused("mcp_needs_human_unattended")],summaries:[{...summary,tool_count:1}]},"en");
+  assert(html.includes("always ask")||html.includes("go-ahead"));assert(!html.includes("not fully loaded"));assert(!html.includes("not yet confirmed"));
+ }
+ console.log("PASS 2f: failed-run card names the decisive step or run error, no false incomplete-records line");
  // 2c. Activity records name steps in words: no raw tool names, call ids, hash labels or raw review codes.
  const steps=markup(scenario("busy"));
  assert(steps.includes('class="task-step is-completed"'));assert(steps.includes("检查文档"));
