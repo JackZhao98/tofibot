@@ -1743,6 +1743,11 @@ func (s *Store) SetRunStatus(id, status, msg string) (bool, error) {
 	if e != nil {
 		return false, e
 	}
+	if n == 1 && status == "running" {
+		if e = markScheduleStartedTx(tx, id); e != nil {
+			return false, e
+		}
+	}
 	terminal := status == "failed" || status == "cancelled" || status == "interrupted"
 	if n == 1 && terminal {
 		// Close live presentation atomically with the durable terminal state. Keep

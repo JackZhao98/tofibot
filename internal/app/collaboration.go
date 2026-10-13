@@ -1071,7 +1071,7 @@ func (s *Server) runConversationWorker(conv string, q *conversationQueue) {
 		// checks. This also covers answers committed by internal callers.
 		var tick <-chan time.Time
 		var timer *time.Timer
-		if err != nil || s.store.hasInputWait(conv) || s.store.hasApprovalExpirySettlement(conv) {
+		if err != nil || s.store.hasInputWait(conv) || s.store.hasApprovalExpirySettlement(conv) || s.store.hasScheduleOrderBlocked(conv) {
 			timer = time.NewTimer(time.Second)
 			tick = timer.C
 		}
@@ -1113,7 +1113,10 @@ func (s *Store) nextQueuedRun(conv string) (Run, bool, error) {
 	if err := s.refreshInputWaits(conv); err != nil {
 		return Run{}, false, err
 	}
-	row := s.db.QueryRow(`SELECT id,conversation_id,bot_id,status,error,parent_run_id,model,kind,origin_conversation_id,trigger_message_id,queue_seq,created_at,updated_at FROM runs WHERE conversation_id=? AND (status='queued' OR (status='running' AND EXISTS(SELECT 1 FROM approval_expiry_recoveries e WHERE e.run_id=runs.id AND e.state='claimed' AND e.retry_after<=?))) ORDER BY CASE WHEN EXISTS(SELECT 1 FROM approval_expiry_recoveries e WHERE e.run_id=runs.id AND e.state IN ('ready','claimed')) THEN -1 WHEN kind IN ('group_task','group_followup') THEN 0 ELSE 1 END,queue_seq,created_at,id LIMIT 1`, conv, now())
+	if err := s.ensureSchedules(); err != nil {
+		return Run{}, false, err
+	}
+	row := s.db.QueryRow(`SELECT id,conversation_id,bot_id,status,error,parent_run_id,model,kind,origin_conversation_id,trigger_message_id,queue_seq,created_at,updated_at FROM runs WHERE conversation_id=? AND (status='queued' OR (status='running' AND EXISTS(SELECT 1 FROM approval_expiry_recoveries e WHERE e.run_id=runs.id AND e.state='claimed' AND e.retry_after<=?))) AND NOT (`+scheduleOrderBlockedSQL+`) ORDER BY CASE WHEN EXISTS(SELECT 1 FROM approval_expiry_recoveries e WHERE e.run_id=runs.id AND e.state IN ('ready','claimed')) THEN -1 WHEN kind IN ('group_task','group_followup') THEN 0 WHEN kind='schedule' THEN 2 ELSE 1 END,queue_seq,created_at,id LIMIT 1`, conv, now(), scheduleTime(scheduleOrderClock().Add(-scheduleOrderMaxWait)))
 	r, err := scanRun(row)
 	if err == sql.ErrNoRows {
 		return Run{}, false, nil
