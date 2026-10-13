@@ -50,3 +50,11 @@ Items found while running v0.1.0 for real. Each one names the fix and how to che
 **Fix:** add an owner-run checklist to the release steps, or a test VM with a model key provided by the owner.
 
 **Check:** the checklist passes before a stable tag.
+
+## 5. Guest swap or zram against memory-pressure hangs (OPEN)
+
+**Problem:** the guest image has no swap or zram. On 2026-10 a 1 GiB computer stopped answering while Chrome had three news pages open and the watchdog restarted it. Chrome already runs with `--renderer-process-limit=4`; the guest has no memory-pressure relief of its own.
+
+**Fix:** enable a zram device (or a small swap file on the workspace disk) in `deploy/microvm/init.sh`. This needs a guest image rebuild and release, so it is not part of the default-size change.
+
+**Check:** open several heavy news sites in a 2 GiB computer; the guest keeps answering and no watchdog restart occurs.

@@ -355,6 +355,7 @@ class VM:
         self.state = "stopped"
         self.phase = "checking"
         self.error = ""
+        self.resource_notice = ""
         self.lock = threading.RLock()
         self.process = None
         self.slot = self.c["slot"]
@@ -388,8 +389,42 @@ class VM:
         self.hibernated_at = ""
         self.last_wake = None
         applied = self.root / "resources-applied.json"
+        defaults = (self.c.get("vcpus", 2), self.c.get("memory_mib", 4096))
         if applied.exists():
             self.c.update(self.validate_resources(json.loads(applied.read_text())))
+            self.upgrade_old_default(defaults)
+
+    # The allocation every computer got before sizes scaled with the host. The
+    # owner's choice is not recorded separately, so exactly this triple is
+    # treated as "never changed".
+    OLD_DEFAULT = {"vcpus": 1, "memory_mib": 1024, "disk_gib": 8}
+
+    def upgrade_old_default(self, defaults):
+        """Once, queue the configured default for a computer still on the old one.
+
+        Only a pending `desired` is written (applied at the next VM start, no
+        restart). A computer the owner already changed, or that already has a
+        pending request, is untouched; the marker makes this run a single time
+        so an owner who later picks 1/1024 on purpose keeps it.
+        """
+        marker = self.root / "resources-default-upgraded"
+        desired = self.root / "resources-desired.json"
+        try:
+            if marker.exists() or (self.root / "resources-desired.restart-hold.json").exists():
+                return
+            current = self.validate_resources(json.loads((self.root / "resources-applied.json").read_text()))
+            marker.write_text("1\n")
+            if current != self.OLD_DEFAULT or (defaults[0], defaults[1]) == (current["vcpus"], current["memory_mib"]):
+                return
+            if desired.exists() and self.validate_resources(json.loads(desired.read_text())) != current:
+                return
+            host = self.host_resources()
+            vcpus, memory = min(defaults[0], host["cpus"]), defaults[1]
+            if memory + 512 + self.c.get("host_memory_headroom_mib", 2048) > host["memory_total_mib"]:
+                return
+            self.persist_resources("resources-desired.json", dict(current, vcpus=vcpus, memory_mib=memory))
+        except (OSError, ValueError, KeyError):
+            return  # A best-effort upgrade must never stop the computer from loading.
 
     @staticmethod
     def validate_resources(value):
@@ -428,7 +463,7 @@ class VM:
         held = self.root / "resources-desired.restart-hold.json"
         if held.exists():
             desired = self.validate_resources(json.loads(held.read_text()))
-        return {"scope": "workspace", "state": self.state, "error": self.error, "current": current, "desired": desired,
+        return {"scope": "workspace", "state": self.state, "error": self.error, "notice": self.resource_notice, "current": current, "desired": desired,
                     "pending": current != desired, "apply_policy": "next_vm_start", "host": host,
                     "memory": self.memory_usage(),
                     "limits": {"max_vcpus": min(32, host["cpus"]),
@@ -466,7 +501,12 @@ class VM:
             self.persist_resources("resources-desired.json", value)
             return self.resources()
 
-    def apply_resources(self):
+    def apply_resources(self, strict=True):
+        """Apply the pending allocation. With strict=False (VM start) a request
+        the host cannot hold right now never blocks the start: the computer
+        boots with its last applied size, the request stays pending for the
+        next start and `resource_notice` says why."""
+        self.resource_notice = ""
         desired = self.desired_resources()
         current = self.current_resources()
         host = self.host_resources()
@@ -474,7 +514,13 @@ class VM:
         # its runtime ledger; standalone managers retain the historical 2 GiB.
         headroom = self.c.get("host_memory_headroom_mib", 2048)
         if desired["vcpus"] > host["cpus"] or desired["memory_mib"] + 512 + headroom > host["memory_available_mib"]:
-            raise RuntimeError("insufficient host capacity; requested resources remain pending")
+            if strict or desired == current:
+                raise RuntimeError("insufficient host capacity; requested resources remain pending")
+            self.resource_notice = ("%d MiB / %d vCPU requested; host had only %d MiB free and %d CPUs at start, "
+                                    "started with %d MiB / %d vCPU; the request stays pending" % (
+                                        desired["memory_mib"], desired["vcpus"], host["memory_available_mib"],
+                                        host["cpus"], current["memory_mib"], current["vcpus"]))
+            return
         if desired == current:
             return
         if desired["disk_gib"] < current["disk_gib"]:
@@ -799,7 +845,7 @@ class VM:
                 # A cold boot changes the workspace disk under any saved guest
                 # memory, so that snapshot can never be restored afterwards.
                 self.discard_snapshot()
-                self.apply_resources()
+                self.apply_resources(strict=False)
                 self.prepare_jail()
                 data = self.root / "workspace.ext4"
                 if not data.exists():
