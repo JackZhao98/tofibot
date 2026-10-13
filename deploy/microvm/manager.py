@@ -388,8 +388,42 @@ class VM:
         self.hibernated_at = ""
         self.last_wake = None
         applied = self.root / "resources-applied.json"
+        defaults = (self.c.get("vcpus", 2), self.c.get("memory_mib", 4096))
         if applied.exists():
             self.c.update(self.validate_resources(json.loads(applied.read_text())))
+            self.upgrade_old_default(defaults)
+
+    # The allocation every computer got before sizes scaled with the host. The
+    # owner's choice is not recorded separately, so exactly this triple is
+    # treated as "never changed".
+    OLD_DEFAULT = {"vcpus": 1, "memory_mib": 1024, "disk_gib": 8}
+
+    def upgrade_old_default(self, defaults):
+        """Once, queue the configured default for a computer still on the old one.
+
+        Only a pending `desired` is written (applied at the next VM start, no
+        restart). A computer the owner already changed, or that already has a
+        pending request, is untouched; the marker makes this run a single time
+        so an owner who later picks 1/1024 on purpose keeps it.
+        """
+        marker = self.root / "resources-default-upgraded"
+        desired = self.root / "resources-desired.json"
+        try:
+            if marker.exists() or (self.root / "resources-desired.restart-hold.json").exists():
+                return
+            current = self.validate_resources(json.loads((self.root / "resources-applied.json").read_text()))
+            marker.write_text("1\n")
+            if current != self.OLD_DEFAULT or (defaults[0], defaults[1]) == (current["vcpus"], current["memory_mib"]):
+                return
+            if desired.exists() and self.validate_resources(json.loads(desired.read_text())) != current:
+                return
+            host = self.host_resources()
+            vcpus, memory = min(defaults[0], host["cpus"]), defaults[1]
+            if memory + 512 + self.c.get("host_memory_headroom_mib", 2048) > host["memory_total_mib"]:
+                return
+            self.persist_resources("resources-desired.json", dict(current, vcpus=vcpus, memory_mib=memory))
+        except (OSError, ValueError, KeyError):
+            return  # A best-effort upgrade must never stop the computer from loading.
 
     @staticmethod
     def validate_resources(value):

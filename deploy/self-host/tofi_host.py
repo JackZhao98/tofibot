@@ -80,6 +80,9 @@ SWAP_ADVISED_BELOW_MIB = 16 * 1024 - 512
 # One computer: its guest memory (worker.json memory_mib) plus the Firecracker
 # and cgroup overhead the manager adds to memory.max.
 COMPUTER_MEMORY_MIB = 1024
+COMPUTER_MEMORY_MIN_MIB = 1024
+COMPUTER_MEMORY_DEFAULT_MIB = 2048
+COMPUTER_MEMORY_MAX_MIB = 4096
 COMPUTER_OVERHEAD_MIB = 512
 MIN_DISK_BYTES = 30 * GIB
 WARN_DISK_BYTES = 40 * GIB
@@ -876,9 +879,35 @@ def runtime_budgets():
     return {'cpu': max(1, cpus - 1), 'memory_mib': max(1536, memory - 2048)}
 
 
+def default_computer_resources(cpu_budget, memory_budget_mib):
+    """Return ((vcpus, memory_mib), reason or None) for a new computer.
+
+    2 vCPU when the CPU budget allows it; memory is a quarter of the install's
+    memory budget clamped to 2..4 GiB. A computer claims memory + overhead of
+    the budget, so a budget too small for the target falls back to the largest
+    of 2048 / 1024 MiB that fits, and the reason is reported.
+    """
+    vcpus = 2 if int(cpu_budget) >= 2 else 1
+    budget = int(memory_budget_mib)
+    target = min(COMPUTER_MEMORY_MAX_MIB, max(COMPUTER_MEMORY_DEFAULT_MIB, budget // 4))
+    for memory in (target, COMPUTER_MEMORY_DEFAULT_MIB, COMPUTER_MEMORY_MIN_MIB):
+        if memory + COMPUTER_OVERHEAD_MIB <= budget:
+            break
+    reason = None
+    if memory < COMPUTER_MEMORY_DEFAULT_MIB:
+        reason = ('The memory budget (%d MiB) cannot hold a %d MiB computer; using the %d MiB minimum, '
+                  'which is tight for Chrome.' % (budget, COMPUTER_MEMORY_DEFAULT_MIB, memory))
+    elif memory < target:
+        reason = 'The memory budget (%d MiB) limits the computer to %d MiB.' % (budget, memory)
+    if vcpus < 2:
+        reason = (reason + ' ' if reason else '') + 'Only 1 CPU is budgeted for computers.'
+    return (vcpus, memory), reason
+
+
 def render_worker_config(guest_version, cpu_budget, memory_budget_mib, guest_binary_sha256,
                          release_manifest_sha256):
     """Render worker.json for the given Guest release and runtime budgets."""
+    (vcpus, memory_mib), _ = default_computer_resources(cpu_budget, memory_budget_mib)
     worker = VAR_REAL + '/worker'
     config = {
         'release_dir': '%s/guest/%s' % (VAR_REAL, guest_version),
@@ -893,8 +922,8 @@ def render_worker_config(guest_version, cpu_budget, memory_budget_mib, guest_bin
         'headroom_bytes': GIB,
         'warning_bytes': 15 * GIB,
         'reserved_slots': [],
-        'vcpus': 1,
-        'memory_mib': 1024,
+        'vcpus': vcpus,
+        'memory_mib': memory_mib,
         'runtime_vcpu_budget': int(cpu_budget),
         'runtime_memory_mib_budget': int(memory_budget_mib),
         'host_memory_headroom_mib': 1024,
@@ -988,6 +1017,9 @@ def apply_host_config(bundle, env):
     config = render_worker_config(env['TOFI_GUEST_VERSION'], env['TOFI_CPU_BUDGET'],
                                   env['TOFI_MEMORY_BUDGET_MIB'], guest_manifest['guest_binary_sha256'],
                                   sha256_file(release_manifest))
+    _, reason = default_computer_resources(env['TOFI_CPU_BUDGET'], env['TOFI_MEMORY_BUDGET_MIB'])
+    if reason:
+        warn(reason)
     ensure_tls(env)
     write_env(env)
     write_json(P.worker_json, config, 0o600)
