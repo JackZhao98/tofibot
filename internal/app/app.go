@@ -2958,7 +2958,9 @@ func (s *Server) postMessage(w http.ResponseWriter, r *http.Request, c Conversat
 			writeErr(w, 400, "unknown_recipient", "unknown group mention: @"+strings.Join(mr.Unknown, ", @"))
 			return
 		} else if len(mr.IDs) > 0 {
-			for _, id := range mr.IDs {
+			// Several mentioned Bots: only the first-mentioned one gets a root run
+			// and coordinates the rest through handoff (see coordinationContext).
+			for _, id := range mr.IDs[:1] {
 				for _, b := range members {
 					if b.ID == id {
 						specs = append(specs, runSpec{BotID: b.ID, Model: b.Model})

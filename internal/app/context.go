@@ -592,8 +592,8 @@ func (s *Server) buildContextPartsWith(c Conversation, r Run, bot Bot, cachedMCP
 	for i, j := 0, len(chosen)-1; i < j; i, j = i+1, j-1 {
 		chosen[i], chosen[j] = chosen[j], chosen[i]
 	}
-	if concurrent := s.concurrentMentionContext(c, r, bot); concurrent != "" {
-		pm = append(pm, runtime.Message{Role: "user", Content: concurrent})
+	if coordination := s.coordinationContext(c, r, bot); coordination != "" {
+		pm = append(pm, runtime.Message{Role: "user", Content: coordination})
 	}
 	if mentions := s.mentionedSinceTrigger(c, r, bot); mentions != "" {
 		pm = append(pm, runtime.Message{Role: "user", Content: mentions})
