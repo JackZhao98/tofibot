@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 
 	"github.com/JackZhao98/tofibot/internal/extensions"
+	"github.com/JackZhao98/tofibot/internal/runtime"
 )
 
 // Shadow work has a server lifetime and a bounded request, independent of the
@@ -36,6 +37,7 @@ func (s *Server) stopShadowMCPReviews() {
 // A host-exempt read needs a durable advisory card, not a pending approval.
 // There is deliberately no mcp_call_approvals row or answer/actor for this card.
 func (s *Server) shadowExemptMCPCall(ctx context.Context, c Conversation, r Run, call extensions.MCPCallApproval, payload string) error {
+	r.reviewCallID = runtime.ToolCallID(ctx)
 	s.mcpApprovalMu.Lock()
 	defer s.mcpApprovalMu.Unlock()
 	var reserved bool

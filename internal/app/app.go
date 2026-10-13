@@ -120,6 +120,9 @@ type Run struct {
 	// Resolved from durable occurrence ancestry for execution only. Keep Kind
 	// unchanged so delegated work retains its context and return routing.
 	scheduleTask *Message
+	// The tool call id of the proposal being reviewed, in memory only. Its own
+	// in-flight activity row is the call under review, never prior evidence.
+	reviewCallID string
 }
 type Memory struct {
 	Title          string `json:"title,omitempty"`
@@ -3591,6 +3594,11 @@ func (s *Server) execute(c Conversation, r Run) {
 				return
 			}
 		}
+	}
+	// A run never posts a final message equal to one it already posted this
+	// run (segment, progress or an earlier message), whichever path produced it.
+	if strings.TrimSpace(res.Content) != "" && s.store.postedVisibleText(r.ID, res.Content) {
+		res.Content = ""
 	}
 	resetDemotedDraft()
 	if len(finalNotes) > 0 && strings.TrimSpace(res.Content) != "" {

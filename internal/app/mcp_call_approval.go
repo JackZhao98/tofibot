@@ -54,6 +54,7 @@ func mcpReviewRetryable(q Question) bool {
 }
 
 func (s *Server) approveMCPCallOnce(ctx context.Context, c Conversation, r Run, call extensions.MCPCallApproval, retry bool) error {
+	r.reviewCallID = runtime.ToolCallID(ctx)
 	if err := s.extensionToolActive(ctx, c, r); err != nil {
 		return err
 	}
