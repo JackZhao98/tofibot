@@ -17,38 +17,67 @@ import (
 // own part; delegating again would only duplicate or contradict that work.
 var ErrDelegationToMentionedBot = errors.New("target bot is already handling this user message")
 
-// delegationConflictTx decides whether delegating to target would duplicate
-// work for the user message the delegating run descends from. The target
-// conflicts when it has a root run (the user mentioned it) for that message
-// and either that root is still unfinished, or it already received one
-// delegation within the message's run family. A Bot the user did not mention is
-// never in conflict, and a finished mentioned Bot may receive exactly one
-// handover carrying another member's finished part.
-func delegationConflictTx(tx *sql.Tx, parentID, target string) (bool, error) {
+// delegationConflictTx decides how delegating to target relates to the user
+// message the delegating run descends from. Outcomes:
+//   - no conflict: the target was not mentioned by that message, or it was and
+//     already finished without having received a delegation yet (one handover);
+//   - steer: the target's root run is running; the delegation is delivered to it
+//     as steering input (the returned ids are the running roots);
+//   - refuse: the target's root is queued or waiting (it cannot take input yet),
+//     or a finished target already received its one handover.
+func delegationConflictTx(tx *sql.Tx, parentID, target string) (refuse bool, steer []string, err error) {
 	const triggers = `WITH RECURSIVE ancestors(id,parent_run_id,trigger_message_id) AS (
 		SELECT id,parent_run_id,trigger_message_id FROM runs WHERE id=?
 		UNION SELECT r.id,r.parent_run_id,r.trigger_message_id FROM runs r JOIN ancestors a ON a.parent_run_id=r.id
 	), userTriggers(id) AS (
 		SELECT DISTINCT a.trigger_message_id FROM ancestors a JOIN messages m ON m.id=a.trigger_message_id WHERE m.role='user'
-	), roots(id,status) AS (
-		SELECT id,status FROM runs WHERE bot_id=? AND kind='' AND trigger_message_id IN (SELECT id FROM userTriggers)
 	)`
-	var active, roots int
-	if err := tx.QueryRow(triggers+` SELECT COALESCE(SUM(status IN ('queued','running','waiting')),0),COUNT(*) FROM roots`, parentID, target).Scan(&active, &roots); err != nil {
-		return false, err
+	rows, err := tx.Query(triggers+` SELECT id,status FROM runs WHERE bot_id=? AND kind='' AND trigger_message_id IN (SELECT id FROM userTriggers)`, parentID, target)
+	if err != nil {
+		return false, nil, err
+	}
+	roots, blocked := 0, false
+	for rows.Next() {
+		var id, status string
+		if err = rows.Scan(&id, &status); err != nil {
+			rows.Close()
+			return false, nil, err
+		}
+		roots++
+		switch status {
+		case "running":
+			steer = append(steer, id)
+		case "queued", "waiting":
+			blocked = true
+		}
+	}
+	rows.Close()
+	if err = rows.Err(); err != nil {
+		return false, nil, err
 	}
 	if roots == 0 {
-		return false, nil
+		return false, nil, nil
 	}
-	if active > 0 {
-		return true, nil
+	if blocked {
+		return true, nil, nil
+	}
+	if len(steer) > 0 {
+		return false, steer, nil
 	}
 	var delegated int
-	err := tx.QueryRow(triggers+`, family(id) AS (
+	err = tx.QueryRow(triggers+`, family(id) AS (
 		SELECT id FROM runs WHERE kind='' AND trigger_message_id IN (SELECT id FROM userTriggers)
 		UNION SELECT r.id FROM runs r JOIN family f ON r.parent_run_id=f.id
-	) SELECT COUNT(*) FROM runs WHERE id IN (SELECT id FROM family) AND bot_id=? AND kind=?`, parentID, target, target, runKindGroupTask).Scan(&delegated)
-	return delegated > 0, err
+	) SELECT COUNT(*) FROM runs WHERE id IN (SELECT id FROM family) AND bot_id=? AND kind=?`, parentID, target, runKindGroupTask).Scan(&delegated)
+	return delegated > 0, nil, err
+}
+
+// steersOwnRun reports whether r is a delegation delivered into the same Bot's
+// still-running root run for the same user message.
+func (s *Store) steersOwnRun(r Run) bool {
+	var n int
+	_ = s.db.QueryRow(`SELECT COUNT(*) FROM run_steering l JOIN runs o ON o.id=l.old_run_id WHERE l.new_run_id=? AND o.bot_id=?`, r.ID, r.BotID).Scan(&n)
+	return n > 0
 }
 
 // delegationRefusal is the structured not_executed outcome returned to the
@@ -157,7 +186,7 @@ func (s *Server) concurrentMentionContext(c Conversation, r Run, bot Bot) string
 		}
 		fmt.Fprintf(&b, "- %s (id=%s) was asked: %s\n", m.Name, m.ID, trimRunes(text, 600))
 	}
-	b.WriteString("Do only your own part. Coordinate by replying in the group; mention another Bot only to hand over the result of your part. Do not delegate the user's request, or another Bot's part, to a Bot that was mentioned in this message; the system refuses such delegation.\n[/concurrent mentions]")
+	b.WriteString("Do only your own part. Coordinate by replying in the group; mention another Bot only to hand over the result of your part. Do not delegate the user's request, or another Bot's part, to a Bot that was mentioned in this message; the system will not start a duplicate run for it.\n[/concurrent mentions]")
 	return b.String()
 }
 

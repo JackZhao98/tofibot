@@ -237,3 +237,114 @@ func TestIncidentTwoMentionedBotsDelegatingToEachOther(t *testing.T) {
 		t.Fatalf("refusals=%v", engine.refusals)
 	}
 }
+
+// Timing case: the metaphor Bot finishes while tofi's root run is still
+// running. The handover is delivered into tofi's running turn through the
+// steering edge, so the page is written once, with the sentence.
+type timingEngine struct {
+	t          *testing.T
+	f          *dedupeFixture
+	metaRoot   Run
+	mu         sync.Mutex
+	pageWrites int
+	outcome    string
+	taskText   string
+}
+
+func (e *timingEngine) Run(ctx context.Context, req runtime.Request) (runtime.Result, error) {
+	text := ""
+	for _, m := range req.Messages {
+		text += m.Content + "\n"
+	}
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	if req.BotID == e.f.tofi.ID {
+		if strings.Contains(text, "[current handoff task]") {
+			e.pageWrites++
+			e.taskText = text
+			return runtime.Result{Content: "page written with the sentence"}, nil
+		}
+		// Tofi's root turn is mid-run when the metaphor Bot hands over.
+		if _, err := e.f.server.store.SetRunStatus(e.metaRoot.ID, "running", ""); err != nil {
+			return runtime.Result{}, err
+		}
+		tool := findHandoffTool(e.t, e.f.server, e.f.group, e.metaRoot)
+		out, err := tool.Execute(ctx, handoffArgs(e.f.tofi.ID, "metaphor: a magnifying glass. Write the page with it."))
+		if err != nil {
+			return runtime.Result{}, err
+		}
+		e.outcome = out
+		if _, done, ferr := e.f.server.store.FinishRun(e.metaRoot.ID, e.f.group.ID, e.f.meta.ID, ""); ferr != nil || !done {
+			e.t.Errorf("finish meta root: %v %v", done, ferr)
+		}
+		if req.BeforeModelCall == nil {
+			e.t.Error("engine request has no steering boundary")
+			return runtime.Result{}, nil
+		}
+		return runtime.Result{}, req.BeforeModelCall()
+	}
+	return runtime.Result{Content: "noted, thanks"}, nil
+}
+
+func TestHandoverIsSteeredIntoActiveMentionedRun(t *testing.T) {
+	engine := &timingEngine{t: t}
+	f := newDedupeFixture(t, engine)
+	engine.f = &f
+	f.post(t, "@tofi create a page with the metaphor. @metaphor give tofi a one-line metaphor.", f.tofi, f.meta)
+	engine.metaRoot = f.roots[1]
+	f.server.mu.Lock()
+	f.server.engine = engine
+	f.server.mu.Unlock()
+	f.server.enqueue(f.group, f.roots[0])
+	waitForRunStatus(t, f.server, f.roots[0].ID, "cancelled")
+	runs, _ := f.server.store.Runs(f.group.ID)
+	var task, followup Run
+	for _, r := range runs {
+		switch r.Kind {
+		case runKindGroupTask:
+			task = r
+		case runKindFollowup:
+			followup = r
+		}
+	}
+	if task.ID == "" {
+		t.Fatalf("no handover task: %+v", runs)
+	}
+	waitForRunStatus(t, f.server, task.ID, "done")
+	deadline := time.Now().Add(5 * time.Second)
+	for followup.ID == "" && time.Now().Before(deadline) {
+		time.Sleep(10 * time.Millisecond)
+		runs, _ = f.server.store.Runs(f.group.ID)
+		for _, r := range runs {
+			if r.Kind == runKindFollowup {
+				followup = r
+			}
+		}
+	}
+	engine.mu.Lock()
+	defer engine.mu.Unlock()
+	if !strings.HasPrefix(engine.outcome, "delivered to tofi's current turn") {
+		t.Fatalf("delegating Bot outcome=%q", engine.outcome)
+	}
+	if engine.pageWrites != 1 || !strings.Contains(engine.taskText, "magnifying glass") || !strings.Contains(engine.taskText, "not from the user") {
+		t.Fatalf("pageWrites=%d task=%q", engine.pageWrites, engine.taskText)
+	}
+	if task.BotID != f.tofi.ID || followup.BotID != f.meta.ID {
+		t.Fatalf("task=%+v followup=%+v", task, followup)
+	}
+	// The handover is a Bot notice without host user-ingress provenance, so
+	// it can never be authorization evidence for MCP review.
+	var ingress int
+	_ = f.server.store.db.QueryRow(`SELECT COUNT(*) FROM user_message_ingress WHERE message_id=?`, task.TriggerMessageID).Scan(&ingress)
+	handover, err := f.server.store.GetMessage(task.TriggerMessageID)
+	if err != nil || ingress != 0 || handover.Role == "user" {
+		t.Fatalf("handover message=%+v ingress=%d err=%v", handover, ingress, err)
+	}
+	evidence := mcpAuthorizationSources(mcpReviewContext{
+		Messages:          []Message{f.trigger, handover},
+		MessageProvenance: []mcpMessageProvenance{{MessageID: f.trigger.ID, Source: mcpHostUserIngress}, {MessageID: handover.ID, Source: "unknown"}},
+	})
+	if len(evidence) != 1 || evidence[0].MessageID != f.trigger.ID {
+		t.Fatalf("authorization evidence must be the user message only: %+v", evidence)
+	}
+}
