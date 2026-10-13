@@ -18,7 +18,7 @@ const SETTLE = springEasing(SPRINGS.morph);
 const settleVars = { "--spring": SETTLE.easing, "--spring-ms": `${SETTLE.durationMs}ms` } as React.CSSProperties;
 
 export type TaskDetailState = { loaded: number; toolCount: number; hasMore: boolean; loading: boolean; error?: string };
-export type TaskRunBlockProps = { senderHead?: React.ReactNode; owner: TaskOwner; tools: ToolActivity[]; questions: Question[]; drafts: MailDraft[]; messages: Message[]; summaries: ToolActivityRunSummary[]; details?: Record<string, TaskDetailState>; connected?: boolean; /** Pins one language (tests, fixtures); the active UI language otherwise. */ locale?: Language; botName?: string; showName?: boolean; onFeedback?: (text:string) => void; onOpenTools: () => void; onRefresh: () => Promise<void>; onLoadDetails?: (runId: string, offset: number) => Promise<void>; liveStatus?: string; liveAvatar?: ReactNode; renderMessage?: (message: Message) => ReactNode; renderQuestion: (question: Question) => ReactNode; renderDraft: (draft: MailDraft) => ReactNode };
+export type TaskRunBlockProps = { senderHead?: React.ReactNode; owner: TaskOwner; tools: ToolActivity[]; questions: Question[]; drafts: MailDraft[]; messages: Message[]; summaries: ToolActivityRunSummary[]; details?: Record<string, TaskDetailState>; connected?: boolean; /** Pins one language (tests, fixtures); the active UI language otherwise. */ locale?: Language; botName?: string; showName?: boolean; onFeedback?: (text:string) => void; onOpenTools: () => void; onRefresh: () => Promise<void>; onLoadDetails?: (runId: string, offset: number) => Promise<void>; liveStatus?: string; liveAvatar?: ReactNode; /** Chat default: no Activity row. Cards (approvals, issues) and a live status line still show. */ hideActivity?: boolean; /** The run's Activity was asked for (message action); shows it although hidden. */ revealed?: boolean; renderMessage?: (message: Message) => ReactNode; renderQuestion: (question: Question) => ReactNode; renderDraft: (draft: MailDraft) => ReactNode };
 
 const GROW = springEasing(SPRINGS.settle);
 const drawers = new WeakMap<HTMLElement, Animation[]>();
@@ -97,10 +97,10 @@ function ToolStepRecord({ tool, locale, now, onOpenTools }: { tool: ToolActivity
 }
 
 /** One durable owner replaces progress in place; actual final answers stay in chat. */
-export function TaskRunBlock({ owner, tools, questions, drafts, messages, summaries, details = {}, connected = true, locale, botName, showName, senderHead, onFeedback, onOpenTools, onRefresh, onLoadDetails, liveStatus, liveAvatar, renderMessage, renderQuestion, renderDraft }: TaskRunBlockProps) {
-  const disclosure = useRef<HTMLDetailsElement>(null);
-  const block = useRef<HTMLElement>(null);
-  const needsFocus = useRef(false);
+type BlockScopeInput = Pick<TaskRunBlockProps, "owner" | "tools" | "questions" | "drafts" | "messages" | "summaries" | "details" | "connected" | "locale">;
+
+/** Everything the block shows is derived here, so the timeline can ask whether a block draws anything without rendering it. */
+function scopeTaskBlock({ owner, tools, questions, drafts, messages, summaries, details = {}, connected = true, locale }: BlockScopeInput) {
   const run = owner.family.latest;
   const ids = new Set(owner.family.attempts.map(attempt => attempt.id));
   const matches = (item: { run_id: string; conversation_id: string; bot_id: string }) => ids.has(item.run_id) && item.conversation_id === run.conversation_id && item.bot_id === run.bot_id;
@@ -113,8 +113,27 @@ export function TaskRunBlock({ owner, tools, questions, drafts, messages, summar
   const hasFinal = messages.some(message => message.run_id === run.id && message.conversation_id === run.conversation_id && message.role === "assistant" && !["notice", "progress", "segment"].includes(message.kind ?? "") && Boolean(message.content || message.attachments?.length));
   const input = { run, tools: currentTools, questions: currentQuestions, drafts: currentDrafts, summary, recordsComplete: details[run.id]?.hasMore === false, connected, replied: hasFinal, locale };
   const issue = presentTaskIssue({...input, family:owner.family, tools, questions, drafts});
-  const { t } = useTranslation("tasks", { lng: locale });
   const decisions = currentQuestions.filter(question => canAnswerQuestion(question));
+  return { run, ids, tools, questions, drafts, currentTools, currentQuestions, currentDrafts, input, issue, decisions };
+}
+
+/**
+ * Whether the block draws anything. With Activity hidden a finished run that raised no card (no issue, no pending
+ * decision or draft) draws nothing at all: no name label, no row.
+ */
+export function taskBlockVisible(props: BlockScopeInput & { hideActivity?: boolean; revealed?: boolean }): boolean {
+  if (!props.hideActivity || props.revealed) return true;
+  const { run, issue, decisions, currentDrafts } = scopeTaskBlock(props);
+  return !isTerminalRun(run) || Boolean(issue) || taskPhaseVisible(run) || decisions.length > 0 || currentDrafts.some(draft => draft.status !== "unknown");
+}
+
+export function TaskRunBlock({ owner, tools, questions, drafts, messages, summaries, details = {}, connected = true, locale, botName, showName, senderHead, onFeedback, onOpenTools, onRefresh, onLoadDetails, liveStatus, liveAvatar, hideActivity = false, revealed: revealedByMenu = false, renderMessage, renderQuestion, renderDraft }: TaskRunBlockProps) {
+  const disclosure = useRef<HTMLDetailsElement>(null);
+  const block = useRef<HTMLElement>(null);
+  const needsFocus = useRef(false);
+  const { run, ids, tools: scopedTools, questions: scopedQuestions, drafts: scopedDrafts, currentTools, currentQuestions, currentDrafts, input, issue, decisions } = scopeTaskBlock({ owner, tools, questions, drafts, messages, summaries, details, connected, locale });
+  tools = scopedTools; questions = scopedQuestions; drafts = scopedDrafts;
+  const { t } = useTranslation("tasks", { lng: locale });
   const decisionKey = decisions.map(question => question.question_id).join(":");
   useLayoutEffect(() => {
     if (needsFocus.current && !block.current?.contains(document.activeElement)) (block.current?.querySelector<HTMLElement>("h3") ?? block.current)?.focus({preventScroll:true});
@@ -164,14 +183,32 @@ export function TaskRunBlock({ owner, tools, questions, drafts, messages, summar
     step.querySelector<HTMLElement>("summary")?.focus({ preventScroll: true });
     setPendingStep("");
   }, [pendingStep, tools]);
-  function viewActivity() { if (disclosure.current) { disclosure.current.open = true; disclosure.current.querySelector("summary")?.focus(); } }
+  // Hidden Activity is mounted on request (a message's "View activity", or a card's own action) and opened once it exists.
+  const [revealedHere, setRevealedHere] = useState(false);
+  const revealed = revealedByMenu || revealedHere;
+  const showActivity = !hideActivity || revealed;
+  const openWhenShown = useRef(false);
+  useEffect(() => { if (revealedByMenu) openWhenShown.current = true; }, [revealedByMenu]);
+  useEffect(() => {
+    if (!showActivity || !openWhenShown.current || !disclosure.current) return;
+    openWhenShown.current = false;
+    disclosure.current.open = true;
+    disclosure.current.querySelector("summary")?.focus({ preventScroll: true });
+    disclosure.current.scrollIntoView({ block: "nearest", behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" });
+  }, [showActivity, revealedByMenu]);
+  function viewActivity() {
+    if (disclosure.current) { disclosure.current.open = true; disclosure.current.querySelector("summary")?.focus(); }
+    else { openWhenShown.current = true; setRevealedHere(true); }
+  }
+  if (!taskBlockVisible({ owner, tools, questions, drafts, messages, summaries, details, connected, locale, hideActivity, revealed })) return null;
   return <section ref={block} className={`task-run-block${senderHead ? " in-group" : ""}`} data-sender={senderHead ? run.bot_id : undefined} data-at={senderHead ? run.created_at : undefined} data-task-owner={owner.key} data-run-id={run.id} data-latest-run-id={run.id} tabIndex={-1} aria-label={t("activity.records_label")}>
     {senderHead ?? (showName && botName && <p className="task-run-identity">{botName}</p>)}
     {issue ? <TaskIssueCard issue={issue} locale={locale} onFeedback={onFeedback} onOpenStep={openStep} onAction={issue.action === "open_tools" ? onOpenTools : issue.action === "open_codex" ? () => { window.dispatchEvent(new Event("tofi:open-codex-settings")); } : issue.action === "refresh_status" ? onRefresh : viewActivity} /> : taskPhaseVisible(run) && <p className="task-run-phase">{taskPhaseLabel(input)}</p>}
     {/* A separate valid proposal survives another call's failure/unknown effect. */}
     {decisions.map(renderQuestion)}
     {currentDrafts.filter(draft => draft.status !== "unknown").map(renderDraft)}
-    <ActivityDisclosure locale={locale} detail={activityDetail} live={liveLine} disclosureRef={disclosure} onOpen={loadInitial}>
+    {!showActivity && liveLine && <p className="task-run-live-line" role="status">{liveLine.avatar && <span className="task-activity-cat" aria-hidden="true">{liveLine.avatar}</span>}<span className="task-activity-live">{liveLine.label}</span></p>}
+    {showActivity && <ActivityDisclosure locale={locale} detail={activityDetail} live={liveLine} disclosureRef={disclosure} onOpen={loadInitial}>
       {owner.family.previous.map((attempt, index) => <p key={attempt.id} className="task-record-meta">{t("activity.previous_attempt", { number: index + 1, status: attemptStatus(attempt.status) })}</p>)}
       {rememberedDecisions.map(question => <p key={question.question_id} className="task-record-meta task-remembered-record" data-question-record-id={question.question_id}>{t("record.remembered_decision")}</p>)}
       {recordedQuestions.map(question => <section className="task-question-record" key={question.question_id} data-question-record-id={question.question_id} tabIndex={-1}>
@@ -193,6 +230,6 @@ export function TaskRunBlock({ owner, tools, questions, drafts, messages, summar
           {count !== 0 && (detail?.hasMore !== false || (count !== undefined && loaded < count)) && <button type="button" className="secondary-button" disabled={detail?.loading} onClick={() => void onLoadDetails?.(attempt.id, detail?.loaded ?? 0)}>{detail?.loading ? t("activity.loading") : t("activity.load")}{count !== undefined ? ` (${loaded}/${count})` : ""}</button>}
         </div>;
       })}
-    </ActivityDisclosure>
+    </ActivityDisclosure>}
   </section>;
 }

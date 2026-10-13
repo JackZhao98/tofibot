@@ -629,7 +629,11 @@
     "region": "語言與地區",
     "moved_title": "在找匯出、伺服器資訊或從頭開始？",
     "moved_body": "它們已移到「進階」。",
-    "open_advanced": "開啟「進階」"
+    "open_advanced": "開啟「進階」",
+    "chat": "對話",
+    "activity_title": "在對話裡顯示工作過程",
+    "activity_note": "在 Bot 的回覆下方顯示它執行的步驟。預設關閉，仍可從訊息的操作選單開啟。",
+    "activity_save_failed": "儲存失敗，請重試。"
   },
   "approvals": {
     "heading": "審查員",

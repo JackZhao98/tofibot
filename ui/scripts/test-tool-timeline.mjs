@@ -149,7 +149,25 @@ try {
   assert(nameAbove([]).join() === "ledger", "production shape: final message right under its block does not repeat the name");
   const approval = { question_id: "q9", run_id: "r9", conversation_id: "g", bot_id: "ledger", question_type: "approval", status: "answered", created_at: "2026-10-13T10:41:40Z" };
   assert(nameAbove([approval]).join() === "ledger", "an approval card owned by the run draws nothing, so it must not hide the block above the final message");
-  console.log("tool timeline checks: PASS (run ownership, cancelled history, pagination, overlapping requests, live activity, deduplication, precise ordering)");
+  // Activity hidden (the default): only a live run, a pending decision/draft or a run-level issue draws a block.
+  const { taskBlockVisible } = await ui.load("/src/TaskRunBlock.tsx");
+  const hideRun = (id, status, extra = {}) => ({ id, conversation_id: "g", bot_id: "ledger", kind: "", trigger_message_id: "u1", status, created_at: "2026-10-13T10:41:20Z", updated_at: "2026-10-13T10:42:09Z", ...extra });
+  const hideInput = (status, { questions = [], drafts = [], tools = [], hideActivity = true, revealed = false, extra } = {}) => {
+    const latest = hideRun("rh", status, extra);
+    return { owner: buildTaskOwners([latest], [userTrigger], questions, drafts)[0], tools, questions, drafts, messages: [], summaries: [], details: {}, connected: true, hideActivity, revealed };
+  };
+  assert(taskBlockVisible(hideInput("done")) === false, "a finished run that raised no card draws nothing when Activity is hidden");
+  assert(taskBlockVisible(hideInput("done", { tools: [{ ...activity("t1", "2026-10-13T10:41:30Z", undefined, "rh"), conversation_id: "g", bot_id: "ledger" }] })) === false, "tool steps alone never draw a block when Activity is hidden");
+  assert(taskBlockVisible(hideInput("done", { hideActivity: false })) === true, "Activity on: the finished Activity row is drawn");
+  assert(taskBlockVisible(hideInput("done", { revealed: true })) === true, "a run opened from its message's menu draws its Activity");
+  assert(taskBlockVisible(hideInput("running")) === true && taskBlockVisible(hideInput("queued")) === true, "a working run keeps its one live status line");
+  assert(taskBlockVisible(hideInput("failed", { extra: { error: "boom" } })) === true, "a failed run's issue card stays visible");
+  assert(taskBlockVisible(hideInput("cancelled")) === true, "an abnormal stop stays visible");
+  const pendingApproval = { question_id: "qh", run_id: "rh", conversation_id: "g", bot_id: "ledger", question_type: "approval", status: "pending", question: "Send?", created_at: "2026-10-13T10:41:40Z" };
+  assert(taskBlockVisible(hideInput("done", { questions: [pendingApproval] })) === true, "a pending approval card is never hidden with Activity");
+  const answeredApproval = { ...pendingApproval, status: "answered", answer: true };
+  assert(taskBlockVisible(hideInput("done", { questions: [answeredApproval] })) === false, "an answered approval is bookkeeping inside Activity");
+  console.log("tool timeline checks: PASS (Activity hiding, run ownership, cancelled history, pagination, overlapping requests, live activity, deduplication, precise ordering)");
 } finally {
   await ui.close();
 }

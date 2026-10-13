@@ -638,7 +638,11 @@
     "region": "Sprache und Region",
     "moved_title": "Suchst du Export, Serverinfos oder Neu beginnen?",
     "moved_body": "Sie sind jetzt unter Erweitert.",
-    "open_advanced": "Erweitert öffnen"
+    "open_advanced": "Erweitert öffnen",
+    "chat": "Chat",
+    "activity_title": "Aktivität im Chat anzeigen",
+    "activity_note": "Zeigt die Schritte eines Bots unter seinen Antworten. Standardmäßig aus; im Aktionsmenü einer Nachricht lassen sie sich trotzdem öffnen.",
+    "activity_save_failed": "Speichern fehlgeschlagen. Versuche es erneut."
   },
   "approvals": {
     "heading": "Prüfer",

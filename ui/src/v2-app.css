@@ -591,7 +591,12 @@ html:not([data-desktop]) .workspace .web-loading-state{min-height:96px;padding-b
 }
 .workspace .message-hover-actions button:hover { background:var(--surface-2); color:var(--ink); }
 .workspace .message-hover-actions button:focus-visible { outline:2px solid var(--focus); outline-offset:1px; }
-@media (hover:none) { .workspace .message-hover-actions { display:none; } }
+/* Touch (no hover): a tap on the message opens the same actions; a tap elsewhere closes them. */
+@media (hover:none) {
+  .workspace .message-hover-actions { display:none; }
+  .workspace .message-hover-host.is-actions-open>.message-hover-actions { display:flex; opacity:1; pointer-events:auto; transform:none; }
+  .workspace .message-hover-actions button { width:40px; height:40px; }
+}
 @media (prefers-reduced-motion:reduce) { .workspace .message-hover-actions { transition:none; } }
 
 .workspace .composer-reply {

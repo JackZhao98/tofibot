@@ -234,7 +234,9 @@
   "hover": {
     "react": "Add reaction",
     "reply": "Reply",
-    "toolbar": "Message actions"
+    "toolbar": "Message actions",
+    "view_activity": "View activity",
+    "hide_activity": "Hide activity"
   },
   "list": {
     "separator": ", "

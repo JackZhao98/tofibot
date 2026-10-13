@@ -629,7 +629,11 @@
     "region": "언어 및 지역",
     "moved_title": "내보내기, 서버 정보, 처음부터 다시 시작을 찾으세요?",
     "moved_body": "이제 ‘고급’에 있습니다.",
-    "open_advanced": "‘고급’ 열기"
+    "open_advanced": "‘고급’ 열기",
+    "chat": "채팅",
+    "activity_title": "채팅에 활동 표시",
+    "activity_note": "Bot이 수행한 단계를 답장 아래에 표시합니다. 기본값은 꺼짐이며, 메시지의 작업 메뉴에서 열 수 있습니다.",
+    "activity_save_failed": "저장하지 못했습니다. 다시 시도하세요."
   },
   "approvals": {
     "heading": "검토자",
