@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"testing"
 	"time"
@@ -223,7 +224,7 @@ func TestLiveWorkAgendaAcrossGroups(t *testing.T) {
 		beforePlans[plan.ID] = plan
 	}
 	for _, plan := range afterPlans {
-		if previous, ok := beforePlans[plan.ID]; !ok || previous != plan {
+		if previous, ok := beforePlans[plan.ID]; !ok || !reflect.DeepEqual(previous, plan) {
 			t.Fatal("task completion changed a future schedule")
 		}
 	}
@@ -289,7 +290,7 @@ func TestLiveWorkAgendaAcrossGroups(t *testing.T) {
 		t.Fatal("read-only schedule question changed future schedules")
 	}
 	for _, plan := range finalPlans {
-		if previous, ok := beforePlans[plan.ID]; !ok || previous != plan {
+		if previous, ok := beforePlans[plan.ID]; !ok || !reflect.DeepEqual(previous, plan) {
 			t.Fatal("read-only schedule question mutated a future schedule")
 		}
 	}

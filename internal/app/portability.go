@@ -83,6 +83,7 @@ type portableSchedule struct {
 	NextAtUTC       string         `json:"next_at_utc"`
 	IntervalSeconds int64          `json:"interval_seconds"`
 	DailyTime       string         `json:"daily_time"`
+	Weekdays        []string       `json:"weekdays,omitempty"`
 	Status          string         `json:"status"`
 	CreatedAt       string         `json:"created_at"`
 	UpdatedAt       string         `json:"updated_at"`
@@ -413,16 +414,23 @@ func (b portableBundle) validate() error {
 		if _, err := time.LoadLocation(x.Timezone); err != nil {
 			return bad()
 		}
-		if x.Kind != "once" && x.Kind != "interval" && x.Kind != "daily" {
+		if x.Kind != "once" && x.Kind != "interval" && x.Kind != "daily" && x.Kind != "weekly" {
 			return bad()
 		}
 		if x.Kind == "interval" && x.IntervalSeconds < 1 {
 			return bad()
 		}
-		if x.Kind == "daily" {
+		if x.Kind == "daily" || x.Kind == "weekly" {
 			if _, err := time.Parse("15:04", x.DailyTime); err != nil {
 				return bad()
 			}
+		}
+		if x.Kind == "weekly" {
+			if _, err := normalizeWeekdays(x.Weekdays); err != nil {
+				return bad()
+			}
+		} else if len(x.Weekdays) > 0 {
+			return bad()
 		}
 		if x.Status != "active" && x.Status != "paused" && x.Status != "completed" && x.Status != "deleted" {
 			return bad()
