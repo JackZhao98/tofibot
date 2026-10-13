@@ -118,7 +118,8 @@
     "no_tool_steps": "이번 시도에서는 도구 단계가 실행되지 않았습니다.",
     "finishing_results_kept": "마무리 중입니다. 완료된 결과는 보존됩니다.",
     "stopped_results_kept": "이번 작업이 중지되었습니다. 완료된 결과는 보존됩니다.",
-    "completed_steps_kept": "완료된 도구 단계는 활동에 보존됩니다."
+    "completed_steps_kept": "완료된 도구 단계는 활동에 보존됩니다.",
+    "reply_below": "결과는 아래 답장에 있습니다."
   },
   "secondary": {
     "then_provider_busy": "이후 모델 서비스가 혼잡해 작업이 완료되지 않았습니다.",
@@ -197,7 +198,12 @@
     "impact": "영향",
     "review_reason": "사유",
     "review_risk": "위험도",
-    "risk": { "low": "낮음", "medium": "보통", "high": "높음", "unknown": "평가 안 됨" },
+    "risk": {
+      "low": "낮음",
+      "medium": "보통",
+      "high": "높음",
+      "unknown": "평가 안 됨"
+    },
     "view_full_arguments": "전체 인수 보기",
     "proposal_ended": "이 제안은 종료되었습니다.",
     "view_decision": "결정 기록 보기",
@@ -470,5 +476,29 @@
     "revoke_failed": "취소하지 못했습니다. 다시 시도하세요.",
     "load_failed": "기억된 승인을 불러오지 못했습니다.",
     "close": "닫기"
+  },
+  "reason": {
+    "step": {
+      "needs_human_unattended": "{{step}}은(는) 사용자의 승인이 필요하지만 무인 실행에서는 물어볼 수 없습니다. 채팅에서 \"진행해\"라고 하면 실행됩니다.",
+      "high_risk_unattended": "{{step}}은(는) 항상 확인하도록 설정되어 무인 실행에서는 실행되지 않았습니다. 채팅에서 \"진행해\"라고 하면 실행됩니다.",
+      "context_missing": "{{step}}이(가) 차단되었습니다. 예약 실행의 권한을 확인할 수 없었습니다.",
+      "review_unavailable": "{{step}}이(가) 보류되었습니다. 실행 전 검사를 사용할 수 없었습니다.",
+      "setup_missing": "{{step}}이(가) 차단되었습니다. 도구 설정이 완료되지 않았습니다.",
+      "policy_denied": "{{step}}이(가) 안전 검사를 통과하지 못했습니다.",
+      "denied": "{{step}}이(가) 거부되었습니다.",
+      "approval_expired": "{{step}}이(가) 중지되었습니다. 승인이 만료되었습니다.",
+      "auth_required": "{{step}}은(는) 다시 로그인해야 합니다.",
+      "unreachable": "{{step}} 실패: 도구 서비스에 연결할 수 없었습니다.",
+      "timeout": "{{step}}이(가) 시간 초과로 중지되었습니다.",
+      "unconfirmed": "{{step}}은(는) 실행되었지만 결과를 확인할 수 없습니다.",
+      "failed": "도구 실패: {{step}}."
+    },
+    "run": {
+      "model_unavailable": "모델 서비스를 사용할 수 없었습니다.",
+      "budget_exhausted": "작업이 끝나기 전에 단계 한도에 도달했습니다.",
+      "no_final_answer": "모델이 최종 답변 없이 종료되었습니다.",
+      "tool_stuck": "도구 단계가 응답하지 않아 작업이 중지되었습니다.",
+      "receipt_missing": "결과를 확인하지 못한 채 실행이 종료되었습니다."
+    }
   }
 }
