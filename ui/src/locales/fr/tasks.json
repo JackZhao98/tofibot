@@ -118,7 +118,8 @@
     "no_tool_steps": "Aucune étape d’outil n’a été exécutée lors de cette tentative.",
     "finishing_results_kept": "Finalisation en cours. Les résultats obtenus sont conservés.",
     "stopped_results_kept": "Ce flux de travail s’est arrêté. Les résultats obtenus sont conservés.",
-    "completed_steps_kept": "Les étapes d’outil terminées sont conservées dans l’activité."
+    "completed_steps_kept": "Les étapes d’outil terminées sont conservées dans l’activité.",
+    "reply_below": "Le résultat se trouve dans la réponse ci-dessous."
   },
   "secondary": {
     "then_provider_busy": "Le service du modèle a ensuite été saturé et la tâche n’a pas abouti.",
@@ -199,7 +200,12 @@
     "impact": "Impact",
     "review_reason": "Motif",
     "review_risk": "Risque",
-    "risk": { "low": "Faible", "medium": "Moyen", "high": "Élevé", "unknown": "Non évalué" },
+    "risk": {
+      "low": "Faible",
+      "medium": "Moyen",
+      "high": "Élevé",
+      "unknown": "Non évalué"
+    },
     "view_full_arguments": "Voir tous les arguments",
     "proposal_ended": "Cette proposition est close.",
     "view_decision": "Voir l’historique de la décision",
@@ -482,5 +488,29 @@
     "revoke_failed": "Révocation impossible. Réessayez.",
     "load_failed": "Impossible de charger les approbations mémorisées.",
     "close": "Fermer"
+  },
+  "reason": {
+    "step": {
+      "needs_human_unattended": "{{step}} nécessite votre feu vert, et les exécutions sans surveillance ne peuvent pas le demander. Écrivez « vas-y » dans le chat pour l'exécuter.",
+      "high_risk_unattended": "{{step}} est réglé sur « toujours demander » et ne s'est donc pas exécuté sans surveillance. Écrivez « vas-y » dans le chat pour l'exécuter.",
+      "context_missing": "{{step}} a été bloqué : l'autorisation de la planification n'a pas pu être vérifiée.",
+      "review_unavailable": "{{step}} a été suspendu : la vérification avant exécution était indisponible.",
+      "setup_missing": "{{step}} a été bloqué : la configuration de l'outil est incomplète.",
+      "policy_denied": "{{step}} n'a pas passé le contrôle de sécurité.",
+      "denied": "{{step}} a été refusé.",
+      "approval_expired": "{{step}} a été arrêté : l'approbation a expiré.",
+      "auth_required": "{{step}} nécessite une nouvelle connexion.",
+      "unreachable": "{{step}} a échoué : le service de l'outil était injoignable.",
+      "timeout": "{{step}} a expiré et a été arrêté.",
+      "unconfirmed": "{{step}} s'est exécuté, mais son résultat n'a pas pu être confirmé.",
+      "failed": "Un outil a échoué : {{step}}."
+    },
+    "run": {
+      "model_unavailable": "Le service du modèle était indisponible.",
+      "budget_exhausted": "La tâche a épuisé son budget d'étapes avant de terminer.",
+      "no_final_answer": "Le modèle s'est arrêté sans réponse finale.",
+      "tool_stuck": "Une étape d'outil ne répondait plus et la tâche a été arrêtée.",
+      "receipt_missing": "L'exécution s'est terminée sans confirmer de résultat."
+    }
   }
 }

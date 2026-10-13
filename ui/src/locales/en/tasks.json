@@ -118,7 +118,8 @@
     "no_tool_steps": "No tool steps ran in this attempt.",
     "finishing_results_kept": "Finishing up; completed results are retained.",
     "stopped_results_kept": "This workflow stopped; completed results are retained.",
-    "completed_steps_kept": "Completed tool steps are retained in activity."
+    "completed_steps_kept": "Completed tool steps are retained in activity.",
+    "reply_below": "The result is in the reply below."
   },
   "secondary": {
     "then_provider_busy": "The model service was then busy, and the task did not finish.",
@@ -198,7 +199,12 @@
     "impact": "Impact",
     "review_reason": "Reason",
     "review_risk": "Risk",
-    "risk": { "low": "Low", "medium": "Medium", "high": "High", "unknown": "Not rated" },
+    "risk": {
+      "low": "Low",
+      "medium": "Medium",
+      "high": "High",
+      "unknown": "Not rated"
+    },
     "view_full_arguments": "View full arguments",
     "proposal_ended": "This proposal ended.",
     "view_decision": "View decision record",
@@ -476,5 +482,29 @@
     "revoke_failed": "Couldn't revoke. Try again.",
     "load_failed": "Couldn't load remembered approvals.",
     "close": "Close"
+  },
+  "reason": {
+    "step": {
+      "needs_human_unattended": "{{step}} needs your go-ahead, and unattended runs can't ask. Say \"go ahead\" in chat to run it.",
+      "high_risk_unattended": "{{step}} is set to always ask you, so it didn't run unattended. Say \"go ahead\" in chat to run it.",
+      "context_missing": "{{step}} was blocked: schedule authorization couldn't be verified.",
+      "review_unavailable": "{{step}} was held: the pre-execution check was unavailable.",
+      "setup_missing": "{{step}} was blocked: tool setup is incomplete.",
+      "policy_denied": "{{step}} was blocked by the safety check.",
+      "denied": "{{step}} was declined.",
+      "approval_expired": "{{step}} was stopped: approval expired.",
+      "auth_required": "{{step}} needs you to sign in again.",
+      "unreachable": "{{step}} failed: the tool service was unreachable.",
+      "timeout": "{{step}} timed out and was stopped.",
+      "unconfirmed": "{{step}} ran, but its result couldn't be confirmed.",
+      "failed": "A tool failed: {{step}}."
+    },
+    "run": {
+      "model_unavailable": "The model service was unavailable.",
+      "budget_exhausted": "The task hit its step budget before finishing.",
+      "no_final_answer": "The model ended without a final answer.",
+      "tool_stuck": "A tool step stopped responding and the task was stopped.",
+      "receipt_missing": "The run ended without confirming a result."
+    }
   }
 }

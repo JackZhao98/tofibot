@@ -118,7 +118,8 @@
     "no_tool_steps": "這次沒有執行任何工具步驟。",
     "finishing_results_kept": "正在收尾，已完成的結果會保留。",
     "stopped_results_kept": "這次工作已停止，已完成的結果會保留。",
-    "completed_steps_kept": "已完成的工具步驟保留在工作過程中。"
+    "completed_steps_kept": "已完成的工具步驟保留在工作過程中。",
+    "reply_below": "結果在下方的回覆中。"
   },
   "secondary": {
     "then_provider_busy": "隨後模型服務忙碌，任務未完成。",
@@ -197,7 +198,12 @@
     "impact": "影響",
     "review_reason": "原因",
     "review_risk": "風險",
-    "risk": { "low": "低", "medium": "中", "high": "高", "unknown": "未評級" },
+    "risk": {
+      "low": "低",
+      "medium": "中",
+      "high": "高",
+      "unknown": "未評級"
+    },
     "view_full_arguments": "查看完整參數",
     "proposal_ended": "此提案已結束。",
     "view_decision": "查看決定紀錄",
@@ -470,5 +476,29 @@
     "revoke_failed": "撤銷失敗，請再試一次。",
     "load_failed": "無法載入記住的核准。",
     "close": "關閉"
+  },
+  "reason": {
+    "step": {
+      "needs_human_unattended": "{{step}} 需要你確認，無人值守的執行無法詢問。在聊天中回覆「繼續」即可執行。",
+      "high_risk_unattended": "{{step}} 已設為每次都需詢問，因此無人值守時未執行。在聊天中回覆「繼續」即可執行。",
+      "context_missing": "{{step}} 已被攔截：無法驗證排程任務的授權。",
+      "review_unavailable": "{{step}} 已暫緩：執行前檢查無法使用。",
+      "setup_missing": "{{step}} 已被攔截：工具設定尚未完成。",
+      "policy_denied": "{{step}} 未通過安全檢查。",
+      "denied": "{{step}} 已被拒絕。",
+      "approval_expired": "{{step}} 已停止：核准已過期。",
+      "auth_required": "{{step}} 需要你重新登入。",
+      "unreachable": "{{step}} 失敗：無法連線到工具服務。",
+      "timeout": "{{step}} 逾時，已被停止。",
+      "unconfirmed": "{{step}} 已執行，但無法確認結果。",
+      "failed": "工具失敗：{{step}}。"
+    },
+    "run": {
+      "model_unavailable": "模型服務無法使用。",
+      "budget_exhausted": "任務在完成前用盡了步驟預算。",
+      "no_final_answer": "模型結束時沒有給出最終回答。",
+      "tool_stuck": "某個工具步驟停止回應，任務已被停止。",
+      "receipt_missing": "執行結束，但未能確認結果。"
+    }
   }
 }
