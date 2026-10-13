@@ -343,7 +343,8 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
     if (path === "/api/extensions/oauth-options") return {vm_available: true, web_callback_origin: "https://tofi.example.test", desktop_redirect_uri: ""};
     if (/\/oauth\/vm\/start$/.test(path) && method === "POST") return {session_id: "sess_vm", bot_id: "bot_research", status: "pending"};
     if (/\/oauth\/vm\/[^/]+\/status$/.test(path)) return {session_id: "sess_vm", bot_id: "bot_research", status: "pending"};
-    if (path === "/api/extensions/local-mcp") return {available: false, reason: "sample"};
+    if (path === "/api/extensions/local-mcp") return {available: true, plugins: [{id: "gog", state: "sleeping", tool_count: 0}]};
+    if (path === "/api/extensions/local-mcp/gog/oauth/status") return {connected: false, email: ""};
     if (path === "/api/extensions/skills") return {skills: [{name: "research-assistant", description: "Research and verify sources", access: {mode: "all"}}, {name: "weekly-report", description: "Draft the weekly status report", access: {mode: "selected", bot_ids: ["bot_research"]}}]};
     if (path === "/api/auto-review-settings") return {mode: "shadow", revision: 1, review_scope: "all_external_tools"};
     if (path === "/api/providers") return {providers};
@@ -411,6 +412,16 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
       await page.locator(".web-oauth-provider").waitFor({timeout: 4000}).catch(() => warnings.push("step skipped: sign-in diagram did not appear"));
       const boxes = await page.evaluate(() => { const p = document.querySelector(".web-oauth-provider"); if (!p) return null; const a = p.querySelector("svg").getBoundingClientRect(), b = p.querySelector("small").getBoundingClientRect(); return {iconBottom: a.bottom, labelTop: b.top}; });
       if (boxes && boxes.labelTop < boxes.iconBottom - 0.5) throw new Error(`provider label overlaps the key icon (${boxes.labelTop} < ${boxes.iconBottom})`);
+    }},
+    // Google (local MCP) OAuth client JSON: the picker is a styled button; the native file input must stay hidden before and after choosing.
+    {id: "connections-google-json", tab: "connections", run: async ({page}) => {
+      const field = page.locator(".local-mcp-file");
+      await field.waitFor({timeout: 6000});
+      if (!/No file chosen/.test(await field.innerText())) throw new Error("Google OAuth JSON picker does not show the empty state");
+      await field.getByRole("button", {name: "Choose file…"}).waitFor({timeout: 2000});
+      await field.locator('input[type="file"]').setInputFiles({name: "client_secret.json", mimeType: "application/json", buffer: Buffer.from('{"web":{"client_id":"sample"}}')});
+      await field.locator(".file-chip", {hasText: "client_secret.json"}).waitFor({timeout: 3000});
+      await page.waitForTimeout(300);
     }},
     {id: "connections-add", tab: "connections", run: async ({page}) => { await click(page.getByRole("button", {name: /^Add/}), "Connections: Add"); await page.waitForTimeout(500); }},
     // Tool tiers disclosure: grouped list, markers, the per-tool selector; audited at every viewport.

@@ -236,6 +236,8 @@
     },
     "google": {
       "client_json": "OAuth client JSON",
+      "choose_file": "Choose file…",
+      "no_file": "No file chosen",
       "client_setup": "In Google Cloud, create a <strong>Web application</strong> OAuth client, add the address below under “Authorized redirect URIs”, then upload the downloaded JSON.",
       "connect": "Connect Google",
       "connected_as": "Authorized as {{email}}",

@@ -236,6 +236,8 @@
     },
     "google": {
       "client_json": "OAuth 클라이언트 JSON",
+      "choose_file": "파일 선택…",
+      "no_file": "선택된 파일 없음",
       "client_setup": "Google Cloud에서 <strong>웹 애플리케이션</strong> OAuth 클라이언트를 만들고, 아래 주소를 '승인된 리디렉션 URI'에 추가한 뒤 다운로드한 JSON을 업로드하세요.",
       "connect": "Google 연결",
       "connected_as": "{{email}} 승인됨",

@@ -10,6 +10,7 @@
 .local-mcp-auth-form{display:grid;gap:12px}
 .local-mcp-auth-form label,.local-mcp-fields label{display:grid;gap:6px;font-size:13px}
 .local-mcp-auth-form input,.local-mcp-fields input,.local-mcp-fields select,.local-mcp-fields textarea{width:100%;min-height:38px;padding:8px 10px;border:1px solid var(--line-soft);border-radius:9px;background:var(--surface);color:var(--ink);font:inherit}
+.local-mcp-file{display:grid;gap:6px;font-size:13px}
 .local-mcp-auth-form small{color:var(--muted)}
 .local-mcp-custom{padding:0 2px}.local-mcp-custom summary{cursor:pointer;font-weight:600}
 .local-mcp-custom[open]{display:grid;gap:12px}.local-mcp-fields{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}

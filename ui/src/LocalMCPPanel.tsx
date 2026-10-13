@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useId, useState } from "react";
+import { FilePicker } from "./settings/components";
 import { request } from "./api";
 import { Trans, useTranslation } from "./i18n";
 import "./local-mcp.css";
@@ -24,6 +25,8 @@ export function LocalMCPPanel({ onChanged, attachedIDs, callbackOrigin }: { onCh
  const [email, setEmail] = useState("");
  const [googleScope, setGoogleScope] = useState<"readonly" | "read-send">("readonly");
  const [credentials, setCredentials] = useState("");
+ const [credentialsName, setCredentialsName] = useState("");
+ const clientJsonLabel = useId();
  const [kind, setKind] = useState<PackageKind>("npm");
  const [id, setID] = useState("");
  const [packageName, setPackageName] = useState("");
@@ -66,7 +69,7 @@ export function LocalMCPPanel({ onChanged, attachedIDs, callbackOrigin }: { onCh
   setBusy("oauth"); setError(""); setNotice(t("local.google.generating_link")); setAuthURL("");
   try {
    const result = await request<{ authorization_url: string }>("/api/extensions/local-mcp/gog/oauth/start", { method: "POST", body: JSON.stringify({ email, scope: googleScope, credentials_json: client }) });
-   setCredentials("");
+   setCredentials(""); setCredentialsName("");
    setAuthURL(result.authorization_url);
    setNotice(t("local.google.finish_in_google"));
    if (popup && !popup.closed) popup.location.replace(result.authorization_url);
@@ -114,7 +117,7 @@ export function LocalMCPPanel({ onChanged, attachedIDs, callbackOrigin }: { onCh
      <code>{callbackURL}</code>
      <label>{t("local.google.email")}<input type="email" value={email} onChange={event => setEmail(event.target.value)} placeholder="you@gmail.com" /></label>
      <label>{t("local.google.scope")}<select value={googleScope} onChange={event => setGoogleScope(event.target.value as "readonly" | "read-send")}><option value="readonly">{t("local.google.scope_readonly")}</option><option value="read-send">{t("local.google.scope_read_send")}</option></select></label>
-     <label>{t("local.google.client_json")}<input type="file" accept=".json,application/json" onChange={event => { const file = event.target.files?.[0]; if (file) void file.text().then(setCredentials).catch(caught => setError(errorText(caught))); }} /></label>
+     <div className="local-mcp-file"><span id={clientJsonLabel}>{t("local.google.client_json")}</span><FilePicker accept=".json,application/json" labelledBy={clientJsonLabel} label={t("local.google.choose_file")} fileName={credentialsName} dropHint={t("local.google.no_file")} disabled={!!busy} onFile={file => { setError(""); void file.text().then(text => { setCredentials(text); setCredentialsName(file.name); }).catch(caught => setError(errorText(caught))); }} /></div>
      <button className="mcp-button" disabled={!!busy || !email || !credentials || !oauthReady} onClick={() => void connectGoogle()}>{busy === "oauth" ? t("local.google.preparing") : t("local.google.connect")}</button>
      {!oauthReady && <small>{t("local.google.needs_https")}</small>}
      {authURL && <a href={authURL} target="_blank" rel="noopener noreferrer">{t("local.google.continue")}</a>}

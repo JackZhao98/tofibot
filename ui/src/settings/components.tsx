@@ -70,10 +70,10 @@ export function SettingsDetails({children}: {children: ReactNode}) {
 }
 
 /** Styled file picker: a button, the chosen file name as a chip, and a drop zone. The native input stays hidden. */
-export function FilePicker({accept, label, fileName, onFile, disabled = false, dropHint}: {accept?: string; label: ReactNode; fileName?: string; onFile: (file: File) => void; disabled?: boolean; dropHint?: ReactNode}) {
+export function FilePicker({accept, label, fileName, onFile, disabled = false, dropHint, labelledBy}: {accept?: string; label: ReactNode; fileName?: string; onFile: (file: File) => void; disabled?: boolean; dropHint?: ReactNode; labelledBy?: string}) {
   const input = useRef<HTMLInputElement>(null);
   const [dragging, setDragging] = useState(false);
-  return <div className={`file-picker${dragging ? " is-dragging" : ""}`}
+  return <div className={`file-picker${dragging ? " is-dragging" : ""}`} role={labelledBy ? "group" : undefined} aria-labelledby={labelledBy}
     onDragOver={event => { event.preventDefault(); if (!disabled) setDragging(true); }}
     onDragLeave={event => { if (!event.currentTarget.contains(event.relatedTarget as Node)) setDragging(false); }}
     onDrop={event => { event.preventDefault(); setDragging(false); const file = event.dataTransfer.files[0]; if (!disabled && file) onFile(file); }}>
