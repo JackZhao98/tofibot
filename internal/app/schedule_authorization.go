@@ -34,6 +34,9 @@ type scheduleExecutionSpec struct {
 	InitialAtUTC    string `json:"initial_at_utc"`
 	IntervalSeconds int64  `json:"interval_seconds"`
 	DailyTime       string `json:"daily_time"`
+	// Weekdays is the comma-joined weekly day list (e.g. "mon,wed"); omitted for
+	// other kinds so existing stored specs keep their digests.
+	Weekdays string `json:"weekdays,omitempty"`
 }
 
 type scheduleAuthorizationRevision struct {
@@ -160,7 +163,7 @@ func migrateScheduleAuthorization(db *sql.DB) error {
 }
 
 func scheduleExecutionScope(x Schedule, account, anchor string) scheduleExecutionSpec {
-	return scheduleExecutionSpec{AccountID: account, ConversationID: x.ConversationID, BotID: x.BotID, Content: x.Content, Kind: x.Kind, Timezone: x.Timezone, InitialAtUTC: anchor, IntervalSeconds: x.IntervalSeconds, DailyTime: x.DailyTime}
+	return scheduleExecutionSpec{AccountID: account, ConversationID: x.ConversationID, BotID: x.BotID, Content: x.Content, Kind: x.Kind, Timezone: x.Timezone, InitialAtUTC: anchor, IntervalSeconds: x.IntervalSeconds, DailyTime: x.DailyTime, Weekdays: strings.Join(x.Weekdays, ",")}
 }
 
 func scheduleExecutionSpecDigest(spec scheduleExecutionSpec) string {
@@ -191,7 +194,7 @@ func readScheduleAuthorizationRevision(db reviewQuerier, id string, revision int
 // Rebuild current stable scope using the journal anchor. Callers separately
 // require active lifecycle, exact revision, full source chain and host proofs.
 func readBoundScheduleAuthorization(db reviewQuerier, id, account string) (Schedule, int64, scheduleExecutionSpec, error) {
-	x, err := scanSchedule(db.QueryRow(`SELECT id,conversation_id,bot_id,content,title,description,created_by,kind,timezone,next_at_utc,interval_seconds,daily_time,status,created_at,updated_at FROM schedules WHERE id=?`, id))
+	x, err := scanSchedule(db.QueryRow(`SELECT id,conversation_id,bot_id,content,title,description,created_by,kind,timezone,next_at_utc,interval_seconds,daily_time,weekdays,status,created_at,updated_at FROM schedules WHERE id=?`, id))
 	var revision int64
 	if err != nil {
 		return x, 0, scheduleExecutionSpec{}, err

@@ -39,7 +39,7 @@ func (s *Store) patchScheduleWithSource(id string, patch SchedulePatch, source *
 		return Schedule{}, err
 	}
 	defer tx.Rollback()
-	x, err := scanSchedule(tx.QueryRow(`SELECT id,conversation_id,bot_id,content,title,description,created_by,kind,timezone,next_at_utc,interval_seconds,daily_time,status,created_at,updated_at FROM schedules WHERE id=? AND status<>'deleted'`, id))
+	x, err := scanSchedule(tx.QueryRow(`SELECT id,conversation_id,bot_id,content,title,description,created_by,kind,timezone,next_at_utc,interval_seconds,daily_time,weekdays,status,created_at,updated_at FROM schedules WHERE id=? AND status<>'deleted'`, id))
 	if err != nil {
 		return Schedule{}, err
 	}

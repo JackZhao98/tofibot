@@ -379,7 +379,7 @@ func verifyMCPScheduleSources(db reviewQuerier, record scheduleOccurrenceAuthori
 		if saved.PreviousRevision != int64(i) || saved.AccountID != record.AccountID || saved.ConversationID != initial.ConversationID || saved.BotID != initial.BotID || saved.RequestID == "" {
 			return mcpContextFail(mcpContextSourceChain)
 		}
-		if saved.ExecutionSpec.AccountID != initial.AccountID || saved.ExecutionSpec.ConversationID != initial.ConversationID || saved.ExecutionSpec.BotID != initial.BotID || saved.ExecutionSpec.InitialAtUTC != initial.InitialAtUTC || saved.ExecutionSpec.Kind != initial.Kind || saved.ExecutionSpec.Timezone != initial.Timezone || saved.ExecutionSpec.IntervalSeconds != initial.IntervalSeconds || saved.ExecutionSpec.DailyTime != initial.DailyTime {
+		if saved.ExecutionSpec.AccountID != initial.AccountID || saved.ExecutionSpec.ConversationID != initial.ConversationID || saved.ExecutionSpec.BotID != initial.BotID || saved.ExecutionSpec.InitialAtUTC != initial.InitialAtUTC || saved.ExecutionSpec.Kind != initial.Kind || saved.ExecutionSpec.Timezone != initial.Timezone || saved.ExecutionSpec.IntervalSeconds != initial.IntervalSeconds || saved.ExecutionSpec.DailyTime != initial.DailyTime || saved.ExecutionSpec.Weekdays != initial.Weekdays {
 			return mcpContextFail(mcpContextSourceChain)
 		}
 		if i == 0 && saved.EventKind != "create" || i > 0 && saved.EventKind == "create" {

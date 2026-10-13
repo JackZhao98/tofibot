@@ -135,7 +135,9 @@ export interface StreamDraft {
   updated_at: string;
 }
 
-export type ScheduleKind = "once" | "interval" | "daily";
+export type ScheduleKind = "once" | "interval" | "daily" | "weekly";
+export const WEEKDAYS = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"] as const;
+export type Weekday = (typeof WEEKDAYS)[number];
 export type ScheduleStatus = "active" | "paused" | "completed" | "deleted";
 
 export interface Schedule {
@@ -151,6 +153,7 @@ export interface Schedule {
   next_at_utc: string;
   interval_seconds?: number;
   daily_time?: string;
+  weekdays?: Weekday[];
   status: ScheduleStatus;
   last_run_id?: string;
   execution_status?: RunStatus;

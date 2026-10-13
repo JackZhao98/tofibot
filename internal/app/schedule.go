@@ -22,6 +22,7 @@ const (
 	scheduleOnce        = "once"
 	scheduleInterval    = "interval"
 	scheduleDaily       = "daily"
+	scheduleWeekly      = "weekly"
 	scheduleActive      = "active"
 	schedulePaused      = "paused"
 	scheduleComplete    = "completed"
@@ -46,7 +47,9 @@ type ScheduleSpec struct {
 	RunAt           string `json:"run_at,omitempty"`
 	IntervalSeconds int64  `json:"interval_seconds,omitempty"`
 	DailyTime       string `json:"daily_time,omitempty"`
-	Timezone        string `json:"timezone,omitempty"`
+	// Weekdays are three-letter lowercase names (mon..sun); weekly schedules only.
+	Weekdays []string `json:"weekdays,omitempty"`
+	Timezone string   `json:"timezone,omitempty"`
 }
 
 type Schedule struct {
@@ -67,7 +70,9 @@ type Schedule struct {
 	NextAtUTC            string `json:"next_at_utc"`
 	IntervalSeconds      int64  `json:"interval_seconds,omitempty"`
 	DailyTime            string `json:"daily_time,omitempty"`
-	Status               string `json:"status"`
+	// Weekdays lists the days of a weekly schedule in week order (mon..sun).
+	Weekdays []string `json:"weekdays,omitempty"`
+	Status   string   `json:"status"`
 	// Status is the schedule lifecycle; ExecutionStatus aggregates the latest occurrence.
 	LastRunID       string `json:"last_run_id,omitempty"`
 	ExecutionStatus string `json:"execution_status,omitempty"`
@@ -79,21 +84,22 @@ type Schedule struct {
 // in other conversations. Only the selected failure's bounded public run error
 // is included; task content, transcripts and other attempts remain excluded.
 type ScheduleOccurrence struct {
-	RootRunID            string `json:"root_run_id"`
-	ScheduleID           string `json:"schedule_id"`
-	ScheduledForUTC      string `json:"scheduled_for_utc"`
-	Title                string `json:"title,omitempty"`
-	Description          string `json:"description,omitempty"`
-	CreatedBy            string `json:"created_by,omitempty"`
-	Kind                 string `json:"kind,omitempty"`
-	Timezone             string `json:"timezone,omitempty"`
-	IntervalSeconds      int64  `json:"interval_seconds,omitempty"`
-	DailyTime            string `json:"daily_time,omitempty"`
-	OccurrenceNumber     int64  `json:"occurrence_number,omitempty"`
-	ExecutionStatus      string `json:"execution_status"`
-	StatusRunID          string `json:"status_run_id"`
-	StatusError          string `json:"status_error,omitempty"`
-	ResultInConversation bool   `json:"result_in_conversation"`
+	RootRunID            string   `json:"root_run_id"`
+	ScheduleID           string   `json:"schedule_id"`
+	ScheduledForUTC      string   `json:"scheduled_for_utc"`
+	Title                string   `json:"title,omitempty"`
+	Description          string   `json:"description,omitempty"`
+	CreatedBy            string   `json:"created_by,omitempty"`
+	Kind                 string   `json:"kind,omitempty"`
+	Timezone             string   `json:"timezone,omitempty"`
+	IntervalSeconds      int64    `json:"interval_seconds,omitempty"`
+	DailyTime            string   `json:"daily_time,omitempty"`
+	Weekdays             []string `json:"weekdays,omitempty"`
+	OccurrenceNumber     int64    `json:"occurrence_number,omitempty"`
+	ExecutionStatus      string   `json:"execution_status"`
+	StatusRunID          string   `json:"status_run_id"`
+	StatusError          string   `json:"status_error,omitempty"`
+	ResultInConversation bool     `json:"result_in_conversation"`
 }
 
 type scheduleFamilyRun struct {
@@ -117,11 +123,12 @@ CREATE TABLE IF NOT EXISTS schedules (
 	title TEXT NOT NULL DEFAULT '',
 	description TEXT NOT NULL DEFAULT '',
 	created_by TEXT NOT NULL DEFAULT '',
-	kind TEXT NOT NULL CHECK(kind IN ('once','interval','daily')),
+	kind TEXT NOT NULL CHECK(kind IN ('once','interval','daily','weekly')),
 	timezone TEXT NOT NULL,
 	next_at_utc TEXT NOT NULL,
 	interval_seconds INTEGER NOT NULL DEFAULT 0,
 	daily_time TEXT NOT NULL DEFAULT '',
+	weekdays TEXT NOT NULL DEFAULT '',
 	status TEXT NOT NULL DEFAULT 'active' CHECK(status IN ('active','paused','completed','deleted')),
 	created_at TEXT NOT NULL,
 	updated_at TEXT NOT NULL,
@@ -141,6 +148,7 @@ CREATE TABLE IF NOT EXISTS schedule_occurrences (
 	timezone TEXT NOT NULL DEFAULT '',
 	interval_seconds INTEGER NOT NULL DEFAULT 0,
 	daily_time TEXT NOT NULL DEFAULT '',
+	weekdays TEXT NOT NULL DEFAULT '',
 	occurrence_number INTEGER NOT NULL DEFAULT 0,
 	created_at TEXT NOT NULL,
 	PRIMARY KEY(schedule_id,scheduled_for_utc),
@@ -163,6 +171,8 @@ CREATE INDEX IF NOT EXISTS schedule_occurrences_run ON schedule_occurrences(run_
 		{"schedule_occurrences", "timezone", `ALTER TABLE schedule_occurrences ADD COLUMN timezone TEXT NOT NULL DEFAULT ''`},
 		{"schedule_occurrences", "interval_seconds", `ALTER TABLE schedule_occurrences ADD COLUMN interval_seconds INTEGER NOT NULL DEFAULT 0`},
 		{"schedule_occurrences", "daily_time", `ALTER TABLE schedule_occurrences ADD COLUMN daily_time TEXT NOT NULL DEFAULT ''`},
+		{"schedules", "weekdays", `ALTER TABLE schedules ADD COLUMN weekdays TEXT NOT NULL DEFAULT ''`},
+		{"schedule_occurrences", "weekdays", `ALTER TABLE schedule_occurrences ADD COLUMN weekdays TEXT NOT NULL DEFAULT ''`},
 		{"schedule_occurrences", "occurrence_number", `ALTER TABLE schedule_occurrences ADD COLUMN occurrence_number INTEGER NOT NULL DEFAULT 0`},
 	} {
 		if err := ensureColumn(db, column.table, column.name, column.ddl); err != nil {
@@ -178,15 +188,20 @@ func (s *Store) ensureSchedules() error {
 		if s.scheduleSchemaErr == nil {
 			s.scheduleSchemaErr = migrateScheduleAuthorization(s.db)
 		}
+		if s.scheduleSchemaErr == nil {
+			s.scheduleSchemaErr = migrateScheduleWeeklyKind(s.db)
+		}
 	})
 	return s.scheduleSchemaErr
 }
 
 func scanSchedule(r interface{ Scan(...any) error }) (Schedule, error) {
 	var x Schedule
+	var weekdays string
 	err := r.Scan(&x.ID, &x.ConversationID, &x.BotID, &x.Content, &x.Title, &x.Description, &x.CreatedBy, &x.Kind,
-		&x.Timezone, &x.NextAtUTC, &x.IntervalSeconds, &x.DailyTime,
+		&x.Timezone, &x.NextAtUTC, &x.IntervalSeconds, &x.DailyTime, &weekdays,
 		&x.Status, &x.CreatedAt, &x.UpdatedAt)
+	x.Weekdays = splitWeekdays(weekdays)
 	return x, err
 }
 
@@ -262,6 +277,9 @@ func validateScheduleSpec(spec ScheduleSpec, now time.Time) (ScheduleSpec, time.
 	spec.Content = strings.TrimSpace(spec.Content)
 	spec.RunAt = strings.TrimSpace(spec.RunAt)
 	spec.DailyTime = strings.TrimSpace(spec.DailyTime)
+	if spec.Kind != scheduleWeekly && len(spec.Weekdays) > 0 {
+		return spec, time.Time{}, errors.New("weekdays is only valid for weekly schedules")
+	}
 	if spec.Content == "" || len([]rune(spec.Content)) > maxScheduleContent {
 		return spec, time.Time{}, fmt.Errorf("content is required and must be at most %d runes", maxScheduleContent)
 	}
@@ -276,7 +294,7 @@ func validateScheduleSpec(spec ScheduleSpec, now time.Time) (ScheduleSpec, time.
 	switch spec.Kind {
 	case scheduleOnce, scheduleInterval:
 		if spec.DailyTime != "" {
-			return spec, time.Time{}, errors.New("daily_time is only valid for daily schedules")
+			return spec, time.Time{}, errors.New("daily_time is only valid for daily and weekly schedules")
 		}
 		at, e := parseRunAt(spec.RunAt, loc)
 		if e != nil {
@@ -308,8 +326,25 @@ func validateScheduleSpec(spec ScheduleSpec, now time.Time) (ScheduleSpec, time.
 			return spec, time.Time{}, e
 		}
 		return spec, at.UTC(), nil
+	case scheduleWeekly:
+		if spec.RunAt != "" || spec.IntervalSeconds != 0 {
+			return spec, time.Time{}, errors.New("run_at and interval_seconds are not valid for weekly schedules")
+		}
+		if _, _, e := parseClock(spec.DailyTime); e != nil {
+			return spec, time.Time{}, e
+		}
+		days, e := normalizeWeekdays(spec.Weekdays)
+		if e != nil {
+			return spec, time.Time{}, e
+		}
+		spec.Weekdays = days
+		at, e := nextWeekly(now, loc, spec.DailyTime, days)
+		if e != nil {
+			return spec, time.Time{}, e
+		}
+		return spec, at.UTC(), nil
 	default:
-		return spec, time.Time{}, errors.New("kind must be once, interval, or daily")
+		return spec, time.Time{}, errors.New("kind must be once, interval, daily, or weekly")
 	}
 }
 
@@ -332,6 +367,79 @@ func nextDaily(after time.Time, loc *time.Location, clock string) (time.Time, er
 		}
 	}
 	return time.Time{}, errors.New("could not find next daily occurrence")
+}
+
+var weekdayNames = []string{"mon", "tue", "wed", "thu", "fri", "sat", "sun"}
+
+// weekdayIndex maps time.Weekday (Sunday=0) onto weekdayNames (Monday first).
+func weekdayName(d time.Weekday) string { return weekdayNames[(int(d)+6)%7] }
+
+// normalizeWeekdays accepts mon..sun (case-insensitive, three-letter), rejects
+// empty lists, unknown names and duplicates, and returns week order Mon..Sun.
+func normalizeWeekdays(in []string) ([]string, error) {
+	if len(in) == 0 {
+		return nil, errors.New("weekdays is required for weekly schedules: one or more of mon, tue, wed, thu, fri, sat, sun")
+	}
+	seen := map[string]bool{}
+	for _, raw := range in {
+		d := strings.ToLower(strings.TrimSpace(raw))
+		ok := false
+		for _, n := range weekdayNames {
+			ok = ok || n == d
+		}
+		if !ok {
+			return nil, fmt.Errorf("invalid weekday %q: use mon, tue, wed, thu, fri, sat, or sun", raw)
+		}
+		if seen[d] {
+			return nil, fmt.Errorf("duplicate weekday %q", d)
+		}
+		seen[d] = true
+	}
+	out := make([]string, 0, len(seen))
+	for _, n := range weekdayNames {
+		if seen[n] {
+			out = append(out, n)
+		}
+	}
+	return out, nil
+}
+
+func splitWeekdays(raw string) []string {
+	if raw == "" {
+		return nil
+	}
+	return strings.Split(raw, ",")
+}
+
+// nextWeekly is nextDaily restricted to the listed weekdays (local calendar
+// date in loc). A DST-skipped or folded clock follows the daily policy.
+func nextWeekly(after time.Time, loc *time.Location, clock string, days []string) (time.Time, error) {
+	hour, minute, err := parseClock(clock)
+	if err != nil {
+		return time.Time{}, err
+	}
+	want := map[string]bool{}
+	for _, d := range days {
+		want[d] = true
+	}
+	local := after.In(loc)
+	for day := 0; day < 370; day++ {
+		date := time.Date(local.Year(), local.Month(), local.Day()+day, 0, 0, 0, 0, loc)
+		if !want[weekdayName(date.Weekday())] {
+			continue
+		}
+		candidates := dailyCandidates(date.Year(), date.Month(), date.Day(), hour, minute, loc)
+		if len(candidates) > 0 && candidates[0].After(after) {
+			return candidates[0], nil
+		}
+	}
+	return time.Time{}, errors.New("could not find next weekly occurrence")
+}
+
+func nextWeeklyAfterOccurrence(occurrence time.Time, loc *time.Location, clock string, days []string) (time.Time, error) {
+	local := occurrence.In(loc)
+	start := time.Date(local.Year(), local.Month(), local.Day()+1, 0, 0, 0, 0, loc)
+	return nextWeekly(start.Add(-time.Nanosecond), loc, clock, days)
 }
 
 func dailyCandidates(year int, month time.Month, day, hour, minute int, loc *time.Location) []time.Time {
@@ -396,7 +504,7 @@ func (s *Store) createScheduleWithSource(conversationID, botID string, spec Sche
 		return Schedule{}, errors.New("invalid schedule creator")
 	}
 	t := now()
-	x := Schedule{ID: uuid.NewString(), ConversationID: c.ID, BotID: botID, Content: spec.Content, Title: spec.Title, Description: spec.Description, CreatedBy: spec.CreatedBy, Kind: spec.Kind, Timezone: spec.Timezone, NextAtUTC: scheduleTime(next), IntervalSeconds: spec.IntervalSeconds, DailyTime: spec.DailyTime, Status: scheduleActive, CreatedAt: t, UpdatedAt: t}
+	x := Schedule{ID: uuid.NewString(), ConversationID: c.ID, BotID: botID, Content: spec.Content, Title: spec.Title, Description: spec.Description, CreatedBy: spec.CreatedBy, Kind: spec.Kind, Timezone: spec.Timezone, NextAtUTC: scheduleTime(next), IntervalSeconds: spec.IntervalSeconds, DailyTime: spec.DailyTime, Weekdays: spec.Weekdays, Status: scheduleActive, CreatedAt: t, UpdatedAt: t}
 	tx, err := s.db.Begin()
 	if err != nil {
 		return Schedule{}, err
@@ -408,7 +516,7 @@ func (s *Store) createScheduleWithSource(conversationID, botID string, spec Sche
 	if err = requireActiveMemberTx(tx, c.ID, botID); err != nil {
 		return Schedule{}, err
 	}
-	if _, err = tx.Exec(`INSERT INTO schedules(id,conversation_id,bot_id,content,title,description,created_by,kind,timezone,next_at_utc,interval_seconds,daily_time,status,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`, x.ID, x.ConversationID, x.BotID, x.Content, x.Title, x.Description, x.CreatedBy, x.Kind, x.Timezone, x.NextAtUTC, x.IntervalSeconds, x.DailyTime, x.Status, x.CreatedAt, x.UpdatedAt); err != nil {
+	if _, err = tx.Exec(`INSERT INTO schedules(id,conversation_id,bot_id,content,title,description,created_by,kind,timezone,next_at_utc,interval_seconds,daily_time,weekdays,status,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`, x.ID, x.ConversationID, x.BotID, x.Content, x.Title, x.Description, x.CreatedBy, x.Kind, x.Timezone, x.NextAtUTC, x.IntervalSeconds, x.DailyTime, strings.Join(x.Weekdays, ","), x.Status, x.CreatedAt, x.UpdatedAt); err != nil {
 		return Schedule{}, err
 	}
 	if err = appendScheduleAuthorizationTx(tx, x, "create", t, source); err != nil {
@@ -438,7 +546,7 @@ func (s *Store) GetSchedule(id string) (Schedule, error) {
 	if err := s.ensureSchedules(); err != nil {
 		return Schedule{}, err
 	}
-	x, err := scanSchedule(s.db.QueryRow(`SELECT id,conversation_id,bot_id,content,title,description,created_by,kind,timezone,next_at_utc,interval_seconds,daily_time,status,created_at,updated_at FROM schedules WHERE id=?`, id))
+	x, err := scanSchedule(s.db.QueryRow(`SELECT id,conversation_id,bot_id,content,title,description,created_by,kind,timezone,next_at_utc,interval_seconds,daily_time,weekdays,status,created_at,updated_at FROM schedules WHERE id=?`, id))
 	if err != nil {
 		return Schedule{}, err
 	}
@@ -470,7 +578,7 @@ func (s *Store) listSchedules(where string, args []any, history *bool) ([]Schedu
 	if err := s.ensureSchedules(); err != nil {
 		return nil, err
 	}
-	rows, err := s.db.Query(`SELECT id,conversation_id,bot_id,content,title,description,created_by,kind,timezone,next_at_utc,interval_seconds,daily_time,status,created_at,updated_at FROM schedules WHERE `+where+` AND status<>? ORDER BY next_at_utc,id`, append(args, scheduleDeleted)...)
+	rows, err := s.db.Query(`SELECT id,conversation_id,bot_id,content,title,description,created_by,kind,timezone,next_at_utc,interval_seconds,daily_time,weekdays,status,created_at,updated_at FROM schedules WHERE `+where+` AND status<>? ORDER BY next_at_utc,id`, append(args, scheduleDeleted)...)
 	if err != nil {
 		return nil, err
 	}
@@ -658,8 +766,8 @@ func (s *Store) ScheduleOccurrences(ctx context.Context, conversationID string, 
 	}
 	args = append(args, maxOccurrenceError+1)
 	placeholders := strings.TrimSuffix(strings.Repeat("?,", len(rootIDs)), ",")
-	rows, err := s.db.QueryContext(ctx, `WITH RECURSIVE roots(root_run_id,schedule_id,scheduled_for_utc,title,description,created_by,kind,timezone,interval_seconds,daily_time,occurrence_number) AS (
-		SELECT o.run_id,o.schedule_id,o.scheduled_for_utc,o.title,o.description,o.created_by,o.kind,o.timezone,o.interval_seconds,o.daily_time,o.occurrence_number FROM schedule_occurrences o
+	rows, err := s.db.QueryContext(ctx, `WITH RECURSIVE roots(root_run_id,schedule_id,scheduled_for_utc,title,description,created_by,kind,timezone,interval_seconds,daily_time,weekdays,occurrence_number) AS (
+		SELECT o.run_id,o.schedule_id,o.scheduled_for_utc,o.title,o.description,o.created_by,o.kind,o.timezone,o.interval_seconds,o.daily_time,o.weekdays,o.occurrence_number FROM schedule_occurrences o
 		JOIN schedules s ON s.id=o.schedule_id JOIN runs r ON r.id=o.run_id
 		WHERE s.conversation_id=? AND r.conversation_id=? AND r.kind=? AND o.run_id IN (`+placeholders+`)
 	), family(root_run_id,id,parent_run_id,bot_id,kind,trigger_message_id,created_at,status) AS (
@@ -669,7 +777,7 @@ func (s *Store) ScheduleOccurrences(ctx context.Context, conversationID string, 
 		SELECT parent.root_run_id,child.id,child.parent_run_id,child.bot_id,child.kind,child.trigger_message_id,child.created_at,child.status
 		FROM runs child JOIN family parent ON child.parent_run_id=parent.id
 	)
-		SELECT roots.root_run_id,roots.schedule_id,roots.scheduled_for_utc,roots.title,roots.description,roots.created_by,roots.kind,roots.timezone,roots.interval_seconds,roots.daily_time,roots.occurrence_number,f.id,f.parent_run_id,f.bot_id,f.kind,f.trigger_message_id,f.created_at,f.status,
+		SELECT roots.root_run_id,roots.schedule_id,roots.scheduled_for_utc,roots.title,roots.description,roots.created_by,roots.kind,roots.timezone,roots.interval_seconds,roots.daily_time,roots.weekdays,roots.occurrence_number,f.id,f.parent_run_id,f.bot_id,f.kind,f.trigger_message_id,f.created_at,f.status,
 		CASE WHEN f.status IN ('failed','interrupted') THEN substr(COALESCE(diagnostic.error,''),1,?) ELSE '' END,
 		CASE WHEN f.status='done' AND EXISTS (
 			SELECT 1 FROM messages m WHERE m.run_id=f.id AND m.conversation_id=? AND m.role='assistant' AND m.kind=''
@@ -693,11 +801,13 @@ func (s *Store) ScheduleOccurrences(ctx context.Context, conversationID string, 
 		var r scheduleFamilyRun
 		var parent, kind, trigger sql.NullString
 		var resultInConversation int
-		if err := rows.Scan(&occurrence.RootRunID, &occurrence.ScheduleID, &occurrence.ScheduledForUTC, &occurrence.Title, &occurrence.Description, &occurrence.CreatedBy, &occurrence.Kind, &occurrence.Timezone, &occurrence.IntervalSeconds, &occurrence.DailyTime, &occurrence.OccurrenceNumber, &r.id, &parent, &r.bot, &kind, &trigger, &r.created, &r.status, &r.statusError, &resultInConversation); err != nil {
+		var weekdays string
+		if err := rows.Scan(&occurrence.RootRunID, &occurrence.ScheduleID, &occurrence.ScheduledForUTC, &occurrence.Title, &occurrence.Description, &occurrence.CreatedBy, &occurrence.Kind, &occurrence.Timezone, &occurrence.IntervalSeconds, &occurrence.DailyTime, &weekdays, &occurrence.OccurrenceNumber, &r.id, &parent, &r.bot, &kind, &trigger, &r.created, &r.status, &r.statusError, &resultInConversation); err != nil {
 			return nil, err
 		}
 		r.parent, r.kind, r.trigger = parent.String, kind.String, trigger.String
 		r.resultInConversation = resultInConversation != 0
+		occurrence.Weekdays = splitWeekdays(weekdays)
 		occurrences[occurrence.RootRunID] = occurrence
 		families[occurrence.RootRunID] = append(families[occurrence.RootRunID], r)
 	}
@@ -771,7 +881,7 @@ func (s *Store) setScheduleStatusWithSource(id, status string, source *scheduleM
 	if n, _ := res.RowsAffected(); n != 1 {
 		return Schedule{}, errors.New("schedule not found or already terminal")
 	}
-	x, err := scanSchedule(tx.QueryRow(`SELECT id,conversation_id,bot_id,content,title,description,created_by,kind,timezone,next_at_utc,interval_seconds,daily_time,status,created_at,updated_at FROM schedules WHERE id=?`, id))
+	x, err := scanSchedule(tx.QueryRow(`SELECT id,conversation_id,bot_id,content,title,description,created_by,kind,timezone,next_at_utc,interval_seconds,daily_time,weekdays,status,created_at,updated_at FROM schedules WHERE id=?`, id))
 	if err != nil {
 		return Schedule{}, err
 	}
@@ -818,7 +928,7 @@ func (s *Store) deleteScheduleWithSource(id string, source *scheduleMutationSour
 	if n, _ := res.RowsAffected(); n != 1 {
 		return errors.New("schedule already deleted")
 	}
-	x, err := scanSchedule(tx.QueryRow(`SELECT id,conversation_id,bot_id,content,title,description,created_by,kind,timezone,next_at_utc,interval_seconds,daily_time,status,created_at,updated_at FROM schedules WHERE id=?`, id))
+	x, err := scanSchedule(tx.QueryRow(`SELECT id,conversation_id,bot_id,content,title,description,created_by,kind,timezone,next_at_utc,interval_seconds,daily_time,weekdays,status,created_at,updated_at FROM schedules WHERE id=?`, id))
 	if err != nil {
 		return err
 	}
@@ -855,6 +965,16 @@ func nextForSchedule(x Schedule, now time.Time) (time.Time, error) {
 			next, err = nextDailyAfterOccurrence(next, loc, x.DailyTime)
 		}
 		return next, err
+	case scheduleWeekly:
+		loc, err := time.LoadLocation(x.Timezone)
+		if err != nil {
+			return time.Time{}, err
+		}
+		next, err := nextWeeklyAfterOccurrence(at, loc, x.DailyTime, x.Weekdays)
+		for err == nil && !next.After(now) {
+			next, err = nextWeeklyAfterOccurrence(next, loc, x.DailyTime, x.Weekdays)
+		}
+		return next, err
 	default:
 		return time.Time{}, nil
 	}
@@ -875,7 +995,7 @@ func (s *Store) ClaimDueSchedules(at time.Time) ([]Run, error) {
 			return claimed, err
 		}
 		var x Schedule
-		x, err = scanSchedule(tx.QueryRow(`SELECT schedules.id,schedules.conversation_id,schedules.bot_id,schedules.content,schedules.title,schedules.description,schedules.created_by,schedules.kind,schedules.timezone,schedules.next_at_utc,schedules.interval_seconds,schedules.daily_time,schedules.status,schedules.created_at,schedules.updated_at
+		x, err = scanSchedule(tx.QueryRow(`SELECT schedules.id,schedules.conversation_id,schedules.bot_id,schedules.content,schedules.title,schedules.description,schedules.created_by,schedules.kind,schedules.timezone,schedules.next_at_utc,schedules.interval_seconds,schedules.daily_time,schedules.weekdays,schedules.status,schedules.created_at,schedules.updated_at
 			FROM schedules JOIN conversations ON conversations.id=schedules.conversation_id JOIN bots ON bots.id=schedules.bot_id WHERE schedules.status=? AND schedules.next_at_utc<=? AND conversations.archived=0 AND bots.archived=0
 			AND EXISTS (SELECT 1 FROM members WHERE members.conversation_id=schedules.conversation_id AND members.bot_id=schedules.bot_id)
 			AND (schedules.kind<>? OR NOT EXISTS (SELECT 1 FROM schedule_occurrences once_occurrence WHERE once_occurrence.schedule_id=schedules.id))
@@ -952,7 +1072,7 @@ func (s *Store) ClaimDueSchedules(at time.Time) ([]Run, error) {
 			tx.Rollback()
 			return claimed, err
 		}
-		if _, err = tx.Exec(`INSERT INTO schedule_occurrences(schedule_id,scheduled_for_utc,run_id,created_at,title,description,created_by,kind,timezone,interval_seconds,daily_time,occurrence_number) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)`, x.ID, scheduleTime(occurrence), run.ID, updated, x.Title, x.Description, x.CreatedBy, x.Kind, x.Timezone, x.IntervalSeconds, x.DailyTime, occurrenceNumber); err != nil {
+		if _, err = tx.Exec(`INSERT INTO schedule_occurrences(schedule_id,scheduled_for_utc,run_id,created_at,title,description,created_by,kind,timezone,interval_seconds,daily_time,weekdays,occurrence_number) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)`, x.ID, scheduleTime(occurrence), run.ID, updated, x.Title, x.Description, x.CreatedBy, x.Kind, x.Timezone, x.IntervalSeconds, x.DailyTime, strings.Join(x.Weekdays, ","), occurrenceNumber); err != nil {
 			tx.Rollback()
 			return claimed, err
 		}
@@ -1067,19 +1187,20 @@ func (w *ScheduleWorker) dispatch(r Run) {
 }
 
 type scheduleRequest struct {
-	BotID           string `json:"bot_id"`
-	Title           string `json:"title"`
-	Description     string `json:"description"`
-	Content         string `json:"content"`
-	Kind            string `json:"kind"`
-	RunAt           string `json:"run_at"`
-	IntervalSeconds int64  `json:"interval_seconds"`
-	DailyTime       string `json:"daily_time"`
-	Timezone        string `json:"timezone"`
+	BotID           string   `json:"bot_id"`
+	Title           string   `json:"title"`
+	Description     string   `json:"description"`
+	Content         string   `json:"content"`
+	Kind            string   `json:"kind"`
+	RunAt           string   `json:"run_at"`
+	IntervalSeconds int64    `json:"interval_seconds"`
+	DailyTime       string   `json:"daily_time"`
+	Weekdays        []string `json:"weekdays"`
+	Timezone        string   `json:"timezone"`
 }
 
 func (x scheduleRequest) spec() ScheduleSpec {
-	return ScheduleSpec{Title: x.Title, Description: x.Description, Content: x.Content, Kind: x.Kind, RunAt: x.RunAt, IntervalSeconds: x.IntervalSeconds, DailyTime: x.DailyTime, Timezone: x.Timezone}
+	return ScheduleSpec{Title: x.Title, Description: x.Description, Content: x.Content, Kind: x.Kind, RunAt: x.RunAt, IntervalSeconds: x.IntervalSeconds, DailyTime: x.DailyTime, Weekdays: x.Weekdays, Timezone: x.Timezone}
 }
 
 // routeSchedules handles complete paths after /api/ and returns true when the
@@ -1295,7 +1416,7 @@ func (s *Server) scheduleTools(c Conversation, r Run) []Tool {
 		return x, nil
 	}
 	return []Tool{
-		{Name: "create_schedule", Description: "Schedule future work by a member of this conversation. Use kind once for a single run, interval for repeating elapsed intervals, or daily for a local wall-clock time. Timezone defaults to the configured user timezone; if none is configured, provide the IANA timezone supported by the request or ask the user before guessing.", Parameters: objectSchema(map[string]any{"bot_id": map[string]any{"type": "string", "description": "Active member to execute the work; defaults to you"}, "title": displayTitleSchema(), "description": displayDescriptionSchema(), "content": map[string]any{"type": "string", "description": "Complete execution instructions written in English. Preserve exact names, quoted user data and localized output requirements; keep title and description separate."}, "kind": map[string]any{"type": "string", "enum": []string{"once", "interval", "daily"}}, "run_at": map[string]any{"type": "string", "description": "Required for once: RFC3339 timestamp with explicit UTC offset"}, "interval_seconds": map[string]any{"type": "integer", "description": "Required for interval: elapsed seconds between runs"}, "daily_time": map[string]any{"type": "string", "description": "Required for daily: HH:MM in the selected timezone"}, "timezone": map[string]any{"type": "string", "description": "IANA timezone; omit only when user timezone is configured"}}, []string{"title", "description", "content", "kind"}), Execute: func(ctx context.Context, raw json.RawMessage) (string, error) {
+		{Name: "create_schedule", Description: "Schedule future work by a member of this conversation. Use kind once for a single run, interval for repeating elapsed intervals, daily for a local wall-clock time every day, or weekly for a local wall-clock time on specific weekdays (for example every Sunday at 00:43, or Monday, Wednesday and Friday). For anything that repeats only on some weekdays, always use weekly; never create a daily schedule whose instructions check the weekday and do nothing on other days. Timezone defaults to the configured user timezone; if none is configured, provide the IANA timezone supported by the request or ask the user before guessing.", Parameters: objectSchema(map[string]any{"bot_id": map[string]any{"type": "string", "description": "Active member to execute the work; defaults to you"}, "title": displayTitleSchema(), "description": displayDescriptionSchema(), "content": map[string]any{"type": "string", "description": "Complete execution instructions written in English. Preserve exact names, quoted user data and localized output requirements; keep title and description separate."}, "kind": map[string]any{"type": "string", "enum": []string{"once", "interval", "daily", "weekly"}}, "run_at": map[string]any{"type": "string", "description": "Required for once: RFC3339 timestamp with explicit UTC offset"}, "interval_seconds": map[string]any{"type": "integer", "description": "Required for interval: elapsed seconds between runs"}, "daily_time": map[string]any{"type": "string", "description": "Required for daily and weekly: HH:MM in the selected timezone"}, "weekdays": map[string]any{"type": "array", "items": map[string]any{"type": "string", "enum": weekdayNames}, "description": "Required for weekly: one or more weekdays (mon, tue, wed, thu, fri, sat, sun); the schedule runs at daily_time on each listed day"}, "timezone": map[string]any{"type": "string", "description": "IANA timezone; omit only when user timezone is configured"}}, []string{"title", "description", "content", "kind"}), Execute: func(ctx context.Context, raw json.RawMessage) (string, error) {
 			if err := ctx.Err(); err != nil {
 				return "", err
 			}
@@ -1318,7 +1439,7 @@ func (s *Server) scheduleTools(c Conversation, r Run) []Tool {
 			b, _ := json.Marshal(x)
 			return string(b), nil
 		}},
-		{Name: "update_schedule", Description: "Edit this conversation's schedule title, description and optionally its complete execution instruction, only when the user requests an edit. Write authored execution instructions in English while preserving quoted data and localized output requirements. Timing, recurrence and past executions are preserved.", Parameters: objectSchema(map[string]any{"schedule_id": map[string]any{"type": "string"}, "title": displayTitleSchema(), "description": displayDescriptionSchema(), "content": map[string]any{"type": "string", "description": "Optional complete replacement execution instruction in English; omit to preserve it"}}, []string{"schedule_id", "title", "description"}), Execute: func(ctx context.Context, raw json.RawMessage) (string, error) {
+		{Name: "update_schedule", Description: "Edit this conversation's schedule title, description and optionally its complete execution instruction, only when the user requests an edit. Write authored execution instructions in English while preserving quoted data and localized output requirements. Timing, recurrence (kind, daily_time, weekdays, timezone) and past executions cannot be changed here; to change when it runs, delete the schedule and create a new one.", Parameters: objectSchema(map[string]any{"schedule_id": map[string]any{"type": "string"}, "title": displayTitleSchema(), "description": displayDescriptionSchema(), "content": map[string]any{"type": "string", "description": "Optional complete replacement execution instruction in English; omit to preserve it"}}, []string{"schedule_id", "title", "description"}), Execute: func(ctx context.Context, raw json.RawMessage) (string, error) {
 			if err := ctx.Err(); err != nil {
 				return "", err
 			}
@@ -1345,7 +1466,7 @@ func (s *Server) scheduleTools(c Conversation, r Run) []Tool {
 			b, _ := json.Marshal(x)
 			return string(b), nil
 		}},
-		{Name: "list_schedules", Description: "List scheduled work for this conversation or this Bot across conversations. Use view upcoming, history, or all.", Parameters: objectSchema(map[string]any{"scope": map[string]any{"type": "string", "enum": []string{"conversation", "self"}}, "view": map[string]any{"type": "string", "enum": []string{"upcoming", "history", "all"}}}, nil), Execute: func(ctx context.Context, raw json.RawMessage) (string, error) {
+		{Name: "list_schedules", Description: "List scheduled work for this conversation or this Bot across conversations. Use view upcoming, history, or all. Each schedule reports kind, daily_time, weekdays (weekly only), timezone and next_at_utc.", Parameters: objectSchema(map[string]any{"scope": map[string]any{"type": "string", "enum": []string{"conversation", "self"}}, "view": map[string]any{"type": "string", "enum": []string{"upcoming", "history", "all"}}}, nil), Execute: func(ctx context.Context, raw json.RawMessage) (string, error) {
 			if err := ctx.Err(); err != nil {
 				return "", err
 			}
@@ -1440,4 +1561,57 @@ func (s *Server) scheduleTools(c Conversation, r Run) []Tool {
 			return "deleted", s.store.deleteScheduleWithSource(in.ScheduleID, s.scheduleChatSource(c, r))
 		}},
 	}
+}
+
+// migrateScheduleWeeklyKind widens the kind CHECK to admit 'weekly'. SQLite
+// cannot alter a CHECK in place, so databases created before weekly schedules
+// are rebuilt once, transactionally, keeping every row and the authorization
+// token. Child tables reference schedules(id) by name and survive the swap.
+func migrateScheduleWeeklyKind(db *sql.DB) error {
+	var schema string
+	if err := db.QueryRow(`SELECT sql FROM sqlite_master WHERE type='table' AND name='schedules'`).Scan(&schema); err != nil {
+		return err
+	}
+	if strings.Contains(schema, "'weekly'") {
+		return nil
+	}
+	if _, err := db.Exec(`PRAGMA foreign_keys=OFF`); err != nil {
+		return err
+	}
+	defer db.Exec(`PRAGMA foreign_keys=ON`)
+	tx, err := db.Begin()
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	const columns = `id,conversation_id,bot_id,content,title,description,created_by,kind,timezone,next_at_utc,interval_seconds,daily_time,weekdays,status,created_at,updated_at,authorization_revision`
+	if _, err = tx.Exec(`CREATE TABLE schedules_next (
+	id TEXT PRIMARY KEY,
+	conversation_id TEXT NOT NULL,
+	bot_id TEXT NOT NULL,
+	content TEXT NOT NULL,
+	title TEXT NOT NULL DEFAULT '',
+	description TEXT NOT NULL DEFAULT '',
+	created_by TEXT NOT NULL DEFAULT '',
+	kind TEXT NOT NULL CHECK(kind IN ('once','interval','daily','weekly')),
+	timezone TEXT NOT NULL,
+	next_at_utc TEXT NOT NULL,
+	interval_seconds INTEGER NOT NULL DEFAULT 0,
+	daily_time TEXT NOT NULL DEFAULT '',
+	weekdays TEXT NOT NULL DEFAULT '',
+	status TEXT NOT NULL DEFAULT 'active' CHECK(status IN ('active','paused','completed','deleted')),
+	created_at TEXT NOT NULL,
+	updated_at TEXT NOT NULL,
+	authorization_revision INTEGER NOT NULL DEFAULT 0,
+	FOREIGN KEY(conversation_id) REFERENCES conversations(id) ON DELETE CASCADE,
+	FOREIGN KEY(bot_id) REFERENCES bots(id) ON DELETE CASCADE
+);
+INSERT INTO schedules_next(` + columns + `) SELECT ` + columns + ` FROM schedules;
+DROP TABLE schedules;
+ALTER TABLE schedules_next RENAME TO schedules;
+CREATE INDEX IF NOT EXISTS schedules_due ON schedules(status,next_at_utc);
+CREATE INDEX IF NOT EXISTS schedules_conversation ON schedules(conversation_id,status);`); err != nil {
+		return err
+	}
+	return tx.Commit()
 }
