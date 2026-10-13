@@ -49,6 +49,9 @@ updated_at TEXT NOT NULL
 	if err = ensureColumn(db, "user_preferences", "show_activity", `ALTER TABLE user_preferences ADD COLUMN show_activity INTEGER NOT NULL DEFAULT 0`); err != nil {
 		return err
 	}
+	if err = migratePrimaryBot(db); err != nil {
+		return err
+	}
 	return migrateOnboardingState(db)
 }
 

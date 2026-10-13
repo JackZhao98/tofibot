@@ -14,9 +14,9 @@ const {createServer} = await import("vite");
 const {default: react} = await import("@vitejs/plugin-react");
 
 const LANGS = ["en", "zh-CN", "zh-TW", "ja", "ko", "de", "fr"];
-const TABS = ["general", "connections", "skills", "approvals", "models", "computer", "keys", "usage", "advanced"];
-const ICONS = {general: "sliders", connections: "plug", skills: "skill", approvals: "shield-check", models: "sparkles", computer: "monitor", keys: "key", usage: "progress", advanced: "settings", admin: "group"};
-const NAMES = {general: "General", connections: "Connections", skills: "Skills", approvals: "Approvals", models: "Models", computer: "Computer", keys: "Keys & secrets", usage: "Usage", advanced: "Advanced", admin: "Admin console"};
+const TABS = ["general", "connections", "skills", "approvals", "followups", "models", "computer", "keys", "usage", "advanced"];
+const ICONS = {general: "sliders", connections: "plug", skills: "skill", approvals: "shield-check", followups: "bell", models: "sparkles", computer: "monitor", keys: "key", usage: "progress", advanced: "settings", admin: "group"};
+const NAMES = {general: "General", connections: "Connections", skills: "Skills", approvals: "Approvals", followups: "Follow-ups (preview)", models: "Models", computer: "Computer", keys: "Keys & secrets", usage: "Usage", advanced: "Advanced", admin: "Admin console"};
 
 // ---- Catalog checks (every locale): groups, page names and descriptions are real translations.
 const catalogs = {};
@@ -40,7 +40,7 @@ for (const lang of LANGS) {
     if (lang !== "en") assert.notEqual(catalogs[lang].dictation.model[id].hint, catalogs.en.dictation.model[id].hint, `${lang}: dictation hint is an English copy`);
   }
 }
-console.log(`PASS catalogs: ${LANGS.length} locales have groups, 10 page names, descriptions of at most 70 characters, dictation copy`);
+console.log(`PASS catalogs: ${LANGS.length} locales have groups, 11 page names, descriptions of at most 70 characters, dictation copy`);
 
 const shots = process.env.SETTINGS_SHOTS;
 if (shots) await mkdir(shots, {recursive: true});
@@ -64,7 +64,7 @@ import {subscribeSettingsDeepLinks} from '../src/settings/deepLinks';
 import {CodexPanel,NotificationSetting} from '../src/App';
 import {UpdateBanner} from '../src/UpdateNotice';
 const query=new URLSearchParams(location.search);
-const bots=[{id:'bot_research',name:'Research Bot',archived:false,model:'default',reasoning_effort:'default'},{id:'bot_inbox',name:'Inbox Bot',archived:false,model:'gpt-6-luna',reasoning_effort:'medium'},{id:'bot_notes',name:'Notes Bot',archived:false,model:'default',reasoning_effort:'default'},{id:'bot_old',name:'Retired Bot',archived:true,model:'default',reasoning_effort:'default'}] as any;
+const bots=[{id:'bot_research',name:'Research Bot',is_primary:true,archived:false,model:'default',reasoning_effort:'default'},{id:'bot_inbox',name:'Inbox Bot',archived:false,model:'gpt-6-luna',reasoning_effort:'medium'},{id:'bot_notes',name:'Notes Bot',archived:false,model:'default',reasoning_effort:'default'},{id:'bot_old',name:'Retired Bot',archived:true,model:'default',reasoning_effort:'default'}] as any;
 function Fixture(){
  const appearance=useAppearance();
  const [tab,setTab]=useState<SettingsTab>((query.get('tab') as SettingsTab)||'general');
@@ -123,6 +123,15 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
       : {enabled: true, setup_required: false, authenticated: true, password_transport_allowed: true, multi_account: true, owner: {id: "acct_sample", username: "Ada Sample", email: "ada@example.test", role: "admin"}};
     if (path === "/api/bots") return {bots: [{id: "bot_research", name: "Research Bot", archived: false}, {id: "bot_inbox", name: "Inbox Bot", archived: false}, {id: "bot_notes", name: "Notes Bot", archived: false}, {id: "bot_old", name: "Retired Bot", archived: true}]};
     if (path === "/api/preferences") return {timezone: "America/Los_Angeles", timezone_configured: true};
+    if (path === "/api/followups") return {account: {max_nudges_per_day: 3, quiet_start: "22:00", quiet_end: "08:00", weekend_min_importance: 80, digest_weekday: "mon", digest_time: "09:00", daily_budget_usd: 0.5}, primary_bot_id: "bot_research", delivery_available: false, budget_paused: false, model_configured: true, day: "2026-10-13",
+      bots: [{bot_id: "bot_research", name: "Research Bot", is_primary: true, mode: "shadow", source_chat: true, source_email: true, last_sweep_at: "2026-10-13T16:30:00Z"}, {bot_id: "bot_inbox", name: "Inbox Bot", is_primary: false, mode: "off", source_chat: true, source_email: true}, {bot_id: "bot_notes", name: "Notes Bot", is_primary: false, mode: "shadow", source_chat: true, source_email: true}],
+      stats: {sweeps: 4, loops_created: 3, rejected_invalid: 1, rejected_band: 2, merged: 1, spent_usd: 0.012, would_nudge: 2, would_digest: 1, useful: 3, annoying: 1, handled: 1},
+      loops: [
+        {id: "loop_1", bot_id: "bot_research", bot_name: "Research Bot", source: "chat", kind: "awaiting_other", topic: "Pest control to call about the roof bees, with a deliberately long topic that has to wrap on a phone", counterparty_name: "Elyse", category: "home", importance: 90, band: "nudge", expected_by: "2026-10-15T17:00:00Z", suggested_next: "Draft a short follow-up to Elyse", quote: "Elyse says pest control will call me about the roof bees", resolution_phrases: ["pest control called"], state: "open", verdict: "", created_at: "2026-10-13T15:00:00Z"},
+        {id: "loop_2", bot_id: "bot_notes", bot_name: "Notes Bot", source: "chat", kind: "owner_promise", topic: "Send Marc the draft", category: "work", importance: 60, band: "nudge", expected_by: "2026-10-30T16:00:00Z", suggested_next: "Attach the latest draft", quote: "I will send Marc the draft by 2026-10-30", resolution_phrases: [], state: "open", verdict: "useful", created_at: "2026-10-13T15:10:00Z"},
+        {id: "loop_3", bot_id: "bot_research", bot_name: "Research Bot", source: "chat", kind: "owner_promise", topic: "Call the dentist", category: "health", importance: 45, band: "digest", expected_by: "2026-10-20T16:00:00Z", quote: "I need to call the dentist sometime", resolution_phrases: [], state: "digest_only", verdict: "", created_at: "2026-10-13T15:20:00Z"},
+        {id: "loop_4", bot_id: "bot_research", bot_name: "Research Bot", source: "chat", kind: "owner_reminder", topic: "Renew the parking permit", category: "admin", importance: 65, band: "nudge", expected_by: "2026-10-12T16:00:00Z", quote: "remind me to renew the parking permit", resolution_phrases: [], state: "handled_by_owner", verdict: "handled", created_at: "2026-10-11T15:20:00Z"},
+      ]};
     if (path === "/api/extensions/mcp" && method === "GET") return {servers: [
       {name: "acme_docs", url: "https://mcp.example.test/docs", oauth: {client_id: "sample", connected: false}},
       {name: "acme_tracker", url: "https://mcp.example.test/tracker", oauth: {client_id: "sample", connected: true}, status: {checked_at: "2026-10-09T09:30:00Z", ok: true, tool_count: 49}},
@@ -276,10 +285,10 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
   const selectedTab = page => page.locator('.settings-tabs [aria-current="page"]').getAttribute("data-tab");
   const settle = page => page.waitForTimeout(450);
 
-  // ---- 1. Rail: exactly the nine tabs in order; admin only for a multi-account admin session.
+  // ---- 1. Rail: exactly the ten tabs in order; admin only for a multi-account admin session.
   {
     const {page, close} = await open({admin: "0"});
-    assert.deepEqual(await railTabs(page), TABS, "rail shows the nine tabs in order for a non-admin session");
+    assert.deepEqual(await railTabs(page), TABS, "rail shows the ten tabs in order for a non-admin session");
     assert.deepEqual(await page.$$eval(".settings-tabs .settings-nav-group>p", items => items.map(item => item.textContent)), ["You", "Bots can use", "Workspace", "System"]);
     assert.equal(await page.locator("#settings-category").count(), 0, "no category select");
     const icons = await page.$$eval(".settings-tabs .settings-nav-group button", buttons => buttons.map(button => button.querySelector("svg").dataset.tofiIcon));
@@ -296,7 +305,7 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
     const adminIcon = await admin.page.locator('.settings-tabs [data-tab="admin"] svg').getAttribute("data-tofi-icon");
     assert.equal(adminIcon, ICONS.admin);
     await admin.close();
-    console.log("PASS rail: nine tabs in order, admin only for a multi-account admin, unique icons, badge from the saved list only");
+    console.log("PASS rail: ten tabs in order, admin only for a multi-account admin, unique icons, badge from the saved list only");
   }
 
   // ---- 2. Each tab renders its heading and description; 3. deep links; 6. dirty draft.
@@ -350,7 +359,7 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
     await page.locator("dialog.settings-leave-dialog").getByRole("button", {name: "Discard changes"}).click();
     await page.waitForFunction(() => document.querySelector('.settings-tabs [aria-current="page"]')?.dataset.tab === "models");
     await close();
-    console.log("PASS pages: heading and description for all ten tabs, deep links, Models layout, dirty-draft leave dialog");
+    console.log("PASS pages: heading and description for all eleven tabs, deep links, Models layout, dirty-draft leave dialog");
   }
 
   // ---- 3b. Unknown dictation model shows no copy.
@@ -427,7 +436,7 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
       const lineHeight = parseFloat(style.lineHeight);
       return {text: label.textContent, ellipsis: style.textOverflow === "ellipsis", clipped: label.scrollWidth > label.clientWidth, lines: Math.round(box.height / lineHeight), inside: box.right <= row.right + 0.5 && box.left >= row.left - 0.5};
     }));
-    assert.equal(report.length, 10);
+    assert.equal(report.length, 11);
     for (const item of report) {
       assert.equal(item.ellipsis, false, `${item.text}: no text-overflow ellipsis`);
       assert.equal(item.clipped, false, `${item.text}: scrollWidth <= clientWidth`);

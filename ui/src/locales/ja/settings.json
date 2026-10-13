@@ -49,6 +49,10 @@
         "name": "承認",
         "description": "Bot の操作を実行前に誰が確認するかを決めます。"
       },
+      "followups": {
+        "name": "フォローアップ（プレビュー）",
+        "description": "Bot がリマインドする内容を確認"
+      },
       "models": {
         "name": "モデル",
         "description": "Bot の頭脳の提供元と、既定で使うモデル。"
@@ -673,5 +677,77 @@
   },
   "disclosure": {
     "details": "詳細"
+  },
+  "primary": {
+    "title": "メインアシスタント",
+    "description": "日々の雑用を担当する Bot です。常に 1 つだけ存在します。",
+    "label": "メインアシスタント",
+    "hint": "日々の雑用を最初に引き受けます。ほかの Bot はそれぞれの仕事を続けます。",
+    "none": "Bot を作成するとメインアシスタントを選べます。",
+    "choose": "Bot を選択",
+    "invalid": "この Bot はメインアシスタントにできません。ほかの Bot を選んでください。",
+    "save_failed": "メインアシスタントを変更できませんでした。もう一度お試しください。"
+  },
+  "followups": {
+    "load_failed": "フォローアップを読み込めませんでした。もう一度お試しください。",
+    "save_failed": "保存できませんでした。もう一度お試しください。",
+    "banner_title": "プレビューのみです。何も送信されません。",
+    "banner_body": "Bot はあなた自身のメッセージを読み、あとでリマインドする内容を一覧にします。チャットには何も投稿されません。各項目を評価して、今後の精度を調整してください。",
+    "no_model_title": "モデルが接続されていません",
+    "no_model_body": "スキャンにはモデルの接続が必要です。「モデル」で接続してください。",
+    "paused_title": "本日は一時停止中",
+    "paused_body": "フォローアップのスキャンが 1 日の予算 {{limit}} に達したため、明日再開します。",
+    "bots_title": "Bot",
+    "bots_description": "自分の会話をスキャンする Bot を選びます。各 Bot は自分のフォローアップを追跡し、メインアシスタントは日常のチャットも対象にします。",
+    "no_bots": "Bot を作成するとフォローアップをプレビューできます。",
+    "bot_off": "スキャンしていません",
+    "last_scan": "最終スキャン {{when}}",
+    "not_scanned": "最初のスキャンを待っています",
+    "nudges_title": "リマインド予定",
+    "nudges_description": "リマインドが有効になると、Bot が適切なタイミングで知らせる項目です。",
+    "digest_title": "週次ダイジェスト",
+    "digest_description": "優先度の低い項目で、月曜に 1 件のまとめとして届きます。",
+    "closed_title": "確認済み",
+    "empty_scanning": "まだありません。Bot は日中 90 分ごとにスキャンします。",
+    "empty_off": "Bot のプレビューをオンにすると、リマインド予定の内容を確認できます。",
+    "today_title": "今日",
+    "limits_title": "上限",
+    "limits_description": "すべての Bot で共有されます。メインアシスタントの項目が優先されます。",
+    "due": "期限 {{when}}",
+    "next": "次のステップ：{{step}}",
+    "review_label": "評価：{{topic}}",
+    "mode": {
+      "off": "オフ",
+      "shadow": "プレビュー"
+    },
+    "stat": {
+      "scans": "スキャン回数",
+      "found": "新しい項目",
+      "skipped": "スキップ",
+      "skipped_hint": "弱すぎる、曖昧、または確認できないため保存しませんでした",
+      "spent": "モデル費用",
+      "feedback": "あなたの評価",
+      "feedback_hint": "役に立つ、邪魔、対応済み",
+      "feedback_value": "{{useful}} / {{annoying}} / {{handled}}"
+    },
+    "limit": {
+      "cap": "1日のリマインド数",
+      "cap_hint": "すべての Bot を合わせて、1 日に届くリマインドの上限です。",
+      "per_day": "1日{{n}}件",
+      "budget": "1日のスキャン予算",
+      "budget_hint": "モデル費用がこの額に達すると、その日のスキャンを停止します。",
+      "quiet": "静音時間",
+      "quiet_hint": "夜間はリマインドしません。週末は重要な項目のみです。"
+    },
+    "kind": {
+      "waiting": "相手待ち",
+      "owner_promise": "あなたの約束",
+      "owner_reminder": "リマインドの依頼"
+    },
+    "verdict": {
+      "useful": "役に立つ",
+      "annoying": "邪魔",
+      "handled": "対応済み"
+    }
   }
 }

@@ -425,6 +425,21 @@
       "microsoft_learn": "無需帳號。連接後你的 Bot 就能搜尋 Microsoft 文件。"
     }
   },
+  "primary": {
+    "badge": "主要助理",
+    "badge_hint": "主要助理：負責你的日常雜事",
+    "bot_panel_note": "負責你的日常雜事。",
+    "delete_notice": "這個 Bot 是你的主要助理。刪除前，請先選一個 Bot 接任。",
+    "hide_body": "隱藏之前，請先選一個 Bot 作為新的主要助理。",
+    "hide_confirm": "隱藏並交接",
+    "hide_failed": "無法隱藏這個 Bot，請重試。",
+    "hide_title": "隱藏你的主要助理？",
+    "make": "設為主要助理",
+    "reassign_required": "請先選一個新的主要助理。",
+    "successor_label": "新的主要助理",
+    "successor_placeholder": "選擇一個 Bot",
+    "working": "處理中…"
+  },
   "reactions": {
     "assistant": "助理",
     "chip_join_other": "{{emoji}}，{{count}} 人回應；點按以加入回應",

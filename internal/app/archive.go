@@ -81,6 +81,16 @@ func (s *Store) SetGroupArchived(id string, archived bool) (Conversation, error)
 // workspace list cannot retain an orphaned private conversation. The DM ID
 // remains stable and restoration reverses that paired state change.
 func (s *Store) SetBotArchived(id string, archived bool) (Bot, error) {
+	return s.setBotArchived(id, archived, "", false)
+}
+
+// SetBotArchivedReassigning archives or restores a Bot. Archiving the Primary
+// Assistant requires a successor whenever another active Bot exists.
+func (s *Store) SetBotArchivedReassigning(id string, archived bool, successor string) (Bot, error) {
+	return s.setBotArchived(id, archived, successor, true)
+}
+
+func (s *Store) setBotArchived(id string, archived bool, successor string, strictPrimary bool) (Bot, error) {
 	tx, err := s.db.Begin()
 	if err != nil {
 		return Bot{}, err
@@ -108,6 +118,9 @@ func (s *Store) SetBotArchived(id string, archived bool) (Bot, error) {
 		return Bot{}, ErrArchiveBusy
 	}
 	if archived {
+		if err = resolvePrimaryOnRemovalTx(tx, id, successor, strictPrimary); err != nil {
+			return Bot{}, err
+		}
 		if err = pauseSchedulesTx(tx, "bot_id=? OR conversation_id=?", id, b.DMConversationID); err != nil {
 			return Bot{}, err
 		}
@@ -188,9 +201,12 @@ func pauseSchedulesTx(tx *sql.Tx, where string, args ...any) error {
 	return nil
 }
 
-func (s *Server) archiveBotHTTP(w http.ResponseWriter, id string, archived bool) {
-	b, err := s.store.SetBotArchived(id, archived)
+func (s *Server) archiveBotHTTP(w http.ResponseWriter, id string, archived bool, successor string) {
+	b, err := s.store.SetBotArchivedReassigning(id, archived, successor)
 	if err != nil {
+		if writePrimaryError(w, err) {
+			return
+		}
 		s.writeArchiveError(w, err, true)
 		return
 	}
