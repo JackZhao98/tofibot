@@ -71,6 +71,7 @@ import { activeBotRuns, botRecentlyActive, latestBotWorkTime, latestHumanMessage
 import { reconcileToolActivity, activeToolForRun, buildToolRunAnchors, buildToolSummaryAnchors, buildToolTimeline, compareToolActivities, elapsedToolSeconds, orderToolActivities, toolActionLabel, toolArgumentPreview, toolAttemptIssues } from "./toolTimeline";
 import { foldCompletedProgress, isMidRunKind } from "./runProgress";
 import { mergeRunUpdates } from "./runMerge";
+import { shouldShowReplyQuote } from "./replyQuote";
 import { buildRetryFamilies, isTerminalRun, retryFamilyAnchor } from "./runFamily";
 import { composerClientMessageId, composerDraftMatchesMessage, composerMessageContent, composerMessageSignature, type ComposerReply } from "./composerDraft";
 import { useDictation } from "./useDictation";
@@ -1020,6 +1021,8 @@ function Workspace() {
   const taskOwners = useMemo(() => buildTaskOwners(runs, messageRecords, questions.items, mailDrafts.items), [runs, messageRecords, questions.items, mailDrafts.items]);
   const ownedRunIDs = useMemo(() => new Set(taskOwners.flatMap(owner => owner.family.attempts.map(run => run.id))), [taskOwners]);
   const conversationItems = useMemo(() => buildQuestionTimeline(messages.filter(message => message.kind !== "progress" || !ownedRunIDs.has(message.run_id ?? "")), questions.items, hasMore, mailDrafts.items), [messages, questions.items, hasMore, mailDrafts.items, ownedRunIDs]);
+  const quoteTimeline = useMemo(() => conversationItems.flatMap(item => item.kind === "message" ? [item.message] : []), [conversationItems]);
+  const quoteIndexById = useMemo(() => new Map(quoteTimeline.map((item, i) => [item.id, i])), [quoteTimeline]);
   const messageById = useMemo(() => new Map(messages.map(message => [message.id, message])), [messages]);
   const terminalSummaryRunIDs = useMemo(() => [...new Set([...terminalToolRunIDs(messages, runs), ...supersededRunIDs])].sort(), [messages, runs, supersededRunIDs]);
   const terminalSummaryRunKey = terminalSummaryRunIDs.join("\u0000");
@@ -1857,6 +1860,7 @@ function Workspace() {
                       const isEarlierInChat = (candidate: Message | undefined): candidate is Message => Boolean(candidate && candidate.conversation_id === message.conversation_id && candidate.seq < message.seq);
                       const runTrigger = runTriggerId ? messageById.get(runTriggerId) : undefined;
                       const replyTarget = replyMarker.ids.length ? replyMarker.ids.map(id => messageById.get(id)).find(isEarlierInChat) ?? (isEarlierInChat(runTrigger) ? runTrigger : undefined) : undefined;
+                      const showReplyQuote = shouldShowReplyQuote(quoteTimeline, quoteIndexById.get(message.id) ?? -1, replyTarget);
                       const canReact = messageRecords.some(record => record.id === message.id);
                       return <div className={`message-block${arrivalIDs.current.has(message.id) ? " new-arrival" : ""}`} data-message-seq={message.seq} data-message-id={message.id} data-flip={message.id} tabIndex={-1} key={message.id} onContextMenu={canReact && isDesktop ? event => { event.preventDefault(); setReactionMenu({ messageId: message.id, x: event.clientX, y: event.clientY }); } : undefined}>
                         {showDivider && <div className="date-divider"><span>{formatDateDivider(message.created_at, timezone)}</span></div>}
@@ -1865,7 +1869,7 @@ function Workspace() {
                         {!isDesktop && canReact && message.kind !== "notice" && message.kind !== "message_ref" && <MessageHoverActions message={message} timezone={timezone}
                           onReact={anchor => setReactionMenu({ messageId: message.id, x: anchor.left, y: anchor.bottom + 6 })}
                           onReply={active.archived ? undefined : () => { updateComposerDraft(active.id, current => ({ ...current, reply: { id: message.id, name: message.role === "user" ? t("message.you") : message.sender_bot_name ?? (message.sender_bot_id ? botById.get(message.sender_bot_id)?.name : undefined) ?? "Bot", excerpt: previewText(readReplyMarker(message.content).body) || t("message.attachment") } })); document.querySelector<HTMLTextAreaElement>(".composer textarea")?.focus(); }} />}
-                        <MessageBubble message={message} replyTarget={replyTarget} replyTargetName={replyTarget?.role === "user" ? t("message.you") : replyTarget?.sender_bot_name ?? (replyTarget?.sender_bot_id ? botById.get(replyTarget.sender_bot_id)?.name ?? knownBotNames.current.get(replyTarget.sender_bot_id) : undefined)} senderName={message.sender_bot_name ?? (message.sender_bot_id ? knownBotNames.current.get(message.sender_bot_id) : undefined)} targetBot={message.notice?.to_bot_id ? botById.get(message.notice.to_bot_id) : undefined} sender={message.sender_bot_id ? botById.get(message.sender_bot_id) : undefined}
+                        <MessageBubble message={message} replyTarget={showReplyQuote ? replyTarget : undefined} replyTargetName={replyTarget?.role === "user" ? t("message.you") : replyTarget?.sender_bot_name ?? (replyTarget?.sender_bot_id ? botById.get(replyTarget.sender_bot_id)?.name ?? knownBotNames.current.get(replyTarget.sender_bot_id) : undefined)} senderName={message.sender_bot_name ?? (message.sender_bot_id ? knownBotNames.current.get(message.sender_bot_id) : undefined)} targetBot={message.notice?.to_bot_id ? botById.get(message.notice.to_bot_id) : undefined} sender={message.sender_bot_id ? botById.get(message.sender_bot_id) : undefined}
                           run={message.run_id ? runById.get(message.run_id) : undefined}
                           tools={processTools.length || processProgress.length || processSummaries.length || Object.keys(processSummaryErrors).length || Object.keys(processSummaryLoading).length ? <ToolActivityList activities={[...processTools, ...processAggregateTools]} progress={processProgress} summaries={processSummaries} summaryErrors={processSummaryErrors} summaryLoading={processSummaryLoading} details={toolDetailState} onLoadDetails={loadToolDetails} onRetrySummary={retryToolSummary} botById={botById} activeRunIds={activeRunIds} /> : undefined}
                           scheduleOccurrence={message.run_id ? scheduleOccurrences.get(message.run_id) : undefined} schedule={message.run_id ? scheduleMetadata.get(scheduleOccurrences.get(message.run_id)?.schedule_id ?? "") : undefined} onRetrySchedule={active.archived || ownedRunIDs.has(message.run_id ?? "") ? undefined : retryRun}
