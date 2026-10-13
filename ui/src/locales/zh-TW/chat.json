@@ -232,7 +232,9 @@
   "hover": {
     "react": "新增表情",
     "reply": "回覆",
-    "toolbar": "訊息操作"
+    "toolbar": "訊息操作",
+    "view_activity": "查看工作過程",
+    "hide_activity": "收起工作過程"
   },
   "list": {
     "separator": "、"

@@ -236,7 +236,9 @@
   "hover": {
     "react": "Ajouter une réaction",
     "reply": "Répondre",
-    "toolbar": "Actions du message"
+    "toolbar": "Actions du message",
+    "view_activity": "Voir l’activité",
+    "hide_activity": "Masquer l’activité"
   },
   "list": {
     "separator": ", "

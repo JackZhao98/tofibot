@@ -629,7 +629,11 @@
     "region": "语言与地区",
     "moved_title": "在找导出、服务器信息或从头开始？",
     "moved_body": "它们已移到“高级”。",
-    "open_advanced": "打开“高级”"
+    "open_advanced": "打开“高级”",
+    "chat": "对话",
+    "activity_title": "在对话里显示工作过程",
+    "activity_note": "在 Bot 的回复下方显示它执行的步骤。默认关闭，仍可从消息的操作菜单里打开。",
+    "activity_save_failed": "保存失败，请重试。"
   },
   "approvals": {
     "heading": "审查员",

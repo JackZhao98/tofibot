@@ -629,7 +629,11 @@
     "region": "言語と地域",
     "moved_title": "エクスポート、サーバー情報、最初からやり直す機能をお探しですか？",
     "moved_body": "これらは「詳細設定」に移動しました。",
-    "open_advanced": "「詳細設定」を開く"
+    "open_advanced": "「詳細設定」を開く",
+    "chat": "チャット",
+    "activity_title": "チャットにアクティビティを表示",
+    "activity_note": "Bot が実行した手順を返信の下に表示します。初期設定ではオフで、メッセージの操作メニューから開けます。",
+    "activity_save_failed": "保存できませんでした。もう一度お試しください。"
   },
   "approvals": {
     "heading": "レビュアー",

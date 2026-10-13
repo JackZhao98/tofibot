@@ -129,3 +129,33 @@ func TestScheduleRequiresConfiguredTimezoneWhenOmitted(t *testing.T) {
 		t.Fatalf("configured timezone fallback failed: %v", err)
 	}
 }
+
+func TestPreferencesShowActivityDefaultsOffAndPersists(t *testing.T) {
+	s, err := NewServer(Config{DataDir: t.TempDir()})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer s.Close()
+	call := func(method, body string) string {
+		rec := httptest.NewRecorder()
+		s.Handler().ServeHTTP(rec, httptest.NewRequest(method, "/api/preferences", strings.NewReader(body)))
+		if rec.Code != http.StatusOK {
+			t.Fatalf("%s %s status=%d body=%s", method, body, rec.Code, rec.Body.String())
+		}
+		return rec.Body.String()
+	}
+	if body := call(http.MethodGet, ""); !strings.Contains(body, `"show_activity":false`) {
+		t.Fatalf("activity must default off: %s", body)
+	}
+	if body := call(http.MethodPut, `{"show_activity":true}`); !strings.Contains(body, `"show_activity":true`) {
+		t.Fatalf("show_activity put: %s", body)
+	}
+	call(http.MethodPut, `{"timezone":"UTC"}`)
+	call(http.MethodPut, `{"language":"ja"}`)
+	if body := call(http.MethodGet, ""); !strings.Contains(body, `"show_activity":true`) || !strings.Contains(body, `"timezone":"UTC"`) {
+		t.Fatalf("other preference writes must keep show_activity: %s", body)
+	}
+	if body := call(http.MethodPut, `{"show_activity":false}`); !strings.Contains(body, `"show_activity":false`) {
+		t.Fatalf("show_activity off: %s", body)
+	}
+}
