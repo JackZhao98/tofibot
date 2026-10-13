@@ -209,6 +209,12 @@ type AgentConfig struct {
 	ResumeResult        string
 	ResumeOutcome       *tooloutcome.Outcome
 	ResolveToolIdentity func(name, arguments string) tooloutcome.Identity
+	// ResolveUnknownTool lets the backend that owns a generic dispatcher
+	// (call_mcp_tool) claim a tool name that is not in this run's tool set. When
+	// it returns ok, the call is rewritten to the returned tool name and
+	// arguments before it is recorded, so it travels the dispatcher's own gate,
+	// activity row and transcript exactly like a native call. ToolsOnly only.
+	ResolveUnknownTool func(ctx context.Context, name, arguments string) (toolName, toolArguments string, ok bool)
 }
 
 type MCPServerConfig struct {
@@ -1451,6 +1457,18 @@ func RunAgentLoop(cfg AgentConfig, ctx *models.ExecutionContext) (returned *Agen
 				state = state.WithResult(finalContent)
 				return state.ToResult(cfg.Model), nil
 			}
+		}
+		if cfg.ToolsOnly && cfg.ResolveUnknownTool != nil && !repairRequest && resp.HasToolCalls() {
+			rewritten := append([]provider.ToolCall(nil), resp.ToolCalls...)
+			for i, tc := range rewritten {
+				if registry.Get(tc.Name) != nil {
+					continue
+				}
+				if name, args, ok := cfg.ResolveUnknownTool(loopCtx, tc.Name, tc.Arguments); ok && registry.Get(name) != nil {
+					rewritten[i].Name, rewritten[i].Arguments = name, args
+				}
+			}
+			resp.ToolCalls = rewritten
 		}
 		// Append Assistant Message
 		assistantMsg := provider.Message{
