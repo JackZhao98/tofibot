@@ -30,3 +30,14 @@ export function precedingBlockBotIds(previous: TimelineAnchor | undefined, owner
   if (!previous) return [];
   return owners.filter(owner => owner.anchor?.kind === previous.kind && owner.anchor.id === previous.id).map(owner => owner.botId);
 }
+
+/**
+ * Index of the closest earlier item that actually draws something. A question or draft that
+ * belongs to a task owner draws nothing unless a block is anchored to it (its card lives inside
+ * the block), so it must not hide the item that really sits above the next message.
+ */
+export function previousRenderedIndex<T>(items: T[], index: number, drawsNothing: (item: T) => boolean): number {
+  let i = index - 1;
+  while (i >= 0 && drawsNothing(items[i])) i--;
+  return i;
+}
