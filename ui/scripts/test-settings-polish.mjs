@@ -241,7 +241,7 @@ import {subscribeSettingsDeepLinks} from '../src/settings/deepLinks';
 import {CodexPanel,NotificationSetting} from '../src/App';
 import {UpdateBanner} from '../src/UpdateNotice';
 const query=new URLSearchParams(location.search);
-const bots=[{id:'bot_research',name:'Research Bot',archived:false,model:'default',reasoning_effort:'default'},{id:'bot_inbox',name:'Inbox Bot',archived:false,model:'gpt-6-luna',reasoning_effort:'medium'},{id:'bot_notes',name:'Notes Bot',archived:false,model:'default',reasoning_effort:'default'},{id:'bot_old',name:'Retired Bot',archived:true,model:'default',reasoning_effort:'default'}] as any;
+const bots=[{id:'bot_research',name:'Research Bot',is_primary:true,archived:false,model:'default',reasoning_effort:'default'},{id:'bot_inbox',name:'Inbox Bot',archived:false,model:'gpt-6-luna',reasoning_effort:'medium'},{id:'bot_notes',name:'Notes Bot',archived:false,model:'default',reasoning_effort:'default'},{id:'bot_old',name:'Retired Bot',archived:true,model:'default',reasoning_effort:'default'}] as any;
 function Fixture(){
  const appearance=useAppearance();
  const [tab,setTab]=useState<SettingsTab>((query.get('tab') as SettingsTab)||'general');
@@ -334,6 +334,15 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
     if (path === "/api/auth/session") return {enabled: true, setup_required: false, authenticated: true, password_transport_allowed: true, multi_account: true, owner: {id: "acct_sample", username: "Ada Sample", email: "ada@example.test", role: "admin"}};
     if (path === "/api/bots") return {bots: portableBots};
     if (path === "/api/preferences") return {timezone: "America/Los_Angeles", timezone_configured: true};
+    if (path === "/api/followups") return {account: {max_nudges_per_day: 3, quiet_start: "22:00", quiet_end: "08:00", weekend_min_importance: 80, digest_weekday: "mon", digest_time: "09:00", daily_budget_usd: 0.5}, primary_bot_id: "bot_research", delivery_available: false, budget_paused: false, model_configured: true, day: "2026-10-13",
+      bots: [{bot_id: "bot_research", name: "Research Bot", is_primary: true, mode: "shadow", source_chat: true, source_email: true, last_sweep_at: "2026-10-13T16:30:00Z"}, {bot_id: "bot_inbox", name: "Inbox Bot", is_primary: false, mode: "off", source_chat: true, source_email: true}, {bot_id: "bot_notes", name: "Notes Bot", is_primary: false, mode: "shadow", source_chat: true, source_email: true}],
+      stats: {sweeps: 4, loops_created: 3, rejected_invalid: 1, rejected_band: 2, merged: 1, spent_usd: 0.012, would_nudge: 2, would_digest: 1, useful: 3, annoying: 1, handled: 1},
+      loops: [
+        {id: "loop_1", bot_id: "bot_research", bot_name: "Research Bot", source: "chat", kind: "awaiting_other", topic: "Pest control to call about the roof bees, with a deliberately long topic that has to wrap on a phone", counterparty_name: "Elyse", category: "home", importance: 90, band: "nudge", expected_by: "2026-10-15T17:00:00Z", suggested_next: "Draft a short follow-up to Elyse", quote: "Elyse says pest control will call me about the roof bees", resolution_phrases: ["pest control called"], state: "open", verdict: "", created_at: "2026-10-13T15:00:00Z"},
+        {id: "loop_2", bot_id: "bot_notes", bot_name: "Notes Bot", source: "chat", kind: "owner_promise", topic: "Send Marc the draft", category: "work", importance: 60, band: "nudge", expected_by: "2026-10-30T16:00:00Z", suggested_next: "Attach the latest draft", quote: "I will send Marc the draft by 2026-10-30", resolution_phrases: [], state: "open", verdict: "useful", created_at: "2026-10-13T15:10:00Z"},
+        {id: "loop_3", bot_id: "bot_research", bot_name: "Research Bot", source: "chat", kind: "owner_promise", topic: "Call the dentist", category: "health", importance: 45, band: "digest", expected_by: "2026-10-20T16:00:00Z", quote: "I need to call the dentist sometime", resolution_phrases: [], state: "digest_only", verdict: "", created_at: "2026-10-13T15:20:00Z"},
+        {id: "loop_4", bot_id: "bot_research", bot_name: "Research Bot", source: "chat", kind: "owner_reminder", topic: "Renew the parking permit", category: "admin", importance: 65, band: "nudge", expected_by: "2026-10-12T16:00:00Z", quote: "remind me to renew the parking permit", resolution_phrases: [], state: "handled_by_owner", verdict: "handled", created_at: "2026-10-11T15:20:00Z"},
+      ]};
     if (path === "/api/extensions/mcp" && method === "GET") return {servers: [
       {name: "acme_docs", url: "https://mcp.example.test/docs", oauth: {client_id: "sample", connected: false}},
       {name: "acme_tracker", url: "https://mcp.example.test/tracker", oauth: {client_id: "sample", connected: true}, status: {checked_at: "2026-10-09T09:30:00Z", ok: true, tool_count: 49}},
@@ -404,7 +413,7 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
   };
   const scenarios = [];
   const tabScenario = (id, tab) => scenarios.push({id, tab, run: async () => {}});
-  for (const tab of ["general", "connections", "skills", "approvals", "models", "computer", "keys", "usage", "advanced", "admin"]) tabScenario(tab, tab);
+  for (const tab of ["general", "connections", "skills", "approvals", "followups", "models", "computer", "keys", "usage", "advanced", "admin"]) tabScenario(tab, tab);
   scenarios.push(
     // Sign-in in progress is the only place the key diagram appears; its provider label must sit under the key, not over it.
     {id: "connections-signin", tab: "connections", run: async ({page}) => {

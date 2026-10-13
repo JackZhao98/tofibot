@@ -49,6 +49,10 @@
         "name": "Approbations",
         "description": "Qui vérifie les actions d’un Bot avant leur exécution."
       },
+      "followups": {
+        "name": "Relances (aperçu)",
+        "description": "Voir ce dont les Bots vous rappelleraient"
+      },
       "models": {
         "name": "Modèles",
         "description": "D’où viennent les modèles des Bots et lequel est utilisé par défaut."
@@ -691,5 +695,77 @@
   },
   "disclosure": {
     "details": "Détails"
+  },
+  "primary": {
+    "title": "Assistant principal",
+    "description": "Le Bot qui s’occupe de vos tâches courantes. Il y en a toujours exactement un.",
+    "label": "Assistant principal",
+    "hint": "Prend en charge vos tâches courantes en premier. Les autres Bots continuent de travailler de leur côté.",
+    "none": "Créez un Bot pour choisir un assistant principal.",
+    "choose": "Choisir un Bot",
+    "invalid": "Ce Bot ne peut pas être votre assistant principal. Choisissez-en un autre.",
+    "save_failed": "Impossible de changer l’assistant principal. Réessayez."
+  },
+  "followups": {
+    "load_failed": "Impossible de charger les relances. Réessayez.",
+    "save_failed": "Enregistrement impossible. Réessayez.",
+    "banner_title": "Aperçu uniquement. Rien n’est envoyé.",
+    "banner_body": "Les Bots lisent vos propres messages et listent ce dont ils vous rappelleraient. Rien n’est publié dans une conversation. Évaluez les éléments pour affiner la suite.",
+    "no_model_title": "Aucun modèle connecté",
+    "no_model_body": "L’analyse nécessite un modèle connecté. Connectez-en un dans Modèles.",
+    "paused_title": "En pause pour aujourd’hui",
+    "paused_body": "L’analyse des relances a atteint son budget quotidien de {{limit}} et reprendra demain.",
+    "bots_title": "Bots",
+    "bots_description": "Choisissez quels Bots analysent leurs propres conversations. Chaque Bot suit ses propres relances ; l’assistant principal couvre aussi votre discussion générale.",
+    "no_bots": "Créez un Bot pour prévisualiser les relances.",
+    "bot_off": "N’analyse pas",
+    "last_scan": "Dernière analyse {{when}}",
+    "not_scanned": "En attente de la première analyse",
+    "nudges_title": "Vous rappellerait",
+    "nudges_description": "Éléments qu’un Bot signalerait au bon moment une fois les rappels activés.",
+    "digest_title": "Récapitulatif hebdomadaire",
+    "digest_description": "Éléments moins prioritaires, regroupés dans un seul récapitulatif le lundi.",
+    "closed_title": "Examinés",
+    "empty_scanning": "Rien pour l’instant. Les Bots analysent toutes les 90 minutes en journée.",
+    "empty_off": "Activez l’aperçu d’un Bot pour voir ce dont il vous rappellerait.",
+    "today_title": "Aujourd’hui",
+    "limits_title": "Limites",
+    "limits_description": "Partagées par tous les Bots. Les éléments de l’assistant principal passent en premier.",
+    "due": "échéance {{when}}",
+    "next": "Prochaine étape : {{step}}",
+    "review_label": "Évaluer : {{topic}}",
+    "mode": {
+      "off": "Désactivé",
+      "shadow": "Aperçu"
+    },
+    "stat": {
+      "scans": "Analyses",
+      "found": "Nouveaux éléments",
+      "skipped": "Ignorés",
+      "skipped_hint": "Trop faibles, vagues ou invérifiables pour être conservés",
+      "spent": "Coût du modèle",
+      "feedback": "Vos évaluations",
+      "feedback_hint": "Utile, gênant, déjà traité",
+      "feedback_value": "{{useful}} / {{annoying}} / {{handled}}"
+    },
+    "limit": {
+      "cap": "Rappels par jour",
+      "cap_hint": "Le nombre maximal de rappels par jour, tous Bots confondus.",
+      "per_day": "{{n}} par jour",
+      "budget": "Budget d’analyse quotidien",
+      "budget_hint": "L’analyse est suspendue pour la journée quand le coût du modèle atteint ce montant.",
+      "quiet": "Heures calmes",
+      "quiet_hint": "Pas de rappels la nuit ; le week-end, seulement les éléments importants."
+    },
+    "kind": {
+      "waiting": "En attente de quelqu’un",
+      "owner_promise": "Vous avez promis",
+      "owner_reminder": "Vous avez demandé un rappel"
+    },
+    "verdict": {
+      "useful": "Utile",
+      "annoying": "Gênant",
+      "handled": "Déjà traité"
+    }
   }
 }

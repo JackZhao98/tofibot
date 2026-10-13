@@ -31,6 +31,12 @@ func migrateDeletion(db *sql.DB) error {
 func (s *Store) DeleteBot(id string) (DeleteResult, error) {
 	return s.deleteWorkspaceTarget(id, true, nil)
 }
+
+// DeleteBotReassigning deletes a Bot and, if it is the Primary Assistant,
+// designates successor in the same transaction.
+func (s *Store) DeleteBotReassigning(id, successor string) (DeleteResult, error) {
+	return s.deleteWorkspaceTargetWith(id, true, nil, successor, true)
+}
 func (s *Store) DeleteGroup(id string) (DeleteResult, error) {
 	return s.deleteWorkspaceTarget(id, false, nil)
 }
@@ -39,6 +45,12 @@ func (s *Store) DeleteGroup(id string) (DeleteResult, error) {
 // durable outbox after commit; a restart retries any unfinished file cleanup.
 // VM files, browser profiles, and shared computer configuration are untouched.
 func (s *Store) deleteWorkspaceTarget(id string, bot bool, actor *Run) (DeleteResult, error) {
+	// A Bot-run delete is owner-facing too: it cannot name a successor, so it
+	// can never remove the Primary Assistant while other Bots exist.
+	return s.deleteWorkspaceTargetWith(id, bot, actor, "", actor != nil)
+}
+
+func (s *Store) deleteWorkspaceTargetWith(id string, bot bool, actor *Run, successor string, strictPrimary bool) (DeleteResult, error) {
 	tx, err := s.db.Begin()
 	if err != nil {
 		return DeleteResult{}, err
@@ -102,6 +114,14 @@ func (s *Store) deleteWorkspaceTarget(id string, bot bool, actor *Run) (DeleteRe
 		return DeleteResult{}, ErrDeleteBusy
 	}
 	if bot {
+		// The Primary Assistant is never left behind silently: the owner names
+		// its successor (a Bot-run delete cannot).
+		if err = resolvePrimaryOnRemovalTx(tx, id, successor, strictPrimary); err != nil {
+			return DeleteResult{}, err
+		}
+		if err = deleteFollowupsForBotTx(tx, id); err != nil {
+			return DeleteResult{}, err
+		}
 		if _, err = tx.Exec(`INSERT OR IGNORE INTO deleted_bot_creations(client_creation_id) SELECT client_creation_id FROM bot_onboarding WHERE bot_id=?`, id); err != nil {
 			return DeleteResult{}, err
 		}
@@ -260,8 +280,11 @@ func (s *Server) routeDeletion(w http.ResponseWriter, r *http.Request, path stri
 	if len(parts) != 2 || parts[1] == "" || (parts[0] != "bots" && parts[0] != "conversations") {
 		return false
 	}
-	result, err := s.store.deleteWorkspaceTarget(parts[1], parts[0] == "bots", nil)
+	result, err := s.store.deleteWorkspaceTargetWith(parts[1], parts[0] == "bots", nil, r.URL.Query().Get("new_primary_id"), true)
 	if err != nil {
+		if writePrimaryError(w, err) {
+			return true
+		}
 		switch {
 		case errors.Is(err, sql.ErrNoRows):
 			writeErr(w, 404, "not_found", "deletion target not found")

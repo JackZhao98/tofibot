@@ -1,4 +1,4 @@
-import type { AgentUsageTotal, Attachment, Bot, ComputerHealth, Config, ContentPatch, ContextUsage, Conversation, EventEnvelope, Memory, MemoryInput, Message, ModelCatalog, ModelProviderStatus, Run, Schedule, ScheduleKind, StreamDraft, ToolActivity, ToolActivityDetailPage, ToolActivityRunSummary, UsageCall, UsagePeriod, WorkspaceEventEnvelope, WorkItem, Weekday } from "./types";
+import type { FollowupAccount, FollowupBotSettings, FollowupOverview, FollowupVerdict, AgentUsageTotal, Attachment, Bot, ComputerHealth, Config, ContentPatch, ContextUsage, Conversation, EventEnvelope, Memory, MemoryInput, Message, ModelCatalog, ModelProviderStatus, Run, Schedule, ScheduleKind, StreamDraft, ToolActivity, ToolActivityDetailPage, ToolActivityRunSummary, UsageCall, UsagePeriod, WorkspaceEventEnvelope, WorkItem, Weekday } from "./types";
 import { i18n } from "./i18n";
 
 export class ApiError extends Error {
@@ -64,8 +64,16 @@ export const api = {
   updateConversation: (id: string, input: { name?: string; bot_ids?: string[]; expected_bot_ids?: string[]; expected_name?: string }) =>
     request<Conversation>(`/api/conversations/${encodeURIComponent(id)}`, { method: "PATCH", body: JSON.stringify(input) }),
   setConversationArchived: (id: string, archived: boolean) => request<Conversation>(`/api/conversations/${encodeURIComponent(id)}`, { method: "PATCH", body: JSON.stringify({ archived }) }),
-  setBotArchived: (id: string, archived: boolean) => request<Bot>(`/api/bots/${encodeURIComponent(id)}`, { method: "PATCH", body: JSON.stringify({ archived }) }),
-  deleteBot: (id: string) => request<{ deleted: boolean; bot_id: string; conversation_id: string }>(`/api/bots/${encodeURIComponent(id)}`, { method: "DELETE" }),
+  /** Hiding the Primary Assistant needs `newPrimaryId`; without it the server answers 409 primary_reassign_required. */
+  setBotArchived: (id: string, archived: boolean, newPrimaryId?: string) => request<Bot>(`/api/bots/${encodeURIComponent(id)}`, { method: "PATCH", body: JSON.stringify(newPrimaryId ? { archived, new_primary_id: newPrimaryId } : { archived }) }),
+  /** Deleting the Primary Assistant needs `newPrimaryId` while other Bots exist (409 primary_reassign_required otherwise). */
+  deleteBot: (id: string, newPrimaryId?: string) => request<{ deleted: boolean; bot_id: string; conversation_id: string }>(`/api/bots/${encodeURIComponent(id)}${newPrimaryId ? `?new_primary_id=${encodeURIComponent(newPrimaryId)}` : ""}`, { method: "DELETE" }),
+  primaryAssistant: () => request<{ bot_id: string }>("/api/primary-assistant"),
+  setPrimaryAssistant: (botId: string) => request<{ bot_id: string }>("/api/primary-assistant", { method: "PUT", body: JSON.stringify({ bot_id: botId }) }),
+  followups: (signal?: AbortSignal) => request<FollowupOverview>("/api/followups", { signal }),
+  setFollowupBot: (botId: string, input: Partial<Pick<FollowupBotSettings, "mode" | "source_chat">>) => request<FollowupBotSettings>(`/api/followups/bots/${encodeURIComponent(botId)}`, { method: "PUT", body: JSON.stringify(input) }),
+  setFollowupAccount: (input: Partial<FollowupAccount>) => request<FollowupAccount>("/api/followups/account", { method: "PUT", body: JSON.stringify(input) }),
+  followupFeedback: (loopId: string, verdict: FollowupVerdict) => request<{ loop_id: string; verdict: FollowupVerdict }>(`/api/followups/loops/${encodeURIComponent(loopId)}/feedback`, json({ verdict })),
   deleteGroup: (id: string) => request<{ deleted: boolean; conversation_id: string }>(`/api/conversations/${encodeURIComponent(id)}`, { method: "DELETE" }),
   markRead: (id: string, seq: number) => request<{read_seq: number}>(`/api/conversations/${encodeURIComponent(id)}/read`, json({seq})),
   markUnread: (id: string, seq: number) => request<{read_seq: number}>(`/api/conversations/${encodeURIComponent(id)}/read`, json({seq, unread: true})),

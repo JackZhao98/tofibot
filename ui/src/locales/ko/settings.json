@@ -49,6 +49,10 @@
         "name": "승인",
         "description": "Bot의 작업을 실행 전에 누가 확인할지 정합니다."
       },
+      "followups": {
+        "name": "후속 항목(미리보기)",
+        "description": "Bot이 알려 줄 내용 보기"
+      },
       "models": {
         "name": "모델",
         "description": "Bot의 두뇌를 어디서 가져오고 기본으로 무엇을 쓸지 정합니다."
@@ -673,5 +677,77 @@
   },
   "disclosure": {
     "details": "세부 정보"
+  },
+  "primary": {
+    "title": "기본 어시스턴트",
+    "description": "일상적인 일을 맡는 Bot입니다. 항상 하나만 있습니다.",
+    "label": "기본 어시스턴트",
+    "hint": "일상적인 일을 가장 먼저 맡습니다. 다른 Bot은 각자 하던 일을 계속합니다.",
+    "none": "Bot을 만들면 기본 어시스턴트를 고를 수 있습니다.",
+    "choose": "Bot 선택",
+    "invalid": "이 Bot은 기본 어시스턴트가 될 수 없습니다. 다른 Bot을 선택하세요.",
+    "save_failed": "기본 어시스턴트를 변경하지 못했습니다. 다시 시도하세요."
+  },
+  "followups": {
+    "load_failed": "후속 항목을 불러오지 못했습니다. 다시 시도하세요.",
+    "save_failed": "저장하지 못했습니다. 다시 시도하세요.",
+    "banner_title": "미리보기 전용입니다. 아무것도 전송되지 않습니다.",
+    "banner_body": "Bot이 직접 보낸 메시지를 읽고 나중에 알려 줄 내용을 정리합니다. 어떤 채팅에도 게시되지 않습니다. 항목을 평가해 이후 동작을 조정하세요.",
+    "no_model_title": "연결된 모델 없음",
+    "no_model_body": "스캔하려면 연결된 모델이 필요합니다. 모델 설정에서 연결하세요.",
+    "paused_title": "오늘은 일시 중지됨",
+    "paused_body": "후속 항목 스캔이 하루 예산 {{limit}}에 도달해 내일 재개됩니다.",
+    "bots_title": "Bot",
+    "bots_description": "자신의 대화를 스캔할 Bot을 선택하세요. 각 Bot은 자기 후속 항목을 추적하며, 기본 어시스턴트는 일상 대화도 다룹니다.",
+    "no_bots": "Bot을 만들면 후속 항목을 미리 볼 수 있습니다.",
+    "bot_off": "스캔 안 함",
+    "last_scan": "마지막 스캔 {{when}}",
+    "not_scanned": "첫 스캔 대기 중",
+    "nudges_title": "알려 줄 항목",
+    "nudges_description": "알림이 켜지면 Bot이 적절한 때에 알려 줄 항목입니다.",
+    "digest_title": "주간 요약",
+    "digest_description": "우선순위가 낮은 항목으로, 월요일에 한 번에 모아 알려 줍니다.",
+    "closed_title": "검토 완료",
+    "empty_scanning": "아직 없습니다. Bot은 낮 동안 90분마다 스캔합니다.",
+    "empty_off": "Bot의 미리보기를 켜면 알려 줄 내용을 볼 수 있습니다.",
+    "today_title": "오늘",
+    "limits_title": "한도",
+    "limits_description": "모든 Bot이 공유합니다. 기본 어시스턴트의 항목이 우선입니다.",
+    "due": "기한 {{when}}",
+    "next": "다음 단계: {{step}}",
+    "review_label": "평가: {{topic}}",
+    "mode": {
+      "off": "끔",
+      "shadow": "미리보기"
+    },
+    "stat": {
+      "scans": "스캔 횟수",
+      "found": "새 항목",
+      "skipped": "건너뜀",
+      "skipped_hint": "약하거나 모호하거나 확인할 수 없어 보관하지 않음",
+      "spent": "모델 비용",
+      "feedback": "내 평가",
+      "feedback_hint": "유용함, 거슬림, 이미 처리함",
+      "feedback_value": "{{useful}} / {{annoying}} / {{handled}}"
+    },
+    "limit": {
+      "cap": "하루 알림 수",
+      "cap_hint": "모든 Bot을 합쳐 하루에 받는 알림의 최대 수입니다.",
+      "per_day": "하루 {{n}}개",
+      "budget": "하루 스캔 예산",
+      "budget_hint": "모델 비용이 이 금액에 도달하면 그날 스캔을 멈춥니다.",
+      "quiet": "방해 금지 시간",
+      "quiet_hint": "밤에는 알리지 않으며, 주말에는 중요한 항목만 알립니다."
+    },
+    "kind": {
+      "waiting": "상대 응답 대기",
+      "owner_promise": "내가 약속함",
+      "owner_reminder": "알림 요청"
+    },
+    "verdict": {
+      "useful": "유용함",
+      "annoying": "거슬림",
+      "handled": "이미 처리함"
+    }
   }
 }

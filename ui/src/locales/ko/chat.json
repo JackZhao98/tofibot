@@ -425,6 +425,21 @@
       "microsoft_learn": "계정이 필요 없어요. 연결하면 Bot이 Microsoft 문서를 검색할 수 있어요."
     }
   },
+  "primary": {
+    "badge": "기본",
+    "badge_hint": "기본 어시스턴트: 일상적인 일을 맡습니다",
+    "bot_panel_note": "일상적인 일을 맡습니다.",
+    "delete_notice": "이 Bot은 기본 어시스턴트입니다. 삭제하기 전에 이어받을 Bot을 선택하세요.",
+    "hide_body": "숨기기 전에 새 기본 어시스턴트가 될 Bot을 선택하세요.",
+    "hide_confirm": "숨기고 넘기기",
+    "hide_failed": "Bot을 숨기지 못했습니다. 다시 시도하세요.",
+    "hide_title": "기본 어시스턴트를 숨길까요?",
+    "make": "기본 어시스턴트로 지정",
+    "reassign_required": "먼저 새 기본 어시스턴트를 선택하세요.",
+    "successor_label": "새 기본 어시스턴트",
+    "successor_placeholder": "Bot 선택",
+    "working": "처리 중…"
+  },
   "reactions": {
     "assistant": "어시스턴트",
     "chip_join_other": "{{emoji}}, {{count}}명 반응. 클릭해 반응 추가",

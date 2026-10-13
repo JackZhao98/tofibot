@@ -40,6 +40,51 @@ export interface Bot {
   dm_conversation_id: string;
   created_at: string;
   archived?: boolean;
+  /** The account's Primary Assistant: owns the owner's general chores. Exactly one active Bot has it. */
+  is_primary?: boolean;
+}
+
+export type FollowupMode = "off" | "shadow" | "on";
+export type FollowupVerdict = "useful" | "annoying" | "handled";
+export interface FollowupAccount {
+  max_nudges_per_day: number;
+  quiet_start: string;
+  quiet_end: string;
+  weekend_min_importance: number;
+  digest_weekday: string;
+  digest_time: string;
+  daily_budget_usd: number;
+}
+export interface FollowupBotSettings { bot_id: string; mode: FollowupMode; source_chat: boolean; source_email: boolean }
+export interface FollowupLoop {
+  id: string;
+  bot_id: string;
+  bot_name: string;
+  source: "chat" | "email";
+  kind: "awaiting_other" | "owner_promise" | "owner_reminder";
+  topic: string;
+  counterparty_name?: string;
+  category: string;
+  importance: number;
+  band: "nudge" | "digest";
+  expected_by: string;
+  suggested_next?: string;
+  quote?: string;
+  resolution_phrases: string[];
+  state: string;
+  verdict?: FollowupVerdict | "";
+  created_at: string;
+}
+export interface FollowupOverview {
+  account: FollowupAccount;
+  primary_bot_id: string;
+  delivery_available: boolean;
+  budget_paused: boolean;
+  model_configured: boolean;
+  day: string;
+  bots: (FollowupBotSettings & { name: string; is_primary: boolean; last_sweep_at?: string })[];
+  stats: { sweeps: number; loops_created: number; rejected_invalid: number; rejected_band: number; merged: number; spent_usd: number; would_nudge: number; would_digest: number; useful: number; annoying: number; handled: number };
+  loops: FollowupLoop[];
 }
 
 export interface Conversation {
