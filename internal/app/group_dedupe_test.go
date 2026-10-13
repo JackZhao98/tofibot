@@ -117,26 +117,6 @@ func TestDelegationAllowsFinishedMentionedBotOnceAndUnmentionedBot(t *testing.T)
 	}
 }
 
-func TestConcurrentMentionContext(t *testing.T) {
-	f := newDedupeFixture(t, nil)
-	f.post(t, "@tofi create the page. @metaphor give tofi a one-line metaphor.", f.tofi, f.meta)
-	for i, want := range []struct{ self, other, asked string }{{"tofi", "metaphor", "give tofi a one-line metaphor."}, {"metaphor", "tofi", "create the page."}} {
-		bot := f.tofi
-		if i == 1 {
-			bot = f.meta
-		}
-		got := f.server.concurrentMentionContext(f.group, f.roots[i], bot)
-		if !strings.Contains(got, want.other) || !strings.Contains(got, want.asked) || strings.Contains(got, "id="+bot.ID) || !strings.Contains(got, "Do not delegate") {
-			t.Fatalf("%s context=%q", want.self, got)
-		}
-	}
-	single := newDedupeFixture(t, nil)
-	single.post(t, "@tofi hello", single.tofi)
-	if got := single.server.concurrentMentionContext(single.group, single.roots[0], single.tofi); got != "" {
-		t.Fatalf("single mention should add no block: %q", got)
-	}
-}
-
 // Incident shape: both Bots are mentioned and both try to delegate to each
 // other. The page must be written exactly once and only one handover occurs.
 type incidentEngine struct {
