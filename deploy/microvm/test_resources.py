@@ -77,6 +77,34 @@ class ResourcesTests(unittest.TestCase):
             vm = self._reload(vcpus=2, memory_mib=2560)
         self.assertFalse((vm.root / 'resources-desired.json').exists())
 
+    def test_start_falls_back_when_pending_size_does_not_fit_then_applies_later(self):
+        vm = self._fresh(dict(vcpus=1, memory_mib=1024, disk_gib=8))
+        desired = vm.desired_resources()
+        self.assertEqual(desired['memory_mib'], 2560)
+        tight = dict(cpus=4, memory_total_mib=16384, memory_available_mib=2000, disk_available_gib=100)
+        with mock.patch.object(manager.VM, 'host_resources', return_value=tight):
+            vm.apply_resources(strict=False)
+            self.assertEqual(vm.current_resources()['memory_mib'], 1024)
+            self.assertEqual(vm.desired_resources(), desired)
+            self.assertIn('2560 MiB / 2 vCPU requested', vm.resource_notice)
+            self.assertIn('only 2000 MiB free', vm.resource_notice)
+            with self.assertRaises(RuntimeError):
+                vm.apply_resources()
+        roomy = dict(tight, memory_available_mib=12000)
+        with mock.patch.object(manager.VM, 'host_resources', return_value=roomy):
+            vm.apply_resources(strict=False)
+        self.assertEqual(vm.current_resources(), desired)
+        self.assertEqual(vm.resource_notice, '')
+
+    def test_owner_request_that_does_not_fit_also_falls_back(self):
+        vm = self._fresh(dict(vcpus=1, memory_mib=1536, disk_gib=8), desired=dict(vcpus=8, memory_mib=1536, disk_gib=8))
+        host = dict(cpus=4, memory_total_mib=16384, memory_available_mib=12000, disk_available_gib=100)
+        with mock.patch.object(manager.VM, 'host_resources', return_value=host):
+            vm.apply_resources(strict=False)
+        self.assertEqual(vm.current_resources()['vcpus'], 1)
+        self.assertEqual(vm.desired_resources()['vcpus'], 8)
+        self.assertTrue(vm.resource_notice)
+
     def test_headroom_override_requires_private_worker_and_valid_budget(self):
         for values in [dict(host_memory_headroom_mib=1024),dict(cgroup_parent='tofi-vms',worker_private_sysctls=True,host_memory_headroom_mib=True),dict(cgroup_parent='tofi-vms',worker_private_sysctls=True,host_memory_headroom_mib=0)]:
             with self.assertRaises(ValueError):manager.validate_config(dict(self.config,**values))
