@@ -425,6 +425,7 @@ func (e *engine) Run(ctx context.Context, req Request) (Result, error) {
 		ResumeResult:               req.ResumeResult,
 		ResumeOutcome:              req.ResumeOutcome,
 		ResolveToolIdentity:        resolveIdentity,
+		ResolveUnknownTool:         resolveDirectTool(req.Tools),
 		PromptCacheKey:             promptCacheKey(req),
 		OnThinkingChunk:            onThinking,
 		OnStreamReset:              req.OnStreamReset,
@@ -552,4 +553,43 @@ func contextBreakdownHook(fn func(ContextBreakdown)) func(agent.ContextBreakdown
 	return func(b agent.ContextBreakdown) {
 		fn(ContextBreakdown{System: b.System, Messages: b.Messages, Reasoning: b.Reasoning})
 	}
+}
+
+// resolveDirectTool reroutes a call made under a concrete tool name to the
+// generic dispatcher that owns it, as {"name": <canonical>, "arguments": <args>}.
+// Only a JSON-object argument payload is rerouted; the dispatcher then applies
+// its own resolution and gate unchanged.
+func resolveDirectTool(tools []Tool) func(context.Context, string, string) (string, string, bool) {
+	var dispatchers []Tool
+	for _, t := range tools {
+		if t.ResolveDirectName != nil {
+			dispatchers = append(dispatchers, t)
+		}
+	}
+	if len(dispatchers) == 0 {
+		return nil
+	}
+	return func(ctx context.Context, name, arguments string) (string, string, bool) {
+		var obj map[string]json.RawMessage
+		if json.Unmarshal([]byte(arguments), &obj) != nil || obj == nil {
+			return "", "", false
+		}
+		for _, d := range dispatchers {
+			canonical, ok := d.ResolveDirectName(ctx, name)
+			if !ok {
+				continue
+			}
+			wrapped, err := json.Marshal(map[string]json.RawMessage{"name": mustJSON(canonical), "arguments": json.RawMessage(arguments)})
+			if err != nil {
+				return "", "", false
+			}
+			return d.Name, string(wrapped), true
+		}
+		return "", "", false
+	}
+}
+
+func mustJSON(v any) json.RawMessage {
+	b, _ := json.Marshal(v)
+	return b
 }

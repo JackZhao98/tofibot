@@ -848,6 +848,42 @@ func lazyDiscoverableMCPTools(runCtx context.Context, m *Manager, servers map[st
 			return t.Execute(ctx, in.Arguments)
 		})
 	}
+	// ResolveDirectName lets the runtime hand a call made under a concrete run
+	// name (mcp_<server>__<tool>) to call_mcp_tool. It uses the same resolution
+	// as call_mcp_tool (tools seen this run, recent capability schemas, known
+	// names resolved on their server) and refuses a name that more than one
+	// remote listing sanitizes to. Everything after resolution is call.Execute.
+	call.ResolveDirectName = func(ctx context.Context, name string) (string, bool) {
+		if ctx.Err() != nil || life.Err() != nil {
+			return "", false
+		}
+		seenMu.Lock()
+		t, ok := seen[name]
+		seenMu.Unlock()
+		if !ok {
+			t, ok = resolveKnown(ctx, name)
+			if !ok || ctx.Err() != nil {
+				return "", false
+			}
+		}
+		sourceMu.RLock()
+		defer sourceMu.RUnlock()
+		source, ok := toolSources[t.Name]
+		if !ok {
+			return "", false
+		}
+		base := directBaseName(source.server, source.remoteName)
+		same := 0
+		for _, other := range toolSources {
+			if directBaseName(other.server, other.remoteName) == base {
+				same++
+			}
+		}
+		if same != 1 {
+			return "", false
+		}
+		return t.Name, true
+	}
 	list := runtime.Tool{Name: "list_mcp_servers", Description: "List installed MCP server names without connecting or inspecting tool capabilities. This is not capability discovery: inspect plausible returned servers with search_mcp_tools before falling back to generic browsing. Skip this directory call when the relevant server is already known.", Parameters: map[string]any{"type": "object", "properties": map[string]any{"offset": map[string]any{"type": "integer", "minimum": 0}, "query": map[string]any{"type": "string", "maxLength": 256}}, "additionalProperties": false}}
 	list.Execute = func(ctx context.Context, raw json.RawMessage) (string, error) {
 		if err := life.Err(); err != nil {
@@ -1018,4 +1054,14 @@ func discoverableSkillTools(runCtx context.Context, skills []Skill, max int) []r
 		}
 	}
 	return tools
+}
+
+// directBaseName is the run name a remote tool would take before any collision
+// suffix. Two remote listings sharing it make a direct name ambiguous.
+func directBaseName(server, remote string) string {
+	raw := sanitizeToolName("mcp_" + server + "__" + remote)
+	if r := []rune(raw); len(r) > 64 {
+		raw = string(r[:64])
+	}
+	return raw
 }
