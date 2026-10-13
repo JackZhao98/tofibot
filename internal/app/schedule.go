@@ -174,6 +174,7 @@ CREATE INDEX IF NOT EXISTS schedule_occurrences_run ON schedule_occurrences(run_
 		{"schedules", "weekdays", `ALTER TABLE schedules ADD COLUMN weekdays TEXT NOT NULL DEFAULT ''`},
 		{"schedule_occurrences", "weekdays", `ALTER TABLE schedule_occurrences ADD COLUMN weekdays TEXT NOT NULL DEFAULT ''`},
 		{"schedule_occurrences", "occurrence_number", `ALTER TABLE schedule_occurrences ADD COLUMN occurrence_number INTEGER NOT NULL DEFAULT 0`},
+		{"schedule_occurrences", "started_at", `ALTER TABLE schedule_occurrences ADD COLUMN started_at TEXT NOT NULL DEFAULT ''`},
 	} {
 		if err := ensureColumn(db, column.table, column.name, column.ddl); err != nil {
 			return err

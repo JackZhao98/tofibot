@@ -373,6 +373,10 @@ func (s *Server) buildContextPartsWith(c Conversation, r Run, bot Bot, cachedMCP
 		pm = append(pm, runtime.Message{Role: "user", Content: metadata})
 		used += len([]rune(metadata))
 	}
+	if note := s.store.scheduleOrderNote(r); note != "" {
+		pm = append(pm, runtime.Message{Role: "user", Content: note})
+		used += len([]rune(note))
+	}
 	if metadata := s.store.openWorkContext(c.ID, bot.ID); metadata != "" {
 		pm = append(pm, runtime.Message{Role: "user", Content: metadata})
 		used += len([]rune(metadata))
