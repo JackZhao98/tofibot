@@ -1471,6 +1471,17 @@ func (s *Store) AddHandoff(conv, sender, bot, parent, task string) (Message, Run
 	if err = tx.QueryRow(`SELECT model,name FROM bots WHERE id=?`, bot).Scan(&model, &botName); err != nil {
 		return Message{}, Run{}, err
 	}
+	var steerRoots []string
+	if conversationKind == "group" && sender != "system" {
+		refuse, steer, cerr := delegationConflictTx(tx, parent, bot)
+		if cerr != nil {
+			return Message{}, Run{}, cerr
+		}
+		if refuse {
+			return Message{}, Run{}, &delegationConflictError{botName: botName}
+		}
+		steerRoots = steer
+	}
 	var routedTrigger string
 	if sender == "system" {
 		if err = tx.QueryRow(`SELECT trigger_message_id FROM runs WHERE id=? AND kind='triage'`, parent).Scan(&routedTrigger); err != nil {
@@ -1513,6 +1524,15 @@ func (s *Store) AddHandoff(conv, sender, bot, parent, task string) (Message, Run
 	r.QueueSeq = queueSeq
 	if _, err = tx.Exec(`INSERT INTO runs(id,conversation_id,bot_id,status,parent_run_id,model,kind,origin_conversation_id,trigger_message_id,queue_seq,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)`, r.ID, conv, bot, r.Status, parent, r.Model, r.Kind, r.OriginConversationID, r.TriggerMessageID, r.QueueSeq, t, t); err != nil {
 		return Message{}, Run{}, err
+	}
+	// The target is already running its own part of this user message. The
+	// delegation is delivered through the steering edge: the target's running
+	// turn yields at its next boundary and this task takes over with the
+	// target's completed tool results carried over.
+	for _, root := range steerRoots {
+		if _, err = tx.Exec(`INSERT OR IGNORE INTO run_steering(new_run_id,old_run_id) VALUES(?,?)`, r.ID, root); err != nil {
+			return Message{}, Run{}, err
+		}
 	}
 	for _, ev := range []struct {
 		typ string
@@ -3795,6 +3815,10 @@ func (s *Server) toolsUnmarked(c Conversation, r Run) []Tool {
 			_, child, e = s.store.AddHandoff(c.ID, r.BotID, x.BotID, r.ID, x.Task)
 		}
 		if e != nil {
+			var conflict *delegationConflictError
+			if errors.As(e, &conflict) {
+				return "", delegationRefusal(conflict.botName)
+			}
 			return "", e
 		}
 		childConv := c
@@ -3804,6 +3828,13 @@ func (s *Server) toolsUnmarked(c Conversation, r Run) []Tool {
 			}
 		}
 		s.enqueue(childConv, child)
+		if s.store.steersOwnRun(child) {
+			target := x.BotID
+			if bot, be := s.store.GetBot(x.BotID); be == nil {
+				target = bot.Name
+			}
+			return fmt.Sprintf("delivered to %s's current turn; it is already working on this user message and will pick up your handover. Do not repeat it.", target), nil
+		}
 		return child.ID, nil
 	}}, {Name: "list_bots", Description: "List available Bots, roles and exact IDs when the user asks for the roster, team assembly or contact/delegation and the needed IDs are not already known. Reuse IDs from the current roster or relevant context; do not list on every turn. A mention alone does not authorize delegation.", Parameters: objectSchema(map[string]any{}, nil), Execute: func(ctx context.Context, b json.RawMessage) (string, error) {
 		if err := ctx.Err(); err != nil {
