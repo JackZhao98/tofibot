@@ -49,6 +49,10 @@
         "name": "审批",
         "description": "决定 Bot 的操作在执行前由谁来把关。"
       },
+      "followups": {
+        "name": "跟进事项（预览）",
+        "description": "查看 Bot 会提醒你什么"
+      },
       "models": {
         "name": "模型",
         "description": "Bot 的大脑从哪来，默认用哪一个。"
@@ -673,5 +677,77 @@
   },
   "disclosure": {
     "details": "详情"
+  },
+  "primary": {
+    "title": "主助理",
+    "description": "负责你日常杂事的 Bot。始终有且只有一个。",
+    "label": "主助理",
+    "hint": "优先接手你的日常杂事。其他 Bot 仍各自工作。",
+    "none": "创建一个 Bot 后才能选择主助理。",
+    "choose": "选择一个 Bot",
+    "invalid": "这个 Bot 不能作为主助理，请换一个。",
+    "save_failed": "无法更改主助理，请重试。"
+  },
+  "followups": {
+    "load_failed": "无法加载跟进事项，请重试。",
+    "save_failed": "无法保存，请重试。",
+    "banner_title": "仅预览，不会发送任何内容。",
+    "banner_body": "Bot 会读取你自己发的消息，列出它们将来会提醒你的事项。不会向任何聊天发送内容。请逐条评价，帮助调整后续效果。",
+    "no_model_title": "未连接模型",
+    "no_model_body": "扫描需要已连接的模型。请在“模型”中连接一个。",
+    "paused_title": "今天已暂停",
+    "paused_body": "跟进扫描已达到每日 {{limit}} 的预算，明天恢复。",
+    "bots_title": "Bot",
+    "bots_description": "选择哪些 Bot 扫描各自的对话。每个 Bot 只跟进自己的事项；主助理还会覆盖你的日常聊天。",
+    "no_bots": "创建一个 Bot 后才能预览跟进事项。",
+    "bot_off": "未扫描",
+    "last_scan": "上次扫描 {{when}}",
+    "not_scanned": "等待首次扫描",
+    "nudges_title": "将会提醒你",
+    "nudges_description": "开启提醒后，Bot 会在合适的时机提出的事项。",
+    "digest_title": "每周汇总",
+    "digest_description": "优先级较低的事项，会汇总成周一的一条消息。",
+    "closed_title": "已处理",
+    "empty_scanning": "暂无内容。Bot 白天每 90 分钟扫描一次。",
+    "empty_off": "为某个 Bot 打开预览，即可看到它会提醒你什么。",
+    "today_title": "今天",
+    "limits_title": "限制",
+    "limits_description": "所有 Bot 共用。主助理的事项优先。",
+    "due": "到期 {{when}}",
+    "next": "下一步：{{step}}",
+    "review_label": "评价：{{topic}}",
+    "mode": {
+      "off": "关闭",
+      "shadow": "预览"
+    },
+    "stat": {
+      "scans": "扫描次数",
+      "found": "新增事项",
+      "skipped": "已跳过",
+      "skipped_hint": "太弱、太模糊或无法核实，未保留",
+      "spent": "模型费用",
+      "feedback": "你的评价",
+      "feedback_hint": "有用、烦人、已处理过",
+      "feedback_value": "{{useful}} / {{annoying}} / {{handled}}"
+    },
+    "limit": {
+      "cap": "每日提醒数",
+      "cap_hint": "所有 Bot 合计，一天最多提醒你的次数。",
+      "per_day": "每天 {{n}} 条",
+      "budget": "每日扫描预算",
+      "budget_hint": "模型费用达到此值后，当天暂停扫描。",
+      "quiet": "安静时段",
+      "quiet_hint": "夜间不提醒；周末仅提醒重要事项。"
+    },
+    "kind": {
+      "waiting": "在等别人",
+      "owner_promise": "你答应了",
+      "owner_reminder": "你要求提醒"
+    },
+    "verdict": {
+      "useful": "有用",
+      "annoying": "烦人",
+      "handled": "已处理过"
+    }
   }
 }

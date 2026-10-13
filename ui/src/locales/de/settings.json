@@ -49,6 +49,10 @@
         "name": "Genehmigungen",
         "description": "Wer die Aktionen eines Bots prüft, bevor sie laufen."
       },
+      "followups": {
+        "name": "Nachfassungen (Vorschau)",
+        "description": "Sieh, woran Bots dich erinnern würden"
+      },
       "models": {
         "name": "Modelle",
         "description": "Woher Bots ihr Modell bekommen und welches sie standardmäßig nutzen."
@@ -682,5 +686,77 @@
   },
   "disclosure": {
     "details": "Details"
+  },
+  "primary": {
+    "title": "Hauptassistent",
+    "description": "Der Bot, der deine allgemeinen Aufgaben übernimmt. Es gibt immer genau einen.",
+    "label": "Hauptassistent",
+    "hint": "Übernimmt deine allgemeinen Aufgaben zuerst. Andere Bots arbeiten weiter für sich.",
+    "none": "Erstelle einen Bot, um einen Hauptassistenten zu wählen.",
+    "choose": "Bot auswählen",
+    "invalid": "Dieser Bot kann nicht dein Hauptassistent sein. Wähle einen anderen.",
+    "save_failed": "Der Hauptassistent konnte nicht geändert werden. Versuche es erneut."
+  },
+  "followups": {
+    "load_failed": "Nachfassungen konnten nicht geladen werden. Versuche es erneut.",
+    "save_failed": "Speichern fehlgeschlagen. Versuche es erneut.",
+    "banner_title": "Nur Vorschau. Es wird nichts gesendet.",
+    "banner_body": "Bots lesen deine eigenen Nachrichten und listen auf, woran sie dich erinnern würden. Es wird nichts in einen Chat gepostet. Bewerte die Einträge, um das Ergebnis zu verbessern.",
+    "no_model_title": "Kein Modell verbunden",
+    "no_model_body": "Das Scannen braucht ein verbundenes Modell. Verbinde eines unter „Modelle“.",
+    "paused_title": "Für heute pausiert",
+    "paused_body": "Das Scannen hat das Tagesbudget von {{limit}} erreicht und läuft morgen weiter.",
+    "bots_title": "Bots",
+    "bots_description": "Wähle, welche Bots ihre eigenen Unterhaltungen scannen. Jeder Bot verfolgt seine eigenen Nachfassungen; der Hauptassistent deckt zusätzlich deinen allgemeinen Chat ab.",
+    "no_bots": "Erstelle einen Bot, um Nachfassungen in der Vorschau zu sehen.",
+    "bot_off": "Scannt nicht",
+    "last_scan": "Letzter Scan {{when}}",
+    "not_scanned": "Wartet auf den ersten Scan",
+    "nudges_title": "Würde dich erinnern",
+    "nudges_description": "Einträge, die ein Bot im passenden Moment ansprechen würde, sobald Erinnerungen aktiv sind.",
+    "digest_title": "Wochenübersicht",
+    "digest_description": "Weniger dringende Einträge, die in einer Montagsübersicht gebündelt würden.",
+    "closed_title": "Geprüft",
+    "empty_scanning": "Noch nichts. Bots scannen tagsüber alle 90 Minuten.",
+    "empty_off": "Aktiviere die Vorschau für einen Bot, um zu sehen, woran er dich erinnern würde.",
+    "today_title": "Heute",
+    "limits_title": "Limits",
+    "limits_description": "Gilt für alle Bots gemeinsam. Einträge des Hauptassistenten haben Vorrang.",
+    "due": "fällig {{when}}",
+    "next": "Nächster Schritt: {{step}}",
+    "review_label": "Bewerten: {{topic}}",
+    "mode": {
+      "off": "Aus",
+      "shadow": "Vorschau"
+    },
+    "stat": {
+      "scans": "Scans",
+      "found": "Neue Einträge",
+      "skipped": "Übersprungen",
+      "skipped_hint": "Zu schwach, vage oder nicht überprüfbar",
+      "spent": "Modellkosten",
+      "feedback": "Deine Bewertungen",
+      "feedback_hint": "Nützlich, nervig, schon erledigt",
+      "feedback_value": "{{useful}} / {{annoying}} / {{handled}}"
+    },
+    "limit": {
+      "cap": "Tägliche Erinnerungen",
+      "cap_hint": "Die maximale Zahl an Erinnerungen pro Tag, über alle Bots hinweg.",
+      "per_day": "{{n}} pro Tag",
+      "budget": "Tägliches Scan-Budget",
+      "budget_hint": "Erreichen die Modellkosten diesen Wert, pausiert das Scannen für den Tag.",
+      "quiet": "Ruhezeiten",
+      "quiet_hint": "Nachts keine Erinnerungen; am Wochenende nur wichtige Einträge."
+    },
+    "kind": {
+      "waiting": "Wartet auf jemanden",
+      "owner_promise": "Du hast zugesagt",
+      "owner_reminder": "Du wolltest erinnert werden"
+    },
+    "verdict": {
+      "useful": "Nützlich",
+      "annoying": "Nervig",
+      "handled": "Schon erledigt"
+    }
   }
 }

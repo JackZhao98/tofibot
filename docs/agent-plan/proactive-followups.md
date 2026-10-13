@@ -1,6 +1,25 @@
 # 秘书主动跟进（Proactive follow-ups）— 设计稿
 
-状态：设计，未实现。无代码改动。分支基线 `main` @ d10eb0e。
+状态：设计；owner 已于 2026-10-13 拍板（见下方"Owner 决定"），P0 在分支 `feat/followups-p0` 实现。分支基线 `main` @ d10eb0e。
+
+---
+
+## Owner 决定（2026-10-13，优先于下文 §一.8 / §9 的推荐项与相冲突的旧表述）
+
+English implementation summary follows each Chinese item.
+
+1. **"主助理（Primary Assistant）"是每个账户一个的固定角色。** 默认是创建顺序里的第一个 Bot；owner 可在 设置 → 通用 或 Bot 菜单里指定另一个。删除（或归档）主助理时必须立刻弹窗让 owner 指定新的主助理——只要还有 ≥1 个 Bot，该角色不能为空；最后一个 Bot 被删后角色为空，下一个 Bot 创建时自动成为主助理。owner 的邮件和日常杂事归主助理。
+   - Stored as `user_preferences.primary_bot_id` (account-level). Effective Primary = stored id if that Bot exists and is not archived, else the first non-archived Bot by `created_at,id`, persisted on first read (this is also the migration for existing accounts). `PUT /api/primary-assistant {bot_id}` sets it. `DELETE /api/bots/{id}` and `PATCH /api/bots/{id} {archived:true}` on the Primary while another active Bot exists return `409 primary_reassign_required` unless `new_primary_id` is supplied; reassignment and deletion/archival commit in one transaction. Bot creation (including onboarding) claims the role when it is empty. The `workspace_delete_bot` agent tool refuses to delete the Primary (the owner reassigns in the UI first).
+2. **每个 Bot 都能跟进自己的事**（自己对话里产生的 loop，例如编码 Bot 盯自己的任务）；主助理额外拥有邮件来源和 owner 日常聊天产生的 loop。（取代 §9.7 的 A。）
+   - `open_loops.bot_id` owns the loop; `source ∈ {chat,email}`. P0 sweeps each Bot's own DM (owner-authored messages only). Group conversations stay out of scope (§0). Email is the Primary's source only (P1+).
+3. **每日主动消息上限 3 条，按账户合计**（不是每 Bot），主助理的消息优先占用名额。理由：owner 的体验单位是"一天被打扰几次"，不是"每个 Bot 各几次"；按 Bot 计会在 N 个 Bot 时变成 3N 条；主助理优先是因为它承载邮件和 owner 日常事务，重要度分布最高。每周汇总算 1 条。
+   - Cap, quiet hours, weekend threshold, digest schedule and daily budget move to a single account row `followup_account`; `followup_settings` keeps only per-Bot `mode`, `source_email`, `source_chat`. `selectNudges` ranks candidates Primary-first, then importance desc, `expected_by` asc, id, and takes the remaining slots of the day. The daily budget is also account-wide.
+4. **owner 自己的承诺：有明确日期 → 到日期当天提醒；没有日期 → 只进每周汇总。**（§9.6 的 A，细化。）
+   - `owner_promise` with a date: importance floor 60 (nudge band) and `expected_by` = that date 09:00 owner-local, with no grace day (grace applies only to `awaiting_other`). `owner_promise` without a date: clamped to the digest band 40-59, never a nudge. `owner_reminder` ("remind me ...") follows the same date rule.
+5. **立即开始，先做第一阶段（P0）**：见 §8。邮件（P1+）不在本分支。
+   - P0 delivers: Primary role, follow-up tables, the account/Bot settings API, the chat-source sweep in shadow mode only (nothing is ever posted to a chat), a Settings page "Follow-ups (preview)" with review buttons (useful / annoying / already handled), usage recorded as kind `followup`, and the restraint functions (bands, caps, `expected_by`, `selectNudges`, `nudgeAllowed`) as pure, unit-tested code.
+
+Shadow-mode defaults at P0: each Bot's `mode` defaults to `off`; the owner can switch a Bot to `shadow` on the preview page; `on` is accepted by the schema but rejected by the API until P3 ships delivery.
 
 ---
 
@@ -154,6 +173,15 @@ CREATE TABLE IF NOT EXISTS followup_sweeps(   -- audit + budget
   input_tokens INTEGER NOT NULL, output_tokens INTEGER NOT NULL, equivalent_usd REAL NOT NULL, error TEXT NOT NULL DEFAULT '');
 ```
 
+**P0 as built (deviations from the SQL above, all from the owner decisions):**
+
+- `followup_account` (single row, `id=1`) holds the account-wide limits: `max_nudges_per_day`, `quiet_start/end`, `weekend_min_importance`, `digest_weekday/time`, `daily_budget_usd`. `followup_settings` keeps only per-Bot `mode`, `source_email`, `source_chat` (the columns that would be per-Bot cap/quiet/digest/budget moved up because the cap and budget are account totals).
+- `open_loops` gains `source` (`chat|email`), `band` (`nudge|digest`) and `delivery` (`shadow|delivered`; P0 only writes `shadow`). Shadow review needs no separate table: a shadow row is an `open_loops` row with `delivery='shadow'`.
+- `followup_sweeps` gains `rejected_invalid`, `rejected_band`, `merged` (the "items rejected by each gate" counters of section 7). Model spend is also rolled into `usage_hourly` in new `followup_*` columns, beside (never inside) the chat and review columns; `usage_calls` is not used because its `run_id` is a NOT NULL foreign key to `runs` and a sweep has no run.
+- Importance is computed by the host (`importanceScore`) from model-claimed signals (`owner_asked`, `third_party_committed`, `vague_social`) plus host-derived facts (date, category, owner promise, correspondence); the model never supplies a number, and a model-supplied `importance` field fails validation.
+- Chat input is the Bot's own DM only: `messages` rows with `role='user'`, `kind=''` and a `user_message_ingress` record. Anything without ingress provenance (imports, Bot text, `scheduled_task` triggers, notices, cards) is never shown to the model. The cursor is the last scanned `messages.seq` and moves only after a sweep's rows commit; a batch that fails 3 times is skipped rather than retried forever.
+- Mode `on` is rejected by the API until P3 ships delivery; the worker (`followupWorker`, 60 s ticker, 90 min per-Bot cadence, 08:00-21:00 owner time) never writes a message, event or run.
+
 Linking to existing objects, not duplicating them: an accepted "draft it" creates a `mail_drafts` row (`mail_drafts.go:89-113`) through the normal `prepare_email` tool; an accepted "track this as a task" creates a `work_items` row. The loop stores the ids.
 
 #### 1.3 Expected-by rules (host code, deterministic)
@@ -232,7 +260,7 @@ Start at 0; the sweep model adds/subtracts and must cite which rules applied:
 | Concrete date or deadline stated | +15 |
 | Category money / legal_gov / health / travel | +15 |
 | Counterparty is a human the owner has corresponded with before (host: any `in:sent to:` hit in 180 days) | +10 |
-| Owner's own promise (`owner_promise`) | +20 (so it lands in the digest band unless dated) |
+| Owner's own promise (`owner_promise`) | +20; then clamped per owner decision 4: dated -> floor 60 (nudge at the date), undated -> 40-59 (digest only) |
 | Vague social ("let's catch up sometime") | −30 |
 | Automated sender (host-derived, §4.2) | capped at 39 unless category ∈ {money, legal_gov, health, travel} **and** a date is present, then capped at 65 |
 | Suppression `digest_only` on sender/domain/category | capped at 59 |
@@ -245,7 +273,7 @@ Bands: **≥60 nudge**; **40–59 digest only**; **<40 not stored** (logged in s
 
 #### 4.3 Hard limits (host code, pure functions, unit-tested)
 
-- `max_nudges_per_day` per Bot (default 3) counted in owner-local days; the digest counts as one.
+- `max_nudges_per_day` per **account** (default 3, owner decision 3) counted in owner-local days, Primary's candidates first; the digest counts as one.
 - Per loop: `nudge_count ≤ 1`; a second nudge only if `importance ≥ 70`, `≥ 7 days` since the first, loop still unresolved, and the first was not dismissed.
 - Per counterparty address or domain: ≤1 nudge per 7 days (any loop).
 - Dedupe: unique partial index on `(bot_id, topic_digest)` over live states; a second extraction of the same loop merges evidence into the existing row and may raise (never lower) importance.
@@ -314,7 +342,7 @@ The secretary Bot gets three tools in its DM (not in groups), gated on `mode != 
 
 | Phase | Deliverable | Tests |
 |---|---|---|
-| **P0 settings + model** | Tables, `followup_settings` API + settings UI section (i18n), feature worker skeleton with 60 s ticker, restraint pure functions (`nudgeAllowed(now, settings, loop, history)`), chat-source sweep in shadow | Table migration idempotent; restraint table-driven tests (caps, quiet hours, weekend, dedupe, 24 h owner-activity rule, budget stop); sweep over a synthetic DM transcript yields expected loops; Bot messages and `scheduled_task` rows never produce loops |
+| **P0 settings + model** (+ Primary Assistant role; shadow chat sweep; see Owner decisions) | Tables, `followup_settings` API + settings UI section (i18n), feature worker skeleton with 60 s ticker, restraint pure functions (`nudgeAllowed(now, settings, loop, history)`), chat-source sweep in shadow | Table migration idempotent; restraint table-driven tests (caps, quiet hours, weekend, dedupe, 24 h owner-activity rule, budget stop); sweep over a synthetic DM transcript yields expected loops; Bot messages and `scheduled_task` rows never produce loops |
 | **P1 email source** | Runner `mail/list` + `mail/get` endpoints (readonly), header-based automation gate, email sweep in shadow, cursor | Synthetic gog JSON fixtures (no network); `readonly` connection cannot reach `send`; automated headers cap importance; quote-substring validation rejects fabricated evidence |
 | **P2 check pass** | Resolution predicates (inbound, sent, draft sent, chat phrase), silent close, expiry, early resolution on sweep | Fixture threads: reply closes silently, owner's sent mail closes as `handled_by_owner`, ambiguous → model yes/no stub |
 | **P3 nudge delivery** | `followup` run kind + hidden trigger, closed tool surface, message + options card, answer handling, chat tools, feedback rows, suppression rules | A `followup` run exposes no MCP/browser/prepare_email tools (snapshot test like `tool_tiers_e2e_test.go`); answer `draft` produces a `mail_drafts` row only in the resumed owner-triggered run; `dismiss` ×2 creates a suppression; day cap enforced across loops |
@@ -324,6 +352,8 @@ The secretary Bot gets three tools in its DM (not in groups), gated on `mode != 
 Each phase changes `AGENTS.md` only if it adds a boundary (none expected) and adds UI strings under `ui/src/locales/<lang>/` per the i18n rule.
 
 ### 9. Open decisions (owner), with recommendations
+
+Superseded where the "Owner 决定" section at the top differs (decisions 2, 3, 4 and the Primary role replace items 3, 6, 7).
 
 Same list as §一.8, restated with the technical consequence:
 

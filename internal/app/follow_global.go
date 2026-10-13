@@ -69,7 +69,12 @@ func (s *Server) resolveBotModel(ctx context.Context, runModel string, b Bot) (s
 // with now, for clients that show "跟随全局（当前：X）".
 func (s *Server) withEffectiveModels(ctx context.Context, bots ...Bot) []Bot {
 	out := make([]Bot, len(bots))
+	primary := ""
+	if s != nil && s.store != nil {
+		primary, _ = s.store.PrimaryBotID()
+	}
 	for i, b := range bots {
+		b.IsPrimary = primary != "" && b.ID == primary
 		b.EffectiveModel, b.EffectiveReasoningEffort = s.resolveBotModel(ctx, "", b)
 		out[i] = b
 	}

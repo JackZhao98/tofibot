@@ -153,6 +153,9 @@ func (s *Store) createOnboardingBot(clientCreationID, model, reasoningEffort, la
 	if _, err = tx.Exec(`INSERT INTO bot_onboarding(client_creation_id,bot_id,status,created_at,updated_at) VALUES(?,?,?,?,?)`, clientCreationID, b.ID, "pending", t, t); err != nil {
 		return Bot{}, false, err
 	}
+	if err = claimPrimaryIfEmptyTx(tx, b.ID, t); err != nil {
+		return Bot{}, false, err
+	}
 	message := Message{ID: uuid.NewString(), ConversationID: b.DMConversationID, Seq: 1, Role: "assistant", SenderBotID: b.ID, Content: onboardingWelcome(language), CreatedAt: t}
 	if _, err = tx.Exec(`INSERT INTO messages(id,conversation_id,seq,role,kind,sender_bot_id,run_id,content,notice_data,created_at) VALUES(?,?,?,?,?,?,?,?,?,?)`, message.ID, message.ConversationID, message.Seq, message.Role, message.Kind, message.SenderBotID, nil, message.Content, nil, message.CreatedAt); err != nil {
 		return Bot{}, false, err

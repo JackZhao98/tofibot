@@ -8,6 +8,8 @@ import {ComputerResources} from "../ComputerResources";
 import {ConnectionInfo} from "../ConnectionInfo";
 import {DictationSettings} from "../DictationSettings";
 import {ExtensionPanel} from "../ExtensionPanel";
+import {FollowupsSettings} from "../FollowupsSettings";
+import {PrimaryAssistantSetting} from "../PrimaryAssistant";
 import {AppearancePicker} from "../InteractionSystem";
 import {LanguageSetting} from "../LanguageSetting";
 import {ModelDefaults} from "../ModelSettings";
@@ -31,6 +33,8 @@ export type SettingsPagesProps={
  portabilityBotID:string;portabilityFile?:File;onPortabilityFileConsumed:()=>void;
  appearance:{preference:ThemePreference;choose:(theme:ThemePreference)=>void};
  extensionRefresh:number;slots:SettingsSlots;openTab:(tab:SettingsTab)=>void;
+ /** Called after a Settings change that alters the Bot list (the Primary Assistant); the app reloads its Bots. */
+ onBotsChanged?:()=>void|Promise<void>;
 };
 const unreachable=(value:never):never=>{throw new Error(`unhandled settings page: ${String(value)}`)};
 
@@ -43,6 +47,7 @@ export function SettingsPages(props:SettingsPagesProps){
   case "connections": return <ExtensionPanel bots={bots} kind="mcp" refreshToken={props.extensionRefresh}/>;
   case "skills": return <ExtensionPanel bots={bots} kind="skills" refreshToken={props.extensionRefresh}/>;
   case "approvals": return <ApprovalsPage/>;
+  case "followups": return <FollowupsSettings/>;
   case "models": return <ModelsPage {...props}/>;
   case "computer": return <><ComputerResources/><ComputerPanel/></>;
   case "keys": return <ComputerCredentials bots={activeBots}/>;
@@ -53,11 +58,12 @@ export function SettingsPages(props:SettingsPagesProps){
  }
 }
 
-function GeneralPage({appearance,slots,openTab}:SettingsPagesProps){
+function GeneralPage({appearance,slots,openTab,bots,onBotsChanged}:SettingsPagesProps){
  const {t}=useTranslation("settings");
  return <div className="settings-stack">
   <OwnerAccount/>
   <AppearancePicker value={appearance.preference} onChange={appearance.choose}/>
+  <PrimaryAssistantSetting bots={bots} onChanged={onBotsChanged}/>
   <SettingsSection title={t("general.region")}><SettingsCard className="settings-region"><LanguageSetting/><TimezoneSetting/></SettingsCard></SettingsSection>
   <SettingsSection title={t("general.chat")}><SettingsCard><ShowActivitySetting/></SettingsCard></SettingsSection>
   <SettingsSection><SettingsCard>{slots.notifications}</SettingsCard></SettingsSection>
