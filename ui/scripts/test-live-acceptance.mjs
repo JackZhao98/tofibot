@@ -177,7 +177,7 @@ async function runScenario(id, fn, ctx) {
           reviews: await ctx.fx.sql(`select run_id,tool,status,decision,risk_level,substr(reason,1,500) reason,provenance from mcp_auto_reviews where conversation_id='${c}' order by rowid desc limit 4`).catch(e => String(e)),
           activities: await ctx.fx.sql(`select run_id,name,status,substr(arguments,1,200) args,substr(result,1,600) result,substr(outcome_json,1,300) outcome from tool_activities where conversation_id='${c}' order by started_at desc limit 8`).catch(e => String(e)),
           occurrences: await ctx.fx.sql(`select schedule_id,scheduled_for_utc,run_id from schedule_occurrences`).catch(e => String(e)),
-          occ_auth: await ctx.fx.sql(`select root_run_id,revision,length(snapshot_json) snapshot_bytes from schedule_occurrence_authorizations`).catch(e => String(e)),
+          occ_auth: await ctx.fx.sql(`select root_run_id,revision,length(snapshot_json) snapshot_bytes,substr(snapshot_json,1,600) snapshot_head from schedule_occurrence_authorizations`).catch(e => String(e)),
           events: await ctx.fx.sql(`select type,substr(data,1,300) data from events where conversation_id='${c}' order by id desc limit 8`).catch(e => String(e)),
         };
       }
@@ -278,14 +278,14 @@ async function L5({fx, page}) {
   // Fire the notes back to back: whatever the queue coalesces costs fewer model requests.
   const pad = async count => { for (let i = 0; i < count; i++) await apiSay(fx, bot, `Background note ${runs + i + 1} (no action needed, reply with just OK): ${padText(8000)}`); runs++; await settle(fx, bot, {minRuns: 1}); const rr = await runRows(fx, bot.dm_conversation_id); runs = rr.length; current.evidence.pad_runs = (current.evidence.pad_runs || []).concat(rr.length); };
   await pad(8); // ordinary chat first, so every later authorization record carries a long conversation
-  await say(page, 'Create a daily schedule at 09:00 UTC titled "Daily page-daily" whose job is: update page page-daily with the content "Daily v1". Just create it, do not run it now.');
+  await say(page, 'Create a daily schedule titled "Daily page-daily" whose job is: update page page-daily with the content "Daily v1". Whatever time it fires is fine.');
   await settle(fx, bot, {minRuns: runs + 1}); runs = (await runRows(fx, bot.dm_conversation_id)).length;
   const sch = await waitFor(async () => { const r = await fx.sql(`select id,content,status,next_at_utc from schedules where conversation_id='${q(conv)}' and status<>'deleted'`); return r.length ? r : false; }, 'schedule row', 60000);
   const sid = sch[0].id;
   check('schedule created from chat (one row)', sch.length === 1, JSON.stringify(sch));
-  await say(page, 'Edit that schedule: the job should now update page page-daily with the content "Daily v2" instead (keep the same time).');
+  await say(page, 'Edit that schedule: the job should now update page page-daily with the content "Daily v2" instead (keep everything else the same).');
   await settle(fx, bot, {minRuns: runs + 1}); runs = (await runRows(fx, bot.dm_conversation_id)).length;
-  await say(page, 'Edit the schedule once more: the job should now update page page-daily with the content "Daily v3" (same time, same page).');
+  await say(page, 'Edit the schedule once more: the job should now update page page-daily with the content "Daily v3" (same page, same schedule).');
   await settle(fx, bot, {minRuns: runs + 1}); runs = (await runRows(fx, bot.dm_conversation_id)).length;
   const revs = await fx.sql(`select revision,event_kind,source_kind,length(source_context_json) ctx_bytes,length(execution_spec_json) spec_bytes from schedule_authorization_revisions where schedule_id='${q(sid)}' order by revision`);
   current.evidence.revisions = revs;
@@ -310,6 +310,7 @@ async function L5({fx, page}) {
   const s = await snapshot(fx, bot, m);
   const runRow = (await fx.sql(`select status,error from runs where id='${q(runId)}'`))[0];
   const occCalls = (await fx.state()).mcp_calls.slice(calls0);
+  current.evidence.occ_auth = await fx.sql(`select revision,length(snapshot_json) snapshot_bytes,substr(snapshot_json,1,700) snapshot_head from schedule_occurrence_authorizations`);
   current.evidence.snapshot = s; current.evidence.occurrence_run = runRow; current.evidence.occurrence_calls = occCalls;
   const chain = await fx.sql(`select 'activity' src, name from tool_activities where conversation_id='${q(conv)}' and (result like '%schedule_source_chain_changed%' or outcome_json like '%schedule_source_chain_changed%') union all select 'review', tool from mcp_auto_reviews where conversation_id='${q(conv)}' and (reason like '%schedule_source_chain_changed%' or context_snapshot like '%schedule_source_chain_changed%') union all select 'event', type from events where conversation_id='${q(conv)}' and data like '%schedule_source_chain_changed%'`);
   check('no schedule_source_chain_changed anywhere', chain.length === 0, JSON.stringify(chain));
