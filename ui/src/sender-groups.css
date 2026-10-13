@@ -1,0 +1,40 @@
+/* One layout for Bot messages in a conversation type.
+   Group chat: every Bot message (final, segment, progress) is the same bordered bubble. The avatar and
+   name open a sender group once; later units from the same Bot (messages and Activity rows) only indent
+   to the same column. The bubble's pointed corner is its top-left, level with the avatar's top.
+   Direct chat: every Bot message is plain text, whatever its kind.
+   Sender grouping is computed in senderGroups.ts and written as [data-continues="true"]. */
+:root { --sender-avatar:34px; --sender-gap:10px; --sender-gutter:calc(var(--sender-avatar) + var(--sender-gap)); }
+html[data-desktop] { --sender-avatar:38px; }
+
+/* Avatar column: kept as a spacer on continuations so the text column never moves. */
+.workspace .message.is-group .message-avatar { width:var(--sender-avatar); height:auto; flex:0 0 var(--sender-avatar); margin:0 var(--sender-gap) 0 0; align-self:flex-start; }
+.workspace .message.is-group .message-avatar .avatar { width:var(--sender-avatar); height:var(--sender-avatar); }
+.workspace .message.is-group.message-bot { align-items:flex-start; }
+.workspace .message.is-group[data-continues="true"] .message-avatar > *,
+.workspace .message.is-group[data-continues="true"] .message-meta { display:none; }
+/* Name row sits on the avatar's top edge. */
+.workspace .message.is-group .message-meta { min-height:0; margin:0 0 4px; }
+.workspace .message.is-group .message-meta strong { font:600 13px/1.3 var(--display); }
+
+/* The bubble. */
+.workspace .message.is-group.message-bot .message-content {
+  display:block; width:fit-content; max-width:min(78%, 680px); padding:9px 13px;
+  border:1px solid var(--line-soft); border-radius:16px; background:var(--surface-2); color:var(--ink);
+}
+.workspace .message.is-group.message-bot:not([data-continues="true"]) .message-content { border-top-left-radius:5px; }
+@media (max-width:640px) { .workspace .message.is-group.message-bot .message-content { max-width:100%; } }
+
+/* Activity and live-status rows belong to the sender group: same column, avatar and name only when they open it. */
+.workspace .tool-message.web-tool-run[data-sender],
+.workspace .task-run-block.in-group { position:relative; margin:0 0 8px var(--sender-gutter); }
+.workspace .sender-head { margin:0 0 4px; }
+.workspace .sender-avatar { position:absolute; top:0; left:calc(var(--sender-gutter) * -1); width:var(--sender-avatar); height:var(--sender-avatar); }
+.workspace .sender-avatar .avatar { width:var(--sender-avatar); height:var(--sender-avatar); }
+.workspace .sender-name { display:block; color:var(--ink); font:600 13px/1.3 var(--display); }
+.workspace [data-continues="true"] > .sender-head { display:none; }
+.workspace .tool-message.web-tool-run[data-sender] .web-tool-summary { min-height:26px; }
+.workspace .tool-message.web-tool-run[data-sender] .web-tool-toggle { margin-left:-6px; }
+
+/* Direct chat: no container for any kind. */
+.workspace .message.is-dm.message-bot .message-content { border:0; border-radius:0; background:transparent; padding:2px 0 0; }
