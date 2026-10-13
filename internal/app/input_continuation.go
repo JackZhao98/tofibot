@@ -204,6 +204,9 @@ func (s *Store) claimInputContinuation(ctx context.Context, runID string) (json.
 	if _, err = tx.ExecContext(ctx, `UPDATE runs SET status='running',error=NULL,updated_at=? WHERE id=? AND status='queued'`, now(), runID); err != nil {
 		return nil, q, false, err
 	}
+	if err = markScheduleStartedTx(tx, runID); err != nil {
+		return nil, q, false, err
+	}
 	if err = tx.Commit(); err != nil {
 		return nil, q, false, err
 	}
