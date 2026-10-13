@@ -195,6 +195,9 @@ func (s *Server) readMCPChainReviewContext(db reviewQuerier, c Conversation, req
 		if len(chain) == 0 && (*mcpScheduleBinding(r) != *mcpScheduleBinding(requested) || r.Status != "running") {
 			return x, "", mcpContextFail(mcpContextTargetBinding)
 		}
+		if len(chain) == 0 {
+			r.reviewCallID = requested.reviewCallID
+		}
 		m, err := mcpScheduleMessage(db, r.TriggerMessageID)
 		if err != nil {
 			return x, "", err

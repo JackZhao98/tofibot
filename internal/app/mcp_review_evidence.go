@@ -326,6 +326,11 @@ func readMCPRunToolEvidence(db reviewQuerier, r Run, strictEffects bool, bounds 
 		if resume != nil && !resume.keep(&a) {
 			continue
 		}
+		// The call under review is recorded as running before dispatch; it is
+		// the proposal itself, not an earlier identical call.
+		if r.reviewCallID != "" && a.CallID == r.reviewCallID {
+			continue
+		}
 		if len(out) == mcpEvidenceToolRows {
 			bounds.OlderToolRecordsOmitted = true
 			break
