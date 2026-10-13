@@ -487,7 +487,7 @@ CREATE TABLE IF NOT EXISTS message_reactions(message_id TEXT NOT NULL,actor_key 
 CREATE TABLE IF NOT EXISTS memories(id TEXT PRIMARY KEY,conversation_id TEXT NOT NULL,bot_id TEXT,content TEXT NOT NULL,revision INTEGER NOT NULL,created_at TEXT NOT NULL,updated_at TEXT NOT NULL,FOREIGN KEY(conversation_id) REFERENCES conversations(id) ON DELETE CASCADE);
 CREATE TABLE IF NOT EXISTS runs(id TEXT PRIMARY KEY,conversation_id TEXT NOT NULL,bot_id TEXT NOT NULL,status TEXT NOT NULL,error TEXT,parent_run_id TEXT,handoff_count INTEGER NOT NULL DEFAULT 0,model TEXT NOT NULL DEFAULT '',kind TEXT NOT NULL DEFAULT '',origin_conversation_id TEXT NOT NULL DEFAULT '',trigger_message_id TEXT NOT NULL DEFAULT '',queue_seq INTEGER NOT NULL DEFAULT 0,created_at TEXT NOT NULL,updated_at TEXT NOT NULL,FOREIGN KEY(conversation_id) REFERENCES conversations(id) ON DELETE CASCADE);
 CREATE TABLE IF NOT EXISTS run_wakes(run_id TEXT PRIMARY KEY,request TEXT NOT NULL,FOREIGN KEY(run_id) REFERENCES runs(id) ON DELETE CASCADE);
-CREATE TABLE IF NOT EXISTS run_waits(run_id TEXT PRIMARY KEY,conversation_id TEXT NOT NULL,bot_id TEXT NOT NULL,wait_for TEXT NOT NULL,lineage TEXT NOT NULL,fired INTEGER NOT NULL DEFAULT 0,created_at TEXT NOT NULL,FOREIGN KEY(run_id) REFERENCES runs(id) ON DELETE CASCADE);
+CREATE TABLE IF NOT EXISTS run_waits(run_id TEXT PRIMARY KEY,conversation_id TEXT NOT NULL,bot_id TEXT NOT NULL,wait_for TEXT NOT NULL,lineage TEXT NOT NULL,status TEXT NOT NULL DEFAULT 'pending' CHECK(status IN ('pending','fulfilled','expired')),deadline_at TEXT NOT NULL,created_at TEXT NOT NULL,FOREIGN KEY(run_id) REFERENCES runs(id) ON DELETE CASCADE);
 CREATE TABLE IF NOT EXISTS run_steering(new_run_id TEXT NOT NULL,old_run_id TEXT NOT NULL,PRIMARY KEY(new_run_id,old_run_id),FOREIGN KEY(new_run_id) REFERENCES runs(id) ON DELETE CASCADE,FOREIGN KEY(old_run_id) REFERENCES runs(id) ON DELETE CASCADE);
 CREATE TABLE IF NOT EXISTS events(id INTEGER PRIMARY KEY AUTOINCREMENT,conversation_id TEXT NOT NULL,type TEXT NOT NULL,data TEXT NOT NULL,created_at TEXT NOT NULL,FOREIGN KEY(conversation_id) REFERENCES conversations(id) ON DELETE CASCADE);
 CREATE TABLE IF NOT EXISTS summaries(conversation_id TEXT NOT NULL,version INTEGER NOT NULL,covered_seq INTEGER NOT NULL,content TEXT NOT NULL,created_at TEXT NOT NULL,PRIMARY KEY(conversation_id,version));
@@ -2324,6 +2324,7 @@ func NewServer(c Config) (*Server, error) {
 	server.startTerminalCleanup()
 	server.computerWatchdog.start()
 	server.startStuckRunSweeper()
+	server.armPendingWaits()
 	for _, id := range workerIDs {
 		server.startConversationWorker(id)
 	}
