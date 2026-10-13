@@ -1,4 +1,5 @@
 import importlib.util
+import json
 from pathlib import Path
 import tempfile
 import unittest
@@ -25,6 +26,56 @@ class ResourcesTests(unittest.TestCase):
         del self.vm.c['host_memory_headroom_mib']
         self.vm.host_resources.return_value['memory_available_mib']=3000
         with self.assertRaises(RuntimeError):self.vm.apply_resources()
+
+    def _reload(self, **extra):
+        return manager.VM(dict(self.config, **extra))
+
+    def _fresh(self, applied, desired=None, **config):
+        root = Path(self.temp.name)
+        for item in root.glob('resources-*'):
+            item.unlink()
+        (root / 'resources-applied.json').write_text(json.dumps(applied))
+        if desired:
+            (root / 'resources-desired.json').write_text(json.dumps(desired))
+        host = dict(cpus=4, memory_total_mib=16384, memory_available_mib=12000, disk_available_gib=100)
+        with mock.patch.object(manager.VM, 'host_resources', return_value=host):
+            return self._reload(**dict(dict(vcpus=2, memory_mib=2560), **config))
+
+    def test_old_default_gets_new_default_as_pending_desired(self):
+        vm = self._fresh(dict(vcpus=1, memory_mib=1024, disk_gib=8))
+        self.assertEqual(vm.current_resources()['memory_mib'], 1024)
+        self.assertEqual(vm.desired_resources(), dict(vcpus=2, memory_mib=2560, disk_gib=8))
+        self.assertNotEqual(vm.current_resources(), vm.desired_resources())
+
+    def test_owner_chosen_values_are_not_touched(self):
+        for applied in (dict(vcpus=1, memory_mib=2048, disk_gib=8), dict(vcpus=1, memory_mib=1024, disk_gib=12), dict(vcpus=3, memory_mib=6144, disk_gib=8)):
+            vm = self._fresh(applied)
+            self.assertFalse((vm.root / 'resources-desired.json').exists(), applied)
+            self.assertEqual(vm.current_resources()['vcpus'], applied['vcpus'])
+
+    def test_pending_owner_request_is_not_overwritten(self):
+        owner = dict(vcpus=1, memory_mib=1536, disk_gib=8)
+        vm = self._fresh(dict(vcpus=1, memory_mib=1024, disk_gib=8), desired=owner)
+        self.assertEqual(vm.desired_resources(), owner)
+
+    def test_upgrade_runs_once_so_a_deliberate_old_size_sticks(self):
+        old = dict(vcpus=1, memory_mib=1024, disk_gib=8)
+        vm = self._fresh(old)
+        self.assertEqual(vm.desired_resources()['memory_mib'], 2560)
+        # Owner sets the old size back on purpose and applies it.
+        (vm.root / 'resources-desired.json').write_text(json.dumps(old))
+        again = self._reload(vcpus=2, memory_mib=2560)
+        self.assertEqual(again.desired_resources(), old)
+
+    def test_upgrade_skipped_when_host_cannot_hold_it(self):
+        host = dict(cpus=1, memory_total_mib=3000, memory_available_mib=2000, disk_available_gib=100)
+        root = Path(self.temp.name)
+        for item in root.glob('resources-*'):
+            item.unlink()
+        (root / 'resources-applied.json').write_text(json.dumps(dict(vcpus=1, memory_mib=1024, disk_gib=8)))
+        with mock.patch.object(manager.VM, 'host_resources', return_value=host):
+            vm = self._reload(vcpus=2, memory_mib=2560)
+        self.assertFalse((vm.root / 'resources-desired.json').exists())
 
     def test_headroom_override_requires_private_worker_and_valid_budget(self):
         for values in [dict(host_memory_headroom_mib=1024),dict(cgroup_parent='tofi-vms',worker_private_sysctls=True,host_memory_headroom_mib=True),dict(cgroup_parent='tofi-vms',worker_private_sysctls=True,host_memory_headroom_mib=0)]:
