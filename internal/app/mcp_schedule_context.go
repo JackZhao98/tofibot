@@ -495,6 +495,12 @@ func verifyMCPScheduleSources(db reviewQuerier, record scheduleOccurrenceAuthori
 // resolver, this authorization walk never skips retries or failed ancestors.
 func validateMCPScheduleEdges(db reviewQuerier, chain []Run, byID map[string]Run, triggers map[string]Message) error {
 	assignment := func(child, parent Run) error {
+		if child.Kind == runKindGroupMention {
+			if parent.Status != "running" && parent.Status != "done" && parent.Status != runWaiting {
+				return mcpContextFail(mcpContextAssignmentBinding)
+			}
+			return verifyMCPGroupWake(db, child, parent, triggers[child.ID])
+		}
 		if child.BotID == parent.BotID || (parent.Status != "running" && parent.Status != "done" && parent.Status != runWaiting) {
 			return mcpContextFail(mcpContextAssignmentBinding)
 		}
@@ -666,4 +672,51 @@ func readMCPScheduleConversation(db reviewQuerier, conversation, bot string, tri
 	}
 	x.Bounds = bounds.orNil()
 	return x, nil
+}
+
+// verifyMCPGroupWake accepts a group_mention edge only when the durable wake
+// record (run_wakes) still matches the poster run, target Bot, trigger message
+// and request text it was created with. The request is Bot-authored: it is
+// untrusted ancestry, never authorization. The chain's authorization stays the
+// root's host-verified user message (or the schedule's), exactly as for a
+// group_task chain.
+func verifyMCPGroupWake(db reviewQuerier, child, parent Run, m Message) error {
+	fail := mcpContextFail(mcpContextAssignmentBinding)
+	var request, source, digest string
+	if db.QueryRow(`SELECT request,source,digest FROM run_wakes WHERE run_id=?`, child.ID).Scan(&request, &source, &digest) != nil || digest == "" {
+		return fail
+	}
+	if digest != wakeDigest(source, parent.ID, child.BotID, child.TriggerMessageID, request) {
+		return fail
+	}
+	if child.ConversationID != parent.ConversationID || m.ID == "" || m.ConversationID != child.ConversationID || m.Role != "assistant" {
+		return fail
+	}
+	expectedOrigin := parent.ConversationID
+	if parent.OriginConversationID != "" {
+		expectedOrigin = parent.OriginConversationID
+	}
+	if child.OriginConversationID != expectedOrigin {
+		return fail
+	}
+	switch source {
+	case "wake":
+		if child.BotID == parent.BotID || m.RunID != parent.ID || m.SenderBotID != parent.BotID || (m.Kind != "" && m.Kind != "segment" && m.Kind != "progress") {
+			return fail
+		}
+	case "wait":
+		var waitFor, status string
+		if child.BotID != parent.BotID || db.QueryRow(`SELECT wait_for,status FROM run_waits WHERE run_id=? AND bot_id=?`, parent.ID, child.BotID).Scan(&waitFor, &status) != nil {
+			return fail
+		}
+		if status == "fulfilled" && m.SenderBotID != waitFor {
+			return fail
+		}
+		if status != "fulfilled" && status != "expired" {
+			return fail
+		}
+	default:
+		return fail
+	}
+	return nil
 }
