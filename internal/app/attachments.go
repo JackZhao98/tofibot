@@ -340,7 +340,10 @@ func (s *Server) routeAttachments(w http.ResponseWriter, r *http.Request, p stri
 	}
 	defer f.Close()
 	w.Header().Set("Content-Type", a.MIME)
-	if strings.HasPrefix(a.MIME, "image/") && a.MIME != "image/svg+xml" {
+	// PDFs render in the viewer's embedded browser PDF reader only on request
+	// (?inline=1); plain links keep downloading.
+	pdfInline := r.URL.Query().Get("inline") == "1" && strings.EqualFold(strings.TrimSpace(strings.SplitN(a.MIME, ";", 2)[0]), "application/pdf")
+	if pdfInline || (strings.HasPrefix(a.MIME, "image/") && a.MIME != "image/svg+xml") {
 		w.Header().Set("Content-Disposition", `inline; filename="`+safeAttachmentName(a.Name)+`"`)
 	} else {
 		w.Header().Set("Content-Disposition", `attachment; filename="`+safeAttachmentName(a.Name)+`"`)

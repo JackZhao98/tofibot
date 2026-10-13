@@ -68,6 +68,12 @@ func (s *Store) stageRunAttachment(run Run, c Conversation, a Attachment, reques
 		xa, _, getErr := s.Attachment(existing)
 		return xa, getErr
 	}
+	// A newer publish of the same source (request key) or the same file name in
+	// this run supersedes the older one: only the latest is bound to the final
+	// message. The older attachment stays stored in the conversation, unlisted.
+	if _, err = tx.Exec(`DELETE FROM run_attachments WHERE run_id=? AND (request_key=? OR attachment_id IN (SELECT id FROM attachments WHERE name=? AND id<>?))`, run.ID, requestKey, a.Name, a.ID); err != nil {
+		return Attachment{}, err
+	}
 	var count int
 	if err = tx.QueryRow(`SELECT COUNT(*) FROM run_attachments WHERE run_id=?`, run.ID).Scan(&count); err != nil {
 		return Attachment{}, err
