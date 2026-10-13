@@ -355,6 +355,7 @@ class VM:
         self.state = "stopped"
         self.phase = "checking"
         self.error = ""
+        self.resource_notice = ""
         self.lock = threading.RLock()
         self.process = None
         self.slot = self.c["slot"]
@@ -462,7 +463,7 @@ class VM:
         held = self.root / "resources-desired.restart-hold.json"
         if held.exists():
             desired = self.validate_resources(json.loads(held.read_text()))
-        return {"scope": "workspace", "state": self.state, "error": self.error, "current": current, "desired": desired,
+        return {"scope": "workspace", "state": self.state, "error": self.error, "notice": self.resource_notice, "current": current, "desired": desired,
                     "pending": current != desired, "apply_policy": "next_vm_start", "host": host,
                     "memory": self.memory_usage(),
                     "limits": {"max_vcpus": min(32, host["cpus"]),
@@ -500,7 +501,12 @@ class VM:
             self.persist_resources("resources-desired.json", value)
             return self.resources()
 
-    def apply_resources(self):
+    def apply_resources(self, strict=True):
+        """Apply the pending allocation. With strict=False (VM start) a request
+        the host cannot hold right now never blocks the start: the computer
+        boots with its last applied size, the request stays pending for the
+        next start and `resource_notice` says why."""
+        self.resource_notice = ""
         desired = self.desired_resources()
         current = self.current_resources()
         host = self.host_resources()
@@ -508,7 +514,13 @@ class VM:
         # its runtime ledger; standalone managers retain the historical 2 GiB.
         headroom = self.c.get("host_memory_headroom_mib", 2048)
         if desired["vcpus"] > host["cpus"] or desired["memory_mib"] + 512 + headroom > host["memory_available_mib"]:
-            raise RuntimeError("insufficient host capacity; requested resources remain pending")
+            if strict or desired == current:
+                raise RuntimeError("insufficient host capacity; requested resources remain pending")
+            self.resource_notice = ("%d MiB / %d vCPU requested; host had only %d MiB free and %d CPUs at start, "
+                                    "started with %d MiB / %d vCPU; the request stays pending" % (
+                                        desired["memory_mib"], desired["vcpus"], host["memory_available_mib"],
+                                        host["cpus"], current["memory_mib"], current["vcpus"]))
+            return
         if desired == current:
             return
         if desired["disk_gib"] < current["disk_gib"]:
@@ -833,7 +845,7 @@ class VM:
                 # A cold boot changes the workspace disk under any saved guest
                 # memory, so that snapshot can never be restored afterwards.
                 self.discard_snapshot()
-                self.apply_resources()
+                self.apply_resources(strict=False)
                 self.prepare_jail()
                 data = self.root / "workspace.ext4"
                 if not data.exists():
