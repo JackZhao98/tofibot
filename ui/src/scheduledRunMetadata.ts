@@ -1,5 +1,6 @@
 import { scheduleDisplay } from "./displayMetadata";
 import type { Message, Run, Schedule } from "./types";
+import { weeklyCadence } from "./scheduleCadence";
 import type { ScheduleOccurrence } from "./scheduleOccurrences";
 import { browserTimezone, validTimezone } from "./timezone";
 import { i18n } from "./i18n";
@@ -11,10 +12,11 @@ function timestamp(value: string | undefined) {
   return value && Number.isFinite(Date.parse(value)) ? value : undefined;
 }
 
-function cadence(schedule: Pick<Schedule, "kind" | "daily_time" | "interval_seconds">) {
+function cadence(schedule: Pick<Schedule, "kind" | "daily_time" | "weekdays" | "interval_seconds">) {
   const t = scheduleT();
   if (schedule.kind === "once") return t("run.cadence.once");
   if (schedule.kind === "daily") return schedule.daily_time ? t("run.cadence.daily_at", { time: schedule.daily_time }) : t("run.cadence.daily");
+  if (schedule.kind === "weekly") return weeklyCadence(schedule.weekdays, schedule.daily_time);
   const seconds = schedule.interval_seconds;
   if (!seconds || seconds <= 0) return t("run.cadence.interval");
   if (seconds % 86400 === 0) return t("run.cadence.days", { count: seconds / 86400 });
@@ -41,8 +43,8 @@ export function scheduledRunMetadata(message: Message, run?: Run, occurrence?: S
   const createdAt = timestamp(matchedSchedule?.created_at);
   // Snapshot fields are written when an occurrence is claimed. A changed
   // schedule must never rewrite the frequency shown for an old execution.
-  const recurrence = exactOccurrence?.kind ? cadence({ kind: exactOccurrence.kind, daily_time: exactOccurrence.daily_time, interval_seconds: exactOccurrence.interval_seconds }) : undefined;
-  const scheduleZone = exactOccurrence?.kind === "daily" && exactOccurrence.timezone && exactOccurrence.timezone !== displayTimezone ? exactOccurrence.timezone : "";
+  const recurrence = exactOccurrence?.kind ? cadence({ kind: exactOccurrence.kind, daily_time: exactOccurrence.daily_time, weekdays: exactOccurrence.weekdays, interval_seconds: exactOccurrence.interval_seconds }) : undefined;
+  const scheduleZone = (exactOccurrence?.kind === "daily" || exactOccurrence?.kind === "weekly") && exactOccurrence.timezone && exactOccurrence.timezone !== displayTimezone ? exactOccurrence.timezone : "";
   const creator = exactOccurrence?.created_by ?? matchedSchedule?.created_by;
   const creatorLabel = creator === "user" ? t("run.created_by_user") : creator === "bot" ? t("run.created_by_bot") : "";
   const occurrenceLabel = exactOccurrence?.occurrence_number ? t("run.occurrence", { number: exactOccurrence.occurrence_number }) : "";

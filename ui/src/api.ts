@@ -1,4 +1,4 @@
-import type { AgentUsageTotal, Attachment, Bot, ComputerHealth, Config, ContentPatch, ContextUsage, Conversation, EventEnvelope, Memory, MemoryInput, Message, ModelCatalog, ModelProviderStatus, Run, Schedule, ScheduleKind, StreamDraft, ToolActivity, ToolActivityDetailPage, ToolActivityRunSummary, UsageCall, UsagePeriod, WorkspaceEventEnvelope, WorkItem } from "./types";
+import type { AgentUsageTotal, Attachment, Bot, ComputerHealth, Config, ContentPatch, ContextUsage, Conversation, EventEnvelope, Memory, MemoryInput, Message, ModelCatalog, ModelProviderStatus, Run, Schedule, ScheduleKind, StreamDraft, ToolActivity, ToolActivityDetailPage, ToolActivityRunSummary, UsageCall, UsagePeriod, WorkspaceEventEnvelope, WorkItem, Weekday } from "./types";
 import { i18n } from "./i18n";
 
 export class ApiError extends Error {
@@ -91,7 +91,7 @@ export const api = {
   createWorkItem: (conversation: string, input: Pick<WorkItem, "kind" | "title" | "bot_id"> & Partial<Pick<WorkItem, "description" | "parent_goal_id">>) => request<WorkItem>(`/api/conversations/${encodeURIComponent(conversation)}/work-items`, json(input)),
   updateWorkItem: (id: string, input: Partial<Pick<WorkItem, "title" | "description" | "status" | "bot_id">>) => request<WorkItem>(`/api/work-items/${encodeURIComponent(id)}`, { method: "PATCH", body: JSON.stringify(input) }),
   executeWorkItem: (id: string, request_id: string) => request<{ work_item: WorkItem; run: Run; duplicate: boolean }>(`/api/work-items/${encodeURIComponent(id)}/execute`, json({ request_id })),
-  createSchedule: (id: string, input: { bot_id?: string; title: string; description: string; content: string; kind: ScheduleKind; run_at?: string; interval_seconds?: number; daily_time?: string; timezone?: string }) => request<Schedule>(`/api/conversations/${encodeURIComponent(id)}/schedules`, json(input)),
+  createSchedule: (id: string, input: { bot_id?: string; title: string; description: string; content: string; kind: ScheduleKind; run_at?: string; interval_seconds?: number; daily_time?: string; weekdays?: Weekday[]; timezone?: string }) => request<Schedule>(`/api/conversations/${encodeURIComponent(id)}/schedules`, json(input)),
   updateSchedule: (id: string, input: ContentPatch) => request<Schedule>(`/api/schedules/${encodeURIComponent(id)}`, { method: "PATCH", body: JSON.stringify(input) }),
   pauseSchedule: (id: string) => request<Schedule>(`/api/schedules/${encodeURIComponent(id)}/pause`, json({})),
   resumeSchedule: (id: string) => request<Schedule>(`/api/schedules/${encodeURIComponent(id)}/resume`, json({})),

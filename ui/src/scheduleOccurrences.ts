@@ -1,4 +1,4 @@
-import type { RunStatus } from "./types";
+import { WEEKDAYS, type RunStatus, type Weekday } from "./types";
 import { validTimezone } from "./timezone";
 
 export type ScheduleExecutionStatus = RunStatus;
@@ -9,10 +9,11 @@ export type ScheduleOccurrence = {
   title?: string;
   description?: string;
   created_by?: "user" | "bot";
-  kind?: "once" | "daily" | "interval";
+  kind?: "once" | "daily" | "weekly" | "interval";
   timezone?: string;
   interval_seconds?: number;
   daily_time?: string;
+  weekdays?: Weekday[];
   occurrence_number?: number;
   execution_status: ScheduleExecutionStatus;
   status_run_id: string;
@@ -49,10 +50,11 @@ export async function loadScheduleOccurrences(conversationId: string, rootKey: s
         ...(typeof item.title === "string" && item.title ? { title: item.title } : {}),
         ...(typeof item.description === "string" ? { description: item.description } : {}),
         ...((item.created_by === "user" || item.created_by === "bot") ? { created_by: item.created_by } : {}),
-        ...((item.kind === "once" || item.kind === "daily" || item.kind === "interval") ? { kind: item.kind } : {}),
+        ...((item.kind === "once" || item.kind === "daily" || item.kind === "weekly" || item.kind === "interval") ? { kind: item.kind } : {}),
         ...(typeof item.timezone === "string" && validTimezone(item.timezone) ? { timezone: item.timezone } : {}),
         ...(Number.isSafeInteger(item.interval_seconds) && item.interval_seconds > 0 ? { interval_seconds: item.interval_seconds } : {}),
         ...(typeof item.daily_time === "string" && /^\d{2}:\d{2}$/.test(item.daily_time) ? { daily_time: item.daily_time } : {}),
+        ...(Array.isArray(item.weekdays) && item.weekdays.length > 0 && item.weekdays.every((day: unknown) => WEEKDAYS.includes(day as Weekday)) ? { weekdays: item.weekdays as Weekday[] } : {}),
         ...(Number.isSafeInteger(item.occurrence_number) && item.occurrence_number > 0 ? { occurrence_number: item.occurrence_number } : {}),
         ...((item.execution_status === "failed" || item.execution_status === "interrupted") && typeof item.status_error === "string"
           ? { status_error: Array.from(item.status_error).slice(0, 2400).join("") } : {}),

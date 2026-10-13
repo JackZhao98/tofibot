@@ -37,6 +37,11 @@ type scheduledMCPFixture struct {
 }
 
 func newScheduledMCPFixture(t *testing.T, group bool, sourceKind string) *scheduledMCPFixture {
+	return newScheduledMCPFixtureSpec(t, group, sourceKind, nil)
+}
+
+// newScheduledMCPFixtureSpec lets a test replace the default interval spec.
+func newScheduledMCPFixtureSpec(t *testing.T, group bool, sourceKind string, override *ScheduleSpec) *scheduledMCPFixture {
 	t.Helper()
 	dir := t.TempDir()
 	store, bot, c := scheduleTestStoreAt(t, dir)
@@ -64,6 +69,9 @@ func newScheduledMCPFixture(t *testing.T, group bool, sourceKind string) *schedu
 		t.Fatal(err)
 	}
 	spec := ScheduleSpec{Content: "Read synthetic alpha and report its public value.", Kind: scheduleInterval, IntervalSeconds: 60, RunAt: time.Now().Add(time.Hour).Format(time.RFC3339Nano), Timezone: "UTC"}
+	if override != nil {
+		spec = *override
+	}
 	var source *scheduleMutationSource
 	switch sourceKind {
 	case scheduleSourceChat:

@@ -54,6 +54,17 @@ try {
   await ui.setLanguage("en");
   assert.equal(derive(run, occurrence, { ...schedule, conversation_id: "other" }).metadata, "Daily at 17:00 (America/Los_Angeles) · Run #2 · Created by you");
   assert.match(derive(run, { ...occurrence, kind: "interval", interval_seconds: 3600 }).metadata, /^Every hour · /);
+  const weekly = { ...occurrence, kind: "weekly", daily_time: "00:43", weekdays: ["sun"] };
+  assert.match(derive(run, weekly).metadata, /^Every Sun at 00:43 \(America\/Los_Angeles\) · Run #2/, "weekly occurrence shows localized weekday, time and zone");
+  assert.match(derive(run, { ...weekly, weekdays: ["fri", "mon", "wed"], daily_time: "08:00" }).metadata, /^Every Mon, Wed, and Fri at 08:00 /, "weekdays render in week order");
+  assert.match(derive(run, { ...weekly, weekdays: undefined }).metadata, /^Weekly /, "a weekly snapshot without days degrades to the plain frequency");
+  assert.match(derive(run, weekly, { ...schedule, kind: "weekly", weekdays: ["mon"] }).metadata, /Every Sun at 00:43/, "schedule edits cannot rewrite the weekly snapshot");
+  await ui.setLanguage("zh-CN");
+  assert.match(derive(run, weekly).metadata, /^每周日 00:43（America\/Los_Angeles）/);
+  await ui.setLanguage("ja");
+  assert.match(derive(run, weekly).metadata, /^毎週日曜日 00:43/);
+  await ui.setLanguage("de");
+  assert.match(derive(run, weekly).metadata, /^Jeden So\.? um 00:43/);
   await ui.setLanguage("zh-CN");
   console.log("scheduled run metadata: PASS (exact occurrence, preserved task text, timezone, missing data, delegated/stale timestamp provenance)");
 } finally {

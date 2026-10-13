@@ -2028,7 +2028,7 @@ func completeOneTimeScheduleTx(tx *sql.Tx, runID, updated string) error {
 	if err != nil || changed == 0 {
 		return err
 	}
-	x, err := scanSchedule(tx.QueryRow(`SELECT id,conversation_id,bot_id,content,title,description,created_by,kind,timezone,next_at_utc,interval_seconds,daily_time,status,created_at,updated_at FROM schedules WHERE id=?`, scheduleID))
+	x, err := scanSchedule(tx.QueryRow(`SELECT id,conversation_id,bot_id,content,title,description,created_by,kind,timezone,next_at_utc,interval_seconds,daily_time,weekdays,status,created_at,updated_at FROM schedules WHERE id=?`, scheduleID))
 	if err != nil {
 		return err
 	}
