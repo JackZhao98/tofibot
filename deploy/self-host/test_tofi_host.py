@@ -311,7 +311,7 @@ class MemoryAdvisoryTests(HostCase):
             else:
                 self.assertTrue(row.startswith('ok'), row)
                 self.assertIn('swap 4095 MiB', row)
-            self.assertIn('each computer needs about 1536 MiB', row)
+            self.assertIn('each computer needs about 2560 MiB', row)
         # The advisory never changes the doctor's verdict.
         self.assertEqual(results['no-swap'], results['swap'])
 
@@ -325,6 +325,26 @@ class RenderTests(HostCase):
         self.assertEqual(config['per_account_internal_reserved_bytes'], 8 * tofi_host.GIB)
         self.assertEqual(config['host_memory_headroom_mib'], 1024)
         self.assertEqual(config['cgroup_root'], '/run/tofi-worker/cgroup/tofi-vms')
+
+    def test_default_computer_scales_with_budget(self):
+        cases = [  # cpu budget, memory budget, expected (vcpus, memory)
+            (3, 13800, (2, 3450)),   # the 4 CPU / 16 GiB production host
+            (7, 61000, (2, 4096)),   # big host is capped at 4 GiB
+            (3, 8192, (2, 2048)),    # a quarter is below the floor
+            (1, 6000, (1, 2048)),    # one CPU budgeted
+            (1, 2560, (1, 2048)),    # exactly fits 2048 + 512 overhead
+            (1, 2559, (1, 1024)),    # falls back to the old minimum
+            (1, 1536, (1, 1024)),
+        ]
+        for cpu, memory, expected in cases:
+            got, reason = tofi_host.default_computer_resources(cpu, memory)
+            self.assertEqual(got, expected, (cpu, memory))
+            config = tofi_host.render_worker_config(OLD, cpu, memory, GUEST_SHA, 'c' * 64)
+            self.assertEqual((config['vcpus'], config['memory_mib']), expected)
+            # The default always fits the budget the Worker admits against.
+            self.assertLessEqual(config['memory_mib'] + 512, memory)
+        self.assertIsNone(tofi_host.default_computer_resources(3, 13800)[1])
+        self.assertIn('minimum', tofi_host.default_computer_resources(1, 1536)[1])
 
     def test_worker_memory_budget_lower_bound_is_1536(self):
         tofi_host.render_worker_config(OLD, 1, 1536, GUEST_SHA, 'c' * 64)
