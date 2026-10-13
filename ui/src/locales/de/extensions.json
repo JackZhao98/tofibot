@@ -236,6 +236,8 @@
     },
     "google": {
       "client_json": "OAuth-Client-JSON",
+      "choose_file": "Datei auswählen…",
+      "no_file": "Keine Datei ausgewählt",
       "client_setup": "Erstellen Sie in Google Cloud einen OAuth-Client vom Typ <strong>Webanwendung</strong>, tragen Sie die Adresse unten unter „Autorisierte Weiterleitungs-URIs“ ein und laden Sie dann die heruntergeladene JSON hoch.",
       "connect": "Google verbinden",
       "connected_as": "Autorisiert als {{email}}",
