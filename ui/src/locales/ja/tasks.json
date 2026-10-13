@@ -118,7 +118,8 @@
     "no_tool_steps": "今回の試行ではツールのステップは実行されませんでした。",
     "finishing_results_kept": "仕上げ中です。完了した結果は保持されています。",
     "stopped_results_kept": "このワークフローは停止しました。完了した結果は保持されています。",
-    "completed_steps_kept": "完了したツールのステップはアクティビティに保持されています。"
+    "completed_steps_kept": "完了したツールのステップはアクティビティに保持されています。",
+    "reply_below": "結果は下の返信にあります。"
   },
   "secondary": {
     "then_provider_busy": "その後モデルサービスが混雑し、タスクは完了しませんでした。",
@@ -197,7 +198,12 @@
     "impact": "影響",
     "review_reason": "理由",
     "review_risk": "リスク",
-    "risk": { "low": "低", "medium": "中", "high": "高", "unknown": "未評価" },
+    "risk": {
+      "low": "低",
+      "medium": "中",
+      "high": "高",
+      "unknown": "未評価"
+    },
     "view_full_arguments": "引数の全文を表示",
     "proposal_ended": "この提案は終了しました。",
     "view_decision": "判断の記録を表示",
@@ -470,5 +476,29 @@
     "revoke_failed": "取り消せませんでした。もう一度お試しください。",
     "load_failed": "記憶した承認を読み込めませんでした。",
     "close": "閉じる"
+  },
+  "reason": {
+    "step": {
+      "needs_human_unattended": "{{step}} はあなたの承認が必要ですが、無人実行では確認できません。チャットで「進めて」と伝えると実行します。",
+      "high_risk_unattended": "{{step}} は毎回確認する設定のため、無人実行では動きませんでした。チャットで「進めて」と伝えると実行します。",
+      "context_missing": "{{step}} はブロックされました。スケジュールの認可を確認できませんでした。",
+      "review_unavailable": "{{step}} は保留されました。実行前チェックを利用できませんでした。",
+      "setup_missing": "{{step}} はブロックされました。ツールの設定が完了していません。",
+      "policy_denied": "{{step}} は安全チェックを通過しませんでした。",
+      "denied": "{{step}} は拒否されました。",
+      "approval_expired": "{{step}} は停止しました。承認の期限が切れました。",
+      "auth_required": "{{step}} は再サインインが必要です。",
+      "unreachable": "{{step}} は失敗しました。ツールサービスに接続できませんでした。",
+      "timeout": "{{step}} はタイムアウトし、停止されました。",
+      "unconfirmed": "{{step}} は実行されましたが、結果を確認できませんでした。",
+      "failed": "ツールが失敗しました:{{step}}。"
+    },
+    "run": {
+      "model_unavailable": "モデルサービスを利用できませんでした。",
+      "budget_exhausted": "タスクは完了前にステップ上限に達しました。",
+      "no_final_answer": "モデルが最終回答なしで終了しました。",
+      "tool_stuck": "ツールのステップが応答しなくなり、タスクを停止しました。",
+      "receipt_missing": "結果を確認できないまま実行が終了しました。"
+    }
   }
 }

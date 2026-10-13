@@ -110,10 +110,10 @@ export function TaskRunBlock({ owner, tools, questions, drafts, messages, summar
   const currentQuestions = questions.filter(question => question.run_id === run.id);
   const currentDrafts = drafts.filter(draft => draft.run_id === run.id);
   const summary = summaries.find(item => item.run_id === run.id);
-  const input = { run, tools: currentTools, questions: currentQuestions, drafts: currentDrafts, summary, recordsComplete: details[run.id]?.hasMore === false, connected, locale };
+  const hasFinal = messages.some(message => message.run_id === run.id && message.conversation_id === run.conversation_id && message.role === "assistant" && !["notice", "progress", "segment"].includes(message.kind ?? "") && Boolean(message.content || message.attachments?.length));
+  const input = { run, tools: currentTools, questions: currentQuestions, drafts: currentDrafts, summary, recordsComplete: details[run.id]?.hasMore === false, connected, replied: hasFinal, locale };
   const issue = presentTaskIssue({...input, family:owner.family, tools, questions, drafts});
   const { t } = useTranslation("tasks", { lng: locale });
-  const hasFinal = messages.some(message => message.run_id === run.id && message.conversation_id === run.conversation_id && message.role === "assistant" && !["notice", "progress", "segment"].includes(message.kind ?? "") && Boolean(message.content || message.attachments?.length));
   const decisions = currentQuestions.filter(question => canAnswerQuestion(question));
   const decisionKey = decisions.map(question => question.question_id).join(":");
   useLayoutEffect(() => {

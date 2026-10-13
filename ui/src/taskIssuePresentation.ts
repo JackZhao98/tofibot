@@ -110,6 +110,33 @@ const outcomeCodeKeys = {
 } as const;
 const known = <T extends object>(map: T, code: string | undefined): code is Extract<keyof T, string> => Boolean(code && Object.hasOwn(map, code));
 
+// A refused or failed step names the cause of a run that ended without finishing. Codes map to
+// catalog keys; the step is named by its own words, never by raw upstream detail.
+const stepReasonKeys = {
+  mcp_needs_human_unattended: "reason.step.needs_human_unattended", mcp_high_risk_unattended: "reason.step.high_risk_unattended",
+  mcp_review_context_missing: "reason.step.context_missing", mcp_review_unavailable: "reason.step.review_unavailable",
+  mcp_review_setup_missing: "reason.step.setup_missing", mcp_review_policy_denied: "reason.step.policy_denied",
+  approval_denied: "reason.step.denied", approval_window_expired: "reason.step.approval_expired",
+  mcp_auth_required: "reason.step.auth_required", mcp_unavailable: "reason.step.unreachable",
+  tool_timeout: "reason.step.timeout", mcp_result_unknown: "reason.step.unconfirmed",
+} as const;
+const stepName = (tool: Pick<ToolActivity, "name" | "arguments">) => toolStepDetail(tool) ?? toolStepTitle(tool);
+/** Latest step whose outcome explains the failure; any other failed step is the fallback. */
+function decisiveStep(tools: ToolActivity[]): ToolActivity | undefined {
+  const latest = (items: ToolActivity[]) => items.reduce<ToolActivity | undefined>((best, item) => !best || item.started_at >= best.started_at ? item : best, undefined);
+  return latest(tools.filter(tool => known(stepReasonKeys, tool.outcome?.code))) ?? latest(tools.filter(tool => tool.status === "failed" || tool.status === "interrupted"));
+}
+function runReason(run: Run, tools: ToolActivity[], t: ReturnType<typeof tasksT>): string | undefined {
+  const step = decisiveStep(tools), code = step?.outcome?.code;
+  if (step) return known(stepReasonKeys, code) ? t(stepReasonKeys[code], { step: stepName(step) }) : t("reason.step.failed", { step: stepName(step) });
+  const error = (run.error ?? "").toLowerCase();
+  if (/api error \(http (?:429|5\d\d)\)|overloaded|service unavailable|bad gateway|gateway time-?out/.test(error)) return t("reason.run.model_unavailable");
+  if (run.failure?.code === "budget_exhausted") return t("reason.run.budget_exhausted");
+  if (run.failure?.code === "no_final_answer") return t("reason.run.no_final_answer");
+  if (run.failure?.code === "tool_stuck") return t("reason.run.tool_stuck");
+  if (error.includes("scheduled task returned without confirming a completed result")) return t("reason.run.receipt_missing");
+}
+
 /** A tool outcome in words: the specific code first, then its status. */
 export function taskOutcomeText(outcome: { code?: string; status?: string } | undefined, locale?: Language) {
   const code = outcome?.code;
@@ -127,8 +154,8 @@ export function taskCertaintyText(certainty: string | undefined, locale?: Langua
   return known(certaintyKeys, certainty) ? t(certaintyKeys[certainty]) : t("certainty.unconfirmed");
 }
 
-export type TaskPresentationInput = { run: Run; family?: TaskFamily; tools?: ToolActivity[]; questions?: Question[]; drafts?: MailDraft[]; summary?: ToolActivityRunSummary; recordsComplete?: boolean; connected?: boolean; locale?: Language };
-export function presentTaskIssue({ run, family, tools = [], questions = [], drafts = [], summary, recordsComplete = false, connected = true, locale }: TaskPresentationInput): TaskIssueView | undefined {
+export type TaskPresentationInput = { run: Run; family?: TaskFamily; tools?: ToolActivity[]; questions?: Question[]; drafts?: MailDraft[]; summary?: ToolActivityRunSummary; recordsComplete?: boolean; connected?: boolean; /** The run already posted a final reply in the conversation. */ replied?: boolean; locale?: Language };
+export function presentTaskIssue({ run, family, tools = [], questions = [], drafts = [], summary, recordsComplete = false, connected = true, replied = false, locale }: TaskPresentationInput): TaskIssueView | undefined {
   const t = tasksT(locale);
   // Defend against unrelated records even if the caller hands us a mixed page.
   const sameObjectScope = (item: {run_id: string; conversation_id: string; bot_id: string}) => item.conversation_id === run.conversation_id && item.bot_id === run.bot_id && (item.run_id === run.id || family?.attempts.some(attempt => attempt.id === item.run_id && attempt.conversation_id === item.conversation_id && attempt.bot_id === item.bot_id));
@@ -184,7 +211,7 @@ export function presentTaskIssue({ run, family, tools = [], questions = [], draf
   const links: (TaskFactLink | undefined)[] = [];
   // Steps that did not run are marked on the steps themselves.
   if (kind === "connection_status") facts.push(t("fact.may_still_be_running"));
-  if (kind === "unknown_failure" && !facts.length) facts.push(noToolSteps ? t("fact.no_cause_recorded") : t("fact.cause_unconfirmed"));
+  if (kind === "unknown_failure" && !facts.length) facts.push(runReason(run, tools, t) ?? (noToolSteps ? t("fact.no_cause_recorded") : t("fact.cause_unconfirmed")));
   if (kind === "provider_busy") facts.push(t("fact.task_did_not_finish"));
   // Model account copy names the provider of the model that failed; no model means the workspace default.
   const provider = run.model?.trim() ? providerForModel(run.model) : undefined;
@@ -196,7 +223,10 @@ export function presentTaskIssue({ run, family, tools = [], questions = [], draf
   if (noToolSteps) facts.push(t("fact.no_tool_steps"));
   if (kind === "expired") facts.push(phase === "finishing" ? t("fact.finishing_results_kept") : t("fact.stopped_results_kept"));
   if (tools.some(tool => toolExecutionState(tool) === "completed")) facts.push(t("fact.completed_steps_kept"));
-  const complete = noToolSteps || (recordsComplete && (!summary || tools.filter(tool => tool.run_id === run.id).length >= summary.tool_count));
+  if (replied && kind === "unknown_failure") facts.push(t("fact.reply_below"));
+  // With a recorded step count, the loaded steps decide; without one, the page flag does.
+  const loadedCount = tools.filter(tool => tool.run_id === run.id).length;
+  const complete = noToolSteps || (summary ? loadedCount >= summary.tool_count : recordsComplete);
   const secondary = causes.filter(cause => cause !== kind && cause !== "unknown_failure").map(cause => cause === "provider_busy" ? t("secondary.then_provider_busy") : t(`issue.title.${cause}`));
   if (!complete) secondary.push(t("secondary.records_incomplete"));
   evidence.push({ source: "run", id: run.id, status: run.status, code: overloaded ? "server_is_overloaded" : run.failure?.code, model: run.model, updatedAt: run.updated_at });

@@ -118,7 +118,8 @@
     "no_tool_steps": "In diesem Versuch wurden keine Tool-Schritte ausgeführt.",
     "finishing_results_kept": "Wird abgeschlossen. Fertige Ergebnisse bleiben erhalten.",
     "stopped_results_kept": "Dieser Ablauf wurde gestoppt. Fertige Ergebnisse bleiben erhalten.",
-    "completed_steps_kept": "Abgeschlossene Tool-Schritte bleiben in der Aktivität erhalten."
+    "completed_steps_kept": "Abgeschlossene Tool-Schritte bleiben in der Aktivität erhalten.",
+    "reply_below": "Das Ergebnis steht in der Antwort unten."
   },
   "secondary": {
     "then_provider_busy": "Danach war der Modelldienst ausgelastet, die Aufgabe wurde nicht abgeschlossen.",
@@ -198,7 +199,12 @@
     "impact": "Auswirkung",
     "review_reason": "Grund",
     "review_risk": "Risiko",
-    "risk": { "low": "Niedrig", "medium": "Mittel", "high": "Hoch", "unknown": "Nicht bewertet" },
+    "risk": {
+      "low": "Niedrig",
+      "medium": "Mittel",
+      "high": "Hoch",
+      "unknown": "Nicht bewertet"
+    },
     "view_full_arguments": "Alle Argumente ansehen",
     "proposal_ended": "Dieser Vorschlag ist beendet.",
     "view_decision": "Entscheidungsprotokoll ansehen",
@@ -476,5 +482,29 @@
     "revoke_failed": "Widerruf fehlgeschlagen. Erneut versuchen.",
     "load_failed": "Gemerkte Genehmigungen konnten nicht geladen werden.",
     "close": "Schließen"
+  },
+  "reason": {
+    "step": {
+      "needs_human_unattended": "{{step}} braucht deine Freigabe, und unbeaufsichtigte Läufe können nicht nachfragen. Schreib im Chat „mach weiter“, um es auszuführen.",
+      "high_risk_unattended": "{{step}} ist auf „immer nachfragen“ gestellt und lief deshalb unbeaufsichtigt nicht. Schreib im Chat „mach weiter“, um es auszuführen.",
+      "context_missing": "{{step}} wurde blockiert: Die Autorisierung des Zeitplans konnte nicht geprüft werden.",
+      "review_unavailable": "{{step}} wurde zurückgehalten: Die Prüfung vor der Ausführung war nicht verfügbar.",
+      "setup_missing": "{{step}} wurde blockiert: Die Tool-Einrichtung ist unvollständig.",
+      "policy_denied": "{{step}} hat die Sicherheitsprüfung nicht bestanden.",
+      "denied": "{{step}} wurde abgelehnt.",
+      "approval_expired": "{{step}} wurde gestoppt: Die Freigabe ist abgelaufen.",
+      "auth_required": "{{step}} erfordert eine erneute Anmeldung.",
+      "unreachable": "{{step}} ist fehlgeschlagen: Der Tool-Dienst war nicht erreichbar.",
+      "timeout": "{{step}} hat zu lange gebraucht und wurde gestoppt.",
+      "unconfirmed": "{{step}} lief, aber das Ergebnis ließ sich nicht bestätigen.",
+      "failed": "Ein Tool ist fehlgeschlagen: {{step}}."
+    },
+    "run": {
+      "model_unavailable": "Der Modelldienst war nicht verfügbar.",
+      "budget_exhausted": "Die Aufgabe hat ihr Schrittbudget aufgebraucht, bevor sie fertig war.",
+      "no_final_answer": "Das Modell hat ohne endgültige Antwort geendet.",
+      "tool_stuck": "Ein Tool-Schritt reagierte nicht mehr, die Aufgabe wurde gestoppt.",
+      "receipt_missing": "Der Lauf endete, ohne ein Ergebnis zu bestätigen."
+    }
   }
 }

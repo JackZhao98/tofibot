@@ -118,7 +118,8 @@
     "no_tool_steps": "本次没有执行任何工具步骤。",
     "finishing_results_kept": "正在收尾，已完成结果保留。",
     "stopped_results_kept": "本次工作已停止，已完成结果保留。",
-    "completed_steps_kept": "已完成的工具步骤保留在工作过程。"
+    "completed_steps_kept": "已完成的工具步骤保留在工作过程。",
+    "reply_below": "结果在下方的回复中。"
   },
   "secondary": {
     "then_provider_busy": "随后模型服务繁忙，任务未完成。",
@@ -197,7 +198,12 @@
     "impact": "影响",
     "review_reason": "原因",
     "review_risk": "风险",
-    "risk": { "low": "低", "medium": "中", "high": "高", "unknown": "未评级" },
+    "risk": {
+      "low": "低",
+      "medium": "中",
+      "high": "高",
+      "unknown": "未评级"
+    },
     "view_full_arguments": "查看完整参数",
     "proposal_ended": "此提案已结束。",
     "view_decision": "查看决定记录",
@@ -470,5 +476,29 @@
     "revoke_failed": "撤销失败，请重试。",
     "load_failed": "无法加载记住的批准。",
     "close": "关闭"
+  },
+  "reason": {
+    "step": {
+      "needs_human_unattended": "{{step}} 需要你确认，无人值守的运行无法询问。在聊天中回复“继续”即可执行。",
+      "high_risk_unattended": "{{step}} 已设为每次都需询问，因此无人值守时未执行。在聊天中回复“继续”即可执行。",
+      "context_missing": "{{step}} 已被拦截：无法验证定时任务的授权。",
+      "review_unavailable": "{{step}} 已暂缓：执行前检查不可用。",
+      "setup_missing": "{{step}} 已被拦截：工具设置未完成。",
+      "policy_denied": "{{step}} 未通过安全检查。",
+      "denied": "{{step}} 已被拒绝。",
+      "approval_expired": "{{step}} 已停止：审批已过期。",
+      "auth_required": "{{step}} 需要你重新登录。",
+      "unreachable": "{{step}} 失败：工具服务无法连接。",
+      "timeout": "{{step}} 超时，已被停止。",
+      "unconfirmed": "{{step}} 已运行，但无法确认结果。",
+      "failed": "工具失败：{{step}}。"
+    },
+    "run": {
+      "model_unavailable": "模型服务不可用。",
+      "budget_exhausted": "任务在完成前用尽了步骤预算。",
+      "no_final_answer": "模型结束时没有给出最终回答。",
+      "tool_stuck": "某个工具步骤停止响应，任务已被停止。",
+      "receipt_missing": "运行结束，但未能确认结果。"
+    }
   }
 }
