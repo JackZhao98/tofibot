@@ -186,7 +186,7 @@ func (s *Server) concurrentMentionContext(c Conversation, r Run, bot Bot) string
 		}
 		fmt.Fprintf(&b, "- %s (id=%s) was asked: %s\n", m.Name, m.ID, trimRunes(text, 600))
 	}
-	b.WriteString("Do only your own part. Coordinate by replying in the group; mention another Bot only to hand over the result of your part. Do not delegate the user's request, or another Bot's part, to a Bot that was mentioned in this message; the system will not start a duplicate run for it.\n[/concurrent mentions]")
+	b.WriteString("Do only your own part. Coordinate by replying in the group and end with respond. If your part depends on another Bot's output, never post an \"I will wait\" message: either do your part with what is available now, hand over by listing that Bot in respond.wake with a concrete request, or register respond follow_up with wait_for. Acknowledgements like thanks, ok or done need no answer: respond concluded. Do not delegate the user's request, or another Bot's part, to a Bot that was mentioned in this message; the system will not start a duplicate run for it.\n[/concurrent mentions]")
 	return b.String()
 }
 
