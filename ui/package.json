@@ -35,6 +35,7 @@
     "test:settings-shell": "node scripts/test-settings-shell.mjs",
     "test:i18n": "node scripts/check-i18n.mjs",
     "test:empty-states": "node scripts/test-empty-states.mjs",
+    "test:chat-bubbles": "node scripts/test-chat-bubbles.mjs",
     "test:onboarding": "node scripts/test-onboarding.mjs",
     "test:settings-polish": "node scripts/test-settings-polish.mjs",
     "test:tool-tiers-e2e": "node scripts/test-tool-tiers-e2e.mjs"
