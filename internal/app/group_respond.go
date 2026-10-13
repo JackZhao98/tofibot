@@ -59,6 +59,27 @@ func (s *Store) hasPostedMessage(runID string) bool {
 	return n > 0
 }
 
+// postedVisibleText reports whether the run already published a visible
+// message (any kind a person sees) whose normalized text equals text.
+func (s *Store) postedVisibleText(runID, text string) bool {
+	text = normalizeReply(text)
+	if text == "" {
+		return false
+	}
+	rows, err := s.db.Query(`SELECT content FROM messages WHERE run_id=? AND role='assistant' AND kind IN ('','segment','progress')`, runID)
+	if err != nil {
+		return false
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var content string
+		if rows.Scan(&content) == nil && normalizeReply(content) == text {
+			return true
+		}
+	}
+	return false
+}
+
 // replyFinalText is the run's one visible final message when respond(reply)
 // was called: its text, or nothing when that text was already posted this run.
 // Whatever the model writes after respond is not posted again.
@@ -67,15 +88,8 @@ func (s *Server) replyFinalText(r Run, choice groupChoice) string {
 	if text == "" {
 		return ""
 	}
-	rows, err := s.store.db.Query(`SELECT content FROM messages WHERE run_id=? AND role='assistant' AND kind IN ('','segment','progress')`, r.ID)
-	if err == nil {
-		defer rows.Close()
-		for rows.Next() {
-			var content string
-			if rows.Scan(&content) == nil && normalizeReply(content) == text {
-				return ""
-			}
-		}
+	if s.store.postedVisibleText(r.ID, text) {
+		return ""
 	}
 	return choice.text
 }

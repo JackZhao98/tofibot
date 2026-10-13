@@ -102,6 +102,11 @@ type engine struct {
 
 type toolCallIDContextKey struct{}
 
+// WithToolCallID binds the provider call id a built-in tool executes under.
+func WithToolCallID(ctx context.Context, id string) context.Context {
+	return context.WithValue(ctx, toolCallIDContextKey{}, id)
+}
+
 // ToolCallID identifies the provider call currently executing a built-in tool.
 func ToolCallID(ctx context.Context) string {
 	id, _ := ctx.Value(toolCallIDContextKey{}).(string)
