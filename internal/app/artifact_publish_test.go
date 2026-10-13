@@ -2,6 +2,9 @@ package app
 
 import (
 	"bytes"
+	"net/http"
+	"net/http/httptest"
+	"strings"
 	"testing"
 )
 
@@ -41,8 +44,42 @@ func TestStageRunAttachmentsBindsOnFinishAndDeduplicatesRetry(t *testing.T) {
 	if err != nil || !ok {
 		t.Fatalf("finish=%v %v", ok, err)
 	}
-	if len(m.Attachments) != 2 || m.Attachments[0].ID != a1.ID || m.Attachments[1].ID != a2.ID {
+	if len(m.Attachments) != 1 || m.Attachments[0].ID != a2.ID {
 		t.Fatalf("attachments=%#v", m.Attachments)
+	}
+	if _, _, err = s.Attachment(a1.ID); err != nil {
+		t.Fatalf("superseded attachment must stay stored: %v", err)
+	}
+}
+
+func TestStageRunAttachmentSupersedesSameSourceOrName(t *testing.T) {
+	s, err := OpenStore(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer s.Close()
+	b, _ := s.CreateBot("publisher", "", "model")
+	c, _ := s.GetConversation(b.DMConversationID)
+	_, r, _, _ := s.AddUserRun(c.ID, b.ID, "publish", "supersede-client")
+	_, _ = s.SetRunStatus(r.ID, "running", "")
+	add := func(name, body, key string) Attachment {
+		a, _ := s.AddAttachment(c.ID, name, "text/markdown", bytes.NewBufferString(body))
+		staged, err := s.stageRunAttachment(r, c, a, key)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return staged
+	}
+	add("seo.md", "v1", "/work/seo.md")
+	b2 := add("seo.md", "v2 fixed", "/work/seo.md")         // same path
+	b3 := add("seo.md", "v3 elsewhere", "/work/out/seo.md") // same name, different path
+	other := add("notes.md", "n", "/work/notes.md")
+	m, ok, err := s.FinishRun(r.ID, c.ID, b.ID, "done")
+	if err != nil || !ok {
+		t.Fatalf("finish=%v %v", ok, err)
+	}
+	if len(m.Attachments) != 2 || m.Attachments[0].ID != b3.ID || m.Attachments[1].ID != other.ID {
+		t.Fatalf("attachments=%#v (b2=%s)", m.Attachments, b2.ID)
 	}
 }
 
@@ -144,5 +181,29 @@ func TestForwardResultCarriesAttachmentsAndScopesReaders(t *testing.T) {
 	stranger, _ := s.CreateBot("stranger", "", "model")
 	if _, _, err = s.ReadAttachmentText(a.ID, stranger.DMConversationID); err == nil {
 		t.Fatal("unforwarded conversation read attachment")
+	}
+}
+
+func TestAttachmentPDFInlineOnlyOnRequest(t *testing.T) {
+	s, err := OpenStore(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer s.Close()
+	srv := &Server{store: s}
+	b, _ := s.CreateBot("viewer", "", "model")
+	c, _ := s.GetConversation(b.DMConversationID)
+	a, err := s.AddAttachment(c.ID, "doc.pdf", "application/pdf", bytes.NewBufferString("%PDF-1.4\n%%EOF"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for url, want := range map[string]string{"/api/attachments/" + a.ID: "attachment", "/api/attachments/" + a.ID + "?inline=1": "inline"} {
+		w := httptest.NewRecorder()
+		if !srv.routeAttachments(w, httptest.NewRequest(http.MethodGet, url, nil), "attachments/"+a.ID) || w.Code != 200 {
+			t.Fatalf("%s: %d", url, w.Code)
+		}
+		if got := w.Header().Get("Content-Disposition"); !strings.HasPrefix(got, want) {
+			t.Fatalf("%s disposition=%q", url, got)
+		}
 	}
 }
