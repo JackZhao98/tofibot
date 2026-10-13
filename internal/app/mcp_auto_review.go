@@ -849,6 +849,20 @@ func (s *Server) finishMCPReview(ctx context.Context, c Conversation, r Run, cal
 		}
 	}
 
+	// No person attends a scheduled chain: where the review would hand the
+	// call to a person (needs_human, or a reviewer context_gap), the proposal
+	// is closed instead of waiting on a card nobody reads. The call is not
+	// executed; the run continues and reports that the step needs the owner.
+	if q.Status == questionPending && (status == "human_required" || status == "context_required" && contextFailure == nil) {
+		unattended, uErr := mcpRunRootedInSchedule(tx, r)
+		if uErr != nil {
+			return uErr
+		}
+		if unattended {
+			status, result.Reason = "policy_denied", mcpNeedsHumanUnattendedPrefix+result.Reason
+		}
+	}
+
 	if q.Status == questionPending && mcpReviewClosesProposal(status) {
 		q.Status = questionCancelled
 		if outcome, ok := tooloutcome.FromError(blocked); ok && outcome.Status == tooloutcome.Expired {
