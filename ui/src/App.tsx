@@ -1,5 +1,6 @@
 import { thinkingHeadline } from "./thinkingHeadline";
 import { TaskRunBlock } from "./TaskRunBlock";
+import { markSenderGroups } from "./senderGroups";
 import { buildTaskOwners, presentTaskIssue, taskPhaseLabel, type TaskOwner } from "./taskIssuePresentation";
 import { i18n, useTranslation } from "./i18n";
 import { MemoryPanel } from "./MemoryPanel";
@@ -298,14 +299,20 @@ function useNow(active: boolean, interval = 1000) {
 }
 
 /** Shown in the conversation while a run has neither tool steps nor reply text yet. */
+/** Avatar + name that opens a sender group in a group chat (hidden by CSS when the unit continues the previous one). */
+function SenderHead({ id, name }: { id: string; name: string }) {
+  return <div className="sender-head"><div className="sender-avatar"><Avatar label={name} id={id} mini /></div><span className="sender-name">{name}</span></div>;
+}
+
 function LiveRunStatus({ run, botName, showName }: { run: Run; botName: string; showName: boolean }) {
   const { t } = useTranslation("chat");
   const now = useNow(true);
   const started = Date.parse(run.created_at);
   const seconds = Number.isFinite(started) ? Math.max(0, Math.floor((now - started) / 1000)) : 0;
   const label = run.finishing_reason === "approval_expired" ? t("live.finishing") : run.status === "queued" ? t("live.waiting_start") : run.kind === "triage" ? t("live.triaging") : t("live.thinking");
-  return <section className={`tool-message web-tool-run is-live live-run-status${showName ? " is-group" : ""}`} aria-label={t("live.status_label", { name: botName })}>
-    <div className="web-tool-disclosure"><div className="web-tool-summary"><span className="web-tool-toggle"><span className="web-tool-live-label">{showName ? t("live.named", { name: botName, status: label }) : label}{run.finishing_reason === "approval_expired" ? "" : ` · ${formatRunDuration(seconds * 1000, false)}`}</span></span></div></div>
+  return <section className={`tool-message web-tool-run is-live live-run-status${showName ? " is-group" : ""}`} aria-label={t("live.status_label", { name: botName })} data-sender={showName ? run.bot_id : undefined} data-at={showName ? run.created_at : undefined}>
+    {showName && <SenderHead id={run.bot_id} name={botName} />}
+    <div className="web-tool-disclosure"><div className="web-tool-summary"><span className="web-tool-toggle"><span className="web-tool-live-label">{label}{run.finishing_reason === "approval_expired" ? "" : ` · ${formatRunDuration(seconds * 1000, false)}`}</span></span></div></div>
   </section>;
 }
 
@@ -404,6 +411,8 @@ function Workspace() {
   useEffect(() => { setTeamBoardOpen(false); }, [activeId]);
   const arrivalIDs = useRef(new Set<string>());
   const messageListRef = useRef<HTMLDivElement | null>(null);
+  // Group chats: avatar and name open a sender group once; later units from the same Bot only indent.
+  useLayoutEffect(() => { markSenderGroups(messageListRef.current); });
   const [messageRecords, setMessages] = useState<Message[]>([]);
   const [drafts, setDrafts] = useState<Record<string, StreamDraft>>({});
   // Transient per-run signals: the model's latest reasoning headline and a provider back-off.
@@ -1677,7 +1686,7 @@ function Workspace() {
     return signal?.thinking ? t("live.thinking_about", { headline: signal.thinking }) : run.status === "queued" ? t("live.waiting_start") : t("live.thinking");
   }
   function renderTaskOwner(owner: TaskOwner) {
-    return <TaskRunBlock key={owner.key} owner={owner} liveStatus={runLiveStatus(owner.family.latest)} liveAvatar={<BotAvatar id={owner.family.latest.bot_id} mini motion={owner.family.latest.status === "waiting" ? "awake" : "working"} />} tools={loadedToolActivities} questions={questions.items} drafts={mailDrafts.items} messages={messageRecords} summaries={terminalToolSummaries} details={toolDetailState} connected={streamConnected} botName={botById.get(owner.family.latest.bot_id)?.name ?? "Bot"} showName={active?.kind === "group"}
+    return <TaskRunBlock key={owner.key} owner={owner} senderHead={active?.kind === "group" ? <SenderHead id={owner.family.latest.bot_id} name={botById.get(owner.family.latest.bot_id)?.name ?? "Bot"} /> : undefined} liveStatus={runLiveStatus(owner.family.latest)} liveAvatar={<BotAvatar id={owner.family.latest.bot_id} mini motion={owner.family.latest.status === "waiting" ? "awake" : "working"} />} tools={loadedToolActivities} questions={questions.items} drafts={mailDrafts.items} messages={messageRecords} summaries={terminalToolSummaries} details={toolDetailState} connected={streamConnected} botName={botById.get(owner.family.latest.bot_id)?.name ?? "Bot"} showName={active?.kind === "group"}
       onOpenTools={() => openSettings("connections")}
       onFeedback={text => window.dispatchEvent(new CustomEvent("tofi:task-feedback", {detail:{conversationId:owner.family.latest.conversation_id,text}}))}
       onRefresh={refreshTaskStatus} onLoadDetails={loadToolDetails}
@@ -1844,7 +1853,7 @@ function Workspace() {
                       const blockTime = itemTime(drawnAbove);
                       const compact = Boolean(previous && !unread && !message.notice && !previous.notice && sameDay && gap < 5 * 60_000 && senderKey === previousKey) || Boolean(blockBotIds.length && message.role !== "user" && !unread && !message.notice && blockBotIds.includes(senderKey) && blockTime && dateInTimezone(blockTime, timezone) === dateInTimezone(message.created_at, timezone) && +new Date(message.created_at) - +new Date(blockTime) < 5 * 60_000);
                       const showDivider = !previousTime || dateInTimezone(previousTime, timezone) !== dateInTimezone(message.created_at, timezone) || +new Date(message.created_at) - +new Date(previousTime) >= 10 * 60_000;
-                      const showIdentity = (active.kind === "group" || message.kind === "forward_result" || message.kind === "notice" && runById.get(message.run_id ?? "")?.stop_reason === "approval_expired") && message.role !== "user" && !compact;
+                      const showIdentity = (active.kind === "group" || message.kind === "forward_result" || message.kind === "notice" && runById.get(message.run_id ?? "")?.stop_reason === "approval_expired") && message.role !== "user" && (active.kind === "group" || !compact);
                       const processTools = toolTimeline.beforeMessageId.get(message.id) ?? [];
                       const processProgress = (foldedProgress.progressByFinalId.get(message.id) ?? []).filter(note => !ownedRunIDs.has(note.run_id ?? ""));
                       const afterTools = toolTimeline.afterMessageId.get(message.id) ?? [];
@@ -1890,11 +1899,11 @@ function Workspace() {
                           if (activeIdRef.current === active.id) setMessages(current => current.map(record => record.id === message.id ? { ...record, reactions: result.reactions } : record));
                         }} />}
                         {taskOwners.filter(owner => owner.anchor?.kind === "message" && owner.anchor.id === message.id).map(renderTaskOwner)}
-                        {afterTools.length || afterSummaries.length || Object.keys(afterSummaryErrors).length || Object.keys(afterSummaryLoading).length ? <ToolActivityList activities={[...afterTools, ...afterAggregateTools]} summaries={afterSummaries} summaryErrors={afterSummaryErrors} summaryLoading={afterSummaryLoading} details={toolDetailState} onLoadDetails={loadToolDetails} onRetrySummary={retryToolSummary} botById={botById} activeRunIds={activeRunIds} /> : null}
+                        {afterTools.length || afterSummaries.length || Object.keys(afterSummaryErrors).length || Object.keys(afterSummaryLoading).length ? <ToolActivityList activities={[...afterTools, ...afterAggregateTools]} summaries={afterSummaries} summaryErrors={afterSummaryErrors} summaryLoading={afterSummaryLoading} details={toolDetailState} onLoadDetails={loadToolDetails} onRetrySummary={retryToolSummary} botById={botById} activeRunIds={activeRunIds} group={active.kind === "group"} /> : null}
                       </div>;
                     })}
                   <SecretInputs key={active.id} conversationId={active.id} bots={bots}/>
-                  <ToolActivityList activities={toolTimeline.fallback} summaries={terminalToolSummaries.filter(summary => toolTimeline.fallback.some(activity => activity.run_id === summary.run_id))} details={toolDetailState} onLoadDetails={loadToolDetails} botById={botById} activeRunIds={activeRunIds} />
+                  <ToolActivityList activities={toolTimeline.fallback} summaries={terminalToolSummaries.filter(summary => toolTimeline.fallback.some(activity => activity.run_id === summary.run_id))} details={toolDetailState} onLoadDetails={loadToolDetails} botById={botById} activeRunIds={activeRunIds} group={active.kind === "group"} />
                   {taskOwners.filter(owner => !owner.anchor).map(renderTaskOwner)}
                   {!isDesktop && pendingRuns.filter(run => !ownedRunIDs.has(run.id)).map(run => <LiveRunStatus key={run.id} run={run} botName={run.kind === "triage" ? "Tofi" : botById.get(run.bot_id)?.name ?? "Bot"} showName={active.kind === "group"} />)}
                   {error && <div className="error-banner" role="alert">{error}</div>}
@@ -2105,9 +2114,9 @@ export function MessageBubble({ message, replyTarget, replyTargetName, sender, s
   });
   if (message.kind === "ui_card" && message.card) {
     const label = sender?.name ?? senderName ?? "Bot";
-    return <article className={`message message-bot message-ui-card${showAvatar ? " is-group" : " is-dm"}`} title={`${formatExactTime(message.created_at, timezone)} · ${timezone}`}>
+    return <article data-sender={showAvatar ? message.sender_bot_id : undefined} data-at={showAvatar ? message.created_at : undefined} className={`message message-bot message-ui-card${showAvatar ? " is-group" : " is-dm"}`} title={`${formatExactTime(message.created_at, timezone)} · ${timezone}`}>
       {showAvatar && <div className="message-avatar"><Avatar label={label} id={message.sender_bot_id ?? "bot"} mini /></div>}
-      <div className="message-body">{showIdentity && !compact && <div className="message-meta"><strong>{label}</strong></div>}<DisplayCard card={message.card} bot={message.sender_bot_id ? { id: message.sender_bot_id, name: label } : undefined} onDraftReply={onDraftReply} />{tools && <div className="message-tools">{tools}</div>}</div>
+      <div className="message-body">{showIdentity && (!compact || showAvatar) && <div className="message-meta"><strong>{label}</strong></div>}<DisplayCard card={message.card} bot={message.sender_bot_id ? { id: message.sender_bot_id, name: label } : undefined} onDraftReply={onDraftReply} />{tools && <div className="message-tools">{tools}</div>}</div>
     </article>;
   }
   if (message.kind === "scheduled_task") {
@@ -2130,7 +2139,7 @@ export function MessageBubble({ message, replyTarget, replyTargetName, sender, s
   const label = message.kind === "notice" && run?.stop_reason === "approval_expired" ? t("message.system") : isUser ? t("message.you") : sender?.name ?? senderName ?? (message.role === "tool" ? t("message.tool") : "Bot");
   const draftText = typeof draft === "string" ? draft : draft?.content ?? "";
   const scheduled = isUser && run?.kind === "schedule";
-  const hideMeta = compact && !scheduled;
+  const hideMeta = compact && !scheduled && !showAvatar;
   const rawBody = message.content || draftText;
   const contextLabel = (sender?.name || senderName) && message.sender_bot_id ? `[sender ${sender?.name ?? senderName} id=${message.sender_bot_id}]` : "";
   let body = contextLabel && rawBody.startsWith(contextLabel) ? rawBody.slice(contextLabel.length).trimStart() : rawBody;
@@ -2145,7 +2154,8 @@ export function MessageBubble({ message, replyTarget, replyTargetName, sender, s
   const mention = assignment ? <span className="message-mention"><Avatar label={targetBot?.name ?? t("message.member")} id={message.notice!.to_bot_id} mini /><span>@{targetBot?.name ?? t("message.member")}</span></span> : undefined;
   const inlineMention = mention && targetBot ? <BotIdentityCard bot={targetBot} onMention={onMention ? () => onMention(targetBot) : undefined} onOpen={allowOpenDM && onNavigate ? () => onNavigate(targetBot.dm_conversation_id) : undefined}>{mention}</BotIdentityCard> : mention;
   const toolRow = tools && <div className="message-tools">{tools}</div>;
-  return <article className={`message ${isUser ? "message-user" : "message-bot"} ${message.kind === "segment" ? "message-segment" : ""} ${message.kind === "forward_result" ? "message-forward-result" : ""} ${compact ? "message-compact" : ""}`} title={isDesktop ? `${formatExactTime(message.created_at, timezone)} · ${timezone}` : undefined}>{showAvatar && !isUser && <div className="message-avatar">{sender ? <BotIdentityCard bot={sender} onMention={onMention ? () => onMention(sender) : undefined} onOpen={allowOpenDM && onNavigate ? () => onNavigate(sender.dm_conversation_id) : undefined}><Avatar label={label} id={sender.id} mini /></BotIdentityCard> : <Avatar label={label} id={message.sender_bot_id ?? "bot"} mini />}</div>}<div className={`message-body${tools && !isDesktop ? ` web-tool-body ${toolsRunning ? "is-tools-live" : "is-tools-done"}` : ""}`}><div className={`message-meta ${hideMeta ? "compact" : ""}`}>{scheduled && <span>{t("message.scheduled")}</span>}{showIdentity && !isUser && !compact && <strong>{label}</strong>}</div>{(toolsRunning || !isDesktop) && toolRow}{replyTarget && <button type="button" className="message-reply-quote" aria-label={t("message.jump_to_reply", { name: replyTargetName ?? t("message.original") })} onClick={() => jumpToMessage(document.querySelector<HTMLElement>(`[data-message-id="${replyTarget.id}"]`))}><span className="message-reply-author">{t("message.reply_to", { name: replyTargetName ?? t("message.original") })}</span><span className="message-reply-excerpt">{previewText(readReplyMarker(replyTarget.content).body) || t("message.attachment")}</span></button>}<div className="message-content" ref={answerRef}>{<SmoothStreamMarkdown content={body} mention={inlineMention} active={Boolean(draft) && !isDesktop} />}{message.attachments?.map((a) => <MessageAttachment attachment={a} compact={isUser} key={a.id} />)}{draft && isDesktop && <span className="typing-cursor" />}</div>{!toolsRunning && isDesktop && toolRow}{relatedChat && onOpenRelatedChat && <RelatedMessageLink target={relatedChat} onOpen={onOpenRelatedChat} />}</div></article>;
+  const grouped = showAvatar && !isUser;
+  return <article data-sender={grouped ? message.sender_bot_id : undefined} data-at={grouped ? message.created_at : undefined} className={`message ${isUser ? "message-user" : "message-bot"}${grouped ? " is-group" : !isUser ? " is-dm" : ""} ${message.kind === "segment" ? "message-segment" : ""} ${message.kind === "forward_result" ? "message-forward-result" : ""} ${compact ? "message-compact" : ""}`} title={isDesktop ? `${formatExactTime(message.created_at, timezone)} · ${timezone}` : undefined}>{showAvatar && !isUser && <div className="message-avatar">{sender ? <BotIdentityCard bot={sender} onMention={onMention ? () => onMention(sender) : undefined} onOpen={allowOpenDM && onNavigate ? () => onNavigate(sender.dm_conversation_id) : undefined}><Avatar label={label} id={sender.id} mini /></BotIdentityCard> : <Avatar label={label} id={message.sender_bot_id ?? "bot"} mini />}</div>}<div className={`message-body${tools && !isDesktop ? ` web-tool-body ${toolsRunning ? "is-tools-live" : "is-tools-done"}` : ""}`}><div className={`message-meta ${hideMeta ? "compact" : ""}`}>{scheduled && <span>{t("message.scheduled")}</span>}{showIdentity && !isUser && (!compact || showAvatar) && <strong>{label}</strong>}</div>{(toolsRunning || !isDesktop) && toolRow}{replyTarget && <button type="button" className="message-reply-quote" aria-label={t("message.jump_to_reply", { name: replyTargetName ?? t("message.original") })} onClick={() => jumpToMessage(document.querySelector<HTMLElement>(`[data-message-id="${replyTarget.id}"]`))}><span className="message-reply-author">{t("message.reply_to", { name: replyTargetName ?? t("message.original") })}</span><span className="message-reply-excerpt">{previewText(readReplyMarker(replyTarget.content).body) || t("message.attachment")}</span></button>}<div className="message-content" ref={answerRef}>{<SmoothStreamMarkdown content={body} mention={inlineMention} active={Boolean(draft) && !isDesktop} />}{message.attachments?.map((a) => <MessageAttachment attachment={a} compact={isUser} key={a.id} />)}{draft && isDesktop && <span className="typing-cursor" />}</div>{!toolsRunning && isDesktop && toolRow}{relatedChat && onOpenRelatedChat && <RelatedMessageLink target={relatedChat} onOpen={onOpenRelatedChat} />}</div></article>;
 }
 
 export function RunStatusAnnouncement({ conversationId, runs, botById, ready, taskAnnouncements }: { conversationId: string; runs: Run[]; botById: Map<string, Bot>; ready: boolean; taskAnnouncements?: Map<string, string> }) {
@@ -2292,7 +2302,7 @@ export function RetryFamilyAudit({ latest, previous, botName, children }: { late
 }
 
 
-function ToolActivityList({ activities, progress = [], summaries = [], summaryErrors = {}, summaryLoading = {}, details = {}, onLoadDetails, onRetrySummary, botById, activeRunIds }: { activities: ToolActivity[]; progress?: Message[]; summaries?: ToolActivityRunSummary[]; summaryErrors?: Record<string, string>; summaryLoading?: Record<string, boolean>; details?: Record<string, ToolDetailState>; onLoadDetails?: (runId: string, offset: number) => Promise<void>; onRetrySummary?: (runId: string) => void; botById: Map<string, Bot>; activeRunIds: Set<string> }) {
+function ToolActivityList({ activities, progress = [], summaries = [], summaryErrors = {}, summaryLoading = {}, details = {}, onLoadDetails, onRetrySummary, botById, activeRunIds, group = false }: { group?: boolean; activities: ToolActivity[]; progress?: Message[]; summaries?: ToolActivityRunSummary[]; summaryErrors?: Record<string, string>; summaryLoading?: Record<string, boolean>; details?: Record<string, ToolDetailState>; onLoadDetails?: (runId: string, offset: number) => Promise<void>; onRetrySummary?: (runId: string) => void; botById: Map<string, Bot>; activeRunIds: Set<string> }) {
   const { t } = useTranslation("chat");
   const { timezone } = useUserTimezone();
   const [now, setNow] = useState(() => Date.now());
@@ -2309,10 +2319,10 @@ function ToolActivityList({ activities, progress = [], summaries = [], summaryEr
     const notes = progress.filter(message => message.run_id === runId).sort((a, b) => a.seq - b.seq);
     return { runId, items: allItems, notes, summary: summariesByRunID.get(runId), summaryError: summaryErrors[runId], summaryLoading: summaryLoading[runId] };
   }).sort((a, b) => compareQuestionTime(a.notes[0]?.created_at ?? a.items[0]?.started_at ?? a.summary?.started_at ?? "", b.notes[0]?.created_at ?? b.items[0]?.started_at ?? b.summary?.started_at ?? "") || a.runId.localeCompare(b.runId));
-  return <div className="work-details" aria-label={t("tools.details")}>{grouped.map(({ runId, items, notes, summary, summaryError, summaryLoading: loadingSummary }) => <ToolActivityRun key={runId} runId={runId} items={items} notes={notes} summary={summary} summaryError={summaryError} summaryLoading={loadingSummary} detail={details[runId]} onLoadDetails={onLoadDetails} onRetrySummary={onRetrySummary} live={activeRunIds.has(runId)} now={now} timezone={timezone} botName={botById.get(items[0]?.bot_id ?? notes[0]?.sender_bot_id ?? summary?.bot_id ?? "")?.name ?? "Bot"} />)}</div>;
+  return <div className="work-details" aria-label={t("tools.details")}>{grouped.map(({ runId, items, notes, summary, summaryError, summaryLoading: loadingSummary }) => <ToolActivityRun key={runId} runId={runId} items={items} notes={notes} summary={summary} summaryError={summaryError} summaryLoading={loadingSummary} detail={details[runId]} onLoadDetails={onLoadDetails} onRetrySummary={onRetrySummary} live={activeRunIds.has(runId)} now={now} timezone={timezone} botName={botById.get(items[0]?.bot_id ?? notes[0]?.sender_bot_id ?? summary?.bot_id ?? "")?.name ?? "Bot"} senderId={group ? items[0]?.bot_id ?? notes[0]?.sender_bot_id ?? summary?.bot_id ?? "" : undefined} />)}</div>;
 }
 
-type ToolRunProps = { runId: string; items: ToolActivity[]; notes: Message[]; summary?: ToolActivityRunSummary; summaryError?: string; summaryLoading?: boolean; detail?: ToolDetailState; onLoadDetails?: (runId: string, offset: number) => Promise<void>; onRetrySummary?: (runId: string) => void; live: boolean; now: number; timezone: string; botName: string };
+type ToolRunProps = { senderId?: string; runId: string; items: ToolActivity[]; notes: Message[]; summary?: ToolActivityRunSummary; summaryError?: string; summaryLoading?: boolean; detail?: ToolDetailState; onLoadDetails?: (runId: string, offset: number) => Promise<void>; onRetrySummary?: (runId: string) => void; live: boolean; now: number; timezone: string; botName: string };
 
 function toolStepIcon(name: string): TofiIconName {
   // Labels may be Chinese (搜索/查找, 网页/打开, 读取/文件/文档, 修改/写入); escaped so the source holds no UI text.
@@ -2345,7 +2355,7 @@ function toolRunTimes(items: ToolActivity[], notes: Message[], summary?: ToolAct
   return { first: starts.length ? Math.min(...starts) : Number.NaN, last: ends.length ? Math.max(...ends) : Number.NaN };
 }
 
-function WebToolActivityRun({ runId, items, notes, summary, summaryError, summaryLoading, detail, onLoadDetails, onRetrySummary, live, now, timezone, botName }: ToolRunProps) {
+function WebToolActivityRun({ runId, items, notes, summary, summaryError, summaryLoading, detail, onLoadDetails, onRetrySummary, live, now, timezone, botName, senderId }: ToolRunProps) {
   const { t } = useTranslation(["chat", "common"]);
   const finishing = useContext(ExpiryFinishingContext).has(runId);
   const [expanded, setExpanded] = useState(false);
@@ -2390,7 +2400,8 @@ function WebToolActivityRun({ runId, items, notes, summary, summaryError, summar
     void animation.finished.finally(() => { if (growthAnimation.current === animation) { growthAnimation.current = null; steps.style.overflow = ""; } }).catch(() => undefined);
   }, [entries.length, expanded, live, stepKeys]);
   useEffect(() => () => { growthAnimation.current?.cancel(); }, []);
-  return <section className={`tool-message web-tool-run${live ? " is-live" : ` is-complete${issues ? " has-tool-issues" : ""}`}`} aria-label={t("tools.steps_label", { name: botName })}>
+  return <section className={`tool-message web-tool-run${live ? " is-live" : ` is-complete${issues ? " has-tool-issues" : ""}`}`} aria-label={t("tools.steps_label", { name: botName })} data-sender={senderId || undefined} data-at={senderId && Number.isFinite(lastTime) ? new Date(lastTime).toISOString() : undefined}>
+    {senderId && <SenderHead id={senderId} name={botName} />}
     <div className="web-tool-disclosure">
       <div className="web-tool-summary">
         {!live && Number.isFinite(lastTime) && <time>{formatTime(new Date(lastTime).toISOString(), timezone)}</time>}

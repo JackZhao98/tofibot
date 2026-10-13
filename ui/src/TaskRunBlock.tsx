@@ -18,7 +18,7 @@ const SETTLE = springEasing(SPRINGS.morph);
 const settleVars = { "--spring": SETTLE.easing, "--spring-ms": `${SETTLE.durationMs}ms` } as React.CSSProperties;
 
 export type TaskDetailState = { loaded: number; toolCount: number; hasMore: boolean; loading: boolean; error?: string };
-export type TaskRunBlockProps = { owner: TaskOwner; tools: ToolActivity[]; questions: Question[]; drafts: MailDraft[]; messages: Message[]; summaries: ToolActivityRunSummary[]; details?: Record<string, TaskDetailState>; connected?: boolean; /** Pins one language (tests, fixtures); the active UI language otherwise. */ locale?: Language; botName?: string; showName?: boolean; onFeedback?: (text:string) => void; onOpenTools: () => void; onRefresh: () => Promise<void>; onLoadDetails?: (runId: string, offset: number) => Promise<void>; liveStatus?: string; liveAvatar?: ReactNode; renderMessage?: (message: Message) => ReactNode; renderQuestion: (question: Question) => ReactNode; renderDraft: (draft: MailDraft) => ReactNode };
+export type TaskRunBlockProps = { senderHead?: React.ReactNode; owner: TaskOwner; tools: ToolActivity[]; questions: Question[]; drafts: MailDraft[]; messages: Message[]; summaries: ToolActivityRunSummary[]; details?: Record<string, TaskDetailState>; connected?: boolean; /** Pins one language (tests, fixtures); the active UI language otherwise. */ locale?: Language; botName?: string; showName?: boolean; onFeedback?: (text:string) => void; onOpenTools: () => void; onRefresh: () => Promise<void>; onLoadDetails?: (runId: string, offset: number) => Promise<void>; liveStatus?: string; liveAvatar?: ReactNode; renderMessage?: (message: Message) => ReactNode; renderQuestion: (question: Question) => ReactNode; renderDraft: (draft: MailDraft) => ReactNode };
 
 const GROW = springEasing(SPRINGS.settle);
 const drawers = new WeakMap<HTMLElement, Animation[]>();
@@ -97,7 +97,7 @@ function ToolStepRecord({ tool, locale, now, onOpenTools }: { tool: ToolActivity
 }
 
 /** One durable owner replaces progress in place; actual final answers stay in chat. */
-export function TaskRunBlock({ owner, tools, questions, drafts, messages, summaries, details = {}, connected = true, locale, botName, showName, onFeedback, onOpenTools, onRefresh, onLoadDetails, liveStatus, liveAvatar, renderMessage, renderQuestion, renderDraft }: TaskRunBlockProps) {
+export function TaskRunBlock({ owner, tools, questions, drafts, messages, summaries, details = {}, connected = true, locale, botName, showName, senderHead, onFeedback, onOpenTools, onRefresh, onLoadDetails, liveStatus, liveAvatar, renderMessage, renderQuestion, renderDraft }: TaskRunBlockProps) {
   const disclosure = useRef<HTMLDetailsElement>(null);
   const block = useRef<HTMLElement>(null);
   const needsFocus = useRef(false);
@@ -165,8 +165,8 @@ export function TaskRunBlock({ owner, tools, questions, drafts, messages, summar
     setPendingStep("");
   }, [pendingStep, tools]);
   function viewActivity() { if (disclosure.current) { disclosure.current.open = true; disclosure.current.querySelector("summary")?.focus(); } }
-  return <section ref={block} className="task-run-block" data-task-owner={owner.key} data-run-id={run.id} data-latest-run-id={run.id} tabIndex={-1} aria-label={t("activity.records_label")}>
-    {showName && botName && <p className="task-run-identity">{botName}</p>}
+  return <section ref={block} className={`task-run-block${senderHead ? " in-group" : ""}`} data-sender={senderHead ? run.bot_id : undefined} data-at={senderHead ? run.created_at : undefined} data-task-owner={owner.key} data-run-id={run.id} data-latest-run-id={run.id} tabIndex={-1} aria-label={t("activity.records_label")}>
+    {senderHead ?? (showName && botName && <p className="task-run-identity">{botName}</p>)}
     {issue ? <TaskIssueCard issue={issue} locale={locale} onFeedback={onFeedback} onOpenStep={openStep} onAction={issue.action === "open_tools" ? onOpenTools : issue.action === "open_codex" ? () => { window.dispatchEvent(new Event("tofi:open-codex-settings")); } : issue.action === "refresh_status" ? onRefresh : viewActivity} /> : taskPhaseVisible(run) && <p className="task-run-phase">{taskPhaseLabel(input)}</p>}
     {/* A separate valid proposal survives another call's failure/unknown effect. */}
     {decisions.map(renderQuestion)}
