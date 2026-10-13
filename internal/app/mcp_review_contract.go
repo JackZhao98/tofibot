@@ -146,6 +146,9 @@ func mcpReviewBlocked(status, reason string, failure ...*MCPContextFailure) erro
 		reason = strings.TrimSpace(reason + " Diagnostic " + diagnostic + ": " + why + ". Do not retry this MCP action; an identical call stays blocked. Use another permitted route or explain the blocker to the user.")
 	case "policy_denied":
 		code, outcome = "mcp_review_policy_denied", tooloutcome.Denied
+		if detail, ok := strings.CutPrefix(reason, mcpNeedsHumanUnattendedPrefix); ok {
+			return mcpNeedsHumanUnattended(detail)
+		}
 	}
 	o := tooloutcome.New(outcome, code, "not_executed", reason, next)
 	if status == "setup_required" {
@@ -201,4 +204,20 @@ func mcpReviewTerminal(ctx context.Context, db reviewQuerier, q Question, r Run,
 		return tooloutcome.New(tooloutcome.Denied, "mcp_proposal_closed", "not_executed", "The originating task is no longer active; this proposal cannot execute.", "finish_summary").Err()
 	}
 	return nil
+}
+
+// mcpNeedsHumanUnattendedPrefix marks a closed proposal whose review wanted a
+// person in a run no person attends. The prefix travels in the stored reason
+// so a repeated identical call is refused with the same named code.
+const mcpNeedsHumanUnattendedPrefix = "Needs the owner's go-ahead (unattended run): "
+
+// mcpNeedsHumanUnattended is the refusal for a call that would need a person
+// in an unattended (scheduled or schedule-rooted) run. Not executed, no card
+// left open; the Bot finishes, and its summary tells the owner.
+func mcpNeedsHumanUnattended(detail string) error {
+	detail = strings.TrimSpace(detail)
+	if detail == "" {
+		detail = "a person must decide this call"
+	}
+	return tooloutcome.New(tooloutcome.Denied, "mcp_needs_human_unattended", "not_executed", "This external tool call needs the owner's decision and no one attends this scheduled run, so it was not executed. Reviewer: "+detail+" Continue the remaining work. Explain in the summary that this step needs the owner's go-ahead in chat; do not retry or route around it.", "explain_blocker").Err()
 }
