@@ -37,6 +37,47 @@ type groupWakeEntry struct {
 type groupChoice struct {
 	disposition string
 	wakes       []groupWakeEntry
+	text        string
+}
+
+// replyChoice returns the run's recorded respond(reply), if any.
+func (s *Server) replyChoice(r Run) (groupChoice, bool) {
+	v, ok := s.dispositions.Load(r.ID)
+	if !ok {
+		return groupChoice{}, false
+	}
+	choice, ok := v.(groupChoice)
+	return choice, ok && choice.disposition == dispReply
+}
+
+func normalizeReply(s string) string { return strings.Join(strings.Fields(s), " ") }
+
+// hasPostedMessage reports whether the run already published a visible message.
+func (s *Store) hasPostedMessage(runID string) bool {
+	var n int
+	_ = s.db.QueryRow(`SELECT COUNT(*) FROM messages WHERE run_id=? AND role='assistant' AND kind IN ('','segment')`, runID).Scan(&n)
+	return n > 0
+}
+
+// replyFinalText is the run's one visible final message when respond(reply)
+// was called: its text, or nothing when that text was already posted this run.
+// Whatever the model writes after respond is not posted again.
+func (s *Server) replyFinalText(r Run, choice groupChoice) string {
+	text := normalizeReply(choice.text)
+	if text == "" {
+		return ""
+	}
+	rows, err := s.store.db.Query(`SELECT content FROM messages WHERE run_id=? AND role='assistant' AND kind IN ('','segment','progress')`, r.ID)
+	if err == nil {
+		defer rows.Close()
+		for rows.Next() {
+			var content string
+			if rows.Scan(&content) == nil && normalizeReply(content) == text {
+				return ""
+			}
+		}
+	}
+	return choice.text
 }
 
 // lineageKey identifies the originating user message (or scheduled occurrence)
@@ -63,9 +104,10 @@ func (s *Server) groupRespondTools(c Conversation, r Run) []runtime.Tool {
 	if c.Kind != "group" || !c.UserVisible || r.Kind == runKindTriage {
 		return nil
 	}
-	return []runtime.Tool{{Name: "respond", Description: "End your group turn with one explicit response disposition: reply (post a message; list Bots to start in wake with a concrete request), silent (nothing to add; post nothing), concluded (acknowledgement or closing such as thanks/ok/done; post nothing), or follow_up (waiting on another Bot's output: set wait_for). Call it once, before your final message for reply, or instead of a message for the others.", Parameters: objectSchema(map[string]any{
+	return []runtime.Tool{{Name: "respond", Description: "End your group turn with one explicit response disposition: reply (text is the message to post and your final message; list Bots to start in wake with a concrete request), silent (nothing to add; post nothing), concluded (acknowledgement or closing such as thanks/ok/done; post nothing), or follow_up (waiting on another Bot's output: set wait_for). Call it once, before your final message for reply, or instead of a message for the others.", Parameters: objectSchema(map[string]any{
 		"disposition": map[string]any{"type": "string", "enum": []string{dispReply, dispSilent, dispConcluded, dispFollowUp}},
 		"wake":        map[string]any{"type": "array", "items": objectSchema(map[string]any{"bot_id": map[string]any{"type": "string"}, "request": map[string]any{"type": "string"}}, []string{"bot_id", "request"})},
+		"text":        map[string]any{"type": "string", "description": "reply only: the message to post. It is your final message; write nothing after calling respond."},
 		"wait_for":    map[string]any{"type": "string", "description": "Bot id you are waiting on (follow_up only)"},
 	}, []string{"disposition"}), Execute: func(ctx context.Context, data json.RawMessage) (string, error) {
 		if err := ctx.Err(); err != nil {
@@ -75,6 +117,7 @@ func (s *Server) groupRespondTools(c Conversation, r Run) []runtime.Tool {
 			Disposition string           `json:"disposition"`
 			Wake        []groupWakeEntry `json:"wake"`
 			WaitFor     string           `json:"wait_for"`
+			Text        string           `json:"text"`
 		}
 		if json.Unmarshal(data, &in) != nil {
 			return "", errors.New("invalid respond arguments")
@@ -91,10 +134,19 @@ func (s *Server) groupRespondTools(c Conversation, r Run) []runtime.Tool {
 		if len(in.Wake) > 3 {
 			return "", errors.New("wake at most 3 Bots")
 		}
+		if _, again := s.dispositions.Load(r.ID); again {
+			return "", errors.New("respond was already called for this turn; your turn is complete, write nothing more")
+		}
 		switch in.Disposition {
 		case dispReply:
-			s.dispositions.Store(r.ID, groupChoice{disposition: dispReply, wakes: in.Wake})
-			return "Recorded. Now post your reply; the listed Bots start after it is published.", nil
+			if strings.TrimSpace(in.Text) == "" && !s.store.hasPostedMessage(r.ID) {
+				return "", errors.New("reply needs text: the message to post")
+			}
+			if (r.Kind == runKindSchedule || r.scheduleTask != nil) && strings.TrimSpace(in.Text) == "" {
+				return "", errors.New("a scheduled run's reply needs text")
+			}
+			s.dispositions.Store(r.ID, groupChoice{disposition: dispReply, wakes: in.Wake, text: in.Text})
+			return "Recorded. This is your final message; the listed Bots start after it is published. Write nothing more.", nil
 		case dispSilent, dispConcluded, dispFollowUp:
 			if len(in.Wake) > 0 {
 				return "", errors.New("only a reply can wake Bots")
@@ -226,6 +278,10 @@ func (s *Server) fireWait(waitRunID, msgID, request, status string) {
 // registered to wait for wakes that waiter once.
 func (s *Server) applyDisposition(c Conversation, r Run, msg Message) {
 	v, _ := s.dispositions.LoadAndDelete(r.ID)
+	if msg.ID == "" {
+		// The reply was posted earlier in the run (or as a segment).
+		_ = s.store.db.QueryRow(`SELECT id FROM messages WHERE run_id=? AND role='assistant' AND kind IN ('','segment') ORDER BY seq DESC LIMIT 1`, r.ID).Scan(&msg.ID)
+	}
 	if c.Kind != "group" || !c.UserVisible || msg.ID == "" {
 		return
 	}

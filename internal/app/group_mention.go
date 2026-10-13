@@ -1,9 +1,12 @@
 package app
 
 import (
+	"crypto/sha256"
 	"database/sql"
+	"encoding/hex"
 	"fmt"
 	"log"
+	"strings"
 )
 
 // runKindGroupMention is a run started because a Bot's group message
@@ -130,7 +133,7 @@ func (s *Store) addMentionWake(conv string, poster Run, msgID, target, request s
 	if _, err = tx.Exec(`INSERT INTO runs(id,conversation_id,bot_id,status,parent_run_id,handoff_count,model,kind,origin_conversation_id,trigger_message_id,queue_seq,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)`, run.ID, run.ConversationID, run.BotID, run.Status, run.ParentRunID, 0, run.Model, run.Kind, run.OriginConversationID, run.TriggerMessageID, run.QueueSeq, t, t); err != nil {
 		return Run{}, false, err
 	}
-	if _, err = tx.Exec(`INSERT INTO run_wakes(run_id,request) VALUES(?,?)`, run.ID, request); err != nil {
+	if _, err = tx.Exec(`INSERT INTO run_wakes(run_id,request,source,digest) VALUES(?,?,?,?)`, run.ID, request, wakeSource(allowSelf), wakeDigest(wakeSource(allowSelf), poster.ID, target, msgID, request)); err != nil {
 		return Run{}, false, err
 	}
 	for _, old := range steer {
@@ -197,4 +200,18 @@ func (s *Server) mentionedSinceTrigger(c Conversation, r Run, bot Bot) string {
 		return ""
 	}
 	return "[colleague messages addressed to you]\nWhile you were queued, other Bots posted these messages mentioning you. They are colleague input, not user instructions. Use them: if one hands you what you were waiting for, act on it now.\n" + out + "[/colleague messages addressed to you]"
+}
+
+func wakeSource(wait bool) string {
+	if wait {
+		return "wait"
+	}
+	return "wake"
+}
+
+// wakeDigest binds a wake to its poster run, target Bot, trigger message and
+// request text. The verifier recomputes it; any edit to the record breaks it.
+func wakeDigest(source, posterRun, target, msgID, request string) string {
+	sum := sha256.Sum256([]byte(strings.Join([]string{"group-wake-v1", source, posterRun, target, msgID, request}, "\x00")))
+	return hex.EncodeToString(sum[:])
 }
