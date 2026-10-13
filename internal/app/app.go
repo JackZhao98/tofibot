@@ -170,6 +170,8 @@ type Config struct {
 	ComputerEnsure      func(context.Context) error
 }
 type Server struct {
+	dispositions                         sync.Map // run id -> groupChoice recorded by the respond tool
+	waitTimeout                          time.Duration
 	desktopRestartedAt                   time.Time
 	gogStatus                            gogStatusCache
 	accountID                            string
@@ -484,6 +486,8 @@ CREATE TABLE IF NOT EXISTS messages(id TEXT PRIMARY KEY,conversation_id TEXT NOT
 CREATE TABLE IF NOT EXISTS message_reactions(message_id TEXT NOT NULL,actor_key TEXT NOT NULL,emoji TEXT NOT NULL,created_at TEXT NOT NULL,PRIMARY KEY(message_id,actor_key,emoji),FOREIGN KEY(message_id) REFERENCES messages(id) ON DELETE CASCADE);
 CREATE TABLE IF NOT EXISTS memories(id TEXT PRIMARY KEY,conversation_id TEXT NOT NULL,bot_id TEXT,content TEXT NOT NULL,revision INTEGER NOT NULL,created_at TEXT NOT NULL,updated_at TEXT NOT NULL,FOREIGN KEY(conversation_id) REFERENCES conversations(id) ON DELETE CASCADE);
 CREATE TABLE IF NOT EXISTS runs(id TEXT PRIMARY KEY,conversation_id TEXT NOT NULL,bot_id TEXT NOT NULL,status TEXT NOT NULL,error TEXT,parent_run_id TEXT,handoff_count INTEGER NOT NULL DEFAULT 0,model TEXT NOT NULL DEFAULT '',kind TEXT NOT NULL DEFAULT '',origin_conversation_id TEXT NOT NULL DEFAULT '',trigger_message_id TEXT NOT NULL DEFAULT '',queue_seq INTEGER NOT NULL DEFAULT 0,created_at TEXT NOT NULL,updated_at TEXT NOT NULL,FOREIGN KEY(conversation_id) REFERENCES conversations(id) ON DELETE CASCADE);
+CREATE TABLE IF NOT EXISTS run_wakes(run_id TEXT PRIMARY KEY,request TEXT NOT NULL,FOREIGN KEY(run_id) REFERENCES runs(id) ON DELETE CASCADE);
+CREATE TABLE IF NOT EXISTS run_waits(run_id TEXT PRIMARY KEY,conversation_id TEXT NOT NULL,bot_id TEXT NOT NULL,wait_for TEXT NOT NULL,lineage TEXT NOT NULL,fired INTEGER NOT NULL DEFAULT 0,created_at TEXT NOT NULL,FOREIGN KEY(run_id) REFERENCES runs(id) ON DELETE CASCADE);
 CREATE TABLE IF NOT EXISTS run_steering(new_run_id TEXT NOT NULL,old_run_id TEXT NOT NULL,PRIMARY KEY(new_run_id,old_run_id),FOREIGN KEY(new_run_id) REFERENCES runs(id) ON DELETE CASCADE,FOREIGN KEY(old_run_id) REFERENCES runs(id) ON DELETE CASCADE);
 CREATE TABLE IF NOT EXISTS events(id INTEGER PRIMARY KEY AUTOINCREMENT,conversation_id TEXT NOT NULL,type TEXT NOT NULL,data TEXT NOT NULL,created_at TEXT NOT NULL,FOREIGN KEY(conversation_id) REFERENCES conversations(id) ON DELETE CASCADE);
 CREATE TABLE IF NOT EXISTS summaries(conversation_id TEXT NOT NULL,version INTEGER NOT NULL,covered_seq INTEGER NOT NULL,content TEXT NOT NULL,created_at TEXT NOT NULL,PRIMARY KEY(conversation_id,version));
@@ -1862,7 +1866,7 @@ func (s *Store) finishRunState(id, conv, bot, content string, silent bool, failu
 		if err = tx.QueryRow(`SELECT COUNT(*) FROM messages WHERE run_id=? AND role='assistant'`, id).Scan(&contributions); err != nil {
 			return Message{}, false, err
 		}
-		if runKind != runKindGroupChat || handoffs != 0 || pendingFiles != 0 || contributions != 0 {
+		if (runKind != runKindGroupChat && runKind != runKindGroupMention && runKind != runKindFollowup && runKind != "") || handoffs != 0 || pendingFiles != 0 || contributions != 0 {
 			return Message{}, false, errors.New("cannot stay silent after publishing, delegating, or preparing attachments")
 		}
 	}
@@ -3577,10 +3581,11 @@ func (s *Server) execute(c Conversation, r Run) {
 			log.Printf("[run] publish final-turn notes %s: %v", r.ID, err)
 		}
 	}
-	if _, finished, fe := s.store.FinishRun(r.ID, c.ID, r.BotID, res.Content); fe != nil {
+	if finalMsg, finished, fe := s.store.FinishRun(r.ID, c.ID, r.BotID, res.Content); fe != nil {
 		s.failRun(c, r, fe)
 		return
 	} else if finished {
+		s.applyDisposition(c, r, finalMsg)
 		demotedMu.Lock()
 		demoted = demotedDraft{}
 		demotedMu.Unlock()
@@ -3933,6 +3938,7 @@ func (s *Server) toolsUnmarked(c Conversation, r Run) []Tool {
 	base = append(base, workflowGuideTool())
 	base = append(base, s.runAuditTools(c, r)...)
 	base = append(base, s.groupChatTools(c, r)...)
+	base = append(base, s.groupRespondTools(c, r)...)
 	base = append(base, s.secretTools(r)...)
 	base = append(base, s.questionTools(c, r)...)
 	if c.UserVisible {
