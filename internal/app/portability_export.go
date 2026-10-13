@@ -239,7 +239,7 @@ func (s *Store) exportPortable(ctx context.Context, instance string, selection p
 			}
 		}
 		if cat["schedules"] {
-			rows, err = tx.QueryContext(ctx, `SELECT id,conversation_id,bot_id,content,title,description,created_by,kind,timezone,next_at_utc,interval_seconds,daily_time,status,created_at,updated_at FROM schedules WHERE conversation_id=? ORDER BY id`, c.ID)
+			rows, err = tx.QueryContext(ctx, `SELECT id,conversation_id,bot_id,content,title,description,created_by,kind,timezone,next_at_utc,interval_seconds,daily_time,weekdays,status,created_at,updated_at FROM schedules WHERE conversation_id=? ORDER BY id`, c.ID)
 			if err != nil {
 				return b, err
 			}
@@ -249,7 +249,7 @@ func (s *Store) exportPortable(ctx context.Context, instance string, selection p
 					err = e
 					break
 				}
-				b.Schedules = append(b.Schedules, portableSchedule{ID: x.ID, ConversationID: x.ConversationID, BotID: x.BotID, Content: x.Content, Title: x.Title, Description: x.Description, CreatedBy: x.CreatedBy, Kind: x.Kind, Timezone: x.Timezone, NextAtUTC: x.NextAtUTC, IntervalSeconds: x.IntervalSeconds, DailyTime: x.DailyTime, Status: x.Status, CreatedAt: x.CreatedAt, UpdatedAt: x.UpdatedAt, Origin: origin("schedule", x.ID)})
+				b.Schedules = append(b.Schedules, portableSchedule{ID: x.ID, ConversationID: x.ConversationID, BotID: x.BotID, Content: x.Content, Title: x.Title, Description: x.Description, CreatedBy: x.CreatedBy, Kind: x.Kind, Timezone: x.Timezone, NextAtUTC: x.NextAtUTC, IntervalSeconds: x.IntervalSeconds, DailyTime: x.DailyTime, Weekdays: x.Weekdays, Status: x.Status, CreatedAt: x.CreatedAt, UpdatedAt: x.UpdatedAt, Origin: origin("schedule", x.ID)})
 			}
 			if err == nil {
 				err = rows.Err()

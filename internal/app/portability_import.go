@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"github.com/google/uuid"
+	"strings"
 )
 
 func (s *Store) applyPortable(ctx context.Context, b portableBundle, previewID string) (portableResult, error) {
@@ -112,7 +113,7 @@ func (s *Store) applyPortableSQL(ctx context.Context, b portableBundle, previewI
 		}
 	}
 	for _, x := range b.Schedules {
-		if _, err = tx.ExecContext(ctx, `INSERT INTO schedules(id,conversation_id,bot_id,content,title,description,created_by,kind,timezone,next_at_utc,interval_seconds,daily_time,status,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,'paused',?,?)`, id(x.ID), id(x.ConversationID), id(x.BotID), x.Content, x.Title, x.Description, x.CreatedBy, x.Kind, x.Timezone, x.NextAtUTC, x.IntervalSeconds, x.DailyTime, x.CreatedAt, x.UpdatedAt); err != nil {
+		if _, err = tx.ExecContext(ctx, `INSERT INTO schedules(id,conversation_id,bot_id,content,title,description,created_by,kind,timezone,next_at_utc,interval_seconds,daily_time,weekdays,status,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,'paused',?,?)`, id(x.ID), id(x.ConversationID), id(x.BotID), x.Content, x.Title, x.Description, x.CreatedBy, x.Kind, x.Timezone, x.NextAtUTC, x.IntervalSeconds, x.DailyTime, strings.Join(x.Weekdays, ","), x.CreatedAt, x.UpdatedAt); err != nil {
 			return result, false, err
 		}
 		origin := x.Origin

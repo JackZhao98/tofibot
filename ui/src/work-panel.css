@@ -289,3 +289,9 @@
 .schedule-instructions strong { font:600 12px/1.5 var(--body); }
 .schedule-instructions p { white-space:pre-wrap; overflow-wrap:anywhere; margin:6px 0; }
 .schedule-edit { margin-top:12px; }
+
+.workspace .work-create .work-weekdays { display: flex; flex-wrap: wrap; gap: 6px; margin: 0; padding: 0; border: 0; min-width: 0; }
+.workspace .work-create .work-weekdays legend { padding: 0 0 6px; color: var(--ink-soft); font: 12px/1.4 var(--body); }
+.workspace .work-create .work-weekdays button { padding: 6px 10px; border: 1px solid var(--line-soft); border-radius: 10px; background: var(--sunk); color: var(--ink-soft); font: 13px/1.4 var(--body); cursor: pointer; }
+.workspace .work-create .work-weekdays button[aria-pressed="true"] { border-color: var(--ink); background: var(--panel, var(--sunk)); color: var(--ink); }
+.workspace .work-create .work-weekdays button:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
