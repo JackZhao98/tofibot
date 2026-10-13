@@ -1471,6 +1471,13 @@ func (s *Store) AddHandoff(conv, sender, bot, parent, task string) (Message, Run
 	if err = tx.QueryRow(`SELECT model,name FROM bots WHERE id=?`, bot).Scan(&model, &botName); err != nil {
 		return Message{}, Run{}, err
 	}
+	if conversationKind == "group" && sender != "system" {
+		if conflict, cerr := delegationConflictTx(tx, parent, bot); cerr != nil {
+			return Message{}, Run{}, cerr
+		} else if conflict {
+			return Message{}, Run{}, &delegationConflictError{botName: botName}
+		}
+	}
 	var routedTrigger string
 	if sender == "system" {
 		if err = tx.QueryRow(`SELECT trigger_message_id FROM runs WHERE id=? AND kind='triage'`, parent).Scan(&routedTrigger); err != nil {
@@ -3795,6 +3802,10 @@ func (s *Server) toolsUnmarked(c Conversation, r Run) []Tool {
 			_, child, e = s.store.AddHandoff(c.ID, r.BotID, x.BotID, r.ID, x.Task)
 		}
 		if e != nil {
+			var conflict *delegationConflictError
+			if errors.As(e, &conflict) {
+				return "", delegationRefusal(conflict.botName)
+			}
 			return "", e
 		}
 		childConv := c
