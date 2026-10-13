@@ -236,6 +236,8 @@
     },
     "google": {
       "client_json": "OAuth 客户端 JSON",
+      "choose_file": "选择文件…",
+      "no_file": "未选择文件",
       "client_setup": "在 Google Cloud 创建 <strong>Web 应用</strong> OAuth 客户端，把以下地址加入“已获授权的重定向 URI”，再上传下载的 JSON。",
       "connect": "连接 Google",
       "connected_as": "已授权 {{email}}",
