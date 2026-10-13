@@ -6,7 +6,7 @@ const ui = await openUiModules({ language: "zh-CN" });
 
 try {
   const { activeToolForRun, buildToolRunAnchors, buildToolSummaryAnchors, buildToolTimeline, elapsedToolSeconds, orderToolActivities, toolActionLabel, toolArgumentPreview, toolAttemptIssues, toolDisplayLabel, toolDisplayState, toolStepDetail, toolStepTitle } = await ui.load("/src/toolTimeline.ts");
-  const { mergeMessageTimeline, precedingBlockBotId } = await ui.load("/src/messageTimeline.ts");
+  const { mergeMessageTimeline, precedingBlockBotIds } = await ui.load("/src/messageTimeline.ts");
   const { taskPhaseVisible } = await ui.load("/src/taskIssuePresentation.ts");
   const { foldCompletedProgress } = await ui.load("/src/runProgress.ts");
   const base = { conversation_id: "c", bot_id: "b", arguments: "", result: "", status: "completed", truncated: false, updated_at: "2026-09-17T00:00:09Z" };
@@ -116,10 +116,23 @@ try {
   assert(!taskPhaseVisible({ status: "done" }), "a finished turn shows no status text (announced to screen readers only)");
   assert(!taskPhaseVisible({ status: "running" }) && !taskPhaseVisible({ status: "queued" }) && !taskPhaseVisible({ status: "waiting" }), "live state belongs to the Activity row, not a phase line");
   assert(taskPhaseVisible({ status: "cancelled" }) && taskPhaseVisible({ status: "interrupted" }), "an abnormal stop stays visible");
-  const owners = [{ anchor: { kind: "question", id: "q1" }, botId: "ledger" }, { anchor: { kind: "message", id: "m1" }, botId: "news" }, { anchor: { kind: "message", id: "m1" }, botId: "ledger" }];
-  assert(precedingBlockBotId({ kind: "question", id: "q1" }, owners) === "ledger", "a block above the next item names its Bot once");
-  assert(precedingBlockBotId({ kind: "message", id: "m1" }, owners) === "ledger", "the last block before the next item wins");
-  assert(precedingBlockBotId({ kind: "message", id: "other" }, owners) === undefined && precedingBlockBotId(undefined, owners) === undefined, "no adjacent block, no grouping");
+  const { buildTaskOwners } = await ui.load("/src/taskIssuePresentation.ts");
+  const run = (id, bot_id, trigger_message_id, kind = "") => ({ id, conversation_id: "g", bot_id, kind, trigger_message_id, status: "done", created_at: "2026-09-17T03:41:00Z", updated_at: "2026-09-17T03:41:49Z" });
+  const msg = (id, seq, role, sender_bot_id, run_id) => ({ id, seq, conversation_id: "g", role, sender_bot_id, run_id, content: id, created_at: "2026-09-17T03:41:49Z" });
+  const ownerInput = owners => owners.map(owner => ({ anchor: owner.anchor, botId: owner.family.latest.bot_id }));
+  // User message -> root run (tools) -> one final message from the same Bot: the block hangs off the user trigger.
+  const userTrigger = msg("u1", 1, "user", undefined, undefined), final = msg("f1", 2, "assistant", "ledger", "r1");
+  const rootOwners = buildTaskOwners([run("r1", "ledger", "u1")], [userTrigger, final], [], []);
+  assert(rootOwners[0].anchor?.id === "u1", "a root run is anchored to its user trigger, above its final message");
+  assert(precedingBlockBotIds({ kind: "message", id: "u1" }, ownerInput(rootOwners)).includes("ledger"), "user message -> block -> final: the final message does not repeat the name");
+  // Two Bots answer one user message: the earlier block's Bot is not last, yet still named above.
+  const twoOwners = buildTaskOwners([run("r1", "ledger", "u1"), run("r2", "news", "u1")], [userTrigger, final, msg("f2", 3, "assistant", "news", "r2")], [], []);
+  const twoIds = precedingBlockBotIds({ kind: "message", id: "u1" }, ownerInput(twoOwners));
+  assert(twoIds.includes("ledger") && twoIds.includes("news"), "every Bot labelled under one trigger is named once, not only the last block");
+  // group_followup: trigger is another Bot's message.
+  const followOwners = buildTaskOwners([run("r3", "metaphor", "f1", "group_followup")], [userTrigger, final, msg("f3", 3, "assistant", "metaphor", "r3")], [], []);
+  assert(precedingBlockBotIds({ kind: "message", id: "f1" }, ownerInput(followOwners)).join() === "metaphor", "group follow-up block names its Bot once");
+  assert(precedingBlockBotIds({ kind: "message", id: "x" }, ownerInput(rootOwners)).length === 0 && precedingBlockBotIds(undefined, []).length === 0, "no adjacent block, no grouping");
   console.log("tool timeline checks: PASS (run ownership, cancelled history, pagination, overlapping requests, live activity, deduplication, precise ordering)");
 } finally {
   await ui.close();
