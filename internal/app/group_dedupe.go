@@ -131,63 +131,118 @@ func mentionSpans(content string, members []Bot) []mentionSpan {
 	return out
 }
 
-// concurrentMentionContext tells a Bot started by a multi-mention user message
-// which other Bots were addressed in that same message and what each was
-// asked. It returns "" when this run is not one of several concurrent roots.
-func (s *Server) concurrentMentionContext(c Conversation, r Run, bot Bot) string {
-	if c.Kind != "group" || r.TriggerMessageID == "" || r.ParentRunID != "" || r.Kind != "" {
-		return ""
+// coordinatorFamilySQL lists a run and all its descendants.
+const coordinatorFamilySQL = `WITH RECURSIVE family(id) AS (
+	SELECT ? UNION SELECT r.id FROM runs r JOIN family f ON r.parent_run_id=f.id
+)`
+
+// userMentionedHelpers returns the Bots a multi-mention user message addressed
+// besides the coordinator, in order of mention, with the text addressed to each.
+func userMentionedHelpers(anchor Message, coordinator string, members []Bot) (ids []string, asked map[string]string) {
+	parsed := parseMentions(anchor.Content, members)
+	if len(parsed.IDs) < 2 || len(parsed.Unknown) != 0 || len(parsed.Ambiguous) != 0 {
+		return nil, nil
 	}
-	anchor, err := s.store.GetMessage(r.TriggerMessageID)
-	if err != nil || anchor.Role != "user" || anchor.ConversationID != c.ID {
-		return ""
-	}
-	rows, err := s.store.db.Query(`SELECT DISTINCT bot_id FROM runs WHERE trigger_message_id=? AND COALESCE(parent_run_id,'')='' AND kind='' AND bot_id<>?`, anchor.ID, bot.ID)
-	if err != nil {
-		return ""
-	}
-	others := map[string]bool{}
-	for rows.Next() {
-		var id string
-		if rows.Scan(&id) == nil {
-			others[id] = true
+	found := false
+	for _, id := range parsed.IDs {
+		if id == coordinator {
+			found = true
+		} else {
+			ids = append(ids, id)
 		}
 	}
-	rows.Close()
-	if len(others) == 0 {
+	if !found {
+		return nil, nil
+	}
+	spans := mentionSpans(anchor.Content, members)
+	runes := []rune(anchor.Content)
+	asked = map[string]string{}
+	for i, sp := range spans {
+		stop := len(runes)
+		if i+1 < len(spans) {
+			stop = spans[i+1].start
+		}
+		if text := strings.TrimSpace(strings.TrimLeft(string(runes[sp.end:stop]), " \t,，:：-—")); text != "" {
+			asked[sp.botID] += text
+		}
+	}
+	return ids, asked
+}
+
+// coordinationContext tells the coordinator of a multi-mention user message
+// (the only Bot that got a root run) which mentioned Bots still need their part
+// handed over. It serves the root run and every group_followup run in its
+// chain, and returns "" for anything else, including legacy messages whose
+// mentioned Bots did start their own root runs.
+func (s *Server) coordinationContext(c Conversation, r Run, bot Bot) string {
+	if c.Kind != "group" || (r.Kind != "" && r.Kind != runKindFollowup) {
+		return ""
+	}
+	rootID := r.ID
+	root := r
+	for steps := 0; root.ParentRunID != ""; steps++ {
+		if steps > 64 {
+			return ""
+		}
+		p, err := s.store.GetRun(root.ParentRunID)
+		if err != nil {
+			return ""
+		}
+		root, rootID = p, p.ID
+	}
+	if root.Kind != "" || root.BotID != bot.ID || root.TriggerMessageID == "" {
+		return ""
+	}
+	anchor, err := s.store.GetMessage(root.TriggerMessageID)
+	if err != nil || anchor.Role != "user" || anchor.ConversationID != c.ID {
 		return ""
 	}
 	members, err := s.memberBots(c)
 	if err != nil {
 		return ""
 	}
-	spans := mentionSpans(anchor.Content, members)
-	runes := []rune(anchor.Content)
-	asked := map[string]string{}
-	for i, sp := range spans {
-		stop := len(runes)
-		if i+1 < len(spans) {
-			stop = spans[i+1].start
-		}
-		text := strings.TrimSpace(strings.TrimLeft(string(runes[sp.end:stop]), " \t,，:：-—"))
-		if text != "" {
-			asked[sp.botID] += text
+	helpers, asked := userMentionedHelpers(anchor, bot.ID, members)
+	if len(helpers) == 0 {
+		return ""
+	}
+	var otherRoots int
+	if s.store.db.QueryRow(`SELECT COUNT(*) FROM runs WHERE trigger_message_id=? AND COALESCE(parent_run_id,'')='' AND kind='' AND bot_id<>?`, anchor.ID, bot.ID).Scan(&otherRoots) != nil || otherRoots > 0 {
+		return ""
+	}
+	handed := map[string]bool{}
+	rows, err := s.store.db.Query(coordinatorFamilySQL+` SELECT DISTINCT bot_id FROM runs WHERE id IN (SELECT id FROM family) AND kind=? AND status<>'failed'`, rootID, runKindGroupTask)
+	if err != nil {
+		return ""
+	}
+	for rows.Next() {
+		var id string
+		if rows.Scan(&id) == nil {
+			handed[id] = true
 		}
 	}
-	var b strings.Builder
-	b.WriteString("[concurrent mentions]\nThe user's message mentioned several Bots, and each mentioned Bot started its own run at the same time. Other Bots working on it now:\n")
+	rows.Close()
+	byID := map[string]Bot{}
 	for _, m := range members {
-		if !others[m.ID] {
+		byID[m.ID] = m
+	}
+	var pending []string
+	for _, id := range helpers {
+		if handed[id] {
 			continue
 		}
-		text := asked[m.ID]
+		text := asked[id]
 		if text == "" {
-			text = "(no separate text; see the user's message)"
+			text = "(see the user's message)"
 		}
-		fmt.Fprintf(&b, "- %s (id=%s) was asked: %s\n", m.Name, m.ID, trimRunes(text, 600))
+		pending = append(pending, fmt.Sprintf("- %s (id=%s) asked: %s", byID[id].Name, id, trimRunes(text, 600)))
 	}
-	b.WriteString("Do only your own part. Coordinate by replying in the group and end with respond. If your part depends on another Bot's output, never post an \"I will wait\" message: either do your part with what is available now, hand over by listing that Bot in respond.wake with a concrete request, or register respond follow_up with wait_for. Acknowledgements like thanks, ok or done need no answer: respond concluded. Do not delegate the user's request, or another Bot's part, to a Bot that was mentioned in this message; the system will not start a duplicate run for it.\n[/concurrent mentions]")
-	return b.String()
+	if len(pending) == 0 {
+		return "[coordination]\nEvery Bot the user mentioned has returned its part. Use their results to finish the user's request, then reply.\n[/coordination]"
+	}
+	if r.Kind == runKindFollowup {
+		return "[coordination]\nThe user also mentioned these Bots, whose parts are still open. Hand the next one its part with handoff (one per turn) and wait for its result; when none remain, finish the user's request and reply.\n" + strings.Join(pending, "\n") + "\n[/coordination]"
+	}
+	return "[coordination]\nThe user addressed this message to you and also mentioned the Bots below. You coordinate: hand each its part with handoff (one at a time, in order), use their returned results, then finish the user's request and reply.\n" + strings.Join(pending, "\n") + "\n[/coordination]"
 }
 
 // delegationConflictError wraps ErrDelegationToMentionedBot with the target's
