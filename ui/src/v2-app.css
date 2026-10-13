@@ -233,10 +233,6 @@ html:not([data-desktop]) .workspace .new-arrival .message-user .message-content 
    quote) flash the target once via .is-jump-target; keyboard focus keeps the ring. */
 .workspace .message-block.is-jump-target .message-content { outline:2px solid var(--lagoon); outline-offset:4px; animation:v2-focus-flash 1.6s ease-out forwards; }
 @keyframes v2-focus-flash { 0%,45% { outline-color:var(--lagoon); } 100% { outline-color:transparent; } }
-html:not([data-desktop]) .workspace .message-segment .message-content {
-  display:table; max-width:min(78%, 680px); padding:9px 13px; border:1px solid var(--line-soft);
-  border-radius:16px 16px 16px 5px; background:var(--surface-2);
-}
 html:not([data-desktop]) .workspace .new-arrival .message-segment .message-content {
   animation:v2-segment-arrive 300ms cubic-bezier(.22,1,.36,1) both;
 }
@@ -609,9 +605,7 @@ html:not([data-desktop]) .workspace .web-loading-state{min-height:96px;padding-b
 .workspace .composer-reply button:hover { background:var(--surface); color:var(--ink); }
 
 /* Group chats: reactions and live status line up with the message text, not the avatar column. */
-html:not([data-desktop]) .workspace .message-block:has(.message-avatar)>.message-reactions,
-html:not([data-desktop]) .workspace .live-run-status.is-group { margin-left:44px; }
-html[data-desktop] .workspace .message-block:has(.message-avatar)>.message-reactions { margin-left:48px; }
+.workspace .message-block:has(.message-avatar)>.message-reactions { margin-left:var(--sender-gutter); }
 
 /* Bot profile: one header (title + close), the cat and identity, then one list of equal rows —
    plans, memory, name/role/model — each opening exactly one page. Sharing sits quietly at the end. */
