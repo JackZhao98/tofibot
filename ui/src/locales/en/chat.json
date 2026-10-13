@@ -429,6 +429,21 @@
       "microsoft_learn": "No account needed. This lets your Bots search Microsoft docs."
     }
   },
+  "primary": {
+    "badge": "Primary",
+    "badge_hint": "Primary Assistant: handles your general chores",
+    "bot_panel_note": "Handles your general chores.",
+    "delete_notice": "This Bot is your Primary Assistant. Choose which Bot takes over before you delete it.",
+    "hide_body": "Choose which Bot becomes your Primary Assistant before this one is hidden.",
+    "hide_confirm": "Hide and reassign",
+    "hide_failed": "Couldn’t hide the Bot. Try again.",
+    "hide_title": "Hide your Primary Assistant?",
+    "make": "Make Primary Assistant",
+    "reassign_required": "Choose a new Primary Assistant first.",
+    "successor_label": "New Primary Assistant",
+    "successor_placeholder": "Choose a Bot",
+    "working": "Working…"
+  },
   "reactions": {
     "assistant": "Assistant",
     "chip_join_one": "{{emoji}}, {{count}} reaction; click to add yours",

@@ -425,6 +425,21 @@
       "microsoft_learn": "无需账号。连接后你的 Bot 就能搜索 Microsoft 文档。"
     }
   },
+  "primary": {
+    "badge": "主助理",
+    "badge_hint": "主助理：负责你的日常杂事",
+    "bot_panel_note": "负责你的日常杂事。",
+    "delete_notice": "这个 Bot 是你的主助理。删除前，请先选一个 Bot 接任。",
+    "hide_body": "隐藏之前，请先选一个 Bot 作为新的主助理。",
+    "hide_confirm": "隐藏并交接",
+    "hide_failed": "无法隐藏这个 Bot，请重试。",
+    "hide_title": "隐藏你的主助理？",
+    "make": "设为主助理",
+    "reassign_required": "请先选一个新的主助理。",
+    "successor_label": "新的主助理",
+    "successor_placeholder": "选择一个 Bot",
+    "working": "处理中…"
+  },
   "reactions": {
     "assistant": "助理",
     "chip_join_other": "{{emoji}}，{{count}} 人回应；点击加入回应",

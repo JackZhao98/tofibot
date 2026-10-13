@@ -429,6 +429,21 @@
       "microsoft_learn": "Kein Konto nötig. So können deine Bots Microsoft-Dokumentation durchsuchen."
     }
   },
+  "primary": {
+    "badge": "Haupt",
+    "badge_hint": "Hauptassistent: übernimmt deine allgemeinen Aufgaben",
+    "bot_panel_note": "Übernimmt deine allgemeinen Aufgaben.",
+    "delete_notice": "Dieser Bot ist dein Hauptassistent. Wähle vor dem Löschen, welcher Bot übernimmt.",
+    "hide_body": "Wähle, welcher Bot dein Hauptassistent wird, bevor dieser ausgeblendet wird.",
+    "hide_confirm": "Ausblenden und übergeben",
+    "hide_failed": "Der Bot konnte nicht ausgeblendet werden. Versuche es erneut.",
+    "hide_title": "Deinen Hauptassistenten ausblenden?",
+    "make": "Zum Hauptassistenten machen",
+    "reassign_required": "Wähle zuerst einen neuen Hauptassistenten.",
+    "successor_label": "Neuer Hauptassistent",
+    "successor_placeholder": "Bot auswählen",
+    "working": "Wird ausgeführt …"
+  },
   "reactions": {
     "assistant": "Assistent",
     "chip_join_one": "{{emoji}}, {{count}} Reaktion; klicken, um mitzumachen",

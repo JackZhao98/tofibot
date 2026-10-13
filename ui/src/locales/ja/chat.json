@@ -425,6 +425,21 @@
       "microsoft_learn": "アカウントは不要です。Bot が Microsoft のドキュメントを検索できるようになります。"
     }
   },
+  "primary": {
+    "badge": "メイン",
+    "badge_hint": "メインアシスタント：日々の雑用を担当します",
+    "bot_panel_note": "日々の雑用を担当します。",
+    "delete_notice": "この Bot はメインアシスタントです。削除する前に、引き継ぐ Bot を選んでください。",
+    "hide_body": "非表示にする前に、新しいメインアシスタントにする Bot を選んでください。",
+    "hide_confirm": "非表示にして引き継ぐ",
+    "hide_failed": "Bot を非表示にできませんでした。もう一度お試しください。",
+    "hide_title": "メインアシスタントを非表示にしますか？",
+    "make": "メインアシスタントにする",
+    "reassign_required": "先に新しいメインアシスタントを選んでください。",
+    "successor_label": "新しいメインアシスタント",
+    "successor_placeholder": "Bot を選択",
+    "working": "処理中…"
+  },
   "reactions": {
     "assistant": "アシスタント",
     "chip_join_other": "{{emoji}}、{{count}} 人がリアクション。クリックして参加",

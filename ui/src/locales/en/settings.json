@@ -49,6 +49,10 @@
         "name": "Approvals",
         "description": "Who checks a Bot's actions before they run."
       },
+      "followups": {
+        "name": "Follow-ups (preview)",
+        "description": "See what Bots would remind you about"
+      },
       "models": {
         "name": "Models",
         "description": "Where Bots get their brains, and which they use by default."
@@ -682,5 +686,77 @@
   },
   "disclosure": {
     "details": "Details"
+  },
+  "primary": {
+    "title": "Primary Assistant",
+    "description": "The Bot that handles your general chores. There is always exactly one.",
+    "label": "Primary Assistant",
+    "hint": "Takes your general chores first. Other Bots keep working on their own.",
+    "none": "Create a Bot to choose a Primary Assistant.",
+    "choose": "Choose a Bot",
+    "invalid": "That Bot can’t be your Primary Assistant. Choose another.",
+    "save_failed": "Couldn’t change your Primary Assistant. Try again."
+  },
+  "followups": {
+    "load_failed": "Couldn’t load follow-ups. Try again.",
+    "save_failed": "Couldn’t save. Try again.",
+    "banner_title": "Preview only. Nothing is sent.",
+    "banner_body": "Bots read your own messages and list what they would remind you about. Nothing is posted to any chat. Review the items to tune what comes next.",
+    "no_model_title": "No model connected",
+    "no_model_body": "Scanning needs a connected model. Connect one in Models.",
+    "paused_title": "Paused for today",
+    "paused_body": "Follow-up scanning reached its {{limit}} daily budget and resumes tomorrow.",
+    "bots_title": "Bots",
+    "bots_description": "Choose which Bots scan their own conversations. Each Bot tracks its own follow-ups; the Primary Assistant also covers your general chat.",
+    "no_bots": "Create a Bot to preview follow-ups.",
+    "bot_off": "Not scanning",
+    "last_scan": "Last scan {{when}}",
+    "not_scanned": "Waiting for the first scan",
+    "nudges_title": "Would remind you",
+    "nudges_description": "Items a Bot would raise at the right moment once reminders are on.",
+    "digest_title": "Weekly digest",
+    "digest_description": "Lower-priority items that would be collected into one Monday summary.",
+    "closed_title": "Reviewed",
+    "empty_scanning": "Nothing yet. Bots scan every 90 minutes during the day.",
+    "empty_off": "Turn on preview for a Bot to see what it would remind you about.",
+    "today_title": "Today",
+    "limits_title": "Limits",
+    "limits_description": "Shared by all Bots. The Primary Assistant’s items come first.",
+    "due": "due {{when}}",
+    "next": "Next step: {{step}}",
+    "review_label": "Review: {{topic}}",
+    "mode": {
+      "off": "Off",
+      "shadow": "Preview"
+    },
+    "stat": {
+      "scans": "Scans",
+      "found": "New items",
+      "skipped": "Skipped",
+      "skipped_hint": "Too weak, vague or unverifiable to keep",
+      "spent": "Model cost",
+      "feedback": "Your reviews",
+      "feedback_hint": "Useful, annoying, already handled",
+      "feedback_value": "{{useful}} / {{annoying}} / {{handled}}"
+    },
+    "limit": {
+      "cap": "Daily reminders",
+      "cap_hint": "The most reminders you’d get in a day, across all Bots.",
+      "per_day": "{{n}} a day",
+      "budget": "Daily scan budget",
+      "budget_hint": "Scanning pauses for the day when model cost reaches this.",
+      "quiet": "Quiet hours",
+      "quiet_hint": "No reminders at night; weekends only for important items."
+    },
+    "kind": {
+      "waiting": "Waiting on someone",
+      "owner_promise": "You promised",
+      "owner_reminder": "You asked to be reminded"
+    },
+    "verdict": {
+      "useful": "Useful",
+      "annoying": "Annoying",
+      "handled": "Already handled"
+    }
   }
 }

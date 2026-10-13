@@ -433,6 +433,21 @@
       "microsoft_learn": "Aucun compte nécessaire. Tes Bots pourront ainsi chercher dans la documentation Microsoft."
     }
   },
+  "primary": {
+    "badge": "Principal",
+    "badge_hint": "Assistant principal : s’occupe de vos tâches courantes",
+    "bot_panel_note": "S’occupe de vos tâches courantes.",
+    "delete_notice": "Ce Bot est votre assistant principal. Choisissez quel Bot prend le relais avant de le supprimer.",
+    "hide_body": "Choisissez quel Bot devient votre assistant principal avant de masquer celui-ci.",
+    "hide_confirm": "Masquer et réassigner",
+    "hide_failed": "Impossible de masquer le Bot. Réessayez.",
+    "hide_title": "Masquer votre assistant principal ?",
+    "make": "Définir comme assistant principal",
+    "reassign_required": "Choisissez d’abord un nouvel assistant principal.",
+    "successor_label": "Nouvel assistant principal",
+    "successor_placeholder": "Choisir un Bot",
+    "working": "En cours…"
+  },
   "reactions": {
     "assistant": "Assistant",
     "chip_join_many": "{{emoji}}, {{count}} réactions ; cliquez pour ajouter la vôtre",

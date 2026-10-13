@@ -1,0 +1,13 @@
+.followups-page .followup-bot-name{display:inline-flex;align-items:center;gap:8px;min-width:0;max-width:100%}
+.followups-page .followup-bot-label{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.followups-page .followup-stat{color:var(--ink);font:600 14px/1.4 var(--mono);font-variant-numeric:tabular-nums;overflow-wrap:anywhere}
+.followups-page .followup-item{display:grid;gap:6px;padding:14px 16px;min-width:0}
+.followups-page .followup-head{display:flex;align-items:baseline;justify-content:space-between;gap:12px;min-width:0}
+.followups-page .followup-head strong{min-width:0;color:var(--ink);font:600 14px/1.4 var(--body);overflow-wrap:anywhere}
+.followups-page .followup-verdict{flex:none;color:var(--muted);font:600 11px/1.4 var(--mono);text-transform:uppercase;letter-spacing:.04em}
+.followups-page .followup-meta,.followups-page .followup-next{margin:0;color:var(--muted);font:12.5px/1.5 var(--body);overflow-wrap:anywhere}
+.followups-page .followup-quote{margin:0;padding:2px 0 2px 12px;border-left:2px solid var(--line-soft);color:var(--ink-soft);font:13px/1.5 var(--body);overflow-wrap:anywhere}
+.followups-page .followup-actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:4px}
+.followups-page .followup-actions button{min-height:34px;padding:5px 12px;font-size:13px}
+.followups-page .followup-actions button[aria-pressed="true"]{border-color:var(--ink);background:var(--surface-2)}
+.followups-page .followup-item[data-state="handled_by_owner"],.followups-page .followup-item[data-state="dismissed"]{opacity:.7}

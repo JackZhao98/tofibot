@@ -45,6 +45,9 @@ type Bot struct {
 	DMConversationID string `json:"dm_conversation_id"`
 	CreatedAt        string `json:"created_at"`
 	Archived         bool   `json:"archived"`
+	// IsPrimary marks the account's Primary Assistant. It is derived from
+	// user_preferences at read time (withEffectiveModels), never stored here.
+	IsPrimary bool `json:"is_primary,omitempty"`
 	// EffectiveModel and EffectiveReasoningEffort are what the Bot executes
 	// with now; Model/ReasoningEffort stay raw ("default" follows global).
 	EffectiveModel           string `json:"effective_model,omitempty"`
@@ -220,6 +223,7 @@ type Server struct {
 	triageModel                          string
 	closing                              bool
 	scheduler                            *ScheduleWorker
+	followups                            *followupWorker
 	extensions                           *extensions.Manager
 	microVM                              *computer.Client
 	microVMInfoCache                     microVMInfoCache
@@ -650,6 +654,9 @@ CREATE INDEX IF NOT EXISTS events_conversation ON events(conversation_id,id);`)
 	if err := migrateUserPreferences(s.db); err != nil {
 		return err
 	}
+	if err := migrateFollowups(s.db); err != nil {
+		return err
+	}
 	if err := migrateDictationSettings(s.db); err != nil {
 		return err
 	}
@@ -768,6 +775,9 @@ func (s *Store) CreateBotWithReasoning(name, instructions, model, reasoningEffor
 		return Bot{}, err
 	}
 	if _, err = tx.Exec(`INSERT INTO members(conversation_id,bot_id) VALUES(?,?)`, dm, id); err != nil {
+		return Bot{}, err
+	}
+	if err = claimPrimaryIfEmptyTx(tx, id, t); err != nil {
 		return Bot{}, err
 	}
 	if err = insertWorkspaceEventTx(tx, workspaceScopeBots, t); err != nil {
@@ -2340,6 +2350,9 @@ func NewServer(c Config) (*Server, error) {
 		server.startConversationWorker(id)
 	}
 	server.scheduler, e = StartScheduleWorker(context.Background(), server)
+	if e == nil {
+		server.followups = startFollowupWorker(context.Background(), server)
+	}
 	if e != nil {
 		server.stopConversationWorkers()
 		server.stopSummaryWorkers()
@@ -2359,6 +2372,7 @@ func (s *Server) Close() error {
 	if s.scheduler != nil {
 		s.scheduler.Stop()
 	}
+	s.followups.stop()
 	s.stopConversationWorkers()
 	s.stopSummaryWorkers()
 	s.stopTerminalCleanup()
@@ -2514,7 +2528,7 @@ func (s *Server) route(w http.ResponseWriter, r *http.Request) {
 	if s.routeMailDrafts(w, r, p) {
 		return
 	}
-	if s.routePreferences(w, r, p) || s.routeOnboarding(w, r, p) {
+	if s.routePreferences(w, r, p) || s.routeOnboarding(w, r, p) || s.routePrimaryAssistant(w, r, p) || s.routeFollowups(w, r, p) {
 		return
 	}
 	switch {
@@ -2724,6 +2738,7 @@ func (s *Server) bots(w http.ResponseWriter, r *http.Request) {
 			Model           *string `json:"model"`
 			ReasoningEffort *string `json:"reasoning_effort"`
 			Archived        *bool   `json:"archived"`
+			NewPrimaryID    string  `json:"new_primary_id"`
 		}
 		if decode(r, &x) != nil {
 			writeErr(w, 400, "invalid_request", "invalid request")
@@ -2734,7 +2749,7 @@ func (s *Server) bots(w http.ResponseWriter, r *http.Request) {
 				writeErr(w, http.StatusBadRequest, "invalid_request", "archived must be updated separately")
 				return
 			}
-			s.archiveBotHTTP(w, id, *x.Archived)
+			s.archiveBotHTTP(w, id, *x.Archived, x.NewPrimaryID)
 			return
 		}
 		if x.ReasoningEffort != nil {
