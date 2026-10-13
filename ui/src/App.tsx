@@ -4,7 +4,7 @@ import { buildTaskOwners, presentTaskIssue, taskPhaseLabel, type TaskOwner } fro
 import { i18n, useTranslation } from "./i18n";
 import { MemoryPanel } from "./MemoryPanel";
 import { memoryDisplay } from "./displayMetadata";
-import { mergeMessageTimeline, precedingBlockBotIds } from "./messageTimeline";
+import { mergeMessageTimeline, precedingBlockBotIds, previousRenderedIndex } from "./messageTimeline";
 import { textareaCaretRect } from "./textareaCaret";
 import { DelayedFeedback } from "./DelayedFeedback";
 import { WebFileDropOverlay } from "./WebFileDropOverlay";
@@ -1835,8 +1835,14 @@ function Workspace() {
                       const gap = previous ? +new Date(message.created_at) - +new Date(previous.created_at) : 0;
                       const unread = message.seq === viewport.unreadSeq;
                       // A task block (name label + Activity) directly above already names its Bot: show the name once.
-                      const blockBotIds = active.kind === "group" ? precedingBlockBotIds(previousItem?.kind === "message" ? { kind: "message", id: previousItem.message.id } : previousItem?.kind === "question" ? { kind: "question", id: previousItem.question.question_id } : previousItem?.kind === "mail_draft" ? { kind: "draft", id: previousItem.draft.draft_id } : undefined, taskOwners.map(owner => ({ anchor: owner.anchor, botId: owner.family.latest.bot_id }))) : [];
-                      const compact = Boolean(previous && !unread && !message.notice && !previous.notice && sameDay && gap < 5 * 60_000 && senderKey === previousKey) || Boolean(blockBotIds.length && message.role !== "user" && !unread && !message.notice && blockBotIds.includes(senderKey) && previousTime && dateInTimezone(previousTime, timezone) === dateInTimezone(message.created_at, timezone) && +new Date(message.created_at) - +new Date(previousTime) < 5 * 60_000);
+                      const ownedBy = (item: { run_id: string; bot_id: string; conversation_id: string }) => taskOwners.some(owner => owner.family.attempts.some(run => run.id === item.run_id && run.bot_id === item.bot_id && run.conversation_id === item.conversation_id));
+                      const anchorOf = (candidate: (typeof conversationItems)[number] | undefined) => candidate?.kind === "message" ? { kind: "message" as const, id: candidate.message.id } : candidate?.kind === "question" ? { kind: "question" as const, id: candidate.question.question_id } : candidate?.kind === "mail_draft" ? { kind: "draft" as const, id: candidate.draft.draft_id } : undefined;
+                      const itemTime = (candidate: (typeof conversationItems)[number] | undefined) => candidate?.kind === "message" ? candidate.message.created_at : candidate?.kind === "question" ? candidate.question.created_at : candidate?.draft.created_at;
+                      const ownerAnchors = taskOwners.map(owner => ({ anchor: owner.anchor, botId: owner.family.latest.bot_id }));
+                      const drawnAbove = conversationItems[previousRenderedIndex(conversationItems, index, candidate => (candidate.kind === "question" ? ownedBy(candidate.question) : candidate.kind === "mail_draft" ? ownedBy(candidate.draft) : false) && !precedingBlockBotIds(anchorOf(candidate), ownerAnchors).length)];
+                      const blockBotIds = active.kind === "group" ? precedingBlockBotIds(anchorOf(drawnAbove), ownerAnchors) : [];
+                      const blockTime = itemTime(drawnAbove);
+                      const compact = Boolean(previous && !unread && !message.notice && !previous.notice && sameDay && gap < 5 * 60_000 && senderKey === previousKey) || Boolean(blockBotIds.length && message.role !== "user" && !unread && !message.notice && blockBotIds.includes(senderKey) && blockTime && dateInTimezone(blockTime, timezone) === dateInTimezone(message.created_at, timezone) && +new Date(message.created_at) - +new Date(blockTime) < 5 * 60_000);
                       const showDivider = !previousTime || dateInTimezone(previousTime, timezone) !== dateInTimezone(message.created_at, timezone) || +new Date(message.created_at) - +new Date(previousTime) >= 10 * 60_000;
                       const showIdentity = (active.kind === "group" || message.kind === "forward_result" || message.kind === "notice" && runById.get(message.run_id ?? "")?.stop_reason === "approval_expired") && message.role !== "user" && !compact;
                       const processTools = toolTimeline.beforeMessageId.get(message.id) ?? [];
