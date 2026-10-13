@@ -236,6 +236,8 @@
     },
     "google": {
       "client_json": "OAuth 用戶端 JSON",
+      "choose_file": "選擇檔案…",
+      "no_file": "尚未選擇檔案",
       "client_setup": "在 Google Cloud 建立<strong>網頁應用程式</strong> OAuth 用戶端，將下方網址加入「已授權的重新導向 URI」，再上傳下載的 JSON。",
       "connect": "連結 Google",
       "connected_as": "已授權 {{email}}",

@@ -236,6 +236,8 @@
     },
     "google": {
       "client_json": "OAuth クライアント JSON",
+      "choose_file": "ファイルを選択…",
+      "no_file": "ファイルが選択されていません",
       "client_setup": "Google Cloud で<strong>ウェブ アプリケーション</strong>の OAuth クライアントを作成し、下のアドレスを「承認済みのリダイレクト URI」に追加してから、ダウンロードした JSON をアップロードします。",
       "connect": "Google に接続",
       "connected_as": "{{email}} で認可済み",
