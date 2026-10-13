@@ -45,6 +45,12 @@ type Tool struct {
 	// the call was refused before anything committed, so it is reported as a
 	// definite not-executed failure rather than an uncertain external effect.
 	Local bool
+	// ResolveDirectName lets a generic dispatcher tool (call_mcp_tool) claim a
+	// call the model made under a concrete tool name instead of through the
+	// dispatcher. It returns the canonical name to pass as the dispatcher's
+	// "name" argument. It resolves exactly as the dispatcher itself would and
+	// must fail closed (ok=false) for unknown or ambiguous names.
+	ResolveDirectName func(ctx context.Context, name string) (string, bool)
 }
 
 // ToolEvent describes one provider tool call and its lifecycle. Arguments and
