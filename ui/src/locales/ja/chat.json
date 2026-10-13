@@ -232,7 +232,9 @@
   "hover": {
     "react": "リアクションを追加",
     "reply": "返信",
-    "toolbar": "メッセージの操作"
+    "toolbar": "メッセージの操作",
+    "view_activity": "アクティビティを表示",
+    "hide_activity": "アクティビティを隠す"
   },
   "list": {
     "separator": "、"
