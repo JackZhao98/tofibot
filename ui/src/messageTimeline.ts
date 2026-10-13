@@ -17,3 +17,17 @@ export function mergeMessageTimeline(records: Message[], drafts: StreamDraft[]):
     }));
   return [...records, ...streaming].sort((a, b) => a.seq - b.seq);
 }
+
+type TimelineAnchor = { kind: "message" | "question" | "draft"; id: string };
+
+/**
+ * A task block (name label + Activity row) is drawn right after the item it is anchored to. When
+ * the next message comes from the same Bot, the block's label already names the sender, so that
+ * message must not repeat the avatar and name. Returns the Bot that labelled the block directly
+ * above the next item, if any.
+ */
+export function precedingBlockBotId(previous: TimelineAnchor | undefined, owners: { anchor?: TimelineAnchor; botId: string }[]): string | undefined {
+  if (!previous) return undefined;
+  const matching = owners.filter(owner => owner.anchor?.kind === previous.kind && owner.anchor.id === previous.id);
+  return matching.length ? matching[matching.length - 1].botId : undefined;
+}

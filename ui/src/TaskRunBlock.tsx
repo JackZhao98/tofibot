@@ -3,7 +3,7 @@ import { TofiIcon } from "./icons";
 import { MessageMarkdown } from "./MessageMarkdown";
 import { toolDisplayLabel, orderToolActivities, toolDisplayState, toolStepTitle, toolStepSeconds, formatStepSeconds, toolStepDetail } from "./toolTimeline";
 import { TaskIssueCard } from "./TaskIssueCard";
-import { canAnswerQuestion, presentTaskIssue, taskCertaintyText, taskOutcomeText, taskPhaseLabel, taskStatusText, type TaskOwner } from "./taskIssuePresentation";
+import { canAnswerQuestion, presentTaskIssue, taskCertaintyText, taskOutcomeText, taskPhaseLabel, taskPhaseVisible, taskStatusText, type TaskOwner } from "./taskIssuePresentation";
 import { useTranslation, type Language } from "./i18n";
 import { formatClock } from "./i18n/format";
 import { REMEMBERED_APPROVAL_ACTOR, type Question } from "./questionTimeline";
@@ -167,7 +167,7 @@ export function TaskRunBlock({ owner, tools, questions, drafts, messages, summar
   function viewActivity() { if (disclosure.current) { disclosure.current.open = true; disclosure.current.querySelector("summary")?.focus(); } }
   return <section ref={block} className="task-run-block" data-task-owner={owner.key} data-run-id={run.id} data-latest-run-id={run.id} tabIndex={-1} aria-label={t("activity.records_label")}>
     {showName && botName && <p className="task-run-identity">{botName}</p>}
-    {issue ? <TaskIssueCard issue={issue} locale={locale} onFeedback={onFeedback} onOpenStep={openStep} onAction={issue.action === "open_tools" ? onOpenTools : issue.action === "open_codex" ? () => { window.dispatchEvent(new Event("tofi:open-codex-settings")); } : issue.action === "refresh_status" ? onRefresh : viewActivity} /> : !live && !(run.status === "done" && hasFinal) && <p className="task-run-phase">{taskPhaseLabel(input)}</p>}
+    {issue ? <TaskIssueCard issue={issue} locale={locale} onFeedback={onFeedback} onOpenStep={openStep} onAction={issue.action === "open_tools" ? onOpenTools : issue.action === "open_codex" ? () => { window.dispatchEvent(new Event("tofi:open-codex-settings")); } : issue.action === "refresh_status" ? onRefresh : viewActivity} /> : taskPhaseVisible(run) && <p className="task-run-phase">{taskPhaseLabel(input)}</p>}
     {/* A separate valid proposal survives another call's failure/unknown effect. */}
     {decisions.map(renderQuestion)}
     {currentDrafts.filter(draft => draft.status !== "unknown").map(renderDraft)}

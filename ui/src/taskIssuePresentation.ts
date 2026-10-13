@@ -241,6 +241,11 @@ export function taskDiagnostics(issue: TaskIssueView) {
   return JSON.stringify({ records_complete: issue.recordsComplete, evidence: issue.evidence.map(item => ({ source: item.source, id: token(item.id), code: token(item.code), status: token(item.status), certainty: token(item.certainty), model: token(item.model), updated_at: timestamp(item.updatedAt), context_code: token(item.contextCode), failure_category: token(item.failureCategory) })) }, null, 2);
 }
 
+/** Visible phase text only for runs that stopped abnormally. Live state is the Activity row; a finished turn says nothing (screen readers still get the announcement). */
+export function taskPhaseVisible(run: Pick<Run, "status" | "finishing_reason">): boolean {
+  return isTerminalRun(run) && run.status !== "done";
+}
+
 export function taskPhaseLabel(input: TaskPresentationInput) {
   const { run, questions = [], tools = [], drafts = [], locale } = input;
   const t = tasksT(locale);

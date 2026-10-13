@@ -4,7 +4,7 @@ import { buildTaskOwners, presentTaskIssue, taskPhaseLabel, type TaskOwner } fro
 import { i18n, useTranslation } from "./i18n";
 import { MemoryPanel } from "./MemoryPanel";
 import { memoryDisplay } from "./displayMetadata";
-import { mergeMessageTimeline } from "./messageTimeline";
+import { mergeMessageTimeline, precedingBlockBotId } from "./messageTimeline";
 import { textareaCaretRect } from "./textareaCaret";
 import { DelayedFeedback } from "./DelayedFeedback";
 import { WebFileDropOverlay } from "./WebFileDropOverlay";
@@ -1834,7 +1834,9 @@ function Workspace() {
                       const sameDay = Boolean(previous && dateInTimezone(previous.created_at, timezone) === dateInTimezone(message.created_at, timezone));
                       const gap = previous ? +new Date(message.created_at) - +new Date(previous.created_at) : 0;
                       const unread = message.seq === viewport.unreadSeq;
-                      const compact = Boolean(previous && !unread && !message.notice && !previous.notice && sameDay && gap < 5 * 60_000 && senderKey === previousKey);
+                      // A task block (name label + Activity) directly above already names its Bot: show the name once.
+                      const blockBotId = active.kind === "group" ? precedingBlockBotId(previousItem?.kind === "message" ? { kind: "message", id: previousItem.message.id } : previousItem?.kind === "question" ? { kind: "question", id: previousItem.question.question_id } : previousItem?.kind === "mail_draft" ? { kind: "draft", id: previousItem.draft.draft_id } : undefined, taskOwners.map(owner => ({ anchor: owner.anchor, botId: owner.family.latest.bot_id }))) : undefined;
+                      const compact = Boolean(previous && !unread && !message.notice && !previous.notice && sameDay && gap < 5 * 60_000 && senderKey === previousKey) || Boolean(blockBotId && message.role !== "user" && !unread && !message.notice && senderKey === blockBotId && previousTime && dateInTimezone(previousTime, timezone) === dateInTimezone(message.created_at, timezone) && +new Date(message.created_at) - +new Date(previousTime) < 5 * 60_000);
                       const showDivider = !previousTime || dateInTimezone(previousTime, timezone) !== dateInTimezone(message.created_at, timezone) || +new Date(message.created_at) - +new Date(previousTime) >= 10 * 60_000;
                       const showIdentity = (active.kind === "group" || message.kind === "forward_result" || message.kind === "notice" && runById.get(message.run_id ?? "")?.stop_reason === "approval_expired") && message.role !== "user" && !compact;
                       const processTools = toolTimeline.beforeMessageId.get(message.id) ?? [];
