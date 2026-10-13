@@ -129,24 +129,68 @@ func (s *Server) groupRespondTools(c Conversation, r Run) []runtime.Tool {
 	}}}
 }
 
+const waitTimeoutRequest = "The wait timed out: the Bot you were waiting for has not posted. Say plainly what is still missing, or do your part with what is available."
+
+// registerWait persists the wait with its deadline so it survives restarts.
 func (s *Server) registerWait(c Conversation, r Run, waitFor string) error {
 	lineage := lineageKey(s.store.db, r.ID)
-	if _, err := s.store.db.Exec(`INSERT OR REPLACE INTO run_waits(run_id,conversation_id,bot_id,wait_for,lineage,fired,created_at) VALUES(?,?,?,?,?,0,?)`, r.ID, c.ID, r.BotID, waitFor, lineage, now()); err != nil {
-		return err
-	}
 	timeout := s.waitTimeout
 	if timeout <= 0 {
 		timeout = defaultWaitTimeout
 	}
-	time.AfterFunc(timeout, func() {
-		s.fireWait(r.ID, "", "The wait timed out: the Bot you were waiting for has not posted. Say plainly what is still missing, or do your part with what is available.")
-	})
+	deadline := time.Now().UTC().Add(timeout)
+	if _, err := s.store.db.Exec(`INSERT OR REPLACE INTO run_waits(run_id,conversation_id,bot_id,wait_for,lineage,status,deadline_at,created_at) VALUES(?,?,?,?,?,'pending',?,?)`, r.ID, c.ID, r.BotID, waitFor, lineage, deadline.Format(time.RFC3339Nano), now()); err != nil {
+		return err
+	}
+	s.armWait(r.ID, deadline)
 	return nil
 }
 
+func (s *Server) armWait(runID string, deadline time.Time) {
+	time.AfterFunc(time.Until(deadline), func() { s.fireWait(runID, "", waitTimeoutRequest, "expired") })
+}
+
+// armPendingWaits re-arms every pending wait after a start. Overdue waits fire
+// immediately; the conditional status update in fireWait keeps each wake single
+// even if this runs more than once. A wait whose waiter left the group, or whose
+// conversation was deleted, wakes nobody (wake creation checks membership, and
+// deleting the conversation cascades the wait away). A newer user message does
+// not cancel a wait: the wake is just another queued run behind it.
+func (s *Server) armPendingWaits() {
+	rows, err := s.store.db.Query(`SELECT run_id,deadline_at FROM run_waits WHERE status='pending'`)
+	if err != nil {
+		return
+	}
+	type pw struct {
+		id string
+		at time.Time
+	}
+	var all []pw
+	for rows.Next() {
+		var id, at string
+		if rows.Scan(&id, &at) == nil {
+			t, e := time.Parse(time.RFC3339Nano, at)
+			if e != nil {
+				t = time.Now()
+			}
+			all = append(all, pw{id, t})
+		}
+	}
+	rows.Close()
+	for _, w := range all {
+		s.armWait(w.id, w.at)
+	}
+}
+
 // fireWait wakes a registered waiter exactly once. msgID empty means timeout.
-func (s *Server) fireWait(waitRunID, msgID, request string) {
-	res, err := s.store.db.Exec(`UPDATE run_waits SET fired=1 WHERE run_id=? AND fired=0`, waitRunID)
+func (s *Server) fireWait(waitRunID, msgID, request, status string) {
+	s.mu.Lock()
+	closing := s.closing
+	s.mu.Unlock()
+	if closing {
+		return
+	}
+	res, err := s.store.db.Exec(`UPDATE run_waits SET status=? WHERE run_id=? AND status='pending'`, status, waitRunID)
 	if err != nil {
 		return
 	}
@@ -197,7 +241,7 @@ func (s *Server) applyDisposition(c Conversation, r Run, msg Message) {
 			}
 		}
 	}
-	rows, err := s.store.db.Query(`SELECT run_id FROM run_waits WHERE conversation_id=? AND wait_for=? AND fired=0 AND bot_id<>? AND lineage=?`, c.ID, r.BotID, r.BotID, lineageKey(s.store.db, r.ID))
+	rows, err := s.store.db.Query(`SELECT run_id FROM run_waits WHERE conversation_id=? AND wait_for=? AND status='pending' AND bot_id<>? AND lineage=?`, c.ID, r.BotID, r.BotID, lineageKey(s.store.db, r.ID))
 	if err != nil {
 		return
 	}
@@ -214,6 +258,6 @@ func (s *Server) applyDisposition(c Conversation, r Run, msg Message) {
 		name = b.Name
 	}
 	for _, id := range waiters {
-		s.fireWait(id, msg.ID, fmt.Sprintf("%s posted the content you were waiting for (see the message above). Continue your part with it.", name))
+		s.fireWait(id, msg.ID, fmt.Sprintf("%s posted the content you were waiting for (see the message above). Continue your part with it.", name), "fulfilled")
 	}
 }

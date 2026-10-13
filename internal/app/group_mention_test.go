@@ -377,3 +377,93 @@ func TestAddMentionWakeBusyAndIdempotent(t *testing.T) {
 		t.Fatal("new request should wake a finished Bot")
 	}
 }
+
+// restartWithWait builds a data dir holding a finished run that registered a
+// follow_up with the given deadline, then starts a fresh server on it.
+func restartWithWait(t *testing.T, deadline time.Time) (*Server, Conversation, Bot) {
+	t.Helper()
+	dir := t.TempDir()
+	store, err := OpenStore(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	a, _ := store.CreateBot("tofi", "", "model")
+	b, _ := store.CreateBot("metaphor", "", "model")
+	g, _ := store.CreateGroup("duo", []string{a.ID, b.ID})
+	_, runs, _, err := store.AddUserRuns(g.ID, "@tofi wait for metaphor", "client-1", []runSpec{{BotID: a.ID, Model: a.Model}}, true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := store.SetRunStatus(runs[0].ID, "done", ""); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := store.db.Exec(`INSERT INTO run_waits(run_id,conversation_id,bot_id,wait_for,lineage,status,deadline_at,created_at) VALUES(?,?,?,?,?,'pending',?,?)`, runs[0].ID, g.ID, a.ID, b.ID, runs[0].TriggerMessageID, deadline.UTC().Format(time.RFC3339Nano), now()); err != nil {
+		t.Fatal(err)
+	}
+	if err := store.Close(); err != nil {
+		t.Fatal(err)
+	}
+	engine := &mentionEngine{reply: func(context.Context, runtime.Request, string) string { return "ok" }}
+	server, err := NewServer(Config{DataDir: dir, Engine: engine})
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { server.Close() })
+	g, _ = server.store.GetConversation(g.ID)
+	return server, g, a
+}
+
+func wakeCount(s *Server, conv string) int {
+	runs, _ := s.store.Runs(conv)
+	return countKind(runs, runKindGroupMention, "")
+}
+
+func TestRestartFiresOverdueWaitOnce(t *testing.T) {
+	s, g, _ := restartWithWait(t, time.Now().Add(-time.Minute))
+	deadline := time.Now().Add(5 * time.Second)
+	for wakeCount(s, g.ID) == 0 && time.Now().Before(deadline) {
+		time.Sleep(20 * time.Millisecond)
+	}
+	s.armPendingWaits() // double start
+	s.armPendingWaits()
+	time.Sleep(300 * time.Millisecond)
+	if n := wakeCount(s, g.ID); n != 1 {
+		t.Fatalf("wakes=%d", n)
+	}
+	var status string
+	_ = s.store.db.QueryRow(`SELECT status FROM run_waits`).Scan(&status)
+	if status != "expired" {
+		t.Fatalf("status=%s", status)
+	}
+}
+
+func TestRestartRearmsFutureWaitAtDeadline(t *testing.T) {
+	s, g, _ := restartWithWait(t, time.Now().Add(600*time.Millisecond))
+	time.Sleep(200 * time.Millisecond)
+	if n := wakeCount(s, g.ID); n != 0 {
+		t.Fatalf("woken before deadline: %d", n)
+	}
+	deadline := time.Now().Add(5 * time.Second)
+	for wakeCount(s, g.ID) == 0 && time.Now().Before(deadline) {
+		time.Sleep(20 * time.Millisecond)
+	}
+	time.Sleep(200 * time.Millisecond)
+	if n := wakeCount(s, g.ID); n != 1 {
+		t.Fatalf("wakes=%d", n)
+	}
+}
+
+func TestWaitOfRemovedMemberWakesNobody(t *testing.T) {
+	s, g, a := restartWithWait(t, time.Now().Add(time.Hour))
+	if _, err := s.store.db.Exec(`DELETE FROM members WHERE conversation_id=? AND bot_id=?`, g.ID, a.ID); err != nil {
+		t.Fatal(err)
+	}
+	s.fireWait(func() string {
+		var id string
+		_ = s.store.db.QueryRow(`SELECT run_id FROM run_waits`).Scan(&id)
+		return id
+	}(), "", "x", "expired")
+	if n := wakeCount(s, g.ID); n != 0 {
+		t.Fatalf("removed member woken: %d", n)
+	}
+}
