@@ -304,6 +304,8 @@
     "member": "Mitglied",
     "original": "Original",
     "reply_to": "Antwort an {{name}}",
+    "resume_continuing": "Die Aufgabe wird ab dem letzten Checkpoint fortgesetzt.",
+    "resume_restart": "Dienst neu gestartet. Die Aufgabe wird ab dem letzten Checkpoint fortgesetzt.",
     "scheduled": "Geplante Aufgabe",
     "system": "Systemhinweis",
     "tool": "Tool",
