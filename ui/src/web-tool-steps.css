@@ -15,7 +15,7 @@ html:not([data-desktop]) .workspace .web-tool-summary{display:flex;align-items:c
 html:not([data-desktop]) .workspace .web-tool-run.is-live .web-tool-summary{color:var(--lagoon-text)}
 html:not([data-desktop]) .workspace .web-tool-toggle{display:inline-flex;align-items:center;gap:4px;margin-left:4px;padding:4px 6px;border:0;border-radius:8px;background:transparent;color:inherit;font:inherit;cursor:pointer}
 html:not([data-desktop]) .workspace .web-tool-toggle:hover{color:var(--ink);background:var(--surface-2)}
-html:not([data-desktop]) .workspace .web-tool-toggle:focus-visible{outline:2px solid var(--focus);outline-offset:2px}
+html:not([data-desktop]) .workspace .web-tool-toggle:focus-visible{outline:var(--focus-ring-width) solid var(--focus-ring);outline-offset:2px}
 html:not([data-desktop]) .workspace .web-tool-run.is-complete:not(.has-tool-issues) .web-tool-toggle{opacity:.72}
 html:not([data-desktop]) .workspace .web-tool-run.has-tool-issues .web-tool-toggle{color:var(--danger-text)}
 html:not([data-desktop]) .workspace .web-tool-live-label{color:transparent;background-image:linear-gradient(100deg,var(--lagoon-text) 10%,var(--ink-soft) 45%,var(--lagoon-text) 80%);background-size:240% 100%;background-clip:text;-webkit-background-clip:text;animation:web-tool-label-sheen 2.4s linear infinite}
@@ -34,7 +34,7 @@ html:not([data-desktop]) .workspace .web-tool-step>svg{margin-top:1px}
 html:not([data-desktop]) .workspace .web-tool-step-detail{min-width:0}
 html:not([data-desktop]) .workspace .web-tool-step-detail>summary{display:block;min-height:0;padding:0;border:0;background:none;color:inherit;cursor:pointer;list-style:none}
 html:not([data-desktop]) .workspace .web-tool-step-detail>summary::-webkit-details-marker{display:none}
-html:not([data-desktop]) .workspace .web-tool-step-detail>summary:focus-visible{outline:2px solid var(--focus);outline-offset:2px}
+html:not([data-desktop]) .workspace .web-tool-step-detail>summary:focus-visible{outline:var(--focus-ring-width) solid var(--focus-ring);outline-offset:2px}
 html:not([data-desktop]) .workspace .web-tool-step-label{display:block;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 html:not([data-desktop]) .workspace .web-tool-step:is(.is-running,.is-queued) .web-tool-step-label{color:transparent;background-image:linear-gradient(100deg,var(--ink) 0 30%,var(--lagoon-text) 44% 56%,var(--ink) 70% 100%);background-size:260% 100%;background-clip:text;-webkit-background-clip:text;animation:web-tool-label-sheen 1.8s linear infinite}
 html:not([data-desktop]) .workspace .web-tool-step-meta{display:inline-flex;align-items:center;gap:6px;white-space:nowrap;color:var(--muted);font:var(--type-status);font-variant-numeric:tabular-nums}

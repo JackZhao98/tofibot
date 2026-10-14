@@ -1,6 +1,7 @@
 // File cards + online preview: one card after a re-publish, typed tiles, viewer for md/txt/csv/json/pdf/image,
 // inline attachment links, in-document links with Back, unsupported fallback, iPad and phone screenshots.
 // Synthetic data; /api is answered in the browser. Run: PLAYWRIGHT_MODULE=/path/to/playwright/index.mjs npm run test:file-preview
+import { auditFocus, focusRingProbe } from "./focus-audit.mjs";
 import assert from "node:assert/strict";
 import { mkdirSync } from "node:fs";
 import { fileURLToPath } from "node:url";
@@ -91,6 +92,36 @@ async function open(width, height, { locale = "zh-CN", theme = "light" } = {}) {
   await page.evaluate(() => document.fonts.ready);
   await page.waitForTimeout(400);
   return { page, context, errors };
+}
+
+// Focus rule: a ring appears only for keyboard navigation. Opening the viewer with a click/tap must not ring anything
+// (the dialog's auto-focus used to ring Download); Tab then rings what it focuses; the pointer sweep samples the page.
+async function focusRule(page, { touch = false } = {}) {
+  const ringless = async what => { const probe = await page.evaluate(focusRingProbe); assert.ok(probe.none || probe.field || !probe.ring, `${what}: ${probe.focused} draws ${probe.ring?.ring}`); };
+  for (const name of ["frevana-seo-analysis.md", "notes.txt", "data.csv", ...(touch ? [] : ["model.xlsx"])]) {
+    await page.evaluate(() => document.activeElement instanceof HTMLElement && document.activeElement.blur());
+    await card(page, name).scrollIntoViewIfNeeded();
+    if (touch) { const box = await card(page, name).boundingBox(); await page.touchscreen.tap(box.x + Math.min(40, box.width / 2), box.y + box.height / 2); } else await card(page, name).click();
+    await viewer(page).waitFor().catch(error => { throw new Error(`${name}: viewer did not open (${error.message.split("\n")[0]})`); });
+    await page.waitForTimeout(120);
+    await ringless(`opened ${name} by pointer`);
+    await page.keyboard.press("Tab");
+    await page.waitForTimeout(100); // outlines inherit the global transition; let it start
+    const probe = await page.evaluate(focusRingProbe);
+    assert.ok(probe.ring || probe.field, `Tab inside the viewer (${name}) must ring ${probe.focused}`);
+    await page.keyboard.press("Escape"); await viewer(page).waitFor({ state: "detached" });
+    // closing with a pointer press on the close button leaves no ring on the card that regains focus
+    await card(page, name).scrollIntoViewIfNeeded();
+    if (touch) { const box = await card(page, name).boundingBox(); await page.touchscreen.tap(box.x + Math.min(40, box.width / 2), box.y + box.height / 2); } else await card(page, name).click();
+    await viewer(page).waitFor();
+    const close = await viewer(page).locator("button[aria-label]").last().boundingBox();
+    if (touch) await page.touchscreen.tap(close.x + close.width / 2, close.y + close.height / 2); else await page.mouse.click(close.x + close.width / 2, close.y + close.height / 2);
+    await viewer(page).waitFor({ state: "detached" });
+    await page.waitForTimeout(120);
+    await ringless(`closed ${name} by pointer`);
+  }
+  const found = await auditFocus(page, { touch, scope: "file-preview page" });
+  assert.deepEqual(found, [], JSON.stringify(found));
 }
 
 const viewer = page => page.locator("dialog.file-preview[open]");
@@ -247,6 +278,8 @@ try {
     await closeViewer(page);
   });
 
+  await step("focus rings are keyboard-only (iPad, mouse)", () => focusRule(page));
+
   await step("no page errors on iPad", async () => assert.deepEqual(errors, []));
   await page.screenshot({ path: join(shots, "ipad-cards.png") });
   await context.close();
@@ -267,6 +300,7 @@ try {
     await closeViewer(phone.page);
     assert.deepEqual(phone.errors, []);
   });
+  await step("focus rings are keyboard-only (phone, tap)", () => focusRule(phone.page, { touch: true }));
   await phone.context.close();
 
   const dark = await open(1180, 820, { theme: "dark", locale: "en" });
@@ -278,6 +312,7 @@ try {
     await closeViewer(dark.page);
     await dark.page.screenshot({ path: join(shots, "ipad-dark-cards.png") });
   });
+  await step("focus rings are keyboard-only (dark)", () => focusRule(dark.page));
   await dark.context.close();
 } finally {
   await browser.close();

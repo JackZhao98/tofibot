@@ -1,0 +1,23 @@
+/* One focus indication for the whole product: a ring for keyboard navigation only.
+   Tokens live in design-tokens.css (--focus-ring-width, --focus-ring-offset, --focus-ring). Component rules may change
+   the offset (tight rows use a negative one) but never the width or color. */
+
+/* Baseline: any focusable control without a rule of its own still shows the shared ring for the keyboard. */
+:where(a[href], button, summary, select, input, textarea, iframe, [tabindex]:not([tabindex="-1"], .fp-body)):focus-visible {
+  outline: var(--focus-ring-width) solid var(--focus-ring); outline-offset: var(--focus-ring-offset);
+}
+/* Containers that only receive script focus (dialogs, panes, anchored records) are never ringed. */
+:is(dialog, [role="dialog"], [role="alertdialog"], [tabindex="-1"]):focus,
+:is(dialog, [role="dialog"], [role="alertdialog"], [tabindex="-1"]):focus-visible { outline: none; }
+
+/* Pointer modality (see focusModality.ts): clicks, taps and script focus that follows them draw nothing.
+   Text-entry fields keep their frame: it marks where typing lands, and the caret alone is not enough. */
+html[data-input="pointer"] :focus-visible:not(input:not([type="checkbox"], [type="radio"], [type="button"], [type="submit"], [type="file"]), textarea, select),
+html[data-input="pointer"] .message-block:focus-visible .message-content,
+html[data-input="pointer"] :is(.sheet-radio, .sheet-check, .check-row):has(:focus-visible) {
+  outline-color: transparent !important;
+}
+html[data-input="pointer"] :is(button, a, summary, [role="button"], [tabindex]):focus-visible { box-shadow: none; }
+@media (forced-colors: active) {
+  html[data-input="pointer"] :focus-visible:not(input, textarea, select) { outline-color: transparent !important; }
+}
