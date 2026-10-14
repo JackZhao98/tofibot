@@ -282,12 +282,15 @@ func settleRestartedActivitiesTx(tx *sql.Tx, runID, t string) error {
 }
 
 // runHadObservableWork reports whether a run did anything a restart must not
-// repeat or hide: a tool call, a published turn, or a visible message.
+// repeat or hide: a tool call, a published turn, a visible message, or a
+// handoff (the child run, not this one, carries its notice).
 func runHadObservableWork(tx *sql.Tx, runID string) (bool, error) {
 	var found bool
 	err := tx.QueryRow(`SELECT EXISTS(SELECT 1 FROM tool_activities WHERE run_id=?)
 		OR EXISTS(SELECT 1 FROM stream_assistant_turns WHERE run_id=?)
-		OR EXISTS(SELECT 1 FROM messages WHERE run_id=? AND role='assistant' AND kind<>'notice')`, runID, runID, runID).Scan(&found)
+		OR EXISTS(SELECT 1 FROM messages WHERE run_id=? AND role='assistant' AND kind<>'notice')
+		OR EXISTS(SELECT 1 FROM runs WHERE parent_run_id=?)
+		OR EXISTS(SELECT 1 FROM runs WHERE id=? AND handoff_count>0)`, runID, runID, runID, runID, runID).Scan(&found)
 	return found, err
 }
 
@@ -304,11 +307,23 @@ func recoverRunningRunTx(tx *sql.Tx, run Run, t string) (Run, bool, error) {
 		hasCheckpoint = false
 	}
 	if hasCheckpoint {
-		if _, err := runtime.BoundaryCheckpoint(json.RawMessage(checkpoint), run.ID, run.BotID); err != nil {
+		c, err := runtime.BoundaryCheckpoint(json.RawMessage(checkpoint), run.ID, run.BotID)
+		if err != nil {
 			// A snapshot this build cannot read (for example written by a newer
 			// build before a rollback) is not a boundary to resume from.
 			log.Printf("[run] checkpoint for %s is unusable, interrupting instead of resuming: %v", run.ID, err)
 			hasCheckpoint = false
+		} else {
+			// A turn is published before its "turn" checkpoint. If the process died
+			// between the two, the model would regenerate an already published turn.
+			var published sql.NullInt64
+			if err = tx.QueryRow(`SELECT MAX(turn_index) FROM stream_assistant_turns WHERE run_id=?`, run.ID).Scan(&published); err != nil {
+				return run, false, err
+			}
+			if published.Valid && int(published.Int64) > c.AssistantTurnIndex {
+				log.Printf("[run] checkpoint for %s predates published turn %d, interrupting instead of resuming", run.ID, published.Int64)
+				hasCheckpoint = false
+			}
 		}
 	}
 	hadWork, err := runHadObservableWork(tx, run.ID)

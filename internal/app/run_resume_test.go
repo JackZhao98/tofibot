@@ -109,14 +109,12 @@ type resumeFixture struct {
 	bot  Bot
 	conv Conversation
 	run  Run
+	// executions counts every real execution of the in-flight tool.
+	executions *atomic.Int32
 }
 
-// crashedRun leaves dir looking exactly as a killed process would: the run is
-// running, its last durable checkpoint is the boundary after the first tool of
-// a three-call batch, the second call is mid-execution (its activity row is
-// "running") and the third is still queued. The real runtime writes every row
-// through the real hooks; the "crash" is that nothing is recorded after the
-// blocking tool starts.
+// crashedRun leaves a fresh dir looking exactly as a killed process would; see
+// crashExisting.
 func crashedRun(t *testing.T, inflightTool string) resumeFixture {
 	t.Helper()
 	dir := t.TempDir()
@@ -138,16 +136,36 @@ func crashedRun(t *testing.T, inflightTool string) resumeFixture {
 	if err != nil || !ok || claim.Attempt != 1 {
 		t.Fatalf("claim=%+v ok=%v err=%v", claim, ok, err)
 	}
+	executions := crashExisting(t, s, bot, conv, run, claim.Attempt, inflightTool)
+	return resumeFixture{dir: dir, bot: bot, conv: conv, run: run, executions: executions}
+}
+
+// crashExisting runs a claimed run through the real runtime until the process
+// would die: the run is running with a live stream draft (opened the way
+// execute does), its last durable checkpoint is the boundary after the first
+// tool of a three-call batch, the second call is mid-execution (activity row
+// "running") and the third is still queued. Nothing is recorded after the
+// blocking tool starts. It returns the execution counter of the in-flight tool.
+func crashExisting(t *testing.T, s *Store, bot Bot, conv Conversation, run Run, attempt int, inflightTool string) *atomic.Int32 {
+	t.Helper()
+	if _, err := s.BeginStream(run); err != nil {
+		t.Fatal(err)
+	}
+	if _, _, err := s.AppendStreamDelta(context.Background(), run.ID, "half a sentence that never finishe"); err != nil {
+		t.Fatal(err)
+	}
 	model := newFakeModel(t, fakeStep{calls: []fakeCall{
 		{"call-a", "search_history", `{"query":"first"}`},
 		{"call-b", inflightTool, `{"id":"x"}`},
 		{"call-c", "search_history", `{"query":"third"}`},
 	}})
 	var crashed atomic.Bool
+	var executions atomic.Int32
 	started := make(chan struct{})
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	block := func(ctx context.Context, _ json.RawMessage) (string, error) {
+		executions.Add(1)
 		crashed.Store(true)
 		close(started)
 		<-ctx.Done()
@@ -160,13 +178,13 @@ func crashedRun(t *testing.T, inflightTool string) resumeFixture {
 	done := make(chan error, 1)
 	go func() {
 		_, err := model.engine(t).Run(ctx, runtime.Request{
-			BotID: bot.ID, RunID: run.ID, ConversationID: conv.ID, Attempt: claim.Attempt,
+			BotID: bot.ID, RunID: run.ID, ConversationID: conv.ID, Attempt: attempt,
 			Messages: []runtime.Message{{Role: "user", Content: "synthetic task"}}, Tools: tools,
 			OnCheckpoint: func(kind string, cp json.RawMessage) error {
 				if crashed.Load() {
 					return nil
 				}
-				return s.SaveRunCheckpoint(ctx, run.ID, claim.Attempt, kind, cp)
+				return s.SaveRunCheckpoint(ctx, run.ID, attempt, kind, cp)
 			},
 			OnToolEvent: func(ev runtime.ToolEvent) error {
 				if crashed.Load() {
@@ -184,7 +202,7 @@ func crashedRun(t *testing.T, inflightTool string) resumeFixture {
 	}
 	cancel()
 	<-done
-	return resumeFixture{dir: dir, bot: bot, conv: conv, run: run}
+	return &executions
 }
 
 func runColumns(t *testing.T, s *Store, runID string) (status string, attempt, resumes int, notice, errText string) {
@@ -599,4 +617,185 @@ func (e checkpointProbeEngine) Run(_ context.Context, req runtime.Request) (runt
 		return runtime.Result{}, err
 	}
 	return runtime.Result{Content: "ok"}, nil
+}
+
+// ---- Review fixes ----
+
+// A turn is published before its "turn" checkpoint; if the process died in
+// between, resuming from the older checkpoint would regenerate a published turn.
+func TestCheckpointOlderThanPublishedTurnIsNotResumed(t *testing.T) {
+	f := crashedRun(t, "write_effect")
+	s, err := openStore(f.dir, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer s.Close()
+	if _, _, err := s.PublishAssistantTurn(context.Background(), f.run.ID, 2, "A progress note published before its checkpoint."); err != nil {
+		t.Fatal(err)
+	}
+	if err := recoverInterruptedRuns(s.db); err != nil {
+		t.Fatal(err)
+	}
+	status, _, resumes, notice, _ := runColumns(t, s, f.run.ID)
+	if status != "interrupted" || resumes != 0 || notice != "" {
+		t.Fatalf("status=%s resumes=%d notice=%q, want interrupted", status, resumes, notice)
+	}
+}
+
+// A handoff's notice lives under the child run; the parent still did something.
+func TestRunWithHandoffChildIsNotRequeued(t *testing.T) {
+	s, err := OpenStore(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer s.Close()
+	bot, _ := s.CreateBot("triage", "", "synthetic")
+	conv, _ := s.GetConversation(bot.DMConversationID)
+	_, run, _, _ := s.AddUserRun(conv.ID, bot.ID, "route this", "triage")
+	if _, ok, err := s.claimRun(context.Background(), run.ID); err != nil || !ok {
+		t.Fatal(ok, err)
+	}
+	if _, err := s.AddRun(conv.ID, bot.ID, run.ID); err != nil {
+		t.Fatal(err)
+	}
+	if err := recoverInterruptedRuns(s.db); err != nil {
+		t.Fatal(err)
+	}
+	if status, _, _, _, _ := runColumns(t, s, run.ID); status != "interrupted" {
+		t.Fatalf("status=%s, want interrupted", status)
+	}
+}
+
+// The tool finished and was recorded, but the process died before the next
+// checkpoint: the resumed model gets the recorded result and the tool is not run again.
+func TestCompletedToolWithoutCheckpointReplaysRecordedResult(t *testing.T) {
+	f := crashedRun(t, "write_effect")
+	s, err := openStore(f.dir, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.db.Exec(`UPDATE tool_activities SET status='completed',result='RECORDED-WRITE-RESULT',outcome_json='' WHERE run_id=? AND call_id='call-b'`, f.run.ID); err != nil {
+		t.Fatal(err)
+	}
+	if err := recoverInterruptedRuns(s.db); err != nil {
+		t.Fatal(err)
+	}
+	var checkpoint string
+	if err := s.db.QueryRow(`SELECT checkpoint_json FROM run_checkpoints WHERE run_id=?`, f.run.ID).Scan(&checkpoint); err != nil {
+		t.Fatal(err)
+	}
+	settled, err := s.boundarySettlements(f.run.ID, f.bot.ID, json.RawMessage(checkpoint))
+	if err != nil {
+		t.Fatal(err)
+	}
+	s.Close()
+	if got := settled["call-b"]; got.Content != "RECORDED-WRITE-RESULT" || got.Failed || got.Outcome != nil {
+		t.Fatalf("completed call settlement = %+v", got)
+	}
+	if got := settled["call-c"]; got.Outcome == nil || got.Outcome.Code != "batch_skipped" {
+		t.Fatalf("tail settlement = %+v", got)
+	}
+
+	model := newFakeModel(t, fakeStep{content: "all good"})
+	counted := Tool{Name: "write_effect", Parameters: map[string]any{"type": "object"}, Execute: func(context.Context, json.RawMessage) (string, error) {
+		f.executions.Add(1)
+		return "executed again", nil
+	}}
+	_, err = model.engine(t).Run(context.Background(), runtime.Request{
+		BotID: f.bot.ID, RunID: f.run.ID, ConversationID: f.conv.ID, Attempt: 2,
+		Messages: []runtime.Message{{Role: "user", Content: "synthetic task"}}, Tools: []Tool{counted},
+		Continuation: json.RawMessage(checkpoint), ResumeToolResults: settled,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if f.executions.Load() != 1 {
+		t.Fatalf("write_effect executed %d times, want exactly the original 1", f.executions.Load())
+	}
+	body := model.requests()[0]
+	if !strings.Contains(body, "RECORDED-WRITE-RESULT") || strings.Contains(body, "restart_interrupted_effect") {
+		t.Fatalf("resumed request does not carry the recorded result:\n%s", body)
+	}
+}
+
+// A scheduled occurrence that has a checkpoint is resumed in place: same run,
+// no second occurrence.
+func TestScheduledRunWithCheckpointResumesItsOccurrence(t *testing.T) {
+	dir := t.TempDir()
+	s, bot, conv := scheduleTestStoreAt(t, dir)
+	x, err := s.CreateSchedule(conv.ID, bot.ID, ScheduleSpec{Content: "resume me", Kind: scheduleOnce, RunAt: time.Now().Add(time.Hour).Format(time.RFC3339), Timezone: "UTC"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	makeDue(t, s, x.ID, time.Now().Add(-time.Minute))
+	runs, err := s.ClaimDueSchedules(time.Now())
+	if err != nil || len(runs) != 1 {
+		t.Fatalf("claim=%+v err=%v", runs, err)
+	}
+	claim, ok, err := s.claimRun(context.Background(), runs[0].ID)
+	if err != nil || !ok {
+		t.Fatal(ok, err)
+	}
+	crashExisting(t, s, bot, conv, runs[0], claim.Attempt, "write_effect")
+	var runsBefore, occurrencesBefore int
+	_ = s.db.QueryRow(`SELECT COUNT(*) FROM runs`).Scan(&runsBefore)
+	_ = s.db.QueryRow(`SELECT COUNT(*) FROM schedule_occurrences WHERE schedule_id=?`, x.ID).Scan(&occurrencesBefore)
+	s.Close()
+
+	s, err = OpenStore(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer s.Close()
+	if err := migrateSchedules(s.db); err != nil {
+		t.Fatal(err)
+	}
+	status, _, resumes, notice, _ := runColumns(t, s, runs[0].ID)
+	if status != "queued" || resumes != 1 || notice != "restart" {
+		t.Fatalf("scheduled run status=%s resumes=%d notice=%q", status, resumes, notice)
+	}
+	again, err := s.ClaimDueSchedules(time.Now().Add(2 * time.Hour))
+	if err != nil || len(again) != 0 {
+		t.Fatalf("occurrence replayed: %+v %v", again, err)
+	}
+	var runsAfter, occurrencesAfter int
+	_ = s.db.QueryRow(`SELECT COUNT(*) FROM runs`).Scan(&runsAfter)
+	_ = s.db.QueryRow(`SELECT COUNT(*) FROM schedule_occurrences WHERE schedule_id=?`, x.ID).Scan(&occurrencesAfter)
+	if runsAfter != runsBefore || occurrencesAfter != occurrencesBefore {
+		t.Fatalf("runs %d->%d occurrences %d->%d", runsBefore, runsAfter, occurrencesBefore, occurrencesAfter)
+	}
+}
+
+// Resuming a run that never did anything shows the user nothing.
+func TestNothingHappenedResumePostsNoNotice(t *testing.T) {
+	dir := t.TempDir()
+	s, err := OpenStore(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	bot, _ := s.CreateBot("quiet", "", "model")
+	conv, _ := s.GetConversation(bot.DMConversationID)
+	_, run, _, _ := s.AddUserRun(conv.ID, bot.ID, "hello", "quiet")
+	if _, ok, err := s.claimRun(context.Background(), run.ID); err != nil || !ok {
+		t.Fatal(ok, err)
+	}
+	s.Close()
+	srv, err := NewServer(Config{DataDir: dir, Engine: testEngine{}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer srv.Close()
+	waitForStatus(t, srv, run.ID, "done")
+	msgs, _, err := srv.store.Messages(conv.ID, 0, 50)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, m := range msgs {
+		if m.Notice != nil && m.Notice.Type == "resume" {
+			t.Fatalf("unexpected resume notice: %+v", m)
+		}
+	}
+	if _, attempt, resumes, _, _ := runColumns(t, srv.store, run.ID); attempt != 2 || resumes != 1 {
+		t.Fatalf("attempt=%d resumes=%d", attempt, resumes)
+	}
 }
