@@ -209,6 +209,7 @@ func TestStorePagingRestartAndCanonicalDM(t *testing.T) {
 	}
 	r, _ := s.AddRun(a.DMConversationID, a.ID, "")
 	s.SetRunStatus(r.ID, "running", "")
+	giveRunObservableWork(t, s, r)
 	s.Close()
 	s, e = OpenStore(d)
 	if e != nil {

@@ -83,7 +83,10 @@
     "tool_timeout": "Keine Antwort rechtzeitig, abgebrochen",
     "computer_restarting": "Der Computer startet neu; dieser Schritt wurde nicht ausgeführt",
     "computer_unresponsive": "Der Computer reagiert nicht; dieser Schritt wurde nicht ausgeführt",
-    "tool_rejected": "Vor der Ausführung abgelehnt, nichts geändert"
+    "tool_rejected": "Vor der Ausführung abgelehnt, nichts geändert",
+    "restart_interrupted": "Lief bei der Unterbrechung; kann gefahrlos wiederholt werden",
+    "restart_interrupted_effect": "Lief bei der Unterbrechung; Wirkung nicht geprüft",
+    "batch_skipped_restart": "Nach dem Dienstneustart übersprungen"
   },
   "fact": {
     "labelled": "{{label}}: {{text}}",
@@ -430,7 +433,8 @@
     "budget_exhausted": "Das Ausführungsbudget der Aufgabe ist aufgebraucht, sie ist nicht fertig. Fertige Tool-Ergebnisse bleiben erhalten. Prüfe die Ursache und mach dann weiter.",
     "connection_interrupted": "Die Verbindung ist abgebrochen, die Aufgabe ist nicht fertig. Fertige Tool-Ergebnisse bleiben erhalten. Prüfe vor einem neuen Versuch alle Aktionen mit unsicherem Ergebnis.",
     "failed": "Diese Anfrage ist fehlgeschlagen, die Aufgabe ist nicht fertig. Fertige Tool-Ergebnisse bleiben erhalten.",
-    "tool_stuck": "Ein Tool-Schritt hat nicht mehr reagiert, deshalb wurde die Aufgabe gestoppt. Abgeschlossene Tool-Ergebnisse bleiben erhalten. Prüfe vor einem neuen Versuch alle Aktionen mit unsicherem Ergebnis."
+    "tool_stuck": "Ein Tool-Schritt hat nicht mehr reagiert, deshalb wurde die Aufgabe gestoppt. Abgeschlossene Tool-Ergebnisse bleiben erhalten. Prüfe vor einem neuen Versuch alle Aktionen mit unsicherem Ergebnis.",
+    "resumed_repeatedly": "Aufgabe {{times}}-mal unterbrochen. Gestoppt."
   },
   "conversation_state": {
     "finishing": "Wird abgeschlossen",
@@ -504,7 +508,8 @@
       "budget_exhausted": "Die Aufgabe hat ihr Schrittbudget aufgebraucht, bevor sie fertig war.",
       "no_final_answer": "Das Modell hat ohne endgültige Antwort geendet.",
       "tool_stuck": "Ein Tool-Schritt reagierte nicht mehr, die Aufgabe wurde gestoppt.",
-      "receipt_missing": "Der Lauf endete, ohne ein Ergebnis zu bestätigen."
+      "receipt_missing": "Der Lauf endete, ohne ein Ergebnis zu bestätigen.",
+      "resumed_repeatedly": "Die Aufgabe wurde {{times}}-mal unterbrochen und gestoppt."
     }
   }
 }

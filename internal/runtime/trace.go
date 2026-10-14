@@ -28,6 +28,9 @@ type trackedTool struct {
 	arguments     string
 	status        string
 	resumeWaiting bool
+	// settled marks a call of a boundary checkpoint that the backend already
+	// closed at recovery; its resume message must not emit another event.
+	settled bool
 }
 
 // restoreContinuation rebuilds only the parked portion of the original batch.
@@ -37,6 +40,17 @@ type trackedTool struct {
 func (t *toolEventTracker) restoreContinuation(c *agent.Continuation) error {
 	if err := agent.ValidateContinuation(c); err != nil {
 		return err
+	}
+	if c.EffectiveKind() == agent.ContinuationBoundary {
+		t.mu.Lock()
+		defer t.mu.Unlock()
+		for _, call := range c.SkippedToolCalls {
+			if _, exists := t.tools[call.ID]; exists {
+				return fmt.Errorf("duplicate restored tool call id %q", call.ID)
+			}
+			t.tools[call.ID] = trackedTool{name: call.Name, arguments: call.Arguments, status: "running", settled: true}
+		}
+		return nil
 	}
 	var waiting provider.ToolCall
 	found := false
@@ -193,6 +207,12 @@ func (t *toolEventTracker) finish(msg provider.Message) {
 	if call.status != "queued" && call.status != "running" {
 		t.mu.Unlock()
 		t.setErr(fmt.Errorf("tool call %q completed twice", msg.ToolCallID))
+		return
+	}
+	if call.settled {
+		call.status, call.settled = "failed", false
+		t.tools[msg.ToolCallID] = call
+		t.mu.Unlock()
 		return
 	}
 	status := "completed"

@@ -83,7 +83,10 @@
     "tool_timeout": "Didn't respond in time and was stopped",
     "computer_restarting": "The computer is restarting; this step didn't run",
     "computer_unresponsive": "The computer isn't responding; this step didn't run",
-    "tool_rejected": "Refused before running; nothing changed"
+    "tool_rejected": "Refused before running; nothing changed",
+    "restart_interrupted": "Was running at interruption; safe to repeat",
+    "restart_interrupted_effect": "Was running at interruption; effect unverified",
+    "batch_skipped_restart": "Skipped after service restart"
   },
   "fact": {
     "labelled": "{{label}}: {{text}}",
@@ -430,7 +433,8 @@
     "budget_exhausted": "The task ran out of its execution budget and didn't finish. Completed tool results are kept. Check why, then continue.",
     "connection_interrupted": "The connection dropped and the task didn't finish. Completed tool results are kept. Before retrying, check any actions with uncertain results.",
     "failed": "This request failed and the task didn't finish. Completed tool results are kept.",
-    "tool_stuck": "A tool step stopped responding, so the task was stopped. Completed tool results are kept. Before retrying, check any actions with uncertain results."
+    "tool_stuck": "A tool step stopped responding, so the task was stopped. Completed tool results are kept. Before retrying, check any actions with uncertain results.",
+    "resumed_repeatedly": "Task interrupted {{times}} times. Stopped."
   },
   "conversation_state": {
     "finishing": "Finishing up",
@@ -504,7 +508,8 @@
       "budget_exhausted": "The task hit its step budget before finishing.",
       "no_final_answer": "The model ended without a final answer.",
       "tool_stuck": "A tool step stopped responding and the task was stopped.",
-      "receipt_missing": "The run ended without confirming a result."
+      "receipt_missing": "The run ended without confirming a result.",
+      "resumed_repeatedly": "The task was interrupted {{times}} times and stopped."
     }
   }
 }

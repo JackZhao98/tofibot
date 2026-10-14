@@ -135,6 +135,8 @@ export interface Message {
   run_id?: string;
   notice?: {
     type: string;
+    /** Why a "resume" notice was posted, e.g. "restart". */
+    reason?: string;
     from_bot_id: string;
     to_bot_id: string;
     to_bot_ids?: string[];
@@ -288,7 +290,7 @@ export interface Run {
   bot_id: string;
   status: RunStatus;
   error?: string;
-  failure?: { code: "connection_interrupted" | "execution_failed" | "no_final_answer" | "budget_exhausted" | "approval_expired" | "model_unconfigured" | "model_auth_invalid" | "model_quota_exhausted" | "tool_stuck"; source: "runtime"; message: string };
+  failure?: { code: "connection_interrupted" | "execution_failed" | "no_final_answer" | "budget_exhausted" | "approval_expired" | "model_unconfigured" | "model_auth_invalid" | "model_quota_exhausted" | "tool_stuck" | "resumed_repeatedly"; source: "runtime"; count?: number; message: string };
   stop_reason?: "approval_expired";
   finishing_reason?: "approval_expired";
   parent_run_id?: string;

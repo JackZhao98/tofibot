@@ -164,53 +164,11 @@ func (s *Store) refreshInputWaits(conv string) error {
 	return tx.Commit()
 }
 
-// claimInputContinuation is also the ordinary queued->running transition.
-// Consumption and claim are atomic, so concurrent workers/duplicate answers
-// cannot both resume. A claimed checkpoint is never eligible at startup.
+// claimInputContinuation is the claim without the boundary details; see
+// claimRun, which is the single queued->running transition.
 func (s *Store) claimInputContinuation(ctx context.Context, runID string) (json.RawMessage, Question, bool, error) {
-	tx, err := s.db.BeginTx(ctx, nil)
-	if err != nil {
-		return nil, Question{}, false, err
-	}
-	defer tx.Rollback()
-	var status string
-	if err = tx.QueryRowContext(ctx, `SELECT status FROM runs WHERE id=?`, runID).Scan(&status); err != nil {
-		return nil, Question{}, false, err
-	}
-	if status != "queued" {
-		return nil, Question{}, false, nil
-	}
-	var data, questionID, state string
-	err = tx.QueryRowContext(ctx, `SELECT checkpoint_json,question_id,state FROM run_input_waits WHERE run_id=?`, runID).Scan(&data, &questionID, &state)
-	var q Question
-	if err != nil && err != sql.ErrNoRows {
-		return nil, q, false, err
-	}
-	if err == nil {
-		if state != "waiting" {
-			return nil, q, false, errors.New("input continuation already claimed")
-		}
-		q, err = scanQuestion(tx.QueryRowContext(ctx, `SELECT `+questionColumns+` FROM questions WHERE id=?`, questionID))
-		if err != nil {
-			return nil, q, false, err
-		}
-		if q.RunID != runID || (q.Type == questionApproval && q.Status == questionExpired) || (q.Status != questionAnswered && q.Status != questionCancelled && q.Status != questionExpired) {
-			return nil, q, false, errors.New("input continuation is not ready")
-		}
-		if _, err = tx.ExecContext(ctx, `UPDATE run_input_waits SET state='claimed' WHERE run_id=? AND state='waiting'`, runID); err != nil {
-			return nil, q, false, err
-		}
-	}
-	if _, err = tx.ExecContext(ctx, `UPDATE runs SET status='running',error=NULL,updated_at=? WHERE id=? AND status='queued'`, now(), runID); err != nil {
-		return nil, q, false, err
-	}
-	if err = markScheduleStartedTx(tx, runID); err != nil {
-		return nil, q, false, err
-	}
-	if err = tx.Commit(); err != nil {
-		return nil, q, false, err
-	}
-	return json.RawMessage(data), q, true, nil
+	claim, ok, err := s.claimRun(ctx, runID)
+	return claim.Continuation, claim.Question, ok, err
 }
 
 func (s *Store) hasInputWait(conv string) bool {

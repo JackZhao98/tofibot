@@ -83,7 +83,10 @@
     "tool_timeout": "超时未响应，已停止",
     "computer_restarting": "电脑正在重启，此步骤未执行",
     "computer_unresponsive": "电脑无响应，此步骤未执行",
-    "tool_rejected": "运行前被拒绝，未做任何更改"
+    "tool_rejected": "运行前被拒绝，未做任何更改",
+    "restart_interrupted": "中断时在执行，可安全重做",
+    "restart_interrupted_effect": "中断时在执行，结果待核实",
+    "batch_skipped_restart": "服务重启后跳过"
   },
   "fact": {
     "labelled": "{{label}}: {{text}}",
@@ -425,7 +428,8 @@
     "budget_exhausted": "本次任务的执行预算已用尽，任务未完成。已完成的工具结果保留，请检查原因后继续。",
     "connection_interrupted": "连接中断，任务未完成。已完成的工具结果保留；重试前请核实结果不确定的操作。",
     "failed": "本次请求失败，任务未完成。已完成的工具结果保留。",
-    "tool_stuck": "某个工具步骤没有响应，任务已停止。已完成的工具结果会保留；重试前请先检查结果不确定的操作。"
+    "tool_stuck": "某个工具步骤没有响应，任务已停止。已完成的工具结果会保留；重试前请先检查结果不确定的操作。",
+    "resumed_repeatedly": "任务反复中断（{{times}} 次），已停止。"
   },
   "conversation_state": {
     "finishing": "正在收尾",
@@ -498,7 +502,8 @@
       "budget_exhausted": "任务在完成前用尽了步骤预算。",
       "no_final_answer": "模型结束时没有给出最终回答。",
       "tool_stuck": "某个工具步骤停止响应，任务已被停止。",
-      "receipt_missing": "运行结束，但未能确认结果。"
+      "receipt_missing": "运行结束，但未能确认结果。",
+      "resumed_repeatedly": "任务被中断了 {{times}} 次，已停止。"
     }
   }
 }
