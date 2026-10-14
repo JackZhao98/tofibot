@@ -201,13 +201,17 @@ export function TaskRunBlock({ owner, tools, questions, drafts, messages, summar
     else { openWhenShown.current = true; setRevealedHere(true); }
   }
   if (!taskBlockVisible({ owner, tools, questions, drafts, messages, summaries, details, connected, locale, hideActivity, revealed })) return null;
-  return <section ref={block} className={`task-run-block${senderHead ? " in-group" : ""}`} data-sender={senderHead ? run.bot_id : undefined} data-at={senderHead ? run.created_at : undefined} data-task-owner={owner.key} data-run-id={run.id} data-latest-run-id={run.id} tabIndex={-1} aria-label={t("activity.records_label")}>
-    {senderHead ?? (showName && botName && <p className="task-run-identity">{botName}</p>)}
+  // With Activity hidden a group block holds only cards (which carry their own sender) and the live line,
+  // so it is not a sender unit: the live line names the Bot itself instead of a second avatar and caption.
+  const head = senderHead && (showActivity || issue) ? senderHead : undefined;
+  const namedLive = Boolean(senderHead && !head && botName);
+  return <section ref={block} className={`task-run-block${senderHead ? " in-group" : ""}`} data-sender={head ? run.bot_id : undefined} data-at={head ? run.created_at : undefined} data-task-owner={owner.key} data-run-id={run.id} data-latest-run-id={run.id} tabIndex={-1} aria-label={t("activity.records_label")}>
+    {senderHead ? head : showName && botName && <p className="task-run-identity">{botName}</p>}
     {issue ? <TaskIssueCard issue={issue} locale={locale} onFeedback={onFeedback} onOpenStep={openStep} onAction={issue.action === "open_tools" ? onOpenTools : issue.action === "open_codex" ? () => { window.dispatchEvent(new Event("tofi:open-codex-settings")); } : issue.action === "refresh_status" ? onRefresh : viewActivity} /> : taskPhaseVisible(run) && <p className="task-run-phase">{taskPhaseLabel(input)}</p>}
     {/* A separate valid proposal survives another call's failure/unknown effect. */}
     {decisions.map(renderQuestion)}
     {currentDrafts.filter(draft => draft.status !== "unknown").map(renderDraft)}
-    {!showActivity && liveLine && <p className="task-run-live-line" role="status">{liveLine.avatar && <span className="task-activity-cat" aria-hidden="true">{liveLine.avatar}</span>}<span className="task-activity-live">{liveLine.label}</span></p>}
+    {!showActivity && liveLine && <p className="task-run-live-line" role="status">{liveLine.avatar && <span className="task-activity-cat" aria-hidden="true">{liveLine.avatar}</span>}{namedLive && <span className="task-activity-name">{botName}</span>}<span className="task-activity-live">{liveLine.label}</span></p>}
     {showActivity && <ActivityDisclosure locale={locale} detail={activityDetail} live={liveLine} disclosureRef={disclosure} onOpen={loadInitial}>
       {owner.family.previous.map((attempt, index) => <p key={attempt.id} className="task-record-meta">{t("activity.previous_attempt", { number: index + 1, status: attemptStatus(attempt.status) })}</p>)}
       {rememberedDecisions.map(question => <p key={question.question_id} className="task-record-meta task-remembered-record" data-question-record-id={question.question_id}>{t("record.remembered_decision")}</p>)}

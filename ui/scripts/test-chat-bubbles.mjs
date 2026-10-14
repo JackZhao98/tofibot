@@ -269,11 +269,13 @@ try {
       const { page, context, errors } = await open(url, { width: 1180, height: 820, theme: "light", world, fakeEvents: true });
       try {
         await page.waitForSelector(".task-run-live-line");
-        const live = await page.evaluate(() => ({ lines: [...document.querySelectorAll(".task-run-live-line")].map(el => el.textContent), steps: document.querySelectorAll(".task-step, .task-activity, .web-tool-run:not(.live-run-status)").length, heads: document.querySelectorAll(".message-list .task-run-block .sender-head").length, last: document.querySelector(".message-list").lastElementChild?.className ?? "" }));
+        const live = await page.evaluate(() => ({ lines: [...document.querySelectorAll(".task-run-live-line")].map(el => el.textContent), steps: document.querySelectorAll(".task-step, .task-activity, .web-tool-run:not(.live-run-status)").length, heads: document.querySelectorAll(".message-list .task-run-block .sender-head").length, names: [...document.querySelectorAll(".task-run-live-line .task-activity-name")].map(el => el.textContent), cats: document.querySelectorAll(".message-list .task-run-block :is(.task-activity-cat, .sender-avatar)").length, last: document.querySelector(".message-list").lastElementChild?.className ?? "" }));
         assert.equal(live.lines.length, 1, "exactly one live status line");
         assert.match(live.lines[0], /正在浏览网页 · \d+s/, "the live line names the current action and the elapsed time");
         assert.equal(live.steps, 0, "no tool list while live");
-        assert.equal(live.heads, kind === "group" ? 1 : 0, "name once in a group, none in a direct chat");
+        assert.equal(live.heads, 0, "a live-only block carries no sender caption");
+        assert.deepEqual(live.names, kind === "group" ? ["Simile Cat"] : [], "the live line names the Bot in a group, not in a direct chat");
+        assert.equal(live.cats, 1, "one avatar on the live line");
         await page.locator(".task-run-live-line").scrollIntoViewIfNeeded(); await page.waitForTimeout(200);
         await page.screenshot({ path: join(heroDir, `after-live-${kind}-1180x820-light.png`) });
         // The run ends without a message or card: the line and its name label disappear and nothing is left behind.
@@ -281,6 +283,32 @@ try {
         await page.waitForFunction(() => !document.querySelector(".task-run-live-line"));
         const gone = await page.evaluate(() => ({ blocks: document.querySelectorAll('[data-run-id="run_live"]').length, heads: document.querySelectorAll(".message-list .sender-head").length, live: document.querySelectorAll(".live-run-status, .web-tool-run").length }));
         assert.deepEqual(gone, { blocks: 0, heads: 0, live: 0 }, "a silent finished run renders nothing at all");
+        assert.deepEqual(errors, [], "page errors");
+      } finally { await context.close(); }
+    });
+  }
+  // A waiting text question in a group: the card reads at chat size and the live line is one row (one cat, the Bot's name).
+  for (const width of [390, 1180]) {
+    await scenario(`pending question in a group (${width}px)`, async () => {
+      const at = iso(1000);
+      const world = {
+        ...emptyWorld(),
+        messages: [{ id: "u5", role: "user", content: "Save a key on the computer for a script later.", created_at: at }],
+        runs: [{ id: "run_ask", bot_id: "bot_b", conversation_id: "grp_1", status: "waiting", trigger_message_id: "u5", created_at: new Date(Date.now() - 50_000).toISOString(), updated_at: new Date().toISOString() }],
+        questions: [{ question_id: "q_text", conversation_id: "grp_1", bot_id: "bot_b", run_id: "run_ask", type: "question", question_type: "text", status: "pending", created_at: at, updated_at: at, question: "Sure. Two things first: which service is the key for, and what environment variable name should the script use, for example SYNTHETIC_API_KEY? Do not paste the key in the group; once the name is settled I will open a private input for you. Note the computer is shared, so other Bots with shell access can read it." }],
+      };
+      const { page, context, errors } = await open("/g/grp_1", { width, height: 820, theme: "light", world, fakeEvents: true });
+      try {
+        await page.waitForSelector(".question-card"); await page.waitForSelector(".task-run-live-line");
+        const seen = await page.evaluate(() => {
+          const prompt = getComputedStyle(document.querySelector(".question-prompt"));
+          const line = document.querySelector(".task-run-live-line");
+          return { size: parseFloat(prompt.fontSize), weight: Number(prompt.fontWeight), cats: line.querySelectorAll(".task-activity-cat").length, name: line.querySelector(".task-activity-name")?.textContent ?? "", heads: document.querySelectorAll(".message-list .task-run-block .sender-head").length };
+        });
+        assert.ok(seen.size <= 15 && seen.weight < 600, `question text reads at chat size (${seen.size}px/${seen.weight})`);
+        assert.deepEqual([seen.cats, seen.name, seen.heads], [1, "Simile Cat", 0], "one cat and the Bot's name on the live line, no extra caption");
+        await page.locator(".task-run-live-line").scrollIntoViewIfNeeded(); await page.waitForTimeout(200);
+        await page.screenshot({ path: join(heroDir, `after-question-group-${width}-light.png`) });
         assert.deepEqual(errors, [], "page errors");
       } finally { await context.close(); }
     });

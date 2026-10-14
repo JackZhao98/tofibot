@@ -74,3 +74,4 @@
 
 /* Activity hidden: a working run is one quiet status line (cat + "Browsing the web · 10s"); it goes when the run ends. */
 .task-run-live-line{display:flex;align-items:center;gap:var(--space-2);min-height:28px;margin:0;font:var(--type-row-title);color:var(--text-secondary)}
+.task-activity-name{flex:none;color:var(--text-body);font-weight:600}
