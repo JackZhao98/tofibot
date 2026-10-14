@@ -68,7 +68,7 @@
 .workspace .settings-page-body .segmented>button:hover:not(:disabled){color:var(--ink)}
 .workspace .settings-page-body .segmented>button[aria-checked="true"]{border-color:var(--line);background:var(--surface);color:var(--ink);box-shadow:var(--hard-sm)}
 .workspace .settings-page-body .segmented>button:disabled{opacity:.5;cursor:not-allowed}
-.workspace .settings-page-body .segmented>button:focus-visible{outline:2px solid var(--focus);outline-offset:2px}
+.workspace .settings-page-body .segmented>button:focus-visible{outline:var(--focus-ring-width) solid var(--focus-ring);outline-offset:2px}
 
 /* General: account card, appearance thumbnails, language and region rows, notifications */
 .workspace .settings-page-body .owner-account{display:flex;flex-wrap:nowrap;align-items:center;gap:14px;margin:0;padding:14px 16px;border:1px solid var(--line-soft);border-radius:18px;background:var(--surface)}
@@ -78,7 +78,7 @@
 .workspace .settings-page-body .owner-account span{font-size:12.5px}
 .settings-ghost-button{display:inline-flex;align-items:center;gap:6px;flex:none;min-height:36px;padding:6px 10px;border:0;border-radius:10px;background:transparent;color:var(--ink-soft);font:500 13px/1 var(--body)}
 .settings-ghost-button:hover:not(:disabled){background:var(--surface-2);color:var(--ink)}
-.settings-ghost-button:focus-visible{outline:2px solid var(--focus);outline-offset:2px}
+.settings-ghost-button:focus-visible{outline:var(--focus-ring-width) solid var(--focus-ring);outline-offset:2px}
 .workspace .settings-page-body .appearance-setting{padding:0;margin:0;border:0}
 .workspace .settings-page-body .appearance-setting h3{margin:0 0 10px;font:600 16px/1.3 var(--display)}
 .workspace .settings-page-body .appearance-options{gap:12px}
@@ -154,7 +154,7 @@
 .sheet-check input{margin:0}
 .sheet-checklist{max-height:240px;overflow:auto}
 .sheet-radio:has(input:checked),.sheet-check:has(input:checked){border-color:var(--line)}
-.sheet-radio:has(input:focus-visible),.sheet-check:has(input:focus-visible){outline:2px solid var(--focus);outline-offset:2px}
+.sheet-radio:has(input:focus-visible),.sheet-check:has(input:focus-visible){outline:var(--focus-ring-width) solid var(--focus-ring);outline-offset:2px}
 .sheet-actions{display:flex;justify-content:flex-end;gap:10px;flex-wrap:wrap}
 @media(max-width:767px){.sheet-overlay{padding:8px;align-items:end}.sheet{padding:16px;border-radius:18px;max-height:calc(100dvh - 16px)}.sheet-actions>button{flex:1}}
 .sheet-radio input[type="radio"]{border-radius:50%}

@@ -2,7 +2,7 @@
 .desktop-floating-shell{position:fixed;right:20px;bottom:calc(var(--composer-height,90px) + 18px);z-index:25;width:48px;max-height:none;overflow:visible;pointer-events:none}
 .desktop-floating-shell.is-expanded{inset:0;width:auto;max-height:none}
 .desktop-floating-shell.is-settling{transition:left 420ms cubic-bezier(.2,.8,.2,1),top 420ms cubic-bezier(.2,.8,.2,1)}
-.desktop-floating-shell:focus-visible{outline:2px solid var(--focus);outline-offset:4px;border-radius:20px}
+.desktop-floating-shell:focus-visible{outline:var(--focus-ring-width) solid var(--focus-ring);outline-offset:4px;border-radius:20px}
 /* Keep the latest-message control fully visible beneath a collapsed preview. */
 .workspace:has(.jump-latest) .desktop-floating-shell:not(:has(.is-expanded)){bottom:calc(var(--composer-height,90px) + 66px)}
 .desktop-preview-surface{position:relative}
@@ -16,7 +16,7 @@
 .desktop-floating-shell .desktop-control-button{box-sizing:border-box;display:grid;place-items:center;flex:0 0 26px;width:26px;height:26px;min-width:0;min-height:0;padding:0;border:0;border-radius:7px;color:var(--desktop-controls-ink);background:transparent;box-shadow:none;cursor:pointer}
 .desktop-floating-shell .desktop-control-button svg{display:block;width:16px;height:16px;flex:none}
 .desktop-floating-shell .desktop-control-button:hover{color:var(--desktop-controls-ink);background:transparent}
-.desktop-floating-shell .desktop-control-button:focus-visible{outline:2px solid var(--focus);outline-offset:2px}
+.desktop-floating-shell .desktop-control-button:focus-visible{outline:var(--focus-ring-width) solid var(--focus-ring);outline-offset:2px}
 @media(hover:none),(pointer:coarse){
     .desktop-floating-shell .computer-floating-actions{opacity:1;pointer-events:auto}
 }
@@ -33,7 +33,7 @@
 .desktop-floating-shell .computer-detail.is-expanded .computer-screen-wrap{display:flex;min-height:0;flex:1;flex-direction:column;margin:8px 0 0;padding:8px;border:1px solid var(--line);border-radius:16px;background:var(--desktop-screen)}
 .desktop-floating-shell .computer-detail.is-expanded .remote-desktop,.desktop-floating-shell .computer-detail.is-expanded .remote-desktop-surface{min-height:120px;flex:1}
 .desktop-floating-shell .computer-detail.is-expanded .computer-screen{width:100%;height:100%;max-height:100%;object-fit:contain}
-.desktop-floating-shell :is(button,input,textarea,summary):focus-visible{outline:2px solid var(--focus);outline-offset:3px}
+.desktop-floating-shell :is(button,input,textarea,summary):focus-visible{outline:var(--focus-ring-width) solid var(--focus-ring);outline-offset:3px}
 .desktop-presence-actor{position:absolute;z-index:4;top:10px;left:10px;display:grid;place-items:center;width:40px;height:40px;padding:3px;border:1px solid var(--desktop-controls-edge);border-radius:14px;background:var(--desktop-actor-glass);box-shadow:var(--float-shadow);-webkit-backdrop-filter:var(--blur);backdrop-filter:var(--blur)}
 .desktop-presence-actor .avatar{width:32px;height:32px;background:transparent}
 .desktop-bot-starting{cursor:default!important}
@@ -188,7 +188,7 @@ html:not([data-desktop]) .desktop-floating-shell .computer-detail :is(.computer-
 .desktop-driver-side .avatar{width:22px;height:22px;background:transparent}
 .desktop-driver-side.is-you{font:700 12px/1 var(--display);color:var(--desktop-controls-ink)}
 .desktop-driver-switch.is-you .desktop-driver-side.is-you{color:var(--on-block)}
-:is(.desktop-power,.desktop-driver-switch):focus-visible{outline:2px solid var(--focus);outline-offset:2px}
+:is(.desktop-power,.desktop-driver-switch):focus-visible{outline:var(--focus-ring-width) solid var(--focus-ring);outline-offset:2px}
 @media(prefers-reduced-motion:reduce){.desktop-driver-thumb{transition:none}.desktop-status-dot{animation:none!important}}
 /* Clicking the dimmed area around the enlarged screen shrinks it back. */
 .desktop-expanded-scrim{position:fixed;inset:0;z-index:-1;cursor:zoom-out}
@@ -243,6 +243,6 @@ html:not([data-desktop]) .desktop-floating-shell.is-sheet .desktop-presence-canv
 .desktop-placeholder.is-failed .desktop-placeholder-line::before{content:"";flex:none;width:7px;height:7px;border-radius:50%;background:var(--danger)}
 .desktop-placeholder-retry{min-height:34px;padding:6px 16px;border:1px solid var(--desktop-controls-edge);border-radius:999px;background:var(--desktop-controls-hover);color:var(--desktop-controls-ink);font:600 13px/1 var(--body);cursor:pointer}
 .desktop-placeholder-retry:hover{background:color-mix(in srgb,var(--desktop-controls-ink) 22%,transparent)}
-.desktop-placeholder-retry:focus-visible{outline:2px solid var(--focus);outline-offset:2px}
+.desktop-placeholder-retry:focus-visible{outline:var(--focus-ring-width) solid var(--focus-ring);outline-offset:2px}
 @media(prefers-reduced-motion:reduce){.desktop-floating-shell,.desktop-floating-shell *,.desktop-floating-shell *::before,.desktop-floating-shell *::after{transition:none!important}}
 @media(prefers-reduced-motion:reduce){.desktop-placeholder:is(.is-waking,.is-connecting,.is-resuming) .desktop-placeholder-line::before{animation:none}}

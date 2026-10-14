@@ -3,12 +3,12 @@ body{font-size:15px;line-height:1.6;-webkit-font-smoothing:antialiased}
 /* Browser affordances use the final V2 palette in every route, including auth. */
 ::selection{background:color-mix(in srgb,var(--iris) 45%,transparent);color:var(--ink)}
 :is(input,textarea){caret-color:var(--clay)}
-.workspace :is(button,a,summary):focus-visible{outline:2px solid var(--focus-ring);outline-offset:3px}
+.workspace :is(button,a,summary):focus-visible{outline:var(--focus-ring-width) solid var(--focus-ring);outline-offset:3px}
 .contact-section,.message-scroll,.settings-page-body{scrollbar-color:var(--line-soft) transparent}
 .workspace .contact-row:focus-visible{outline-offset:-3px}
 button{touch-action:manipulation;-webkit-tap-highlight-color:transparent}
 /* V2 controls live in v2-foundations.css, not a second generic rule set. */
-.search-box:focus-within{outline:2px solid var(--focus-ring);outline-offset:2px}
+.search-box:has(:focus-visible){outline:2px solid var(--focus-ring);outline-offset:2px}
 .search-box input:focus-visible,.composer-row textarea:focus-visible{outline:none}
 .bot-share-card{display:flex;align-items:center;justify-content:space-between;gap:14px;margin-top:18px;padding:15px;border:1px solid var(--line);border-radius:14px;background:var(--surface-soft)}
 .bot-share-card strong{display:block;color:var(--text);font-size:14px}

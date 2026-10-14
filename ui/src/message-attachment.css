@@ -29,7 +29,7 @@
 .workspace .attachment-file-row { position: relative; display: flex; align-items: center; gap: 12px; padding: 10px 12px; }
 .workspace .attachment-file-row .file-tile::after { border-color: transparent var(--surface-2) transparent transparent; }
 .workspace .attachment-file-open { display: grid; gap: 3px; min-width: 0; flex: 1; padding: 0; border: 0; background: transparent; color: inherit; text-align: left; cursor: pointer; font: inherit; }
-.workspace .attachment-file-open:focus-visible { outline: 2px solid var(--focus); outline-offset: 3px; border-radius: 6px; }
+.workspace .attachment-file-open:focus-visible { outline: var(--focus-ring-width) solid var(--focus-ring); outline-offset: 3px; border-radius: 6px; }
 .workspace .attachment-file-row:hover { border-color: var(--line); }
 .workspace .message-content .attachment-name {
   display: block;
@@ -115,7 +115,7 @@
 .workspace .attachment-image-actions :is(button, a):hover { background: color-mix(in srgb, var(--ink) 12%, transparent); }
 .workspace .attachment-image-actions button:disabled { cursor: wait; opacity: .55; }
 .workspace .attachment-image-actions :is(button, a):focus-visible,
-.workspace .attachment-image-frame .attachment-preview:focus-visible { outline: 2px solid var(--focus); outline-offset: -2px; }
+.workspace .attachment-image-frame .attachment-preview:focus-visible { outline: var(--focus-ring-width) solid var(--focus-ring); outline-offset: -2px; }
 
 .workspace .attachment-lightbox {
   position: relative;
@@ -174,4 +174,4 @@ html:not([data-desktop]) .workspace .attachment-lightbox > button { position:fix
 .workspace .attachment-grid-tile img { display: block; width: 100%; height: 100%; object-fit: cover; }
 .workspace .attachment-grid-tile.is-more { cursor: pointer; }
 .workspace .attachment-grid-more { position: absolute; inset: 0; display: grid; place-items: center; background: color-mix(in srgb, var(--bg) 58%, transparent); -webkit-backdrop-filter: var(--blur); backdrop-filter: var(--blur); color: var(--ink); font: 700 20px/1 var(--mono); }
-.workspace .attachment-grid-tile:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+.workspace .attachment-grid-tile:focus-visible { outline: var(--focus-ring-width) solid var(--focus-ring); outline-offset: 2px; }

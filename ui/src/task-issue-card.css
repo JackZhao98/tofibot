@@ -7,7 +7,7 @@
 .task-issue-fact,.task-issue-context,.task-issue-feedback{margin:var(--space-2) 0 0;font:var(--type-body)}
 .task-fact-link{display:inline;min-height:0;padding:0;border:0;background:none;color:var(--text-body);font:inherit;text-decoration:underline;text-decoration-color:var(--border-soft);text-underline-offset:3px;cursor:pointer}
 .task-fact-link:hover{text-decoration-color:currentColor}
-.task-fact-link:focus-visible{outline:2px solid var(--focus);outline-offset:2px;border-radius:3px}
+.task-fact-link:focus-visible{outline:var(--focus-ring-width) solid var(--focus-ring);outline-offset:2px;border-radius:3px}
 .task-issue-context{color:var(--text-secondary)}
 .task-issue-actions{display:flex;flex-wrap:wrap;gap:var(--space-3);margin-block-start:var(--space-3)}
 .task-issue-actions .secondary-button,.task-record-page .secondary-button{display:inline-flex;align-items:center;justify-content:center;gap:var(--space-2);min-height:44px;font:var(--type-button);white-space:normal;line-height:1.4;max-width:100%}
@@ -54,7 +54,7 @@
 @media(prefers-reduced-motion:reduce){.task-step-marker,.task-tool-records.is-live .task-step,.task-step.is-running .task-step-title{animation:none!important}.task-step.is-running .task-step-title{color:var(--text-body);background:none}.task-activity>summary>svg{transition:none}}
 .task-record-meta,.task-question-record{font:var(--type-meta);color:var(--text-secondary)}
 .task-question-record{padding-block:var(--space-2)}.task-question-record p{margin:0 0 var(--space-2)}.task-question-record dl{margin:0}.task-question-record dl>div{display:flex;gap:var(--space-3)}.task-question-record dd{margin:0;overflow-wrap:anywhere}
-.task-run-block :is(button,summary,pre,h3):focus-visible{outline:2px solid var(--focus-ring);outline-offset:3px}
+.task-run-block :is(button,summary,pre,h3):focus-visible{outline:var(--focus-ring-width) solid var(--focus-ring);outline-offset:3px}
 .task-run-block ::selection{background:var(--surface-inverse);color:var(--text-on-inverse)}
 .task-state-read-error{margin-block:var(--space-2);color:var(--text-secondary);font:var(--type-meta)}
 .task-state-read-error button{min-height:44px;margin-inline-start:var(--space-2)}

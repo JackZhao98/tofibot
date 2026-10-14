@@ -74,7 +74,7 @@ html:not([data-desktop]) .workspace .question-message .question-options label.se
 .workspace .question-message .question-card > textarea:hover { border-color: var(--line); }
 .workspace .question-message .question-card > textarea:focus-visible {
   border-color: var(--line);
-  outline: 2px solid var(--focus);
+  outline: var(--focus-ring-width) solid var(--focus-ring);
   outline-offset: 3px;
   box-shadow: var(--hard-sm);
 }
@@ -143,7 +143,7 @@ html:not([data-desktop]) .workspace .question-message .question-options label.se
 .workspace .question-message .question-actions .primary-button:not(:disabled):hover { transform: translate(-1px, -1px); }
 .workspace .question-message .question-actions .primary-button:not(:disabled):active { transform: translate(2px, 3px); box-shadow: none; }
 .workspace .question-message .question-actions .primary-button:disabled { cursor: not-allowed; opacity: .58; }
-.workspace .question-message .question-card :is(button, input, textarea):focus-visible { outline: 2px solid var(--focus); outline-offset: 3px; }
+.workspace .question-message .question-card :is(button, input, textarea):focus-visible { outline: var(--focus-ring-width) solid var(--focus-ring); outline-offset: 3px; }
 
 .workspace .question-message .question-result {
   margin-top: 12px;
