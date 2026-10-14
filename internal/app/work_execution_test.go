@@ -344,6 +344,7 @@ func TestWorkExecutionSurvivesRestartAndDeletion(t *testing.T) {
 	item := workItemCreate(t, s, bot.DMConversationID, bot.ID, "task", "Restart behavior")
 	r, _, _ := s.StartWorkItem(item.ID, newID())
 	_, _ = s.SetRunStatus(r.ID, "running", "")
+	giveRunObservableWork(t, s, r)
 	s.Close()
 	s, err = OpenStore(dir)
 	if err != nil {

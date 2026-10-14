@@ -1,6 +1,6 @@
 # Run Resume: 任务断点续跑与推理保留
 
-Status: design only, 2026-10-10. 未实施，未改代码。所有"现状"均读自代码并标出 file:line。
+Status: Phase 2 (边界检查点 + 崩溃续跑) implemented on `feat/run-resume-p2`, 2026-10-14; Phases 0, 1, 3, 4, 5 not started. 下文"现状"一节读自 2026-10-10 的代码（file:line 可能已漂移，按符号定位）；Phase 2 的实际落地见 §4 Phase 2 的"已实现"小节。真实 kill -9（测试 VM）验证尚未做。
 
 目标：Bot 任务（用户对话触发的 run、定时/自动化 run）遇到中断不丢、自动续跑；一个任务内部，模型的推理过程不被悄悄扔掉。
 
@@ -329,6 +329,33 @@ queued ──claim──▶ running ──done──▶ done
   - **真实 kill -9**：测试 VM（Proxmox VM 106，可清空）上起服务，给 Bot 一个 ≥10 步、含一次 `call_mcp_tool` 写操作的任务；在工具 `running` 期间 `kill -9` 进程；重启；断言：聊天出现"服务已重启…"、run 最终 done、该 MCP 写操作在 `tool_activities` 为 failed/uncertain、后续模型调用里出现核实步骤、外部目标只被写了一次（用 MCP 测试桩计数）。
   - 续跑上限：循环 kill 4 次，第 4 次后 run 为 failed `resumed_repeatedly`。
 - 验收：以上全部退出码 0；`tofi_host.py` 本阶段不动。
+
+#### Phase 2 已实现（2026-10-14）
+
+代码：`internal/agent/continuation.go`（`Kind`/`Attempt`、版本 2、`snapshotContinuation`、`resumeBoundary`、`RestartInterruptedOutcome`/`RestartSkippedOutcome`）、`internal/agent/agent.go`（`OnCheckpoint`、`ResumeToolResults`、`Attempt`）、`internal/runtime/{runtime,trace,types}.go`、`internal/app/run_checkpoint.go`（表、`SaveRunCheckpoint`、`claimRun`、启动恢复、续跑 notice）、`internal/app/app.go`（接线）、`internal/app/run_failure.go`、`ui/`（notice 与 `resumed_repeatedly` 文案，7 种语言）。
+
+- 检查点：`turn`（模型响应入栈后、首个工具派发前）与 `tool`（每个工具结果入栈后）。写失败使 run 失败，且在下一次工具派发/模型调用之前生效。超过 16 MB 的检查点不报错：删除已有检查点，该 run 退回"重启即 interrupted"的旧行为。
+- `claimRun` 是唯一的 queued→running：先 `UPDATE ... WHERE status='queued'` 且行数必须为 1，`attempt+1`，同事务内先认领人工等待（并删除它所取代的旧检查点），否则读检查点并要求其 attempt < 新 attempt。`claimInputContinuation` 保留为薄封装。
+- 检查点写入在事务内核对 `runs.status='running'` 且 `runs.attempt` 与写入方一致，并用 `ON CONFLICT ... WHERE run_checkpoints.attempt<=excluded.attempt`；`seq` 在同一 attempt 内递增。run 离开 queued/running 时由触发器删除检查点。
+- 启动恢复（`recoverRunningRunTx`）：见 §3.4 步骤 1–4。在途 `running` 活动按 `tooloutcome.DefaultIdentity(...).Risk` 分类：观察型 `Transient/restart_interrupted/no_side_effects/retry`，其余 `Uncertain/restart_interrupted_effect/unknown/verify_effect`；同批 `queued` 活动 `Permanent/batch_skipped/not_executed`。续跑时按活动行回填：已完成的给原结果，已失败的给记录的 outcome，没有行的按 batch_skipped。
+- 续跑 notice：`Kind:"notice"` 消息，`notice.type="resume"`、`notice.reason="restart"`，文案由 UI 按 locale 渲染（chat 命名空间 `message.resume_restart`）；`runs.resume_notice` 由认领方清空。第 4 次中断：`failed`，错误 `resumed_repeatedly:4`，`run.failure.code="resumed_repeatedly"`、`count=4`。
+
+与设计的差异（及原因）：
+
+1. **定时任务（`kind=schedule`）无检查点时仍标 interrupted**，不走"什么都没发生 → queued"。原因：`schedule_restart_acceptance_test` / `TestRunningScheduleRestartDoesNotReplaySameOccurrence` 明确约定"不确定的定时 occurrence 不自动重放"。有检查点的定时 run 照常续跑。
+2. **"什么都没发生 → queued"也计入 `resumes` 并受 3 次上限约束**（设计只在有检查点时计数）。原因：否则首个模型调用就把服务搞崩的 run 会无限重启。该情形不插 notice（用户什么都没看到）。"什么都没发生"在设计的两个条件（无 tool_activities、无已发布回合）之外还要求没有可见的助手消息（`kind<>'notice'`）。
+3. **观察型判定用静态身份**（`DefaultIdentity`，按工具名），不用运行时解析出的身份。原因：恢复发生在 `OpenStore` 里，拿不到 MCP/扩展的运行时 `Identity`。未知工具一律按"有效果"处理，偏保守；MCP `readOnlyHint` 属于 Phase 3。
+4. **`resumeBoundary` 的回填来源是活动行而非固定的两种 outcome**。原因：工具已完成但下一个检查点没写成功时（崩在两者之间），模型应看到真实结果而不是"待核实"。已完成活动的结果来自 `tool_activities.result`（上限 32k 字符），可能比当时给模型的 24000 字符截断版略长。
+5. **v2 的 `Kind` 为空视为 `input_wait`**（不限于 v1）。原因：兼容构造 v2 载荷的既有调用方与测试；新写入的载荷总是带 Kind。旧版本构建读到 v2 会得到 `unsupported agent continuation version 2`；启动恢复遇到本构建读不懂的检查点则按 interrupted 处理。
+6. **重启造成的 `batch_skipped` 用独立的 `next_action=replan_after_restart`**（UI 据此显示"服务重启后跳过"，key `outcome.batch_skipped_restart`）。不用 `replan_after_input`，因为人工输入续跑的跳过也用它，会被误标。code/certainty 仍是 `batch_skipped`/`not_executed`。
+7. 续跑 run 结束后**会**安排长期记忆摘要（人工等待续跑则照旧不安排）。
+8. **快照本身校验失败时不让 run 失败**：丢弃该检查点（并让存储删掉旧的）、打一行日志，run 继续跑但不可续跑。原因：每个工具边界都会校验，一个潜在的用量对账缺陷不该把用户的 run 全部打挂；只有"写入存储失败"才使 run 失败（与 `OnSuspend` 一致）。
+9. 评审修复（同分支）：
+   - 重新排队的 run 恢复时**删除**其 `stream_drafts` 行（而不是置 cancelled），下一次尝试由 `BeginStream` 开新草稿；否则 `BeginStream` 报 "stream draft is no longer active"，每个续跑都会失败。不再续跑的 run 仍置 cancelled。
+   - 回合先发布、后写 `turn` 检查点：若 `stream_assistant_turns` 的最大 `turn_index` 大于检查点的 `AssistantTurnIndex`，该检查点视为不可用（→ interrupted），避免模型重新生成已发布的回合。
+   - `runHadObservableWork` 也计入子 run（`parent_run_id`）与 `handoff_count>0`：handoff 的 notice 记在子 run 下，否则 triage run 会被重排队并撞上 "run handoff already used"。
+   - 续跑 notice 推迟到流（`StreamControls`）建好之后再发，避免在 run 随即失败时留下"正在续跑"。
+10. `tofi_host.py` 与 drain 未改（Phase 4）。`paused`/`pause_*` 未加（Phase 3）。真实 kill -9 VM 测试未做，由编排方执行。
 
 ### Phase 3：网络等待（案例 2）+ 只读 MCP 重做（案例 3）
 - `paused` 状态过全部闸（§3.6 清单）；探测器；到期总结；MCP `readOnlyHint` → Observation。

@@ -5,6 +5,7 @@ const ui = await openUiModules({ language: "zh-CN" });
 try {
   const { buildRetryFamilies, retryFamilyAnchor, runFailureText } = await ui.load("/src/runFamily.ts");
   const { mergeRunUpdates } = await ui.load("/src/runMerge.ts");
+  const { taskOutcomeText } = await ui.load("/src/taskIssuePresentation.ts");
   const first = {id:"first", conversation_id:"chat", bot_id:"bot", trigger_message_id:"user", status:"failed", error:"LLM call failed: stream read error: stream ID 13; INTERNAL_ERROR; received from peer", created_at:"2026-10-01T16:52:55Z", updated_at:"2026-10-01T16:53:43Z"};
   const retry = {...first,id:"retry",parent_run_id:first.id,status:"done",error:"",created_at:"2026-10-01T16:54:18Z",updated_at:"2026-10-01T16:56:42Z"};
   const family = buildRetryFamilies([retry,first])[0];
@@ -37,6 +38,10 @@ try {
   assert.equal(mergeRunUpdates([first],[{id:first.id,error:"more detail",updated_at:"2026-10-01T17:00:00Z"}])[0].error,"more detail","same terminal state may enrich evidence");
   await ui.setLanguage("en");
   assert.match(runFailureText(first),/connection dropped/,"English failure copy comes from the en catalog");
+  assert.equal(runFailureText({...first,error:"resumed_repeatedly:4",failure:{source:"runtime",code:"resumed_repeatedly",count:4,message:"x"}}),"Task interrupted 4 times. Stopped.","repeated-interruption copy comes from the catalog with the count");
   await ui.setLanguage("zh-CN");
+  assert.equal(runFailureText({...first,error:"resumed_repeatedly:4",failure:{source:"runtime",code:"resumed_repeatedly",count:4,message:"x"}}),"任务反复中断（4 次），已停止。");
+  assert.equal(taskOutcomeText({code:"batch_skipped",status:"permanent_failure",next_action:"replan_after_restart"}),"服务重启后跳过");
+  assert.equal(taskOutcomeText({code:"batch_skipped",status:"permanent_failure",next_action:"finish_summary"}),"批准过期后未执行","approval-expiry skips keep their copy");
   console.log("run family checks: PASS (terminal replay, explicit links, latest attempt, multi-retry/cycle, nanosecond ordering, legacy/structured failure)");
 } finally {await ui.close();}

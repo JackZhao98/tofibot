@@ -300,6 +300,8 @@
     "member": "成員",
     "original": "原訊息",
     "reply_to": "回覆 {{name}}",
+    "resume_continuing": "任務從上一個檢查點繼續。",
+    "resume_restart": "服務已重新啟動，任務從上一個檢查點繼續。",
     "scheduled": "排程任務",
     "system": "系統提示",
     "tool": "工具",

@@ -2180,6 +2180,11 @@ export function MessageBubble({ message, replyTarget, replyTargetName, sender, s
   if (message.kind === "message_ref" && message.notice) {
     return <article className="message message-notice message-reference" title={`${formatExactTime(message.created_at, timezone)} · ${timezone}`}><div>{relatedChat && onOpenRelatedChat ? <RelatedMessageLink target={relatedChat} onOpen={onOpenRelatedChat} /> : <span>{localizeMessageRef(message.content)}</span>}</div></article>;
   }
+  if (message.kind === "notice" && message.notice?.type === "resume") {
+    // Posted by the server when a run continues from a checkpoint; the text is localized here.
+    const resumeKey = message.notice.reason === "restart" ? "message.resume_restart" : "message.resume_continuing";
+    return <article className="message message-notice" title={`${formatExactTime(message.created_at, timezone)} · ${timezone}`}><div><span>{t(resumeKey)}</span></div></article>;
+  }
   const assignment = message.kind === "notice" && message.sender_bot_id !== "system" && message.notice &&
     (message.notice.type === "handoff" || message.notice.type === "forward") &&
     message.notice.target_conversation_id === message.conversation_id;

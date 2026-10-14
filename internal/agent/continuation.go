@@ -35,6 +35,13 @@ func suspensionQuestionID(err error) (string, bool) {
 type Continuation struct {
 	Version int `json:"version"`
 
+	// Kind is ContinuationInputWait (parked on a human answer, the only kind
+	// v1 knew) or ContinuationBoundary (a crash-resume snapshot taken at a
+	// model-response or tool-result boundary). Attempt is the run claim
+	// generation that wrote the snapshot.
+	Kind    string `json:"kind,omitempty"`
+	Attempt int    `json:"attempt,omitempty"`
+
 	Messages     []provider.Message    `json:"messages"`
 	ToolRecovery []ToolRecoveryRecord  `json:"tool_recovery,omitempty"`
 	TotalUsage   provider.Usage        `json:"total_usage"`
@@ -52,16 +59,35 @@ type Continuation struct {
 	FinalRepairReserved     bool  `json:"final_repair_reserved"`
 	FinalRepairFinalPending bool  `json:"final_repair_final_pending"`
 
-	QuestionID        string              `json:"question_id"`
-	WaitingToolCallID string              `json:"waiting_tool_call_id"`
-	WaitingToolName   string              `json:"waiting_tool_name"`
-	SkippedToolCalls  []provider.ToolCall `json:"skipped_tool_calls"`
+	QuestionID        string `json:"question_id"`
+	WaitingToolCallID string `json:"waiting_tool_call_id"`
+	WaitingToolName   string `json:"waiting_tool_name"`
+	// SkippedToolCalls are the calls of the last assistant turn that have no
+	// result yet and come after the waiting call. For a boundary snapshot (no
+	// waiting call) it is every unresolved call of that turn, possibly none.
+	SkippedToolCalls []provider.ToolCall `json:"skipped_tool_calls"`
 
 	// RecoveryEpoch is the ledger window for observation retry limits.
 	RecoveryEpoch int `json:"recovery_epoch,omitempty"`
 }
 
-const continuationVersion = 1
+// continuationVersion is written by this build. Version 1 payloads (human
+// input waits only, no Kind) still decode and are treated as input_wait.
+const continuationVersion = 2
+
+const (
+	ContinuationInputWait = "input_wait"
+	ContinuationBoundary  = "boundary"
+)
+
+// EffectiveKind returns the effective kind: a payload without one (every v1
+// payload) is a human-input wait.
+func (c *Continuation) EffectiveKind() string {
+	if c.Kind == "" {
+		return ContinuationInputWait
+	}
+	return c.Kind
+}
 
 // ValidateContinuation rejects malformed or internally inconsistent state
 // before it can be used to construct a new provider request.
@@ -69,8 +95,18 @@ func ValidateContinuation(c *Continuation) error {
 	if c == nil {
 		return errors.New("agent continuation is required")
 	}
-	if c.Version != continuationVersion {
-		return fmt.Errorf("unsupported agent continuation version %d", c.Version)
+	if c.Version != 1 && c.Version != continuationVersion {
+		return fmt.Errorf("unsupported agent continuation version %d (this build reads versions 1 and %d)", c.Version, continuationVersion)
+	}
+	kind := c.EffectiveKind()
+	if kind != ContinuationInputWait && kind != ContinuationBoundary {
+		return fmt.Errorf("unsupported agent continuation kind %q", c.Kind)
+	}
+	if c.Version == 1 && c.Kind != "" && c.Kind != ContinuationInputWait {
+		return errors.New("agent continuation version 1 cannot carry a boundary snapshot")
+	}
+	if c.Attempt < 0 {
+		return errors.New("agent continuation has negative attempt")
 	}
 	if c.LLMCalls < 0 || c.Step < 0 || c.AssistantTurnIndex < 0 || c.ToolCallsSinceReport < 0 || c.ActiveElapsedNanos < 0 || c.RecoveryEpoch < 0 {
 		return errors.New("agent continuation has negative counters")
@@ -78,8 +114,11 @@ func ValidateContinuation(c *Continuation) error {
 	if c.TotalUsage.InputTokens < 0 || c.TotalUsage.OutputTokens < 0 {
 		return errors.New("agent continuation has negative usage")
 	}
-	if strings.TrimSpace(c.QuestionID) == "" || strings.TrimSpace(c.WaitingToolCallID) == "" || strings.TrimSpace(c.WaitingToolName) == "" {
+	if kind == ContinuationInputWait && (strings.TrimSpace(c.QuestionID) == "" || strings.TrimSpace(c.WaitingToolCallID) == "" || strings.TrimSpace(c.WaitingToolName) == "") {
 		return errors.New("agent continuation is missing waiting tool state")
+	}
+	if kind == ContinuationBoundary && (c.QuestionID != "" || c.WaitingToolCallID != "" || c.WaitingToolName != "") {
+		return errors.New("agent boundary continuation must not carry waiting tool state")
 	}
 	if len(c.Messages) == 0 {
 		return errors.New("agent continuation has no messages")
@@ -90,6 +129,38 @@ func ValidateContinuation(c *Continuation) error {
 		}
 	}
 
+	if kind == ContinuationBoundary {
+		unresolved := unresolvedLastTurnCalls(c.Messages)
+		if len(unresolved) != len(c.SkippedToolCalls) {
+			return errors.New("agent boundary continuation unresolved calls do not match transcript")
+		}
+		for i, call := range unresolved {
+			if call.ID == "" || call.ID != c.SkippedToolCalls[i].ID || call.Name != c.SkippedToolCalls[i].Name || call.Arguments != c.SkippedToolCalls[i].Arguments {
+				return errors.New("agent boundary continuation unresolved call does not match transcript")
+			}
+		}
+	} else if err := validateWaitingBatch(c); err != nil {
+		return err
+	}
+	var trackedUsage provider.Usage
+	trackedCalls := 0
+	for model, usage := range c.ModelUsage {
+		if strings.TrimSpace(model) == "" || usage.InputTokens < 0 || usage.OutputTokens < 0 || usage.TotalCostUSD < 0 || usage.APICallCount < 0 {
+			return errors.New("agent continuation has invalid model usage")
+		}
+		trackedUsage.InputTokens += usage.InputTokens
+		trackedUsage.OutputTokens += usage.OutputTokens
+		trackedCalls += usage.APICallCount
+	}
+	// ModelUsage tracks input and output tokens only; TotalUsage also carries
+	// cache reads/writes, so compare just the fields both sides record.
+	if trackedUsage.InputTokens != c.TotalUsage.InputTokens || trackedUsage.OutputTokens != c.TotalUsage.OutputTokens || trackedCalls != c.LLMCalls {
+		return errors.New("agent continuation usage counters do not match model usage")
+	}
+	return nil
+}
+
+func validateWaitingBatch(c *Continuation) error {
 	var waitingBatch []provider.ToolCall
 	seenWaiting := false
 	for _, msg := range c.Messages {
@@ -128,22 +199,35 @@ func ValidateContinuation(c *Continuation) error {
 			}
 		}
 	}
-	var trackedUsage provider.Usage
-	trackedCalls := 0
-	for model, usage := range c.ModelUsage {
-		if strings.TrimSpace(model) == "" || usage.InputTokens < 0 || usage.OutputTokens < 0 || usage.TotalCostUSD < 0 || usage.APICallCount < 0 {
-			return errors.New("agent continuation has invalid model usage")
-		}
-		trackedUsage.InputTokens += usage.InputTokens
-		trackedUsage.OutputTokens += usage.OutputTokens
-		trackedCalls += usage.APICallCount
-	}
-	// ModelUsage tracks input and output tokens only; TotalUsage also carries
-	// cache reads/writes, so compare just the fields both sides record.
-	if trackedUsage.InputTokens != c.TotalUsage.InputTokens || trackedUsage.OutputTokens != c.TotalUsage.OutputTokens || trackedCalls != c.LLMCalls {
-		return errors.New("agent continuation usage counters do not match model usage")
-	}
 	return nil
+}
+
+// unresolvedLastTurnCalls returns the calls of the last assistant turn that
+// has tool calls and no tool result yet, in dispatch order.
+func unresolvedLastTurnCalls(messages []provider.Message) []provider.ToolCall {
+	last := -1
+	for i := len(messages) - 1; i >= 0; i-- {
+		if messages[i].Role == "assistant" && len(messages[i].ToolCalls) > 0 {
+			last = i
+			break
+		}
+	}
+	if last < 0 {
+		return nil
+	}
+	resolved := map[string]bool{}
+	for _, msg := range messages[last+1:] {
+		if msg.Role == "tool" {
+			resolved[msg.ToolCallID] = true
+		}
+	}
+	var out []provider.ToolCall
+	for _, call := range messages[last].ToolCalls {
+		if !resolved[call.ID] {
+			out = append(out, call)
+		}
+	}
+	return out
 }
 
 func continuationActiveElapsed(cfg *AgentConfig, runStart time.Time) time.Duration {
@@ -154,8 +238,48 @@ func continuationActiveElapsed(cfg *AgentConfig, runStart time.Time) time.Durati
 	return max(0, elapsed)
 }
 
+// snapshotContinuation captures the loop state needed to resume a ToolsOnly
+// run from this point. It sets no waiting-tool fields; callers add them for a
+// human-input suspension, otherwise the result is a boundary snapshot whose
+// SkippedToolCalls are the last assistant turn's unresolved calls.
+func snapshotContinuation(state *AgentState, cfg *AgentConfig, messages []provider.Message, assistantTurnIndex int, runStart time.Time, budgetWrapUp, finalResponseRepaired, finalRepairPending, finalRepairReserved, finalRepairFinalPending bool, toolCallsSinceReport int, reportRequired bool, recovery []ToolRecoveryRecord, recoveryEpoch int) *Continuation {
+	state = state.WithMessages(messages)
+	attempt := 0
+	if cfg != nil {
+		attempt = cfg.Attempt
+	}
+	return &Continuation{
+		Version:                 continuationVersion,
+		Kind:                    ContinuationBoundary,
+		Attempt:                 attempt,
+		Messages:                append([]provider.Message(nil), messages...),
+		ToolRecovery:            append([]ToolRecoveryRecord(nil), recovery...),
+		TotalUsage:              state.TotalUsage,
+		ModelUsage:              state.Tracker.ModelBreakdown(),
+		LLMCalls:                state.LLMCalls,
+		Step:                    state.Step,
+		AssistantTurnIndex:      assistantTurnIndex,
+		ToolCallsSinceReport:    toolCallsSinceReport,
+		ReportRequired:          reportRequired,
+		ActiveElapsedNanos:      continuationActiveElapsed(cfg, runStart).Nanoseconds(),
+		BudgetWrapUp:            budgetWrapUp,
+		FinalResponseRepaired:   finalResponseRepaired,
+		FinalRepairPending:      finalRepairPending,
+		FinalRepairReserved:     finalRepairReserved,
+		FinalRepairFinalPending: finalRepairFinalPending,
+		SkippedToolCalls:        append([]provider.ToolCall(nil), unresolvedLastTurnCalls(messages)...),
+		RecoveryEpoch:           recoveryEpoch,
+	}
+}
+
 func newSuspendedResult(state *AgentState, cfg *AgentConfig, model string, messages []provider.Message, assistantTurnIndex int, runStart time.Time, budgetWrapUp, finalResponseRepaired, finalRepairPending, finalRepairReserved, finalRepairFinalPending bool, toolCallsSinceReport int, reportRequired bool, questionID string, waiting provider.ToolCall, recovery []ToolRecoveryRecord) *AgentResult {
 	state = state.WithMessages(messages)
+	c := snapshotContinuation(state, cfg, messages, assistantTurnIndex, runStart, budgetWrapUp, finalResponseRepaired, finalRepairPending, finalRepairReserved, finalRepairFinalPending, toolCallsSinceReport, reportRequired, recovery, 0)
+	c.Kind = ContinuationInputWait
+	c.QuestionID = questionID
+	c.WaitingToolCallID = waiting.ID
+	c.WaitingToolName = waiting.Name
+	c.SkippedToolCalls = append([]provider.ToolCall(nil), waitingBatchCalls(messages, waiting.ID)...)
 	return &AgentResult{
 		TotalUsage:     state.TotalUsage,
 		TotalCost:      state.Tracker.TotalCost(),
@@ -167,28 +291,7 @@ func newSuspendedResult(state *AgentState, cfg *AgentConfig, model string, messa
 		Trace:          state.Trace,
 		Suspended:      true,
 		QuestionID:     questionID,
-		Continuation: &Continuation{
-			Version:                 continuationVersion,
-			Messages:                append([]provider.Message(nil), messages...),
-			ToolRecovery:            append([]ToolRecoveryRecord(nil), recovery...),
-			TotalUsage:              state.TotalUsage,
-			ModelUsage:              state.Tracker.ModelBreakdown(),
-			LLMCalls:                state.LLMCalls,
-			Step:                    state.Step,
-			AssistantTurnIndex:      assistantTurnIndex,
-			ToolCallsSinceReport:    toolCallsSinceReport,
-			ReportRequired:          reportRequired,
-			ActiveElapsedNanos:      continuationActiveElapsed(cfg, runStart).Nanoseconds(),
-			BudgetWrapUp:            budgetWrapUp,
-			FinalResponseRepaired:   finalResponseRepaired,
-			FinalRepairPending:      finalRepairPending,
-			FinalRepairReserved:     finalRepairReserved,
-			FinalRepairFinalPending: finalRepairFinalPending,
-			QuestionID:              questionID,
-			WaitingToolCallID:       waiting.ID,
-			WaitingToolName:         waiting.Name,
-			SkippedToolCalls:        append([]provider.ToolCall(nil), waitingBatchCalls(messages, waiting.ID)...),
-		},
+		Continuation:   c,
 	}
 }
 
@@ -231,6 +334,61 @@ func resumeContinuation(c *Continuation, result string, outcomes ...*tooloutcome
 			ToolCallID:  call.ID,
 			ToolName:    call.Name,
 			ToolOutcome: &skipped,
+		})
+	}
+	return messages, nil
+}
+
+// ResumeToolResult is the backend-recorded settlement of a tool call that has
+// no result in a boundary checkpoint (it was running or queued when the
+// service stopped). Content is the tool message the model will read.
+type ResumeToolResult struct {
+	Content string
+	Outcome *tooloutcome.Outcome
+	Failed  bool
+}
+
+// RestartInterruptedOutcome settles a call that was running when the service
+// stopped. A read-only call is safe to repeat; anything else is an unverified
+// effect and must be checked before any new attempt.
+func RestartInterruptedOutcome(observation bool) tooloutcome.Outcome {
+	if observation {
+		return tooloutcome.New(tooloutcome.Transient, "restart_interrupted", "no_side_effects", "The service restarted while this read-only call was running. It had no side effects; call it again if the result is still needed.", "retry")
+	}
+	return tooloutcome.New(tooloutcome.Uncertain, "restart_interrupted_effect", "unknown", "Execution was interrupted by a service restart. Verify the recorded target state before any new workflow attempts this effect.", "verify_effect")
+}
+
+// RestartSkippedOutcome settles a call that was queued behind an interrupted one.
+func RestartSkippedOutcome() tooloutcome.Outcome {
+	return tooloutcome.New(tooloutcome.Permanent, "batch_skipped", "not_executed", "This call was queued behind a call that a service restart interrupted and was not executed. Do not replay the old batch; decide whether to call a tool again based on the resumed context.", "replan_after_restart")
+}
+
+// resumeBoundary rebuilds the provider transcript of a boundary checkpoint.
+// Every call of the last assistant turn that has no result gets one tool
+// message: the backend-recorded settlement when there is one, otherwise a
+// not-executed skip. With no unresolved call nothing is added and the model is
+// simply asked again.
+func resumeBoundary(c *Continuation, settled map[string]ResumeToolResult) ([]provider.Message, error) {
+	if err := ValidateContinuation(c); err != nil {
+		return nil, err
+	}
+	if c.EffectiveKind() != ContinuationBoundary {
+		return nil, errors.New("agent continuation is not a boundary snapshot")
+	}
+	messages := append([]provider.Message(nil), c.Messages...)
+	for _, call := range c.SkippedToolCalls {
+		result, ok := settled[call.ID]
+		if !ok {
+			skipped := RestartSkippedOutcome()
+			result = ResumeToolResult{Content: skipped.JSON(), Outcome: &skipped, Failed: true}
+		}
+		messages = append(messages, provider.Message{
+			Role:        "tool",
+			Content:     result.Content,
+			ToolFailed:  result.Failed,
+			ToolCallID:  call.ID,
+			ToolName:    call.Name,
+			ToolOutcome: result.Outcome,
 		})
 	}
 	return messages, nil

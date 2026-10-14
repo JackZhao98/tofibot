@@ -107,6 +107,8 @@ const outcomeCodeKeys = {
   // A computer or tool that stopped answering; the step failed, the task can go on.
   tool_timeout: "outcome.tool_timeout", computer_restarting: "outcome.computer_restarting",
   computer_unresponsive: "outcome.computer_unresponsive",
+  // A service restart interrupted the step: the effect is unverified, or it was read-only.
+  restart_interrupted_effect: "outcome.restart_interrupted_effect", restart_interrupted: "outcome.restart_interrupted",
 } as const;
 const known = <T extends object>(map: T, code: string | undefined): code is Extract<keyof T, string> => Boolean(code && Object.hasOwn(map, code));
 
@@ -134,12 +136,15 @@ function runReason(run: Run, tools: ToolActivity[], t: ReturnType<typeof tasksT>
   if (run.failure?.code === "budget_exhausted") return t("reason.run.budget_exhausted");
   if (run.failure?.code === "no_final_answer") return t("reason.run.no_final_answer");
   if (run.failure?.code === "tool_stuck") return t("reason.run.tool_stuck");
+  if (run.failure?.code === "resumed_repeatedly") return t("reason.run.resumed_repeatedly", { times: run.failure.count ?? 0 });
   if (error.includes("scheduled task returned without confirming a completed result")) return t("reason.run.receipt_missing");
 }
 
 /** A tool outcome in words: the specific code first, then its status. */
-export function taskOutcomeText(outcome: { code?: string; status?: string } | undefined, locale?: Language) {
+export function taskOutcomeText(outcome: { code?: string; status?: string; next_action?: string } | undefined, locale?: Language) {
   const code = outcome?.code;
+  // A call queued behind one that a service restart interrupted (not an expired approval).
+  if (code === "batch_skipped" && outcome?.next_action === "replan_after_restart") return tasksT(locale)("outcome.batch_skipped_restart");
   return known(outcomeCodeKeys, code) ? tasksT(locale)(outcomeCodeKeys[code]) : taskStatusText(outcome?.status, locale);
 }
 

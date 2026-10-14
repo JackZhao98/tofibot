@@ -83,7 +83,10 @@
     "tool_timeout": "Pas de réponse à temps, arrêté",
     "computer_restarting": "L’ordinateur redémarre ; cette étape n’a pas été exécutée",
     "computer_unresponsive": "L’ordinateur ne répond pas ; cette étape n’a pas été exécutée",
-    "tool_rejected": "Refusé avant exécution, rien n'a changé"
+    "tool_rejected": "Refusé avant exécution, rien n'a changé",
+    "restart_interrupted": "En cours lors de l’interruption ; peut être relancé sans risque",
+    "restart_interrupted_effect": "En cours lors de l’interruption ; effet non vérifié",
+    "batch_skipped_restart": "Ignoré après le redémarrage du service"
   },
   "fact": {
     "labelled": "{{label}} : {{text}}",
@@ -435,7 +438,8 @@
     "budget_exhausted": "La tâche a épuisé son budget d’exécution et n’a pas abouti. Les résultats d’outils obtenus sont conservés. Identifiez la cause, puis continuez.",
     "connection_interrupted": "La connexion a été coupée et la tâche n’a pas abouti. Les résultats d’outils obtenus sont conservés. Avant de réessayer, vérifiez les actions au résultat incertain.",
     "failed": "Cette demande a échoué et la tâche n’a pas abouti. Les résultats d’outils obtenus sont conservés.",
-    "tool_stuck": "Une étape d’outil ne répondait plus, la tâche a donc été arrêtée. Les résultats d’outils obtenus sont conservés. Avant de réessayer, vérifiez les actions au résultat incertain."
+    "tool_stuck": "Une étape d’outil ne répondait plus, la tâche a donc été arrêtée. Les résultats d’outils obtenus sont conservés. Avant de réessayer, vérifiez les actions au résultat incertain.",
+    "resumed_repeatedly": "Tâche interrompue {{times}} fois. Arrêtée."
   },
   "conversation_state": {
     "finishing": "Finalisation",
@@ -510,7 +514,8 @@
       "budget_exhausted": "La tâche a épuisé son budget d'étapes avant de terminer.",
       "no_final_answer": "Le modèle s'est arrêté sans réponse finale.",
       "tool_stuck": "Une étape d'outil ne répondait plus et la tâche a été arrêtée.",
-      "receipt_missing": "L'exécution s'est terminée sans confirmer de résultat."
+      "receipt_missing": "L'exécution s'est terminée sans confirmer de résultat.",
+      "resumed_repeatedly": "La tâche a été interrompue {{times}} fois et arrêtée."
     }
   }
 }
