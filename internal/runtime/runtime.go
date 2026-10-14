@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log"
 	"net/url"
 	"strings"
 	"time"
@@ -60,6 +61,25 @@ func decodeContinuation(raw json.RawMessage, req Request, model string) (*agent.
 		return nil, fmt.Errorf("invalid runtime continuation: %w", err)
 	}
 	return checkpoint.Agent, nil
+}
+
+// checkpointHook adapts the agent's boundary snapshot to the caller's opaque
+// durable form. It is nil when the caller stores no checkpoints.
+func checkpointHook(req Request, model string) func(string, *agent.Continuation) error {
+	if req.OnCheckpoint == nil {
+		return nil
+	}
+	return func(kind string, c *agent.Continuation) error {
+		raw, err := encodeContinuation(req, model, c)
+		if err != nil {
+			// An inconsistent snapshot is a bug here, not a reason to fail the
+			// user's run. Say so loudly and tell the store to drop its older
+			// checkpoint: resuming from a stale boundary could repeat later work.
+			log.Printf("[run] %s checkpoint for %s is not valid and was discarded: %v", kind, req.RunID, err)
+			return req.OnCheckpoint(kind, nil)
+		}
+		return req.OnCheckpoint(kind, raw)
+	}
 }
 
 func encodeContinuation(req Request, model string, continuation *agent.Continuation) (json.RawMessage, error) {
@@ -429,6 +449,9 @@ func (e *engine) Run(ctx context.Context, req Request) (Result, error) {
 		Continuation:               continuation,
 		ResumeResult:               req.ResumeResult,
 		ResumeOutcome:              req.ResumeOutcome,
+		ResumeToolResults:          req.ResumeToolResults,
+		Attempt:                    req.Attempt,
+		OnCheckpoint:               checkpointHook(req, model),
 		ResolveToolIdentity:        resolveIdentity,
 		ResolveUnknownTool:         resolveDirectTool(req.Tools),
 		PromptCacheKey:             promptCacheKey(req),
@@ -597,4 +620,27 @@ func resolveDirectTool(tools []Tool) func(context.Context, string, string) (stri
 func mustJSON(v any) json.RawMessage {
 	b, _ := json.Marshal(v)
 	return b
+}
+
+// BoundaryCheckpoint validates a stored boundary checkpoint against its run
+// and Bot without needing the model, for startup recovery and claim-time
+// settlement. A checkpoint this build cannot read is an error, never a guess.
+func BoundaryCheckpoint(raw json.RawMessage, runID, botID string) (*agent.Continuation, error) {
+	var checkpoint continuationEnvelope
+	if err := json.Unmarshal(raw, &checkpoint); err != nil {
+		return nil, fmt.Errorf("decode runtime continuation: %w", err)
+	}
+	if checkpoint.Version != continuationVersion {
+		return nil, fmt.Errorf("unsupported runtime continuation version %d", checkpoint.Version)
+	}
+	if checkpoint.RunID != runID || checkpoint.BotID != botID {
+		return nil, errors.New("runtime checkpoint identity does not match run")
+	}
+	if err := agent.ValidateContinuation(checkpoint.Agent); err != nil {
+		return nil, fmt.Errorf("invalid runtime continuation: %w", err)
+	}
+	if checkpoint.Agent.EffectiveKind() != agent.ContinuationBoundary {
+		return nil, errors.New("runtime checkpoint is not a boundary snapshot")
+	}
+	return checkpoint.Agent, nil
 }
