@@ -2,6 +2,7 @@ package app
 
 import (
 	"encoding/json"
+	"strconv"
 	"strings"
 
 	"github.com/JackZhao98/tofibot/internal/runtime"
@@ -13,6 +14,8 @@ type RunFailure struct {
 	Code    string `json:"code"`
 	Source  string `json:"source"`
 	Message string `json:"message"`
+	// Count is how many interruptions stopped a run (resumed_repeatedly).
+	Count int `json:"count,omitempty"`
 }
 
 func (r Run) failure() *RunFailure {
@@ -29,6 +32,14 @@ func (r Run) failure() *RunFailure {
 	if strings.HasPrefix(errorText, stuckRunCode+":") {
 		failure.Code = stuckRunCode
 		failure.Message = "A tool step stopped responding and the task was stopped. Completed tool results are retained; verify any uncertain effects before retrying."
+		return failure
+	}
+	if strings.HasPrefix(errorText, resumedRepeatedlyCode) {
+		failure.Code = resumedRepeatedlyCode
+		failure.Message = "The task was interrupted repeatedly and was stopped. Completed tool results are retained; verify any uncertain effects before retrying."
+		if n, err := strconv.Atoi(strings.TrimPrefix(strings.TrimPrefix(errorText, resumedRepeatedlyCode), ":")); err == nil {
+			failure.Count = n
+		}
 		return failure
 	}
 	if errorText == "approval_expired" {

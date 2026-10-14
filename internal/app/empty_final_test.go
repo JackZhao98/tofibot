@@ -124,8 +124,14 @@ func TestShutdownDuringReviewedTurnDoesNotFinishDoneWithEmptyAnswer(t *testing.T
 	if got.Status == "done" {
 		t.Fatalf("shutdown finished the run as done: %+v", got)
 	}
-	if got.Status != "interrupted" {
-		t.Fatalf("run status=%q error=%q, want interrupted", got.Status, got.Error)
+	// The run had checkpointed tool work, so the restart resumes it instead of
+	// interrupting it. The reopened worker may already have claimed it again.
+	if got.Status != "queued" && got.Status != "running" {
+		t.Fatalf("run status=%q error=%q, want it resumed (queued or running)", got.Status, got.Error)
+	}
+	var resumes int
+	if err := s.store.db.QueryRow(`SELECT resumes FROM runs WHERE id=?`, run.ID).Scan(&resumes); err != nil || resumes != 1 {
+		t.Fatalf("resumes=%d err=%v", resumes, err)
 	}
 	messages, _, err := s.store.Messages(c.ID, 0, 50)
 	if err != nil {

@@ -124,6 +124,7 @@ func TestCancelAndRestartRecoveryCleanPendingAttachments(t *testing.T) {
 			if mode == "cancel" {
 				err = s.CancelRunTree(r.ID)
 			} else {
+				giveRunObservableWork(t, s, r)
 				err = recoverInterruptedRuns(s.db)
 			}
 			if err != nil {

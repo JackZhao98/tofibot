@@ -381,6 +381,7 @@ func TestInterruptedGroupStarterLeavesDurableInvitations(t *testing.T) {
 	_, runs, _, _ := s.AddUserRuns(group.ID, "question", "input", nil)
 	r := runs[0]
 	s.SetRunStatus(r.ID, "running", "")
+	giveRunObservableWork(t, s, r)
 	target := a.ID
 	if target == r.BotID {
 		target = b.ID
