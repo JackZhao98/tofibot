@@ -85,7 +85,8 @@
     "computer_unresponsive": "電腦沒有回應，此步驟未執行",
     "tool_rejected": "執行前被拒絕，未做任何變更",
     "restart_interrupted": "中斷時正在執行，可安全重做",
-    "restart_interrupted_effect": "中斷時正在執行，結果待核實"
+    "restart_interrupted_effect": "中斷時正在執行，結果待核實",
+    "batch_skipped_restart": "服務重新啟動後跳過"
   },
   "fact": {
     "labelled": "{{label}}：{{text}}",

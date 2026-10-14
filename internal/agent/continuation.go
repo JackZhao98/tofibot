@@ -360,7 +360,7 @@ func RestartInterruptedOutcome(observation bool) tooloutcome.Outcome {
 
 // RestartSkippedOutcome settles a call that was queued behind an interrupted one.
 func RestartSkippedOutcome() tooloutcome.Outcome {
-	return tooloutcome.New(tooloutcome.Permanent, "batch_skipped", "not_executed", "This call was queued behind a call that a service restart interrupted and was not executed. Do not replay the old batch; decide whether to call a tool again based on the resumed context.", "replan_after_input")
+	return tooloutcome.New(tooloutcome.Permanent, "batch_skipped", "not_executed", "This call was queued behind a call that a service restart interrupted and was not executed. Do not replay the old batch; decide whether to call a tool again based on the resumed context.", "replan_after_restart")
 }
 
 // resumeBoundary rebuilds the provider transcript of a boundary checkpoint.

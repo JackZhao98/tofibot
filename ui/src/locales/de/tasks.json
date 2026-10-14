@@ -85,7 +85,8 @@
     "computer_unresponsive": "Der Computer reagiert nicht; dieser Schritt wurde nicht ausgeführt",
     "tool_rejected": "Vor der Ausführung abgelehnt, nichts geändert",
     "restart_interrupted": "Lief bei der Unterbrechung; kann gefahrlos wiederholt werden",
-    "restart_interrupted_effect": "Lief bei der Unterbrechung; Wirkung nicht geprüft"
+    "restart_interrupted_effect": "Lief bei der Unterbrechung; Wirkung nicht geprüft",
+    "batch_skipped_restart": "Nach dem Dienstneustart übersprungen"
   },
   "fact": {
     "labelled": "{{label}}: {{text}}",

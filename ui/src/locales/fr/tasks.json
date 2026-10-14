@@ -85,7 +85,8 @@
     "computer_unresponsive": "L’ordinateur ne répond pas ; cette étape n’a pas été exécutée",
     "tool_rejected": "Refusé avant exécution, rien n'a changé",
     "restart_interrupted": "En cours lors de l’interruption ; peut être relancé sans risque",
-    "restart_interrupted_effect": "En cours lors de l’interruption ; effet non vérifié"
+    "restart_interrupted_effect": "En cours lors de l’interruption ; effet non vérifié",
+    "batch_skipped_restart": "Ignoré après le redémarrage du service"
   },
   "fact": {
     "labelled": "{{label}} : {{text}}",

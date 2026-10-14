@@ -85,7 +85,8 @@
     "computer_unresponsive": "コンピューターが応答しないため、このステップは実行されていません",
     "tool_rejected": "実行前に拒否され、変更はありません",
     "restart_interrupted": "中断時に実行中でした。再実行しても安全です",
-    "restart_interrupted_effect": "中断時に実行中でした。結果は未確認です"
+    "restart_interrupted_effect": "中断時に実行中でした。結果は未確認です",
+    "batch_skipped_restart": "サービスの再起動後にスキップ"
   },
   "fact": {
     "labelled": "{{label}}：{{text}}",

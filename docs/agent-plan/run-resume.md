@@ -347,10 +347,15 @@ queued ──claim──▶ running ──done──▶ done
 3. **观察型判定用静态身份**（`DefaultIdentity`，按工具名），不用运行时解析出的身份。原因：恢复发生在 `OpenStore` 里，拿不到 MCP/扩展的运行时 `Identity`。未知工具一律按"有效果"处理，偏保守；MCP `readOnlyHint` 属于 Phase 3。
 4. **`resumeBoundary` 的回填来源是活动行而非固定的两种 outcome**。原因：工具已完成但下一个检查点没写成功时（崩在两者之间），模型应看到真实结果而不是"待核实"。已完成活动的结果来自 `tool_activities.result`（上限 32k 字符），可能比当时给模型的 24000 字符截断版略长。
 5. **v2 的 `Kind` 为空视为 `input_wait`**（不限于 v1）。原因：兼容构造 v2 载荷的既有调用方与测试；新写入的载荷总是带 Kind。旧版本构建读到 v2 会得到 `unsupported agent continuation version 2`；启动恢复遇到本构建读不懂的检查点则按 interrupted 处理。
-6. **`batch_skipped` 的 UI 文案**目前沿用"审批过期后跳过"。原因：设计要求续跑与审批过期共用 outcome code；区分文案需要新 code，留给后续。
+6. **重启造成的 `batch_skipped` 用独立的 `next_action=replan_after_restart`**（UI 据此显示"服务重启后跳过"，key `outcome.batch_skipped_restart`）。不用 `replan_after_input`，因为人工输入续跑的跳过也用它，会被误标。code/certainty 仍是 `batch_skipped`/`not_executed`。
 7. 续跑 run 结束后**会**安排长期记忆摘要（人工等待续跑则照旧不安排）。
 8. **快照本身校验失败时不让 run 失败**：丢弃该检查点（并让存储删掉旧的）、打一行日志，run 继续跑但不可续跑。原因：每个工具边界都会校验，一个潜在的用量对账缺陷不该把用户的 run 全部打挂；只有"写入存储失败"才使 run 失败（与 `OnSuspend` 一致）。
-9. `tofi_host.py` 与 drain 未改（Phase 4）。`paused`/`pause_*` 未加（Phase 3）。真实 kill -9 VM 测试未做，由编排方执行。
+9. 评审修复（同分支）：
+   - 重新排队的 run 恢复时**删除**其 `stream_drafts` 行（而不是置 cancelled），下一次尝试由 `BeginStream` 开新草稿；否则 `BeginStream` 报 "stream draft is no longer active"，每个续跑都会失败。不再续跑的 run 仍置 cancelled。
+   - 回合先发布、后写 `turn` 检查点：若 `stream_assistant_turns` 的最大 `turn_index` 大于检查点的 `AssistantTurnIndex`，该检查点视为不可用（→ interrupted），避免模型重新生成已发布的回合。
+   - `runHadObservableWork` 也计入子 run（`parent_run_id`）与 `handoff_count>0`：handoff 的 notice 记在子 run 下，否则 triage run 会被重排队并撞上 "run handoff already used"。
+   - 续跑 notice 推迟到流（`StreamControls`）建好之后再发，避免在 run 随即失败时留下"正在续跑"。
+10. `tofi_host.py` 与 drain 未改（Phase 4）。`paused`/`pause_*` 未加（Phase 3）。真实 kill -9 VM 测试未做，由编排方执行。
 
 ### Phase 3：网络等待（案例 2）+ 只读 MCP 重做（案例 3）
 - `paused` 状态过全部闸（§3.6 清单）；探测器；到期总结；MCP `readOnlyHint` → Observation。
