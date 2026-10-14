@@ -285,6 +285,12 @@ func OpenStore(dir string) (*Store, error) {
 func openStore(dir string, recoverWork bool) (*Store, error) {
 	return openStoreWithLimit(dir, recoverWork, 0)
 }
+// sqliteBusyDSN makes every connection wait for a lock instead of failing at
+// once: host tools, backups and checks read the database from outside the
+// process, and a restart after a crash may race the previous process's exit or
+// WAL recovery. Without it startup migration failed with "database is locked".
+const sqliteBusyDSN = "?_pragma=busy_timeout(10000)"
+
 func openStoreWithLimit(dir string, recoverWork bool, maxBytes int64) (*Store, error) {
 	if dir == "" {
 		dir = "./data"
@@ -292,7 +298,7 @@ func openStoreWithLimit(dir string, recoverWork bool, maxBytes int64) (*Store, e
 	if err := os.MkdirAll(dir, 0o700); err != nil {
 		return nil, err
 	}
-	db, err := sql.Open("sqlite", filepath.Join(dir, "tofi.db"))
+	db, err := sql.Open("sqlite", filepath.Join(dir, "tofi.db")+sqliteBusyDSN)
 	if err != nil {
 		return nil, err
 	}
