@@ -610,7 +610,7 @@ html:not([data-desktop]) .workspace .web-loading-state{min-height:96px;padding-b
 .workspace .composer-reply button:hover { background:var(--surface); color:var(--ink); }
 
 /* Group chats: reactions and live status line up with the message text, not the avatar column. */
-.workspace .message-block:has(.message-avatar)>.message-reactions { margin-left:var(--sender-gutter); }
+
 
 /* Bot profile: one header (title + close), the cat and identity, then one list of equal rows —
    plans, memory, name/role/model — each opening exactly one page. Sharing sits quietly at the end. */

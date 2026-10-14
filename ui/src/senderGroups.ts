@@ -3,14 +3,15 @@
  * same Bot within a short window read as one block, with the avatar and name shown once on its first
  * unit. Units carry `data-sender` (Bot id) and `data-at` (ISO time); everything that is not a Bot unit
  * (a person's message, a notice, a question or draft card, a date or unread divider) ends the block.
- * The result is written as `data-continues` so CSS can drop the avatar/name and keep the indent.
+ * `data-continues` marks later units; `data-last` marks the unit that closes a group, which carries the avatar and name (bottom of the group, chat-app convention).
  */
 export const SENDER_GROUP_WINDOW_MS = 5 * 60_000;
 
-const BREAKERS = ".date-divider, .unread-divider, article.message:not(.message-bot), [data-question-id], [data-draft-id], .binary-question-message, .question-message, .mail-draft-message";
+const BREAKERS = ".date-divider, .unread-divider, article.message:not(.message-bot), .message-ui-card, [data-question-id], [data-draft-id], .binary-question-message, .question-message, .mail-draft-message";
 
 export function markSenderGroups(root: ParentNode | null): void {
   if (!root) return;
+  const units: HTMLElement[] = [];
   let sender = "";
   let at = NaN;
   for (const element of root.querySelectorAll<HTMLElement>(`[data-sender], ${BREAKERS}`)) {
@@ -27,5 +28,12 @@ export function markSenderGroups(root: ParentNode | null): void {
     else if (element.hasAttribute("data-continues")) element.removeAttribute("data-continues");
     sender = id;
     at = Number.isFinite(time) ? time : at;
+    units.push(element);
   }
+  // The avatar and name sit under the group's last unit: the one the next unit does not continue.
+  units.forEach((element, index) => {
+    const last = !units[index + 1] || units[index + 1].dataset.continues !== "true";
+    if (last) { if (element.dataset.last !== "true") element.dataset.last = "true"; }
+    else if (element.hasAttribute("data-last")) element.removeAttribute("data-last");
+  });
 }
