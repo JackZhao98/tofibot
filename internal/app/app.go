@@ -3521,6 +3521,13 @@ func (s *Server) execute(c Conversation, r Run) {
 			s.failRun(c, r, errors.New(scheduleFailureDetail(res.Content, botCfg)))
 			return
 		}
+		if !replied {
+			// The recorded result is the deliverable; a final answer that only refers
+			// to it ("as above") would leave the conversation without the result.
+			if args, argsErr := s.store.CompletedToolArguments(r.ID, "complete_scheduled_task"); argsErr == nil {
+				res.Content = scheduledFinalWithResult(cleanBotOutput(res.Content, botCfg), args)
+			}
+		}
 		if cleanBotOutput(res.Content, botCfg) == "" && !repliedFinal {
 			s.failRun(c, r, errors.New("scheduled task confirmed a result but returned no final answer"))
 			return

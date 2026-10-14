@@ -3,6 +3,7 @@ package app
 import (
 	"database/sql"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -220,6 +221,17 @@ func (s *Store) HasCompletedTool(runID, name string) (bool, error) {
 		return false, err
 	}
 	return found != 0, nil
+}
+
+// CompletedToolArguments returns the stored arguments of a run's latest
+// completed call of a named tool, or "" when there is none.
+func (s *Store) CompletedToolArguments(runID, name string) (string, error) {
+	var args string
+	err := s.db.QueryRow(`SELECT arguments FROM tool_activities WHERE run_id=? AND name=? AND status='completed' ORDER BY updated_at DESC LIMIT 1`, runID, name).Scan(&args)
+	if errors.Is(err, sql.ErrNoRows) {
+		return "", nil
+	}
+	return args, err
 }
 
 func boolInt(v bool) int {
