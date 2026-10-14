@@ -141,8 +141,10 @@ function runReason(run: Run, tools: ToolActivity[], t: ReturnType<typeof tasksT>
 }
 
 /** A tool outcome in words: the specific code first, then its status. */
-export function taskOutcomeText(outcome: { code?: string; status?: string } | undefined, locale?: Language) {
+export function taskOutcomeText(outcome: { code?: string; status?: string; next_action?: string } | undefined, locale?: Language) {
   const code = outcome?.code;
+  // A call queued behind one that a service restart interrupted (not an expired approval).
+  if (code === "batch_skipped" && outcome?.next_action === "replan_after_restart") return tasksT(locale)("outcome.batch_skipped_restart");
   return known(outcomeCodeKeys, code) ? tasksT(locale)(outcomeCodeKeys[code]) : taskStatusText(outcome?.status, locale);
 }
 

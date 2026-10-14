@@ -85,7 +85,8 @@
     "computer_unresponsive": "The computer isn't responding; this step didn't run",
     "tool_rejected": "Refused before running; nothing changed",
     "restart_interrupted": "Was running at interruption; safe to repeat",
-    "restart_interrupted_effect": "Was running at interruption; effect unverified"
+    "restart_interrupted_effect": "Was running at interruption; effect unverified",
+    "batch_skipped_restart": "Skipped after service restart"
   },
   "fact": {
     "labelled": "{{label}}: {{text}}",

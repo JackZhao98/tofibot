@@ -85,7 +85,8 @@
     "computer_unresponsive": "컴퓨터가 응답하지 않아 이 단계는 실행되지 않았습니다",
     "tool_rejected": "실행 전에 거부되어 변경된 내용이 없습니다",
     "restart_interrupted": "중단 시점에 실행 중이었으며 다시 실행해도 안전합니다",
-    "restart_interrupted_effect": "중단 시점에 실행 중이었으며 결과는 확인되지 않았습니다"
+    "restart_interrupted_effect": "중단 시점에 실행 중이었으며 결과는 확인되지 않았습니다",
+    "batch_skipped_restart": "서비스 재시작 후 건너뜀"
   },
   "fact": {
     "labelled": "{{label}}: {{text}}",
