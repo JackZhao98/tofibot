@@ -3,6 +3,7 @@
 // Synthetic data (same shape as real messages/runs/tools); the app's /api is answered in the browser.
 // Run: PLAYWRIGHT_MODULE=/path/to/playwright/index.mjs npm run test:chat-bubbles
 // BUBBLES_SHOT_PREFIX=before|after names the screenshots in artifacts/chat-bubbles/.
+import { auditFocus, focusRingProbe } from "./focus-audit.mjs";
 import assert from "node:assert/strict";
 import { mkdirSync } from "node:fs";
 import { fileURLToPath } from "node:url";
@@ -319,6 +320,24 @@ try {
       assert.equal(n.actions, 0, "no View activity action when the rows are already shown");
     } finally { await context.close(); }
   });
+  // Focus rule: a click or tap on a message (tap opens its actions) never frames it; Tab rings what it reaches.
+  for (const [width, height, touch] of [[1440, 900, false], [1180, 820, true], [1024, 768, true], [390, 844, true]]) for (const theme of ["light", "dark"]) {
+    await scenario(`pointer focus draws no ring, Tab does (${width}px, ${theme})`, async () => {
+      const { page, context } = await open("/b/bot_a", { width, height, theme, touch, mobile: width < 700 });
+      try {
+        const block = page.locator(".message-block[data-message-id=a5] .message-content").first();
+        await block.scrollIntoViewIfNeeded();
+        if (touch) await block.tap(); else await block.click();
+        await page.waitForTimeout(160);
+        const probe = await page.evaluate(focusRingProbe);
+        assert.ok(probe.none || probe.field || !probe.ring, `message tap/click rings ${probe.focused}: ${probe.ring?.ring}`);
+        const framed = await page.evaluate(() => [...document.querySelectorAll(".message-block .message-content")].filter(el => { const s = getComputedStyle(el); return s.outlineStyle !== "none" && parseFloat(s.outlineWidth) > 0 && !/rgba\(\d+, \d+, \d+, 0\)/.test(s.outlineColor); }).length);
+        assert.equal(framed, 0, "no message frame after a tap or click");
+        const found = await auditFocus(page, { touch, scope: "chat" });
+        assert.deepEqual(found, [], JSON.stringify(found));
+      } finally { await context.close(); }
+    });
+  }
   // iPad screenshots of the shipped default, group and direct chat, both themes.
   for (const theme of ["light", "dark"]) for (const [kind, url] of [["group", "/g/grp_1"], ["dm", "/b/bot_a"]]) {
     const { page, context } = await open(url, { width: 1180, height: 820, theme });

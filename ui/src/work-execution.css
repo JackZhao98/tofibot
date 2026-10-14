@@ -9,5 +9,5 @@
 .workspace .work-execution-actions button { min-height: 38px; max-width: 100%; padding: 8px 12px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface-2); color: var(--ink); font: 600 12px/1.5 var(--body); cursor: pointer; }
 .workspace .work-execution-actions button:hover:not(:disabled) { background: var(--surface); }
 .workspace .work-execution-actions button:active:not(:disabled) { background: var(--sunk); }
-.workspace .work-execution-actions button:focus-visible { outline: 2px solid var(--focus); outline-offset: 3px; }
+.workspace .work-execution-actions button:focus-visible { outline: var(--focus-ring-width) solid var(--focus-ring); outline-offset: 3px; }
 .workspace .work-execution-actions button:disabled { opacity: .5; cursor: not-allowed; }

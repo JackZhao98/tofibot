@@ -120,11 +120,12 @@ export function FilePreviewHost() {
   useEffect(() => {
     const d = dialog.current;
     if (!d) return;
-    if (open && !d.open) d.showModal();
+    // showModal() would move focus to the first control (Download) and ring it; land on the scrollable body instead.
+    if (open && !d.open) { d.showModal(); (d.querySelector<HTMLElement>(".fp-body") ?? d).focus({ preventScroll: true }); }
     if (!open && d.open) d.close();
   }, [open]);
   const onClose = useCallback(() => { closeFilePreview(); }, []);
-  return <dialog ref={dialog} className="file-preview" aria-labelledby="fp-title" aria-label={t("attachment.viewer")} onCancel={event => { event.preventDefault(); onClose(); }} onClose={onClose} onClick={event => { if (event.target === dialog.current) onClose(); }}>
+  return <dialog ref={dialog} className="file-preview" tabIndex={-1} aria-labelledby="fp-title" aria-label={t("attachment.viewer")} onCancel={event => { event.preventDefault(); onClose(); }} onClose={onClose} onClick={event => { if (event.target === dialog.current) onClose(); }}>
     {current && <Viewer key={current.id} target={current} canBack={stack.length > 1} previous={stack.at(-2)} />}
   </dialog>;
 }

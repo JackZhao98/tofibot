@@ -84,7 +84,7 @@
   --surface-soft:var(--surface-2); --surface-hover:var(--surface);
   --sidebar-bg:var(--sunk); --selected-bg:var(--surface-2); --line-strong:var(--line-soft);
   --text:var(--ink); --text-soft:var(--ink-soft); --accent:var(--yellow);
-  --focus-ring:var(--focus); --success:var(--green); --on-accent:var(--on-block);
+  --focus-ring:var(--focus); --focus-ring-width:2px; --focus-ring-offset:3px; --success:var(--green); --on-accent:var(--on-block);
   --bubble-user:var(--surface-2);
   --float-shadow:var(--hard);
   --ease-out:cubic-bezier(.22,1,.36,1); --ease-settle:cubic-bezier(.2,.8,.2,1);

@@ -40,6 +40,6 @@
 @media(prefers-reduced-motion:reduce) { .workspace .mail-draft-done.is-arriving, .workspace .mail-draft-done.is-arriving .mail-draft-done-dot { animation:none; } }
 .workspace .mail-draft-done.is-declined .mail-draft-done-dot { background:transparent; box-shadow:inset 0 0 0 1.5px var(--muted); }
 .workspace .mail-draft-done details { margin-top:4px; color:var(--muted); font:13px/1.5 var(--body); }
-.workspace .mail-draft-letter :is(input,textarea,button):focus-visible { outline:2px solid var(--focus); outline-offset:3px; }
+.workspace .mail-draft-letter :is(input,textarea,button):focus-visible { outline:var(--focus-ring-width) solid var(--focus-ring); outline-offset:3px; }
 .workspace .mail-draft-letter button:disabled { opacity:.55; cursor:default; }
 @media(max-width:560px) { .workspace .mail-draft-letter footer { flex-wrap:wrap; } .workspace .mail-draft-hint { flex-basis:100%; order:-1; } .workspace .mail-draft-fields { padding:12px 72px 12px 12px; } .workspace .mail-draft-paper { padding:12px; } .workspace .mail-draft-stamp { right:10px; } }

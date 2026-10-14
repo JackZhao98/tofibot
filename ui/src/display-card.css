@@ -126,7 +126,7 @@
 .workspace .display-card-mail .display-card-expand { color: var(--paper-ink); }
 .workspace .display-card-mail .display-card-footer { border-color: var(--paper-rule); background: color-mix(in srgb, var(--paper-rule) 34%, var(--paper)); color: var(--paper-muted); }
 .workspace .display-card-mail .display-card-footer button { color: var(--paper-ink); }
-.workspace .display-card :is(button, a):focus-visible { outline: 2px solid var(--focus); outline-offset: 3px; }
+.workspace .display-card :is(button, a):focus-visible { outline: var(--focus-ring-width) solid var(--focus-ring); outline-offset: 3px; }
 
 @media (max-width: 560px) {
   .workspace .display-card { max-width: 100%; }

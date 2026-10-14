@@ -44,7 +44,7 @@ body { color:var(--ink); background:var(--bg); font-family:var(--body); }
 }
 .delete-dialog-submit:not(:disabled):hover { transform:translate(-1px,-1px); box-shadow:3px 4px 0 var(--line); background:var(--danger); }
 .delete-dialog-submit:not(:disabled):active { transform:translate(2px,3px); box-shadow:none; }
-.delete-dialog-submit:focus-visible { outline:2px solid var(--focus); outline-offset:3px; }
+.delete-dialog-submit:focus-visible { outline:var(--focus-ring-width) solid var(--focus-ring); outline-offset:3px; }
 .danger-link {
   min-height:36px; padding:7px 12px; border:var(--edge) solid var(--danger);
   border-radius:12px; color:var(--danger-text); background:transparent; box-shadow:none;
@@ -52,10 +52,10 @@ body { color:var(--ink); background:var(--bg); font-family:var(--body); }
 }
 .danger-link:not(:disabled):hover { background:color-mix(in srgb,var(--danger) 10%,transparent); }
 .inline-confirmation .danger-link { color:var(--on-danger); background:var(--danger); border-color:var(--line); box-shadow:var(--hard-sm); }
-.danger-link:focus-visible { outline:2px solid var(--focus); outline-offset:3px; }
+.danger-link:focus-visible { outline:var(--focus-ring-width) solid var(--focus-ring); outline-offset:3px; }
 :is(.primary-button,.secondary-button):focus-visible,
 :is(.icon-button,.top-icon-button,.close-button,.text-button):focus-visible {
-  outline:2px solid var(--focus); outline-offset:3px;
+  outline:var(--focus-ring-width) solid var(--focus-ring); outline-offset:3px;
 }
 :is(.text-button,.close-button) { color:var(--ink-soft); background:transparent; box-shadow:none; }
 :is(.text-button,.close-button):hover { color:var(--ink); background:var(--surface-2); }
@@ -82,8 +82,8 @@ body { color:var(--ink); background:var(--bg); font-family:var(--body); }
 :is(input:not([type="checkbox"]):not([type="radio"]),textarea,select):not(:disabled):hover {
   border-color:var(--line-soft);
 }
-:is(input:not([type="checkbox"]):not([type="radio"]),textarea,select):focus,
-.workspace .settings-page-body :is(input:not([type="checkbox"]):not([type="radio"]),textarea,select):focus {
+:is(input:not([type="checkbox"]):not([type="radio"]),textarea,select):focus-visible,
+.workspace .settings-page-body :is(input:not([type="checkbox"]):not([type="radio"]),textarea,select):focus-visible {
   border-color:var(--line); background:var(--surface); outline:none;
   box-shadow:var(--hard-sm); transform:translate(-1px,-1px);
 }
@@ -94,7 +94,7 @@ body { color:var(--ink); background:var(--bg); font-family:var(--body); }
 }
 :is(input,textarea,select):focus-visible,
 .workspace .settings-page-body :is(input,textarea,select):focus-visible {
-  outline:2px solid var(--focus); outline-offset:3px;
+  outline:var(--focus-ring-width) solid var(--focus-ring); outline-offset:3px;
 }
 :is(input[type="checkbox"]:not([role="switch"]),input[type="radio"]) {
   appearance:none; -webkit-appearance:none; display:inline-grid; place-items:center;
@@ -119,7 +119,7 @@ input[type="radio"]:checked::after { content:""; width:8px; height:8px; border-r
 .error-text,.settings-feedback.error { color:var(--danger-text); font-size:11px; }
 .workspace .settings-page-body .debug-toggle input:checked { background:var(--blue); }
 .search-box { min-height:42px; border:1.5px solid var(--line-soft); background:var(--surface-2); }
-.search-box:focus-within { border-color:var(--line); box-shadow:0 0 0 3px color-mix(in srgb,var(--focus) 32%,transparent); }
+.search-box:has(:focus-visible) { border-color:var(--line); box-shadow:0 0 0 3px color-mix(in srgb,var(--focus) 32%,transparent); }
 
 /* Composer follows the v2 control reference without changing its message flow. */
 .workspace .composer .composer-row {
@@ -133,7 +133,7 @@ input[type="radio"]:checked::after { content:""; width:8px; height:8px; border-r
 }
 .workspace .composer-row>.dictation-button { grid-column:3; grid-row:2; }
 .workspace .composer-row>.send-button { grid-column:4; grid-row:2; }
-.workspace .composer .composer-row:focus-within {
+.workspace .composer .composer-row:has(:focus-visible) {
   border-color:var(--line); box-shadow:var(--sheen),var(--hard);
 }
 .workspace .composer-row textarea,.workspace .composer-row textarea:focus,
