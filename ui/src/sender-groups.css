@@ -1,40 +1,49 @@
 /* One layout for Bot messages in a conversation type.
-   Group chat: every Bot message (final, segment, progress) is the same bordered bubble. The avatar and
-   name open a sender group once; later units from the same Bot (messages and Activity rows) only indent
-   to the same column. The bubble's pointed corner is its top-left, level with the avatar's top.
-   Direct chat: every Bot message is plain text, whatever its kind.
-   Sender grouping is computed in senderGroups.ts and written as [data-continues="true"]. */
-:root { --sender-avatar:34px; --sender-gap:10px; --sender-gutter:calc(var(--sender-avatar) + var(--sender-gap)); }
+   Group chat: every Bot message (final, segment, progress) is the same bordered bubble. Units from the
+   same Bot (messages, Activity rows, live status) form a sender group; the avatar and name sit at its
+   BOTTOM: the avatar level with the last unit's bottom edge, the name as a caption just below it, on the
+   message column. Earlier units carry neither. The bubble's pointed corner is the last bubble's bottom-left,
+   facing the avatar. Direct chat: every Bot message is plain text, whatever its kind.
+   Grouping is computed in senderGroups.ts as [data-continues] and [data-last]. */
+:root { --sender-avatar:34px; --sender-gap:10px; --sender-gutter:calc(var(--sender-avatar) + var(--sender-gap)); --sender-caption:21px; }
 html[data-desktop] { --sender-avatar:38px; }
 
-/* Avatar column: kept as a spacer on continuations so the text column never moves. */
-.workspace .message.is-group .message-avatar { width:var(--sender-avatar); height:auto; flex:0 0 var(--sender-avatar); margin:0 var(--sender-gap) 0 0; align-self:flex-start; }
-.workspace .message.is-group .message-avatar .avatar { width:var(--sender-avatar); height:var(--sender-avatar); }
-.workspace .message.is-group.message-bot { align-items:flex-start; }
-.workspace .message.is-group[data-continues="true"] .message-avatar > *,
-.workspace .message.is-group[data-continues="true"] .message-meta { display:none; }
-/* Name row sits on the avatar's top edge. */
-.workspace .message.is-group .message-meta { min-height:0; margin:0 0 4px; }
-.workspace .message.is-group .message-meta strong { font:600 13px/1.3 var(--display); }
+/* Avatar + caption: only on the closing unit of a group. */
+.workspace .sender-avatar { position:absolute; left:calc(var(--sender-gutter) * -1); bottom:0; width:var(--sender-avatar); height:var(--sender-avatar); }
+.workspace .sender-avatar .avatar { width:var(--sender-avatar); height:var(--sender-avatar); }
+.workspace .sender-name, .workspace .message.is-group .message-meta strong { display:block; color:var(--ink); font:600 12px/1.3 var(--display); }
+.workspace [data-sender]:not([data-last="true"]) .sender-avatar,
+.workspace .message.is-group:not([data-last="true"]) .message-meta,
+.workspace [data-sender]:not([data-last="true"]) > .sender-head { display:none; }
 
-/* The bubble. */
-.workspace .message.is-group.message-bot .message-content {
-  display:block; width:fit-content; max-width:min(78%, 680px); padding:9px 13px;
+/* Message bubbles. */
+.workspace .message.is-group.message-bot:not(.message-ui-card) { padding-left:var(--sender-gutter); }
+.workspace .message.is-group.message-bot:not(.message-ui-card) .message-body { display:flex; flex-direction:column; align-items:flex-start; }
+.workspace .message.is-group .message-meta { order:9; min-height:0; margin:4px 0 0; }
+.workspace .message.is-group.message-bot:not(.message-ui-card) .message-content {
+  position:relative; display:block; width:fit-content; max-width:min(78%, 680px); padding:9px 13px;
   border:1px solid var(--line-soft); border-radius:16px; background:var(--surface-2); color:var(--ink);
 }
-.workspace .message.is-group.message-bot:not([data-continues="true"]) .message-content { border-top-left-radius:5px; }
+.workspace .message.is-group.message-bot[data-last="true"] .message-content { border-bottom-left-radius:5px; }
+.workspace .message-block:has(.message.is-group) > .message-reactions { margin-left:var(--sender-gutter); }
 @media (max-width:640px) { .workspace .message.is-group.message-bot .message-content { max-width:100%; } }
 
-/* Activity and live-status rows belong to the sender group: same column, avatar and name only when they open it. */
+/* Activity and live-status rows: same column; the head is positioned at the unit's bottom. */
 .workspace .tool-message.web-tool-run[data-sender],
 .workspace .task-run-block.in-group { position:relative; margin:0 0 8px var(--sender-gutter); }
-.workspace .sender-head { margin:0 0 4px; }
-.workspace .sender-avatar { position:absolute; top:0; left:calc(var(--sender-gutter) * -1); width:var(--sender-avatar); height:var(--sender-avatar); }
-.workspace .sender-avatar .avatar { width:var(--sender-avatar); height:var(--sender-avatar); }
-.workspace .sender-name { display:block; color:var(--ink); font:600 13px/1.3 var(--display); }
-.workspace [data-continues="true"] > .sender-head { display:none; }
+.workspace .tool-message.web-tool-run[data-sender][data-last="true"],
+.workspace .task-run-block.in-group[data-last="true"] { padding-bottom:var(--sender-caption); margin-bottom:12px; }
+.workspace .sender-head { margin:0; }
+.workspace .sender-head .sender-avatar { bottom:var(--sender-caption); }
+.workspace .sender-head .sender-name { position:absolute; left:0; bottom:0; margin:0; }
 .workspace .tool-message.web-tool-run[data-sender] .web-tool-summary { min-height:26px; }
 .workspace .tool-message.web-tool-run[data-sender] .web-tool-toggle { margin-left:-6px; }
 
 /* Direct chat: no container for any kind. */
 .workspace .message.is-dm.message-bot .message-content { border:0; border-radius:0; background:transparent; padding:2px 0 0; }
+
+/* Room under the last message: composer + its fade (24px) + a gap; the perched cat reserves more.
+   --composer-height is kept current by a ResizeObserver on the composer (App.tsx). */
+html:not([data-desktop]) .workspace .message-scroll { padding-bottom:calc(var(--composer-height,110px) + 24px + 20px); }
+html:not([data-desktop]) .workspace .chat-pane:has(.composer-perch) .message-scroll { padding-bottom:calc(var(--composer-height,110px) + 24px + 76px); }
+html[data-desktop] .workspace .message-scroll { padding-bottom:calc(var(--composer-height,110px) + 24px + 20px); }

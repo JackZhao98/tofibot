@@ -12,7 +12,7 @@ import react from "@vitejs/plugin-react";
 
 const { chromium } = await import(process.env.PLAYWRIGHT_MODULE || "playwright");
 const ui = dirname(dirname(fileURLToPath(import.meta.url)));
-const shots = join(ui, "..", "artifacts", "chat-bubbles");
+const shots = join(ui, "..", "artifacts", "chat-bubbles2");
 mkdirSync(shots, { recursive: true });
 const prefix = process.env.BUBBLES_SHOT_PREFIX || "after";
 
@@ -125,7 +125,7 @@ function measure() {
     if (el.matches(".date-divider, .unread-divider, article.message-user")) { units.push({ type: "break" }); continue; }
     if (el.closest(".message-tools")) continue;
     const message = el.matches("article.message-bot");
-    const head = message ? { avatar: el.querySelector(".message-avatar .avatar, .message-avatar img, .message-avatar svg"), name: el.querySelector(".message-meta strong") } : { avatar: el.querySelector(".sender-head .avatar, .sender-head img, .sender-head svg"), name: el.querySelector(".sender-head .sender-name") };
+    const head = message ? { avatar: el.querySelector(".sender-avatar .avatar, .sender-avatar img, .sender-avatar svg"), name: el.querySelector(".message-meta strong") } : { avatar: el.querySelector(".sender-head .avatar, .sender-head img, .sender-head svg"), name: el.querySelector(".sender-head .sender-name") };
     const avatar = shown(head.avatar) ? rect(head.avatar) : null;
     const name = shown(head.name) ? rect(head.name) : null;
     const unit = { type: message ? "message" : "activity", id: el.closest(".message-block")?.dataset.messageId ?? "", sender: el.dataset.sender ?? "", avatar, name, left: rect(el).left, top: rect(el).top };
@@ -137,7 +137,7 @@ function measure() {
       const smallest = Math.min(...radii);
       const corner = radii.indexOf(smallest);
       unit.kind = el.classList.contains("message-segment") ? "segment" : "final";
-      unit.contentLeft = box.left;
+      unit.contentLeft = box.left; unit.bubbleBottom = box.bottom;
       unit.style = { border: `${cs.borderTopWidth} ${cs.borderTopStyle} ${cs.borderTopColor}`, background: cs.backgroundColor, bodyRadius: String(radii[2]), paddingTop: cs.paddingTop, paddingLeft: cs.paddingLeft };
       // The tail is the one squared corner of the bubble; its vertical position is the corner's.
       unit.tail = smallest < Math.max(...radii) - 1 ? { corner: ["top-left", "top-right", "bottom-right", "bottom-left"][corner], y: corner < 2 ? box.top : box.bottom } : null;
@@ -160,32 +160,58 @@ function check(label, m, kind) {
     for (const b of bots) { if (b.avatar || b.name) failures.push(`${b.id}: direct chat shows avatar/name`); if (b.tail) failures.push(`${b.id}: direct chat bubble has a tail`); if (b.style.border.startsWith("1px")) failures.push(`${b.id}: direct chat message is boxed`); }
     if (m.units.some(u => u.type === "activity")) failures.push("direct chat renders group Activity heads");
   } else {
-    let previous = null;
-    for (const u of m.units) {
-      if (u.type === "break") { previous = null; continue; }
-      const first = previous === null || previous !== u.sender;
-      previous = u.sender;
+    // Sender groups run in document order; the avatar and name close each group (bottom).
+    const seq = m.units;
+    for (let i = 0; i < seq.length; i++) {
+      const u = seq[i];
+      if (u.type === "break") continue;
+      const next = seq[i + 1];
+      const last = !next || next.type === "break" || next.sender !== u.sender;
       const tag = `${u.type} ${u.id || u.sender}`;
-      if (first) {
-        if (!u.avatar || !u.name) failures.push(`${tag}: first of sender group lacks avatar/name`);
-        else if (Math.abs(u.avatar.top - u.name.top) > 4) failures.push(`${tag}: avatar top ${u.avatar.top.toFixed(1)} vs name row ${u.name.top.toFixed(1)}`);
+      if (last) {
+        if (!u.avatar || !u.name) failures.push(`${tag}: last of sender group lacks avatar/name`);
+        else {
+          const edge = u.type === "message" ? u.bubbleBottom : u.avatar.bottom;
+          if (Math.abs(u.avatar.bottom - edge) > 4) failures.push(`${tag}: avatar bottom ${u.avatar.bottom.toFixed(1)} vs bubble bottom ${edge.toFixed(1)}`);
+          if (u.type === "message" && u.name.top < u.bubbleBottom - 1) failures.push(`${tag}: name above the bubble's bottom`);
+          if (u.type === "activity" && u.name.top < u.avatar.bottom - 1) failures.push(`${tag}: name above the avatar's bottom`);
+        }
         if (u.type === "message") {
-          if (!u.tail) failures.push(`${tag}: first bubble has no tail`);
-          else if (u.avatar && !(u.tail.y >= u.avatar.top - 1 && u.tail.y <= u.avatar.bottom + 1)) failures.push(`${tag}: tail y ${u.tail.y.toFixed(1)} outside avatar ${u.avatar.top.toFixed(1)}-${u.avatar.bottom.toFixed(1)}`);
-          else if (u.tail.corner !== "top-left") failures.push(`${tag}: tail corner ${u.tail.corner}`);
+          if (!u.tail) failures.push(`${tag}: last bubble has no tail`);
+          else if (u.tail.corner !== "bottom-left") failures.push(`${tag}: tail corner ${u.tail.corner}`);
+          else if (u.avatar && !(u.tail.y >= u.avatar.top - 1 && u.tail.y <= u.avatar.bottom + 4)) failures.push(`${tag}: tail y ${u.tail.y.toFixed(1)} outside avatar`);
         }
       } else {
-        if (u.avatar || u.name) failures.push(`${tag}: continuation repeats avatar/name`);
-        if (u.type === "message" && u.tail) failures.push(`${tag}: tail on a continuation`);
+        if (u.avatar || u.name) failures.push(`${tag}: earlier unit shows avatar/name`);
+        if (u.type === "message" && u.tail) failures.push(`${tag}: tail on a non-last bubble`);
       }
     }
     // One column: every Bot unit starts at the same x.
-    const lefts = new Set(m.units.filter(u => u.type !== "break").map(u => Math.round(u.type === "message" ? u.left + (u.contentLeft - u.left) : u.left)));
+    const lefts = new Set(m.units.filter(u => u.type !== "break").map(u => Math.round(u.type === "message" ? u.contentLeft : u.left)));
     if (lefts.size !== 1) failures.push(`unit column differs: ${[...lefts]}`);
   }
   if (m.faded.length) failures.push(`faded name labels: ${JSON.stringify(m.faded)}`);
   if (m.overflow > 0) failures.push(`horizontal overflow ${m.overflow}`);
   assert.deepEqual(failures, [], `${label}\n${failures.join("\n")}`);
+}
+
+/** Scrolled to the end, the last unit must sit fully above the composer fade, clear of the perched cat. */
+async function checkBottomRoom(page, label) {
+  await page.evaluate(() => { const s = document.querySelector(".message-scroll"); s.scrollTop = s.scrollHeight; });
+  await page.waitForTimeout(250);
+  const r = await page.evaluate(() => {
+    const composer = document.querySelector(".workspace .composer");
+    const list = document.querySelector(".message-list");
+    const kids = [...list.querySelectorAll("article.message-bot, article.message-user, .task-run-block, .tool-message.web-tool-run[data-sender]")].filter(el => el.getBoundingClientRect().height > 0 && !el.closest(".message-tools"));
+    const last = kids[kids.length - 1].getBoundingClientRect();
+    const cat = document.querySelector(".composer-perch")?.getBoundingClientRect();
+    const top = composer.getBoundingClientRect().top;
+    const overlapsCat = cat ? last.bottom > cat.top && last.right > cat.left && last.left < cat.right : false;
+    return { lastBottom: last.bottom, fadeStart: top - 24, overlapsCat, composerHeight: composer.getBoundingClientRect().height };
+  });
+  assert.ok(r.lastBottom <= r.fadeStart + 0.5, `${label}: last message bottom ${r.lastBottom.toFixed(1)} is inside the fade (starts ${r.fadeStart.toFixed(1)})`);
+  assert.equal(r.overlapsCat, false, `${label}: perched cat overlaps the last message`);
+  return r.composerHeight;
 }
 
 const viewports = [["1180x820", 1180, 820], ["1024x768", 1024, 768], ["1440x900", 1440, 900], ["390", 390, 844]];
@@ -199,12 +225,15 @@ try {
     try {
       const m = await page.evaluate(measure);
       await page.screenshot({ path: join(shots, `${prefix}${showActivity ? "-activity-on" : ""}-${kind}-${name}-${theme}.png`), fullPage: false });
-      await page.evaluate(() => { const scroller = document.querySelector(".message-list")?.closest(".messages, .chat-scroll, [data-scroll]") ?? document.querySelector(".message-list")?.parentElement; for (let el = scroller; el; el = el.parentElement) if (el.scrollHeight > el.clientHeight + 4) { el.scrollTop = el.scrollHeight; break; } });
-      await page.waitForTimeout(300);
-      await page.screenshot({ path: join(shots, `${prefix}${showActivity ? "-activity-on" : ""}-${kind}-${name}-${theme}-end.png`), fullPage: false });
       assert.deepEqual(errors, [], `${label}: page errors`);
       assert.deepEqual(external, [], `${label}: external requests`);
       check(label, m, kind);
+      const one = await checkBottomRoom(page, `${label} (1 line)`);
+      await page.screenshot({ path: join(shots, `${prefix}${showActivity ? "-activity-on" : ""}-${kind}-${name}-${theme}-end.png`) });
+      await page.locator(".workspace .composer textarea").fill("line one\nline two\nline three\nline four");
+      await page.waitForTimeout(300);
+      const four = await checkBottomRoom(page, `${label} (4 lines)`);
+      assert.ok(four > one + 20, `${label}: composer grew (${one} -> ${four})`);
       // Default: the timeline carries only the Bot's messages. Toggle on: Activity rows come back.
       const rows = await page.evaluate(() => ({ blocks: document.querySelectorAll(".message-list .task-run-block").length, tool: document.querySelectorAll(".message-list .web-tool-run").length, activity: document.querySelectorAll(".message-list .task-activity").length, heads: document.querySelectorAll(".message-list .sender-head").length, text: document.querySelector(".message-list").textContent }));
       if (showActivity) assert.ok(rows.activity + rows.tool > 0, `${label}: Activity rows return with the toggle on`);
