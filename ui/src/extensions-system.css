@@ -78,7 +78,7 @@
 .integration-held small{display:block;margin-top:5px;font-size:12px;color:var(--muted)}
 .integration-held p{margin:8px 0 0;font-size:12px;line-height:1.6;color:var(--muted)}
 .integration-held a{display:inline-flex;align-items:center;gap:6px;min-height:36px;font-size:12px;color:var(--ink-soft);text-underline-offset:3px}
-.integration-held a:focus-visible{outline:2px solid var(--focus);outline-offset:3px;border-radius:var(--radius-sm)}
+.integration-held a:focus-visible{outline:var(--focus-ring-width) solid var(--focus-ring);outline-offset:3px;border-radius:var(--radius-sm)}
 .mcp-settings .integration-tile{min-height:76px;border:0;border-bottom:1px solid var(--line);border-radius:0;padding:14px 4px;background:transparent;box-shadow:none}
 .mcp-settings .integration-tile:hover:not(:disabled){background:color-mix(in srgb,var(--text) 3%,transparent);box-shadow:none}
 .mcp-settings .integration-custom{border-style:solid;min-height:48px;border-radius:12px}
@@ -91,7 +91,7 @@
 .mcp-settings .mcp-google-setup nav{display:flex;flex-wrap:wrap;column-gap:18px;row-gap:4px}
 .mcp-settings .mcp-google-setup a{display:inline-flex;align-items:center;min-height:44px;color:var(--ink-soft);font:var(--type-meta);text-underline-offset:4px}
 .mcp-settings .mcp-google-setup a:hover{color:var(--ink);text-decoration-thickness:2px}
-.mcp-settings .mcp-google-setup a:focus-visible{outline:2px solid var(--focus);outline-offset:3px;border-radius:var(--radius-sm)}
+.mcp-settings .mcp-google-setup a:focus-visible{outline:var(--focus-ring-width) solid var(--focus-ring);outline-offset:3px;border-radius:var(--radius-sm)}
 @media(max-width:420px){.mcp-settings .mcp-service-setup{margin-left:0}}
 @keyframes mcp-pulse{0%,100%{opacity:.3}50%{opacity:1}}
 @media(prefers-reduced-motion:reduce){.mcp-service-status i{animation:none!important}}

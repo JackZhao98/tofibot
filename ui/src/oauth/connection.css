@@ -33,7 +33,7 @@
 .oauth-return { display: inline-flex; align-items: center; justify-content: center; min-height: 44px; margin-top: 16px; padding: 12px 24px; border: var(--edge) solid var(--border-edge); border-radius: var(--radius-pill); background: var(--accent-primary); color: var(--text-on-block); box-shadow: var(--hard-sm); font: var(--type-button); text-decoration: none; transition: background var(--ease-press),transform var(--ease-press),box-shadow var(--ease-press); }
 .oauth-return:hover { background: var(--accent-decide); transform: translate(-1px,-1px); box-shadow: var(--hard); }
 .oauth-return:active { transform: translate(2px,3px); box-shadow: none; }
-.oauth-connection a:focus-visible { outline: var(--edge-bold) solid var(--focus); outline-offset: 4px; }
+.oauth-connection a:focus-visible { outline: var(--focus-ring-width) solid var(--focus-ring); outline-offset: 4px; }
 .oauth-setup { margin-top: 36px; padding-top: 24px; border-top: var(--edge-soft) solid var(--border-soft); text-align: left; }
 .oauth-setup h2 { margin: 0 0 8px; font: var(--type-row-title); }
 .oauth-setup p { margin: 0 0 12px; font: var(--type-meta); color: var(--text-secondary); }

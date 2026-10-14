@@ -22,12 +22,16 @@
 //  select-chevron a custom-chevron <select> must reserve the chevron: computed padding-right >= 28px (the chevron sits within
 //                24px of the right edge), and a value wider than the text box must truncate with an ellipsis, so the
 //                text never runs under its chevron (catches padding rules losing a cascade fight)
+//  focus-ring / focus-ring-missing  after a mouse click (touch tap at 390) on up to 14 interactive targets per scenario and
+//                after Escape, no element draws a focus ring (outline or ring-shaped box-shadow; text fields exempt);
+//                after Tab the focused element must draw one (see focus-audit.mjs)
 //  font-size     text under 12px, except the explicit exception: mono, >= 10px, and either uppercase with letter
 //                spacing (section/danger labels) or the nav count pill (.settings-count)
 import assert from "node:assert/strict";
 import {mkdtemp, mkdir, readFile, rm, writeFile} from "node:fs/promises";
 import {basename, dirname, join} from "node:path";
 import {fileURLToPath, pathToFileURL} from "node:url";
+import {auditFocus} from "./focus-audit.mjs";
 
 const ui = dirname(dirname(fileURLToPath(import.meta.url)));
 if (!process.env.PLAYWRIGHT_MODULE) { console.log("SKIP: PLAYWRIGHT_MODULE is not set"); process.exit(0); }
@@ -232,6 +236,8 @@ try {
   await writeFile(join(fixture, "main.tsx"), `${styles}
 import React,{useEffect,useState} from 'react';import {createRoot} from 'react-dom/client';
 import {i18nReady,setLanguage} from '../src/i18n';
+import {installFocusModality} from '../src/focusModality';
+installFocusModality();
 import {TimezoneProvider} from '../src/UserTimezone';
 import {OwnerSessionGate} from '../src/OwnerSession';
 import {useAppearance} from '../src/InteractionSystem';
@@ -379,7 +385,7 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
   };
 
   async function newPage(width, height, theme) {
-    const context = await browser.newContext({viewport: {width, height}, reducedMotion: "no-preference", colorScheme: theme, locale: "en-US", acceptDownloads: true});
+    const context = await browser.newContext({viewport: {width, height}, reducedMotion: "no-preference", colorScheme: theme, locale: "en-US", acceptDownloads: true, hasTouch: width < 700});
     await context.addInitScript(value => { try { localStorage.setItem("tofi:appearance", value); } catch {} }, theme);
     const page = await context.newPage();
     const admin = createAdmin();
@@ -523,7 +529,7 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
   // ---- Onboarding sheet (full app mount, tiny stateful stub).
   const at = "2026-10-01T00:00:00Z";
   async function onboardingPage(width, height, theme) {
-    const context = await browser.newContext({viewport: {width, height}, colorScheme: theme, locale: "en-US"});
+    const context = await browser.newContext({viewport: {width, height}, colorScheme: theme, locale: "en-US", hasTouch: width < 700});
     await context.addInitScript(value => { try { localStorage.setItem("tofi:appearance", value); } catch {} }, theme);
     const page = await context.newPage();
     page.on("pageerror", error => warnings.push(`pageerror: ${error.message}`));
@@ -621,6 +627,7 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
         const found = await page.evaluate(auditPage, {mobile, allowedClasses: ALLOWED_BUTTON_CLASSES, allowedContainers: ALLOWED_BUTTON_CONTAINERS});
         for (const item of found) violations.push({...item, scenario: scenario.id, viewport: vpName, theme});
         if (shots) await fullShot(page, container, join(shots, `${vpName}-${theme}-${scenario.id}.png`), {width, height});
+        for (const item of await auditFocus(page, {touch: mobile})) violations.push({...item, scenario: scenario.id, viewport: vpName, theme});
         scenarioRuns++;
       } catch (error) {
         warnings.push(`scenario ${scenario.id} (${vpName}, ${theme}) failed: ${error.message.split("\n")[0]}`);

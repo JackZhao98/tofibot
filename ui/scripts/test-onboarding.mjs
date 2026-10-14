@@ -3,6 +3,7 @@
 // Synthetic data only; the app's /api is answered in the browser by a small stateful stub.
 // Run: PLAYWRIGHT_MODULE=/path/to/playwright/index.mjs npm run test:onboarding
 // Screenshots (1440x900 and 390x844, light and dark) go to artifacts/onboarding/ (gitignored).
+import { auditFocus, focusRingProbe } from "./focus-audit.mjs";
 import assert from "node:assert/strict";
 import { mkdirSync } from "node:fs";
 import { fileURLToPath, pathToFileURL } from "node:url";
@@ -111,7 +112,7 @@ async function mockApi(page, state) {
 }
 
 async function open(state, { width = 1440, height = 900, theme = "light", reduced = false, locale = "en-US", url = "/" } = {}) {
-  const context = await browser.newContext({ viewport: { width, height }, locale, reducedMotion: reduced ? "reduce" : "no-preference", colorScheme: theme, permissions: ["clipboard-read", "clipboard-write"] });
+  const context = await browser.newContext({ hasTouch: width < 700, viewport: { width, height }, locale, reducedMotion: reduced ? "reduce" : "no-preference", colorScheme: theme, permissions: ["clipboard-read", "clipboard-write"] });
   await context.addInitScript(value => { try { localStorage.setItem("tofi:appearance", value); } catch {} }, theme);
   const page = await context.newPage();
   const errors = [];
@@ -285,6 +286,28 @@ try {
   for (const [width, height] of [[1440, 900], [1180, 820], [1024, 768], [390, 844]]) for (const theme of ["light", "dark"]) {
     await walkthrough({ width, height, theme, strict: width > 700 && width < 1400 });
     pass(`walkthrough ${width}x${height} ${theme}: welcome, model, key error and success, services, DM focus`);
+  }
+
+  // Focus rule: the sheet auto-focuses its first control on every step; a click or tap never rings it, Tab does.
+  for (const [width, height] of [[1440, 900], [1180, 820], [1024, 768], [390, 844]]) for (const theme of ["light", "dark"]) {
+    const touch = width < 700;
+    const { page, context } = await open(makeServer(), { width, height, theme });
+    try {
+      await sheet(page).waitFor();
+      await page.locator(".onb-welcome h2").waitFor();
+      await page.waitForTimeout(400);
+      const welcome = await page.evaluate(focusRingProbe);
+      assert.ok(welcome.none || welcome.field || !welcome.ring, `welcome step rings ${welcome.focused}: ${welcome.ring?.ring}`);
+      const next = page.getByRole("button", { name: /Let.s set up your crew/ });
+      if (touch) await next.tap(); else await next.click();
+      await page.getByRole("radio").first().waitFor();
+      await page.waitForTimeout(400);
+      const model = await page.evaluate(focusRingProbe);
+      assert.ok(model.none || model.field || !model.ring, `model step rings ${model.focused}: ${model.ring?.ring}`);
+      const found = await auditFocus(page, { touch, scope: "onboarding" });
+      assert.deepEqual(found, [], JSON.stringify(found));
+    } finally { await context.close(); }
+    pass(`focus rings are keyboard-only in onboarding ${width}x${height} ${theme}`);
   }
 
   // Skip on the welcome step: chip and banner, and the chip resumes at step 2.

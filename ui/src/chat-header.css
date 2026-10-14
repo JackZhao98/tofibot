@@ -14,7 +14,7 @@ html:not([data-desktop]) .workspace .chat-identity {
   transition:border-color 160ms ease,background-color 160ms ease;
 }
 html:not([data-desktop]) .workspace .chat-identity:hover { border-color:var(--line); background:var(--surface); }
-html:not([data-desktop]) .workspace .chat-identity:focus-visible { outline:2px solid var(--focus); outline-offset:2px; }
+html:not([data-desktop]) .workspace .chat-identity:focus-visible { outline:var(--focus-ring-width) solid var(--focus-ring); outline-offset:2px; }
 html:not([data-desktop]) .workspace .member-avatar-stack { min-width:34px; }
 html:not([data-desktop]) .workspace .member-avatar-stack .avatar { width:34px; height:34px; flex-basis:34px; margin-left:-10px; border-radius:50%; background:var(--surface-2); }
 html:not([data-desktop]) .workspace .member-avatar-stack .avatar:first-child { margin-left:0; }

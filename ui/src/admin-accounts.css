@@ -19,7 +19,7 @@
 .settings-card.admin-list{overflow:hidden}
 .admin-row{display:grid;grid-template-columns:40px minmax(0,1.4fr) auto minmax(120px,1fr) 18px;align-items:center;gap:14px;width:100%;padding:12px 16px;border:0;border-radius:0;background:transparent;color:var(--ink);text-align:left;cursor:pointer}
 .admin-row:hover{background:var(--surface-2)}
-.admin-row:focus-visible{outline:2px solid var(--focus);outline-offset:-2px}
+.admin-row:focus-visible{outline:var(--focus-ring-width) solid var(--focus-ring);outline-offset:-2px}
 .admin-row>svg{color:var(--muted)}
 .admin-avatar{display:grid;place-items:center;flex:none;width:40px;height:40px;border:2px solid var(--line);border-radius:50%;background:var(--iris);color:var(--on-block);font:600 16px/1 var(--display)}
 .admin-avatar.is-large{width:56px;height:56px;font-size:22px}
@@ -44,7 +44,7 @@
 .admin-danger-button{min-height:40px;padding:8px 14px;border:2px solid var(--line);border-radius:10px;background:var(--danger);color:var(--on-danger);font:600 13px/1 var(--body);cursor:pointer}
 .admin-danger-button:hover:not(:disabled){filter:brightness(1.06)}
 .admin-danger-button:disabled{opacity:.45;cursor:not-allowed}
-.admin-danger-button:focus-visible{outline:2px solid var(--focus);outline-offset:2px}
+.admin-danger-button:focus-visible{outline:var(--focus-ring-width) solid var(--focus-ring);outline-offset:2px}
 
 /* Exports */
 .admin-export{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:10px 16px;padding:14px 16px}
