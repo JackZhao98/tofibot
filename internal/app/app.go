@@ -18,6 +18,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/JackZhao98/tofibot/internal/agent"
 	"github.com/JackZhao98/tofibot/internal/codexauth"
 	"github.com/JackZhao98/tofibot/internal/computer"
 	"github.com/JackZhao98/tofibot/internal/extensions"
@@ -96,7 +97,9 @@ type Message struct {
 	Card           *DisplayCard   `json:"card,omitempty"`
 }
 type HandoffNotice struct {
-	Type                 string   `json:"type"`
+	Type string `json:"type"`
+	// Reason names why a "resume" notice was posted (for example "restart").
+	Reason               string   `json:"reason,omitempty"`
 	FromBotID            string   `json:"from_bot_id"`
 	ToBotID              string   `json:"to_bot_id"`
 	ToBotIDs             []string `json:"to_bot_ids,omitempty"`
@@ -371,24 +374,27 @@ func recoverInterruptedRuns(db *sql.DB) error {
 	}
 	rows.Close()
 
+	var ended []Run
 	for _, run := range runs {
-		run.Status = "interrupted"
-		run.Error = "service restarted after claim"
-		run.UpdatedAt = t
-		if _, err = tx.Exec(`UPDATE runs SET status='interrupted',error=?,updated_at=? WHERE id=? AND status='running'`, run.Error, t, run.ID); err != nil {
-			return err
+		// A run with a boundary checkpoint (or one that never did anything) goes
+		// back to the queue; otherwise it is interrupted as before. Either way
+		// the half-streamed draft is discarded: that turn is regenerated.
+		recovered, settle, recoverErr := recoverRunningRunTx(tx, run, t)
+		if recoverErr != nil {
+			return recoverErr
 		}
+		run = recovered
 		if _, err = tx.Exec(`UPDATE stream_drafts SET status='cancelled',updated_at=? WHERE run_id=? AND status='active'`, t, run.ID); err != nil {
-			return err
-		}
-		if _, err = tx.Exec(`UPDATE questions SET status='run_done',updated_at=? WHERE run_id=? AND status='pending'`, t, run.ID); err != nil {
 			return err
 		}
 		if err = insertRecoveryEvent(tx, run.ConversationID, "run", run, t); err != nil {
 			return err
 		}
-		if err = interruptToolActivitiesTx(tx, run.ID, t); err != nil {
+		if err = finishRecoveredActivitiesTx(tx, run, settle, t); err != nil {
 			return err
+		}
+		if run.Status != "queued" {
+			ended = append(ended, run)
 		}
 	}
 
@@ -401,7 +407,7 @@ func recoverInterruptedRuns(db *sql.DB) error {
 		return err
 	}
 	store := &Store{db: db}
-	for _, run := range runs {
+	for _, run := range ended {
 		store.cleanupRunAttachments(run.ID)
 	}
 	return nil
@@ -637,6 +643,9 @@ CREATE INDEX IF NOT EXISTS events_conversation ON events(conversation_id,id);`)
 		return err
 	}
 	if err := migrateInputContinuations(s.db); err != nil {
+		return err
+	}
+	if err := migrateRunCheckpoints(s.db); err != nil {
 		return err
 	}
 	if err := migrateApprovalExpiry(s.db); err != nil {
@@ -3144,8 +3153,9 @@ func (s *Server) execute(c Conversation, r Run) {
 	}
 	// Keep the lease through the durable queued -> running transition. The
 	// human endpoint takes the same lease and rechecks the run state after it.
-	continuation, answeredQuestion, ok, e := s.store.claimInputContinuation(ctx, r.ID)
+	claim, ok, e := s.store.claimRun(ctx, r.ID)
 	lease.Unlock()
+	continuation, answeredQuestion := claim.Continuation, claim.Question
 	if e != nil || !ok {
 		if e != nil {
 			s.failRun(c, r, e)
@@ -3158,6 +3168,19 @@ func (s *Server) execute(c Conversation, r Run) {
 	if ctx.Err() != nil {
 		s.store.SetRunStatus(r.ID, "interrupted", "server stopping")
 		return
+	}
+	var settledTools map[string]agent.ResumeToolResult
+	if claim.Boundary {
+		var settleErr error
+		if settledTools, settleErr = s.store.boundarySettlements(r.ID, r.BotID, continuation); settleErr != nil {
+			s.failRun(c, r, settleErr)
+			return
+		}
+	}
+	if claim.ResumeNotice != "" {
+		if _, noticeErr := s.store.AddResumeNotice(r, claim.ResumeNotice); noticeErr != nil {
+			log.Printf("[run] resume notice %s: %v", r.ID, noticeErr)
+		}
 	}
 	botCfg, be := s.store.GetBot(r.BotID)
 	if be != nil {
@@ -3386,9 +3409,14 @@ func (s *Server) execute(c Conversation, r Run) {
 	}
 	res, e := engine.Run(ctx, Request{BotID: r.BotID, RunID: r.ID, ConversationID: c.ID, System: system, Model: model, ReasoningEffort: reasoningEffort, Messages: pm, Tools: tools, OnDelta: onDelta, BeforeModelCall: steeringBoundary, BeforeFinalResponse: finalReview, FinalResponseRepairTools: finalRepairTools, OnAssistantTurn: onAssistantTurn,
 		OnThinking: onThinking, OnRetry: onRetry, OnStreamReset: onStreamReset, OnReviewDraft: onReviewDraft,
-		Continuation:  continuation,
-		ResumeResult:  s.inputResumeResult(answeredQuestion),
-		ResumeOutcome: s.inputResumeOutcome(answeredQuestion),
+		Continuation:      continuation,
+		ResumeResult:      s.inputResumeResult(answeredQuestion),
+		ResumeOutcome:     s.inputResumeOutcome(answeredQuestion),
+		Attempt:           claim.Attempt,
+		ResumeToolResults: settledTools,
+		OnCheckpoint: func(kind string, checkpoint json.RawMessage) error {
+			return s.store.SaveRunCheckpoint(ctx, r.ID, claim.Attempt, kind, checkpoint)
+		},
 		OnSuspend: func(questionID string, checkpoint json.RawMessage) error {
 			if err := steeringBoundary(); err != nil {
 				return err
@@ -3643,7 +3671,7 @@ func (s *Server) execute(c Conversation, r Run) {
 		demoted = demotedDraft{}
 		demotedMu.Unlock()
 	}
-	if r.Kind != runKindTriage && len(continuation) == 0 {
+	if r.Kind != runKindTriage && (len(continuation) == 0 || claim.Boundary) {
 		s.scheduleLongTermSummary(engine, c, r, botCfg)
 	}
 	if followup, ok, fe := s.store.GroupFollowupForRun(r.ID); fe == nil && ok {

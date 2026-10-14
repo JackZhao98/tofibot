@@ -139,6 +139,7 @@ func TestTerminalCleanupRetriesAndWaitsForWorker(t *testing.T) {
 	if err := st.registerRunTerminals(ctx, r, "/test.sock"); err != nil {
 		t.Fatal(err)
 	}
+	giveRunObservableWork(t, st, r)
 	if err := recoverInterruptedRuns(st.db); err != nil {
 		t.Fatal(err)
 	}
