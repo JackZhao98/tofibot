@@ -37,6 +37,8 @@ try {
   assert.equal(mergeRunUpdates([first],[{id:first.id,error:"more detail",updated_at:"2026-10-01T17:00:00Z"}])[0].error,"more detail","same terminal state may enrich evidence");
   await ui.setLanguage("en");
   assert.match(runFailureText(first),/connection dropped/,"English failure copy comes from the en catalog");
+  assert.equal(runFailureText({...first,error:"resumed_repeatedly:4",failure:{source:"runtime",code:"resumed_repeatedly",count:4,message:"x"}}),"Task interrupted 4 times. Stopped.","repeated-interruption copy comes from the catalog with the count");
   await ui.setLanguage("zh-CN");
+  assert.equal(runFailureText({...first,error:"resumed_repeatedly:4",failure:{source:"runtime",code:"resumed_repeatedly",count:4,message:"x"}}),"任务反复中断（4 次），已停止。");
   console.log("run family checks: PASS (terminal replay, explicit links, latest attempt, multi-retry/cycle, nanosecond ordering, legacy/structured failure)");
 } finally {await ui.close();}

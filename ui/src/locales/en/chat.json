@@ -304,6 +304,8 @@
     "member": "Member",
     "original": "original sender",
     "reply_to": "Reply to {{name}}",
+    "resume_continuing": "Resuming from the last checkpoint.",
+    "resume_restart": "Service restarted. Resuming from the last checkpoint.",
     "scheduled": "Scheduled task",
     "system": "System notice",
     "tool": "Tool",

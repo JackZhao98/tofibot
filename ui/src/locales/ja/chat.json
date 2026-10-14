@@ -300,6 +300,8 @@
     "member": "メンバー",
     "original": "元のメッセージ",
     "reply_to": "{{name}} への返信",
+    "resume_continuing": "最後のチェックポイントから再開します。",
+    "resume_restart": "サービスが再起動しました。最後のチェックポイントから再開します。",
     "scheduled": "定期タスク",
     "system": "システム通知",
     "tool": "ツール",

@@ -69,6 +69,7 @@ export function runFailureText(run: Run) {
   if (run.failure?.code === "no_final_answer") return t("run_failure.no_final_answer");
   if (run.failure?.code === "budget_exhausted") return t("run_failure.budget_exhausted");
   if (run.failure?.code === "tool_stuck") return t("run_failure.tool_stuck");
+  if (run.failure?.code === "resumed_repeatedly") return t("run_failure.resumed_repeatedly", { times: run.failure.count ?? 0 });
   const interrupted = run.failure?.source === "runtime" && run.failure.code === "connection_interrupted"
     || (!run.failure && /stream read error|connection reset|unexpected EOF|INTERNAL_ERROR.*received from peer/i.test(run.error ?? ""));
   return interrupted ? t("run_failure.connection_interrupted") : t("run_failure.failed");

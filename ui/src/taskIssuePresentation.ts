@@ -107,6 +107,8 @@ const outcomeCodeKeys = {
   // A computer or tool that stopped answering; the step failed, the task can go on.
   tool_timeout: "outcome.tool_timeout", computer_restarting: "outcome.computer_restarting",
   computer_unresponsive: "outcome.computer_unresponsive",
+  // A service restart interrupted the step: the effect is unverified, or it was read-only.
+  restart_interrupted_effect: "outcome.restart_interrupted_effect", restart_interrupted: "outcome.restart_interrupted",
 } as const;
 const known = <T extends object>(map: T, code: string | undefined): code is Extract<keyof T, string> => Boolean(code && Object.hasOwn(map, code));
 
@@ -134,6 +136,7 @@ function runReason(run: Run, tools: ToolActivity[], t: ReturnType<typeof tasksT>
   if (run.failure?.code === "budget_exhausted") return t("reason.run.budget_exhausted");
   if (run.failure?.code === "no_final_answer") return t("reason.run.no_final_answer");
   if (run.failure?.code === "tool_stuck") return t("reason.run.tool_stuck");
+  if (run.failure?.code === "resumed_repeatedly") return t("reason.run.resumed_repeatedly", { times: run.failure.count ?? 0 });
   if (error.includes("scheduled task returned without confirming a completed result")) return t("reason.run.receipt_missing");
 }
 
