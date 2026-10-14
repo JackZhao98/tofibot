@@ -384,7 +384,14 @@ func recoverInterruptedRuns(db *sql.DB) error {
 			return recoverErr
 		}
 		run = recovered
-		if _, err = tx.Exec(`UPDATE stream_drafts SET status='cancelled',updated_at=? WHERE run_id=? AND status='active'`, t, run.ID); err != nil {
+		if run.Status == "queued" {
+			// The next attempt begins a fresh draft: BeginStream refuses a
+			// cancelled one. The half-streamed text was never a message.
+			_, err = tx.Exec(`DELETE FROM stream_drafts WHERE run_id=?`, run.ID)
+		} else {
+			_, err = tx.Exec(`UPDATE stream_drafts SET status='cancelled',updated_at=? WHERE run_id=? AND status='active'`, t, run.ID)
+		}
+		if err != nil {
 			return err
 		}
 		if err = insertRecoveryEvent(tx, run.ConversationID, "run", run, t); err != nil {
@@ -3177,11 +3184,6 @@ func (s *Server) execute(c Conversation, r Run) {
 			return
 		}
 	}
-	if claim.ResumeNotice != "" {
-		if _, noticeErr := s.store.AddResumeNotice(r, claim.ResumeNotice); noticeErr != nil {
-			log.Printf("[run] resume notice %s: %v", r.ID, noticeErr)
-		}
-	}
 	botCfg, be := s.store.GetBot(r.BotID)
 	if be != nil {
 		s.failRun(c, r, be)
@@ -3361,6 +3363,12 @@ func (s *Server) execute(c Conversation, r Run) {
 		}
 	} else {
 		system = trimRunes(system, maxSystemRunes)
+	}
+	// Announce the resume only once the run is set up to continue.
+	if claim.ResumeNotice != "" {
+		if _, noticeErr := s.store.AddResumeNotice(r, claim.ResumeNotice); noticeErr != nil {
+			log.Printf("[run] resume notice %s: %v", r.ID, noticeErr)
+		}
 	}
 	steeringCancelled := false
 	steeringBoundary := func() error {
