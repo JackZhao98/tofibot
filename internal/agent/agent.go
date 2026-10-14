@@ -205,9 +205,20 @@ type AgentConfig struct {
 	// Continuation restores a previously suspended ToolsOnly loop. It is
 	// agent-owned protocol state: callers must validate their outer run identity
 	// before supplying it. ResumeResult is inserted only for its waiting tool.
-	Continuation        *Continuation
-	ResumeResult        string
-	ResumeOutcome       *tooloutcome.Outcome
+	Continuation  *Continuation
+	ResumeResult  string
+	ResumeOutcome *tooloutcome.Outcome
+	// ResumeToolResults settles, by call ID, the unresolved calls of a boundary
+	// Continuation (the call that was running at a crash and its queued batch).
+	// A call without an entry is resumed as not executed.
+	ResumeToolResults map[string]ResumeToolResult
+	// Attempt is the run claim generation stamped into every checkpoint.
+	Attempt int
+	// OnCheckpoint receives a boundary snapshot (ToolsOnly runs only): kind
+	// "turn" after a model response with tool calls is appended and before the
+	// first tool dispatches, kind "tool" after each tool result is appended. An
+	// error aborts the run before the next tool dispatches or model call.
+	OnCheckpoint        func(kind string, c *Continuation) error
 	ResolveToolIdentity func(name, arguments string) tooloutcome.Identity
 	// ResolveUnknownTool lets the backend that owns a generic dispatcher
 	// (call_mcp_tool) claim a tool name that is not in this run's tool set. When
@@ -844,6 +855,11 @@ func RunAgentLoop(cfg AgentConfig, ctx *models.ExecutionContext) (returned *Agen
 	// appendAndEmitAs appends msg for the model but reports emitted to OnMessage;
 	// emitted may carry the full tool result that msg bounds.
 	var appendAndEmitAs func(list []provider.Message, msg, emitted provider.Message) []provider.Message
+	// checkpoint is wired once the loop counters exist. A tool result is a
+	// boundary; an error is held in checkpointErr and surfaced before the next
+	// dispatch or model call.
+	var checkpoint func(kind string, list []provider.Message) error
+	var checkpointErr error
 	appendAndEmit := func(list []provider.Message, msg provider.Message) []provider.Message {
 		return appendAndEmitAs(list, msg, msg)
 	}
@@ -887,7 +903,11 @@ func RunAgentLoop(cfg AgentConfig, ctx *models.ExecutionContext) (returned *Agen
 		if cfg.OnMessage != nil {
 			cfg.OnMessage(emitted)
 		}
-		return append(list, msg)
+		list = append(list, msg)
+		if msg.Role == "tool" && checkpoint != nil && checkpointErr == nil {
+			checkpointErr = checkpoint("tool", list)
+		}
+		return list
 	}
 
 	// Build messages. A continuation carries the exact provider transcript up
@@ -896,7 +916,11 @@ func RunAgentLoop(cfg AgentConfig, ctx *models.ExecutionContext) (returned *Agen
 	var messages []provider.Message
 	if cfg.Continuation != nil {
 		var err error
-		messages, err = resumeContinuation(cfg.Continuation, cfg.ResumeResult, cfg.ResumeOutcome)
+		if cfg.Continuation.EffectiveKind() == ContinuationBoundary {
+			messages, err = resumeBoundary(cfg.Continuation, cfg.ResumeToolResults)
+		} else {
+			messages, err = resumeContinuation(cfg.Continuation, cfg.ResumeResult, cfg.ResumeOutcome)
+		}
 		if err != nil {
 			return nil, fmt.Errorf("resume continuation: %w", err)
 		}
@@ -1013,6 +1037,20 @@ func RunAgentLoop(cfg AgentConfig, ctx *models.ExecutionContext) (returned *Agen
 		state.Step = cfg.Continuation.Step
 		state.Tracker.RestoreModelBreakdown(cfg.Continuation.ModelUsage)
 	}
+	if cfg.ToolsOnly && cfg.OnCheckpoint != nil {
+		checkpoint = func(kind string, list []provider.Message) error {
+			c := snapshotContinuation(
+				state, &cfg, list, assistantTurnIndex, runStart,
+				budgetWrapUp, finalResponseRepaired, finalRepairPending, finalRepairReserved, finalRepairFinalPending,
+				toolCallsSinceReport, toolCallsSinceReport >= cfg.MaxToolCallsBetweenReports && cfg.MaxToolCallsBetweenReports > 0,
+				recoveryLedger, recoveryEpoch,
+			)
+			if err := cfg.OnCheckpoint(kind, c); err != nil {
+				return fmt.Errorf("checkpoint %s: %w", kind, err)
+			}
+			return nil
+		}
+	}
 
 	reasoningReplayDisabled := false
 	modelCallRecovered := false
@@ -1049,6 +1087,9 @@ func RunAgentLoop(cfg AgentConfig, ctx *models.ExecutionContext) (returned *Agen
 	}
 
 	for !state.Phase.IsTerminal() {
+		if checkpointErr != nil {
+			return nil, checkpointErr
+		}
 		if cfg.BeforeModelCall != nil {
 			if err := cfg.BeforeModelCall(); err != nil {
 				if loopCtx.Err() != nil {
@@ -1490,6 +1531,11 @@ func RunAgentLoop(cfg AgentConfig, ctx *models.ExecutionContext) (returned *Agen
 			// suspension without granting another tool round.
 			finalRepairFinalPending = true
 		}
+		if resp.HasToolCalls() && checkpoint != nil && checkpointErr == nil {
+			// Boundary: the response (with its reasoning) is in the transcript and
+			// no tool has been dispatched yet.
+			checkpointErr = checkpoint("turn", messages)
+		}
 
 		// Log Thinking
 		if resp.Reasoning != "" {
@@ -1630,6 +1676,9 @@ func RunAgentLoop(cfg AgentConfig, ctx *models.ExecutionContext) (returned *Agen
 			// Sequential execution (original path) for non-concurrent-safe tools
 			reservedReceiptAttempted := false
 			for _, tc := range resp.ToolCalls {
+				if checkpointErr != nil {
+					return nil, checkpointErr
+				}
 				fnName := tc.Name
 				fnArgs := tc.Arguments
 				callID := tc.ID
@@ -2060,6 +2109,9 @@ func RunAgentLoop(cfg AgentConfig, ctx *models.ExecutionContext) (returned *Agen
 				markStepDone(outputText)
 			}
 		} // end sequential execution else block
+		if checkpointErr != nil {
+			return nil, checkpointErr
+		}
 		if cfg.MaxToolCallsBetweenReports > 0 && toolCallsSinceReport >= cfg.MaxToolCallsBetweenReports {
 			if cycleSawTool && cycleOnlyDiscovery && !cycleSawNovel {
 				stalledDiscoveryCycles++

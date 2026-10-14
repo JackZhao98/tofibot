@@ -3,6 +3,7 @@ package runtime
 import (
 	"context"
 	"encoding/json"
+	"github.com/JackZhao98/tofibot/internal/agent"
 	"github.com/JackZhao98/tofibot/internal/tooloutcome"
 	"time"
 )
@@ -141,6 +142,18 @@ type Request struct {
 	Continuation  json.RawMessage
 	ResumeResult  string
 	ResumeOutcome *tooloutcome.Outcome
+	// Attempt is the run's current claim generation; it is stamped into every
+	// checkpoint so a stale writer can be told apart from the live one.
+	Attempt int
+	// OnCheckpoint durably stores an opaque boundary checkpoint (kind "turn" or
+	// "tool"). An error fails the run before it dispatches anything further. An
+	// empty checkpoint means this boundary could not be snapshotted: the store
+	// must discard its older checkpoint instead of keeping a stale one.
+	OnCheckpoint func(kind string, checkpoint json.RawMessage) error
+	// ResumeToolResults settles, by call ID, calls of a boundary Continuation
+	// that were running or queued when the service stopped. The backend has
+	// already recorded their activity rows, so no tool events are re-emitted.
+	ResumeToolResults map[string]agent.ResumeToolResult
 }
 
 type Result struct {
