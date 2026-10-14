@@ -47,3 +47,6 @@ html[data-desktop] { --sender-avatar:38px; }
 html:not([data-desktop]) .workspace .message-scroll { padding-bottom:calc(var(--composer-height,110px) + 24px + 20px); }
 html:not([data-desktop]) .workspace .chat-pane:has(.composer-perch) .message-scroll { padding-bottom:calc(var(--composer-height,110px) + 24px + 76px); }
 html[data-desktop] .workspace .message-scroll { padding-bottom:calc(var(--composer-height,110px) + 24px + 20px); }
+/* A live-only group block is not a sender unit: its line starts in the avatar column, the cat centred where the avatar sits. */
+.workspace .task-run-block.in-group:not([data-sender]) > .task-run-live-line { margin-left:calc(var(--sender-gutter) * -1); gap:var(--sender-gap); }
+.workspace .task-run-block.in-group:not([data-sender]) > .task-run-live-line > .task-activity-cat { width:var(--sender-avatar); place-items:center; }
