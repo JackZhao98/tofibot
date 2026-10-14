@@ -177,18 +177,59 @@ func (c *Client) do(ctx context.Context, method, endpoint string, body any, out 
 			}
 		}
 	}
-	if limit > 0 {
-		parent := ctx
-		var cancel context.CancelFunc
-		ctx, cancel = context.WithTimeout(ctx, limit)
+	sendOnce := func() error {
+		if limit <= 0 {
+			return c.send(ctx, method, endpoint, body, out)
+		}
+		limited, cancel := context.WithTimeout(ctx, limit)
 		defer cancel()
-		err := c.send(ctx, method, endpoint, body, out)
-		if err != nil && parent.Err() == nil && errors.Is(ctx.Err(), context.DeadlineExceeded) {
+		err := c.send(limited, method, endpoint, body, out)
+		if err != nil && ctx.Err() == nil && errors.Is(limited.Err(), context.DeadlineExceeded) {
 			return &ActionDeadlineError{Limit: limit}
 		}
 		return err
 	}
-	return c.send(ctx, method, endpoint, body, out)
+	err := sendOnce()
+	if err != nil && admit && c.ensure != nil && controlDialFailed(err) {
+		// Admission woke a hibernated computer, but its manager starts
+		// asynchronously. The request never left this process, so it is safe
+		// to send once more after the control socket answers.
+		if waitErr := c.waitForManager(ctx); waitErr == nil {
+			err = sendOnce()
+		}
+	}
+	return err
+}
+
+// managerWakeLimit bounds the wait for a just-admitted manager's socket.
+const managerWakeLimit = 20 * time.Second
+
+// controlDialFailed reports a failure to connect to the control socket, where
+// no request bytes were sent.
+func controlDialFailed(err error) bool {
+	var op *net.OpError
+	return errors.As(err, &op) && op.Op == "dial"
+}
+
+// waitForManager waits until the control socket answers any request.
+func (c *Client) waitForManager(ctx context.Context) error {
+	ctx, cancel := context.WithTimeout(ctx, managerWakeLimit)
+	defer cancel()
+	for {
+		probeCtx, probeCancel := context.WithTimeout(ctx, time.Second)
+		req, _ := http.NewRequestWithContext(probeCtx, http.MethodGet, "http://tofi-computer/v1/info", nil)
+		response, err := c.http.Do(req)
+		probeCancel()
+		if err == nil {
+			response.Body.Close()
+			return nil
+		}
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-time.After(200 * time.Millisecond):
+		}
+	}
 }
 
 func (c *Client) send(ctx context.Context, method, endpoint string, body any, out any) error {
@@ -399,17 +440,14 @@ type MemoryUsage struct {
 }
 
 func (c *Client) Resources(ctx context.Context) (Resources, error) {
-	ctx, cancel := context.WithTimeout(ctx, controlInfoTimeout)
-	defer cancel()
 	var out Resources
-	err := c.request(ctx, http.MethodGet, "/v1/resources", nil, &out)
+	// The limit bounds the request, not waking a hibernated computer first.
+	err := c.do(ctx, http.MethodGet, "/v1/resources", nil, &out, true, controlInfoTimeout)
 	return out, err
 }
 func (c *Client) ConfigureResources(ctx context.Context, value ResourceAllocation) (Resources, error) {
-	ctx, cancel := context.WithTimeout(ctx, controlInfoTimeout)
-	defer cancel()
 	var out Resources
-	err := c.request(ctx, http.MethodPost, "/v1/resources", value, &out)
+	err := c.do(ctx, http.MethodPost, "/v1/resources", value, &out, true, controlInfoTimeout)
 	return out, err
 }
 

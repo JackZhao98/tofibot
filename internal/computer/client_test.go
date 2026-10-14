@@ -304,3 +304,52 @@ func TestGuestStructuredRefusalIsDefiniteNotExecuted(t *testing.T) {
 		t.Fatalf("err=%v, want plain untyped error", err)
 	}
 }
+
+// Reading settings of a hibernated computer: admission starts the manager
+// asynchronously, so the first dial fails; the read waits and is sent once.
+func TestAdmittedResourcesReadWaitsForWakingManager(t *testing.T) {
+	ensures, dials, probes, reads := 0, 0, 0, 0
+	client, err := New(Config{Ensure: func(context.Context) error { ensures++; return nil }, Client: &http.Client{Transport: actionReadinessTransport(func(r *http.Request) (*http.Response, error) {
+		if ensures != 1 {
+			t.Fatalf("request before admission: %d", ensures)
+		}
+		switch r.URL.Path {
+		case "/v1/resources":
+			if dials++; dials == 1 {
+				return nil, &net.OpError{Op: "dial", Net: "unix", Err: syscall.ENOENT}
+			}
+			reads++
+			return actionReadinessResponse(`{"state":"ready","current":{"vcpus":2,"memory_mib":3486,"disk_gib":8}}`), nil
+		case "/v1/info":
+			if probes++; probes < 3 {
+				return nil, &net.OpError{Op: "dial", Net: "unix", Err: syscall.ENOENT}
+			}
+			return actionReadinessResponse(`{"state":"starting"}`), nil
+		default:
+			t.Fatalf("unexpected endpoint %s", r.URL.Path)
+			return nil, nil
+		}
+	})}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	got, err := client.Resources(context.Background())
+	if err != nil || ensures != 1 || probes != 3 || reads != 1 || got.Current.VCPUs != 2 {
+		t.Fatalf("got=%+v err=%v ensures=%d probes=%d reads=%d", got, err, ensures, probes, reads)
+	}
+}
+
+// A request that reached the manager and failed is never resent.
+func TestAdmittedRequestFailureAfterSendIsNotRetried(t *testing.T) {
+	sends := 0
+	client, err := New(Config{Ensure: func(context.Context) error { return nil }, Client: &http.Client{Transport: actionReadinessTransport(func(r *http.Request) (*http.Response, error) {
+		sends++
+		return &http.Response{StatusCode: http.StatusConflict, Status: "409 Conflict", Body: io.NopCloser(strings.NewReader("busy")), Header: make(http.Header)}, nil
+	})}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := client.ConfigureResources(context.Background(), ResourceAllocation{VCPUs: 2}); err == nil || sends != 1 {
+		t.Fatalf("err=%v sends=%d", err, sends)
+	}
+}
