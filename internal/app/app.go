@@ -1915,6 +1915,16 @@ func (s *Store) finishRunState(id, conv, bot, content string, silent bool, failu
 	}
 	// An empty assistant message is never published; attachments alone may be.
 	publish := strings.TrimSpace(content) != "" || pendingFiles > 0
+	var repeatedSegment Message
+	if publish && pendingFiles == 0 {
+		segment, repeated, repeatErr := repeatedSegmentTx(tx, id, content)
+		if repeatErr != nil {
+			return Message{}, false, repeatErr
+		}
+		if repeated {
+			publish, repeatedSegment, content = false, segment, ""
+		}
+	}
 	var draftID, draftStatus string
 	var draftSeq int64
 	_ = tx.QueryRow(`SELECT message_id,status,seq FROM stream_drafts WHERE run_id=?`, id).Scan(&draftID, &draftStatus, &draftSeq)
@@ -1952,7 +1962,8 @@ func (s *Store) finishRunState(id, conv, bot, content string, silent bool, failu
 			return Message{}, false, err
 		}
 	} else {
-		m = Message{}
+		// A restated final answer leaves the segment it repeats as the result.
+		m = repeatedSegment
 	}
 	terminal := "done"
 	if failure != "" {
@@ -1998,16 +2009,20 @@ func (s *Store) finishRunState(id, conv, bot, content string, silent bool, failu
 	if err != nil {
 		return Message{}, false, err
 	}
-	if failure == "" && publish && shouldReturn && returnTarget.ConversationID != conv && handoffs == 0 {
+	resultContent := content
+	if !publish && repeatedSegment.ID != "" {
+		resultContent = repeatedSegment.Content
+	}
+	if failure == "" && (publish || repeatedSegment.ID != "") && shouldReturn && returnTarget.ConversationID != conv && handoffs == 0 {
 		var forwarded Message
 		var visible int
 		if err = tx.QueryRow(`SELECT user_visible FROM conversations WHERE id=?`, conv).Scan(&visible); err != nil {
 			return Message{}, false, err
 		}
 		if done.Kind == runKindMessage || visible == 0 {
-			forwarded, err = appendBotMessageResult(tx, returnTarget.ConversationID, bot, id, content)
+			forwarded, err = appendBotMessageResult(tx, returnTarget.ConversationID, bot, id, resultContent)
 		} else {
-			forwarded, err = appendForwardResult(tx, returnTarget.ConversationID, bot, id, content)
+			forwarded, err = appendForwardResult(tx, returnTarget.ConversationID, bot, id, resultContent)
 		}
 		if err != nil {
 			return Message{}, false, err
