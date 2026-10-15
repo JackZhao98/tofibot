@@ -123,13 +123,13 @@ function measure() {
   const list = document.querySelector(".message-list");
   const units = [];
   for (const el of list.querySelectorAll("article.message-bot, article.message-user, .task-run-block.in-group, .tool-message.web-tool-run[data-sender], .date-divider, .unread-divider")) {
-    if (el.matches(".date-divider, .unread-divider, article.message-user")) { units.push({ type: "break" }); continue; }
+    if (el.matches(".date-divider, .unread-divider, article.message-user")) { units.push({ type: "break", user: el.matches("article.message-user"), top: rect(el).top, bottom: rect(el).bottom, speakerChange: el.dataset.speakerChange === "true" }); continue; }
     if (el.closest(".message-tools")) continue;
     const message = el.matches("article.message-bot");
     const head = message ? { avatar: el.querySelector(".sender-avatar .avatar, .sender-avatar img, .sender-avatar svg"), name: el.querySelector(".message-meta strong") } : { avatar: el.querySelector(".sender-head .avatar, .sender-head img, .sender-head svg"), name: el.querySelector(".sender-head .sender-name") };
     const avatar = shown(head.avatar) ? rect(head.avatar) : null;
     const name = shown(head.name) ? rect(head.name) : null;
-    const unit = { type: message ? "message" : "activity", id: el.closest(".message-block")?.dataset.messageId ?? "", sender: el.dataset.sender ?? "", avatar, name, left: rect(el).left, top: rect(el).top };
+    const unit = { type: message ? "message" : "activity", id: el.closest(".message-block")?.dataset.messageId ?? "", sender: el.dataset.sender ?? "", avatar, name, left: rect(el).left, top: rect(el).top, bottom: rect(el).bottom, speakerChange: el.dataset.speakerChange === "true" };
     if (message) {
       const content = el.querySelector(".message-content");
       const cs = getComputedStyle(content);
@@ -138,7 +138,7 @@ function measure() {
       const smallest = Math.min(...radii);
       const corner = radii.indexOf(smallest);
       unit.kind = el.classList.contains("message-segment") ? "segment" : "final";
-      unit.contentLeft = box.left; unit.bubbleBottom = box.bottom;
+      unit.contentLeft = box.left; unit.bubbleBottom = box.bottom; unit.bubbleTop = box.top;
       unit.style = { border: `${cs.borderTopWidth} ${cs.borderTopStyle} ${cs.borderTopColor}`, background: cs.backgroundColor, bodyRadius: String(radii[2]), paddingTop: cs.paddingTop, paddingLeft: cs.paddingLeft };
       // The tail is the one squared corner of the bubble; its vertical position is the corner's.
       unit.tail = smallest < Math.max(...radii) - 1 ? { corner: ["top-left", "top-right", "bottom-right", "bottom-left"][corner], y: corner < 2 ? box.top : box.bottom } : null;
@@ -161,21 +161,26 @@ function check(label, m, kind) {
     for (const b of bots) { if (b.avatar || b.name) failures.push(`${b.id}: direct chat shows avatar/name`); if (b.tail) failures.push(`${b.id}: direct chat bubble has a tail`); if (b.style.border.startsWith("1px")) failures.push(`${b.id}: direct chat message is boxed`); }
     if (m.units.some(u => u.type === "activity")) failures.push("direct chat renders group Activity heads");
   } else {
-    // Sender groups run in document order; the avatar and name close each group (bottom).
+    // Sender groups run in document order: the name is a light caption above the first unit, the avatar
+    // sits level with the last unit's bottom edge, and a speaker change has more room above it.
     const seq = m.units;
     for (let i = 0; i < seq.length; i++) {
       const u = seq[i];
       if (u.type === "break") continue;
+      const prev = seq[i - 1];
       const next = seq[i + 1];
+      const first = !prev || prev.type === "break" || prev.sender !== u.sender;
       const last = !next || next.type === "break" || next.sender !== u.sender;
       const tag = `${u.type} ${u.id || u.sender}`;
+      if (first) {
+        if (!u.name) failures.push(`${tag}: first of sender group lacks its name`);
+        else if (u.type === "message" && u.name.bottom > u.bubbleTop + 1) failures.push(`${tag}: name is not above the bubble`);
+      } else if (u.name) failures.push(`${tag}: later unit repeats the name`);
       if (last) {
-        if (!u.avatar || !u.name) failures.push(`${tag}: last of sender group lacks avatar/name`);
+        if (!u.avatar) failures.push(`${tag}: last of sender group lacks the avatar`);
         else {
-          const edge = u.type === "message" ? u.bubbleBottom : u.avatar.bottom;
-          if (Math.abs(u.avatar.bottom - edge) > 4) failures.push(`${tag}: avatar bottom ${u.avatar.bottom.toFixed(1)} vs bubble bottom ${edge.toFixed(1)}`);
-          if (u.type === "message" && u.name.top < u.bubbleBottom - 1) failures.push(`${tag}: name above the bubble's bottom`);
-          if (u.type === "activity" && u.name.top < u.avatar.bottom - 1) failures.push(`${tag}: name above the avatar's bottom`);
+          const edge = u.type === "message" ? u.bubbleBottom : u.bottom;
+          if (Math.abs(u.avatar.bottom - edge) > 4) failures.push(`${tag}: avatar bottom ${u.avatar.bottom.toFixed(1)} vs unit bottom ${edge.toFixed(1)}`);
         }
         if (u.type === "message") {
           if (!u.tail) failures.push(`${tag}: last bubble has no tail`);
@@ -183,8 +188,13 @@ function check(label, m, kind) {
           else if (u.avatar && !(u.tail.y >= u.avatar.top - 1 && u.tail.y <= u.avatar.bottom + 4)) failures.push(`${tag}: tail y ${u.tail.y.toFixed(1)} outside avatar`);
         }
       } else {
-        if (u.avatar || u.name) failures.push(`${tag}: earlier unit shows avatar/name`);
+        if (u.avatar) failures.push(`${tag}: earlier unit shows the avatar`);
         if (u.type === "message" && u.tail) failures.push(`${tag}: tail on a non-last bubble`);
+      }
+      if (prev && prev.top !== undefined && u.top !== undefined) {
+        const gap = u.top - prev.bottom;
+        if (first && gap < 18) failures.push(`${tag}: gap ${gap.toFixed(1)}px after another speaker (want >= 18)`);
+        if (!first && gap > 14) failures.push(`${tag}: gap ${gap.toFixed(1)}px inside one sender's group (want <= 14)`);
       }
     }
     // One column: every Bot unit starts at the same x.

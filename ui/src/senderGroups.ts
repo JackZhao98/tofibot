@@ -3,7 +3,9 @@
  * same Bot within a short window read as one block, with the avatar and name shown once on its first
  * unit. Units carry `data-sender` (Bot id) and `data-at` (ISO time); everything that is not a Bot unit
  * (a person's message, a notice, a question or draft card, a date or unread divider) ends the block.
- * `data-continues` marks later units; `data-last` marks the unit that closes a group, which carries the avatar and name (bottom of the group, chat-app convention).
+ * `data-continues` marks later units; `data-last` marks the unit that closes a group. The name sits above the group's first unit,
+ * the avatar beside its last unit (chat-app convention). `data-speaker-change` marks any message whose speaker differs from the
+ * one before it (a person or a Bot), which gets more room above it.
  */
 export const SENDER_GROUP_WINDOW_MS = 5 * 60_000;
 
@@ -30,10 +32,27 @@ export function markSenderGroups(root: ParentNode | null): void {
     at = Number.isFinite(time) ? time : at;
     units.push(element);
   }
-  // The avatar and name sit under the group's last unit: the one the next unit does not continue.
+  markSpeakerChanges(root);
+  // The avatar sits beside the group's last unit: the one the next unit does not continue.
   units.forEach((element, index) => {
     const last = !units[index + 1] || units[index + 1].dataset.continues !== "true";
     if (last) { if (element.dataset.last !== "true") element.dataset.last = "true"; }
     else if (element.hasAttribute("data-last")) element.removeAttribute("data-last");
   });
+}
+
+const SPEAKER_UNITS = "article.message, [data-sender]";
+
+/** Marks messages whose speaker differs from the previous message's, so the gap between speakers can be wider than within one. */
+function markSpeakerChanges(root: ParentNode): void {
+  let previous: string | undefined;
+  for (const element of root.querySelectorAll<HTMLElement>(`${SPEAKER_UNITS}, .date-divider`)) {
+    if (element.matches(".date-divider")) { previous = undefined; continue; }
+    if (element.parentElement?.closest(SPEAKER_UNITS)) continue;
+    const speaker = element.dataset.sender || (element.matches(".message-user") ? "user" : element.matches(".message-bot") ? "bot" : "other");
+    const change = previous !== undefined && speaker !== previous;
+    if (change) { if (element.dataset.speakerChange !== "true") element.dataset.speakerChange = "true"; }
+    else if (element.hasAttribute("data-speaker-change")) element.removeAttribute("data-speaker-change");
+    previous = speaker;
+  }
 }
