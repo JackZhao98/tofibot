@@ -37,7 +37,7 @@ Known flaky Go tests seen this wave (pass on rerun): TestCancelDoesNotBecomeDone
 
 - ~~Enter in the import passphrase field does not decrypt~~ (fixed in #8).
 
-## Next wave (after v0.1.2) — merged to main, not released
+## Wave v0.1.3 (shipped 2026-10-15, tag on 3b6a885 = rc.30; production upgraded the same day)
 
 1. **Onboarding connect step** (fix/onboarding-connect): service letter marks, "Connected ✓", no "Connect 0", an all-set screen with Continue, tablet viewports. test:onboarding (20 checks) and test:settings-polish (328 runs) exit 0, Chromium only.
 2. **Tool refusals are definite** (fix/tool-outcome-ux): local argument refusals show "Not executed" and no longer block the corrected retry; compact uncertain card; "Save the Bot's profile" label; thinking line not cut mid-sentence.
@@ -81,3 +81,6 @@ Known flaky Go tests seen this wave (pass on rerun): TestCancelDoesNotBecomeDone
 40. **Own refusal during review** (fix/own-refusal-race, rc.27 CI failure): a refusal while the review ran was reported as an earlier refusal (policy_denied). Re-read the current card first; gate test waits for the verdict (40/40 -race). go test ./internal/... exit 0.
 41. **Schedule states from records** (fix/schedule-state-in-context, live 10-15 00:45 report repeated "02:30 failed" a third time; it never called the lookup tool and the scheduled prompt forbids inspecting the schedule): the host appends schedule states (last outcome + time) to scheduled runs' run note; voice rule adds "don't recite which instructions you followed". Test; go test ./internal/... exit 0.
 42. **Schedule states: recent outcomes, override own reports** (fix/schedule-state-history, rc.29 live 09:25: lead still said 02:30 failed despite injected "latest run done"): last three outcomes per schedule; header says records override earlier messages incl. own reports. go test exit 0 (TestListMemoryIsBounded flaked once, 20/20 alone).
+
+## Next wave (after v0.1.3) — merged to main, not released
+
