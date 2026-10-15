@@ -39,7 +39,7 @@ func (s *Server) scheduleStateNote(c Conversation, r Run, loc *time.Location) st
 		schedules = schedules[:maxScheduleStates]
 	}
 	var b strings.Builder
-	b.WriteString("[schedule states from records; newer than any earlier message]")
+	b.WriteString("[schedule states from records. They override earlier messages, including your own earlier reports: a schedule whose latest run is done is not failing.]")
 	for _, x := range schedules {
 		name := strings.TrimSpace(x.Title)
 		if name == "" {
@@ -51,15 +51,40 @@ func (s *Server) scheduleStateNote(c Conversation, r Run, loc *time.Location) st
 		}
 		state := "not run yet"
 		if x.LastRunID != "" {
-			state = "last run " + x.ExecutionStatus
+			state = "latest run " + x.ExecutionStatus
 			if last, err := s.store.GetRun(x.LastRunID); err == nil {
 				if at, err := time.Parse(time.RFC3339Nano, last.UpdatedAt); err == nil {
 					state += " at " + at.In(loc).Format("2006-01-02 15:04")
 				}
+			}
+			if recent := s.store.recentScheduleOutcomes(x.ID, loc, 3); recent != "" {
+				state += "; recent: " + recent
 			}
 		}
 		fmt.Fprintf(&b, "\n- %s (%s, %s): %s", name, when, x.Status, state)
 	}
 	b.WriteString("\n[/schedule states]")
 	return b.String()
+}
+
+// recentScheduleOutcomes lists the latest occurrences' root run outcomes,
+// newest first ("10-15 done, 10-14 done, 10-13 failed").
+func (s *Store) recentScheduleOutcomes(scheduleID string, loc *time.Location, limit int) string {
+	rows, err := s.db.Query(`SELECT o.scheduled_for_utc, r.status FROM schedule_occurrences o JOIN runs r ON r.id=o.run_id WHERE o.schedule_id=? ORDER BY o.scheduled_for_utc DESC LIMIT ?`, scheduleID, limit)
+	if err != nil {
+		return ""
+	}
+	defer rows.Close()
+	var parts []string
+	for rows.Next() {
+		var due, status string
+		if rows.Scan(&due, &status) != nil {
+			return ""
+		}
+		if at, err := time.Parse(time.RFC3339Nano, due); err == nil {
+			due = at.In(loc).Format("01-02 15:04")
+		}
+		parts = append(parts, due+" "+status)
+	}
+	return strings.Join(parts, ", ")
 }
