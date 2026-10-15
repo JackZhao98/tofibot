@@ -306,6 +306,8 @@
     "reply_to": "Antwort an {{name}}",
     "resume_continuing": "Die Aufgabe wird ab dem letzten Checkpoint fortgesetzt.",
     "resume_restart": "Dienst neu gestartet. Die Aufgabe wird ab dem letzten Checkpoint fortgesetzt.",
+    "handed_over": "{{from}} hat das an {{to}} übergeben",
+    "view_brief": "Auftrag anzeigen",
     "scheduled": "Geplante Aufgabe",
     "system": "Systemhinweis",
     "tool": "Tool",

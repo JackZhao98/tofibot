@@ -302,6 +302,8 @@
     "reply_to": "{{name}} への返信",
     "resume_continuing": "最後のチェックポイントから再開します。",
     "resume_restart": "サービスが再起動しました。最後のチェックポイントから再開します。",
+    "handed_over": "{{from}} が {{to}} に任せました",
+    "view_brief": "依頼内容を見る",
     "scheduled": "定期タスク",
     "system": "システム通知",
     "tool": "ツール",
