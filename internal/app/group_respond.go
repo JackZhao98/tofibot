@@ -26,10 +26,7 @@ const defaultWaitTimeout = 10 * time.Minute
 
 // visibleDelegationText: a delegated request is posted in the group as the
 // assigning Bot's own message, so it must read as a line to a colleague.
-const visibleDelegationText = "Posted in the group as your own message to that member: write it as you would say it to a colleague in front of the user, with the request and the context they need. No instructions about language, tone, format, length or honesty; put anything only they need in notes."
-
-// privateHandoffNotesText: notes go to the colleague only, never to the group.
-const privateHandoffNotesText = "Optional. Private notes only that member receives with the task, never shown in the group: constraints or context the visible request leaves out."
+const visibleDelegationText = "Posted in the group as your own message to that member: write it as you would say it to a colleague in front of the user, with the request and the context they need. No instructions about language, tone, format, length or honesty; they follow their own rules."
 
 const groupDispositionGuidance = `[group response]
 End each group turn with respond: reply (post; wake lists Bots to start, each with a concrete request; a plain @mention starts nothing), silent (not for you), concluded (a Bot's thanks/ok/done: post nothing), follow_up (waiting on a Bot: set wait_for, do not post "I'll wait"). Default reply, no wakes. Answer a person's greeting, goodbye or small talk briefly. Don't announce delegating.
