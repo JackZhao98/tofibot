@@ -63,7 +63,7 @@ func TestSafetyAndGuideRoutingRemainInTheProductionPrompt(t *testing.T) {
 	}
 	for _, requirement := range []string{
 		"Complete the requested deliverable and fields",
-		"Claim searched, verified or completed only with evidence",
+		"Never claim something was searched, verified or done without evidence",
 		"Try another permitted route",
 		"read_workflow_guide",
 		"(skill: software)",
@@ -240,8 +240,10 @@ func TestProductionPromptSizeMatrix(t *testing.T) {
 			if len([]rune(toolEvidencePolicy)) > 900 {
 				t.Fatal("research and evidence policy exceeds its 900-rune allowance")
 			}
-			if tc.name == "dm" && len([]rune(system))+runtime.SystemPromptOverheadRunes() > 4800 {
-				t.Errorf("ordinary DM provider system exceeds 4800 runes")
+			// 5200: the voice rules against process narration and audit-style
+			// disclaimers (owner, 2026-10-14) added ~360 cached runes.
+			if tc.name == "dm" && len([]rune(system))+runtime.SystemPromptOverheadRunes() > 5200 {
+				t.Errorf("ordinary DM provider system exceeds 5200 runes")
 			}
 			if fixed > 6200 {
 				t.Errorf("fixed overhead %d leaves too little customization headroom (ceiling 6200)", fixed)
