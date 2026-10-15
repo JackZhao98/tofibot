@@ -24,6 +24,10 @@ const (
 
 const defaultWaitTimeout = 10 * time.Minute
 
+// visibleDelegationText: a delegated request is posted in the group as the
+// assigning Bot's own message, so it must read as a line to a colleague.
+const visibleDelegationText = "Posted in the group as your own message to that member: write it as you would say it to a colleague in front of the user, with the request and the context they need. No instructions about language, tone, format, length or honesty; they follow their own rules."
+
 const groupDispositionGuidance = `[group response]
 End each group turn with respond: reply (post; wake lists Bots to start, each with a concrete request; a plain @mention starts nothing), silent (not for you), concluded (a Bot's thanks/ok/done: post nothing), follow_up (waiting on a Bot: set wait_for, do not post "I'll wait"). Default reply, no wakes. Answer a person's greeting, goodbye or small talk briefly. Don't announce delegating.
 [/group response]
@@ -120,7 +124,7 @@ func (s *Server) groupRespondTools(c Conversation, r Run) []runtime.Tool {
 	}
 	return []runtime.Tool{{Name: "respond", Description: "End your group turn with one explicit response disposition: reply (text is the message to post and your final message; list Bots to start in wake with a concrete request), silent (nothing to add; post nothing), concluded (acknowledgement or closing such as thanks/ok/done; post nothing), or follow_up (waiting on another Bot's output: set wait_for). Call it once, before your final message for reply, or instead of a message for the others.", Parameters: objectSchema(map[string]any{
 		"disposition": map[string]any{"type": "string", "enum": []string{dispReply, dispSilent, dispConcluded, dispFollowUp}},
-		"wake":        map[string]any{"type": "array", "items": objectSchema(map[string]any{"bot_id": map[string]any{"type": "string"}, "request": map[string]any{"type": "string"}}, []string{"bot_id", "request"})},
+		"wake":        map[string]any{"type": "array", "items": objectSchema(map[string]any{"bot_id": map[string]any{"type": "string"}, "request": map[string]any{"type": "string", "description": visibleDelegationText}}, []string{"bot_id", "request"})},
 		"text":        map[string]any{"type": "string", "description": "reply only: the message to post. It is your final message; write nothing after calling respond."},
 		"wait_for":    map[string]any{"type": "string", "description": "Bot id you are waiting on (follow_up only)"},
 	}, []string{"disposition"}), Execute: func(ctx context.Context, data json.RawMessage) (string, error) {
