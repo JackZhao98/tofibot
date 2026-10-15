@@ -3897,7 +3897,7 @@ func (s *Server) toolsUnmarked(c Conversation, r Run) []Tool {
 			s.enqueue(childConv, child)
 		}
 		return fmt.Sprintf("message sent to %d Bot(s)", len(children)), nil
-	}}, {Name: "handoff", Description: "In a group, publish a bounded task to a member. Use this only for task delegation that should resume the assigning Bot; use message for a one-time Bot-to-Bot communication. Provide a concrete task, then end this turn without duplicating the dispatch.", Parameters: objectSchema(map[string]any{"bot_id": map[string]any{"type": "string"}, "task": map[string]any{"type": "string"}}, []string{"bot_id", "task"}), Execute: func(ctx context.Context, b json.RawMessage) (string, error) {
+	}}, {Name: "handoff", Description: "In a group, publish a bounded task to a member. Use this only for task delegation that should resume the assigning Bot; use message for a one-time Bot-to-Bot communication. Provide a concrete task, then end this turn without duplicating the dispatch.", Parameters: objectSchema(map[string]any{"bot_id": map[string]any{"type": "string"}, "task": map[string]any{"type": "string", "description": visibleDelegationText}}, []string{"bot_id", "task"}), Execute: func(ctx context.Context, b json.RawMessage) (string, error) {
 		if err := ctx.Err(); err != nil {
 			return "", err
 		}
