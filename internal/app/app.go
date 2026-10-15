@@ -1982,6 +1982,11 @@ func (s *Store) finishRunState(id, conv, bot, content string, silent bool, failu
 		if _, err = tx.Exec(`INSERT INTO events(conversation_id,type,data,created_at) VALUES(?,?,?,?)`, conv, "message", string(b), t); err != nil {
 			return Message{}, false, err
 		}
+		if failure == "" {
+			if err = foldStepNarrationTx(tx, id, conv, content, t); err != nil {
+				return Message{}, false, err
+			}
+		}
 	}
 	var done Run
 	var runErr, parent sql.NullString
