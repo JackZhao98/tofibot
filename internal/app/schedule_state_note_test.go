@@ -20,7 +20,7 @@ func TestScheduledRunSeesScheduleStatesFromRecords(t *testing.T) {
 		t.Fatalf("fixture run status=%s", got.Status)
 	}
 	note := server.scheduleStateNote(c, Run{ID: "next", BotID: bot.ID, Kind: runKindSchedule}, time.UTC)
-	if !strings.Contains(note, "[schedule states") || !strings.Contains(note, "last run done at ") {
+	if !strings.Contains(note, "[schedule states") || !strings.Contains(note, "latest run done at ") || !strings.Contains(note, "recent: ") {
 		t.Fatalf("note lacks the recorded outcome:\n%s", note)
 	}
 	if !strings.Contains(note, trimRunes(strings.Join(strings.Fields(x.Content), " "), 60)) && (x.Title == "" || !strings.Contains(note, x.Title)) {
