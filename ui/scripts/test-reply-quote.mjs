@@ -15,7 +15,9 @@ try {
   list = [m("u1", "user"), m("b2", "bot", { sender_bot_id: "bot-b" }), m("b1", "bot")];
   assert.equal(show(list, 2, "u1"), true, "group: another Bot's message intervened: shown");
   list = [m("b2", "bot", { sender_bot_id: "bot-b" }), m("b1", "bot")];
-  assert.equal(show(list, 1, "b2"), true, "replying to another Bot: shown");
+  assert.equal(show(list, 1, "b2"), false, "another Bot's message directly above: hidden");
+  list = [m("b2", "bot", { sender_bot_id: "bot-b" }), m("u3", "user"), m("b1", "bot")];
+  assert.equal(show(list, 2, "b2"), true, "another Bot's older message with the user in between: shown");
   assert.equal(shouldShowReplyQuote(list, 1, undefined), false, "no target: nothing to show");
   assert.equal(shouldShowReplyQuote([m("b1", "bot")], 0, m("gone", "user")), true, "target outside the visible timeline: shown");
   console.log("reply quote checks: PASS (adjacent, segment, older, group bot, bot target)");
