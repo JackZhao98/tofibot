@@ -8,7 +8,7 @@ import { scheduledRunMetadata } from "./scheduledRunMetadata";
 import { useTranslation } from "./i18n";
 import "./scheduled-task-row.css";
 
-export function ScheduledTaskRow({ message, run, occurrence, schedule, timezone, onRetry }: { message: Message; run?: Run; occurrence?: ScheduleOccurrence; schedule?: Schedule; timezone?: string; onRetry?: (id: string) => Promise<void> }) {
+export function ScheduledTaskRow({ message, run, occurrence, pending = false, schedule, timezone, onRetry }: { message: Message; run?: Run; occurrence?: ScheduleOccurrence; pending?: boolean; schedule?: Schedule; timezone?: string; onRetry?: (id: string) => Promise<void> }) {
   const [retrying, setRetrying] = useState(false);
   const owningRun = message.run_id && run?.id === message.run_id ? run : undefined;
   const exactOccurrence = message.run_id && occurrence?.root_run_id === message.run_id ? occurrence : undefined;
@@ -30,6 +30,11 @@ export function ScheduledTaskRow({ message, run, occurrence, schedule, timezone,
   const retryId = exactOccurrence?.status_run_id ?? owningRun?.id;
   const receiptMissing = error?.includes("scheduled task returned without confirming a completed result");
   const metadata = scheduledRunMetadata(message, run, occurrence, schedule, timezone);
+  // The occurrence read is still in flight: a blank ticket of the same shape, never a guessed status.
+  const blank = "\u00a0";
+  if (!isDesktop && pending) return <div className="scheduled-run-pending" aria-hidden="true" inert>
+    <ScheduledRun title={blank} description={blank} content="" plannedTime={blank} plannedTimeDescription="" metadata={blank} statusLabel={blank} />
+  </div>;
   if (!isDesktop) return <ScheduledRun
     {...metadata}
     content={message.content}
