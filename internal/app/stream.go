@@ -271,6 +271,11 @@ func (s *Store) publishAssistantParts(ctx context.Context, runID string, turnInd
 		kind := "segment"
 		if part.Progress {
 			kind = "progress"
+		} else if _, repeated, repeatErr := repeatedSegmentTx(tx, runID, part.Text); repeatErr != nil {
+			return Message{}, false, repeatErr
+		} else if repeated {
+			// The same run already said this; a restatement folds like a note.
+			kind = "progress"
 		}
 		id, createdAt, seq := uuid.NewString(), t, int64(0)
 		if i == 0 {

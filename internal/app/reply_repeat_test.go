@@ -15,6 +15,7 @@ func TestRepliesNearlyEqual(t *testing.T) {
 		{"Both schedules are set: 17:50 for the metaphor post and 17:53 for my report.", "Both schedules are set — 17:50 metaphor post, 17:53 my report.", true},
 		{"我先去看一下记账表。", "记账表里本周一共 12 笔，合计 486 美元，最大一笔是周二的房租分摊 300 美元，其余都是餐饮和交通。", false},
 		{"今天的热门话题写好了，头条是教皇确诊肺癌。", "今天的热门话题写好了，头条是教皇确诊肺癌、手术成功，其他四条：俄乌供电、OpenAI 录音设备案、约克郡老虎伤人、沙特撤销死刑判决。", false},
+		{"Completed batch at turn 16; continuing.", "Completed batch at turn 31; continuing.", false},
 		{"", "anything", false},
 	}
 	for _, tc := range cases {
@@ -103,5 +104,26 @@ func TestStepNarrationFoldsBeforeASubstantialAnswer(t *testing.T) {
 				t.Fatalf("live update events=%d for kind %s", updates, kind)
 			}
 		})
+	}
+}
+
+// A second mid-run message restating the first folds instead of standing as
+// another visible message.
+func TestRepeatedSegmentFoldsLikeANote(t *testing.T) {
+	s, r, _ := streamFixture(t)
+	defer s.Close()
+	if _, err := s.BeginStream(r); err != nil {
+		t.Fatal(err)
+	}
+	first, ok, err := s.PublishAssistantTurn(context.Background(), r.ID, 1, "I keep the books; what to eat tonight is your call. Tell me what it cost and I will log it in dollars.")
+	if err != nil || !ok {
+		t.Fatalf("first ok=%v err=%v", ok, err)
+	}
+	second, ok, err := s.PublishAssistantTurn(context.Background(), r.ID, 2, "What to eat tonight is your call; tell me what it cost and I will log it in dollars.")
+	if err != nil || !ok {
+		t.Fatalf("second ok=%v err=%v", ok, err)
+	}
+	if first.Kind != "segment" || second.Kind != "progress" {
+		t.Fatalf("kinds first=%s second=%s", first.Kind, second.Kind)
 	}
 }
