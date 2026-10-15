@@ -551,7 +551,6 @@ CREATE INDEX IF NOT EXISTS events_conversation ON events(conversation_id,id);`)
 		{"origin_conversation_id", `ALTER TABLE runs ADD COLUMN origin_conversation_id TEXT NOT NULL DEFAULT ''`},
 		{"trigger_message_id", `ALTER TABLE runs ADD COLUMN trigger_message_id TEXT NOT NULL DEFAULT ''`},
 		{"queue_seq", `ALTER TABLE runs ADD COLUMN queue_seq INTEGER NOT NULL DEFAULT 0`},
-		{"handoff_notes", `ALTER TABLE runs ADD COLUMN handoff_notes TEXT NOT NULL DEFAULT ''`},
 	} {
 		if err = ensureColumn(s.db, "runs", col.name, col.ddl); err != nil {
 			return err
@@ -3898,7 +3897,7 @@ func (s *Server) toolsUnmarked(c Conversation, r Run) []Tool {
 			s.enqueue(childConv, child)
 		}
 		return fmt.Sprintf("message sent to %d Bot(s)", len(children)), nil
-	}}, {Name: "handoff", Description: "In a group, publish a bounded task to a member. Use this only for task delegation that should resume the assigning Bot; use message for a one-time Bot-to-Bot communication. Provide a concrete task, then end this turn without duplicating the dispatch.", Parameters: objectSchema(map[string]any{"bot_id": map[string]any{"type": "string"}, "task": map[string]any{"type": "string", "description": visibleDelegationText}, "notes": map[string]any{"type": "string", "description": privateHandoffNotesText}}, []string{"bot_id", "task"}), Execute: func(ctx context.Context, b json.RawMessage) (string, error) {
+	}}, {Name: "handoff", Description: "In a group, publish a bounded task to a member. Use this only for task delegation that should resume the assigning Bot; use message for a one-time Bot-to-Bot communication. Provide a concrete task, then end this turn without duplicating the dispatch.", Parameters: objectSchema(map[string]any{"bot_id": map[string]any{"type": "string"}, "task": map[string]any{"type": "string", "description": visibleDelegationText}}, []string{"bot_id", "task"}), Execute: func(ctx context.Context, b json.RawMessage) (string, error) {
 		if err := ctx.Err(); err != nil {
 			return "", err
 		}
@@ -3908,7 +3907,6 @@ func (s *Server) toolsUnmarked(c Conversation, r Run) []Tool {
 		var x struct {
 			BotID string `json:"bot_id"`
 			Task  string `json:"task"`
-			Notes string `json:"notes"`
 		}
 		if json.Unmarshal(b, &x) != nil {
 			return "", errors.New("invalid handoff")
@@ -3947,12 +3945,6 @@ func (s *Server) toolsUnmarked(c Conversation, r Run) []Tool {
 				return "", delegationRefusal(conflict.botName)
 			}
 			return "", e
-		}
-		// Notes reach only the colleague's context, before its run can start.
-		if notes := strings.TrimSpace(x.Notes); notes != "" {
-			if ne := s.store.setHandoffNotes(child.ID, notes); ne != nil {
-				log.Printf("[handoff] notes for %s not saved: %v", child.ID, ne)
-			}
 		}
 		childConv := c
 		if child.ConversationID != c.ID {
