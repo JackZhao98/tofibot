@@ -48,3 +48,9 @@ html[data-desktop] .workspace .message-scroll { padding-bottom:calc(var(--compos
 .workspace .task-run-block.in-group:not([data-sender]) > .task-run-live-line > .task-activity-cat { width:var(--sender-avatar); place-items:center; }
 /* Wider gap where the speaker changes (person ↔ Bot, Bot ↔ Bot); a speaker's consecutive messages stay close. */
 .workspace .message-list [data-speaker-change="true"] { margin-top:22px; }
+/* A delegation in a group: one quiet handoff line; the brief opens on request. */
+.workspace .message-assignment > div { display:flex; flex-wrap:wrap; align-items:baseline; justify-content:center; gap:4px 10px; color:var(--muted); font:12px/1.5 var(--body); }
+.workspace .message-assignment .assignment-brief { flex-basis:100%; max-width:min(560px, 100%); margin:0 auto; text-align:left; }
+.workspace .message-assignment .assignment-brief > summary { width:fit-content; margin:0 auto; cursor:pointer; color:var(--muted); }
+.workspace .message-assignment .assignment-brief[open] > summary { margin-bottom:6px; }
+.workspace .message-assignment .assignment-brief .message-markdown, .workspace .message-assignment .assignment-brief > div { padding:8px 12px; border:1px solid var(--line-soft); border-radius:12px; background:var(--surface-2); color:var(--ink-soft); font-size:13px; }

@@ -310,6 +310,8 @@
     "reply_to": "Réponse à {{name}}",
     "resume_continuing": "Reprise depuis le dernier point de contrôle.",
     "resume_restart": "Service redémarré. Reprise depuis le dernier point de contrôle.",
+    "handed_over": "{{from}} a confié ceci à {{to}}",
+    "view_brief": "Voir la consigne",
     "scheduled": "Tâche planifiée",
     "system": "Avis système",
     "tool": "Outil",

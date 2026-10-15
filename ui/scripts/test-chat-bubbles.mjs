@@ -355,6 +355,29 @@ try {
       assert.deepEqual(errors, [], "page errors");
     } finally { await context.close(); }
   });
+  // A delegation in a group is one handoff line; its brief opens on request and is not a chat bubble.
+  await scenario("group delegation is a compact handoff line", async () => {
+    const at = iso(900);
+    const world = { ...emptyWorld(), messages: [
+      { id: "u7", role: "user", content: "@Simile Cat @Ledger Cat debate breakfast", created_at: at },
+      { id: "h1", role: "assistant", kind: "notice", sender_bot_id: "bot_b", run_id: "run_child", content: "@Ledger Cat take the other side. Requirements: plain language, short, one everyday comparison.", created_at: iso(905), notice: { type: "handoff", from_bot_id: "bot_b", to_bot_id: "bot_a", target_conversation_id: "grp_1", target_run_id: "run_child" } },
+    ] };
+    const { page, context, errors } = await open("/g/grp_1", { width: 1180, height: 820, theme: "light", world });
+    try {
+      await page.waitForSelector(".message-assignment");
+      const seen = await page.evaluate(() => {
+        const line = document.querySelector(".message-assignment");
+        const brief = line.querySelector(".assignment-brief");
+        return { text: line.querySelector(":scope > div > span").textContent, briefOpen: brief?.open ?? null, bubbles: document.querySelectorAll('[data-message-id="h1"] .message-content').length, briefVisible: brief ? getComputedStyle(brief.querySelector(":scope > *:not(summary)") ?? brief).display !== "none" && brief.open : false };
+      });
+      assert.match(seen.text, /Simile Cat.*Ledger Cat|Ledger Cat.*Simile Cat/, `handoff line names both Bots: ${seen.text}`);
+      assert.equal(seen.bubbles, 0, "the brief is not rendered as a chat bubble");
+      assert.equal(seen.briefOpen, false, "the brief starts collapsed");
+      await page.locator(".message-assignment summary").click();
+      assert.match(await page.locator(".message-assignment .assignment-brief").innerText(), /Requirements: plain language/, "the brief opens on request");
+      assert.deepEqual(errors, [], "page errors");
+    } finally { await context.close(); }
+  });
   await scenario("cards stay when Activity is hidden", async () => {
     const at = iso(1000);
     const approval = { question_id: "q_pending", conversation_id: "dm_a", bot_id: "bot_a", run_id: "run_wait", type: "question", question_type: "approval", question: "Send the synthetic summary?", status: "pending", created_at: at, updated_at: at, approval: { action: "Send summary", target: "Synthetic target", impact: "Posts one message", review: { source: "auto-review", status: "human_required", model: "synthetic-review", policy_version: "v6" } } };
