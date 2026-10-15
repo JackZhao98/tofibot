@@ -1915,6 +1915,9 @@ func (s *Store) finishRunState(id, conv, bot, content string, silent bool, failu
 	}
 	// An empty assistant message is never published; attachments alone may be.
 	publish := strings.TrimSpace(content) != "" || pendingFiles > 0
+	// A short final line after a handoff only narrates the delegation
+	// ("passed it to X, back when they reply"); it folds like a note.
+	delegationNote := publish && pendingFiles == 0 && handoffs > 0 && len([]rune(strings.TrimSpace(content))) <= narrationMaxRunes
 	var repeatedSegment Message
 	if publish && pendingFiles == 0 {
 		segment, repeated, repeatErr := repeatedSegmentTx(tx, id, content)
@@ -1951,7 +1954,10 @@ func (s *Store) finishRunState(id, conv, bot, content string, silent bool, failu
 	}
 	m := Message{ID: messageID, ConversationID: conv, Seq: seq, Role: "assistant", SenderBotID: bot, RunID: id, Content: content, CreatedAt: createdAt}
 	if publish {
-		if _, err = tx.Exec(`INSERT INTO messages(id,conversation_id,seq,role,sender_bot_id,run_id,content,created_at) VALUES(?,?,?,?,?,?,?,?)`, m.ID, conv, seq, m.Role, bot, id, content, m.CreatedAt); err != nil {
+		if delegationNote {
+			m.Kind = "progress"
+		}
+		if _, err = tx.Exec(`INSERT INTO messages(id,conversation_id,seq,role,kind,sender_bot_id,run_id,content,created_at) VALUES(?,?,?,?,?,?,?,?,?)`, m.ID, conv, seq, m.Role, m.Kind, bot, id, content, m.CreatedAt); err != nil {
 			return Message{}, false, err
 		}
 		if err = bindRunAttachmentsTx(tx, id, m.ID); err != nil {

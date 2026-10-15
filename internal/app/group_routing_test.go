@@ -12,6 +12,9 @@ func TestDefaultGroupAssignmentRandomActiveStarterAndIdempotency(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer s.Close()
+	// The Primary Assistant (first Bot) is not a member here, so starters vary;
+	// with the Primary as a member it always starts (group_small_talk_test.go).
+	s.CreateBot("host", "", "host-model")
 	a, _ := s.CreateBot("alpha", "", "alpha-model")
 	b, _ := s.CreateBot("bravo", "", "bravo-model")
 	c, _ := s.CreateBot("charlie", "", "charlie-model")
