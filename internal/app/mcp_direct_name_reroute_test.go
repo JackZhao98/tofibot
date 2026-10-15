@@ -77,8 +77,10 @@ func TestDirectNameWriteCallMatchesCallMCPToolGate(t *testing.T) {
 			}()
 			if decision == "needs_human" {
 				// These park a human card; compare while pending, then cancel via refusal.
-				waitReviewQuestion(t, native, "")
-				waitReviewQuestion(t, direct, "")
+				// Refuse only after the reviewer concluded; refusing earlier
+				// legitimately skips the review and would not compare the gates.
+				waitReviewQuestion(t, native, "human_required")
+				waitReviewQuestion(t, direct, "human_required")
 				for _, f := range []*autoReviewFixture{native, direct} {
 					qs, _ := f.s.store.ListQuestions(f.c.ID)
 					if _, _, err := f.s.store.AnswerQuestion(qs[0].ID, "synthetic-human", false); err != nil {
