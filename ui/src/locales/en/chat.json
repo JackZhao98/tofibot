@@ -306,6 +306,8 @@
     "reply_to": "Reply to {{name}}",
     "resume_continuing": "Resuming from the last checkpoint.",
     "resume_restart": "Service restarted. Resuming from the last checkpoint.",
+    "handed_over": "{{from}} handed this to {{to}}",
+    "view_brief": "View brief",
     "scheduled": "Scheduled task",
     "system": "System notice",
     "tool": "Tool",

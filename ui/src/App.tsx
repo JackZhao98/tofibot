@@ -2257,6 +2257,11 @@ export function MessageBubble({ message, replyTarget, replyTargetName, sender, s
     const existing = aliases.find(name => text.startsWith(`@${name}`) && (text.length === name.length + 1 || /[\s,:\uFF0C\uFF1A]/.test(text[name.length + 1])));
     if (existing) body = text.slice(existing.length + 1).trimStart();
   }
+  if (assignment) {
+    // A delegation is the colleague's brief: the chat shows one handoff line, the brief on request.
+    const toName = targetBot?.name ?? t("message.member");
+    return <article className="message message-notice message-assignment" data-run-id={message.run_id} title={`${formatExactTime(message.created_at, timezone)} · ${timezone}`}><div><span>{t("message.handed_over", { from: label, to: toName })}</span>{body.trim() && <details className="assignment-brief"><summary>{t("message.view_brief")}</summary><MessageMarkdown content={body} /></details>}</div></article>;
+  }
   const mention = assignment ? <span className="message-mention"><Avatar label={targetBot?.name ?? t("message.member")} id={message.notice!.to_bot_id} mini /><span>@{targetBot?.name ?? t("message.member")}</span></span> : undefined;
   const inlineMention = mention && targetBot ? <BotIdentityCard bot={targetBot} onMention={onMention ? () => onMention(targetBot) : undefined} onOpen={allowOpenDM && onNavigate ? () => onNavigate(targetBot.dm_conversation_id) : undefined}>{mention}</BotIdentityCard> : mention;
   const toolRow = tools && <div className="message-tools">{tools}</div>;
