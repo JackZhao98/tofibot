@@ -2,6 +2,7 @@ package app
 
 import (
 	"context"
+	"strings"
 	"testing"
 )
 
@@ -58,6 +59,48 @@ func TestFinalAnswerRestatingSegmentIsNotRepeated(t *testing.T) {
 			}
 			if got, _ := s.GetRun(r.ID); got.Status != "done" {
 				t.Fatalf("status=%s", got.Status)
+			}
+		})
+	}
+}
+
+// Short step narration folds when a substantial answer follows; a short line
+// before a short final answer may be the answer and stays visible.
+func TestStepNarrationFoldsBeforeASubstantialAnswer(t *testing.T) {
+	long := "Verge 今天最重要的是八个州起诉 OpenAI，说 ChatGPT 对孩子不安全。多州同时出手，等于把 AI 儿童安全推到了州一级的消费者保护诉讼，这个分量比单个州的动作重得多。TechCrunch 的重点是 Flock 的麦克风宣传和官网写法对不上。"
+	for _, tc := range []struct {
+		name, segment, final, wantKind string
+	}{
+		{"narration folds", "Now TechCrunch's AI page.", long, "progress"},
+		{"short answer stays", "改好了，日报时间换成 2:30。", "好了。", "segment"},
+		{"long segment stays", strings.Repeat("这是一段很长的中途结论，包含了具体的发现和数字。", 4), long, "segment"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			s, r, c := streamFixture(t)
+			defer s.Close()
+			if _, err := s.BeginStream(r); err != nil {
+				t.Fatal(err)
+			}
+			seg, ok, err := s.PublishAssistantTurn(context.Background(), r.ID, 1, tc.segment)
+			if err != nil || !ok {
+				t.Fatalf("publish ok=%v err=%v", ok, err)
+			}
+			if _, done, err := s.FinishRun(r.ID, c.ID, r.BotID, tc.final); err != nil || !done {
+				t.Fatalf("done=%v err=%v", done, err)
+			}
+			var kind string
+			if err := s.db.QueryRow(`SELECT kind FROM messages WHERE id=?`, seg.ID).Scan(&kind); err != nil {
+				t.Fatal(err)
+			}
+			if kind != tc.wantKind {
+				t.Fatalf("kind=%q want %q", kind, tc.wantKind)
+			}
+			var updates int
+			if err := s.db.QueryRow(`SELECT COUNT(*) FROM events WHERE type='message' AND json_extract(data,'$.id')=? AND json_extract(data,'$.kind')='progress'`, seg.ID).Scan(&updates); err != nil {
+				t.Fatal(err)
+			}
+			if (tc.wantKind == "progress") != (updates == 1) {
+				t.Fatalf("live update events=%d for kind %s", updates, kind)
 			}
 		})
 	}
