@@ -4,9 +4,14 @@ import { hasActiveOccurrence, loadScheduleOccurrences, type ScheduleOccurrence }
 
 const emptyOccurrences: ReadonlyMap<string, ScheduleOccurrence> = new Map();
 
-export function useScheduleOccurrences(conversationId: string | null, rootKey: string, revision: number): ReadonlyMap<string, ScheduleOccurrence> {
+const recent = new Map<string, ReadonlyMap<string, ScheduleOccurrence>>();
+const REMEMBERED = 8;
+
+/** `ready` is true once an answer for exactly these roots has arrived (success or failure). Until then `items` holds the
+ *  conversation's previous answer, which is still valid for the roots it covers. */
+export function useScheduleOccurrences(conversationId: string | null, rootKey: string, revision: number): { items: ReadonlyMap<string, ScheduleOccurrence>; ready: boolean } {
   const key = JSON.stringify([conversationId, rootKey]);
-  const [snapshot, setSnapshot] = useState<{ key: string; items: ReadonlyMap<string, ScheduleOccurrence> }>({ key: "", items: emptyOccurrences });
+  const [snapshot, setSnapshot] = useState<{ key: string; conversationId: string | null; items: ReadonlyMap<string, ScheduleOccurrence> }>({ key: "", conversationId: null, items: emptyOccurrences });
   useEffect(() => {
     if (!conversationId || !rootKey) return;
     const controller = new AbortController();
@@ -24,13 +29,15 @@ export function useScheduleOccurrences(conversationId: string | null, rootKey: s
       try {
         const items = await loadScheduleOccurrences(conversationId, rootKey, controller.signal, request);
         if (controller.signal.aborted) return;
-        setSnapshot({ key, items });
+        recent.delete(conversationId); recent.set(conversationId, items);
+        if (recent.size > REMEMBERED) recent.delete(recent.keys().next().value as string);
+        setSnapshot({ key, conversationId, items });
         failures = 0;
         active = hasActiveOccurrence(items);
       } catch (cause) {
         // Older servers and failed reads are unknown, not successful. A root
         // run may still be displayed separately without claiming family success.
-        if (!controller.signal.aborted) setSnapshot({ key, items: emptyOccurrences });
+        if (!controller.signal.aborted) setSnapshot({ key, conversationId, items: emptyOccurrences });
         failures += 1;
         retry = !(cause instanceof ApiError && [400, 401, 403, 404, 405].includes(cause.status));
       } finally {
@@ -55,5 +62,8 @@ export function useScheduleOccurrences(conversationId: string | null, rootKey: s
     };
   }, [conversationId, rootKey, key, revision]);
   // Never flash another conversation's status while the next effect starts.
-  return snapshot.key === key ? snapshot.items : emptyOccurrences;
+  if (!conversationId || !rootKey) return { items: emptyOccurrences, ready: true };
+  if (snapshot.key === key) return { items: snapshot.items, ready: true };
+  const previous = snapshot.conversationId === conversationId ? snapshot.items : recent.get(conversationId);
+  return { items: previous ?? emptyOccurrences, ready: false };
 }
