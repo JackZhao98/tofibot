@@ -252,11 +252,14 @@ func (s *Store) addUserRuns(conv, content, client string, specs []runSpec, attac
 	return m, runs, false, nil
 }
 
-// defaultGroupRunSpecTx chooses one random active member inside the ingress
-// transaction, after idempotency is checked. The saved run makes retries stable.
+// defaultGroupRunSpecTx chooses who answers a group message that names no
+// one: the Primary Assistant when it is an active member (the regular who
+// fields general talk and can wake others), otherwise a random active member.
+// It runs inside the ingress transaction; the saved run makes retries stable.
 func (s *Store) defaultGroupRunSpecTx(tx *sql.Tx, conversationID string) (runSpec, error) {
 	var selected runSpec
-	err := tx.QueryRow(`SELECT b.id,b.model FROM members m JOIN bots b ON b.id=m.bot_id WHERE m.conversation_id=? AND b.archived=0 ORDER BY RANDOM() LIMIT 1`, conversationID).Scan(&selected.BotID, &selected.Model)
+	err := tx.QueryRow(`SELECT b.id,b.model FROM members m JOIN bots b ON b.id=m.bot_id WHERE m.conversation_id=? AND b.archived=0
+		ORDER BY b.id=COALESCE((SELECT primary_bot_id FROM user_preferences WHERE id=1),'') DESC, RANDOM() LIMIT 1`, conversationID).Scan(&selected.BotID, &selected.Model)
 	if err == sql.ErrNoRows {
 		return runSpec{}, ErrNoActiveMembers
 	}

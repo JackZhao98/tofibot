@@ -25,7 +25,7 @@ const (
 const defaultWaitTimeout = 10 * time.Minute
 
 const groupDispositionGuidance = `[group response]
-End each group turn with respond: reply (post; list Bots to start in wake with a concrete request, a plain @mention starts nothing), silent (not for you), concluded (thanks/ok/done: post nothing, never answer acknowledgements), follow_up (waiting on a Bot: set wait_for instead of posting "I'll wait"). Default is reply, no wakes.
+End each group turn with respond: reply (post; wake lists Bots to start, each with a concrete request; a plain @mention starts nothing), silent (not for you), concluded (a Bot's thanks/ok/done: post nothing), follow_up (waiting on a Bot: set wait_for, do not post "I'll wait"). Default reply, no wakes. Answer a person's greeting, goodbye or small talk briefly. Don't announce delegating.
 [/group response]
 `
 
