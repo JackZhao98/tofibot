@@ -630,6 +630,11 @@ func (s *Server) reviewMCPProposal(ctx context.Context, c Conversation, r Run, c
 			return err
 		}
 		if refused {
+			// The refusal found may be this card's own, answered while the review
+			// ran; that is the ordinary human denial, not an earlier one.
+			if latest, latestErr := s.store.GetQuestion(q.ID); latestErr == nil && latest.Status == questionAnswered && strings.TrimSpace(string(latest.Answer)) == "false" {
+				return nil
+			}
 			return gap("policy_denied", "A person already refused this exact action in this conversation. It cannot be proposed again.")
 		}
 	}
