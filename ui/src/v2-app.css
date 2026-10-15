@@ -639,3 +639,7 @@ html:not([data-desktop]) .workspace .web-loading-state{min-height:96px;padding-b
 .workspace .bot-v2-footer .text-button { display:inline-flex; align-items:center; gap:6px; color:var(--muted); font:var(--type-meta); }
 .workspace .bot-v2-footer .text-button:hover { color:var(--ink); }
 .workspace .members-v2-rows { margin-bottom:18px; }
+.workspace .message-list.is-positioning{visibility:hidden}
+/* Reduced motion turns every transition into a ~0s one, and the default `transition-property: all` then defers each
+   layout change (a speaker-change margin, say) by a frame. The message list changes layout as it renders; it must not. */
+@media (prefers-reduced-motion: reduce) { .workspace .message-list, .workspace .message-list * { transition: none !important; } }

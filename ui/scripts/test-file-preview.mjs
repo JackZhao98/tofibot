@@ -65,7 +65,8 @@ async function open(width, height, { locale = "zh-CN", theme = "light" } = {}) {
   page.setDefaultTimeout(6000);
   const errors = [];
   page.on("pageerror", error => errors.push(error.message));
-  await page.route("**/api/**", route => {
+  await page.route("**/api/**", async route => {
+    if (process.env.FP_DELAY && /^\/api\/attachments\//.test(new URL(route.request().url()).pathname)) await new Promise(r => setTimeout(r, Number(process.env.FP_DELAY))); // FP_DELAY=ms slows attachment fetches to expose timing races
     const url = new URL(route.request().url());
     const path = url.pathname;
     const json = body => route.fulfill({ status: 200, json: body });
@@ -189,6 +190,7 @@ try {
     assert.equal(await viewer(page).locator("#fp-title").innerText(), "frevana-seo-analysis.md");
     assert.equal(await viewer(page).locator(".fp-md h1").innerText(), "SEO analysis");
     assert.equal(await viewer(page).locator(".fp-md table td").first().innerText(), "/home");
+    await viewer(page).locator(".fp-md pre.message-code").first().waitFor();
     assert.equal(await viewer(page).locator(".fp-md pre.message-code").count(), 1);
     assert.equal(await viewer(page).locator("a[download]").isVisible(), true);
     await page.screenshot({ path: join(shots, "ipad-markdown.png") });
@@ -233,6 +235,8 @@ try {
     assert.equal(await viewer(page).locator(".fp-text").innerText(), JSON.stringify({ a: 1, b: { c: [1, 2] } }, null, 2));
     await closeViewer(page);
     await card(page, "data.csv").click(); await viewer(page).waitFor();
+    // The table arrives after the attachment fetch; count() does not wait, so wait for the rows first.
+    await viewer(page).locator(".fp-table tbody tr").nth(1).waitFor();
     assert.equal(await viewer(page).locator(".fp-table tbody tr").count(), 2);
     await closeViewer(page);
     await card(page, "tool.py").click(); await viewer(page).waitFor();
@@ -265,6 +269,7 @@ try {
     }
     await page.locator('.message-block[data-message-id="m4"] a.attachment-link[data-attachment-id="att_csv"]').click();
     await viewer(page).waitFor();
+    await viewer(page).locator(".fp-table th").nth(2).waitFor();
     assert.equal(await viewer(page).locator(".fp-table th").count(), 3);
     await closeViewer(page);
   });

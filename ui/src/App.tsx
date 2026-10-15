@@ -1051,8 +1051,12 @@ function Workspace() {
   const foldedProgress = useMemo(() => foldCompletedProgress(visibleMessages, runs), [visibleMessages, runs]);
   const messages = foldedProgress.visible;
   const scheduledRootKey = useMemo(() => occurrenceRootKey(messageRecords.filter(message => message.kind === "scheduled_task" && message.conversation_id === activeId).map(message => message.run_id ?? "")), [messageRecords, activeId]);
-  const scheduleOccurrences = useScheduleOccurrences(activeId, scheduledRootKey, scheduleRefresh);
-  const scheduleMetadata = useScheduleMetadata(isDesktop ? null : activeId, scheduledRootKey, scheduleRefresh);
+  const occurrenceRead = useScheduleOccurrences(activeId, scheduledRootKey, scheduleRefresh);
+  const metadataRead = useScheduleMetadata(isDesktop ? null : activeId, scheduledRootKey, scheduleRefresh);
+  const scheduleOccurrences = occurrenceRead.items;
+  const scheduleMetadata = metadataRead.items;
+  /** A scheduled card whose occurrence data has not arrived yet draws a blank ticket instead of placeholder status text. */
+  const scheduleCardPending = (runId?: string) => Boolean(runId) && !(occurrenceRead.ready && metadataRead.ready) && !scheduleOccurrences.has(runId!);
   const questions = useQuestions(activeId);
   const mailDrafts = useMailDrafts(activeId);
   const taskOwners = useMemo(() => buildTaskOwners(runs, messageRecords, questions.items, mailDrafts.items), [runs, messageRecords, questions.items, mailDrafts.items]);
@@ -1379,27 +1383,59 @@ function Workspace() {
   }, [handleEvent, handleWorkspaceEvent, refreshWorkspaceOnConnect, resetWorkspaceEvents, questions.refresh]);
 
 
+  // Last snapshot of each conversation the reader has seen, newest last. Switching back shows it at once
+  // and reconciles with the server in the background, so the pane never blanks and then pops in.
+  const snapshotCache = useRef(new Map<string, ConversationSnapshot>());
+  const shownSnapshotId = useRef<string | null>(null);
+  useEffect(() => {
+    if (!activeId || loadedId !== activeId) return;
+    const cache = snapshotCache.current;
+    cache.delete(activeId);
+    cache.set(activeId, { messages: messageRecords, drafts, runs, toolActivities, toolSummaries, memories, hasMore });
+    while (cache.size > SNAPSHOT_CACHE_LIMIT) cache.delete(cache.keys().next().value as string);
+  }, [activeId, loadedId, messageRecords, drafts, runs, toolActivities, toolSummaries, memories, hasMore]);
+  // The switch itself runs before paint: the pane never shows the previous conversation under the new header.
+  useLayoutEffect(() => {
+    if (!activeId) return;
+    const cached = snapshotCache.current.get(activeId);
+    setSnapshotError("");
+    arrivalIDs.current.clear();
+    terminalRunIDs.current.clear();
+    setLoadingOlder(false); setHistoryError(""); setError("");
+    setToolDetailActivities([]); setToolDetailState({}); setToolSummaryState({});
+    eventCursor.current = 0; snapshotEventCursor.current = 0; snapshotMaxSeq.current = 0; snapshotCursorKnown.current = false;
+    if (cached) {
+      for (const run of cached.runs) if (isTerminalRun(run)) terminalRunIDs.current.add(run.id);
+      setMessages(cached.messages); setDrafts(cached.drafts); setRuns(cached.runs); setToolActivities(cached.toolActivities);
+      setToolSummaries(cached.toolSummaries); setMemories(cached.memories); setHasMore(cached.hasMore);
+      setLoadedId(activeId); setLoadingMessages(false);
+      shownSnapshotId.current = activeId;
+    } else {
+      setMessages([]); setDrafts({}); setRuns([]); setToolActivities([]); setToolSummaries([]); setMemories([]); setHasMore(false);
+      setLoadedId(null); setLoadingMessages(true);
+      shownSnapshotId.current = null;
+    }
+  }, [activeId]);
   useEffect(() => {
     if (!activeId) return;
     let cancelled = false;
     let snapshotRetryTimer: number | undefined;
     let snapshotRetryAttempt = 0;
-    setSnapshotError("");
-    arrivalIDs.current.clear();
-    terminalRunIDs.current.clear();
-    setLoadingMessages(true); setLoadedId(null);
-    setLoadingOlder(false); setHistoryError("");
-    setMessages([]); setDrafts({}); setRuns([]); setToolActivities([]); setToolDetailActivities([]); setToolSummaries([]); setToolDetailState({}); setToolSummaryState({}); setMemories([]); setHasMore(false); setError(""); eventCursor.current = 0; snapshotEventCursor.current = 0; snapshotMaxSeq.current = 0; snapshotCursorKnown.current = false;
+    const cached = snapshotCache.current.get(activeId);
     const loadSnapshot = () => {
       if (cancelled) return;
-      setLoadingMessages(true);
+      // A conversation already on screen from the cache is refreshed quietly.
+      if (shownSnapshotId.current !== activeId) setLoadingMessages(true);
       const requests = [api.messages(activeId), api.runs(activeId), api.memories(activeId), api.toolActivities(activeId).catch(() => ({ activities: [] as ToolActivity[] }))] as const;
       void Promise.all(requests).then(([page, runPage, memoryPage, toolPage]) => {
         if (cancelled) return;
-        setMessages(page.messages.sort((a, b) => a.seq - b.seq));
+        const fresh = page.messages.sort((a, b) => a.seq - b.seq);
+        // Older pages the reader already loaded stay; the fresh page replaces everything from its first message on.
+        const kept = cached && fresh.length ? cached.messages.filter(message => message.conversation_id === activeId && message.seq < fresh[0].seq) : [];
+        setMessages(kept.length ? [...kept, ...fresh] : fresh);
         for (const run of runPage.runs) if (isTerminalRun(run)) terminalRunIDs.current.add(run.id);
         setDrafts(Object.fromEntries(page.drafts.filter((draft) => draft.status === "active" && !terminalRunIDs.current.has(draft.run_id)).map((draft) => [draft.message_id, draft])));
-        setHasMore(page.has_more);
+        setHasMore(kept.length ? cached!.hasMore : page.has_more);
         setRuns(current => mergeRunUpdates(current, runPage.runs.sort((a, b) => +new Date(b.updated_at) - +new Date(a.updated_at))));
         setToolActivities(current => {
           const byKey = new Map(current.map(item => [toolActivityKey(item), item]));
@@ -1415,6 +1451,7 @@ function Workspace() {
         snapshotEventCursor.current = page.event_cursor ?? 0;
         eventCursor.current = page.event_cursor ?? 0;
         setLoadedId(activeId);
+        shownSnapshotId.current = activeId;
         setSnapshotError("");
         connectEvents(activeId);
       }).catch(async (cause) => {
@@ -1477,15 +1514,21 @@ function Workspace() {
       });
       if (activeIdRef.current !== conversationId) return true;
       arrivalIDs.current.add(result.message.id);
-      if (!isDesktop && !window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
-        flipList(messageListRef.current, () => upsertMessage(result.message), { duration: 520, easing: "cubic-bezier(.22,1,.36,1)" });
-        jumpLatest();
+      const newRuns = result.runs?.length ? result.runs : [result.run];
+      // The bubble and its run row land in one commit, so the final layout is known before anything moves.
+      const apply = () => { upsertMessage(result.message); setRuns((current) => mergeRunUpdates(current, newRuns)); };
+      const animate = !isDesktop && !window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+      // Scrolled up in history: nothing visible moves, so there is nothing to FLIP. Return to the bottom in
+      // the same task as the commit and play the arrival there, once, with the bubble in view.
+      const away = viewport.awayFromBottom();
+      if (animate && !away) flipList(messageListRef.current, apply, { duration: 520, easing: "cubic-bezier(.22,1,.36,1)" });
+      else flushSync(apply);
+      jumpLatest();
+      if (animate) {
         const target = Array.from(messageListRef.current?.querySelectorAll<HTMLElement>(".message-block") ?? []).find(block => block.dataset.flip === result.message.id)?.querySelector<HTMLElement>(".message-user .message-content");
         if (flightOrigin && target) flySentMessage(flightOrigin, target);
-      } else upsertMessage(result.message);
+      }
       updateConversationPreview(result.message);
-      const newRuns = result.runs?.length ? result.runs : [result.run];
-      setRuns((current) => mergeRunUpdates(current, newRuns));
       setError("");
       return true;
     } catch (cause) {
@@ -1864,7 +1907,7 @@ function Workspace() {
             {teamBoardOpen && active.kind === "group" ? <TeamBoard key={active.id} conversation={active} bots={bots} timezone={timezone} onClose={() => setTeamBoardOpen(false)} onOpenWork={() => { setTeamBoardOpen(false); setPanel("schedule"); }} /> : <>
             <div className="chat-body">
               <div className="message-scroll" ref={viewport.scrollRef} onScroll={viewport.onScroll}>
-                <ExpiryFinishingContext.Provider value={new Set(runs.filter(run => run.finishing_reason === "approval_expired").map(run => run.id))}><RunStartContext.Provider value={runStarts}><ActivityViewContext.Provider value={activityView}><div className="message-list" ref={messageListRef}>
+                <ExpiryFinishingContext.Provider value={new Set(runs.filter(run => run.finishing_reason === "approval_expired").map(run => run.id))}><RunStartContext.Provider value={runStarts}><ActivityViewContext.Provider value={activityView}><div className={`message-list${viewport.unpositioned ? " is-positioning" : ""}`} ref={messageListRef}>
                   {viewport.boundaryError && <div className="history-error" role="alert">{t("history.boundary_failed")}<button onClick={viewport.retryBoundary}>{t("common:action.retry")}</button><button onClick={jumpLatest}>{t("history.view_latest")}</button></div>}
                   {historyError && !viewport.boundaryError && <div className="history-error history-error-older" role="alert"><span>{t("history.older_failed", { error: historyError })}</span><button onClick={() => void loadOlder()} disabled={loadingOlder}>{loadingOlder ? t("action.retrying") : t("common:action.retry")}</button></div>}
                   {hasMore && <button className="load-older" onClick={() => void loadOlder()} disabled={loadingOlder}>{loadingOlder ? t("action.loading") : t("history.load_older")}</button>}
@@ -1942,7 +1985,7 @@ function Workspace() {
                         <MessageBubble message={message} replyTarget={showReplyQuote ? replyTarget : undefined} replyTargetName={replyTarget?.role === "user" ? t("message.you") : replyTarget?.sender_bot_name ?? (replyTarget?.sender_bot_id ? botById.get(replyTarget.sender_bot_id)?.name ?? knownBotNames.current.get(replyTarget.sender_bot_id) : undefined)} senderName={message.sender_bot_name ?? (message.sender_bot_id ? knownBotNames.current.get(message.sender_bot_id) : undefined)} targetBot={message.notice?.to_bot_id ? botById.get(message.notice.to_bot_id) : undefined} sender={message.sender_bot_id ? botById.get(message.sender_bot_id) : undefined}
                           run={message.run_id ? runById.get(message.run_id) : undefined}
                           tools={processTools.length || processProgress.length || processSummaries.length || Object.keys(processSummaryErrors).length || Object.keys(processSummaryLoading).length ? <ToolActivityList activities={[...processTools, ...processAggregateTools]} progress={processProgress} summaries={processSummaries} summaryErrors={processSummaryErrors} summaryLoading={processSummaryLoading} details={toolDetailState} onLoadDetails={loadToolDetails} onRetrySummary={retryToolSummary} botById={botById} activeRunIds={activeRunIds} /> : undefined}
-                          scheduleOccurrence={message.run_id ? scheduleOccurrences.get(message.run_id) : undefined} schedule={message.run_id ? scheduleMetadata.get(scheduleOccurrences.get(message.run_id)?.schedule_id ?? "") : undefined} onRetrySchedule={active.archived || ownedRunIDs.has(message.run_id ?? "") ? undefined : retryRun}
+                          scheduleOccurrence={message.run_id ? scheduleOccurrences.get(message.run_id) : undefined} schedulePending={scheduleCardPending(message.run_id)} schedule={message.run_id ? scheduleMetadata.get(scheduleOccurrences.get(message.run_id)?.schedule_id ?? "") : undefined} onRetrySchedule={active.archived || ownedRunIDs.has(message.run_id ?? "") ? undefined : retryRun}
                           draft={drafts[message.id]?.status === "active" && streamConnected ? drafts[message.id] : undefined}
                           relatedChat={relatedChatTarget(message, active, conversations, bots)} onOpenRelatedChat={openRelatedChat}
                           compact={compact} showAvatar={active.kind === "group"} showIdentity={showIdentity} noticeTargetAvailable={!message.notice || conversations.some(item => item.id === message.notice?.target_conversation_id)} allowOpenDM={active.kind === "group" || message.kind === "forward_result"} onDraftReply={!active.archived && !isDesktop && message.card?.type === "mail" ? () => send(t("message.draft_reply_request", { from: message.card?.from, subject: message.card?.subject, source: message.card?.source }), crypto.randomUUID()) : undefined} onMention={active.archived ? undefined : bot => setAvatarMention({ name: bot.name, conversationId: active.id, nonce: Date.now() })} onNavigate={id => { if (conversations.some(item => item.id === id)) { selectConversation(id); setMobileList(false); } }} />
@@ -2150,7 +2193,10 @@ function readReplyMarker(content: string): { ids: string[]; body: string } {
   return { ids, body: content };
 }
 
-export function MessageBubble({ message, replyTarget, replyTargetName, sender, senderName, targetBot, run, tools, scheduleOccurrence, schedule, onRetrySchedule, onDraftReply, draft, relatedChat, onOpenRelatedChat, compact = false, showAvatar = true, showIdentity = true, noticeTargetAvailable = true, allowOpenDM = false, onNavigate, onMention }: { relatedChat?: ViewOnlyChatTarget | null; onOpenRelatedChat?: (target: ViewOnlyChatTarget) => void; noticeTargetAvailable?: boolean; allowOpenDM?: boolean; onMention?: (bot: Bot) => void; message: Message; replyTarget?: Message; replyTargetName?: string; sender?: Bot; senderName?: string; targetBot?: Bot; run?: Run; tools?: React.ReactNode; scheduleOccurrence?: ScheduleOccurrence; schedule?: Schedule; onRetrySchedule?: (id: string) => Promise<void>; onDraftReply?: () => Promise<boolean>; draft?: string | StreamDraft; compact?: boolean; showAvatar?: boolean; showIdentity?: boolean; onNavigate?: (id: string) => void }) {
+const SNAPSHOT_CACHE_LIMIT = 8;
+interface ConversationSnapshot { messages: Message[]; drafts: Record<string, StreamDraft>; runs: Run[]; toolActivities: ToolActivity[]; toolSummaries: ToolActivityRunSummary[]; memories: Memory[]; hasMore: boolean }
+
+export function MessageBubble({ message, replyTarget, replyTargetName, sender, senderName, targetBot, run, tools, scheduleOccurrence, schedulePending, schedule, onRetrySchedule, onDraftReply, draft, relatedChat, onOpenRelatedChat, compact = false, showAvatar = true, showIdentity = true, noticeTargetAvailable = true, allowOpenDM = false, onNavigate, onMention }: { relatedChat?: ViewOnlyChatTarget | null; onOpenRelatedChat?: (target: ViewOnlyChatTarget) => void; noticeTargetAvailable?: boolean; allowOpenDM?: boolean; onMention?: (bot: Bot) => void; message: Message; replyTarget?: Message; replyTargetName?: string; sender?: Bot; senderName?: string; targetBot?: Bot; run?: Run; tools?: React.ReactNode; scheduleOccurrence?: ScheduleOccurrence; schedulePending?: boolean; schedule?: Schedule; onRetrySchedule?: (id: string) => Promise<void>; onDraftReply?: () => Promise<boolean>; draft?: string | StreamDraft; compact?: boolean; showAvatar?: boolean; showIdentity?: boolean; onNavigate?: (id: string) => void }) {
   const { t } = useTranslation("chat");
   const {timezone} = useUserTimezone();
   const toolsRunning = run?.status === "running" || run?.status === "queued";
@@ -2175,7 +2221,7 @@ export function MessageBubble({ message, replyTarget, replyTargetName, sender, s
     </article>;
   }
   if (message.kind === "scheduled_task") {
-    return <ScheduledTaskRow message={message} run={run} occurrence={scheduleOccurrence} schedule={schedule} timezone={timezone} onRetry={onRetrySchedule} />;
+    return <ScheduledTaskRow message={message} run={run} occurrence={scheduleOccurrence} pending={schedulePending} schedule={schedule} timezone={timezone} onRetry={onRetrySchedule} />;
   }
   if (message.kind === "message_ref" && message.notice) {
     return <article className="message message-notice message-reference" title={`${formatExactTime(message.created_at, timezone)} · ${timezone}`}><div>{relatedChat && onOpenRelatedChat ? <RelatedMessageLink target={relatedChat} onOpen={onOpenRelatedChat} /> : <span>{localizeMessageRef(message.content)}</span>}</div></article>;
@@ -2891,7 +2937,9 @@ function Composer({ workStatus, activeRun, latestReplyId, onStopRun, avatarMenti
       stream?.getTracks().forEach((track) => track.stop());
     }
   }
-  useEffect(() => {
+  // Measured before paint: the message pane's bottom padding follows the composer, so a late (post-paint)
+  // measurement moved the whole conversation by the composer's height right after every switch.
+  useLayoutEffect(() => {
     const form = textareaRef.current?.closest("form");
     // Measured on the workspace so the floating desktop, mounted outside the chat pane, docks above the composer too.
     const pane = form?.closest<HTMLElement>(".workspace") ?? form?.closest<HTMLElement>(".chat-pane");
@@ -2899,8 +2947,10 @@ function Composer({ workStatus, activeRun, latestReplyId, onStopRun, avatarMenti
     const measure = () => pane.style.setProperty("--composer-height", `${form.getBoundingClientRect().height}px`);
     const observer = new ResizeObserver(measure);
     observer.observe(form); measure();
-    return () => { observer.disconnect(); pane.style.removeProperty("--composer-height"); };
+    return () => observer.disconnect();
   }, [conversation.id]);
+  // The measurement stays across a conversation switch (the next composer re-measures in the same commit) and goes with the composer.
+  useEffect(() => () => { document.querySelector<HTMLElement>(".workspace")?.style.removeProperty("--composer-height"); }, []);
   useEffect(() => {
     if (!isDesktop) return;
     const pane = textareaRef.current?.closest(".chat-pane");
