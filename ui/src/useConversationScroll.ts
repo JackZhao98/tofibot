@@ -154,21 +154,11 @@ export function useConversationScroll(options: Options) {
         // conversation is loading and prevents an accidental jump to bottom.
         if (o.hasMore || o.loadingOlder || records.length === 0) return;
       }
-      // Fetch the actual unread boundary before positioning or acknowledging it.
-      if (!resume && !v.followNext && max > v.readSeq && min > v.readSeq + 1 && o.hasMore) {
-        if (v.boundaryFailed) return;
-        if (!o.loadingOlder && !v.loadingBoundary) {
-          v.loadingBoundary = true;
-          void o.loadOlder().then(ok => {
-            if (visit.current !== v) return;
-            v.loadingBoundary = false;
-            v.boundaryFailed = !ok;
-            render(n => n + 1);
-          });
-        }
-        return;
-      }
-      const first = resume ? undefined : (v.followNext ? undefined : records.find(m => m.seq > v.readSeq));
+      // The unread boundary is honoured only when it is inside the page already loaded. A backlog longer
+      // than one page opens at the newest messages: paging older history in before the first paint made the
+      // pane land at the top, then jump again for every page that arrived.
+      const boundaryInPage = min <= v.readSeq + 1 || !o.hasMore;
+      const first = resume || !boundaryInPage ? undefined : (v.followNext ? undefined : records.find(m => m.seq > v.readSeq));
       const node = first ? el.querySelector<HTMLElement>(`[data-message-seq="${first.seq}"]`) : null;
       const target = el.querySelector(".unread-divider") ?? node;
       if (resume?.atBottom) {
@@ -312,6 +302,12 @@ export function useConversationScroll(options: Options) {
     position();
   }, [position]);
 
+  /** True when the reader has scrolled meaningfully away from the newest message. */
+  const awayFromBottom = useCallback(() => {
+    const el = scrollRef.current;
+    return Boolean(el && el.scrollHeight - el.clientHeight - el.scrollTop > 48);
+  }, []);
+
   const retryBoundary = useCallback(() => {
     if (visit.current) { visit.current.boundaryFailed = false; render(n => n + 1); }
   }, []);
@@ -325,6 +321,10 @@ export function useConversationScroll(options: Options) {
     ? records.filter(m => m.seq > current.baseline && m.role === "assistant" && m.kind !== "notice" && m.kind !== "message_ref").length : 0;
   const onScroll = useCallback(() => { syncPosition(true); }, [syncPosition]);
 
-  return { scrollRef, onScroll, preservePrepend, jumpLatest, unreadSeq,
+  // Content that is loaded but not yet positioned must never reach the screen: it would paint at the wrong
+  // place and then jump. Only a pending restore that has to page in older history can keep it waiting.
+  const unpositioned = options.ready && !current.positioned;
+
+  return { scrollRef, onScroll, preservePrepend, jumpLatest, awayFromBottom, unpositioned, unreadSeq,
     showJump: current.positioned && !current.nearBottom, newCount, boundaryError: current.boundaryFailed, retryBoundary };
 }
