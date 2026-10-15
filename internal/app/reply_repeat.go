@@ -3,6 +3,8 @@ package app
 import (
 	"database/sql"
 	"encoding/json"
+	"slices"
+	"sort"
 	"strings"
 	"unicode"
 )
@@ -47,6 +49,10 @@ func repeatedSegmentTx(tx *sql.Tx, runID, content string) (Message, bool, error)
 // coefficient) after dropping spaces and punctuation, so a reworded restatement
 // of the same reply counts while an answer that adds substance (much longer) does not.
 func repliesNearlyEqual(a, b string) bool {
+	// Different figures carry different news ("turn 16" vs "turn 31").
+	if replyNumbers(a) != replyNumbers(b) {
+		return false
+	}
 	x, y := replyBigrams(a), replyBigrams(b)
 	if len(x) == 0 || len(y) == 0 {
 		return false
@@ -65,6 +71,28 @@ func repliesNearlyEqual(a, b string) bool {
 		return false
 	}
 	return float64(2*shared)/float64(nx+ny) >= repeatedReplySimilarity
+}
+
+// replyNumbers is the set of distinct digit runs in a reply, sorted.
+func replyNumbers(s string) string {
+	var out []string
+	var cur []rune
+	for _, r := range s {
+		if unicode.IsDigit(r) {
+			cur = append(cur, r)
+			continue
+		}
+		if len(cur) > 0 {
+			out = append(out, string(cur))
+			cur = nil
+		}
+	}
+	if len(cur) > 0 {
+		out = append(out, string(cur))
+	}
+	sort.Strings(out)
+	out = slices.Compact(out)
+	return strings.Join(out, ",")
 }
 
 func replyBigrams(s string) map[string]int {
