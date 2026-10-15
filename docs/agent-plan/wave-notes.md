@@ -84,3 +84,4 @@ Known flaky Go tests seen this wave (pass on rerun): TestCancelDoesNotBecomeDone
 
 ## Next wave (after v0.1.3) — merged to main, not released
 
+1. **Human-likeness pass 1** (fix/persona-generator-no-examples, owner 10-15 scoring 5.9/10 on 14 probes): persona generator (set_bot_profile + onboarding) asks for identity/job/scope/confirmations/temperament and forbids reply formats, fixed phrasings and examples; voice rules lose all examples, gain length/emotion/no-routine-offer/no-unprompted-old-issues principles; repeated mid-run segments fold (differing figures never count as repeats). go test exit 0.
