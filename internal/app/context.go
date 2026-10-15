@@ -207,7 +207,7 @@ const segmentedReplyGuidance = "Hide internal IDs/labels. Only for an intentiona
 const reactionAndEmojiGuidance = "Use emoji and reactions sparingly when fitting.\n"
 
 // Shared by scheduled roots and descendants; occurrence receipts remain run-specific.
-const scheduledResultGuidance = "\nOld messages' statuses may be stale; check list_schedules or inspect_recent_runs before reporting a failure or open item.\nAfter obtaining your assigned result and material sources, call complete_scheduled_task with the result and source names/URLs, then deliver the same concise result as your final answer. If blocked after fallback, explain why without calling complete_scheduled_task."
+const scheduledResultGuidance = "\nReport a schedule's status from the [schedule states] records, not from older messages.\nAfter obtaining your assigned result and material sources, call complete_scheduled_task with the result and source names/URLs, then deliver the same concise result as your final answer. If blocked after fallback, explain why without calling complete_scheduled_task."
 
 const scheduledBrowserFallbackGuidance = "\nIf an installed capability or Skill is unavailable, empty, stale or failed, use the browser before giving up: a scheduled computer_browser call starts its shared desktop and Chrome if needed; inspect with browser.snapshot, then search and verify with visible desktop click/type/scroll. If the computer is unavailable or browser startup fails, report that concrete blocker instead of claiming the scheduled result was delivered."
 
@@ -604,7 +604,11 @@ func (s *Server) buildContextPartsWith(c Conversation, r Run, bot Bot, cachedMCP
 	}
 	// Volatile facts trail the history, just before the final input, so the
 	// system text stays cache-stable and the current request stays last.
-	note := runtime.Message{Role: "user", Content: s.runContextNote(context.Background())}
+	noteText := s.runContextNote(context.Background())
+	if states := s.scheduleStateNote(c, r, s.userLocation()); states != "" {
+		noteText += "\n" + states
+	}
+	note := runtime.Message{Role: "user", Content: noteText}
 	if n := len(pm); n > 0 {
 		last := pm[n-1]
 		pm = append(pm[:n-1], note, last)
@@ -670,6 +674,16 @@ func (s *Server) buildContextPartsWith(c Conversation, r Run, bot Bot, cachedMCP
 // runContextNote renders minute-precision local time and, when a VM is
 // configured, its last known status. It never inherits the host's timezone: an
 // unset preference is rendered explicitly in UTC.
+// userLocation is the configured user timezone, or UTC.
+func (s *Server) userLocation() *time.Location {
+	if zone, err := s.store.userTimezone(); err == nil && zone != "" {
+		if loc, loadErr := time.LoadLocation(zone); loadErr == nil {
+			return loc
+		}
+	}
+	return time.UTC
+}
+
 func (s *Server) runContextNote(ctx context.Context) string {
 	loc := time.UTC
 	userZone := ""
