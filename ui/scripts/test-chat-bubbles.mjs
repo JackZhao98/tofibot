@@ -95,8 +95,8 @@ async function mockApi(page, convs, world = emptyWorld()) {
   return external;
 }
 
-async function open(url, { width, height, theme, world = emptyWorld(), touch = width < 1100, mobile = false, fakeEvents = false }) {
-  const context = await browser.newContext({ viewport: { width, height }, locale: "zh-CN", colorScheme: theme, reducedMotion: "reduce", hasTouch: touch, isMobile: mobile });
+async function open(url, { width, height, theme, world = emptyWorld(), touch = width < 1100, mobile = false, fakeEvents = false, motion = "reduce" }) {
+  const context = await browser.newContext({ viewport: { width, height }, locale: "zh-CN", colorScheme: theme, reducedMotion: motion, hasTouch: touch, isMobile: mobile });
   if (fakeEvents) await context.addInitScript(() => {
     // A controllable event stream: tests push run/tool events as the server would.
     window.__streams = [];
@@ -323,6 +323,38 @@ try {
       } finally { await context.close(); }
     });
   }
+  // The stream ends (final message replaces the draft) while text is still being revealed: the rest keeps
+  // revealing over a few frames instead of appearing at once.
+  await scenario("stream end keeps revealing (dm)", async () => {
+    const at = new Date(Date.now() - 5_000).toISOString();
+    const world = { ...emptyWorld(), messages: [{ id: "u9", role: "user", content: "Tell me about the ledger.", created_at: at, run_id: "run_stream" }],
+      runs: [{ id: "run_stream", bot_id: "bot_a", conversation_id: "dm_a", status: "running", trigger_message_id: "u9", created_at: at, updated_at: at }] };
+    const { page, context, errors } = await open("/b/bot_a", { width: 1180, height: 820, theme: "light", world, fakeEvents: true, motion: "no-preference" });
+    try {
+      await page.waitForSelector(".message-list");
+      const full = Array.from({ length: 12 }, (_, i) => `Synthetic ledger line ${i + 1} reads the week's entries and totals.`).join(" ");
+      const samples = await page.evaluate(async ({ full }) => {
+        const id = "m_stream", base = { conversation_id: "dm_a", run_id: "run_stream", bot_id: "bot_a", message_id: id, seq: 50, created_at: new Date().toISOString() };
+        window.__emit("delta", { ...base, text: full, content: full, revision: 1 });
+        const length = () => { const el = document.querySelector(`[data-message-id="${id}"] .message-content`); return el ? el.textContent.replace(/\s+/g, " ").trim().length : -1; };
+        const out = [];
+        const frame = () => new Promise(r => requestAnimationFrame(() => r()));
+        for (let i = 0; i < 10; i++) { await frame(); out.push({ t: "stream", n: length() }); }
+        window.__emit("message", { id, conversation_id: "dm_a", seq: 50, role: "assistant", sender_bot_id: "bot_a", run_id: "run_stream", content: full, created_at: base.created_at });
+        window.__emit("run", { conversation_id: "dm_a", run: { id: "run_stream", conversation_id: "dm_a", bot_id: "bot_a", status: "done", updated_at: new Date().toISOString() } });
+        for (let i = 0; i < 90; i++) { await frame(); out.push({ t: "final", n: length() }); }
+        return out;
+      }, { full });
+      const total = full.replace(/\s+/g, " ").trim().length;
+      const lastStream = samples.filter(s => s.t === "stream").at(-1);
+      assert.ok(lastStream && lastStream.n > 0 && lastStream.n < total, `text was not mid-reveal when the stream ended (${lastStream?.n}/${total}); the case is not exercised`);
+      let maxJump = 0;
+      for (let i = 1; i < samples.length; i++) if (samples[i].t === "final" && samples[i - 1].n >= 0) maxJump = Math.max(maxJump, samples[i].n - samples[i - 1].n);
+      assert.ok(maxJump <= total * 0.2, `text jumped ${maxJump}/${total} characters in one frame after the stream ended`);
+      assert.equal(samples[samples.length - 1].n, total, "the full answer is shown in the end");
+      assert.deepEqual(errors, [], "page errors");
+    } finally { await context.close(); }
+  });
   await scenario("cards stay when Activity is hidden", async () => {
     const at = iso(1000);
     const approval = { question_id: "q_pending", conversation_id: "dm_a", bot_id: "bot_a", run_id: "run_wait", type: "question", question_type: "approval", question: "Send the synthetic summary?", status: "pending", created_at: at, updated_at: at, approval: { action: "Send summary", target: "Synthetic target", impact: "Posts one message", review: { source: "auto-review", status: "human_required", model: "synthetic-review", policy_version: "v6" } } };
