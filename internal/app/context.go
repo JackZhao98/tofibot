@@ -207,7 +207,7 @@ const segmentedReplyGuidance = "Hide internal IDs/labels. Only for an intentiona
 const reactionAndEmojiGuidance = "Use emoji and reactions sparingly when fitting.\n"
 
 // Shared by scheduled roots and descendants; occurrence receipts remain run-specific.
-const scheduledResultGuidance = "\nReport a schedule's status from the [schedule states] records, not from older messages.\nAfter obtaining your assigned result and material sources, call complete_scheduled_task with the result and source names/URLs, then deliver the same concise result as your final answer. If blocked after fallback, explain why without calling complete_scheduled_task."
+const scheduledResultGuidance = "\nTake schedule status from [schedule states], not old messages.\nAfter obtaining your assigned result and material sources, call complete_scheduled_task with the result and source names/URLs, then deliver the same concise result as your final answer. If blocked after fallback, explain why without calling complete_scheduled_task."
 
 const scheduledBrowserFallbackGuidance = "\nIf an installed capability or Skill is unavailable, empty, stale or failed, use the browser before giving up: a scheduled computer_browser call starts its shared desktop and Chrome if needed; inspect with browser.snapshot, then search and verify with visible desktop click/type/scroll. If the computer is unavailable or browser startup fails, report that concrete blocker instead of claiming the scheduled result was delivered."
 
