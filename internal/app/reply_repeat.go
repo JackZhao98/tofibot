@@ -2,6 +2,7 @@ package app
 
 import (
 	"database/sql"
+	"encoding/json"
 	"strings"
 	"unicode"
 )
@@ -78,4 +79,53 @@ func replyBigrams(s string) map[string]int {
 		out[string(runes[i:i+2])]++
 	}
 	return out
+}
+
+// Step narration a Bot forgot to wrap in <progress> ("Now TechCrunch's AI
+// page.") stays visible as a segment. When the run ends with a substantial
+// answer, short segments that are small next to it fold like progress notes.
+// A short segment followed by a short final answer may itself be the answer
+// and stays.
+const (
+	narrationMaxRunes      = 80
+	narrationAnswerMinimum = 120
+	narrationAnswerFactor  = 3
+)
+
+func foldStepNarrationTx(tx *sql.Tx, runID, conv, answer, at string) error {
+	answerRunes := len([]rune(strings.TrimSpace(answer)))
+	if answerRunes < narrationAnswerMinimum {
+		return nil
+	}
+	rows, err := tx.Query(`SELECT id,conversation_id,seq,role,kind,sender_bot_id,run_id,content,notice_data,created_at FROM messages WHERE run_id=? AND role='assistant' AND kind='segment'`, runID)
+	if err != nil {
+		return err
+	}
+	var fold []Message
+	for rows.Next() {
+		m, scanErr := scanMsg(rows)
+		if scanErr != nil {
+			rows.Close()
+			return scanErr
+		}
+		n := len([]rune(strings.TrimSpace(m.Content)))
+		if n <= narrationMaxRunes && n*narrationAnswerFactor <= answerRunes {
+			fold = append(fold, m)
+		}
+	}
+	rows.Close()
+	if err := rows.Err(); err != nil {
+		return err
+	}
+	for _, m := range fold {
+		if _, err := tx.Exec(`UPDATE messages SET kind='progress' WHERE id=?`, m.ID); err != nil {
+			return err
+		}
+		m.Kind = "progress"
+		b, _ := json.Marshal(m)
+		if _, err := tx.Exec(`INSERT INTO events(conversation_id,type,data,created_at) VALUES(?,?,?,?)`, conv, "message", string(b), at); err != nil {
+			return err
+		}
+	}
+	return nil
 }
