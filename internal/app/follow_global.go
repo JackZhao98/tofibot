@@ -67,6 +67,16 @@ func (s *Server) resolveBotModel(ctx context.Context, runModel string, b Bot) (s
 
 // withEffectiveModels annotates Bots with the model and effort they execute
 // with now, for clients that show "跟随全局（当前：X）".
+// effectiveDefaultModel is the model a Bot that follows the global default
+// actually runs on (the saved model settings), not the build-time fallback.
+func (s *Server) effectiveDefaultModel(ctx context.Context) string {
+	model, _ := s.resolveBotModel(ctx, "", Bot{Model: "default"})
+	if model == "" {
+		return s.defaultModel
+	}
+	return model
+}
+
 func (s *Server) withEffectiveModels(ctx context.Context, bots ...Bot) []Bot {
 	out := make([]Bot, len(bots))
 	primary := ""

@@ -2612,7 +2612,7 @@ func (s *Server) route(w http.ResponseWriter, r *http.Request) {
 	case p == "system/update":
 		serveSystemUpdate(w, r)
 	case p == "config":
-		writeJSON(w, 200, map[string]any{"model_configured": s.modelConfigured(), "default_model": s.defaultModel, "provider": s.activeProvider()})
+		writeJSON(w, 200, map[string]any{"model_configured": s.modelConfigured(), "default_model": s.effectiveDefaultModel(r.Context()), "provider": s.activeProvider()})
 	case p == "auth/codex" || p == "auth/codex/connect" || p == "auth/codex/verify" || strings.HasPrefix(p, "auth/codex/connect/"):
 		s.codexAuth(w, r, strings.TrimPrefix(p, "auth/codex"))
 	case strings.HasPrefix(p, "bots/") && strings.HasSuffix(p, "/debug-preview"):
