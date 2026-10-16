@@ -108,6 +108,8 @@ async function open(url, { width, height, theme, world = emptyWorld(), touch = w
   const page = await context.newPage();
   const errors = [];
   page.on("pageerror", error => errors.push(error.message));
+  // React reports a duplicated list key as a console error, not an exception: a conversation or message drawn twice must fail
+  page.on("console", message => { if (message.type() === "error" && /same key/i.test(message.text())) errors.push("duplicate React key: " + message.text()); });
   const external = await mockApi(page, [group, dm], world);
   await page.goto(origin + url);
   await page.locator(".message-block").first().waitFor();
