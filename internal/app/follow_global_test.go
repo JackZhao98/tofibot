@@ -329,3 +329,42 @@ func TestFollowGlobalMigrationRunsOnce(t *testing.T) {
 		t.Fatalf("migration re-ran over a user pin: %+v err=%v", b, err)
 	}
 }
+
+// The workspace roster and /api/config report the model the saved settings
+// select, not the build-time fallback; the fallback is not offered as usable.
+func TestReportedDefaultIsTheEffectiveModel(t *testing.T) {
+	s, err := NewServer(Config{DataDir: t.TempDir(), DefaultModel: "build-fallback", Provider: "local"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer s.Close()
+	rec := httptest.NewRecorder()
+	s.modelSettings(rec, httptest.NewRequest(http.MethodPut, "/api/model-settings", strings.NewReader(`{"model":"chosen-model","reasoning_effort":"medium"}`)))
+	if rec.Code != http.StatusOK {
+		t.Fatalf("settings PUT status=%d body=%s", rec.Code, rec.Body.String())
+	}
+	if got := s.effectiveDefaultModel(context.Background()); got != "chosen-model" {
+		t.Fatalf("effective default=%q", got)
+	}
+	b, _ := s.store.CreateBot("A", "", followGlobalModel)
+	c, _ := s.store.GetConversation(b.DMConversationID)
+	if _, err := s.store.db.Exec(`INSERT INTO runs(id,conversation_id,bot_id,status,created_at,updated_at) VALUES('r',?,?,'running',?,?)`, c.ID, b.ID, now(), now()); err != nil {
+		t.Fatal(err)
+	}
+	var list Tool
+	for _, tool := range s.tools(c, Run{ID: "r", ConversationID: c.ID, BotID: b.ID, Status: "running"}) {
+		if tool.Name == "workspace_list" {
+			list = tool
+		}
+	}
+	if list.Execute == nil {
+		t.Fatal("workspace_list missing")
+	}
+	out, err := list.Execute(context.Background(), []byte(`{}`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(out, `"default_model":"chosen-model"`) || strings.Contains(out, "build-fallback") {
+		t.Fatalf("roster reports a stale default: %s", out[max(0, len(out)-300):])
+	}
+}
