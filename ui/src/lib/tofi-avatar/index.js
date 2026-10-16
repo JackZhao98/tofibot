@@ -99,6 +99,38 @@ function sample(score,time){
 }
 
 /** Mount into a dedicated HTML element. No fetch, inline script, or eval. */
+/** Tight bounding box of a path made of absolute M/L/C/Z commands (what SVG getBBox reports), or null if it has other commands. */
+function pathBox(d){
+  const t=d.match(/[A-Za-z]|-?(?:\d*\.)?\d+(?:e[-+]?\d+)?/g);
+  if(!t)return null;
+  let minX=Infinity,minY=Infinity,maxX=-Infinity,maxY=-Infinity,cx=0,cy=0,sx=0,sy=0,i=0,cmd='';
+  const add=(x,y)=>{if(x<minX)minX=x;if(x>maxX)maxX=x;if(y<minY)minY=y;if(y>maxY)maxY=y;};
+  const at=(p0,p1,p2,p3,r)=>{const u=1-r;return u*u*u*p0+3*u*u*r*p1+3*u*r*r*p2+r*r*r*p3;};
+  // Parameters in (0,1) where the derivative of one coordinate of a cubic is zero.
+  const turns=(p0,p1,p2,p3,out)=>{
+    const d0=p1-p0,d1=p2-p1,d2=p3-p2,a=d0-2*d1+d2,b=2*(d1-d0),c=d0;
+    if(Math.abs(a)<1e-12){if(Math.abs(b)>1e-12)out.push(-c/b);return;}
+    const disc=b*b-4*a*c;
+    if(disc>=0){const q=Math.sqrt(disc);out.push((-b+q)/(2*a),(-b-q)/(2*a));}
+  };
+  while(i<t.length){
+    const v=t[i];
+    if(/^[A-Za-z]$/.test(v)){
+      cmd=v;i++;
+      if(cmd==='Z'){cx=sx;cy=sy;}else if(cmd!=='M'&&cmd!=='L'&&cmd!=='C')return null;
+      continue;
+    }
+    if(cmd==='M'||cmd==='L'){cx=+t[i++];cy=+t[i++];if(cmd==='M'){sx=cx;sy=cy;cmd='L';}add(cx,cy);}
+    else if(cmd==='C'){
+      const x1=+t[i++],y1=+t[i++],x2=+t[i++],y2=+t[i++],x=+t[i++],y=+t[i++];
+      add(cx,cy);add(x,y);
+      const rs=[];turns(cx,x1,x2,x,rs);turns(cy,y1,y2,y,rs);
+      for(const r of rs)if(r>0&&r<1)add(at(cx,x1,x2,x,r),at(cy,y1,y2,y,r));
+      cx=x;cy=y;
+    }else return null;
+  }
+  return Number.isFinite(minX)?{x:minX,y:minY,width:maxX-minX,height:maxY-minY}:null;
+}
 export function mountCat(host,options={}){
   if(!host||typeof host.append!=='function')throw new Error('mountCat requires a DOM element');
   let config=normalizeConfig(options),shape=shapes[config.shape];
@@ -325,7 +357,10 @@ export function mountCat(host,options={}){
   function heart(cx,cy,r){return `M ${cx} ${cy+r*.9} C ${cx-r*1.6} ${cy-r*.1} ${cx-r*.9} ${cy-r*1.3} ${cx} ${cy-r*.45} C ${cx+r*.9} ${cy-r*1.3} ${cx+r*1.6} ${cy-r*.1} ${cx} ${cy+r*.9} Z`;}
   function decorate(eye,index,q,tx,ty){
     const st=eyeStyles[eyeStyle],o=clamp(q.o),hh=clamp(q.hh||0),jj=clamp(q.jj||0);
-    let bb;try{bb=eye.node.getBBox();}catch{bb=null;}
+    // getBBox forces a synchronous layout, and every visible avatar runs this every frame. The contour is made of
+    // absolute M/L/C/Z commands only, so its box is computed from the path text; getBBox remains the fallback.
+    let bb=pathBox(eye.node.getAttribute('d')||'');
+    if(!bb){try{bb=eye.node.getBBox();}catch{bb=null;}}
     if(!bb||!bb.width){eye.inner.style.display='none';eye.glyph.style.display='none';return;}
     const cx=bb.x+bb.width/2+tx,cy=bb.y+bb.height/2+ty,w=bb.width,h=Math.max(bb.height,1);
     const R=Math.max(w,h)/2,ang=q.r;
