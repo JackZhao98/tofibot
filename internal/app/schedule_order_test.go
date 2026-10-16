@@ -31,11 +31,27 @@ type orderRig struct {
 	helperTime time.Duration
 	rootTime   time.Duration
 	hold       chan struct{}
+	// refMu/ready publish server and store to engine goroutines. NewServer
+	// starts conversation workers before open can assign them, and after a
+	// restart a worker may run a persisted queued run immediately.
+	refMu sync.RWMutex
+	ready chan struct{}
 }
 
 func (g *orderRig) engine() scheduleResultEngine {
 	return func(ctx context.Context, req Request) (Result, error) {
-		run, err := g.store.GetRun(req.RunID)
+		g.refMu.RLock()
+		ready := g.ready
+		g.refMu.RUnlock()
+		select {
+		case <-ready:
+		case <-ctx.Done():
+			return Result{}, ctx.Err()
+		}
+		g.refMu.RLock()
+		store, server := g.store, g.server
+		g.refMu.RUnlock()
+		run, err := store.GetRun(req.RunID)
 		if err != nil {
 			return Result{}, err
 		}
@@ -64,15 +80,15 @@ func (g *orderRig) engine() scheduleResultEngine {
 		}
 		time.Sleep(g.rootTime)
 		if run.Kind == runKindSchedule && run.ParentRunID == "" && g.delegates[name] {
-			_, child, err := g.store.AddBotMessage(run.ConversationID, run.BotID, g.bots["helper"].ID, run.ID, "bounded fixture task")
+			_, child, err := store.AddBotMessage(run.ConversationID, run.BotID, g.bots["helper"].ID, run.ID, "bounded fixture task")
 			if err != nil {
 				return Result{}, err
 			}
-			trace, err := g.store.GetConversation(child.ConversationID)
+			trace, err := store.GetConversation(child.ConversationID)
 			if err != nil {
 				return Result{}, err
 			}
-			g.server.enqueue(trace, child)
+			server.enqueue(trace, child)
 			if reminder, err := req.BeforeFinalResponse("assignment only"); err != nil || reminder != "" {
 				return Result{}, err
 			}
@@ -118,11 +134,19 @@ func (g *orderRig) schedule(conv Conversation, name string, ago time.Duration) S
 
 func (g *orderRig) open(dir string) {
 	g.t.Helper()
+	ready := make(chan struct{})
+	g.refMu.Lock()
+	g.ready = ready
+	g.refMu.Unlock()
 	srv, err := NewServer(Config{DataDir: dir, Engine: g.engine()})
 	if err != nil {
+		close(ready)
 		g.t.Fatal(err)
 	}
+	g.refMu.Lock()
 	g.server, g.store = srv, srv.store
+	g.refMu.Unlock()
+	close(ready)
 	g.t.Cleanup(func() { srv.Close() })
 }
 
