@@ -60,7 +60,8 @@ func (s *Server) workspaceTools(c Conversation, r Run) []Tool {
 				seen[model] = struct{}{}
 				models = append(models, model)
 			}
-			addModel(s.defaultModel)
+			defaultModel := s.effectiveDefaultModel(ctx)
+			addModel(defaultModel)
 			for _, bot := range bots {
 				addModel(bot.Model)
 			}
@@ -77,7 +78,7 @@ func (s *Server) workspaceTools(c Conversation, r Run) []Tool {
 				ConfiguredModels []string       `json:"configured_models"`
 				DefaultModel     string         `json:"default_model"`
 				Provider         string         `json:"provider"`
-			}{Bots: s.withEffectiveModels(ctx, bots...), Groups: groups, ConfiguredModels: models, DefaultModel: s.defaultModel, Provider: s.activeProvider()}
+			}{Bots: s.withEffectiveModels(ctx, bots...), Groups: groups, ConfiguredModels: models, DefaultModel: defaultModel, Provider: s.activeProvider()}
 			encoded, err := json.Marshal(result)
 			return string(encoded), err
 		}),
