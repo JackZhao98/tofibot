@@ -94,10 +94,14 @@ func TestCancelDoesNotBecomeDone(t *testing.T) {
 	s.mu.Lock()
 	cancel := s.runs[r.ID]
 	s.mu.Unlock()
-	cancel()
+	// Same order as every product cancel path (cancelInactiveRuns, stuck-run
+	// conclusion): commit the terminal status first, then unwind the executor.
+	// Cancelling the context first lets the executor write "cancelled" itself
+	// before this write, which then reports changed=false.
 	if changed, err := s.store.SetRunStatus(r.ID, "cancelled", "cancelled"); err != nil || !changed {
 		t.Fatalf("cancel changed=%v err=%v", changed, err)
 	}
+	cancel()
 	close(e.release)
 	got := waitRun(t, s, r.ID, "cancelled")
 	if got.Status != "cancelled" {
