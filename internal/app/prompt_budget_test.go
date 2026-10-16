@@ -240,10 +240,11 @@ func TestProductionPromptSizeMatrix(t *testing.T) {
 			if len([]rune(toolEvidencePolicy)) > 900 {
 				t.Fatal("research and evidence policy exceeds its 900-rune allowance")
 			}
-			// 5200: the voice rules against process narration and audit-style
-			// disclaimers (owner, 2026-10-14) added ~360 cached runes.
-			if tc.name == "dm" && len([]rune(system))+runtime.SystemPromptOverheadRunes() > 5200 {
-				t.Errorf("ordinary DM provider system exceeds 5200 runes")
+			// 5300: the voice rules against process narration and audit-style
+			// disclaimers (owner, 2026-10-14) and looking up unknown names before
+			// asking (owner, 2026-10-16) added ~450 cached runes.
+			if tc.name == "dm" && len([]rune(system))+runtime.SystemPromptOverheadRunes() > 5300 {
+				t.Errorf("ordinary DM provider system exceeds 5300 runes")
 			}
 			if fixed > 6200 {
 				t.Errorf("fixed overhead %d leaves too little customization headroom (ceiling 6200)", fixed)
