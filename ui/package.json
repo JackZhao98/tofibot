@@ -36,6 +36,7 @@
     "test:i18n": "node scripts/check-i18n.mjs",
     "test:empty-states": "node scripts/test-empty-states.mjs",
     "test:file-preview": "node scripts/test-file-preview.mjs",
+    "test:composer-typing": "node scripts/test-composer-typing.mjs",
     "test:chat-switch": "node scripts/test-chat-switch.mjs",
     "test:chat-bubbles": "node scripts/test-chat-bubbles.mjs",
     "test:onboarding": "node scripts/test-onboarding.mjs",
