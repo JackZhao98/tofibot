@@ -543,6 +543,7 @@ func (s *Server) buildContextPartsWith(c Conversation, r Run, bot Bot, cachedMCP
 	// The summary covers seq <= covered; keep only a small verbatim overlap of
 	// summarized messages so the transition stays coherent.
 	summarizedKept := 0
+	ownKept := 0
 	for i := len(msgs) - 1; i >= 0 && used < historyLimit; i-- {
 		m := msgs[i]
 		if m.Seq <= covered && m.ID != r.TriggerMessageID {
@@ -578,8 +579,20 @@ func (s *Server) buildContextPartsWith(c Conversation, r Run, bot Bot, cachedMCP
 				role = "user"
 			}
 		}
+		own := m.SenderBotID == bot.ID && m.Role == "assistant"
+		if own {
+			// The Bot's own wording, replayed verbatim, becomes a template it keeps
+			// copying (fixed caveats, closing offers). Only its latest replies stay
+			// verbatim; older ones keep their gist for continuity.
+			if ownKept >= ownVerbatimReplies {
+				content = ownReplyGist(content)
+			}
+			ownKept++
+		}
 		visual := runtime.Message{Role: role, Content: content}
-		visual.Content = "[message_id=" + m.ID + "] " + visual.Content
+		if !own {
+			visual.Content = "[message_id=" + m.ID + "] " + visual.Content
+		}
 		s.addAttachmentContext(c, m, &visual, &imagesLeft, &imageBudget)
 		content = trimRunes(visual.Content, historyLimit-used)
 		cost := len([]rune(content))
