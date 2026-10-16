@@ -500,7 +500,16 @@ func scanToolActivities(rows *sql.Rows) ([]ToolActivity, error) {
 	return activities, rows.Err()
 }
 func (s *Store) Close() error { return s.db.Close() }
-func now() string             { return time.Now().UTC().Format(time.RFC3339Nano) }
+// storedTimeLayout is RFC 3339 with a fixed nine-digit fraction. RFC3339Nano
+// trims trailing zeros, so "…:03.3336Z" sorts after "…:03.33363Z" ('Z' > '3');
+// created_at/updated_at columns are TEXT and compared and ordered lexically,
+// which made rows written microseconds apart come back in the wrong order.
+// Fixed width keeps lexical order identical to time order and still parses
+// with time.RFC3339Nano.
+const storedTimeLayout = "2006-01-02T15:04:05.000000000Z"
+
+func stampTime(t time.Time) string { return t.UTC().Format(storedTimeLayout) }
+func now() string                  { return stampTime(time.Now()) }
 func (s *Store) migrate() error {
 	// Authorization provenance is recorded only by new host user-ingress
 	// transactions. Existing message roles are not evidence for a backfill.

@@ -131,8 +131,11 @@ func TestActionWrappersHaveSeparateRecoveryOperations(t *testing.T) {
 	}
 	defer s.Close()
 	// Construct identities only; no secret value or computer action is used.
-	s.secretVault = &secretVault{}
-	s.microVM = &computer.Client{}
+	// NewServer's background workers read secretVault/microVM concurrently, so
+	// build the tools from a separate Server value that nothing else touches
+	// instead of mutating the running one.
+	w := &Server{store: s.store, extensions: s.extensions, secretVault: &secretVault{}, microVM: &computer.Client{}}
+	s = w
 	r := Run{ID: "fixture", BotID: "synthetic-bot", TriggerMessageID: "trigger"}
 	for _, tc := range []struct {
 		name         string

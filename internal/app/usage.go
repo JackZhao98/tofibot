@@ -151,7 +151,7 @@ func migrateUsage(db *sql.DB) error {
 }
 
 func pruneUsage(db *sql.DB, at time.Time) error {
-	if _, err := db.Exec(`DELETE FROM usage_calls WHERE occurred_at < ?`, at.Add(-7*24*time.Hour).Format(time.RFC3339Nano)); err != nil {
+	if _, err := db.Exec(`DELETE FROM usage_calls WHERE occurred_at < ?`, stampTime(at.Add(-7*24*time.Hour))); err != nil {
 		return err
 	}
 	_, err := db.Exec(`DELETE FROM usage_hourly WHERE hour < ?`, at.Add(-31*24*time.Hour).UTC().Format("2006-01-02T15"))
@@ -176,7 +176,7 @@ func (s *Store) recordContextBreakdown(runID string, b runtime.ContextBreakdown)
 
 func (s *Store) recordModelUsage(runID string, input, output int64) error {
 	t := time.Now().UTC()
-	stamp := t.Format(time.RFC3339Nano)
+	stamp := stampTime(t)
 	tx, err := s.db.Begin()
 	if err != nil {
 		return err
@@ -213,7 +213,7 @@ func (s *Store) recordModelUsage(runID string, input, output int64) error {
 // rollup. last_input stays the main model's context view.
 func (s *Store) recordAuxiliaryModelUsage(runID, model string, input, output int64) error {
 	t := time.Now().UTC()
-	stamp := t.Format(time.RFC3339Nano)
+	stamp := stampTime(t)
 	tx, err := s.db.Begin()
 	if err != nil {
 		return err
@@ -246,7 +246,7 @@ func (s *Store) usagePeriod(d time.Duration, kind string) ([]UsagePeriod, error)
 	cutoff := time.Now().UTC().Add(-d)
 	// The thirty-day rollup has hour precision; the shorter windows use exact calls.
 	query := `SELECT bot_id,SUM(input_tokens),SUM(output_tokens),COUNT(*),SUM(equivalent_usd),SUM(1-price_known) FROM usage_calls WHERE occurred_at>=? AND kind=? GROUP BY bot_id`
-	args := []any{cutoff.Format(time.RFC3339Nano), kind}
+	args := []any{stampTime(cutoff), kind}
 	if d > 7*24*time.Hour {
 		cols := `input_tokens,output_tokens,requests,equivalent_usd,unpriced_requests`
 		if kind == usageKindReview {
