@@ -639,9 +639,12 @@ func TestRespondReplyDoesNotRepostEarlierSegment(t *testing.T) {
 }
 
 func TestScheduledGroupRunWithRespondReplyCompletes(t *testing.T) {
-	var f dedupeFixture
-	engine := &mentionEngine{}
-	f = newDedupeFixture(t, engine)
+	// The server's per-conversation worker owns execution of queued runs and
+	// re-polls once a second while a schedule is order-blocked. Calling execute
+	// directly raced that worker: whichever lost saw the run as already active
+	// and returned while the run was still "running". Install the engine before
+	// the run exists and let the queue run it.
+	f := newDedupeFixture(t, &scheduledReplyEngine{})
 	x, err := f.server.store.CreateSchedule(f.group.ID, f.tofi.ID, ScheduleSpec{Content: "post the daily synthetic note", Kind: scheduleOnce, RunAt: time.Now().Add(time.Hour).Format(time.RFC3339), Timezone: "UTC"})
 	if err != nil {
 		t.Fatal(err)
@@ -649,18 +652,40 @@ func TestScheduledGroupRunWithRespondReplyCompletes(t *testing.T) {
 	makeDue(t, f.server.store, x.ID, time.Now().Add(-time.Minute))
 	claimed, err := f.server.store.ClaimDueSchedules(time.Now())
 	if err != nil || len(claimed) != 1 {
-		t.Fatalf("claim=%+v err=%v", claimed, err)
+		// The server's own ScheduleWorker may have claimed it first; either way
+		// exactly one run exists for the occurrence.
+		runs, _ := f.server.store.Runs(f.group.ID)
+		if len(runs) != 1 {
+			t.Fatalf("claim=%+v err=%v runs=%+v", claimed, err, runs)
+		}
+		claimed = runs
 	}
-	f.server.engine = &scheduledReplyEngine{}
-	f.server.execute(f.group, claimed[0])
-	got, err := f.server.store.GetRun(claimed[0].ID)
-	if err != nil || got.Status != "done" {
-		t.Fatalf("run=%+v err=%v", got, err)
+	f.server.enqueue(f.group, claimed[0])
+	got := waitRunTerminal(t, f.server, claimed[0].ID)
+	if got.Status != "done" {
+		t.Fatalf("run=%+v", got)
 	}
 	var n int
 	_ = f.server.store.db.QueryRow(`SELECT COUNT(*) FROM messages WHERE run_id=? AND role='assistant' AND kind IN ('','segment')`, got.ID).Scan(&n)
 	if n != 1 {
 		t.Fatalf("visible messages=%d", n)
+	}
+}
+
+// waitRunTerminal polls until the run leaves queued/running, failing at a
+// generous deadline instead of sleeping a fixed time.
+func waitRunTerminal(t *testing.T, s *Server, id string) Run {
+	t.Helper()
+	deadline := time.Now().Add(20 * time.Second)
+	for {
+		r, err := s.store.GetRun(id)
+		if err == nil && r.Status != "queued" && r.Status != "running" {
+			return r
+		}
+		if time.Now().After(deadline) {
+			t.Fatalf("run %s never finished: %+v err=%v", id, r, err)
+		}
+		time.Sleep(5 * time.Millisecond)
 	}
 }
 
