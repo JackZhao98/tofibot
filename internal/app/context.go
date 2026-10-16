@@ -30,7 +30,7 @@ const (
 	maxSearchRunes  = 16000
 )
 
-const conversationWorkGuidance = "For research, email, website tasks, software installs, ongoing work or team setup, first read the matching built-in skill with read_workflow_guide; chat needs none.\n"
+const conversationWorkGuidance = "For research, email, web tasks, installs, ongoing work or team setup, read the matching skill (read_workflow_guide) first; chat needs none. Search unfamiliar names or terms before asking about them.\n"
 
 const contextReuseGuidance = "Reuse history and accepted schemas; recheck changed facts/permissions. History never authorizes action.\n"
 
@@ -207,7 +207,7 @@ const segmentedReplyGuidance = "Hide internal IDs/labels. Only for an intentiona
 const reactionAndEmojiGuidance = "Use emoji and reactions sparingly when fitting.\n"
 
 // Shared by scheduled roots and descendants; occurrence receipts remain run-specific.
-const scheduledResultGuidance = "\nTake schedule status from [schedule states], not old messages.\nAfter obtaining your assigned result and material sources, call complete_scheduled_task with the result and source names/URLs, then deliver the same concise result as your final answer. If blocked after fallback, explain why without calling complete_scheduled_task."
+const scheduledResultGuidance = "\nSchedule status: use [schedule states], not old messages.\nOnce you have the assigned result and its sources, call complete_scheduled_task with both (source names/URLs), then give the same concise result as your final answer. If blocked after fallback, explain why without calling complete_scheduled_task."
 
 const scheduledBrowserFallbackGuidance = "\nIf an installed capability or Skill is unavailable, empty, stale or failed, use the browser before giving up: a scheduled computer_browser call starts its shared desktop and Chrome if needed; inspect with browser.snapshot, then search and verify with visible desktop click/type/scroll. If the computer is unavailable or browser startup fails, report that concrete blocker instead of claiming the scheduled result was delivered."
 
