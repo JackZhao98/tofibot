@@ -442,9 +442,14 @@ func TestRestartFiresOverdueWaitOnce(t *testing.T) {
 }
 
 func TestRestartRearmsFutureWaitAtDeadline(t *testing.T) {
-	s, g, _ := restartWithWait(t, time.Now().Add(600*time.Millisecond))
+	wakeAt := time.Now().Add(600 * time.Millisecond)
+	s, g, _ := restartWithWait(t, wakeAt)
 	time.Sleep(200 * time.Millisecond)
-	if n := wakeCount(s, g.ID); n != 0 {
+	// The deadline was fixed before restartWithWait reopened the store and built
+	// the server, which can itself take longer than 600ms under load. A wake is
+	// only early if the whole read finished while the deadline was still ahead.
+	n := wakeCount(s, g.ID)
+	if readDone := time.Now(); n != 0 && readDone.Before(wakeAt) {
 		t.Fatalf("woken before deadline: %d", n)
 	}
 	deadline := time.Now().Add(5 * time.Second)
