@@ -26,7 +26,8 @@
 //                after Escape, no element draws a focus ring (outline or ring-shaped box-shadow; text fields exempt);
 //                after Tab the focused element must draw one (see focus-audit.mjs)
 //  font-size     text under 12px, except the explicit exception: mono, >= 10px, and either uppercase with letter
-//                spacing (section/danger labels) or the nav count pill (.settings-count)
+//                spacing (section/danger labels) or the nav count pill (.settings-count); text inside an aria-hidden
+//                subtree is decorative (animated glyphs that appear and disappear with the frame) and is not judged
 import assert from "node:assert/strict";
 import {mkdtemp, mkdir, readFile, rm, writeFile} from "node:fs/promises";
 import {basename, dirname, join} from "node:path";
@@ -154,7 +155,9 @@ function auditPage(opts) {
     const mono = s.fontFamily === stacks.mono;
     const uppercaseTracked = s.textTransform === "uppercase" && parseFloat(s.letterSpacing) > 0;
     const exception = mono && size >= 10 && (uppercaseTracked || parent.closest(".settings-count"));
-    if (size < 12 && !exception) add("font-size", parent, `${size}px "${text.slice(0, 30)}"`);
+    // decorative glyphs (aria-hidden subtree, e.g. the sleeping cat's animated "z") carry no information for any reader
+    const decorative = !!parent.closest("[aria-hidden=true]");
+    if (size < 12 && !exception && !decorative) add("font-size", parent, `${size}px "${text.slice(0, 30)}"`);
     if (!stackNames.has(s.fontFamily)) add("font-family", parent, `${s.fontFamily.slice(0, 60)} "${text.slice(0, 24)}"`);
     if (parent.closest("button, select, textarea, option, label:has(input[type=checkbox]), label:has(input[type=radio])")) continue;
     const card = cardOf(parent);
