@@ -15,6 +15,7 @@ import { formatNumber } from "./i18n/format";
 import { TaskIssueCard } from "./TaskIssueCard";
 import "./question-card.css";
 import { intlLocale } from "./i18n/format";
+import { sameData } from "./sameData";
 
 /** A separate read failure must not prevent ordinary conversation history loading. */
 export function useQuestions(conversationId: string | null) {
@@ -23,6 +24,8 @@ export function useQuestions(conversationId: string | null) {
   const [loading, setLoading] = useState(false);
   const generation = useRef(0);
   const requestSequence = useRef(0);
+  // Background polls must not flip `loading` or replace an unchanged list: either would re-render the whole chat.
+  const loadedFor = useRef("");
   const controller = useRef<AbortController | null>(null);
   const refresh = useCallback(async (resolved?: Question) => {
     if (!conversationId) return;
@@ -31,11 +34,13 @@ export function useQuestions(conversationId: string | null) {
     const sequence = ++requestSequence.current;
     controller.current?.abort();
     const pending = new AbortController(); controller.current = pending;
-    setLoading(true);
+    if (loadedFor.current !== conversationId) setLoading(true);
     try {
       const result = await request<{ questions: Question[] }>(`/api/questions?conversation_id=${encodeURIComponent(conversationId)}`, { signal: pending.signal });
       if (version !== generation.current || sequence !== requestSequence.current) return;
-      setSnapshot({ id: conversationId, items: (result.questions ?? []).filter(q => q.conversation_id === conversationId) });
+      const items = (result.questions ?? []).filter(q => q.conversation_id === conversationId);
+      loadedFor.current = conversationId;
+      setSnapshot(current => current.id === conversationId && sameData(current.items, items) ? current : { id: conversationId, items });
       setFailure(null);
     } catch (cause) {
       if (!pending.signal.aborted && version === generation.current && sequence === requestSequence.current) setFailure({ id: conversationId, text: cause instanceof Error ? cause.message : i18n.t("tasks:question.load_failed") });

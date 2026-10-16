@@ -8,6 +8,7 @@ import { taskDraftLabel } from "./taskIssuePresentation";
 import { i18n, useTranslation } from "./i18n";
 import { formatClock } from "./i18n/format";
 import "./mail-draft-card.css";
+import { sameData } from "./sameData";
 
 export type MailDraft = {
   draft_id: string;
@@ -31,7 +32,8 @@ export function useMailDrafts(conversationId: string | null) {
     if (!conversationId) return;
     try {
       const result = await request<{ drafts: MailDraft[] }>(`/api/mail-drafts?conversation_id=${encodeURIComponent(conversationId)}`);
-      setSnapshot({ id: conversationId, drafts: result.drafts ?? [] });
+      const drafts = result.drafts ?? [];
+      setSnapshot((current) => current.id === conversationId && sameData(current.drafts, drafts) ? current : { id: conversationId, drafts });
       setError("");
     } catch (cause) { setError(cause instanceof Error ? cause.message : i18n.t("mail:draft.load_failed")); }
   }, [conversationId]);
