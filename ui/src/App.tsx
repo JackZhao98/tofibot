@@ -1,6 +1,7 @@
 import { thinkingHeadline } from "./thinkingHeadline";
 import { TaskRunBlock, taskBlockVisible } from "./TaskRunBlock";
 import { markSenderGroups } from "./senderGroups";
+import { sameData } from "./sameData";
 import { buildTaskOwners, presentTaskIssue, taskPhaseLabel, type TaskOwner } from "./taskIssuePresentation";
 import { i18n, useTranslation } from "./i18n";
 import { MemoryPanel } from "./MemoryPanel";
@@ -56,7 +57,7 @@ import { TofiIcon as Icon, type TofiIconName } from "./icons";
 import { ComposerGlyph } from "./ComposerGlyph";
 import { intlLocale } from "./i18n/format";
 import { BrandLogo } from "./BrandLogo";
-import { createContext, lazy, Suspense, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { createContext, lazy, startTransition, Suspense, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { flushSync } from "react-dom";
 import { api, ApiError, openConversationEvents, openWorkspaceEvents } from "./api";
 import { MessageMarkdown } from "./MessageMarkdown";
@@ -436,7 +437,6 @@ function Workspace() {
   const arrivalIDs = useRef(new Set<string>());
   const messageListRef = useRef<HTMLDivElement | null>(null);
   // Group chats: avatar and name open a sender group once; later units from the same Bot only indent.
-  useLayoutEffect(() => { markSenderGroups(messageListRef.current); });
   const [messageRecords, setMessages] = useState<Message[]>([]);
   const [drafts, setDrafts] = useState<Record<string, StreamDraft>>({});
   // Transient per-run signals: the model's latest reasoning headline and a provider back-off.
@@ -646,7 +646,7 @@ function Workspace() {
   const applyConfig = useCallback((nextConfig: Config) => {
     const previous = configRef.current;
     configRef.current = nextConfig;
-    setConfig(nextConfig);
+    setConfig((current) => sameData(current, nextConfig) ? current : nextConfig);
     if (previous && (previous.model_configured !== nextConfig.model_configured || previous.default_model !== nextConfig.default_model || previous.provider !== nextConfig.provider)) {
       setCodexStatusRefresh((current) => current + 1);
     }
@@ -684,7 +684,8 @@ function Workspace() {
     try {
       const [result, botResult] = await Promise.all([api.conversations(true), api.bots(true)]);
       if (requestGeneration !== workspaceRefreshGeneration.current || generation !== snapshotGeneration.current || newBotPending.current) return;
-      setBots(botResult.bots);
+      // The 5s poll usually returns what is already shown; keeping the old objects keeps the whole workspace from re-rendering.
+      setBots((current) => sameData(current, botResult.bots) ? current : botResult.bots);
       setWorkspaceError("");
       for (const c of result.conversations) {
         const message = c.last_message;
@@ -706,7 +707,7 @@ function Workspace() {
           if (local?.last_message && (!conversation.last_message || local.last_message.seq > conversation.last_message.seq)) return { ...conversation, last_message: local.last_message, updated_at: local.updated_at, last_user_message_at: local.last_user_message_at ?? conversation.last_user_message_at };
           return conversation;
         });
-        return merged;
+        return sameData(current, merged) ? current : merged;
       });
     } catch (cause) {
       // Conversation previews are best-effort while the app is in use.
@@ -983,7 +984,7 @@ function Workspace() {
   useEffect(() => { setHeaderMenuOpen(false); }, [activeId]);
   useEffect(() => {
     let alive = true;
-    const refreshComputer = async () => { try { const next = await api.computerInfo(); if (alive) setComputerInfo(next); } catch { if (alive) setComputerInfo(null); } };
+    const refreshComputer = async () => { try { const next = await api.computerInfo(); if (alive) setComputerInfo((current) => JSON.stringify(current) === JSON.stringify(next) ? current : next); } catch { if (alive) setComputerInfo(null); } };
     void refreshComputer();
     const timer = window.setInterval(() => void refreshComputer(), 4_000);
     return () => { alive = false; window.clearInterval(timer); };
@@ -1864,6 +1865,9 @@ function Workspace() {
     } catch (cause) { setError(errorText(cause)); }
   }
 
+  // Sender grouping reads and writes the list's DOM: run it when what the list shows changes, not on every render.
+  useLayoutEffect(() => { markSenderGroups(messageListRef.current); }, [conversationItems, taskOwners, toolTimeline, pendingRuns, drafts, loadingMessages, active?.id, active?.kind, active?.archived, teamBoardOpen, viewport.unreadSeq, error, historyError, hasMore, runs, toolSummaryAnchors, toolSummaryErrorAnchors, toolSummaryLoadingAnchors, toolDetailState, toolSummaryState, loadedToolActivities, terminalToolSummaries, questions.items, mailDrafts.items, activityView, bots, conversations, messageRecords]);
+
   if (!indexInitialized.current && workspaceError) return <div className="center-state startup-error"><h2>{t("workspace.connection_unavailable")}</h2><p>{workspaceError}</p><button className="primary-button" disabled={loading} onClick={() => void refreshIndex()}>{loading ? t("action.retrying") : t("common:action.retry")}</button></div>;
   if (loading && !conversations.length) return <div className="center-state"><DelayedFeedback><div className="spinner" />{t("workspace.loading")}</DelayedFeedback></div>;
 
@@ -2007,7 +2011,7 @@ function Workspace() {
               </div>
               {viewport.showJump && <button className="jump-latest" aria-label={t("history.jump_latest")} onClick={jumpLatest}><Icon name="arrow-down" size={18} variant="filled" />{viewport.newCount > 0 && <span className="jump-new-count">{t("history.new_count", { count: viewport.newCount })}</span>}</button>}
             </div>
-            {active.kind === "group" && !active.archived && !active.bot_ids.some(id => botById.has(id) && !botById.get(id)?.archived) ? <div className="composer empty-group-composer"><span>{t("composer.no_members")}</span><button className="secondary-button" onClick={() => setPanel("members")}>{t("composer.add_members")}</button></div> : <Composer workStatus={<WorkingMembers isGroup={active.kind === "group"} companionBotId={active.kind === "dm" ? active.bot_id || active.bot_ids[0] : undefined} companionMotion={active.kind === "dm" ? conversationMotion(active, active.bot_id || active.bot_ids[0]) : undefined} workingBotIds={active.working_bot_ids ?? []} drafts={Object.values(drafts)} runs={runs} botById={botById} toolActivities={toolActivities} signals={runSignals} connected={streamConnected} />} activeRun={runs.find(run => run.status === "running" || run.status === "queued" || run.status === "waiting")} latestReplyId={messages.filter(message => message.role === "assistant").at(-1)?.id} onStopRun={stopRun} avatarMention={avatarMention} conversation={active} bots={bots} draft={composerDrafts[active.id] ?? emptyComposerDraft()} onDraftChange={(update) => updateComposerDraft(active.id, update)} onSend={send} onSent={jumpLatest} modelConfigured={config?.model_configured ?? false} onConnectModel={connectModel} draftReady={composerDraftReady} readOnly={Boolean(active.archived)} />}
+            {active.kind === "group" && !active.archived && !active.bot_ids.some(id => botById.has(id) && !botById.get(id)?.archived) ? <div className="composer empty-group-composer"><span>{t("composer.no_members")}</span><button className="secondary-button" onClick={() => setPanel("members")}>{t("composer.add_members")}</button></div> : <Composer workStatus={<WorkingMembers isGroup={active.kind === "group"} companionBotId={active.kind === "dm" ? active.bot_id || active.bot_ids[0] : undefined} companionMotion={active.kind === "dm" ? conversationMotion(active, active.bot_id || active.bot_ids[0]) : undefined} workingBotIds={active.working_bot_ids ?? []} drafts={Object.values(drafts)} runs={runs} botById={botById} toolActivities={toolActivities} signals={runSignals} connected={streamConnected} />} activeRun={runs.find(run => run.status === "running" || run.status === "queued" || run.status === "waiting")} latestReplyId={messages.filter(message => message.role === "assistant").at(-1)?.id} onStopRun={stopRun} avatarMention={avatarMention} conversation={active} bots={bots} draft={composerDrafts[active.id] ?? emptyComposerDraft()} onDraftChange={updateComposerDraft} onSend={send} onSent={jumpLatest} modelConfigured={config?.model_configured ?? false} onConnectModel={connectModel} draftReady={composerDraftReady} readOnly={Boolean(active.archived)} />}
             </>}
           </>}
         </main>
@@ -2684,7 +2688,17 @@ function ComposerPerch({ botId, sending, working, latestReplyId }: { botId: stri
   return <span className="composer-perch" aria-hidden="true"><CatStage config={config} ref={cat} autoplay /></span>;
 }
 
-function Composer({ workStatus, activeRun, latestReplyId, onStopRun, avatarMention, conversation, bots, draft, onDraftChange, onSend, onSent, modelConfigured, onConnectModel, draftReady, readOnly = false }: { workStatus: React.ReactNode; activeRun?: Run; latestReplyId?: string; onStopRun: (id: string) => Promise<void>; avatarMention: { name: string; conversationId: string; nonce: number } | null; conversation: Conversation; bots: Bot[]; draft: ComposerDraft; onDraftChange: (update: (draft: ComposerDraft) => ComposerDraft) => void; onSend: (content: string, clientMessageId: string, attachmentIds?: string[], draftSignature?: string, flightOrigin?: DOMRect) => Promise<boolean>; onSent: () => void; modelConfigured: boolean; onConnectModel: () => void; draftReady: boolean; readOnly?: boolean }) {
+/** True when `next` is `previous` with text inserted somewhere and nothing removed or replaced. */
+function isPureInsertion(previous: string, next: string) {
+  if (next.length < previous.length) return false;
+  let start = 0;
+  while (start < previous.length && previous[start] === next[start]) start++;
+  let end = 0;
+  while (end < previous.length - start && previous[previous.length - 1 - end] === next[next.length - 1 - end]) end++;
+  return start + end >= previous.length;
+}
+
+function Composer({ workStatus, activeRun, latestReplyId, onStopRun, avatarMention, conversation, bots, draft, onDraftChange: updateDraftFor, onSend, onSent, modelConfigured, onConnectModel, draftReady, readOnly = false }: { workStatus: React.ReactNode; activeRun?: Run; latestReplyId?: string; onStopRun: (id: string) => Promise<void>; avatarMention: { name: string; conversationId: string; nonce: number } | null; conversation: Conversation; bots: Bot[]; draft: ComposerDraft; onDraftChange: (conversationId: string, update: (draft: ComposerDraft) => ComposerDraft) => void; onSend: (content: string, clientMessageId: string, attachmentIds?: string[], draftSignature?: string, flightOrigin?: DOMRect) => Promise<boolean>; onSent: () => void; modelConfigured: boolean; onConnectModel: () => void; draftReady: boolean; readOnly?: boolean }) {
   const { t } = useTranslation("chat");
   const [sending, setSending] = useState(false);
   const [fileError, setFileError] = useState("");
@@ -2707,7 +2721,56 @@ function Composer({ workStatus, activeRun, latestReplyId, onStopRun, avatarMenti
   const operationRef = useRef(0);
   const mentionBots = conversation.kind === "group" ? conversation.bot_ids.map((id) => bots.find((bot) => bot.id === id)).filter((bot): bot is Bot => Boolean(bot)) : bots.filter((bot) => !bot.archived && bot.id !== conversation.bot_id);
   const mentionMatches = mentionQuery === null ? [] : mentionBots.filter((bot) => bot.name.toLocaleLowerCase().startsWith(mentionQuery.toLocaleLowerCase()));
-  const content = draft.content;
+  // The text being typed lives here, not in App: a keystroke re-renders only the composer. App's draft store
+  // receives it debounced and on blur / send / conversation switch / page hide (see flushContent).
+  const [typed, setTyped] = useState({ id: conversation.id, text: draft.content, synced: draft.content });
+  let typedNow = typed;
+  if (typed.id !== conversation.id) typedNow = { id: conversation.id, text: draft.content, synced: draft.content };
+  // Content changed in App by something other than this composer (restored draft, send acknowledgement): adopt it.
+  else if (draft.content !== typed.synced) typedNow = { ...typed, text: draft.content, synced: draft.content };
+  if (typedNow !== typed) setTyped(typedNow);
+  const typedRef = useRef(typedNow);
+  typedRef.current = typedNow;
+  const unsyncedRef = useRef<{ id: string; text: string } | null>(null);
+  const flushTimer = useRef<number | undefined>(undefined);
+  const updateDraftForRef = useRef(updateDraftFor);
+  updateDraftForRef.current = updateDraftFor;
+  // Bound to this render's conversation: an upload that finishes after a switch must edit the draft it started in.
+  const onDraftChange = (update: (draft: ComposerDraft) => ComposerDraft) => updateDraftFor(conversation.id, update);
+  const flushContent = useCallback((background = false) => {
+    window.clearTimeout(flushTimer.current);
+    const pending = unsyncedRef.current;
+    if (!pending) return;
+    unsyncedRef.current = null;
+    // `synced` and App's draft must change in the same render, or the composer would take its own flush for an outside edit.
+    const push = () => {
+      updateDraftForRef.current(pending.id, (current) => current.content === pending.text ? current : { ...current, content: pending.text });
+      if (typedRef.current.id === pending.id) setTyped((current) => current.id === pending.id ? { ...current, synced: pending.text } : current);
+    };
+    // An idle-time flush may yield to the next keystroke; the forced ones (blur, send, switch, hide) may not.
+    if (background) startTransition(push); else push();
+  }, []);
+  // Typed or dictated text; `now` commits to the draft store immediately.
+  const setContent = useCallback((text: string, now = false) => {
+    const id = conversationIdRef.current;
+    unsyncedRef.current = { id, text };
+    setTyped((current) => current.id === id ? { ...current, text } : current);
+    typedRef.current = { ...typedRef.current, text };
+    window.clearTimeout(flushTimer.current);
+    if (now) flushContent(); else flushTimer.current = window.setTimeout(() => flushContent(true), 400);
+  }, [flushContent]);
+  useLayoutEffect(() => {
+    const id = conversation.id;
+    return () => { if (unsyncedRef.current?.id === id) flushContent(); };
+  }, [conversation.id, flushContent]);
+  useEffect(() => {
+    const hide = () => flushContent();
+    const visibility = () => { if (document.visibilityState === "hidden") flushContent(); };
+    window.addEventListener("pagehide", hide);
+    document.addEventListener("visibilitychange", visibility);
+    return () => { window.removeEventListener("pagehide", hide); document.removeEventListener("visibilitychange", visibility); };
+  }, [flushContent]);
+  const content = typedNow.text;
   const reply = draft.reply;
   const mentionParts = composerMentionParts(content, mentionBots.map((bot) => bot.name));
   const [composerScrollTop, setComposerScrollTop] = useState(0);
@@ -2754,17 +2817,18 @@ function Composer({ workStatus, activeRun, latestReplyId, onStopRun, avatarMenti
     value: content,
     textareaRef,
     disabled: !canCompose || sending,
-    onChange: (value) => { onDraftChange((current) => ({ ...current, content: value })); setMentionQuery(null); },
+    onChange: (value) => { setContent(value, true); setMentionQuery(null); },
   });
   useEffect(() => { dictation.cancel(); }, [conversation.id, dictation.cancel]);
   useEffect(() => {
     if (!avatarMention || avatarMention.conversationId !== conversation.id || readOnly) return;
     const textarea = textareaRef.current;
-    const start = textarea?.selectionStart ?? content.length;
+    const text = typedRef.current.text;
+    const start = textarea?.selectionStart ?? text.length;
     const end = textarea?.selectionEnd ?? start;
-    const prefix = start > 0 && !/\s/.test(content[start - 1]) ? " " : "";
+    const prefix = start > 0 && !/\s/.test(text[start - 1]) ? " " : "";
     const mention = `${prefix}@${avatarMention.name} `;
-    onDraftChange(current => ({ ...current, content: current.content.slice(0, start) + mention + current.content.slice(end) }));
+    setContent(text.slice(0, start) + mention + text.slice(end), true);
     setMentionQuery(null);
     const frame = requestAnimationFrame(() => {
       textarea?.focus();
@@ -2812,13 +2876,23 @@ function Composer({ workStatus, activeRun, latestReplyId, onStopRun, avatarMenti
     document.addEventListener("keydown", shortcut);
     return () => document.removeEventListener("keydown", shortcut);
   }, [canCompose, sending]);
+  const fittedRef = useRef<{ id: string; text: string } | null>(null);
   useLayoutEffect(() => {
     const textarea = textareaRef.current;
     if (!textarea) return;
+    const previous = fittedRef.current;
+    fittedRef.current = { id: conversation.id, text: content };
+    // Typing only adds text, and added text never makes the wrapped content shorter. If it still fits the current
+    // box there is nothing to resize, so skip the reset-to-auto that costs an extra forced layout on every key.
+    if (previous && previous.id === conversation.id && textarea.style.height && isPureInsertion(previous.text, content)) {
+      const fits = textarea.scrollHeight <= textarea.clientHeight;
+      if (fits || (textarea.clientHeight >= 120 && textarea.style.overflowY === "auto")) return;
+    }
+    // One forced layout: the content height is read once and reused for the overflow decision.
     textarea.style.height = "auto";
-    const height = Math.min(textarea.scrollHeight, 120);
-    textarea.style.height = `${Math.max(48, height)}px`;
-    textarea.style.overflowY = textarea.scrollHeight > 120 ? "auto" : "hidden";
+    const contentHeight = textarea.scrollHeight;
+    textarea.style.height = `${Math.max(48, Math.min(contentHeight, 120))}px`;
+    textarea.style.overflowY = contentHeight > 120 ? "auto" : "hidden";
   }, [content, conversation.id]);
   async function submit(event: React.FormEvent) {
     event.preventDefault();
@@ -2830,6 +2904,7 @@ function Composer({ workStatus, activeRun, latestReplyId, onStopRun, avatarMenti
     const draftContent = composerMessageContent(content, reply);
     const signature = composerMessageSignature(content, attachments, reply);
     const clientMessageId = composerClientMessageId(signature, draft.pending, messageId);
+    flushContent();
     onDraftChange((current) => ({ ...current, pending: { signature, id: clientMessageId } }));
     setSending(true);
     const attachmentIds: string[] = [];
@@ -2876,7 +2951,7 @@ function Composer({ workStatus, activeRun, latestReplyId, onStopRun, avatarMenti
     const before = content.slice(0, mentionStart);
     const after = content.slice(cursor);
     const next = `${before}@${bot.name} ${after}`;
-    onDraftChange((current) => ({ ...current, content: next }));
+    setContent(next, true);
     setMentionQuery(null); setMentionIndex(0);
     requestAnimationFrame(() => {
       const position = before.length + bot.name.length + 2;
@@ -2897,7 +2972,7 @@ function Composer({ workStatus, activeRun, latestReplyId, onStopRun, avatarMenti
     });
   }
   function updateContent(value: string, cursor: number) {
-    onDraftChange((current) => ({ ...current, content: value }));
+    setContent(value);
     const prefix = value.slice(0, cursor); const match = prefix.match(/(?:^|\s)@([^\s@]*)$/);
     if (!match) { setMentionQuery(null); return; }
     setMentionStart(cursor - match[1].length - 1); setMentionQuery(match[1]); setMentionIndex(0);
@@ -2966,7 +3041,7 @@ function Composer({ workStatus, activeRun, latestReplyId, onStopRun, avatarMenti
     pane.addEventListener("dragover", over); pane.addEventListener("dragleave", leave); pane.addEventListener("drop", drop);
     return () => { pane.removeEventListener("dragover", over); pane.removeEventListener("dragleave", leave); pane.removeEventListener("drop", drop); };
   });
-  return <form className={`composer${dragging ? " is-dragging" : ""}${!modelConfigured ? " is-no-model" : ""}${!content.trim() && !attachments.length && !sending ? " is-send-empty" : ""}`} onSubmit={(event) => void submit(event)}>{readOnly ? <div className="composer-tools"><span className="config-warning">{t("composer.archived")}</span></div> : !draftReady ? <DelayedFeedback><div className="composer-tools"><span className="config-warning">{t("composer.restoring_draft")}</span></div></DelayedFeedback> : !modelConfigured && <ModelBanner botId={conversation.kind === "dm" ? conversation.bot_id || conversation.bot_ids[0] : undefined} name={conversation.name} onConnect={onConnectModel} />}{dictation.permissionNeeded && <PermissionCoach permissions={["microphone"]} force onDismiss={dictation.clearPermission} />}{!isDesktop && dictation.starting && <div className="dictation-status is-starting" role="status">{t("composer.mic_connecting")}</div>}{dictation.error && !dictation.permissionNeeded && <div className="dictation-status" role="status">{dictation.error}</div>}<input ref={imageRef} type="file" accept="image/*" hidden multiple onChange={(event) => { addFiles(event.target.files); event.currentTarget.value = ""; }} /><input ref={fileRef} type="file" hidden multiple onChange={(event) => { addFiles(event.target.files); event.currentTarget.value = ""; }} />{workStatus}{!isDesktop && <WebFileDropOverlay key={conversation.id} inputRef={textareaRef} enabled={canCompose && !sending && !dictation.listening && !dictation.busy} onDrop={(files, origin) => { dropOrigin.current = { ...origin, name:files[0].name }; addFiles(files); }} />}<div className="composer-row">{!isDesktop && uploadingKey && <span className="web-upload-ring" aria-hidden="true" />}{!isDesktop && !readOnly && conversation.kind === "dm" && (conversation.bot_id || conversation.bot_ids[0]) && <ComposerPerch key={conversation.id} botId={conversation.bot_id || conversation.bot_ids[0]} sending={sending} working={activeRun?.status === "running"} latestReplyId={latestReplyId} />}{!(dictation.listening || dictation.busy) && <div className="composer-add-wrap" ref={addMenuRef}><button type="button" className="secondary-button" aria-label={t("composer.add_attachment")} aria-expanded={addMenuOpen} aria-haspopup="menu" disabled={sending || !canCompose} onClick={() => setAddMenuOpen((open) => !open)}><Icon name="plus" size={22} /></button>{addMenuOpen && <div className="composer-add-menu" role="menu"><button type="button" role="menuitem" onClick={() => { setAddMenuOpen(false); imageRef.current?.click(); }}><Icon className="composer-add-icon" name="image" size={20} />{t("composer.image")}<kbd>⌘⇧I</kbd></button><button type="button" role="menuitem" onClick={() => { setAddMenuOpen(false); fileRef.current?.click(); }}><Icon className="composer-add-icon" name="file" size={20} />{t("composer.file")}<kbd>⌘⇧F</kbd></button><button type="button" role="menuitem" onClick={() => void captureScreen()}><span className="composer-add-icon"><ComposerGlyph name="screenshot" size={20} /></span>{t("composer.screenshot")}</button><p>{t("composer.drop_hint")}</p></div>}</div>}<div ref={mentionWrapRef} className={`composer-input-wrap${mentionParts ? " has-mentions" : ""}`}>{reply && !readOnly && <div className="composer-reply" role="status"><Icon name="reply" size={15} /><span className="composer-reply-copy"><strong>{t("composer.replying_to", { name: reply.name })}</strong><span>{reply.excerpt}</span></span><button type="button" aria-label={t("composer.cancel_reply")} data-hint={t("composer.cancel_reply")} onClick={() => { onDraftChange(current => ({ ...current, reply: undefined })); textareaRef.current?.focus(); }}><Icon name="close" size={14} /></button></div>}{attachments.length > 0 && <div className="composer-attachments">{attachments.map((attachment) => <span key={attachment.key} className="composer-attachment-pill" data-name={attachment.name}><span className="composer-attachment-type" aria-hidden="true">{attachment.type.startsWith("image/") ? "IMG" : (attachment.name.split(".").pop() || "FILE").slice(0, 4).toUpperCase()}</span><span className="composer-attachment-name">{attachment.name}</span>{uploadingKey === attachment.key && ` · ${t("composer.uploading")}`}{!attachment.file && !attachment.id && ` · ${t("composer.reselect")}`}<button type="button" aria-label={t("composer.remove_attachment", { name: attachment.name })} disabled={sending || !canCompose || dictation.listening || dictation.busy} onClick={() => onDraftChange((current) => ({ ...current, attachments: current.attachments.filter((item) => item.key !== attachment.key) }))}><Icon name="close" size={18} /></button></span>)}</div>}{mentionParts && <div className="composer-rich-text" aria-hidden="true"><div style={{ transform:`translateY(-${composerScrollTop}px)` }}>{mentionParts}</div></div>}<textarea ref={textareaRef} aria-label={t("composer.input_label", { name: conversation.name })} value={content} onPaste={event => { const files = Array.from(event.clipboardData.items).filter(item => item.kind === "file").map(item => item.getAsFile()).filter((file): file is File => file !== null); if (files.length) { event.preventDefault(); addFiles(files); } }} onKeyDown={handleKeyDown} onScroll={(event) => setComposerScrollTop(event.currentTarget.scrollTop)} onChange={(event) => updateContent(event.target.value, event.target.selectionStart)} placeholder={dictation.listening ? t("composer.placeholder_recording") : dictation.busy ? t("composer.placeholder_transcribing") : readOnly ? t("composer.placeholder_archived") : !draftReady ? t("composer.placeholder", { name: conversation.name }) : canCompose ? t("composer.placeholder", { name: conversation.name }) : t("composer.placeholder_no_model")} disabled={!canCompose || sending || dictation.listening || dictation.busy} rows={1} />{mentionQuery !== null && mentionMatches.length > 0 && <div ref={mentionMenuRef} className="mention-menu" role="listbox" aria-label={isDesktop ? undefined : t("composer.mention_label", { name: conversation.name })} style={!isDesktop && mentionAnchor ? { left:mentionAnchor.left, bottom:mentionAnchor.bottom } : undefined}>{!isDesktop && <div className="mention-menu-heading" role="presentation">{t("composer.mention_heading", { name: conversation.name })}</div>}{!isDesktop && mentionPill && <span className="web-mention-pill" aria-hidden="true" style={{ top:mentionPill.top, height:mentionPill.height }} />}{mentionMatches.map((bot, index) => <button type="button" role="option" aria-selected={index === mentionIndex} className={index === mentionIndex ? "selected" : ""} key={bot.id} onMouseEnter={() => setMentionIndex(index)} onMouseDown={(event) => { event.preventDefault(); chooseMention(bot); }}><BotAvatar id={bot.id} mini /><span className="mention-name">{mentionQuery && bot.name.toLocaleLowerCase().startsWith(mentionQuery.toLocaleLowerCase()) ? <><mark>{bot.name.slice(0, mentionQuery.length)}</mark>{bot.name.slice(mentionQuery.length)}</> : bot.name}</span></button>)}{!isDesktop && <div className="mention-menu-hint" role="presentation">{t("composer.mention_hint")}</div>}</div>}</div>{dictation.listening || dictation.busy ? <DictationControls elapsed={dictation.elapsed} levels={dictation.levels} busy={dictation.busy} onCancel={dictation.cancel} onConfirm={dictation.confirm} /> : <>{dictation.supported && <button type="button" className={`dictation-button${!isDesktop && dictation.starting ? " is-starting" : ""}`} aria-label={!isDesktop && dictation.starting ? t("composer.cancel_mic") : t("composer.dictate")} title={!isDesktop && dictation.starting ? t("composer.cancel_mic") : dictation.notice || t("composer.dictate")} disabled={!dictation.starting && (sending || !canCompose)} onClick={!isDesktop && dictation.starting ? dictation.cancel : dictation.start}><ComposerGlyph name="mic" size={20} /></button>}{activeRun && !readOnly && !content.trim() && !attachments.length && <button type="button" className="composer-stop" aria-label={t("composer.stop_label", { name: bots.find(bot => bot.id === activeRun.bot_id)?.name ?? "Bot" })} disabled={!canCompose} onClick={() => void onStopRun(activeRun.id)}><Icon name="stop" size={16} variant="filled" />{t("composer.stop")}</button>}{(Boolean(content.trim()) || attachments.length > 0 || sending) && <button className="send-button" aria-label={t("composer.send")} disabled={(!content.trim() && !attachments.length) || !canCompose || sending || dictation.listening || dictation.busy}>{sending ? "…" : <Icon name="arrow-up" size={26} variant="filled" />}</button>}</>}</div>{fileError && <div className="error-text" role="alert">{fileError}</div>}</form>;
+  return <form className={`composer${dragging ? " is-dragging" : ""}${!modelConfigured ? " is-no-model" : ""}${!content.trim() && !attachments.length && !sending ? " is-send-empty" : ""}`} onSubmit={(event) => void submit(event)}>{readOnly ? <div className="composer-tools"><span className="config-warning">{t("composer.archived")}</span></div> : !draftReady ? <DelayedFeedback><div className="composer-tools"><span className="config-warning">{t("composer.restoring_draft")}</span></div></DelayedFeedback> : !modelConfigured && <ModelBanner botId={conversation.kind === "dm" ? conversation.bot_id || conversation.bot_ids[0] : undefined} name={conversation.name} onConnect={onConnectModel} />}{dictation.permissionNeeded && <PermissionCoach permissions={["microphone"]} force onDismiss={dictation.clearPermission} />}{!isDesktop && dictation.starting && <div className="dictation-status is-starting" role="status">{t("composer.mic_connecting")}</div>}{dictation.error && !dictation.permissionNeeded && <div className="dictation-status" role="status">{dictation.error}</div>}<input ref={imageRef} type="file" accept="image/*" hidden multiple onChange={(event) => { addFiles(event.target.files); event.currentTarget.value = ""; }} /><input ref={fileRef} type="file" hidden multiple onChange={(event) => { addFiles(event.target.files); event.currentTarget.value = ""; }} />{workStatus}{!isDesktop && <WebFileDropOverlay key={conversation.id} inputRef={textareaRef} enabled={canCompose && !sending && !dictation.listening && !dictation.busy} onDrop={(files, origin) => { dropOrigin.current = { ...origin, name:files[0].name }; addFiles(files); }} />}<div className="composer-row">{!isDesktop && uploadingKey && <span className="web-upload-ring" aria-hidden="true" />}{!isDesktop && !readOnly && conversation.kind === "dm" && (conversation.bot_id || conversation.bot_ids[0]) && <ComposerPerch key={conversation.id} botId={conversation.bot_id || conversation.bot_ids[0]} sending={sending} working={activeRun?.status === "running"} latestReplyId={latestReplyId} />}{!(dictation.listening || dictation.busy) && <div className="composer-add-wrap" ref={addMenuRef}><button type="button" className="secondary-button" aria-label={t("composer.add_attachment")} aria-expanded={addMenuOpen} aria-haspopup="menu" disabled={sending || !canCompose} onClick={() => setAddMenuOpen((open) => !open)}><Icon name="plus" size={22} /></button>{addMenuOpen && <div className="composer-add-menu" role="menu"><button type="button" role="menuitem" onClick={() => { setAddMenuOpen(false); imageRef.current?.click(); }}><Icon className="composer-add-icon" name="image" size={20} />{t("composer.image")}<kbd>⌘⇧I</kbd></button><button type="button" role="menuitem" onClick={() => { setAddMenuOpen(false); fileRef.current?.click(); }}><Icon className="composer-add-icon" name="file" size={20} />{t("composer.file")}<kbd>⌘⇧F</kbd></button><button type="button" role="menuitem" onClick={() => void captureScreen()}><span className="composer-add-icon"><ComposerGlyph name="screenshot" size={20} /></span>{t("composer.screenshot")}</button><p>{t("composer.drop_hint")}</p></div>}</div>}<div ref={mentionWrapRef} className={`composer-input-wrap${mentionParts ? " has-mentions" : ""}`}>{reply && !readOnly && <div className="composer-reply" role="status"><Icon name="reply" size={15} /><span className="composer-reply-copy"><strong>{t("composer.replying_to", { name: reply.name })}</strong><span>{reply.excerpt}</span></span><button type="button" aria-label={t("composer.cancel_reply")} data-hint={t("composer.cancel_reply")} onClick={() => { onDraftChange(current => ({ ...current, reply: undefined })); textareaRef.current?.focus(); }}><Icon name="close" size={14} /></button></div>}{attachments.length > 0 && <div className="composer-attachments">{attachments.map((attachment) => <span key={attachment.key} className="composer-attachment-pill" data-name={attachment.name}><span className="composer-attachment-type" aria-hidden="true">{attachment.type.startsWith("image/") ? "IMG" : (attachment.name.split(".").pop() || "FILE").slice(0, 4).toUpperCase()}</span><span className="composer-attachment-name">{attachment.name}</span>{uploadingKey === attachment.key && ` · ${t("composer.uploading")}`}{!attachment.file && !attachment.id && ` · ${t("composer.reselect")}`}<button type="button" aria-label={t("composer.remove_attachment", { name: attachment.name })} disabled={sending || !canCompose || dictation.listening || dictation.busy} onClick={() => onDraftChange((current) => ({ ...current, attachments: current.attachments.filter((item) => item.key !== attachment.key) }))}><Icon name="close" size={18} /></button></span>)}</div>}{mentionParts && <div className="composer-rich-text" aria-hidden="true"><div style={{ transform:`translateY(-${composerScrollTop}px)` }}>{mentionParts}</div></div>}<textarea ref={textareaRef} aria-label={t("composer.input_label", { name: conversation.name })} value={content} onPaste={event => { const files = Array.from(event.clipboardData.items).filter(item => item.kind === "file").map(item => item.getAsFile()).filter((file): file is File => file !== null); if (files.length) { event.preventDefault(); addFiles(files); } }} onKeyDown={handleKeyDown} onScroll={(event) => setComposerScrollTop(event.currentTarget.scrollTop)} onBlur={() => flushContent()} onChange={(event) => updateContent(event.target.value, event.target.selectionStart)} placeholder={dictation.listening ? t("composer.placeholder_recording") : dictation.busy ? t("composer.placeholder_transcribing") : readOnly ? t("composer.placeholder_archived") : !draftReady ? t("composer.placeholder", { name: conversation.name }) : canCompose ? t("composer.placeholder", { name: conversation.name }) : t("composer.placeholder_no_model")} disabled={!canCompose || sending || dictation.listening || dictation.busy} rows={1} />{mentionQuery !== null && mentionMatches.length > 0 && <div ref={mentionMenuRef} className="mention-menu" role="listbox" aria-label={isDesktop ? undefined : t("composer.mention_label", { name: conversation.name })} style={!isDesktop && mentionAnchor ? { left:mentionAnchor.left, bottom:mentionAnchor.bottom } : undefined}>{!isDesktop && <div className="mention-menu-heading" role="presentation">{t("composer.mention_heading", { name: conversation.name })}</div>}{!isDesktop && mentionPill && <span className="web-mention-pill" aria-hidden="true" style={{ top:mentionPill.top, height:mentionPill.height }} />}{mentionMatches.map((bot, index) => <button type="button" role="option" aria-selected={index === mentionIndex} className={index === mentionIndex ? "selected" : ""} key={bot.id} onMouseEnter={() => setMentionIndex(index)} onMouseDown={(event) => { event.preventDefault(); chooseMention(bot); }}><BotAvatar id={bot.id} mini /><span className="mention-name">{mentionQuery && bot.name.toLocaleLowerCase().startsWith(mentionQuery.toLocaleLowerCase()) ? <><mark>{bot.name.slice(0, mentionQuery.length)}</mark>{bot.name.slice(mentionQuery.length)}</> : bot.name}</span></button>)}{!isDesktop && <div className="mention-menu-hint" role="presentation">{t("composer.mention_hint")}</div>}</div>}</div>{dictation.listening || dictation.busy ? <DictationControls elapsed={dictation.elapsed} levels={dictation.levels} busy={dictation.busy} onCancel={dictation.cancel} onConfirm={dictation.confirm} /> : <>{dictation.supported && <button type="button" className={`dictation-button${!isDesktop && dictation.starting ? " is-starting" : ""}`} aria-label={!isDesktop && dictation.starting ? t("composer.cancel_mic") : t("composer.dictate")} title={!isDesktop && dictation.starting ? t("composer.cancel_mic") : dictation.notice || t("composer.dictate")} disabled={!dictation.starting && (sending || !canCompose)} onClick={!isDesktop && dictation.starting ? dictation.cancel : dictation.start}><ComposerGlyph name="mic" size={20} /></button>}{activeRun && !readOnly && !content.trim() && !attachments.length && <button type="button" className="composer-stop" aria-label={t("composer.stop_label", { name: bots.find(bot => bot.id === activeRun.bot_id)?.name ?? "Bot" })} disabled={!canCompose} onClick={() => void onStopRun(activeRun.id)}><Icon name="stop" size={16} variant="filled" />{t("composer.stop")}</button>}{(Boolean(content.trim()) || attachments.length > 0 || sending) && <button className="send-button" aria-label={t("composer.send")} disabled={(!content.trim() && !attachments.length) || !canCompose || sending || dictation.listening || dictation.busy}>{sending ? "…" : <Icon name="arrow-up" size={26} variant="filled" />}</button>}</>}</div>{fileError && <div className="error-text" role="alert">{fileError}</div>}</form>;
 }
 function BotPanel({ bots, activeBot, onExportData, onClose, onUpdate, onCreateGroup, onOpenWork, onOpenMemory, onMakePrimary, memories = [], refreshToken = 0 }: { onMakePrimary?: (id: string) => Promise<void>; onExportData?: (id: string) => void; onOpenWork?: () => void; onOpenMemory?: () => void; memories?: Memory[]; refreshToken?: number; bots: Bot[]; activeBot?: Bot; onClose: () => void; onUpdate: (id: string, input: Partial<Pick<Bot, "name" | "instructions" | "model" | "reasoning_effort">>) => Promise<void>; onCreateGroup: (name: string, botIds: string[]) => Promise<void> }) {
   const { t } = useTranslation("chat");

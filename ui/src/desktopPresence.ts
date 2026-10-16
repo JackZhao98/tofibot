@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { request } from "./api";
+import { sameData } from "./sameData";
 
 export type DesktopPointer = { x: number; y: number; width: number; height: number; action: string; updated_at: string; bot_id: string; run_id: string };
 export type DesktopOwnership = {
@@ -22,13 +23,13 @@ export function useDesktopPresence(enabled = true): DesktopPresenceState {
         if (document.hidden) return;
         const ownership = await request<DesktopOwnership>("/api/computer/desktop-ownership", { signal: abort.signal });
         failures = 0;
-        if (alive) setState({ ownership, unavailable: false });
+        if (alive) setState((previous) => !previous.unavailable && sameData(previous.ownership, ownership) ? previous : { ownership, unavailable: false });
       } catch {
         failures++;
         // A single missed HTTPS poll is normal during tab/Bot switches. Keep
         // the last confirmed owner until two consecutive polls fail so the UI
         // does not flash "control unavailable" for a few hundred milliseconds.
-        if (alive && failures >= 2) setState(previous => ({ ...previous, unavailable: true }));
+        if (alive && failures >= 2) setState(previous => previous.unavailable ? previous : { ...previous, unavailable: true });
       } finally {
         if (alive) timer = window.setTimeout(poll, 1000);
       }
