@@ -722,7 +722,32 @@ func (m *Manager) openMCPClient(runCtx, discoveryCtx context.Context, name strin
 			return next(ctx, method, req)
 		}
 	})
-	cli, err := client.Connect(discoveryCtx, transport, &mcp.ClientSessionOptions{ProtocolVersion: requiredMCPProtocolVersion})
+	// Connect closes its session on cancellation, and the SDK's close waits
+	// (up to its 5s cancel-notification bound) for an unresponsive server to
+	// answer the notifications/cancelled POST. Stop and run cancellation must not
+	// wait on that peer: return as soon as the context ends and let the SDK
+	// finish tearing down in the background.
+	type connected struct {
+		cli *mcp.ClientSession
+		err error
+	}
+	connectDone := make(chan connected, 1)
+	go func() {
+		c, e := client.Connect(discoveryCtx, transport, &mcp.ClientSessionOptions{ProtocolVersion: requiredMCPProtocolVersion})
+		connectDone <- connected{c, e}
+	}()
+	var cli *mcp.ClientSession
+	select {
+	case r := <-connectDone:
+		cli, err = r.cli, r.err
+	case <-discoveryCtx.Done():
+		go func() {
+			if r := <-connectDone; r.cli != nil {
+				_ = r.cli.Close()
+			}
+		}()
+		err = discoveryCtx.Err()
+	}
 	if err != nil {
 		m.invalidateMCPReadiness(name)
 		return nil, fmt.Errorf("connect MCP: %w", err)
