@@ -113,7 +113,7 @@ func StructuredReportPrompt(maxCalls int) string {
 	if maxCalls <= 0 {
 		return ""
 	}
-	return fmt.Sprintf("\n\nOnly the say tool shows the person anything; text you write outside it stays private. Deliver your result with say(answer) as your last action. On longer tasks, give a brief concrete update with say(note) before exceeding %d tool calls since the last one, then continue.\n", maxCalls)
+	return fmt.Sprintf("\n\nText you write outside the say tool is private working text. On longer tasks, give a brief concrete update with say(note) before exceeding %d tool calls since the last one, then continue.\n", maxCalls)
 }
 
 func structuredProgressReminder(limit int) string {
@@ -249,6 +249,11 @@ type AgentConfig struct {
 	// can show a say call's text while it is still being written.
 	StructuredOutput bool
 	OnToolCallDelta  func(provider.ToolCallDelta)
+	// EndOnEmptyFinal, when set, is asked about a model response that has no
+	// text and no tool calls. True ends the run with an empty result instead of
+	// asking the model to continue: the caller owes no answer (for example,
+	// after handing the work to a colleague).
+	EndOnEmptyFinal func() bool
 	// ResolveUnknownTool lets the backend that owns a generic dispatcher
 	// (call_mcp_tool) claim a tool name that is not in this run's tool set. When
 	// it returns ok, the call is rewritten to the returned tool name and
@@ -1635,6 +1640,12 @@ func RunAgentLoop(cfg AgentConfig, ctx *models.ExecutionContext) (returned *Agen
 				return state.ToResult(cfg.Model), nil
 			}
 
+			if cfg.EndOnEmptyFinal != nil && cfg.EndOnEmptyFinal() {
+				ctx.Log("[Agent] Model ended its turn with nothing to add.")
+				state = state.WithMessages(messages)
+				state = state.WithResult("")
+				return state.ToResult(cfg.Model), nil
+			}
 			// Empty, whitespace-only and reasoning-only responses need a continuation.
 			ctx.Log("[Agent] Model returned no visible answer, prompting to continue...")
 			messages = append(messages, provider.Message{

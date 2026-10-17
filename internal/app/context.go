@@ -204,6 +204,10 @@ const taskCompletionGuidance = "Complete the requested deliverable and fields; c
 
 const segmentedReplyGuidance = "Hide internal IDs/labels. Only for an intentional reply to an earlier message, start with its exact same-chat [message_id=UUID] label. Follow newer user instructions.\n"
 
+// sayPrincipleLine is the one steering line of the say protocol. It trails the
+// history, next to the request it answers, where it is read last.
+const sayPrincipleLine = "Deliver your reply by calling say with purpose answer, including when no other tool is needed; never write the reply as plain text."
+
 const reactionAndEmojiGuidance = "Use emoji and reactions sparingly when fitting.\n"
 
 // Shared by scheduled roots and descendants; occurrence receipts remain run-specific.
@@ -621,6 +625,9 @@ func (s *Server) buildContextPartsWith(c Conversation, r Run, bot Bot, cachedMCP
 	noteText := s.runContextNote(context.Background())
 	if states := s.scheduleStateNote(c, r, s.userLocation()); states != "" {
 		noteText += "\n" + states
+	}
+	if r.structured {
+		noteText += "\n" + sayPrincipleLine
 	}
 	note := runtime.Message{Role: "user", Content: noteText}
 	if n := len(pm); n > 0 {

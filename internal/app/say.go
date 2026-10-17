@@ -31,7 +31,7 @@ const (
 
 // sayToolDescription states the contract as principles. It carries no sample
 // wording: examples belong in acceptance tests, not in prompts.
-const sayToolDescription = "The only way text reaches the person; text you write outside this tool is private working text. purpose=answer delivers your result and ends your turn: call it once, as your last action, with the complete reply. purpose=note posts a brief transient progress note while you keep working. purpose=message posts one self-contained message mid-run (at most three per run)."
+const sayToolDescription = "How you speak to the person: every reply goes through this tool, short or long; text you write outside it is private working text. purpose=answer delivers your reply and ends your turn: call it once, as your last action, with the complete reply. purpose=note posts a brief transient progress note while you keep working. purpose=message posts one self-contained message mid-run (at most three per run)."
 
 func migrateSay(db *sql.DB) error {
 	_, err := db.Exec(`CREATE TABLE IF NOT EXISTS run_say_answers(

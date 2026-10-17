@@ -97,6 +97,10 @@ type Request struct {
 	// model is still writing it, in order. It is called from the provider's
 	// stream goroutine and must not block.
 	OnToolCallDelta func(ToolCallDelta)
+	// EndOnEmptyFinal is asked about a model response with no text and no tool
+	// calls; true ends the run with an empty result instead of a nudge to
+	// continue (the caller owes no answer, as after a handoff).
+	EndOnEmptyFinal func() bool
 	BotID           string
 	RunID           string
 	System          string

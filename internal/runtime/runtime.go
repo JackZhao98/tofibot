@@ -497,6 +497,7 @@ func (e *engine) Run(ctx context.Context, req Request) (Result, error) {
 		OnStreamChunk:              onStream,
 		StructuredOutput:           req.StructuredOutput,
 		OnToolCallDelta:            onToolCallDelta,
+		EndOnEmptyFinal:            req.EndOnEmptyFinal,
 		BeforeFinalResponse:        req.BeforeFinalResponse,
 		FinalResponseRepairTools:   append([]string(nil), req.FinalResponseRepairTools...),
 		BeforeModelCall: func() error {

@@ -79,7 +79,7 @@ func (s *Store) postedVisibleText(runID, text string) bool {
 
 // postedVisibleTextFor is postedVisibleText for either protocol. A structured
 // run's folded notes are private working text, so only what a person was shown
-// (kinds '' and 'segment') counts as already said.
+// (a plain message or a segment) counts as already said.
 func (s *Store) postedVisibleTextFor(runID, text string, structured bool) bool {
 	text = normalizeReply(text)
 	if text == "" {
@@ -186,6 +186,10 @@ func (s *Server) groupRespondTools(c Conversation, r Run) []runtime.Tool {
 				return "", errors.New("a scheduled run's reply needs text")
 			}
 			s.dispositions.Store(r.ID, groupChoice{disposition: dispReply, wakes: in.Wake, text: in.Text})
+			if r.structured {
+				// The reply is the turn's last act, as an answer is.
+				runtime.EndTurn(ctx)
+			}
 			return "Recorded. This is your final message; the listed Bots start after it is published. Write nothing more.", nil
 		case dispSilent, dispConcluded, dispFollowUp:
 			if len(in.Wake) > 0 {

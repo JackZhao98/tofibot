@@ -118,7 +118,7 @@ func TestStructuredOutputSwitchesTheProgressGuidance(t *testing.T) {
 	if !strings.Contains(legacy, "<progress>") || strings.Contains(structured, "progress>") {
 		t.Fatalf("tag guidance: legacy=%q structured=%q", legacy, structured)
 	}
-	if !strings.Contains(structured, "say(answer)") || !strings.Contains(structured, "say(note)") {
+	if !strings.Contains(structured, "say(note)") || !strings.Contains(structured, "private working text") {
 		t.Fatalf("structured guidance lacks the protocol: %q", structured)
 	}
 	if len([]rune(structured)) >= len([]rune(legacy)) {
