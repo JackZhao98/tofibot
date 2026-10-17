@@ -52,3 +52,6 @@ __pycache__/
 /artifacts/
 /ui/.settings-shell-*/
 /ui/.settings-polish-*/
+
+# Eval outputs hold model replies
+/eval/results/
