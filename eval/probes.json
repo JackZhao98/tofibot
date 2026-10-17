@@ -1,0 +1,29 @@
+{
+  "note": "All wording is synthetic. {bot:<persona>} is replaced by that Bot's chosen name; {utc+Nm} by a UTC HH:MM time N minutes from posting.",
+  "probes": [
+    {"id": "dm_emotion_commute", "category": "dm_smalltalk", "target": "dm:assistant", "turns": ["Ugh, today was long. My train got cancelled and I walked home in the rain."], "expected_visible": [1, 1], "owes_answer": true},
+    {"id": "dm_greeting_tired", "category": "dm_smalltalk", "target": "dm:analogy", "turns": ["good morning! slept terribly though"], "expected_visible": [1, 1], "owes_answer": true},
+    {"id": "dm_thanks", "category": "dm_smalltalk", "target": "dm:technews", "turns": ["Which is the better default for a small team, tabs or spaces?", "ok thanks, that settles it"], "expected_visible": [1, 1], "owes_answer": true},
+    {"id": "dm_opinion_tabs", "category": "dm_opinion", "target": "dm:technews", "turns": ["Is a smaller on-device model enough for a notes app, or is that wishful thinking? Give me your actual take."], "expected_visible": [1, 1], "owes_answer": true},
+    {"id": "dm_opinion_decision", "category": "dm_opinion", "target": "dm:assistant", "turns": ["I can't decide between learning one language deeply or a few shallowly. What would you do?"], "expected_visible": [1, 1], "owes_answer": true},
+    {"id": "dm_pushback_names", "category": "dm_pushback", "target": "dm:assistant", "turns": ["Suggest a name for a small plant shop.", "Hmm, I don't love any of those. Honestly they sound generic."], "expected_visible": [1, 1], "owes_answer": true},
+    {"id": "dm_pushback_fact", "category": "dm_pushback", "target": "dm:technews", "turns": ["Are Python lists immutable?", "That's wrong, I'm pretty sure you got it backwards."], "expected_visible": [1, 1], "owes_answer": true},
+    {"id": "dm_recommend_book", "category": "dm_recommend", "target": "dm:assistant", "turns": ["Recommend one book for a long flight. I like quiet, slow stories."], "expected_visible": [1, 1], "owes_answer": true},
+    {"id": "dm_recommend_weekend", "category": "dm_recommend", "target": "dm:analogy", "turns": ["I have a free rainy Sunday and a small apartment. What should I do with it?"], "expected_visible": [1, 1], "owes_answer": true},
+    {"id": "dm_explain_analogy", "category": "dm_explain", "target": "dm:analogy", "turns": ["Explain eventual consistency to me with an analogy."], "expected_visible": [1, 1], "owes_answer": true},
+    {"id": "dm_explain_hashmap", "category": "dm_explain", "target": "dm:technews", "turns": ["Briefly, how does a hash map deal with collisions?"], "expected_visible": [1, 1], "owes_answer": true},
+    {"id": "dm_task_memories", "category": "dm_task_tools", "target": "dm:assistant", "turns": ["Please remember three separate things about me: my cat is called Juniper, I drink oat milk, and my standup is at 9:15 on weekdays. Then tell me what you now know about me."], "expected_visible": [1, 1], "owes_answer": true},
+    {"id": "dm_task_memory_review", "category": "dm_task_tools", "target": "dm:analogy", "turns": ["Save a note that my sister's birthday is on the 14th and that she likes lemon cake, then read your notes back to me."], "expected_visible": [1, 1], "owes_answer": true},
+    {"id": "dm_lookup_unknown_term", "category": "dm_lookup", "target": "dm:technews", "turns": ["What is the Karvonen-Okafor plateau in tide modelling? I keep seeing it mentioned."], "expected_visible": [1, 1], "owes_answer": true, "record_lookup": true},
+    {"id": "dm_lookup_unknown_project", "category": "dm_lookup", "target": "dm:assistant", "turns": ["Have you heard of a library called Pellucid-Rack? What does it do?"], "expected_visible": [1, 1], "owes_answer": true, "record_lookup": true},
+    {"id": "dm_askback_vague", "category": "dm_askback", "target": "dm:assistant", "turns": ["Set up the thing for next week like we talked about."], "expected_visible": [1, 1], "owes_answer": true},
+    {"id": "dm_askback_underspecified", "category": "dm_askback", "target": "dm:analogy", "turns": ["Write the message to the landlord."], "expected_visible": [1, 1], "owes_answer": true},
+    {"id": "group_chat_coffee", "category": "group_unaddressed", "target": "group", "turns": ["Morning everyone, anyone else drinking way too much coffee today?"], "expected_visible": [0, 3], "owes_answer": false},
+    {"id": "group_chat_question", "category": "group_unaddressed", "target": "group", "turns": ["Does anyone have a good way to explain DNS to a ten year old?"], "expected_visible": [1, 3], "owes_answer": false},
+    {"id": "group_chat_thanks", "category": "group_unaddressed", "target": "group", "turns": ["Thanks all, that's everything for today."], "expected_visible": [0, 1], "owes_answer": false},
+    {"id": "group_mention_task", "category": "group_mention", "target": "group", "turns": ["@{bot:assistant} please write a two-line note I can paste into the team channel saying the demo moved to Thursday."], "expected_visible": [1, 1], "owes_answer": true},
+    {"id": "group_mention_debate", "category": "group_debate", "target": "group", "turns": ["@{bot:technews} @{bot:analogy} settle something for me: is it better to learn one language deeply or several shallowly? Take opposite sides and argue it out."], "expected_visible": [2, 4], "owes_answer": true},
+    {"id": "group_lead_delegate", "category": "group_delegate", "target": "group", "turns": ["@{bot:assistant} get {bot:analogy} to write a one-sentence analogy for caching, then tell me what it came up with."], "expected_visible": [1, 3], "owes_answer": true},
+    {"id": "schedule_report", "category": "schedule", "target": "dm:assistant", "turns": ["Set a one-time schedule for {utc+2m} UTC today: post a three-bullet summary of what you remember about me in this chat. Confirm briefly once it is set."], "expected_visible": [2, 2], "owes_answer": true, "await_schedule": true, "wait_seconds": 300}
+  ]
+}
