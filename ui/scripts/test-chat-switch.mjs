@@ -359,8 +359,14 @@ for (const reduced of [true, false]) {
     const offscreen = anims.filter(a => a.state === "running" && !a.inView);
     assert.equal(offscreen.length, 0, `animation ran off-screen in ${offscreen.length} samples (${[...new Set(offscreen.map(a => a.name))].join(",")})`);
     // One arrival: the bubble must not be moving (apart from the animation) after the jump completes; one jump only.
-    const jumps = frames.slice(1).filter((frame, i) => Math.abs(frame.scrollTop - frames[i].scrollTop) > 40);
-    assert.ok(jumps.length <= 1, `${jumps.length} large scroll jumps (double jump)`);
+    // The list goes to the bottom the moment Enter is pressed (one jump), then the arriving bubble pushes the
+    // newest message up by its own height as it is appended; nothing moves after that.
+    const arrived = frames.findIndex(frame => frame.seen.some(item => item.id.includes("_sent")));
+    assert.ok(arrived > 0, "the sent bubble arrived");
+    const jumpsBefore = frames.slice(1, arrived).filter((frame, i) => Math.abs(frame.scrollTop - frames[i].scrollTop) > 40);
+    const jumpsAfter = frames.slice(arrived + 1).filter((frame, i) => Math.abs(frame.scrollTop - frames[arrived + i].scrollTop) > 40);
+    assert.ok(jumpsBefore.length <= 1, `${jumpsBefore.length} large scroll jumps before the bubble arrived (double jump)`);
+    assert.equal(jumpsAfter.length, 0, `${jumpsAfter.length} large scroll jumps after the bubble arrived`);
     if (reduced) {
       const sentRunning = anims.filter(a => a.state === "running");
       assert.equal(sentRunning.length, 0, "no travelling animation under reduced motion");
