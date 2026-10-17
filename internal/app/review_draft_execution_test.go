@@ -26,12 +26,21 @@ func (e reviewDraftEngine) Run(ctx context.Context, req runtime.Request) (runtim
 
 func runReviewDraft(t *testing.T, finish func(*Server, Run) func(context.Context, runtime.Request) (runtime.Result, error)) (*Server, Run, []Message) {
 	t.Helper()
+	return runReviewDraftMode(t, finish, true)
+}
+
+// runReviewDraftMode is runReviewDraft under either output protocol.
+func runReviewDraftMode(t *testing.T, finish func(*Server, Run) func(context.Context, runtime.Request) (runtime.Result, error), structured bool) (*Server, Run, []Message) {
+	t.Helper()
 	engine := &reviewDraftEngine{}
 	s, err := NewServer(Config{DataDir: t.TempDir(), Engine: engine})
 	if err != nil {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { s.Close() })
+	if err := s.store.putUserStructuredOutput(structured); err != nil {
+		t.Fatal(err)
+	}
 	b, err := s.store.CreateBot("secretary", "", "model")
 	if err != nil {
 		t.Fatal(err)

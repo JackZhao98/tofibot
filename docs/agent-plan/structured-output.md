@@ -271,3 +271,15 @@ persona generator (fix the generator, never a single Bot):
   recommended; (b) refused (the handoff line is the turn's visible act).
 - D6 Rollout: (a) workspace flag, default on in the rc, recommended;
   (b) hard switch; (c) per-Bot opt-in.
+
+## 11. Implementation notes: Phases 1 and 2 (branch feat/structured-output-say)
+
+What was built, and where it differs from the sections above.
+
+- `say(purpose, text)` exists only with the workspace flag on (`user_preferences.structured_output`, default on, Settings → General → Chat). With the flag off no request, prompt or publication path changes. A run reads the flag once when it starts.
+- `answer` is recorded in `run_say_answers` (one row per run, keyed by the provider call ID) and the loop ends through `runtime.EndTurn`, which cancels the loop after the tool result is recorded. The host then publishes the recorded text through the normal finish path, so the streamed draft keeps its identity, attachments, follow-ups and result forwarding work as before. A resumed run that already holds a recorded answer is finished from it with no model call. This differs from "publish inside the tool, then cancel as respond(silent) does" only in where publication happens; the cancellation is the same idea, but a crash between recording and publishing is recoverable.
+- `note` is stored as kind `progress` (client id `say-note:`), `message` as kind `segment` (client id `chat-segment:`, so the cap of three and the 420 ms pacing are shared with `send_chat_message`). Both adopt the draft their text streamed into.
+- Plain assistant text between tool calls is stored as one folded `progress` message per turn, which "View activity" already renders. The `stream_assistant_turns` replay record is still written; Phase 4 stops that.
+- Rule 3 promotes the last say note or message (client id `say-note:` or `chat-segment:`) by rewriting its kind to `''` and emitting a `message` event. Plain internal text is never promoted: a run with only internal text and no final text fails with `no_final_answer`.
+- Streaming: the decoder lives in `internal/saystream` and is fed from `ToolCallDelta` fragments for Anthropic (`input_json_delta`), OpenAI Responses (`function_call_arguments.delta`), Codex (same client) and Chat Completions. Gemini returns a function call whole (`internal/provider/gemini.go`), so its `say` text appears at once, complete; this is recorded by a test, not worked around. A backend that sends Responses arguments only in the done event behaves the same way.
+- Two things the doc did not state: the completion review (`taskCompletionFinalReview`) runs on a text-only final, so a run that ends with `say(answer)` skips it; a scheduled run must have `complete_scheduled_task` completed before `say(answer)` is accepted.

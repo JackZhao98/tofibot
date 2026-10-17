@@ -114,7 +114,7 @@ func (s *Server) botDebugPreview(w http.ResponseWriter, r *http.Request, botID s
 		return
 	}
 
-	run := Run{BotID: bot.ID, ConversationID: conversation.ID}
+	run := Run{BotID: bot.ID, ConversationID: conversation.ID, structured: s.store.structuredOutputOn()}
 	_, core := s.buildContextParts(conversation, run, bot)
 	system, promptErr := assembleRunSystem(runSystemPrompt{Core: core, BotInstructions: bot.Instructions, Durable: runtimeDurablePrompt, Computer: s.microVMEnvironmentPrompt(r.Context(), bot.ID), Capabilities: runtimeCapabilityPrompt})
 	if promptErr != nil {
