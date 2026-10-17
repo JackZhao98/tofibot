@@ -911,3 +911,36 @@ func TestSayPrincipleLineSitsBesideTheRequestOnlyWhenStructured(t *testing.T) {
 		}
 	}
 }
+
+// A final draft sent back for review stays on screen until the next response
+// streams. Starting a say call then resets that draft and the say streamer
+// together; doing so under the streamer's own lock deadlocked the run.
+func TestSayStreamStartingAfterAReviewDraftDoesNotDeadlock(t *testing.T) {
+	s, run := dmRun(t, dmFuncEngine(func(ctx context.Context, req runtime.Request) (runtime.Result, error) {
+		const draft = "A first attempt at the answer."
+		req.OnDelta(draft)
+		if err := req.OnReviewDraft(1, draft); err != nil {
+			return runtime.Result{}, err
+		}
+		streamed := make(chan struct{})
+		go func() {
+			defer close(streamed)
+			req.OnToolCallDelta(runtime.ToolCallDelta{Index: 0, ID: "call-s", Name: "say"})
+			req.OnToolCallDelta(runtime.ToolCallDelta{Index: 0, Arguments: `{"purpose":"answer","text":"The reviewed answer."}`})
+		}()
+		select {
+		case <-streamed:
+		case <-time.After(5 * time.Second):
+			return runtime.Result{}, errors.New("streaming a say call after a review draft deadlocked")
+		}
+		_, err := say(ctx, req, "call-s", "answer", "The reviewed answer.")
+		return runtime.Result{}, err
+	}))
+	if run.Status != "done" {
+		t.Fatalf("run=%+v", run)
+	}
+	// The reviewed answer replaces the kept draft; the draft is not also posted.
+	if rows := assistantRows(t, s.store, run.ConversationID); !equalStrings(kindsAndText(rows), []string{"|The reviewed answer."}) {
+		t.Fatalf("messages = %q", kindsAndText(rows))
+	}
+}
