@@ -8,6 +8,7 @@ import (
 	"log"
 	"net/url"
 	"strings"
+	"sync/atomic"
 	"time"
 
 	"github.com/JackZhao98/tofibot/internal/agent"
@@ -27,6 +28,13 @@ const (
 // Keep the provider-request regression test in sync if that configuration changes.
 func SystemPromptOverheadRunes() int {
 	return len([]rune(agent.ProgressReportPrompt(defaultToolCallsBetweenReports)))
+}
+
+// StructuredPromptOverheadRunes is the same suffix for a run that follows the
+// say protocol. It is shorter than SystemPromptOverheadRunes, which therefore
+// remains a valid reservation for both.
+func StructuredPromptOverheadRunes() int {
+	return len([]rune(agent.StructuredReportPrompt(defaultToolCallsBetweenReports)))
 }
 
 type continuationEnvelope struct {
@@ -125,6 +133,17 @@ type toolCallIDContextKey struct{}
 // WithToolCallID binds the provider call id a built-in tool executes under.
 func WithToolCallID(ctx context.Context, id string) context.Context {
 	return context.WithValue(ctx, toolCallIDContextKey{}, id)
+}
+
+type endTurnContextKey struct{}
+
+// EndTurn asks the loop to stop once the executing tool's result is recorded.
+// It is a no-op when the tool runs outside an engine (for example in a test
+// that calls the tool directly).
+func EndTurn(ctx context.Context) {
+	if f, ok := ctx.Value(endTurnContextKey{}).(func()); ok && f != nil {
+		f()
+	}
 }
 
 // ToolCallID identifies the provider call currently executing a built-in tool.
@@ -291,6 +310,7 @@ func (e *engine) Run(ctx context.Context, req Request) (Result, error) {
 	}
 	runCtx, cancelRun := context.WithCancel(ctx)
 	defer cancelRun()
+	var turnEnded atomic.Bool
 	runCtx, userWait := withUserWaitBudget(runCtx)
 	runCtx = withSuspensionControl(runCtx, req.OnSuspend != nil)
 	extraTools := make([]agent.ExtraBuiltinTool, 0, len(req.Tools))
@@ -338,6 +358,7 @@ func (e *engine) Run(ctx context.Context, req Request) (Result, error) {
 				Name:        rawTool.Name,
 				Description: rawTool.Description,
 				Parameters:  params,
+				Strict:      rawTool.Strict,
 			},
 			HandlerCtx: func(toolCtx context.Context, args map[string]interface{}) (string, error) {
 				if err := tracker.Err(); err != nil {
@@ -372,6 +393,7 @@ func (e *engine) Run(ctx context.Context, req Request) (Result, error) {
 				}
 				executionCtx := tooloutcome.WithExecutionIdentity(toolCtx, identity)
 				executionCtx = context.WithValue(executionCtx, toolCallIDContextKey{}, callID)
+				executionCtx = context.WithValue(executionCtx, endTurnContextKey{}, func() { turnEnded.Store(true) })
 				result, executeErr := executeWithDeadline(executionCtx, rawTool.Name, EffectiveToolTimeout(rawTool), identity.Risk == tooloutcome.Observation, func(ctx context.Context) (string, error) {
 					return rawTool.Execute(ctx, encoded)
 				})
@@ -413,6 +435,12 @@ func (e *engine) Run(ctx context.Context, req Request) (Result, error) {
 	var onStream func(string, string)
 	if req.OnDelta != nil {
 		onStream = func(_ string, delta string) { req.OnDelta(delta) }
+	}
+	var onToolCallDelta func(provider.ToolCallDelta)
+	if req.OnToolCallDelta != nil {
+		onToolCallDelta = func(d provider.ToolCallDelta) {
+			req.OnToolCallDelta(ToolCallDelta{Index: d.Index, ID: d.ID, Name: d.Name, Arguments: d.Arguments})
+		}
 	}
 	var onThinking func(string, string)
 	if req.OnThinking != nil {
@@ -467,6 +495,8 @@ func (e *engine) Run(ctx context.Context, req Request) (Result, error) {
 		OnUsage:                    req.OnUsage,
 		OnCompact:                  req.OnCompact,
 		OnStreamChunk:              onStream,
+		StructuredOutput:           req.StructuredOutput,
+		OnToolCallDelta:            onToolCallDelta,
 		BeforeFinalResponse:        req.BeforeFinalResponse,
 		FinalResponseRepairTools:   append([]string(nil), req.FinalResponseRepairTools...),
 		BeforeModelCall: func() error {
@@ -501,9 +531,26 @@ func (e *engine) Run(ctx context.Context, req Request) (Result, error) {
 				if tracker.Err() != nil {
 					cancelRun()
 				}
+				// A tool that ended the turn has its result recorded now; stop
+				// before the loop spends another model call or runs a later
+				// tool of the same batch.
+				if turnEnded.Load() {
+					cancelRun()
+				}
 			}
 		},
 	}, execCtx)
+	if turnEnded.Load() && ctx.Err() == nil && tracker.Err() == nil {
+		// The loop stopped because a tool ended the turn: it surfaces as a
+		// cancelled state, or as the cancellation error of a later tool in
+		// the same batch.
+		if err == nil && result != nil && result.Cancelled {
+			return Result{TurnEnded: true, InputTokens: result.TotalUsage.InputTokens, OutputTokens: result.TotalUsage.OutputTokens}, nil
+		}
+		if errors.Is(err, context.Canceled) {
+			return Result{TurnEnded: true}, nil
+		}
+	}
 	if callbackErr := tracker.Err(); callbackErr != nil {
 		return Result{}, callbackErr
 	}
