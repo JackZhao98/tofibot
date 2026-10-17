@@ -605,11 +605,13 @@ func TestSayTextStreamsIntoTheDraftAndBecomesTheMessage(t *testing.T) {
 	}
 	deltas := deltaTexts(t, s.store, run.ConversationID)
 	joined := strings.Join(deltas, "")
-	if !strings.HasSuffix(joined, "Revenue grew four percent.") || len(deltas) < 4 {
+	// Only the say text ever enters the chat draft: the plain text of the same
+	// response goes to the live status line.
+	if joined != "Revenue grew four percent." || len(deltas) < 3 {
 		t.Fatalf("deltas = %q", deltas)
 	}
-	if len(eventsOfType(t, s.store, run.ConversationID, "draft_reset")) != 1 {
-		t.Fatal("the plain text of the answering response was not discarded from the draft")
+	if len(eventsOfType(t, s.store, run.ConversationID, "draft_reset")) != 0 {
+		t.Fatal("the draft was reset although no plain text ever entered it")
 	}
 	rows := assistantRows(t, s.store, run.ConversationID)
 	if !equalStrings(kindsAndText(rows), []string{"|Revenue grew four percent."}) {
@@ -912,10 +914,10 @@ func TestSayPrincipleLineSitsBesideTheRequestOnlyWhenStructured(t *testing.T) {
 	}
 }
 
-// A final draft sent back for review stays on screen until the next response
-// streams. Starting a say call then resets that draft and the say streamer
-// together; doing so under the streamer's own lock deadlocked the run.
-func TestSayStreamStartingAfterAReviewDraftDoesNotDeadlock(t *testing.T) {
+// A final draft sent back for review used to reset the say streamer when the
+// next response started a say call, dropping every fragment after the first.
+// The answer must keep growing in the draft fragment by fragment.
+func TestSayStreamAfterAReviewDraftKeepsEveryFragment(t *testing.T) {
 	s, run := dmRun(t, dmFuncEngine(func(ctx context.Context, req runtime.Request) (runtime.Result, error) {
 		const draft = "A first attempt at the answer."
 		req.OnDelta(draft)
@@ -926,21 +928,48 @@ func TestSayStreamStartingAfterAReviewDraftDoesNotDeadlock(t *testing.T) {
 		go func() {
 			defer close(streamed)
 			req.OnToolCallDelta(runtime.ToolCallDelta{Index: 0, ID: "call-s", Name: "say"})
-			req.OnToolCallDelta(runtime.ToolCallDelta{Index: 0, Arguments: `{"purpose":"answer","text":"The reviewed answer."}`})
+			for _, frag := range []string{`{"purpose":"answer",`, `"text":"The reviewed `, `answer, in `, `three parts."}`} {
+				req.OnToolCallDelta(runtime.ToolCallDelta{Index: 0, Arguments: frag})
+				time.Sleep(70 * time.Millisecond)
+			}
 		}()
 		select {
 		case <-streamed:
 		case <-time.After(5 * time.Second):
 			return runtime.Result{}, errors.New("streaming a say call after a review draft deadlocked")
 		}
-		_, err := say(ctx, req, "call-s", "answer", "The reviewed answer.")
+		_, err := say(ctx, req, "call-s", "answer", "The reviewed answer, in three parts.")
 		return runtime.Result{}, err
 	}))
 	if run.Status != "done" {
 		t.Fatalf("run=%+v", run)
 	}
+	if deltas := deltaTexts(t, s.store, run.ConversationID); strings.Join(deltas, "") != "The reviewed answer, in three parts." || len(deltas) < 3 {
+		t.Fatalf("draft deltas = %q, want the answer growing fragment by fragment", deltas)
+	}
 	// The reviewed answer replaces the kept draft; the draft is not also posted.
-	if rows := assistantRows(t, s.store, run.ConversationID); !equalStrings(kindsAndText(rows), []string{"|The reviewed answer."}) {
+	if rows := assistantRows(t, s.store, run.ConversationID); !equalStrings(kindsAndText(rows), []string{"|The reviewed answer, in three parts."}) {
 		t.Fatalf("messages = %q", kindsAndText(rows))
+	}
+}
+
+// Finding 8: notes are bounded like messages.
+func TestSayNoteIsCappedPerRun(t *testing.T) {
+	var last error
+	s, run := dmRun(t, dmFuncEngine(func(ctx context.Context, req runtime.Request) (runtime.Result, error) {
+		for i := 1; i <= maxSayNotes; i++ {
+			if _, err := say(ctx, req, fmt.Sprintf("n%d", i), "note", fmt.Sprintf("progress %d", i)); err != nil {
+				return runtime.Result{}, err
+			}
+		}
+		_, last = say(ctx, req, "n-over", "note", "one too many")
+		_, err := say(ctx, req, "a1", "answer", "done")
+		return runtime.Result{}, err
+	}))
+	if last == nil || !strings.Contains(last.Error(), "limit") {
+		t.Fatalf("note over the cap: %v", last)
+	}
+	if rows := assistantRows(t, s.store, run.ConversationID); len(rows) != maxSayNotes+1 {
+		t.Fatalf("rows = %d", len(rows))
 	}
 }

@@ -202,9 +202,10 @@ func (s *Store) publishAssistantTurn(ctx context.Context, runID string, turnInde
 // PublishInternalTurn stores a completed mid-run assistant turn of a structured
 // run. Its plain text is private working text: the whole turn is one folded
 // note (kind "progress") that "View activity" shows, never a chat message.
-// Literal <progress> tags of legacy Bots are stripped. The draft identity and
-// the turn index replay record work exactly as in PublishAssistantTurn.
-func (s *Store) PublishInternalTurn(ctx context.Context, runID string, turnIndex int, content string, adoptDraft bool) (Message, bool, error) {
+// Literal <progress> tags of legacy Bots are stripped. The note never takes the
+// stream draft's identity (only a say call's text streams into the draft); the
+// turn index replay record works as in PublishAssistantTurn.
+func (s *Store) PublishInternalTurn(ctx context.Context, runID string, turnIndex int, content string) (Message, bool, error) {
 	if err := ctx.Err(); err != nil {
 		return Message{}, false, err
 	}
@@ -218,7 +219,7 @@ func (s *Store) PublishInternalTurn(ctx context.Context, runID string, turnIndex
 	if len([]rune(content)) > maxStreamDraftRunes {
 		return Message{}, false, errors.New("assistant turn content exceeds maximum size")
 	}
-	return s.publishAssistantPartsOpts(ctx, runID, turnIndex, []textPart{{Text: content, Progress: true}}, publishOpts{adopt: adoptDraft})
+	return s.publishAssistantPartsOpts(ctx, runID, turnIndex, []textPart{{Text: content, Progress: true}}, publishOpts{})
 }
 
 // publishAssistantParts stores parts as consecutive messages. The first takes

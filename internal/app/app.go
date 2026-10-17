@@ -3371,6 +3371,9 @@ func (s *Server) execute(c Conversation, r Run) {
 	}
 	var streamMu sync.Mutex
 	var streamErr error
+	// observedToolWork arms the completion review; reviewed records that the
+	// review (on a text final or on a say answer) has already been spent.
+	var observedToolWork, reviewed atomic.Bool
 	if r.Kind != runKindTriage {
 		var initErr error
 		var controls streamControlSet
@@ -3381,12 +3384,20 @@ func (s *Server) execute(c Conversation, r Run) {
 		}
 		onDelta, flushStream, onStreamReset = controls.Delta, controls.Flush, controls.Reset
 		if structured {
-			// A say call's text streams into the same draft the plain text
-			// would; a draft kept for review gives way to it first.
+			// A say call's text is the only thing that streams into the chat
+			// draft; plain text goes to the live status line instead.
 			state := &sayRunState{
-				raw:   func(text string) { resetDemotedDraft(); controls.Raw(text) },
-				reset: func() { resetDemotedDraft(); controls.Reset() },
+				raw:   controls.Raw,
+				reset: controls.Reset,
 				flush: controls.Flush,
+				demote: func(text string) {
+					demotedMu.Lock()
+					demoted = demotedDraft{turn: maxAssistantTurns, content: text}
+					demotedMu.Unlock()
+				},
+			}
+			if r.Kind != runKindSchedule && r.scheduleTask == nil {
+				state.review = func() bool { return observedToolWork.Load() && !reviewed.Swap(true) }
 			}
 			s.sayRuns.Store(r.ID, state)
 			defer s.sayRuns.Delete(r.ID)
@@ -3404,13 +3415,18 @@ func (s *Server) execute(c Conversation, r Run) {
 		onReviewDraft = func(turnIndex int, content string) error {
 			flushStream()
 			demotedMu.Lock()
-			demoted = demotedDraft{turn: turnIndex, content: cleanBotOutput(content, botCfg), resetPending: true}
+			demoted = demotedDraft{turn: turnIndex, content: cleanBotOutput(content, botCfg), resetPending: !structured}
 			demotedMu.Unlock()
 			streamMu.Lock()
 			defer streamMu.Unlock()
 			return streamErr
 		}
 		streamDelta := onDelta
+		if structured {
+			// Plain text may turn out to be private working text, so it never
+			// enters the chat draft; the live status line shows it instead.
+			streamDelta = onThinking
+		}
 		onDelta = func(text string) {
 			if text != "" {
 				resetDemotedDraft()
@@ -3433,9 +3449,8 @@ func (s *Server) execute(c Conversation, r Run) {
 			var err error
 			if structured {
 				// Plain text between tool calls is private working text: it is
-				// kept for "View activity" as a folded note, not posted. If a
-				// say call's text holds the draft, the note leaves it alone.
-				message, _, err = s.store.PublishInternalTurn(ctx, r.ID, turnIndex, content, !sayDraftHeld(s, r.ID))
+				// kept for "View activity" as a folded note, not posted.
+				message, _, err = s.store.PublishInternalTurn(ctx, r.ID, turnIndex, content)
 			} else {
 				message, _, err = s.store.PublishAssistantTurn(ctx, r.ID, turnIndex, content)
 			}
@@ -3498,7 +3513,6 @@ func (s *Server) execute(c Conversation, r Run) {
 		cancel()
 		return context.Canceled
 	}
-	var observedToolWork atomic.Bool
 	if len(continuation) > 0 {
 		observed, observeErr := s.store.hasCompletionReviewToolWork(r.ID)
 		if observeErr != nil {
@@ -3512,6 +3526,15 @@ func (s *Server) execute(c Conversation, r Run) {
 		reviewKind = runKindSchedule
 	}
 	finalReview := taskCompletionFinalReview(observedToolWork.Load)
+	if inner := finalReview; inner != nil {
+		finalReview = func(content string) (string, error) {
+			reminder, err := inner(content)
+			if reminder != "" {
+				reviewed.Store(true)
+			}
+			return reminder, err
+		}
+	}
 	var finalRepairTools []string
 	if reviewKind == runKindSchedule {
 		finalRepairTools = []string{"complete_scheduled_task"}
@@ -3525,6 +3548,7 @@ func (s *Server) execute(c Conversation, r Run) {
 			return s.store.HasCompletedTool(r.ID, "complete_scheduled_task")
 		})
 	}
+	runEngine := engine
 	var onToolCallDelta func(runtime.ToolCallDelta)
 	if sayStream != nil {
 		onToolCallDelta = sayStream.Delta
@@ -3533,7 +3557,7 @@ func (s *Server) execute(c Conversation, r Run) {
 		// The process died after the answer was recorded and before it was
 		// published: finish from the record, with no further model call.
 		log.Printf("[run] %s resumes with its answer already recorded; finishing without a model call", r.ID)
-		engine = answeredEngine{}
+		runEngine = answeredEngine{}
 	}
 	var endOnEmptyFinal func() bool
 	if structured {
@@ -3541,7 +3565,7 @@ func (s *Server) execute(c Conversation, r Run) {
 		// text private, ending quietly is how that turn closes.
 		endOnEmptyFinal = func() bool { return hasHandoff(s.store, r.ID) }
 	}
-	res, e := engine.Run(ctx, Request{BotID: r.BotID, RunID: r.ID, ConversationID: c.ID, System: system, Model: model, ReasoningEffort: reasoningEffort, Messages: pm, Tools: tools, OnDelta: onDelta, StructuredOutput: structured, OnToolCallDelta: onToolCallDelta, EndOnEmptyFinal: endOnEmptyFinal, BeforeModelCall: steeringBoundary, BeforeFinalResponse: finalReview, FinalResponseRepairTools: finalRepairTools, OnAssistantTurn: onAssistantTurn,
+	res, e := runEngine.Run(ctx, Request{BotID: r.BotID, RunID: r.ID, ConversationID: c.ID, System: system, Model: model, ReasoningEffort: reasoningEffort, Messages: pm, Tools: tools, OnDelta: onDelta, StructuredOutput: structured, OnToolCallDelta: onToolCallDelta, EndOnEmptyFinal: endOnEmptyFinal, BeforeModelCall: steeringBoundary, BeforeFinalResponse: finalReview, FinalResponseRepairTools: finalRepairTools, OnAssistantTurn: onAssistantTurn,
 		OnThinking: onThinking, OnRetry: onRetry, OnStreamReset: onStreamReset, OnReviewDraft: onReviewDraft,
 		Continuation:      continuation,
 		ResumeResult:      s.inputResumeResult(answeredQuestion),
@@ -3675,7 +3699,9 @@ func (s *Server) execute(c Conversation, r Run) {
 			s.store.noteFinalOrigin(r.ID, heuristicExactDup)
 		}
 	}
-	if sayRec, said := s.store.sayAnswer(r.ID); structured && said {
+	sayRec, said := s.store.sayAnswer(r.ID)
+	said = structured && said
+	if said {
 		// say(answer) is the run's answer; text after it is not published.
 		res.Content = sayRec.Text
 		repliedFinal = false
@@ -3703,7 +3729,7 @@ func (s *Server) execute(c Conversation, r Run) {
 			s.failRun(c, r, errors.New(scheduleFailureDetail(res.Content, botCfg)))
 			return
 		}
-		if !replied {
+		if !replied && !said {
 			// The recorded result is the deliverable; a final answer that only refers
 			// to it ("as above") would leave the conversation without the result.
 			if args, argsErr := s.store.CompletedToolArguments(r.ID, "complete_scheduled_task"); argsErr == nil {
@@ -3763,6 +3789,15 @@ func (s *Server) execute(c Conversation, r Run) {
 		finalNotes, finalAnswer = nil, strings.TrimSpace(stripProgressTags(res.Content))
 	}
 	res.Content = finalAnswer
+	if structured && !said && !replied && strings.TrimSpace(res.Content) != "" && hasHandoff(s.store, r.ID) {
+		// The Bot handed its work to a colleague and then wrote text instead of
+		// saying anything: that text is working text, kept for "View activity".
+		if _, _, err := s.store.publishAssistantPartsOpts(ctx, r.ID, 0, []textPart{{Text: res.Content, Progress: true}}, publishOpts{}); err != nil {
+			log.Printf("[run] keep trailing text after a handoff %s: %v", r.ID, err)
+		}
+		res.Content = ""
+		s.store.noteFinalOrigin(r.ID, finalOriginNone)
+	}
 	if c.Kind == "group" && !pendingAfterFinal && !hasHandoff(s.store, r.ID) {
 		if target, task := leadingMentionTarget(res.Content, c, s); target != "" && task != "" && !s.store.isGroupReturnMention(r, target) {
 			if depth := handoffDepth(s.store, r.ID); depth < maxHandoffRounds {

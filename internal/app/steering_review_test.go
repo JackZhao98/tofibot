@@ -188,6 +188,9 @@ func TestSteeringReviewHiddenGroupToolsHonorSafeBoundary(t *testing.T) {
 
 func TestSteeringReviewFinalStreamSettlesBeforeInterjection(t *testing.T) {
 	s, c, old := steeringReviewFixture(t, false)
+	if err := s.store.putUserStructuredOutput(false); err != nil { // plain text streams into the draft only without structured output
+		t.Fatal(err)
+	}
 	var originalDraft StreamDraft
 	s.engine = steeringReviewEngine(func(ctx context.Context, req runtime.Request) (runtime.Result, error) {
 		req.OnDelta("The completed ")

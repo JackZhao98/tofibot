@@ -25,6 +25,7 @@ const (
 
 	maxSayAnswerRunes = 20000
 	maxSayNoteRunes   = 1200
+	maxSayNotes       = 10
 
 	sayNoteClientPrefix = "say-note:"
 )
@@ -62,6 +63,10 @@ func (s *Store) recordSayAnswer(runID, callID, text string) error {
 	if err = tx.QueryRow(`SELECT status FROM runs WHERE id=?`, runID).Scan(&status); err != nil || status != "running" {
 		return errors.New("run is no longer active")
 	}
+	var successors int
+	if err = tx.QueryRow(`SELECT COUNT(*) FROM run_steering WHERE old_run_id=?`, runID).Scan(&successors); err != nil {
+		return err
+	}
 	var priorCall, priorText string
 	err = tx.QueryRow(`SELECT call_id,text FROM run_say_answers WHERE run_id=?`, runID).Scan(&priorCall, &priorText)
 	switch {
@@ -72,6 +77,9 @@ func (s *Store) recordSayAnswer(runID, callID, text string) error {
 		return errors.New("your answer was already delivered; your turn is complete, write nothing more")
 	case !errors.Is(err, sql.ErrNoRows):
 		return err
+	}
+	if successors > 0 {
+		return errors.New("run has been interrupted by a newer message")
 	}
 	if _, err = tx.Exec(`INSERT INTO run_say_answers(run_id,call_id,text,created_at) VALUES(?,?,?,?)`, runID, callID, text, now()); err != nil {
 		return err
@@ -99,6 +107,10 @@ type sayRunState struct {
 	raw   func(string)
 	reset func()
 	flush func()
+	// demote keeps text as the draft a run publishes if it ends with no
+	// answer; review reports whether the one-time completion review is due.
+	demote func(string)
+	review func() bool
 }
 
 func (s *Server) sayRun(runID string) *sayRunState {
@@ -106,17 +118,6 @@ func (s *Server) sayRun(runID string) *sayRunState {
 		return v.(*sayRunState)
 	}
 	return nil
-}
-
-// sayDraftHeld reports whether a say call's text is what the run's draft holds.
-func sayDraftHeld(s *Server, runID string) bool {
-	st := s.sayRun(runID)
-	if st == nil {
-		return false
-	}
-	st.mu.Lock()
-	defer st.mu.Unlock()
-	return st.owner != ""
 }
 
 // begin gives the call the draft: whatever the draft held (plain text of the
@@ -254,6 +255,15 @@ func (s *Server) sayTool(c Conversation, r Run) Tool {
 					return fail(errors.New("a scheduled run answers after complete_scheduled_task has recorded its result"))
 				}
 			}
+			if state != nil && state.review != nil && state.review() {
+				// The completion review text finals get: once, when tool work
+				// was done. The text is kept as the draft to publish if the
+				// run ends without a reviewed answer.
+				if state.demote != nil {
+					state.demote(text)
+				}
+				return fail(errors.New(taskCompletionFinalReminder))
+			}
 			if err := s.store.recordSayAnswer(r.ID, callID, text); err != nil {
 				return fail(err)
 			}
@@ -264,6 +274,11 @@ func (s *Server) sayTool(c Conversation, r Run) Tool {
 			return "Delivered. Your turn is complete; write nothing more.", nil
 		case sayNote, sayMessage:
 			limit, kind, prefix := maxSayNoteRunes, "progress", sayNoteClientPrefix
+			if in.Purpose == sayNote {
+				if err := s.store.paceSay(ctx, r.ID, sayNoteClientPrefix); err != nil {
+					return fail(err)
+				}
+			}
 			if in.Purpose == sayMessage {
 				if !c.UserVisible || r.Kind == runKindSchedule {
 					return fail(errors.New("message is not available in this run; use note or answer"))
@@ -324,6 +339,15 @@ func (s *Store) publishSay(ctx context.Context, run Run, clientID, kind, content
 	}
 	if successors > 0 {
 		return Message{}, errors.New("run has been interrupted by a newer message")
+	}
+	if kind == "progress" {
+		var count int
+		if err = tx.QueryRowContext(ctx, `SELECT COUNT(*) FROM messages WHERE run_id=? AND kind='progress' AND client_message_id LIKE 'say-note:%'`, run.ID).Scan(&count); err != nil {
+			return Message{}, err
+		}
+		if count >= maxSayNotes {
+			return Message{}, errors.New("note limit reached; deliver the answer")
+		}
 	}
 	if kind == "segment" {
 		var count int

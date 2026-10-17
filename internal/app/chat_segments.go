@@ -18,8 +18,13 @@ const maxChatSegments = 3
 const chatSegmentCadence = 420 * time.Millisecond
 
 func (s *Store) paceChatSegment(ctx context.Context, runID string) error {
+	return s.paceSay(ctx, runID, chatSegmentClientPrefix)
+}
+
+// paceSay spaces a run's messages whose client id starts with prefix.
+func (s *Store) paceSay(ctx context.Context, runID, prefix string) error {
 	var sentAt string
-	err := s.db.QueryRowContext(ctx, `SELECT created_at FROM messages WHERE run_id=? AND kind='segment' AND client_message_id LIKE 'chat-segment:%' ORDER BY seq DESC LIMIT 1`, runID).Scan(&sentAt)
+	err := s.db.QueryRowContext(ctx, `SELECT created_at FROM messages WHERE run_id=? AND client_message_id LIKE ? ORDER BY seq DESC LIMIT 1`, runID, prefix+"%").Scan(&sentAt)
 	if err == sql.ErrNoRows {
 		return nil
 	}
