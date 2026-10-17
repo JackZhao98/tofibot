@@ -8,6 +8,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"errors"
+	"strings"
 	"sync"
 	"time"
 
@@ -164,6 +165,19 @@ func (s *Store) PublishDemotedDraft(runID string, turnIndex int, content string)
 	return s.publishAssistantTurn(context.Background(), runID, turnIndex, content, true)
 }
 
+// PublishDemotedDraftStructured is PublishDemotedDraft for a run that follows
+// the say protocol: only literal tags are stripped and no repeat fold applies.
+func (s *Store) PublishDemotedDraftStructured(runID string, turnIndex int, content string) (Message, bool, error) {
+	if turnIndex < 1 || turnIndex > maxAssistantTurns {
+		return Message{}, false, errors.New("assistant turn index out of range")
+	}
+	content = strings.TrimSpace(stripProgressTags(content))
+	if content == "" {
+		return Message{}, false, errors.New("assistant turn content is empty")
+	}
+	return s.publishAssistantPartsOpts(context.Background(), runID, turnIndex, []textPart{{Text: content}}, publishOpts{terminal: true, adopt: true})
+}
+
 // A mid-run assistant turn is split by its <progress> tags (see progress_tag.go):
 // text inside a tag is stored as foldable kind "progress", text outside as kind
 // "segment", a visible message that is never folded away. Tags are not stored.
@@ -185,10 +199,46 @@ func (s *Store) publishAssistantTurn(ctx context.Context, runID string, turnInde
 	return s.publishAssistantParts(ctx, runID, turnIndex, parts, terminal)
 }
 
+// PublishInternalTurn stores a completed mid-run assistant turn of a structured
+// run. Its plain text is private working text: the whole turn is one folded
+// note (kind "progress") that "View activity" shows, never a chat message.
+// Literal <progress> tags of legacy Bots are stripped. The draft identity and
+// the turn index replay record work exactly as in PublishAssistantTurn.
+func (s *Store) PublishInternalTurn(ctx context.Context, runID string, turnIndex int, content string, adoptDraft bool) (Message, bool, error) {
+	if err := ctx.Err(); err != nil {
+		return Message{}, false, err
+	}
+	if turnIndex < 1 || turnIndex > maxAssistantTurns {
+		return Message{}, false, errors.New("assistant turn index out of range")
+	}
+	content = strings.TrimSpace(stripProgressTags(content))
+	if content == "" {
+		return Message{}, false, errors.New("assistant turn content is empty")
+	}
+	if len([]rune(content)) > maxStreamDraftRunes {
+		return Message{}, false, errors.New("assistant turn content exceeds maximum size")
+	}
+	return s.publishAssistantPartsOpts(ctx, runID, turnIndex, []textPart{{Text: content, Progress: true}}, publishOpts{adopt: adoptDraft})
+}
+
 // publishAssistantParts stores parts as consecutive messages. The first takes
 // the draft's identity and sequence; the draft then rotates. turnIndex 0 skips
 // the replay record (used for notes that precede a run's final answer).
 func (s *Store) publishAssistantParts(ctx context.Context, runID string, turnIndex int, parts []textPart, terminal bool) (Message, bool, error) {
+	return s.publishAssistantPartsOpts(ctx, runID, turnIndex, parts, publishOpts{terminal: terminal, folds: true, adopt: true})
+}
+
+// publishOpts tunes publishAssistantPartsOpts. terminal accepts a run that
+// already left "running"; folds enables the repeat fold; adopt lets the first
+// part take over the stream draft's identity (false when a say call's text is
+// what the draft holds).
+type publishOpts struct{ terminal, folds, adopt bool }
+
+// publishAssistantPartsOpts is publishAssistantParts; folds=false is the say
+// protocol, where a repeated sentence stays what the Bot said instead of being
+// folded into a note.
+func (s *Store) publishAssistantPartsOpts(ctx context.Context, runID string, turnIndex int, parts []textPart, opts publishOpts) (Message, bool, error) {
+	terminal, folds := opts.terminal, opts.folds
 	if err := ctx.Err(); err != nil {
 		return Message{}, false, err
 	}
@@ -230,9 +280,9 @@ func (s *Store) publishAssistantParts(ctx context.Context, runID string, turnInd
 	if err != nil && err != sql.ErrNoRows {
 		return Message{}, false, err
 	}
-	rotateDraft := err == nil && draft.Status == streamDraftActive
+	rotateDraft := err == nil && draft.Status == streamDraftActive && opts.adopt
 	if !rotateDraft {
-		if !terminal {
+		if !terminal && opts.adopt {
 			return Message{}, false, nil
 		}
 		draft = StreamDraft{MessageID: uuid.NewString()}
@@ -271,6 +321,8 @@ func (s *Store) publishAssistantParts(ctx context.Context, runID string, turnInd
 		kind := "segment"
 		if part.Progress {
 			kind = "progress"
+		} else if !folds {
+			// Structured output keeps what was said as it was said.
 		} else if _, repeated, repeatErr := repeatedSegmentTx(tx, runID, part.Text); repeatErr != nil {
 			return Message{}, false, repeatErr
 		} else if repeated {
@@ -314,6 +366,13 @@ func (s *Store) publishAssistantParts(ctx context.Context, runID string, turnInd
 	}
 	if _, err = tx.Exec(`UPDATE conversations SET updated_at=? WHERE id=?`, t, runConversationID); err != nil {
 		return Message{}, false, err
+	}
+	if !opts.adopt {
+		// The draft keeps its text (a say call's); its reserved sequence moves
+		// behind the message just stored.
+		if _, err = tx.Exec(`UPDATE stream_drafts SET seq=0 WHERE run_id=? AND status=?`, runID, streamDraftActive); err != nil {
+			return Message{}, false, err
+		}
 	}
 	// Do not reserve the next draft sequence until its first non-empty delta;
 	// an empty follow-up draft must not jump ahead of user messages.
@@ -379,8 +438,23 @@ func (s *Store) StreamCallbacks(ctx context.Context, run Run, onError func(error
 // StreamControls is StreamCallbacks plus reset, which drops unpersisted text
 // and discards the current draft (see ResetStreamDraft).
 func (s *Store) StreamControls(ctx context.Context, run Run, onError func(error)) (func(string), func(), func(), error) {
+	c, err := s.streamControls(ctx, run, onError)
+	return c.Delta, c.Flush, c.Reset, err
+}
+
+// streamControlSet is the draft's write side: Delta takes model text (tags
+// stripped), Raw takes text that is already decided (a say call's text), Flush
+// settles buffered text, Reset discards the draft.
+type streamControlSet struct {
+	Delta func(string)
+	Raw   func(string)
+	Flush func()
+	Reset func()
+}
+
+func (s *Store) streamControls(ctx context.Context, run Run, onError func(error)) (streamControlSet, error) {
 	if _, err := s.BeginStream(run); err != nil {
-		return nil, nil, nil, err
+		return streamControlSet{}, err
 	}
 	var mu sync.Mutex
 	var buffer []rune
@@ -409,7 +483,7 @@ func (s *Store) StreamControls(ctx context.Context, run Run, onError func(error)
 			persisted = time.Now()
 		}
 	}
-	return func(text string) {
+	return streamControlSet{Delta: func(text string) {
 			mu.Lock()
 			defer mu.Unlock()
 			if failed || ctx.Err() != nil {
@@ -419,14 +493,24 @@ func (s *Store) StreamControls(ctx context.Context, run Run, onError func(error)
 			if persisted.IsZero() || time.Since(persisted) >= streamFlushInterval || len(buffer) >= maxStreamDeltaRunes {
 				flushLocked()
 			}
-		}, func() {
+		}, Raw: func(text string) {
+			mu.Lock()
+			defer mu.Unlock()
+			if failed || ctx.Err() != nil {
+				return
+			}
+			buffer = append(buffer, []rune(text)...)
+			if persisted.IsZero() || time.Since(persisted) >= streamFlushInterval || len(buffer) >= maxStreamDeltaRunes {
+				flushLocked()
+			}
+		}, Flush: func() {
 			// A flush marks the end of a turn's text: a held-back "<pro" was
 			// plain text after all, and the next turn starts outside any note.
 			mu.Lock()
 			defer mu.Unlock()
 			appendLocked(tags.finish())
 			flushLocked()
-		}, func() {
+		}, Reset: func() {
 			mu.Lock()
 			defer mu.Unlock()
 			buffer = nil
@@ -440,7 +524,7 @@ func (s *Store) StreamControls(ctx context.Context, run Run, onError func(error)
 					onError(err)
 				}
 			}
-		}, nil
+		}}, nil
 }
 
 // ResetStreamDraft discards the active draft without publishing it: the draft

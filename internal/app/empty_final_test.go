@@ -193,11 +193,20 @@ func (f emptyFinalEngine) Run(ctx context.Context, req runtime.Request) (runtime
 
 func runEmptyFinal(t *testing.T, engine emptyFinalEngine) (*Server, Run, []Message) {
 	t.Helper()
+	return runEmptyFinalMode(t, engine, true)
+}
+
+// runEmptyFinalMode runs the same fixture under either output protocol.
+func runEmptyFinalMode(t *testing.T, engine emptyFinalEngine, structured bool) (*Server, Run, []Message) {
+	t.Helper()
 	s, err := NewServer(Config{DataDir: t.TempDir(), Engine: engine})
 	if err != nil {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { s.Close() })
+	if err := s.store.putUserStructuredOutput(structured); err != nil {
+		t.Fatal(err)
+	}
 	b, err := s.store.CreateBot("secretary", "", "model")
 	if err != nil {
 		t.Fatal(err)
@@ -263,16 +272,17 @@ func TestEmptyFinalPublishesRetainedDemotedDraft(t *testing.T) {
 }
 
 // With no demoted draft, a run that already showed progress ends with a short
-// pointer to it rather than repeating the progress text.
+// pointer to it rather than repeating the progress text. (Heuristic H7: only
+// the protocol with structured output off still does this.)
 func TestEmptyFinalAfterProgressPointsToIt(t *testing.T) {
 	const progress = "Collected the first half of the report."
-	_, run, messages := runEmptyFinal(t, func(_ context.Context, req runtime.Request) (runtime.Result, error) {
+	_, run, messages := runEmptyFinalMode(t, func(_ context.Context, req runtime.Request) (runtime.Result, error) {
 		req.OnDelta(progress)
 		if err := req.OnAssistantTurn(1, progress); err != nil {
 			return runtime.Result{}, err
 		}
 		return runtime.Result{}, nil
-	})
+	}, false)
 	if run.Status != "done" {
 		t.Fatalf("run=%+v", run)
 	}

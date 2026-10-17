@@ -632,7 +632,9 @@ func TestRespondReplyDoesNotRepostEarlierSegment(t *testing.T) {
 	f.start(engine)
 	runs := f.settle(t)
 	var n int
-	_ = f.server.store.db.QueryRow(`SELECT COUNT(*) FROM messages WHERE run_id=? AND role='assistant' AND kind IN ('','segment','progress')`, runs[0].ID).Scan(&n)
+	// What the person saw: the earlier turn is a folded note under structured
+	// output (or a segment without it), so only the posted messages count.
+	_ = f.server.store.db.QueryRow(`SELECT COUNT(*) FROM messages WHERE run_id=? AND role='assistant' AND kind IN ('','segment')`, runs[0].ID).Scan(&n)
 	if len(runs) != 1 || runs[0].Status != "done" || n != 1 {
 		t.Fatalf("runs=%+v visible=%d", runs, n)
 	}
