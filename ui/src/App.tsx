@@ -14,7 +14,7 @@ import { SidebarAccount } from "./OwnerSession";
 import { UpdateBanner } from "./UpdateNotice";
 import { desktopState, updateDesktopState, isDesktop, type DesktopCommand } from "./desktop";
 import {TimezoneProvider, useUserTimezone} from "./UserTimezone";
-import {dateInTimezone, formatZonedTime} from "./timezone";
+import {dateInTimezone, dateTimeFormat, formatZonedTime} from "./timezone";
 import {AttachmentList} from "./MessageAttachment";
 import {FilePreviewHost} from "./FileViewer";
 import {MessageReactions} from "./MessageReactions";
@@ -57,7 +57,7 @@ import { TofiIcon as Icon, type TofiIconName } from "./icons";
 import { ComposerGlyph } from "./ComposerGlyph";
 import { intlLocale } from "./i18n/format";
 import { BrandLogo } from "./BrandLogo";
-import { createContext, lazy, startTransition, Suspense, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { createContext, lazy, memo, startTransition, Suspense, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { flushSync } from "react-dom";
 import { api, ApiError, openConversationEvents, openWorkspaceEvents } from "./api";
 import { MessageMarkdown } from "./MessageMarkdown";
@@ -261,11 +261,11 @@ function messageId() {
 
 function formatHoverTime(value: string, timeZone: string) {
   const sameDay = dateInTimezone(value, timeZone) === dateInTimezone(new Date().toISOString(), timeZone);
-  return new Intl.DateTimeFormat(intlLocale(), { ...(sameDay ? {} : { month: "numeric", day: "numeric" }), hour: "2-digit", minute: "2-digit", timeZone }).format(new Date(value));
+  return dateTimeFormat(intlLocale(), { ...(sameDay ? {} : { month: "numeric", day: "numeric" }), hour: "2-digit", minute: "2-digit", timeZone }).format(new Date(value));
 }
 
 /** Browser-mode message actions, revealed on hover or keyboard focus instead of a context menu. */
-function MessageHoverActions({ message, timezone, onReact, onReply, onActivity, activityOpen }: { message: Message; timezone: string; onReact: (anchor: DOMRect) => void; onReply?: () => void; onActivity?: () => void; activityOpen?: boolean }) {
+const MessageHoverActions = memo(function MessageHoverActions({ message, timezone, onReact, onReply, onActivity, activityOpen }: { message: Message; timezone: string; onReact: (anchor: DOMRect) => void; onReply?: () => void; onActivity?: () => void; activityOpen?: boolean }) {
   const { t } = useTranslation("chat");
   return <div className="message-hover-actions" role="toolbar" aria-label={t("hover.toolbar")}>
     <time dateTime={message.created_at} title={`${formatExactTime(message.created_at, timezone)} · ${timezone}`}>{formatHoverTime(message.created_at, timezone)}</time>
@@ -273,7 +273,9 @@ function MessageHoverActions({ message, timezone, onReact, onReply, onActivity, 
     {onReply && <button type="button" aria-label={t("hover.reply")} data-hint={t("hover.reply")} onClick={onReply}><Icon name="reply" size={16} /></button>}
     {onActivity && <button type="button" className="message-activity-action" aria-label={activityOpen ? t("hover.hide_activity") : t("hover.view_activity")} aria-pressed={activityOpen} data-hint={activityOpen ? t("hover.hide_activity") : t("hover.view_activity")} onClick={onActivity}><Icon name="activity" size={16} /></button>}
   </div>;
-}
+}, (previous, next) => previous.message === next.message && previous.timezone === next.timezone && previous.activityOpen === next.activityOpen
+  // The handlers are rebuilt every render; they act on the same message, so only their presence matters here.
+  && Boolean(previous.onReply) === Boolean(next.onReply) && Boolean(previous.onActivity) === Boolean(next.onActivity));
 
 /** Scrolls to a message and flashes it once without leaving a persistent frame. */
 function jumpToMessage(target: HTMLElement | null | undefined) {
@@ -346,22 +348,22 @@ function formatRunDuration(ms: number, precise = true) {
   return hours ? i18n.t("chat:duration.hours_minutes", { hours, minutes }) : i18n.t("chat:duration.minutes_seconds", { minutes, seconds: secs });
 }
 function formatTime(value: string, timeZone: string) {
-  return new Intl.DateTimeFormat(intlLocale(), { hour: "2-digit", minute: "2-digit", timeZone }).format(new Date(value));
+  return dateTimeFormat(intlLocale(), { hour: "2-digit", minute: "2-digit", timeZone }).format(new Date(value));
 }
 
 function formatExactTime(value: string, timeZone?: string) {
-  return new Intl.DateTimeFormat(intlLocale(), { year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", second: "2-digit", timeZone }).format(new Date(value));
+  return dateTimeFormat(intlLocale(), { year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", second: "2-digit", timeZone }).format(new Date(value));
 }
 
 function formatListTime(value: string, timeZone: string) {
   const date = new Date(value);
   const now = new Date();
-  if (dateInTimezone(value, timeZone) === dateInTimezone(now.toISOString(), timeZone)) return new Intl.DateTimeFormat(intlLocale(), { hour: "2-digit", minute: "2-digit", timeZone }).format(date);
-  return new Intl.DateTimeFormat(intlLocale(), { month: "numeric", day: "numeric", timeZone }).format(date);
+  if (dateInTimezone(value, timeZone) === dateInTimezone(now.toISOString(), timeZone)) return dateTimeFormat(intlLocale(), { hour: "2-digit", minute: "2-digit", timeZone }).format(date);
+  return dateTimeFormat(intlLocale(), { month: "numeric", day: "numeric", timeZone }).format(date);
 }
 
 function formatDay(value: string, timeZone: string) {
-  return new Intl.DateTimeFormat(intlLocale(), { month: "long", day: "numeric", weekday: "short", timeZone }).format(new Date(value));
+  return dateTimeFormat(intlLocale(), { month: "long", day: "numeric", weekday: "short", timeZone }).format(new Date(value));
 }
 
 function previewText(value: string, max = 160) {
@@ -435,6 +437,8 @@ function Workspace() {
   const [teamBoardOpen, setTeamBoardOpen] = useState(false);
   useEffect(() => { setTeamBoardOpen(false); }, [activeId]);
   const arrivalIDs = useRef(new Set<string>());
+  /** A press that lands while text is selected dismisses the selection; it must not also toggle the tap actions. */
+  const selectionOnPress = useRef(false);
   const messageListRef = useRef<HTMLDivElement | null>(null);
   // Group chats: avatar and name open a sender group once; later units from the same Bot only indent.
   const [messageRecords, setMessages] = useState<Message[]>([]);
@@ -1522,7 +1526,7 @@ function Workspace() {
       // Scrolled up in history: nothing visible moves, so there is nothing to FLIP. Return to the bottom in
       // the same task as the commit and play the arrival there, once, with the bubble in view.
       const away = viewport.awayFromBottom();
-      if (animate && !away) flipList(messageListRef.current, apply, { duration: 520, easing: "cubic-bezier(.22,1,.36,1)" });
+      if (animate && !away) flipList(messageListRef.current, apply, { duration: 520, easing: "cubic-bezier(.22,1,.36,1)", last: 16 });
       else flushSync(apply);
       jumpLatest();
       if (animate) {
@@ -1981,7 +1985,7 @@ function Workspace() {
                       return <div className={`message-block${arrivalIDs.current.has(message.id) ? " new-arrival" : ""}`} data-message-seq={message.seq} data-message-id={message.id} data-flip={message.id} tabIndex={-1} key={message.id} onContextMenu={canReact && isDesktop ? event => { event.preventDefault(); setReactionMenu({ messageId: message.id, x: event.clientX, y: event.clientY }); } : undefined}>
                         {showDivider && <div className="date-divider"><span>{formatDateDivider(message.created_at, timezone)}</span></div>}
                         {unread && <div className="unread-divider" aria-label={t("history.unread_below")}><span>{t("history.unread")}</span></div>}
-                        <div className={`message-hover-host${message.role === "user" ? " is-user" : ""}${tapActionsId === message.id ? " is-actions-open" : ""}`} onClick={!isDesktop && canReact ? event => { if (!window.matchMedia("(hover: none)").matches || (event.target as HTMLElement).closest("a,button,summary,input,textarea,pre,[role=button],.message-hover-actions")) return; setTapActionsId(current => current === message.id ? "" : message.id); } : undefined}>
+                        <div className={`message-hover-host${message.role === "user" ? " is-user" : ""}${tapActionsId === message.id ? " is-actions-open" : ""}`} onPointerDownCapture={!isDesktop && canReact ? () => { selectionOnPress.current = Boolean(window.getSelection()?.toString()); } : undefined} onClick={!isDesktop && canReact ? event => { const hadSelection = selectionOnPress.current || Boolean(window.getSelection()?.toString()); selectionOnPress.current = false; if (hadSelection || !window.matchMedia("(hover: none)").matches || (event.target as HTMLElement).closest("a,button,summary,input,textarea,pre,[role=button],.message-hover-actions")) return; setTapActionsId(current => current === message.id ? "" : message.id); } : undefined}>
                         {!isDesktop && canReact && message.kind !== "notice" && message.kind !== "message_ref" && <MessageHoverActions message={message} timezone={timezone}
                           onReact={anchor => setReactionMenu({ messageId: message.id, x: anchor.left, y: anchor.bottom + 6 })}
                           onActivity={activityRunId && !showActivity ? () => { setTapActionsId(""); toggleRunActivity(activityRunId); } : undefined} activityOpen={activityRunId ? revealedRuns.has(activityRunId) : false}
@@ -2011,7 +2015,7 @@ function Workspace() {
               </div>
               {viewport.showJump && <button className="jump-latest" aria-label={t("history.jump_latest")} onClick={jumpLatest}><Icon name="arrow-down" size={18} variant="filled" />{viewport.newCount > 0 && <span className="jump-new-count">{t("history.new_count", { count: viewport.newCount })}</span>}</button>}
             </div>
-            {active.kind === "group" && !active.archived && !active.bot_ids.some(id => botById.has(id) && !botById.get(id)?.archived) ? <div className="composer empty-group-composer"><span>{t("composer.no_members")}</span><button className="secondary-button" onClick={() => setPanel("members")}>{t("composer.add_members")}</button></div> : <Composer workStatus={<WorkingMembers isGroup={active.kind === "group"} companionBotId={active.kind === "dm" ? active.bot_id || active.bot_ids[0] : undefined} companionMotion={active.kind === "dm" ? conversationMotion(active, active.bot_id || active.bot_ids[0]) : undefined} workingBotIds={active.working_bot_ids ?? []} drafts={Object.values(drafts)} runs={runs} botById={botById} toolActivities={toolActivities} signals={runSignals} connected={streamConnected} />} activeRun={runs.find(run => run.status === "running" || run.status === "queued" || run.status === "waiting")} latestReplyId={messages.filter(message => message.role === "assistant").at(-1)?.id} onStopRun={stopRun} avatarMention={avatarMention} conversation={active} bots={bots} draft={composerDrafts[active.id] ?? emptyComposerDraft()} onDraftChange={updateComposerDraft} onSend={send} onSent={jumpLatest} modelConfigured={config?.model_configured ?? false} onConnectModel={connectModel} draftReady={composerDraftReady} readOnly={Boolean(active.archived)} />}
+            {active.kind === "group" && !active.archived && !active.bot_ids.some(id => botById.has(id) && !botById.get(id)?.archived) ? <div className="composer empty-group-composer"><span>{t("composer.no_members")}</span><button className="secondary-button" onClick={() => setPanel("members")}>{t("composer.add_members")}</button></div> : <Composer workStatus={<WorkingMembers isGroup={active.kind === "group"} companionBotId={active.kind === "dm" ? active.bot_id || active.bot_ids[0] : undefined} companionMotion={active.kind === "dm" ? conversationMotion(active, active.bot_id || active.bot_ids[0]) : undefined} workingBotIds={active.working_bot_ids ?? []} drafts={Object.values(drafts)} runs={runs} botById={botById} toolActivities={toolActivities} signals={runSignals} connected={streamConnected} />} activeRun={runs.find(run => run.status === "running" || run.status === "queued" || run.status === "waiting")} latestReplyId={messages.filter(message => message.role === "assistant").at(-1)?.id} onStopRun={stopRun} avatarMention={avatarMention} conversation={active} bots={bots} draft={composerDrafts[active.id] ?? emptyComposerDraft()} onDraftChange={updateComposerDraft} onSend={send} onSendStart={jumpLatest} onSent={jumpLatest} modelConfigured={config?.model_configured ?? false} onConnectModel={connectModel} draftReady={composerDraftReady} readOnly={Boolean(active.archived)} />}
             </>}
           </>}
         </main>
@@ -2698,7 +2702,7 @@ function isPureInsertion(previous: string, next: string) {
   return start + end >= previous.length;
 }
 
-function Composer({ workStatus, activeRun, latestReplyId, onStopRun, avatarMention, conversation, bots, draft, onDraftChange: updateDraftFor, onSend, onSent, modelConfigured, onConnectModel, draftReady, readOnly = false }: { workStatus: React.ReactNode; activeRun?: Run; latestReplyId?: string; onStopRun: (id: string) => Promise<void>; avatarMention: { name: string; conversationId: string; nonce: number } | null; conversation: Conversation; bots: Bot[]; draft: ComposerDraft; onDraftChange: (conversationId: string, update: (draft: ComposerDraft) => ComposerDraft) => void; onSend: (content: string, clientMessageId: string, attachmentIds?: string[], draftSignature?: string, flightOrigin?: DOMRect) => Promise<boolean>; onSent: () => void; modelConfigured: boolean; onConnectModel: () => void; draftReady: boolean; readOnly?: boolean }) {
+function Composer({ workStatus, activeRun, latestReplyId, onStopRun, avatarMention, conversation, bots, draft, onDraftChange: updateDraftFor, onSend, onSendStart, onSent, modelConfigured, onConnectModel, draftReady, readOnly = false }: { workStatus: React.ReactNode; activeRun?: Run; latestReplyId?: string; onStopRun: (id: string) => Promise<void>; avatarMention: { name: string; conversationId: string; nonce: number } | null; conversation: Conversation; bots: Bot[]; draft: ComposerDraft; onDraftChange: (conversationId: string, update: (draft: ComposerDraft) => ComposerDraft) => void; onSend: (content: string, clientMessageId: string, attachmentIds?: string[], draftSignature?: string, flightOrigin?: DOMRect) => Promise<boolean>; onSendStart?: () => void; onSent: () => void; modelConfigured: boolean; onConnectModel: () => void; draftReady: boolean; readOnly?: boolean }) {
   const { t } = useTranslation("chat");
   const [sending, setSending] = useState(false);
   const [fileError, setFileError] = useState("");
@@ -2905,6 +2909,8 @@ function Composer({ workStatus, activeRun, latestReplyId, onStopRun, avatarMenti
     const signature = composerMessageSignature(content, attachments, reply);
     const clientMessageId = composerClientMessageId(signature, draft.pending, messageId);
     flushContent();
+    // The list is at the newest message before anything else happens; the bubble then arrives into view.
+    onSendStart?.();
     onDraftChange((current) => ({ ...current, pending: { signature, id: clientMessageId } }));
     setSending(true);
     const attachmentIds: string[] = [];
