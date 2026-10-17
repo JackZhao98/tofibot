@@ -276,6 +276,7 @@ func (s *Store) publishAssistantParts(ctx context.Context, runID string, turnInd
 		} else if repeated {
 			// The same run already said this; a restatement folds like a note.
 			kind = "progress"
+			noteFinalOrigin(tx, runID, heuristicRepeat)
 		}
 		id, createdAt, seq := uuid.NewString(), t, int64(0)
 		if i == 0 {

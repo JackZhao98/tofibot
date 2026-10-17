@@ -145,6 +145,9 @@ func foldStepNarrationTx(tx *sql.Tx, runID, conv, answer, at string) error {
 	if err := rows.Err(); err != nil {
 		return err
 	}
+	if len(fold) > 0 {
+		noteFinalOrigin(tx, runID, heuristicNarrationFold)
+	}
 	for _, m := range fold {
 		if _, err := tx.Exec(`UPDATE messages SET kind='progress' WHERE id=?`, m.ID); err != nil {
 			return err

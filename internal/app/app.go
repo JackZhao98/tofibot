@@ -121,6 +121,7 @@ type Run struct {
 	OriginConversationID string `json:"origin_conversation_id,omitempty"`
 	TriggerMessageID     string `json:"trigger_message_id,omitempty"`
 	QueueSeq             int64  `json:"queue_seq,omitempty"`
+	FinalOrigin          string `json:"final_origin"`
 	CreatedAt            string `json:"created_at"`
 	UpdatedAt            string `json:"updated_at"`
 	// Resolved from durable occurrence ancestry for execution only. Keep Kind
@@ -560,6 +561,7 @@ CREATE INDEX IF NOT EXISTS events_conversation ON events(conversation_id,id);`)
 		{"origin_conversation_id", `ALTER TABLE runs ADD COLUMN origin_conversation_id TEXT NOT NULL DEFAULT ''`},
 		{"trigger_message_id", `ALTER TABLE runs ADD COLUMN trigger_message_id TEXT NOT NULL DEFAULT ''`},
 		{"queue_seq", `ALTER TABLE runs ADD COLUMN queue_seq INTEGER NOT NULL DEFAULT 0`},
+		{"final_origin", `ALTER TABLE runs ADD COLUMN final_origin TEXT NOT NULL DEFAULT ''`},
 	} {
 		if err = ensureColumn(s.db, "runs", col.name, col.ddl); err != nil {
 			return err
@@ -1605,7 +1607,7 @@ func (s *Store) AddHandoff(conv, sender, bot, parent, task string) (Message, Run
 	return m, r, nil
 }
 func (s *Store) GetRun(id string) (Run, error) {
-	return scanRun(s.db.QueryRow(`SELECT id,conversation_id,bot_id,status,error,parent_run_id,model,kind,origin_conversation_id,trigger_message_id,queue_seq,created_at,updated_at FROM runs WHERE id=?`, id))
+	return scanRunWithOrigin(s.db.QueryRow(`SELECT id,conversation_id,bot_id,status,error,parent_run_id,model,kind,origin_conversation_id,trigger_message_id,queue_seq,created_at,updated_at,final_origin FROM runs WHERE id=?`, id))
 }
 
 // GroupFollowupForRun returns the durable return run, if one was created for
@@ -1765,14 +1767,14 @@ func scheduleDirectMessageFollowupTx(tx *sql.Tx, done Run, result Message) (Run,
 	return followup, true, nil
 }
 func (s *Store) Runs(conv string) ([]Run, error) {
-	rows, e := s.db.Query(`SELECT id,conversation_id,bot_id,status,error,parent_run_id,model,kind,origin_conversation_id,trigger_message_id,queue_seq,created_at,updated_at FROM runs WHERE conversation_id=? ORDER BY queue_seq,created_at,id`, conv)
+	rows, e := s.db.Query(`SELECT id,conversation_id,bot_id,status,error,parent_run_id,model,kind,origin_conversation_id,trigger_message_id,queue_seq,created_at,updated_at,final_origin FROM runs WHERE conversation_id=? ORDER BY queue_seq,created_at,id`, conv)
 	if e != nil {
 		return nil, e
 	}
 	defer rows.Close()
 	out := make([]Run, 0)
 	for rows.Next() {
-		r, e := scanRun(rows)
+		r, e := scanRunWithOrigin(rows)
 		if e != nil {
 			return nil, e
 		}
@@ -1805,6 +1807,9 @@ func (s *Store) SetRunStatus(id, status, msg string) (bool, error) {
 		}
 	}
 	terminal := status == "failed" || status == "cancelled" || status == "interrupted"
+	if n == 1 && status == "failed" {
+		noteFinalOriginDefault(tx, id, finalOriginNone)
+	}
 	if n == 1 && terminal {
 		// Close live presentation atomically with the durable terminal state. Keep
 		// completed calls and their results intact for audit and manual retry.
@@ -1935,6 +1940,7 @@ func (s *Store) finishRunState(id, conv, bot, content string, silent bool, failu
 		}
 		if repeated {
 			publish, repeatedSegment, content = false, segment, ""
+			noteFinalOrigin(tx, id, heuristicRepeat)
 		}
 	}
 	var draftID, draftStatus string
@@ -1965,6 +1971,7 @@ func (s *Store) finishRunState(id, conv, bot, content string, silent bool, failu
 	if publish {
 		if delegationNote {
 			m.Kind = "progress"
+			noteFinalOrigin(tx, id, heuristicDelegationFold)
 		}
 		if _, err = tx.Exec(`INSERT INTO messages(id,conversation_id,seq,role,kind,sender_bot_id,run_id,content,created_at) VALUES(?,?,?,?,?,?,?,?,?)`, m.ID, conv, seq, m.Role, m.Kind, bot, id, content, m.CreatedAt); err != nil {
 			return Message{}, false, err
@@ -1983,6 +1990,13 @@ func (s *Store) finishRunState(id, conv, bot, content string, silent bool, failu
 	terminal := "done"
 	if failure != "" {
 		terminal = "failed"
+	}
+	// Callers that know how the answer was produced record it first; every
+	// other finish is the model's own final text, or nothing.
+	if publish {
+		noteFinalOriginDefault(tx, id, finalOriginImplicit)
+	} else {
+		noteFinalOriginDefault(tx, id, finalOriginNone)
 	}
 	if _, err = tx.Exec(`UPDATE runs SET status=?,error=?,updated_at=? WHERE id=? AND status='running'`, terminal, nullString(failure), t, id); err != nil {
 		return Message{}, false, err
@@ -2016,6 +2030,7 @@ func (s *Store) finishRunState(id, conv, bot, content string, silent bool, failu
 	done.Kind = kind
 	done.OriginConversationID = origin.String
 	done.TriggerMessageID = trigger.String
+	_ = tx.QueryRow(`SELECT final_origin FROM runs WHERE id=?`, id).Scan(&done.FinalOrigin)
 	if failure == "" {
 		if _, _, err = scheduleGroupFollowupTx(tx, done, m); err != nil {
 			return Message{}, false, err
@@ -3575,6 +3590,10 @@ func (s *Server) execute(c Conversation, r Run) {
 	if replied {
 		// respond(reply) is the run's final message; later model text is dropped.
 		res.Content = s.replyFinalText(r, choiceReply)
+		s.store.noteFinalOrigin(r.ID, finalOriginSay)
+		if res.Content == "" && strings.TrimSpace(choiceReply.text) != "" {
+			s.store.noteFinalOrigin(r.ID, heuristicExactDup)
+		}
 	}
 	if r.Kind == runKindSchedule || r.scheduleTask != nil {
 		if err := steeringBoundary(); err != nil {
@@ -3602,7 +3621,11 @@ func (s *Server) execute(c Conversation, r Run) {
 			// The recorded result is the deliverable; a final answer that only refers
 			// to it ("as above") would leave the conversation without the result.
 			if args, argsErr := s.store.CompletedToolArguments(r.ID, "complete_scheduled_task"); argsErr == nil {
-				res.Content = scheduledFinalWithResult(cleanBotOutput(res.Content, botCfg), args)
+				before := cleanBotOutput(res.Content, botCfg)
+				res.Content = scheduledFinalWithResult(before, args)
+				if res.Content != before {
+					s.store.noteFinalOrigin(r.ID, heuristicSchedulePrep)
+				}
 			}
 		}
 		if cleanBotOutput(res.Content, botCfg) == "" && !repliedFinal {
@@ -3662,6 +3685,7 @@ func (s *Server) execute(c Conversation, r Run) {
 					// The assignment was already published with its structured
 					// recipient. Do not publish the same leading-mention reply twice.
 					res.Content = ""
+					s.store.noteFinalOrigin(r.ID, heuristicLeadingMention)
 					s.enqueue(c, child)
 				}
 			}
@@ -3683,11 +3707,13 @@ func (s *Server) execute(c Conversation, r Run) {
 			demotedMu.Unlock()
 			if draft != "" {
 				finalNotes, res.Content = finalSplit(draft)
+				s.store.noteFinalOrigin(r.ID, finalOriginImplicit)
 			} else if progressed, err := s.store.hasProgressReport(r.ID); err != nil {
 				s.failRun(c, r, err)
 				return
 			} else if progressed {
 				res.Content = noFinalAnswerProgressNote
+				s.store.noteFinalOrigin(r.ID, finalOriginPromoted)
 			} else {
 				s.failRun(c, r, errNoFinalAnswer)
 				return
@@ -3698,6 +3724,7 @@ func (s *Server) execute(c Conversation, r Run) {
 	// run (segment, progress or an earlier message), whichever path produced it.
 	if strings.TrimSpace(res.Content) != "" && s.store.postedVisibleText(r.ID, res.Content) {
 		res.Content = ""
+		s.store.noteFinalOrigin(r.ID, heuristicExactDup)
 	}
 	resetDemotedDraft()
 	if len(finalNotes) > 0 && strings.TrimSpace(res.Content) != "" {
