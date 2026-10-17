@@ -46,6 +46,10 @@ type Tool struct {
 	// the call was refused before anything committed, so it is reported as a
 	// definite not-executed failure rather than an uncertain external effect.
 	Local bool
+	// Strict asks providers that support it (OpenAI Responses) to hold the
+	// call's arguments to Parameters. The schema must list every property as
+	// required and forbid extras.
+	Strict bool
 	// ResolveDirectName lets a generic dispatcher tool (call_mcp_tool) claim a
 	// call the model made under a concrete tool name instead of through the
 	// dispatcher. It returns the canonical name to pass as the dispatcher's
@@ -75,16 +79,32 @@ type ToolEvent struct {
 // tool definitions, message content, and replayed reasoning.
 type ContextBreakdown struct{ System, Messages, Reasoning int }
 
+// ToolCallDelta is one streamed fragment of a provider tool call: the first
+// fragment of a call carries its ID and Name, later ones argument text.
+type ToolCallDelta struct {
+	Index     int
+	ID        string
+	Name      string
+	Arguments string
+}
+
 type Request struct {
 	ApprovalExpiryRecovery bool
-	BotID                  string
-	RunID                  string
-	System                 string
-	Model                  string
-	ReasoningEffort        string
-	Messages               []Message
-	Tools                  []Tool
-	OnDelta                func(string)
+	// StructuredOutput runs the say protocol: plain assistant text is private
+	// and only the say tool shows the person anything.
+	StructuredOutput bool
+	// OnToolCallDelta receives every streamed tool-call fragment while the
+	// model is still writing it, in order. It is called from the provider's
+	// stream goroutine and must not block.
+	OnToolCallDelta func(ToolCallDelta)
+	BotID           string
+	RunID           string
+	System          string
+	Model           string
+	ReasoningEffort string
+	Messages        []Message
+	Tools           []Tool
+	OnDelta         func(string)
 	// ConversationID keys the provider prompt cache across runs of one
 	// conversation; RunID is the fallback.
 	ConversationID string
@@ -157,6 +177,9 @@ type Request struct {
 }
 
 type Result struct {
+	// TurnEnded reports that a tool ended the turn with EndTurn: the loop
+	// stopped after that tool's result on purpose, with no final text.
+	TurnEnded       bool
 	Content         string
 	InputTokens     int64
 	OutputTokens    int64
