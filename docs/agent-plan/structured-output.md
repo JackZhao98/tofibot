@@ -256,6 +256,8 @@ persona generator (fix the generator, never a single Bot):
 
 ## 10. Owner decisions
 
+**Decided 2026-10-17 (owner):** D1 (a) one `say` tool; D2 (a) internal, visible under "View activity"; D3 (a) publish the last text turn tagged `implicit`, no extra call; D6 (a) workspace flag, default on in the rc. D4 (a) and D5 (a) taken as recommended (owner delegated the minor choices).
+
 - D1 Delivery mechanism: (a) one `say` tool, recommended; (b) a JSON-schema
   structured final answer; (c) keep tags and prose rules.
 - D2 Plain text between tool calls: (a) internal, visible under "View activity",
