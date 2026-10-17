@@ -106,6 +106,28 @@ func progressReportReminder(limit int) string {
 	return fmt.Sprintf("You have used %d tool calls since the last user-visible progress update. Briefly report a concrete finding, completed action, or blocker to the user before calling more tools. If the task is unfinished, continue working after that update; do not treat this as a request for a final answer. Wrap that update in <progress>…</progress> if it is only a transient note; answers, confirmations and results must stay outside the tag.", limit)
 }
 
+// StructuredReportPrompt replaces ProgressReportPrompt when the run delivers
+// text through the say tool. Plain text between tool calls stays private, so
+// the update cadence is satisfied only by a say call.
+func StructuredReportPrompt(maxCalls int) string {
+	if maxCalls <= 0 {
+		return ""
+	}
+	return fmt.Sprintf("\n\nText you write outside the say tool is private working text. On longer tasks, give a brief concrete update with say(note) before exceeding %d tool calls since the last one, then continue.\n", maxCalls)
+}
+
+func structuredProgressReminder(limit int) string {
+	return fmt.Sprintf("You have used %d tool calls since your last say update. Report a concrete finding, completed action, or blocker with say(note) before calling more tools. If the task is unfinished, continue working after that update; this is not a request for a final answer.", limit)
+}
+
+// progressReminder is the update request for this run's output protocol.
+func (cfg *AgentConfig) progressReminder() string {
+	if cfg.StructuredOutput {
+		return structuredProgressReminder(cfg.MaxToolCallsBetweenReports)
+	}
+	return progressReportReminder(cfg.MaxToolCallsBetweenReports)
+}
+
 func repeatedDiscoveryTool(name string) bool {
 	switch name {
 	case "list_computers", "list_mcp_servers", "search_mcp_tools", "list_skills", "tofi_tool_search", "workspace_capabilities":
@@ -220,6 +242,18 @@ type AgentConfig struct {
 	// error aborts the run before the next tool dispatches or model call.
 	OnCheckpoint        func(kind string, c *Continuation) error
 	ResolveToolIdentity func(name, arguments string) tooloutcome.Identity
+	// StructuredOutput switches the run to the say protocol: plain assistant
+	// text is private, so it no longer satisfies the progress cadence, and the
+	// say tool does. OnToolCallDelta receives every streamed tool-call fragment
+	// (id and name on a call's first fragment, then argument text) so a caller
+	// can show a say call's text while it is still being written.
+	StructuredOutput bool
+	OnToolCallDelta  func(provider.ToolCallDelta)
+	// EndOnEmptyFinal, when set, is asked about a model response that has no
+	// text and no tool calls. True ends the run with an empty result instead of
+	// asking the model to continue: the caller owes no answer (for example,
+	// after handing the work to a colleague).
+	EndOnEmptyFinal func() bool
 	// ResolveUnknownTool lets the backend that owns a generic dispatcher
 	// (call_mcp_tool) claim a tool name that is not in this run's tool set. When
 	// it returns ok, the call is rewritten to the returned tool name and
@@ -773,7 +807,11 @@ func RunAgentLoop(cfg AgentConfig, ctx *models.ExecutionContext) (returned *Agen
 		cfg.System = "You are an autonomous intelligent agent."
 	}
 	systemPrompt := cfg.System
-	systemPrompt += ProgressReportPrompt(cfg.MaxToolCallsBetweenReports)
+	if cfg.StructuredOutput {
+		systemPrompt += StructuredReportPrompt(cfg.MaxToolCallsBetweenReports)
+	} else {
+		systemPrompt += ProgressReportPrompt(cfg.MaxToolCallsBetweenReports)
+	}
 
 	// Preloaded skills (preload:true or loaded earlier this session): full body
 	// injected so their tools are callable immediately.
@@ -845,8 +883,11 @@ func RunAgentLoop(cfg AgentConfig, ctx *models.ExecutionContext) (returned *Agen
 				// msg.Content unchanged for the provider-facing transcript.
 				if content := strings.TrimSpace(stripThinkTags(msg.Content)); content != "" {
 					cfg.OnAssistantTurn(assistantTurnIndex, content)
-					toolCallsSinceReport = 0
-					reportRequired = false
+					if !cfg.StructuredOutput {
+						// Only a say call is a visible update under the say protocol.
+						toolCallsSinceReport = 0
+						reportRequired = false
+					}
 					cycleSawTool, cycleSawNovel, cycleOnlyDiscovery = false, false, true
 				}
 			}
@@ -930,7 +971,7 @@ func RunAgentLoop(cfg AgentConfig, ctx *models.ExecutionContext) (returned *Agen
 			}
 		}
 		if reportRequired {
-			messages = append(messages, provider.Message{Role: "user", Content: progressReportReminder(cfg.MaxToolCallsBetweenReports)})
+			messages = append(messages, provider.Message{Role: "user", Content: cfg.progressReminder()})
 		}
 	} else if len(cfg.Messages) > 0 {
 		messages = make([]provider.Message, len(cfg.Messages))
@@ -1268,6 +1309,9 @@ func RunAgentLoop(cfg AgentConfig, ctx *models.ExecutionContext) (returned *Agen
 			firstReasoning := true
 			resp, err = cfg.Provider.ChatStream(callCtx, req, func(delta provider.StreamDelta) {
 				for _, call := range delta.ToolCalls {
+					if cfg.OnToolCallDelta != nil && !overlongArguments {
+						cfg.OnToolCallDelta(call)
+					}
 					if call.Name != "" {
 						argumentTools[call.Index] = call.Name
 					}
@@ -1420,7 +1464,7 @@ func RunAgentLoop(cfg AgentConfig, ctx *models.ExecutionContext) (returned *Agen
 		} else {
 			emptyResponseStreak = 0
 		}
-		if reportRequired && strings.TrimSpace(stripThinkTags(resp.Content)) == "" {
+		if reportRequired && (cfg.StructuredOutput || strings.TrimSpace(stripThinkTags(resp.Content)) == "") {
 			// Progress is a presentation concern, not execution authorization.
 			// A model's missing narration must not discard useful tool calls or
 			// consume three extra model turns. Runtime activity remains visible.
@@ -1596,6 +1640,12 @@ func RunAgentLoop(cfg AgentConfig, ctx *models.ExecutionContext) (returned *Agen
 				return state.ToResult(cfg.Model), nil
 			}
 
+			if cfg.EndOnEmptyFinal != nil && cfg.EndOnEmptyFinal() {
+				ctx.Log("[Agent] Model ended its turn with nothing to add.")
+				state = state.WithMessages(messages)
+				state = state.WithResult("")
+				return state.ToResult(cfg.Model), nil
+			}
 			// Empty, whitespace-only and reasoning-only responses need a continuation.
 			ctx.Log("[Agent] Model returned no visible answer, prompting to continue...")
 			messages = append(messages, provider.Message{
@@ -1691,7 +1741,7 @@ func RunAgentLoop(cfg AgentConfig, ctx *models.ExecutionContext) (returned *Agen
 					reservedReceiptAttempted = true
 				}
 
-				if fnName == "send_chat_message" {
+				if fnName == "send_chat_message" || (cfg.StructuredOutput && fnName == "say") {
 					// A status note or an answer sent through the tool is itself a progress report.
 					toolCallsSinceReport = 0
 					reportRequired = false
@@ -2123,7 +2173,7 @@ func RunAgentLoop(cfg AgentConfig, ctx *models.ExecutionContext) (returned *Agen
 				messages = append(messages, provider.Message{Role: "user", Content: "Two consecutive 15-call intervals repeated the same tool-directory queries and results without new information. Stop calling tools. Explain the concrete blocker and what has already been checked; give a final answer now."})
 			} else {
 				reportRequired = true
-				messages = append(messages, provider.Message{Role: "user", Content: progressReportReminder(cfg.MaxToolCallsBetweenReports)})
+				messages = append(messages, provider.Message{Role: "user", Content: cfg.progressReminder()})
 			}
 		}
 

@@ -105,6 +105,11 @@ func TestScheduleFailureDetailLeavesOtherFailurePathsUnchanged(t *testing.T) {
 	for _, name := range []string{"transport", "stream persistence", "assistant persistence", "receipt lookup", "receipt persistence", "final persistence", "cancelled", "context cancelled", "steered"} {
 		t.Run(name, func(t *testing.T) {
 			server, _, c, x, r := scheduleFailureFixture(t)
+			if name == "stream persistence" { // plain text streams into the draft only without structured output
+				if err := server.store.putUserStructuredOutput(false); err != nil {
+					t.Fatal(err)
+				}
+			}
 			wantStatus, wantError := "failed", "fixture failure"
 			server.engine = scheduleResultEngine(func(ctx context.Context, req Request) (Result, error) {
 				res := Result{Content: "unconfirmed late output must not be attached"}

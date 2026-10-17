@@ -59,7 +59,7 @@ func TestGroupFollowupNeverRepostsIdenticalFinal(t *testing.T) {
 				t.Fatalf("no finished followup: %+v", runs)
 			}
 			var n int
-			_ = f.server.store.db.QueryRow(`SELECT COUNT(*) FROM messages WHERE run_id=? AND role='assistant' AND kind IN ('','segment','progress') AND content=?`, followup.ID, paragraph).Scan(&n)
+			_ = f.server.store.db.QueryRow(`SELECT COUNT(*) FROM messages WHERE run_id=? AND role='assistant' AND kind IN ('','segment') AND content=?`, followup.ID, paragraph).Scan(&n)
 			if n != 1 {
 				t.Fatalf("paragraph visible %d times", n)
 			}

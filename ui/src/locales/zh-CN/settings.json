@@ -637,7 +637,9 @@
     "chat": "对话",
     "activity_title": "在对话里显示工作过程",
     "activity_note": "在 Bot 的回复下方显示它执行的步骤。默认关闭，仍可从消息的操作菜单里打开。",
-    "activity_save_failed": "保存失败，请重试。"
+    "activity_save_failed": "保存失败，请重试。",
+    "structured_title": "结构化回复",
+    "structured_note": "Bot 只通过 say 工具把文字发到对话里；步骤之间写的文字留在工作过程视图中。关闭后恢复为原来的发布方式。"
   },
   "approvals": {
     "heading": "审查员",

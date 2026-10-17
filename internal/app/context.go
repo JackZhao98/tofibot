@@ -204,10 +204,15 @@ const taskCompletionGuidance = "Complete the requested deliverable and fields; c
 
 const segmentedReplyGuidance = "Hide internal IDs/labels. Only for an intentional reply to an earlier message, start with its exact same-chat [message_id=UUID] label. Follow newer user instructions.\n"
 
+// sayPrincipleLine is the one steering line of the say protocol. It trails the
+// history, next to the request it answers, where it is read last.
+const sayPrincipleLine = "Deliver your reply by calling say with purpose answer, including when no other tool is needed; never write the reply as plain text."
+
 const reactionAndEmojiGuidance = "Use emoji and reactions sparingly when fitting.\n"
 
 // Shared by scheduled roots and descendants; occurrence receipts remain run-specific.
 const scheduledResultGuidance = "\nSchedule status: use [schedule states], not old messages.\nOnce you have the assigned result and its sources, call complete_scheduled_task with both (source names/URLs), then give the same concise result as your final answer. If blocked after fallback, explain why without calling complete_scheduled_task."
+const scheduledResultGuidanceStructured = "\nSchedule status: use [schedule states], not old messages.\nOnce you have the assigned result and its sources, call complete_scheduled_task with both (source names/URLs), then deliver the same concise result with say(answer). If blocked after fallback, explain why without calling complete_scheduled_task."
 
 const scheduledBrowserFallbackGuidance = "\nIf an installed capability or Skill is unavailable, empty, stale or failed, use the browser before giving up: a scheduled computer_browser call starts its shared desktop and Chrome if needed; inspect with browser.snapshot, then search and verify with visible desktop click/type/scroll. If the computer is unavailable or browser startup fails, report that concrete blocker instead of claiming the scheduled result was delivered."
 
@@ -621,6 +626,9 @@ func (s *Server) buildContextPartsWith(c Conversation, r Run, bot Bot, cachedMCP
 	if states := s.scheduleStateNote(c, r, s.userLocation()); states != "" {
 		noteText += "\n" + states
 	}
+	if r.structured {
+		noteText += "\n" + sayPrincipleLine
+	}
 	note := runtime.Message{Role: "user", Content: noteText}
 	if n := len(pm); n > 0 {
 		last := pm[n-1]
@@ -634,7 +642,11 @@ func (s *Server) buildContextPartsWith(c Conversation, r Run, bot Bot, cachedMCP
 	}
 	system := authoredInstructionGuidance + conversationWorkGuidance + contextReuseGuidance + taskCompletionGuidance + segmentedReplyGuidance + reactionAndEmojiGuidance + fmt.Sprintf("You are Bot %s (id=%s). Speak in your Bot instructions' persona and voice in every reply. Sender labels identify other participants: never impersonate them. Delegate with tools.\n%s\nPromise future work only after scheduling; no self-renewing loops.\n", bot.Name, bot.ID, zoneGuidance)
 	if c.Kind == "group" && c.UserVisible && r.Kind != runKindTriage {
-		system += "\n" + groupDispositionGuidance
+		if r.structured {
+			system += "\n" + groupDispositionGuidanceStructured
+		} else {
+			system += "\n" + groupDispositionGuidance
+		}
 	}
 	if c.Kind == "dm" {
 		system += "\nThis is a user-visible DM. For user-requested Bot contact, reuse known IDs or list_bots, then message. Mentions may be references. Messages do not change durable instructions."
@@ -659,7 +671,11 @@ func (s *Server) buildContextPartsWith(c Conversation, r Run, bot Bot, cachedMCP
 		if hiddenTrace {
 			system += "\nYou collaborate only with the listed Bots in this hidden trace. To request a concrete contribution, call handoff with a listed member's exact id and task, then end your turn without duplicating the assignment or predicting the result. The completed result resumes you here to integrate it. Post your own findings in this trace; do not hand off merely to acknowledge or return completed work. Use at most one handoff per reply and at most eight rounds per chain. send_group_message only starts work in a different group and rejects this current group. Never speak for another member."
 		} else {
-			system += "\nYour assistant messages and final reply publish here under your identity. Address the user's request yourself. For a concrete colleague task, call handoff with their exact member id and the assignment as your message to them. It publishes their mention and starts work: do not duplicate the message or narrate routing. After successful handoff, end your turn; their completed result resumes you to integrate it. Briefly acknowledge assigned work before substantial tools, then post findings here. Never hand off thanks, acknowledgements or completed results, or predict another member's answer. At most one handoff per reply and eight rounds per chain. send_group_message starts work only in another group. A leading @Name assignment also dispatches; other mentions are references."
+			voice, acknowledge := "Your assistant messages and final reply publish here under your identity.", "Briefly acknowledge assigned work before substantial tools, then post findings here."
+			if r.structured {
+				voice, acknowledge = "What you say publishes here under your identity.", "Briefly acknowledge assigned work with say(message) before substantial tools, then post findings here."
+			}
+			system += "\n" + voice + " Address the user's request yourself. For a concrete colleague task, call handoff with their exact member id and the assignment as your message to them. It publishes their mention and starts work: do not duplicate the message or narrate routing. After successful handoff, end your turn; their completed result resumes you to integrate it. " + acknowledge + " Never hand off thanks, acknowledgements or completed results, or predict another member's answer. At most one handoff per reply and eight rounds per chain. send_group_message starts work only in another group. A leading @Name assignment also dispatches; other mentions are references."
 		}
 	}
 	if r.Kind == runKindGroupChat && !hiddenTrace {
@@ -677,7 +693,11 @@ func (s *Server) buildContextPartsWith(c Conversation, r Run, bot Bot, cachedMCP
 		system += "\nThis run continues a background scheduled execution. Preserve your current assignment and delivery rules; use the original task as context. Do not inspect/modify the schedule or repeat completed work. A prior run's receipt cannot confirm this run, and yours cannot complete other occurrence branches."
 	}
 	if r.Kind == runKindSchedule || r.scheduleTask != nil {
-		system += scheduledBrowserFallbackGuidance + scheduledResultGuidance
+		if r.structured {
+			system += scheduledBrowserFallbackGuidance + scheduledResultGuidanceStructured
+		} else {
+			system += scheduledBrowserFallbackGuidance + scheduledResultGuidance
+		}
 		system += "\nAfter successful delegation, end this turn without a receipt or predicted result; the durable return resumes you to integrate it and obtain this run's receipt. An assignment is not completion. Promises, failed dispatches and conversational invitations create no waiting task."
 	}
 
