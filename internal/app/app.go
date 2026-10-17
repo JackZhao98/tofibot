@@ -127,6 +127,9 @@ type Run struct {
 	// Resolved from durable occurrence ancestry for execution only. Keep Kind
 	// unchanged so delegated work retains its context and return routing.
 	scheduleTask *Message
+	// structured is the workspace's structured-output setting, read once when
+	// the run starts: the say protocol governs this whole run.
+	structured bool
 	// The tool call id of the proposal being reviewed, in memory only. Its own
 	// in-flight activity row is the call under review, never prior evidence.
 	reviewCallID string
@@ -181,6 +184,7 @@ type Config struct {
 }
 type Server struct {
 	dispositions                         sync.Map // run id -> groupChoice recorded by the respond tool
+	sayRuns                              sync.Map // run id -> *sayRunState of a structured run in flight
 	waitTimeout                          time.Duration
 	desktopRestartedAt                   time.Time
 	gogStatus                            gogStatusCache
@@ -664,6 +668,9 @@ CREATE INDEX IF NOT EXISTS events_conversation ON events(conversation_id,id);`)
 		return err
 	}
 	if err := migrateRunCheckpoints(s.db); err != nil {
+		return err
+	}
+	if err := migrateSay(s.db); err != nil {
 		return err
 	}
 	if err := migrateApprovalExpiry(s.db); err != nil {
@@ -1887,6 +1894,20 @@ func (s *Store) finishRun(id, conv, bot, content string, silent bool) (Message, 
 	return s.finishRunState(id, conv, bot, content, silent, "")
 }
 
+// finishOpts selects how a run's last message is stored. The zero value is the
+// heuristic publication of plain text. Structured runs (the say protocol) skip
+// the narration, repeat and delegation folds: what the Bot said is what it
+// said. promoted is an already visible message that stands as the answer.
+type finishOpts struct {
+	structured bool
+	promoted   *Message
+}
+
+// FinishRunStructured finishes a run that follows the say protocol.
+func (s *Store) FinishRunStructured(id, conv, bot, content string, promoted *Message) (Message, bool, error) {
+	return s.finishRunOpts(id, conv, bot, content, false, "", finishOpts{structured: true, promoted: promoted})
+}
+
 // Partial output and the terminal budget failure commit in one transaction.
 func (s *Store) finishRunBudget(id, conv, bot, content, reason string) (Message, bool, error) {
 	if reason == "" {
@@ -1895,6 +1916,9 @@ func (s *Store) finishRunBudget(id, conv, bot, content, reason string) (Message,
 	return s.finishRunState(id, conv, bot, content, false, "budget exhausted: "+reason)
 }
 func (s *Store) finishRunState(id, conv, bot, content string, silent bool, failure string) (Message, bool, error) {
+	return s.finishRunOpts(id, conv, bot, content, silent, failure, finishOpts{})
+}
+func (s *Store) finishRunOpts(id, conv, bot, content string, silent bool, failure string, opts finishOpts) (Message, bool, error) {
 	tx, err := s.db.Begin()
 	if err != nil {
 		return Message{}, false, err
@@ -1931,9 +1955,12 @@ func (s *Store) finishRunState(id, conv, bot, content string, silent bool, failu
 	publish := strings.TrimSpace(content) != "" || pendingFiles > 0
 	// A short final line after a handoff only narrates the delegation
 	// ("passed it to X, back when they reply"); it folds like a note.
-	delegationNote := publish && pendingFiles == 0 && handoffs > 0 && len([]rune(strings.TrimSpace(content))) <= narrationMaxRunes
+	delegationNote := !opts.structured && publish && pendingFiles == 0 && handoffs > 0 && len([]rune(strings.TrimSpace(content))) <= narrationMaxRunes
 	var repeatedSegment Message
-	if publish && pendingFiles == 0 {
+	if opts.promoted != nil && !publish {
+		// The answer is a note or message the person can already see.
+		repeatedSegment = *opts.promoted
+	} else if !opts.structured && publish && pendingFiles == 0 {
 		segment, repeated, repeatErr := repeatedSegmentTx(tx, id, content)
 		if repeatErr != nil {
 			return Message{}, false, repeatErr
@@ -2011,7 +2038,7 @@ func (s *Store) finishRunState(id, conv, bot, content string, silent bool, failu
 		if _, err = tx.Exec(`INSERT INTO events(conversation_id,type,data,created_at) VALUES(?,?,?,?)`, conv, "message", string(b), t); err != nil {
 			return Message{}, false, err
 		}
-		if failure == "" {
+		if failure == "" && !opts.structured {
 			if err = foldStepNarrationTx(tx, id, conv, content, t); err != nil {
 				return Message{}, false, err
 			}
@@ -3244,6 +3271,9 @@ func (s *Server) execute(c Conversation, r Run) {
 		s.failRun(c, r, e)
 		return
 	}
+	// One protocol for the whole run, even if the setting changes meanwhile.
+	structured := r.Kind != runKindTriage && s.store.structuredOutputOn()
+	r.structured = structured
 	// The last committed summary and bounded recent history are enough to start
 	// the reply. Durable history maintenance runs after the response is saved.
 	cachedMCPTools := s.store.recentCapabilitySchemas(contextConversationID(c, botCfg), botCfg.ID, r.CreatedAt)
@@ -3309,6 +3339,7 @@ func (s *Server) execute(c Conversation, r Run) {
 	var onDelta, onThinking func(string)
 	var onAssistantTurn, onReviewDraft func(int, string) error
 	var onStreamReset func()
+	var sayStream *sayStreamer
 	var onRetry func(int, time.Duration)
 	flushStream := func() {}
 	var demotedMu sync.Mutex
@@ -3321,7 +3352,11 @@ func (s *Server) execute(c Conversation, r Run) {
 		if d.content == "" {
 			return
 		}
-		if _, _, err := s.store.PublishDemotedDraft(r.ID, d.turn, d.content); err != nil {
+		publishDraft := s.store.PublishDemotedDraft
+		if structured {
+			publishDraft = s.store.PublishDemotedDraftStructured
+		}
+		if _, _, err := publishDraft(r.ID, d.turn, d.content); err != nil {
 			log.Printf("[run] publish demoted draft %s: %v", r.ID, err)
 		}
 	}
@@ -3336,12 +3371,39 @@ func (s *Server) execute(c Conversation, r Run) {
 	}
 	var streamMu sync.Mutex
 	var streamErr error
+	// observedToolWork arms the completion review; reviewed records that the
+	// review (on a text final or on a say answer) has already been spent.
+	var observedToolWork, reviewed atomic.Bool
 	if r.Kind != runKindTriage {
 		var initErr error
-		onDelta, flushStream, onStreamReset, initErr = s.store.StreamControls(ctx, r, func(err error) { streamMu.Lock(); streamErr = err; streamMu.Unlock(); cancel() })
+		var controls streamControlSet
+		controls, initErr = s.store.streamControls(ctx, r, func(err error) { streamMu.Lock(); streamErr = err; streamMu.Unlock(); cancel() })
 		if initErr != nil {
 			s.failRun(c, r, initErr)
 			return
+		}
+		onDelta, flushStream, onStreamReset = controls.Delta, controls.Flush, controls.Reset
+		if structured {
+			// A say call's text is the only thing that streams into the chat
+			// draft; plain text goes to the live status line instead.
+			state := &sayRunState{
+				raw:   controls.Raw,
+				reset: controls.Reset,
+				flush: controls.Flush,
+				demote: func(text string) {
+					demotedMu.Lock()
+					demoted = demotedDraft{turn: maxAssistantTurns, content: text}
+					demotedMu.Unlock()
+				},
+			}
+			if r.Kind != runKindSchedule && r.scheduleTask == nil {
+				state.review = func() bool { return observedToolWork.Load() && !reviewed.Swap(true) }
+			}
+			s.sayRuns.Store(r.ID, state)
+			defer s.sayRuns.Delete(r.ID)
+			sayStream = newSayStreamer(state)
+			plainReset := onStreamReset
+			onStreamReset = func() { sayStream.Reset(); plainReset() }
 		}
 		var stopThinking func()
 		onThinking, stopThinking = s.store.ThinkingCallback(ctx, r)
@@ -3353,13 +3415,18 @@ func (s *Server) execute(c Conversation, r Run) {
 		onReviewDraft = func(turnIndex int, content string) error {
 			flushStream()
 			demotedMu.Lock()
-			demoted = demotedDraft{turn: turnIndex, content: cleanBotOutput(content, botCfg), resetPending: true}
+			demoted = demotedDraft{turn: turnIndex, content: cleanBotOutput(content, botCfg), resetPending: !structured}
 			demotedMu.Unlock()
 			streamMu.Lock()
 			defer streamMu.Unlock()
 			return streamErr
 		}
 		streamDelta := onDelta
+		if structured {
+			// Plain text may turn out to be private working text, so it never
+			// enters the chat draft; the live status line shows it instead.
+			streamDelta = onThinking
+		}
 		onDelta = func(text string) {
 			if text != "" {
 				resetDemotedDraft()
@@ -3378,7 +3445,15 @@ func (s *Server) execute(c Conversation, r Run) {
 			if len(splitProgress(content)) == 0 {
 				return ctx.Err()
 			}
-			message, _, err := s.store.PublishAssistantTurn(ctx, r.ID, turnIndex, content)
+			var message Message
+			var err error
+			if structured {
+				// Plain text between tool calls is private working text: it is
+				// kept for "View activity" as a folded note, not posted.
+				message, _, err = s.store.PublishInternalTurn(ctx, r.ID, turnIndex, content)
+			} else {
+				message, _, err = s.store.PublishAssistantTurn(ctx, r.ID, turnIndex, content)
+			}
 			if err != nil {
 				streamMu.Lock()
 				if streamErr == nil && ctx.Err() == nil {
@@ -3438,7 +3513,6 @@ func (s *Server) execute(c Conversation, r Run) {
 		cancel()
 		return context.Canceled
 	}
-	var observedToolWork atomic.Bool
 	if len(continuation) > 0 {
 		observed, observeErr := s.store.hasCompletionReviewToolWork(r.ID)
 		if observeErr != nil {
@@ -3452,6 +3526,18 @@ func (s *Server) execute(c Conversation, r Run) {
 		reviewKind = runKindSchedule
 	}
 	finalReview := taskCompletionFinalReview(observedToolWork.Load)
+	if inner := finalReview; inner != nil {
+		finalReview = func(content string) (string, error) {
+			if reviewed.Load() {
+				return "", nil // a say answer already spent the one review
+			}
+			reminder, err := inner(content)
+			if reminder != "" {
+				reviewed.Store(true)
+			}
+			return reminder, err
+		}
+	}
 	var finalRepairTools []string
 	if reviewKind == runKindSchedule {
 		finalRepairTools = []string{"complete_scheduled_task"}
@@ -3465,7 +3551,24 @@ func (s *Server) execute(c Conversation, r Run) {
 			return s.store.HasCompletedTool(r.ID, "complete_scheduled_task")
 		})
 	}
-	res, e := engine.Run(ctx, Request{BotID: r.BotID, RunID: r.ID, ConversationID: c.ID, System: system, Model: model, ReasoningEffort: reasoningEffort, Messages: pm, Tools: tools, OnDelta: onDelta, BeforeModelCall: steeringBoundary, BeforeFinalResponse: finalReview, FinalResponseRepairTools: finalRepairTools, OnAssistantTurn: onAssistantTurn,
+	runEngine := engine
+	var onToolCallDelta func(runtime.ToolCallDelta)
+	if sayStream != nil {
+		onToolCallDelta = sayStream.Delta
+	}
+	if _, answered := s.store.sayAnswer(r.ID); structured && answered {
+		// The process died after the answer was recorded and before it was
+		// published: finish from the record, with no further model call.
+		log.Printf("[run] %s resumes with its answer already recorded; finishing without a model call", r.ID)
+		runEngine = answeredEngine{}
+	}
+	var endOnEmptyFinal func() bool
+	if structured {
+		// A run that handed its work to a colleague owes no answer; with plain
+		// text private, ending quietly is how that turn closes.
+		endOnEmptyFinal = func() bool { return hasHandoff(s.store, r.ID) }
+	}
+	res, e := runEngine.Run(ctx, Request{BotID: r.BotID, RunID: r.ID, ConversationID: c.ID, System: system, Model: model, ReasoningEffort: reasoningEffort, Messages: pm, Tools: tools, OnDelta: onDelta, StructuredOutput: structured, OnToolCallDelta: onToolCallDelta, EndOnEmptyFinal: endOnEmptyFinal, BeforeModelCall: steeringBoundary, BeforeFinalResponse: finalReview, FinalResponseRepairTools: finalRepairTools, OnAssistantTurn: onAssistantTurn,
 		OnThinking: onThinking, OnRetry: onRetry, OnStreamReset: onStreamReset, OnReviewDraft: onReviewDraft,
 		Continuation:      continuation,
 		ResumeResult:      s.inputResumeResult(answeredQuestion),
@@ -3575,6 +3678,10 @@ func (s *Server) execute(c Conversation, r Run) {
 		// Partial output is split like a final turn: notes fold, the rest is
 		// the answer, and a tag never reaches the stored message.
 		notes, answer := finalSplit(cleanBotOutput(res.Content, botCfg))
+		if structured {
+			// Only literal tags of legacy Bots are stripped; nothing is folded.
+			notes, answer = nil, strings.TrimSpace(stripProgressTags(cleanBotOutput(res.Content, botCfg)))
+		}
 		if len(notes) > 0 && strings.TrimSpace(answer) != "" {
 			if _, _, err := s.store.publishAssistantParts(ctx, r.ID, 0, notes, false); err != nil {
 				log.Printf("[run] publish budget-turn notes %s: %v", r.ID, err)
@@ -3594,6 +3701,14 @@ func (s *Server) execute(c Conversation, r Run) {
 		if res.Content == "" && strings.TrimSpace(choiceReply.text) != "" {
 			s.store.noteFinalOrigin(r.ID, heuristicExactDup)
 		}
+	}
+	sayRec, said := s.store.sayAnswer(r.ID)
+	said = structured && said
+	if said {
+		// say(answer) is the run's answer; text after it is not published.
+		res.Content = sayRec.Text
+		repliedFinal = false
+		s.store.noteFinalOrigin(r.ID, finalOriginSay)
 	}
 	if r.Kind == runKindSchedule || r.scheduleTask != nil {
 		if err := steeringBoundary(); err != nil {
@@ -3617,7 +3732,7 @@ func (s *Server) execute(c Conversation, r Run) {
 			s.failRun(c, r, errors.New(scheduleFailureDetail(res.Content, botCfg)))
 			return
 		}
-		if !replied {
+		if !replied && !said {
 			// The recorded result is the deliverable; a final answer that only refers
 			// to it ("as above") would leave the conversation without the result.
 			if args, argsErr := s.store.CompletedToolArguments(r.ID, "complete_scheduled_task"); argsErr == nil {
@@ -3673,7 +3788,19 @@ func (s *Server) execute(c Conversation, r Run) {
 	// The final turn: <progress> notes publish ahead of the answer; the answer
 	// is everything else (or, if the whole turn was notes, the notes themselves).
 	finalNotes, finalAnswer := finalSplit(res.Content)
+	if structured {
+		finalNotes, finalAnswer = nil, strings.TrimSpace(stripProgressTags(res.Content))
+	}
 	res.Content = finalAnswer
+	if structured && !said && !replied && strings.TrimSpace(res.Content) != "" && hasHandoff(s.store, r.ID) {
+		// The Bot handed its work to a colleague and then wrote text instead of
+		// saying anything: that text is working text, kept for "View activity".
+		if _, _, err := s.store.publishAssistantPartsOpts(ctx, r.ID, 0, []textPart{{Text: res.Content, Progress: true}}, publishOpts{}); err != nil {
+			log.Printf("[run] keep trailing text after a handoff %s: %v", r.ID, err)
+		}
+		res.Content = ""
+		s.store.noteFinalOrigin(r.ID, finalOriginNone)
+	}
 	if c.Kind == "group" && !pendingAfterFinal && !hasHandoff(s.store, r.ID) {
 		if target, task := leadingMentionTarget(res.Content, c, s); target != "" && task != "" && !s.store.isGroupReturnMention(r, target) {
 			if depth := handoffDepth(s.store, r.ID); depth < maxHandoffRounds {
@@ -3691,6 +3818,7 @@ func (s *Server) execute(c Conversation, r Run) {
 			}
 		}
 	}
+	var promotedBeat *Message
 	if res.Content == "" && !repliedFinal {
 		required, err := s.store.finalAnswerRequired(r.ID)
 		if err != nil {
@@ -3707,7 +3835,23 @@ func (s *Server) execute(c Conversation, r Run) {
 			demotedMu.Unlock()
 			if draft != "" {
 				finalNotes, res.Content = finalSplit(draft)
+				if structured {
+					finalNotes, res.Content = nil, strings.TrimSpace(stripProgressTags(draft))
+				}
 				s.store.noteFinalOrigin(r.ID, finalOriginImplicit)
+			} else if beat, ok := s.store.lastSayBeat(r.ID); structured && ok {
+				// Rule 3: no answer and no final text, but the Bot did say
+				// something; its last note or message becomes the answer.
+				promotedMsg, perr := s.store.promoteSayBeat(beat)
+				if perr != nil {
+					s.failRun(c, r, perr)
+					return
+				}
+				promotedBeat = &promotedMsg
+				s.store.noteFinalOrigin(r.ID, finalOriginPromoted)
+			} else if structured {
+				s.failRun(c, r, errNoFinalAnswer)
+				return
 			} else if progressed, err := s.store.hasProgressReport(r.ID); err != nil {
 				s.failRun(c, r, err)
 				return
@@ -3722,7 +3866,7 @@ func (s *Server) execute(c Conversation, r Run) {
 	}
 	// A run never posts a final message equal to one it already posted this
 	// run (segment, progress or an earlier message), whichever path produced it.
-	if strings.TrimSpace(res.Content) != "" && s.store.postedVisibleText(r.ID, res.Content) {
+	if strings.TrimSpace(res.Content) != "" && s.store.postedVisibleTextFor(r.ID, res.Content, structured) {
 		res.Content = ""
 		s.store.noteFinalOrigin(r.ID, heuristicExactDup)
 	}
@@ -3732,7 +3876,13 @@ func (s *Server) execute(c Conversation, r Run) {
 			log.Printf("[run] publish final-turn notes %s: %v", r.ID, err)
 		}
 	}
-	if finalMsg, finished, fe := s.store.FinishRun(r.ID, c.ID, r.BotID, res.Content); fe != nil {
+	finish := func() (Message, bool, error) { return s.store.FinishRun(r.ID, c.ID, r.BotID, res.Content) }
+	if structured {
+		finish = func() (Message, bool, error) {
+			return s.store.FinishRunStructured(r.ID, c.ID, r.BotID, res.Content, promotedBeat)
+		}
+	}
+	if finalMsg, finished, fe := finish(); fe != nil {
 		s.failRun(c, r, fe)
 		return
 	} else if finished {
@@ -4042,6 +4192,9 @@ func (s *Server) toolsUnmarked(c Conversation, r Run) []Tool {
 	}
 	if c.UserVisible && r.Kind != runKindSchedule {
 		base = append(base, s.chatSegmentTool(c, r))
+	}
+	if r.structured && r.Kind != runKindTriage {
+		base = append(base, s.sayTool(c, r))
 	}
 	base = append(base, s.reactionTool(c, r))
 	if profile, ok := onboardingProfileTool(s, c, r); ok {

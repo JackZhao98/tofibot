@@ -26,6 +26,10 @@ type userPreferences struct {
 	// timeline. Off by default: the timeline shows the Bot's messages, and the
 	// steps stay one tap away behind a message's "View activity" action.
 	ShowActivity bool `json:"show_activity"`
+	// StructuredOutput makes the say tool the only way text reaches a person:
+	// plain assistant text between tool calls stays in the run's activity. On
+	// by default; off restores the heuristic publication of plain text.
+	StructuredOutput bool `json:"structured_output"`
 }
 
 // uiLanguages are the Web UI catalogs (ui/src/i18n/languages.ts).
@@ -49,6 +53,9 @@ updated_at TEXT NOT NULL
 	if err = ensureColumn(db, "user_preferences", "show_activity", `ALTER TABLE user_preferences ADD COLUMN show_activity INTEGER NOT NULL DEFAULT 0`); err != nil {
 		return err
 	}
+	if err = ensureColumn(db, "user_preferences", "structured_output", `ALTER TABLE user_preferences ADD COLUMN structured_output INTEGER NOT NULL DEFAULT 1`); err != nil {
+		return err
+	}
 	if err = migratePrimaryBot(db); err != nil {
 		return err
 	}
@@ -57,9 +64,10 @@ updated_at TEXT NOT NULL
 
 func (s *Store) userPreferences() (userPreferences, error) {
 	var prefs userPreferences
-	err := s.db.QueryRow(`SELECT timezone,language,show_activity<>0 FROM user_preferences WHERE id=1`).Scan(&prefs.Timezone, &prefs.Language, &prefs.ShowActivity)
+	err := s.db.QueryRow(`SELECT timezone,language,show_activity<>0,structured_output<>0 FROM user_preferences WHERE id=1`).Scan(&prefs.Timezone, &prefs.Language, &prefs.ShowActivity, &prefs.StructuredOutput)
 	if err == sql.ErrNoRows {
 		err = nil
+		prefs.StructuredOutput = true
 	}
 	prefs.TimezoneConfigured = prefs.Timezone != ""
 	return prefs, err
@@ -94,6 +102,34 @@ func (s *Store) putUserShowActivity(show bool) error {
 	defer tx.Rollback()
 	if _, err = tx.Exec(`INSERT INTO user_preferences(id,timezone,show_activity,updated_at) VALUES(1,'',?,?)
 ON CONFLICT(id) DO UPDATE SET show_activity=excluded.show_activity,updated_at=excluded.updated_at`, show, now()); err != nil {
+		return err
+	}
+	if err = insertWorkspaceEventTx(tx, workspaceScopeConfig, now()); err != nil {
+		return err
+	}
+	return tx.Commit()
+}
+
+// structuredOutputOn reports the workspace's structured-output setting. A
+// missing row or an unreadable store means the default: on.
+func (s *Store) structuredOutputOn() bool {
+	var on int
+	if err := s.db.QueryRow(`SELECT structured_output FROM user_preferences WHERE id=1`).Scan(&on); err != nil {
+		return true
+	}
+	return on != 0
+}
+
+// putUserStructuredOutput stores whether the say protocol governs what a Bot
+// shows. Runs already in flight keep the mode they started with.
+func (s *Store) putUserStructuredOutput(on bool) error {
+	tx, err := s.db.Begin()
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	if _, err = tx.Exec(`INSERT INTO user_preferences(id,timezone,structured_output,updated_at) VALUES(1,'',?,?)
+ON CONFLICT(id) DO UPDATE SET structured_output=excluded.structured_output,updated_at=excluded.updated_at`, on, now()); err != nil {
 		return err
 	}
 	if err = insertWorkspaceEventTx(tx, workspaceScopeConfig, now()); err != nil {
@@ -176,6 +212,8 @@ func (s *Server) preferences(w http.ResponseWriter, r *http.Request) {
 			InitializeOnly bool    `json:"initialize_only"`
 			Language       *string `json:"language"`
 			ShowActivity   *bool   `json:"show_activity"`
+			// StructuredOutput switches the say protocol for new runs.
+			StructuredOutput *bool `json:"structured_output"`
 		}
 		dec := json.NewDecoder(io.LimitReader(r.Body, 16*1024))
 		dec.DisallowUnknownFields()
@@ -183,8 +221,8 @@ func (s *Server) preferences(w http.ResponseWriter, r *http.Request) {
 			writeErr(w, http.StatusBadRequest, "invalid_request", "expected one preferences object")
 			return
 		}
-		if body.Timezone == nil && body.Language == nil && body.ShowActivity == nil {
-			writeErr(w, http.StatusBadRequest, "invalid_request", "expected timezone, language or show_activity")
+		if body.Timezone == nil && body.Language == nil && body.ShowActivity == nil && body.StructuredOutput == nil {
+			writeErr(w, http.StatusBadRequest, "invalid_request", "expected timezone, language, show_activity or structured_output")
 			return
 		}
 		if body.Language != nil {
@@ -204,12 +242,18 @@ func (s *Server) preferences(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 		}
+		if body.StructuredOutput != nil {
+			if err := s.store.putUserStructuredOutput(*body.StructuredOutput); err != nil {
+				writeErr(w, http.StatusInternalServerError, "preferences_unavailable", "preferences unavailable")
+				return
+			}
+		}
 		prefs, err := s.store.userPreferences()
 		if err != nil {
 			writeErr(w, http.StatusInternalServerError, "preferences_unavailable", "preferences unavailable")
 			return
 		}
-		response := map[string]any{"timezone": prefs.Timezone, "timezone_configured": prefs.TimezoneConfigured, "language": prefs.Language, "show_activity": prefs.ShowActivity}
+		response := map[string]any{"timezone": prefs.Timezone, "timezone_configured": prefs.TimezoneConfigured, "language": prefs.Language, "show_activity": prefs.ShowActivity, "structured_output": prefs.StructuredOutput}
 		if body.Timezone != nil {
 			zone, err := s.store.putUserTimezone(strings.TrimSpace(*body.Timezone), body.InitializeOnly)
 			if err != nil {

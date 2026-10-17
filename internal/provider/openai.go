@@ -293,7 +293,7 @@ func (o *openaiResponses) buildPayload(req *ChatRequest, stream bool) map[string
 				"name":        t.Name,
 				"description": t.Description,
 				"parameters":  t.Parameters,
-				"strict":      false, // Don't enforce strict mode for flexibility
+				"strict":      t.Strict, // off unless the tool's schema is built for it
 			}
 			tools = append(tools, tool)
 		}

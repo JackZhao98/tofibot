@@ -59,6 +59,9 @@ func TestExecutePublishesDraftBeforeFinalAndReusesMessageID(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer s.Close()
+	if err := s.store.putUserStructuredOutput(false); err != nil { // plain text streams into the draft only without structured output
+		t.Fatal(err)
+	}
 	b, _ := s.store.CreateBot("stream", "", "model")
 	c, _ := s.store.GetConversation(b.DMConversationID)
 	_, r, _, err := s.store.AddUserRun(c.ID, b.ID, "hello", "stream-test")
@@ -140,6 +143,9 @@ func TestExecuteStreamPersistenceFailureIsFailedAndDropsLateFinal(t *testing.T) 
 	c, _ := s.store.GetConversation(b.DMConversationID)
 	_, r, _, err := s.store.AddUserRun(c.ID, b.ID, "hello", "stream-storage-failure")
 	if err != nil {
+		t.Fatal(err)
+	}
+	if err = s.store.putUserStructuredOutput(false); err != nil { // plain text streams into the draft only without structured output
 		t.Fatal(err)
 	}
 	if _, err = s.store.db.Exec(`CREATE TRIGGER fail_delta_event BEFORE INSERT ON events WHEN NEW.type='delta' BEGIN SELECT RAISE(ABORT,'delta event rejected'); END`); err != nil {

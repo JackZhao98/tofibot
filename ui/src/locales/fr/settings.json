@@ -655,7 +655,9 @@
     "chat": "Discussion",
     "activity_title": "Afficher l’activité dans les discussions",
     "activity_note": "Affiche les étapes d’un Bot sous ses réponses. Désactivé par défaut ; elles restent accessibles depuis le menu d’actions d’un message.",
-    "activity_save_failed": "Échec de l’enregistrement. Réessayez."
+    "activity_save_failed": "Échec de l’enregistrement. Réessayez.",
+    "structured_title": "Réponses structurées",
+    "structured_note": "Un Bot n’affiche du texte dans la discussion que via son outil say ; le texte écrit entre deux étapes reste dans la vue d’activité. Désactivez pour le publier comme avant."
   },
   "approvals": {
     "heading": "Relecteur",

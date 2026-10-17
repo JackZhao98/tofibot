@@ -81,6 +81,9 @@ type Tool struct {
 	Name        string
 	Description string
 	Parameters  interface{} // JSON Schema object
+	// Strict asks the OpenAI Responses API to constrain the arguments to
+	// Parameters (every property required, no extras). Other providers ignore it.
+	Strict bool
 }
 
 // ToolCall represents a tool invocation by the assistant.

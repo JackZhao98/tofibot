@@ -244,12 +244,12 @@ func TestFinalTurnNotesPrecedeVisibleAnswer(t *testing.T) {
 // A budget-exhausted final turn goes through the same split as a normal final
 // turn: its <progress> notes fold, the rest is the answer, no tag is stored.
 func TestBudgetExhaustedPartialOutputSplitsProgressTags(t *testing.T) {
-	s, run, messages := runReviewDraft(t, func(*Server, Run) func(context.Context, runtime.Request) (runtime.Result, error) {
+	s, run, messages := runReviewDraftMode(t, func(*Server, Run) func(context.Context, runtime.Request) (runtime.Result, error) {
 		return func(_ context.Context, req runtime.Request) (runtime.Result, error) {
 			req.OnDelta("<progress>re-checking</progress>Two mails so far.")
 			return runtime.Result{BudgetExhausted: true, BudgetReason: "time", Content: "<progress>re-checking</progress>Two mails so far."}, nil
 		}
-	})
+	}, false)
 	if got, err := s.store.GetRun(run.ID); err != nil || got.Status != "failed" {
 		t.Fatalf("run=%+v err=%v", got, err)
 	}
@@ -266,6 +266,33 @@ func TestBudgetExhaustedPartialOutputSplitsProgressTags(t *testing.T) {
 	want := []string{"segment|" + demotedAnswer, "progress|re-checking", "|Two mails so far."}
 	if !reflect.DeepEqual(got, want) {
 		t.Fatalf("got %q want %q", got, want)
+	}
+}
+
+// With structured output only the literal tags of legacy text are stripped:
+// nothing is split into folded notes, and no tag reaches a stored message.
+func TestStructuredBudgetExhaustedPartialOutputOnlyStripsTags(t *testing.T) {
+	_, _, messages := runReviewDraftMode(t, func(*Server, Run) func(context.Context, runtime.Request) (runtime.Result, error) {
+		return func(_ context.Context, req runtime.Request) (runtime.Result, error) {
+			req.OnDelta("<progress>re-checking</progress>Two mails so far.")
+			return runtime.Result{BudgetExhausted: true, BudgetReason: "time", Content: "<progress>re-checking</progress>Two mails so far."}, nil
+		}
+	}, true)
+	var got []string
+	for _, m := range messages {
+		if m.Role != "assistant" {
+			continue
+		}
+		if strings.Contains(m.Content, "progress>") {
+			t.Fatalf("tag leaked into a stored message: %q", m.Content)
+		}
+		if m.Kind == "progress" {
+			t.Fatalf("a structured run folded text into a note: %+v", m)
+		}
+		got = append(got, m.Kind+"|"+m.Content)
+	}
+	if len(got) == 0 || got[len(got)-1] != "|re-checkingTwo mails so far." {
+		t.Fatalf("got %q", got)
 	}
 }
 

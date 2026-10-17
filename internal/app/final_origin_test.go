@@ -48,11 +48,20 @@ func (f dmFuncEngine) Run(ctx context.Context, req runtime.Request) (runtime.Res
 // dmRun drives one direct-message run through execute() with a scripted engine.
 func dmRun(t *testing.T, engine runtime.Engine) (*Server, Run) {
 	t.Helper()
+	return dmRunMode(t, engine, true)
+}
+
+// dmRunMode is dmRun under either output protocol.
+func dmRunMode(t *testing.T, engine runtime.Engine, structured bool) (*Server, Run) {
+	t.Helper()
 	s, err := NewServer(Config{DataDir: t.TempDir(), Engine: engine})
 	if err != nil {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { s.Close() })
+	if err := s.store.putUserStructuredOutput(structured); err != nil {
+		t.Fatal(err)
+	}
 	b, err := s.store.CreateBot("origin fixture", "", "model")
 	if err != nil {
 		t.Fatal(err)
@@ -75,13 +84,14 @@ func TestFinalOriginImplicitFromPlainFinalText(t *testing.T) {
 	}
 }
 
+// Heuristic H7 (structured output off): a progress turn stands in as the answer.
 func TestFinalOriginPromotedWhenOnlyProgressWasPublished(t *testing.T) {
-	s, run := dmRun(t, dmFuncEngine(func(ctx context.Context, req runtime.Request) (runtime.Result, error) {
+	s, run := dmRunMode(t, dmFuncEngine(func(ctx context.Context, req runtime.Request) (runtime.Result, error) {
 		if err := req.OnAssistantTurn(1, "Checking the clock service."); err != nil {
 			return runtime.Result{}, err
 		}
 		return runtime.Result{}, nil
-	}))
+	}), false)
 	if got := originOf(t, s.store, run.ID); run.Status != "done" || got != "promoted" {
 		t.Fatalf("run=%+v origin=%q", run, got)
 	}
@@ -141,10 +151,15 @@ func TestFinalOriginSayForRespondReply(t *testing.T) {
 	}
 }
 
+// Heuristic H8 over a published segment; with structured output a turn's plain
+// text is private, so it is not "posted" and the reply is.
 func TestFinalOriginExactDupWhenReplyRepeatsAPostedSegment(t *testing.T) {
 	var f dedupeFixture
 	engine := &mentionEngine{}
 	f = newDedupeFixture(t, engine)
+	if err := f.server.store.putUserStructuredOutput(false); err != nil {
+		t.Fatal(err)
+	}
 	engine.reply = func(ctx context.Context, req runtime.Request, text string) string {
 		_ = req.OnAssistantTurn(1, "the metaphor: a lighthouse")
 		return reply(ctx, req, "the metaphor:  a lighthouse", nil)

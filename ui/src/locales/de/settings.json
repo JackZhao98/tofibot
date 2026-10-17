@@ -646,7 +646,9 @@
     "chat": "Chat",
     "activity_title": "Aktivität im Chat anzeigen",
     "activity_note": "Zeigt die Schritte eines Bots unter seinen Antworten. Standardmäßig aus; im Aktionsmenü einer Nachricht lassen sie sich trotzdem öffnen.",
-    "activity_save_failed": "Speichern fehlgeschlagen. Versuche es erneut."
+    "activity_save_failed": "Speichern fehlgeschlagen. Versuche es erneut.",
+    "structured_title": "Strukturierte Antworten",
+    "structured_note": "Ein Bot zeigt Text im Chat nur über sein say-Werkzeug; Text zwischen den Schritten bleibt in der Aktivitätsansicht. Ausschalten, um ihn wie bisher zu posten."
   },
   "approvals": {
     "heading": "Prüfer",

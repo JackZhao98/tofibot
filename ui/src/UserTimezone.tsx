@@ -4,14 +4,14 @@ import {browserTimezone,timezoneChoices,validTimezone} from "./timezone";
 import "./timezone-settings.css";
 import {useSettingsDraft} from "./settingsDraft";
 import {i18n,syncServerLanguagePreference,useTranslation} from "./i18n";
-type Preferences={timezone:string;timezone_configured:boolean;language?:string;show_activity?:boolean};
-type TimezoneState={timezone:string;ready:boolean;busy:boolean;error:string;refresh:()=>Promise<void>;save:(zone:string)=>Promise<boolean>;/** Chat shows finished runs' Activity rows. Off by default; stored on the account. */showActivity:boolean;saveShowActivity:(show:boolean)=>Promise<boolean>};
+type Preferences={timezone:string;timezone_configured:boolean;language?:string;show_activity?:boolean;structured_output?:boolean};
+type TimezoneState={timezone:string;ready:boolean;busy:boolean;error:string;refresh:()=>Promise<void>;save:(zone:string)=>Promise<boolean>;/** Chat shows finished runs' Activity rows. Off by default; stored on the account. */showActivity:boolean;saveShowActivity:(show:boolean)=>Promise<boolean>;/** Bots show chat text only through their say tool. On by default; stored on the account. */structuredOutput:boolean;saveStructuredOutput:(on:boolean)=>Promise<boolean>};
 const TimezoneContext=createContext<TimezoneState|null>(null);
 /** Reads /api/preferences: the timezone lives here; the UI language is applied from the same read. */
 export function TimezoneProvider({children}:{children:ReactNode}){
  const [timezone,setTimezone]=useState(browserTimezone);
  const [ready,setReady]=useState(false);const [busy,setBusy]=useState(false);const [error,setError]=useState("");
- const [showActivity,setShowActivity]=useState(false);
+ const [showActivity,setShowActivity]=useState(false);const [structuredOutput,setStructuredOutput]=useState(true);
  const version=useRef(0);const mounted=useRef(false);const writing=useRef(false);const controller=useRef<AbortController|null>(null);
  const refresh=useCallback(async()=>{
   if(writing.current)return;
@@ -22,7 +22,7 @@ export function TimezoneProvider({children}:{children:ReactNode}){
    if(!mounted.current||current!==version.current||abort.signal.aborted)return;
    void syncServerLanguagePreference(result.language);
    if(!validTimezone(result.timezone))throw new Error(i18n.t("settings:timezone.invalid_reselect"));
-   setTimezone(result.timezone);setShowActivity(result.show_activity===true);setReady(true);setError("");
+   setTimezone(result.timezone);setShowActivity(result.show_activity===true);setStructuredOutput(result.structured_output!==false);setReady(true);setError("");
   }catch(cause){if(mounted.current&&current===version.current&&!abort.signal.aborted)setError(cause instanceof Error?cause.message:i18n.t("settings:timezone.read_failed"))}
  },[]);
  const save=useCallback(async(zone:string)=>{
@@ -44,12 +44,20 @@ export function TimezoneProvider({children}:{children:ReactNode}){
    return true;
   }catch{if(mounted.current)setShowActivity(before);return false}
  },[showActivity]);
+ const saveStructuredOutput=useCallback(async(on:boolean)=>{
+  const before=structuredOutput;setStructuredOutput(on);
+  try{
+   const result=await request<Preferences>("/api/preferences",{method:"PUT",body:JSON.stringify({structured_output:on})});
+   if(mounted.current)setStructuredOutput(result.structured_output!==false);
+   return true;
+  }catch{if(mounted.current)setStructuredOutput(before);return false}
+ },[structuredOutput]);
  useEffect(()=>{
   mounted.current=true;void refresh();
   const focus=()=>{if(!document.hidden)void refresh()};window.addEventListener("focus",focus);document.addEventListener("visibilitychange",focus);
   return()=>{mounted.current=false;version.current++;controller.current?.abort();window.removeEventListener("focus",focus);document.removeEventListener("visibilitychange",focus)};
  },[refresh]);
- return <TimezoneContext.Provider value={{timezone,ready,busy,error,refresh,save,showActivity,saveShowActivity}}>{children}</TimezoneContext.Provider>;
+ return <TimezoneContext.Provider value={{timezone,ready,busy,error,refresh,save,showActivity,saveShowActivity,structuredOutput,saveStructuredOutput}}>{children}</TimezoneContext.Provider>;
 }
 export function useUserTimezone(){const state=useContext(TimezoneContext);if(!state)throw new Error("TimezoneProvider is required");return state}
 /** Whether chat shows Activity rows (tool steps) for finished runs. Outside the provider (fixtures) it is off. */
@@ -60,6 +68,15 @@ export function ShowActivitySetting(){
  async function change(show:boolean){setBusy(true);setError(false);const ok=await preference.saveShowActivity(show);if(!ok)setError(true);setBusy(false)}
  return <>
   <label className="debug-toggle"><span>{t("general.activity_title")}<small>{t("general.activity_note")}</small></span><input type="checkbox" role="switch" checked={preference.showActivity} disabled={busy||!preference.ready} onChange={event=>void change(event.target.checked)}/></label>
+  {error&&<p className="timezone-error" role="alert">{t("general.activity_save_failed")}</p>}
+ </>;
+}
+export function StructuredOutputSetting(){
+ const {t}=useTranslation("settings");
+ const preference=useUserTimezone();const [error,setError]=useState(false);const [busy,setBusy]=useState(false);
+ async function change(on:boolean){setBusy(true);setError(false);const ok=await preference.saveStructuredOutput(on);if(!ok)setError(true);setBusy(false)}
+ return <>
+  <label className="debug-toggle"><span>{t("general.structured_title")}<small>{t("general.structured_note")}</small></span><input type="checkbox" role="switch" checked={preference.structuredOutput} disabled={busy||!preference.ready} onChange={event=>void change(event.target.checked)}/></label>
   {error&&<p className="timezone-error" role="alert">{t("general.activity_save_failed")}</p>}
  </>;
 }

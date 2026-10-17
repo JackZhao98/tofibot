@@ -223,49 +223,73 @@ func TestProductionPromptSizeMatrix(t *testing.T) {
 		{"schedule-dm", dm, runKindSchedule, false}, {"schedule-group", group, runKindSchedule, false},
 		{"schedule-descendant", group, runKindGroupTask, true},
 	} {
-		t.Run(tc.name, func(t *testing.T) {
-			run := Run{ID: "matrix", BotID: bot.ID, ConversationID: tc.conv.ID, Kind: tc.kind}
-			if tc.descendant {
-				run.scheduleTask = &Message{Content: "Synthetic scheduled task"}
+		for _, structured := range []bool{false, true} {
+			structured := structured
+			name := tc.name
+			if structured {
+				name += "-structured"
 			}
-			_, core := (&Server{store: store}).buildContextParts(tc.conv, run, bot)
-			fixed := len([]rune(strings.Join([]string{core, toolEvidencePolicy, runtimeDurablePrompt, computerPrompt, runtimeCapabilityPrompt, policy}, "\n")))
-			system, err := assembleRunSystem(runSystemPrompt{Core: core, BotInstructions: bot.Instructions, Durable: runtimeDurablePrompt, Computer: computerPrompt, Capabilities: runtimeCapabilityPrompt, Extensions: prepared.Instructions})
-			t.Logf("core=%d evidence=%d durable=%d computer=%d capability=%d discovery=%d directory=%d fixed=%d final=%d agent_suffix=%d provider_system=%d", len([]rune(core)), len([]rune(toolEvidencePolicy)), len([]rune(runtimeDurablePrompt)), len([]rune(computerPrompt)), len([]rune(runtimeCapabilityPrompt)), len([]rune(policy)), len([]rune(directory)), fixed, len([]rune(system)), runtime.SystemPromptOverheadRunes(), len([]rune(system))+runtime.SystemPromptOverheadRunes())
-			if err != nil {
-				t.Fatal(err)
-			}
-			// The merged research/evidence block replaces the former separate
-			// evidence policy and ordinary research contract.
-			if len([]rune(toolEvidencePolicy)) > 900 {
-				t.Fatal("research and evidence policy exceeds its 900-rune allowance")
-			}
-			// 5300: the voice rules against process narration and audit-style
-			// disclaimers (owner, 2026-10-14) and looking up unknown names before
-			// asking (owner, 2026-10-16) added ~450 cached runes.
-			if tc.name == "dm" && len([]rune(system))+runtime.SystemPromptOverheadRunes() > 5300 {
-				t.Errorf("ordinary DM provider system exceeds 5300 runes")
-			}
-			if fixed > 6200 {
-				t.Errorf("fixed overhead %d leaves too little customization headroom (ceiling 6200)", fixed)
-			}
-			if !strings.Contains(system, bot.Instructions) {
-				t.Fatal("user instructions changed")
-			}
-			if strings.Count(system, toolEvidencePolicy) != 1 {
-				t.Fatal("research and evidence policy is not stated exactly once")
-			}
-			if tc.kind == runKindSchedule || tc.descendant {
-				for _, required := range []string{"complete_scheduled_task", "source names/URLs", "without calling complete_scheduled_task", "receipt", "computer_browser"} {
-					if !strings.Contains(system, required) {
-						t.Errorf("missing scheduled contract %q", required)
+			t.Run(name, func(t *testing.T) {
+				run := Run{ID: "matrix", BotID: bot.ID, ConversationID: tc.conv.ID, Kind: tc.kind, structured: structured}
+				if tc.descendant {
+					run.scheduleTask = &Message{Content: "Synthetic scheduled task"}
+				}
+				_, core := (&Server{store: store}).buildContextParts(tc.conv, run, bot)
+				fixed := len([]rune(strings.Join([]string{core, toolEvidencePolicy, runtimeDurablePrompt, computerPrompt, runtimeCapabilityPrompt, policy}, "\n")))
+				system, err := assembleRunSystem(runSystemPrompt{Core: core, BotInstructions: bot.Instructions, Durable: runtimeDurablePrompt, Computer: computerPrompt, Capabilities: runtimeCapabilityPrompt, Extensions: prepared.Instructions})
+				t.Logf("core=%d evidence=%d durable=%d computer=%d capability=%d discovery=%d directory=%d fixed=%d final=%d agent_suffix=%d provider_system=%d", len([]rune(core)), len([]rune(toolEvidencePolicy)), len([]rune(runtimeDurablePrompt)), len([]rune(computerPrompt)), len([]rune(runtimeCapabilityPrompt)), len([]rune(policy)), len([]rune(directory)), fixed, len([]rune(system)), runtime.SystemPromptOverheadRunes(), len([]rune(system))+runtime.SystemPromptOverheadRunes())
+				if err != nil {
+					t.Fatal(err)
+				}
+				// The merged research/evidence block replaces the former separate
+				// evidence policy and ordinary research contract.
+				if len([]rune(toolEvidencePolicy)) > 900 {
+					t.Fatal("research and evidence policy exceeds its 900-rune allowance")
+				}
+				// 5300: the voice rules against process narration and audit-style
+				// disclaimers (owner, 2026-10-14) and looking up unknown names before
+				// asking (owner, 2026-10-16) added ~450 cached runes.
+				if tc.name == "dm" && len([]rune(system))+runtime.SystemPromptOverheadRunes() > 5300 {
+					t.Errorf("ordinary DM provider system exceeds 5300 runes")
+				}
+				if fixed > 6200 {
+					t.Errorf("fixed overhead %d leaves too little customization headroom (ceiling 6200)", fixed)
+				}
+				if !strings.Contains(system, bot.Instructions) {
+					t.Fatal("user instructions changed")
+				}
+				if strings.Count(system, toolEvidencePolicy) != 1 {
+					t.Fatal("research and evidence policy is not stated exactly once")
+				}
+				if tc.kind == runKindSchedule || tc.descendant {
+					for _, required := range []string{"complete_scheduled_task", "source names/URLs", "without calling complete_scheduled_task", "receipt", "computer_browser"} {
+						if !strings.Contains(system, required) {
+							t.Errorf("missing scheduled contract %q", required)
+						}
+					}
+				} else {
+					if strings.Contains(system, "complete_scheduled_task") {
+						t.Fatal("ordinary chat loaded scheduled execution policy")
 					}
 				}
-			} else {
-				if strings.Contains(system, "complete_scheduled_task") {
-					t.Fatal("ordinary chat loaded scheduled execution policy")
+				if structured {
+					// The protocol replaces prose: no tag guidance anywhere, the
+					// agent suffix is shorter than the one it replaces, and the
+					// total stays within what the legacy prompt used.
+					if strings.Contains(system, "<progress>") {
+						t.Error("structured prompt still teaches the progress tag")
+					}
+					if runtime.StructuredPromptOverheadRunes() >= runtime.SystemPromptOverheadRunes() {
+						t.Errorf("structured suffix %d is not shorter than %d", runtime.StructuredPromptOverheadRunes(), runtime.SystemPromptOverheadRunes())
+					}
+					if tc.name == "dm" && len([]rune(system))+runtime.StructuredPromptOverheadRunes() > 5300 {
+						t.Errorf("structured DM provider system exceeds 5300 runes")
+					}
+					if tc.kind == runKindGroupChat && !strings.Contains(system, "say(answer)") {
+						t.Error("structured group prompt does not name say(answer)")
+					}
 				}
-			}
-		})
+			})
+		}
 	}
 }

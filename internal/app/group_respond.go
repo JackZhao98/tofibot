@@ -33,6 +33,14 @@ End each group turn with respond: reply (post; wake lists Bots to start, each wi
 [/group response]
 `
 
+// groupDispositionGuidanceStructured is the group prompt of a run that
+// follows the say protocol: say(answer) posts, respond keeps the choices that
+// post nothing and the one that wakes other Bots.
+const groupDispositionGuidanceStructured = `[group response]
+Post to the group with say(answer). Otherwise end the turn with respond: silent (not for you), concluded (a Bot's closing: post nothing), follow_up (waiting on a Bot: set wait_for), or reply with wake to start Bots, each with a concrete request. A plain @mention starts nothing. Answer a person's greeting or small talk briefly. Don't announce delegating.
+[/group response]
+`
+
 type groupWakeEntry struct {
 	BotID   string `json:"bot_id"`
 	Request string `json:"request"`
@@ -66,11 +74,22 @@ func (s *Store) hasPostedMessage(runID string) bool {
 // postedVisibleText reports whether the run already published a visible
 // message (any kind a person sees) whose normalized text equals text.
 func (s *Store) postedVisibleText(runID, text string) bool {
+	return s.postedVisibleTextFor(runID, text, false)
+}
+
+// postedVisibleTextFor is postedVisibleText for either protocol. A structured
+// run's folded notes are private working text, so only what a person was shown
+// (a plain message or a segment) counts as already said.
+func (s *Store) postedVisibleTextFor(runID, text string, structured bool) bool {
 	text = normalizeReply(text)
 	if text == "" {
 		return false
 	}
-	rows, err := s.db.Query(`SELECT content FROM messages WHERE run_id=? AND role='assistant' AND kind IN ('','segment','progress')`, runID)
+	kinds := `'','segment','progress'`
+	if structured {
+		kinds = `'','segment'`
+	}
+	rows, err := s.db.Query(`SELECT content FROM messages WHERE run_id=? AND role='assistant' AND kind IN (`+kinds+`)`, runID)
 	if err != nil {
 		return false
 	}
@@ -92,7 +111,7 @@ func (s *Server) replyFinalText(r Run, choice groupChoice) string {
 	if text == "" {
 		return ""
 	}
-	if s.store.postedVisibleText(r.ID, text) {
+	if s.store.postedVisibleTextFor(r.ID, text, r.structured) {
 		return ""
 	}
 	return choice.text
@@ -152,6 +171,9 @@ func (s *Server) groupRespondTools(c Conversation, r Run) []runtime.Tool {
 		if len(in.Wake) > 3 {
 			return "", errors.New("wake at most 3 Bots")
 		}
+		if _, said := s.store.sayAnswer(r.ID); said {
+			return "", errors.New("you already delivered your answer with say; your turn is complete, write nothing more")
+		}
 		if _, again := s.dispositions.Load(r.ID); again {
 			return "", errors.New("respond was already called for this turn; your turn is complete, write nothing more")
 		}
@@ -164,6 +186,10 @@ func (s *Server) groupRespondTools(c Conversation, r Run) []runtime.Tool {
 				return "", errors.New("a scheduled run's reply needs text")
 			}
 			s.dispositions.Store(r.ID, groupChoice{disposition: dispReply, wakes: in.Wake, text: in.Text})
+			if r.structured {
+				// The reply is the turn's last act, as an answer is.
+				runtime.EndTurn(ctx)
+			}
 			return "Recorded. This is your final message; the listed Bots start after it is published. Write nothing more.", nil
 		case dispSilent, dispConcluded, dispFollowUp:
 			if len(in.Wake) > 0 {
