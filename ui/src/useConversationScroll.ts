@@ -37,6 +37,8 @@ interface Visit {
 // A disclosure the reader opens grows the page under their pointer; follow-bottom
 // must not chase that growth. Hold the clicked row in place while it settles.
 const HOLD_MS = 900;
+// The longest a loaded conversation may stay hidden while it waits for its position.
+const SAFETY_MS = 200;
 
 interface ViewSnapshot {
   anchorSeq: number;
@@ -137,7 +139,7 @@ export function useConversationScroll(options: Options) {
     if (v.entryMax === null) v.entryMax = max;
     if (!v.positioned) {
       const resume = v.resume;
-      const resumeNode = resume?.anchorSeq ? el.querySelector<HTMLElement>(`[data-message-seq="${resume.anchorSeq}"]`) : null;
+      let resumeNode = resume?.anchorSeq ? el.querySelector<HTMLElement>(`[data-message-seq="${resume.anchorSeq}"]`) : null;
       if (resume && !resume.atBottom && resume.anchorSeq > 0 && !resumeNode) {
         if (v.boundaryFailed) return;
         if (min > resume.anchorSeq && o.hasMore && !o.loadingOlder && !v.loadingBoundary) {
@@ -149,10 +151,14 @@ export function useConversationScroll(options: Options) {
             render(n => n + 1);
           });
         }
-        // Keep the restore intent until the anchor is actually in the DOM.
-        // This also covers the transient empty page while a switched
-        // conversation is loading and prevents an accidental jump to bottom.
-        if (o.hasMore || o.loadingOlder || records.length === 0) return;
+        // The anchor is older than everything loaded: keep the restore intent until paging brings it in.
+        // This also covers the transient empty page while a switched conversation is loading and prevents
+        // an accidental jump to bottom.
+        if (records.length === 0 || (min > resume.anchorSeq && (o.hasMore || o.loadingOlder))) return;
+        // The anchor's seq is inside the loaded range (or there is no more history) yet it has no node: it is
+        // folded, hidden or superseded since the position was saved. Waiting would leave the pane hidden for
+        // good, so settle on the nearest rendered message at or after it, and otherwise on the bottom.
+        resumeNode = Array.from(el.querySelectorAll<HTMLElement>("[data-message-seq]")).find(node => Number(node.dataset.messageSeq) >= resume.anchorSeq) ?? null;
       }
       // The unread boundary is honoured only when it is inside the page already loaded. A backlog longer
       // than one page opens at the newest messages: paging older history in before the first paint made the
@@ -200,6 +206,29 @@ export function useConversationScroll(options: Options) {
   useLayoutEffect(() => {
     position();
   });
+
+  // Hard safety: loaded content waits for its first position (hidden, so it never paints in the wrong place),
+  // but never longer than SAFETY_MS. If the restore cannot resolve by then, land on the newest messages.
+  const safety = useRef<{ visit: Visit; timer: number } | null>(null);
+  const armSafety = useCallback(() => {
+    const v = visit.current;
+    if (!v || v.positioned || !latest.current.ready || safety.current?.visit === v) return;
+    if (safety.current) window.clearTimeout(safety.current.timer);
+    const timer = window.setTimeout(() => {
+      safety.current = null;
+      if (visit.current !== v || v.positioned || !latest.current.ready || !isVisible()) return;
+      v.resume = null;
+      v.followNext = true;
+      v.boundaryFailed = false;
+      position();
+    }, SAFETY_MS);
+    safety.current = { visit: v, timer };
+  }, [isVisible, position]);
+  useLayoutEffect(() => {
+    if (safety.current && (safety.current.visit.positioned || safety.current.visit !== visit.current)) { window.clearTimeout(safety.current.timer); safety.current = null; }
+    armSafety();
+  });
+  useLayoutEffect(() => () => { if (safety.current) window.clearTimeout(safety.current.timer); safety.current = null; }, []);
 
   useLayoutEffect(() => {
     const el = scrollRef.current;
@@ -259,7 +288,7 @@ export function useConversationScroll(options: Options) {
     observer.observe(el);
     const content = el.querySelector(".message-list");
     if (content) observer.observe(content);
-    const onFocus = () => { position(); markVisible(); };
+    const onFocus = () => { position(); markVisible(); armSafety(); };
     window.addEventListener("focus", onFocus);
     document.addEventListener("visibilitychange", onFocus);
     const desktop = window.matchMedia("(min-width: 768px)");
@@ -277,7 +306,7 @@ export function useConversationScroll(options: Options) {
       document.removeEventListener("visibilitychange", onFocus);
       desktop.removeEventListener("change", onFocus);
     };
-  }, [id, options.ready, position, markVisible]);
+  }, [id, options.ready, position, markVisible, armSafety]);
 
   const preservePrepend = useCallback(() => {
     const el = scrollRef.current;
