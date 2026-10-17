@@ -215,11 +215,28 @@ def create_persona_bot(srv, persona, brief):
     raise RuntimeError("Bot %s never wrote its profile through onboarding" % persona)
 
 
+# A group mention needs distinct names; a model may pick the same name for two personas.
+FALLBACK_NAMES = {"assistant": "Atlas", "technews": "Quill", "analogy": "Lumen"}
+
+
+def ensure_distinct_names(srv, bots):
+    seen = set()
+    for persona in PERSONA_ORDER:
+        bot = bots[persona]
+        if bot["name"].strip().lower() in seen:
+            new = FALLBACK_NAMES[persona]
+            srv.request("PATCH", "/api/bots/%s" % bot["id"], {"name": new})
+            log("  persona %-9s renamed %r -> %r (duplicate name)" % (persona, bot["name"], new))
+            bot["name"] = new
+        seen.add(bot["name"].strip().lower())
+
+
 def create_world(srv, personas):
     bots = {}
     for name in PERSONA_ORDER:
         bots[name] = create_persona_bot(srv, name, personas[name]["brief"])
         log("  persona %-9s -> Bot %r (%d onboarding turns)" % (name, bots[name]["name"], bots[name]["onboarding_turns"]))
+    ensure_distinct_names(srv, bots)
     group = srv.post("/api/groups", {"name": "Eval trio", "bot_ids": [bots[n]["id"] for n in PERSONA_ORDER]})
     return bots, group["id"]
 
