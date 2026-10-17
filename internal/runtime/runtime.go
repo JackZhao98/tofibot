@@ -501,6 +501,12 @@ func (e *engine) Run(ctx context.Context, req Request) (Result, error) {
 		BeforeFinalResponse:        req.BeforeFinalResponse,
 		FinalResponseRepairTools:   append([]string(nil), req.FinalResponseRepairTools...),
 		BeforeModelCall: func() error {
+			if turnEnded.Load() {
+				// A tool ended the turn and its result is recorded: a message
+				// that arrived since must not cancel what was just delivered.
+				cancelRun()
+				return context.Canceled
+			}
 			if req.BeforeModelCall == nil {
 				return nil
 			}

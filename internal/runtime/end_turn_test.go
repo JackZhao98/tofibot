@@ -158,3 +158,33 @@ func TestToolCallDeltasReachTheCallerInOrder(t *testing.T) {
 		}
 	}
 }
+
+// A message that arrives after a tool ended the turn must not turn the finished
+// turn into a cancelled one: the caller's boundary check is not consulted again.
+func TestEndTurnIsNotUndoneByTheNextBoundaryCheck(t *testing.T) {
+	paths.SetTofiHome(t.TempDir())
+	p := &stepProvider{steps: []func(func(provider.StreamDelta)) *provider.ChatResponse{
+		func(func(provider.StreamDelta)) *provider.ChatResponse {
+			return &provider.ChatResponse{ToolCalls: []provider.ToolCall{{ID: "c1", Name: "finish", Arguments: `{}`}}}
+		},
+	}}
+	e := &engine{provider: p, model: "test-model"}
+	boundaries := 0
+	var ended int
+	result, err := e.Run(context.Background(), Request{RunID: "end-turn-boundary", BotID: "bot", Messages: []Message{{Role: "user", Content: "go"}},
+		Tools: []Tool{finishingTool(&ended)},
+		BeforeModelCall: func() error {
+			boundaries++
+			if boundaries > 1 {
+				return context.Canceled // a steering successor appeared
+			}
+			return nil
+		},
+	})
+	if err != nil || !result.TurnEnded {
+		t.Fatalf("result=%+v err=%v", result, err)
+	}
+	if boundaries != 1 {
+		t.Fatalf("boundary consulted %d times, want only before the first model call", boundaries)
+	}
+}

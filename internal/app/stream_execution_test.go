@@ -142,6 +142,9 @@ func TestExecuteStreamPersistenceFailureIsFailedAndDropsLateFinal(t *testing.T) 
 	if err != nil {
 		t.Fatal(err)
 	}
+	if err = s.store.putUserStructuredOutput(false); err != nil { // plain text streams into the draft only without structured output
+		t.Fatal(err)
+	}
 	if _, err = s.store.db.Exec(`CREATE TRIGGER fail_delta_event BEFORE INSERT ON events WHEN NEW.type='delta' BEGIN SELECT RAISE(ABORT,'delta event rejected'); END`); err != nil {
 		t.Fatal(err)
 	}
