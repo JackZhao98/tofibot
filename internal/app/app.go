@@ -3528,6 +3528,9 @@ func (s *Server) execute(c Conversation, r Run) {
 	finalReview := taskCompletionFinalReview(observedToolWork.Load)
 	if inner := finalReview; inner != nil {
 		finalReview = func(content string) (string, error) {
+			if reviewed.Load() {
+				return "", nil // a say answer already spent the one review
+			}
 			reminder, err := inner(content)
 			if reminder != "" {
 				reviewed.Store(true)
