@@ -1,4 +1,4 @@
-import { Children, createContext, isValidElement, useContext, useState, type ReactNode } from "react";
+import { Children, createContext, isValidElement, memo, useContext, useState, type ReactNode } from "react";
 import type { Root, Element } from "hast";
 import Markdown, { defaultUrlTransform, type Components } from "react-markdown";
 import remarkGfm from "remark-gfm";
@@ -103,6 +103,7 @@ const mentionComponents: Components = {
   },
 };
 
-export function MessageMarkdown({ content, mention, cursor = false }: { content: string; mention?: ReactNode; cursor?: boolean }) {
+/** Memoized: parsing a long conversation's Markdown on every unrelated Workspace commit costs tens of milliseconds. */
+export const MessageMarkdown = memo(function MessageMarkdown({ content, mention, cursor = false }: { content: string; mention?: ReactNode; cursor?: boolean }) {
   return <MentionContext.Provider value={mention}><Markdown remarkPlugins={[remarkGfm, remarkCjkFriendly]} rehypePlugins={[...(mention ? [prependMention] : []), ...(cursor ? [appendCursor] : [])]} skipHtml urlTransform={urlTransform} components={mentionComponents}>{content}</Markdown></MentionContext.Provider>;
-}
+});

@@ -38,6 +38,7 @@
     "test:file-preview": "node scripts/test-file-preview.mjs",
     "test:composer-typing": "node scripts/test-composer-typing.mjs",
     "test:chat-switch": "node scripts/test-chat-switch.mjs",
+    "test:chat-safari": "node scripts/test-chat-safari.mjs",
     "test:chat-bubbles": "node scripts/test-chat-bubbles.mjs",
     "test:onboarding": "node scripts/test-onboarding.mjs",
     "test:settings-polish": "node scripts/test-settings-polish.mjs",

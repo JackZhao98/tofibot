@@ -581,6 +581,8 @@ html:not([data-desktop]) .workspace .web-loading-state{min-height:96px;padding-b
   border:1px solid var(--line-soft); border-radius:10px; background:var(--surface);
   box-shadow:0 6px 18px color-mix(in srgb,var(--ink) 12%,transparent);
   opacity:0; pointer-events:none; transform:translateY(3px); transition:opacity 120ms ease,transform 120ms ease;
+  /* The toolbar floats over the conversation: dragging through a bubble and copying must not pick up its timestamp. */
+  -webkit-user-select:none; user-select:none;
 }
 .workspace .message-hover-host:hover>.message-hover-actions,
 .workspace .message-hover-actions:focus-within { opacity:1; pointer-events:auto; transform:none; }
