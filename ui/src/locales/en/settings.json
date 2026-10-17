@@ -646,7 +646,9 @@
     "chat": "Chat",
     "activity_title": "Show activity in chats",
     "activity_note": "Show the steps a Bot took under its replies. Off by default; you can still open them from a message's action menu.",
-    "activity_save_failed": "Couldn't save. Try again."
+    "activity_save_failed": "Couldn't save. Try again.",
+    "structured_title": "Structured replies",
+    "structured_note": "Bots show text in chat only through their say tool; text written between steps stays in the activity view. Turn off to post it as before."
   },
   "approvals": {
     "heading": "Reviewer",

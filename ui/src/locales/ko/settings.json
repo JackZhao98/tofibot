@@ -637,7 +637,9 @@
     "chat": "채팅",
     "activity_title": "채팅에 활동 표시",
     "activity_note": "Bot이 수행한 단계를 답장 아래에 표시합니다. 기본값은 꺼짐이며, 메시지의 작업 메뉴에서 열 수 있습니다.",
-    "activity_save_failed": "저장하지 못했습니다. 다시 시도하세요."
+    "activity_save_failed": "저장하지 못했습니다. 다시 시도하세요.",
+    "structured_title": "구조화된 답장",
+    "structured_note": "Bot은 say 도구를 통해서만 채팅에 텍스트를 표시합니다. 단계 사이에 쓴 텍스트는 활동 보기에 남습니다. 끄면 이전처럼 게시됩니다."
   },
   "approvals": {
     "heading": "검토자",
