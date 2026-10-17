@@ -66,7 +66,7 @@ func TestSayCallSatisfiesTheUpdateCadence(t *testing.T) {
 
 func TestStructuredPromptDropsTheTagGuidance(t *testing.T) {
 	p := cadenceFixture{structured: true}.run(t)
-	if sys := p.requests[0].System; strings.Contains(sys, "progress>") || !strings.Contains(sys, "say(answer)") {
+	if sys := p.requests[0].System; strings.Contains(sys, "progress>") || !strings.Contains(sys, "say(note)") || !strings.Contains(sys, "private working text") {
 		t.Fatalf("system suffix: %q", sys)
 	}
 	if got := StructuredReportPrompt(0); got != "" {
@@ -97,5 +97,26 @@ func TestToolCallFragmentsAreForwarded(t *testing.T) {
 	}
 	if len(got) != 3 || got[0].Name != "lookup" || got[1].Arguments+got[2].Arguments != `{"q":"x"}` {
 		t.Fatalf("fragments = %+v", got)
+	}
+}
+
+func TestEmptyFinalEndsTheRunOnlyWhenTheCallerSaysSo(t *testing.T) {
+	run := func(end func() bool) (*AgentResult, *scriptedProvider, error) {
+		p := &scriptedProvider{steps: []func(context.Context, *provider.ChatRequest, func(provider.StreamDelta)) (*provider.ChatResponse, error){
+			toolCallReply("c", "lookup", `{}`),
+			reply(provider.ChatResponse{}),
+			reply(provider.ChatResponse{Content: "after the nudge"}),
+		}}
+		res, err := runLoop(t, AgentConfig{Provider: p, Prompt: "go", EndOnEmptyFinal: end,
+			ExtraTools: []ExtraBuiltinTool{lookupTool(func(context.Context, map[string]interface{}) (string, error) { return "ok", nil })}})
+		return res, p, err
+	}
+	res, p, err := run(func() bool { return true })
+	if err != nil || res.Content != "" || len(p.requests) != 2 {
+		t.Fatalf("ended: result=%+v err=%v calls=%d", res, err, len(p.requests))
+	}
+	res, p, err = run(func() bool { return false })
+	if err != nil || res.Content != "after the nudge" || len(p.requests) != 3 {
+		t.Fatalf("nudged: result=%+v err=%v calls=%d", res, err, len(p.requests))
 	}
 }

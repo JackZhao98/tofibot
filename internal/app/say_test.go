@@ -796,3 +796,118 @@ func TestRunKeepsTheProtocolItStartedWith(t *testing.T) {
 		t.Fatalf("messages = %q", kindsAndText(rows))
 	}
 }
+
+// ---- Ending a turn cleanly ----
+
+type engineByBot map[string]runtime.Engine
+
+func (m engineByBot) Run(ctx context.Context, req runtime.Request) (runtime.Result, error) {
+	if e, ok := m[req.BotID]; ok {
+		return e.Run(ctx, req)
+	}
+	return runtime.Result{Content: "ok"}, nil
+}
+
+// respond(reply) is the turn's last act under the say protocol: a model that
+// would keep going after it is not asked to.
+func TestRespondReplyEndsTheTurnWhenStructured(t *testing.T) {
+	model := newFakeModel(t,
+		fakeStep{calls: []fakeCall{{"c1", "respond", `{"disposition":"reply","text":"Spaces, and let a formatter decide."}`}}},
+		fakeStep{content: "a model call that must not happen"})
+	byBot := engineByBot{}
+	f := newDedupeFixture(t, byBot)
+	byBot[f.tofi.ID] = model.engine(t)
+	f.post(t, "@tofi tabs or spaces", f.tofi)
+	f.start(byBot)
+	runs := f.settle(t)
+	if len(runs) != 1 || runs[0].Status != "done" {
+		t.Fatalf("runs=%+v", runs)
+	}
+	if n := modelCalls(model); n != 1 {
+		t.Fatalf("model calls = %d, want 1", n)
+	}
+	if publishedBy(&f, f.tofi.ID) != 1 {
+		t.Fatalf("published = %d", publishedBy(&f, f.tofi.ID))
+	}
+}
+
+// After a handoff the Bot owes no answer: an empty closing response ends the
+// run instead of being nudged to continue.
+func TestEmptyClosingResponseAfterAHandoffEndsTheRun(t *testing.T) {
+	var f dedupeFixture
+	model := newFakeModel(t,
+		fakeStep{calls: []fakeCall{{"c1", "handoff", `{"bot_id":"META","task":"write the metaphor"}`}}},
+		fakeStep{content: ""},
+		fakeStep{content: "Integrated the helper result."})
+	byBot := engineByBot{}
+	f = newDedupeFixture(t, byBot)
+	model.steps[0].calls[0].args = strings.Replace(model.steps[0].calls[0].args, "META", f.meta.ID, 1)
+	byBot[f.tofi.ID] = model.engine(t)
+	byBot[f.meta.ID] = dmFuncEngine(func(ctx context.Context, req runtime.Request) (runtime.Result, error) {
+		return runtime.Result{Content: "helper result"}, nil
+	})
+	f.post(t, "@tofi get the metaphor from metaphor", f.tofi)
+	f.start(byBot)
+	runs := f.settle(t)
+	var lead Run
+	for _, r := range runs {
+		if r.BotID == f.tofi.ID && r.Kind != runKindFollowup {
+			lead = r
+		}
+	}
+	if lead.Status != "done" {
+		t.Fatalf("lead run = %+v (all %+v)", lead, runs)
+	}
+	// The third call is the follow-up run that integrates the colleague's
+	// result; none of the requests is the nudge an empty response used to get.
+	for i, body := range model.requests() {
+		if strings.Contains(body, "Please continue. Use the available tools") {
+			t.Fatalf("request %d nudged the model to continue after its handoff", i+1)
+		}
+	}
+}
+
+// Without a handoff an empty response is still not an ending.
+func TestEmptyResponseWithoutAHandoffStillAsksToContinue(t *testing.T) {
+	model := newFakeModel(t, fakeStep{content: ""}, fakeStep{content: "Here is the actual answer."})
+	s, run := serverWithModel(t, model, true)
+	if run.Status != "done" {
+		t.Fatalf("run=%+v", run)
+	}
+	want := []string{"|Here is the actual answer."}
+	if rows := assistantRows(t, s.store, run.ConversationID); !equalStrings(kindsAndText(rows), want) {
+		t.Fatalf("messages = %q", kindsAndText(rows))
+	}
+}
+
+// The one steering line trails the history, next to the request it answers.
+func TestSayPrincipleLineSitsBesideTheRequestOnlyWhenStructured(t *testing.T) {
+	s, err := NewServer(Config{DataDir: t.TempDir()})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer s.Close()
+	b, _ := s.store.CreateBot("liner", "", "model")
+	c, _ := s.store.GetConversation(b.DMConversationID)
+	_, run, _, err := s.store.AddUserRun(c.ID, b.ID, "What is a hash map?", "line-1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, structured := range []bool{false, true} {
+		run.structured = structured
+		pm, system := s.buildContextParts(c, run, b)
+		if strings.Contains(system, sayPrincipleLine) {
+			t.Fatal("the steering line belongs beside the request, not in the cached system text")
+		}
+		if len(pm) < 2 {
+			t.Fatalf("context = %+v", pm)
+		}
+		note, last := pm[len(pm)-2], pm[len(pm)-1]
+		if has := strings.Contains(note.Content, sayPrincipleLine); has != structured {
+			t.Fatalf("structured=%v: line present=%v in %q", structured, has, note.Content)
+		}
+		if !strings.Contains(last.Content, "What is a hash map?") {
+			t.Fatalf("the request must stay last: %+v", last)
+		}
+	}
+}

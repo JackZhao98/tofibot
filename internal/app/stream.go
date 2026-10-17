@@ -484,47 +484,47 @@ func (s *Store) streamControls(ctx context.Context, run Run, onError func(error)
 		}
 	}
 	return streamControlSet{Delta: func(text string) {
-			mu.Lock()
-			defer mu.Unlock()
-			if failed || ctx.Err() != nil {
-				return
-			}
-			appendLocked(tags.feed(text))
-			if persisted.IsZero() || time.Since(persisted) >= streamFlushInterval || len(buffer) >= maxStreamDeltaRunes {
-				flushLocked()
-			}
-		}, Raw: func(text string) {
-			mu.Lock()
-			defer mu.Unlock()
-			if failed || ctx.Err() != nil {
-				return
-			}
-			buffer = append(buffer, []rune(text)...)
-			if persisted.IsZero() || time.Since(persisted) >= streamFlushInterval || len(buffer) >= maxStreamDeltaRunes {
-				flushLocked()
-			}
-		}, Flush: func() {
-			// A flush marks the end of a turn's text: a held-back "<pro" was
-			// plain text after all, and the next turn starts outside any note.
-			mu.Lock()
-			defer mu.Unlock()
-			appendLocked(tags.finish())
+		mu.Lock()
+		defer mu.Unlock()
+		if failed || ctx.Err() != nil {
+			return
+		}
+		appendLocked(tags.feed(text))
+		if persisted.IsZero() || time.Since(persisted) >= streamFlushInterval || len(buffer) >= maxStreamDeltaRunes {
 			flushLocked()
-		}, Reset: func() {
-			mu.Lock()
-			defer mu.Unlock()
-			buffer = nil
-			tags.finish()
-			if failed || ctx.Err() != nil {
-				return
+		}
+	}, Raw: func(text string) {
+		mu.Lock()
+		defer mu.Unlock()
+		if failed || ctx.Err() != nil {
+			return
+		}
+		buffer = append(buffer, []rune(text)...)
+		if persisted.IsZero() || time.Since(persisted) >= streamFlushInterval || len(buffer) >= maxStreamDeltaRunes {
+			flushLocked()
+		}
+	}, Flush: func() {
+		// A flush marks the end of a turn's text: a held-back "<pro" was
+		// plain text after all, and the next turn starts outside any note.
+		mu.Lock()
+		defer mu.Unlock()
+		appendLocked(tags.finish())
+		flushLocked()
+	}, Reset: func() {
+		mu.Lock()
+		defer mu.Unlock()
+		buffer = nil
+		tags.finish()
+		if failed || ctx.Err() != nil {
+			return
+		}
+		if err := s.ResetStreamDraft(ctx, run.ID); err != nil {
+			failed = true
+			if onError != nil {
+				onError(err)
 			}
-			if err := s.ResetStreamDraft(ctx, run.ID); err != nil {
-				failed = true
-				if onError != nil {
-					onError(err)
-				}
-			}
-		}}, nil
+		}
+	}}, nil
 }
 
 // ResetStreamDraft discards the active draft without publishing it: the draft

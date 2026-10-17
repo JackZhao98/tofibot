@@ -3535,7 +3535,13 @@ func (s *Server) execute(c Conversation, r Run) {
 		log.Printf("[run] %s resumes with its answer already recorded; finishing without a model call", r.ID)
 		engine = answeredEngine{}
 	}
-	res, e := engine.Run(ctx, Request{BotID: r.BotID, RunID: r.ID, ConversationID: c.ID, System: system, Model: model, ReasoningEffort: reasoningEffort, Messages: pm, Tools: tools, OnDelta: onDelta, StructuredOutput: structured, OnToolCallDelta: onToolCallDelta, BeforeModelCall: steeringBoundary, BeforeFinalResponse: finalReview, FinalResponseRepairTools: finalRepairTools, OnAssistantTurn: onAssistantTurn,
+	var endOnEmptyFinal func() bool
+	if structured {
+		// A run that handed its work to a colleague owes no answer; with plain
+		// text private, ending quietly is how that turn closes.
+		endOnEmptyFinal = func() bool { return hasHandoff(s.store, r.ID) }
+	}
+	res, e := engine.Run(ctx, Request{BotID: r.BotID, RunID: r.ID, ConversationID: c.ID, System: system, Model: model, ReasoningEffort: reasoningEffort, Messages: pm, Tools: tools, OnDelta: onDelta, StructuredOutput: structured, OnToolCallDelta: onToolCallDelta, EndOnEmptyFinal: endOnEmptyFinal, BeforeModelCall: steeringBoundary, BeforeFinalResponse: finalReview, FinalResponseRepairTools: finalRepairTools, OnAssistantTurn: onAssistantTurn,
 		OnThinking: onThinking, OnRetry: onRetry, OnStreamReset: onStreamReset, OnReviewDraft: onReviewDraft,
 		Continuation:      continuation,
 		ResumeResult:      s.inputResumeResult(answeredQuestion),
