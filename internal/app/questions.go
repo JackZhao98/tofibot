@@ -304,6 +304,20 @@ func normalizeQuestionInput(x askQuestionInput) (askQuestionInput, error) {
 	return x, nil
 }
 
+// requireHumanPresent refuses a human-input request made from a conversation
+// that no person can see (a Bot-to-Bot trace). A card there would park the run
+// on a question nobody can answer. The refusal is a classified, final outcome:
+// the only human route the code supports is the run's own reply, which is
+// returned to the Bot or conversation that assigned the work.
+func requireHumanPresent(c Conversation) error {
+	if c.UserVisible {
+		return nil
+	}
+	return tooloutcome.New(tooloutcome.Denied, "conversation_not_user_visible", "not_executed",
+		"No person can see this conversation, so a question or approval card here would never be answered. Do not retry or ask again. If a human decision or piece of information is needed, state exactly what is needed in your reply; it is returned to the Bot or conversation that assigned this work.",
+		"explain_blocker").Err()
+}
+
 func (s *Server) questionTools(c Conversation, r Run) []Tool {
 	return []Tool{{Name: "ask_user_question", Description: "Ask the human a text, yes/no, single-choice, or multiple-choice question and wait for the answer. Set allow_other=true for yes/no or choice questions to offer a human-written alternative. When used, it returns {values:[selected option IDs],other_text:string}; values is empty for yes/no and single-choice. An Other response is not affirmative approval; interpret its actual text. Ordinary answers retain their boolean, string, or array format. Answers are ordinary conversation data: never ask for secrets here. Use ask_user_form for several webpage fields in one card, including private password fields.", Parameters: objectSchema(map[string]any{
 		"question":           map[string]any{"type": "string"},
@@ -314,6 +328,9 @@ func (s *Server) questionTools(c Conversation, r Run) []Tool {
 		"max_selections":     map[string]any{"type": "integer", "minimum": 0},
 		"expires_in_seconds": questionExpirySchema(),
 	}, []string{"question", "type"}), Execute: func(ctx context.Context, raw json.RawMessage) (string, error) {
+		if err := requireHumanPresent(c); err != nil {
+			return "", err
+		}
 		var in askQuestionInput
 		if err := json.Unmarshal(raw, &in); err != nil {
 			return "", ErrQuestionInvalidAnswer
@@ -352,6 +369,9 @@ func (s *Server) approvalTool(c Conversation, r Run) Tool {
 		"draft_id":           map[string]any{"type": "string", "description": "Optional saved draft ID in the current conversation; preview link only."},
 		"expires_in_seconds": questionExpirySchema(),
 	}, []string{"question", "action", "target", "impact"}), Execute: func(ctx context.Context, raw json.RawMessage) (string, error) {
+		if err := requireHumanPresent(c); err != nil {
+			return "", err
+		}
 		var input struct {
 			Question string `json:"question"`
 			ApprovalDetails
