@@ -287,9 +287,9 @@
     "answered_refresh_failed": "已接收回答，状态刷新失败，请刷新页面查看。",
     "needs_input": "需要你填写",
     "target_site": "目标网站",
-    "unspecified": "未指定",
     "privacy_fields": "普通字段会以明文提供给 Bot；密码通过私密输入提供，不会作为明文回答显示给 Bot。密码中的空格会保留。",
     "privacy_continue": "提交后 Bot 将继续任务，不代表已向网站提交。",
+    "privacy_secret": "原文不会作为聊天消息发送。",
     "private_field": "私密输入",
     "required": "必填",
     "optional": "选填",
@@ -454,17 +454,6 @@
     "payload_label": "完整工具参数，纯文本",
     "submitting": "提交中…",
     "remember": "批准并在本对话中记住"
-  },
-  "secret": {
-    "submit_failed": "提交未完成，请确认请求仍有效后重试。",
-    "done": "已安全提交 · {{name}} 可以继续了",
-    "needed": "{{name}} 需要私密输入才能继续",
-    "tag": "私密输入",
-    "placeholder": "输入密钥或密码",
-    "note": "原文不会作为聊天消息发送。",
-    "cancel": "取消",
-    "submitting": "提交中…",
-    "submit": "私密提交"
   },
   "remembered": {
     "title": "记住的批准",

@@ -27,7 +27,6 @@ const plugin={name:"synthetic-task-issue-fixture",enforce:"pre",transform(source
  if(url.pathname==="/api/conversations")return reply({conversations:[{id:run.conversation_id,kind:"dm",name:"Synthetic Bot",bot_id:run.bot_id,bot_ids:[run.bot_id],updated_at:at,read_seq:2,user_visible:true,task_state:{status:fixtureCase==="done"?"completed":f.run.status==="failed"?"failed":fixtureCase==="approval"?"needs_attention":"executing",run_id:run.id,can_retry:true}}]});
  if(url.pathname==="/api/questions")return reply({questions:answers.has(key)?[answers.get(key)]:f.questions});
  if(url.pathname==="/api/mail-drafts")return reply({drafts:f.drafts});
- if(url.pathname==="/api/secret-inputs")return reply({requests:[]});
  if(url.pathname==="/api/computer/desktop-ownership")return reply({owner:null,waiting:[]});
  if(url.pathname==="/api/computers/firecracker/info")return reply({kind:"synthetic",state:"ready"});
  if(url.pathname.endsWith("/messages"))return reply({messages:f.messages,drafts:[],has_more:false,event_cursor:0});

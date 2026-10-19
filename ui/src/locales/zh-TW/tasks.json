@@ -287,9 +287,9 @@
     "answered_refresh_failed": "已收到回答，但狀態重新整理失敗，請重新整理頁面查看。",
     "needs_input": "需要你填寫",
     "target_site": "目標網站",
-    "unspecified": "未指定",
     "privacy_fields": "一般欄位會以明文提供給 Bot；密碼透過私密輸入提供，不會以明文回答顯示給 Bot。密碼中的空格會保留。",
     "privacy_continue": "提交後 Bot 會繼續任務，不代表已向網站送出。",
+    "privacy_secret": "原文不會以聊天訊息傳送。",
     "private_field": "私密輸入",
     "required": "必填",
     "optional": "選填",
@@ -454,17 +454,6 @@
     "payload_label": "完整工具參數，純文字",
     "submitting": "提交中…",
     "remember": "核准並在本對話中記住"
-  },
-  "secret": {
-    "submit_failed": "提交未完成，請確認請求仍有效後重試。",
-    "done": "已安全提交 · {{name}} 可以繼續了",
-    "needed": "{{name}} 需要私密輸入才能繼續",
-    "tag": "私密輸入",
-    "placeholder": "輸入金鑰或密碼",
-    "note": "原文不會以聊天訊息傳送。",
-    "cancel": "取消",
-    "submitting": "提交中…",
-    "submit": "私密提交"
   },
   "remembered": {
     "title": "記住的核准",

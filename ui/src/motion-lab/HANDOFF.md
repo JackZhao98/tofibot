@@ -49,7 +49,7 @@ Motion Lab 是一个独立的展示页：`ui/motion-lab.html`，源码在 `ui/sr
 | 复制成功 | `demos/chat/CopyDemo.tsx` | `DisplayCard`、`MessageAttachment`、`BotInspector`、`MCPSettings`、`ComputerCredentials` |
 | 拖文件 | `demos/chat/DropDemo.tsx` | `Composer` 附件区域；目前没有拖放功能，属于新功能，先问 |
 | 图片放大 | `demos/chat/ZoomDemo.tsx` | `MessageAttachment.tsx` 的 lightbox `<dialog>` |
-| 私密输入 | `demos/chat/SecretDemo.tsx` | `SecretInputCard.tsx` |
+| 私密输入 | `demos/chat/SecretDemo.tsx` | `QuestionCard.tsx` (private-input form) |
 | 定时任务票根 | `demos/chat/ScheduleRowDemo.tsx` | `ScheduledTaskRow.tsx` → 共享 `ScheduledRun.tsx` |
 | 录音波形 | `demos/chat/MicDemo.tsx` | `useDictation.ts` / `DictationControls` |
 | 侧栏重排 / 折叠 / 新 Bot / 连接状态 | `demos/sidebar/SidebarDemo.tsx` | `App.tsx` 侧栏、`sidebarCollapsed`、`SidebarAccount` |

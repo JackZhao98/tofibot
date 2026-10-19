@@ -291,9 +291,9 @@
     "answered_refresh_failed": "Réponse reçue, mais l’état ne s’est pas actualisé. Rechargez la page pour le voir.",
     "needs_input": "Votre saisie est requise",
     "target_site": "Site web",
-    "unspecified": "Non précisé",
     "privacy_fields": "Les champs ordinaires sont transmis au Bot en clair. Les mots de passe passent par une saisie privée et ne sont jamais montrés en clair au Bot. Les espaces dans les mots de passe sont conservés.",
     "privacy_continue": "L’envoi permet au Bot de poursuivre la tâche. Rien n’a encore été envoyé au site web.",
+    "privacy_secret": "La valeur n’est jamais envoyée comme message dans la conversation.",
     "private_field": "Privé",
     "required": "Obligatoire",
     "optional": "Facultatif",
@@ -464,17 +464,6 @@
     "payload_label": "Arguments complets de l’outil, en texte brut",
     "submitting": "Envoi…",
     "remember": "Approuver et mémoriser dans cette discussion"
-  },
-  "secret": {
-    "submit_failed": "Envoi impossible. Vérifiez que la demande est toujours ouverte, puis réessayez.",
-    "done": "Envoyé en toute sécurité · {{name}} peut continuer",
-    "needed": "{{name}} a besoin d’une saisie privée pour continuer",
-    "tag": "Saisie privée",
-    "placeholder": "Saisissez une clé ou un mot de passe",
-    "note": "La valeur n’est jamais envoyée comme message dans la conversation.",
-    "cancel": "Annuler",
-    "submitting": "Envoi…",
-    "submit": "Envoyer en privé"
   },
   "remembered": {
     "title": "Approbations mémorisées",

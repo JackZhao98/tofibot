@@ -63,7 +63,6 @@ window.fetch = async (input, init) => {
   if (path.endsWith("/schedule-occurrences")) return Response.json({ occurrences: [] });
   if (path.endsWith("/work-items")) return Response.json({ work_items: [] });
   if (path.endsWith("/drafts") || path === "/api/mail-drafts") return Response.json({ drafts: [] });
-  if (path === "/api/secret-inputs") return Response.json({ secret_inputs: [], requests: [] });
   if (path === "/api/computer/desktop-ownership") return Response.json({ owner: null });
   throw new Error(`Unexpected synthetic read: ${method} ${path}`);
 };

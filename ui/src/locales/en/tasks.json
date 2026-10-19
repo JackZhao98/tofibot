@@ -289,9 +289,9 @@
     "answered_refresh_failed": "Answer received, but the status didn't refresh. Reload the page to see it.",
     "needs_input": "Your input is needed",
     "target_site": "Website",
-    "unspecified": "Not specified",
     "privacy_fields": "Regular fields are shared with the Bot as plain text. Passwords go through private input and are never shown to the Bot as plain text. Spaces in passwords are kept.",
     "privacy_continue": "Submitting lets the Bot continue the task. Nothing has been submitted to the website yet.",
+    "privacy_secret": "The value is never sent as a chat message.",
     "private_field": "Private",
     "required": "Required",
     "optional": "Optional",
@@ -459,17 +459,6 @@
     "payload_label": "Full tool arguments, plain text",
     "submitting": "Submitting…",
     "remember": "Approve and remember in this chat"
-  },
-  "secret": {
-    "submit_failed": "Couldn't submit. Make sure the request is still open, then try again.",
-    "done": "Submitted securely · {{name}} can continue",
-    "needed": "{{name}} needs private input to continue",
-    "tag": "Private input",
-    "placeholder": "Enter a key or password",
-    "note": "The value is never sent as a chat message.",
-    "cancel": "Cancel",
-    "submitting": "Submitting…",
-    "submit": "Submit privately"
   },
   "remembered": {
     "title": "Remembered approvals",

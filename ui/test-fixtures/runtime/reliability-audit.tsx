@@ -92,7 +92,6 @@ window.fetch=async(input,init)=>{
  if(url.pathname.endsWith("/work-items"))return Response.json({work_items:[]});
  if(url.pathname.endsWith("/drafts"))return Response.json({drafts:[]});
  if(url.pathname==="/api/mail-drafts")return Response.json({drafts:[]});
- if(url.pathname==="/api/secret-inputs")return Response.json({secret_inputs:[],requests:[]});
  if(url.pathname==="/api/computer/desktop-ownership")return Response.json({owner:null});
  throw new Error(`Unexpected synthetic request: ${method} ${path}`);
 };

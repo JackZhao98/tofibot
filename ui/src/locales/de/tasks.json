@@ -289,9 +289,9 @@
     "answered_refresh_failed": "Antwort erhalten, aber der Status wurde nicht aktualisiert. Lade die Seite neu, um ihn zu sehen.",
     "needs_input": "Deine Eingabe wird benötigt",
     "target_site": "Website",
-    "unspecified": "Nicht angegeben",
     "privacy_fields": "Normale Felder werden als Klartext an den Bot weitergegeben. Passwörter laufen über die private Eingabe und werden dem Bot nie im Klartext gezeigt. Leerzeichen in Passwörtern bleiben erhalten.",
     "privacy_continue": "Mit dem Absenden kann der Bot die Aufgabe fortsetzen. An die Website wurde noch nichts übermittelt.",
+    "privacy_secret": "Der Wert wird nie als Chatnachricht gesendet.",
     "private_field": "Privat",
     "required": "Pflichtfeld",
     "optional": "Optional",
@@ -459,17 +459,6 @@
     "payload_label": "Alle Tool-Argumente als Klartext",
     "submitting": "Wird gesendet…",
     "remember": "Genehmigen und in diesem Chat merken"
-  },
-  "secret": {
-    "submit_failed": "Senden fehlgeschlagen. Prüfe, ob die Anfrage noch offen ist, und versuch es noch einmal.",
-    "done": "Sicher übermittelt · {{name}} kann weitermachen",
-    "needed": "{{name}} braucht eine private Eingabe, um weiterzumachen",
-    "tag": "Private Eingabe",
-    "placeholder": "Schlüssel oder Passwort eingeben",
-    "note": "Der Wert wird nie als Chatnachricht gesendet.",
-    "cancel": "Abbrechen",
-    "submitting": "Wird gesendet…",
-    "submit": "Privat senden"
   },
   "remembered": {
     "title": "Gemerkte Genehmigungen",
