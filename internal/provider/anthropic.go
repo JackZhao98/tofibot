@@ -7,9 +7,11 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"sort"
 	"strings"
+	"sync"
 	"sync/atomic"
 	"time"
 )
@@ -88,6 +90,15 @@ func (a *anthropicProvider) ChatStream(ctx context.Context, req *ChatRequest, on
 		}
 	}
 	resp, err := a.stream(ctx, req, forward)
+	if err != nil && !forwarded && req.ToolChoice == ToolChoiceAny && !anthropicAnyRejected(req.Model) && isAnthropicToolChoiceRejection(err) {
+		// The model does not take a forced tool call (some thinking
+		// configurations refuse it): remember that and let it choose.
+		anthropicAnyRefused.Store(req.Model, true)
+		log.Printf("[anthropic] %s refused tool_choice any (%s); not requiring a tool call for this model until restart", req.Model, strings.TrimSpace(err.Error()))
+		retry := *req
+		retry.ToolChoice = ""
+		resp, err = a.stream(ctx, &retry, onDelta)
+	}
 	if err != nil && !forwarded && !req.OmitReasoningReplay && hasAnthropicReplay(req.Messages) && isAnthropicReplayRejection(err) {
 		retry := *req
 		retry.OmitReasoningReplay = true
@@ -347,8 +358,11 @@ func (a *anthropicProvider) buildPayload(req *ChatRequest) (map[string]any, []st
 		// Tools render first; one breakpoint caches the whole tool set.
 		tools[len(tools)-1]["cache_control"] = cacheControl()
 		payload["tools"] = tools
-		if req.ToolChoice == ToolChoiceNone {
+		switch {
+		case req.ToolChoice == ToolChoiceNone:
 			payload["tool_choice"] = map[string]any{"type": "none"}
+		case req.ToolChoice == ToolChoiceAny && !anthropicAnyRejected(req.Model):
+			payload["tool_choice"] = map[string]any{"type": "any"}
 		}
 	}
 	return payload, betas
@@ -626,6 +640,35 @@ func anyBlockType(block any) string {
 		return blockType(b)
 	}
 	return ""
+}
+
+// anthropicAnyRefused remembers models whose API refused tool_choice any, so
+// the request is not rejected and retried on every turn.
+var anthropicAnyRefused sync.Map
+
+func anthropicAnyRejected(model string) bool {
+	_, refused := anthropicAnyRefused.Load(model)
+	return refused
+}
+
+// isAnthropicToolChoiceRejection matches a 400 saying that a forced tool
+// choice is not available (for example with thinking enabled), not any 400 that
+// merely names the field.
+func isAnthropicToolChoiceRejection(err error) bool {
+	apiErr, ok := AsAPIError(err)
+	if !ok || apiErr.StatusCode != 400 {
+		return false
+	}
+	body := strings.ToLower(apiErr.Body)
+	if !strings.Contains(body, "tool_choice") {
+		return false
+	}
+	for _, wording := range []string{"forces tool use", "may not be enabled", "not supported", "does not support", "only supports"} {
+		if strings.Contains(body, wording) {
+			return true
+		}
+	}
+	return false
 }
 
 // isAnthropicReplayRejection matches a 400 caused by replayed thinking (bad

@@ -3,6 +3,7 @@ package app
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"strings"
 	"sync/atomic"
@@ -86,33 +87,42 @@ func TestSayAnswerIsRefusedOnceAnInterjectionIsPending(t *testing.T) {
 	}
 }
 
-// The same window under the flag for respond(reply).
+// The same window in a group: say(answer) took over respond(reply)'s path, so
+// a message that lands right after it must keep the reply and finish the run.
 func TestSteeringMessageAfterRespondReplyKeepsTheReply(t *testing.T) {
 	var f dedupeFixture
 	model := newFakeModel(t,
-		fakeStep{calls: []fakeCall{{"c1", "respond", `{"disposition":"reply","text":"Spaces, and a formatter."}`}}},
-		fakeStep{content: "unused"})
+		fakeStep{calls: []fakeCall{{"c1", "say", `{"purpose":"answer","text":"Spaces, and a formatter."}`}}},
+		fakeStep{content: "a model call that must not happen"})
 	byBot := engineByBot{}
 	f = newDedupeFixture(t, byBot)
 	var once bool
-	byBot[f.tofi.ID] = respondHookEngine{inner: model.engine(t), after: func(req runtime.Request) {
+	byBot[f.tofi.ID] = afterSayEngine{inner: model.engine(t), after: func() {
 		if once {
 			return
 		}
 		once = true
-		run, _ := f.server.store.GetRun(req.RunID)
-		steeringReviewInterject(t, f.server, f.group, run)
+		var first Run
+		runs, _ := f.server.store.Runs(f.group.ID)
+		for _, r := range runs {
+			if r.BotID == f.tofi.ID {
+				first = r
+				break
+			}
+		}
+		steeringReviewInterject(t, f.server, f.group, first)
 	}}
 	f.post(t, "@tofi tabs or spaces", f.tofi)
 	f.start(byBot)
 	f.settle(t)
-	if publishedBy(&f, f.tofi.ID) < 1 {
+	var content, status, origin string
+	_ = f.server.store.db.QueryRow(`SELECT COALESCE(MAX(m.content),'') FROM messages m JOIN runs r ON r.id=m.run_id WHERE r.conversation_id=? AND r.bot_id=? AND m.role='assistant' AND m.kind='' AND m.content='Spaces, and a formatter.'`, f.group.ID, f.tofi.ID).Scan(&content)
+	if content == "" {
 		t.Fatal("the reply was discarded by the steering message")
 	}
-	var status string
-	_ = f.server.store.db.QueryRow(`SELECT status FROM runs WHERE conversation_id=? AND bot_id=? ORDER BY created_at LIMIT 1`, f.group.ID, f.tofi.ID).Scan(&status)
-	if status != "done" {
-		t.Fatalf("first run status = %q", status)
+	_ = f.server.store.db.QueryRow(`SELECT status,final_origin FROM runs WHERE conversation_id=? AND bot_id=? ORDER BY created_at LIMIT 1`, f.group.ID, f.tofi.ID).Scan(&status, &origin)
+	if status != "done" || origin != finalOriginSay {
+		t.Fatalf("first run status = %q origin = %q", status, origin)
 	}
 }
 
@@ -360,21 +370,12 @@ func (e *summaryProbeEngine) Run(ctx context.Context, req runtime.Request) (runt
 type scheduledSayEngine struct{}
 
 func (scheduledSayEngine) Run(ctx context.Context, req runtime.Request) (runtime.Result, error) {
-	long := strings.Repeat("The full scheduled result with many details. ", 6)
-	args, _ := json.Marshal(map[string]any{"content": long, "sources": []string{"a"}})
-	const callID = "receipt-1"
-	for _, status := range []string{"queued", "running"} {
-		if err := req.OnToolEvent(runtime.ToolEvent{CallID: callID, Name: "complete_scheduled_task", Arguments: string(args), Status: status}); err != nil {
-			return runtime.Result{}, err
+	for _, tool := range req.Tools {
+		if tool.Name == "complete_scheduled_task" {
+			return runtime.Result{}, errors.New("complete_scheduled_task is offered under the say protocol")
 		}
 	}
-	if _, err := callTool(ctx, req, "complete_scheduled_task", callID, map[string]any{"content": long, "sources": []string{"a"}}); err != nil {
-		return runtime.Result{}, err
-	}
-	if err := req.OnToolEvent(runtime.ToolEvent{CallID: callID, Name: "complete_scheduled_task", Arguments: string(args), Status: "completed", Result: "accepted"}); err != nil {
-		return runtime.Result{}, err
-	}
-	_, err := say(ctx, req, "answer-1", "answer", "Short answer that does not repeat the receipt.")
+	_, err := callTool(ctx, req, "say", "answer-1", map[string]any{"purpose": "answer", "text": "Short answer that does not repeat the receipt.", "sources": []string{"a"}})
 	return runtime.Result{}, err
 }
 

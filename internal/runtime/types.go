@@ -93,6 +93,9 @@ type Request struct {
 	// StructuredOutput runs the say protocol: plain assistant text is private
 	// and only the say tool shows the person anything.
 	StructuredOutput bool
+	// ForceToolUse requires a tool call on every ordinary model request of a
+	// structured run (see agent.Config.ForceToolUse).
+	ForceToolUse bool
 	// OnToolCallDelta receives every streamed tool-call fragment while the
 	// model is still writing it, in order. It is called from the provider's
 	// stream goroutine and must not block.

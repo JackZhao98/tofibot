@@ -176,6 +176,9 @@ func TestFinalOriginLeadingMentionDispatch(t *testing.T) {
 	var f dedupeFixture
 	engine := &mentionEngine{}
 	f = newDedupeFixture(t, engine)
+	if err := f.server.store.putUserStructuredOutput(false); err != nil {
+		t.Fatal(err)
+	}
 	engine.reply = func(ctx context.Context, req runtime.Request, text string) string {
 		if req.BotID == f.tofi.ID {
 			return "@metaphor draft one analogy for synthetic caching"
@@ -228,6 +231,9 @@ func (shortScheduleEngine) Run(ctx context.Context, req runtime.Request) (runtim
 
 func TestFinalOriginSchedulePrepend(t *testing.T) {
 	f := newDedupeFixture(t, shortScheduleEngine{})
+	if err := f.server.store.putUserStructuredOutput(false); err != nil {
+		t.Fatal(err)
+	}
 	x, err := f.server.store.CreateSchedule(f.group.ID, f.tofi.ID, ScheduleSpec{Content: "post the daily synthetic note", Kind: scheduleOnce, RunAt: time.Now().Add(time.Hour).Format(time.RFC3339), Timezone: "UTC"})
 	if err != nil {
 		t.Fatal(err)
