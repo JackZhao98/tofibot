@@ -15,7 +15,7 @@ import { i18n, useTranslation } from "./i18n";
 type Props = { expanded?: boolean; sheet?: boolean; passivePreview?: boolean; autoConnect?: boolean; presence?: DesktopPresenceState; botId: string; botName: string; members?: Array<{ id: string; name: string }>; onClose: (reason?: "hide" | "shutdown") => void; onReadyChange?: (ready: boolean) => void; onExpandedChange?: (expanded: boolean) => void };
 type ComputerInfo = { kind: string; state: string; phase?: string; workspace_root?: string; browser?: string; error?: string };
 type ViewerState = "disconnected" | "connecting" | "connected";
-type FrameStatus = "shown" | "busy" | "not-running" | "failed";
+type FrameStatus = "shown" | "busy" | "not-running" | "waking" | "failed";
 
 export function computerErrorText(error: unknown) {
   const details = error && typeof error === "object" ? error as { status?: unknown; code?: unknown; message?: unknown } : {};
@@ -50,6 +50,18 @@ function isTransientDesktopError(error: unknown) {
   return status === 409 || status === 502 || status === 503 || ["computer_busy", "desktop_stream_busy", "control_expired", "control_unavailable"].includes(code);
 }
 
+/** The guest has no desktop running. The typed code is authoritative; the message match keeps old servers working. */
+export function isDesktopNotRunning(error: unknown) {
+  if (error && typeof error === "object" && (error as { code?: unknown }).code === "desktop_not_running") return true;
+  return error instanceof Error && error.message.toLowerCase().includes("desktop is not running");
+}
+
+/** The computer is up but its guest is still restoring or being restarted: wait, do not fail. */
+export function isComputerWaking(error: unknown) {
+  const code = error && typeof error === "object" ? (error as { code?: unknown }).code : "";
+  return code === "computer_restarting" || code === "computer_unresponsive";
+}
+
 function resultImage(result: unknown) {
   if (!result || typeof result !== "object") return "";
   const value = (result as { image_url?: unknown }).image_url;
@@ -82,6 +94,10 @@ const PASSIVE_VIEWER_WINDOW_MS = 90_000;
 const PASSIVE_VIEWER_RETRY_DELAY_MS = 2500;
 const VIEWER_CONNECT_ATTEMPTS = 6;
 const VIEWER_CONNECT_RETRY_DELAY_MS = 350;
+// A guest that is still restoring answers "restarting" for a few seconds. That is waiting, not failing:
+// it gets its own bounded budget and never spends the failure attempts.
+const VIEWER_WAKE_BUDGET_MS = 60_000;
+const VIEWER_WAKE_RETRY_DELAY_MS = 1000;
 
 const phaseKeys = { checking: "desktop.phase.checking", storage: "desktop.phase.storage", network: "desktop.phase.network", booting: "desktop.phase.booting", restoring: "desktop.phase.restoring", verifying: "desktop.phase.verifying", ready: "desktop.phase.ready" } as const;
 const stateKeys = { starting: "desktop.state.starting", ready: "desktop.state.ready", error: "desktop.state.error", stopped: "desktop.state.stopped" } as const;
@@ -141,6 +157,8 @@ export function BotDesktopPanel({ botId, botName, members = [], autoConnect = fa
   const [humanControlled, setHumanControlled] = useState(false);
   const [error, setError] = useState("");
   const [connectionLost, setConnectionLost] = useState(false);
+  // A passive viewer found the Bot working without a desktop (browser only). A fact, not a failure.
+  const [botWithoutDesktop, setBotWithoutDesktop] = useState(false);
   const [output, setOutput] = useState("");
   const [videoState, setVideoState] = useState<DesktopVideoState>("connecting");
   const [videoSession, setVideoSession] = useState(0);
@@ -218,6 +236,10 @@ export function BotDesktopPanel({ botId, botName, members = [], autoConnect = fa
         infoRef.current = next;
         setInfo(next);
         if (next.state !== "ready") {
+          // The computer left ready (hibernating, restoring): whatever connect was in flight is void, and
+          // the first-open connect must run again once it is back.
+          opened.current = false;
+          setBotWithoutDesktop(false);
           viewerIntentRef.current = false;
           preserveViewerRef.current = false;
           autoRecoveryTokenRef.current++;
@@ -314,7 +336,7 @@ export function BotDesktopPanel({ botId, botName, members = [], autoConnect = fa
       // A Bot can be running while a read-only viewer reconnects. Do not turn
       // this normal lease response into a flashing error banner.
       if (cause instanceof ApiError && cause.status === 409) return "busy";
-      if (cause instanceof Error && cause.message.toLowerCase().includes("desktop is not running")) {
+      if (isDesktopNotRunning(cause)) {
         // Idle collection or a Bot stopping its desktop is not a network fault.
         // Never keep presenting the last frame as a live, connected screen.
         if (viewerStateRef.current === "connected" && !preserveViewerRef.current) {
@@ -326,6 +348,7 @@ export function BotDesktopPanel({ botId, botName, members = [], autoConnect = fa
         }
         return "not-running";
       }
+      if (isComputerWaking(cause)) return "waking";
       // HTTPS/proxy churn and stream handoffs are recoverable. Keep the last
       // frame and let the bounded reconnect loop decide whether this is real.
       if (isTransientDesktopError(cause)) return "failed";
@@ -510,7 +533,8 @@ export function BotDesktopPanel({ botId, botName, members = [], autoConnect = fa
     setFallbackFrameReady(false);
     setViewerConnection("connecting");
     let status: FrameStatus = "failed";
-    for (let retryCount = 0; retryCount < VIEWER_CONNECT_ATTEMPTS; retryCount++) {
+    const wakeDeadline = Date.now() + VIEWER_WAKE_BUDGET_MS;
+    for (let failures = 0; failures < VIEWER_CONNECT_ATTEMPTS;) {
       if (generation.current !== current || viewerAttemptRef.current !== viewerAttempt || viewerStateRef.current !== "connecting") return;
       status = await captureViewerFrame(true);
       if (generation.current !== current || viewerAttemptRef.current !== viewerAttempt) return;
@@ -521,7 +545,13 @@ export function BotDesktopPanel({ botId, botName, members = [], autoConnect = fa
         return;
       }
       if (status === "shown" || status === "not-running") break;
-      if (retryCount + 1 < VIEWER_CONNECT_ATTEMPTS) await new Promise(resolve => window.setTimeout(resolve, VIEWER_CONNECT_RETRY_DELAY_MS));
+      if (status === "waking") {
+        if (Date.now() >= wakeDeadline) break;
+        await new Promise(resolve => window.setTimeout(resolve, VIEWER_WAKE_RETRY_DELAY_MS));
+        continue;
+      }
+      failures++;
+      if (failures < VIEWER_CONNECT_ATTEMPTS) await new Promise(resolve => window.setTimeout(resolve, VIEWER_CONNECT_RETRY_DELAY_MS));
     }
     if (generation.current !== current || viewerAttemptRef.current !== viewerAttempt || viewerStateRef.current !== "connecting") return;
     if (status === "busy") {
@@ -530,11 +560,13 @@ export function BotDesktopPanel({ botId, botName, members = [], autoConnect = fa
       return;
     }
     if (status === "shown") {
+      setBotWithoutDesktop(false);
       setViewerConnection("connected");
       return;
     }
     if (status === "not-running") {
       if (passiveRunId) {
+        setBotWithoutDesktop(true);
         finishPassiveAttempt();
         return;
       }
@@ -753,6 +785,7 @@ export function BotDesktopPanel({ botId, botName, members = [], autoConnect = fa
     : info?.state === "hibernated" ? { tone: "hibernated", status: t("desktop.placeholder.hibernated") }
     : info?.state === "hibernating" ? { tone: "hibernated", status: t("desktop.placeholder.hibernating") }
     : info?.state === "resuming" ? { tone: "resuming", status: info.phase && info.phase !== "hibernated" ? t("desktop.placeholder.resuming_phase", { phase: phaseText(info.phase) }) : t("desktop.placeholder.resuming") }
+    : botWithoutDesktop && info?.state === "ready" ? { tone: "browser", status: t("desktop.placeholder.no_desktop") }
     : passivePreview ? { tone: "connecting", status: t("desktop.status.connecting_preview") }
     : info?.state === "ready" ? { tone: "connecting", status: t("desktop.placeholder.connecting") }
     : { tone: "waking", status: info?.phase ? phaseText(info.phase) : t("desktop.placeholder.waking") };
