@@ -114,8 +114,8 @@ func (s *Server) userFormTool(c Conversation, r Run) Tool {
 		if err := ctx.Err(); err != nil {
 			return "", err
 		}
-		if !c.UserVisible {
-			return "", errors.New("user forms require a user-visible conversation")
+		if err := requireHumanPresent(c); err != nil {
+			return "", err
 		}
 		var in askQuestionInput
 		if err := json.Unmarshal(raw, &in); err != nil {
