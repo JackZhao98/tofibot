@@ -1910,10 +1910,17 @@ func (s *Store) FinishRunStructured(id, conv, bot, content string, promoted *Mes
 
 // Partial output and the terminal budget failure commit in one transaction.
 func (s *Store) finishRunBudget(id, conv, bot, content, reason string) (Message, bool, error) {
+	return s.finishRunBudgetOpts(id, conv, bot, content, reason, finishOpts{})
+}
+
+// finishRunBudgetOpts is finishRunBudget for either protocol: a structured
+// run's partial text is stored as it was written, with no narration, repeat or
+// delegation fold.
+func (s *Store) finishRunBudgetOpts(id, conv, bot, content, reason string, opts finishOpts) (Message, bool, error) {
 	if reason == "" {
 		reason = "active run budget exhausted"
 	}
-	return s.finishRunState(id, conv, bot, content, false, "budget exhausted: "+reason)
+	return s.finishRunOpts(id, conv, bot, content, false, "budget exhausted: "+reason, opts)
 }
 func (s *Store) finishRunState(id, conv, bot, content string, silent bool, failure string) (Message, bool, error) {
 	return s.finishRunOpts(id, conv, bot, content, silent, failure, finishOpts{})
@@ -3541,14 +3548,20 @@ func (s *Server) execute(c Conversation, r Run) {
 	var finalRepairTools []string
 	if reviewKind == runKindSchedule {
 		finalRepairTools = []string{"complete_scheduled_task"}
-		finalReview = scheduledFinalReview(reviewKind, func() (bool, error) {
+		reminder := scheduleFinalReminder
+		if structured {
+			// The recorded say(answer) is the receipt.
+			finalRepairTools = []string{"say"}
+			reminder = scheduleFinalReminderStructured
+		}
+		finalReview = scheduledFinalReviewWith(reviewKind, reminder, func() (bool, error) {
 			if err := steeringBoundary(); err != nil {
 				return false, err
 			}
 			if continuation, err := s.store.hasScheduledContinuation(r.ID); err != nil || continuation {
 				return continuation, err
 			}
-			return s.store.HasCompletedTool(r.ID, "complete_scheduled_task")
+			return s.store.scheduleReceipt(r.ID)
 		})
 	}
 	runEngine := engine
@@ -3687,7 +3700,7 @@ func (s *Server) execute(c Conversation, r Run) {
 				log.Printf("[run] publish budget-turn notes %s: %v", r.ID, err)
 			}
 		}
-		if _, _, err := s.store.finishRunBudget(r.ID, c.ID, r.BotID, answer, res.BudgetReason); err != nil {
+		if _, _, err := s.store.finishRunBudgetOpts(r.ID, c.ID, r.BotID, answer, res.BudgetReason, finishOpts{structured: structured}); err != nil {
 			s.failRun(c, r, err)
 		}
 		return
@@ -3723,7 +3736,7 @@ func (s *Server) execute(c Conversation, r Run) {
 		} else if yielded {
 			return
 		}
-		confirmed, confirmErr := s.store.HasCompletedTool(r.ID, "complete_scheduled_task")
+		confirmed, confirmErr := s.store.scheduleReceipt(r.ID)
 		if confirmErr != nil {
 			s.failRun(c, r, confirmErr)
 			return
@@ -3732,7 +3745,9 @@ func (s *Server) execute(c Conversation, r Run) {
 			s.failRun(c, r, errors.New(scheduleFailureDetail(res.Content, botCfg)))
 			return
 		}
-		if !replied && !said {
+		if !structured && !replied && !said {
+			// Flag off only: under the say protocol the answer is the deliverable
+			// and is published as said, with no receipt prepended.
 			// The recorded result is the deliverable; a final answer that only refers
 			// to it ("as above") would leave the conversation without the result.
 			if args, argsErr := s.store.CompletedToolArguments(r.ID, "complete_scheduled_task"); argsErr == nil {
@@ -3801,7 +3816,9 @@ func (s *Server) execute(c Conversation, r Run) {
 		res.Content = ""
 		s.store.noteFinalOrigin(r.ID, finalOriginNone)
 	}
-	if c.Kind == "group" && !pendingAfterFinal && !hasHandoff(s.store, r.ID) {
+	// Flag off only: under the say protocol a group Bot starts another through
+	// handoff or wake, and a leading mention in its text is only a mention.
+	if !structured && c.Kind == "group" && !pendingAfterFinal && !hasHandoff(s.store, r.ID) {
 		if target, task := leadingMentionTarget(res.Content, c, s); target != "" && task != "" && !s.store.isGroupReturnMention(r, target) {
 			if depth := handoffDepth(s.store, r.ID); depth < maxHandoffRounds {
 				if err := s.yieldComputerOwner(r); err != nil {
@@ -4190,7 +4207,8 @@ func (s *Server) toolsUnmarked(c Conversation, r Run) []Tool {
 		}
 		break
 	}
-	if c.UserVisible && r.Kind != runKindSchedule {
+	if c.UserVisible && r.Kind != runKindSchedule && !r.structured {
+		// Under the say protocol say(message) is this tool.
 		base = append(base, s.chatSegmentTool(c, r))
 	}
 	if r.structured && r.Kind != runKindTriage {
@@ -4218,7 +4236,8 @@ func (s *Server) toolsUnmarked(c Conversation, r Run) []Tool {
 			return m.ID, nil
 		}})
 	}
-	if r.Kind == runKindSchedule || r.scheduleTask != nil {
+	if (r.Kind == runKindSchedule || r.scheduleTask != nil) && !r.structured {
+		// Under the say protocol say(answer) with its sources is the receipt.
 		base = append(base, Tool{Name: "complete_scheduled_task", Description: "Confirm that the scheduled task or your current delegated contribution has actually produced its requested result. Call exactly once only after checking every requested deliverable, field, and category against the required evidence and preparing the final answer. If a source or capability is unavailable, use computer_browser first; do not call this with a guess, an empty answer, a partial result presented as complete, or a claim that only the schedule exists. This records success for this run only, does not complete other branches of the scheduled task, and does not replace the final answer.", Parameters: objectSchema(map[string]any{
 			"content": map[string]any{"type": "string", "description": "The concise result for this run's final answer in its current conversation, preserving its delivery rules"},
 			"sources": map[string]any{"type": "array", "items": map[string]any{"type": "string"}, "description": "URLs or source names used for current or external information"},

@@ -262,7 +262,16 @@ func TestProductionPromptSizeMatrix(t *testing.T) {
 					t.Fatal("research and evidence policy is not stated exactly once")
 				}
 				if tc.kind == runKindSchedule || tc.descendant {
-					for _, required := range []string{"complete_scheduled_task", "source names/URLs", "without calling complete_scheduled_task", "receipt", "computer_browser"} {
+					contract := []string{"complete_scheduled_task", "source names/URLs", "without calling complete_scheduled_task", "receipt", "computer_browser"}
+					if structured {
+						// Under the say protocol the answer, with its sources, is
+						// the completion record; there is no separate receipt tool.
+						contract = []string{"say(answer)", "sources", "without say(answer)", "completion record", "computer_browser"}
+						if strings.Contains(system, "complete_scheduled_task") {
+							t.Error("structured scheduled prompt still names complete_scheduled_task")
+						}
+					}
+					for _, required := range contract {
 						if !strings.Contains(system, required) {
 							t.Errorf("missing scheduled contract %q", required)
 						}

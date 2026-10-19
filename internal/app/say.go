@@ -35,22 +35,42 @@ const (
 const sayToolDescription = "How you speak to the person: every reply goes through this tool, short or long; text you write outside it is private working text. purpose=answer delivers your reply and ends your turn: call it once, as your last action, with the complete reply. purpose=note posts a brief transient progress note while you keep working. purpose=message posts one self-contained message mid-run (at most three per run)."
 
 func migrateSay(db *sql.DB) error {
-	_, err := db.Exec(`CREATE TABLE IF NOT EXISTS run_say_answers(
+	if _, err := db.Exec(`CREATE TABLE IF NOT EXISTS run_say_answers(
 		run_id TEXT PRIMARY KEY REFERENCES runs(id) ON DELETE CASCADE,
 		call_id TEXT NOT NULL,
 		text TEXT NOT NULL,
-		created_at TEXT NOT NULL)`)
-	return err
+		created_at TEXT NOT NULL)`); err != nil {
+		return err
+	}
+	// The group wake list and the scheduled sources travel with the answer, so
+	// a restart between recording and publishing loses neither.
+	if err := ensureColumn(db, "run_say_answers", "wake", `ALTER TABLE run_say_answers ADD COLUMN wake TEXT NOT NULL DEFAULT ''`); err != nil {
+		return err
+	}
+	return ensureColumn(db, "run_say_answers", "sources", `ALTER TABLE run_say_answers ADD COLUMN sources TEXT NOT NULL DEFAULT ''`)
 }
 
 type sayAnswerRecord struct {
-	CallID string
-	Text   string
+	CallID  string
+	Text    string
+	Wake    []groupWakeEntry
+	Sources []string
+}
+
+// sayAnswerExtras are the answer's optional fields: the Bots a group answer
+// starts, and the sources of a scheduled answer.
+type sayAnswerExtras struct {
+	Wake    []groupWakeEntry
+	Sources []string
 }
 
 // recordSayAnswer stores the run's one answer. The same provider call may
 // record it again (a replay); a different call is refused.
 func (s *Store) recordSayAnswer(runID, callID, text string) error {
+	return s.recordSayAnswerWith(runID, callID, text, sayAnswerExtras{})
+}
+
+func (s *Store) recordSayAnswerWith(runID, callID, text string, extras sayAnswerExtras) error {
 	if callID == "" {
 		return errors.New("tool call identity is required")
 	}
@@ -81,7 +101,16 @@ func (s *Store) recordSayAnswer(runID, callID, text string) error {
 	if successors > 0 {
 		return errors.New("run has been interrupted by a newer message")
 	}
-	if _, err = tx.Exec(`INSERT INTO run_say_answers(run_id,call_id,text,created_at) VALUES(?,?,?,?)`, runID, callID, text, now()); err != nil {
+	var wakeJSON, sourcesJSON string
+	if len(extras.Wake) > 0 {
+		b, _ := json.Marshal(extras.Wake)
+		wakeJSON = string(b)
+	}
+	if len(extras.Sources) > 0 {
+		b, _ := json.Marshal(extras.Sources)
+		sourcesJSON = string(b)
+	}
+	if _, err = tx.Exec(`INSERT INTO run_say_answers(run_id,call_id,text,wake,sources,created_at) VALUES(?,?,?,?,?,?)`, runID, callID, text, wakeJSON, sourcesJSON, now()); err != nil {
 		return err
 	}
 	return tx.Commit()
@@ -90,8 +119,15 @@ func (s *Store) recordSayAnswer(runID, callID, text string) error {
 // sayAnswer returns the run's recorded answer, if any.
 func (s *Store) sayAnswer(runID string) (sayAnswerRecord, bool) {
 	var rec sayAnswerRecord
-	if s.db.QueryRow(`SELECT call_id,text FROM run_say_answers WHERE run_id=?`, runID).Scan(&rec.CallID, &rec.Text) != nil {
+	var wakeJSON, sourcesJSON string
+	if s.db.QueryRow(`SELECT call_id,text,wake,sources FROM run_say_answers WHERE run_id=?`, runID).Scan(&rec.CallID, &rec.Text, &wakeJSON, &sourcesJSON) != nil {
 		return sayAnswerRecord{}, false
+	}
+	if wakeJSON != "" {
+		_ = json.Unmarshal([]byte(wakeJSON), &rec.Wake)
+	}
+	if sourcesJSON != "" {
+		_ = json.Unmarshal([]byte(sourcesJSON), &rec.Sources)
 	}
 	return rec, true
 }
@@ -208,17 +244,95 @@ func sayToolSchema() map[string]any {
 	}, []string{"purpose", "text"})
 }
 
+// sayWakesBots: a group answer may start other members.
+func sayWakesBots(c Conversation) bool { return c.Kind == "group" && c.UserVisible }
+
+// saySendsSources: a scheduled run's answer is its completion record.
+func saySendsSources(r Run) bool { return r.Kind == runKindSchedule || r.scheduleTask != nil }
+
+const (
+	sayWakeDescription    = "With purpose answer, group chats only: other members to start once your reply is posted, each with a concrete request, at most three. Omit it to start nobody; a plain @mention starts nobody."
+	saySourcesDescription = "With purpose answer, scheduled runs only: URLs or source names behind current or external information. Delivering the answer records this run as complete."
+	maxSaySources         = 20
+	maxSaySourceRunes     = 500
+)
+
+// sayToolSchemaFor adds the optional fields a run can use. Optional fields
+// cannot satisfy a strict schema, so such a run's say is not strict.
+func sayToolSchemaFor(c Conversation, r Run) (map[string]any, bool) {
+	schema := sayToolSchema()
+	props := schema["properties"].(map[string]any)
+	strict := true
+	if sayWakesBots(c) {
+		props["wake"] = map[string]any{"type": "array", "description": sayWakeDescription, "items": objectSchema(map[string]any{
+			"bot_id":  map[string]any{"type": "string"},
+			"request": map[string]any{"type": "string", "description": visibleDelegationText},
+		}, []string{"bot_id", "request"})}
+		strict = false
+	}
+	if saySendsSources(r) {
+		props["sources"] = map[string]any{"type": "array", "items": map[string]any{"type": "string"}, "description": saySourcesDescription}
+		strict = false
+	}
+	return schema, strict
+}
+
+// validateWake applies the rules respond(reply) had for its wake list.
+func validateWake(c Conversation, r Run, wake []groupWakeEntry) error {
+	if len(wake) == 0 {
+		return nil
+	}
+	if !sayWakesBots(c) {
+		return errors.New("wake is only available in group chats")
+	}
+	members := map[string]bool{}
+	for _, id := range c.BotIDs {
+		members[id] = true
+	}
+	for _, w := range wake {
+		if !members[w.BotID] || w.BotID == r.BotID || strings.TrimSpace(w.Request) == "" {
+			return errors.New("each wake entry needs another group member's bot_id and a concrete request")
+		}
+	}
+	if len(wake) > 3 {
+		return errors.New("wake at most 3 Bots")
+	}
+	return nil
+}
+
+func cleanSaySources(sources []string) ([]string, error) {
+	var out []string
+	for _, src := range sources {
+		src = strings.TrimSpace(src)
+		if src == "" {
+			continue
+		}
+		if utf8.RuneCountInString(src) > maxSaySourceRunes {
+			return nil, errors.New("each source must be at most 500 characters")
+		}
+		out = append(out, src)
+	}
+	if len(out) > maxSaySources {
+		return nil, errors.New("at most 20 sources")
+	}
+	return out, nil
+}
+
 // sayTool builds the say tool for a structured run. The gates mirror the
-// tools it will replace: message exists where send_chat_message does, and a
-// scheduled run answers only after its completion receipt.
+// tools it replaces: message exists where send_chat_message did, a group
+// answer carries respond(reply)'s wake list, and a scheduled run's answer is
+// its completion record, as complete_scheduled_task's receipt was.
 func (s *Server) sayTool(c Conversation, r Run) Tool {
-	return Tool{Name: "say", Strict: true, Description: sayToolDescription, Parameters: sayToolSchema(), Local: true, Execute: func(ctx context.Context, raw json.RawMessage) (string, error) {
+	schema, strict := sayToolSchemaFor(c, r)
+	return Tool{Name: "say", Strict: strict, Description: sayToolDescription, Parameters: schema, Local: true, Execute: func(ctx context.Context, raw json.RawMessage) (string, error) {
 		if err := ctx.Err(); err != nil {
 			return "", err
 		}
 		var in struct {
-			Purpose string `json:"purpose"`
-			Text    string `json:"text"`
+			Purpose string           `json:"purpose"`
+			Text    string           `json:"text"`
+			Wake    []groupWakeEntry `json:"wake"`
+			Sources []string         `json:"sources"`
 		}
 		if json.Unmarshal(raw, &in) != nil {
 			return "", errors.New("invalid say arguments")
@@ -248,12 +362,22 @@ func (s *Server) sayTool(c Conversation, r Run) Tool {
 			if _, ended := s.dispositions.Load(r.ID); ended {
 				return fail(errors.New("respond already ended this turn; write nothing more"))
 			}
-			if r.Kind == runKindSchedule || r.scheduleTask != nil {
-				if done, err := s.store.HasCompletedTool(r.ID, "complete_scheduled_task"); err != nil {
-					return fail(err)
-				} else if !done {
-					return fail(errors.New("a scheduled run answers after complete_scheduled_task has recorded its result"))
+			if err := validateWake(c, r, in.Wake); err != nil {
+				return fail(err)
+			}
+			extras := sayAnswerExtras{Wake: in.Wake}
+			if len(in.Sources) > 0 {
+				if !saySendsSources(r) {
+					return fail(errors.New("sources are only available in scheduled runs"))
 				}
+				sources, err := cleanSaySources(in.Sources)
+				if err != nil {
+					return fail(err)
+				}
+				extras.Sources = sources
+			}
+			for i := range extras.Wake {
+				extras.Wake[i].Request = strings.TrimSpace(extras.Wake[i].Request)
 			}
 			if state != nil && state.review != nil && state.review() {
 				// The completion review text finals get: once, when tool work
@@ -264,7 +388,7 @@ func (s *Server) sayTool(c Conversation, r Run) Tool {
 				}
 				return fail(errors.New(taskCompletionFinalReminder))
 			}
-			if err := s.store.recordSayAnswer(r.ID, callID, text); err != nil {
+			if err := s.store.recordSayAnswerWith(r.ID, callID, text, extras); err != nil {
 				return fail(err)
 			}
 			if state != nil {
