@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"sort"
 	"strings"
 	"time"
 
@@ -372,6 +373,14 @@ func (s *Server) buildContextPartsWith(c Conversation, r Run, bot Bot, cachedMCP
 		msgs = roundMessages
 		before = boundary
 	}
+	if len(s.store.coAddressedRoots(r)) > 0 {
+		// Earlier co-addressed Bots' replies were posted after this run's
+		// trigger, which is where its history is otherwise cut.
+		if replies := s.store.coAddressedReplies(r, contextConversationID); len(replies) > 0 {
+			msgs = append(msgs, replies...)
+			sort.Slice(msgs, func(i, j int) bool { return msgs[i].Seq < msgs[j].Seq })
+		}
+	}
 	msgs = s.foldClosedGroupExchanges(c, r, bot, msgs)
 	summaryBoundary := before
 	if summaryBoundary == 0 {
@@ -627,6 +636,9 @@ func (s *Server) buildContextPartsWith(c Conversation, r Run, bot Bot, cachedMCP
 	}
 	for i, j := 0, len(chosen)-1; i < j; i, j = i+1, j-1 {
 		chosen[i], chosen[j] = chosen[j], chosen[i]
+	}
+	if coAddressed := s.coAddressedContext(c, r, bot); coAddressed != "" {
+		pm = append(pm, runtime.Message{Role: "user", Content: coAddressed})
 	}
 	if coordination := s.coordinationContext(c, r, bot); coordination != "" {
 		pm = append(pm, runtime.Message{Role: "user", Content: coordination})
