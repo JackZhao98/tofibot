@@ -43,6 +43,10 @@ func TestScheduledMCPApprovalRestartHTTPDelivery(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
+			// The scripted model drives the receipt protocol.
+			if err := server.store.putUserStructuredOutput(false); err != nil {
+				t.Fatal(err)
+			}
 			defer func() {
 				if server != nil {
 					server.Close()

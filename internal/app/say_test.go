@@ -207,23 +207,59 @@ func TestSayPurposeGatesByRunKind(t *testing.T) {
 	live.structured = true
 	tool := s.sayTool(c, live)
 	ctx := runtime.WithToolCallID(context.Background(), "g1")
-	if _, err := tool.Execute(ctx, json.RawMessage(`{"purpose":"answer","text":"done"}`)); err == nil || !strings.Contains(err.Error(), "complete_scheduled_task") {
-		t.Fatalf("scheduled answer without a receipt: %v", err)
-	}
 	if _, err := tool.Execute(ctx, json.RawMessage(`{"purpose":"message","text":"hi"}`)); err == nil {
 		t.Fatal("a scheduled run was offered a mid-run message")
 	}
 	if _, err := tool.Execute(ctx, json.RawMessage(`{"purpose":"note","text":"working"}`)); err != nil {
 		t.Fatalf("a scheduled run may post notes: %v", err)
 	}
-	// The receipt unlocks the answer.
-	for _, status := range []string{"queued", "running", "completed"} {
-		if err := s.store.RecordToolEvent(c.ID, bot.ID, live.ID, runtime.ToolEvent{CallID: "receipt", Name: "complete_scheduled_task", Arguments: `{}`, Result: "ok", Status: status}); err != nil {
-			t.Fatal(err)
-		}
+	if _, err := tool.Execute(ctx, json.RawMessage(`{"purpose":"answer","text":"done","wake":[{"bot_id":"x","request":"y"}]}`)); err == nil {
+		t.Fatal("a scheduled DM answer accepted a wake list")
 	}
-	if _, err := tool.Execute(ctx, json.RawMessage(`{"purpose":"answer","text":"done"}`)); err != nil {
-		t.Fatalf("scheduled answer after the receipt: %v", err)
+	if done, err := s.store.scheduleReceipt(live.ID); err != nil || done {
+		t.Fatalf("receipt before the answer = %v, %v", done, err)
+	}
+	// The answer with its sources is the completion record; no separate receipt.
+	if _, err := tool.Execute(ctx, json.RawMessage(`{"purpose":"answer","text":"done","sources":["synthetic source"," "]}`)); err != nil {
+		t.Fatalf("scheduled answer: %v", err)
+	}
+	if done, err := s.store.scheduleReceipt(live.ID); err != nil || !done {
+		t.Fatalf("receipt after the answer = %v, %v", done, err)
+	}
+	rec, ok := s.store.sayAnswer(live.ID)
+	if !ok || len(rec.Sources) != 1 || rec.Sources[0] != "synthetic source" {
+		t.Fatalf("recorded sources = %+v ok=%v", rec, ok)
+	}
+}
+
+// Sources belong to scheduled answers, and the tool schema offers only the
+// fields a run can use.
+func TestSayOffersWakeInGroupsAndSourcesInScheduledRuns(t *testing.T) {
+	_, run := dmRun(t, dmFuncEngine(func(ctx context.Context, req runtime.Request) (runtime.Result, error) {
+		return runtime.Result{Content: "plain"}, nil
+	}))
+	s := &Server{}
+	dm := Conversation{Kind: "dm", UserVisible: true}
+	group := Conversation{Kind: "group", UserVisible: true}
+	props := func(c Conversation, r Run) map[string]any {
+		return s.sayTool(c, r).Parameters["properties"].(map[string]any)
+	}
+	if p := props(dm, run); p["wake"] != nil || p["sources"] != nil {
+		t.Fatalf("a DM says wake or sources: %v", p)
+	}
+	if !s.sayTool(dm, run).Strict {
+		t.Fatal("plain say must stay strict")
+	}
+	if p := props(group, run); p["wake"] == nil || p["sources"] != nil {
+		t.Fatalf("group say: %v", p)
+	}
+	sched := run
+	sched.Kind = runKindSchedule
+	if p := props(dm, sched); p["wake"] != nil || p["sources"] == nil {
+		t.Fatalf("scheduled say: %v", p)
+	}
+	if s.sayTool(group, run).Strict {
+		t.Fatal("say with optional fields cannot be strict")
 	}
 }
 
@@ -810,11 +846,12 @@ func (m engineByBot) Run(ctx context.Context, req runtime.Request) (runtime.Resu
 	return runtime.Result{Content: "ok"}, nil
 }
 
-// respond(reply) is the turn's last act under the say protocol: a model that
-// would keep going after it is not asked to.
-func TestRespondReplyEndsTheTurnWhenStructured(t *testing.T) {
+// say(answer) is a group turn's last act: a model that would keep going after
+// it is not asked to. (respond(reply) is gone under the flag; see
+// TestRespondRefusesReplyUnderTheFlag.)
+func TestGroupSayAnswerEndsTheTurn(t *testing.T) {
 	model := newFakeModel(t,
-		fakeStep{calls: []fakeCall{{"c1", "respond", `{"disposition":"reply","text":"Spaces, and let a formatter decide."}`}}},
+		fakeStep{calls: []fakeCall{{"c1", "say", `{"purpose":"answer","text":"Spaces, and let a formatter decide."}`}}},
 		fakeStep{content: "a model call that must not happen"})
 	byBot := engineByBot{}
 	f := newDedupeFixture(t, byBot)
