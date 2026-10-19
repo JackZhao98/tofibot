@@ -97,6 +97,7 @@
       "resuming_phase": "Waking · {{phase}}",
       "hibernated": "Asleep · waking up…",
       "hibernating": "Going to sleep…",
+      "no_desktop": "The Bot is working in the browser without a desktop",
       "retry": "Retry"
     }
   },
