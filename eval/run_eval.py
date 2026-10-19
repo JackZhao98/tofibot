@@ -304,10 +304,10 @@ def run_probe(srv, probe, bots, group_id):
         if not fired:
             error = "scheduled run did not fire and finish within the wait window"
         wait_idle(srv, timeout=120)
-    return collect(srv, probe, conv, seen, turn_seq0 if not probe.get("await_schedule") else seq0, usage0, timed_out, error)
+    return collect(srv, probe, conv, seen, turn_seq0 if not probe.get("await_schedule") else seq0, usage0, timed_out, error, bots)
 
 
-def collect(srv, probe, conv, seen_runs, seq0, usage0, timed_out, error):
+def collect(srv, probe, conv, seen_runs, seq0, usage0, timed_out, error, bots=None):
     db = srv.db()
     new_runs = [dict(r) for r in db.execute(
         "SELECT id,conversation_id,bot_id,kind,status,error,final_origin,parent_run_id FROM runs ORDER BY created_at")
@@ -352,6 +352,15 @@ def collect(srv, probe, conv, seen_runs, seq0, usage0, timed_out, error):
         usage = {"calls": u[0], "input_tokens": u[1], "output_tokens": u[2]}
         tools = [r[0] for r in db.execute("SELECT name FROM tool_activities WHERE run_id IN (%s) ORDER BY rowid" % q, run_ids)]
     lo, hi = probe["expected_visible"]
+    topic_mention = None
+    if probe.get("topic_regex"):
+        topic_mention = any(re.search(probe["topic_regex"], v["text"], re.I) for v in visible)
+    answer_covers = None
+    if probe.get("answer_must_mention"):
+        alltext = " ".join(v["text"] for v in visible)
+        answer_covers = bool(visible) and all(
+            (re.search(m[3:], alltext, re.I) if m.startswith("re:") else m.lower() in alltext.lower())
+            for m in (fill(x, bots) for x in probe["answer_must_mention"]))
     return {
         "id": probe["id"], "category": probe["category"], "target": probe["target"],
         "turns": probe["turns"], "owes_answer": probe["owes_answer"],
@@ -362,6 +371,7 @@ def collect(srv, probe, conv, seen_runs, seq0, usage0, timed_out, error):
         "usage": usage, "tools": tools,
         "lookup_attempted": any(re.search(r"search|browse|fetch|web|lookup", t, re.I) for t in tools) if probe.get("record_lookup") else None,
         "timed_out": timed_out, "error": error,
+        "topic_mention": topic_mention, "answer_covers": answer_covers,
     }
 
 
@@ -472,6 +482,8 @@ def aggregate(results):
         "avg_by_dimension": {d: round(sum(v) / len(v), 3) if v else None for d, v in scores.items()},
         "flag_rates": {f: rate(sum(1 for p in graded if p["grade"].get(f)), len(graded)) for f in FLAGS},
         "usage": usage,
+        "topic_mention": {"count": sum(1 for p in results if p.get("topic_mention")), "probes": sum(1 for p in results if p.get("topic_mention") is not None)},
+        "answer_covers": {"count": sum(1 for p in results if p.get("answer_covers")), "probes": sum(1 for p in results if p.get("answer_covers") is not None)},
     }
     return out
 
