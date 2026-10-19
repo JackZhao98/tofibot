@@ -409,3 +409,68 @@ func TestBudgetPartialTextKeepsItsHeuristicsWhenNotStructured(t *testing.T) {
 		t.Fatalf("flag-off budget text origin=%q", origin)
 	}
 }
+
+// ---- Haiku adherence: a required tool call where it was measured ----
+
+func TestForceSayFollowsTheMeasuredPolicy(t *testing.T) {
+	dm := Conversation{Kind: "dm", UserVisible: true}
+	group := Conversation{Kind: "group", UserVisible: true}
+	hidden := Conversation{Kind: "dm"}
+	plain := Run{}
+	for _, tc := range []struct {
+		name  string
+		c     Conversation
+		r     Run
+		model string
+		want  bool
+	}{
+		{"haiku dm", dm, plain, "claude-haiku-5-5", true},
+		{"haiku dm, upper case id", dm, plain, "Claude-Haiku-5-5", true},
+		{"sonnet dm", dm, plain, "claude-sonnet-5-5", false},
+		{"haiku group", group, plain, "claude-haiku-5-5", false},
+		{"haiku hidden trace", hidden, plain, "claude-haiku-5-5", false},
+		{"haiku scheduled root", dm, Run{Kind: runKindSchedule}, "claude-haiku-5-5", false},
+		{"haiku scheduled descendant", dm, Run{scheduleTask: &Message{}}, "claude-haiku-5-5", false},
+		{"haiku triage", dm, Run{Kind: runKindTriage}, "claude-haiku-5-5", false},
+	} {
+		if got := forceSayFor(tc.c, tc.r, tc.model); got != tc.want {
+			t.Errorf("%s: forceSayFor = %v, want %v", tc.name, got, tc.want)
+		}
+	}
+}
+
+func TestRunRequestsForcedToolUseOnlyForAHaikuDMUnderTheFlag(t *testing.T) {
+	for _, tc := range []struct {
+		model      string
+		structured bool
+		want       bool
+	}{
+		{"claude-haiku-5-5", true, true},
+		{"claude-haiku-5-5", false, false},
+		{"claude-sonnet-5-5", true, false},
+	} {
+		var got bool
+		s, err := NewServer(Config{DataDir: t.TempDir(), Engine: dmFuncEngine(func(ctx context.Context, req runtime.Request) (runtime.Result, error) {
+			got = req.ForceToolUse
+			return runtime.Result{Content: "ok"}, nil
+		})})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := s.store.putUserStructuredOutput(tc.structured); err != nil {
+			t.Fatal(err)
+		}
+		b, _ := s.store.CreateBot("force fixture", "", tc.model)
+		c, _ := s.store.GetConversation(b.DMConversationID)
+		_, run, _, err := s.store.AddUserRun(c.ID, b.ID, "hello", "force-"+tc.model)
+		if err != nil {
+			t.Fatal(err)
+		}
+		s.enqueue(c, run)
+		waitRunTerminal(t, s, run.ID)
+		s.Close()
+		if got != tc.want {
+			t.Errorf("model=%s structured=%v: ForceToolUse = %v, want %v", tc.model, tc.structured, got, tc.want)
+		}
+	}
+}

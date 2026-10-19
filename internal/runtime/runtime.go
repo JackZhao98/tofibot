@@ -496,6 +496,7 @@ func (e *engine) Run(ctx context.Context, req Request) (Result, error) {
 		OnCompact:                  req.OnCompact,
 		OnStreamChunk:              onStream,
 		StructuredOutput:           req.StructuredOutput,
+		ForceToolUse:               req.ForceToolUse,
 		OnToolCallDelta:            onToolCallDelta,
 		EndOnEmptyFinal:            req.EndOnEmptyFinal,
 		BeforeFinalResponse:        req.BeforeFinalResponse,

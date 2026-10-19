@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"sort"
 	"strings"
+	"sync"
 	"sync/atomic"
 	"time"
 )
@@ -88,6 +89,14 @@ func (a *anthropicProvider) ChatStream(ctx context.Context, req *ChatRequest, on
 		}
 	}
 	resp, err := a.stream(ctx, req, forward)
+	if err != nil && !forwarded && req.ToolChoice == ToolChoiceAny && !anthropicAnyRejected(req.Model) && isAnthropicToolChoiceRejection(err) {
+		// The model does not take a forced tool call (some thinking
+		// configurations refuse it): remember that and let it choose.
+		anthropicAnyRefused.Store(req.Model, true)
+		retry := *req
+		retry.ToolChoice = ""
+		resp, err = a.stream(ctx, &retry, onDelta)
+	}
 	if err != nil && !forwarded && !req.OmitReasoningReplay && hasAnthropicReplay(req.Messages) && isAnthropicReplayRejection(err) {
 		retry := *req
 		retry.OmitReasoningReplay = true
@@ -347,8 +356,11 @@ func (a *anthropicProvider) buildPayload(req *ChatRequest) (map[string]any, []st
 		// Tools render first; one breakpoint caches the whole tool set.
 		tools[len(tools)-1]["cache_control"] = cacheControl()
 		payload["tools"] = tools
-		if req.ToolChoice == ToolChoiceNone {
+		switch {
+		case req.ToolChoice == ToolChoiceNone:
 			payload["tool_choice"] = map[string]any{"type": "none"}
+		case req.ToolChoice == ToolChoiceAny && !anthropicAnyRejected(req.Model):
+			payload["tool_choice"] = map[string]any{"type": "any"}
 		}
 	}
 	return payload, betas
@@ -626,6 +638,21 @@ func anyBlockType(block any) string {
 		return blockType(b)
 	}
 	return ""
+}
+
+// anthropicAnyRefused remembers models whose API refused tool_choice any, so
+// the request is not rejected and retried on every turn.
+var anthropicAnyRefused sync.Map
+
+func anthropicAnyRejected(model string) bool {
+	_, refused := anthropicAnyRefused.Load(model)
+	return refused
+}
+
+// isAnthropicToolChoiceRejection matches a 400 that names tool_choice.
+func isAnthropicToolChoiceRejection(err error) bool {
+	apiErr, ok := AsAPIError(err)
+	return ok && apiErr.StatusCode == 400 && strings.Contains(strings.ToLower(apiErr.Body), "tool_choice")
 }
 
 // isAnthropicReplayRejection matches a 400 caused by replayed thinking (bad
