@@ -249,8 +249,10 @@ func TestProductionPromptSizeMatrix(t *testing.T) {
 				// 5300: the voice rules against process narration and audit-style
 				// disclaimers (owner, 2026-10-14) and looking up unknown names before
 				// asking (owner, 2026-10-16) added ~450 cached runes.
-				if tc.name == "dm" && len([]rune(system))+runtime.SystemPromptOverheadRunes() > 5300 {
-					t.Errorf("ordinary DM provider system exceeds 5300 runes")
+				// 5500: the scope principle (a persona's scope is responsibility and
+				// initiative, never a limit on conversation; owner, 2026-10-19) adds ~270.
+				if tc.name == "dm" && len([]rune(system))+runtime.SystemPromptOverheadRunes() > 5500 {
+					t.Errorf("ordinary DM provider system exceeds 5500 runes")
 				}
 				if fixed > 6200 {
 					t.Errorf("fixed overhead %d leaves too little customization headroom (ceiling 6200)", fixed)
@@ -291,14 +293,45 @@ func TestProductionPromptSizeMatrix(t *testing.T) {
 					if runtime.StructuredPromptOverheadRunes() >= runtime.SystemPromptOverheadRunes() {
 						t.Errorf("structured suffix %d is not shorter than %d", runtime.StructuredPromptOverheadRunes(), runtime.SystemPromptOverheadRunes())
 					}
-					if tc.name == "dm" && len([]rune(system))+runtime.StructuredPromptOverheadRunes() > 5300 {
-						t.Errorf("structured DM provider system exceeds 5300 runes")
+					if tc.name == "dm" && len([]rune(system))+runtime.StructuredPromptOverheadRunes() > 5500 {
+						t.Errorf("structured DM provider system exceeds 5500 runes")
 					}
 					if tc.kind == runKindGroupChat && !strings.Contains(system, "say(answer)") {
 						t.Error("structured group prompt does not name say(answer)")
 					}
 				}
 			})
+		}
+	}
+}
+
+// The scope principle must stay abstract: it is present in the standing voice guidance and in the
+// persona generator's wording, and carries no sample sentences, quotes or contrasts.
+func TestScopePrincipleIsPresentAndExampleFree(t *testing.T) {
+	for name, text := range map[string]string{
+		"voiceGuidance":   voiceGuidance,
+		"profile tool":    botProfileInstructionsDescription,
+		"onboarding role": onboardingSystemPrompt,
+	} {
+		if !strings.Contains(text, "scope") {
+			t.Fatalf("%s lost the scope wording", name)
+		}
+	}
+	for _, want := range []string{"responsibility", "own initiative", "places no limit on conversation", "ordinary person's view", "only when the question needs expertise you lack"} {
+		if !strings.Contains(voiceGuidance, want) {
+			t.Fatalf("voiceGuidance missing scope principle %q", want)
+		}
+	}
+	if !strings.Contains(botProfileInstructionsDescription, "responsibility") || !strings.Contains(botProfileInstructionsDescription, "places no limit on what the Bot will talk about") {
+		t.Fatal("profile tool description must frame scope as responsibility and initiative")
+	}
+	idx := strings.Index(voiceGuidance, "Your persona's scope")
+	if idx < 0 {
+		t.Fatal("scope line missing")
+	}
+	for _, bad := range []string{"\"", "“", "「", "e.g.", "for example", "such as", "but not", "not a ", "rather than"} {
+		if strings.Contains(voiceGuidance[idx:], bad) {
+			t.Fatalf("scope principle contains example/contrast wording %q", bad)
 		}
 	}
 }
