@@ -372,6 +372,7 @@ func (s *Server) buildContextPartsWith(c Conversation, r Run, bot Bot, cachedMCP
 		msgs = roundMessages
 		before = boundary
 	}
+	msgs = s.foldClosedGroupExchanges(c, r, bot, msgs)
 	summaryBoundary := before
 	if summaryBoundary == 0 {
 		summaryBoundary = 1 << 62
@@ -573,6 +574,14 @@ func (s *Server) buildContextPartsWith(c Conversation, r Run, bot Bot, cachedMCP
 		}
 		content := m.Content
 		role := m.Role
+		if m.Kind == groupExchangeGistKind {
+			content = trimRunes(content, historyLimit-used)
+			if cost := len([]rune(content)); cost > 0 && used+cost <= historyLimit {
+				chosen = append(chosen, runtime.Message{Role: "user", Content: content})
+				used += cost
+			}
+			continue
+		}
 		if (c.Kind == "group" || c.Kind == "dm") && m.SenderBotID != "" {
 			name := m.SenderBotID
 			if m.SenderBotName != "" {
