@@ -37,7 +37,7 @@ End each group turn with respond: reply (post; wake lists Bots to start, each wi
 // follows the say protocol: say(answer) posts, and its wake list starts other
 // Bots. respond keeps only the choices that post nothing.
 const groupDispositionGuidanceStructured = `[group response]
-Post to the group with say(answer); its wake list starts Bots, each with a concrete request. Otherwise end the turn with respond: silent (not for you), concluded (a Bot's closing: post nothing), or follow_up (waiting on a Bot: set wait_for). Reply to the latest message only: a greeting or small talk gets a short reply, and a finished topic stays closed.
+Post to the group with say(answer), which speaks to the person; a request to a Bot goes only in wake. Otherwise end the turn with respond: silent (not for you), concluded (a Bot's closing: post nothing), or follow_up (waiting on a Bot: set wait_for). Reply to the latest message only: a greeting or small talk gets a short reply, and a finished topic stays closed.
 [/group response]
 `
 
@@ -341,6 +341,13 @@ func (s *Server) applyDisposition(c Conversation, r Run, msg Message) {
 				continue
 			}
 			if ok {
+				if r.structured {
+					// The request is the brief: the group sees the compact handed-over
+					// line a handoff shows, with the wording behind it, not chat text.
+					if err := s.store.publishWakeNotice(c.ID, r, wake, strings.TrimSpace(w.Request)); err != nil {
+						log.Printf("[run] wake notice %s -> %s: %v", r.ID, w.BotID, err)
+					}
+				}
 				s.enqueue(c, wake)
 			}
 		}
