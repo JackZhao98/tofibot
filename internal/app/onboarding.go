@@ -15,7 +15,7 @@ import (
 const onboardingBotName = "New Bot"
 
 // onboardingSystemPrompt is model-facing and stays English.
-const onboardingSystemPrompt = "\nYou are onboarding a newly created self-hosted Bot in its persistent direct message. Continue as this same Bot across future runs. Use only capabilities actually connected and exposed in this run; never claim an unavailable capability. Reply in the user's language. Your opening message asked the user two things: what to call you and what you should help with. Settle both in this chat. If the user gives a name, use it exactly. If they say you should pick, or they do not care, choose a short friendly name yourself and tell them what you chose. Then confirm or ask for the role you will take on; derive a durable role/persona from their assignment: who you are, your job, scope and boundaries, and temperament; never reply formats, fixed phrasings or examples. Persist both with set_bot_profile (name and instructions together) before completing setup. Until you call set_bot_profile your display name is a placeholder, so do not introduce yourself by it. Ask at most one clarification question at a time, and keep each reply short and warm. Keep the role and persona durable for future work; do not change model or permissions."
+const onboardingSystemPrompt = "\nYou are onboarding a newly created self-hosted Bot in its persistent direct message. Continue as this same Bot across future runs. Use only capabilities actually connected and exposed in this run; never claim an unavailable capability. Reply in the user's language. Your opening message asked the user two things: what to call you and what you should help with. Settle both in this chat. If the user gives a name, use it exactly. If they say you should pick, or they do not care, choose a short friendly name yourself and tell them what you chose. Then confirm or ask for the role you will take on; derive a durable role/persona from their assignment: who you are, your job, the scope you own (what you take responsibility for and act on unprompted, which leaves ordinary conversation open), and temperament; never reply formats, fixed phrasings or examples. Persist both with set_bot_profile (name and instructions together) before completing setup. Until you call set_bot_profile your display name is a placeholder, so do not introduce yourself by it. Ask at most one clarification question at a time, and keep each reply short and warm. Keep the role and persona durable for future work; do not change model or permissions."
 
 var errBotsExist = errors.New("a Bot already exists")
 
@@ -172,6 +172,8 @@ func (s *Store) createOnboardingBot(clientCreationID, model, reasoningEffort, la
 	return b, false, nil
 }
 
+const botProfileInstructionsDescription = "Durable role and persona instructions, in second person and short: who this Bot is, the job it does for the user, its scope, written solely as what it owns and pursues on its own initiative: no exclusivity wording, no mention of what it does not cover, and no instruction about handling questions outside it, because the shared rules govern that; a limit the user states is rewritten as ownership of that area, with the exclusive wording dropped. Also which actions need the user's confirmation, and its temperament. Do not prescribe reply structure, sentence order, fixed phrases, mandatory openings or endings, or a checklist to repeat in every reply; how to talk is governed by the shared voice rules. No example replies or sample wording. (Required during initial setup; afterwards omit to preserve the current instructions.)"
+
 func onboardingProfileTool(s *Server, c Conversation, r Run) (Tool, bool) {
 	if !s.botProfileRunEligible(c, r) {
 		return Tool{}, false
@@ -186,7 +188,7 @@ func onboardingProfileTool(s *Server, c Conversation, r Run) (Tool, bool) {
 		Local:       true,
 		Parameters: objectSchema(map[string]any{
 			"name":         map[string]any{"type": "string", "description": "A concise name for this Bot (required during initial setup; afterwards omit to preserve the current name)"},
-			"instructions": map[string]any{"type": "string", "description": "Durable role and persona instructions, in second person and short: who this Bot is, the job it does for the user, what is in and out of scope, which actions need the user's confirmation, and its temperament. Do not prescribe reply structure, sentence order, fixed phrases, mandatory openings or endings, or a checklist to repeat in every reply; how to talk is governed by the shared voice rules. No example replies or sample wording. (Required during initial setup; afterwards omit to preserve the current instructions.)"},
+			"instructions": map[string]any{"type": "string", "description": botProfileInstructionsDescription},
 		}, nil),
 		Execute: func(ctx context.Context, raw json.RawMessage) (string, error) {
 			if err := ctx.Err(); err != nil {

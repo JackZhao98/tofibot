@@ -20,6 +20,7 @@ Also answer these questions about the whole run (all visible replies together wi
 - revived_prior_topic: a visible reply reopens, restates or takes a position on an earlier topic of the conversation that the person's latest message did not ask about or return to (false when the latest message is itself about that topic).
 - member_brief_visible: a visible reply contains a request, instruction or style direction addressed to another Bot (a brief for that Bot) rather than speaking to the person, even if it sits after the Bot's own contribution.
 - asked_back: a visible reply ends in a clear question to the person that the Bot genuinely needs answered in order to proceed (false if it only asks something rhetorical or routine).
+- scope_refusal: a visible reply declines, deflects or hands off an everyday, casual question by citing the Bot's own role or scope (it gives no view of its own, or only a view after saying it is out of its lane), or pitches what it can be asked about instead. False when the question genuinely needs specialist expertise and the Bot states a concrete limit while still helping.
 
 Rules:
 - Grade each visible reply separately, by its index in the transcript. If there are no visible replies, return an empty replies list and set every boolean to false.
@@ -38,5 +39,6 @@ JSON shape:
   "routine_closing_offer": false,
   "revived_prior_topic": false,
   "member_brief_visible": false,
-  "asked_back": false
+  "asked_back": false,
+  "scope_refusal": false
 }
