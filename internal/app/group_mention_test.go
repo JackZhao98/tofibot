@@ -47,9 +47,23 @@ func respond(ctx context.Context, req runtime.Request, args map[string]any) erro
 	return fmt.Errorf("no respond tool")
 }
 
-// reply calls respond(reply, text) and returns the empty final text a model
-// emits after its terminal respond call.
+// reply posts a group reply the way the run's protocol does: say(answer, wake)
+// when the run offers say, respond(reply) when the flag is off. It returns the
+// empty final text a model emits after its terminal call.
 func reply(ctx context.Context, req runtime.Request, text string, wake []map[string]string) string {
+	for _, tool := range req.Tools {
+		if tool.Name != "say" {
+			continue
+		}
+		args := map[string]any{"purpose": "answer", "text": text}
+		if wake != nil {
+			args["wake"] = wake
+		}
+		if _, err := callTool(ctx, req, "say", "reply-"+req.RunID, args); err != nil {
+			return "ERR " + err.Error()
+		}
+		return ""
+	}
 	args := map[string]any{"disposition": "reply", "text": text}
 	if wake != nil {
 		args["wake"] = wake
@@ -584,32 +598,44 @@ func TestWakeChainUnderScheduledRootUsesScheduleAuthorization(t *testing.T) {
 	}
 }
 
-func TestRespondReplyIsTheOnlyVisibleMessageAndSecondRespondRejected(t *testing.T) {
-	var f dedupeFixture
-	engine := &mentionEngine{}
-	f = newDedupeFixture(t, engine)
-	var second error
-	engine.reply = func(ctx context.Context, req runtime.Request, text string) string {
-		if out := reply(ctx, req, "the metaphor: a lighthouse", nil); out != "" {
-			return out
+func TestReplyIsTheOnlyVisibleMessageAndSecondReplyRejected(t *testing.T) {
+	for _, structured := range []bool{true, false} {
+		name := "flag-off"
+		want := "already called"
+		if structured {
+			name, want = "flag-on", "deliver with say"
 		}
-		second = respond(ctx, req, map[string]any{"disposition": "reply", "text": "again"})
-		return "the metaphor: a lighthouse (written again as a final answer)"
-	}
-	f.post(t, "@tofi go", f.tofi)
-	f.start(engine)
-	runs := f.settle(t)
-	if len(runs) != 1 || runs[0].Status != "done" {
-		t.Fatalf("runs=%+v", runs)
-	}
-	if second == nil || !strings.Contains(second.Error(), "already called") {
-		t.Fatalf("second respond error=%v", second)
-	}
-	var n int
-	var content string
-	_ = f.server.store.db.QueryRow(`SELECT COUNT(*),COALESCE(MAX(content),'') FROM messages WHERE run_id=? AND role='assistant' AND kind IN ('','segment','progress')`, runs[0].ID).Scan(&n, &content)
-	if n != 1 || content != "the metaphor: a lighthouse" {
-		t.Fatalf("visible messages=%d content=%q", n, content)
+		t.Run(name, func(t *testing.T) {
+			var f dedupeFixture
+			engine := &mentionEngine{}
+			f = newDedupeFixture(t, engine)
+			if err := f.server.store.putUserStructuredOutput(structured); err != nil {
+				t.Fatal(err)
+			}
+			var second error
+			engine.reply = func(ctx context.Context, req runtime.Request, text string) string {
+				if out := reply(ctx, req, "the metaphor: a lighthouse", nil); out != "" {
+					return out
+				}
+				second = respond(ctx, req, map[string]any{"disposition": "reply", "text": "again"})
+				return "the metaphor: a lighthouse (written again as a final answer)"
+			}
+			f.post(t, "@tofi go", f.tofi)
+			f.start(engine)
+			runs := f.settle(t)
+			if len(runs) != 1 || runs[0].Status != "done" {
+				t.Fatalf("runs=%+v", runs)
+			}
+			if second == nil || !strings.Contains(second.Error(), want) {
+				t.Fatalf("second respond error=%v, want %q", second, want)
+			}
+			var n int
+			var content string
+			_ = f.server.store.db.QueryRow(`SELECT COUNT(*),COALESCE(MAX(content),'') FROM messages WHERE run_id=? AND role='assistant' AND kind IN ('','segment','progress')`, runs[0].ID).Scan(&n, &content)
+			if n != 1 || content != "the metaphor: a lighthouse" {
+				t.Fatalf("visible messages=%d content=%q", n, content)
+			}
+		})
 	}
 }
 
@@ -694,6 +720,13 @@ func waitRunTerminal(t *testing.T, s *Server, id string) Run {
 type scheduledReplyEngine struct{}
 
 func (scheduledReplyEngine) Run(ctx context.Context, req runtime.Request) (runtime.Result, error) {
+	for _, tool := range req.Tools {
+		if tool.Name == "say" {
+			// The say protocol: the answer is the reply and the receipt.
+			_, err := callTool(ctx, req, "say", "scheduled-reply", map[string]any{"purpose": "answer", "text": "daily synthetic note", "sources": []string{"synthetic source"}})
+			return runtime.Result{}, err
+		}
+	}
 	if _, err := (scheduleTestEngine{}).Run(ctx, req); err != nil {
 		return runtime.Result{}, err
 	}

@@ -8,7 +8,18 @@ If a requested item remains unresolved, continue the remaining authorized work w
 If evidence is still missing after a source failure, consider another relevant, available and permitted capability, including browser access when applicable, before declaring the task blocked. Do not repeat unchanged failed calls, invent sources, or infer success from an attempted action. Do not replay actions with uncertain outcomes; inspect their state first. Respect the user's chosen source, scope and permissions.
 If no permitted method can complete the task, explain the concrete blocker without calling complete_scheduled_task. This is a single final review, not permission to broaden the task.`
 
+// scheduleFinalReminderStructured is the same single repair for a run that
+// follows the say protocol, where the answer is the receipt.
+const scheduleFinalReminderStructured = `This scheduled execution has no successful completion record yet: the record is your answer, delivered with say. Review the user's requested deliverable, fields, and categories against the actual tool results already in this conversation before ending.
+If a requested item remains unresolved, continue the remaining authorized work with relevant available and permitted tools while capacity remains. Give partial results only when a concrete blocker prevents completion. If the requested result is supported by the evidence, deliver it with say, purpose answer, listing its material sources. Do not describe a category, source, or action as searched, checked, completed, unavailable, or verified unless the actual results support that statement. A final answer format requested by the user applies to the answer text.
+If evidence is still missing after a source failure, consider another relevant, available and permitted capability, including browser access when applicable, before declaring the task blocked. Do not repeat unchanged failed calls, invent sources, or infer success from an attempted action. Do not replay actions with uncertain outcomes; inspect their state first. Respect the user's chosen source, scope and permissions.
+If no permitted method can complete the task, explain the concrete blocker as plain final text without delivering an answer through say, which would record success. This is a single final review, not permission to broaden the task.`
+
 func scheduledFinalReview(kind string, confirmed func() (bool, error)) func(string) (string, error) {
+	return scheduledFinalReviewWith(kind, scheduleFinalReminder, confirmed)
+}
+
+func scheduledFinalReviewWith(kind, reminder string, confirmed func() (bool, error)) func(string) (string, error) {
 	if kind != runKindSchedule {
 		return nil
 	}
@@ -17,6 +28,6 @@ func scheduledFinalReview(kind string, confirmed func() (bool, error)) func(stri
 		if err != nil || ok {
 			return "", err
 		}
-		return scheduleFinalReminder, nil
+		return reminder, nil
 	}
 }

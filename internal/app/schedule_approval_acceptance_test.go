@@ -24,6 +24,16 @@ import (
 // scheduler, conversation worker, checkpoint, approval gate and HTTP API are
 // production components. No model credentials or real account actions exist.
 func TestScheduledMCPApprovalRestartHTTPDelivery(t *testing.T) {
+	scheduledMCPApprovalRestartHTTPDelivery(t, false)
+}
+
+// The same acceptance under the say protocol: the scheduled answer, with its
+// sources, is the receipt and the delivered message.
+func TestScheduledMCPApprovalRestartHTTPDeliveryWithSay(t *testing.T) {
+	scheduledMCPApprovalRestartHTTPDelivery(t, true)
+}
+
+func scheduledMCPApprovalRestartHTTPDelivery(t *testing.T, structured bool) {
 	for _, outcome := range []string{"approve", "deny", "expire"} {
 		t.Run(outcome, func(t *testing.T) {
 			var remoteCalls atomic.Int32
@@ -31,7 +41,7 @@ func TestScheduledMCPApprovalRestartHTTPDelivery(t *testing.T) {
 				remoteCalls.Add(1)
 				return &mcp.CallToolResult{Content: []mcp.Content{&mcp.TextContent{Text: "synthetic write executed"}}}, nil
 			})
-			model := newScheduledApprovalModel(t, outcome, &remoteCalls)
+			model := newScheduledApprovalModel(t, outcome, &remoteCalls, structured)
 			defer model.Close()
 			engine, err := runtime.New(runtime.Config{Provider: "openai_completions", BaseURL: model.URL + "/v1", Model: "test-model"})
 			if err != nil {
@@ -41,6 +51,10 @@ func TestScheduledMCPApprovalRestartHTTPDelivery(t *testing.T) {
 			config := Config{DataDir: dir, Provider: "test", Engine: engine, MCPConfigPath: filepath.Join(dir, "mcp.json")}
 			server, err := NewServer(config)
 			if err != nil {
+				t.Fatal(err)
+			}
+			// The scripted model drives the protocol under test.
+			if err := server.store.putUserStructuredOutput(structured); err != nil {
 				t.Fatal(err)
 			}
 			defer func() {
@@ -160,7 +174,11 @@ func TestScheduledMCPApprovalRestartHTTPDelivery(t *testing.T) {
 				t.Fatalf("occurrence=%+v", items)
 			}
 			var receipts, replies, approvals int
-			if err := server.store.db.QueryRow(`SELECT COUNT(*) FROM tool_activities WHERE run_id=? AND name='complete_scheduled_task' AND status='completed'`, run.ID).Scan(&receipts); err != nil {
+			receiptSQL := `SELECT COUNT(*) FROM tool_activities WHERE run_id=? AND name='complete_scheduled_task' AND status='completed'`
+			if structured {
+				receiptSQL = `SELECT COUNT(*) FROM run_say_answers WHERE run_id=?`
+			}
+			if err := server.store.db.QueryRow(receiptSQL, run.ID).Scan(&receipts); err != nil {
 				t.Fatal(err)
 			}
 			if err := server.store.db.QueryRow(`SELECT COUNT(*) FROM messages WHERE conversation_id=? AND run_id=? AND role='assistant' AND kind NOT IN ('progress','segment')`, conversation.ID, run.ID).Scan(&replies); err != nil {
@@ -323,7 +341,8 @@ func assertScheduledApprovalReplay(t *testing.T, server *Server, conversationID 
 }
 
 // Shared by automated HTTP acceptance and the opt-in rendered-browser fixture.
-func newScheduledApprovalModel(t *testing.T, outcome string, remoteCalls *atomic.Int32) *httptest.Server {
+func newScheduledApprovalModel(t *testing.T, outcome string, remoteCalls *atomic.Int32, structured ...bool) *httptest.Server {
+	sayProtocol := len(structured) > 0 && structured[0]
 	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		var input struct {
 			Stream bool `json:"stream"`
@@ -378,7 +397,14 @@ func newScheduledApprovalModel(t *testing.T, outcome string, remoteCalls *atomic
 				if !strings.Contains(seen["execute-after"], "synthetic write executed") {
 					t.Errorf("receipt without remote evidence: %q", seen["execute-after"])
 				}
-				call("receipt", "complete_scheduled_task", `{"content":"Synthetic scheduled write delivered."}`)
+				if sayProtocol {
+					call("receipt", "say", `{"purpose":"answer","text":"Synthetic scheduled write delivered.","sources":["fixture"]}`)
+				} else {
+					call("receipt", "complete_scheduled_task", `{"content":"Synthetic scheduled write delivered."}`)
+				}
+			case sayProtocol && outcome == "approve" && seen["receipt-again"] == "" && !strings.Contains(seen["receipt"], "Delivered"):
+				// The answer's one-time review refused it; send it again.
+				call("receipt-again", "say", `{"purpose":"answer","text":"Synthetic scheduled write delivered.","sources":["fixture"]}`)
 			default:
 				content := "Synthetic scheduled write delivered."
 				if outcome != "approve" {

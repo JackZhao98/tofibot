@@ -15,6 +15,14 @@ type scheduleTestEngine struct{}
 
 func (scheduleTestEngine) Run(ctx context.Context, req Request) (Result, error) {
 	for _, tool := range req.Tools {
+		if tool.Name == "say" {
+			// The say protocol: the answer is the receipt.
+			args, _ := json.Marshal(map[string]any{"purpose": "answer", "text": "scheduled result", "sources": []string{"synthetic source"}})
+			if _, err := tool.Execute(runtime.WithToolCallID(ctx, "schedule-test-say"), args); err != nil {
+				return Result{}, err
+			}
+			return Result{}, nil
+		}
 		if tool.Name != "complete_scheduled_task" {
 			continue
 		}
@@ -46,6 +54,14 @@ func scheduleTestStoreAt(t *testing.T, dir string) (*Store, Bot, Conversation) {
 		t.Fatal(err)
 	}
 	if err := migrateSchedules(s.db); err != nil {
+		s.Close()
+		t.Fatal(err)
+	}
+	// These fixtures drive the receipt protocol (complete_scheduled_task, a
+	// text final). The say protocol's scheduled runs are covered by
+	// phase3_test.go (receipt, occurrence, review, resume after a recorded
+	// answer) and by TestScheduledMCPApprovalRestartHTTPDeliveryWithSay.
+	if err := s.putUserStructuredOutput(false); err != nil {
 		s.Close()
 		t.Fatal(err)
 	}

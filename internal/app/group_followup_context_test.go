@@ -74,6 +74,11 @@ func TestLeadingMentionPublishesOneAssignmentAndReturns(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer s.Close()
+	// Heuristic H6 belongs to the plain-text protocol; under the say protocol a
+	// leading mention is only a mention (TestLeadingMentionIsOnlyAMentionWhenStructured).
+	if err := s.store.putUserStructuredOutput(false); err != nil {
+		t.Fatal(err)
+	}
 	a, _ := s.store.CreateBot("Coordinator", "", "model")
 	b, _ := s.store.CreateBot("Reviewer", "", "model")
 	s.engine = leadingAssignmentEngine{child: b.ID}

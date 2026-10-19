@@ -787,7 +787,7 @@ func (s *Store) ScheduleOccurrences(ctx context.Context, conversationID string, 
 			AND trim(m.content, char(9)||char(10)||char(11)||char(12)||char(13)||' ')<>''
 			AND trim(m.content, char(9)||char(10)||char(11)||char(12)||char(13)||' ') NOT LIKE ('[sender % id=' || f.bot_id || ']')
 			AND NOT EXISTS (SELECT 1 FROM stream_assistant_turns turn WHERE turn.message_id=m.id)
-			AND EXISTS (SELECT 1 FROM tool_activities tool WHERE tool.run_id=f.id AND tool.name='complete_scheduled_task' AND tool.status='completed')
+			AND (EXISTS (SELECT 1 FROM tool_activities tool WHERE tool.run_id=f.id AND tool.name='complete_scheduled_task' AND tool.status='completed') OR EXISTS (SELECT 1 FROM run_say_answers recorded WHERE recorded.run_id=f.id))
 		) THEN 1 ELSE 0 END
 	FROM roots JOIN family f ON f.root_run_id=roots.root_run_id JOIN runs diagnostic ON diagnostic.id=f.id
 	ORDER BY roots.root_run_id,f.created_at,f.id`, append(args, conversationID)...)

@@ -128,6 +128,40 @@ func (cfg *AgentConfig) progressReminder() string {
 	return progressReportReminder(cfg.MaxToolCallsBetweenReports)
 }
 
+// sayAnswerText returns the text of a response whose only call is
+// say(purpose=answer), or "".
+func sayAnswerText(calls []provider.ToolCall) string {
+	if len(calls) != 1 || calls[0].Name != "say" {
+		return ""
+	}
+	var in struct {
+		Purpose string `json:"purpose"`
+		Text    string `json:"text"`
+	}
+	if json.Unmarshal([]byte(calls[0].Arguments), &in) != nil || in.Purpose != "answer" {
+		return ""
+	}
+	return strings.TrimSpace(in.Text)
+}
+
+// lastToolRoundFailed reports whether the tool results that answer the latest
+// assistant message all failed.
+func lastToolRoundFailed(messages []provider.Message) bool {
+	failed := 0
+	for i := len(messages) - 1; i >= 0; i-- {
+		switch messages[i].Role {
+		case "tool":
+			if !messages[i].ToolFailed {
+				return false
+			}
+			failed++
+		case "assistant":
+			return failed > 0
+		}
+	}
+	return failed > 0
+}
+
 func repeatedDiscoveryTool(name string) bool {
 	switch name {
 	case "list_computers", "list_mcp_servers", "search_mcp_tools", "list_skills", "tofi_tool_search", "workspace_capabilities":
@@ -248,7 +282,13 @@ type AgentConfig struct {
 	// (id and name on a call's first fragment, then argument text) so a caller
 	// can show a say call's text while it is still being written.
 	StructuredOutput bool
-	OnToolCallDelta  func(provider.ToolCallDelta)
+
+	// ForceToolUse asks the provider to require a tool call on every ordinary
+	// model request, so that a structured run delivers its reply through the
+	// say tool instead of plain text. It is not applied to the repair and
+	// final-only requests, nor once the run has handed its work off.
+	ForceToolUse    bool
+	OnToolCallDelta func(provider.ToolCallDelta)
 	// EndOnEmptyFinal, when set, is asked about a model response that has no
 	// text and no tool calls. True ends the run with an empty result instead of
 	// asking the model to continue: the caller owes no answer (for example,
@@ -1277,6 +1317,14 @@ func RunAgentLoop(cfg AgentConfig, ctx *models.ExecutionContext) (returned *Agen
 			PromptCacheKey:      cfg.PromptCacheKey,
 			OmitReasoningReplay: reasoningReplayDisabled,
 		}
+		if cfg.ForceToolUse && !repairRequest && !finalRepairFinalRequest && !budgetWrapUp && len(requestTools) > 0 &&
+			!lastToolRoundFailed(messages) && !(cfg.EndOnEmptyFinal != nil && cfg.EndOnEmptyFinal()) {
+			// A run that handed its work off owes no reply and may end quietly,
+			// and after a round in which every call failed the model is free to
+			// change course or stop: forcing it again can only repeat the call
+			// (an identical retry of a refused call is itself refused).
+			req.ToolChoice = provider.ToolChoiceAny
+		}
 
 		apiStart := time.Now()
 		var resp *provider.ChatResponse
@@ -1531,6 +1579,10 @@ func RunAgentLoop(cfg AgentConfig, ctx *models.ExecutionContext) (returned *Agen
 				// Force termination to honor the cap.
 				ctx.Log("[Agent] Model ignored wrap-up directive — forcing termination")
 				finalContent := stripThinkTags(resp.Content)
+				if finalContent == "" && cfg.StructuredOutput {
+					// The wrap-up was answered with the say tool: its text is the answer.
+					finalContent = sayAnswerText(resp.ToolCalls)
+				}
 				if finalContent == "" {
 					finalContent = fmt.Sprintf("[Run stopped — %s. Partial results only; no final answer produced.]", reason)
 				}

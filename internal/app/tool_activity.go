@@ -223,6 +223,20 @@ func (s *Store) HasCompletedTool(runID, name string) (bool, error) {
 	return found != 0, nil
 }
 
+// scheduleReceipt reports whether a scheduled run recorded its completion:
+// the complete_scheduled_task receipt, or under the say protocol the recorded
+// say(answer), which carries the result and its sources.
+func (s *Store) scheduleReceipt(runID string) (bool, error) {
+	if done, err := s.HasCompletedTool(runID, "complete_scheduled_task"); err != nil || done {
+		return done, err
+	}
+	var found int
+	if err := s.db.QueryRow(`SELECT EXISTS(SELECT 1 FROM run_say_answers WHERE run_id=?)`, runID).Scan(&found); err != nil {
+		return false, err
+	}
+	return found != 0, nil
+}
+
 // CompletedToolArguments returns the stored arguments of a run's latest
 // completed call of a named tool, or "" when there is none.
 func (s *Store) CompletedToolArguments(runID, name string) (string, error) {
