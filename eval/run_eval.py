@@ -332,6 +332,10 @@ def collect(srv, probe, conv, seen_runs, seq0, usage0, timed_out, error, bots=No
                 briefs.append(m["content"])
         except ValueError:
             pass
+    # Rows the chat would render although they are working text: a progress row
+    # of a run that has no final message (the UI folds progress only under a final).
+    finals = {m["run_id"] for m in msgs if m["kind"] == "" and (m["content"] or "").strip()}
+    stray_progress = [m["content"] for m in msgs if m["kind"] == "progress" and m["run_id"] not in finals and (m["content"] or "").strip()]
     seen_text, dups = {}, 0
     for v in visible:
         t = norm(v["text"])
@@ -367,6 +371,7 @@ def collect(srv, probe, conv, seen_runs, seq0, usage0, timed_out, error, bots=No
         "runs": new_runs, "origins": [r["final_origin"] for r in new_runs],
         "visible": visible, "visible_count": len(visible), "expected_visible": [lo, hi],
         "visible_count_ok": lo <= len(visible) <= hi, "exact_duplicates": dups,
+        "stray_progress_rows": len(stray_progress), "stray_progress_text": stray_progress[:3],
         "handoff_briefs": briefs, "handoff_brief_visible": brief_visible,
         "usage": usage, "tools": tools,
         "lookup_attempted": any(re.search(r"search|browse|fetch|web|lookup", t, re.I) for t in tools) if probe.get("record_lookup") else None,
@@ -474,6 +479,7 @@ def aggregate(results):
         "probes_with_exact_duplicates": sum(1 for p in results if p["exact_duplicates"] > 0),
         "exact_duplicate_messages": sum(p["exact_duplicates"] for p in results),
         "handoff_brief_visible": sum(1 for p in results if p["handoff_brief_visible"]),
+        "probes_with_stray_progress": sum(1 for p in results if p.get("stray_progress_rows")),
         "handoff_probes": sum(1 for p in results if p["handoff_briefs"]),
         "lookup_attempted": sum(1 for p in lookups if p["lookup_attempted"]), "lookup_probes": len(lookups),
         "failed_or_timed_out": sum(1 for p in results if p["timed_out"] or p["error"] or any(r["status"] != "done" for r in p["runs"])),
@@ -526,7 +532,7 @@ def write_summary(path, report):
               "Lookup attempted: %d of %d lookup probes. Handoff brief visible: %d of %d probes with a brief." % (
                   m["overall"]["lookup_attempted"], m["overall"]["lookup_probes"],
                   m["overall"]["handoff_brief_visible"], m["overall"]["handoff_probes"]),
-              "Failed, errored or timed-out probes: %d." % m["overall"]["failed_or_timed_out"], "",
+              "Failed, errored or timed-out probes: %d. Probes with working text a chat would render (progress row, no final): %d." % (m["overall"]["failed_or_timed_out"], m["overall"]["probes_with_stray_progress"]), "",
               "| category | probes | say rate | count ok | dup probes | narration | coordination | delegation | caveat | offer | revival | brief | avg score |",
               "|---|---|---|---|---|---|---|---|---|---|---|---|---|"]
         for cat, a in sorted(m["by_category"].items()):

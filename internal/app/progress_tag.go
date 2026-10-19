@@ -24,7 +24,14 @@ const (
 type textPart struct {
 	Text     string
 	Progress bool
+	// Internal marks a structured run's private working text: stored as kind
+	// "internal", which the chat never renders and "View activity" shows.
+	Internal bool
 }
+
+// messageKindInternal is the kind of a structured run's private working text.
+// It behaves like a progress note everywhere except that no chat view shows it.
+const messageKindInternal = "internal"
 
 type progressScanner struct {
 	inside   bool

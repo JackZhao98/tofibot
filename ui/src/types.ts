@@ -128,7 +128,7 @@ export interface Message {
   conversation_id: string;
   seq: number;
   role: MessageRole;
-  kind?: "notice" | "forward_result" | "message_ref" | "user_message" | "scheduled_task" | "ui_card" | "progress" | "segment";
+  kind?: "notice" | "forward_result" | "message_ref" | "user_message" | "scheduled_task" | "ui_card" | "progress" | "segment" | "internal";
   card?: { type: "text" | "mail"; title?: string; body: string; from?: string; to?: string; subject?: string; summary?: string; received_at?: string; source?: string };
   sender_bot_id?: string;
   sender_bot_name?: string;

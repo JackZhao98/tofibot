@@ -94,7 +94,7 @@ func (s *Store) applyPortableSQL(ctx context.Context, b portableBundle, previewI
 	}
 	for _, x := range b.Messages {
 		kind := x.Kind
-		if kind != "" && kind != "progress" && kind != "segment" {
+		if kind != "" && kind != "progress" && kind != "segment" && kind != messageKindInternal {
 			kind = "imported_history"
 		}
 		if _, err = tx.ExecContext(ctx, `INSERT INTO messages(id,conversation_id,seq,role,kind,sender_bot_id,run_id,content,created_at) VALUES(?,?,?,?,?,?,NULL,?,?)`, id(x.ID), id(x.ConversationID), x.Seq, x.Role, kind, nullString(id(x.SenderBotID)), x.Content, x.CreatedAt); err != nil {

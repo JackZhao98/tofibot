@@ -318,7 +318,7 @@ func TestPlainTextBetweenToolsStaysInternalWhenStructured(t *testing.T) {
 	if run.Status != "done" {
 		t.Fatalf("run=%+v", run)
 	}
-	want := []string{"progress|Looking into it.", "|Nothing saved yet."}
+	want := []string{"internal|Looking into it.", "|Nothing saved yet."}
 	if rows := assistantRows(t, s.store, run.ConversationID); !equalStrings(kindsAndText(rows), want) {
 		t.Fatalf("messages = %q, want %q", kindsAndText(rows), want)
 	}
@@ -357,7 +357,7 @@ func TestSayAnswerEndsTheRealLoopWithoutAnotherModelCall(t *testing.T) {
 		t.Fatalf("model calls = %d, want 1", n)
 	}
 	// The plain text of the answering turn is an internal note; the answer is the say text.
-	want := []string{"progress|Let me answer.", "|Half past four."}
+	want := []string{"internal|Let me answer.", "|Half past four."}
 	if rows := assistantRows(t, s.store, run.ConversationID); !equalStrings(kindsAndText(rows), want) {
 		t.Fatalf("messages = %q, want %q", kindsAndText(rows), want)
 	}
@@ -440,7 +440,7 @@ func TestRunWithNoTextAndNoSayFailsWithTheTypedCode(t *testing.T) {
 		t.Fatalf("run=%+v", run)
 	}
 	for _, m := range assistantRows(t, s.store, run.ConversationID) {
-		if m.Kind != "progress" || strings.Contains(m.Content, "本次任务") {
+		if m.Kind != "internal" || strings.Contains(m.Content, "本次任务") {
 			t.Fatalf("unexpected message %+v", m)
 		}
 	}
@@ -678,7 +678,7 @@ func TestInternalTextOfAnAnsweringResponseDoesNotTakeTheSayBubble(t *testing.T) 
 		return runtime.Result{}, err
 	}))
 	rows := assistantRows(t, s.store, run.ConversationID)
-	if !equalStrings(kindsAndText(rows), []string{"progress|Let me answer.", "|Half past four."}) {
+	if !equalStrings(kindsAndText(rows), []string{"internal|Let me answer.", "|Half past four."}) {
 		t.Fatalf("messages = %q", kindsAndText(rows))
 	}
 	events := eventsOfType(t, s.store, run.ConversationID, "delta")
