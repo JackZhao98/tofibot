@@ -387,6 +387,6 @@ Eval, final code, 25 probes (24 plus the greeting probe), 2 runs per model (`eva
 | avg score (0-2) | 1.829 | 1.824 | 1.810 | 1.830 |
 | cost per probe (estimate) | $0.0279 | $0.0299 | $0.0596 | $0.0609 |
 
-Reading it: Haiku DMs are still 100% say; the overall 86% is the group turns (the posted-then-delegated leads now end `none`, as noted). Sonnet's three `implicit` runs are the lookup probe (text-only final after tool work) and one more; its adherence moved 97% to 95% on 3 runs of 66 and is inside run noise. Cost per probe rose about 7% and 2%: the extra probe is a two-turn group probe, and the review refusal adds a call on tool-work turns.
+Reading it: Haiku DMs are still 100% say; the overall 86% is the group turns (the posted-then-delegated leads now end `none`, as noted). Sonnet's three `implicit` runs are all lookup probes (a text-only final after tool work, the same pattern as before); its adherence moved 97% to 95% on 3 runs of 66 and is inside run noise. Cost per probe rose about 7% and 2%: the extra probe is a two-turn group probe, and the review refusal adds a call on tool-work turns.
 
 Still open: Haiku in groups (debate and delegate turns) is not forced and stays well under 95% say; Sonnet's coordination leak is at 4% against a 2% bar; forcing for Sonnet/Opus and OpenAI `required` are unmeasured.
