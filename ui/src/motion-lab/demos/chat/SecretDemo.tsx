@@ -15,7 +15,7 @@ function Lock({ closed }: { closed: boolean }) {
   );
 }
 
-/** SecretInputCard: an ordinary password field; on submit the lock shuts and the card folds to one line. */
+/** Private-input card (QuestionCard form, no website): an ordinary password field; on submit the lock shuts and the card folds to one line. */
 export function SecretDemo() {
   const [value, setValue] = useState("");
   const [phase, setPhase] = useState<Phase>("asking");

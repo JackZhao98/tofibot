@@ -101,6 +101,8 @@ type Question struct {
 	CreatedAt      string           `json:"created_at"`
 	ExpiresAt      string           `json:"expires_at,omitempty"`
 	UpdatedAt      string           `json:"updated_at"`
+	// PrivateInput is set only by request_secret_input (stored marker column).
+	PrivateInput bool `json:"-"`
 }
 
 // QuestionCard is safe to send to the UI. It intentionally excludes answer
@@ -187,6 +189,9 @@ CREATE INDEX IF NOT EXISTS questions_run_status ON questions(run_id,status);
 		return err
 	}
 	if err = ensureColumn(db, "questions", "source_url", `ALTER TABLE questions ADD COLUMN source_url TEXT NOT NULL DEFAULT ''`); err != nil {
+		return err
+	}
+	if err = ensureColumn(db, "questions", "private_input", `ALTER TABLE questions ADD COLUMN private_input INTEGER NOT NULL DEFAULT 0`); err != nil {
 		return err
 	}
 	if err = ensureColumn(db, "questions", "approval_json", `ALTER TABLE questions ADD COLUMN approval_json TEXT NOT NULL DEFAULT ''`); err != nil {
@@ -463,20 +468,20 @@ func (s *Store) CreateQuestion(conv string, run Run, in askQuestionInput) (Quest
 	if in.ExpiresInSeconds > 0 {
 		expires = time.Now().UTC().Add(time.Duration(in.ExpiresInSeconds) * time.Second).Format(time.RFC3339Nano)
 	}
-	q := Question{ID: uuid.NewString(), RunID: run.ID, ConversationID: conv, BotID: run.BotID, Type: in.Type, Prompt: in.Question, Options: in.Options, AllowOther: in.AllowOther, Fields: in.Fields, SourceURL: in.SourceURL, Approval: in.Approval, MinSelections: in.MinSelections, MaxSelections: in.MaxSelections, Status: questionPending, CreatedAt: nowAt, ExpiresAt: expires, UpdatedAt: nowAt}
+	q := Question{ID: uuid.NewString(), RunID: run.ID, ConversationID: conv, BotID: run.BotID, Type: in.Type, Prompt: in.Question, Options: in.Options, AllowOther: in.AllowOther, Fields: in.Fields, SourceURL: in.SourceURL, Approval: in.Approval, PrivateInput: in.PrivateInput, MinSelections: in.MinSelections, MaxSelections: in.MaxSelections, Status: questionPending, CreatedAt: nowAt, ExpiresAt: expires, UpdatedAt: nowAt}
 	if in.Approval != nil && in.Approval.ReviewOnly {
 		q.Status = questionRunDone
 	}
-	_, err = s.db.Exec(`INSERT INTO questions(id,run_id,conversation_id,bot_id,type,prompt,options_json,min_selections,max_selections,status,created_at,expires_at,updated_at,fields_json,source_url,allow_other,approval_json) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`, q.ID, q.RunID, q.ConversationID, q.BotID, q.Type, q.Prompt, string(opts), q.MinSelections, q.MaxSelections, q.Status, q.CreatedAt, nullString(q.ExpiresAt), q.UpdatedAt, string(fields), q.SourceURL, q.AllowOther, approval)
+	_, err = s.db.Exec(`INSERT INTO questions(id,run_id,conversation_id,bot_id,type,prompt,options_json,min_selections,max_selections,status,created_at,expires_at,updated_at,fields_json,source_url,allow_other,approval_json,private_input) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`, q.ID, q.RunID, q.ConversationID, q.BotID, q.Type, q.Prompt, string(opts), q.MinSelections, q.MaxSelections, q.Status, q.CreatedAt, nullString(q.ExpiresAt), q.UpdatedAt, string(fields), q.SourceURL, q.AllowOther, approval, q.PrivateInput)
 	return q, err
 }
 
-const questionColumns = `id,run_id,conversation_id,bot_id,type,prompt,options_json,min_selections,max_selections,status,answer_json,answered_by,created_at,expires_at,updated_at,fields_json,source_url,allow_other,approval_json`
+const questionColumns = `id,run_id,conversation_id,bot_id,type,prompt,options_json,min_selections,max_selections,status,answer_json,answered_by,created_at,expires_at,updated_at,fields_json,source_url,allow_other,approval_json,private_input`
 
 func scanQuestion(row interface{ Scan(...any) error }) (Question, error) {
 	var q Question
 	var opts, ans, actor, expires, fields, approval sql.NullString
-	err := row.Scan(&q.ID, &q.RunID, &q.ConversationID, &q.BotID, &q.Type, &q.Prompt, &opts, &q.MinSelections, &q.MaxSelections, &q.Status, &ans, &actor, &q.CreatedAt, &expires, &q.UpdatedAt, &fields, &q.SourceURL, &q.AllowOther, &approval)
+	err := row.Scan(&q.ID, &q.RunID, &q.ConversationID, &q.BotID, &q.Type, &q.Prompt, &opts, &q.MinSelections, &q.MaxSelections, &q.Status, &ans, &actor, &q.CreatedAt, &expires, &q.UpdatedAt, &fields, &q.SourceURL, &q.AllowOther, &approval, &q.PrivateInput)
 	if err != nil {
 		return q, err
 	}

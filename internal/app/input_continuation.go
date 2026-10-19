@@ -267,7 +267,7 @@ func (s *Server) inputResumeResult(q Question) string {
 			v.mu.Lock()
 			r, ok := v.records[answer.SecretRef]
 			created, e := time.Parse(time.RFC3339Nano, r.CreatedAt)
-			valid = ok && e == nil && time.Since(created) <= 15*time.Minute && r.Status == "ready" && r.RunID == q.RunID && r.BotID == q.BotID && r.ConversationID == q.ConversationID
+			valid = ok && e == nil && time.Since(created) <= secretReferenceLifetime && r.Status == "ready" && r.RunID == q.RunID && r.BotID == q.BotID && r.ConversationID == q.ConversationID
 			v.mu.Unlock()
 		}
 		if !valid {
@@ -275,7 +275,8 @@ func (s *Server) inputResumeResult(q Question) string {
 			if q.isPrivateInput() {
 				again = "request_secret_input"
 			}
-			fields[field.ID] = json.RawMessage(`{"status":"secret_expired","value_hidden":true,"action_required":"Ask the human for this password again with ` + again + `; never infer it or request it in plain text."}`)
+			expired, _ := json.Marshal(map[string]any{"status": "secret_expired", "value_hidden": true, "action_required": secretRerequestText(again), "next_action": secretRerequestNext})
+			fields[field.ID] = expired
 		}
 	}
 	b, _ := json.Marshal(fields)

@@ -23,15 +23,21 @@ func TestHumanInputToolsRefuseHiddenConversation(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	s := &Server{store: store, secretVault: vault}
+	client, _ := recordingComputer(t)
+	s := &Server{store: store, secretVault: vault, microVM: client}
 	calls := map[string]string{
-		"ask_user_question": `{"question":"Which one?","type":"text"}`,
-		"request_approval":  `{"question":"Proceed?","action":"do it","target":"thing","impact":"none"}`,
-		"ask_user_form":     `{"question":"Details","source_url":"https://forms.example.test/x","fields":[{"id":"name","label":"Name","type":"text","required":true}]}`,
+		"ask_user_question":    `{"question":"Which one?","type":"text"}`,
+		"request_approval":     `{"question":"Proceed?","action":"do it","target":"thing","impact":"none"}`,
+		"request_secret_input": `{"label":"Service key","purpose":"Synthetic use"}`,
+		"ask_user_form":        `{"question":"Details","source_url":"https://forms.example.test/x","fields":[{"id":"name","label":"Name","type":"text","required":true}]}`,
 	}
 	tools := map[string]Tool{}
 	for _, tool := range s.questionTools(c, run) {
 		tools[tool.Name] = tool
+	}
+	// Every tool in the table must be registered, or its refusal is untested.
+	if len(tools) != len(calls) {
+		t.Fatalf("registered %d human-input tools, table covers %d", len(tools), len(calls))
 	}
 	for name, args := range calls {
 		tool, ok := tools[name]
