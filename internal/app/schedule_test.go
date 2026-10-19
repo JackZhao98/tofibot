@@ -59,7 +59,8 @@ func scheduleTestStoreAt(t *testing.T, dir string) (*Store, Bot, Conversation) {
 	}
 	// These fixtures drive the receipt protocol (complete_scheduled_task, a
 	// text final). The say protocol's scheduled runs are covered by
-	// schedule_say_test.go.
+	// phase3_test.go (receipt, occurrence, review, resume after a recorded
+	// answer) and by TestScheduledMCPApprovalRestartHTTPDeliveryWithSay.
 	if err := s.putUserStructuredOutput(false); err != nil {
 		s.Close()
 		t.Fatal(err)

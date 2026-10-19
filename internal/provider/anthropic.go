@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"sort"
 	"strings"
@@ -93,6 +94,7 @@ func (a *anthropicProvider) ChatStream(ctx context.Context, req *ChatRequest, on
 		// The model does not take a forced tool call (some thinking
 		// configurations refuse it): remember that and let it choose.
 		anthropicAnyRefused.Store(req.Model, true)
+		log.Printf("[anthropic] %s refused tool_choice any (%s); not requiring a tool call for this model until restart", req.Model, strings.TrimSpace(err.Error()))
 		retry := *req
 		retry.ToolChoice = ""
 		resp, err = a.stream(ctx, &retry, onDelta)
@@ -649,10 +651,24 @@ func anthropicAnyRejected(model string) bool {
 	return refused
 }
 
-// isAnthropicToolChoiceRejection matches a 400 that names tool_choice.
+// isAnthropicToolChoiceRejection matches a 400 saying that a forced tool
+// choice is not available (for example with thinking enabled), not any 400 that
+// merely names the field.
 func isAnthropicToolChoiceRejection(err error) bool {
 	apiErr, ok := AsAPIError(err)
-	return ok && apiErr.StatusCode == 400 && strings.Contains(strings.ToLower(apiErr.Body), "tool_choice")
+	if !ok || apiErr.StatusCode != 400 {
+		return false
+	}
+	body := strings.ToLower(apiErr.Body)
+	if !strings.Contains(body, "tool_choice") {
+		return false
+	}
+	for _, wording := range []string{"forces tool use", "may not be enabled", "not supported", "does not support", "only supports"} {
+		if strings.Contains(body, wording) {
+			return true
+		}
+	}
+	return false
 }
 
 // isAnthropicReplayRejection matches a 400 caused by replayed thinking (bad

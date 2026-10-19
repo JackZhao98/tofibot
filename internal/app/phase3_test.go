@@ -536,3 +536,104 @@ func TestScheduledSayAnswerAfterToolWorkIsReviewedOnce(t *testing.T) {
 		t.Fatalf("model calls = %d, want 3", c)
 	}
 }
+
+// ---- Flag-on scheduled and group recovery ----
+
+type noModelEngine struct{ calls atomic.Int32 }
+
+func (e *noModelEngine) Run(context.Context, runtime.Request) (runtime.Result, error) {
+	e.calls.Add(1)
+	return runtime.Result{Content: "a model call that must not happen"}, nil
+}
+
+// claimedScheduleRun returns a claimed (running) run of a due schedule.
+func claimedScheduleRun(t *testing.T, f dedupeFixture) Run {
+	t.Helper()
+	x, err := f.server.store.CreateSchedule(f.group.ID, f.tofi.ID, ScheduleSpec{Content: "post the daily synthetic note", Kind: scheduleOnce, RunAt: time.Now().Add(time.Hour).Format(time.RFC3339), Timezone: "UTC"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	f.server.mu.Lock()
+	f.server.closing = true // keep the server's own workers off the run while the fixture sets it up
+	f.server.mu.Unlock()
+	makeDue(t, f.server.store, x.ID, time.Now().Add(-time.Minute))
+	claimed, err := f.server.store.ClaimDueSchedules(time.Now())
+	if err != nil || len(claimed) != 1 {
+		runs, _ := f.server.store.Runs(f.group.ID)
+		if len(runs) != 1 {
+			t.Fatalf("claim=%+v err=%v runs=%+v", claimed, err, runs)
+		}
+		claimed = runs
+	}
+	return claimed[0]
+}
+
+// The process died after a scheduled say(answer) was recorded and before it
+// was published. The resumed run is finished from the record: one final
+// message, the occurrence counts as delivered, and the model is not called.
+func TestScheduledRunResumedAfterTheRecordedAnswerDeliversOnceWithoutAModelCall(t *testing.T) {
+	engine := &noModelEngine{}
+	f := newDedupeFixture(t, engine)
+	run := claimedScheduleRun(t, f)
+	f.server.mu.Lock()
+	f.server.closing = false
+	f.server.mu.Unlock()
+	if _, ok, err := f.server.store.claimRun(context.Background(), run.ID); err != nil || !ok {
+		t.Fatal(ok, err)
+	}
+	if err := f.server.store.recordSayAnswerWith(run.ID, "crash-call", "The recorded scheduled report.", sayAnswerExtras{Sources: []string{"synthetic source"}}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := f.server.store.db.Exec(`UPDATE runs SET status='queued' WHERE id=?`, run.ID); err != nil {
+		t.Fatal(err)
+	}
+	f.server.enqueue(f.group, run)
+	got := waitRunTerminal(t, f.server, run.ID)
+	if got.Status != "done" || engine.calls.Load() != 0 {
+		t.Fatalf("run=%+v model calls=%d", got, engine.calls.Load())
+	}
+	var n int
+	_ = f.server.store.db.QueryRow(`SELECT COUNT(*) FROM messages WHERE run_id=? AND role='assistant' AND kind='' AND content='The recorded scheduled report.'`, run.ID).Scan(&n)
+	occurrences, err := f.server.store.ScheduleOccurrences(context.Background(), f.group.ID, []string{run.ID})
+	if n != 1 || err != nil || len(occurrences) != 1 || !occurrences[0].ResultInConversation || originOf(t, f.server.store, run.ID) != finalOriginSay {
+		t.Fatalf("messages=%d occurrences=%+v err=%v origin=%q", n, occurrences, err, originOf(t, f.server.store, run.ID))
+	}
+}
+
+// A group answer recorded with a wake list, then resumed: exactly one mention
+// run starts for the woken member.
+func TestGroupWakeAfterAResumedAnsweredRunStartsExactlyOneMentionRun(t *testing.T) {
+	engine := &mentionEngine{reply: func(ctx context.Context, req runtime.Request, text string) string {
+		return reply(ctx, req, "the metaphor: a lighthouse", nil)
+	}}
+	f := newDedupeFixture(t, engine)
+	f.post(t, "@tofi get the metaphor from metaphor", f.tofi)
+	root := f.roots[0]
+	if _, ok, err := f.server.store.claimRun(context.Background(), root.ID); err != nil || !ok {
+		t.Fatal(ok, err)
+	}
+	if err := f.server.store.recordSayAnswerWith(root.ID, "crash-call", "Asked the metaphor Bot.", sayAnswerExtras{Wake: wakeOf2(f.meta.ID, "write the metaphor")}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := f.server.store.db.Exec(`UPDATE runs SET status='queued' WHERE id=?`, root.ID); err != nil {
+		t.Fatal(err)
+	}
+	f.start(engine)
+	runs := f.settle(t)
+	woken := 0
+	for _, r := range runs {
+		if r.BotID == f.meta.ID {
+			woken++
+		}
+	}
+	if woken != 1 || len(runs) != 2 {
+		t.Fatalf("runs=%d woken=%d", len(runs), woken)
+	}
+	if publishedBy(&f, f.tofi.ID) != 1 || publishedBy(&f, f.meta.ID) != 1 {
+		t.Fatalf("published tofi=%d meta=%d", publishedBy(&f, f.tofi.ID), publishedBy(&f, f.meta.ID))
+	}
+}
+
+func wakeOf2(bot, request string) []groupWakeEntry {
+	return []groupWakeEntry{{BotID: bot, Request: request}}
+}
