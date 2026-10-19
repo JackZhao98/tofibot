@@ -3,6 +3,7 @@ package app
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -14,9 +15,11 @@ import (
 	"sync"
 	"sync/atomic"
 	"testing"
+	"time"
 
 	"github.com/JackZhao98/tofibot/internal/computer"
 	"github.com/JackZhao98/tofibot/internal/runtime"
+	"github.com/JackZhao98/tofibot/internal/tooloutcome"
 )
 
 // request_secret_input is a front for the form rendezvous. These tests run the
@@ -336,5 +339,136 @@ func TestPrivateInputExpiredReferenceNamesItsOwnTool(t *testing.T) {
 	s.clearRunSecrets(run.ID)
 	if got := s.inputResumeResult(answered); !strings.Contains(got, "secret_expired") || !strings.Contains(got, "request_secret_input") || strings.Contains(got, "ask_user_form") {
 		t.Fatalf("resume result: %s", got)
+	}
+}
+
+func privateInputServer(t *testing.T) (*Server, Conversation, Run) {
+	t.Helper()
+	store, c, run := questionFixture(t)
+	t.Cleanup(func() { store.Close() })
+	vault, err := initializeSecretVault(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	return &Server{store: store, secretVault: vault}, c, run
+}
+
+// Only the marker written by request_secret_input makes a form a private
+// input. A stored webpage-less form without it never yields an unbound
+// reference, and a marked row must still have exactly the expected field.
+func TestPrivateInputIsIdentifiedByMarkerAndShape(t *testing.T) {
+	password := func(id string) []UserFormField {
+		return []UserFormField{{ID: id, Label: "Key", Type: "password", Required: true}}
+	}
+	t.Run("legacy form without a website", func(t *testing.T) {
+		s, c, run := privateInputServer(t)
+		q, err := s.CreateQuestion(c.ID, run, askQuestionInput{Question: "Legacy", Type: questionForm, Fields: password(privateInputFieldID), ExpiresInSeconds: 600})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if _, _, err = s.AnswerUserForm(q.ID, "human", map[string]string{privateInputFieldID: "synthetic"}); err == nil {
+			t.Fatal("a form without the marker produced a reference")
+		}
+		if len(s.secretVault.records) != 0 {
+			t.Fatalf("legacy row created a vault record: %v", s.secretVault.records)
+		}
+	})
+	t.Run("marked row with the wrong shape", func(t *testing.T) {
+		for name, fields := range map[string][]UserFormField{
+			"other id":  password("other"),
+			"text type": {{ID: privateInputFieldID, Label: "Key", Type: "text", Required: true}},
+			"two":       append(password(privateInputFieldID), UserFormField{ID: "extra", Label: "Extra", Type: "text"}),
+		} {
+			s, c, run := privateInputServer(t)
+			q, err := s.CreateQuestion(c.ID, run, askQuestionInput{Question: "Marked", Type: questionForm, PrivateInput: true, Fields: fields, ExpiresInSeconds: 600})
+			if err != nil {
+				t.Fatal(err)
+			}
+			values := map[string]string{}
+			for _, f := range fields {
+				values[f.ID] = "synthetic"
+			}
+			if _, _, err = s.AnswerUserForm(q.ID, "human", values); !errors.Is(err, ErrQuestionInvalidAnswer) {
+				t.Fatalf("%s: want invalid answer, got %v", name, err)
+			}
+			if len(s.secretVault.records) != 0 {
+				t.Fatalf("%s: vault record created", name)
+			}
+		}
+	})
+}
+
+// A private-input value has no origin, so it can never be typed into a page.
+func TestPrivateInputReferenceIsNeverTyped(t *testing.T) {
+	s, count := secretTestServer(t)
+	run := Run{ID: "run", BotID: "bot", ConversationID: "conv"}
+	ciphertext, _ := s.secretVault.seal("ref", "synthetic")
+	s.secretVault.records["ref"] = secretRecord{ID: "ref", RunID: run.ID, BotID: run.BotID, ConversationID: run.ConversationID, Status: "ready", CreatedAt: now(), Ciphertext: ciphertext}
+	use := s.secretTools(run)[0]
+	_, err := use.Execute(context.Background(), json.RawMessage(`{"secret_ref":"ref","action":"browser_type"}`))
+	out, ok := tooloutcome.FromError(err)
+	if !ok || out.Status != tooloutcome.Denied || out.Code != "private_input_not_typeable" || out.Certainty != "not_executed" || !strings.Contains(out.Message, "ask_user_form") {
+		t.Fatalf("want classified refusal, got %v", err)
+	}
+	if *count != 0 {
+		t.Fatal("refused call reached the computer")
+	}
+	if _, err = use.Execute(context.Background(), json.RawMessage(`{"secret_ref":"ref","action":"env","target":"SYNTHETIC_KEY"}`)); err != nil || *count != 1 {
+		t.Fatalf("env install must keep working: %v", err)
+	}
+}
+
+// References past their lifetime are unusable and must not hold one of the
+// eight per-run slots.
+func TestExpiredReferencesDoNotCountTowardRunCap(t *testing.T) {
+	s, c, run := privateInputServer(t)
+	old := time.Now().Add(-time.Hour).UTC().Format(time.RFC3339Nano)
+	for i := 0; i < 8; i++ {
+		id := fmt.Sprintf("old-%d", i)
+		s.secretVault.records[id] = secretRecord{ID: id, RunID: run.ID, BotID: run.BotID, ConversationID: c.ID, Status: "ready", CreatedAt: old}
+	}
+	in, err := normalizeQuestionInput(askQuestionInput{Question: "Why", Type: questionForm, PrivateInput: true, Fields: []UserFormField{{ID: privateInputFieldID, Label: "Key", Type: "password", Required: true}}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	q, err := s.CreateQuestion(c.ID, run, in)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, _, err = s.AnswerUserForm(q.ID, "human", map[string]string{privateInputFieldID: "synthetic"}); err != nil {
+		t.Fatalf("expired references blocked a new request: %v", err)
+	}
+}
+
+// After expiry both the live use and the resume path say the same thing:
+// asking again is permitted.
+func TestExpiredReferenceGuidanceIsConsistent(t *testing.T) {
+	s, count := secretTestServer(t)
+	run := Run{ID: "run", BotID: "bot", ConversationID: "conv"}
+	ciphertext, _ := s.secretVault.seal("ref", "synthetic")
+	s.secretVault.records["ref"] = secretRecord{ID: "ref", RunID: run.ID, BotID: run.BotID, ConversationID: run.ConversationID, Status: "ready", CreatedAt: time.Now().Add(-time.Hour).UTC().Format(time.RFC3339Nano), Ciphertext: ciphertext}
+	_, err := s.secretTools(run)[0].Execute(context.Background(), json.RawMessage(`{"secret_ref":"ref","action":"env","target":"SYNTHETIC_KEY"}`))
+	out, ok := tooloutcome.FromError(err)
+	if !ok || out.Code != "secret_reference_unavailable" || out.NextAction != secretRerequestNext || out.NextAction == "explain_blocker" || !strings.Contains(out.Message, "permitted") || *count != 0 {
+		t.Fatalf("live use: %v", err)
+	}
+	// The resume path carries the same action and wording.
+	store, c, qrun := questionFixture(t)
+	defer store.Close()
+	server := &Server{store: store, secretVault: s.secretVault}
+	in, _ := normalizeQuestionInput(askQuestionInput{Question: "Why", Type: questionForm, PrivateInput: true, Fields: []UserFormField{{ID: privateInputFieldID, Label: "Key", Type: "password", Required: true}}})
+	q, _ := server.CreateQuestion(c.ID, qrun, in)
+	answered, _, err := server.AnswerUserForm(q.ID, "human", map[string]string{privateInputFieldID: "synthetic"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	server.clearRunSecrets(qrun.ID)
+	var fields map[string]map[string]any
+	if json.Unmarshal([]byte(server.inputResumeResult(answered)), &fields) != nil {
+		t.Fatal("resume result is not JSON")
+	}
+	got := fields[privateInputFieldID]
+	if got["next_action"] != secretRerequestNext || got["action_required"] != secretRerequestText("request_secret_input") || !strings.Contains(out.Message, "permitted") || !strings.Contains(got["action_required"].(string), "permitted") {
+		t.Fatalf("resume guidance differs: %v", got)
 	}
 }

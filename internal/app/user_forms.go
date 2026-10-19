@@ -100,9 +100,9 @@ func normalizeUserForm(in askQuestionInput) (askQuestionInput, error) {
 
 // A private input is a form card with one password field and no website. Its
 // secret is not bound to an origin: it feeds use_secret_input's computer
-// actions (shell_exec, env, ssh) as well as browser_type. A form with a
-// source_url is always the strict webpage form above, so an empty source_url
-// on a stored form identifies a private input.
+// actions (shell_exec, env, ssh) and is never typed into a page. Only
+// request_secret_input sets the stored private_input marker; a webpage form
+// always carries a source_url and is bound to its HTTPS origin.
 func normalizePrivateInput(in askQuestionInput) (askQuestionInput, error) {
 	if len(in.Fields) != 1 || in.Fields[0].Type != "password" || !in.Fields[0].Required || in.SourceURL != "" {
 		return in, errors.New("a private input is one required password field")
@@ -117,7 +117,7 @@ func normalizePrivateInput(in askQuestionInput) (askQuestionInput, error) {
 }
 
 func (q Question) isPrivateInput() bool {
-	return q.Type == questionForm && q.SourceURL == ""
+	return q.Type == questionForm && q.PrivateInput
 }
 
 const privateInputFieldID = "secret"
@@ -126,7 +126,7 @@ const privateInputFieldID = "secret"
 // name as a thin front for the form rendezvous: the same durable question,
 // suspension, restart and expiry rules, and the same vault write on answer.
 func (s *Server) secretInputTool(c Conversation, r Run) Tool {
-	return Tool{Name: "request_secret_input", Description: "Ask the human for one secret (a key, token or password) through a private input card, then continue. The value never enters chat, history or your tool result; the result is {secret:{secret_ref,value_hidden:true}}, an opaque reference usable only by use_secret_input in this run. State the intended use accurately in purpose. Never ask for secrets in chat or in plain questions. Cancellation or expiry never permits inventing a value. The response window, restart and cleared-reference rules are on expires_in_seconds.", Parameters: objectSchema(map[string]any{
+	return Tool{Name: "request_secret_input", Description: "Ask the human for one secret (a key, token or password) through a private input card, then continue. The value never enters chat, history or your tool result; the result is {secret:{secret_ref,value_hidden:true}}, an opaque reference usable only by use_secret_input in this run, for its computer actions (shell_exec, env, ssh); it is never typed into a page, so ask for a website password with ask_user_form instead. State the intended use accurately in purpose. Never ask for secrets in chat or in plain questions. Cancellation or expiry never permits inventing a value. The response window, restart and cleared-reference rules are on expires_in_seconds.", Parameters: objectSchema(map[string]any{
 		"label":              map[string]any{"type": "string", "description": "Short name of the secret, shown on the field"},
 		"purpose":            map[string]any{"type": "string", "description": "Why it is needed and exactly how it will be used"},
 		"expires_in_seconds": questionExpirySchema(),
@@ -281,6 +281,9 @@ func (s *Server) AnswerUserForm(id, actor string, values map[string]string) (Que
 	if q.Type != questionForm {
 		return q, false, ErrQuestionInvalidAnswer
 	}
+	if q.isPrivateInput() && (len(q.Fields) != 1 || q.Fields[0].ID != privateInputFieldID || q.Fields[0].Type != "password") {
+		return q, false, ErrQuestionInvalidAnswer
+	}
 	if q.Status == questionAnswered {
 		return q, true, nil
 	}
@@ -319,7 +322,8 @@ func (s *Server) AnswerUserForm(id, actor string, values map[string]string) (Que
 		}
 		count := 0
 		for _, record := range v.records {
-			if record.RunID == q.RunID {
+			// An expired reference is unusable and must not hold a slot.
+			if created, e := time.Parse(time.RFC3339Nano, record.CreatedAt); record.RunID == q.RunID && (e != nil || time.Since(created) <= secretReferenceLifetime) {
 				count++
 			}
 		}

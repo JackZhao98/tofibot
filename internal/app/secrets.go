@@ -285,14 +285,26 @@ func (s *Server) handleSecrets(w http.ResponseWriter, r *http.Request) bool {
 	fail(405, "Method not allowed")
 	return true
 }
+// A reference lives this long after the human submitted it.
+const secretReferenceLifetime = 15 * time.Minute
+
+const secretRerequestNext = "request_input_again"
+
+// secretRerequestText is the one statement of what to do after a reference
+// expired or was cleared, shared by the live use and the resume path. tool
+// names the asking tool when it is known.
+func secretRerequestText(tool string) string {
+	if tool == "" {
+		tool = "ask_user_form for a website login, otherwise request_secret_input"
+	}
+	return "The private input reference has expired or was cleared. Asking the human for it again with " + tool + " is permitted; never infer the value or request it in plain text."
+}
+
 func secretQuote(s string) string { return "'" + strings.ReplaceAll(s, "'", "'\"'\"'") + "'" }
 func (s *Server) applySecret(ctx context.Context, r Run, action, target, value, command string) (string, error) {
 	name := "shell.exec"
 	args := map[string]any{}
 	switch action {
-	case "browser_type":
-		name = "desktop.type"
-		args["text"] = value
 	case "env":
 		if !allowedSecretEnv(target) {
 			return "", tooloutcome.InvalidArguments("invalid environment variable name")
@@ -319,9 +331,6 @@ func (s *Server) applySecret(ctx context.Context, r Run, action, target, value, 
 	if err != nil {
 		return "", errors.New("Secret operation failed; the computer may be unavailable or controlled by another session")
 	}
-	if name == "desktop.type" {
-		return `{"ok":true}`, nil
-	}
 	var result struct {
 		ExitCode *int `json:"exit_code"`
 		TimedOut bool `json:"timed_out"`
@@ -340,7 +349,7 @@ func (s *Server) secretTools(r Run) []Tool {
 		return nil
 	}
 	return []Tool{
-		{Name: "use_secret_input", Description: "Use a private input reference from this run without seeing its value. browser_type does not locate or focus a field: first inspect the current screenshot and click the intended password field, then call this tool. Never reveal the value. References from ask_user_form only support visible, focused HTML password inputs on the approved HTTPS origin; wrong focus is rejected. If the site uses a plain text secret field, ask the human to enter it directly; never move the value into ordinary tool arguments. shell_exec exports the value as target environment variable for command; ALL output is withheld. env installs a shared environment variable; ssh installs a private key with target filename without overwriting. Shared VM files can be read by Bots with shell permissions, so only install when the user requested it.", Parameters: objectSchema(map[string]any{"secret_ref": map[string]any{"type": "string"}, "action": map[string]any{"type": "string", "enum": []string{"browser_type", "shell_exec", "env", "ssh"}}, "target": map[string]any{"type": "string"}, "command": map[string]any{"type": "string"}}, []string{"secret_ref", "action"}), Identity: func(raw json.RawMessage) tooloutcome.Identity {
+		{Name: "use_secret_input", Description: "Use a private input reference from this run without seeing its value. A reference from ask_user_form is bound to its website: browser_type does not locate or focus a field, so first inspect the current screenshot and click the intended password field, then call this tool; only a visible, focused HTML password input on the approved HTTPS origin accepts it and wrong focus is rejected. If the site uses a plain text secret field, ask the human to enter it directly; never move the value into ordinary tool arguments. A reference from request_secret_input has no website binding and is never typed into a page; for a website login request the password with ask_user_form instead. For such a reference shell_exec exports the value as the target environment variable for command and ALL output is withheld; env installs a shared environment variable; ssh installs a private key with the target filename without overwriting. Shared VM files can be read by Bots with shell permissions, so only install when the user requested it.", Parameters: objectSchema(map[string]any{"secret_ref": map[string]any{"type": "string"}, "action": map[string]any{"type": "string", "enum": []string{"browser_type", "shell_exec", "env", "ssh"}}, "target": map[string]any{"type": "string"}, "command": map[string]any{"type": "string"}}, []string{"secret_ref", "action"}), Identity: func(raw json.RawMessage) tooloutcome.Identity {
 			var in struct {
 				Action string `json:"action"`
 			}
@@ -359,11 +368,16 @@ func (s *Server) secretTools(r Run) []Tool {
 			rec, ok := v.records[in.Ref]
 			v.mu.Unlock()
 			created, _ := time.Parse(time.RFC3339Nano, rec.CreatedAt)
-			if !ok || rec.RunID != r.ID || rec.BotID != r.BotID || rec.ConversationID != r.ConversationID || rec.Status != "ready" || time.Since(created) > 15*time.Minute {
-				return "", tooloutcome.New(tooloutcome.Denied, "secret_reference_unavailable", "not_executed", "secret reference unavailable in this run", "explain_blocker").Err()
+			if !ok || rec.RunID != r.ID || rec.BotID != r.BotID || rec.ConversationID != r.ConversationID || rec.Status != "ready" || time.Since(created) > secretReferenceLifetime {
+				return "", tooloutcome.New(tooloutcome.Denied, "secret_reference_unavailable", "not_executed", secretRerequestText(""), secretRerequestNext).Err()
 			}
 			if rec.Kind == "browser_form" {
 				return s.applyFormSecret(ctx, r, rec, in.Action)
+			}
+			// No origin is recorded for this value, so typing it into whatever
+			// page has focus would be an unguarded paste.
+			if in.Action == "browser_type" {
+				return "", tooloutcome.New(tooloutcome.Denied, "private_input_not_typeable", "not_executed", "This private input has no website binding and is never typed into a page. For a website login, ask for the password with ask_user_form, which binds it to the page's origin.", "replan").Err()
 			}
 			value, err := v.reveal(rec)
 			if err != nil {

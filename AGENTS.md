@@ -28,10 +28,10 @@ shown by `ui/src/QuestionCard.tsx`. Model tools: `ask_user_question`,
 into the vault and return an origin-bound `secret_ref`) and `request_secret_input`
 (one secret with no website: a thin front that stores a one-password-field form
 question; its `secret_ref` is bound to the run, Bot and conversation, lives 15
-minutes, and is consumed by `use_secret_input`). Do not add a second mechanism:
+minutes, is consumed by `use_secret_input` for env/ssh/shell_exec only and is never typed into a page). Do not add a second mechanism:
 no polling loop in a tool, no separate HTTP route, no callback hook. Passwords
 are written only to the vault (`AnswerUserForm`), never to SQL, events or results.
-All of these refuse a conversation that is not user-visible (`requireHumanPresent`,
+All of these, and the MCP approval gate, refuse a conversation that is not user-visible (`requireHumanPresent`,
 outcome `conversation_not_user_visible`); a hidden Bot-to-Bot run reaches a human only
 through its reply, which returns to the assigning Bot or conversation. Mail drafts
 (`prepare_email`) are still a separate card path.
