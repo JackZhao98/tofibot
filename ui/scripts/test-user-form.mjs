@@ -61,7 +61,12 @@ try {
   assert.equal(validateUserForm([field("value")], {}).value, "Fill in this field.");
   assert.equal(userFormAnswerRows(fields, undefined)[0].value, "Not filled in");
   await ui.setLanguage("zh-CN");
-  console.log("user form checks: PASS (schema, required/email, Unicode/byte boundaries, private summaries, identity, zh-CN/en copy)");
+  // A form without a website is a private input (one secret, no destination).
+  const { isPrivateInputForm } = await ui.load("/src/userForm.ts");
+  assert.equal(isPrivateInputForm({ source_url: "" }), true);
+  assert.equal(isPrivateInputForm({}), true);
+  assert.equal(isPrivateInputForm({ source_url: "https://example.test/login" }), false);
+  console.log("user form checks: PASS (schema, required/email, Unicode/byte boundaries, private summaries, identity, zh-CN/en copy, private-input form)");
 } finally {
   await ui.close();
 }

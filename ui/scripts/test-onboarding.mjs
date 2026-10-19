@@ -105,7 +105,6 @@ async function mockApi(page, state) {
     if (path.endsWith("/schedules")) return json({ schedules: [] });
     if (path === "/api/questions") return json({ questions: [] });
     if (path === "/api/mail-drafts") return json({ drafts: [] });
-    if (path === "/api/secret-inputs") return json({ requests: [] });
     return json({});
   });
   return external;

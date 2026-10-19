@@ -66,7 +66,6 @@ try {
       if (path === "/api/server-info") return reply({ service: "tofi", protocol_version: 1, instance_id: "40000000-0000-4000-8000-000000000001", auth: { mode: "none" } });
       if (path === "/api/preferences") return reply({ timezone: "UTC", timezone_configured: true });
       if (path === "/api/config") return reply({ model_configured: true, default_model: "fixture-a", provider: "synthetic" });
-      if (path === "/api/secret-inputs") return reply({ requests: [] });
       if (path === "/api/questions") return reply({ questions: [] });
       if (path === "/api/mail-drafts") return reply({ drafts: [] });
       if (path === "/api/bots") return reply({ bots: [bot] });

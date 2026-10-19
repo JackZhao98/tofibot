@@ -17,7 +17,7 @@
 .small-text{font-size:12px}
 
 :is(.owner-card,.settings-section)>form,
-form:is(.detail-form,.memory-create,.schedule-form,.members-manage-form,.extension-form,.resource-form,.credential-form,.secret-input-card,.question-card,.work-create){display:grid;gap:10px}
+form:is(.detail-form,.memory-create,.schedule-form,.members-manage-form,.extension-form,.resource-form,.credential-form,.question-card,.work-create){display:grid;gap:10px}
 input,textarea,select{width:100%;margin-top:7px;resize:vertical}
 
 .workspace{height:var(--viewport-height,100dvh);min-height:0;display:flex;flex-direction:column;overflow:hidden}
