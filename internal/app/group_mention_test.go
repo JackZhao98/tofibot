@@ -139,6 +139,7 @@ func TestDeadlockResolvedByExplicitWakes(t *testing.T) {
 	pageWrites := 0
 	engine := &mentionEngine{}
 	f = newDedupeFixture(t, engine)
+	f.legacyMode(t)
 	engine.reply = func(ctx context.Context, req runtime.Request, text string) string {
 		if req.BotID == f.meta.ID {
 			if strings.Contains(text, "[group mention]") {
@@ -173,6 +174,7 @@ func TestQueuedTargetNotWokenSeesMessage(t *testing.T) {
 	pageWrites := 0
 	engine := &mentionEngine{}
 	f = newDedupeFixture(t, engine)
+	f.legacyMode(t)
 	engine.reply = func(ctx context.Context, req runtime.Request, text string) string {
 		if req.BotID == f.meta.ID {
 			if strings.Contains(text, "[colleague messages addressed to you]") && strings.Contains(text, "send me your metaphor") {
@@ -366,6 +368,7 @@ func (w *lockedWriter) Write(p []byte) (int, error) {
 
 func TestAddMentionWakeBusyAndIdempotent(t *testing.T) {
 	f := newDedupeFixture(t, nil)
+	f.legacyMode(t)
 	f.post(t, "@tofi a @metaphor b", f.tofi, f.meta)
 	poster := f.roots[0]
 	msg, err := f.server.store.AddAssistant(f.group.ID, f.tofi.ID, poster.ID, "please")
@@ -496,6 +499,7 @@ func TestWaitOfRemovedMemberWakesNobody(t *testing.T) {
 func wakeChainFixture(t *testing.T) (dedupeFixture, Run, Message) {
 	t.Helper()
 	f := newDedupeFixture(t, nil)
+	f.legacyMode(t)
 	f.server.accountID = "synthetic-account"
 	f.post(t, "@tofi write the page. @metaphor give a metaphor first.", f.tofi, f.meta)
 	rootA, rootB := f.roots[0], f.roots[1]

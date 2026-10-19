@@ -72,6 +72,49 @@ func delegationConflictTx(tx *sql.Tx, parentID, target string) (refuse bool, ste
 	return delegated > 0, nil, err
 }
 
+// ErrRecipientAddressed reports that a hand-off or wake was refused because
+// the target Bot is one of several the person addressed in the user message
+// this run descends from. Each addressed Bot answers that message in a run of
+// its own, so no other member starts or briefs it for the same message.
+var ErrRecipientAddressed = errors.New("target bot was addressed by the same user message")
+
+type recipientAddressedError struct{ botName string }
+
+func (e *recipientAddressedError) Error() string { return ErrRecipientAddressed.Error() }
+func (e *recipientAddressedError) Unwrap() error { return ErrRecipientAddressed }
+
+// recipientAddressedRefusal is the classified outcome for that refusal. It is
+// Transient with next action retry, like answer_review: nothing was executed,
+// and the model's next call (without that member) is not fenced.
+func recipientAddressedRefusal(botName string) error {
+	return tooloutcome.New(tooloutcome.Transient, "recipient_already_addressed", "not_executed",
+		fmt.Sprintf("%s was addressed by the same message from the person and answers it directly in its own turn, so it is not handed work or woken for this message. Do your own part and leave %s out.", botName, botName),
+		"retry").Err()
+}
+
+// coAddressedRootTx reports whether target has its own root run for the user
+// message that runID descends from, in a message that addressed several Bots
+// (two or more root runs share that trigger). It reads only run rows: the
+// person's message is never parsed here. Callers decide whether the
+// structured-output mode applies before opening a transaction.
+func coAddressedRootTx(q interface {
+	QueryRow(string, ...any) *sql.Row
+}, runID, target string) (bool, error) {
+	const roots = `WITH RECURSIVE ancestors(id,parent_run_id,trigger_message_id) AS (
+		SELECT id,parent_run_id,trigger_message_id FROM runs WHERE id=?
+		UNION SELECT r.id,r.parent_run_id,r.trigger_message_id FROM runs r JOIN ancestors a ON a.parent_run_id=r.id
+	), userTriggers(id) AS (
+		SELECT DISTINCT a.trigger_message_id FROM ancestors a JOIN messages m ON m.id=a.trigger_message_id WHERE m.role='user'
+	), rootRuns(bot_id) AS (
+		SELECT bot_id FROM runs WHERE kind='' AND COALESCE(parent_run_id,'')='' AND trigger_message_id IN (SELECT id FROM userTriggers)
+	)`
+	var total, mine int
+	if err := q.QueryRow(roots+` SELECT COUNT(*), COALESCE(SUM(bot_id=?),0) FROM rootRuns`, runID, target).Scan(&total, &mine); err != nil {
+		return false, err
+	}
+	return total >= 2 && mine > 0, nil
+}
+
 // steersOwnRun reports whether r is a delegation delivered into the same Bot's
 // still-running root run for the same user message.
 func (s *Store) steersOwnRun(r Run) bool {
@@ -251,3 +294,111 @@ type delegationConflictError struct{ botName string }
 
 func (e *delegationConflictError) Error() string { return ErrDelegationToMentionedBot.Error() }
 func (e *delegationConflictError) Unwrap() error { return ErrDelegationToMentionedBot }
+
+// coAddressedRoots returns the root runs of the user message r belongs to, in
+// queue order, when that message addressed several Bots and r is one of the
+// roots. Under structured output each addressed Bot has such a root.
+func (s *Store) coAddressedRoots(r Run) []Run {
+	if r.Kind != "" || r.ParentRunID != "" || r.TriggerMessageID == "" {
+		return nil
+	}
+	rows, err := s.db.Query(`SELECT id,conversation_id,bot_id,status,error,parent_run_id,model,kind,origin_conversation_id,trigger_message_id,queue_seq,created_at,updated_at FROM runs WHERE trigger_message_id=? AND kind='' AND COALESCE(parent_run_id,'')='' AND EXISTS(SELECT 1 FROM messages m WHERE m.id=runs.trigger_message_id AND m.role='user') ORDER BY queue_seq,created_at,id`, r.TriggerMessageID)
+	if err != nil {
+		return nil
+	}
+	defer rows.Close()
+	var out []Run
+	found := false
+	for rows.Next() {
+		x, err := scanRun(rows)
+		if err != nil {
+			return nil
+		}
+		found = found || x.ID == r.ID
+		out = append(out, x)
+	}
+	if !found || len(out) < 2 {
+		return nil
+	}
+	return out
+}
+
+// coAddressedReplies returns what the other addressed Bots posted for the same
+// user message (their runs and everything those spawned), up to the next
+// person message, so a Bot that answers later reads the earlier replies.
+func (s *Store) coAddressedReplies(r Run, conversationID string) []Message {
+	anchor, err := s.GetMessage(r.TriggerMessageID)
+	if err != nil || anchor.ConversationID != conversationID {
+		return nil
+	}
+	rows, err := s.db.Query(`WITH RECURSIVE family(id) AS (
+		SELECT id FROM runs WHERE trigger_message_id=? AND kind='' AND COALESCE(parent_run_id,'')='' AND id<>?
+		UNION SELECT r.id FROM runs r JOIN family f ON r.parent_run_id=f.id
+	) SELECT id FROM messages WHERE conversation_id=? AND seq>? AND role='assistant' AND kind IN ('','segment')
+		AND run_id IN (SELECT id FROM family)
+		AND seq<COALESCE((SELECT MIN(seq) FROM messages WHERE conversation_id=? AND role='user' AND seq>?),9223372036854775807)
+		ORDER BY seq LIMIT 200`, r.TriggerMessageID, r.ID, conversationID, anchor.Seq, conversationID, anchor.Seq)
+	if err != nil {
+		return nil
+	}
+	var ids []string
+	for rows.Next() {
+		var id string
+		if rows.Scan(&id) == nil {
+			ids = append(ids, id)
+		}
+	}
+	rows.Close()
+	var out []Message
+	for _, id := range ids {
+		if m, e := s.GetMessage(id); e == nil {
+			out = append(out, m)
+		}
+	}
+	return out
+}
+
+// coAddressedContext tells a Bot that the person's message also went to other
+// Bots, which answer it in runs of their own in mention order. It names who
+// replied before and who answers after, so the Bot builds on earlier replies
+// and neither briefs nor waits for anyone.
+func (s *Server) coAddressedContext(c Conversation, r Run, bot Bot) string {
+	if c.Kind != "group" || !c.UserVisible {
+		return ""
+	}
+	roots := s.store.coAddressedRoots(r)
+	if len(roots) == 0 {
+		return ""
+	}
+	anchor, err := s.store.GetMessage(r.TriggerMessageID)
+	if err != nil {
+		return ""
+	}
+	members, err := s.memberBots(c)
+	if err != nil {
+		return ""
+	}
+	_, asked := userMentionedHelpers(anchor, bot.ID, members)
+	var lines []string
+	before := true
+	for _, root := range roots {
+		if root.ID == r.ID {
+			before = false
+			continue
+		}
+		name := root.BotID
+		if b, e := s.store.GetBot(root.BotID); e == nil {
+			name = b.Name
+		}
+		place := "answers after you"
+		if before {
+			place = "answered before you"
+		}
+		line := fmt.Sprintf("- %s (id=%s), %s", name, root.BotID, place)
+		if text := asked[root.BotID]; text != "" {
+			line += "; asked: " + trimRunes(text, 600)
+		}
+		lines = append(lines, line)
+	}
+	return "[co-addressed]\nThe person addressed this message to you and to the members below. Each answers it directly in a run of its own, one after another in mention order. Answer the part meant for you. Replies from members who answered before you are in the transcript: build on them and leave out what they cover. No member waits on a brief from you, and handing work to these members or waking them for this message is refused.\n" + strings.Join(lines, "\n") + "\n[/co-addressed]"
+}

@@ -43,6 +43,16 @@ func newDedupeFixture(t *testing.T, engine runtime.Engine) dedupeFixture {
 	return dedupeFixture{server: server, group: group, tofi: tofi, meta: meta, third: third}
 }
 
+// legacyMode selects the coordinator design (structured output off), where only
+// the first-mentioned Bot of a multi-mention message starts a root run. The
+// tests that build several roots by hand pin that mode's delegation rules.
+func (f *dedupeFixture) legacyMode(t *testing.T) {
+	t.Helper()
+	if err := f.server.store.putUserStructuredOutput(false); err != nil {
+		t.Fatal(err)
+	}
+}
+
 func (f *dedupeFixture) post(t *testing.T, content string, bots ...Bot) {
 	t.Helper()
 	specs := make([]runSpec, 0, len(bots))
@@ -63,6 +73,7 @@ func handoffArgs(bot, task string) json.RawMessage {
 
 func TestDelegationRefusedForBotMentionedInSameMessage(t *testing.T) {
 	f := newDedupeFixture(t, nil)
+	f.legacyMode(t)
 	f.post(t, "@tofi write the page. @metaphor give tofi a sentence.", f.tofi, f.meta)
 	tofiRoot, metaRoot := f.roots[0], f.roots[1]
 	if _, err := f.server.store.SetRunStatus(tofiRoot.ID, "running", ""); err != nil {
@@ -88,6 +99,7 @@ func TestDelegationRefusedForBotMentionedInSameMessage(t *testing.T) {
 
 func TestDelegationAllowsFinishedMentionedBotOnceAndUnmentionedBot(t *testing.T) {
 	f := newDedupeFixture(t, nil)
+	f.legacyMode(t)
 	third := f.third
 	f.post(t, "@tofi do part one. @metaphor do part two.", f.tofi, f.meta)
 	tofiRoot, metaRoot := f.roots[0], f.roots[1]
@@ -175,6 +187,7 @@ func (e *incidentEngine) Run(ctx context.Context, req runtime.Request) (runtime.
 func TestIncidentTwoMentionedBotsDelegatingToEachOther(t *testing.T) {
 	engine := &incidentEngine{}
 	f := newDedupeFixture(t, engine)
+	f.legacyMode(t)
 	engine.tofi, engine.meta = f.tofi.ID, f.meta.ID
 	f.post(t, "@tofi create a page with both intros. @metaphor give tofi a one-line metaphor.", f.tofi, f.meta)
 	f.server.mu.Lock()
@@ -269,6 +282,7 @@ func (e *timingEngine) Run(ctx context.Context, req runtime.Request) (runtime.Re
 func TestHandoverIsSteeredIntoActiveMentionedRun(t *testing.T) {
 	engine := &timingEngine{t: t}
 	f := newDedupeFixture(t, engine)
+	f.legacyMode(t)
 	engine.f = &f
 	f.post(t, "@tofi create a page with the metaphor. @metaphor give tofi a one-line metaphor.", f.tofi, f.meta)
 	engine.metaRoot = f.roots[1]
