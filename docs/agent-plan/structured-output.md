@@ -412,3 +412,37 @@ Problem (rc.12, Haiku): after two Bots debated a topic and finished, the owner g
 ### Follow-up: working text is never a chat row (rc.14)
 
 A structured run's private working text (plain turns between tool calls, text after a handoff with no say) is stored as kind `internal`, not `progress`. The UI folded progress rows only under a visible final answer, so a run that ended with none (a posted-then-delegated lead whose status answer was refused) showed its trailing text in the chat. `internal` rows are never chat rows (`foldCompletedProgress` drops them in every run state and attaches them to the final answer's activity when there is one); the server treats them like progress for unread counts, reactions, task state, audits and import, and keeps them out of the conversation preview. `say(note)` stays `progress`; flag-off `<progress>` notes are unchanged. The refusal of a `say(answer)` after post-and-handoff now ends the turn (EndTurn), so no trailing text is generated. Haiku, debate/delegate/mention, 3 runs: probes that left a progress row without a final message 2 of 12 before (one was a full debate position plus "I'll post the integrated take once it lands"), 0 of 12 after; coordination flags 3 and 3 (unchanged, grader reads of debate rebuttals).
+
+## 14. Every mentioned Bot answers its own message (branch feat/wake-every-mentioned-bot)
+
+Problem (rc.15): the owner wrote "@A @B <question> one sentence each". Only A got a run (the first-mentioned Bot led and decided whether to hand off), A answered alone including B's angle, and B never spoke. When the lead did hand off, the result was a brief to B plus a lead follow-up that restated.
+
+Owner decision: when a person's message @mentions several Bots, every mentioned Bot gets its own run; the first no longer decides whether the others speak.
+
+- **Dispatch (`postMessage`).** With structured output on, every Bot parsed from the message (`parseMentions`, so mid-sentence mentions count exactly like leading ones) gets a root run in the same ingress transaction, `queue_seq` in mention order. Flag off keeps the coordinator design (only the first-mentioned Bot starts; `coordinationContext`, `group_task`, `group_followup`). One mention is unchanged in both modes. Unaddressed messages keep the Primary Assistant rule. The explicit `recipient_bot_id` path is unchanged.
+- **Order comes from the queue.** `nextQueuedRun` runs one run per conversation at a time, ordered by kind priority then `queue_seq`, so the roots run one after another in mention order. No new scheduling state; a restart finds the later roots still `queued` and runs each exactly once.
+- **The later Bot sees the earlier replies.** A root run's history is cut at its trigger message, which would hide the first Bot's reply. `coAddressedReplies` adds the replies (kinds `''`/`segment`) of the other roots' runs and their descendants, up to the next person message. A short `[co-addressed]` note (`coAddressedContext`) says the message also went to the named members, who answered before or answer after, that each answers the person directly, and that handing work to or waking them is refused. `coordinationContext` returns nothing for these runs (it already stood down when other roots exist).
+- **No duplicates, deterministic refusal.** `coAddressedRootTx` reads only run rows: the target has a root run for the user message the caller descends from, and that message has two or more root runs. It guards three places: `AddHandoff` (before the older delegation-conflict rules), `addMentionWake` (silent, for a stale list) and `say(answer)` with `wake` (before anything is recorded). The refusal is `recipient_already_addressed`, Transient, next action `retry`, certainty `not_executed`, the `answer_review` pattern, so the recovery guard does not fence the model's next call and the Bot's answer without that member publishes normally. A handoff refusal rolls back the handoff budget. Bots the person did not mention can still be woken or handed to. `wait_for` self-wakes are exempt.
+- **No follow-up.** `group_followup` is created only when a `group_task` finishes; with nothing delegated none exists. No handoff notice is published.
+- **Existing tests.** Tests that pin the coordinator design (and that build several roots by hand) now select the flag-off mode (`legacyMode`, and the fixture of `group_coordinator_test.go`).
+- **Cost of the rule.** Two mentioned Bots can no longer wake each other for the same person message, so a multi-round exchange between them needs the person to send the next message.
+
+Tests (`group_multi_mention_test.go`; each fails with its piece reverted: dispatch, handoff guard, wake guard, say guard, history, note): two mentioned answer in order and the second sees the first (no notice, no follow-up); mid-sentence mentions; one mention unchanged; flag off keeps the coordinator; handoff and wake refused for an addressed Bot but allowed for an unmentioned one; a refused `say` wake followed by a plain answer that publishes; restart between the two runs runs the second once (also after a second restart).
+
+Measured (group probes: debate, delegate, mention (now 4 probes incl. two new: one-sentence-each and mid-sentence mentions), unaddressed, greeting, followup; 3 runs; 36 probes per model and variant; grader claude-opus-5-5; "main" is rc.15; results in `eval/results/multimention-*`, git-ignored). The harness gained the probe field `mentioned` and the metric "mentioned Bots that answered".
+
+| | Haiku main | Haiku new | Sonnet main | Sonnet new |
+|---|---|---|---|---|
+| mentioned Bots that answered | 21 of 24 | 24 of 24 | 22 of 24 | 24 of 24 |
+| coordination visible | 12% | 3% | 15% | 0% |
+| member brief visible | 0% | 0% | 3% | 0% |
+| delegation requirements in text | 6% | 3% | 0% | 0% |
+| step narration | 12% | 0% | 12% | 9% |
+| say adherence (runs owing an answer) | 47% | 38% | 96% | 98% |
+| visible count ok | 91% | 100% | 94% | 100% |
+| avg score (0-2) | 1.70 | 1.87 | 1.73 | 1.74 |
+| model calls | 84 | 66 | 96 | 75 |
+| tokens in / out | 1.376M / 31k | 1.068M / 24k | 1.604M / 21k | 1.227M / 15k |
+| est. $ per probe (setup included) | $0.043 | $0.033 | $0.095 | $0.072 |
+
+Reading it: every mentioned Bot answered in every run; coordination text and briefs nearly vanish; cost per probe falls about 23% because the brief, the lead's second turn and the follow-up are gone. Haiku's group say adherence stays low (groups are not forced; debate probes 0 of the runs through `say`, the text is published as `implicit`), which is the open item from section 12, not caused by this change. Sonnet's new "closing offer" 6% (2 of 36 probes, both in two-sentence mention probes) is within noise at this n. One delegate probe (`group_lead_delegate`, a single mention) is unchanged by design: Sonnet narration there is the same 100% as main.

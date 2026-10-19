@@ -374,6 +374,21 @@ func (s *Server) sayTool(c Conversation, r Run) Tool {
 			if err := validateWake(c, r, in.Wake); err != nil {
 				return fail(err)
 			}
+			for _, w := range in.Wake {
+				addressed, aerr := coAddressedRootTx(s.store.db, r.ID, w.BotID)
+				if aerr != nil {
+					return fail(aerr)
+				}
+				if addressed {
+					name := w.BotID
+					if b, e := s.store.GetBot(w.BotID); e == nil {
+						name = b.Name
+					}
+					// Refused before anything is recorded: the Bot's next answer,
+					// without that member, publishes normally.
+					return fail(recipientAddressedRefusal(name))
+				}
+			}
 			extras := sayAnswerExtras{Wake: in.Wake}
 			if len(in.Sources) > 0 {
 				if !saySendsSources(r) {
