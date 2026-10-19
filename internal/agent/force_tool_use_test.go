@@ -87,12 +87,10 @@ func TestForceToolUseSkipsTheReservedRepairRequests(t *testing.T) {
 		t.Fatalf("requests = %d", len(p.requests))
 	}
 	for i, r := range p.requests {
-		repairOrFinal := i >= 2
-		if repairOrFinal && r.ToolChoice == provider.ToolChoiceAny {
-			t.Fatalf("request %d (repair or final-only) was forced", i)
-		}
-		if !repairOrFinal && r.ToolChoice != provider.ToolChoiceAny {
-			t.Fatalf("request %d (ordinary) was not forced: %q", i, r.ToolChoice)
+		// Request 0 is ordinary; 1 is the budget wrap-up (one call allowed);
+		// 2 and 3 are the reserved repair and its final-only follow-up.
+		if (i == 0) != (r.ToolChoice == provider.ToolChoiceAny) {
+			t.Fatalf("request %d: tool choice %q", i, r.ToolChoice)
 		}
 	}
 }

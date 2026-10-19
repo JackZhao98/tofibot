@@ -637,3 +637,112 @@ func TestGroupWakeAfterAResumedAnsweredRunStartsExactlyOneMentionRun(t *testing.
 func wakeOf2(bot, request string) []groupWakeEntry {
 	return []groupWakeEntry{{BotID: bot, Request: request}}
 }
+
+// ---- Live findings ----
+
+// A Bot that posted its part and then delegated has nothing left to say to the
+// person: an answer after that could only be status about who is doing what.
+// The refusal is retryable and the run ends quietly (the colleague's result
+// resumes the lead). Without a visible message first, a short answer is kept.
+func TestAnswerAfterPostingAndHandingOffIsRefused(t *testing.T) {
+	var f dedupeFixture
+	engine := &mentionEngine{}
+	f = newDedupeFixture(t, engine)
+	var refused error
+	engine.reply = func(ctx context.Context, req runtime.Request, text string) string {
+		run, _ := f.server.store.GetRun(req.RunID)
+		if run.Kind != "" {
+			return reply(ctx, req, "the metaphor: a lighthouse", nil)
+		}
+		if _, err := callTool(ctx, req, "say", "m1", map[string]any{"purpose": "message", "text": "My take: depth first."}); err != nil {
+			return "ERR " + err.Error()
+		}
+		for _, tool := range req.Tools {
+			if tool.Name == "handoff" {
+				if _, err := tool.Execute(ctx, handoffArgs(f.meta.ID, "write the metaphor")); err != nil {
+					return "ERR " + err.Error()
+				}
+			}
+		}
+		_, refused = callTool(ctx, req, "say", "a1", map[string]any{"purpose": "answer", "text": "My line is above; the other Bot's is on its way and I will continue when it is back."})
+		return ""
+	}
+	f.post(t, "@tofi get the metaphor from metaphor", f.tofi)
+	f.start(engine)
+	f.settle(t)
+	if refused == nil || !strings.Contains(refused.Error(), "already posted") {
+		t.Fatalf("answer after posting and handing off: %v", refused)
+	}
+	var n int
+	_ = f.server.store.db.QueryRow(`SELECT COUNT(*) FROM messages WHERE role='assistant' AND kind='' AND content LIKE 'My line is above%'`).Scan(&n)
+	if n != 0 {
+		t.Fatal("the status answer was published")
+	}
+}
+
+// The principles reach the model: delegation status is internal (tool
+// description), and a group reply answers the latest message only. Flag-off
+// prompts keep their old wording.
+func TestGroupPromptsStateTheLatestMessagePrinciple(t *testing.T) {
+	if !strings.Contains(sayToolDescription, "delegated") {
+		t.Fatal("the say description does not say what follows delegation")
+	}
+	for _, banned := range []string{"for example", "e.g.", "such as", "instead of", " not "} {
+		if strings.Contains(strings.ToLower(sayToolDescription), banned) {
+			t.Fatalf("the say description carries %q", banned)
+		}
+	}
+	store, err := OpenStore(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer store.Close()
+	a, _ := store.CreateBot("A", "", "model")
+	b, _ := store.CreateBot("B", "", "model")
+	group, _ := store.CreateGroup("G", []string{a.ID, b.ID})
+	for _, structured := range []bool{true, false} {
+		run := Run{ID: "greet", BotID: a.ID, ConversationID: group.ID, Kind: runKindGroupChat, structured: structured}
+		_, system := (&Server{store: store}).buildContextParts(group, run, a)
+		hasNew := strings.Contains(system, "latest message")
+		hasOld := strings.Contains(system, "Add your own useful perspective")
+		if structured && (!hasNew || hasOld) || !structured && (hasNew || !hasOld) {
+			t.Fatalf("structured=%v: latest-message principle=%v old wording=%v", structured, hasNew, hasOld)
+		}
+	}
+}
+
+// The latest-message principle sits beside the request of an unaddressed group
+// message, under the flag only.
+func TestLatestMessageLineIsBesideTheRequestOfAnUnaddressedGroupMessage(t *testing.T) {
+	store, err := OpenStore(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer store.Close()
+	a, _ := store.CreateBot("A", "", "model")
+	b, _ := store.CreateBot("B", "", "model")
+	group, _ := store.CreateGroup("G", []string{a.ID, b.ID})
+	dm, _ := store.GetConversation(a.DMConversationID)
+	if _, _, err := store.AddMessage(group.ID, "user", "", "", "Good evening, everyone.", "greet-1"); err != nil {
+		t.Fatal(err)
+	}
+	if _, _, err := store.AddMessage(dm.ID, "user", "", "", "Good evening.", "greet-2"); err != nil {
+		t.Fatal(err)
+	}
+	has := func(c Conversation, kind string, structured bool) bool {
+		run := Run{ID: "greet", BotID: a.ID, ConversationID: c.ID, Kind: kind, structured: structured}
+		pm, _ := (&Server{store: store}).buildContextParts(c, run, a)
+		for _, m := range pm {
+			if strings.Contains(m.Content, groupLatestMessageLine) {
+				return true
+			}
+		}
+		return false
+	}
+	if !has(group, runKindGroupChat, true) {
+		t.Fatal("the unaddressed group message lacks the latest-message line")
+	}
+	if has(group, runKindGroupChat, false) || has(group, runKindGroupMention, true) || has(dm, "", true) {
+		t.Fatal("the latest-message line leaked into flag-off, mention or DM runs")
+	}
+}
