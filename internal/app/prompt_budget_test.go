@@ -317,13 +317,15 @@ func TestScopePrincipleIsPresentAndExampleFree(t *testing.T) {
 			t.Fatalf("%s lost the scope wording", name)
 		}
 	}
-	for _, want := range []string{"responsibility", "own initiative", "places no limit on conversation", "ordinary person's view", "only when the question needs expertise you lack"} {
+	for _, want := range []string{"own and pursue", "own initiative", "places no limit on conversation", "ordinary person's view", "no remark about your scope", "only when the question needs expertise you lack"} {
 		if !strings.Contains(voiceGuidance, want) {
 			t.Fatalf("voiceGuidance missing scope principle %q", want)
 		}
 	}
-	if !strings.Contains(botProfileInstructionsDescription, "responsibility") || !strings.Contains(botProfileInstructionsDescription, "places no limit on what the Bot will talk about") {
-		t.Fatal("profile tool description must frame scope as responsibility and initiative")
+	for _, want := range []string{"solely as what it owns and pursues on its own initiative", "no exclusivity wording", "no mention of what it does not cover", "no instruction about handling questions outside it", "rewritten as ownership of that area"} {
+		if !strings.Contains(botProfileInstructionsDescription, want) {
+			t.Fatalf("profile tool description missing %q", want)
+		}
 	}
 	idx := strings.Index(voiceGuidance, "Your persona's scope")
 	if idx < 0 {
