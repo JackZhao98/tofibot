@@ -384,10 +384,10 @@ func TestInputContinuationRealRuntimeRestartsAndDoesNotReplayTools(t *testing.T)
 			for _, m := range messages {
 				// The mid-run turn is a visible segment, or a folded note when
 				// plain text is private (structured output).
-				if m.Kind == "segment" || m.Kind == "progress" {
+				if m.Kind == "segment" || m.Kind == "progress" || m.Kind == "internal" {
 					progress++
 				}
-				if m.Kind != "segment" && m.Kind != "progress" && strings.Contains(m.Content, "Finished with Ada") {
+				if m.Kind != "segment" && m.Kind != "progress" && m.Kind != "internal" && strings.Contains(m.Content, "Finished with Ada") {
 					final++
 				}
 			}

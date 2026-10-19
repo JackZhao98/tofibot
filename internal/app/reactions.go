@@ -167,7 +167,7 @@ func (s *Store) SetMessageReaction(ctx context.Context, conversationID, messageI
 		}
 	}
 	var messageKind string
-	if err = tx.QueryRowContext(ctx, `SELECT kind FROM messages WHERE id=? AND conversation_id=?`, messageID, conversationID).Scan(&messageKind); err != nil || messageKind == "progress" || messageKind == "bot_result" {
+	if err = tx.QueryRowContext(ctx, `SELECT kind FROM messages WHERE id=? AND conversation_id=?`, messageID, conversationID).Scan(&messageKind); err != nil || messageKind == "progress" || messageKind == messageKindInternal || messageKind == "bot_result" {
 		return nil, errReactionNotFound
 	}
 	var result sql.Result

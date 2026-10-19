@@ -987,12 +987,12 @@ func (s *Store) ListConversations(includeArchived ...bool) ([]Conversation, erro
 		(SELECT MAX(user_msg.created_at) FROM messages user_msg WHERE user_msg.conversation_id=c.id AND user_msg.role='user' AND user_msg.run_id IS NULL),
 		lm.id,lm.seq,lm.role,lm.kind,lm.sender_bot_id,substr(lm.content,1,160),lm.created_at,
 		CASE WHEN lm.kind='user_message' THEN 0 WHEN lm.run_id IS NOT NULL AND EXISTS (SELECT 1 FROM runs preview_run WHERE preview_run.id=lm.run_id AND preview_run.origin_conversation_id<>lm.conversation_id) THEN 1 ELSE 0 END,
-		COALESCE(cr.read_seq,0), (SELECT COUNT(*) FROM messages unread WHERE unread.conversation_id=c.id AND unread.seq>COALESCE(cr.read_seq,0) AND unread.role='assistant' AND unread.kind NOT IN ('notice','message_ref','bot_result','progress') AND (unread.kind='user_message' OR NOT EXISTS (SELECT 1 FROM runs unread_run WHERE unread_run.id=unread.run_id AND unread_run.origin_conversation_id<>unread.conversation_id)))
+		COALESCE(cr.read_seq,0), (SELECT COUNT(*) FROM messages unread WHERE unread.conversation_id=c.id AND unread.seq>COALESCE(cr.read_seq,0) AND unread.role='assistant' AND unread.kind NOT IN ('notice','message_ref','bot_result','progress','internal') AND (unread.kind='user_message' OR NOT EXISTS (SELECT 1 FROM runs unread_run WHERE unread_run.id=unread.run_id AND unread_run.origin_conversation_id<>unread.conversation_id)))
         FROM conversations c
         LEFT JOIN conversation_reads cr ON cr.conversation_id=c.id
 		LEFT JOIN messages lm ON lm.conversation_id=c.id
-			AND lm.kind NOT IN ('bot_result','scheduled_task')
-			AND lm.seq=(SELECT MAX(m2.seq) FROM messages m2 WHERE m2.conversation_id=c.id AND m2.kind NOT IN ('bot_result','scheduled_task') AND NOT ` + legacyScheduledMessageSQL("m2") + `)
+			AND lm.kind NOT IN ('bot_result','scheduled_task','internal')
+			AND lm.seq=(SELECT MAX(m2.seq) FROM messages m2 WHERE m2.conversation_id=c.id AND m2.kind NOT IN ('bot_result','scheduled_task','internal') AND NOT ` + legacyScheduledMessageSQL("m2") + `)
 		`
 	args := []any{}
 	if len(includeArchived) == 0 || !includeArchived[0] {
@@ -3810,7 +3810,7 @@ func (s *Server) execute(c Conversation, r Run) {
 	if structured && !said && !replied && strings.TrimSpace(res.Content) != "" && hasHandoff(s.store, r.ID) {
 		// The Bot handed its work to a colleague and then wrote text instead of
 		// saying anything: that text is working text, kept for "View activity".
-		if _, _, err := s.store.publishAssistantPartsOpts(ctx, r.ID, 0, []textPart{{Text: res.Content, Progress: true}}, publishOpts{}); err != nil {
+		if _, _, err := s.store.publishAssistantPartsOpts(ctx, r.ID, 0, []textPart{{Text: res.Content, Progress: true, Internal: true}}, publishOpts{}); err != nil {
 			log.Printf("[run] keep trailing text after a handoff %s: %v", r.ID, err)
 		}
 		res.Content = ""
