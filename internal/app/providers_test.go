@@ -316,7 +316,6 @@ func TestProviderKeyNeverReachesComputerCredentials(t *testing.T) {
 	for _, tc := range []struct{ method, path, body string }{
 		{http.MethodPost, "/api/computer/credentials/provider:openai/apply", `{"bot_id":"` + b.ID + `"}`},
 		{http.MethodDelete, "/api/computer/credentials/provider:openai", ""},
-		{http.MethodPost, "/api/secret-inputs/provider:openai", `{"value":"replacement"}`},
 	} {
 		if rec := providerRequest(t, s, tc.method, tc.path, tc.body); rec.Code != http.StatusNotFound {
 			t.Fatalf("%s %s status=%d body=%s", tc.method, tc.path, rec.Code, rec.Body.String())

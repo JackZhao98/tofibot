@@ -271,7 +271,11 @@ func (s *Server) inputResumeResult(q Question) string {
 			v.mu.Unlock()
 		}
 		if !valid {
-			fields[field.ID] = json.RawMessage(`{"status":"secret_expired","value_hidden":true,"action_required":"Ask the human for this password again with ask_user_form; never infer it or request it in plain text."}`)
+			again := "ask_user_form"
+			if q.isPrivateInput() {
+				again = "request_secret_input"
+			}
+			fields[field.ID] = json.RawMessage(`{"status":"secret_expired","value_hidden":true,"action_required":"Ask the human for this password again with ` + again + `; never infer it or request it in plain text."}`)
 		}
 	}
 	b, _ := json.Marshal(fields)
