@@ -36,12 +36,17 @@ type ChatRequest struct {
 	OmitReasoningReplay bool
 	// ToolChoice constrains tool use for this request. Empty means the
 	// provider default (auto); ToolChoiceNone keeps Tools in the request but
-	// forbids calling them.
+	// forbids calling them; ToolChoiceAny requires some tool call.
 	ToolChoice string
 }
 
 // ToolChoiceNone is ChatRequest.ToolChoice for a text-only turn.
 const ToolChoiceNone = "none"
+
+// ToolChoiceAny is ChatRequest.ToolChoice for a turn that must call a tool.
+// Only the Anthropic provider sends it; other providers leave the choice to
+// the model.
+const ToolChoiceAny = "any"
 
 // ReasoningItem is replayable reasoning from one assistant turn.
 //

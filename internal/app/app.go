@@ -3581,7 +3581,7 @@ func (s *Server) execute(c Conversation, r Run) {
 		// text private, ending quietly is how that turn closes.
 		endOnEmptyFinal = func() bool { return hasHandoff(s.store, r.ID) }
 	}
-	res, e := runEngine.Run(ctx, Request{BotID: r.BotID, RunID: r.ID, ConversationID: c.ID, System: system, Model: model, ReasoningEffort: reasoningEffort, Messages: pm, Tools: tools, OnDelta: onDelta, StructuredOutput: structured, OnToolCallDelta: onToolCallDelta, EndOnEmptyFinal: endOnEmptyFinal, BeforeModelCall: steeringBoundary, BeforeFinalResponse: finalReview, FinalResponseRepairTools: finalRepairTools, OnAssistantTurn: onAssistantTurn,
+	res, e := runEngine.Run(ctx, Request{BotID: r.BotID, RunID: r.ID, ConversationID: c.ID, System: system, Model: model, ReasoningEffort: reasoningEffort, Messages: pm, Tools: tools, OnDelta: onDelta, StructuredOutput: structured, ForceToolUse: structured && forceSayFor(c, r, model), OnToolCallDelta: onToolCallDelta, EndOnEmptyFinal: endOnEmptyFinal, BeforeModelCall: steeringBoundary, BeforeFinalResponse: finalReview, FinalResponseRepairTools: finalRepairTools, OnAssistantTurn: onAssistantTurn,
 		OnThinking: onThinking, OnRetry: onRetry, OnStreamReset: onStreamReset, OnReviewDraft: onReviewDraft,
 		Continuation:      continuation,
 		ResumeResult:      s.inputResumeResult(answeredQuestion),

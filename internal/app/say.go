@@ -565,3 +565,17 @@ type answeredEngine struct{}
 func (answeredEngine) Run(context.Context, runtime.Request) (runtime.Result, error) {
 	return runtime.Result{TurnEnded: true}, nil
 }
+
+// forceSayFor reports whether a run's model requests require a tool call, so
+// that a model which tends to write its reply as plain text delivers it
+// through say. Measured on Haiku 5.5, whose say adherence was 81% on tool_choice
+// auto and 100% when required. It stays off where a plain-text ending is a
+// legitimate outcome (a scheduled run that cannot produce its result), where the
+// extra step changes how members talk (group chats, not yet measured), and for
+// models with 95% or better adherence.
+func forceSayFor(c Conversation, r Run, model string) bool {
+	if c.Kind != "dm" || !c.UserVisible || r.Kind == runKindSchedule || r.scheduleTask != nil || r.Kind == runKindTriage {
+		return false
+	}
+	return strings.Contains(strings.ToLower(model), "haiku")
+}

@@ -248,7 +248,13 @@ type AgentConfig struct {
 	// (id and name on a call's first fragment, then argument text) so a caller
 	// can show a say call's text while it is still being written.
 	StructuredOutput bool
-	OnToolCallDelta  func(provider.ToolCallDelta)
+
+	// ForceToolUse asks the provider to require a tool call on every ordinary
+	// model request, so that a structured run delivers its reply through the
+	// say tool instead of plain text. It is not applied to the repair and
+	// final-only requests, nor once the run has handed its work off.
+	ForceToolUse    bool
+	OnToolCallDelta func(provider.ToolCallDelta)
 	// EndOnEmptyFinal, when set, is asked about a model response that has no
 	// text and no tool calls. True ends the run with an empty result instead of
 	// asking the model to continue: the caller owes no answer (for example,
@@ -1276,6 +1282,11 @@ func RunAgentLoop(cfg AgentConfig, ctx *models.ExecutionContext) (returned *Agen
 			Tools:               requestTools,
 			PromptCacheKey:      cfg.PromptCacheKey,
 			OmitReasoningReplay: reasoningReplayDisabled,
+		}
+		if cfg.ForceToolUse && !repairRequest && !finalRepairFinalRequest && len(requestTools) > 0 &&
+			!(cfg.EndOnEmptyFinal != nil && cfg.EndOnEmptyFinal()) {
+			// A run that handed its work off owes no reply and may end quietly.
+			req.ToolChoice = provider.ToolChoiceAny
 		}
 
 		apiStart := time.Now()
