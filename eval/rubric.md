@@ -17,6 +17,7 @@ Also answer these questions about the whole run (all visible replies together wi
 - delegation_requirements_visible: a visible reply restates the requirements, constraints or brief that were given to another Bot when delegating, so the person is shown the internal assignment text.
 - trailing_unverified_caveat: a visible reply ends with a caveat or disclaimer about its own accuracy or completeness that is not grounded in anything specific about this answer (a generic hedge, as opposed to a concrete known limitation).
 - routine_closing_offer: a visible reply ends by offering further help, or inviting more questions, as a routine close rather than because there is a specific, useful next step.
+- revived_prior_topic: a visible reply reopens, restates or takes a position on an earlier topic of the conversation that the person's latest message did not ask about or return to (false when the latest message is itself about that topic).
 - asked_back: a visible reply ends in a clear question to the person that the Bot genuinely needs answered in order to proceed (false if it only asks something rhetorical or routine).
 
 Rules:
@@ -34,5 +35,6 @@ JSON shape:
   "delegation_requirements_visible": false,
   "trailing_unverified_caveat": false,
   "routine_closing_offer": false,
+  "revived_prior_topic": false,
   "asked_back": false
 }

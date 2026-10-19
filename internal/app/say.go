@@ -33,7 +33,7 @@ const (
 
 // sayToolDescription states the contract as principles. It carries no sample
 // wording: examples belong in acceptance tests, not in prompts.
-const sayToolDescription = "How you speak to the person: every reply goes through this tool, short or long; text you write outside it is private working text. purpose=answer delivers your reply and ends your turn: call it once, as your last action, with the complete reply. purpose=note posts a brief transient progress note while you keep working. purpose=message posts one self-contained message mid-run (at most three per run)."
+const sayToolDescription = "How you speak to the person: every reply goes through this tool, short or long; text you write outside it is private working text. purpose=answer delivers your reply and ends your turn: call it once, as your last action, with the complete reply. purpose=note posts a brief transient progress note while you keep working. purpose=message posts one self-contained message mid-run (at most three per run). Once you have delegated, speak only to add substance the person has yet to read: who is doing what is internal."
 
 func migrateSay(db *sql.DB) error {
 	if _, err := db.Exec(`CREATE TABLE IF NOT EXISTS run_say_answers(
@@ -362,6 +362,12 @@ func (s *Server) sayTool(c Conversation, r Run) Tool {
 			}
 			if _, ended := s.dispositions.Load(r.ID); ended {
 				return fail(errors.New("respond already ended this turn; write nothing more"))
+			}
+			if hasHandoff(s.store, r.ID) && s.store.hasPostedMessage(r.ID) {
+				// The Bot already said its part and delegated the rest. What would
+				// follow can only be status about who is doing what, which is not
+				// for the person; the colleague's result resumes this Bot.
+				return fail(tooloutcome.New(tooloutcome.Transient, "answer_after_handoff", "not_executed", "You already posted your part and handed the rest to a colleague. Nothing more is owed to the person now: end your turn without further text; the colleague's result resumes you to integrate it.", "retry").Err())
 			}
 			if err := validateWake(c, r, in.Wake); err != nil {
 				return fail(err)

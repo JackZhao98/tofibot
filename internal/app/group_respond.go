@@ -37,7 +37,7 @@ End each group turn with respond: reply (post; wake lists Bots to start, each wi
 // follows the say protocol: say(answer) posts, and its wake list starts other
 // Bots. respond keeps only the choices that post nothing.
 const groupDispositionGuidanceStructured = `[group response]
-Post to the group with say(answer); its wake list starts Bots, each with a concrete request. A plain @mention starts nothing. Otherwise end the turn with respond: silent (not for you), concluded (a Bot's closing: post nothing), or follow_up (waiting on a Bot: set wait_for). Answer a person's greeting or small talk briefly. Don't announce delegating.
+Post to the group with say(answer); its wake list starts Bots, each with a concrete request. Otherwise end the turn with respond: silent (not for you), concluded (a Bot's closing: post nothing), or follow_up (waiting on a Bot: set wait_for). Reply to the latest message only: a greeting or small talk gets a short reply, and a finished topic stays closed.
 [/group response]
 `
 
