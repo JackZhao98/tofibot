@@ -365,8 +365,15 @@ def collect(srv, probe, conv, seen_runs, seq0, usage0, timed_out, error, bots=No
         answer_covers = bool(visible) and all(
             (re.search(m[3:], alltext, re.I) if m.startswith("re:") else m.lower() in alltext.lower())
             for m in (fill(x, bots) for x in probe["answer_must_mention"]))
+    # Of the Bots the probe's message mentions, how many posted a visible reply.
+    mentioned_answered = None
+    if probe.get("mentioned") and bots:
+        spoke = {v["sender"] for v in visible}
+        mentioned_answered = {"mentioned": len(probe["mentioned"]),
+                              "answered": sum(1 for k in probe["mentioned"] if bots[k]["name"] in spoke)}
     return {
         "id": probe["id"], "category": probe["category"], "target": probe["target"],
+        "mentioned_answered": mentioned_answered,
         "turns": probe["turns"], "owes_answer": probe["owes_answer"],
         "runs": new_runs, "origins": [r["final_origin"] for r in new_runs],
         "visible": visible, "visible_count": len(visible), "expected_visible": [lo, hi],
@@ -490,6 +497,8 @@ def aggregate(results):
         "usage": usage,
         "topic_mention": {"count": sum(1 for p in results if p.get("topic_mention")), "probes": sum(1 for p in results if p.get("topic_mention") is not None)},
         "answer_covers": {"count": sum(1 for p in results if p.get("answer_covers")), "probes": sum(1 for p in results if p.get("answer_covers") is not None)},
+        "mentioned_answered": {"answered": sum(p["mentioned_answered"]["answered"] for p in results if p.get("mentioned_answered")),
+                               "mentioned": sum(p["mentioned_answered"]["mentioned"] for p in results if p.get("mentioned_answered"))},
     }
     return out
 
@@ -532,6 +541,7 @@ def write_summary(path, report):
               "Lookup attempted: %d of %d lookup probes. Handoff brief visible: %d of %d probes with a brief." % (
                   m["overall"]["lookup_attempted"], m["overall"]["lookup_probes"],
                   m["overall"]["handoff_brief_visible"], m["overall"]["handoff_probes"]),
+              "Mentioned Bots that answered: %d of %d." % (m["overall"]["mentioned_answered"]["answered"], m["overall"]["mentioned_answered"]["mentioned"]),
               "Failed, errored or timed-out probes: %d. Probes with working text a chat would render (progress row, no final): %d." % (m["overall"]["failed_or_timed_out"], m["overall"]["probes_with_stray_progress"]), "",
               "| category | probes | say rate | count ok | dup probes | narration | coordination | delegation | caveat | offer | revival | brief | avg score |",
               "|---|---|---|---|---|---|---|---|---|---|---|---|---|"]

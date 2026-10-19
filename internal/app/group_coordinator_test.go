@@ -115,6 +115,12 @@ func newCoordFixture(t *testing.T, names ...string) *coordFixture {
 	}
 	t.Cleanup(func() { s.Close() })
 	s.accountID = "synthetic-account"
+	// These tests pin the coordinator design (first-mentioned Bot leads), which
+	// is the workspace setting with structured output off; with it on every
+	// mentioned Bot gets its own run (group_multi_mention_test.go).
+	if err := s.store.putUserStructuredOutput(false); err != nil {
+		t.Fatal(err)
+	}
 	f := &coordFixture{server: s, engine: engine}
 	var ids []string
 	for _, n := range names {

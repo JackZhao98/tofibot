@@ -38,6 +38,7 @@ func (s *Store) addMentionWake(conv string, poster Run, msgID, target, request s
 	if target == poster.BotID && !allowSelf {
 		return Run{}, false, nil
 	}
+	coAddressedGuard := !allowSelf && s.structuredOutputOn() // read before the transaction: one connection
 	tx, err := s.db.Begin()
 	if err != nil {
 		return Run{}, false, err
@@ -49,6 +50,15 @@ func (s *Store) addMentionWake(conv string, poster Run, msgID, target, request s
 	}
 	if kind != "group" || requireCurrentMemberTx(tx, conv, target) != nil {
 		return Run{}, false, nil
+	}
+	if coAddressedGuard {
+		// The person addressed this Bot in the same message: it answers in a
+		// run of its own, so no colleague wakes it for that message.
+		if addressed, aerr := coAddressedRootTx(tx, poster.ID, target); aerr != nil {
+			return Run{}, false, aerr
+		} else if addressed {
+			return Run{}, false, nil
+		}
 	}
 	// Lineage: walk to the root run; its depth and the root's trigger bound the
 	// wake chain and the total wakes for the originating message.

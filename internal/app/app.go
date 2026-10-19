@@ -1509,6 +1509,8 @@ func (s *Store) AddRun(conv, bot, parent string) (Run, error) {
 	return r, nil
 }
 func (s *Store) AddHandoff(conv, sender, bot, parent, task string) (Message, Run, error) {
+	// Read before the transaction: the store has one connection.
+	coAddressedGuard := s.structuredOutputOn()
 	tx, err := s.db.Begin()
 	if err != nil {
 		return Message{}, Run{}, err
@@ -1538,6 +1540,15 @@ func (s *Store) AddHandoff(conv, sender, bot, parent, task string) (Message, Run
 	}
 	var steerRoots []string
 	if conversationKind == "group" && sender != "system" {
+		if coAddressedGuard {
+			addressed, aerr := coAddressedRootTx(tx, parent, bot)
+			if aerr != nil {
+				return Message{}, Run{}, aerr
+			}
+			if addressed {
+				return Message{}, Run{}, &recipientAddressedError{botName: botName}
+			}
+		}
 		refuse, steer, cerr := delegationConflictTx(tx, parent, bot)
 		if cerr != nil {
 			return Message{}, Run{}, cerr
@@ -3082,9 +3093,15 @@ func (s *Server) postMessage(w http.ResponseWriter, r *http.Request, c Conversat
 			writeErr(w, 400, "unknown_recipient", "unknown group mention: @"+strings.Join(mr.Unknown, ", @"))
 			return
 		} else if len(mr.IDs) > 0 {
-			// Several mentioned Bots: only the first-mentioned one gets a root run
-			// and coordinates the rest through handoff (see coordinationContext).
-			for _, id := range mr.IDs[:1] {
+			// Several mentioned Bots. Under structured output each gets a root run
+			// of its own, queued in mention order, so each answers the person
+			// directly. Otherwise only the first-mentioned one gets a root run and
+			// coordinates the rest through handoff (see coordinationContext).
+			ids := mr.IDs[:1]
+			if s.store.structuredOutputOn() {
+				ids = mr.IDs
+			}
+			for _, id := range ids {
 				for _, b := range members {
 					if b.ID == id {
 						specs = append(specs, runSpec{BotID: b.ID, Model: b.Model})
@@ -4146,6 +4163,10 @@ func (s *Server) toolsUnmarked(c Conversation, r Run) []Tool {
 			var conflict *delegationConflictError
 			if errors.As(e, &conflict) {
 				return "", delegationRefusal(conflict.botName)
+			}
+			var addressed *recipientAddressedError
+			if errors.As(e, &addressed) {
+				return "", recipientAddressedRefusal(addressed.botName)
 			}
 			return "", e
 		}
