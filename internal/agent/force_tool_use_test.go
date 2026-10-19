@@ -2,6 +2,7 @@ package agent
 
 import (
 	"context"
+	"errors"
 	"strings"
 	"testing"
 
@@ -92,6 +93,55 @@ func TestForceToolUseSkipsTheReservedRepairRequests(t *testing.T) {
 		}
 		if !repairOrFinal && r.ToolChoice != provider.ToolChoiceAny {
 			t.Fatalf("request %d (ordinary) was not forced: %q", i, r.ToolChoice)
+		}
+	}
+}
+
+// A round in which every call failed frees the next request: forcing a model
+// that cannot change its call only repeats it until the run budget is spent.
+func TestForceToolUseIsReleasedAfterAFailedRound(t *testing.T) {
+	fail := true
+	p := &scriptedProvider{steps: []scriptStep{
+		reply(provider.ChatResponse{ToolCalls: []provider.ToolCall{{ID: "c1", Name: "lookup", Arguments: `{}`}}}),
+		reply(provider.ChatResponse{ToolCalls: []provider.ToolCall{{ID: "c2", Name: "lookup", Arguments: `{"again":true}`}}}),
+		reply(provider.ChatResponse{ToolCalls: []provider.ToolCall{{ID: "c3", Name: "lookup", Arguments: `{"third":true}`}}}),
+		reply(provider.ChatResponse{Content: "done"}),
+	}}
+	calls := 0
+	_, err := runLoop(t, AgentConfig{Provider: p, Prompt: "go", ForceToolUse: true,
+		ExtraTools: []ExtraBuiltinTool{lookupTool(func(context.Context, map[string]interface{}) (string, error) {
+			calls++
+			if calls == 1 && fail {
+				return "", errors.New("refused")
+			}
+			return "row", nil
+		})}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Request 2 follows the failed round; 3 and 4 follow a successful one.
+	if got := strings.Join(toolChoices(p), ","); got != "any,,any,any" {
+		t.Fatalf("tool choices = %q, want any,,any,any", got)
+	}
+}
+
+func TestLastToolRoundFailed(t *testing.T) {
+	tool := func(failed bool) provider.Message { return provider.Message{Role: "tool", ToolFailed: failed} }
+	asst := provider.Message{Role: "assistant"}
+	user := provider.Message{Role: "user"}
+	for name, tc := range map[string]struct {
+		msgs []provider.Message
+		want bool
+	}{
+		"no tool results":           {[]provider.Message{user}, false},
+		"all failed":                {[]provider.Message{user, asst, tool(true), tool(true)}, true},
+		"one succeeded":             {[]provider.Message{user, asst, tool(true), tool(false)}, false},
+		"older round failed":        {[]provider.Message{user, asst, tool(true), asst, tool(false)}, false},
+		"reminder after the round":  {[]provider.Message{user, asst, tool(true), user}, true},
+		"failed round, text answer": {[]provider.Message{user, asst, tool(true), asst}, false},
+	} {
+		if got := lastToolRoundFailed(tc.msgs); got != tc.want {
+			t.Errorf("%s: got %v want %v", name, got, tc.want)
 		}
 	}
 }
