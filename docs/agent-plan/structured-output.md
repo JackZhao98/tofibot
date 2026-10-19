@@ -356,3 +356,37 @@ Reading it:
 - Sonnet's coordination leak (above) needs a re-measure; the 2% bar is not met in this run.
 - `nothing` and `wait` remain on `respond`; Phase 4 retires the flag, the scanner and the `stream_assistant_turns` writes.
 - The `final_origin` aggregation on Settings → Usage and the "View activity" internal text turns are still Phase 4.
+
+### Follow-up: review findings and live findings
+
+Verified against the code, each with a test that fails when the fix is reverted:
+
+1. **Budget wrap-up (high, confirmed).** The force condition lacked `!budgetWrapUp`, and the forced-termination branch dropped a lone `say(answer)` and published the "[Run stopped ...]" placeholder. The wrap-up request is no longer forced, and a wrap-up answered with one `say(answer)` call uses its text (`TestForceToolUseStopsAtTheBudgetWrapUp`; fails on both halves).
+2. **Identical answer after the review refusal (medium, confirmed; the cause of the 157-call runaway).** The review returned a plain error, the runtime classified it Permanent/`tool_rejected`, and the recovery guard barred the same arguments hash for the rest of the run. It now returns a Transient `answer_review` outcome with next action `retry`, which the guard lets through. Tested through the real runtime with a scripted model: `TestIdenticalSayAnswerAfterTheReviewRefusalIsRecorded` (second identical call recorded, origin `say`, three model calls). The release after a failed round stays as a bound.
+3. **Scheduled answers unreviewed (medium, confirmed).** `state.review` was set only for runs that were not scheduled, so the receipt was never reviewed. Scheduled runs now get the same one-time review after tool work, with the scheduled reminder (`TestScheduledSayAnswerAfterToolWorkIsReviewedOnce`).
+4. **Flag-on scheduled coverage.** Added: the approval -> restart -> HTTP delivery acceptance under say (`TestScheduledMCPApprovalRestartHTTPDeliveryWithSay`, all three outcomes), a scheduled run resumed after its answer was recorded (one message, delivered, no model call), and a group wake after a resumed answered run (exactly one mention run). The comment pointing at a missing file is fixed.
+5. **tool_choice fallback.** It logs when the per-model memo is stored and matches the refusal wording ("forces tool use", "may not be enabled", not supported, ...) instead of any 400 that names the field.
+6. **Status answer after a handoff (live).** Principle in the say description: after delegating, speak only to add substance the person has yet to read. Structural rule, deterministic and with no text matching: when the run has already posted a visible message and has handed off, `say(answer)` is refused with a retryable outcome and the run ends quietly (the colleague's result resumes the Bot). A handoff with nothing posted yet keeps its short answer (the Phase 2 behaviour). Side effect on the eval: a lead that posts and delegates ends that run with origin `none`, which the adherence metric counts as a miss (the follow-up run that integrates the result is the one that says).
+7. **Greeting answered with the old topic (live).** Cause: the unaddressed-group-chat text told every member to "add your own useful perspective", with the finished debate in the history window, and nothing told the model that the latest message is what is answered. The structured group text now says to contribute what the latest message calls for and that a finished topic stays closed (replacing wording, no extra budget), and a line beside the request of an unaddressed group message says to refer to an earlier topic only when that message does. On Haiku, new probe `group_greeting_after_debate` (6 runs each, grader flag `revived_prior_topic`): system text only 6 of 6 revived the debate; first beside-the-request wording 4 of 6; final wording 0 of 6, with two of the six still naming the debate in passing ("the two have it in hand"). Sonnet did not reproduce it before or after.
+8. **Sonnet coordination leak.** Re-measured on the final code: 4% (2 of 50 runs; was 6% in the Phase 3 run and 2% before). Still above the 2% bar. Both flagged runs are group turns (`group_unaddressed`, `group_debate`); at n=50 this cannot be told from noise.
+
+Eval, final code, 25 probes (24 plus the greeting probe), 2 runs per model (`eval/results/structured-say-phase3b/`; Phase 3 was 24 probes):
+
+| | Haiku Phase 3 | Haiku 3b | Sonnet Phase 3 | Sonnet 3b |
+|---|---|---|---|---|
+| say adherence | 88% (56/64) | 86% (57/66) | 97% | 95% |
+| DM probes only | 100% (40/40) | 100% (40/40) | 95% (38/40) | 93% (37/40) |
+| final_origin counts | say 56, implicit 5, none 3 | say 57, implicit 8, none 3 | say 64, implicit 2 | say 66, implicit 3 |
+| visible count ok | 100% | 100% | 100% | 100% |
+| exact duplicates | 0 | 0 | 0 | 0 |
+| step narration leak | 2% | 2% | 4% | 4% |
+| coordination leak | 2% | 4% | 6% | 4% |
+| delegation requirements in text | 0% | 0% | 2% | 0% |
+| topic revival (new flag) | not measured | 0% | not measured | 0% |
+| closing offer | 6% | 8% | 6% | 10% |
+| avg score (0-2) | 1.829 | 1.824 | 1.810 | 1.830 |
+| cost per probe (estimate) | $0.0279 | $0.0299 | $0.0596 | $0.0609 |
+
+Reading it: Haiku DMs are still 100% say; the overall 86% is the group turns (the posted-then-delegated leads now end `none`, as noted). Sonnet's three `implicit` runs are the lookup probe (text-only final after tool work) and one more; its adherence moved 97% to 95% on 3 runs of 66 and is inside run noise. Cost per probe rose about 7% and 2%: the extra probe is a two-turn group probe, and the review refusal adds a call on tool-work turns.
+
+Still open: Haiku in groups (debate and delegate turns) is not forced and stays well under 95% say; Sonnet's coordination leak is at 4% against a 2% bar; forcing for Sonnet/Opus and OpenAI `required` are unmeasured.
