@@ -1,6 +1,7 @@
 package app
 
 import (
+	"encoding/json"
 	"crypto/sha256"
 	"database/sql"
 	"encoding/hex"
@@ -214,4 +215,30 @@ func wakeSource(wait bool) string {
 func wakeDigest(source, posterRun, target, msgID, request string) string {
 	sum := sha256.Sum256([]byte(strings.Join([]string{"group-wake-v1", source, posterRun, target, msgID, request}, "\x00")))
 	return hex.EncodeToString(sum[:])
+}
+
+// publishWakeNotice records, for the people in the group, that poster asked the
+// woken member to take something: the same notice a handoff publishes, whose
+// content is the brief the UI keeps behind "view brief".
+func (s *Store) publishWakeNotice(conv string, poster Run, wake Run, request string) error {
+	tx, err := s.db.Begin()
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	var seq int64
+	if err = tx.QueryRow(nextMessageSeqSQL, conv, conv, streamDraftActive).Scan(&seq); err != nil {
+		return err
+	}
+	t := now()
+	notice := &HandoffNotice{Type: "handoff", FromBotID: poster.BotID, ToBotID: wake.BotID, TargetConversationID: conv, TargetRunID: wake.ID}
+	data, _ := json.Marshal(notice)
+	m := Message{ID: newID(), ConversationID: conv, Seq: seq, Role: "assistant", Kind: "notice", SenderBotID: poster.BotID, RunID: poster.ID, Content: request, Notice: notice, CreatedAt: t}
+	if _, err = tx.Exec(`INSERT INTO messages(id,conversation_id,seq,role,kind,sender_bot_id,run_id,content,notice_data,created_at) VALUES(?,?,?,?,?,?,?,?,?,?)`, m.ID, conv, seq, m.Role, m.Kind, m.SenderBotID, m.RunID, request, string(data), t); err != nil {
+		return err
+	}
+	if err = insertEventTx(tx, conv, "message", m, t); err != nil {
+		return err
+	}
+	return tx.Commit()
 }

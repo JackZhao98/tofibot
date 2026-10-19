@@ -33,7 +33,7 @@ const (
 
 // sayToolDescription states the contract as principles. It carries no sample
 // wording: examples belong in acceptance tests, not in prompts.
-const sayToolDescription = "How you speak to the person: every reply goes through this tool, short or long; text you write outside it is private working text. purpose=answer delivers your reply and ends your turn: call it once, as your last action, with the complete reply. purpose=note posts a brief transient progress note while you keep working. purpose=message posts one self-contained message mid-run (at most three per run). Once you have delegated, speak only to add substance the person has yet to read: who is doing what is internal."
+const sayToolDescription = "How you speak to the person: every reply goes through this tool, short or long; text you write outside it is private working text. purpose=answer delivers your reply and ends your turn: call it once, as your last action, with the complete reply. purpose=note posts a brief transient progress note while you keep working. purpose=message posts one self-contained message mid-run (at most three per run). Once you have delegated, speak only to add substance the person has yet to read: who is doing what is internal. Your text speaks to the person; a request to a member travels in wake, where its wording stays out of the chat."
 
 func migrateSay(db *sql.DB) error {
 	if _, err := db.Exec(`CREATE TABLE IF NOT EXISTS run_say_answers(
@@ -252,7 +252,7 @@ func sayWakesBots(c Conversation) bool { return c.Kind == "group" && c.UserVisib
 func saySendsSources(r Run) bool { return r.Kind == runKindSchedule || r.scheduleTask != nil }
 
 const (
-	sayWakeDescription    = "With purpose answer, group chats only: other members to start once your reply is posted, each with a concrete request, at most three. Omit it to start nobody; a plain @mention starts nobody."
+	sayWakeDescription    = "With purpose answer, group chats only: other members to start once your reply is posted, each with a concrete request, at most three. Omit it to start nobody; a plain @mention starts nobody. The group sees each request only as a handed-over line, so write it for the member."
 	saySourcesDescription = "With purpose answer, scheduled runs only: URLs or source names behind current or external information. Delivering the answer records this run as complete."
 	maxSaySources         = 20
 	maxSaySourceRunes     = 500
