@@ -24,6 +24,17 @@ try {
 
   const running = foldCompletedProgress(incident, [{ ...run, status: "running" }]);
   assert.equal(running.visible.length, 3, "nothing folds while the run is not done");
+  // Private working text of a structured run never renders in the chat: not while
+  // the run works, not when it ends without a final answer, not in a failed run.
+  const internalOnly = [msg(1, "segment", "My line."), msg(2, "internal", "Waiting on the other member."), msg(3, "progress", "a note")];
+  for (const status of ["running", "done", "failed", "cancelled"]) {
+    const result = foldCompletedProgress(internalOnly, [{ ...run, status }]);
+    assert.ok(!ids(result.visible).includes("m2"), `internal text is not a chat row (${status})`);
+  }
+  assert.ok(ids(foldCompletedProgress(internalOnly, [{ ...run, status: "done" }]).visible).includes("m3"), "a say note keeps its own rule without a final");
+  const withFinal = foldCompletedProgress([msg(1, "internal", "thinking aloud"), msg(2, "", "final")], [run]);
+  assert.deepEqual(ids(withFinal.visible), ["m2"]);
+  assert.deepEqual(ids(withFinal.progressByFinalId.get("m2")), ["m1"], "activity still reaches it");
   console.log("run progress checks: PASS (answer visible, <progress> folded, legacy folded, incident shape)");
 } finally {
   await modules.close();

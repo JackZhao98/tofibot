@@ -1,7 +1,7 @@
 import type { Message, Run } from "./types";
 
 /** Mid-run assistant messages: "progress" (a <progress> note or legacy row, foldable) and "segment" (untagged answer, never folded). Neither is the run's final reply. */
-export const isMidRunKind = (kind: Message["kind"]) => kind === "progress" || kind === "segment";
+export const isMidRunKind = (kind: Message["kind"]) => kind === "progress" || kind === "segment" || kind === "internal";
 
 /** Fold only <progress> notes (kind "progress", which also covers legacy rows) of a successfully finished run with a visible final answer. Answers (kind "segment") always stay visible. */
 export function foldCompletedProgress(messages: Message[], runs: Run[]) {
@@ -14,6 +14,16 @@ export function foldCompletedProgress(messages: Message[], runs: Run[]) {
   }
   const progressByFinalId = new Map<string, Message[]>();
   const visible = messages.filter(message => {
+    // A structured run's private working text ("internal") is never a chat row, whatever the run's state; it is shown only under "View activity" (attached to the final answer when there is one).
+    if (message.kind === "internal") {
+      const final = message.run_id ? finalByRun.get(message.run_id) : undefined;
+      if (final && final.seq > message.seq) {
+        const notes = progressByFinalId.get(final.id) ?? [];
+        notes.push(message);
+        progressByFinalId.set(final.id, notes);
+      }
+      return false;
+    }
     if (message.kind !== "progress" || !message.run_id) return true;
     const final = finalByRun.get(message.run_id);
     if (!final || final.seq <= message.seq) return true;

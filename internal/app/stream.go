@@ -201,7 +201,7 @@ func (s *Store) publishAssistantTurn(ctx context.Context, runID string, turnInde
 
 // PublishInternalTurn stores a completed mid-run assistant turn of a structured
 // run. Its plain text is private working text: the whole turn is one folded
-// note (kind "progress") that "View activity" shows, never a chat message.
+// note (kind "internal") that "View activity" shows, never a chat message.
 // Literal <progress> tags of legacy Bots are stripped. The note never takes the
 // stream draft's identity (only a say call's text streams into the draft); the
 // turn index replay record works as in PublishAssistantTurn.
@@ -219,7 +219,7 @@ func (s *Store) PublishInternalTurn(ctx context.Context, runID string, turnIndex
 	if len([]rune(content)) > maxStreamDraftRunes {
 		return Message{}, false, errors.New("assistant turn content exceeds maximum size")
 	}
-	return s.publishAssistantPartsOpts(ctx, runID, turnIndex, []textPart{{Text: content, Progress: true}}, publishOpts{})
+	return s.publishAssistantPartsOpts(ctx, runID, turnIndex, []textPart{{Text: content, Progress: true, Internal: true}}, publishOpts{})
 }
 
 // publishAssistantParts stores parts as consecutive messages. The first takes
@@ -320,7 +320,9 @@ func (s *Store) publishAssistantPartsOpts(ctx context.Context, runID string, tur
 	var first Message
 	for i, part := range parts {
 		kind := "segment"
-		if part.Progress {
+		if part.Internal {
+			kind = messageKindInternal
+		} else if part.Progress {
 			kind = "progress"
 		} else if !folds {
 			// Structured output keeps what was said as it was said.
