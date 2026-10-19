@@ -3403,9 +3403,9 @@ func (s *Server) execute(c Conversation, r Run) {
 					demotedMu.Unlock()
 				},
 			}
-			if r.Kind != runKindSchedule && r.scheduleTask == nil {
-				state.review = func() bool { return observedToolWork.Load() && !reviewed.Swap(true) }
-			}
+			// Every run's say(answer) gets the one-time review after tool work; a
+			// scheduled run's answer is also its receipt, so it is reviewed too.
+			state.review = func() bool { return observedToolWork.Load() && !reviewed.Swap(true) }
 			s.sayRuns.Store(r.ID, state)
 			defer s.sayRuns.Delete(r.ID)
 			sayStream = newSayStreamer(state)

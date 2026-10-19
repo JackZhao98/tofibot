@@ -474,3 +474,65 @@ func TestRunRequestsForcedToolUseOnlyForAHaikuDMUnderTheFlag(t *testing.T) {
 		}
 	}
 }
+
+// ---- Review follow-ups ----
+
+// The one-time review refuses the first say(answer); the identical answer
+// re-sent afterwards is accepted (the refusal is retryable, not permanent) and
+// the run ends there with no further model call.
+func TestIdenticalSayAnswerAfterTheReviewRefusalIsRecorded(t *testing.T) {
+	model := newFakeModel(t,
+		fakeStep{calls: []fakeCall{{"c1", "create_work_item", `{"kind":"task","title":"Check the numbers"}`}}},
+		fakeStep{calls: []fakeCall{{"c2", "say", `{"purpose":"answer","text":"The complete answer."}`}}},
+		fakeStep{calls: []fakeCall{{"c3", "say", `{"purpose":"answer","text":"The complete answer."}`}}},
+		fakeStep{content: "a call that must not happen"})
+	s, run := serverWithModel(t, model, true)
+	if run.Status != "done" {
+		t.Fatalf("run=%+v", run)
+	}
+	if rows := assistantRows(t, s.store, run.ConversationID); !equalStrings(kindsAndText(rows), []string{"|The complete answer."}) {
+		t.Fatalf("messages = %q", kindsAndText(rows))
+	}
+	if got := originOf(t, s.store, run.ID); got != finalOriginSay {
+		t.Fatalf("origin = %q", got)
+	}
+	if n := modelCalls(model); n != 3 {
+		t.Fatalf("model calls = %d, want 3", n)
+	}
+}
+
+// A scheduled run's say(answer) is its receipt: after tool work it is reviewed
+// once, with the scheduled reminder, and the re-sent answer is recorded and
+// delivered.
+func TestScheduledSayAnswerAfterToolWorkIsReviewedOnce(t *testing.T) {
+	model := newFakeModel(t,
+		fakeStep{calls: []fakeCall{{"c1", "create_work_item", `{"kind":"task","title":"Check the numbers"}`}}},
+		fakeStep{calls: []fakeCall{{"c2", "say", `{"purpose":"answer","text":"The scheduled report.","sources":["synthetic source"]}`}}},
+		fakeStep{calls: []fakeCall{{"c3", "say", `{"purpose":"answer","text":"The scheduled report.","sources":["synthetic source"]}`}}},
+		fakeStep{content: "a call that must not happen"})
+	f := newDedupeFixture(t, model.engine(t))
+	got := runScheduledOnce(t, f)
+	if got.Status != "done" {
+		t.Fatalf("run = %+v", got)
+	}
+	reminders := 0
+	for _, body := range model.requests() {
+		if n := strings.Count(body, "no successful completion record yet"); n > reminders {
+			reminders = n
+		}
+	}
+	if reminders != 1 {
+		t.Fatalf("scheduled reminder appeared %d times, want 1", reminders)
+	}
+	var n int
+	_ = f.server.store.db.QueryRow(`SELECT COUNT(*) FROM messages WHERE run_id=? AND role='assistant' AND kind='' AND content='The scheduled report.'`, got.ID).Scan(&n)
+	if n != 1 || originOf(t, f.server.store, got.ID) != finalOriginSay {
+		t.Fatalf("delivered %d times, origin %q", n, originOf(t, f.server.store, got.ID))
+	}
+	if done, _ := f.server.store.scheduleReceipt(got.ID); !done {
+		t.Fatal("no receipt recorded")
+	}
+	if c := modelCalls(model); c != 3 {
+		t.Fatalf("model calls = %d, want 3", c)
+	}
+}

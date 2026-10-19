@@ -128,6 +128,22 @@ func (cfg *AgentConfig) progressReminder() string {
 	return progressReportReminder(cfg.MaxToolCallsBetweenReports)
 }
 
+// sayAnswerText returns the text of a response whose only call is
+// say(purpose=answer), or "".
+func sayAnswerText(calls []provider.ToolCall) string {
+	if len(calls) != 1 || calls[0].Name != "say" {
+		return ""
+	}
+	var in struct {
+		Purpose string `json:"purpose"`
+		Text    string `json:"text"`
+	}
+	if json.Unmarshal([]byte(calls[0].Arguments), &in) != nil || in.Purpose != "answer" {
+		return ""
+	}
+	return strings.TrimSpace(in.Text)
+}
+
 // lastToolRoundFailed reports whether the tool results that answer the latest
 // assistant message all failed.
 func lastToolRoundFailed(messages []provider.Message) bool {
@@ -1301,7 +1317,7 @@ func RunAgentLoop(cfg AgentConfig, ctx *models.ExecutionContext) (returned *Agen
 			PromptCacheKey:      cfg.PromptCacheKey,
 			OmitReasoningReplay: reasoningReplayDisabled,
 		}
-		if cfg.ForceToolUse && !repairRequest && !finalRepairFinalRequest && len(requestTools) > 0 &&
+		if cfg.ForceToolUse && !repairRequest && !finalRepairFinalRequest && !budgetWrapUp && len(requestTools) > 0 &&
 			!lastToolRoundFailed(messages) && !(cfg.EndOnEmptyFinal != nil && cfg.EndOnEmptyFinal()) {
 			// A run that handed its work off owes no reply and may end quietly,
 			// and after a round in which every call failed the model is free to
@@ -1563,6 +1579,10 @@ func RunAgentLoop(cfg AgentConfig, ctx *models.ExecutionContext) (returned *Agen
 				// Force termination to honor the cap.
 				ctx.Log("[Agent] Model ignored wrap-up directive — forcing termination")
 				finalContent := stripThinkTags(resp.Content)
+				if finalContent == "" && cfg.StructuredOutput {
+					// The wrap-up was answered with the say tool: its text is the answer.
+					finalContent = sayAnswerText(resp.ToolCalls)
+				}
 				if finalContent == "" {
 					finalContent = fmt.Sprintf("[Run stopped — %s. Partial results only; no final answer produced.]", reason)
 				}
