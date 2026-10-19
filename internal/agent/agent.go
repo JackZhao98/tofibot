@@ -246,8 +246,7 @@ type AgentConfig struct {
 	// UserWaitDuration reports time spent in backend-owned human-input waits.
 	// Only the sequential ToolsOnly runtime uses it; it never relaxes call/cost caps.
 	UserWaitDuration func() time.Duration
-	AskUserFn        func(question string, options []string) (string, error) // Optional: callback to ask user a question (Chat mode). Nil = tool not registered.
-	IsSubAgent       bool                                                    // True when running as a sub-agent (prevents recursive spawning)
+	IsSubAgent       bool // True when running as a sub-agent (prevents recursive spawning)
 	// OnSubAgentEvent forwards live sub-agent activity (chunks, tool starts,
 	// tool completions) up to the parent's emit channel. The sub-agent's
 	// own loop wires its hooks through this so the parent UI can render a
@@ -1081,9 +1080,9 @@ func RunAgentLoop(cfg AgentConfig, ctx *models.ExecutionContext) (returned *Agen
 	// Background task manager for auto-backgrounding long shell commands
 	bgManager := NewBackgroundTaskManager()
 
-	// Register task management tools (task_status + ask_user)
+	// Register task management tools (task_status, task_list, task_stop)
 	if !cfg.ToolsOnly {
-		for _, tt := range buildTaskTools(bgManager, cfg.AskUserFn) {
+		for _, tt := range buildTaskTools(bgManager) {
 			registry.Register(tt)
 			allTools = append(allTools, tt.Schema())
 		}
