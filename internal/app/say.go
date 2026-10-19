@@ -15,6 +15,7 @@ import (
 	"unicode/utf8"
 
 	"github.com/JackZhao98/tofibot/internal/runtime"
+	"github.com/JackZhao98/tofibot/internal/tooloutcome"
 	"github.com/google/uuid"
 )
 
@@ -386,7 +387,13 @@ func (s *Server) sayTool(c Conversation, r Run) Tool {
 				if state.demote != nil {
 					state.demote(text)
 				}
-				return fail(errors.New(taskCompletionFinalReminder))
+				// A transient, retryable refusal: the same answer re-sent after the
+				// review is accepted (a permanent refusal would bar an identical retry).
+				reminder := taskCompletionFinalReminder
+				if saySendsSources(r) {
+					reminder = scheduleFinalReminderStructured
+				}
+				return fail(tooloutcome.New(tooloutcome.Transient, "answer_review", "not_executed", reminder, "retry").Err())
 			}
 			if err := s.store.recordSayAnswerWith(r.ID, callID, text, extras); err != nil {
 				return fail(err)

@@ -145,3 +145,27 @@ func TestLastToolRoundFailed(t *testing.T) {
 		}
 	}
 }
+
+// At the budget wrap-up the model is asked to answer without tools: the request
+// is not forced, and an answer given through say is the run's answer instead of
+// being dropped with the rest of the tool calls.
+func TestForceToolUseStopsAtTheBudgetWrapUp(t *testing.T) {
+	p := &scriptedProvider{steps: []scriptStep{
+		reply(provider.ChatResponse{ToolCalls: []provider.ToolCall{{ID: "c1", Name: "lookup", Arguments: `{}`}}}),
+		reply(provider.ChatResponse{ToolCalls: []provider.ToolCall{{ID: "c2", Name: "say", Arguments: `{"purpose":"answer","text":"What I found before the budget ended."}`}}}),
+	}}
+	res, err := runLoop(t, AgentConfig{Provider: p, Prompt: "go", ForceToolUse: true, StructuredOutput: true, MaxRunLLMCalls: 1,
+		ExtraTools: []ExtraBuiltinTool{lookupOnce(), {Schema: provider.Tool{Name: "say", Parameters: map[string]any{"type": "object"}}, Handler: func(map[string]interface{}) (string, error) { return "unexpected", nil }}}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if res.Content != "What I found before the budget ended." {
+		t.Fatalf("content = %q", res.Content)
+	}
+	if len(p.requests) != 2 {
+		t.Fatalf("requests = %d", len(p.requests))
+	}
+	if got := toolChoices(p); got[0] != provider.ToolChoiceAny || got[1] == provider.ToolChoiceAny {
+		t.Fatalf("tool choices = %q: the wrap-up request must not be forced", got)
+	}
+}
