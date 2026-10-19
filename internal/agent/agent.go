@@ -128,6 +128,24 @@ func (cfg *AgentConfig) progressReminder() string {
 	return progressReportReminder(cfg.MaxToolCallsBetweenReports)
 }
 
+// lastToolRoundFailed reports whether the tool results that answer the latest
+// assistant message all failed.
+func lastToolRoundFailed(messages []provider.Message) bool {
+	failed := 0
+	for i := len(messages) - 1; i >= 0; i-- {
+		switch messages[i].Role {
+		case "tool":
+			if !messages[i].ToolFailed {
+				return false
+			}
+			failed++
+		case "assistant":
+			return failed > 0
+		}
+	}
+	return failed > 0
+}
+
 func repeatedDiscoveryTool(name string) bool {
 	switch name {
 	case "list_computers", "list_mcp_servers", "search_mcp_tools", "list_skills", "tofi_tool_search", "workspace_capabilities":
@@ -1284,8 +1302,11 @@ func RunAgentLoop(cfg AgentConfig, ctx *models.ExecutionContext) (returned *Agen
 			OmitReasoningReplay: reasoningReplayDisabled,
 		}
 		if cfg.ForceToolUse && !repairRequest && !finalRepairFinalRequest && len(requestTools) > 0 &&
-			!(cfg.EndOnEmptyFinal != nil && cfg.EndOnEmptyFinal()) {
-			// A run that handed its work off owes no reply and may end quietly.
+			!lastToolRoundFailed(messages) && !(cfg.EndOnEmptyFinal != nil && cfg.EndOnEmptyFinal()) {
+			// A run that handed its work off owes no reply and may end quietly,
+			// and after a round in which every call failed the model is free to
+			// change course or stop: forcing it again can only repeat the call
+			// (an identical retry of a refused call is itself refused).
 			req.ToolChoice = provider.ToolChoiceAny
 		}
 
