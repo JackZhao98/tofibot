@@ -96,7 +96,6 @@ async function open({ reduced = true } = {}) {
     if (path.startsWith("/api/computer")) return json({ owner: null, waiting: [] });
     if (path === "/api/questions") return json({ questions: [] });
     if (path === "/api/mail-drafts") return json({ drafts: [] });
-    if (path === "/api/secret-inputs") return json({ requests: [] });
     return json({});
   });
   await page.goto(origin + "/");

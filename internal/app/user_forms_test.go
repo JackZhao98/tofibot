@@ -341,7 +341,7 @@ func TestUserFormPasswordDestinationAndOutput(t *testing.T) {
 				action = "shell_exec"
 			}
 			args, _ := json.Marshal(map[string]string{"secret_ref": ref.SecretRef, "action": action, "target": "PASS", "command": "true"})
-			out, err := s.secretTools(run)[1].Execute(context.Background(), args)
+			out, err := s.secretTools(run)[0].Execute(context.Background(), args)
 			if scenario == "same" {
 				if err != nil || typed != 1 || out != `{"ok":true}` {
 					t.Fatalf("fill failed typed=%d out=%s err=%v", typed, out, err)

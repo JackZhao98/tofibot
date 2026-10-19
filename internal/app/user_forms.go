@@ -98,6 +98,76 @@ func normalizeUserForm(in askQuestionInput) (askQuestionInput, error) {
 	return in, nil
 }
 
+// A private input is a form card with one password field and no website. Its
+// secret is not bound to an origin: it feeds use_secret_input's computer
+// actions (shell_exec, env, ssh) and is never typed into a page. Only
+// request_secret_input sets the stored private_input marker; a webpage form
+// always carries a source_url and is bound to its HTTPS origin.
+func normalizePrivateInput(in askQuestionInput) (askQuestionInput, error) {
+	if len(in.Fields) != 1 || in.Fields[0].Type != "password" || !in.Fields[0].Required || in.SourceURL != "" {
+		return in, errors.New("a private input is one required password field")
+	}
+	f := &in.Fields[0]
+	f.Label = strings.TrimSpace(f.Label)
+	if !userFormFieldID.MatchString(f.ID) || f.Label == "" || utf8.RuneCountInString(f.Label) > 120 || f.Placeholder != "" {
+		return in, errors.New("a private input needs a short label")
+	}
+	in.Options = nil
+	return in, nil
+}
+
+func (q Question) isPrivateInput() bool {
+	return q.Type == questionForm && q.PrivateInput
+}
+
+const privateInputFieldID = "secret"
+
+// secretInputTool keeps the long-standing model-facing request_secret_input
+// name as a thin front for the form rendezvous: the same durable question,
+// suspension, restart and expiry rules, and the same vault write on answer.
+func (s *Server) secretInputTool(c Conversation, r Run) Tool {
+	return Tool{Name: "request_secret_input", Description: "Ask the human for one secret (a key, token or password) through a private input card, then continue. The value never enters chat, history or your tool result; the result is {secret:{secret_ref,value_hidden:true}}, an opaque reference usable only by use_secret_input in this run, for its computer actions (shell_exec, env, ssh); it is never typed into a page, so ask for a website password with ask_user_form instead. State the intended use accurately in purpose. Never ask for secrets in chat or in plain questions. Cancellation or expiry never permits inventing a value. The response window, restart and cleared-reference rules are on expires_in_seconds.", Parameters: objectSchema(map[string]any{
+		"label":              map[string]any{"type": "string", "description": "Short name of the secret, shown on the field"},
+		"purpose":            map[string]any{"type": "string", "description": "Why it is needed and exactly how it will be used"},
+		"expires_in_seconds": questionExpirySchema(),
+	}, []string{"label", "purpose"}), Execute: func(ctx context.Context, raw json.RawMessage) (string, error) {
+		if err := ctx.Err(); err != nil {
+			return "", err
+		}
+		if err := requireHumanPresent(c); err != nil {
+			return "", err
+		}
+		var arg struct {
+			Label            string `json:"label"`
+			Purpose          string `json:"purpose"`
+			ExpiresInSeconds int    `json:"expires_in_seconds"`
+		}
+		if json.Unmarshal(raw, &arg) != nil || len(arg.Label) > 120 || len(arg.Purpose) > 500 || strings.TrimSpace(arg.Label) == "" || strings.TrimSpace(arg.Purpose) == "" {
+			return "", errors.New("label and purpose are required")
+		}
+		if s.secretVault == nil || s.microVM == nil {
+			return "", errors.New("private input requires secret storage and a shared computer; do not fall back to plain text")
+		}
+		in, err := normalizeQuestionInput(askQuestionInput{
+			Question: strings.TrimSpace(arg.Purpose), Type: questionForm, PrivateInput: true, ExpiresInSeconds: arg.ExpiresInSeconds,
+			Fields: []UserFormField{{ID: privateInputFieldID, Label: arg.Label, Type: "password", Required: true}},
+		})
+		if err != nil {
+			return "", err
+		}
+		q, err := s.CreateQuestion(c.ID, r, in)
+		if err != nil {
+			return "", err
+		}
+		if _, err = s.store.Event(c.ID, "question", q.Card()); err != nil {
+			_, _ = s.store.CancelQuestion(q.ID)
+			return "", err
+		}
+		answer, err := s.WaitQuestion(ctx, q.ID)
+		return string(answer), err
+	}}
+}
+
 func (s *Server) userFormTool(c Conversation, r Run) Tool {
 	return Tool{Name: "ask_user_form", Description: "Collect missing webpage form values from the human in one card, then continue. Inspect the actual page first; include its source_url and real field labels; never invent fields or collect unnecessary data. Plain answers are conversation data. Password values are never returned: each becomes {secret_ref,value_hidden:true}, usable only via use_secret_input(action=browser_type) in this run on the same HTTPS origin. Never request passwords, API keys or verification codes in plain fields or chat. After submission, re-inspect the page, focus each real field, type plain answers with computer tools and password references with use_secret_input; inspect before and after actions. Submitted values are not approval for purchases, legal agreements, security changes or other consequential submissions. Cancellation/expiry never permits inventing answers. The response window, restart and cleared-reference rules are on expires_in_seconds.", Parameters: objectSchema(map[string]any{
 		"question":           map[string]any{"type": "string", "description": "Explain why these values are needed"},
@@ -114,8 +184,8 @@ func (s *Server) userFormTool(c Conversation, r Run) Tool {
 		if err := ctx.Err(); err != nil {
 			return "", err
 		}
-		if !c.UserVisible {
-			return "", errors.New("user forms require a user-visible conversation")
+		if err := requireHumanPresent(c); err != nil {
+			return "", err
 		}
 		var in askQuestionInput
 		if err := json.Unmarshal(raw, &in); err != nil {
@@ -186,15 +256,18 @@ func validateFormValues(fields []UserFormField, values map[string]string) error 
 // newly created vault entries are removed; replay returns the first answer.
 func (s *Server) AnswerUserForm(id, actor string, values map[string]string) (Question, bool, error) {
 	v := s.secretVault
-	if v != nil {
-		v.mu.Lock()
-		defer v.mu.Unlock()
-	}
+	// Database connection first, vault mutex second: portability transactions
+	// hold the connection and then wait for the vault, so this order is the
+	// only one that cannot form a lock cycle with them.
 	tx, err := s.store.db.Begin()
 	if err != nil {
 		return Question{}, false, err
 	}
 	defer tx.Rollback()
+	if v != nil {
+		v.mu.Lock()
+		defer v.mu.Unlock()
+	}
 	q, err := scanQuestion(tx.QueryRow(`SELECT `+questionColumns+` FROM questions WHERE id=?`, id))
 	if errors.Is(err, sql.ErrNoRows) {
 		return Question{}, false, ErrQuestionNotFound
@@ -206,6 +279,9 @@ func (s *Server) AnswerUserForm(id, actor string, values map[string]string) (Que
 		return q, false, ErrQuestionBotActor
 	}
 	if q.Type != questionForm {
+		return q, false, ErrQuestionInvalidAnswer
+	}
+	if q.isPrivateInput() && (len(q.Fields) != 1 || q.Fields[0].ID != privateInputFieldID || q.Fields[0].Type != "password") {
 		return q, false, ErrQuestionInvalidAnswer
 	}
 	if q.Status == questionAnswered {
@@ -246,18 +322,22 @@ func (s *Server) AnswerUserForm(id, actor string, values map[string]string) (Que
 		}
 		count := 0
 		for _, record := range v.records {
-			if record.RunID == q.RunID {
+			// An expired reference is unusable and must not hold a slot.
+			if created, e := time.Parse(time.RFC3339Nano, record.CreatedAt); record.RunID == q.RunID && (e != nil || time.Since(created) <= secretReferenceLifetime) {
 				count++
 			}
 		}
 		if count >= 8 || len(v.records) >= 256 {
 			return q, false, errors.New("private input limit reached")
 		}
-		u, err := formSourceURL(q.SourceURL)
-		if err != nil || u.Scheme != "https" {
-			return q, false, errors.New("private input needs an HTTPS website")
+		record := secretRecord{ID: uuid.NewString(), Label: f.Label, Purpose: q.Prompt, BotID: q.BotID, RunID: q.RunID, ConversationID: q.ConversationID, Status: "ready", CreatedAt: now()}
+		if !q.isPrivateInput() {
+			u, err := formSourceURL(q.SourceURL)
+			if err != nil || u.Scheme != "https" {
+				return q, false, errors.New("private input needs an HTTPS website")
+			}
+			record.Kind, record.Target = "browser_form", formOrigin(u)
 		}
-		record := secretRecord{ID: uuid.NewString(), Kind: "browser_form", Target: formOrigin(u), Label: f.Label, Purpose: q.Prompt, BotID: q.BotID, RunID: q.RunID, ConversationID: q.ConversationID, Status: "ready", CreatedAt: now()}
 		record.Ciphertext, err = v.seal(record.ID, value)
 		if err != nil {
 			return q, false, errors.New("could not protect private input")

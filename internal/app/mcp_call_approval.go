@@ -104,6 +104,19 @@ func (s *Server) approveMCPCallOnce(ctx context.Context, c Conversation, r Run, 
 		}
 	}
 
+	// A review card in a conversation no person can see would park the run on
+	// a decision nobody can make. Refuse before any card exists; this covers
+	// every mode, since the card is the record the decision is made on. A
+	// scheduled chain is already unattended by design and keeps its own named
+	// outcomes (mcp_needs_human_unattended and the like) from the flow below.
+	if unattended, err := s.mcpRunUnattended(r); err != nil {
+		return err
+	} else if !unattended {
+		if err := requireHumanPresent(c); err != nil {
+			return err
+		}
+	}
+
 	payload, err := mcpApprovalPayload(call.Arguments)
 	if err != nil {
 		return err

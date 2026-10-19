@@ -101,6 +101,8 @@ type Question struct {
 	CreatedAt      string           `json:"created_at"`
 	ExpiresAt      string           `json:"expires_at,omitempty"`
 	UpdatedAt      string           `json:"updated_at"`
+	// PrivateInput is set only by request_secret_input (stored marker column).
+	PrivateInput bool `json:"-"`
 }
 
 // QuestionCard is safe to send to the UI. It intentionally excludes answer
@@ -140,6 +142,9 @@ type askQuestionInput struct {
 	MinSelections    int              `json:"min_selections"`
 	MaxSelections    int              `json:"max_selections"`
 	ExpiresInSeconds int              `json:"expires_in_seconds"`
+	// PrivateInput marks the backend-built single password card that backs
+	// request_secret_input. It is never read from model arguments.
+	PrivateInput bool `json:"-"`
 }
 
 // migrateQuestions is called from Store.migrate. Keeping the DDL here keeps
@@ -184,6 +189,9 @@ CREATE INDEX IF NOT EXISTS questions_run_status ON questions(run_id,status);
 		return err
 	}
 	if err = ensureColumn(db, "questions", "source_url", `ALTER TABLE questions ADD COLUMN source_url TEXT NOT NULL DEFAULT ''`); err != nil {
+		return err
+	}
+	if err = ensureColumn(db, "questions", "private_input", `ALTER TABLE questions ADD COLUMN private_input INTEGER NOT NULL DEFAULT 0`); err != nil {
 		return err
 	}
 	if err = ensureColumn(db, "questions", "approval_json", `ALTER TABLE questions ADD COLUMN approval_json TEXT NOT NULL DEFAULT ''`); err != nil {
@@ -249,7 +257,11 @@ func normalizeQuestionInput(x askQuestionInput) (askQuestionInput, error) {
 		}
 	case questionForm:
 		var err error
-		x, err = normalizeUserForm(x)
+		if x.PrivateInput {
+			x, err = normalizePrivateInput(x)
+		} else {
+			x, err = normalizeUserForm(x)
+		}
 		if err != nil {
 			return x, err
 		}
@@ -304,8 +316,22 @@ func normalizeQuestionInput(x askQuestionInput) (askQuestionInput, error) {
 	return x, nil
 }
 
+// requireHumanPresent refuses a human-input request made from a conversation
+// that no person can see (a Bot-to-Bot trace). A card there would park the run
+// on a question nobody can answer. The refusal is a classified, final outcome:
+// the only human route the code supports is the run's own reply, which is
+// returned to the Bot or conversation that assigned the work.
+func requireHumanPresent(c Conversation) error {
+	if c.UserVisible {
+		return nil
+	}
+	return tooloutcome.New(tooloutcome.Denied, "conversation_not_user_visible", "not_executed",
+		"No person can see this conversation, so a question or approval card here would never be answered. Do not retry or ask again. If a human decision or piece of information is needed, state exactly what is needed in your reply; it is returned to the Bot or conversation that assigned this work.",
+		"explain_blocker").Err()
+}
+
 func (s *Server) questionTools(c Conversation, r Run) []Tool {
-	return []Tool{{Name: "ask_user_question", Description: "Ask the human a text, yes/no, single-choice, or multiple-choice question and wait for the answer. Set allow_other=true for yes/no or choice questions to offer a human-written alternative. When used, it returns {values:[selected option IDs],other_text:string}; values is empty for yes/no and single-choice. An Other response is not affirmative approval; interpret its actual text. Ordinary answers retain their boolean, string, or array format. Answers are ordinary conversation data: never ask for secrets here. Use ask_user_form for several webpage fields in one card, including private password fields.", Parameters: objectSchema(map[string]any{
+	tools := []Tool{{Name: "ask_user_question", Description: "Ask the human a text, yes/no, single-choice, or multiple-choice question and wait for the answer. Set allow_other=true for yes/no or choice questions to offer a human-written alternative. When used, it returns {values:[selected option IDs],other_text:string}; values is empty for yes/no and single-choice. An Other response is not affirmative approval; interpret its actual text. Ordinary answers retain their boolean, string, or array format. Answers are ordinary conversation data: never ask for secrets here. Use ask_user_form for several webpage fields in one card, including private password fields.", Parameters: objectSchema(map[string]any{
 		"question":           map[string]any{"type": "string"},
 		"type":               map[string]any{"type": "string", "enum": []string{questionText, questionYesNo, questionSingleChoice, questionMultiChoice}},
 		"options":            map[string]any{"type": "array", "items": map[string]any{"type": "object", "properties": map[string]any{"id": map[string]any{"type": "string"}, "label": map[string]any{"type": "string"}}, "required": []string{"id", "label"}, "additionalProperties": false}},
@@ -314,6 +340,9 @@ func (s *Server) questionTools(c Conversation, r Run) []Tool {
 		"max_selections":     map[string]any{"type": "integer", "minimum": 0},
 		"expires_in_seconds": questionExpirySchema(),
 	}, []string{"question", "type"}), Execute: func(ctx context.Context, raw json.RawMessage) (string, error) {
+		if err := requireHumanPresent(c); err != nil {
+			return "", err
+		}
 		var in askQuestionInput
 		if err := json.Unmarshal(raw, &in); err != nil {
 			return "", ErrQuestionInvalidAnswer
@@ -339,6 +368,12 @@ func (s *Server) questionTools(c Conversation, r Run) []Tool {
 		}
 		return string(answer), nil
 	}}, s.userFormTool(c, r), s.approvalTool(c, r)}
+	// Same availability as use_secret_input, which is the only consumer of the
+	// reference this returns.
+	if s.secretVault != nil && s.microVM != nil {
+		tools = append(tools, s.secretInputTool(c, r))
+	}
+	return tools
 }
 
 func (s *Server) approvalTool(c Conversation, r Run) Tool {
@@ -352,6 +387,9 @@ func (s *Server) approvalTool(c Conversation, r Run) Tool {
 		"draft_id":           map[string]any{"type": "string", "description": "Optional saved draft ID in the current conversation; preview link only."},
 		"expires_in_seconds": questionExpirySchema(),
 	}, []string{"question", "action", "target", "impact"}), Execute: func(ctx context.Context, raw json.RawMessage) (string, error) {
+		if err := requireHumanPresent(c); err != nil {
+			return "", err
+		}
 		var input struct {
 			Question string `json:"question"`
 			ApprovalDetails
@@ -430,20 +468,20 @@ func (s *Store) CreateQuestion(conv string, run Run, in askQuestionInput) (Quest
 	if in.ExpiresInSeconds > 0 {
 		expires = time.Now().UTC().Add(time.Duration(in.ExpiresInSeconds) * time.Second).Format(time.RFC3339Nano)
 	}
-	q := Question{ID: uuid.NewString(), RunID: run.ID, ConversationID: conv, BotID: run.BotID, Type: in.Type, Prompt: in.Question, Options: in.Options, AllowOther: in.AllowOther, Fields: in.Fields, SourceURL: in.SourceURL, Approval: in.Approval, MinSelections: in.MinSelections, MaxSelections: in.MaxSelections, Status: questionPending, CreatedAt: nowAt, ExpiresAt: expires, UpdatedAt: nowAt}
+	q := Question{ID: uuid.NewString(), RunID: run.ID, ConversationID: conv, BotID: run.BotID, Type: in.Type, Prompt: in.Question, Options: in.Options, AllowOther: in.AllowOther, Fields: in.Fields, SourceURL: in.SourceURL, Approval: in.Approval, PrivateInput: in.PrivateInput, MinSelections: in.MinSelections, MaxSelections: in.MaxSelections, Status: questionPending, CreatedAt: nowAt, ExpiresAt: expires, UpdatedAt: nowAt}
 	if in.Approval != nil && in.Approval.ReviewOnly {
 		q.Status = questionRunDone
 	}
-	_, err = s.db.Exec(`INSERT INTO questions(id,run_id,conversation_id,bot_id,type,prompt,options_json,min_selections,max_selections,status,created_at,expires_at,updated_at,fields_json,source_url,allow_other,approval_json) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`, q.ID, q.RunID, q.ConversationID, q.BotID, q.Type, q.Prompt, string(opts), q.MinSelections, q.MaxSelections, q.Status, q.CreatedAt, nullString(q.ExpiresAt), q.UpdatedAt, string(fields), q.SourceURL, q.AllowOther, approval)
+	_, err = s.db.Exec(`INSERT INTO questions(id,run_id,conversation_id,bot_id,type,prompt,options_json,min_selections,max_selections,status,created_at,expires_at,updated_at,fields_json,source_url,allow_other,approval_json,private_input) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`, q.ID, q.RunID, q.ConversationID, q.BotID, q.Type, q.Prompt, string(opts), q.MinSelections, q.MaxSelections, q.Status, q.CreatedAt, nullString(q.ExpiresAt), q.UpdatedAt, string(fields), q.SourceURL, q.AllowOther, approval, q.PrivateInput)
 	return q, err
 }
 
-const questionColumns = `id,run_id,conversation_id,bot_id,type,prompt,options_json,min_selections,max_selections,status,answer_json,answered_by,created_at,expires_at,updated_at,fields_json,source_url,allow_other,approval_json`
+const questionColumns = `id,run_id,conversation_id,bot_id,type,prompt,options_json,min_selections,max_selections,status,answer_json,answered_by,created_at,expires_at,updated_at,fields_json,source_url,allow_other,approval_json,private_input`
 
 func scanQuestion(row interface{ Scan(...any) error }) (Question, error) {
 	var q Question
 	var opts, ans, actor, expires, fields, approval sql.NullString
-	err := row.Scan(&q.ID, &q.RunID, &q.ConversationID, &q.BotID, &q.Type, &q.Prompt, &opts, &q.MinSelections, &q.MaxSelections, &q.Status, &ans, &actor, &q.CreatedAt, &expires, &q.UpdatedAt, &fields, &q.SourceURL, &q.AllowOther, &approval)
+	err := row.Scan(&q.ID, &q.RunID, &q.ConversationID, &q.BotID, &q.Type, &q.Prompt, &opts, &q.MinSelections, &q.MaxSelections, &q.Status, &ans, &actor, &q.CreatedAt, &expires, &q.UpdatedAt, &fields, &q.SourceURL, &q.AllowOther, &approval, &q.PrivateInput)
 	if err != nil {
 		return q, err
 	}

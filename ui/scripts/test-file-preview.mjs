@@ -85,7 +85,6 @@ async function open(width, height, { locale = "zh-CN", theme = "light" } = {}) {
     if (path.endsWith("/schedules")) return json({ schedules: [] });
     if (path === "/api/questions") return json({ questions: [] });
     if (path === "/api/mail-drafts") return json({ drafts: [] });
-    if (path === "/api/secret-inputs") return json({ requests: [] });
     return json({});
   });
   await page.goto(`${origin}/b/bot_a`);

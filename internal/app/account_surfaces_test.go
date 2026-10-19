@@ -42,7 +42,6 @@ func TestAccountProtectedSurfacesRejectInvalidSessionStates(t *testing.T) {
 		{http.MethodPost, "/api/conversations/synthetic-conversation/attachments", ""},
 		{http.MethodGet, "/api/computer/credentials", ""},
 		{http.MethodPost, "/api/computer/credentials", `{"name":"x","kind":"env","target":"X","value":"x"}`},
-		{http.MethodGet, "/api/secret-inputs", ""},
 		{http.MethodPost, "/api/extensions/local-mcp/install", `{"id":"x","kind":"fixture"}`},
 		{http.MethodDelete, "/api/extensions/local-mcp/fixture", ""},
 	}
