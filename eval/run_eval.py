@@ -411,7 +411,7 @@ def grade(key, workspace, grader_model, rubric, res, bots_by_name):
     if not res["visible"]:
         return {"replies": [], "step_narration_visible": False, "coordination_visible": False,
                 "delegation_requirements_visible": False, "trailing_unverified_caveat": False,
-                "routine_closing_offer": False, "revived_prior_topic": False, "asked_back": False, "_usage": {"input_tokens": 0, "output_tokens": 0}}
+                "routine_closing_offer": False, "revived_prior_topic": False, "member_brief_visible": False, "asked_back": False, "_usage": {"input_tokens": 0, "output_tokens": 0}}
     roles = []
     for name, b in bots_by_name.items():
         roles.append("%s: %s" % (b["name"], norm(b["instructions"])[:1200]))
@@ -438,7 +438,7 @@ def grade(key, workspace, grader_model, rubric, res, bots_by_name):
 
 DIMS = ["natural_speech", "mood", "stance", "length", "machine_tells"]
 FLAGS = ["step_narration_visible", "coordination_visible", "delegation_requirements_visible",
-         "trailing_unverified_caveat", "routine_closing_offer", "revived_prior_topic", "asked_back"]
+         "trailing_unverified_caveat", "routine_closing_offer", "revived_prior_topic", "member_brief_visible", "asked_back"]
 
 
 def rate(num, den):
@@ -504,14 +504,14 @@ def write_summary(path, report):
          "Generated %s. Probes: %d. Runs per model: %d. Grader: %s." % (
              report["generated_at"], report["probe_count"], report["runs_per_model"], report["grader_model"]), ""]
     L += ["## Per model", "",
-          "| model | say rate | visible count ok | probes with exact dups | narration | coordination | delegation reqs | trailing caveat | closing offer | topic revival | avg score (0-2) | model calls | tokens in/out | est. $ |",
-          "|---|---|---|---|---|---|---|---|---|---|---|---|---|---|"]
+          "| model | say rate | visible count ok | probes with exact dups | narration | coordination | delegation reqs | trailing caveat | closing offer | topic revival | member brief | avg score (0-2) | model calls | tokens in/out | est. $ |",
+          "|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|"]
     for model, m in report["models"].items():
         a, fr = m["overall"], m["overall"]["flag_rates"]
-        L.append("| %s | %s | %s | %d | %s | %s | %s | %s | %s | %s | %s | %d | %d / %d | %s |" % (
+        L.append("| %s | %s | %s | %d | %s | %s | %s | %s | %s | %s | %s | %s | %d | %d / %d | %s |" % (
             model, pct(a["adherence_say_rate"]), pct(a["visible_count_ok_rate"]), a["probes_with_exact_duplicates"],
             pct(fr["step_narration_visible"]), pct(fr["coordination_visible"]), pct(fr["delegation_requirements_visible"]),
-            pct(fr["trailing_unverified_caveat"]), pct(fr["routine_closing_offer"]), pct(fr["revived_prior_topic"]),
+            pct(fr["trailing_unverified_caveat"]), pct(fr["routine_closing_offer"]), pct(fr["revived_prior_topic"]), pct(fr["member_brief_visible"]),
             a["avg_score"], a["usage"]["calls"], a["usage"]["input_tokens"], a["usage"]["output_tokens"],
             "n/a" if m["cost_usd_est"] is None else "$%.3f" % m["cost_usd_est"]))
     L.append("")
@@ -527,15 +527,15 @@ def write_summary(path, report):
                   m["overall"]["lookup_attempted"], m["overall"]["lookup_probes"],
                   m["overall"]["handoff_brief_visible"], m["overall"]["handoff_probes"]),
               "Failed, errored or timed-out probes: %d." % m["overall"]["failed_or_timed_out"], "",
-              "| category | probes | say rate | count ok | dup probes | narration | coordination | delegation | caveat | offer | revival | avg score |",
-              "|---|---|---|---|---|---|---|---|---|---|---|---|"]
+              "| category | probes | say rate | count ok | dup probes | narration | coordination | delegation | caveat | offer | revival | brief | avg score |",
+              "|---|---|---|---|---|---|---|---|---|---|---|---|---|"]
         for cat, a in sorted(m["by_category"].items()):
             fr = a["flag_rates"]
-            L.append("| %s | %d | %s | %s | %d | %s | %s | %s | %s | %s | %s | %s |" % (
+            L.append("| %s | %d | %s | %s | %d | %s | %s | %s | %s | %s | %s | %s | %s |" % (
                 cat, a["probes"], pct(a["adherence_say_rate"]), pct(a["visible_count_ok_rate"]),
                 a["probes_with_exact_duplicates"], pct(fr["step_narration_visible"]), pct(fr["coordination_visible"]),
                 pct(fr["delegation_requirements_visible"]), pct(fr["trailing_unverified_caveat"]),
-                pct(fr["routine_closing_offer"]), pct(fr["revived_prior_topic"]), a["avg_score"]))
+                pct(fr["routine_closing_offer"]), pct(fr["revived_prior_topic"]), pct(fr["member_brief_visible"]), a["avg_score"]))
         L.append("")
     with open(path, "w") as f:
         f.write("\n".join(L) + "\n")
