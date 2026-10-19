@@ -1,6 +1,6 @@
 # Structured output: "what the user sees" as a typed act
 
-Status: design, 2026-10-17. Not started. Line numbers read from `main` at 385050e.
+Status: Phases 0-3 built (see sections 11 and 12). Line numbers in sections 1-10 were read from `main` at 385050e.
 
 ## 1. Why
 
@@ -288,3 +288,71 @@ What was built, and where it differs from the sections above.
 - Budget exhaustion is the one case where plain text is still published under the flag, by design: a run that ran out of budget publishes its partial final text (tags stripped) with the budget notice, because it has no other way to say what it found.
 - Review fixes: plain text no longer streams into the chat draft under the flag (it feeds the live status line; only a say call's text is a draft producer, and a text-only final appears at once when the run finishes); text written after a handoff without a say is kept as a folded note (`final_origin=none`); `say(answer)` gets the same one-time completion review as a text final when tool work was done; a message arriving right after `say(answer)` or `respond(reply)` no longer cancels the finished turn; `say(note)` is capped at 10 per run with the message pacing.
 - After the review fixes (24 probes, 2 runs per model): Haiku 5.5 81% say adherence, Sonnet 5.5 97%. Haiku misses remain short chat answers; Sonnet meets the bar.
+
+## 12. Implementation notes: Phase 3 (branch feat/structured-output-phase3)
+
+Everything below is under the workspace flag; with the flag off no prompt, tool, request or publication path changed, and the flag-off tests that existed before still pass.
+
+### Decisions
+
+- **Group replies: `say` takes the reply path completely; `respond` keeps only what posts nothing.** Reading `group_respond.go`: `respond(reply)` did four things, all of which `say(answer)` already does or can carry: record the text, end the turn (`runtime.EndTurn`, added for the structured protocol), publish through the normal finish path, and start the `wake` list after publication. The other three dispositions (`silent`, `concluded`, `follow_up`) post nothing and end the run through `finishRun(silent)` plus a context cancel, which has no counterpart in the answer path, so they stay in `respond`, now with a schema of `disposition` (three values) and `wait_for` only. `respond(reply)` is refused with a pointer to `say`. Keeping a second reply path would have kept two sets of end-of-turn guarantees; the steering test (`TestSteeringMessageAfterRespondReplyKeepsTheReply`) now exercises `say(answer)` in a group and still requires the reply to be kept, the run to be `done` with origin `say`, and no second model call.
+- **`wake` lives on `say(answer)`, in groups only, and is stored with the recorded answer.** `run_say_answers` gained `wake` and `sources` columns (additive, `ensureColumn`). `applyDisposition` reads the wake list from that record instead of the in-memory `dispositions` map, so a restart between recording and publishing keeps it (the plan's section 3 promise, delivered for `say`; the map is still used for the three `respond` dispositions and for flag-off). Validation is respond's: another member, a non-blank request, at most three. A run whose schema carries optional fields (`wake` in groups, `sources` in scheduled runs) is not `strict` for OpenAI; the plain DM schema stays strict.
+- **`send_chat_message` is not offered under the flag.** `say(message)` already shared its cap of three, its 420 ms pacing and its target (the run's own conversation; the tool never had a target field, so none was added), and the same gates (user-visible conversation, not a scheduled root).
+- **Scheduled runs: `say(answer)` with `sources` is the completion record; `complete_scheduled_task` is not offered.** The receipt was the only thing the old tool did that the answer does not, so the answer now writes it: the recorded `run_say_answers` row is what the final review, the failure check, the repair request and the occurrence's "delivered" flag read (`Store.scheduleReceipt`; the legacy `tool_activities` row is still honoured for runs that started before a change). Schedule state (`schedule_state_note.go`) and the failure-detail code are untouched. A blocked run ends with plain final text, which fails the run with that text as before; because an answer now records success, the scheduled guidance, the principle line and the single review reminder say that explicitly.
+- **`nothing` and `wait` stay on `respond`.** The plan's `nothing`/`wait` purposes were not added: `respond` still carries them, and the owner scope for this phase was the reply, the mid-run message and the scheduled outcome.
+
+### Heuristics
+
+| # | State on the flag-on path | Evidence |
+|---|---------------------------|----------|
+| H1 tags, `finalSplit`, live filter | already unreachable for structured runs (every call site is gated by `structured`); the strip of literal tags stays for legacy Bots | Phase 2 |
+| H2 narration fold, H3 repeat fold, H4 delegation fold | unreachable: they ran inside `finishRunOpts` unless `structured`, and the one structured path that still reached them was budget exhaustion (`finishRunBudget` passed zero options). It now passes `structured`. | `TestBudgetPartialTextIsNotFoldedWhenStructured` fails without the change (origin `heuristic:repeat`), and the flag-off twin keeps the heuristics |
+| H5 schedule receipt prepend | deleted from the flag-on path | `TestScheduledTextFinalIsNeverRewrittenUnderTheFlag`: a run holding a legacy receipt row and a text final of "As above." is rewritten without the gate, published as written with it; the tool is also no longer offered, so the receipt never exists for a new run |
+| H6 leading-mention dispatch | deleted from the flag-on path, and its sentence in the group prompt now says a mention only refers to a member | `TestLeadingMentionIsOnlyAMentionWhenStructured` and the text-final twin dispatch a child run without the gate |
+| H7 no-final fallback | already unreachable: the structured branch is taken before `hasProgressReport` | Phase 2 (`TestRunWithNoTextAndNoSayFailsWithTheTypedCode`) |
+| H8 exact-dup guard | stays | |
+
+The flag-off code for H1-H7 stays until Phase 4 removes the flag.
+
+### Haiku adherence
+
+- **Where the misses are.** In the Phase 2 eval the 9 Haiku `implicit` runs of 64 are one-call turns with no tool use and a 300-1000 character reply (opinion, explanation, recommendation probes), not short chat answers: `dm_smalltalk` was 100%, `dm_opinion` 25%. So the model had decided the turn was a plain answer before the description or the principle line were read.
+- **Prompt variants (tool_choice auto, Haiku 5.5, the four weakest DM categories, 40 or 64 runs each, no grading):** current prompt 58% and 72%; description rewritten so it says a reply of any length goes through the tool 70% then 58%; principle line merged into the request message 52%; a reworded principle line 50%; "never compose it as plain text" in the description and the progress prompt 45%; that plus a line at the top of the system text 55%; say listed first 78%; a described `text` field 55%; line at the top of the system text 56%; the combination of first, described field and top line 62%, and with the "never compose" wording 84%. The spread on these sample sizes is about +-11 points, and the one high number did not survive its ablation, so no wording or placement change was kept.
+- **tool_choice.** The API accepts `tool_choice: any` for Haiku 5.5 with its default thinking (the plan assumed it would not; the request is retried without it, and remembered per model, if a model refuses). Full 24-probe suite, Haiku, 3 runs, no grading: say on 72 of 72 runs against 52 of 72 on auto, input tokens per probe +5%, output tokens -38%, cost per probe unchanged (about $0.030). Costs and risks seen in that run: after a `handoff` a forced call made the Bot narrate the delegation ("I've asked Pip ..., I'll tell you what they came up with"), so forcing stops once the run has handed off; a scheduled run must be able to end with a plain-text blocker, because an answer records success; in group chats more members spoke (not measured with the grader). So the requirement is applied only to Haiku models in a user-visible DM that is not scheduled (`forceSayFor`). It is never applied to the reserved repair, the final-only follow-up, or compaction.
+- **Open:** Sonnet and Opus were not forced (they meet the bar and the API acceptance was not measured for them); OpenAI has the equivalent (`required`) but it was not measured; groups on Haiku stay on auto.
+
+### Numbers
+
+Offline eval, 24 probes, 2 runs per model, grader claude-opus-5-5, flag on, final code of this branch (results: `eval/results/structured-say-phase3/`; the directory is git-ignored, like the previous run's). "Last run" is the Phase 2 after-review-fixes run in `eval/results/structured-say-haiku-sonnet/`.
+
+| | Haiku 5.5 last run | Haiku 5.5 Phase 3 | Sonnet 5.5 last run | Sonnet 5.5 Phase 3 |
+|---|---|---|---|---|
+| say adherence (runs owing an answer) | 81% (52/64) | 88% (56/64) | 97% | 97% |
+| final_origin counts | say 52, implicit 9, none 3 | say 56, implicit 5, none 3 | say 61, implicit 2, none 1 | say 64, implicit 2 |
+| DM probes only | 85% (34/40) | 100% (40/40) | 95% (38/40) | 95% (38/40) |
+| visible count ok | 98% | 100% | 100% | 100% |
+| exact duplicates | 0 | 0 | 0 | 0 |
+| step narration leak | 4% | 2% | 6% | 4% |
+| coordination leak | 4% | 2% | 2% | 6% |
+| delegation requirements in text | 0% | 0% | 0% | 2% |
+| handoff brief visible | 0 of 4 | 0 of 4 | 0 of 4 | 0 of 4 |
+| closing offer | 4% | 6% | 11% | 6% |
+| avg score (0-2) | 1.800 | 1.829 | 1.793 | 1.810 |
+| probe cost per probe (estimate) | $0.0300 | $0.0279 | $0.0610 | $0.0596 |
+| probe tokens in / out | 1,294,868 / 29,029 | 1,239,972 / 20,291 | 1,374,067 / 18,072 | 1,335,086 / 19,085 |
+
+Reading it:
+
+- Haiku DM adherence is 100% (40 of 40 DM runs that owe an answer; was 85%). Overall Haiku stays under the 95% bar because groups are not forced: `group_debate` 33% and `group_delegate` 50% say, the same misses as before.
+- Group forcing was measured and rejected. Haiku, group probes only, 3 runs, graded, forced vs auto: say 86% vs 38%, but coordination leaks 28% vs 11%, delegation requirements in text 6% vs 0%, narration 11% vs 6%, average score 1.59 vs 1.78 (`group_unaddressed` 1.70 vs 1.93). Not shipped.
+- Sonnet is unchanged on adherence (its two misses are the lookup probe, a text-only final after tool work). Its coordination leak rose from 2% to 6% (3 of 48 runs: two unaddressed-question turns where a member said it would leave the analogy to another, and one debate turn). Haiku's fell from 4% to 2%, so this is either run noise at n=48 or an effect of the Phase 3 group prompt, which now says a mention in text only refers to a member; it needs a re-measure before the rc.
+- The cost of Haiku probes did not rise: against the last run, probe input tokens are 4% lower and output tokens 30% lower (the input difference is within run-to-run noise; on the full suite with forcing everywhere, input was +5% and output -38%).
+- One run on the way here showed why the full suite matters: with a required tool call and no release, a Haiku onboarding turn whose `say(answer)` was rejected by the completion review repeated the identical call 157 times (the recovery guard refuses an identical retry of a refused call) and spent about 10M input tokens before the run budget ended it. The loop now releases the requirement after a round in which every call failed (`TestForceToolUseIsReleasedAfterAFailedRound`); the final run above includes that fix and its setup usage is back to 283k tokens.
+
+### Still open after Phase 3
+
+- Haiku in groups: 33-50% say on debate and delegation turns. The only measured lever (required tool calls) costs quality there; a prompt-only lever was not found for DMs either. Options: leave as is (the text is published as `implicit`), or measure forcing only on turns addressed to the Bot.
+- Sonnet and Opus: required tool calls not measured (adherence already meets the bar); OpenAI `tool_choice: required` not implemented.
+- Sonnet's coordination leak (above) needs a re-measure; the 2% bar is not met in this run.
+- `nothing` and `wait` remain on `respond`; Phase 4 retires the flag, the scanner and the `stream_assistant_turns` writes.
+- The `final_origin` aggregation on Settings → Usage and the "View activity" internal text turns are still Phase 4.
