@@ -11,13 +11,11 @@ import (
 // Task management tools for the agent loop
 //
 // tofi_task_status — query/wait for background shell task results
-// tofi_ask_user   — ask the user a question and wait for response
 // ──────────────────────────────────────────────────────────────
 
 // buildTaskTools creates task management tools.
 // bgManager: background task manager (from shell auto-backgrounding)
-// askUserFn: callback to ask user a question (nil = tool not registered)
-func buildTaskTools(bgManager *BackgroundTaskManager, askUserFn func(question string, options []string) (string, error)) []ToolDef {
+func buildTaskTools(bgManager *BackgroundTaskManager) []ToolDef {
 	var extras []ExtraBuiltinTool
 
 	// Register task management tools if we have a background manager
@@ -25,11 +23,6 @@ func buildTaskTools(bgManager *BackgroundTaskManager, askUserFn func(question st
 		extras = append(extras, buildTaskStatusTool(bgManager))
 		extras = append(extras, buildTaskListTool(bgManager))
 		extras = append(extras, buildTaskStopTool(bgManager))
-	}
-
-	// Only register ask_user if callback is provided (Chat mode)
-	if askUserFn != nil {
-		extras = append(extras, buildAskUserTool(askUserFn))
 	}
 
 	tools := make([]ToolDef, len(extras))
@@ -179,58 +172,4 @@ func joinLines(lines []string) string {
 		result += l
 	}
 	return result
-}
-
-// ──────────────────────────────────────────────────────────────
-// tofi_ask_user — Ask the user a question (Chat mode only)
-// ──────────────────────────────────────────────────────────────
-
-func buildAskUserTool(askUserFn func(question string, options []string) (string, error)) ExtraBuiltinTool {
-	return ExtraBuiltinTool{
-		Schema: provider.Tool{
-			Name: "tofi_ask_user",
-			Description: "Ask the user a question and wait for their response. " +
-				"Use this when you need clarification, confirmation for destructive actions, " +
-				"or user input to proceed. Optionally provide answer options. " +
-				"Only available in interactive Chat mode (not in Agent Run).",
-			Parameters: map[string]any{
-				"type": "object",
-				"properties": map[string]any{
-					"question": map[string]any{
-						"type":        "string",
-						"description": "The question to ask the user",
-					},
-					"options": map[string]any{
-						"type":        "array",
-						"description": "Optional list of answer choices (e.g., ['Yes', 'No', 'Skip'])",
-						"items":       map[string]any{"type": "string"},
-					},
-				},
-				"required": []string{"question"},
-			},
-		},
-		Handler: func(args map[string]any) (string, error) {
-			question, _ := args["question"].(string)
-			if question == "" {
-				return "Error: question is required", nil
-			}
-
-			var options []string
-			if opts, ok := args["options"].([]interface{}); ok {
-				for _, o := range opts {
-					if s, ok := o.(string); ok {
-						options = append(options, s)
-					}
-				}
-			}
-
-			// This blocks the agent loop until user responds
-			answer, err := askUserFn(question, options)
-			if err != nil {
-				return fmt.Sprintf("User did not respond: %v", err), nil
-			}
-
-			return fmt.Sprintf("User responded: %s", answer), nil
-		},
-	}
 }

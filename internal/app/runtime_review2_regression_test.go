@@ -146,7 +146,7 @@ func TestActionWrappersHaveSeparateRecoveryOperations(t *testing.T) {
 		{"extensions", s.extensionManagementTools(Conversation{ID: "fixture"}, r)[0], `{"action":"mcp_list"}`, `{"action":"mcp_update","name":"fixture"}`, tooloutcome.Observation, tooloutcome.TargetMutation},
 		{"terminal", s.terminalTool(r), `{"action":"read","terminal_id":"a"}`, `{"action":"write","terminal_id":"a","data":"x"}`, tooloutcome.Observation, tooloutcome.OpaqueEffect},
 		{"ssh-keys", s.sshKeyTool(r), `{"action":"list"}`, `{"action":"generate","name":"id_ed25519_fixture"}`, tooloutcome.Observation, tooloutcome.TargetMutation},
-		{"secret", s.secretTools(r)[1], `{"action":"env","secret_ref":"fixture"}`, `{"action":"shell_exec","secret_ref":"fixture"}`, tooloutcome.OpaqueEffect, tooloutcome.OpaqueEffect},
+		{"secret", s.secretTools(r)[0], `{"action":"env","secret_ref":"fixture"}`, `{"action":"shell_exec","secret_ref":"fixture"}`, tooloutcome.OpaqueEffect, tooloutcome.OpaqueEffect},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			if tc.tool.Identity == nil {
@@ -177,7 +177,7 @@ func TestMissingSecretReferenceDoesNotFenceCorrectedReference(t *testing.T) {
 	s.secretVault.records["synthetic-ref"] = secretRecord{ID: "synthetic-ref", RunID: r.ID, BotID: r.BotID, ConversationID: r.ConversationID, Status: "ready", CreatedAt: now(), Ciphertext: ciphertext}
 	var outcomes []tooloutcome.Outcome
 	calls := []reviewCall{{"use_secret_input", `{"secret_ref":"missing","action":"shell_exec","target":"API_KEY","command":"synthetic-command"}`}, {"use_secret_input", `{"secret_ref":"synthetic-ref","action":"shell_exec","target":"API_KEY","command":"synthetic-command"}`}}
-	_, err = reviewEngine(t, calls, 0).Run(context.Background(), runtime.Request{BotID: r.BotID, RunID: r.ID, Messages: []runtime.Message{{Role: "user", Content: "Synthetic private reference repair"}}, Tools: []Tool{s.secretTools(r)[1]}, OnToolEvent: func(e runtime.ToolEvent) error {
+	_, err = reviewEngine(t, calls, 0).Run(context.Background(), runtime.Request{BotID: r.BotID, RunID: r.ID, Messages: []runtime.Message{{Role: "user", Content: "Synthetic private reference repair"}}, Tools: []Tool{s.secretTools(r)[0]}, OnToolEvent: func(e runtime.ToolEvent) error {
 		if e.Outcome != nil {
 			outcomes = append(outcomes, *e.Outcome)
 		}

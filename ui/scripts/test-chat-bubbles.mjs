@@ -89,7 +89,6 @@ async function mockApi(page, convs, world = emptyWorld()) {
     if (path.endsWith("/schedules")) return json({ schedules: [] });
     if (path === "/api/questions") return json({ questions: world.questions.map(q => ({ conversation_id: conv || q.conversation_id, ...q })) });
     if (path === "/api/mail-drafts") return json({ drafts: [] });
-    if (path === "/api/secret-inputs") return json({ requests: [] });
     return json({});
   });
   return external;

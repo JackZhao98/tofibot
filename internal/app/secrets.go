@@ -4,7 +4,6 @@ package app
 // transport/storage boundary, not isolation from an agent with arbitrary shell
 // access to the same user-owned VM.
 import (
-	"bytes"
 	"context"
 	"crypto/aes"
 	"crypto/cipher"
@@ -12,12 +11,10 @@ import (
 	"database/sql"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"github.com/JackZhao98/tofibot/internal/tooloutcome"
 	"net/http"
 	"os"
 	"path/filepath"
-	"reflect"
 	"regexp"
 	"strings"
 	"sync"
@@ -98,6 +95,9 @@ func initializeSecretVault(dir string) (*secretVault, error) {
 	if err != nil && !os.IsNotExist(err) {
 		return nil, errors.New("secret vault cannot be loaded")
 	}
+	// Run-scoped records never outlive the process: references, and any
+	// pending request written by a build that still had its own secret-input
+	// route. Nothing waits on such a record any more, so dropping it is safe.
 	for id, r := range v.records {
 		if r.RunID != "" {
 			delete(v.records, id)
@@ -159,9 +159,9 @@ func validSecretValue(value string) bool {
 }
 
 func (s *Server) handleSecrets(w http.ResponseWriter, r *http.Request) bool {
-	credentials := (r.URL.Path == "/api/computer/credentials" || strings.HasPrefix(r.URL.Path, "/api/computer/credentials/"))
-	requests := (r.URL.Path == "/api/secret-inputs" || strings.HasPrefix(r.URL.Path, "/api/secret-inputs/"))
-	if !credentials && !requests {
+	// Persistent Settings credentials only. A Bot's private-input request is a
+	// form question (see request_secret_input); it has no route of its own.
+	if r.URL.Path != "/api/computer/credentials" && !strings.HasPrefix(r.URL.Path, "/api/computer/credentials/") {
 		return false
 	}
 	if s.secretVault == nil {
@@ -169,11 +169,7 @@ func (s *Server) handleSecrets(w http.ResponseWriter, r *http.Request) bool {
 		return true
 	}
 	v := s.secretVault
-	base := "/api/secret-inputs"
-	if credentials {
-		base = "/api/computer/credentials"
-	}
-	suffix := strings.TrimPrefix(r.URL.Path, base)
+	suffix := strings.TrimPrefix(r.URL.Path, "/api/computer/credentials")
 	parts := strings.Split(strings.Trim(suffix, "/"), "/")
 	id := parts[0]
 	fail := func(code int, msg string) { writeErr(w, code, "secret_input", msg) }
@@ -181,23 +177,17 @@ func (s *Server) handleSecrets(w http.ResponseWriter, r *http.Request) bool {
 		v.mu.Lock()
 		list := []secretRecord{}
 		for _, record := range v.records {
-			if credentials != (record.RunID == "") || record.Kind == modelProviderKind {
-				continue
-			}
-			if !credentials && (record.ConversationID != r.URL.Query().Get("conversation_id") || record.Status != "pending") {
+			// Run-scoped private inputs and provider keys are never listed.
+			if record.RunID != "" || record.Kind == modelProviderKind {
 				continue
 			}
 			list = append(list, publicSecret(record))
 		}
 		v.mu.Unlock()
-		key := "requests"
-		if credentials {
-			key = "credentials"
-		}
-		writeJSON(w, 200, map[string]any{key: list})
+		writeJSON(w, 200, map[string]any{"credentials": list})
 		return true
 	}
-	if credentials && r.Method == "POST" && id == "" {
+	if r.Method == "POST" && id == "" {
 		var in struct{ Name, Kind, Target, Value string }
 		if decode(r, &in) != nil || len(in.Name) > 120 || !validSecretValue(in.Value) || (in.Kind != "env" && in.Kind != "ssh") || (in.Kind == "env" && !allowedSecretEnv(in.Target)) || (in.Kind == "ssh" && (!validSSHKeyName(in.Target) || !strings.Contains(in.Value, "PRIVATE KEY-----"))) {
 			fail(400, "Invalid credential fields")
@@ -241,7 +231,7 @@ func (s *Server) handleSecrets(w http.ResponseWriter, r *http.Request) bool {
 	v.mu.Unlock()
 	// Model provider keys belong to the server; they are never listed,
 	// removed here, or installed on a computer.
-	if !ok || credentials != (record.RunID == "") || record.Kind == modelProviderKind {
+	if !ok || record.RunID != "" || record.Kind == modelProviderKind {
 		fail(404, "Not found")
 		return true
 	}
@@ -261,59 +251,7 @@ func (s *Server) handleSecrets(w http.ResponseWriter, r *http.Request) bool {
 		}
 		return true
 	}
-	if !credentials && r.Method == "POST" {
-		var in struct{ Value string }
-		if decode(r, &in) != nil || !validSecretValue(in.Value) {
-			fail(400, "A value of 1–65536 bytes is required")
-			return true
-		}
-		v.mu.Lock()
-		current, exists := v.records[id]
-		created, _ := time.Parse(time.RFC3339Nano, current.CreatedAt)
-		if !exists || current.Status != "pending" || time.Since(created) > 10*time.Minute {
-			v.mu.Unlock()
-			fail(409, "Request no longer pending")
-			return true
-		}
-		// Portability transactions hold the database connection before taking the
-		// vault mutex. Never wait for that connection while holding this mutex.
-		// Preserve a complete snapshot so a deletion, competing submission or
-		// changed request cannot be revived after the database check.
-		current.Ciphertext = bytes.Clone(current.Ciphertext)
-		pending := current
-		v.mu.Unlock()
-		var active int
-		err := s.store.db.QueryRowContext(r.Context(), `SELECT COUNT(*) FROM runs WHERE id=? AND bot_id=? AND conversation_id=? AND status='running'`, pending.RunID, pending.BotID, pending.ConversationID).Scan(&active)
-		if err != nil || active != 1 {
-			fail(409, "Run no longer active")
-			return true
-		}
-		v.mu.Lock()
-		current, exists = v.records[id]
-		created, _ = time.Parse(time.RFC3339Nano, current.CreatedAt)
-		if !exists || !reflect.DeepEqual(current, pending) || current.Status != "pending" || time.Since(created) > 10*time.Minute || r.Context().Err() != nil {
-			v.mu.Unlock()
-			fail(409, "Request no longer pending")
-			return true
-		}
-		current.Ciphertext, err = v.seal(id, in.Value)
-		current.Status = "ready"
-		if err == nil {
-			v.records[id] = current
-			err = v.saveLocked()
-			if err != nil {
-				v.records[id] = pending
-			}
-		}
-		v.mu.Unlock()
-		if err != nil {
-			fail(500, "Could not save secret")
-		} else {
-			writeJSON(w, 200, map[string]bool{"ok": true})
-		}
-		return true
-	}
-	if credentials && r.Method == "POST" && len(parts) == 2 && parts[1] == "apply" {
+	if r.Method == "POST" && len(parts) == 2 && parts[1] == "apply" {
 		var in struct {
 			BotID string `json:"bot_id"`
 		}
@@ -347,14 +285,26 @@ func (s *Server) handleSecrets(w http.ResponseWriter, r *http.Request) bool {
 	fail(405, "Method not allowed")
 	return true
 }
+// A reference lives this long after the human submitted it.
+const secretReferenceLifetime = 15 * time.Minute
+
+const secretRerequestNext = "request_input_again"
+
+// secretRerequestText is the one statement of what to do after a reference
+// expired or was cleared, shared by the live use and the resume path. tool
+// names the asking tool when it is known.
+func secretRerequestText(tool string) string {
+	if tool == "" {
+		tool = "ask_user_form for a website login, otherwise request_secret_input"
+	}
+	return "The private input reference has expired or was cleared. Asking the human for it again with " + tool + " is permitted; never infer the value or request it in plain text."
+}
+
 func secretQuote(s string) string { return "'" + strings.ReplaceAll(s, "'", "'\"'\"'") + "'" }
 func (s *Server) applySecret(ctx context.Context, r Run, action, target, value, command string) (string, error) {
 	name := "shell.exec"
 	args := map[string]any{}
 	switch action {
-	case "browser_type":
-		name = "desktop.type"
-		args["text"] = value
 	case "env":
 		if !allowedSecretEnv(target) {
 			return "", tooloutcome.InvalidArguments("invalid environment variable name")
@@ -381,9 +331,6 @@ func (s *Server) applySecret(ctx context.Context, r Run, action, target, value, 
 	if err != nil {
 		return "", errors.New("Secret operation failed; the computer may be unavailable or controlled by another session")
 	}
-	if name == "desktop.type" {
-		return `{"ok":true}`, nil
-	}
 	var result struct {
 		ExitCode *int `json:"exit_code"`
 		TimedOut bool `json:"timed_out"`
@@ -402,67 +349,7 @@ func (s *Server) secretTools(r Run) []Tool {
 		return nil
 	}
 	return []Tool{
-		{Name: "request_secret_input", Description: "Ask the user for a secret through a private input card. The value never enters chat or your tool result. Waits until the user responds or this task times out (normally three minutes; never more than ten minutes), then returns an opaque secret_ref usable only in this run. Explain intended use accurately. Do not ask users to paste secrets into chat.", Parameters: objectSchema(map[string]any{"label": map[string]any{"type": "string"}, "purpose": map[string]any{"type": "string"}}, []string{"label", "purpose"}), Execute: func(ctx context.Context, raw json.RawMessage) (string, error) {
-			var in struct{ Label, Purpose string }
-			if json.Unmarshal(raw, &in) != nil || len(in.Label) > 120 || len(in.Purpose) > 500 || strings.TrimSpace(in.Label) == "" || strings.TrimSpace(in.Purpose) == "" {
-				return "", errors.New("label and purpose are required")
-			}
-			v := s.secretVault
-			rec := secretRecord{ID: uuid.NewString(), Label: in.Label, Purpose: in.Purpose, BotID: r.BotID, RunID: r.ID, ConversationID: r.ConversationID, Status: "pending", CreatedAt: now()}
-			v.mu.Lock()
-			count := 0
-			for _, existing := range v.records {
-				if existing.RunID == r.ID {
-					count++
-				}
-			}
-			if count >= 8 || len(v.records) >= 256 {
-				v.mu.Unlock()
-				return "", errors.New("secret request limit reached")
-			}
-			v.records[rec.ID] = rec
-			err := v.saveLocked()
-			v.mu.Unlock()
-			if err != nil {
-				v.mu.Lock()
-				delete(v.records, rec.ID)
-				v.mu.Unlock()
-				return "", errors.New("Could not create secret request")
-			}
-			timer := time.NewTimer(10 * time.Minute)
-			defer timer.Stop()
-			ticker := time.NewTicker(350 * time.Millisecond)
-			defer ticker.Stop()
-			success := false
-			defer func() {
-				if !success {
-					v.mu.Lock()
-					delete(v.records, rec.ID)
-					_ = v.saveLocked()
-					v.mu.Unlock()
-				}
-			}()
-			for {
-				select {
-				case <-ctx.Done():
-					return "", ctx.Err()
-				case <-timer.C:
-					return "", errors.New("secret request expired")
-				case <-ticker.C:
-					v.mu.Lock()
-					current, exists := v.records[rec.ID]
-					v.mu.Unlock()
-					if !exists {
-						return "", errors.New("secret request cancelled")
-					}
-					if current.Status == "ready" {
-						success = true
-						return fmt.Sprintf(`{"secret_ref":%q,"value_hidden":true}`, rec.ID), nil
-					}
-				}
-			}
-		}},
-		{Name: "use_secret_input", Description: "Use a private input reference from this run without seeing its value. browser_type does not locate or focus a field: first inspect the current screenshot and click the intended password field, then call this tool. Never reveal the value. References from ask_user_form only support visible, focused HTML password inputs on the approved HTTPS origin; wrong focus is rejected. If the site uses a plain text secret field, ask the human to enter it directly; never move the value into ordinary tool arguments. shell_exec exports the value as target environment variable for command; ALL output is withheld. env installs a shared environment variable; ssh installs a private key with target filename without overwriting. Shared VM files can be read by Bots with shell permissions, so only install when the user requested it.", Parameters: objectSchema(map[string]any{"secret_ref": map[string]any{"type": "string"}, "action": map[string]any{"type": "string", "enum": []string{"browser_type", "shell_exec", "env", "ssh"}}, "target": map[string]any{"type": "string"}, "command": map[string]any{"type": "string"}}, []string{"secret_ref", "action"}), Identity: func(raw json.RawMessage) tooloutcome.Identity {
+		{Name: "use_secret_input", Description: "Use a private input reference from this run without seeing its value. A reference from ask_user_form is bound to its website: browser_type does not locate or focus a field, so first inspect the current screenshot and click the intended password field, then call this tool; only a visible, focused HTML password input on the approved HTTPS origin accepts it and wrong focus is rejected. If the site uses a plain text secret field, ask the human to enter it directly; never move the value into ordinary tool arguments. A reference from request_secret_input has no website binding and is never typed into a page; for a website login request the password with ask_user_form instead. For such a reference shell_exec exports the value as the target environment variable for command and ALL output is withheld; env installs a shared environment variable; ssh installs a private key with the target filename without overwriting. Shared VM files can be read by Bots with shell permissions, so only install when the user requested it.", Parameters: objectSchema(map[string]any{"secret_ref": map[string]any{"type": "string"}, "action": map[string]any{"type": "string", "enum": []string{"browser_type", "shell_exec", "env", "ssh"}}, "target": map[string]any{"type": "string"}, "command": map[string]any{"type": "string"}}, []string{"secret_ref", "action"}), Identity: func(raw json.RawMessage) tooloutcome.Identity {
 			var in struct {
 				Action string `json:"action"`
 			}
@@ -481,11 +368,16 @@ func (s *Server) secretTools(r Run) []Tool {
 			rec, ok := v.records[in.Ref]
 			v.mu.Unlock()
 			created, _ := time.Parse(time.RFC3339Nano, rec.CreatedAt)
-			if !ok || rec.RunID != r.ID || rec.BotID != r.BotID || rec.ConversationID != r.ConversationID || rec.Status != "ready" || time.Since(created) > 15*time.Minute {
-				return "", tooloutcome.New(tooloutcome.Denied, "secret_reference_unavailable", "not_executed", "secret reference unavailable in this run", "explain_blocker").Err()
+			if !ok || rec.RunID != r.ID || rec.BotID != r.BotID || rec.ConversationID != r.ConversationID || rec.Status != "ready" || time.Since(created) > secretReferenceLifetime {
+				return "", tooloutcome.New(tooloutcome.Denied, "secret_reference_unavailable", "not_executed", secretRerequestText(""), secretRerequestNext).Err()
 			}
 			if rec.Kind == "browser_form" {
 				return s.applyFormSecret(ctx, r, rec, in.Action)
+			}
+			// No origin is recorded for this value, so typing it into whatever
+			// page has focus would be an unguarded paste.
+			if in.Action == "browser_type" {
+				return "", tooloutcome.New(tooloutcome.Denied, "private_input_not_typeable", "not_executed", "This private input has no website binding and is never typed into a page. For a website login, ask for the password with ask_user_form, which binds it to the page's origin.", "replan").Err()
 			}
 			value, err := v.reveal(rec)
 			if err != nil {

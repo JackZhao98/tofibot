@@ -287,9 +287,9 @@
     "answered_refresh_failed": "답변을 받았지만 상태를 새로고침하지 못했습니다. 페이지를 새로고침해 확인하세요.",
     "needs_input": "입력 필요",
     "target_site": "웹사이트",
-    "unspecified": "지정 안 됨",
     "privacy_fields": "일반 필드는 일반 텍스트로 Bot에 전달됩니다. 비밀번호는 비공개 입력으로 전달되며 Bot에게 일반 텍스트로 표시되지 않습니다. 비밀번호의 공백은 그대로 유지됩니다.",
     "privacy_continue": "제출하면 Bot이 작업을 계속합니다. 아직 웹사이트에 제출된 것은 없습니다.",
+    "privacy_secret": "입력한 값은 채팅 메시지로 전송되지 않습니다.",
     "private_field": "비공개",
     "required": "필수",
     "optional": "선택",
@@ -454,17 +454,6 @@
     "payload_label": "전체 도구 인수, 일반 텍스트",
     "submitting": "제출 중…",
     "remember": "승인하고 이 채팅에서 기억하기"
-  },
-  "secret": {
-    "submit_failed": "제출하지 못했습니다. 요청이 아직 열려 있는지 확인한 후 다시 시도하세요.",
-    "done": "안전하게 제출됨 · {{name}} 계속 진행 가능",
-    "needed": "{{name}} · 계속하려면 비공개 입력 필요",
-    "tag": "비공개 입력",
-    "placeholder": "키 또는 비밀번호 입력",
-    "note": "입력한 값은 채팅 메시지로 전송되지 않습니다.",
-    "cancel": "취소",
-    "submitting": "제출 중…",
-    "submit": "비공개로 제출"
   },
   "remembered": {
     "title": "기억된 승인",

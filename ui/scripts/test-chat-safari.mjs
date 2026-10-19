@@ -116,7 +116,6 @@ async function open({ width = 1180, height = 820, touch = false, mobile = false,
     if (path.startsWith("/api/computer")) return json({ owner: null, waiting: [] });
     if (path === "/api/questions") return json({ questions: [] });
     if (path === "/api/mail-drafts") return json({ drafts: [] });
-    if (path === "/api/secret-inputs") return json({ requests: [] });
     return json({});
   });
   await page.goto((production ? prodOrigin : origin) + "/");

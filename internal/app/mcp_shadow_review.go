@@ -37,6 +37,11 @@ func (s *Server) stopShadowMCPReviews() {
 // A host-exempt read needs a durable advisory card, not a pending approval.
 // There is deliberately no mcp_call_approvals row or answer/actor for this card.
 func (s *Server) shadowExemptMCPCall(ctx context.Context, c Conversation, r Run, call extensions.MCPCallApproval, payload string) error {
+	// Advice has no authority and shows only on a card. With no person to see
+	// it, the card is skipped and the host policy proceeds exactly as before.
+	if !c.UserVisible {
+		return nil
+	}
 	r.reviewCallID = runtime.ToolCallID(ctx)
 	s.mcpApprovalMu.Lock()
 	defer s.mcpApprovalMu.Unlock()

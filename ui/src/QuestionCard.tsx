@@ -8,7 +8,7 @@ import { ApprovalCard } from "./ApprovalCard";
 import { useUserTimezone } from "./UserTimezone";
 import type { Bot } from "./types";
 import { autoReviewPresentation, reconcileQuestion, REMEMBERED_APPROVAL_ACTOR, type Question } from "./questionTimeline";
-import { userFormAnswerRows, userFormIdentity, userFormSchemaError, validateUserForm } from "./userForm";
+import { isPrivateInputForm, userFormAnswerRows, userFormIdentity, userFormSchemaError, validateUserForm } from "./userForm";
 import { canAnswerQuestion, presentTaskIssue } from "./taskIssuePresentation";
 import { i18n, useTranslation } from "./i18n";
 import { formatNumber } from "./i18n/format";
@@ -252,11 +252,11 @@ function UserFormCard({ item, bot, group, archived, onChanged }: QuestionCardPro
         autoComplete="off" noValidate onSubmit={event => { event.preventDefault(); void finish(); }}>
         {active && <span className="question-state">{t("form.needs_input")}</span>}
         <div id={title} className="question-prompt"><MessageMarkdown content={item.question} /></div>
-        <p className="question-form-target"><span>{t("form.target_site")}</span> <span>{item.source_url || t("form.unspecified")}</span></p>
+        {!isPrivateInputForm(item) && <p className="question-form-target"><span>{t("form.target_site")}</span> <span>{item.source_url}</span></p>}
         {active ? <>
+          {/* A form without a website is a private input: one secret, no destination. */}
           <div id={privacy} className="question-form-privacy">
-            <p>{t("form.privacy_fields")}</p>
-            <p>{t("form.privacy_continue")}</p>
+            {isPrivateInputForm(item) ? <p>{t("form.privacy_secret")}</p> : <><p>{t("form.privacy_fields")}</p><p>{t("form.privacy_continue")}</p></>}
           </div>
           {schemaError ? <p className="error-text" role="alert">{schemaError}</p> : <fieldset className="question-form-fields" disabled={Boolean(busy) || archived} aria-labelledby={title}>
             {fields.map((field, index) => {

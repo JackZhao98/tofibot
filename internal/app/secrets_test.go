@@ -3,8 +3,6 @@ package app
 import (
 	"context"
 	"encoding/json"
-	"errors"
-	"fmt"
 	"github.com/JackZhao98/tofibot/internal/computer"
 	"io"
 	"net/http"
@@ -118,7 +116,7 @@ func TestSecretToolWithholdsAllOutputAndScopesReference(t *testing.T) {
 	ciphertext, _ := s.secretVault.seal("ref", "fixture-secret")
 	s.secretVault.records["ref"] = secretRecord{ID: "ref", RunID: run.ID, BotID: run.BotID, ConversationID: run.ConversationID, Status: "ready", CreatedAt: now(), Ciphertext: ciphertext}
 	args := json.RawMessage(`{"secret_ref":"ref","action":"shell_exec","target":"API_KEY","command":"printf %s \"$API_KEY\""}`)
-	out, err := s.secretTools(run)[1].Execute(context.Background(), args)
+	out, err := s.secretTools(run)[0].Execute(context.Background(), args)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -129,14 +127,14 @@ func TestSecretToolWithholdsAllOutputAndScopesReference(t *testing.T) {
 		t.Fatal("action not performed")
 	}
 	for _, other := range []Run{{ID: "other", BotID: run.BotID, ConversationID: run.ConversationID}, {ID: run.ID, BotID: "other", ConversationID: run.ConversationID}, {ID: run.ID, BotID: run.BotID, ConversationID: "other"}} {
-		if _, err = s.secretTools(other)[1].Execute(context.Background(), args); err == nil {
+		if _, err = s.secretTools(other)[0].Execute(context.Background(), args); err == nil {
 			t.Fatal("cross-scope secret accepted")
 		}
 	}
 	rec := s.secretVault.records["ref"]
 	rec.CreatedAt = time.Now().Add(-time.Hour).Format(time.RFC3339Nano)
 	s.secretVault.records["ref"] = rec
-	if _, err = s.secretTools(run)[1].Execute(context.Background(), args); err == nil {
+	if _, err = s.secretTools(run)[0].Execute(context.Background(), args); err == nil {
 		t.Fatal("expired reference accepted")
 	}
 	if *count != 1 {
@@ -145,18 +143,6 @@ func TestSecretToolWithholdsAllOutputAndScopesReference(t *testing.T) {
 	s.clearRunSecrets(run.ID)
 	if len(s.secretVault.records) != 0 {
 		t.Fatal("run teardown did not clear values")
-	}
-}
-func TestSecretRequestCancellationRemovesValue(t *testing.T) {
-	s, _ := secretTestServer(t)
-	ctx, cancel := context.WithCancel(context.Background())
-	cancel()
-	_, err := s.secretTools(Run{ID: "run", BotID: "bot", ConversationID: "conversation"})[0].Execute(ctx, json.RawMessage(`{"label":"API key","purpose":"Synthetic test"}`))
-	if !errors.Is(err, context.Canceled) {
-		t.Fatal(err)
-	}
-	if len(s.secretVault.records) != 0 {
-		t.Fatal("cancelled pending request retained")
 	}
 }
 func TestSecretCredentialMetadataNeverReturnsValue(t *testing.T) {
@@ -174,88 +160,23 @@ func TestSecretCredentialMetadataNeverReturnsValue(t *testing.T) {
 	}
 }
 
-func TestSecretInputHTTPSubmissionScopeAndCompletion(t *testing.T) {
-	s, _ := secretTestServer(t)
-	store, err := OpenStore(t.TempDir())
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer store.Close()
-	s.store = store
-	bot, err := store.CreateBot("fixture", "", "")
-	if err != nil {
-		t.Fatal(err)
-	}
-	run, err := store.AddRun(bot.DMConversationID, bot.ID, "")
-	if err != nil {
-		t.Fatal(err)
-	}
-	store.SetRunStatus(run.ID, "running", "")
-	rec := secretRecord{ID: "request", RunID: run.ID, BotID: bot.ID, ConversationID: bot.DMConversationID, Status: "pending", CreatedAt: now(), Label: "API key"}
-	s.secretVault.records[rec.ID] = rec
-	w := httptest.NewRecorder()
-	s.handleSecrets(w, httptest.NewRequest("GET", "/api/secret-inputs?conversation_id=other", nil))
-	if strings.Contains(w.Body.String(), "API key") {
-		t.Fatal("request leaked to another conversation")
-	}
-	w = httptest.NewRecorder()
-	s.handleSecrets(w, httptest.NewRequest("POST", "/api/secret-inputs/request", strings.NewReader(`{"value":"synthetic-private"}`)))
-	if w.Code != 200 || strings.Contains(w.Body.String(), "synthetic-private") {
-		t.Fatalf("submission failed: %d", w.Code)
-	}
-	if value, err := s.secretVault.reveal(s.secretVault.records[rec.ID]); err != nil || value != "synthetic-private" {
-		t.Fatal("value not privately persisted")
-	}
-	w = httptest.NewRecorder()
-	s.handleSecrets(w, httptest.NewRequest("POST", "/api/secret-inputs/request", strings.NewReader(`{"value":"other"}`)))
-	if w.Code != 409 {
-		t.Fatal("fulfilled request accepted twice")
-	}
-	rec.ID = "cancelled"
-	s.secretVault.records[rec.ID] = rec
-	store.SetRunStatus(run.ID, "cancelled", "")
-	w = httptest.NewRecorder()
-	s.handleSecrets(w, httptest.NewRequest("POST", "/api/secret-inputs/cancelled", strings.NewReader(`{"value":"other"}`)))
-	if w.Code != 409 {
-		t.Fatal("inactive run accepted secret")
-	}
-	rec.ID = "expired"
-	rec.CreatedAt = time.Now().Add(-time.Hour).Format(time.RFC3339Nano)
-	s.secretVault.records[rec.ID] = rec
-	w = httptest.NewRecorder()
-	s.handleSecrets(w, httptest.NewRequest("POST", "/api/secret-inputs/expired", strings.NewReader(`{"value":"other"}`)))
-	if w.Code != 409 {
-		t.Fatal("expired input accepted")
-	}
-}
-
 func TestSecretDeleteFailureRestoresCurrentRecord(t *testing.T) {
-	for _, request := range []bool{false, true} {
-		t.Run(fmt.Sprint(request), func(t *testing.T) {
-			s, _ := secretTestServer(t)
-			rec := secretRecord{ID: "entry", Kind: "env", Target: "API_KEY", Status: "stored"}
-			endpoint := "/api/computer/credentials/entry"
-			if request {
-				rec.RunID = "run"
-				rec.Status = "pending"
-				endpoint = "/api/secret-inputs/entry"
-			}
-			s.secretVault.records[rec.ID] = rec
-			// Renaming a file onto a directory reliably fails, even for a root test runner.
-			broken := filepath.Join(t.TempDir(), "directory")
-			if err := os.Mkdir(broken, 0700); err != nil {
-				t.Fatal(err)
-			}
-			s.secretVault.path = broken
-			w := httptest.NewRecorder()
-			s.handleSecrets(w, httptest.NewRequest("DELETE", endpoint, nil))
-			if w.Code != 500 {
-				t.Fatal("delete should fail")
-			}
-			restored, ok := s.secretVault.records[rec.ID]
-			if !ok || restored.Status != rec.Status {
-				t.Fatal("failed deletion lost the in-memory record")
-			}
-		})
+	s, _ := secretTestServer(t)
+	rec := secretRecord{ID: "entry", Kind: "env", Target: "API_KEY", Status: "stored"}
+	s.secretVault.records[rec.ID] = rec
+	// Renaming a file onto a directory reliably fails, even for a root test runner.
+	broken := filepath.Join(t.TempDir(), "directory")
+	if err := os.Mkdir(broken, 0700); err != nil {
+		t.Fatal(err)
+	}
+	s.secretVault.path = broken
+	w := httptest.NewRecorder()
+	s.handleSecrets(w, httptest.NewRequest("DELETE", "/api/computer/credentials/entry", nil))
+	if w.Code != 500 {
+		t.Fatal("delete should fail")
+	}
+	restored, ok := s.secretVault.records[rec.ID]
+	if !ok || restored.Status != rec.Status {
+		t.Fatal("failed deletion lost the in-memory record")
 	}
 }

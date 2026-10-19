@@ -33,7 +33,6 @@ import { subscribeSettingsDeepLinks } from "./settings/deepLinks";
 import { StatusBadge } from "./settings/components";
 import { ModelFields } from "./ModelSettings";
 import { followsGlobal } from "./modelCatalog";
-import { SecretInputs } from "./SecretInputCard";
 import { BotIdentityCard } from "./BotIdentityCard";
 import { ActionHints, ConfirmAction, Disclosure, useAppearance, useSurfacePresence } from "./InteractionSystem";
 import { useConversationScroll } from "./useConversationScroll";
@@ -2006,7 +2005,6 @@ function Workspace() {
                         {afterTools.length || afterSummaries.length || Object.keys(afterSummaryErrors).length || Object.keys(afterSummaryLoading).length ? <ToolActivityList activities={[...afterTools, ...afterAggregateTools]} summaries={afterSummaries} summaryErrors={afterSummaryErrors} summaryLoading={afterSummaryLoading} details={toolDetailState} onLoadDetails={loadToolDetails} onRetrySummary={retryToolSummary} botById={botById} activeRunIds={activeRunIds} group={active.kind === "group"} /> : null}
                       </div>;
                     })}
-                  <SecretInputs key={`secret-inputs-${active.id}`} conversationId={active.id} bots={bots}/>
                   <ToolActivityList activities={toolTimeline.fallback} summaries={terminalToolSummaries.filter(summary => toolTimeline.fallback.some(activity => activity.run_id === summary.run_id))} details={toolDetailState} onLoadDetails={loadToolDetails} botById={botById} activeRunIds={activeRunIds} group={active.kind === "group"} />
                   {taskOwners.filter(owner => !owner.anchor).map(renderTaskOwner)}
                   {!isDesktop && pendingRuns.filter(run => !ownedRunIDs.has(run.id)).map(run => <LiveRunStatus key={run.id} run={run} botName={run.kind === "triage" ? "Tofi" : botById.get(run.bot_id)?.name ?? "Bot"} showName={active.kind === "group"} />)}

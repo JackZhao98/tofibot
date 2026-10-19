@@ -6,6 +6,9 @@ export const USER_FORM_LIMITS = { fields: 12, passwords: 8, textCharacters: 4000
 
 const formT = () => i18n.getFixedT(null, "tasks");
 
+/** A form without a website is a private input: one secret, no destination to show. */
+export const isPrivateInputForm = (item: { source_url?: string }) => !item.source_url;
+
 /** Metadata only: drafts never become React keys, persisted state, or diagnostics. */
 export function userFormIdentity(item: Question): string {
   return JSON.stringify([item.conversation_id, item.bot_id, item.run_id, item.question_id,

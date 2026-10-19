@@ -79,7 +79,6 @@ zh-TW, ja, ko, de, fr catalogs stay untouched in phase 2 (English fallback). Tra
 | `ui/src/WorkExecution.tsx` | 16 | 0 |
 | `ui/src/ConversationTaskStatus.tsx` | 15 | 0 |
 | `ui/src/ScheduleEditor.tsx` | 11 | 0 |
-| `ui/src/SecretInputCard.tsx` | 10 | 0 |
 | `ui/src/workExecutionState.ts` | 8 | 0 |
 | `ui/src/ScheduledRun.tsx` | 8 | 0 |
 | `ui/src/runFamily.ts` | 7 | 0 |
