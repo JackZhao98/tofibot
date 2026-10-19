@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { BotAvatar } from "./BotAvatar";
 import { useTranslation } from "./i18n";
 
-export type DesktopPlaceholderTone = "waking" | "connecting" | "resuming" | "hibernated" | "failed";
+export type DesktopPlaceholderTone = "waking" | "connecting" | "resuming" | "hibernated" | "browser" | "failed";
 
 /** Whole seconds since `key` last changed: the "· 3s" after a status line. */
 function useElapsedSeconds(key: string, running: boolean) {
