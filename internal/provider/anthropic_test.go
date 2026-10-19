@@ -5,8 +5,10 @@ import (
 	"encoding/json"
 	"errors"
 	"io"
+	"log"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"strings"
 	"sync"
 	"testing"
@@ -624,6 +626,9 @@ func TestAnthropicRefusedToolChoiceAnyRetriesOnceAndIsRemembered(t *testing.T) {
 	const model = "claude-synthetic-refuses-any"
 	t.Cleanup(func() { anthropicAnyRefused.Delete(model) })
 	refusal := `{"type":"error","error":{"type":"invalid_request_error","message":"Thinking may not be enabled when tool_choice forces tool use."}}`
+	var logged strings.Builder
+	log.SetOutput(&logged)
+	t.Cleanup(func() { log.SetOutput(os.Stderr) })
 	p, captured := anthropicServer(t, errorBody(400, refusal), streamBody(textTurnStream...), streamBody(textTurnStream...))
 	req := &ChatRequest{Model: model, ToolChoice: ToolChoiceAny, Tools: []Tool{{Name: "say", Parameters: map[string]any{"type": "object"}}}, Messages: []Message{{Role: "user", Content: "go"}}}
 	resp, err := p.ChatStream(context.Background(), req, nil)
@@ -632,6 +637,9 @@ func TestAnthropicRefusedToolChoiceAnyRetriesOnceAndIsRemembered(t *testing.T) {
 	}
 	if !strings.Contains((*captured)[0].raw, `"tool_choice":{"type":"any"}`) || strings.Contains((*captured)[1].raw, "tool_choice") {
 		t.Fatalf("first request must force, the retry must not: %s / %s", (*captured)[0].raw, (*captured)[1].raw)
+	}
+	if !strings.Contains(logged.String(), model) || !strings.Contains(logged.String(), "refused tool_choice") {
+		t.Fatalf("the refusal was not logged: %q", logged.String())
 	}
 	if _, err := p.ChatStream(context.Background(), req, nil); err != nil || len(*captured) != 3 || strings.Contains((*captured)[2].raw, "tool_choice") {
 		t.Fatalf("a refused model was forced again: err=%v requests=%d", err, len(*captured))
@@ -643,6 +651,18 @@ func TestAnthropicOtherRejectionsAreNotRetriedAsToolChoice(t *testing.T) {
 	const model = "claude-synthetic-other-400"
 	t.Cleanup(func() { anthropicAnyRefused.Delete(model) })
 	p, captured := anthropicServer(t, errorBody(400, `{"type":"error","error":{"type":"invalid_request_error","message":"max_tokens too large"}}`))
+	_, err := p.ChatStream(context.Background(), &ChatRequest{Model: model, ToolChoice: ToolChoiceAny, Tools: []Tool{{Name: "say", Parameters: map[string]any{"type": "object"}}}, Messages: []Message{{Role: "user", Content: "go"}}}, nil)
+	if err == nil || len(*captured) != 1 || anthropicAnyRejected(model) {
+		t.Fatalf("err=%v requests=%d remembered=%v", err, len(*captured), anthropicAnyRejected(model))
+	}
+}
+
+// A 400 that only mentions tool_choice (a bad tool name, say) is neither
+// retried nor remembered as a refusal of forced tool use.
+func TestAnthropicToolChoiceMentionIsNotARefusalOfAny(t *testing.T) {
+	const model = "claude-synthetic-bad-choice"
+	t.Cleanup(func() { anthropicAnyRefused.Delete(model) })
+	p, captured := anthropicServer(t, errorBody(400, `{"type":"error","error":{"type":"invalid_request_error","message":"tool_choice.name: Tool 'x' not found in provided tools"}}`))
 	_, err := p.ChatStream(context.Background(), &ChatRequest{Model: model, ToolChoice: ToolChoiceAny, Tools: []Tool{{Name: "say", Parameters: map[string]any{"type": "object"}}}, Messages: []Message{{Role: "user", Content: "go"}}}, nil)
 	if err == nil || len(*captured) != 1 || anthropicAnyRejected(model) {
 		t.Fatalf("err=%v requests=%d remembered=%v", err, len(*captured), anthropicAnyRejected(model))
