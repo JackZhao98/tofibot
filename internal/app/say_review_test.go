@@ -188,7 +188,7 @@ func TestTrailingTextAfterAHandoffStaysInternal(t *testing.T) {
 		t.Fatalf("lead = %+v origin=%q", lead, originOf(t, f.server.store, lead.ID))
 	}
 	var kind string
-	if err := f.server.store.db.QueryRow(`SELECT kind FROM messages WHERE run_id=? AND content LIKE 'Passed it%'`, lead.ID).Scan(&kind); err != nil || kind != "progress" {
+	if err := f.server.store.db.QueryRow(`SELECT kind FROM messages WHERE run_id=? AND content LIKE 'Passed it%'`, lead.ID).Scan(&kind); err != nil || kind != "internal" {
 		t.Fatalf("trailing text kind = %q err=%v", kind, err)
 	}
 	// The resumed lead's report is a different run and still publishes.
@@ -219,7 +219,7 @@ func TestPlainTextNeverEntersTheChatDraftWhenStructured(t *testing.T) {
 	if deltas := deltaTexts(t, s.store, run.ConversationID); len(deltas) != 0 {
 		t.Fatalf("plain text entered the chat draft: %q", deltas)
 	}
-	want := []string{"progress|Looking into it now.", "|Here is the final text."}
+	want := []string{"internal|Looking into it now.", "|Here is the final text."}
 	if rows := assistantRows(t, s.store, run.ConversationID); !equalStrings(kindsAndText(rows), want) {
 		t.Fatalf("messages = %q, want %q", kindsAndText(rows), want)
 	}

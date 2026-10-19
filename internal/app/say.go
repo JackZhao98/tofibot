@@ -367,7 +367,9 @@ func (s *Server) sayTool(c Conversation, r Run) Tool {
 				// The Bot already said its part and delegated the rest. What would
 				// follow can only be status about who is doing what, which is not
 				// for the person; the colleague's result resumes this Bot.
-				return fail(tooloutcome.New(tooloutcome.Transient, "answer_after_handoff", "not_executed", "You already posted your part and handed the rest to a colleague. Nothing more is owed to the person now: end your turn without further text; the colleague's result resumes you to integrate it.", "retry").Err())
+				// The turn is over: end it here so no trailing text is generated.
+				runtime.EndTurn(ctx)
+				return fail(tooloutcome.New(tooloutcome.Transient, "answer_after_handoff", "not_executed", "Your part is already posted and the rest is delegated. This turn is over; nothing more is said.", "retry").Err())
 			}
 			if err := validateWake(c, r, in.Wake); err != nil {
 				return fail(err)
