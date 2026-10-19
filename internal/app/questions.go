@@ -140,6 +140,9 @@ type askQuestionInput struct {
 	MinSelections    int              `json:"min_selections"`
 	MaxSelections    int              `json:"max_selections"`
 	ExpiresInSeconds int              `json:"expires_in_seconds"`
+	// PrivateInput marks the backend-built single password card that backs
+	// request_secret_input. It is never read from model arguments.
+	PrivateInput bool `json:"-"`
 }
 
 // migrateQuestions is called from Store.migrate. Keeping the DDL here keeps
@@ -249,7 +252,11 @@ func normalizeQuestionInput(x askQuestionInput) (askQuestionInput, error) {
 		}
 	case questionForm:
 		var err error
-		x, err = normalizeUserForm(x)
+		if x.PrivateInput {
+			x, err = normalizePrivateInput(x)
+		} else {
+			x, err = normalizeUserForm(x)
+		}
 		if err != nil {
 			return x, err
 		}
@@ -319,7 +326,7 @@ func requireHumanPresent(c Conversation) error {
 }
 
 func (s *Server) questionTools(c Conversation, r Run) []Tool {
-	return []Tool{{Name: "ask_user_question", Description: "Ask the human a text, yes/no, single-choice, or multiple-choice question and wait for the answer. Set allow_other=true for yes/no or choice questions to offer a human-written alternative. When used, it returns {values:[selected option IDs],other_text:string}; values is empty for yes/no and single-choice. An Other response is not affirmative approval; interpret its actual text. Ordinary answers retain their boolean, string, or array format. Answers are ordinary conversation data: never ask for secrets here. Use ask_user_form for several webpage fields in one card, including private password fields.", Parameters: objectSchema(map[string]any{
+	tools := []Tool{{Name: "ask_user_question", Description: "Ask the human a text, yes/no, single-choice, or multiple-choice question and wait for the answer. Set allow_other=true for yes/no or choice questions to offer a human-written alternative. When used, it returns {values:[selected option IDs],other_text:string}; values is empty for yes/no and single-choice. An Other response is not affirmative approval; interpret its actual text. Ordinary answers retain their boolean, string, or array format. Answers are ordinary conversation data: never ask for secrets here. Use ask_user_form for several webpage fields in one card, including private password fields.", Parameters: objectSchema(map[string]any{
 		"question":           map[string]any{"type": "string"},
 		"type":               map[string]any{"type": "string", "enum": []string{questionText, questionYesNo, questionSingleChoice, questionMultiChoice}},
 		"options":            map[string]any{"type": "array", "items": map[string]any{"type": "object", "properties": map[string]any{"id": map[string]any{"type": "string"}, "label": map[string]any{"type": "string"}}, "required": []string{"id", "label"}, "additionalProperties": false}},
@@ -356,6 +363,12 @@ func (s *Server) questionTools(c Conversation, r Run) []Tool {
 		}
 		return string(answer), nil
 	}}, s.userFormTool(c, r), s.approvalTool(c, r)}
+	// Same availability as use_secret_input, which is the only consumer of the
+	// reference this returns.
+	if s.secretVault != nil && s.microVM != nil {
+		tools = append(tools, s.secretInputTool(c, r))
+	}
+	return tools
 }
 
 func (s *Server) approvalTool(c Conversation, r Run) Tool {
