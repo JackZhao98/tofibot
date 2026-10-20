@@ -47,4 +47,8 @@ assert.ok((deltaBody.match(/setDrafts\(/g) ?? []).length === 1, "only a structur
 const handlersAt = app.indexOf("const rowHandlers = useMemo<RowHandlers>(");
 assert.ok(handlersAt > 0 && /\}, \[\]\);/.test(app.slice(handlersAt, handlersAt + 1200)), "row handlers keep one identity for the Workspace's lifetime");
 
+// A conversation that opens at its newest message draws the newest blocks first and the rest right after.
+assert.ok(/const FIRST_PAINT_BLOCKS = \d+;/.test(app), "the first paint draws a fixed number of newest blocks");
+assert.ok(mapBody.includes("if (index < timelineFrom) return null;"), "blocks before the first-paint window are skipped, not removed from the derivations");
+assert.ok(app.includes("fullTimelineFor !== active.id && viewport.opensAtBottom && !taskFocus"), "only a visit that lands at the bottom is windowed");
 console.log("perf structure checks: PASS (stable connectEvents, gated ownership poll, slow computer-info poll)");
