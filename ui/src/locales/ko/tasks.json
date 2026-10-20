@@ -211,7 +211,38 @@
     "view_full_arguments": "전체 인수 보기",
     "proposal_ended": "이 제안은 종료되었습니다.",
     "view_decision": "결정 기록 보기",
-    "remembered_decision": "이 채팅에서 기억된 승인으로 허용되었으며 아무에게도 묻지 않았습니다. 실행 여부는 아래 단계에 표시됩니다."
+    "remembered_decision": "이 채팅에서 기억된 승인으로 허용되었으며 아무에게도 묻지 않았습니다. 실행 여부는 아래 단계에 표시됩니다.",
+    "facts": {
+      "title": "Tofi가 확인한 내용",
+      "bot_wording": "아래는 Bot이 작성한 문구",
+      "kind": "변경",
+      "name": "이름",
+      "source": "주소",
+      "previous_source": "기존 주소",
+      "transport": "전송 방식",
+      "tools": "도구",
+      "all_tools": "서버가 제공하는 모든 도구",
+      "only_tools": "다음만 허용: {{tools}}",
+      "blocked_tools": "차단된 도구",
+      "headers": "요청 헤더",
+      "none": "없음",
+      "oauth": "로그인(OAuth)",
+      "skill_description": "스킬 설명",
+      "skill_excerpt": "지침 시작 부분",
+      "skill_tools": "요청하는 도구",
+      "skill_files": "파일",
+      "skill_scripts": "스크립트",
+      "skill_scripts_present": "스크립트 또는 실행 파일 포함",
+      "change_id": "변경 ID",
+      "kinds": {
+        "skill_install": "스킬 설치",
+        "skill_delete": "스킬 삭제",
+        "mcp_create": "MCP 서버 추가",
+        "mcp_update": "MCP 서버 변경",
+        "mcp_delete": "MCP 서버 삭제",
+        "mcp_test": "MCP 서버에 연결"
+      }
+    }
   },
   "question": {
     "approve": "작업 승인",
