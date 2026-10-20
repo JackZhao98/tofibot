@@ -12,17 +12,13 @@ import { REMEMBERED_APPROVAL_ACTOR, type Question } from "./questionTimeline";
 import type { MailDraft } from "./MailDraftCard";
 import type { Message, ToolActivity, ToolActivityRunSummary } from "./types";
 import { isTerminalRun } from "./runFamily";
-import { SPRINGS, springEasing } from "./motion-lab/lib/spring";
 import { prefersReducedMotion } from "./motion-lab/lib/hooks";
 import "./task-issue-card.css";
-
-const SETTLE = springEasing(SPRINGS.morph);
-const settleVars = { "--spring": SETTLE.easing, "--spring-ms": `${SETTLE.durationMs}ms` } as React.CSSProperties;
+import { MOTION, EASE } from "./motion";
 
 export type TaskDetailState = { loaded: number; toolCount: number; hasMore: boolean; loading: boolean; error?: string };
 export type TaskRunBlockProps = { senderHead?: React.ReactNode; owner: TaskOwner; tools: ToolActivity[]; questions: Question[]; drafts: MailDraft[]; messages: Message[]; summaries: ToolActivityRunSummary[]; details?: Record<string, TaskDetailState>; connected?: boolean; /** Sends a failed run again (the server accepts it for busy or dropped service). */ onRetryRun?: (runId: string) => void | Promise<void>; /** Pins one language (tests, fixtures); the active UI language otherwise. */ locale?: Language; botName?: string; showName?: boolean; onFeedback?: (text:string) => void; onOpenTools: () => void; onRefresh: () => Promise<void>; onLoadDetails?: (runId: string, offset: number) => Promise<void>; liveStatus?: string; liveAvatar?: ReactNode; /** The run's reply is already on screen (a streaming draft with text, or its final message): the live line steps aside in that same frame instead of leaving later. */ replying?: boolean; /** Chat default: no Activity row. Cards (approvals, issues) and a live status line still show. */ hideActivity?: boolean; /** The run's Activity was asked for (message action); shows it although hidden. */ revealed?: boolean; renderMessage?: (message: Message) => ReactNode; renderQuestion: (question: Question) => ReactNode; renderDraft: (draft: MailDraft) => ReactNode };
 
-const GROW = springEasing(SPRINGS.settle);
 const drawers = new WeakMap<HTMLElement, Animation[]>();
 const drawerBody = (details: HTMLDetailsElement) => details.querySelector<HTMLElement>(":scope > :not(summary)");
 
@@ -40,8 +36,8 @@ export function animateDisclosure(details: HTMLDetailsElement, open: boolean) {
   details.dataset.drawer = open ? "opening" : "closing";
   const to = open ? body.scrollHeight + body.offsetHeight - body.clientHeight : 0;
   body.style.overflow = "clip";
-  const height = body.animate({ height: [`${from}px`, `${to}px`] }, { duration: GROW.durationMs, easing: GROW.easing });
-  const fade = body.animate(open ? { opacity: [0, 1], translate: ["0 -6px", "0 0"] } : { opacity: [1, 0], translate: ["0 0", "0 -4px"] }, { duration: open ? 320 : 200, easing: "cubic-bezier(.22,1,.36,1)", fill: "forwards" });
+  const height = body.animate({ height: [`${from}px`, `${to}px`] }, { duration: open ? MOTION.base : MOTION.panelOut, easing: open ? EASE.out : EASE.settle });
+  const fade = body.animate(open ? { opacity: [0, 1], translate: ["0 -6px", "0 0"] } : { opacity: [1, 0], translate: ["0 0", "0 -4px"] }, { duration: open ? MOTION.base : MOTION.quick, easing: open ? EASE.out : EASE.settle, fill: "forwards" });
   drawers.set(body, [height, fade]);
   height.finished.then(() => {
     drawers.delete(body);
@@ -65,7 +61,7 @@ export function ActivityDisclosure({ children, locale, detail, problem, live, di
   const { t } = useTranslation("tasks", { lng: locale });
   // While the Bot works the whole block is one quiet status line; the steps
   // stay folded until someone opens them.
-  return <details className={`task-activity${live ? " is-live" : ""}`} ref={disclosureRef} style={settleVars} onToggle={event => { if (event.currentTarget.open) onOpen(); }}><summary onClick={toggleDisclosure}>{live ? <>{live.avatar && <span className="task-activity-cat" aria-hidden="true">{live.avatar}</span>}<span className="task-activity-live" role="status">{live.label}</span></> : <><TofiIcon name="chevron-right" size={16} aria-hidden="true" />{t("activity.title")}{detail && <span className="task-activity-detail"> · {detail}</span>}{problem && <span className="task-activity-problem"> · {problem}</span>}</>}</summary><div className="task-activity-records">{children}</div></details>;
+  return <details className={`task-activity${live ? " is-live" : ""}`} ref={disclosureRef} onToggle={event => { if (event.currentTarget.open) onOpen(); }}><summary onClick={toggleDisclosure}>{live ? <>{live.avatar && <span className="task-activity-cat" aria-hidden="true">{live.avatar}</span>}<span className="task-activity-live" role="status">{live.label}</span></> : <><TofiIcon name="chevron-right" size={16} aria-hidden="true" />{t("activity.title")}{detail && <span className="task-activity-detail"> · {detail}</span>}{problem && <span className="task-activity-problem"> · {problem}</span>}</>}</summary><div className="task-activity-records">{children}</div></details>;
 }
 
 /** One step: marker, human action, short argument, then state and duration. */
@@ -194,12 +190,13 @@ export function TaskRunBlock({ owner, tools, questions, drafts, messages, summar
   useEffect(() => {
     if (!showActivity || !openWhenShown.current || !disclosure.current) return;
     openWhenShown.current = false;
-    disclosure.current.open = true;
+    // The record opens as a drawer (--m-base) instead of pushing the list down in one frame.
+    animateDisclosure(disclosure.current, true);
     disclosure.current.querySelector("summary")?.focus({ preventScroll: true });
     disclosure.current.scrollIntoView({ block: "nearest", behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" });
   }, [showActivity, revealedByMenu]);
   function viewActivity() {
-    if (disclosure.current) { disclosure.current.open = true; disclosure.current.querySelector("summary")?.focus(); }
+    if (disclosure.current) { animateDisclosure(disclosure.current, true); disclosure.current.querySelector("summary")?.focus(); }
     else { openWhenShown.current = true; setRevealedHere(true); }
   }
   if (!taskBlockVisible({ owner, tools, questions, drafts, messages, summaries, details, connected, locale, hideActivity, revealed })) return null;

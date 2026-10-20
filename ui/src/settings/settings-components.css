@@ -64,7 +64,7 @@
 
 /* Segmented */
 .segmented{display:inline-flex;gap:2px;padding:3px;border:1px solid var(--line-soft);border-radius:12px;background:var(--sunk);max-width:100%}
-.workspace .settings-page-body .segmented>button{min-height:34px;padding:6px 12px;border:2px solid transparent;border-radius:9px;background:transparent;color:var(--muted);font:600 12px/1 var(--mono);white-space:nowrap;transition:background-color 120ms,color 120ms,box-shadow 120ms}
+.workspace .settings-page-body .segmented>button{min-height:34px;padding:6px 12px;border:2px solid transparent;border-radius:9px;background:transparent;color:var(--muted);font:600 12px/1 var(--mono);white-space:nowrap;transition:background-color var(--m-press),color var(--m-press),box-shadow var(--m-press)}
 .workspace .settings-page-body .segmented>button:hover:not(:disabled){color:var(--ink)}
 .workspace .settings-page-body .segmented>button[aria-checked="true"]{border-color:var(--line);background:var(--surface);color:var(--ink);box-shadow:var(--hard-sm)}
 .workspace .settings-page-body .segmented>button:disabled{opacity:.5;cursor:not-allowed}
@@ -82,7 +82,7 @@
 .workspace .settings-page-body .appearance-setting{padding:0;margin:0;border:0}
 .workspace .settings-page-body .appearance-setting h3{margin:0 0 10px;font:600 16px/1.3 var(--display)}
 .workspace .settings-page-body .appearance-options{gap:12px}
-.workspace .settings-page-body .appearance-options button{padding:8px;border:2px solid var(--line-soft);border-radius:16px;background:var(--surface);color:var(--ink-soft);font:600 12px/1.2 var(--mono);transition:box-shadow 120ms,border-color 120ms}
+.workspace .settings-page-body .appearance-options button{padding:8px;border:2px solid var(--line-soft);border-radius:16px;background:var(--surface);color:var(--ink-soft);font:600 12px/1.2 var(--mono);transition:box-shadow var(--m-press),border-color var(--m-press)}
 .workspace .settings-page-body .appearance-options button:hover{background:var(--surface-2)}
 .workspace .settings-page-body .appearance-options button[aria-pressed="true"]{border-color:var(--line);box-shadow:var(--hard-sm);color:var(--ink);background:var(--surface)}
 .workspace .settings-page-body .appearance-options .theme-swatch{height:56px;border-radius:8px}
@@ -141,7 +141,7 @@
 .skill-access-more{margin-left:6px;color:var(--muted);font:600 11px/1 var(--mono)}
 .skill-access-summary{color:var(--ink);font-weight:600}
 .skill-access-names{flex-basis:100%;color:var(--muted);overflow-wrap:anywhere}
-.sheet-overlay{position:fixed;inset:0;z-index:210;display:grid;place-items:center;padding:24px;background:color-mix(in srgb,var(--desktop-controls-solid) 50%,transparent);backdrop-filter:blur(12px)}
+.sheet-overlay{position:fixed;inset:0;z-index:210;display:grid;place-items:center;padding:24px;background:color-mix(in srgb,var(--desktop-controls-solid) 50%,transparent);-webkit-backdrop-filter:blur(12px);backdrop-filter:blur(12px)}
 .sheet{display:flex;flex-direction:column;gap:14px;box-sizing:border-box;width:min(440px,100%);max-height:calc(100dvh - 48px);overflow:auto;padding:20px;background:var(--surface);color:var(--ink);border:var(--edge-bold) solid var(--line);border-radius:22px;box-shadow:var(--hard);outline:none}
 .sheet>h3{margin:0;font:600 17px/1.3 var(--display);overflow-wrap:anywhere}
 .sheet-fieldset{display:grid;gap:8px;margin:0;padding:0;border:0;min-width:0}

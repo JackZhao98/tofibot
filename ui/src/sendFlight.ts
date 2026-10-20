@@ -1,4 +1,5 @@
 import { arcPoints } from "./motion-lab/lib/choreo";
+import { MOTION, EASE } from "./motion";
 
 /** Fly the confirmed user bubble along the same arc and timing as Motion Lab. */
 export function flySentMessage(origin: DOMRect, target: HTMLElement): void {
@@ -28,7 +29,7 @@ export function flySentMessage(origin: DOMRect, target: HTMLElement): void {
       backgroundColor: t < 0.25 ? "transparent" : style.backgroundColor,
       borderColor: t < 0.25 ? "transparent" : style.borderColor,
     };
-  }), { duration: 640, easing: "cubic-bezier(.4,0,.15,1)" });
+  }), { duration: MOTION.flight, easing: EASE.inout });
   let frame = 0;
   const cleanup = () => {
     cancelAnimationFrame(frame);

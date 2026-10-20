@@ -1,5 +1,5 @@
 html:not([data-desktop]) .copy-feedback { display:inline-grid; flex:none; vertical-align:middle; }
-html:not([data-desktop]) .copy-feedback > svg { grid-area:1 / 1; transition:opacity 140ms ease,scale 380ms cubic-bezier(.34,1.56,.64,1),rotate 380ms cubic-bezier(.34,1.56,.64,1); }
+html:not([data-desktop]) .copy-feedback > svg { grid-area:1 / 1; transition:opacity var(--m-quick) var(--ease-out),scale var(--m-panel-in) var(--ease-spring),rotate var(--m-panel-in) var(--ease-spring); }
 html:not([data-desktop]) .copy-feedback > svg:last-child { opacity:0; scale:.4; rotate:-45deg; color:var(--green-text); }
 html:not([data-desktop]) .copy-feedback.is-copied > svg:first-child { opacity:0; scale:.5; rotate:30deg; }
 html:not([data-desktop]) .copy-feedback.is-copied > svg:last-child { opacity:1; scale:1; rotate:0deg; }

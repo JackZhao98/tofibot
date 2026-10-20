@@ -34,8 +34,8 @@
 .workspace .mail-draft-done time { margin-left:auto; color:var(--muted); font:var(--type-code,12px/1.4 var(--mono)); }
 .workspace .mail-draft-done-dot { flex:none; width:8px; height:8px; border-radius:50%; background:var(--status-done,var(--green)); }
 .workspace .mail-draft-done.is-declined { opacity:.7; }
-.workspace .mail-draft-done.is-arriving { animation:mail-done-settle 360ms cubic-bezier(.22,1,.36,1) both; }
-.workspace .mail-draft-done.is-arriving .mail-draft-done-dot { animation:mail-done-dot 520ms 160ms cubic-bezier(.34,1.6,.64,1) both; }
+.workspace .mail-draft-done.is-arriving { animation:mail-done-settle var(--m-panel-in) var(--ease-out) both; }
+.workspace .mail-draft-done.is-arriving .mail-draft-done-dot { animation:mail-done-dot var(--m-panel-in) 160ms var(--ease-spring) both; }
 @keyframes mail-done-settle { from { opacity:0; transform:translateY(8px) scale(.985); } }
 @keyframes mail-done-dot { from { transform:scale(0); } }
 @media(prefers-reduced-motion:reduce) { .workspace .mail-draft-done.is-arriving, .workspace .mail-draft-done.is-arriving .mail-draft-done-dot { animation:none; } }

@@ -36,7 +36,7 @@
 .workspace .contact-row {
   min-height:64px; gap:6px; margin:0; padding:8px 10px;
   border:var(--edge) solid transparent; border-radius:12px; color:var(--ink);
-  background:transparent; transition:background-color 120ms,border-color 120ms,transform 120ms,box-shadow 120ms;
+  background:transparent; transition:background-color var(--m-press),border-color var(--m-press),transform var(--m-press),box-shadow var(--m-press);
 }
 .workspace .contact-row:hover { background:var(--surface); }
 .workspace .contact-row.active { background:var(--surface-2); border-color:var(--line); box-shadow:var(--hard-sm); }
@@ -64,15 +64,15 @@ html[data-desktop] .workspace .conversation-row:has(.unread-badge) .contact-copy
 html[data-desktop] .workspace .conversation-row:has(.unread-badge) .contact-copy small { color:var(--ink); font-weight:700; }
 html[data-desktop] .conversation-working-indicator {
   position:absolute; right:16px; bottom:15px; width:9px; height:9px;
-  border-radius:50%; background:var(--blue); animation:v2-breathe 2.4s ease-in-out infinite;
+  border-radius:50%; background:var(--blue); animation:v2-breathe 2.4s var(--ease-inout) infinite;
 }
 html:not([data-desktop]) .workspace .conversation-row>.conversation-status {
   position:absolute; right:18.5px; bottom:16.5px; display:grid; place-items:center;
   width:9px; height:9px; padding:0; border-radius:50%;
   background:var(--blue); color:transparent; font:600 10px/1 var(--mono);
-  transition:width 240ms cubic-bezier(.22,1,.36,1),height 240ms cubic-bezier(.22,1,.36,1),padding 240ms cubic-bezier(.22,1,.36,1),border-radius 240ms cubic-bezier(.22,1,.36,1),background-color 180ms ease;
+  transition:width var(--m-base) var(--ease-out),height var(--m-base) var(--ease-out),padding var(--m-base) var(--ease-out),border-radius var(--m-base) var(--ease-out),background-color var(--m-base) var(--ease-out);
 }
-html:not([data-desktop]) .workspace .conversation-row>.conversation-status[data-status="working"] { animation:v2-breathe 2.4s ease-in-out infinite; }
+html:not([data-desktop]) .workspace .conversation-row>.conversation-status[data-status="working"] { animation:v2-breathe 2.4s var(--ease-inout) infinite; }
 html:not([data-desktop]) .workspace .conversation-row>.conversation-status[data-status="unread"] {
   right:12px; bottom:12px; width:22px; height:18px; padding:0 4px;
   border-radius:999px; background:var(--orange); color:var(--on-block);
@@ -93,7 +93,7 @@ html:not([data-desktop]) .workspace .conversation-row:has(.conversation-status[d
   border:0; border-radius:12px; background:transparent; color:var(--ink); text-align:left;
 }
 .workspace .sidebar-account-identity:hover,.workspace .sidebar-account-settings:hover { background:var(--surface-2); }
-.workspace .sidebar-account-identity { transition:background-color 150ms ease,transform 150ms ease,box-shadow 150ms ease; }
+.workspace .sidebar-account-identity { transition:background-color var(--m-quick) var(--ease-out),transform var(--m-quick) var(--ease-out),box-shadow var(--m-quick) var(--ease-out); }
 .workspace .sidebar-account-identity:hover { background:var(--surface-2); transform:translate(-1px,-1px); box-shadow:var(--hard-sm); }
 .workspace .sidebar-account-identity:active { transform:translate(1px,2px); box-shadow:none; }
 .workspace .sidebar-account-monogram {
@@ -147,7 +147,7 @@ html:not([data-desktop]) .workspace .conversation-row:has(.conversation-status[d
   .workspace .sidebar-collapsed .sidebar-logo-expand .brand-logo { width:40px; }
   .workspace .sidebar-collapsed .sidebar-logo-expand .brand-logo img { width:40px; height:40px; }
   .workspace .sidebar-collapsed .sidebar-logo-art,
-  .workspace .sidebar-collapsed .sidebar-logo-arrow { grid-area:1/1; transition:opacity 120ms ease,transform 180ms cubic-bezier(.16,1,.3,1); }
+  .workspace .sidebar-collapsed .sidebar-logo-arrow { grid-area:1/1; transition:opacity var(--m-press) var(--ease-out),transform var(--m-base) var(--ease-out); }
   .workspace .sidebar-collapsed .sidebar-logo-arrow { opacity:0; transform:scale(.78); }
   .workspace .sidebar-collapsed .sidebar-logo-expand:is(:hover,:focus-visible) .sidebar-logo-art { opacity:0; transform:scale(.78); }
   .workspace .sidebar-collapsed .sidebar-logo-expand:is(:hover,:focus-visible) .sidebar-logo-arrow { opacity:1; transform:scale(1); }
@@ -230,13 +230,13 @@ html:not([data-desktop]) .workspace .new-arrival .message-user .message-content 
 .workspace .message-block:focus-visible .message-content { outline:var(--focus-ring-width) solid var(--focus-ring); outline-offset:4px; }
 /* Clicking a message never frames it. Jumps to a message (sidebar result, reply
    quote) flash the target once via .is-jump-target; keyboard focus keeps the ring. */
-.workspace .message-block.is-jump-target .message-content { outline:2px solid var(--lagoon); outline-offset:4px; animation:v2-focus-flash 1.6s ease-out forwards; }
+.workspace .message-block.is-jump-target .message-content { outline:2px solid var(--lagoon); outline-offset:4px; animation:v2-focus-flash 1.6s var(--ease-out) forwards; }
 @keyframes v2-focus-flash { 0%,45% { outline-color:var(--lagoon); } 100% { outline-color:transparent; } }
 /* One arrival vocabulary on web: a Bot message that appears whole fades in over 200 ms. Opacity only: a transform on the newest message
    widens the scroll extent while it plays, and the pane that follows the bottom would move with it. A message that was streamed in
    place (.was-streamed) was already read as a draft, so saving it must not blink or replay. History and switches never get .new-arrival. */
 html:not([data-desktop]) .workspace .new-arrival:not(.was-streamed) .message-bot:not(.message-ui-card) .message-content {
-  animation:v2-bot-arrive 200ms var(--ease-out) both;
+  animation:v2-bot-arrive var(--m-base) var(--ease-out) both;
 }
 @keyframes v2-bot-arrive { from { opacity:0; } }
 @media (prefers-reduced-motion:reduce) { html:not([data-desktop]) .workspace .new-arrival:not(.was-streamed) .message-bot:not(.message-ui-card) .message-content { animation:none; } }
@@ -313,7 +313,7 @@ html:not([data-desktop]) .workspace .composer-rich-text { font-size:16px; }
 .workspace .composer-row>.send-button {
   width:40px; height:40px; min-width:40px; margin-left:0; border:var(--edge) solid var(--line);
   border-radius:12px; background:var(--yellow); color:var(--on-block); box-shadow:var(--hard-sm);
-  transition:transform 120ms ease,box-shadow 120ms ease,background-color 120ms ease;
+  transition:transform var(--m-press) var(--ease-out),box-shadow var(--m-press) var(--ease-out),background-color var(--m-press) var(--ease-out);
 }
 .workspace .composer.is-send-empty .composer-row>.dictation-button { grid-column:4; }
 .workspace .composer-row>.send-button:not(:disabled):active {
@@ -342,10 +342,10 @@ html:not([data-desktop]) .workspace .composer-rich-text { font-size:16px; }
 .workspace .dictation-cancel { width:40px; height:40px; min-height:40px; border:1.5px solid var(--line-soft); border-radius:12px; background:var(--surface); color:var(--ink-soft); }
 .workspace .dictation-confirm { width:46px; height:46px; min-height:46px; margin-left:auto; border:2px solid var(--line); border-radius:14px; background:var(--blue); color:var(--on-block); box-shadow:var(--hard-sm); }
 .workspace .dictation-confirm:disabled { opacity:.55; cursor:wait; }
-.workspace .dictation-record-dot { width:10px; height:10px; flex:none; border-radius:50%; background:var(--danger); animation:dictation-record-breath 1.4s ease-in-out infinite; }
+.workspace .dictation-record-dot { width:10px; height:10px; flex:none; border-radius:50%; background:var(--danger); animation:dictation-record-breath 1.4s var(--ease-inout) infinite; }
 .workspace .dictation-timer { flex:none; min-width:40px; color:var(--ink); font:600 13px/1 var(--mono); font-variant-numeric:tabular-nums; }
 .workspace .dictation-wave { display:flex; flex:1; align-items:center; justify-content:flex-end; gap:3px; min-width:0; height:40px; overflow:hidden; }
-.workspace .dictation-wave i { display:block; flex:none; width:4px; min-height:4px; border-radius:2px; background:var(--blue); transition:height 90ms ease-out; }
+.workspace .dictation-wave i { display:block; flex:none; width:4px; min-height:4px; border-radius:2px; background:var(--blue); transition:height var(--m-instant) var(--ease-out); }
 .workspace .dictation-wave i.is-old { opacity:.35; }
 .workspace .dictation-processing { flex:1; color:var(--muted); font:12px/1.3 var(--body); }
 @keyframes dictation-record-breath { 50% { opacity:.5; transform:scale(.84); } }
@@ -393,7 +393,7 @@ html:not([data-desktop]) .workspace .composer .working-member.work-companion .wo
 .workspace .scheduled-task-recovery summary { cursor:pointer; color:var(--ink-soft); }
 .workspace .scheduled-task-recovery .error-text { max-height:160px; overflow:auto; font:11px/1.5 var(--mono); }
 .workspace .scheduled-task-recovery button { min-height:34px; margin-top:2px; padding:5px 9px; border:1px solid var(--line-soft); border-radius:8px; }
-.workspace .jump-latest { display:inline-flex; align-items:center; justify-content:center; gap:6px; width:40px; height:40px; min-height:40px; padding:0; border:2px solid var(--line); border-radius:50%; background:var(--surface); color:var(--ink); box-shadow:var(--hard-sm); font:600 12px/1 var(--mono); transition:transform 120ms ease,box-shadow 120ms ease; }
+.workspace .jump-latest { display:inline-flex; align-items:center; justify-content:center; gap:6px; width:40px; height:40px; min-height:40px; padding:0; border:2px solid var(--line); border-radius:50%; background:var(--surface); color:var(--ink); box-shadow:var(--hard-sm); font:600 12px/1 var(--mono); transition:transform var(--m-press) var(--ease-out),box-shadow var(--m-press) var(--ease-out); }
 .workspace .jump-latest:has(.jump-new-count) { width:auto; padding:0 12px; border-radius:999px; }
 .workspace .jump-latest:hover { transform:translate(-1px,-1px); box-shadow:var(--hard); }
 .workspace .jump-latest:active { transform:translate(2px,3px); box-shadow:none; }
@@ -446,7 +446,7 @@ html:not([data-desktop]) .workspace .composer .working-member.work-companion .wo
 .workspace .v2-tool-step-detail time { margin-left:auto; color:var(--muted); font-variant-numeric:tabular-nums; }
 .workspace .v2-tool-step-state { color:var(--muted); }
 .workspace .v2-tool-step-marker { width:9px; height:9px; flex:0 0 9px; border-radius:50%; background:var(--muted); }
-.workspace .v2-tool-step.tool-status-running .v2-tool-step-marker { background:var(--blue); animation:v2-breathe 2.4s ease-in-out infinite; }
+.workspace .v2-tool-step.tool-status-running .v2-tool-step-marker { background:var(--blue); animation:v2-breathe 2.4s var(--ease-inout) infinite; }
 .workspace .v2-tool-step.tool-status-running strong { color:var(--blue-text); }
 .workspace .v2-tool-step.tool-status-queued .v2-tool-step-marker { border:1.5px solid var(--muted); background:transparent; }
 .workspace .v2-tool-step.tool-status-failed .v2-tool-step-marker,
@@ -573,7 +573,7 @@ html:not([data-desktop]) .workspace .conversation-empty{align-content:center;jus
 html:not([data-desktop]) .workspace .web-memory-empty{display:grid;justify-items:center;align-content:center;gap:4px;min-height:214px;background:var(--dots);border:1px solid var(--line-soft);border-radius:16px;text-align:center}
 html:not([data-desktop]) .workspace .web-memory-empty strong{margin-top:8px;color:var(--ink);font:700 18px/1.2 var(--display)}
 html:not([data-desktop]) .workspace .web-memory-empty p{margin:0;color:var(--muted);font:var(--type-meta)}
-html:not([data-desktop]) .workspace .web-loading-state{min-height:96px;padding-block:16px;align-content:center;justify-items:center;gap:8px;animation:web-loading-in 260ms ease both}
+html:not([data-desktop]) .workspace .web-loading-state{min-height:96px;padding-block:16px;align-content:center;justify-items:center;gap:8px;animation:web-loading-in var(--m-panel-in) var(--ease-out) both}
 @keyframes web-loading-in{from{opacity:0}}
 @media(prefers-reduced-motion:reduce){html:not([data-desktop]) .workspace .web-loading-state{animation:none}}
 
@@ -587,7 +587,9 @@ html:not([data-desktop]) .workspace .web-loading-state{min-height:96px;padding-b
 .workspace .message-actions-row { --bar-btn:28px; display:flex; align-items:flex-start; justify-content:flex-start; }
 .workspace .message-actions-row[data-side="user"] { justify-content:flex-end; }
 .workspace .message-actions-row[data-gutter] { padding-left:var(--sender-gutter); }
-.workspace .message-hover-actions { display:flex; align-items:center; height:var(--bar-btn); -webkit-user-select:none; user-select:none; }
+/* The bar is mounted on hover and appears at once; only its opacity eases in (--m-instant, no delay, no movement). */
+.workspace .message-hover-actions { display:flex; align-items:center; height:var(--bar-btn); -webkit-user-select:none; user-select:none; animation:message-bar-in var(--m-instant) var(--ease-out) both; }
+@keyframes message-bar-in { from { opacity:0; } }
 .workspace .message-hover-actions time { margin:0 0 0 4px; padding:0 2px; color:var(--muted); font:12px/1 var(--body); white-space:nowrap; }
 .workspace .message-hover-actions button {
   display:grid; place-items:center; width:var(--bar-btn); height:var(--bar-btn); padding:0; border:0; border-radius:8px;
@@ -633,7 +635,7 @@ html:not([data-desktop]) .workspace .web-loading-state{min-height:96px;padding-b
 .workspace .bot-v2-rows :is(.bot-v2-row,.work-preview) {
   display:grid; grid-template-columns:36px minmax(0,1fr) auto; align-items:center; gap:12px; width:100%; min-height:60px;
   margin:0; padding:10px 12px 10px 10px; border:1px solid var(--line-soft); border-radius:14px; background:var(--surface-2);
-  color:var(--ink); text-align:left; cursor:pointer; transition:border-color 140ms ease,background-color 140ms ease;
+  color:var(--ink); text-align:left; cursor:pointer; transition:border-color var(--m-quick) var(--ease-out),background-color var(--m-quick) var(--ease-out);
 }
 .workspace .bot-v2-rows :is(.bot-v2-row,.work-preview):hover:not(:disabled) { border-color:var(--line); background:var(--surface); }
 .workspace .bot-v2-rows :is(.bot-v2-row,.work-preview):focus-visible { outline:var(--focus-ring-width) solid var(--focus-ring); outline-offset:2px; }

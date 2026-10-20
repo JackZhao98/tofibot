@@ -1,7 +1,7 @@
 .computer-detail:not(.is-expanded)>.computer-screen-wrap.desktop-presence-frame,.computer-detail.is-expanded>.computer-screen-wrap.desktop-presence-frame{border:2px solid var(--desktop-bezel);overflow:hidden}
 .desktop-floating-shell{position:fixed;right:20px;bottom:calc(var(--composer-height,90px) + 18px);z-index:25;width:48px;max-height:none;overflow:visible;pointer-events:none}
 .desktop-floating-shell.is-expanded{inset:0;width:auto;max-height:none}
-.desktop-floating-shell.is-settling{transition:left 420ms cubic-bezier(.2,.8,.2,1),top 420ms cubic-bezier(.2,.8,.2,1)}
+.desktop-floating-shell.is-settling{transition:left var(--m-panel-in) var(--ease-settle),top var(--m-panel-in) var(--ease-settle)}
 .desktop-floating-shell:focus-visible{outline:var(--focus-ring-width) solid var(--focus-ring);outline-offset:4px;border-radius:20px}
 /* Keep the latest-message control fully visible beneath a collapsed preview. */
 .workspace:has(.jump-latest) .desktop-floating-shell:not(:has(.is-expanded)){bottom:calc(var(--composer-height,90px) + 66px)}
@@ -11,7 +11,7 @@
 .desktop-floating-shell:not(:has(.is-expanded)) .desktop-preview-surface{cursor:grab;touch-action:none}
 .desktop-floating-shell.is-dragging .desktop-preview-surface{cursor:grabbing}
 .desktop-floating-shell .desktop-presence-canvas>.computer-detail{width:100%;max-height:none;padding:0;overflow:visible;pointer-events:auto;border:0;border-radius:0;background:transparent;box-shadow:none}
-.desktop-floating-shell .computer-floating-actions{position:absolute;top:8px;right:8px;display:flex;align-items:center;gap:4px;padding:4px;border:0;border-radius:10px;background:var(--desktop-controls-glass);-webkit-backdrop-filter:var(--blur);backdrop-filter:var(--blur);opacity:1;pointer-events:auto;transition:opacity 160ms ease}
+.desktop-floating-shell .computer-floating-actions{position:absolute;top:8px;right:8px;display:flex;align-items:center;gap:4px;padding:4px;border:0;border-radius:10px;background:var(--desktop-controls-glass);-webkit-backdrop-filter:var(--blur);backdrop-filter:var(--blur);opacity:1;pointer-events:auto;transition:opacity var(--m-quick) var(--ease-out)}
 .desktop-preview-surface:hover .computer-floating-actions,.desktop-preview-surface:focus-within .computer-floating-actions,.desktop-floating-shell.is-dragging .computer-floating-actions{opacity:1;pointer-events:auto}
 .desktop-floating-shell .desktop-control-button{box-sizing:border-box;display:grid;place-items:center;flex:0 0 26px;width:26px;height:26px;min-width:0;min-height:0;padding:0;border:0;border-radius:7px;color:var(--desktop-controls-ink);background:transparent;box-shadow:none;cursor:pointer}
 .desktop-floating-shell .desktop-control-button svg{display:block;width:16px;height:16px;flex:none}
@@ -22,7 +22,7 @@
 }
 .desktop-floating-shell .desktop-control-button:disabled{opacity:.35;cursor:not-allowed}
 @media(prefers-reduced-transparency:reduce){.desktop-floating-shell .computer-floating-actions{background:var(--desktop-controls-solid);-webkit-backdrop-filter:none;backdrop-filter:none}}
-.desktop-floating-shell .computer-detail:not(.is-expanded) .computer-screen-wrap{position:relative;width:100%;aspect-ratio:8/5;max-height:none;margin:0;padding:0;border:2px solid var(--desktop-bezel);border-radius:16px;background:var(--desktop-screen);overflow:hidden;transition:border-color 400ms ease,box-shadow 700ms ease}
+.desktop-floating-shell .computer-detail:not(.is-expanded) .computer-screen-wrap{position:relative;width:100%;aspect-ratio:8/5;max-height:none;margin:0;padding:0;border:2px solid var(--desktop-bezel);border-radius:16px;background:var(--desktop-screen);overflow:hidden;transition:border-color var(--m-panel-in) var(--ease-out),box-shadow var(--m-flight) var(--ease-out)}
 .desktop-floating-shell .computer-detail:not(.is-expanded) .computer-screen-wrap .remote-preview-hint{display:none}
 .desktop-floating-shell .computer-detail:not(.is-expanded) .desktop-launch-preview{width:100%;height:100%;aspect-ratio:auto;margin:0;border:0;border-radius:14px;background:transparent!important}
 .desktop-floating-shell .desktop-presence-canvas>.computer-detail.is-expanded{position:fixed;z-index:35;top:16px;left:max(16px,calc((100vw - 1120px)/2));translate:none;transform:none;display:flex;width:min(1120px,calc(100vw - 32px));height:calc(100dvh - 32px);max-height:calc(100dvh - 32px);box-sizing:border-box;flex-direction:column;gap:0;padding:18px 20px 20px;border:3px solid var(--line);border-radius:22px;background:var(--surface);box-shadow:var(--hard),var(--float-shadow);overflow:auto;pointer-events:auto}
@@ -43,18 +43,18 @@
 /* The real desktop content uses the Lab's CRT reveal; the bezel and controls stay put. */
 html:not([data-desktop]) .desktop-live-screen .remote-desktop-surface{transform-origin:50% 50%;animation:web-desktop-boot 980ms linear both}
 @keyframes web-desktop-boot{
-  0%{transform:scale(0,.006);filter:brightness(3);animation-timing-function:cubic-bezier(.2,.8,.2,1)}
+  0%{transform:scale(0,.006);filter:brightness(3);animation-timing-function:var(--ease-settle)}
   30%{transform:scale(1,.006);filter:brightness(3)}
-  42%{transform:scale(1,.006);filter:brightness(2.4);animation-timing-function:cubic-bezier(.3,.7,.2,1)}
+  42%{transform:scale(1,.006);filter:brightness(2.4);animation-timing-function:var(--ease-out)}
   84%{transform:scale(1,1.02);filter:brightness(1.4)}
   100%{transform:scale(1);filter:brightness(1)}
 }
 .desktop-pointer-overlay{position:absolute;inset:0;z-index:3;pointer-events:none;overflow:hidden}
 .desktop-pointer-confirmed{position:absolute;width:0;height:0;pointer-events:none}
-html:not([data-desktop]) .web-desktop-pointer{left:0;top:0;opacity:0;transition:transform 420ms cubic-bezier(.22,1,.36,1),opacity 120ms ease}
+html:not([data-desktop]) .web-desktop-pointer{left:0;top:0;opacity:0;transition:transform var(--m-panel-in) var(--ease-out),opacity var(--m-press) var(--ease-out)}
 html:not([data-desktop]) .web-desktop-pointer.is-visible{opacity:1}
 html:not([data-desktop]) .web-desktop-click{position:absolute;width:0;height:0}
-html:not([data-desktop]) .web-desktop-click .desktop-click-ring{width:36px;height:36px;left:-18px;top:-18px;border-color:var(--lagoon);box-shadow:none;background:transparent;animation:web-desktop-click 400ms 420ms ease-out both}
+html:not([data-desktop]) .web-desktop-click .desktop-click-ring{width:36px;height:36px;left:-18px;top:-18px;border-color:var(--lagoon);box-shadow:none;background:transparent;animation:web-desktop-click var(--m-panel-in) 420ms var(--ease-out) both}
 @keyframes web-desktop-click{from{transform:scale(.5);opacity:0}20%{opacity:.6}to{transform:scale(1.6);opacity:0}}
 .desktop-pointer-arrow{display:none}
 .desktop-pointer-glyph{position:absolute;left:0;top:0;display:none}
@@ -63,7 +63,7 @@ html:not([data-desktop]) .desktop-pointer-glyph::before{display:none;content:"";
 html:not([data-desktop]) .desktop-pointer-arrow{position:absolute;left:-4px;top:-3px;display:block;width:24px;height:24px}
 html:not([data-desktop]) .desktop-pointer-arrow path{fill:var(--lagoon);stroke:var(--desktop-controls-solid);stroke-width:1.5;stroke-linejoin:round}
 html:not([data-desktop]) .web-desktop-pointer-name{position:absolute;left:16px;top:17px;max-width:140px;padding:2px 7px;overflow:hidden;border-radius:6px;background:var(--lagoon);color:var(--on-block);font:600 10px/1.4 var(--body);white-space:nowrap;text-overflow:ellipsis}
-.desktop-click-ring{position:absolute;width:16px;height:16px;left:-8px;top:-8px;border:2px solid var(--desktop-pointer-ink);border-radius:50%;box-shadow:0 0 0 2px var(--desktop-pointer-surface);background:color-mix(in srgb,var(--desktop-pointer-surface) 20%,transparent);animation:desktop-confirmed-click 750ms ease-out both}
+.desktop-click-ring{position:absolute;width:16px;height:16px;left:-8px;top:-8px;border:2px solid var(--desktop-pointer-ink);border-radius:50%;box-shadow:0 0 0 2px var(--desktop-pointer-surface);background:color-mix(in srgb,var(--desktop-pointer-surface) 20%,transparent);animation:desktop-confirmed-click var(--m-flight) var(--ease-out) both}
 .desktop-pointer-label{display:flex;align-items:center;gap:5px;position:absolute;left:12px;top:10px;max-width:160px;padding:4px 7px;border-radius:5px;background:var(--desktop-pointer-surface);color:var(--desktop-pointer-ink);box-shadow:var(--hard-sm);white-space:nowrap;font:11px/1.3 var(--body);text-overflow:ellipsis;overflow:hidden}
 .desktop-pointer-label .avatar{width:17px;height:17px;flex:0 0 17px;background:transparent}
 .desktop-pointer-label>span:last-child{min-width:0;overflow:hidden;text-overflow:ellipsis}
@@ -120,7 +120,7 @@ html:not([data-desktop]) .desktop-floating-shell .computer-detail.is-expanded .d
 html:not([data-desktop]) .desktop-floating-shell .computer-detail.is-expanded .desktop-control-button:hover { background:var(--surface-hover); }
 html:not([data-desktop]) .desktop-floating-shell .computer-detail.is-expanded .computer-screen-wrap {
   flex:none; width:100%; margin:0; padding:0; border:2px solid var(--desktop-bezel); border-radius:16px; overflow:hidden;
-  background:var(--desktop-screen); transition:border-color 400ms ease,box-shadow 700ms ease;
+  background:var(--desktop-screen); transition:border-color var(--m-panel-in) var(--ease-out),box-shadow var(--m-flight) var(--ease-out);
 }
 html:not([data-desktop]) .desktop-floating-shell .computer-detail.is-expanded .remote-desktop {
   flex:none; min-height:0; width:100%;
@@ -156,7 +156,7 @@ html:not([data-desktop]) .desktop-floating-shell .desktop-presence-canvas>.compu
 html:not([data-desktop]) .desktop-floating-shell .desktop-presence-canvas>.computer-detail.is-expanded{
   --bezel-fill:var(--desktop-bezel-fill);--bezel-edge:var(--desktop-bezel);
   position:relative;display:flex;flex-direction:column;gap:0;margin-bottom:40px;padding:6px;border:2px solid var(--bezel-edge);border-radius:18px;
-  background:var(--bezel-fill);box-shadow:var(--desktop-bezel-shadow);transition:border-color 400ms ease,box-shadow 700ms ease}
+  background:var(--bezel-fill);box-shadow:var(--desktop-bezel-shadow);transition:border-color var(--m-panel-in) var(--ease-out),box-shadow var(--m-flight) var(--ease-out)}
 html:not([data-desktop]) .desktop-floating-shell .desktop-presence-canvas>.computer-detail.is-driven-by-bot{--bezel-edge:var(--lagoon);border-color:var(--lagoon);box-shadow:0 0 0 1px var(--lagoon),0 0 60px color-mix(in srgb,var(--lagoon) 45%,transparent)}
 html:not([data-desktop]) .desktop-floating-shell .desktop-presence-canvas>.computer-detail.is-driven-by-you{--bezel-edge:var(--clay);border-color:var(--clay);box-shadow:0 0 0 1px var(--clay),0 0 60px color-mix(in srgb,var(--clay) 40%,transparent)}
 /* clip-path, not overflow, rounds the screen: the CRT boot's transformed layer escapes overflow clipping. */
@@ -168,7 +168,7 @@ html:not([data-desktop]) .desktop-floating-shell .computer-detail :is(.computer-
 .desktop-drop{position:absolute;inset:0;z-index:-1;width:100%;height:100%;pointer-events:none}
 /* The drop is drawn as two masked layers: the bezel edge, then the fill inset by the edge width. */
 .desktop-drop::before,.desktop-drop::after{content:"";position:absolute;inset:0;-webkit-mask-size:100% 100%;mask-size:100% 100%;-webkit-mask-repeat:no-repeat;mask-repeat:no-repeat}
-.desktop-drop::before{background:var(--bezel-edge);transition:background-color 400ms ease;-webkit-mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 172 44' preserveAspectRatio='none'%3E%3Cpath d='M0 0Q12 0 12 12V26A18 18 0 0 0 30 44H142A18 18 0 0 0 160 26V12Q160 0 172 0Z'/%3E%3C/svg%3E");mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 172 44' preserveAspectRatio='none'%3E%3Cpath d='M0 0Q12 0 12 12V26A18 18 0 0 0 30 44H142A18 18 0 0 0 160 26V12Q160 0 172 0Z'/%3E%3C/svg%3E")}
+.desktop-drop::before{background:var(--bezel-edge);transition:background-color var(--m-panel-in) var(--ease-out);-webkit-mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 172 44' preserveAspectRatio='none'%3E%3Cpath d='M0 0Q12 0 12 12V26A18 18 0 0 0 30 44H142A18 18 0 0 0 160 26V12Q160 0 172 0Z'/%3E%3C/svg%3E");mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 172 44' preserveAspectRatio='none'%3E%3Cpath d='M0 0Q12 0 12 12V26A18 18 0 0 0 30 44H142A18 18 0 0 0 160 26V12Q160 0 172 0Z'/%3E%3C/svg%3E")}
 .desktop-drop::after{background:var(--bezel-fill);-webkit-mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 172 44' preserveAspectRatio='none'%3E%3Cpath d='M0 2Q14 2 14 12V26A16 16 0 0 0 30 42H142A16 16 0 0 0 158 26V12Q158 2 172 2Z'/%3E%3C/svg%3E");mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 172 44' preserveAspectRatio='none'%3E%3Cpath d='M0 2Q14 2 14 12V26A16 16 0 0 0 30 42H142A16 16 0 0 0 158 26V12Q158 2 172 2Z'/%3E%3C/svg%3E")}
 .computer-detail.is-driven-by-bot .desktop-drop{filter:drop-shadow(0 10px 16px color-mix(in srgb,var(--lagoon) 45%,transparent))}
 .computer-detail.is-driven-by-you .desktop-drop{filter:drop-shadow(0 10px 16px color-mix(in srgb,var(--clay) 40%,transparent))}
@@ -180,7 +180,7 @@ html:not([data-desktop]) .desktop-floating-shell .computer-detail :is(.computer-
 /* The switch: the thumb is the hand on the mouse. It springs to the cat or to you and takes that side's color. */
 .desktop-driver-switch{position:relative;display:grid;grid-template-columns:1fr 1fr;align-items:center;width:100px;height:34px;flex:none;padding:3px;border:1px solid var(--desktop-controls-edge);border-radius:999px;background:var(--desktop-switch-track);cursor:pointer}
 .desktop-driver-switch:disabled{opacity:.45;cursor:default}
-.desktop-driver-thumb{position:absolute;top:3px;left:4px;width:44px;height:26px;border-radius:999px;background:var(--lagoon);transition:transform 440ms cubic-bezier(.34,1.56,.64,1),background-color 300ms ease}
+.desktop-driver-thumb{position:absolute;top:3px;left:4px;width:44px;height:26px;border-radius:999px;background:var(--lagoon);transition:transform var(--m-panel-in) var(--ease-spring),background-color var(--m-panel-in) var(--ease-out)}
 .desktop-driver-thumb svg{position:absolute;top:-6px;right:-4px;width:14px;height:14px;padding:2px;border-radius:50%;background:var(--surface);color:var(--ink);box-sizing:border-box;box-shadow:var(--desktop-switch-badge-shadow)}
 .desktop-driver-switch.is-you .desktop-driver-thumb{transform:translateX(47px);background:var(--clay)}
 .desktop-chin:is(.is-idle,.is-booting,.is-error) .desktop-driver-switch.is-bot .desktop-driver-thumb{background:var(--desktop-switch-idle)}
@@ -215,11 +215,11 @@ html:not([data-desktop]) .desktop-floating-shell .remote-desktop>.error-text{bor
 html:not([data-desktop]) .desktop-floating-shell.is-small .desktop-presence-canvas>.computer-detail{margin-bottom:44px}
 html:not([data-desktop]) .desktop-floating-shell.is-small .remote-desktop-surface{aspect-ratio:8/5}
 html:not([data-desktop]) .desktop-floating-shell.is-expanded .remote-desktop-surface{aspect-ratio:8/5}
-@media(prefers-reduced-motion:no-preference){html:not([data-desktop]) .desktop-floating-shell.is-expanded{animation:desktop-scrim-in 240ms ease both}}
+@media(prefers-reduced-motion:no-preference){html:not([data-desktop]) .desktop-floating-shell.is-expanded{animation:desktop-scrim-in var(--m-base) var(--ease-out) both}}
 @keyframes desktop-scrim-in{from{opacity:0}to{opacity:1}}
 
 /* Glass control group, 8px inside the screen's top-right corner: enlarge or shrink, and close. */
-.desktop-window-controls{position:absolute;z-index:12;top:14px;right:14px;display:flex;align-items:center;gap:2px;padding:3px;border:1px solid var(--desktop-controls-edge);border-radius:10px;background:color-mix(in srgb,var(--desktop-controls-solid) 72%,transparent);-webkit-backdrop-filter:var(--blur);backdrop-filter:var(--blur);opacity:0;transition:opacity 160ms ease}
+.desktop-window-controls{position:absolute;z-index:12;top:14px;right:14px;display:flex;align-items:center;gap:2px;padding:3px;border:1px solid var(--desktop-controls-edge);border-radius:10px;background:color-mix(in srgb,var(--desktop-controls-solid) 72%,transparent);-webkit-backdrop-filter:var(--blur);backdrop-filter:var(--blur);opacity:0;transition:opacity var(--m-quick) var(--ease-out)}
 .computer-detail:is(:hover,:focus-within) .desktop-window-controls,.desktop-floating-shell.is-expanded .desktop-window-controls{opacity:1}
 @media(hover:none){.desktop-window-controls{opacity:1}}
 .desktop-window-controls .desktop-control-button{color:var(--desktop-controls-ink)}
@@ -239,7 +239,7 @@ html:not([data-desktop]) .desktop-floating-shell.is-sheet .desktop-presence-canv
 .desktop-placeholder-cat{display:grid;place-items:center}
 .desktop-placeholder .desktop-placeholder-cat .avatar{width:clamp(52px,15cqw,100px);height:clamp(52px,15cqw,100px)}
 .desktop-placeholder-line{display:flex;align-items:center;justify-content:center;gap:8px;max-width:100%;margin:0;color:var(--desktop-controls-ink);font:600 clamp(12px,2.4cqw,15px)/1.4 var(--body);letter-spacing:.01em;text-wrap:balance}
-.desktop-placeholder:is(.is-waking,.is-connecting,.is-resuming) .desktop-placeholder-line::before{content:"";flex:none;width:7px;height:7px;border-radius:50%;background:var(--lagoon);animation:desktop-mini-breathe 1.8s ease-in-out infinite}
+.desktop-placeholder:is(.is-waking,.is-connecting,.is-resuming) .desktop-placeholder-line::before{content:"";flex:none;width:7px;height:7px;border-radius:50%;background:var(--lagoon);animation:desktop-mini-breathe 1.8s var(--ease-inout) infinite}
 .desktop-placeholder.is-failed .desktop-placeholder-line::before{content:"";flex:none;width:7px;height:7px;border-radius:50%;background:var(--danger)}
 .desktop-placeholder-retry{min-height:34px;padding:6px 16px;border:1px solid var(--desktop-controls-edge);border-radius:999px;background:var(--desktop-controls-hover);color:var(--desktop-controls-ink);font:600 13px/1 var(--body);cursor:pointer}
 .desktop-placeholder-retry:hover{background:color-mix(in srgb,var(--desktop-controls-ink) 22%,transparent)}

@@ -11,6 +11,7 @@ import { DesktopVideo, type DesktopVideoState } from "./DesktopVideo";
 import { TofiIcon } from "./icons";
 import { RemoteDesktopControl, type RemoteControlHandle } from "./RemoteDesktopControl";
 import { i18n, useTranslation } from "./i18n";
+import { MOTION, EASE } from "./motion";
 
 type Props = { expanded?: boolean; sheet?: boolean; passivePreview?: boolean; autoConnect?: boolean; presence?: DesktopPresenceState; botId: string; botName: string; members?: Array<{ id: string; name: string }>; onClose: (reason?: "hide" | "shutdown") => void; onReadyChange?: (ready: boolean) => void; onExpandedChange?: (expanded: boolean) => void };
 type ComputerInfo = { kind: string; state: string; phase?: string; workspace_root?: string; browser?: string; error?: string };
@@ -767,7 +768,7 @@ export function BotDesktopPanel({ botId, botName, members = [], autoConnect = fa
         { transform: "scale(1, 1)", filter: "brightness(1)" },
         { transform: "scale(1, .006)", filter: "brightness(2.6)", offset: 0.55 },
         { transform: "scale(0, .006)", filter: "brightness(3)" },
-      ], { duration: 520, easing: "cubic-bezier(.5,0,.75,.2)", fill: "forwards" }).finished.catch(() => undefined);
+      ], { duration: MOTION.panelIn, easing: EASE.in, fill: "forwards" }).finished.catch(() => undefined);
     }
     onClose("hide");
   }
