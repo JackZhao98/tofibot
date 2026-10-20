@@ -368,6 +368,8 @@
     "key_unreachable": "你的 Tofi 服务器连不上 {{provider}}。检查它的网络或代理后再试。",
     "key_failed": "没能检查这个 key。请重试。",
     "key_no_models": "这个 key 有效，但暂时用不了任何模型。请先开通计费，或换一个有模型权限的项目。",
+    "key_no_quota": "密钥有效，但这个 {{provider}} 账户没有可用额度。请充值或提高额度后重新连接。",
+    "codex_unreachable": "你的 Tofi 服务器无法连接 OpenAI。请检查它的网络或代理，然后重新登录。",
     "open_billing": "打开计费页面",
     "connected_title": "连接成功",
     "connected_ready": "你的第一个 Bot 已经就绪，正在等你。",

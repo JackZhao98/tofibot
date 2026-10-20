@@ -48,6 +48,12 @@ const mockPlugin = {
         return accept();
       }
       const conv = path.split("/")[3] ?? "";
+      if (/^\/api\/runs\/[^/]+\/retry$/.test(path)) {
+        const old = mock.runs.find(run => run.id === path.split("/")[3]);
+        const run = { ...old, id: old.id + "-retry", status: "queued", error: "", failure: undefined, parent_run_id: old.id, updated_at: iso(900) };
+        mock.runs.push(run);
+        return json(run);
+      }
       if (path === "/api/server-info") { if (mock.serverInfoFails > 0) { mock.serverInfoFails--; return req.socket.destroy(); } return json({ service: "tofi", protocol_version: 1, instance_id: INSTANCE, auth: { mode: "none" } }); }
       if (path === "/api/preferences") return json({ timezone: "UTC", timezone_configured: true, show_activity: false });
       if (path === "/api/config") return json({ model_configured: true, default_model: "synthetic-model", provider: "synthetic" });
@@ -216,6 +222,36 @@ await check("an unreachable server at startup is retried within seconds", async 
   mock.down = false;
   const took = await waitFor(async () => (await page.locator(".conversation-row").count()) > 0, 12000, "the workspace after the server answered");
   console.log(`    workspace appeared ${took}ms after load`);
+  await context.close();
+});
+
+// RES-5: a run that failed because the service was busy can be sent again from its own card.
+await check("a failed run offers Retry and sends it again", async () => {
+  reset();
+  mock.runs = [{ id: "run_busy", conversation_id: "dm_a", bot_id: "bot_a", status: "failed", error: "server_is_overloaded", model: "synthetic-model", origin_conversation_id: "dm_a", trigger_message_id: "dm_a_m1", queue_seq: 1, created_at: iso(100), updated_at: iso(110) }];
+  const context = await browser.newContext({ viewport: { width: 1180, height: 820 }, locale: "en-US" });
+  const page = await context.newPage();
+  await page.goto(origin + "/");
+  await page.locator(".conversation-row").first().waitFor();
+  await rowFor(page, "Ledger Cat").click();
+  const retry = page.locator('[data-issue-retry="true"]');
+  await retry.waitFor({ timeout: 8000 });
+  await retry.click();
+  await waitFor(async () => mock.requests.includes("POST /api/runs/run_busy/retry"), 3000, "the retry request");
+  await context.close();
+});
+
+// RES-5: an expired or cancelled run must not offer Retry (the server refuses it).
+await check("a cancelled run does not offer Retry", async () => {
+  reset();
+  mock.runs = [{ id: "run_gone", conversation_id: "dm_a", bot_id: "bot_a", status: "failed", error: "approval_expired", model: "synthetic-model", origin_conversation_id: "dm_a", trigger_message_id: "dm_a_m1", queue_seq: 1, created_at: iso(100), updated_at: iso(110), stop_reason: "approval_expired" }];
+  const context = await browser.newContext({ viewport: { width: 1180, height: 820 }, locale: "en-US" });
+  const page = await context.newPage();
+  await page.goto(origin + "/");
+  await page.locator(".conversation-row").first().waitFor();
+  await rowFor(page, "Ledger Cat").click();
+  await page.locator(".task-issue-card").waitFor({ timeout: 8000 });
+  assert.equal(await page.locator('[data-issue-retry="true"]').count(), 0);
   await context.close();
 });
 

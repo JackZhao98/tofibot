@@ -2,6 +2,9 @@
 package app
 
 import (
+	"bytes"
+	"compress/gzip"
+	"mime"
 	"context"
 	"database/sql"
 	"encoding/json"
@@ -2575,15 +2578,73 @@ func (s *Server) serveUI(w http.ResponseWriter, r *http.Request) {
 	w.Header().Del("Content-Type")
 	path := filepath.Join(s.uiDir, filepath.Clean("/"+r.URL.Path))
 	if info, err := os.Stat(path); err == nil && !info.IsDir() {
-		http.ServeFile(w, r, path)
+		serveUIFile(w, r, path, info)
 		return
 	}
 	index := filepath.Join(s.uiDir, "index.html")
-	if _, err := os.Stat(index); err == nil {
-		http.ServeFile(w, r, index)
+	if info, err := os.Stat(index); err == nil {
+		serveUIFile(w, r, index, info)
 		return
 	}
 	http.NotFound(w, r)
+}
+
+// uiGzip keeps the compressed bytes of each text asset until the file changes, so a
+// direct install (no proxy in front) does not recompress the bundle on every visit.
+var uiGzip sync.Map // path -> uiGzipEntry
+
+type uiGzipEntry struct {
+	modTime time.Time
+	size    int64
+	data    []byte
+}
+
+func uiCompressible(path string) bool {
+	switch strings.ToLower(filepath.Ext(path)) {
+	case ".js", ".mjs", ".css", ".svg", ".json", ".html", ".map", ".txt", ".xml":
+		return true
+	}
+	return false
+}
+
+// serveUIFile serves one built UI file. Hashed bundles under /assets/ never change, so
+// they cache for a year; the entry page is revalidated every visit so a new build is seen.
+func serveUIFile(w http.ResponseWriter, r *http.Request, path string, info os.FileInfo) {
+	if strings.HasPrefix(r.URL.Path, "/assets/") {
+		w.Header().Set("Cache-Control", "public, max-age=31536000, immutable")
+	} else if filepath.Base(path) == "index.html" || !strings.Contains(r.URL.Path, ".") {
+		w.Header().Set("Cache-Control", "no-cache")
+	}
+	if r.Method != http.MethodGet || r.Header.Get("Range") != "" || !uiCompressible(path) || info.Size() < 512 ||
+		!strings.Contains(r.Header.Get("Accept-Encoding"), "gzip") || w.Header().Get("Content-Encoding") != "" {
+		http.ServeFile(w, r, path)
+		return
+	}
+	var data []byte
+	if cached, ok := uiGzip.Load(path); ok {
+		if entry := cached.(uiGzipEntry); entry.modTime.Equal(info.ModTime()) && entry.size == info.Size() {
+			data = entry.data
+		}
+	}
+	if data == nil {
+		raw, err := os.ReadFile(path)
+		if err != nil {
+			http.ServeFile(w, r, path)
+			return
+		}
+		var buf bytes.Buffer
+		zw, _ := gzip.NewWriterLevel(&buf, gzip.BestCompression)
+		_, _ = zw.Write(raw)
+		_ = zw.Close()
+		data = buf.Bytes()
+		uiGzip.Store(path, uiGzipEntry{modTime: info.ModTime(), size: info.Size(), data: data})
+	}
+	if ctype := mime.TypeByExtension(filepath.Ext(path)); ctype != "" {
+		w.Header().Set("Content-Type", ctype)
+	}
+	w.Header().Set("Content-Encoding", "gzip")
+	w.Header().Add("Vary", "Accept-Encoding")
+	http.ServeContent(w, r, "", info.ModTime(), bytes.NewReader(data))
 }
 func (s *Server) originOK(r *http.Request) bool {
 	origin := r.Header.Get("Origin")

@@ -21,7 +21,8 @@
       "open_model_connections": "Modellverbindungen öffnen",
       "copy_diagnostics": "Diagnose kopieren",
       "view_activity": "Aktivität ansehen",
-      "refresh_status": "Status aktualisieren"
+      "refresh_status": "Status aktualisieren",
+      "retry": "Erneut versuchen"
     },
     "working": "Wird bearbeitet…",
     "copied": "Diagnose kopiert.",

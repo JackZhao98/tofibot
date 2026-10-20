@@ -64,7 +64,7 @@ function ApiKeyProviderCard({id, label, description, placeholder, status, loadin
    setNotice(t("providers.saved", {provider: label}));
    onChange(next);
   } catch (cause) {
-   setError(cause instanceof ApiError && cause.code === "invalid_workspace" ? t("providers.invalid_workspace") : cause instanceof ApiError && cause.code === "invalid_key" ? !cause.message ? t("providers.invalid_key", {provider: label}) : t(/workspace/i.test(cause.message) ? "providers.invalid_key_detail_workspace" : "providers.invalid_key_detail", {provider: label, detail: cause.message}) : cause instanceof ApiError && cause.status >= 500 ? t("providers.unreachable", {provider: label}) : t("action.save_failed"));
+   setError(cause instanceof ApiError && cause.code === "no_quota" ? t("providers.no_quota", {provider: label}) : cause instanceof ApiError && cause.code === "no_models" ? t("providers.no_models", {provider: label}) : cause instanceof ApiError && cause.code === "invalid_workspace" ? t("providers.invalid_workspace") : cause instanceof ApiError && cause.code === "invalid_key" ? !cause.message ? t("providers.invalid_key", {provider: label}) : t(/workspace/i.test(cause.message) ? "providers.invalid_key_detail_workspace" : "providers.invalid_key_detail", {provider: label, detail: cause.message}) : cause instanceof ApiError && cause.status >= 500 ? t("providers.unreachable", {provider: label}) : t("action.save_failed"));
    input.current?.focus();
   } finally { setVerifying(false); }
  }

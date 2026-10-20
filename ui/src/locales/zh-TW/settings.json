@@ -171,6 +171,8 @@
     "invalid_key_detail": "這組 API 金鑰沒有通過 {{provider}} 的驗證，未儲存。（{{detail}}）",
     "invalid_key_detail_workspace": "這組 API 金鑰沒有通過 {{provider}} 的驗證，未儲存。（{{detail}}）請確認 Workspace ID 是否正確。",
     "unreachable": "暫時無法連線到 {{provider}} 完成驗證，未儲存。請稍後再試。",
+    "no_quota": "{{provider}} 接受了這個金鑰，但帳戶沒有可用額度，所以沒有儲存。請儲值或提高額度後再試。",
+    "no_models": "{{provider}} 接受了這個金鑰，但它暫時無法使用任何模型，所以沒有儲存。請開通計費或選擇有模型權限的專案。",
     "remove_failed": "移除失敗，請再試一次。",
     "removed": "已移除 {{provider}} API 金鑰。使用 {{provider}} 模型的 Bot 需要改用其他已連接的模型。",
     "key_label": "{{provider}} API 金鑰",

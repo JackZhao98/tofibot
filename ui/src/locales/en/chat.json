@@ -372,6 +372,8 @@
     "key_unreachable": "Your Tofi server can’t reach {{provider}}. Check its internet or proxy, then try again.",
     "key_failed": "Couldn’t check that key. Try again.",
     "key_no_models": "The key works, but it can’t use any models yet. Add billing or pick a project with model access.",
+    "key_no_quota": "The key is valid, but this {{provider}} account has no usage left. Add credit or raise the limit, then connect again.",
+    "codex_unreachable": "Your Tofi server can’t reach OpenAI. Check its internet or proxy, then sign in again.",
     "open_billing": "Open billing",
     "connected_title": "You’re connected",
     "connected_ready": "Your first Bot is ready and waiting.",
