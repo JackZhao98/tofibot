@@ -204,3 +204,27 @@ func TestCoAddressedLastMemberAndNoteLessMemberCannotEndSilent(t *testing.T) {
 		})
 	}
 }
+
+func TestAssumptionPrincipleSitsAtEachPointOfDecision(t *testing.T) {
+	s, conv, run := mailDraftFixture(t)
+	found := false
+	for _, tool := range s.questionTools(conv, run) {
+		if tool.Name == "ask_user_question" {
+			found = true
+			for _, want := range []string{"settle what you would assume", "A question typed into the reply is asking too"} {
+				if !strings.Contains(tool.Description, want) {
+					t.Fatalf("ask_user_question lacks %q", want)
+				}
+			}
+		}
+	}
+	if !found {
+		t.Fatal("ask_user_question missing")
+	}
+	if !strings.Contains(sayToolDescription, "defaults to state in a line") {
+		t.Fatal("say description lacks the defaults principle")
+	}
+	if !strings.Contains(botProfileInstructionsDescription, "never wait on confirmation") {
+		t.Fatal("persona generator still lets requested deliverables wait on confirmation")
+	}
+}
