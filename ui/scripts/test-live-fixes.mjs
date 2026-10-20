@@ -15,6 +15,8 @@ import { createFixture } from "./lib/chat-fixture.mjs";
 const blurCss = readFileSync(join(dirname(fileURLToPath(import.meta.url)), "..", "src", "progressive-blur.css"), "utf8");
 
 const fixture = await createFixture({ engineName: process.env.LIVE_FIXES_ENGINE === "webkit" ? "webkit" : "chromium" });
+// Backdrop blur does not reach screenshots in headless WebKit: the pixel checks run in Chromium, the structural ones in both.
+const pixels = fixture.engine === fixture.pw.chromium;
 const sizes = [{ name: "desktop", width: 1440, height: 1028 }, { name: "phone", width: 390, height: 844 }];
 const results = [], failures = [], report = {};
 const check = async (name, run) => {
@@ -106,6 +108,7 @@ await check("the strip above the composer is a progressive blur: stacked masked 
 });
 
 await check("the blur ramps: a striped pattern is sharp above the strip and blurred at the composer", async () => {
+  if (!pixels) return;
   const { page, context } = await fixture.open({ viewport: { width: 1440, height: 1028 } });
   const strip = await page.evaluate(() => { const r = document.querySelector(".edge-blur.is-bottom").getBoundingClientRect(); const comp = document.querySelector(".composer-row").getBoundingClientRect(); return { top: r.top, bottom: r.bottom, composerTop: comp.top }; });
   // A high-contrast stripe field under the whole strip (beneath the blur layers, above the messages): its sharpness is what the blur removes.
@@ -159,6 +162,7 @@ await check("the header is see-through frosted glass: content runs under it, blu
   assert.ok(info.under, "the message pane does not run up under the header");
   assert.equal(info.headerPointer, "none", "the header's empty area would eat the pane's clicks and wheel");
   assert.equal(info.pillPointer, "auto", "the pills must stay clickable");
+  if (!pixels) { await context.close(); return; }
   // Pixels: a field of wide bands under the header must be soft but still visible inside the glass, and sharp below its ramp.
   await page.evaluate(({ top }) => {
     const field = document.createElement("div");
