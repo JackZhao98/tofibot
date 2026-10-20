@@ -68,7 +68,7 @@ func (g *AccountGateway) manageAccount(w http.ResponseWriter, r *http.Request, a
 			writeErr(w, 500, "storage", "cannot revoke session")
 			return true
 		}
-		http.SetCookie(w, &http.Cookie{Name: ownerCookie, Value: "", Path: "/", HttpOnly: true, Secure: r.TLS != nil, SameSite: http.SameSiteLaxMode, MaxAge: -1})
+		http.SetCookie(w, &http.Cookie{Name: ownerCookie, Value: "", Path: "/", HttpOnly: true, Secure: r.TLS != nil || strings.HasPrefix(strings.ToLower(g.root.publicOrigin), "https://"), SameSite: http.SameSiteLaxMode, MaxAge: -1})
 		r.Header.Del("Cookie")
 		writeJSON(w, 200, g.sessionState(r))
 		return true
@@ -78,7 +78,7 @@ func (g *AccountGateway) manageAccount(w http.ResponseWriter, r *http.Request, a
 			writeErr(w, 403, "transport", "secure password transport required")
 			return true
 		}
-		if !g.auth.allowAttempt(r) {
+		if !g.auth.allowAccountAttempt("id:" + a.ID) {
 			writeErr(w, 429, "rate_limited", "try later")
 			return true
 		}
@@ -91,7 +91,7 @@ func (g *AccountGateway) manageAccount(w http.ResponseWriter, r *http.Request, a
 			return true
 		}
 		if e := checkPassword(a.Username, a.Email, in.Password); e != nil {
-			g.auth.refundAttempt(r)
+			g.auth.refundAccount("id:" + a.ID)
 			writeFieldErr(w, 400, e)
 			return true
 		}
@@ -105,6 +105,7 @@ func (g *AccountGateway) manageAccount(w http.ResponseWriter, r *http.Request, a
 			writeErr(w, 401, "invalid_credentials", "incorrect current password")
 			return true
 		}
+		g.auth.refundAccount("id:" + a.ID)
 		nextSalt := make([]byte, 16)
 		if _, err = rand.Read(nextSalt); err != nil {
 			writeErr(w, 500, "auth_unavailable", "password unavailable")
