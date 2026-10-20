@@ -49,13 +49,29 @@ export function buildRetryFamilies(runs: Run[]) {
   });
 }
 
+/** Messages looked up by id and by run, so anchoring every family of a long history does not rescan the whole page for each. */
+export interface MessageIndex { byId: Map<string, Message>; repliesByRun: Map<string, Message[]> }
+export function indexMessages(messages: Message[]): MessageIndex {
+  const byId = new Map<string, Message>();
+  const repliesByRun = new Map<string, Message[]>();
+  for (const message of messages) {
+    byId.set(message.id, message);
+    if (message.role === "assistant" && message.run_id) {
+      const list = repliesByRun.get(message.run_id);
+      if (list) list.push(message); else repliesByRun.set(message.run_id, [message]);
+    }
+  }
+  return { byId, repliesByRun };
+}
+
 /** Collapse history only where the loaded page has a durable, visible audit anchor. */
-export function retryFamilyAnchor(family: ReturnType<typeof buildRetryFamilies>[number], messages: Message[]) {
+export function retryFamilyAnchor(family: ReturnType<typeof buildRetryFamilies>[number], messages: Message[] | MessageIndex) {
   if (family.latest.kind === "schedule") return undefined;
-  const loaded = messages.filter(message => message.conversation_id === family.latest.conversation_id);
-  const trigger = loaded.find(message => message.id === family.latest.trigger_message_id);
-  if (trigger) return trigger.id;
-  const replies = loaded.filter(message => message.role === "assistant" && message.run_id === family.latest.id).sort((a, b) => a.seq - b.seq);
+  const { byId, repliesByRun } = Array.isArray(messages) ? indexMessages(messages) : messages;
+  const conversation = family.latest.conversation_id;
+  const trigger = byId.get(family.latest.trigger_message_id ?? "");
+  if (trigger && trigger.conversation_id === conversation) return trigger.id;
+  const replies = (repliesByRun.get(family.latest.id) ?? []).filter(message => message.conversation_id === conversation).sort((a, b) => a.seq - b.seq);
   // Completed progress may fold into the final answer; anchor to that answer first.
   return (replies.find(message => message.kind !== "progress") ?? replies[0])?.id;
 }

@@ -2,7 +2,7 @@ import { toolExecutionState, toolStepDetail, toolStepTitle } from "./toolTimelin
 export { toolExecutionState } from "./toolTimeline";
 import type { MailDraft } from "./MailDraftCard";
 import type { Question } from "./questionTimeline";
-import { buildRetryFamilies, retryFamilyAnchor, isTerminalRun } from "./runFamily";
+import { buildRetryFamilies, indexMessages, retryFamilyAnchor, isTerminalRun } from "./runFamily";
 import type { Message, Run, ToolActivity, ToolActivityRunSummary } from "./types";
 import { providerForModel } from "./modelCatalog";
 import { i18n, type Language } from "./i18n";
@@ -22,12 +22,13 @@ export type TaskOwner = { key: string; family: TaskFamily; anchor?: { kind: "mes
 
 /** Identity comes only from durable run links. No name/time/content matching. */
 export function buildTaskOwners(runs: Run[], messages: Message[], questions: Question[], drafts: MailDraft[]): TaskOwner[] {
+  // Scheduled occurrences retain their own run ID and loaded scheduled message.
+  const durableMessages = messages.filter(message => message.kind !== "progress");
+  const index = indexMessages(durableMessages);
   return buildRetryFamilies(runs).filter(family => family.latest.kind !== "triage").flatMap(family => {
     const run = family.latest;
     const matching = <T extends { run_id: string; conversation_id: string; bot_id: string }>(item: T) => family.attempts.some(attempt => attempt.id === item.run_id && attempt.conversation_id === item.conversation_id && attempt.bot_id === item.bot_id);
-    // Scheduled occurrences retain their own run ID and loaded scheduled message.
-    const durableMessages = messages.filter(message => message.kind !== "progress");
-    const messageId = retryFamilyAnchor(family, durableMessages) ?? durableMessages.find(message => message.run_id === run.id && message.conversation_id === run.conversation_id && message.kind !== "progress")?.id;
+    const messageId = retryFamilyAnchor(family, index) ?? durableMessages.find(message => message.run_id === run.id && message.conversation_id === run.conversation_id && message.kind !== "progress")?.id;
     const question = questions.find(matching), draft = drafts.find(matching);
     const anchor = messageId ? { kind: "message" as const, id: messageId } : question ? { kind: "question" as const, id: question.question_id } : draft ? { kind: "draft" as const, id: draft.draft_id } : undefined;
     // An off-page historical run must not manufacture a new chat item.

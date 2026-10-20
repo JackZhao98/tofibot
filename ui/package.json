@@ -43,6 +43,8 @@
     "test:perf-structure": "node scripts/test-perf-structure.mjs",
     "test:avatar-frame-budget": "node scripts/test-avatar-frame-budget.mjs",
     "test:composer-typing": "node scripts/test-composer-typing.mjs",
+    "test:timeline-rows": "node scripts/test-timeline-rows.mjs",
+    "test:stream-cost": "node scripts/test-stream-cost.mjs",
     "test:tool-result-preview": "node scripts/test-tool-result-preview.mjs",
     "test:workspace-loading": "node scripts/test-workspace-loading.mjs",
     "test:preloader": "node scripts/test-preloader.mjs",
