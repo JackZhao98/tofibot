@@ -22,6 +22,7 @@ import { DisplayCard } from "./DisplayCard";
 import { QuestionCard, useQuestions } from "./QuestionCard";
 import { RememberedApprovalsSheet } from "./RememberedApprovals";
 import { toolDisplayState, toolDisplayLabel } from "./toolTimeline";
+import { requestFullToolResult, setToolResultLoader } from "./toolResultLoader";
 import { taskStateLabel } from "./ConversationTaskStatus";
 import { MailDraftCard, useMailDrafts } from "./MailDraftCard";
 import { buildQuestionTimeline, compareQuestionTime } from "./questionTimeline";
@@ -593,7 +594,19 @@ function Workspace() {
   const newBotCreationId = useRef<string | null>(null);
   const newBotPending = useRef(false);
   const snapshotGeneration = useRef(0);
-  const workspaceRefreshGeneration = useRef(0);
+  // Workspace list requests are ordered by when they started. A response is
+  // applied unless a request that started later has already been applied, so a
+  // slow list can never be starved by the next poll superseding it.
+  const workspaceRequestSeq = useRef(0);
+  const workspaceAppliedSeq = useRef(0);
+  const workspaceInFlight = useRef(0);
+  const workspaceInFlightAt = useRef(0);
+  const archivedRequested = useRef(false);
+  // Workspace events arrive in bursts (an import or an eval can write hundreds).
+  // They are coalesced into one list refresh, with one request in flight.
+  const workspaceEventPending = useRef(false);
+  const workspaceEventTimer = useRef<number | undefined>(undefined);
+  const flushWorkspaceEvents = useRef<() => void>(() => {});
   const configRefreshGeneration = useRef(0);
   const workspaceEventCursor = useRef(0);
   const workspaceEventSource = useRef<EventSource | null>(null);
@@ -655,14 +668,58 @@ function Workspace() {
     }
   }, []);
 
+  const beginWorkspaceRequest = () => {
+    workspaceInFlight.current += 1;
+    workspaceInFlightAt.current = Date.now();
+    return ++workspaceRequestSeq.current;
+  };
+  // True when this response may be applied; it then becomes the newest applied one.
+  const claimWorkspaceResult = (seq: number, generation: number) => {
+    if (generation !== snapshotGeneration.current || newBotPending.current || seq < workspaceAppliedSeq.current) return false;
+    workspaceAppliedSeq.current = seq;
+    return true;
+  };
+  const endWorkspaceRequest = (applied: boolean) => {
+    workspaceInFlight.current = Math.max(0, workspaceInFlight.current - 1);
+    if (applied || workspaceInFlight.current === 0) setLoading(false);
+    if (workspaceInFlight.current === 0 && workspaceEventPending.current && indexInitialized.current) flushWorkspaceEvents.current();
+  };
+  // A poll tick or focus event must not stack another request behind a slow
+  // one. A request older than this is presumed hung and no longer blocks ticks.
+  const workspaceRequestBusy = () => workspaceInFlight.current > 0 && Date.now() - workspaceInFlightAt.current < 20_000;
+
+  const mergeArchived = useCallback((archivedConversations: Conversation[], archivedBots: Bot[]) => {
+    setConversations((current) => [...current.filter((item) => !archivedConversations.some((archived) => archived.id === item.id)), ...archivedConversations]);
+    setBots((current) => [...current.filter((item) => !archivedBots.some((archived) => archived.id === item.id)), ...archivedBots]);
+  }, []);
+
+  // Archived rows are not part of the polled lists; they load once in the
+  // background after the workspace is on screen, and again when the archive
+  // view opens or an explicit refresh asks for them.
+  const loadArchivedInBackground = useCallback(async () => {
+    if (archivedRequested.current) return;
+    archivedRequested.current = true;
+    try {
+      const [conversationResult, botResult] = await Promise.all([api.conversations(true), api.bots(true)]);
+      mergeArchived(conversationResult.conversations.filter((item) => item.archived), botResult.bots.filter((item) => item.archived));
+    } catch {
+      archivedRequested.current = false;
+    }
+  }, [mergeArchived]);
+
   const refreshIndex = useCallback(async () => {
     const generation = snapshotGeneration.current;
-    const requestGeneration = ++workspaceRefreshGeneration.current;
+    const requestSeq = beginWorkspaceRequest();
     const configRequestGeneration = ++configRefreshGeneration.current;
+    // The first load only needs what the sidebar shows. Explicit refreshes
+    // after a mutation keep asking for archived rows too.
+    const firstLoad = !indexInitialized.current;
+    let applied = false;
     setLoading(true);
     try {
-      const [botResult, conversationResult, nextConfig] = await Promise.all([api.bots(true), api.conversations(true), api.config()]);
-      if (requestGeneration !== workspaceRefreshGeneration.current || generation !== snapshotGeneration.current || newBotPending.current) return;
+      const [botResult, conversationResult, nextConfig] = await Promise.all([api.bots(!firstLoad), api.conversations(!firstLoad), api.config()]);
+      if (!claimWorkspaceResult(requestSeq, generation)) return;
+      applied = true;
       setBots(botResult.bots);
       setConversations(conversationResult.conversations);
       for (const c of conversationResult.conversations) notificationSeen.current[c.id] = c.last_message?.seq ?? 0;
@@ -673,22 +730,30 @@ function Workspace() {
       // independent config request own model state.
       if (configRequestGeneration === configRefreshGeneration.current) applyConfig(nextConfig);
       setError("");
+      if (firstLoad) void loadArchivedInBackground();
     } catch (cause) {
       setWorkspaceError(errorText(cause));
       setError(errorText(cause));
     } finally {
-      if (requestGeneration === workspaceRefreshGeneration.current) setLoading(false);
+      endWorkspaceRequest(applied);
     }
-  }, [applyConfig]);
+  }, [applyConfig, loadArchivedInBackground]);
 
   const refreshConversations = useCallback(async () => {
     const generation = snapshotGeneration.current;
-    const requestGeneration = ++workspaceRefreshGeneration.current;
+    const requestSeq = beginWorkspaceRequest();
+    let applied = false;
     try {
-      const [result, botResult] = await Promise.all([api.conversations(true), api.bots(true)]);
-      if (requestGeneration !== workspaceRefreshGeneration.current || generation !== snapshotGeneration.current || newBotPending.current) return;
+      const [result, botResult] = await Promise.all([api.conversations(), api.bots()]);
+      if (!claimWorkspaceResult(requestSeq, generation)) return;
+      applied = true;
       // The 5s poll usually returns what is already shown; keeping the old objects keeps the whole workspace from re-rendering.
-      setBots((current) => sameData(current, botResult.bots) ? current : botResult.bots);
+      // Archived rows are not polled: keep the ones already loaded.
+      setBots((current) => {
+        const fresh = new Set(botResult.bots.map((bot) => bot.id));
+        const merged = [...botResult.bots, ...current.filter((bot) => bot.archived && !fresh.has(bot.id))];
+        return sameData(current, merged) ? current : merged;
+      });
       setWorkspaceError("");
       for (const c of result.conversations) {
         const message = c.last_message;
@@ -710,16 +775,16 @@ function Workspace() {
           if (local?.last_message && (!conversation.last_message || local.last_message.seq > conversation.last_message.seq)) return { ...conversation, last_message: local.last_message, updated_at: local.updated_at, last_user_message_at: local.last_user_message_at ?? conversation.last_user_message_at };
           return conversation;
         });
-        return sameData(current, merged) ? current : merged;
+        const fresh = new Set(merged.map((conversation) => conversation.id));
+        const withArchived = [...merged, ...current.filter((conversation) => conversation.archived && !fresh.has(conversation.id))];
+        return sameData(current, withArchived) ? current : withArchived;
       });
     } catch (cause) {
       // Conversation previews are best-effort while the app is in use.
       if (indexInitialized.current) setWorkspaceError(errorText(cause));
     } finally {
-      // A lightweight refresh can supersede a full refresh (for example when
-      // Codex settings close while the polling tick fires). Whichever current
-      // workspace request wins must release the shared loading indicator.
-      if (requestGeneration === workspaceRefreshGeneration.current) setLoading(false);
+      // Whichever workspace request lands last must release the shared loading indicator.
+      endWorkspaceRequest(applied);
     }
   }, [selectConversation]);
 
@@ -754,6 +819,22 @@ function Workspace() {
   /** The composer banner's Connect: reopen setup at the model step, or Settings once setup is behind the account. */
   const connectModel = () => { if (onboarding && !onboarding.completed) setOnboardingForced(2); else openSettings("models"); };
 
+  const scheduleWorkspaceEventRefresh = useCallback(() => {
+    if (workspaceEventTimer.current !== undefined) return;
+    workspaceEventTimer.current = window.setTimeout(() => {
+      workspaceEventTimer.current = undefined;
+      flushWorkspaceEvents.current();
+    }, 200);
+  }, []);
+  flushWorkspaceEvents.current = () => {
+    // One refresh per burst. While a request is in flight it re-flushes when it ends.
+    if (!workspaceEventPending.current || workspaceInFlight.current > 0 || !indexInitialized.current) return;
+    workspaceEventPending.current = false;
+    setScheduleRefresh(current => current + 1);
+    void refreshConversations();
+  };
+  useEffect(() => () => { if (workspaceEventTimer.current !== undefined) window.clearTimeout(workspaceEventTimer.current); }, []);
+
   const handleWorkspaceEvent = useCallback((data: WorkspaceEventEnvelope, id: number) => {
     // If the server restored a database whose event log has a lower
     // high-water mark, it replays from zero. A lower revision is therefore a
@@ -763,17 +844,19 @@ function Workspace() {
     else if (id > 0 && id === workspaceEventCursor.current) return;
     if (id > workspaceEventCursor.current) workspaceEventCursor.current = id;
     if (!indexInitialized.current) {
-      void refreshIndex();
+      // The initial load already covers every event the replay can carry.
+      if (!workspaceRequestBusy()) void refreshIndex();
+      else workspaceEventPending.current = true;
       return;
     }
-    if (data.scope === "bots" || data.scope === "groups") { setScheduleRefresh(current => current + 1); void refreshConversations(); }
+    if (data.scope === "bots" || data.scope === "groups") { workspaceEventPending.current = true; scheduleWorkspaceEventRefresh(); }
     else if (data.scope === "config") { setExtensionRefresh((current) => current + 1); void refreshConfig(); }
-  }, [refreshConfig, refreshConversations, refreshIndex]);
+  }, [refreshConfig, refreshIndex, scheduleWorkspaceEventRefresh]);
 
   const refreshWorkspaceOnConnect = useCallback(() => {
-    if (!indexInitialized.current) void refreshIndex();
-    else { void refreshConversations(); void refreshConfig(); }
-  }, [refreshConfig, refreshConversations, refreshIndex]);
+    if (!indexInitialized.current) { if (!workspaceRequestBusy()) void refreshIndex(); }
+    else { workspaceEventPending.current = true; scheduleWorkspaceEventRefresh(); void refreshConfig(); }
+  }, [refreshConfig, refreshIndex, scheduleWorkspaceEventRefresh]);
 
   const resetWorkspaceEvents = useCallback(() => {
     workspaceEventCursor.current = 0;
@@ -994,6 +1077,7 @@ function Workspace() {
   }, []);
   useEffect(() => {
     const refresh = () => {
+      if (workspaceRequestBusy()) return;
       if (!indexInitialized.current) void refreshIndex();
       else { void refreshConversations(); void refreshConfig(); }
     };
@@ -1260,6 +1344,25 @@ function Workspace() {
       toolDetailRequests.current.delete(runId);
     }
   }, []);
+
+  // Expanding a step whose list entry carried only a result preview loads that one full result.
+  const toolResultRequests = useRef(new Set<string>());
+  const loadFullToolResult = useCallback((activity: ToolActivity) => {
+    const conversationId = activeIdRef.current;
+    if (!conversationId || activity.conversation_id !== conversationId) return;
+    const key = `${toolActivityKey(activity)}\u0000${activity.updated_at}`;
+    if (toolResultRequests.current.has(key)) return;
+    toolResultRequests.current.add(key);
+    api.toolActivityResult(conversationId, activity.run_id, activity.call_id).then(({ activity: full }) => {
+      if (activeIdRef.current !== conversationId) return;
+      setToolDetailActivities(current => {
+        const byKey = new Map(current.map(item => [toolActivityKey(item), item]));
+        byKey.set(toolActivityKey(full), reconcileToolActivity(byKey.get(toolActivityKey(full)), full));
+        return [...byKey.values()].sort((a, b) => +new Date(b.updated_at) - +new Date(a.updated_at));
+      });
+    }).catch(() => { toolResultRequests.current.delete(key); });
+  }, []);
+  useEffect(() => { setToolResultLoader(loadFullToolResult); return () => setToolResultLoader(undefined); }, [loadFullToolResult]);
 
   const handleEvent = useCallback((conversationId: string, type: string, data: EventEnvelope, id: number) => {
     // EventSource callbacks can arrive after a conversation switch. Never let
@@ -1650,10 +1753,6 @@ function Workspace() {
     return fresh;
   }
 
-  const mergeArchived = useCallback((archivedConversations: Conversation[], archivedBots: Bot[]) => {
-    setConversations((current) => [...current.filter((item) => !archivedConversations.some((archived) => archived.id === item.id)), ...archivedConversations]);
-    setBots((current) => [...current.filter((item) => !archivedBots.some((archived) => archived.id === item.id)), ...archivedBots]);
-  }, []);
   const refreshAfterArchive = useCallback(async () => { await refreshIndex(); }, [refreshIndex]);
 
   function confirmDelete(conversation: Conversation) {
@@ -2541,7 +2640,7 @@ function WebToolActivityRun({ runId, items, notes, summary, summaryError, summar
         const active = live && (activity.status === "running" || activity.status === "queued");
         return <li className={`web-tool-step is-${toolDisplayState(activity)}`} key={toolActivityKey(activity)}>
           <Icon name={toolStepIcon(toolStepLabel(activity))} size={16} />
-          <details className="web-tool-step-detail"><summary><span className="web-tool-step-label">{toolStepLabel(activity)}{toolArgumentPreview(activity) ? ` · ${toolArgumentPreview(activity)}` : ""}</span></summary>
+          <details className="web-tool-step-detail" onToggle={event => { if (event.currentTarget.open) requestFullToolResult(activity); }}><summary><span className="web-tool-step-label">{toolStepLabel(activity)}{toolArgumentPreview(activity) ? ` · ${toolArgumentPreview(activity)}` : ""}</span></summary>
             <div className="tool-activity-details"><small>{Number.isFinite(Date.parse(activity.started_at)) ? formatExactTime(activity.started_at, timezone) : ""} · {timezone}</small><div><span>{t("tools.arguments")}</span><pre>{activity.arguments || t("tools.none")}</pre></div><div><span>{t("tools.result")}</span>{activity.outcome && <p className="tool-outcome" role="note">{activity.outcome.message}</p>}<pre>{activity.result || (active ? t("tools.waiting_result") : t("tools.none"))}</pre></div>{activity.truncated && <small>{t("tools.truncated")}</small>}</div>
           </details>
           <span className="web-tool-step-meta">{active ? <span className="web-tool-breath" aria-hidden="true" /> : <Icon name={activity.status === "completed" ? "check" : toolDisplayState(activity) !== activity.status ? "clock" : "alert"} size={14} variant="filled" />}{toolDisplayLabel(activity)}{duration === undefined ? "" : ` · ${duration.toFixed(1)}s`}</span>
@@ -2583,7 +2682,7 @@ function DesktopToolActivityRun({ runId, items, notes, summary: runSummary, summ
           const end = activity.status === "running" ? now : Date.parse(activity.updated_at);
           const duration = Number.isFinite(start) && Number.isFinite(end) && end >= start ? (end - start) / 1000 : undefined;
           return <li className={`v2-tool-step tool-status-${toolDisplayState(activity)}`} key={toolActivityKey(activity)}>
-            <details className="v2-tool-step-detail"><summary><span className="v2-tool-step-marker" aria-hidden="true" /><strong>{activity.name}</strong>{toolArgumentPreview(activity) && <span className="v2-tool-step-argument">{toolArgumentPreview(activity)}</span>}<span className="v2-tool-step-state">{toolDisplayLabel(activity)}</span><time>{duration === undefined ? "" : activity.status === "running" ? `${duration}s…` : `${duration}s`}</time></summary>
+            <details className="v2-tool-step-detail" onToggle={event => { if (event.currentTarget.open) requestFullToolResult(activity); }}><summary><span className="v2-tool-step-marker" aria-hidden="true" /><strong>{activity.name}</strong>{toolArgumentPreview(activity) && <span className="v2-tool-step-argument">{toolArgumentPreview(activity)}</span>}<span className="v2-tool-step-state">{toolDisplayLabel(activity)}</span><time>{duration === undefined ? "" : activity.status === "running" ? `${duration}s…` : `${duration}s`}</time></summary>
               <div className="tool-activity-details"><small>{Number.isFinite(Date.parse(activity.started_at)) ? formatExactTime(activity.started_at, timezone) : ""} · {timezone}</small><div><span>{t("tools.arguments")}</span><pre>{activity.arguments || t("tools.none")}</pre></div><div><span>{t("tools.result")}</span>{activity.outcome && <p className="tool-outcome" role="note">{activity.outcome.message}</p>}<pre>{activity.result || (activity.status === "running" || activity.status === "queued" ? t("tools.waiting_result") : t("tools.none"))}</pre></div>{activity.truncated && <small>{t("tools.truncated")}</small>}</div>
             </details>
           </li>;

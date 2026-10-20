@@ -262,6 +262,9 @@ export interface ToolActivity {
   truncated: boolean;
   started_at: string;
   updated_at: string;
+  /** List responses cut long results to a preview; result_bytes is the stored length. */
+  result_preview?: boolean;
+  result_bytes?: number;
 }
 
 export interface ToolActivityRunSummary {

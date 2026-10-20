@@ -1,6 +1,7 @@
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { TofiIcon } from "./icons";
 import { MessageMarkdown } from "./MessageMarkdown";
+import { requestFullToolResult } from "./toolResultLoader";
 import { toolDisplayLabel, orderToolActivities, toolDisplayState, toolStepTitle, toolStepSeconds, formatStepSeconds, toolStepDetail } from "./toolTimeline";
 import { TaskIssueCard } from "./TaskIssueCard";
 import { canAnswerQuestion, presentTaskIssue, taskCertaintyText, taskOutcomeText, taskPhaseLabel, taskPhaseVisible, taskStatusText, type TaskOwner } from "./taskIssuePresentation";
@@ -85,7 +86,7 @@ function ToolStepRecord({ tool, locale, now, onOpenTools }: { tool: ToolActivity
     catch { setCopied(t("step.copy_failed")); }
   }
   return <li className={`task-step is-${state}${problem ? " is-problem" : ""}`} data-step={`${tool.run_id}:${tool.call_id}`}>
-    <details><summary onClick={toggleDisclosure}><span className="task-step-marker" aria-hidden="true" /><span className="task-step-title">{toolStepTitle(tool)}{preview && <span className="task-step-argument"> · {preview}</span>}{problem && state === "not_executed" && tool.outcome?.code && <span className="task-step-argument task-step-reason"> · {reason}</span>}</span><span className="task-step-state">{toolDisplayLabel(tool, locale)}{seconds !== undefined && <time> · {formatStepSeconds(seconds)}</time>}</span></summary>
+    <details onToggle={event => { if (event.currentTarget.open) requestFullToolResult(tool); }}><summary onClick={toggleDisclosure}><span className="task-step-marker" aria-hidden="true" /><span className="task-step-title">{toolStepTitle(tool)}{preview && <span className="task-step-argument"> · {preview}</span>}{problem && state === "not_executed" && tool.outcome?.code && <span className="task-step-argument task-step-reason"> · {reason}</span>}</span><span className="task-step-state">{toolDisplayLabel(tool, locale)}{seconds !== undefined && <time> · {formatStepSeconds(seconds)}</time>}</span></summary>
       <div className="task-step-body">{problem && <div className="task-step-problem" role="group" aria-label={t("step.problem")}>
         <p><strong>{reason}</strong>{tool.outcome?.execution_certainty && <> · {taskCertaintyText(tool.outcome.execution_certainty, locale)}</>}</p>
         <div className="task-step-actions"><button type="button" className="secondary-button" onClick={() => void copyDiagnostics()}><TofiIcon name="copy" size={15} aria-hidden="true" />{t("step.copy_diagnostics")}</button>{tool.outcome?.code === "mcp_review_setup_missing" && onOpenTools && <button type="button" className="secondary-button" onClick={onOpenTools}>{t("step.open_tool_settings")}</button>}</div>

@@ -106,6 +106,7 @@ export const api = {
   deleteSchedule: (id: string) => request<void>(`/api/schedules/${encodeURIComponent(id)}`, { method: "DELETE" }),
   toolActivities: (id: string) => request<{ activities: ToolActivity[] }>(`/api/conversations/${encodeURIComponent(id)}/tools`),
   toolActivitySummaries: (id: string, runIds: string[]) => request<{ summaries: ToolActivityRunSummary[] }>(`/api/conversations/${encodeURIComponent(id)}/tools?${new URLSearchParams({ run_ids: runIds.join(",") })}`),
+  toolActivityResult: (id: string, runId: string, callId: string) => request<{ activity: ToolActivity }>(`/api/conversations/${encodeURIComponent(id)}/tools?${new URLSearchParams({ run_id: runId, call_id: callId })}`),
   toolActivityDetails: (id: string, runId: string, offset = 0) => request<ToolActivityDetailPage>(`/api/conversations/${encodeURIComponent(id)}/tools?${new URLSearchParams({ run_id: runId, offset: String(offset) })}`),
   computerInfo: () => request<{ kind: string; state: string; phase?: string; workspace_root?: string; browser?: string; error?: string; health?: ComputerHealth }>("/api/computers/firecracker/info"),
   computerRetry: () => request<{ accepted: boolean }>("/api/computers/firecracker/retry", { method: "POST" }),
@@ -121,7 +122,8 @@ export function openConversationEvents(
   workspace?: { after: number; onEvent: (data: WorkspaceEventEnvelope, eventId: number) => void; onReset: () => void },
 ): EventSource {
   const query = new URLSearchParams({ after: String(after) });
-  if (workspace) query.set("workspace_after", String(workspace.after));
+  // Cursor 0 means this client has seen nothing yet: start at the live head instead of replaying the whole log.
+  if (workspace) query.set("workspace_after", workspace.after > 0 ? String(workspace.after) : "head");
   const source = new EventSource(`/api/conversations/${encodeURIComponent(id)}/events?${query}`);
   const types = ["message", "reaction", "run", "delta", "draft_reset", "thinking", "retrying", "memory", "memory_deleted", "schedule", "work_item", "tool", "bot"] as const;
   for (const type of types) {
@@ -147,7 +149,7 @@ export function openWorkspaceEvents(
   onError: () => void,
   onReset?: () => void,
 ): EventSource {
-  const query = new URLSearchParams({ after: String(after) });
+  const query = new URLSearchParams({ after: after > 0 ? String(after) : "head" });
   const source = new EventSource(`/api/workspace/events?${query}`);
   source.addEventListener("workspace", workspaceEventListener(onEvent, true));
   if (onReset) source.addEventListener("workspace_reset", onReset);

@@ -86,6 +86,8 @@ export function reconcileToolActivity(previous: ToolActivity | undefined, next: 
   const order = compareTime(preciseTime(previous.updated_at), preciseTime(next.updated_at));
   if (order > 0) return previous;
   if (order < 0) return next;
+  // A list preview of the same version never replaces the full result already loaded.
+  if (next.result_preview && !previous.result_preview && previous.status === next.status) return previous;
   const before = toolExecutionState(previous), after = toolExecutionState(next);
   if (before === after) return next;
   // Equal-version contradictory snapshots cannot confirm an external effect.
