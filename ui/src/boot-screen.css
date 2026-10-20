@@ -1,0 +1,59 @@
+/* Boot screen: skeleton of the app behind one frost layer, the calico mark breathing on top. CSS only. */
+.boot{--boot-ease:cubic-bezier(.22,1,.36,1);position:fixed;inset:0;z-index:60;display:grid;place-items:center;overflow:hidden;background:var(--bg);color:var(--muted);font-size:14px}
+.boot.is-warm :is(.boot-skeleton,.boot-frost,.boot-logo-wrap){animation:none}
+.boot-skeleton,.boot-frost{position:absolute;inset:0;animation:boot-in .24s ease-out both}
+.boot-skeleton{display:grid;grid-template-columns:var(--sidebar-width,272px) minmax(0,1fr);background:var(--bg)}
+.boot-side{display:flex;flex-direction:column;gap:6px;min-width:0;padding:14px 10px;background:var(--sidebar-bg,var(--sunk));border-right:1px solid var(--line-soft)}
+.boot-side-top{display:flex;align-items:center;gap:6px;min-height:36px;margin:0 5px 13px}
+.boot-brand{width:70px;height:22px;margin-right:auto}
+.boot-search{height:42px;margin:0 0 8px;border-radius:12px}
+.boot-row{display:flex;align-items:center;gap:11px;padding:9px 10px;border-radius:12px}
+.boot-row.is-on{background:var(--selected-bg,var(--surface-2))}
+.boot-lines{display:flex;flex:1;flex-direction:column;gap:7px;min-width:0}
+.boot-block{display:block;height:10px;border-radius:6px;background:var(--line-soft)}
+.boot-block.is-faint{height:8px;opacity:.55}
+.boot-avatar{flex:0 0 auto;width:38px;height:38px;border-radius:50%}
+.boot-dot{flex:0 0 auto;width:32px;height:32px;border-radius:50%}
+.boot-main{display:flex;flex-direction:column;min-width:0;min-height:0}
+.boot-head{display:flex;align-items:center;gap:12px;min-height:64px;padding:9px clamp(14px,4vw,32px)}
+.boot-thread{display:flex;flex:1;flex-direction:column;gap:18px;width:min(100%,760px);min-height:0;margin:0 auto;padding:24px clamp(14px,4vw,32px);overflow:hidden}
+.boot-bubble{display:block;flex:0 0 auto;border-radius:18px;background:var(--surface-2);border:1px solid var(--line-soft)}
+.boot-bubble.is-me{align-self:flex-end;background:var(--bubble-user,var(--surface-2))}
+.boot-composer{display:flex;align-items:center;gap:10px;width:min(100%,760px);min-height:56px;margin:10px auto max(13px,env(safe-area-inset-bottom));padding:0 12px;border:1px solid var(--line-soft);border-radius:28px;background:var(--surface)}
+.boot-composer .boot-field{flex:1;height:12px}
+/* Frost: the one blur layer. */
+.boot-frost{-webkit-backdrop-filter:blur(12px) saturate(.85);backdrop-filter:blur(12px) saturate(.85);background:color-mix(in srgb,var(--bg) 42%,transparent)}
+.boot-logo{position:relative;width:96px;height:96px;opacity:.7;filter:grayscale(1) brightness(1.55) contrast(.5) blur(1.5px);transform-origin:50% 55%;animation:boot-breathe 2.4s ease-in-out var(--boot-phase,0s) infinite;pointer-events:none;user-select:none}
+.boot-logo-wrap{position:relative;display:block;width:96px;height:96px;animation:boot-in .24s ease-out both}
+:root[data-theme="dark"] .boot-logo{filter:grayscale(1) brightness(.8) contrast(.55) blur(1.5px)}
+/* Failure: the same backdrop, message and Retry in a card above it. */
+.boot.is-failed .boot-logo-wrap{display:none}
+.boot-card{position:relative;display:flex;flex-direction:column;align-items:center;gap:10px;max-width:min(420px,calc(100vw - 32px));padding:26px 24px;text-align:center;border:1px solid var(--line-soft);border-radius:18px;background:color-mix(in srgb,var(--surface) 88%,transparent);color:var(--ink)}
+.boot-card h2{margin:0;font-size:18px}
+.boot-card p{margin:0;color:var(--muted);overflow-wrap:anywhere}
+/* Hand-off: the copy dissolves over the real UI (opacity and blur only). */
+.boot-dissolve{pointer-events:none;background:transparent}
+.boot-dissolve .boot-skeleton{animation:boot-out .3s ease-out forwards}
+.boot-dissolve .boot-frost{animation:boot-defrost .32s ease-out forwards}
+.boot-dissolve .boot-logo-wrap{animation:boot-out .22s ease-out forwards}
+@keyframes boot-in{from{opacity:0}to{opacity:1}}
+@keyframes boot-out{to{opacity:0}}
+@keyframes boot-defrost{from{-webkit-backdrop-filter:blur(12px) saturate(.85);backdrop-filter:blur(12px) saturate(.85);opacity:1}to{-webkit-backdrop-filter:blur(0) saturate(1);backdrop-filter:blur(0) saturate(1);opacity:0}}
+@keyframes boot-breathe{0%,100%{transform:scale(1);opacity:.68}50%{transform:scale(1.03);opacity:.7}}
+@media(max-width:767px){
+  .boot-skeleton{display:block}
+  .boot-side{display:none;height:100%;border-right:0}
+  .boot-main{height:100%}
+  .boot-skeleton[data-view="list"] .boot-side{display:flex}
+  .boot-skeleton[data-view="list"] .boot-main{display:none}
+  .boot-head{min-height:58px;padding:max(7px,env(safe-area-inset-top)) 12px 7px}
+  .boot-side{padding:max(14px,env(safe-area-inset-top)) 14px 14px}
+}
+@media(prefers-reduced-motion:reduce){
+  /* Plain crossfade: no transform, no blur animation. The global reduced-motion rule zeroes durations, so restate the fades. */
+  .boot .boot-logo{animation:none!important;transform:none}
+  .boot :is(.boot-skeleton,.boot-frost,.boot-logo-wrap){animation:boot-in .2s ease-out both!important}
+  .boot.is-warm :is(.boot-skeleton,.boot-frost,.boot-logo-wrap){animation:none!important}
+  .boot-dissolve{animation:boot-out .2s ease-out forwards!important}
+  .boot-dissolve :is(.boot-skeleton,.boot-frost,.boot-logo-wrap){animation:none!important}
+}
