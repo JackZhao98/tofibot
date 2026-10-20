@@ -39,6 +39,7 @@ import "./web-tool-steps.css";
 import "./web-mention.css";
 import "./web-file-drop.css";
 import "./web-sidebar-list.css";
+import "./sidebar-pins.css";
 import "./chat-header.css";
 import "./context-card.css";
 import "./focus-ring.css";

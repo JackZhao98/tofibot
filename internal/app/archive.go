@@ -60,6 +60,11 @@ func (s *Store) SetGroupArchived(id string, archived bool) (Conversation, error)
 	if _, err = tx.Exec(`UPDATE conversations SET archived=?,updated_at=? WHERE id=?`, boolInt(archived), t, id); err != nil {
 		return Conversation{}, err
 	}
+	if archived {
+		if _, err = tx.Exec(`UPDATE conversations SET pin_order=0 WHERE id=?`, id); err != nil {
+			return Conversation{}, err
+		}
+	}
 	c.Archived, c.UpdatedAt = archived, t
 	c.BotIDs, err = maintainedGroupMembers(tx, id)
 	if err != nil {
@@ -131,6 +136,11 @@ func (s *Store) setBotArchived(id string, archived bool, successor string, stric
 	}
 	if _, err = tx.Exec(`UPDATE conversations SET archived=?,updated_at=? WHERE id=? AND kind='dm' AND bot_id=?`, boolInt(archived), t, b.DMConversationID, id); err != nil {
 		return Bot{}, err
+	}
+	if archived {
+		if _, err = tx.Exec(`UPDATE conversations SET pin_order=0 WHERE id=?`, b.DMConversationID); err != nil {
+			return Bot{}, err
+		}
 	}
 	b.Archived = archived
 	if err = archiveBotEventTx(tx, b, t); err != nil {
