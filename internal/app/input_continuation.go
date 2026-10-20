@@ -239,6 +239,9 @@ func supersedeInputWaitsTx(tx *sql.Tx, conv string) error {
 // explicitly marked for re-request; never restore a cleared vault reference
 // or place a password value in the provider transcript/checkpoint.
 func (s *Server) inputResumeResult(q Question) string {
+	if isHandoverType(q.Type) {
+		return handoverResult(q)
+	}
 	if q.Status != questionAnswered {
 		b, _ := json.Marshal(map[string]string{"status": q.Status})
 		return string(b)
