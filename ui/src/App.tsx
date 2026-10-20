@@ -1,3 +1,4 @@
+import { CopyFeedbackIcon } from "./CopyFeedbackIcon";
 import { thinkingHeadline } from "./thinkingHeadline";
 import { TaskRunBlock, taskBlockVisible } from "./TaskRunBlock";
 import { markSenderGroups } from "./senderGroups";
@@ -3270,7 +3271,7 @@ function Composer({ workStatus, activeRun, latestReplyId, onStopRun, avatarMenti
     if (!form || !pane) return;
     const measure = () => pane.style.setProperty("--composer-height", `${form.getBoundingClientRect().height}px`);
     const observer = new ResizeObserver(measure);
-    observer.observe(form); measure();
+    observer.observe(form, { box: "border-box" }); measure();
     return () => observer.disconnect();
   }, [conversation.id]);
   // The measurement stays across a conversation switch (the next composer re-measures in the same commit) and goes with the composer.
