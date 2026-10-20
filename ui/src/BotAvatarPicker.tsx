@@ -7,6 +7,7 @@ import { isDesktop } from "./desktop";
 import { SPRINGS, springEasing } from "./motion-lab/lib/spring";
 import { useTranslation } from "./i18n";
 import "./bot-avatar-picker-motion.css";
+import { MOTION, EASE } from "./motion";
 
 export function BotAvatarPicker({ botId, config, onChange }: { botId: string; config: AvatarConfig; onChange: (config: AvatarConfig) => void }) {
   const { t } = useTranslation("bots");
@@ -18,7 +19,7 @@ export function BotAvatarPicker({ botId, config, onChange }: { botId: string; co
     const avatar = stageRef.current?.querySelector<HTMLElement>(".avatar");
     if (isDesktop || matchMedia("(prefers-reduced-motion: reduce)").matches || !avatar) { onChange(next); return; }
     busy.current = true;
-    const out = avatar.animate({ transform:["none","translateY(-22px) scale(.25) rotate(-14deg)"], opacity:[1,0] }, { duration:220,easing:"cubic-bezier(.5,0,.75,0)",fill:"forwards" });
+    const out = avatar.animate({ transform:["none","translateY(-22px) scale(.25) rotate(-14deg)"], opacity:[1,0] }, { duration:MOTION.base,easing:EASE.in,fill:"forwards" });
     try { await out.finished; } catch { /* Continue with the new shape. */ }
     flushSync(() => onChange(next));
     await new Promise<void>(resolve => requestAnimationFrame(() => resolve()));
@@ -49,7 +50,7 @@ export function BotAvatarPicker({ botId, config, onChange }: { botId: string; co
     await new Promise<void>(resolve => requestAnimationFrame(() => resolve()));
     const near = Math.hypot(x-Math.max(0,Math.min(x,box.width)),y-Math.max(0,Math.min(y,box.height)));
     const reach = Math.hypot(Math.max(x,box.width-x),Math.max(y,box.height-y))+12;
-    try { await old.animate([{ "--paint-r":`${near}px` }, { "--paint-r":`${reach}px` }] as Keyframe[], { duration:720,easing:"cubic-bezier(.45,.05,.3,1)",fill:"forwards" }).finished; } catch { /* Unmount can interrupt the transition. */ }
+    try { await old.animate([{ "--paint-r":`${near}px` }, { "--paint-r":`${reach}px` }] as Keyframe[], { duration:MOTION.flight,easing:EASE.inout,fill:"forwards" }).finished; } catch { /* Unmount can interrupt the transition. */ }
     old.remove(); busy.current = false;
   }
   const palettes = paletteOptions(config.pattern);

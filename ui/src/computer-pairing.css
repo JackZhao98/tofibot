@@ -4,12 +4,12 @@ html:not([data-desktop]) .web-pairing-route{display:grid;grid-template-columns:a
 html:not([data-desktop]) .web-pairing-route span{display:grid;justify-items:center;gap:4px;color:var(--muted)}
 html:not([data-desktop]) .web-pairing-route svg{box-sizing:content-box;padding:11px;border:2px solid var(--line-soft);border-radius:15px;color:var(--ink);background:var(--surface)}
 html:not([data-desktop]) .web-pairing-route small{font-size:12px}
-html:not([data-desktop]) .web-pairing-route i{height:4px;margin-bottom:20px;border-radius:2px;background:repeating-linear-gradient(90deg,var(--lagoon-text) 0 5px,transparent 5px 11px);animation:web-pair-flow 600ms linear infinite}
+html:not([data-desktop]) .web-pairing-route i{height:4px;margin-bottom:20px;border-radius:2px;background:repeating-linear-gradient(90deg,var(--lagoon-text) 0 5px,transparent 5px 11px);animation:web-pair-flow var(--m-flight) linear infinite}
 html:not([data-desktop]) .web-pairing-card.is-paired .web-pairing-route{grid-template-columns:auto minmax(60px,1fr) auto auto}
-html:not([data-desktop]) .web-pairing-card.is-paired .web-pairing-route i{background:var(--lagoon-text);animation:web-pair-connect 420ms ease-out both;transform-origin:left center}
-html:not([data-desktop]) .web-pairing-card.is-paired .web-pairing-route>svg{margin-bottom:20px;color:var(--lagoon-text);animation:web-pair-check 260ms 300ms ease-out both}
+html:not([data-desktop]) .web-pairing-card.is-paired .web-pairing-route i{background:var(--lagoon-text);animation:web-pair-connect var(--m-panel-in) var(--ease-out) both;transform-origin:left center}
+html:not([data-desktop]) .web-pairing-card.is-paired .web-pairing-route>svg{margin-bottom:20px;color:var(--lagoon-text);animation:web-pair-check var(--m-panel-in) 300ms var(--ease-out) both}
 html:not([data-desktop]) .web-pairing-card code{display:flex;flex-wrap:wrap;gap:6px;perspective:400px;letter-spacing:normal}
-html:not([data-desktop]) .web-pairing-digit{display:grid;place-items:center;min-width:32px;height:42px;padding:0 3px;border:2px solid var(--line);border-radius:9px;background:var(--surface);box-shadow:var(--hard-sm);color:var(--ink);font:700 22px/1 var(--display);animation:web-pair-flap 110ms ease-out both}
+html:not([data-desktop]) .web-pairing-digit{display:grid;place-items:center;min-width:32px;height:42px;padding:0 3px;border:2px solid var(--line);border-radius:9px;background:var(--surface);box-shadow:var(--hard-sm);color:var(--ink);font:700 22px/1 var(--display);animation:web-pair-flap var(--m-press) var(--ease-out) both}
 html:not([data-desktop]) .web-pairing-wait{color:var(--muted);font:var(--type-status)}
 @keyframes web-pair-flow{to{background-position:22px 0}}
 @keyframes web-pair-flap{from{transform:rotateX(-85deg);opacity:.4}}

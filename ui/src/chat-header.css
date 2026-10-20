@@ -11,7 +11,7 @@ html:not([data-desktop]) .workspace .message-scroll { mask-image:linear-gradient
 html:not([data-desktop]) .workspace .chat-identity {
   min-height:44px; padding:4px 16px 4px 5px; gap:9px;
   border:1px solid var(--line-soft); border-radius:999px; background:var(--surface);
-  transition:border-color 160ms ease,background-color 160ms ease;
+  transition:border-color var(--m-quick) var(--ease-out),background-color var(--m-quick) var(--ease-out);
 }
 html:not([data-desktop]) .workspace .chat-identity:hover { border-color:var(--line); background:var(--surface); }
 html:not([data-desktop]) .workspace .chat-identity:focus-visible { outline:var(--focus-ring-width) solid var(--focus-ring); outline-offset:2px; }
@@ -28,7 +28,7 @@ html:not([data-desktop]) .workspace .header-actions {
 }
 html:not([data-desktop]) .workspace .header-actions :is(.computer-button,.ghost-button) {
   width:36px; height:36px; min-width:36px; padding:0; border:0; border-radius:50%;
-  background:transparent; color:var(--ink-soft); transition:background-color 140ms ease,color 140ms ease;
+  background:transparent; color:var(--ink-soft); transition:background-color var(--m-quick) var(--ease-out),color var(--m-quick) var(--ease-out);
 }
 html:not([data-desktop]) .workspace .header-actions :is(.computer-button,.ghost-button):hover { background:var(--surface-2); color:var(--ink); border:0; }
 html:not([data-desktop]) .workspace .header-actions :is([aria-pressed="true"],[aria-expanded="true"]) { background:color-mix(in srgb,var(--lagoon) 18%,transparent); color:var(--ink); border:0; }

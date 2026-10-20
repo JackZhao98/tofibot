@@ -1,5 +1,6 @@
 import { useEffect, useId, useLayoutEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { useTranslation } from "./i18n";
+import { MOTION, EASE } from "./motion";
 
 /** Docks the small screen in the right gutter (the viewport edge, past the message column), above the composer and its perched cat. */
 function useComposerAnchor(active: boolean) {
@@ -124,9 +125,9 @@ export function FloatingDesktop({ expanded, small = false, sheet = false, onShri
       detail.animate([
         { transformOrigin: "0 0", transform: `translate(${from.left - to.left}px, ${from.top - to.top}px) scale(${from.width / to.width})` },
         { transformOrigin: "0 0", transform: "none" },
-      ], { duration: 240, easing: "cubic-bezier(.2,.8,.2,1)" });
+      ], { duration: MOTION.base, easing: EASE.settle });
     } else if (windowMode === "small") {
-      detail.animate([{ opacity: 0, transform: "translateY(14px) scale(.96)" }, { opacity: 1, transform: "none" }], { duration: 240, easing: "cubic-bezier(.2,.8,.2,1)" });
+      detail.animate([{ opacity: 0, transform: "translateY(14px) scale(.96)" }, { opacity: 1, transform: "none" }], { duration: MOTION.base, easing: EASE.settle });
     }
   }, [windowMode]);
 

@@ -49,15 +49,15 @@
 .scheduled-run-status { display:inline-flex; align-items:center; gap:7px; flex:none; color:var(--ink-soft); font:600 12px/1.5 var(--body); font-variant-numeric:tabular-nums; white-space:nowrap; }
 .scheduled-run-status time { font-family:var(--mono); }
 .scheduled-run-dot { display:inline-grid; place-items:center; width:9px; height:9px; flex:none; border-radius:50%; background:var(--muted); font-style:normal; }
-.scheduled-run.is-running .scheduled-run-dot { background:var(--lagoon); animation:scheduled-run-breathe 2.4s ease-in-out infinite; }
+.scheduled-run.is-running .scheduled-run-dot { background:var(--lagoon); animation:scheduled-run-breathe 2.4s var(--ease-inout) infinite; }
 .scheduled-run.is-done .scheduled-run-dot { background:var(--green); }
 .scheduled-run.is-error { background:color-mix(in srgb,var(--danger) 5%,var(--surface)); }
 .scheduled-run.is-error .scheduled-run-stub { background:color-mix(in srgb,var(--danger) 15%,var(--surface)); }
 .scheduled-run.is-error .scheduled-run-dot { width:18px; height:18px; color:var(--surface); background:var(--danger-text); font:700 12px/1 var(--body); }
-.scheduled-run-chevron { flex:none; color:var(--muted); transition:transform 220ms var(--ease-out); }
+.scheduled-run-chevron { flex:none; color:var(--muted); transition:transform var(--m-base) var(--ease-out); }
 .scheduled-run-toggle[aria-expanded="true"] .scheduled-run-chevron { transform:rotate(90deg); }
 .scheduled-run-meta { display:block; margin-top:4px; color:var(--muted); font:var(--type-meta); overflow-wrap:anywhere; }
-.scheduled-run-disclosure { display:grid; grid-template-rows:0fr; visibility:hidden; transition:grid-template-rows 240ms var(--ease-out), visibility 240ms; }
+.scheduled-run-disclosure { display:grid; grid-template-rows:0fr; visibility:hidden; transition:grid-template-rows var(--m-base) var(--ease-out), visibility var(--m-base); }
 .scheduled-run-disclosure[data-expanded="true"] { grid-template-rows:1fr; visibility:visible; }
 .scheduled-run-disclosure-inner { min-height:0; overflow:hidden; }
 .scheduled-run-details { margin:0 0 16px; padding:12px 14px; border-radius:12px; background:var(--sunk); }
