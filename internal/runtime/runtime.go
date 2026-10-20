@@ -510,14 +510,14 @@ func (e *engine) Run(ctx context.Context, req Request) (Result, error) {
 				req.OnWebSearchBilled(billed)
 			}
 		},
-		OnCompact:                  req.OnCompact,
-		OnStreamChunk:              onStream,
-		StructuredOutput:           req.StructuredOutput,
-		ForceToolUse:               req.ForceToolUse,
-		OnToolCallDelta:            onToolCallDelta,
-		EndOnEmptyFinal:            req.EndOnEmptyFinal,
-		BeforeFinalResponse:        req.BeforeFinalResponse,
-		FinalResponseRepairTools:   append([]string(nil), req.FinalResponseRepairTools...),
+		OnCompact:                req.OnCompact,
+		OnStreamChunk:            onStream,
+		StructuredOutput:         req.StructuredOutput,
+		ForceToolUse:             req.ForceToolUse,
+		OnToolCallDelta:          onToolCallDelta,
+		EndOnEmptyFinal:          req.EndOnEmptyFinal,
+		BeforeFinalResponse:      req.BeforeFinalResponse,
+		FinalResponseRepairTools: append([]string(nil), req.FinalResponseRepairTools...),
 		BeforeModelCall: func() error {
 			if turnEnded.Load() {
 				// A tool ended the turn and its result is recorded: a message

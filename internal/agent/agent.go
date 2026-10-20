@@ -221,9 +221,9 @@ type AgentConfig struct {
 	// OnWebSearches receives what each response searched and the billed count.
 	WebSearchMaxUses int
 	OnWebSearches    func(searches []provider.WebSearch, billed int64)
-	OnCompact                 func(originalTokens, compactedTokens int)                 // Successful in-run context compaction
-	Hooks                     *Hooks                                                    // Optional: pre/post hooks for tool calls, API calls, compaction
-	OnMessage                 func(msg provider.Message)                                // Optional: called immediately after each assistant/tool message is appended. Used for incremental chat session persistence so a browser refresh or hold doesn't lose in-progress turns. Internal synthetic user continuations are NOT emitted.
+	OnCompact        func(originalTokens, compactedTokens int) // Successful in-run context compaction
+	Hooks            *Hooks                                    // Optional: pre/post hooks for tool calls, API calls, compaction
+	OnMessage        func(msg provider.Message)                // Optional: called immediately after each assistant/tool message is appended. Used for incremental chat session persistence so a browser refresh or hold doesn't lose in-progress turns. Internal synthetic user continuations are NOT emitted.
 	// BeforeModelCall runs at the safe boundary immediately before a provider
 	// request. Callers may use it to observe durable steering input without
 	// interrupting an already-streaming response or an in-flight tool.

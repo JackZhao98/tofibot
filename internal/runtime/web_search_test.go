@@ -56,7 +56,9 @@ func TestServerSideSearchIsRequestedReportedAsEvidenceAndBilled(t *testing.T) {
 func TestNoSearchIsRequestedUnlessAsked(t *testing.T) {
 	paths.SetTofiHome(t.TempDir())
 	p := &stepProvider{steps: []func(func(provider.StreamDelta)) *provider.ChatResponse{
-		func(func(provider.StreamDelta)) *provider.ChatResponse { return &provider.ChatResponse{Content: "done"} },
+		func(func(provider.StreamDelta)) *provider.ChatResponse {
+			return &provider.ChatResponse{Content: "done"}
+		},
 	}}
 	e := &engine{provider: p, model: "test-model"}
 	if _, err := e.Run(context.Background(), Request{RunID: "no-ws", BotID: "bot", Messages: []Message{{Role: "user", Content: "go"}}}); err != nil {
