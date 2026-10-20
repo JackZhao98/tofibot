@@ -15,7 +15,33 @@ import (
 	"github.com/JackZhao98/tofibot/internal/extensions"
 )
 
+// extensionToolFixture returns the tool with a person's approval pre-recorded
+// for every gated call, so lifecycle tests exercise the manager behind the gate.
 func extensionToolFixture(t *testing.T) (*Server, Conversation, Run, Tool) {
+	t.Helper()
+	s, c, r, tool := extensionToolFixtureRaw(t)
+	s.allowInternalMCPHosts = true
+	inner := tool.Execute
+	tool.Execute = func(ctx context.Context, raw json.RawMessage) (string, error) {
+		var x extensionToolArgs
+		if json.Unmarshal(raw, &x) == nil && extensionChangeGated(x.Action) {
+			approveExtensionChange(t, s, c, r, x)
+		}
+		return inner(ctx, raw)
+	}
+	return s, c, r, tool
+}
+
+func approveExtensionChange(t *testing.T, s *Server, c Conversation, r Run, x extensionToolArgs) {
+	t.Helper()
+	q, err := s.store.CreateQuestion(c.ID, r, askQuestionInput{Question: "Approve?", Type: "approval", Approval: &ApprovalDetails{Action: "Change extensions", Target: extensionChangeToken(x), Impact: "Workspace-wide"}})
+	if err != nil {
+		return // a stale run cannot hold an approval; the call is refused anyway
+	}
+	_, _, _ = s.store.AnswerQuestion(q.ID, "user", true) // a cancelled run cannot be answered; the call is refused anyway
+}
+
+func extensionToolFixtureRaw(t *testing.T) (*Server, Conversation, Run, Tool) {
 	t.Helper()
 	root := t.TempDir()
 	s, err := NewServer(Config{DataDir: root, MCPConfigPath: filepath.Join(root, "mcp.json"), SkillsDir: filepath.Join(root, "skills")})

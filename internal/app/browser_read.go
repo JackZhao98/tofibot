@@ -432,7 +432,11 @@ func (s *Server) clickApproved(r Run, label string) bool {
 
 // claimClickApproval consumes one matching, unused approval so it allows a
 // single dispatch; any later consequential click is reviewed again.
-func (s *Server) claimClickApproval(r Run, label string) bool {
+func (s *Server) claimClickApproval(r Run, label string) bool { return s.claimApprovalTarget(r, label) }
+
+// claimApprovalTarget consumes one unused human approval whose target equals
+// the given text.
+func (s *Server) claimApprovalTarget(r Run, label string) bool {
 	for _, id := range s.matchingClickApprovals(r, label) {
 		res, err := s.store.db.Exec(`INSERT OR IGNORE INTO click_approval_claims(question_id,run_id,claimed_at) VALUES(?,?,?)`, id, r.ID, now())
 		if err != nil {
