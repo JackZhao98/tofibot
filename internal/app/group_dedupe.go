@@ -163,7 +163,7 @@ func mentionSpans(content string, members []Bot) []mentionSpan {
 			if end > len(runes) || !strings.EqualFold(string(runes[i+1:end]), name) || byName[name] == "" {
 				continue
 			}
-			if end < len(runes) && (unicode.IsLetter(runes[end]) || unicode.IsDigit(runes[end]) || runes[end] == '_' || runes[end] == '@') {
+			if !mentionNameEndsAt(nr, runes, end) {
 				continue
 			}
 			out = append(out, mentionSpan{botID: byName[name], start: i, end: end})
@@ -183,7 +183,7 @@ const coordinatorFamilySQL = `WITH RECURSIVE family(id) AS (
 // besides the coordinator, in order of mention, with the text addressed to each.
 func userMentionedHelpers(anchor Message, coordinator string, members []Bot) (ids []string, asked map[string]string) {
 	parsed := parseMentions(anchor.Content, members)
-	if len(parsed.IDs) < 2 || len(parsed.Unknown) != 0 || len(parsed.Ambiguous) != 0 {
+	if len(parsed.IDs) < 2 || len(parsed.Ambiguous) != 0 {
 		return nil, nil
 	}
 	found := false

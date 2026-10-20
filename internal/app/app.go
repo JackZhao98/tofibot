@@ -3097,9 +3097,6 @@ func (s *Server) postMessage(w http.ResponseWriter, r *http.Request, c Conversat
 		} else if len(mr.Ambiguous) > 0 {
 			writeErr(w, 400, "ambiguous_recipient", "ambiguous group mention: @"+strings.Join(mr.Ambiguous, ", @"))
 			return
-		} else if len(mr.Unknown) > 0 {
-			writeErr(w, 400, "unknown_recipient", "unknown group mention: @"+strings.Join(mr.Unknown, ", @"))
-			return
 		} else if len(mr.IDs) > 0 {
 			// Several mentioned Bots. Under structured output each gets a root run
 			// of its own, queued in mention order, so each answers the person

@@ -5,6 +5,7 @@
     "saving": "保存中…"
   },
   "apiError": {
+    "ambiguous_recipient": "有两位成员同名，请先改名，或从列表中选择要@的成员。",
     "archive_blocked": "归档中的会话不能发送消息，请先恢复后再继续。",
     "archive_busy": "还有未完成的任务，请等它结束或先停止后再归档。",
     "delete_busy": "还有关联任务正在执行。请先停止任务，再重试删除。",

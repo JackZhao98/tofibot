@@ -5,6 +5,7 @@
     "saving": "儲存中…"
   },
   "apiError": {
+    "ambiguous_recipient": "有兩位成員同名，請先改名，或從清單中選擇要 @ 的成員。",
     "archive_blocked": "封存的對話無法傳送訊息，請先還原再繼續。",
     "archive_busy": "還有未完成的任務，請等它結束或先停止後再封存。",
     "delete_busy": "還有相關任務正在執行。請先停止任務，再重試刪除。",
