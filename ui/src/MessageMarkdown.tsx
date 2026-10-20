@@ -85,11 +85,25 @@ function prependMention() {
   };
 }
 
+/** The inline container at the very end of the text: a cursor placed there adds no block, so the line never jumps when it is removed. */
+function tailInline(node: Root | Element): Root | Element | undefined {
+  const last = [...node.children].reverse().find((child): child is Element => child.type === "element");
+  if (!last) return undefined;
+  if (last.tagName === "p" || /^h[1-6]$/.test(last.tagName)) return last;
+  if (last.tagName === "ul" || last.tagName === "ol") {
+    const item = [...last.children].reverse().find((child): child is Element => child.type === "element" && child.tagName === "li");
+    return item ? tailInline(item) ?? item : undefined;
+  }
+  if (last.tagName === "blockquote") return tailInline(last);
+  if (last.tagName === "pre") return [...last.children].find((child): child is Element => child.type === "element" && child.tagName === "code") ?? last;
+  return undefined;
+}
+
 function appendCursor() {
   return (tree: Root) => {
     const cursor: Element = { type: "element", tagName: "span", properties: { "data-typing-cursor": true }, children: [] };
-    const last = tree.children.at(-1);
-    if (last?.type === "element" && last.tagName === "p") last.children.push(cursor);
+    const target = tailInline(tree);
+    if (target) target.children.push(cursor);
     else tree.children.push({ type: "element", tagName: "p", properties: {}, children: [cursor] });
   };
 }
