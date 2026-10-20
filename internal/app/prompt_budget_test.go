@@ -251,11 +251,16 @@ func TestProductionPromptSizeMatrix(t *testing.T) {
 				// asking (owner, 2026-10-16) added ~450 cached runes.
 				// 5500: the scope principle (a persona's scope is responsibility and
 				// initiative, never a limit on conversation; owner, 2026-10-19) adds ~270.
-				if tc.name == "dm" && len([]rune(system))+runtime.SystemPromptOverheadRunes() > 5500 {
-					t.Errorf("ordinary DM provider system exceeds 5500 runes")
+				// 5800: the verification and lookup-before-asking principle (shared guidance, group framing echo) adds ~275.
+				if tc.name == "dm" && len([]rune(system))+runtime.SystemPromptOverheadRunes() > 5800 {
+					t.Errorf("ordinary DM provider system exceeds 5800 runes")
 				}
-				if fixed > 6200 {
-					t.Errorf("fixed overhead %d leaves too little customization headroom (ceiling 6200)", fixed)
+				// 6500: the verification principle (a claim presented as checked, current
+				// or verified rests on a lookup made in this run) and lookup-before-asking
+				// in groups add ~275 runes to the shared guidance; the prior fixed overhead
+				// was within 10 runes of 6200.
+				if fixed > 6500 {
+					t.Errorf("fixed overhead %d leaves too little customization headroom (ceiling 6500)", fixed)
 				}
 				if !strings.Contains(system, bot.Instructions) {
 					t.Fatal("user instructions changed")
@@ -293,8 +298,9 @@ func TestProductionPromptSizeMatrix(t *testing.T) {
 					if runtime.StructuredPromptOverheadRunes() >= runtime.SystemPromptOverheadRunes() {
 						t.Errorf("structured suffix %d is not shorter than %d", runtime.StructuredPromptOverheadRunes(), runtime.SystemPromptOverheadRunes())
 					}
-					if tc.name == "dm" && len([]rune(system))+runtime.StructuredPromptOverheadRunes() > 5500 {
-						t.Errorf("structured DM provider system exceeds 5500 runes")
+					// 5650: the verification and lookup-before-asking principle adds ~275 to the shared guidance.
+					if tc.name == "dm" && len([]rune(system))+runtime.StructuredPromptOverheadRunes() > 5650 {
+						t.Errorf("structured DM provider system exceeds 5650 runes")
 					}
 					if tc.kind == runKindGroupChat && !strings.Contains(system, "say(answer)") {
 						t.Error("structured group prompt does not name say(answer)")
