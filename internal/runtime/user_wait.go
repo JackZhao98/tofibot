@@ -27,7 +27,13 @@ func withUserWaitBudget(ctx context.Context) (context.Context, *userWaitBudget) 
 // PauseForUserInput excludes a bounded human-input wait from active execution
 // time. Always defer the returned resume function. This is a no-op outside a
 // runtime run and does not extend question expiry or any caller deadline.
-func PauseForUserInput(ctx context.Context) func() {
+func PauseForUserInput(ctx context.Context) func() { return PauseActiveBudget(ctx) }
+
+// PauseActiveBudget excludes any backend-owned wait (a human answer, a queue
+// behind another run's shared desktop) from both the run's active-time budget
+// and the current tool call's deadline. Always defer the returned resume
+// function. No-op outside a runtime run.
+func PauseActiveBudget(ctx context.Context) func() {
 	if ctx == nil {
 		return func() {}
 	}
