@@ -204,7 +204,8 @@
     "clipboard_unavailable": "目前的瀏覽器無法複製連結，請從網址列複製。",
     "generic": "操作失敗，請稍後重試。",
     "group_unavailable": "群組不存在或已無法使用。",
-    "service_unavailable": "服務暫時無法使用，請稍後重試。"
+    "service_unavailable": "服務暫時無法使用，請稍後重試。",
+    "network_unreachable": "無法連線到伺服器，請求沒有送出。連線恢復後再試一次。"
   },
   "groupCreate": {
     "close": "關閉新增群組",
@@ -239,6 +240,7 @@
     "jump_latest": "回到最新訊息",
     "load_older": "查看更早的訊息",
     "loading_messages": "讀取訊息…",
+    "unavailable_retrying": "無法連線到伺服器，正在重試…",
     "new_count_other": "{{count}} 則新訊息",
     "older_failed": "暫時無法載入更早的訊息：{{error}}",
     "unread": "未讀",

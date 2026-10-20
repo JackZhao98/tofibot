@@ -183,7 +183,7 @@ func (s *Server) workspaceEvents(w http.ResponseWriter, r *http.Request) {
 		case <-r.Context().Done():
 			return
 		case <-heartbeat.C:
-			if _, err = fmt.Fprint(w, ": heartbeat\n\n"); err != nil {
+			if _, err = fmt.Fprint(w, "event: ping\ndata: {}\n\n"); err != nil {
 				return
 			}
 			flusher.Flush()

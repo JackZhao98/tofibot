@@ -204,7 +204,8 @@
     "clipboard_unavailable": "当前浏览器无法复制链接，请从地址栏复制。",
     "generic": "操作失败，请稍后重试。",
     "group_unavailable": "群会话不存在或已不可用。",
-    "service_unavailable": "服务暂时不可用，请稍后重试。"
+    "service_unavailable": "服务暂时不可用，请稍后重试。",
+    "network_unreachable": "无法连接服务器，请求没有发出。连接恢复后再试一次。"
   },
   "groupCreate": {
     "close": "关闭新建群",
@@ -239,6 +240,7 @@
     "jump_latest": "回到最新消息",
     "load_older": "查看更早消息",
     "loading_messages": "读取消息…",
+    "unavailable_retrying": "无法连接服务器，正在重试…",
     "new_count_other": "{{count}} 条新消息",
     "older_failed": "暂时无法加载更早消息：{{error}}",
     "unread": "未读",

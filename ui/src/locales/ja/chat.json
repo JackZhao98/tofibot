@@ -204,7 +204,8 @@
     "clipboard_unavailable": "このブラウザではリンクをコピーできません。アドレスバーからコピーしてください。",
     "generic": "操作に失敗しました。しばらくしてからもう一度お試しください。",
     "group_unavailable": "このグループは存在しないか、利用できなくなりました。",
-    "service_unavailable": "サービスを利用できません。しばらくしてからもう一度お試しください。"
+    "service_unavailable": "サービスを利用できません。しばらくしてからもう一度お試しください。",
+    "network_unreachable": "サーバーに接続できません。リクエストは送信されていません。接続が戻ったらもう一度お試しください。"
   },
   "groupCreate": {
     "close": "新しいグループを閉じる",
@@ -239,6 +240,7 @@
     "jump_latest": "最新のメッセージへ移動",
     "load_older": "以前のメッセージを表示",
     "loading_messages": "メッセージを読み込み中…",
+    "unavailable_retrying": "サーバーに接続できません。再試行しています…",
     "new_count_other": "新着メッセージ {{count}} 件",
     "older_failed": "以前のメッセージを読み込めませんでした：{{error}}",
     "unread": "未読",
