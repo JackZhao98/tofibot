@@ -370,7 +370,9 @@ func (g *AccountGateway) workspace(a Account) (*Server, error) {
 }
 func (g *AccountGateway) handle(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("X-Content-Type-Options", "nosniff")
-	w.Header().Set("Cache-Control", "no-store")
+	if strings.HasPrefix(r.URL.Path, "/api/") || strings.HasPrefix(r.URL.Path, "/exports/") {
+		w.Header().Set("Cache-Control", "no-store")
+	}
 	if strings.HasPrefix(r.URL.Path, "/exports/") {
 		g.serveDeletedExport(w, r)
 		return
