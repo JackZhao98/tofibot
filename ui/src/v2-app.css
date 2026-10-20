@@ -184,9 +184,8 @@ html:not([data-desktop]) .workspace .conversation-row:has(.conversation-status[d
 .workspace .header-actions .computer-button.is-ready { color:var(--green-text); }
 .workspace .message-scroll { padding:26px clamp(18px,4vw,64px) calc(var(--composer-height,110px) + 28px); }
 /* The floating composer is reserved once; its own padding provides the gap. */
-html:not([data-desktop]) .workspace .message-scroll { padding-bottom:var(--composer-height,110px); mask-image:none; }
+html:not([data-desktop]) .workspace .message-scroll { mask-image:none; }
 /* Keep the latest reply above the cat; older messages may scroll behind it. */
-html:not([data-desktop]) .workspace .chat-pane:has(.composer-perch) .message-scroll { padding-bottom:calc(var(--composer-height,110px) + 64px); }
 .workspace .message-list { max-width:var(--v2-chat-width); margin:auto; }
 .workspace .date-divider,.workspace .unread-divider { margin:24px auto; color:var(--muted); font:11px/1.3 var(--mono); }
 .workspace .date-divider::before,.workspace .date-divider::after { background:var(--line-soft); }
