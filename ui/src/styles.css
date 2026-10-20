@@ -309,11 +309,11 @@ html[data-desktop] .unread-badge{width:8px;min-width:8px;height:8px;padding:0;co
 }
 
 @media(max-width:767px){.workspace-grid{height:100%;min-height:0;display:block;position:relative}
-.contact-pane{position:absolute;z-index:6;inset:0;width:100%;padding:max(14px,env(safe-area-inset-top)) 14px max(14px,env(safe-area-inset-bottom));visibility:hidden;pointer-events:none;transform:translateX(-100%);transition:transform var(--m-panel-out) var(--ease-settle),visibility 0s linear var(--m-panel-out)}
-.contact-pane.open{visibility:visible;pointer-events:auto;transform:translateX(0);transition:transform var(--m-panel-in) var(--ease-out),visibility 0s}
+.contact-pane{position:absolute;z-index:6;inset:0;width:100%;padding:max(14px,env(safe-area-inset-top)) 14px max(14px,env(safe-area-inset-bottom));visibility:hidden;pointer-events:none;transform:translateX(-100%);transition:transform var(--m-panel-in) var(--ease-out),visibility 0s linear var(--m-panel-in)}
+.contact-pane.open{visibility:visible;pointer-events:auto;transform:translateX(0);transition:transform var(--m-base) var(--ease-out),visibility 0s}
 /* The chat stays laid out (hidden, not display:none) so the list slides over a real pane, never an empty frame.
    Its own stacking layer keeps the composer and menus from poking through the list. */
-.chat-pane{display:flex;position:relative;z-index:0;visibility:hidden;height:100%;min-height:0;transition:visibility 0s linear var(--m-panel-in)}
+.chat-pane{display:flex;position:relative;z-index:0;visibility:hidden;height:100%;min-height:0;transition:visibility 0s linear var(--m-base)}
 .chat-pane.mobile-chat{visibility:visible;transition:visibility 0s}
 .back-button{display:grid}
 .back-button:active,.chat-header .header-actions button:active{background:var(--surface-2,rgba(0,0,0,.08));transform:scale(.94)}
