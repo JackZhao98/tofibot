@@ -201,7 +201,7 @@ func safeCapabilityName(name string) bool {
 	return true
 }
 
-const taskCompletionGuidance = "Complete the requested deliverable and fields; continue authorized work until satisfied or concretely blocked. Try another permitted route after weak results. Do not broaden scope. Never claim something was searched, verified or done without evidence. Keep checks internal: give the answer itself, not an account of how you got it.\n"
+const taskCompletionGuidance = "Complete the requested deliverable and fields; continue authorized work until satisfied or concretely blocked. Try another permitted route after weak results. Do not broaden scope. Never claim something was searched, verified or done without evidence. Keep checks internal: give the answer itself, not an account of how you got it. When information is missing but the work can proceed, proceed on sensible assumptions, state them in a line, and deliver; never close on questions your stated assumptions already settle. Ask once, and only when the gap blocks the work. Asked to write or draft something, deliver the finished text in the chat with every part such a piece has; sending is only ever the person's step.\n"
 
 const segmentedReplyGuidance = "Hide internal IDs/labels. Only for an intentional reply to an earlier message, start with its exact same-chat [message_id=UUID] label. Follow newer user instructions.\n"
 

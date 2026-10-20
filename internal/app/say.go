@@ -10,6 +10,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"strings"
 	"sync"
 	"unicode/utf8"
@@ -26,14 +27,18 @@ const (
 
 	maxSayAnswerRunes = 20000
 	maxSayNoteRunes   = 1200
-	maxSayNotes       = 10
+
+	// maxSayCoAddressedNoteRunes bounds a note left as an input for a member who
+	// answers later in the same co-addressed message.
+	maxSayCoAddressedNoteRunes = 6000
+	maxSayNotes                = 10
 
 	sayNoteClientPrefix = "say-note:"
 )
 
 // sayToolDescription states the contract as principles. It carries no sample
 // wording: examples belong in acceptance tests, not in prompts.
-const sayToolDescription = "How you speak to the person: every reply goes through this tool, short or long; text you write outside it is private working text. purpose=answer delivers your reply and ends your turn: call it once, as your last action, with the complete reply. purpose=note posts a brief transient progress note while you keep working. purpose=message posts one self-contained message mid-run (at most three per run). Once you have delegated, speak only to add substance the person has yet to read: who is doing what is internal. Your text speaks to the person; a request to a member travels in wake, where its wording stays out of the chat."
+const sayToolDescription = "How you speak to the person: every reply goes through this tool, short or long; text you write outside it is private working text. purpose=answer delivers your reply and ends your turn: call it once, as your last action, with the complete reply. purpose=note posts a brief transient progress note while you keep working. purpose=message posts one self-contained message mid-run (at most three per run). Deliver the whole result with the assumptions you made stated in a line; end on the result, never on a request for details it already assumed. Once you have delegated, speak only to add substance the person has yet to read: who is doing what is internal. Your text speaks to the person; a request to a member travels in wake, where its wording stays out of the chat."
 
 func migrateSay(db *sql.DB) error {
 	if _, err := db.Exec(`CREATE TABLE IF NOT EXISTS run_say_answers(
@@ -442,7 +447,15 @@ func (s *Server) sayTool(c Conversation, r Run) Tool {
 					return fail(err)
 				}
 			}
+			if in.Purpose == sayNote && len(s.store.coAddressedRoots(r)) > 0 {
+				// A co-addressed member's note can carry its whole part for a
+				// later member to build on; it stays folded, so it may be longer.
+				limit = maxSayCoAddressedNoteRunes
+			}
 			if utf8.RuneCountInString(text) > limit {
+				if limit != 1200 {
+					return fail(fmt.Errorf("text must be at most %d characters", limit))
+				}
 				return fail(errors.New("text must be at most 1200 characters"))
 			}
 			adopt := state != nil && state.owns(callID)
