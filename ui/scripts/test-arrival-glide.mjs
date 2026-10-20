@@ -46,8 +46,8 @@ const history = () => Array.from({ length: 40 }, (_, i) => {
 });
 const WHOLE = "Here is the full answer arriving in one piece.\n\n- first point about the ledger\n- second point about totals\n- third point with `code`\n\nClosing paragraph with a bit more detail about the review on Friday and what to check first before then.";
 
-async function open({ motion = "no-preference" } = {}) {
-  const context = await browser.newContext({ viewport: { width: 1180, height: 820 }, locale: "en-US", reducedMotion: motion });
+async function open({ motion = "no-preference", compact = false, height = 820 } = {}) {
+  const context = await browser.newContext({ viewport: { width: 1180, height }, locale: "en-US", reducedMotion: motion });
   await context.addInitScript(() => {
     try { localStorage.setItem("tofi:appearance", "light"); } catch {}
     window.__streams = [];
@@ -57,10 +57,16 @@ async function open({ motion = "no-preference" } = {}) {
     window.__ls = [];
     try { new PerformanceObserver(list => { for (const e of list.getEntries()) if (!e.hadRecentInput) window.__ls.push([e.startTime, e.value]); }).observe({ type: "layout-shift", buffered: true }); } catch {}
   });
+  // ARRIVAL_GLIDE_NOBLUR=1 switches the progressive blur off, to see what it costs.
+  if (process.env.ARRIVAL_GLIDE_NOBLUR) await context.addInitScript(() => document.addEventListener("DOMContentLoaded", () => { const st = document.createElement("style"); st.textContent = ".edge-blur{display:none!important}"; document.head.append(st); }));
+  // ARRIVAL_GLIDE_CSS='...' injects extra CSS (to try blur variants against the budgets).
+  if (process.env.ARRIVAL_GLIDE_CSS) await context.addInitScript(css => document.addEventListener("DOMContentLoaded", () => { const st = document.createElement("style"); st.textContent = css; document.head.append(st); }), process.env.ARRIVAL_GLIDE_CSS);
   const page = await context.newPage();
   const errors = [];
   page.on("pageerror", error => errors.push(error.message));
   const messages = history();
+  // Compact history: short messages so a tall pane shows a dozen of them (the cascade's full chain).
+  if (compact) for (const m of messages) m.content = m.role === "user" ? `Question ${m.seq}: short.` : `Short answer ${m.seq}.`;
   await page.route("**/api/**", async route => {
     const url = new URL(route.request().url());
     const path = url.pathname;
@@ -118,35 +124,155 @@ const check = async (name, run) => {
   catch (error) { failures.push(name); console.log(`not ok - ${name}\n    ${String(error.message).split("\n")[0]}`); }
 };
 
-await check("a whole message arrives with the content above gliding up, not jumping", async () => {
-  const { page, context, errors } = await open();
+// The tuning values the page uses; read from motion.ts so the test follows the constants when they are tuned.
+const motionSource = readFileSync(join(ui, "src", "motion.ts"), "utf8");
+const CASCADE = Object.fromEntries([...motionSource.slice(motionSource.indexOf("export const CASCADE")).matchAll(/^\s{2}(\w+):\s*([\d.]+),/gm)].map(([, k, v]) => [k, Number(v)]));
+assert.ok(CASCADE.staggerMs && CASCADE.durationMs && CASCADE.maxLinks, "CASCADE constants are exported from motion.ts");
+
+/** Per frame: every message's top (blocks in the pane), scroll state and frame time, for the cascade analysis. */
+const startCascadeTrace = page => page.evaluate(() => {
+  window.__ct = []; window.__ctOn = true;
+  const sc = document.querySelector(".message-scroll");
+  const tick = t => {
+    const blocks = [...document.querySelectorAll(".message-block[data-message-id]")];
+    window.__ct.push({ t, top: sc.scrollTop, h: sc.scrollHeight, fb: sc.scrollHeight - sc.clientHeight - sc.scrollTop, ids: blocks.slice(-30).map(b => b.dataset.messageId), ys: blocks.slice(-30).map(b => { const r = b.getBoundingClientRect(); return [r.top, r.bottom]; }), jump: Boolean(document.querySelector(".jump-latest")) });
+    if (window.__ctOn) requestAnimationFrame(tick);
+  };
+  requestAnimationFrame(tick);
+});
+const stopCascadeTrace = page => page.evaluate(() => { window.__ctOn = false; return { trace: window.__ct, ls: window.__ls }; });
+
+await check("a whole message arrives as a spring chain: staggered bottom-first, 2-4 px overshoot, home in ~400 ms, nothing shifts", async () => {
+  const { page, context, errors } = await open({ compact: true, height: 1150 });
   const bottom = await page.evaluate(() => { const s = document.querySelector(".message-scroll"); return s.scrollHeight - s.clientHeight - s.scrollTop; });
   assert.ok(bottom <= 2, `starts at the bottom (${bottom}px away)`);
-  await startTrace(page);
+  await startCascadeTrace(page);
   await page.waitForTimeout(200);
-  const t0 = await page.evaluate(({ WHOLE }) => { const t = performance.now(); window.__emit("message", { id: "m_w", conversation_id: "dm_a", seq: 41, role: "assistant", sender_bot_id: "bot_a", run_id: "run_w", content: WHOLE, created_at: new Date().toISOString() }); return t; }, { WHOLE });
-  await page.waitForTimeout(900);
-  const { trace, ls } = await stopTrace(page);
-  const after = trace.filter(f => f.t >= t0 - 20);
-  const step = maxStep(trace, t0 - 20);
+  const info = await page.evaluate(({ SHORT }) => {
+    const sc = document.querySelector(".message-scroll");
+    const before = document.querySelector('[data-message-id="m40"]').getBoundingClientRect().top;
+    const t = performance.now();
+    window.__emit("message", { id: "m_w", conversation_id: "dm_a", seq: 41, role: "assistant", sender_bot_id: "bot_a", run_id: "run_w", content: SHORT, created_at: new Date().toISOString() });
+    return { t, h: sc.scrollHeight, before };
+  }, { SHORT: "Short reply: the totals match." });
+  // The animations exist as soon as React has committed: read their timing straight from the page.
+  const anims = await page.evaluate(async () => {
+    for (let i = 0; i < 30 && !document.querySelector('[data-message-id="m_w"]'); i++) await new Promise(r => requestAnimationFrame(r));
+    await new Promise(r => requestAnimationFrame(r));
+    return [...document.querySelectorAll(".message-block[data-message-id]")].reverse().flatMap(b => b.getAnimations().filter(a => a.id === "tofi-cascade").map(a => ({ id: b.dataset.messageId, delay: a.effect.getTiming().delay, duration: a.effect.getTiming().duration })));
+  });
+  await page.waitForTimeout(1000);
+  const { trace, ls } = await stopCascadeTrace(page);
+  const lastFrame = trace.at(-1);
+  // From the first painted frame that holds the new block: before it the pane had not been rendered yet.
+  const landed = trace.find(f => f.t >= info.t - 20 && f.ids.includes("m_w"));
+  const after = trace.filter(f => f.t >= landed.t);
+  // offset of a message at a frame = its top then minus its top at the end (the scroll is exact, so the end is the true place).
+  const offsetOf = (f, id) => { const i = f.ids.indexOf(id); const j = lastFrame.ids.indexOf(id); return i < 0 || j < 0 ? null : f.ys[i][0] - lastFrame.ys[j][0]; };
+  const chain = lastFrame.ids.slice().reverse().filter(id => after.some(f => { const o = offsetOf(f, id); return o != null && Math.abs(o) > 0.5; }));
+  assert.ok(chain.length >= CASCADE.maxLinks, `every message in view took part (${chain.length})`);
+    // When each link has covered half of its way home, interpolated between frames: that is where its delay shows, free of the
+  // spring's slow first milliseconds and of the 16.7 ms frame quantum.
+  const start0 = Object.fromEntries(chain.map(id => [id, offsetOf(landed, id)]));
+  const startT = Object.fromEntries(chain.map(id => {
+    const half = start0[id] / 2;
+    for (let i = 1; i < after.length; i++) { const a = offsetOf(after[i - 1], id), b = offsetOf(after[i], id); if (a > half && b <= half) return [id, after[i - 1].t + (after[i].t - after[i - 1].t) * (a - half) / (a - b)]; }
+    return [id, undefined];
+  }));
+  const order = chain.map(id => startT[id]);
+  if (process.env.ARRIVAL_GLIDE_DEBUG) console.log("    m29", after.slice(0, 24).map(f => `${(f.t - info.t).toFixed(0)}:${offsetOf(f, "m29")?.toFixed(1)}`).join(" "));
+  if (process.env.ARRIVAL_GLIDE_DEBUG) console.log("    chain", chain.join(","), order.map(t => (t - info.t).toFixed(0)).join(","));
+  assert.ok(order.every(t => typeof t === "number"), "every link covered half its way");
+  for (let k = 1; k < Math.min(order.length, CASCADE.maxLinks); k++) assert.ok(order[k] > order[k - 1] - 0.5, `link ${k} (${chain[k]}) crossed half way at ${order[k].toFixed(0)} before link ${k - 1} at ${order[k - 1].toFixed(0)}: the wave must run bottom-first`);
+  assert.ok(order[CASCADE.maxLinks - 1] > order[0], "the wave takes time to travel up");
+  // The timing, exactly: delay of link k is k * stagger.
+  if (process.env.ARRIVAL_GLIDE_DEBUG) console.log("    anims", anims.length, anims.map(a => a.id).join(","));
+  assert.ok(anims.length >= chain.length, `animations found for ${anims.length} links`);
+  anims.forEach((a, k) => { const want = Math.min(k, CASCADE.maxLinks - 1) * CASCADE.staggerMs; assert.ok(Math.abs(a.delay - want) < 0.01, `link ${k} delay ${a.delay} (want ${want})`); });
+  const perLink = (order[CASCADE.maxLinks - 1] - order[0]) / (CASCADE.maxLinks - 1);
+  // The first frame in which a link visibly leaves its start has to be judged against its own hold; frame quantisation is 16.7 ms.
+  // Overshoot: how far each message passes its true place (offset below 0 = past it, upward).
+  const overshoot = chain.map(id => -Math.min(...after.map(f => offsetOf(f, id) ?? 0)));
+  const settledAt = Math.max(...chain.map(id => { const last = after.filter(f => Math.abs(offsetOf(f, id) ?? 0) > 0.5).at(-1); return last ? last.t - info.t : 0; }));
+  const finals = chain.map(id => offsetOf(lastFrame, id));
+  const cls = ls.filter(([t]) => t >= info.t - 20).reduce((sum, [, v]) => sum + v, 0);
+  // Exactness: the scroll position landed at once and never moved again; the page never changed height after the block rendered.
+  const scrollMoves = after.filter(f => Math.abs(f.top - landed.top) > 0.01).length;
+  const heightMoves = after.filter(f => Math.abs(f.h - landed.h) > 0.01).length;
+  // Continuity: the message above the new one is where it was before the arrival when the frame is first painted.
+  const startGap = landed.ys[landed.ids.indexOf("m40")][0] - info.before;
+  // Neighbours: the smallest gap between two adjacent messages while the wave passes, against their final gap.
+  let minGap = Infinity, finalGapAtMin = 0;
+  for (const f of after) for (let i = 1; i < f.ids.length; i++) {
+    const j = lastFrame.ids.indexOf(f.ids[i]), j0 = lastFrame.ids.indexOf(f.ids[i - 1]);
+    if (j < 0 || j0 < 0 || !chain.includes(f.ids[i]) || !chain.includes(f.ids[i - 1])) continue;
+    const gap = f.ys[i][0] - f.ys[i - 1][1];
+    if (gap < minGap) { minGap = gap; finalGapAtMin = lastFrame.ys[j][0] - lastFrame.ys[j0][1]; }
+  }
   const frames = after.slice(1).map((f, i) => f.t - after[i].t);
-  const home = after.find(f => f.t >= t0 && f.fb <= 0.5 && f.n > 40);
-  // The tween is judged on its own frames: the render that brought the block is a separate, earlier cost.
-  const startAt = after.findIndex((f, i) => i > 0 && f.y != null && after[i - 1].y != null && Math.abs(f.y - after[i - 1].y) > 0.5);
-  const tween = after.slice(Math.max(startAt - 1, 0)).filter(f => !home || f.t <= home.t + 20);
-  const tweenFrames = tween.slice(1).map((f, i) => f.t - tween[i].t);
-  const moved = Math.max(...after.map(f => Math.abs((f.y ?? 0) - (after[0].y ?? 0))));
-  const peakFb = Math.max(...after.map(f => f.fb));
-  const cls = ls.filter(([t]) => t >= t0 - 20).reduce((sum, [, v]) => sum + v, 0);
-  if (process.env.ARRIVAL_GLIDE_DEBUG) console.log(after.slice(0, 40).map(f => `${(f.t - t0).toFixed(0)}:${f.top.toFixed(0)}/${f.fb.toFixed(0)}`).join(" "));
-  report.whole = { moved: +moved.toFixed(1), stepMax: step, homeMs: home ? +(home.t - t0).toFixed(0) : null, fromBottomMax: +peakFb.toFixed(1), cls: +cls.toFixed(4), frameMax: +Math.max(...frames).toFixed(1), tweenFrameMax: +Math.max(...tweenFrames).toFixed(1), jumpShown: after.some(f => f.jump) };
-  console.log("    whole", JSON.stringify(report.whole));
-  assert.ok(moved > 60, `the previous message made room (${moved}px)`);
-  assert.ok(step <= 24.5, `one frame moved the previous message ${step}px (limit 24)`);
-  assert.ok(home && home.t - t0 <= 220 + 60 + THROTTLE * 8, `home after ${home ? home.t - t0 : "never"} ms (limit ~220)`);
+  report.cascade = { links: chain.length, perLinkMs: +perLink.toFixed(1), overshootPx: overshoot.map(v => +v.toFixed(1)), settledMs: +settledAt.toFixed(0), finalOffsets: finals.map(v => +v.toFixed(3)), startOffsetPx: +startGap.toFixed(1), scrollMoves, heightMoves, cls: +cls.toFixed(4), minGapPx: +minGap.toFixed(1), finalGapPx: +finalGapAtMin.toFixed(1), frameMax: +Math.max(...frames).toFixed(1) };
+  console.log("    cascade", JSON.stringify(report.cascade));
+  assert.ok(perLink >= 8 && perLink <= 24, `per-link delay ${perLink.toFixed(1)} ms measured over the chain (want ~${CASCADE.staggerMs})`);
+  overshoot.forEach((v, k) => assert.ok(v >= 2 - 0.15 && v <= 4 + 0.05, `link ${k} overshoots by ${v.toFixed(2)} px (want 2-4)`));
+  assert.ok(settledAt <= 450 + THROTTLE * 10, `settled after ${settledAt.toFixed(0)} ms (want ~400)`);
+  finals.forEach(v => assert.ok(Math.abs(v) < 0.01, `a message ended ${v}px off its place`));
+  assert.ok(Math.abs(startGap) <= 2, `the message above the new one jumped ${startGap.toFixed(1)}px when the block rendered`);
+  assert.equal(scrollMoves, 0, `scrollTop changed on ${scrollMoves} frames after landing: the scroll must be exact`);
+  assert.equal(heightMoves, 0, `scrollHeight changed on ${heightMoves} frames: the cascade must not move layout`);
   assert.ok(cls <= 0.01, `layout shift ${cls}`);
-  assert.ok(Math.max(...tweenFrames) <= 25 * THROTTLE ** 0.5 + 2, `a frame took ${Math.max(...tweenFrames)} ms during the tween (limit ~20)`);
+  assert.ok(Math.max(...frames) <= 34 * THROTTLE ** 0.5 + 2, `a frame took ${Math.max(...frames).toFixed(1)} ms during the cascade`);
   assert.ok(!after.some(f => f.jump), "the jump-to-latest button never showed while the pane followed");
+  assert.equal(await page.evaluate(() => document.getAnimations().filter(a => a.id === "tofi-cascade").length), 0, "no cascade animation is left running");
+  assert.deepEqual(errors, []);
+  await context.close();
+});
+
+await check("a reader a little above the bottom still gets the reply brought in; one far up is never moved", async () => {
+  const near = await open();
+  // 100 px up: inside the follow zone, even though the scroll detached them.
+  await near.page.locator(".message-scroll").hover();
+  await near.page.mouse.wheel(0, -100);
+  await near.page.waitForTimeout(800);
+  const d0 = await near.page.evaluate(() => { const s = document.querySelector(".message-scroll"); return s.scrollHeight - s.clientHeight - s.scrollTop; });
+  assert.ok(d0 > 60 && d0 < 140, `set up ${d0}px above the bottom`);
+  await near.page.evaluate(({ WHOLE }) => window.__emit("message", { id: "m_w", conversation_id: "dm_a", seq: 41, role: "assistant", sender_bot_id: "bot_a", run_id: "run_w", content: WHOLE, created_at: new Date().toISOString() }), { WHOLE });
+  await near.page.waitForTimeout(900);
+  const d1 = await near.page.evaluate(() => { const s = document.querySelector(".message-scroll"); return s.scrollHeight - s.clientHeight - s.scrollTop; });
+  assert.ok(d1 <= 1, `the near reader ended ${d1}px from the bottom`);
+  assert.equal(await near.page.locator(".jump-latest").count(), 0, "no pill for a reader who was brought along");
+  assert.deepEqual(near.errors, []);
+  await near.context.close();
+  const far = await open();
+  await far.page.locator(".message-scroll").hover();
+  await far.page.mouse.wheel(0, -900);
+  await far.page.waitForTimeout(500);
+  const top0 = await far.page.evaluate(() => document.querySelector(".message-scroll").scrollTop);
+  await far.page.evaluate(({ WHOLE }) => window.__emit("message", { id: "m_w", conversation_id: "dm_a", seq: 41, role: "assistant", sender_bot_id: "bot_a", run_id: "run_w", content: WHOLE, created_at: new Date().toISOString() }), { WHOLE });
+  await far.page.waitForTimeout(900);
+  const top1 = await far.page.evaluate(() => document.querySelector(".message-scroll").scrollTop);
+  assert.ok(Math.abs(top1 - top0) <= 1, `the far reader was moved ${top1 - top0}px`);
+  assert.equal(await far.page.locator(".jump-latest").count(), 1, "the far reader gets the pill");
+  assert.deepEqual(far.errors, []);
+  await far.context.close();
+});
+
+await check("a tall message hands the rest of the hop to the glide: no jump on the first frame, ends exactly at the bottom", async () => {
+  const { page, context, errors } = await open();
+  await startCascadeTrace(page);
+  await page.waitForTimeout(200);
+  const info = await page.evaluate(({ WHOLE }) => {
+    const before = document.querySelector('[data-message-id="m40"]').getBoundingClientRect().top;
+    const t = performance.now();
+    window.__emit("message", { id: "m_w", conversation_id: "dm_a", seq: 41, role: "assistant", sender_bot_id: "bot_a", run_id: "run_w", content: WHOLE, created_at: new Date().toISOString() });
+    return { t, before };
+  }, { WHOLE });
+  await page.waitForTimeout(1000);
+  const { trace } = await stopCascadeTrace(page);
+  const landed = trace.find(f => f.t >= info.t - 20 && f.ids.includes("m_w"));
+  const first = landed.ys[landed.ids.indexOf("m40")][0];
+  assert.ok(Math.abs(first - info.before) <= 2, `the message above the new one jumped ${(first - info.before).toFixed(1)}px on the first frame`);
+  assert.ok(trace.at(-1).fb <= 0.5, `ends ${trace.at(-1).fb}px from the bottom`);
+  assert.ok(!trace.filter(f => f.t >= landed.t).some(f => f.jump), "no pill while the pane followed");
   assert.deepEqual(errors, []);
   await context.close();
 });

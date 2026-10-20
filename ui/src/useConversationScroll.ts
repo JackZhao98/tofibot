@@ -1,6 +1,7 @@
 import { desktopState, updateDesktopState } from "./desktop";
 import { useCallback, useLayoutEffect, useRef, useState } from "react";
 import type { Conversation, Message } from "./types";
+import { cascadeRoom, fadeArrival, playArrivalCascade } from "./arrivalCascade";
 
 interface Options {
   conversation?: Conversation;
@@ -44,6 +45,10 @@ interface Visit {
   positionedAt: number;
   /** The newest record seen at the last position(): a changed id with the reader's own message means they just sent. */
   lastRecordId: string;
+  /** The pane's distance from the bottom at the last sync, i.e. before whatever has just arrived grew it. */
+  distance: number;
+  /** When the reader last scrolled away on purpose; an arrival never pulls them back within a moment of that. */
+  gestureAt: number;
 }
 
 /** A follow-bottom scroll tween in flight. The target is read live every frame, so growth that lands mid-glide is followed. */
@@ -72,6 +77,12 @@ const GLIDE_SPAN_MAX = 300;
 const GLIDE_SETTLE_MS = 600;
 // A second growth within this window of the previous one is a stream, not a fresh arrival.
 const GLIDE_STREAM_WINDOW_MS = 400;
+// A reader this close to the bottom (a fifth of the pane, 96-200 px) is still reading the conversation's end: a reply that
+// arrives brings itself into view instead of leaving a "new message" pill, even if a small scroll had detached them. A reader
+// further up is never moved. A deliberate scroll away in the last FOLLOW_GESTURE_MS is respected whatever the distance.
+const FOLLOW_ZONE_RATIO = 0.2, FOLLOW_ZONE_MIN = 96, FOLLOW_ZONE_MAX = 200;
+const FOLLOW_GESTURE_MS = 600;
+const followZone = (el: HTMLElement) => Math.min(FOLLOW_ZONE_MAX, Math.max(FOLLOW_ZONE_MIN, el.clientHeight * FOLLOW_ZONE_RATIO));
 // A frame clock: the token changes once per painted frame, so two reads with the same token happened before any paint.
 let frameToken = 0, frameArmed = false;
 function currentFrame() {
@@ -126,7 +137,7 @@ export function useConversationScroll(options: Options) {
     visit.current = { id, readSeq: options.conversation?.read_seq ?? 0, entryMax: snapshot?.entryMax ?? null,
       resume: snapshot, positioned: false, landing: snapshot ? (snapshot.atBottom ? "bottom" : "elsewhere") : null, atBottom: snapshot?.atBottom ?? true, nearBottom: true, width: 0, height: 0,
       baseline: 0, detached: snapshot?.detached ?? false, resumeIntent: false, lastScrollTop: 0,
-      prepend: null, followNext: false, loadingBoundary: false, boundaryFailed: false, hold: null, glide: null, lastGrowth: 0, bottomTop: 0, dipFrame: -1, positionedAt: 0, lastRecordId: "" };
+      prepend: null, followNext: false, loadingBoundary: false, boundaryFailed: false, hold: null, glide: null, lastGrowth: 0, bottomTop: 0, dipFrame: -1, positionedAt: 0, lastRecordId: "", distance: 0, gestureAt: 0 };
   }
 
   const isVisible = useCallback(() => document.visibilityState === "visible" &&
@@ -162,6 +173,7 @@ export function useConversationScroll(options: Options) {
     const changed = v.atBottom !== following || v.nearBottom !== bottom;
     v.nearBottom = bottom;
     v.atBottom = following;
+    v.distance = distanceFromBottom;
     if (following) {
       const seq = latest.current.messages.reduce((max, m) => m.conversation_id === v.id && !m.local ? Math.max(max, m.seq) : max, 0);
       if (v.baseline !== seq) { v.baseline = seq; render(n => n + 1); }
@@ -181,16 +193,33 @@ export function useConversationScroll(options: Options) {
   }, []);
 
   /** Follow the bottom after the page grew. A tween instead of a jump; instant when motion is reduced or the page is hidden. */
-  const followBottom = useCallback((el: HTMLDivElement, v: Visit, instant = false) => {
+  const followBottom = useCallback((el: HTMLDivElement, v: Visit, instant = false, arrival: HTMLElement | null = null) => {
     const target = () => el.scrollHeight - el.clientHeight;
     // A shrink that is undone before the next paint (a draft swapped for its saved message) leaves scrollTop clamped
     // lower; put it back so the pane never dips. A dip that was already painted is left to the glide: restoring it
     // would be a jump.
     const floor = Math.min(v.bottomTop, target());
     if (el.scrollTop < floor - 0.5 && v.dipFrame >= 0 && v.dipFrame === currentFrame()) el.scrollTop = floor;
-    const gap = target() - el.scrollTop;
+    let gap = target() - el.scrollTop;
     if (gap <= 0.5 && !v.glide) return;
     const now = performance.now();
+    // A whole message arriving: the messages in view ride the spring-chain cascade, a visual offset, while the scroll lands
+    // exactly in the same frame. A block taller than the cascade can carry lands the cascade's share at once and the rest
+    // follows as the ordinary glide. Streaming growth, a hop in flight, a hidden page and a pane just opened keep the plain follow.
+    if (arrival && !instant && !v.glide && document.visibilityState === "visible" && now - v.positionedAt >= GLIDE_SETTLE_MS && now - v.lastGrowth >= GLIDE_STREAM_WINDOW_MS && gap > GLIDE_MIN_GAP) {
+      if (reducedMotion()) fadeArrival(arrival);
+      else {
+        const shift = Math.min(gap, cascadeRoom(el));
+        if (shift > GLIDE_MIN_GAP) {
+          el.scrollTop = Math.min(target(), el.scrollTop + shift);
+          playArrivalCascade(el, shift);
+          gap = target() - el.scrollTop;
+          v.bottomTop = Math.max(v.bottomTop, el.scrollTop);
+          if (gap <= 0.5) { v.lastGrowth = now; return; }
+          // A taller block: the rest of the hop is the ordinary arrival glide below.
+        }
+      }
+    }
     if (instant || reducedMotion() || document.visibilityState !== "visible" || now - v.positionedAt < GLIDE_SETTLE_MS || (!v.glide && gap <= GLIDE_MIN_GAP)) { stopGlide(v, false); el.scrollTop = el.scrollHeight; return; }
     const streaming = now - v.lastGrowth < GLIDE_STREAM_WINDOW_MS;
     const grew = !v.glide || v.glide.height !== el.scrollHeight;
@@ -267,7 +296,7 @@ export function useConversationScroll(options: Options) {
         el.scrollTop += resumeNode.getBoundingClientRect().top - el.getBoundingClientRect().top - resume.anchorOffset;
         v.hold = { node: resumeNode, offset: resume.anchorOffset, until: performance.now() + RESTORE_HOLD_MS };
       } else if (first && target) {
-        el.scrollTop += target.getBoundingClientRect().top - el.getBoundingClientRect().top - 12;
+        el.scrollTop += target.getBoundingClientRect().top - el.getBoundingClientRect().top - 12 - (parseFloat(getComputedStyle(el).scrollPaddingTop) || 0);
       } else {
         el.scrollTop = el.scrollHeight;
       }
@@ -299,10 +328,19 @@ export function useConversationScroll(options: Options) {
       stopGlide(v, false);
       el.scrollTop = el.scrollHeight;
       v.followNext = false;
-    } else if (v.atBottom) {
-      // The reader's own message lands where they are looking: it arrives by its send flight, not by a scroll.
+    } else {
       const newest = records[records.length - 1];
-      followBottom(el, v, newest?.role === "user" && newest.id !== v.lastRecordId);
+      const arrived = Boolean(newest && newest.id !== v.lastRecordId);
+      // A reader still near the end of the conversation, even one whose small scroll detached them, gets a reply brought into view.
+      if (!v.atBottom && arrived && newest.role !== "user" && v.distance <= followZone(el) && performance.now() - v.gestureAt > FOLLOW_GESTURE_MS) { v.detached = false; v.atBottom = true; }
+      if (v.atBottom) {
+        // The reader's own message lands where they are looking: it arrives by its send flight, not by a scroll.
+        const own = newest?.role === "user" && arrived;
+        // A whole bot message that was not streamed in place arrives by the cascade.
+        const block = arrived && !own ? el.querySelector<HTMLElement>(`[data-message-id="${CSS.escape(newest.id)}"]`) : null;
+        const cascade = block && block.classList.contains("new-arrival") && !block.classList.contains("was-streamed") ? block : null;
+        followBottom(el, v, own, cascade);
+      }
     }
     v.lastRecordId = records[records.length - 1]?.id ?? "";
     if (!v.atBottom) { v.bottomTop = 0; v.dipFrame = -1; }
@@ -352,6 +390,7 @@ export function useConversationScroll(options: Options) {
       stopGlide(v, false);
       v.bottomTop = 0;
       v.hold = null;
+      v.gestureAt = performance.now();
       v.detached = true;
       v.resumeIntent = false;
       v.followNext = false;
