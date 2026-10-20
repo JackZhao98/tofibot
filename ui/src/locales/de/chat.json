@@ -372,6 +372,8 @@
     "key_unreachable": "Dein Tofi-Server erreicht {{provider}} nicht. Prüfe seine Internetverbindung oder den Proxy und versuche es erneut.",
     "key_failed": "Der Schlüssel konnte nicht geprüft werden. Versuche es erneut.",
     "key_no_models": "Der Schlüssel funktioniert, kann aber noch kein Modell nutzen. Hinterlege eine Zahlungsmethode oder wähle ein Projekt mit Modellzugriff.",
+    "key_no_quota": "Der Schlüssel ist gültig, aber das {{provider}}-Konto hat kein Guthaben mehr. Lade Guthaben auf oder erhöhe das Limit und verbinde dich erneut.",
+    "codex_unreachable": "Dein Tofi-Server erreicht OpenAI nicht. Prüfe Internet oder Proxy und melde dich erneut an.",
     "open_billing": "Abrechnung öffnen",
     "connected_title": "Du bist verbunden",
     "connected_ready": "Dein erster Bot ist bereit und wartet auf dich.",

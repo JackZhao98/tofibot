@@ -21,7 +21,8 @@
       "open_model_connections": "打开模型连接设置",
       "copy_diagnostics": "复制诊断信息",
       "view_activity": "查看执行记录",
-      "refresh_status": "刷新状态"
+      "refresh_status": "刷新状态",
+      "retry": "重试"
     },
     "working": "处理中…",
     "copied": "已复制诊断信息。",

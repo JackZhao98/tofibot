@@ -21,7 +21,8 @@
       "open_model_connections": "모델 연결 열기",
       "copy_diagnostics": "진단 정보 복사",
       "view_activity": "활동 보기",
-      "refresh_status": "상태 새로고침"
+      "refresh_status": "상태 새로고침",
+      "retry": "다시 시도"
     },
     "working": "처리 중…",
     "copied": "진단 정보를 복사했습니다.",

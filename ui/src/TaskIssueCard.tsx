@@ -5,7 +5,7 @@ import { useTranslation, type Language } from "./i18n";
 import "./task-issue-card.css";
 
 /** Neutral section: the task's single announcement channel owns live speech. */
-export function TaskIssueCard({ issue, locale, onAction, onFeedback, onOpenStep }: { issue: TaskIssueView; /** Pins one language (tests, fixtures); the active UI language otherwise. */ locale?: Language; onAction?: () => void | Promise<void>; onFeedback?: (text:string) => void; onOpenStep?: (runId: string, callId: string) => void }) {
+export function TaskIssueCard({ issue, locale, onAction, onRetry, onFeedback, onOpenStep }: { issue: TaskIssueView; /** Pins one language (tests, fixtures); the active UI language otherwise. */ locale?: Language; onAction?: () => void | Promise<void>; onRetry?: () => void | Promise<void>; onFeedback?: (text:string) => void; onOpenStep?: (runId: string, callId: string) => void }) {
   const heading = useId();
   const details = useRef<HTMLDetailsElement>(null);
   const diagnostics = useRef<HTMLPreElement>(null);
@@ -16,10 +16,12 @@ export function TaskIssueCard({ issue, locale, onAction, onFeedback, onOpenStep 
   const diagnosticText = taskDiagnostics(issue);
   useEffect(() => { setFeedback(""); }, [diagnosticText]);
   function report(text: string) { setFeedback(text); onFeedback?.(text); }
-  async function act() {
+  async function act(retry = false) {
     if (inFlight.current) return;
     inFlight.current = true; setBusy(true); setFeedback("");
     try {
+      if (retry) await onRetry?.();
+      else
       if (issue.action === "copy_diagnostics") {
         try {
           if (!navigator.clipboard) throw new Error("clipboard unavailable");
@@ -43,7 +45,7 @@ export function TaskIssueCard({ issue, locale, onAction, onFeedback, onOpenStep 
       return <p className="task-issue-fact" key={index}>{link && onOpenStep && fact.startsWith(link.label) ? <><button type="button" className="task-fact-link" onClick={() => onOpenStep(link.runId, link.callId)}>{link.label}</button>{fact.slice(link.label.length)}</> : fact}</p>;
     })}
     {issue.secondary.map((cause, index) => <p className="task-issue-context" key={index}>{cause}</p>)}
-    <div className="task-issue-actions"><button type="button" className="secondary-button" disabled={busy} onClick={() => void act()}>{issue.action === "copy_diagnostics" && <TofiIcon name="copy" size={16} aria-hidden="true" />}{busy ? t("issue.working") : issue.actionLabel}</button></div>
+    <div className="task-issue-actions">{issue.retryable && onRetry && <button type="button" className="primary-button" disabled={busy} data-issue-retry="true" onClick={() => void act(true)}>{busy ? t("issue.working") : t("issue.action.retry")}</button>}<button type="button" className="secondary-button" disabled={busy} onClick={() => void act()}>{issue.action === "copy_diagnostics" && <TofiIcon name="copy" size={16} aria-hidden="true" />}{busy ? t("issue.working") : issue.actionLabel}</button></div>
     <details className="task-issue-technical" ref={details}><summary>{t("step.technical_details")}</summary><pre ref={diagnostics} tabIndex={0} aria-label={t("issue.diagnostics")}>{taskDiagnostics(issue)}</pre></details>
     {feedback && <p className="task-issue-feedback">{feedback}</p>}
   </section>;

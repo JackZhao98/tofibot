@@ -368,6 +368,8 @@
     "key_unreachable": "Tofi 서버가 {{provider}}에 연결하지 못해요. 서버의 인터넷이나 프록시를 확인한 뒤 다시 시도하세요.",
     "key_failed": "키를 확인하지 못했어요. 다시 시도하세요.",
     "key_no_models": "키는 정상이지만 아직 사용할 수 있는 모델이 없어요. 결제를 추가하거나 모델 권한이 있는 프로젝트를 고르세요.",
+    "key_no_quota": "키는 유효하지만 이 {{provider}} 계정에 남은 사용량이 없습니다. 크레딧을 추가하거나 한도를 높인 뒤 다시 연결하세요.",
+    "codex_unreachable": "Tofi 서버가 OpenAI에 연결할 수 없습니다. 서버의 인터넷 또는 프록시를 확인한 뒤 다시 로그인하세요.",
     "open_billing": "결제 페이지 열기",
     "connected_title": "연결됐어요",
     "connected_ready": "첫 번째 Bot이 준비돼서 기다리고 있어요.",

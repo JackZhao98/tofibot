@@ -172,6 +172,8 @@
     "invalid_key_detail": "{{provider}} didn't accept this API key. It wasn't saved. ({{detail}})",
     "invalid_key_detail_workspace": "{{provider}} didn't accept this API key. It wasn't saved. ({{detail}}) Check that the Workspace ID is correct.",
     "unreachable": "Couldn't reach {{provider}} to verify the key. It wasn't saved. Try again later.",
+    "no_quota": "{{provider}} accepted the key, but the account has no usage left. It wasn't saved. Add credit or raise the limit, then try again.",
+    "no_models": "{{provider}} accepted the key, but it can't use any models yet. It wasn't saved. Add billing or pick a project with model access.",
     "remove_failed": "Couldn't remove the key. Try again.",
     "removed": "Removed the {{provider}} API key. Bots using {{provider}} models need another connected model.",
     "key_label": "{{provider}} API key",

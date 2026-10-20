@@ -210,18 +210,27 @@ function ModelStep({ titleId, modelConfigured, bot, onModelChanged, onBot, onBac
       setSession({ url: result.verification_url, code: result.user_code });
       if (popup && !popup.closed) { popup.opener = null; popup.location.replace(result.verification_url); }
       const delay = Math.max(1000, result.interval * 1000);
+      let failures = 0;
       while (Date.now() < result.expires_at) {
         await new Promise(resolve => window.setTimeout(resolve, delay));
         if (run.current !== token) return;
-        const status = await api.codexPoll(result.session_id);
+        // One dropped poll is not a cancelled sign-in: give up only after three in a row.
+        let status: Awaited<ReturnType<typeof api.codexPoll>>;
+        try { status = await api.codexPoll(result.session_id); failures = 0; }
+        catch (cause) {
+          if (++failures < 3) continue;
+          throw cause;
+        }
         if (run.current !== token) return;
         if (status.connected) { await finishConnect("chatgpt"); return; }
         if (!status.pending) break;
       }
       if (run.current === token) { setPhase("error"); setError({ text: t("onboarding.sign_in_expired") }); }
-    } catch {
+    } catch (cause) {
       popup?.close();
-      if (run.current === token) { setPhase("error"); setError({ text: t("onboarding.sign_in_expired") }); }
+      // The server could not start or follow the sign-in with OpenAI: that is not the person cancelling.
+      const unreachable = cause instanceof ApiError && (cause.code === "codex_connect" || cause.status >= 500) || cause instanceof TypeError;
+      if (run.current === token) { setPhase("error"); setError({ text: unreachable ? t("onboarding.codex_unreachable") : t("onboarding.sign_in_expired") }); }
     }
   }
   function cancelChatGPT() { run.current++; setPhase("idle"); setSession(null); setError(null); }
@@ -246,7 +255,11 @@ function ModelStep({ titleId, modelConfigured, bot, onModelChanged, onBot, onBac
       if (run.current !== token) return;
       const label = keyLabels[provider];
       setPhase("error");
-      setError({ text: cause instanceof ApiError && cause.code === "invalid_workspace" ? t("settings:providers.invalid_workspace") : cause instanceof ApiError && cause.code === "invalid_key" ? t("onboarding.key_invalid", { prefix: keyHelp[provider].prefix }) : cause instanceof ApiError && cause.status >= 500 ? t("onboarding.key_unreachable", { provider: label }) : t("onboarding.key_failed") });
+      const code = cause instanceof ApiError ? cause.code : undefined;
+      // The server names why a key cannot be used; each reason gets its own words, and the two billing reasons link to billing.
+      setError(code === "no_models" ? { text: t("onboarding.key_no_models"), billing: true }
+        : code === "no_quota" ? { text: t("onboarding.key_no_quota", { provider: label }), billing: true }
+        : { text: code === "invalid_workspace" ? t("settings:providers.invalid_workspace") : code === "invalid_key" ? t("onboarding.key_invalid", { prefix: keyHelp[provider].prefix }) : cause instanceof ApiError && cause.status >= 500 || code === "provider_unreachable" ? t("onboarding.key_unreachable", { provider: label }) : t("onboarding.key_failed") });
       keyInput.current?.select();
     }
   }
@@ -348,11 +361,10 @@ function ModelStep({ titleId, modelConfigured, bot, onModelChanged, onBot, onBac
           <div className="onb-panel onb-keyform">
             <OnbSegmented label={t("onboarding.key_provider")} value={provider} disabled={busy} options={[{ value: "openai", label: "OpenAI" }, { value: "anthropic", label: "Anthropic" }]} onChange={value => { setProvider(value); setError(null); setPhase("idle"); }} />
             <div className="onb-keyhead"><label htmlFor="onb-key">{t("onboarding.key_field", { provider: keyLabels[provider] })}</label><a className="onb-link" href={keyHelp[provider].keys} target="_blank" rel="noopener noreferrer">{t("onboarding.key_where")}</a></div>
-            <form className="onb-keyrow" onSubmit={event => { event.preventDefault(); void checkKey(); }}>
+            <form id="onb-key-form" className="onb-keyrow" onSubmit={event => { event.preventDefault(); void checkKey(); }}>
               <input id="onb-key" ref={keyInput} type="password" name={`${provider}-api-key`} autoComplete="off" spellCheck={false} autoCapitalize="off" autoCorrect="off" placeholder={provider === "openai" ? "sk-…" : "sk-ant-…"} value={key} disabled={busy} aria-invalid={phase === "error"} aria-describedby={phase === "error" ? "onb-key-error" : undefined} onChange={event => { setKey(event.target.value); if (phase === "error") { setPhase("idle"); setError(null); } }} data-autofocus />
-              <button type="submit" className={phase === "error" ? "primary-button" : "secondary-button"} disabled={busy || !key.trim() || provider === "anthropic" && !workspace.trim()}>{phase === "checking" ? t("onboarding.key_checking_short") : phase === "error" ? t("onboarding.key_try_again") : t("onboarding.key_connect")}</button>
             </form>
-            {provider === "anthropic" && <div className="onb-keyhead onb-workspace"><label htmlFor="onb-workspace">{t("settings:providers.workspace_label")}</label><input id="onb-workspace" type="text" autoComplete="off" spellCheck={false} placeholder="wrkspc_…" value={workspace} disabled={busy} onChange={event => { setWorkspace(event.target.value); setError(null); }} /></div>}
+            {provider === "anthropic" && <div className="onb-keyhead onb-workspace"><label htmlFor="onb-workspace">{t("settings:providers.workspace_label")}</label><input id="onb-workspace" form="onb-key-form" type="text" autoComplete="off" spellCheck={false} placeholder="wrkspc_…" aria-describedby="onb-workspace-note" value={workspace} disabled={busy} onChange={event => { setWorkspace(event.target.value); setError(null); }} /><p id="onb-workspace-note" className="onb-small">{t("settings:providers.workspace_note")}</p></div>}
             {phase === "checking" && <p className="onb-waiting" role="status"><i aria-hidden="true" />{slow ? t("onboarding.taking_longer") : t("onboarding.key_checking")}</p>}
             {phase === "error" && error && <p id="onb-key-error" className="onb-error" role="alert"><TofiIcon name="error" size={15} /> {error.text}{error.billing && <> <a className="onb-link" href={keyHelp[provider].billing} target="_blank" rel="noopener noreferrer">{t("onboarding.open_billing")}</a></>}</p>}
           </div>
@@ -365,6 +377,7 @@ function ModelStep({ titleId, modelConfigured, bot, onModelChanged, onBot, onBac
   if (connected) foot = <><span /><button type="button" className="primary-button onb-primary" data-autofocus onClick={onNext}>{t("onboarding.next")} <TofiIcon name="arrow-right" size={16} /></button></>;
   else if (phase === "waiting" && choice === "chatgpt") foot = <><button type="button" className="onb-quiet" onClick={cancelChatGPT}>{t("onboarding.cancel")}</button><button type="button" className="primary-button onb-primary" disabled>{t("onboarding.waiting")}</button></>;
   else if (choice === "chatgpt") foot = <><span className="onb-lock"><TofiIcon name="lock" size={14} /> {t("onboarding.private_note")}</span><button type="button" className="primary-button onb-primary" data-autofocus onClick={() => void startChatGPT()}>{phase === "error" ? t("onboarding.sign_in_again") : continueLabel}</button></>;
+  else if (choice === "key") foot = <><button type="button" className="onb-quiet" disabled={busy} onClick={onBack}>{t("onboarding.back")}</button><button type="submit" form="onb-key-form" className="primary-button onb-primary" disabled={busy || !key.trim() || provider === "anthropic" && !workspace.trim()}>{phase === "checking" ? t("onboarding.key_checking_short") : phase === "error" ? t("onboarding.key_try_again") : t("onboarding.key_connect")}</button></>;
   else foot = <><button type="button" className="onb-quiet" disabled={busy} onClick={onBack}>{t("onboarding.back")}</button><button type="button" className="primary-button onb-primary" disabled>{t("onboarding.next")}</button></>;
 
   return (
