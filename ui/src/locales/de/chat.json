@@ -5,6 +5,7 @@
     "saving": "Wird gespeichert…"
   },
   "apiError": {
+    "ambiguous_recipient": "Zwei Mitglieder haben denselben Namen. Benenne eines um oder wähle den Namen aus der Liste.",
     "archive_blocked": "Diese Unterhaltung ist archiviert. Stelle sie wieder her, um Nachrichten zu senden.",
     "archive_busy": "Es laufen noch Aufgaben. Warte, bis sie fertig sind, oder stoppe sie vor dem Archivieren.",
     "delete_busy": "Zugehörige Aufgaben laufen noch. Stoppe sie und versuche dann erneut zu löschen.",
