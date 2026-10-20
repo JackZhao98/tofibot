@@ -141,7 +141,7 @@ await check("a message that arrives whole fades in once and not on later renders
   await context.close();
 });
 
-await check("the end of a streamed reply never moves the conversation down", async () => {
+for (const nudge of [false, true]) await check(`the end of a streamed reply never moves the conversation down${nudge ? " nor slides the saved reply when the reader nudges the list" : ""}`, async () => {
   const at = new Date(Date.now() - 4000).toISOString();
   const run = { id: "run_live", conversation_id: "dm_a", bot_id: "bot_a", status: "running", model: "synthetic-model", origin_conversation_id: "dm_a", trigger_message_id: "m_u", queue_seq: 1, created_at: at, updated_at: at };
   const { page, context, errors } = await open({ extra: [base("m_u", 70, "user", "Synthetic request that starts a run.", { created_at: at })], runs: [run] });
@@ -159,19 +159,20 @@ await check("the end of a streamed reply never moves the conversation down", asy
   });
   await page.evaluate(({ common, full }) => window.__emit("delta", { ...common, text: full, content: full, revision: 1 }), { common, full });
   await page.waitForTimeout(1500);
-  await page.evaluate(({ common, full }) => {
+  await page.evaluate(({ common, full, nudge }) => {
     window.__mark = performance.now();
-    document.querySelector(".message-scroll").scrollTop -= 30; // the reader nudges the list as the reply is saved: that is not the answer moving
+    if (nudge) document.querySelector(".message-scroll").scrollTop -= 30; // the reader nudges the list as the reply is saved: that is not the answer moving
     window.__emit("message", { id: "m_live", conversation_id: "dm_a", seq: 71, role: "assistant", sender_bot_id: "bot_a", run_id: "run_live", content: full, created_at: common.created_at });
     window.__emit("run", { conversation_id: "dm_a", run: { id: "run_live", conversation_id: "dm_a", bot_id: "bot_a", status: "done", updated_at: new Date().toISOString() } });
-  }, { common, full });
+  }, { common, full, nudge });
   await page.waitForTimeout(1800);
   const ys = await page.evaluate(() => { cancelAnimationFrame(window.__ysRaf); cancelAnimationFrame(window.__flipRaf); return { ys: window.__ys, mark: window.__mark, flip: window.__flip }; });
   assert.equal(ys.flip, 0, "the saved reply is not slid by a stale layout offset");
   const after = ys.ys.filter(f => f.t >= ys.mark - 50);
   assert.ok(after.length > 20, "frames recorded across the stream end");
   let worst = 0;
-  for (let i = 1; i < after.length; i++) worst = Math.max(worst, after[i].y - after[i - 1].y);
+  // With a deliberate nudge the first frames carry the reader's own 30px; only the reply's own motion is judged.
+  for (let i = nudge ? 4 : 1; i < after.length; i++) worst = Math.max(worst, after[i].y - after[i - 1].y);
   assert.ok(worst <= 1, `the request bubble moved down by ${worst.toFixed(1)}px in one frame when the stream ended`);
   const during = ys.ys.filter(f => f.t < ys.mark);
   assert.ok(during.slice(2).every(f => f.live === 0), "the live status line steps aside once the reply has text");
