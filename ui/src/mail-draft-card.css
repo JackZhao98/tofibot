@@ -13,6 +13,7 @@
 .workspace .mail-draft-stamp .tofi-avatar { width:100%; height:100%; }
 .workspace .mail-draft-fields label { display:grid; grid-template-columns:52px minmax(0,1fr); gap:8px; align-items:baseline; color:var(--muted); font:600 12px/1.5 var(--body); }
 .workspace .mail-draft-fields strong { color:var(--paper-ink); font:500 14px/1.5 var(--body); overflow-wrap:anywhere; }
+.workspace .mail-draft-fields strong.mail-draft-missing { color:var(--muted); font-weight:400; font-style:italic; }
 .workspace .mail-draft-fields input { min-width:0; width:100%; box-sizing:border-box; padding:8px; border:1px solid var(--paper-rule); border-radius:6px; background:var(--paper); color:var(--paper-ink); font:14px/1.5 var(--body); }
 .workspace .mail-draft-paper { min-height:100px; padding:18px; background:repeating-linear-gradient(to bottom,transparent 0 31px,var(--paper-rule) 31px 32px); background-position:0 12px; }
 .workspace .mail-draft-paper p { margin:0; color:var(--paper-ink); white-space:pre-wrap; overflow-wrap:anywhere; font:14px/32px var(--body); }

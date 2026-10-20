@@ -251,11 +251,13 @@ func TestProductionPromptSizeMatrix(t *testing.T) {
 				// asking (owner, 2026-10-16) added ~450 cached runes.
 				// 5500: the scope principle (a persona's scope is responsibility and
 				// initiative, never a limit on conversation; owner, 2026-10-19) adds ~270.
-				if tc.name == "dm" && len([]rune(system))+runtime.SystemPromptOverheadRunes() > 5500 {
-					t.Errorf("ordinary DM provider system exceeds 5500 runes")
+				// 5950: deliver on stated assumptions and write-means-draft-the-text
+				// (task-completion eval, 2026-10-19) add ~320 (provider system 5801, fixed up to 6580).
+				if tc.name == "dm" && len([]rune(system))+runtime.SystemPromptOverheadRunes() > 5950 {
+					t.Errorf("ordinary DM provider system exceeds 5950 runes")
 				}
-				if fixed > 6200 {
-					t.Errorf("fixed overhead %d leaves too little customization headroom (ceiling 6200)", fixed)
+				if fixed > 6650 {
+					t.Errorf("fixed overhead %d leaves too little customization headroom (ceiling 6650)", fixed)
 				}
 				if !strings.Contains(system, bot.Instructions) {
 					t.Fatal("user instructions changed")
@@ -293,8 +295,8 @@ func TestProductionPromptSizeMatrix(t *testing.T) {
 					if runtime.StructuredPromptOverheadRunes() >= runtime.SystemPromptOverheadRunes() {
 						t.Errorf("structured suffix %d is not shorter than %d", runtime.StructuredPromptOverheadRunes(), runtime.SystemPromptOverheadRunes())
 					}
-					if tc.name == "dm" && len([]rune(system))+runtime.StructuredPromptOverheadRunes() > 5500 {
-						t.Errorf("structured DM provider system exceeds 5500 runes")
+					if tc.name == "dm" && len([]rune(system))+runtime.StructuredPromptOverheadRunes() > 5950 {
+						t.Errorf("structured DM provider system exceeds 5950 runes")
 					}
 					if tc.kind == runKindGroupChat && !strings.Contains(system, "say(answer)") {
 						t.Error("structured group prompt does not name say(answer)")
