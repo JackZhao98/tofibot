@@ -36,6 +36,32 @@ func attachmentMetadata(q attachmentQuerier, id string) ([]Attachment, error) {
 	return out, rows.Err()
 }
 
+// attachmentsForMessages loads the attachments of a page of messages in one
+// query and returns them keyed by message id.
+func attachmentsForMessages(q attachmentQuerier, ids []string) (map[string][]Attachment, error) {
+	out := map[string][]Attachment{}
+	if len(ids) == 0 {
+		return out, nil
+	}
+	args := make([]any, len(ids))
+	for i, id := range ids {
+		args[i] = id
+	}
+	rows, err := q.Query(`SELECT am.message_id,a.id,a.conversation_id,a.name,a.mime,a.size,a.created_at FROM attachment_messages am JOIN attachments a ON a.id=am.attachment_id WHERE am.message_id IN (`+strings.TrimSuffix(strings.Repeat("?,", len(ids)), ",")+`) ORDER BY a.created_at,a.id`, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var a Attachment
+		if err := rows.Scan(&a.MessageID, &a.ID, &a.ConversationID, &a.Name, &a.MIME, &a.Size, &a.CreatedAt); err != nil {
+			return nil, err
+		}
+		out[a.MessageID] = append(out[a.MessageID], a)
+	}
+	return out, rows.Err()
+}
+
 func (s *Store) attachmentImage(id, conv string) (string, error) {
 	a, path, err := s.Attachment(id)
 	if err != nil {
