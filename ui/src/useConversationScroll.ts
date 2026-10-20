@@ -32,13 +32,29 @@ interface Visit {
   loadingBoundary: boolean;
   boundaryFailed: boolean;
   hold: { node: HTMLElement; offset: number; until: number } | null;
+  glide: Glide | null;
+  lastGrowth: number;
 }
+
+/** A follow-bottom scroll tween in flight. The target is read live every frame, so growth that lands mid-glide is followed. */
+interface Glide { raf: number; from: number; start: number; duration: number; height: number; fresh: boolean; }
 
 // A disclosure the reader opens grows the page under their pointer; follow-bottom
 // must not chase that growth. Hold the clicked row in place while it settles.
 const HOLD_MS = 900;
 // The longest a loaded conversation may stay hidden while it waits for its position.
 const SAFETY_MS = 200;
+// Arrival glide: content above a newly arrived block rides up with a scroll tween instead of jumping. A whole message
+// arriving uses --m-base; growth that follows a streaming draft is a shorter hop so the pane never trails the text.
+// One frame never moves more than GLIDE_STEP_MAX px, and a hop longer than GLIDE_SPAN_MAX px jumps the excess first.
+export const GLIDE_MS = 220;
+export const GLIDE_STREAM_MS = 120;
+const GLIDE_STEP_MAX = 24;
+const GLIDE_SPAN_MAX = 300;
+// A second growth within this window of the previous one is a stream, not a fresh arrival.
+const GLIDE_STREAM_WINDOW_MS = 400;
+const easeInOutSine = (p: number) => -(Math.cos(Math.PI * p) - 1) / 2;
+const reducedMotion = () => typeof window.matchMedia === "function" && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
 interface ViewSnapshot {
   anchorSeq: number;
@@ -80,11 +96,12 @@ export function useConversationScroll(options: Options) {
 
   if (visit.current?.id !== id) {
     rememberVisit(visit.current);
+    if (visit.current?.glide) { cancelAnimationFrame(visit.current.glide.raf); visit.current.glide = null; }
     const snapshot = id ? snapshots.current.get(id) ?? null : null;
     visit.current = { id, readSeq: options.conversation?.read_seq ?? 0, entryMax: snapshot?.entryMax ?? null,
       resume: snapshot, positioned: false, atBottom: snapshot?.atBottom ?? true, nearBottom: true, width: 0, height: 0,
       baseline: 0, detached: snapshot?.detached ?? false, resumeIntent: false, lastScrollTop: 0,
-      prepend: null, followNext: false, loadingBoundary: false, boundaryFailed: false, hold: null };
+      prepend: null, followNext: false, loadingBoundary: false, boundaryFailed: false, hold: null, glide: null, lastGrowth: 0 };
   }
 
   const isVisible = useCallback(() => document.visibilityState === "visible" &&
@@ -106,7 +123,8 @@ export function useConversationScroll(options: Options) {
     v.width = el.clientWidth;
     v.height = el.clientHeight;
     const distanceFromBottom = el.scrollHeight - el.clientHeight - el.scrollTop;
-    const bottom = distanceFromBottom < 48;
+    // A glide is following the bottom on purpose: the pane is mid-hop, not scrolled away.
+    const bottom = distanceFromBottom < 48 || Boolean(v.glide && !v.detached);
     // The near-bottom threshold is useful for displaying state, but it cannot
     // cancel an explicit upward gesture. Only an actual return to the bottom
     // may re-enable streaming follow. Allow fractional CSS-pixel rounding at
@@ -128,6 +146,50 @@ export function useConversationScroll(options: Options) {
     rememberVisit(v);
   }, [markVisible]);
 
+  const stopGlide = useCallback((v: Visit | null, land: boolean) => {
+    const glide = v?.glide;
+    if (!v || !glide) return;
+    cancelAnimationFrame(glide.raf);
+    v.glide = null;
+    const el = scrollRef.current;
+    if (land && el && visit.current === v) el.scrollTop = el.scrollHeight;
+  }, []);
+
+  /** Follow the bottom after the page grew. A tween instead of a jump; instant when motion is reduced or the page is hidden. */
+  const followBottom = useCallback((el: HTMLDivElement, v: Visit) => {
+    const target = () => el.scrollHeight - el.clientHeight;
+    const gap = target() - el.scrollTop;
+    if (gap <= 0.5 && !v.glide) return;
+    const now = performance.now();
+    if (reducedMotion() || document.visibilityState !== "visible") { stopGlide(v, false); el.scrollTop = el.scrollHeight; return; }
+    const streaming = now - v.lastGrowth < GLIDE_STREAM_WINDOW_MS;
+    const grew = !v.glide || v.glide.height !== el.scrollHeight;
+    if (!grew) return;
+    v.lastGrowth = now;
+    if (gap > GLIDE_SPAN_MAX) el.scrollTop = target() - GLIDE_SPAN_MAX;
+    const glide: Glide = v.glide ?? { raf: 0, from: 0, start: 0, duration: 0, height: 0, fresh: true };
+    // The clock starts on the first painted frame: the render that brought the block can itself be a long task.
+    glide.fresh = true;
+    glide.duration = streaming ? GLIDE_STREAM_MS : GLIDE_MS;
+    glide.height = el.scrollHeight;
+    if (v.glide) return;
+    v.glide = glide;
+    const frame = (time: number) => {
+      const node = scrollRef.current;
+      if (v.glide !== glide || !node || visit.current !== v) return;
+      const end = node.scrollHeight - node.clientHeight;
+      if (glide.fresh) { glide.fresh = false; glide.from = node.scrollTop; glide.start = time; }
+      const p = Math.min(1, Math.max(0, (time - glide.start) / glide.duration));
+      const wanted = glide.from + (end - glide.from) * easeInOutSine(p);
+      const next = Math.min(wanted, node.scrollTop + GLIDE_STEP_MAX);
+      node.scrollTop = p >= 1 && end - node.scrollTop <= GLIDE_STEP_MAX ? end : Math.max(next, node.scrollTop);
+      glide.height = node.scrollHeight;
+      if (p >= 1 && Math.abs(end - node.scrollTop) <= 0.5) { v.glide = null; syncPosition(); return; }
+      glide.raf = requestAnimationFrame(frame);
+    };
+    glide.raf = requestAnimationFrame(frame);
+  }, [stopGlide, syncPosition]);
+
   const position = useCallback(() => {
     const el = scrollRef.current;
     const v = visit.current;
@@ -138,6 +200,7 @@ export function useConversationScroll(options: Options) {
     const max = records[records.length - 1]?.seq ?? 0;
     if (v.entryMax === null) v.entryMax = max;
     if (!v.positioned) {
+      stopGlide(v, false);
       const resume = v.resume;
       let resumeNode = resume?.anchorSeq ? el.querySelector<HTMLElement>(`[data-message-seq="${resume.anchorSeq}"]`) : null;
       if (resume && !resume.atBottom && resume.anchorSeq > 0 && !resumeNode) {
@@ -185,8 +248,10 @@ export function useConversationScroll(options: Options) {
       v.prepend = null;
       render(n => n + 1);
     } else if (v.hold && v.hold.until > performance.now() && v.hold.node.isConnected) {
+      stopGlide(v, false);
       el.scrollTop += v.hold.node.getBoundingClientRect().top - el.getBoundingClientRect().top - v.hold.offset;
     } else if (v.prepend) {
+      stopGlide(v, false);
       const prepend = v.prepend;
       const anchor = prepend.anchorSeq ? el.querySelector<HTMLElement>(`[data-message-seq="${prepend.anchorSeq}"]`) : null;
       if (anchor) {
@@ -196,12 +261,16 @@ export function useConversationScroll(options: Options) {
         el.scrollTop = prepend.top + el.scrollHeight - prepend.height;
       }
       v.prepend = null;
-    } else if (v.atBottom || v.followNext) {
+    } else if (v.followNext) {
+      // An explicit jump (send, "latest") lands at once; only organic growth glides.
+      stopGlide(v, false);
       el.scrollTop = el.scrollHeight;
       v.followNext = false;
+    } else if (v.atBottom) {
+      followBottom(el, v);
     }
     syncPosition();
-  }, [isVisible, syncPosition]);
+  }, [isVisible, syncPosition, stopGlide, followBottom]);
 
   useLayoutEffect(() => {
     position();
@@ -238,6 +307,7 @@ export function useConversationScroll(options: Options) {
     const pauseFollow = () => {
       const v = visit.current;
       if (!v?.positioned) return;
+      stopGlide(v, false);
       v.hold = null;
       v.detached = true;
       v.resumeIntent = false;
@@ -253,10 +323,12 @@ export function useConversationScroll(options: Options) {
     };
     // Any reading gesture takes over from the disclosure hold at once.
     const release = () => { if (visit.current) visit.current.hold = null; };
+    // A gesture toward the bottom lets the hop land at once; one away from it (pauseFollow) abandons the hop where it is.
+    const land = () => stopGlide(visit.current, true);
     const onWheel = (event: WheelEvent) => {
       release();
       if (event.deltaY < 0) pauseFollow();
-      else if (event.deltaY > 0) resumeFollow();
+      else if (event.deltaY > 0) { land(); resumeFollow(); }
     };
     const onTouchStart = (event: TouchEvent) => { touchY = event.touches[0]?.clientY ?? 0; };
     const onDisclosure = (event: MouseEvent) => {
@@ -269,13 +341,13 @@ export function useConversationScroll(options: Options) {
       release();
       const y = event.touches[0]?.clientY ?? touchY;
       if (y > touchY) pauseFollow();
-      else if (y < touchY) resumeFollow();
+      else if (y < touchY) { land(); resumeFollow(); }
       touchY = y;
     };
     const onKey = (event: KeyboardEvent) => {
       if (["ArrowUp", "ArrowDown", "PageUp", "PageDown", "Home", "End", " "].includes(event.key)) release();
       if (["ArrowUp", "PageUp", "Home"].includes(event.key) || (event.key === " " && event.shiftKey)) pauseFollow();
-      else if (["ArrowDown", "PageDown", "End"].includes(event.key) || (event.key === " " && !event.shiftKey)) resumeFollow();
+      else if (["ArrowDown", "PageDown", "End"].includes(event.key) || (event.key === " " && !event.shiftKey)) { land(); resumeFollow(); }
     };
     el.addEventListener("wheel", onWheel, { passive: true });
     el.addEventListener("touchstart", onTouchStart, { passive: true });
@@ -284,6 +356,7 @@ export function useConversationScroll(options: Options) {
     el.addEventListener("click", onDisclosure, true);
     // Scrollbar drags send no wheel; a pointer press on the pane hands control back too.
     el.addEventListener("pointerdown", release, true);
+    el.addEventListener("pointerdown", land, true);
     const observer = new ResizeObserver(position);
     observer.observe(el);
     const content = el.querySelector(".message-list");
@@ -302,11 +375,13 @@ export function useConversationScroll(options: Options) {
       el.removeEventListener("keydown", onKey);
       el.removeEventListener("click", onDisclosure, true);
       el.removeEventListener("pointerdown", release, true);
+      el.removeEventListener("pointerdown", land, true);
+      stopGlide(effectVisit, false);
       window.removeEventListener("focus", onFocus);
       document.removeEventListener("visibilitychange", onFocus);
       desktop.removeEventListener("change", onFocus);
     };
-  }, [id, options.ready, position, markVisible, armSafety]);
+  }, [id, options.ready, position, markVisible, armSafety, stopGlide]);
 
   const preservePrepend = useCallback(() => {
     const el = scrollRef.current;
@@ -328,8 +403,9 @@ export function useConversationScroll(options: Options) {
     v.resume = null;
     v.hold = null;
     v.followNext = true;
+    stopGlide(v, false);
     position();
-  }, [position]);
+  }, [position, stopGlide]);
 
   /** True when the reader has scrolled meaningfully away from the newest message. */
   const awayFromBottom = useCallback(() => {
