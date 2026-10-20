@@ -36,6 +36,12 @@ interface Visit {
   lastGrowth: number;
   /** Where the following pane last sat at the bottom. A momentary shrink clamps scrollTop; the glide resumes from here, not from the clamp. */
   bottomTop: number;
+  /** The frame in which scrollTop was found clamped below bottomTop; -1 when it is not. */
+  dipFrame: number;
+  /** When the position was first established; late layout right after it is part of arriving, not of reading. */
+  positionedAt: number;
+  /** The newest record seen at the last position(): a changed id with the reader's own message means they just sent. */
+  lastRecordId: string;
 }
 
 /** A follow-bottom scroll tween in flight. The target is read live every frame, so growth that lands mid-glide is followed. */
@@ -52,9 +58,20 @@ const SAFETY_MS = 200;
 export const GLIDE_MS = 220;
 export const GLIDE_STREAM_MS = 120;
 const GLIDE_STEP_MAX = 24;
+// A hop this short (a receipt row, a status line settling) is not worth animating and must not trail the content it follows.
+const GLIDE_MIN_GAP = 12;
 const GLIDE_SPAN_MAX = 300;
+// Growth this soon after a conversation is positioned (late fonts, images, a reconcile) lands instantly: it is part of
+// opening the conversation, which must already sit at the bottom on its first painted frame.
+const GLIDE_SETTLE_MS = 600;
 // A second growth within this window of the previous one is a stream, not a fresh arrival.
 const GLIDE_STREAM_WINDOW_MS = 400;
+// A frame clock: the token changes once per painted frame, so two reads with the same token happened before any paint.
+let frameToken = 0, frameArmed = false;
+function currentFrame() {
+  if (!frameArmed) { frameArmed = true; requestAnimationFrame(() => { frameToken++; frameArmed = false; }); }
+  return frameToken;
+}
 const easeInOutSine = (p: number) => -(Math.cos(Math.PI * p) - 1) / 2;
 const reducedMotion = () => typeof window.matchMedia === "function" && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
@@ -103,7 +120,7 @@ export function useConversationScroll(options: Options) {
     visit.current = { id, readSeq: options.conversation?.read_seq ?? 0, entryMax: snapshot?.entryMax ?? null,
       resume: snapshot, positioned: false, atBottom: snapshot?.atBottom ?? true, nearBottom: true, width: 0, height: 0,
       baseline: 0, detached: snapshot?.detached ?? false, resumeIntent: false, lastScrollTop: 0,
-      prepend: null, followNext: false, loadingBoundary: false, boundaryFailed: false, hold: null, glide: null, lastGrowth: 0, bottomTop: 0 };
+      prepend: null, followNext: false, loadingBoundary: false, boundaryFailed: false, hold: null, glide: null, lastGrowth: 0, bottomTop: 0, dipFrame: -1, positionedAt: 0, lastRecordId: "" };
   }
 
   const isVisible = useCallback(() => document.visibilityState === "visible" &&
@@ -158,16 +175,17 @@ export function useConversationScroll(options: Options) {
   }, []);
 
   /** Follow the bottom after the page grew. A tween instead of a jump; instant when motion is reduced or the page is hidden. */
-  const followBottom = useCallback((el: HTMLDivElement, v: Visit) => {
+  const followBottom = useCallback((el: HTMLDivElement, v: Visit, instant = false) => {
     const target = () => el.scrollHeight - el.clientHeight;
-    // A shrink that is undone in the same task (a draft swapped for its saved message) leaves scrollTop clamped lower;
-    // put it back before anything paints so the pane never dips.
+    // A shrink that is undone before the next paint (a draft swapped for its saved message) leaves scrollTop clamped
+    // lower; put it back so the pane never dips. A dip that was already painted is left to the glide: restoring it
+    // would be a jump.
     const floor = Math.min(v.bottomTop, target());
-    if (el.scrollTop < floor - 0.5) el.scrollTop = floor;
+    if (el.scrollTop < floor - 0.5 && v.dipFrame >= 0 && v.dipFrame === currentFrame()) el.scrollTop = floor;
     const gap = target() - el.scrollTop;
     if (gap <= 0.5 && !v.glide) return;
     const now = performance.now();
-    if (reducedMotion() || document.visibilityState !== "visible") { stopGlide(v, false); el.scrollTop = el.scrollHeight; return; }
+    if (instant || reducedMotion() || document.visibilityState !== "visible" || now - v.positionedAt < GLIDE_SETTLE_MS || (!v.glide && gap <= GLIDE_MIN_GAP)) { stopGlide(v, false); el.scrollTop = el.scrollHeight; return; }
     const streaming = now - v.lastGrowth < GLIDE_STREAM_WINDOW_MS;
     const grew = !v.glide || v.glide.height !== el.scrollHeight;
     if (!grew) return;
@@ -184,8 +202,6 @@ export function useConversationScroll(options: Options) {
       const node = scrollRef.current;
       if (v.glide !== glide || !node || visit.current !== v) return;
       const end = node.scrollHeight - node.clientHeight;
-      const floor = Math.min(v.bottomTop, node.scrollHeight - node.clientHeight);
-      if (node.scrollTop < floor - 0.5) node.scrollTop = floor;
       if (glide.fresh) { glide.fresh = false; glide.from = node.scrollTop; glide.start = time; }
       const p = Math.min(1, Math.max(0, (time - glide.start) / glide.duration));
       const wanted = glide.from + (end - glide.from) * easeInOutSine(p);
@@ -252,6 +268,7 @@ export function useConversationScroll(options: Options) {
       v.width = el.clientWidth;
       v.height = el.clientHeight;
       v.positioned = true;
+      v.positionedAt = performance.now();
       v.followNext = false;
       v.resume = null;
       v.prepend = null;
@@ -276,9 +293,17 @@ export function useConversationScroll(options: Options) {
       el.scrollTop = el.scrollHeight;
       v.followNext = false;
     } else if (v.atBottom) {
-      followBottom(el, v);
+      // The reader's own message lands where they are looking: it arrives by its send flight, not by a scroll.
+      const newest = records[records.length - 1];
+      followBottom(el, v, newest?.role === "user" && newest.id !== v.lastRecordId);
     }
-    v.bottomTop = v.atBottom ? Math.max(v.bottomTop, el.scrollTop) : 0;
+    v.lastRecordId = records[records.length - 1]?.id ?? "";
+    if (!v.atBottom) { v.bottomTop = 0; v.dipFrame = -1; }
+    else if (el.scrollTop < v.bottomTop - 0.5) {
+      const frame = currentFrame();
+      if (v.dipFrame < 0) v.dipFrame = frame;
+      else if (v.dipFrame !== frame) { v.bottomTop = el.scrollTop; v.dipFrame = -1; }
+    } else { v.bottomTop = el.scrollTop; v.dipFrame = -1; }
     syncPosition();
   }, [isVisible, syncPosition, stopGlide, followBottom]);
 
