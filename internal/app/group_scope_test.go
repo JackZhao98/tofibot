@@ -1,6 +1,7 @@
 package app
 
 import (
+	"strings"
 	"testing"
 )
 
@@ -179,5 +180,44 @@ func TestWaitTimeoutAnchorsOnGroupMessageNotPersonMessage(t *testing.T) {
 	}
 	if wake.TriggerMessageID != botMsg.ID {
 		t.Fatalf("wake anchored on %s, want the Bot message %s", wake.TriggerMessageID, botMsg.ID)
+	}
+}
+
+// A Bot woken in a fan-out sees what its sibling wake already posted.
+func TestWokenSiblingSeesWhatTheOtherWakePosted(t *testing.T) {
+	f := newDedupeFixture(t, nil)
+	f.post(t, "@tofi coordinate", f.tofi)
+	root := f.roots[0]
+	f.server.store.SetRunStatus(root.ID, "running", "")
+	handover, err := f.server.store.AddAssistant(f.group.ID, f.tofi.ID, root.ID, "Plan posted for the helpers.")
+	if err != nil {
+		t.Fatal(err)
+	}
+	gather, ok, err := f.server.store.AddMentionWake(f.group.ID, root, handover.ID, f.meta.ID, "gather the figures")
+	if err != nil || !ok {
+		t.Fatalf("wake gather: %v %v", ok, err)
+	}
+	handover2, err := f.server.store.AddAssistant(f.group.ID, f.tofi.ID, root.ID, "Second helper, use what the first posts.")
+	if err != nil {
+		t.Fatal(err)
+	}
+	use, ok, err := f.server.store.AddMentionWake(f.group.ID, root, handover2.ID, f.third.ID, "use the figures")
+	if err != nil || !ok {
+		t.Fatalf("wake use: %v %v", ok, err)
+	}
+	f.server.store.SetRunStatus(gather.ID, "running", "")
+	if _, err := f.server.store.AddAssistant(f.group.ID, f.meta.ID, gather.ID, "FIGURES-READY revenue 42"); err != nil {
+		t.Fatal(err)
+	}
+	use, _ = f.server.store.GetRun(use.ID)
+	msgs, _ := f.server.buildContext(f.group, use, f.third)
+	found := false
+	for _, m := range msgs {
+		if strings.Contains(m.Content, "FIGURES-READY") {
+			found = true
+		}
+	}
+	if !found {
+		t.Fatal("the woken sibling cannot see the data its colleague posted")
 	}
 }
