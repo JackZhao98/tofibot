@@ -29,6 +29,12 @@ export interface MountOptions extends Partial<AvatarConfig> {
   eyes?: EyeStyle;
   onState?: (state: AvatarState) => void;
 }
+/** Milliseconds of no input after which every cat settles and its life layer stops (see README). */
+export const IDLE_PAUSE_MS: number;
+export function setIdlePauseDelay(ms?: number): void;
+export function isIdlePaused(): boolean;
+/** Skip life-layer redraws for `ms` so a page transition keeps its frames. Playing clips are not held. */
+export function holdAvatarLife(ms: number): void;
 export interface CatAvatar {
   play(action: Action): Promise<PlayResult>;
   /** Enable or pause the idle breath, blink, gaze and ear motion. */

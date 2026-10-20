@@ -47,6 +47,64 @@ try {
   console.log(JSON.stringify(result));
   assert.ok(result.rafPerSecond <= 75, `20 cats must share one frame pump, got ${result.rafPerSecond.toFixed(0)} rAF/s`);
   assert.ok(result.firstPathUpdatesPerSecond <= 30, `a 25 px cat must step at <= ~24 fps, got ${result.firstPathUpdatesPerSecond.toFixed(1)}/s`);
+
+  // Idle pause: no input for IDLE_PAUSE_MS settles every cat and the shared pump goes quiet; input resumes within a frame.
+  const idle = await page.evaluate(async () => {
+    const { mountCat, IDLE_PAUSE_MS, setIdlePauseDelay, isIdlePaused, holdAvatarLife } = await import("/src/lib/tofi-avatar/index.js");
+    let registered = 0;
+    const raf = window.requestAnimationFrame.bind(window);
+    window.requestAnimationFrame = (fn) => { registered++; return raf(fn); };
+    const root = document.createElement("div");
+    root.style.cssText = "position:fixed;left:0;top:0";
+    document.body.append(root);
+    const hosts = Array.from({ length: 37 }, () => { const h = document.createElement("span"); h.style.cssText = "display:inline-block;width:25px;height:25px"; root.append(h); return h; });
+    setIdlePauseDelay(700);
+    const cats = hosts.map((host, i) => mountCat(host, { initialState: i % 2 ? "awake" : "asleep", autoplay: true }));
+    const wait = ms => new Promise(r => setTimeout(r, ms));
+    const rate = async ms => { registered = 0; const t0 = performance.now(); await wait(ms); return registered / ((performance.now() - t0) / 1000); };
+    const before = await rate(400);
+    await wait(1000);
+    const pausedFlag = isIdlePaused();
+    const paused = await rate(1000);
+    // A clip is not part of the life layer: it plays to its end while paused.
+    const clip = await Promise.race([cats[0].play("slow-blink").then(r => r.cancelled ? "cancelled" : "done"), wait(5000).then(() => "stalled")]);
+    registered = 0;
+    document.dispatchEvent(new PointerEvent("pointermove", { bubbles: true }));
+    await new Promise(r => raf(() => r()));
+    await new Promise(r => raf(() => r()));
+    const resumedFlag = !isIdlePaused();
+    const resumed = await rate(500);
+    // A page transition holds the life layer: no path is rewritten while held, and the cat carries on afterwards.
+    let writes = 0;
+    const watcher = new MutationObserver(records => { writes += records.length; });
+    watcher.observe(root, { attributes: true, attributeFilter: ["d"], subtree: true });
+    document.dispatchEvent(new PointerEvent("pointermove", { bubbles: true }));
+    holdAvatarLife(450);
+    await wait(60); writes = 0;
+    await wait(300);
+    const heldWrites = writes;
+    document.dispatchEvent(new PointerEvent("pointermove", { bubbles: true }));
+    await wait(200); writes = 0;
+    await wait(300);
+    const afterHoldWrites = writes;
+    watcher.disconnect();
+    // Still idle again later: it settles a second time.
+    await wait(1100);
+    const settledAgain = isIdlePaused();
+    cats.forEach(cat => cat.destroy());
+    return { IDLE_PAUSE_MS, before, pausedFlag, paused, clip, resumedFlag, resumed, heldWrites, afterHoldWrites, settledAgain };
+  });
+  console.log(JSON.stringify(idle));
+  assert.equal(idle.IDLE_PAUSE_MS, 20000, "cats settle after 20 s without input");
+  assert.ok(idle.before >= 20, `37 cats animate while there is input recently, got ${idle.before.toFixed(0)} rAF/s`);
+  assert.ok(idle.pausedFlag, "the idle timer flags the pause");
+  assert.ok(idle.paused <= 2, `no frames are scheduled once idle, got ${idle.paused.toFixed(1)} rAF/s`);
+  assert.equal(idle.clip, "done", "a playing clip is not held by the idle pause");
+  assert.ok(idle.resumedFlag, "input clears the pause");
+  assert.ok(idle.resumed >= 20, `input resumes the life layer, got ${idle.resumed.toFixed(0)} rAF/s`);
+  assert.equal(idle.heldWrites, 0, "no path is rewritten while a page transition holds the cats");
+  assert.ok(idle.afterHoldWrites > 20, `the cats carry on once the hold lapses, got ${idle.afterHoldWrites} path writes`);
+  assert.ok(idle.settledAgain, "cats settle again after the next quiet stretch");
   console.log("avatar frame budget: PASS");
 } finally {
   await browser.close();
