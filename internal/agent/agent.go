@@ -345,9 +345,13 @@ type AgentResult struct {
 // It manages MCP clients, tools, and the LLM interaction loop.
 func RunAgentLoop(cfg AgentConfig, ctx *models.ExecutionContext) (returned *AgentResult, returnedErr error) {
 	budgetReason := ""
+	// budgetUnanswered is set only when the wrap-up produced no final answer:
+	// a run answered at the wrap-up finished its task and is not a failure.
+	budgetUnanswered := false
 	defer func() {
 		if returned != nil && !returned.Suspended && budgetReason != "" {
-			returned.BudgetExhausted, returned.BudgetReason = true, budgetReason
+			returned.BudgetReason = budgetReason
+			returned.BudgetExhausted = budgetUnanswered
 		}
 	}()
 	if cfg.Provider == nil {
@@ -1606,6 +1610,7 @@ func RunAgentLoop(cfg AgentConfig, ctx *models.ExecutionContext) (returned *Agen
 				// Force termination to honor the cap.
 				ctx.Log("[Agent] Model ignored wrap-up directive — forcing termination")
 				finalContent := stripThinkTags(resp.Content)
+				budgetUnanswered = !(finalContent == "" && cfg.StructuredOutput && sayAnswerText(resp.ToolCalls) != "")
 				if finalContent == "" && cfg.StructuredOutput {
 					// The wrap-up was answered with the say tool: its text is the answer.
 					finalContent = sayAnswerText(resp.ToolCalls)
