@@ -185,7 +185,7 @@ func (g *AccountGateway) issue(w http.ResponseWriter, r *http.Request, id string
 	}
 	r.Header.Del("Cookie")
 	r.AddCookie(&http.Cookie{Name: ownerCookie, Value: token})
-	http.SetCookie(w, &http.Cookie{Name: ownerCookie, Value: token, Path: "/", HttpOnly: true, Secure: r.TLS != nil, SameSite: http.SameSiteLaxMode, MaxAge: int(ownerSessionLifetime.Seconds()), Expires: expires})
+	http.SetCookie(w, &http.Cookie{Name: ownerCookie, Value: token, Path: "/", HttpOnly: true, Secure: r.TLS != nil || strings.HasPrefix(strings.ToLower(g.root.publicOrigin), "https://"), SameSite: http.SameSiteLaxMode, MaxAge: int(ownerSessionLifetime.Seconds()), Expires: expires})
 	return nil
 }
 
@@ -416,8 +416,9 @@ func (g *AccountGateway) handle(w http.ResponseWriter, r *http.Request) {
 			writeErr(w, 403, "transport", "secure password transport required")
 			return
 		}
-		limit := func() bool {
-			if g.auth.allowAttempt(r) {
+		var loginAccount string
+		limit := func(account string) bool {
+			if g.auth.allowAttempt(r, account) {
 				return true
 			}
 			writeErr(w, 429, "rate_limited", "try later")
@@ -440,7 +441,7 @@ func (g *AccountGateway) handle(w http.ResponseWriter, r *http.Request) {
 				writeErr(w, 400, "invalid_request", "invalid setup request")
 				return
 			}
-			if !limit() {
+			if !limit("") {
 				return
 			}
 			var saved []byte
@@ -461,7 +462,7 @@ func (g *AccountGateway) handle(w http.ResponseWriter, r *http.Request) {
 				writeErr(w, 400, "invalid_request", "invalid account")
 				return
 			}
-			if !limit() {
+			if !limit("") {
 				return
 			}
 			created, err := g.create(r.Context(), in.Username, in.Email, in.Password, true, in.BootstrapSecret)
@@ -473,7 +474,7 @@ func (g *AccountGateway) handle(w http.ResponseWriter, r *http.Request) {
 				var fe *accountFieldError
 				if errors.As(err, &fe) {
 					// Validation failures are not guesses at the secret.
-					g.auth.refundAttempt(r)
+					g.auth.refundAttempt(r, "")
 					writeFieldErr(w, 400, fe)
 					return
 				}
@@ -482,12 +483,16 @@ func (g *AccountGateway) handle(w http.ResponseWriter, r *http.Request) {
 			}
 			a = created
 		} else {
-			if !limit() {
-				return
-			}
 			var in struct{ Identifier, Password string }
 			if decodeStrict(r, 8<<10, &in) != nil || len(in.Password) > 1024 || len(in.Identifier) > 254 {
 				writeErr(w, 400, "invalid_request", "invalid login")
+				return
+			}
+			loginAccount = strings.TrimSpace(in.Identifier)
+			if loginAccount == "" {
+				loginAccount = "-"
+			}
+			if !limit(loginAccount) {
 				return
 			}
 			var salt, saved []byte
@@ -501,6 +506,9 @@ func (g *AccountGateway) handle(w http.ResponseWriter, r *http.Request) {
 				writeErr(w, 401, "invalid_credentials", "invalid identifier or password")
 				return
 			}
+		}
+		if loginAccount != "" {
+			g.auth.refundAttempt(r, loginAccount)
 		}
 		if err := g.issue(w, r, a.ID); err != nil {
 			writeErr(w, 500, "storage", "cannot create session")

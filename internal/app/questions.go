@@ -205,6 +205,7 @@ claimed_at TEXT NOT NULL DEFAULT ''
 );
 DROP INDEX IF EXISTS mcp_call_approvals_run_action;
 CREATE INDEX IF NOT EXISTS mcp_call_approvals_run_action ON mcp_call_approvals(run_id,action_hash);
+CREATE TABLE IF NOT EXISTS click_approval_claims(question_id TEXT PRIMARY KEY REFERENCES questions(id) ON DELETE CASCADE,run_id TEXT NOT NULL,claimed_at TEXT NOT NULL);
 CREATE TABLE IF NOT EXISTS question_renewals(original_id TEXT PRIMARY KEY REFERENCES questions(id) ON DELETE CASCADE,new_id TEXT NOT NULL UNIQUE REFERENCES questions(id) ON DELETE CASCADE);`)
 	return err
 }

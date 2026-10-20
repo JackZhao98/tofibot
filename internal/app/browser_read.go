@@ -334,7 +334,14 @@ Return exactly one JSON object: {"decision":"allow"|"confirm","reason":"<one sho
 // allows it or a person already approved this target in the run; otherwise
 // the model is told to ask the user. A reviewer failure asks the user.
 func (s *Server) guardAction(ctx context.Context, r Run, a actionReview) error {
-	if !consequentialEffect(a.Effect) || s.clickApproved(r, a.Element) {
+	if !consequentialEffect(a.Effect) {
+		return nil
+	}
+	label := a.Element
+	if label == "" {
+		label = a.Text
+	}
+	if s.claimClickApproval(r, label) {
 		return nil
 	}
 	if m, err := s.store.GetMessage(r.TriggerMessageID); err == nil {
@@ -345,10 +352,7 @@ func (s *Server) guardAction(ctx context.Context, r Run, a actionReview) error {
 	if allow {
 		return nil
 	}
-	label := a.Element
-	if label == "" {
-		label = a.Text
-	}
+	label = trimRunes(label, 300)
 	return tooloutcome.New(tooloutcome.NeedApproval, "user_confirmation_required", "not_executed",
 		fmt.Sprintf("This %s (%s) on %q needs the user's confirmation: %s Ask with request_approval (target: %q) and repeat the action only after they approve.", a.Kind, a.Effect, label, reason, label),
 		"request_approval").Err()
@@ -384,20 +388,61 @@ func (s *Server) reviewAction(ctx context.Context, a actionReview) (bool, string
 	return out.Decision == "allow", strings.TrimSpace(out.Reason)
 }
 
-// clickApproved reports a human-approved request_approval in this run whose
-// action or target names the clicked element.
-func (s *Server) clickApproved(r Run, label string) bool {
+// approvalLabel normalizes an element label or approval target for exact
+// comparison: capped at the length guardAction asks the model to echo, lower
+// case, with whitespace runs collapsed.
+func approvalLabel(v string) string {
+	return strings.ToLower(strings.Join(strings.Fields(trimRunes(v, 300)), " "))
+}
+
+// matchingClickApprovals lists the human-approved request_approval questions of
+// this run whose target is exactly the clicked label.
+func (s *Server) matchingClickApprovals(r Run, label string) []string {
+	want := approvalLabel(label)
+	if want == "" {
+		return nil
+	}
 	questions, err := s.store.ListQuestions(r.ConversationID)
 	if err != nil {
-		return false
+		return nil
 	}
-	want := strings.ToLower(strings.TrimSpace(label))
+	var ids []string
 	for _, q := range questions {
 		if q.RunID != r.ID || q.Approval == nil || q.Approval.Review != nil || q.Status != questionAnswered || strings.TrimSpace(string(q.Answer)) != "true" || q.AnsweredBy == autoReviewActor {
 			continue
 		}
-		named := strings.ToLower(q.Approval.Target + " " + q.Approval.Action)
-		if want != "" && (strings.Contains(named, want) || strings.Contains(want, strings.ToLower(strings.TrimSpace(q.Approval.Target)))) {
+		if approvalLabel(q.Approval.Target) == want {
+			ids = append(ids, q.ID)
+		}
+	}
+	return ids
+}
+
+// clickApproved reports whether an unused human approval in this run names
+// exactly this element. It does not consume the approval.
+func (s *Server) clickApproved(r Run, label string) bool {
+	for _, id := range s.matchingClickApprovals(r, label) {
+		var used int
+		if s.store.db.QueryRow(`SELECT COUNT(*) FROM click_approval_claims WHERE question_id=?`, id).Scan(&used) == nil && used == 0 {
+			return true
+		}
+	}
+	return false
+}
+
+// claimClickApproval consumes one matching, unused approval so it allows a
+// single dispatch; any later consequential click is reviewed again.
+func (s *Server) claimClickApproval(r Run, label string) bool { return s.claimApprovalTarget(r, label) }
+
+// claimApprovalTarget consumes one unused human approval whose target equals
+// the given text.
+func (s *Server) claimApprovalTarget(r Run, label string) bool {
+	for _, id := range s.matchingClickApprovals(r, label) {
+		res, err := s.store.db.Exec(`INSERT OR IGNORE INTO click_approval_claims(question_id,run_id,claimed_at) VALUES(?,?,?)`, id, r.ID, now())
+		if err != nil {
+			continue
+		}
+		if n, _ := res.RowsAffected(); n == 1 {
 			return true
 		}
 	}
