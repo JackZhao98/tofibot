@@ -27,6 +27,8 @@ const convs = [
   { id: "dm_a", kind: "dm", name: "Ledger Cat", bot_id: "bot_a", bot_ids: ["bot_a"], updated_at: iso(0), read_seq: 100, user_visible: true },
   { id: "dm_b", kind: "dm", name: "Simile Cat", bot_id: "bot_b", bot_ids: ["bot_b"], updated_at: iso(0), read_seq: 60, user_visible: true },
 ];
+// Every conversation ends with a finished run whose block is long gone from the newest page: clicking the row must not page history for it.
+for (const c of convs) c.task_state = { status: "completed", run_id: `run_${c.id}_2` };
 const COUNT = { grp_1: 130, dm_a: 118, dm_b: 125 };
 const SCHED_RUN = "5c1e0a00-0000-4000-8000-000000000001";
 const SCHED_ID = "5c1e0a00-0000-4000-8000-000000000002";
@@ -288,6 +290,37 @@ await check("revisit shows the cached snapshot immediately and does not jump on 
   assertStable(frames, "revisit dm_b", { expectBottom: false });
   assert.equal(frames.at(-1).firstSeq, before.seq, "reader's place is restored");
   assert.ok(Math.abs(frames.at(-1).seen[0].top - before.top) <= 2, "reader's place is restored to the pixel");
+  await context.close();
+});
+
+// 4b. Pointing at a conversation reads its newest page ahead of the click: the first visit shows messages on the first frame,
+//     holds only one page, and still lands at the bottom.
+await check("first visit after hovering the row is on screen at the first frame", async () => {
+  const { page, context } = await open();
+  await settle(page);
+  await rowFor(page, "Simile Cat").hover();
+  await page.waitForTimeout(700);
+  const frames = await record(page, () => rowFor(page, "Simile Cat").click(), 1200);
+  const firstFrame = frames[0];
+  assert.ok(firstFrame.blocks > 0 && !firstFrame.loading, "prefetched conversation is on screen at the first frame after the click");
+  assertStable(frames, "prefetched dm_b");
+  assert.equal(frames.at(-1).lastSeq, COUNT.dm_b);
+  await context.close();
+});
+
+// 4c. A long conversation left behind is cached as one page: coming back shows it at once without holding its whole history.
+await check("revisit of a long conversation keeps only the newest page cached", async () => {
+  const { page, context } = await open();
+  await settle(page);
+  await rowFor(page, "Simile Cat").click();
+  await settle(page);
+  for (let i = 0; i < 2; i++) { await page.evaluate(() => { document.querySelector(".message-scroll").scrollTop = 0; }); await page.locator(".load-older").click(); await page.waitForTimeout(500); }
+  const loaded = await page.evaluate(() => document.querySelectorAll(".message-block").length);
+  assert.ok(loaded > 60, `older history was paged in by scrolling up (${loaded} messages)`);
+  await rowFor(page, "Ledger Cat").click();
+  await settle(page);
+  const frames = await record(page, () => rowFor(page, "Simile Cat").click(), 1200);
+  assert.ok(frames[0].blocks > 0 && frames[0].blocks <= 62 && !frames[0].loading, `cached revisit shows one page on the first frame (${frames[0].blocks} messages)`);
   await context.close();
 });
 

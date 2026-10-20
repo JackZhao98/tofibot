@@ -64,6 +64,18 @@ try {
     }
   });
 
+  check("the typing cursor stays inline in the last block and never adds one", () => {
+    const withCursor = content => renderToStaticMarkup(createElement(MessageMarkdown, { content, cursor: true }));
+    const cursor = '<span class="typing-cursor" aria-hidden="true"></span>';
+    assert.equal(withCursor("Plain text"), `<p>Plain text${cursor}</p>`);
+    assert.equal(withCursor("- one\n- two"), `<ul>\n<li>one</li>\n<li>two${cursor}</li>\n</ul>`);
+    assert.equal(withCursor("1. one\n\n   more"), `<ol>\n<li>\n<p>one</p>\n<p>more${cursor}</p>\n</li>\n</ol>`);
+    assert.match(withCursor("```js\nlet a\n```"), /<code[^>]*>let a\n<span class="typing-cursor"/);
+    assert.equal(withCursor("> quoted"), `<blockquote>\n<p>quoted${cursor}</p>\n</blockquote>`);
+    // Without text there is nothing to attach to, so a lone cursor line is still drawn.
+    assert.equal(withCursor(""), `<p>${cursor}</p>`);
+  });
+
   check("raw HTML and XSS are skipped", () => {
     const html = render('before <img src=x onerror="alert(1)"> <script>alert(1)</script> <iframe src="https://example.com"></iframe> **说明：**Example');
     assert.doesNotMatch(html, /<(?:img|script|iframe)\b|onerror=/i);
