@@ -248,6 +248,7 @@
     "view_latest": "Neueste Nachrichten anzeigen"
   },
   "hover": {
+    "copy": "Kopieren",
     "react": "Reaktion hinzufügen",
     "reply": "Antworten",
     "toolbar": "Nachrichtenaktionen",
