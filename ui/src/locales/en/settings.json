@@ -808,11 +808,11 @@
       },
       "structured_output": {
         "name": "Structured replies",
-        "what": "Bots show text in chat only through their say tool; text written between steps stays in the activity view. Turn off to post it as before."
+        "what": "Only a Bot's finished replies appear in the chat; what it writes while working stays in the activity view. Turn off to post everything as before."
       },
       "force_say_haiku_dm": {
         "name": "Reply tool required for Haiku",
-        "what": "In direct messages, Haiku must call the say tool on every turn, so its reply always lands in the chat."
+        "what": "In direct messages, Haiku must reply through the chat every turn, so its answer always lands in the conversation."
       },
       "web_search": {
         "name": "Web search",

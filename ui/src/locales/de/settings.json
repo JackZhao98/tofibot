@@ -808,11 +808,11 @@
       },
       "structured_output": {
         "name": "Strukturierte Antworten",
-        "what": "Ein Bot zeigt Text im Chat nur über sein say-Werkzeug; Text zwischen den Schritten bleibt in der Aktivitätsansicht. Ausschalten, um ihn wie bisher zu veröffentlichen."
+        "what": "Im Chat erscheinen nur die fertigen Antworten eines Bots; was er während der Arbeit schreibt, bleibt in der Aktivitätsansicht. Ausschalten, um ihn wie bisher zu veröffentlichen."
       },
       "force_say_haiku_dm": {
         "name": "Antwortwerkzeug für Haiku erzwingen",
-        "what": "In Direktnachrichten muss Haiku in jedem Schritt das say-Werkzeug aufrufen, damit seine Antwort sicher im Chat landet."
+        "what": "In Direktnachrichten muss Haiku in jedem Schritt eine richtige Antwort geben, damit sie sicher im Chat landet."
       },
       "web_search": {
         "name": "Websuche",
