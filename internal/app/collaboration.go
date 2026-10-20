@@ -818,10 +818,33 @@ func appendBotMessageResult(tx *sql.Tx, origin, sender, runID, content string) (
 
 func newID() string { return uuid.NewString() }
 
+// mentionResult lists the members a message addresses. A token that names no
+// member is ordinary text and is not reported.
 type mentionResult struct {
 	IDs       []string
-	Unknown   []string
 	Ambiguous []string
+}
+
+func isCJKRune(r rune) bool {
+	return unicode.In(r, unicode.Han, unicode.Hiragana, unicode.Katakana, unicode.Hangul)
+}
+
+// mentionNameEndsAt reports whether a member name that ends just before
+// runes[end] is a complete mention there. A name continues into the next rune
+// only inside one word: CJK scripts have no spaces, so text may follow a CJK
+// name directly; an address such as @ann@example.com is not a mention.
+func mentionNameEndsAt(name, runes []rune, end int) bool {
+	if end >= len(runes) {
+		return true
+	}
+	next := runes[end]
+	if next == '@' || next == '_' {
+		return false
+	}
+	if !unicode.IsLetter(next) && !unicode.IsDigit(next) {
+		return true
+	}
+	return len(name) > 0 && (isCJKRune(name[len(name)-1]) || isCJKRune(next))
 }
 
 func parseMentions(content string, members []Bot) mentionResult {
@@ -850,12 +873,7 @@ func parseMentions(content string, members []Bot) mentionResult {
 				continue
 			}
 			end := i + 1 + len(nr)
-			if end < len(runes) && (unicode.IsLetter(runes[end]) || unicode.IsDigit(runes[end]) || runes[end] == '_') {
-				continue
-			}
-			// An address such as @ann@example.com is an email local-part,
-			// not a mention of a member named "ann".
-			if end < len(runes) && runes[end] == '@' {
+			if !mentionNameEndsAt(nr, runes, end) {
 				continue
 			}
 			matched = name
@@ -882,7 +900,6 @@ func parseMentions(content string, members []Bot) mentionResult {
 			}
 		}
 		if len(ids) == 0 {
-			out.Unknown = append(out.Unknown, key)
 			continue
 		}
 		if len(ids) > 1 {
@@ -954,7 +971,7 @@ func leadingMentionTarget(content string, c Conversation, s *Server) (string, st
 		return "", ""
 	}
 	parsed := parseMentions(trimmed, members)
-	if len(parsed.IDs) != 1 || len(parsed.Unknown) != 0 || len(parsed.Ambiguous) != 0 {
+	if len(parsed.IDs) != 1 || len(parsed.Ambiguous) != 0 {
 		return "", ""
 	}
 	// Only a leading mention dispatches. Remove the exact name and adjacent

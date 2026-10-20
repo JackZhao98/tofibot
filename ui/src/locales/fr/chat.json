@@ -5,6 +5,7 @@
     "saving": "Enregistrement…"
   },
   "apiError": {
+    "ambiguous_recipient": "Deux membres portent ce nom. Renommez-en un ou choisissez le nom dans la liste.",
     "archive_blocked": "Cette conversation est archivée. Restaurez-la pour envoyer des messages.",
     "archive_busy": "Des tâches sont encore en cours. Attendez qu’elles se terminent ou arrêtez-les avant d’archiver.",
     "delete_busy": "Des tâches liées sont encore en cours. Arrêtez-les, puis réessayez de supprimer.",

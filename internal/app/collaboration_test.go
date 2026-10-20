@@ -14,7 +14,7 @@ import (
 func TestParseMentionsExactOrderNamesAndEmailBoundary(t *testing.T) {
 	members := []Bot{{ID: "a", Name: "整理员"}, {ID: "b", Name: "校对员"}, {ID: "c", Name: "ann"}}
 	got := parseMentions("请 @校对员，随后 @整理员。mail ann@example.com", members)
-	if strings.Join(got.IDs, ",") != "b,a" || len(got.Unknown) != 0 {
+	if strings.Join(got.IDs, ",") != "b,a" {
 		t.Fatalf("mentions=%#v", got)
 	}
 	got = parseMentions("@ann", members)
@@ -22,8 +22,31 @@ func TestParseMentionsExactOrderNamesAndEmailBoundary(t *testing.T) {
 		t.Fatalf("exact mention=%#v", got)
 	}
 	got = parseMentions("mail @ann@example.com", members)
-	if len(got.IDs) != 0 || len(got.Unknown) != 0 {
+	if len(got.IDs) != 0 {
 		t.Fatalf("email treated as mention=%#v", got)
+	}
+}
+
+func TestParseMentionsCJKAdjacentAndNonMembersArePlainText(t *testing.T) {
+	members := []Bot{{ID: "x", Name: "小明"}, {ID: "al", Name: "Alpha"}, {ID: "ab", Name: "Alphabet"}}
+	for _, c := range []struct{ text, want string }{
+		{"@小明帮我查一下明天的天气", "x"},
+		{"@Alpha帮我看看", "al"},
+		{"@Alphabet go", "ab"},
+		{"@Alphas go", ""},
+		{"@Alpha_x go", ""},
+		{"看看 @elonmusk 今天发了什么", ""},
+		{"how does @media work", ""},
+		{"@所有人 大家好", ""},
+	} {
+		got := parseMentions(c.text, members)
+		if strings.Join(got.IDs, ",") != c.want || len(got.Ambiguous) != 0 {
+			t.Fatalf("%q => %#v, want %q", c.text, got, c.want)
+		}
+		spans := mentionSpans(c.text, members)
+		if (len(spans) == 1) != (c.want != "") || (len(spans) == 1 && spans[0].botID != c.want) {
+			t.Fatalf("%q spans=%#v want %q", c.text, spans, c.want)
+		}
 	}
 }
 
