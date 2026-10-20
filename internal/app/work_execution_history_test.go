@@ -126,6 +126,7 @@ func TestListWorkItemExecutionsDoesNotLeakHiddenChildResultsOrErrors(t *testing.
 	if ok, err := s.SetRunStatus(failedChild.ID, "failed", "private child error"); !ok || err != nil {
 		t.Fatalf("fail hidden child: %v %v", ok, err)
 	}
+	settleFailureReturns(t, s)
 	receiptRoot, _, err := s.StartWorkItem(item.ID, newID())
 	if err != nil {
 		t.Fatal(err)
