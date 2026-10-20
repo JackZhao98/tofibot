@@ -50,6 +50,12 @@ try {
     assert.match(render("[doc](attachment:att_1)"), /<a href="\/api\/attachments\/att_1" class="attachment-link" data-attachment-id="att_1">doc<\/a>/);
   });
 
+  check("published-file links, relative or absolute, render as attachment anchors that fetch the attachment", () => {
+    for (const href of ["/api/attachments/att_9", "https://tofi.example.invalid/api/attachments/att_9"]) {
+      assert.match(render(`[news.md](${href})`), /<a href="\/api\/attachments\/att_9" class="attachment-link" data-attachment-id="att_9">news\.md<\/a>/);
+    }
+  });
+
   check("escaped markers remain literal", () => {
     assert.equal(render(String.raw`\*\*说明：\*\*Example`), "<p>**说明：**Example</p>");
     assert.equal(render("&#42;&#42;说明：&#42;&#42;Example"), "<p>**说明：**Example</p>");
