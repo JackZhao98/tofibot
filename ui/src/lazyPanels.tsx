@@ -23,6 +23,7 @@ const loaders = {
   permissionCoach: () => import("./PermissionCoach"),
   updateBanner: () => import("./UpdateNotice"),
   contextPanels: () => import("./ContextPanels"),
+  questionCard: () => import("./QuestionCard"),
 } as const;
 export type PanelChunk = keyof typeof loaders;
 
@@ -74,6 +75,7 @@ export const BotPanel = chunk("contextPanels", module => module.BotPanel);
 export const MembersPanel = chunk("contextPanels", module => module.MembersPanel);
 export const PermissionCoach = chunk("permissionCoach", module => module.PermissionCoach);
 export const UpdateBanner = chunk("updateBanner", module => module.UpdateBanner);
+export const QuestionCard = chunk("questionCard", module => module.QuestionCard);
 export const Onboarding = chunk("onboarding", module => module.Onboarding);
 
 export function preloadPanel(name: PanelChunk) {
@@ -94,7 +96,7 @@ const entryPoints: Array<[selector: string, chunk: PanelChunk]> = [
 const WARM_START_MS = 500;
 const WARM_STEP_MS = 200;
 export function warmPanelsWhenIdle(): () => void {
-  const order: PanelChunk[] = ["settings", "desktop", "contextPanels", "work", "memory", "team", "archive", "viewOnly", "remembered", "deleteDialog", "permissionCoach", "updateBanner"];
+  const order: PanelChunk[] = ["settings", "desktop", "contextPanels", "work", "memory", "team", "archive", "viewOnly", "remembered", "deleteDialog", "permissionCoach", "updateBanner", "questionCard"];
   let timer = window.setTimeout(function step() {
     const next = order.shift();
     if (!next) return;
