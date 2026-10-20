@@ -2,8 +2,12 @@ package app
 
 import (
 	"math"
+	"strings"
 	"testing"
 	"time"
+
+	"github.com/JackZhao98/tofibot/internal/provider"
+	"github.com/JackZhao98/tofibot/internal/runtime"
 )
 
 func TestWebSearchIsOfferedToAnthropicModelsOnly(t *testing.T) {
@@ -55,5 +59,34 @@ func TestWebSearchFeeIsBookedWithoutCountingARequest(t *testing.T) {
 	}
 	if got := after[0].EquivalentUSD - base[0].EquivalentUSD; math.Abs(got-0.02) > 1e-9 {
 		t.Fatalf("fee=%v want 0.02", got)
+	}
+}
+
+func TestWebSearchEventsLandInTheRunsEvidence(t *testing.T) {
+	s, err := OpenStore(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer s.Close()
+	bot, err := s.CreateBot("Evidence Bot", "", "claude-sonnet-5-5")
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, runs, _, err := s.AddUserRuns(bot.DMConversationID, "what is it", "ws-evidence", []runSpec{{BotID: bot.ID, Model: bot.Model}})
+	if err != nil || len(runs) != 1 {
+		t.Fatalf("runs=%v err=%v", runs, err)
+	}
+	queued, finished := runtime.WebSearchToolEventForTest(provider.WebSearch{ID: "s1", Query: "synthetic", Sources: []provider.WebSearchSource{{Title: "T", URL: "https://example.com/t"}}})
+	for _, ev := range []runtime.ToolEvent{queued, finished} {
+		if err := s.RecordToolEvent(bot.DMConversationID, bot.ID, runs[0].ID, ev); err != nil {
+			t.Fatalf("%s: %v", ev.Status, err)
+		}
+	}
+	var name, status, result string
+	if err := s.db.QueryRow(`SELECT name,status,result FROM tool_activities WHERE run_id=?`, runs[0].ID).Scan(&name, &status, &result); err != nil {
+		t.Fatal(err)
+	}
+	if name != "web_search" || status != "completed" || !strings.Contains(result, "https://example.com/t") {
+		t.Fatalf("%s %s %q", name, status, result)
 	}
 }

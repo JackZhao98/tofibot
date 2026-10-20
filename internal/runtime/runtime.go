@@ -504,7 +504,10 @@ func (e *engine) Run(ctx context.Context, req Request) (Result, error) {
 		WebSearchMaxUses:           req.WebSearchMaxUses,
 		OnWebSearches: func(searches []provider.WebSearch, billed int64) {
 			for _, ws := range searches {
-				_ = tracker.emit(webSearchToolEvent(ws))
+				queued, finished := webSearchToolEvent(ws)
+				if tracker.emit(queued) == nil {
+					_ = tracker.emit(finished)
+				}
 			}
 			if req.OnWebSearchBilled != nil && billed > 0 {
 				req.OnWebSearchBilled(billed)
