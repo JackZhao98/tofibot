@@ -37,6 +37,7 @@
     "test:i18n": "node scripts/check-i18n.mjs",
     "test:empty-states": "node scripts/test-empty-states.mjs",
     "test:file-preview": "node scripts/test-file-preview.mjs",
+    "test:perf-structure": "node scripts/test-perf-structure.mjs",
     "test:composer-typing": "node scripts/test-composer-typing.mjs",
     "test:tool-result-preview": "node scripts/test-tool-result-preview.mjs",
     "test:workspace-loading": "node scripts/test-workspace-loading.mjs",

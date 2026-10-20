@@ -473,7 +473,6 @@ function Workspace() {
   const [panel, setPanel] = useState<Panel>(null);
   const displayedPanel = useSurfacePresence(panel, 380);
   const [desktopReady, setDesktopReady] = useState(false);
-  const desktopPresence = useDesktopPresence(Boolean(activeId));
   // Keep in sync with conversation-workspace.css: three columns need room for chat.
   const [compactViewport, setCompactViewport] = useState(() => typeof window !== "undefined" && window.matchMedia("(max-width: 1099px)").matches);
   // The computer opens as a small floating window; the last size lives only as long as this page.
@@ -1070,10 +1069,20 @@ function Workspace() {
   useEffect(() => { setHeaderMenuOpen(false); }, [activeId]);
   useEffect(() => {
     let alive = true;
-    const refreshComputer = async () => { try { const next = await api.computerInfo(); if (alive) setComputerInfo((current) => JSON.stringify(current) === JSON.stringify(next) ? current : next); } catch { if (alive) setComputerInfo(null); } };
+    let timer = 0;
+    // Steady states (no computer, ready, hibernated) change rarely, so they re-check slowly; transitions poll fast.
+    const settled = (state?: string) => !state || state === "ready" || state === "hibernated" || state === "stopped";
+    const refreshComputer = async () => {
+      let state: string | undefined;
+      if (!document.hidden) {
+        try { const next = await api.computerInfo(); state = next.state; if (alive) setComputerInfo((current) => JSON.stringify(current) === JSON.stringify(next) ? current : next); } catch { if (alive) setComputerInfo(null); }
+      }
+      if (alive) timer = window.setTimeout(() => void refreshComputer(), settled(state) ? 30_000 : 4_000);
+    };
+    const onVisible = () => { if (!document.hidden) { window.clearTimeout(timer); void refreshComputer(); } };
+    document.addEventListener("visibilitychange", onVisible);
     void refreshComputer();
-    const timer = window.setInterval(() => void refreshComputer(), 4_000);
-    return () => { alive = false; window.clearInterval(timer); };
+    return () => { alive = false; window.clearTimeout(timer); document.removeEventListener("visibilitychange", onVisible); };
   }, []);
   useEffect(() => {
     const refresh = () => {
@@ -1105,6 +1114,8 @@ function Workspace() {
   useEffect(() => {
     if (panel === "desktop" && !desktopBot) setPanel(null);
   }, [panel, desktopBot]);
+  // Ownership is only worth a 1 s poll while a computer is ready or the desktop panel is open.
+  const desktopPresence = useDesktopPresence(Boolean(activeId) && (panel === "desktop" || (computerInfo ? computerInfo.state === "ready" : desktopReady)));
   const currentDesktopOwner = desktopPresence.ownership?.owner;
     const activeDesktopOwner = !desktopPresence.unavailable && currentDesktopOwner?.kind === "bot" && currentDesktopOwner.conversation_id === active?.id ? currentDesktopOwner : null;
   const computerOn = computerInfo ? computerInfo.state === "ready" : desktopReady;
@@ -1446,6 +1457,10 @@ function Workspace() {
     }
   }, [upsertMessage, updateConversationPreview, upsertToolActivity]);
 
+  // connectEvents reads the render-scoped handlers through this ref so its identity never changes; a changing
+  // identity chained every old Workspace render (and its message arrays) together through keepActivityRun.
+  const connectLatest = useRef<{ handleEvent: typeof handleEvent; handleWorkspaceEvent: typeof handleWorkspaceEvent; refreshWorkspaceOnConnect: typeof refreshWorkspaceOnConnect; resetWorkspaceEvents: typeof resetWorkspaceEvents; refreshQuestions: () => unknown }>(null as never);
+  connectLatest.current = { handleEvent, handleWorkspaceEvent, refreshWorkspaceOnConnect, resetWorkspaceEvents, refreshQuestions: questions.refresh };
   const connectEvents = useCallback((conversationId: string) => {
     if (activeIdRef.current !== conversationId) return;
     eventSource.current?.close();
@@ -1470,24 +1485,24 @@ function Workspace() {
       reconnectTimer.current = timer;
     };
     source = openConversationEvents(conversationId, eventCursor.current, (type, data, id) => {
-      if (current()) handleEvent(conversationId, type, data, id);
+      if (current()) connectLatest.current.handleEvent(conversationId, type, data, id);
     }, failed, {
       after: workspaceEventCursor.current,
-      onEvent: (data, id) => { if (current()) handleWorkspaceEvent(data, id); },
-      onReset: () => { if (current()) resetWorkspaceEvents(); },
+      onEvent: (data, id) => { if (current()) connectLatest.current.handleWorkspaceEvent(data, id); },
+      onReset: () => { if (current()) connectLatest.current.resetWorkspaceEvents(); },
     });
-    for (const event of ["question", "question_answered", "question_cancelled", "question_updated"]) source.addEventListener(event, () => { if (current()) void questions.refresh(); });
+    for (const event of ["question", "question_answered", "question_cancelled", "question_updated"]) source.addEventListener(event, () => { if (current()) void connectLatest.current.refreshQuestions(); });
     source.onopen = () => {
       if (!current()) return;
-      void questions.refresh();
+      void connectLatest.current.refreshQuestions();
       if (eventConnectTimer.current !== undefined) window.clearTimeout(eventConnectTimer.current);
       reconnectAttempt.current = 0;
       setStreamConnected(true);
-      refreshWorkspaceOnConnect();
+      connectLatest.current.refreshWorkspaceOnConnect();
     };
     eventSource.current = source;
     eventConnectTimer.current = window.setTimeout(failed, 10_000);
-  }, [handleEvent, handleWorkspaceEvent, refreshWorkspaceOnConnect, resetWorkspaceEvents, questions.refresh]);
+  }, []);
 
 
   // Last snapshot of each conversation the reader has seen, newest last. Switching back shows it at once
