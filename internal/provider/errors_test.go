@@ -120,3 +120,15 @@ func TestResponseFailedRetryClassification(t *testing.T) {
 		}
 	}
 }
+
+func TestIsRetryableQuotaExhausted429(t *testing.T) {
+	for _, marker := range QuotaMarkers {
+		err := NewAPIError("openai", 429, `{"error":{"code":"`+marker+`"}}`)
+		if IsRetryable(err) {
+			t.Fatalf("429 with %q must not be retried", marker)
+		}
+	}
+	if !IsRetryable(NewAPIError("openai", 429, `{"error":{"code":"rate_limit_exceeded"}}`)) {
+		t.Fatal("plain 429 must stay retryable")
+	}
+}

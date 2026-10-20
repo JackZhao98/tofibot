@@ -272,6 +272,7 @@ func (o *openaiChatCompletions) parseStream(body io.Reader, onDelta func(StreamD
 
 	scanner := bufio.NewScanner(body)
 	scanner.Buffer(make([]byte, 0, 64*1024), 1024*1024)
+	terminated := false // [DONE] or a finish_reason arrived
 
 	for scanner.Scan() {
 		line := scanner.Text()
@@ -280,12 +281,14 @@ func (o *openaiChatCompletions) parseStream(body io.Reader, onDelta func(StreamD
 		}
 		data := strings.TrimPrefix(line, "data: ")
 		if data == "[DONE]" {
+			terminated = true
 			break
 		}
 
 		var chunk struct {
 			Choices []struct {
-				Delta struct {
+				FinishReason *string `json:"finish_reason"`
+				Delta        struct {
 					Content          string `json:"content"`
 					ReasoningContent string `json:"reasoning_content"`
 					ToolCalls        []struct {
@@ -308,6 +311,9 @@ func (o *openaiChatCompletions) parseStream(body io.Reader, onDelta func(StreamD
 		}
 
 		if len(chunk.Choices) > 0 {
+			if fr := chunk.Choices[0].FinishReason; fr != nil && *fr != "" {
+				terminated = true
+			}
 			delta := chunk.Choices[0].Delta
 
 			// Content
@@ -365,6 +371,11 @@ func (o *openaiChatCompletions) parseStream(body io.Reader, onDelta func(StreamD
 
 	if err := scanner.Err(); err != nil {
 		return nil, fmt.Errorf("stream read error: %w", err)
+	}
+	if !terminated {
+		// A clean end without [DONE] or a finish_reason is a cut-off reply, not a
+		// finished one. RetryProvider retries it while nothing has been forwarded.
+		return nil, ErrStreamIncomplete
 	}
 
 	result.Content = contentBuf.String()

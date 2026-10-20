@@ -21,7 +21,8 @@
       "open_model_connections": "開啟模型連線設定",
       "copy_diagnostics": "複製診斷資訊",
       "view_activity": "查看執行紀錄",
-      "refresh_status": "重新整理狀態"
+      "refresh_status": "重新整理狀態",
+      "retry": "重試"
     },
     "working": "處理中…",
     "copied": "已複製診斷資訊。",

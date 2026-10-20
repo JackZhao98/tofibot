@@ -51,6 +51,27 @@ func reviewBatchEngine(t *testing.T, batches [][]reviewCall, duration time.Durat
 			}
 			message = map[string]any{"content": "", "tool_calls": calls}
 		}
+		var asked struct {
+			Stream bool `json:"stream"`
+		}
+		_ = json.NewDecoder(r.Body).Decode(&asked)
+		if asked.Stream {
+			// A streamed request gets a terminated SSE stream, as a real provider sends.
+			delta := map[string]any{"content": message["content"]}
+			if calls, ok := message["tool_calls"].([]any); ok {
+				indexed := []any{}
+				for k, c := range calls {
+					call := c.(map[string]any)
+					call["index"] = k
+					indexed = append(indexed, call)
+				}
+				delta["tool_calls"] = indexed
+			}
+			chunk, _ := json.Marshal(map[string]any{"choices": []any{map[string]any{"delta": delta, "finish_reason": "stop"}}})
+			w.Header().Set("Content-Type", "text/event-stream")
+			_, _ = fmt.Fprintf(w, "data: %s\n\ndata: [DONE]\n\n", chunk)
+			return
+		}
 		w.Header().Set("Content-Type", "application/json")
 		_ = json.NewEncoder(w).Encode(map[string]any{"choices": []any{map[string]any{"message": message}}})
 	}))

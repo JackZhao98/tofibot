@@ -9,6 +9,8 @@ import (
 	"crypto/sha256"
 	"crypto/subtle"
 	"errors"
+	"fmt"
+	"log"
 	"net/http"
 	"path/filepath"
 	"strings"
@@ -191,7 +193,10 @@ func (g *AccountGateway) issue(w http.ResponseWriter, r *http.Request, id string
 
 var (
 	errInvalidAccountBootstrap = errors.New("setup secret is invalid or already consumed")
-	errAccountSetupClosed      = errors.New("setup unavailable")
+	// errAccountCapacity means the Worker refused the account's reservation
+	// (disk, computer slots, or Worker not ready); setup stays open.
+	errAccountCapacity    = errors.New("worker could not reserve the account")
+	errAccountSetupClosed = errors.New("setup unavailable")
 )
 
 // Runs before owner-auth initialization reads the bootstrap file, so a
@@ -292,7 +297,7 @@ func (g *AccountGateway) create(ctx context.Context, username, email, password s
 	}
 	if !a.Legacy {
 		if _, err = g.computerRequest(ctx, "reserve", a.ID); err != nil {
-			return Account{}, err
+			return Account{}, fmt.Errorf("%w: %v", errAccountCapacity, err)
 		}
 		// Keep an uncertain reservation after a commit error; orphan reconciliation
 		// must prove no account/data exists before releasing its promise.
@@ -478,6 +483,12 @@ func (g *AccountGateway) handle(w http.ResponseWriter, r *http.Request) {
 					// Validation failures are not guesses at the secret.
 					g.auth.refundAttempt(r, "")
 					writeFieldErr(w, 400, fe)
+					return
+				}
+				if errors.Is(err, errAccountCapacity) {
+					log.Printf("[accounts] setup could not reserve the owner account: %v", err)
+					g.auth.refundAttempt(r, "")
+					writeErr(w, 503, "account_capacity", "the server could not reserve space for the account")
 					return
 				}
 				writeErr(w, 409, "setup_unavailable", "setup unavailable or invalid fields")

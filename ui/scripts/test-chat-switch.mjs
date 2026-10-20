@@ -52,6 +52,14 @@ async function open({ width = 1180, height = 820, reduced = false, first = "" } 
   const order = first ? [convs.find(c => c.id === first), ...convs.filter(c => c.id !== first)] : convs;
   const context = await browser.newContext({ viewport: { width, height }, locale: "en-US", reducedMotion: reduced ? "reduce" : "no-preference" });
   await context.addInitScript(() => { try { localStorage.setItem("tofi:appearance", "light"); } catch {} });
+  // A healthy live stream: opens and stays open. (A fulfilled SSE response ends at once, which reads as a lost link.)
+  await context.addInitScript(() => {
+    class HealthyStream extends EventTarget {
+      constructor(url) { super(); this.url = url; this.readyState = 1; setTimeout(() => this.onopen?.(new Event("open")), 0); }
+      close() { this.readyState = 2; }
+    }
+    window.EventSource = HealthyStream;
+  });
   const page = await context.newPage();
   const errors = [];
   page.on("pageerror", error => errors.push(error.message));

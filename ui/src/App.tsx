@@ -1,3 +1,4 @@
+import { useGraceFlag } from "./useGraceFlag";
 import { thinkingHeadline } from "./thinkingHeadline";
 import { TaskRunBlock, taskBlockVisible } from "./TaskRunBlock";
 import { markSenderGroups } from "./senderGroups";
@@ -426,7 +427,13 @@ function formatDateDivider(value: string, timeZone: string) {
   return `${formatDay(value, timeZone)} ${formatTime(value, timeZone)}`;
 }
 
+/** fetch rejects with a TypeError when no response arrived; a timed-out read rejects with a TimeoutError. */
+function isNetworkFailure(error: unknown) {
+  return error instanceof TypeError || (error instanceof DOMException && (error.name === "TimeoutError" || error.name === "NetworkError"));
+}
+
 function errorText(error: unknown) {
+  if (isNetworkFailure(error)) return i18n.t("chat:error.network_unreachable");
   if (error instanceof ApiError && error.code === "archive_busy") return i18n.t("chat:apiError.archive_busy");
   if (error instanceof ApiError && error.code === "archive_blocked") return i18n.t("chat:apiError.archive_blocked");
   if (error instanceof ApiError && error.code === "no_active_members") return i18n.t("chat:apiError.no_active_members");
@@ -436,6 +443,11 @@ function errorText(error: unknown) {
   }
   return error instanceof Error ? error.message : i18n.t("chat:error.generic");
 }
+
+/** The server pings every 15s; this much silence on a stream means the link died without closing. */
+const STREAM_STALE_MS = 30_000;
+const LINK_LOSS_GRACE_MS = 4000;
+const STREAM_WAKE_STALE_MS = 20_000;
 
 function App() {
   return <TimezoneProvider><Workspace /></TimezoneProvider>;
@@ -541,6 +553,7 @@ function Workspace() {
   const [error, setError] = useState("");
   const [snapshotError, setSnapshotError] = useState("");
   const [workspaceError, setWorkspaceError] = useState("");
+  const workspaceErrorShown = useGraceFlag(Boolean(workspaceError), LINK_LOSS_GRACE_MS);
   const [headerMenuOpen, setHeaderMenuOpen] = useState(false);
   const [rememberedOpen, setRememberedOpen] = useState(false);
   const [createMenuOpen, setCreateMenuOpen] = useState(false);
@@ -568,6 +581,9 @@ function Workspace() {
   const knownBotNames = useRef(new Map<string, string>());
   useEffect(() => { for (const bot of bots) knownBotNames.current.set(bot.id, bot.name); }, [bots]);
   const [streamConnected, setStreamConnected] = useState(true);
+  // A restart or a Wi-Fi blip is over before anyone can act on it: announce a lost link only once it has lasted.
+  const linkLost = useGraceFlag(!streamConnected, LINK_LOSS_GRACE_MS);
+  const linkConnected = !linkLost;
   const [codexStatusRefresh, setCodexStatusRefresh] = useState(0);
   const [extensionRefresh, setExtensionRefresh] = useState(0);
   const [computerInfo, setComputerInfo] = useState<{ state: string; phase?: string; error?: string; health?: ComputerHealth } | null>(null);
@@ -638,6 +654,14 @@ function Workspace() {
   const reconnectTimer = useRef<number | undefined>(undefined);
   const eventConnectTimer = useRef<number | undefined>(undefined);
   const reconnectAttempt = useRef(0);
+  // Liveness of the open streams: the server pings every 15s, so a long silence means the link died without closing.
+  const lastFrameAt = useRef(Date.now());
+  const eventFailNow = useRef<(() => void) | null>(null);
+  const eventWatchdog = useRef<number | undefined>(undefined);
+  const snapshotRetryNow = useRef<(() => void) | null>(null);
+  const workspaceLastFrameAt = useRef(Date.now());
+  const workspaceFailNow = useRef<(() => void) | null>(null);
+  const workspaceWatchdog = useRef<number | undefined>(undefined);
   const activeIdRef = useRef<string | null>(null);
   const snapshotEventCursor = useRef(0);
   const snapshotMaxSeq = useRef(0);
@@ -925,9 +949,12 @@ function Workspace() {
     if (workspaceConnectTimer.current !== undefined) window.clearTimeout(workspaceConnectTimer.current);
     let source: EventSource;
     const current = () => workspaceEventSource.current === source && !activeIdRef.current;
+    window.clearInterval(workspaceWatchdog.current);
+    workspaceLastFrameAt.current = Date.now();
     const failed = () => {
       source.close();
       if (!current()) return;
+      window.clearInterval(workspaceWatchdog.current);
       if (workspaceConnectTimer.current !== undefined) window.clearTimeout(workspaceConnectTimer.current);
       workspaceEventSource.current = null;
       const delay = Math.min(1000 * 2 ** workspaceReconnectAttempt.current, 10_000);
@@ -941,10 +968,11 @@ function Workspace() {
     };
     source = openWorkspaceEvents(workspaceEventCursor.current, (data, id) => {
       if (current()) handleWorkspaceEvent(data, id);
-    }, failed, () => { if (current()) resetWorkspaceEvents(); });
+    }, failed, () => { if (current()) resetWorkspaceEvents(); }, () => { workspaceLastFrameAt.current = Date.now(); });
     for (const event of ["question", "question_answered", "question_cancelled", "question_updated"]) source.addEventListener(event, () => { if (current()) void questions.refresh(); });
     source.onopen = () => {
       if (!current()) return;
+      workspaceLastFrameAt.current = Date.now();
       if (workspaceConnectTimer.current !== undefined) window.clearTimeout(workspaceConnectTimer.current);
       workspaceReconnectAttempt.current = 0;
       // A reconnect can follow a restored database whose event log no longer
@@ -954,6 +982,8 @@ function Workspace() {
       void questions.refresh();
     };
     workspaceEventSource.current = source;
+    workspaceFailNow.current = failed;
+    workspaceWatchdog.current = window.setInterval(() => { if (current() && Date.now() - workspaceLastFrameAt.current > STREAM_STALE_MS) failed(); }, 5000);
     workspaceConnectTimer.current = window.setTimeout(failed, 10_000);
   }, [handleWorkspaceEvent, refreshWorkspaceOnConnect, resetWorkspaceEvents]);
 
@@ -964,6 +994,7 @@ function Workspace() {
     return () => {
       workspaceEventSource.current?.close();
       workspaceEventSource.current = null;
+      window.clearInterval(workspaceWatchdog.current);
       if (workspaceReconnectTimer.current !== undefined) window.clearTimeout(workspaceReconnectTimer.current);
       workspaceReconnectTimer.current = undefined;
       if (workspaceConnectTimer.current !== undefined) window.clearTimeout(workspaceConnectTimer.current);
@@ -1491,6 +1522,8 @@ function Workspace() {
       const run = asRun(data);
       if (run) {
         if (run.status && isTerminalRun({ status: run.status })) terminalRunIDs.current.add(run.id);
+        // A restart sends a half-streamed run back to the queue: its old draft must not stay beside the regenerated one.
+        if (run.status === "queued") setDrafts((current) => Object.values(current).some(draft => draft.run_id === run.id) ? Object.fromEntries(Object.entries(current).filter(([, draft]) => draft.run_id !== run.id)) : current);
         if (run.status && !["queued", "running"].includes(run.status)) {
           setDrafts((current) => Object.fromEntries(Object.entries(current).filter(([, draft]) => draft.run_id !== run.id)));
           setRunSignals(current => { if (!current[run.id]) return current; const next = { ...current }; delete next[run.id]; return next; });
@@ -1530,9 +1563,12 @@ function Workspace() {
     let source: EventSource;
     setStreamConnected(false);
     const current = () => eventSource.current === source && activeIdRef.current === conversationId;
+    window.clearInterval(eventWatchdog.current);
+    lastFrameAt.current = Date.now();
     const failed = () => {
       source.close();
       if (!current()) return;
+      window.clearInterval(eventWatchdog.current);
       if (eventConnectTimer.current !== undefined) window.clearTimeout(eventConnectTimer.current);
       setStreamConnected(false);
       eventSource.current = null;
@@ -1551,10 +1587,11 @@ function Workspace() {
       after: workspaceEventCursor.current,
       onEvent: (data, id) => { if (current()) connectLatest.current.handleWorkspaceEvent(data, id); },
       onReset: () => { if (current()) connectLatest.current.resetWorkspaceEvents(); },
-    });
+    }, () => { lastFrameAt.current = Date.now(); });
     for (const event of ["question", "question_answered", "question_cancelled", "question_updated"]) source.addEventListener(event, () => { if (current()) void connectLatest.current.refreshQuestions(); });
     source.onopen = () => {
       if (!current()) return;
+      lastFrameAt.current = Date.now();
       void connectLatest.current.refreshQuestions();
       if (eventConnectTimer.current !== undefined) window.clearTimeout(eventConnectTimer.current);
       reconnectAttempt.current = 0;
@@ -1562,6 +1599,8 @@ function Workspace() {
       connectLatest.current.refreshWorkspaceOnConnect();
     };
     eventSource.current = source;
+    eventFailNow.current = failed;
+    eventWatchdog.current = window.setInterval(() => { if (current() && Date.now() - lastFrameAt.current > STREAM_STALE_MS) failed(); }, 5000);
     eventConnectTimer.current = window.setTimeout(failed, 10_000);
   }, []);
 
@@ -1618,9 +1657,12 @@ function Workspace() {
     let cancelled = false;
     let snapshotRetryTimer: number | undefined;
     let snapshotRetryAttempt = 0;
+    let snapshotInFlight = false;
     const cached = snapshotCache.current.get(activeId);
     const loadSnapshot = () => {
-      if (cancelled) return;
+      if (cancelled || snapshotInFlight) return;
+      snapshotInFlight = true;
+      snapshotRetryTimer = undefined;
       // A conversation already on screen from the cache is refreshed quietly.
       if (shownSnapshotId.current !== activeId) setLoadingMessages(true);
       const requests = [api.messages(activeId), api.runs(activeId), api.memories(activeId), api.toolActivities(activeId).catch(() => ({ activities: [] as ToolActivity[] }))] as const;
@@ -1661,15 +1703,42 @@ function Workspace() {
         // A transient snapshot failure must not strand this conversation
         // without its combined SSE. Retry the snapshot before consuming any
         // chat cursor, with a finite budget and no change to effect identity.
-        if (snapshotRetryAttempt < 3) {
-          const delay = 1000 * 2 ** snapshotRetryAttempt++;
-          snapshotRetryTimer = window.setTimeout(loadSnapshot, delay);
-        }
-      }).finally(() => { if (!cancelled) setLoadingMessages(false); });
+        // Never give up: a conversation opened during an outage must fill in by itself once the server is back.
+        const delay = Math.min(1000 * 2 ** Math.min(snapshotRetryAttempt++, 4), 15_000);
+        snapshotRetryTimer = window.setTimeout(loadSnapshot, delay);
+      }).finally(() => { snapshotInFlight = false; if (!cancelled) setLoadingMessages(false); });
+    };
+    // Network back, tab shown or window focused: try again at once instead of waiting out the backoff.
+    snapshotRetryNow.current = () => {
+      if (snapshotRetryTimer === undefined || snapshotInFlight) return;
+      window.clearTimeout(snapshotRetryTimer);
+      snapshotRetryAttempt = 0;
+      loadSnapshot();
     };
     loadSnapshot();
-    return () => { cancelled = true; if (snapshotRetryTimer !== undefined) window.clearTimeout(snapshotRetryTimer); eventSource.current?.close(); eventSource.current = null; if (reconnectTimer.current !== undefined) window.clearTimeout(reconnectTimer.current); reconnectTimer.current = undefined; if (eventConnectTimer.current !== undefined) window.clearTimeout(eventConnectTimer.current); };
+    return () => { cancelled = true; snapshotRetryNow.current = null; window.clearInterval(eventWatchdog.current); if (snapshotRetryTimer !== undefined) window.clearTimeout(snapshotRetryTimer); eventSource.current?.close(); eventSource.current = null; if (reconnectTimer.current !== undefined) window.clearTimeout(reconnectTimer.current); reconnectTimer.current = undefined; if (eventConnectTimer.current !== undefined) window.clearTimeout(eventConnectTimer.current); };
   }, [activeId, connectEvents]);
+
+  // After sleep, a Wi-Fi handoff or a restart the streams may be dead without having closed. Check them the
+  // moment the page can tell: the network returns, the tab is shown, the window is focused.
+  useEffect(() => {
+    const wake = () => {
+      if (document.visibilityState === "hidden") return;
+      const id = activeIdRef.current;
+      if (id) {
+        snapshotRetryNow.current?.();
+        if (eventSource.current) {
+          if (Date.now() - lastFrameAt.current > STREAM_WAKE_STALE_MS) { reconnectAttempt.current = 0; eventFailNow.current?.(); }
+        } else if (shownSnapshotId.current === id) { reconnectAttempt.current = 0; connectEvents(id); }
+      } else if (workspaceEventSource.current) {
+        if (Date.now() - workspaceLastFrameAt.current > STREAM_WAKE_STALE_MS) { workspaceReconnectAttempt.current = 0; workspaceFailNow.current?.(); }
+      } else { workspaceReconnectAttempt.current = 0; connectWorkspaceEvents(); }
+    };
+    window.addEventListener("online", wake);
+    window.addEventListener("focus", wake);
+    document.addEventListener("visibilitychange", wake);
+    return () => { window.removeEventListener("online", wake); window.removeEventListener("focus", wake); document.removeEventListener("visibilitychange", wake); };
+  }, [connectEvents, connectWorkspaceEvents]);
 
   async function loadOlder(): Promise<boolean> {
     if (!activeId || !messageRecords[0] || loadingOlder) return false;
@@ -1995,7 +2064,7 @@ function Workspace() {
   };
   const ownerRevealed = (owner: TaskOwner) => owner.family.attempts.some(attempt => revealedRuns.has(attempt.id));
   // A block with nothing to show (Activity hidden, no card raised) draws nothing, so it must not count as a name label above a message.
-  const ownerDraws = (owner: TaskOwner) => taskBlockVisible({ owner, tools: loadedToolActivities, questions: questions.items, drafts: mailDrafts.items, messages: messageRecords, summaries: terminalToolSummaries, details: toolDetailState, connected: streamConnected, hideActivity: !showActivity, revealed: ownerRevealed(owner) });
+  const ownerDraws = (owner: TaskOwner) => taskBlockVisible({ owner, tools: loadedToolActivities, questions: questions.items, drafts: mailDrafts.items, messages: messageRecords, summaries: terminalToolSummaries, details: toolDetailState, connected: linkConnected, hideActivity: !showActivity, revealed: ownerRevealed(owner) });
   // Computed once per render, not once per message: per-message scans made every render cubic in loaded history.
   const ownerAnchors = taskOwners.filter(ownerDraws).map(owner => ({ anchor: owner.anchor, botId: owner.family.latest.bot_id }));
   const messageRecordIDs = new Set(messageRecords.map(record => record.id));
@@ -2004,7 +2073,7 @@ function Workspace() {
   const ownedAttemptKeys = new Set(taskOwners.flatMap(owner => owner.family.attempts.map(run => `${run.id}|${run.bot_id}|${run.conversation_id}`)));
   const ownedBy = (item: { run_id: string; bot_id: string; conversation_id: string }) => ownedAttemptKeys.has(`${item.run_id}|${item.bot_id}|${item.conversation_id}`);
   function renderTaskOwner(owner: TaskOwner) {
-    return <TaskRunBlock key={owner.key} replying={replyingRunIDs.has(owner.family.latest.id)} hideActivity={!showActivity} revealed={ownerRevealed(owner)} owner={owner} senderHead={active?.kind === "group" ? <SenderHead id={owner.family.latest.bot_id} name={botById.get(owner.family.latest.bot_id)?.name ?? "Bot"} /> : undefined} liveStatus={runLiveStatus(owner.family.latest)} liveAvatar={<BotAvatar id={owner.family.latest.bot_id} mini motion={owner.family.latest.status === "waiting" ? "awake" : "working"} />} tools={loadedToolActivities} questions={questions.items} drafts={mailDrafts.items} messages={messageRecords} summaries={terminalToolSummaries} details={toolDetailState} connected={streamConnected} botName={botById.get(owner.family.latest.bot_id)?.name ?? "Bot"} showName={active?.kind === "group"}
+    return <TaskRunBlock key={owner.key} replying={replyingRunIDs.has(owner.family.latest.id)} hideActivity={!showActivity} revealed={ownerRevealed(owner)} owner={owner} senderHead={active?.kind === "group" ? <SenderHead id={owner.family.latest.bot_id} name={botById.get(owner.family.latest.bot_id)?.name ?? "Bot"} /> : undefined} liveStatus={runLiveStatus(owner.family.latest)} onRetryRun={retryRun} liveAvatar={<BotAvatar id={owner.family.latest.bot_id} mini motion={owner.family.latest.status === "waiting" ? "awake" : "working"} />} tools={loadedToolActivities} questions={questions.items} drafts={mailDrafts.items} messages={messageRecords} summaries={terminalToolSummaries} details={toolDetailState} connected={linkConnected} botName={botById.get(owner.family.latest.bot_id)?.name ?? "Bot"} showName={active?.kind === "group"}
       onOpenTools={() => openSettings("connections")}
       onFeedback={text => window.dispatchEvent(new CustomEvent("tofi:task-feedback", {detail:{conversationId:owner.family.latest.conversation_id,text}}))}
       onRefresh={refreshTaskStatus} onLoadDetails={loadToolDetails}
@@ -2014,7 +2083,7 @@ function Workspace() {
   }
   const taskAnnouncements = new Map(taskOwners.map(owner => {
     const run = owner.family.latest;
-    const input = {run, tools:loadedToolActivities.filter(tool => tool.run_id === run.id), questions:questions.items.filter(question => question.run_id === run.id), drafts:mailDrafts.items.filter(draft => draft.run_id === run.id), summary:terminalToolSummaries.find(summary => summary.run_id === run.id), recordsComplete:toolDetailState[run.id]?.hasMore === false, connected:streamConnected};
+    const input = {run, tools:loadedToolActivities.filter(tool => tool.run_id === run.id), questions:questions.items.filter(question => question.run_id === run.id), drafts:mailDrafts.items.filter(draft => draft.run_id === run.id), summary:terminalToolSummaries.find(summary => summary.run_id === run.id), recordsComplete:toolDetailState[run.id]?.hasMore === false, connected:linkConnected};
     const issue = presentTaskIssue({...input, family:owner.family, tools:loadedToolActivities, questions:questions.items, drafts:mailDrafts.items});
     const approved = input.questions.some(question => question.question_type === "approval" && question.status === "answered" && question.answer === true && !question.approval?.review_only) ? i18n.t("tasks:record.approved_unconfirmed") : "";
     return [run.id, issue ? [issue.title, ...issue.facts, ...issue.secondary.filter(cause => cause !== i18n.t("tasks:secondary.records_incomplete"))].join(" ") : [taskPhaseLabel(input), approved].filter(Boolean).join(" ")];
@@ -2085,7 +2154,7 @@ function Workspace() {
     } catch (cause) { setError(errorText(cause)); }
   }
 
-  async function retryRun(id: string) {
+  async function retryRun(id: string): Promise<void> {
     try {
       const run = await api.retryRun(id);
       setRuns((current) => mergeRunUpdates(current, [run]));
@@ -2102,7 +2171,7 @@ function Workspace() {
   return (
     <div inert={Boolean(deleteTarget || (viewOnlyChat && (isDesktop || compactViewport))) || undefined} className={`workspace${keyboardViewportOpen ? " keyboard-viewport-open" : ""}`} style={viewportHeight ? { "--viewport-height": `${viewportHeight}px` } as React.CSSProperties : undefined}>
       <UpdateBanner />
-      {workspaceError && indexInitialized.current && <div className="stream-status workspace-status" role="alert">{t("workspace.refresh_failed")}<button className="secondary-button" onClick={() => void refreshIndex()}>{t("common:action.retry")}</button></div>}
+      {workspaceErrorShown && indexInitialized.current && <div className="stream-status workspace-status workspace-toast" role="alert">{t("workspace.refresh_failed")}<button className="secondary-button" onClick={() => void refreshIndex()}>{t("common:action.retry")}</button></div>}
       {computerInfo && ((computerInfo.state !== "ready" && computerInfo.state !== "hibernated" && computerInfo.state !== "hibernating") || computerHealthAlert(computerInfo.health)) && panel !== "desktop" && <div className="stream-status workspace-status computer-preparing" role="status"><strong>{computerInfo.health?.state === "unresponsive" ? t("computer.health_unresponsive") : computerInfo.health?.state === "restarting" ? t("computer.health_restarting") : computerInfo.state === "starting" ? t("computer.starting") : computerInfo.state === "resuming" ? t("computer.resuming") : computerInfo.state === "error" ? t("computer.failed") : computerInfo.state === "stopped" ? t("computer.stopped") : t("computer.unavailable")}</strong><span>{(computerInfo.state === "starting" || computerInfo.state === "resuming") && computerInfo.phase ? ` · ${computerPhaseKeys[computerInfo.phase] ? t(computerPhaseKeys[computerInfo.phase]) : computerInfo.phase}` : ""}{computerInfo.error ? ` · ${computerInfo.error}` : ""}</span>{(computerInfo.state === "error" || computerInfo.state === "stopped" || computerInfo.health?.state === "unresponsive") && <button className="secondary-button" onClick={() => void api.computerRetry().then(() => api.computerInfo()).then(setComputerInfo).catch(cause => setError(errorText(cause)))}>{t("common:action.retry")}</button>}</div>}
       <div className="native-titlebar" aria-hidden="true" /><ActionHints /><div className={`workspace-grid${sidebarCollapsed ? " sidebar-collapsed" : ""}${contextPanelOpen ? " context-open" : ""}${contextPanelOpen || viewOnlyChat ? " card-open" : ""}${activeBot ? " bot-panel-ready" : ""}${panel === "bot-edit" ? " bot-panel-open" : ""}${displayedPanel === "terminal" ? " terminal-context" : ""}`}>
         <aside className={`contact-pane ${mobileList ? "open" : ""}`} inert={modalPanelOpen || desktopExpanded || undefined}>
@@ -2116,7 +2185,7 @@ function Workspace() {
             {onboardingState !== "sheet" && !visibleSidebarConversations.length && <EmptyState name="sidebar" className={`empty-copy is-compact${!query && !bots.length && !conversations.length ? " first-run-hide-mobile" : ""}`} look={CATS.mochi} pose={query ? "curious" : "asleep"}><p>{query ? t("sidebar.no_match") : t("sidebar.empty")}</p>{!query && <button className="primary-button sidebar-empty-create" disabled={newBotBusy} onClick={() => void createNewBot()}>{newBotBusy ? t("create.creating") : t("create.create_bot")}</button>}</EmptyState>}
             {hiddenBots.length > 0 && <section className="hidden-bots-section"><button type="button" className="hidden-bots-toggle" aria-expanded={hiddenBotsOpen} onClick={() => setHiddenBotsOpen((open) => !open)}><span>{t("sidebar.hidden_bots")}</span><Icon name="chevron-right" size={16} /></button>{hiddenBotsOpen && hiddenBots.map(hiddenBotRow)}</section>}
           </div>
-          <div className="sidebar-footer">{onboardingState === "chip" && <FinishSetupChip step={chipStep(modelReady)} onClick={() => setOnboardingForced(chipStep(modelReady))} />}<SidebarAccount connected={streamConnected} onSettings={() => { setPortabilityBotID(""); setPortabilityFile(undefined); openSettings("general", "home"); }} onUsage={() => { setUsageBotId(""); openSettings("usage"); }} onConnection={() => openSettings("models")} onArchive={() => setPanel("archive")} /></div>
+          <div className="sidebar-footer">{onboardingState === "chip" && <FinishSetupChip step={chipStep(modelReady)} onClick={() => setOnboardingForced(chipStep(modelReady))} />}<SidebarAccount connected={linkConnected} onSettings={() => { setPortabilityBotID(""); setPortabilityFile(undefined); openSettings("general", "home"); }} onUsage={() => { setUsageBotId(""); openSettings("usage"); }} onConnection={() => openSettings("models")} onArchive={() => setPanel("archive")} /></div>
         </aside>
         {onboardingState === "sheet" && onboarding && <Onboarding initialStep={onboardingForced ?? resumeStep(onboarding, modelReady)} modelConfigured={modelReady} bot={bots.find((item) => !item.archived)} onProgress={saveOnboarding} onModelChanged={refreshConfig} onBot={adoptOnboardingBot} onSkip={() => { saveOnboarding({ skipped: true }); setOnboardingForced(null); }} onFinish={finishOnboarding} />}
         {sidebarContextMenu && <div className="sidebar-context-menu" style={{ left: sidebarContextMenu.x, top: sidebarContextMenu.y }} role="menu" onClick={(event) => event.stopPropagation()}>
@@ -2144,7 +2213,7 @@ function Workspace() {
                   {historyError && !viewport.boundaryError && <div className="history-error history-error-older" role="alert"><span>{t("history.older_failed", { error: historyError })}</span><button onClick={() => void loadOlder()} disabled={loadingOlder}>{loadingOlder ? t("action.retrying") : t("common:action.retry")}</button></div>}
                   {hasMore && <button className="load-older" onClick={() => void loadOlder()} disabled={loadingOlder}>{loadingOlder ? t("action.loading") : t("history.load_older")}</button>}
                   {(questions.error || mailDrafts.error || snapshotError) && <div className="task-state-read-error"><span>{i18n.t("tasks:issue.status_unavailable")}</span><button type="button" className="text-button" onClick={() => void refreshTaskStatus().catch(() => setSnapshotError("read_unavailable"))}>{i18n.t("tasks:issue.action.refresh_status")}</button></div>}
-                  {loadingMessages ? <DelayedFeedback key={`loading-${active.id}`}><div className={`inline-state${isDesktop ? "" : " web-loading-state"}`}>{isDesktop ? <div className="spinner" /> : <LoadingCat size={34} />}{t("history.loading_messages")}</div></DelayedFeedback> : conversationItems.length === 0 ?
+                  {snapshotError && loadedId !== active.id && !loadingMessages ? <div className="inline-state" role="status" data-snapshot-unavailable="true"><div className="spinner" />{t("history.unavailable_retrying")}</div> : loadingMessages ? <DelayedFeedback key={`loading-${active.id}`}><div className={`inline-state${isDesktop ? "" : " web-loading-state"}`}>{isDesktop ? <div className="spinner" /> : <LoadingCat size={34} />}{t("history.loading_messages")}</div></DelayedFeedback> : conversationItems.length === 0 ?
                     <EmptyState name="conversation" className="conversation-empty" look={CATS.mochi} pose="curious" size={84}><h2>{t("empty.start_chat")}</h2><p>{t("empty.start_chat_body")}</p></EmptyState> :
                     conversationItems.map((item, index) => {
                       const previousItem = conversationItems[index - 1];
@@ -2245,7 +2314,7 @@ function Workspace() {
                   <ToolActivityList activities={toolTimeline.fallback} summaries={terminalToolSummaries.filter(summary => toolTimeline.fallback.some(activity => activity.run_id === summary.run_id))} details={toolDetailState} onLoadDetails={loadToolDetails} botById={botById} activeRunIds={activeRunIds} group={active.kind === "group"} />
                   {taskOwners.filter(owner => !owner.anchor).map(renderTaskOwner)}
                   {!isDesktop && pendingRuns.filter(run => !ownedRunIDs.has(run.id)).map(run => <LiveRunStatus key={run.id} run={run} botName={run.kind === "triage" ? "Tofi" : botById.get(run.bot_id)?.name ?? "Bot"} showName={active.kind === "group"} />)}
-                  {error && <div className="error-banner" role="alert">{error}</div>}
+                  {error && <div className="error-banner system-notice" role="alert">{error}</div>}
                 </div></ActivityViewContext.Provider></RunStartContext.Provider></ExpiryFinishingContext.Provider>
               </div>
               {viewport.showJump && <button className="jump-latest" aria-label={t("history.jump_latest")} onClick={jumpLatest}><Icon name="arrow-down" size={18} variant="filled" />{viewport.newCount > 0 && <span className="jump-new-count">{t("history.new_count", { count: viewport.newCount })}</span>}</button>}

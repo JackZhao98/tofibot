@@ -205,7 +205,8 @@
     "clipboard_unavailable": "目前的瀏覽器無法複製連結，請從網址列複製。",
     "generic": "操作失敗，請稍後重試。",
     "group_unavailable": "群組不存在或已無法使用。",
-    "service_unavailable": "服務暫時無法使用，請稍後重試。"
+    "service_unavailable": "服務暫時無法使用，請稍後重試。",
+    "network_unreachable": "無法連線到伺服器，請求沒有送出。連線恢復後再試一次。"
   },
   "groupCreate": {
     "close": "關閉新增群組",
@@ -240,6 +241,7 @@
     "jump_latest": "回到最新訊息",
     "load_older": "查看更早的訊息",
     "loading_messages": "讀取訊息…",
+    "unavailable_retrying": "無法連線到伺服器，正在重試…",
     "new_count_other": "{{count}} 則新訊息",
     "older_failed": "暫時無法載入更早的訊息：{{error}}",
     "unread": "未讀",
@@ -369,6 +371,8 @@
     "key_unreachable": "你的 Tofi 伺服器連不上 {{provider}}。檢查它的網路或代理後再試。",
     "key_failed": "沒能檢查這個 key。請重試。",
     "key_no_models": "這個 key 有效，但暫時用不了任何模型。請先開通計費，或換一個有模型權限的專案。",
+    "key_no_quota": "金鑰有效，但這個 {{provider}} 帳戶沒有可用額度。請儲值或提高額度後重新連線。",
+    "codex_unreachable": "你的 Tofi 伺服器無法連線到 OpenAI。請檢查它的網路或代理，然後重新登入。",
     "open_billing": "開啟計費頁面",
     "connected_title": "連接成功",
     "connected_ready": "你的第一個 Bot 已經就緒，正在等你。",

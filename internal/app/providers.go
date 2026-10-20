@@ -776,10 +776,15 @@ func (s *Server) putProviderKey(w http.ResponseWriter, r *http.Request, name str
 		case status == http.StatusUnauthorized || status == http.StatusForbidden:
 			writeErr(w, http.StatusBadRequest, "invalid_key", fmt.Sprintf("%s rejected this API key (HTTP %d).", providerLabel(name), status))
 		case err == nil:
-			writeErr(w, http.StatusBadRequest, "invalid_key", fmt.Sprintf("This %s API key has no usable models.", providerLabel(name)))
+			writeErr(w, http.StatusBadRequest, "no_models", fmt.Sprintf("This %s API key has no usable models.", providerLabel(name)))
 		default:
 			writeErr(w, http.StatusBadRequest, "invalid_key", fmt.Sprintf("%s did not accept this API key (HTTP %d).", providerLabel(name), status))
 		}
+		return
+	}
+	if s.providerKeyOutOfQuota(r.Context(), name, key, models[0].ID) {
+		log.Printf("[providers] %s key verification: the account has no usage left", name)
+		writeErr(w, http.StatusPaymentRequired, "no_quota", fmt.Sprintf("This %s API key is valid but its account has no usage left.", providerLabel(name)))
 		return
 	}
 	if _, err := s.storeProviderKey(name, key); err != nil {

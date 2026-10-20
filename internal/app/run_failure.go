@@ -5,6 +5,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/JackZhao98/tofibot/internal/provider"
 	"github.com/JackZhao98/tofibot/internal/runtime"
 )
 
@@ -66,7 +67,7 @@ func (r Run) failure() *RunFailure {
 var (
 	modelUnconfiguredMarkers = []string{"codex is not connected", "provider is required", "unknown provider:", "model is not configured", "model provider is not configured"}
 	modelAuthMarkers         = []string{"codex login expired", "codex access snapshot expired", "reconnect your chatgpt account", "api error (http 401)", "token_invalidated", "token_expired", "invalid_api_key", "refresh_token_reused", "invalid_grant", "authentication_error"}
-	modelQuotaMarkers        = []string{"usage_limit_reached", "insufficient_quota", "credit balance is too low"}
+	modelQuotaMarkers        = provider.QuotaMarkers
 	codexFailureMarkers      = []string{"codex", "chatgpt", "token_invalidated", "token_expired", "refresh_token_reused", "invalid_grant", "usage_limit_reached"}
 )
 

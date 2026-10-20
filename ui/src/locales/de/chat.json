@@ -205,7 +205,8 @@
     "clipboard_unavailable": "Dieser Browser kann keine Links kopieren. Kopiere ihn aus der Adressleiste.",
     "generic": "Etwas ist schiefgelaufen. Versuche es später erneut.",
     "group_unavailable": "Diese Gruppe existiert nicht oder ist nicht mehr verfügbar.",
-    "service_unavailable": "Dienst nicht verfügbar. Versuche es später erneut."
+    "service_unavailable": "Dienst nicht verfügbar. Versuche es später erneut.",
+    "network_unreachable": "Server nicht erreichbar. Die Anfrage wurde nicht gesendet; versuche es erneut, sobald die Verbindung wieder steht."
   },
   "groupCreate": {
     "close": "Neue Gruppe schließen",
@@ -241,6 +242,7 @@
     "jump_latest": "Zu den neuesten Nachrichten",
     "load_older": "Ältere Nachrichten anzeigen",
     "loading_messages": "Nachrichten werden geladen…",
+    "unavailable_retrying": "Server nicht erreichbar. Neuer Versuch …",
     "new_count_one": "{{count}} neue Nachricht",
     "new_count_other": "{{count}} neue Nachrichten",
     "older_failed": "Ältere Nachrichten konnten nicht geladen werden: {{error}}",
@@ -373,6 +375,8 @@
     "key_unreachable": "Dein Tofi-Server erreicht {{provider}} nicht. Prüfe seine Internetverbindung oder den Proxy und versuche es erneut.",
     "key_failed": "Der Schlüssel konnte nicht geprüft werden. Versuche es erneut.",
     "key_no_models": "Der Schlüssel funktioniert, kann aber noch kein Modell nutzen. Hinterlege eine Zahlungsmethode oder wähle ein Projekt mit Modellzugriff.",
+    "key_no_quota": "Der Schlüssel ist gültig, aber das {{provider}}-Konto hat kein Guthaben mehr. Lade Guthaben auf oder erhöhe das Limit und verbinde dich erneut.",
+    "codex_unreachable": "Dein Tofi-Server erreicht OpenAI nicht. Prüfe Internet oder Proxy und melde dich erneut an.",
     "open_billing": "Abrechnung öffnen",
     "connected_title": "Du bist verbunden",
     "connected_ready": "Dein erster Bot ist bereit und wartet auf dich.",
