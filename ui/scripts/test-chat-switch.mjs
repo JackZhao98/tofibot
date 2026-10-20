@@ -293,6 +293,37 @@ await check("revisit shows the cached snapshot immediately and does not jump on 
   await context.close();
 });
 
+// 4b. Pointing at a conversation reads its newest page ahead of the click: the first visit shows messages on the first frame,
+//     holds only one page, and still lands at the bottom.
+await check("first visit after hovering the row is on screen at the first frame", async () => {
+  const { page, context } = await open();
+  await settle(page);
+  await rowFor(page, "Simile Cat").hover();
+  await page.waitForTimeout(700);
+  const frames = await record(page, () => rowFor(page, "Simile Cat").click(), 1200);
+  const firstFrame = frames[0];
+  assert.ok(firstFrame.blocks > 0 && !firstFrame.loading, "prefetched conversation is on screen at the first frame after the click");
+  assertStable(frames, "prefetched dm_b");
+  assert.equal(frames.at(-1).lastSeq, COUNT.dm_b);
+  await context.close();
+});
+
+// 4c. A long conversation left behind is cached as one page: coming back shows it at once without holding its whole history.
+await check("revisit of a long conversation keeps only the newest page cached", async () => {
+  const { page, context } = await open();
+  await settle(page);
+  await rowFor(page, "Simile Cat").click();
+  await settle(page);
+  for (let i = 0; i < 2; i++) { await page.evaluate(() => { document.querySelector(".message-scroll").scrollTop = 0; }); await page.locator(".load-older").click(); await page.waitForTimeout(500); }
+  const loaded = await page.evaluate(() => document.querySelectorAll(".message-block").length);
+  assert.ok(loaded > 60, `older history was paged in by scrolling up (${loaded} messages)`);
+  await rowFor(page, "Ledger Cat").click();
+  await settle(page);
+  const frames = await record(page, () => rowFor(page, "Simile Cat").click(), 1200);
+  assert.ok(frames[0].blocks > 0 && frames[0].blocks <= 62 && !frames[0].loading, `cached revisit shows one page on the first frame (${frames[0].blocks} messages)`);
+  await context.close();
+});
+
 // 5. The scheduled-task card never shows placeholder status text while its data is loading.
 await check("scheduled card renders no placeholder before its data arrives", async () => {
   const { page, context } = await open({ first: "dm_a" });

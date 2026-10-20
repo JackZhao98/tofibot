@@ -1557,9 +1557,23 @@ function Workspace() {
     if (!activeId || loadedId !== activeId) return;
     const cache = snapshotCache.current;
     cache.delete(activeId);
-    cache.set(activeId, { messages: messageRecords, drafts, runs, toolActivities, toolSummaries, memories, hasMore });
+    // Only the newest page is kept for a revisit: the reader's place older than that is paged back in on demand, so a long history costs nothing to leave.
+    const trimmed = messageRecords.length > SNAPSHOT_CACHE_MESSAGES;
+    cache.set(activeId, { messages: trimmed ? messageRecords.slice(-SNAPSHOT_CACHE_MESSAGES) : messageRecords, drafts, runs, toolActivities, toolSummaries, memories, hasMore: trimmed || hasMore });
     while (cache.size > SNAPSHOT_CACHE_LIMIT) cache.delete(cache.keys().next().value as string);
   }, [activeId, loadedId, messageRecords, drafts, runs, toolActivities, toolSummaries, memories, hasMore]);
+  // Pointing at a conversation (after a short dwell) or pressing its row reads its newest page into the same cache, so the first visit is a revisit.
+  const prefetchInFlight = useRef(new Set<string>());
+  const prefetchTimer = useRef<number | undefined>(undefined);
+  const prefetchConversation = useCallback((id: string) => {
+    if (id === activeIdRef.current || snapshotCache.current.has(id) || prefetchInFlight.current.has(id)) return;
+    prefetchInFlight.current.add(id);
+    void Promise.all([api.messages(id), api.runs(id)]).then(([page, runPage]) => {
+      if (snapshotCache.current.has(id) || !page.messages.length) return;
+      snapshotCache.current.set(id, { messages: page.messages.sort((a, b) => a.seq - b.seq), drafts: {}, runs: runPage.runs.sort((a, b) => +new Date(b.updated_at) - +new Date(a.updated_at)), toolActivities: [], toolSummaries: [], memories: [], hasMore: page.has_more });
+      while (snapshotCache.current.size > SNAPSHOT_CACHE_LIMIT) snapshotCache.current.delete(snapshotCache.current.keys().next().value as string);
+    }).catch(() => {}).finally(() => { prefetchInFlight.current.delete(id); });
+  }, []);
   // The switch itself runs before paint: the pane never shows the previous conversation under the new header.
   useLayoutEffect(() => {
     if (!activeId) return;
@@ -1671,18 +1685,19 @@ function Workspace() {
       if (Number.isFinite(sentAt)) setLastUserActivity(current => ({ ...current, [conversationId]: Math.max(current[conversationId] ?? 0, sentAt) }));
       // The server may have accepted the message after the user switched
       // conversations. Clear only the exact source draft that was sent.
-      if (draftSignature) setComposerDrafts((current) => {
+      const clearDraft = () => { if (draftSignature) setComposerDrafts((current) => {
         const source = current[conversationId];
         if (!source || !composerDraftMatchesMessage(source, draftSignature, clientMessageId)) return current;
         const next = { ...current, [conversationId]: emptyComposerDraft() };
         if (composerStorageKey.current) writeComposerDrafts(composerStorageKey.current, next);
         return next;
-      });
-      if (activeIdRef.current !== conversationId) return true;
+      }); };
+      if (activeIdRef.current !== conversationId) { clearDraft(); return true; }
       arrivalIDs.current.add(result.message.id);
       const newRuns = result.runs?.length ? result.runs : [result.run];
       // The bubble and its run row land in one commit, so the final layout is known before anything moves.
-      const apply = () => { upsertMessage(result.message); setRuns((current) => mergeRunUpdates(current, newRuns)); };
+      // The composer empties in that same commit: its height change must not move the new bubble a frame later.
+      const apply = () => { clearDraft(); upsertMessage(result.message); setRuns((current) => mergeRunUpdates(current, newRuns)); };
       const animate = !isDesktop && !window.matchMedia("(prefers-reduced-motion: reduce)").matches;
       // Scrolled up in history: nothing visible moves, so there is nothing to FLIP. Return to the bottom in
       // the same task as the commit and play the arrival there, once, with the bubble in view.
@@ -1996,6 +2011,9 @@ function Workspace() {
       aria-label={[conversation.name, task ? taskStateLabel(task) : "", conversation.unread_count ? t("sidebar.unread", { count: conversation.unread_count }) : ""].filter(Boolean).join(t("sidebar.label_separator"))}
       className={`contact-row conversation-row ${activeId === conversation.id ? "active" : ""}`}
       onClick={() => focusTask(conversation)}
+      onPointerEnter={event => { if (event.pointerType === "mouse") { window.clearTimeout(prefetchTimer.current); prefetchTimer.current = window.setTimeout(() => prefetchConversation(conversation.id), 80); } }}
+      onPointerLeave={() => window.clearTimeout(prefetchTimer.current)}
+      onPointerDown={() => prefetchConversation(conversation.id)}
       onContextMenu={(event) => { event.preventDefault(); setSidebarContextMenu({ conversation, x: Math.min(event.clientX, window.innerWidth - 248), y: Math.min(event.clientY, window.innerHeight - 360) }); }}>
       <Avatar label={conversation.name} id={botId} group={conversation.kind === "group"} motion={motion} />
       <span className="contact-copy"><strong><span className="contact-name">{conversation.name}</span>{bot?.is_primary && <PrimaryBadge />}</strong><small>{preview}</small></span>
@@ -2399,7 +2417,8 @@ function readReplyMarker(content: string): { ids: string[]; body: string } {
   return { ids, body: content };
 }
 
-const SNAPSHOT_CACHE_LIMIT = 8;
+const SNAPSHOT_CACHE_LIMIT = 50;
+const SNAPSHOT_CACHE_MESSAGES = 60;
 interface ConversationSnapshot { messages: Message[]; drafts: Record<string, StreamDraft>; runs: Run[]; toolActivities: ToolActivity[]; toolSummaries: ToolActivityRunSummary[]; memories: Memory[]; hasMore: boolean }
 
 export function MessageBubble({ actions, message, replyTarget, replyTargetName, sender, senderName, targetBot, run, tools, scheduleOccurrence, schedulePending, schedule, onRetrySchedule, onDraftReply, draft, relatedChat, onOpenRelatedChat, compact = false, showAvatar = true, showIdentity = true, noticeTargetAvailable = true, allowOpenDM = false, onNavigate, onMention }: { actions?: React.ReactNode; relatedChat?: ViewOnlyChatTarget | null; onOpenRelatedChat?: (target: ViewOnlyChatTarget) => void; noticeTargetAvailable?: boolean; allowOpenDM?: boolean; onMention?: (bot: Bot) => void; message: Message; replyTarget?: Message; replyTargetName?: string; sender?: Bot; senderName?: string; targetBot?: Bot; run?: Run; tools?: React.ReactNode; scheduleOccurrence?: ScheduleOccurrence; schedulePending?: boolean; schedule?: Schedule; onRetrySchedule?: (id: string) => Promise<void>; onDraftReply?: () => Promise<boolean>; draft?: string | StreamDraft; compact?: boolean; showAvatar?: boolean; showIdentity?: boolean; onNavigate?: (id: string) => void }) {
@@ -2474,7 +2493,7 @@ export function MessageBubble({ actions, message, replyTarget, replyTargetName, 
   const inlineMention = mention && targetBot ? <BotIdentityCard bot={targetBot} onMention={onMention ? () => onMention(targetBot) : undefined} onOpen={allowOpenDM && onNavigate ? () => onNavigate(targetBot.dm_conversation_id) : undefined}>{mention}</BotIdentityCard> : mention;
   const toolRow = tools && <div className="message-tools">{tools}</div>;
   const grouped = showAvatar && !isUser;
-  return <article data-sender={grouped ? message.sender_bot_id : undefined} data-at={grouped ? message.created_at : undefined} className={`message ${isUser ? "message-user" : "message-bot"}${grouped ? " is-group" : !isUser ? " is-dm" : ""} ${message.kind === "segment" ? "message-segment" : ""} ${message.kind === "forward_result" ? "message-forward-result" : ""} ${compact ? "message-compact" : ""}`} title={isDesktop ? `${formatExactTime(message.created_at, timezone)} · ${timezone}` : undefined}><div className={`message-body${tools && !isDesktop ? ` web-tool-body ${toolsRunning ? "is-tools-live" : "is-tools-done"}` : ""}`}><div className={`message-meta ${hideMeta ? "compact" : ""}`}>{scheduled && <span>{t("message.scheduled")}</span>}{showIdentity && !isUser && (!compact || showAvatar) && <strong>{label}</strong>}</div>{(toolsRunning || !isDesktop) && toolRow}{replyTarget && <button type="button" className="message-reply-quote" aria-label={t("message.jump_to_reply", { name: replyTargetName ?? t("message.original") })} onClick={() => jumpToMessage(document.querySelector<HTMLElement>(`[data-message-id="${replyTarget.id}"]`))}><span className="message-reply-author">{t("message.reply_to", { name: replyTargetName ?? t("message.original") })}</span><span className="message-reply-excerpt">{previewText(readReplyMarker(replyTarget.content).body) || t("message.attachment")}</span></button>}<div className="message-content" ref={answerRef}>{showAvatar && !isUser && <div className="sender-avatar">{sender ? <BotIdentityCard bot={sender} onMention={onMention ? () => onMention(sender) : undefined} onOpen={allowOpenDM && onNavigate ? () => onNavigate(sender.dm_conversation_id) : undefined}><Avatar label={label} id={sender.id} mini /></BotIdentityCard> : <Avatar label={label} id={message.sender_bot_id ?? "bot"} mini />}</div>}{<SmoothStreamMarkdown content={body} mention={inlineMention} active={Boolean(draft) && !isDesktop} />}<AttachmentList attachments={message.attachments} compact={isUser} />{draft && isDesktop && <span className="typing-cursor" />}{actions}</div>{!toolsRunning && isDesktop && toolRow}{relatedChat && onOpenRelatedChat && <RelatedMessageLink target={relatedChat} onOpen={onOpenRelatedChat} />}</div></article>;
+  return <article data-sender={grouped ? message.sender_bot_id : undefined} data-at={grouped ? message.created_at : undefined} className={`message ${isUser ? "message-user" : "message-bot"}${grouped ? " is-group" : !isUser ? " is-dm" : ""} ${message.kind === "segment" ? "message-segment" : ""} ${message.kind === "forward_result" ? "message-forward-result" : ""} ${compact ? "message-compact" : ""}`} title={isDesktop ? `${formatExactTime(message.created_at, timezone)} · ${timezone}` : undefined}><div className={`message-body${tools && !isDesktop ? ` web-tool-body ${toolsRunning ? "is-tools-live" : "is-tools-done"}` : ""}`}><div className={`message-meta ${hideMeta ? "compact" : ""}`}>{scheduled && <span>{t("message.scheduled")}</span>}{showIdentity && !isUser && (!compact || showAvatar) && <strong>{label}</strong>}</div>{(toolsRunning || !isDesktop) && toolRow}{replyTarget && <button type="button" className="message-reply-quote" aria-label={t("message.jump_to_reply", { name: replyTargetName ?? t("message.original") })} onClick={() => jumpToMessage(document.querySelector<HTMLElement>(`[data-message-id="${replyTarget.id}"]`))}><span className="message-reply-author">{t("message.reply_to", { name: replyTargetName ?? t("message.original") })}</span><span className="message-reply-excerpt">{previewText(readReplyMarker(replyTarget.content).body) || t("message.attachment")}</span></button>}<div className="message-content" ref={answerRef}>{actions}{showAvatar && !isUser && <div className="sender-avatar">{sender ? <BotIdentityCard bot={sender} onMention={onMention ? () => onMention(sender) : undefined} onOpen={allowOpenDM && onNavigate ? () => onNavigate(sender.dm_conversation_id) : undefined}><Avatar label={label} id={sender.id} mini /></BotIdentityCard> : <Avatar label={label} id={message.sender_bot_id ?? "bot"} mini />}</div>}{<SmoothStreamMarkdown content={body} mention={inlineMention} active={Boolean(draft) && !isDesktop} />}<AttachmentList attachments={message.attachments} compact={isUser} />{draft && isDesktop && <span className="typing-cursor" />}</div>{!toolsRunning && isDesktop && toolRow}{relatedChat && onOpenRelatedChat && <RelatedMessageLink target={relatedChat} onOpen={onOpenRelatedChat} />}</div></article>;
 }
 
 export function RunStatusAnnouncement({ conversationId, runs, botById, ready, taskAnnouncements }: { conversationId: string; runs: Run[]; botById: Map<string, Bot>; ready: boolean; taskAnnouncements?: Map<string, string> }) {
