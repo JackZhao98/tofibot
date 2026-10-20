@@ -286,10 +286,9 @@ func (s *Server) steeredToolCarryover(conversationID, beforeRunID string) string
 		return ""
 	}
 	defer rows.Close()
-	type evidence struct{ run, bot, call, name, args, result, status, updated string }
-	all := make([]evidence, 0, 16)
+	all := make([]toolEvidence, 0, 16)
 	for rows.Next() {
-		var x evidence
+		var x toolEvidence
 		if rows.Scan(&x.run, &x.bot, &x.call, &x.name, &x.args, &x.result, &x.status, &x.updated) != nil {
 			break
 		}
@@ -298,8 +297,79 @@ func (s *Server) steeredToolCarryover(conversationID, beforeRunID string) string
 	if len(all) == 0 {
 		return ""
 	}
+	return renderToolCarryover("", totalCalls, completedCalls, all)
+}
+
+// retryToolCarryover carries the completed tool results of earlier attempts at
+// the same request into a retry. The chain follows ParentRunID while the bot,
+// kind, conversation, trigger and origin stay identical and the predecessor
+// ended failed or interrupted, so completed side effects are not replayed.
+func (s *Server) retryToolCarryover(r Run) string {
+	if r.ParentRunID == "" || r.TriggerMessageID == "" {
+		return ""
+	}
+	var ids []string
+	var last Run
+	for id, steps := r.ParentRunID, 0; id != "" && steps < 8; steps++ {
+		prev, err := s.store.GetRun(id)
+		if err != nil || prev.ConversationID != r.ConversationID || prev.BotID != r.BotID || prev.Kind != r.Kind ||
+			prev.TriggerMessageID != r.TriggerMessageID || prev.OriginConversationID != r.OriginConversationID ||
+			(prev.Status != "failed" && prev.Status != "interrupted") {
+			break
+		}
+		if len(ids) == 0 {
+			last = prev
+		}
+		ids = append(ids, prev.ID)
+		id = prev.ParentRunID
+	}
+	if len(ids) == 0 {
+		return ""
+	}
+	marks := strings.TrimSuffix(strings.Repeat("?,", len(ids)), ",")
+	args := make([]any, 0, len(ids))
+	for _, id := range ids {
+		args = append(args, id)
+	}
+	var totalCalls, completedCalls int
+	_ = s.store.db.QueryRow(`SELECT COUNT(*),COALESCE(SUM(CASE WHEN status='completed' THEN 1 ELSE 0 END),0) FROM tool_activities WHERE run_id IN (`+marks+`)`, args...).Scan(&totalCalls, &completedCalls)
+	rows, err := s.store.db.Query(`SELECT run_id,bot_id,call_id,name,arguments,result,status,updated_at FROM tool_activities WHERE run_id IN (`+marks+`) ORDER BY updated_at DESC,run_id DESC,call_id DESC LIMIT 200`, args...)
+	if err != nil {
+		return ""
+	}
+	defer rows.Close()
+	all := make([]toolEvidence, 0, 16)
+	for rows.Next() {
+		var x toolEvidence
+		if rows.Scan(&x.run, &x.bot, &x.call, &x.name, &x.args, &x.result, &x.status, &x.updated) != nil {
+			break
+		}
+		all = append(all, x)
+	}
+	if len(all) == 0 {
+		return ""
+	}
+	reason := "execution_failed"
+	if f := last.failure(); f != nil {
+		reason = f.Code
+	} else if last.Status == "interrupted" {
+		reason = "interrupted"
+	}
+	note := fmt.Sprintf("This is a retry of the same request. The previous attempt ended %s (%s); the results below were completed during earlier attempts.\n", last.Status, reason)
+	return renderToolCarryover(note, totalCalls, completedCalls, all)
+}
+
+type toolEvidence struct{ run, bot, call, name, args, result, status, updated string }
+
+// renderToolCarryover renders the bounded, reference-only block of completed
+// tool results from earlier work on the same request. note, when set, is one
+// extra line describing how that earlier work ended.
+func renderToolCarryover(note string, totalCalls, completedCalls int, all []toolEvidence) string {
+	if len(all) == 0 {
+		return ""
+	}
 	var b strings.Builder
-	b.WriteString(fmt.Sprintf("[untrusted completed tool results from interrupted work]\ntotal_calls=%d completed_calls=%d\nDo not replay an operation solely because evidence is omitted; query current state or ask the user when completion is uncertain.\nTool manifest:\n", totalCalls, completedCalls))
+	b.WriteString(fmt.Sprintf("[untrusted completed tool results from interrupted work]\n%stotal_calls=%d completed_calls=%d\nDo not replay an operation solely because evidence is omitted; query current state or ask the user when completion is uncertain.\nTool manifest:\n", note, totalCalls, completedCalls))
 	manifestEntries := 0
 	for _, x := range all {
 		part := fmt.Sprintf("run=%s call=%s tool=%s status=%s args=%s\n", x.run, x.call, x.name, x.status, trimRunes(x.args, 180))
@@ -422,6 +492,10 @@ func (s *Server) buildContextPartsWith(c Conversation, r Run, bot Bot, cachedMCP
 		used += len([]rune(refs))
 	}
 	if carryover := s.steeredToolCarryover(c.ID, r.ID); carryover != "" && used+len([]rune(carryover)) <= maxHistoryRunes {
+		pm = append(pm, runtime.Message{Role: "user", Content: carryover})
+		used += len([]rune(carryover))
+	}
+	if carryover := s.retryToolCarryover(r); carryover != "" && used+len([]rune(carryover)) <= maxHistoryRunes {
 		pm = append(pm, runtime.Message{Role: "user", Content: carryover})
 		used += len([]rune(carryover))
 	}
