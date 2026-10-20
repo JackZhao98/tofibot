@@ -87,7 +87,7 @@ func (s *Server) reconcileTerminalCleanup(ctx context.Context) {
 		return
 	}
 	// Completed runs retain terminal tabs, matching the existing product contract.
-	_, _ = s.store.db.ExecContext(ctx, `DELETE FROM run_terminal_cleanup WHERE run_id IN (SELECT id FROM runs WHERE status='done')`)
+	_, _ = s.store.db.ExecContext(ctx, `DELETE FROM run_terminal_cleanup WHERE EXISTS (SELECT 1 FROM runs r WHERE r.id=run_terminal_cleanup.run_id AND r.status='done')`)
 	rows, err := s.store.db.QueryContext(ctx, `SELECT j.run_id,j.bot_id FROM run_terminal_cleanup j
 		LEFT JOIN runs r ON r.id=j.run_id
 		WHERE j.computer_socket=? AND (r.id IS NULL OR r.status IN ('cancelled','failed','interrupted'))

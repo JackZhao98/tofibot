@@ -120,7 +120,8 @@ CREATE TABLE IF NOT EXISTS tool_activities(
  updated_at TEXT NOT NULL,
  PRIMARY KEY(run_id,call_id)
  );
-CREATE INDEX IF NOT EXISTS tool_activities_conversation ON tool_activities(conversation_id,updated_at DESC);`)
+CREATE INDEX IF NOT EXISTS tool_activities_conversation ON tool_activities(conversation_id,updated_at DESC);
+CREATE INDEX IF NOT EXISTS tool_activities_active ON tool_activities(run_id) WHERE status IN ('queued','running');`)
 	if err != nil {
 		return err
 	}

@@ -12,6 +12,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"sort"
 	"strconv"
 	"strings"
 	"sync"
@@ -400,6 +401,9 @@ func recoverInterruptedRuns(db *sql.DB) error {
 		if err != nil {
 			return err
 		}
+		if _, err = tx.Exec(`DELETE FROM events WHERE conversation_id=? AND type='delta' AND json_extract(data,'$.run_id')=?`, run.ConversationID, run.ID); err != nil {
+			return err
+		}
 		if err = insertRecoveryEvent(tx, run.ConversationID, "run", run, t); err != nil {
 			return err
 		}
@@ -458,12 +462,16 @@ func interruptToolActivitiesTx(tx *sql.Tx, runID, t string) error {
 	return nil
 }
 
-func interruptOrphanToolActivitiesTx(tx *sql.Tx, t string) error {
-	rows, err := tx.Query(`SELECT a.conversation_id,a.bot_id,a.run_id,a.call_id,a.name,a.arguments,a.result,a.status,a.truncated,a.started_at,a.updated_at,a.outcome_json
+// orphanToolActivitiesSQL carries the WHERE of the partial index
+// tool_activities_active, so startup recovery reads only unfinished calls.
+const orphanToolActivitiesSQL = `SELECT a.conversation_id,a.bot_id,a.run_id,a.call_id,a.name,a.arguments,a.result,a.status,a.truncated,a.started_at,a.updated_at,a.outcome_json
 FROM tool_activities a
 WHERE a.status IN ('queued','running')
   AND NOT EXISTS (SELECT 1 FROM runs r WHERE r.id=a.run_id AND (r.status IN ('running','queued')
-    OR (r.status='waiting' AND EXISTS (SELECT 1 FROM run_input_waits w WHERE w.run_id=r.id AND w.state='waiting'))))`)
+    OR (r.status='waiting' AND EXISTS (SELECT 1 FROM run_input_waits w WHERE w.run_id=r.id AND w.state='waiting'))))`
+
+func interruptOrphanToolActivitiesTx(tx *sql.Tx, t string) error {
+	rows, err := tx.Query(orphanToolActivitiesSQL)
 	if err != nil {
 		return err
 	}
@@ -532,7 +540,6 @@ CREATE TABLE IF NOT EXISTS run_waits(run_id TEXT PRIMARY KEY,conversation_id TEX
 CREATE TABLE IF NOT EXISTS run_steering(new_run_id TEXT NOT NULL,old_run_id TEXT NOT NULL,PRIMARY KEY(new_run_id,old_run_id),FOREIGN KEY(new_run_id) REFERENCES runs(id) ON DELETE CASCADE,FOREIGN KEY(old_run_id) REFERENCES runs(id) ON DELETE CASCADE);
 CREATE TABLE IF NOT EXISTS events(id INTEGER PRIMARY KEY AUTOINCREMENT,conversation_id TEXT NOT NULL,type TEXT NOT NULL,data TEXT NOT NULL,created_at TEXT NOT NULL,FOREIGN KEY(conversation_id) REFERENCES conversations(id) ON DELETE CASCADE);
 CREATE TABLE IF NOT EXISTS summaries(conversation_id TEXT NOT NULL,version INTEGER NOT NULL,covered_seq INTEGER NOT NULL,content TEXT NOT NULL,created_at TEXT NOT NULL,PRIMARY KEY(conversation_id,version));
-CREATE INDEX IF NOT EXISTS messages_search ON messages(conversation_id,content);
 CREATE INDEX IF NOT EXISTS messages_run ON messages(run_id,conversation_id,role,kind);
 CREATE INDEX IF NOT EXISTS runs_conversation ON runs(conversation_id,created_at);
 CREATE INDEX IF NOT EXISTS messages_direct_user ON messages(conversation_id,created_at) WHERE role='user' AND run_id IS NULL;
@@ -577,6 +584,15 @@ CREATE INDEX IF NOT EXISTS events_conversation ON events(conversation_id,id);`)
 	// Created after the column exists: databases that predate delegated runs
 	// get origin_conversation_id from the ALTER above.
 	if _, err = s.db.Exec(`CREATE INDEX IF NOT EXISTS runs_origin_conversation ON runs(origin_conversation_id) WHERE origin_conversation_id<>''`); err != nil {
+		return err
+	}
+	// Partial indexes for the conversation list. Their WHERE terms are matched
+	// verbatim by taskStateRunsSQL and the working-runs query in
+	// ListConversations; change them together.
+	if _, err = s.db.Exec(`CREATE INDEX IF NOT EXISTS runs_active ON runs(conversation_id,bot_id) WHERE status IN ('queued','running','waiting');
+CREATE INDEX IF NOT EXISTS runs_delegated ON runs(origin_conversation_id,created_at) WHERE origin_conversation_id<>'' AND origin_conversation_id<>conversation_id;
+DROP INDEX IF EXISTS messages_search;
+CREATE INDEX IF NOT EXISTS events_delta ON events(conversation_id,id) WHERE type='delta'`); err != nil {
 		return err
 	}
 	for _, col := range []struct{ name, ddl string }{
@@ -995,7 +1011,7 @@ func (s *Store) ListConversations(includeArchived ...bool) ([]Conversation, erro
 		(SELECT MAX(user_msg.created_at) FROM messages user_msg WHERE user_msg.conversation_id=c.id AND user_msg.role='user' AND user_msg.run_id IS NULL),
 		lm.id,lm.seq,lm.role,lm.kind,lm.sender_bot_id,substr(lm.content,1,160),lm.created_at,
 		CASE WHEN lm.kind='user_message' THEN 0 WHEN lm.run_id IS NOT NULL AND EXISTS (SELECT 1 FROM runs preview_run WHERE preview_run.id=lm.run_id AND preview_run.origin_conversation_id<>lm.conversation_id) THEN 1 ELSE 0 END,
-		COALESCE(cr.read_seq,0), (SELECT COUNT(*) FROM messages unread WHERE unread.conversation_id=c.id AND unread.seq>COALESCE(cr.read_seq,0) AND unread.role='assistant' AND unread.kind NOT IN ('notice','message_ref','bot_result','progress','internal') AND (unread.kind='user_message' OR NOT EXISTS (SELECT 1 FROM runs unread_run WHERE unread_run.id=unread.run_id AND unread_run.origin_conversation_id<>unread.conversation_id)))
+		COALESCE(cr.read_seq,0), (SELECT COUNT(*) FROM (SELECT 1 FROM messages unread WHERE unread.conversation_id=c.id AND unread.seq>COALESCE(cr.read_seq,0) AND unread.role='assistant' AND unread.kind NOT IN ('notice','message_ref','bot_result','progress','internal') AND (unread.kind='user_message' OR NOT EXISTS (SELECT 1 FROM runs unread_run WHERE unread_run.id=unread.run_id AND unread_run.origin_conversation_id<>unread.conversation_id)) LIMIT 100))
         FROM conversations c
         LEFT JOIN conversation_reads cr ON cr.conversation_id=c.id
 		LEFT JOIN messages lm ON lm.conversation_id=c.id
@@ -1064,7 +1080,7 @@ func (s *Store) ListConversations(includeArchived ...bool) ([]Conversation, erro
 	if e := members.Err(); e != nil {
 		return nil, e
 	}
-	working, e := s.db.Query(`SELECT conversation_id,bot_id FROM runs WHERE status IN ('queued','running') AND bot_id<>'' ORDER BY conversation_id,bot_id`)
+	working, e := s.db.Query(`SELECT conversation_id,bot_id FROM runs WHERE status IN ('queued','running','waiting') AND status IN ('queued','running') AND bot_id<>'' ORDER BY conversation_id,bot_id`)
 	if e != nil {
 		return nil, e
 	}
@@ -1808,6 +1824,89 @@ func (s *Store) Runs(conv string) ([]Run, error) {
 	}
 	return out, rows.Err()
 }
+const runPageColumns = `id,conversation_id,bot_id,status,error,parent_run_id,model,kind,origin_conversation_id,trigger_message_id,queue_seq,created_at,updated_at,final_origin`
+
+// defaultRunsPage and maxRunsPage bound one page of a conversation's runs.
+const (
+	defaultRunsPage = 100
+	maxRunsPage     = 500
+)
+
+// RunsPage returns the newest limit runs of a conversation older than the
+// cursor (beforeCreated, beforeID; empty for the newest page), in the same
+// order as Runs. The first page also carries every queued, running or waiting
+// run, however old, so live work is never cut off. hasMore reports whether
+// older runs remain.
+func (s *Store) RunsPage(conv string, limit int, beforeCreated, beforeID string) ([]Run, bool, error) {
+	if limit <= 0 {
+		limit = defaultRunsPage
+	}
+	if limit > maxRunsPage {
+		limit = maxRunsPage
+	}
+	query := `SELECT ` + runPageColumns + ` FROM runs WHERE conversation_id=?`
+	args := []any{conv}
+	if beforeCreated != "" {
+		query += ` AND (created_at<? OR (created_at=? AND id<?))`
+		args = append(args, beforeCreated, beforeCreated, beforeID)
+	}
+	query += ` ORDER BY created_at DESC,id DESC LIMIT ?`
+	args = append(args, limit+1)
+	scan := func(q string, a ...any) ([]Run, error) {
+		rows, e := s.db.Query(q, a...)
+		if e != nil {
+			return nil, e
+		}
+		defer rows.Close()
+		var out []Run
+		for rows.Next() {
+			r, e := scanRunWithOrigin(rows)
+			if e != nil {
+				return nil, e
+			}
+			out = append(out, r)
+		}
+		return out, rows.Err()
+	}
+	page, e := scan(query, args...)
+	if e != nil {
+		return nil, false, e
+	}
+	hasMore := len(page) > limit
+	if hasMore {
+		page = page[:limit]
+	}
+	if beforeCreated == "" {
+		active, e := scan(`SELECT `+runPageColumns+` FROM runs WHERE conversation_id=? AND status IN ('queued','running','waiting')`, conv)
+		if e != nil {
+			return nil, false, e
+		}
+		seen := make(map[string]bool, len(page))
+		for _, r := range page {
+			seen[r.ID] = true
+		}
+		for _, r := range active {
+			if !seen[r.ID] {
+				page = append(page, r)
+			}
+		}
+	}
+	sort.SliceStable(page, func(i, j int) bool {
+		a, b := page[i], page[j]
+		if a.QueueSeq != b.QueueSeq {
+			return a.QueueSeq < b.QueueSeq
+		}
+		if a.CreatedAt != b.CreatedAt {
+			return a.CreatedAt < b.CreatedAt
+		}
+		return a.ID < b.ID
+	})
+	if page == nil {
+		page = []Run{}
+	}
+	return page, hasMore, nil
+}
+
 func (s *Store) SetRunStatus(id, status, msg string) (bool, error) {
 	tx, e := s.db.Begin()
 	if e != nil {
@@ -2056,6 +2155,9 @@ func (s *Store) finishRunOpts(id, conv, bot, content string, silent bool, failur
 	}
 	if draftID != "" {
 		if _, err = tx.Exec(`UPDATE stream_drafts SET content=?,status='done',revision=revision+1,updated_at=? WHERE run_id=? AND status='active'`, content, t, id); err != nil {
+			return Message{}, false, err
+		}
+		if err = pruneDeltaEventsTx(tx, conv, draftID); err != nil {
 			return Message{}, false, err
 		}
 	}
@@ -2980,11 +3082,19 @@ func (s *Server) conversation(w http.ResponseWriter, r *http.Request, id string)
 			writeErr(w, 500, "storage", e.Error())
 			return
 		}
+		ids := make([]string, len(m))
 		for i := range m {
-			m[i].Attachments, e = s.store.AttachmentsForMessage(m[i].ID)
-			if e != nil {
-				writeErr(w, 500, "storage", e.Error())
-				return
+			ids[i] = m[i].ID
+		}
+		attached, e := attachmentsForMessages(s.store.db, ids)
+		if e != nil {
+			writeErr(w, 500, "storage", e.Error())
+			return
+		}
+		for i := range m {
+			m[i].Attachments = attached[m[i].ID]
+			if m[i].Attachments == nil {
+				m[i].Attachments = []Attachment{}
 			}
 		}
 		drafts, de := s.store.StreamDrafts(id)
@@ -3000,12 +3110,13 @@ func (s *Server) conversation(w http.ResponseWriter, r *http.Request, id string)
 		return
 	}
 	if r.Method == http.MethodGet && strings.HasSuffix(r.URL.Path, "/runs") {
-		v, e := s.store.Runs(id)
+		limit, _ := strconv.Atoi(r.URL.Query().Get("limit"))
+		v, more, e := s.store.RunsPage(id, limit, r.URL.Query().Get("before"), r.URL.Query().Get("before_id"))
 		if e != nil {
 			writeErr(w, 500, "storage", e.Error())
 			return
 		}
-		writeJSON(w, 200, map[string]any{"runs": v})
+		writeJSON(w, 200, map[string]any{"runs": v, "has_more": more})
 		return
 	}
 	if r.Method == http.MethodGet && strings.HasSuffix(r.URL.Path, "/memories") {
