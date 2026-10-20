@@ -127,7 +127,24 @@ async function openConversation(page, name) {
   await page.locator(".message-list .message-block").first().waitFor();
 }
 const block = (page, text) => page.locator(".message-list .message-block").filter({ has: page.locator(".message-user") }).filter({ hasText: text });
-const stateOf = (page, text) => block(page, text).locator(".send-receipt").getAttribute("data-state").catch(() => null);
+// Delivered and read are quiet: they are a mark at the end of the hover/focus/tap action row, so reading them means asking for the row
+// (pointer on the bubble, or a tap on touch). Sending (dimmed bubble) and failed (the retry line) are always on show.
+const touchView = page => page.viewportSize().width < 500;
+async function revealMark(page, text) {
+  const mark = block(page, text).locator(".send-receipt-mark");
+  if (await mark.count()) return mark.first();
+  const bubble = block(page, text).locator(".message-content").first();
+  if (touchView(page)) await bubble.tap({ timeout: 2000 }).catch(() => {}); else await bubble.hover({ timeout: 2000 }).catch(() => {});
+  await mark.first().waitFor({ timeout: 700 }).catch(() => {});
+  return (await mark.count()) ? mark.first() : null;
+}
+async function stateOf(page, text) {
+  const b = block(page, text);
+  if (await b.locator('.send-receipt[data-state="failed"]').count()) return "failed";
+  if (await b.locator(".message-user.is-sending").count()) return "sending";
+  const mark = await revealMark(page, text);
+  return mark ? mark.getAttribute("data-state") : null;
+}
 async function waitState(page, text, state, ms = 4000) {
   const end = Date.now() + ms; let seen;
   while (Date.now() < end) { seen = await stateOf(page, text); if (seen === state) return; await sleep(40); }
@@ -220,7 +237,7 @@ for (const view of ["desktop", "phone"]) {
     for (const key of ["height", "bubbleH", "bubbleW", "rowH"]) {
       assert.ok(Math.abs(sending[key] - delivered[key]) < 0.5 && Math.abs(delivered[key] - read[key]) < 0.5, `${key} shifted: ${sending[key]} -> ${delivered[key]} -> ${read[key]}`);
     }
-    const color = await block(page, text).locator(".send-receipt-mark").evaluate(node => getComputedStyle(node).color);
+    const color = await (await revealMark(page, text)).evaluate(node => getComputedStyle(node).color);
     const quiet = await block(page, "old answer").count();
     assert.notEqual(color, "", "accent colour resolved");
     void quiet;
@@ -230,6 +247,60 @@ for (const view of ["desktop", "phone"]) {
     await context.close();
   });
 }
+
+await check("desktop: delivered and read are not on show and own no row; hover puts the mark at the end of the action row without moving anything", async () => {
+  const { page, context } = await open();
+  await page.mouse.move(5, 5);
+  // Settled history: every message of the person's, with the pointer elsewhere, carries no mark and no receipt row.
+  assert.equal(await page.locator(".send-receipt-mark, .send-receipt").count(), 0, "a receipt is on show without hover");
+  const quietHeights = await page.locator(".message-list .message-block").evaluateAll(nodes => nodes.map(node => node.getBoundingClientRect().height));
+  const listBefore = await page.evaluate(() => document.querySelector(".message-scroll").scrollHeight);
+  // Spacing is what the action-row design gives: the bubble's block is the bubble, the row's reserved 28 px and its margin.
+  const spacing = await block(page, "old question").evaluate(node => { const article = node.querySelector(".message-user").getBoundingClientRect(); const row = node.querySelector(".message-actions-row")?.getBoundingClientRect(); return { rowH: row ? row.height : 0, gap: row ? row.top - article.bottom : 0 }; });
+  assert.ok(spacing.rowH >= 28 && spacing.gap <= 6, `the action row's reserve sits right under the bubble (${JSON.stringify(spacing)})`);
+  const bubble = block(page, "old question").locator(".message-content").first();
+  await bubble.hover();
+  const mark = block(page, "old question").locator(".send-receipt-mark");
+  await mark.waitFor({ timeout: 2000 });
+  const placed = await block(page, "old question").evaluate(node => { const row = node.querySelector(".message-actions-row").getBoundingClientRect(); const mk = node.querySelector(".send-receipt-mark").getBoundingClientRect(); const time = node.querySelector(".message-hover-actions time").getBoundingClientRect(); const last = node.querySelector(".message-hover-actions").lastElementChild; return { inRow: mk.top >= row.top - 0.5 && mk.bottom <= row.bottom + 0.5, afterTime: mk.left >= time.right - 0.5, lastChild: last.classList.contains("send-receipt-mark"), sameLine: Math.abs((mk.top + mk.bottom) / 2 - (time.top + time.bottom) / 2) <= 4 }; });
+  assert.deepEqual(placed, { inRow: true, afterTime: true, lastChild: true, sameLine: true }, "the mark sits at the end of the action row, next to the time");
+  const afterHeights = await page.locator(".message-list .message-block").evaluateAll(nodes => nodes.map(node => node.getBoundingClientRect().height));
+  assert.deepEqual(afterHeights, quietHeights, "hovering moved something");
+  assert.equal(await page.evaluate(() => document.querySelector(".message-scroll").scrollHeight), listBefore, "hovering changed the page height");
+  assert.equal(await page.locator(".send-receipt").count(), 0, "a receipt row exists");
+  await shot(page, "receipt-hover");
+  await page.mouse.move(5, 5);
+  await sleep(200);
+  assert.equal(await page.locator(".send-receipt-mark").count(), 0, "the mark goes with the row when the pointer leaves");
+  await context.close();
+});
+
+await check("phone: a tap on the bubble brings the row, and the mark with it", async () => {
+  const { page, context } = await open({ view: "phone" });
+  assert.equal(await page.locator(".send-receipt-mark, .send-receipt").count(), 0, "a receipt is on show without a tap");
+  await block(page, "old question").locator(".message-content").first().tap();
+  await block(page, "old question").locator(".send-receipt-mark").waitFor({ timeout: 2000 });
+  assert.equal(await block(page, "old question").locator(".send-receipt-mark").getAttribute("data-state"), "read");
+  await shot(page, "receipt-tap");
+  await context.close();
+});
+
+await check("sending and failed stay visible without hover, and the failed line is the only receipt row", async () => {
+  const { page, context } = await open();
+  mock.sendDelayMs = 900;
+  await type(page, "dimmed in flight");
+  await page.mouse.move(5, 5);
+  assert.ok(await block(page, "dimmed in flight").locator(".message-user.is-sending").count(), "a message in flight is dimmed");
+  assert.equal(await page.locator(".send-receipt-mark, .send-receipt").count(), 0, "no mark and no row while sending");
+  await waitState(page, "dimmed in flight", "delivered");
+  mock.sendDelayMs = 0;
+  mock.failSends = true;
+  await type(page, "shows failure");
+  await page.mouse.move(5, 5);
+  await block(page, "shows failure").locator('.send-receipt[data-state="failed"] .send-receipt-retry').waitFor({ timeout: 5000 });
+  assert.equal(await page.locator(".send-receipt").count(), 1, "exactly one receipt row: the failed one");
+  await context.close();
+});
 
 await check("no duplicate when the stream copy arrives before the POST answer", async () => {
   const { page, context } = await open();
@@ -320,11 +391,12 @@ await check("group: read once any addressed Bot starts, and the mark names who",
   const { page, context } = await open({ conv: "Ops Room" });
   await type(page, "group hello");
   await waitState(page, "group hello", "delivered");
+  await revealMark(page, "group hello");
   assert.equal(await block(page, "group hello").locator(".send-receipt-tip").count(), 0, "nothing to name yet");
   const [a, b] = mock.runs.filter(r => r.conversation_id === "grp");
   push("grp", "run", { ...b, status: "running", updated_at: iso(60) });
   await waitState(page, "group hello", "read");
-  const mark = block(page, "group hello").locator(".send-receipt-mark");
+  const mark = await revealMark(page, "group hello");
   await mark.hover();
   await sleep(300);
   await shot(page, "group-tip");
@@ -335,10 +407,11 @@ await check("group: read once any addressed Bot starts, and the mark names who",
   await page.waitForFunction(() => document.querySelector(".send-receipt-tip")?.textContent === "Read by Ledger Cat and Simile Cat");
   await page.mouse.move(5, 5);
   await sleep(300);
-  assert.equal(await tip.evaluate(node => getComputedStyle(node).visibility), "hidden", "tip only on hover or focus");
-  await mark.focus();
+  assert.equal(await tip.count(), 0, "tip only on hover or focus: the row, and with it the mark, is gone when neither is on the message");
+  await revealMark(page, "group hello");
+  await block(page, "group hello").locator(".send-receipt-mark").focus();
   await sleep(300);
-  assert.equal(await tip.evaluate(node => getComputedStyle(node).visibility), "visible", "keyboard focus shows it too");
+  assert.equal(await block(page, "group hello").locator(".send-receipt-tip").evaluate(node => getComputedStyle(node).visibility), "visible", "keyboard focus shows it too");
   await context.close();
 });
 
@@ -349,7 +422,7 @@ await check("history shows each message in its final state, drawn without animat
   assert.equal(await stateOf(page, "unanswered note"), "delivered", "no run, no reply");
   assert.equal(await stateOf(page, "being worked on"), "read", "a running run");
   assert.equal(await page.locator(".send-receipt-mark.is-settling").count(), 0);
-  const moving = await page.evaluate(() => document.getAnimations().filter(a => a.effect?.target?.closest?.(".send-receipt")).length);
+  const moving = await page.evaluate(() => document.getAnimations().filter(a => a.effect?.target?.closest?.(".send-receipt-mark")).length);
   assert.equal(moving, 0, "no receipt animation on load");
   await openConversation(page, "Simile Cat");
   await openConversation(page, "Ledger Cat");
@@ -366,7 +439,7 @@ await check("reduced motion: no flight, no settle animation, no colour or opacit
   const queued = mock.runs.find(r => r.status === "queued");
   push("dm_a", "run", { ...queued, status: "running", updated_at: iso(50) });
   await waitState(page, "calm send", "read");
-  const css = await block(page, "calm send").locator(".send-receipt-mark").evaluate(node => { const svg = node.querySelector("svg"); return { anim: getComputedStyle(svg).animationName, transition: getComputedStyle(node).transitionDuration }; });
+  const css = await (await revealMark(page, "calm send")).evaluate(node => { const svg = node.querySelector("svg"); return { anim: getComputedStyle(svg).animationName, transition: getComputedStyle(node).transitionDuration }; });
   assert.equal(css.anim, "none");
   assert.match(css.transition, /^0s/);
   await context.close();

@@ -14,30 +14,35 @@ function Mark({ state }: { state: Receipt["state"] }) {
 }
 
 /**
- * Status of one of the person's own messages, below its bubble. The row has a fixed height and the mark a
- * fixed box, so a state change repaints in place and moves nothing. Only a change seen live plays the small
- * settle; a message loaded from history is drawn in its final state.
+ * Status of one of the person's own messages. Delivered and read are quiet: they show only in the hover/focus/tap action row,
+ * as a mark at its end next to the time (SendReceiptMark), and own no row of their own. The two states that must be seen without
+ * asking stay on the bubble: sending (the bubble is dimmed, the words are for assistive tech) and failed (the retry line).
  */
-export function SendReceipt({ receipt, names, group, onRetry }: { receipt: Receipt; names: string[]; group: boolean; onRetry?: () => void }) {
+export function SendReceipt({ receipt, onRetry }: { receipt: Receipt; names?: string[]; group?: boolean; onRetry?: () => void }) {
   const { t } = useTranslation("chat");
-  const previous = useRef(receipt.state);
-  const [settling, setSettling] = useState(false);
-  useEffect(() => {
-    if (previous.current === receipt.state) return;
-    previous.current = receipt.state;
-    setSettling(true);
-    const timer = window.setTimeout(() => setSettling(false), 360);
-    return () => window.clearTimeout(timer);
-  }, [receipt.state]);
   if (receipt.state === "failed") {
     return <div className="send-receipt" data-state="failed"><button type="button" className="send-receipt-retry" title={receipt.error} aria-label={`${t("receipt.failed")}. ${t("receipt.retry_label")}`} onClick={onRetry}>{t("receipt.failed")} · {t("receipt.retry")}</button></div>;
   }
-  const label = receipt.state === "sending" ? t("receipt.sending") : receipt.state === "delivered" ? t("receipt.delivered") : names.length && group ? t("receipt.read_by", { names: formatList(names) }) : t("receipt.read");
-  const tip = receipt.state === "read" && group && names.length > 0;
-  return <div className="send-receipt" data-state={receipt.state}>
-    <span className={`send-receipt-mark${settling ? " is-settling" : ""}${tip ? " has-tip" : ""}`} role="img" aria-label={label} tabIndex={tip ? 0 : undefined}>
-      <Mark state={receipt.state} />
-      {tip && <span className="send-receipt-tip" role="tooltip">{label}</span>}
-    </span>
-  </div>;
+  if (receipt.state === "sending") return <span className="sr-only send-receipt-status" data-state="sending" role="status">{t("receipt.sending")}</span>;
+  return null;
+}
+
+/** The delivered / read mark at the end of the action row. A group's read-by names show as a tooltip on hover and focus. */
+export function SendReceiptMark({ state, names, group }: { state: "delivered" | "read"; names: string[]; group: boolean }) {
+  const { t } = useTranslation("chat");
+  const previous = useRef(state);
+  const [settling, setSettling] = useState(false);
+  useEffect(() => {
+    if (previous.current === state) return;
+    previous.current = state;
+    setSettling(true);
+    const timer = window.setTimeout(() => setSettling(false), 360);
+    return () => window.clearTimeout(timer);
+  }, [state]);
+  const label = state === "delivered" ? t("receipt.delivered") : names.length && group ? t("receipt.read_by", { names: formatList(names) }) : t("receipt.read");
+  const tip = state === "read" && group && names.length > 0;
+  return <span className={`send-receipt-mark${settling ? " is-settling" : ""}${tip ? " has-tip" : ""}`} data-state={state} role="img" aria-label={label} tabIndex={tip ? -1 : undefined} data-roving={tip ? "" : undefined}>
+    <Mark state={state} />
+    {tip && <span className="send-receipt-tip" role="tooltip">{label}</span>}
+  </span>;
 }
