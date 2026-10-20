@@ -131,17 +131,21 @@ await check("a whole message arrives with the content above gliding up, not jump
   const step = maxStep(trace, t0 - 20);
   const frames = after.slice(1).map((f, i) => f.t - after[i].t);
   const home = after.find(f => f.t >= t0 && f.fb <= 0.5 && f.n > 40);
+  // The tween is judged on its own frames: the render that brought the block is a separate, earlier cost.
+  const startAt = after.findIndex((f, i) => i > 0 && f.y != null && after[i - 1].y != null && Math.abs(f.y - after[i - 1].y) > 0.5);
+  const tween = after.slice(Math.max(startAt - 1, 0)).filter(f => !home || f.t <= home.t + 20);
+  const tweenFrames = tween.slice(1).map((f, i) => f.t - tween[i].t);
   const moved = Math.max(...after.map(f => Math.abs((f.y ?? 0) - (after[0].y ?? 0))));
   const peakFb = Math.max(...after.map(f => f.fb));
   const cls = ls.filter(([t]) => t >= t0 - 20).reduce((sum, [, v]) => sum + v, 0);
   if (process.env.ARRIVAL_GLIDE_DEBUG) console.log(after.slice(0, 40).map(f => `${(f.t - t0).toFixed(0)}:${f.top.toFixed(0)}/${f.fb.toFixed(0)}`).join(" "));
-  report.whole = { moved: +moved.toFixed(1), stepMax: step, homeMs: home ? +(home.t - t0).toFixed(0) : null, fromBottomMax: +peakFb.toFixed(1), cls: +cls.toFixed(4), frameMax: +Math.max(...frames).toFixed(1), jumpShown: after.some(f => f.jump) };
+  report.whole = { moved: +moved.toFixed(1), stepMax: step, homeMs: home ? +(home.t - t0).toFixed(0) : null, fromBottomMax: +peakFb.toFixed(1), cls: +cls.toFixed(4), frameMax: +Math.max(...frames).toFixed(1), tweenFrameMax: +Math.max(...tweenFrames).toFixed(1), jumpShown: after.some(f => f.jump) };
   console.log("    whole", JSON.stringify(report.whole));
   assert.ok(moved > 60, `the previous message made room (${moved}px)`);
   assert.ok(step <= 24.5, `one frame moved the previous message ${step}px (limit 24)`);
   assert.ok(home && home.t - t0 <= 220 + 60 + THROTTLE * 8, `home after ${home ? home.t - t0 : "never"} ms (limit ~220)`);
   assert.ok(cls <= 0.01, `layout shift ${cls}`);
-  assert.ok(Math.max(...frames) <= 34 * THROTTLE ** 0.5 + 2, `a frame took ${Math.max(...frames)} ms`);
+  assert.ok(Math.max(...tweenFrames) <= 25 * THROTTLE ** 0.5 + 2, `a frame took ${Math.max(...tweenFrames)} ms during the tween (limit ~20)`);
   assert.ok(!after.some(f => f.jump), "the jump-to-latest button never showed while the pane followed");
   assert.deepEqual(errors, []);
   await context.close();
