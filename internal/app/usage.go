@@ -245,8 +245,14 @@ func (s *Store) recordAuxiliaryModelUsage(runID, model string, input, output int
 func (s *Store) usagePeriod(d time.Duration, kind string) ([]UsagePeriod, error) {
 	cutoff := time.Now().UTC().Add(-d)
 	// The thirty-day rollup has hour precision; the shorter windows use exact calls.
-	query := `SELECT bot_id,SUM(input_tokens),SUM(output_tokens),COUNT(*),SUM(equivalent_usd),SUM(1-price_known) FROM usage_calls WHERE occurred_at>=? AND kind=? GROUP BY bot_id`
-	args := []any{stampTime(cutoff), kind}
+	// Search fees belong to the chat spend that caused them; they add cost and
+	// are not model requests.
+	query := `SELECT bot_id,SUM(input_tokens),SUM(output_tokens),SUM(CASE WHEN kind=? THEN 0 ELSE 1 END),SUM(equivalent_usd),SUM(1-price_known) FROM usage_calls WHERE occurred_at>=? AND kind IN (?,?) GROUP BY bot_id`
+	searchKind := usageKindSearch
+	if kind != usageKindChat {
+		searchKind = kind
+	}
+	args := []any{usageKindSearch, stampTime(cutoff), kind, searchKind}
 	if d > 7*24*time.Hour {
 		cols := `input_tokens,output_tokens,requests,equivalent_usd,unpriced_requests`
 		if kind == usageKindReview {
@@ -411,4 +417,41 @@ func (s *Server) contextUsageTool(runID string) Tool {
 		b, err := json.Marshal(map[string]any{"model": u.Model, "window_tokens_local_config": u.WindowTokens, "window_registered_locally": u.WindowKnown, "estimated_input_at_last_model_call": u.EstimatedInput, "actual_input_at_last_model_call": u.LastInput, "tokens_until_compaction_estimate": remaining, "compaction_threshold_fraction": 0.8, "compaction_count_this_run": u.CompactCount, "note": "Window size comes from local model metadata and may differ from the provider. The estimate was captured before the last model call; subsequent tool results can increase context. Cumulative tokens are not context occupancy."})
 		return string(b), err
 	}}
+}
+
+// usageKindSearch marks the fee for provider-side web searches a run's model
+// ran. It has no tokens: the searched pages' text is billed as ordinary input
+// on the model request that read them.
+const usageKindSearch = "web_search"
+
+// webSearchUSD is the provider's list price of one server-side search
+// ($10 per 1,000 searches).
+const webSearchUSD = 0.01
+
+// recordWebSearchUsage books the fee for n server-side searches a run's model
+// request ran: its own usage_calls row, and the cost in the bot's hourly
+// rollup (no request is added).
+func (s *Store) recordWebSearchUsage(runID string, n int64) error {
+	if n <= 0 {
+		return nil
+	}
+	t := time.Now().UTC()
+	stamp := stampTime(t)
+	tx, err := s.db.Begin()
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	var botID, model, prompt string
+	if err = tx.QueryRow(`SELECT r.bot_id,u.model,COALESCE(m.content,'') FROM runs r JOIN run_usage u ON u.run_id=r.id LEFT JOIN messages m ON m.id=r.trigger_message_id WHERE r.id=?`, runID).Scan(&botID, &model, &prompt); err != nil {
+		return err
+	}
+	fee := float64(n) * webSearchUSD
+	if _, err = tx.Exec(`INSERT INTO usage_calls(run_id,bot_id,model,input_tokens,output_tokens,equivalent_usd,price_known,trigger_content,occurred_at,kind) VALUES(?,?,?,0,0,?,1,?,?,?)`, runID, botID, model, fee, prompt, stamp, usageKindSearch); err != nil {
+		return err
+	}
+	if _, err = tx.Exec(`INSERT INTO usage_hourly(hour,bot_id,input_tokens,output_tokens,requests,equivalent_usd,unpriced_requests) VALUES(?,?,0,0,0,?,0) ON CONFLICT(hour,bot_id) DO UPDATE SET equivalent_usd=equivalent_usd+excluded.equivalent_usd`, t.Format("2006-01-02T15"), botID, fee); err != nil {
+		return err
+	}
+	return tx.Commit()
 }

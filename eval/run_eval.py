@@ -348,13 +348,15 @@ def collect(srv, probe, conv, seen_runs, seq0, usage0, timed_out, error, bots=No
         nb = norm(b)
         if len(nb) >= 20 and any(nb in norm(v["text"]) or (len(norm(v["text"])) >= 20 and norm(v["text"]) in nb) for v in visible):
             brief_visible = True
-    usage = {"calls": 0, "input_tokens": 0, "output_tokens": 0}
+    usage = {"calls": 0, "input_tokens": 0, "output_tokens": 0, "search_usd": 0.0, "searches": 0}
     tools, tool_starts = [], []
     if run_ids:
         q = ",".join("?" * len(run_ids))
+        # Server-side search fees are their own rows (kind web_search): money, not model calls.
         u = db.execute("SELECT COUNT(*),COALESCE(SUM(input_tokens),0),COALESCE(SUM(output_tokens),0) FROM usage_calls "
-                       "WHERE run_id IN (%s)" % q, run_ids).fetchone()
-        usage = {"calls": u[0], "input_tokens": u[1], "output_tokens": u[2]}
+                       "WHERE kind<>'web_search' AND run_id IN (%s)" % q, run_ids).fetchone()
+        sr = db.execute("SELECT COALESCE(SUM(equivalent_usd),0) FROM usage_calls WHERE kind='web_search' AND run_id IN (%s)" % q, run_ids).fetchone()
+        usage = {"calls": u[0], "input_tokens": u[1], "output_tokens": u[2], "search_usd": sr[0], "searches": round(sr[0] / 0.01)}
         tool_rows = db.execute("SELECT name,started_at FROM tool_activities WHERE run_id IN (%s) ORDER BY rowid" % q, run_ids).fetchall()
         tools = [r[0] for r in tool_rows]
         tool_starts = [(r[0], r[1]) for r in tool_rows]
@@ -492,7 +494,9 @@ def aggregate(results):
     lookups = [p for p in results if p["lookup_attempted"] is not None]
     usage = {"calls": sum(p["usage"]["calls"] for p in results),
              "input_tokens": sum(p["usage"]["input_tokens"] for p in results),
-             "output_tokens": sum(p["usage"]["output_tokens"] for p in results)}
+             "output_tokens": sum(p["usage"]["output_tokens"] for p in results),
+             "search_usd": sum(p["usage"].get("search_usd", 0.0) for p in results),
+             "searches": sum(p["usage"].get("searches", 0) for p in results)}
     out = {
         "probes": len(results), "runs": len(runs),
         "origin_counts": origin_counts,
@@ -526,7 +530,7 @@ def cost_usd(model, usage):
     pin, pout, _ = PRICES.get(model, (None, None, "no price"))
     if pin is None:
         return None
-    return round(usage["input_tokens"] / 1e6 * pin + usage["output_tokens"] / 1e6 * pout, 4)
+    return round(usage["input_tokens"] / 1e6 * pin + usage["output_tokens"] / 1e6 * pout + usage.get("search_usd", 0.0), 4)
 
 
 def pct(x):

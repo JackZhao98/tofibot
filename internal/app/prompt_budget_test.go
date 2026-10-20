@@ -254,11 +254,15 @@ func TestProductionPromptSizeMatrix(t *testing.T) {
 				// 6250: deliver on stated assumptions and write-means-draft-the-text (~320,
 				// task-completion eval 2026-10-19) plus the verification and
 				// lookup-before-asking principle (~275).
-				if tc.name == "dm" && len([]rune(system))+runtime.SystemPromptOverheadRunes() > 6250 {
-					t.Errorf("ordinary DM provider system exceeds 6250 runes")
+				// 6300: the same lookup line also covers a named work, product, person or
+				// event that may postdate the model, now that every Bot can search (~40).
+				if tc.name == "dm" && len([]rune(system))+runtime.SystemPromptOverheadRunes() > 6300 {
+					t.Errorf("ordinary DM provider system exceeds 6300 runes")
 				}
-				if fixed > 6950 {
-					t.Errorf("fixed overhead %d leaves too little customization headroom (ceiling 6950)", fixed)
+				// 7000: the lookup line's works-newer-than-the-model clause (~45) lands in
+				// every prompt, the longest of which sat 23 under 6950.
+				if fixed > 7000 {
+					t.Errorf("fixed overhead %d leaves too little customization headroom (ceiling 7000)", fixed)
 				}
 				if !strings.Contains(system, bot.Instructions) {
 					t.Fatal("user instructions changed")

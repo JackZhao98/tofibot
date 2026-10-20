@@ -23,7 +23,7 @@ var noCompletionReviewTools = []string{
 	"list_mcp_servers", "search_mcp_catalog", "search_mcp_tools", "list_skills", "read_skill", "read_skill_file",
 	// Browsing and pointing at the screen gather information; they are not the
 	// deliverable, and a research answer needs no extra review turn.
-	"computer_browser", "computer_desktop",
+	"computer_browser", "computer_desktop", "web_search",
 }
 
 // noCompletionReviewSQL is the constant SQL list of noCompletionReviewTools.

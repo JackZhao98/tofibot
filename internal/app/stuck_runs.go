@@ -128,6 +128,7 @@ func (s *Server) reconcileStuckRuns(ctx context.Context, at time.Time) []string 
 		concluded = append(concluded, c.runID)
 		if failed, e := s.store.GetRun(c.runID); e == nil {
 			_, _ = s.store.Event(c.conversationID, "run", failed)
+			s.store.promoteCoAddressedFallback(failed)
 		}
 		// Unwind a live executor; its own terminal write cannot reopen the run.
 		s.mu.Lock()

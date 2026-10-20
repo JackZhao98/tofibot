@@ -2100,6 +2100,10 @@ func (s *Store) finishRun(id, conv, bot, content string, silent bool) (Message, 
 type finishOpts struct {
 	structured bool
 	promoted   *Message
+	// coAddressedInput lets a silent finish follow folded say notes: the run's
+	// part was an input for a later co-addressed member, so its notes are the
+	// whole contribution and nothing visible is owed.
+	coAddressedInput bool
 }
 
 // FinishRunStructured finishes a run that follows the say protocol.
@@ -2150,7 +2154,11 @@ func (s *Store) finishRunOpts(id, conv, bot, content string, silent bool, failur
 	}
 	if silent {
 		var contributions int
-		if err = tx.QueryRow(`SELECT COUNT(*) FROM messages WHERE run_id=? AND role='assistant'`, id).Scan(&contributions); err != nil {
+		contributionSQL := `SELECT COUNT(*) FROM messages WHERE run_id=? AND role='assistant'`
+		if opts.coAddressedInput {
+			contributionSQL += ` AND NOT (kind='progress' AND client_message_id LIKE 'say-note:%')`
+		}
+		if err = tx.QueryRow(contributionSQL, id).Scan(&contributions); err != nil {
 			return Message{}, false, err
 		}
 		if (runKind != runKindGroupChat && runKind != runKindGroupMention && runKind != runKindFollowup && runKind != "") || handoffs != 0 || pendingFiles != 0 || contributions != 0 {
@@ -3842,6 +3850,12 @@ func (s *Server) execute(c Conversation, r Run) {
 	res, e := runEngine.Run(ctx, Request{BotID: r.BotID, RunID: r.ID, ConversationID: c.ID, System: system, Model: model, ReasoningEffort: reasoningEffort, Messages: pm, Tools: tools, OnDelta: onDelta, StructuredOutput: structured, ForceToolUse: structured && forceSayFor(c, r, model), OnToolCallDelta: onToolCallDelta, EndOnEmptyFinal: endOnEmptyFinal, BeforeModelCall: steeringBoundary, BeforeFinalResponse: finalReview, FinalResponseRepairTools: finalRepairTools, OnAssistantTurn: onAssistantTurn,
 		OnThinking: onThinking, OnRetry: onRetry, OnStreamReset: onStreamReset, OnReviewDraft: onReviewDraft,
 		Continuation:      continuation,
+		WebSearchMaxUses:  webSearchMaxUses(model, tools),
+		OnWebSearchBilled: func(n int64) {
+			if err := s.store.recordWebSearchUsage(r.ID, n); err != nil {
+				log.Printf("[usage] web search: %v", err)
+			}
+		},
 		ResumeResult:      s.inputResumeResult(answeredQuestion),
 		ResumeOutcome:     s.inputResumeOutcome(answeredQuestion),
 		Attempt:           claim.Attempt,
@@ -3931,6 +3945,7 @@ func (s *Server) execute(c Conversation, r Run) {
 		}
 		if status == "failed" {
 			s.noteAPIKeyRejection(model, e)
+			s.store.promoteCoAddressedFallback(r)
 		}
 		return
 	}
@@ -4192,6 +4207,7 @@ func (s *Server) failRun(c Conversation, r Run, err error) {
 		if failed, e := s.store.GetRun(r.ID); e == nil {
 			_, _ = s.store.Event(c.ID, "run", failed)
 		}
+		s.store.promoteCoAddressedFallback(r)
 	}
 	s.noteModelAuthRejection(s.runModel(r), err)
 }
