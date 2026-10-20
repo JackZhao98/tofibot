@@ -301,7 +301,12 @@ func (s *Server) fireWait(waitRunID, msgID, request, status string) {
 		return
 	}
 	if msgID == "" {
-		if s.store.db.QueryRow(`SELECT id FROM messages WHERE conversation_id=? AND kind<>'bot_result' ORDER BY seq DESC LIMIT 1`, conv).Scan(&msgID) != nil {
+		// Anchor a timeout on a message from the group, never on a person's
+		// newest message: that one belongs to whoever the person is talking to.
+		if s.store.db.QueryRow(`SELECT id FROM messages WHERE conversation_id=? AND role='assistant' AND kind<>'bot_result' ORDER BY seq DESC LIMIT 1`, conv).Scan(&msgID) != nil {
+			msgID = waiter.TriggerMessageID
+		}
+		if msgID == "" {
 			return
 		}
 	}

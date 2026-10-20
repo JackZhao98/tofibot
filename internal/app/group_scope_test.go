@@ -104,3 +104,80 @@ func TestSteeredCarryoverNeverCrossesBots(t *testing.T) {
 		t.Fatalf("another Bot's tool results were carried over: %q", got)
 	}
 }
+
+// Stop in a group takes the whole lineage, sibling wakes included, and a
+// pending wait of that lineage can no longer wake anyone.
+func TestGroupStopCancelsSiblingWakesAndExpiresPendingWaits(t *testing.T) {
+	f := newScopeFixture(t)
+	root := f.post(t, "@alpha gather and use", f.a)[0]
+	f.s.SetRunStatus(root.ID, "running", "")
+	m, err := f.s.GetMessage(root.TriggerMessageID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	w1, ok, err := f.s.AddMentionWake(f.g.ID, root, m.ID+"-1", f.b.ID, "gather the data")
+	if err != nil || !ok {
+		t.Fatalf("wake b: %v %v", ok, err)
+	}
+	w2, ok, err := f.s.AddMentionWake(f.g.ID, root, m.ID+"-2", f.c.ID, "use the data")
+	if err != nil || !ok {
+		t.Fatalf("wake c: %v %v", ok, err)
+	}
+	if _, err := f.s.db.Exec(`INSERT INTO run_waits(run_id,conversation_id,bot_id,wait_for,lineage,status,deadline_at,created_at) VALUES(?,?,?,?,?,'pending',?,?)`, w2.ID, f.g.ID, f.c.ID, f.b.ID, lineageKey(f.s.db, w2.ID), "2999-01-01T00:00:00Z", now()); err != nil {
+		t.Fatal(err)
+	}
+	if err := f.s.CancelRunTree(w1.ID); err != nil {
+		t.Fatal(err)
+	}
+	for name, id := range map[string]string{"stopped wake": w1.ID, "sibling wake": w2.ID, "root": root.ID} {
+		if got := f.status(t, id); got != "cancelled" {
+			t.Errorf("%s is %s, want cancelled", name, got)
+		}
+	}
+	var status string
+	f.s.db.QueryRow(`SELECT status FROM run_waits WHERE run_id=?`, w2.ID).Scan(&status)
+	if status != "expired" {
+		t.Fatalf("pending wait is %s, want expired", status)
+	}
+}
+
+// A timed-out wait is anchored on the group's last Bot message, never on the
+// person's newest message addressed to someone else.
+func TestWaitTimeoutAnchorsOnGroupMessageNotPersonMessage(t *testing.T) {
+	s, err := NewServer(Config{DataDir: t.TempDir(), Engine: testEngine{}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer s.Close()
+	a, _ := s.store.CreateBot("alpha", "", "m")
+	b, _ := s.store.CreateBot("bravo", "", "m")
+	g, _ := s.store.CreateGroup("anchor", []string{a.ID, b.ID})
+	_, runs, _, _ := s.store.AddUserRuns(g.ID, "@alpha ask bravo", "c1", []runSpec{{BotID: a.ID, Model: a.Model}}, true)
+	s.store.SetRunStatus(runs[0].ID, "running", "")
+	botMsg, _, err := s.store.FinishRun(runs[0].ID, g.ID, a.ID, "I asked bravo for the figures.")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.store.db.Exec(`INSERT INTO run_waits(run_id,conversation_id,bot_id,wait_for,lineage,status,deadline_at,created_at) VALUES(?,?,?,?,?,'pending',?,?)`, runs[0].ID, g.ID, a.ID, b.ID, lineageKey(s.store.db, runs[0].ID), "2999-01-01T00:00:00Z", now()); err != nil {
+		t.Fatal(err)
+	}
+	person, _, _, err := s.store.AddUserRuns(g.ID, "@bravo something else entirely", "c2", []runSpec{{BotID: b.ID, Model: b.Model}}, true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_ = person
+	s.fireWait(runs[0].ID, "", waitTimeoutRequest, "expired")
+	all, _ := s.store.Runs(g.ID)
+	var wake *Run
+	for i := range all {
+		if all[i].Kind == runKindGroupMention {
+			wake = &all[i]
+		}
+	}
+	if wake == nil {
+		t.Fatal("timeout woke nobody")
+	}
+	if wake.TriggerMessageID != botMsg.ID {
+		t.Fatalf("wake anchored on %s, want the Bot message %s", wake.TriggerMessageID, botMsg.ID)
+	}
+}
