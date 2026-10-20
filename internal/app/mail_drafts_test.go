@@ -172,3 +172,31 @@ func TestMockMailDraftCanCompleteWithoutGoogleAndNeverSends(t *testing.T) {
 		t.Fatalf("mock result=%+v", got)
 	}
 }
+
+// A placeholder recipient reaches the model as an English repair hint, not as
+// the localized UI text, and nothing is saved.
+func TestPrepareEmailRejectsPlaceholderRecipientWithRepairHint(t *testing.T) {
+	s, conv, run := mailDraftFixture(t)
+	var tool Tool
+	for _, candidate := range s.mailDraftTools(conv, run) {
+		if candidate.Name == "prepare_email" {
+			tool = candidate
+		}
+	}
+	_, err := tool.Execute(context.Background(), []byte(`{"to":"[landlord email]","subject":"Notice","body":"Hello"}`))
+	if err == nil {
+		t.Fatal("placeholder recipient accepted")
+	}
+	for _, want := range []string{"literal email addresses", "leave to empty", "Nothing was saved"} {
+		if !strings.Contains(err.Error(), want) {
+			t.Fatalf("error lacks %q: %v", want, err)
+		}
+	}
+	if drafts, _ := s.store.ListMailDrafts(conv.ID); len(drafts) != 0 {
+		t.Fatalf("drafts=%+v", drafts)
+	}
+	// The HTTP and UI path keeps its localized text.
+	if _, _, verr := validateMailDraft("[x]", "s", "b"); verr == nil || !strings.Contains(verr.Error(), "收件人") {
+		t.Fatalf("validate error = %v", verr)
+	}
+}

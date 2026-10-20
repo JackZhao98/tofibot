@@ -1171,6 +1171,7 @@ func RunAgentLoop(cfg AgentConfig, ctx *models.ExecutionContext) (returned *Agen
 		}
 	}
 
+	resumedActivation := false
 	for !state.Phase.IsTerminal() {
 		if checkpointErr != nil {
 			return nil, checkpointErr
@@ -1196,6 +1197,17 @@ func RunAgentLoop(cfg AgentConfig, ctx *models.ExecutionContext) (returned *Agen
 		// iteration must be declared to the provider, otherwise the model
 		// is told "these tools are now available" but physically cannot
 		// call them (providers restrict calls to declared tools).
+		if !resumedActivation {
+			// A resumed run already called deferred tools; they stay declared.
+			resumedActivation = true
+			for _, m := range state.Messages {
+				for _, call := range m.ToolCalls {
+					if t := registry.Get(call.Name); t != nil && t.Deferred() {
+						registry.Activate(call.Name)
+					}
+				}
+			}
+		}
 		for _, sch := range registry.ActivatedDeferredSchemas() {
 			if !declaredTools[sch.Name] {
 				allTools = append(allTools, sch)
@@ -1757,7 +1769,7 @@ func RunAgentLoop(cfg AgentConfig, ctx *models.ExecutionContext) (returned *Agen
 
 				// Registry tools (core + skill + activated deferred)
 				if tool := registry.Get(tc.Name); tool != nil {
-					result, err := tool.Execute(loopCtx, argsMap)
+					result, err := tool.Execute(WithToolActivator(loopCtx, registry), argsMap)
 					if err != nil {
 						return "", err
 					}
@@ -2043,9 +2055,9 @@ func RunAgentLoop(cfg AgentConfig, ctx *models.ExecutionContext) (returned *Agen
 
 				// Handle registry tools (core + skill + activated deferred)
 				if tool := registry.Get(fnName); tool != nil {
-					executionCtx := loopCtx
+					executionCtx := WithToolActivator(loopCtx, registry)
 					if cfg.ToolsOnly {
-						executionCtx = tooloutcome.WithBoundary(loopCtx, func(identity tooloutcome.Identity) *tooloutcome.Outcome {
+						executionCtx = tooloutcome.WithBoundary(executionCtx, func(identity tooloutcome.Identity) *tooloutcome.Outcome {
 							blocked := recoveryGuard(identity, dispatchArgs)
 							if blocked != nil {
 								recoveryBlocked[callID] = true
