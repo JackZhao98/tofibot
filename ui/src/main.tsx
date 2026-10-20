@@ -40,5 +40,6 @@ import "./web-mention.css";
 import "./web-file-drop.css";
 import "./web-sidebar-list.css";
 import "./chat-header.css";
+import "./progressive-blur.css";
 import "./context-card.css";
 import "./focus-ring.css";

@@ -46,7 +46,7 @@ html:not([data-desktop]) .workspace .chat-pane:has(.composer-perch) .message-scr
    message being answered stays visible above the keyboard instead of sitting under ~280px of padding. */
 html:not([data-desktop]) .workspace.keyboard-viewport-open .composer-perch { display:none; }
 html:not([data-desktop]) .workspace.keyboard-viewport-open .message-scroll,
-html:not([data-desktop]) .workspace.keyboard-viewport-open .chat-pane:has(.composer-perch) .message-scroll { padding-top:8px; padding-bottom:calc(var(--composer-height,110px) + 8px); }
+html:not([data-desktop]) .workspace.keyboard-viewport-open .chat-pane:has(.composer-perch) .message-scroll { padding-top:calc(var(--chat-header-height,0px) + 8px); padding-bottom:calc(var(--composer-height,110px) + 8px); }
 html[data-desktop] .workspace .message-scroll { padding-bottom:calc(var(--composer-height,110px) + 24px + 20px); }
 /* A live-only group block is not a sender unit: its line starts in the avatar column, the cat centred where the avatar sits. */
 .workspace .task-run-block.in-group:not([data-sender]) > .task-run-live-line { margin-left:calc(var(--sender-gutter) * -1); gap:var(--sender-gap); }
