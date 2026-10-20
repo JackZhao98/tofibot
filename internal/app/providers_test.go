@@ -556,6 +556,9 @@ func TestRunWithAnthropicModelEndToEnd(t *testing.T) {
 	anthropic := newFakeAnthropic(t, "Hello from Claude.")
 	s := providerServer(t, nil, anthropic)
 	putProviderKeyOK(t, s, "anthropic", syntheticAnthropicKey)
+	anthropic.mu.Lock()
+	anthropic.chats, anthropic.chatKeys = nil, nil // drop the key-verification probe
+	anthropic.mu.Unlock()
 	run, messages := runBotThroughProvider(t, s, "claude-opus-5-5", "Say hello.")
 	if run.Status != "done" {
 		t.Fatalf("run=%+v failure=%+v", run, run.failure())
