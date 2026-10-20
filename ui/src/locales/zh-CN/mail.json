@@ -20,6 +20,7 @@
     "demo_badge": "演示 · 不会发送",
     "needs_approval": "需要你批准",
     "demo_hint": "只演示界面，不联系 Gmail",
+    "add_recipient": "添加收件人",
     "send_final": "发出后不能撤回",
     "working": "处理中…",
     "hold": "先别发",
