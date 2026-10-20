@@ -275,13 +275,13 @@ func (s *Server) steeredToolCarryover(conversationID, beforeRunID string) string
 	var totalCalls, completedCalls int
 	_ = s.store.db.QueryRow(`SELECT COUNT(*),COALESCE(SUM(CASE WHEN a.status='completed' THEN 1 ELSE 0 END),0)
 		FROM tool_activities a JOIN runs r ON r.id=a.run_id JOIN run_steering link ON link.old_run_id=r.id AND link.new_run_id=?
-		WHERE a.conversation_id=? AND r.status='cancelled' AND r.error LIKE 'steered by newer user message%'`, beforeRunID, conversationID).Scan(&totalCalls, &completedCalls)
+		WHERE a.conversation_id=? AND r.bot_id=(SELECT bot_id FROM runs WHERE id=?) AND r.status='cancelled' AND r.error LIKE 'steered by newer user message%'`, beforeRunID, conversationID, beforeRunID).Scan(&totalCalls, &completedCalls)
 	rows, err := s.store.db.Query(`SELECT a.run_id,a.bot_id,a.call_id,a.name,a.arguments,a.result,a.status,a.updated_at
 		FROM tool_activities a JOIN runs r ON r.id=a.run_id
 		JOIN run_steering link ON link.old_run_id=r.id AND link.new_run_id=?
-		WHERE a.conversation_id=? AND r.status='cancelled'
+		WHERE a.conversation_id=? AND r.bot_id=(SELECT bot_id FROM runs WHERE id=?) AND r.status='cancelled'
 		AND r.error LIKE 'steered by newer user message%'
-		ORDER BY a.updated_at DESC,a.run_id DESC,a.call_id DESC LIMIT 200`, beforeRunID, conversationID)
+		ORDER BY a.updated_at DESC,a.run_id DESC,a.call_id DESC LIMIT 200`, beforeRunID, conversationID, beforeRunID)
 	if err != nil {
 		return ""
 	}
@@ -448,6 +448,22 @@ func (s *Server) buildContextPartsWith(c Conversation, r Run, bot Bot, cachedMCP
 		// trigger, which is where its history is otherwise cut.
 		if replies := s.store.coAddressedReplies(r, contextConversationID); len(replies) > 0 {
 			msgs = append(msgs, replies...)
+			sort.Slice(msgs, func(i, j int) bool { return msgs[i].Seq < msgs[j].Seq })
+		}
+	}
+	if c.Kind == "group" && (r.Kind == runKindGroupMention || r.Kind == runKindGroupTask) {
+		have := make(map[string]bool, len(msgs))
+		for _, m := range msgs {
+			have[m.ID] = true
+		}
+		added := false
+		for _, m := range s.store.lineageFamilyReplies(r, contextConversationID) {
+			if !have[m.ID] {
+				msgs = append(msgs, m)
+				added = true
+			}
+		}
+		if added {
 			sort.Slice(msgs, func(i, j int) bool { return msgs[i].Seq < msgs[j].Seq })
 		}
 	}

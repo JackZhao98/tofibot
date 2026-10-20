@@ -5,6 +5,7 @@
     "saving": "Saving…"
   },
   "apiError": {
+    "ambiguous_recipient": "Two members share that name. Rename one of them or pick the name from the list.",
     "archive_blocked": "This conversation is archived. Restore it to send messages.",
     "archive_busy": "Some tasks are still running. Wait for them to finish or stop them before archiving.",
     "delete_busy": "Related tasks are still running. Stop them, then try deleting again.",
