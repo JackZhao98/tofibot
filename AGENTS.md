@@ -44,3 +44,7 @@ runs and for loopback/private MCP hosts. Click approvals (`claimApprovalTarget`)
 (`click_approval_claims`). Login limits are per peer address (IPv6 /64) and per account identifier; there is no global bucket.
 Session cookies are Secure when `TOFI_PUBLIC_ORIGIN` is https; Caddy sends HSTS. Known open: `computer_shell` shares a uid and loopback with the
 shared Chrome DevTools port.
+
+# Fast UI preview against a running server
+
+Iterate on the UI without a release: `cd ui && TOFI_DEV_API_ORIGIN=https://<server>:8321 npm run dev:remote`, then open http://localhost:5173 in Chrome and sign in once. Vite hot-reloads UI edits instantly while `/api` is proxied to that server's real data; `dev:remote` accepts the default self-signed certificate. Safari will not keep the Secure session cookie on plain-http localhost, so use Chrome. Backend changes still need a build and deploy.
