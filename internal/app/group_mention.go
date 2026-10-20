@@ -252,3 +252,48 @@ func (s *Store) publishWakeNotice(conv string, poster Run, wake Run, request str
 	}
 	return tx.Commit()
 }
+
+// lineageFamilyReplies returns what the other runs of a woken run's lineage
+// (the root request and every run it started, siblings included) have posted.
+// A woken Bot's history is cut at its trigger, so without these a sibling
+// started in the same fan-out never sees the data a colleague already posted.
+func (s *Store) lineageFamilyReplies(r Run, conversationID string) []Message {
+	rootID, rootTrigger := r.ID, r.TriggerMessageID
+	for id, steps := r.ParentRunID, 0; id != "" && steps <= 64; steps++ {
+		var parent, trigger sql.NullString
+		if s.db.QueryRow(`SELECT parent_run_id,trigger_message_id FROM runs WHERE id=?`, id).Scan(&parent, &trigger) != nil {
+			break
+		}
+		rootID, rootTrigger = id, trigger.String
+		id = parent.String
+	}
+	var fromSeq int64
+	if rootTrigger != "" {
+		if anchor, err := s.GetMessage(rootTrigger); err == nil && anchor.ConversationID == conversationID {
+			fromSeq = anchor.Seq
+		}
+	}
+	rows, err := s.db.Query(`WITH RECURSIVE family(id) AS (
+		SELECT id FROM runs WHERE conversation_id=? AND COALESCE(parent_run_id,'')='' AND (id=? OR (?<>'' AND trigger_message_id=?))
+		UNION SELECT r.id FROM runs r JOIN family f ON r.parent_run_id=f.id
+	) SELECT id FROM messages WHERE conversation_id=? AND seq>? AND role='assistant' AND (kind IN ('','segment') OR (kind='progress' AND client_message_id LIKE 'say-note:%'))
+		AND run_id IN (SELECT id FROM family) AND run_id<>? ORDER BY seq LIMIT 200`, conversationID, rootID, rootTrigger, rootTrigger, conversationID, fromSeq, r.ID)
+	if err != nil {
+		return nil
+	}
+	var ids []string
+	for rows.Next() {
+		var id string
+		if rows.Scan(&id) == nil {
+			ids = append(ids, id)
+		}
+	}
+	rows.Close()
+	var out []Message
+	for _, id := range ids {
+		if m, e := s.GetMessage(id); e == nil {
+			out = append(out, m)
+		}
+	}
+	return out
+}

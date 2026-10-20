@@ -381,6 +381,22 @@ func (s *Server) buildContextPartsWith(c Conversation, r Run, bot Bot, cachedMCP
 			sort.Slice(msgs, func(i, j int) bool { return msgs[i].Seq < msgs[j].Seq })
 		}
 	}
+	if c.Kind == "group" && (r.Kind == runKindGroupMention || r.Kind == runKindGroupTask) {
+		have := make(map[string]bool, len(msgs))
+		for _, m := range msgs {
+			have[m.ID] = true
+		}
+		added := false
+		for _, m := range s.store.lineageFamilyReplies(r, contextConversationID) {
+			if !have[m.ID] {
+				msgs = append(msgs, m)
+				added = true
+			}
+		}
+		if added {
+			sort.Slice(msgs, func(i, j int) bool { return msgs[i].Seq < msgs[j].Seq })
+		}
+	}
 	msgs = s.foldClosedGroupExchanges(c, r, bot, msgs)
 	summaryBoundary := before
 	if summaryBoundary == 0 {
