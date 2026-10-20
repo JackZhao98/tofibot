@@ -370,3 +370,37 @@ func TestWeeklyPortabilityValidation(t *testing.T) {
 		}
 	}
 }
+
+func TestScheduleToolResultCarriesNextRunInTheSchedulesZone(t *testing.T) {
+	store, bot, c := scheduleTestStore(t)
+	defer store.Close()
+	_, run, _, err := store.AddUserRun(c.ID, bot.ID, "Remind me about the appointment.", "zone-tool-source")
+	if err != nil {
+		t.Fatal(err)
+	}
+	server := &Server{store: store, accountID: "synthetic-zone-account"}
+	in := map[string]any{"title": "Appointment", "description": "Reminder", "content": "Remind the person.", "kind": "once", "run_at": "2030-07-01T16:00:00Z", "timezone": "America/Los_Angeles"}
+	out, err := executeScheduleTool(t, server, c, run, "create_schedule", in)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var got struct {
+		NextAtUTC   string `json:"next_at_utc"`
+		NextAtLocal string `json:"next_at_local"`
+	}
+	if err := json.Unmarshal([]byte(out), &got); err != nil {
+		t.Fatal(err)
+	}
+	if want := "Mon 2030-07-01 09:00 PDT (America/Los_Angeles)"; got.NextAtLocal != want {
+		t.Fatalf("next_at_local=%q want %q (utc %q)", got.NextAtLocal, want, got.NextAtUTC)
+	}
+	list, err := executeScheduleTool(t, server, c, run, "list_schedules", map[string]any{})
+	if err != nil || !strings.Contains(list, `"next_at_local":"Mon 2030-07-01 09:00 PDT (America/Los_Angeles)"`) {
+		t.Fatalf("list lacks the local time: %s %v", list, err)
+	}
+	for _, tool := range server.scheduleTools(c, run) {
+		if tool.Name == "create_schedule" && !strings.Contains(tool.Description, "next_at_local") {
+			t.Fatal("create_schedule description does not tell the confirmation to state the local time with its zone")
+		}
+	}
+}
