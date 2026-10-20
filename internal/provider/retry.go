@@ -236,3 +236,9 @@ func observeRetry(ctx context.Context, attempt int, err error, delay time.Durati
 		observe(attempt, err, delay)
 	}
 }
+
+// ObserveRetry reports a retry wait to the observer installed with
+// WithRetryObserver, for callers that retry outside RetryProvider.
+func ObserveRetry(ctx context.Context, attempt int, err error, delay time.Duration) {
+	observeRetry(ctx, attempt, err, delay)
+}

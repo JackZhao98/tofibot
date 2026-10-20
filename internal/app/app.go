@@ -285,6 +285,9 @@ type Store struct {
 	db                      *sql.DB
 	scheduleSchemaOnce      sync.Once
 	scheduleSchemaErr       error
+	// onReturnQueued wakes the queue of a return run created inside a
+	// failure transaction, after that transaction commits.
+	onReturnQueued func(Run)
 }
 
 var ErrConversationBusy = errors.New("conversation has an active run")
@@ -406,6 +409,11 @@ func recoverInterruptedRuns(db *sql.DB) error {
 		}
 		if err = finishRecoveredActivitiesTx(tx, run, settle, t); err != nil {
 			return err
+		}
+		if run.Status == "failed" {
+			if _, _, err = scheduleChildFailureReturnTx(tx, run.ID); err != nil {
+				return err
+			}
 		}
 		if run.Status != "queued" {
 			ended = append(ended, run)
@@ -1834,6 +1842,8 @@ func (s *Store) SetRunStatus(id, status, msg string) (bool, error) {
 		}
 	}
 	terminal := status == "failed" || status == "cancelled" || status == "interrupted"
+	var failureReturn Run
+	var failureReturned bool
 	if n == 1 && status == "failed" {
 		noteFinalOriginDefault(tx, id, finalOriginNone)
 	}
@@ -1856,8 +1866,16 @@ func (s *Store) SetRunStatus(id, status, msg string) (bool, error) {
 			}
 		}
 	}
+	if n == 1 && status == "failed" {
+		if failureReturn, failureReturned, e = scheduleChildFailureReturnTx(tx, id); e != nil {
+			return false, e
+		}
+	}
 	if e = tx.Commit(); e != nil {
 		return false, e
+	}
+	if failureReturned && s.onReturnQueued != nil {
+		s.onReturnQueued(failureReturn)
 	}
 	if n == 1 && terminal {
 		s.cleanupRunAttachments(id)
@@ -2085,10 +2103,14 @@ func (s *Store) finishRunOpts(id, conv, bot, content string, silent bool, failur
 	done.OriginConversationID = origin.String
 	done.TriggerMessageID = trigger.String
 	_ = tx.QueryRow(`SELECT final_origin FROM runs WHERE id=?`, id).Scan(&done.FinalOrigin)
+	var failureReturn Run
+	var failureReturned bool
 	if failure == "" {
 		if _, _, err = scheduleGroupFollowupTx(tx, done, m); err != nil {
 			return Message{}, false, err
 		}
+	} else if failureReturn, failureReturned, err = scheduleChildFailureReturnTx(tx, id); err != nil {
+		return Message{}, false, err
 	}
 	runData, _ := json.Marshal(done)
 	if _, err = tx.Exec(`INSERT INTO events(conversation_id,type,data,created_at) VALUES(?,?,?,?)`, conv, "run", string(runData), t); err != nil {
@@ -2128,6 +2150,9 @@ func (s *Store) finishRunOpts(id, conv, bot, content string, silent bool, failur
 	}
 	if err = tx.Commit(); err != nil {
 		return Message{}, false, err
+	}
+	if failureReturned && s.onReturnQueued != nil {
+		s.onReturnQueued(failureReturn)
 	}
 	return m, true, nil
 }
@@ -2403,6 +2428,11 @@ func NewServer(c Config) (*Server, error) {
 		savedSettings.ReasoningEffort = "medium"
 	}
 	server := &Server{accountID: c.AccountID, isolatedWorkspace: c.IsolatedWorkspace, localRunnerURL: c.LocalRunnerURL, localRunnerTokenFile: c.LocalRunnerTokenFile, instance: identity, store: st, engine: engine, codex: codex, codexManaged: codexManaged, defaultModel: c.DefaultModel, defaultReasoning: savedSettings.ReasoningEffort, provider: c.Provider, transcriptionAPIKey: c.TranscriptionAPIKey, transcriptionURL: strings.TrimRight(c.TranscriptionURL, "/"), listen: c.Listen, uiDir: c.UIDir, publicOrigin: strings.TrimRight(c.PublicOrigin, "/"), convMu: map[string]*sync.Mutex{}, runs: map[string]context.CancelFunc{}, queues: map[string]*conversationQueue{}, triageModel: os.Getenv("TOFI_TRIAGE_MODEL"), microVM: microVM, computerLeases: map[string]*sync.Mutex{}, computerOwners: map[string]string{}, vmOAuth: map[string]*vmOAuthSession{}, toolSnapshots: map[toolSnapshotKey]toolSnapshot{}, providerEndpoints: map[string]string{}, envProviderKeys: map[string]string{}, envProviderErrors: map[string]string{}, providerCatalogs: map[string]providerCatalog{}}
+	st.onReturnQueued = func(r Run) {
+		if conv, ce := st.GetConversation(r.ConversationID); ce == nil {
+			server.enqueue(conv, r)
+		}
+	}
 	if microVM != nil {
 		server.computerWatchdog = newComputerWatchdog(microVM)
 	}
