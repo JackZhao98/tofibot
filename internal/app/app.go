@@ -2100,6 +2100,10 @@ func (s *Store) finishRun(id, conv, bot, content string, silent bool) (Message, 
 type finishOpts struct {
 	structured bool
 	promoted   *Message
+	// coAddressedInput lets a silent finish follow folded say notes: the run's
+	// part was an input for a later co-addressed member, so its notes are the
+	// whole contribution and nothing visible is owed.
+	coAddressedInput bool
 }
 
 // FinishRunStructured finishes a run that follows the say protocol.
@@ -2150,7 +2154,11 @@ func (s *Store) finishRunOpts(id, conv, bot, content string, silent bool, failur
 	}
 	if silent {
 		var contributions int
-		if err = tx.QueryRow(`SELECT COUNT(*) FROM messages WHERE run_id=? AND role='assistant'`, id).Scan(&contributions); err != nil {
+		contributionSQL := `SELECT COUNT(*) FROM messages WHERE run_id=? AND role='assistant'`
+		if opts.coAddressedInput {
+			contributionSQL += ` AND NOT (kind='progress' AND client_message_id LIKE 'say-note:%')`
+		}
+		if err = tx.QueryRow(contributionSQL, id).Scan(&contributions); err != nil {
 			return Message{}, false, err
 		}
 		if (runKind != runKindGroupChat && runKind != runKindGroupMention && runKind != runKindFollowup && runKind != "") || handoffs != 0 || pendingFiles != 0 || contributions != 0 {

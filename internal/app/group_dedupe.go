@@ -403,5 +403,37 @@ func (s *Server) coAddressedContext(c Conversation, r Run, bot Bot) string {
 		}
 		lines = append(lines, line)
 	}
-	return "[co-addressed]\nThe person addressed this message to you and to the members below. Each answers it directly in a run of its own, one after another in mention order. Answer the part meant for you. Replies from members who answered before you are in the transcript: build on them and leave out what they cover. No member waits on a brief from you, and handing work to these members or waking them for this message is refused.\nWhen the person asked for one combined or final result from several members, only the member that completes it publishes it. If your part is an input to a member who answers after you, put that work in a note: later members read it, and it stays folded away from the person. Then answer in one short line that your part is done. If members before you left notes as inputs, you hold the final: fold them into the single result the person asked for, publishing no account of their drafts, and leave it as the one visible result.\n" + strings.Join(lines, "\n") + "\n[/co-addressed]"
+	return "[co-addressed]\nThe person addressed this message to you and to the members below. Each answers it directly in a run of its own, one after another in mention order. Answer the part meant for you. Replies from members who answered before you are in the transcript: build on them and leave out what they cover. No member waits on a brief from you, and handing work to these members or waking them for this message is refused.\nWhen the person asked for one combined or final result from several members, only the member that completes it publishes it. If your part is an input to a member who answers after you, put that work in a note: later members read it, and it stays folded away from the person. Then end your turn with respond, disposition silent: the person gets the one result from the member that completes it, with no line from you about notes or hand-offs. Answer visibly only when the person asked each member for its own answer. If members before you left notes as inputs, you hold the final: fold them into the single result the person asked for, publishing no account of their drafts, and leave it as the one visible result.\n" + strings.Join(lines, "\n") + "\n[/co-addressed]"
+}
+
+// coAddressedInputMayEndSilent reports whether a co-addressed root run may end
+// with no visible answer. Three things must hold: the run left a say note this
+// run (its part exists, folded, for the next member), it is not the last
+// member, and a later member of the same message is still to run. The last
+// member always owes the visible answer, so a combined result cannot end with
+// every member silent; a later member that already failed or was cancelled
+// leaves the earlier one answering visibly.
+func (s *Store) coAddressedInputMayEndSilent(r Run) bool {
+	roots := s.coAddressedRoots(r)
+	if len(roots) < 2 {
+		return false
+	}
+	later, seen := false, false
+	for _, x := range roots {
+		if x.ID == r.ID {
+			seen = true
+			continue
+		}
+		if seen && (x.Status == "queued" || x.Status == "running") {
+			later = true
+		}
+	}
+	if !later {
+		return false
+	}
+	var notes int
+	if s.db.QueryRow(`SELECT COUNT(*) FROM messages WHERE run_id=? AND role='assistant' AND kind='progress' AND client_message_id LIKE 'say-note:%' AND TRIM(content)<>''`, r.ID).Scan(&notes) != nil {
+		return false
+	}
+	return notes > 0
 }
