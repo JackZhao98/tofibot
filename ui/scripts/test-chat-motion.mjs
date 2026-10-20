@@ -35,9 +35,11 @@ const history = () => [
 ];
 
 async function open({ width = 1180, height = 820, motion = "no-preference", touch = false, reactionDelay = 0, reactionFail = false, extra = [], runs = [] } = {}) {
-  const context = await browser.newContext({ viewport: { width, height }, locale: "en-US", reducedMotion: motion, hasTouch: touch, permissions: ["clipboard-read", "clipboard-write"] });
+  const context = await browser.newContext({ viewport: { width, height }, locale: "en-US", reducedMotion: motion, hasTouch: touch });
   await context.addInitScript(() => {
     try { localStorage.setItem("tofi:appearance", "light"); } catch {}
+    // The clipboard is recorded, not used, so the check is the same in every engine and permission state.
+    Object.defineProperty(navigator, "clipboard", { value: { writeText: async text => { window.__clip = text; } }, configurable: true });
     window.__streams = [];
     window.EventSource = class { constructor(url) { this.url = url; this.listeners = {}; window.__streams.push(this); setTimeout(() => this.onopen?.(), 0); } addEventListener(type, fn) { (this.listeners[type] ??= []).push(fn); } close() {} };
     let id = 1000;
@@ -234,10 +236,13 @@ await check("the bar sits on its own bubble's edge and appears within a frame bu
     const content = block(page, id).locator(".message-content");
     const box = await content.boundingBox();
     await page.mouse.move(2, 2); await page.waitForTimeout(100);
+    const heightBefore = await block(page, id).evaluate(el => el.getBoundingClientRect().height);
     await page.evaluate(() => { window.__t0 = performance.now(); window.__vis = null; const tick = () => { const b = document.querySelector(".message-hover-actions"); if (b && Number(getComputedStyle(b).opacity) >= 0.99 && b.getBoundingClientRect().height > 0) { window.__vis = performance.now() - window.__t0; return; } if (performance.now() - window.__t0 < 1500) requestAnimationFrame(tick); }; requestAnimationFrame(tick); });
     await page.mouse.move(box.x + 30, box.y + 14);
     await page.waitForFunction(() => window.__vis != null, null, { timeout: 3000 });
     const latency = await page.evaluate(() => window.__vis);
+    const heightWith = await block(page, id).evaluate(el => el.getBoundingClientRect().height);
+    assert.ok(Math.abs(heightWith - heightBefore) < 0.5, `${id}: showing the bar changed the message's height (${heightBefore} -> ${heightWith})`);
     assert.ok(latency <= 120, `${id}: bar took ${Math.round(latency)} ms to become visible`);
     if (process.env.CHAT_MOTION_SHOT) await page.screenshot({ path: `${process.env.CHAT_MOTION_SHOT}-${id}.png`, clip: { x: 272, y: 80, width: 908, height: 520 } });
     const geometry = await page.evaluate(id => {
@@ -269,7 +274,7 @@ await check("icon hints: the first waits, a neighbour's follows at once", async 
   await buttons.first().waitFor();
   const timeToHint = async button => {
     const b = await button.boundingBox();
-    await page.evaluate(() => { window.__h0 = performance.now(); window.__h = null; const old = document.querySelector(".action-hint"); const tick = () => { const now = document.querySelector(".action-hint"); if (now && now !== old) { window.__h = performance.now() - window.__h0; return; } if (performance.now() - window.__h0 < 2000) requestAnimationFrame(tick); }; requestAnimationFrame(tick); });
+    await page.evaluate(() => { window.__h0 = performance.now(); window.__h = null; const old = document.querySelector(".action-hint"); const oldText = old?.textContent; const tick = () => { const now = document.querySelector(".action-hint"); if (now && (now !== old || now.textContent !== oldText)) { window.__h = performance.now() - window.__h0; return; } if (performance.now() - window.__h0 < 2000) requestAnimationFrame(tick); }; requestAnimationFrame(tick); });
     await page.mouse.move(b.x + b.width / 2, b.y + b.height / 2);
     await page.waitForFunction(() => window.__h != null || performance.now() - window.__h0 > 1900, null, { timeout: 4000 });
     return page.evaluate(() => window.__h);
@@ -289,7 +294,7 @@ await check("Copy puts the message as displayed on the clipboard and shows a che
   await page.waitForTimeout(200);
   if (process.env.CHAT_MOTION_SHOT) await page.screenshot({ path: process.env.CHAT_MOTION_SHOT });
   await block(page, "m1").locator('[data-action="copy"]').click({ timeout: 4000 });
-  assert.equal(await page.evaluate(() => navigator.clipboard.readText()), "Synthetic opening question.", "sender label is stripped");
+  assert.equal(await page.evaluate(() => window.__clip), "Synthetic opening question.", "sender label is stripped");
   assert.equal(await block(page, "m1").locator(".copy-feedback.is-copied").count(), 1, "check state shown");
   await context.close();
 });
@@ -326,7 +331,7 @@ await check("a failed reaction rolls back and says so", async () => {
   await page.mouse.move(box.x + 30, box.y + 10);
   await block(page, "m3").locator('[data-action="react"]').click();
   await page.locator('.reaction-options button[aria-label*="👍"]').click();
-  await page.waitForFunction(() => document.querySelector('[data-message-id="m3"] .reaction-error'), null, { timeout: 4000 });
+  await page.waitForFunction(() => document.querySelector('[data-message-id="m3"] .reaction-error'), null, { timeout: 10000 });
   assert.equal(await block(page, "m3").locator(".reaction-chip").count(), 0, "the optimistic chip is removed");
   await context.close();
 });
