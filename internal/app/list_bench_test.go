@@ -63,7 +63,7 @@ func seedLargeAccount(tb testing.TB, perConversation int) *Store {
 				tb.Fatal(err)
 			}
 			if role == "assistant" && i < 90 {
-				if _, err = tx.Exec(`INSERT INTO runs(id,conversation_id,bot_id,status,created_at,updated_at) VALUES(?,?,?,?,?,?)`, runID, conv, bot, "done", mts, mts); err != nil {
+				if _, err = tx.Exec(`INSERT INTO runs(id,conversation_id,bot_id,status,origin_conversation_id,created_at,updated_at) VALUES(?,?,?,?,?,?,?)`, runID, conv, bot, "done", conv, mts, mts); err != nil {
 					tb.Fatal(err)
 				}
 			}

@@ -18,6 +18,7 @@
     "test:timeline": "node scripts/test-tool-timeline.mjs",
     "test:run-family": "node scripts/test-run-family.mjs",
     "test:run-merge": "node scripts/test-run-merge.mjs",
+    "test:draft-delta": "node scripts/test-draft-delta.mjs",
     "test:run-progress": "node scripts/test-run-progress.mjs",
     "test:mcp-oauth": "node scripts/test-mcp-oauth.mjs",
     "test:integration-catalog": "node scripts/test-integration-catalog.mjs",

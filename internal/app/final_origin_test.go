@@ -54,6 +54,7 @@ func dmRun(t *testing.T, engine runtime.Engine) (*Server, Run) {
 // dmRunMode is dmRun under either output protocol.
 func dmRunMode(t *testing.T, engine runtime.Engine, structured bool) (*Server, Run) {
 	t.Helper()
+	retainDeltaEvents(t) // several callers prove how the run streamed from its delta events
 	s, err := NewServer(Config{DataDir: t.TempDir(), Engine: engine})
 	if err != nil {
 		t.Fatal(err)

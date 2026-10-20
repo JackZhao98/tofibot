@@ -557,6 +557,9 @@ func (s *Store) publishSay(ctx context.Context, run Run, clientID, kind, content
 		return Message{}, err
 	}
 	if rotate {
+		if err = pruneDeltaEventsTx(tx, run.ConversationID, draft.MessageID); err != nil {
+			return Message{}, err
+		}
 		if _, err = tx.ExecContext(ctx, `UPDATE stream_drafts SET message_id=?,seq=0,content='',revision=0,created_at=?,updated_at=? WHERE run_id=? AND status=?`, uuid.NewString(), t, t, run.ID, streamDraftActive); err != nil {
 			return Message{}, err
 		}
