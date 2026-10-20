@@ -213,6 +213,7 @@ type Server struct {
 	transcriptionURL                     string
 	defaultReasoning                     string
 	modelCatalogMu                       sync.Mutex
+	catalogRefreshing                    atomic.Bool
 	modelCatalog                         []ModelOption
 	modelCatalogAt                       time.Time
 	modelCatalogSource                   string
@@ -533,6 +534,8 @@ CREATE TABLE IF NOT EXISTS events(id INTEGER PRIMARY KEY AUTOINCREMENT,conversat
 CREATE TABLE IF NOT EXISTS summaries(conversation_id TEXT NOT NULL,version INTEGER NOT NULL,covered_seq INTEGER NOT NULL,content TEXT NOT NULL,created_at TEXT NOT NULL,PRIMARY KEY(conversation_id,version));
 CREATE INDEX IF NOT EXISTS messages_search ON messages(conversation_id,content);
 CREATE INDEX IF NOT EXISTS messages_run ON messages(run_id,conversation_id,role,kind);
+CREATE INDEX IF NOT EXISTS runs_conversation ON runs(conversation_id,created_at);
+CREATE INDEX IF NOT EXISTS messages_direct_user ON messages(conversation_id,created_at) WHERE role='user' AND run_id IS NULL;
 CREATE INDEX IF NOT EXISTS events_conversation ON events(conversation_id,id);`)
 	if err != nil {
 		return err
@@ -570,6 +573,11 @@ CREATE INDEX IF NOT EXISTS events_conversation ON events(conversation_id,id);`)
 		if err = ensureColumn(s.db, "runs", col.name, col.ddl); err != nil {
 			return err
 		}
+	}
+	// Created after the column exists: databases that predate delegated runs
+	// get origin_conversation_id from the ALTER above.
+	if _, err = s.db.Exec(`CREATE INDEX IF NOT EXISTS runs_origin_conversation ON runs(origin_conversation_id) WHERE origin_conversation_id<>''`); err != nil {
+		return err
 	}
 	for _, col := range []struct{ name, ddl string }{
 		{"kind", `ALTER TABLE messages ADD COLUMN kind TEXT NOT NULL DEFAULT ''`},
@@ -4360,6 +4368,9 @@ func (s *Server) events(w http.ResponseWriter, r *http.Request, id string) {
 		writeErr(w, http.StatusBadRequest, "invalid_workspace_cursor", err.Error())
 		return
 	}
+	if workspaceEnabled && workspaceAfter < 0 {
+		workspaceAfter = s.store.workspaceEventCursor()
+	}
 	w.Header().Set("Content-Type", "text/event-stream")
 	w.Header().Set("Cache-Control", "no-cache, no-transform")
 	w.Header().Set("X-Accel-Buffering", "no")
@@ -4440,9 +4451,12 @@ func parseConversationWorkspaceCursor(r *http.Request) (int64, bool, error) {
 	if len(values) != 1 {
 		return 0, true, errors.New("workspace_after must be a single non-negative integer")
 	}
+	if strings.EqualFold(strings.TrimSpace(values[0]), workspaceCursorHead) {
+		return -1, true, nil // resolved to the live head by the caller
+	}
 	cursor, err := strconv.ParseInt(strings.TrimSpace(values[0]), 10, 64)
 	if err != nil || cursor < 0 {
-		return 0, true, errors.New("workspace_after must be a non-negative integer")
+		return 0, true, errors.New("workspace_after must be a non-negative integer or \"head\"")
 	}
 	return cursor, true, nil
 }

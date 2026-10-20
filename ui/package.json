@@ -38,6 +38,8 @@
     "test:empty-states": "node scripts/test-empty-states.mjs",
     "test:file-preview": "node scripts/test-file-preview.mjs",
     "test:composer-typing": "node scripts/test-composer-typing.mjs",
+    "test:tool-result-preview": "node scripts/test-tool-result-preview.mjs",
+    "test:workspace-loading": "node scripts/test-workspace-loading.mjs",
     "test:chat-switch": "node scripts/test-chat-switch.mjs",
     "test:chat-safari": "node scripts/test-chat-safari.mjs",
     "test:chat-bubbles": "node scripts/test-chat-bubbles.mjs",
