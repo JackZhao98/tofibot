@@ -18,6 +18,10 @@ import {dateInTimezone, dateTimeFormat, formatZonedTime} from "./timezone";
 import {AttachmentList} from "./MessageAttachment";
 import {FilePreviewHost} from "./FileViewer";
 import {MessageReactions} from "./MessageReactions";
+import { applyUserReaction } from "./reactionState";
+import { clearMessageActions, setMessageActions, tappedMessageActionsId, useMessageActionsOpen } from "./messageActionsStore";
+import { CopyFeedbackIcon } from "./CopyFeedbackIcon";
+import { attachmentUrl } from "./filePreviewModel";
 import { DisplayCard } from "./DisplayCard";
 import { QuestionCard, useQuestions } from "./QuestionCard";
 import { RememberedApprovalsSheet } from "./RememberedApprovals";
@@ -265,18 +269,63 @@ function formatHoverTime(value: string, timeZone: string) {
   return dateTimeFormat(intlLocale(), { ...(sameDay ? {} : { month: "numeric", day: "numeric" }), hour: "2-digit", minute: "2-digit", timeZone }).format(new Date(value));
 }
 
-/** Browser-mode message actions, revealed on hover or keyboard focus instead of a context menu. */
-const MessageHoverActions = memo(function MessageHoverActions({ message, timezone, onReact, onReply, onActivity, activityOpen }: { message: Message; timezone: string; onReact: (anchor: DOMRect) => void; onReply?: () => void; onActivity?: () => void; activityOpen?: boolean }) {
+/** What Copy puts on the clipboard: the message as the reader sees it, without the sender context label or reply marker. */
+function copyableMessageText(message: Message) {
+  const body = readReplyMarker(message.content.replace(/^\[sender [^\]\n]*? id=[^\]\n]+\]\s*/, "")).body.trim();
+  return body.replace(/\]\(attachment:([^)\s]+)\)/g, (_, id) => `](${location.origin}${attachmentUrl(id)})`);
+}
+async function writeClipboard(text: string) {
+  try { await navigator.clipboard.writeText(text); return true; } catch { /* LAN HTTP and blocked permissions have no async clipboard */ }
+  const field = document.createElement("textarea");
+  field.value = text; field.setAttribute("readonly", ""); field.style.cssText = "position:fixed;top:0;left:0;opacity:0";
+  document.body.appendChild(field); field.select();
+  let ok = false;
+  try { ok = document.execCommand("copy"); } catch { ok = false; }
+  field.remove();
+  return ok;
+}
+
+/** Browser-mode message actions, mounted only for the message the pointer, focus or a tap is on. */
+const MessageHoverActions = memo(function MessageHoverActions({ message, timezone, onReact, onReply, onActivity, activityOpen, copyText }: { message: Message; timezone: string; onReact: (anchor: DOMRect) => void; onReply?: () => void; onActivity?: () => void; activityOpen?: boolean; copyText?: string }) {
   const { t } = useTranslation("chat");
-  return <div className="message-hover-actions" role="toolbar" aria-label={t("hover.toolbar")}>
+  const [copied, setCopied] = useState(false);
+  const copiedTimer = useRef<number | undefined>(undefined);
+  useEffect(() => () => window.clearTimeout(copiedTimer.current), []);
+  async function copy() {
+    if (!copyText || !await writeClipboard(copyText)) return;
+    setCopied(true);
+    window.clearTimeout(copiedTimer.current);
+    copiedTimer.current = window.setTimeout(() => setCopied(false), 1200);
+  }
+  // One tab stop per bar (the first button); arrows, Home and End move inside it, as the toolbar role promises.
+  function onKeyDown(event: React.KeyboardEvent<HTMLDivElement>) {
+    const keys = ["ArrowLeft", "ArrowRight", "Home", "End"];
+    if (!keys.includes(event.key)) return;
+    const buttons = [...event.currentTarget.querySelectorAll<HTMLButtonElement>("button")];
+    const at = buttons.indexOf(document.activeElement as HTMLButtonElement);
+    if (at < 0) return;
+    event.preventDefault();
+    const next = event.key === "Home" ? 0 : event.key === "End" ? buttons.length - 1 : (at + (event.key === "ArrowRight" ? 1 : -1) + buttons.length) % buttons.length;
+    buttons.forEach((button, index) => { button.tabIndex = index === next ? 0 : -1; });
+    buttons[next].focus();
+  }
+  let first = true;
+  const stop = () => { const index = first ? 0 : -1; first = false; return index; };
+  return <div className="message-hover-actions" role="toolbar" aria-label={t("hover.toolbar")} onKeyDown={onKeyDown}>
     <time dateTime={message.created_at} title={`${formatExactTime(message.created_at, timezone)} · ${timezone}`}>{formatHoverTime(message.created_at, timezone)}</time>
-    <button type="button" aria-label={t("hover.react")} data-hint={t("hover.react")} onClick={event => onReact(event.currentTarget.getBoundingClientRect())}><Icon name="emoji" size={16} /></button>
-    {onReply && <button type="button" aria-label={t("hover.reply")} data-hint={t("hover.reply")} onClick={onReply}><Icon name="reply" size={16} /></button>}
-    {onActivity && <button type="button" className="message-activity-action" aria-label={activityOpen ? t("hover.hide_activity") : t("hover.view_activity")} aria-pressed={activityOpen} data-hint={activityOpen ? t("hover.hide_activity") : t("hover.view_activity")} onClick={onActivity}><Icon name="activity" size={16} /></button>}
+    {copyText && <button type="button" tabIndex={stop()} aria-label={copied ? t("hover.copied") : t("hover.copy")} data-hint={copied ? t("hover.copied") : t("hover.copy")} data-action="copy" onClick={() => void copy()}><CopyFeedbackIcon copied={copied} /></button>}
+    <button type="button" tabIndex={stop()} aria-label={t("hover.react")} data-hint={t("hover.react")} data-action="react" onClick={event => onReact(event.currentTarget.getBoundingClientRect())}><Icon name="emoji" size={16} /></button>
+    {onReply && <button type="button" tabIndex={stop()} aria-label={t("hover.reply")} data-hint={t("hover.reply")} data-action="reply" onClick={onReply}><Icon name="reply" size={16} /></button>}
+    {onActivity && <button type="button" tabIndex={stop()} className="message-activity-action" aria-label={activityOpen ? t("hover.hide_activity") : t("hover.view_activity")} aria-pressed={activityOpen} data-hint={activityOpen ? t("hover.hide_activity") : t("hover.view_activity")} data-action="activity" onClick={onActivity}><Icon name="activity" size={16} /></button>}
   </div>;
-}, (previous, next) => previous.message === next.message && previous.timezone === next.timezone && previous.activityOpen === next.activityOpen
+}, (previous, next) => previous.message === next.message && previous.timezone === next.timezone && previous.activityOpen === next.activityOpen && previous.copyText === next.copyText
   // The handlers are rebuilt every render; they act on the same message, so only their presence matters here.
   && Boolean(previous.onReply) === Boolean(next.onReply) && Boolean(previous.onActivity) === Boolean(next.onActivity));
+
+/** Holds a message's action bar and mounts it only while that message is the active one. */
+function MessageActionsSlot({ id, children }: { id: string; children: React.ReactNode }) {
+  return useMessageActionsOpen(id) ? <>{children}</> : null;
+}
 
 /** Scrolls to a message and flashes it once without leaving a persistent frame. */
 function jumpToMessage(target: HTMLElement | null | undefined) {
@@ -396,7 +445,6 @@ function Workspace() {
   const { t } = useTranslation(["chat", "common"]);
   const {timezone, showActivity} = useUserTimezone();
   const [revealedRuns, setRevealedRuns] = useState<ReadonlySet<string>>(() => new Set());
-  const [tapActionsId, setTapActionsId] = useState("");
   const activityView = useMemo(() => ({ show: showActivity, revealed: revealedRuns }), [showActivity, revealedRuns]);
   const appearance = useAppearance();
   const [sidebarCollapsed, setSidebarCollapsed] = useState(Boolean(desktopState().sidebarCollapsed));
@@ -439,6 +487,9 @@ function Workspace() {
   const [teamBoardOpen, setTeamBoardOpen] = useState(false);
   useEffect(() => { setTeamBoardOpen(false); }, [activeId]);
   const arrivalIDs = useRef(new Set<string>());
+  const reactionTokens = useRef(new Map<string, number>());
+  /** Ids that appeared as a streaming draft: their text was already read in place, so the saved message must not replay an arrival. */
+  const streamedIDs = useRef(new Set<string>());
   /** A press that lands while text is selected dismisses the selection; it must not also toggle the tap actions. */
   const selectionOnPress = useRef(false);
   const messageListRef = useRef<HTMLDivElement | null>(null);
@@ -1286,17 +1337,25 @@ function Workspace() {
       jumpToMessage(target);
       if (taskFocus.kind === "run") (target.querySelector<HTMLElement>("h3") ?? target).focus({ preventScroll:true });
       setTaskFocus(null);
+    } else if (taskFocus.kind === "run" && (!runById.has(taskFocus.id) || !runDrawsHere(taskFocus.id))) {
+      // The run is not part of this conversation, or its block draws nothing: older pages would never reveal a target.
+      setTaskFocus(null);
     } else if (taskFocus.kind === "message" || taskFocus.kind === "run") {
       if (hasMore && !loadingOlder && !historyError) void loadOlder();
       else if (!hasMore) setTaskFocus(null);
     }
   }, [taskFocus, activeId, loadedId, loadingMessages, conversationItems, hasMore, loadingOlder, historyError]);
 
+  function runDrawsHere(runId: string) {
+    const owner = taskOwners.find(o => o.family.attempts.some(attempt => attempt.id === runId));
+    return !owner || ownerDraws(owner);
+  }
   function focusTask(conversation: Conversation) {
     const state = conversation.task_state;
     const kind = state?.run_id ? "run" : state?.question_id ? "question" : state?.draft_id ? "draft" : state?.result_message_id ? "message" : undefined;
     const id = state?.run_id || state?.question_id || state?.draft_id || state?.result_message_id;
-    if (kind && id) setTaskFocus({ conversationId: conversation.id, kind, id });
+    // A finished run draws no badge, so there is nothing to scroll to; paging history for it only blocks the main thread.
+    if (kind && id && state?.status !== "completed") setTaskFocus({ conversationId: conversation.id, kind, id });
     selectConversation(conversation.id);
     setMobileList(false);
   }
@@ -1416,7 +1475,7 @@ function Workspace() {
     } else if (type === "delta") {
       const messageIdValue = typeof data.message_id === "string" ? data.message_id : "";
       const delta = typeof data.text === "string" ? data.text : "";
-      if (messageIdValue && delta) arrivalIDs.current.add(messageIdValue);
+      if (messageIdValue && delta) { arrivalIDs.current.add(messageIdValue); streamedIDs.current.add(messageIdValue); }
       const runId = typeof data.run_id === "string" ? data.run_id : "";
       if (terminalRunIDs.current.has(runId)) return;
       const botId = typeof data.bot_id === "string" ? data.bot_id : "";
@@ -1515,15 +1574,29 @@ function Workspace() {
     if (!activeId || loadedId !== activeId) return;
     const cache = snapshotCache.current;
     cache.delete(activeId);
-    cache.set(activeId, { messages: messageRecords, drafts, runs, toolActivities, toolSummaries, memories, hasMore });
+    // Only the newest page is kept for a revisit: the reader's place older than that is paged back in on demand, so a long history costs nothing to leave.
+    const trimmed = messageRecords.length > SNAPSHOT_CACHE_MESSAGES;
+    cache.set(activeId, { messages: trimmed ? messageRecords.slice(-SNAPSHOT_CACHE_MESSAGES) : messageRecords, drafts, runs, toolActivities, toolSummaries, memories, hasMore: trimmed || hasMore });
     while (cache.size > SNAPSHOT_CACHE_LIMIT) cache.delete(cache.keys().next().value as string);
   }, [activeId, loadedId, messageRecords, drafts, runs, toolActivities, toolSummaries, memories, hasMore]);
+  // Pointing at a conversation (after a short dwell) or pressing its row reads its newest page into the same cache, so the first visit is a revisit.
+  const prefetchInFlight = useRef(new Set<string>());
+  const prefetchTimer = useRef<number | undefined>(undefined);
+  const prefetchConversation = useCallback((id: string) => {
+    if (id === activeIdRef.current || snapshotCache.current.has(id) || prefetchInFlight.current.has(id)) return;
+    prefetchInFlight.current.add(id);
+    void Promise.all([api.messages(id), api.runs(id)]).then(([page, runPage]) => {
+      if (snapshotCache.current.has(id) || !page.messages.length) return;
+      snapshotCache.current.set(id, { messages: page.messages.sort((a, b) => a.seq - b.seq), drafts: {}, runs: runPage.runs.sort((a, b) => +new Date(b.updated_at) - +new Date(a.updated_at)), toolActivities: [], toolSummaries: [], memories: [], hasMore: page.has_more });
+      while (snapshotCache.current.size > SNAPSHOT_CACHE_LIMIT) snapshotCache.current.delete(snapshotCache.current.keys().next().value as string);
+    }).catch(() => {}).finally(() => { prefetchInFlight.current.delete(id); });
+  }, []);
   // The switch itself runs before paint: the pane never shows the previous conversation under the new header.
   useLayoutEffect(() => {
     if (!activeId) return;
     const cached = snapshotCache.current.get(activeId);
     setSnapshotError("");
-    arrivalIDs.current.clear();
+    arrivalIDs.current.clear(); streamedIDs.current.clear();
     terminalRunIDs.current.clear();
     setLoadingOlder(false); setHistoryError(""); setError("");
     setToolDetailActivities([]); setToolDetailState({}); setToolSummaryState({});
@@ -1631,18 +1704,19 @@ function Workspace() {
       if (Number.isFinite(sentAt)) setLastUserActivity(current => ({ ...current, [conversationId]: Math.max(current[conversationId] ?? 0, sentAt) }));
       // The server may have accepted the message after the user switched
       // conversations. Clear only the exact source draft that was sent.
-      if (draftSignature) setComposerDrafts((current) => {
+      const clearDraft = () => { if (draftSignature) setComposerDrafts((current) => {
         const source = current[conversationId];
         if (!source || !composerDraftMatchesMessage(source, draftSignature, clientMessageId)) return current;
         const next = { ...current, [conversationId]: emptyComposerDraft() };
         if (composerStorageKey.current) writeComposerDrafts(composerStorageKey.current, next);
         return next;
-      });
-      if (activeIdRef.current !== conversationId) return true;
+      }); };
+      if (activeIdRef.current !== conversationId) { clearDraft(); return true; }
       arrivalIDs.current.add(result.message.id);
       const newRuns = result.runs?.length ? result.runs : [result.run];
       // The bubble and its run row land in one commit, so the final layout is known before anything moves.
-      const apply = () => { upsertMessage(result.message); setRuns((current) => mergeRunUpdates(current, newRuns)); };
+      // The composer empties in that same commit: its height change must not move the new bubble a frame later.
+      const apply = () => { clearDraft(); upsertMessage(result.message); setRuns((current) => mergeRunUpdates(current, newRuns)); };
       const animate = !isDesktop && !window.matchMedia("(prefers-reduced-motion: reduce)").matches;
       // Scrolled up in history: nothing visible moves, so there is nothing to FLIP. Return to the bottom in
       // the same task as the commit and play the arrival there, once, with the bubble in view.
@@ -1891,20 +1965,46 @@ function Workspace() {
     if (opening) window.setTimeout(() => messageListRef.current?.querySelector<HTMLElement>(`[data-activity-run="${CSS.escape(runId)}"], [data-run-id="${CSS.escape(runId)}"]`)?.scrollIntoView({ block: "nearest", behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" }), 60);
   }
   useEffect(() => {
-    if (!tapActionsId) return;
-    const close = (event: Event) => { if (!(event.target as HTMLElement).closest?.(".message-hover-host.is-actions-open")) setTapActionsId(""); };
+    // A press anywhere but on the tapped message (or its bar) closes the touch actions; the bar is mounted only while it is open.
+    const close = (event: Event) => {
+      const open = tappedMessageActionsId();
+      if (open && (event.target as HTMLElement).closest?.(".message-hover-host")?.getAttribute("data-host-id") !== open) setMessageActions("tap", "");
+    };
     document.addEventListener("pointerdown", close);
     return () => document.removeEventListener("pointerdown", close);
-  }, [tapActionsId]);
+  }, []);
+  // Message actions follow the pointer and focus through one delegated handler each: no per-message listeners, no App state.
+  const messageIdOf = (target: EventTarget | null) => (target as HTMLElement | null)?.closest?.<HTMLElement>(".message-block")?.dataset.messageId ?? "";
+  const onMessageListPointerOver = (event: React.PointerEvent<HTMLElement>) => { if (event.pointerType !== "touch") setMessageActions("hover", messageIdOf(event.target)); };
+  const onMessageListPointerLeave = (event: React.PointerEvent<HTMLElement>) => { if (event.pointerType !== "touch") setMessageActions("hover", ""); };
+  // Only keyboard focus raises the bar: pressing on a message focuses it too, and a press must not open actions by itself.
+  const onMessageListFocus = (event: React.FocusEvent<HTMLElement>) => { if (event.target.matches(":focus-visible")) setMessageActions("focus", messageIdOf(event.target)); };
+  const onMessageListBlur = (event: React.FocusEvent<HTMLElement>) => { if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setMessageActions("focus", ""); };
+  // The list is one tab stop (the newest message); arrows move between messages, Tab enters the focused message's bar, Escape comes back.
+  const onMessageListKeyDown = (event: React.KeyboardEvent<HTMLElement>) => {
+    const target = event.target as HTMLElement;
+    if (event.key === "Escape" && target.closest(".message-hover-actions")) { event.preventDefault(); target.closest<HTMLElement>(".message-block")?.focus(); return; }
+    if (!target.matches(".message-block") || !["ArrowUp", "ArrowDown", "Home", "End"].includes(event.key)) return;
+    const blocks = [...event.currentTarget.querySelectorAll<HTMLElement>(".message-block")];
+    const at = blocks.indexOf(target);
+    const next = blocks[event.key === "Home" ? 0 : event.key === "End" ? blocks.length - 1 : at + (event.key === "ArrowDown" ? 1 : -1)];
+    if (!next) return;
+    event.preventDefault();
+    target.tabIndex = -1; next.tabIndex = 0;
+    next.focus();
+  };
   const ownerRevealed = (owner: TaskOwner) => owner.family.attempts.some(attempt => revealedRuns.has(attempt.id));
   // A block with nothing to show (Activity hidden, no card raised) draws nothing, so it must not count as a name label above a message.
   const ownerDraws = (owner: TaskOwner) => taskBlockVisible({ owner, tools: loadedToolActivities, questions: questions.items, drafts: mailDrafts.items, messages: messageRecords, summaries: terminalToolSummaries, details: toolDetailState, connected: streamConnected, hideActivity: !showActivity, revealed: ownerRevealed(owner) });
-  // Derived once per render, not once per timeline row: every message row consults these.
-  const ownedRunKeys = new Set(taskOwners.flatMap(owner => owner.family.attempts.map(run => `${run.id}\u0000${run.bot_id}\u0000${run.conversation_id}`)));
-  const ownedBy = (item: { run_id: string; bot_id: string; conversation_id: string }) => ownedRunKeys.has(`${item.run_id}\u0000${item.bot_id}\u0000${item.conversation_id}`);
+  // Computed once per render, not once per message: per-message scans made every render cubic in loaded history.
   const ownerAnchors = taskOwners.filter(ownerDraws).map(owner => ({ anchor: owner.anchor, botId: owner.family.latest.bot_id }));
+  const messageRecordIDs = new Set(messageRecords.map(record => record.id));
+  // Runs whose reply is on screen: the live status line gives way to it in the same frame.
+  const replyingRunIDs = new Set([...Object.values(drafts).filter(draft => draft.status === "active" && draft.content.trim()).map(draft => draft.run_id), ...messageRecords.filter(record => record.role === "assistant" && record.run_id && !record.kind).map(record => record.run_id as string)]);
+  const ownedAttemptKeys = new Set(taskOwners.flatMap(owner => owner.family.attempts.map(run => `${run.id}|${run.bot_id}|${run.conversation_id}`)));
+  const ownedBy = (item: { run_id: string; bot_id: string; conversation_id: string }) => ownedAttemptKeys.has(`${item.run_id}|${item.bot_id}|${item.conversation_id}`);
   function renderTaskOwner(owner: TaskOwner) {
-    return <TaskRunBlock key={owner.key} hideActivity={!showActivity} revealed={ownerRevealed(owner)} owner={owner} senderHead={active?.kind === "group" ? <SenderHead id={owner.family.latest.bot_id} name={botById.get(owner.family.latest.bot_id)?.name ?? "Bot"} /> : undefined} liveStatus={runLiveStatus(owner.family.latest)} liveAvatar={<BotAvatar id={owner.family.latest.bot_id} mini motion={owner.family.latest.status === "waiting" ? "awake" : "working"} />} tools={loadedToolActivities} questions={questions.items} drafts={mailDrafts.items} messages={messageRecords} summaries={terminalToolSummaries} details={toolDetailState} connected={streamConnected} botName={botById.get(owner.family.latest.bot_id)?.name ?? "Bot"} showName={active?.kind === "group"}
+    return <TaskRunBlock key={owner.key} replying={replyingRunIDs.has(owner.family.latest.id)} hideActivity={!showActivity} revealed={ownerRevealed(owner)} owner={owner} senderHead={active?.kind === "group" ? <SenderHead id={owner.family.latest.bot_id} name={botById.get(owner.family.latest.bot_id)?.name ?? "Bot"} /> : undefined} liveStatus={runLiveStatus(owner.family.latest)} liveAvatar={<BotAvatar id={owner.family.latest.bot_id} mini motion={owner.family.latest.status === "waiting" ? "awake" : "working"} />} tools={loadedToolActivities} questions={questions.items} drafts={mailDrafts.items} messages={messageRecords} summaries={terminalToolSummaries} details={toolDetailState} connected={streamConnected} botName={botById.get(owner.family.latest.bot_id)?.name ?? "Bot"} showName={active?.kind === "group"}
       onOpenTools={() => openSettings("connections")}
       onFeedback={text => window.dispatchEvent(new CustomEvent("tofi:task-feedback", {detail:{conversationId:owner.family.latest.conversation_id,text}}))}
       onRefresh={refreshTaskStatus} onLoadDetails={loadToolDetails}
@@ -1931,6 +2031,9 @@ function Workspace() {
       aria-label={[conversation.name, task ? taskStateLabel(task) : "", conversation.unread_count ? t("sidebar.unread", { count: conversation.unread_count }) : ""].filter(Boolean).join(t("sidebar.label_separator"))}
       className={`contact-row conversation-row ${activeId === conversation.id ? "active" : ""}`}
       onClick={() => focusTask(conversation)}
+      onPointerEnter={event => { if (event.pointerType === "mouse") { window.clearTimeout(prefetchTimer.current); prefetchTimer.current = window.setTimeout(() => prefetchConversation(conversation.id), 80); } }}
+      onPointerLeave={() => window.clearTimeout(prefetchTimer.current)}
+      onPointerDown={() => prefetchConversation(conversation.id)}
       onContextMenu={(event) => { event.preventDefault(); setSidebarContextMenu({ conversation, x: Math.min(event.clientX, window.innerWidth - 248), y: Math.min(event.clientY, window.innerHeight - 360) }); }}>
       <Avatar label={conversation.name} id={botId} group={conversation.kind === "group"} motion={motion} />
       <span className="contact-copy"><strong><span className="contact-name">{conversation.name}</span>{bot?.is_primary && <PrimaryBadge />}</strong><small>{preview}</small></span>
@@ -2036,7 +2139,7 @@ function Workspace() {
             {teamBoardOpen && active.kind === "group" ? <TeamBoard key={`team-board-${active.id}`} conversation={active} bots={bots} timezone={timezone} onClose={() => setTeamBoardOpen(false)} onOpenWork={() => { setTeamBoardOpen(false); setPanel("schedule"); }} /> : <>
             <div className="chat-body">
               <div className="message-scroll" ref={viewport.scrollRef} onScroll={viewport.onScroll}>
-                <ExpiryFinishingContext.Provider value={new Set(runs.filter(run => run.finishing_reason === "approval_expired").map(run => run.id))}><RunStartContext.Provider value={runStarts}><ActivityViewContext.Provider value={activityView}><div className={`message-list${viewport.unpositioned ? " is-positioning" : ""}`} ref={messageListRef}>
+                <ExpiryFinishingContext.Provider value={new Set(runs.filter(run => run.finishing_reason === "approval_expired").map(run => run.id))}><RunStartContext.Provider value={runStarts}><ActivityViewContext.Provider value={activityView}><div className={`message-list${viewport.unpositioned ? " is-positioning" : ""}`} ref={messageListRef} onPointerOver={isDesktop ? undefined : onMessageListPointerOver} onPointerLeave={isDesktop ? undefined : onMessageListPointerLeave} onFocus={isDesktop ? undefined : onMessageListFocus} onBlur={isDesktop ? undefined : onMessageListBlur} onKeyDown={isDesktop ? undefined : onMessageListKeyDown}>
                   {viewport.boundaryError && <div className="history-error" role="alert">{t("history.boundary_failed")}<button onClick={viewport.retryBoundary}>{t("common:action.retry")}</button><button onClick={jumpLatest}>{t("history.view_latest")}</button></div>}
                   {historyError && !viewport.boundaryError && <div className="history-error history-error-older" role="alert"><span>{t("history.older_failed", { error: historyError })}</span><button onClick={() => void loadOlder()} disabled={loadingOlder}>{loadingOlder ? t("action.retrying") : t("common:action.retry")}</button></div>}
                   {hasMore && <button className="load-older" onClick={() => void loadOlder()} disabled={loadingOlder}>{loadingOlder ? t("action.loading") : t("history.load_older")}</button>}
@@ -2098,18 +2201,21 @@ function Workspace() {
                       const runTrigger = runTriggerId ? messageById.get(runTriggerId) : undefined;
                       const replyTarget = replyMarker.ids.length ? replyMarker.ids.map(id => messageById.get(id)).find(isEarlierInChat) ?? (isEarlierInChat(runTrigger) ? runTrigger : undefined) : undefined;
                       const showReplyQuote = shouldShowReplyQuote(quoteTimeline, quoteIndexById.get(message.id) ?? -1, replyTarget);
-                      const canReact = messageRecords.some(record => record.id === message.id);
+                      const canReact = messageRecordIDs.has(message.id);
                       // "View activity" is offered on a Bot's message whose run did work (steps or progress notes), not on notices or user text.
                       const activityRunId = message.role === "assistant" && message.run_id && message.kind !== "notice" && message.kind !== "message_ref" && runHasActivity(message.run_id) ? message.run_id : undefined;
-                      return <div className={`message-block${arrivalIDs.current.has(message.id) ? " new-arrival" : ""}`} data-message-seq={message.seq} data-message-id={message.id} data-flip={message.id} tabIndex={-1} key={message.id} onContextMenu={canReact && isDesktop ? event => { event.preventDefault(); setReactionMenu({ messageId: message.id, x: event.clientX, y: event.clientY }); } : undefined}>
+                      const hasBar = !isDesktop && canReact && message.kind !== "notice" && message.kind !== "message_ref";
+                      const cardLike = message.kind === "ui_card" || message.kind === "scheduled_task";
+                      const copyText = !cardLike && message.content.trim() ? copyableMessageText(message) : undefined;
+                      const actions = hasBar ? <MessageActionsSlot id={message.id}><MessageHoverActions message={message} timezone={timezone} copyText={copyText}
+                          onReact={anchor => setReactionMenu({ messageId: message.id, x: anchor.left, y: anchor.bottom + 6 })}
+                          onActivity={activityRunId && !showActivity ? () => { setMessageActions("tap", ""); toggleRunActivity(activityRunId); } : undefined} activityOpen={activityRunId ? revealedRuns.has(activityRunId) : false}
+                          onReply={active.archived ? undefined : () => { updateComposerDraft(active.id, current => ({ ...current, reply: { id: message.id, name: message.role === "user" ? t("message.you") : message.sender_bot_name ?? (message.sender_bot_id ? botById.get(message.sender_bot_id)?.name : undefined) ?? "Bot", excerpt: previewText(readReplyMarker(message.content).body) || t("message.attachment") } })); document.querySelector<HTMLTextAreaElement>(".composer textarea")?.focus(); }} /></MessageActionsSlot> : undefined;
+                      return <div className={`message-block${arrivalIDs.current.has(message.id) ? ` new-arrival${streamedIDs.current.has(message.id) ? " was-streamed" : ""}` : ""}`} data-message-seq={message.seq} data-message-id={message.id} data-flip={message.id} tabIndex={index === conversationItems.length - 1 ? 0 : -1} key={message.id} onContextMenu={canReact && isDesktop ? event => { event.preventDefault(); setReactionMenu({ messageId: message.id, x: event.clientX, y: event.clientY }); } : undefined}>
                         {showDivider && <div className="date-divider"><span>{formatDateDivider(message.created_at, timezone)}</span></div>}
                         {unread && <div className="unread-divider" aria-label={t("history.unread_below")}><span>{t("history.unread")}</span></div>}
-                        <div className={`message-hover-host${message.role === "user" ? " is-user" : ""}${tapActionsId === message.id ? " is-actions-open" : ""}`} onPointerDownCapture={!isDesktop && canReact ? () => { selectionOnPress.current = Boolean(window.getSelection()?.toString()); } : undefined} onClick={!isDesktop && canReact ? event => { const hadSelection = selectionOnPress.current || Boolean(window.getSelection()?.toString()); selectionOnPress.current = false; if (hadSelection || !window.matchMedia("(hover: none)").matches || (event.target as HTMLElement).closest("a,button,summary,input,textarea,pre,[role=button],.message-hover-actions")) return; setTapActionsId(current => current === message.id ? "" : message.id); } : undefined}>
-                        {!isDesktop && canReact && message.kind !== "notice" && message.kind !== "message_ref" && <MessageHoverActions message={message} timezone={timezone}
-                          onReact={anchor => setReactionMenu({ messageId: message.id, x: anchor.left, y: anchor.bottom + 6 })}
-                          onActivity={activityRunId && !showActivity ? () => { setTapActionsId(""); toggleRunActivity(activityRunId); } : undefined} activityOpen={activityRunId ? revealedRuns.has(activityRunId) : false}
-                          onReply={active.archived ? undefined : () => { updateComposerDraft(active.id, current => ({ ...current, reply: { id: message.id, name: message.role === "user" ? t("message.you") : message.sender_bot_name ?? (message.sender_bot_id ? botById.get(message.sender_bot_id)?.name : undefined) ?? "Bot", excerpt: previewText(readReplyMarker(message.content).body) || t("message.attachment") } })); document.querySelector<HTMLTextAreaElement>(".composer textarea")?.focus(); }} />}
-                        <MessageBubble message={message} replyTarget={showReplyQuote ? replyTarget : undefined} replyTargetName={replyTarget?.role === "user" ? t("message.you") : replyTarget?.sender_bot_name ?? (replyTarget?.sender_bot_id ? botById.get(replyTarget.sender_bot_id)?.name ?? knownBotNames.current.get(replyTarget.sender_bot_id) : undefined)} senderName={message.sender_bot_name ?? (message.sender_bot_id ? knownBotNames.current.get(message.sender_bot_id) : undefined)} targetBot={message.notice?.to_bot_id ? botById.get(message.notice.to_bot_id) : undefined} sender={message.sender_bot_id ? botById.get(message.sender_bot_id) : undefined}
+                        <div className={`message-hover-host${message.role === "user" ? " is-user" : ""}`} data-host-id={message.id} onPointerDownCapture={!isDesktop && canReact ? () => { selectionOnPress.current = Boolean(window.getSelection()?.toString()); } : undefined} onClick={!isDesktop && canReact ? event => { const hadSelection = selectionOnPress.current || Boolean(window.getSelection()?.toString()); selectionOnPress.current = false; const target = event.target as HTMLElement; if (hadSelection || !window.matchMedia("(hover: none)").matches || !target.closest(".message-content") || target.closest("a,button,summary,input,textarea,pre,[role=button],.message-hover-actions")) return; setMessageActions("tap", tappedMessageActionsId() === message.id ? "" : message.id); } : undefined}>
+                        {cardLike && actions}<MessageBubble actions={cardLike ? undefined : actions} message={message} replyTarget={showReplyQuote ? replyTarget : undefined} replyTargetName={replyTarget?.role === "user" ? t("message.you") : replyTarget?.sender_bot_name ?? (replyTarget?.sender_bot_id ? botById.get(replyTarget.sender_bot_id)?.name ?? knownBotNames.current.get(replyTarget.sender_bot_id) : undefined)} senderName={message.sender_bot_name ?? (message.sender_bot_id ? knownBotNames.current.get(message.sender_bot_id) : undefined)} targetBot={message.notice?.to_bot_id ? botById.get(message.notice.to_bot_id) : undefined} sender={message.sender_bot_id ? botById.get(message.sender_bot_id) : undefined}
                           run={message.run_id ? runById.get(message.run_id) : undefined}
                           tools={processTools.length || processProgress.length || processSummaries.length || Object.keys(processSummaryErrors).length || Object.keys(processSummaryLoading).length ? <ToolActivityList activities={[...processTools, ...processAggregateTools]} progress={processProgress} summaries={processSummaries} summaryErrors={processSummaryErrors} summaryLoading={processSummaryLoading} details={toolDetailState} onLoadDetails={loadToolDetails} onRetrySummary={retryToolSummary} botById={botById} activeRunIds={activeRunIds} /> : undefined}
                           scheduleOccurrence={message.run_id ? scheduleOccurrences.get(message.run_id) : undefined} schedulePending={scheduleCardPending(message.run_id)} schedule={message.run_id ? scheduleMetadata.get(scheduleOccurrences.get(message.run_id)?.schedule_id ?? "") : undefined} onRetrySchedule={active.archived || ownedRunIDs.has(message.run_id ?? "") ? undefined : retryRun}
@@ -2118,8 +2224,19 @@ function Workspace() {
                           compact={compact} showAvatar={active.kind === "group"} showIdentity={showIdentity} noticeTargetAvailable={!message.notice || conversations.some(item => item.id === message.notice?.target_conversation_id)} allowOpenDM={active.kind === "group" || message.kind === "forward_result"} onDraftReply={!active.archived && !isDesktop && message.card?.type === "mail" ? () => send(t("message.draft_reply_request", { from: message.card?.from, subject: message.card?.subject, source: message.card?.source }), crypto.randomUUID()) : undefined} onMention={active.archived ? undefined : bot => setAvatarMention({ name: bot.name, conversationId: active.id, nonce: Date.now() })} onNavigate={id => { if (conversations.some(item => item.id === id)) { selectConversation(id); setMobileList(false); } }} />
                         </div>
                         {canReact && <MessageReactions message={message} botNames={new Map(bots.map(bot => [bot.id, bot.name]))} menuPosition={reactionMenu?.messageId === message.id ? reactionMenu : null} onCloseMenu={() => setReactionMenu(null)} onSet={async (emoji, present) => {
-                          const result = await api.setMessageReaction(active.id, message.id, emoji, present);
-                          if (activeIdRef.current === active.id) setMessages(current => current.map(record => record.id === message.id ? { ...record, reactions: result.reactions } : record));
+                          // Optimistic: the chip changes in this frame; the server's list replaces it only if no newer toggle on this message has started.
+                          const conversationId = active.id;
+                          const token = (reactionTokens.current.get(message.id) ?? 0) + 1;
+                          reactionTokens.current.set(message.id, token);
+                          const edit = (change: (reactions: Message["reactions"]) => Message["reactions"]) => { if (activeIdRef.current === conversationId) setMessages(current => current.map(record => record.id === message.id ? { ...record, reactions: change(record.reactions) } : record)); };
+                          edit(reactions => applyUserReaction(reactions, emoji, present));
+                          try {
+                            const result = await api.setMessageReaction(conversationId, message.id, emoji, present);
+                            if (reactionTokens.current.get(message.id) === token) edit(() => result.reactions);
+                          } catch (cause) {
+                            edit(reactions => applyUserReaction(reactions, emoji, !present));
+                            throw cause;
+                          }
                         }} />}
                         {taskOwners.filter(owner => owner.anchor?.kind === "message" && owner.anchor.id === message.id).map(renderTaskOwner)}
                         {afterTools.length || afterSummaries.length || Object.keys(afterSummaryErrors).length || Object.keys(afterSummaryLoading).length ? <ToolActivityList activities={[...afterTools, ...afterAggregateTools]} summaries={afterSummaries} summaryErrors={afterSummaryErrors} summaryLoading={afterSummaryLoading} details={toolDetailState} onLoadDetails={loadToolDetails} onRetrySummary={retryToolSummary} botById={botById} activeRunIds={activeRunIds} group={active.kind === "group"} /> : null}
@@ -2319,25 +2436,28 @@ function readReplyMarker(content: string): { ids: string[]; body: string } {
   return { ids, body: content };
 }
 
-const SNAPSHOT_CACHE_LIMIT = 8;
+const SNAPSHOT_CACHE_LIMIT = 50;
+const SNAPSHOT_CACHE_MESSAGES = 60;
 interface ConversationSnapshot { messages: Message[]; drafts: Record<string, StreamDraft>; runs: Run[]; toolActivities: ToolActivity[]; toolSummaries: ToolActivityRunSummary[]; memories: Memory[]; hasMore: boolean }
 
-export function MessageBubble({ message, replyTarget, replyTargetName, sender, senderName, targetBot, run, tools, scheduleOccurrence, schedulePending, schedule, onRetrySchedule, onDraftReply, draft, relatedChat, onOpenRelatedChat, compact = false, showAvatar = true, showIdentity = true, noticeTargetAvailable = true, allowOpenDM = false, onNavigate, onMention }: { relatedChat?: ViewOnlyChatTarget | null; onOpenRelatedChat?: (target: ViewOnlyChatTarget) => void; noticeTargetAvailable?: boolean; allowOpenDM?: boolean; onMention?: (bot: Bot) => void; message: Message; replyTarget?: Message; replyTargetName?: string; sender?: Bot; senderName?: string; targetBot?: Bot; run?: Run; tools?: React.ReactNode; scheduleOccurrence?: ScheduleOccurrence; schedulePending?: boolean; schedule?: Schedule; onRetrySchedule?: (id: string) => Promise<void>; onDraftReply?: () => Promise<boolean>; draft?: string | StreamDraft; compact?: boolean; showAvatar?: boolean; showIdentity?: boolean; onNavigate?: (id: string) => void }) {
+export function MessageBubble({ actions, message, replyTarget, replyTargetName, sender, senderName, targetBot, run, tools, scheduleOccurrence, schedulePending, schedule, onRetrySchedule, onDraftReply, draft, relatedChat, onOpenRelatedChat, compact = false, showAvatar = true, showIdentity = true, noticeTargetAvailable = true, allowOpenDM = false, onNavigate, onMention }: { actions?: React.ReactNode; relatedChat?: ViewOnlyChatTarget | null; onOpenRelatedChat?: (target: ViewOnlyChatTarget) => void; noticeTargetAvailable?: boolean; allowOpenDM?: boolean; onMention?: (bot: Bot) => void; message: Message; replyTarget?: Message; replyTargetName?: string; sender?: Bot; senderName?: string; targetBot?: Bot; run?: Run; tools?: React.ReactNode; scheduleOccurrence?: ScheduleOccurrence; schedulePending?: boolean; schedule?: Schedule; onRetrySchedule?: (id: string) => Promise<void>; onDraftReply?: () => Promise<boolean>; draft?: string | StreamDraft; compact?: boolean; showAvatar?: boolean; showIdentity?: boolean; onNavigate?: (id: string) => void }) {
   const { t } = useTranslation("chat");
   const {timezone} = useUserTimezone();
   const toolsRunning = run?.status === "running" || run?.status === "queued";
   const answerRef = useRef<HTMLDivElement>(null);
-  const previousToolLayout = useRef<{ live: boolean; rect: DOMRect } | null>(null);
+  const previousToolLayout = useRef<{ live: boolean; offset: number } | null>(null);
   useLayoutEffect(() => {
     if (isDesktop || !answerRef.current) return;
     const answer = answerRef.current;
-    const next = answer.getBoundingClientRect();
+    // Measured against the message's own body, so scrolling or a change above the message can never read as the answer moving.
+    const body = answer.closest<HTMLElement>(".message-body");
+    const offset = answer.getBoundingClientRect().top - (body?.getBoundingClientRect().top ?? 0);
     const previous = previousToolLayout.current;
     if (previous?.live && !toolsRunning && !window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
-      const dy = previous.rect.top - next.top;
+      const dy = previous.offset - offset;
       if (Math.abs(dy) > 1) answer.animate({ transform: [`translateY(${dy}px)`, "translateY(0)"] }, { duration: 520, easing: "cubic-bezier(.22,1,.36,1)" });
     }
-    previousToolLayout.current = { live: toolsRunning, rect: next };
+    previousToolLayout.current = { live: toolsRunning, offset };
   });
   if (message.kind === "ui_card" && message.card) {
     const label = sender?.name ?? senderName ?? "Bot";
@@ -2392,7 +2512,7 @@ export function MessageBubble({ message, replyTarget, replyTargetName, sender, s
   const inlineMention = mention && targetBot ? <BotIdentityCard bot={targetBot} onMention={onMention ? () => onMention(targetBot) : undefined} onOpen={allowOpenDM && onNavigate ? () => onNavigate(targetBot.dm_conversation_id) : undefined}>{mention}</BotIdentityCard> : mention;
   const toolRow = tools && <div className="message-tools">{tools}</div>;
   const grouped = showAvatar && !isUser;
-  return <article data-sender={grouped ? message.sender_bot_id : undefined} data-at={grouped ? message.created_at : undefined} className={`message ${isUser ? "message-user" : "message-bot"}${grouped ? " is-group" : !isUser ? " is-dm" : ""} ${message.kind === "segment" ? "message-segment" : ""} ${message.kind === "forward_result" ? "message-forward-result" : ""} ${compact ? "message-compact" : ""}`} title={isDesktop ? `${formatExactTime(message.created_at, timezone)} · ${timezone}` : undefined}><div className={`message-body${tools && !isDesktop ? ` web-tool-body ${toolsRunning ? "is-tools-live" : "is-tools-done"}` : ""}`}><div className={`message-meta ${hideMeta ? "compact" : ""}`}>{scheduled && <span>{t("message.scheduled")}</span>}{showIdentity && !isUser && (!compact || showAvatar) && <strong>{label}</strong>}</div>{(toolsRunning || !isDesktop) && toolRow}{replyTarget && <button type="button" className="message-reply-quote" aria-label={t("message.jump_to_reply", { name: replyTargetName ?? t("message.original") })} onClick={() => jumpToMessage(document.querySelector<HTMLElement>(`[data-message-id="${replyTarget.id}"]`))}><span className="message-reply-author">{t("message.reply_to", { name: replyTargetName ?? t("message.original") })}</span><span className="message-reply-excerpt">{previewText(readReplyMarker(replyTarget.content).body) || t("message.attachment")}</span></button>}<div className="message-content" ref={answerRef}>{showAvatar && !isUser && <div className="sender-avatar">{sender ? <BotIdentityCard bot={sender} onMention={onMention ? () => onMention(sender) : undefined} onOpen={allowOpenDM && onNavigate ? () => onNavigate(sender.dm_conversation_id) : undefined}><Avatar label={label} id={sender.id} mini /></BotIdentityCard> : <Avatar label={label} id={message.sender_bot_id ?? "bot"} mini />}</div>}{<SmoothStreamMarkdown content={body} mention={inlineMention} active={Boolean(draft) && !isDesktop} />}<AttachmentList attachments={message.attachments} compact={isUser} />{draft && isDesktop && <span className="typing-cursor" />}</div>{!toolsRunning && isDesktop && toolRow}{relatedChat && onOpenRelatedChat && <RelatedMessageLink target={relatedChat} onOpen={onOpenRelatedChat} />}</div></article>;
+  return <article data-sender={grouped ? message.sender_bot_id : undefined} data-at={grouped ? message.created_at : undefined} className={`message ${isUser ? "message-user" : "message-bot"}${grouped ? " is-group" : !isUser ? " is-dm" : ""} ${message.kind === "segment" ? "message-segment" : ""} ${message.kind === "forward_result" ? "message-forward-result" : ""} ${compact ? "message-compact" : ""}`} title={isDesktop ? `${formatExactTime(message.created_at, timezone)} · ${timezone}` : undefined}><div className={`message-body${tools && !isDesktop ? ` web-tool-body ${toolsRunning ? "is-tools-live" : "is-tools-done"}` : ""}`}><div className={`message-meta ${hideMeta ? "compact" : ""}`}>{scheduled && <span>{t("message.scheduled")}</span>}{showIdentity && !isUser && (!compact || showAvatar) && <strong>{label}</strong>}</div>{(toolsRunning || !isDesktop) && toolRow}{replyTarget && <button type="button" className="message-reply-quote" aria-label={t("message.jump_to_reply", { name: replyTargetName ?? t("message.original") })} onClick={() => jumpToMessage(document.querySelector<HTMLElement>(`[data-message-id="${replyTarget.id}"]`))}><span className="message-reply-author">{t("message.reply_to", { name: replyTargetName ?? t("message.original") })}</span><span className="message-reply-excerpt">{previewText(readReplyMarker(replyTarget.content).body) || t("message.attachment")}</span></button>}<div className="message-content" ref={answerRef}>{actions}{showAvatar && !isUser && <div className="sender-avatar">{sender ? <BotIdentityCard bot={sender} onMention={onMention ? () => onMention(sender) : undefined} onOpen={allowOpenDM && onNavigate ? () => onNavigate(sender.dm_conversation_id) : undefined}><Avatar label={label} id={sender.id} mini /></BotIdentityCard> : <Avatar label={label} id={message.sender_bot_id ?? "bot"} mini />}</div>}{<SmoothStreamMarkdown content={body} mention={inlineMention} active={Boolean(draft) && !isDesktop} />}<AttachmentList attachments={message.attachments} compact={isUser} />{draft && isDesktop && <span className="typing-cursor" />}</div>{!toolsRunning && isDesktop && toolRow}{relatedChat && onOpenRelatedChat && <RelatedMessageLink target={relatedChat} onOpen={onOpenRelatedChat} />}</div></article>;
 }
 
 export function RunStatusAnnouncement({ conversationId, runs, botById, ready, taskAnnouncements }: { conversationId: string; runs: Run[]; botById: Map<string, Bot>; ready: boolean; taskAnnouncements?: Map<string, string> }) {

@@ -117,7 +117,7 @@ input,textarea,select{width:100%;margin-top:7px;resize:vertical}
 .message-content ul,.message-content ol{margin:0 0 9px;padding-left:22px}
 .message-content li{margin:3px 0}
 .message-content h1,.message-content h2,.message-content h3,.message-content h4{margin:14px 0 7px;font-size:1em;line-height:1.4}
-.message-content>:first-child{margin-top:0}
+.message-content>:first-child,.message-content>.message-hover-actions+*{margin-top:0}
 .message-content blockquote{margin:8px 0;padding-left:12px;border-left:3px solid var(--line-soft)}
 .message-content a{text-decoration:underline;text-underline-offset:3px}
 .message-mention{display:inline-flex;align-items:center;gap:4px;max-width:100%;padding:1px 7px 1px 3px;font-size:.95em;line-height:1.5;vertical-align:middle}

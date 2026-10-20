@@ -163,7 +163,8 @@ await check("restore with an unrendered progress anchor reveals the pane", async
 //    its selection (also after polling and re-renders) and copies the text.
 const selectionProbe = async (page, selector, label) => {
   const target = page.locator(selector).last();
-  await target.scrollIntoViewIfNeeded();
+  // Centred, not just revealed: a drag that starts at the scroller's edge auto-scrolls and the selection runs away.
+  await target.evaluate(el => el.scrollIntoView({ block: "center" }));
   const box = await target.boundingBox();
   assert.ok(box, `${label}: bubble text is on screen`);
   const text = (await target.innerText()).trim();
@@ -176,7 +177,7 @@ const selectionProbe = async (page, selector, label) => {
   await page.mouse.up();
   const first = await page.evaluate(() => String(getSelection()));
   assert.ok(first.trim().length >= 3, `${label}: dragging selected "${first}"`);
-  assert.ok(text.includes(first.trim().split("\n")[0].trim()), `${label}: selection "${first}" is bubble text`);
+  assert.ok(text.includes(first.trim().split("\n")[0].trim()), `${label}: selection ${JSON.stringify(first)} is bubble text ${JSON.stringify(text)}`);
   await page.waitForTimeout(3000);
   const later = await page.evaluate(() => String(getSelection()));
   assert.equal(later, first, `${label}: selection changed after 3 s (${JSON.stringify(first)} -> ${JSON.stringify(later)})`);
@@ -232,11 +233,11 @@ await check("touch: tapping selected text does not also open the message actions
   const box = await para.boundingBox();
   await page.touchscreen.tap(box.x + 20, box.y + 6);
   await page.waitForTimeout(300);
-  assert.equal(await page.locator(".is-actions-open").count(), 0, "tap on selected text opened the actions toolbar");
+  assert.equal(await page.locator(".message-hover-actions").count(), 0, "tap on selected text opened the actions toolbar");
   await page.evaluate(() => getSelection().removeAllRanges());
   await page.touchscreen.tap(box.x + 20, box.y + 6);
   await page.waitForTimeout(300);
-  assert.equal(await page.locator(".is-actions-open").count(), 1, "a plain tap opens the actions toolbar");
+  assert.equal(await page.locator(".message-hover-actions").count(), 1, "a plain tap opens the actions toolbar");
   await context.close();
 });
 

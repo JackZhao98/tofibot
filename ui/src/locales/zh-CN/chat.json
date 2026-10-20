@@ -247,6 +247,8 @@
     "view_latest": "查看最新消息"
   },
   "hover": {
+    "copy": "复制",
+    "copied": "已复制",
     "react": "添加表情",
     "reply": "回复",
     "toolbar": "消息操作",

@@ -53,7 +53,10 @@ export function ActionHints() {
   const target = useRef<HTMLElement | null>(null);
   useEffect(() => {
     let timer: number | undefined;
-    const hide = () => { clearTimeout(timer); target.current = null; setHint(null); };
+    let visible = false;
+    let hiddenAt = -Infinity;
+    // Moving from one icon to its neighbour keeps the explanation flowing: only the first hint pays the delay.
+    const hide = () => { clearTimeout(timer); if (visible) { visible = false; hiddenAt = performance.now(); } target.current = null; setHint(null); };
     const show = (event: Event) => {
       if (event instanceof PointerEvent && event.pointerType !== "mouse") return;
       const element = event.target instanceof Element ? event.target.closest<HTMLElement>("[data-hint]") : null;
@@ -62,9 +65,10 @@ export function ActionHints() {
       hide(); target.current = element;
       timer = window.setTimeout(() => {
         if (!element.isConnected) return;
+        visible = true;
         const rect = element.getBoundingClientRect();
         setHint({ text: element.dataset.hint || "", x: Math.max(100, Math.min(innerWidth - 100, rect.left + rect.width / 2)), y: rect.top > 62 ? rect.top - 8 : rect.bottom + 8, above: rect.top > 62 });
-      }, event.type === "focusin" ? 150 : 550);
+      }, event.type === "focusin" ? 150 : performance.now() - hiddenAt < 400 ? 0 : 500);
     };
     const leave = (event: PointerEvent) => { if (!target.current?.contains(event.relatedTarget as Node | null)) hide(); };
     document.addEventListener("pointerover", show);
