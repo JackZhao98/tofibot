@@ -817,11 +817,11 @@
       },
       "structured_output": {
         "name": "Réponses structurées",
-        "what": "Un Bot n’affiche du texte dans la discussion que via son outil say ; le texte écrit entre deux étapes reste dans la vue d’activité. Désactivez pour le publier comme avant."
+        "what": "Seules les réponses finales d’un Bot apparaissent dans la discussion ; ce qu’il écrit en travaillant reste dans la vue d’activité. Désactivez pour le publier comme avant."
       },
       "force_say_haiku_dm": {
         "name": "Outil de réponse imposé à Haiku",
-        "what": "En message direct, Haiku doit appeler l’outil say à chaque tour, pour que sa réponse arrive toujours dans la discussion."
+        "what": "En message direct, Haiku doit donner une vraie réponse à chaque tour, pour qu’elle arrive toujours dans la discussion."
       },
       "web_search": {
         "name": "Recherche web",
