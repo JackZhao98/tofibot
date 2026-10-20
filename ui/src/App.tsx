@@ -538,6 +538,8 @@ function Workspace() {
   // Group chats: avatar and name open a sender group once; later units from the same Bot only indent.
   const [messageRecords, setMessages] = useState<Message[]>([]);
   const [drafts, setDraftsState] = useState<Record<string, StreamDraft>>({});
+  // The conversation whose whole loaded page is drawn. A switch draws the newest blocks first and the rest right after.
+  const [fullTimelineFor, setFullTimelineFor] = useState<string | null>(null);
   // Streamed text lives in `draftStream`; `drafts` changes only in structure (see draftStream.ts). `draftsRef` is the newest record, committed or not.
   const draftStream = useRef(new DraftStream()).current;
   const draftsRef = useRef<Record<string, StreamDraft>>({});
@@ -1701,6 +1703,7 @@ function Workspace() {
     setLoadingOlder(false); setHistoryError(""); setError("");
     setToolDetailActivities([]); setToolDetailState({}); setToolSummaryState({});
     eventCursor.current = 0; snapshotEventCursor.current = 0; snapshotMaxSeq.current = 0; snapshotCursorKnown.current = false;
+    setFullTimelineFor(null);
     if (cached) {
       for (const run of cached.runs) if (isTerminalRun(run)) terminalRunIDs.current.add(run.id);
       setMessages(cached.messages); setDrafts(cached.drafts); setRuns(cached.runs); setToolActivities(cached.toolActivities);
@@ -2282,6 +2285,31 @@ function Workspace() {
   }
 
   // Sender grouping reads and writes the list's DOM: run it when what the list shows changes, not on every render.
+  // A visit that lands on the newest messages draws only those first (about a screen); the earlier blocks of the loaded
+  // page follow in the next task, kept in place by the scroll anchor. A visit that lands elsewhere, or that has a task to
+  // scroll to, draws everything.
+  const timelineFrom = active && loadedId === active.id && !loadingMessages && fullTimelineFor !== active.id && viewport.opensAtBottom && !taskFocus && conversationItems.length > FIRST_PAINT_BLOCKS + 8
+    ? conversationItems.length - FIRST_PAINT_BLOCKS : 0;
+  const timelineWindowed = timelineFrom > 0;
+  const timelineReady = !viewport.unpositioned;
+  const preserveScroll = viewport.preservePrepend;
+  const awayFromBottom = viewport.awayFromBottom;
+  // If the newest blocks do not fill the pane (short blocks, a tall window), the rest is drawn before the first paint instead.
+  useLayoutEffect(() => {
+    if (!timelineWindowed || !timelineReady || !activeId) return;
+    const pane = viewport.scrollRef.current;
+    const first = pane?.querySelector<HTMLElement>(".message-block");
+    if (pane && first && first.getBoundingClientRect().top > pane.getBoundingClientRect().top + 1) { preserveScroll(); setFullTimelineFor(activeId); }
+  }, [timelineWindowed, timelineReady, activeId, preserveScroll, viewport.scrollRef]);
+  useEffect(() => {
+    if (!timelineWindowed || !timelineReady || !activeId) return;
+    const id = activeId;
+    let timer = 0;
+    const frame = requestAnimationFrame(() => {
+      timer = window.setTimeout(() => startTransition(() => { if (awayFromBottom()) preserveScroll(); setFullTimelineFor(id); }), 0);
+    });
+    return () => { cancelAnimationFrame(frame); window.clearTimeout(timer); };
+  }, [timelineWindowed, timelineReady, activeId, preserveScroll, awayFromBottom]);
   const botNames = useMemo(() => new Map(bots.map(bot => [bot.id, bot.name] as const)), [bots]);
   const expiryFinishing = useMemo(() => new Set(runs.filter(run => run.finishing_reason === "approval_expired").map(run => run.id)), [runs]);
   // Rows are memoized; what they call reaches the newest closures through one object that never changes identity.
@@ -2332,7 +2360,8 @@ function Workspace() {
     const call = <K extends keyof RowHandlers>(key: K) => ((...args: unknown[]) => (rowApi.current[key] as (...a: unknown[]) => unknown)(...args)) as unknown as RowHandlers[K];
     return { openMenu: call("openMenu"), closeMenu: call("closeMenu"), hostPointerDown: call("hostPointerDown"), hostClick: call("hostClick"), react: call("react"), toggleActivity: call("toggleActivity"), reply: call("reply"), retrySend: call("retrySend"), retryRun: call("retryRun"), loadDetails: call("loadDetails"), retrySummary: call("retrySummary"), navigate: call("navigate"), openRelated: call("openRelated"), draftReply: call("draftReply"), mention: call("mention"), setReaction: call("setReaction") };
   }, []);
-  useLayoutEffect(() => { markSenderGroups(messageListRef.current); }, [conversationItems, taskOwners, toolTimeline, pendingRuns, drafts, loadingMessages, active?.id, active?.kind, active?.archived, teamBoardOpen, viewport.unreadSeq, error, historyError, hasMore, runs, toolSummaryAnchors, toolSummaryErrorAnchors, toolSummaryLoadingAnchors, toolDetailState, toolSummaryState, loadedToolActivities, terminalToolSummaries, questions.items, mailDrafts.items, activityView, bots, conversations, messageRecords]);
+  // Sender marks change the gaps between rows after the scroll position was set: the position is taken again once they are in.
+  useLayoutEffect(() => { markSenderGroups(messageListRef.current); viewport.reposition(); }, [viewport.reposition, conversationItems, timelineFrom, taskOwners, toolTimeline, pendingRuns, drafts, loadingMessages, active?.id, active?.kind, active?.archived, teamBoardOpen, viewport.unreadSeq, error, historyError, hasMore, runs, toolSummaryAnchors, toolSummaryErrorAnchors, toolSummaryLoadingAnchors, toolDetailState, toolSummaryState, loadedToolActivities, terminalToolSummaries, questions.items, mailDrafts.items, activityView, bots, conversations, messageRecords]);
 
   if (!indexInitialized.current && workspaceError) return <BootScreen label={t("workspace.connection_unavailable")} immediate><h2>{t("workspace.connection_unavailable")}</h2><p>{workspaceError}</p><button className="primary-button" disabled={loading} onClick={() => void refreshIndex()}>{loading ? t("action.retrying") : t("common:action.retry")}</button></BootScreen>;
   if (loading && !conversations.length) return <BootScreen label={t("workspace.loading")} />;
@@ -2382,9 +2411,10 @@ function Workspace() {
                   {historyError && !viewport.boundaryError && <div className="history-error history-error-older" role="alert"><span>{t("history.older_failed", { error: historyError })}</span><button onClick={() => void loadOlder()} disabled={loadingOlder}>{loadingOlder ? t("action.retrying") : t("common:action.retry")}</button></div>}
                   {hasMore && <button className="load-older" onClick={() => void loadOlder()} disabled={loadingOlder}>{loadingOlder ? t("action.loading") : t("history.load_older")}</button>}
                   {(questions.error || mailDrafts.error || snapshotError) && <div className="task-state-read-error"><span>{i18n.t("tasks:issue.status_unavailable")}</span><button type="button" className="text-button" onClick={() => void refreshTaskStatus().catch(() => setSnapshotError("read_unavailable"))}>{i18n.t("tasks:issue.action.refresh_status")}</button></div>}
-                  {snapshotError && loadedId !== active.id && !loadingMessages ? <div className="inline-state" role="status" data-snapshot-unavailable="true"><div className="spinner" />{t("history.unavailable_retrying")}</div> : loadingMessages ? <DelayedFeedback key={`loading-${active.id}`}><div className={`inline-state${isDesktop ? "" : " web-loading-state"}`}>{isDesktop ? <div className="spinner" /> : <LoadingCat size={34} />}{t("history.loading_messages")}</div></DelayedFeedback> : conversationItems.length === 0 ?
+                  {snapshotError && loadedId !== active.id && !loadingMessages ? <div className="inline-state" role="status" data-snapshot-unavailable="true"><div className="spinner" />{t("history.unavailable_retrying")}</div> : loadingMessages ? <DelayedFeedback key={`loading-${active.id}`}><div className={`inline-state${isDesktop ? "" : " web-loading-state"}`}>{isDesktop ? <div className="spinner" /> : <LoadingCat size={34} />}{t("history.loading_messages")}</div></DelayedFeedback> : loadedId !== active.id ? null : conversationItems.length === 0 ?
                     <EmptyState name="conversation" className="conversation-empty" look={CATS.mochi} pose="curious" size={84}><h2>{t("empty.start_chat")}</h2><p>{t("empty.start_chat_body")}</p></EmptyState> :
                     conversationItems.map((item, index) => {
+                      if (index < timelineFrom) return null;
                       const previousItem = conversationItems[index - 1];
                       const previousTime = previousItem?.kind === "message" ? previousItem.message.created_at : previousItem?.kind === "question" ? previousItem.question.created_at : previousItem?.draft.created_at;
                       if (item.kind === "mail_draft") {
@@ -2650,9 +2680,9 @@ function RelatedMessageLink({ target, onOpen }: { target: ViewOnlyChatTarget; on
   return <button type="button" className="related-message-link" aria-label={label === "Message from" ? t("related.from_aria", { name: displayName }) : t("related.to_aria", { name: displayName })} onClick={() => onOpen(target)}><span>{label === "Message from" ? t("related.from") : t("related.to")}</span><span className="related-message-avatars">{visibleDisplayIDs.map((id) => <BotAvatar key={id} id={id} mini />)}{displayIDs.length > visibleDisplayIDs.length && <em>+{displayIDs.length - visibleDisplayIDs.length}</em>}</span><span className="related-message-name">{displayName}</span><Icon name="chevron-right" size={14} /></button>;
 }
 
-function SmoothStreamMarkdown({ content, mention, active }: { content: string; mention?: React.ReactNode; active: boolean }) {
+function SmoothStreamMarkdown({ content, mention, active, streaming = false }: { content: string; mention?: React.ReactNode; active: boolean; streaming?: boolean }) {
   const visible = useSmoothStreamText(content, active);
-  return <MessageMarkdown content={visible} mention={mention} cursor={active} />;
+  return <MessageMarkdown content={visible} mention={mention} cursor={active} reuse={!streaming} />;
 }
 
 function readReplyMarker(content: string): { ids: string[]; body: string } {
@@ -2670,6 +2700,8 @@ function readReplyMarker(content: string): { ids: string[]; body: string } {
 }
 
 const SNAPSHOT_CACHE_LIMIT = 50;
+/** Blocks drawn before the first paint of a conversation that opens at its newest message. */
+const FIRST_PAINT_BLOCKS = 12;
 const SNAPSHOT_CACHE_MESSAGES = 60;
 interface ConversationSnapshot { messages: Message[]; drafts: Record<string, StreamDraft>; runs: Run[]; toolActivities: ToolActivity[]; toolSummaries: ToolActivityRunSummary[]; memories: Memory[]; hasMore: boolean }
 
@@ -2747,7 +2779,7 @@ export function MessageBubble({ receipt, message, replyTarget, replyTargetName, 
   const inlineMention = mention && targetBot ? <BotIdentityCard bot={targetBot} onMention={onMention ? () => onMention(targetBot) : undefined} onOpen={allowOpenDM && onNavigate ? () => onNavigate(targetBot.dm_conversation_id) : undefined}>{mention}</BotIdentityCard> : mention;
   const toolRow = tools && <div className="message-tools">{tools}</div>;
   const grouped = showAvatar && !isUser;
-  return <article data-sender={grouped ? message.sender_bot_id : undefined} data-at={grouped ? message.created_at : undefined} className={`message ${isUser ? "message-user" : "message-bot"}${message.local?.state === "sending" ? " is-sending" : ""}${grouped ? " is-group" : !isUser ? " is-dm" : ""} ${message.kind === "segment" ? "message-segment" : ""} ${message.kind === "forward_result" ? "message-forward-result" : ""} ${compact ? "message-compact" : ""}`} title={isDesktop ? `${formatExactTime(message.created_at, timezone)} · ${timezone}` : undefined}><div className={`message-body${tools && !isDesktop ? ` web-tool-body ${toolsRunning ? "is-tools-live" : "is-tools-done"}` : ""}`}><div className={`message-meta ${hideMeta ? "compact" : ""}`}>{scheduled && <span>{t("message.scheduled")}</span>}{showIdentity && !isUser && (!compact || showAvatar) && <strong>{label}</strong>}</div>{(toolsRunning || !isDesktop) && toolRow}{replyTarget && <button type="button" className="message-reply-quote" aria-label={t("message.jump_to_reply", { name: replyTargetName ?? t("message.original") })} onClick={() => jumpToMessage(document.querySelector<HTMLElement>(`[data-message-id="${replyTarget.id}"]`))}><span className="message-reply-author">{t("message.reply_to", { name: replyTargetName ?? t("message.original") })}</span><span className="message-reply-excerpt">{previewText(readReplyMarker(replyTarget.content).body) || t("message.attachment")}</span></button>}<div className="message-content" ref={answerRef}>{showAvatar && !isUser && <div className="sender-avatar">{sender ? <BotIdentityCard bot={sender} onMention={onMention ? () => onMention(sender) : undefined} onOpen={allowOpenDM && onNavigate ? () => onNavigate(sender.dm_conversation_id) : undefined}><Avatar label={label} id={sender.id} mini /></BotIdentityCard> : <Avatar label={label} id={message.sender_bot_id ?? "bot"} mini />}</div>}{<SmoothStreamMarkdown content={body} mention={inlineMention} active={draft !== undefined && !isDesktop} />}<AttachmentList attachments={message.attachments} compact={isUser} />{draft !== undefined && isDesktop && <span className="typing-cursor" />}</div>{receipt}{!toolsRunning && isDesktop && toolRow}{relatedChat && onOpenRelatedChat && <RelatedMessageLink target={relatedChat} onOpen={onOpenRelatedChat} />}</div></article>;
+  return <article data-sender={grouped ? message.sender_bot_id : undefined} data-at={grouped ? message.created_at : undefined} className={`message ${isUser ? "message-user" : "message-bot"}${message.local?.state === "sending" ? " is-sending" : ""}${grouped ? " is-group" : !isUser ? " is-dm" : ""} ${message.kind === "segment" ? "message-segment" : ""} ${message.kind === "forward_result" ? "message-forward-result" : ""} ${compact ? "message-compact" : ""}`} title={isDesktop ? `${formatExactTime(message.created_at, timezone)} · ${timezone}` : undefined}><div className={`message-body${tools && !isDesktop ? ` web-tool-body ${toolsRunning ? "is-tools-live" : "is-tools-done"}` : ""}`}><div className={`message-meta ${hideMeta ? "compact" : ""}`}>{scheduled && <span>{t("message.scheduled")}</span>}{showIdentity && !isUser && (!compact || showAvatar) && <strong>{label}</strong>}</div>{(toolsRunning || !isDesktop) && toolRow}{replyTarget && <button type="button" className="message-reply-quote" aria-label={t("message.jump_to_reply", { name: replyTargetName ?? t("message.original") })} onClick={() => jumpToMessage(document.querySelector<HTMLElement>(`[data-message-id="${replyTarget.id}"]`))}><span className="message-reply-author">{t("message.reply_to", { name: replyTargetName ?? t("message.original") })}</span><span className="message-reply-excerpt">{previewText(readReplyMarker(replyTarget.content).body) || t("message.attachment")}</span></button>}<div className="message-content" ref={answerRef}>{showAvatar && !isUser && <div className="sender-avatar">{sender ? <BotIdentityCard bot={sender} onMention={onMention ? () => onMention(sender) : undefined} onOpen={allowOpenDM && onNavigate ? () => onNavigate(sender.dm_conversation_id) : undefined}><Avatar label={label} id={sender.id} mini /></BotIdentityCard> : <Avatar label={label} id={message.sender_bot_id ?? "bot"} mini />}</div>}{<SmoothStreamMarkdown content={body} mention={inlineMention} active={draft !== undefined && !isDesktop} streaming={draft !== undefined} />}<AttachmentList attachments={message.attachments} compact={isUser} />{draft !== undefined && isDesktop && <span className="typing-cursor" />}</div>{receipt}{!toolsRunning && isDesktop && toolRow}{relatedChat && onOpenRelatedChat && <RelatedMessageLink target={relatedChat} onOpen={onOpenRelatedChat} />}</div></article>;
 }
 
 /** Everything one timeline row draws, derived by the workspace. Plain data only: the row is skipped when none of it changed. */
