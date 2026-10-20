@@ -139,11 +139,13 @@ func (s *Store) addUserRuns(conv, content, client string, specs []runSpec, attac
 			return Message{}, nil, false, err
 		}
 	}
+	var convKind string
+	if err = tx.QueryRow(`SELECT kind FROM conversations WHERE id=?`, conv).Scan(&convKind); err != nil {
+		return Message{}, nil, false, err
+	}
+	isGroup := convKind == "group"
 	if len(specs) == 0 {
-		var kind string
-		if err = tx.QueryRow(`SELECT kind FROM conversations WHERE id=?`, conv).Scan(&kind); err != nil {
-			return Message{}, nil, false, err
-		}
+		kind := convKind
 		if kind != "group" {
 			return Message{}, nil, false, errors.New("at least one run target is required")
 		}
@@ -157,7 +159,16 @@ func (s *Store) addUserRuns(conv, content, client string, specs []runSpec, attac
 	}
 	// A human request supersedes stale queued work in an active conversation;
 	// independent schedule runs are excluded by interruptInTransaction.
-	if err = interruptInTransaction(tx, conv); err != nil {
+	// In a group the message only supersedes work of the Bots it addresses;
+	// the other members' unrelated work keeps running.
+	var addressed []string
+	if isGroup {
+		addressed = make([]string, 0, len(specs))
+		for _, spec := range specs {
+			addressed = append(addressed, spec.BotID)
+		}
+	}
+	if err = interruptInTransaction(tx, conv, addressed...); err != nil {
 		return Message{}, nil, false, err
 	}
 	// The HTTP layer resolves mentions before opening this transaction. A
@@ -203,12 +214,18 @@ func (s *Store) addUserRuns(conv, content, client string, specs []runSpec, attac
 	// conversation. The relation scopes carryover evidence to this request and
 	// prevents old steering results leaking into later retries or runs.
 	for _, r := range runs {
+		// In a group only the same Bot's active work is steered: another
+		// member's result must neither be cancelled nor handed to this Bot.
+		sameBot := ""
+		if isGroup {
+			sameBot = r.BotID
+		}
 		if _, err = tx.Exec(`WITH RECURSIVE prior(id) AS (
-			SELECT id FROM runs WHERE conversation_id=? AND id<>? AND (status='running' OR
+			SELECT id FROM runs WHERE conversation_id=? AND id<>? AND (?='' OR bot_id=?) AND (status='running' OR
 				(status IN ('waiting','queued') AND EXISTS(SELECT 1 FROM run_input_waits w WHERE w.run_id=runs.id AND w.state='waiting')))
 			UNION SELECT link.old_run_id FROM run_steering link JOIN prior p ON link.new_run_id=p.id
 		) INSERT OR IGNORE INTO run_steering(new_run_id,old_run_id)
-			SELECT ?,id FROM prior`, conv, r.ID, r.ID); err != nil {
+			SELECT ?,id FROM prior`, conv, r.ID, sameBot, sameBot, r.ID); err != nil {
 			return Message{}, nil, false, err
 		}
 	}
@@ -1144,13 +1161,27 @@ func (s *Store) nextQueuedRun(conv string) (Run, bool, error) {
 	return r, err == nil, err
 }
 
-func interruptInTransaction(tx *sql.Tx, conv string) error {
+// interruptInTransaction supersedes queued work around the active runs. When
+// addressed Bots are given (a group message), only the rounds that contain a
+// run of an addressed Bot are affected; other members' rounds are untouched.
+func interruptInTransaction(tx *sql.Tx, conv string, addressed ...string) error {
 	// A new explicit mention is durable steering input. Leave running work
 	// alone until its stream/tool/model safe boundary; queued stale work can be
 	// cancelled immediately and the new run will carry any completed evidence.
-	rows, err := tx.Query(`WITH RECURSIVE roots(id,trigger_message_id,parent_run_id) AS (
-		SELECT id,trigger_message_id,parent_run_id FROM runs WHERE conversation_id=? AND status='running'
-		UNION SELECT parent.id,parent.trigger_message_id,parent.parent_run_id FROM runs parent JOIN roots child ON parent.id=child.parent_run_id
+	args := []any{conv}
+	scope := ""
+	if len(addressed) > 0 {
+		scope = ` AND start_id IN (SELECT start_id FROM chain WHERE bot_id IN (` + strings.TrimSuffix(strings.Repeat("?,", len(addressed)), ",") + `))`
+		for _, id := range addressed {
+			args = append(args, id)
+		}
+	}
+	args = append(args, conv)
+	rows, err := tx.Query(`WITH RECURSIVE chain(start_id,id,trigger_message_id,parent_run_id,bot_id) AS (
+		SELECT id,id,trigger_message_id,parent_run_id,bot_id FROM runs WHERE conversation_id=? AND status='running'
+		UNION SELECT child.start_id,parent.id,parent.trigger_message_id,parent.parent_run_id,parent.bot_id FROM runs parent JOIN chain child ON parent.id=child.parent_run_id
+	), roots(id,trigger_message_id,parent_run_id) AS (
+		SELECT id,trigger_message_id,parent_run_id FROM chain WHERE 1=1`+scope+`
 	), family(id) AS (
 		SELECT id FROM roots
 		UNION SELECT child.id FROM runs child JOIN family parent ON child.parent_run_id=parent.id
@@ -1161,7 +1192,7 @@ func interruptInTransaction(tx *sql.Tx, conv string) error {
 	WHERE queued.conversation_id=? AND queued.status='queued' AND queued.kind<>'schedule'
 	AND (queued.trigger_message_id IN (SELECT trigger_message_id FROM roots WHERE trigger_message_id<>'')
 		OR queued.parent_run_id IN (SELECT id FROM family)
-		OR queued.id IN (SELECT id FROM steering_successors))`, conv, conv)
+		OR queued.id IN (SELECT id FROM steering_successors))`, args...)
 	if err != nil {
 		return err
 	}
