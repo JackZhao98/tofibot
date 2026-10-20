@@ -1417,7 +1417,7 @@ func (s *Server) scheduleTools(c Conversation, r Run) []Tool {
 		return x, nil
 	}
 	return []Tool{
-		{Name: "create_schedule", Description: "Schedule future work by a member of this conversation. Use kind once for a single run, interval for repeating elapsed intervals, daily for a local wall-clock time every day, or weekly for a local wall-clock time on specific weekdays (for example every Sunday at 00:43, or Monday, Wednesday and Friday). For anything that repeats only on some weekdays, always use weekly; never create a daily schedule whose instructions check the weekday and do nothing on other days. Timezone defaults to the configured user timezone; if none is configured, provide the IANA timezone supported by the request or ask the user before guessing.", Parameters: objectSchema(map[string]any{"bot_id": map[string]any{"type": "string", "description": "Active member to execute the work; defaults to you"}, "title": displayTitleSchema(), "description": displayDescriptionSchema(), "content": map[string]any{"type": "string", "description": "Complete execution instructions written in English. Preserve exact names, quoted user data and localized output requirements; keep title and description separate."}, "kind": map[string]any{"type": "string", "enum": []string{"once", "interval", "daily", "weekly"}}, "run_at": map[string]any{"type": "string", "description": "Required for once: RFC3339 timestamp with explicit UTC offset"}, "interval_seconds": map[string]any{"type": "integer", "description": "Required for interval: elapsed seconds between runs"}, "daily_time": map[string]any{"type": "string", "description": "Required for daily and weekly: HH:MM in the selected timezone"}, "weekdays": map[string]any{"type": "array", "items": map[string]any{"type": "string", "enum": weekdayNames}, "description": "Required for weekly: one or more weekdays (mon, tue, wed, thu, fri, sat, sun); the schedule runs at daily_time on each listed day"}, "timezone": map[string]any{"type": "string", "description": "IANA timezone; omit only when user timezone is configured"}}, []string{"title", "description", "content", "kind"}), Execute: func(ctx context.Context, raw json.RawMessage) (string, error) {
+		{Name: "create_schedule", Description: "Schedule future work by a member of this conversation. Use kind once for a single run, interval for repeating elapsed intervals, daily for a local wall-clock time every day, or weekly for a local wall-clock time on specific weekdays (for example every Sunday at 00:43, or Monday, Wednesday and Friday). For anything that repeats only on some weekdays, always use weekly; never create a daily schedule whose instructions check the weekday and do nothing on other days. Timezone defaults to the configured user timezone; if none is configured, provide the IANA timezone supported by the request or ask the user before guessing. The result carries next_at_local, the next run in the schedule's timezone with the zone name; a confirmation states when the work will run in that form, zone included, so the person never has to infer which clock it means.", Parameters: objectSchema(map[string]any{"bot_id": map[string]any{"type": "string", "description": "Active member to execute the work; defaults to you"}, "title": displayTitleSchema(), "description": displayDescriptionSchema(), "content": map[string]any{"type": "string", "description": "Complete execution instructions written in English. Preserve exact names, quoted user data and localized output requirements; keep title and description separate."}, "kind": map[string]any{"type": "string", "enum": []string{"once", "interval", "daily", "weekly"}}, "run_at": map[string]any{"type": "string", "description": "Required for once: RFC3339 timestamp with explicit UTC offset"}, "interval_seconds": map[string]any{"type": "integer", "description": "Required for interval: elapsed seconds between runs"}, "daily_time": map[string]any{"type": "string", "description": "Required for daily and weekly: HH:MM in the selected timezone"}, "weekdays": map[string]any{"type": "array", "items": map[string]any{"type": "string", "enum": weekdayNames}, "description": "Required for weekly: one or more weekdays (mon, tue, wed, thu, fri, sat, sun); the schedule runs at daily_time on each listed day"}, "timezone": map[string]any{"type": "string", "description": "IANA timezone; omit only when user timezone is configured"}}, []string{"title", "description", "content", "kind"}), Execute: func(ctx context.Context, raw json.RawMessage) (string, error) {
 			if err := ctx.Err(); err != nil {
 				return "", err
 			}
@@ -1437,8 +1437,7 @@ func (s *Server) scheduleTools(c Conversation, r Run) []Tool {
 			if err != nil {
 				return "", err
 			}
-			b, _ := json.Marshal(x)
-			return string(b), nil
+			return scheduleToolJSON(x), nil
 		}},
 		{Name: "update_schedule", Description: "Edit this conversation's schedule title, description and optionally its complete execution instruction, only when the user requests an edit. Write authored execution instructions in English while preserving quoted data and localized output requirements. Timing, recurrence (kind, daily_time, weekdays, timezone) and past executions cannot be changed here; to change when it runs, delete the schedule and create a new one.", Parameters: objectSchema(map[string]any{"schedule_id": map[string]any{"type": "string"}, "title": displayTitleSchema(), "description": displayDescriptionSchema(), "content": map[string]any{"type": "string", "description": "Optional complete replacement execution instruction in English; omit to preserve it"}}, []string{"schedule_id", "title", "description"}), Execute: func(ctx context.Context, raw json.RawMessage) (string, error) {
 			if err := ctx.Err(); err != nil {
@@ -1464,10 +1463,9 @@ func (s *Server) scheduleTools(c Conversation, r Run) []Tool {
 			if err != nil {
 				return "", err
 			}
-			b, _ := json.Marshal(x)
-			return string(b), nil
+			return scheduleToolJSON(x), nil
 		}},
-		{Name: "list_schedules", Description: "List scheduled work for this conversation or this Bot across conversations. Use view upcoming, history, or all. Each schedule reports kind, daily_time, weekdays (weekly only), timezone and next_at_utc.", Parameters: objectSchema(map[string]any{"scope": map[string]any{"type": "string", "enum": []string{"conversation", "self"}}, "view": map[string]any{"type": "string", "enum": []string{"upcoming", "history", "all"}}}, nil), Execute: func(ctx context.Context, raw json.RawMessage) (string, error) {
+		{Name: "list_schedules", Description: "List scheduled work for this conversation or this Bot across conversations. Use view upcoming, history, or all. Each schedule reports kind, daily_time, weekdays (weekly only), timezone, next_at_utc and next_at_local.", Parameters: objectSchema(map[string]any{"scope": map[string]any{"type": "string", "enum": []string{"conversation", "self"}}, "view": map[string]any{"type": "string", "enum": []string{"upcoming", "history", "all"}}}, nil), Execute: func(ctx context.Context, raw json.RawMessage) (string, error) {
 			if err := ctx.Err(); err != nil {
 				return "", err
 			}
@@ -1503,8 +1501,7 @@ func (s *Server) scheduleTools(c Conversation, r Run) []Tool {
 			if err != nil {
 				return "", err
 			}
-			b, _ := json.Marshal(v)
-			return string(b), nil
+			return scheduleToolListJSON(v), nil
 		}},
 		{Name: "pause_schedule", Description: "pause a schedule in this conversation", Parameters: objectSchema(map[string]any{"schedule_id": map[string]any{"type": "string"}}, []string{"schedule_id"}), Execute: func(ctx context.Context, raw json.RawMessage) (string, error) {
 			if err := ctx.Err(); err != nil {
@@ -1615,4 +1612,48 @@ CREATE INDEX IF NOT EXISTS schedules_conversation ON schedules(conversation_id,s
 		return err
 	}
 	return tx.Commit()
+}
+
+// scheduleToolSchedule is a schedule as a model reads it: the stored fields
+// plus the next run already rendered on the schedule's own clock, with the
+// zone abbreviation and IANA name, so a confirmation never has to convert UTC
+// or leave the zone out.
+type scheduleToolSchedule struct {
+	Schedule
+	NextAtLocal string `json:"next_at_local,omitempty"`
+}
+
+// scheduleNextLocal formats next (RFC3339) in zone as "Wed 2026-10-21 09:00 PDT
+// (America/Los_Angeles)". It returns "" when either cannot be read.
+func scheduleNextLocal(next, zone string) string {
+	at, err := time.Parse(time.RFC3339Nano, next)
+	if err != nil {
+		return ""
+	}
+	if zone == "" {
+		zone = "UTC"
+	}
+	loc, err := time.LoadLocation(zone)
+	if err != nil {
+		return ""
+	}
+	return at.In(loc).Format("Mon 2006-01-02 15:04 MST") + " (" + zone + ")"
+}
+
+func scheduleToolView(x Schedule) scheduleToolSchedule {
+	return scheduleToolSchedule{Schedule: x, NextAtLocal: scheduleNextLocal(x.NextAtUTC, x.Timezone)}
+}
+
+func scheduleToolJSON(x Schedule) string {
+	b, _ := json.Marshal(scheduleToolView(x))
+	return string(b)
+}
+
+func scheduleToolListJSON(v []Schedule) string {
+	out := make([]scheduleToolSchedule, 0, len(v))
+	for _, x := range v {
+		out = append(out, scheduleToolView(x))
+	}
+	b, _ := json.Marshal(out)
+	return string(b)
 }

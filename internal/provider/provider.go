@@ -38,6 +38,34 @@ type ChatRequest struct {
 	// provider default (auto); ToolChoiceNone keeps Tools in the request but
 	// forbids calling them; ToolChoiceAny requires some tool call.
 	ToolChoice string
+	// WebSearch, when set, adds the provider's own server-side web search to
+	// the request (Anthropic only; other providers ignore it). The provider
+	// runs the searches inside the model call, so no tool result is returned
+	// to the caller: what was searched comes back on ChatResponse.WebSearches.
+	WebSearch *WebSearchSpec
+}
+
+// WebSearchSpec configures the server-side web search tool.
+type WebSearchSpec struct {
+	// MaxUses caps the searches one model request may run (the provider
+	// default applies when zero).
+	MaxUses int
+}
+
+// WebSearchSource is one page a server-side search returned.
+type WebSearchSource struct {
+	Title   string `json:"title"`
+	URL     string `json:"url"`
+	PageAge string `json:"page_age,omitempty"`
+}
+
+// WebSearch is one server-side search the model ran: its query and the
+// sources that came back, or the provider's error code when it failed.
+type WebSearch struct {
+	ID      string
+	Query   string
+	Sources []WebSearchSource
+	Error   string
 }
 
 // ToolChoiceNone is ChatRequest.ToolChoice for a text-only turn.
@@ -124,6 +152,10 @@ type ChatResponse struct {
 	// ReasoningReplayRejected reports that the provider rejected replayed
 	// reasoning items and this response was produced without them.
 	ReasoningReplayRejected bool
+	// WebSearches are the server-side searches this response ran, in order.
+	WebSearches []WebSearch
+	// WebSearchRequests is the number of searches the provider billed for.
+	WebSearchRequests int64
 }
 
 // HasToolCalls returns true if the response contains tool calls.

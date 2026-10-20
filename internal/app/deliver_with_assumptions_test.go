@@ -2,6 +2,7 @@ package app
 
 import (
 	"context"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -115,5 +116,148 @@ func TestCoAddressedNoteMayCarryAWholeDraftButAPlainNoteStaysShort(t *testing.T)
 	}
 	if !strings.Contains(sayToolDescription, "never on a request for details it already assumed") {
 		t.Fatal("say description lost the end-on-the-result principle")
+	}
+}
+
+// noteThenSilentEngine makes one addressed Bot leave its part as a folded note
+// and end its turn silently; the others answer with a fixed sentence.
+type noteThenSilentEngine struct {
+	recordingEngine
+	inputBot  string
+	note      string
+	silentErr string
+}
+
+func (e *noteThenSilentEngine) Run(ctx context.Context, req runtime.Request) (runtime.Result, error) {
+	if req.BotID == e.inputBot {
+		if e.note != "" {
+			if _, err := callTool(ctx, req, "say", "note-"+req.RunID, map[string]any{"purpose": "note", "text": e.note}); err != nil {
+				return runtime.Result{Content: "ERR " + err.Error()}, nil
+			}
+		}
+		for _, tool := range req.Tools {
+			if tool.Name == "respond" {
+				if _, err := tool.Execute(ctx, []byte(`{"disposition":"silent"}`)); err != nil {
+					e.mu.Lock()
+					e.silentErr = err.Error()
+					e.mu.Unlock()
+				}
+			}
+		}
+		e.mu.Lock()
+		e.order = append(e.order, req.BotID)
+		e.mu.Unlock()
+		return runtime.Result{}, nil
+	}
+	return e.recordingEngine.Run(ctx, req)
+}
+
+func TestCoAddressedInputMemberEndsSilentAndOwnerSeesOneMessage(t *testing.T) {
+	e := &noteThenSilentEngine{note: "DRAFT-INPUT folded part"}
+	f := newDedupeFixture(t, e)
+	e.inputBot = f.tofi.ID
+	e.say = map[string]string{f.meta.ID: "The single combined result."}
+	f.send(t, "@tofi @metaphor work it out together, one recommendation back")
+	runs := f.settle(t)
+	if e.silentErr != "" {
+		t.Fatalf("the input member's silent ending was refused: %s", e.silentErr)
+	}
+	if len(runs) != 2 || runs[0].Status != "done" || runs[1].Status != "done" {
+		t.Fatalf("runs=%+v", runs)
+	}
+	if n := countMessages(t, f.server.store, f.group.ID, `role='assistant' AND kind='' AND TRIM(content)<>''`); n != 1 {
+		t.Fatalf("owner sees %d visible assistant messages, want exactly 1", n)
+	}
+	if n := countMessages(t, f.server.store, f.group.ID, `kind='progress' AND client_message_id LIKE 'say-note:%' AND content LIKE '%DRAFT-INPUT%'`); n != 1 {
+		t.Fatalf("folded notes=%d", n)
+	}
+	var origin string
+	if err := f.server.store.db.QueryRow(`SELECT final_origin FROM runs WHERE id=?`, runs[0].ID).Scan(&origin); err != nil || origin != finalOriginNone {
+		t.Fatalf("input member final_origin=%q err=%v", origin, err)
+	}
+	if !strings.Contains(e.seen[f.meta.ID], "DRAFT-INPUT folded part") {
+		t.Fatal("the final member did not read the folded note")
+	}
+}
+
+func TestCoAddressedLastMemberAndNoteLessMemberCannotEndSilent(t *testing.T) {
+	// The last member owes the visible answer; so does a member that left no note.
+	for _, tc := range []struct {
+		name  string
+		input string // which bot attempts the silent ending
+		note  bool
+	}{{"last member", "meta", true}, {"first member without a note", "tofi", false}} {
+		t.Run(tc.name, func(t *testing.T) {
+			e := &noteThenSilentEngine{note: "x part"}
+			f := newDedupeFixture(t, e)
+			if tc.input == "meta" {
+				e.inputBot = f.meta.ID
+			} else {
+				e.inputBot = f.tofi.ID
+				e.note = ""
+			}
+			e.say = map[string]string{f.tofi.ID: "first answer", f.meta.ID: "second answer"}
+			f.send(t, "@tofi @metaphor one recommendation please")
+			f.settle(t)
+			if e.silentErr == "" {
+				t.Fatal("the silent ending was accepted")
+			}
+		})
+	}
+}
+
+func TestAssumptionPrincipleSitsAtEachPointOfDecision(t *testing.T) {
+	s, conv, run := mailDraftFixture(t)
+	found := false
+	for _, tool := range s.questionTools(conv, run) {
+		if tool.Name == "ask_user_question" {
+			found = true
+			for _, want := range []string{"settle what you would assume", "A question typed into the reply is asking too"} {
+				if !strings.Contains(tool.Description, want) {
+					t.Fatalf("ask_user_question lacks %q", want)
+				}
+			}
+		}
+	}
+	if !found {
+		t.Fatal("ask_user_question missing")
+	}
+	for _, want := range []string{"defaults to state in a line", "an invitation to supply them is such a request"} {
+		if !strings.Contains(sayToolDescription, want) {
+			t.Fatalf("say description lacks %q", want)
+		}
+	}
+	if !strings.Contains(botProfileInstructionsDescription, "never wait on confirmation") {
+		t.Fatal("persona generator still lets requested deliverables wait on confirmation")
+	}
+}
+
+// failingFinalEngine lets the input member leave a note and end silent, then
+// fails the final member's run.
+type failingFinalEngine struct {
+	noteThenSilentEngine
+	failBot string
+}
+
+func (e *failingFinalEngine) Run(ctx context.Context, req runtime.Request) (runtime.Result, error) {
+	if req.BotID == e.failBot {
+		return runtime.Result{}, errors.New("synthetic provider failure")
+	}
+	return e.noteThenSilentEngine.Run(ctx, req)
+}
+
+func TestCoAddressedResultNeverEndsInSilenceWhenTheFinalMemberFails(t *testing.T) {
+	e := &failingFinalEngine{}
+	e.note = "THE-INPUT-PART worth delivering"
+	f := newDedupeFixture(t, e)
+	e.inputBot = f.tofi.ID
+	e.failBot = f.meta.ID
+	f.send(t, "@tofi @metaphor work it out together, one recommendation back")
+	runs := f.settle(t)
+	if len(runs) != 2 || runs[1].Status != "failed" {
+		t.Fatalf("runs=%+v", runs)
+	}
+	if n := countMessages(t, f.server.store, f.group.ID, `role='assistant' AND kind='' AND content LIKE '%THE-INPUT-PART%'`); n != 1 {
+		t.Fatalf("the input part reached the owner %d times, want exactly once", n)
 	}
 }
