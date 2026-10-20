@@ -193,20 +193,22 @@ await check("a two second blip shows nothing and moves nothing", async () => {
   await context.close();
 });
 
-// RES-4: a failed send is the app speaking in the app's words; a failed startup retries by itself.
-await check("a failed send says what happened, as a system notice", async () => {
+// RES-4: a failed send stays as a Not sent bubble in the app's words; a failed startup retries by itself.
+await check("a failed send stays on screen as Not sent, with the reason in the app's words", async () => {
   const { page, context } = await open();
   await liveOk(page).waitFor();
   mock.failSends = true;
   await page.locator(".composer textarea").fill("synthetic hello");
   await page.keyboard.press("Enter");
-  const banner = page.locator(".message-list .error-banner");
-  await banner.waitFor({ timeout: 5000 });
-  const text = await banner.innerText();
-  assert.ok(!/failed to fetch|load failed|networkerror/i.test(text), `raw browser text shown: ${text}`);
-  assert.match(text, /reach the server/i);
-  const border = await banner.evaluate(node => parseFloat(getComputedStyle(node).borderTopWidth));
-  assert.ok(border >= 1, "the notice looks like plain Bot text (no notice styling)");
+  const retry = page.locator(".message-list .send-receipt-retry");
+  await retry.waitFor({ timeout: 5000 });
+  assert.match(await retry.innerText(), /not sent.*retry/i);
+  const reason = (await retry.getAttribute("title")) ?? "";
+  assert.ok(!/failed to fetch|load failed|networkerror/i.test(reason), `raw browser text shown: ${reason}`);
+  assert.match(reason, /reach the server/i);
+  assert.equal(await page.locator(".message-list .error-banner").count(), 0, "one signal, on the bubble itself");
+  assert.equal(await page.locator(".composer textarea").inputValue(), "", "the text lives in the bubble now, not the composer");
+  await page.locator(".message-list .message-user .message-content", { hasText: "synthetic hello" }).first().waitFor();
   await context.close();
 });
 

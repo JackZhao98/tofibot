@@ -484,6 +484,15 @@
     "more": "이모지 더보기",
     "react_with": "{{emoji}}로 반응"
   },
+  "receipt": {
+    "sending": "전송 중",
+    "delivered": "전달됨",
+    "read": "읽음",
+    "read_by": "읽음: {{names}}",
+    "failed": "전송 안 됨",
+    "retry": "다시 보내기",
+    "retry_label": "이 메시지 다시 보내기"
+  },
   "related": {
     "bot_conversation": "Bot 대화",
     "from": "보낸 사람",

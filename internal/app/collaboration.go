@@ -108,6 +108,9 @@ func (s *Store) addUserRuns(conv, content, client string, specs []runSpec, attac
 		err = tx.QueryRow(`SELECT id,conversation_id,seq,role,kind,sender_bot_id,run_id,content,notice_data,created_at FROM messages WHERE conversation_id=? AND client_message_id=?`, conv, client).Scan(&m.ID, &m.ConversationID, &m.Seq, &m.Role, &kind, &sb, &ru, &m.Content, &noticeData, &m.CreatedAt)
 		if err == nil {
 			m.Kind, m.SenderBotID, m.RunID = kind.String, sb.String, ru.String
+			if m.Role == "user" {
+				m.ClientMessageID = client
+			}
 			if noticeData.Valid {
 				_ = json.Unmarshal([]byte(noticeData.String), &m.Notice)
 			}
@@ -187,7 +190,7 @@ func (s *Store) addUserRuns(conv, content, client string, specs []runSpec, attac
 	if err = tx.QueryRow(`SELECT COALESCE(MAX(queue_seq),0) FROM runs WHERE conversation_id=?`, conv).Scan(&nextQueue); err != nil {
 		return Message{}, nil, false, err
 	}
-	m := Message{ID: newID(), ConversationID: conv, Seq: seq, Role: "user", Content: content, CreatedAt: t}
+	m := Message{ID: newID(), ConversationID: conv, Seq: seq, Role: "user", Content: content, CreatedAt: t, ClientMessageID: client}
 	if _, err = tx.Exec(`INSERT INTO messages(id,conversation_id,seq,role,kind,run_id,content,created_at,client_message_id) VALUES(?,?,?,?,?,?,?,?,?)`, m.ID, conv, seq, m.Role, m.Kind, nil, content, t, nullString(client)); err != nil {
 		return Message{}, nil, false, err
 	}
