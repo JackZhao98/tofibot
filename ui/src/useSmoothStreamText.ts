@@ -2,6 +2,12 @@ import { useEffect, useRef, useState } from "react";
 
 const reducedMotion = () => window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
+// Each reveal step re-parses the visible text and lays it out, so steps come every other frame (about 30 a second, the pace
+// replies arrive at anyway) and take twice the characters: the same catch-up time for half the main-thread work.
+const REVEAL_INTERVAL_MS = 30;
+const CATCH_UP_STEPS = 30;
+const FINISH_STEPS = 12;
+
 // Presentation only: every frame is a prefix of the text already received.
 // When the stream ends (the final message replaces the draft) with text still
 // unrevealed, the rest keeps revealing quickly instead of appearing at once.
@@ -25,14 +31,14 @@ export function useSmoothStreamText(content: string, active: boolean) {
     }
     const tail = Array.from(content.slice(visibleRef.current.length));
     // Streaming catches up within about a second; the ending within about 0.35s at an even pace.
-    const finishStep = Math.max(1, Math.ceil(tail.length / 24));
+    const finishStep = Math.max(1, Math.ceil(tail.length / FINISH_STEPS));
     let offset = 0;
     let frame = 0;
     let last = 0;
     const reveal = (now: number) => {
-      if (now - last < 14) { frame = requestAnimationFrame(reveal); return; }
+      if (now - last < REVEAL_INTERVAL_MS) { frame = requestAnimationFrame(reveal); return; }
       last = now;
-      const count = settling ? finishStep : Math.max(1, Math.ceil((tail.length - offset) / 60));
+      const count = settling ? finishStep : Math.max(1, Math.ceil((tail.length - offset) / CATCH_UP_STEPS));
       visibleRef.current += tail.slice(offset, offset + count).join("");
       offset += count;
       setVisible(visibleRef.current);

@@ -84,8 +84,10 @@ import { reconcileToolActivity, activeToolForRun, buildToolRunAnchors, buildTool
 import { foldCompletedProgress, isMidRunKind } from "./runProgress";
 import { mergeRunUpdates } from "./runMerge";
 import { draftDeltaApplies } from "./draftDelta";
+import { DraftStream, useLiveDraft } from "./draftStream";
+import { rowModelEqual } from "./timelineRow";
 import { shouldShowReplyQuote } from "./replyQuote";
-import { buildRetryFamilies, isTerminalRun, retryFamilyAnchor } from "./runFamily";
+import { buildRetryFamilies, indexMessages, isTerminalRun, retryFamilyAnchor } from "./runFamily";
 import { composerClientMessageId, composerDraftMatchesMessage, composerMessageContent, composerMessageSignature, type ComposerReply } from "./composerDraft";
 import { useDictation } from "./useDictation";
 import { useSmoothStreamText } from "./useSmoothStreamText";
@@ -535,7 +537,17 @@ function Workspace() {
   const messageListRef = useRef<HTMLDivElement | null>(null);
   // Group chats: avatar and name open a sender group once; later units from the same Bot only indent.
   const [messageRecords, setMessages] = useState<Message[]>([]);
-  const [drafts, setDrafts] = useState<Record<string, StreamDraft>>({});
+  const [drafts, setDraftsState] = useState<Record<string, StreamDraft>>({});
+  // Streamed text lives in `draftStream`; `drafts` changes only in structure (see draftStream.ts). `draftsRef` is the newest record, committed or not.
+  const draftStream = useRef(new DraftStream()).current;
+  const draftsRef = useRef<Record<string, StreamDraft>>({});
+  const setDrafts = useCallback((update: Record<string, StreamDraft> | ((current: Record<string, StreamDraft>) => Record<string, StreamDraft>)) => {
+    const next = typeof update === "function" ? update(draftsRef.current) : update;
+    if (next === draftsRef.current) return;
+    draftsRef.current = next;
+    draftStream.reconcile(next);
+    setDraftsState(next);
+  }, [draftStream]);
   // Transient per-run signals: the model's latest reasoning headline and a provider back-off.
   const [runSignals, setRunSignals] = useState<Record<string, RunSignal>>({});
   const [avatarMention, setAvatarMention] = useState<{ name: string; conversationId: string; nonce: number } | null>(null);
@@ -1256,7 +1268,7 @@ function Workspace() {
   const keepActivityRun = useCallback((runId?: string) => showActivity || (runId !== undefined && (revealedRuns.has(runId) || activeRunIds.has(runId))), [showActivity, revealedRuns, activeRunIds]);
   const retryFamilies = useMemo(() => buildRetryFamilies(runs), [runs]);
   const runStarts = useMemo(() => new Map(runs.map(run => [run.id, Date.parse(run.created_at)] as const).filter(([, start]) => Number.isFinite(start))), [runs]);
-  const retryAuditAnchors = useMemo(() => new Map(retryFamilies.map(family => [family.rootId, retryFamilyAnchor(family, messageRecords)])), [retryFamilies, messageRecords]);
+  const retryAuditAnchors = useMemo(() => { const index = indexMessages(messageRecords); return new Map(retryFamilies.map(family => [family.rootId, retryFamilyAnchor(family, index)])); }, [retryFamilies, messageRecords]);
   const supersededRunIDs = useMemo(() => new Set(retryFamilies.filter(family => retryAuditAnchors.get(family.rootId)).flatMap(family => family.previous.map(run => run.id))), [retryFamilies, retryAuditAnchors]);
   const runsForMessage = useMemo(() => runsByTrigger(runs), [runs]);
   const lastReplySeq = useMemo(() => messageRecords.reduce((max, item) => item.role === "assistant" && !item.local && (!item.kind || item.kind === "segment") ? Math.max(max, item.seq) : max, 0), [messageRecords]);
@@ -1543,11 +1555,22 @@ function Workspace() {
       const botId = typeof data.bot_id === "string" ? data.bot_id : "";
       const revision = typeof data.revision === "number" ? data.revision : 0;
       const full = typeof data.content === "string" ? data.content : "";
-      if (messageIdValue && (delta || full)) setDrafts((current) => {
-        const old = current[messageIdValue];
-        if (!draftDeltaApplies(old?.revision, revision, Boolean(full))) return current;
-        return { ...current, [messageIdValue]: { run_id: runId || old?.run_id || "", conversation_id: conversationId, bot_id: botId || old?.bot_id || "", message_id: messageIdValue, seq: typeof data.seq === "number" ? data.seq : old?.seq, content: full || `${old?.content ?? ""}${delta}`, status: "active", revision: revision || (old?.revision ?? 0) + 1, created_at: typeof data.created_at === "string" ? data.created_at : old?.created_at ?? new Date().toISOString(), updated_at: new Date().toISOString() } };
-      });
+      if (messageIdValue && (delta || full)) {
+        const old = draftsRef.current[messageIdValue];
+        const live = draftStream.get(messageIdValue);
+        const oldRevision = live?.revision ?? old?.revision;
+        if (draftDeltaApplies(oldRevision, revision, Boolean(full))) {
+          const before = live?.content ?? old?.content ?? "";
+          const content = full || `${before}${delta}`;
+          const updatedAt = new Date().toISOString();
+          const next: StreamDraft = { run_id: runId || old?.run_id || "", conversation_id: conversationId, bot_id: botId || old?.bot_id || "", message_id: messageIdValue, seq: typeof data.seq === "number" ? data.seq : old?.seq, content, status: "active", revision: revision || (oldRevision ?? 0) + 1, created_at: typeof data.created_at === "string" ? data.created_at : old?.created_at ?? updatedAt, updated_at: updatedAt };
+          // Only a change the timeline's structure depends on goes through React state; plain growth of the text does not.
+          const structural = !old || old.status !== "active" || old.run_id !== next.run_id || old.bot_id !== next.bot_id || old.seq !== next.seq
+            || Boolean(before.trim()) !== Boolean(content.trim()) || readReplyMarker(before).ids.join() !== readReplyMarker(content).ids.join();
+          if (structural) setDrafts(current => ({ ...current, [messageIdValue]: next }));
+          else draftStream.setLive(messageIdValue, { content, revision: next.revision, updated_at: updatedAt });
+        }
+      }
     } else if (type === "run") {
       setScheduleRefresh(current => current + 1);
       const run = asRun(data);
@@ -1646,7 +1669,7 @@ function Workspace() {
     cache.delete(activeId);
     // Only the newest page is kept for a revisit: the reader's place older than that is paged back in on demand, so a long history costs nothing to leave.
     const trimmed = messageRecords.length > SNAPSHOT_CACHE_MESSAGES;
-    cache.set(activeId, { messages: trimmed ? messageRecords.slice(-SNAPSHOT_CACHE_MESSAGES) : messageRecords, drafts, runs, toolActivities, toolSummaries, memories, hasMore: trimmed || hasMore });
+    cache.set(activeId, { messages: trimmed ? messageRecords.slice(-SNAPSHOT_CACHE_MESSAGES) : messageRecords, drafts: draftStream.materialize(drafts), runs, toolActivities, toolSummaries, memories, hasMore: trimmed || hasMore });
     while (cache.size > SNAPSHOT_CACHE_LIMIT) cache.delete(cache.keys().next().value as string);
   }, [activeId, loadedId, messageRecords, drafts, runs, toolActivities, toolSummaries, memories, hasMore]);
   // Pointing at a conversation (after a short dwell) or pressing its row reads its newest page into the same cache, so the first visit is a revisit.
@@ -1662,7 +1685,14 @@ function Workspace() {
     }).catch(() => {}).finally(() => { prefetchInFlight.current.delete(id); });
   }, []);
   // The switch itself runs before paint: the pane never shows the previous conversation under the new header.
+  const leftConversationId = useRef<string | null>(null);
+
   useLayoutEffect(() => {
+    // What was being written when the reader left is what a revisit shows first.
+    const left = leftConversationId.current;
+    leftConversationId.current = activeId || null;
+    const leftEntry = left && left !== activeId ? snapshotCache.current.get(left) : undefined;
+    if (leftEntry) leftEntry.drafts = draftStream.materialize(draftsRef.current);
     if (!activeId) return;
     const cached = snapshotCache.current.get(activeId);
     setSnapshotError("");
@@ -2252,6 +2282,56 @@ function Workspace() {
   }
 
   // Sender grouping reads and writes the list's DOM: run it when what the list shows changes, not on every render.
+  const botNames = useMemo(() => new Map(bots.map(bot => [bot.id, bot.name] as const)), [bots]);
+  const expiryFinishing = useMemo(() => new Set(runs.filter(run => run.finishing_reason === "approval_expired").map(run => run.id)), [runs]);
+  // Rows are memoized; what they call reaches the newest closures through one object that never changes identity.
+  const rowApi = useRef<RowHandlers>(null as unknown as RowHandlers);
+  rowApi.current = {
+    openMenu: (messageId, x, y) => setReactionMenu({ messageId, x, y }),
+    closeMenu: () => setReactionMenu(null),
+    hostPointerDown: () => { selectionOnPress.current = Boolean(window.getSelection()?.toString()); },
+    hostClick: (event, messageId) => {
+      const hadSelection = selectionOnPress.current || Boolean(window.getSelection()?.toString());
+      selectionOnPress.current = false;
+      const target = event.target as HTMLElement;
+      if (hadSelection || !window.matchMedia("(hover: none)").matches || !target.closest(".message-content") || target.closest("a,button,summary,input,textarea,pre,[role=button],.message-hover-actions")) return;
+      setMessageActions("tap", tappedMessageActionsId() === messageId ? "" : messageId);
+    },
+    react: (messageId, anchor) => setReactionMenu({ messageId, x: anchor.left, y: anchor.bottom + 6 }),
+    toggleActivity: runId => { setMessageActions("tap", ""); toggleRunActivity(runId); },
+    reply: message => {
+      if (!active) return;
+      updateComposerDraft(active.id, current => ({ ...current, reply: { id: message.id, name: message.role === "user" ? t("message.you") : message.sender_bot_name ?? (message.sender_bot_id ? botById.get(message.sender_bot_id)?.name : undefined) ?? "Bot", excerpt: previewText(readReplyMarker(message.content).body) || t("message.attachment") } }));
+      document.querySelector<HTMLTextAreaElement>(".composer textarea")?.focus();
+    },
+    retrySend: clientMessageId => retrySend(clientMessageId),
+    retryRun: runId => retryRun(runId),
+    loadDetails: (runId, offset) => loadToolDetails(runId, offset),
+    retrySummary: runId => retryToolSummary(runId),
+    navigate: id => { if (conversations.some(item => item.id === id)) { selectConversation(id); setMobileList(false); } },
+    openRelated: target => openRelatedChat(target),
+    draftReply: message => send(t("message.draft_reply_request", { from: message.card?.from, subject: message.card?.subject, source: message.card?.source }), crypto.randomUUID()),
+    mention: bot => { if (active) setAvatarMention({ name: bot.name, conversationId: active.id, nonce: Date.now() }); },
+    setReaction: async (message, emoji, present) => {
+      // Optimistic: the chip changes in this frame; the server's list replaces it only if no newer toggle on this message has started.
+      const conversationId = active!.id;
+      const token = (reactionTokens.current.get(message.id) ?? 0) + 1;
+      reactionTokens.current.set(message.id, token);
+      const edit = (change: (reactions: Message["reactions"]) => Message["reactions"]) => { if (activeIdRef.current === conversationId) setMessages(current => current.map(record => record.id === message.id ? { ...record, reactions: change(record.reactions) } : record)); };
+      edit(reactions => applyUserReaction(reactions, emoji, present));
+      try {
+        const result = await api.setMessageReaction(conversationId, message.id, emoji, present);
+        if (reactionTokens.current.get(message.id) === token) edit(() => result.reactions);
+      } catch (cause) {
+        edit(reactions => applyUserReaction(reactions, emoji, !present));
+        throw cause;
+      }
+    },
+  };
+  const rowHandlers = useMemo<RowHandlers>(() => {
+    const call = <K extends keyof RowHandlers>(key: K) => ((...args: unknown[]) => (rowApi.current[key] as (...a: unknown[]) => unknown)(...args)) as unknown as RowHandlers[K];
+    return { openMenu: call("openMenu"), closeMenu: call("closeMenu"), hostPointerDown: call("hostPointerDown"), hostClick: call("hostClick"), react: call("react"), toggleActivity: call("toggleActivity"), reply: call("reply"), retrySend: call("retrySend"), retryRun: call("retryRun"), loadDetails: call("loadDetails"), retrySummary: call("retrySummary"), navigate: call("navigate"), openRelated: call("openRelated"), draftReply: call("draftReply"), mention: call("mention"), setReaction: call("setReaction") };
+  }, []);
   useLayoutEffect(() => { markSenderGroups(messageListRef.current); }, [conversationItems, taskOwners, toolTimeline, pendingRuns, drafts, loadingMessages, active?.id, active?.kind, active?.archived, teamBoardOpen, viewport.unreadSeq, error, historyError, hasMore, runs, toolSummaryAnchors, toolSummaryErrorAnchors, toolSummaryLoadingAnchors, toolDetailState, toolSummaryState, loadedToolActivities, terminalToolSummaries, questions.items, mailDrafts.items, activityView, bots, conversations, messageRecords]);
 
   if (!indexInitialized.current && workspaceError) return <BootScreen label={t("workspace.connection_unavailable")} immediate><h2>{t("workspace.connection_unavailable")}</h2><p>{workspaceError}</p><button className="primary-button" disabled={loading} onClick={() => void refreshIndex()}>{loading ? t("action.retrying") : t("common:action.retry")}</button></BootScreen>;
@@ -2297,7 +2377,7 @@ function Workspace() {
             {teamBoardOpen && active.kind === "group" ? <TeamBoard key={`team-board-${active.id}`} conversation={active} bots={bots} timezone={timezone} onClose={() => setTeamBoardOpen(false)} onOpenWork={() => { setTeamBoardOpen(false); setPanel("schedule"); }} /> : <>
             <div className="chat-body">
               <div className="message-scroll" ref={viewport.scrollRef} onScroll={viewport.onScroll}>
-                <ExpiryFinishingContext.Provider value={new Set(runs.filter(run => run.finishing_reason === "approval_expired").map(run => run.id))}><RunStartContext.Provider value={runStarts}><ActivityViewContext.Provider value={activityView}><div className={`message-list${viewport.unpositioned ? " is-positioning" : ""}`} ref={messageListRef} onPointerOver={isDesktop ? undefined : onMessageListPointerOver} onPointerLeave={isDesktop ? undefined : onMessageListPointerLeave} onFocus={isDesktop ? undefined : onMessageListFocus} onBlur={isDesktop ? undefined : onMessageListBlur} onKeyDown={isDesktop ? undefined : onMessageListKeyDown}>
+                <ExpiryFinishingContext.Provider value={expiryFinishing}><RunStartContext.Provider value={runStarts}><ActivityViewContext.Provider value={activityView}><div className={`message-list${viewport.unpositioned ? " is-positioning" : ""}`} ref={messageListRef} onPointerOver={isDesktop ? undefined : onMessageListPointerOver} onPointerLeave={isDesktop ? undefined : onMessageListPointerLeave} onFocus={isDesktop ? undefined : onMessageListFocus} onBlur={isDesktop ? undefined : onMessageListBlur} onKeyDown={isDesktop ? undefined : onMessageListKeyDown}>
                   {viewport.boundaryError && <div className="history-error" role="alert">{t("history.boundary_failed")}<button onClick={viewport.retryBoundary}>{t("common:action.retry")}</button><button onClick={jumpLatest}>{t("history.view_latest")}</button></div>}
                   {historyError && !viewport.boundaryError && <div className="history-error history-error-older" role="alert"><span>{t("history.older_failed", { error: historyError })}</span><button onClick={() => void loadOlder()} disabled={loadingOlder}>{loadingOlder ? t("action.retrying") : t("common:action.retry")}</button></div>}
                   {hasMore && <button className="load-older" onClick={() => void loadOlder()} disabled={loadingOlder}>{loadingOlder ? t("action.loading") : t("history.load_older")}</button>}
@@ -2363,45 +2443,37 @@ function Workspace() {
                       // "View activity" is offered on a Bot's message whose run did work (steps or progress notes), not on notices or user text.
                       const activityRunId = message.role === "assistant" && message.run_id && message.kind !== "notice" && message.kind !== "message_ref" && runHasActivity(message.run_id) ? message.run_id : undefined;
                       const receiptState = receiptFor(message, runsForMessage.get(message.id), lastReplySeq > message.seq);
-                      const receiptNode = receiptState ? <SendReceipt receipt={receiptState} group={active.kind === "group"} names={receiptState.readBy.map(id => botById.get(id)?.name ?? knownBotNames.current.get(id) ?? "Bot")} onRetry={message.client_message_id ? () => retrySend(message.client_message_id!) : undefined} /> : undefined;
+                      const receiptNames = receiptState ? receiptState.readBy.map(id => botById.get(id)?.name ?? knownBotNames.current.get(id) ?? "Bot") : undefined;
                       const hasBar = !isDesktop && canReact && message.kind !== "notice" && message.kind !== "message_ref";
                       const cardLike = message.kind === "ui_card" || message.kind === "scheduled_task";
                       const copyText = !cardLike && message.content.trim() ? copyableMessageText(message) : undefined;
-                      const actions = hasBar ? <MessageActionsSlot id={message.id}><MessageHoverActions message={message} timezone={timezone} copyText={copyText}
-                          onReact={anchor => setReactionMenu({ messageId: message.id, x: anchor.left, y: anchor.bottom + 6 })}
-                          onActivity={activityRunId && !showActivity ? () => { setMessageActions("tap", ""); toggleRunActivity(activityRunId); } : undefined} activityOpen={activityRunId ? revealedRuns.has(activityRunId) : false}
-                          onReply={active.archived ? undefined : () => { updateComposerDraft(active.id, current => ({ ...current, reply: { id: message.id, name: message.role === "user" ? t("message.you") : message.sender_bot_name ?? (message.sender_bot_id ? botById.get(message.sender_bot_id)?.name : undefined) ?? "Bot", excerpt: previewText(readReplyMarker(message.content).body) || t("message.attachment") } })); document.querySelector<HTMLTextAreaElement>(".composer textarea")?.focus(); }} /></MessageActionsSlot> : undefined;
-                      return <div className={`message-block${arrivalIDs.current.has(blockKey(message)) ? ` new-arrival${streamedIDs.current.has(message.id) ? " was-streamed" : ""}` : ""}`} data-message-seq={message.seq} data-message-id={message.id} data-flip={blockKey(message)} tabIndex={index === conversationItems.length - 1 ? 0 : -1} key={blockKey(message)} onContextMenu={canReact && isDesktop ? event => { event.preventDefault(); setReactionMenu({ messageId: message.id, x: event.clientX, y: event.clientY }); } : undefined}>
-                        {showDivider && <div className="date-divider"><span>{formatDateDivider(message.created_at, timezone)}</span></div>}
-                        {unread && <div className="unread-divider" aria-label={t("history.unread_below")}><span>{t("history.unread")}</span></div>}
-                        <div className={`message-hover-host${message.role === "user" ? " is-user" : ""}`} data-host-id={message.id} onPointerDownCapture={!isDesktop && canReact ? () => { selectionOnPress.current = Boolean(window.getSelection()?.toString()); } : undefined} onClick={!isDesktop && canReact ? event => { const hadSelection = selectionOnPress.current || Boolean(window.getSelection()?.toString()); selectionOnPress.current = false; const target = event.target as HTMLElement; if (hadSelection || !window.matchMedia("(hover: none)").matches || !target.closest(".message-content") || target.closest("a,button,summary,input,textarea,pre,[role=button],.message-hover-actions")) return; setMessageActions("tap", tappedMessageActionsId() === message.id ? "" : message.id); } : undefined}>
-                        <MessageBubble receipt={receiptNode} message={message} replyTarget={showReplyQuote ? replyTarget : undefined} replyTargetName={replyTarget?.role === "user" ? t("message.you") : replyTarget?.sender_bot_name ?? (replyTarget?.sender_bot_id ? botById.get(replyTarget.sender_bot_id)?.name ?? knownBotNames.current.get(replyTarget.sender_bot_id) : undefined)} senderName={message.sender_bot_name ?? (message.sender_bot_id ? knownBotNames.current.get(message.sender_bot_id) : undefined)} targetBot={message.notice?.to_bot_id ? botById.get(message.notice.to_bot_id) : undefined} sender={message.sender_bot_id ? botById.get(message.sender_bot_id) : undefined}
-                          run={message.run_id ? runById.get(message.run_id) : undefined}
-                          tools={processTools.length || processProgress.length || processSummaries.length || Object.keys(processSummaryErrors).length || Object.keys(processSummaryLoading).length ? <ToolActivityList activities={[...processTools, ...processAggregateTools]} progress={processProgress} summaries={processSummaries} summaryErrors={processSummaryErrors} summaryLoading={processSummaryLoading} details={toolDetailState} onLoadDetails={loadToolDetails} onRetrySummary={retryToolSummary} botById={botById} activeRunIds={activeRunIds} /> : undefined}
-                          scheduleOccurrence={message.run_id ? scheduleOccurrences.get(message.run_id) : undefined} schedulePending={scheduleCardPending(message.run_id)} schedule={message.run_id ? scheduleMetadata.get(scheduleOccurrences.get(message.run_id)?.schedule_id ?? "") : undefined} onRetrySchedule={active.archived || ownedRunIDs.has(message.run_id ?? "") ? undefined : retryRun}
-                          draft={drafts[message.id]?.status === "active" && streamConnected ? drafts[message.id] : undefined}
-                          relatedChat={relatedChatTarget(message, active, conversations, bots)} onOpenRelatedChat={openRelatedChat}
-                          compact={compact} showAvatar={active.kind === "group"} showIdentity={showIdentity} noticeTargetAvailable={!message.notice || conversations.some(item => item.id === message.notice?.target_conversation_id)} allowOpenDM={active.kind === "group" || message.kind === "forward_result"} onDraftReply={!active.archived && !isDesktop && message.card?.type === "mail" ? () => send(t("message.draft_reply_request", { from: message.card?.from, subject: message.card?.subject, source: message.card?.source }), crypto.randomUUID()) : undefined} onMention={active.archived ? undefined : bot => setAvatarMention({ name: bot.name, conversationId: active.id, nonce: Date.now() })} onNavigate={id => { if (conversations.some(item => item.id === id)) { selectConversation(id); setMobileList(false); } }} />
-                        </div>
-                        {canReact && <MessageReactions message={message} botNames={new Map(bots.map(bot => [bot.id, bot.name]))} menuPosition={reactionMenu?.messageId === message.id ? reactionMenu : null} onCloseMenu={() => setReactionMenu(null)} onSet={async (emoji, present) => {
-                          // Optimistic: the chip changes in this frame; the server's list replaces it only if no newer toggle on this message has started.
-                          const conversationId = active.id;
-                          const token = (reactionTokens.current.get(message.id) ?? 0) + 1;
-                          reactionTokens.current.set(message.id, token);
-                          const edit = (change: (reactions: Message["reactions"]) => Message["reactions"]) => { if (activeIdRef.current === conversationId) setMessages(current => current.map(record => record.id === message.id ? { ...record, reactions: change(record.reactions) } : record)); };
-                          edit(reactions => applyUserReaction(reactions, emoji, present));
-                          try {
-                            const result = await api.setMessageReaction(conversationId, message.id, emoji, present);
-                            if (reactionTokens.current.get(message.id) === token) edit(() => result.reactions);
-                          } catch (cause) {
-                            edit(reactions => applyUserReaction(reactions, emoji, !present));
-                            throw cause;
-                          }
-                        }} />}
-                        {actions && <div className="message-actions-row" data-host-id={message.id} data-side={message.role === "user" ? "user" : "bot"} data-gutter={active.kind === "group" && message.role !== "user" && message.kind !== "ui_card" ? "" : undefined}>{actions}</div>}
-                        {taskOwners.filter(owner => owner.anchor?.kind === "message" && owner.anchor.id === message.id).map(renderTaskOwner)}
-                        {afterTools.length || afterSummaries.length || Object.keys(afterSummaryErrors).length || Object.keys(afterSummaryLoading).length ? <ToolActivityList activities={[...afterTools, ...afterAggregateTools]} summaries={afterSummaries} summaryErrors={afterSummaryErrors} summaryLoading={afterSummaryLoading} details={toolDetailState} onLoadDetails={loadToolDetails} onRetrySummary={retryToolSummary} botById={botById} activeRunIds={activeRunIds} group={active.kind === "group"} /> : null}
-                      </div>;
+                      const isStub = !messageRecordIDs.has(message.id);
+                      const hasProcessTools = Boolean(processTools.length || processProgress.length || processSummaries.length || Object.keys(processSummaryErrors).length || Object.keys(processSummaryLoading).length);
+                      const hasAfterTools = Boolean(afterTools.length || afterSummaries.length || Object.keys(afterSummaryErrors).length || Object.keys(afterSummaryLoading).length);
+                      const ownersHere = taskOwners.filter(owner => owner.anchor?.kind === "message" && owner.anchor.id === message.id);
+                      const model: RowModel = {
+                        message, isLast: index === conversationItems.length - 1, arrival: arrivalIDs.current.has(blockKey(message)), streamed: streamedIDs.current.has(message.id),
+                        dividerLabel: showDivider ? formatDateDivider(message.created_at, timezone) : undefined, unread, timezone, canReact, isGroup: active.kind === "group", archived: Boolean(active.archived),
+                        isStub, liveId: isStub || drafts[message.id]?.status === "active" ? message.id : undefined, drafting: drafts[message.id]?.status === "active" && streamConnected,
+                        replyTarget: showReplyQuote ? replyTarget : undefined, replyTargetName: replyTarget?.role === "user" ? t("message.you") : replyTarget?.sender_bot_name ?? (replyTarget?.sender_bot_id ? botById.get(replyTarget.sender_bot_id)?.name ?? knownBotNames.current.get(replyTarget.sender_bot_id) : undefined),
+                        senderName: message.sender_bot_name ?? (message.sender_bot_id ? knownBotNames.current.get(message.sender_bot_id) : undefined),
+                        targetBot: message.notice?.to_bot_id ? botById.get(message.notice.to_bot_id) : undefined, sender: message.sender_bot_id ? botById.get(message.sender_bot_id) : undefined,
+                        run: message.run_id ? runById.get(message.run_id) : undefined,
+                        toolLists: hasProcessTools || hasAfterTools ? { details: toolDetailState, botById, activeRunIds } : undefined,
+                        processTools: hasProcessTools ? [...processTools, ...processAggregateTools] : undefined, processProgress: hasProcessTools ? processProgress : undefined, processSummaries: hasProcessTools ? processSummaries : undefined, processSummaryErrors: hasProcessTools ? processSummaryErrors : undefined, processSummaryLoading: hasProcessTools ? processSummaryLoading : undefined,
+                        afterTools: hasAfterTools ? [...afterTools, ...afterAggregateTools] : undefined, afterSummaries: hasAfterTools ? afterSummaries : undefined, afterSummaryErrors: hasAfterTools ? afterSummaryErrors : undefined, afterSummaryLoading: hasAfterTools ? afterSummaryLoading : undefined,
+                        scheduleOccurrence: message.run_id ? scheduleOccurrences.get(message.run_id) : undefined, schedulePending: scheduleCardPending(message.run_id), schedule: message.run_id ? scheduleMetadata.get(scheduleOccurrences.get(message.run_id)?.schedule_id ?? "") : undefined,
+                        canRetrySchedule: !(active.archived || ownedRunIDs.has(message.run_id ?? "")),
+                        relatedChat: relatedChatTarget(message, active, conversations, bots), compact, showIdentity,
+                        noticeTargetAvailable: !message.notice || conversations.some(item => item.id === message.notice?.target_conversation_id),
+                        allowOpenDM: active.kind === "group" || message.kind === "forward_result",
+                        canDraftReply: !active.archived && !isDesktop && message.card?.type === "mail", canMention: !active.archived,
+                        receipt: receiptState ?? undefined, receiptNames, canRetryReceipt: Boolean(message.client_message_id),
+                        hasBar, copyText, activityRunId, activityToggle: Boolean(activityRunId && !showActivity), activityOpen: activityRunId ? revealedRuns.has(activityRunId) : false, canReply: !active.archived,
+                        botNames, menuPosition: reactionMenu?.messageId === message.id ? reactionMenu : null,
+                        ownerNodes: ownersHere.length ? ownersHere.map(renderTaskOwner) : undefined,
+                      };
+                      return <MessageRow key={blockKey(message)} model={model} h={rowHandlers} stream={draftStream} />;
                     })}
                   <ToolActivityList activities={toolTimeline.fallback} summaries={terminalToolSummaries.filter(summary => toolTimeline.fallback.some(activity => activity.run_id === summary.run_id))} details={toolDetailState} onLoadDetails={loadToolDetails} botById={botById} activeRunIds={activeRunIds} group={active.kind === "group"} />
                   {taskOwners.filter(owner => !owner.anchor).map(renderTaskOwner)}
@@ -2609,6 +2681,8 @@ export function MessageBubble({ receipt, message, replyTarget, replyTargetName, 
   const previousToolLayout = useRef<{ live: boolean; offset: number } | null>(null);
   useLayoutEffect(() => {
     if (isDesktop || !answerRef.current) return;
+    // Only an answer that sat under live tool rows can slide when they go: text with no tool rows above it has nothing to measure.
+    if (!tools && !previousToolLayout.current?.live) return;
     const answer = answerRef.current;
     // Measured against the message's own body, so scrolling or a change above the message can never read as the answer moving.
     const body = answer.closest<HTMLElement>(".message-body");
@@ -2673,8 +2747,79 @@ export function MessageBubble({ receipt, message, replyTarget, replyTargetName, 
   const inlineMention = mention && targetBot ? <BotIdentityCard bot={targetBot} onMention={onMention ? () => onMention(targetBot) : undefined} onOpen={allowOpenDM && onNavigate ? () => onNavigate(targetBot.dm_conversation_id) : undefined}>{mention}</BotIdentityCard> : mention;
   const toolRow = tools && <div className="message-tools">{tools}</div>;
   const grouped = showAvatar && !isUser;
-  return <article data-sender={grouped ? message.sender_bot_id : undefined} data-at={grouped ? message.created_at : undefined} className={`message ${isUser ? "message-user" : "message-bot"}${message.local?.state === "sending" ? " is-sending" : ""}${grouped ? " is-group" : !isUser ? " is-dm" : ""} ${message.kind === "segment" ? "message-segment" : ""} ${message.kind === "forward_result" ? "message-forward-result" : ""} ${compact ? "message-compact" : ""}`} title={isDesktop ? `${formatExactTime(message.created_at, timezone)} · ${timezone}` : undefined}><div className={`message-body${tools && !isDesktop ? ` web-tool-body ${toolsRunning ? "is-tools-live" : "is-tools-done"}` : ""}`}><div className={`message-meta ${hideMeta ? "compact" : ""}`}>{scheduled && <span>{t("message.scheduled")}</span>}{showIdentity && !isUser && (!compact || showAvatar) && <strong>{label}</strong>}</div>{(toolsRunning || !isDesktop) && toolRow}{replyTarget && <button type="button" className="message-reply-quote" aria-label={t("message.jump_to_reply", { name: replyTargetName ?? t("message.original") })} onClick={() => jumpToMessage(document.querySelector<HTMLElement>(`[data-message-id="${replyTarget.id}"]`))}><span className="message-reply-author">{t("message.reply_to", { name: replyTargetName ?? t("message.original") })}</span><span className="message-reply-excerpt">{previewText(readReplyMarker(replyTarget.content).body) || t("message.attachment")}</span></button>}<div className="message-content" ref={answerRef}>{showAvatar && !isUser && <div className="sender-avatar">{sender ? <BotIdentityCard bot={sender} onMention={onMention ? () => onMention(sender) : undefined} onOpen={allowOpenDM && onNavigate ? () => onNavigate(sender.dm_conversation_id) : undefined}><Avatar label={label} id={sender.id} mini /></BotIdentityCard> : <Avatar label={label} id={message.sender_bot_id ?? "bot"} mini />}</div>}{<SmoothStreamMarkdown content={body} mention={inlineMention} active={Boolean(draft) && !isDesktop} />}<AttachmentList attachments={message.attachments} compact={isUser} />{draft && isDesktop && <span className="typing-cursor" />}</div>{receipt}{!toolsRunning && isDesktop && toolRow}{relatedChat && onOpenRelatedChat && <RelatedMessageLink target={relatedChat} onOpen={onOpenRelatedChat} />}</div></article>;
+  return <article data-sender={grouped ? message.sender_bot_id : undefined} data-at={grouped ? message.created_at : undefined} className={`message ${isUser ? "message-user" : "message-bot"}${message.local?.state === "sending" ? " is-sending" : ""}${grouped ? " is-group" : !isUser ? " is-dm" : ""} ${message.kind === "segment" ? "message-segment" : ""} ${message.kind === "forward_result" ? "message-forward-result" : ""} ${compact ? "message-compact" : ""}`} title={isDesktop ? `${formatExactTime(message.created_at, timezone)} · ${timezone}` : undefined}><div className={`message-body${tools && !isDesktop ? ` web-tool-body ${toolsRunning ? "is-tools-live" : "is-tools-done"}` : ""}`}><div className={`message-meta ${hideMeta ? "compact" : ""}`}>{scheduled && <span>{t("message.scheduled")}</span>}{showIdentity && !isUser && (!compact || showAvatar) && <strong>{label}</strong>}</div>{(toolsRunning || !isDesktop) && toolRow}{replyTarget && <button type="button" className="message-reply-quote" aria-label={t("message.jump_to_reply", { name: replyTargetName ?? t("message.original") })} onClick={() => jumpToMessage(document.querySelector<HTMLElement>(`[data-message-id="${replyTarget.id}"]`))}><span className="message-reply-author">{t("message.reply_to", { name: replyTargetName ?? t("message.original") })}</span><span className="message-reply-excerpt">{previewText(readReplyMarker(replyTarget.content).body) || t("message.attachment")}</span></button>}<div className="message-content" ref={answerRef}>{showAvatar && !isUser && <div className="sender-avatar">{sender ? <BotIdentityCard bot={sender} onMention={onMention ? () => onMention(sender) : undefined} onOpen={allowOpenDM && onNavigate ? () => onNavigate(sender.dm_conversation_id) : undefined}><Avatar label={label} id={sender.id} mini /></BotIdentityCard> : <Avatar label={label} id={message.sender_bot_id ?? "bot"} mini />}</div>}{<SmoothStreamMarkdown content={body} mention={inlineMention} active={draft !== undefined && !isDesktop} />}<AttachmentList attachments={message.attachments} compact={isUser} />{draft !== undefined && isDesktop && <span className="typing-cursor" />}</div>{receipt}{!toolsRunning && isDesktop && toolRow}{relatedChat && onOpenRelatedChat && <RelatedMessageLink target={relatedChat} onOpen={onOpenRelatedChat} />}</div></article>;
 }
+
+/** Everything one timeline row draws, derived by the workspace. Plain data only: the row is skipped when none of it changed. */
+interface RowModel {
+  message: Message; isLast: boolean; arrival: boolean; streamed: boolean; dividerLabel?: string; unread: boolean; timezone: string;
+  canReact: boolean; isGroup: boolean; archived: boolean;
+  /** The draft whose live text this row follows, and whether the bubble shows it as still being written. */
+  liveId?: string; isStub: boolean; drafting: boolean;
+  replyTarget?: Message; replyTargetName?: string; senderName?: string; targetBot?: Bot; sender?: Bot; run?: Run;
+  toolLists?: { details: Record<string, ToolDetailState>; botById: Map<string, Bot>; activeRunIds: Set<string> };
+  processTools?: ToolActivity[]; processProgress?: Message[]; processSummaries?: ToolActivityRunSummary[]; processSummaryErrors?: Record<string, string>; processSummaryLoading?: Record<string, boolean>;
+  afterTools?: ToolActivity[]; afterSummaries?: ToolActivityRunSummary[]; afterSummaryErrors?: Record<string, string>; afterSummaryLoading?: Record<string, boolean>;
+  scheduleOccurrence?: ScheduleOccurrence; schedulePending: boolean; schedule?: Schedule; canRetrySchedule: boolean;
+  relatedChat: ViewOnlyChatTarget | null; compact: boolean; showIdentity: boolean; noticeTargetAvailable: boolean; allowOpenDM: boolean; canDraftReply: boolean; canMention: boolean;
+  receipt?: NonNullable<ReturnType<typeof receiptFor>>; receiptNames?: string[]; canRetryReceipt: boolean;
+  hasBar: boolean; copyText?: string; activityRunId?: string; activityToggle: boolean; activityOpen: boolean; canReply: boolean;
+  botNames: Map<string, string>; menuPosition: { messageId: string; x: number; y: number } | null;
+  ownerNodes?: React.ReactNode[];
+}
+
+/** Stable entry points a row calls; each forwards to the workspace's newest closure, so they never change identity. */
+interface RowHandlers {
+  openMenu: (messageId: string, x: number, y: number) => void;
+  closeMenu: () => void;
+  hostPointerDown: () => void;
+  hostClick: (event: React.MouseEvent<HTMLElement>, messageId: string) => void;
+  react: (messageId: string, anchor: DOMRect) => void;
+  toggleActivity: (runId: string) => void;
+  reply: (message: Message) => void;
+  retrySend: (clientMessageId: string) => void;
+  retryRun: (runId: string) => Promise<void>;
+  loadDetails: (runId: string, offset: number) => Promise<void>;
+  retrySummary: (runId: string) => void;
+  navigate: (id: string) => void;
+  openRelated: (target: ViewOnlyChatTarget) => void;
+  draftReply: (message: Message) => Promise<boolean>;
+  mention: (bot: Bot) => void;
+  setReaction: (message: Message, emoji: string, present: boolean) => Promise<void>;
+}
+
+/**
+ * One message in the timeline. It is skipped unless its own model changed, and the text of a message still
+ * being written reaches it directly from the draft stream: a streamed chunk redraws this row and nothing else.
+ */
+const MessageRow = memo(function MessageRow({ model: m, h, stream }: { model: RowModel; h: RowHandlers; stream: DraftStream }) {
+  const { t } = useTranslation("chat");
+  const live = useLiveDraft(stream, m.liveId);
+  const message = useMemo(() => m.isStub && live !== undefined ? { ...m.message, content: live } : m.message, [m.message, m.isStub, live]);
+  const draft = m.drafting ? live ?? "" : undefined;
+  const tools = m.processTools ? <ToolActivityList activities={m.processTools} progress={m.processProgress} summaries={m.processSummaries} summaryErrors={m.processSummaryErrors} summaryLoading={m.processSummaryLoading} details={m.toolLists!.details} onLoadDetails={h.loadDetails} onRetrySummary={h.retrySummary} botById={m.toolLists!.botById} activeRunIds={m.toolLists!.activeRunIds} /> : undefined;
+  const receipt = m.receipt ? <SendReceipt receipt={m.receipt} group={m.isGroup} names={m.receiptNames ?? []} onRetry={m.canRetryReceipt ? () => h.retrySend(message.client_message_id!) : undefined} /> : undefined;
+  const actions = m.hasBar ? <MessageActionsSlot id={message.id}><MessageHoverActions message={message} timezone={m.timezone} copyText={m.copyText}
+      onReact={anchor => h.react(message.id, anchor)}
+      onActivity={m.activityToggle && m.activityRunId ? () => h.toggleActivity(m.activityRunId!) : undefined} activityOpen={m.activityOpen}
+      onReply={m.canReply ? () => h.reply(message) : undefined} /></MessageActionsSlot> : undefined;
+  return <div className={`message-block${m.arrival ? ` new-arrival${m.streamed ? " was-streamed" : ""}` : ""}`} data-message-seq={message.seq} data-message-id={message.id} data-flip={blockKey(message)} tabIndex={m.isLast ? 0 : -1} onContextMenu={m.canReact && isDesktop ? event => { event.preventDefault(); h.openMenu(message.id, event.clientX, event.clientY); } : undefined}>
+    {m.dividerLabel !== undefined && <div className="date-divider"><span>{m.dividerLabel}</span></div>}
+    {m.unread && <div className="unread-divider" aria-label={t("history.unread_below")}><span>{t("history.unread")}</span></div>}
+    <div className={`message-hover-host${message.role === "user" ? " is-user" : ""}`} data-host-id={message.id} onPointerDownCapture={!isDesktop && m.canReact ? h.hostPointerDown : undefined} onClick={!isDesktop && m.canReact ? event => h.hostClick(event, message.id) : undefined}>
+      <MessageBubble receipt={receipt} message={message} replyTarget={m.replyTarget} replyTargetName={m.replyTargetName} senderName={m.senderName} targetBot={m.targetBot} sender={m.sender}
+        run={m.run} tools={tools}
+        scheduleOccurrence={m.scheduleOccurrence} schedulePending={m.schedulePending} schedule={m.schedule} onRetrySchedule={m.canRetrySchedule ? h.retryRun : undefined}
+        draft={draft}
+        relatedChat={m.relatedChat} onOpenRelatedChat={h.openRelated}
+        compact={m.compact} showAvatar={m.isGroup} showIdentity={m.showIdentity} noticeTargetAvailable={m.noticeTargetAvailable} allowOpenDM={m.allowOpenDM} onDraftReply={m.canDraftReply ? () => h.draftReply(message) : undefined} onMention={m.canMention ? h.mention : undefined} onNavigate={h.navigate} />
+    </div>
+    {m.canReact && <MessageReactions message={message} botNames={m.botNames} menuPosition={m.menuPosition} onCloseMenu={h.closeMenu} onSet={(emoji, present) => h.setReaction(message, emoji, present)} />}
+    {actions && <div className="message-actions-row" data-host-id={message.id} data-side={message.role === "user" ? "user" : "bot"} data-gutter={m.isGroup && message.role !== "user" && message.kind !== "ui_card" ? "" : undefined}>{actions}</div>}
+    {m.ownerNodes}
+    {m.afterTools ? <ToolActivityList activities={m.afterTools} summaries={m.afterSummaries} summaryErrors={m.afterSummaryErrors} summaryLoading={m.afterSummaryLoading} details={m.toolLists!.details} onLoadDetails={h.loadDetails} onRetrySummary={h.retrySummary} botById={m.toolLists!.botById} activeRunIds={m.toolLists!.activeRunIds} group={m.isGroup} /> : null}
+  </div>;
+}, (previous, next) => previous.h === next.h && previous.stream === next.stream && rowModelEqual(previous.model, next.model));
 
 export function RunStatusAnnouncement({ conversationId, runs, botById, ready, taskAnnouncements }: { conversationId: string; runs: Run[]; botById: Map<string, Bot>; ready: boolean; taskAnnouncements?: Map<string, string> }) {
   const previous = useRef<Map<string, string> | null>(null);
