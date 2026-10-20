@@ -262,14 +262,17 @@ func limitToolEventText(value string, max int) (string, bool) {
 }
 
 // webSearchToolEvent reports a provider-side search as a finished tool call, so
-// the query and the sources it returned appear in the run's evidence.
-func webSearchToolEvent(ws provider.WebSearch) ToolEvent {
+// the query and the sources it returned appear in the run's evidence. The
+// activity record opens as queued, as every tool call's does.
+func webSearchToolEvent(ws provider.WebSearch) (queued, finished ToolEvent) {
 	args, _ := json.Marshal(map[string]string{"query": ws.Query})
-	ev := ToolEvent{CallID: "web-search-" + ws.ID, Name: "web_search", Arguments: string(args), Status: "completed"}
+	queued = ToolEvent{CallID: "web-search-" + ws.ID, Name: "web_search", Arguments: string(args), Status: "queued"}
+	ev := queued
+	ev.Status = "completed"
 	if ws.Error != "" {
 		ev.Status = "failed"
 		ev.Result = "search failed: " + ws.Error
-		return ev
+		return queued, ev
 	}
 	var b strings.Builder
 	for i, src := range ws.Sources {
@@ -285,5 +288,5 @@ func webSearchToolEvent(ws provider.WebSearch) ToolEvent {
 		b.WriteString("no results")
 	}
 	ev.Result = b.String()
-	return ev
+	return queued, ev
 }
