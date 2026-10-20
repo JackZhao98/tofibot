@@ -233,10 +233,13 @@ html:not([data-desktop]) .workspace .new-arrival .message-user .message-content 
    quote) flash the target once via .is-jump-target; keyboard focus keeps the ring. */
 .workspace .message-block.is-jump-target .message-content { outline:2px solid var(--lagoon); outline-offset:4px; animation:v2-focus-flash 1.6s ease-out forwards; }
 @keyframes v2-focus-flash { 0%,45% { outline-color:var(--lagoon); } 100% { outline-color:transparent; } }
-html:not([data-desktop]) .workspace .new-arrival .message-segment .message-content {
-  animation:v2-segment-arrive 300ms cubic-bezier(.22,1,.36,1) both;
+/* One arrival vocabulary on web: a Bot message that appears whole fades in over 160 ms while rising 8 px over 240 ms. A message that was
+   streamed in place (.was-streamed) was already read as a draft, so saving it must not blink or replay. History and switches never get .new-arrival. */
+html:not([data-desktop]) .workspace .new-arrival:not(.was-streamed) .message-bot:not(.message-ui-card) .message-content {
+  animation:v2-bot-arrive 240ms var(--ease-out) both;
 }
-@keyframes v2-segment-arrive { from { opacity:0; transform:translateY(10px) scale(.98); } to { opacity:1; transform:none; } }
+@keyframes v2-bot-arrive { from { opacity:0; transform:translateY(8px); } 67% { opacity:1; } to { opacity:1; transform:none; } }
+@media (prefers-reduced-motion:reduce) { html:not([data-desktop]) .workspace .new-arrival:not(.was-streamed) .message-bot:not(.message-ui-card) .message-content { animation:none; } }
 .workspace .message-meta { color:var(--muted); font:11px/1.3 var(--mono); }
 .workspace .message-meta strong { color:var(--ink); font:600 13px/1.3 var(--display); }
 .workspace .message-content { font-size:15px; line-height:1.65; }
@@ -574,32 +577,37 @@ html:not([data-desktop]) .workspace .web-loading-state{min-height:96px;padding-b
 @keyframes web-loading-in{from{opacity:0}}
 @media(prefers-reduced-motion:reduce){html:not([data-desktop]) .workspace .web-loading-state{animation:none}}
 
-/* Browser-mode message actions: hover (or keyboard focus) reveals time, reaction and reply. */
+/* Browser-mode message actions: the bar belongs to one bubble. It is mounted only for the message the pointer, focus or a tap is on,
+   and sits on that bubble's own edge (outside it on the left for the reader's messages, on its top edge for a Bot's), so it can
+   never read as the previous message's bar. It appears at once with a 60 ms fade, without moving. */
 .workspace .message-hover-host { position:relative; }
+.workspace .message-content { position:relative; }
 .workspace .message-hover-actions {
-  position:absolute; z-index:4; right:0; bottom:calc(100% - 6px); display:flex; align-items:center; gap:2px; padding:3px;
+  position:absolute; z-index:4; top:-18px; left:max(0px, calc(100% - 212px)); display:flex; align-items:center; gap:2px; padding:3px;
   border:1px solid var(--line-soft); border-radius:10px; background:var(--surface);
   box-shadow:0 6px 18px color-mix(in srgb,var(--ink) 12%,transparent);
-  opacity:0; pointer-events:none; transform:translateY(3px); transition:opacity 120ms ease,transform 120ms ease;
+  animation:v2-actions-in 60ms linear both;
   /* The toolbar floats over the conversation: dragging through a bubble and copying must not pick up its timestamp. */
   -webkit-user-select:none; user-select:none;
 }
-.workspace .message-hover-host:hover>.message-hover-actions,
-.workspace .message-hover-actions:focus-within { opacity:1; pointer-events:auto; transform:none; }
+.workspace .message-user .message-hover-actions { top:0; left:auto; right:calc(100% + 6px); }
+.workspace .message-hover-host>.message-hover-actions { top:-16px; left:auto; right:0; }
+@keyframes v2-actions-in { from { opacity:0; } }
 .workspace .message-hover-actions time { padding:0 6px 0 7px; color:var(--muted); font:11px/1 var(--mono); white-space:nowrap; }
+@media (max-width:1000px) { .workspace .message-user .message-hover-actions time { display:none; } }
 .workspace .message-hover-actions button {
   display:grid; place-items:center; width:28px; height:28px; padding:0; border:0; border-radius:7px;
   background:transparent; color:var(--ink-soft); cursor:pointer;
 }
 .workspace .message-hover-actions button:hover { background:var(--surface-2); color:var(--ink); }
 .workspace .message-hover-actions button:focus-visible { outline:var(--focus-ring-width) solid var(--focus-ring); outline-offset:1px; }
-/* Touch (no hover): a tap on the message opens the same actions; a tap elsewhere closes them. */
+/* Touch (no hover): a tap on the bubble opens the bar under it, in the flow, so it never covers a neighbouring message. */
 @media (hover:none) {
-  .workspace .message-hover-actions { display:none; }
-  .workspace .message-hover-host.is-actions-open>.message-hover-actions { display:flex; opacity:1; pointer-events:auto; transform:none; }
-  .workspace .message-hover-actions button { width:40px; height:40px; }
+  .workspace .message-hover-actions, .workspace .message-user .message-hover-actions, .workspace .message-hover-host>.message-hover-actions { position:static; width:max-content; margin:6px 0 0; animation:none; }
+  .workspace .message-user .message-hover-actions { margin-left:auto; }
+  .workspace .message-hover-actions button { width:44px; height:44px; }
 }
-@media (prefers-reduced-motion:reduce) { .workspace .message-hover-actions { transition:none; } }
+@media (prefers-reduced-motion:reduce) { .workspace .message-hover-actions { animation:none; } }
 
 .workspace .composer-reply {
   display:flex; align-items:center; gap:8px; margin:0 0 6px; padding:6px 6px 6px 10px;
