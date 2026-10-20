@@ -353,7 +353,9 @@
       "computer": "컴퓨터 사용 중",
       "contact": "멤버에게 연락하는 중",
       "call": "{{name}} 호출 중",
-      "profile": "Bot 프로필 저장하는 중"
+      "profile": "Bot 프로필 저장하는 중",
+      "takeover": "컴퓨터에서의 작업 대기 중",
+      "connection": "서비스 연결 대기 중"
     },
     "title": {
       "form": "양식 입력 대기 중",
@@ -373,7 +375,9 @@
       "computer": "컴퓨터 사용",
       "contact": "멤버에게 연락",
       "call": "{{name}} 호출",
-      "profile": "Bot 프로필 저장"
+      "profile": "Bot 프로필 저장",
+      "takeover": "컴퓨터에서의 작업 대기 중",
+      "connection": "서비스 연결 대기 중"
     },
     "step_action": {
       "desktop_capture": "스크린샷",
@@ -525,6 +529,45 @@
       "tool_stuck": "도구 단계가 응답하지 않아 작업이 중지되었습니다.",
       "receipt_missing": "결과를 확인하지 못한 채 실행이 종료되었습니다.",
       "resumed_repeatedly": "작업이 {{times}}회 중단되어 중지되었습니다."
+    }
+  },
+  "handover": {
+    "site": "사이트",
+    "service": "서비스",
+    "done": "완료",
+    "cannot": "할 수 없음",
+    "send_failed": "응답을 보내지 못했습니다. 다시 시도하세요.",
+    "state_changed": "이 요청이 변경되었습니다. 최신 상태를 확인한 뒤 계속하세요.",
+    "takeover": {
+      "badge": "컴퓨터에서 직접 작업이 필요합니다",
+      "take": "제어 가져오기",
+      "hint": "Bot의 공유 컴퓨터에서 작업하게 됩니다. 입력하거나 복사한 내용은 그 화면에만 남고 Bot과 공유되지 않습니다.",
+      "resolved_done": "Bot에게 돌려줌",
+      "resolved_cannot": "완료하지 못함"
+    },
+    "dialog": {
+      "label": "{{site}} 제어 가져오기",
+      "subtitle": "공유 컴퓨터를 제어하는 중입니다",
+      "close": "채팅으로 돌아가기",
+      "screen_alt": "공유 컴퓨터",
+      "footer": "작업하는 동안 Bot은 기다립니다. 끝나면 완료를 선택하세요."
+    },
+    "connection": {
+      "badge": "서비스 연결",
+      "connect": "연결",
+      "retry": "다시 시도",
+      "waiting": "로그인을 기다리는 중…",
+      "decline": "나중에",
+      "hint": "서비스에서 직접 로그인합니다. 연결은 Tofi가 보관하며 Bot은 자격 증명을 볼 수 없습니다.",
+      "resolved_connected": "연결됨",
+      "resolved_failed": "연결하지 못함",
+      "resolved_declined": "연결 안 함",
+      "error": {
+        "start": "로그인을 시작하지 못했습니다. 다시 시도하세요.",
+        "timeout": "로그인 시간이 초과되었습니다. 다시 시도하세요.",
+        "incomplete": "로그인이 완료되지 않았습니다. 다시 시도하세요.",
+        "not_ready": "Tofi가 아직 연결을 확인하지 못했습니다. 로그인을 마친 뒤 다시 시도하세요."
+      }
     }
   }
 }

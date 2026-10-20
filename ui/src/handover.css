@@ -1,0 +1,28 @@
+.handover-overlay{position:fixed;inset:0;z-index:200;display:grid;place-items:center;padding:24px;background:color-mix(in srgb,var(--desktop-controls-solid) 50%,transparent);backdrop-filter:blur(12px)}
+.handover-dialog{display:flex;flex-direction:column;box-sizing:border-box;width:min(1120px,100%,calc((100dvh - 260px) * 1.6 + 40px));max-height:calc(100dvh - 48px);overflow:auto;background:var(--surface);color:var(--ink);border:var(--edge-bold) solid var(--line);border-radius:22px;padding:20px;box-shadow:var(--hard);outline:none}
+.handover-dialog>header{display:flex;align-items:center;justify-content:space-between;gap:16px;margin-bottom:10px}
+.handover-dialog>header>div:first-child{display:flex;align-items:baseline;gap:12px;flex-wrap:wrap;min-width:0}
+.handover-dialog>header>div:first-child>strong{overflow-wrap:anywhere}
+.handover-dialog>header span,.handover-dialog>footer{font-size:13px;color:var(--muted)}
+.handover-dialog-actions{display:flex;align-items:center;gap:8px;flex:none}
+.handover-dialog-actions button{min-height:36px;padding:8px 12px;font-size:13px}
+.handover-dialog-ask{margin:0 0 12px;font:14px/1.5 var(--body);overflow-wrap:anywhere}
+.handover-dialog .remote-desktop{min-height:0;display:flex;flex-direction:column;flex:1}
+.handover-dialog .remote-desktop-surface{min-height:160px;flex-shrink:1;height:min(56vw,calc(100dvh - 280px));background:var(--desktop-screen);border-radius:12px;overflow:hidden;display:grid;place-items:center}
+.handover-dialog .computer-screen{width:100%;height:100%;object-fit:contain;max-height:none;display:block}
+.handover-dialog .handover-video-hidden{display:none}
+.handover-dialog>footer{padding:12px 0 0;min-height:20px}
+@media(max-width:767px){
+  .handover-overlay{padding:8px}
+  .handover-dialog{padding:14px;border-radius:16px;max-height:calc(100dvh - 16px)}
+  .handover-dialog>header{flex-direction:column;align-items:stretch}
+  .handover-dialog-actions{justify-content:flex-end;flex-wrap:wrap}
+  .handover-dialog-actions button{min-height:44px}
+}
+
+.workspace .question-message .handover-site{display:flex;gap:8px;margin:10px 0 0;font:13px/1.5 var(--body);min-width:0}
+.workspace .question-message .handover-site>:first-child{color:var(--muted);flex:none}
+.workspace .question-message .handover-site>:last-child{min-width:0;overflow-wrap:anywhere}
+.workspace .question-message .handover-hint{margin:10px 0 0;color:var(--muted);font-size:12px}
+.workspace .question-message .handover-actions button{min-height:44px}
+@media(min-width:768px){.workspace .question-message .handover-actions button{min-height:36px}}

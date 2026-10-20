@@ -358,7 +358,9 @@
       "computer": "Using the computer",
       "contact": "Contacting a member",
       "call": "Calling {{name}}",
-      "profile": "Saving the Bot's profile"
+      "profile": "Saving the Bot's profile",
+      "takeover": "Waiting for you on the computer",
+      "connection": "Waiting for you to connect a service"
     },
     "title": {
       "form": "Waiting for you to fill in a form",
@@ -378,7 +380,9 @@
       "computer": "Use the computer",
       "contact": "Contact a member",
       "call": "Call {{name}}",
-      "profile": "Save the Bot's profile"
+      "profile": "Save the Bot's profile",
+      "takeover": "Waiting for you on the computer",
+      "connection": "Waiting for you to connect a service"
     },
     "step_action": {
       "desktop_capture": "Screenshot",
@@ -531,6 +535,45 @@
       "tool_stuck": "A tool step stopped responding and the task was stopped.",
       "receipt_missing": "The run ended without confirming a result.",
       "resumed_repeatedly": "The task was interrupted {{times}} times and stopped."
+    }
+  },
+  "handover": {
+    "site": "Site",
+    "service": "Service",
+    "done": "Done",
+    "cannot": "Can't do it",
+    "send_failed": "Couldn't send your response. Try again.",
+    "state_changed": "This request has changed. Check its updated status before continuing.",
+    "takeover": {
+      "badge": "Needs you on the computer",
+      "take": "Take over",
+      "hint": "You'll work on the Bot's shared computer. What you type or copy stays on that screen and is never shared with the Bot.",
+      "resolved_done": "Handed back to the Bot",
+      "resolved_cannot": "Couldn't be done"
+    },
+    "dialog": {
+      "label": "Take over {{site}}",
+      "subtitle": "You're controlling the shared computer",
+      "close": "Back to chat",
+      "screen_alt": "Shared computer",
+      "footer": "The Bot waits while you work. Choose Done when you finish."
+    },
+    "connection": {
+      "badge": "Connect a service",
+      "connect": "Connect",
+      "retry": "Try again",
+      "waiting": "Waiting for sign-in…",
+      "decline": "Not now",
+      "hint": "You'll sign in with the service itself. Tofi keeps the connection; the Bot never sees your credentials.",
+      "resolved_connected": "Connected",
+      "resolved_failed": "Couldn't connect",
+      "resolved_declined": "Not connected",
+      "error": {
+        "start": "Couldn't start the sign-in. Try again.",
+        "timeout": "Sign-in timed out. Try again.",
+        "incomplete": "Sign-in wasn't completed. Try again.",
+        "not_ready": "Tofi doesn't see the connection yet. Finish signing in, then try again."
+      }
     }
   }
 }
