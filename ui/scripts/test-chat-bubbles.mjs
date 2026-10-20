@@ -148,7 +148,7 @@ function measure() {
   }
   const names = [...list.querySelectorAll(".sender-name, .message-meta strong, .task-run-identity")].filter(el => el.getBoundingClientRect().height > 0).map(el => ({ cls: el.className, text: el.textContent, opacity: getComputedStyle(el).opacity }));
   const faded = names.filter(n => parseFloat(n.opacity) < 1);
-  return { units, names, faded, overflow: document.documentElement.scrollWidth - window.innerWidth };
+  return { units, names, faded, hover: matchMedia("(hover: hover)").matches, overflow: document.documentElement.scrollWidth - window.innerWidth };
 }
 
 function check(label, m, kind) {
@@ -195,7 +195,10 @@ function check(label, m, kind) {
       if (prev && prev.top !== undefined && u.top !== undefined) {
         const gap = u.top - prev.bottom;
         if (first && gap < 18) failures.push(`${tag}: gap ${gap.toFixed(1)}px after another speaker (want >= 18)`);
-        if (!first && gap > 14) failures.push(`${tag}: gap ${gap.toFixed(1)}px inside one sender's group (want <= 14)`);
+        // After a message, a hover-capable pointer's bar row sits in the gap: 28px row plus a small margin, tight but never narrower than the bar.
+        // On touch the bar opens in the flow, so the gap stays tight. A gap after an Activity row has no bar in it.
+        if (!first && m.hover && prev.type === "message" && (gap > 36 || gap < 27.5)) failures.push(`${tag}: gap ${gap.toFixed(1)}px inside one sender's group after a message (want 28-36)`);
+        if (!first && (!m.hover || prev.type !== "message") && gap > 14) failures.push(`${tag}: gap ${gap.toFixed(1)}px inside one sender's group (want <= 14)`);
       }
     }
     // One column: every Bot unit starts at the same x.
@@ -413,7 +416,8 @@ try {
       const { page, context, errors } = await open(url, { width: 1180, height: 820, theme: "light", touch: true, mobile: true });
       try {
         assert.ok(await page.evaluate(() => matchMedia("(hover: none)").matches), "the context has no hover, like an iPad");
-        const host = page.locator(`.message-block[data-message-id="a5"] .message-hover-host`);
+        // The bar is a row under the message, so its container is the message block.
+        const host = page.locator(`.message-block[data-message-id="a5"]`);
         assert.equal(await host.locator(".message-hover-actions").isVisible(), false, "actions are hidden until a tap");
         await page.locator(`.message-block[data-message-id="a5"] .message-content`).first().tap();
         await page.waitForSelector(`.message-block[data-message-id="a5"] .message-hover-actions`, { state: "visible" });

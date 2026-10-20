@@ -257,7 +257,8 @@
     "reply": "Reply",
     "toolbar": "Message actions",
     "view_activity": "View activity",
-    "hide_activity": "Hide activity"
+    "hide_activity": "Hide activity",
+    "just_now": "Just now"
   },
   "list": {
     "separator": ", "

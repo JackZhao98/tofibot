@@ -255,7 +255,8 @@
     "reply": "답장",
     "toolbar": "메시지 작업",
     "view_activity": "활동 보기",
-    "hide_activity": "활동 숨기기"
+    "hide_activity": "활동 숨기기",
+    "just_now": "방금"
   },
   "list": {
     "separator": ", "
