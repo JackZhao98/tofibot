@@ -126,7 +126,8 @@ func TestClickApprovalIsExactAndSingleUse(t *testing.T) {
 		t.Fatal(err)
 	}
 	click := func(label string) error {
-		return s.guardAction(context.Background(), run, actionReview{Kind: "click", Effect: "send", Element: label})
+		_, err := s.guardAction(context.Background(), run, actionReview{Kind: "click", Effect: "send", Element: label})
+		return err
 	}
 	for _, label := range []string{"Send", "Reply", "Send the reply and delete account"} {
 		if click(label) == nil {

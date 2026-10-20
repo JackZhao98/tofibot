@@ -93,9 +93,17 @@ func (s *Server) executeExtensionManagement(ctx context.Context, c Conversation,
 	if x.Action != "mcp_list" && x.Action != "skill_list" && strings.TrimSpace(x.Name) == "" {
 		return "", tooloutcome.InvalidArguments("extension name is required")
 	}
-	if err := s.guardExtensionChange(c, r, x); err != nil {
+	settle, err := s.guardExtensionChange(c, r, x)
+	if err != nil {
 		return "", err
 	}
+	out, err := s.applyExtensionChange(ctx, c, r, x)
+	settle(err)
+	return out, err
+}
+
+// applyExtensionChange runs an approved (or ungated) extension action.
+func (s *Server) applyExtensionChange(ctx context.Context, c Conversation, r Run, x extensionToolArgs) (string, error) {
 	if err := s.extensionToolActive(ctx, c, r); err != nil {
 		return "", err
 	}
@@ -120,7 +128,8 @@ func (s *Server) executeExtensionManagement(ctx context.Context, c Conversation,
 		if parseErr != nil || u.Host == "" || (u.Scheme != "http" && u.Scheme != "https") {
 			return "", tooloutcome.InvalidArguments("MCP create/update requires a complete HTTP(S) endpoint.")
 		}
-		config := extensions.MCPServerConfig{URL: x.URL, Headers: x.Headers, Transport: "streamable_http"}
+		// Bot-made servers refuse internal addresses at every connection.
+		config := extensions.MCPServerConfig{URL: x.URL, Headers: x.Headers, Transport: "streamable_http", BotManaged: !s.allowInternalMCPHosts}
 		var existing *extensions.MCPServerView
 		if x.Action == "mcp_update" {
 			servers, listErr := s.extensions.ListMCP()

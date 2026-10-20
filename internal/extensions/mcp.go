@@ -49,6 +49,11 @@ type MCPServerConfig struct {
 	TrustedReadOnlyTools []string            `json:"trusted_read_only_tools,omitempty"`
 	BotAllowlists        map[string][]string `json:"bot_allowlists"`
 	OAuth                *OAuthConfig        `json:"oauth,omitempty"`
+	// BotManaged marks a server a Bot created or last changed through
+	// manage_extensions. Its connections refuse private, loopback, link-local,
+	// CGNAT and metadata addresses at dial time. Servers saved by the owner in
+	// Settings never carry it, which is the owner-only way to reach a LAN server.
+	BotManaged bool `json:"bot_managed,omitempty"`
 }
 
 type serverFile struct {
@@ -675,6 +680,9 @@ func (m *Manager) openMCPClient(runCtx, discoveryCtx context.Context, name strin
 		return nil, fmt.Errorf("unsupported MCP transport %q", cfg.Transport)
 	}
 	baseTransport := http.DefaultTransport
+	if cfg.BotManaged {
+		baseTransport = GuardedTransport()
+	}
 	if m.cfg.HTTPTransport != nil {
 		resolved, err := m.cfg.HTTPTransport(cfg.URL)
 		if err != nil {
