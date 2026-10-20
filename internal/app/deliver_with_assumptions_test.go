@@ -227,7 +227,7 @@ func TestAssumptionPrincipleSitsAtEachPointOfDecision(t *testing.T) {
 			t.Fatalf("say description lacks %q", want)
 		}
 	}
-	if !strings.Contains(botProfileInstructionsDescription, "never wait on confirmation") {
+	if !strings.Contains(botProfileInstructionsDescription, "never the Bot's own pages, files or notes") {
 		t.Fatal("persona generator still lets requested deliverables wait on confirmation")
 	}
 }
@@ -259,5 +259,46 @@ func TestCoAddressedResultNeverEndsInSilenceWhenTheFinalMemberFails(t *testing.T
 	}
 	if n := countMessages(t, f.server.store, f.group.ID, `role='assistant' AND kind='' AND content LIKE '%THE-INPUT-PART%'`); n != 1 {
 		t.Fatalf("the input part reached the owner %d times, want exactly once", n)
+	}
+}
+
+// The routes and confirmation principles are stated as principles: no sample
+// wording, no contrasts, no keyword lists.
+func TestRouteAndConfirmationPrinciplesArePresentAndExampleFree(t *testing.T) {
+	for _, want := range []string{
+		"try the computer's other means before reporting a blocker or asking",
+		"the real signed-in browser",
+		"never accepting a purchase",
+		"another source",
+		"your own earlier outputs and artifacts",
+		"a blocker report names the routes tried",
+		"A direct instruction is the confirmation that action needs, whatever your role notes list",
+		"Announce work only after doing it this turn",
+	} {
+		if !strings.Contains(taskCompletionGuidance, want) {
+			t.Fatalf("taskCompletionGuidance lacks %q", want)
+		}
+	}
+	if strings.Contains(taskCompletionGuidance, "Try another permitted route after weak results") {
+		t.Fatal("the old route line survives beside the merged one")
+	}
+	if !strings.Contains(researchGuide, "A scripted fetch is a quick first try; when a site refuses it, read the page in the real browser") {
+		t.Fatal("research guide steers toward script fetching without the browser fallback")
+	}
+	if !strings.Contains(toolEvidencePolicy, "the person did not ask for") {
+		t.Fatal("evidence policy still confirms actions the person asked for")
+	}
+	for name, text := range map[string]string{"taskCompletionGuidance": taskCompletionGuidance, "researchGuide": researchGuide, "say": sayToolDescription, "evidence": toolEvidencePolicy} {
+		for _, bad := range []string{"e.g.", "for example", "such as", "Reuters", "401", "403", "\"", "「"} {
+			if name == "researchGuide" && (bad == "\"" || bad == "such as") {
+				continue // pre-existing wording outside this change
+			}
+			if strings.Contains(text, bad) {
+				t.Fatalf("%s contains example-like wording %q", name, bad)
+			}
+		}
+	}
+	if !strings.Contains(sayToolDescription, "An instructed action needs no further confirmation; announce work only once it is done") {
+		t.Fatal("say lacks the confirmation and announce-after-work principle")
 	}
 }

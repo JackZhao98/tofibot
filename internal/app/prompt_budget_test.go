@@ -64,7 +64,7 @@ func TestSafetyAndGuideRoutingRemainInTheProductionPrompt(t *testing.T) {
 	for _, requirement := range []string{
 		"Complete the requested deliverable and fields",
 		"Never claim something was searched, verified or done without evidence",
-		"Try another permitted route",
+		"try the computer's other means before reporting a blocker or asking",
 		"read_workflow_guide",
 		"(skill: software)",
 		computerBrowserEssentials,
@@ -256,13 +256,19 @@ func TestProductionPromptSizeMatrix(t *testing.T) {
 				// lookup-before-asking principle (~275).
 				// 6300: the same lookup line also covers a named work, product, person or
 				// event that may postdate the model, now that every Bot can search (~40).
-				if tc.name == "dm" && len([]rune(system))+runtime.SystemPromptOverheadRunes() > 6300 {
-					t.Errorf("ordinary DM provider system exceeds 6300 runes")
+				// 6750: the person's direct instruction is the confirmation an action needs,
+				// and work is announced only after it is done (owner, production Haiku DMs
+				// that asked four times and promised without acting), plus the route-resourcefulness
+				// line that replaces the one-clause route sentence (together ~470; the line is merged into
+				// the existing guidance, not added beside it).
+				if tc.name == "dm" && len([]rune(system))+runtime.SystemPromptOverheadRunes() > 6750 {
+					t.Errorf("ordinary DM provider system exceeds 6750 runes")
 				}
 				// 7000: the lookup line's works-newer-than-the-model clause (~45) lands in
 				// every prompt, the longest of which sat 23 under 6950.
-				if fixed > 7000 {
-					t.Errorf("fixed overhead %d leaves too little customization headroom (ceiling 7000)", fixed)
+				// 7450: the confirmation, announce-after-work and route principles (~470) lands in every prompt.
+				if fixed > 7450 {
+					t.Errorf("fixed overhead %d leaves too little customization headroom (ceiling 7450)", fixed)
 				}
 				if !strings.Contains(system, bot.Instructions) {
 					t.Fatal("user instructions changed")
@@ -301,8 +307,9 @@ func TestProductionPromptSizeMatrix(t *testing.T) {
 						t.Errorf("structured suffix %d is not shorter than %d", runtime.StructuredPromptOverheadRunes(), runtime.SystemPromptOverheadRunes())
 					}
 					// 6250: same two additions as the ordinary DM cap above.
-					if tc.name == "dm" && len([]rune(system))+runtime.StructuredPromptOverheadRunes() > 6250 {
-						t.Errorf("structured DM provider system exceeds 6250 runes")
+					// 6700: plus the confirmation, announce-after-work and route principles (~470), as above.
+					if tc.name == "dm" && len([]rune(system))+runtime.StructuredPromptOverheadRunes() > 6700 {
+						t.Errorf("structured DM provider system exceeds 6700 runes")
 					}
 					if tc.kind == runKindGroupChat && !strings.Contains(system, "say(answer)") {
 						t.Error("structured group prompt does not name say(answer)")
