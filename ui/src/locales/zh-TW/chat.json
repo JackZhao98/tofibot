@@ -255,7 +255,8 @@
     "reply": "回覆",
     "toolbar": "訊息操作",
     "view_activity": "查看工作過程",
-    "hide_activity": "收起工作過程"
+    "hide_activity": "收起工作過程",
+    "just_now": "剛剛"
   },
   "list": {
     "separator": "、"

@@ -60,7 +60,7 @@ import { useScheduleMetadata } from "./useScheduleMetadata";
 import type { Schedule } from "./types";
 import { TofiIcon as Icon, type TofiIconName } from "./icons";
 import { ComposerGlyph } from "./ComposerGlyph";
-import { intlLocale } from "./i18n/format";
+import { formatRelativeTime, intlLocale } from "./i18n/format";
 import { BrandLogo } from "./BrandLogo";
 import { createContext, lazy, memo, startTransition, Suspense, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { flushSync } from "react-dom";
@@ -270,6 +270,14 @@ function formatHoverTime(value: string, timeZone: string) {
   return dateTimeFormat(intlLocale(), { ...(sameDay ? {} : { month: "numeric", day: "numeric" }), hour: "2-digit", minute: "2-digit", timeZone }).format(new Date(value));
 }
 
+/** The bar's quiet timestamp: relative while it is recent, the clock time once it is old. The exact time is the tooltip. */
+function formatBarTime(value: string, timeZone: string, justNow: string) {
+  const age = Date.now() - new Date(value).getTime();
+  if (!Number.isFinite(age)) return formatHoverTime(value, timeZone);
+  if (age < 45_000) return justNow;
+  return age < 7 * 24 * 3600_000 ? formatRelativeTime(value) : formatHoverTime(value, timeZone);
+}
+
 /** What Copy puts on the clipboard: the message as the reader sees it, without the sender context label or reply marker. */
 function copyableMessageText(message: Message) {
   const body = readReplyMarker(message.content.replace(/^\[sender [^\]\n]*? id=[^\]\n]+\]\s*/, "")).body.trim();
@@ -313,11 +321,11 @@ const MessageHoverActions = memo(function MessageHoverActions({ message, timezon
   let first = true;
   const stop = () => { const index = first ? 0 : -1; first = false; return index; };
   return <div className="message-hover-actions" role="toolbar" aria-label={t("hover.toolbar")} onKeyDown={onKeyDown}>
-    <time dateTime={message.created_at} title={`${formatExactTime(message.created_at, timezone)} · ${timezone}`}>{formatHoverTime(message.created_at, timezone)}</time>
-    {copyText && <button type="button" tabIndex={stop()} aria-label={copied ? t("hover.copied") : t("hover.copy")} data-hint={copied ? t("hover.copied") : t("hover.copy")} data-action="copy" onClick={() => void copy()}><CopyFeedbackIcon copied={copied} /></button>}
-    <button type="button" tabIndex={stop()} aria-label={t("hover.react")} data-hint={t("hover.react")} data-action="react" onClick={event => onReact(event.currentTarget.getBoundingClientRect())}><Icon name="emoji" size={16} /></button>
-    {onReply && <button type="button" tabIndex={stop()} aria-label={t("hover.reply")} data-hint={t("hover.reply")} data-action="reply" onClick={onReply}><Icon name="reply" size={16} /></button>}
-    {onActivity && <button type="button" tabIndex={stop()} className="message-activity-action" aria-label={activityOpen ? t("hover.hide_activity") : t("hover.view_activity")} aria-pressed={activityOpen} data-hint={activityOpen ? t("hover.hide_activity") : t("hover.view_activity")} data-action="activity" onClick={onActivity}><Icon name="activity" size={16} /></button>}
+    {copyText && <button type="button" tabIndex={stop()} aria-label={copied ? t("hover.copied") : t("hover.copy")} data-hint={copied ? t("hover.copied") : t("hover.copy")} data-action="copy" onClick={() => void copy()}><CopyFeedbackIcon copied={copied} size={15} /></button>}
+    <button type="button" tabIndex={stop()} aria-label={t("hover.react")} data-hint={t("hover.react")} data-action="react" onClick={event => onReact(event.currentTarget.getBoundingClientRect())}><Icon name="emoji" size={15} /></button>
+    {onReply && <button type="button" tabIndex={stop()} aria-label={t("hover.reply")} data-hint={t("hover.reply")} data-action="reply" onClick={onReply}><Icon name="reply" size={15} /></button>}
+    {onActivity && <button type="button" tabIndex={stop()} className="message-activity-action" aria-label={activityOpen ? t("hover.hide_activity") : t("hover.view_activity")} aria-pressed={activityOpen} data-hint={activityOpen ? t("hover.hide_activity") : t("hover.view_activity")} data-action="activity" onClick={onActivity}><Icon name="activity" size={15} /></button>}
+    <time dateTime={message.created_at} title={`${formatExactTime(message.created_at, timezone)} · ${timezone}`}>{formatBarTime(message.created_at, timezone, t("hover.just_now"))}</time>
   </div>;
 }, (previous, next) => previous.message === next.message && previous.timezone === next.timezone && previous.activityOpen === next.activityOpen && previous.copyText === next.copyText
   // The handlers are rebuilt every render; they act on the same message, so only their presence matters here.
@@ -2037,15 +2045,28 @@ function Workspace() {
     // A press anywhere but on the tapped message (or its bar) closes the touch actions; the bar is mounted only while it is open.
     const close = (event: Event) => {
       const open = tappedMessageActionsId();
-      if (open && (event.target as HTMLElement).closest?.(".message-hover-host")?.getAttribute("data-host-id") !== open) setMessageActions("tap", "");
+      if (open && (event.target as HTMLElement).closest?.(".message-hover-host, .message-actions-row")?.getAttribute("data-host-id") !== open) setMessageActions("tap", "");
     };
     document.addEventListener("pointerdown", close);
     return () => document.removeEventListener("pointerdown", close);
   }, []);
   // Message actions follow the pointer and focus through one delegated handler each: no per-message listeners, no App state.
   const messageIdOf = (target: EventTarget | null) => (target as HTMLElement | null)?.closest?.<HTMLElement>(".message-block")?.dataset.messageId ?? "";
-  const onMessageListPointerOver = (event: React.PointerEvent<HTMLElement>) => { if (event.pointerType !== "touch") setMessageActions("hover", messageIdOf(event.target)); };
-  const onMessageListPointerLeave = (event: React.PointerEvent<HTMLElement>) => { if (event.pointerType !== "touch") setMessageActions("hover", ""); };
+  // Entering a message raises its bar in the same event; leaving it (into the gap between messages, or out of the list) lets go after a short grace.
+  const hoverExitTimer = useRef<number | undefined>(undefined);
+  useEffect(() => () => window.clearTimeout(hoverExitTimer.current), []);
+  const onMessageListPointerOver = (event: React.PointerEvent<HTMLElement>) => {
+    if (event.pointerType === "touch") return;
+    const id = messageIdOf(event.target);
+    window.clearTimeout(hoverExitTimer.current);
+    if (id) setMessageActions("hover", id);
+    else hoverExitTimer.current = window.setTimeout(() => setMessageActions("hover", ""), 120);
+  };
+  const onMessageListPointerLeave = (event: React.PointerEvent<HTMLElement>) => {
+    if (event.pointerType === "touch") return;
+    window.clearTimeout(hoverExitTimer.current);
+    hoverExitTimer.current = window.setTimeout(() => setMessageActions("hover", ""), 120);
+  };
   // Only keyboard focus raises the bar: pressing on a message focuses it too, and a press must not open actions by itself.
   const onMessageListFocus = (event: React.FocusEvent<HTMLElement>) => { if (event.target.matches(":focus-visible")) setMessageActions("focus", messageIdOf(event.target)); };
   const onMessageListBlur = (event: React.FocusEvent<HTMLElement>) => { if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setMessageActions("focus", ""); };
@@ -2284,7 +2305,7 @@ function Workspace() {
                         {showDivider && <div className="date-divider"><span>{formatDateDivider(message.created_at, timezone)}</span></div>}
                         {unread && <div className="unread-divider" aria-label={t("history.unread_below")}><span>{t("history.unread")}</span></div>}
                         <div className={`message-hover-host${message.role === "user" ? " is-user" : ""}`} data-host-id={message.id} onPointerDownCapture={!isDesktop && canReact ? () => { selectionOnPress.current = Boolean(window.getSelection()?.toString()); } : undefined} onClick={!isDesktop && canReact ? event => { const hadSelection = selectionOnPress.current || Boolean(window.getSelection()?.toString()); selectionOnPress.current = false; const target = event.target as HTMLElement; if (hadSelection || !window.matchMedia("(hover: none)").matches || !target.closest(".message-content") || target.closest("a,button,summary,input,textarea,pre,[role=button],.message-hover-actions")) return; setMessageActions("tap", tappedMessageActionsId() === message.id ? "" : message.id); } : undefined}>
-                        {cardLike && actions}<MessageBubble actions={cardLike ? undefined : actions} message={message} replyTarget={showReplyQuote ? replyTarget : undefined} replyTargetName={replyTarget?.role === "user" ? t("message.you") : replyTarget?.sender_bot_name ?? (replyTarget?.sender_bot_id ? botById.get(replyTarget.sender_bot_id)?.name ?? knownBotNames.current.get(replyTarget.sender_bot_id) : undefined)} senderName={message.sender_bot_name ?? (message.sender_bot_id ? knownBotNames.current.get(message.sender_bot_id) : undefined)} targetBot={message.notice?.to_bot_id ? botById.get(message.notice.to_bot_id) : undefined} sender={message.sender_bot_id ? botById.get(message.sender_bot_id) : undefined}
+                        <MessageBubble message={message} replyTarget={showReplyQuote ? replyTarget : undefined} replyTargetName={replyTarget?.role === "user" ? t("message.you") : replyTarget?.sender_bot_name ?? (replyTarget?.sender_bot_id ? botById.get(replyTarget.sender_bot_id)?.name ?? knownBotNames.current.get(replyTarget.sender_bot_id) : undefined)} senderName={message.sender_bot_name ?? (message.sender_bot_id ? knownBotNames.current.get(message.sender_bot_id) : undefined)} targetBot={message.notice?.to_bot_id ? botById.get(message.notice.to_bot_id) : undefined} sender={message.sender_bot_id ? botById.get(message.sender_bot_id) : undefined}
                           run={message.run_id ? runById.get(message.run_id) : undefined}
                           tools={processTools.length || processProgress.length || processSummaries.length || Object.keys(processSummaryErrors).length || Object.keys(processSummaryLoading).length ? <ToolActivityList activities={[...processTools, ...processAggregateTools]} progress={processProgress} summaries={processSummaries} summaryErrors={processSummaryErrors} summaryLoading={processSummaryLoading} details={toolDetailState} onLoadDetails={loadToolDetails} onRetrySummary={retryToolSummary} botById={botById} activeRunIds={activeRunIds} /> : undefined}
                           scheduleOccurrence={message.run_id ? scheduleOccurrences.get(message.run_id) : undefined} schedulePending={scheduleCardPending(message.run_id)} schedule={message.run_id ? scheduleMetadata.get(scheduleOccurrences.get(message.run_id)?.schedule_id ?? "") : undefined} onRetrySchedule={active.archived || ownedRunIDs.has(message.run_id ?? "") ? undefined : retryRun}
@@ -2307,6 +2328,7 @@ function Workspace() {
                             throw cause;
                           }
                         }} />}
+                        {actions && <div className="message-actions-row" data-host-id={message.id} data-side={message.role === "user" ? "user" : "bot"} data-gutter={active.kind === "group" && message.role !== "user" && message.kind !== "ui_card" ? "" : undefined}>{actions}</div>}
                         {taskOwners.filter(owner => owner.anchor?.kind === "message" && owner.anchor.id === message.id).map(renderTaskOwner)}
                         {afterTools.length || afterSummaries.length || Object.keys(afterSummaryErrors).length || Object.keys(afterSummaryLoading).length ? <ToolActivityList activities={[...afterTools, ...afterAggregateTools]} summaries={afterSummaries} summaryErrors={afterSummaryErrors} summaryLoading={afterSummaryLoading} details={toolDetailState} onLoadDetails={loadToolDetails} onRetrySummary={retryToolSummary} botById={botById} activeRunIds={activeRunIds} group={active.kind === "group"} /> : null}
                       </div>;
@@ -2509,7 +2531,7 @@ const SNAPSHOT_CACHE_LIMIT = 50;
 const SNAPSHOT_CACHE_MESSAGES = 60;
 interface ConversationSnapshot { messages: Message[]; drafts: Record<string, StreamDraft>; runs: Run[]; toolActivities: ToolActivity[]; toolSummaries: ToolActivityRunSummary[]; memories: Memory[]; hasMore: boolean }
 
-export function MessageBubble({ actions, message, replyTarget, replyTargetName, sender, senderName, targetBot, run, tools, scheduleOccurrence, schedulePending, schedule, onRetrySchedule, onDraftReply, draft, relatedChat, onOpenRelatedChat, compact = false, showAvatar = true, showIdentity = true, noticeTargetAvailable = true, allowOpenDM = false, onNavigate, onMention }: { actions?: React.ReactNode; relatedChat?: ViewOnlyChatTarget | null; onOpenRelatedChat?: (target: ViewOnlyChatTarget) => void; noticeTargetAvailable?: boolean; allowOpenDM?: boolean; onMention?: (bot: Bot) => void; message: Message; replyTarget?: Message; replyTargetName?: string; sender?: Bot; senderName?: string; targetBot?: Bot; run?: Run; tools?: React.ReactNode; scheduleOccurrence?: ScheduleOccurrence; schedulePending?: boolean; schedule?: Schedule; onRetrySchedule?: (id: string) => Promise<void>; onDraftReply?: () => Promise<boolean>; draft?: string | StreamDraft; compact?: boolean; showAvatar?: boolean; showIdentity?: boolean; onNavigate?: (id: string) => void }) {
+export function MessageBubble({ message, replyTarget, replyTargetName, sender, senderName, targetBot, run, tools, scheduleOccurrence, schedulePending, schedule, onRetrySchedule, onDraftReply, draft, relatedChat, onOpenRelatedChat, compact = false, showAvatar = true, showIdentity = true, noticeTargetAvailable = true, allowOpenDM = false, onNavigate, onMention }: { relatedChat?: ViewOnlyChatTarget | null; onOpenRelatedChat?: (target: ViewOnlyChatTarget) => void; noticeTargetAvailable?: boolean; allowOpenDM?: boolean; onMention?: (bot: Bot) => void; message: Message; replyTarget?: Message; replyTargetName?: string; sender?: Bot; senderName?: string; targetBot?: Bot; run?: Run; tools?: React.ReactNode; scheduleOccurrence?: ScheduleOccurrence; schedulePending?: boolean; schedule?: Schedule; onRetrySchedule?: (id: string) => Promise<void>; onDraftReply?: () => Promise<boolean>; draft?: string | StreamDraft; compact?: boolean; showAvatar?: boolean; showIdentity?: boolean; onNavigate?: (id: string) => void }) {
   const { t } = useTranslation("chat");
   const {timezone} = useUserTimezone();
   const toolsRunning = run?.status === "running" || run?.status === "queued";
@@ -2581,7 +2603,7 @@ export function MessageBubble({ actions, message, replyTarget, replyTargetName, 
   const inlineMention = mention && targetBot ? <BotIdentityCard bot={targetBot} onMention={onMention ? () => onMention(targetBot) : undefined} onOpen={allowOpenDM && onNavigate ? () => onNavigate(targetBot.dm_conversation_id) : undefined}>{mention}</BotIdentityCard> : mention;
   const toolRow = tools && <div className="message-tools">{tools}</div>;
   const grouped = showAvatar && !isUser;
-  return <article data-sender={grouped ? message.sender_bot_id : undefined} data-at={grouped ? message.created_at : undefined} className={`message ${isUser ? "message-user" : "message-bot"}${grouped ? " is-group" : !isUser ? " is-dm" : ""} ${message.kind === "segment" ? "message-segment" : ""} ${message.kind === "forward_result" ? "message-forward-result" : ""} ${compact ? "message-compact" : ""}`} title={isDesktop ? `${formatExactTime(message.created_at, timezone)} · ${timezone}` : undefined}><div className={`message-body${tools && !isDesktop ? ` web-tool-body ${toolsRunning ? "is-tools-live" : "is-tools-done"}` : ""}`}><div className={`message-meta ${hideMeta ? "compact" : ""}`}>{scheduled && <span>{t("message.scheduled")}</span>}{showIdentity && !isUser && (!compact || showAvatar) && <strong>{label}</strong>}</div>{(toolsRunning || !isDesktop) && toolRow}{replyTarget && <button type="button" className="message-reply-quote" aria-label={t("message.jump_to_reply", { name: replyTargetName ?? t("message.original") })} onClick={() => jumpToMessage(document.querySelector<HTMLElement>(`[data-message-id="${replyTarget.id}"]`))}><span className="message-reply-author">{t("message.reply_to", { name: replyTargetName ?? t("message.original") })}</span><span className="message-reply-excerpt">{previewText(readReplyMarker(replyTarget.content).body) || t("message.attachment")}</span></button>}<div className="message-content" ref={answerRef}>{actions}{showAvatar && !isUser && <div className="sender-avatar">{sender ? <BotIdentityCard bot={sender} onMention={onMention ? () => onMention(sender) : undefined} onOpen={allowOpenDM && onNavigate ? () => onNavigate(sender.dm_conversation_id) : undefined}><Avatar label={label} id={sender.id} mini /></BotIdentityCard> : <Avatar label={label} id={message.sender_bot_id ?? "bot"} mini />}</div>}{<SmoothStreamMarkdown content={body} mention={inlineMention} active={Boolean(draft) && !isDesktop} />}<AttachmentList attachments={message.attachments} compact={isUser} />{draft && isDesktop && <span className="typing-cursor" />}</div>{!toolsRunning && isDesktop && toolRow}{relatedChat && onOpenRelatedChat && <RelatedMessageLink target={relatedChat} onOpen={onOpenRelatedChat} />}</div></article>;
+  return <article data-sender={grouped ? message.sender_bot_id : undefined} data-at={grouped ? message.created_at : undefined} className={`message ${isUser ? "message-user" : "message-bot"}${grouped ? " is-group" : !isUser ? " is-dm" : ""} ${message.kind === "segment" ? "message-segment" : ""} ${message.kind === "forward_result" ? "message-forward-result" : ""} ${compact ? "message-compact" : ""}`} title={isDesktop ? `${formatExactTime(message.created_at, timezone)} · ${timezone}` : undefined}><div className={`message-body${tools && !isDesktop ? ` web-tool-body ${toolsRunning ? "is-tools-live" : "is-tools-done"}` : ""}`}><div className={`message-meta ${hideMeta ? "compact" : ""}`}>{scheduled && <span>{t("message.scheduled")}</span>}{showIdentity && !isUser && (!compact || showAvatar) && <strong>{label}</strong>}</div>{(toolsRunning || !isDesktop) && toolRow}{replyTarget && <button type="button" className="message-reply-quote" aria-label={t("message.jump_to_reply", { name: replyTargetName ?? t("message.original") })} onClick={() => jumpToMessage(document.querySelector<HTMLElement>(`[data-message-id="${replyTarget.id}"]`))}><span className="message-reply-author">{t("message.reply_to", { name: replyTargetName ?? t("message.original") })}</span><span className="message-reply-excerpt">{previewText(readReplyMarker(replyTarget.content).body) || t("message.attachment")}</span></button>}<div className="message-content" ref={answerRef}>{showAvatar && !isUser && <div className="sender-avatar">{sender ? <BotIdentityCard bot={sender} onMention={onMention ? () => onMention(sender) : undefined} onOpen={allowOpenDM && onNavigate ? () => onNavigate(sender.dm_conversation_id) : undefined}><Avatar label={label} id={sender.id} mini /></BotIdentityCard> : <Avatar label={label} id={message.sender_bot_id ?? "bot"} mini />}</div>}{<SmoothStreamMarkdown content={body} mention={inlineMention} active={Boolean(draft) && !isDesktop} />}<AttachmentList attachments={message.attachments} compact={isUser} />{draft && isDesktop && <span className="typing-cursor" />}</div>{!toolsRunning && isDesktop && toolRow}{relatedChat && onOpenRelatedChat && <RelatedMessageLink target={relatedChat} onOpen={onOpenRelatedChat} />}</div></article>;
 }
 
 export function RunStatusAnnouncement({ conversationId, runs, botById, ready, taskAnnouncements }: { conversationId: string; runs: Run[]; botById: Map<string, Bot>; ready: boolean; taskAnnouncements?: Map<string, string> }) {

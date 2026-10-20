@@ -577,37 +577,35 @@ html:not([data-desktop]) .workspace .web-loading-state{min-height:96px;padding-b
 @keyframes web-loading-in{from{opacity:0}}
 @media(prefers-reduced-motion:reduce){html:not([data-desktop]) .workspace .web-loading-state{animation:none}}
 
-/* Browser-mode message actions: the bar belongs to one bubble. It is mounted only for the message the pointer, focus or a tap is on,
-   and sits on that bubble's own edge (outside it on the left for the reader's messages, on its top edge for a Bot's), so it can
-   never read as the previous message's bar. It appears at once with a 60 ms fade, without moving. */
+/* Browser-mode message actions: a quiet row directly under the message (after its reaction chips), no container: line icons
+   in muted ink that darken on hover, the relative time last. It is mounted only for the message the pointer, focus or a tap is on,
+   and appears in the same frame (no fade). The row's space is reserved for every message on hover devices, so showing the bar
+   never moves anything; that reserve is also the gap between messages (28px row + 4px, then 14px more where the speaker changes).
+   The row is a child of .message-block, so the pointer travelling from the bubble to the bar never leaves the block. */
 .workspace .message-hover-host { position:relative; }
 .workspace .message-content { position:relative; }
-.workspace .message-hover-actions {
-  position:absolute; z-index:4; top:-30px; left:max(0px, calc(100% - 212px)); display:flex; align-items:center; gap:2px; padding:3px;
-  border:1px solid var(--line-soft); border-radius:10px; background:var(--surface);
-  box-shadow:0 6px 18px color-mix(in srgb,var(--ink) 12%,transparent);
-  animation:v2-actions-in 60ms linear both;
-  /* The toolbar floats over the conversation: dragging through a bubble and copying must not pick up its timestamp. */
-  -webkit-user-select:none; user-select:none;
-}
-.workspace .message-user .message-hover-actions { top:0; left:auto; right:calc(100% + 6px); }
-.workspace .message-hover-host>.message-hover-actions { top:-30px; left:auto; right:0; }
-@keyframes v2-actions-in { from { opacity:0; } }
-.workspace .message-hover-actions time { padding:0 6px 0 7px; color:var(--muted); font:11px/1 var(--mono); white-space:nowrap; }
-@media (max-width:1000px) { .workspace .message-user .message-hover-actions time { display:none; } }
+.workspace .message-actions-row { --bar-btn:28px; display:flex; align-items:flex-start; justify-content:flex-start; }
+.workspace .message-actions-row[data-side="user"] { justify-content:flex-end; }
+.workspace .message-actions-row[data-gutter] { padding-left:var(--sender-gutter); }
+.workspace .message-hover-actions { display:flex; align-items:center; height:var(--bar-btn); -webkit-user-select:none; user-select:none; }
+.workspace .message-hover-actions time { margin:0 0 0 4px; padding:0 2px; color:var(--muted); font:12px/1 var(--body); white-space:nowrap; }
 .workspace .message-hover-actions button {
-  display:grid; place-items:center; width:28px; height:28px; padding:0; border:0; border-radius:7px;
-  background:transparent; color:var(--ink-soft); cursor:pointer;
+  display:grid; place-items:center; width:var(--bar-btn); height:var(--bar-btn); padding:0; border:0; border-radius:8px;
+  background:transparent; color:var(--muted); cursor:pointer;
 }
-.workspace .message-hover-actions button:hover { background:var(--surface-2); color:var(--ink); }
-.workspace .message-hover-actions button:focus-visible { outline:var(--focus-ring-width) solid var(--focus-ring); outline-offset:1px; }
+.workspace .message-actions-row[data-side="bot"]:not([data-gutter]) .message-hover-actions button:first-child { margin-left:calc((15px - var(--bar-btn)) / 2); }
+.workspace .message-hover-actions button:hover { color:var(--ink); }
+.workspace .message-hover-actions button:focus-visible { outline:var(--focus-ring-width) solid var(--focus-ring); outline-offset:-2px; color:var(--ink); }
+@media (hover:hover) {
+  .workspace .message-actions-row { min-height:28px; margin-bottom:4px; }
+  .workspace .message-block:has(>.message-actions-row) .message-hover-host .message { margin-bottom:0; }
+  .workspace .message-block:has(>.message-actions-row) .message-reactions { margin:4px 0 0; }
+  .workspace .message-block:has(>.message-actions-row) .message[data-speaker-change="true"] { margin-top:14px; }
+}
 /* Touch (no hover): a tap on the bubble opens the bar under it, in the flow, so it never covers a neighbouring message. */
 @media (hover:none) {
-  .workspace .message-hover-actions, .workspace .message-user .message-hover-actions, .workspace .message-hover-host>.message-hover-actions { position:static; width:max-content; margin:6px 0 0; animation:none; }
-  .workspace .message-user .message-hover-actions { margin-left:auto; }
-  .workspace .message-hover-actions button { width:44px; height:44px; }
+  .workspace .message-actions-row { --bar-btn:44px; margin-top:2px; }
 }
-@media (prefers-reduced-motion:reduce) { .workspace .message-hover-actions { animation:none; } }
 
 .workspace .composer-reply {
   display:flex; align-items:center; gap:8px; margin:0 0 6px; padding:6px 6px 6px 10px;

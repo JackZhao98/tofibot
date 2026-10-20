@@ -22,10 +22,22 @@ const browser = await engine.launch({ headless: true, ...(process.env.CHROME_EXE
 const INSTANCE = "00000000-0000-4000-8000-000000000001";
 const T0 = Date.parse("2026-10-13T10:00:00Z");
 const iso = seconds => new Date(T0 + seconds * 1000).toISOString();
-const bots = [{ id: "bot_a", name: "Ledger Cat", instructions: "Synthetic role", model: "synthetic-model", reasoning_effort: "medium", dm_conversation_id: "dm_a", created_at: iso(0) }];
+const bots = [{ id: "bot_a", name: "Ledger Cat", instructions: "Synthetic role", model: "synthetic-model", reasoning_effort: "medium", dm_conversation_id: "dm_a", created_at: iso(0) },
+  { id: "bot_b", name: "Simile Cat", instructions: "Synthetic role", model: "synthetic-model", reasoning_effort: "medium", dm_conversation_id: "dm_b", created_at: iso(0) }];
+const group = { id: "grp_1", kind: "group", name: "Synthetic Group", bot_ids: ["bot_a", "bot_b"], updated_at: iso(0), read_seq: 99, user_visible: true };
 const dm = { id: "dm_a", kind: "dm", name: "Ledger Cat", bot_id: "bot_a", bot_ids: ["bot_a"], updated_at: iso(0), read_seq: 99, user_visible: true };
 const LONG = Array.from({ length: 6 }, (_, i) => `Synthetic ledger sentence number ${i + 1} describes the weekly entries and totals.`).join(" ");
 const base = (id, seq, role, content, extra = {}) => ({ id, conversation_id: "dm_a", seq, role, content, created_at: iso(seq * 20), ...(role === "assistant" ? { sender_bot_id: "bot_a", sender_bot_name: "Ledger Cat", run_id: `run_${id}` } : {}), ...extra });
+// A group: a person, one Bot's run of three, a speaker change to the other Bot, the person again, then a Bot.
+const groupHistory = () => [
+  base("g1", 1, "user", "[sender Owner id=user] Synthetic opening question."),
+  base("g2", 2, "assistant", "First from Ledger."),
+  base("g3", 3, "assistant", LONG),
+  base("g4", 4, "assistant", "Third in the same run."),
+  base("g5", 5, "assistant", "Simile answers now.", { sender_bot_id: "bot_b", sender_bot_name: "Simile Cat" }),
+  base("g6", 6, "user", LONG),
+  base("g7", 7, "assistant", "Last note.", { sender_bot_id: "bot_b", sender_bot_name: "Simile Cat" }),
+].map(message => ({ ...message, conversation_id: "grp_1" }));
 const history = () => [
   base("m1", 1, "user", "[sender Owner id=user] Synthetic opening question."),
   base("m2", 2, "assistant", "Done."),
@@ -34,7 +46,7 @@ const history = () => [
   base("m5", 5, "assistant", "Final synthetic note."),
 ];
 
-async function open({ width = 1180, height = 820, motion = "no-preference", touch = false, reactionDelay = 0, reactionFail = false, extra = [], runs = [] } = {}) {
+async function open({ width = 1180, height = 820, motion = "no-preference", touch = false, reactionDelay = 0, reactionFail = false, extra = [], runs = [], inGroup = false } = {}) {
   const context = await browser.newContext({ viewport: { width, height }, locale: "en-US", reducedMotion: motion, hasTouch: touch });
   await context.addInitScript(() => {
     try { localStorage.setItem("tofi:appearance", "light"); } catch {}
@@ -48,7 +60,7 @@ async function open({ width = 1180, height = 820, motion = "no-preference", touc
   const page = await context.newPage();
   const errors = [];
   page.on("pageerror", error => errors.push(error.message));
-  const messages = [...history(), ...extra];
+  const messages = [...(inGroup ? groupHistory() : history()), ...extra];
   const reactionCalls = [];
   await page.route("**/api/**", async route => {
     const request = route.request();
@@ -60,7 +72,7 @@ async function open({ width = 1180, height = 820, motion = "no-preference", touc
     if (path === "/api/preferences") return json({ timezone: "UTC", timezone_configured: true, show_activity: false });
     if (path === "/api/config") return json({ model_configured: true, default_model: "synthetic-model", provider: "synthetic" });
     if (path === "/api/bots") return json({ bots });
-    if (path === "/api/conversations") return json({ conversations: [dm] });
+    if (path === "/api/conversations") return json({ conversations: [dm, group] });
     if (path.endsWith("/reactions") && request.method() === "PUT") {
       const body = request.postDataJSON();
       reactionCalls.push(body);
@@ -80,7 +92,7 @@ async function open({ width = 1180, height = 820, motion = "no-preference", touc
     if (path === "/api/mail-drafts") return json({ drafts: [] });
     return json({});
   });
-  await page.goto(origin + "/b/bot_a");
+  await page.goto(origin + (inGroup ? "/g/grp_1" : "/b/bot_a"));
   await page.locator(".message-block").first().waitFor();
   await page.evaluate(() => document.fonts.ready);
   await page.waitForTimeout(600);
@@ -231,39 +243,78 @@ await check("action bars are not in the DOM until a message is hovered, and only
   await context.close();
 });
 
-await check("the bar sits on its own bubble's edge and appears within a frame budget", async () => {
-  const { page, context } = await open();
-  for (const id of ["m2", "m3", "m4", "m5"]) {
-    const content = block(page, id).locator(".message-content");
-    const box = await content.boundingBox();
-    await page.mouse.move(2, 2); await page.waitForTimeout(100);
-    const heightBefore = await block(page, id).evaluate(el => el.getBoundingClientRect().height);
-    await page.evaluate(() => { window.__t0 = performance.now(); window.__vis = null; const tick = () => { const b = document.querySelector(".message-hover-actions"); if (b && Number(getComputedStyle(b).opacity) >= 0.99 && b.getBoundingClientRect().height > 0) { window.__vis = performance.now() - window.__t0; return; } if (performance.now() - window.__t0 < 1500) requestAnimationFrame(tick); }; requestAnimationFrame(tick); });
-    await page.mouse.move(box.x + 30, box.y + 14);
-    await page.waitForFunction(() => window.__vis != null, null, { timeout: 3000 });
-    const latency = await page.evaluate(() => window.__vis);
-    const heightWith = await block(page, id).evaluate(el => el.getBoundingClientRect().height);
-    assert.ok(Math.abs(heightWith - heightBefore) < 0.5, `${id}: showing the bar changed the message's height (${heightBefore} -> ${heightWith})`);
-    assert.ok(latency <= 120, `${id}: bar took ${Math.round(latency)} ms to become visible`);
-    if (process.env.CHAT_MOTION_SHOT) await page.screenshot({ path: `${process.env.CHAT_MOTION_SHOT}-${id}.png`, clip: { x: 272, y: 80, width: 908, height: 520 } });
-    const geometry = await page.evaluate(id => {
-      const host = document.querySelector(`[data-message-id="${id}"]`);
-      const b = host.querySelector(".message-hover-actions").getBoundingClientRect();
-      const c = host.querySelector(".message-content").getBoundingClientRect();
-      const prev = host.previousElementSibling;
-      const p = prev?.querySelector?.(".message-content")?.getBoundingClientRect();
-      return { gapX: Math.max(c.left - b.right, b.left - c.right, 0), gapY: Math.max(c.top - b.bottom, b.top - c.bottom, 0), overPrev: p ? Math.max(0, Math.min(b.bottom, p.bottom) - Math.max(b.top, p.top)) * Math.max(0, Math.min(b.right, p.right) - Math.max(b.left, p.left)) : 0, left: b.left, right: b.right, vw: innerWidth };
-    }, id);
-    assert.ok(geometry.gapX <= 12 && geometry.gapY <= 12, `${id}: bar is ${geometry.gapX}px / ${geometry.gapY}px from its bubble`);
-    assert.ok(geometry.left >= 0 && geometry.right <= geometry.vw, `${id}: bar stays inside the window`);
-    // Moving onto the bar keeps the same message's bar (it must not flip to a neighbour)
-    const bb = await block(page, id).locator(".message-hover-actions").boundingBox();
-    await page.mouse.move(bb.x + bb.width / 2, bb.y + bb.height / 2);
-    await page.waitForTimeout(80);
-    assert.equal(await block(page, id).locator(".message-hover-actions").count(), 1, `${id}: bar stays while the pointer is on it`);
-    assert.equal(await bar(page).count(), 1, `${id}: exactly one bar`);
+/** Reads the geometry that decides whether the bar collides with anything: every message, every avatar, the bar and its own bubble. */
+const barGeometry = (page, id) => page.evaluate(id => {
+  const rect = el => { const r = el.getBoundingClientRect(); return { left: r.left, right: r.right, top: r.top, bottom: r.bottom }; };
+  const blockEl = document.querySelector(`[data-message-id="${id}"]`);
+  const barEl = blockEl.querySelector(".message-hover-actions");
+  if (!barEl) return null;
+  const content = blockEl.querySelector(".message-content");
+  const others = [...document.querySelectorAll(".message-block")].filter(el => el !== blockEl).flatMap(el => [...el.querySelectorAll(".message-content, .message-reactions")].map(rect));
+  return { bar: rect(barEl), content: rect(content), others, avatars: [...document.querySelectorAll(".sender-avatar")].map(rect), vw: innerWidth, isUser: blockEl.querySelector(".message-user") !== null, position: getComputedStyle(barEl).position, background: getComputedStyle(barEl).backgroundColor, shadow: getComputedStyle(barEl).boxShadow, borderWidth: getComputedStyle(barEl).borderTopWidth };
+}, id);
+const intersects = (a, b) => Math.min(a.right, b.right) - Math.max(a.left, b.left) > 0.5 && Math.min(a.bottom, b.bottom) - Math.max(a.top, b.top) > 0.5;
+const heights = page => page.evaluate(() => [...document.querySelectorAll(".message-block")].map(el => el.getBoundingClientRect().height));
+const latencies = [];
+
+for (const [layout, inGroup, ids] of [["DM", false, ["m1", "m2", "m3", "m4", "m5"]], ["group", true, ["g1", "g2", "g3", "g4", "g5", "g6", "g7"]]]) {
+  await check(`${layout}: the bar sits below its own bubble, clear of every other message, with no layout shift`, async () => {
+    const { page, context } = await open({ inGroup });
+    for (const id of ids) {
+      await block(page, id).evaluate(el => el.scrollIntoView({ block: "center" }));
+      await page.waitForTimeout(60);
+      const box = await block(page, id).locator(".message-content").boundingBox();
+      await page.mouse.move(2, 2);
+      await page.waitForFunction(() => document.querySelectorAll(".message-hover-actions").length === 0);
+      const before = await heights(page);
+      await page.evaluate(() => { window.__t0 = performance.now(); window.__vis = null; const tick = () => { const b = document.querySelector(".message-hover-actions"); if (b && Number(getComputedStyle(b).opacity) >= 0.99 && b.getBoundingClientRect().height > 0) { window.__vis = performance.now() - window.__t0; return; } if (performance.now() - window.__t0 < 1500) requestAnimationFrame(tick); }; requestAnimationFrame(tick); });
+      await page.mouse.move(box.x + 30, box.y + 14);
+      await page.waitForFunction(() => window.__vis != null, null, { timeout: 3000 });
+      const latency = await page.evaluate(() => window.__vis);
+      latencies.push(latency);
+      assert.ok(latency <= 100, `${layout} ${id}: bar took ${Math.round(latency)} ms to become visible`);
+      const after = await heights(page);
+      assert.deepEqual(after, before, `${layout} ${id}: hovering changed a message height`);
+      const g = await barGeometry(page, id);
+      assert.ok(g.bar.top >= g.content.bottom - 0.5, `${layout} ${id}: bar top ${g.bar.top} is above its bubble's bottom ${g.content.bottom}`);
+      assert.ok(g.bar.top - g.content.bottom <= 40, `${layout} ${id}: bar is ${g.bar.top - g.content.bottom}px below its bubble`);
+      assert.ok(g.bar.left >= 0 && g.bar.right <= g.vw, `${layout} ${id}: bar stays inside the window`);
+      for (const other of [...g.others, ...g.avatars]) assert.ok(!intersects(g.bar, other), `${layout} ${id}: bar covers another message or avatar`);
+      // The bar belongs to the bubble's side: the reader's messages end at the bubble's right edge, a Bot's begin at its left.
+      if (g.isUser) assert.ok(Math.abs(g.bar.right - g.content.right) <= 4, `${layout} ${id}: bar is not on the bubble's right edge`);
+      else assert.ok(g.bar.left >= g.content.left - 8 && g.bar.left <= g.content.left + 8, `${layout} ${id}: bar is not on the bubble's left edge (${g.bar.left} vs ${g.content.left})`);
+      // Quiet style: no container.
+      assert.ok(g.background === "rgba(0, 0, 0, 0)" && g.shadow === "none" && g.borderWidth === "0px", `${layout} ${id}: the bar draws a container`);
+      // Pointer path bubble -> bar crosses no dead space.
+      const bb = await block(page, id).locator(".message-hover-actions").boundingBox();
+      const fromY = box.y + box.height - 2, toY = bb.y + bb.height / 2;
+      for (let step = 1; step <= 8; step++) {
+        await page.mouse.move(box.x + 30 + (bb.x + 10 - box.x - 30) * step / 8, fromY + (toY - fromY) * step / 8);
+        assert.equal(await block(page, id).locator(".message-hover-actions").count(), 1, `${layout} ${id}: bar closed on the way from the bubble to the bar (step ${step})`);
+      }
+      assert.equal(await bar(page).count(), 1, `${layout} ${id}: exactly one bar`);
+      if (process.env.CHAT_MOTION_SHOT) await page.screenshot({ path: `${process.env.CHAT_MOTION_SHOT}-${layout}-${id}.png` });
+    }
+    await context.close();
+  });
+}
+
+await check("the gap between messages holds the bar: same sender and speaker change, and the bar's row is reserved", async () => {
+  for (const [layout, inGroup, run, change] of [["DM", false, ["m2", "m3"], ["m3", "m4"]], ["group", true, ["g2", "g3"], ["g4", "g5"]]]) {
+    const { page, context } = await open({ inGroup });
+    const gap = async (a, b) => page.evaluate(([a, b]) => document.querySelector(`[data-message-id="${b}"] .message`).getBoundingClientRect().top - document.querySelector(`[data-message-id="${a}"] .message`).getBoundingClientRect().bottom, [a, b]);
+    const sameSender = await gap(...run), speaker = await gap(...change);
+    console.log(`  ${layout}: gap between consecutive messages of one sender ${sameSender}px, at a speaker change ${speaker}px`);
+    assert.ok(sameSender >= 32, `${layout}: the gap inside a sender's run is ${sameSender}px, too tight for the bar`);
+    assert.ok(speaker > sameSender, `${layout}: a speaker change (${speaker}px) is not wider than a run (${sameSender}px)`);
+    await context.close();
   }
-  await context.close();
+});
+
+await check("hover-to-visible latency is reported", async () => {
+  assert.ok(latencies.length > 0);
+  const sorted = [...latencies].sort((x, y) => x - y);
+  console.log(`  bar hover-to-visible: median ${sorted[Math.floor(sorted.length / 2)].toFixed(1)} ms, max ${sorted.at(-1).toFixed(1)} ms over ${sorted.length} hovers`);
 });
 
 await check("icon hints: the first waits, a neighbour's follows at once", async () => {
@@ -303,9 +354,10 @@ await check("Copy puts the message as displayed on the clipboard and shows a che
 await check("Copy falls back when the async clipboard is unavailable", async () => {
   const { page, context } = await open();
   await page.evaluate(() => { Object.defineProperty(navigator, "clipboard", { value: undefined, configurable: true }); window.__copied = null; document.execCommand = cmd => { if (cmd === "copy") { window.__copied = document.activeElement?.value ?? document.getSelection().toString(); return true; } return false; }; });
+  await block(page, "m2").scrollIntoViewIfNeeded();
   const box = await block(page, "m2").locator(".message-content").boundingBox();
   await page.mouse.move(box.x + 10, box.y + 10);
-  await block(page, "m2").locator('[data-action="copy"]').click();
+  await block(page, "m2").locator('[data-action="copy"]').click({ timeout: 4000 });
   assert.equal(await page.evaluate(() => window.__copied), "Done.");
   await context.close();
 });
@@ -369,10 +421,18 @@ await check("touch: tapping beside the bubble does nothing; tapping the bubble o
   assert.equal(await bar(page).count(), 0, "a tap beside the bubble opens nothing");
   await page.touchscreen.tap(content.x + 30, content.y + 10);
   await bar(page).first().waitFor();
-  const geometry = await page.evaluate(() => { const b = document.querySelector(".message-hover-actions"); const c = b.closest(".message-content"); const br = b.getBoundingClientRect(), btn = b.querySelector("button").getBoundingClientRect(); const next = c.closest(".message-block").nextElementSibling?.getBoundingClientRect(); return { static: getComputedStyle(b).position === "static", size: Math.min(btn.width, btn.height), overlapsNext: next ? br.bottom > next.top + 1 && br.top < next.bottom : false }; });
+  const geometry = await page.evaluate(() => { const b = document.querySelector(".message-hover-actions"); const blockEl = b.closest(".message-block"); const c = blockEl.querySelector(".message-content").getBoundingClientRect(); const br = b.getBoundingClientRect(), btn = b.querySelector("button").getBoundingClientRect(); const next = blockEl.nextElementSibling?.getBoundingClientRect(); return { static: getComputedStyle(b).position === "static", size: Math.min(btn.width, btn.height), belowBubble: br.top >= c.bottom - 0.5, rightEdge: Math.abs(br.right - c.right) <= 4, overlapsNext: next ? br.bottom > next.top + 1 && br.top < next.bottom : false, inside: br.left >= 0 && br.right <= innerWidth }; });
   assert.ok(geometry.static, "bar is in the flow");
+  assert.ok(geometry.belowBubble, "bar is below its bubble");
+  assert.ok(geometry.rightEdge, "the reader's bar ends at the bubble's right edge");
+  assert.ok(geometry.inside, "bar stays inside the window");
   assert.ok(!geometry.overlapsNext, "bar does not cover the next message");
   assert.ok(geometry.size >= 44, `touch targets are ${geometry.size}px`);
+  // A press on the bar itself keeps it open (the bar sits outside the bubble's host).
+  const time = await bar(page).locator("time").boundingBox();
+  await page.touchscreen.tap(time.x + time.width / 2, time.y + time.height / 2);
+  await page.waitForTimeout(150);
+  assert.equal(await bar(page).count(), 1, "a tap on the bar does not close it");
   await page.touchscreen.tap(5, 300);
   await page.waitForTimeout(150);
   assert.equal(await bar(page).count(), 0, "a tap elsewhere closes it");
