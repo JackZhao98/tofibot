@@ -248,6 +248,8 @@
     "view_latest": "View latest messages"
   },
   "hover": {
+    "copy": "Copy",
+    "copied": "Copied",
     "react": "Add reaction",
     "reply": "Reply",
     "toolbar": "Message actions",

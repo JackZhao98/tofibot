@@ -250,6 +250,8 @@
     "view_latest": "Voir les derniers messages"
   },
   "hover": {
+    "copy": "Copier",
+    "copied": "Copié",
     "react": "Ajouter une réaction",
     "reply": "Répondre",
     "toolbar": "Actions du message",
