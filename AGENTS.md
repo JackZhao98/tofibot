@@ -40,8 +40,16 @@ through its reply, which returns to the assigning Bot or conversation. Mail draf
 
 `manage_extensions` changes (MCP create/update/delete/test, Skill install/delete) execute only after a person's
 approval of the exact payload (`internal/app/extension_gate.go`: request_approval target = digest token, one use) and are refused in unattended
-runs and for loopback/private MCP hosts. Click approvals (`claimApprovalTarget`) match the exact normalized label and are consumed once
-(`click_approval_claims`). Login limits are per peer address (IPv6 /64) and per account identifier; there is no global bucket.
+runs. The approval card carries server-built `approval.facts` (kind, name, address with masked query, transport, tool lists, header names, skill
+manifest summary) rendered above the Bot's own wording; the Bot cannot set them and a token the server has not seen in the run gets no card.
+Bot-created MCP servers are refused for loopback/private/link-local/CGNAT/metadata hosts at create time (fail closed on DNS errors, odd numeric
+forms, IPv6/mapped/NAT64/6to4) and again at every connection: `bot_managed` servers dial through `extensions.GuardedTransport` (dial-time `Control`
+hook, no env proxy, redirects never followed). The owner's allow path is Settings: a server saved there is not `bot_managed`. A spent approval is
+returned only when the guarded call fails with certainty before any effect (`not_executed`); otherwise it stays spent. Click approvals
+(`claimApproval`) match the label in one normal form (`approvalLabelText`, also what the refusal shows) and are consumed once
+(`click_approval_claims`). Login limits are per peer address (IPv6 /64) and per account identifier; a peer that earlier proved the password skips
+the per-identifier bucket (`owner_auth_known_sources`) so strangers cannot lock the real user out; password changes use their own `pwchange`
+bucket namespace; there is no global bucket.
 Session cookies are Secure when `TOFI_PUBLIC_ORIGIN` is https; Caddy sends HSTS. Known open: `computer_shell` shares a uid and loopback with the
 shared Chrome DevTools port.
 

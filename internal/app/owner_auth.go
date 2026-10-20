@@ -56,7 +56,8 @@ func initializeOwnerAuth(s *Store, c Config) (*ownerAuth, error) {
 	_, err := s.db.Exec(`CREATE TABLE IF NOT EXISTS owner_auth_settings (id INTEGER PRIMARY KEY CHECK(id=1), bootstrap_hash BLOB);
  CREATE TABLE IF NOT EXISTS workspace_owner (id INTEGER PRIMARY KEY CHECK(id=1), username TEXT NOT NULL, email TEXT NOT NULL, salt BLOB NOT NULL, password_hash BLOB NOT NULL, created_at INTEGER NOT NULL);
  CREATE TABLE IF NOT EXISTS owner_sessions (token_hash BLOB PRIMARY KEY, expires_at INTEGER NOT NULL);
- CREATE TABLE IF NOT EXISTS owner_auth_attempts (bucket TEXT PRIMARY KEY, window_start INTEGER NOT NULL, attempts INTEGER NOT NULL);`)
+ CREATE TABLE IF NOT EXISTS owner_auth_attempts (bucket TEXT PRIMARY KEY, window_start INTEGER NOT NULL, attempts INTEGER NOT NULL);
+ CREATE TABLE IF NOT EXISTS owner_auth_known_sources (account_key TEXT NOT NULL, source TEXT NOT NULL, last_ok INTEGER NOT NULL, PRIMARY KEY(account_key, source));`)
 	if err != nil {
 		return nil, err
 	}
@@ -257,6 +258,7 @@ func (a *ownerAuth) resetForPurge() error {
 		for _, query := range []string{
 			`DELETE FROM owner_sessions`,
 			`DELETE FROM owner_auth_attempts`,
+			`DELETE FROM owner_auth_known_sources`,
 			`DELETE FROM workspace_owner`,
 			`DELETE FROM owner_auth_settings`,
 		} {
@@ -336,25 +338,59 @@ type attemptBucket struct {
 	limit int
 }
 
+// Bucket keys live in one table, so every kind has its own namespace prefix and
+// its own hash input: an identifier typed into the login form (any string,
+// including "id:<uuid>") can never name another kind of bucket.
+func namespacedBucket(kind, subject string, limit int) attemptBucket {
+	sum := sha256.Sum256([]byte(kind + "\x00" + subject))
+	return attemptBucket{kind + ":" + base64.RawURLEncoding.EncodeToString(sum[:]), limit}
+}
+
+// accountBucket is the global per-identifier login budget.
 func accountBucket(identifier string) attemptBucket {
-	sum := sha256.Sum256([]byte("acct:" + strings.ToLower(strings.TrimSpace(identifier))))
-	return attemptBucket{"acct:" + base64.RawURLEncoding.EncodeToString(sum[:]), accountAttemptLimit}
+	return namespacedBucket("login-acct", strings.ToLower(strings.TrimSpace(identifier)), accountAttemptLimit)
+}
+
+// passwordChangeBucket bounds current-password guesses by a signed-in session.
+func passwordChangeBucket(accountID string) attemptBucket {
+	return namespacedBucket("pwchange", accountID, accountAttemptLimit)
+}
+
+const knownSourceRetention = 90 * 24 * 3600
+const knownSourcesPerAccount = 16
+
+// knownSource reports whether this peer address previously proved the
+// password of this login identifier.
+func (a *ownerAuth) knownSource(r *http.Request, account string) bool {
+	var n int
+	err := a.store.db.QueryRow(`SELECT COUNT(*) FROM owner_auth_known_sources WHERE account_key=? AND source=? AND last_ok>?`,
+		accountBucket(account).key, a.peerBucket(r), time.Now().Unix()-knownSourceRetention).Scan(&n)
+	return err == nil && n > 0
+}
+
+// rememberSource records a proven password from this peer for the identifier.
+func (a *ownerAuth) rememberSource(r *http.Request, account string) {
+	key, now := accountBucket(account).key, time.Now().Unix()
+	_, _ = a.store.db.Exec(`INSERT INTO owner_auth_known_sources(account_key,source,last_ok) VALUES(?,?,?) ON CONFLICT(account_key,source) DO UPDATE SET last_ok=excluded.last_ok`, key, a.peerBucket(r), now)
+	_, _ = a.store.db.Exec(`DELETE FROM owner_auth_known_sources WHERE account_key=? AND (last_ok<=? OR source NOT IN (SELECT source FROM owner_auth_known_sources WHERE account_key=? ORDER BY last_ok DESC LIMIT ?))`, key, now-knownSourceRetention, key, knownSourcesPerAccount)
 }
 
 // allowAttempt charges the caller's address bucket and, when account is not
-// empty, that account's bucket.
+// empty, that identifier's global bucket. A peer address that earlier proved
+// this account's password skips the global bucket (it still pays its address
+// bucket), so strangers guessing from elsewhere cannot lock the real user out,
+// while the guessing budget for unknown sources stays exactly what it was.
 func (a *ownerAuth) allowAttempt(r *http.Request, account string) bool {
 	buckets := []attemptBucket{{a.peerBucket(r), peerAttemptLimit}}
-	if account != "" {
+	if account != "" && !a.knownSource(r, account) {
 		buckets = append(buckets, accountBucket(account))
 	}
 	return a.charge(buckets)
 }
 
-// allowAccountAttempt charges only the account bucket, for callers that are
-// already authenticated as that account.
-func (a *ownerAuth) allowAccountAttempt(account string) bool {
-	return a.charge([]attemptBucket{accountBucket(account)})
+// allowPasswordChange charges the password-change bucket for a signed-in account.
+func (a *ownerAuth) allowPasswordChange(accountID string) bool {
+	return a.charge([]attemptBucket{passwordChangeBucket(accountID)})
 }
 
 func (a *ownerAuth) charge(buckets []attemptBucket) bool {
@@ -576,6 +612,7 @@ func (s *Server) handleOwnerAuth(w http.ResponseWriter, r *http.Request) bool {
 		// A proven password gives the attempt back, so honest sign-ins never wear
 		// down the budget that bounds guessing.
 		a.refundAttempt(r, loginAccount)
+		a.rememberSource(r, loginAccount)
 	}
 	// Replace an existing cookie so subsequent state inspection sees the new token.
 	r.Header.Del("Cookie")
@@ -676,11 +713,10 @@ func (a *ownerAuth) peerBucket(r *http.Request) string {
 // it could test any secret (field validation) or that proved the password.
 func (a *ownerAuth) refundAttempt(r *http.Request, account string) {
 	a.refundBucket(a.peerBucket(r))
-	if account != "" {
-		a.refundAccount(account)
+	if account != "" && !a.knownSource(r, account) {
+		a.refundBucket(accountBucket(account).key)
 	}
 }
-func (a *ownerAuth) refundAccount(account string) { a.refundBucket(accountBucket(account).key) }
 func (a *ownerAuth) refundBucket(key string) {
 	_, _ = a.store.db.Exec(`UPDATE owner_auth_attempts SET attempts=attempts-1 WHERE attempts>0 AND bucket=?`, key)
 }

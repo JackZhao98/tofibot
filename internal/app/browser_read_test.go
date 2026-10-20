@@ -121,24 +121,24 @@ func TestActionReviewFollowsDeclaredEffect(t *testing.T) {
 		return &provider.ChatResponse{Content: `{"decision":"` + decision + `","reason":"stub"}`}, nil
 	}}
 	s.autoReviewProvider = stub
-	if err := s.guardAction(context.Background(), run, actionReview{Kind: "click", Effect: "none", Element: "Next page"}); err != nil || stub.calls.Load() != 0 {
+	if _, err := s.guardAction(context.Background(), run, actionReview{Kind: "click", Effect: "none", Element: "Next page"}); err != nil || stub.calls.Load() != 0 {
 		t.Fatalf("a no-effect action must not be reviewed: err=%v calls=%d", err, stub.calls.Load())
 	}
-	if err := s.guardAction(context.Background(), run, actionReview{Kind: "click", Effect: "submit", Element: "Submit order"}); err != nil {
+	if _, err := s.guardAction(context.Background(), run, actionReview{Kind: "click", Effect: "submit", Element: "Submit order"}); err != nil {
 		t.Fatalf("reviewer allowed: %v", err)
 	}
 	if seen.Request != "fill the httpbin form and submit it" || seen.Effect != "submit" || seen.Element != "Submit order" {
 		t.Fatalf("reviewer input=%+v", seen)
 	}
 	decision = "confirm"
-	err = s.guardAction(context.Background(), run, actionReview{Kind: "click", Effect: "purchase", Element: "Place order"})
+	_, err = s.guardAction(context.Background(), run, actionReview{Kind: "click", Effect: "purchase", Element: "Place order"})
 	if o, ok := tooloutcome.FromError(err); !ok || o.Code != "user_confirmation_required" {
 		t.Fatalf("confirm must ask the user: %v", err)
 	}
 	s.autoReviewProvider = &reviewStub{t: t, reply: func(context.Context, *provider.ChatRequest) (*provider.ChatResponse, error) {
 		return nil, errors.New("down")
 	}}
-	if err := s.guardAction(context.Background(), run, actionReview{Kind: "click", Effect: "delete", Element: "Delete"}); err == nil {
+	if _, err := s.guardAction(context.Background(), run, actionReview{Kind: "click", Effect: "delete", Element: "Delete"}); err == nil {
 		t.Fatal("an unavailable reviewer must ask the user")
 	}
 }
@@ -150,7 +150,7 @@ func TestConsequentialClickNeedsHumanApprovalOfThatTarget(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		if s.clickApproved(run, "Place order") {
+		if len(s.matchingClickApprovals(run, "Place order")) > 0 {
 			t.Fatal("approved without any approval")
 		}
 		if _, err := s.store.SetRunStatus(run.ID, "running", ""); err != nil {
@@ -167,14 +167,14 @@ func TestConsequentialClickNeedsHumanApprovalOfThatTarget(t *testing.T) {
 		return run
 	}
 	auto := approve("auto", autoReviewActor)
-	if s.clickApproved(auto, "Place order") {
+	if len(s.matchingClickApprovals(auto, "Place order")) > 0 {
 		t.Fatal("an automatic answer is not a person's approval")
 	}
 	if _, err := s.store.SetRunStatus(auto.ID, "done", ""); err != nil {
 		t.Fatal(err)
 	}
 	run := approve("human", "user")
-	if !s.clickApproved(run, "Place order") || s.clickApproved(run, "Delete account") {
+	if len(s.matchingClickApprovals(run, "Place order")) == 0 || len(s.matchingClickApprovals(run, "Delete account")) > 0 {
 		t.Fatal("approval must cover exactly the approved target")
 	}
 }

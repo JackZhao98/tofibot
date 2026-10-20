@@ -211,7 +211,38 @@
     "view_full_arguments": "引数の全文を表示",
     "proposal_ended": "この提案は終了しました。",
     "view_decision": "判断の記録を表示",
-    "remembered_decision": "このチャットで記憶した承認により許可され、誰にも確認していません。実行されたかは下のステップに表示されます。"
+    "remembered_decision": "このチャットで記憶した承認により許可され、誰にも確認していません。実行されたかは下のステップに表示されます。",
+    "facts": {
+      "title": "Tofi が確認した内容",
+      "bot_wording": "以下は Bot が書いた文言",
+      "kind": "変更",
+      "name": "名前",
+      "source": "アドレス",
+      "previous_source": "置き換え前",
+      "transport": "トランスポート",
+      "tools": "ツール",
+      "all_tools": "サーバーが提供するすべてのツール",
+      "only_tools": "限定: {{tools}}",
+      "blocked_tools": "ブロックするツール",
+      "headers": "リクエストヘッダー",
+      "none": "なし",
+      "oauth": "サインイン（OAuth）",
+      "skill_description": "スキルの説明",
+      "skill_excerpt": "指示の冒頭",
+      "skill_tools": "要求するツール",
+      "skill_files": "ファイル",
+      "skill_scripts": "スクリプト",
+      "skill_scripts_present": "スクリプトまたは実行ファイルを含む",
+      "change_id": "変更 ID",
+      "kinds": {
+        "skill_install": "スキルをインストール",
+        "skill_delete": "スキルを削除",
+        "mcp_create": "MCP サーバーを追加",
+        "mcp_update": "MCP サーバーを変更",
+        "mcp_delete": "MCP サーバーを削除",
+        "mcp_test": "MCP サーバーに接続"
+      }
+    }
   },
   "question": {
     "approve": "操作を承認",

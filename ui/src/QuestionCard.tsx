@@ -5,6 +5,7 @@ import { isDesktop } from "./desktop";
 import { TofiIcon } from "./icons";
 import { MessageMarkdown } from "./MessageMarkdown";
 import { ApprovalCard } from "./ApprovalCard";
+import { approvalFactRows } from "./extensionFacts";
 import { useUserTimezone } from "./UserTimezone";
 import type { Bot } from "./types";
 import { autoReviewPresentation, reconcileQuestion, REMEMBERED_APPROVAL_ACTOR, type Question } from "./questionTimeline";
@@ -148,7 +149,7 @@ function BinaryQuestionCard({ item, bot, group, archived, onChanged }: QuestionC
     {group && <div className="message-meta"><strong>{bot?.name ?? "Bot"}</strong></div>}
     <ApprovalCard title={<MessageMarkdown content={item.question} />} avatar={group ? <BotAvatar id={item.bot_id} mini /> : undefined} badge={approval ? t("phase.needs_approval") : t("phase.needs_answer")}
       time={validTime ? new Intl.DateTimeFormat(intlLocale(), { timeZone:timezone, hour:"2-digit", minute:"2-digit", hourCycle:"h23" }).format(new Date(item.created_at)) : undefined}
-      exactTime={item.created_at} facts={approval ? [{ label:t("record.action"), value:approval.action }, { label:t("record.target"), value:approval.target }, { label:t("record.impact"), value:approval.impact }, ...whyAsked] : undefined} payload={approval?.payload}
+      exactTime={item.created_at} facts={approval ? [{ label:t("record.action"), value:approval.action }, ...(approval.facts ? [] : [{ label:t("record.target"), value:approval.target }]), { label:t("record.impact"), value:approval.impact }, ...whyAsked] : undefined} verified={approval?.facts ? approvalFactRows(approval.facts, t) : undefined} verifiedTitle={t("record.facts.title")} factsCaption={t("record.facts.bot_wording")} payload={approval?.payload}
       acceptLabel={approval ? approval.approve_label || t("question.approve") : t("question.yes")} declineLabel={approval ? approval.deny_label || t("question.decline") : t("question.no")} onAnswer={value => void answer(value)} busy={busy} disabled={!answerable}
       onRemember={rememberOffer && answerable ? () => void answer(true, true) : undefined} rememberHint={rememberOffer ? rememberOffer.kind === "identifier" && rememberOffer.target ? t("question.remember.hint_identifier", { target: rememberOffer.target }) : t("question.remember.hint_exact") : undefined}
       secondaryAction={answerable && <><button type="button" disabled={Boolean(busy)} onClick={() => void answer(null)}>{busy === "cancel" ? t("question.cancelling") : approval ? t("question.cancel_proposal") : t("question.cancel_question")}</button>{approval?.draft_id && <button type="button" onClick={() => { const node = [...document.querySelectorAll<HTMLElement>("[data-draft-id]")].find(element => element.dataset.draftId === approval.draft_id); node?.scrollIntoView({ behavior:"smooth", block:"center" }); }} >{t("question.view_draft")}</button>}</>}
