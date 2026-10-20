@@ -222,8 +222,10 @@ func TestAssumptionPrincipleSitsAtEachPointOfDecision(t *testing.T) {
 	if !found {
 		t.Fatal("ask_user_question missing")
 	}
-	if !strings.Contains(sayToolDescription, "defaults to state in a line") {
-		t.Fatal("say description lacks the defaults principle")
+	for _, want := range []string{"defaults to state in a line", "an invitation to supply them is such a request"} {
+		if !strings.Contains(sayToolDescription, want) {
+			t.Fatalf("say description lacks %q", want)
+		}
 	}
 	if !strings.Contains(botProfileInstructionsDescription, "never wait on confirmation") {
 		t.Fatal("persona generator still lets requested deliverables wait on confirmation")
