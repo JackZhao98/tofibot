@@ -17,6 +17,7 @@ import { TaskIssueCard } from "./TaskIssueCard";
 import "./question-card.css";
 import { intlLocale } from "./i18n/format";
 import { sameData } from "./sameData";
+import { ConnectionCard, TakeoverCard } from "./HandoverCards";
 
 /** A separate read failure must not prevent ordinary conversation history loading. */
 export function useQuestions(conversationId: string | null) {
@@ -79,6 +80,8 @@ function answerLabel(item: Question) {
 type QuestionCardProps = { item: Question; bot?: Bot; group?: boolean; archived?: boolean; onChanged: (resolved?: Question) => Promise<void> };
 
 export function QuestionCard(props: QuestionCardProps) {
+  if (props.item.question_type === "takeover") return <TakeoverCard key={props.item.question_id} {...props} />;
+  if (props.item.question_type === "connection") return <ConnectionCard key={props.item.question_id} {...props} />;
   if (props.item.question_type === "approval" || (!isDesktop && props.item.question_type === "yes_no" && !props.item.allow_other)) return <BinaryQuestionCard key={props.item.question_id} {...props} />;
   return props.item.question_type === "form"
     ? <UserFormCard key={userFormIdentity(props.item)} {...props} />

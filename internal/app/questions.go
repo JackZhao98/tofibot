@@ -783,7 +783,6 @@ func (s *Server) routeQuestions(w http.ResponseWriter, r *http.Request, p string
 			writeErr(w, code, "invalid_answer", err.Error())
 			return true
 		}
-		s.endHandoverControl(q)
 		out := map[string]any{"question": q.Card()}
 		if body.Remember && !existing {
 			grant, rememberErr := s.rememberMCPApproval(q, actor)
@@ -810,7 +809,6 @@ func (s *Server) routeQuestions(w http.ResponseWriter, r *http.Request, p string
 			writeErr(w, 500, "storage", err.Error())
 			return true
 		}
-		s.endHandoverControl(q)
 		_, _ = s.store.Event(q.ConversationID, "question", q.Card())
 		s.startConversationWorker(q.ConversationID)
 		writeJSON(w, 200, map[string]any{"question": q.Card()})

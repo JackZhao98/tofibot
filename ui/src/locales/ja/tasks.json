@@ -353,7 +353,9 @@
       "computer": "コンピューターを操作中",
       "contact": "メンバーに連絡中",
       "call": "{{name}}を呼び出し中",
-      "profile": "Bot のプロフィールを保存中"
+      "profile": "Bot のプロフィールを保存中",
+      "takeover": "コンピュータでの操作を待っています",
+      "connection": "サービスの接続を待っています"
     },
     "title": {
       "form": "フォームの入力を待っています",
@@ -373,7 +375,9 @@
       "computer": "コンピューターを操作",
       "contact": "メンバーに連絡",
       "call": "{{name}}を呼び出す",
-      "profile": "Bot のプロフィールを保存"
+      "profile": "Bot のプロフィールを保存",
+      "takeover": "コンピュータでの操作を待っています",
+      "connection": "サービスの接続を待っています"
     },
     "step_action": {
       "desktop_capture": "スクリーンショット",
@@ -525,6 +529,45 @@
       "tool_stuck": "ツールのステップが応答しなくなり、タスクを停止しました。",
       "receipt_missing": "結果を確認できないまま実行が終了しました。",
       "resumed_repeatedly": "タスクが{{times}}回中断され、停止しました。"
+    }
+  },
+  "handover": {
+    "site": "サイト",
+    "service": "サービス",
+    "done": "完了",
+    "cannot": "できません",
+    "send_failed": "応答を送信できませんでした。もう一度お試しください。",
+    "state_changed": "このリクエストは更新されました。最新の状態を確認してから続けてください。",
+    "takeover": {
+      "badge": "コンピュータでの操作が必要です",
+      "take": "引き継ぐ",
+      "hint": "Bot の共有コンピュータを操作します。入力やコピーした内容はその画面にだけ残り、Bot には共有されません。",
+      "resolved_done": "Bot に戻しました",
+      "resolved_cannot": "完了できませんでした"
+    },
+    "dialog": {
+      "label": "{{site}} を引き継ぐ",
+      "subtitle": "共有コンピュータを操作中です",
+      "close": "チャットに戻る",
+      "screen_alt": "共有コンピュータ",
+      "footer": "操作中は Bot が待機します。終わったら「完了」を選んでください。"
+    },
+    "connection": {
+      "badge": "サービスを接続",
+      "connect": "接続",
+      "retry": "再試行",
+      "waiting": "サインインを待っています…",
+      "decline": "今はしない",
+      "hint": "サービス側で直接サインインします。接続は Tofi が保持し、Bot が認証情報を見ることはありません。",
+      "resolved_connected": "接続済み",
+      "resolved_failed": "接続できませんでした",
+      "resolved_declined": "未接続",
+      "error": {
+        "start": "サインインを開始できませんでした。もう一度お試しください。",
+        "timeout": "サインインがタイムアウトしました。もう一度お試しください。",
+        "incomplete": "サインインが完了しませんでした。もう一度お試しください。",
+        "not_ready": "Tofi はまだ接続を確認できていません。サインインを完了してから再試行してください。"
+      }
     }
   }
 }

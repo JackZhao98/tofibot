@@ -353,7 +353,9 @@
       "computer": "正在操作電腦",
       "contact": "正在聯絡成員",
       "call": "正在呼叫 {{name}}",
-      "profile": "正在儲存 Bot 資料"
+      "profile": "正在儲存 Bot 資料",
+      "takeover": "等待你在電腦上操作",
+      "connection": "等待你連接服務"
     },
     "title": {
       "form": "等待你填寫表單",
@@ -373,7 +375,9 @@
       "computer": "操作電腦",
       "contact": "聯絡成員",
       "call": "呼叫 {{name}}",
-      "profile": "儲存 Bot 資料"
+      "profile": "儲存 Bot 資料",
+      "takeover": "等待你在電腦上操作",
+      "connection": "等待你連接服務"
     },
     "step_action": {
       "desktop_capture": "截圖",
@@ -525,6 +529,45 @@
       "tool_stuck": "某個工具步驟停止回應，任務已被停止。",
       "receipt_missing": "執行結束，但未能確認結果。",
       "resumed_repeatedly": "任務被中斷了 {{times}} 次，已停止。"
+    }
+  },
+  "handover": {
+    "site": "網站",
+    "service": "服務",
+    "done": "已完成",
+    "cannot": "無法完成",
+    "send_failed": "未能送出你的回應，請重試。",
+    "state_changed": "這個請求已有變動，請先確認最新狀態再繼續。",
+    "takeover": {
+      "badge": "需要你在電腦上操作",
+      "take": "接管",
+      "hint": "你將在 Bot 的共用電腦上操作。你輸入或複製的內容只會留在那個畫面上，不會分享給 Bot。",
+      "resolved_done": "已交還給 Bot",
+      "resolved_cannot": "未能完成"
+    },
+    "dialog": {
+      "label": "接管 {{site}}",
+      "subtitle": "你正在控制共用電腦",
+      "close": "返回對話",
+      "screen_alt": "共用電腦",
+      "footer": "你操作期間 Bot 會等待。完成後請按「已完成」。"
+    },
+    "connection": {
+      "badge": "連接服務",
+      "connect": "連接",
+      "retry": "重試",
+      "waiting": "等待登入…",
+      "decline": "暫不連接",
+      "hint": "你將直接在該服務上登入。Tofi 保存連線，Bot 看不到你的憑證。",
+      "resolved_connected": "已連接",
+      "resolved_failed": "連接失敗",
+      "resolved_declined": "未連接",
+      "error": {
+        "start": "未能發起登入，請重試。",
+        "timeout": "登入逾時，請重試。",
+        "incomplete": "登入未完成，請重試。",
+        "not_ready": "Tofi 尚未偵測到連線。請先完成登入，再重試。"
+      }
     }
   }
 }
