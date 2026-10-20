@@ -10,6 +10,7 @@ import (
 	"encoding/json"
 	"errors"
 	"io"
+	"net/url"
 	"path/filepath"
 	"strings"
 	"time"
@@ -172,7 +173,7 @@ func (s *Server) publishAttachmentTools(c Conversation, r Run) []Tool {
 	if s.microVM == nil {
 		return nil
 	}
-	return []Tool{{Name: "publish_file", Description: "Publish a regular file from the shared Linux VM as a persistent attachment in this conversation. Images are previewable; other files are downloadable after the VM stops.", Parameters: objectSchema(map[string]any{
+	return []Tool{{Name: "publish_file", Description: "Publish a regular file from the shared Linux VM as a persistent attachment in this conversation. Images are previewable; other files are downloadable after the VM stops. The result carries a url that opens the file for the signed-in person; when the person asks for the file or its link, give them that url, as a markdown link, instead of saying a link is unavailable.", Parameters: objectSchema(map[string]any{
 		"path": map[string]any{"type": "string"}, "name": map[string]any{"type": "string"}, "request_key": map[string]any{"type": "string", "description": "Optional stable retry key"},
 	}, []string{"path"}), Execute: func(ctx context.Context, raw json.RawMessage) (string, error) {
 		var in struct {
@@ -274,7 +275,18 @@ func (s *Server) publishAttachmentTools(c Conversation, r Run) []Tool {
 			_ = s.store.deleteUnboundAttachment(created.ID)
 			return "", err
 		}
-		result, _ := json.Marshal(map[string]any{"attachment_id": a.ID, "name": a.Name, "mime": a.MIME, "size": a.Size})
-		return string(result), nil
+		return s.publishedFileResult(a), nil
 	}}}
+}
+
+// attachmentLink is the in-app address of an attachment: absolute when the
+// server knows its public origin, app-relative otherwise. Opening it needs the
+// owner's normal session; no unauthenticated link exists.
+func (s *Server) attachmentLink(id string) string {
+	return s.publicOrigin + "/api/attachments/" + url.PathEscape(id)
+}
+
+func (s *Server) publishedFileResult(a Attachment) string {
+	result, _ := json.Marshal(map[string]any{"attachment_id": a.ID, "name": a.Name, "mime": a.MIME, "size": a.Size, "url": s.attachmentLink(a.ID), "link_access": "opens for the signed-in owner only"})
+	return string(result)
 }
