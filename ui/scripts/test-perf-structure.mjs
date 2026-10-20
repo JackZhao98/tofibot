@@ -24,4 +24,10 @@ assert.ok(/computerInfo|desktopReady/.test(presence[1]), "desktop ownership poll
 const poll = app.slice(app.indexOf("const refreshComputer = async"), app.indexOf("const refreshComputer = async") + 900);
 assert.ok(poll.includes("document.hidden"), "computer info polling skips hidden tabs");
 assert.ok(!/setInterval\(\(\) => void refreshComputer\(\), 4_000\)/.test(app), "computer info is not a fixed 4 s interval");
+const mapAt = app.indexOf("conversationItems.map((item, index) =>");
+const anchorsAt = app.indexOf("const ownerAnchors = ");
+const ownedAt = app.indexOf("const ownedBy = ");
+assert.ok(mapAt > 0 && anchorsAt > 0 && ownedAt > 0, "timeline lookups exist");
+assert.ok(anchorsAt < mapAt && ownedAt < mapAt, "owner anchors and ownedBy are derived once per render, outside the per-row map");
+assert.equal(app.split("const ownerAnchors = ").length, 2, "ownerAnchors is defined once");
 console.log("perf structure checks: PASS (stable connectEvents, gated ownership poll, slow computer-info poll)");
