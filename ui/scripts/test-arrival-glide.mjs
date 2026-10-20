@@ -72,9 +72,15 @@ async function open({ motion = "no-preference" } = {}) {
     if (path === "/api/bots") return json({ bots });
     if (path === "/api/conversations") return json({ conversations: [dm] });
     if (path.endsWith("/messages")) return json({ messages, drafts: [], has_more: false, event_cursor: 0 });
-    if (path.endsWith("/runs")) return json({ runs: [] });
+    if (path.endsWith("/runs")) return json({ runs: [{ id: "run_m39", conversation_id: "dm_a", bot_id: "bot_a", status: "done", model: "synthetic-model", origin_conversation_id: "dm_a", trigger_message_id: "m38", queue_seq: 1, created_at: iso(39 * 20), updated_at: iso(39 * 20 + 5) }] });
     if (path.endsWith("/memories")) return json({ memories: [] });
-    if (path.endsWith("/tools")) return json(url.searchParams.has("run_ids") ? { summaries: [] } : { activities: [], summaries: [], tool_count: 0, has_more: false });
+    if (path.endsWith("/tools")) {
+      const activities = [1, 2, 3].map(n => ({ conversation_id: "dm_a", bot_id: "bot_a", run_id: "run_m39", call_id: `c${n}`, name: "tofi_shell", arguments: `{"command":"ls ${n}"}`, result: "ok", status: "completed", truncated: false, started_at: iso(39 * 20 + n), updated_at: iso(39 * 20 + n + 1) }));
+      const summary = { run_id: "run_m39", bot_id: "bot_a", tool_count: 3, completed_count: 3, failed_count: 0, interrupted_count: 0, pending_count: 0, started_at: activities[0].started_at, updated_at: activities[2].updated_at };
+      if (url.searchParams.has("run_ids")) return json({ summaries: [summary] });
+      if (url.searchParams.has("run_id")) return json({ activities, tool_count: 3, has_more: false });
+      return json({ activities, summaries: [summary], tool_count: 3, has_more: false });
+    }
     if (path.endsWith("/schedule-occurrences")) return json({ occurrences: [] });
     if (path.endsWith("/schedules")) return json({ schedules: [] });
     if (path.startsWith("/api/computer")) return json({ owner: null, waiting: [] });
@@ -205,6 +211,37 @@ await check("scrolling up mid-glide abandons the hop and is not pulled back", as
   const b = await page.evaluate(() => document.querySelector(".message-scroll").scrollTop);
   assert.ok(Math.abs(a - b) <= 1, `the pane drifted ${b - a}px after the reader scrolled up`);
   assert.ok(await page.locator(".jump-latest").count() > 0, "the jump-to-latest button is offered");
+  assert.deepEqual(errors, []);
+  await context.close();
+});
+
+await check("viewing a message's activity opens the record as a drawer, not in one frame", async () => {
+  const { page, context, errors } = await open();
+  const target = page.locator('[data-message-id="m39"] .message-content');
+  await target.hover();
+  await page.locator('[data-action="activity"]').waitFor({ timeout: 5000 });
+  await page.evaluate(() => {
+    window.__rec = []; window.__recOn = true;
+    const tick = t => {
+      const records = document.querySelector(".task-activity-records");
+      window.__rec.push({ t, h: records ? records.getBoundingClientRect().height : -1, open: Boolean(document.querySelector("details.task-activity[open]")) });
+      if (window.__recOn) requestAnimationFrame(tick);
+    };
+    requestAnimationFrame(tick);
+  });
+  const t0 = await page.evaluate(() => performance.now());
+  await page.locator('[data-action="activity"]').click();
+  await page.waitForTimeout(900);
+  const rec = await page.evaluate(() => { window.__recOn = false; return window.__rec; });
+  const grown = rec.filter(f => f.t >= t0 && f.h >= 0);
+  const final = grown.at(-1)?.h ?? 0;
+  const mid = grown.filter(f => f.h > 4 && f.h < final - 4).length;
+  const frames = grown.slice(1).map((f, i) => f.t - grown[i].t);
+  report.reveal = { finalHeight: +final.toFixed(0), framesInBetween: mid, frameMax: +Math.max(...frames).toFixed(1) };
+  console.log("    reveal", JSON.stringify(report.reveal));
+  assert.ok(final > 40, `the record opened (${final}px)`);
+  assert.ok(mid >= 4, `the record grew over ${mid} frames instead of appearing at once`);
+  assert.ok(Math.max(...frames) <= 34 * THROTTLE ** 0.5 + 2, `a frame took ${Math.max(...frames)} ms`);
   assert.deepEqual(errors, []);
   await context.close();
 });
