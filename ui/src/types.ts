@@ -88,6 +88,10 @@ export interface FollowupOverview {
 }
 
 export interface Conversation {
+  /** Server-stored sidebar placement: pin_order is the 1-based pinned slot (0 = not pinned), sort_order the 1-based manual list slot (0 = never placed by hand). */
+  pinned?: boolean;
+  pin_order?: number;
+  sort_order?: number;
   unread_count?: number;
   task_state?: {
     status: "executing" | "needs_attention" | "waiting" | "failed" | "completed" | "cancelled" | "finishing" | "expired";

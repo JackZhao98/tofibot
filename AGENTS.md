@@ -30,6 +30,17 @@ on a `backdrop-filter` without its `-webkit-` twin. The follow-bottom scroll is 
 `useConversationScroll` (`GLIDE_MS` 220, `GLIDE_STREAM_MS` 120, at most 24 px per frame; reduced motion lands at once);
 `test:arrival-glide` holds its budgets. Do not scroll the message pane with a bare `scrollTop =` for organic growth.
 
+# Sidebar order and pins
+
+Two per-account integers on `conversations` (added by `ensureColumn`): `pin_order` (1-based pinned slot, 0 = not pinned) and `sort_order`
+(1-based manual slot, 0 = never placed by hand). `PUT /api/conversations/order {pinned, order}` (`internal/app/sidebar_order.go`) replaces both
+atomically and rejects duplicates, unknown ids, ids in both lists and archived pins; archiving a Bot or group clears its pin. The list is recency
+until the person reorders; after that their order wins, and a conversation the server has not numbered (new since the last reorder) enters at the
+top, newest first. Exports (`portable*`) deliberately carry neither field. In the UI, `sidebarOrder.ts` is the pure ordering and `sidebarDndEngine.ts`
+the drag/keyboard/long-press engine (its own chunk, loaded in idle time by `useSidebarDnd.ts` to hold the shell budget): it moves elements with transforms from rects measured once at pickup, and React renders once, on drop. Do not
+put a style that depends on an attribute or custom property of an ancestor of the list on pickup (it restyles every cat; measured +60 ms at 4x CPU).
+`npm --prefix ui run test:sidebar-pins` holds it (frame budget over 60 conversations, touch at 390 px, keyboard, reduced motion).
+
 # Asking a human (one rendezvous)
 
 Every Bot-to-human question goes through the durable questions rendezvous in
