@@ -103,7 +103,7 @@ export function MailDraftCard({ draft, bot, group, archived, onDemoAction, onCha
     {(pending || draft.status === "sending" || draft.status === "unknown") && <section ref={letterRef} className={`mail-draft-letter${pending && !animating ? " is-pending" : ""}`} aria-label={t("draft.full_text")}>
       <div className="mail-draft-stripe" aria-hidden="true" />
       <div className="mail-draft-fields">
-        <label>TO {editing ? <input type="text" value={to} onChange={event => setTo(event.target.value)} disabled={Boolean(busy)} /> : <strong>{draft.to}</strong>}</label>
+        <label>TO {editing ? <input type="text" value={to} placeholder={t("draft.add_recipient")} onChange={event => setTo(event.target.value)} disabled={Boolean(busy)} /> : <strong className={draft.to ? undefined : "mail-draft-missing"}>{draft.to || t("draft.add_recipient")}</strong>}</label>
         <label>{t("draft.subject")} {editing ? <input type="text" value={subject} onChange={event => setSubject(event.target.value)} disabled={Boolean(busy)} /> : <strong>{draft.subject}</strong>}</label>
         <span className="mail-draft-stamp" aria-hidden="true"><BotAvatar id={draft.bot_id} mini /></span>
       </div>
@@ -113,7 +113,7 @@ export function MailDraftCard({ draft, bot, group, archived, onDemoAction, onCha
           <button type="button" className="mail-draft-text-action" disabled={Boolean(busy || archived)} onClick={() => setEditing(true)}><TofiIcon name="edit" size={15} aria-hidden="true" />{t("draft.edit")}</button>
           <span className="mail-draft-hint"><b>{draft.demo ? t("draft.demo_badge") : t("draft.needs_approval")}</b>{draft.demo ? t("draft.demo_hint") : t("draft.send_final")}</span>
           <button type="button" className="mail-draft-decline" disabled={Boolean(busy || archived)} onClick={() => void act("decline")}>{busy === "decline" ? t("draft.working") : t("draft.hold")}</button>
-          <button type="button" className="mail-draft-send" disabled={Boolean(busy || archived || changed)} onClick={() => void act("send")}>{busy === "send" ? t("draft.sending") : draft.demo ? t("draft.demo_send") : t("draft.send")}</button>
+          <button type="button" className="mail-draft-send" disabled={Boolean(busy || archived || changed || !draft.to.trim())} onClick={() => void act("send")}>{busy === "send" ? t("draft.sending") : draft.demo ? t("draft.demo_send") : t("draft.send")}</button>
         </>
         : <span>{draft.status === "unknown" ? t("draft.sending_needs_checking") : t("draft.sending_now")}</span>}</footer>
       {(error || onDemoAction || archived) && <p className={error ? "mail-draft-error" : "mail-draft-note"} role={error ? "alert" : undefined}>{error || (onDemoAction ? t("draft.motion_lab_note") : t("draft.restore_to_act"))}</p>}
