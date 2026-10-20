@@ -219,3 +219,68 @@ func TestWorkspaceEventDoesNotRepeatForUnchangedBotProfile(t *testing.T) {
 		t.Fatalf("unchanged profile advanced workspace cursor from %d to %d", cursor, got)
 	}
 }
+
+// A client with no cursor asks for the live head. Replaying the whole log made
+// the UI reload the workspace once per historical event.
+func TestWorkspaceEventsHeadCursorSkipsHistoryButDeliversNewEvents(t *testing.T) {
+	server, err := NewServer(Config{DataDir: t.TempDir()})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer server.Close()
+	for i := 0; i < 300; i++ {
+		if _, err = server.store.WorkspaceEvent(workspaceScopeBots); err != nil {
+			t.Fatal(err)
+		}
+	}
+	httpServer := httptest.NewServer(server.Handler())
+	defer httpServer.Close()
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	req, _ := http.NewRequestWithContext(ctx, http.MethodGet, httpServer.URL+"/api/workspace/events?after=head", nil)
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer resp.Body.Close()
+	go func() {
+		time.Sleep(300 * time.Millisecond)
+		server.store.WorkspaceEvent(workspaceScopeConfig)
+	}()
+	frame := readWorkspaceSSEFrame(t, bufio.NewScanner(resp.Body))
+	if frame.ID != 301 || frame.Data["scope"] != workspaceScopeConfig {
+		t.Fatalf("first frame after head=%+v, want only the new event 301", frame)
+	}
+}
+
+func TestConversationEventsHeadWorkspaceCursorSkipsHistory(t *testing.T) {
+	server, err := NewServer(Config{DataDir: t.TempDir()})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer server.Close()
+	for i := 0; i < 50; i++ {
+		if _, err = server.store.WorkspaceEvent(workspaceScopeBots); err != nil {
+			t.Fatal(err)
+		}
+	}
+	httpServer := httptest.NewServer(server.Handler())
+	defer httpServer.Close()
+	bot, err := server.store.CreateBot("Head Cat", "x", "default")
+	if err != nil {
+		t.Fatal(err)
+	}
+	head := server.store.workspaceEventCursor()
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+	req, _ := http.NewRequestWithContext(ctx, http.MethodGet, httpServer.URL+"/api/conversations/"+bot.DMConversationID+"/events?after=0&workspace_after=head", nil)
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer resp.Body.Close()
+	body, _ := io.ReadAll(resp.Body) // returns when the context expires
+	if strings.Contains(string(body), "event: workspace\n") {
+		t.Fatalf("head cursor replayed history up to %d:\n%.400s", head, body)
+	}
+}
