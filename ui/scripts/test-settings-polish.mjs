@@ -364,6 +364,15 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
     if (path === "/api/extensions/local-mcp") return {available: true, plugins: [{id: "gog", state: "sleeping", tool_count: 0}]};
     if (path === "/api/extensions/local-mcp/gog/oauth/status") return {connected: false, email: ""};
     if (path === "/api/extensions/skills") return {skills: [{name: "research-assistant", description: "Research and verify sources", access: {mode: "all"}}, {name: "weekly-report", description: "Draft the weekly status report", access: {mode: "selected", bot_ids: ["bot_research"]}}]};
+    if (path === "/api/automation-settings") return {items: [
+      {key: "conversation_model", group: "models", kind: "model", default: "codex-gpt-6-sol", value: "codex-gpt-6-sol", source: "default"},
+      {key: "background_model", group: "models", kind: "model", default: "codex-gpt-6-sol", value: "", source: "default"},
+      {key: "structured_output", group: "replies", kind: "bool", default: true, value: true, source: "default"},
+      {key: "web_search", group: "replies", kind: "bool", default: true, value: false, source: "env", env: "TOFI_WEB_SEARCH", locked: true},
+      {key: "own_replies_verbatim", group: "history", kind: "int", default: 3, value: 5, source: "stored", min: 1, max: 20},
+      {key: "mcp_auto_review", group: "checks", kind: "enum", default: "off", value: "shadow", source: "stored", options: ["off", "shadow", "auto"]},
+      {key: "remembered_approval_hours", group: "checks", kind: "int", default: 24, value: 24, source: "default", min: 1, max: 720, unit: "hours"},
+      {key: "desktop_idle_seconds", group: "computer", kind: "readonly", default: null, value: 300, source: "default", read_only: true, unit: "seconds"}]};
     if (path === "/api/auto-review-settings") return {mode: "shadow", revision: 1, review_scope: "all_external_tools"};
     if (path === "/api/providers") return {providers};
     if (path === "/api/auth/codex") return {connected: true, expires_at: Date.parse("2026-11-01T00:00:00Z")};
@@ -422,7 +431,7 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
   };
   const scenarios = [];
   const tabScenario = (id, tab) => scenarios.push({id, tab, run: async () => {}});
-  for (const tab of ["general", "connections", "skills", "approvals", "followups", "models", "computer", "keys", "usage", "advanced", "admin"]) tabScenario(tab, tab);
+  for (const tab of ["general", "connections", "skills", "approvals", "followups", "models", "automation", "computer", "keys", "usage", "advanced", "admin"]) tabScenario(tab, tab);
   scenarios.push(
     // Sign-in in progress is the only place the key diagram appears; its provider label must sit under the key, not over it.
     {id: "connections-signin", tab: "connections", run: async ({page}) => {

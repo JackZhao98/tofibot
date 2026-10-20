@@ -76,6 +76,10 @@
       "admin": {
         "name": "Admin-Konsole",
         "description": "Konten einladen, verwalten und deaktivieren"
+      },
+      "automation": {
+        "name": "Automatische Abläufe",
+        "description": "Ansehen und anpassen, was Tofi selbstständig tut"
       }
     },
     "category": "Einstellungsbereich",
@@ -648,9 +652,7 @@
     "chat": "Chat",
     "activity_title": "Aktivität im Chat anzeigen",
     "activity_note": "Zeigt die Schritte eines Bots unter seinen Antworten. Standardmäßig aus; im Aktionsmenü einer Nachricht lassen sie sich trotzdem öffnen.",
-    "activity_save_failed": "Speichern fehlgeschlagen. Versuche es erneut.",
-    "structured_title": "Strukturierte Antworten",
-    "structured_note": "Ein Bot zeigt Text im Chat nur über sein say-Werkzeug; Text zwischen den Schritten bleibt in der Aktivitätsansicht. Ausschalten, um ihn wie bisher zu posten."
+    "activity_save_failed": "Speichern fehlgeschlagen. Versuche es erneut."
   },
   "approvals": {
     "heading": "Prüfer",
@@ -762,5 +764,115 @@
       "annoying": "Nervig",
       "handled": "Schon erledigt"
     }
+  },
+  "automation": {
+    "intro": "Alles, was Tofi von sich aus für dich erledigt, steht hier. Jeder Punkt hat einen Standardwert; eine Änderung gilt ab dem nächsten Lauf.",
+    "group": {
+      "models": {
+        "title": "Modelle",
+        "description": "Welches Modell welche Art von Arbeit übernimmt."
+      },
+      "replies": {
+        "title": "Antworten",
+        "description": "Wie Bots ausliefern, was sie sagen."
+      },
+      "history": {
+        "title": "Gesprächsverlauf",
+        "description": "Was ein Bot mitnimmt, wenn er einen Chat wieder aufgreift."
+      },
+      "checks": {
+        "title": "Prüfungen und Freigaben",
+        "description": "Kontrollen rund um die Aktionen eines Bots."
+      },
+      "reliability": {
+        "title": "Zuverlässigkeit",
+        "description": "Was passiert, wenn der Modelldienst hakt."
+      },
+      "schedules": {
+        "title": "Zeitpläne",
+        "description": "Der letzte Blick, bevor ein geplanter Lauf endet."
+      },
+      "computer": {
+        "title": "Computer",
+        "description": "Automatischer Ruhezustand des gemeinsamen Computers."
+      }
+    },
+    "item": {
+      "conversation_model": {
+        "name": "Gesprächsmodell",
+        "what": "Führt Chats, Gruppenarbeit, geplante Läufe und alles aus, was Werkzeuge nutzt. Die eigene Modelleinstellung eines Bots hat Vorrang."
+      },
+      "background_model": {
+        "name": "Hintergrundmodell",
+        "what": "Erledigt leichte Arbeit im Hintergrund: Verlaufszusammenfassungen, Weiterleitung, Prüfungen und Nachfass-Checks. Automatisch heißt: Haiku bei Claude, sonst das Gesprächsmodell."
+      },
+      "structured_output": {
+        "name": "Strukturierte Antworten",
+        "what": "Ein Bot zeigt Text im Chat nur über sein say-Werkzeug; Text zwischen den Schritten bleibt in der Aktivitätsansicht. Ausschalten, um ihn wie bisher zu veröffentlichen."
+      },
+      "force_say_haiku_dm": {
+        "name": "Antwortwerkzeug für Haiku erzwingen",
+        "what": "In Direktnachrichten muss Haiku in jedem Schritt das say-Werkzeug aufrufen, damit seine Antwort sicher im Chat landet."
+      },
+      "web_search": {
+        "name": "Websuche",
+        "what": "Claude-Modelle suchen vor der Antwort selbst im Web, wenn eine Frage neuer sein könnte als ihr Wissen."
+      },
+      "group_exchange_gists": {
+        "name": "Abgeschlossene Gruppenwechsel zusammenfassen",
+        "what": "In Gruppenchats werden Wortwechsel, die ohne einen Bot zu Ende gingen, für ihn zu einer kurzen Zusammenfassung gefaltet."
+      },
+      "own_replies_verbatim": {
+        "name": "Eigene Antworten im Wortlaut",
+        "what": "So viele seiner letzten Antworten sieht ein Bot wortwörtlich. Ältere schrumpfen auf eine Zeile, damit er die eigenen Formulierungen nicht nachahmt."
+      },
+      "completion_review": {
+        "name": "Abschlussprüfung nach Werkzeugarbeit",
+        "what": "Nach der Nutzung von Werkzeugen gleicht ein Bot seine Antwort vor dem Senden einmal mit den tatsächlichen Ergebnissen ab."
+      },
+      "mcp_auto_review": {
+        "name": "Automatische Prüfung von Werkzeugaufrufen",
+        "what": "Ein Prüfer im Hintergrund sieht sich Aufrufe externer Werkzeuge an. Beobachten hält nur Hinweise fest; Automatisch lässt risikoarme Aufrufe nach seinem Urteil durch."
+      },
+      "remembered_approval_hours": {
+        "name": "Gemerkte Freigaben gelten",
+        "what": "Wählst du bei einer Freigabe „Merken“, ist derselbe Aufruf in diesem Chat so lange erlaubt."
+      },
+      "provider_retries": {
+        "name": "Automatische Wiederholungen",
+        "what": "Vorübergehende Modellfehler wie Überlastung oder abgebrochene Verbindung werden so oft wiederholt, bevor ein Lauf scheitert. 0 schaltet Wiederholungen aus."
+      },
+      "schedule_receipt_review": {
+        "name": "Geplante Läufe vor dem Ende prüfen",
+        "what": "Ein geplanter Lauf, der ohne Abschlussvermerk endet, bekommt eine Chance, die Arbeit zu beenden, bevor er als erledigt gilt."
+      },
+      "desktop_idle_seconds": {
+        "name": "Ruhezustand bei Inaktivität",
+        "what": "Der gemeinsame Computer geht nach so langer Nichtnutzung in den Ruhezustand und wacht beim nächsten Werkzeugaufruf auf. Wird vom Computerdienst festgelegt."
+      }
+    },
+    "option": {
+      "mcp_auto_review": {
+        "off": "Aus",
+        "shadow": "Beobachten",
+        "auto": "Automatisch"
+      }
+    },
+    "auto": "Automatisch · {{model}}",
+    "default_is": "Standard: {{value}}",
+    "changed": "Geändert",
+    "env": "Vom Serverumfeld festgelegt",
+    "reset": "Auf Standard zurücksetzen",
+    "on": "An",
+    "off": "Aus",
+    "hours": "{{count}} Std.",
+    "minutes": "{{count}} Min.",
+    "seconds": "{{count}} Sek.",
+    "retries_none": "Keine Wiederholungen",
+    "idle_off": "Aus",
+    "not_reported": "Nicht gemeldet",
+    "saved": "Gespeichert",
+    "loading": "Wird geladen …",
+    "managed": "Vom Computerdienst verwaltet"
   }
 }

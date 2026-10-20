@@ -1,6 +1,7 @@
 import type {ReactNode} from "react";
 import {AdminAccounts} from "../AdminAccounts";
 import {AutoReviewSettings} from "../AutoReviewSettings";
+import {AutomationSettings} from "../AutomationSettings";
 import {DebugSettings} from "../BotInspector";
 import {ComputerCredentials} from "../ComputerCredentials";
 import {ComputerPanel} from "../ComputerPanel";
@@ -17,7 +18,7 @@ import {OwnerAccount} from "../OwnerSession";
 import {PortabilitySettings} from "../PortabilitySettings";
 import {ModelProviders} from "../ProviderSettings";
 import type {SettingsTab} from "../SettingsShell";
-import {ShowActivitySetting,StructuredOutputSetting,TimezoneSetting} from "../UserTimezone";
+import {ShowActivitySetting,TimezoneSetting} from "../UserTimezone";
 import {UsagePanel} from "../UsagePanel";
 import {VersionCard,useIsUpdateAdmin} from "../UpdateNotice";
 import {WorkspacePurgeSettings} from "../WorkspacePurgeSettings";
@@ -49,6 +50,7 @@ export function SettingsPages(props:SettingsPagesProps){
   case "approvals": return <ApprovalsPage/>;
   case "followups": return <FollowupsSettings/>;
   case "models": return <ModelsPage {...props}/>;
+  case "automation": return <AutomationSettings/>;
   case "computer": return <><ComputerResources/><ComputerPanel/></>;
   case "keys": return <ComputerCredentials bots={activeBots}/>;
   case "usage": return <UsagePanel preferredBotId={props.usageBotId} timezone={props.timezone}/>;
@@ -65,7 +67,7 @@ function GeneralPage({appearance,slots,openTab,bots,onBotsChanged}:SettingsPages
   <AppearancePicker value={appearance.preference} onChange={appearance.choose}/>
   <PrimaryAssistantSetting bots={bots} onChanged={onBotsChanged}/>
   <SettingsSection title={t("general.region")}><SettingsCard className="settings-region"><LanguageSetting/><TimezoneSetting/></SettingsCard></SettingsSection>
-  <SettingsSection title={t("general.chat")}><SettingsCard><ShowActivitySetting/><StructuredOutputSetting/></SettingsCard></SettingsSection>
+  <SettingsSection title={t("general.chat")}><SettingsCard><ShowActivitySetting/></SettingsCard></SettingsSection>
   <SettingsSection><SettingsCard>{slots.notifications}</SettingsCard></SettingsSection>
   <Banner tone="info" title={t("general.moved_title")} action={{label:t("general.open_advanced"),onClick:()=>openTab("advanced")}}>{t("general.moved_body")}</Banner>
   {slots.legacyArchive}
