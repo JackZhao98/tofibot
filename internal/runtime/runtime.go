@@ -135,6 +135,13 @@ func WithToolCallID(ctx context.Context, id string) context.Context {
 	return context.WithValue(ctx, toolCallIDContextKey{}, id)
 }
 
+// ActivateTools declares the named Deferred tools of the running engine to
+// the model from its next call on, and returns the names it activated. It is a
+// no-op outside an engine.
+func ActivateTools(ctx context.Context, names ...string) []string {
+	return agent.ActivateTools(ctx, names...)
+}
+
 type endTurnContextKey struct{}
 
 // EndTurn asks the loop to stop once the executing tool's result is recorded.
@@ -354,6 +361,7 @@ func (e *engine) Run(ctx context.Context, req Request) (Result, error) {
 		}
 		rawTool := tool
 		extraTools = append(extraTools, agent.ExtraBuiltinTool{
+			Deferred: tool.Deferred,
 			Schema: provider.Tool{
 				Name:        rawTool.Name,
 				Description: rawTool.Description,
