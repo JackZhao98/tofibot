@@ -42,6 +42,7 @@
     "test:file-preview": "node scripts/test-file-preview.mjs",
     "test:perf-structure": "node scripts/test-perf-structure.mjs",
     "test:avatar-frame-budget": "node scripts/test-avatar-frame-budget.mjs",
+    "test:shell-budget": "node scripts/test-shell-budget.mjs",
     "test:composer-typing": "node scripts/test-composer-typing.mjs",
     "test:timeline-rows": "node scripts/test-timeline-rows.mjs",
     "test:switch-budget": "node scripts/test-switch-budget.mjs",

@@ -5,15 +5,12 @@ import { markSenderGroups } from "./senderGroups";
 import { sameData } from "./sameData";
 import { buildTaskOwners, presentTaskIssue, taskPhaseLabel, type TaskOwner } from "./taskIssuePresentation";
 import { i18n, useTranslation } from "./i18n";
-import { MemoryPanel } from "./MemoryPanel";
-import { memoryDisplay } from "./displayMetadata";
 import { mergeMessageTimeline, precedingBlockBotIds, previousRenderedIndex } from "./messageTimeline";
 import { textareaCaretRect } from "./textareaCaret";
 import { DelayedFeedback } from "./DelayedFeedback";
 import { BootScreen } from "./BootScreen";
 import { WebFileDropOverlay } from "./WebFileDropOverlay";
 import { SidebarAccount } from "./OwnerSession";
-import { UpdateBanner } from "./UpdateNotice";
 import { desktopState, updateDesktopState, isDesktop, type DesktopCommand } from "./desktop";
 import {TimezoneProvider, useUserTimezone} from "./UserTimezone";
 import {dateInTimezone, dateTimeFormat, formatZonedTime} from "./timezone";
@@ -26,34 +23,25 @@ import { CopyFeedbackIcon } from "./CopyFeedbackIcon";
 import { attachmentUrl } from "./filePreviewModel";
 import { DisplayCard } from "./DisplayCard";
 import { QuestionCard, useQuestions } from "./QuestionCard";
-import { RememberedApprovalsSheet } from "./RememberedApprovals";
 import { toolDisplayState, toolDisplayLabel } from "./toolTimeline";
 import { requestFullToolResult, setToolResultLoader } from "./toolResultLoader";
 import { taskStateLabel } from "./ConversationTaskStatus";
 import { MailDraftCard, useMailDrafts } from "./MailDraftCard";
 import { buildQuestionTimeline, compareQuestionTime } from "./questionTimeline";
-import { BotInspector } from "./BotInspector";
 import { useDebugMode } from "./debugMode";
-import { SettingsShell, type SettingsEntry, type SettingsTab, type SettingsView } from "./SettingsShell";
-import { SettingsPages } from "./settings/SettingsPages";
+import type { SettingsEntry, SettingsTab, SettingsView } from "./SettingsShell";
+import { AfterPaint, ArchivePanel, UpdateBanner, PermissionCoach, BotPanelSkeleton, BotDesktopPanel, DeleteConversationDialog, RememberedApprovalsSheet, BotPanel, MembersPanel, DesktopSkeleton, MemoryPanel, TeamBoard, ViewOnlyChat, WorkPanel, Onboarding, preloadPanel, SettingsPanel, SettingsSkeleton, warmPanelsWhenIdle } from "./lazyPanels";
 import { subscribeSettingsDeepLinks } from "./settings/deepLinks";
-import { StatusBadge } from "./settings/components";
-import { ModelFields } from "./ModelSettings";
-import { followsGlobal } from "./modelCatalog";
 import { BotIdentityCard } from "./BotIdentityCard";
-import { ActionHints, ConfirmAction, Disclosure, useAppearance, useSurfacePresence } from "./InteractionSystem";
+import { ActionHints, ConfirmAction, useAppearance, useSurfacePresence } from "./InteractionSystem";
 import { useConversationScroll } from "./useConversationScroll";
 import { conversationPath, readConversationRoute } from "./conversationRoute";
 import { useConversationNavigation } from "./useConversationNavigation";
-import { BotDesktopPanel } from "./BotDesktopPanel";
 import { FloatingDesktop } from "./FloatingDesktop";
 import { useDesktopPresence } from "./desktopPresence";
-import { WorkPanel, WorkPreview } from "./WorkPanel";
-import { TeamBoard } from "./TeamBoard";
-import { ArchivePanel } from "./ArchivePanel";
-import { DeleteConversationDialog, type DeleteTarget } from "./DeleteConversationDialog";
+import type { DeleteTarget } from "./DeleteConversationDialog";
 import { PrimaryBadge, ReassignPrimaryDialog, otherActiveBots } from "./PrimaryAssistant";
-import { ViewOnlyChat, type ViewOnlyChatTarget } from "./ViewOnlyChat";
+import type { ViewOnlyChatTarget } from "./ViewOnlyChat";
 import { ScheduledTaskRow } from "./ScheduledTaskRow";
 import { occurrenceRootKey, type ScheduleOccurrence } from "./scheduleOccurrences";
 import { useScheduleOccurrences } from "./useScheduleOccurrences";
@@ -65,13 +53,14 @@ import { formatRelativeTime, intlLocale } from "./i18n/format";
 import { BrandLogo } from "./BrandLogo";
 import { createContext, lazy, memo, startTransition, Suspense, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { flushSync } from "react-dom";
+import { errorText } from "./errorText";
 import { api, ApiError, openConversationEvents, openWorkspaceEvents } from "./api";
 import { MessageMarkdown } from "./MessageMarkdown";
 import { BotAvatar, type AvatarMotion } from "./BotAvatar";
+import { holdAvatarLife } from "./lib/tofi-avatar/index.js";
 import { CatStage, type CatHandle } from "./CatStage";
 import { CATS, EmptyCat, EmptyState } from "./EmptyCat";
 import { FirstRunHero } from "./FirstRunHero";
-import { Onboarding } from "./Onboarding";
 import { FinishSetupChip, ModelBanner } from "./OnboardingChrome";
 import { chipStep, onboardingMode, parseOnboardingState, resumeStep, type OnboardingState, type OnboardingStep } from "./onboardingFlow";
 import { LoadingCat } from "./motion-lab/lib/LoadingCat";
@@ -91,11 +80,8 @@ import { buildRetryFamilies, indexMessages, isTerminalRun, retryFamilyAnchor } f
 import { composerClientMessageId, composerDraftMatchesMessage, composerMessageContent, composerMessageSignature, type ComposerReply } from "./composerDraft";
 import { useDictation } from "./useDictation";
 import { useSmoothStreamText } from "./useSmoothStreamText";
-import { PermissionCoach } from "./PermissionCoach";
 import { observeVisualViewport, visualViewportMetrics } from "./visualViewport";
-import { buildBotPackage, downloadBotPackage } from "./botPackage";
-import { BotAvatarPicker } from "./BotAvatarPicker";
-import { getBotAvatarConfig, saveBotAvatarConfig, subscribeBotAvatar } from "./avatarStore";
+import { getBotAvatarConfig, subscribeBotAvatar } from "./avatarStore";
 import type { Attachment, Bot, ComputerHealth, Config, Conversation, EventEnvelope, Memory, Message, Run, StreamDraft, ToolActivity, ToolActivityRunSummary, WorkspaceEventEnvelope } from "./types";
 
 const TerminalPanel = lazy(() => import("./TerminalPanel").then(module => ({ default: module.TerminalPanel })));
@@ -455,23 +441,6 @@ function formatDateDivider(value: string, timeZone: string) {
   return `${formatDay(value, timeZone)} ${formatTime(value, timeZone)}`;
 }
 
-/** fetch rejects with a TypeError when no response arrived; a timed-out read rejects with a TimeoutError. */
-function isNetworkFailure(error: unknown) {
-  return error instanceof TypeError || (error instanceof DOMException && (error.name === "TimeoutError" || error.name === "NetworkError"));
-}
-
-function errorText(error: unknown) {
-  if (isNetworkFailure(error)) return i18n.t("chat:error.network_unreachable");
-  if (error instanceof ApiError && error.code === "archive_busy") return i18n.t("chat:apiError.archive_busy");
-  if (error instanceof ApiError && error.code === "archive_blocked") return i18n.t("chat:apiError.archive_blocked");
-  if (error instanceof ApiError && error.code === "no_active_members") return i18n.t("chat:apiError.no_active_members");
-  if (error instanceof ApiError && error.code === "ambiguous_recipient") return i18n.t("chat:apiError.ambiguous_recipient");
-  if (error instanceof ApiError && error.status === 503) {
-    return error.code === "model_unconfigured" ? i18n.t("chat:apiError.model_unconfigured") : i18n.t("chat:error.service_unavailable");
-  }
-  return error instanceof Error ? error.message : i18n.t("chat:error.generic");
-}
-
 /** The server pings every 15s; this much silence on a stream means the link died without closing. */
 const STREAM_STALE_MS = 30_000;
 const LINK_LOSS_GRACE_MS = 4000;
@@ -642,6 +611,8 @@ function Workspace() {
     if (!historyVersion) return;
     setMobileList(false); setPanel(null); setViewOnlyChat(null); setTaskFocus(null);
   }, [historyVersion]);
+  // The phone push and panel openings are the frames that matter most; the cats' idle breathing waits them out.
+  useEffect(() => { holdAvatarLife(320); }, [mobileList, panel]);
   const [search, setSearch] = useState("");
   const [activityNow, setActivityNow] = useState(() => Date.now());
   const [lastUserActivity, setLastUserActivity] = useState<Record<string, number>>({});
@@ -925,9 +896,11 @@ function Workspace() {
   const [onboardingForced, setOnboardingForced] = useState<OnboardingStep | null>(null);
   useEffect(() => {
     let alive = true;
-    api.onboardingState().then(value => { if (alive) setOnboarding(parseOnboardingState(value)); }).catch(() => { /* no state, no onboarding */ });
+    api.onboardingState().then(value => { if (!alive) return; const state = parseOnboardingState(value); if (state && !state.completed) preloadPanel("onboarding"); setOnboarding(state); }).catch(() => { /* no state, no onboarding */ });
     return () => { alive = false; };
   }, []);
+  // Settings and the Bot desktop code arrive in idle slots once the shell has content to show.
+  useEffect(() => (loading ? undefined : warmPanelsWhenIdle()), [loading]);
   const saveOnboarding = useCallback((update: { step?: number; skipped?: boolean; completed?: boolean }) => {
     setOnboarding(current => current ? { step: Math.max(current.step, update.step ?? 0), completed: update.completed ?? current.completed, skipped: update.skipped ?? current.skipped } : current);
     void api.putOnboarding(update).then(value => { const next = parseOnboardingState(value); if (next) setOnboarding(next); }).catch(() => { /* the next change writes it again */ });
@@ -2368,7 +2341,7 @@ function Workspace() {
 
   return (
     <div inert={Boolean(deleteTarget || (viewOnlyChat && (isDesktop || compactViewport))) || undefined} className={`workspace${keyboardViewportOpen ? " keyboard-viewport-open" : ""}`} style={viewportHeight ? { "--viewport-height": `${viewportHeight}px` } as React.CSSProperties : undefined}>
-      <UpdateBanner />
+      <Suspense fallback={null}><UpdateBanner /></Suspense>
       {workspaceErrorShown && indexInitialized.current && <div className="stream-status workspace-status workspace-toast" role="alert">{t("workspace.refresh_failed")}<button className="secondary-button" onClick={() => void refreshIndex()}>{t("common:action.retry")}</button></div>}
       {computerInfo && ((computerInfo.state !== "ready" && computerInfo.state !== "hibernated" && computerInfo.state !== "hibernating") || computerHealthAlert(computerInfo.health)) && panel !== "desktop" && <div className="stream-status workspace-status computer-preparing" role="status"><strong>{computerInfo.health?.state === "unresponsive" ? t("computer.health_unresponsive") : computerInfo.health?.state === "restarting" ? t("computer.health_restarting") : computerInfo.state === "starting" ? t("computer.starting") : computerInfo.state === "resuming" ? t("computer.resuming") : computerInfo.state === "error" ? t("computer.failed") : computerInfo.state === "stopped" ? t("computer.stopped") : t("computer.unavailable")}</strong><span>{(computerInfo.state === "starting" || computerInfo.state === "resuming") && computerInfo.phase ? ` · ${computerPhaseKeys[computerInfo.phase] ? t(computerPhaseKeys[computerInfo.phase]) : computerInfo.phase}` : ""}{computerInfo.error ? ` · ${computerInfo.error}` : ""}</span>{(computerInfo.state === "error" || computerInfo.state === "stopped" || computerInfo.health?.state === "unresponsive") && <button className="secondary-button" onClick={() => void api.computerRetry().then(() => api.computerInfo()).then(setComputerInfo).catch(cause => setError(errorText(cause)))}>{t("common:action.retry")}</button>}</div>}
       <div className="native-titlebar" aria-hidden="true" /><ActionHints /><div className={`workspace-grid${sidebarCollapsed ? " sidebar-collapsed" : ""}${contextPanelOpen ? " context-open" : ""}${contextPanelOpen || viewOnlyChat ? " card-open" : ""}${activeBot ? " bot-panel-ready" : ""}${panel === "bot-edit" ? " bot-panel-open" : ""}${displayedPanel === "terminal" ? " terminal-context" : ""}`}>
@@ -2385,7 +2358,7 @@ function Workspace() {
           </div>
           <div className="sidebar-footer">{onboardingState === "chip" && <FinishSetupChip step={chipStep(modelReady)} onClick={() => setOnboardingForced(chipStep(modelReady))} />}<SidebarAccount connected={linkConnected} onSettings={() => { setPortabilityBotID(""); setPortabilityFile(undefined); openSettings("general", "home"); }} onUsage={() => { setUsageBotId(""); openSettings("usage"); }} onConnection={() => openSettings("models")} onArchive={() => setPanel("archive")} /></div>
         </aside>
-        {onboardingState === "sheet" && onboarding && <Onboarding initialStep={onboardingForced ?? resumeStep(onboarding, modelReady)} modelConfigured={modelReady} bot={bots.find((item) => !item.archived)} onProgress={saveOnboarding} onModelChanged={refreshConfig} onBot={adoptOnboardingBot} onSkip={() => { saveOnboarding({ skipped: true }); setOnboardingForced(null); }} onFinish={finishOnboarding} />}
+        {onboardingState === "sheet" && onboarding && <Suspense fallback={null}><Onboarding initialStep={onboardingForced ?? resumeStep(onboarding, modelReady)} modelConfigured={modelReady} bot={bots.find((item) => !item.archived)} onProgress={saveOnboarding} onModelChanged={refreshConfig} onBot={adoptOnboardingBot} onSkip={() => { saveOnboarding({ skipped: true }); setOnboardingForced(null); }} onFinish={finishOnboarding} /></Suspense>}
         {sidebarContextMenu && <div className="sidebar-context-menu" style={{ left: sidebarContextMenu.x, top: sidebarContextMenu.y }} role="menu" onClick={(event) => event.stopPropagation()}>
           <button role="menuitem" onClick={() => togglePinned(sidebarContextMenu.conversation)}><Icon name="pin" size={17} />{sidebarLayout.pinned.includes(sidebarContextMenu.conversation.id) ? t("sidebar.unpin") : t("sidebar.pin")}</button>
           <button role="menuitem" onClick={() => moveToSection(sidebarContextMenu.conversation)}><Icon name="plus" size={17} />{t("sidebar.move_to_section")}</button>
@@ -2403,7 +2376,7 @@ function Workspace() {
           {!active ? routeUnavailable ? <div className="conversation-empty" role="alert"><EmptyCat look={CATS.nori} pose="curious" size={72} name="route-unavailable" /><h2>{t("route.unavailable_title")}</h2><p>{t("route.unavailable_body")}</p><button className="secondary-button" onClick={() => setMobileList(true)}>{t("route.back_to_list")}</button></div> : onboardingState === "sheet" ? null : <FirstRunHero onCreate={() => void createNewBot()} busy={newBotBusy} error={newBotError} /> : <>
             <div className="chat-header"><div className="chat-title"><button className="back-button" onClick={() => setMobileList(true)} aria-label={t("route.back_to_list")}><Icon name="arrow-left" size={19} /></button><button className="chat-identity" onClick={() => active.kind === "group" ? setPanel("members") : transitionBotPanel(true)} aria-label={t("header.open_members")}><span className="member-avatar-stack">{(active.kind === "group" ? active.bot_ids : [active.bot_id ?? active.id]).slice(0, 4).map((id) => <Avatar key={id} label={botById.get(id)?.name ?? active.name} id={id} mini motion={conversationMotion(active, id)} />)}</span><span className="chat-name-pill"><h1>{active.name}</h1>{active.kind === "group" && <small>{t("header.member_count", { count: active.bot_ids.length })}</small>}</span></button></div><div className="header-actions">{active.kind === "group" && <button className="computer-button" data-hint={t("header.team_board")} aria-label={teamBoardOpen ? t("header.back_to_chat") : t("header.open_team_board")} aria-pressed={teamBoardOpen} onClick={() => { setPanel(null); setTeamBoardOpen(value => !value); }}><Icon name="layout-grid" size={18} variant={teamBoardOpen ? "filled" : "outline"} /></button>}{desktopBot && <button className={`computer-button${computerOn ? " is-on" : ""}${computerOn && activeDesktopOwner ? " is-driven" : ""}`} data-computer-toggle="" data-computer-state={computerOn ? (activeDesktopOwner ? "driven" : "on") : "off"} data-hint={computerStateLabel} title={computerStateLabel} aria-label={computerStateLabel} aria-pressed={panel === "desktop"} onClick={() => { if (panel === "desktop") setPanel(null); else { setDesktopSize("small"); setPanel("desktop"); } }}><Icon name="monitor" size={17} variant={panel === "desktop" ? "filled" : "outline"} animated />{computerOn && activeDesktopOwner && <span className="computer-driven-dot" aria-hidden="true" />}</button>}{desktopBot && <button className="computer-button" data-hint={t("header.terminal")} aria-label={t("header.open_terminal")} aria-pressed={panel === "terminal"} onClick={() => setPanel(current => current === "terminal" ? null : "terminal")}><Icon name="terminal" size={18} variant={panel === "terminal" ? "filled" : "outline"} /></button>}<div className="header-more" ref={headerMenuRef}><button ref={headerMenuTriggerRef} className="ghost-button" data-hint={t("header.more")} aria-label={t("header.more")} aria-expanded={headerMenuOpen} aria-controls={headerMenuOpen ? "conversation-more-menu" : undefined} onClick={() => setHeaderMenuOpen((open) => !open)}><Icon name="more" size={17} /></button>{showHeaderMenu && <div id="conversation-more-menu" className="more-menu" data-open={headerMenuOpen} inert={!headerMenuOpen || undefined}><button onClick={() => { headerMenuTriggerRef.current?.focus(); setHeaderMenuOpen(false); void copyConversationLink(active); }}>{t("header.copy_link")}</button><button onClick={() => { headerMenuTriggerRef.current?.focus(); setHeaderMenuOpen(false); setPanel("schedule"); }}>{t("header.schedule")}</button><button onClick={() => { headerMenuTriggerRef.current?.focus(); setHeaderMenuOpen(false); setPanel("memory"); }}>{active.kind === "group" ? t("header.group_memory") : t("header.bot_memory")}</button><button onClick={() => { headerMenuTriggerRef.current?.focus(); setHeaderMenuOpen(false); setUsageBotId(active.kind === "dm" ? active.bot_id ?? "" : ""); setSettingsTab("usage"); setPanel("settings"); }}>{t("header.usage")}</button><button onClick={() => { headerMenuTriggerRef.current?.focus(); setHeaderMenuOpen(false); setRememberedOpen(true); }}>{t("header.remembered_approvals")}</button>{active.kind === "dm" && activeBot && !activeBot.archived && !activeBot.is_primary && <button onClick={() => { headerMenuTriggerRef.current?.focus(); setHeaderMenuOpen(false); void makePrimary(activeBot.id); }}>{t("primary.make")}</button>}{active.kind === "dm" && <button onClick={() => { headerMenuTriggerRef.current?.focus(); setPanel("bot-edit"); setHeaderMenuOpen(false); }}>{t("header.bot_settings")}</button>}<button className="delete-menu-action" onClick={() => { headerMenuTriggerRef.current?.focus(); setHeaderMenuOpen(false); confirmDelete(active); }}>{active.kind === "dm" ? t("header.delete_bot") : t("header.delete_group")}</button></div>}</div></div></div>
             <RunStatusAnnouncement key={`run-status-${active.id}`} conversationId={active.id} runs={runs} botById={botById} ready={loadedId === active.id && !loadingMessages} taskAnnouncements={taskAnnouncements} />
-            {teamBoardOpen && active.kind === "group" ? <TeamBoard key={`team-board-${active.id}`} conversation={active} bots={bots} timezone={timezone} onClose={() => setTeamBoardOpen(false)} onOpenWork={() => { setTeamBoardOpen(false); setPanel("schedule"); }} /> : <>
+            {teamBoardOpen && active.kind === "group" ? <Suspense fallback={null}><TeamBoard key={`team-board-${active.id}`} conversation={active} bots={bots} timezone={timezone} onClose={() => setTeamBoardOpen(false)} onOpenWork={() => { setTeamBoardOpen(false); setPanel("schedule"); }} /></Suspense> : <>
             <div className="chat-body">
               <div className="message-scroll" ref={viewport.scrollRef} onScroll={viewport.onScroll}>
                 <ExpiryFinishingContext.Provider value={expiryFinishing}><RunStartContext.Provider value={runStarts}><ActivityViewContext.Provider value={activityView}><div className={`message-list${viewport.unpositioned ? " is-positioning" : ""}`} ref={messageListRef} onPointerOver={isDesktop ? undefined : onMessageListPointerOver} onPointerLeave={isDesktop ? undefined : onMessageListPointerLeave} onFocus={isDesktop ? undefined : onMessageListFocus} onBlur={isDesktop ? undefined : onMessageListBlur} onKeyDown={isDesktop ? undefined : onMessageListKeyDown}>
@@ -2520,147 +2493,26 @@ function Workspace() {
 
         {modalPanelOpen && <button type="button" className="detail-backdrop" aria-label={t("detail.close")} onClick={() => { if (displayedPanel === "settings") window.dispatchEvent(new Event("tofi-settings-close")); else if (!detailPaneRef.current?.querySelector('[aria-busy="true"]')) setPanel(null); }} />}
         <aside ref={detailPaneRef} className={`detail-pane ${displayedPanel !== "settings" && displayedPanel !== "desktop" ? "context-panel" : ""} ${(panel === "bot-edit" || displayedPanel) && displayedPanel !== "desktop" ? "visible" : ""} ${!panel && displayedPanel && displayedPanel !== "desktop" ? "surface-exiting" : ""}`} inert={!panel || undefined} role={modalPanelOpen ? "dialog" : undefined} aria-modal={modalPanelOpen ? true : undefined} aria-label={panel === "settings" ? t("common:nav.settings") : panel === "terminal" ? t("header.terminal") : t("detail.label")} tabIndex={modalPanelOpen ? -1 : undefined}>
-          {displayedPanel === "group-create" && <BotPanel key="new-group" bots={bots.filter((bot) => !bot.archived)} onClose={() => setPanel(null)} onUpdate={updateBot} onCreateGroup={createGroup} />}
-          {rememberedOpen && active && <RememberedApprovalsSheet conversationId={active.id} onClose={() => setRememberedOpen(false)} />}
-          {(panel === "bot-edit" || displayedPanel === "bot-edit") && <BotPanel onExportData={id => { setPortabilityBotID(id); setPortabilityFile(undefined); openSettings("advanced"); }} refreshToken={scheduleRefresh} memories={memories} onOpenWork={() => setPanel("schedule")} onOpenMemory={() => setPanel("memory")} key={activeBot?.id ?? "edit-empty"} bots={bots} activeBot={activeBot} onClose={() => transitionBotPanel(false)} onUpdate={updateBot} onCreateGroup={createGroup} onMakePrimary={makePrimary} />}
-          {displayedPanel === "settings" && <SettingsShell tab={settingsTab} onTab={setSettingsTab} onClose={() => setPanel(null)} entry={settingsEntry} refreshToken={extensionRefresh} renderPage={(page) => <SettingsPages page={page} bots={bots} conversation={active} timezone={timezone} usageBotId={usageBotId} portabilityBotID={portabilityBotID} portabilityFile={portabilityFile} onPortabilityFileConsumed={() => setPortabilityFile(undefined)} appearance={appearance} extensionRefresh={extensionRefresh} slots={{ codex: <CodexPanel refreshToken={codexStatusRefresh} onConfigured={() => void refreshIndex()} />, notifications: <NotificationSetting />, providersRefresh: codexStatusRefresh, onProvidersConfigured: () => void refreshIndex(), legacyArchive: conversations.some(conversation => conversation.archived) ? <div className="legacy-archive-entry"><span>{t("detail.legacy_archive")}</span><button className="text-button" onClick={() => setPanel("archive")}>{t("detail.manage")}</button></div> : null }} openTab={(tab) => openSettings(tab)} onBotsChanged={() => refreshIndex()} />} />}
-          {displayedPanel === "archive" && <ArchivePanel onClose={() => setPanel(null)} onOpen={(id) => { selectConversation(id); setMobileList(false); setPanel(null); }} onLoaded={mergeArchived} onChanged={refreshAfterArchive} onDelete={confirmDelete} />}
+          {displayedPanel === "group-create" && <Suspense fallback={null}><BotPanel key="new-group" bots={bots.filter((bot) => !bot.archived)} onClose={() => setPanel(null)} onUpdate={updateBot} onCreateGroup={createGroup} /></Suspense>}
+          {rememberedOpen && active && <Suspense fallback={null}><RememberedApprovalsSheet conversationId={active.id} onClose={() => setRememberedOpen(false)} /></Suspense>}
+          {(panel === "bot-edit" || displayedPanel === "bot-edit") && <Suspense fallback={<BotPanelSkeleton onClose={() => transitionBotPanel(false)} />}><AfterPaint fallback={<BotPanelSkeleton onClose={() => transitionBotPanel(false)} />}><BotPanel onExportData={id => { setPortabilityBotID(id); setPortabilityFile(undefined); openSettings("advanced"); }} refreshToken={scheduleRefresh} memories={memories} onOpenWork={() => setPanel("schedule")} onOpenMemory={() => setPanel("memory")} key={activeBot?.id ?? "edit-empty"} bots={bots} activeBot={activeBot} onClose={() => transitionBotPanel(false)} onUpdate={updateBot} onCreateGroup={createGroup} onMakePrimary={makePrimary} /></AfterPaint></Suspense>}
+          {displayedPanel === "settings" && <Suspense fallback={<SettingsSkeleton onClose={() => setPanel(null)} />}><AfterPaint fallback={<SettingsSkeleton onClose={() => setPanel(null)} />}><SettingsPanel tab={settingsTab} onTab={setSettingsTab} onClose={() => setPanel(null)} entry={settingsEntry} refreshToken={extensionRefresh} codexRefresh={codexStatusRefresh} onCodexConfigured={() => void refreshIndex()} legacyArchive={conversations.some(conversation => conversation.archived)} onOpenArchive={() => setPanel("archive")} pages={{ bots, conversation: active, timezone, usageBotId, portabilityBotID, portabilityFile, onPortabilityFileConsumed: () => setPortabilityFile(undefined), appearance, extensionRefresh, providersRefresh: codexStatusRefresh, onProvidersConfigured: () => void refreshIndex(), openTab: (tab) => openSettings(tab), onBotsChanged: () => refreshIndex() }} /></AfterPaint></Suspense>}
+          {displayedPanel === "archive" && <Suspense fallback={null}><ArchivePanel onClose={() => setPanel(null)} onOpen={(id) => { selectConversation(id); setMobileList(false); setPanel(null); }} onLoaded={mergeArchived} onChanged={refreshAfterArchive} onDelete={confirmDelete} /></Suspense>}
           {displayedPanel === "terminal" && desktopBot && <Suspense fallback={<DelayedFeedback><div className="inline-state" role="status">{t("detail.loading_terminal")}</div></DelayedFeedback>}><TerminalPanel key={desktopBot.id} botId={desktopBot.id} botName={desktopBot.name} onClose={() => setPanel(null)} /></Suspense>}
-          {displayedPanel === "memory" && activeId && <MemoryPanel key={activeId} memories={memories} conversationId={activeId} scope={active?.kind === "group" ? "group" : "bot"} onClose={() => setPanel(null)} onCreate={async (input) => { const memory = await api.createMemory(activeId, input); setMemories((current) => [...current.filter((item) => item.id !== memory.id), memory]); }} onUpdate={async (id, input) => { const memory = await api.updateMemory(id, input); setMemories((current) => current.map((item) => item.id === id ? memory : item)); }} onDelete={async (id) => { await api.deleteMemory(id); setMemories((current) => current.filter((item) => item.id !== id)); }} />}
+          {displayedPanel === "memory" && activeId && <Suspense fallback={null}><MemoryPanel key={activeId} memories={memories} conversationId={activeId} scope={active?.kind === "group" ? "group" : "bot"} onClose={() => setPanel(null)} onCreate={async (input) => { const memory = await api.createMemory(activeId, input); setMemories((current) => [...current.filter((item) => item.id !== memory.id), memory]); }} onUpdate={async (id, input) => { const memory = await api.updateMemory(id, input); setMemories((current) => current.map((item) => item.id === id ? memory : item)); }} onDelete={async (id) => { await api.deleteMemory(id); setMemories((current) => current.filter((item) => item.id !== id)); }} /></Suspense>}
           {displayedPanel === "memory" && !activeId && <div className="detail-empty"><button className="close-button" aria-label={t("detail.close_memory")} onClick={() => setPanel(null)}><Icon name="close" size={18} /></button><EmptyState name="memory-pick" look={CATS.azuki} pose="curious" size={56}><p>{t("detail.memory_pick")}</p></EmptyState></div>}
-          {displayedPanel === "schedule" && active && <WorkPanel key={active.id} conversation={active} conversations={conversations} bots={bots} refreshToken={scheduleRefresh} onClose={() => setPanel(null)} onNavigate={id => { selectConversation(id); setMobileList(false); setPanel(null); }} />}
-          {displayedPanel === "members" && active?.kind === "group" && <MembersPanel refreshToken={scheduleRefresh} onOpenWork={() => setPanel("schedule")} conversation={active} bots={bots} onClose={() => setPanel(null)} onOpen={(id) => { selectConversation(id); setMobileList(false); setPanel(null); }} onSaved={updateGroup} onReload={reloadGroup} />}
+          {displayedPanel === "schedule" && active && <Suspense fallback={null}><WorkPanel key={active.id} conversation={active} conversations={conversations} bots={bots} refreshToken={scheduleRefresh} onClose={() => setPanel(null)} onNavigate={id => { selectConversation(id); setMobileList(false); setPanel(null); }} /></Suspense>}
+          {displayedPanel === "members" && active?.kind === "group" && <Suspense fallback={null}><MembersPanel refreshToken={scheduleRefresh} onOpenWork={() => setPanel("schedule")} conversation={active} bots={bots} onClose={() => setPanel(null)} onOpen={(id) => { selectConversation(id); setMobileList(false); setPanel(null); }} onSaved={updateGroup} onReload={reloadGroup} /></Suspense>}
         </aside>
       </div>
-      {desktopBot && desktopOpen && <FloatingDesktop expanded={desktopExpanded} small={desktopSmall} sheet={desktopSheet} onShrink={() => setDesktopSize("small")} onClose={() => setPanel(null)}><BotDesktopPanel presence={desktopPresence} autoConnect={currentDesktopOwner?.kind === "bot"} expanded={desktopExpanded} sheet={desktopSheet} botId={desktopBot.id} botName={desktopBot.name} members={bots.map(bot => ({ id: bot.id, name: bot.name }))} onClose={(reason) => { if (reason === "shutdown") { setDesktopReady(false); setComputerInfo({ state: "stopped" }); } setPanel(null); }} onReadyChange={setDesktopReady} onExpandedChange={expanded => { setDesktopSize(expanded ? "big" : "small"); setPanel("desktop"); }} /></FloatingDesktop>}
-      {deleteTarget && <DeleteConversationDialog target={deleteTarget} bots={bots} onDelete={deleteConversation} onClose={() => setDeleteTarget(null)} />}
+      {desktopBot && desktopOpen && <FloatingDesktop expanded={desktopExpanded} small={desktopSmall} sheet={desktopSheet} onShrink={() => setDesktopSize("small")} onClose={() => setPanel(null)}><Suspense fallback={<DesktopSkeleton botId={desktopBot.id} />}><BotDesktopPanel presence={desktopPresence} autoConnect={currentDesktopOwner?.kind === "bot"} expanded={desktopExpanded} sheet={desktopSheet} botId={desktopBot.id} botName={desktopBot.name} members={bots.map(bot => ({ id: bot.id, name: bot.name }))} onClose={(reason) => { if (reason === "shutdown") { setDesktopReady(false); setComputerInfo({ state: "stopped" }); } setPanel(null); }} onReadyChange={setDesktopReady} onExpandedChange={expanded => { setDesktopSize(expanded ? "big" : "small"); setPanel("desktop"); }} /></Suspense></FloatingDesktop>}
+      {deleteTarget && <Suspense fallback={null}><DeleteConversationDialog target={deleteTarget} bots={bots} onDelete={deleteConversation} onClose={() => setDeleteTarget(null)} /></Suspense>}
       {hidePrimaryTarget && <ReassignPrimaryDialog bot={hidePrimaryTarget} bots={bots} onConfirm={async (successorId) => { await api.setBotArchived(hidePrimaryTarget.id, true, successorId); setSidebarContextMenu(null); await refreshIndex(); }} onClose={() => setHidePrimaryTarget(null)} />}
-      {viewOnlyChat && <ViewOnlyChat target={viewOnlyChat} bots={bots} card={!isDesktop && !compactViewport} returnFocus={viewOnlyChatTriggerRef.current} onClose={() => setViewOnlyChat(null)} />}
+      {viewOnlyChat && <Suspense fallback={null}><ViewOnlyChat target={viewOnlyChat} bots={bots} card={!isDesktop && !compactViewport} returnFocus={viewOnlyChatTriggerRef.current} onClose={() => setViewOnlyChat(null)} /></Suspense>}
       <FilePreviewHost />
     </div>
   );
 }
-
-function MembersPanel({ conversation, bots, onClose, onOpen, onSaved, onReload, onOpenWork, refreshToken }: {
-  onOpenWork: () => void;
-  refreshToken: number;
-  conversation: Conversation;
-  bots: Bot[];
-  onClose: () => void;
-  onOpen: (id: string) => void;
-  onSaved: (id: string, input: { name?: string; bot_ids?: string[]; expected_bot_ids?: string[]; expected_name?: string }) => Promise<Conversation>;
-  onReload: (id: string) => Promise<Conversation>;
-}) {
-  const { t } = useTranslation("chat");
-  const [name, setName] = useState(conversation.name);
-  const [selectedIds, setSelectedIds] = useState<string[]>(conversation.bot_ids);
-  const [saving, setSaving] = useState(false);
-  const [reloading, setReloading] = useState(false);
-  const [error, setError] = useState("");
-  const [conflict, setConflict] = useState(false);
-  const baselineIds = useRef<string[]>(conversation.bot_ids);
-  const baselineName = useRef(conversation.name);
-  const panelConversationId = useRef(conversation.id);
-
-  // Workspace SSE refreshes replace the Conversation prop. Keep an in-progress
-  // edit intact; a new conversation is the only event that resets this form.
-  useEffect(() => {
-    if (panelConversationId.current !== conversation.id) {
-      panelConversationId.current = conversation.id;
-      setName(conversation.name);
-      setSelectedIds(conversation.bot_ids);
-      baselineIds.current = conversation.bot_ids;
-      baselineName.current = conversation.name;
-      setError("");
-      setConflict(false);
-      return;
-    }
-    // A workspace event should update a pristine panel. Once the user starts
-    // typing/selecting, retain the local draft until save or explicit reload.
-    const localDirty = name.trim() !== baselineName.current || [...selectedIds].sort().join("\u0000") !== [...baselineIds.current].sort().join("\u0000");
-    if (!localDirty && !saving) {
-      setName(conversation.name);
-      setSelectedIds(conversation.bot_ids);
-      baselineIds.current = conversation.bot_ids;
-      baselineName.current = conversation.name;
-      setError("");
-      setConflict(false);
-    }
-  }, [conversation.id, conversation.name, conversation.bot_ids, name, selectedIds, saving]);
-
-  const changed = name.trim() !== baselineName.current || [...selectedIds].sort().join("\u0000") !== [...baselineIds.current].sort().join("\u0000");
-  const valid = name.trim().length > 0 && selectedIds.length >= 2 && selectedIds.length <= 8;
-
-  function toggleMember(id: string) {
-    setError("");
-    setSelectedIds((current) => current.includes(id) ? current.filter((memberId) => memberId !== id) : current.length >= 8 ? current : [...current, id]);
-  }
-
-  async function submit(event: React.FormEvent) {
-    event.preventDefault();
-    if (saving || !valid || !changed) return;
-    setSaving(true);
-    setError("");
-    try {
-      const next = await onSaved(conversation.id, { name: name.trim(), bot_ids: selectedIds, expected_bot_ids: baselineIds.current, expected_name: baselineName.current });
-      setName(next.name);
-      setSelectedIds(next.bot_ids);
-      baselineName.current = next.name;
-      baselineIds.current = next.bot_ids;
-      setConflict(false);
-    } catch (cause) {
-      if (cause instanceof ApiError && cause.status === 409 && cause.code !== "group_busy" && cause.code !== "conversation_busy") {
-        setError(t("members.conflict"));
-        setConflict(true);
-      } else if (cause instanceof ApiError && (cause.status === 423 || cause.code === "group_busy" || cause.code === "conversation_busy")) {
-        setError(t("members.busy"));
-      } else {
-        setError(errorText(cause));
-      }
-    } finally {
-      setSaving(false);
-    }
-  }
-
-  async function reload() {
-    if (saving || reloading) return;
-    setReloading(true);
-    setError("");
-    try {
-      const fresh = await onReload(conversation.id);
-      setName(fresh.name);
-      setSelectedIds(fresh.bot_ids);
-      baselineName.current = fresh.name;
-      baselineIds.current = fresh.bot_ids;
-      setConflict(false);
-    } catch (cause) {
-      setError(errorText(cause));
-    } finally {
-      setReloading(false);
-    }
-  }
-
-  return <div className="detail-content member-details">
-    <div className="detail-heading"><div><h2>{t("members.title")}</h2></div><button className="close-button" aria-label={t("members.close")} disabled={saving || reloading} onClick={onClose}><Icon name="close" size={18} /></button></div>
-    <nav className="bot-v2-rows members-v2-rows" aria-label={t("members.title")}><WorkPreview disabled={saving || reloading} scope={{type:"conversations",id:conversation.id}} refreshToken={refreshToken} onOpen={onOpenWork} leading={<span className="bot-v2-row-icon" aria-hidden="true"><Icon name="checklist" size={18}/></span>}/></nav>
-    <form className="members-manage-form" aria-busy={saving || reloading} onSubmit={(event) => void submit(event)}>
-      <label>{t("members.name")}<input aria-label={t("members.name")} value={name} maxLength={200} disabled={saving || reloading} onChange={(event) => setName(event.target.value)} /></label>
-      <div className="members-manage-label"><span>{t("members.members")}</span><span className="muted small-text">{selectedIds.length}/8</span></div>
-      <div className="member-picker members-manage-picker" aria-label={t("members.pick")}>
-        {bots.filter(bot => !bot.archived || baselineIds.current.includes(bot.id) || selectedIds.includes(bot.id)).map((bot) => <div key={bot.id} className={`member-option member-manage-row ${selectedIds.includes(bot.id) ? "selected" : ""}`}>
-          <label><input type="checkbox" checked={selectedIds.includes(bot.id)} disabled={saving || reloading || (!selectedIds.includes(bot.id) && selectedIds.length >= 8)} onChange={() => toggleMember(bot.id)} />
-          <BotAvatar id={bot.id} mini /><span>{bot.name}</span>{bot.is_primary && <PrimaryBadge />}</label>
-          <button type="button" className="text-button" disabled={saving || reloading} aria-label={t("members.open_dm", { name: bot.name })} onClick={() => onOpen(bot.dm_conversation_id)}>{t("members.dm")}</button>
-        </div>)}
-      </div>
-      <p className="field-note">{t("members.pick_hint")}</p>
-      {error && <div className="members-manage-error" role="alert"><p className="error-text">{error}</p>{conflict && <button type="button" className="secondary-button" disabled={reloading} onClick={() => void reload()}>{reloading ? t("members.reloading") : t("members.reload")}</button>}</div>}
-      <button className="primary-button" disabled={saving || reloading || !valid || !changed}>{saving ? t("action.saving") : t("members.save")}</button>
-    </form>
-  </div>;
-}
-
-
 
 /** Cross-conversation capsules are stored with English labels; show them in the UI language. */
 function localizeMessageRef(content: string) {
@@ -3170,57 +3022,6 @@ function DesktopToolActivityRun({ runId, items, notes, summary: runSummary, summ
     </section>;
 }
 
-export function CodexPanel({ refreshToken, onConfigured }: { refreshToken: number; onConfigured: () => void }) {
-  const { t } = useTranslation("chat");
-  const [connected, setConnected] = useState<boolean | null>(null);
-  const [expiresAt, setExpiresAt] = useState<number | undefined>();
-  const [session, setSession] = useState<{ id: string; url: string; code: string; expiresAt: number } | null>(null);
-  const [working, setWorking] = useState(true);
-  const [statusRefresh, setStatusRefresh] = useState(0);
-  const [error, setError] = useState("");
-  const statusRequest = useRef(0);
-  const [needsReconnect, setNeedsReconnect] = useState(false);
-  const [check, setCheck] = useState<"" | "checking" | "ok" | "unverified">("");
-  useEffect(() => {
-    const request = ++statusRequest.current;
-    setWorking(true); setConnected(null); setExpiresAt(undefined); setError(""); setNeedsReconnect(false); setCheck("");
-    api.codexStatus().then(async (status) => {
-      if (request !== statusRequest.current) return;
-      setConnected(status.connected); setExpiresAt(status.expires_at); setNeedsReconnect(Boolean(status.needs_reconnect));
-      if (!status.connected) return;
-      // A stored credential is not proof the provider still accepts it.
-      setCheck("checking");
-      const verified = await api.codexVerify().catch(() => null);
-      if (request !== statusRequest.current) return;
-      if (!verified) { setCheck("unverified"); return; }
-      setConnected(verified.connected); setExpiresAt(verified.expires_at); setNeedsReconnect(Boolean(verified.needs_reconnect));
-      setCheck(verified.check === "ok" ? "ok" : verified.check === "unverified" ? "unverified" : "");
-      if (verified.check === "rejected") onConfigured();
-    }).catch((cause) => { if (request === statusRequest.current) setError(errorText(cause)); }).finally(() => { if (request === statusRequest.current) setWorking(false); });
-  }, [refreshToken, statusRefresh]);
-  async function connect() {
-    ++statusRequest.current;
-    setWorking(true); setError("");
-    try {
-      const result = await api.codexConnect();
-      const next = { id: result.session_id, url: result.verification_url, code: result.user_code, expiresAt: result.expires_at };
-      setSession(next);
-      const expires = result.expires_at;
-      const delay = Math.max(1000, result.interval * 1000);
-      while (Date.now() < expires) {
-        await new Promise((resolve) => window.setTimeout(resolve, delay));
-        const status = await api.codexPoll(result.session_id);
-        if (status.connected) { setConnected(true); setNeedsReconnect(false); setExpiresAt(status.expires_at); setSession(null); onConfigured(); return; }
-        if (!status.pending) break;
-      }
-      setError(t("codex.session_expired"));
-    } catch (cause) { setError(errorText(cause)); }
-    finally { setWorking(false); }
-  }
-  async function disconnect() { ++statusRequest.current; setWorking(true); setError(""); try { await api.codexDisconnect(); setConnected(false); setExpiresAt(undefined); onConfigured(); } catch (cause) { setError(errorText(cause)); } finally { setWorking(false); } }
-  return <article className="detail-content provider-card" aria-labelledby="codex-provider-title" aria-busy={working}><div className="provider-card-head"><div><h3 id="codex-provider-title">Codex</h3><p>{t("codex.description")}</p></div><span className="provider-card-marks"><StatusBadge state={connected === true ? (needsReconnect ? "bad" : "ok") : connected === false ? "need" : "testing"} /><span className="settings-tag">{t("codex.tag")}</span></span></div><div className={`codex-status ${connected === true ? "connected" : connected === false ? "missing" : "unknown"}`} role="status"><span className="status-dot" />{connected === true ? check === "checking" ? t("codex.verifying") : check === "ok" ? t("codex.connected_verified") : check === "unverified" ? t("codex.connected_unverified") : t("codex.connected") : connected === false ? needsReconnect ? t("codex.needs_reconnect") : t("codex.not_connected") : working ? t("codex.reading_status") : t("codex.status_unknown")}</div>{expiresAt && connected && check !== "unverified" && <p className="field-note">{t("codex.expires", { date: new Date(expiresAt).toLocaleString(intlLocale()) })}</p>}{connected && check === "unverified" && <p className="field-note">{t("codex.unverified_note")} <button className="text-button" onClick={() => setStatusRefresh(value => value + 1)} disabled={working}>{t("codex.reverify")}</button></p>}{session ? <div className="verification-card"><p>{t("codex.enter_code")}</p><code>{session.code}</code><a href={session.url} target="_blank" rel="noreferrer">{t("codex.open_verification")} <Icon name="external-link" size={16} style={{ verticalAlign: "middle" }} /></a></div> : connected === true ? <button className="secondary-button" onClick={() => void disconnect()} disabled={working}>{t("codex.disconnect")}</button> : connected === null ? <button className="secondary-button" onClick={() => setStatusRefresh(value => value + 1)} disabled={working}>{working ? t("codex.reading") : t("codex.retry_status")}</button> : <button className="primary-button" onClick={() => void connect()} disabled={working}>{working ? t("codex.connecting") : needsReconnect ? t("codex.reconnect") : t("codex.connect")}</button>}{error && <p className="error-text">{error}</p>}</article>;
-}
-
 function DictationControls({ elapsed, levels, busy, onCancel, onConfirm }: { elapsed: number; levels: number[]; busy: boolean; onCancel: () => void; onConfirm: () => void }) {
   const { t } = useTranslation("chat");
   const clock = `${Math.floor(elapsed / 60)}:${String(elapsed % 60).padStart(2, "0")}`;
@@ -3627,89 +3428,8 @@ function Composer({ workStatus, activeRun, latestReplyId, onStopRun, avatarMenti
     pane.addEventListener("dragover", over); pane.addEventListener("dragleave", leave); pane.addEventListener("drop", drop);
     return () => { pane.removeEventListener("dragover", over); pane.removeEventListener("dragleave", leave); pane.removeEventListener("drop", drop); };
   });
-  return <form className={`composer${dragging ? " is-dragging" : ""}${!modelConfigured ? " is-no-model" : ""}${!content.trim() && !attachments.length && !sending ? " is-send-empty" : ""}`} onSubmit={(event) => void submit(event)}>{readOnly ? <div className="composer-tools"><span className="config-warning">{t("composer.archived")}</span></div> : !draftReady ? <DelayedFeedback><div className="composer-tools"><span className="config-warning">{t("composer.restoring_draft")}</span></div></DelayedFeedback> : !modelConfigured && <ModelBanner botId={conversation.kind === "dm" ? conversation.bot_id || conversation.bot_ids[0] : undefined} name={conversation.name} onConnect={onConnectModel} />}{dictation.permissionNeeded && <PermissionCoach permissions={["microphone"]} force onDismiss={dictation.clearPermission} />}{!isDesktop && dictation.starting && <div className="dictation-status is-starting" role="status">{t("composer.mic_connecting")}</div>}{dictation.error && !dictation.permissionNeeded && <div className="dictation-status" role="status">{dictation.error}</div>}<input ref={imageRef} type="file" accept="image/*" hidden multiple onChange={(event) => { addFiles(event.target.files); event.currentTarget.value = ""; }} /><input ref={fileRef} type="file" hidden multiple onChange={(event) => { addFiles(event.target.files); event.currentTarget.value = ""; }} />{workStatus}{!isDesktop && <WebFileDropOverlay key={conversation.id} inputRef={textareaRef} enabled={canCompose && !sending && !dictation.listening && !dictation.busy} onDrop={(files, origin) => { dropOrigin.current = { ...origin, name:files[0].name }; addFiles(files); }} />}<div className="composer-row">{!isDesktop && uploadingKey && <span className="web-upload-ring" aria-hidden="true" />}{!isDesktop && !readOnly && conversation.kind === "dm" && (conversation.bot_id || conversation.bot_ids[0]) && <ComposerPerch key={conversation.id} botId={conversation.bot_id || conversation.bot_ids[0]} sending={sending} working={activeRun?.status === "running"} latestReplyId={latestReplyId} />}{!(dictation.listening || dictation.busy) && <div className="composer-add-wrap" ref={addMenuRef}><button type="button" className="secondary-button" aria-label={t("composer.add_attachment")} aria-expanded={addMenuOpen} aria-haspopup="menu" disabled={sending || !canCompose} onClick={() => setAddMenuOpen((open) => !open)}><Icon name="plus" size={22} /></button>{addMenuOpen && <div className="composer-add-menu" role="menu"><button type="button" role="menuitem" onClick={() => { setAddMenuOpen(false); imageRef.current?.click(); }}><Icon className="composer-add-icon" name="image" size={20} />{t("composer.image")}<kbd>⌘⇧I</kbd></button><button type="button" role="menuitem" onClick={() => { setAddMenuOpen(false); fileRef.current?.click(); }}><Icon className="composer-add-icon" name="file" size={20} />{t("composer.file")}<kbd>⌘⇧F</kbd></button><button type="button" role="menuitem" onClick={() => void captureScreen()}><span className="composer-add-icon"><ComposerGlyph name="screenshot" size={20} /></span>{t("composer.screenshot")}</button><p>{t("composer.drop_hint")}</p></div>}</div>}<div ref={mentionWrapRef} className={`composer-input-wrap${mentionParts ? " has-mentions" : ""}`}>{reply && !readOnly && <div className="composer-reply" role="status"><Icon name="reply" size={15} /><span className="composer-reply-copy"><strong>{t("composer.replying_to", { name: reply.name })}</strong><span>{reply.excerpt}</span></span><button type="button" aria-label={t("composer.cancel_reply")} data-hint={t("composer.cancel_reply")} onClick={() => { onDraftChange(current => ({ ...current, reply: undefined })); textareaRef.current?.focus(); }}><Icon name="close" size={14} /></button></div>}{attachments.length > 0 && <div className="composer-attachments">{attachments.map((attachment) => <span key={attachment.key} className="composer-attachment-pill" data-name={attachment.name}><span className="composer-attachment-type" aria-hidden="true">{attachment.type.startsWith("image/") ? "IMG" : (attachment.name.split(".").pop() || "FILE").slice(0, 4).toUpperCase()}</span><span className="composer-attachment-name">{attachment.name}</span>{uploadingKey === attachment.key && ` · ${t("composer.uploading")}`}{!attachment.file && !attachment.id && ` · ${t("composer.reselect")}`}<button type="button" aria-label={t("composer.remove_attachment", { name: attachment.name })} disabled={sending || !canCompose || dictation.listening || dictation.busy} onClick={() => onDraftChange((current) => ({ ...current, attachments: current.attachments.filter((item) => item.key !== attachment.key) }))}><Icon name="close" size={18} /></button></span>)}</div>}{mentionParts && <div className="composer-rich-text" aria-hidden="true"><div style={{ transform:`translateY(-${composerScrollTop}px)` }}>{mentionParts}</div></div>}<textarea ref={textareaRef} aria-label={t("composer.input_label", { name: conversation.name })} value={content} onPaste={event => { const files = Array.from(event.clipboardData.items).filter(item => item.kind === "file").map(item => item.getAsFile()).filter((file): file is File => file !== null); if (files.length) { event.preventDefault(); addFiles(files); } }} onKeyDown={handleKeyDown} onScroll={(event) => setComposerScrollTop(event.currentTarget.scrollTop)} onBlur={() => flushContent()} onChange={(event) => updateContent(event.target.value, event.target.selectionStart)} placeholder={dictation.listening ? t("composer.placeholder_recording") : dictation.busy ? t("composer.placeholder_transcribing") : readOnly ? t("composer.placeholder_archived") : !draftReady ? t("composer.placeholder", { name: conversation.name }) : canCompose ? t("composer.placeholder", { name: conversation.name }) : t("composer.placeholder_no_model")} disabled={!canCompose || sending || dictation.listening || dictation.busy} rows={1} />{mentionQuery !== null && mentionMatches.length > 0 && <div ref={mentionMenuRef} className="mention-menu" role="listbox" aria-label={isDesktop ? undefined : t("composer.mention_label", { name: conversation.name })} style={!isDesktop && mentionAnchor ? { left:mentionAnchor.left, bottom:mentionAnchor.bottom } : undefined}>{!isDesktop && <div className="mention-menu-heading" role="presentation">{t("composer.mention_heading", { name: conversation.name })}</div>}{!isDesktop && mentionPill && <span className="web-mention-pill" aria-hidden="true" style={{ top:mentionPill.top, height:mentionPill.height }} />}{mentionMatches.map((bot, index) => <button type="button" role="option" aria-selected={index === mentionIndex} className={index === mentionIndex ? "selected" : ""} key={bot.id} onMouseEnter={() => setMentionIndex(index)} onMouseDown={(event) => { event.preventDefault(); chooseMention(bot); }}><BotAvatar id={bot.id} mini /><span className="mention-name">{mentionQuery && bot.name.toLocaleLowerCase().startsWith(mentionQuery.toLocaleLowerCase()) ? <><mark>{bot.name.slice(0, mentionQuery.length)}</mark>{bot.name.slice(mentionQuery.length)}</> : bot.name}</span></button>)}{!isDesktop && <div className="mention-menu-hint" role="presentation">{t("composer.mention_hint")}</div>}</div>}</div>{dictation.listening || dictation.busy ? <DictationControls elapsed={dictation.elapsed} levels={dictation.levels} busy={dictation.busy} onCancel={dictation.cancel} onConfirm={dictation.confirm} /> : <>{dictation.supported && <button type="button" className={`dictation-button${!isDesktop && dictation.starting ? " is-starting" : ""}`} aria-label={!isDesktop && dictation.starting ? t("composer.cancel_mic") : t("composer.dictate")} title={!isDesktop && dictation.starting ? t("composer.cancel_mic") : dictation.notice || t("composer.dictate")} disabled={!dictation.starting && (sending || !canCompose)} onClick={!isDesktop && dictation.starting ? dictation.cancel : dictation.start}><ComposerGlyph name="mic" size={20} /></button>}{activeRun && !readOnly && !content.trim() && !attachments.length && <button type="button" className="composer-stop" aria-label={t("composer.stop_label", { name: bots.find(bot => bot.id === activeRun.bot_id)?.name ?? "Bot" })} disabled={!canCompose} onClick={() => void onStopRun(activeRun.id)}><Icon name="stop" size={16} variant="filled" />{t("composer.stop")}</button>}{(Boolean(content.trim()) || attachments.length > 0 || sending) && <button className="send-button" aria-label={t("composer.send")} disabled={(!content.trim() && !attachments.length) || !canCompose || sending || dictation.listening || dictation.busy}>{sending ? "…" : <Icon name="arrow-up" size={26} variant="filled" />}</button>}</>}</div>{fileError && <div className="error-text" role="alert">{fileError}</div>}</form>;
+  return <form className={`composer${dragging ? " is-dragging" : ""}${!modelConfigured ? " is-no-model" : ""}${!content.trim() && !attachments.length && !sending ? " is-send-empty" : ""}`} onSubmit={(event) => void submit(event)}>{readOnly ? <div className="composer-tools"><span className="config-warning">{t("composer.archived")}</span></div> : !draftReady ? <DelayedFeedback><div className="composer-tools"><span className="config-warning">{t("composer.restoring_draft")}</span></div></DelayedFeedback> : !modelConfigured && <ModelBanner botId={conversation.kind === "dm" ? conversation.bot_id || conversation.bot_ids[0] : undefined} name={conversation.name} onConnect={onConnectModel} />}{dictation.permissionNeeded && <Suspense fallback={null}><PermissionCoach permissions={["microphone"]} force onDismiss={dictation.clearPermission} /></Suspense>}{!isDesktop && dictation.starting && <div className="dictation-status is-starting" role="status">{t("composer.mic_connecting")}</div>}{dictation.error && !dictation.permissionNeeded && <div className="dictation-status" role="status">{dictation.error}</div>}<input ref={imageRef} type="file" accept="image/*" hidden multiple onChange={(event) => { addFiles(event.target.files); event.currentTarget.value = ""; }} /><input ref={fileRef} type="file" hidden multiple onChange={(event) => { addFiles(event.target.files); event.currentTarget.value = ""; }} />{workStatus}{!isDesktop && <WebFileDropOverlay key={conversation.id} inputRef={textareaRef} enabled={canCompose && !sending && !dictation.listening && !dictation.busy} onDrop={(files, origin) => { dropOrigin.current = { ...origin, name:files[0].name }; addFiles(files); }} />}<div className="composer-row">{!isDesktop && uploadingKey && <span className="web-upload-ring" aria-hidden="true" />}{!isDesktop && !readOnly && conversation.kind === "dm" && (conversation.bot_id || conversation.bot_ids[0]) && <ComposerPerch key={conversation.id} botId={conversation.bot_id || conversation.bot_ids[0]} sending={sending} working={activeRun?.status === "running"} latestReplyId={latestReplyId} />}{!(dictation.listening || dictation.busy) && <div className="composer-add-wrap" ref={addMenuRef}><button type="button" className="secondary-button" aria-label={t("composer.add_attachment")} aria-expanded={addMenuOpen} aria-haspopup="menu" disabled={sending || !canCompose} onClick={() => setAddMenuOpen((open) => !open)}><Icon name="plus" size={22} /></button>{addMenuOpen && <div className="composer-add-menu" role="menu"><button type="button" role="menuitem" onClick={() => { setAddMenuOpen(false); imageRef.current?.click(); }}><Icon className="composer-add-icon" name="image" size={20} />{t("composer.image")}<kbd>⌘⇧I</kbd></button><button type="button" role="menuitem" onClick={() => { setAddMenuOpen(false); fileRef.current?.click(); }}><Icon className="composer-add-icon" name="file" size={20} />{t("composer.file")}<kbd>⌘⇧F</kbd></button><button type="button" role="menuitem" onClick={() => void captureScreen()}><span className="composer-add-icon"><ComposerGlyph name="screenshot" size={20} /></span>{t("composer.screenshot")}</button><p>{t("composer.drop_hint")}</p></div>}</div>}<div ref={mentionWrapRef} className={`composer-input-wrap${mentionParts ? " has-mentions" : ""}`}>{reply && !readOnly && <div className="composer-reply" role="status"><Icon name="reply" size={15} /><span className="composer-reply-copy"><strong>{t("composer.replying_to", { name: reply.name })}</strong><span>{reply.excerpt}</span></span><button type="button" aria-label={t("composer.cancel_reply")} data-hint={t("composer.cancel_reply")} onClick={() => { onDraftChange(current => ({ ...current, reply: undefined })); textareaRef.current?.focus(); }}><Icon name="close" size={14} /></button></div>}{attachments.length > 0 && <div className="composer-attachments">{attachments.map((attachment) => <span key={attachment.key} className="composer-attachment-pill" data-name={attachment.name}><span className="composer-attachment-type" aria-hidden="true">{attachment.type.startsWith("image/") ? "IMG" : (attachment.name.split(".").pop() || "FILE").slice(0, 4).toUpperCase()}</span><span className="composer-attachment-name">{attachment.name}</span>{uploadingKey === attachment.key && ` · ${t("composer.uploading")}`}{!attachment.file && !attachment.id && ` · ${t("composer.reselect")}`}<button type="button" aria-label={t("composer.remove_attachment", { name: attachment.name })} disabled={sending || !canCompose || dictation.listening || dictation.busy} onClick={() => onDraftChange((current) => ({ ...current, attachments: current.attachments.filter((item) => item.key !== attachment.key) }))}><Icon name="close" size={18} /></button></span>)}</div>}{mentionParts && <div className="composer-rich-text" aria-hidden="true"><div style={{ transform:`translateY(-${composerScrollTop}px)` }}>{mentionParts}</div></div>}<textarea ref={textareaRef} aria-label={t("composer.input_label", { name: conversation.name })} value={content} onPaste={event => { const files = Array.from(event.clipboardData.items).filter(item => item.kind === "file").map(item => item.getAsFile()).filter((file): file is File => file !== null); if (files.length) { event.preventDefault(); addFiles(files); } }} onKeyDown={handleKeyDown} onScroll={(event) => setComposerScrollTop(event.currentTarget.scrollTop)} onBlur={() => flushContent()} onChange={(event) => updateContent(event.target.value, event.target.selectionStart)} placeholder={dictation.listening ? t("composer.placeholder_recording") : dictation.busy ? t("composer.placeholder_transcribing") : readOnly ? t("composer.placeholder_archived") : !draftReady ? t("composer.placeholder", { name: conversation.name }) : canCompose ? t("composer.placeholder", { name: conversation.name }) : t("composer.placeholder_no_model")} disabled={!canCompose || sending || dictation.listening || dictation.busy} rows={1} />{mentionQuery !== null && mentionMatches.length > 0 && <div ref={mentionMenuRef} className="mention-menu" role="listbox" aria-label={isDesktop ? undefined : t("composer.mention_label", { name: conversation.name })} style={!isDesktop && mentionAnchor ? { left:mentionAnchor.left, bottom:mentionAnchor.bottom } : undefined}>{!isDesktop && <div className="mention-menu-heading" role="presentation">{t("composer.mention_heading", { name: conversation.name })}</div>}{!isDesktop && mentionPill && <span className="web-mention-pill" aria-hidden="true" style={{ top:mentionPill.top, height:mentionPill.height }} />}{mentionMatches.map((bot, index) => <button type="button" role="option" aria-selected={index === mentionIndex} className={index === mentionIndex ? "selected" : ""} key={bot.id} onMouseEnter={() => setMentionIndex(index)} onMouseDown={(event) => { event.preventDefault(); chooseMention(bot); }}><BotAvatar id={bot.id} mini /><span className="mention-name">{mentionQuery && bot.name.toLocaleLowerCase().startsWith(mentionQuery.toLocaleLowerCase()) ? <><mark>{bot.name.slice(0, mentionQuery.length)}</mark>{bot.name.slice(mentionQuery.length)}</> : bot.name}</span></button>)}{!isDesktop && <div className="mention-menu-hint" role="presentation">{t("composer.mention_hint")}</div>}</div>}</div>{dictation.listening || dictation.busy ? <DictationControls elapsed={dictation.elapsed} levels={dictation.levels} busy={dictation.busy} onCancel={dictation.cancel} onConfirm={dictation.confirm} /> : <>{dictation.supported && <button type="button" className={`dictation-button${!isDesktop && dictation.starting ? " is-starting" : ""}`} aria-label={!isDesktop && dictation.starting ? t("composer.cancel_mic") : t("composer.dictate")} title={!isDesktop && dictation.starting ? t("composer.cancel_mic") : dictation.notice || t("composer.dictate")} disabled={!dictation.starting && (sending || !canCompose)} onClick={!isDesktop && dictation.starting ? dictation.cancel : dictation.start}><ComposerGlyph name="mic" size={20} /></button>}{activeRun && !readOnly && !content.trim() && !attachments.length && <button type="button" className="composer-stop" aria-label={t("composer.stop_label", { name: bots.find(bot => bot.id === activeRun.bot_id)?.name ?? "Bot" })} disabled={!canCompose} onClick={() => void onStopRun(activeRun.id)}><Icon name="stop" size={16} variant="filled" />{t("composer.stop")}</button>}{(Boolean(content.trim()) || attachments.length > 0 || sending) && <button className="send-button" aria-label={t("composer.send")} disabled={(!content.trim() && !attachments.length) || !canCompose || sending || dictation.listening || dictation.busy}>{sending ? "…" : <Icon name="arrow-up" size={26} variant="filled" />}</button>}</>}</div>{fileError && <div className="error-text" role="alert">{fileError}</div>}</form>;
 }
-function BotPanel({ bots, activeBot, onExportData, onClose, onUpdate, onCreateGroup, onOpenWork, onOpenMemory, onMakePrimary, memories = [], refreshToken = 0 }: { onMakePrimary?: (id: string) => Promise<void>; onExportData?: (id: string) => void; onOpenWork?: () => void; onOpenMemory?: () => void; memories?: Memory[]; refreshToken?: number; bots: Bot[]; activeBot?: Bot; onClose: () => void; onUpdate: (id: string, input: Partial<Pick<Bot, "name" | "instructions" | "model" | "reasoning_effort">>) => Promise<void>; onCreateGroup: (name: string, botIds: string[]) => Promise<void> }) {
-  const { t } = useTranslation("chat");
-  const mode = activeBot ? "bot" : "group";
-  const [view, setView] = useState<"home" | "appearance" | "config">("home");
-  const [name, setName] = useState(activeBot?.name ?? "");
-  const [instructions, setInstructions] = useState(activeBot?.instructions ?? "");
-  const [model, setModel] = useState(activeBot?.model ?? "");
-  const [effort, setEffort] = useState(activeBot?.reasoning_effort ?? "");
-  const [avatarConfig, setAvatarConfig] = useState(() => activeBot ? getBotAvatarConfig(activeBot.id) : undefined);
-  const [members, setMembers] = useState<string[]>([]);
-  useEffect(() => {
-    const available = new Set(bots.map(bot => bot.id));
-    setMembers(current => current.every(id => available.has(id)) ? current : current.filter(id => available.has(id)));
-  }, [bots]);
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState("");
-  const valid = Boolean(name.trim()) && (mode === "bot" || members.length >= 2 && members.length <= 8);
-  async function submit(event: React.FormEvent) {
-    event.preventDefault(); if (!valid || saving) return;
-    setSaving(true); setError("");
-    try {
-      if (mode === "group") await onCreateGroup(name.trim(), members);
-      else if (activeBot) await onUpdate(activeBot.id, { name: name.trim(), instructions, model, reasoning_effort: effort });
-    } catch (cause) { setError(errorText(cause)); }
-    finally { setSaving(false); }
-  }
-  if (activeBot) {
-    const role = instructions.trim().split(/[\n\u3002\uFF01\uFF1F.!?]/)[0]?.trim();
-    // "default" is a stored sentinel; show what the Bot runs with now.
-    const follows = followsGlobal(activeBot.model);
-    const modelLine = follows ? (activeBot.effective_model ? `${t("botPanel.follows_global")} · ${activeBot.effective_model}` : t("botPanel.follows_global")) : activeBot.model;
-    const shownEffort = activeBot.effective_reasoning_effort || (activeBot.reasoning_effort !== "default" ? activeBot.reasoning_effort : "");
-    const effortLabel = shownEffort ? ` · ${shownEffort}` : "";
-    const latestMemoryDisplay = memories.length ? memoryDisplay(memories.at(-1)) : undefined;
-    const latestMemory = latestMemoryDisplay ? `${latestMemoryDisplay.title} · ${latestMemoryDisplay.description}` : undefined;
-    return <div className="detail-content bot-v2-panel">
-      <div className="detail-heading bot-v2-heading">
-        {view === "home" ? <h2>{t("botPanel.title")}</h2> : <button type="button" className="bot-v2-back" onClick={() => setView("home")}><Icon name="arrow-left" size={18}/> {t("botPanel.back")}</button>}
-        <button className="close-button" aria-label={t("botPanel.close")} data-hint={t("botPanel.close_hint")} onClick={onClose}><Icon name="close" size={18} /></button>
-      </div>
-      {view === "home" ? <>
-        {/* One entry per destination: the cat opens its style, each row opens one page. */}
-        <div className="bot-v2-profile">
-          <button type="button" className="bot-v2-hero" onClick={() => setView("appearance")} aria-label={t("botPanel.change_style_label", { name: activeBot.name })} data-hint={t("botPanel.change_style")}>
-            <span className="bot-v2-cat"><BotAvatar id={activeBot.id} config={avatarConfig} motion="awake" /></span>
-            <span className="bot-v2-change" aria-hidden="true"><Icon name="edit" size={13}/></span>
-          </button>
-          <div className="bot-v2-identity"><h2>{activeBot.name}</h2>{role && <p>{role}</p>}<span className="bot-v2-model">{modelLine}{effortLabel}</span></div>
-        </div>
-        <nav className="bot-v2-rows" aria-label={t("botPanel.title")}>
-          {onOpenWork && <WorkPreview disabled={saving} scope={{type:"bots",id:activeBot.id}} refreshToken={refreshToken} onOpen={onOpenWork} leading={<span className="bot-v2-row-icon" aria-hidden="true"><Icon name="checklist" size={18}/></span>}/>}
-          {onOpenMemory && <button type="button" className="bot-v2-row" onClick={onOpenMemory}><span className="bot-v2-row-icon" aria-hidden="true"><Icon name="memory" size={18}/></span><span className="bot-v2-row-copy"><strong>{t("botPanel.memory")} <span>{memories.length}</span></strong><small>{latestMemory ?? t("botPanel.no_memory")}</small></span><Icon name="chevron-right" size={16}/></button>}
-          <button type="button" className="bot-v2-row" onClick={() => setView("config")}><span className="bot-v2-row-icon" aria-hidden="true"><Icon name="bot-config" size={18}/></span><span className="bot-v2-row-copy"><strong>{t("botPanel.config")}</strong><small>{role || t("botPanel.no_role")}</small></span><Icon name="chevron-right" size={16}/></button>
-        </nav>
-        {(activeBot.is_primary || (onMakePrimary && !activeBot.archived)) && <div className="bot-v2-primary">{activeBot.is_primary ? <><PrimaryBadge /><span className="muted small-text">{t("primary.bot_panel_note")}</span></> : <button type="button" className="text-button" onClick={() => void onMakePrimary?.(activeBot.id)}>{t("primary.make")}</button>}</div>}
-        <div className="bot-v2-footer"><button type="button" className="text-button" onClick={() => downloadBotPackage(buildBotPackage(activeBot))}><Icon name="share" size={15}/> {t("botPanel.export_share")}</button><button type="button" className="text-button" onClick={() => onExportData?.(activeBot.id)}>{t("botPanel.export_data")}</button></div>
-      </> : view === "appearance" ? <><div className="bot-v2-subtitle"><h2>{t("botPanel.style")}</h2><p>{t("botPanel.style_hint")}</p></div><BotAvatarPicker botId={activeBot.id} config={avatarConfig!} onChange={(next) => setAvatarConfig(saveBotAvatarConfig(activeBot.id, next))}/><button type="button" className="primary-button bot-v2-done" onClick={() => setView("home")}>{t("botPanel.done")}</button></> : <><div className="bot-v2-subtitle"><h2>{t("botPanel.config")}</h2><p>{t("botPanel.config_hint")}</p></div><form className="detail-form" aria-busy={saving} onSubmit={(event) => void submit(event)}><fieldset className="form-fields" disabled={saving}><label>{t("botPanel.name")}<input value={name} maxLength={200} onChange={(event) => setName(event.target.value)}/></label><label>{t("botPanel.instructions")}<textarea value={instructions} onChange={(event) => setInstructions(event.target.value)} placeholder={t("botPanel.instructions_placeholder")} rows={6}/></label><Disclosure title={t("botPanel.model_section")}><ModelFields disabled={saving} model={model} effort={effort} onChange={(next,level)=>{setModel(next);setEffort(level)}}/></Disclosure>{error && <p className="error-text" role="alert">{error}</p>}<button className="primary-button" disabled={!valid || saving}>{saving ? t("action.saving") : t("botPanel.save")}</button></fieldset></form><BotInspector botId={activeBot.id}/></>}
-    </div>;
-  }
-  return <div className="detail-content">
-    <div className="detail-heading"><h2>{t("create.new_group")}</h2><button className="close-button" aria-label={t("groupCreate.close")} disabled={saving} onClick={onClose}><Icon name="close" size={18} /></button></div>
-    <form className="detail-form" aria-busy={saving} onSubmit={(event) => void submit(event)}>
-      <fieldset className="form-fields" disabled={saving}>
-        <label>{t("botPanel.name")}<input value={name} maxLength={200} onChange={(event) => setName(event.target.value)} placeholder={t("members.name")} /></label>
-          <div className="members-manage-label"><span>{t("members.members")}</span><span className="muted small-text">{members.length}/8</span></div>
-          <div className="member-picker create-member-picker">{bots.map((bot) => <label key={bot.id} className={`member-option ${members.includes(bot.id) ? "selected" : ""}`}>
-            <BotAvatar id={bot.id} mini /><span>{bot.name}</span><input type="checkbox" checked={members.includes(bot.id)} disabled={!members.includes(bot.id) && members.length >= 8} onChange={() => setMembers((current) => current.includes(bot.id) ? current.filter((id) => id !== bot.id) : [...current, bot.id])} />
-          </label>)}</div><p className="field-note">{t("members.pick_hint")}</p>
-        {error && <p className="error-text" role="alert">{error}</p>}
-        <button className="primary-button" disabled={!valid || saving}>{saving ? t("action.saving") : t("groupCreate.create")}</button>
-      </fieldset>
-    </form>
-  </div>;
-}
-
 
 export default App;
 export { WorkingMembers, Composer, DictationControls, WebToolActivityRun };
-
-export function NotificationSetting() {
-  const { t } = useTranslation("chat");
-  const [permission, setPermission] = useState("Notification" in window ? Notification.permission : "unsupported");
-  return <div className="notification-setting"><strong>{t("notifications.title")}</strong><p className="field-note">{t("notifications.description")}</p>{permission === "default" ? <button className="secondary-button" onClick={() => void Notification.requestPermission().then(setPermission)}>{t("notifications.enable")}</button> : <p className="notification-status" role="status">{permission === "granted" ? t("notifications.on") : permission === "unsupported" ? t("notifications.unsupported") : t("notifications.off")}</p>}</div>;
-}

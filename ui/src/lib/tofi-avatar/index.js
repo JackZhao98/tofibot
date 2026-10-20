@@ -154,6 +154,56 @@ function cancelFrame(id){
   pendingFrames.delete(id);
   if(!pendingFrames.size&&pumpId){cancelAnimationFrame(pumpId);pumpId=0;}
 }
+// Idle pause. With no keyboard, pointer, wheel or touch input for IDLE_PAUSE_MS every cat settles into its rest
+// pose and stops its life layer (breath, blink, gaze drift, ear twitch, autoplay); the shared pump then has nothing
+// to schedule, so an unattended window costs no frames. The next input resumes them within a frame. Clips that are
+// playing (a Bot at work, a sleep or wake) are not part of the life layer and keep running.
+export const IDLE_PAUSE_MS=20000;
+const IDLE_INPUT_EVENTS=['pointerdown','pointermove','keydown','wheel','touchstart'];
+const idleCats=new Set();
+let idleAfter=IDLE_PAUSE_MS,idlePaused=false,lastInput=0,idleTimer=0;
+const nowMs=()=>typeof performance!=='undefined'?performance.now():Date.now();
+function onIdleInput(){
+  lastInput=nowMs();
+  if(!idlePaused)return;
+  idlePaused=false;
+  // The check that paused us is spent; arm the next one before the cats start up again.
+  if(!idleTimer)idleTimer=setTimeout(idleCheck,idleAfter);
+  for(const cat of [...idleCats])cat.resume();
+}
+function idleCheck(){
+  idleTimer=0;
+  if(!idleCats.size)return;
+  const left=idleAfter-(nowMs()-lastInput);
+  if(left>0){idleTimer=setTimeout(idleCheck,left+5);return;}
+  idlePaused=true;
+  for(const cat of [...idleCats])cat.pause();
+}
+function joinIdle(cat){
+  if(typeof document==='undefined')return;
+  if(!idleCats.size){
+    lastInput=nowMs();idlePaused=false;
+    for(const type of IDLE_INPUT_EVENTS)document.addEventListener(type,onIdleInput,{capture:true,passive:true});
+    idleTimer=setTimeout(idleCheck,idleAfter);
+  }
+  idleCats.add(cat);
+}
+function leaveIdle(cat){
+  if(!idleCats.delete(cat)||idleCats.size)return;
+  clearTimeout(idleTimer);idleTimer=0;idlePaused=false;
+  for(const type of IDLE_INPUT_EVENTS)document.removeEventListener(type,onIdleInput,{capture:true});
+}
+/** Test hook: how long without input before cats settle. Applies to the next pause check. */
+export function setIdlePauseDelay(ms=IDLE_PAUSE_MS){
+  idleAfter=ms;
+  if(idleCats.size){clearTimeout(idleTimer);idleTimer=setTimeout(idleCheck,Math.max(0,idleAfter-(nowMs()-lastInput))+5);}
+}
+export function isIdlePaused(){return idlePaused;}
+// Motion hold. A page-level transition (phone push, a panel opening) needs every frame it can get, and a cat's breath
+// is not worth a 24 fps SVG rewrite next to it. While held, life ticks keep their slot but write nothing; the cat
+// carries on from where it was once the hold lapses. Clips are never held.
+let holdUntil=0;
+export function holdAvatarLife(ms){holdUntil=Math.max(holdUntil,nowMs()+ms);}
 export function mountCat(host,options={}){
   if(!host||typeof host.append!=='function')throw new Error('mountCat requires a DOM element');
   let config=normalizeConfig(options),shape=shapes[config.shape];
@@ -178,6 +228,8 @@ export function mountCat(host,options={}){
   const rnd=(a,b)=>a+Math.random()*(b-a);
   let inView=true;
   const canAnimate=()=>!document.hidden&&inView;
+  // The life layer alone also waits for input after a long idle (see joinIdle); clips are never held by it.
+  const canLife=()=>canAnimate()&&!idlePaused;
   const uid='tofi-avatar-'+(++instance)+'-'+Math.random().toString(36).slice(2,9);
   function alive(){if(destroyed)throw new Error('This cat avatar has been destroyed');}
   function getState(){
@@ -313,6 +365,7 @@ export function mountCat(host,options={}){
     lifeRaf=0;lastStepAt=now;
     if(destroyed||job||!lifeOn||reduced())return;
     if(lifeT0===null)lifeT0=now;
+    if(nowMs()<holdUntil){if(canLife())lifeRaf=scheduleFrame(lifeTick,nextDue());return;}
     const t=(now-lifeT0)/1000*speed;
     if(auto&&t>nextAuto){
       const pool=(performances[shape.key].director||{})[idle];
@@ -327,9 +380,9 @@ export function mountCat(host,options={}){
     const off=lifeOffset(t);
     const ramp=Math.min(1,t/.9),rr=ramp*ramp*(3-2*ramp);
     soft(Object.fromEntries(fields.map(k=>[k,base[k]+off[k]*(k==='o'||k==='lid'?1:rr)])));
-    if(canAnimate())lifeRaf=scheduleFrame(lifeTick,nextDue());
+    if(canLife())lifeRaf=scheduleFrame(lifeTick,nextDue());
   }
-  function startLife(){if(!lifeRaf&&lifeOn&&!job&&!destroyed&&canAnimate()&&!reduced()){lifeT0=null;drift=0;driftTo=0;nextBlink=rnd(.8,2.5);nextTwitch=rnd(2,5);nextAuto=rnd(...((performances[shape.key].director||{}).every||[4,9]))*.6;lifeRaf=scheduleFrame(lifeTick,nextDue());}}
+  function startLife(){if(!lifeRaf&&lifeOn&&!job&&!destroyed&&canLife()&&!reduced()){lifeT0=null;drift=0;driftTo=0;nextBlink=rnd(.8,2.5);nextTwitch=rnd(2,5);nextAuto=rnd(...((performances[shape.key].director||{}).every||[4,9]))*.6;lifeRaf=scheduleFrame(lifeTick,nextDue());}}
   function stopLife(){cancelFrame(lifeRaf);lifeRaf=0;}
   function limbs(q){
     const L=(performances[shape.key].limbs||{}).L||20,u=clamp(q.u||0),h=clamp(q.h||0),lift=u*L;
@@ -561,14 +614,22 @@ export function mountCat(host,options={}){
     exportSVG(){alive();const copy=svg.cloneNode(true);copy.setAttribute('width','320');copy.setAttribute('height','320');return new XMLSerializer().serializeToString(copy);},
     destroy(){
       if(destroyed)return;
-      cancel('destroyed');stopLife();destroyed=true;
+      cancel('destroyed');stopLife();destroyed=true;leaveIdle(idleHandle);
       document.removeEventListener('visibilitychange',visibility);
       media.removeEventListener('change',motionPreference);
       observer?.disconnect();
       svg.remove();
     }
   };
+  const idleHandle={
+    pause(){
+      stopLife();
+      if(!job&&!destroyed&&lifeOn)render({...rest,o:idle==='awake'?1:0,k:idle==='awake'?0:1});
+    },
+    resume(){if(!job&&!destroyed)startLife();}
+  };
   scene();render(current);
+  joinIdle(idleHandle);
   document.addEventListener('visibilitychange',visibility);
   media.addEventListener('change',motionPreference);
   observer?.observe(host);
