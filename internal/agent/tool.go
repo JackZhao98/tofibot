@@ -4,6 +4,7 @@ import (
 	"context"
 	"sort"
 	"strings"
+	"sync"
 
 	"github.com/JackZhao98/tofibot/internal/provider"
 )
@@ -51,6 +52,7 @@ type ToolRegistry struct {
 	tools     map[string]ToolDef
 	order     []string        // preserves registration order
 	activated map[string]bool // deferred tools that have been activated
+	actMu     sync.RWMutex    // tools run in parallel and may activate each other's peers
 }
 
 // NewToolRegistry creates an empty tool registry.
@@ -97,7 +99,7 @@ func (r *ToolRegistry) ActiveSchemas() []provider.Tool {
 	schemas := make([]provider.Tool, 0, len(r.order))
 	for _, name := range r.order {
 		tool := r.tools[name]
-		if !tool.Deferred() || r.activated[name] {
+		if !tool.Deferred() || r.IsActivated(name) {
 			schemas = append(schemas, tool.Schema())
 		}
 	}
@@ -111,7 +113,7 @@ func (r *ToolRegistry) ActivatedDeferredSchemas() []provider.Tool {
 	var schemas []provider.Tool
 	for _, name := range r.order {
 		tool := r.tools[name]
-		if tool.Deferred() && r.activated[name] {
+		if tool.Deferred() && r.IsActivated(name) {
 			schemas = append(schemas, tool.Schema())
 		}
 	}
@@ -123,7 +125,7 @@ func (r *ToolRegistry) DeferredTools() []ToolDef {
 	var result []ToolDef
 	for _, name := range r.order {
 		tool := r.tools[name]
-		if tool.Deferred() && !r.activated[name] {
+		if tool.Deferred() && !r.IsActivated(name) {
 			result = append(result, tool)
 		}
 	}
@@ -133,12 +135,42 @@ func (r *ToolRegistry) DeferredTools() []ToolDef {
 // Activate marks a deferred tool as active so its schema is included in ActiveSchemas().
 func (r *ToolRegistry) Activate(name string) {
 	if _, ok := r.tools[name]; ok {
+		r.actMu.Lock()
 		r.activated[name] = true
+		r.actMu.Unlock()
 	}
+}
+
+type toolActivatorKey struct{}
+
+// WithToolActivator lets a tool executing under ctx declare deferred tools of
+// the same run (see ActivateTools).
+func WithToolActivator(ctx context.Context, r *ToolRegistry) context.Context {
+	return context.WithValue(ctx, toolActivatorKey{}, r)
+}
+
+// ActivateTools declares the named deferred tools to the model from its next
+// call on and returns the names that were deferred tools of this run. Names
+// that are unknown or already declared are skipped. It is a no-op outside a run.
+func ActivateTools(ctx context.Context, names ...string) []string {
+	r, _ := ctx.Value(toolActivatorKey{}).(*ToolRegistry)
+	if r == nil {
+		return nil
+	}
+	var done []string
+	for _, name := range names {
+		if t := r.tools[name]; t != nil && t.Deferred() {
+			r.Activate(name)
+			done = append(done, name)
+		}
+	}
+	return done
 }
 
 // IsActivated returns true if a deferred tool has been activated.
 func (r *ToolRegistry) IsActivated(name string) bool {
+	r.actMu.RLock()
+	defer r.actMu.RUnlock()
 	return r.activated[name]
 }
 

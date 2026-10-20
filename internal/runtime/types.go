@@ -56,6 +56,10 @@ type Tool struct {
 	// "name" argument. It resolves exactly as the dispatcher itself would and
 	// must fail closed (ok=false) for unknown or ambiguous names.
 	ResolveDirectName func(ctx context.Context, name string) (string, bool)
+	// Deferred keeps the tool executable but out of the declared tool list
+	// until another tool of the run calls ActivateTools for it. Use it for
+	// tools that matter rarely, so every turn does not carry their schemas.
+	Deferred bool
 }
 
 // ToolEvent describes one provider tool call and its lifecycle. Arguments and
