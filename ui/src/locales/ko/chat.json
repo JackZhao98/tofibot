@@ -204,7 +204,8 @@
     "clipboard_unavailable": "이 브라우저에서는 링크를 복사할 수 없습니다. 주소 표시줄에서 복사하세요.",
     "generic": "작업에 실패했습니다. 잠시 후 다시 시도하세요.",
     "group_unavailable": "그룹이 없거나 더 이상 사용할 수 없습니다.",
-    "service_unavailable": "서비스를 사용할 수 없습니다. 잠시 후 다시 시도하세요."
+    "service_unavailable": "서비스를 사용할 수 없습니다. 잠시 후 다시 시도하세요.",
+    "network_unreachable": "서버에 연결할 수 없습니다. 요청이 전송되지 않았습니다. 연결이 복구되면 다시 시도하세요."
   },
   "groupCreate": {
     "close": "새 그룹 닫기",
@@ -239,6 +240,7 @@
     "jump_latest": "최신 메시지로 이동",
     "load_older": "이전 메시지 보기",
     "loading_messages": "메시지를 불러오는 중…",
+    "unavailable_retrying": "서버에 연결할 수 없습니다. 다시 시도하는 중…",
     "new_count_other": "새 메시지 {{count}}개",
     "older_failed": "이전 메시지를 불러오지 못했습니다: {{error}}",
     "unread": "읽지 않음",

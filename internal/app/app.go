@@ -4445,7 +4445,7 @@ func (s *Server) events(w http.ResponseWriter, r *http.Request, id string) {
 		case <-r.Context().Done():
 			return
 		case <-heartbeat.C:
-			if _, e = fmt.Fprint(w, ": heartbeat\n\n"); e != nil {
+			if _, e = fmt.Fprint(w, "event: ping\ndata: {}\n\n"); e != nil {
 				return
 			}
 			f.Flush()

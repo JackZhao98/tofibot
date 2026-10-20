@@ -204,7 +204,8 @@
     "clipboard_unavailable": "Ce navigateur ne peut pas copier de liens. Copiez-le depuis la barre d’adresse.",
     "generic": "Une erreur s’est produite. Réessayez plus tard.",
     "group_unavailable": "Ce groupe n’existe pas ou n’est plus disponible.",
-    "service_unavailable": "Service indisponible. Réessayez plus tard."
+    "service_unavailable": "Service indisponible. Réessayez plus tard.",
+    "network_unreachable": "Serveur injoignable. La requête n'a pas été envoyée ; réessayez dès que la connexion est rétablie."
   },
   "groupCreate": {
     "close": "Fermer le nouveau groupe",
@@ -241,6 +242,7 @@
     "jump_latest": "Aller aux derniers messages",
     "load_older": "Voir les messages précédents",
     "loading_messages": "Chargement des messages…",
+    "unavailable_retrying": "Serveur injoignable. Nouvelle tentative…",
     "new_count_many": "{{count}} nouveaux messages",
     "new_count_one": "{{count}} nouveau message",
     "new_count_other": "{{count}} nouveaux messages",

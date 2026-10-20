@@ -52,7 +52,8 @@ export function OwnerSessionGate({ children }: { children: ReactNode }) {
       if (version !== requestVersion.current) return;
       setInstanceID(info.instance_id); setSession(next); setError(""); setChecked(true);
     } catch (cause) {
-      if (version === requestVersion.current && !sessionRef.current) setError(cause instanceof Error && cause.name !== "AbortError" ? cause.message : i18n.t("auth:error.timeout"));
+      // A refused connection surfaces as the browser's own "Failed to fetch" / "Load failed": say what happened instead.
+      if (version === requestVersion.current && !sessionRef.current) setError(cause instanceof TypeError ? i18n.t("auth:error.server_unreachable") : cause instanceof Error && cause.name !== "AbortError" ? cause.message : i18n.t("auth:error.timeout"));
       // An offline server does not log out an authenticated user or discard UI state.
     } finally { window.clearTimeout(timer); }
   }, []);
@@ -67,9 +68,19 @@ export function OwnerSessionGate({ children }: { children: ReactNode }) {
     const focused = () => { if (!document.hidden) void refresh(); };
     window.addEventListener("tofi:unauthorized", unauthorized);
     window.addEventListener("focus", focused);
+    window.addEventListener("online", focused);
     const timer = window.setInterval(focused, 60_000);
-    return () => { ++requestVersion.current; window.clearInterval(timer); window.removeEventListener("tofi:unauthorized", unauthorized); window.removeEventListener("focus", focused); };
+    return () => { ++requestVersion.current; window.clearInterval(timer); window.removeEventListener("tofi:unauthorized", unauthorized); window.removeEventListener("focus", focused); window.removeEventListener("online", focused); };
   }, [refresh]);
+  // Until the first answer arrives the screen is a dead end: keep trying on a short backoff instead of the 60s poll.
+  const startupAttempt = useRef(0);
+  useEffect(() => {
+    if (session) { startupAttempt.current = 0; return; }
+    if (!error) return;
+    const delay = Math.min(2000 * 2 ** startupAttempt.current, 15_000);
+    const timer = window.setTimeout(() => { startupAttempt.current += 1; void refresh(); }, delay);
+    return () => window.clearTimeout(timer);
+  }, [session, error, refresh]);
   async function logout() {
     loggingOut.current = true; ++requestVersion.current;
     flushDesktopState();

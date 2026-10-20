@@ -41,6 +41,7 @@
     "test:tool-result-preview": "node scripts/test-tool-result-preview.mjs",
     "test:workspace-loading": "node scripts/test-workspace-loading.mjs",
     "test:chat-switch": "node scripts/test-chat-switch.mjs",
+    "test:resilience": "node scripts/test-resilience.mjs",
     "test:chat-safari": "node scripts/test-chat-safari.mjs",
     "test:chat-bubbles": "node scripts/test-chat-bubbles.mjs",
     "test:onboarding": "node scripts/test-onboarding.mjs",
