@@ -76,6 +76,8 @@ import { chipStep, onboardingMode, parseOnboardingState, resumeStep, type Onboar
 import { LoadingCat } from "./motion-lab/lib/LoadingCat";
 import { flipList } from "./motion-lab/lib/flip";
 import { flySentMessage } from "./sendFlight";
+import { SendReceipt } from "./SendReceipt";
+import { receiptFor, runsByTrigger } from "./sendReceipts";
 import { activeBotRuns, botRecentlyActive, latestBotWorkTime, latestHumanMessageTime } from "./botActivity";
 import { reconcileToolActivity, activeToolForRun, buildToolRunAnchors, buildToolSummaryAnchors, buildToolTimeline, compareToolActivities, elapsedToolSeconds, orderToolActivities, toolActionLabel, toolArgumentPreview, toolAttemptIssues } from "./toolTimeline";
 import { foldCompletedProgress, isMidRunKind } from "./runProgress";
@@ -218,6 +220,21 @@ const runStatusKeys = {
 /** The watchdog restarts an unresponsive computer; only these states need the person's attention. */
 const computerHealthAlert = (health?: ComputerHealth) => health?.state === "restarting" || health?.state === "unresponsive";
 const computerPhaseKeys: Record<string, "computer_phase.checking" | "computer_phase.storage" | "computer_phase.network" | "computer_phase.booting" | "computer_phase.restoring" | "computer_phase.verifying" | "computer_phase.ready"> = { checking: "computer_phase.checking", storage: "computer_phase.storage", network: "computer_phase.network", booting: "computer_phase.booting", restoring: "computer_phase.restoring", verifying: "computer_phase.verifying", ready: "computer_phase.ready" };
+
+/**
+ * One stable identity for a person's message from the moment it is typed until it is history. The optimistic copy and
+ * the server's copy carry the same client_message_id, so React keeps one DOM node across the swap and nothing replays.
+ */
+function blockKey(message: Message) {
+  return message.role === "user" && message.client_message_id ? `cm:${message.client_message_id}` : message.id;
+}
+
+/** The server's copy of a sent message replaces its optimistic one wherever either arrives first. */
+function reconcileSent(list: Message[], server: Message): Message[] {
+  const client = server.client_message_id;
+  const rest = list.filter(item => item.id !== server.id && !(client && item.local && item.client_message_id === client));
+  return [...rest, server].sort((a, b) => a.seq - b.seq);
+}
 
 function asMessage(data: EventEnvelope): Message | null {
   const value = data.message ?? data;
@@ -499,6 +516,8 @@ function Workspace() {
   const [teamBoardOpen, setTeamBoardOpen] = useState(false);
   useEffect(() => { setTeamBoardOpen(false); }, [activeId]);
   const arrivalIDs = useRef(new Set<string>());
+  /** What each unacknowledged outgoing message needs to be sent again: its text and uploaded attachment ids. In memory only. */
+  const sendPayloads = useRef(new Map<string, { conversationId: string; content: string; attachmentIds: string[] }>());
   const reactionTokens = useRef(new Map<string, number>());
   /** Ids that appeared as a streaming draft: their text was already read in place, so the saved message must not replay an arrival. */
   const streamedIDs = useRef(new Set<string>());
@@ -1230,6 +1249,8 @@ function Workspace() {
   const runStarts = useMemo(() => new Map(runs.map(run => [run.id, Date.parse(run.created_at)] as const).filter(([, start]) => Number.isFinite(start))), [runs]);
   const retryAuditAnchors = useMemo(() => new Map(retryFamilies.map(family => [family.rootId, retryFamilyAnchor(family, messageRecords)])), [retryFamilies, messageRecords]);
   const supersededRunIDs = useMemo(() => new Set(retryFamilies.filter(family => retryAuditAnchors.get(family.rootId)).flatMap(family => family.previous.map(run => run.id))), [retryFamilies, retryAuditAnchors]);
+  const runsForMessage = useMemo(() => runsByTrigger(runs), [runs]);
+  const lastReplySeq = useMemo(() => messageRecords.reduce((max, item) => item.role === "assistant" && !item.local && (!item.kind || item.kind === "segment") ? Math.max(max, item.seq) : max, 0), [messageRecords]);
   const visibleMessages = useMemo(() => mergeMessageTimeline(messageRecords.filter(message => message.role === "user" || !message.run_id || !supersededRunIDs.has(message.run_id)), Object.values(drafts).filter(draft => !runById.has(draft.run_id) || !isTerminalRun(runById.get(draft.run_id)!))), [messageRecords, drafts, supersededRunIDs, runById]);
   const foldedProgress = useMemo(() => foldCompletedProgress(visibleMessages, runs), [visibleMessages, runs]);
   const messages = foldedProgress.visible;
@@ -1403,7 +1424,8 @@ function Workspace() {
 
   const upsertMessage = useCallback((next: Message) => {
     setMessages((current) => {
-      const byId = new Map(current.map((item) => [item.id, item]));
+      // A person's own message arriving over the stream before the POST answers takes the place of its optimistic copy.
+      const byId = new Map(current.filter((item) => !(item.local && next.client_message_id && item.client_message_id === next.client_message_id)).map((item) => [item.id, item]));
       byId.set(next.id, next);
       return [...byId.values()].sort((a, b) => a.seq - b.seq);
     });
@@ -1483,7 +1505,7 @@ function Workspace() {
     } else if (type === "message") {
       const message = asMessage(data);
       if (message && (snapshotCursorKnown.current || message.seq > snapshotMaxSeq.current)) {
-        if (message.seq > snapshotMaxSeq.current) arrivalIDs.current.add(message.id);
+        if (message.seq > snapshotMaxSeq.current) arrivalIDs.current.add(blockKey(message));
         upsertMessage(message); updateConversationPreview(message);
       }
     } else if (type === "reaction") {
@@ -1671,7 +1693,12 @@ function Workspace() {
         const fresh = page.messages.sort((a, b) => a.seq - b.seq);
         // Older pages the reader already loaded stay; the fresh page replaces everything from its first message on.
         const kept = cached && fresh.length ? cached.messages.filter(message => message.conversation_id === activeId && message.seq < fresh[0].seq) : [];
-        setMessages(kept.length ? [...kept, ...fresh] : fresh);
+        // Messages still on their way out (or failed) are not on the server yet: the refresh must not drop them.
+        setMessages(current => {
+          const settled = kept.length ? [...kept, ...fresh] : fresh;
+          const pending = current.filter(item => item.local && item.conversation_id === activeId && !fresh.some(row => row.client_message_id && row.client_message_id === item.client_message_id));
+          return pending.length ? [...settled, ...pending] : settled;
+        });
         for (const run of runPage.runs) if (isTerminalRun(run)) terminalRunIDs.current.add(run.id);
         setDrafts(Object.fromEntries(page.drafts.filter((draft) => draft.status === "active" && !terminalRunIDs.current.has(draft.run_id)).map((draft) => [draft.message_id, draft])));
         setHasMore(kept.length ? cached!.hasMore : page.has_more);
@@ -1741,12 +1768,13 @@ function Workspace() {
   }, [connectEvents, connectWorkspaceEvents]);
 
   async function loadOlder(): Promise<boolean> {
-    if (!activeId || !messageRecords[0] || loadingOlder) return false;
+    const oldest = messageRecords.find(item => !item.local);
+    if (!activeId || !oldest || loadingOlder) return false;
     const conversationId = activeId;
     setLoadingOlder(true);
     try {
       // Runs are paged like messages: the page of messages needs the runs created before the oldest one already shown.
-      const [page, olderRuns] = await Promise.all([api.messages(conversationId, messageRecords[0].seq), api.runs(conversationId, messageRecords[0].created_at).catch(() => ({ runs: [] as Run[] }))]);
+      const [page, olderRuns] = await Promise.all([api.messages(conversationId, oldest.seq), api.runs(conversationId, oldest.created_at).catch(() => ({ runs: [] as Run[] }))]);
       if (activeIdRef.current !== conversationId) return false;
       if (olderRuns.runs.length) setRuns(current => mergeRunUpdates(current, olderRuns.runs));
       viewport.preservePrepend();
@@ -1762,48 +1790,87 @@ function Workspace() {
     }
   }
 
-  async function send(content: string, clientMessageId: string, attachmentIds: string[] = [], draftSignature = "", flightOrigin?: DOMRect): Promise<boolean> {
-    if (!active || (!content.trim() && !attachmentIds.length)) return false;
-    const conversationId = active.id;
+  /** Edits one conversation's messages and runs wherever they live: on screen, or in the snapshot cache after a switch away. */
+  function patchConversation(conversationId: string, changeMessages?: (list: Message[]) => Message[], changeRuns?: (list: Run[]) => Run[]) {
+    if (activeIdRef.current === conversationId) {
+      if (changeMessages) setMessages(changeMessages);
+      if (changeRuns) setRuns(changeRuns);
+      return;
+    }
+    const cached = snapshotCache.current.get(conversationId);
+    if (cached) snapshotCache.current.set(conversationId, { ...cached, messages: changeMessages ? changeMessages(cached.messages) : cached.messages, runs: changeRuns ? changeRuns(cached.runs) : cached.runs });
+  }
+
+  /** Sends (or re-sends) one stored outgoing message. The same client_message_id on every attempt makes a retry safe. */
+  async function deliver(clientMessageId: string) {
+    const payload = sendPayloads.current.get(clientMessageId);
+    if (!payload) return;
+    const { conversationId } = payload;
     try {
-      const result = await api.sendMessage(conversationId, { content: content.trim(), client_message_id: clientMessageId, attachment_ids: attachmentIds });
-      // This response is known human ingress, even if its run event has not
-      // arrived yet or the user has switched conversations in the meantime.
+      const result = await api.sendMessage(conversationId, { content: payload.content, client_message_id: clientMessageId, attachment_ids: payload.attachmentIds });
+      sendPayloads.current.delete(clientMessageId);
+      // This response is known human ingress, even if its run event has not arrived yet.
       const sentAt = Date.parse(result.message.created_at);
       if (Number.isFinite(sentAt)) setLastUserActivity(current => ({ ...current, [conversationId]: Math.max(current[conversationId] ?? 0, sentAt) }));
-      // The server may have accepted the message after the user switched
-      // conversations. Clear only the exact source draft that was sent.
-      const clearDraft = () => { if (draftSignature) setComposerDrafts((current) => {
-        const source = current[conversationId];
-        if (!source || !composerDraftMatchesMessage(source, draftSignature, clientMessageId)) return current;
-        const next = { ...current, [conversationId]: emptyComposerDraft() };
-        if (composerStorageKey.current) writeComposerDrafts(composerStorageKey.current, next);
-        return next;
-      }); };
-      if (activeIdRef.current !== conversationId) { clearDraft(); return true; }
-      arrivalIDs.current.add(result.message.id);
       const newRuns = result.runs?.length ? result.runs : [result.run];
-      // The bubble and its run row land in one commit, so the final layout is known before anything moves.
-      // The composer empties in that same commit: its height change must not move the new bubble a frame later.
-      const apply = () => { clearDraft(); upsertMessage(result.message); setRuns((current) => mergeRunUpdates(current, newRuns)); };
-      const animate = !isDesktop && !window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-      // Scrolled up in history: nothing visible moves, so there is nothing to FLIP. Return to the bottom in
-      // the same task as the commit and play the arrival there, once, with the bubble in view.
-      const away = viewport.awayFromBottom();
-      if (animate && !away) flipList(messageListRef.current, apply, { duration: 520, easing: "cubic-bezier(.22,1,.36,1)", last: 16 });
-      else flushSync(apply);
-      jumpLatest();
-      if (animate) {
-        const target = Array.from(messageListRef.current?.querySelectorAll<HTMLElement>(".message-block") ?? []).find(block => block.dataset.flip === result.message.id)?.querySelector<HTMLElement>(".message-user .message-content");
-        if (flightOrigin && target) flySentMessage(flightOrigin, target);
-      }
+      // The bubble keeps its identity (blockKey); only its content, status and runs update.
+      patchConversation(conversationId, list => reconcileSent(list, { ...result.message, client_message_id: result.message.client_message_id ?? clientMessageId }), list => mergeRunUpdates(list, newRuns));
       updateConversationPreview(result.message);
-      setError("");
-      return true;
+      if (activeIdRef.current === conversationId) setError("");
     } catch (cause) {
-      if (activeIdRef.current === conversationId) setError(errorText(cause));
-      return false;
+      const reason = errorText(cause);
+      patchConversation(conversationId, list => list.map(item => item.local && item.client_message_id === clientMessageId ? { ...item, local: { state: "failed", error: reason } } : item));
     }
+  }
+
+  /** Tapping "Not sent": the same message goes out again under the same id, with nothing retyped. */
+  function retrySend(clientMessageId: string) {
+    const payload = sendPayloads.current.get(clientMessageId);
+    if (!payload) return;
+    patchConversation(payload.conversationId, list => list.map(item => item.local && item.client_message_id === clientMessageId ? { ...item, local: { state: "sending" } } : item));
+    void deliver(clientMessageId);
+  }
+
+  /**
+   * The bubble and the cleared composer land in one commit, then the request goes out in the background. The returned
+   * promise settles as soon as the message is on screen: the person may type the next one while this one is in flight.
+   */
+  async function send(content: string, clientMessageId: string, attachmentIds: string[] = [], draftSignature = "", flightOrigin?: DOMRect, attachments: Attachment[] = []): Promise<boolean> {
+    if (!active || (!content.trim() && !attachmentIds.length)) return false;
+    const conversationId = active.id;
+    const text = content.trim();
+    sendPayloads.current.set(clientMessageId, { conversationId, content: text, attachmentIds });
+    const key = `cm:${clientMessageId}`;
+    const stamp = new Date().toISOString();
+    // Clear only the exact source draft that was sent.
+    const clearDraft = () => { if (draftSignature) setComposerDrafts((current) => {
+      const source = current[conversationId];
+      if (!source || !composerDraftMatchesMessage(source, draftSignature, clientMessageId)) return current;
+      const next = { ...current, [conversationId]: emptyComposerDraft() };
+      if (composerStorageKey.current) writeComposerDrafts(composerStorageKey.current, next);
+      return next;
+    }); };
+    const addLocal = (list: Message[]) => {
+      if (list.some(item => item.client_message_id === clientMessageId)) return list.map(item => item.local && item.client_message_id === clientMessageId ? { ...item, local: { state: "sending" as const } } : item);
+      const seq = list.reduce((max, item) => item.local ? max : Math.max(max, item.seq), 0) + 1;
+      return [...list, { id: `local:${clientMessageId}`, conversation_id: conversationId, seq, role: "user" as const, content: text, created_at: stamp, client_message_id: clientMessageId, attachments: attachments.length ? attachments : undefined, local: { state: "sending" as const } }];
+    };
+    arrivalIDs.current.add(key);
+    const apply = () => { clearDraft(); patchConversation(conversationId, addLocal); };
+    const animate = !isDesktop && !window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    // Scrolled up in history: nothing visible moves, so there is nothing to FLIP. Return to the bottom in
+    // the same task as the commit and play the arrival there, once, with the bubble in view.
+    const away = viewport.awayFromBottom();
+    if (animate && !away) flipList(messageListRef.current, apply, { duration: 520, easing: "cubic-bezier(.22,1,.36,1)", last: 16 });
+    else flushSync(apply);
+    jumpLatest();
+    if (animate) {
+      const target = Array.from(messageListRef.current?.querySelectorAll<HTMLElement>(".message-block") ?? []).find(block => block.dataset.flip === key)?.querySelector<HTMLElement>(".message-user .message-content");
+      if (flightOrigin && target) flySentMessage(flightOrigin, target);
+    }
+    setError("");
+    void deliver(clientMessageId);
+    return true;
   }
 
   /** Adds a Bot the server created during onboarding to the lists, without moving the person off the sheet. */
@@ -2270,9 +2337,11 @@ function Workspace() {
                       const runTrigger = runTriggerId ? messageById.get(runTriggerId) : undefined;
                       const replyTarget = replyMarker.ids.length ? replyMarker.ids.map(id => messageById.get(id)).find(isEarlierInChat) ?? (isEarlierInChat(runTrigger) ? runTrigger : undefined) : undefined;
                       const showReplyQuote = shouldShowReplyQuote(quoteTimeline, quoteIndexById.get(message.id) ?? -1, replyTarget);
-                      const canReact = messageRecordIDs.has(message.id);
+                      const canReact = messageRecordIDs.has(message.id) && !message.local;
                       // "View activity" is offered on a Bot's message whose run did work (steps or progress notes), not on notices or user text.
                       const activityRunId = message.role === "assistant" && message.run_id && message.kind !== "notice" && message.kind !== "message_ref" && runHasActivity(message.run_id) ? message.run_id : undefined;
+                      const receiptState = receiptFor(message, runsForMessage.get(message.id), lastReplySeq > message.seq);
+                      const receiptNode = receiptState ? <SendReceipt receipt={receiptState} group={active.kind === "group"} names={receiptState.readBy.map(id => botById.get(id)?.name ?? knownBotNames.current.get(id) ?? "Bot")} onRetry={message.client_message_id ? () => retrySend(message.client_message_id!) : undefined} /> : undefined;
                       const hasBar = !isDesktop && canReact && message.kind !== "notice" && message.kind !== "message_ref";
                       const cardLike = message.kind === "ui_card" || message.kind === "scheduled_task";
                       const copyText = !cardLike && message.content.trim() ? copyableMessageText(message) : undefined;
@@ -2280,11 +2349,11 @@ function Workspace() {
                           onReact={anchor => setReactionMenu({ messageId: message.id, x: anchor.left, y: anchor.bottom + 6 })}
                           onActivity={activityRunId && !showActivity ? () => { setMessageActions("tap", ""); toggleRunActivity(activityRunId); } : undefined} activityOpen={activityRunId ? revealedRuns.has(activityRunId) : false}
                           onReply={active.archived ? undefined : () => { updateComposerDraft(active.id, current => ({ ...current, reply: { id: message.id, name: message.role === "user" ? t("message.you") : message.sender_bot_name ?? (message.sender_bot_id ? botById.get(message.sender_bot_id)?.name : undefined) ?? "Bot", excerpt: previewText(readReplyMarker(message.content).body) || t("message.attachment") } })); document.querySelector<HTMLTextAreaElement>(".composer textarea")?.focus(); }} /></MessageActionsSlot> : undefined;
-                      return <div className={`message-block${arrivalIDs.current.has(message.id) ? ` new-arrival${streamedIDs.current.has(message.id) ? " was-streamed" : ""}` : ""}`} data-message-seq={message.seq} data-message-id={message.id} data-flip={message.id} tabIndex={index === conversationItems.length - 1 ? 0 : -1} key={message.id} onContextMenu={canReact && isDesktop ? event => { event.preventDefault(); setReactionMenu({ messageId: message.id, x: event.clientX, y: event.clientY }); } : undefined}>
+                      return <div className={`message-block${arrivalIDs.current.has(blockKey(message)) ? ` new-arrival${streamedIDs.current.has(message.id) ? " was-streamed" : ""}` : ""}`} data-message-seq={message.seq} data-message-id={message.id} data-flip={blockKey(message)} tabIndex={index === conversationItems.length - 1 ? 0 : -1} key={blockKey(message)} onContextMenu={canReact && isDesktop ? event => { event.preventDefault(); setReactionMenu({ messageId: message.id, x: event.clientX, y: event.clientY }); } : undefined}>
                         {showDivider && <div className="date-divider"><span>{formatDateDivider(message.created_at, timezone)}</span></div>}
                         {unread && <div className="unread-divider" aria-label={t("history.unread_below")}><span>{t("history.unread")}</span></div>}
                         <div className={`message-hover-host${message.role === "user" ? " is-user" : ""}`} data-host-id={message.id} onPointerDownCapture={!isDesktop && canReact ? () => { selectionOnPress.current = Boolean(window.getSelection()?.toString()); } : undefined} onClick={!isDesktop && canReact ? event => { const hadSelection = selectionOnPress.current || Boolean(window.getSelection()?.toString()); selectionOnPress.current = false; const target = event.target as HTMLElement; if (hadSelection || !window.matchMedia("(hover: none)").matches || !target.closest(".message-content") || target.closest("a,button,summary,input,textarea,pre,[role=button],.message-hover-actions")) return; setMessageActions("tap", tappedMessageActionsId() === message.id ? "" : message.id); } : undefined}>
-                        {cardLike && actions}<MessageBubble actions={cardLike ? undefined : actions} message={message} replyTarget={showReplyQuote ? replyTarget : undefined} replyTargetName={replyTarget?.role === "user" ? t("message.you") : replyTarget?.sender_bot_name ?? (replyTarget?.sender_bot_id ? botById.get(replyTarget.sender_bot_id)?.name ?? knownBotNames.current.get(replyTarget.sender_bot_id) : undefined)} senderName={message.sender_bot_name ?? (message.sender_bot_id ? knownBotNames.current.get(message.sender_bot_id) : undefined)} targetBot={message.notice?.to_bot_id ? botById.get(message.notice.to_bot_id) : undefined} sender={message.sender_bot_id ? botById.get(message.sender_bot_id) : undefined}
+                        {cardLike && actions}<MessageBubble actions={cardLike ? undefined : actions} receipt={receiptNode} message={message} replyTarget={showReplyQuote ? replyTarget : undefined} replyTargetName={replyTarget?.role === "user" ? t("message.you") : replyTarget?.sender_bot_name ?? (replyTarget?.sender_bot_id ? botById.get(replyTarget.sender_bot_id)?.name ?? knownBotNames.current.get(replyTarget.sender_bot_id) : undefined)} senderName={message.sender_bot_name ?? (message.sender_bot_id ? knownBotNames.current.get(message.sender_bot_id) : undefined)} targetBot={message.notice?.to_bot_id ? botById.get(message.notice.to_bot_id) : undefined} sender={message.sender_bot_id ? botById.get(message.sender_bot_id) : undefined}
                           run={message.run_id ? runById.get(message.run_id) : undefined}
                           tools={processTools.length || processProgress.length || processSummaries.length || Object.keys(processSummaryErrors).length || Object.keys(processSummaryLoading).length ? <ToolActivityList activities={[...processTools, ...processAggregateTools]} progress={processProgress} summaries={processSummaries} summaryErrors={processSummaryErrors} summaryLoading={processSummaryLoading} details={toolDetailState} onLoadDetails={loadToolDetails} onRetrySummary={retryToolSummary} botById={botById} activeRunIds={activeRunIds} /> : undefined}
                           scheduleOccurrence={message.run_id ? scheduleOccurrences.get(message.run_id) : undefined} schedulePending={scheduleCardPending(message.run_id)} schedule={message.run_id ? scheduleMetadata.get(scheduleOccurrences.get(message.run_id)?.schedule_id ?? "") : undefined} onRetrySchedule={active.archived || ownedRunIDs.has(message.run_id ?? "") ? undefined : retryRun}
@@ -2509,7 +2578,7 @@ const SNAPSHOT_CACHE_LIMIT = 50;
 const SNAPSHOT_CACHE_MESSAGES = 60;
 interface ConversationSnapshot { messages: Message[]; drafts: Record<string, StreamDraft>; runs: Run[]; toolActivities: ToolActivity[]; toolSummaries: ToolActivityRunSummary[]; memories: Memory[]; hasMore: boolean }
 
-export function MessageBubble({ actions, message, replyTarget, replyTargetName, sender, senderName, targetBot, run, tools, scheduleOccurrence, schedulePending, schedule, onRetrySchedule, onDraftReply, draft, relatedChat, onOpenRelatedChat, compact = false, showAvatar = true, showIdentity = true, noticeTargetAvailable = true, allowOpenDM = false, onNavigate, onMention }: { actions?: React.ReactNode; relatedChat?: ViewOnlyChatTarget | null; onOpenRelatedChat?: (target: ViewOnlyChatTarget) => void; noticeTargetAvailable?: boolean; allowOpenDM?: boolean; onMention?: (bot: Bot) => void; message: Message; replyTarget?: Message; replyTargetName?: string; sender?: Bot; senderName?: string; targetBot?: Bot; run?: Run; tools?: React.ReactNode; scheduleOccurrence?: ScheduleOccurrence; schedulePending?: boolean; schedule?: Schedule; onRetrySchedule?: (id: string) => Promise<void>; onDraftReply?: () => Promise<boolean>; draft?: string | StreamDraft; compact?: boolean; showAvatar?: boolean; showIdentity?: boolean; onNavigate?: (id: string) => void }) {
+export function MessageBubble({ actions, receipt, message, replyTarget, replyTargetName, sender, senderName, targetBot, run, tools, scheduleOccurrence, schedulePending, schedule, onRetrySchedule, onDraftReply, draft, relatedChat, onOpenRelatedChat, compact = false, showAvatar = true, showIdentity = true, noticeTargetAvailable = true, allowOpenDM = false, onNavigate, onMention }: { actions?: React.ReactNode; receipt?: React.ReactNode; relatedChat?: ViewOnlyChatTarget | null; onOpenRelatedChat?: (target: ViewOnlyChatTarget) => void; noticeTargetAvailable?: boolean; allowOpenDM?: boolean; onMention?: (bot: Bot) => void; message: Message; replyTarget?: Message; replyTargetName?: string; sender?: Bot; senderName?: string; targetBot?: Bot; run?: Run; tools?: React.ReactNode; scheduleOccurrence?: ScheduleOccurrence; schedulePending?: boolean; schedule?: Schedule; onRetrySchedule?: (id: string) => Promise<void>; onDraftReply?: () => Promise<boolean>; draft?: string | StreamDraft; compact?: boolean; showAvatar?: boolean; showIdentity?: boolean; onNavigate?: (id: string) => void }) {
   const { t } = useTranslation("chat");
   const {timezone} = useUserTimezone();
   const toolsRunning = run?.status === "running" || run?.status === "queued";
@@ -2581,7 +2650,7 @@ export function MessageBubble({ actions, message, replyTarget, replyTargetName, 
   const inlineMention = mention && targetBot ? <BotIdentityCard bot={targetBot} onMention={onMention ? () => onMention(targetBot) : undefined} onOpen={allowOpenDM && onNavigate ? () => onNavigate(targetBot.dm_conversation_id) : undefined}>{mention}</BotIdentityCard> : mention;
   const toolRow = tools && <div className="message-tools">{tools}</div>;
   const grouped = showAvatar && !isUser;
-  return <article data-sender={grouped ? message.sender_bot_id : undefined} data-at={grouped ? message.created_at : undefined} className={`message ${isUser ? "message-user" : "message-bot"}${grouped ? " is-group" : !isUser ? " is-dm" : ""} ${message.kind === "segment" ? "message-segment" : ""} ${message.kind === "forward_result" ? "message-forward-result" : ""} ${compact ? "message-compact" : ""}`} title={isDesktop ? `${formatExactTime(message.created_at, timezone)} · ${timezone}` : undefined}><div className={`message-body${tools && !isDesktop ? ` web-tool-body ${toolsRunning ? "is-tools-live" : "is-tools-done"}` : ""}`}><div className={`message-meta ${hideMeta ? "compact" : ""}`}>{scheduled && <span>{t("message.scheduled")}</span>}{showIdentity && !isUser && (!compact || showAvatar) && <strong>{label}</strong>}</div>{(toolsRunning || !isDesktop) && toolRow}{replyTarget && <button type="button" className="message-reply-quote" aria-label={t("message.jump_to_reply", { name: replyTargetName ?? t("message.original") })} onClick={() => jumpToMessage(document.querySelector<HTMLElement>(`[data-message-id="${replyTarget.id}"]`))}><span className="message-reply-author">{t("message.reply_to", { name: replyTargetName ?? t("message.original") })}</span><span className="message-reply-excerpt">{previewText(readReplyMarker(replyTarget.content).body) || t("message.attachment")}</span></button>}<div className="message-content" ref={answerRef}>{actions}{showAvatar && !isUser && <div className="sender-avatar">{sender ? <BotIdentityCard bot={sender} onMention={onMention ? () => onMention(sender) : undefined} onOpen={allowOpenDM && onNavigate ? () => onNavigate(sender.dm_conversation_id) : undefined}><Avatar label={label} id={sender.id} mini /></BotIdentityCard> : <Avatar label={label} id={message.sender_bot_id ?? "bot"} mini />}</div>}{<SmoothStreamMarkdown content={body} mention={inlineMention} active={Boolean(draft) && !isDesktop} />}<AttachmentList attachments={message.attachments} compact={isUser} />{draft && isDesktop && <span className="typing-cursor" />}</div>{!toolsRunning && isDesktop && toolRow}{relatedChat && onOpenRelatedChat && <RelatedMessageLink target={relatedChat} onOpen={onOpenRelatedChat} />}</div></article>;
+  return <article data-sender={grouped ? message.sender_bot_id : undefined} data-at={grouped ? message.created_at : undefined} className={`message ${isUser ? "message-user" : "message-bot"}${message.local?.state === "sending" ? " is-sending" : ""}${grouped ? " is-group" : !isUser ? " is-dm" : ""} ${message.kind === "segment" ? "message-segment" : ""} ${message.kind === "forward_result" ? "message-forward-result" : ""} ${compact ? "message-compact" : ""}`} title={isDesktop ? `${formatExactTime(message.created_at, timezone)} · ${timezone}` : undefined}><div className={`message-body${tools && !isDesktop ? ` web-tool-body ${toolsRunning ? "is-tools-live" : "is-tools-done"}` : ""}`}><div className={`message-meta ${hideMeta ? "compact" : ""}`}>{scheduled && <span>{t("message.scheduled")}</span>}{showIdentity && !isUser && (!compact || showAvatar) && <strong>{label}</strong>}</div>{(toolsRunning || !isDesktop) && toolRow}{replyTarget && <button type="button" className="message-reply-quote" aria-label={t("message.jump_to_reply", { name: replyTargetName ?? t("message.original") })} onClick={() => jumpToMessage(document.querySelector<HTMLElement>(`[data-message-id="${replyTarget.id}"]`))}><span className="message-reply-author">{t("message.reply_to", { name: replyTargetName ?? t("message.original") })}</span><span className="message-reply-excerpt">{previewText(readReplyMarker(replyTarget.content).body) || t("message.attachment")}</span></button>}<div className="message-content" ref={answerRef}>{actions}{showAvatar && !isUser && <div className="sender-avatar">{sender ? <BotIdentityCard bot={sender} onMention={onMention ? () => onMention(sender) : undefined} onOpen={allowOpenDM && onNavigate ? () => onNavigate(sender.dm_conversation_id) : undefined}><Avatar label={label} id={sender.id} mini /></BotIdentityCard> : <Avatar label={label} id={message.sender_bot_id ?? "bot"} mini />}</div>}{<SmoothStreamMarkdown content={body} mention={inlineMention} active={Boolean(draft) && !isDesktop} />}<AttachmentList attachments={message.attachments} compact={isUser} />{draft && isDesktop && <span className="typing-cursor" />}</div>{receipt}{!toolsRunning && isDesktop && toolRow}{relatedChat && onOpenRelatedChat && <RelatedMessageLink target={relatedChat} onOpen={onOpenRelatedChat} />}</div></article>;
 }
 
 export function RunStatusAnnouncement({ conversationId, runs, botById, ready, taskAnnouncements }: { conversationId: string; runs: Run[]; botById: Map<string, Bot>; ready: boolean; taskAnnouncements?: Map<string, string> }) {
@@ -3009,7 +3078,7 @@ function isPureInsertion(previous: string, next: string) {
   return start + end >= previous.length;
 }
 
-function Composer({ workStatus, activeRun, latestReplyId, onStopRun, avatarMention, conversation, bots, draft, onDraftChange: updateDraftFor, onSend, onSendStart, onSent, modelConfigured, onConnectModel, draftReady, readOnly = false }: { workStatus: React.ReactNode; activeRun?: Run; latestReplyId?: string; onStopRun: (id: string) => Promise<void>; avatarMention: { name: string; conversationId: string; nonce: number } | null; conversation: Conversation; bots: Bot[]; draft: ComposerDraft; onDraftChange: (conversationId: string, update: (draft: ComposerDraft) => ComposerDraft) => void; onSend: (content: string, clientMessageId: string, attachmentIds?: string[], draftSignature?: string, flightOrigin?: DOMRect) => Promise<boolean>; onSendStart?: () => void; onSent: () => void; modelConfigured: boolean; onConnectModel: () => void; draftReady: boolean; readOnly?: boolean }) {
+function Composer({ workStatus, activeRun, latestReplyId, onStopRun, avatarMention, conversation, bots, draft, onDraftChange: updateDraftFor, onSend, onSendStart, onSent, modelConfigured, onConnectModel, draftReady, readOnly = false }: { workStatus: React.ReactNode; activeRun?: Run; latestReplyId?: string; onStopRun: (id: string) => Promise<void>; avatarMention: { name: string; conversationId: string; nonce: number } | null; conversation: Conversation; bots: Bot[]; draft: ComposerDraft; onDraftChange: (conversationId: string, update: (draft: ComposerDraft) => ComposerDraft) => void; onSend: (content: string, clientMessageId: string, attachmentIds?: string[], draftSignature?: string, flightOrigin?: DOMRect, attachments?: Attachment[]) => Promise<boolean>; onSendStart?: () => void; onSent: () => void; modelConfigured: boolean; onConnectModel: () => void; draftReady: boolean; readOnly?: boolean }) {
   const { t } = useTranslation("chat");
   const [sending, setSending] = useState(false);
   const [fileError, setFileError] = useState("");
@@ -3221,18 +3290,22 @@ function Composer({ workStatus, activeRun, latestReplyId, onStopRun, avatarMenti
     onDraftChange((current) => ({ ...current, pending: { signature, id: clientMessageId } }));
     setSending(true);
     const attachmentIds: string[] = [];
+    const sentAttachments: Attachment[] = [];
     try {
       for (const attachment of attachments) {
         if (!isCurrent()) return;
         let id = attachment.id;
+        let uploaded: Attachment | undefined;
         if (!id) {
           if (!attachment.file) throw new Error(t("composer.reselect_file", { name: attachment.name }));
           setUploadingKey(attachment.key);
-          id = (await api.uploadAttachment(conversationId, attachment.file)).id;
+          uploaded = await api.uploadAttachment(conversationId, attachment.file);
+          id = uploaded.id;
           if (isCurrent()) setUploadingKey(null);
           onDraftChange((current) => ({ ...current, attachments: current.attachments.map((item) => item.key === attachment.key ? { ...item, id } : item) }));
         }
         attachmentIds.push(id);
+        sentAttachments.push(uploaded ?? { id, conversation_id: conversationId, name: attachment.name, mime: attachment.type, size: attachment.size, created_at: new Date().toISOString() });
       }
     } catch (cause) {
       if (isCurrent()) { setFileError(errorText(cause)); setSending(false); setUploadingKey(null); }
@@ -3240,7 +3313,7 @@ function Composer({ workStatus, activeRun, latestReplyId, onStopRun, avatarMenti
     }
     if (!isCurrent()) return;
     const flightOrigin = !isDesktop ? textareaRef.current?.getBoundingClientRect() : undefined;
-    const sent = await onSend(draftContent, clientMessageId, attachmentIds, signature, flightOrigin);
+    const sent = await onSend(draftContent, clientMessageId, attachmentIds, signature, flightOrigin, sentAttachments);
     if (!isCurrent()) return;
     // Workspace owns acknowledgement cleanup for the exact sent draft, even
     // across conversation switches. A newer edit/reply must survive this callback.

@@ -483,6 +483,15 @@
     "more": "更多表情",
     "react_with": "回应 {{emoji}}"
   },
+  "receipt": {
+    "sending": "发送中",
+    "delivered": "已送达",
+    "read": "已读",
+    "read_by": "{{names}} 已读",
+    "failed": "未发送",
+    "retry": "重试",
+    "retry_label": "重新发送这条消息"
+  },
   "related": {
     "bot_conversation": "Bot conversation",
     "from": "来自",

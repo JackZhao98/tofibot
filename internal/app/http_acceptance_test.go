@@ -427,3 +427,71 @@ func TestHTTPAcceptanceRetryCreatesNewRun(t *testing.T) {
 		return false
 	})
 }
+
+type httpAcceptanceMessageEnvelope struct {
+	Message Message `json:"message"`
+	Runs    []Run   `json:"runs"`
+}
+
+// The sender's optimistic bubble reconciles by client_message_id, so the id
+// must come back on the POST (fresh and replayed) and in history, and a retried
+// POST must neither add a message nor a run.
+func TestHTTPAcceptanceMessageEchoesClientIDAndRetryAddsNothing(t *testing.T) {
+	e := &httpAcceptanceRecordingEngine{called: make(chan struct{})}
+	s, err := NewServer(Config{DataDir: t.TempDir(), Engine: e})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer s.Close()
+	httpServer := httptest.NewServer(s.Handler())
+	defer httpServer.Close()
+	c := newHTTPAcceptanceClient(t, httpServer.URL)
+	b := acceptanceCreateBot(t, c, "echo", "")
+	path := "/api/conversations/" + b.DMConversationID + "/messages"
+	payload := map[string]string{"content": "hello", "client_message_id": "cmid-echo-1"}
+	var first, replay httpAcceptanceMessageEnvelope
+	for i, out := range []*httpAcceptanceMessageEnvelope{&first, &replay} {
+		status, _, body, err := c.do(http.MethodPost, path, payload, nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+		want := http.StatusAccepted
+		if i == 1 {
+			want = http.StatusOK
+		}
+		if status != want {
+			t.Fatalf("post %d status=%d body=%s", i, status, body)
+		}
+		acceptanceJSON(t, body, out)
+		if out.Message.ClientMessageID != "cmid-echo-1" {
+			t.Fatalf("post %d client_message_id=%q", i, out.Message.ClientMessageID)
+		}
+	}
+	if first.Message.ID != replay.Message.ID || len(first.Runs) != 1 || len(replay.Runs) != 1 || first.Runs[0].ID != replay.Runs[0].ID {
+		t.Fatalf("retry produced a different message or run: %+v vs %+v", first, replay)
+	}
+	acceptanceWaitChannel(t, "engine call", e.called)
+	status, _, body, err := c.do(http.MethodGet, path, nil, nil)
+	if err != nil || status != http.StatusOK {
+		t.Fatalf("history status=%d err=%v", status, err)
+	}
+	var hist httpAcceptanceMessagesEnvelope
+	acceptanceJSON(t, body, &hist)
+	users := 0
+	for _, m := range hist.Messages {
+		if m.Role == "user" {
+			users++
+			if m.ClientMessageID != "cmid-echo-1" {
+				t.Fatalf("history user message client_message_id=%q", m.ClientMessageID)
+			}
+		} else if m.ClientMessageID != "" {
+			t.Fatalf("non-user message leaks client id %q", m.ClientMessageID)
+		}
+	}
+	if users != 1 {
+		t.Fatalf("retried send stored %d user messages", users)
+	}
+	if e.callCount() != 1 {
+		t.Fatalf("engine calls=%d", e.callCount())
+	}
+}

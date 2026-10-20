@@ -133,6 +133,10 @@ export interface Message {
   sender_bot_id?: string;
   sender_bot_name?: string;
   run_id?: string;
+  /** The sender's retry identity, present on a person's own messages. The server echoes it so an optimistic copy can be matched. */
+  client_message_id?: string;
+  /** Client only: this message has not been stored by the server (yet). It never comes from the API. */
+  local?: { state: "sending" | "failed"; error?: string };
   notice?: {
     type: string;
     /** Why a "resume" notice was posted, e.g. "restart". */

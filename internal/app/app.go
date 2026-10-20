@@ -83,20 +83,23 @@ type MessagePreview struct {
 	Internal    bool   `json:"internal,omitempty"`
 }
 type Message struct {
-	Attachments    []Attachment   `json:"attachments,omitempty"`
-	Reactions      []Reaction     `json:"reactions,omitempty"`
-	ID             string         `json:"id"`
-	ConversationID string         `json:"conversation_id"`
-	Seq            int64          `json:"seq"`
-	Role           string         `json:"role"`
-	Kind           string         `json:"kind,omitempty"`
-	SenderBotName  string         `json:"sender_bot_name,omitempty"`
-	SenderBotID    string         `json:"sender_bot_id,omitempty"`
-	RunID          string         `json:"run_id,omitempty"`
-	Content        string         `json:"content"`
-	CreatedAt      string         `json:"created_at"`
-	Notice         *HandoffNotice `json:"notice,omitempty"`
-	Card           *DisplayCard   `json:"card,omitempty"`
+	Attachments    []Attachment `json:"attachments,omitempty"`
+	Reactions      []Reaction   `json:"reactions,omitempty"`
+	ID             string       `json:"id"`
+	ConversationID string       `json:"conversation_id"`
+	Seq            int64        `json:"seq"`
+	Role           string       `json:"role"`
+	Kind           string       `json:"kind,omitempty"`
+	SenderBotName  string       `json:"sender_bot_name,omitempty"`
+	SenderBotID    string       `json:"sender_bot_id,omitempty"`
+	RunID          string       `json:"run_id,omitempty"`
+	// ClientMessageID echoes the sender's retry identity on a person's own
+	// messages so the sending client can reconcile its optimistic copy.
+	ClientMessageID string         `json:"client_message_id,omitempty"`
+	Content         string         `json:"content"`
+	CreatedAt       string         `json:"created_at"`
+	Notice          *HandoffNotice `json:"notice,omitempty"`
+	Card            *DisplayCard   `json:"card,omitempty"`
 }
 type HandoffNotice struct {
 	Type string `json:"type"`
@@ -300,6 +303,7 @@ func OpenStore(dir string) (*Store, error) {
 func openStore(dir string, recoverWork bool) (*Store, error) {
 	return openStoreWithLimit(dir, recoverWork, 0)
 }
+
 // sqliteBusyDSN makes every connection wait for a lock instead of failing at
 // once: host tools, backups and checks read the database from outside the
 // process, and a restart after a crash may race the previous process's exit or
@@ -535,6 +539,7 @@ func scanToolActivities(rows *sql.Rows) ([]ToolActivity, error) {
 	return activities, rows.Err()
 }
 func (s *Store) Close() error { return s.db.Close() }
+
 // storedTimeLayout is RFC 3339 with a fixed nine-digit fraction. RFC3339Nano
 // trims trailing zeros, so "…:03.3336Z" sorts after "…:03.33363Z" ('Z' > '3');
 // created_at/updated_at columns are TEXT and compared and ordered lexically,
@@ -1166,6 +1171,9 @@ func (s *Store) AddMessage(conv, role, sender, run, content, client string) (Mes
 			}
 			m.SenderBotID = sb.String
 			m.RunID = ru.String
+			if m.Role == "user" {
+				m.ClientMessageID = client
+			}
 			return m, true, nil
 		}
 		if e != sql.ErrNoRows {
@@ -1177,6 +1185,9 @@ func (s *Store) AddMessage(conv, role, sender, run, content, client string) (Mes
 		return Message{}, false, e
 	}
 	m := Message{ID: uuid.NewString(), ConversationID: conv, Seq: seq, Role: role, SenderBotID: sender, RunID: run, Content: content, CreatedAt: now()}
+	if role == "user" {
+		m.ClientMessageID = client
+	}
 	_, e = tx.Exec(`INSERT INTO messages(id,conversation_id,seq,role,kind,sender_bot_id,run_id,content,notice_data,created_at,client_message_id) VALUES(?,?,?,?,?,?,?,?,?,?,?)`, m.ID, conv, seq, role, m.Kind, nullString(sender), nullString(run), content, nil, m.CreatedAt, nullString(client))
 	if e != nil {
 		return Message{}, false, e
@@ -1216,6 +1227,9 @@ func (s *Store) AddUserRun(conv, bot, content, client string) (Message, Run, boo
 			}
 			m.SenderBotID = sb.String
 			m.RunID = ru.String
+			if m.Role == "user" {
+				m.ClientMessageID = client
+			}
 			var run Run
 			if ru.Valid {
 				run, err = scanRun(tx.QueryRow(`SELECT id,conversation_id,bot_id,status,error,parent_run_id,model,kind,origin_conversation_id,trigger_message_id,queue_seq,created_at,updated_at FROM runs WHERE id=?`, ru.String))
@@ -1250,7 +1264,7 @@ func (s *Store) AddUserRun(conv, bot, content, client string) (Message, Run, boo
 	if err = tx.QueryRow(nextMessageSeqSQL, conv, conv, streamDraftActive).Scan(&seq); err != nil {
 		return Message{}, Run{}, false, err
 	}
-	m := Message{ID: uuid.NewString(), ConversationID: conv, Seq: seq, Role: "user", RunID: run.ID, Content: content, CreatedAt: t}
+	m := Message{ID: uuid.NewString(), ConversationID: conv, Seq: seq, Role: "user", RunID: run.ID, Content: content, CreatedAt: t, ClientMessageID: client}
 	run.TriggerMessageID = m.ID
 	if _, err = tx.Exec(`INSERT INTO messages(id,conversation_id,seq,role,kind,run_id,content,created_at,client_message_id) VALUES(?,?,?,?,?,?,?,?,?)`, m.ID, conv, seq, m.Role, m.Kind, run.ID, content, t, nullString(client)); err != nil {
 		return Message{}, Run{}, false, err
@@ -1318,7 +1332,41 @@ func (s *Store) Messages(conv string, before, limit int64) ([]Message, bool, err
 	if err := s.hydrateMessageReactions(out); err != nil {
 		return nil, false, err
 	}
+	if err := s.hydrateClientMessageIDs(conv, out); err != nil {
+		return nil, false, err
+	}
 	return out, more, s.hydrateDeletedSenders(out)
+}
+
+// hydrateClientMessageIDs attaches the sender's retry identity to the person's
+// own messages in a history page. Other roles keep theirs internal (team and
+// say-note rows use it as a private dedupe key).
+func (s *Store) hydrateClientMessageIDs(conv string, msgs []Message) error {
+	idx := map[string]int{}
+	for i, m := range msgs {
+		if m.Role == "user" {
+			idx[m.ID] = i
+		}
+	}
+	if len(idx) == 0 {
+		return nil
+	}
+	lo, hi := msgs[0].Seq, msgs[len(msgs)-1].Seq
+	rows, err := s.db.Query(`SELECT id,client_message_id FROM messages WHERE conversation_id=? AND role='user' AND client_message_id IS NOT NULL AND seq BETWEEN ? AND ?`, conv, lo, hi)
+	if err != nil {
+		return err
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var id, client string
+		if err := rows.Scan(&id, &client); err != nil {
+			return err
+		}
+		if i, ok := idx[id]; ok {
+			msgs[i].ClientMessageID = client
+		}
+	}
+	return rows.Err()
 }
 func (s *Store) Search(conv, q string, limit int) ([]Message, error) {
 	if limit <= 0 {
@@ -1845,6 +1893,7 @@ func (s *Store) Runs(conv string) ([]Run, error) {
 	}
 	return out, rows.Err()
 }
+
 const runPageColumns = `id,conversation_id,bot_id,status,error,parent_run_id,model,kind,origin_conversation_id,trigger_message_id,queue_seq,created_at,updated_at,final_origin`
 
 // defaultRunsPage and maxRunsPage bound one page of a conversation's runs.
@@ -3343,6 +3392,7 @@ func (s *Server) postMessage(w http.ResponseWriter, r *http.Request, c Conversat
 	}
 	writeJSON(w, 202, map[string]any{"message": m, "run": run, "runs": runs})
 }
+
 var replyMarkerPattern = regexp.MustCompile(`^\[message_id=([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})\]`)
 
 // repliedMemberBot resolves the leading reply marker the composer writes to
