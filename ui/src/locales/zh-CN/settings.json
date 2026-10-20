@@ -76,6 +76,10 @@
       "admin": {
         "name": "Admin 控制台",
         "description": "邀请、管理和停用账号"
+      },
+      "automation": {
+        "name": "自动行为",
+        "description": "查看并调整 Tofi 代你自动做的事"
       }
     },
     "category": "设置分类",
@@ -171,6 +175,8 @@
     "invalid_key_detail": "这个 API key 没有通过 {{provider}} 的验证，未保存。（{{detail}}）",
     "invalid_key_detail_workspace": "这个 API key 没有通过 {{provider}} 的验证，未保存。（{{detail}}） 请检查 Workspace ID 是否填对。",
     "unreachable": "暂时无法连到 {{provider}} 完成验证，未保存。请稍后重试。",
+    "no_quota": "{{provider}} 接受了这个密钥，但账户没有可用额度，所以没有保存。请充值或提高额度后再试。",
+    "no_models": "{{provider}} 接受了这个密钥，但它暂时无法使用任何模型，所以没有保存。请开通计费或选择有模型权限的项目。",
     "remove_failed": "移除失败，请重试。",
     "removed": "已移除 {{provider}} API key。使用 {{provider}} 模型的 Bot 需要换一个已连接的模型。",
     "key_label": "{{provider}} API key",
@@ -637,9 +643,7 @@
     "chat": "对话",
     "activity_title": "在对话里显示工作过程",
     "activity_note": "在 Bot 的回复下方显示它执行的步骤。默认关闭，仍可从消息的操作菜单里打开。",
-    "activity_save_failed": "保存失败，请重试。",
-    "structured_title": "结构化回复",
-    "structured_note": "Bot 只通过 say 工具把文字发到对话里；步骤之间写的文字留在工作过程视图中。关闭后恢复为原来的发布方式。"
+    "activity_save_failed": "保存失败，请重试。"
   },
   "approvals": {
     "heading": "审查员",
@@ -751,5 +755,115 @@
       "annoying": "烦人",
       "handled": "已处理过"
     }
+  },
+  "automation": {
+    "intro": "Tofi 代你自动完成的事都列在这里。每一项都有出厂默认值，改动从下一次运行开始生效。",
+    "group": {
+      "models": {
+        "title": "模型",
+        "description": "不同类型的工作交给哪个模型。"
+      },
+      "replies": {
+        "title": "回复",
+        "description": "Bot 如何把话送到对话里。"
+      },
+      "history": {
+        "title": "对话历史",
+        "description": "Bot 重新接手对话时会带上哪些内容。"
+      },
+      "checks": {
+        "title": "检查与审批",
+        "description": "围绕 Bot 操作的各项复核。"
+      },
+      "reliability": {
+        "title": "可靠性",
+        "description": "模型服务出现波动时怎么处理。"
+      },
+      "schedules": {
+        "title": "定时任务",
+        "description": "定时运行结束前的最后把关。"
+      },
+      "computer": {
+        "title": "电脑",
+        "description": "共享电脑的自动休眠。"
+      }
+    },
+    "item": {
+      "conversation_model": {
+        "name": "对话模型",
+        "what": "负责聊天、群组协作、定时运行和所有用到工具的工作。Bot 自己指定的模型优先于它。"
+      },
+      "background_model": {
+        "name": "后台模型",
+        "what": "负责幕后的轻量工作：历史摘要、分流、复核和跟进检查。选“自动”时，用 Claude 就走 Haiku，其他情况沿用对话模型。"
+      },
+      "structured_output": {
+        "name": "结构化回复",
+        "what": "对话里只出现 Bot 的正式回复；它干活过程中写的内容留在工作过程里。关闭后恢复为全部直接发出。"
+      },
+      "force_say_haiku_dm": {
+        "name": "Haiku 必须使用回复工具",
+        "what": "在私聊里，Haiku 每一轮都必须给出正式回复，确保回答一定出现在对话中。"
+      },
+      "web_search": {
+        "name": "联网搜索",
+        "what": "当问题可能比自身知识更新时，Claude 模型会先自行上网搜索再回答。"
+      },
+      "group_exchange_gists": {
+        "name": "已结束的群聊往来折成摘要",
+        "what": "群聊里 Bot 没参与、已经收尾的往来，会折成一段简短摘要交给它。"
+      },
+      "own_replies_verbatim": {
+        "name": "保留原文的自己的回复",
+        "what": "Bot 只会逐字看到自己最近这几条回复，更早的缩成一句摘要，避免照搬自己的措辞。"
+      },
+      "completion_review": {
+        "name": "用过工具后的完成复核",
+        "what": "Bot 用过工具后，回复前会对照实际结果再检查一次答案。"
+      },
+      "mcp_auto_review": {
+        "name": "工具调用自动复核",
+        "what": "由后台复核员审查对外部工具的调用。“观察”只记录建议；“自动”允许低风险调用按其判断放行。"
+      },
+      "remembered_approval_hours": {
+        "name": "记住的审批有效期",
+        "what": "审批时选择“记住”后，同一调用在该对话里这么长时间内无需再次确认。"
+      },
+      "provider_retries": {
+        "name": "自动重试次数",
+        "what": "模型服务出现过载、断线等临时错误时，最多重试这么多次才判定失败。设为 0 即不重试。"
+      },
+      "schedule_receipt_review": {
+        "name": "定时运行收尾前把关",
+        "what": "定时运行如果结束时没有完成记录，会先获得一次补完的机会，再标记结束。"
+      },
+      "desktop_idle_seconds": {
+        "name": "桌面空闲休眠",
+        "what": "共享电脑闲置这么久后进入休眠，下次调用工具时自动唤醒。由电脑服务设定。"
+      }
+    },
+    "option": {
+      "mcp_auto_review": {
+        "off": "关闭",
+        "shadow": "观察",
+        "auto": "自动"
+      }
+    },
+    "auto": "自动 · {{model}}",
+    "default_is": "默认：{{value}}",
+    "changed": "已更改",
+    "env": "由服务器环境设定",
+    "reset": "恢复默认",
+    "on": "开",
+    "off": "关",
+    "hours": "{{count}} 小时",
+    "minutes": "{{count}} 分钟",
+    "seconds": "{{count}} 秒",
+    "retries_none": "不重试",
+    "idle_off": "已关闭",
+    "not_reported": "暂未获取",
+    "saved": "已保存",
+    "loading": "加载中…",
+    "managed": "由电脑服务管理"
   }
 }

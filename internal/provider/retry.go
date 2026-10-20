@@ -11,7 +11,8 @@ import (
 
 // RetryConfig controls retry behavior for API calls.
 type RetryConfig struct {
-	// MaxRetries is the maximum number of retry attempts (default 5).
+	// MaxRetries is the maximum number of retry attempts (default 5). A
+	// negative value means no retries at all.
 	MaxRetries int
 	// BaseDelay is the initial delay before the first retry (default 1s).
 	BaseDelay time.Duration
@@ -28,6 +29,9 @@ type RetryConfig struct {
 func (c RetryConfig) maxRetries() int {
 	if c.MaxRetries > 0 {
 		return c.MaxRetries
+	}
+	if c.MaxRetries < 0 {
+		return 0
 	}
 	return 5
 }
@@ -235,4 +239,10 @@ func observeRetry(ctx context.Context, attempt int, err error, delay time.Durati
 	if observe, ok := ctx.Value(retryObserverKey{}).(func(int, error, time.Duration)); ok {
 		observe(attempt, err, delay)
 	}
+}
+
+// ObserveRetry reports a retry wait to the observer installed with
+// WithRetryObserver, for callers that retry outside RetryProvider.
+func ObserveRetry(ctx context.Context, attempt int, err error, delay time.Duration) {
+	observeRetry(ctx, attempt, err, delay)
 }

@@ -20,6 +20,7 @@
     "demo_badge": "Demo · won't send",
     "needs_approval": "Needs your approval",
     "demo_hint": "Interface demo only; Gmail isn't contacted",
+    "add_recipient": "Add a recipient",
     "send_final": "Can't be undone once sent",
     "working": "Working…",
     "hold": "Don't send yet",

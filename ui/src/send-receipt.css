@@ -1,0 +1,22 @@
+/* Receipt row under the person's own bubbles. Fixed height, and a fixed-size mark box: a state change never reflows. */
+.workspace .message-user .send-receipt { display:flex; justify-content:flex-end; align-items:center; height:14px; margin:2px 2px 0 auto; color:var(--muted); font:11px/14px var(--body); }
+.workspace .message-user:has(.send-receipt) { margin-bottom:4px; }
+.workspace .send-receipt-mark { position:relative; display:inline-flex; align-items:center; justify-content:flex-end; width:18px; height:14px; color:var(--muted); }
+.workspace .send-receipt[data-state="read"] .send-receipt-mark { color:var(--accent-primary-text); }
+.workspace .send-receipt[data-state="sending"] .send-receipt-mark { opacity:.8; }
+.workspace .send-receipt-mark.has-tip { cursor:default; border-radius:4px; }
+.workspace .send-receipt-mark:focus-visible { outline:var(--focus-ring-width) solid var(--focus-ring); outline-offset:2px; }
+.workspace .send-receipt-tip { position:absolute; right:0; top:calc(100% + 4px); z-index:5; width:max-content; max-width:min(240px, 70vw); padding:5px 9px; border:1px solid var(--line-soft); border-radius:8px; background:var(--surface); color:var(--ink); font:12px/1.35 var(--body); box-shadow:0 4px 14px rgb(0 0 0 / 14%); opacity:0; visibility:hidden; pointer-events:none; }
+.workspace .send-receipt-mark.has-tip:hover .send-receipt-tip, .workspace .send-receipt-mark.has-tip:focus .send-receipt-tip { opacity:1; visibility:visible; }
+.workspace .send-receipt-retry { height:14px; padding:0; border:0; background:transparent; color:var(--danger-text); font:inherit; cursor:pointer; text-decoration:underline; text-underline-offset:2px; }
+.workspace .send-receipt-retry:focus-visible { outline:var(--focus-ring-width) solid var(--focus-ring); outline-offset:3px; border-radius:3px; }
+/* A press target of 44px on touch without growing the row: the hit area extends over the empty space beside the bubble. */
+@media (pointer:coarse) { .workspace .send-receipt-retry { position:relative; } .workspace .send-receipt-retry::after { content:""; position:absolute; inset:-15px -12px; } }
+.workspace .message-user.is-sending .message-content { opacity:.72; }
+@media (prefers-reduced-motion:no-preference) {
+  .workspace .message-user .message-content { transition:opacity .18s ease; }
+  .workspace .send-receipt-mark { transition:color .2s ease; }
+  .workspace .send-receipt-mark.is-settling svg { animation:send-receipt-settle .32s cubic-bezier(.22,1,.36,1); }
+  .workspace .send-receipt-tip { transition:opacity .12s ease, visibility .12s; }
+}
+@keyframes send-receipt-settle { from { transform:scale(.7); opacity:.4; } to { transform:none; opacity:1; } }

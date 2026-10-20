@@ -36,6 +36,21 @@ func NewAPIError(provider string, statusCode int, body string) *APIError {
 	}
 }
 
+// QuotaMarkers are the provider body fragments that mean the account has no
+// usage left. Waiting cannot fix them, so they are never retried.
+var QuotaMarkers = []string{"usage_limit_reached", "insufficient_quota", "credit balance is too low"}
+
+// IsQuotaExhausted reports whether text names an exhausted account quota.
+func IsQuotaExhausted(text string) bool {
+	lower := strings.ToLower(text)
+	for _, marker := range QuotaMarkers {
+		if strings.Contains(lower, marker) {
+			return true
+		}
+	}
+	return false
+}
+
 // IsRetryable returns true if the error is a transient failure that should be retried.
 func IsRetryable(err error) bool {
 	if err == nil {
@@ -45,8 +60,8 @@ func IsRetryable(err error) bool {
 	apiErr, ok := AsAPIError(err)
 	if ok {
 		switch {
-		case apiErr.StatusCode == 429: // Rate limited
-			return true
+		case apiErr.StatusCode == 429: // Rate limited, unless the account is out of quota
+			return !IsQuotaExhausted(apiErr.Body)
 		case apiErr.StatusCode == 529: // Overloaded
 			return true
 		case apiErr.StatusCode >= 500 && apiErr.StatusCode < 600: // Server errors
@@ -58,6 +73,11 @@ func IsRetryable(err error) bool {
 
 	if errors.Is(err, ErrStreamIncomplete) {
 		return true
+	}
+	var failed *ResponseFailedError
+	if errors.As(err, &failed) {
+		// An in-stream failure the provider itself marks as worth retrying.
+		return failed.Code == "server_error" || failed.Code == "rate_limit_exceeded"
 	}
 	var incomplete *IncompleteResponseError
 	var refusal *RefusalError

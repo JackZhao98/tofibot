@@ -47,7 +47,7 @@ func (s *Server) extensionManagementTools(c Conversation, r Run) []Tool {
 		"files":           map[string]any{"type": "object", "additionalProperties": map[string]any{"type": "string"}, "description": "Complete local skill files as UTF-8 strings, including SKILL.md with matching name; no downloading or execution. Installation does not overwrite an existing skill."},
 		"test_connection": map[string]any{"type": "boolean", "description": "Must be true for mcp_test, only when the user requested connecting/testing. Other actions never test automatically."},
 	}
-	return []Tool{{Name: "manage_extensions", Description: "Manage the user's workspace-wide MCP servers and installed Skills using Tofi's existing settings. MCP servers are available to every Bot. Skills are available to every Bot unless the user limited a skill to selected Bots in Settings; skill_list shows only the skills the current Bot may use, and Bots cannot change skill access. Read/list first before changes. MCP update requires the complete desired URL; omitted policy lists, headers and OAuth retain existing values. Tool allow/deny lists are global server policies. Never expose credentials or perform OAuth authorization; to have the user authorize a service use request_connection, which asks them in the chat. Test network connections only when explicitly requested using mcp_test with test_connection=true. Delete actions remove user configuration/skill files and require user intent.", Parameters: objectSchema(properties, []string{"action"}), Identity: extensionRecoveryIdentity, Execute: func(ctx context.Context, raw json.RawMessage) (string, error) {
+	return []Tool{{Name: "manage_extensions", Description: "Manage the user's workspace-wide MCP servers and installed Skills using Tofi's existing settings. MCP servers are available to every Bot. Skills are available to every Bot unless the user limited a skill to selected Bots in Settings; skill_list shows only the skills the current Bot may use, and Bots cannot change skill access. Read/list first before changes. MCP update requires the complete desired URL; omitted policy lists, headers and OAuth retain existing values. Tool allow/deny lists are global server policies. Never expose credentials or perform OAuth authorization; to have the user authorize a service use request_connection, which asks them in the chat. Test network connections only when explicitly requested using mcp_test with test_connection=true. Changes and connection tests run only after a person approves that exact change via request_approval as the refusal directs; unattended runs cannot make them.", Parameters: objectSchema(properties, []string{"action"}), Identity: extensionRecoveryIdentity, Execute: func(ctx context.Context, raw json.RawMessage) (string, error) {
 		return s.executeExtensionManagement(ctx, c, r, raw)
 	}}}
 }
@@ -93,6 +93,17 @@ func (s *Server) executeExtensionManagement(ctx context.Context, c Conversation,
 	if x.Action != "mcp_list" && x.Action != "skill_list" && strings.TrimSpace(x.Name) == "" {
 		return "", tooloutcome.InvalidArguments("extension name is required")
 	}
+	settle, err := s.guardExtensionChange(c, r, x)
+	if err != nil {
+		return "", err
+	}
+	out, err := s.applyExtensionChange(ctx, c, r, x)
+	settle(err)
+	return out, err
+}
+
+// applyExtensionChange runs an approved (or ungated) extension action.
+func (s *Server) applyExtensionChange(ctx context.Context, c Conversation, r Run, x extensionToolArgs) (string, error) {
 	if err := s.extensionToolActive(ctx, c, r); err != nil {
 		return "", err
 	}
@@ -117,7 +128,8 @@ func (s *Server) executeExtensionManagement(ctx context.Context, c Conversation,
 		if parseErr != nil || u.Host == "" || (u.Scheme != "http" && u.Scheme != "https") {
 			return "", tooloutcome.InvalidArguments("MCP create/update requires a complete HTTP(S) endpoint.")
 		}
-		config := extensions.MCPServerConfig{URL: x.URL, Headers: x.Headers, Transport: "streamable_http"}
+		// Bot-made servers refuse internal addresses at every connection.
+		config := extensions.MCPServerConfig{URL: x.URL, Headers: x.Headers, Transport: "streamable_http", BotManaged: !s.allowInternalMCPHosts}
 		var existing *extensions.MCPServerView
 		if x.Action == "mcp_update" {
 			servers, listErr := s.extensions.ListMCP()

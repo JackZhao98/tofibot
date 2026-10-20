@@ -1086,6 +1086,10 @@ func (s *Server) routeComputers(w http.ResponseWriter, r *http.Request, path str
 				// The watchdog refused the call before it reached the guest:
 				// keep its typed reason instead of a generic gateway failure.
 				writeErr(w, http.StatusServiceUnavailable, o.Code, o.Message)
+			} else if err != nil && isDesktopNotRunningError(err) {
+				// A stopped desktop is a state the viewer acts on (start it, or say a Bot works
+				// without one), not a gateway fault: give it a typed code instead of a 502.
+				writeErr(w, http.StatusUnprocessableEntity, "desktop_not_running", err.Error())
 			} else if err != nil {
 				writeErr(w, http.StatusBadGateway, "computer_action_failed", err.Error())
 			} else {
@@ -1238,4 +1242,10 @@ func (s *Server) computerTools(r Run) []Tool {
 		}
 	}}
 	return []Tool{list, action}
+}
+
+// isDesktopNotRunningError reports the guest's "no desktop session" refusal. The guest speaks plain text over
+// HTTP, so this is the one place its wording is matched; everything above this file sees the typed code.
+func isDesktopNotRunningError(err error) bool {
+	return err != nil && strings.Contains(strings.ToLower(err.Error()), "desktop is not running")
 }

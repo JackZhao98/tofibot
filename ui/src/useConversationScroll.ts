@@ -94,7 +94,7 @@ export function useConversationScroll(options: Options) {
     const v = visit.current;
     const o = latest.current;
     if (!v?.positioned || !v.atBottom || !o.ready || !isVisible()) return;
-    const seq = o.messages.reduce((max, m) => m.conversation_id === v.id ? Math.max(max, m.seq) : max, 0);
+    const seq = o.messages.reduce((max, m) => m.conversation_id === v.id && !m.local ? Math.max(max, m.seq) : max, 0);
     if (seq) o.markRead(v.id, seq);
   }, [isVisible]);
 
@@ -120,7 +120,7 @@ export function useConversationScroll(options: Options) {
     v.nearBottom = bottom;
     v.atBottom = following;
     if (following) {
-      const seq = latest.current.messages.reduce((max, m) => m.conversation_id === v.id ? Math.max(max, m.seq) : max, 0);
+      const seq = latest.current.messages.reduce((max, m) => m.conversation_id === v.id && !m.local ? Math.max(max, m.seq) : max, 0);
       if (v.baseline !== seq) { v.baseline = seq; render(n => n + 1); }
       markVisible();
     }

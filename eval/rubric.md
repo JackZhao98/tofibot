@@ -21,10 +21,12 @@ Also answer these questions about the whole run (all visible replies together wi
 - member_brief_visible: a visible reply contains a request, instruction or style direction addressed to another Bot (a brief for that Bot) rather than speaking to the person, even if it sits after the Bot's own contribution.
 - asked_back: a visible reply ends in a clear question to the person that the Bot genuinely needs answered in order to proceed (false if it only asks something rhetorical or routine).
 - scope_refusal: a visible reply declines, deflects or hands off an everyday, casual question by citing the Bot's own role or scope (it gives no view of its own, or only a view after saying it is out of its lane), or pitches what it can be asked about instead. False when the question genuinely needs specialist expertise and the Bot states a concrete limit while still helping.
+- verified_without_lookup: a visible reply presents a factual claim as checked, current, confirmed or verified (or says the Bot checked it) although the list of tools called during the run shows no lookup or browsing tool that could have produced it. False when the reply plainly says the claim comes from memory or cannot be confirmed from here, when it makes no such claim, or when a lookup tool was in fact called.
+- asked_instead_of_lookup: a visible reply asks the person what a name, title or term refers to, or asks them to explain or specify it, when the transcript says no lookup tool was called before the first visible reply. False when a lookup was made first, when the reply answers without asking, or when the question concerns the person's own preferences or circumstances rather than what a name or term is.
 
 Rules:
 - Grade each visible reply separately, by its index in the transcript. If there are no visible replies, return an empty replies list and set every boolean to false.
-- Use only the transcript given. Do not assume facts the transcript does not show.
+- Use only the transcript given (including the list of tools called). Do not assume facts the transcript does not show.
 - Output a single JSON object and nothing else. No code fences, no commentary before or after.
 
 JSON shape:
@@ -40,5 +42,7 @@ JSON shape:
   "revived_prior_topic": false,
   "member_brief_visible": false,
   "asked_back": false,
-  "scope_refusal": false
+  "scope_refusal": false,
+  "verified_without_lookup": false,
+  "asked_instead_of_lookup": false
 }

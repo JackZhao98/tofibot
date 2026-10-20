@@ -1,6 +1,7 @@
 import { createContext, Fragment, useCallback, useContext, useEffect, useId, useRef, useState, type ReactNode } from "react";
 import { CATS, EmptyCat } from "./EmptyCat";
 import { BrandLogo } from "./BrandLogo";
+import { BootScreen } from "./BootScreen";
 import { useAppearance } from "./InteractionSystem";
 import { TofiIcon } from "./icons";
 import { hydrateDesktopState, isDesktop, flushDesktopState } from "./desktop";
@@ -52,7 +53,8 @@ export function OwnerSessionGate({ children }: { children: ReactNode }) {
       if (version !== requestVersion.current) return;
       setInstanceID(info.instance_id); setSession(next); setError(""); setChecked(true);
     } catch (cause) {
-      if (version === requestVersion.current && !sessionRef.current) setError(cause instanceof Error && cause.name !== "AbortError" ? cause.message : i18n.t("auth:error.timeout"));
+      // A refused connection surfaces as the browser's own "Failed to fetch" / "Load failed": say what happened instead.
+      if (version === requestVersion.current && !sessionRef.current) setError(cause instanceof TypeError ? i18n.t("auth:error.server_unreachable") : cause instanceof Error && cause.name !== "AbortError" ? cause.message : i18n.t("auth:error.timeout"));
       // An offline server does not log out an authenticated user or discard UI state.
     } finally { window.clearTimeout(timer); }
   }, []);
@@ -67,9 +69,19 @@ export function OwnerSessionGate({ children }: { children: ReactNode }) {
     const focused = () => { if (!document.hidden) void refresh(); };
     window.addEventListener("tofi:unauthorized", unauthorized);
     window.addEventListener("focus", focused);
+    window.addEventListener("online", focused);
     const timer = window.setInterval(focused, 60_000);
-    return () => { ++requestVersion.current; window.clearInterval(timer); window.removeEventListener("tofi:unauthorized", unauthorized); window.removeEventListener("focus", focused); };
+    return () => { ++requestVersion.current; window.clearInterval(timer); window.removeEventListener("tofi:unauthorized", unauthorized); window.removeEventListener("focus", focused); window.removeEventListener("online", focused); };
   }, [refresh]);
+  // Until the first answer arrives the screen is a dead end: keep trying on a short backoff instead of the 60s poll.
+  const startupAttempt = useRef(0);
+  useEffect(() => {
+    if (session) { startupAttempt.current = 0; return; }
+    if (!error) return;
+    const delay = Math.min(2000 * 2 ** startupAttempt.current, 15_000);
+    const timer = window.setTimeout(() => { startupAttempt.current += 1; void refresh(); }, delay);
+    return () => window.clearTimeout(timer);
+  }, [session, error, refresh]);
   async function logout() {
     loggingOut.current = true; ++requestVersion.current;
     flushDesktopState();
@@ -84,12 +96,12 @@ export function OwnerSessionGate({ children }: { children: ReactNode }) {
   const finishAuth = async () => { setExpired(false); sessionRef.current = null; setSession(null); setChecked(false); await refresh(); };
   const mustChange = Boolean(session?.authenticated && session?.owner?.must_change_password);
   const allowed = checked && session && (!session.enabled || session.authenticated) && !mustChange;
-  return <SessionContext.Provider value={{ session, logout }}>{allowed ? <Fragment key={`${instanceID}:${session?.owner?.id ?? "legacy"}`}>{children}</Fragment> : <div className="owner-gate">
+  return <SessionContext.Provider value={{ session, logout }}>{allowed ? <Fragment key={`${instanceID}:${session?.owner?.id ?? "legacy"}`}>{children}</Fragment> : !session && !error ? <BootScreen label={t("gate.connecting")} /> : <div className="owner-gate">
     <div className="native-titlebar" aria-hidden="true" />
     <AuthLanguageSwitch />
     <section className="owner-card">
       <BrandLogo variant="calico" />
-      {!session ? <><h1>{t("gate.connect_title")}</h1>{error ? <><EmptyCat look={CATS.nori} pose="asleep" size={72} name="gate-offline" /><p className="owner-error" role="alert">{error}</p><button className="primary-button" onClick={() => void refresh()}>{t("gate.reconnect")}</button></> : <div className="owner-loading"><span className="spinner" />{t("gate.connecting")}</div>}</> : session.setup_required && session.password_transport_allowed && !mustChange ? <OwnerSetup onDone={finishAuth} /> : <>
+      {!session ? <><h1>{t("gate.connect_title")}</h1>{error ? <><EmptyCat look={CATS.nori} pose="asleep" size={72} name="gate-offline" /><p className="owner-error" role="alert">{error}</p><button className="primary-button" onClick={() => void refresh()}>{t("gate.reconnect")}</button></> : null}</> : session.setup_required && session.password_transport_allowed && !mustChange ? <OwnerSetup onDone={finishAuth} /> : <>
         <h1>{mustChange ? t("gate.title.set_password") : session.setup_required ? t("gate.title.welcome_new") : expired ? t("gate.title.sign_in_again") : t("gate.title.welcome_back")}</h1>
         <p className="owner-subtitle">{mustChange ? t("gate.subtitle.change_initial") : session.setup_required ? t("gate.subtitle.create_admin") : t("gate.subtitle.sign_in")}</p>
         {!session.password_transport_allowed ? <p className="owner-error" role="alert">{t("error.password_transport_required")}</p> : <form onSubmit={async event => {

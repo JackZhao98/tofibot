@@ -96,6 +96,7 @@
       "resuming_phase": "正在唤醒 · {{phase}}",
       "hibernated": "休眠中 · 正在唤醒…",
       "hibernating": "正在进入休眠…",
+      "no_desktop": "Bot 正在用浏览器工作，没有使用桌面",
       "retry": "重试"
     }
   },

@@ -98,6 +98,7 @@
       "resuming_phase": "Réveil · {{phase}}",
       "hibernated": "En veille · réveil en cours…",
       "hibernating": "Passage en hibernation…",
+      "no_desktop": "Le Bot travaille dans le navigateur, sans bureau",
       "retry": "Réessayer"
     }
   },

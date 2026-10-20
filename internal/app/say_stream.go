@@ -14,12 +14,18 @@ type sayStreamer struct {
 	mu    sync.Mutex
 	calls map[int]*sayStreamCall
 	state *sayRunState
+	// toolWork: this model response already holds a call that may arm the
+	// completion review, so a say(answer) in it may be refused once.
+	toolWork bool
 }
 
 type sayStreamCall struct {
 	id      string
 	dec     saystream.Decoder
 	started bool
+	// held: the answer may still be sent back for review, so its text is not
+	// streamed. If no review follows, the answer is shown whole instead.
+	held bool
 }
 
 func newSayStreamer(state *sayRunState) *sayStreamer {
@@ -38,6 +44,9 @@ func (st *sayStreamer) Delta(d runtime.ToolCallDelta) {
 				st.calls[d.Index] = &sayStreamCall{id: d.ID}
 			} else {
 				delete(st.calls, d.Index)
+				if completionReviewTool(d.Name) {
+					st.toolWork = true
+				}
 			}
 		}
 		call := st.calls[d.Index]
@@ -51,6 +60,10 @@ func (st *sayStreamer) Delta(d runtime.ToolCallDelta) {
 				return "", "", false
 			}
 			call.started, begin = true, true
+			call.held = st.toolWork || st.state.reviewOwed()
+		}
+		if call.held {
+			return "", "", false
 		}
 		return call.id, text, begin
 	}()
@@ -68,4 +81,5 @@ func (st *sayStreamer) Reset() {
 	st.mu.Lock()
 	defer st.mu.Unlock()
 	st.calls = map[int]*sayStreamCall{}
+	st.toolWork = false
 }

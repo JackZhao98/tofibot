@@ -10,6 +10,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"strings"
 	"sync"
 	"unicode/utf8"
@@ -26,14 +27,18 @@ const (
 
 	maxSayAnswerRunes = 20000
 	maxSayNoteRunes   = 1200
-	maxSayNotes       = 10
+
+	// maxSayCoAddressedNoteRunes bounds a note left as an input for a member who
+	// answers later in the same co-addressed message.
+	maxSayCoAddressedNoteRunes = 6000
+	maxSayNotes                = 10
 
 	sayNoteClientPrefix = "say-note:"
 )
 
 // sayToolDescription states the contract as principles. It carries no sample
 // wording: examples belong in acceptance tests, not in prompts.
-const sayToolDescription = "How you speak to the person: every reply goes through this tool, short or long; text you write outside it is private working text. purpose=answer delivers your reply and ends your turn: call it once, as your last action, with the complete reply. purpose=note posts a brief transient progress note while you keep working. purpose=message posts one self-contained message mid-run (at most three per run). Once you have delegated, speak only to add substance the person has yet to read: who is doing what is internal. Your text speaks to the person; a request to a member travels in wake, where its wording stays out of the chat."
+const sayToolDescription = "How you speak to the person: every reply goes through this tool; text you write outside it is private working text. purpose=answer delivers your reply and ends your turn: call it once, as your last action, with the complete reply. purpose=note posts a brief transient progress note while you keep working. purpose=message posts one self-contained message mid-run (at most three per run). Deliver the whole result with the assumptions you made stated in a line; end on the result, never on a request for details it already assumed, and an invitation to supply them is such a request. Details the person left out are defaults to state in a line; ask in the reply only when no default lets the work proceed. An instructed action needs no further confirmation; announce work only once it is done. Once you have delegated, speak only to add what the person has yet to read; who does what is internal. Your text speaks to the person; a request to a member travels in wake, where its wording stays out of the chat."
 
 func migrateSay(db *sql.DB) error {
 	if _, err := db.Exec(`CREATE TABLE IF NOT EXISTS run_say_answers(
@@ -148,7 +153,13 @@ type sayRunState struct {
 	// answer; review reports whether the one-time completion review is due.
 	demote func(string)
 	review func() bool
+	// owed peeks at review without spending it.
+	owed func() bool
 }
+
+// reviewOwed reports whether a say(answer) beginning now would be sent back
+// for the one-time completion review.
+func (st *sayRunState) reviewOwed() bool { return st.owed != nil && st.owed() }
 
 func (s *Server) sayRun(runID string) *sayRunState {
 	if v, ok := s.sayRuns.Load(runID); ok {
@@ -442,7 +453,15 @@ func (s *Server) sayTool(c Conversation, r Run) Tool {
 					return fail(err)
 				}
 			}
+			if in.Purpose == sayNote && len(s.store.coAddressedRoots(r)) > 0 {
+				// A co-addressed member's note can carry its whole part for a
+				// later member to build on; it stays folded, so it may be longer.
+				limit = maxSayCoAddressedNoteRunes
+			}
 			if utf8.RuneCountInString(text) > limit {
+				if limit != 1200 {
+					return fail(fmt.Errorf("text must be at most %d characters", limit))
+				}
 				return fail(errors.New("text must be at most 1200 characters"))
 			}
 			adopt := state != nil && state.owns(callID)
@@ -544,6 +563,9 @@ func (s *Store) publishSay(ctx context.Context, run Run, clientID, kind, content
 		return Message{}, err
 	}
 	if rotate {
+		if err = pruneDeltaEventsTx(tx, run.ConversationID, draft.MessageID); err != nil {
+			return Message{}, err
+		}
 		if _, err = tx.ExecContext(ctx, `UPDATE stream_drafts SET message_id=?,seq=0,content='',revision=0,created_at=?,updated_at=? WHERE run_id=? AND status=?`, uuid.NewString(), t, t, run.ID, streamDraftActive); err != nil {
 			return Message{}, err
 		}

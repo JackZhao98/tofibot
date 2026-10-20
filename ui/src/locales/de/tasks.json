@@ -21,7 +21,8 @@
       "open_model_connections": "Modellverbindungen öffnen",
       "copy_diagnostics": "Diagnose kopieren",
       "view_activity": "Aktivität ansehen",
-      "refresh_status": "Status aktualisieren"
+      "refresh_status": "Status aktualisieren",
+      "retry": "Erneut versuchen"
     },
     "working": "Wird bearbeitet…",
     "copied": "Diagnose kopiert.",
@@ -211,7 +212,38 @@
     "view_full_arguments": "Alle Argumente ansehen",
     "proposal_ended": "Dieser Vorschlag ist beendet.",
     "view_decision": "Entscheidungsprotokoll ansehen",
-    "remembered_decision": "Durch eine in diesem Chat gemerkte Genehmigung freigegeben; niemand wurde gefragt. Der Schritt unten zeigt, ob es ausgeführt wurde."
+    "remembered_decision": "Durch eine in diesem Chat gemerkte Genehmigung freigegeben; niemand wurde gefragt. Der Schritt unten zeigt, ob es ausgeführt wurde.",
+    "facts": {
+      "title": "Von Tofi geprüft",
+      "bot_wording": "Vom Bot formuliert",
+      "kind": "Änderung",
+      "name": "Name",
+      "source": "Adresse",
+      "previous_source": "Ersetzt",
+      "transport": "Transport",
+      "tools": "Tools",
+      "all_tools": "Alle Tools, die der Server anbietet",
+      "only_tools": "Nur: {{tools}}",
+      "blocked_tools": "Gesperrte Tools",
+      "headers": "Anfrage-Header",
+      "none": "Keine",
+      "oauth": "Anmeldung (OAuth)",
+      "skill_description": "Skill-Beschreibung",
+      "skill_excerpt": "Anfang der Anweisungen",
+      "skill_tools": "Angeforderte Tools",
+      "skill_files": "Dateien",
+      "skill_scripts": "Skripte",
+      "skill_scripts_present": "Enthält Skripte oder ausführbare Dateien",
+      "change_id": "Änderungs-ID",
+      "kinds": {
+        "skill_install": "Skill installieren",
+        "skill_delete": "Skill löschen",
+        "mcp_create": "MCP-Server hinzufügen",
+        "mcp_update": "MCP-Server ändern",
+        "mcp_delete": "MCP-Server löschen",
+        "mcp_test": "Mit MCP-Server verbinden"
+      }
+    }
   },
   "question": {
     "approve": "Aktion freigeben",

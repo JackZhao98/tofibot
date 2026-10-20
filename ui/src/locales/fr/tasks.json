@@ -21,7 +21,8 @@
       "open_model_connections": "Ouvrir les connexions aux modèles",
       "copy_diagnostics": "Copier le diagnostic",
       "view_activity": "Voir l’activité",
-      "refresh_status": "Actualiser l’état"
+      "refresh_status": "Actualiser l’état",
+      "retry": "Réessayer"
     },
     "working": "En cours…",
     "copied": "Diagnostic copié.",
@@ -212,7 +213,38 @@
     "view_full_arguments": "Voir tous les arguments",
     "proposal_ended": "Cette proposition est close.",
     "view_decision": "Voir l’historique de la décision",
-    "remembered_decision": "Autorisé par une approbation mémorisée dans cette discussion ; personne n'a été sollicité. L'étape ci-dessous indique si l'appel a eu lieu."
+    "remembered_decision": "Autorisé par une approbation mémorisée dans cette discussion ; personne n'a été sollicité. L'étape ci-dessous indique si l'appel a eu lieu.",
+    "facts": {
+      "title": "Vérifié par Tofi",
+      "bot_wording": "Rédigé par le Bot",
+      "kind": "Modification",
+      "name": "Nom",
+      "source": "Adresse",
+      "previous_source": "Remplace",
+      "transport": "Transport",
+      "tools": "Outils",
+      "all_tools": "Tous les outils proposés par le serveur",
+      "only_tools": "Uniquement : {{tools}}",
+      "blocked_tools": "Outils bloqués",
+      "headers": "En-têtes de requête",
+      "none": "Aucun",
+      "oauth": "Connexion (OAuth)",
+      "skill_description": "Description du skill",
+      "skill_excerpt": "Début des instructions",
+      "skill_tools": "Outils demandés",
+      "skill_files": "Fichiers",
+      "skill_scripts": "Scripts",
+      "skill_scripts_present": "Contient des scripts ou des exécutables",
+      "change_id": "ID de modification",
+      "kinds": {
+        "skill_install": "Installer un skill",
+        "skill_delete": "Supprimer un skill",
+        "mcp_create": "Ajouter un serveur MCP",
+        "mcp_update": "Modifier un serveur MCP",
+        "mcp_delete": "Supprimer un serveur MCP",
+        "mcp_test": "Se connecter à un serveur MCP"
+      }
+    }
   },
   "question": {
     "approve": "Approuver l’action",

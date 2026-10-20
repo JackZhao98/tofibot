@@ -92,7 +92,7 @@ var (
 	maxBulkToolCallArgumentChars = 96000
 )
 
-var bulkContentTools = map[string]bool{"computer_files": true, "computer_action": true, "tofi_write": true, "tofi_edit": true}
+var bulkContentTools = map[string]bool{"computer_files": true, "computer_action": true, "tofi_write": true, "tofi_edit": true, "say": true}
 
 // MaxStepsWithProgressReports is the hard loop guard for tasks that report
 // progress between tool batches. Persistence must accept the same turn range.
@@ -216,9 +216,14 @@ type AgentConfig struct {
 	OnContextBreakdown        func(ContextBreakdown)                                    // Same estimate split into system/tools, messages and reasoning
 	OnReasoningReplayRejected func()                                                    // Provider rejected replayed reasoning; replay is off for the rest of the run
 	OnUsage                   func(inputTokens, outputTokens int64)                     // Provider-reported usage for one model call
-	OnCompact                 func(originalTokens, compactedTokens int)                 // Successful in-run context compaction
-	Hooks                     *Hooks                                                    // Optional: pre/post hooks for tool calls, API calls, compaction
-	OnMessage                 func(msg provider.Message)                                // Optional: called immediately after each assistant/tool message is appended. Used for incremental chat session persistence so a browser refresh or hold doesn't lose in-progress turns. Internal synthetic user continuations are NOT emitted.
+	// WebSearchMaxUses, when positive, adds the provider's server-side web
+	// search to ordinary model requests (searches per request capped at this);
+	// OnWebSearches receives what each response searched and the billed count.
+	WebSearchMaxUses int
+	OnWebSearches    func(searches []provider.WebSearch, billed int64)
+	OnCompact        func(originalTokens, compactedTokens int) // Successful in-run context compaction
+	Hooks            *Hooks                                    // Optional: pre/post hooks for tool calls, API calls, compaction
+	OnMessage        func(msg provider.Message)                // Optional: called immediately after each assistant/tool message is appended. Used for incremental chat session persistence so a browser refresh or hold doesn't lose in-progress turns. Internal synthetic user continuations are NOT emitted.
 	// BeforeModelCall runs at the safe boundary immediately before a provider
 	// request. Callers may use it to observe durable steering input without
 	// interrupting an already-streaming response or an in-flight tool.
@@ -345,9 +350,13 @@ type AgentResult struct {
 // It manages MCP clients, tools, and the LLM interaction loop.
 func RunAgentLoop(cfg AgentConfig, ctx *models.ExecutionContext) (returned *AgentResult, returnedErr error) {
 	budgetReason := ""
+	// budgetUnanswered is set only when the wrap-up produced no final answer:
+	// a run answered at the wrap-up finished its task and is not a failure.
+	budgetUnanswered := false
 	defer func() {
 		if returned != nil && !returned.Suspended && budgetReason != "" {
-			returned.BudgetExhausted, returned.BudgetReason = true, budgetReason
+			returned.BudgetReason = budgetReason
+			returned.BudgetExhausted = budgetUnanswered
 		}
 	}()
 	if cfg.Provider == nil {
@@ -1134,6 +1143,7 @@ func RunAgentLoop(cfg AgentConfig, ctx *models.ExecutionContext) (returned *Agen
 
 	reasoningReplayDisabled := false
 	modelCallRecovered := false
+	transientProviderRetries := 0
 
 	// A compaction is a model call of its own: it counts against the run's
 	// call and cost budget, reaches the usage ledger, and keeps LLMCalls,
@@ -1166,6 +1176,7 @@ func RunAgentLoop(cfg AgentConfig, ctx *models.ExecutionContext) (returned *Agen
 		}
 	}
 
+	resumedActivation := false
 	for !state.Phase.IsTerminal() {
 		if checkpointErr != nil {
 			return nil, checkpointErr
@@ -1191,6 +1202,17 @@ func RunAgentLoop(cfg AgentConfig, ctx *models.ExecutionContext) (returned *Agen
 		// iteration must be declared to the provider, otherwise the model
 		// is told "these tools are now available" but physically cannot
 		// call them (providers restrict calls to declared tools).
+		if !resumedActivation {
+			// A resumed run already called deferred tools; they stay declared.
+			resumedActivation = true
+			for _, m := range state.Messages {
+				for _, call := range m.ToolCalls {
+					if t := registry.Get(call.Name); t != nil && t.Deferred() {
+						registry.Activate(call.Name)
+					}
+				}
+			}
+		}
 		for _, sch := range registry.ActivatedDeferredSchemas() {
 			if !declaredTools[sch.Name] {
 				allTools = append(allTools, sch)
@@ -1316,6 +1338,9 @@ func RunAgentLoop(cfg AgentConfig, ctx *models.ExecutionContext) (returned *Agen
 			PromptCacheKey:      cfg.PromptCacheKey,
 			OmitReasoningReplay: reasoningReplayDisabled,
 		}
+		if cfg.WebSearchMaxUses > 0 && !repairRequest && !finalRepairFinalRequest && !budgetWrapUp {
+			req.WebSearch = &provider.WebSearchSpec{MaxUses: cfg.WebSearchMaxUses}
+		}
 		if cfg.ForceToolUse && !repairRequest && !finalRepairFinalRequest && !budgetWrapUp && len(requestTools) > 0 &&
 			!lastToolRoundFailed(messages) && !(cfg.EndOnEmptyFinal != nil && cfg.EndOnEmptyFinal()) {
 			// A run that handed its work off owes no reply and may end quietly,
@@ -1331,7 +1356,9 @@ func RunAgentLoop(cfg AgentConfig, ctx *models.ExecutionContext) (returned *Agen
 		// Cap one tool call's streamed arguments (degenerate generation).
 		callCtx, cancelCall := context.WithCancel(loopCtx)
 		overlongArguments := false
+		overlongTool := ""
 		streamedContent := false
+		deltaForwarded := false
 		argumentChars := map[int]int{}
 		argumentTools := map[int]string{}
 
@@ -1355,6 +1382,7 @@ func RunAgentLoop(cfg AgentConfig, ctx *models.ExecutionContext) (returned *Agen
 			}
 			firstReasoning := true
 			resp, err = cfg.Provider.ChatStream(callCtx, req, func(delta provider.StreamDelta) {
+				deltaForwarded = true
 				for _, call := range delta.ToolCalls {
 					if cfg.OnToolCallDelta != nil && !overlongArguments {
 						cfg.OnToolCallDelta(call)
@@ -1369,6 +1397,7 @@ func RunAgentLoop(cfg AgentConfig, ctx *models.ExecutionContext) (returned *Agen
 					}
 					if argumentChars[call.Index] > limit && !overlongArguments {
 						overlongArguments = true
+						overlongTool = argumentTools[call.Index]
 						cancelCall()
 					}
 				}
@@ -1400,8 +1429,35 @@ func RunAgentLoop(cfg AgentConfig, ctx *models.ExecutionContext) (returned *Agen
 				if cfg.OnUsage != nil {
 					cfg.OnUsage(resp.Usage.InputTokens, resp.Usage.OutputTokens)
 				}
+				if cfg.OnWebSearches != nil && (len(resp.WebSearches) > 0 || resp.WebSearchRequests > 0) {
+					cfg.OnWebSearches(resp.WebSearches, resp.WebSearchRequests)
+				}
 			}
 			resp, err = nil, errors.New("model call aborted: tool call arguments exceeded the size cap")
+		}
+
+		// A retryable provider error after output was already forwarded: the
+		// provider layer cannot replay a delivered prefix, so retry here with
+		// backoff. Nothing from the aborted attempt enters the transcript.
+		if err != nil && loopCtx.Err() == nil && !overlongArguments && deltaForwarded &&
+			transientProviderRetries < len(transientProviderBackoff) &&
+			provider.IsRetryable(err) && !providerAccountError(err) &&
+			!provider.IsStreamWatchdog(err) && !repairRequest && !finalRepairFinalRequest {
+			delay := transientProviderBackoff[transientProviderRetries]
+			transientProviderRetries++
+			ctx.Log("[Agent] Provider error mid-stream (%v); retry %d in %v", err, transientProviderRetries, delay)
+			state.Trace.RecordError(state.Step, err)
+			provider.ObserveRetry(loopCtx, transientProviderRetries, err, delay)
+			if cfg.OnStreamReset != nil {
+				cfg.OnStreamReset()
+			}
+			select {
+			case <-loopCtx.Done():
+			case <-time.After(delay):
+			}
+			if loopCtx.Err() == nil {
+				continue
+			}
 		}
 
 		// One in-iteration recovery for the argument cap, a provider idle/wall-cap
@@ -1411,6 +1467,8 @@ func RunAgentLoop(cfg AgentConfig, ctx *models.ExecutionContext) (returned *Agen
 			recoverNote := ""
 			recoverable := true
 			switch {
+			case overlongArguments && overlongTool == "say":
+				recoverNote = "Your previous attempt was aborted because the answer was too long. Give a shorter answer that keeps the essential content."
 			case overlongArguments:
 				recoverNote = "Your previous attempt was aborted because it produced an over-long tool call. Keep tool arguments short; split large content into smaller steps."
 			case provider.IsStreamWatchdog(err), transientStreamFailure(err):
@@ -1474,6 +1532,7 @@ func RunAgentLoop(cfg AgentConfig, ctx *models.ExecutionContext) (returned *Agen
 		}
 
 		modelCallRecovered = false
+		transientProviderRetries = 0
 		if resp.ReasoningReplayRejected && !reasoningReplayDisabled {
 			ctx.Log("[Agent] Provider rejected replayed reasoning; disabled for this run")
 			reasoningReplayDisabled = true
@@ -1485,6 +1544,9 @@ func RunAgentLoop(cfg AgentConfig, ctx *models.ExecutionContext) (returned *Agen
 		state = state.RecordAPICall(cfg.Model, resp.Usage)
 		if cfg.OnUsage != nil {
 			cfg.OnUsage(resp.Usage.InputTokens, resp.Usage.OutputTokens)
+		}
+		if cfg.OnWebSearches != nil && (len(resp.WebSearches) > 0 || resp.WebSearchRequests > 0) {
+			cfg.OnWebSearches(resp.WebSearches, resp.WebSearchRequests)
 		}
 		state.Trace.RecordAPICall(state.Step, cfg.Model, resp.Usage, resp, apiDuration)
 		cfg.Hooks.callPostAPICall(state.Step, resp.Usage.InputTokens, resp.Usage.OutputTokens, resp.HasToolCalls())
@@ -1578,6 +1640,7 @@ func RunAgentLoop(cfg AgentConfig, ctx *models.ExecutionContext) (returned *Agen
 				// Force termination to honor the cap.
 				ctx.Log("[Agent] Model ignored wrap-up directive — forcing termination")
 				finalContent := stripThinkTags(resp.Content)
+				budgetUnanswered = !(finalContent == "" && cfg.StructuredOutput && sayAnswerText(resp.ToolCalls) != "")
 				if finalContent == "" && cfg.StructuredOutput {
 					// The wrap-up was answered with the say tool: its text is the answer.
 					finalContent = sayAnswerText(resp.ToolCalls)
@@ -1720,7 +1783,7 @@ func RunAgentLoop(cfg AgentConfig, ctx *models.ExecutionContext) (returned *Agen
 
 				// Registry tools (core + skill + activated deferred)
 				if tool := registry.Get(tc.Name); tool != nil {
-					result, err := tool.Execute(loopCtx, argsMap)
+					result, err := tool.Execute(WithToolActivator(loopCtx, registry), argsMap)
 					if err != nil {
 						return "", err
 					}
@@ -2006,9 +2069,9 @@ func RunAgentLoop(cfg AgentConfig, ctx *models.ExecutionContext) (returned *Agen
 
 				// Handle registry tools (core + skill + activated deferred)
 				if tool := registry.Get(fnName); tool != nil {
-					executionCtx := loopCtx
+					executionCtx := WithToolActivator(loopCtx, registry)
 					if cfg.ToolsOnly {
-						executionCtx = tooloutcome.WithBoundary(loopCtx, func(identity tooloutcome.Identity) *tooloutcome.Outcome {
+						executionCtx = tooloutcome.WithBoundary(executionCtx, func(identity tooloutcome.Identity) *tooloutcome.Outcome {
 							blocked := recoveryGuard(identity, dispatchArgs)
 							if blocked != nil {
 								recoveryBlocked[callID] = true
@@ -3258,6 +3321,22 @@ Rules:
 // transientStreamFailure is a dropped provider stream (HTTP/2 reset, early
 // EOF): the request itself was fine, so retrying the iteration is safe even
 // after some output had streamed.
+// transientProviderBackoff is the wait before each in-loop retry of a
+// retryable provider error that arrived after output had been forwarded.
+var transientProviderBackoff = []time.Duration{2 * time.Second, 5 * time.Second, 10 * time.Second}
+
+// providerAccountError reports account-level failures that a retry cannot
+// clear: exhausted quota or credit.
+func providerAccountError(err error) bool {
+	msg := err.Error()
+	for _, marker := range []string{"usage_limit_reached", "insufficient_quota", "credit balance is too low", "billing_error"} {
+		if strings.Contains(msg, marker) {
+			return true
+		}
+	}
+	return false
+}
+
 func transientStreamFailure(err error) bool {
 	if errors.Is(err, provider.ErrStreamIncomplete) {
 		return true

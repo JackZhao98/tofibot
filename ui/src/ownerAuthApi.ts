@@ -10,7 +10,7 @@ export class AuthError extends Error {
   constructor(message: string, readonly code: string, readonly field?: AuthField) { super(message); this.name = "AuthError"; }
 }
 
-const known = ["invalid_credentials", "invalid_bootstrap", "setup_unavailable", "rate_limited", "password_transport_required",
+const known = ["invalid_credentials", "invalid_bootstrap", "setup_unavailable", "account_capacity", "rate_limited", "password_transport_required",
   "invalid_username", "invalid_email", "weak_password", "common_password", "password_contains_identity"] as const;
 
 /** Raw JSON call. The server answers failures with `{error:{code,field?}}`; the words live in the catalog. */

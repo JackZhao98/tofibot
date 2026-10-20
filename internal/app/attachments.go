@@ -47,7 +47,8 @@ func migrateAttachments(db *sql.DB) error {
 	 attachment_id TEXT NOT NULL, message_id TEXT NOT NULL,
 	 PRIMARY KEY(attachment_id,message_id),
 	 FOREIGN KEY(attachment_id) REFERENCES attachments(id) ON DELETE CASCADE,
-	 FOREIGN KEY(message_id) REFERENCES messages(id) ON DELETE CASCADE);`)
+	 FOREIGN KEY(message_id) REFERENCES messages(id) ON DELETE CASCADE);
+	CREATE INDEX IF NOT EXISTS attachment_messages_message ON attachment_messages(message_id);`)
 	return err
 }
 

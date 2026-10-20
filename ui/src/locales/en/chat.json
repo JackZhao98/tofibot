@@ -5,6 +5,7 @@
     "saving": "Saving…"
   },
   "apiError": {
+    "ambiguous_recipient": "Two members share that name. Rename one of them or pick the name from the list.",
     "archive_blocked": "This conversation is archived. Restore it to send messages.",
     "archive_busy": "Some tasks are still running. Wait for them to finish or stop them before archiving.",
     "delete_busy": "Related tasks are still running. Stop them, then try deleting again.",
@@ -204,7 +205,8 @@
     "clipboard_unavailable": "This browser can't copy links. Copy it from the address bar.",
     "generic": "Something went wrong. Try again later.",
     "group_unavailable": "This group doesn't exist or is no longer available.",
-    "service_unavailable": "Service unavailable. Try again later."
+    "service_unavailable": "Service unavailable. Try again later.",
+    "network_unreachable": "Can't reach the server. The request was not sent; try again once the connection is back."
   },
   "groupCreate": {
     "close": "Close new group",
@@ -240,6 +242,7 @@
     "jump_latest": "Jump to latest messages",
     "load_older": "View earlier messages",
     "loading_messages": "Loading messages…",
+    "unavailable_retrying": "Can't reach the server. Retrying…",
     "new_count_one": "{{count}} new message",
     "new_count_other": "{{count}} new messages",
     "older_failed": "Couldn't load earlier messages: {{error}}",
@@ -248,11 +251,14 @@
     "view_latest": "View latest messages"
   },
   "hover": {
+    "copy": "Copy",
+    "copied": "Copied",
     "react": "Add reaction",
     "reply": "Reply",
     "toolbar": "Message actions",
     "view_activity": "View activity",
-    "hide_activity": "Hide activity"
+    "hide_activity": "Hide activity",
+    "just_now": "Just now"
   },
   "list": {
     "separator": ", "
@@ -370,6 +376,8 @@
     "key_unreachable": "Your Tofi server can’t reach {{provider}}. Check its internet or proxy, then try again.",
     "key_failed": "Couldn’t check that key. Try again.",
     "key_no_models": "The key works, but it can’t use any models yet. Add billing or pick a project with model access.",
+    "key_no_quota": "The key is valid, but this {{provider}} account has no usage left. Add credit or raise the limit, then connect again.",
+    "codex_unreachable": "Your Tofi server can’t reach OpenAI. Check its internet or proxy, then sign in again.",
     "open_billing": "Open billing",
     "connected_title": "You’re connected",
     "connected_ready": "Your first Bot is ready and waiting.",
@@ -483,6 +491,15 @@
     "menu": "Choose a reaction",
     "more": "More emoji",
     "react_with": "React with {{emoji}}"
+  },
+  "receipt": {
+    "sending": "Sending",
+    "delivered": "Delivered",
+    "read": "Read",
+    "read_by": "Read by {{names}}",
+    "failed": "Not sent",
+    "retry": "Retry",
+    "retry_label": "Retry sending this message"
   },
   "related": {
     "bot_conversation": "Bot conversation",

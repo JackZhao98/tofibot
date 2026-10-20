@@ -1,6 +1,7 @@
 package runtime
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"strings"
@@ -258,4 +259,34 @@ func limitToolEventText(value string, max int) (string, bool) {
 		return value, false
 	}
 	return string(runes[:max]) + "…", true
+}
+
+// webSearchToolEvent reports a provider-side search as a finished tool call, so
+// the query and the sources it returned appear in the run's evidence. The
+// activity record opens as queued, as every tool call's does.
+func webSearchToolEvent(ws provider.WebSearch) (queued, finished ToolEvent) {
+	args, _ := json.Marshal(map[string]string{"query": ws.Query})
+	queued = ToolEvent{CallID: "web-search-" + ws.ID, Name: "web_search", Arguments: string(args), Status: "queued"}
+	ev := queued
+	ev.Status = "completed"
+	if ws.Error != "" {
+		ev.Status = "failed"
+		ev.Result = "search failed: " + ws.Error
+		return queued, ev
+	}
+	var b strings.Builder
+	for i, src := range ws.Sources {
+		if i > 0 {
+			b.WriteString("\n")
+		}
+		b.WriteString(src.Title + " - " + src.URL)
+		if src.PageAge != "" {
+			b.WriteString(" (" + src.PageAge + ")")
+		}
+	}
+	if b.Len() == 0 {
+		b.WriteString("no results")
+	}
+	ev.Result = b.String()
+	return queued, ev
 }

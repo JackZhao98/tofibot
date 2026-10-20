@@ -47,6 +47,7 @@ PRICES = {
 }
 PERSONA_ORDER = ["assistant", "technews", "analogy"]
 
+LOOKUP_RE = r"web|browse|fetch|lookup|call_mcp_tool|search(?!_history)"  # search_history reads this chat, it is not a lookup
 KEY = ""  # loaded once; used only in memory
 
 
@@ -269,6 +270,23 @@ def select_probes(all_probes, spec, with_computer):
     return out
 
 
+def seed_history(srv, conv, bots, history):
+    """Insert prior turns straight into the (idle) server database, so a probe starts mid-conversation:
+    the assistant lines are attributed to the DM's Bot and are plain visible messages."""
+    bot_id = [b["id"] for b in bots.values() if b["dm"] == conv][0]
+    w = sqlite3.connect(srv.db_path, timeout=30)
+    try:
+        for h in history:
+            seq = w.execute("SELECT COALESCE(MAX(seq),0)+1 FROM messages WHERE conversation_id=?", (conv,)).fetchone()[0]
+            role = "assistant" if h["role"] == "assistant" else "user"
+            ts = datetime.datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%S.%fZ")
+            w.execute("INSERT INTO messages(id,conversation_id,seq,role,kind,sender_bot_id,content,created_at) VALUES(?,?,?,?,?,?,?,?)",
+                      (str(uuid.uuid4()), conv, seq, role, "", bot_id if role == "assistant" else None, fill(h["text"], bots), ts))
+        w.commit()
+    finally:
+        w.close()
+
+
 def run_probe(srv, probe, bots, group_id):
     target = probe["target"]
     if target == "group":
@@ -280,6 +298,15 @@ def run_probe(srv, probe, bots, group_id):
     seq0 = db.execute("SELECT COALESCE(MAX(seq),0) FROM messages WHERE conversation_id=?", (conv,)).fetchone()[0]
     usage0 = db.execute("SELECT COALESCE(MAX(id),0) FROM usage_calls").fetchone()[0]
     timed_out, error = False, ""
+    note_bot, note_orig = None, None
+    if probe.get("persona_note"):
+        # Mimic a production persona that lists publishing as needing confirmation; restored after the probe.
+        note_bot = bots[target.split(":", 1)[1]]
+        note_orig = srv.db().execute("SELECT instructions FROM bots WHERE id=?", (note_bot["id"],)).fetchone()[0]
+        srv.request("PATCH", "/api/bots/%s" % note_bot["id"], {"instructions": note_orig + "\n" + probe["persona_note"]})
+    if probe.get("history"):
+        seed_history(srv, conv, bots, probe["history"])
+        seq0 = db.execute("SELECT COALESCE(MAX(seq),0) FROM messages WHERE conversation_id=?", (conv,)).fetchone()[0]
     turn_seq0 = seq0
     for i, turn in enumerate(probe["turns"]):
         if i == len(probe["turns"]) - 1:
@@ -304,6 +331,8 @@ def run_probe(srv, probe, bots, group_id):
         if not fired:
             error = "scheduled run did not fire and finish within the wait window"
         wait_idle(srv, timeout=120)
+    if note_bot is not None:
+        srv.request("PATCH", "/api/bots/%s" % note_bot["id"], {"instructions": note_orig})
     return collect(srv, probe, conv, seen, turn_seq0 if not probe.get("await_schedule") else seq0, usage0, timed_out, error, bots)
 
 
@@ -318,10 +347,10 @@ def collect(srv, probe, conv, seen_runs, seq0, usage0, timed_out, error, bots=No
         r["bot"] = names.get(r["bot_id"], r["bot_id"])
         r["error"] = (r["error"] or "")[:300]
     msgs = db.execute(
-        "SELECT seq,kind,sender_bot_id,content,notice_data,role,run_id FROM messages "
+        "SELECT seq,kind,sender_bot_id,content,notice_data,role,run_id,created_at FROM messages "
         "WHERE conversation_id=? AND seq>? AND role='assistant' ORDER BY seq", (conv, seq0)).fetchall()
     visible = [{"seq": m["seq"], "kind": m["kind"], "sender": names.get(m["sender_bot_id"], m["sender_bot_id"]),
-                "text": m["content"]} for m in msgs if m["kind"] in ("", "segment") and (m["content"] or "").strip()]
+                "text": m["content"], "at": m["created_at"]} for m in msgs if m["kind"] in ("", "segment") and (m["content"] or "").strip()]
     all_notices = db.execute(
         "SELECT content,notice_data FROM messages WHERE kind='notice' AND run_id IN (%s)" %
         ",".join("?" * len(run_ids)), run_ids).fetchall() if run_ids else []
@@ -347,14 +376,24 @@ def collect(srv, probe, conv, seen_runs, seq0, usage0, timed_out, error, bots=No
         nb = norm(b)
         if len(nb) >= 20 and any(nb in norm(v["text"]) or (len(norm(v["text"])) >= 20 and norm(v["text"]) in nb) for v in visible):
             brief_visible = True
-    usage = {"calls": 0, "input_tokens": 0, "output_tokens": 0}
-    tools = []
+    usage = {"calls": 0, "input_tokens": 0, "output_tokens": 0, "search_usd": 0.0, "searches": 0}
+    tools, tool_starts = [], []
     if run_ids:
         q = ",".join("?" * len(run_ids))
+        # Server-side search fees are their own rows (kind web_search): money, not model calls.
         u = db.execute("SELECT COUNT(*),COALESCE(SUM(input_tokens),0),COALESCE(SUM(output_tokens),0) FROM usage_calls "
-                       "WHERE run_id IN (%s)" % q, run_ids).fetchone()
-        usage = {"calls": u[0], "input_tokens": u[1], "output_tokens": u[2]}
-        tools = [r[0] for r in db.execute("SELECT name FROM tool_activities WHERE run_id IN (%s) ORDER BY rowid" % q, run_ids)]
+                       "WHERE kind<>'web_search' AND run_id IN (%s)" % q, run_ids).fetchone()
+        sr = db.execute("SELECT COALESCE(SUM(equivalent_usd),0) FROM usage_calls WHERE kind='web_search' AND run_id IN (%s)" % q, run_ids).fetchone()
+        usage = {"calls": u[0], "input_tokens": u[1], "output_tokens": u[2], "search_usd": sr[0], "searches": round(sr[0] / 0.01)}
+        tool_rows = db.execute("SELECT name,started_at FROM tool_activities WHERE run_id IN (%s) ORDER BY rowid" % q, run_ids).fetchall()
+        tools = [r[0] for r in tool_rows]
+        tool_starts = [(r[0], r[1]) for r in tool_rows]
+    # looked_up_first: a lookup-like tool started before the first visible reply was posted
+    # (local mode has no web, so an attempted call that fails still counts).
+    looked_up_first = None
+    if probe.get("record_lookup"):
+        first_at = min((v["at"] for v in visible), default=None)
+        looked_up_first = any(re.search(LOOKUP_RE, n, re.I) and (first_at is None or st < first_at) for n, st in tool_starts)
     lo, hi = probe["expected_visible"]
     topic_mention = None
     if probe.get("topic_regex"):
@@ -371,7 +410,18 @@ def collect(srv, probe, conv, seen_runs, seq0, usage0, timed_out, error, bots=No
         spoke = {v["sender"] for v in visible}
         mentioned_answered = {"mentioned": len(probe["mentioned"]),
                               "answered": sum(1 for k in probe["mentioned"] if bots[k]["name"] in spoke)}
+    # Follow-through heuristics: work done (any tool other than say) before the first reply, a closing
+    # request for permission, and a promise of work in a run that made no such call.
+    work_calls = [n for n in tools if n not in ("say", "respond", "react_to_message")]
+    alltext = " ".join(v["text"] for v in visible)
+    last_text = visible[-1]["text"] if visible else ""
+    asked_again = bool(re.search(r"[?？]\s*$|回一句|你回|你确认|要我.{0,20}吗|需要我.{0,20}吗|if you.{0,20}tell me|let me know", last_text.strip()[-120:], re.I))
+    promised_no_action = bool(re.search(r"我(现在|这就|马上|立刻|先)?(就)?(去|来|开始|打开|写|记|做)|i('| wi)ll (now )?(open|write|save|do|add)", alltext, re.I)) and not work_calls
+    link_ok = None
+    if probe.get("must_contain_url"):
+        link_ok = probe["must_contain_url"] in alltext
     return {
+        "expect_action": bool(probe.get("expect_action")), "work_calls": len(work_calls), "asked_again": asked_again, "promised_no_action": promised_no_action, "link_ok": link_ok,
         "id": probe["id"], "category": probe["category"], "target": probe["target"],
         "mentioned_answered": mentioned_answered,
         "turns": probe["turns"], "owes_answer": probe["owes_answer"],
@@ -381,7 +431,9 @@ def collect(srv, probe, conv, seen_runs, seq0, usage0, timed_out, error, bots=No
         "stray_progress_rows": len(stray_progress), "stray_progress_text": stray_progress[:3],
         "handoff_briefs": briefs, "handoff_brief_visible": brief_visible,
         "usage": usage, "tools": tools,
-        "lookup_attempted": any(re.search(r"search|browse|fetch|web|lookup", t, re.I) for t in tools) if probe.get("record_lookup") else None,
+        "lookup_attempted": any(re.search(LOOKUP_RE, t, re.I) for t in tools) if probe.get("record_lookup") else None,
+        "looked_up_first": looked_up_first,
+        "lookup_calls": sum(1 for t in tools if re.search(LOOKUP_RE, t, re.I)),
         "timed_out": timed_out, "error": error,
         "topic_mention": topic_mention, "answer_covers": answer_covers,
     }
@@ -423,7 +475,7 @@ def grade(key, workspace, grader_model, rubric, res, bots_by_name):
     if not res["visible"]:
         return {"replies": [], "step_narration_visible": False, "coordination_visible": False,
                 "delegation_requirements_visible": False, "trailing_unverified_caveat": False,
-                "routine_closing_offer": False, "revived_prior_topic": False, "member_brief_visible": False, "asked_back": False, "scope_refusal": False, "_usage": {"input_tokens": 0, "output_tokens": 0}}
+                "routine_closing_offer": False, "revived_prior_topic": False, "member_brief_visible": False, "asked_back": False, "scope_refusal": False, "verified_without_lookup": False, "asked_instead_of_lookup": False, "_usage": {"input_tokens": 0, "output_tokens": 0}}
     roles = []
     for name, b in bots_by_name.items():
         roles.append("%s: %s" % (b["name"], norm(b["instructions"])[:1200]))
@@ -435,6 +487,9 @@ def grade(key, workspace, grader_model, rubric, res, bots_by_name):
     lines += ["", "Visible replies, in order:"]
     for i, v in enumerate(res["visible"]):
         lines.append("[%d] %s: %s" % (i, v["sender"], v["text"]))
+    if res.get("looked_up_first") is not None:
+        lines += ["", "A lookup tool was called before the first visible reply: " + ("yes" if res["looked_up_first"] else "no")]
+    lines += ["", "Tools called during the run (names only, in order; empty means no tool was called): " + (", ".join(res["tools"]) or "(none)")]
     if res["handoff_briefs"]:
         lines += ["", "Handoff briefs one Bot gave another (internal assignment text):"]
         lines += ["- " + b for b in res["handoff_briefs"]]
@@ -448,13 +503,27 @@ def grade(key, workspace, grader_model, rubric, res, bots_by_name):
 
 # ---------------------------------------------------------------- aggregate
 
+NO_LOOKUP_CATEGORIES = {"dm_smalltalk", "group_greeting", "group_unaddressed"}
 DIMS = ["natural_speech", "mood", "stance", "length", "machine_tells"]
 FLAGS = ["step_narration_visible", "coordination_visible", "delegation_requirements_visible",
-         "trailing_unverified_caveat", "routine_closing_offer", "revived_prior_topic", "member_brief_visible", "asked_back", "scope_refusal"]
+         "trailing_unverified_caveat", "routine_closing_offer", "revived_prior_topic", "member_brief_visible", "asked_back", "scope_refusal", "verified_without_lookup", "asked_instead_of_lookup"]
 
 
 def rate(num, den):
     return round(num / den, 4) if den else None
+
+
+def followthrough_stats(results):
+    """Rates over the dm_followthrough probes: acted (a work call before the answer), asked again,
+    promised without acting, and found the link (only probes that carry a link)."""
+    ft = [p for p in results if p["category"] == "dm_followthrough"]
+    acting = [p for p in ft if p.get("expect_action")]
+    links = [p for p in ft if p.get("link_ok") is not None]
+    return {"probes": len(ft),
+            "acted": [sum(1 for p in acting if p["work_calls"] > 0), len(acting)],
+            "asked_again": [sum(1 for p in ft if p["asked_again"]), len(ft)],
+            "promised_no_action": [sum(1 for p in ft if p["promised_no_action"]), len(ft)],
+            "found_link": [sum(1 for p in links if p["link_ok"]), len(links)]}
 
 
 def aggregate(results):
@@ -477,7 +546,9 @@ def aggregate(results):
     lookups = [p for p in results if p["lookup_attempted"] is not None]
     usage = {"calls": sum(p["usage"]["calls"] for p in results),
              "input_tokens": sum(p["usage"]["input_tokens"] for p in results),
-             "output_tokens": sum(p["usage"]["output_tokens"] for p in results)}
+             "output_tokens": sum(p["usage"]["output_tokens"] for p in results),
+             "search_usd": sum(p["usage"].get("search_usd", 0.0) for p in results),
+             "searches": sum(p["usage"].get("searches", 0) for p in results)}
     out = {
         "probes": len(results), "runs": len(runs),
         "origin_counts": origin_counts,
@@ -489,12 +560,17 @@ def aggregate(results):
         "probes_with_stray_progress": sum(1 for p in results if p.get("stray_progress_rows")),
         "handoff_probes": sum(1 for p in results if p["handoff_briefs"]),
         "lookup_attempted": sum(1 for p in lookups if p["lookup_attempted"]), "lookup_probes": len(lookups),
+        "looked_up_first": sum(1 for p in lookups if p.get("looked_up_first")),
+        "needless_lookup_calls": sum(p.get("lookup_calls", 0) for p in results if p["category"] in NO_LOOKUP_CATEGORIES),
+        "needless_lookup_probes": sum(1 for p in results if p["category"] in NO_LOOKUP_CATEGORIES and p.get("lookup_calls", 0) > 0),
+        "no_lookup_category_probes": sum(1 for p in results if p["category"] in NO_LOOKUP_CATEGORIES),
         "failed_or_timed_out": sum(1 for p in results if p["timed_out"] or p["error"] or any(r["status"] != "done" for r in p["runs"])),
         "graded_probes": len(graded),
         "avg_score": round(sum(all_scores) / len(all_scores), 3) if all_scores else None,
         "avg_by_dimension": {d: round(sum(v) / len(v), 3) if v else None for d, v in scores.items()},
         "flag_rates": {f: rate(sum(1 for p in graded if p["grade"].get(f)), len(graded)) for f in FLAGS},
         "usage": usage,
+        "followthrough": followthrough_stats(results),
         "topic_mention": {"count": sum(1 for p in results if p.get("topic_mention")), "probes": sum(1 for p in results if p.get("topic_mention") is not None)},
         "answer_covers": {"count": sum(1 for p in results if p.get("answer_covers")), "probes": sum(1 for p in results if p.get("answer_covers") is not None)},
         "mentioned_answered": {"answered": sum(p["mentioned_answered"]["answered"] for p in results if p.get("mentioned_answered")),
@@ -507,7 +583,7 @@ def cost_usd(model, usage):
     pin, pout, _ = PRICES.get(model, (None, None, "no price"))
     if pin is None:
         return None
-    return round(usage["input_tokens"] / 1e6 * pin + usage["output_tokens"] / 1e6 * pout, 4)
+    return round(usage["input_tokens"] / 1e6 * pin + usage["output_tokens"] / 1e6 * pout + usage.get("search_usd", 0.0), 4)
 
 
 def pct(x):
@@ -519,16 +595,22 @@ def write_summary(path, report):
          "Generated %s. Probes: %d. Runs per model: %d. Grader: %s." % (
              report["generated_at"], report["probe_count"], report["runs_per_model"], report["grader_model"]), ""]
     L += ["## Per model", "",
-          "| model | say rate | visible count ok | probes with exact dups | narration | coordination | delegation reqs | trailing caveat | closing offer | topic revival | member brief | scope refusal | avg score (0-2) | model calls | tokens in/out | est. $ |",
-          "|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|"]
+          "| model | say rate | visible count ok | probes with exact dups | narration | coordination | delegation reqs | trailing caveat | closing offer | topic revival | member brief | scope refusal | verified w/o lookup | avg score (0-2) | model calls | tokens in/out | est. $ |",
+          "|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|"]
     for model, m in report["models"].items():
         a, fr = m["overall"], m["overall"]["flag_rates"]
-        L.append("| %s | %s | %s | %d | %s | %s | %s | %s | %s | %s | %s | %s | %s | %d | %d / %d | %s |" % (
+        L.append("| %s | %s | %s | %d | %s | %s | %s | %s | %s | %s | %s | %s | %s | %s | %d | %d / %d | %s |" % (
             model, pct(a["adherence_say_rate"]), pct(a["visible_count_ok_rate"]), a["probes_with_exact_duplicates"],
             pct(fr["step_narration_visible"]), pct(fr["coordination_visible"]), pct(fr["delegation_requirements_visible"]),
-            pct(fr["trailing_unverified_caveat"]), pct(fr["routine_closing_offer"]), pct(fr["revived_prior_topic"]), pct(fr["member_brief_visible"]), pct(fr["scope_refusal"]),
+            pct(fr["trailing_unverified_caveat"]), pct(fr["routine_closing_offer"]), pct(fr["revived_prior_topic"]), pct(fr["member_brief_visible"]), pct(fr["scope_refusal"]), pct(fr["verified_without_lookup"]),
             a["avg_score"], a["usage"]["calls"], a["usage"]["input_tokens"], a["usage"]["output_tokens"],
             "n/a" if m["cost_usd_est"] is None else "$%.3f" % m["cost_usd_est"]))
+    L.append("")
+    L += ["## Follow-through (dm_followthrough probes)", "",
+          "| model | acted | asked again | promised, did nothing | found the link |", "|---|---|---|---|---|"]
+    for model, m in report["models"].items():
+        f = m["overall"]["followthrough"]
+        L.append("| %s | %s |" % (model, " | ".join("%d/%d" % tuple(f[k]) for k in ("acted", "asked_again", "promised_no_action", "found_link"))))
     L.append("")
     for model, m in report["models"].items():
         L += ["### %s" % model, "",
@@ -538,8 +620,10 @@ def write_summary(path, report):
               "Total run tokens in/out (setup + probes): %d / %d; est. $%s." % (
                   m["total_usage"]["input_tokens"], m["total_usage"]["output_tokens"], m["total_cost_usd_est"]),
               "Grader tokens in/out: %d / %d." % (m["grader_usage"]["input_tokens"], m["grader_usage"]["output_tokens"]),
-              "Lookup attempted: %d of %d lookup probes. Handoff brief visible: %d of %d probes with a brief." % (
-                  m["overall"]["lookup_attempted"], m["overall"]["lookup_probes"],
+              "Lookup attempted: %d of %d lookup probes (before the first reply: %d). Needless lookup calls on small-talk probes: %d calls in %d of %d probes. verified_without_lookup %s, asked_instead_of_lookup %s. Handoff brief visible: %d of %d probes with a brief." % (
+                  m["overall"]["lookup_attempted"], m["overall"]["lookup_probes"], m["overall"]["looked_up_first"],
+                  m["overall"]["needless_lookup_calls"], m["overall"]["needless_lookup_probes"], m["overall"]["no_lookup_category_probes"],
+                  pct(m["overall"]["flag_rates"]["verified_without_lookup"]), pct(m["overall"]["flag_rates"]["asked_instead_of_lookup"]),
                   m["overall"]["handoff_brief_visible"], m["overall"]["handoff_probes"]),
               "Mentioned Bots that answered: %d of %d." % (m["overall"]["mentioned_answered"]["answered"], m["overall"]["mentioned_answered"]["mentioned"]),
               "Failed, errored or timed-out probes: %d. Probes with working text a chat would render (progress row, no final): %d." % (m["overall"]["failed_or_timed_out"], m["overall"]["probes_with_stray_progress"]), "",

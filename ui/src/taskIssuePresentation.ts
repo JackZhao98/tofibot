@@ -16,7 +16,7 @@ export type ExecutionState = "not_executed" | "in_progress" | "completed" | "unk
 export type TaskEvidence = { source: "run" | "tool" | "question" | "draft" | "connection"; id: string; code?: string; status?: string; certainty?: string; model?: string; updatedAt?: string; contextCode?: string; failureCategory?: string };
 /** A fact that names one tool step can open that step in the activity record. */
 export type TaskFactLink = { runId: string; callId: string; label: string };
-export type TaskIssueView = { kind: TaskIssueKind; phase: "active" | "finishing" | "terminal"; title: string; facts: string[]; links: (TaskFactLink | undefined)[]; secondary: string[]; action: TaskAction; actionLabel: string; evidence: TaskEvidence[]; recordsComplete: boolean };
+export type TaskIssueView = { kind: TaskIssueKind; phase: "active" | "finishing" | "terminal"; title: string; facts: string[]; links: (TaskFactLink | undefined)[]; secondary: string[]; action: TaskAction; actionLabel: string; evidence: TaskEvidence[]; recordsComplete: boolean; /** The run stopped for a reason a second attempt can fix (busy or dropped service), and the server accepts the retry. */ retryable?: boolean };
 export type TaskFamily = ReturnType<typeof buildRetryFamilies>[number];
 export type TaskOwner = { key: string; family: TaskFamily; anchor?: { kind: "message" | "question" | "draft"; id: string } };
 
@@ -236,7 +236,8 @@ export function presentTaskIssue({ run, family, tools = [], questions = [], draf
   if (!complete) secondary.push(t("secondary.records_incomplete"));
   evidence.push({ source: "run", id: run.id, status: run.status, code: overloaded ? "server_is_overloaded" : run.failure?.code, model: run.model, updatedAt: run.updated_at });
   if (!connected) evidence.push({ source: "connection", id: run.id, status: "disconnected" });
-  return { kind, phase, title: t(`issue.title.${kind}`), facts, links, secondary, action, actionLabel: action === "open_codex" && provider !== "codex" ? t("issue.action.open_model_connections") : t(`issue.action.${action}`), evidence, recordsComplete: complete };
+  const retryable = ["failed", "interrupted"].includes(run.status) && run.error !== "approval_expired" && ["provider_busy", "runtime_connection", "unknown_failure"].includes(kind);
+  return { kind, phase, title: t(`issue.title.${kind}`), facts, links, secondary, action, retryable, actionLabel: action === "open_codex" && provider !== "codex" ? t("issue.action.open_model_connections") : t(`issue.action.${action}`), evidence, recordsComplete: complete };
 }
 
 /** Diagnostics never contain arguments, results, prose errors, mail or reasoning. */

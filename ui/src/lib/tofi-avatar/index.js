@@ -131,6 +131,29 @@ function pathBox(d){
   }
   return Number.isFinite(minX)?{x:minX,y:minY,width:maxX-minX,height:maxY-minY}:null;
 }
+// One shared animation-frame pump for every mounted cat. Cats on small hosts (list rows, message avatars,
+// at most 64 px) are stepped at ~24 fps: sub-pixel breathing gains nothing from 60 fps and every step
+// re-derives SVG path geometry. Large hosts (stage, picker) keep the display rate.
+const SMALL_HOST_PX=64,SMALL_HOST_FRAME_MS=1000/24;
+const pendingFrames=new Map();let pumpId=0,nextFrameId=0;
+function pump(now){
+  pumpId=0;
+  for(const [id,entry] of [...pendingFrames]){
+    if(entry.due>now)continue;
+    pendingFrames.delete(id);entry.fn(now);
+  }
+  if(pendingFrames.size&&!pumpId)pumpId=requestAnimationFrame(pump);
+}
+function scheduleFrame(fn,due=0){
+  const id=++nextFrameId;pendingFrames.set(id,{fn,due});
+  if(!pumpId)pumpId=requestAnimationFrame(pump);
+  return id;
+}
+function cancelFrame(id){
+  if(!id)return;
+  pendingFrames.delete(id);
+  if(!pendingFrames.size&&pumpId){cancelAnimationFrame(pumpId);pumpId=0;}
+}
 export function mountCat(host,options={}){
   if(!host||typeof host.append!=='function')throw new Error('mountCat requires a DOM element');
   let config=normalizeConfig(options),shape=shapes[config.shape];
@@ -145,7 +168,9 @@ export function mountCat(host,options={}){
   let speed=clamp(Number(options.speed)||1,.25,2);
   let current={...rest,o:idle==='awake'?1:0,k:idle==='awake'?0:1};
   let tailRig=null,svg,body,marksGroup,eyesGroup,outline,fillNode,parts=[],eyes=[],bodyG,legsG,pawsG,legs=[],paws=[],floor=null;
-  let job=null,raf=0,destroyed=false;
+  let job=null,raf=0,destroyed=false,lastStepAt=-Infinity;
+  const frameGap=()=>{const w=host.clientWidth;return w>0&&w<=SMALL_HOST_PX?SMALL_HOST_FRAME_MS-4:0;};
+  const nextDue=()=>lastStepAt+frameGap();
   // v2 life layer: tiny continuous motion on top of the resting pose while no
   // clip plays (breath, auto-blink, eye drift, ear twitch). Off with life:false.
   let lifeOn=options.life!==false,lifeRaf=0,lifeT0=null,lifeOff={...rest},nextBlink=0,blinkAt=-9,blinkN=1,nextTwitch=0,twitchAt=-9,twitchDir=1,drift=0,driftTo=0,nextDrift=0;
@@ -285,7 +310,7 @@ export function mountCat(host,options={}){
     return o;
   }
   function lifeTick(now){
-    lifeRaf=0;
+    lifeRaf=0;lastStepAt=now;
     if(destroyed||job||!lifeOn||reduced())return;
     if(lifeT0===null)lifeT0=now;
     const t=(now-lifeT0)/1000*speed;
@@ -302,10 +327,10 @@ export function mountCat(host,options={}){
     const off=lifeOffset(t);
     const ramp=Math.min(1,t/.9),rr=ramp*ramp*(3-2*ramp);
     soft(Object.fromEntries(fields.map(k=>[k,base[k]+off[k]*(k==='o'||k==='lid'?1:rr)])));
-    if(canAnimate())lifeRaf=requestAnimationFrame(lifeTick);
+    if(canAnimate())lifeRaf=scheduleFrame(lifeTick,nextDue());
   }
-  function startLife(){if(!lifeRaf&&lifeOn&&!job&&!destroyed&&canAnimate()&&!reduced()){lifeT0=null;drift=0;driftTo=0;nextBlink=rnd(.8,2.5);nextTwitch=rnd(2,5);nextAuto=rnd(...((performances[shape.key].director||{}).every||[4,9]))*.6;lifeRaf=requestAnimationFrame(lifeTick);}}
-  function stopLife(){cancelAnimationFrame(lifeRaf);lifeRaf=0;}
+  function startLife(){if(!lifeRaf&&lifeOn&&!job&&!destroyed&&canAnimate()&&!reduced()){lifeT0=null;drift=0;driftTo=0;nextBlink=rnd(.8,2.5);nextTwitch=rnd(2,5);nextAuto=rnd(...((performances[shape.key].director||{}).every||[4,9]))*.6;lifeRaf=scheduleFrame(lifeTick,nextDue());}}
+  function stopLife(){cancelFrame(lifeRaf);lifeRaf=0;}
   function limbs(q){
     const L=(performances[shape.key].limbs||{}).L||20,u=clamp(q.u||0),h=clamp(q.h||0),lift=u*L;
     bodyG.setAttribute('transform',lift?'translate(0 '+(-lift).toFixed(2)+')':'');
@@ -435,12 +460,12 @@ export function mountCat(host,options={}){
     }
   }
   function cancel(reason='interrupted'){
-    cancelAnimationFrame(raf);raf=0;
+    cancelFrame(raf);raf=0;
     if(job){const previous=job;job=null;previous.resolve({action:previous.action,cancelled:true,reason});}
   }
   function finish(active,skipped=false){
     if(job!==active)return;
-    cancelAnimationFrame(raf);raf=0;
+    cancelFrame(raf);raf=0;
     // Completion and reduced motion must land on the exact terminal pose;
     // otherwise exponential follow can misclassify sleep as still awake.
     render(pose(active.score.at(-1)));
@@ -468,22 +493,23 @@ export function mountCat(host,options={}){
     job=active;
     active.tick=now=>{
       if(job!==active||destroyed)return;
+      lastStepAt=now;
       if(active.last!==null)active.elapsed+=Math.min((now-active.last)/1000,.075)*speed;
       active.last=now;
       const time=Math.min(active.elapsed,active.duration);
       soft(sample(score,time));
       if(time>=active.duration)finish(active);
-      else raf=requestAnimationFrame(active.tick);
+      else raf=scheduleFrame(active.tick,nextDue());
     };
     emit('start',{action});
     if(job!==active||destroyed)return promise;
     if(reduced())finish(active,true);
-    else if(canAnimate())raf=requestAnimationFrame(active.tick);
+    else if(canAnimate())raf=scheduleFrame(active.tick,nextDue());
     return promise;
   }
   function visibility(){
-    cancelAnimationFrame(raf);raf=0;
-    if(job){job.last=null;if(canAnimate())raf=requestAnimationFrame(job.tick);}
+    cancelFrame(raf);raf=0;
+    if(job){job.last=null;if(canAnimate())raf=scheduleFrame(job.tick,nextDue());}
     else{stopLife();startLife();}
   }
   function motionPreference(){
