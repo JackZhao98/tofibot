@@ -34,7 +34,7 @@
 
 /* Match App's modal breakpoint. Below this, use the existing accessible drawer. */
 @media(min-width:1100px){
-  .workspace .workspace-grid{--context-width:420px;grid-template-columns:var(--sidebar-width) minmax(0,1fr) 0px;overflow:hidden;transition:grid-template-columns 380ms var(--ease-out)}
+  .workspace .workspace-grid{--context-width:420px;grid-template-columns:var(--sidebar-width) minmax(0,1fr) 0px;overflow:hidden;transition:grid-template-columns var(--m-panel-in) var(--ease-out)}
   .workspace .workspace-grid.terminal-context{--context-width:clamp(340px,38vw,560px)}
   .workspace .workspace-grid.context-open{grid-template-columns:var(--sidebar-width) minmax(0,1fr) var(--context-width)}
   /* Release the closing context column immediately. Otherwise the legacy

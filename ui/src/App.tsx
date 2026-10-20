@@ -83,6 +83,7 @@ import { useSmoothStreamText } from "./useSmoothStreamText";
 import { observeVisualViewport, visualViewportMetrics } from "./visualViewport";
 import { getBotAvatarConfig, subscribeBotAvatar } from "./avatarStore";
 import type { Attachment, Bot, ComputerHealth, Config, Conversation, EventEnvelope, Memory, Message, Run, StreamDraft, ToolActivity, ToolActivityRunSummary, WorkspaceEventEnvelope } from "./types";
+import { MOTION, EASE } from "./motion";
 
 const TerminalPanel = lazy(() => import("./TerminalPanel").then(module => ({ default: module.TerminalPanel })));
 
@@ -478,10 +479,10 @@ function Workspace() {
       if (collapseChanged || reduced || !previous.size) return;
       const before = previous.get(id);
       if (!before) {
-        sidebarAnimations.current.set(row, row.animate([{ opacity:0, transform:"translateX(-18px) scale(.94)" }, { opacity:1, transform:"none" }], { duration:620, easing:"cubic-bezier(.22,1,.36,1)" }));
+        sidebarAnimations.current.set(row, row.animate([{ opacity:0, transform:"translateX(-18px) scale(.94)" }, { opacity:1, transform:"none" }], { duration:MOTION.flight, easing:EASE.out }));
       } else if (Math.abs(before.y - (rect.top + scroll)) > 1) {
         const delta = before.y - (rect.top + scroll);
-        sidebarAnimations.current.set(row, row.animate([{ transform:`translateY(${delta}px)` }, { transform:"translateY(0) scale(1.03)", offset:.7 }, { transform:"none" }], { duration:520, easing:"cubic-bezier(.22,1,.36,1)" }));
+        sidebarAnimations.current.set(row, row.animate([{ transform:`translateY(${delta}px)` }, { transform:"translateY(0) scale(1.03)", offset:.7 }, { transform:"none" }], { duration:MOTION.panelIn, easing: EASE.out }));
       }
     });
     sidebarRects.current = next;
@@ -1876,7 +1877,7 @@ function Workspace() {
     // Scrolled up in history: nothing visible moves, so there is nothing to FLIP. Return to the bottom in
     // the same task as the commit and play the arrival there, once, with the bubble in view.
     const away = viewport.awayFromBottom();
-    if (animate && !away) flipList(messageListRef.current, apply, { duration: 520, easing: "cubic-bezier(.22,1,.36,1)", last: 16 });
+    if (animate && !away) flipList(messageListRef.current, apply, { duration: MOTION.panelIn, easing: EASE.out, last: 16 });
     else flushSync(apply);
     jumpLatest();
     if (animate) {
@@ -2574,7 +2575,7 @@ export function MessageBubble({ receipt, message, replyTarget, replyTargetName, 
     const previous = previousToolLayout.current;
     if (previous?.live && !toolsRunning && !window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
       const dy = previous.offset - offset;
-      if (Math.abs(dy) > 1) answer.animate({ transform: [`translateY(${dy}px)`, "translateY(0)"] }, { duration: 520, easing: "cubic-bezier(.22,1,.36,1)" });
+      if (Math.abs(dy) > 1) answer.animate({ transform: [`translateY(${dy}px)`, "translateY(0)"] }, { duration: MOTION.panelIn, easing: EASE.out });
     }
     previousToolLayout.current = { live: toolsRunning, offset };
   });
@@ -2748,7 +2749,7 @@ function WorkingMembers({ isGroup, companionBotId, companionMotion, workingBotId
       if (before && !window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
         const dx = before.left - bounds.left;
         const dy = before.top - bounds.top;
-        if (Math.abs(dx) > 1 || Math.abs(dy) > 1) element.animate([{ transform: `translate(${dx}px, ${dy}px)` }, { transform: "translate(0, 0)" }], { duration: 220, easing: "cubic-bezier(.2,.8,.2,1)" });
+        if (Math.abs(dx) > 1 || Math.abs(dy) > 1) element.animate([{ transform: `translate(${dx}px, ${dy}px)` }, { transform: "translate(0, 0)" }], { duration: MOTION.base, easing: EASE.settle });
       }
       next.set(key, bounds);
     }
@@ -2946,7 +2947,7 @@ function WebToolActivityRun({ runId, items, notes, summary, summaryError, summar
     if (!live || !expanded || !added || window.matchMedia("(prefers-reduced-motion: reduce)").matches || nextHeight <= fromHeight) return;
     growthAnimation.current?.cancel();
     steps.style.overflow = "hidden";
-    const animation = steps.animate([{ height: `${fromHeight}px` }, { height: `${nextHeight}px` }], { duration: 440, easing: "cubic-bezier(.22,1,.36,1)" });
+    const animation = steps.animate([{ height: `${fromHeight}px` }, { height: `${nextHeight}px` }], { duration: MOTION.panelIn, easing: EASE.out });
     growthAnimation.current = animation;
     void animation.finished.finally(() => { if (growthAnimation.current === animation) { growthAnimation.current = null; steps.style.overflow = ""; } }).catch(() => undefined);
   }, [entries.length, expanded, live, stepKeys]);
@@ -3178,7 +3179,7 @@ function Composer({ workStatus, activeRun, latestReplyId, onStopRun, avatarMenti
       { transform:`translate(${dx * .45}px,${dy * .33 - 40}px) rotate(-4deg) scale(1.04)`, offset:.6 },
       { transform:"translate(0,0) scale(1.06,.9)", offset:.9 },
       { transform:"translate(0,0) scale(1)" },
-    ], { duration:620, easing:"cubic-bezier(.45,0,.3,1)" }).finished.finally(() => { ghost.remove(); pill.style.visibility = ""; });
+    ], { duration:MOTION.flight, easing:EASE.inout }).finished.finally(() => { ghost.remove(); pill.style.visibility = ""; });
   }, [attachments]);
   useLayoutEffect(() => {
     if (isDesktop || mentionQuery === null || mentionStart < 0 || mentionMatches.length === 0) return;
@@ -3355,7 +3356,7 @@ function Composer({ workStatus, activeRun, latestReplyId, onStopRun, avatarMenti
         { transform: "translate(0,0) scale(.9)", opacity: 1 },
         { transform: `translate(${(to.left - from.left) * .5}px, ${Math.min(from.top,to.top) - from.top - 38}px) scale(1.08)`, opacity: 1, offset:.45 },
         { transform: `translate(${to.left - from.left}px, ${to.top - from.top}px) scale(1)`, opacity: 0 },
-      ], { duration:520, easing:"cubic-bezier(.3,.7,.3,1)" }).finished.finally(() => ghost.remove());
+      ], { duration:MOTION.panelIn, easing: EASE.out }).finished.finally(() => ghost.remove());
     });
   }
   function updateContent(value: string, cursor: number) {

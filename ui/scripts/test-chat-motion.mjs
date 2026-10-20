@@ -163,7 +163,7 @@ for (const nudge of [false, true]) await check(`the end of a streamed reply neve
   const common = { conversation_id: "dm_a", run_id: "run_live", bot_id: "bot_a", message_id: "m_live", seq: 71, created_at: new Date().toISOString() };
   await page.evaluate(() => {
     window.__ys = [];
-    const tick = () => { const el = document.querySelector('[data-message-id="m_u"] .message-content'); const sc = document.querySelector(".message-scroll"); if (el && sc) window.__ys.push({ t: performance.now(), y: el.getBoundingClientRect().top, live: document.querySelectorAll(".task-run-live-line").length, tail: [...document.querySelectorAll(".typing-cursor")].length }); window.__ysRaf = requestAnimationFrame(tick); };
+    const tick = () => { const el = document.querySelector('[data-message-id="m_u"] .message-content'); const sc = document.querySelector(".message-scroll"); if (el && sc) window.__ys.push({ t: performance.now(), st: sc.scrollTop, sh: sc.scrollHeight, y: el.getBoundingClientRect().top, live: document.querySelectorAll(".task-run-live-line").length, tail: [...document.querySelectorAll(".typing-cursor")].length }); window.__ysRaf = requestAnimationFrame(tick); };
     tick();
     window.__flip = 0;
     const watch = () => { const el = document.querySelector('[data-message-id="m_live"] .message-content'); if (el) for (const a of el.getAnimations()) if ("transform" in (a.effect?.getKeyframes?.()[0] ?? {})) window.__flip++; window.__flipRaf = requestAnimationFrame(watch); };
@@ -185,6 +185,7 @@ for (const nudge of [false, true]) await check(`the end of a streamed reply neve
   let worst = 0;
   // With a deliberate nudge the first frames carry the reader's own 30px; only the reply's own motion is judged.
   for (let i = nudge ? 4 : 1; i < after.length; i++) worst = Math.max(worst, after[i].y - after[i - 1].y);
+  if (worst > 1 && process.env.CHAT_MOTION_DEBUG) console.log(after.slice(0, 40).map(f => `${(f.t - ys.mark).toFixed(0)}:y${f.y.toFixed(0)}/st${f.st.toFixed(0)}/sh${f.sh}`).join(" "));
   assert.ok(worst <= 1, `the request bubble moved down by ${worst.toFixed(1)}px in one frame when the stream ended`);
   const during = ys.ys.filter(f => f.t < ys.mark);
   assert.ok(during.slice(2).every(f => f.live === 0), "the live status line steps aside once the reply has text");
@@ -255,7 +256,7 @@ const barGeometry = (page, id) => page.evaluate(id => {
 }, id);
 const intersects = (a, b) => Math.min(a.right, b.right) - Math.max(a.left, b.left) > 0.5 && Math.min(a.bottom, b.bottom) - Math.max(a.top, b.top) > 0.5;
 const heights = page => page.evaluate(() => [...document.querySelectorAll(".message-block")].map(el => el.getBoundingClientRect().height));
-const latencies = [];
+const latencies = [], firstSeen = [];
 
 for (const [layout, inGroup, ids] of [["DM", false, ["m1", "m2", "m3", "m4", "m5"]], ["group", true, ["g1", "g2", "g3", "g4", "g5", "g6", "g7"]]]) {
   await check(`${layout}: the bar sits below its own bubble, clear of every other message, with no layout shift`, async () => {
@@ -267,12 +268,12 @@ for (const [layout, inGroup, ids] of [["DM", false, ["m1", "m2", "m3", "m4", "m5
       await page.mouse.move(2, 2);
       await page.waitForFunction(() => document.querySelectorAll(".message-hover-actions").length === 0);
       const before = await heights(page);
-      await page.evaluate(() => { window.__t0 = performance.now(); window.__vis = null; const tick = () => { const b = document.querySelector(".message-hover-actions"); if (b && Number(getComputedStyle(b).opacity) >= 0.99 && b.getBoundingClientRect().height > 0) { window.__vis = performance.now() - window.__t0; return; } if (performance.now() - window.__t0 < 1500) requestAnimationFrame(tick); }; requestAnimationFrame(tick); });
+      await page.evaluate(() => { window.__t0 = performance.now(); window.__vis = null; window.__first = null; const tick = () => { const b = document.querySelector(".message-hover-actions"); if (b && window.__first == null && b.getBoundingClientRect().height > 0) window.__first = performance.now() - window.__t0; if (b && Number(getComputedStyle(b).opacity) >= 0.99 && b.getBoundingClientRect().height > 0) { window.__vis = performance.now() - window.__t0; return; } if (performance.now() - window.__t0 < 1500) requestAnimationFrame(tick); }; requestAnimationFrame(tick); });
       await page.mouse.move(box.x + 30, box.y + 14);
       await page.waitForFunction(() => window.__vis != null, null, { timeout: 3000 });
-      const latency = await page.evaluate(() => window.__vis);
-      latencies.push(latency);
-      assert.ok(latency <= 100, `${layout} ${id}: bar took ${Math.round(latency)} ms to become visible`);
+      const [latency, first] = await page.evaluate(() => [window.__vis, window.__first]);
+      latencies.push(latency); firstSeen.push(first);
+      assert.ok(latency <= 130, `${layout} ${id}: bar took ${Math.round(latency)} ms to become fully opaque (80 ms fade, no delay)`);
       const after = await heights(page);
       assert.deepEqual(after, before, `${layout} ${id}: hovering changed a message height`);
       const g = await barGeometry(page, id);
@@ -315,6 +316,13 @@ await check("hover-to-visible latency is reported", async () => {
   assert.ok(latencies.length > 0);
   const sorted = [...latencies].sort((x, y) => x - y);
   console.log(`  bar hover-to-visible: median ${sorted[Math.floor(sorted.length / 2)].toFixed(1)} ms, max ${sorted.at(-1).toFixed(1)} ms over ${sorted.length} hovers`);
+  // The bar starts to show within a frame or two of the pointer (this suite runs the development build, whose commit alone
+  // costs a frame; the production p95 is ~6 ms) and is fully opaque after its 80 ms fade.
+  const first = [...firstSeen].sort((x, y) => x - y);
+  const p95 = first[Math.min(first.length - 1, Math.floor(first.length * 0.95))];
+  console.log(`  bar first paint: median ${first[Math.floor(first.length / 2)].toFixed(1)} ms, p95 ${p95.toFixed(1)} ms; fully opaque p95 ${sorted[Math.min(sorted.length - 1, Math.floor(sorted.length * 0.95))].toFixed(1)} ms`);
+  assert.ok(p95 <= 34, `the bar took ${p95.toFixed(1)} ms (p95) to start showing`);
+  assert.ok(sorted[Math.min(sorted.length - 1, Math.floor(sorted.length * 0.95))] >= 60, "the bar fades in over its 80 ms instead of popping");
 });
 
 await check("icon hints: the first waits, a neighbour's follows at once", async () => {

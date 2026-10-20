@@ -3,6 +3,7 @@ import { TofiIcon } from "./icons";
 import type { RunStatus } from "./types";
 import { useTranslation } from "./i18n";
 import "./scheduled-run.css";
+import { MOTION, EASE } from "./motion";
 
 export interface ScheduledRunProps {
   title: string;
@@ -55,7 +56,7 @@ export function ScheduledRun({ title, description, content, plannedTime, planned
 
   useEffect(() => {
     if (failed && previousState.current !== state && !reduceMotion()) {
-      ticketRef.current?.animate?.({ transform: ["translateX(0)", "translateX(-4px)", "translateX(3px)", "translateX(0)"] }, { duration: 280, easing: "ease-out" });
+      ticketRef.current?.animate?.({ transform: ["translateX(0)", "translateX(-4px)", "translateX(3px)", "translateX(0)"] }, { duration: MOTION.panelIn, easing: EASE.out });
     }
     previousState.current = state;
     setRetryError(undefined);
@@ -65,7 +66,7 @@ export function ScheduledRun({ title, description, content, plannedTime, planned
     if (!onRetry || retrying) return;
     setRetrying(true);
     setRetryError(undefined);
-    if (!reduceMotion()) retryIconRef.current?.animate?.({ rotate: ["0deg", "-360deg"] }, { duration: 480, easing: "cubic-bezier(.22,1,.36,1)" });
+    if (!reduceMotion()) retryIconRef.current?.animate?.({ rotate: ["0deg", "-360deg"] }, { duration: MOTION.panelIn, easing: EASE.out });
     try {
       await onRetry();
     } catch (cause) {

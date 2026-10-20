@@ -1,0 +1,6 @@
+{
+  "note": "Ceiling of motion values outside the vocabulary (literal durations under 800 ms, cubic-bezier(), bare ease keywords) per file. Only ever shrinks; regenerate with npm run test:motion-tokens -- --update-baseline.",
+  "files": {
+    "src/mailSendFlight.ts": 9
+  }
+}

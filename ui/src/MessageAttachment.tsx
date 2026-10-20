@@ -7,6 +7,7 @@ import { useTranslation } from "./i18n";
 import { FileTile } from "./FileViewer";
 import { attachmentUrl, dedupeAttachments, fileKind, fileSize, isPreviewable, openFilePreview, rememberAttachments, targetOf } from "./filePreviewModel";
 import "./message-attachment.css";
+import { MOTION, EASE } from "./motion";
 export function MessageAttachment({attachment,compact=false}:{attachment:Attachment;compact?:boolean}){
  const {t}=useTranslation(["chat","common"]);
  useEffect(()=>{rememberAttachments([attachment])},[attachment]);
@@ -21,8 +22,8 @@ export function MessageAttachment({attachment,compact=false}:{attachment:Attachm
  const closing=useRef(false);
  const reducedMotion=()=>matchMedia("(prefers-reduced-motion: reduce)").matches;
  const delta=()=>{const from=preview.current?.querySelector("img")?.getBoundingClientRect();const to=zoomImage.current?.getBoundingClientRect();return from&&to&&from.width&&from.height&&to.width&&to.height?`translate(${from.left-to.left}px,${from.top-to.top}px) scale(${from.width/to.width},${from.height/to.height})`:null};
- function openZoom(){const dialog=lightbox.current;if(!dialog)return;dialog.showModal();if(isDesktop||reducedMotion())return;const start=delta();if(start)zoomImage.current?.animate({transform:[start,"none"]},{duration:420,easing:"cubic-bezier(.22,1,.36,1)"});}
- async function closeZoom(){const dialog=lightbox.current;if(!dialog||closing.current)return;if(isDesktop||reducedMotion()){dialog.close();preview.current?.focus({preventScroll:true});return;}closing.current=true;dialog.classList.add("is-closing");const end=delta();if(end){try{await zoomImage.current?.animate({transform:["none",end]},{duration:340,easing:"cubic-bezier(.4,0,.2,1)",fill:"forwards"}).finished;}catch{/* Closing still proceeds if animation is interrupted. */}}dialog.close();dialog.classList.remove("is-closing");closing.current=false;preview.current?.focus({preventScroll:true});}
+ function openZoom(){const dialog=lightbox.current;if(!dialog)return;dialog.showModal();if(isDesktop||reducedMotion())return;const start=delta();if(start)zoomImage.current?.animate({transform:[start,"none"]},{duration:MOTION.panelIn,easing:EASE.out});}
+ async function closeZoom(){const dialog=lightbox.current;if(!dialog||closing.current)return;if(isDesktop||reducedMotion()){dialog.close();preview.current?.focus({preventScroll:true});return;}closing.current=true;dialog.classList.add("is-closing");const end=delta();if(end){try{await zoomImage.current?.animate({transform:["none",end]},{duration:MOTION.panelIn,easing:EASE.inout,fill:"forwards"}).finished;}catch{/* Closing still proceeds if animation is interrupted. */}}dialog.close();dialog.classList.remove("is-closing");closing.current=false;preview.current?.focus({preventScroll:true});}
  const url=attachmentUrl(attachment.id);
  const kind=fileKind(attachment.name,attachment.mime);
  const previewable=isPreviewable(kind);

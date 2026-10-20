@@ -14,9 +14,9 @@
 @media (pointer:coarse) { .workspace .send-receipt-retry { position:relative; } .workspace .send-receipt-retry::after { content:""; position:absolute; inset:-15px -12px; } }
 .workspace .message-user.is-sending .message-content { opacity:.72; }
 @media (prefers-reduced-motion:no-preference) {
-  .workspace .message-user .message-content { transition:opacity .18s ease; }
-  .workspace .send-receipt-mark { transition:color .2s ease; }
-  .workspace .send-receipt-mark.is-settling svg { animation:send-receipt-settle .32s cubic-bezier(.22,1,.36,1); }
-  .workspace .send-receipt-tip { transition:opacity .12s ease, visibility .12s; }
+  .workspace .message-user .message-content { transition:opacity var(--m-base) var(--ease-out); }
+  .workspace .send-receipt-mark { transition:color var(--m-base) var(--ease-out); }
+  .workspace .send-receipt-mark.is-settling svg { animation:send-receipt-settle var(--m-panel-in) var(--ease-out); }
+  .workspace .send-receipt-tip { transition:opacity var(--m-press) var(--ease-out), visibility var(--m-press); }
 }
 @keyframes send-receipt-settle { from { transform:scale(.7); opacity:.4; } to { transform:none; opacity:1; } }

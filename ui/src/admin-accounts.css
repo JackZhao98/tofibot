@@ -88,7 +88,7 @@
   .admin-row .admin-badges{grid-area:badges}
   .admin-row .admin-row-computer{grid-area:computer}
   .admin-row>svg{grid-area:chev}
-  .admin-detail{animation:admin-push 220ms cubic-bezier(.2,.8,.2,1)}
+  .admin-detail{animation:admin-push var(--m-base) var(--ease-settle)}
   .admin-detail-head{align-items:flex-start}
   .admin-export-actions>*{flex:1 1 auto}
   .admin-danger-rows .settings-row-v2:not(.is-inline) .admin-danger-button,.admin-danger-rows .settings-row-v2:not(.is-inline) .secondary-button{width:100%;min-height:44px}
