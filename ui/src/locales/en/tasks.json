@@ -21,7 +21,8 @@
       "open_model_connections": "Open model connections",
       "copy_diagnostics": "Copy diagnostics",
       "view_activity": "View activity",
-      "refresh_status": "Refresh status"
+      "refresh_status": "Refresh status",
+      "retry": "Retry"
     },
     "working": "Working…",
     "copied": "Diagnostics copied.",

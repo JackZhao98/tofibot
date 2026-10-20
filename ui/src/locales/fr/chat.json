@@ -205,7 +205,8 @@
     "clipboard_unavailable": "Ce navigateur ne peut pas copier de liens. Copiez-le depuis la barre d’adresse.",
     "generic": "Une erreur s’est produite. Réessayez plus tard.",
     "group_unavailable": "Ce groupe n’existe pas ou n’est plus disponible.",
-    "service_unavailable": "Service indisponible. Réessayez plus tard."
+    "service_unavailable": "Service indisponible. Réessayez plus tard.",
+    "network_unreachable": "Serveur injoignable. La requête n'a pas été envoyée ; réessayez dès que la connexion est rétablie."
   },
   "groupCreate": {
     "close": "Fermer le nouveau groupe",
@@ -242,6 +243,7 @@
     "jump_latest": "Aller aux derniers messages",
     "load_older": "Voir les messages précédents",
     "loading_messages": "Chargement des messages…",
+    "unavailable_retrying": "Serveur injoignable. Nouvelle tentative…",
     "new_count_many": "{{count}} nouveaux messages",
     "new_count_one": "{{count}} nouveau message",
     "new_count_other": "{{count}} nouveaux messages",
@@ -377,6 +379,8 @@
     "key_unreachable": "Ton serveur Tofi n’arrive pas à joindre {{provider}}. Vérifie son accès internet ou son proxy, puis réessaie.",
     "key_failed": "Impossible de vérifier cette clé. Réessaie.",
     "key_no_models": "La clé fonctionne, mais elle ne peut encore utiliser aucun modèle. Ajoute la facturation ou choisis un projet avec accès aux modèles.",
+    "key_no_quota": "La clé est valide, mais ce compte {{provider}} n’a plus de crédit. Ajoutez du crédit ou relevez la limite, puis reconnectez-vous.",
+    "codex_unreachable": "Votre serveur Tofi ne peut pas joindre OpenAI. Vérifiez sa connexion ou son proxy, puis reconnectez-vous.",
     "open_billing": "Ouvrir la facturation",
     "connected_title": "Tu es connecté",
     "connected_ready": "Ton premier Bot est prêt et t’attend.",

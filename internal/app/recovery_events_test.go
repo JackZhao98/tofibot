@@ -1,6 +1,7 @@
 package app
 
 import (
+	"context"
 	"testing"
 
 	"github.com/JackZhao98/tofibot/internal/runtime"
@@ -228,4 +229,67 @@ END`)
 	if len(replayed) != 2 || replayed[0]["type"] != "run" || replayed[1]["type"] != "tool" {
 		t.Fatalf("recovery events=%+v, want run and tool", replayed)
 	}
+}
+
+func TestRecoveryRequeueEmitsDraftResetForHalfStreamedReply(t *testing.T) {
+	dir := t.TempDir()
+	s, err := OpenStore(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	b, err := s.CreateBot("recovery", "", "model")
+	if err != nil {
+		s.Close()
+		t.Fatal(err)
+	}
+	c, err := s.GetConversation(b.DMConversationID)
+	if err != nil {
+		s.Close()
+		t.Fatal(err)
+	}
+	run, err := s.AddRun(c.ID, b.ID, "")
+	if err != nil {
+		s.Close()
+		t.Fatal(err)
+	}
+	if ok, err := s.SetRunStatus(run.ID, "running", ""); err != nil || !ok {
+		s.Close()
+		t.Fatalf("set running: %v %v", ok, err)
+	}
+	draft, err := s.BeginStream(run)
+	if err != nil {
+		s.Close()
+		t.Fatal(err)
+	}
+	if _, _, err = s.AppendStreamDelta(context.Background(), run.ID, "half a reply"); err != nil {
+		s.Close()
+		t.Fatal(err)
+	}
+	cursor := s.EventCursor(c.ID)
+	if err = s.Close(); err != nil {
+		t.Fatal(err)
+	}
+	s, err = OpenStore(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer s.Close()
+	got, err := s.GetRun(run.ID)
+	if err != nil || got.Status != "queued" {
+		t.Fatalf("run=%+v err=%v, want queued", got, err)
+	}
+	events, err := s.Events(c.ID, cursor)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, e := range events {
+		if e["type"] == "draft_reset" {
+			data := e["data"].(map[string]any)
+			if data["message_id"] != draft.MessageID || data["run_id"] != run.ID {
+				t.Fatalf("draft_reset names the wrong bubble: %+v want message %s", data, draft.MessageID)
+			}
+			return
+		}
+	}
+	t.Fatalf("no draft_reset after requeue: %+v", events)
 }

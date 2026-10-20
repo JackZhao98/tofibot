@@ -205,7 +205,8 @@
     "clipboard_unavailable": "当前浏览器无法复制链接，请从地址栏复制。",
     "generic": "操作失败，请稍后重试。",
     "group_unavailable": "群会话不存在或已不可用。",
-    "service_unavailable": "服务暂时不可用，请稍后重试。"
+    "service_unavailable": "服务暂时不可用，请稍后重试。",
+    "network_unreachable": "无法连接服务器，请求没有发出。连接恢复后再试一次。"
   },
   "groupCreate": {
     "close": "关闭新建群",
@@ -240,6 +241,7 @@
     "jump_latest": "回到最新消息",
     "load_older": "查看更早消息",
     "loading_messages": "读取消息…",
+    "unavailable_retrying": "无法连接服务器，正在重试…",
     "new_count_other": "{{count}} 条新消息",
     "older_failed": "暂时无法加载更早消息：{{error}}",
     "unread": "未读",
@@ -369,6 +371,8 @@
     "key_unreachable": "你的 Tofi 服务器连不上 {{provider}}。检查它的网络或代理后再试。",
     "key_failed": "没能检查这个 key。请重试。",
     "key_no_models": "这个 key 有效，但暂时用不了任何模型。请先开通计费，或换一个有模型权限的项目。",
+    "key_no_quota": "密钥有效，但这个 {{provider}} 账户没有可用额度。请充值或提高额度后重新连接。",
+    "codex_unreachable": "你的 Tofi 服务器无法连接 OpenAI。请检查它的网络或代理，然后重新登录。",
     "open_billing": "打开计费页面",
     "connected_title": "连接成功",
     "connected_ready": "你的第一个 Bot 已经就绪，正在等你。",

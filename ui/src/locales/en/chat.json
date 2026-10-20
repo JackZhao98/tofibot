@@ -205,7 +205,8 @@
     "clipboard_unavailable": "This browser can't copy links. Copy it from the address bar.",
     "generic": "Something went wrong. Try again later.",
     "group_unavailable": "This group doesn't exist or is no longer available.",
-    "service_unavailable": "Service unavailable. Try again later."
+    "service_unavailable": "Service unavailable. Try again later.",
+    "network_unreachable": "Can't reach the server. The request was not sent; try again once the connection is back."
   },
   "groupCreate": {
     "close": "Close new group",
@@ -241,6 +242,7 @@
     "jump_latest": "Jump to latest messages",
     "load_older": "View earlier messages",
     "loading_messages": "Loading messages…",
+    "unavailable_retrying": "Can't reach the server. Retrying…",
     "new_count_one": "{{count}} new message",
     "new_count_other": "{{count}} new messages",
     "older_failed": "Couldn't load earlier messages: {{error}}",
@@ -373,6 +375,8 @@
     "key_unreachable": "Your Tofi server can’t reach {{provider}}. Check its internet or proxy, then try again.",
     "key_failed": "Couldn’t check that key. Try again.",
     "key_no_models": "The key works, but it can’t use any models yet. Add billing or pick a project with model access.",
+    "key_no_quota": "The key is valid, but this {{provider}} account has no usage left. Add credit or raise the limit, then connect again.",
+    "codex_unreachable": "Your Tofi server can’t reach OpenAI. Check its internet or proxy, then sign in again.",
     "open_billing": "Open billing",
     "connected_title": "You’re connected",
     "connected_ready": "Your first Bot is ready and waiting.",

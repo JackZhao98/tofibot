@@ -171,6 +171,8 @@
     "invalid_key_detail": "この APIキーは {{provider}} の検証を通過しなかったため、保存していません。（{{detail}}）",
     "invalid_key_detail_workspace": "この APIキーは {{provider}} の検証を通過しなかったため、保存していません。（{{detail}}）Workspace ID が正しいか確認してください。",
     "unreachable": "{{provider}} に接続できず検証できなかったため、保存していません。しばらくしてからもう一度お試しください。",
+    "no_quota": "{{provider}} はキーを受け付けましたが、アカウントに利用枠が残っていないため保存しませんでした。クレジットを追加するか上限を引き上げてから、もう一度お試しください。",
+    "no_models": "{{provider}} はキーを受け付けましたが、まだ使えるモデルがないため保存しませんでした。課金を設定するか、モデルにアクセスできるプロジェクトを選んでください。",
     "remove_failed": "削除できませんでした。もう一度お試しください。",
     "removed": "{{provider}} の APIキーを削除しました。{{provider}} のモデルを使っている Bot は、接続済みの別のモデルに切り替える必要があります。",
     "key_label": "{{provider}} APIキー",

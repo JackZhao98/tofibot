@@ -172,6 +172,8 @@
     "invalid_key_detail": "{{provider}} hat diesen API-Schlüssel nicht akzeptiert. Er wurde nicht gespeichert. ({{detail}})",
     "invalid_key_detail_workspace": "{{provider}} hat diesen API-Schlüssel nicht akzeptiert. Er wurde nicht gespeichert. ({{detail}}) Prüfe, ob die Workspace ID stimmt.",
     "unreachable": "{{provider}} war für die Prüfung nicht erreichbar. Der Schlüssel wurde nicht gespeichert. Versuch es später erneut.",
+    "no_quota": "{{provider}} hat den Schlüssel akzeptiert, aber das Konto hat kein Guthaben mehr. Er wurde nicht gespeichert. Lade Guthaben auf oder erhöhe das Limit und versuche es erneut.",
+    "no_models": "{{provider}} hat den Schlüssel akzeptiert, kann aber noch keine Modelle nutzen. Er wurde nicht gespeichert. Richte die Abrechnung ein oder wähle ein Projekt mit Modellzugriff.",
     "remove_failed": "Entfernen fehlgeschlagen. Versuch es erneut.",
     "removed": "{{provider}}-API-Schlüssel entfernt. Bots, die {{provider}}-Modelle verwenden, brauchen ein anderes verbundenes Modell.",
     "key_label": "{{provider}}-API-Schlüssel",

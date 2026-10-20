@@ -8,10 +8,14 @@ export class ApiError extends Error {
   }
 }
 
+const READ_TIMEOUT_MS = 15_000;
+
 export async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   const headers = new Headers(init.headers);
   if (init.body && !(init.body instanceof FormData) && !headers.has("Content-Type")) headers.set("Content-Type", "application/json");
-  const response = await fetch(path, { ...init, headers, credentials: "same-origin" });
+  // A read that never answers must fail so polls can recover; writes keep their own pace.
+  const signal = init.signal ?? (!init.method || init.method === "GET" ? AbortSignal.timeout(READ_TIMEOUT_MS) : undefined);
+  const response = await fetch(path, { ...init, headers, credentials: "same-origin", signal });
   if (!response.ok) {
     if (response.status === 401) window.dispatchEvent(new Event("tofi:unauthorized"));
     const body = (await response.json().catch(() => null)) as { error?: { message?: string; code?: string } } | null;
@@ -121,6 +125,8 @@ export function openConversationEvents(
   onEvent: (type: string, data: EventEnvelope, eventId: number) => void,
   onError: () => void,
   workspace?: { after: number; onEvent: (data: WorkspaceEventEnvelope, eventId: number) => void; onReset: () => void },
+  /** Called for every frame, including the server's `ping`, so a silent stream can be told from a quiet one. */
+  onActivity?: () => void,
 ): EventSource {
   const query = new URLSearchParams({ after: String(after) });
   // Cursor 0 means this client has seen nothing yet: start at the live head instead of replaying the whole log.
@@ -129,6 +135,7 @@ export function openConversationEvents(
   const types = ["message", "reaction", "run", "delta", "draft_reset", "thinking", "retrying", "memory", "memory_deleted", "schedule", "work_item", "tool", "bot"] as const;
   for (const type of types) {
     source.addEventListener(type, (event) => {
+      onActivity?.();
       const message = event as MessageEvent<string>;
       const eventId = Number(message.lastEventId);
       onEvent(type, JSON.parse(message.data) as EventEnvelope, Number.isFinite(eventId) ? eventId : after);
@@ -140,6 +147,7 @@ export function openConversationEvents(
     source.addEventListener("workspace", workspaceEventListener(workspace.onEvent, false));
     source.addEventListener("workspace_reset", workspace.onReset);
   }
+  source.addEventListener("ping", () => onActivity?.());
   source.onerror = onError;
   return source;
 }
@@ -149,10 +157,12 @@ export function openWorkspaceEvents(
   onEvent: (data: WorkspaceEventEnvelope, eventId: number) => void,
   onError: () => void,
   onReset?: () => void,
+  onActivity?: () => void,
 ): EventSource {
   const query = new URLSearchParams({ after: after > 0 ? String(after) : "head" });
   const source = new EventSource(`/api/workspace/events?${query}`);
   source.addEventListener("workspace", workspaceEventListener(onEvent, true));
+  source.addEventListener("ping", () => onActivity?.());
   if (onReset) source.addEventListener("workspace_reset", onReset);
   source.onerror = onError;
   return source;

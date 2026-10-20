@@ -433,3 +433,7 @@ html[data-desktop] .unread-badge{width:8px;min-width:8px;height:8px;padding:0;co
 .computer-detail.is-expanded .remote-desktop-surface{flex:1;min-height:0}
 .computer-detail.is-expanded .computer-screen{height:100%;max-height:100%;width:100%}
 .view-only-chat-participant{display:flex;align-items:center;gap:7px;min-width:0}.view-only-chat-participant strong{max-width:24vw;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:15px}
+/* A failed workspace refresh floats over the app: it must never push the layout down. */
+.workspace-status.workspace-toast{position:fixed;top:10px;left:50%;transform:translateX(-50%);z-index:80;display:flex;align-items:center;gap:10px;max-width:calc(100vw - 32px);border-radius:10px;box-shadow:0 6px 24px rgb(0 0 0 / .18)}
+/* A failure notice in the conversation is the app speaking, never a Bot reply. */
+.message-list > .error-banner.system-notice{margin:10px 18px;padding:9px 12px;border:1px solid var(--danger);border-radius:12px;background:color-mix(in srgb,var(--danger) 9%,var(--surface));color:var(--ink);font-size:13px;line-height:1.45}

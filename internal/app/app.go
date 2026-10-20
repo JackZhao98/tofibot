@@ -398,7 +398,18 @@ func recoverInterruptedRuns(db *sql.DB) error {
 		run = recovered
 		if run.Status == "queued" {
 			// The next attempt begins a fresh draft: BeginStream refuses a
-			// cancelled one. The half-streamed text was never a message.
+			// cancelled one. The half-streamed text was never a message, so tell
+			// open tabs to drop its bubble the way ResetStreamDraft does.
+			var draftMsgID, draftBot string
+			scanErr := tx.QueryRow(`SELECT message_id,bot_id FROM stream_drafts WHERE run_id=? AND status='active' AND (content<>'' OR seq>0)`, run.ID).Scan(&draftMsgID, &draftBot)
+			if scanErr != nil && scanErr != sql.ErrNoRows {
+				return scanErr
+			}
+			if scanErr == nil {
+				if err = insertRecoveryEvent(tx, run.ConversationID, "draft_reset", map[string]any{"conversation_id": run.ConversationID, "run_id": run.ID, "bot_id": draftBot, "message_id": draftMsgID}, t); err != nil {
+					return err
+				}
+			}
 			_, err = tx.Exec(`DELETE FROM stream_drafts WHERE run_id=?`, run.ID)
 		} else {
 			_, err = tx.Exec(`UPDATE stream_drafts SET status='cancelled',updated_at=? WHERE run_id=? AND status='active'`, t, run.ID)
@@ -2708,6 +2719,7 @@ func (s *Server) serveUI(w http.ResponseWriter, r *http.Request) {
 	}
 	http.NotFound(w, r)
 }
+
 func (s *Server) originOK(r *http.Request) bool {
 	origin := r.Header.Get("Origin")
 	if origin == "" {
@@ -4604,7 +4616,7 @@ func (s *Server) events(w http.ResponseWriter, r *http.Request, id string) {
 		case <-r.Context().Done():
 			return
 		case <-heartbeat.C:
-			if _, e = fmt.Fprint(w, ": heartbeat\n\n"); e != nil {
+			if _, e = fmt.Fprint(w, "event: ping\ndata: {}\n\n"); e != nil {
 				return
 			}
 			f.Flush()

@@ -173,6 +173,8 @@
     "invalid_key_detail": "{{provider}} a refusé cette clé API. Elle n’a pas été enregistrée. ({{detail}})",
     "invalid_key_detail_workspace": "{{provider}} a refusé cette clé API. Elle n’a pas été enregistrée. ({{detail}}) Vérifiez que le Workspace ID est correct.",
     "unreachable": "Impossible de joindre {{provider}} pour vérifier la clé. Elle n’a pas été enregistrée. Réessayez plus tard.",
+    "no_quota": "{{provider}} a accepté la clé, mais le compte n’a plus de crédit. Elle n’a pas été enregistrée. Ajoutez du crédit ou relevez la limite, puis réessayez.",
+    "no_models": "{{provider}} a accepté la clé, mais elle ne donne accès à aucun modèle. Elle n’a pas été enregistrée. Activez la facturation ou choisissez un projet avec accès aux modèles.",
     "remove_failed": "Échec de la suppression. Réessayez.",
     "removed": "Clé API {{provider}} supprimée. Les Bots qui utilisent des modèles {{provider}} ont besoin d’un autre modèle connecté.",
     "key_label": "Clé API {{provider}}",
