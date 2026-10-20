@@ -501,6 +501,15 @@ func (e *engine) Run(ctx context.Context, req Request) (Result, error) {
 		OnContextBreakdown:         contextBreakdownHook(req.OnContextBreakdown),
 		OnReasoningReplayRejected:  req.OnReasoningReplayRejected,
 		OnUsage:                    req.OnUsage,
+		WebSearchMaxUses:           req.WebSearchMaxUses,
+		OnWebSearches: func(searches []provider.WebSearch, billed int64) {
+			for _, ws := range searches {
+				_ = tracker.emit(webSearchToolEvent(ws))
+			}
+			if req.OnWebSearchBilled != nil && billed > 0 {
+				req.OnWebSearchBilled(billed)
+			}
+		},
 		OnCompact:                  req.OnCompact,
 		OnStreamChunk:              onStream,
 		StructuredOutput:           req.StructuredOutput,

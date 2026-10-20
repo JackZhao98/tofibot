@@ -38,6 +38,7 @@ func TestVerifiedClaimsNeedALookupInDMsAndGroups(t *testing.T) {
 		_, core := (&Server{store: store}).buildContextParts(conv, run, bot)
 		for _, want := range []string{
 			"Search unfamiliar names or terms before asking about them, in groups as in DMs",
+			"check a named work, product, person or event that could postdate your knowledge before you answer about it",
 			"if you cannot search, offer your best reading marked as from memory instead of asking",
 			"must rest on a lookup made in this run",
 			"otherwise look it up or say it is from memory",
@@ -89,7 +90,7 @@ func TestGroupFramingKeepsLookupBeforeAsking(t *testing.T) {
 		t.Fatal("structured group turn lacks the latest-message line")
 	}
 	_, core := (&Server{store: store}).buildContextParts(group, Run{ID: "g2", BotID: bot.ID, ConversationID: group.ID, Kind: runKindGroupChat}, bot)
-	if !strings.Contains(core, "Search a name or term you do not recognize before answering or asking.") {
+	if !strings.Contains(core, "Search a name or term you do not recognize, or a named work, product, person or event that could postdate your knowledge, before answering or asking.") {
 		t.Fatal("unstructured group prompt lost the lookup rule")
 	}
 }
