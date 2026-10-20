@@ -18,7 +18,7 @@ export function BotAvatar({ id, mini = false, animated = false, motion, config }
   }, [id]);
   useEffect(() => {
     if (!host.current) return;
-    const cat = mountCat(host.current, { ...appearance, initialState: "asleep" });
+    const cat = mountCat(host.current, { ...appearance, initialState: "asleep", life: !(mini && motion === undefined) });
     controller.current = cat;
     return () => { cat.destroy(); controller.current = null; };
     // A config update is applied by the effect below so the SVG keeps its current pose.

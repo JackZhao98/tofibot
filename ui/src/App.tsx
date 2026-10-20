@@ -475,7 +475,6 @@ function Workspace() {
   const [panel, setPanel] = useState<Panel>(null);
   const displayedPanel = useSurfacePresence(panel, 380);
   const [desktopReady, setDesktopReady] = useState(false);
-  const desktopPresence = useDesktopPresence(Boolean(activeId));
   // Keep in sync with conversation-workspace.css: three columns need room for chat.
   const [compactViewport, setCompactViewport] = useState(() => typeof window !== "undefined" && window.matchMedia("(max-width: 1099px)").matches);
   // The computer opens as a small floating window; the last size lives only as long as this page.
@@ -1072,10 +1071,20 @@ function Workspace() {
   useEffect(() => { setHeaderMenuOpen(false); }, [activeId]);
   useEffect(() => {
     let alive = true;
-    const refreshComputer = async () => { try { const next = await api.computerInfo(); if (alive) setComputerInfo((current) => JSON.stringify(current) === JSON.stringify(next) ? current : next); } catch { if (alive) setComputerInfo(null); } };
+    let timer = 0;
+    // Steady states (no computer, ready, hibernated) change rarely, so they re-check slowly; transitions poll fast.
+    const settled = (state?: string) => !state || state === "ready" || state === "hibernated" || state === "stopped";
+    const refreshComputer = async () => {
+      let state: string | undefined;
+      if (!document.hidden) {
+        try { const next = await api.computerInfo(); state = next.state; if (alive) setComputerInfo((current) => JSON.stringify(current) === JSON.stringify(next) ? current : next); } catch { if (alive) setComputerInfo(null); }
+      }
+      if (alive) timer = window.setTimeout(() => void refreshComputer(), settled(state) ? 30_000 : 4_000);
+    };
+    const onVisible = () => { if (!document.hidden) { window.clearTimeout(timer); void refreshComputer(); } };
+    document.addEventListener("visibilitychange", onVisible);
     void refreshComputer();
-    const timer = window.setInterval(() => void refreshComputer(), 4_000);
-    return () => { alive = false; window.clearInterval(timer); };
+    return () => { alive = false; window.clearTimeout(timer); document.removeEventListener("visibilitychange", onVisible); };
   }, []);
   useEffect(() => {
     const refresh = () => {
@@ -1107,6 +1116,8 @@ function Workspace() {
   useEffect(() => {
     if (panel === "desktop" && !desktopBot) setPanel(null);
   }, [panel, desktopBot]);
+  // Ownership is only worth a 1 s poll while a computer is ready or the desktop panel is open.
+  const desktopPresence = useDesktopPresence(Boolean(activeId) && (panel === "desktop" || (computerInfo ? computerInfo.state === "ready" : desktopReady)));
   const currentDesktopOwner = desktopPresence.ownership?.owner;
     const activeDesktopOwner = !desktopPresence.unavailable && currentDesktopOwner?.kind === "bot" && currentDesktopOwner.conversation_id === active?.id ? currentDesktopOwner : null;
   const computerOn = computerInfo ? computerInfo.state === "ready" : desktopReady;
@@ -1448,6 +1459,10 @@ function Workspace() {
     }
   }, [upsertMessage, updateConversationPreview, upsertToolActivity]);
 
+  // connectEvents reads the render-scoped handlers through this ref so its identity never changes; a changing
+  // identity chained every old Workspace render (and its message arrays) together through keepActivityRun.
+  const connectLatest = useRef<{ handleEvent: typeof handleEvent; handleWorkspaceEvent: typeof handleWorkspaceEvent; refreshWorkspaceOnConnect: typeof refreshWorkspaceOnConnect; resetWorkspaceEvents: typeof resetWorkspaceEvents; refreshQuestions: () => unknown }>(null as never);
+  connectLatest.current = { handleEvent, handleWorkspaceEvent, refreshWorkspaceOnConnect, resetWorkspaceEvents, refreshQuestions: questions.refresh };
   const connectEvents = useCallback((conversationId: string) => {
     if (activeIdRef.current !== conversationId) return;
     eventSource.current?.close();
@@ -1472,24 +1487,24 @@ function Workspace() {
       reconnectTimer.current = timer;
     };
     source = openConversationEvents(conversationId, eventCursor.current, (type, data, id) => {
-      if (current()) handleEvent(conversationId, type, data, id);
+      if (current()) connectLatest.current.handleEvent(conversationId, type, data, id);
     }, failed, {
       after: workspaceEventCursor.current,
-      onEvent: (data, id) => { if (current()) handleWorkspaceEvent(data, id); },
-      onReset: () => { if (current()) resetWorkspaceEvents(); },
+      onEvent: (data, id) => { if (current()) connectLatest.current.handleWorkspaceEvent(data, id); },
+      onReset: () => { if (current()) connectLatest.current.resetWorkspaceEvents(); },
     });
-    for (const event of ["question", "question_answered", "question_cancelled", "question_updated"]) source.addEventListener(event, () => { if (current()) void questions.refresh(); });
+    for (const event of ["question", "question_answered", "question_cancelled", "question_updated"]) source.addEventListener(event, () => { if (current()) void connectLatest.current.refreshQuestions(); });
     source.onopen = () => {
       if (!current()) return;
-      void questions.refresh();
+      void connectLatest.current.refreshQuestions();
       if (eventConnectTimer.current !== undefined) window.clearTimeout(eventConnectTimer.current);
       reconnectAttempt.current = 0;
       setStreamConnected(true);
-      refreshWorkspaceOnConnect();
+      connectLatest.current.refreshWorkspaceOnConnect();
     };
     eventSource.current = source;
     eventConnectTimer.current = window.setTimeout(failed, 10_000);
-  }, [handleEvent, handleWorkspaceEvent, refreshWorkspaceOnConnect, resetWorkspaceEvents, questions.refresh]);
+  }, []);
 
 
   // Last snapshot of each conversation the reader has seen, newest last. Switching back shows it at once
@@ -1884,6 +1899,10 @@ function Workspace() {
   const ownerRevealed = (owner: TaskOwner) => owner.family.attempts.some(attempt => revealedRuns.has(attempt.id));
   // A block with nothing to show (Activity hidden, no card raised) draws nothing, so it must not count as a name label above a message.
   const ownerDraws = (owner: TaskOwner) => taskBlockVisible({ owner, tools: loadedToolActivities, questions: questions.items, drafts: mailDrafts.items, messages: messageRecords, summaries: terminalToolSummaries, details: toolDetailState, connected: streamConnected, hideActivity: !showActivity, revealed: ownerRevealed(owner) });
+  // Derived once per render, not once per timeline row: every message row consults these.
+  const ownedRunKeys = new Set(taskOwners.flatMap(owner => owner.family.attempts.map(run => `${run.id}\u0000${run.bot_id}\u0000${run.conversation_id}`)));
+  const ownedBy = (item: { run_id: string; bot_id: string; conversation_id: string }) => ownedRunKeys.has(`${item.run_id}\u0000${item.bot_id}\u0000${item.conversation_id}`);
+  const ownerAnchors = taskOwners.filter(ownerDraws).map(owner => ({ anchor: owner.anchor, botId: owner.family.latest.bot_id }));
   function renderTaskOwner(owner: TaskOwner) {
     return <TaskRunBlock key={owner.key} hideActivity={!showActivity} revealed={ownerRevealed(owner)} owner={owner} senderHead={active?.kind === "group" ? <SenderHead id={owner.family.latest.bot_id} name={botById.get(owner.family.latest.bot_id)?.name ?? "Bot"} /> : undefined} liveStatus={runLiveStatus(owner.family.latest)} liveAvatar={<BotAvatar id={owner.family.latest.bot_id} mini motion={owner.family.latest.status === "waiting" ? "awake" : "working"} />} tools={loadedToolActivities} questions={questions.items} drafts={mailDrafts.items} messages={messageRecords} summaries={terminalToolSummaries} details={toolDetailState} connected={streamConnected} botName={botById.get(owner.family.latest.bot_id)?.name ?? "Bot"} showName={active?.kind === "group"}
       onOpenTools={() => openSettings("connections")}
@@ -2029,13 +2048,13 @@ function Workspace() {
                       const previousTime = previousItem?.kind === "message" ? previousItem.message.created_at : previousItem?.kind === "question" ? previousItem.question.created_at : previousItem?.draft.created_at;
                       if (item.kind === "mail_draft") {
                         const draft = item.draft;
-                        if (taskOwners.some(owner => owner.family.attempts.some(run => run.id === draft.run_id && run.bot_id === draft.bot_id && run.conversation_id === draft.conversation_id))) return taskOwners.filter(owner => owner.anchor?.kind === "draft" && owner.anchor.id === draft.draft_id).map(renderTaskOwner);
+                        if (ownedBy(draft)) return taskOwners.filter(owner => owner.anchor?.kind === "draft" && owner.anchor.id === draft.draft_id).map(renderTaskOwner);
                         const divider = !previousTime || dateInTimezone(previousTime, timezone) !== dateInTimezone(draft.created_at, timezone) || +new Date(draft.created_at) - +new Date(previousTime) >= 10 * 60_000;
                         return <div className="message-block" key={`mail-draft-${draft.draft_id}`}>{divider && <div className="date-divider"><span>{formatDateDivider(draft.created_at, timezone)}</span></div>}<MailDraftCard draft={draft} bot={botById.get(draft.bot_id)} group={active.kind === "group"} archived={active.archived} onChanged={async () => { await mailDrafts.refresh(); await refreshConversations(); }} /></div>;
                       }
                       if (item.kind === "question") {
                         const question = item.question;
-                        if (taskOwners.some(owner => owner.family.attempts.some(run => run.id === question.run_id && run.bot_id === question.bot_id && run.conversation_id === question.conversation_id))) return taskOwners.filter(owner => owner.anchor?.kind === "question" && owner.anchor.id === question.question_id).map(renderTaskOwner);
+                        if (ownedBy(question)) return taskOwners.filter(owner => owner.anchor?.kind === "question" && owner.anchor.id === question.question_id).map(renderTaskOwner);
                         const divider = !previousTime || dateInTimezone(previousTime, timezone) !== dateInTimezone(question.created_at, timezone) || +new Date(question.created_at) - +new Date(previousTime) >= 10 * 60_000;
                         return <div className="message-block" key={`question-${question.question_id}`}>{divider && <div className="date-divider"><span>{formatDateDivider(question.created_at, timezone)}</span></div>}<QuestionCard item={question} bot={botById.get(question.bot_id)} group={active.kind === "group"} archived={active.archived} onChanged={async (resolved) => { await questions.refresh(resolved); await refreshConversations(); }} /></div>;
                       }
@@ -2047,10 +2066,8 @@ function Workspace() {
                       const gap = previous ? +new Date(message.created_at) - +new Date(previous.created_at) : 0;
                       const unread = message.seq === viewport.unreadSeq;
                       // A task block (name label + Activity) directly above already names its Bot: show the name once.
-                      const ownedBy = (item: { run_id: string; bot_id: string; conversation_id: string }) => taskOwners.some(owner => owner.family.attempts.some(run => run.id === item.run_id && run.bot_id === item.bot_id && run.conversation_id === item.conversation_id));
                       const anchorOf = (candidate: (typeof conversationItems)[number] | undefined) => candidate?.kind === "message" ? { kind: "message" as const, id: candidate.message.id } : candidate?.kind === "question" ? { kind: "question" as const, id: candidate.question.question_id } : candidate?.kind === "mail_draft" ? { kind: "draft" as const, id: candidate.draft.draft_id } : undefined;
                       const itemTime = (candidate: (typeof conversationItems)[number] | undefined) => candidate?.kind === "message" ? candidate.message.created_at : candidate?.kind === "question" ? candidate.question.created_at : candidate?.draft.created_at;
-                      const ownerAnchors = taskOwners.filter(ownerDraws).map(owner => ({ anchor: owner.anchor, botId: owner.family.latest.bot_id }));
                       const drawnAbove = conversationItems[previousRenderedIndex(conversationItems, index, candidate => (candidate.kind === "question" ? ownedBy(candidate.question) : candidate.kind === "mail_draft" ? ownedBy(candidate.draft) : false) && !precedingBlockBotIds(anchorOf(candidate), ownerAnchors).length)];
                       const blockBotIds = active.kind === "group" ? precedingBlockBotIds(anchorOf(drawnAbove), ownerAnchors) : [];
                       const blockTime = itemTime(drawnAbove);
