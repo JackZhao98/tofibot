@@ -43,6 +43,7 @@
     "test:composer-typing": "node scripts/test-composer-typing.mjs",
     "test:tool-result-preview": "node scripts/test-tool-result-preview.mjs",
     "test:workspace-loading": "node scripts/test-workspace-loading.mjs",
+    "test:preloader": "node scripts/test-preloader.mjs",
     "test:chat-switch": "node scripts/test-chat-switch.mjs",
     "test:resilience": "node scripts/test-resilience.mjs",
     "test:chat-safari": "node scripts/test-chat-safari.mjs",

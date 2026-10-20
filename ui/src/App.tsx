@@ -10,6 +10,7 @@ import { memoryDisplay } from "./displayMetadata";
 import { mergeMessageTimeline, precedingBlockBotIds, previousRenderedIndex } from "./messageTimeline";
 import { textareaCaretRect } from "./textareaCaret";
 import { DelayedFeedback } from "./DelayedFeedback";
+import { BootScreen } from "./BootScreen";
 import { WebFileDropOverlay } from "./WebFileDropOverlay";
 import { SidebarAccount } from "./OwnerSession";
 import { UpdateBanner } from "./UpdateNotice";
@@ -2186,8 +2187,8 @@ function Workspace() {
   // Sender grouping reads and writes the list's DOM: run it when what the list shows changes, not on every render.
   useLayoutEffect(() => { markSenderGroups(messageListRef.current); }, [conversationItems, taskOwners, toolTimeline, pendingRuns, drafts, loadingMessages, active?.id, active?.kind, active?.archived, teamBoardOpen, viewport.unreadSeq, error, historyError, hasMore, runs, toolSummaryAnchors, toolSummaryErrorAnchors, toolSummaryLoadingAnchors, toolDetailState, toolSummaryState, loadedToolActivities, terminalToolSummaries, questions.items, mailDrafts.items, activityView, bots, conversations, messageRecords]);
 
-  if (!indexInitialized.current && workspaceError) return <div className="center-state startup-error"><h2>{t("workspace.connection_unavailable")}</h2><p>{workspaceError}</p><button className="primary-button" disabled={loading} onClick={() => void refreshIndex()}>{loading ? t("action.retrying") : t("common:action.retry")}</button></div>;
-  if (loading && !conversations.length) return <div className="center-state"><DelayedFeedback><div className="spinner" />{t("workspace.loading")}</DelayedFeedback></div>;
+  if (!indexInitialized.current && workspaceError) return <BootScreen label={t("workspace.connection_unavailable")} immediate><h2>{t("workspace.connection_unavailable")}</h2><p>{workspaceError}</p><button className="primary-button" disabled={loading} onClick={() => void refreshIndex()}>{loading ? t("action.retrying") : t("common:action.retry")}</button></BootScreen>;
+  if (loading && !conversations.length) return <BootScreen label={t("workspace.loading")} />;
 
   return (
     <div inert={Boolean(deleteTarget || (viewOnlyChat && (isDesktop || compactViewport))) || undefined} className={`workspace${keyboardViewportOpen ? " keyboard-viewport-open" : ""}`} style={viewportHeight ? { "--viewport-height": `${viewportHeight}px` } as React.CSSProperties : undefined}>
