@@ -376,7 +376,9 @@ await check("phone: keyboard open hides the perch and returns room to the conver
   const open_ = await measure();
   assert.equal(open_.perch, "none", "perch hidden while the keyboard is up");
   assert.ok(open_.pad <= 9, `keyboard-open band is ${open_.pad}px beyond the composer (limit 9)`);
-  assert.ok(open_.top <= 9, `keyboard-open top padding is ${open_.top}px`);
+  // The message pane runs up under the header's glass, so its top padding is the header's height plus the 8 px of room.
+  const headerH = await page.evaluate(() => document.querySelector(".chat-header").getBoundingClientRect().height);
+  assert.ok(open_.top - headerH <= 9, `keyboard-open top padding is ${open_.top}px (header ${headerH}px)`);
   await context.close();
 });
 await check("phone: tap toolbar opens below the bubble, one toolbar, one 44px Copy", async () => {
