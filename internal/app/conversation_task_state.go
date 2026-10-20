@@ -2,6 +2,7 @@ package app
 
 import (
 	"database/sql"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -80,37 +81,11 @@ func (s *Store) fillConversationTaskStates(byID map[string]*Conversation) error 
 	// Only the listed conversations are projected, so ranking is limited to
 	// their runs; ranking every run in the database made the list scale with
 	// the whole run history, archived conversations included.
-	scopeArgs := make([]any, 0, 2*len(byID))
-	placeholders := make([]string, 0, len(byID))
+	ids := make([]any, 0, len(byID))
 	for id := range byID {
-		scopeArgs = append(scopeArgs, id)
-		placeholders = append(placeholders, "?")
+		ids = append(ids, id)
 	}
-	scopeIDs := strings.Join(placeholders, ",")
-	scopeArgs = append(scopeArgs, scopeArgs...)
-	rows, err = s.db.Query(`WITH scoped AS (
-		SELECT r.id,r.conversation_id,r.status,r.error,r.trigger_message_id,r.created_at,
-		r.conversation_id AS scope_conversation_id FROM runs r WHERE r.kind<>'summary' AND r.conversation_id IN (`+scopeIDs+`)
-		UNION ALL
-		SELECT r.id,r.conversation_id,r.status,r.error,r.trigger_message_id,r.created_at,
-		r.origin_conversation_id AS scope_conversation_id FROM runs r
-		WHERE r.kind<>'summary' AND r.origin_conversation_id IS NOT NULL
-		AND r.origin_conversation_id<>'' AND r.origin_conversation_id<>r.conversation_id AND r.origin_conversation_id IN (`+scopeIDs+`)
-	), ranked AS (
-		SELECT r.id,r.scope_conversation_id,r.conversation_id AS source_conversation_id,
-		r.status,r.error,r.trigger_message_id,r.created_at,
-		ROW_NUMBER() OVER(PARTITION BY r.scope_conversation_id ORDER BY
-		CASE WHEN r.status IN ('queued','running','waiting') THEN 0 ELSE 1 END,
-		r.created_at DESC,r.id DESC) AS rank
-		FROM scoped r
-	)
-	SELECT r.id,r.scope_conversation_id,r.source_conversation_id,r.status,r.error,r.trigger_message_id,r.created_at,
-		(SELECT m.id FROM messages m WHERE m.run_id=r.id AND m.conversation_id=r.scope_conversation_id AND m.role='assistant'
-		AND (m.kind NOT IN ('notice','message_ref','bot_result','progress','internal') OR r.error='approval_expired') ORDER BY m.seq DESC LIMIT 1),
-		(SELECT d.id FROM mail_drafts d WHERE d.run_id=r.id AND d.conversation_id=r.scope_conversation_id ORDER BY d.created_at DESC,d.id DESC LIMIT 1),
-		(SELECT d.status FROM mail_drafts d WHERE d.run_id=r.id AND d.conversation_id=r.scope_conversation_id ORDER BY d.created_at DESC,d.id DESC LIMIT 1),
-		(SELECT d.demo FROM mail_drafts d WHERE d.run_id=r.id AND d.conversation_id=r.scope_conversation_id ORDER BY d.created_at DESC,d.id DESC LIMIT 1)
-	FROM ranked r WHERE r.rank=1`, scopeArgs...)
+	rows, err = s.db.Query(taskStateRunsSQL(len(ids)), ids...)
 	if err != nil {
 		return err
 	}
@@ -187,4 +162,35 @@ func newerTaskTimestamp(a, b string) bool {
 	left, le := time.Parse(time.RFC3339Nano, a)
 	right, re := time.Parse(time.RFC3339Nano, b)
 	return le == nil && re == nil && left.After(right)
+}
+
+// taskStateRunsSQL picks one run per listed conversation: the newest active
+// run first, otherwise the newest of any state, from the conversation's own
+// runs and from runs delegated out of it. Each candidate is a LIMIT 1 probe
+// that repeats the WHERE terms of the partial indexes runs_active and
+// runs_delegated verbatim; SQLite uses a partial index only when the query
+// carries the identical term. The cost follows the number of listed
+// conversations, not the length of the run history.
+func taskStateRunsSQL(n int) string {
+	const active = `r.status IN ('queued','running','waiting')`
+	const delegated = `r.origin_conversation_id<>'' AND r.origin_conversation_id<>r.conversation_id`
+	probe := func(pri int, where string) string {
+		return `SELECT ` + strconv.Itoa(pri) + ` AS pri,id,created_at FROM (SELECT r.id,r.created_at FROM runs r WHERE ` + where + ` AND r.kind<>'summary' ORDER BY r.created_at DESC,r.id DESC LIMIT 1)`
+	}
+	return `WITH scope(id) AS (VALUES ` + strings.TrimSuffix(strings.Repeat("(?),", n), ",") + `),
+	pick AS (
+	  SELECT scope.id AS scope_id, (SELECT id FROM (
+	       ` + probe(0, `r.conversation_id=scope.id AND `+active) + `
+	       UNION ALL ` + probe(0, `r.origin_conversation_id=scope.id AND `+delegated+` AND `+active) + `
+	       UNION ALL ` + probe(1, `r.conversation_id=scope.id`) + `
+	       UNION ALL ` + probe(1, `r.origin_conversation_id=scope.id AND `+delegated) + `
+	     ) ORDER BY pri,created_at DESC,id DESC LIMIT 1) AS run_id
+	  FROM scope)
+	SELECT r.id,pick.scope_id,r.conversation_id,r.status,r.error,r.trigger_message_id,r.created_at,
+		(SELECT m.id FROM messages m WHERE m.run_id=r.id AND m.conversation_id=pick.scope_id AND m.role='assistant'
+		AND (m.kind NOT IN ('notice','message_ref','bot_result','progress','internal') OR r.error='approval_expired') ORDER BY +m.seq DESC LIMIT 1),
+		(SELECT d.id FROM mail_drafts d WHERE d.run_id=r.id AND d.conversation_id=pick.scope_id ORDER BY d.created_at DESC,d.id DESC LIMIT 1),
+		(SELECT d.status FROM mail_drafts d WHERE d.run_id=r.id AND d.conversation_id=pick.scope_id ORDER BY d.created_at DESC,d.id DESC LIMIT 1),
+		(SELECT d.demo FROM mail_drafts d WHERE d.run_id=r.id AND d.conversation_id=pick.scope_id ORDER BY d.created_at DESC,d.id DESC LIMIT 1)
+	FROM pick JOIN runs r ON r.id=pick.run_id`
 }

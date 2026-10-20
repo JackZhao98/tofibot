@@ -86,7 +86,8 @@ export const api = {
   sendMessage: (id: string, input: { content: string; client_message_id: string; attachment_ids?: string[] }) => request<{ message: Message; run: Run; runs?: Run[] }>(`/api/conversations/${encodeURIComponent(id)}/messages`, json(input)),
   setMessageReaction: (conversationId: string, messageId: string, emoji: string, present: boolean) => request<{ conversation_id: string; message_id: string; reactions: NonNullable<Message["reactions"]> }>(`/api/conversations/${encodeURIComponent(conversationId)}/messages/${encodeURIComponent(messageId)}/reactions`, { method: "PUT", body: JSON.stringify({ emoji, present }) }),
   uploadAttachment: async (id: string, file: File) => { const body = new FormData(); body.append("file", file); return request<Attachment>(`/api/conversations/${encodeURIComponent(id)}/attachments`, { method: "POST", body }); },
-  runs: (id: string) => request<{ runs: Run[] | null }>(`/api/conversations/${encodeURIComponent(id)}/runs`).then((result) => ({ runs: result.runs ?? [] })),
+  // The newest page of runs plus every active one; `before` (an ISO time) asks for the page of runs created earlier, to go with an older page of messages.
+  runs: (id: string, before?: string) => request<{ runs: Run[] | null; has_more?: boolean }>(`/api/conversations/${encodeURIComponent(id)}/runs${before ? `?before=${encodeURIComponent(before)}` : ""}`).then((result) => ({ runs: result.runs ?? [], has_more: Boolean(result.has_more) })),
   cancelRun: (id: string) => request<Run>(`/api/runs/${encodeURIComponent(id)}/cancel`, { method: "POST" }),
   retryRun: (id: string) => request<Run>(`/api/runs/${encodeURIComponent(id)}/retry`, { method: "POST" }),
   memories: (id: string) => request<{ memories: Memory[] | null }>(`/api/conversations/${encodeURIComponent(id)}/memories`).then((result) => ({ memories: result.memories ?? [] })),

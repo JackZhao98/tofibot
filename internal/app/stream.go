@@ -57,13 +57,23 @@ CREATE TABLE IF NOT EXISTS stream_assistant_turns(
 	if err != nil {
 		return err
 	}
-	return ensureColumn(s.db, "stream_drafts", "seq", `ALTER TABLE stream_drafts ADD COLUMN seq INTEGER NOT NULL DEFAULT 0`)
+	if err = ensureColumn(s.db, "stream_drafts", "seq", `ALTER TABLE stream_drafts ADD COLUMN seq INTEGER NOT NULL DEFAULT 0`); err != nil {
+		return err
+	}
+	if _, err = s.db.Exec(`CREATE INDEX IF NOT EXISTS stream_drafts_conversation ON stream_drafts(conversation_id,status,seq)`); err != nil {
+		return err
+	}
+	// Delta events of drafts that are no longer live were never pruned before:
+	// the message or the draft row carries their text.
+	_, err = s.db.Exec(`DELETE FROM events WHERE type='delta' AND json_extract(data,'$.message_id') NOT IN (SELECT message_id FROM stream_drafts WHERE status='active')`)
+	return err
 }
 
-const nextMessageSeqSQL = `SELECT COALESCE(MAX(seq),0)+1 FROM (
-	SELECT seq FROM messages WHERE conversation_id=?
-	UNION ALL SELECT seq FROM stream_drafts WHERE conversation_id=? AND status=? AND seq>0
-)`
+// Two index-backed MAX probes; a UNION ALL over both tables materialised every
+// message of the conversation on each insert.
+const nextMessageSeqSQL = `SELECT MAX(
+	COALESCE((SELECT MAX(seq) FROM messages WHERE conversation_id=?),0),
+	COALESCE((SELECT MAX(seq) FROM stream_drafts WHERE conversation_id=? AND status=? AND seq>0),0))+1`
 
 // BeginStream creates the stable assistant message identity used by all delta
 // events. It is idempotent, which makes execution recovery safe.
@@ -84,6 +94,45 @@ func (s *Store) BeginStream(run Run) (StreamDraft, error) {
 	d = StreamDraft{RunID: run.ID, ConversationID: run.ConversationID, BotID: run.BotID, MessageID: uuid.NewString(), Status: streamDraftActive, CreatedAt: nowAt, UpdatedAt: nowAt}
 	_, err = s.db.Exec(`INSERT INTO stream_drafts(run_id,conversation_id,bot_id,message_id,seq,content,status,revision,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?)`, d.RunID, d.ConversationID, d.BotID, d.MessageID, 0, "", d.Status, 0, nowAt, nowAt)
 	return d, err
+}
+
+// deltaResyncEvery is how often a delta event also carries the whole draft.
+// Every other delta carries only its new text, so the bytes stored and sent per
+// reply grow linearly with its length instead of quadratically. The first
+// revision and every resync point let a client that missed events recover.
+//
+// Resync points are dense while the draft is short and cheap to repeat, then
+// sparse: past deltaDenseUntil only every deltaSparseEvery-th revision repeats
+// the draft, which keeps the total close to linear in the reply length.
+const (
+	deltaResyncEvery = 16
+	deltaDenseUntil  = 64
+	deltaSparseEvery = 128
+)
+
+func deltaCarriesContent(revision int64) bool {
+	if revision <= 1 {
+		return true
+	}
+	if revision <= deltaDenseUntil {
+		return revision%deltaResyncEvery == 0
+	}
+	return revision%deltaSparseEvery == 0
+}
+
+// pruneDeltaEvents is true in production. Tests that read the delta events of
+// a finished run to prove how it streamed turn it off.
+var pruneDeltaEvents = true
+
+// pruneDeltaEventsTx drops the delta events of one draft identity. Once the
+// draft is published as a message, reset or discarded, those rows are dead
+// weight: the message event or the draft row carries the text.
+func pruneDeltaEventsTx(tx *sql.Tx, conv, messageID string) error {
+	if messageID == "" || !pruneDeltaEvents {
+		return nil
+	}
+	_, err := tx.Exec(`DELETE FROM events WHERE conversation_id=? AND type='delta' AND json_extract(data,'$.message_id')=?`, conv, messageID)
+	return err
 }
 
 // AppendStreamDelta atomically persists a delta and emits the UI-compatible
@@ -136,7 +185,10 @@ func (s *Store) AppendStreamDelta(ctx context.Context, runID, text string) (Stre
 	if _, err = tx.Exec(`UPDATE stream_drafts SET content=?,revision=?,updated_at=? WHERE run_id=? AND status=?`, d.Content, d.Revision, d.UpdatedAt, runID, streamDraftActive); err != nil {
 		return StreamDraft{}, false, err
 	}
-	payload := map[string]any{"conversation_id": d.ConversationID, "run_id": d.RunID, "bot_id": d.BotID, "message_id": d.MessageID, "seq": d.Seq, "created_at": d.CreatedAt, "text": text, "content": d.Content, "revision": d.Revision}
+	payload := map[string]any{"conversation_id": d.ConversationID, "run_id": d.RunID, "bot_id": d.BotID, "message_id": d.MessageID, "seq": d.Seq, "created_at": d.CreatedAt, "text": text, "revision": d.Revision}
+	if deltaCarriesContent(d.Revision) {
+		payload["content"] = d.Content
+	}
 	b, _ := json.Marshal(payload)
 	if _, err = tx.Exec(`INSERT INTO events(conversation_id,type,data,created_at) VALUES(?,?,?,?)`, d.ConversationID, "delta", string(b), d.UpdatedAt); err != nil {
 		return StreamDraft{}, false, err
@@ -364,6 +416,9 @@ func (s *Store) publishAssistantPartsOpts(ctx context.Context, runID string, tur
 				if _, err = tx.Exec(`UPDATE stream_drafts SET seq=0 WHERE run_id=? AND status=?`, runID, streamDraftActive); err != nil {
 					return Message{}, false, err
 				}
+				if err = pruneDeltaEventsTx(tx, runConversationID, draft.MessageID); err != nil {
+					return Message{}, false, err
+				}
 			}
 		}
 	}
@@ -399,8 +454,23 @@ func (s *Store) publishAssistantPartsOpts(ctx context.Context, runID string, tur
 }
 
 func (s *Store) CancelStream(runID string) error {
-	_, err := s.db.Exec(`UPDATE stream_drafts SET status=?,updated_at=? WHERE run_id=? AND status=?`, streamDraftCancelled, now(), runID, streamDraftActive)
-	return err
+	tx, err := s.db.Begin()
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	var conv, messageID string
+	if err = tx.QueryRow(`SELECT conversation_id,message_id FROM stream_drafts WHERE run_id=? AND status=?`, runID, streamDraftActive).Scan(&conv, &messageID); err == nil {
+		if err = pruneDeltaEventsTx(tx, conv, messageID); err != nil {
+			return err
+		}
+	} else if err != sql.ErrNoRows {
+		return err
+	}
+	if _, err = tx.Exec(`UPDATE stream_drafts SET status=?,updated_at=? WHERE run_id=? AND status=?`, streamDraftCancelled, now(), runID, streamDraftActive); err != nil {
+		return err
+	}
+	return tx.Commit()
 }
 
 func (s *Store) StreamDraft(runID string) (StreamDraft, error) {
@@ -558,6 +628,9 @@ func (s *Store) ResetStreamDraft(ctx context.Context, runID string) error {
 	}
 	t := now()
 	if _, err = tx.Exec(`UPDATE stream_drafts SET message_id=?,seq=0,content='',revision=0,created_at=?,updated_at=? WHERE run_id=? AND status=?`, uuid.NewString(), t, t, runID, streamDraftActive); err != nil {
+		return err
+	}
+	if err = pruneDeltaEventsTx(tx, d.ConversationID, d.MessageID); err != nil {
 		return err
 	}
 	b, _ := json.Marshal(map[string]any{"conversation_id": d.ConversationID, "run_id": d.RunID, "bot_id": d.BotID, "message_id": d.MessageID})
