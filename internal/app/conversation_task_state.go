@@ -2,6 +2,7 @@ package app
 
 import (
 	"database/sql"
+	"strings"
 	"time"
 )
 
@@ -76,14 +77,25 @@ func (s *Store) fillConversationTaskStates(byID map[string]*Conversation) error 
 	// A delegated run may execute in another conversation while its user is
 	// still waiting in the origin. Project that run into both scopes, but only
 	// link to messages and drafts actually visible in each scope.
+	// Only the listed conversations are projected, so ranking is limited to
+	// their runs; ranking every run in the database made the list scale with
+	// the whole run history, archived conversations included.
+	scopeArgs := make([]any, 0, 2*len(byID))
+	placeholders := make([]string, 0, len(byID))
+	for id := range byID {
+		scopeArgs = append(scopeArgs, id)
+		placeholders = append(placeholders, "?")
+	}
+	scopeIDs := strings.Join(placeholders, ",")
+	scopeArgs = append(scopeArgs, scopeArgs...)
 	rows, err = s.db.Query(`WITH scoped AS (
 		SELECT r.id,r.conversation_id,r.status,r.error,r.trigger_message_id,r.created_at,
-		r.conversation_id AS scope_conversation_id FROM runs r WHERE r.kind<>'summary'
+		r.conversation_id AS scope_conversation_id FROM runs r WHERE r.kind<>'summary' AND r.conversation_id IN (`+scopeIDs+`)
 		UNION ALL
 		SELECT r.id,r.conversation_id,r.status,r.error,r.trigger_message_id,r.created_at,
 		r.origin_conversation_id AS scope_conversation_id FROM runs r
 		WHERE r.kind<>'summary' AND r.origin_conversation_id IS NOT NULL
-		AND r.origin_conversation_id<>'' AND r.origin_conversation_id<>r.conversation_id
+		AND r.origin_conversation_id<>'' AND r.origin_conversation_id<>r.conversation_id AND r.origin_conversation_id IN (`+scopeIDs+`)
 	), ranked AS (
 		SELECT r.id,r.scope_conversation_id,r.conversation_id AS source_conversation_id,
 		r.status,r.error,r.trigger_message_id,r.created_at,
@@ -98,7 +110,7 @@ func (s *Store) fillConversationTaskStates(byID map[string]*Conversation) error 
 		(SELECT d.id FROM mail_drafts d WHERE d.run_id=r.id AND d.conversation_id=r.scope_conversation_id ORDER BY d.created_at DESC,d.id DESC LIMIT 1),
 		(SELECT d.status FROM mail_drafts d WHERE d.run_id=r.id AND d.conversation_id=r.scope_conversation_id ORDER BY d.created_at DESC,d.id DESC LIMIT 1),
 		(SELECT d.demo FROM mail_drafts d WHERE d.run_id=r.id AND d.conversation_id=r.scope_conversation_id ORDER BY d.created_at DESC,d.id DESC LIMIT 1)
-	FROM ranked r WHERE r.rank=1`)
+	FROM ranked r WHERE r.rank=1`, scopeArgs...)
 	if err != nil {
 		return err
 	}
