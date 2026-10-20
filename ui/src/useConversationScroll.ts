@@ -19,6 +19,8 @@ interface Visit {
   entryMax: number | null;
   resume: ViewSnapshot | null;
   positioned: boolean;
+  /** Where the visit lands: on the newest messages (so only they need to be drawn first) or somewhere else. Decided once the page is loaded. */
+  landing: "bottom" | "elsewhere" | null;
   atBottom: boolean;
   nearBottom: boolean;
   width: number;
@@ -37,6 +39,10 @@ interface Visit {
 // A disclosure the reader opens grows the page under their pointer; follow-bottom
 // must not chase that growth. Hold the clicked row in place while it settles.
 const HOLD_MS = 900;
+// A restored reading position is held the same way while the page settles: WebKit has no native scroll
+// anchoring, so content that lays out above the anchor just after the restore would otherwise push the
+// reader to a neighbouring message.
+const RESTORE_HOLD_MS = 600;
 // The longest a loaded conversation may stay hidden while it waits for its position.
 const SAFETY_MS = 200;
 
@@ -82,7 +88,7 @@ export function useConversationScroll(options: Options) {
     rememberVisit(visit.current);
     const snapshot = id ? snapshots.current.get(id) ?? null : null;
     visit.current = { id, readSeq: options.conversation?.read_seq ?? 0, entryMax: snapshot?.entryMax ?? null,
-      resume: snapshot, positioned: false, atBottom: snapshot?.atBottom ?? true, nearBottom: true, width: 0, height: 0,
+      resume: snapshot, positioned: false, landing: snapshot ? (snapshot.atBottom ? "bottom" : "elsewhere") : null, atBottom: snapshot?.atBottom ?? true, nearBottom: true, width: 0, height: 0,
       baseline: 0, detached: snapshot?.detached ?? false, resumeIntent: false, lastScrollTop: 0,
       prepend: null, followNext: false, loadingBoundary: false, boundaryFailed: false, hold: null };
   }
@@ -171,6 +177,7 @@ export function useConversationScroll(options: Options) {
         el.scrollTop = el.scrollHeight;
       } else if (resume && resumeNode) {
         el.scrollTop += resumeNode.getBoundingClientRect().top - el.getBoundingClientRect().top - resume.anchorOffset;
+        v.hold = { node: resumeNode, offset: resume.anchorOffset, until: performance.now() + RESTORE_HOLD_MS };
       } else if (first && target) {
         el.scrollTop += target.getBoundingClientRect().top - el.getBoundingClientRect().top - 12;
       } else {
@@ -343,6 +350,8 @@ export function useConversationScroll(options: Options) {
 
   const current = visit.current;
   const records = options.messages.filter(m => m.conversation_id === id);
+  // A first visit lands on the unread divider when the unread boundary is in the loaded page, otherwise on the newest message.
+  if (current.landing === null && options.ready && !current.positioned) current.landing = ((records[0]?.seq ?? 0) <= current.readSeq + 1 || !options.hasMore) && records.some(m => m.seq > current.readSeq) ? "elsewhere" : "bottom";
   const firstUnread = records.find(m => m.seq > current.readSeq && m.seq <= (current.entryMax ?? 0) && m.kind !== "notice" && m.kind !== "message_ref");
   const boundaryLoaded = !options.hasMore || (records[0]?.seq ?? 0) <= current.readSeq + 1;
   const unreadSeq = boundaryLoaded ? firstUnread?.seq : undefined;
@@ -354,6 +363,6 @@ export function useConversationScroll(options: Options) {
   // place and then jump. Only a pending restore that has to page in older history can keep it waiting.
   const unpositioned = options.ready && !current.positioned;
 
-  return { scrollRef, onScroll, preservePrepend, jumpLatest, awayFromBottom, unpositioned, unreadSeq,
+  return { scrollRef, onScroll, preservePrepend, jumpLatest, awayFromBottom, unpositioned, unreadSeq, opensAtBottom: current.landing === "bottom", reposition: position,
     showJump: current.positioned && !current.nearBottom, newCount, boundaryError: current.boundaryFailed, retryBoundary };
 }

@@ -32,6 +32,7 @@ for (const c of convs) c.task_state = { status: "completed", run_id: `run_${c.id
 const COUNT = { grp_1: 130, dm_a: 118, dm_b: 125 };
 const SCHED_RUN = "5c1e0a00-0000-4000-8000-000000000001";
 const SCHED_ID = "5c1e0a00-0000-4000-8000-000000000002";
+const PAGE = 50; // the newest page the server returns
 const SCHEDULE_SEQ = 128; // a scheduled-task card sits near the end of the group
 const LATENCY = { messages: 160, runs: 60, memories: 40, tools: 120, occurrences: 260, schedules: 260, send: 60 };
 
@@ -189,11 +190,16 @@ function assertStable(frames, label, { expectBottom = true } = {}) {
   if (expectBottom) assert.ok(first.fromBottom <= 2, `${label}: first painted frame is ${first.fromBottom}px from the bottom (positioned only after first paint)`);
   const emptied = after.filter(frame => frame.blocks === 0);
   assert.equal(emptied.length, 0, `${label}: ${emptied.length} frames went empty after content appeared`);
-  const counts = new Set(after.map(frame => frame.blocks));
-  assert.equal(counts.size, 1, `${label}: message count changed after first paint (${[...counts].join(" -> ")}); older history was loaded without the reader asking`);
-  const tops = after.map(frame => frame.scrollTop);
+  // A conversation that opens at its newest message draws those first and the rest of the loaded page right after (once, above
+  // them): the count may grow one time, never past the loaded page, and the reader's place must not move when it does.
+  const counts = after.map(frame => frame.blocks);
+  assert.ok(counts.every((count, i) => i === 0 || count >= counts[i - 1]), `${label}: message count shrank after first paint (${[...new Set(counts)].join(" -> ")})`);
+  assert.ok(new Set(counts).size <= 2 && Math.max(...counts) <= PAGE, `${label}: message count changed after first paint (${[...new Set(counts)].join(" -> ")}); older history was loaded without the reader asking`);
+  const grew = new Set(counts).size > 1;
+  const tops = after.map(frame => expectBottom ? frame.fromBottom : frame.scrollTop);
   const moved = Math.max(...tops) - Math.min(...tops);
-  assert.ok(moved <= 2, `${label}: scrollTop moved by ${moved}px after first paint`);
+  assert.ok(moved <= 2, `${label}: ${expectBottom ? "distance from the bottom" : "scrollTop"} moved by ${moved}px after first paint`);
+  if (grew) assert.ok(counts.at(-1) - counts[0] > 0, `${label}: the rest of the page was added`);
   assert.equal(new Set(after.map(frame => frame.firstSeq)).size, 1, `${label}: first visible message changed after first paint`);
   for (const frame of after) {
     for (const item of frame.seen) assert.ok(item.opacity === 1 && item.inside, `${label}: message ${item.id} visible with opacity ${item.opacity}`);
@@ -270,8 +276,10 @@ await check("rapid A->B->A->B leaves B visible without scrolling", async () => {
   const shown = visibleFrames.findIndex(frame => frame.lastSeq === COUNT.dm_b);
   assert.ok(shown >= 0);
   const settled = visibleFrames.slice(shown);
-  assert.equal(new Set(settled.map(frame => frame.blocks)).size, 1, "B's message count changed after it first showed");
-  assert.ok(Math.max(...settled.map(frame => frame.scrollTop)) - Math.min(...settled.map(frame => frame.scrollTop)) <= 2, "B scrolled after it first showed");
+  // B draws its newest blocks first and the rest of the loaded page right after, once, above them.
+  const settledCounts = settled.map(frame => frame.blocks);
+  assert.ok(new Set(settledCounts).size <= 2 && settledCounts.every((count, i) => i === 0 || count >= settledCounts[i - 1]) && Math.max(...settledCounts) <= PAGE, "B's message count changed after it first showed");
+  assert.ok(Math.max(...settled.map(frame => frame.fromBottom)) - Math.min(...settled.map(frame => frame.fromBottom)) <= 2, "B scrolled after it first showed");
   await context.close();
 });
 
