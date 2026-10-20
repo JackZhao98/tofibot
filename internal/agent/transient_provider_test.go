@@ -52,3 +52,12 @@ func TestProviderQuotaAndExhaustedRetriesStillFail(t *testing.T) {
 		t.Fatalf("retries must be bounded: err=%v calls=%d", err, len(p.requests))
 	}
 }
+
+func TestWrapUpIgnoredIsStillExhausted(t *testing.T) {
+	call := provider.ChatResponse{ToolCalls: []provider.ToolCall{{ID: "x", Name: "lookup", Arguments: `{}`}}}
+	p := &scriptedProvider{steps: []func(context.Context, *provider.ChatRequest, func(provider.StreamDelta)) (*provider.ChatResponse, error){reply(call), reply(call)}}
+	result, err := runLoop(t, AgentConfig{Provider: p, Prompt: "go", MaxRunLLMCalls: 1, ExtraTools: []ExtraBuiltinTool{lookupTool(func(context.Context, map[string]interface{}) (string, error) { return "ok", nil })}})
+	if err != nil || !result.BudgetExhausted {
+		t.Fatalf("result=%+v err=%v", result, err)
+	}
+}
