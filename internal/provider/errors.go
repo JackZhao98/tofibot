@@ -59,6 +59,11 @@ func IsRetryable(err error) bool {
 	if errors.Is(err, ErrStreamIncomplete) {
 		return true
 	}
+	var failed *ResponseFailedError
+	if errors.As(err, &failed) {
+		// An in-stream failure the provider itself marks as worth retrying.
+		return failed.Code == "server_error" || failed.Code == "rate_limit_exceeded"
+	}
 	var incomplete *IncompleteResponseError
 	var refusal *RefusalError
 	if errors.As(err, &incomplete) || errors.As(err, &refusal) {
