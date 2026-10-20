@@ -27,6 +27,5 @@
 
 @media (max-width:767px){
   .auth-language{top:max(10px,env(safe-area-inset-top));right:12px}
-  div.owner-gate{padding-top:64px}
 }
 @media (prefers-reduced-motion:reduce){.pw-rules li{transition:none}}

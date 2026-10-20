@@ -1,5 +1,5 @@
 /* Boot screen: skeleton of the app behind one frost layer, the calico mark breathing on top. CSS only. */
-.boot{--boot-ease:var(--ease-out);position:fixed;inset:0;z-index:60;display:grid;place-items:center;overflow:hidden;background:var(--bg);color:var(--muted);font-size:14px}
+.boot{--boot-ease:var(--ease-out);position:fixed;inset:0;z-index:60;display:grid;place-items:center;box-sizing:border-box;padding:env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);overflow:hidden;background:var(--bg);color:var(--muted);font-size:14px}
 .boot.is-warm :is(.boot-skeleton,.boot-frost,.boot-logo-wrap){animation:none}
 .boot-skeleton,.boot-frost{position:absolute;inset:0;animation:boot-in var(--m-base) var(--ease-out) both}
 .boot-skeleton{display:grid;grid-template-columns:var(--sidebar-width,272px) minmax(0,1fr);background:var(--bg)}

@@ -24,7 +24,8 @@ html[data-desktop="darwin"] .view-only-chat-header{-webkit-app-region:drag;paddi
 html[data-desktop="darwin"] .view-only-chat-header button,html[data-desktop="darwin"] .view-only-chat-header a{-webkit-app-region:no-drag}
 html[data-desktop="darwin"][data-fullscreen="true"] .view-only-chat-header{padding-top:12px}
 html[data-desktop] .view-only-chat-body{overscroll-behavior:contain}
-.owner-gate{min-height:100dvh;display:grid;place-items:center;box-sizing:border-box;padding:56px 24px 40px;background:var(--bg) var(--dots);color:var(--ink)}
+.owner-gate{min-height:100dvh;display:grid;place-items:center;box-sizing:border-box;padding:calc(var(--gate-clear,64px) + env(safe-area-inset-top)) 24px calc(var(--gate-clear,64px) + env(safe-area-inset-bottom));background:var(--bg) var(--dots);color:var(--ink)}
+.owner-gate>.native-titlebar{position:absolute}
 .owner-card{width:min(420px,100%);box-sizing:border-box;padding:28px 30px 30px;border:3px solid var(--line);border-radius:22px;background:var(--surface);box-shadow:var(--hard);color:var(--ink)}
 .owner-card>.brand-logo{display:flex;width:100%;font-size:32px;margin-bottom:38px;justify-content:center}
 .owner-card>.brand-logo img{width:54px;height:54px}
@@ -43,7 +44,7 @@ html[data-desktop] .view-only-chat-body{overscroll-behavior:contain}
 .owner-account{display:flex;align-items:center;gap:20px;flex-wrap:wrap;margin-bottom:24px;padding:0 0 24px;border-bottom:1px solid var(--line)}
 .owner-account>div{display:grid;gap:3px;flex:1;min-width:0}.owner-account strong{font-size:15px}.owner-account span{font-size:13px;color:var(--muted)}
 .owner-account .secondary-button{font-size:13px;font-weight:500;padding:8px 14px}
-@media(max-width:767px){.owner-gate{padding:28px 16px max(24px,env(safe-area-inset-bottom))}.owner-card{width:min(420px,100%);padding:22px 20px 24px;border-radius:18px}.owner-card>.brand-logo{margin-bottom:26px}.owner-card h1{font-size:23px}.owner-subtitle{margin-bottom:22px}}
+@media(max-width:767px){.owner-gate{padding-inline:16px}.owner-card{width:min(420px,100%);padding:22px 20px 24px;border-radius:18px}.owner-card>.brand-logo{margin-bottom:26px}.owner-card h1{font-size:23px}.owner-subtitle{margin-bottom:22px}}
 .composer.is-dragging .composer-row{border-color:var(--text-soft);background:var(--surface-hover)}
 .attachment-native-actions{display:flex;align-items:center;gap:6px}
 .attachment-native-actions button{border:0;background:transparent;color:var(--text-soft);padding:6px;border-radius:7px;font-size:12px;white-space:nowrap}
