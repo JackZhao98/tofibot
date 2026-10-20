@@ -252,8 +252,8 @@ func TestAccountBootstrapReservationFailureRollsBackAuthority(t *testing.T) {
 	secret := accountCreationSecret(t, g, true)
 	before := sha256.Sum256([]byte(secret))
 	reject.Store(true)
-	if w := accountRequest(g, "POST", "/api/auth/setup", bootstrapBody(secret, "synthetic-admin"), nil); w.Code != 409 || !strings.Contains(w.Body.String(), `"setup_unavailable"`) || len(w.Result().Cookies()) != 0 {
-		t.Fatal("reservation rejection semantics changed")
+	if w := accountRequest(g, "POST", "/api/auth/setup", bootstrapBody(secret, "synthetic-admin"), nil); w.Code != 503 || !strings.Contains(w.Body.String(), `"account_capacity"`) || len(w.Result().Cookies()) != 0 {
+		t.Fatalf("reservation rejection must answer account_capacity: %d %s", w.Code, w.Body.String())
 	}
 	bootstrapState(t, g, 0, 0, true)
 	var saved []byte
