@@ -22,7 +22,7 @@ import { clearMessageActions, setMessageActions, tappedMessageActionsId, useMess
 import { CopyFeedbackIcon } from "./CopyFeedbackIcon";
 import { attachmentUrl } from "./filePreviewModel";
 import { DisplayCard } from "./DisplayCard";
-import { QuestionCard, useQuestions } from "./QuestionCard";
+import { useQuestions } from "./useQuestions";
 import { toolDisplayState, toolDisplayLabel } from "./toolTimeline";
 import { requestFullToolResult, setToolResultLoader } from "./toolResultLoader";
 import { taskStateLabel } from "./ConversationTaskStatus";
@@ -30,7 +30,7 @@ import { MailDraftCard, useMailDrafts } from "./MailDraftCard";
 import { buildQuestionTimeline, compareQuestionTime } from "./questionTimeline";
 import { useDebugMode } from "./debugMode";
 import type { SettingsEntry, SettingsTab, SettingsView } from "./SettingsShell";
-import { AfterPaint, ArchivePanel, UpdateBanner, PermissionCoach, BotPanelSkeleton, BotDesktopPanel, DeleteConversationDialog, RememberedApprovalsSheet, BotPanel, MembersPanel, DesktopSkeleton, MemoryPanel, TeamBoard, ViewOnlyChat, WorkPanel, Onboarding, preloadPanel, SettingsPanel, SettingsSkeleton, warmPanelsWhenIdle } from "./lazyPanels";
+import { AfterPaint, ArchivePanel, UpdateBanner, PermissionCoach, BotPanelSkeleton, BotDesktopPanel, DeleteConversationDialog, RememberedApprovalsSheet, BotPanel, MembersPanel, DesktopSkeleton, MemoryPanel, TeamBoard, ViewOnlyChat, WorkPanel, Onboarding, QuestionCard, preloadPanel, SettingsPanel, SettingsSkeleton, warmPanelsWhenIdle } from "./lazyPanels";
 import { subscribeSettingsDeepLinks } from "./settings/deepLinks";
 import { BotIdentityCard } from "./BotIdentityCard";
 import { ActionHints, ConfirmAction, useAppearance, useSurfacePresence } from "./InteractionSystem";
@@ -2174,7 +2174,7 @@ function Workspace() {
       onFeedback={text => window.dispatchEvent(new CustomEvent("tofi:task-feedback", {detail:{conversationId:owner.family.latest.conversation_id,text}}))}
       onRefresh={refreshTaskStatus} onLoadDetails={loadToolDetails}
       renderMessage={message => <MessageBubble key={message.id} message={message} sender={botById.get(owner.family.latest.bot_id)} run={message.run_id ? runById.get(message.run_id) : undefined} showAvatar={false} showIdentity={false} />}
-      renderQuestion={question => <QuestionCard key={question.question_id} item={question} bot={botById.get(question.bot_id)} group={active?.kind === "group"} archived={active?.archived} onChanged={async resolved => { await questions.refresh(resolved); await refreshConversations(); }} />}
+      renderQuestion={question => <Suspense key={question.question_id} fallback={null}><QuestionCard item={question} bot={botById.get(question.bot_id)} group={active?.kind === "group"} archived={active?.archived} onChanged={async resolved => { await questions.refresh(resolved); await refreshConversations(); }} /></Suspense>}
       renderDraft={draft => <MailDraftCard key={draft.draft_id} draft={draft} bot={botById.get(draft.bot_id)} group={active?.kind === "group"} archived={active?.archived} issueOwned onChanged={async () => { await mailDrafts.refresh(); await refreshConversations(); }} />} />;
   }
   const taskAnnouncements = new Map(taskOwners.map(owner => {
@@ -2401,7 +2401,7 @@ function Workspace() {
                         const question = item.question;
                         if (ownedBy(question)) return taskOwners.filter(owner => owner.anchor?.kind === "question" && owner.anchor.id === question.question_id).map(renderTaskOwner);
                         const divider = !previousTime || dateInTimezone(previousTime, timezone) !== dateInTimezone(question.created_at, timezone) || +new Date(question.created_at) - +new Date(previousTime) >= 10 * 60_000;
-                        return <div className="message-block" key={`question-${question.question_id}`}>{divider && <div className="date-divider"><span>{formatDateDivider(question.created_at, timezone)}</span></div>}<QuestionCard item={question} bot={botById.get(question.bot_id)} group={active.kind === "group"} archived={active.archived} onChanged={async (resolved) => { await questions.refresh(resolved); await refreshConversations(); }} /></div>;
+                        return <div className="message-block" key={`question-${question.question_id}`}>{divider && <div className="date-divider"><span>{formatDateDivider(question.created_at, timezone)}</span></div>}<Suspense fallback={null}><QuestionCard item={question} bot={botById.get(question.bot_id)} group={active.kind === "group"} archived={active.archived} onChanged={async (resolved) => { await questions.refresh(resolved); await refreshConversations(); }} /></Suspense></div>;
                       }
                       const message = item.message;
                       const previous = previousItem?.kind === "message" ? previousItem.message : undefined;
