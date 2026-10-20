@@ -251,13 +251,14 @@ func TestProductionPromptSizeMatrix(t *testing.T) {
 				// asking (owner, 2026-10-16) added ~450 cached runes.
 				// 5500: the scope principle (a persona's scope is responsibility and
 				// initiative, never a limit on conversation; owner, 2026-10-19) adds ~270.
-				// 5950: deliver on stated assumptions and write-means-draft-the-text
-				// (task-completion eval, 2026-10-19) add ~320 (provider system 5801, fixed up to 6580).
-				if tc.name == "dm" && len([]rune(system))+runtime.SystemPromptOverheadRunes() > 5950 {
-					t.Errorf("ordinary DM provider system exceeds 5950 runes")
+				// 6250: deliver on stated assumptions and write-means-draft-the-text (~320,
+				// task-completion eval 2026-10-19) plus the verification and
+				// lookup-before-asking principle (~275).
+				if tc.name == "dm" && len([]rune(system))+runtime.SystemPromptOverheadRunes() > 6250 {
+					t.Errorf("ordinary DM provider system exceeds 6250 runes")
 				}
-				if fixed > 6650 {
-					t.Errorf("fixed overhead %d leaves too little customization headroom (ceiling 6650)", fixed)
+				if fixed > 6950 {
+					t.Errorf("fixed overhead %d leaves too little customization headroom (ceiling 6950)", fixed)
 				}
 				if !strings.Contains(system, bot.Instructions) {
 					t.Fatal("user instructions changed")
@@ -295,8 +296,9 @@ func TestProductionPromptSizeMatrix(t *testing.T) {
 					if runtime.StructuredPromptOverheadRunes() >= runtime.SystemPromptOverheadRunes() {
 						t.Errorf("structured suffix %d is not shorter than %d", runtime.StructuredPromptOverheadRunes(), runtime.SystemPromptOverheadRunes())
 					}
-					if tc.name == "dm" && len([]rune(system))+runtime.StructuredPromptOverheadRunes() > 5950 {
-						t.Errorf("structured DM provider system exceeds 5950 runes")
+					// 6250: same two additions as the ordinary DM cap above.
+					if tc.name == "dm" && len([]rune(system))+runtime.StructuredPromptOverheadRunes() > 6250 {
+						t.Errorf("structured DM provider system exceeds 6250 runes")
 					}
 					if tc.kind == runKindGroupChat && !strings.Contains(system, "say(answer)") {
 						t.Error("structured group prompt does not name say(answer)")
