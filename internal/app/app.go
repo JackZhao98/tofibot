@@ -3352,7 +3352,7 @@ func (s *Server) execute(c Conversation, r Run) {
 		}
 	}
 	if r.Kind != runKindTriage {
-		tools = append(tools, capabilityTool(tools))
+		tools = append(tools, capabilityTool(deferOnDemandTools(tools)))
 		capabilityPrompt = runtimeCapabilityPrompt
 	}
 	s.recordToolSnapshot(r.BotID, c.ID, tools)
