@@ -208,6 +208,7 @@ type Server struct {
 	listen                               string
 	uiDir                                string
 	publicOrigin                         string
+	allowInternalMCPHosts                bool // tests only: Bot-created MCP servers may use loopback hosts
 	defaultModel, provider               string
 	transcriptionAPIKey                  string
 	transcriptionURL                     string

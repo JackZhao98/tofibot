@@ -33,6 +33,7 @@ type ownerAuth struct {
 	active        map[string]map[*ownerRequest]struct{}
 	hashing       chan struct{}
 	trusted       []*net.IPNet // reverse proxies whose X-Forwarded-For is believed
+	secureCookies bool         // public origin is https: TLS ends at a proxy, so r.TLS is nil
 }
 type ownerRequest struct{ cancel context.CancelFunc }
 type ownerIdentity struct {
@@ -73,7 +74,7 @@ func initializeOwnerAuth(s *Store, c Config) (*ownerAuth, error) {
 	}
 	host, _, _ := net.SplitHostPort(c.Listen)
 	ip := net.ParseIP(host)
-	a := &ownerAuth{allowLAN: c.OwnerAllowLANHTTP || os.Getenv("TOFI_OWNER_ALLOW_LAN_HTTP") == "1", store: s, bootstrapPath: filepath.Join(c.DataDir, "owner-bootstrap.secret"), allowLoopback: (c.OwnerAllowLoopbackHTTP || os.Getenv("TOFI_OWNER_ALLOW_LOOPBACK_HTTP") == "1") && ip != nil && ip.IsLoopback(), active: make(map[string]map[*ownerRequest]struct{}), hashing: make(chan struct{}, 2)}
+	a := &ownerAuth{allowLAN: c.OwnerAllowLANHTTP || os.Getenv("TOFI_OWNER_ALLOW_LAN_HTTP") == "1", store: s, bootstrapPath: filepath.Join(c.DataDir, "owner-bootstrap.secret"), allowLoopback: (c.OwnerAllowLoopbackHTTP || os.Getenv("TOFI_OWNER_ALLOW_LOOPBACK_HTTP") == "1") && ip != nil && ip.IsLoopback(), active: make(map[string]map[*ownerRequest]struct{}), hashing: make(chan struct{}, 2), secureCookies: strings.HasPrefix(strings.ToLower(c.PublicOrigin), "https://")}
 	if a.trusted, err = parseTrustedProxies(os.Getenv("TOFI_TRUSTED_PROXIES")); err != nil {
 		return nil, err
 	}
@@ -293,6 +294,11 @@ func (a *ownerAuth) session(r *http.Request) (string, time.Time, bool) {
 	err = a.store.db.QueryRow(`SELECT expires_at FROM owner_sessions WHERE token_hash=?`, hash[:]).Scan(&expiry)
 	return string(hash[:]), time.Unix(expiry, 0), err == nil && time.Now().Unix() < expiry
 }
+// cookieSecure marks session cookies Secure when the request arrived over TLS
+// or the configured public origin is https (TLS terminated by a proxy).
+func (a *ownerAuth) cookieSecure(r *http.Request) bool {
+	return r.TLS != nil || (a != nil && a.secureCookies)
+}
 func (a *ownerAuth) issue(w http.ResponseWriter, r *http.Request) error {
 	token := ownerRandom(32)
 	hash := sha256.Sum256([]byte(token))
@@ -301,7 +307,7 @@ func (a *ownerAuth) issue(w http.ResponseWriter, r *http.Request) error {
 	if err != nil {
 		return err
 	}
-	http.SetCookie(w, &http.Cookie{Name: ownerCookie, Value: token, Path: "/", HttpOnly: true, Secure: r.TLS != nil, SameSite: http.SameSiteLaxMode, MaxAge: int(ownerSessionLifetime.Seconds()), Expires: expires})
+	http.SetCookie(w, &http.Cookie{Name: ownerCookie, Value: token, Path: "/", HttpOnly: true, Secure: a.cookieSecure(r), SameSite: http.SameSiteLaxMode, MaxAge: int(ownerSessionLifetime.Seconds()), Expires: expires})
 	// Give the response the same state semantics as a subsequent session request.
 	r.AddCookie(&http.Cookie{Name: ownerCookie, Value: token})
 	return nil
@@ -316,10 +322,42 @@ func (a *ownerAuth) hash(ctx context.Context, password string, salt []byte) ([]b
 	return argon2.IDKey([]byte(password), salt, 3, 64*1024, 1, 32), nil
 }
 
-// Count failed and successful attempts alike. Durable global and per-peer bounds
-// limit password hashing and do not trust proxy-supplied client addresses.
-func (a *ownerAuth) allowAttempt(r *http.Request) bool {
-	peer := a.peerBucket(r)
+// Attempts are bounded per client address and per account identifier. There is
+// deliberately no global bucket: anonymous traffic from many addresses must not
+// be able to lock every sign-in. Hashing cost stays bounded by the `hashing`
+// semaphore. Durable, so restarts do not reset the budget.
+const (
+	peerAttemptLimit    = 8
+	accountAttemptLimit = 20
+)
+
+type attemptBucket struct {
+	key   string
+	limit int
+}
+
+func accountBucket(identifier string) attemptBucket {
+	sum := sha256.Sum256([]byte("acct:" + strings.ToLower(strings.TrimSpace(identifier))))
+	return attemptBucket{"acct:" + base64.RawURLEncoding.EncodeToString(sum[:]), accountAttemptLimit}
+}
+
+// allowAttempt charges the caller's address bucket and, when account is not
+// empty, that account's bucket.
+func (a *ownerAuth) allowAttempt(r *http.Request, account string) bool {
+	buckets := []attemptBucket{{a.peerBucket(r), peerAttemptLimit}}
+	if account != "" {
+		buckets = append(buckets, accountBucket(account))
+	}
+	return a.charge(buckets)
+}
+
+// allowAccountAttempt charges only the account bucket, for callers that are
+// already authenticated as that account.
+func (a *ownerAuth) allowAccountAttempt(account string) bool {
+	return a.charge([]attemptBucket{accountBucket(account)})
+}
+
+func (a *ownerAuth) charge(buckets []attemptBucket) bool {
 	now := time.Now().Unix()
 	tx, err := a.store.db.Begin()
 	if err != nil {
@@ -329,10 +367,7 @@ func (a *ownerAuth) allowAttempt(r *http.Request) bool {
 	if _, err = tx.Exec(`DELETE FROM owner_auth_attempts WHERE window_start<=?`, now-900); err != nil {
 		return false
 	}
-	for _, b := range []struct {
-		key   string
-		limit int
-	}{{"global", 64}, {peer, 8}} {
+	for _, b := range buckets {
 		var n int
 		err = tx.QueryRow(`SELECT attempts FROM owner_auth_attempts WHERE bucket=?`, b.key).Scan(&n)
 		if err != nil && !errors.Is(err, sql.ErrNoRows) {
@@ -393,7 +428,7 @@ func (s *Server) handleOwnerAuth(w http.ResponseWriter, r *http.Request) bool {
 			delete(a.active, key)
 		}
 		a.mu.Unlock()
-		http.SetCookie(w, &http.Cookie{Name: ownerCookie, Value: "", Path: "/", HttpOnly: true, Secure: r.TLS != nil, SameSite: http.SameSiteLaxMode, MaxAge: -1, Expires: time.Unix(1, 0)})
+		http.SetCookie(w, &http.Cookie{Name: ownerCookie, Value: "", Path: "/", HttpOnly: true, Secure: a.cookieSecure(r), SameSite: http.SameSiteLaxMode, MaxAge: -1, Expires: time.Unix(1, 0)})
 		respond()
 		return true
 	}
@@ -401,14 +436,15 @@ func (s *Server) handleOwnerAuth(w http.ResponseWriter, r *http.Request) bool {
 		writeErr(w, 400, "password_transport_required", "use HTTPS or an explicitly configured LAN HTTP or loopback SSH ingress")
 		return true
 	}
-	limit := func() bool {
-		if a.allowAttempt(r) {
+	limit := func(account string) bool {
+		if a.allowAttempt(r, account) {
 			return true
 		}
 		w.Header().Set("Retry-After", "900")
 		writeErr(w, 429, "rate_limited", "too many authentication attempts; try again later")
 		return false
 	}
+	var loginAccount string
 	// A closed setup is a cheap read; it must never spend the attempt budget.
 	if p != "/api/auth/login" {
 		var consumed, owners int
@@ -425,7 +461,7 @@ func (s *Server) handleOwnerAuth(w http.ResponseWriter, r *http.Request) bool {
 			writeErr(w, 400, "invalid_request", "invalid setup request")
 			return true
 		}
-		if !limit() {
+		if !limit("") {
 			return true
 		}
 		var saved []byte
@@ -448,7 +484,7 @@ func (s *Server) handleOwnerAuth(w http.ResponseWriter, r *http.Request) bool {
 			writeErr(w, 400, "invalid_request", "invalid setup request")
 			return true
 		}
-		if !limit() {
+		if !limit("") {
 			return true
 		}
 		v.Username = strings.TrimSpace(v.Username)
@@ -463,7 +499,7 @@ func (s *Server) handleOwnerAuth(w http.ResponseWriter, r *http.Request) bool {
 		}
 		if e := checkAccountFields(v.Username, v.Email, v.Password); e != nil {
 			// Validation failures are not guesses at the secret.
-			a.refundAttempt(r)
+			a.refundAttempt(r, "")
 			writeFieldErr(w, 400, e)
 			return true
 		}
@@ -503,15 +539,20 @@ func (s *Server) handleOwnerAuth(w http.ResponseWriter, r *http.Request) bool {
 		// A stale file cannot authorize setup once its durable hash is consumed.
 		_ = removeOwnerBootstrap(a.bootstrapPath)
 	} else {
-		if !limit() {
-			return true
-		}
 		var v struct {
 			Identifier string `json:"identifier"`
 			Password   string `json:"password"`
 		}
+		// Malformed requests never reach a password check and are not charged.
 		if decodeStrict(r, 8<<10, &v) != nil || len(v.Identifier) > 254 || len(v.Password) > 1024 {
 			writeErr(w, 400, "invalid_request", "invalid login request")
+			return true
+		}
+		loginAccount = strings.TrimSpace(v.Identifier)
+		if loginAccount == "" {
+			loginAccount = "-"
+		}
+		if !limit(loginAccount) {
 			return true
 		}
 		var username, email string
@@ -530,6 +571,11 @@ func (s *Server) handleOwnerAuth(w http.ResponseWriter, r *http.Request) bool {
 			writeErr(w, 401, "invalid_credentials", "invalid identifier or password")
 			return true
 		}
+	}
+	if loginAccount != "" {
+		// A proven password gives the attempt back, so honest sign-ins never wear
+		// down the budget that bounds guessing.
+		a.refundAttempt(r, loginAccount)
 	}
 	// Replace an existing cookie so subsequent state inspection sees the new token.
 	r.Header.Del("Cookie")
@@ -617,12 +663,24 @@ func verifyBootstrapSecret(saved []byte, queryErr error, secret string) bool {
 }
 
 func (a *ownerAuth) peerBucket(r *http.Request) string {
-	sum := sha256.Sum256([]byte(clientIP(r, a.trusted)))
+	ip := clientIP(r, a.trusted)
+	// One IPv6 subscriber controls a whole /64; key on the prefix.
+	if parsed := net.ParseIP(ip); parsed != nil && parsed.To4() == nil {
+		ip = parsed.Mask(net.CIDRMask(64, 128)).String() + "/64"
+	}
+	sum := sha256.Sum256([]byte(ip))
 	return base64.RawURLEncoding.EncodeToString(sum[:])
 }
 
 // refundAttempt gives back one attempt for a request that was rejected before
-// it could test any secret (field validation).
-func (a *ownerAuth) refundAttempt(r *http.Request) {
-	_, _ = a.store.db.Exec(`UPDATE owner_auth_attempts SET attempts=attempts-1 WHERE attempts>0 AND bucket IN ('global',?)`, a.peerBucket(r))
+// it could test any secret (field validation) or that proved the password.
+func (a *ownerAuth) refundAttempt(r *http.Request, account string) {
+	a.refundBucket(a.peerBucket(r))
+	if account != "" {
+		a.refundAccount(account)
+	}
+}
+func (a *ownerAuth) refundAccount(account string) { a.refundBucket(accountBucket(account).key) }
+func (a *ownerAuth) refundBucket(key string) {
+	_, _ = a.store.db.Exec(`UPDATE owner_auth_attempts SET attempts=attempts-1 WHERE attempts>0 AND bucket=?`, key)
 }

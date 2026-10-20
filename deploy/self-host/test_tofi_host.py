@@ -399,6 +399,7 @@ class RenderTests(HostCase):
         self.assertIn('email ops@example.com', text)
         self.assertIn('tofi.example.com {', text)
         self.assertIn('reverse_proxy app:8321', text)
+        self.assertIn('Strict-Transport-Security "max-age=31536000"', text)
         self.assertNotIn('email', tofi_host.render_caddyfile(HERE, 'tofi.example.com', ''))
         with self.assertRaises(tofi_host.HostError):
             tofi_host.render_caddyfile(HERE, 'bad domain; {', '')
