@@ -25,6 +25,6 @@ export const CASCADE = {
   overshootMinPx: 2.4,
   enterExtraPx: 24,     // the new message starts this much lower than the content it pushes, so it rises in from below
   maxLinks: 12,         // the chain staggers over this many links; every further message in view shares the last link's delay
-  maxShiftPx: 130,      // a longer hop jumps the excess at once; this much is animated
+  maxShiftPx: 130,      // the cascade carries at most this much of a hop; a taller block hands the rest to the ordinary glide
   samples: 26,          // keyframes per message (linear between)
 } as const;
