@@ -52,25 +52,46 @@ CREATE INDEX IF NOT EXISTS mail_drafts_conversation ON mail_drafts(conversation_
 	return err
 }
 
+// The draft validation errors keep their localized text for the HTTP and UI
+// routes; the model-facing tool maps them to a repair hint (mailDraftToolError).
+var (
+	errMailDraftInvalid   = errors.New("收件人、主题和正文必须有效")
+	errMailTooManyTo      = errors.New("收件人不能超过 20 位")
+	errMailRecipientInval = errors.New("收件人邮箱格式无效")
+)
+
+// mailDraftToolError tells the model what to repair, in English.
+func mailDraftToolError(err error) error {
+	switch {
+	case errors.Is(err, errMailRecipientInval):
+		return errors.New("to takes literal email addresses only, comma separated, with no names or placeholders. When no address is known, leave to empty: the person adds it on the card. Nothing was saved; call prepare_email again with the corrected to.")
+	case errors.Is(err, errMailTooManyTo):
+		return errors.New("to holds at most 20 addresses. Nothing was saved; call prepare_email again with fewer.")
+	case errors.Is(err, errMailDraftInvalid):
+		return errors.New("subject and body are required and must be valid text: the subject is a single line of at most 512 characters, the body is non-empty and at most 128 KB, and to is at most 2048 characters. Nothing was saved; call prepare_email again with the repaired fields.")
+	}
+	return err
+}
+
 func validateMailDraft(to, subject, body string) (string, string, error) {
 	to, subject = strings.TrimSpace(to), strings.TrimSpace(subject)
 	// An empty recipient is a valid draft: the person fills in To on the card,
 	// and the send route refuses a draft that still has none.
 	if len(to) > 2048 || subject == "" || utf8.RuneCountInString(subject) > 512 || strings.ContainsAny(subject, "\r\n") || strings.TrimSpace(body) == "" || len(body) > 128<<10 || !utf8.ValidString(body) {
-		return "", "", errors.New("收件人、主题和正文必须有效")
+		return "", "", errMailDraftInvalid
 	}
 	if to == "" {
 		return "", subject, nil
 	}
 	addresses := strings.Split(to, ",")
 	if len(addresses) > 20 {
-		return "", "", errors.New("收件人不能超过 20 位")
+		return "", "", errMailTooManyTo
 	}
 	for i, address := range addresses {
 		address = strings.TrimSpace(address)
 		parsed, err := mail.ParseAddress(address)
 		if err != nil || parsed.Address != address || strings.ContainsAny(address, "\r\n") {
-			return "", "", errors.New("收件人邮箱格式无效")
+			return "", "", errMailRecipientInval
 		}
 		addresses[i] = address
 	}
@@ -181,7 +202,7 @@ func (s *Server) mailDraftTools(c Conversation, r Run) []Tool {
 		}
 		d, err := s.store.AddMailDraft(ctx, c.ID, r, input.To, input.Subject, input.Body, input.Demo)
 		if err != nil {
-			return "", err
+			return "", mailDraftToolError(err)
 		}
 		if d.Demo {
 			return fmt.Sprintf("Mock email draft %s is visible for UI review. It cannot send real mail; do not claim it was sent.", d.ID), nil
