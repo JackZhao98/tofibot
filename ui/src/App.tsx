@@ -66,7 +66,7 @@ import { chipStep, onboardingMode, parseOnboardingState, resumeStep, type Onboar
 import { LoadingCat } from "./motion-lab/lib/LoadingCat";
 import { flipList } from "./motion-lab/lib/flip";
 import { flySentMessage } from "./sendFlight";
-import { SendReceipt } from "./SendReceipt";
+import { SendReceipt, SendReceiptMark } from "./SendReceipt";
 import { receiptFor, runsByTrigger } from "./sendReceipts";
 import { activeBotRuns, botRecentlyActive, latestBotWorkTime, latestHumanMessageTime } from "./botActivity";
 import { reconcileToolActivity, activeToolForRun, buildToolRunAnchors, buildToolSummaryAnchors, buildToolTimeline, compareToolActivities, elapsedToolSeconds, orderToolActivities, toolActionLabel, toolArgumentPreview, toolAttemptIssues } from "./toolTimeline";
@@ -302,7 +302,7 @@ async function writeClipboard(text: string) {
 }
 
 /** Browser-mode message actions, mounted only for the message the pointer, focus or a tap is on. */
-const MessageHoverActions = memo(function MessageHoverActions({ message, timezone, onReact, onReply, onActivity, activityOpen, copyText }: { message: Message; timezone: string; onReact: (anchor: DOMRect) => void; onReply?: () => void; onActivity?: () => void; activityOpen?: boolean; copyText?: string }) {
+const MessageHoverActions = memo(function MessageHoverActions({ message, timezone, onReact, onReply, onActivity, activityOpen, copyText, mark }: { message: Message; timezone: string; onReact: (anchor: DOMRect) => void; onReply?: () => void; onActivity?: () => void; activityOpen?: boolean; copyText?: string; mark?: { state: "delivered" | "read"; names: string[]; group: boolean } }) {
   const { t } = useTranslation("chat");
   const [copied, setCopied] = useState(false);
   const copiedTimer = useRef<number | undefined>(undefined);
@@ -317,8 +317,8 @@ const MessageHoverActions = memo(function MessageHoverActions({ message, timezon
   function onKeyDown(event: React.KeyboardEvent<HTMLDivElement>) {
     const keys = ["ArrowLeft", "ArrowRight", "Home", "End"];
     if (!keys.includes(event.key)) return;
-    const buttons = [...event.currentTarget.querySelectorAll<HTMLButtonElement>("button")];
-    const at = buttons.indexOf(document.activeElement as HTMLButtonElement);
+    const buttons = [...event.currentTarget.querySelectorAll<HTMLElement>("button, [data-roving]")];
+    const at = buttons.indexOf(document.activeElement as HTMLElement);
     if (at < 0) return;
     event.preventDefault();
     const next = event.key === "Home" ? 0 : event.key === "End" ? buttons.length - 1 : (at + (event.key === "ArrowRight" ? 1 : -1) + buttons.length) % buttons.length;
@@ -333,8 +333,10 @@ const MessageHoverActions = memo(function MessageHoverActions({ message, timezon
     {onReply && <button type="button" tabIndex={stop()} aria-label={t("hover.reply")} data-hint={t("hover.reply")} data-action="reply" onClick={onReply}><Icon name="reply" size={15} /></button>}
     {onActivity && <button type="button" tabIndex={stop()} className="message-activity-action" aria-label={activityOpen ? t("hover.hide_activity") : t("hover.view_activity")} aria-pressed={activityOpen} data-hint={activityOpen ? t("hover.hide_activity") : t("hover.view_activity")} data-action="activity" onClick={onActivity}><Icon name="activity" size={15} /></button>}
     <time dateTime={message.created_at} title={`${formatExactTime(message.created_at, timezone)} · ${timezone}`}>{formatBarTime(message.created_at, timezone, t("hover.just_now"))}</time>
+    {mark && <SendReceiptMark state={mark.state} names={mark.names} group={mark.group} />}
   </div>;
 }, (previous, next) => previous.message === next.message && previous.timezone === next.timezone && previous.activityOpen === next.activityOpen && previous.copyText === next.copyText
+  && previous.mark?.state === next.mark?.state && previous.mark?.group === next.mark?.group && previous.mark?.names.join("\u0000") === next.mark?.names.join("\u0000")
   // The handlers are rebuilt every render; they act on the same message, so only their presence matters here.
   && Boolean(previous.onReply) === Boolean(next.onReply) && Boolean(previous.onActivity) === Boolean(next.onActivity));
 
@@ -2683,8 +2685,9 @@ const MessageRow = memo(function MessageRow({ model: m, h, stream }: { model: Ro
   const message = useMemo(() => m.isStub && live !== undefined ? { ...m.message, content: live } : m.message, [m.message, m.isStub, live]);
   const draft = m.drafting ? live ?? "" : undefined;
   const tools = m.processTools ? <ToolActivityList activities={m.processTools} progress={m.processProgress} summaries={m.processSummaries} summaryErrors={m.processSummaryErrors} summaryLoading={m.processSummaryLoading} details={m.toolLists!.details} onLoadDetails={h.loadDetails} onRetrySummary={h.retrySummary} botById={m.toolLists!.botById} activeRunIds={m.toolLists!.activeRunIds} /> : undefined;
-  const receipt = m.receipt ? <SendReceipt receipt={m.receipt} group={m.isGroup} names={m.receiptNames ?? []} onRetry={m.canRetryReceipt ? () => h.retrySend(message.client_message_id!) : undefined} /> : undefined;
-  const actions = m.hasBar ? <MessageActionsSlot id={message.id}><MessageHoverActions message={message} timezone={m.timezone} copyText={m.copyText}
+  const receipt = m.receipt && (m.receipt.state === "failed" || m.receipt.state === "sending") ? <SendReceipt receipt={m.receipt} group={m.isGroup} names={m.receiptNames ?? []} onRetry={m.canRetryReceipt ? () => h.retrySend(message.client_message_id!) : undefined} /> : undefined;
+  const mark = m.receipt && (m.receipt.state === "delivered" || m.receipt.state === "read") ? { state: m.receipt.state, names: m.receiptNames ?? [], group: m.isGroup } : undefined;
+  const actions = m.hasBar ? <MessageActionsSlot id={message.id}><MessageHoverActions message={message} timezone={m.timezone} copyText={m.copyText} mark={mark}
       onReact={anchor => h.react(message.id, anchor)}
       onActivity={m.activityToggle && m.activityRunId ? () => h.toggleActivity(m.activityRunId!) : undefined} activityOpen={m.activityOpen}
       onReply={m.canReply ? () => h.reply(message) : undefined} /></MessageActionsSlot> : undefined;

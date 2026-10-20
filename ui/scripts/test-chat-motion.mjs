@@ -48,6 +48,8 @@ const history = () => [
 
 async function open({ width = 1180, height = 820, motion = "no-preference", touch = false, reactionDelay = 0, reactionFail = false, extra = [], runs = [], inGroup = false } = {}) {
   const context = await browser.newContext({ viewport: { width, height }, locale: "en-US", reducedMotion: motion, hasTouch: touch });
+  // CHAT_MOTION_CSS='...' injects extra CSS (to try the progressive-blur variants against the hover budget).
+  if (process.env.CHAT_MOTION_CSS) await context.addInitScript(css => document.addEventListener("DOMContentLoaded", () => { const st = document.createElement("style"); st.textContent = css; document.head.append(st); }), process.env.CHAT_MOTION_CSS);
   await context.addInitScript(() => {
     try { localStorage.setItem("tofi:appearance", "light"); } catch {}
     // The clipboard is recorded, not used, so the check is the same in every engine and permission state.
@@ -310,6 +312,25 @@ await check("the gap between messages holds the bar: same sender and speaker cha
     assert.ok(speaker > sameSender, `${layout}: a speaker change (${speaker}px) is not wider than a run (${sameSender}px)`);
     await context.close();
   }
+});
+
+await check("a person's bubble has no receipt row: spacing is the action row's, the mark appears with the row, and hovering moves nothing", async () => {
+  const { page, context } = await open({ extra: [base("m_r", 70, "user", "Synthetic receipt probe", { client_message_id: "cm-r" }), base("m_r2", 71, "assistant", "Synthetic answer to the probe")] });
+  await page.mouse.move(2, 2);
+  assert.equal(await page.locator(".send-receipt, .send-receipt-mark").count(), 0, "a receipt is on show without hover");
+  const heights = () => page.locator(".message-list .message-block").evaluateAll(nodes => nodes.map(node => node.getBoundingClientRect().height));
+  const rest = await heights();
+  const spacing = await block(page, "m_r").evaluate(node => { const article = node.querySelector(".message-user").getBoundingClientRect(); const row = node.querySelector(".message-actions-row")?.getBoundingClientRect(); return row ? row.top - article.bottom : null; });
+  assert.ok(spacing !== null && spacing <= 6, `the action row's reserve sits right under the person's bubble (${spacing}px)`);
+  await block(page, "m_r").scrollIntoViewIfNeeded();
+  const box = await block(page, "m_r").locator(".message-content").boundingBox();
+  await page.mouse.move(box.x + 30, box.y + 10);
+  await block(page, "m_r").locator(".message-hover-actions").waitFor();
+  const mark = block(page, "m_r").locator(".message-hover-actions .send-receipt-mark");
+  await mark.waitFor({ timeout: 2000 });
+  assert.ok(await mark.evaluate(node => node === node.parentElement.lastElementChild), "the mark is the last item of the action row, after the time");
+  assert.deepEqual(await heights(), rest, "hovering the person's bubble moved something");
+  await context.close();
 });
 
 await check("hover-to-visible latency is reported", async () => {
