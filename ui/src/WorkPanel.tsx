@@ -2,7 +2,7 @@ import { scheduleDisplay } from "./displayMetadata";
 import { CATS, EmptyState } from "./EmptyCat";
 import { ScheduleEditor } from "./ScheduleEditor";
 import { DelayedFeedback } from "./DelayedFeedback";
-import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { api, ApiError } from "./api";
 import { TofiIcon } from "./icons";
 import { BotAvatar } from "./BotAvatar";
@@ -11,63 +11,13 @@ import { TimezoneSelect, useUserTimezone } from "./UserTimezone";
 import { formatZonedTime } from "./timezone";
 import { WorkExecution } from "./WorkExecution";
 import { workExecutionActive, workExecutionStatusKeys } from "./workExecutionState";
-import { i18n, useTranslation } from "./i18n";
+import { useTranslation } from "./i18n";
 import { WEEKDAYS, type Bot, type Conversation, type Schedule, type ScheduleKind, type Weekday, type WorkItem, type WorkStatus } from "./types";
 import { weekdayName, weeklyCadence } from "./scheduleCadence";
+import { message, useAgenda, type Scope } from "./workAgenda";
 import "./work-panel.css";
 
-type Scope = { id: string; type: "bots" | "conversations" };
 const workStatusKeys = { todo: "status.todo", in_progress: "status.in_progress", blocked: "status.blocked", review: "status.review", done: "status.done", cancelled: "status.cancelled" } as const satisfies Record<WorkStatus, string>;
-const message = (cause: unknown) => cause instanceof Error ? cause.message : i18n.t("work:panel.load_failed");
-
-function useAgenda(scope: Scope, history: boolean, refreshToken: number) {
-  const [items, setItems] = useState<WorkItem[]>([]);
-  const [schedules, setSchedules] = useState<Schedule[]>([]);
-  const [error, setError] = useState("");
-  const [loading, setLoading] = useState(true);
-  const version = useRef(0);
-  // Retired callbacks cannot restart a fetch and supersede the current view,
-  // even when an earlier mutation finishes after the user changes tabs.
-  const source = useMemo(() => ({ active: false }), [scope.id, scope.type, history]);
-  const lastRefresh = useRef(refreshToken);
-  const reload = useCallback(async () => {
-    if (!source.active) return;
-    const current = ++version.current;
-    try {
-      const [work, plans] = await Promise.all([api.workItems(scope.id, scope.type, history), api.scheduleAgenda(scope.id, scope.type, history)]);
-      if (!source.active || current !== version.current) return;
-      setItems(work.work_items ?? []); setSchedules(plans.schedules ?? []); setError("");
-    } catch (cause) { if (source.active && current === version.current) setError(message(cause)); }
-    finally { if (source.active && current === version.current) setLoading(false); }
-  }, [scope.id, scope.type, history, source]);
-  useEffect(() => {
-    source.active = true; setLoading(true); setItems([]); setSchedules([]); setError(""); void reload();
-    const timer = window.setInterval(() => { if (!document.hidden) void reload(); }, 5000);
-    const focus = () => { if (!document.hidden) void reload(); };
-    window.addEventListener("focus", focus); document.addEventListener("visibilitychange", focus);
-    return () => { source.active = false; version.current++; clearInterval(timer); window.removeEventListener("focus", focus); document.removeEventListener("visibilitychange", focus); };
-  }, [reload, source]);
-  useEffect(() => {
-    if (lastRefresh.current === refreshToken) return;
-    lastRefresh.current = refreshToken;
-    void reload();
-  }, [refreshToken, reload]);
-  const accept = (item: WorkItem) => {
-    if (!source.active) return;
-    version.current++;
-    setItems(current => current.map(value => value.id === item.id ? item : value));
-  };
-  return { items, schedules, loading, error, reload, accept };
-}
-
-export function WorkPreview({ scope, refreshToken, onOpen, disabled = false, leading }: { disabled?: boolean; scope: Scope; refreshToken: number; onOpen: () => void; leading?: ReactNode }) {
-  const { t } = useTranslation("work");
-  const { items, schedules, loading, error } = useAgenda(scope, false, refreshToken);
-  const total = items.length + schedules.length;
-  const titles = [...items.map(item => item.title), ...schedules.map(item => scheduleDisplay(item).title)].slice(0, 2);
-  return <button className="work-preview" disabled={disabled} onClick={onOpen}>{leading}<span className="work-preview-copy"><strong>{t("preview.title")} <span>{loading ? "" : total}</span></strong><small>{error ? t("preview.sync_failed") : loading ? "" : titles.length ? titles.join(" · ") : t("preview.empty")}</small></span><span aria-hidden="true">›</span></button>;
-}
-
 type Props = { conversation: Conversation; conversations: Conversation[]; bots: Bot[]; refreshToken: number; onClose: () => void; onNavigate: (id: string) => void };
 
 export function WorkPanel(props: Props) {

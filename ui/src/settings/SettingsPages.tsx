@@ -1,5 +1,4 @@
-import type {ReactNode} from "react";
-import {AdminAccounts} from "../AdminAccounts";
+import {lazy,Suspense,type ReactNode} from "react";
 import {AutoReviewSettings} from "../AutoReviewSettings";
 import {AutomationSettings} from "../AutomationSettings";
 import {DebugSettings} from "../BotInspector";
@@ -37,6 +36,8 @@ export type SettingsPagesProps={
  /** Called after a Settings change that alters the Bot list (the Primary Assistant); the app reloads its Bots. */
  onBotsChanged?:()=>void|Promise<void>;
 };
+/** Only admins of a multi-account install reach this page, so its code (accounts list, detail, delete flows) loads on demand. */
+const AdminAccounts=lazy(()=>import("../AdminAccounts").then(module=>({default:module.AdminAccounts})));
 const unreachable=(value:never):never=>{throw new Error(`unhandled settings page: ${String(value)}`)};
 
 /** One explicit case per tab; `never` makes a missing case a compile error. */
@@ -55,7 +56,7 @@ export function SettingsPages(props:SettingsPagesProps){
   case "keys": return <ComputerCredentials bots={activeBots}/>;
   case "usage": return <UsagePanel preferredBotId={props.usageBotId} timezone={props.timezone}/>;
   case "advanced": return <AdvancedPage {...props} bots={bots} activeBots={activeBots}/>;
-  case "admin": return <AdminAccounts/>;
+  case "admin": return <Suspense fallback={null}><AdminAccounts/></Suspense>;
   default: return unreachable(page);
  }
 }
