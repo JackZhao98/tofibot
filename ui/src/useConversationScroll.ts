@@ -37,6 +37,10 @@ interface Visit {
 // A disclosure the reader opens grows the page under their pointer; follow-bottom
 // must not chase that growth. Hold the clicked row in place while it settles.
 const HOLD_MS = 900;
+// A restored reading position is held the same way while the page settles: WebKit has no native scroll
+// anchoring, so content that lays out above the anchor just after the restore would otherwise push the
+// reader to a neighbouring message.
+const RESTORE_HOLD_MS = 600;
 // The longest a loaded conversation may stay hidden while it waits for its position.
 const SAFETY_MS = 200;
 
@@ -171,6 +175,7 @@ export function useConversationScroll(options: Options) {
         el.scrollTop = el.scrollHeight;
       } else if (resume && resumeNode) {
         el.scrollTop += resumeNode.getBoundingClientRect().top - el.getBoundingClientRect().top - resume.anchorOffset;
+        v.hold = { node: resumeNode, offset: resume.anchorOffset, until: performance.now() + RESTORE_HOLD_MS };
       } else if (first && target) {
         el.scrollTop += target.getBoundingClientRect().top - el.getBoundingClientRect().top - 12;
       } else {
