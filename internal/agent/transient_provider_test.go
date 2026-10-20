@@ -2,6 +2,7 @@ package agent
 
 import (
 	"context"
+	"strings"
 	"testing"
 	"time"
 
@@ -59,5 +60,34 @@ func TestWrapUpIgnoredIsStillExhausted(t *testing.T) {
 	result, err := runLoop(t, AgentConfig{Provider: p, Prompt: "go", MaxRunLLMCalls: 1, ExtraTools: []ExtraBuiltinTool{lookupTool(func(context.Context, map[string]interface{}) (string, error) { return "ok", nil })}})
 	if err != nil || !result.BudgetExhausted {
 		t.Fatalf("result=%+v err=%v", result, err)
+	}
+}
+
+func TestLongSayAnswerIsNotAbortedAndOverlongSayGetsShorterNote(t *testing.T) {
+	long := strings.Repeat("界", 20000)
+	args := `{"text":"` + long + `"}`
+	stream := func(ctx context.Context, _ *provider.ChatRequest, delta func(provider.StreamDelta)) (*provider.ChatResponse, error) {
+		delta(provider.StreamDelta{ToolCalls: []provider.ToolCallDelta{{Index: 0, ID: "s", Name: "say", Arguments: args}}})
+		return &provider.ChatResponse{Content: "ok"}, nil
+	}
+	p := &scriptedProvider{steps: []func(context.Context, *provider.ChatRequest, func(provider.StreamDelta)) (*provider.ChatResponse, error){stream}}
+	result, err := runLoop(t, AgentConfig{Provider: p, Prompt: "go", OnStreamChunk: func(string, string) {}})
+	if err != nil || result.Content != "ok" || len(p.requests) != 1 {
+		t.Fatalf("a long say answer was aborted: result=%+v err=%v calls=%d", result, err, len(p.requests))
+	}
+	huge := `{"text":"` + strings.Repeat("a", maxBulkToolCallArgumentChars+10) + `"}`
+	over := func(ctx context.Context, _ *provider.ChatRequest, delta func(provider.StreamDelta)) (*provider.ChatResponse, error) {
+		delta(provider.StreamDelta{ToolCalls: []provider.ToolCallDelta{{Index: 0, ID: "s", Name: "say", Arguments: huge}}})
+		<-ctx.Done()
+		return nil, ctx.Err()
+	}
+	p = &scriptedProvider{steps: []func(context.Context, *provider.ChatRequest, func(provider.StreamDelta)) (*provider.ChatResponse, error){over, reply(provider.ChatResponse{Content: "short"})}}
+	result, err = runLoop(t, AgentConfig{Provider: p, Prompt: "go", OnStreamChunk: func(string, string) {}})
+	if err != nil || result.Content != "short" || len(p.requests) != 2 {
+		t.Fatalf("result=%+v err=%v calls=%d", result, err, len(p.requests))
+	}
+	last := p.requests[1].Messages[len(p.requests[1].Messages)-1].Content
+	if strings.Contains(last, "split") || !strings.Contains(last, "shorter") {
+		t.Fatalf("recovery note for an over-long answer: %q", last)
 	}
 }

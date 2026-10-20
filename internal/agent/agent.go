@@ -92,7 +92,7 @@ var (
 	maxBulkToolCallArgumentChars = 96000
 )
 
-var bulkContentTools = map[string]bool{"computer_files": true, "computer_action": true, "tofi_write": true, "tofi_edit": true}
+var bulkContentTools = map[string]bool{"computer_files": true, "computer_action": true, "tofi_write": true, "tofi_edit": true, "say": true}
 
 // MaxStepsWithProgressReports is the hard loop guard for tasks that report
 // progress between tool batches. Persistence must accept the same turn range.
@@ -1336,6 +1336,7 @@ func RunAgentLoop(cfg AgentConfig, ctx *models.ExecutionContext) (returned *Agen
 		// Cap one tool call's streamed arguments (degenerate generation).
 		callCtx, cancelCall := context.WithCancel(loopCtx)
 		overlongArguments := false
+		overlongTool := ""
 		streamedContent := false
 		deltaForwarded := false
 		argumentChars := map[int]int{}
@@ -1376,6 +1377,7 @@ func RunAgentLoop(cfg AgentConfig, ctx *models.ExecutionContext) (returned *Agen
 					}
 					if argumentChars[call.Index] > limit && !overlongArguments {
 						overlongArguments = true
+						overlongTool = argumentTools[call.Index]
 						cancelCall()
 					}
 				}
@@ -1442,6 +1444,8 @@ func RunAgentLoop(cfg AgentConfig, ctx *models.ExecutionContext) (returned *Agen
 			recoverNote := ""
 			recoverable := true
 			switch {
+			case overlongArguments && overlongTool == "say":
+				recoverNote = "Your previous attempt was aborted because the answer was too long. Give a shorter answer that keeps the essential content."
 			case overlongArguments:
 				recoverNote = "Your previous attempt was aborted because it produced an over-long tool call. Keep tool arguments short; split large content into smaller steps."
 			case provider.IsStreamWatchdog(err), transientStreamFailure(err):
