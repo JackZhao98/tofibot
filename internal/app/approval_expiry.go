@@ -170,7 +170,18 @@ func (s *Store) settleApprovalExpiry(runID, content string) error {
 	if err = settleApprovalExpiryTx(tx, runID, content); err != nil {
 		return err
 	}
-	return tx.Commit()
+	if err = tx.Commit(); err != nil {
+		return err
+	}
+	if s.onReturnQueued != nil {
+		// The expiry failed the run; wake the assigner's failure return, if any.
+		if ret, ok, e := s.GroupFollowupForRun(runID); e == nil && ok && ret.Status == "queued" {
+			s.onReturnQueued(ret)
+		} else if ret, ok, e := s.DirectMessageFollowupForRun(runID); e == nil && ok && ret.Status == "queued" {
+			s.onReturnQueued(ret)
+		}
+	}
+	return nil
 }
 
 func settleApprovalExpiryTx(tx *sql.Tx, runID, content string) error {
@@ -241,6 +252,9 @@ func settleApprovalExpiryTx(tx *sql.Tx, runID, content string) error {
 		return err
 	}
 	if _, err = tx.Exec(`UPDATE stream_drafts SET status='cancelled',updated_at=? WHERE run_id=? AND status='active'`, t, runID); err != nil {
+		return err
+	}
+	if _, _, err = scheduleChildFailureReturnTx(tx, runID); err != nil {
 		return err
 	}
 	if err = insertRecoveryEvent(tx, r.ConversationID, "message", m, t); err != nil {
