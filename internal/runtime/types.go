@@ -226,6 +226,10 @@ type Config struct {
 	Resolve func(ctx context.Context, providerName string) (string, error)
 	// Endpoint optionally overrides a routed provider's base URL.
 	Endpoint func(providerName string) string
+	// Retries, when set, is read for every routed model request and sets how
+	// many times a transient provider error is retried (0 disables retries),
+	// so a settings change applies to the next request without a restart.
+	Retries func() int
 }
 
 type MethodReadiness string

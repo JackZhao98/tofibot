@@ -254,7 +254,15 @@ func (p routedProvider) provider(ctx context.Context, model string) (provider.Pr
 		}
 	}
 	if p.retry {
-		opts = append(opts, provider.WithDefaultRetry())
+		if p.config.Retries != nil {
+			n := p.config.Retries()
+			if n <= 0 {
+				n = -1 // RetryConfig: negative disables retries
+			}
+			opts = append(opts, provider.WithRetry(provider.RetryConfig{MaxRetries: n}))
+		} else {
+			opts = append(opts, provider.WithDefaultRetry())
+		}
 	}
 	return provider.New(name, credential, opts...)
 }

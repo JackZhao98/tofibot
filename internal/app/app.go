@@ -237,6 +237,7 @@ type Server struct {
 	runs                                 map[string]context.CancelFunc
 	queues                               map[string]*conversationQueue
 	triageModel                          string
+	automation                           automationCache
 	closing                              bool
 	scheduler                            *ScheduleWorker
 	followups                            *followupWorker
@@ -740,6 +741,9 @@ CREATE INDEX IF NOT EXISTS events_delta ON events(conversation_id,id) WHERE type
 		return err
 	}
 	if err := migrateModelSettings(s.db); err != nil {
+		return err
+	}
+	if err := migrateAutomationSettings(s.db); err != nil {
 		return err
 	}
 	if err := migrateUserPreferences(s.db); err != nil {
@@ -2556,7 +2560,7 @@ func NewServer(c Config) (*Server, error) {
 		c.Provider = "openai_codex"
 	}
 	if c.DefaultModel == "" {
-		c.DefaultModel = "codex-gpt-5.6-luna"
+		c.DefaultModel = defaultConversationModel
 	}
 	if saved, se := st.getModelSettings(); se == nil && saved.Model != "" {
 		c.DefaultModel = saved.Model
@@ -2825,6 +2829,10 @@ func (s *Server) route(w http.ResponseWriter, r *http.Request) {
 	if s.routeProviders(w, r, p) {
 		return
 	}
+	if p == "automation-settings" {
+		s.automationSettings(w, r)
+		return
+	}
 	if p == "auto-review-settings" {
 		s.autoReviewSettings(w, r)
 		return
@@ -2884,7 +2892,7 @@ func (s *Server) route(w http.ResponseWriter, r *http.Request) {
 	case p == "system/update":
 		serveSystemUpdate(w, r)
 	case p == "config":
-		writeJSON(w, 200, map[string]any{"model_configured": s.modelConfigured(), "default_model": s.effectiveDefaultModel(r.Context()), "provider": s.activeProvider()})
+		writeJSON(w, 200, map[string]any{"model_configured": s.modelConfigured(), "default_model": s.effectiveDefaultModel(r.Context()), "background_model": s.backgroundModel(backgroundTriage), "provider": s.activeProvider()})
 	case p == "auth/codex" || p == "auth/codex/connect" || p == "auth/codex/verify" || strings.HasPrefix(p, "auth/codex/connect/"):
 		s.codexAuth(w, r, strings.TrimPrefix(p, "auth/codex"))
 	case strings.HasPrefix(p, "bots/") && strings.HasSuffix(p, "/debug-preview"):
@@ -3799,6 +3807,9 @@ func (s *Server) execute(c Conversation, r Run) {
 		reviewKind = runKindSchedule
 	}
 	finalReview := taskCompletionFinalReview(observedToolWork.Load)
+	if !s.completionReviewEnabled() {
+		finalReview = nil
+	}
 	if inner := finalReview; inner != nil {
 		finalReview = func(content string) (string, error) {
 			if reviewed.Load() {
@@ -3829,6 +3840,9 @@ func (s *Server) execute(c Conversation, r Run) {
 			}
 			return s.store.scheduleReceipt(r.ID)
 		})
+		if !s.scheduleReceiptReviewEnabled() {
+			finalReview = nil
+		}
 	}
 	runEngine := engine
 	var onToolCallDelta func(runtime.ToolCallDelta)
@@ -3847,10 +3861,10 @@ func (s *Server) execute(c Conversation, r Run) {
 		// text private, ending quietly is how that turn closes.
 		endOnEmptyFinal = func() bool { return hasHandoff(s.store, r.ID) }
 	}
-	res, e := runEngine.Run(ctx, Request{BotID: r.BotID, RunID: r.ID, ConversationID: c.ID, System: system, Model: model, ReasoningEffort: reasoningEffort, Messages: pm, Tools: tools, OnDelta: onDelta, StructuredOutput: structured, ForceToolUse: structured && forceSayFor(c, r, model), OnToolCallDelta: onToolCallDelta, EndOnEmptyFinal: endOnEmptyFinal, BeforeModelCall: steeringBoundary, BeforeFinalResponse: finalReview, FinalResponseRepairTools: finalRepairTools, OnAssistantTurn: onAssistantTurn,
+	res, e := runEngine.Run(ctx, Request{BotID: r.BotID, RunID: r.ID, ConversationID: c.ID, System: system, Model: model, ReasoningEffort: reasoningEffort, Messages: pm, Tools: tools, OnDelta: onDelta, StructuredOutput: structured, ForceToolUse: structured && s.forceSayHaikuDMEnabled() && forceSayFor(c, r, model), OnToolCallDelta: onToolCallDelta, EndOnEmptyFinal: endOnEmptyFinal, BeforeModelCall: steeringBoundary, BeforeFinalResponse: finalReview, FinalResponseRepairTools: finalRepairTools, OnAssistantTurn: onAssistantTurn,
 		OnThinking: onThinking, OnRetry: onRetry, OnStreamReset: onStreamReset, OnReviewDraft: onReviewDraft,
 		Continuation:      continuation,
-		WebSearchMaxUses:  webSearchMaxUses(model, tools),
+		WebSearchMaxUses:  s.searchUses(model, tools),
 		OnWebSearchBilled: func(n int64) {
 			if err := s.store.recordWebSearchUsage(r.ID, n); err != nil {
 				log.Printf("[usage] web search: %v", err)

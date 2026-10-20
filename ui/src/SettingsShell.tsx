@@ -9,7 +9,7 @@ import {useConnectionAttention} from "./settings/useConnectionAttention";
 import {providerForModel, providerLabels} from "./modelCatalog";
 import {useLanguage, useTranslation} from "./i18n";
 
-export type SettingsTab="general"|"connections"|"skills"|"approvals"|"followups"|"models"|"computer"|"keys"|"usage"|"advanced"|"admin";
+export type SettingsTab="general"|"connections"|"skills"|"approvals"|"followups"|"models"|"automation"|"computer"|"keys"|"usage"|"advanced"|"admin";
 export type SettingsView="home"|"page";
 /** `seq` changes on every open request, so a deep link to the tab already selected still lands on its page on mobile. */
 export type SettingsEntry={seq:number;view:SettingsView};
@@ -22,7 +22,7 @@ const group=(id:GroupId,items:Page[]):Group=>({id,label:`shell.group.${id}`,item
 const adminPage=page("admin","group");
 const groups:Group[]=[
  group("you",[page("general","sliders")]),
- group("bots",[page("connections","plug"),page("skills","skill"),page("approvals","shield-check"),page("followups","bell"),page("models","sparkles")]),
+ group("bots",[page("connections","plug"),page("skills","skill"),page("approvals","shield-check"),page("followups","bell"),page("models","sparkles"),page("automation","workflow")]),
  group("workspace",[page("computer","monitor"),page("keys","key"),page("usage","progress")]),
  group("system",[page("advanced","settings")])
 ];

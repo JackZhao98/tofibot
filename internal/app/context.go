@@ -717,7 +717,7 @@ func (s *Server) buildContextPartsWith(c Conversation, r Run, bot Bot, cachedMCP
 			// The Bot's own wording, replayed verbatim, becomes a template it keeps
 			// copying (fixed caveats, closing offers). Only its latest replies stay
 			// verbatim; older ones keep their gist for continuity.
-			if ownKept >= ownVerbatimReplies {
+			if ownKept >= s.ownRepliesVerbatim() {
 				content = ownReplyGist(content)
 			}
 			ownKept++

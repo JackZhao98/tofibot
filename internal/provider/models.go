@@ -61,6 +61,7 @@ var Registry = map[string]ModelInfo{
 	"claude-sonnet-4-6":        {Provider: "anthropic", ContextWindow: 1000000, MaxOutputTokens: 128000, InputCostPer1M: 3.00, OutputCostPer1M: 15.00},
 	"claude-sonnet-4-5":        {Provider: "anthropic", ContextWindow: 200000, MaxOutputTokens: 64000, InputCostPer1M: 3.00, OutputCostPer1M: 15.00},
 	"claude-sonnet-4-0":        {Provider: "anthropic", ContextWindow: 200000, MaxOutputTokens: 64000, InputCostPer1M: 3.00, OutputCostPer1M: 15.00},
+	"claude-haiku-5-5":         {Provider: "anthropic", ContextWindow: 200000, MaxOutputTokens: 64000, InputCostPer1M: 1.00, OutputCostPer1M: 5.00}, // priced as 4-5 until published
 	"claude-haiku-4-5":         {Provider: "anthropic", ContextWindow: 200000, MaxOutputTokens: 64000, InputCostPer1M: 1.00, OutputCostPer1M: 5.00},
 	"claude-opus-4-20250514":   {Provider: "anthropic", ContextWindow: 200000, MaxOutputTokens: 32000, InputCostPer1M: 15.00, OutputCostPer1M: 75.00},
 	"claude-sonnet-4-20250514": {Provider: "anthropic", ContextWindow: 200000, MaxOutputTokens: 64000, InputCostPer1M: 3.00, OutputCostPer1M: 15.00},

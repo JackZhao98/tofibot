@@ -76,6 +76,10 @@
       "admin": {
         "name": "Console Admin",
         "description": "Inviter, gérer et désactiver des comptes"
+      },
+      "automation": {
+        "name": "Comportements automatiques",
+        "description": "Voir et ajuster ce que Tofi fait tout seul"
       }
     },
     "category": "Catégorie de réglages",
@@ -657,9 +661,7 @@
     "chat": "Discussion",
     "activity_title": "Afficher l’activité dans les discussions",
     "activity_note": "Affiche les étapes d’un Bot sous ses réponses. Désactivé par défaut ; elles restent accessibles depuis le menu d’actions d’un message.",
-    "activity_save_failed": "Échec de l’enregistrement. Réessayez.",
-    "structured_title": "Réponses structurées",
-    "structured_note": "Un Bot n’affiche du texte dans la discussion que via son outil say ; le texte écrit entre deux étapes reste dans la vue d’activité. Désactivez pour le publier comme avant."
+    "activity_save_failed": "Échec de l’enregistrement. Réessayez."
   },
   "approvals": {
     "heading": "Relecteur",
@@ -771,5 +773,115 @@
       "annoying": "Gênant",
       "handled": "Déjà traité"
     }
+  },
+  "automation": {
+    "intro": "Tout ce que Tofi fait seul pour vous est listé ici. Chaque réglage a une valeur par défaut, et un changement s’applique dès le prochain lancement.",
+    "group": {
+      "models": {
+        "title": "Modèles",
+        "description": "Quel modèle prend en charge quel type de travail."
+      },
+      "replies": {
+        "title": "Réponses",
+        "description": "Comment les Bots livrent ce qu’ils disent."
+      },
+      "history": {
+        "title": "Historique des conversations",
+        "description": "Ce qu’un Bot emporte quand il reprend une discussion."
+      },
+      "checks": {
+        "title": "Vérifications et approbations",
+        "description": "Les contrôles qui entourent les actions d’un Bot."
+      },
+      "reliability": {
+        "title": "Fiabilité",
+        "description": "Ce qui se passe quand le service de modèles flanche."
+      },
+      "schedules": {
+        "title": "Planifications",
+        "description": "Le dernier coup d’œil avant la fin d’une exécution planifiée."
+      },
+      "computer": {
+        "title": "Ordinateur",
+        "description": "Mise en veille automatique de l’ordinateur partagé."
+      }
+    },
+    "item": {
+      "conversation_model": {
+        "name": "Modèle de conversation",
+        "what": "Gère les discussions, le travail en groupe, les exécutions planifiées et tout ce qui utilise des outils. Le modèle propre à un Bot reste prioritaire."
+      },
+      "background_model": {
+        "name": "Modèle d’arrière-plan",
+        "what": "Gère le travail léger en coulisses : résumés d’historique, aiguillage, vérifications et suivis. Automatique signifie Haiku avec Claude, et le modèle de conversation sinon."
+      },
+      "structured_output": {
+        "name": "Réponses structurées",
+        "what": "Un Bot n’affiche du texte dans la discussion que via son outil say ; le texte écrit entre deux étapes reste dans la vue d’activité. Désactivez pour le publier comme avant."
+      },
+      "force_say_haiku_dm": {
+        "name": "Outil de réponse imposé à Haiku",
+        "what": "En message direct, Haiku doit appeler l’outil say à chaque tour, pour que sa réponse arrive toujours dans la discussion."
+      },
+      "web_search": {
+        "name": "Recherche web",
+        "what": "Les modèles Claude cherchent eux-mêmes sur le web avant de répondre quand une question peut être plus récente que leurs connaissances."
+      },
+      "group_exchange_gists": {
+        "name": "Échanges de groupe terminés, résumés",
+        "what": "Dans les discussions de groupe, les échanges conclus sans un Bot sont repliés en un court résumé à son intention."
+      },
+      "own_replies_verbatim": {
+        "name": "Propres réponses conservées en entier",
+        "what": "Un Bot voit mot pour mot ce nombre de ses dernières réponses. Les plus anciennes sont réduites à une ligne pour qu’il cesse de recopier ses tournures."
+      },
+      "completion_review": {
+        "name": "Relecture finale après usage d’outils",
+        "what": "Après avoir utilisé des outils, un Bot confronte une fois sa réponse aux résultats réels avant de l’envoyer."
+      },
+      "mcp_auto_review": {
+        "name": "Revue automatique des appels d’outils",
+        "what": "Un relecteur en arrière-plan examine les appels aux outils externes. Observer n’enregistre que des avis ; Auto laisse passer les appels à faible risque sur son jugement."
+      },
+      "remembered_approval_hours": {
+        "name": "Durée des approbations mémorisées",
+        "what": "Si vous choisissez Mémoriser lors d’une approbation, le même appel est autorisé dans cette discussion pendant cette durée."
+      },
+      "provider_retries": {
+        "name": "Nouvelles tentatives automatiques",
+        "what": "Les erreurs passagères du modèle, comme une surcharge ou une connexion coupée, sont retentées ce nombre de fois avant l’échec. 0 désactive les nouvelles tentatives."
+      },
+      "schedule_receipt_review": {
+        "name": "Vérifier les exécutions planifiées avant la fin",
+        "what": "Une exécution planifiée qui se termine sans compte rendu d’achèvement a une chance de finir le travail avant d’être marquée comme terminée."
+      },
+      "desktop_idle_seconds": {
+        "name": "Veille du bureau en cas d’inactivité",
+        "what": "L’ordinateur partagé se met en veille après cette durée sans usage et se réveille au prochain appel d’outil. Réglé par le service de l’ordinateur."
+      }
+    },
+    "option": {
+      "mcp_auto_review": {
+        "off": "Désactivé",
+        "shadow": "Observer",
+        "auto": "Auto"
+      }
+    },
+    "auto": "Automatique · {{model}}",
+    "default_is": "Par défaut : {{value}}",
+    "changed": "Modifié",
+    "env": "Défini par l’environnement du serveur",
+    "reset": "Rétablir la valeur par défaut",
+    "on": "Activé",
+    "off": "Désactivé",
+    "hours": "{{count}} h",
+    "minutes": "{{count}} min",
+    "seconds": "{{count}} s",
+    "retries_none": "Aucune nouvelle tentative",
+    "idle_off": "Désactivée",
+    "not_reported": "Non communiquée",
+    "saved": "Enregistré",
+    "loading": "Chargement…",
+    "managed": "Géré par le service de l’ordinateur"
   }
 }
