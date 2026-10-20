@@ -30,6 +30,10 @@ type computerControl struct {
 	lastActivity time.Time
 	keys         map[string]bool
 	buttons      map[int]bool
+	// handover is the takeover card this hold answers. While that card is
+	// open the person was asked for control, so idle release must not hand it
+	// back to a waiting Bot.
+	handover string
 }
 
 type computerControlArgs struct {
@@ -39,6 +43,8 @@ type computerControlArgs struct {
 	Text          string          `json:"text"`
 	ExpectedOwner string          `json:"expected_owner,omitempty"`
 	Interacting   bool            `json:"interacting,omitempty"`
+	// HandoverQuestion binds an acquire to the open takeover card that asked for it.
+	HandoverQuestion string `json:"handover_question,omitempty"`
 }
 
 func (s *Server) controlGuest(ctx context.Context, c *computerControl, action string, args any) (json.RawMessage, error) {
@@ -104,7 +110,11 @@ func (s *Server) handleComputerControl(w http.ResponseWriter, r *http.Request, b
 			return
 		}
 		defer lease.Unlock()
-		c := &computerControl{id: uuid.NewString(), botID: botID, lastActivity: time.Now(), keys: map[string]bool{}, buttons: map[int]bool{}}
+		if args.HandoverQuestion != "" && !s.handoverOpen(args.HandoverQuestion, botID) {
+			writeErr(w, 409, "handover_closed", "This request is no longer waiting for you.")
+			return
+		}
+		c := &computerControl{id: uuid.NewString(), botID: botID, lastActivity: time.Now(), keys: map[string]bool{}, buttons: map[int]bool{}, handover: args.HandoverQuestion}
 		if args.ExpectedOwner != "" {
 			if err := s.transferDesktopToHuman(r.Context(), c, args.ExpectedOwner); err != nil {
 				writeErr(w, 409, "computer_busy", err.Error())
@@ -185,10 +195,15 @@ func (s *Server) handleComputerControl(w http.ResponseWriter, r *http.Request, b
 	case "desktop.control.renew":
 		// Only the authenticated human renewal may yield this lease. A Bot
 		// request never revokes it, and this mutex serializes pending input.
+		if c.handover != "" && !s.handoverOpen(c.handover, botID) {
+			s.releaseControl(c)
+			writeJSON(w, 200, map[string]any{"ok": true, "result": map[string]any{"released": true, "reason": "handover_ended"}})
+			return
+		}
 		s.computerOwnerMu.Lock()
 		waiting := len(s.desktopWaiters) > 0
 		s.computerOwnerMu.Unlock()
-		if waiting && !args.Interacting && len(c.keys) == 0 && len(c.buttons) == 0 && time.Since(c.lastActivity) >= humanDesktopIdle {
+		if waiting && c.handover == "" && !args.Interacting && len(c.keys) == 0 && len(c.buttons) == 0 && time.Since(c.lastActivity) >= humanDesktopIdle {
 			s.releaseControl(c)
 			writeJSON(w, 200, map[string]any{"ok": true, "result": map[string]any{"released": true, "reason": "bot_waiting"}})
 			return

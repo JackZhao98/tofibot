@@ -3264,6 +3264,9 @@ func (s *Server) execute(c Conversation, r Run) {
 	claim, ok, e := s.store.claimRun(ctx, r.ID)
 	lease.Unlock()
 	continuation, answeredQuestion := claim.Continuation, claim.Question
+	// A takeover that ended by expiry or restart leaves no hold on the desktop
+	// for the resumed run to wait behind.
+	s.endHandoverControl(answeredQuestion)
 	if e != nil || !ok {
 		if e != nil {
 			s.failRun(c, r, e)

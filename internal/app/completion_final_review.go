@@ -18,7 +18,7 @@ Do not broaden the request or replay an action with an uncertain outcome; inspec
 // noCompletionReviewTools never arm the review: they read context, manage
 // memory, or talk to the user rather than doing the requested work.
 var noCompletionReviewTools = []string{
-	"get_context_usage", "inspect_recent_runs", "search_history", "ask_user_question", "request_approval", "computer_help", "read_workflow_guide",
+	"get_context_usage", "inspect_recent_runs", "search_history", "ask_user_question", "request_approval", "request_takeover", "request_connection", "computer_help", "read_workflow_guide",
 	"save_memory", "update_memory", "delete_memory", "list_memory", "send_chat_message", "say", "react_to_message", "display_content",
 	"list_mcp_servers", "search_mcp_catalog", "search_mcp_tools", "list_skills", "read_skill", "read_skill_file",
 	// Browsing and pointing at the screen gather information; they are not the
