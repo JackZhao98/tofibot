@@ -12,6 +12,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strconv"
 	"strings"
 	"sync"
@@ -3115,11 +3116,17 @@ func (s *Server) postMessage(w http.ResponseWriter, r *http.Request, c Conversat
 				}
 			}
 			interrupt = true
+		} else if replied := s.repliedMemberBot(c.ID, x.Content, members); replied != nil {
+			// Reply without an @: the person addressed the Bot whose message
+			// they replied to, exactly as an @mention would.
+			specs = []runSpec{{BotID: replied.ID, Model: replied.Model}}
+			interrupt = true
 		} else {
 			// An unaddressed group round is scheduled transactionally by the
-			// durable ingress path, starting with the most recent eligible sender.
-			// Keeping specs empty here prevents a stale HTTP roster from deciding
-			// the recipient before membership/archive checks commit.
+			// durable ingress path: the Primary Assistant when it is a member,
+			// otherwise any active member. Keeping specs empty here prevents a
+			// stale HTTP roster from deciding the recipient before
+			// membership/archive checks commit.
 			specs = nil
 		}
 	} else {
@@ -3182,6 +3189,29 @@ func (s *Server) postMessage(w http.ResponseWriter, r *http.Request, c Conversat
 	}
 	writeJSON(w, 202, map[string]any{"message": m, "run": run, "runs": runs})
 }
+var replyMarkerPattern = regexp.MustCompile(`^\[message_id=([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})\]`)
+
+// repliedMemberBot resolves the leading reply marker the composer writes to
+// the member Bot that sent the replied-to message. It is nil when the message
+// has no marker, the target is not a message of this conversation, or its
+// sender is not a current member Bot.
+func (s *Server) repliedMemberBot(conv, content string, members []Bot) *Bot {
+	m := replyMarkerPattern.FindStringSubmatch(content)
+	if m == nil {
+		return nil
+	}
+	msg, err := s.store.GetMessage(strings.ToLower(m[1]))
+	if err != nil || msg.ConversationID != conv || msg.Role != "assistant" || msg.SenderBotID == "" {
+		return nil
+	}
+	for i := range members {
+		if members[i].ID == msg.SenderBotID {
+			return &members[i]
+		}
+	}
+	return nil
+}
+
 func (s *Server) enqueue(c Conversation, r Run) {
 	s.startConversationWorker(c.ID)
 	s.mu.Lock()

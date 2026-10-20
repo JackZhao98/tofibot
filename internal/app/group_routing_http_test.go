@@ -105,3 +105,47 @@ func TestHTTPNonMemberMentionIsPlainTextAndCJKNameMatches(t *testing.T) {
 		t.Fatalf("run=%+v err=%v: want a direct run for the named member", out.Run, err)
 	}
 }
+
+// A message that replies to a Bot's message goes to that Bot even without an
+// @, not to the Primary Assistant.
+func TestHTTPReplyMarkerRoutesToTheRepliedBot(t *testing.T) {
+	s, err := NewServer(Config{DataDir: t.TempDir(), Engine: testEngine{}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer s.Close()
+	primary, _ := s.store.CreateBot("host", "", "m")
+	asker, _ := s.store.CreateBot("asker", "", "m")
+	group, _ := s.store.CreateGroup("reply", []string{primary.ID, asker.ID})
+	if id, _ := s.store.PrimaryBotID(); id != primary.ID {
+		t.Fatalf("primary=%s", id)
+	}
+	_, runs, _, err := s.store.AddUserRuns(group.ID, "@asker plan dinner", "seed", []runSpec{{BotID: asker.ID, Model: asker.Model}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	s.store.SetRunStatus(runs[0].ID, "running", "")
+	question, done, err := s.store.FinishRun(runs[0].ID, group.ID, asker.ID, "Which cuisine?")
+	if err != nil || !done {
+		t.Fatalf("finish: %v %v", done, err)
+	}
+	other, _ := s.store.CreateBot("outsider", "", "m")
+	foreign, _ := s.store.GetConversation(other.DMConversationID)
+	for i, c := range []struct{ marker, want string }{
+		{question.ID, asker.ID},
+		{"00000000-0000-4000-8000-000000000000", primary.ID},
+		{foreign.ID, primary.ID},
+	} {
+		res := postGroupHTTP(t, s, group.ID, "[message_id="+c.marker+"] Japanese please", "reply-"+string(rune('a'+i)))
+		if res.Code != http.StatusAccepted {
+			t.Fatalf("case %d status=%d body=%s", i, res.Code, res.Body.String())
+		}
+		var out struct{ Run Run }
+		if err := json.Unmarshal(res.Body.Bytes(), &out); err != nil || out.Run.BotID != c.want {
+			t.Fatalf("case %d routed to %s, want %s (err=%v)", i, out.Run.BotID, c.want, err)
+		}
+		if _, err := s.store.SetRunStatus(out.Run.ID, "done", ""); err != nil {
+			t.Fatal(err)
+		}
+	}
+}
