@@ -3945,6 +3945,7 @@ func (s *Server) execute(c Conversation, r Run) {
 		}
 		if status == "failed" {
 			s.noteAPIKeyRejection(model, e)
+			s.store.promoteCoAddressedFallback(r)
 		}
 		return
 	}
@@ -4206,6 +4207,7 @@ func (s *Server) failRun(c Conversation, r Run, err error) {
 		if failed, e := s.store.GetRun(r.ID); e == nil {
 			_, _ = s.store.Event(c.ID, "run", failed)
 		}
+		s.store.promoteCoAddressedFallback(r)
 	}
 	s.noteModelAuthRejection(s.runModel(r), err)
 }

@@ -437,3 +437,42 @@ func (s *Store) coAddressedInputMayEndSilent(r Run) bool {
 	}
 	return notes > 0
 }
+
+// promoteCoAddressedFallback keeps a combined group result from ending in
+// silence. When the last member of a co-addressed message has ended without a
+// visible answer (its run failed) and every member is finished, the person has
+// seen nothing from any of them; the latest part an earlier member left as a
+// folded note then becomes the visible reply, deterministically, so the work
+// the person asked for still reaches them.
+func (s *Store) promoteCoAddressedFallback(r Run) {
+	roots := s.coAddressedRoots(r)
+	if len(roots) == 0 {
+		return
+	}
+	var ids []any
+	holders := ""
+	for _, x := range roots {
+		cur, err := s.GetRun(x.ID)
+		if err != nil || cur.Status == "queued" || cur.Status == "running" || cur.Status == "waiting" {
+			return
+		}
+		ids = append(ids, x.ID)
+		holders += ",?"
+	}
+	var visible int
+	if s.db.QueryRow(`SELECT COUNT(*) FROM messages WHERE role='assistant' AND kind IN ('','segment') AND TRIM(content)<>'' AND run_id IN (`+holders[1:]+`)`, ids...).Scan(&visible) != nil || visible > 0 {
+		return
+	}
+	for i := len(roots) - 1; i >= 0; i-- {
+		var origin string
+		if s.db.QueryRow(`SELECT final_origin FROM runs WHERE id=?`, roots[i].ID).Scan(&origin) != nil || origin != finalOriginNone {
+			continue
+		}
+		if beat, ok := s.lastSayBeat(roots[i].ID); ok {
+			if _, err := s.promoteSayBeat(beat); err == nil {
+				s.noteFinalOrigin(roots[i].ID, finalOriginPromoted)
+			}
+			return
+		}
+	}
+}

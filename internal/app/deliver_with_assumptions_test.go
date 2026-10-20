@@ -2,6 +2,7 @@ package app
 
 import (
 	"context"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -226,5 +227,35 @@ func TestAssumptionPrincipleSitsAtEachPointOfDecision(t *testing.T) {
 	}
 	if !strings.Contains(botProfileInstructionsDescription, "never wait on confirmation") {
 		t.Fatal("persona generator still lets requested deliverables wait on confirmation")
+	}
+}
+
+// failingFinalEngine lets the input member leave a note and end silent, then
+// fails the final member's run.
+type failingFinalEngine struct {
+	noteThenSilentEngine
+	failBot string
+}
+
+func (e *failingFinalEngine) Run(ctx context.Context, req runtime.Request) (runtime.Result, error) {
+	if req.BotID == e.failBot {
+		return runtime.Result{}, errors.New("synthetic provider failure")
+	}
+	return e.noteThenSilentEngine.Run(ctx, req)
+}
+
+func TestCoAddressedResultNeverEndsInSilenceWhenTheFinalMemberFails(t *testing.T) {
+	e := &failingFinalEngine{}
+	e.note = "THE-INPUT-PART worth delivering"
+	f := newDedupeFixture(t, e)
+	e.inputBot = f.tofi.ID
+	e.failBot = f.meta.ID
+	f.send(t, "@tofi @metaphor work it out together, one recommendation back")
+	runs := f.settle(t)
+	if len(runs) != 2 || runs[1].Status != "failed" {
+		t.Fatalf("runs=%+v", runs)
+	}
+	if n := countMessages(t, f.server.store, f.group.ID, `role='assistant' AND kind='' AND content LIKE '%THE-INPUT-PART%'`); n != 1 {
+		t.Fatalf("the input part reached the owner %d times, want exactly once", n)
 	}
 }
