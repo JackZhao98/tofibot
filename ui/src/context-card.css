@@ -39,7 +39,7 @@
 @media (min-width:1360px) {
   html:not([data-desktop]) .workspace .workspace-grid.card-open { --card-room:424px; }
 }
-@keyframes context-card-enter { from { opacity:0; scale:.96; translate:6px -6px; } to { opacity:1; scale:1; translate:0 0; } }
+@keyframes context-card-enter { from { opacity:.4; scale:.96; translate:6px -6px; } to { opacity:1; scale:1; translate:0 0; } }
 @keyframes context-card-leave { to { opacity:0; scale:.97; translate:4px -4px; } }
 @media (prefers-reduced-motion:reduce) {
   html:not([data-desktop]) .workspace .detail-pane.context-panel, html:not([data-desktop]) .view-only-chat.is-card { animation:none!important; }

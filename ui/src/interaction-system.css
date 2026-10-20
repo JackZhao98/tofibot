@@ -99,7 +99,8 @@ html[data-desktop] .conversation-row>.unread-badge{position:absolute;right:12px;
 .detail-backdrop{background:color-mix(in srgb,var(--ink) 22%,transparent);backdrop-filter:blur(2px);animation:hint-enter 220ms ease-out both}
 .detail-pane:has(.settings-tabs){border-radius:22px;box-shadow:var(--float-shadow);animation:modal-enter 340ms var(--ease-out) both}
 .detail-pane.surface-exiting:has(.settings-tabs){animation:modal-leave 200ms ease both}
-@keyframes modal-enter{from{opacity:0;scale:.97;translate:0 8px}to{opacity:1;scale:1;translate:0 0}}
+/* Starts part-visible: the first frame of an opening panel must already show it. */
+@keyframes modal-enter{from{opacity:.4;scale:.97;translate:0 8px}to{opacity:1;scale:1;translate:0 0}}
 @keyframes modal-leave{to{opacity:0;scale:.985;translate:0 5px}}
 .detail-pane:has(.computer-detail.is-expanded){animation:none;translate:none;scale:none}
 .detail-heading h2,.settings-title{font-size:18px;font-weight:600}
