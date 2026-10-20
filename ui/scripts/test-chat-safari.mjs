@@ -336,6 +336,91 @@ const sendScenario = (reduced, scrollUp) => async () => {
 };
 const LONG_TASK_MS = Number(process.env.CHAT_SAFARI_LONG_TASK_MS || 100);
 for (const reduced of [false, true]) for (const scrollUp of [false, true]) await check(`send: scroll to the bottom first, then the bubble arrives once, no long tasks (${scrollUp ? "from history" : "at bottom"}, ${reduced ? "reduced" : "full"} motion)`, sendScenario(reduced, scrollUp));
+
+// 4. Phone layout (iPhone-sized touch viewport): list<->chat switch keeps the chat laid out under the sliding list,
+//    the keyboard state gives the conversation its room back, the tap toolbar stays between header and composer
+//    and can copy, fields stay at 16px (no iOS focus zoom) and wide tables scroll instead of breaking words.
+const phone = () => open({ width: 390, height: 664, touch: true, mobile: true });
+await check("phone: chat pane stays laid out under the list and hides only after the slide", async () => {
+  const { page, context, errors } = await phone();
+  await settle(page);
+  const state = () => page.evaluate(() => { const chat = document.querySelector(".chat-pane"); const list = document.querySelector(".contact-pane"); return { display: getComputedStyle(chat).display, vis: getComputedStyle(chat).visibility, listOpen: list.classList.contains("open") }; });
+  const listOpen = await state();
+  assert.equal(listOpen.display, "flex", "chat pane keeps its layout while the list is open");
+  assert.equal(listOpen.vis, "hidden", "chat pane is hidden (not focusable) while the list is open");
+  await rowFor(page, "Simile Cat").tap();
+  await page.waitForTimeout(60);
+  assert.equal((await state()).vis, "visible", "chat is visible as soon as it is chosen");
+  await settle(page);
+  await page.locator(".back-button").tap();
+  await page.waitForTimeout(80);
+  const mid = await state();
+  assert.equal(mid.vis, "visible", "chat stays visible while the list slides over it (no blank frame)");
+  await page.waitForTimeout(500);
+  assert.equal((await state()).vis, "hidden", "chat hides after the slide");
+  assert.deepEqual(errors, []);
+  await context.close();
+});
+await check("phone: keyboard open hides the perch and returns room to the conversation", async () => {
+  const { page, context } = await phone();
+  await settle(page);
+  await rowFor(page, "Simile Cat").tap();
+  await settle(page);
+  const measure = () => page.evaluate(() => { const scroll = document.querySelector(".message-scroll"); const perch = document.querySelector(".composer-perch"); const composer = document.querySelector(".composer").getBoundingClientRect().height; const cs = getComputedStyle(scroll); return { pad: parseFloat(cs.paddingBottom) - composer, top: parseFloat(cs.paddingTop), perch: perch ? getComputedStyle(perch).display : "none" }; });
+  const closed = await measure();
+  assert.ok(closed.pad <= 70, `closed-keyboard band is ${closed.pad}px beyond the composer (limit 70)`);
+  await page.evaluate(() => document.querySelector(".workspace").classList.add("keyboard-viewport-open"));
+  await page.waitForTimeout(150);
+  const open_ = await measure();
+  assert.equal(open_.perch, "none", "perch hidden while the keyboard is up");
+  assert.ok(open_.pad <= 9, `keyboard-open band is ${open_.pad}px beyond the composer (limit 9)`);
+  assert.ok(open_.top <= 9, `keyboard-open top padding is ${open_.top}px`);
+  await context.close();
+});
+await check("phone: tap toolbar on a tall reply stays between header and composer and offers Copy", async () => {
+  const { page, context } = await phone();
+  await settle(page);
+  await rowFor(page, "Simile Cat").tap();
+  await settle(page);
+  const target = await page.evaluate(() => {
+    const hosts = [...document.querySelectorAll(".message-hover-host")].filter(host => !host.classList.contains("is-user"));
+    const host = hosts.at(-1); host.style.minHeight = "2400px";
+    const scroll = document.querySelector(".message-scroll");
+    scroll.scrollTop = host.offsetTop - scroll.offsetTop + 600;
+    return true;
+  });
+  assert.ok(target);
+  await page.waitForTimeout(300);
+  const geometry = await page.evaluate(() => ({ header: document.querySelector(".chat-header").getBoundingClientRect().bottom, composer: document.querySelector(".composer").getBoundingClientRect().top }));
+  const hostBox = await page.evaluate(() => { const hosts = [...document.querySelectorAll(".message-hover-host:not(.is-user)")]; const r = hosts.at(-1).getBoundingClientRect(); return { top: r.top, bottom: r.bottom }; });
+  assert.ok(hostBox.top < geometry.header, `precondition: the reply's top (${hostBox.top}) is above the header (${geometry.header})`);
+  await page.touchscreen.tap(60, (geometry.header + geometry.composer) / 2);
+  await page.waitForTimeout(250);
+  const bar = await page.evaluate(() => { const el = document.querySelector(".is-actions-open > .message-hover-actions"); if (!el) return null; const r = el.getBoundingClientRect(); const copy = el.querySelector(".message-copy-action"); return { top: r.top, bottom: r.bottom, copy: copy ? copy.getBoundingClientRect().width : 0 }; });
+  assert.ok(bar, "toolbar opened");
+  assert.ok(bar.top >= geometry.header - 1 && bar.bottom <= geometry.composer + 1, `toolbar ${bar.top}-${bar.bottom} outside header ${geometry.header} / composer ${geometry.composer}`);
+  assert.ok(bar.copy >= 44, `Copy button is ${bar.copy}px wide`);
+  await context.close();
+});
+await check("phone: fields are 16px and wide tables scroll sideways", async () => {
+  const { page, context } = await phone();
+  await settle(page);
+  const sizes = await page.evaluate(() => [...document.querySelectorAll("input:not([type=checkbox]):not([type=radio]):not([type=file]):not([type=hidden]),textarea,select")].filter(el => el.offsetParent).map(el => parseFloat(getComputedStyle(el).fontSize)));
+  assert.ok(sizes.length > 0, "found a visible field");
+  assert.ok(sizes.every(size => size >= 16), `field sizes ${sizes}`);
+  await rowFor(page, "Simile Cat").tap();
+  await settle(page);
+  const textarea = await page.evaluate(() => parseFloat(getComputedStyle(document.querySelector(".composer textarea")).fontSize));
+  assert.ok(textarea >= 16, `composer textarea is ${textarea}px`);
+  const table = await page.evaluate(() => {
+    const row = cells => `<tr>${cells.map(cell => `<td>${cell}</td>`).join("")}</tr>`;
+    const host = [...document.querySelectorAll(".message-content")].filter(el => !el.closest(".is-user")).at(-1);
+    host.insertAdjacentHTML("beforeend", `<div class="message-table"><table>${row(["Vendor", "Annual price", "Monthly price", "Contract ID", "Region", "Status"])}${row(["Northwind Storage", "$1,240.00", "$103.33", "CTR-2026-000417", "Northern Europe", "Renewal pending"])}</table></div>`);
+    const wrap = document.querySelector(".message-table"); const cell = wrap.querySelector("td"); return { scroll: wrap.scrollWidth, client: wrap.clientWidth, wrap: getComputedStyle(cell).wordBreak, over: getComputedStyle(cell).overflowWrap, h: cell.getBoundingClientRect().height }; });
+  assert.ok(table.scroll > table.client, `table does not scroll (scrollWidth ${table.scroll} <= ${table.client})`);
+  assert.equal(table.wrap, "normal"); assert.equal(table.over, "normal");
+  await context.close();
+});
 //SCENARIOS
 
 await browser.close();

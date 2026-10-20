@@ -246,6 +246,7 @@
     "view_latest": "查看最新訊息"
   },
   "hover": {
+    "copy": "複製",
     "react": "新增表情",
     "reply": "回覆",
     "toolbar": "訊息操作",

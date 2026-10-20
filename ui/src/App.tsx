@@ -1,3 +1,4 @@
+import { CopyFeedbackIcon } from "./CopyFeedbackIcon";
 import { thinkingHeadline } from "./thinkingHeadline";
 import { TaskRunBlock, taskBlockVisible } from "./TaskRunBlock";
 import { markSenderGroups } from "./senderGroups";
@@ -264,12 +265,31 @@ function formatHoverTime(value: string, timeZone: string) {
   return dateTimeFormat(intlLocale(), { ...(sameDay ? {} : { month: "numeric", day: "numeric" }), hour: "2-digit", minute: "2-digit", timeZone }).format(new Date(value));
 }
 
+/** Touch toolbar placement: above the bubble when that is on screen, otherwise at the tap, clamped between the header and the composer. */
+function placeTapActions(host: HTMLElement, tapY: number) {
+  const bar = 46;
+  const header = document.querySelector(".chat-header")?.getBoundingClientRect().bottom ?? 0;
+  const composer = document.querySelector(".composer")?.getBoundingClientRect().top ?? window.innerHeight;
+  const rect = host.getBoundingClientRect();
+  const aboveTop = rect.top - bar + 6;
+  if (aboveTop >= header + 4 && rect.top <= composer - bar) { delete host.dataset.actionsPlaced; return; }
+  const top = Math.min(Math.max(tapY - bar - 8, header + 4), Math.max(header + 4, composer - bar - 4));
+  host.style.setProperty("--actions-top", `${top - rect.top}px`);
+  host.dataset.actionsPlaced = "1";
+}
+
 /** Browser-mode message actions, revealed on hover or keyboard focus instead of a context menu. */
-const MessageHoverActions = memo(function MessageHoverActions({ message, timezone, onReact, onReply, onActivity, activityOpen }: { message: Message; timezone: string; onReact: (anchor: DOMRect) => void; onReply?: () => void; onActivity?: () => void; activityOpen?: boolean }) {
+const MessageHoverActions = memo(function MessageHoverActions({ message, timezone, onReact, onReply, onActivity, activityOpen, onCopied }: { message: Message; timezone: string; onReact: (anchor: DOMRect) => void; onReply?: () => void; onActivity?: () => void; activityOpen?: boolean; onCopied?: () => void }) {
   const { t } = useTranslation("chat");
+  const [copied, setCopied] = useState(false);
+  const copyBody = readReplyMarker(message.content).body;
+  const copy = () => {
+    void navigator.clipboard?.writeText(copyBody).then(() => { setCopied(true); window.setTimeout(() => { onCopied?.(); setCopied(false); }, 700); }, () => {});
+  };
   return <div className="message-hover-actions" role="toolbar" aria-label={t("hover.toolbar")}>
     <time dateTime={message.created_at} title={`${formatExactTime(message.created_at, timezone)} · ${timezone}`}>{formatHoverTime(message.created_at, timezone)}</time>
     <button type="button" aria-label={t("hover.react")} data-hint={t("hover.react")} onClick={event => onReact(event.currentTarget.getBoundingClientRect())}><Icon name="emoji" size={16} /></button>
+    {onCopied && copyBody.trim() && <button type="button" className="message-copy-action" aria-label={t("hover.copy")} data-hint={t("hover.copy")} onClick={copy}><CopyFeedbackIcon copied={copied} /></button>}
     {onReply && <button type="button" aria-label={t("hover.reply")} data-hint={t("hover.reply")} onClick={onReply}><Icon name="reply" size={16} /></button>}
     {onActivity && <button type="button" className="message-activity-action" aria-label={activityOpen ? t("hover.hide_activity") : t("hover.view_activity")} aria-pressed={activityOpen} data-hint={activityOpen ? t("hover.hide_activity") : t("hover.view_activity")} onClick={onActivity}><Icon name="activity" size={16} /></button>}
   </div>;
@@ -2083,9 +2103,10 @@ function Workspace() {
                       return <div className={`message-block${arrivalIDs.current.has(message.id) ? " new-arrival" : ""}`} data-message-seq={message.seq} data-message-id={message.id} data-flip={message.id} tabIndex={-1} key={message.id} onContextMenu={canReact && isDesktop ? event => { event.preventDefault(); setReactionMenu({ messageId: message.id, x: event.clientX, y: event.clientY }); } : undefined}>
                         {showDivider && <div className="date-divider"><span>{formatDateDivider(message.created_at, timezone)}</span></div>}
                         {unread && <div className="unread-divider" aria-label={t("history.unread_below")}><span>{t("history.unread")}</span></div>}
-                        <div className={`message-hover-host${message.role === "user" ? " is-user" : ""}${tapActionsId === message.id ? " is-actions-open" : ""}`} onPointerDownCapture={!isDesktop && canReact ? () => { selectionOnPress.current = Boolean(window.getSelection()?.toString()); } : undefined} onClick={!isDesktop && canReact ? event => { const hadSelection = selectionOnPress.current || Boolean(window.getSelection()?.toString()); selectionOnPress.current = false; if (hadSelection || !window.matchMedia("(hover: none)").matches || (event.target as HTMLElement).closest("a,button,summary,input,textarea,pre,[role=button],.message-hover-actions")) return; setTapActionsId(current => current === message.id ? "" : message.id); } : undefined}>
+                        <div className={`message-hover-host${message.role === "user" ? " is-user" : ""}${tapActionsId === message.id ? " is-actions-open" : ""}`} onPointerDownCapture={!isDesktop && canReact ? () => { selectionOnPress.current = Boolean(window.getSelection()?.toString()); } : undefined} onClick={!isDesktop && canReact ? event => { const hadSelection = selectionOnPress.current || Boolean(window.getSelection()?.toString()); selectionOnPress.current = false; if (hadSelection || !window.matchMedia("(hover: none)").matches || (event.target as HTMLElement).closest("a,button,summary,input,textarea,pre,[role=button],.message-hover-actions")) return; placeTapActions(event.currentTarget, event.clientY); setTapActionsId(current => current === message.id ? "" : message.id); } : undefined}>
                         {!isDesktop && canReact && message.kind !== "notice" && message.kind !== "message_ref" && <MessageHoverActions message={message} timezone={timezone}
                           onReact={anchor => setReactionMenu({ messageId: message.id, x: anchor.left, y: anchor.bottom + 6 })}
+                          onCopied={() => setTapActionsId("")}
                           onActivity={activityRunId && !showActivity ? () => { setTapActionsId(""); toggleRunActivity(activityRunId); } : undefined} activityOpen={activityRunId ? revealedRuns.has(activityRunId) : false}
                           onReply={active.archived ? undefined : () => { updateComposerDraft(active.id, current => ({ ...current, reply: { id: message.id, name: message.role === "user" ? t("message.you") : message.sender_bot_name ?? (message.sender_bot_id ? botById.get(message.sender_bot_id)?.name : undefined) ?? "Bot", excerpt: previewText(readReplyMarker(message.content).body) || t("message.attachment") } })); document.querySelector<HTMLTextAreaElement>(".composer textarea")?.focus(); }} />}
                         <MessageBubble message={message} replyTarget={showReplyQuote ? replyTarget : undefined} replyTargetName={replyTarget?.role === "user" ? t("message.you") : replyTarget?.sender_bot_name ?? (replyTarget?.sender_bot_id ? botById.get(replyTarget.sender_bot_id)?.name ?? knownBotNames.current.get(replyTarget.sender_bot_id) : undefined)} senderName={message.sender_bot_name ?? (message.sender_bot_id ? knownBotNames.current.get(message.sender_bot_id) : undefined)} targetBot={message.notice?.to_bot_id ? botById.get(message.notice.to_bot_id) : undefined} sender={message.sender_bot_id ? botById.get(message.sender_bot_id) : undefined}
@@ -3129,7 +3150,7 @@ function Composer({ workStatus, activeRun, latestReplyId, onStopRun, avatarMenti
     if (!form || !pane) return;
     const measure = () => pane.style.setProperty("--composer-height", `${form.getBoundingClientRect().height}px`);
     const observer = new ResizeObserver(measure);
-    observer.observe(form); measure();
+    observer.observe(form, { box: "border-box" }); measure();
     return () => observer.disconnect();
   }, [conversation.id]);
   // The measurement stays across a conversation switch (the next composer re-measures in the same commit) and goes with the composer.

@@ -246,6 +246,7 @@
     "view_latest": "최신 메시지 보기"
   },
   "hover": {
+    "copy": "복사",
     "react": "반응 추가",
     "reply": "답장",
     "toolbar": "메시지 작업",
