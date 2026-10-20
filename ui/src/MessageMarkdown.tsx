@@ -117,7 +117,27 @@ const mentionComponents: Components = {
   },
 };
 
-/** Memoized: parsing a long conversation's Markdown on every unrelated Workspace commit costs tens of milliseconds. */
-export const MessageMarkdown = memo(function MessageMarkdown({ content, mention, cursor = false }: { content: string; mention?: ReactNode; cursor?: boolean }) {
-  return <MentionContext.Provider value={mention}><Markdown remarkPlugins={[remarkGfm, remarkCjkFriendly]} rehypePlugins={[...(mention ? [prependMention] : []), ...(cursor ? [appendCursor] : [])]} skipHtml urlTransform={urlTransform} components={mentionComponents}>{content}</Markdown></MentionContext.Provider>;
+const remarkPlugins = [remarkGfm, remarkCjkFriendly];
+
+// Settled text renders to the same elements every time, and building them (a processor, a parse, a tree walk) is most of
+// what drawing a message costs. A conversation that is left and reopened draws its messages again; it takes the
+// elements from here instead. Least recently used goes first; text still streaming is never put here.
+const SETTLED_ENTRIES = 600;
+const SETTLED_MAX_CHARS = 12_000;
+const settled = new Map<string, ReactNode>();
+function settledMarkdown(content: string): ReactNode {
+  const hit = settled.get(content);
+  if (hit !== undefined) { settled.delete(content); settled.set(content, hit); return hit; }
+  const rendered = Markdown({ remarkPlugins, rehypePlugins: [], skipHtml: true, urlTransform, components: mentionComponents, children: content });
+  if (content.length <= SETTLED_MAX_CHARS) {
+    settled.set(content, rendered);
+    if (settled.size > SETTLED_ENTRIES) settled.delete(settled.keys().next().value as string);
+  }
+  return rendered;
+}
+
+/** Memoized: parsing a long conversation's Markdown on every unrelated Workspace commit costs tens of milliseconds. `reuse` marks finished text whose elements may be kept for the next time it is drawn. */
+export const MessageMarkdown = memo(function MessageMarkdown({ content, mention, cursor = false, reuse = false }: { content: string; mention?: ReactNode; cursor?: boolean; reuse?: boolean }) {
+  if (reuse && !mention && !cursor) return <MentionContext.Provider value={undefined}>{settledMarkdown(content)}</MentionContext.Provider>;
+  return <MentionContext.Provider value={mention}><Markdown remarkPlugins={remarkPlugins} rehypePlugins={[...(mention ? [prependMention] : []), ...(cursor ? [appendCursor] : [])]} skipHtml urlTransform={urlTransform} components={mentionComponents}>{content}</Markdown></MentionContext.Provider>;
 });
