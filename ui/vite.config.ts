@@ -10,10 +10,13 @@ export default defineConfig({
       "/api": {
         target: process.env.TOFI_DEV_API_ORIGIN || "http://127.0.0.1:8321",
         changeOrigin: false,
+        // A self-signed TOFI (the default install) needs this to proxy over HTTPS.
+        secure: !process.env.TOFI_DEV_API_INSECURE,
       },
       "/health": {
         target: process.env.TOFI_DEV_API_ORIGIN || "http://127.0.0.1:8321",
         changeOrigin: false,
+        secure: !process.env.TOFI_DEV_API_INSECURE,
       },
     },
   },

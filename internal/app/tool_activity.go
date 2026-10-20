@@ -9,6 +9,7 @@ import (
 	"net/url"
 	"strconv"
 	"strings"
+	"unicode/utf8"
 
 	"github.com/JackZhao98/tofibot/internal/runtime"
 	"github.com/JackZhao98/tofibot/internal/tooloutcome"
@@ -24,6 +25,10 @@ const (
 	maxToolActivityDetailOffset    = 1000
 	maxToolActivityArguments       = 16 * 1024
 	maxToolActivityResult          = 32 * 1024
+	// The conversation-wide list carries only this much of each result. A busy
+	// conversation's list was ~480 KB, almost all of it results nobody had
+	// expanded; the full text loads per step through the call_id lookup.
+	toolActivityListResultPreview = 256
 )
 
 // ToolActivity is the durable snapshot of one provider tool call.
@@ -40,6 +45,33 @@ type ToolActivity struct {
 	StartedAt      string               `json:"started_at"`
 	UpdatedAt      string               `json:"updated_at"`
 	Outcome        *tooloutcome.Outcome `json:"outcome,omitempty"`
+	// ResultBytes and ResultPreview are set only on list responses that cut
+	// Result short: ResultBytes is the stored length, and Truncated is true.
+	ResultBytes   int  `json:"result_bytes,omitempty"`
+	ResultPreview bool `json:"result_preview,omitempty"`
+}
+
+// slimToolActivity bounds the result of a list entry to a preview.
+func slimToolActivity(activity ToolActivity) ToolActivity {
+	if len(activity.Result) <= toolActivityListResultPreview {
+		return activity
+	}
+	activity.ResultBytes = len(activity.Result)
+	cut := toolActivityListResultPreview
+	for cut > 0 && !utf8.RuneStart(activity.Result[cut]) {
+		cut--
+	}
+	activity.Result = activity.Result[:cut] + "…"
+	activity.ResultPreview = true
+	activity.Truncated = true
+	return activity
+}
+
+// ToolActivityByCall returns one full snapshot, for expanding a step whose list
+// entry carried only a result preview.
+func (s *Store) ToolActivityByCall(conversationID, runID, callID string) (ToolActivity, error) {
+	return scanToolActivity(s.db.QueryRow(`SELECT conversation_id,bot_id,run_id,call_id,name,arguments,result,status,truncated,started_at,updated_at,outcome_json
+FROM tool_activities WHERE conversation_id=? AND run_id=? AND call_id=?`, conversationID, runID, callID))
 }
 
 // ToolActivityRunSummary is the small, exact count shown before a user asks
@@ -88,7 +120,8 @@ CREATE TABLE IF NOT EXISTS tool_activities(
  updated_at TEXT NOT NULL,
  PRIMARY KEY(run_id,call_id)
  );
-CREATE INDEX IF NOT EXISTS tool_activities_conversation ON tool_activities(conversation_id,updated_at DESC);`)
+CREATE INDEX IF NOT EXISTS tool_activities_conversation ON tool_activities(conversation_id,updated_at DESC);
+CREATE INDEX IF NOT EXISTS tool_activities_active ON tool_activities(run_id) WHERE status IN ('queued','running');`)
 	if err != nil {
 		return err
 	}
@@ -410,6 +443,19 @@ func (s *Server) routeToolActivities(w http.ResponseWriter, r *http.Request, p s
 		writeJSON(w, http.StatusOK, map[string]any{"summaries": summaries})
 		return true
 	}
+	if callID := strings.TrimSpace(query.Get("call_id")); callID != "" && runID != "" {
+		activity, err := s.store.ToolActivityByCall(conversationID, runID, callID)
+		if errors.Is(err, sql.ErrNoRows) {
+			writeErr(w, http.StatusNotFound, "not_found", "tool activity not found")
+			return true
+		}
+		if err != nil {
+			writeErr(w, http.StatusInternalServerError, "storage", err.Error())
+			return true
+		}
+		writeJSON(w, http.StatusOK, map[string]any{"activity": activity})
+		return true
+	}
 	if runID != "" {
 		offset := 0
 		var offsetErr error
@@ -443,6 +489,9 @@ func (s *Server) routeToolActivities(w http.ResponseWriter, r *http.Request, p s
 	if err != nil {
 		writeErr(w, http.StatusInternalServerError, "storage", err.Error())
 		return true
+	}
+	for i := range activities {
+		activities[i] = slimToolActivity(activities[i])
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"activities": activities})
 	return true

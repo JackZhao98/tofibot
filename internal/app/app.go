@@ -12,6 +12,8 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"regexp"
+	"sort"
 	"strconv"
 	"strings"
 	"sync"
@@ -81,20 +83,23 @@ type MessagePreview struct {
 	Internal    bool   `json:"internal,omitempty"`
 }
 type Message struct {
-	Attachments    []Attachment   `json:"attachments,omitempty"`
-	Reactions      []Reaction     `json:"reactions,omitempty"`
-	ID             string         `json:"id"`
-	ConversationID string         `json:"conversation_id"`
-	Seq            int64          `json:"seq"`
-	Role           string         `json:"role"`
-	Kind           string         `json:"kind,omitempty"`
-	SenderBotName  string         `json:"sender_bot_name,omitempty"`
-	SenderBotID    string         `json:"sender_bot_id,omitempty"`
-	RunID          string         `json:"run_id,omitempty"`
-	Content        string         `json:"content"`
-	CreatedAt      string         `json:"created_at"`
-	Notice         *HandoffNotice `json:"notice,omitempty"`
-	Card           *DisplayCard   `json:"card,omitempty"`
+	Attachments    []Attachment `json:"attachments,omitempty"`
+	Reactions      []Reaction   `json:"reactions,omitempty"`
+	ID             string       `json:"id"`
+	ConversationID string       `json:"conversation_id"`
+	Seq            int64        `json:"seq"`
+	Role           string       `json:"role"`
+	Kind           string       `json:"kind,omitempty"`
+	SenderBotName  string       `json:"sender_bot_name,omitempty"`
+	SenderBotID    string       `json:"sender_bot_id,omitempty"`
+	RunID          string       `json:"run_id,omitempty"`
+	// ClientMessageID echoes the sender's retry identity on a person's own
+	// messages so the sending client can reconcile its optimistic copy.
+	ClientMessageID string         `json:"client_message_id,omitempty"`
+	Content         string         `json:"content"`
+	CreatedAt       string         `json:"created_at"`
+	Notice          *HandoffNotice `json:"notice,omitempty"`
+	Card            *DisplayCard   `json:"card,omitempty"`
 }
 type HandoffNotice struct {
 	Type string `json:"type"`
@@ -208,11 +213,14 @@ type Server struct {
 	listen                               string
 	uiDir                                string
 	publicOrigin                         string
+	allowInternalMCPHosts                bool // tests only: Bot-created MCP servers may use loopback hosts
+	extensionProposals                   sync.Map // run id + normalized token -> *ApprovalFacts, set when a change is refused for approval
 	defaultModel, provider               string
 	transcriptionAPIKey                  string
 	transcriptionURL                     string
 	defaultReasoning                     string
 	modelCatalogMu                       sync.Mutex
+	catalogRefreshing                    atomic.Bool
 	modelCatalog                         []ModelOption
 	modelCatalogAt                       time.Time
 	modelCatalogSource                   string
@@ -229,6 +237,7 @@ type Server struct {
 	runs                                 map[string]context.CancelFunc
 	queues                               map[string]*conversationQueue
 	triageModel                          string
+	automation                           automationCache
 	closing                              bool
 	scheduler                            *ScheduleWorker
 	followups                            *followupWorker
@@ -283,6 +292,9 @@ type Store struct {
 	db                      *sql.DB
 	scheduleSchemaOnce      sync.Once
 	scheduleSchemaErr       error
+	// onReturnQueued wakes the queue of a return run created inside a
+	// failure transaction, after that transaction commits.
+	onReturnQueued func(Run)
 }
 
 var ErrConversationBusy = errors.New("conversation has an active run")
@@ -293,6 +305,7 @@ func OpenStore(dir string) (*Store, error) {
 func openStore(dir string, recoverWork bool) (*Store, error) {
 	return openStoreWithLimit(dir, recoverWork, 0)
 }
+
 // sqliteBusyDSN makes every connection wait for a lock instead of failing at
 // once: host tools, backups and checks read the database from outside the
 // process, and a restart after a crash may race the previous process's exit or
@@ -391,7 +404,18 @@ func recoverInterruptedRuns(db *sql.DB) error {
 		run = recovered
 		if run.Status == "queued" {
 			// The next attempt begins a fresh draft: BeginStream refuses a
-			// cancelled one. The half-streamed text was never a message.
+			// cancelled one. The half-streamed text was never a message, so tell
+			// open tabs to drop its bubble the way ResetStreamDraft does.
+			var draftMsgID, draftBot string
+			scanErr := tx.QueryRow(`SELECT message_id,bot_id FROM stream_drafts WHERE run_id=? AND status='active' AND (content<>'' OR seq>0)`, run.ID).Scan(&draftMsgID, &draftBot)
+			if scanErr != nil && scanErr != sql.ErrNoRows {
+				return scanErr
+			}
+			if scanErr == nil {
+				if err = insertRecoveryEvent(tx, run.ConversationID, "draft_reset", map[string]any{"conversation_id": run.ConversationID, "run_id": run.ID, "bot_id": draftBot, "message_id": draftMsgID}, t); err != nil {
+					return err
+				}
+			}
 			_, err = tx.Exec(`DELETE FROM stream_drafts WHERE run_id=?`, run.ID)
 		} else {
 			_, err = tx.Exec(`UPDATE stream_drafts SET status='cancelled',updated_at=? WHERE run_id=? AND status='active'`, t, run.ID)
@@ -399,11 +423,19 @@ func recoverInterruptedRuns(db *sql.DB) error {
 		if err != nil {
 			return err
 		}
+		if _, err = tx.Exec(`DELETE FROM events WHERE conversation_id=? AND type='delta' AND json_extract(data,'$.run_id')=?`, run.ConversationID, run.ID); err != nil {
+			return err
+		}
 		if err = insertRecoveryEvent(tx, run.ConversationID, "run", run, t); err != nil {
 			return err
 		}
 		if err = finishRecoveredActivitiesTx(tx, run, settle, t); err != nil {
 			return err
+		}
+		if run.Status == "failed" {
+			if _, _, err = scheduleChildFailureReturnTx(tx, run.ID); err != nil {
+				return err
+			}
 		}
 		if run.Status != "queued" {
 			ended = append(ended, run)
@@ -457,12 +489,16 @@ func interruptToolActivitiesTx(tx *sql.Tx, runID, t string) error {
 	return nil
 }
 
-func interruptOrphanToolActivitiesTx(tx *sql.Tx, t string) error {
-	rows, err := tx.Query(`SELECT a.conversation_id,a.bot_id,a.run_id,a.call_id,a.name,a.arguments,a.result,a.status,a.truncated,a.started_at,a.updated_at,a.outcome_json
+// orphanToolActivitiesSQL carries the WHERE of the partial index
+// tool_activities_active, so startup recovery reads only unfinished calls.
+const orphanToolActivitiesSQL = `SELECT a.conversation_id,a.bot_id,a.run_id,a.call_id,a.name,a.arguments,a.result,a.status,a.truncated,a.started_at,a.updated_at,a.outcome_json
 FROM tool_activities a
 WHERE a.status IN ('queued','running')
   AND NOT EXISTS (SELECT 1 FROM runs r WHERE r.id=a.run_id AND (r.status IN ('running','queued')
-    OR (r.status='waiting' AND EXISTS (SELECT 1 FROM run_input_waits w WHERE w.run_id=r.id AND w.state='waiting'))))`)
+    OR (r.status='waiting' AND EXISTS (SELECT 1 FROM run_input_waits w WHERE w.run_id=r.id AND w.state='waiting'))))`
+
+func interruptOrphanToolActivitiesTx(tx *sql.Tx, t string) error {
+	rows, err := tx.Query(orphanToolActivitiesSQL)
 	if err != nil {
 		return err
 	}
@@ -505,6 +541,7 @@ func scanToolActivities(rows *sql.Rows) ([]ToolActivity, error) {
 	return activities, rows.Err()
 }
 func (s *Store) Close() error { return s.db.Close() }
+
 // storedTimeLayout is RFC 3339 with a fixed nine-digit fraction. RFC3339Nano
 // trims trailing zeros, so "…:03.3336Z" sorts after "…:03.33363Z" ('Z' > '3');
 // created_at/updated_at columns are TEXT and compared and ordered lexically,
@@ -531,8 +568,9 @@ CREATE TABLE IF NOT EXISTS run_waits(run_id TEXT PRIMARY KEY,conversation_id TEX
 CREATE TABLE IF NOT EXISTS run_steering(new_run_id TEXT NOT NULL,old_run_id TEXT NOT NULL,PRIMARY KEY(new_run_id,old_run_id),FOREIGN KEY(new_run_id) REFERENCES runs(id) ON DELETE CASCADE,FOREIGN KEY(old_run_id) REFERENCES runs(id) ON DELETE CASCADE);
 CREATE TABLE IF NOT EXISTS events(id INTEGER PRIMARY KEY AUTOINCREMENT,conversation_id TEXT NOT NULL,type TEXT NOT NULL,data TEXT NOT NULL,created_at TEXT NOT NULL,FOREIGN KEY(conversation_id) REFERENCES conversations(id) ON DELETE CASCADE);
 CREATE TABLE IF NOT EXISTS summaries(conversation_id TEXT NOT NULL,version INTEGER NOT NULL,covered_seq INTEGER NOT NULL,content TEXT NOT NULL,created_at TEXT NOT NULL,PRIMARY KEY(conversation_id,version));
-CREATE INDEX IF NOT EXISTS messages_search ON messages(conversation_id,content);
 CREATE INDEX IF NOT EXISTS messages_run ON messages(run_id,conversation_id,role,kind);
+CREATE INDEX IF NOT EXISTS runs_conversation ON runs(conversation_id,created_at);
+CREATE INDEX IF NOT EXISTS messages_direct_user ON messages(conversation_id,created_at) WHERE role='user' AND run_id IS NULL;
 CREATE INDEX IF NOT EXISTS events_conversation ON events(conversation_id,id);`)
 	if err != nil {
 		return err
@@ -570,6 +608,20 @@ CREATE INDEX IF NOT EXISTS events_conversation ON events(conversation_id,id);`)
 		if err = ensureColumn(s.db, "runs", col.name, col.ddl); err != nil {
 			return err
 		}
+	}
+	// Created after the column exists: databases that predate delegated runs
+	// get origin_conversation_id from the ALTER above.
+	if _, err = s.db.Exec(`CREATE INDEX IF NOT EXISTS runs_origin_conversation ON runs(origin_conversation_id) WHERE origin_conversation_id<>''`); err != nil {
+		return err
+	}
+	// Partial indexes for the conversation list. Their WHERE terms are matched
+	// verbatim by taskStateRunsSQL and the working-runs query in
+	// ListConversations; change them together.
+	if _, err = s.db.Exec(`CREATE INDEX IF NOT EXISTS runs_active ON runs(conversation_id,bot_id) WHERE status IN ('queued','running','waiting');
+CREATE INDEX IF NOT EXISTS runs_delegated ON runs(origin_conversation_id,created_at) WHERE origin_conversation_id<>'' AND origin_conversation_id<>conversation_id;
+DROP INDEX IF EXISTS messages_search;
+CREATE INDEX IF NOT EXISTS events_delta ON events(conversation_id,id) WHERE type='delta'`); err != nil {
+		return err
 	}
 	for _, col := range []struct{ name, ddl string }{
 		{"kind", `ALTER TABLE messages ADD COLUMN kind TEXT NOT NULL DEFAULT ''`},
@@ -689,6 +741,9 @@ CREATE INDEX IF NOT EXISTS events_conversation ON events(conversation_id,id);`)
 		return err
 	}
 	if err := migrateModelSettings(s.db); err != nil {
+		return err
+	}
+	if err := migrateAutomationSettings(s.db); err != nil {
 		return err
 	}
 	if err := migrateUserPreferences(s.db); err != nil {
@@ -987,7 +1042,7 @@ func (s *Store) ListConversations(includeArchived ...bool) ([]Conversation, erro
 		(SELECT MAX(user_msg.created_at) FROM messages user_msg WHERE user_msg.conversation_id=c.id AND user_msg.role='user' AND user_msg.run_id IS NULL),
 		lm.id,lm.seq,lm.role,lm.kind,lm.sender_bot_id,substr(lm.content,1,160),lm.created_at,
 		CASE WHEN lm.kind='user_message' THEN 0 WHEN lm.run_id IS NOT NULL AND EXISTS (SELECT 1 FROM runs preview_run WHERE preview_run.id=lm.run_id AND preview_run.origin_conversation_id<>lm.conversation_id) THEN 1 ELSE 0 END,
-		COALESCE(cr.read_seq,0), (SELECT COUNT(*) FROM messages unread WHERE unread.conversation_id=c.id AND unread.seq>COALESCE(cr.read_seq,0) AND unread.role='assistant' AND unread.kind NOT IN ('notice','message_ref','bot_result','progress','internal') AND (unread.kind='user_message' OR NOT EXISTS (SELECT 1 FROM runs unread_run WHERE unread_run.id=unread.run_id AND unread_run.origin_conversation_id<>unread.conversation_id)))
+		COALESCE(cr.read_seq,0), (SELECT COUNT(*) FROM (SELECT 1 FROM messages unread WHERE unread.conversation_id=c.id AND unread.seq>COALESCE(cr.read_seq,0) AND unread.role='assistant' AND unread.kind NOT IN ('notice','message_ref','bot_result','progress','internal') AND (unread.kind='user_message' OR NOT EXISTS (SELECT 1 FROM runs unread_run WHERE unread_run.id=unread.run_id AND unread_run.origin_conversation_id<>unread.conversation_id)) LIMIT 100))
         FROM conversations c
         LEFT JOIN conversation_reads cr ON cr.conversation_id=c.id
 		LEFT JOIN messages lm ON lm.conversation_id=c.id
@@ -1056,7 +1111,7 @@ func (s *Store) ListConversations(includeArchived ...bool) ([]Conversation, erro
 	if e := members.Err(); e != nil {
 		return nil, e
 	}
-	working, e := s.db.Query(`SELECT conversation_id,bot_id FROM runs WHERE status IN ('queued','running') AND bot_id<>'' ORDER BY conversation_id,bot_id`)
+	working, e := s.db.Query(`SELECT conversation_id,bot_id FROM runs WHERE status IN ('queued','running','waiting') AND status IN ('queued','running') AND bot_id<>'' ORDER BY conversation_id,bot_id`)
 	if e != nil {
 		return nil, e
 	}
@@ -1121,6 +1176,9 @@ func (s *Store) AddMessage(conv, role, sender, run, content, client string) (Mes
 			}
 			m.SenderBotID = sb.String
 			m.RunID = ru.String
+			if m.Role == "user" {
+				m.ClientMessageID = client
+			}
 			return m, true, nil
 		}
 		if e != sql.ErrNoRows {
@@ -1132,6 +1190,9 @@ func (s *Store) AddMessage(conv, role, sender, run, content, client string) (Mes
 		return Message{}, false, e
 	}
 	m := Message{ID: uuid.NewString(), ConversationID: conv, Seq: seq, Role: role, SenderBotID: sender, RunID: run, Content: content, CreatedAt: now()}
+	if role == "user" {
+		m.ClientMessageID = client
+	}
 	_, e = tx.Exec(`INSERT INTO messages(id,conversation_id,seq,role,kind,sender_bot_id,run_id,content,notice_data,created_at,client_message_id) VALUES(?,?,?,?,?,?,?,?,?,?,?)`, m.ID, conv, seq, role, m.Kind, nullString(sender), nullString(run), content, nil, m.CreatedAt, nullString(client))
 	if e != nil {
 		return Message{}, false, e
@@ -1171,6 +1232,9 @@ func (s *Store) AddUserRun(conv, bot, content, client string) (Message, Run, boo
 			}
 			m.SenderBotID = sb.String
 			m.RunID = ru.String
+			if m.Role == "user" {
+				m.ClientMessageID = client
+			}
 			var run Run
 			if ru.Valid {
 				run, err = scanRun(tx.QueryRow(`SELECT id,conversation_id,bot_id,status,error,parent_run_id,model,kind,origin_conversation_id,trigger_message_id,queue_seq,created_at,updated_at FROM runs WHERE id=?`, ru.String))
@@ -1205,7 +1269,7 @@ func (s *Store) AddUserRun(conv, bot, content, client string) (Message, Run, boo
 	if err = tx.QueryRow(nextMessageSeqSQL, conv, conv, streamDraftActive).Scan(&seq); err != nil {
 		return Message{}, Run{}, false, err
 	}
-	m := Message{ID: uuid.NewString(), ConversationID: conv, Seq: seq, Role: "user", RunID: run.ID, Content: content, CreatedAt: t}
+	m := Message{ID: uuid.NewString(), ConversationID: conv, Seq: seq, Role: "user", RunID: run.ID, Content: content, CreatedAt: t, ClientMessageID: client}
 	run.TriggerMessageID = m.ID
 	if _, err = tx.Exec(`INSERT INTO messages(id,conversation_id,seq,role,kind,run_id,content,created_at,client_message_id) VALUES(?,?,?,?,?,?,?,?,?)`, m.ID, conv, seq, m.Role, m.Kind, run.ID, content, t, nullString(client)); err != nil {
 		return Message{}, Run{}, false, err
@@ -1273,7 +1337,41 @@ func (s *Store) Messages(conv string, before, limit int64) ([]Message, bool, err
 	if err := s.hydrateMessageReactions(out); err != nil {
 		return nil, false, err
 	}
+	if err := s.hydrateClientMessageIDs(conv, out); err != nil {
+		return nil, false, err
+	}
 	return out, more, s.hydrateDeletedSenders(out)
+}
+
+// hydrateClientMessageIDs attaches the sender's retry identity to the person's
+// own messages in a history page. Other roles keep theirs internal (team and
+// say-note rows use it as a private dedupe key).
+func (s *Store) hydrateClientMessageIDs(conv string, msgs []Message) error {
+	idx := map[string]int{}
+	for i, m := range msgs {
+		if m.Role == "user" {
+			idx[m.ID] = i
+		}
+	}
+	if len(idx) == 0 {
+		return nil
+	}
+	lo, hi := msgs[0].Seq, msgs[len(msgs)-1].Seq
+	rows, err := s.db.Query(`SELECT id,client_message_id FROM messages WHERE conversation_id=? AND role='user' AND client_message_id IS NOT NULL AND seq BETWEEN ? AND ?`, conv, lo, hi)
+	if err != nil {
+		return err
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var id, client string
+		if err := rows.Scan(&id, &client); err != nil {
+			return err
+		}
+		if i, ok := idx[id]; ok {
+			msgs[i].ClientMessageID = client
+		}
+	}
+	return rows.Err()
 }
 func (s *Store) Search(conv, q string, limit int) ([]Message, error) {
 	if limit <= 0 {
@@ -1800,6 +1898,90 @@ func (s *Store) Runs(conv string) ([]Run, error) {
 	}
 	return out, rows.Err()
 }
+
+const runPageColumns = `id,conversation_id,bot_id,status,error,parent_run_id,model,kind,origin_conversation_id,trigger_message_id,queue_seq,created_at,updated_at,final_origin`
+
+// defaultRunsPage and maxRunsPage bound one page of a conversation's runs.
+const (
+	defaultRunsPage = 100
+	maxRunsPage     = 500
+)
+
+// RunsPage returns the newest limit runs of a conversation older than the
+// cursor (beforeCreated, beforeID; empty for the newest page), in the same
+// order as Runs. The first page also carries every queued, running or waiting
+// run, however old, so live work is never cut off. hasMore reports whether
+// older runs remain.
+func (s *Store) RunsPage(conv string, limit int, beforeCreated, beforeID string) ([]Run, bool, error) {
+	if limit <= 0 {
+		limit = defaultRunsPage
+	}
+	if limit > maxRunsPage {
+		limit = maxRunsPage
+	}
+	query := `SELECT ` + runPageColumns + ` FROM runs WHERE conversation_id=?`
+	args := []any{conv}
+	if beforeCreated != "" {
+		query += ` AND (created_at<? OR (created_at=? AND id<?))`
+		args = append(args, beforeCreated, beforeCreated, beforeID)
+	}
+	query += ` ORDER BY created_at DESC,id DESC LIMIT ?`
+	args = append(args, limit+1)
+	scan := func(q string, a ...any) ([]Run, error) {
+		rows, e := s.db.Query(q, a...)
+		if e != nil {
+			return nil, e
+		}
+		defer rows.Close()
+		var out []Run
+		for rows.Next() {
+			r, e := scanRunWithOrigin(rows)
+			if e != nil {
+				return nil, e
+			}
+			out = append(out, r)
+		}
+		return out, rows.Err()
+	}
+	page, e := scan(query, args...)
+	if e != nil {
+		return nil, false, e
+	}
+	hasMore := len(page) > limit
+	if hasMore {
+		page = page[:limit]
+	}
+	if beforeCreated == "" {
+		active, e := scan(`SELECT `+runPageColumns+` FROM runs WHERE conversation_id=? AND status IN ('queued','running','waiting')`, conv)
+		if e != nil {
+			return nil, false, e
+		}
+		seen := make(map[string]bool, len(page))
+		for _, r := range page {
+			seen[r.ID] = true
+		}
+		for _, r := range active {
+			if !seen[r.ID] {
+				page = append(page, r)
+			}
+		}
+	}
+	sort.SliceStable(page, func(i, j int) bool {
+		a, b := page[i], page[j]
+		if a.QueueSeq != b.QueueSeq {
+			return a.QueueSeq < b.QueueSeq
+		}
+		if a.CreatedAt != b.CreatedAt {
+			return a.CreatedAt < b.CreatedAt
+		}
+		return a.ID < b.ID
+	})
+	if page == nil {
+		page = []Run{}
+	}
+	return page, hasMore, nil
+}
+
 func (s *Store) SetRunStatus(id, status, msg string) (bool, error) {
 	tx, e := s.db.Begin()
 	if e != nil {
@@ -1825,6 +2007,8 @@ func (s *Store) SetRunStatus(id, status, msg string) (bool, error) {
 		}
 	}
 	terminal := status == "failed" || status == "cancelled" || status == "interrupted"
+	var failureReturn Run
+	var failureReturned bool
 	if n == 1 && status == "failed" {
 		noteFinalOriginDefault(tx, id, finalOriginNone)
 	}
@@ -1847,8 +2031,16 @@ func (s *Store) SetRunStatus(id, status, msg string) (bool, error) {
 			}
 		}
 	}
+	if n == 1 && status == "failed" {
+		if failureReturn, failureReturned, e = scheduleChildFailureReturnTx(tx, id); e != nil {
+			return false, e
+		}
+	}
 	if e = tx.Commit(); e != nil {
 		return false, e
+	}
+	if failureReturned && s.onReturnQueued != nil {
+		s.onReturnQueued(failureReturn)
 	}
 	if n == 1 && terminal {
 		s.cleanupRunAttachments(id)
@@ -1912,6 +2104,10 @@ func (s *Store) finishRun(id, conv, bot, content string, silent bool) (Message, 
 type finishOpts struct {
 	structured bool
 	promoted   *Message
+	// coAddressedInput lets a silent finish follow folded say notes: the run's
+	// part was an input for a later co-addressed member, so its notes are the
+	// whole contribution and nothing visible is owed.
+	coAddressedInput bool
 }
 
 // FinishRunStructured finishes a run that follows the say protocol.
@@ -1962,7 +2158,11 @@ func (s *Store) finishRunOpts(id, conv, bot, content string, silent bool, failur
 	}
 	if silent {
 		var contributions int
-		if err = tx.QueryRow(`SELECT COUNT(*) FROM messages WHERE run_id=? AND role='assistant'`, id).Scan(&contributions); err != nil {
+		contributionSQL := `SELECT COUNT(*) FROM messages WHERE run_id=? AND role='assistant'`
+		if opts.coAddressedInput {
+			contributionSQL += ` AND NOT (kind='progress' AND client_message_id LIKE 'say-note:%')`
+		}
+		if err = tx.QueryRow(contributionSQL, id).Scan(&contributions); err != nil {
 			return Message{}, false, err
 		}
 		if (runKind != runKindGroupChat && runKind != runKindGroupMention && runKind != runKindFollowup && runKind != "") || handoffs != 0 || pendingFiles != 0 || contributions != 0 {
@@ -2050,6 +2250,9 @@ func (s *Store) finishRunOpts(id, conv, bot, content string, silent bool, failur
 		if _, err = tx.Exec(`UPDATE stream_drafts SET content=?,status='done',revision=revision+1,updated_at=? WHERE run_id=? AND status='active'`, content, t, id); err != nil {
 			return Message{}, false, err
 		}
+		if err = pruneDeltaEventsTx(tx, conv, draftID); err != nil {
+			return Message{}, false, err
+		}
 	}
 	if publish {
 		b, _ := json.Marshal(m)
@@ -2076,10 +2279,14 @@ func (s *Store) finishRunOpts(id, conv, bot, content string, silent bool, failur
 	done.OriginConversationID = origin.String
 	done.TriggerMessageID = trigger.String
 	_ = tx.QueryRow(`SELECT final_origin FROM runs WHERE id=?`, id).Scan(&done.FinalOrigin)
+	var failureReturn Run
+	var failureReturned bool
 	if failure == "" {
 		if _, _, err = scheduleGroupFollowupTx(tx, done, m); err != nil {
 			return Message{}, false, err
 		}
+	} else if failureReturn, failureReturned, err = scheduleChildFailureReturnTx(tx, id); err != nil {
+		return Message{}, false, err
 	}
 	runData, _ := json.Marshal(done)
 	if _, err = tx.Exec(`INSERT INTO events(conversation_id,type,data,created_at) VALUES(?,?,?,?)`, conv, "run", string(runData), t); err != nil {
@@ -2119,6 +2326,9 @@ func (s *Store) finishRunOpts(id, conv, bot, content string, silent bool, failur
 	}
 	if err = tx.Commit(); err != nil {
 		return Message{}, false, err
+	}
+	if failureReturned && s.onReturnQueued != nil {
+		s.onReturnQueued(failureReturn)
 	}
 	return m, true, nil
 }
@@ -2350,7 +2560,7 @@ func NewServer(c Config) (*Server, error) {
 		c.Provider = "openai_codex"
 	}
 	if c.DefaultModel == "" {
-		c.DefaultModel = "codex-gpt-5.6-luna"
+		c.DefaultModel = defaultConversationModel
 	}
 	if saved, se := st.getModelSettings(); se == nil && saved.Model != "" {
 		c.DefaultModel = saved.Model
@@ -2394,6 +2604,11 @@ func NewServer(c Config) (*Server, error) {
 		savedSettings.ReasoningEffort = "medium"
 	}
 	server := &Server{accountID: c.AccountID, isolatedWorkspace: c.IsolatedWorkspace, localRunnerURL: c.LocalRunnerURL, localRunnerTokenFile: c.LocalRunnerTokenFile, instance: identity, store: st, engine: engine, codex: codex, codexManaged: codexManaged, defaultModel: c.DefaultModel, defaultReasoning: savedSettings.ReasoningEffort, provider: c.Provider, transcriptionAPIKey: c.TranscriptionAPIKey, transcriptionURL: strings.TrimRight(c.TranscriptionURL, "/"), listen: c.Listen, uiDir: c.UIDir, publicOrigin: strings.TrimRight(c.PublicOrigin, "/"), convMu: map[string]*sync.Mutex{}, runs: map[string]context.CancelFunc{}, queues: map[string]*conversationQueue{}, triageModel: os.Getenv("TOFI_TRIAGE_MODEL"), microVM: microVM, computerLeases: map[string]*sync.Mutex{}, computerOwners: map[string]string{}, vmOAuth: map[string]*vmOAuthSession{}, toolSnapshots: map[toolSnapshotKey]toolSnapshot{}, providerEndpoints: map[string]string{}, envProviderKeys: map[string]string{}, envProviderErrors: map[string]string{}, providerCatalogs: map[string]providerCatalog{}}
+	st.onReturnQueued = func(r Run) {
+		if conv, ce := st.GetConversation(r.ConversationID); ce == nil {
+			server.enqueue(conv, r)
+		}
+	}
 	if microVM != nil {
 		server.computerWatchdog = newComputerWatchdog(microVM)
 	}
@@ -2556,16 +2771,17 @@ func (s *Server) serveUI(w http.ResponseWriter, r *http.Request) {
 	w.Header().Del("Content-Type")
 	path := filepath.Join(s.uiDir, filepath.Clean("/"+r.URL.Path))
 	if info, err := os.Stat(path); err == nil && !info.IsDir() {
-		http.ServeFile(w, r, path)
+		serveUIFile(w, r, path, info, strings.HasPrefix(r.URL.Path, "/assets/"))
 		return
 	}
 	index := filepath.Join(s.uiDir, "index.html")
-	if _, err := os.Stat(index); err == nil {
-		http.ServeFile(w, r, index)
+	if info, err := os.Stat(index); err == nil {
+		serveUIFile(w, r, index, info, false)
 		return
 	}
 	http.NotFound(w, r)
 }
+
 func (s *Server) originOK(r *http.Request) bool {
 	origin := r.Header.Get("Origin")
 	if origin == "" {
@@ -2611,6 +2827,10 @@ func (s *Server) route(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if s.routeProviders(w, r, p) {
+		return
+	}
+	if p == "automation-settings" {
+		s.automationSettings(w, r)
 		return
 	}
 	if p == "auto-review-settings" {
@@ -2672,7 +2892,7 @@ func (s *Server) route(w http.ResponseWriter, r *http.Request) {
 	case p == "system/update":
 		serveSystemUpdate(w, r)
 	case p == "config":
-		writeJSON(w, 200, map[string]any{"model_configured": s.modelConfigured(), "default_model": s.effectiveDefaultModel(r.Context()), "provider": s.activeProvider()})
+		writeJSON(w, 200, map[string]any{"model_configured": s.modelConfigured(), "default_model": s.effectiveDefaultModel(r.Context()), "background_model": s.backgroundModel(backgroundTriage), "provider": s.activeProvider()})
 	case p == "auth/codex" || p == "auth/codex/connect" || p == "auth/codex/verify" || strings.HasPrefix(p, "auth/codex/connect/"):
 		s.codexAuth(w, r, strings.TrimPrefix(p, "auth/codex"))
 	case strings.HasPrefix(p, "bots/") && strings.HasSuffix(p, "/debug-preview"):
@@ -2972,11 +3192,19 @@ func (s *Server) conversation(w http.ResponseWriter, r *http.Request, id string)
 			writeErr(w, 500, "storage", e.Error())
 			return
 		}
+		ids := make([]string, len(m))
 		for i := range m {
-			m[i].Attachments, e = s.store.AttachmentsForMessage(m[i].ID)
-			if e != nil {
-				writeErr(w, 500, "storage", e.Error())
-				return
+			ids[i] = m[i].ID
+		}
+		attached, e := attachmentsForMessages(s.store.db, ids)
+		if e != nil {
+			writeErr(w, 500, "storage", e.Error())
+			return
+		}
+		for i := range m {
+			m[i].Attachments = attached[m[i].ID]
+			if m[i].Attachments == nil {
+				m[i].Attachments = []Attachment{}
 			}
 		}
 		drafts, de := s.store.StreamDrafts(id)
@@ -2992,12 +3220,13 @@ func (s *Server) conversation(w http.ResponseWriter, r *http.Request, id string)
 		return
 	}
 	if r.Method == http.MethodGet && strings.HasSuffix(r.URL.Path, "/runs") {
-		v, e := s.store.Runs(id)
+		limit, _ := strconv.Atoi(r.URL.Query().Get("limit"))
+		v, more, e := s.store.RunsPage(id, limit, r.URL.Query().Get("before"), r.URL.Query().Get("before_id"))
 		if e != nil {
 			writeErr(w, 500, "storage", e.Error())
 			return
 		}
-		writeJSON(w, 200, map[string]any{"runs": v})
+		writeJSON(w, 200, map[string]any{"runs": v, "has_more": more})
 		return
 	}
 	if r.Method == http.MethodGet && strings.HasSuffix(r.URL.Path, "/memories") {
@@ -3089,9 +3318,6 @@ func (s *Server) postMessage(w http.ResponseWriter, r *http.Request, c Conversat
 		} else if len(mr.Ambiguous) > 0 {
 			writeErr(w, 400, "ambiguous_recipient", "ambiguous group mention: @"+strings.Join(mr.Ambiguous, ", @"))
 			return
-		} else if len(mr.Unknown) > 0 {
-			writeErr(w, 400, "unknown_recipient", "unknown group mention: @"+strings.Join(mr.Unknown, ", @"))
-			return
 		} else if len(mr.IDs) > 0 {
 			// Several mentioned Bots. Under structured output each gets a root run
 			// of its own, queued in mention order, so each answers the person
@@ -3110,11 +3336,17 @@ func (s *Server) postMessage(w http.ResponseWriter, r *http.Request, c Conversat
 				}
 			}
 			interrupt = true
+		} else if replied := s.repliedMemberBot(c.ID, x.Content, members); replied != nil {
+			// Reply without an @: the person addressed the Bot whose message
+			// they replied to, exactly as an @mention would.
+			specs = []runSpec{{BotID: replied.ID, Model: replied.Model}}
+			interrupt = true
 		} else {
 			// An unaddressed group round is scheduled transactionally by the
-			// durable ingress path, starting with the most recent eligible sender.
-			// Keeping specs empty here prevents a stale HTTP roster from deciding
-			// the recipient before membership/archive checks commit.
+			// durable ingress path: the Primary Assistant when it is a member,
+			// otherwise any active member. Keeping specs empty here prevents a
+			// stale HTTP roster from deciding the recipient before
+			// membership/archive checks commit.
 			specs = nil
 		}
 	} else {
@@ -3177,6 +3409,30 @@ func (s *Server) postMessage(w http.ResponseWriter, r *http.Request, c Conversat
 	}
 	writeJSON(w, 202, map[string]any{"message": m, "run": run, "runs": runs})
 }
+
+var replyMarkerPattern = regexp.MustCompile(`^\[message_id=([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})\]`)
+
+// repliedMemberBot resolves the leading reply marker the composer writes to
+// the member Bot that sent the replied-to message. It is nil when the message
+// has no marker, the target is not a message of this conversation, or its
+// sender is not a current member Bot.
+func (s *Server) repliedMemberBot(conv, content string, members []Bot) *Bot {
+	m := replyMarkerPattern.FindStringSubmatch(content)
+	if m == nil {
+		return nil
+	}
+	msg, err := s.store.GetMessage(strings.ToLower(m[1]))
+	if err != nil || msg.ConversationID != conv || msg.Role != "assistant" || msg.SenderBotID == "" {
+		return nil
+	}
+	for i := range members {
+		if members[i].ID == msg.SenderBotID {
+			return &members[i]
+		}
+	}
+	return nil
+}
+
 func (s *Server) enqueue(c Conversation, r Run) {
 	s.startConversationWorker(c.ID)
 	s.mu.Lock()
@@ -3347,7 +3603,7 @@ func (s *Server) execute(c Conversation, r Run) {
 		}
 	}
 	if r.Kind != runKindTriage {
-		tools = append(tools, capabilityTool(tools))
+		tools = append(tools, capabilityTool(deferOnDemandTools(tools)))
 		capabilityPrompt = runtimeCapabilityPrompt
 	}
 	s.recordToolSnapshot(r.BotID, c.ID, tools)
@@ -3426,6 +3682,7 @@ func (s *Server) execute(c Conversation, r Run) {
 			// Every run's say(answer) gets the one-time review after tool work; a
 			// scheduled run's answer is also its receipt, so it is reviewed too.
 			state.review = func() bool { return observedToolWork.Load() && !reviewed.Swap(true) }
+			state.owed = func() bool { return observedToolWork.Load() && !reviewed.Load() }
 			s.sayRuns.Store(r.ID, state)
 			defer s.sayRuns.Delete(r.ID)
 			sayStream = newSayStreamer(state)
@@ -3553,6 +3810,9 @@ func (s *Server) execute(c Conversation, r Run) {
 		reviewKind = runKindSchedule
 	}
 	finalReview := taskCompletionFinalReview(observedToolWork.Load)
+	if !s.completionReviewEnabled() {
+		finalReview = nil
+	}
 	if inner := finalReview; inner != nil {
 		finalReview = func(content string) (string, error) {
 			if reviewed.Load() {
@@ -3583,6 +3843,9 @@ func (s *Server) execute(c Conversation, r Run) {
 			}
 			return s.store.scheduleReceipt(r.ID)
 		})
+		if !s.scheduleReceiptReviewEnabled() {
+			finalReview = nil
+		}
 	}
 	runEngine := engine
 	var onToolCallDelta func(runtime.ToolCallDelta)
@@ -3601,9 +3864,15 @@ func (s *Server) execute(c Conversation, r Run) {
 		// text private, ending quietly is how that turn closes.
 		endOnEmptyFinal = func() bool { return hasHandoff(s.store, r.ID) }
 	}
-	res, e := runEngine.Run(ctx, Request{BotID: r.BotID, RunID: r.ID, ConversationID: c.ID, System: system, Model: model, ReasoningEffort: reasoningEffort, Messages: pm, Tools: tools, OnDelta: onDelta, StructuredOutput: structured, ForceToolUse: structured && forceSayFor(c, r, model), OnToolCallDelta: onToolCallDelta, EndOnEmptyFinal: endOnEmptyFinal, BeforeModelCall: steeringBoundary, BeforeFinalResponse: finalReview, FinalResponseRepairTools: finalRepairTools, OnAssistantTurn: onAssistantTurn,
+	res, e := runEngine.Run(ctx, Request{BotID: r.BotID, RunID: r.ID, ConversationID: c.ID, System: system, Model: model, ReasoningEffort: reasoningEffort, Messages: pm, Tools: tools, OnDelta: onDelta, StructuredOutput: structured, ForceToolUse: structured && s.forceSayHaikuDMEnabled() && forceSayFor(c, r, model), OnToolCallDelta: onToolCallDelta, EndOnEmptyFinal: endOnEmptyFinal, BeforeModelCall: steeringBoundary, BeforeFinalResponse: finalReview, FinalResponseRepairTools: finalRepairTools, OnAssistantTurn: onAssistantTurn,
 		OnThinking: onThinking, OnRetry: onRetry, OnStreamReset: onStreamReset, OnReviewDraft: onReviewDraft,
 		Continuation:      continuation,
+		WebSearchMaxUses:  s.searchUses(model, tools),
+		OnWebSearchBilled: func(n int64) {
+			if err := s.store.recordWebSearchUsage(r.ID, n); err != nil {
+				log.Printf("[usage] web search: %v", err)
+			}
+		},
 		ResumeResult:      s.inputResumeResult(answeredQuestion),
 		ResumeOutcome:     s.inputResumeOutcome(answeredQuestion),
 		Attempt:           claim.Attempt,
@@ -3693,6 +3962,7 @@ func (s *Server) execute(c Conversation, r Run) {
 		}
 		if status == "failed" {
 			s.noteAPIKeyRejection(model, e)
+			s.store.promoteCoAddressedFallback(r)
 		}
 		return
 	}
@@ -3954,6 +4224,7 @@ func (s *Server) failRun(c Conversation, r Run, err error) {
 		if failed, e := s.store.GetRun(r.ID); e == nil {
 			_, _ = s.store.Event(c.ID, "run", failed)
 		}
+		s.store.promoteCoAddressedFallback(r)
 	}
 	s.noteModelAuthRejection(s.runModel(r), err)
 }
@@ -4363,6 +4634,9 @@ func (s *Server) events(w http.ResponseWriter, r *http.Request, id string) {
 		writeErr(w, http.StatusBadRequest, "invalid_workspace_cursor", err.Error())
 		return
 	}
+	if workspaceEnabled && workspaceAfter < 0 {
+		workspaceAfter = s.store.workspaceEventCursor()
+	}
 	w.Header().Set("Content-Type", "text/event-stream")
 	w.Header().Set("Cache-Control", "no-cache, no-transform")
 	w.Header().Set("X-Accel-Buffering", "no")
@@ -4426,7 +4700,7 @@ func (s *Server) events(w http.ResponseWriter, r *http.Request, id string) {
 		case <-r.Context().Done():
 			return
 		case <-heartbeat.C:
-			if _, e = fmt.Fprint(w, ": heartbeat\n\n"); e != nil {
+			if _, e = fmt.Fprint(w, "event: ping\ndata: {}\n\n"); e != nil {
 				return
 			}
 			f.Flush()
@@ -4443,9 +4717,12 @@ func parseConversationWorkspaceCursor(r *http.Request) (int64, bool, error) {
 	if len(values) != 1 {
 		return 0, true, errors.New("workspace_after must be a single non-negative integer")
 	}
+	if strings.EqualFold(strings.TrimSpace(values[0]), workspaceCursorHead) {
+		return -1, true, nil // resolved to the live head by the caller
+	}
 	cursor, err := strconv.ParseInt(strings.TrimSpace(values[0]), 10, 64)
 	if err != nil || cursor < 0 {
-		return 0, true, errors.New("workspace_after must be a non-negative integer")
+		return 0, true, errors.New("workspace_after must be a non-negative integer or \"head\"")
 	}
 	return cursor, true, nil
 }

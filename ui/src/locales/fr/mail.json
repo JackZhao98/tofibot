@@ -20,6 +20,7 @@
     "demo_badge": "Démo · aucun envoi",
     "needs_approval": "Votre approbation est requise",
     "demo_hint": "Démo de l’interface uniquement ; Gmail n’est pas contacté",
+    "add_recipient": "Ajouter un destinataire",
     "send_final": "Irréversible une fois envoyé",
     "working": "En cours…",
     "hold": "Ne pas envoyer pour l’instant",

@@ -163,7 +163,8 @@ await check("restore with an unrendered progress anchor reveals the pane", async
 //    its selection (also after polling and re-renders) and copies the text.
 const selectionProbe = async (page, selector, label) => {
   const target = page.locator(selector).last();
-  await target.scrollIntoViewIfNeeded();
+  // Centred, not just revealed: a drag that starts at the scroller's edge auto-scrolls and the selection runs away.
+  await target.evaluate(el => el.scrollIntoView({ block: "center" }));
   const box = await target.boundingBox();
   assert.ok(box, `${label}: bubble text is on screen`);
   const text = (await target.innerText()).trim();
@@ -176,7 +177,7 @@ const selectionProbe = async (page, selector, label) => {
   await page.mouse.up();
   const first = await page.evaluate(() => String(getSelection()));
   assert.ok(first.trim().length >= 3, `${label}: dragging selected "${first}"`);
-  assert.ok(text.includes(first.trim().split("\n")[0].trim()), `${label}: selection "${first}" is bubble text`);
+  assert.ok(text.includes(first.trim().split("\n")[0].trim()), `${label}: selection ${JSON.stringify(first)} is bubble text ${JSON.stringify(text)}`);
   await page.waitForTimeout(3000);
   const later = await page.evaluate(() => String(getSelection()));
   assert.equal(later, first, `${label}: selection changed after 3 s (${JSON.stringify(first)} -> ${JSON.stringify(later)})`);
@@ -232,11 +233,11 @@ await check("touch: tapping selected text does not also open the message actions
   const box = await para.boundingBox();
   await page.touchscreen.tap(box.x + 20, box.y + 6);
   await page.waitForTimeout(300);
-  assert.equal(await page.locator(".is-actions-open").count(), 0, "tap on selected text opened the actions toolbar");
+  assert.equal(await page.locator(".message-hover-actions").count(), 0, "tap on selected text opened the actions toolbar");
   await page.evaluate(() => getSelection().removeAllRanges());
   await page.touchscreen.tap(box.x + 20, box.y + 6);
   await page.waitForTimeout(300);
-  assert.equal(await page.locator(".is-actions-open").count(), 1, "a plain tap opens the actions toolbar");
+  assert.equal(await page.locator(".message-hover-actions").count(), 1, "a plain tap opens the actions toolbar");
   await context.close();
 });
 
@@ -336,6 +337,128 @@ const sendScenario = (reduced, scrollUp) => async () => {
 };
 const LONG_TASK_MS = Number(process.env.CHAT_SAFARI_LONG_TASK_MS || 100);
 for (const reduced of [false, true]) for (const scrollUp of [false, true]) await check(`send: scroll to the bottom first, then the bubble arrives once, no long tasks (${scrollUp ? "from history" : "at bottom"}, ${reduced ? "reduced" : "full"} motion)`, sendScenario(reduced, scrollUp));
+
+// 4. Phone layout (iPhone-sized touch viewport): list<->chat switch keeps the chat laid out under the sliding list,
+//    the keyboard state gives the conversation its room back, the tap toolbar stays between header and composer
+//    and can copy, fields stay at 16px (no iOS focus zoom) and wide tables scroll instead of breaking words.
+const phone = () => open({ width: 390, height: 664, touch: true, mobile: true });
+await check("phone: chat pane stays laid out under the list and hides only after the slide", async () => {
+  const { page, context, errors } = await phone();
+  await settle(page);
+  const state = () => page.evaluate(() => { const chat = document.querySelector(".chat-pane"); const list = document.querySelector(".contact-pane"); return { display: getComputedStyle(chat).display, vis: getComputedStyle(chat).visibility, listOpen: list.classList.contains("open") }; });
+  const listOpen = await state();
+  assert.equal(listOpen.display, "flex", "chat pane keeps its layout while the list is open");
+  assert.equal(listOpen.vis, "hidden", "chat pane is hidden (not focusable) while the list is open");
+  await rowFor(page, "Simile Cat").tap();
+  await page.waitForTimeout(60);
+  assert.equal((await state()).vis, "visible", "chat is visible as soon as it is chosen");
+  await settle(page);
+  await page.locator(".back-button").tap();
+  await page.waitForTimeout(80);
+  const mid = await state();
+  assert.equal(mid.vis, "visible", "chat stays visible while the list slides over it (no blank frame)");
+  await page.waitForTimeout(500);
+  assert.equal((await state()).vis, "hidden", "chat hides after the slide");
+  assert.deepEqual(errors, []);
+  await context.close();
+});
+await check("phone: keyboard open hides the perch and returns room to the conversation", async () => {
+  const { page, context } = await phone();
+  await settle(page);
+  await rowFor(page, "Simile Cat").tap();
+  await settle(page);
+  const measure = () => page.evaluate(() => { const scroll = document.querySelector(".message-scroll"); const perch = document.querySelector(".composer-perch"); const composer = document.querySelector(".composer").getBoundingClientRect().height; const cs = getComputedStyle(scroll); return { pad: parseFloat(cs.paddingBottom) - composer, top: parseFloat(cs.paddingTop), perch: perch ? getComputedStyle(perch).display : "none" }; });
+  const closed = await measure();
+  assert.ok(closed.pad <= 70, `closed-keyboard band is ${closed.pad}px beyond the composer (limit 70)`);
+  await page.evaluate(() => document.querySelector(".workspace").classList.add("keyboard-viewport-open"));
+  await page.waitForTimeout(150);
+  const open_ = await measure();
+  assert.equal(open_.perch, "none", "perch hidden while the keyboard is up");
+  assert.ok(open_.pad <= 9, `keyboard-open band is ${open_.pad}px beyond the composer (limit 9)`);
+  assert.ok(open_.top <= 9, `keyboard-open top padding is ${open_.top}px`);
+  await context.close();
+});
+await check("phone: tap toolbar opens below the bubble, one toolbar, one 44px Copy", async () => {
+  // Merged design: ui-chat's in-bubble bar (opens in the flow below the bubble) replaces the floating placement
+  // clamp; the phone requirement that remains is that a tap yields exactly one toolbar with a reachable Copy.
+  const { page, context } = await phone();
+  await settle(page);
+  await rowFor(page, "Simile Cat").tap();
+  await settle(page);
+  const id = await page.evaluate(() => { const hosts = [...document.querySelectorAll(".message-hover-host")].filter(host => !host.classList.contains("is-user") && host.querySelector(".message-content")); const host = hosts.at(-1); host.scrollIntoView({ block: "center" }); return host.dataset.hostId; });
+  await page.waitForTimeout(300);
+  await page.locator(`.message-hover-host[data-host-id="${id}"] .message-content`).first().tap();
+  await page.waitForTimeout(300);
+  const bar = await page.evaluate(() => {
+    const bars = [...document.querySelectorAll(".message-hover-actions")].filter(el => el.getBoundingClientRect().height > 0);
+    const copies = document.querySelectorAll('.message-hover-actions [data-action="copy"]').length;
+    const el = bars[0]; if (!el) return { count: 0, copies };
+    const header = document.querySelector(".chat-header").getBoundingClientRect().bottom, composer = document.querySelector(".composer").getBoundingClientRect().top;
+    const r = el.getBoundingClientRect(); const copy = el.querySelector('[data-action="copy"]');
+    return { count: bars.length, copies, top: r.top, bottom: r.bottom, header, composer, copyW: copy ? copy.getBoundingClientRect().width : 0 };
+  });
+  assert.equal(bar.count, 1, "exactly one visible toolbar on touch");
+  assert.equal(bar.copies, 1, "exactly one Copy button");
+  assert.ok(bar.copyW >= 44, `Copy button is ${bar.copyW}px wide`);
+  assert.ok(bar.top >= bar.header - 1 && bar.bottom <= bar.composer + 1, `toolbar ${bar.top}-${bar.bottom} outside header ${bar.header} / composer ${bar.composer}`);
+  const placement = await page.evaluate(() => {
+    const el = [...document.querySelectorAll(".message-hover-actions")].find(b => b.getBoundingClientRect().height > 0);
+    const blockEl = el.closest(".message-block"), c = blockEl.querySelector(".message-content").getBoundingClientRect(), b = el.getBoundingClientRect();
+    const next = blockEl.nextElementSibling?.querySelector(".message-content")?.getBoundingClientRect();
+    return { belowBubble: b.top >= c.bottom - 0.5, overNext: next ? b.bottom > next.top + 0.5 && b.top < next.bottom && b.right > next.left && b.left < next.right : false, inside: b.left >= 0 && b.right <= innerWidth };
+  });
+  assert.ok(placement.belowBubble, "the toolbar is below its own bubble");
+  assert.ok(!placement.overNext, "the toolbar does not cover the next message");
+  assert.ok(placement.inside, "the toolbar stays inside the window");
+  await context.close();
+});
+await check("desktop: the hover bar sits below its bubble, clear of the neighbours, and hovering moves nothing", async () => {
+  const { page, context } = await open();
+  await settle(page);
+  await rowFor(page, "Simile Cat").click();
+  await settle(page);
+  const ids = await page.evaluate(() => [...document.querySelectorAll(".message-block")].slice(-6, -1).map(el => el.dataset.messageId));
+  for (const id of ids) {
+    await page.locator(`.message-block[data-message-id="${id}"]`).evaluate(el => el.scrollIntoView({ block: "center" }));
+    await page.mouse.move(2, 2);
+    await page.waitForFunction(() => document.querySelectorAll(".message-hover-actions").length === 0);
+    const heights = () => page.evaluate(() => [...document.querySelectorAll(".message-block")].map(el => Math.round(el.getBoundingClientRect().height * 10)));
+    const before = await heights();
+    const box = await page.locator(`.message-block[data-message-id="${id}"] .message-content`).first().boundingBox();
+    await page.mouse.move(box.x + 20, box.y + 6);
+    await page.locator(".message-hover-actions").first().waitFor();
+    assert.deepEqual(await heights(), before, `${id}: hovering changed a message height`);
+    const geometry = await page.evaluate(id => {
+      const blockEl = document.querySelector(`.message-block[data-message-id="${id}"]`), b = blockEl.querySelector(".message-hover-actions").getBoundingClientRect(), c = blockEl.querySelector(".message-content").getBoundingClientRect();
+      const hit = [...document.querySelectorAll(".message-block")].filter(el => el !== blockEl).flatMap(el => [...el.querySelectorAll(".message-content")]).some(el => { const r = el.getBoundingClientRect(); return Math.min(b.right, r.right) - Math.max(b.left, r.left) > 0.5 && Math.min(b.bottom, r.bottom) - Math.max(b.top, r.top) > 0.5; });
+      return { below: b.top >= c.bottom - 0.5, hit, inside: b.left >= 0 && b.right <= innerWidth, btn: blockEl.querySelector(".message-hover-actions button").getBoundingClientRect().width };
+    }, id);
+    assert.ok(geometry.below, `${id}: bar is above its bubble's bottom edge`);
+    assert.ok(!geometry.hit, `${id}: bar covers another message`);
+    assert.ok(geometry.inside, `${id}: bar leaves the window`);
+    assert.ok(geometry.btn >= 28, `${id}: desktop hit targets are ${geometry.btn}px`);
+  }
+  await context.close();
+});
+await check("phone: fields are 16px and wide tables scroll sideways", async () => {
+  const { page, context } = await phone();
+  await settle(page);
+  const sizes = await page.evaluate(() => [...document.querySelectorAll("input:not([type=checkbox]):not([type=radio]):not([type=file]):not([type=hidden]),textarea,select")].filter(el => el.offsetParent).map(el => parseFloat(getComputedStyle(el).fontSize)));
+  assert.ok(sizes.length > 0, "found a visible field");
+  assert.ok(sizes.every(size => size >= 16), `field sizes ${sizes}`);
+  await rowFor(page, "Simile Cat").tap();
+  await settle(page);
+  const textarea = await page.evaluate(() => parseFloat(getComputedStyle(document.querySelector(".composer textarea")).fontSize));
+  assert.ok(textarea >= 16, `composer textarea is ${textarea}px`);
+  const table = await page.evaluate(() => {
+    const row = cells => `<tr>${cells.map(cell => `<td>${cell}</td>`).join("")}</tr>`;
+    const host = [...document.querySelectorAll(".message-content")].filter(el => !el.closest(".is-user")).at(-1);
+    host.insertAdjacentHTML("beforeend", `<div class="message-table"><table>${row(["Vendor", "Annual price", "Monthly price", "Contract ID", "Region", "Status"])}${row(["Northwind Storage", "$1,240.00", "$103.33", "CTR-2026-000417", "Northern Europe", "Renewal pending"])}</table></div>`);
+    const wrap = document.querySelector(".message-table"); const cell = wrap.querySelector("td"); return { scroll: wrap.scrollWidth, client: wrap.clientWidth, wrap: getComputedStyle(cell).wordBreak, over: getComputedStyle(cell).overflowWrap, h: cell.getBoundingClientRect().height }; });
+  assert.ok(table.scroll > table.client, `table does not scroll (scrollWidth ${table.scroll} <= ${table.client})`);
+  assert.equal(table.wrap, "normal"); assert.equal(table.over, "normal");
+  await context.close();
+});
 //SCENARIOS
 
 await browser.close();

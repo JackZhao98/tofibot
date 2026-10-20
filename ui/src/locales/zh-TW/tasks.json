@@ -21,7 +21,8 @@
       "open_model_connections": "開啟模型連線設定",
       "copy_diagnostics": "複製診斷資訊",
       "view_activity": "查看執行紀錄",
-      "refresh_status": "重新整理狀態"
+      "refresh_status": "重新整理狀態",
+      "retry": "重試"
     },
     "working": "處理中…",
     "copied": "已複製診斷資訊。",
@@ -210,7 +211,38 @@
     "view_full_arguments": "查看完整參數",
     "proposal_ended": "此提案已結束。",
     "view_decision": "查看決定紀錄",
-    "remembered_decision": "由本對話中記住的核准放行，未詢問任何人。下方步驟顯示是否已執行。"
+    "remembered_decision": "由本對話中記住的核准放行，未詢問任何人。下方步驟顯示是否已執行。",
+    "facts": {
+      "title": "Tofi 核對的事實",
+      "bot_wording": "以下由 Bot 撰寫",
+      "kind": "變更",
+      "name": "名稱",
+      "source": "位址",
+      "previous_source": "取代原位址",
+      "transport": "傳輸方式",
+      "tools": "工具",
+      "all_tools": "伺服器提供的所有工具",
+      "only_tools": "僅限：{{tools}}",
+      "blocked_tools": "已封鎖工具",
+      "headers": "請求標頭",
+      "none": "無",
+      "oauth": "登入授權（OAuth）",
+      "skill_description": "技能自述",
+      "skill_excerpt": "指令開頭",
+      "skill_tools": "申請的工具",
+      "skill_files": "檔案",
+      "skill_scripts": "腳本",
+      "skill_scripts_present": "含腳本或可執行檔",
+      "change_id": "變更編號",
+      "kinds": {
+        "skill_install": "安裝技能",
+        "skill_delete": "刪除技能",
+        "mcp_create": "新增 MCP 伺服器",
+        "mcp_update": "修改 MCP 伺服器",
+        "mcp_delete": "刪除 MCP 伺服器",
+        "mcp_test": "連線 MCP 伺服器"
+      }
+    }
   },
   "question": {
     "approve": "核准此操作",

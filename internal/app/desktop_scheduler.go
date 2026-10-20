@@ -81,9 +81,9 @@ func (s *Server) waitComputerOwner(ctx context.Context, r Run) error {
 		s.computerOwnerMu.Unlock()
 		return ctx.Err()
 	}
-	// Queueing behind another run's desktop use is not this call's active
-	// time; only the computer's own answer is bounded by the tool deadline.
-	resumeDeadline := runtime.PauseToolDeadline(ctx)
+	// Queueing behind another run's desktop use is neither this call's nor the
+	// run's active time; only the computer's own answer is bounded.
+	resumeDeadline := runtime.PauseActiveBudget(ctx)
 	defer resumeDeadline()
 	waiter := &desktopWaiter{BotID: r.BotID, RunID: r.ID, QueuedAt: now()}
 	s.desktopWaiters = append(s.desktopWaiters, waiter)

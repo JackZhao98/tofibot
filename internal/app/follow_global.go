@@ -78,6 +78,7 @@ func (s *Server) effectiveDefaultModel(ctx context.Context) string {
 }
 
 func (s *Server) withEffectiveModels(ctx context.Context, bots ...Bot) []Bot {
+	ctx = withCachedCatalog(ctx) // a Bot list must never wait on a provider
 	out := make([]Bot, len(bots))
 	primary := ""
 	if s != nil && s.store != nil {

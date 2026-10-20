@@ -427,6 +427,7 @@ func (s *Server) microVMTools(r Run) []Tool {
 				Key    string `json:"key"`
 			}
 			_ = json.Unmarshal(raw, &declared)
+			settle := func(error) {}
 			if (action == "desktop.click" || action == "desktop.type" || action == "desktop.key") && consequentialEffect(declared.Effect) {
 				var target actionTarget
 				if action == "desktop.click" {
@@ -448,8 +449,9 @@ func (s *Server) microVMTools(r Run) []Tool {
 				if action == "desktop.key" {
 					text = "key " + declared.Key
 				}
-				if err := s.guardAction(ctx, r, actionReview{Kind: strings.TrimPrefix(action, "desktop."), Effect: declared.Effect, Element: target.Label, Text: text, URL: target.URL, Title: target.Title}); err != nil {
-					return "", err
+				var guardErr error
+				if settle, guardErr = s.guardAction(ctx, r, actionReview{Kind: strings.TrimPrefix(action, "desktop."), Effect: declared.Effect, Element: target.Label, Text: text, URL: target.URL, Title: target.Title}); guardErr != nil {
+					return "", guardErr
 				}
 			}
 			out, err := s.microVMAction(ctx, r, action, args)
@@ -458,6 +460,8 @@ func (s *Server) microVMTools(r Run) []Tool {
 			if err != nil && name == "computer_browser" && browserProcessGone(err) && s.restartDesktop(ctx, r) == nil {
 				out, err = s.microVMAction(ctx, r, action, args)
 			}
+			// An approval spent above comes back only if the action provably did nothing.
+			settle(err)
 			return out, err
 		}}
 	}

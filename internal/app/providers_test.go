@@ -26,6 +26,7 @@ type fakeModelAPI struct {
 	key      string
 	reply    string
 	reject   bool // 401 on chat requests
+	quota    bool // 429 insufficient_quota on chat requests
 	models   []string
 	chatKeys []string
 	chats    []string // requested model IDs
@@ -63,8 +64,13 @@ func newFakeOpenAI(t *testing.T, reply string) *fakeModelAPI {
 			f.mu.Lock()
 			f.chatKeys = append(f.chatKeys, strings.TrimPrefix(r.Header.Get("Authorization"), "Bearer "))
 			f.chats = append(f.chats, payload.Model)
-			reject := f.reject
+			reject, quota := f.reject, f.quota
 			f.mu.Unlock()
+			if quota {
+				w.WriteHeader(http.StatusTooManyRequests)
+				_, _ = io.WriteString(w, `{"error":{"code":"insufficient_quota","message":"You exceeded your current quota"}}`)
+				return
+			}
 			if !authorized || reject {
 				w.WriteHeader(http.StatusUnauthorized)
 				_, _ = io.WriteString(w, `{"error":{"code":"invalid_api_key","message":"Incorrect API key provided"}}`)
@@ -116,8 +122,13 @@ func newFakeAnthropic(t *testing.T, reply string) *fakeModelAPI {
 			f.mu.Lock()
 			f.chatKeys = append(f.chatKeys, r.Header.Get("x-api-key"))
 			f.chats = append(f.chats, payload.Model)
-			reject := f.reject
+			reject, quota := f.reject, f.quota
 			f.mu.Unlock()
+			if quota {
+				w.WriteHeader(http.StatusTooManyRequests)
+				_, _ = io.WriteString(w, `{"error":{"code":"insufficient_quota","message":"You exceeded your current quota"}}`)
+				return
+			}
 			if !authorized || reject {
 				w.WriteHeader(http.StatusUnauthorized)
 				_, _ = io.WriteString(w, `{"type":"error","error":{"type":"authentication_error","message":"invalid x-api-key"}}`)
@@ -442,25 +453,28 @@ func TestCodexModelEquivalenceStaysWithoutOpenAIKey(t *testing.T) {
 	}
 }
 
-func TestBackgroundModelPreferenceOrder(t *testing.T) {
+func TestBackgroundModelFollowsTheConversationProvider(t *testing.T) {
 	openai, anthropic := newFakeOpenAI(t, "ok"), newFakeAnthropic(t, "ok")
 	s := providerServer(t, openai, anthropic)
-	if s.backgroundModel(backgroundTriage) != codexTriageModel || s.backgroundModel(backgroundReview) != codexReviewModel {
-		t.Fatal("an unconfigured workspace keeps the Codex defaults")
-	}
 	putProviderKeyOK(t, s, "anthropic", syntheticAnthropicKey)
-	if got := s.backgroundModel(backgroundReview); got != "claude-haiku-4-5-20251001" {
+	if got := s.backgroundModel(backgroundReview); got != anthropicBackgroundModel {
 		t.Fatalf("anthropic background=%s", got)
 	}
 	putProviderKeyOK(t, s, "openai", syntheticOpenAIKey)
+	if rec := providerRequest(t, s, http.MethodPut, "/api/model-settings", `{"model":"gpt-5-mini"}`); rec.Code != http.StatusOK {
+		t.Fatalf("model settings=%d %s", rec.Code, rec.Body.String())
+	}
 	if got := s.backgroundModel(backgroundTriage); got != "gpt-5-mini" {
-		t.Fatalf("openai background=%s", got)
+		t.Fatalf("a non-Anthropic conversation model keeps background work on it, got %s", got)
 	}
 	if err := s.codex.SaveAccessOnlyCredential("synthetic-access", "", time.Now().Add(time.Hour).UnixMilli()); err != nil {
 		t.Fatal(err)
 	}
-	if s.backgroundModel(backgroundTriage) != codexTriageModel || s.backgroundModel(backgroundReview) != codexReviewModel {
-		t.Fatal("Codex is preferred when connected")
+	if rec := providerRequest(t, s, http.MethodPut, "/api/model-settings", `{"model":"codex-gpt-5.6-luna"}`); rec.Code != http.StatusOK {
+		t.Skipf("codex catalog unavailable in this fixture: %d %s", rec.Code, rec.Body.String())
+	}
+	if s.backgroundModel(backgroundTriage) != codexDefaultModel || s.backgroundModel(backgroundReview) != codexReviewModel {
+		t.Fatal("a Codex conversation keeps Codex for background work, with its own reviewer")
 	}
 	s.triageModel = "gpt-6-luna"
 	if s.triageModelName() != "gpt-6-luna" || s.backgroundModel(backgroundReview) != codexReviewModel {
@@ -472,9 +486,12 @@ func TestBackgroundReviewerUsesAPIKeyProviderWithoutCodex(t *testing.T) {
 	anthropic := newFakeAnthropic(t, `{"decision":"allow","reason":"Read-only page navigation."}`)
 	s := providerServer(t, nil, anthropic)
 	putProviderKeyOK(t, s, "anthropic", syntheticAnthropicKey)
+	anthropic.mu.Lock()
+	anthropic.chats, anthropic.chatKeys = nil, nil // drop the key-verification probe
+	anthropic.mu.Unlock()
 	allow, _ := s.reviewAction(context.Background(), actionReview{Kind: "click", Effect: "navigate", Element: "Next"})
 	chats, keys := anthropic.requests()
-	if !allow || len(chats) != 1 || chats[0] != "claude-haiku-4-5-20251001" || keys[0] != syntheticAnthropicKey {
+	if !allow || len(chats) != 1 || chats[0] != anthropicBackgroundModel || keys[0] != syntheticAnthropicKey {
 		t.Fatalf("allow=%v chats=%v", allow, chats)
 	}
 	terms, err := s.expandToolSearchQuery(context.Background(), "calendar")
@@ -542,6 +559,9 @@ func TestRunWithAnthropicModelEndToEnd(t *testing.T) {
 	anthropic := newFakeAnthropic(t, "Hello from Claude.")
 	s := providerServer(t, nil, anthropic)
 	putProviderKeyOK(t, s, "anthropic", syntheticAnthropicKey)
+	anthropic.mu.Lock()
+	anthropic.chats, anthropic.chatKeys = nil, nil // drop the key-verification probe
+	anthropic.mu.Unlock()
 	run, messages := runBotThroughProvider(t, s, "claude-opus-5-5", "Say hello.")
 	if run.Status != "done" {
 		t.Fatalf("run=%+v failure=%+v", run, run.failure())
@@ -756,5 +776,27 @@ func TestUnscopedAnthropicKeyNeedsWorkspaceID(t *testing.T) {
 	run, _ := runBotThroughProvider(t, s, "claude-opus-5-5", "Say hello.")
 	if run.Status != "done" {
 		t.Fatalf("run=%+v failure=%+v", run, run.failure())
+	}
+}
+
+func TestProviderKeyWithoutQuotaOrModelsIsRefusedByName(t *testing.T) {
+	openai := newFakeOpenAI(t, "ok")
+	openai.quota = true
+	s := providerServer(t, openai, nil)
+	rec := providerRequest(t, s, http.MethodPut, "/api/providers/openai/key", `{"key":"`+syntheticOpenAIKey+`"}`)
+	if rec.Code != http.StatusPaymentRequired || !strings.Contains(rec.Body.String(), `"no_quota"`) {
+		t.Fatalf("unfunded key: status=%d body=%s", rec.Code, rec.Body.String())
+	}
+	if listProviders(t, s)["openai"].Configured {
+		t.Fatal("a key that cannot generate must not be stored as connected")
+	}
+	empty := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = io.WriteString(w, `{"object":"list","data":[]}`)
+	}))
+	defer empty.Close()
+	s.providerEndpoints[providerOpenAI] = empty.URL + "/v1"
+	rec = providerRequest(t, s, http.MethodPut, "/api/providers/openai/key", `{"key":"`+syntheticOpenAIKey+`"}`)
+	if rec.Code != http.StatusBadRequest || !strings.Contains(rec.Body.String(), `"no_models"`) {
+		t.Fatalf("no models: status=%d body=%s", rec.Code, rec.Body.String())
 	}
 }

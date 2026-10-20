@@ -9,6 +9,8 @@ import (
 	"crypto/sha256"
 	"crypto/subtle"
 	"errors"
+	"fmt"
+	"log"
 	"net/http"
 	"path/filepath"
 	"strings"
@@ -185,13 +187,16 @@ func (g *AccountGateway) issue(w http.ResponseWriter, r *http.Request, id string
 	}
 	r.Header.Del("Cookie")
 	r.AddCookie(&http.Cookie{Name: ownerCookie, Value: token})
-	http.SetCookie(w, &http.Cookie{Name: ownerCookie, Value: token, Path: "/", HttpOnly: true, Secure: r.TLS != nil, SameSite: http.SameSiteLaxMode, MaxAge: int(ownerSessionLifetime.Seconds()), Expires: expires})
+	http.SetCookie(w, &http.Cookie{Name: ownerCookie, Value: token, Path: "/", HttpOnly: true, Secure: r.TLS != nil || strings.HasPrefix(strings.ToLower(g.root.publicOrigin), "https://"), SameSite: http.SameSiteLaxMode, MaxAge: int(ownerSessionLifetime.Seconds()), Expires: expires})
 	return nil
 }
 
 var (
 	errInvalidAccountBootstrap = errors.New("setup secret is invalid or already consumed")
-	errAccountSetupClosed      = errors.New("setup unavailable")
+	// errAccountCapacity means the Worker refused the account's reservation
+	// (disk, computer slots, or Worker not ready); setup stays open.
+	errAccountCapacity    = errors.New("worker could not reserve the account")
+	errAccountSetupClosed = errors.New("setup unavailable")
 )
 
 // Runs before owner-auth initialization reads the bootstrap file, so a
@@ -292,7 +297,7 @@ func (g *AccountGateway) create(ctx context.Context, username, email, password s
 	}
 	if !a.Legacy {
 		if _, err = g.computerRequest(ctx, "reserve", a.ID); err != nil {
-			return Account{}, err
+			return Account{}, fmt.Errorf("%w: %v", errAccountCapacity, err)
 		}
 		// Keep an uncertain reservation after a commit error; orphan reconciliation
 		// must prove no account/data exists before releasing its promise.
@@ -370,7 +375,9 @@ func (g *AccountGateway) workspace(a Account) (*Server, error) {
 }
 func (g *AccountGateway) handle(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("X-Content-Type-Options", "nosniff")
-	w.Header().Set("Cache-Control", "no-store")
+	if strings.HasPrefix(r.URL.Path, "/api/") || strings.HasPrefix(r.URL.Path, "/exports/") {
+		w.Header().Set("Cache-Control", "no-store")
+	}
 	if strings.HasPrefix(r.URL.Path, "/exports/") {
 		g.serveDeletedExport(w, r)
 		return
@@ -416,8 +423,9 @@ func (g *AccountGateway) handle(w http.ResponseWriter, r *http.Request) {
 			writeErr(w, 403, "transport", "secure password transport required")
 			return
 		}
-		limit := func() bool {
-			if g.auth.allowAttempt(r) {
+		var loginAccount string
+		limit := func(account string) bool {
+			if g.auth.allowAttempt(r, account) {
 				return true
 			}
 			writeErr(w, 429, "rate_limited", "try later")
@@ -440,7 +448,7 @@ func (g *AccountGateway) handle(w http.ResponseWriter, r *http.Request) {
 				writeErr(w, 400, "invalid_request", "invalid setup request")
 				return
 			}
-			if !limit() {
+			if !limit("") {
 				return
 			}
 			var saved []byte
@@ -461,7 +469,7 @@ func (g *AccountGateway) handle(w http.ResponseWriter, r *http.Request) {
 				writeErr(w, 400, "invalid_request", "invalid account")
 				return
 			}
-			if !limit() {
+			if !limit("") {
 				return
 			}
 			created, err := g.create(r.Context(), in.Username, in.Email, in.Password, true, in.BootstrapSecret)
@@ -473,8 +481,14 @@ func (g *AccountGateway) handle(w http.ResponseWriter, r *http.Request) {
 				var fe *accountFieldError
 				if errors.As(err, &fe) {
 					// Validation failures are not guesses at the secret.
-					g.auth.refundAttempt(r)
+					g.auth.refundAttempt(r, "")
 					writeFieldErr(w, 400, fe)
+					return
+				}
+				if errors.Is(err, errAccountCapacity) {
+					log.Printf("[accounts] setup could not reserve the owner account: %v", err)
+					g.auth.refundAttempt(r, "")
+					writeErr(w, 503, "account_capacity", "the server could not reserve space for the account")
 					return
 				}
 				writeErr(w, 409, "setup_unavailable", "setup unavailable or invalid fields")
@@ -482,12 +496,16 @@ func (g *AccountGateway) handle(w http.ResponseWriter, r *http.Request) {
 			}
 			a = created
 		} else {
-			if !limit() {
-				return
-			}
 			var in struct{ Identifier, Password string }
 			if decodeStrict(r, 8<<10, &in) != nil || len(in.Password) > 1024 || len(in.Identifier) > 254 {
 				writeErr(w, 400, "invalid_request", "invalid login")
+				return
+			}
+			loginAccount = strings.TrimSpace(in.Identifier)
+			if loginAccount == "" {
+				loginAccount = "-"
+			}
+			if !limit(loginAccount) {
 				return
 			}
 			var salt, saved []byte
@@ -501,6 +519,10 @@ func (g *AccountGateway) handle(w http.ResponseWriter, r *http.Request) {
 				writeErr(w, 401, "invalid_credentials", "invalid identifier or password")
 				return
 			}
+		}
+		if loginAccount != "" {
+			g.auth.refundAttempt(r, loginAccount)
+			g.auth.rememberSource(r, loginAccount)
 		}
 		if err := g.issue(w, r, a.ID); err != nil {
 			writeErr(w, 500, "storage", "cannot create session")

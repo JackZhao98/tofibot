@@ -2,6 +2,7 @@ package app
 
 import (
 	"bytes"
+	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -206,5 +207,38 @@ func TestAttachmentPDFInlineOnlyOnRequest(t *testing.T) {
 		if got := w.Header().Get("Content-Disposition"); !strings.HasPrefix(got, want) {
 			t.Fatalf("%s disposition=%q", url, got)
 		}
+	}
+}
+
+func TestPublishedFileResultCarriesOpenableLink(t *testing.T) {
+	s, dir := ownerTestServer(t)
+	cookie := ownerSetup(t, s, dir)
+	b, _ := s.store.CreateBot("linker", "", "model")
+	a, err := s.store.AddAttachment(b.DMConversationID, "news.md", "text/markdown", bytes.NewBufferString("# synthetic"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	read := func() map[string]any {
+		var m map[string]any
+		if err := json.Unmarshal([]byte(s.publishedFileResult(a)), &m); err != nil {
+			t.Fatal(err)
+		}
+		return m
+	}
+	if got := read()["url"]; got != "/api/attachments/"+a.ID {
+		t.Fatalf("relative url=%v", got)
+	}
+	s.publicOrigin = "https://tofi.example.invalid"
+	link, _ := read()["url"].(string)
+	if link != "https://tofi.example.invalid/api/attachments/"+a.ID {
+		t.Fatalf("absolute url=%q", link)
+	}
+	path := strings.TrimPrefix(link, s.publicOrigin)
+	if w := ownerCall(s, "GET", path, nil, nil, true); w.Code != 401 {
+		t.Fatalf("unauthenticated link=%d", w.Code)
+	}
+	w := ownerCall(s, "GET", path, nil, cookie, true)
+	if w.Code != 200 || w.Body.String() != "# synthetic" {
+		t.Fatalf("authenticated link=%d %q", w.Code, w.Body.String())
 	}
 }

@@ -14,9 +14,9 @@ const {createServer} = await import("vite");
 const {default: react} = await import("@vitejs/plugin-react");
 
 const LANGS = ["en", "zh-CN", "zh-TW", "ja", "ko", "de", "fr"];
-const TABS = ["general", "connections", "skills", "approvals", "followups", "models", "computer", "keys", "usage", "advanced"];
-const ICONS = {general: "sliders", connections: "plug", skills: "skill", approvals: "shield-check", followups: "bell", models: "sparkles", computer: "monitor", keys: "key", usage: "progress", advanced: "settings", admin: "group"};
-const NAMES = {general: "General", connections: "Connections", skills: "Skills", approvals: "Approvals", followups: "Follow-ups (preview)", models: "Models", computer: "Computer", keys: "Keys & secrets", usage: "Usage", advanced: "Advanced", admin: "Admin console"};
+const TABS = ["general", "connections", "skills", "approvals", "followups", "models", "automation", "computer", "keys", "usage", "advanced"];
+const ICONS = {general: "sliders", connections: "plug", skills: "skill", approvals: "shield-check", followups: "bell", models: "sparkles", automation: "workflow", computer: "monitor", keys: "key", usage: "progress", advanced: "settings", admin: "group"};
+const NAMES = {general: "General", connections: "Connections", skills: "Skills", approvals: "Approvals", followups: "Follow-ups (preview)", models: "Models", automation: "Automatic behavior", computer: "Computer", keys: "Keys & secrets", usage: "Usage", advanced: "Advanced", admin: "Admin console"};
 
 // ---- Catalog checks (every locale): groups, page names and descriptions are real translations.
 const catalogs = {};
@@ -40,7 +40,7 @@ for (const lang of LANGS) {
     if (lang !== "en") assert.notEqual(catalogs[lang].dictation.model[id].hint, catalogs.en.dictation.model[id].hint, `${lang}: dictation hint is an English copy`);
   }
 }
-console.log(`PASS catalogs: ${LANGS.length} locales have groups, 11 page names, descriptions of at most 70 characters, dictation copy`);
+console.log(`PASS catalogs: ${LANGS.length} locales have groups, 12 page names, descriptions of at most 70 characters, dictation copy`);
 
 const shots = process.env.SETTINGS_SHOTS;
 if (shots) await mkdir(shots, {recursive: true});
@@ -123,6 +123,7 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
       : {enabled: true, setup_required: false, authenticated: true, password_transport_allowed: true, multi_account: true, owner: {id: "acct_sample", username: "Ada Sample", email: "ada@example.test", role: "admin"}};
     if (path === "/api/bots") return {bots: [{id: "bot_research", name: "Research Bot", archived: false}, {id: "bot_inbox", name: "Inbox Bot", archived: false}, {id: "bot_notes", name: "Notes Bot", archived: false}, {id: "bot_old", name: "Retired Bot", archived: true}]};
     if (path === "/api/preferences") return {timezone: "America/Los_Angeles", timezone_configured: true};
+    if (path === "/api/automation-settings") return {items: [{key: "web_search", group: "replies", kind: "bool", default: true, value: true, source: "default"}, {key: "conversation_model", group: "models", kind: "model", default: "codex-gpt-6-sol", value: "codex-gpt-6-sol", source: "default"}]};
     if (path === "/api/followups") return {account: {max_nudges_per_day: 3, quiet_start: "22:00", quiet_end: "08:00", weekend_min_importance: 80, digest_weekday: "mon", digest_time: "09:00", daily_budget_usd: 0.5}, primary_bot_id: "bot_research", delivery_available: false, budget_paused: false, model_configured: true, day: "2026-10-13",
       bots: [{bot_id: "bot_research", name: "Research Bot", is_primary: true, mode: "shadow", source_chat: true, source_email: true, last_sweep_at: "2026-10-13T16:30:00Z"}, {bot_id: "bot_inbox", name: "Inbox Bot", is_primary: false, mode: "off", source_chat: true, source_email: true}, {bot_id: "bot_notes", name: "Notes Bot", is_primary: false, mode: "shadow", source_chat: true, source_email: true}],
       stats: {sweeps: 4, loops_created: 3, rejected_invalid: 1, rejected_band: 2, merged: 1, spent_usd: 0.012, would_nudge: 2, would_digest: 1, useful: 3, annoying: 1, handled: 1},
@@ -436,7 +437,7 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
       const lineHeight = parseFloat(style.lineHeight);
       return {text: label.textContent, ellipsis: style.textOverflow === "ellipsis", clipped: label.scrollWidth > label.clientWidth, lines: Math.round(box.height / lineHeight), inside: box.right <= row.right + 0.5 && box.left >= row.left - 0.5};
     }));
-    assert.equal(report.length, 11);
+    assert.equal(report.length, 12);
     for (const item of report) {
       assert.equal(item.ellipsis, false, `${item.text}: no text-overflow ellipsis`);
       assert.equal(item.clipped, false, `${item.text}: scrollWidth <= clientWidth`);

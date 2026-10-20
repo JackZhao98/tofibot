@@ -112,8 +112,8 @@ func TestAssistantTurnCallbackCoversBudgetWrapUp(t *testing.T) {
 	if err != nil {
 		t.Fatalf("RunAgentLoop error = %v", err)
 	}
-	if !result.BudgetExhausted || result.BudgetReason == "" {
-		t.Fatalf("budget wrap-up reported success: %+v", result)
+	if result.BudgetExhausted || result.BudgetReason == "" {
+		t.Fatalf("a run answered at the wrap-up must not be reported exhausted: %+v", result)
 	}
 	if result.Content != "final" || p.calls != 2 {
 		t.Fatalf("result=%q provider calls=%d, want final/2", result.Content, p.calls)

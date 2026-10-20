@@ -20,6 +20,7 @@
     "demo_badge": "Demo · wird nicht gesendet",
     "needs_approval": "Braucht deine Freigabe",
     "demo_hint": "Nur Oberflächen-Demo, Gmail wird nicht kontaktiert",
+    "add_recipient": "Empfänger hinzufügen",
     "send_final": "Nach dem Senden nicht rückgängig zu machen",
     "working": "Wird bearbeitet…",
     "hold": "Noch nicht senden",

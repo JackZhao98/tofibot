@@ -56,6 +56,10 @@ type Tool struct {
 	// "name" argument. It resolves exactly as the dispatcher itself would and
 	// must fail closed (ok=false) for unknown or ambiguous names.
 	ResolveDirectName func(ctx context.Context, name string) (string, bool)
+	// Deferred keeps the tool executable but out of the declared tool list
+	// until another tool of the run calls ActivateTools for it. Use it for
+	// tools that matter rarely, so every turn does not carry their schemas.
+	Deferred bool
 }
 
 // ToolEvent describes one provider tool call and its lifecycle. Arguments and
@@ -124,6 +128,13 @@ type Request struct {
 	OnToolEvent       func(ToolEvent) error
 	OnContextEstimate func(estimatedInput int)
 	OnUsage           func(inputTokens, outputTokens int64)
+	// WebSearchMaxUses, when positive, gives the model the provider's own
+	// server-side web search (Anthropic models; searches per model request
+	// capped at this). Each search is reported through OnToolEvent as a
+	// web_search call whose result lists the sources, and the billed number
+	// of searches through OnWebSearchBilled.
+	WebSearchMaxUses  int
+	OnWebSearchBilled func(searches int64)
 	OnCompact         func(originalTokens, compactedTokens int)
 	// OnThinking receives provider reasoning-summary deltas. They are never
 	// part of the answer and must not be mixed into OnDelta output.
@@ -215,6 +226,10 @@ type Config struct {
 	Resolve func(ctx context.Context, providerName string) (string, error)
 	// Endpoint optionally overrides a routed provider's base URL.
 	Endpoint func(providerName string) string
+	// Retries, when set, is read for every routed model request and sets how
+	// many times a transient provider error is retried (0 disables retries),
+	// so a settings change applies to the next request without a restart.
+	Retries func() int
 }
 
 type MethodReadiness string

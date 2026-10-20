@@ -50,6 +50,12 @@ try {
     assert.match(render("[doc](attachment:att_1)"), /<a href="\/api\/attachments\/att_1" class="attachment-link" data-attachment-id="att_1">doc<\/a>/);
   });
 
+  check("published-file links, relative or absolute, render as attachment anchors that fetch the attachment", () => {
+    for (const href of ["/api/attachments/att_9", "https://tofi.example.invalid/api/attachments/att_9"]) {
+      assert.match(render(`[news.md](${href})`), /<a href="\/api\/attachments\/att_9" class="attachment-link" data-attachment-id="att_9">news\.md<\/a>/);
+    }
+  });
+
   check("escaped markers remain literal", () => {
     assert.equal(render(String.raw`\*\*说明：\*\*Example`), "<p>**说明：**Example</p>");
     assert.equal(render("&#42;&#42;说明：&#42;&#42;Example"), "<p>**说明：**Example</p>");
@@ -62,6 +68,18 @@ try {
     for (const text of ["**说明：**Example。中文**「强调」**内容。", "```js\n**说明：**Example\n```", "[label](https://example.com)"]) {
       for (let i = 0; i <= text.length; i++) assert.equal(typeof render(text.slice(0, i)), "string");
     }
+  });
+
+  check("the typing cursor stays inline in the last block and never adds one", () => {
+    const withCursor = content => renderToStaticMarkup(createElement(MessageMarkdown, { content, cursor: true }));
+    const cursor = '<span class="typing-cursor" aria-hidden="true"></span>';
+    assert.equal(withCursor("Plain text"), `<p>Plain text${cursor}</p>`);
+    assert.equal(withCursor("- one\n- two"), `<ul>\n<li>one</li>\n<li>two${cursor}</li>\n</ul>`);
+    assert.equal(withCursor("1. one\n\n   more"), `<ol>\n<li>\n<p>one</p>\n<p>more${cursor}</p>\n</li>\n</ol>`);
+    assert.match(withCursor("```js\nlet a\n```"), /<code[^>]*>let a\n<span class="typing-cursor"/);
+    assert.equal(withCursor("> quoted"), `<blockquote>\n<p>quoted${cursor}</p>\n</blockquote>`);
+    // Without text there is nothing to attach to, so a lone cursor line is still drawn.
+    assert.equal(withCursor(""), `<p>${cursor}</p>`);
   });
 
   check("raw HTML and XSS are skipped", () => {

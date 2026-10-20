@@ -49,6 +49,9 @@ func (s *Server) modelDefaults() (string, string) {
 			}
 		}
 	}
+	if s.codexConnected() {
+		return codexDefaultModel, effort
+	}
 	return model, effort
 }
 
@@ -157,34 +160,17 @@ func (s *Server) modelSettings(w http.ResponseWriter, r *http.Request) {
 			writeErr(w, http.StatusBadRequest, "invalid_request", "invalid request")
 			return
 		}
-		x.Model = strings.TrimSpace(x.Model)
-		x.ReasoningEffort = strings.TrimSpace(x.ReasoningEffort)
-		if isFollowGlobalModel(x.Model) {
-			// The global setting is what "default" resolves to; it must
-			// name a concrete model.
-			writeErr(w, http.StatusBadRequest, "invalid_request", "model is required")
-			return
+		x, status, err := s.applyConversationModel(r.Context(), x)
+		switch {
+		case status == http.StatusBadRequest && isFollowGlobalModel(x.Model):
+			writeErr(w, status, "invalid_request", "model is required")
+		case status == http.StatusBadRequest:
+			writeErr(w, status, "invalid_model_settings", err.Error())
+		case err != nil:
+			writeErr(w, status, "storage", err.Error())
+		default:
+			writeJSON(w, http.StatusOK, x)
 		}
-		if x.ReasoningEffort == followGlobalModel {
-			x.ReasoningEffort = ""
-		}
-		if x.ReasoningEffort == "" {
-			_, x.ReasoningEffort = s.modelDefaults()
-			if models, _, _ := s.loadModels(r.Context()); len(models) > 0 {
-				if option, ok := s.matchModel(models, x.Model); ok && option.DefaultReasoning != "" {
-					x.ReasoningEffort = option.DefaultReasoning
-				}
-			}
-		}
-		if err := s.validateModelChoice(r.Context(), x.Model, x.ReasoningEffort); err != nil {
-			writeErr(w, http.StatusBadRequest, "invalid_model_settings", err.Error())
-			return
-		}
-		if err := s.saveModelDefaults(x); err != nil {
-			writeErr(w, http.StatusInternalServerError, "storage", err.Error())
-			return
-		}
-		writeJSON(w, http.StatusOK, x)
 	default:
 		writeErr(w, http.StatusNotFound, "not_found", "not found")
 	}
@@ -390,7 +376,73 @@ func (s *Server) validateModelID(ctx context.Context, model string) error {
 	return fmt.Errorf("model %q is not present in available model metadata", model)
 }
 
+// catalogCachedKey marks a context whose model lookups must never wait on a
+// provider. Listing Bots resolves a default effort per Bot; before this, a stale
+// catalog turned GET /api/bots into one live provider call per Bot.
+type catalogCachedKey struct{}
+
+func withCachedCatalog(ctx context.Context) context.Context {
+	return context.WithValue(ctx, catalogCachedKey{}, true)
+}
+
+func catalogCachedOnly(ctx context.Context) bool {
+	cached, _ := ctx.Value(catalogCachedKey{}).(bool)
+	return cached
+}
+
+// loadModelsCached is loadModels without the network: the in-memory catalog of
+// any age, else the stored snapshot. When the memory copy is stale it refreshes
+// in the background (one at a time) so a later call sees live data.
+func (s *Server) loadModelsCached() []ModelOption {
+	if !managedProviderName(s.provider) {
+		return []ModelOption{}
+	}
+	s.modelCatalogMu.Lock()
+	stale := len(s.modelCatalog) == 0 || time.Since(s.modelCatalogAt) >= 5*time.Minute
+	s.modelCatalogMu.Unlock()
+	if stale && s.catalogRefreshing.CompareAndSwap(false, true) {
+		go func() {
+			defer s.catalogRefreshing.Store(false)
+			ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+			defer cancel()
+			s.loadModels(ctx)
+		}()
+	}
+	models := []ModelOption{}
+	if s.codex != nil {
+		s.modelCatalogMu.Lock()
+		codexModels := append([]ModelOption(nil), s.modelCatalog...)
+		s.modelCatalogMu.Unlock()
+		if len(codexModels) == 0 {
+			codexModels, _ = s.store.cachedModels()
+		}
+		for _, option := range codexModels {
+			option.Provider = "codex"
+			if !strings.HasPrefix(option.Name, "Codex · ") {
+				option.Name = "Codex · " + option.Name
+			}
+			models = append(models, option)
+		}
+	}
+	for _, name := range apiKeyProviders {
+		if _, ok := s.providerKey(name); !ok {
+			continue
+		}
+		for _, option := range s.cachedProviderCatalog(name) {
+			option.Provider = publicProviderID(name)
+			models = append(models, option)
+		}
+	}
+	return models
+}
+
 func (s *Server) defaultReasoningForModel(ctx context.Context, model string) string {
+	if catalogCachedOnly(ctx) {
+		if option, ok := s.matchModel(s.loadModelsCached(), model); ok {
+			return option.DefaultReasoning
+		}
+		return ""
+	}
 	models, _, _ := s.loadModels(ctx)
 	if option, ok := s.matchModel(models, model); ok {
 		return option.DefaultReasoning

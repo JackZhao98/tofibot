@@ -57,6 +57,15 @@ func (s *Server) noteDesktopQueueLeftLocked(runID string, at time.Time) {
 	s.desktopQueueLeft[runID] = at
 }
 
+// stuckToolCallsSQL finds running tool calls of running runs. The first status
+// term repeats the WHERE of the partial index tool_activities_active so the
+// minute-by-minute sweep reads only the few live rows, not the whole table.
+const stuckToolCallsSQL = `SELECT a.run_id,r.conversation_id,a.name,a.updated_at,
+  COALESCE((SELECT MAX(q.updated_at) FROM questions q WHERE q.run_id=a.run_id),'')
+FROM tool_activities a JOIN runs r ON r.id=a.run_id
+WHERE a.status IN ('queued','running') AND a.status='running' AND r.status='running'
+  AND NOT EXISTS (SELECT 1 FROM questions q WHERE q.run_id=a.run_id AND q.status=?)`
+
 type stuckToolCall struct {
 	runID, conversationID, name string
 	since                       time.Time
@@ -67,11 +76,7 @@ type stuckToolCall struct {
 // lost (for example the host froze mid-call). Waits for a person or for the
 // shared desktop are excluded, as they are from the deadline itself.
 func (s *Server) reconcileStuckRuns(ctx context.Context, at time.Time) []string {
-	rows, err := s.store.db.QueryContext(ctx, `SELECT a.run_id,r.conversation_id,a.name,a.updated_at,
-  COALESCE((SELECT MAX(q.updated_at) FROM questions q WHERE q.run_id=a.run_id),'')
-FROM tool_activities a JOIN runs r ON r.id=a.run_id
-WHERE a.status='running' AND r.status='running'
-  AND NOT EXISTS (SELECT 1 FROM questions q WHERE q.run_id=a.run_id AND q.status=?)`, questionPending)
+	rows, err := s.store.db.QueryContext(ctx, stuckToolCallsSQL, questionPending)
 	if err != nil {
 		return nil
 	}
@@ -123,6 +128,7 @@ WHERE a.status='running' AND r.status='running'
 		concluded = append(concluded, c.runID)
 		if failed, e := s.store.GetRun(c.runID); e == nil {
 			_, _ = s.store.Event(c.conversationID, "run", failed)
+			s.store.promoteCoAddressedFallback(failed)
 		}
 		// Unwind a live executor; its own terminal write cannot reopen the run.
 		s.mu.Lock()

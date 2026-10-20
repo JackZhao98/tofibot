@@ -108,6 +108,9 @@ func (s *Store) addUserRuns(conv, content, client string, specs []runSpec, attac
 		err = tx.QueryRow(`SELECT id,conversation_id,seq,role,kind,sender_bot_id,run_id,content,notice_data,created_at FROM messages WHERE conversation_id=? AND client_message_id=?`, conv, client).Scan(&m.ID, &m.ConversationID, &m.Seq, &m.Role, &kind, &sb, &ru, &m.Content, &noticeData, &m.CreatedAt)
 		if err == nil {
 			m.Kind, m.SenderBotID, m.RunID = kind.String, sb.String, ru.String
+			if m.Role == "user" {
+				m.ClientMessageID = client
+			}
 			if noticeData.Valid {
 				_ = json.Unmarshal([]byte(noticeData.String), &m.Notice)
 			}
@@ -139,11 +142,13 @@ func (s *Store) addUserRuns(conv, content, client string, specs []runSpec, attac
 			return Message{}, nil, false, err
 		}
 	}
+	var convKind string
+	if err = tx.QueryRow(`SELECT kind FROM conversations WHERE id=?`, conv).Scan(&convKind); err != nil {
+		return Message{}, nil, false, err
+	}
+	isGroup := convKind == "group"
 	if len(specs) == 0 {
-		var kind string
-		if err = tx.QueryRow(`SELECT kind FROM conversations WHERE id=?`, conv).Scan(&kind); err != nil {
-			return Message{}, nil, false, err
-		}
+		kind := convKind
 		if kind != "group" {
 			return Message{}, nil, false, errors.New("at least one run target is required")
 		}
@@ -157,7 +162,16 @@ func (s *Store) addUserRuns(conv, content, client string, specs []runSpec, attac
 	}
 	// A human request supersedes stale queued work in an active conversation;
 	// independent schedule runs are excluded by interruptInTransaction.
-	if err = interruptInTransaction(tx, conv); err != nil {
+	// In a group the message only supersedes work of the Bots it addresses;
+	// the other members' unrelated work keeps running.
+	var addressed []string
+	if isGroup {
+		addressed = make([]string, 0, len(specs))
+		for _, spec := range specs {
+			addressed = append(addressed, spec.BotID)
+		}
+	}
+	if err = interruptInTransaction(tx, conv, addressed...); err != nil {
 		return Message{}, nil, false, err
 	}
 	// The HTTP layer resolves mentions before opening this transaction. A
@@ -176,7 +190,7 @@ func (s *Store) addUserRuns(conv, content, client string, specs []runSpec, attac
 	if err = tx.QueryRow(`SELECT COALESCE(MAX(queue_seq),0) FROM runs WHERE conversation_id=?`, conv).Scan(&nextQueue); err != nil {
 		return Message{}, nil, false, err
 	}
-	m := Message{ID: newID(), ConversationID: conv, Seq: seq, Role: "user", Content: content, CreatedAt: t}
+	m := Message{ID: newID(), ConversationID: conv, Seq: seq, Role: "user", Content: content, CreatedAt: t, ClientMessageID: client}
 	if _, err = tx.Exec(`INSERT INTO messages(id,conversation_id,seq,role,kind,run_id,content,created_at,client_message_id) VALUES(?,?,?,?,?,?,?,?,?)`, m.ID, conv, seq, m.Role, m.Kind, nil, content, t, nullString(client)); err != nil {
 		return Message{}, nil, false, err
 	}
@@ -203,12 +217,18 @@ func (s *Store) addUserRuns(conv, content, client string, specs []runSpec, attac
 	// conversation. The relation scopes carryover evidence to this request and
 	// prevents old steering results leaking into later retries or runs.
 	for _, r := range runs {
+		// In a group only the same Bot's active work is steered: another
+		// member's result must neither be cancelled nor handed to this Bot.
+		sameBot := ""
+		if isGroup {
+			sameBot = r.BotID
+		}
 		if _, err = tx.Exec(`WITH RECURSIVE prior(id) AS (
-			SELECT id FROM runs WHERE conversation_id=? AND id<>? AND (status='running' OR
+			SELECT id FROM runs WHERE conversation_id=? AND id<>? AND (?='' OR bot_id=?) AND (status='running' OR
 				(status IN ('waiting','queued') AND EXISTS(SELECT 1 FROM run_input_waits w WHERE w.run_id=runs.id AND w.state='waiting')))
 			UNION SELECT link.old_run_id FROM run_steering link JOIN prior p ON link.new_run_id=p.id
 		) INSERT OR IGNORE INTO run_steering(new_run_id,old_run_id)
-			SELECT ?,id FROM prior`, conv, r.ID, r.ID); err != nil {
+			SELECT ?,id FROM prior`, conv, r.ID, sameBot, sameBot, r.ID); err != nil {
 			return Message{}, nil, false, err
 		}
 	}
@@ -818,10 +838,33 @@ func appendBotMessageResult(tx *sql.Tx, origin, sender, runID, content string) (
 
 func newID() string { return uuid.NewString() }
 
+// mentionResult lists the members a message addresses. A token that names no
+// member is ordinary text and is not reported.
 type mentionResult struct {
 	IDs       []string
-	Unknown   []string
 	Ambiguous []string
+}
+
+func isCJKRune(r rune) bool {
+	return unicode.In(r, unicode.Han, unicode.Hiragana, unicode.Katakana, unicode.Hangul)
+}
+
+// mentionNameEndsAt reports whether a member name that ends just before
+// runes[end] is a complete mention there. A name continues into the next rune
+// only inside one word: CJK scripts have no spaces, so text may follow a CJK
+// name directly; an address such as @ann@example.com is not a mention.
+func mentionNameEndsAt(name, runes []rune, end int) bool {
+	if end >= len(runes) {
+		return true
+	}
+	next := runes[end]
+	if next == '@' || next == '_' {
+		return false
+	}
+	if !unicode.IsLetter(next) && !unicode.IsDigit(next) {
+		return true
+	}
+	return len(name) > 0 && (isCJKRune(name[len(name)-1]) || isCJKRune(next))
 }
 
 func parseMentions(content string, members []Bot) mentionResult {
@@ -850,12 +893,7 @@ func parseMentions(content string, members []Bot) mentionResult {
 				continue
 			}
 			end := i + 1 + len(nr)
-			if end < len(runes) && (unicode.IsLetter(runes[end]) || unicode.IsDigit(runes[end]) || runes[end] == '_') {
-				continue
-			}
-			// An address such as @ann@example.com is an email local-part,
-			// not a mention of a member named "ann".
-			if end < len(runes) && runes[end] == '@' {
+			if !mentionNameEndsAt(nr, runes, end) {
 				continue
 			}
 			matched = name
@@ -882,7 +920,6 @@ func parseMentions(content string, members []Bot) mentionResult {
 			}
 		}
 		if len(ids) == 0 {
-			out.Unknown = append(out.Unknown, key)
 			continue
 		}
 		if len(ids) > 1 {
@@ -954,7 +991,7 @@ func leadingMentionTarget(content string, c Conversation, s *Server) (string, st
 		return "", ""
 	}
 	parsed := parseMentions(trimmed, members)
-	if len(parsed.IDs) != 1 || len(parsed.Unknown) != 0 || len(parsed.Ambiguous) != 0 {
+	if len(parsed.IDs) != 1 || len(parsed.Ambiguous) != 0 {
 		return "", ""
 	}
 	// Only a leading mention dispatches. Remove the exact name and adjacent
@@ -1127,13 +1164,27 @@ func (s *Store) nextQueuedRun(conv string) (Run, bool, error) {
 	return r, err == nil, err
 }
 
-func interruptInTransaction(tx *sql.Tx, conv string) error {
+// interruptInTransaction supersedes queued work around the active runs. When
+// addressed Bots are given (a group message), only the rounds that contain a
+// run of an addressed Bot are affected; other members' rounds are untouched.
+func interruptInTransaction(tx *sql.Tx, conv string, addressed ...string) error {
 	// A new explicit mention is durable steering input. Leave running work
 	// alone until its stream/tool/model safe boundary; queued stale work can be
 	// cancelled immediately and the new run will carry any completed evidence.
-	rows, err := tx.Query(`WITH RECURSIVE roots(id,trigger_message_id,parent_run_id) AS (
-		SELECT id,trigger_message_id,parent_run_id FROM runs WHERE conversation_id=? AND status='running'
-		UNION SELECT parent.id,parent.trigger_message_id,parent.parent_run_id FROM runs parent JOIN roots child ON parent.id=child.parent_run_id
+	args := []any{conv}
+	scope := ""
+	if len(addressed) > 0 {
+		scope = ` AND start_id IN (SELECT start_id FROM chain WHERE bot_id IN (` + strings.TrimSuffix(strings.Repeat("?,", len(addressed)), ",") + `))`
+		for _, id := range addressed {
+			args = append(args, id)
+		}
+	}
+	args = append(args, conv)
+	rows, err := tx.Query(`WITH RECURSIVE chain(start_id,id,trigger_message_id,parent_run_id,bot_id) AS (
+		SELECT id,id,trigger_message_id,parent_run_id,bot_id FROM runs WHERE conversation_id=? AND status='running'
+		UNION SELECT child.start_id,parent.id,parent.trigger_message_id,parent.parent_run_id,parent.bot_id FROM runs parent JOIN chain child ON parent.id=child.parent_run_id
+	), roots(id,trigger_message_id,parent_run_id) AS (
+		SELECT id,trigger_message_id,parent_run_id FROM chain WHERE 1=1`+scope+`
 	), family(id) AS (
 		SELECT id FROM roots
 		UNION SELECT child.id FROM runs child JOIN family parent ON child.parent_run_id=parent.id
@@ -1144,7 +1195,7 @@ func interruptInTransaction(tx *sql.Tx, conv string) error {
 	WHERE queued.conversation_id=? AND queued.status='queued' AND queued.kind<>'schedule'
 	AND (queued.trigger_message_id IN (SELECT trigger_message_id FROM roots WHERE trigger_message_id<>'')
 		OR queued.parent_run_id IN (SELECT id FROM family)
-		OR queued.id IN (SELECT id FROM steering_successors))`, conv, conv)
+		OR queued.id IN (SELECT id FROM steering_successors))`, args...)
 	if err != nil {
 		return err
 	}
@@ -1177,6 +1228,9 @@ func interruptInTransaction(tx *sql.Tx, conv string) error {
 	}
 	return nil
 }
+// Stop in a group also takes the stopped run's root and everything that
+// root started (sibling wakes included); co-addressed roots of the same
+// message are separate requests and keep running.
 func cancelTreeInTransaction(tx *sql.Tx, seed string, args ...any) error {
 	rows, err := tx.Query(`WITH RECURSIVE seeds(id) AS (`+seed+`), ancestors(id,parent_run_id,kind,trigger_message_id) AS (
  SELECT r.id,r.parent_run_id,r.kind,r.trigger_message_id FROM runs r JOIN seeds ON seeds.id=r.id
@@ -1184,6 +1238,7 @@ func cancelTreeInTransaction(tx *sql.Tx, seed string, args ...any) error {
  ), affected(id) AS (
  SELECT id FROM seeds
  UNION SELECT r.id FROM runs r JOIN ancestors a ON a.kind='group_chat' AND r.kind='group_chat' AND r.trigger_message_id=a.trigger_message_id
+ UNION SELECT a.id FROM ancestors a JOIN runs own ON own.id=a.id JOIN conversations cv ON cv.id=own.conversation_id WHERE cv.kind='group' AND COALESCE(a.parent_run_id,'')=''
  UNION SELECT r.id FROM runs r JOIN affected a ON r.parent_run_id=a.id
  ) SELECT id FROM runs WHERE id IN (SELECT id FROM affected) AND status IN ('queued','running','waiting')`, args...)
 	if err != nil {
@@ -1216,7 +1271,7 @@ func cancelTreeInTransaction(tx *sql.Tx, seed string, args ...any) error {
 				return err
 			}
 		}
-		if _, err = tx.Exec(`UPDATE runs SET status='cancelled',error='interrupted by user mention',updated_at=? WHERE id=?`, now(), id); err != nil {
+		if _, err = tx.Exec(`UPDATE runs SET status='cancelled',error='stopped by user',updated_at=? WHERE id=?`, now(), id); err != nil {
 			return err
 		}
 		r, err := scanRun(tx.QueryRow(`SELECT id,conversation_id,bot_id,status,error,parent_run_id,model,kind,origin_conversation_id,trigger_message_id,queue_seq,created_at,updated_at FROM runs WHERE id=?`, id))
@@ -1274,6 +1329,15 @@ func (s *Store) CancelRunTree(id string) error {
 	}
 	defer tx.Rollback()
 	if err = cancelTreeInTransaction(tx, `SELECT id FROM runs WHERE id=?`, id); err != nil {
+		return err
+	}
+	// A pending wait of the stopped lineage must not wake anyone later.
+	var convKind string
+	if err = tx.QueryRow(`SELECT cv.kind FROM runs r JOIN conversations cv ON cv.id=r.conversation_id WHERE r.id=?`, id).Scan(&convKind); err == nil && convKind == "group" {
+		if _, err = tx.Exec(`UPDATE run_waits SET status='expired' WHERE status='pending' AND lineage=?`, lineageKey(tx, id)); err != nil {
+			return err
+		}
+	} else if err != nil && err != sql.ErrNoRows {
 		return err
 	}
 	if err = tx.Commit(); err != nil {

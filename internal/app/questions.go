@@ -80,6 +80,34 @@ type ApprovalDetails struct {
 	// this chat" is available for this proposal; it says what the grant
 	// would bind to. The model-visible request_approval tool cannot set it.
 	Remember *MCPRememberOffer `json:"remember,omitempty"`
+	// Facts are server-built, model-independent facts about an extension
+	// change, shown above the model's wording. request_approval cannot set them.
+	Facts *ApprovalFacts `json:"facts,omitempty"`
+}
+
+// ApprovalFacts describe an extension change from its payload. Nothing here is
+// model-written prose; secrets appear by name only.
+type ApprovalFacts struct {
+	Kind           string              `json:"kind"` // skill_install, skill_delete, mcp_create, mcp_update, mcp_delete, mcp_test
+	Name           string              `json:"name"`
+	ChangeID       string              `json:"change_id,omitempty"`
+	Source         string              `json:"source,omitempty"`
+	PreviousSource string              `json:"previous_source,omitempty"`
+	Transport      string              `json:"transport,omitempty"`
+	AllowTools     []string            `json:"allow_tools,omitempty"`
+	DenyTools      []string            `json:"deny_tools,omitempty"`
+	HeaderNames    []string            `json:"header_names,omitempty"`
+	OAuthScopes    []string            `json:"oauth_scopes,omitempty"`
+	OAuthMetadata  string              `json:"oauth_metadata,omitempty"`
+	Skill          *ApprovalSkillFacts `json:"skill,omitempty"`
+}
+
+type ApprovalSkillFacts struct {
+	Description  string   `json:"description,omitempty"`
+	Excerpt      string   `json:"excerpt,omitempty"`
+	AllowedTools []string `json:"allowed_tools,omitempty"`
+	Files        []string `json:"files,omitempty"`
+	HasScripts   bool     `json:"has_scripts,omitempty"`
 }
 
 type Question struct {
@@ -217,6 +245,7 @@ claimed_at TEXT NOT NULL DEFAULT ''
 );
 DROP INDEX IF EXISTS mcp_call_approvals_run_action;
 CREATE INDEX IF NOT EXISTS mcp_call_approvals_run_action ON mcp_call_approvals(run_id,action_hash);
+CREATE TABLE IF NOT EXISTS click_approval_claims(question_id TEXT PRIMARY KEY REFERENCES questions(id) ON DELETE CASCADE,run_id TEXT NOT NULL,claimed_at TEXT NOT NULL);
 CREATE TABLE IF NOT EXISTS question_renewals(original_id TEXT PRIMARY KEY REFERENCES questions(id) ON DELETE CASCADE,new_id TEXT NOT NULL UNIQUE REFERENCES questions(id) ON DELETE CASCADE);`)
 	return err
 }
@@ -241,7 +270,7 @@ func normalizeQuestionInput(x askQuestionInput) (askQuestionInput, error) {
 		if x.Approval == nil {
 			return x, errors.New("approval details are required")
 		}
-		if x.Approval.Review != nil || x.Approval.ReviewOnly || x.Approval.Remember != nil {
+		if x.Approval.Review != nil || x.Approval.ReviewOnly || x.Approval.Remember != nil || x.Approval.Facts != nil {
 			return x, errors.New("AutoReview metadata is reserved for the internal MCP gate")
 		}
 		for _, field := range []*string{&x.Approval.Action, &x.Approval.Target, &x.Approval.Impact} {
@@ -351,7 +380,7 @@ func requireHumanPresent(c Conversation) error {
 }
 
 func (s *Server) questionTools(c Conversation, r Run) []Tool {
-	tools := []Tool{{Name: "ask_user_question", Description: "Ask the human a text, yes/no, single-choice, or multiple-choice question and wait for the answer. Set allow_other=true for yes/no or choice questions to offer a human-written alternative. When used, it returns {values:[selected option IDs],other_text:string}; values is empty for yes/no and single-choice. An Other response is not affirmative approval; interpret its actual text. Ordinary answers retain their boolean, string, or array format. Answers are ordinary conversation data: never ask for secrets here. Use ask_user_form for several webpage fields in one card, including private password fields.", Parameters: objectSchema(map[string]any{
+	tools := []Tool{{Name: "ask_user_question", Description: "Use only when the answer blocks the work and no reasonable stated assumption lets it proceed; otherwise proceed and state the assumption. Before asking, settle what you would assume if no answer came: a plan, draft or recommendation requested is delivered on that assumption, stated in a line, and a detail left out is a default to state. A question typed into the reply is asking too. Ask the human a text, yes/no, single-choice, or multiple-choice question and wait for the answer. Set allow_other=true for yes/no or choice questions to offer a human-written alternative. When used, it returns {values:[selected option IDs],other_text:string}; values is empty for yes/no and single-choice. An Other response is not affirmative approval; interpret its actual text. Ordinary answers retain their boolean, string, or array format. Answers are ordinary conversation data: never ask for secrets here. Use ask_user_form for several webpage fields in one card, including private password fields.", Parameters: objectSchema(map[string]any{
 		"question":           map[string]any{"type": "string"},
 		"type":               map[string]any{"type": "string", "enum": []string{questionText, questionYesNo, questionSingleChoice, questionMultiChoice}},
 		"options":            map[string]any{"type": "array", "items": map[string]any{"type": "object", "properties": map[string]any{"id": map[string]any{"type": "string"}, "label": map[string]any{"type": "string"}}, "required": []string{"id", "label"}, "additionalProperties": false}},
@@ -430,6 +459,15 @@ func (s *Server) approvalTool(c Conversation, r Run) Tool {
 		in, err := normalizeQuestionInput(askQuestionInput{Question: input.Question, Type: questionApproval, Approval: &input.ApprovalDetails, ExpiresInSeconds: input.ExpiresInSeconds})
 		if err != nil {
 			return "", err
+		}
+		// A card that names an extension change carries the server's own
+		// description of that change; without one there is nothing true to show.
+		if facts, isExtension := s.extensionFactsForTarget(r, in.Approval.Target); isExtension {
+			if facts == nil {
+				return "", tooloutcome.New(tooloutcome.NeedInformation, "extension_change_unknown", "not_executed",
+					"This approval target does not name a change the server has seen in this run. Call manage_extensions first, then ask with the exact target it returns.", "repair_arguments").Err()
+			}
+			in.Approval.Facts = facts
 		}
 		if in.Approval.DraftID != "" {
 			draft, err := s.store.GetMailDraft(in.Approval.DraftID)

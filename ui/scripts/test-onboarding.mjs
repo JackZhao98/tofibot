@@ -78,6 +78,7 @@ async function mockApi(page, state) {
       state.bots = [state.makeBot()];
       return json({ bot: state.bots[0], created: true }, 201);
     }
+    if (path === "/api/auth/codex/connect" && state.codexConnectFails) return json({ error: { code: "codex_connect", message: "dial tcp: lookup auth.openai.com: no such host" } }, 503);
     if (path === "/api/auth/codex/connect") { state.popups++; return json({ session_id: "sess_1", verification_url: "https://auth.example.test/device", user_code: CODE, expires_at: Date.now() + 120000, interval: 1 }); }
     if (path === "/api/auth/codex/connect/sess_1/poll") { if (state.codexConnected) { state.model = true; return json({ connected: true, pending: false }); } return json({ connected: false, pending: true }); }
     if (path === "/api/auth/codex") return json({ connected: state.codexConnected });
@@ -86,6 +87,9 @@ async function mockApi(page, state) {
       state.keyTries++;
       await new Promise(resolve => setTimeout(resolve, state.keyDelay ?? 500));
       if (state.keyTries <= state.keyFailures) return json({ error: { code: "invalid_key", message: "" } }, 400);
+      // Mirrors the server: a valid key that lists no models or has no usage left is refused by name and not stored.
+      if (state.keyCode) return json({ error: { code: state.keyCode, message: "" } }, state.keyCode === "no_quota" ? 402 : 400);
+      if (Array.isArray(state.catalog) && !state.catalog.length) return json({ error: { code: "no_models", message: "" } }, 400);
       state.model = true;
       return json({ id: "openai", label: "OpenAI", kind: "api_key", configured: true, key_hint: "…0000" });
     }
@@ -195,7 +199,7 @@ async function walkthrough({ width, height, theme, locale = "en-US", shotsOn = t
     // 2c. API key: checking, then an inline error, then success.
     await page.locator(".onb-choice").nth(1).click();
     await page.locator("#onb-key").fill(SYNTHETIC_KEY);
-    await page.locator(".onb-keyrow button").click();
+    await page.locator(".onb-foot button[form=\"onb-key-form\"]").click();
     await page.getByText(/Checking your key|Dein Schlüssel wird geprüft/).waitFor();
     assert.equal(await page.locator("#onb-key").isDisabled(), true, "the field is locked while checking");
     if (strict) await assertNoTruncation(page, "key checking");
@@ -206,7 +210,7 @@ async function walkthrough({ width, height, theme, locale = "en-US", shotsOn = t
     assert.equal(await page.locator("#onb-key").inputValue(), SYNTHETIC_KEY, "the key stays for an easy fix");
     if (strict) await assertNoTruncation(page, "key error");
     await shoot(page, "5-key-error");
-    await page.locator(".onb-keyrow button").click();
+    await page.locator(".onb-foot button[form=\"onb-key-form\"]").click();
     await page.locator(".onb-connected").waitFor();
     assert.ok(state.calls.includes("POST /api/onboarding/first-bot"), "the first Bot is created once a model works");
     assert.equal(state.bots.length, 1);
@@ -443,12 +447,58 @@ try {
     const { page, context } = await open(state);
     await page.locator(".onb-choice").nth(1).click();
     await page.locator("#onb-key").fill(SYNTHETIC_KEY);
-    await page.locator(".onb-keyrow button").click();
+    await page.locator(".onb-foot button[form=\"onb-key-form\"]").click();
     await page.locator("#onb-key-error").waitFor();
     assert.match(await page.locator("#onb-key-error").innerText(), /can.t use any models yet/);
     assert.equal(await page.locator("#onb-key-error a").count(), 1, "Open billing is offered");
     await context.close();
     pass("key without model access: one sentence and an Open billing link");
+  }
+
+  // An account with no usage left is named as such, with the billing link.
+  {
+    const state = makeServer({ onboarding: { step: 2, completed: false, skipped: false } });
+    state.keyCode = "no_quota";
+    const { page, context } = await open(state);
+    await page.locator(".onb-choice").nth(1).click();
+    await page.locator("#onb-key").fill(SYNTHETIC_KEY);
+    await page.locator(".onb-foot button[form=\"onb-key-form\"]").click();
+    await page.locator("#onb-key-error").waitFor();
+    assert.match(await page.locator("#onb-key-error").innerText(), /no usage left/);
+    assert.equal(await page.locator("#onb-key-error a").count(), 1, "Open billing is offered");
+    await context.close();
+    pass("key without usage: named as such, with an Open billing link");
+  }
+
+  // The Anthropic path explains the required Workspace ID, and Enter in either field submits.
+  {
+    const state = makeServer({ onboarding: { step: 2, completed: false, skipped: false } });
+    const { page, context } = await open(state);
+    await page.locator(".onb-choice").nth(1).click();
+    await page.locator(".onb-seg button").nth(1).click();
+    await page.locator("#onb-workspace-note").waitFor();
+    assert.match(await page.locator("#onb-workspace-note").innerText(), /wrkspc_/);
+    assert.equal(await page.locator(".onb-keyrow button").count(), 0, "one primary action lives in the footer");
+    assert.equal(await page.locator(".onb-foot button[form=\"onb-key-form\"]").isDisabled(), true);
+    await page.locator("#onb-key").fill(SYNTHETIC_KEY);
+    await page.locator("#onb-workspace").fill("wrkspc_synthetic");
+    assert.equal(await page.locator(".onb-foot button[form=\"onb-key-form\"]").isDisabled(), false);
+    await page.locator("#onb-workspace").press("Enter");
+    await page.locator(".onb-connected").waitFor();
+    await context.close();
+    pass("Anthropic path: Workspace ID explained, single footer action, Enter submits");
+  }
+
+  // The server failing to reach OpenAI is not the person cancelling.
+  {
+    const state = makeServer({ onboarding: { step: 2, completed: false, skipped: false } });
+    state.codexConnectFails = true;
+    const { page, context } = await open(state);
+    await page.locator(".onb-foot .primary-button").click();
+    await page.getByText(/can.t reach OpenAI/).waitFor();
+    assert.equal(await page.getByText(/cancelled or timed out/).count(), 0);
+    await context.close();
+    pass("ChatGPT sign-in: an unreachable OpenAI is not reported as cancelled");
   }
 
   // Returning accounts (a model and a Bot) never see it, and neither do finished ones.

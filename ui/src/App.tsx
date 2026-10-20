@@ -1,3 +1,4 @@
+import { useGraceFlag } from "./useGraceFlag";
 import { thinkingHeadline } from "./thinkingHeadline";
 import { TaskRunBlock, taskBlockVisible } from "./TaskRunBlock";
 import { markSenderGroups } from "./senderGroups";
@@ -9,6 +10,7 @@ import { memoryDisplay } from "./displayMetadata";
 import { mergeMessageTimeline, precedingBlockBotIds, previousRenderedIndex } from "./messageTimeline";
 import { textareaCaretRect } from "./textareaCaret";
 import { DelayedFeedback } from "./DelayedFeedback";
+import { BootScreen } from "./BootScreen";
 import { WebFileDropOverlay } from "./WebFileDropOverlay";
 import { SidebarAccount } from "./OwnerSession";
 import { UpdateBanner } from "./UpdateNotice";
@@ -18,10 +20,15 @@ import {dateInTimezone, dateTimeFormat, formatZonedTime} from "./timezone";
 import {AttachmentList} from "./MessageAttachment";
 import {FilePreviewHost} from "./FileViewer";
 import {MessageReactions} from "./MessageReactions";
+import { applyUserReaction } from "./reactionState";
+import { clearMessageActions, setMessageActions, tappedMessageActionsId, useMessageActionsOpen } from "./messageActionsStore";
+import { CopyFeedbackIcon } from "./CopyFeedbackIcon";
+import { attachmentUrl } from "./filePreviewModel";
 import { DisplayCard } from "./DisplayCard";
 import { QuestionCard, useQuestions } from "./QuestionCard";
 import { RememberedApprovalsSheet } from "./RememberedApprovals";
 import { toolDisplayState, toolDisplayLabel } from "./toolTimeline";
+import { requestFullToolResult, setToolResultLoader } from "./toolResultLoader";
 import { taskStateLabel } from "./ConversationTaskStatus";
 import { MailDraftCard, useMailDrafts } from "./MailDraftCard";
 import { buildQuestionTimeline, compareQuestionTime } from "./questionTimeline";
@@ -54,7 +61,7 @@ import { useScheduleMetadata } from "./useScheduleMetadata";
 import type { Schedule } from "./types";
 import { TofiIcon as Icon, type TofiIconName } from "./icons";
 import { ComposerGlyph } from "./ComposerGlyph";
-import { intlLocale } from "./i18n/format";
+import { formatRelativeTime, intlLocale } from "./i18n/format";
 import { BrandLogo } from "./BrandLogo";
 import { createContext, lazy, memo, startTransition, Suspense, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { flushSync } from "react-dom";
@@ -70,10 +77,13 @@ import { chipStep, onboardingMode, parseOnboardingState, resumeStep, type Onboar
 import { LoadingCat } from "./motion-lab/lib/LoadingCat";
 import { flipList } from "./motion-lab/lib/flip";
 import { flySentMessage } from "./sendFlight";
+import { SendReceipt } from "./SendReceipt";
+import { receiptFor, runsByTrigger } from "./sendReceipts";
 import { activeBotRuns, botRecentlyActive, latestBotWorkTime, latestHumanMessageTime } from "./botActivity";
 import { reconcileToolActivity, activeToolForRun, buildToolRunAnchors, buildToolSummaryAnchors, buildToolTimeline, compareToolActivities, elapsedToolSeconds, orderToolActivities, toolActionLabel, toolArgumentPreview, toolAttemptIssues } from "./toolTimeline";
 import { foldCompletedProgress, isMidRunKind } from "./runProgress";
 import { mergeRunUpdates } from "./runMerge";
+import { draftDeltaApplies } from "./draftDelta";
 import { shouldShowReplyQuote } from "./replyQuote";
 import { buildRetryFamilies, isTerminalRun, retryFamilyAnchor } from "./runFamily";
 import { composerClientMessageId, composerDraftMatchesMessage, composerMessageContent, composerMessageSignature, type ComposerReply } from "./composerDraft";
@@ -212,6 +222,21 @@ const runStatusKeys = {
 const computerHealthAlert = (health?: ComputerHealth) => health?.state === "restarting" || health?.state === "unresponsive";
 const computerPhaseKeys: Record<string, "computer_phase.checking" | "computer_phase.storage" | "computer_phase.network" | "computer_phase.booting" | "computer_phase.restoring" | "computer_phase.verifying" | "computer_phase.ready"> = { checking: "computer_phase.checking", storage: "computer_phase.storage", network: "computer_phase.network", booting: "computer_phase.booting", restoring: "computer_phase.restoring", verifying: "computer_phase.verifying", ready: "computer_phase.ready" };
 
+/**
+ * One stable identity for a person's message from the moment it is typed until it is history. The optimistic copy and
+ * the server's copy carry the same client_message_id, so React keeps one DOM node across the swap and nothing replays.
+ */
+function blockKey(message: Message) {
+  return message.role === "user" && message.client_message_id ? `cm:${message.client_message_id}` : message.id;
+}
+
+/** The server's copy of a sent message replaces its optimistic one wherever either arrives first. */
+function reconcileSent(list: Message[], server: Message): Message[] {
+  const client = server.client_message_id;
+  const rest = list.filter(item => item.id !== server.id && !(client && item.local && item.client_message_id === client));
+  return [...rest, server].sort((a, b) => a.seq - b.seq);
+}
+
 function asMessage(data: EventEnvelope): Message | null {
   const value = data.message ?? data;
   return typeof value === "object" && value !== null && "id" in value ? (value as Message) : null;
@@ -263,18 +288,71 @@ function formatHoverTime(value: string, timeZone: string) {
   return dateTimeFormat(intlLocale(), { ...(sameDay ? {} : { month: "numeric", day: "numeric" }), hour: "2-digit", minute: "2-digit", timeZone }).format(new Date(value));
 }
 
-/** Browser-mode message actions, revealed on hover or keyboard focus instead of a context menu. */
-const MessageHoverActions = memo(function MessageHoverActions({ message, timezone, onReact, onReply, onActivity, activityOpen }: { message: Message; timezone: string; onReact: (anchor: DOMRect) => void; onReply?: () => void; onActivity?: () => void; activityOpen?: boolean }) {
+/** The bar's quiet timestamp: relative while it is recent, the clock time once it is old. The exact time is the tooltip. */
+function formatBarTime(value: string, timeZone: string, justNow: string) {
+  const age = Date.now() - new Date(value).getTime();
+  if (!Number.isFinite(age)) return formatHoverTime(value, timeZone);
+  if (age < 45_000) return justNow;
+  return age < 7 * 24 * 3600_000 ? formatRelativeTime(value) : formatHoverTime(value, timeZone);
+}
+
+/** What Copy puts on the clipboard: the message as the reader sees it, without the sender context label or reply marker. */
+function copyableMessageText(message: Message) {
+  const body = readReplyMarker(message.content.replace(/^\[sender [^\]\n]*? id=[^\]\n]+\]\s*/, "")).body.trim();
+  return body.replace(/\]\(attachment:([^)\s]+)\)/g, (_, id) => `](${location.origin}${attachmentUrl(id)})`);
+}
+async function writeClipboard(text: string) {
+  try { await navigator.clipboard.writeText(text); return true; } catch { /* LAN HTTP and blocked permissions have no async clipboard */ }
+  const field = document.createElement("textarea");
+  field.value = text; field.setAttribute("readonly", ""); field.style.cssText = "position:fixed;top:0;left:0;opacity:0";
+  document.body.appendChild(field); field.select();
+  let ok = false;
+  try { ok = document.execCommand("copy"); } catch { ok = false; }
+  field.remove();
+  return ok;
+}
+
+/** Browser-mode message actions, mounted only for the message the pointer, focus or a tap is on. */
+const MessageHoverActions = memo(function MessageHoverActions({ message, timezone, onReact, onReply, onActivity, activityOpen, copyText }: { message: Message; timezone: string; onReact: (anchor: DOMRect) => void; onReply?: () => void; onActivity?: () => void; activityOpen?: boolean; copyText?: string }) {
   const { t } = useTranslation("chat");
-  return <div className="message-hover-actions" role="toolbar" aria-label={t("hover.toolbar")}>
-    <time dateTime={message.created_at} title={`${formatExactTime(message.created_at, timezone)} · ${timezone}`}>{formatHoverTime(message.created_at, timezone)}</time>
-    <button type="button" aria-label={t("hover.react")} data-hint={t("hover.react")} onClick={event => onReact(event.currentTarget.getBoundingClientRect())}><Icon name="emoji" size={16} /></button>
-    {onReply && <button type="button" aria-label={t("hover.reply")} data-hint={t("hover.reply")} onClick={onReply}><Icon name="reply" size={16} /></button>}
-    {onActivity && <button type="button" className="message-activity-action" aria-label={activityOpen ? t("hover.hide_activity") : t("hover.view_activity")} aria-pressed={activityOpen} data-hint={activityOpen ? t("hover.hide_activity") : t("hover.view_activity")} onClick={onActivity}><Icon name="activity" size={16} /></button>}
+  const [copied, setCopied] = useState(false);
+  const copiedTimer = useRef<number | undefined>(undefined);
+  useEffect(() => () => window.clearTimeout(copiedTimer.current), []);
+  async function copy() {
+    if (!copyText || !await writeClipboard(copyText)) return;
+    setCopied(true);
+    window.clearTimeout(copiedTimer.current);
+    copiedTimer.current = window.setTimeout(() => setCopied(false), 1200);
+  }
+  // One tab stop per bar (the first button); arrows, Home and End move inside it, as the toolbar role promises.
+  function onKeyDown(event: React.KeyboardEvent<HTMLDivElement>) {
+    const keys = ["ArrowLeft", "ArrowRight", "Home", "End"];
+    if (!keys.includes(event.key)) return;
+    const buttons = [...event.currentTarget.querySelectorAll<HTMLButtonElement>("button")];
+    const at = buttons.indexOf(document.activeElement as HTMLButtonElement);
+    if (at < 0) return;
+    event.preventDefault();
+    const next = event.key === "Home" ? 0 : event.key === "End" ? buttons.length - 1 : (at + (event.key === "ArrowRight" ? 1 : -1) + buttons.length) % buttons.length;
+    buttons.forEach((button, index) => { button.tabIndex = index === next ? 0 : -1; });
+    buttons[next].focus();
+  }
+  let first = true;
+  const stop = () => { const index = first ? 0 : -1; first = false; return index; };
+  return <div className="message-hover-actions" role="toolbar" aria-label={t("hover.toolbar")} onKeyDown={onKeyDown}>
+    {copyText && <button type="button" tabIndex={stop()} aria-label={copied ? t("hover.copied") : t("hover.copy")} data-hint={copied ? t("hover.copied") : t("hover.copy")} data-action="copy" onClick={() => void copy()}><CopyFeedbackIcon copied={copied} size={15} /></button>}
+    <button type="button" tabIndex={stop()} aria-label={t("hover.react")} data-hint={t("hover.react")} data-action="react" onClick={event => onReact(event.currentTarget.getBoundingClientRect())}><Icon name="emoji" size={15} /></button>
+    {onReply && <button type="button" tabIndex={stop()} aria-label={t("hover.reply")} data-hint={t("hover.reply")} data-action="reply" onClick={onReply}><Icon name="reply" size={15} /></button>}
+    {onActivity && <button type="button" tabIndex={stop()} className="message-activity-action" aria-label={activityOpen ? t("hover.hide_activity") : t("hover.view_activity")} aria-pressed={activityOpen} data-hint={activityOpen ? t("hover.hide_activity") : t("hover.view_activity")} data-action="activity" onClick={onActivity}><Icon name="activity" size={15} /></button>}
+    <time dateTime={message.created_at} title={`${formatExactTime(message.created_at, timezone)} · ${timezone}`}>{formatBarTime(message.created_at, timezone, t("hover.just_now"))}</time>
   </div>;
-}, (previous, next) => previous.message === next.message && previous.timezone === next.timezone && previous.activityOpen === next.activityOpen
+}, (previous, next) => previous.message === next.message && previous.timezone === next.timezone && previous.activityOpen === next.activityOpen && previous.copyText === next.copyText
   // The handlers are rebuilt every render; they act on the same message, so only their presence matters here.
   && Boolean(previous.onReply) === Boolean(next.onReply) && Boolean(previous.onActivity) === Boolean(next.onActivity));
+
+/** Holds a message's action bar and mounts it only while that message is the active one. */
+function MessageActionsSlot({ id, children }: { id: string; children: React.ReactNode }) {
+  return useMessageActionsOpen(id) ? <>{children}</> : null;
+}
 
 /** Scrolls to a message and flashes it once without leaving a persistent frame. */
 function jumpToMessage(target: HTMLElement | null | undefined) {
@@ -375,15 +453,27 @@ function formatDateDivider(value: string, timeZone: string) {
   return `${formatDay(value, timeZone)} ${formatTime(value, timeZone)}`;
 }
 
+/** fetch rejects with a TypeError when no response arrived; a timed-out read rejects with a TimeoutError. */
+function isNetworkFailure(error: unknown) {
+  return error instanceof TypeError || (error instanceof DOMException && (error.name === "TimeoutError" || error.name === "NetworkError"));
+}
+
 function errorText(error: unknown) {
+  if (isNetworkFailure(error)) return i18n.t("chat:error.network_unreachable");
   if (error instanceof ApiError && error.code === "archive_busy") return i18n.t("chat:apiError.archive_busy");
   if (error instanceof ApiError && error.code === "archive_blocked") return i18n.t("chat:apiError.archive_blocked");
   if (error instanceof ApiError && error.code === "no_active_members") return i18n.t("chat:apiError.no_active_members");
+  if (error instanceof ApiError && error.code === "ambiguous_recipient") return i18n.t("chat:apiError.ambiguous_recipient");
   if (error instanceof ApiError && error.status === 503) {
     return error.code === "model_unconfigured" ? i18n.t("chat:apiError.model_unconfigured") : i18n.t("chat:error.service_unavailable");
   }
   return error instanceof Error ? error.message : i18n.t("chat:error.generic");
 }
+
+/** The server pings every 15s; this much silence on a stream means the link died without closing. */
+const STREAM_STALE_MS = 30_000;
+const LINK_LOSS_GRACE_MS = 4000;
+const STREAM_WAKE_STALE_MS = 20_000;
 
 function App() {
   return <TimezoneProvider><Workspace /></TimezoneProvider>;
@@ -393,7 +483,6 @@ function Workspace() {
   const { t } = useTranslation(["chat", "common"]);
   const {timezone, showActivity} = useUserTimezone();
   const [revealedRuns, setRevealedRuns] = useState<ReadonlySet<string>>(() => new Set());
-  const [tapActionsId, setTapActionsId] = useState("");
   const activityView = useMemo(() => ({ show: showActivity, revealed: revealedRuns }), [showActivity, revealedRuns]);
   const appearance = useAppearance();
   const [sidebarCollapsed, setSidebarCollapsed] = useState(Boolean(desktopState().sidebarCollapsed));
@@ -436,6 +525,11 @@ function Workspace() {
   const [teamBoardOpen, setTeamBoardOpen] = useState(false);
   useEffect(() => { setTeamBoardOpen(false); }, [activeId]);
   const arrivalIDs = useRef(new Set<string>());
+  /** What each unacknowledged outgoing message needs to be sent again: its text and uploaded attachment ids. In memory only. */
+  const sendPayloads = useRef(new Map<string, { conversationId: string; content: string; attachmentIds: string[] }>());
+  const reactionTokens = useRef(new Map<string, number>());
+  /** Ids that appeared as a streaming draft: their text was already read in place, so the saved message must not replay an arrival. */
+  const streamedIDs = useRef(new Set<string>());
   /** A press that lands while text is selected dismisses the selection; it must not also toggle the tap actions. */
   const selectionOnPress = useRef(false);
   const messageListRef = useRef<HTMLDivElement | null>(null);
@@ -472,7 +566,6 @@ function Workspace() {
   const [panel, setPanel] = useState<Panel>(null);
   const displayedPanel = useSurfacePresence(panel, 380);
   const [desktopReady, setDesktopReady] = useState(false);
-  const desktopPresence = useDesktopPresence(Boolean(activeId));
   // Keep in sync with conversation-workspace.css: three columns need room for chat.
   const [compactViewport, setCompactViewport] = useState(() => typeof window !== "undefined" && window.matchMedia("(max-width: 1099px)").matches);
   // The computer opens as a small floating window; the last size lives only as long as this page.
@@ -488,6 +581,7 @@ function Workspace() {
   const [error, setError] = useState("");
   const [snapshotError, setSnapshotError] = useState("");
   const [workspaceError, setWorkspaceError] = useState("");
+  const workspaceErrorShown = useGraceFlag(Boolean(workspaceError), LINK_LOSS_GRACE_MS);
   const [headerMenuOpen, setHeaderMenuOpen] = useState(false);
   const [rememberedOpen, setRememberedOpen] = useState(false);
   const [createMenuOpen, setCreateMenuOpen] = useState(false);
@@ -515,6 +609,9 @@ function Workspace() {
   const knownBotNames = useRef(new Map<string, string>());
   useEffect(() => { for (const bot of bots) knownBotNames.current.set(bot.id, bot.name); }, [bots]);
   const [streamConnected, setStreamConnected] = useState(true);
+  // A restart or a Wi-Fi blip is over before anyone can act on it: announce a lost link only once it has lasted.
+  const linkLost = useGraceFlag(!streamConnected, LINK_LOSS_GRACE_MS);
+  const linkConnected = !linkLost;
   const [codexStatusRefresh, setCodexStatusRefresh] = useState(0);
   const [extensionRefresh, setExtensionRefresh] = useState(0);
   const [computerInfo, setComputerInfo] = useState<{ state: string; phase?: string; error?: string; health?: ComputerHealth } | null>(null);
@@ -585,6 +682,14 @@ function Workspace() {
   const reconnectTimer = useRef<number | undefined>(undefined);
   const eventConnectTimer = useRef<number | undefined>(undefined);
   const reconnectAttempt = useRef(0);
+  // Liveness of the open streams: the server pings every 15s, so a long silence means the link died without closing.
+  const lastFrameAt = useRef(Date.now());
+  const eventFailNow = useRef<(() => void) | null>(null);
+  const eventWatchdog = useRef<number | undefined>(undefined);
+  const snapshotRetryNow = useRef<(() => void) | null>(null);
+  const workspaceLastFrameAt = useRef(Date.now());
+  const workspaceFailNow = useRef<(() => void) | null>(null);
+  const workspaceWatchdog = useRef<number | undefined>(undefined);
   const activeIdRef = useRef<string | null>(null);
   const snapshotEventCursor = useRef(0);
   const snapshotMaxSeq = useRef(0);
@@ -593,7 +698,19 @@ function Workspace() {
   const newBotCreationId = useRef<string | null>(null);
   const newBotPending = useRef(false);
   const snapshotGeneration = useRef(0);
-  const workspaceRefreshGeneration = useRef(0);
+  // Workspace list requests are ordered by when they started. A response is
+  // applied unless a request that started later has already been applied, so a
+  // slow list can never be starved by the next poll superseding it.
+  const workspaceRequestSeq = useRef(0);
+  const workspaceAppliedSeq = useRef(0);
+  const workspaceInFlight = useRef(0);
+  const workspaceInFlightAt = useRef(0);
+  const archivedRequested = useRef(false);
+  // Workspace events arrive in bursts (an import or an eval can write hundreds).
+  // They are coalesced into one list refresh, with one request in flight.
+  const workspaceEventPending = useRef(false);
+  const workspaceEventTimer = useRef<number | undefined>(undefined);
+  const flushWorkspaceEvents = useRef<() => void>(() => {});
   const configRefreshGeneration = useRef(0);
   const workspaceEventCursor = useRef(0);
   const workspaceEventSource = useRef<EventSource | null>(null);
@@ -655,14 +772,58 @@ function Workspace() {
     }
   }, []);
 
+  const beginWorkspaceRequest = () => {
+    workspaceInFlight.current += 1;
+    workspaceInFlightAt.current = Date.now();
+    return ++workspaceRequestSeq.current;
+  };
+  // True when this response may be applied; it then becomes the newest applied one.
+  const claimWorkspaceResult = (seq: number, generation: number) => {
+    if (generation !== snapshotGeneration.current || newBotPending.current || seq < workspaceAppliedSeq.current) return false;
+    workspaceAppliedSeq.current = seq;
+    return true;
+  };
+  const endWorkspaceRequest = (applied: boolean) => {
+    workspaceInFlight.current = Math.max(0, workspaceInFlight.current - 1);
+    if (applied || workspaceInFlight.current === 0) setLoading(false);
+    if (workspaceInFlight.current === 0 && workspaceEventPending.current && indexInitialized.current) flushWorkspaceEvents.current();
+  };
+  // A poll tick or focus event must not stack another request behind a slow
+  // one. A request older than this is presumed hung and no longer blocks ticks.
+  const workspaceRequestBusy = () => workspaceInFlight.current > 0 && Date.now() - workspaceInFlightAt.current < 20_000;
+
+  const mergeArchived = useCallback((archivedConversations: Conversation[], archivedBots: Bot[]) => {
+    setConversations((current) => [...current.filter((item) => !archivedConversations.some((archived) => archived.id === item.id)), ...archivedConversations]);
+    setBots((current) => [...current.filter((item) => !archivedBots.some((archived) => archived.id === item.id)), ...archivedBots]);
+  }, []);
+
+  // Archived rows are not part of the polled lists; they load once in the
+  // background after the workspace is on screen, and again when the archive
+  // view opens or an explicit refresh asks for them.
+  const loadArchivedInBackground = useCallback(async () => {
+    if (archivedRequested.current) return;
+    archivedRequested.current = true;
+    try {
+      const [conversationResult, botResult] = await Promise.all([api.conversations(true), api.bots(true)]);
+      mergeArchived(conversationResult.conversations.filter((item) => item.archived), botResult.bots.filter((item) => item.archived));
+    } catch {
+      archivedRequested.current = false;
+    }
+  }, [mergeArchived]);
+
   const refreshIndex = useCallback(async () => {
     const generation = snapshotGeneration.current;
-    const requestGeneration = ++workspaceRefreshGeneration.current;
+    const requestSeq = beginWorkspaceRequest();
     const configRequestGeneration = ++configRefreshGeneration.current;
+    // The first load only needs what the sidebar shows. Explicit refreshes
+    // after a mutation keep asking for archived rows too.
+    const firstLoad = !indexInitialized.current;
+    let applied = false;
     setLoading(true);
     try {
-      const [botResult, conversationResult, nextConfig] = await Promise.all([api.bots(true), api.conversations(true), api.config()]);
-      if (requestGeneration !== workspaceRefreshGeneration.current || generation !== snapshotGeneration.current || newBotPending.current) return;
+      const [botResult, conversationResult, nextConfig] = await Promise.all([api.bots(!firstLoad), api.conversations(!firstLoad), api.config()]);
+      if (!claimWorkspaceResult(requestSeq, generation)) return;
+      applied = true;
       setBots(botResult.bots);
       setConversations(conversationResult.conversations);
       for (const c of conversationResult.conversations) notificationSeen.current[c.id] = c.last_message?.seq ?? 0;
@@ -673,22 +834,30 @@ function Workspace() {
       // independent config request own model state.
       if (configRequestGeneration === configRefreshGeneration.current) applyConfig(nextConfig);
       setError("");
+      if (firstLoad) void loadArchivedInBackground();
     } catch (cause) {
       setWorkspaceError(errorText(cause));
       setError(errorText(cause));
     } finally {
-      if (requestGeneration === workspaceRefreshGeneration.current) setLoading(false);
+      endWorkspaceRequest(applied);
     }
-  }, [applyConfig]);
+  }, [applyConfig, loadArchivedInBackground]);
 
   const refreshConversations = useCallback(async () => {
     const generation = snapshotGeneration.current;
-    const requestGeneration = ++workspaceRefreshGeneration.current;
+    const requestSeq = beginWorkspaceRequest();
+    let applied = false;
     try {
-      const [result, botResult] = await Promise.all([api.conversations(true), api.bots(true)]);
-      if (requestGeneration !== workspaceRefreshGeneration.current || generation !== snapshotGeneration.current || newBotPending.current) return;
+      const [result, botResult] = await Promise.all([api.conversations(), api.bots()]);
+      if (!claimWorkspaceResult(requestSeq, generation)) return;
+      applied = true;
       // The 5s poll usually returns what is already shown; keeping the old objects keeps the whole workspace from re-rendering.
-      setBots((current) => sameData(current, botResult.bots) ? current : botResult.bots);
+      // Archived rows are not polled: keep the ones already loaded.
+      setBots((current) => {
+        const fresh = new Set(botResult.bots.map((bot) => bot.id));
+        const merged = [...botResult.bots, ...current.filter((bot) => bot.archived && !fresh.has(bot.id))];
+        return sameData(current, merged) ? current : merged;
+      });
       setWorkspaceError("");
       for (const c of result.conversations) {
         const message = c.last_message;
@@ -710,16 +879,16 @@ function Workspace() {
           if (local?.last_message && (!conversation.last_message || local.last_message.seq > conversation.last_message.seq)) return { ...conversation, last_message: local.last_message, updated_at: local.updated_at, last_user_message_at: local.last_user_message_at ?? conversation.last_user_message_at };
           return conversation;
         });
-        return sameData(current, merged) ? current : merged;
+        const fresh = new Set(merged.map((conversation) => conversation.id));
+        const withArchived = [...merged, ...current.filter((conversation) => conversation.archived && !fresh.has(conversation.id))];
+        return sameData(current, withArchived) ? current : withArchived;
       });
     } catch (cause) {
       // Conversation previews are best-effort while the app is in use.
       if (indexInitialized.current) setWorkspaceError(errorText(cause));
     } finally {
-      // A lightweight refresh can supersede a full refresh (for example when
-      // Codex settings close while the polling tick fires). Whichever current
-      // workspace request wins must release the shared loading indicator.
-      if (requestGeneration === workspaceRefreshGeneration.current) setLoading(false);
+      // Whichever workspace request lands last must release the shared loading indicator.
+      endWorkspaceRequest(applied);
     }
   }, [selectConversation]);
 
@@ -754,6 +923,22 @@ function Workspace() {
   /** The composer banner's Connect: reopen setup at the model step, or Settings once setup is behind the account. */
   const connectModel = () => { if (onboarding && !onboarding.completed) setOnboardingForced(2); else openSettings("models"); };
 
+  const scheduleWorkspaceEventRefresh = useCallback(() => {
+    if (workspaceEventTimer.current !== undefined) return;
+    workspaceEventTimer.current = window.setTimeout(() => {
+      workspaceEventTimer.current = undefined;
+      flushWorkspaceEvents.current();
+    }, 200);
+  }, []);
+  flushWorkspaceEvents.current = () => {
+    // One refresh per burst. While a request is in flight it re-flushes when it ends.
+    if (!workspaceEventPending.current || workspaceInFlight.current > 0 || !indexInitialized.current) return;
+    workspaceEventPending.current = false;
+    setScheduleRefresh(current => current + 1);
+    void refreshConversations();
+  };
+  useEffect(() => () => { if (workspaceEventTimer.current !== undefined) window.clearTimeout(workspaceEventTimer.current); }, []);
+
   const handleWorkspaceEvent = useCallback((data: WorkspaceEventEnvelope, id: number) => {
     // If the server restored a database whose event log has a lower
     // high-water mark, it replays from zero. A lower revision is therefore a
@@ -763,17 +948,19 @@ function Workspace() {
     else if (id > 0 && id === workspaceEventCursor.current) return;
     if (id > workspaceEventCursor.current) workspaceEventCursor.current = id;
     if (!indexInitialized.current) {
-      void refreshIndex();
+      // The initial load already covers every event the replay can carry.
+      if (!workspaceRequestBusy()) void refreshIndex();
+      else workspaceEventPending.current = true;
       return;
     }
-    if (data.scope === "bots" || data.scope === "groups") { setScheduleRefresh(current => current + 1); void refreshConversations(); }
+    if (data.scope === "bots" || data.scope === "groups") { workspaceEventPending.current = true; scheduleWorkspaceEventRefresh(); }
     else if (data.scope === "config") { setExtensionRefresh((current) => current + 1); void refreshConfig(); }
-  }, [refreshConfig, refreshConversations, refreshIndex]);
+  }, [refreshConfig, refreshIndex, scheduleWorkspaceEventRefresh]);
 
   const refreshWorkspaceOnConnect = useCallback(() => {
-    if (!indexInitialized.current) void refreshIndex();
-    else { void refreshConversations(); void refreshConfig(); }
-  }, [refreshConfig, refreshConversations, refreshIndex]);
+    if (!indexInitialized.current) { if (!workspaceRequestBusy()) void refreshIndex(); }
+    else { workspaceEventPending.current = true; scheduleWorkspaceEventRefresh(); void refreshConfig(); }
+  }, [refreshConfig, refreshIndex, scheduleWorkspaceEventRefresh]);
 
   const resetWorkspaceEvents = useCallback(() => {
     workspaceEventCursor.current = 0;
@@ -790,9 +977,12 @@ function Workspace() {
     if (workspaceConnectTimer.current !== undefined) window.clearTimeout(workspaceConnectTimer.current);
     let source: EventSource;
     const current = () => workspaceEventSource.current === source && !activeIdRef.current;
+    window.clearInterval(workspaceWatchdog.current);
+    workspaceLastFrameAt.current = Date.now();
     const failed = () => {
       source.close();
       if (!current()) return;
+      window.clearInterval(workspaceWatchdog.current);
       if (workspaceConnectTimer.current !== undefined) window.clearTimeout(workspaceConnectTimer.current);
       workspaceEventSource.current = null;
       const delay = Math.min(1000 * 2 ** workspaceReconnectAttempt.current, 10_000);
@@ -806,10 +996,11 @@ function Workspace() {
     };
     source = openWorkspaceEvents(workspaceEventCursor.current, (data, id) => {
       if (current()) handleWorkspaceEvent(data, id);
-    }, failed, () => { if (current()) resetWorkspaceEvents(); });
+    }, failed, () => { if (current()) resetWorkspaceEvents(); }, () => { workspaceLastFrameAt.current = Date.now(); });
     for (const event of ["question", "question_answered", "question_cancelled", "question_updated"]) source.addEventListener(event, () => { if (current()) void questions.refresh(); });
     source.onopen = () => {
       if (!current()) return;
+      workspaceLastFrameAt.current = Date.now();
       if (workspaceConnectTimer.current !== undefined) window.clearTimeout(workspaceConnectTimer.current);
       workspaceReconnectAttempt.current = 0;
       // A reconnect can follow a restored database whose event log no longer
@@ -819,6 +1010,8 @@ function Workspace() {
       void questions.refresh();
     };
     workspaceEventSource.current = source;
+    workspaceFailNow.current = failed;
+    workspaceWatchdog.current = window.setInterval(() => { if (current() && Date.now() - workspaceLastFrameAt.current > STREAM_STALE_MS) failed(); }, 5000);
     workspaceConnectTimer.current = window.setTimeout(failed, 10_000);
   }, [handleWorkspaceEvent, refreshWorkspaceOnConnect, resetWorkspaceEvents]);
 
@@ -829,6 +1022,7 @@ function Workspace() {
     return () => {
       workspaceEventSource.current?.close();
       workspaceEventSource.current = null;
+      window.clearInterval(workspaceWatchdog.current);
       if (workspaceReconnectTimer.current !== undefined) window.clearTimeout(workspaceReconnectTimer.current);
       workspaceReconnectTimer.current = undefined;
       if (workspaceConnectTimer.current !== undefined) window.clearTimeout(workspaceConnectTimer.current);
@@ -987,13 +1181,24 @@ function Workspace() {
   useEffect(() => { setHeaderMenuOpen(false); }, [activeId]);
   useEffect(() => {
     let alive = true;
-    const refreshComputer = async () => { try { const next = await api.computerInfo(); if (alive) setComputerInfo((current) => JSON.stringify(current) === JSON.stringify(next) ? current : next); } catch { if (alive) setComputerInfo(null); } };
+    let timer = 0;
+    // Steady states (no computer, ready, hibernated) change rarely, so they re-check slowly; transitions poll fast.
+    const settled = (state?: string) => !state || state === "ready" || state === "hibernated" || state === "stopped";
+    const refreshComputer = async () => {
+      let state: string | undefined;
+      if (!document.hidden) {
+        try { const next = await api.computerInfo(); state = next.state; if (alive) setComputerInfo((current) => JSON.stringify(current) === JSON.stringify(next) ? current : next); } catch { if (alive) setComputerInfo(null); }
+      }
+      if (alive) timer = window.setTimeout(() => void refreshComputer(), settled(state) ? 30_000 : 4_000);
+    };
+    const onVisible = () => { if (!document.hidden) { window.clearTimeout(timer); void refreshComputer(); } };
+    document.addEventListener("visibilitychange", onVisible);
     void refreshComputer();
-    const timer = window.setInterval(() => void refreshComputer(), 4_000);
-    return () => { alive = false; window.clearInterval(timer); };
+    return () => { alive = false; window.clearTimeout(timer); document.removeEventListener("visibilitychange", onVisible); };
   }, []);
   useEffect(() => {
     const refresh = () => {
+      if (workspaceRequestBusy()) return;
       if (!indexInitialized.current) void refreshIndex();
       else { void refreshConversations(); void refreshConfig(); }
     };
@@ -1021,6 +1226,8 @@ function Workspace() {
   useEffect(() => {
     if (panel === "desktop" && !desktopBot) setPanel(null);
   }, [panel, desktopBot]);
+  // Ownership is only worth a 1 s poll while a computer is ready or the desktop panel is open.
+  const desktopPresence = useDesktopPresence(Boolean(activeId) && (panel === "desktop" || (computerInfo ? computerInfo.state === "ready" : desktopReady)));
   const currentDesktopOwner = desktopPresence.ownership?.owner;
     const activeDesktopOwner = !desktopPresence.unavailable && currentDesktopOwner?.kind === "bot" && currentDesktopOwner.conversation_id === active?.id ? currentDesktopOwner : null;
   const computerOn = computerInfo ? computerInfo.state === "ready" : desktopReady;
@@ -1051,6 +1258,8 @@ function Workspace() {
   const runStarts = useMemo(() => new Map(runs.map(run => [run.id, Date.parse(run.created_at)] as const).filter(([, start]) => Number.isFinite(start))), [runs]);
   const retryAuditAnchors = useMemo(() => new Map(retryFamilies.map(family => [family.rootId, retryFamilyAnchor(family, messageRecords)])), [retryFamilies, messageRecords]);
   const supersededRunIDs = useMemo(() => new Set(retryFamilies.filter(family => retryAuditAnchors.get(family.rootId)).flatMap(family => family.previous.map(run => run.id))), [retryFamilies, retryAuditAnchors]);
+  const runsForMessage = useMemo(() => runsByTrigger(runs), [runs]);
+  const lastReplySeq = useMemo(() => messageRecords.reduce((max, item) => item.role === "assistant" && !item.local && (!item.kind || item.kind === "segment") ? Math.max(max, item.seq) : max, 0), [messageRecords]);
   const visibleMessages = useMemo(() => mergeMessageTimeline(messageRecords.filter(message => message.role === "user" || !message.run_id || !supersededRunIDs.has(message.run_id)), Object.values(drafts).filter(draft => !runById.has(draft.run_id) || !isTerminalRun(runById.get(draft.run_id)!))), [messageRecords, drafts, supersededRunIDs, runById]);
   const foldedProgress = useMemo(() => foldCompletedProgress(visibleMessages, runs), [visibleMessages, runs]);
   const messages = foldedProgress.visible;
@@ -1189,17 +1398,25 @@ function Workspace() {
       jumpToMessage(target);
       if (taskFocus.kind === "run") (target.querySelector<HTMLElement>("h3") ?? target).focus({ preventScroll:true });
       setTaskFocus(null);
+    } else if (taskFocus.kind === "run" && (!runById.has(taskFocus.id) || !runDrawsHere(taskFocus.id))) {
+      // The run is not part of this conversation, or its block draws nothing: older pages would never reveal a target.
+      setTaskFocus(null);
     } else if (taskFocus.kind === "message" || taskFocus.kind === "run") {
       if (hasMore && !loadingOlder && !historyError) void loadOlder();
       else if (!hasMore) setTaskFocus(null);
     }
   }, [taskFocus, activeId, loadedId, loadingMessages, conversationItems, hasMore, loadingOlder, historyError]);
 
+  function runDrawsHere(runId: string) {
+    const owner = taskOwners.find(o => o.family.attempts.some(attempt => attempt.id === runId));
+    return !owner || ownerDraws(owner);
+  }
   function focusTask(conversation: Conversation) {
     const state = conversation.task_state;
     const kind = state?.run_id ? "run" : state?.question_id ? "question" : state?.draft_id ? "draft" : state?.result_message_id ? "message" : undefined;
     const id = state?.run_id || state?.question_id || state?.draft_id || state?.result_message_id;
-    if (kind && id) setTaskFocus({ conversationId: conversation.id, kind, id });
+    // A finished run draws no badge, so there is nothing to scroll to; paging history for it only blocks the main thread.
+    if (kind && id && state?.status !== "completed") setTaskFocus({ conversationId: conversation.id, kind, id });
     selectConversation(conversation.id);
     setMobileList(false);
   }
@@ -1216,7 +1433,8 @@ function Workspace() {
 
   const upsertMessage = useCallback((next: Message) => {
     setMessages((current) => {
-      const byId = new Map(current.map((item) => [item.id, item]));
+      // A person's own message arriving over the stream before the POST answers takes the place of its optimistic copy.
+      const byId = new Map(current.filter((item) => !(item.local && next.client_message_id && item.client_message_id === next.client_message_id)).map((item) => [item.id, item]));
       byId.set(next.id, next);
       return [...byId.values()].sort((a, b) => a.seq - b.seq);
     });
@@ -1261,6 +1479,25 @@ function Workspace() {
     }
   }, []);
 
+  // Expanding a step whose list entry carried only a result preview loads that one full result.
+  const toolResultRequests = useRef(new Set<string>());
+  const loadFullToolResult = useCallback((activity: ToolActivity) => {
+    const conversationId = activeIdRef.current;
+    if (!conversationId || activity.conversation_id !== conversationId) return;
+    const key = `${toolActivityKey(activity)}\u0000${activity.updated_at}`;
+    if (toolResultRequests.current.has(key)) return;
+    toolResultRequests.current.add(key);
+    api.toolActivityResult(conversationId, activity.run_id, activity.call_id).then(({ activity: full }) => {
+      if (activeIdRef.current !== conversationId) return;
+      setToolDetailActivities(current => {
+        const byKey = new Map(current.map(item => [toolActivityKey(item), item]));
+        byKey.set(toolActivityKey(full), reconcileToolActivity(byKey.get(toolActivityKey(full)), full));
+        return [...byKey.values()].sort((a, b) => +new Date(b.updated_at) - +new Date(a.updated_at));
+      });
+    }).catch(() => { toolResultRequests.current.delete(key); });
+  }, []);
+  useEffect(() => { setToolResultLoader(loadFullToolResult); return () => setToolResultLoader(undefined); }, [loadFullToolResult]);
+
   const handleEvent = useCallback((conversationId: string, type: string, data: EventEnvelope, id: number) => {
     // EventSource callbacks can arrive after a conversation switch. Never let
     // an old stream mutate the newly selected conversation.
@@ -1277,7 +1514,7 @@ function Workspace() {
     } else if (type === "message") {
       const message = asMessage(data);
       if (message && (snapshotCursorKnown.current || message.seq > snapshotMaxSeq.current)) {
-        if (message.seq > snapshotMaxSeq.current) arrivalIDs.current.add(message.id);
+        if (message.seq > snapshotMaxSeq.current) arrivalIDs.current.add(blockKey(message));
         upsertMessage(message); updateConversationPreview(message);
       }
     } else if (type === "reaction") {
@@ -1300,7 +1537,7 @@ function Workspace() {
     } else if (type === "delta") {
       const messageIdValue = typeof data.message_id === "string" ? data.message_id : "";
       const delta = typeof data.text === "string" ? data.text : "";
-      if (messageIdValue && delta) arrivalIDs.current.add(messageIdValue);
+      if (messageIdValue && delta) { arrivalIDs.current.add(messageIdValue); streamedIDs.current.add(messageIdValue); }
       const runId = typeof data.run_id === "string" ? data.run_id : "";
       if (terminalRunIDs.current.has(runId)) return;
       const botId = typeof data.bot_id === "string" ? data.bot_id : "";
@@ -1308,7 +1545,7 @@ function Workspace() {
       const full = typeof data.content === "string" ? data.content : "";
       if (messageIdValue && (delta || full)) setDrafts((current) => {
         const old = current[messageIdValue];
-        if (old && revision > 0 && revision <= old.revision) return current;
+        if (!draftDeltaApplies(old?.revision, revision, Boolean(full))) return current;
         return { ...current, [messageIdValue]: { run_id: runId || old?.run_id || "", conversation_id: conversationId, bot_id: botId || old?.bot_id || "", message_id: messageIdValue, seq: typeof data.seq === "number" ? data.seq : old?.seq, content: full || `${old?.content ?? ""}${delta}`, status: "active", revision: revision || (old?.revision ?? 0) + 1, created_at: typeof data.created_at === "string" ? data.created_at : old?.created_at ?? new Date().toISOString(), updated_at: new Date().toISOString() } };
       });
     } else if (type === "run") {
@@ -1316,6 +1553,8 @@ function Workspace() {
       const run = asRun(data);
       if (run) {
         if (run.status && isTerminalRun({ status: run.status })) terminalRunIDs.current.add(run.id);
+        // A restart sends a half-streamed run back to the queue: its old draft must not stay beside the regenerated one.
+        if (run.status === "queued") setDrafts((current) => Object.values(current).some(draft => draft.run_id === run.id) ? Object.fromEntries(Object.entries(current).filter(([, draft]) => draft.run_id !== run.id)) : current);
         if (run.status && !["queued", "running"].includes(run.status)) {
           setDrafts((current) => Object.fromEntries(Object.entries(current).filter(([, draft]) => draft.run_id !== run.id)));
           setRunSignals(current => { if (!current[run.id]) return current; const next = { ...current }; delete next[run.id]; return next; });
@@ -1343,6 +1582,10 @@ function Workspace() {
     }
   }, [upsertMessage, updateConversationPreview, upsertToolActivity]);
 
+  // connectEvents reads the render-scoped handlers through this ref so its identity never changes; a changing
+  // identity chained every old Workspace render (and its message arrays) together through keepActivityRun.
+  const connectLatest = useRef<{ handleEvent: typeof handleEvent; handleWorkspaceEvent: typeof handleWorkspaceEvent; refreshWorkspaceOnConnect: typeof refreshWorkspaceOnConnect; resetWorkspaceEvents: typeof resetWorkspaceEvents; refreshQuestions: () => unknown }>(null as never);
+  connectLatest.current = { handleEvent, handleWorkspaceEvent, refreshWorkspaceOnConnect, resetWorkspaceEvents, refreshQuestions: questions.refresh };
   const connectEvents = useCallback((conversationId: string) => {
     if (activeIdRef.current !== conversationId) return;
     eventSource.current?.close();
@@ -1351,9 +1594,12 @@ function Workspace() {
     let source: EventSource;
     setStreamConnected(false);
     const current = () => eventSource.current === source && activeIdRef.current === conversationId;
+    window.clearInterval(eventWatchdog.current);
+    lastFrameAt.current = Date.now();
     const failed = () => {
       source.close();
       if (!current()) return;
+      window.clearInterval(eventWatchdog.current);
       if (eventConnectTimer.current !== undefined) window.clearTimeout(eventConnectTimer.current);
       setStreamConnected(false);
       eventSource.current = null;
@@ -1367,24 +1613,27 @@ function Workspace() {
       reconnectTimer.current = timer;
     };
     source = openConversationEvents(conversationId, eventCursor.current, (type, data, id) => {
-      if (current()) handleEvent(conversationId, type, data, id);
+      if (current()) connectLatest.current.handleEvent(conversationId, type, data, id);
     }, failed, {
       after: workspaceEventCursor.current,
-      onEvent: (data, id) => { if (current()) handleWorkspaceEvent(data, id); },
-      onReset: () => { if (current()) resetWorkspaceEvents(); },
-    });
-    for (const event of ["question", "question_answered", "question_cancelled", "question_updated"]) source.addEventListener(event, () => { if (current()) void questions.refresh(); });
+      onEvent: (data, id) => { if (current()) connectLatest.current.handleWorkspaceEvent(data, id); },
+      onReset: () => { if (current()) connectLatest.current.resetWorkspaceEvents(); },
+    }, () => { lastFrameAt.current = Date.now(); });
+    for (const event of ["question", "question_answered", "question_cancelled", "question_updated"]) source.addEventListener(event, () => { if (current()) void connectLatest.current.refreshQuestions(); });
     source.onopen = () => {
       if (!current()) return;
-      void questions.refresh();
+      lastFrameAt.current = Date.now();
+      void connectLatest.current.refreshQuestions();
       if (eventConnectTimer.current !== undefined) window.clearTimeout(eventConnectTimer.current);
       reconnectAttempt.current = 0;
       setStreamConnected(true);
-      refreshWorkspaceOnConnect();
+      connectLatest.current.refreshWorkspaceOnConnect();
     };
     eventSource.current = source;
+    eventFailNow.current = failed;
+    eventWatchdog.current = window.setInterval(() => { if (current() && Date.now() - lastFrameAt.current > STREAM_STALE_MS) failed(); }, 5000);
     eventConnectTimer.current = window.setTimeout(failed, 10_000);
-  }, [handleEvent, handleWorkspaceEvent, refreshWorkspaceOnConnect, resetWorkspaceEvents, questions.refresh]);
+  }, []);
 
 
   // Last snapshot of each conversation the reader has seen, newest last. Switching back shows it at once
@@ -1395,15 +1644,29 @@ function Workspace() {
     if (!activeId || loadedId !== activeId) return;
     const cache = snapshotCache.current;
     cache.delete(activeId);
-    cache.set(activeId, { messages: messageRecords, drafts, runs, toolActivities, toolSummaries, memories, hasMore });
+    // Only the newest page is kept for a revisit: the reader's place older than that is paged back in on demand, so a long history costs nothing to leave.
+    const trimmed = messageRecords.length > SNAPSHOT_CACHE_MESSAGES;
+    cache.set(activeId, { messages: trimmed ? messageRecords.slice(-SNAPSHOT_CACHE_MESSAGES) : messageRecords, drafts, runs, toolActivities, toolSummaries, memories, hasMore: trimmed || hasMore });
     while (cache.size > SNAPSHOT_CACHE_LIMIT) cache.delete(cache.keys().next().value as string);
   }, [activeId, loadedId, messageRecords, drafts, runs, toolActivities, toolSummaries, memories, hasMore]);
+  // Pointing at a conversation (after a short dwell) or pressing its row reads its newest page into the same cache, so the first visit is a revisit.
+  const prefetchInFlight = useRef(new Set<string>());
+  const prefetchTimer = useRef<number | undefined>(undefined);
+  const prefetchConversation = useCallback((id: string) => {
+    if (id === activeIdRef.current || snapshotCache.current.has(id) || prefetchInFlight.current.has(id)) return;
+    prefetchInFlight.current.add(id);
+    void Promise.all([api.messages(id), api.runs(id)]).then(([page, runPage]) => {
+      if (snapshotCache.current.has(id) || !page.messages.length) return;
+      snapshotCache.current.set(id, { messages: page.messages.sort((a, b) => a.seq - b.seq), drafts: {}, runs: runPage.runs.sort((a, b) => +new Date(b.updated_at) - +new Date(a.updated_at)), toolActivities: [], toolSummaries: [], memories: [], hasMore: page.has_more });
+      while (snapshotCache.current.size > SNAPSHOT_CACHE_LIMIT) snapshotCache.current.delete(snapshotCache.current.keys().next().value as string);
+    }).catch(() => {}).finally(() => { prefetchInFlight.current.delete(id); });
+  }, []);
   // The switch itself runs before paint: the pane never shows the previous conversation under the new header.
   useLayoutEffect(() => {
     if (!activeId) return;
     const cached = snapshotCache.current.get(activeId);
     setSnapshotError("");
-    arrivalIDs.current.clear();
+    arrivalIDs.current.clear(); streamedIDs.current.clear();
     terminalRunIDs.current.clear();
     setLoadingOlder(false); setHistoryError(""); setError("");
     setToolDetailActivities([]); setToolDetailState({}); setToolSummaryState({});
@@ -1425,9 +1688,12 @@ function Workspace() {
     let cancelled = false;
     let snapshotRetryTimer: number | undefined;
     let snapshotRetryAttempt = 0;
+    let snapshotInFlight = false;
     const cached = snapshotCache.current.get(activeId);
     const loadSnapshot = () => {
-      if (cancelled) return;
+      if (cancelled || snapshotInFlight) return;
+      snapshotInFlight = true;
+      snapshotRetryTimer = undefined;
       // A conversation already on screen from the cache is refreshed quietly.
       if (shownSnapshotId.current !== activeId) setLoadingMessages(true);
       const requests = [api.messages(activeId), api.runs(activeId), api.memories(activeId), api.toolActivities(activeId).catch(() => ({ activities: [] as ToolActivity[] }))] as const;
@@ -1436,7 +1702,12 @@ function Workspace() {
         const fresh = page.messages.sort((a, b) => a.seq - b.seq);
         // Older pages the reader already loaded stay; the fresh page replaces everything from its first message on.
         const kept = cached && fresh.length ? cached.messages.filter(message => message.conversation_id === activeId && message.seq < fresh[0].seq) : [];
-        setMessages(kept.length ? [...kept, ...fresh] : fresh);
+        // Messages still on their way out (or failed) are not on the server yet: the refresh must not drop them.
+        setMessages(current => {
+          const settled = kept.length ? [...kept, ...fresh] : fresh;
+          const pending = current.filter(item => item.local && item.conversation_id === activeId && !fresh.some(row => row.client_message_id && row.client_message_id === item.client_message_id));
+          return pending.length ? [...settled, ...pending] : settled;
+        });
         for (const run of runPage.runs) if (isTerminalRun(run)) terminalRunIDs.current.add(run.id);
         setDrafts(Object.fromEntries(page.drafts.filter((draft) => draft.status === "active" && !terminalRunIDs.current.has(draft.run_id)).map((draft) => [draft.message_id, draft])));
         setHasMore(kept.length ? cached!.hasMore : page.has_more);
@@ -1468,23 +1739,53 @@ function Workspace() {
         // A transient snapshot failure must not strand this conversation
         // without its combined SSE. Retry the snapshot before consuming any
         // chat cursor, with a finite budget and no change to effect identity.
-        if (snapshotRetryAttempt < 3) {
-          const delay = 1000 * 2 ** snapshotRetryAttempt++;
-          snapshotRetryTimer = window.setTimeout(loadSnapshot, delay);
-        }
-      }).finally(() => { if (!cancelled) setLoadingMessages(false); });
+        // Never give up: a conversation opened during an outage must fill in by itself once the server is back.
+        const delay = Math.min(1000 * 2 ** Math.min(snapshotRetryAttempt++, 4), 15_000);
+        snapshotRetryTimer = window.setTimeout(loadSnapshot, delay);
+      }).finally(() => { snapshotInFlight = false; if (!cancelled) setLoadingMessages(false); });
+    };
+    // Network back, tab shown or window focused: try again at once instead of waiting out the backoff.
+    snapshotRetryNow.current = () => {
+      if (snapshotRetryTimer === undefined || snapshotInFlight) return;
+      window.clearTimeout(snapshotRetryTimer);
+      snapshotRetryAttempt = 0;
+      loadSnapshot();
     };
     loadSnapshot();
-    return () => { cancelled = true; if (snapshotRetryTimer !== undefined) window.clearTimeout(snapshotRetryTimer); eventSource.current?.close(); eventSource.current = null; if (reconnectTimer.current !== undefined) window.clearTimeout(reconnectTimer.current); reconnectTimer.current = undefined; if (eventConnectTimer.current !== undefined) window.clearTimeout(eventConnectTimer.current); };
+    return () => { cancelled = true; snapshotRetryNow.current = null; window.clearInterval(eventWatchdog.current); if (snapshotRetryTimer !== undefined) window.clearTimeout(snapshotRetryTimer); eventSource.current?.close(); eventSource.current = null; if (reconnectTimer.current !== undefined) window.clearTimeout(reconnectTimer.current); reconnectTimer.current = undefined; if (eventConnectTimer.current !== undefined) window.clearTimeout(eventConnectTimer.current); };
   }, [activeId, connectEvents]);
 
+  // After sleep, a Wi-Fi handoff or a restart the streams may be dead without having closed. Check them the
+  // moment the page can tell: the network returns, the tab is shown, the window is focused.
+  useEffect(() => {
+    const wake = () => {
+      if (document.visibilityState === "hidden") return;
+      const id = activeIdRef.current;
+      if (id) {
+        snapshotRetryNow.current?.();
+        if (eventSource.current) {
+          if (Date.now() - lastFrameAt.current > STREAM_WAKE_STALE_MS) { reconnectAttempt.current = 0; eventFailNow.current?.(); }
+        } else if (shownSnapshotId.current === id) { reconnectAttempt.current = 0; connectEvents(id); }
+      } else if (workspaceEventSource.current) {
+        if (Date.now() - workspaceLastFrameAt.current > STREAM_WAKE_STALE_MS) { workspaceReconnectAttempt.current = 0; workspaceFailNow.current?.(); }
+      } else { workspaceReconnectAttempt.current = 0; connectWorkspaceEvents(); }
+    };
+    window.addEventListener("online", wake);
+    window.addEventListener("focus", wake);
+    document.addEventListener("visibilitychange", wake);
+    return () => { window.removeEventListener("online", wake); window.removeEventListener("focus", wake); document.removeEventListener("visibilitychange", wake); };
+  }, [connectEvents, connectWorkspaceEvents]);
+
   async function loadOlder(): Promise<boolean> {
-    if (!activeId || !messageRecords[0] || loadingOlder) return false;
+    const oldest = messageRecords.find(item => !item.local);
+    if (!activeId || !oldest || loadingOlder) return false;
     const conversationId = activeId;
     setLoadingOlder(true);
     try {
-      const page = await api.messages(conversationId, messageRecords[0].seq);
+      // Runs are paged like messages: the page of messages needs the runs created before the oldest one already shown.
+      const [page, olderRuns] = await Promise.all([api.messages(conversationId, oldest.seq), api.runs(conversationId, oldest.created_at).catch(() => ({ runs: [] as Run[] }))]);
       if (activeIdRef.current !== conversationId) return false;
+      if (olderRuns.runs.length) setRuns(current => mergeRunUpdates(current, olderRuns.runs));
       viewport.preservePrepend();
       setMessages(current => [...page.messages, ...current.filter(item => !page.messages.some(old => old.id === item.id))].sort((a, b) => a.seq - b.seq));
       setHasMore(page.has_more);
@@ -1498,47 +1799,87 @@ function Workspace() {
     }
   }
 
-  async function send(content: string, clientMessageId: string, attachmentIds: string[] = [], draftSignature = "", flightOrigin?: DOMRect): Promise<boolean> {
-    if (!active || (!content.trim() && !attachmentIds.length)) return false;
-    const conversationId = active.id;
+  /** Edits one conversation's messages and runs wherever they live: on screen, or in the snapshot cache after a switch away. */
+  function patchConversation(conversationId: string, changeMessages?: (list: Message[]) => Message[], changeRuns?: (list: Run[]) => Run[]) {
+    if (activeIdRef.current === conversationId) {
+      if (changeMessages) setMessages(changeMessages);
+      if (changeRuns) setRuns(changeRuns);
+      return;
+    }
+    const cached = snapshotCache.current.get(conversationId);
+    if (cached) snapshotCache.current.set(conversationId, { ...cached, messages: changeMessages ? changeMessages(cached.messages) : cached.messages, runs: changeRuns ? changeRuns(cached.runs) : cached.runs });
+  }
+
+  /** Sends (or re-sends) one stored outgoing message. The same client_message_id on every attempt makes a retry safe. */
+  async function deliver(clientMessageId: string) {
+    const payload = sendPayloads.current.get(clientMessageId);
+    if (!payload) return;
+    const { conversationId } = payload;
     try {
-      const result = await api.sendMessage(conversationId, { content: content.trim(), client_message_id: clientMessageId, attachment_ids: attachmentIds });
-      // This response is known human ingress, even if its run event has not
-      // arrived yet or the user has switched conversations in the meantime.
+      const result = await api.sendMessage(conversationId, { content: payload.content, client_message_id: clientMessageId, attachment_ids: payload.attachmentIds });
+      sendPayloads.current.delete(clientMessageId);
+      // This response is known human ingress, even if its run event has not arrived yet.
       const sentAt = Date.parse(result.message.created_at);
       if (Number.isFinite(sentAt)) setLastUserActivity(current => ({ ...current, [conversationId]: Math.max(current[conversationId] ?? 0, sentAt) }));
-      // The server may have accepted the message after the user switched
-      // conversations. Clear only the exact source draft that was sent.
-      if (draftSignature) setComposerDrafts((current) => {
-        const source = current[conversationId];
-        if (!source || !composerDraftMatchesMessage(source, draftSignature, clientMessageId)) return current;
-        const next = { ...current, [conversationId]: emptyComposerDraft() };
-        if (composerStorageKey.current) writeComposerDrafts(composerStorageKey.current, next);
-        return next;
-      });
-      if (activeIdRef.current !== conversationId) return true;
-      arrivalIDs.current.add(result.message.id);
       const newRuns = result.runs?.length ? result.runs : [result.run];
-      // The bubble and its run row land in one commit, so the final layout is known before anything moves.
-      const apply = () => { upsertMessage(result.message); setRuns((current) => mergeRunUpdates(current, newRuns)); };
-      const animate = !isDesktop && !window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-      // Scrolled up in history: nothing visible moves, so there is nothing to FLIP. Return to the bottom in
-      // the same task as the commit and play the arrival there, once, with the bubble in view.
-      const away = viewport.awayFromBottom();
-      if (animate && !away) flipList(messageListRef.current, apply, { duration: 520, easing: "cubic-bezier(.22,1,.36,1)", last: 16 });
-      else flushSync(apply);
-      jumpLatest();
-      if (animate) {
-        const target = Array.from(messageListRef.current?.querySelectorAll<HTMLElement>(".message-block") ?? []).find(block => block.dataset.flip === result.message.id)?.querySelector<HTMLElement>(".message-user .message-content");
-        if (flightOrigin && target) flySentMessage(flightOrigin, target);
-      }
+      // The bubble keeps its identity (blockKey); only its content, status and runs update.
+      patchConversation(conversationId, list => reconcileSent(list, { ...result.message, client_message_id: result.message.client_message_id ?? clientMessageId }), list => mergeRunUpdates(list, newRuns));
       updateConversationPreview(result.message);
-      setError("");
-      return true;
+      if (activeIdRef.current === conversationId) setError("");
     } catch (cause) {
-      if (activeIdRef.current === conversationId) setError(errorText(cause));
-      return false;
+      const reason = errorText(cause);
+      patchConversation(conversationId, list => list.map(item => item.local && item.client_message_id === clientMessageId ? { ...item, local: { state: "failed", error: reason } } : item));
     }
+  }
+
+  /** Tapping "Not sent": the same message goes out again under the same id, with nothing retyped. */
+  function retrySend(clientMessageId: string) {
+    const payload = sendPayloads.current.get(clientMessageId);
+    if (!payload) return;
+    patchConversation(payload.conversationId, list => list.map(item => item.local && item.client_message_id === clientMessageId ? { ...item, local: { state: "sending" } } : item));
+    void deliver(clientMessageId);
+  }
+
+  /**
+   * The bubble and the cleared composer land in one commit, then the request goes out in the background. The returned
+   * promise settles as soon as the message is on screen: the person may type the next one while this one is in flight.
+   */
+  async function send(content: string, clientMessageId: string, attachmentIds: string[] = [], draftSignature = "", flightOrigin?: DOMRect, attachments: Attachment[] = []): Promise<boolean> {
+    if (!active || (!content.trim() && !attachmentIds.length)) return false;
+    const conversationId = active.id;
+    const text = content.trim();
+    sendPayloads.current.set(clientMessageId, { conversationId, content: text, attachmentIds });
+    const key = `cm:${clientMessageId}`;
+    const stamp = new Date().toISOString();
+    // Clear only the exact source draft that was sent.
+    const clearDraft = () => { if (draftSignature) setComposerDrafts((current) => {
+      const source = current[conversationId];
+      if (!source || !composerDraftMatchesMessage(source, draftSignature, clientMessageId)) return current;
+      const next = { ...current, [conversationId]: emptyComposerDraft() };
+      if (composerStorageKey.current) writeComposerDrafts(composerStorageKey.current, next);
+      return next;
+    }); };
+    const addLocal = (list: Message[]) => {
+      if (list.some(item => item.client_message_id === clientMessageId)) return list.map(item => item.local && item.client_message_id === clientMessageId ? { ...item, local: { state: "sending" as const } } : item);
+      const seq = list.reduce((max, item) => item.local ? max : Math.max(max, item.seq), 0) + 1;
+      return [...list, { id: `local:${clientMessageId}`, conversation_id: conversationId, seq, role: "user" as const, content: text, created_at: stamp, client_message_id: clientMessageId, attachments: attachments.length ? attachments : undefined, local: { state: "sending" as const } }];
+    };
+    arrivalIDs.current.add(key);
+    const apply = () => { clearDraft(); patchConversation(conversationId, addLocal); };
+    const animate = !isDesktop && !window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    // Scrolled up in history: nothing visible moves, so there is nothing to FLIP. Return to the bottom in
+    // the same task as the commit and play the arrival there, once, with the bubble in view.
+    const away = viewport.awayFromBottom();
+    if (animate && !away) flipList(messageListRef.current, apply, { duration: 520, easing: "cubic-bezier(.22,1,.36,1)", last: 16 });
+    else flushSync(apply);
+    jumpLatest();
+    if (animate) {
+      const target = Array.from(messageListRef.current?.querySelectorAll<HTMLElement>(".message-block") ?? []).find(block => block.dataset.flip === key)?.querySelector<HTMLElement>(".message-user .message-content");
+      if (flightOrigin && target) flySentMessage(flightOrigin, target);
+    }
+    setError("");
+    void deliver(clientMessageId);
+    return true;
   }
 
   /** Adds a Bot the server created during onboarding to the lists, without moving the person off the sheet. */
@@ -1650,10 +1991,6 @@ function Workspace() {
     return fresh;
   }
 
-  const mergeArchived = useCallback((archivedConversations: Conversation[], archivedBots: Bot[]) => {
-    setConversations((current) => [...current.filter((item) => !archivedConversations.some((archived) => archived.id === item.id)), ...archivedConversations]);
-    setBots((current) => [...current.filter((item) => !archivedBots.some((archived) => archived.id === item.id)), ...archivedBots]);
-  }, []);
   const refreshAfterArchive = useCallback(async () => { await refreshIndex(); }, [refreshIndex]);
 
   function confirmDelete(conversation: Conversation) {
@@ -1773,16 +2110,59 @@ function Workspace() {
     if (opening) window.setTimeout(() => messageListRef.current?.querySelector<HTMLElement>(`[data-activity-run="${CSS.escape(runId)}"], [data-run-id="${CSS.escape(runId)}"]`)?.scrollIntoView({ block: "nearest", behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" }), 60);
   }
   useEffect(() => {
-    if (!tapActionsId) return;
-    const close = (event: Event) => { if (!(event.target as HTMLElement).closest?.(".message-hover-host.is-actions-open")) setTapActionsId(""); };
+    // A press anywhere but on the tapped message (or its bar) closes the touch actions; the bar is mounted only while it is open.
+    const close = (event: Event) => {
+      const open = tappedMessageActionsId();
+      if (open && (event.target as HTMLElement).closest?.(".message-hover-host, .message-actions-row")?.getAttribute("data-host-id") !== open) setMessageActions("tap", "");
+    };
     document.addEventListener("pointerdown", close);
     return () => document.removeEventListener("pointerdown", close);
-  }, [tapActionsId]);
+  }, []);
+  // Message actions follow the pointer and focus through one delegated handler each: no per-message listeners, no App state.
+  const messageIdOf = (target: EventTarget | null) => (target as HTMLElement | null)?.closest?.<HTMLElement>(".message-block")?.dataset.messageId ?? "";
+  // Entering a message raises its bar in the same event; leaving it (into the gap between messages, or out of the list) lets go after a short grace.
+  const hoverExitTimer = useRef<number | undefined>(undefined);
+  useEffect(() => () => window.clearTimeout(hoverExitTimer.current), []);
+  const onMessageListPointerOver = (event: React.PointerEvent<HTMLElement>) => {
+    if (event.pointerType === "touch") return;
+    const id = messageIdOf(event.target);
+    window.clearTimeout(hoverExitTimer.current);
+    if (id) setMessageActions("hover", id);
+    else hoverExitTimer.current = window.setTimeout(() => setMessageActions("hover", ""), 120);
+  };
+  const onMessageListPointerLeave = (event: React.PointerEvent<HTMLElement>) => {
+    if (event.pointerType === "touch") return;
+    window.clearTimeout(hoverExitTimer.current);
+    hoverExitTimer.current = window.setTimeout(() => setMessageActions("hover", ""), 120);
+  };
+  // Only keyboard focus raises the bar: pressing on a message focuses it too, and a press must not open actions by itself.
+  const onMessageListFocus = (event: React.FocusEvent<HTMLElement>) => { if (event.target.matches(":focus-visible")) setMessageActions("focus", messageIdOf(event.target)); };
+  const onMessageListBlur = (event: React.FocusEvent<HTMLElement>) => { if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setMessageActions("focus", ""); };
+  // The list is one tab stop (the newest message); arrows move between messages, Tab enters the focused message's bar, Escape comes back.
+  const onMessageListKeyDown = (event: React.KeyboardEvent<HTMLElement>) => {
+    const target = event.target as HTMLElement;
+    if (event.key === "Escape" && target.closest(".message-hover-actions")) { event.preventDefault(); target.closest<HTMLElement>(".message-block")?.focus(); return; }
+    if (!target.matches(".message-block") || !["ArrowUp", "ArrowDown", "Home", "End"].includes(event.key)) return;
+    const blocks = [...event.currentTarget.querySelectorAll<HTMLElement>(".message-block")];
+    const at = blocks.indexOf(target);
+    const next = blocks[event.key === "Home" ? 0 : event.key === "End" ? blocks.length - 1 : at + (event.key === "ArrowDown" ? 1 : -1)];
+    if (!next) return;
+    event.preventDefault();
+    target.tabIndex = -1; next.tabIndex = 0;
+    next.focus();
+  };
   const ownerRevealed = (owner: TaskOwner) => owner.family.attempts.some(attempt => revealedRuns.has(attempt.id));
   // A block with nothing to show (Activity hidden, no card raised) draws nothing, so it must not count as a name label above a message.
-  const ownerDraws = (owner: TaskOwner) => taskBlockVisible({ owner, tools: loadedToolActivities, questions: questions.items, drafts: mailDrafts.items, messages: messageRecords, summaries: terminalToolSummaries, details: toolDetailState, connected: streamConnected, hideActivity: !showActivity, revealed: ownerRevealed(owner) });
+  const ownerDraws = (owner: TaskOwner) => taskBlockVisible({ owner, tools: loadedToolActivities, questions: questions.items, drafts: mailDrafts.items, messages: messageRecords, summaries: terminalToolSummaries, details: toolDetailState, connected: linkConnected, hideActivity: !showActivity, revealed: ownerRevealed(owner) });
+  // Computed once per render, not once per message: per-message scans made every render cubic in loaded history.
+  const ownerAnchors = taskOwners.filter(ownerDraws).map(owner => ({ anchor: owner.anchor, botId: owner.family.latest.bot_id }));
+  const messageRecordIDs = new Set(messageRecords.map(record => record.id));
+  // Runs whose reply is on screen: the live status line gives way to it in the same frame.
+  const replyingRunIDs = new Set([...Object.values(drafts).filter(draft => draft.status === "active" && draft.content.trim()).map(draft => draft.run_id), ...messageRecords.filter(record => record.role === "assistant" && record.run_id && !record.kind).map(record => record.run_id as string)]);
+  const ownedAttemptKeys = new Set(taskOwners.flatMap(owner => owner.family.attempts.map(run => `${run.id}|${run.bot_id}|${run.conversation_id}`)));
+  const ownedBy = (item: { run_id: string; bot_id: string; conversation_id: string }) => ownedAttemptKeys.has(`${item.run_id}|${item.bot_id}|${item.conversation_id}`);
   function renderTaskOwner(owner: TaskOwner) {
-    return <TaskRunBlock key={owner.key} hideActivity={!showActivity} revealed={ownerRevealed(owner)} owner={owner} senderHead={active?.kind === "group" ? <SenderHead id={owner.family.latest.bot_id} name={botById.get(owner.family.latest.bot_id)?.name ?? "Bot"} /> : undefined} liveStatus={runLiveStatus(owner.family.latest)} liveAvatar={<BotAvatar id={owner.family.latest.bot_id} mini motion={owner.family.latest.status === "waiting" ? "awake" : "working"} />} tools={loadedToolActivities} questions={questions.items} drafts={mailDrafts.items} messages={messageRecords} summaries={terminalToolSummaries} details={toolDetailState} connected={streamConnected} botName={botById.get(owner.family.latest.bot_id)?.name ?? "Bot"} showName={active?.kind === "group"}
+    return <TaskRunBlock key={owner.key} replying={replyingRunIDs.has(owner.family.latest.id)} hideActivity={!showActivity} revealed={ownerRevealed(owner)} owner={owner} senderHead={active?.kind === "group" ? <SenderHead id={owner.family.latest.bot_id} name={botById.get(owner.family.latest.bot_id)?.name ?? "Bot"} /> : undefined} liveStatus={runLiveStatus(owner.family.latest)} onRetryRun={retryRun} liveAvatar={<BotAvatar id={owner.family.latest.bot_id} mini motion={owner.family.latest.status === "waiting" ? "awake" : "working"} />} tools={loadedToolActivities} questions={questions.items} drafts={mailDrafts.items} messages={messageRecords} summaries={terminalToolSummaries} details={toolDetailState} connected={linkConnected} botName={botById.get(owner.family.latest.bot_id)?.name ?? "Bot"} showName={active?.kind === "group"}
       onOpenTools={() => openSettings("connections")}
       onFeedback={text => window.dispatchEvent(new CustomEvent("tofi:task-feedback", {detail:{conversationId:owner.family.latest.conversation_id,text}}))}
       onRefresh={refreshTaskStatus} onLoadDetails={loadToolDetails}
@@ -1792,7 +2172,7 @@ function Workspace() {
   }
   const taskAnnouncements = new Map(taskOwners.map(owner => {
     const run = owner.family.latest;
-    const input = {run, tools:loadedToolActivities.filter(tool => tool.run_id === run.id), questions:questions.items.filter(question => question.run_id === run.id), drafts:mailDrafts.items.filter(draft => draft.run_id === run.id), summary:terminalToolSummaries.find(summary => summary.run_id === run.id), recordsComplete:toolDetailState[run.id]?.hasMore === false, connected:streamConnected};
+    const input = {run, tools:loadedToolActivities.filter(tool => tool.run_id === run.id), questions:questions.items.filter(question => question.run_id === run.id), drafts:mailDrafts.items.filter(draft => draft.run_id === run.id), summary:terminalToolSummaries.find(summary => summary.run_id === run.id), recordsComplete:toolDetailState[run.id]?.hasMore === false, connected:linkConnected};
     const issue = presentTaskIssue({...input, family:owner.family, tools:loadedToolActivities, questions:questions.items, drafts:mailDrafts.items});
     const approved = input.questions.some(question => question.question_type === "approval" && question.status === "answered" && question.answer === true && !question.approval?.review_only) ? i18n.t("tasks:record.approved_unconfirmed") : "";
     return [run.id, issue ? [issue.title, ...issue.facts, ...issue.secondary.filter(cause => cause !== i18n.t("tasks:secondary.records_incomplete"))].join(" ") : [taskPhaseLabel(input), approved].filter(Boolean).join(" ")];
@@ -1809,6 +2189,9 @@ function Workspace() {
       aria-label={[conversation.name, task ? taskStateLabel(task) : "", conversation.unread_count ? t("sidebar.unread", { count: conversation.unread_count }) : ""].filter(Boolean).join(t("sidebar.label_separator"))}
       className={`contact-row conversation-row ${activeId === conversation.id ? "active" : ""}`}
       onClick={() => focusTask(conversation)}
+      onPointerEnter={event => { if (event.pointerType === "mouse") { window.clearTimeout(prefetchTimer.current); prefetchTimer.current = window.setTimeout(() => prefetchConversation(conversation.id), 80); } }}
+      onPointerLeave={() => window.clearTimeout(prefetchTimer.current)}
+      onPointerDown={() => prefetchConversation(conversation.id)}
       onContextMenu={(event) => { event.preventDefault(); setSidebarContextMenu({ conversation, x: Math.min(event.clientX, window.innerWidth - 248), y: Math.min(event.clientY, window.innerHeight - 360) }); }}>
       <Avatar label={conversation.name} id={botId} group={conversation.kind === "group"} motion={motion} />
       <span className="contact-copy"><strong><span className="contact-name">{conversation.name}</span>{bot?.is_primary && <PrimaryBadge />}</strong><small>{preview}</small></span>
@@ -1860,7 +2243,7 @@ function Workspace() {
     } catch (cause) { setError(errorText(cause)); }
   }
 
-  async function retryRun(id: string) {
+  async function retryRun(id: string): Promise<void> {
     try {
       const run = await api.retryRun(id);
       setRuns((current) => mergeRunUpdates(current, [run]));
@@ -1871,13 +2254,13 @@ function Workspace() {
   // Sender grouping reads and writes the list's DOM: run it when what the list shows changes, not on every render.
   useLayoutEffect(() => { markSenderGroups(messageListRef.current); }, [conversationItems, taskOwners, toolTimeline, pendingRuns, drafts, loadingMessages, active?.id, active?.kind, active?.archived, teamBoardOpen, viewport.unreadSeq, error, historyError, hasMore, runs, toolSummaryAnchors, toolSummaryErrorAnchors, toolSummaryLoadingAnchors, toolDetailState, toolSummaryState, loadedToolActivities, terminalToolSummaries, questions.items, mailDrafts.items, activityView, bots, conversations, messageRecords]);
 
-  if (!indexInitialized.current && workspaceError) return <div className="center-state startup-error"><h2>{t("workspace.connection_unavailable")}</h2><p>{workspaceError}</p><button className="primary-button" disabled={loading} onClick={() => void refreshIndex()}>{loading ? t("action.retrying") : t("common:action.retry")}</button></div>;
-  if (loading && !conversations.length) return <div className="center-state"><DelayedFeedback><div className="spinner" />{t("workspace.loading")}</DelayedFeedback></div>;
+  if (!indexInitialized.current && workspaceError) return <BootScreen label={t("workspace.connection_unavailable")} immediate><h2>{t("workspace.connection_unavailable")}</h2><p>{workspaceError}</p><button className="primary-button" disabled={loading} onClick={() => void refreshIndex()}>{loading ? t("action.retrying") : t("common:action.retry")}</button></BootScreen>;
+  if (loading && !conversations.length) return <BootScreen label={t("workspace.loading")} />;
 
   return (
     <div inert={Boolean(deleteTarget || (viewOnlyChat && (isDesktop || compactViewport))) || undefined} className={`workspace${keyboardViewportOpen ? " keyboard-viewport-open" : ""}`} style={viewportHeight ? { "--viewport-height": `${viewportHeight}px` } as React.CSSProperties : undefined}>
       <UpdateBanner />
-      {workspaceError && indexInitialized.current && <div className="stream-status workspace-status" role="alert">{t("workspace.refresh_failed")}<button className="secondary-button" onClick={() => void refreshIndex()}>{t("common:action.retry")}</button></div>}
+      {workspaceErrorShown && indexInitialized.current && <div className="stream-status workspace-status workspace-toast" role="alert">{t("workspace.refresh_failed")}<button className="secondary-button" onClick={() => void refreshIndex()}>{t("common:action.retry")}</button></div>}
       {computerInfo && ((computerInfo.state !== "ready" && computerInfo.state !== "hibernated" && computerInfo.state !== "hibernating") || computerHealthAlert(computerInfo.health)) && panel !== "desktop" && <div className="stream-status workspace-status computer-preparing" role="status"><strong>{computerInfo.health?.state === "unresponsive" ? t("computer.health_unresponsive") : computerInfo.health?.state === "restarting" ? t("computer.health_restarting") : computerInfo.state === "starting" ? t("computer.starting") : computerInfo.state === "resuming" ? t("computer.resuming") : computerInfo.state === "error" ? t("computer.failed") : computerInfo.state === "stopped" ? t("computer.stopped") : t("computer.unavailable")}</strong><span>{(computerInfo.state === "starting" || computerInfo.state === "resuming") && computerInfo.phase ? ` · ${computerPhaseKeys[computerInfo.phase] ? t(computerPhaseKeys[computerInfo.phase]) : computerInfo.phase}` : ""}{computerInfo.error ? ` · ${computerInfo.error}` : ""}</span>{(computerInfo.state === "error" || computerInfo.state === "stopped" || computerInfo.health?.state === "unresponsive") && <button className="secondary-button" onClick={() => void api.computerRetry().then(() => api.computerInfo()).then(setComputerInfo).catch(cause => setError(errorText(cause)))}>{t("common:action.retry")}</button>}</div>}
       <div className="native-titlebar" aria-hidden="true" /><ActionHints /><div className={`workspace-grid${sidebarCollapsed ? " sidebar-collapsed" : ""}${contextPanelOpen ? " context-open" : ""}${contextPanelOpen || viewOnlyChat ? " card-open" : ""}${activeBot ? " bot-panel-ready" : ""}${panel === "bot-edit" ? " bot-panel-open" : ""}${displayedPanel === "terminal" ? " terminal-context" : ""}`}>
         <aside className={`contact-pane ${mobileList ? "open" : ""}`} inert={modalPanelOpen || desktopExpanded || undefined}>
@@ -1891,7 +2274,7 @@ function Workspace() {
             {onboardingState !== "sheet" && !visibleSidebarConversations.length && <EmptyState name="sidebar" className={`empty-copy is-compact${!query && !bots.length && !conversations.length ? " first-run-hide-mobile" : ""}`} look={CATS.mochi} pose={query ? "curious" : "asleep"}><p>{query ? t("sidebar.no_match") : t("sidebar.empty")}</p>{!query && <button className="primary-button sidebar-empty-create" disabled={newBotBusy} onClick={() => void createNewBot()}>{newBotBusy ? t("create.creating") : t("create.create_bot")}</button>}</EmptyState>}
             {hiddenBots.length > 0 && <section className="hidden-bots-section"><button type="button" className="hidden-bots-toggle" aria-expanded={hiddenBotsOpen} onClick={() => setHiddenBotsOpen((open) => !open)}><span>{t("sidebar.hidden_bots")}</span><Icon name="chevron-right" size={16} /></button>{hiddenBotsOpen && hiddenBots.map(hiddenBotRow)}</section>}
           </div>
-          <div className="sidebar-footer">{onboardingState === "chip" && <FinishSetupChip step={chipStep(modelReady)} onClick={() => setOnboardingForced(chipStep(modelReady))} />}<SidebarAccount connected={streamConnected} onSettings={() => { setPortabilityBotID(""); setPortabilityFile(undefined); openSettings("general", "home"); }} onUsage={() => { setUsageBotId(""); openSettings("usage"); }} onConnection={() => openSettings("models")} onArchive={() => setPanel("archive")} /></div>
+          <div className="sidebar-footer">{onboardingState === "chip" && <FinishSetupChip step={chipStep(modelReady)} onClick={() => setOnboardingForced(chipStep(modelReady))} />}<SidebarAccount connected={linkConnected} onSettings={() => { setPortabilityBotID(""); setPortabilityFile(undefined); openSettings("general", "home"); }} onUsage={() => { setUsageBotId(""); openSettings("usage"); }} onConnection={() => openSettings("models")} onArchive={() => setPanel("archive")} /></div>
         </aside>
         {onboardingState === "sheet" && onboarding && <Onboarding initialStep={onboardingForced ?? resumeStep(onboarding, modelReady)} modelConfigured={modelReady} bot={bots.find((item) => !item.archived)} onProgress={saveOnboarding} onModelChanged={refreshConfig} onBot={adoptOnboardingBot} onSkip={() => { saveOnboarding({ skipped: true }); setOnboardingForced(null); }} onFinish={finishOnboarding} />}
         {sidebarContextMenu && <div className="sidebar-context-menu" style={{ left: sidebarContextMenu.x, top: sidebarContextMenu.y }} role="menu" onClick={(event) => event.stopPropagation()}>
@@ -1914,25 +2297,25 @@ function Workspace() {
             {teamBoardOpen && active.kind === "group" ? <TeamBoard key={`team-board-${active.id}`} conversation={active} bots={bots} timezone={timezone} onClose={() => setTeamBoardOpen(false)} onOpenWork={() => { setTeamBoardOpen(false); setPanel("schedule"); }} /> : <>
             <div className="chat-body">
               <div className="message-scroll" ref={viewport.scrollRef} onScroll={viewport.onScroll}>
-                <ExpiryFinishingContext.Provider value={new Set(runs.filter(run => run.finishing_reason === "approval_expired").map(run => run.id))}><RunStartContext.Provider value={runStarts}><ActivityViewContext.Provider value={activityView}><div className={`message-list${viewport.unpositioned ? " is-positioning" : ""}`} ref={messageListRef}>
+                <ExpiryFinishingContext.Provider value={new Set(runs.filter(run => run.finishing_reason === "approval_expired").map(run => run.id))}><RunStartContext.Provider value={runStarts}><ActivityViewContext.Provider value={activityView}><div className={`message-list${viewport.unpositioned ? " is-positioning" : ""}`} ref={messageListRef} onPointerOver={isDesktop ? undefined : onMessageListPointerOver} onPointerLeave={isDesktop ? undefined : onMessageListPointerLeave} onFocus={isDesktop ? undefined : onMessageListFocus} onBlur={isDesktop ? undefined : onMessageListBlur} onKeyDown={isDesktop ? undefined : onMessageListKeyDown}>
                   {viewport.boundaryError && <div className="history-error" role="alert">{t("history.boundary_failed")}<button onClick={viewport.retryBoundary}>{t("common:action.retry")}</button><button onClick={jumpLatest}>{t("history.view_latest")}</button></div>}
                   {historyError && !viewport.boundaryError && <div className="history-error history-error-older" role="alert"><span>{t("history.older_failed", { error: historyError })}</span><button onClick={() => void loadOlder()} disabled={loadingOlder}>{loadingOlder ? t("action.retrying") : t("common:action.retry")}</button></div>}
                   {hasMore && <button className="load-older" onClick={() => void loadOlder()} disabled={loadingOlder}>{loadingOlder ? t("action.loading") : t("history.load_older")}</button>}
                   {(questions.error || mailDrafts.error || snapshotError) && <div className="task-state-read-error"><span>{i18n.t("tasks:issue.status_unavailable")}</span><button type="button" className="text-button" onClick={() => void refreshTaskStatus().catch(() => setSnapshotError("read_unavailable"))}>{i18n.t("tasks:issue.action.refresh_status")}</button></div>}
-                  {loadingMessages ? <DelayedFeedback key={`loading-${active.id}`}><div className={`inline-state${isDesktop ? "" : " web-loading-state"}`}>{isDesktop ? <div className="spinner" /> : <LoadingCat size={34} />}{t("history.loading_messages")}</div></DelayedFeedback> : conversationItems.length === 0 ?
+                  {snapshotError && loadedId !== active.id && !loadingMessages ? <div className="inline-state" role="status" data-snapshot-unavailable="true"><div className="spinner" />{t("history.unavailable_retrying")}</div> : loadingMessages ? <DelayedFeedback key={`loading-${active.id}`}><div className={`inline-state${isDesktop ? "" : " web-loading-state"}`}>{isDesktop ? <div className="spinner" /> : <LoadingCat size={34} />}{t("history.loading_messages")}</div></DelayedFeedback> : conversationItems.length === 0 ?
                     <EmptyState name="conversation" className="conversation-empty" look={CATS.mochi} pose="curious" size={84}><h2>{t("empty.start_chat")}</h2><p>{t("empty.start_chat_body")}</p></EmptyState> :
                     conversationItems.map((item, index) => {
                       const previousItem = conversationItems[index - 1];
                       const previousTime = previousItem?.kind === "message" ? previousItem.message.created_at : previousItem?.kind === "question" ? previousItem.question.created_at : previousItem?.draft.created_at;
                       if (item.kind === "mail_draft") {
                         const draft = item.draft;
-                        if (taskOwners.some(owner => owner.family.attempts.some(run => run.id === draft.run_id && run.bot_id === draft.bot_id && run.conversation_id === draft.conversation_id))) return taskOwners.filter(owner => owner.anchor?.kind === "draft" && owner.anchor.id === draft.draft_id).map(renderTaskOwner);
+                        if (ownedBy(draft)) return taskOwners.filter(owner => owner.anchor?.kind === "draft" && owner.anchor.id === draft.draft_id).map(renderTaskOwner);
                         const divider = !previousTime || dateInTimezone(previousTime, timezone) !== dateInTimezone(draft.created_at, timezone) || +new Date(draft.created_at) - +new Date(previousTime) >= 10 * 60_000;
                         return <div className="message-block" key={`mail-draft-${draft.draft_id}`}>{divider && <div className="date-divider"><span>{formatDateDivider(draft.created_at, timezone)}</span></div>}<MailDraftCard draft={draft} bot={botById.get(draft.bot_id)} group={active.kind === "group"} archived={active.archived} onChanged={async () => { await mailDrafts.refresh(); await refreshConversations(); }} /></div>;
                       }
                       if (item.kind === "question") {
                         const question = item.question;
-                        if (taskOwners.some(owner => owner.family.attempts.some(run => run.id === question.run_id && run.bot_id === question.bot_id && run.conversation_id === question.conversation_id))) return taskOwners.filter(owner => owner.anchor?.kind === "question" && owner.anchor.id === question.question_id).map(renderTaskOwner);
+                        if (ownedBy(question)) return taskOwners.filter(owner => owner.anchor?.kind === "question" && owner.anchor.id === question.question_id).map(renderTaskOwner);
                         const divider = !previousTime || dateInTimezone(previousTime, timezone) !== dateInTimezone(question.created_at, timezone) || +new Date(question.created_at) - +new Date(previousTime) >= 10 * 60_000;
                         return <div className="message-block" key={`question-${question.question_id}`}>{divider && <div className="date-divider"><span>{formatDateDivider(question.created_at, timezone)}</span></div>}<QuestionCard item={question} bot={botById.get(question.bot_id)} group={active.kind === "group"} archived={active.archived} onChanged={async (resolved) => { await questions.refresh(resolved); await refreshConversations(); }} /></div>;
                       }
@@ -1944,10 +2327,8 @@ function Workspace() {
                       const gap = previous ? +new Date(message.created_at) - +new Date(previous.created_at) : 0;
                       const unread = message.seq === viewport.unreadSeq;
                       // A task block (name label + Activity) directly above already names its Bot: show the name once.
-                      const ownedBy = (item: { run_id: string; bot_id: string; conversation_id: string }) => taskOwners.some(owner => owner.family.attempts.some(run => run.id === item.run_id && run.bot_id === item.bot_id && run.conversation_id === item.conversation_id));
                       const anchorOf = (candidate: (typeof conversationItems)[number] | undefined) => candidate?.kind === "message" ? { kind: "message" as const, id: candidate.message.id } : candidate?.kind === "question" ? { kind: "question" as const, id: candidate.question.question_id } : candidate?.kind === "mail_draft" ? { kind: "draft" as const, id: candidate.draft.draft_id } : undefined;
                       const itemTime = (candidate: (typeof conversationItems)[number] | undefined) => candidate?.kind === "message" ? candidate.message.created_at : candidate?.kind === "question" ? candidate.question.created_at : candidate?.draft.created_at;
-                      const ownerAnchors = taskOwners.filter(ownerDraws).map(owner => ({ anchor: owner.anchor, botId: owner.family.latest.bot_id }));
                       const drawnAbove = conversationItems[previousRenderedIndex(conversationItems, index, candidate => (candidate.kind === "question" ? ownedBy(candidate.question) : candidate.kind === "mail_draft" ? ownedBy(candidate.draft) : false) && !precedingBlockBotIds(anchorOf(candidate), ownerAnchors).length)];
                       const blockBotIds = active.kind === "group" ? precedingBlockBotIds(anchorOf(drawnAbove), ownerAnchors) : [];
                       const blockTime = itemTime(drawnAbove);
@@ -1978,18 +2359,23 @@ function Workspace() {
                       const runTrigger = runTriggerId ? messageById.get(runTriggerId) : undefined;
                       const replyTarget = replyMarker.ids.length ? replyMarker.ids.map(id => messageById.get(id)).find(isEarlierInChat) ?? (isEarlierInChat(runTrigger) ? runTrigger : undefined) : undefined;
                       const showReplyQuote = shouldShowReplyQuote(quoteTimeline, quoteIndexById.get(message.id) ?? -1, replyTarget);
-                      const canReact = messageRecords.some(record => record.id === message.id);
+                      const canReact = messageRecordIDs.has(message.id) && !message.local;
                       // "View activity" is offered on a Bot's message whose run did work (steps or progress notes), not on notices or user text.
                       const activityRunId = message.role === "assistant" && message.run_id && message.kind !== "notice" && message.kind !== "message_ref" && runHasActivity(message.run_id) ? message.run_id : undefined;
-                      return <div className={`message-block${arrivalIDs.current.has(message.id) ? " new-arrival" : ""}`} data-message-seq={message.seq} data-message-id={message.id} data-flip={message.id} tabIndex={-1} key={message.id} onContextMenu={canReact && isDesktop ? event => { event.preventDefault(); setReactionMenu({ messageId: message.id, x: event.clientX, y: event.clientY }); } : undefined}>
+                      const receiptState = receiptFor(message, runsForMessage.get(message.id), lastReplySeq > message.seq);
+                      const receiptNode = receiptState ? <SendReceipt receipt={receiptState} group={active.kind === "group"} names={receiptState.readBy.map(id => botById.get(id)?.name ?? knownBotNames.current.get(id) ?? "Bot")} onRetry={message.client_message_id ? () => retrySend(message.client_message_id!) : undefined} /> : undefined;
+                      const hasBar = !isDesktop && canReact && message.kind !== "notice" && message.kind !== "message_ref";
+                      const cardLike = message.kind === "ui_card" || message.kind === "scheduled_task";
+                      const copyText = !cardLike && message.content.trim() ? copyableMessageText(message) : undefined;
+                      const actions = hasBar ? <MessageActionsSlot id={message.id}><MessageHoverActions message={message} timezone={timezone} copyText={copyText}
+                          onReact={anchor => setReactionMenu({ messageId: message.id, x: anchor.left, y: anchor.bottom + 6 })}
+                          onActivity={activityRunId && !showActivity ? () => { setMessageActions("tap", ""); toggleRunActivity(activityRunId); } : undefined} activityOpen={activityRunId ? revealedRuns.has(activityRunId) : false}
+                          onReply={active.archived ? undefined : () => { updateComposerDraft(active.id, current => ({ ...current, reply: { id: message.id, name: message.role === "user" ? t("message.you") : message.sender_bot_name ?? (message.sender_bot_id ? botById.get(message.sender_bot_id)?.name : undefined) ?? "Bot", excerpt: previewText(readReplyMarker(message.content).body) || t("message.attachment") } })); document.querySelector<HTMLTextAreaElement>(".composer textarea")?.focus(); }} /></MessageActionsSlot> : undefined;
+                      return <div className={`message-block${arrivalIDs.current.has(blockKey(message)) ? ` new-arrival${streamedIDs.current.has(message.id) ? " was-streamed" : ""}` : ""}`} data-message-seq={message.seq} data-message-id={message.id} data-flip={blockKey(message)} tabIndex={index === conversationItems.length - 1 ? 0 : -1} key={blockKey(message)} onContextMenu={canReact && isDesktop ? event => { event.preventDefault(); setReactionMenu({ messageId: message.id, x: event.clientX, y: event.clientY }); } : undefined}>
                         {showDivider && <div className="date-divider"><span>{formatDateDivider(message.created_at, timezone)}</span></div>}
                         {unread && <div className="unread-divider" aria-label={t("history.unread_below")}><span>{t("history.unread")}</span></div>}
-                        <div className={`message-hover-host${message.role === "user" ? " is-user" : ""}${tapActionsId === message.id ? " is-actions-open" : ""}`} onPointerDownCapture={!isDesktop && canReact ? () => { selectionOnPress.current = Boolean(window.getSelection()?.toString()); } : undefined} onClick={!isDesktop && canReact ? event => { const hadSelection = selectionOnPress.current || Boolean(window.getSelection()?.toString()); selectionOnPress.current = false; if (hadSelection || !window.matchMedia("(hover: none)").matches || (event.target as HTMLElement).closest("a,button,summary,input,textarea,pre,[role=button],.message-hover-actions")) return; setTapActionsId(current => current === message.id ? "" : message.id); } : undefined}>
-                        {!isDesktop && canReact && message.kind !== "notice" && message.kind !== "message_ref" && <MessageHoverActions message={message} timezone={timezone}
-                          onReact={anchor => setReactionMenu({ messageId: message.id, x: anchor.left, y: anchor.bottom + 6 })}
-                          onActivity={activityRunId && !showActivity ? () => { setTapActionsId(""); toggleRunActivity(activityRunId); } : undefined} activityOpen={activityRunId ? revealedRuns.has(activityRunId) : false}
-                          onReply={active.archived ? undefined : () => { updateComposerDraft(active.id, current => ({ ...current, reply: { id: message.id, name: message.role === "user" ? t("message.you") : message.sender_bot_name ?? (message.sender_bot_id ? botById.get(message.sender_bot_id)?.name : undefined) ?? "Bot", excerpt: previewText(readReplyMarker(message.content).body) || t("message.attachment") } })); document.querySelector<HTMLTextAreaElement>(".composer textarea")?.focus(); }} />}
-                        <MessageBubble message={message} replyTarget={showReplyQuote ? replyTarget : undefined} replyTargetName={replyTarget?.role === "user" ? t("message.you") : replyTarget?.sender_bot_name ?? (replyTarget?.sender_bot_id ? botById.get(replyTarget.sender_bot_id)?.name ?? knownBotNames.current.get(replyTarget.sender_bot_id) : undefined)} senderName={message.sender_bot_name ?? (message.sender_bot_id ? knownBotNames.current.get(message.sender_bot_id) : undefined)} targetBot={message.notice?.to_bot_id ? botById.get(message.notice.to_bot_id) : undefined} sender={message.sender_bot_id ? botById.get(message.sender_bot_id) : undefined}
+                        <div className={`message-hover-host${message.role === "user" ? " is-user" : ""}`} data-host-id={message.id} onPointerDownCapture={!isDesktop && canReact ? () => { selectionOnPress.current = Boolean(window.getSelection()?.toString()); } : undefined} onClick={!isDesktop && canReact ? event => { const hadSelection = selectionOnPress.current || Boolean(window.getSelection()?.toString()); selectionOnPress.current = false; const target = event.target as HTMLElement; if (hadSelection || !window.matchMedia("(hover: none)").matches || !target.closest(".message-content") || target.closest("a,button,summary,input,textarea,pre,[role=button],.message-hover-actions")) return; setMessageActions("tap", tappedMessageActionsId() === message.id ? "" : message.id); } : undefined}>
+                        <MessageBubble receipt={receiptNode} message={message} replyTarget={showReplyQuote ? replyTarget : undefined} replyTargetName={replyTarget?.role === "user" ? t("message.you") : replyTarget?.sender_bot_name ?? (replyTarget?.sender_bot_id ? botById.get(replyTarget.sender_bot_id)?.name ?? knownBotNames.current.get(replyTarget.sender_bot_id) : undefined)} senderName={message.sender_bot_name ?? (message.sender_bot_id ? knownBotNames.current.get(message.sender_bot_id) : undefined)} targetBot={message.notice?.to_bot_id ? botById.get(message.notice.to_bot_id) : undefined} sender={message.sender_bot_id ? botById.get(message.sender_bot_id) : undefined}
                           run={message.run_id ? runById.get(message.run_id) : undefined}
                           tools={processTools.length || processProgress.length || processSummaries.length || Object.keys(processSummaryErrors).length || Object.keys(processSummaryLoading).length ? <ToolActivityList activities={[...processTools, ...processAggregateTools]} progress={processProgress} summaries={processSummaries} summaryErrors={processSummaryErrors} summaryLoading={processSummaryLoading} details={toolDetailState} onLoadDetails={loadToolDetails} onRetrySummary={retryToolSummary} botById={botById} activeRunIds={activeRunIds} /> : undefined}
                           scheduleOccurrence={message.run_id ? scheduleOccurrences.get(message.run_id) : undefined} schedulePending={scheduleCardPending(message.run_id)} schedule={message.run_id ? scheduleMetadata.get(scheduleOccurrences.get(message.run_id)?.schedule_id ?? "") : undefined} onRetrySchedule={active.archived || ownedRunIDs.has(message.run_id ?? "") ? undefined : retryRun}
@@ -1998,9 +2384,21 @@ function Workspace() {
                           compact={compact} showAvatar={active.kind === "group"} showIdentity={showIdentity} noticeTargetAvailable={!message.notice || conversations.some(item => item.id === message.notice?.target_conversation_id)} allowOpenDM={active.kind === "group" || message.kind === "forward_result"} onDraftReply={!active.archived && !isDesktop && message.card?.type === "mail" ? () => send(t("message.draft_reply_request", { from: message.card?.from, subject: message.card?.subject, source: message.card?.source }), crypto.randomUUID()) : undefined} onMention={active.archived ? undefined : bot => setAvatarMention({ name: bot.name, conversationId: active.id, nonce: Date.now() })} onNavigate={id => { if (conversations.some(item => item.id === id)) { selectConversation(id); setMobileList(false); } }} />
                         </div>
                         {canReact && <MessageReactions message={message} botNames={new Map(bots.map(bot => [bot.id, bot.name]))} menuPosition={reactionMenu?.messageId === message.id ? reactionMenu : null} onCloseMenu={() => setReactionMenu(null)} onSet={async (emoji, present) => {
-                          const result = await api.setMessageReaction(active.id, message.id, emoji, present);
-                          if (activeIdRef.current === active.id) setMessages(current => current.map(record => record.id === message.id ? { ...record, reactions: result.reactions } : record));
+                          // Optimistic: the chip changes in this frame; the server's list replaces it only if no newer toggle on this message has started.
+                          const conversationId = active.id;
+                          const token = (reactionTokens.current.get(message.id) ?? 0) + 1;
+                          reactionTokens.current.set(message.id, token);
+                          const edit = (change: (reactions: Message["reactions"]) => Message["reactions"]) => { if (activeIdRef.current === conversationId) setMessages(current => current.map(record => record.id === message.id ? { ...record, reactions: change(record.reactions) } : record)); };
+                          edit(reactions => applyUserReaction(reactions, emoji, present));
+                          try {
+                            const result = await api.setMessageReaction(conversationId, message.id, emoji, present);
+                            if (reactionTokens.current.get(message.id) === token) edit(() => result.reactions);
+                          } catch (cause) {
+                            edit(reactions => applyUserReaction(reactions, emoji, !present));
+                            throw cause;
+                          }
                         }} />}
+                        {actions && <div className="message-actions-row" data-host-id={message.id} data-side={message.role === "user" ? "user" : "bot"} data-gutter={active.kind === "group" && message.role !== "user" && message.kind !== "ui_card" ? "" : undefined}>{actions}</div>}
                         {taskOwners.filter(owner => owner.anchor?.kind === "message" && owner.anchor.id === message.id).map(renderTaskOwner)}
                         {afterTools.length || afterSummaries.length || Object.keys(afterSummaryErrors).length || Object.keys(afterSummaryLoading).length ? <ToolActivityList activities={[...afterTools, ...afterAggregateTools]} summaries={afterSummaries} summaryErrors={afterSummaryErrors} summaryLoading={afterSummaryLoading} details={toolDetailState} onLoadDetails={loadToolDetails} onRetrySummary={retryToolSummary} botById={botById} activeRunIds={activeRunIds} group={active.kind === "group"} /> : null}
                       </div>;
@@ -2008,7 +2406,7 @@ function Workspace() {
                   <ToolActivityList activities={toolTimeline.fallback} summaries={terminalToolSummaries.filter(summary => toolTimeline.fallback.some(activity => activity.run_id === summary.run_id))} details={toolDetailState} onLoadDetails={loadToolDetails} botById={botById} activeRunIds={activeRunIds} group={active.kind === "group"} />
                   {taskOwners.filter(owner => !owner.anchor).map(renderTaskOwner)}
                   {!isDesktop && pendingRuns.filter(run => !ownedRunIDs.has(run.id)).map(run => <LiveRunStatus key={run.id} run={run} botName={run.kind === "triage" ? "Tofi" : botById.get(run.bot_id)?.name ?? "Bot"} showName={active.kind === "group"} />)}
-                  {error && <div className="error-banner" role="alert">{error}</div>}
+                  {error && <div className="error-banner system-notice" role="alert">{error}</div>}
                 </div></ActivityViewContext.Provider></RunStartContext.Provider></ExpiryFinishingContext.Provider>
               </div>
               {viewport.showJump && <button className="jump-latest" aria-label={t("history.jump_latest")} onClick={jumpLatest}><Icon name="arrow-down" size={18} variant="filled" />{viewport.newCount > 0 && <span className="jump-new-count">{t("history.new_count", { count: viewport.newCount })}</span>}</button>}
@@ -2199,25 +2597,28 @@ function readReplyMarker(content: string): { ids: string[]; body: string } {
   return { ids, body: content };
 }
 
-const SNAPSHOT_CACHE_LIMIT = 8;
+const SNAPSHOT_CACHE_LIMIT = 50;
+const SNAPSHOT_CACHE_MESSAGES = 60;
 interface ConversationSnapshot { messages: Message[]; drafts: Record<string, StreamDraft>; runs: Run[]; toolActivities: ToolActivity[]; toolSummaries: ToolActivityRunSummary[]; memories: Memory[]; hasMore: boolean }
 
-export function MessageBubble({ message, replyTarget, replyTargetName, sender, senderName, targetBot, run, tools, scheduleOccurrence, schedulePending, schedule, onRetrySchedule, onDraftReply, draft, relatedChat, onOpenRelatedChat, compact = false, showAvatar = true, showIdentity = true, noticeTargetAvailable = true, allowOpenDM = false, onNavigate, onMention }: { relatedChat?: ViewOnlyChatTarget | null; onOpenRelatedChat?: (target: ViewOnlyChatTarget) => void; noticeTargetAvailable?: boolean; allowOpenDM?: boolean; onMention?: (bot: Bot) => void; message: Message; replyTarget?: Message; replyTargetName?: string; sender?: Bot; senderName?: string; targetBot?: Bot; run?: Run; tools?: React.ReactNode; scheduleOccurrence?: ScheduleOccurrence; schedulePending?: boolean; schedule?: Schedule; onRetrySchedule?: (id: string) => Promise<void>; onDraftReply?: () => Promise<boolean>; draft?: string | StreamDraft; compact?: boolean; showAvatar?: boolean; showIdentity?: boolean; onNavigate?: (id: string) => void }) {
+export function MessageBubble({ receipt, message, replyTarget, replyTargetName, sender, senderName, targetBot, run, tools, scheduleOccurrence, schedulePending, schedule, onRetrySchedule, onDraftReply, draft, relatedChat, onOpenRelatedChat, compact = false, showAvatar = true, showIdentity = true, noticeTargetAvailable = true, allowOpenDM = false, onNavigate, onMention }: { receipt?: React.ReactNode; relatedChat?: ViewOnlyChatTarget | null; onOpenRelatedChat?: (target: ViewOnlyChatTarget) => void; noticeTargetAvailable?: boolean; allowOpenDM?: boolean; onMention?: (bot: Bot) => void; message: Message; replyTarget?: Message; replyTargetName?: string; sender?: Bot; senderName?: string; targetBot?: Bot; run?: Run; tools?: React.ReactNode; scheduleOccurrence?: ScheduleOccurrence; schedulePending?: boolean; schedule?: Schedule; onRetrySchedule?: (id: string) => Promise<void>; onDraftReply?: () => Promise<boolean>; draft?: string | StreamDraft; compact?: boolean; showAvatar?: boolean; showIdentity?: boolean; onNavigate?: (id: string) => void }) {
   const { t } = useTranslation("chat");
   const {timezone} = useUserTimezone();
   const toolsRunning = run?.status === "running" || run?.status === "queued";
   const answerRef = useRef<HTMLDivElement>(null);
-  const previousToolLayout = useRef<{ live: boolean; rect: DOMRect } | null>(null);
+  const previousToolLayout = useRef<{ live: boolean; offset: number } | null>(null);
   useLayoutEffect(() => {
     if (isDesktop || !answerRef.current) return;
     const answer = answerRef.current;
-    const next = answer.getBoundingClientRect();
+    // Measured against the message's own body, so scrolling or a change above the message can never read as the answer moving.
+    const body = answer.closest<HTMLElement>(".message-body");
+    const offset = answer.getBoundingClientRect().top - (body?.getBoundingClientRect().top ?? 0);
     const previous = previousToolLayout.current;
     if (previous?.live && !toolsRunning && !window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
-      const dy = previous.rect.top - next.top;
+      const dy = previous.offset - offset;
       if (Math.abs(dy) > 1) answer.animate({ transform: [`translateY(${dy}px)`, "translateY(0)"] }, { duration: 520, easing: "cubic-bezier(.22,1,.36,1)" });
     }
-    previousToolLayout.current = { live: toolsRunning, rect: next };
+    previousToolLayout.current = { live: toolsRunning, offset };
   });
   if (message.kind === "ui_card" && message.card) {
     const label = sender?.name ?? senderName ?? "Bot";
@@ -2272,7 +2673,7 @@ export function MessageBubble({ message, replyTarget, replyTargetName, sender, s
   const inlineMention = mention && targetBot ? <BotIdentityCard bot={targetBot} onMention={onMention ? () => onMention(targetBot) : undefined} onOpen={allowOpenDM && onNavigate ? () => onNavigate(targetBot.dm_conversation_id) : undefined}>{mention}</BotIdentityCard> : mention;
   const toolRow = tools && <div className="message-tools">{tools}</div>;
   const grouped = showAvatar && !isUser;
-  return <article data-sender={grouped ? message.sender_bot_id : undefined} data-at={grouped ? message.created_at : undefined} className={`message ${isUser ? "message-user" : "message-bot"}${grouped ? " is-group" : !isUser ? " is-dm" : ""} ${message.kind === "segment" ? "message-segment" : ""} ${message.kind === "forward_result" ? "message-forward-result" : ""} ${compact ? "message-compact" : ""}`} title={isDesktop ? `${formatExactTime(message.created_at, timezone)} · ${timezone}` : undefined}><div className={`message-body${tools && !isDesktop ? ` web-tool-body ${toolsRunning ? "is-tools-live" : "is-tools-done"}` : ""}`}><div className={`message-meta ${hideMeta ? "compact" : ""}`}>{scheduled && <span>{t("message.scheduled")}</span>}{showIdentity && !isUser && (!compact || showAvatar) && <strong>{label}</strong>}</div>{(toolsRunning || !isDesktop) && toolRow}{replyTarget && <button type="button" className="message-reply-quote" aria-label={t("message.jump_to_reply", { name: replyTargetName ?? t("message.original") })} onClick={() => jumpToMessage(document.querySelector<HTMLElement>(`[data-message-id="${replyTarget.id}"]`))}><span className="message-reply-author">{t("message.reply_to", { name: replyTargetName ?? t("message.original") })}</span><span className="message-reply-excerpt">{previewText(readReplyMarker(replyTarget.content).body) || t("message.attachment")}</span></button>}<div className="message-content" ref={answerRef}>{showAvatar && !isUser && <div className="sender-avatar">{sender ? <BotIdentityCard bot={sender} onMention={onMention ? () => onMention(sender) : undefined} onOpen={allowOpenDM && onNavigate ? () => onNavigate(sender.dm_conversation_id) : undefined}><Avatar label={label} id={sender.id} mini /></BotIdentityCard> : <Avatar label={label} id={message.sender_bot_id ?? "bot"} mini />}</div>}{<SmoothStreamMarkdown content={body} mention={inlineMention} active={Boolean(draft) && !isDesktop} />}<AttachmentList attachments={message.attachments} compact={isUser} />{draft && isDesktop && <span className="typing-cursor" />}</div>{!toolsRunning && isDesktop && toolRow}{relatedChat && onOpenRelatedChat && <RelatedMessageLink target={relatedChat} onOpen={onOpenRelatedChat} />}</div></article>;
+  return <article data-sender={grouped ? message.sender_bot_id : undefined} data-at={grouped ? message.created_at : undefined} className={`message ${isUser ? "message-user" : "message-bot"}${message.local?.state === "sending" ? " is-sending" : ""}${grouped ? " is-group" : !isUser ? " is-dm" : ""} ${message.kind === "segment" ? "message-segment" : ""} ${message.kind === "forward_result" ? "message-forward-result" : ""} ${compact ? "message-compact" : ""}`} title={isDesktop ? `${formatExactTime(message.created_at, timezone)} · ${timezone}` : undefined}><div className={`message-body${tools && !isDesktop ? ` web-tool-body ${toolsRunning ? "is-tools-live" : "is-tools-done"}` : ""}`}><div className={`message-meta ${hideMeta ? "compact" : ""}`}>{scheduled && <span>{t("message.scheduled")}</span>}{showIdentity && !isUser && (!compact || showAvatar) && <strong>{label}</strong>}</div>{(toolsRunning || !isDesktop) && toolRow}{replyTarget && <button type="button" className="message-reply-quote" aria-label={t("message.jump_to_reply", { name: replyTargetName ?? t("message.original") })} onClick={() => jumpToMessage(document.querySelector<HTMLElement>(`[data-message-id="${replyTarget.id}"]`))}><span className="message-reply-author">{t("message.reply_to", { name: replyTargetName ?? t("message.original") })}</span><span className="message-reply-excerpt">{previewText(readReplyMarker(replyTarget.content).body) || t("message.attachment")}</span></button>}<div className="message-content" ref={answerRef}>{showAvatar && !isUser && <div className="sender-avatar">{sender ? <BotIdentityCard bot={sender} onMention={onMention ? () => onMention(sender) : undefined} onOpen={allowOpenDM && onNavigate ? () => onNavigate(sender.dm_conversation_id) : undefined}><Avatar label={label} id={sender.id} mini /></BotIdentityCard> : <Avatar label={label} id={message.sender_bot_id ?? "bot"} mini />}</div>}{<SmoothStreamMarkdown content={body} mention={inlineMention} active={Boolean(draft) && !isDesktop} />}<AttachmentList attachments={message.attachments} compact={isUser} />{draft && isDesktop && <span className="typing-cursor" />}</div>{receipt}{!toolsRunning && isDesktop && toolRow}{relatedChat && onOpenRelatedChat && <RelatedMessageLink target={relatedChat} onOpen={onOpenRelatedChat} />}</div></article>;
 }
 
 export function RunStatusAnnouncement({ conversationId, runs, botById, ready, taskAnnouncements }: { conversationId: string; runs: Run[]; botById: Map<string, Bot>; ready: boolean; taskAnnouncements?: Map<string, string> }) {
@@ -2541,7 +2942,7 @@ function WebToolActivityRun({ runId, items, notes, summary, summaryError, summar
         const active = live && (activity.status === "running" || activity.status === "queued");
         return <li className={`web-tool-step is-${toolDisplayState(activity)}`} key={toolActivityKey(activity)}>
           <Icon name={toolStepIcon(toolStepLabel(activity))} size={16} />
-          <details className="web-tool-step-detail"><summary><span className="web-tool-step-label">{toolStepLabel(activity)}{toolArgumentPreview(activity) ? ` · ${toolArgumentPreview(activity)}` : ""}</span></summary>
+          <details className="web-tool-step-detail" onToggle={event => { if (event.currentTarget.open) requestFullToolResult(activity); }}><summary><span className="web-tool-step-label">{toolStepLabel(activity)}{toolArgumentPreview(activity) ? ` · ${toolArgumentPreview(activity)}` : ""}</span></summary>
             <div className="tool-activity-details"><small>{Number.isFinite(Date.parse(activity.started_at)) ? formatExactTime(activity.started_at, timezone) : ""} · {timezone}</small><div><span>{t("tools.arguments")}</span><pre>{activity.arguments || t("tools.none")}</pre></div><div><span>{t("tools.result")}</span>{activity.outcome && <p className="tool-outcome" role="note">{activity.outcome.message}</p>}<pre>{activity.result || (active ? t("tools.waiting_result") : t("tools.none"))}</pre></div>{activity.truncated && <small>{t("tools.truncated")}</small>}</div>
           </details>
           <span className="web-tool-step-meta">{active ? <span className="web-tool-breath" aria-hidden="true" /> : <Icon name={activity.status === "completed" ? "check" : toolDisplayState(activity) !== activity.status ? "clock" : "alert"} size={14} variant="filled" />}{toolDisplayLabel(activity)}{duration === undefined ? "" : ` · ${duration.toFixed(1)}s`}</span>
@@ -2583,7 +2984,7 @@ function DesktopToolActivityRun({ runId, items, notes, summary: runSummary, summ
           const end = activity.status === "running" ? now : Date.parse(activity.updated_at);
           const duration = Number.isFinite(start) && Number.isFinite(end) && end >= start ? (end - start) / 1000 : undefined;
           return <li className={`v2-tool-step tool-status-${toolDisplayState(activity)}`} key={toolActivityKey(activity)}>
-            <details className="v2-tool-step-detail"><summary><span className="v2-tool-step-marker" aria-hidden="true" /><strong>{activity.name}</strong>{toolArgumentPreview(activity) && <span className="v2-tool-step-argument">{toolArgumentPreview(activity)}</span>}<span className="v2-tool-step-state">{toolDisplayLabel(activity)}</span><time>{duration === undefined ? "" : activity.status === "running" ? `${duration}s…` : `${duration}s`}</time></summary>
+            <details className="v2-tool-step-detail" onToggle={event => { if (event.currentTarget.open) requestFullToolResult(activity); }}><summary><span className="v2-tool-step-marker" aria-hidden="true" /><strong>{activity.name}</strong>{toolArgumentPreview(activity) && <span className="v2-tool-step-argument">{toolArgumentPreview(activity)}</span>}<span className="v2-tool-step-state">{toolDisplayLabel(activity)}</span><time>{duration === undefined ? "" : activity.status === "running" ? `${duration}s…` : `${duration}s`}</time></summary>
               <div className="tool-activity-details"><small>{Number.isFinite(Date.parse(activity.started_at)) ? formatExactTime(activity.started_at, timezone) : ""} · {timezone}</small><div><span>{t("tools.arguments")}</span><pre>{activity.arguments || t("tools.none")}</pre></div><div><span>{t("tools.result")}</span>{activity.outcome && <p className="tool-outcome" role="note">{activity.outcome.message}</p>}<pre>{activity.result || (activity.status === "running" || activity.status === "queued" ? t("tools.waiting_result") : t("tools.none"))}</pre></div>{activity.truncated && <small>{t("tools.truncated")}</small>}</div>
             </details>
           </li>;
@@ -2700,7 +3101,7 @@ function isPureInsertion(previous: string, next: string) {
   return start + end >= previous.length;
 }
 
-function Composer({ workStatus, activeRun, latestReplyId, onStopRun, avatarMention, conversation, bots, draft, onDraftChange: updateDraftFor, onSend, onSendStart, onSent, modelConfigured, onConnectModel, draftReady, readOnly = false }: { workStatus: React.ReactNode; activeRun?: Run; latestReplyId?: string; onStopRun: (id: string) => Promise<void>; avatarMention: { name: string; conversationId: string; nonce: number } | null; conversation: Conversation; bots: Bot[]; draft: ComposerDraft; onDraftChange: (conversationId: string, update: (draft: ComposerDraft) => ComposerDraft) => void; onSend: (content: string, clientMessageId: string, attachmentIds?: string[], draftSignature?: string, flightOrigin?: DOMRect) => Promise<boolean>; onSendStart?: () => void; onSent: () => void; modelConfigured: boolean; onConnectModel: () => void; draftReady: boolean; readOnly?: boolean }) {
+function Composer({ workStatus, activeRun, latestReplyId, onStopRun, avatarMention, conversation, bots, draft, onDraftChange: updateDraftFor, onSend, onSendStart, onSent, modelConfigured, onConnectModel, draftReady, readOnly = false }: { workStatus: React.ReactNode; activeRun?: Run; latestReplyId?: string; onStopRun: (id: string) => Promise<void>; avatarMention: { name: string; conversationId: string; nonce: number } | null; conversation: Conversation; bots: Bot[]; draft: ComposerDraft; onDraftChange: (conversationId: string, update: (draft: ComposerDraft) => ComposerDraft) => void; onSend: (content: string, clientMessageId: string, attachmentIds?: string[], draftSignature?: string, flightOrigin?: DOMRect, attachments?: Attachment[]) => Promise<boolean>; onSendStart?: () => void; onSent: () => void; modelConfigured: boolean; onConnectModel: () => void; draftReady: boolean; readOnly?: boolean }) {
   const { t } = useTranslation("chat");
   const [sending, setSending] = useState(false);
   const [fileError, setFileError] = useState("");
@@ -2912,18 +3313,22 @@ function Composer({ workStatus, activeRun, latestReplyId, onStopRun, avatarMenti
     onDraftChange((current) => ({ ...current, pending: { signature, id: clientMessageId } }));
     setSending(true);
     const attachmentIds: string[] = [];
+    const sentAttachments: Attachment[] = [];
     try {
       for (const attachment of attachments) {
         if (!isCurrent()) return;
         let id = attachment.id;
+        let uploaded: Attachment | undefined;
         if (!id) {
           if (!attachment.file) throw new Error(t("composer.reselect_file", { name: attachment.name }));
           setUploadingKey(attachment.key);
-          id = (await api.uploadAttachment(conversationId, attachment.file)).id;
+          uploaded = await api.uploadAttachment(conversationId, attachment.file);
+          id = uploaded.id;
           if (isCurrent()) setUploadingKey(null);
           onDraftChange((current) => ({ ...current, attachments: current.attachments.map((item) => item.key === attachment.key ? { ...item, id } : item) }));
         }
         attachmentIds.push(id);
+        sentAttachments.push(uploaded ?? { id, conversation_id: conversationId, name: attachment.name, mime: attachment.type, size: attachment.size, created_at: new Date().toISOString() });
       }
     } catch (cause) {
       if (isCurrent()) { setFileError(errorText(cause)); setSending(false); setUploadingKey(null); }
@@ -2931,7 +3336,7 @@ function Composer({ workStatus, activeRun, latestReplyId, onStopRun, avatarMenti
     }
     if (!isCurrent()) return;
     const flightOrigin = !isDesktop ? textareaRef.current?.getBoundingClientRect() : undefined;
-    const sent = await onSend(draftContent, clientMessageId, attachmentIds, signature, flightOrigin);
+    const sent = await onSend(draftContent, clientMessageId, attachmentIds, signature, flightOrigin, sentAttachments);
     if (!isCurrent()) return;
     // Workspace owns acknowledgement cleanup for the exact sent draft, even
     // across conversation switches. A newer edit/reply must survive this callback.
@@ -3030,7 +3435,7 @@ function Composer({ workStatus, activeRun, latestReplyId, onStopRun, avatarMenti
     if (!form || !pane) return;
     const measure = () => pane.style.setProperty("--composer-height", `${form.getBoundingClientRect().height}px`);
     const observer = new ResizeObserver(measure);
-    observer.observe(form); measure();
+    observer.observe(form, { box: "border-box" }); measure();
     return () => observer.disconnect();
   }, [conversation.id]);
   // The measurement stays across a conversation switch (the next composer re-measures in the same commit) and goes with the composer.

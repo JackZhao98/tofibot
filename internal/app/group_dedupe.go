@@ -163,7 +163,7 @@ func mentionSpans(content string, members []Bot) []mentionSpan {
 			if end > len(runes) || !strings.EqualFold(string(runes[i+1:end]), name) || byName[name] == "" {
 				continue
 			}
-			if end < len(runes) && (unicode.IsLetter(runes[end]) || unicode.IsDigit(runes[end]) || runes[end] == '_' || runes[end] == '@') {
+			if !mentionNameEndsAt(nr, runes, end) {
 				continue
 			}
 			out = append(out, mentionSpan{botID: byName[name], start: i, end: end})
@@ -183,7 +183,7 @@ const coordinatorFamilySQL = `WITH RECURSIVE family(id) AS (
 // besides the coordinator, in order of mention, with the text addressed to each.
 func userMentionedHelpers(anchor Message, coordinator string, members []Bot) (ids []string, asked map[string]string) {
 	parsed := parseMentions(anchor.Content, members)
-	if len(parsed.IDs) < 2 || len(parsed.Unknown) != 0 || len(parsed.Ambiguous) != 0 {
+	if len(parsed.IDs) < 2 || len(parsed.Ambiguous) != 0 {
 		return nil, nil
 	}
 	found := false
@@ -325,7 +325,10 @@ func (s *Store) coAddressedRoots(r Run) []Run {
 
 // coAddressedReplies returns what the other addressed Bots posted for the same
 // user message (their runs and everything those spawned), up to the next
-// person message, so a Bot that answers later reads the earlier replies.
+// person message, so a Bot that answers later reads the earlier replies. Their
+// say notes count too: a member whose part is an input to a later member
+// leaves it as a folded note, which the later member reads and the person does
+// not see unfolded.
 func (s *Store) coAddressedReplies(r Run, conversationID string) []Message {
 	anchor, err := s.GetMessage(r.TriggerMessageID)
 	if err != nil || anchor.ConversationID != conversationID {
@@ -334,7 +337,7 @@ func (s *Store) coAddressedReplies(r Run, conversationID string) []Message {
 	rows, err := s.db.Query(`WITH RECURSIVE family(id) AS (
 		SELECT id FROM runs WHERE trigger_message_id=? AND kind='' AND COALESCE(parent_run_id,'')='' AND id<>?
 		UNION SELECT r.id FROM runs r JOIN family f ON r.parent_run_id=f.id
-	) SELECT id FROM messages WHERE conversation_id=? AND seq>? AND role='assistant' AND kind IN ('','segment')
+	) SELECT id FROM messages WHERE conversation_id=? AND seq>? AND role='assistant' AND (kind IN ('','segment') OR (kind='progress' AND client_message_id LIKE 'say-note:%'))
 		AND run_id IN (SELECT id FROM family)
 		AND seq<COALESCE((SELECT MIN(seq) FROM messages WHERE conversation_id=? AND role='user' AND seq>?),9223372036854775807)
 		ORDER BY seq LIMIT 200`, r.TriggerMessageID, r.ID, conversationID, anchor.Seq, conversationID, anchor.Seq)
@@ -400,5 +403,76 @@ func (s *Server) coAddressedContext(c Conversation, r Run, bot Bot) string {
 		}
 		lines = append(lines, line)
 	}
-	return "[co-addressed]\nThe person addressed this message to you and to the members below. Each answers it directly in a run of its own, one after another in mention order. Answer the part meant for you. Replies from members who answered before you are in the transcript: build on them and leave out what they cover. No member waits on a brief from you, and handing work to these members or waking them for this message is refused.\n" + strings.Join(lines, "\n") + "\n[/co-addressed]"
+	return "[co-addressed]\nThe person addressed this message to you and to the members below. Each answers it directly in a run of its own, one after another in mention order. Answer the part meant for you. Replies from members who answered before you are in the transcript: build on them and leave out what they cover. No member waits on a brief from you, and handing work to these members or waking them for this message is refused.\nWhen the person asked for one combined or final result from several members, only the member that completes it publishes it. If your part is an input to a member who answers after you, put that work in a note: later members read it, and it stays folded away from the person. Then end your turn with respond, disposition silent: the person gets the one result from the member that completes it, with no line from you about notes or hand-offs. Answer visibly only when the person asked each member for its own answer. If members before you left notes as inputs, you hold the final: fold them into the single result the person asked for, publishing no account of their drafts, and leave it as the one visible result.\n" + strings.Join(lines, "\n") + "\n[/co-addressed]"
+}
+
+// coAddressedInputMayEndSilent reports whether a co-addressed root run may end
+// with no visible answer. Three things must hold: the run left a say note this
+// run (its part exists, folded, for the next member), it is not the last
+// member, and a later member of the same message is still to run. The last
+// member always owes the visible answer, so a combined result cannot end with
+// every member silent; a later member that already failed or was cancelled
+// leaves the earlier one answering visibly.
+func (s *Store) coAddressedInputMayEndSilent(r Run) bool {
+	roots := s.coAddressedRoots(r)
+	if len(roots) < 2 {
+		return false
+	}
+	later, seen := false, false
+	for _, x := range roots {
+		if x.ID == r.ID {
+			seen = true
+			continue
+		}
+		if seen && (x.Status == "queued" || x.Status == "running") {
+			later = true
+		}
+	}
+	if !later {
+		return false
+	}
+	var notes int
+	if s.db.QueryRow(`SELECT COUNT(*) FROM messages WHERE run_id=? AND role='assistant' AND kind='progress' AND client_message_id LIKE 'say-note:%' AND TRIM(content)<>''`, r.ID).Scan(&notes) != nil {
+		return false
+	}
+	return notes > 0
+}
+
+// promoteCoAddressedFallback keeps a combined group result from ending in
+// silence. When the last member of a co-addressed message has ended without a
+// visible answer (its run failed) and every member is finished, the person has
+// seen nothing from any of them; the latest part an earlier member left as a
+// folded note then becomes the visible reply, deterministically, so the work
+// the person asked for still reaches them.
+func (s *Store) promoteCoAddressedFallback(r Run) {
+	roots := s.coAddressedRoots(r)
+	if len(roots) == 0 {
+		return
+	}
+	var ids []any
+	holders := ""
+	for _, x := range roots {
+		cur, err := s.GetRun(x.ID)
+		if err != nil || cur.Status == "queued" || cur.Status == "running" || cur.Status == "waiting" {
+			return
+		}
+		ids = append(ids, x.ID)
+		holders += ",?"
+	}
+	var visible int
+	if s.db.QueryRow(`SELECT COUNT(*) FROM messages WHERE role='assistant' AND kind IN ('','segment') AND TRIM(content)<>'' AND run_id IN (`+holders[1:]+`)`, ids...).Scan(&visible) != nil || visible > 0 {
+		return
+	}
+	for i := len(roots) - 1; i >= 0; i-- {
+		var origin string
+		if s.db.QueryRow(`SELECT final_origin FROM runs WHERE id=?`, roots[i].ID).Scan(&origin) != nil || origin != finalOriginNone {
+			continue
+		}
+		if beat, ok := s.lastSayBeat(roots[i].ID); ok {
+			if _, err := s.promoteSayBeat(beat); err == nil {
+				s.noteFinalOrigin(roots[i].ID, finalOriginPromoted)
+			}
+			return
+		}
+	}
 }

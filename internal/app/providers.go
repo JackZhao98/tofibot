@@ -30,10 +30,7 @@ const (
 	providerKeyVerifyTimeout = 15 * time.Second
 	providerCatalogTTL       = 5 * time.Minute
 
-	codexTriageModel    = "codex-gpt-5.6-luna"
-	codexReviewModel    = "codex-auto-review"
-	openAISmallModel    = "gpt-5-mini"
-	anthropicSmallModel = "claude-haiku-4-5"
+	codexReviewModel = "codex-auto-review"
 
 	backgroundTriage = "triage"
 	backgroundReview = "review"
@@ -181,7 +178,7 @@ func (s *Server) providerEndpoint(name string) string {
 }
 
 func (s *Server) newRoutedEngine() runtime.Engine {
-	engine, _ := runtime.New(runtime.Config{Model: s.defaultModel, Resolve: s.providerCredential, Endpoint: s.providerEndpoint, MaxDuration: 10 * time.Minute})
+	engine, _ := runtime.New(runtime.Config{Model: s.defaultModel, Resolve: s.providerCredential, Endpoint: s.providerEndpoint, MaxDuration: 10 * time.Minute, Retries: s.providerRetries})
 	return engine
 }
 
@@ -199,32 +196,24 @@ func (s *Server) newModelProvider(ctx context.Context, model string) (provider.P
 	return provider.New(name, credential, opts...)
 }
 
-// backgroundModel picks the model for secondary work (summaries, tool search
-// expansion, reviewers): Codex first, then the OpenAI API, then Anthropic.
+// backgroundModel picks the model for work known in advance to be light
+// (history summaries, routing, tool-search expansion, reviewers, follow-up
+// sweeps). Order: the server environment (TOFI_BACKGROUND_MODEL, and
+// TOFI_TRIAGE_MODEL for routing only), the model chosen in Settings, then the
+// default: Haiku beside an Anthropic conversation model, otherwise the
+// conversation model itself.
 func (s *Server) backgroundModel(purpose string) string {
+	item, _ := automationItemFor(autoBackgroundModel)
+	if env, ok := autoEnv(item); ok {
+		return env
+	}
 	if purpose == backgroundTriage && s.triageModel != "" {
 		return s.triageModel
 	}
-	codexModel := codexTriageModel
-	if purpose == backgroundReview {
-		codexModel = codexReviewModel
+	if stored, ok := s.autoStored(autoBackgroundModel); ok && stored != "" {
+		return stored
 	}
-	if !managedProviderName(s.provider) {
-		if purpose == backgroundTriage {
-			return s.defaultModel
-		}
-		return codexModel
-	}
-	if s.codexConnected() {
-		return codexModel
-	}
-	if s.usableProviderKey(providerOpenAI) {
-		return s.smallProviderModel(providerOpenAI)
-	}
-	if s.usableProviderKey(providerAnthropic) {
-		return s.smallProviderModel(providerAnthropic)
-	}
-	return codexModel
+	return s.backgroundDefaultModel(purpose)
 }
 
 // backgroundProvider resolves the background model and its provider.
@@ -238,28 +227,6 @@ func (s *Server) backgroundProvider(ctx context.Context, purpose string) (provid
 		return nil, "", err
 	}
 	return p, model, nil
-}
-
-// smallProviderModel prefers a fast model from the cached catalog; it never
-// fetches, so background work cannot wait on catalog requests.
-func (s *Server) smallProviderModel(name string) string {
-	models := s.cachedProviderCatalog(name)
-	if name == providerAnthropic {
-		for _, m := range models {
-			if strings.Contains(m.ID, "haiku") {
-				return m.ID
-			}
-		}
-		return anthropicSmallModel
-	}
-	for _, size := range []string{"-mini", "-nano"} {
-		for _, m := range models {
-			if len(m.ReasoningEfforts) > 0 && strings.Contains(m.ID, size) {
-				return m.ID
-			}
-		}
-	}
-	return openAISmallModel
 }
 
 type providerCatalog struct {
@@ -776,10 +743,15 @@ func (s *Server) putProviderKey(w http.ResponseWriter, r *http.Request, name str
 		case status == http.StatusUnauthorized || status == http.StatusForbidden:
 			writeErr(w, http.StatusBadRequest, "invalid_key", fmt.Sprintf("%s rejected this API key (HTTP %d).", providerLabel(name), status))
 		case err == nil:
-			writeErr(w, http.StatusBadRequest, "invalid_key", fmt.Sprintf("This %s API key has no usable models.", providerLabel(name)))
+			writeErr(w, http.StatusBadRequest, "no_models", fmt.Sprintf("This %s API key has no usable models.", providerLabel(name)))
 		default:
 			writeErr(w, http.StatusBadRequest, "invalid_key", fmt.Sprintf("%s did not accept this API key (HTTP %d).", providerLabel(name), status))
 		}
+		return
+	}
+	if s.providerKeyOutOfQuota(r.Context(), name, key, models[0].ID) {
+		log.Printf("[providers] %s key verification: the account has no usage left", name)
+		writeErr(w, http.StatusPaymentRequired, "no_quota", fmt.Sprintf("This %s API key is valid but its account has no usage left.", providerLabel(name)))
 		return
 	}
 	if _, err := s.storeProviderKey(name, key); err != nil {

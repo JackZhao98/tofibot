@@ -301,7 +301,12 @@ func (s *Server) fireWait(waitRunID, msgID, request, status string) {
 		return
 	}
 	if msgID == "" {
-		if s.store.db.QueryRow(`SELECT id FROM messages WHERE conversation_id=? AND kind<>'bot_result' ORDER BY seq DESC LIMIT 1`, conv).Scan(&msgID) != nil {
+		// Anchor a timeout on a message from the group, never on a person's
+		// newest message: that one belongs to whoever the person is talking to.
+		if s.store.db.QueryRow(`SELECT id FROM messages WHERE conversation_id=? AND role='assistant' AND kind<>'bot_result' ORDER BY seq DESC LIMIT 1`, conv).Scan(&msgID) != nil {
+			msgID = waiter.TriggerMessageID
+		}
+		if msgID == "" {
 			return
 		}
 	}
@@ -408,6 +413,7 @@ func (s *Server) respondStructuredTool(c Conversation, r Run) runtime.Tool {
 		for _, id := range c.BotIDs {
 			members[id] = true
 		}
+		coInput := false
 		if r.Kind == runKindSchedule || r.scheduleTask != nil || r.Kind == runKindGroupTask || r.Kind == runKindTeam || r.Kind == runKindMessage {
 			return "", errors.New("this assignment needs a posted result; deliver it with say, purpose answer")
 		}
@@ -419,9 +425,12 @@ func (s *Server) respondStructuredTool(c Conversation, r Run) runtime.Tool {
 				return "", err
 			}
 		} else if r.Kind != runKindGroupMention && r.Kind != runKindFollowup && r.Kind != runKindGroupChat {
-			return "", errors.New("you were asked directly; deliver your result with say, purpose answer (or follow_up if you depend on another Bot)")
+			if in.Disposition != dispSilent || !s.store.coAddressedInputMayEndSilent(r) {
+				return "", errors.New("you were asked directly; deliver your result with say, purpose answer (or follow_up if you depend on another Bot). A co-addressed member whose part is an input for a later member may end after leaving that part as a note, only while a later member is still to answer")
+			}
+			coInput = true
 		}
-		if _, done, err := s.store.finishRun(r.ID, c.ID, r.BotID, "", true); err != nil {
+		if _, done, err := s.store.finishRunOpts(r.ID, c.ID, r.BotID, "", true, "", finishOpts{coAddressedInput: coInput}); err != nil {
 			return "", err
 		} else if !done {
 			return "", errors.New("run is no longer active")

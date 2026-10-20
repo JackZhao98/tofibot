@@ -1,11 +1,13 @@
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { TofiIcon } from "./icons";
 import { MessageMarkdown } from "./MessageMarkdown";
+import { requestFullToolResult } from "./toolResultLoader";
 import { toolDisplayLabel, orderToolActivities, toolDisplayState, toolStepTitle, toolStepSeconds, formatStepSeconds, toolStepDetail } from "./toolTimeline";
 import { TaskIssueCard } from "./TaskIssueCard";
 import { canAnswerQuestion, presentTaskIssue, taskCertaintyText, taskOutcomeText, taskPhaseLabel, taskPhaseVisible, taskStatusText, type TaskOwner } from "./taskIssuePresentation";
 import { useTranslation, type Language } from "./i18n";
 import { formatClock } from "./i18n/format";
+import { approvalFactRows } from "./extensionFacts";
 import { REMEMBERED_APPROVAL_ACTOR, type Question } from "./questionTimeline";
 import type { MailDraft } from "./MailDraftCard";
 import type { Message, ToolActivity, ToolActivityRunSummary } from "./types";
@@ -18,7 +20,7 @@ const SETTLE = springEasing(SPRINGS.morph);
 const settleVars = { "--spring": SETTLE.easing, "--spring-ms": `${SETTLE.durationMs}ms` } as React.CSSProperties;
 
 export type TaskDetailState = { loaded: number; toolCount: number; hasMore: boolean; loading: boolean; error?: string };
-export type TaskRunBlockProps = { senderHead?: React.ReactNode; owner: TaskOwner; tools: ToolActivity[]; questions: Question[]; drafts: MailDraft[]; messages: Message[]; summaries: ToolActivityRunSummary[]; details?: Record<string, TaskDetailState>; connected?: boolean; /** Pins one language (tests, fixtures); the active UI language otherwise. */ locale?: Language; botName?: string; showName?: boolean; onFeedback?: (text:string) => void; onOpenTools: () => void; onRefresh: () => Promise<void>; onLoadDetails?: (runId: string, offset: number) => Promise<void>; liveStatus?: string; liveAvatar?: ReactNode; /** Chat default: no Activity row. Cards (approvals, issues) and a live status line still show. */ hideActivity?: boolean; /** The run's Activity was asked for (message action); shows it although hidden. */ revealed?: boolean; renderMessage?: (message: Message) => ReactNode; renderQuestion: (question: Question) => ReactNode; renderDraft: (draft: MailDraft) => ReactNode };
+export type TaskRunBlockProps = { senderHead?: React.ReactNode; owner: TaskOwner; tools: ToolActivity[]; questions: Question[]; drafts: MailDraft[]; messages: Message[]; summaries: ToolActivityRunSummary[]; details?: Record<string, TaskDetailState>; connected?: boolean; /** Sends a failed run again (the server accepts it for busy or dropped service). */ onRetryRun?: (runId: string) => void | Promise<void>; /** Pins one language (tests, fixtures); the active UI language otherwise. */ locale?: Language; botName?: string; showName?: boolean; onFeedback?: (text:string) => void; onOpenTools: () => void; onRefresh: () => Promise<void>; onLoadDetails?: (runId: string, offset: number) => Promise<void>; liveStatus?: string; liveAvatar?: ReactNode; /** The run's reply is already on screen (a streaming draft with text, or its final message): the live line steps aside in that same frame instead of leaving later. */ replying?: boolean; /** Chat default: no Activity row. Cards (approvals, issues) and a live status line still show. */ hideActivity?: boolean; /** The run's Activity was asked for (message action); shows it although hidden. */ revealed?: boolean; renderMessage?: (message: Message) => ReactNode; renderQuestion: (question: Question) => ReactNode; renderDraft: (draft: MailDraft) => ReactNode };
 
 const GROW = springEasing(SPRINGS.settle);
 const drawers = new WeakMap<HTMLElement, Animation[]>();
@@ -85,7 +87,7 @@ function ToolStepRecord({ tool, locale, now, onOpenTools }: { tool: ToolActivity
     catch { setCopied(t("step.copy_failed")); }
   }
   return <li className={`task-step is-${state}${problem ? " is-problem" : ""}`} data-step={`${tool.run_id}:${tool.call_id}`}>
-    <details><summary onClick={toggleDisclosure}><span className="task-step-marker" aria-hidden="true" /><span className="task-step-title">{toolStepTitle(tool)}{preview && <span className="task-step-argument"> · {preview}</span>}{problem && state === "not_executed" && tool.outcome?.code && <span className="task-step-argument task-step-reason"> · {reason}</span>}</span><span className="task-step-state">{toolDisplayLabel(tool, locale)}{seconds !== undefined && <time> · {formatStepSeconds(seconds)}</time>}</span></summary>
+    <details onToggle={event => { if (event.currentTarget.open) requestFullToolResult(tool); }}><summary onClick={toggleDisclosure}><span className="task-step-marker" aria-hidden="true" /><span className="task-step-title">{toolStepTitle(tool)}{preview && <span className="task-step-argument"> · {preview}</span>}{problem && state === "not_executed" && tool.outcome?.code && <span className="task-step-argument task-step-reason"> · {reason}</span>}</span><span className="task-step-state">{toolDisplayLabel(tool, locale)}{seconds !== undefined && <time> · {formatStepSeconds(seconds)}</time>}</span></summary>
       <div className="task-step-body">{problem && <div className="task-step-problem" role="group" aria-label={t("step.problem")}>
         <p><strong>{reason}</strong>{tool.outcome?.execution_certainty && <> · {taskCertaintyText(tool.outcome.execution_certainty, locale)}</>}</p>
         <div className="task-step-actions"><button type="button" className="secondary-button" onClick={() => void copyDiagnostics()}><TofiIcon name="copy" size={15} aria-hidden="true" />{t("step.copy_diagnostics")}</button>{tool.outcome?.code === "mcp_review_setup_missing" && onOpenTools && <button type="button" className="secondary-button" onClick={onOpenTools}>{t("step.open_tool_settings")}</button>}</div>
@@ -127,7 +129,7 @@ export function taskBlockVisible(props: BlockScopeInput & { hideActivity?: boole
   return !isTerminalRun(run) || Boolean(issue) || taskPhaseVisible(run) || decisions.length > 0 || currentDrafts.some(draft => draft.status !== "unknown");
 }
 
-export function TaskRunBlock({ owner, tools, questions, drafts, messages, summaries, details = {}, connected = true, locale, botName, showName, senderHead, onFeedback, onOpenTools, onRefresh, onLoadDetails, liveStatus, liveAvatar, hideActivity = false, revealed: revealedByMenu = false, renderMessage, renderQuestion, renderDraft }: TaskRunBlockProps) {
+export function TaskRunBlock({ owner, tools, questions, drafts, messages, summaries, details = {}, connected = true, locale, botName, showName, senderHead, onFeedback, onOpenTools, onRefresh, onRetryRun, onLoadDetails, liveStatus, liveAvatar, replying = false, hideActivity = false, revealed: revealedByMenu = false, renderMessage, renderQuestion, renderDraft }: TaskRunBlockProps) {
   const disclosure = useRef<HTMLDetailsElement>(null);
   const block = useRef<HTMLElement>(null);
   const needsFocus = useRef(false);
@@ -167,7 +169,7 @@ export function TaskRunBlock({ owner, tools, questions, drafts, messages, summar
     return () => window.clearInterval(ticker);
   }, [live, currentTools]);
   const liveSeconds = Math.max(0, Math.floor((now - Date.parse(run.created_at)) / 1000));
-  const liveLine = live ? { label: `${liveStatus || t("activity.thinking")} · ${formatStepSeconds(liveSeconds)}`, avatar: liveAvatar } : undefined;
+  const liveLine = live && !(replying && hideActivity && !revealedByMenu) ? { label: `${liveStatus || t("activity.thinking")} · ${formatStepSeconds(liveSeconds)}`, avatar: liveAvatar } : undefined;
   function openStep(runId: string, callId: string) {
     if (disclosure.current && !disclosure.current.open) disclosure.current.open = true;
     setPendingStep(`${runId}:${callId}`);
@@ -207,7 +209,7 @@ export function TaskRunBlock({ owner, tools, questions, drafts, messages, summar
   const namedLive = Boolean(senderHead && !head && botName);
   return <section ref={block} className={`task-run-block${senderHead ? " in-group" : ""}`} data-sender={head ? run.bot_id : undefined} data-at={head ? run.created_at : undefined} data-task-owner={owner.key} data-run-id={run.id} data-latest-run-id={run.id} tabIndex={-1} aria-label={t("activity.records_label")}>
     {senderHead ? head : showName && botName && <p className="task-run-identity">{botName}</p>}
-    {issue ? <TaskIssueCard issue={issue} locale={locale} onFeedback={onFeedback} onOpenStep={openStep} onAction={issue.action === "open_tools" ? onOpenTools : issue.action === "open_codex" ? () => { window.dispatchEvent(new Event("tofi:open-codex-settings")); } : issue.action === "refresh_status" ? onRefresh : viewActivity} /> : taskPhaseVisible(run) && <p className="task-run-phase">{taskPhaseLabel(input)}</p>}
+    {issue ? <TaskIssueCard issue={issue} locale={locale} onRetry={onRetryRun ? () => onRetryRun(run.id) : undefined} onFeedback={onFeedback} onOpenStep={openStep} onAction={issue.action === "open_tools" ? onOpenTools : issue.action === "open_codex" ? () => { window.dispatchEvent(new Event("tofi:open-codex-settings")); } : issue.action === "refresh_status" ? onRefresh : viewActivity} /> : taskPhaseVisible(run) && <p className="task-run-phase">{taskPhaseLabel(input)}</p>}
     {/* A separate valid proposal survives another call's failure/unknown effect. */}
     {decisions.map(renderQuestion)}
     {currentDrafts.filter(draft => draft.status !== "unknown").map(renderDraft)}
@@ -218,7 +220,7 @@ export function TaskRunBlock({ owner, tools, questions, drafts, messages, summar
       {recordedQuestions.map(question => <section className="task-question-record" key={question.question_id} data-question-record-id={question.question_id} tabIndex={-1}>
         <p>{question.question_type === "approval" ? question.approval?.review_only || question.approval?.review?.status.startsWith("shadow") ? t("record.observation_only") : question.status === "answered" && question.answer === true ? t("record.approved_unconfirmed") : question.status === "expired" ? t("record.approval_expired") : t("record.decision") : t("record.answer")}</p>
         <dl><div><dt>{t("record.status")}</dt><dd>{taskStatusText(question.approval?.review?.status ?? question.status, locale)}</dd></div>{question.outcome && <div><dt>{t("record.execution")}</dt><dd>{taskCertaintyText(question.outcome.execution_certainty, locale)}</dd></div>}</dl>
-        {question.question_type === "approval" && <details><summary>{t("record.view_proposal")}</summary><MessageMarkdown content={question.question} />{question.approval && <dl><div><dt>{t("record.action")}</dt><dd>{question.approval.action}</dd></div><div><dt>{t("record.target")}</dt><dd>{question.approval.target}</dd></div><div><dt>{t("record.impact")}</dt><dd>{question.approval.impact}</dd></div></dl>}{question.approval?.payload && <details><summary>{t("record.view_full_arguments")}</summary><pre tabIndex={0}>{question.approval.payload}</pre></details>}</details>}
+        {question.question_type === "approval" && <details><summary>{t("record.view_proposal")}</summary><MessageMarkdown content={question.question} />{question.approval?.facts && <dl className="approval-verified-record">{approvalFactRows(question.approval.facts, t).map((row, index) => <div key={index}><dt>{row.label}</dt><dd>{row.value}</dd></div>)}</dl>}{question.approval && <dl><div><dt>{t("record.action")}</dt><dd>{question.approval.action}</dd></div><div><dt>{t("record.target")}</dt><dd>{question.approval.target}</dd></div><div><dt>{t("record.impact")}</dt><dd>{question.approval.impact}</dd></div></dl>}{question.approval?.payload && <details><summary>{t("record.view_full_arguments")}</summary><pre tabIndex={0}>{question.approval.payload}</pre></details>}</details>}
         {question.question_type !== "approval" && renderQuestion(question)}
       </section>)}
       <ol className={`task-tool-records${live ? " is-live" : ""}`}>{tools.map(tool => <ToolStepRecord key={`${tool.run_id}:${tool.call_id}`} tool={tool} locale={locale} now={live ? now : undefined} onOpenTools={onOpenTools} />)}</ol>

@@ -95,16 +95,25 @@ func (s *Store) workspaceEventCursor() int64 {
 	return cursor
 }
 
-func parseWorkspaceCursor(r *http.Request) int64 {
+// workspaceCursorHead is the cursor spelling for "start at the live head". A
+// client with no cursor has nothing to replay: its initial list load already
+// reflects every logged change, and replaying hundreds of historical events made
+// it reload the whole workspace once per event.
+const workspaceCursorHead = "head"
+
+func parseWorkspaceCursor(r *http.Request) (cursor int64, head bool) {
 	value := r.URL.Query().Get("after")
 	if last := r.Header.Get("Last-Event-ID"); last != "" {
 		value = last
 	}
+	if strings.EqualFold(strings.TrimSpace(value), workspaceCursorHead) {
+		return 0, true
+	}
 	cursor, err := strconv.ParseInt(strings.TrimSpace(value), 10, 64)
 	if err != nil || cursor < 0 {
-		return 0
+		return 0, false
 	}
-	return cursor
+	return cursor, false
 }
 
 func writeWorkspaceReset(w io.Writer) error {
@@ -128,7 +137,10 @@ func writeWorkspaceEventWithoutID(w io.Writer, event workspaceEvent) error {
 }
 
 func (s *Server) workspaceEvents(w http.ResponseWriter, r *http.Request) {
-	after := parseWorkspaceCursor(r)
+	after, head := parseWorkspaceCursor(r)
+	if head {
+		after = s.store.workspaceEventCursor()
+	}
 	w.Header().Set("Content-Type", "text/event-stream")
 	w.Header().Set("Cache-Control", "no-cache, no-transform")
 	w.Header().Set("Connection", "keep-alive")
@@ -171,7 +183,7 @@ func (s *Server) workspaceEvents(w http.ResponseWriter, r *http.Request) {
 		case <-r.Context().Done():
 			return
 		case <-heartbeat.C:
-			if _, err = fmt.Fprint(w, ": heartbeat\n\n"); err != nil {
+			if _, err = fmt.Fprint(w, "event: ping\ndata: {}\n\n"); err != nil {
 				return
 			}
 			flusher.Flush()

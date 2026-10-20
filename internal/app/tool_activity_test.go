@@ -7,6 +7,7 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"unicode/utf8"
 
 	"github.com/JackZhao98/tofibot/internal/runtime"
 )
@@ -196,5 +197,76 @@ func TestRouteToolActivityRunSummaryAndDetailPages(t *testing.T) {
 	s.routeToolActivities(tooDeepRes, tooDeepReq, "conversations/"+b.DMConversationID+"/tools")
 	if tooDeepRes.Code != http.StatusBadRequest {
 		t.Fatalf("unbounded detail offset accepted: %d %s", tooDeepRes.Code, tooDeepRes.Body.String())
+	}
+}
+
+// The conversation-wide list must not carry full results: a busy conversation's
+// list was ~480 KB, loaded on every open and every task refresh.
+func TestToolActivityListCarriesResultPreviewAndFullResultLoadsByCall(t *testing.T) {
+	s, err := NewServer(Config{DataDir: t.TempDir()})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer s.Close()
+	b, _ := s.store.CreateBot("bot", "", "model")
+	if err = migrateToolActivity(s.store.db); err != nil {
+		t.Fatal(err)
+	}
+	big := strings.Repeat("é", 6000) // multi-byte on purpose: the cut must stay valid UTF-8
+	for i, result := range []string{"short", big} {
+		if _, err = s.store.db.Exec(`INSERT INTO tool_activities(conversation_id,bot_id,run_id,call_id,name,arguments,result,status,started_at,updated_at,outcome_json) VALUES(?,?,?,?,?,?,?,?,?,?,?)`,
+			b.DMConversationID, b.ID, "run", fmt.Sprintf("call-%d", i), "fixture", `{"action":"x"}`, result, "failed", fmt.Sprintf("2026-10-01T00:00:0%dZ", i), fmt.Sprintf("2026-10-01T00:01:0%dZ", i), `{"version":1,"status":"failed","code":"boom","execution_certainty":"not_executed","message":"m","next_action":"retry"}`); err != nil {
+			t.Fatal(err)
+		}
+	}
+	get := func(query string) *httptest.ResponseRecorder {
+		req := httptest.NewRequest(http.MethodGet, "/api/conversations/"+b.DMConversationID+"/tools"+query, nil)
+		res := httptest.NewRecorder()
+		s.routeToolActivities(res, req, "conversations/"+b.DMConversationID+"/tools")
+		return res
+	}
+	list := get("")
+	if list.Code != http.StatusOK {
+		t.Fatalf("list=%d %s", list.Code, list.Body.String())
+	}
+	if list.Body.Len() > 4*1024 {
+		t.Fatalf("list payload is %d bytes; results must be previews", list.Body.Len())
+	}
+	var body struct {
+		Activities []ToolActivity `json:"activities"`
+	}
+	if err = json.Unmarshal(list.Body.Bytes(), &body); err != nil || len(body.Activities) != 2 {
+		t.Fatalf("list=%s err=%v", list.Body.String(), err)
+	}
+	for _, activity := range body.Activities {
+		switch activity.CallID {
+		case "call-0":
+			if activity.Result != "short" || activity.ResultPreview || activity.Truncated {
+				t.Fatalf("short result altered: %+v", activity)
+			}
+		case "call-1":
+			if !activity.ResultPreview || !activity.Truncated || activity.ResultBytes != len(big) || !utf8.ValidString(activity.Result) || len(activity.Result) > toolActivityListResultPreview+4 {
+				t.Fatalf("preview malformed: preview=%v truncated=%v bytes=%d len=%d", activity.ResultPreview, activity.Truncated, activity.ResultBytes, len(activity.Result))
+			}
+			// Status, arguments and the outcome the timeline renders stay intact.
+			if activity.Status != "failed" || activity.Arguments != `{"action":"x"}` || activity.Outcome == nil || activity.Outcome.Code != "boom" {
+				t.Fatalf("list lost fields the timeline needs: %+v", activity)
+			}
+		}
+	}
+	full := get("?run_id=run&call_id=call-1")
+	var one struct {
+		Activity ToolActivity `json:"activity"`
+	}
+	if full.Code != http.StatusOK || json.Unmarshal(full.Body.Bytes(), &one) != nil || one.Activity.Result != big || one.Activity.ResultPreview {
+		t.Fatalf("full result by call=%d len=%d", full.Code, len(one.Activity.Result))
+	}
+	if missing := get("?run_id=run&call_id=nope"); missing.Code != http.StatusNotFound {
+		t.Fatalf("missing call=%d", missing.Code)
+	}
+	// The run detail path is the existing full-fidelity route and must stay full.
+	detail := get("?run_id=run")
+	if !strings.Contains(detail.Body.String(), big[:200]) {
+		t.Fatal("run detail page lost the full result")
 	}
 }

@@ -112,7 +112,7 @@ func TestAutoReviewFailureCategoriesStoredAndLogged(t *testing.T) {
 			}
 			logged := sink.String()
 			want := "category=" + tc.category
-			if strings.Count(logged, "[auto-review] reviewer failure") != max(int(tc.calls), 1) || !strings.Contains(logged, want) || !strings.Contains(logged, "run="+f.r.ID) || !strings.Contains(logged, "tool="+f.call.Tool) || !strings.Contains(logged, "model=codex-auto-review") || !strings.Contains(logged, "latency_ms=") {
+			if strings.Count(logged, "[auto-review] reviewer failure") != max(int(tc.calls), 1) || !strings.Contains(logged, want) || !strings.Contains(logged, "run="+f.r.ID) || !strings.Contains(logged, "tool="+f.call.Tool) || !strings.Contains(logged, "model="+f.s.backgroundModel(backgroundReview)) || !strings.Contains(logged, "latency_ms=") {
 				t.Fatalf("log lines missing %q: %s", want, logged)
 			}
 			for _, leak := range []string{secret, "xxxxxxxx", "alpha", "thinking only"} {

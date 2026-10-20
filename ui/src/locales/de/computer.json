@@ -97,6 +97,7 @@
       "resuming_phase": "Wird geweckt · {{phase}}",
       "hibernated": "Im Ruhezustand · wird geweckt…",
       "hibernating": "Wechselt in den Ruhezustand…",
+      "no_desktop": "Der Bot arbeitet im Browser, ohne Desktop",
       "retry": "Erneut versuchen"
     }
   },

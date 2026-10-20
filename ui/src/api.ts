@@ -8,10 +8,14 @@ export class ApiError extends Error {
   }
 }
 
+const READ_TIMEOUT_MS = 15_000;
+
 export async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   const headers = new Headers(init.headers);
   if (init.body && !(init.body instanceof FormData) && !headers.has("Content-Type")) headers.set("Content-Type", "application/json");
-  const response = await fetch(path, { ...init, headers, credentials: "same-origin" });
+  // A read that never answers must fail so polls can recover; writes keep their own pace.
+  const signal = init.signal ?? (!init.method || init.method === "GET" ? AbortSignal.timeout(READ_TIMEOUT_MS) : undefined);
+  const response = await fetch(path, { ...init, headers, credentials: "same-origin", signal });
   if (!response.ok) {
     if (response.status === 401) window.dispatchEvent(new Event("tofi:unauthorized"));
     const body = (await response.json().catch(() => null)) as { error?: { message?: string; code?: string } } | null;
@@ -86,7 +90,8 @@ export const api = {
   sendMessage: (id: string, input: { content: string; client_message_id: string; attachment_ids?: string[] }) => request<{ message: Message; run: Run; runs?: Run[] }>(`/api/conversations/${encodeURIComponent(id)}/messages`, json(input)),
   setMessageReaction: (conversationId: string, messageId: string, emoji: string, present: boolean) => request<{ conversation_id: string; message_id: string; reactions: NonNullable<Message["reactions"]> }>(`/api/conversations/${encodeURIComponent(conversationId)}/messages/${encodeURIComponent(messageId)}/reactions`, { method: "PUT", body: JSON.stringify({ emoji, present }) }),
   uploadAttachment: async (id: string, file: File) => { const body = new FormData(); body.append("file", file); return request<Attachment>(`/api/conversations/${encodeURIComponent(id)}/attachments`, { method: "POST", body }); },
-  runs: (id: string) => request<{ runs: Run[] | null }>(`/api/conversations/${encodeURIComponent(id)}/runs`).then((result) => ({ runs: result.runs ?? [] })),
+  // The newest page of runs plus every active one; `before` (an ISO time) asks for the page of runs created earlier, to go with an older page of messages.
+  runs: (id: string, before?: string) => request<{ runs: Run[] | null; has_more?: boolean }>(`/api/conversations/${encodeURIComponent(id)}/runs${before ? `?before=${encodeURIComponent(before)}` : ""}`).then((result) => ({ runs: result.runs ?? [], has_more: Boolean(result.has_more) })),
   cancelRun: (id: string) => request<Run>(`/api/runs/${encodeURIComponent(id)}/cancel`, { method: "POST" }),
   retryRun: (id: string) => request<Run>(`/api/runs/${encodeURIComponent(id)}/retry`, { method: "POST" }),
   memories: (id: string) => request<{ memories: Memory[] | null }>(`/api/conversations/${encodeURIComponent(id)}/memories`).then((result) => ({ memories: result.memories ?? [] })),
@@ -106,6 +111,7 @@ export const api = {
   deleteSchedule: (id: string) => request<void>(`/api/schedules/${encodeURIComponent(id)}`, { method: "DELETE" }),
   toolActivities: (id: string) => request<{ activities: ToolActivity[] }>(`/api/conversations/${encodeURIComponent(id)}/tools`),
   toolActivitySummaries: (id: string, runIds: string[]) => request<{ summaries: ToolActivityRunSummary[] }>(`/api/conversations/${encodeURIComponent(id)}/tools?${new URLSearchParams({ run_ids: runIds.join(",") })}`),
+  toolActivityResult: (id: string, runId: string, callId: string) => request<{ activity: ToolActivity }>(`/api/conversations/${encodeURIComponent(id)}/tools?${new URLSearchParams({ run_id: runId, call_id: callId })}`),
   toolActivityDetails: (id: string, runId: string, offset = 0) => request<ToolActivityDetailPage>(`/api/conversations/${encodeURIComponent(id)}/tools?${new URLSearchParams({ run_id: runId, offset: String(offset) })}`),
   computerInfo: () => request<{ kind: string; state: string; phase?: string; workspace_root?: string; browser?: string; error?: string; health?: ComputerHealth }>("/api/computers/firecracker/info"),
   computerRetry: () => request<{ accepted: boolean }>("/api/computers/firecracker/retry", { method: "POST" }),
@@ -119,13 +125,17 @@ export function openConversationEvents(
   onEvent: (type: string, data: EventEnvelope, eventId: number) => void,
   onError: () => void,
   workspace?: { after: number; onEvent: (data: WorkspaceEventEnvelope, eventId: number) => void; onReset: () => void },
+  /** Called for every frame, including the server's `ping`, so a silent stream can be told from a quiet one. */
+  onActivity?: () => void,
 ): EventSource {
   const query = new URLSearchParams({ after: String(after) });
-  if (workspace) query.set("workspace_after", String(workspace.after));
+  // Cursor 0 means this client has seen nothing yet: start at the live head instead of replaying the whole log.
+  if (workspace) query.set("workspace_after", workspace.after > 0 ? String(workspace.after) : "head");
   const source = new EventSource(`/api/conversations/${encodeURIComponent(id)}/events?${query}`);
   const types = ["message", "reaction", "run", "delta", "draft_reset", "thinking", "retrying", "memory", "memory_deleted", "schedule", "work_item", "tool", "bot"] as const;
   for (const type of types) {
     source.addEventListener(type, (event) => {
+      onActivity?.();
       const message = event as MessageEvent<string>;
       const eventId = Number(message.lastEventId);
       onEvent(type, JSON.parse(message.data) as EventEnvelope, Number.isFinite(eventId) ? eventId : after);
@@ -137,6 +147,7 @@ export function openConversationEvents(
     source.addEventListener("workspace", workspaceEventListener(workspace.onEvent, false));
     source.addEventListener("workspace_reset", workspace.onReset);
   }
+  source.addEventListener("ping", () => onActivity?.());
   source.onerror = onError;
   return source;
 }
@@ -146,10 +157,12 @@ export function openWorkspaceEvents(
   onEvent: (data: WorkspaceEventEnvelope, eventId: number) => void,
   onError: () => void,
   onReset?: () => void,
+  onActivity?: () => void,
 ): EventSource {
-  const query = new URLSearchParams({ after: String(after) });
+  const query = new URLSearchParams({ after: after > 0 ? String(after) : "head" });
   const source = new EventSource(`/api/workspace/events?${query}`);
   source.addEventListener("workspace", workspaceEventListener(onEvent, true));
+  source.addEventListener("ping", () => onActivity?.());
   if (onReset) source.addEventListener("workspace_reset", onReset);
   source.onerror = onError;
   return source;

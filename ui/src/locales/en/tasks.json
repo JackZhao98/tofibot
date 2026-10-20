@@ -21,7 +21,8 @@
       "open_model_connections": "Open model connections",
       "copy_diagnostics": "Copy diagnostics",
       "view_activity": "View activity",
-      "refresh_status": "Refresh status"
+      "refresh_status": "Refresh status",
+      "retry": "Retry"
     },
     "working": "Working…",
     "copied": "Diagnostics copied.",
@@ -211,7 +212,38 @@
     "view_full_arguments": "View full arguments",
     "proposal_ended": "This proposal ended.",
     "view_decision": "View decision record",
-    "remembered_decision": "Approved by a remembered approval from this chat; no one was asked. The step below shows whether it ran."
+    "remembered_decision": "Approved by a remembered approval from this chat; no one was asked. The step below shows whether it ran.",
+    "facts": {
+      "title": "Checked by Tofi",
+      "bot_wording": "Written by the Bot",
+      "kind": "Change",
+      "name": "Name",
+      "source": "Address",
+      "previous_source": "Replaces",
+      "transport": "Transport",
+      "tools": "Tools",
+      "all_tools": "Every tool the server offers",
+      "only_tools": "Only: {{tools}}",
+      "blocked_tools": "Blocked tools",
+      "headers": "Request headers",
+      "none": "None",
+      "oauth": "Sign-in (OAuth)",
+      "skill_description": "Skill says",
+      "skill_excerpt": "Instructions begin",
+      "skill_tools": "Tools it asks for",
+      "skill_files": "Files",
+      "skill_scripts": "Scripts",
+      "skill_scripts_present": "Contains script or executable files",
+      "change_id": "Change ID",
+      "kinds": {
+        "skill_install": "Install a skill",
+        "skill_delete": "Delete a skill",
+        "mcp_create": "Add an MCP server",
+        "mcp_update": "Change an MCP server",
+        "mcp_delete": "Delete an MCP server",
+        "mcp_test": "Connect to an MCP server"
+      }
+    }
   },
   "question": {
     "approve": "Approve action",

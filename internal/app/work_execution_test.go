@@ -305,6 +305,7 @@ func TestWorkExecutionRejectsSupersededOrClosedHiddenRetry(t *testing.T) {
 			}
 			_, _ = s.SetRunStatus(root.ID, "done", "")
 			_, _ = s.SetRunStatus(child.ID, "failed", "temporary failure")
+			settleFailureReturns(t, s)
 			if mode == "superseded" {
 				next, _, err := s.StartWorkItem(item.ID, newID())
 				if err != nil {
@@ -410,5 +411,14 @@ func TestWorkExecutionHTTPStartsWorkerAndReplaysWithoutModelCall(t *testing.T) {
 	}
 	if calls.Load() != 1 {
 		t.Fatalf("model calls=%d", calls.Load())
+	}
+}
+
+// settleFailureReturns finishes the return runs a failed hidden child queued
+// for its assigner, as the assigner's worker would.
+func settleFailureReturns(t *testing.T, s *Store) {
+	t.Helper()
+	if _, err := s.db.Exec(`UPDATE runs SET status='done' WHERE kind=? AND status='queued'`, runKindFollowup); err != nil {
+		t.Fatal(err)
 	}
 }

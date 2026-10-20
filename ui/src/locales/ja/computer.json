@@ -96,6 +96,7 @@
       "resuming_phase": "復帰中 · {{phase}}",
       "hibernated": "スリープ中 · 復帰しています…",
       "hibernating": "休止状態に入っています…",
+      "no_desktop": "Bot はデスクトップを使わず、ブラウザで作業しています",
       "retry": "再試行"
     }
   },

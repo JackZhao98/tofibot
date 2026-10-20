@@ -112,3 +112,23 @@ func findSubstr(s, substr string) bool {
 	}
 	return false
 }
+
+func TestResponseFailedRetryClassification(t *testing.T) {
+	for code, want := range map[string]bool{"server_error": true, "rate_limit_exceeded": true, "usage_limit_reached": false, "invalid_prompt": false} {
+		if got := IsRetryable(&ResponseFailedError{Code: code}); got != want {
+			t.Fatalf("%s: got %v want %v", code, got, want)
+		}
+	}
+}
+
+func TestIsRetryableQuotaExhausted429(t *testing.T) {
+	for _, marker := range QuotaMarkers {
+		err := NewAPIError("openai", 429, `{"error":{"code":"`+marker+`"}}`)
+		if IsRetryable(err) {
+			t.Fatalf("429 with %q must not be retried", marker)
+		}
+	}
+	if !IsRetryable(NewAPIError("openai", 429, `{"error":{"code":"rate_limit_exceeded"}}`)) {
+		t.Fatal("plain 429 must stay retryable")
+	}
+}

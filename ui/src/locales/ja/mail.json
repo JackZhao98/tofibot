@@ -20,6 +20,7 @@
     "demo_badge": "デモ · 送信されません",
     "needs_approval": "承認が必要です",
     "demo_hint": "画面のデモのみ。Gmailには接続しません",
+    "add_recipient": "宛先を追加",
     "send_final": "送信後は取り消せません",
     "working": "処理中…",
     "hold": "まだ送らない",

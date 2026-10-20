@@ -5,7 +5,31 @@ import (
 	"encoding/json"
 	"errors"
 	"strings"
+
+	"github.com/JackZhao98/tofibot/internal/runtime"
 )
+
+// onDemandTools are workspace-administration and maintenance tools that matter
+// rarely. They stay executable but their schemas are not declared on every
+// turn: workspace_capabilities lists them and, asked for them by name, makes
+// them callable for the rest of the run. Tools that a prompt or workflow guide
+// names directly stay declared.
+var onDemandTools = map[string]bool{
+	"manage_extensions": true, "workspace_list": true, "workspace_update_bot": true, "workspace_update_group": true,
+	"workspace_delete_bot": true, "workspace_delete_group": true, "list_groups": true,
+	"create_work_item": true, "update_work_item": true, "list_work_item_executions": true,
+	"list_schedules": true, "pause_schedule": true, "resume_schedule": true, "delete_schedule": true,
+}
+
+// deferOnDemandTools marks the on-demand tools of a run's tool set.
+func deferOnDemandTools(tools []Tool) []Tool {
+	for i := range tools {
+		if onDemandTools[tools[i].Name] {
+			tools[i].Deferred = true
+		}
+	}
+	return tools
+}
 
 const (
 	capabilitySummaryRunes   = 160
@@ -31,6 +55,7 @@ func capabilityTool(registered []Tool) Tool {
 	type entry struct {
 		Name        string `json:"name"`
 		Description string `json:"description"`
+		OnDemand    bool   `json:"on_demand,omitempty"`
 	}
 	type schema struct {
 		Name        string         `json:"name"`
@@ -40,10 +65,10 @@ func capabilityTool(registered []Tool) Tool {
 	entries := make([]entry, 0, len(registered))
 	byName := make(map[string]Tool, len(registered))
 	for _, tool := range registered {
-		entries = append(entries, entry{tool.Name, capabilitySummary(tool.Description)})
+		entries = append(entries, entry{tool.Name, capabilitySummary(tool.Description), tool.Deferred})
 		byName[tool.Name] = tool
 	}
-	return Tool{Name: "workspace_capabilities", Description: "Inspect the tools actually available in this run (names and one-line summaries) before changing workspace settings; pass names (up to 5) for their full input schemas. UI prototypes may show features that are not implemented. Never claim a setting was changed until the corresponding tool succeeds.", Parameters: objectSchema(map[string]any{"names": map[string]any{"type": "array", "items": map[string]any{"type": "string"}, "maxItems": maxCapabilitySchemaNames, "description": "Optional tool names whose full schemas to return"}}, nil), Execute: func(ctx context.Context, raw json.RawMessage) (string, error) {
+	return Tool{Name: "workspace_capabilities", Description: "Inspect the tools actually available in this run (names and one-line summaries) before changing workspace settings; pass names (up to 5) for their full input schemas. Entries marked on_demand are not callable until named here; naming one loads it for the rest of the run. UI prototypes may show features that are not implemented. Never claim a setting was changed until the corresponding tool succeeds.", Parameters: objectSchema(map[string]any{"names": map[string]any{"type": "array", "items": map[string]any{"type": "string"}, "maxItems": maxCapabilitySchemaNames, "description": "Optional tool names whose full schemas to return"}}, nil), Execute: func(ctx context.Context, raw json.RawMessage) (string, error) {
 		if err := ctx.Err(); err != nil {
 			return "", err
 		}
@@ -58,6 +83,7 @@ func capabilityTool(registered []Tool) Tool {
 		}
 		if len(in.Names) > 0 {
 			schemas, unknown, used := make([]schema, 0, len(in.Names)), make([]string, 0), 0
+			var loaded []string
 			for _, name := range in.Names {
 				tool, ok := byName[name]
 				if !ok {
@@ -72,7 +98,11 @@ func capabilityTool(registered []Tool) Tool {
 				}
 				schemas = append(schemas, item)
 				used += len(encoded)
+				if tool.Deferred {
+					loaded = append(loaded, tool.Name)
+				}
 			}
+			runtime.ActivateTools(ctx, loaded...)
 			data, err := json.Marshal(map[string]any{"schemas": schemas, "unavailable": unknown})
 			return string(data), err
 		}

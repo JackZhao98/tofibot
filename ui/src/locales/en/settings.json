@@ -76,6 +76,10 @@
       "admin": {
         "name": "Admin console",
         "description": "Invite, manage and deactivate accounts"
+      },
+      "automation": {
+        "name": "Automatic behavior",
+        "description": "See and adjust what Tofi does on its own"
       }
     },
     "category": "Settings category",
@@ -172,6 +176,8 @@
     "invalid_key_detail": "{{provider}} didn't accept this API key. It wasn't saved. ({{detail}})",
     "invalid_key_detail_workspace": "{{provider}} didn't accept this API key. It wasn't saved. ({{detail}}) Check that the Workspace ID is correct.",
     "unreachable": "Couldn't reach {{provider}} to verify the key. It wasn't saved. Try again later.",
+    "no_quota": "{{provider}} accepted the key, but the account has no usage left. It wasn't saved. Add credit or raise the limit, then try again.",
+    "no_models": "{{provider}} accepted the key, but it can't use any models yet. It wasn't saved. Add billing or pick a project with model access.",
     "remove_failed": "Couldn't remove the key. Try again.",
     "removed": "Removed the {{provider}} API key. Bots using {{provider}} models need another connected model.",
     "key_label": "{{provider}} API key",
@@ -646,9 +652,7 @@
     "chat": "Chat",
     "activity_title": "Show activity in chats",
     "activity_note": "Show the steps a Bot took under its replies. Off by default; you can still open them from a message's action menu.",
-    "activity_save_failed": "Couldn't save. Try again.",
-    "structured_title": "Structured replies",
-    "structured_note": "Bots show text in chat only through their say tool; text written between steps stays in the activity view. Turn off to post it as before."
+    "activity_save_failed": "Couldn't save. Try again."
   },
   "approvals": {
     "heading": "Reviewer",
@@ -760,5 +764,115 @@
       "annoying": "Annoying",
       "handled": "Already handled"
     }
+  },
+  "automation": {
+    "intro": "Everything Tofi does for you on its own is listed here. Each item ships with a default, and a change applies from the next run.",
+    "group": {
+      "models": {
+        "title": "Models",
+        "description": "Which model handles which kind of work."
+      },
+      "replies": {
+        "title": "Replies",
+        "description": "How Bots deliver what they say."
+      },
+      "history": {
+        "title": "Conversation history",
+        "description": "What a Bot brings along when it picks a chat back up."
+      },
+      "checks": {
+        "title": "Checks and approvals",
+        "description": "Reviews that run around a Bot's actions."
+      },
+      "reliability": {
+        "title": "Reliability",
+        "description": "What happens when the model service hiccups."
+      },
+      "schedules": {
+        "title": "Schedules",
+        "description": "The last look before a scheduled run finishes."
+      },
+      "computer": {
+        "title": "Computer",
+        "description": "Automatic sleep for the shared computer."
+      }
+    },
+    "item": {
+      "conversation_model": {
+        "name": "Conversation model",
+        "what": "Runs chats, group work, scheduled runs and anything that uses tools. A Bot's own model setting overrides it."
+      },
+      "background_model": {
+        "name": "Background model",
+        "what": "Handles light work behind the scenes: history summaries, routing, reviews and follow-up checks. Automatic means Haiku with Claude, and the conversation model elsewhere."
+      },
+      "structured_output": {
+        "name": "Structured replies",
+        "what": "Only a Bot's finished replies appear in the chat; what it writes while working stays in the activity view. Turn off to post everything as before."
+      },
+      "force_say_haiku_dm": {
+        "name": "Reply tool required for Haiku",
+        "what": "In direct messages, Haiku must reply through the chat every turn, so its answer always lands in the conversation."
+      },
+      "web_search": {
+        "name": "Web search",
+        "what": "Claude models search the web on their own before answering when a question may be newer than what they know."
+      },
+      "group_exchange_gists": {
+        "name": "Finished group exchanges, summarized",
+        "what": "In group chats, exchanges that wrapped up without a Bot are folded into a short gist for it."
+      },
+      "own_replies_verbatim": {
+        "name": "Own replies kept in full",
+        "what": "A Bot sees this many of its latest replies word for word. Older ones shrink to a one-line gist so it stops copying its own phrasing."
+      },
+      "completion_review": {
+        "name": "Completion review after tool work",
+        "what": "After using tools, a Bot checks its answer against the actual results once before it replies."
+      },
+      "mcp_auto_review": {
+        "name": "Automatic review of tool calls",
+        "what": "A background reviewer looks at calls to outside tools. Observe only records advice; Auto lets low-risk calls go through on its say-so."
+      },
+      "remembered_approval_hours": {
+        "name": "Remembered approvals last",
+        "what": "When you choose Remember on an approval, the same call is allowed in that chat for this long."
+      },
+      "provider_retries": {
+        "name": "Automatic retries",
+        "what": "Temporary model errors, such as overload or a dropped connection, are retried this many times before a run fails. 0 turns retries off."
+      },
+      "schedule_receipt_review": {
+        "name": "Check scheduled runs before they finish",
+        "what": "A scheduled run that ends without a completion record gets one chance to finish the job before it is marked done."
+      },
+      "desktop_idle_seconds": {
+        "name": "Desktop idle hibernation",
+        "what": "The shared computer hibernates after this long unused and wakes on the next tool call. Set by the computer service."
+      }
+    },
+    "option": {
+      "mcp_auto_review": {
+        "off": "Off",
+        "shadow": "Observe",
+        "auto": "Auto"
+      }
+    },
+    "auto": "Automatic · {{model}}",
+    "default_is": "Default: {{value}}",
+    "changed": "Changed",
+    "env": "Set by server environment",
+    "reset": "Reset to default",
+    "on": "On",
+    "off": "Off",
+    "hours": "{{count}} h",
+    "minutes": "{{count}} min",
+    "seconds": "{{count}} s",
+    "retries_none": "No retries",
+    "idle_off": "Off",
+    "not_reported": "Not reported",
+    "saved": "Saved",
+    "loading": "Loading…",
+    "managed": "Managed by the computer service"
   }
 }

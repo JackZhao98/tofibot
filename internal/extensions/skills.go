@@ -328,3 +328,75 @@ func readSkillHeader(file *os.File) ([]byte, error) {
 	}
 	return nil, errors.New("missing or oversized skill frontmatter")
 }
+
+// SkillSummary is a short, server-extracted description of a skill about to be
+// installed. It is built from the files themselves, never from model prose.
+type SkillSummary struct {
+	Description  string   `json:"description"`
+	Excerpt      string   `json:"excerpt,omitempty"`
+	AllowedTools []string `json:"allowed_tools,omitempty"`
+	Files        []string `json:"files"`
+	HasScripts   bool     `json:"has_scripts,omitempty"`
+}
+
+// SummarizeSkillFiles reads the SKILL.md manifest and file list of an install
+// payload. Unparseable manifests yield an empty description so the card still
+// lists the files; the install itself rejects such a payload.
+func SummarizeSkillFiles(files map[string][]byte) SkillSummary {
+	var out SkillSummary
+	names := make([]string, 0, len(files))
+	for p := range files {
+		names = append(names, p)
+	}
+	sort.Strings(names)
+	for _, p := range names {
+		out.Files = append(out.Files, fmt.Sprintf("%s (%d B)", p, len(files[p])))
+		switch strings.ToLower(filepath.Ext(p)) {
+		case ".sh", ".bash", ".zsh", ".py", ".js", ".mjs", ".ts", ".rb", ".pl", ".ps1", ".bat", ".exe", ".so", ".dylib":
+			out.HasScripts = true
+		}
+	}
+	data, ok := files["SKILL.md"]
+	if !ok {
+		return out
+	}
+	if skill, err := parseSkill(data); err == nil {
+		out.Description = truncateRunes(skill.Description, 300)
+		out.Excerpt = truncateRunes(strings.Join(strings.Fields(skill.Body), " "), 300)
+	}
+	text := strings.TrimSpace(string(data))
+	if rest, found := strings.CutPrefix(text, "---"); found {
+		if i := strings.IndexByte(rest, '\n'); i >= 0 {
+			rest = rest[i+1:]
+			if end := strings.Index(rest, "\n---"); end >= 0 {
+				var front struct {
+					Allowed any `yaml:"allowed-tools"`
+				}
+				if yaml.Unmarshal([]byte(rest[:end]), &front) == nil {
+					switch v := front.Allowed.(type) {
+					case string:
+						out.AllowedTools = strings.Fields(strings.ReplaceAll(v, ",", " "))
+					case []any:
+						for _, item := range v {
+							if s, ok := item.(string); ok {
+								out.AllowedTools = append(out.AllowedTools, s)
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+	if len(out.AllowedTools) > 20 {
+		out.AllowedTools = out.AllowedTools[:20]
+	}
+	return out
+}
+
+func truncateRunes(s string, n int) string {
+	r := []rune(strings.TrimSpace(s))
+	if len(r) <= n {
+		return string(r)
+	}
+	return string(r[:n]) + "…"
+}

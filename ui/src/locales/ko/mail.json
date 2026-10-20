@@ -20,6 +20,7 @@
     "demo_badge": "데모 · 발송 안 됨",
     "needs_approval": "승인 필요",
     "demo_hint": "화면 데모 전용, Gmail에 연결하지 않음",
+    "add_recipient": "받는 사람 추가",
     "send_final": "보낸 후에는 취소할 수 없음",
     "working": "처리 중…",
     "hold": "아직 보내지 않기",
