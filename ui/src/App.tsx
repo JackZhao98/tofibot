@@ -51,6 +51,9 @@ import { TofiIcon as Icon, type TofiIconName } from "./icons";
 import { ComposerGlyph } from "./ComposerGlyph";
 import { formatRelativeTime, intlLocale } from "./i18n/format";
 import { BrandLogo } from "./BrandLogo";
+import { PinDock, PinDropZone, PinTile } from "./PinnedDock";
+import { applyLayout, fillSlots, keepLocalLayout, listOrder, pinnedOf, type SidebarIds } from "./sidebarOrder";
+import { useSidebarDnd, type DndAnnounce, type DndCommit } from "./useSidebarDnd";
 import { createContext, lazy, memo, startTransition, Suspense, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { flushSync } from "react-dom";
 import { errorText } from "./errorText";
@@ -464,8 +467,12 @@ function Workspace() {
   const sidebarRects = useRef(new Map<string, { x: number; y: number }>());
   const sidebarAnimations = useRef(new WeakMap<HTMLElement, Animation>());
   const sidebarWasCollapsed = useRef(sidebarCollapsed);
+  // Set by a drag-and-drop commit: the drop settles the moved row itself, so the list's own move animation stands down once.
+  const sidebarSkipFlip = useRef(false);
   useLayoutEffect(() => {
     if (isDesktop || !sidebarListRef.current) return;
+    const skipFlip = sidebarSkipFlip.current;
+    sidebarSkipFlip.current = false;
     const pane = sidebarListRef.current.closest<HTMLElement>(".contact-pane");
     const scroll = pane?.scrollTop ?? 0;
     const next = new Map<string, { x: number; y: number }>();
@@ -478,7 +485,7 @@ function Workspace() {
       sidebarAnimations.current.get(row)?.cancel();
       const rect = row.getBoundingClientRect();
       next.set(id, { x:rect.left, y:rect.top + scroll });
-      if (collapseChanged || reduced || !previous.size) return;
+      if (collapseChanged || reduced || skipFlip || !previous.size) return;
       const before = previous.get(id);
       if (!before) {
         sidebarAnimations.current.set(row, row.animate([{ opacity:0, transform:"translateX(-18px) scale(.94)" }, { opacity:1, transform:"none" }], { duration:MOTION.flight, easing:EASE.out }));
@@ -574,6 +581,23 @@ function Workspace() {
   const [sidebarLayout, setSidebarLayout] = useState<SidebarLayout>(readSidebarLayout);
   const [hiddenBotsOpen, setHiddenBotsOpen] = useState(false);
   const [sidebarContextMenu, setSidebarContextMenu] = useState<SidebarContextMenu | null>(null);
+  const sidebarMenuRef = useRef<HTMLDivElement | null>(null);
+  const sidebarMenuOrigin = useRef<HTMLElement | null>(null);
+  // Opened from the keyboard (Menu key, Shift+F10) the menu takes focus, walks with the arrows and hands focus back on Escape.
+  useEffect(() => {
+    if (!sidebarContextMenu) return;
+    sidebarMenuOrigin.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    if (document.documentElement.dataset.input === "keyboard") sidebarMenuRef.current?.querySelector<HTMLElement>("[role=menuitem]")?.focus();
+  }, [sidebarContextMenu]);
+  function sidebarMenuKeyDown(event: React.KeyboardEvent) {
+    if (event.key === "Escape") { sidebarMenuOrigin.current?.focus(); return; }
+    if (event.key !== "ArrowDown" && event.key !== "ArrowUp") return;
+    const items = [...(sidebarMenuRef.current?.querySelectorAll<HTMLElement>("[role=menuitem]") ?? [])];
+    if (!items.length) return;
+    event.preventDefault();
+    const at = items.indexOf(document.activeElement as HTMLElement);
+    items[(at + (event.key === "ArrowDown" ? 1 : -1) + items.length) % items.length].focus();
+  }
   const [reactionMenu, setReactionMenu] = useState<{ messageId: string; x: number; y: number } | null>(null);
   const [viewOnlyChat, setViewOnlyChat] = useState<ViewOnlyChatTarget | null>(null);
   const viewOnlyChatTriggerRef = useRef<HTMLElement | null>(null);
@@ -831,6 +855,10 @@ function Workspace() {
     }
   }, [applyConfig, loadArchivedInBackground]);
 
+  // Sidebar layout saves are queued so the server sees them in the order they were made; while one is in flight a poll
+  // must not put the older stored layout back over the optimistic one.
+  const layoutInFlight = useRef(0);
+  const layoutQueue = useRef<Promise<void>>(Promise.resolve());
   const refreshConversations = useCallback(async () => {
     const generation = snapshotGeneration.current;
     const requestSeq = beginWorkspaceRequest();
@@ -868,7 +896,7 @@ function Workspace() {
           return conversation;
         });
         const fresh = new Set(merged.map((conversation) => conversation.id));
-        const withArchived = [...merged, ...current.filter((conversation) => conversation.archived && !fresh.has(conversation.id))];
+        const withArchived = [...(layoutInFlight.current > 0 ? keepLocalLayout(merged, current) : merged), ...current.filter((conversation) => conversation.archived && !fresh.has(conversation.id))];
         return sameData(current, withArchived) ? current : withArchived;
       });
     } catch (cause) {
@@ -893,6 +921,17 @@ function Workspace() {
       if (indexInitialized.current) setWorkspaceError(errorText(cause));
     }
   }, [applyConfig]);
+
+  const commitSidebarLayout = useCallback((layout: SidebarIds) => {
+    layoutInFlight.current += 1;
+    setConversations(current => applyLayout(current, layout));
+    layoutQueue.current = layoutQueue.current.then(async () => {
+      let failed: unknown;
+      try { await api.setSidebarLayout(layout); } catch (cause) { failed = cause; }
+      layoutInFlight.current -= 1;
+      if (failed !== undefined) { setError(errorText(failed)); await refreshConversations(); }
+    });
+  }, [refreshConversations]);
 
   // First-run onboarding. The state lives on the server, so it resumes on any device.
   const [onboarding, setOnboarding] = useState<OnboardingState | null>(null);
@@ -1223,7 +1262,7 @@ function Workspace() {
   const computerOn = computerInfo ? computerInfo.state === "ready" : desktopReady;
   const computerStateLabel = !computerOn ? t("header.computer_off") : activeDesktopOwner ? t("header.computer_driving", { name: botById.get(activeDesktopOwner.bot_id)?.name ?? "Bot" }) : t("header.computer_on");
   const query = search.trim().toLowerCase();
-  const sortedConversations = useMemo(() => [...conversations].sort((a, b) => +new Date(b.last_message?.created_at ?? b.updated_at) - +new Date(a.last_message?.created_at ?? a.updated_at)), [conversations]);
+  const sortedConversations = useMemo(() => [...pinnedOf(conversations), ...listOrder(conversations)], [conversations]);
   const filteredConversations = sortedConversations.filter((conversation) => {
     if (conversation.archived) return false;
     if (!query) return true;
@@ -1232,14 +1271,49 @@ function Workspace() {
   });
   const hiddenBots = bots.filter((bot) => bot.archived && (!query || bot.name.toLowerCase().includes(query)));
   const visibleSidebarConversations = filteredConversations.filter((conversation) => !conversation.archived);
-  const pinnedConversations = visibleSidebarConversations.filter((conversation) => sidebarLayout.pinned.includes(conversation.id));
+  const pinnedConversations = visibleSidebarConversations.filter((conversation) => conversation.pinned);
   const customSidebarSections = Object.entries(sidebarLayout.sections).reduce<Record<string, Conversation[]>>((groups, [id, name]) => {
-    const conversation = visibleSidebarConversations.find((item) => item.id === id && !sidebarLayout.pinned.includes(id));
+    const conversation = visibleSidebarConversations.find((item) => item.id === id && !item.pinned);
     if (conversation && name.trim()) (groups[name] ??= []).push(conversation);
     return groups;
   }, {});
   const sectionedConversationIds = new Set(Object.values(customSidebarSections).flat().map((conversation) => conversation.id));
-  const defaultSidebarConversations = visibleSidebarConversations.filter((conversation) => !sidebarLayout.pinned.includes(conversation.id) && !sectionedConversationIds.has(conversation.id));
+  const defaultSidebarConversations = visibleSidebarConversations.filter((conversation) => !conversation.pinned && !sectionedConversationIds.has(conversation.id));
+  // Drag, drop and Alt+Arrow move work on the plain list and the pinned tiles; a search shows a subset, so it cannot be reordered.
+  const sidebarDndEnabled = !query && !sidebarCollapsed;
+  // Spoken status for moves. Written straight to the live region: a lift must not re-render the whole workspace.
+  const sidebarLiveRef = useRef<HTMLDivElement | null>(null);
+  const setSidebarAnnouncement = (text: string) => { if (sidebarLiveRef.current) sidebarLiveRef.current.textContent = text; };
+  const sidebarIdsRef = useRef({ pinned: [] as string[], list: [] as string[], unpinned: [] as string[] });
+  sidebarIdsRef.current = { pinned: pinnedConversations.map(item => item.id), list: defaultSidebarConversations.map(item => item.id), unpinned: sortedConversations.filter(item => !item.pinned && !item.archived).map(item => item.id) };
+  // Pins used to live in this browser only. Once the list has loaded, hand them to the server (when it holds none) and forget them here.
+  useEffect(() => {
+    if (!sidebarLayout.pinned.length || !conversations.length) return;
+    const stored = sidebarLayout.pinned.filter(id => conversations.some(item => item.id === id && !item.archived));
+    setSidebarLayout(current => ({ ...current, pinned: [] }));
+    if (stored.length && !conversations.some(item => item.pinned)) {
+      const ids = sidebarIdsRef.current;
+      commitSidebarLayout({ pinned: stored, order: ids.unpinned.filter(id => !stored.includes(id)) });
+    }
+  }, [sidebarLayout.pinned, conversations, commitSidebarLayout]);
+  /** Turn what the drop produced (pinned tiles, plain list rows) into the full stored layout. */
+  const layoutFromDrop = (next: DndCommit): SidebarIds => {
+    const listed = new Set(sidebarIdsRef.current.list);
+    const pinned = new Set(next.pinned);
+    return { pinned: next.pinned, order: [...sidebarIdsRef.current.unpinned.filter(id => !listed.has(id) && !pinned.has(id)), ...next.list] };
+  };
+  const announceSidebar = (event: DndAnnounce) => {
+    const name = conversations.find(item => item.id === event.id)?.name ?? "";
+    const key = event.kind === "lift" ? "sidebar.dnd_lift" : event.kind === "pin" ? "sidebar.dnd_pinned" : event.kind === "unpin" ? "sidebar.dnd_unpinned" : "sidebar.dnd_moved";
+    setSidebarAnnouncement(t(key, { name, pos: event.pos, total: event.total }));
+  };
+  useSidebarDnd({
+    scrollRef: sidebarListRef, enabled: sidebarDndEnabled, signature: `${sidebarIdsRef.current.pinned.join(",")}|${sidebarIdsRef.current.list.join(",")}`, skipFlip: sidebarSkipFlip,
+    getIds: () => sidebarIdsRef.current,
+    onCommit: next => commitSidebarLayout(layoutFromDrop(next)),
+    onMenu: (id, x, y) => { const conversation = conversations.find(item => item.id === id); if (conversation) setSidebarContextMenu({ conversation, x: Math.min(x, window.innerWidth - 248), y: Math.min(y, window.innerHeight - 360) }); },
+    onAnnounce: announceSidebar,
+  });
   const runById = useMemo(() => new Map(runs.map((run) => [run.id, run])), [runs]);
   const activeRunIds = useMemo(() => new Set(runs.filter(run => run.status === "queued" || run.status === "running").map(run => run.id)), [runs]);
   // Activity rows are off by default: only a working run (as one status line) or a run opened from its message's menu draws steps.
@@ -2009,7 +2083,13 @@ function Workspace() {
   }
 
   function togglePinned(conversation: Conversation) {
-    setSidebarLayout((current) => ({ ...current, pinned: current.pinned.includes(conversation.id) ? current.pinned.filter((id) => id !== conversation.id) : [...current.pinned, conversation.id] }));
+    const ids = sidebarIdsRef.current;
+    const pinning = !conversation.pinned;
+    const pinned = pinning ? [...ids.pinned, conversation.id] : ids.pinned.filter((id) => id !== conversation.id);
+    // A pinned conversation leaves the list; an unpinned one comes back at the top, as a new conversation does.
+    const rest = ids.unpinned.filter((id) => id !== conversation.id);
+    commitSidebarLayout({ pinned, order: pinning ? rest : [conversation.id, ...rest] });
+    setSidebarAnnouncement(t(pinning ? "sidebar.dnd_pinned" : "sidebar.dnd_unpinned", { name: conversation.name, pos: pinning ? pinned.length : 1, total: pinning ? pinned.length : rest.length + 1 }));
     setSidebarContextMenu(null);
   }
 
@@ -2187,14 +2267,14 @@ function Workspace() {
     return [run.id, issue ? [issue.title, ...issue.facts, ...issue.secondary.filter(cause => cause !== i18n.t("tasks:secondary.records_incomplete"))].join(" ") : [taskPhaseLabel(input), approved].filter(Boolean).join(" ")];
   }));
 
-  function conversationRow(conversation: Conversation) {
+  function conversationRow(conversation: Conversation, draggable = false) {
     const bot = conversation.kind === "dm" ? botByConversationId.get(conversation.id) : undefined;
     const preview = previewText(conversation.last_message?.kind === "message_ref" ? localizeMessageRef(conversation.last_message.content) : conversation.last_message?.content?.trim() || "");
     const botId = conversation.kind === "dm" ? bot?.id || conversation.bot_id || conversation.bot_ids[0] || conversation.id : conversation.id;
     const motion = conversationMotion(conversation, bot?.id || conversation.bot_id || botId);
     const task = conversation.task_state;
     const taskGlyph = task?.status === "needs_attention" || task?.status === "waiting" ? "?" : task?.status === "failed" ? "!" : task?.status === "cancelled" ? "×" : "·";
-    return <button key={conversation.id} data-sidebar-flip={conversation.id} data-hint={sidebarCollapsed ? conversation.name : undefined}
+    return <button key={conversation.id} data-sidebar-flip={conversation.id} data-dnd-id={draggable ? conversation.id : undefined} data-dnd-zone={draggable ? "list" : undefined} aria-keyshortcuts={draggable ? "Alt+ArrowUp Alt+ArrowDown" : undefined} data-hint={sidebarCollapsed ? conversation.name : undefined}
       aria-label={[conversation.name, task ? taskStateLabel(task) : "", conversation.unread_count ? t("sidebar.unread", { count: conversation.unread_count }) : ""].filter(Boolean).join(t("sidebar.label_separator"))}
       className={`contact-row conversation-row ${activeId === conversation.id ? "active" : ""}`}
       onClick={() => focusTask(conversation)}
@@ -2211,6 +2291,19 @@ function Workspace() {
         {!task && !conversation.unread_count && motion === "working" && <span className="conversation-status" data-status="working" aria-label={t("sidebar.working")} />}
       </>}
     </button>;
+  }
+
+  function pinTile(conversation: Conversation) {
+    const bot = conversation.kind === "dm" ? botByConversationId.get(conversation.id) : undefined;
+    const botId = conversation.kind === "dm" ? bot?.id || conversation.bot_id || conversation.bot_ids[0] || conversation.id : conversation.id;
+    const motion = conversationMotion(conversation, bot?.id || conversation.bot_id || botId);
+    const task = conversation.task_state;
+    const unread = conversation.unread_count ?? 0;
+    return <PinTile key={conversation.id}
+      tile={{ id: conversation.id, name: conversation.name, avatarId: botId, group: conversation.kind === "group", motion, active: activeId === conversation.id, unread, working: !unread && motion === "working",
+        label: [conversation.name, task ? taskStateLabel(task) : "", unread ? t("sidebar.unread", { count: unread }) : ""].filter(Boolean).join(t("sidebar.label_separator")), unreadLabel: t("sidebar.unread", { count: unread }), workingLabel: t("sidebar.working") }}
+      onOpen={() => focusTask(conversation)} onWarm={() => prefetchConversation(conversation.id)}
+      onMenu={event => setSidebarContextMenu({ conversation, x: Math.min(event.clientX, window.innerWidth - 248), y: Math.min(event.clientY, window.innerHeight - 360) })} />;
   }
 
   function hiddenBotRow(bot: Bot) {
@@ -2352,18 +2445,20 @@ function Workspace() {
           <div className="sidebar-top">{sidebarCollapsed ? <button className="sidebar-logo-expand" type="button" aria-label={t("sidebar.expand")} data-hint={t("sidebar.expand")} onClick={() => setSidebarCollapsed(false)}><span className="sidebar-logo-art"><BrandLogo variant="calico" /></span><span className="sidebar-logo-arrow" aria-hidden="true"><Icon name="sidebar" size={20} /></span></button> : <BrandLogo variant="calico" />}<div className="sidebar-actions">{!sidebarCollapsed && <button className="top-icon-button sidebar-toggle" aria-label={t("sidebar.collapse")} data-hint={t("sidebar.collapse")} onClick={() => setSidebarCollapsed(true)}><Icon name="sidebar" size={20} /></button>}<div className="create-menu-anchor" ref={createMenuRef}><button ref={createMenuTriggerRef} className="icon-button" onClick={() => setCreateMenuOpen((open) => !open)} data-hint={t("create.menu")} aria-label={t("create.menu")} aria-expanded={createMenuOpen} aria-controls={createMenuOpen ? "create-menu" : undefined}><Icon name="plus" size={18} animated /></button><input ref={botImportRef} type="file" hidden accept=".json,.tofi-bot,application/json" onChange={(event) => { const file = event.currentTarget.files?.[0]; event.currentTarget.value = ""; if (file) void importBotPackage(file); }} />{showCreateMenu && <div id="create-menu" className="create-menu" data-open={createMenuOpen} inert={!createMenuOpen || undefined}><button disabled={newBotBusy} onClick={() => { createMenuTriggerRef.current?.focus(); void createNewBot(); }}><Icon name="bot-add" size={18} /><span>{newBotBusy ? t("create.creating") : t("create.new_bot")}</span></button><button onClick={() => { createMenuTriggerRef.current?.focus(); setCreateMenuOpen(false); setPanel("group-create"); }}><Icon name="group-add" size={18} /><span>{t("create.new_group")}</span></button><button disabled={botImportBusy} onClick={() => { setCreateMenuOpen(false); botImportRef.current?.click(); }}><Icon name="upload" size={18} /><span>{botImportBusy ? t("create.importing") : t("create.import_bot")}</span></button>{(newBotError || botImportError) && <p className="error-text" role="alert">{newBotError || botImportError}</p>}</div>}</div></div></div>
           <label className="search-box"><Icon name="search" size={16} /><input aria-label={t("sidebar.search_label")} value={search} onChange={(event) => setSearch(event.target.value)} placeholder={t("sidebar.search_placeholder")} /></label>
           <div className="contact-section" ref={sidebarListRef}>
-            {pinnedConversations.length > 0 && <><div className="section-label"><span>{t("sidebar.pinned")}</span></div>{pinnedConversations.map(conversationRow)}</>}
-            {Object.entries(customSidebarSections).map(([name, items]) => <section className="sidebar-custom-section" key={name}><div className="section-label"><span>{name}</span></div>{items.map(conversationRow)}</section>)}
-            <div className="section-label"><span>{t("sidebar.messages")}</span></div>{defaultSidebarConversations.map(conversationRow)}
+            <PinDock label={t("sidebar.pinned")}>{pinnedConversations.length > 0 ? pinnedConversations.map(pinTile) : null}</PinDock>
+            {Object.entries(customSidebarSections).map(([name, items]) => <section className="sidebar-custom-section" key={name}><div className="section-label"><span>{name}</span></div>{items.map(item => conversationRow(item))}</section>)}
+            <div className="section-label"><span>{t("sidebar.messages")}</span></div>{defaultSidebarConversations.map(item => conversationRow(item, sidebarDndEnabled))}
+            <div className="sr-only" role="status" aria-live="polite" ref={sidebarLiveRef} />
             {onboardingState !== "sheet" && !visibleSidebarConversations.length && !query && !bots.length && !conversations.length && <FirstRunHero side onCreate={() => void createNewBot()} busy={newBotBusy} error={newBotError} />}
             {onboardingState !== "sheet" && !visibleSidebarConversations.length && <EmptyState name="sidebar" className={`empty-copy is-compact${!query && !bots.length && !conversations.length ? " first-run-hide-mobile" : ""}`} look={CATS.mochi} pose={query ? "curious" : "asleep"}><p>{query ? t("sidebar.no_match") : t("sidebar.empty")}</p>{!query && <button className="primary-button sidebar-empty-create" disabled={newBotBusy} onClick={() => void createNewBot()}>{newBotBusy ? t("create.creating") : t("create.create_bot")}</button>}</EmptyState>}
             {hiddenBots.length > 0 && <section className="hidden-bots-section"><button type="button" className="hidden-bots-toggle" aria-expanded={hiddenBotsOpen} onClick={() => setHiddenBotsOpen((open) => !open)}><span>{t("sidebar.hidden_bots")}</span><Icon name="chevron-right" size={16} /></button>{hiddenBotsOpen && hiddenBots.map(hiddenBotRow)}</section>}
           </div>
           <div className="sidebar-footer">{onboardingState === "chip" && <FinishSetupChip step={chipStep(modelReady)} onClick={() => setOnboardingForced(chipStep(modelReady))} />}<SidebarAccount connected={linkConnected} onSettings={() => { setPortabilityBotID(""); setPortabilityFile(undefined); openSettings("general", "home"); }} onUsage={() => { setUsageBotId(""); openSettings("usage"); }} onConnection={() => openSettings("models")} onArchive={() => setPanel("archive")} /></div>
+          <PinDropZone label={t("sidebar.drop_to_pin")} hint={t("sidebar.drop_to_pin_hint")} />
         </aside>
         {onboardingState === "sheet" && onboarding && <Suspense fallback={null}><Onboarding initialStep={onboardingForced ?? resumeStep(onboarding, modelReady)} modelConfigured={modelReady} bot={bots.find((item) => !item.archived)} onProgress={saveOnboarding} onModelChanged={refreshConfig} onBot={adoptOnboardingBot} onSkip={() => { saveOnboarding({ skipped: true }); setOnboardingForced(null); }} onFinish={finishOnboarding} /></Suspense>}
-        {sidebarContextMenu && <div className="sidebar-context-menu" style={{ left: sidebarContextMenu.x, top: sidebarContextMenu.y }} role="menu" onClick={(event) => event.stopPropagation()}>
-          <button role="menuitem" onClick={() => togglePinned(sidebarContextMenu.conversation)}><Icon name="pin" size={17} />{sidebarLayout.pinned.includes(sidebarContextMenu.conversation.id) ? t("sidebar.unpin") : t("sidebar.pin")}</button>
+        {sidebarContextMenu && <div className="sidebar-context-menu" ref={sidebarMenuRef} style={{ left: sidebarContextMenu.x, top: sidebarContextMenu.y }} role="menu" aria-label={sidebarContextMenu.conversation.name} onClick={(event) => event.stopPropagation()} onKeyDown={sidebarMenuKeyDown}>
+          <button role="menuitem" onClick={() => togglePinned(sidebarContextMenu.conversation)}><Icon name="pin" size={17} />{sidebarContextMenu.conversation.pinned ? t("sidebar.unpin") : t("sidebar.pin")}</button>
           <button role="menuitem" onClick={() => moveToSection(sidebarContextMenu.conversation)}><Icon name="plus" size={17} />{t("sidebar.move_to_section")}</button>
           {!sidebarContextMenu.conversation.archived && <button role="menuitem" onClick={() => void markUnread(sidebarContextMenu.conversation)}><Icon name="bell" size={17} />{t("sidebar.mark_unread")}</button>}
           <div className="sidebar-context-divider" />

@@ -71,6 +71,12 @@ type Conversation struct {
 	LastMessage       *MessagePreview        `json:"last_message,omitempty"`
 	Archived          bool                   `json:"archived"`
 	UserVisible       bool                   `json:"user_visible"`
+	// PinOrder is the 1-based slot among pinned conversations (0 = not pinned);
+	// SortOrder is the 1-based slot in the person's manual list order (0 = never
+	// placed by hand). Both are filled by ListConversations only.
+	Pinned    bool `json:"pinned"`
+	PinOrder  int  `json:"pin_order"`
+	SortOrder int  `json:"sort_order"`
 }
 type MessagePreview struct {
 	ID          string `json:"id"`
@@ -658,6 +664,8 @@ CREATE INDEX IF NOT EXISTS events_delta ON events(conversation_id,id) WHERE type
 	for _, col := range []struct{ name, ddl string }{
 		{"archived", `ALTER TABLE conversations ADD COLUMN archived INTEGER NOT NULL DEFAULT 0`},
 		{"user_visible", `ALTER TABLE conversations ADD COLUMN user_visible INTEGER NOT NULL DEFAULT 1`},
+		{"pin_order", `ALTER TABLE conversations ADD COLUMN pin_order INTEGER NOT NULL DEFAULT 0`},
+		{"sort_order", `ALTER TABLE conversations ADD COLUMN sort_order INTEGER NOT NULL DEFAULT 0`},
 	} {
 		if err = ensureColumn(s.db, "conversations", col.name, col.ddl); err != nil {
 			return err
@@ -1038,7 +1046,7 @@ func (s *Store) GetConversation(id string) (Conversation, error) {
 	return c, rows.Err()
 }
 func (s *Store) ListConversations(includeArchived ...bool) ([]Conversation, error) {
-	query := `SELECT c.id,c.kind,c.name,c.bot_id,c.updated_at,c.archived,c.user_visible,
+	query := `SELECT c.id,c.kind,c.name,c.bot_id,c.updated_at,c.archived,c.user_visible,c.pin_order,c.sort_order,
 		(SELECT MAX(user_msg.created_at) FROM messages user_msg WHERE user_msg.conversation_id=c.id AND user_msg.role='user' AND user_msg.run_id IS NULL),
 		lm.id,lm.seq,lm.role,lm.kind,lm.sender_bot_id,substr(lm.content,1,160),lm.created_at,
 		CASE WHEN lm.kind='user_message' THEN 0 WHEN lm.run_id IS NOT NULL AND EXISTS (SELECT 1 FROM runs preview_run WHERE preview_run.id=lm.run_id AND preview_run.origin_conversation_id<>lm.conversation_id) THEN 1 ELSE 0 END,
@@ -1068,13 +1076,14 @@ func (s *Store) ListConversations(includeArchived ...bool) ([]Conversation, erro
 		var msgSeq sql.NullInt64
 		var msgInternal int
 		var archived, userVisible int
-		if e := rows.Scan(&c.ID, &c.Kind, &c.Name, &bot, &c.UpdatedAt, &archived, &userVisible, &lastUser, &msgID, &msgSeq, &msgRole, &msgKind, &msgSender, &msgContent, &msgCreated, &msgInternal, &c.ReadSeq, &c.UnreadCount); e != nil {
+		if e := rows.Scan(&c.ID, &c.Kind, &c.Name, &bot, &c.UpdatedAt, &archived, &userVisible, &c.PinOrder, &c.SortOrder, &lastUser, &msgID, &msgSeq, &msgRole, &msgKind, &msgSender, &msgContent, &msgCreated, &msgInternal, &c.ReadSeq, &c.UnreadCount); e != nil {
 			rows.Close()
 			return nil, e
 		}
 		c.BotID = bot.String
 		c.Archived = archived != 0
 		c.UserVisible = userVisible != 0
+		c.Pinned = c.PinOrder > 0
 		c.BotIDs = make([]string, 0)
 		c.WorkingBotIDs = make([]string, 0)
 		c.LastUserMessageAt = lastUser.String
@@ -2856,7 +2865,7 @@ func (s *Server) route(w http.ResponseWriter, r *http.Request) {
 	if s.routeDeletion(w, r, p) {
 		return
 	}
-	if s.routeAttachments(w, r, p) || s.routeInbox(w, r, p) || s.routeSchedules(w, r, p) || s.routeWorkItems(w, r, p) || s.routeToolActivities(w, r, p) {
+	if s.routeAttachments(w, r, p) || s.routeInbox(w, r, p) || s.routeSidebarOrder(w, r, p) || s.routeSchedules(w, r, p) || s.routeWorkItems(w, r, p) || s.routeToolActivities(w, r, p) {
 		return
 	}
 	if s.routeRememberedApprovals(w, r, p) || s.routeQuestions(w, r, p) {

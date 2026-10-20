@@ -79,6 +79,7 @@ export const api = {
   setFollowupAccount: (input: Partial<FollowupAccount>) => request<FollowupAccount>("/api/followups/account", { method: "PUT", body: JSON.stringify(input) }),
   followupFeedback: (loopId: string, verdict: FollowupVerdict) => request<{ loop_id: string; verdict: FollowupVerdict }>(`/api/followups/loops/${encodeURIComponent(loopId)}/feedback`, json({ verdict })),
   deleteGroup: (id: string) => request<{ deleted: boolean; conversation_id: string }>(`/api/conversations/${encodeURIComponent(id)}`, { method: "DELETE" }),
+  setSidebarLayout: (layout: { pinned: string[]; order: string[] }) => request<{ layout: { id: string; pinned: boolean; pin_order: number; sort_order: number }[] }>("/api/conversations/order", { method: "PUT", body: JSON.stringify(layout) }),
   markRead: (id: string, seq: number) => request<{read_seq: number}>(`/api/conversations/${encodeURIComponent(id)}/read`, json({seq})),
   markUnread: (id: string, seq: number) => request<{read_seq: number}>(`/api/conversations/${encodeURIComponent(id)}/read`, json({seq, unread: true})),
   createGroup: (input: { name: string; bot_ids: string[] }) => request<Conversation>("/api/groups", json(input)),
