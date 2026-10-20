@@ -1,9 +1,11 @@
 package app
 
 import (
+	"context"
 	"crypto/tls"
 	"encoding/json"
 	"fmt"
+	"github.com/JackZhao98/tofibot/internal/provider"
 	"net/http"
 	"net/http/httptest"
 	"path/filepath"
@@ -100,5 +102,40 @@ func TestIPv6PeersShareTheirPrefixBucket(t *testing.T) {
 	}
 	if s.ownerAuth.peerBucket(mk("2001:db8:1:2::1")) == s.ownerAuth.peerBucket(mk("2001:db8:1:3::1")) {
 		t.Fatal("different /64 prefixes share a budget")
+	}
+}
+
+func TestClickApprovalIsExactAndSingleUse(t *testing.T) {
+	s, bot, conv := contextSurfaceServer(t)
+	_, run, _, err := s.store.AddUserRun(conv.ID, bot.ID, "reply to Alice", "click-claim")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.store.SetRunStatus(run.ID, "running", ""); err != nil {
+		t.Fatal(err)
+	}
+	s.autoReviewProvider = &reviewStub{t: t, reply: func(context.Context, *provider.ChatRequest) (*provider.ChatResponse, error) {
+		return &provider.ChatResponse{Content: `{"decision":"confirm","reason":"stub"}`}, nil
+	}}
+	q, err := s.store.CreateQuestion(conv.ID, run, askQuestionInput{Question: "Send the reply?", Type: "approval", Approval: &ApprovalDetails{Action: "Click", Target: "Send the reply", Impact: "Sends mail"}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, _, err := s.store.AnswerQuestion(q.ID, "user", true); err != nil {
+		t.Fatal(err)
+	}
+	click := func(label string) error {
+		return s.guardAction(context.Background(), run, actionReview{Kind: "click", Effect: "send", Element: label})
+	}
+	for _, label := range []string{"Send", "Reply", "Send the reply and delete account"} {
+		if click(label) == nil {
+			t.Fatalf("%q passed on an approval for a different element", label)
+		}
+	}
+	if err := click("  send  THE reply "); err != nil {
+		t.Fatalf("exact (normalized) label must pass once: %v", err)
+	}
+	if click("Send the reply") == nil {
+		t.Fatal("an approval allowed a second dispatch")
 	}
 }
