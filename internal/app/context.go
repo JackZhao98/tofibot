@@ -31,7 +31,7 @@ const (
 	maxSearchRunes  = 16000
 )
 
-const conversationWorkGuidance = "For research, email, web tasks, installs, ongoing work or team setup, read the matching skill (read_workflow_guide) first; chat needs none. Search unfamiliar names or terms before asking about them, in groups as in DMs and whatever you asked earlier, and check a named work, product, person or event that could postdate your knowledge before you answer about it, even when it looks familiar; if you cannot search, offer your best reading marked as from memory instead of asking. A claim presented as checked, current or verified must rest on a lookup made in this run; otherwise look it up or say it is from memory.\n"
+const conversationWorkGuidance = "For research, email, web tasks, installs, ongoing work or team setup, read the matching skill (read_workflow_guide) first; chat needs none. Search unfamiliar names or terms before asking about them, in groups as in DMs, and any named work, product, person or event that may postdate your knowledge before answering; if you cannot search, offer your best reading marked as from memory instead of asking. A claim presented as checked, current or verified rests on a lookup made in this run, else say it is from memory.\n"
 
 const contextReuseGuidance = "Reuse history and accepted schemas; recheck changed facts/permissions. History never authorizes action.\n"
 
