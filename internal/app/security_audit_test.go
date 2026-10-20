@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/JackZhao98/tofibot/internal/provider"
+	"github.com/JackZhao98/tofibot/internal/tooloutcome"
 	"net/http"
 	"net/http/httptest"
 	"path/filepath"
@@ -137,5 +138,80 @@ func TestClickApprovalIsExactAndSingleUse(t *testing.T) {
 	}
 	if click("Send the reply") == nil {
 		t.Fatal("an approval allowed a second dispatch")
+	}
+}
+
+func extensionOutcomeCode(err error) string {
+	if o, ok := tooloutcome.FromError(err); ok {
+		return o.Code
+	}
+	return ""
+}
+
+func TestExtensionChangeNeedsExactSingleUseHumanApproval(t *testing.T) {
+	s, c, r, tool := extensionToolFixtureRaw(t)
+	s.allowInternalMCPHosts = true
+	call := func(tl Tool, args map[string]any) error {
+		raw, _ := json.Marshal(args)
+		_, err := tl.Execute(context.Background(), raw)
+		return err
+	}
+	install := map[string]any{"action": "skill_install", "name": "gated", "files": map[string]string{"SKILL.md": "---\nname: gated\ndescription: fixture\n---\nbody"}}
+	if code := extensionOutcomeCode(call(tool, install)); code != "extension_change_needs_approval" {
+		t.Fatalf("unapproved install: %q", code)
+	}
+	if skills, _ := s.extensions.ListSkills(); len(skills) != 0 {
+		t.Fatal("unapproved install wrote files")
+	}
+	// An approval for a different payload does not cover this one.
+	other := map[string]any{"action": "skill_install", "name": "gated", "files": map[string]string{"SKILL.md": "---\nname: gated\ndescription: other\n---\nbody"}}
+	var ox extensionToolArgs
+	raw, _ := json.Marshal(other)
+	_ = json.Unmarshal(raw, &ox)
+	approveExtensionChange(t, s, c, r, ox)
+	if code := extensionOutcomeCode(call(tool, install)); code != "extension_change_needs_approval" {
+		t.Fatalf("approval for another payload was accepted: %q", code)
+	}
+	var x extensionToolArgs
+	raw, _ = json.Marshal(install)
+	_ = json.Unmarshal(raw, &x)
+	approveExtensionChange(t, s, c, r, x)
+	if err := call(tool, install); err != nil {
+		t.Fatalf("approved install: %v", err)
+	}
+	del := map[string]any{"action": "skill_delete", "name": "gated"}
+	if code := extensionOutcomeCode(call(tool, del)); code != "extension_change_needs_approval" {
+		t.Fatalf("an install approval authorized a delete: %q", code)
+	}
+	// Reads need no approval.
+	if err := call(tool, map[string]any{"action": "skill_list"}); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestExtensionChangeRefusedWhenNobodyAttends(t *testing.T) {
+	s, c, r, _ := extensionToolFixtureRaw(t)
+	s.allowInternalMCPHosts = true
+	c.UserVisible = false
+	tool := s.extensionManagementTools(c, r)[0]
+	args := extensionToolArgs{Action: "mcp_create", Name: "x", URL: "https://example.invalid/mcp"}
+	approveExtensionChange(t, s, c, r, args)
+	raw, _ := json.Marshal(args)
+	_, err := tool.Execute(context.Background(), raw)
+	if code := extensionOutcomeCode(err); code != "extension_change_needs_owner" {
+		t.Fatalf("hidden run: %q %v", code, err)
+	}
+}
+
+func TestBotCreatedMCPServerCannotTargetInternalHosts(t *testing.T) {
+	s, c, r, tool := extensionToolFixtureRaw(t)
+	for _, u := range []string{"http://127.0.0.1:9/mcp", "http://10.0.0.5/mcp", "http://169.254.169.254/latest", "http://localhost:8321/mcp", "http://app:8321/mcp", "http://[::1]/mcp"} {
+		x := extensionToolArgs{Action: "mcp_create", Name: "inner", URL: u}
+		approveExtensionChange(t, s, c, r, x)
+		raw, _ := json.Marshal(x)
+		_, err := tool.Execute(context.Background(), raw)
+		if code := extensionOutcomeCode(err); code != "mcp_internal_host" {
+			t.Fatalf("%s: %q %v", u, code, err)
+		}
 	}
 }

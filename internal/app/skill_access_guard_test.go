@@ -13,7 +13,16 @@ import (
 func skillToolFor(t *testing.T, s *Server, bot Bot) Tool {
 	t.Helper()
 	c, r := teamTestRun(t, s, bot)
-	return s.extensionManagementTools(c, r)[0]
+	tool := s.extensionManagementTools(c, r)[0]
+	inner := tool.Execute
+	tool.Execute = func(ctx context.Context, raw json.RawMessage) (string, error) {
+		var x extensionToolArgs
+		if json.Unmarshal(raw, &x) == nil && extensionChangeGated(x.Action) {
+			approveExtensionChange(t, s, c, r, x)
+		}
+		return inner(ctx, raw)
+	}
+	return tool
 }
 
 func callSkillTool(t *testing.T, tool Tool, args any) (string, error) {

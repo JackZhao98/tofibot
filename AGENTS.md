@@ -35,3 +35,12 @@ All of these, and the MCP approval gate, refuse a conversation that is not user-
 outcome `conversation_not_user_visible`); a hidden Bot-to-Bot run reaches a human only
 through its reply, which returns to the assigning Bot or conversation. Mail drafts
 (`prepare_email`) are still a separate card path.
+
+# Security gates
+
+`manage_extensions` changes (MCP create/update/delete/test, Skill install/delete) execute only after a person's
+approval of the exact payload (`internal/app/extension_gate.go`: request_approval target = digest token, one use) and are refused in unattended
+runs and for loopback/private MCP hosts. Click approvals (`claimApprovalTarget`) match the exact normalized label and are consumed once
+(`click_approval_claims`). Login limits are per peer address (IPv6 /64) and per account identifier; there is no global bucket.
+Session cookies are Secure when `TOFI_PUBLIC_ORIGIN` is https; Caddy sends HSTS. Known open: `computer_shell` shares a uid and loopback with the
+shared Chrome DevTools port.
