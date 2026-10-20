@@ -1273,17 +1273,25 @@ function Workspace() {
       jumpToMessage(target);
       if (taskFocus.kind === "run") (target.querySelector<HTMLElement>("h3") ?? target).focus({ preventScroll:true });
       setTaskFocus(null);
+    } else if (taskFocus.kind === "run" && (!runById.has(taskFocus.id) || !runDrawsHere(taskFocus.id))) {
+      // The run is not part of this conversation, or its block draws nothing: older pages would never reveal a target.
+      setTaskFocus(null);
     } else if (taskFocus.kind === "message" || taskFocus.kind === "run") {
       if (hasMore && !loadingOlder && !historyError) void loadOlder();
       else if (!hasMore) setTaskFocus(null);
     }
   }, [taskFocus, activeId, loadedId, loadingMessages, conversationItems, hasMore, loadingOlder, historyError]);
 
+  function runDrawsHere(runId: string) {
+    const owner = taskOwners.find(o => o.family.attempts.some(attempt => attempt.id === runId));
+    return !owner || ownerDraws(owner);
+  }
   function focusTask(conversation: Conversation) {
     const state = conversation.task_state;
     const kind = state?.run_id ? "run" : state?.question_id ? "question" : state?.draft_id ? "draft" : state?.result_message_id ? "message" : undefined;
     const id = state?.run_id || state?.question_id || state?.draft_id || state?.result_message_id;
-    if (kind && id) setTaskFocus({ conversationId: conversation.id, kind, id });
+    // A finished run draws no badge, so there is nothing to scroll to; paging history for it only blocks the main thread.
+    if (kind && id && state?.status !== "completed") setTaskFocus({ conversationId: conversation.id, kind, id });
     selectConversation(conversation.id);
     setMobileList(false);
   }
@@ -1880,6 +1888,10 @@ function Workspace() {
   const ownerRevealed = (owner: TaskOwner) => owner.family.attempts.some(attempt => revealedRuns.has(attempt.id));
   // A block with nothing to show (Activity hidden, no card raised) draws nothing, so it must not count as a name label above a message.
   const ownerDraws = (owner: TaskOwner) => taskBlockVisible({ owner, tools: loadedToolActivities, questions: questions.items, drafts: mailDrafts.items, messages: messageRecords, summaries: terminalToolSummaries, details: toolDetailState, connected: streamConnected, hideActivity: !showActivity, revealed: ownerRevealed(owner) });
+  // Computed once per render, not once per message: per-message scans made every render cubic in loaded history.
+  const ownerAnchors = taskOwners.filter(ownerDraws).map(owner => ({ anchor: owner.anchor, botId: owner.family.latest.bot_id }));
+  const messageRecordIDs = new Set(messageRecords.map(record => record.id));
+  const ownedAttemptKeys = new Set(taskOwners.flatMap(owner => owner.family.attempts.map(run => `${run.id}|${run.bot_id}|${run.conversation_id}`)));
   function renderTaskOwner(owner: TaskOwner) {
     return <TaskRunBlock key={owner.key} hideActivity={!showActivity} revealed={ownerRevealed(owner)} owner={owner} senderHead={active?.kind === "group" ? <SenderHead id={owner.family.latest.bot_id} name={botById.get(owner.family.latest.bot_id)?.name ?? "Bot"} /> : undefined} liveStatus={runLiveStatus(owner.family.latest)} liveAvatar={<BotAvatar id={owner.family.latest.bot_id} mini motion={owner.family.latest.status === "waiting" ? "awake" : "working"} />} tools={loadedToolActivities} questions={questions.items} drafts={mailDrafts.items} messages={messageRecords} summaries={terminalToolSummaries} details={toolDetailState} connected={streamConnected} botName={botById.get(owner.family.latest.bot_id)?.name ?? "Bot"} showName={active?.kind === "group"}
       onOpenTools={() => openSettings("connections")}
@@ -2043,10 +2055,9 @@ function Workspace() {
                       const gap = previous ? +new Date(message.created_at) - +new Date(previous.created_at) : 0;
                       const unread = message.seq === viewport.unreadSeq;
                       // A task block (name label + Activity) directly above already names its Bot: show the name once.
-                      const ownedBy = (item: { run_id: string; bot_id: string; conversation_id: string }) => taskOwners.some(owner => owner.family.attempts.some(run => run.id === item.run_id && run.bot_id === item.bot_id && run.conversation_id === item.conversation_id));
+                      const ownedBy = (item: { run_id: string; bot_id: string; conversation_id: string }) => ownedAttemptKeys.has(`${item.run_id}|${item.bot_id}|${item.conversation_id}`);
                       const anchorOf = (candidate: (typeof conversationItems)[number] | undefined) => candidate?.kind === "message" ? { kind: "message" as const, id: candidate.message.id } : candidate?.kind === "question" ? { kind: "question" as const, id: candidate.question.question_id } : candidate?.kind === "mail_draft" ? { kind: "draft" as const, id: candidate.draft.draft_id } : undefined;
                       const itemTime = (candidate: (typeof conversationItems)[number] | undefined) => candidate?.kind === "message" ? candidate.message.created_at : candidate?.kind === "question" ? candidate.question.created_at : candidate?.draft.created_at;
-                      const ownerAnchors = taskOwners.filter(ownerDraws).map(owner => ({ anchor: owner.anchor, botId: owner.family.latest.bot_id }));
                       const drawnAbove = conversationItems[previousRenderedIndex(conversationItems, index, candidate => (candidate.kind === "question" ? ownedBy(candidate.question) : candidate.kind === "mail_draft" ? ownedBy(candidate.draft) : false) && !precedingBlockBotIds(anchorOf(candidate), ownerAnchors).length)];
                       const blockBotIds = active.kind === "group" ? precedingBlockBotIds(anchorOf(drawnAbove), ownerAnchors) : [];
                       const blockTime = itemTime(drawnAbove);
@@ -2077,7 +2088,7 @@ function Workspace() {
                       const runTrigger = runTriggerId ? messageById.get(runTriggerId) : undefined;
                       const replyTarget = replyMarker.ids.length ? replyMarker.ids.map(id => messageById.get(id)).find(isEarlierInChat) ?? (isEarlierInChat(runTrigger) ? runTrigger : undefined) : undefined;
                       const showReplyQuote = shouldShowReplyQuote(quoteTimeline, quoteIndexById.get(message.id) ?? -1, replyTarget);
-                      const canReact = messageRecords.some(record => record.id === message.id);
+                      const canReact = messageRecordIDs.has(message.id);
                       // "View activity" is offered on a Bot's message whose run did work (steps or progress notes), not on notices or user text.
                       const activityRunId = message.role === "assistant" && message.run_id && message.kind !== "notice" && message.kind !== "message_ref" && runHasActivity(message.run_id) ? message.run_id : undefined;
                       return <div className={`message-block${arrivalIDs.current.has(message.id) ? " new-arrival" : ""}`} data-message-seq={message.seq} data-message-id={message.id} data-flip={message.id} tabIndex={-1} key={message.id} onContextMenu={canReact && isDesktop ? event => { event.preventDefault(); setReactionMenu({ messageId: message.id, x: event.clientX, y: event.clientY }); } : undefined}>

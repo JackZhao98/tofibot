@@ -27,6 +27,8 @@ const convs = [
   { id: "dm_a", kind: "dm", name: "Ledger Cat", bot_id: "bot_a", bot_ids: ["bot_a"], updated_at: iso(0), read_seq: 100, user_visible: true },
   { id: "dm_b", kind: "dm", name: "Simile Cat", bot_id: "bot_b", bot_ids: ["bot_b"], updated_at: iso(0), read_seq: 60, user_visible: true },
 ];
+// Every conversation ends with a finished run whose block is long gone from the newest page: clicking the row must not page history for it.
+for (const c of convs) c.task_state = { status: "completed", run_id: `run_${c.id}_2` };
 const COUNT = { grp_1: 130, dm_a: 118, dm_b: 125 };
 const SCHED_RUN = "5c1e0a00-0000-4000-8000-000000000001";
 const SCHED_ID = "5c1e0a00-0000-4000-8000-000000000002";
