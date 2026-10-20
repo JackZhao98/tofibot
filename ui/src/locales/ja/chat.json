@@ -484,6 +484,15 @@
     "more": "その他の絵文字",
     "react_with": "{{emoji}} でリアクション"
   },
+  "receipt": {
+    "sending": "送信中",
+    "delivered": "配信済み",
+    "read": "既読",
+    "read_by": "既読：{{names}}",
+    "failed": "未送信",
+    "retry": "再送",
+    "retry_label": "このメッセージを再送します"
+  },
   "related": {
     "bot_conversation": "Bot 同士の会話",
     "from": "送信元",

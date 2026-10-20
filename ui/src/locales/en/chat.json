@@ -492,6 +492,15 @@
     "more": "More emoji",
     "react_with": "React with {{emoji}}"
   },
+  "receipt": {
+    "sending": "Sending",
+    "delivered": "Delivered",
+    "read": "Read",
+    "read_by": "Read by {{names}}",
+    "failed": "Not sent",
+    "retry": "Retry",
+    "retry_label": "Retry sending this message"
+  },
   "related": {
     "bot_conversation": "Bot conversation",
     "from": "From",
