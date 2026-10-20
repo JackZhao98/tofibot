@@ -270,6 +270,23 @@ def select_probes(all_probes, spec, with_computer):
     return out
 
 
+def seed_history(srv, conv, bots, history):
+    """Insert prior turns straight into the (idle) server database, so a probe starts mid-conversation:
+    the assistant lines are attributed to the DM's Bot and are plain visible messages."""
+    bot_id = [b["id"] for b in bots.values() if b["dm"] == conv][0]
+    w = sqlite3.connect(srv.db_path, timeout=30)
+    try:
+        for h in history:
+            seq = w.execute("SELECT COALESCE(MAX(seq),0)+1 FROM messages WHERE conversation_id=?", (conv,)).fetchone()[0]
+            role = "assistant" if h["role"] == "assistant" else "user"
+            ts = datetime.datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%S.%fZ")
+            w.execute("INSERT INTO messages(id,conversation_id,seq,role,kind,sender_bot_id,content,created_at) VALUES(?,?,?,?,?,?,?,?)",
+                      (str(uuid.uuid4()), conv, seq, role, "", bot_id if role == "assistant" else None, fill(h["text"], bots), ts))
+        w.commit()
+    finally:
+        w.close()
+
+
 def run_probe(srv, probe, bots, group_id):
     target = probe["target"]
     if target == "group":
@@ -281,6 +298,15 @@ def run_probe(srv, probe, bots, group_id):
     seq0 = db.execute("SELECT COALESCE(MAX(seq),0) FROM messages WHERE conversation_id=?", (conv,)).fetchone()[0]
     usage0 = db.execute("SELECT COALESCE(MAX(id),0) FROM usage_calls").fetchone()[0]
     timed_out, error = False, ""
+    note_bot, note_orig = None, None
+    if probe.get("persona_note"):
+        # Mimic a production persona that lists publishing as needing confirmation; restored after the probe.
+        note_bot = bots[target.split(":", 1)[1]]
+        note_orig = srv.db().execute("SELECT instructions FROM bots WHERE id=?", (note_bot["id"],)).fetchone()[0]
+        srv.request("PATCH", "/api/bots/%s" % note_bot["id"], {"instructions": note_orig + "\n" + probe["persona_note"]})
+    if probe.get("history"):
+        seed_history(srv, conv, bots, probe["history"])
+        seq0 = db.execute("SELECT COALESCE(MAX(seq),0) FROM messages WHERE conversation_id=?", (conv,)).fetchone()[0]
     turn_seq0 = seq0
     for i, turn in enumerate(probe["turns"]):
         if i == len(probe["turns"]) - 1:
@@ -305,6 +331,8 @@ def run_probe(srv, probe, bots, group_id):
         if not fired:
             error = "scheduled run did not fire and finish within the wait window"
         wait_idle(srv, timeout=120)
+    if note_bot is not None:
+        srv.request("PATCH", "/api/bots/%s" % note_bot["id"], {"instructions": note_orig})
     return collect(srv, probe, conv, seen, turn_seq0 if not probe.get("await_schedule") else seq0, usage0, timed_out, error, bots)
 
 
@@ -382,7 +410,18 @@ def collect(srv, probe, conv, seen_runs, seq0, usage0, timed_out, error, bots=No
         spoke = {v["sender"] for v in visible}
         mentioned_answered = {"mentioned": len(probe["mentioned"]),
                               "answered": sum(1 for k in probe["mentioned"] if bots[k]["name"] in spoke)}
+    # Follow-through heuristics: work done (any tool other than say) before the first reply, a closing
+    # request for permission, and a promise of work in a run that made no such call.
+    work_calls = [n for n in tools if n not in ("say", "respond", "react_to_message")]
+    alltext = " ".join(v["text"] for v in visible)
+    last_text = visible[-1]["text"] if visible else ""
+    asked_again = bool(re.search(r"[?？]\s*$|回一句|你回|你确认|要我.{0,20}吗|需要我.{0,20}吗|if you.{0,20}tell me|let me know", last_text.strip()[-120:], re.I))
+    promised_no_action = bool(re.search(r"我(现在|这就|马上|立刻|先)?(就)?(去|来|开始|打开|写|记|做)|i('| wi)ll (now )?(open|write|save|do|add)", alltext, re.I)) and not work_calls
+    link_ok = None
+    if probe.get("must_contain_url"):
+        link_ok = probe["must_contain_url"] in alltext
     return {
+        "expect_action": bool(probe.get("expect_action")), "work_calls": len(work_calls), "asked_again": asked_again, "promised_no_action": promised_no_action, "link_ok": link_ok,
         "id": probe["id"], "category": probe["category"], "target": probe["target"],
         "mentioned_answered": mentioned_answered,
         "turns": probe["turns"], "owes_answer": probe["owes_answer"],
@@ -474,6 +513,19 @@ def rate(num, den):
     return round(num / den, 4) if den else None
 
 
+def followthrough_stats(results):
+    """Rates over the dm_followthrough probes: acted (a work call before the answer), asked again,
+    promised without acting, and found the link (only probes that carry a link)."""
+    ft = [p for p in results if p["category"] == "dm_followthrough"]
+    acting = [p for p in ft if p.get("expect_action")]
+    links = [p for p in ft if p.get("link_ok") is not None]
+    return {"probes": len(ft),
+            "acted": [sum(1 for p in acting if p["work_calls"] > 0), len(acting)],
+            "asked_again": [sum(1 for p in ft if p["asked_again"]), len(ft)],
+            "promised_no_action": [sum(1 for p in ft if p["promised_no_action"]), len(ft)],
+            "found_link": [sum(1 for p in links if p["link_ok"]), len(links)]}
+
+
 def aggregate(results):
     """results: list of per-probe dicts (with 'grade'). Returns a dict of numbers for the set."""
     runs = [r for p in results for r in p["runs"]]
@@ -518,6 +570,7 @@ def aggregate(results):
         "avg_by_dimension": {d: round(sum(v) / len(v), 3) if v else None for d, v in scores.items()},
         "flag_rates": {f: rate(sum(1 for p in graded if p["grade"].get(f)), len(graded)) for f in FLAGS},
         "usage": usage,
+        "followthrough": followthrough_stats(results),
         "topic_mention": {"count": sum(1 for p in results if p.get("topic_mention")), "probes": sum(1 for p in results if p.get("topic_mention") is not None)},
         "answer_covers": {"count": sum(1 for p in results if p.get("answer_covers")), "probes": sum(1 for p in results if p.get("answer_covers") is not None)},
         "mentioned_answered": {"answered": sum(p["mentioned_answered"]["answered"] for p in results if p.get("mentioned_answered")),
@@ -552,6 +605,12 @@ def write_summary(path, report):
             pct(fr["trailing_unverified_caveat"]), pct(fr["routine_closing_offer"]), pct(fr["revived_prior_topic"]), pct(fr["member_brief_visible"]), pct(fr["scope_refusal"]), pct(fr["verified_without_lookup"]),
             a["avg_score"], a["usage"]["calls"], a["usage"]["input_tokens"], a["usage"]["output_tokens"],
             "n/a" if m["cost_usd_est"] is None else "$%.3f" % m["cost_usd_est"]))
+    L.append("")
+    L += ["## Follow-through (dm_followthrough probes)", "",
+          "| model | acted | asked again | promised, did nothing | found the link |", "|---|---|---|---|---|"]
+    for model, m in report["models"].items():
+        f = m["overall"]["followthrough"]
+        L.append("| %s | %s |" % (model, " | ".join("%d/%d" % tuple(f[k]) for k in ("acted", "asked_again", "promised_no_action", "found_link"))))
     L.append("")
     for model, m in report["models"].items():
         L += ["### %s" % model, "",
