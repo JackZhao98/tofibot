@@ -255,7 +255,8 @@
     "reply": "返信",
     "toolbar": "メッセージの操作",
     "view_activity": "アクティビティを表示",
-    "hide_activity": "アクティビティを隠す"
+    "hide_activity": "アクティビティを隠す",
+    "just_now": "たった今"
   },
   "list": {
     "separator": "、"

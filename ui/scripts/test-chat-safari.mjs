@@ -401,6 +401,43 @@ await check("phone: tap toolbar opens below the bubble, one toolbar, one 44px Co
   assert.equal(bar.copies, 1, "exactly one Copy button");
   assert.ok(bar.copyW >= 44, `Copy button is ${bar.copyW}px wide`);
   assert.ok(bar.top >= bar.header - 1 && bar.bottom <= bar.composer + 1, `toolbar ${bar.top}-${bar.bottom} outside header ${bar.header} / composer ${bar.composer}`);
+  const placement = await page.evaluate(() => {
+    const el = [...document.querySelectorAll(".message-hover-actions")].find(b => b.getBoundingClientRect().height > 0);
+    const blockEl = el.closest(".message-block"), c = blockEl.querySelector(".message-content").getBoundingClientRect(), b = el.getBoundingClientRect();
+    const next = blockEl.nextElementSibling?.querySelector(".message-content")?.getBoundingClientRect();
+    return { belowBubble: b.top >= c.bottom - 0.5, overNext: next ? b.bottom > next.top + 0.5 && b.top < next.bottom && b.right > next.left && b.left < next.right : false, inside: b.left >= 0 && b.right <= innerWidth };
+  });
+  assert.ok(placement.belowBubble, "the toolbar is below its own bubble");
+  assert.ok(!placement.overNext, "the toolbar does not cover the next message");
+  assert.ok(placement.inside, "the toolbar stays inside the window");
+  await context.close();
+});
+await check("desktop: the hover bar sits below its bubble, clear of the neighbours, and hovering moves nothing", async () => {
+  const { page, context } = await open();
+  await settle(page);
+  await rowFor(page, "Simile Cat").click();
+  await settle(page);
+  const ids = await page.evaluate(() => [...document.querySelectorAll(".message-block")].slice(-6, -1).map(el => el.dataset.messageId));
+  for (const id of ids) {
+    await page.locator(`.message-block[data-message-id="${id}"]`).evaluate(el => el.scrollIntoView({ block: "center" }));
+    await page.mouse.move(2, 2);
+    await page.waitForFunction(() => document.querySelectorAll(".message-hover-actions").length === 0);
+    const heights = () => page.evaluate(() => [...document.querySelectorAll(".message-block")].map(el => Math.round(el.getBoundingClientRect().height * 10)));
+    const before = await heights();
+    const box = await page.locator(`.message-block[data-message-id="${id}"] .message-content`).first().boundingBox();
+    await page.mouse.move(box.x + 20, box.y + 6);
+    await page.locator(".message-hover-actions").first().waitFor();
+    assert.deepEqual(await heights(), before, `${id}: hovering changed a message height`);
+    const geometry = await page.evaluate(id => {
+      const blockEl = document.querySelector(`.message-block[data-message-id="${id}"]`), b = blockEl.querySelector(".message-hover-actions").getBoundingClientRect(), c = blockEl.querySelector(".message-content").getBoundingClientRect();
+      const hit = [...document.querySelectorAll(".message-block")].filter(el => el !== blockEl).flatMap(el => [...el.querySelectorAll(".message-content")]).some(el => { const r = el.getBoundingClientRect(); return Math.min(b.right, r.right) - Math.max(b.left, r.left) > 0.5 && Math.min(b.bottom, r.bottom) - Math.max(b.top, r.top) > 0.5; });
+      return { below: b.top >= c.bottom - 0.5, hit, inside: b.left >= 0 && b.right <= innerWidth, btn: blockEl.querySelector(".message-hover-actions button").getBoundingClientRect().width };
+    }, id);
+    assert.ok(geometry.below, `${id}: bar is above its bubble's bottom edge`);
+    assert.ok(!geometry.hit, `${id}: bar covers another message`);
+    assert.ok(geometry.inside, `${id}: bar leaves the window`);
+    assert.ok(geometry.btn >= 28, `${id}: desktop hit targets are ${geometry.btn}px`);
+  }
   await context.close();
 });
 await check("phone: fields are 16px and wide tables scroll sideways", async () => {
