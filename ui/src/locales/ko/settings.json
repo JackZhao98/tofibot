@@ -76,6 +76,10 @@
       "admin": {
         "name": "Admin 콘솔",
         "description": "계정 초대, 관리, 비활성화"
+      },
+      "automation": {
+        "name": "자동 동작",
+        "description": "Tofi가 알아서 하는 일을 확인하고 조정"
       }
     },
     "category": "설정 분류",
@@ -639,9 +643,7 @@
     "chat": "채팅",
     "activity_title": "채팅에 활동 표시",
     "activity_note": "Bot이 수행한 단계를 답장 아래에 표시합니다. 기본값은 꺼짐이며, 메시지의 작업 메뉴에서 열 수 있습니다.",
-    "activity_save_failed": "저장하지 못했습니다. 다시 시도하세요.",
-    "structured_title": "구조화된 답장",
-    "structured_note": "Bot은 say 도구를 통해서만 채팅에 텍스트를 표시합니다. 단계 사이에 쓴 텍스트는 활동 보기에 남습니다. 끄면 이전처럼 게시됩니다."
+    "activity_save_failed": "저장하지 못했습니다. 다시 시도하세요."
   },
   "approvals": {
     "heading": "검토자",
@@ -753,5 +755,115 @@
       "annoying": "거슬림",
       "handled": "이미 처리함"
     }
+  },
+  "automation": {
+    "intro": "Tofi가 대신 자동으로 하는 일이 모두 여기에 있습니다. 항목마다 기본값이 있으며, 변경은 다음 실행부터 적용됩니다.",
+    "group": {
+      "models": {
+        "title": "모델",
+        "description": "작업 종류별로 쓰는 모델."
+      },
+      "replies": {
+        "title": "답장",
+        "description": "Bot이 말을 전달하는 방식."
+      },
+      "history": {
+        "title": "대화 기록",
+        "description": "Bot이 대화를 다시 이어받을 때 가져가는 내용."
+      },
+      "checks": {
+        "title": "점검과 승인",
+        "description": "Bot의 작업 주변에서 도는 검토."
+      },
+      "reliability": {
+        "title": "안정성",
+        "description": "모델 서비스가 흔들릴 때의 처리."
+      },
+      "schedules": {
+        "title": "예약",
+        "description": "예약 실행이 끝나기 전의 마지막 점검."
+      },
+      "computer": {
+        "title": "컴퓨터",
+        "description": "공유 컴퓨터의 자동 절전."
+      }
+    },
+    "item": {
+      "conversation_model": {
+        "name": "대화 모델",
+        "what": "채팅, 그룹 작업, 예약 실행, 도구를 쓰는 모든 작업을 맡습니다. Bot에 직접 지정한 모델이 우선합니다."
+      },
+      "background_model": {
+        "name": "백그라운드 모델",
+        "what": "기록 요약, 분류, 검토, 후속 점검 같은 뒷단의 가벼운 작업을 맡습니다. ‘자동’은 Claude에서는 Haiku, 그 외에는 대화 모델을 씁니다."
+      },
+      "structured_output": {
+        "name": "구조화된 답장",
+        "what": "Bot은 say 도구를 통해서만 채팅에 텍스트를 표시합니다. 단계 사이에 쓴 텍스트는 활동 보기에 남습니다. 끄면 이전처럼 게시됩니다."
+      },
+      "force_say_haiku_dm": {
+        "name": "Haiku는 답장 도구 필수",
+        "what": "다이렉트 메시지에서 Haiku가 매 턴 say 도구를 호출해, 답장이 항상 채팅에 도착하게 합니다."
+      },
+      "web_search": {
+        "name": "웹 검색",
+        "what": "질문이 자신의 지식보다 최신일 수 있을 때, Claude 모델이 답하기 전에 직접 웹을 검색합니다."
+      },
+      "group_exchange_gists": {
+        "name": "끝난 그룹 대화를 요약",
+        "what": "그룹 채팅에서 Bot이 참여하지 않고 마무리된 대화는 짧은 요약으로 접어 전달합니다."
+      },
+      "own_replies_verbatim": {
+        "name": "본인 답장 원문 유지",
+        "what": "Bot은 최근 답장 이 개수만 원문 그대로 봅니다. 그 이전은 한 줄 요약으로 줄여, 자기 표현을 그대로 따라 하지 않게 합니다."
+      },
+      "completion_review": {
+        "name": "도구 사용 후 완료 검토",
+        "what": "도구를 쓴 뒤, Bot은 답장하기 전에 실제 결과와 대조해 답을 한 번 더 점검합니다."
+      },
+      "mcp_auto_review": {
+        "name": "도구 호출 자동 검토",
+        "what": "백그라운드 검토자가 외부 도구 호출을 살펴봅니다. ‘관찰’은 의견만 기록하고, ‘자동’은 위험이 낮은 호출을 그 판단대로 통과시킵니다."
+      },
+      "remembered_approval_hours": {
+        "name": "기억한 승인 유지 시간",
+        "what": "승인할 때 ‘기억’을 고르면, 같은 호출이 그 대화에서 이 시간 동안 허용됩니다."
+      },
+      "provider_retries": {
+        "name": "자동 재시도",
+        "what": "과부하나 연결 끊김 같은 일시적인 모델 오류를, 실행이 실패하기 전에 이 횟수만큼 다시 시도합니다. 0이면 재시도하지 않습니다."
+      },
+      "schedule_receipt_review": {
+        "name": "예약 실행 종료 전 점검",
+        "what": "완료 기록 없이 끝나는 예약 실행에는, 완료로 표시하기 전에 작업을 마무리할 기회를 한 번 줍니다."
+      },
+      "desktop_idle_seconds": {
+        "name": "데스크톱 유휴 절전",
+        "what": "공유 컴퓨터는 이 시간 동안 쓰이지 않으면 절전하고, 다음 도구 호출 때 깨어납니다. 컴퓨터 서비스에서 설정합니다."
+      }
+    },
+    "option": {
+      "mcp_auto_review": {
+        "off": "끔",
+        "shadow": "관찰",
+        "auto": "자동"
+      }
+    },
+    "auto": "자동 · {{model}}",
+    "default_is": "기본값: {{value}}",
+    "changed": "변경됨",
+    "env": "서버 환경에서 설정됨",
+    "reset": "기본값으로 되돌리기",
+    "on": "켬",
+    "off": "끔",
+    "hours": "{{count}}시간",
+    "minutes": "{{count}}분",
+    "seconds": "{{count}}초",
+    "retries_none": "재시도 안 함",
+    "idle_off": "끔",
+    "not_reported": "가져오지 못함",
+    "saved": "저장됨",
+    "loading": "불러오는 중…",
+    "managed": "컴퓨터 서비스에서 관리"
   }
 }
