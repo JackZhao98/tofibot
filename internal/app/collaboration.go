@@ -1225,6 +1225,9 @@ func interruptInTransaction(tx *sql.Tx, conv string, addressed ...string) error 
 	}
 	return nil
 }
+// Stop in a group also takes the stopped run's root and everything that
+// root started (sibling wakes included); co-addressed roots of the same
+// message are separate requests and keep running.
 func cancelTreeInTransaction(tx *sql.Tx, seed string, args ...any) error {
 	rows, err := tx.Query(`WITH RECURSIVE seeds(id) AS (`+seed+`), ancestors(id,parent_run_id,kind,trigger_message_id) AS (
  SELECT r.id,r.parent_run_id,r.kind,r.trigger_message_id FROM runs r JOIN seeds ON seeds.id=r.id
@@ -1232,6 +1235,7 @@ func cancelTreeInTransaction(tx *sql.Tx, seed string, args ...any) error {
  ), affected(id) AS (
  SELECT id FROM seeds
  UNION SELECT r.id FROM runs r JOIN ancestors a ON a.kind='group_chat' AND r.kind='group_chat' AND r.trigger_message_id=a.trigger_message_id
+ UNION SELECT a.id FROM ancestors a JOIN runs own ON own.id=a.id JOIN conversations cv ON cv.id=own.conversation_id WHERE cv.kind='group' AND COALESCE(a.parent_run_id,'')=''
  UNION SELECT r.id FROM runs r JOIN affected a ON r.parent_run_id=a.id
  ) SELECT id FROM runs WHERE id IN (SELECT id FROM affected) AND status IN ('queued','running','waiting')`, args...)
 	if err != nil {
@@ -1264,7 +1268,7 @@ func cancelTreeInTransaction(tx *sql.Tx, seed string, args ...any) error {
 				return err
 			}
 		}
-		if _, err = tx.Exec(`UPDATE runs SET status='cancelled',error='interrupted by user mention',updated_at=? WHERE id=?`, now(), id); err != nil {
+		if _, err = tx.Exec(`UPDATE runs SET status='cancelled',error='stopped by user',updated_at=? WHERE id=?`, now(), id); err != nil {
 			return err
 		}
 		r, err := scanRun(tx.QueryRow(`SELECT id,conversation_id,bot_id,status,error,parent_run_id,model,kind,origin_conversation_id,trigger_message_id,queue_seq,created_at,updated_at FROM runs WHERE id=?`, id))
@@ -1322,6 +1326,15 @@ func (s *Store) CancelRunTree(id string) error {
 	}
 	defer tx.Rollback()
 	if err = cancelTreeInTransaction(tx, `SELECT id FROM runs WHERE id=?`, id); err != nil {
+		return err
+	}
+	// A pending wait of the stopped lineage must not wake anyone later.
+	var convKind string
+	if err = tx.QueryRow(`SELECT cv.kind FROM runs r JOIN conversations cv ON cv.id=r.conversation_id WHERE r.id=?`, id).Scan(&convKind); err == nil && convKind == "group" {
+		if _, err = tx.Exec(`UPDATE run_waits SET status='expired' WHERE status='pending' AND lineage=?`, lineageKey(tx, id)); err != nil {
+			return err
+		}
+	} else if err != nil && err != sql.ErrNoRows {
 		return err
 	}
 	if err = tx.Commit(); err != nil {
