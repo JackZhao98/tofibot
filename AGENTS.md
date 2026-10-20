@@ -18,6 +18,18 @@ source-tree review. Retain third-party notices and verify release contents.
 Web UI text is localized: user-visible strings live in `ui/src/locales/<lang>/<namespace>.json`
 (rules in ui/src/locales/README.md); `npm --prefix ui run test:i18n` blocks new hardcoded text.
 
+# Web UI motion
+
+One vocabulary, in `ui/src/design-tokens.css` and mirrored for Web Animations in `ui/src/motion.ts`: durations
+`--m-instant` 80 / `--m-press` 120 / `--m-quick` 140 / `--m-base` 220 / `--m-panel-in` 280 / `--m-panel-out` 180 /
+`--m-flight` 640 ms (leaving is shorter than entering) and easings `--ease-out`, `--ease-settle`, `--ease-spring`
+(the only bounce, never for layout), `--ease-inout`, `--ease-in`. New transitions and animations use them;
+`npm --prefix ui run test:motion-tokens` fails on literal durations under 800 ms, `cubic-bezier()` or bare `ease`
+outside the tokens (existing leftovers are a ceiling in `ui/scripts/motion-tokens-baseline.json` that only shrinks) and
+on a `backdrop-filter` without its `-webkit-` twin. The follow-bottom scroll is a tween owned by
+`useConversationScroll` (`GLIDE_MS` 220, `GLIDE_STREAM_MS` 120, at most 24 px per frame; reduced motion lands at once);
+`test:arrival-glide` holds its budgets. Do not scroll the message pane with a bare `scrollTop =` for organic growth.
+
 # Asking a human (one rendezvous)
 
 Every Bot-to-human question goes through the durable questions rendezvous in

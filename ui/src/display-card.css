@@ -108,7 +108,7 @@
 .workspace .display-card-note strong .avatar { flex: none; width: 20px; height: 20px; margin: 0; }
 .workspace .display-card-note strong .tofi-avatar { width: 100%; height: 100%; }
 /* The Bot's note is pinned slightly askew on the paper, as in MailRead. */
-.workspace .display-card-mail .display-card-note { position: relative; transform: rotate(-1.2deg); box-shadow: 0 6px 14px -8px color-mix(in srgb, var(--paper-ink) 45%, transparent); animation: display-note-pin 380ms cubic-bezier(.34,1.4,.64,1) both; }
+.workspace .display-card-mail .display-card-note { position: relative; transform: rotate(-1.2deg); box-shadow: 0 6px 14px -8px color-mix(in srgb, var(--paper-ink) 45%, transparent); animation: display-note-pin var(--m-panel-in) var(--ease-spring) both; }
 @keyframes display-note-pin { from { opacity: 0; transform: translateY(-8px) rotate(-4deg) scale(.97); } to { opacity: 1; transform: rotate(-1.2deg); } }
 @media (prefers-reduced-motion: reduce) { .workspace .display-card-mail .display-card-note { animation: none; } }
 .workspace .display-card-mail .display-card-copy {

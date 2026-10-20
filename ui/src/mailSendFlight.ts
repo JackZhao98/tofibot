@@ -2,6 +2,7 @@ import { prefersReducedMotion } from "./motion-lab/lib/hooks";
 import { SPRINGS, springEasing } from "./motion-lab/lib/spring";
 import "./mail-send-flight.css";
 import { postmarkDate, postmarkSVG } from "./postmark";
+import { EASE } from "./motion";
 
 async function finish(animation: Animation) { try { await animation.finished; } catch { /* element removed */ } }
 
@@ -43,20 +44,20 @@ export async function flyMailDraft(letter: HTMLElement): Promise<void> {
   document.body.append(layer);
   letter.style.visibility = "hidden";
   try {
-    await finish(panels[2].animate({ transform:["rotateX(0deg)","rotateX(180deg)"] }, { duration:460, easing:"cubic-bezier(.62,0,.24,1)", fill:"forwards" }));
-    await finish(panels[0].animate({ transform:["rotateX(0deg)","rotateX(-180deg)"] }, { duration:460, easing:"cubic-bezier(.62,0,.24,1)", fill:"forwards" }));
+    await finish(panels[2].animate({ transform:["rotateX(0deg)","rotateX(180deg)"] }, { duration:460, easing:EASE.inout, fill:"forwards" }));
+    await finish(panels[0].animate({ transform:["rotateX(0deg)","rotateX(-180deg)"] }, { duration:460, easing:EASE.inout, fill:"forwards" }));
     const packetCenterX = rect.left + rect.width / 2;
     const packetCenterY = rect.top + rect.height / 2;
     const envelopeCenterX = targetX + envelopeWidth / 2;
     const envelopeCenterY = targetY + envelopeWidth * .3;
     envelope.style.visibility = "visible";
     const rise = envelope.animate({ transform:["translateY(160%) rotate(-8deg)","none"], opacity:[0,1] }, { duration:650, easing:springEasing(SPRINGS.toy).easing, fill:"forwards" });
-    const insert = packet.animate({ transform:["none",`translate(${envelopeCenterX-packetCenterX}px,${envelopeCenterY-packetCenterY-70}px) scale(.7) rotate(-3deg)`,`translate(${envelopeCenterX-packetCenterX}px,${envelopeCenterY-packetCenterY}px) scale(${envelopeWidth/rect.width * .82})`], opacity:[1,1,0] }, { duration:760, easing:"cubic-bezier(.3,.6,.25,1)", fill:"forwards" });
+    const insert = packet.animate({ transform:["none",`translate(${envelopeCenterX-packetCenterX}px,${envelopeCenterY-packetCenterY-70}px) scale(.7) rotate(-3deg)`,`translate(${envelopeCenterX-packetCenterX}px,${envelopeCenterY-packetCenterY}px) scale(${envelopeWidth/rect.width * .82})`], opacity:[1,1,0] }, { duration:760, easing:EASE.out, fill:"forwards" });
     await Promise.all([finish(rise),finish(insert)]);
     packet.style.visibility = "hidden";
     const inner = envelope.querySelector<HTMLElement>(".mail-flight-envelope-insert")!;
     inner.style.visibility = "visible";
-    await finish(inner.animate({ transform:["none",`translateY(${envelopeWidth * .31}px)`] }, { duration:380, easing:"cubic-bezier(.55,0,.8,.3)", fill:"forwards" }));
+    await finish(inner.animate({ transform:["none",`translateY(${envelopeWidth * .31}px)`] }, { duration:380, easing:EASE.in, fill:"forwards" }));
     const flap = envelope.querySelector<HTMLElement>(".mail-flight-envelope-flap")!;
     flap.style.zIndex = "4";
     await finish(flap.animate({ transform:["rotateX(180deg)","rotateX(0deg)"] }, { duration:560, easing:springEasing(SPRINGS.morph).easing, fill:"forwards" }));
@@ -64,9 +65,9 @@ export async function flyMailDraft(letter: HTMLElement): Promise<void> {
     const stamp = envelope.querySelector<HTMLElement>(".mail-flight-envelope-stamp")!;
     await finish(stamp.animate({ opacity:[0,1], transform:["translate(-40px,-65px) scale(2.2) rotate(-24deg)","rotate(6deg)"] }, { duration:420, easing:springEasing(SPRINGS.toy).easing, fill:"forwards" }));
     const postmark = envelope.querySelector<HTMLElement>(".mail-flight-envelope-postmark")!;
-    await finish(postmark.animate({ opacity:[0,.92], transform:["scale(1.7) rotate(-34deg)","scale(1) rotate(-10deg)"] }, { duration:240, easing:"cubic-bezier(.2,.9,.3,1)", fill:"forwards" }));
+    await finish(postmark.animate({ opacity:[0,.92], transform:["scale(1.7) rotate(-34deg)","scale(1) rotate(-10deg)"] }, { duration:240, easing:EASE.out, fill:"forwards" }));
     await new Promise(resolve => window.setTimeout(resolve, 560));
-    await finish(envelope.animate({ transform:["none","translate(-3%,4%) rotate(-3deg)","translate(160%,-70%) rotate(16deg) scale(.7)"], opacity:[1,1,0] }, { duration:760, easing:"cubic-bezier(.5,0,.75,.1)", fill:"forwards" }));
+    await finish(envelope.animate({ transform:["none","translate(-3%,4%) rotate(-3deg)","translate(160%,-70%) rotate(16deg) scale(.7)"], opacity:[1,1,0] }, { duration:760, easing:EASE.in, fill:"forwards" }));
   } finally {
     letter.style.visibility = "";
     layer.remove();

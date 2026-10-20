@@ -1,7 +1,7 @@
 /* Boot screen: skeleton of the app behind one frost layer, the calico mark breathing on top. CSS only. */
-.boot{--boot-ease:cubic-bezier(.22,1,.36,1);position:fixed;inset:0;z-index:60;display:grid;place-items:center;overflow:hidden;background:var(--bg);color:var(--muted);font-size:14px}
+.boot{--boot-ease:var(--ease-out);position:fixed;inset:0;z-index:60;display:grid;place-items:center;overflow:hidden;background:var(--bg);color:var(--muted);font-size:14px}
 .boot.is-warm :is(.boot-skeleton,.boot-frost,.boot-logo-wrap){animation:none}
-.boot-skeleton,.boot-frost{position:absolute;inset:0;animation:boot-in .24s ease-out both}
+.boot-skeleton,.boot-frost{position:absolute;inset:0;animation:boot-in var(--m-base) var(--ease-out) both}
 .boot-skeleton{display:grid;grid-template-columns:var(--sidebar-width,272px) minmax(0,1fr);background:var(--bg)}
 .boot-side{display:flex;flex-direction:column;gap:6px;min-width:0;padding:14px 10px;background:var(--sidebar-bg,var(--sunk));border-right:1px solid var(--line-soft)}
 .boot-side-top{display:flex;align-items:center;gap:6px;min-height:36px;margin:0 5px 13px}
@@ -23,8 +23,8 @@
 .boot-composer .boot-field{flex:1;height:12px}
 /* Frost: the one blur layer. */
 .boot-frost{-webkit-backdrop-filter:blur(12px) saturate(.85);backdrop-filter:blur(12px) saturate(.85);background:color-mix(in srgb,var(--bg) 42%,transparent)}
-.boot-logo{position:relative;width:96px;height:96px;opacity:.7;filter:grayscale(1) brightness(1.55) contrast(.5) blur(1.5px);transform-origin:50% 55%;animation:boot-breathe 2.4s ease-in-out var(--boot-phase,0s) infinite;pointer-events:none;user-select:none}
-.boot-logo-wrap{position:relative;display:block;width:96px;height:96px;animation:boot-in .24s ease-out both}
+.boot-logo{position:relative;width:96px;height:96px;opacity:.7;filter:grayscale(1) brightness(1.55) contrast(.5) blur(1.5px);transform-origin:50% 55%;animation:boot-breathe 2.4s var(--ease-inout) var(--boot-phase,0s) infinite;pointer-events:none;user-select:none}
+.boot-logo-wrap{position:relative;display:block;width:96px;height:96px;animation:boot-in var(--m-base) var(--ease-out) both}
 :root[data-theme="dark"] .boot-logo{filter:grayscale(1) brightness(.8) contrast(.55) blur(1.5px)}
 /* Failure: the same backdrop, message and Retry in a card above it. */
 .boot.is-failed .boot-logo-wrap{display:none}
@@ -33,9 +33,9 @@
 .boot-card p{margin:0;color:var(--muted);overflow-wrap:anywhere}
 /* Hand-off: the copy dissolves over the real UI (opacity and blur only). */
 .boot-dissolve{pointer-events:none;background:transparent}
-.boot-dissolve .boot-skeleton{animation:boot-out .3s ease-out forwards}
-.boot-dissolve .boot-frost{animation:boot-defrost .32s ease-out forwards}
-.boot-dissolve .boot-logo-wrap{animation:boot-out .22s ease-out forwards}
+.boot-dissolve .boot-skeleton{animation:boot-out var(--m-panel-in) var(--ease-out) forwards}
+.boot-dissolve .boot-frost{animation:boot-defrost var(--m-panel-in) var(--ease-out) forwards}
+.boot-dissolve .boot-logo-wrap{animation:boot-out var(--m-base) var(--ease-out) forwards}
 @keyframes boot-in{from{opacity:0}to{opacity:1}}
 @keyframes boot-out{to{opacity:0}}
 @keyframes boot-defrost{from{-webkit-backdrop-filter:blur(12px) saturate(.85);backdrop-filter:blur(12px) saturate(.85);opacity:1}to{-webkit-backdrop-filter:blur(0) saturate(1);backdrop-filter:blur(0) saturate(1);opacity:0}}
@@ -52,8 +52,8 @@
 @media(prefers-reduced-motion:reduce){
   /* Plain crossfade: no transform, no blur animation. The global reduced-motion rule zeroes durations, so restate the fades. */
   .boot .boot-logo{animation:none!important;transform:none}
-  .boot :is(.boot-skeleton,.boot-frost,.boot-logo-wrap){animation:boot-in .2s ease-out both!important}
+  .boot :is(.boot-skeleton,.boot-frost,.boot-logo-wrap){animation:boot-in var(--m-base) var(--ease-out) both!important}
   .boot.is-warm :is(.boot-skeleton,.boot-frost,.boot-logo-wrap){animation:none!important}
-  .boot-dissolve{animation:boot-out .2s ease-out forwards!important}
+  .boot-dissolve{animation:boot-out var(--m-base) var(--ease-out) forwards!important}
   .boot-dissolve :is(.boot-skeleton,.boot-frost,.boot-logo-wrap){animation:none!important}
 }

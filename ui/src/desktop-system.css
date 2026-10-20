@@ -15,11 +15,11 @@ html[data-desktop="darwin"][data-window-focused="false"] .contact-row.active{bac
 html[data-desktop="darwin"][data-window-focused="false"] .sidebar-top,html[data-desktop="darwin"][data-window-focused="false"] .sidebar-footer{color:var(--text-soft)}
 html[data-desktop="darwin"][data-fullscreen="true"] .contact-pane{padding-top:16px}
 html[data-desktop="darwin"][data-fullscreen="true"] .native-titlebar{display:none}
-html[data-desktop] .more-menu,html[data-desktop] .create-menu{background:color-mix(in srgb,var(--surface) 88%,transparent);backdrop-filter:blur(24px) saturate(1.25);border-color:color-mix(in srgb,var(--line) 70%,transparent)}
+html[data-desktop] .more-menu,html[data-desktop] .create-menu{background:color-mix(in srgb,var(--surface) 88%,transparent);-webkit-backdrop-filter:blur(24px) saturate(1.25);backdrop-filter:blur(24px) saturate(1.25);border-color:color-mix(in srgb,var(--line) 70%,transparent)}
 html[data-desktop] .search-box{background:color-mix(in srgb,var(--surface-soft) 70%,transparent)}
-html[data-desktop] .sidebar-context-menu,html[data-desktop] .mention-menu{background:color-mix(in srgb,var(--surface) 88%,transparent);backdrop-filter:blur(24px) saturate(1.25);border-color:color-mix(in srgb,var(--line) 70%,transparent)}
-html[data-desktop] .view-only-chat{background:color-mix(in srgb,var(--surface) 92%,transparent);backdrop-filter:blur(24px) saturate(1.08)}
-html[data-desktop] .view-only-chat-header,html[data-desktop] .view-only-chat-footer{background:color-mix(in srgb,var(--surface) 68%,transparent);backdrop-filter:blur(24px) saturate(1.2)}
+html[data-desktop] .sidebar-context-menu,html[data-desktop] .mention-menu{background:color-mix(in srgb,var(--surface) 88%,transparent);-webkit-backdrop-filter:blur(24px) saturate(1.25);backdrop-filter:blur(24px) saturate(1.25);border-color:color-mix(in srgb,var(--line) 70%,transparent)}
+html[data-desktop] .view-only-chat{background:color-mix(in srgb,var(--surface) 92%,transparent);-webkit-backdrop-filter:blur(24px) saturate(1.08);backdrop-filter:blur(24px) saturate(1.08)}
+html[data-desktop] .view-only-chat-header,html[data-desktop] .view-only-chat-footer{background:color-mix(in srgb,var(--surface) 68%,transparent);-webkit-backdrop-filter:blur(24px) saturate(1.2);backdrop-filter:blur(24px) saturate(1.2)}
 html[data-desktop="darwin"] .view-only-chat-header{-webkit-app-region:drag;padding-top:56px;user-select:none}
 html[data-desktop="darwin"] .view-only-chat-header button,html[data-desktop="darwin"] .view-only-chat-header a{-webkit-app-region:no-drag}
 html[data-desktop="darwin"][data-fullscreen="true"] .view-only-chat-header{padding-top:12px}

@@ -11,7 +11,7 @@
   color: var(--ink);
   text-align: left;
   cursor: pointer;
-  transition: background-color 120ms ease, border-color 120ms ease;
+  transition: background-color var(--m-press) var(--ease-out), border-color var(--m-press) var(--ease-out);
 }
 .workspace .work-preview:hover:not(:disabled) { border-color: var(--line); background: var(--surface); }
 .workspace .work-preview:focus-visible { outline: var(--focus-ring-width) solid var(--focus-ring); outline-offset: 3px; }
@@ -45,7 +45,7 @@
   color: var(--ink-soft);
   font: 600 13px/1.2 var(--display);
   cursor: pointer;
-  transition: transform 120ms ease, background-color 120ms ease, color 120ms ease, box-shadow 120ms ease;
+  transition: transform var(--m-press) var(--ease-out), background-color var(--m-press) var(--ease-out), color var(--m-press) var(--ease-out), box-shadow var(--m-press) var(--ease-out);
 }
 .workspace .work-tabs button:hover,
 .workspace .work-create-kind button:hover { color: var(--ink); }
@@ -178,7 +178,7 @@
 }
 .workspace .work-item-details summary:hover,
 .workspace .work-item-details[open] summary { background: var(--surface-2); color: var(--ink); }
-.workspace .work-item-details summary::after { width: 6px; height: 6px; border-right: 1.5px solid currentColor; border-bottom: 1.5px solid currentColor; content: ""; transform: rotate(-45deg); transition: transform 120ms ease; }
+.workspace .work-item-details summary::after { width: 6px; height: 6px; border-right: 1.5px solid currentColor; border-bottom: 1.5px solid currentColor; content: ""; transform: rotate(-45deg); transition: transform var(--m-press) var(--ease-out); }
 .workspace .work-item-details[open] summary::after { transform: rotate(45deg); }
 .workspace .work-item-details summary::-webkit-details-marker { display: none; }
 .workspace .work-item-details p { margin: 7px 0; color: var(--ink-soft); line-height: 1.6; white-space: pre-wrap; overflow-wrap: anywhere; }

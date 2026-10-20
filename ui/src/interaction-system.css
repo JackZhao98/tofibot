@@ -27,7 +27,7 @@ button{touch-action:manipulation;-webkit-tap-highlight-color:transparent}
 .tofi-avatar{display:block;width:100%;height:100%}
 .tofi-avatar>svg{display:block;width:100%;height:100%}
 @media(max-width:520px){.bot-avatar-fields{grid-template-columns:1fr}.bot-share-card{align-items:flex-start;flex-direction:column}.bot-share-card .secondary-button{width:100%}}
-.workspace-grid{--sidebar-width:272px;grid-template-columns:var(--sidebar-width) minmax(0,1fr);transition:grid-template-columns 380ms var(--ease-out)}
+.workspace-grid{--sidebar-width:272px;grid-template-columns:var(--sidebar-width) minmax(0,1fr);transition:grid-template-columns var(--m-panel-in) var(--ease-out)}
 .sidebar-toggle{color:var(--muted)}
 /* Time belongs beside the name, not in a column stealing preview width. */
 .conversation-row{position:relative}
@@ -40,7 +40,7 @@ html[data-desktop] .conversation-row>.unread-badge{position:absolute;right:12px;
 .contact-section>.section-label:first-child{padding-top:0}
 .section-label>span{font-weight:500}
 .archive-entry{font-size:12px;color:var(--muted)}
-.delete-dialog-overlay{position:fixed;inset:0;z-index:1000;display:grid;place-items:center;padding:24px;background:color-mix(in srgb,var(--ink) 24%,transparent);backdrop-filter:blur(6px);animation:delete-dialog-arrive 180ms var(--ease-out)}
+.delete-dialog-overlay{position:fixed;inset:0;z-index:1000;display:grid;place-items:center;padding:24px;background:color-mix(in srgb,var(--ink) 24%,transparent);-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);animation:delete-dialog-arrive var(--m-base) var(--ease-out)}
 .delete-dialog{width:min(420px,100%);max-height:calc(100dvh - 48px);overflow-y:auto;padding:22px;border:var(--edge-bold) solid var(--line);border-radius:22px;background:var(--surface);box-shadow:var(--hard);color:var(--ink)}
 .delete-dialog-identity{display:flex;align-items:center;gap:10px;margin-bottom:20px;color:var(--text-soft);font-size:14px}
 .delete-dialog-identity span{overflow-wrap:anywhere}
@@ -70,12 +70,12 @@ html[data-desktop] .conversation-row>.unread-badge{position:absolute;right:12px;
 .scheduled-task-row summary::-webkit-details-marker{display:none}
 .scheduled-task-row summary:hover{color:var(--text);background:var(--surface-hover);border-radius:10px}
 .scheduled-task-dot{width:7px;height:7px;flex:0 0 7px;border-radius:50%;background:var(--muted)}
-.scheduled-task-running .scheduled-task-dot,.scheduled-task-queued .scheduled-task-dot{background:var(--accent);animation:scheduled-pulse 1.4s ease-in-out infinite}
+.scheduled-task-running .scheduled-task-dot,.scheduled-task-queued .scheduled-task-dot{background:var(--accent);animation:scheduled-pulse 1.4s var(--ease-inout) infinite}
 .scheduled-task-done .scheduled-task-dot{background:var(--muted)}
 .scheduled-task-failed .scheduled-task-dot,.scheduled-task-cancelled .scheduled-task-dot,.scheduled-task-interrupted .scheduled-task-dot{background:var(--danger)}
 .scheduled-task-label{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .scheduled-task-status{margin-left:auto;white-space:nowrap;color:var(--muted);font-size:11px}
-.scheduled-task-chevron{flex:none;transition:transform 180ms ease}
+.scheduled-task-chevron{flex:none;transition:transform var(--m-base) var(--ease-out)}
 .scheduled-task-row details[open] .scheduled-task-chevron{transform:rotate(90deg)}
 .scheduled-task-details{margin:0 10px 8px;padding:8px 10px;border-top:1px solid var(--line);line-height:1.55}
 .scheduled-task-details p{margin:4px 0 0;white-space:pre-wrap;overflow-wrap:anywhere}
@@ -83,22 +83,22 @@ html[data-desktop] .conversation-row>.unread-badge{position:absolute;right:12px;
 .message-user .message-content a{color:inherit}
 /* Composer and message hierarchy likewise have one visual owner. */
 .composer-hint{font-size:11px}
-.more-menu,.create-menu{min-width:208px;transform-origin:top right;animation:menu-enter 160ms var(--ease-out) both}
+.more-menu,.create-menu{min-width:208px;transform-origin:top right;animation:menu-enter var(--m-quick) var(--ease-out) both}
 .create-menu{min-width:212px}
 .more-menu,.create-menu,.sidebar-context-menu{max-width:calc(100vw - 24px)}
 .more-menu .delete-menu-action:hover,.sidebar-context-menu .delete-menu-action:hover{color:var(--danger-text)}
-.more-menu[data-open="false"],.create-menu[data-open="false"]{animation:menu-leave 170ms var(--ease-settle) both;pointer-events:none}
+.more-menu[data-open="false"],.create-menu[data-open="false"]{animation:menu-leave var(--m-quick) var(--ease-settle) both;pointer-events:none}
 @keyframes menu-enter{from{opacity:0;transform:translateY(-4px) scale(.97)}to{opacity:1;transform:translateY(0) scale(1)}}
 @keyframes menu-leave{to{opacity:0;transform:translateY(-3px) scale(.98)}}
-.action-hint{position:fixed;z-index:1000;max-width:200px;padding:7px 10px;color:var(--on-accent);background:var(--accent);box-shadow:var(--float-shadow);border-radius:8px;font-size:12px;line-height:18px;pointer-events:none;animation:hint-enter 160ms ease-out both}
+.action-hint{position:fixed;z-index:1000;max-width:200px;padding:7px 10px;color:var(--on-accent);background:var(--accent);box-shadow:var(--float-shadow);border-radius:8px;font-size:12px;line-height:18px;pointer-events:none;animation:hint-enter var(--m-quick) var(--ease-out) both}
 @keyframes hint-enter{from{opacity:0}to{opacity:1}}
-.detail-pane.visible{background:var(--surface);animation:drawer-enter 360ms var(--ease-out) both;box-shadow:var(--float-shadow)}
-.detail-pane.surface-exiting{animation:drawer-leave 220ms var(--ease-settle) both;pointer-events:none}
+.detail-pane.visible{background:var(--surface);animation:drawer-enter var(--m-panel-in) var(--ease-out) both;box-shadow:var(--float-shadow)}
+.detail-pane.surface-exiting{animation:drawer-leave var(--m-panel-out) var(--ease-settle) both;pointer-events:none}
 @keyframes drawer-enter{from{opacity:.6;translate:24px 0}to{opacity:1;translate:0 0}}
 @keyframes drawer-leave{to{opacity:0;translate:24px 0}}
-.detail-backdrop{background:color-mix(in srgb,var(--ink) 22%,transparent);backdrop-filter:blur(2px);animation:hint-enter 220ms ease-out both}
-.detail-pane:has(.settings-tabs){border-radius:22px;box-shadow:var(--float-shadow);animation:modal-enter 340ms var(--ease-out) both}
-.detail-pane.surface-exiting:has(.settings-tabs){animation:modal-leave 200ms ease both}
+.detail-backdrop{background:color-mix(in srgb,var(--ink) 22%,transparent);-webkit-backdrop-filter:blur(2px);backdrop-filter:blur(2px);animation:hint-enter var(--m-base) var(--ease-out) both}
+.detail-pane:has(.settings-tabs){border-radius:22px;box-shadow:var(--float-shadow);animation:modal-enter var(--m-panel-in) var(--ease-out) both}
+.detail-pane.surface-exiting:has(.settings-tabs){animation:modal-leave var(--m-panel-out) var(--ease-settle) both}
 /* Starts part-visible: the first frame of an opening panel must already show it. */
 @keyframes modal-enter{from{opacity:.4;scale:.97;translate:0 8px}to{opacity:1;scale:1;translate:0 0}}
 @keyframes modal-leave{to{opacity:0;scale:.985;translate:0 5px}}
@@ -167,12 +167,12 @@ html[data-desktop] .message-avatar .avatar{width:38px;height:38px}
 .computer-detail:not(.is-expanded) .computer-screen{width:100%;height:100%;max-height:none;object-fit:contain}
 .remote-preview-hint{display:none}
 .desktop-launch-preview{width:100%;aspect-ratio:16/9;display:grid;place-items:center;background:var(--desktop-screen)!important;border:1px solid var(--desktop-controls-edge);border-radius:16px;margin:16px 0 0;color:var(--desktop-controls-ink)!important}
-.desktop-launch-action{display:grid;justify-items:center;gap:10px;font-size:12px;opacity:.6;transition:opacity 200ms,transform 300ms var(--ease-out)}
+.desktop-launch-action{display:grid;justify-items:center;gap:10px;font-size:12px;opacity:.6;transition:opacity var(--m-base),transform var(--m-panel-in) var(--ease-out)}
 .desktop-launch-preview:hover .desktop-launch-action{opacity:1;transform:translateY(-2px)}
 .computer-viewer-status{font-size:12px}.computer-viewer-actions .secondary-button{font-size:12px;padding:6px 8px;min-height:30px;background:transparent;border:0}
 .computer-viewer-actions .secondary-button:hover{background:var(--surface-hover)}
 .computer-tools>summary{font-size:12px;color:var(--muted)}
-.bot-identity-card{position:fixed;z-index:90;width:280px;padding:18px;background:var(--surface);color:var(--text);border:1px solid var(--line);border-radius:18px;box-shadow:var(--float-shadow);animation:menu-enter 240ms var(--ease-out) both;transform-origin:top left}
+.bot-identity-card{position:fixed;z-index:90;width:280px;padding:18px;background:var(--surface);color:var(--text);border:1px solid var(--line);border-radius:18px;box-shadow:var(--float-shadow);animation:menu-enter var(--m-base) var(--ease-out) both;transform-origin:top left}
 .identity-card-anchor{display:inline-flex;border-radius:10px;outline-offset:4px}
 .identity-card-title{display:flex;align-items:center;gap:12px}
 .identity-card-title>div{display:grid;gap:2px;min-width:0}
@@ -218,8 +218,8 @@ html[data-desktop] .message-avatar .avatar{width:38px;height:38px}
 .group-avatar,.user-avatar{background:var(--surface-hover);color:var(--text-soft)}
 .unread-divider::before,.unread-divider::after{background:var(--line)!important}
 .back-button{color:var(--text);background:transparent}.back-button:hover{background:var(--surface-hover)}
-.bot-identity-card[data-open="false"]{animation:menu-leave 170ms ease both;pointer-events:none}
-html[data-desktop] .new-arrival .message-content{transform-origin:0 100%;animation:bubble-arrive 420ms var(--ease-out) both}
+.bot-identity-card[data-open="false"]{animation:menu-leave var(--m-quick) var(--ease-out) both;pointer-events:none}
+html[data-desktop] .new-arrival .message-content{transform-origin:0 100%;animation:bubble-arrive var(--m-panel-in) var(--ease-out) both}
 html[data-desktop] .new-arrival .message-user .message-content{transform-origin:100% 12px}
 @keyframes bubble-arrive{0%{transform:scale(.87,.9)}70%{transform:scale(1.007,1.01)}100%{transform:scale(1)}}
 .computer-screen-wrap{background:var(--surface-soft);border-color:var(--line)}
@@ -236,7 +236,7 @@ html[data-desktop] .new-arrival .message-user .message-content{transform-origin:
 .composer-row>.send-button:disabled{background:var(--surface-hover);color:var(--muted)}
 .dictation-button{display:grid;place-items:center;padding:0;border:0;border-radius:50%;background:transparent;color:var(--text-soft)}
 .dictation-button:hover{background:var(--surface-hover);color:var(--text)}
-.dictation-button.is-listening{color:var(--danger-text);background:color-mix(in srgb,var(--danger) 12%,transparent);animation:dictation-pulse 1.4s ease-in-out infinite}
+.dictation-button.is-listening{color:var(--danger-text);background:color-mix(in srgb,var(--danger) 12%,transparent);animation:dictation-pulse 1.4s var(--ease-inout) infinite}
 .dictation-button:disabled{color:var(--muted);background:transparent;cursor:not-allowed}
 .dictation-status{max-width:var(--chat-max);margin:0 auto 5px;color:var(--danger-text);font-size:12px}
 @keyframes dictation-pulse{50%{box-shadow:0 0 0 5px color-mix(in srgb,var(--danger) 10%,transparent)}}
@@ -248,9 +248,9 @@ html[data-desktop] .new-arrival .message-user .message-content{transform-origin:
 .disclosure{min-width:0;margin:8px 0}
 .disclosure-toggle{display:flex;align-items:center;justify-content:space-between;gap:16px;width:100%;min-height:38px;padding:8px 0;border:0;background:transparent;color:var(--text-soft);text-align:left;font-size:13px}
 .disclosure-toggle:hover{color:var(--text)}
-.disclosure-chevron{flex:none;transition:transform 220ms var(--ease-settle)}
+.disclosure-chevron{flex:none;transition:transform var(--m-base) var(--ease-settle)}
 .disclosure[data-open="true"]>.disclosure-toggle .disclosure-chevron{transform:rotate(180deg)}
-.disclosure-region{display:grid;grid-template-rows:0fr;opacity:0;visibility:hidden;transition:grid-template-rows 240ms var(--ease-settle),opacity 160ms ease,visibility 240ms}
+.disclosure-region{display:grid;grid-template-rows:0fr;opacity:0;visibility:hidden;transition:grid-template-rows var(--m-base) var(--ease-settle),opacity var(--m-quick) var(--ease-out),visibility var(--m-base)}
 .disclosure[data-open="true"]>.disclosure-region{grid-template-rows:1fr;opacity:1;visibility:visible}
 .disclosure-inner{min-height:0;overflow:hidden}
 .disclosure-inner>label{display:grid;gap:7px;margin:10px 0}
@@ -273,7 +273,7 @@ html[data-desktop] .new-arrival .message-user .message-content{transform-origin:
 .extension-card>strong{display:block;overflow-wrap:anywhere}
 .confirm-action{display:inline-flex;max-width:100%;align-items:center}
 .confirm-action>[hidden]{display:none!important}
-.inline-confirmation{display:flex;align-items:center;flex-wrap:wrap;gap:6px;animation:hint-enter 150ms ease-out both}
+.inline-confirmation{display:flex;align-items:center;flex-wrap:wrap;gap:6px;animation:hint-enter var(--m-quick) var(--ease-out) both}
 .inline-confirmation>span{font-size:12px;color:var(--text-soft)}
 .inline-confirmation button{white-space:nowrap}
 .memory-footer{gap:10px;flex-wrap:wrap;justify-content:flex-end}

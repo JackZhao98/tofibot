@@ -23,15 +23,15 @@ html:not([data-desktop]) .workspace .question-message > .avatar { margin:0; }
   box-shadow: var(--hard-sm);
   color: var(--ink);
 }
-html:not([data-desktop]) .workspace .question-message .question-card { transition: padding 240ms cubic-bezier(.22,1,.36,1), border-width 240ms ease, border-color 240ms ease, background-color 240ms ease, box-shadow 240ms ease; }
-html:not([data-desktop]) .workspace .question-message .question-card.is-pending { transform-origin:50% 100%; animation:question-card-arrive 620ms cubic-bezier(.34,1.4,.64,1) both; }
+html:not([data-desktop]) .workspace .question-message .question-card { transition: padding var(--m-base) var(--ease-out), border-width var(--m-base) var(--ease-out), border-color var(--m-base) var(--ease-out), background-color var(--m-base) var(--ease-out), box-shadow var(--m-base) var(--ease-out); }
+html:not([data-desktop]) .workspace .question-message .question-card.is-pending { transform-origin:50% 100%; animation:question-card-arrive var(--m-flight) var(--ease-spring) both; }
 @keyframes question-card-arrive { from { opacity: 0; transform: translateY(28px) scale(.94); } to { opacity: 1; transform: translateY(0) scale(1); } }
 html:not([data-desktop]) .workspace .question-message .question-state { max-height:40px; overflow:hidden; }
 html:not([data-desktop]) .workspace .question-message .question-prompt { max-height:240px; overflow:hidden; }
 html:not([data-desktop]) .workspace .question-message .question-options label { max-height:120px; overflow:hidden; }
 html:not([data-desktop]) .workspace .question-message .question-card.is-folding { overflow:hidden; }
-html:not([data-desktop]) .workspace .question-message .question-card.is-folding :is(.question-state,.question-prompt) { max-height:0; margin:0; opacity:0; overflow:hidden; transition:max-height 440ms cubic-bezier(.22,1,.36,1),opacity 220ms ease,margin 440ms cubic-bezier(.22,1,.36,1); }
-html:not([data-desktop]) .workspace .question-message .question-card.is-folding .question-options { gap:0; margin-top:0; transition:gap 440ms cubic-bezier(.22,1,.36,1),margin 440ms cubic-bezier(.22,1,.36,1); }
+html:not([data-desktop]) .workspace .question-message .question-card.is-folding :is(.question-state,.question-prompt) { max-height:0; margin:0; opacity:0; overflow:hidden; transition:max-height var(--m-panel-in) var(--ease-out),opacity var(--m-base) var(--ease-out),margin var(--m-panel-in) var(--ease-out); }
+html:not([data-desktop]) .workspace .question-message .question-card.is-folding .question-options { gap:0; margin-top:0; transition:gap var(--m-panel-in) var(--ease-out),margin var(--m-panel-in) var(--ease-out); }
 html:not([data-desktop]) .workspace .question-message .question-card.is-folding .question-options label { max-height:80px; overflow:hidden; }
 html:not([data-desktop]) .workspace .question-message .question-card.is-folding .question-options label.selected { transform:translate(2px,2px); background:color-mix(in srgb,var(--iris) 24%,var(--surface)); color:var(--ink); opacity:1; }
 html:not([data-desktop]) .workspace .question-message .question-card.is-folding .question-options label.is-fold-away { max-height:0; padding-block:0; border-width:0; opacity:0; transform:scaleY(0); }
@@ -99,7 +99,7 @@ html:not([data-desktop]) .workspace .question-message .question-options label.se
   background: var(--surface-2);
   color: var(--ink);
   cursor: pointer;
-  transition: transform 120ms ease, border-color 120ms ease, background-color 120ms ease, box-shadow 120ms ease, max-height 440ms cubic-bezier(.22,1,.36,1), padding 440ms cubic-bezier(.22,1,.36,1), opacity 220ms ease;
+  transition: transform var(--m-press) var(--ease-out), border-color var(--m-press) var(--ease-out), background-color var(--m-press) var(--ease-out), box-shadow var(--m-press) var(--ease-out), max-height var(--m-panel-in) var(--ease-out), padding var(--m-panel-in) var(--ease-out), opacity var(--m-base) var(--ease-out);
 }
 .workspace .question-message .question-options label:hover { border-color: var(--line); background: var(--surface); }
 .workspace .question-message .question-options label.selected {
@@ -138,7 +138,7 @@ html:not([data-desktop]) .workspace .question-message .question-options label.se
   box-shadow: var(--hard-sm);
   color: var(--on-block);
   font: 600 13px/1 var(--display);
-  transition: transform 120ms ease, box-shadow 120ms ease, background-color 120ms ease;
+  transition: transform var(--m-press) var(--ease-out), box-shadow var(--m-press) var(--ease-out), background-color var(--m-press) var(--ease-out);
 }
 .workspace .question-message .question-actions .primary-button:not(:disabled):hover { transform: translate(-1px, -1px); }
 .workspace .question-message .question-actions .primary-button:not(:disabled):active { transform: translate(2px, 3px); box-shadow: none; }
@@ -170,8 +170,8 @@ html:not([data-desktop]) .workspace .question-message .question-card.is-expired 
 html:not([data-desktop]) .workspace .question-message .question-card.is-resolved.is-answered { padding:8px 12px; }
 html:not([data-desktop]) .workspace .question-message .question-card.is-resolved.is-answered .question-prompt { position:absolute; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden; clip:rect(0,0,0,0); white-space:nowrap; border:0; }
 html:not([data-desktop]) .workspace .question-message .question-card.is-resolved.is-answered .question-result { display:flex; align-items:center; gap:8px; min-width:0; margin:0; }
-html:not([data-desktop]) .workspace .question-message .question-card.is-resolved.is-answered .question-result > svg { flex:none; width:25px; height:25px; padding:5px; border-radius:8px; background:var(--iris); color:var(--on-block); animation:question-check-pop 460ms cubic-bezier(.34,1.56,.64,1); }
-html:not([data-desktop]) .workspace .question-message .question-card.is-resolved.is-answered .question-result > span { flex:none; color:var(--iris-text); font:600 13px/1.4 var(--body); animation:question-answered-fade 360ms ease both 120ms; }
+html:not([data-desktop]) .workspace .question-message .question-card.is-resolved.is-answered .question-result > svg { flex:none; width:25px; height:25px; padding:5px; border-radius:8px; background:var(--iris); color:var(--on-block); animation:question-check-pop var(--m-panel-in) var(--ease-spring); }
+html:not([data-desktop]) .workspace .question-message .question-card.is-resolved.is-answered .question-result > span { flex:none; color:var(--iris-text); font:600 13px/1.4 var(--body); animation:question-answered-fade var(--m-panel-in) var(--ease-out) both 120ms; }
 html:not([data-desktop]) .workspace .question-message .question-card.is-resolved.is-answered .question-result > p { min-width:0; margin:0; font:600 14px/1.4 var(--body); }
 @keyframes question-check-pop { from { scale:.4; } }
 @keyframes question-answered-fade { from { opacity:0; transform:translateX(-6px); } }

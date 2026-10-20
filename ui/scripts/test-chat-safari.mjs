@@ -315,6 +315,7 @@ const sendScenario = (reduced, scrollUp) => async () => {
   const shown = after.slice(first);
   assert.ok(shown.every(frame => frame.bubble.inView), "the bubble stays in view");
   assert.ok(shown.at(-1).fromBottom <= 2, `list ends ${shown.at(-1).fromBottom}px from the bottom`);
+  if (process.env.CHAT_SAFARI_DEBUG) console.log(shown.slice(0, 40).map(f => `${f.t}:st${f.scrollTop}/fb${f.fromBottom}/b${f.bubble.top}`).join(" "));
   const settled = shown.slice(Math.min(shown.length - 1, 3));
   const tops = settled.map(frame => frame.bubble.top);
   assert.ok(Math.max(...tops) - Math.min(...tops) <= 1, `bubble moved ${Math.max(...tops) - Math.min(...tops)}px after it appeared`);
