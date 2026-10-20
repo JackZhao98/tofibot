@@ -3431,6 +3431,7 @@ func (s *Server) execute(c Conversation, r Run) {
 			// Every run's say(answer) gets the one-time review after tool work; a
 			// scheduled run's answer is also its receipt, so it is reviewed too.
 			state.review = func() bool { return observedToolWork.Load() && !reviewed.Swap(true) }
+			state.owed = func() bool { return observedToolWork.Load() && !reviewed.Load() }
 			s.sayRuns.Store(r.ID, state)
 			defer s.sayRuns.Delete(r.ID)
 			sayStream = newSayStreamer(state)

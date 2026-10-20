@@ -153,7 +153,13 @@ type sayRunState struct {
 	// answer; review reports whether the one-time completion review is due.
 	demote func(string)
 	review func() bool
+	// owed peeks at review without spending it.
+	owed func() bool
 }
+
+// reviewOwed reports whether a say(answer) beginning now would be sent back
+// for the one-time completion review.
+func (st *sayRunState) reviewOwed() bool { return st.owed != nil && st.owed() }
 
 func (s *Server) sayRun(runID string) *sayRunState {
 	if v, ok := s.sayRuns.Load(runID); ok {
