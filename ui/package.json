@@ -6,6 +6,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "dev:remote": "TOFI_DEV_API_INSECURE=1 vite",
     "build": "tsc -b && vite build && vite build --config vite.motion-lab.config.ts",
     "typecheck": "tsc -b --pretty false",
     "test:portability": "node scripts/test-portability.mjs",
