@@ -1,6 +1,7 @@
 package runtime
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"strings"
@@ -258,4 +259,31 @@ func limitToolEventText(value string, max int) (string, bool) {
 		return value, false
 	}
 	return string(runes[:max]) + "…", true
+}
+
+// webSearchToolEvent reports a provider-side search as a finished tool call, so
+// the query and the sources it returned appear in the run's evidence.
+func webSearchToolEvent(ws provider.WebSearch) ToolEvent {
+	args, _ := json.Marshal(map[string]string{"query": ws.Query})
+	ev := ToolEvent{CallID: "web-search-" + ws.ID, Name: "web_search", Arguments: string(args), Status: "completed"}
+	if ws.Error != "" {
+		ev.Status = "failed"
+		ev.Result = "search failed: " + ws.Error
+		return ev
+	}
+	var b strings.Builder
+	for i, src := range ws.Sources {
+		if i > 0 {
+			b.WriteString("\n")
+		}
+		b.WriteString(src.Title + " - " + src.URL)
+		if src.PageAge != "" {
+			b.WriteString(" (" + src.PageAge + ")")
+		}
+	}
+	if b.Len() == 0 {
+		b.WriteString("no results")
+	}
+	ev.Result = b.String()
+	return ev
 }

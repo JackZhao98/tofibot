@@ -3850,6 +3850,12 @@ func (s *Server) execute(c Conversation, r Run) {
 	res, e := runEngine.Run(ctx, Request{BotID: r.BotID, RunID: r.ID, ConversationID: c.ID, System: system, Model: model, ReasoningEffort: reasoningEffort, Messages: pm, Tools: tools, OnDelta: onDelta, StructuredOutput: structured, ForceToolUse: structured && forceSayFor(c, r, model), OnToolCallDelta: onToolCallDelta, EndOnEmptyFinal: endOnEmptyFinal, BeforeModelCall: steeringBoundary, BeforeFinalResponse: finalReview, FinalResponseRepairTools: finalRepairTools, OnAssistantTurn: onAssistantTurn,
 		OnThinking: onThinking, OnRetry: onRetry, OnStreamReset: onStreamReset, OnReviewDraft: onReviewDraft,
 		Continuation:      continuation,
+		WebSearchMaxUses:  webSearchMaxUses(model, tools),
+		OnWebSearchBilled: func(n int64) {
+			if err := s.store.recordWebSearchUsage(r.ID, n); err != nil {
+				log.Printf("[usage] web search: %v", err)
+			}
+		},
 		ResumeResult:      s.inputResumeResult(answeredQuestion),
 		ResumeOutcome:     s.inputResumeOutcome(answeredQuestion),
 		Attempt:           claim.Attempt,

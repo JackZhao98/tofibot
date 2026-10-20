@@ -216,6 +216,11 @@ type AgentConfig struct {
 	OnContextBreakdown        func(ContextBreakdown)                                    // Same estimate split into system/tools, messages and reasoning
 	OnReasoningReplayRejected func()                                                    // Provider rejected replayed reasoning; replay is off for the rest of the run
 	OnUsage                   func(inputTokens, outputTokens int64)                     // Provider-reported usage for one model call
+	// WebSearchMaxUses, when positive, adds the provider's server-side web
+	// search to ordinary model requests (searches per request capped at this);
+	// OnWebSearches receives what each response searched and the billed count.
+	WebSearchMaxUses int
+	OnWebSearches    func(searches []provider.WebSearch, billed int64)
 	OnCompact                 func(originalTokens, compactedTokens int)                 // Successful in-run context compaction
 	Hooks                     *Hooks                                                    // Optional: pre/post hooks for tool calls, API calls, compaction
 	OnMessage                 func(msg provider.Message)                                // Optional: called immediately after each assistant/tool message is appended. Used for incremental chat session persistence so a browser refresh or hold doesn't lose in-progress turns. Internal synthetic user continuations are NOT emitted.
@@ -1333,6 +1338,9 @@ func RunAgentLoop(cfg AgentConfig, ctx *models.ExecutionContext) (returned *Agen
 			PromptCacheKey:      cfg.PromptCacheKey,
 			OmitReasoningReplay: reasoningReplayDisabled,
 		}
+		if cfg.WebSearchMaxUses > 0 && !repairRequest && !finalRepairFinalRequest && !budgetWrapUp {
+			req.WebSearch = &provider.WebSearchSpec{MaxUses: cfg.WebSearchMaxUses}
+		}
 		if cfg.ForceToolUse && !repairRequest && !finalRepairFinalRequest && !budgetWrapUp && len(requestTools) > 0 &&
 			!lastToolRoundFailed(messages) && !(cfg.EndOnEmptyFinal != nil && cfg.EndOnEmptyFinal()) {
 			// A run that handed its work off owes no reply and may end quietly,
@@ -1420,6 +1428,9 @@ func RunAgentLoop(cfg AgentConfig, ctx *models.ExecutionContext) (returned *Agen
 				state = state.RecordAPICall(cfg.Model, resp.Usage)
 				if cfg.OnUsage != nil {
 					cfg.OnUsage(resp.Usage.InputTokens, resp.Usage.OutputTokens)
+				}
+				if cfg.OnWebSearches != nil && (len(resp.WebSearches) > 0 || resp.WebSearchRequests > 0) {
+					cfg.OnWebSearches(resp.WebSearches, resp.WebSearchRequests)
 				}
 			}
 			resp, err = nil, errors.New("model call aborted: tool call arguments exceeded the size cap")
@@ -1533,6 +1544,9 @@ func RunAgentLoop(cfg AgentConfig, ctx *models.ExecutionContext) (returned *Agen
 		state = state.RecordAPICall(cfg.Model, resp.Usage)
 		if cfg.OnUsage != nil {
 			cfg.OnUsage(resp.Usage.InputTokens, resp.Usage.OutputTokens)
+		}
+		if cfg.OnWebSearches != nil && (len(resp.WebSearches) > 0 || resp.WebSearchRequests > 0) {
+			cfg.OnWebSearches(resp.WebSearches, resp.WebSearchRequests)
 		}
 		state.Trace.RecordAPICall(state.Step, cfg.Model, resp.Usage, resp, apiDuration)
 		cfg.Hooks.callPostAPICall(state.Step, resp.Usage.InputTokens, resp.Usage.OutputTokens, resp.HasToolCalls())

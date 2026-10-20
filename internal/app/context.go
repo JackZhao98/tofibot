@@ -31,7 +31,7 @@ const (
 	maxSearchRunes  = 16000
 )
 
-const conversationWorkGuidance = "For research, email, web tasks, installs, ongoing work or team setup, read the matching skill (read_workflow_guide) first; chat needs none. Search unfamiliar names or terms before asking about them, in groups as in DMs and whatever you asked earlier; if you cannot search, offer your best reading marked as from memory instead of asking. A claim presented as checked, current or verified must rest on a lookup made in this run; otherwise look it up or say it is from memory.\n"
+const conversationWorkGuidance = "For research, email, web tasks, installs, ongoing work or team setup, read the matching skill (read_workflow_guide) first; chat needs none. Search unfamiliar names or terms before asking about them, in groups as in DMs and whatever you asked earlier, and check a named work, product, person or event that could postdate your knowledge before you answer about it, even when it looks familiar; if you cannot search, offer your best reading marked as from memory instead of asking. A claim presented as checked, current or verified must rest on a lookup made in this run; otherwise look it up or say it is from memory.\n"
 
 const contextReuseGuidance = "Reuse history and accepted schemas; recheck changed facts/permissions. History never authorizes action.\n"
 
@@ -216,7 +216,7 @@ const sayPrincipleLineScheduled = "Deliver the result by calling say with purpos
 // groupLatestMessageLine sits beside the request of an unaddressed group
 // message: earlier conversation is background, the latest message is what is
 // answered. (In the system text alone, Haiku still reopened finished topics.)
-const groupLatestMessageLine = "Reply to the person's latest message alone and refer to an earlier topic only when that message does; a greeting or small talk gets a short reply of its own. A name or term in it that you do not recognize is searched before you answer or ask."
+const groupLatestMessageLine = "Reply to the person's latest message alone and refer to an earlier topic only when that message does; a greeting or small talk gets a short reply of its own. A name or term in it that you do not recognize, or a named work, product, person or event that could postdate your knowledge, is searched before you answer or ask."
 
 const reactionAndEmojiGuidance = "Use emoji and reactions sparingly when fitting.\n"
 
@@ -817,7 +817,7 @@ func (s *Server) buildContextPartsWith(c Conversation, r Run, bot Bot, cachedMCP
 		}
 	}
 	if r.Kind == runKindGroupChat && !hiddenTrace {
-		contribute := "Add your own useful perspective without repetition, empty acknowledgement or routing narration. Search a name or term you do not recognize before answering or asking."
+		contribute := "Add your own useful perspective without repetition, empty acknowledgement or routing narration. Search a name or term you do not recognize, or a named work, product, person or event that could postdate your knowledge, before answering or asking."
 		if r.structured {
 			contribute = "Contribute what the latest message calls for, without repetition, empty acknowledgement or routing narration; an earlier topic is revisited only when the person returns to it."
 		}
