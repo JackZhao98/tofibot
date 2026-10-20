@@ -3,9 +3,11 @@ package app
 import (
 	"context"
 	"encoding/json"
+	"path/filepath"
 	"testing"
 	"time"
 
+	"github.com/JackZhao98/tofibot/internal/extensions"
 	"github.com/JackZhao98/tofibot/internal/tooloutcome"
 )
 
@@ -24,12 +26,15 @@ func TestHumanInputToolsRefuseHiddenConversation(t *testing.T) {
 		t.Fatal(err)
 	}
 	client, _ := recordingComputer(t)
-	s := &Server{store: store, secretVault: vault, microVM: client}
+	manager := extensions.NewManager(extensions.Config{MCPConfigPath: filepath.Join(t.TempDir(), "mcp.json")})
+	s := &Server{store: store, secretVault: vault, microVM: client, extensions: manager}
 	calls := map[string]string{
 		"ask_user_question":    `{"question":"Which one?","type":"text"}`,
 		"request_approval":     `{"question":"Proceed?","action":"do it","target":"thing","impact":"none"}`,
 		"request_secret_input": `{"label":"Service key","purpose":"Synthetic use"}`,
 		"ask_user_form":        `{"question":"Details","source_url":"https://forms.example.test/x","fields":[{"id":"name","label":"Name","type":"text","required":true}]}`,
+		"request_takeover":     `{"question":"Enter the code.","site":"login.example.test"}`,
+		"request_connection":   `{"service":"notes","question":"Connect Notes."}`,
 	}
 	tools := map[string]Tool{}
 	for _, tool := range s.questionTools(c, run) {

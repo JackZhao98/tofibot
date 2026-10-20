@@ -36,6 +36,20 @@ outcome `conversation_not_user_visible`); a hidden Bot-to-Bot run reaches a huma
 through its reply, which returns to the assigning Bot or conversation. Mail drafts
 (`prepare_email`) are still a separate card path.
 
+Two Bot-initiated handover cards ride the same rendezvous (`internal/app/handover.go`, UI `ui/src/HandoverCards.tsx`,
+`ui/src/TakeoverDialog.tsx`); they add question types `takeover` and `connection` and one stored column (`questions.handover_target`, added by
+`ensureColumn`). Their answer is one enumerated word (takeover: `done`/`cannot`; connection: `connected`/`failed`/`declined`) and the model result
+(`handoverResult`) is a status word plus a fixed sentence: nothing the person types, copies or sees on the remote screen is part of an answer,
+event, result or table (the keystroke/clipboard path stays browser -> `/api/computers/firecracker/actions` -> guest). `request_takeover` (needs the
+shared computer; site is stored as an origin only; window <= 14 min because the guest collects an idle desktop after 15) opens a modal around
+`RemoteDesktopControl`, which acquires with `handover_question`: that hold is bound to the open card, is never yielded by the 15 s idle release
+(`desktop.control.renew`) and ends on the next heartbeat or on answer/cancel/expiry/run start; the run's own desktop tabs are kept while it is parked
+on the card. `request_connection` runs the Settings connect flow for this client (native app, https popup, or the shared computer on plain http,
+via `mcpOAuthRoute`); `connected` is accepted only if the server sees the token (`connection_not_ready` otherwise); a blocked route reports
+`failed`, a retryable error keeps the card open. Both cards are refused in hidden conversations (`requireHumanPresent`) and, like
+`ask_user_question`, park and expire in scheduled runs. `manage_extensions oauth_required` points at `request_connection` only in
+user-visible conversations.
+
 # Security gates
 
 `manage_extensions` changes (MCP create/update/delete/test, Skill install/delete) execute only after a person's

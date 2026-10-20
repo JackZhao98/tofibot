@@ -23,12 +23,14 @@ export interface Question {
   bot_id: string;
   run_id: string;
   type: "question";
-  question_type: "text" | "yes_no" | "approval" | "single_choice" | "multi_choice" | "form";
+  question_type: "text" | "yes_no" | "approval" | "single_choice" | "multi_choice" | "form" | "takeover" | "connection";
   question: string;
   options?: { id: string; label: string }[];
   allow_other?: boolean;
   fields?: QuestionField[];
   source_url?: string;
+  /** The MCP service a connection card is about. */
+  target?: string;
   approval?: ApprovalDetails;
   min_selections?: number;
   max_selections?: number;

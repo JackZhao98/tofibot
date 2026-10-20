@@ -6,13 +6,13 @@ import { useTranslation } from "./i18n";
 
 type InputEvent = { type: string; [key: string]: unknown };
 export type RemoteControlHandle = { release: () => Promise<void>; acquire: () => Promise<void> };
-type Props = { botId: string; enabled: boolean; blocked?: boolean; takeoverRun?: { id: string; name: string; botId?: string }; expanded: boolean; onExpand?: () => void; waiting?: boolean; onControlChange: (owned: boolean) => void; controlRef: React.RefObject<RemoteControlHandle | null>; children: ReactNode };
+type Props = { botId: string; enabled: boolean; blocked?: boolean; takeoverRun?: { id: string; name: string; botId?: string }; handoverQuestion?: string; expanded: boolean; onExpand?: () => void; waiting?: boolean; onControlChange: (owned: boolean) => void; controlRef: React.RefObject<RemoteControlHandle | null>; children: ReactNode };
 // Mac Command shortcuts intentionally map to Linux Control (Cmd+A/L/T/C/V).
 const keys: Record<string, string> = { Enter: "Return", Escape: "Escape", Backspace: "BackSpace", Delete: "Delete", Tab: "Tab", ArrowLeft: "Left", ArrowRight: "Right", ArrowUp: "Up", ArrowDown: "Down", Home: "Home", End: "End", PageUp: "Prior", PageDown: "Next", Control: "Control_L", Meta: "Control_L", Alt: "Alt_L", Shift: "Shift_L", " ": "space" };
 
 // Input ownership is separate from watching video. One ordered queue delivers
 // edges/text; only adjacent pointer moves may be coalesced.
-export function RemoteDesktopControl({ botId, enabled, blocked = false, takeoverRun, expanded, onExpand, waiting = false, onControlChange, controlRef, children }: Props) {
+export function RemoteDesktopControl({ botId, enabled, blocked = false, takeoverRun, handoverQuestion, expanded, onExpand, waiting = false, onControlChange, controlRef, children }: Props) {
   const { t } = useTranslation("computer");
   const touchInput = useRef(false);
   const activePointer = useRef<number | null>(null);
@@ -74,7 +74,7 @@ export function RemoteDesktopControl({ botId, enabled, blocked = false, takeover
     setPending(true); setError(""); setNotice(takeoverRun ? t("remote.notice.waiting_current") : "");
     try {
       if (epoch.current !== version) return;
-      const result = await call("acquire", takeoverRun ? { expected_owner: takeoverRun.id } : {});
+      const result = await call("acquire", { ...(takeoverRun ? { expected_owner: takeoverRun.id } : {}), ...(handoverQuestion ? { handover_question: handoverQuestion } : {}) });
       const id = String(result.control_id ?? "");
       if (!id) throw new Error(t("remote.error.no_control"));
       if (epoch.current !== version) { void call("release", { control_id: id }, true); return; }
