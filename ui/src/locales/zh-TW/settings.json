@@ -76,6 +76,10 @@
       "admin": {
         "name": "Admin 主控台",
         "description": "邀請、管理和停用帳號"
+      },
+      "automation": {
+        "name": "自動行為",
+        "description": "查看並調整 Tofi 代你自動做的事"
       }
     },
     "category": "設定分類",
@@ -639,9 +643,7 @@
     "chat": "對話",
     "activity_title": "在對話裡顯示工作過程",
     "activity_note": "在 Bot 的回覆下方顯示它執行的步驟。預設關閉，仍可從訊息的操作選單開啟。",
-    "activity_save_failed": "儲存失敗，請重試。",
-    "structured_title": "結構化回覆",
-    "structured_note": "Bot 只透過 say 工具把文字送到對話裡；步驟之間寫的文字留在工作過程檢視中。關閉後恢復為原本的發佈方式。"
+    "activity_save_failed": "儲存失敗，請重試。"
   },
   "approvals": {
     "heading": "審查員",
@@ -753,5 +755,115 @@
       "annoying": "煩人",
       "handled": "已處理過"
     }
+  },
+  "automation": {
+    "intro": "Tofi 代你自動完成的事都列在這裡。每一項都有出廠預設值，變更會從下一次執行開始生效。",
+    "group": {
+      "models": {
+        "title": "模型",
+        "description": "不同類型的工作交給哪個模型。"
+      },
+      "replies": {
+        "title": "回覆",
+        "description": "Bot 如何把話送進對話。"
+      },
+      "history": {
+        "title": "對話歷史",
+        "description": "Bot 重新接手對話時會帶上哪些內容。"
+      },
+      "checks": {
+        "title": "檢查與核准",
+        "description": "圍繞 Bot 操作的各項複核。"
+      },
+      "reliability": {
+        "title": "穩定性",
+        "description": "模型服務出現波動時怎麼處理。"
+      },
+      "schedules": {
+        "title": "排程",
+        "description": "排程執行結束前的最後把關。"
+      },
+      "computer": {
+        "title": "電腦",
+        "description": "共用電腦的自動休眠。"
+      }
+    },
+    "item": {
+      "conversation_model": {
+        "name": "對話模型",
+        "what": "負責聊天、群組協作、排程執行，以及所有用到工具的工作。Bot 自己指定的模型優先於它。"
+      },
+      "background_model": {
+        "name": "背景模型",
+        "what": "負責幕後的輕量工作：歷史摘要、分流、複核與追蹤檢查。選「自動」時，用 Claude 就走 Haiku，其他情況沿用對話模型。"
+      },
+      "structured_output": {
+        "name": "結構化回覆",
+        "what": "Bot 只透過 say 工具把文字送到對話裡；步驟之間寫的文字留在工作過程檢視中。關閉後恢復為原本的發佈方式。"
+      },
+      "force_say_haiku_dm": {
+        "name": "Haiku 必須使用回覆工具",
+        "what": "在私訊裡，Haiku 每一輪都必須呼叫 say 工具，確保回覆一定出現在對話中。"
+      },
+      "web_search": {
+        "name": "網路搜尋",
+        "what": "當問題可能比自身知識更新時，Claude 模型會先自行上網搜尋再回答。"
+      },
+      "group_exchange_gists": {
+        "name": "已結束的群組往來摺成摘要",
+        "what": "群組裡 Bot 沒參與、已經收尾的往來，會摺成一段簡短摘要交給它。"
+      },
+      "own_replies_verbatim": {
+        "name": "保留原文的自己的回覆",
+        "what": "Bot 只會逐字看到自己最近這幾則回覆，更早的縮成一句摘要，避免照搬自己的措辭。"
+      },
+      "completion_review": {
+        "name": "用過工具後的完成複核",
+        "what": "Bot 用過工具後，回覆前會對照實際結果再檢查一次答案。"
+      },
+      "mcp_auto_review": {
+        "name": "工具呼叫自動複核",
+        "what": "由背景複核員審查對外部工具的呼叫。「觀察」只記錄建議；「自動」允許低風險呼叫依其判斷放行。"
+      },
+      "remembered_approval_hours": {
+        "name": "記住的核准有效期",
+        "what": "核准時選擇「記住」後，同一呼叫在該對話裡這段時間內不必再次確認。"
+      },
+      "provider_retries": {
+        "name": "自動重試次數",
+        "what": "模型服務出現過載、斷線等暫時性錯誤時，最多重試這麼多次才判定失敗。設為 0 即不重試。"
+      },
+      "schedule_receipt_review": {
+        "name": "排程執行收尾前把關",
+        "what": "排程執行如果結束時沒有完成紀錄，會先獲得一次補完的機會，再標記結束。"
+      },
+      "desktop_idle_seconds": {
+        "name": "桌面閒置休眠",
+        "what": "共用電腦閒置這麼久後進入休眠，下次呼叫工具時自動喚醒。由電腦服務設定。"
+      }
+    },
+    "option": {
+      "mcp_auto_review": {
+        "off": "關閉",
+        "shadow": "觀察",
+        "auto": "自動"
+      }
+    },
+    "auto": "自動 · {{model}}",
+    "default_is": "預設：{{value}}",
+    "changed": "已變更",
+    "env": "由伺服器環境設定",
+    "reset": "還原預設",
+    "on": "開",
+    "off": "關",
+    "hours": "{{count}} 小時",
+    "minutes": "{{count}} 分鐘",
+    "seconds": "{{count}} 秒",
+    "retries_none": "不重試",
+    "idle_off": "已關閉",
+    "not_reported": "暫未取得",
+    "saved": "已儲存",
+    "loading": "載入中…",
+    "managed": "由電腦服務管理"
   }
 }

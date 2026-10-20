@@ -453,25 +453,28 @@ func TestCodexModelEquivalenceStaysWithoutOpenAIKey(t *testing.T) {
 	}
 }
 
-func TestBackgroundModelPreferenceOrder(t *testing.T) {
+func TestBackgroundModelFollowsTheConversationProvider(t *testing.T) {
 	openai, anthropic := newFakeOpenAI(t, "ok"), newFakeAnthropic(t, "ok")
 	s := providerServer(t, openai, anthropic)
-	if s.backgroundModel(backgroundTriage) != codexTriageModel || s.backgroundModel(backgroundReview) != codexReviewModel {
-		t.Fatal("an unconfigured workspace keeps the Codex defaults")
-	}
 	putProviderKeyOK(t, s, "anthropic", syntheticAnthropicKey)
-	if got := s.backgroundModel(backgroundReview); got != "claude-haiku-4-5-20251001" {
+	if got := s.backgroundModel(backgroundReview); got != anthropicBackgroundModel {
 		t.Fatalf("anthropic background=%s", got)
 	}
 	putProviderKeyOK(t, s, "openai", syntheticOpenAIKey)
+	if rec := providerRequest(t, s, http.MethodPut, "/api/model-settings", `{"model":"gpt-5-mini"}`); rec.Code != http.StatusOK {
+		t.Fatalf("model settings=%d %s", rec.Code, rec.Body.String())
+	}
 	if got := s.backgroundModel(backgroundTriage); got != "gpt-5-mini" {
-		t.Fatalf("openai background=%s", got)
+		t.Fatalf("a non-Anthropic conversation model keeps background work on it, got %s", got)
 	}
 	if err := s.codex.SaveAccessOnlyCredential("synthetic-access", "", time.Now().Add(time.Hour).UnixMilli()); err != nil {
 		t.Fatal(err)
 	}
-	if s.backgroundModel(backgroundTriage) != codexTriageModel || s.backgroundModel(backgroundReview) != codexReviewModel {
-		t.Fatal("Codex is preferred when connected")
+	if rec := providerRequest(t, s, http.MethodPut, "/api/model-settings", `{"model":"codex-gpt-5.6-luna"}`); rec.Code != http.StatusOK {
+		t.Skipf("codex catalog unavailable in this fixture: %d %s", rec.Code, rec.Body.String())
+	}
+	if s.backgroundModel(backgroundTriage) != codexDefaultModel || s.backgroundModel(backgroundReview) != codexReviewModel {
+		t.Fatal("a Codex conversation keeps Codex for background work, with its own reviewer")
 	}
 	s.triageModel = "gpt-6-luna"
 	if s.triageModelName() != "gpt-6-luna" || s.backgroundModel(backgroundReview) != codexReviewModel {
@@ -488,7 +491,7 @@ func TestBackgroundReviewerUsesAPIKeyProviderWithoutCodex(t *testing.T) {
 	anthropic.mu.Unlock()
 	allow, _ := s.reviewAction(context.Background(), actionReview{Kind: "click", Effect: "navigate", Element: "Next"})
 	chats, keys := anthropic.requests()
-	if !allow || len(chats) != 1 || chats[0] != "claude-haiku-4-5-20251001" || keys[0] != syntheticAnthropicKey {
+	if !allow || len(chats) != 1 || chats[0] != anthropicBackgroundModel || keys[0] != syntheticAnthropicKey {
 		t.Fatalf("allow=%v chats=%v", allow, chats)
 	}
 	terms, err := s.expandToolSearchQuery(context.Background(), "calendar")

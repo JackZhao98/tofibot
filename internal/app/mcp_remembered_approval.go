@@ -481,7 +481,7 @@ func (s *Server) rememberMCPApproval(q Question, actor string) (MCPRememberedApp
 		return MCPRememberedApproval{}, errRememberStale
 	}
 	t := now()
-	g := MCPRememberedApproval{ID: uuid.NewString(), ConversationID: q.ConversationID, BotID: q.BotID, Server: server, Tool: tool, TargetKind: kind, TargetSummary: summary, SourceQuestionID: q.ID, CreatedAt: t, ExpiresAt: time.Now().UTC().Add(rememberedApprovalValidity).Format(time.RFC3339Nano)}
+	g := MCPRememberedApproval{ID: uuid.NewString(), ConversationID: q.ConversationID, BotID: q.BotID, Server: server, Tool: tool, TargetKind: kind, TargetSummary: summary, SourceQuestionID: q.ID, CreatedAt: t, ExpiresAt: time.Now().UTC().Add(s.rememberedApprovalWindow()).Format(time.RFC3339Nano)}
 	_, err = s.store.db.Exec(`INSERT INTO mcp_remembered_approvals(id,account_id,conversation_id,bot_id,source_question_id,source_run_id,server,tool,config_fingerprint,tier_binding,target_key,target_kind,target_summary,created_at,created_by,expires_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`, g.ID, s.reviewAccountID(), g.ConversationID, g.BotID, q.ID, runID, server, tool, config, tierBinding, key, kind, summary, t, actor, g.ExpiresAt)
 	if err != nil {
 		return MCPRememberedApproval{}, err

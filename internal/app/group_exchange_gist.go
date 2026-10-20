@@ -26,7 +26,7 @@ const (
 // groupExchangeGistsApply says whether this run's history may fold closed
 // exchanges: a user-visible group, answering a person message directly.
 func (s *Server) groupExchangeGistsApply(c Conversation, r Run) bool {
-	if c.Kind != "group" || !c.UserVisible || r.TriggerMessageID == "" {
+	if c.Kind != "group" || !c.UserVisible || r.TriggerMessageID == "" || !s.groupExchangeGistsEnabled() {
 		return false
 	}
 	return r.Kind == runKindGroupChat || (r.Kind == "" && r.ParentRunID == "")
