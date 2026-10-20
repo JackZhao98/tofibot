@@ -1134,6 +1134,7 @@ func RunAgentLoop(cfg AgentConfig, ctx *models.ExecutionContext) (returned *Agen
 
 	reasoningReplayDisabled := false
 	modelCallRecovered := false
+	transientProviderRetries := 0
 
 	// A compaction is a model call of its own: it counts against the run's
 	// call and cost budget, reaches the usage ledger, and keeps LLMCalls,
@@ -1332,6 +1333,7 @@ func RunAgentLoop(cfg AgentConfig, ctx *models.ExecutionContext) (returned *Agen
 		callCtx, cancelCall := context.WithCancel(loopCtx)
 		overlongArguments := false
 		streamedContent := false
+		deltaForwarded := false
 		argumentChars := map[int]int{}
 		argumentTools := map[int]string{}
 
@@ -1355,6 +1357,7 @@ func RunAgentLoop(cfg AgentConfig, ctx *models.ExecutionContext) (returned *Agen
 			}
 			firstReasoning := true
 			resp, err = cfg.Provider.ChatStream(callCtx, req, func(delta provider.StreamDelta) {
+				deltaForwarded = true
 				for _, call := range delta.ToolCalls {
 					if cfg.OnToolCallDelta != nil && !overlongArguments {
 						cfg.OnToolCallDelta(call)
@@ -1402,6 +1405,30 @@ func RunAgentLoop(cfg AgentConfig, ctx *models.ExecutionContext) (returned *Agen
 				}
 			}
 			resp, err = nil, errors.New("model call aborted: tool call arguments exceeded the size cap")
+		}
+
+		// A retryable provider error after output was already forwarded: the
+		// provider layer cannot replay a delivered prefix, so retry here with
+		// backoff. Nothing from the aborted attempt enters the transcript.
+		if err != nil && loopCtx.Err() == nil && !overlongArguments && deltaForwarded &&
+			transientProviderRetries < len(transientProviderBackoff) &&
+			provider.IsRetryable(err) && !providerAccountError(err) &&
+			!provider.IsStreamWatchdog(err) && !repairRequest && !finalRepairFinalRequest {
+			delay := transientProviderBackoff[transientProviderRetries]
+			transientProviderRetries++
+			ctx.Log("[Agent] Provider error mid-stream (%v); retry %d in %v", err, transientProviderRetries, delay)
+			state.Trace.RecordError(state.Step, err)
+			provider.ObserveRetry(loopCtx, transientProviderRetries, err, delay)
+			if cfg.OnStreamReset != nil {
+				cfg.OnStreamReset()
+			}
+			select {
+			case <-loopCtx.Done():
+			case <-time.After(delay):
+			}
+			if loopCtx.Err() == nil {
+				continue
+			}
 		}
 
 		// One in-iteration recovery for the argument cap, a provider idle/wall-cap
@@ -1474,6 +1501,7 @@ func RunAgentLoop(cfg AgentConfig, ctx *models.ExecutionContext) (returned *Agen
 		}
 
 		modelCallRecovered = false
+		transientProviderRetries = 0
 		if resp.ReasoningReplayRejected && !reasoningReplayDisabled {
 			ctx.Log("[Agent] Provider rejected replayed reasoning; disabled for this run")
 			reasoningReplayDisabled = true
@@ -3258,6 +3286,22 @@ Rules:
 // transientStreamFailure is a dropped provider stream (HTTP/2 reset, early
 // EOF): the request itself was fine, so retrying the iteration is safe even
 // after some output had streamed.
+// transientProviderBackoff is the wait before each in-loop retry of a
+// retryable provider error that arrived after output had been forwarded.
+var transientProviderBackoff = []time.Duration{2 * time.Second, 5 * time.Second, 10 * time.Second}
+
+// providerAccountError reports account-level failures that a retry cannot
+// clear: exhausted quota or credit.
+func providerAccountError(err error) bool {
+	msg := err.Error()
+	for _, marker := range []string{"usage_limit_reached", "insufficient_quota", "credit balance is too low", "billing_error"} {
+		if strings.Contains(msg, marker) {
+			return true
+		}
+	}
+	return false
+}
+
 func transientStreamFailure(err error) bool {
 	if errors.Is(err, provider.ErrStreamIncomplete) {
 		return true
