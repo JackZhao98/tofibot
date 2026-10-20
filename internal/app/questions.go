@@ -78,6 +78,34 @@ type ApprovalDetails struct {
 	// this chat" is available for this proposal; it says what the grant
 	// would bind to. The model-visible request_approval tool cannot set it.
 	Remember *MCPRememberOffer `json:"remember,omitempty"`
+	// Facts are server-built, model-independent facts about an extension
+	// change, shown above the model's wording. request_approval cannot set them.
+	Facts *ApprovalFacts `json:"facts,omitempty"`
+}
+
+// ApprovalFacts describe an extension change from its payload. Nothing here is
+// model-written prose; secrets appear by name only.
+type ApprovalFacts struct {
+	Kind           string              `json:"kind"` // skill_install, skill_delete, mcp_create, mcp_update, mcp_delete, mcp_test
+	Name           string              `json:"name"`
+	ChangeID       string              `json:"change_id,omitempty"`
+	Source         string              `json:"source,omitempty"`
+	PreviousSource string              `json:"previous_source,omitempty"`
+	Transport      string              `json:"transport,omitempty"`
+	AllowTools     []string            `json:"allow_tools,omitempty"`
+	DenyTools      []string            `json:"deny_tools,omitempty"`
+	HeaderNames    []string            `json:"header_names,omitempty"`
+	OAuthScopes    []string            `json:"oauth_scopes,omitempty"`
+	OAuthMetadata  string              `json:"oauth_metadata,omitempty"`
+	Skill          *ApprovalSkillFacts `json:"skill,omitempty"`
+}
+
+type ApprovalSkillFacts struct {
+	Description  string   `json:"description,omitempty"`
+	Excerpt      string   `json:"excerpt,omitempty"`
+	AllowedTools []string `json:"allowed_tools,omitempty"`
+	Files        []string `json:"files,omitempty"`
+	HasScripts   bool     `json:"has_scripts,omitempty"`
 }
 
 type Question struct {
@@ -230,7 +258,7 @@ func normalizeQuestionInput(x askQuestionInput) (askQuestionInput, error) {
 		if x.Approval == nil {
 			return x, errors.New("approval details are required")
 		}
-		if x.Approval.Review != nil || x.Approval.ReviewOnly || x.Approval.Remember != nil {
+		if x.Approval.Review != nil || x.Approval.ReviewOnly || x.Approval.Remember != nil || x.Approval.Facts != nil {
 			return x, errors.New("AutoReview metadata is reserved for the internal MCP gate")
 		}
 		for _, field := range []*string{&x.Approval.Action, &x.Approval.Target, &x.Approval.Impact} {
@@ -405,6 +433,15 @@ func (s *Server) approvalTool(c Conversation, r Run) Tool {
 		in, err := normalizeQuestionInput(askQuestionInput{Question: input.Question, Type: questionApproval, Approval: &input.ApprovalDetails, ExpiresInSeconds: input.ExpiresInSeconds})
 		if err != nil {
 			return "", err
+		}
+		// A card that names an extension change carries the server's own
+		// description of that change; without one there is nothing true to show.
+		if facts, isExtension := s.extensionFactsForTarget(r, in.Approval.Target); isExtension {
+			if facts == nil {
+				return "", tooloutcome.New(tooloutcome.NeedInformation, "extension_change_unknown", "not_executed",
+					"This approval target does not name a change the server has seen in this run. Call manage_extensions first, then ask with the exact target it returns.", "repair_arguments").Err()
+			}
+			in.Approval.Facts = facts
 		}
 		if in.Approval.DraftID != "" {
 			draft, err := s.store.GetMailDraft(in.Approval.DraftID)

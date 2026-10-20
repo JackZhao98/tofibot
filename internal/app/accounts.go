@@ -522,6 +522,7 @@ func (g *AccountGateway) handle(w http.ResponseWriter, r *http.Request) {
 		}
 		if loginAccount != "" {
 			g.auth.refundAttempt(r, loginAccount)
+			g.auth.rememberSource(r, loginAccount)
 		}
 		if err := g.issue(w, r, a.ID); err != nil {
 			writeErr(w, 500, "storage", "cannot create session")

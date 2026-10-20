@@ -214,6 +214,7 @@ type Server struct {
 	uiDir                                string
 	publicOrigin                         string
 	allowInternalMCPHosts                bool // tests only: Bot-created MCP servers may use loopback hosts
+	extensionProposals                   sync.Map // run id + normalized token -> *ApprovalFacts, set when a change is refused for approval
 	defaultModel, provider               string
 	transcriptionAPIKey                  string
 	transcriptionURL                     string

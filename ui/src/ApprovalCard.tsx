@@ -11,6 +11,11 @@ export interface ApprovalCardProps {
   exactTime?: string;
   badge?: string;
   facts?: { label: string; value: ReactNode }[];
+  /** Facts the server built from the exact payload; shown above everything the Bot wrote. */
+  verified?: { label: string; value: ReactNode }[];
+  verifiedTitle?: string;
+  /** Names the Bot-written rows in `facts` when `verified` is shown. */
+  factsCaption?: string;
   /** Exact external-tool arguments, rendered only as inert text on demand. */
   payload?: string;
   acceptLabel?: string;
@@ -28,7 +33,7 @@ export interface ApprovalCardProps {
 }
 
 /** Shared visual card. Only the caller's confirmed result can resolve it. */
-export function ApprovalCard({ title, avatar, time, exactTime, badge: badgeText, facts = [], payload, acceptLabel: acceptText, declineLabel: declineText, onAnswer, onRemember, rememberHint, resolution, busy, disabled, error, note, secondaryAction }: ApprovalCardProps) {
+export function ApprovalCard({ title, avatar, time, exactTime, badge: badgeText, facts = [], verified = [], verifiedTitle, factsCaption, payload, acceptLabel: acceptText, declineLabel: declineText, onAnswer, onRemember, rememberHint, resolution, busy, disabled, error, note, secondaryAction }: ApprovalCardProps) {
   const { t } = useTranslation("tasks");
   const badge = badgeText ?? t("phase.needs_approval");
   const acceptLabel = acceptText ?? t("approval.accept");
@@ -46,7 +51,9 @@ export function ApprovalCard({ title, avatar, time, exactTime, badge: badgeText,
     <div id={heading} className="approval-title">{title}</div>
     <div className="approval-fold approval-content-fold" aria-hidden={!pending} inert={!pending}>
       <div className="approval-fold-inner">
-        {facts.length > 0 && <dl className="approval-facts">{facts.map((fact, index) => <div key={index}><dt>{fact.label}</dt><dd>{fact.value}</dd></div>)}</dl>}
+        {verified.length > 0 && <section className="approval-verified" aria-label={verifiedTitle} data-testid="approval-verified"><h4>{verifiedTitle}</h4><dl>{verified.map((fact, index) => <div key={index}><dt>{fact.label}</dt><dd>{fact.value}</dd></div>)}</dl></section>}
+        {verified.length > 0 && facts.length > 0 && factsCaption && <p className="approval-facts-caption">{factsCaption}</p>}
+        {facts.length > 0 && <dl className={`approval-facts${verified.length > 0 ? " is-secondary" : ""}`}>{facts.map((fact, index) => <div key={index}><dt>{fact.label}</dt><dd>{fact.value}</dd></div>)}</dl>}
         {payload && <details className="approval-payload"><summary>{t("record.view_full_arguments")}</summary><pre tabIndex={0} aria-label={t("approval.payload_label")}>{payload}</pre></details>}
         <div className="approval-actions">
           <button type="button" className="approval-decline" disabled={disabled || Boolean(busy) || !pending} onClick={() => onAnswer(false)}>{busy === "decline" ? t("approval.submitting") : declineLabel}</button>

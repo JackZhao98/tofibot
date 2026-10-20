@@ -8,6 +8,7 @@ import (
 	"github.com/JackZhao98/tofibot/internal/provider"
 	"github.com/JackZhao98/tofibot/internal/tooloutcome"
 	"strings"
+	"unicode"
 )
 
 // browser.read returns the focused page's text and links, so a Bot reads a
@@ -121,6 +122,7 @@ if opts.get("click"):
     if not spot:
         print(json.dumps({"error": "click_target_not_found", "click": opts["click"]}, ensure_ascii=False)); sys.exit(0)
     time.sleep(0.2)
+    sys.stderr.write("TOFI_DISPATCHED\n"); sys.stderr.flush()
     for kind in ("mouseMoved", "mousePressed", "mouseReleased"):
         send(target, "Input.dispatchMouseEvent", {"type": kind, "x": spot["x"], "y": spot["y"], "button": "left", "clickCount": 1})
     out["clicked"] = spot["label"]
@@ -205,21 +207,25 @@ func (s *Server) browserRead(ctx context.Context, r Run, raw json.RawMessage) (s
 // browserClick clicks the smallest visible element containing the given text
 // on the focused page through DevTools, then returns the resulting page like
 // browser.read. It takes the shared desktop like any other page input.
-func (s *Server) browserClick(ctx context.Context, r Run, raw json.RawMessage) (string, error) {
+func (s *Server) browserClick(ctx context.Context, r Run, raw json.RawMessage) (page string, err error) {
 	var in browserReadArgs
 	_ = json.Unmarshal(raw, &in)
 	if strings.TrimSpace(in.Click) == "" {
 		return "", tooloutcome.InvalidArguments("browser.click needs click text")
 	}
+	settle := func(error) {}
 	if consequentialEffect(in.Effect) {
 		target := s.locateAction(ctx, r, browserReadArgs{Click: in.Click, Dry: true})
 		if target.Label == "" {
 			target.Label = in.Click
 		}
-		if err := s.guardAction(ctx, r, actionReview{Kind: "click", Effect: in.Effect, Element: target.Label, URL: target.URL, Title: target.Title}); err != nil {
+		if settle, err = s.guardAction(ctx, r, actionReview{Kind: "click", Effect: in.Effect, Element: target.Label, URL: target.URL, Title: target.Title}); err != nil {
 			return "", err
 		}
 	}
+	// Whatever follows, an approval spent above is given back if the click
+	// provably never happened.
+	defer func() { settle(err) }()
 	args, err := browserReadCommand(in)
 	if err != nil {
 		return "", err
@@ -249,7 +255,13 @@ func browserReadResult(out string) (string, error) {
 	}
 	page := strings.TrimSpace(shell.Stdout)
 	if shell.ExitCode != 0 || !json.Valid([]byte(page)) {
-		return "", fmt.Errorf("browser.read failed: %s", strings.TrimSpace(shell.Stderr+" "+page))
+		failure := fmt.Errorf("browser.read failed: %s", strings.TrimSpace(strings.ReplaceAll(shell.Stderr, "TOFI_DISPATCHED", "")+" "+page))
+		if !strings.Contains(shell.Stderr, "TOFI_DISPATCHED") {
+			// The helper died (DevTools unreachable, tab gone) before it sent any
+			// mouse event: nothing on the page changed, so a retry is safe.
+			return "", tooloutcome.New(tooloutcome.Transient, "browser_not_dispatched", "not_executed", failure.Error(), "retry").Err()
+		}
+		return "", failure
 	}
 	if strings.Contains(page, `"error": "chrome_not_running"`) || strings.Contains(page, `"error":"chrome_not_running"`) {
 		return "", fmt.Errorf("browser.read: Chrome is not running; start it with computer_desktop desktop.start")
@@ -333,16 +345,23 @@ Return exactly one JSON object: {"decision":"allow"|"confirm","reason":"<one sho
 // guardAction lets a declared consequential action through when the reviewer
 // allows it or a person already approved this target in the run; otherwise
 // the model is told to ask the user. A reviewer failure asks the user.
-func (s *Server) guardAction(ctx context.Context, r Run, a actionReview) error {
+//
+// The returned settle func must be called with the dispatch result. A person's
+// approval is spent when the action is cleared to start; settle gives it back
+// when the dispatch failed with certainty before any effect (a stale element,
+// a missing page, an unreachable computer), so a retry still has its approval.
+// It is never nil when err is nil.
+func (s *Server) guardAction(ctx context.Context, r Run, a actionReview) (settle func(error), err error) {
+	noop := func(error) {}
 	if !consequentialEffect(a.Effect) {
-		return nil
+		return noop, nil
 	}
 	label := a.Element
 	if label == "" {
 		label = a.Text
 	}
-	if s.claimClickApproval(r, label) {
-		return nil
+	if id, ok := s.claimApproval(r, label); ok {
+		return func(execErr error) { s.settleApprovalClaim(id, execErr) }, nil
 	}
 	if m, err := s.store.GetMessage(r.TriggerMessageID); err == nil {
 		a.Request = trimRunes(m.Content, 2000)
@@ -350,12 +369,25 @@ func (s *Server) guardAction(ctx context.Context, r Run, a actionReview) error {
 	a.Element, a.Text = trimRunes(a.Element, 300), trimRunes(a.Text, 500)
 	allow, reason := s.reviewAction(ctx, a)
 	if allow {
-		return nil
+		return noop, nil
 	}
-	label = trimRunes(label, 300)
-	return tooloutcome.New(tooloutcome.NeedApproval, "user_confirmation_required", "not_executed",
-		fmt.Sprintf("This %s (%s) on %q needs the user's confirmation: %s Ask with request_approval (target: %q) and repeat the action only after they approve.", a.Kind, a.Effect, label, reason, label),
+	// The label is shown on a line of its own, exactly as it is compared (see
+	// approvalLabelText), never Go-quoted: a model copies what it sees.
+	return nil, tooloutcome.New(tooloutcome.NeedApproval, "user_confirmation_required", "not_executed",
+		fmt.Sprintf("This %s (%s) needs the user's confirmation: %s Ask with request_approval and set target to exactly the label on the next line, without quotes or added characters. Repeat the action only after they approve.\n%s", a.Kind, a.Effect, reason, approvalLabelText(label)),
 		"request_approval").Err()
+}
+
+// settleApprovalClaim returns a spent approval when the guarded call failed
+// with the certainty that it changed nothing. Anything else, including success
+// and any uncertain failure, keeps it spent: single use stays single use.
+func (s *Server) settleApprovalClaim(questionID string, execErr error) {
+	if execErr == nil {
+		return
+	}
+	if o, ok := tooloutcome.FromError(execErr); ok && o.Certainty == "not_executed" {
+		_, _ = s.store.db.Exec(`DELETE FROM click_approval_claims WHERE question_id=?`, questionID)
+	}
 }
 
 func (s *Server) reviewAction(ctx context.Context, a actionReview) (bool, string) {
@@ -388,12 +420,32 @@ func (s *Server) reviewAction(ctx context.Context, a actionReview) (bool, string
 	return out.Decision == "allow", strings.TrimSpace(out.Reason)
 }
 
-// approvalLabel normalizes an element label or approval target for exact
-// comparison: capped at the length guardAction asks the model to echo, lower
-// case, with whitespace runs collapsed.
-func approvalLabel(v string) string {
-	return strings.ToLower(strings.Join(strings.Fields(trimRunes(v, 300)), " "))
+// approvalLabelText is the one normal form of an element label or approval
+// target, used for what the model is shown and for the comparison alike:
+// whitespace runs collapsed (non-breaking spaces included), invisible format
+// characters dropped, typographic quotes folded to plain ones, and capped at
+// the length the model is asked to echo.
+func approvalLabelText(v string) string {
+	v = strings.Map(func(r rune) rune {
+		switch {
+		case unicode.Is(unicode.Cf, r):
+			return -1
+		case r == '‘' || r == '’' || r == '‚' || r == '′':
+			return '\''
+		case r == '“' || r == '”' || r == '„' || r == '″':
+			return '"'
+		}
+		return r
+	}, v)
+	runes := []rune(strings.Join(strings.Fields(v), " "))
+	if len(runes) > 300 {
+		runes = runes[:300]
+	}
+	return strings.TrimSpace(string(runes))
 }
+
+// approvalLabel is the comparison key: the normal form, case-folded.
+func approvalLabel(v string) string { return strings.ToLower(approvalLabelText(v)) }
 
 // matchingClickApprovals lists the human-approved request_approval questions of
 // this run whose target is exactly the clicked label.
@@ -418,33 +470,18 @@ func (s *Server) matchingClickApprovals(r Run, label string) []string {
 	return ids
 }
 
-// clickApproved reports whether an unused human approval in this run names
-// exactly this element. It does not consume the approval.
-func (s *Server) clickApproved(r Run, label string) bool {
-	for _, id := range s.matchingClickApprovals(r, label) {
-		var used int
-		if s.store.db.QueryRow(`SELECT COUNT(*) FROM click_approval_claims WHERE question_id=?`, id).Scan(&used) == nil && used == 0 {
-			return true
-		}
-	}
-	return false
-}
-
-// claimClickApproval consumes one matching, unused approval so it allows a
-// single dispatch; any later consequential click is reviewed again.
-func (s *Server) claimClickApproval(r Run, label string) bool { return s.claimApprovalTarget(r, label) }
-
-// claimApprovalTarget consumes one unused human approval whose target equals
-// the given text.
-func (s *Server) claimApprovalTarget(r Run, label string) bool {
+// claimApproval consumes one unused human approval whose target equals the
+// given text and returns its question id, so the caller can give it back with
+// settleApprovalClaim if the guarded call fails before doing anything.
+func (s *Server) claimApproval(r Run, label string) (string, bool) {
 	for _, id := range s.matchingClickApprovals(r, label) {
 		res, err := s.store.db.Exec(`INSERT OR IGNORE INTO click_approval_claims(question_id,run_id,claimed_at) VALUES(?,?,?)`, id, r.ID, now())
 		if err != nil {
 			continue
 		}
 		if n, _ := res.RowsAffected(); n == 1 {
-			return true
+			return id, true
 		}
 	}
-	return false
+	return "", false
 }
