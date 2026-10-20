@@ -56,7 +56,8 @@
     "test:settings-polish": "node scripts/test-settings-polish.mjs",
     "test:tool-tiers-e2e": "node scripts/test-tool-tiers-e2e.mjs",
     "test:primary-followups": "node scripts/test-primary-followups.mjs",
-    "test:approval-facts": "node scripts/test-approval-facts.mjs"
+    "test:approval-facts": "node scripts/test-approval-facts.mjs",
+    "test:handover-cards": "node scripts/test-handover-cards.mjs"
   },
   "dependencies": {
     "@emoji-mart/data": "1.2.1",

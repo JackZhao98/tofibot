@@ -358,7 +358,9 @@
       "computer": "Bedient den Computer",
       "contact": "Kontaktiert ein Mitglied",
       "call": "Ruft {{name}} auf",
-      "profile": "Speichert das Bot-Profil"
+      "profile": "Speichert das Bot-Profil",
+      "takeover": "Wartet auf dich am Computer",
+      "connection": "Wartet darauf, dass du einen Dienst verbindest"
     },
     "title": {
       "form": "Wartet darauf, dass du ein Formular ausfüllst",
@@ -378,7 +380,9 @@
       "computer": "Computer bedienen",
       "contact": "Mitglied kontaktieren",
       "call": "{{name}} aufrufen",
-      "profile": "Bot-Profil speichern"
+      "profile": "Bot-Profil speichern",
+      "takeover": "Wartet auf dich am Computer",
+      "connection": "Wartet darauf, dass du einen Dienst verbindest"
     },
     "step_action": {
       "desktop_capture": "Screenshot",
@@ -531,6 +535,45 @@
       "tool_stuck": "Ein Tool-Schritt reagierte nicht mehr, die Aufgabe wurde gestoppt.",
       "receipt_missing": "Der Lauf endete, ohne ein Ergebnis zu bestätigen.",
       "resumed_repeatedly": "Die Aufgabe wurde {{times}}-mal unterbrochen und gestoppt."
+    }
+  },
+  "handover": {
+    "site": "Website",
+    "service": "Dienst",
+    "done": "Erledigt",
+    "cannot": "Geht nicht",
+    "send_failed": "Deine Antwort konnte nicht gesendet werden. Versuche es erneut.",
+    "state_changed": "Diese Anfrage hat sich geändert. Prüfe den aktuellen Status, bevor du weitermachst.",
+    "takeover": {
+      "badge": "Du wirst am Computer gebraucht",
+      "take": "Übernehmen",
+      "hint": "Du arbeitest am geteilten Computer des Bots. Was du eingibst oder kopierst, bleibt auf diesem Bildschirm und wird nie mit dem Bot geteilt.",
+      "resolved_done": "An den Bot zurückgegeben",
+      "resolved_cannot": "Nicht möglich"
+    },
+    "dialog": {
+      "label": "{{site}} übernehmen",
+      "subtitle": "Du steuerst den geteilten Computer",
+      "close": "Zurück zum Chat",
+      "screen_alt": "Geteilter Computer",
+      "footer": "Der Bot wartet, solange du arbeitest. Wähle „Erledigt“, wenn du fertig bist."
+    },
+    "connection": {
+      "badge": "Dienst verbinden",
+      "connect": "Verbinden",
+      "retry": "Erneut versuchen",
+      "waiting": "Warten auf die Anmeldung…",
+      "decline": "Nicht jetzt",
+      "hint": "Du meldest dich direkt beim Dienst an. Tofi speichert die Verbindung; der Bot sieht deine Zugangsdaten nie.",
+      "resolved_connected": "Verbunden",
+      "resolved_failed": "Verbindung fehlgeschlagen",
+      "resolved_declined": "Nicht verbunden",
+      "error": {
+        "start": "Die Anmeldung konnte nicht gestartet werden. Versuche es erneut.",
+        "timeout": "Zeitüberschreitung bei der Anmeldung. Versuche es erneut.",
+        "incomplete": "Die Anmeldung wurde nicht abgeschlossen. Versuche es erneut.",
+        "not_ready": "Tofi sieht die Verbindung noch nicht. Schließe die Anmeldung ab und versuche es dann erneut."
+      }
     }
   }
 }

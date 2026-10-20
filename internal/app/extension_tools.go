@@ -43,11 +43,11 @@ func (s *Server) extensionManagementTools(c Conversation, r Run) []Tool {
 		"transport":      map[string]any{"type": "string", "enum": []string{"streamable_http", "sse"}, "description": "MCP transport; omitted on update preserves the existing value. Defaults to streamable_http on create."},
 		"headers":        map[string]any{"type": "object", "additionalProperties": map[string]any{"type": "string"}, "description": "User-supplied headers. Omit to preserve existing headers; masked values preserve their existing secret. Never ask to read credentials."},
 		"tool_allowlist": stringsSchema, "tool_denylist": stringsSchema,
-		"oauth":           objectSchema(map[string]any{"client_id": str("Public OAuth client ID; omit for providers supporting dynamic registration. User completes authorization in Settings."), "scopes": stringsSchema, "auth_server_metadata_url": str("Public authorization-server metadata URL.")}, nil),
+		"oauth":           objectSchema(map[string]any{"client_id": str("Public OAuth client ID; omit for providers supporting dynamic registration. The user completes authorization afterwards."), "scopes": stringsSchema, "auth_server_metadata_url": str("Public authorization-server metadata URL.")}, nil),
 		"files":           map[string]any{"type": "object", "additionalProperties": map[string]any{"type": "string"}, "description": "Complete local skill files as UTF-8 strings, including SKILL.md with matching name; no downloading or execution. Installation does not overwrite an existing skill."},
 		"test_connection": map[string]any{"type": "boolean", "description": "Must be true for mcp_test, only when the user requested connecting/testing. Other actions never test automatically."},
 	}
-	return []Tool{{Name: "manage_extensions", Description: "Manage the user's workspace-wide MCP servers and installed Skills using Tofi's existing settings. MCP servers are available to every Bot. Skills are available to every Bot unless the user limited a skill to selected Bots in Settings; skill_list shows only the skills the current Bot may use, and Bots cannot change skill access. Read/list first before changes. MCP update requires the complete desired URL; omitted policy lists, headers and OAuth retain existing values. Tool allow/deny lists are global server policies. Never expose credentials or perform OAuth authorization; tell the user to finish authorization in Settings. Test network connections only when explicitly requested using mcp_test with test_connection=true. Changes and connection tests run only after a person approves that exact change via request_approval as the refusal directs; unattended runs cannot make them.", Parameters: objectSchema(properties, []string{"action"}), Identity: extensionRecoveryIdentity, Execute: func(ctx context.Context, raw json.RawMessage) (string, error) {
+	return []Tool{{Name: "manage_extensions", Description: "Manage the user's workspace-wide MCP servers and installed Skills using Tofi's existing settings. MCP servers are available to every Bot. Skills are available to every Bot unless the user limited a skill to selected Bots in Settings; skill_list shows only the skills the current Bot may use, and Bots cannot change skill access. Read/list first before changes. MCP update requires the complete desired URL; omitted policy lists, headers and OAuth retain existing values. Tool allow/deny lists are global server policies. Never expose credentials or perform OAuth authorization; to have the user authorize a service use request_connection, which asks them in the chat. Test network connections only when explicitly requested using mcp_test with test_connection=true. Changes and connection tests run only after a person approves that exact change via request_approval as the refusal directs; unattended runs cannot make them.", Parameters: objectSchema(properties, []string{"action"}), Identity: extensionRecoveryIdentity, Execute: func(ctx context.Context, raw json.RawMessage) (string, error) {
 		return s.executeExtensionManagement(ctx, c, r, raw)
 	}}}
 }
@@ -193,7 +193,7 @@ func (s *Server) applyExtensionChange(ctx context.Context, c Conversation, r Run
 			if server.Name == x.Name {
 				found = true
 				if server.OAuth != nil && !server.OAuth.Connected {
-					return extensionToolJSON(extensionOAuthRequired())
+					return extensionToolJSON(extensionOAuthRequired(c))
 				}
 			}
 		}
@@ -226,7 +226,7 @@ func (s *Server) applyExtensionChange(ctx context.Context, c Conversation, r Run
 		if !found {
 			return "", tooloutcome.InvalidArguments("MCP server not found")
 		}
-		result = extensionOAuthRequired()
+		result = extensionOAuthRequired(c)
 	case "skill_list":
 		skills, diagnostics := s.extensions.SkillsForBot(ctx, r.BotID)
 		result = map[string]any{"skills": skills, "diagnostic_count": len(diagnostics)}
@@ -265,7 +265,7 @@ func (s *Server) applyExtensionChange(ctx context.Context, c Conversation, r Run
 		_, syncErr := s.store.WorkspaceEvent(workspaceScopeConfig)
 		result = map[string]any{"ok": true, "next_run": true, "sync_pending": syncErr != nil}
 		if x.OAuth != nil {
-			result.(map[string]any)["authorization"] = extensionOAuthRequired()
+			result.(map[string]any)["authorization"] = extensionOAuthRequired(c)
 		}
 		// Writes use existing synchronous manager APIs. Report an already committed
 		// write truthfully even if cancellation arrives during its file operation.
@@ -275,7 +275,11 @@ func (s *Server) applyExtensionChange(ctx context.Context, c Conversation, r Run
 	return extensionToolJSON(result)
 }
 
-func extensionOAuthRequired() map[string]any {
+func extensionOAuthRequired(c Conversation) map[string]any {
+	if c.UserVisible {
+		// A person can see this conversation, so the sign-in is a card here.
+		return map[string]any{"user_action_required": true, "message": "The user must complete OAuth authorization. Call request_connection with this service's name to ask them in this chat; this tool does not access or return credentials."}
+	}
 	return map[string]any{"user_action_required": true, "message": "The user must complete OAuth authorization in Settings → Extensions. This tool does not access or return credentials."}
 }
 func extensionToolJSON(value any) (string, error) {

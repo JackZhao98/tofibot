@@ -30,6 +30,8 @@ const (
 	questionSingleChoice = "single_choice"
 	questionMultiChoice  = "multi_choice"
 	questionForm         = "form"
+	questionTakeover     = "takeover"   // Bot asks the person to act on the shared computer; see handover.go.
+	questionConnection   = "connection" // Bot asks the person to connect an OAuth service; see handover.go.
 	questionPending      = "pending"
 	questionAnswered     = "answered"
 	questionCancelled    = "cancelled"
@@ -131,6 +133,9 @@ type Question struct {
 	UpdatedAt      string           `json:"updated_at"`
 	// PrivateInput is set only by request_secret_input (stored marker column).
 	PrivateInput bool `json:"-"`
+	// Target names what a handover card concerns: the MCP server for a
+	// connection card. Set only by the backend tools (stored column).
+	Target string `json:"target,omitempty"`
 }
 
 // QuestionCard is safe to send to the UI. It intentionally excludes answer
@@ -157,6 +162,7 @@ type QuestionCard struct {
 	AnsweredBy     string               `json:"answered_by,omitempty"`
 	Status         string               `json:"status"`
 	ExpiresAt      string               `json:"expires_at,omitempty"`
+	Target         string               `json:"target,omitempty"`
 }
 
 type askQuestionInput struct {
@@ -173,6 +179,9 @@ type askQuestionInput struct {
 	// PrivateInput marks the backend-built single password card that backs
 	// request_secret_input. It is never read from model arguments.
 	PrivateInput bool `json:"-"`
+	// Target is the connection card's MCP server name; never read from model
+	// arguments of the generic question tools.
+	Target string `json:"-"`
 }
 
 // migrateQuestions is called from Store.migrate. Keeping the DDL here keeps
@@ -223,6 +232,9 @@ CREATE INDEX IF NOT EXISTS questions_run_status ON questions(run_id,status);
 		return err
 	}
 	if err = ensureColumn(db, "questions", "approval_json", `ALTER TABLE questions ADD COLUMN approval_json TEXT NOT NULL DEFAULT ''`); err != nil {
+		return err
+	}
+	if err = ensureColumn(db, "questions", "handover_target", `ALTER TABLE questions ADD COLUMN handover_target TEXT NOT NULL DEFAULT ''`); err != nil {
 		return err
 	}
 	_, err = db.Exec(`CREATE TABLE IF NOT EXISTS mcp_call_approvals (
@@ -294,6 +306,11 @@ func normalizeQuestionInput(x askQuestionInput) (askQuestionInput, error) {
 		if err != nil {
 			return x, err
 		}
+	case questionTakeover, questionConnection:
+		var err error
+		if x, err = normalizeHandover(x); err != nil {
+			return x, err
+		}
 	case questionText:
 		x.Options = nil
 	case questionYesNo:
@@ -315,7 +332,10 @@ func normalizeQuestionInput(x askQuestionInput) (askQuestionInput, error) {
 		return x, fmt.Errorf("unsupported question type %q", x.Type)
 	}
 	if x.Type != questionForm {
-		x.Fields, x.SourceURL = nil, ""
+		x.Fields = nil
+		if x.Type != questionTakeover {
+			x.SourceURL = ""
+		}
 	}
 	if x.Type != questionApproval {
 		x.Approval = nil
@@ -402,6 +422,12 @@ func (s *Server) questionTools(c Conversation, r Run) []Tool {
 	if s.secretVault != nil && s.microVM != nil {
 		tools = append(tools, s.secretInputTool(c, r))
 	}
+	if s.microVM != nil {
+		tools = append(tools, s.takeoverTool(c, r))
+	}
+	if s.extensions != nil {
+		tools = append(tools, s.connectionTool(c, r))
+	}
 	return tools
 }
 
@@ -469,7 +495,7 @@ func (s *Server) CreateQuestion(conv string, run Run, in askQuestionInput) (Ques
 }
 
 func (q Question) Card() QuestionCard {
-	card := QuestionCard{Type: "question", QuestionID: q.ID, Question: q.Prompt, QuestionType: q.Type, Options: q.Options, AllowOther: q.AllowOther, Fields: q.Fields, SourceURL: q.SourceURL, Approval: q.Approval, MinSelections: q.MinSelections, MaxSelections: q.MaxSelections, RunID: q.RunID, ConversationID: q.ConversationID, BotID: q.BotID, CreatedAt: q.CreatedAt, UpdatedAt: q.UpdatedAt, Answer: q.Answer, AnsweredBy: q.AnsweredBy, Status: q.Status, ExpiresAt: q.ExpiresAt}
+	card := QuestionCard{Type: "question", QuestionID: q.ID, Question: q.Prompt, QuestionType: q.Type, Options: q.Options, AllowOther: q.AllowOther, Fields: q.Fields, SourceURL: q.SourceURL, Approval: q.Approval, MinSelections: q.MinSelections, MaxSelections: q.MaxSelections, RunID: q.RunID, ConversationID: q.ConversationID, BotID: q.BotID, CreatedAt: q.CreatedAt, UpdatedAt: q.UpdatedAt, Answer: q.Answer, AnsweredBy: q.AnsweredBy, Status: q.Status, ExpiresAt: q.ExpiresAt, Target: q.Target}
 	if q.Status == questionPending || (q.Type == questionApproval && q.Status == questionExpired) {
 		status, code, message, next := tooloutcome.NeedInformation, "human_input", "Task is waiting for the requested information.", "answer_question"
 		if q.Type == questionApproval {
@@ -506,24 +532,24 @@ func (s *Store) CreateQuestion(conv string, run Run, in askQuestionInput) (Quest
 	if in.ExpiresInSeconds > 0 {
 		expires = time.Now().UTC().Add(time.Duration(in.ExpiresInSeconds) * time.Second).Format(time.RFC3339Nano)
 	}
-	q := Question{ID: uuid.NewString(), RunID: run.ID, ConversationID: conv, BotID: run.BotID, Type: in.Type, Prompt: in.Question, Options: in.Options, AllowOther: in.AllowOther, Fields: in.Fields, SourceURL: in.SourceURL, Approval: in.Approval, PrivateInput: in.PrivateInput, MinSelections: in.MinSelections, MaxSelections: in.MaxSelections, Status: questionPending, CreatedAt: nowAt, ExpiresAt: expires, UpdatedAt: nowAt}
+	q := Question{ID: uuid.NewString(), RunID: run.ID, ConversationID: conv, BotID: run.BotID, Type: in.Type, Prompt: in.Question, Options: in.Options, AllowOther: in.AllowOther, Fields: in.Fields, SourceURL: in.SourceURL, Approval: in.Approval, PrivateInput: in.PrivateInput, Target: in.Target, MinSelections: in.MinSelections, MaxSelections: in.MaxSelections, Status: questionPending, CreatedAt: nowAt, ExpiresAt: expires, UpdatedAt: nowAt}
 	if in.Approval != nil && in.Approval.ReviewOnly {
 		q.Status = questionRunDone
 	}
-	_, err = s.db.Exec(`INSERT INTO questions(id,run_id,conversation_id,bot_id,type,prompt,options_json,min_selections,max_selections,status,created_at,expires_at,updated_at,fields_json,source_url,allow_other,approval_json,private_input) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`, q.ID, q.RunID, q.ConversationID, q.BotID, q.Type, q.Prompt, string(opts), q.MinSelections, q.MaxSelections, q.Status, q.CreatedAt, nullString(q.ExpiresAt), q.UpdatedAt, string(fields), q.SourceURL, q.AllowOther, approval, q.PrivateInput)
+	_, err = s.db.Exec(`INSERT INTO questions(id,run_id,conversation_id,bot_id,type,prompt,options_json,min_selections,max_selections,status,created_at,expires_at,updated_at,fields_json,source_url,allow_other,approval_json,private_input,handover_target) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`, q.ID, q.RunID, q.ConversationID, q.BotID, q.Type, q.Prompt, string(opts), q.MinSelections, q.MaxSelections, q.Status, q.CreatedAt, nullString(q.ExpiresAt), q.UpdatedAt, string(fields), q.SourceURL, q.AllowOther, approval, q.PrivateInput, q.Target)
 	return q, err
 }
 
-const questionColumns = `id,run_id,conversation_id,bot_id,type,prompt,options_json,min_selections,max_selections,status,answer_json,answered_by,created_at,expires_at,updated_at,fields_json,source_url,allow_other,approval_json,private_input`
+const questionColumns = `id,run_id,conversation_id,bot_id,type,prompt,options_json,min_selections,max_selections,status,answer_json,answered_by,created_at,expires_at,updated_at,fields_json,source_url,allow_other,approval_json,private_input,handover_target`
 
 func scanQuestion(row interface{ Scan(...any) error }) (Question, error) {
 	var q Question
-	var opts, ans, actor, expires, fields, approval sql.NullString
-	err := row.Scan(&q.ID, &q.RunID, &q.ConversationID, &q.BotID, &q.Type, &q.Prompt, &opts, &q.MinSelections, &q.MaxSelections, &q.Status, &ans, &actor, &q.CreatedAt, &expires, &q.UpdatedAt, &fields, &q.SourceURL, &q.AllowOther, &approval, &q.PrivateInput)
+	var opts, ans, actor, expires, fields, approval, target sql.NullString
+	err := row.Scan(&q.ID, &q.RunID, &q.ConversationID, &q.BotID, &q.Type, &q.Prompt, &opts, &q.MinSelections, &q.MaxSelections, &q.Status, &ans, &actor, &q.CreatedAt, &expires, &q.UpdatedAt, &fields, &q.SourceURL, &q.AllowOther, &approval, &q.PrivateInput, &target)
 	if err != nil {
 		return q, err
 	}
-	q.ExpiresAt, q.AnsweredBy = expires.String, actor.String
+	q.ExpiresAt, q.AnsweredBy, q.Target = expires.String, actor.String, target.String
 	if err = json.Unmarshal([]byte(opts.String), &q.Options); err != nil {
 		return q, err
 	}
@@ -669,6 +695,7 @@ func (s *Server) routeQuestions(w http.ResponseWriter, r *http.Request, p string
 			Value     *bool             `json:"value"`
 			Values    []string          `json:"values"`
 			Fields    map[string]string `json:"fields"`
+			Result    string            `json:"result"`
 			OtherText json.RawMessage   `json:"other_text"`
 			// Remember: "Approve and remember in this chat" for an eligible MCP
 			// proposal. The grant binds to what the gate recorded on the card,
@@ -719,6 +746,8 @@ func (s *Server) routeQuestions(w http.ResponseWriter, r *http.Request, p string
 				answer = body.Values[0]
 			case questionMultiChoice:
 				answer = body.Values
+			case questionTakeover, questionConnection:
+				answer = body.Result
 			}
 		}
 		// This deployment has one human workspace. Never accept a client supplied
@@ -731,6 +760,11 @@ func (s *Server) routeQuestions(w http.ResponseWriter, r *http.Request, p string
 				writeErr(w, 400, "remember_not_available", errRememberNotAvailable.Error())
 				return true
 			}
+		}
+		if q.Type == questionConnection && answer == connectionConnected && !s.connectionEstablished(q.Target) {
+			// The card never takes the browser's word for a connection.
+			writeErr(w, http.StatusConflict, "connection_not_ready", "The service is not connected yet.")
+			return true
 		}
 		var existing bool
 		if q.Type == questionForm {
@@ -909,6 +943,11 @@ func validateQuestionAnswer(q Question, answer any) error {
 		if !ok || !questionOptionExists(q.Options, v) {
 			return ErrQuestionInvalidAnswer
 		}
+	case questionTakeover, questionConnection:
+		v, ok := answer.(string)
+		if !ok || !handoverAnswerAllowed(q.Type, v) {
+			return ErrQuestionInvalidAnswer
+		}
 	case questionMultiChoice:
 		var ids []string
 		switch v := answer.(type) {
@@ -989,8 +1028,15 @@ func (s *Server) WaitQuestion(ctx context.Context, id string) (json.RawMessage, 
 				} else {
 					_, _ = s.store.db.Exec(`UPDATE questions SET status=?,updated_at=? WHERE id=? AND status=?`, questionExpired, now(), id, questionPending)
 				}
+				if isHandoverType(q.Type) {
+					q.Status = questionExpired
+					return json.RawMessage(handoverResult(q)), nil
+				}
 				return json.RawMessage(`{"status":"expired"}`), nil
 			}
+		}
+		if isHandoverType(q.Type) && q.Status != questionPending && q.Status != questionRunDone {
+			return json.RawMessage(handoverResult(q)), nil
 		}
 		switch q.Status {
 		case questionAnswered:

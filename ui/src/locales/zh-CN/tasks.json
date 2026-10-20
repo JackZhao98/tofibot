@@ -353,7 +353,9 @@
       "computer": "正在操作电脑",
       "contact": "正在联系成员",
       "call": "正在调用 {{name}}",
-      "profile": "正在保存 Bot 资料"
+      "profile": "正在保存 Bot 资料",
+      "takeover": "等待你在电脑上操作",
+      "connection": "等待你连接服务"
     },
     "title": {
       "form": "等待你填写表单",
@@ -373,7 +375,9 @@
       "computer": "操作电脑",
       "contact": "联系成员",
       "call": "调用 {{name}}",
-      "profile": "保存 Bot 资料"
+      "profile": "保存 Bot 资料",
+      "takeover": "等待你在电脑上操作",
+      "connection": "等待你连接服务"
     },
     "step_action": {
       "desktop_capture": "截屏",
@@ -525,6 +529,45 @@
       "tool_stuck": "某个工具步骤停止响应，任务已被停止。",
       "receipt_missing": "运行结束，但未能确认结果。",
       "resumed_repeatedly": "任务被中断了 {{times}} 次，已停止。"
+    }
+  },
+  "handover": {
+    "site": "网站",
+    "service": "服务",
+    "done": "已完成",
+    "cannot": "无法完成",
+    "send_failed": "未能提交你的回应，请重试。",
+    "state_changed": "这个请求已发生变化，请先确认最新状态再继续。",
+    "takeover": {
+      "badge": "需要你在电脑上操作",
+      "take": "接管",
+      "hint": "你将在 Bot 的共享电脑上操作。你输入或复制的内容只留在那块屏幕上，不会分享给 Bot。",
+      "resolved_done": "已交还给 Bot",
+      "resolved_cannot": "未能完成"
+    },
+    "dialog": {
+      "label": "接管 {{site}}",
+      "subtitle": "你正在控制共享电脑",
+      "close": "返回对话",
+      "screen_alt": "共享电脑",
+      "footer": "你操作期间 Bot 会等待。完成后请点“已完成”。"
+    },
+    "connection": {
+      "badge": "连接服务",
+      "connect": "连接",
+      "retry": "重试",
+      "waiting": "等待登录…",
+      "decline": "暂不连接",
+      "hint": "你将直接在该服务上登录。Tofi 保存连接，Bot 看不到你的凭据。",
+      "resolved_connected": "已连接",
+      "resolved_failed": "连接失败",
+      "resolved_declined": "未连接",
+      "error": {
+        "start": "未能发起登录，请重试。",
+        "timeout": "登录超时，请重试。",
+        "incomplete": "登录未完成，请重试。",
+        "not_ready": "Tofi 尚未检测到连接。请先完成登录，再重试。"
+      }
     }
   }
 }

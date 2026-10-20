@@ -363,7 +363,9 @@
       "computer": "Utilisation de l’ordinateur",
       "contact": "Contact d’un membre",
       "call": "Appel de {{name}}",
-      "profile": "Enregistrement du profil du Bot"
+      "profile": "Enregistrement du profil du Bot",
+      "takeover": "En attente de vous sur l’ordinateur",
+      "connection": "En attente de la connexion d’un service"
     },
     "title": {
       "form": "En attente de votre formulaire",
@@ -383,7 +385,9 @@
       "computer": "Utiliser l’ordinateur",
       "contact": "Contacter un membre",
       "call": "Appeler {{name}}",
-      "profile": "Enregistrer le profil du Bot"
+      "profile": "Enregistrer le profil du Bot",
+      "takeover": "En attente de vous sur l’ordinateur",
+      "connection": "En attente de la connexion d’un service"
     },
     "step_action": {
       "desktop_capture": "Capture d’écran",
@@ -537,6 +541,45 @@
       "tool_stuck": "Une étape d'outil ne répondait plus et la tâche a été arrêtée.",
       "receipt_missing": "L'exécution s'est terminée sans confirmer de résultat.",
       "resumed_repeatedly": "La tâche a été interrompue {{times}} fois et arrêtée."
+    }
+  },
+  "handover": {
+    "site": "Site",
+    "service": "Service",
+    "done": "Terminé",
+    "cannot": "Impossible",
+    "send_failed": "Votre réponse n’a pas pu être envoyée. Réessayez.",
+    "state_changed": "Cette demande a changé. Vérifiez son état à jour avant de continuer.",
+    "takeover": {
+      "badge": "Votre intervention est requise sur l’ordinateur",
+      "take": "Prendre la main",
+      "hint": "Vous travaillez sur l’ordinateur partagé du Bot. Ce que vous saisissez ou copiez reste sur cet écran et n’est jamais partagé avec le Bot.",
+      "resolved_done": "Rendu au Bot",
+      "resolved_cannot": "Impossible à faire"
+    },
+    "dialog": {
+      "label": "Prendre la main sur {{site}}",
+      "subtitle": "Vous contrôlez l’ordinateur partagé",
+      "close": "Retour au chat",
+      "screen_alt": "Ordinateur partagé",
+      "footer": "Le Bot attend pendant que vous travaillez. Choisissez Terminé quand vous avez fini."
+    },
+    "connection": {
+      "badge": "Connecter un service",
+      "connect": "Connecter",
+      "retry": "Réessayer",
+      "waiting": "En attente de la connexion…",
+      "decline": "Pas maintenant",
+      "hint": "Vous vous connectez directement auprès du service. Tofi conserve la connexion ; le Bot ne voit jamais vos identifiants.",
+      "resolved_connected": "Connecté",
+      "resolved_failed": "Connexion impossible",
+      "resolved_declined": "Non connecté",
+      "error": {
+        "start": "La connexion n’a pas pu démarrer. Réessayez.",
+        "timeout": "La connexion a expiré. Réessayez.",
+        "incomplete": "La connexion n’a pas abouti. Réessayez.",
+        "not_ready": "Tofi ne voit pas encore la connexion. Terminez la connexion, puis réessayez."
+      }
     }
   }
 }
