@@ -1,0 +1,65 @@
+/* Progressive blur on the web message pane: a strip above the composer whose blur
+   ramps from nothing at its inner edge to full at the edge of the chrome. Stacked backdrop-filter layers, each
+   revealed by its own linear-gradient mask band; the blur of the layers adds up, so strength grows smoothly. Web only:
+   the desktop client and every other web surface keep the frosted glass they have. Tuning: --pb-step (band width),
+   --pb-ramp (height of the ramp above the composer), --pb-blur-1..2 (per-layer blur), --pb-tint (contrast tint). */
+.edge-blur { display:none; }
+html:not([data-desktop]) .workspace .edge-blur {
+  --pb-step:30px; --pb-ramp:76px; --pb-tint:20%;
+  --pb-blur-1:4px; --pb-blur-2:12px;
+  display:block; position:absolute; left:0; right:0; z-index:3; pointer-events:none; contain:strict;
+}
+html:not([data-desktop]) .workspace .edge-blur > i { position:absolute; inset:0; display:block; }
+/* Bottom: from the middle of the pane down to the composer. The tint is the only colour, just enough for the text under the field. */
+html:not([data-desktop]) .workspace .edge-blur.is-bottom {
+  bottom:0; height:calc(var(--composer-height,110px) + var(--pb-ramp));
+  background:linear-gradient(to bottom,transparent 0,color-mix(in srgb,var(--bg) var(--pb-tint),transparent) 70%,color-mix(in srgb,var(--bg) calc(var(--pb-tint) * 2.2),transparent) 100%);
+}
+html:not([data-desktop]) .workspace .edge-blur > i:nth-child(1) { -webkit-backdrop-filter:blur(var(--pb-blur-1)); backdrop-filter:blur(var(--pb-blur-1)); }
+html:not([data-desktop]) .workspace .edge-blur > i:nth-child(2) { -webkit-backdrop-filter:blur(var(--pb-blur-2)); backdrop-filter:blur(var(--pb-blur-2)); }
+/* Two layers keep the cost inside the frame budgets (each is a full-width re-blur of what scrolls under it). Layer 1 fades in over
+   [0, 2*step], layer 2 over [step, 2.5*step]; both stay on from there to the composer edge. */
+html:not([data-desktop]) .workspace .edge-blur.is-bottom > i:nth-child(1) { -webkit-mask-image:linear-gradient(to bottom,transparent 0,#000 calc(var(--pb-step) * 2)); mask-image:linear-gradient(to bottom,transparent 0,#000 calc(var(--pb-step) * 2)); }
+html:not([data-desktop]) .workspace .edge-blur.is-bottom > i:nth-child(2) { -webkit-mask-image:linear-gradient(to bottom,transparent var(--pb-step),#000 calc(var(--pb-step) * 2.5)); mask-image:linear-gradient(to bottom,transparent var(--pb-step),#000 calc(var(--pb-step) * 2.5)); }
+/* The old flat veil above the composer is gone on the web; the strip replaces it. */
+html:not([data-desktop]) .workspace .composer::before { background:none; }
+/* The field keeps its frosted glass, but not as a third and fourth backdrop of its own: the strip already blurs everything
+   under the whole composer, and every extra backdrop-filter is a full re-blur per frame (it alone broke the hover budget). */
+@supports (backdrop-filter:blur(1px)) or (-webkit-backdrop-filter:blur(1px)) {
+  html:not([data-desktop]) .workspace .composer .composer-row { -webkit-backdrop-filter:none; backdrop-filter:none; }
+}
+
+/* Header: frosted glass you can see through. The message pane runs up under the header (--chat-header-height is measured in
+   App.tsx), so scrolled lines stay visible, blurred, behind the two pills; the blur is full at the top edge and fades out
+   toward the list, with only a light translucent tint. Two stacked layers (::before and ::after), each with its own mask band. */
+html:not([data-desktop]) .workspace .chat-body { margin-top:calc(var(--chat-header-height,64px) * -1); }
+html:not([data-desktop]) .workspace .message-scroll { mask-image:none; -webkit-mask-image:none; scroll-padding-top:var(--chat-header-height,64px); padding-top:calc(var(--chat-header-height,64px) + 14px); }
+html:not([data-desktop]) .workspace .chat-header { pointer-events:none; isolation:isolate; --pbt-ramp:30px; --pbt-blur-1:3px; --pbt-blur-2:9px; --pbt-tint:30%; }
+html:not([data-desktop]) .workspace .chat-header > * { pointer-events:auto; }
+html:not([data-desktop]) .workspace .chat-header::before,
+html:not([data-desktop]) .workspace .chat-header::after { content:""; position:absolute; z-index:-1; left:0; right:0; top:0; height:calc(100% + var(--pbt-ramp)); pointer-events:none; }
+html:not([data-desktop]) .workspace .chat-header::before {
+  background:linear-gradient(to bottom,color-mix(in srgb,var(--bg) var(--pbt-tint),transparent),transparent);
+  -webkit-backdrop-filter:blur(var(--pbt-blur-1)); backdrop-filter:blur(var(--pbt-blur-1));
+  -webkit-mask-image:linear-gradient(to bottom,#000 45%,transparent 100%); mask-image:linear-gradient(to bottom,#000 45%,transparent 100%);
+}
+html:not([data-desktop]) .workspace .chat-header::after {
+  -webkit-backdrop-filter:blur(var(--pbt-blur-2)); backdrop-filter:blur(var(--pbt-blur-2));
+  -webkit-mask-image:linear-gradient(to bottom,#000 20%,transparent 78%); mask-image:linear-gradient(to bottom,#000 20%,transparent 78%);
+}
+/* The jump pill sits above the blur and the composer chrome: it is the one thing in this corner that must always be reachable. */
+.workspace .jump-latest { z-index:6; }
+/* Without real blur (Reduce Transparency, no backdrop-filter) fall back to the soft veil the pane always had. */
+@media (prefers-reduced-transparency:reduce) {
+  html:not([data-desktop]) .workspace .chat-header::after { display:none; }
+  html:not([data-desktop]) .workspace .chat-header::before { -webkit-backdrop-filter:none; backdrop-filter:none; background:linear-gradient(to bottom,var(--bg) 60%,transparent); }
+  html:not([data-desktop]) .workspace .composer .composer-row { background:var(--surface); }
+  html:not([data-desktop]) .workspace .edge-blur > i { display:none; }
+  html:not([data-desktop]) .workspace .edge-blur.is-bottom { background:linear-gradient(to bottom,transparent 0,var(--bg) calc(var(--pb-ramp) + 14px)); }
+}
+@supports not ((backdrop-filter:blur(1px)) or (-webkit-backdrop-filter:blur(1px))) {
+  html:not([data-desktop]) .workspace .chat-header::after { display:none; }
+  html:not([data-desktop]) .workspace .chat-header::before { background:linear-gradient(to bottom,var(--bg) 60%,transparent); }
+  html:not([data-desktop]) .workspace .edge-blur > i { display:none; }
+  html:not([data-desktop]) .workspace .edge-blur.is-bottom { background:linear-gradient(to bottom,transparent 0,var(--bg) calc(var(--pb-ramp) + 14px)); }
+}

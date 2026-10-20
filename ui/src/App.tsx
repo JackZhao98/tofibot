@@ -2487,6 +2487,7 @@ function Workspace() {
                   {error && <div className="error-banner system-notice" role="alert">{error}</div>}
                 </div></ActivityViewContext.Provider></RunStartContext.Provider></ExpiryFinishingContext.Provider>
               </div>
+              <div className="edge-blur is-bottom" aria-hidden="true"><i /><i /></div>
               {viewport.showJump && <button className="jump-latest" aria-label={t("history.jump_latest")} onClick={jumpLatest}><Icon name="arrow-down" size={18} variant="filled" />{viewport.newCount > 0 && <span className="jump-new-count">{t("history.new_count", { count: viewport.newCount })}</span>}</button>}
             </div>
             {active.kind === "group" && !active.archived && !active.bot_ids.some(id => botById.has(id) && !botById.get(id)?.archived) ? <div className="composer empty-group-composer"><span>{t("composer.no_members")}</span><button className="secondary-button" onClick={() => setPanel("members")}>{t("composer.add_members")}</button></div> : <Composer workStatus={<WorkingMembers isGroup={active.kind === "group"} companionBotId={active.kind === "dm" ? active.bot_id || active.bot_ids[0] : undefined} companionMotion={active.kind === "dm" ? conversationMotion(active, active.bot_id || active.bot_ids[0]) : undefined} workingBotIds={active.working_bot_ids ?? []} drafts={Object.values(drafts)} runs={runs} botById={botById} toolActivities={toolActivities} signals={runSignals} connected={streamConnected} />} activeRun={runs.find(run => run.status === "running" || run.status === "queued" || run.status === "waiting")} latestReplyId={messages.filter(message => message.role === "assistant").at(-1)?.id} onStopRun={stopRun} avatarMention={avatarMention} conversation={active} bots={bots} draft={composerDrafts[active.id] ?? emptyComposerDraft()} onDraftChange={updateComposerDraft} onSend={send} onSendStart={jumpLatest} onSent={jumpLatest} modelConfigured={config?.model_configured ?? false} onConnectModel={connectModel} draftReady={composerDraftReady} readOnly={Boolean(active.archived)} />}
@@ -3415,13 +3416,18 @@ function Composer({ workStatus, activeRun, latestReplyId, onStopRun, avatarMenti
     // Measured on the workspace so the floating desktop, mounted outside the chat pane, docks above the composer too.
     const pane = form?.closest<HTMLElement>(".workspace") ?? form?.closest<HTMLElement>(".chat-pane");
     if (!form || !pane) return;
-    const measure = () => pane.style.setProperty("--composer-height", `${form.getBoundingClientRect().height}px`);
+    // The header height too: on the web the message pane runs up under the header's frosted glass (progressive-blur.css).
+    const header = pane.querySelector<HTMLElement>(".chat-header");
+    const measure = () => {
+      pane.style.setProperty("--composer-height", `${form.getBoundingClientRect().height}px`);
+      if (header) pane.style.setProperty("--chat-header-height", `${header.getBoundingClientRect().height}px`);
+    };
     const observer = new ResizeObserver(measure);
-    observer.observe(form, { box: "border-box" }); measure();
+    observer.observe(form, { box: "border-box" }); if (header) observer.observe(header, { box: "border-box" }); measure();
     return () => observer.disconnect();
   }, [conversation.id]);
   // The measurement stays across a conversation switch (the next composer re-measures in the same commit) and goes with the composer.
-  useEffect(() => () => { document.querySelector<HTMLElement>(".workspace")?.style.removeProperty("--composer-height"); }, []);
+  useEffect(() => () => { const workspace = document.querySelector<HTMLElement>(".workspace"); workspace?.style.removeProperty("--composer-height"); workspace?.style.removeProperty("--chat-header-height"); }, []);
   useEffect(() => {
     if (!isDesktop) return;
     const pane = textareaRef.current?.closest(".chat-pane");

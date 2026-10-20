@@ -1,11 +1,10 @@
 /* Browser chat header: no bar. The identity and the actions are two quiet pills resting on the
-   reading plane, and messages fade out beneath them instead of meeting a hard edge. The action pill
+   reading plane, over frosted glass the messages scroll up under (progressive-blur.css). The action pill
    is also where the top-right context card hangs from. */
 html:not([data-desktop]) .workspace .chat-header {
   min-height:64px; padding:10px 16px 10px 14px; gap:12px;
   background:transparent; border-bottom:0; box-shadow:none; -webkit-backdrop-filter:none; backdrop-filter:none;
 }
-html:not([data-desktop]) .workspace .message-scroll { mask-image:linear-gradient(to bottom,transparent 0,#000 28px); -webkit-mask-image:linear-gradient(to bottom,transparent 0,#000 28px); }
 
 /* Identity pill */
 html:not([data-desktop]) .workspace .chat-identity {
