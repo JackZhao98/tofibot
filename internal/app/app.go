@@ -2564,12 +2564,12 @@ func (s *Server) serveUI(w http.ResponseWriter, r *http.Request) {
 	w.Header().Del("Content-Type")
 	path := filepath.Join(s.uiDir, filepath.Clean("/"+r.URL.Path))
 	if info, err := os.Stat(path); err == nil && !info.IsDir() {
-		http.ServeFile(w, r, path)
+		serveUIFile(w, r, path, info, strings.HasPrefix(r.URL.Path, "/assets/"))
 		return
 	}
 	index := filepath.Join(s.uiDir, "index.html")
-	if _, err := os.Stat(index); err == nil {
-		http.ServeFile(w, r, index)
+	if info, err := os.Stat(index); err == nil {
+		serveUIFile(w, r, index, info, false)
 		return
 	}
 	http.NotFound(w, r)
