@@ -75,6 +75,7 @@ import { activeBotRuns, botRecentlyActive, latestBotWorkTime, latestHumanMessage
 import { reconcileToolActivity, activeToolForRun, buildToolRunAnchors, buildToolSummaryAnchors, buildToolTimeline, compareToolActivities, elapsedToolSeconds, orderToolActivities, toolActionLabel, toolArgumentPreview, toolAttemptIssues } from "./toolTimeline";
 import { foldCompletedProgress, isMidRunKind } from "./runProgress";
 import { mergeRunUpdates } from "./runMerge";
+import { draftDeltaApplies } from "./draftDelta";
 import { shouldShowReplyQuote } from "./replyQuote";
 import { buildRetryFamilies, isTerminalRun, retryFamilyAnchor } from "./runFamily";
 import { composerClientMessageId, composerDraftMatchesMessage, composerMessageContent, composerMessageSignature, type ComposerReply } from "./composerDraft";
@@ -1411,7 +1412,7 @@ function Workspace() {
       const full = typeof data.content === "string" ? data.content : "";
       if (messageIdValue && (delta || full)) setDrafts((current) => {
         const old = current[messageIdValue];
-        if (old && revision > 0 && revision <= old.revision) return current;
+        if (!draftDeltaApplies(old?.revision, revision, Boolean(full))) return current;
         return { ...current, [messageIdValue]: { run_id: runId || old?.run_id || "", conversation_id: conversationId, bot_id: botId || old?.bot_id || "", message_id: messageIdValue, seq: typeof data.seq === "number" ? data.seq : old?.seq, content: full || `${old?.content ?? ""}${delta}`, status: "active", revision: revision || (old?.revision ?? 0) + 1, created_at: typeof data.created_at === "string" ? data.created_at : old?.created_at ?? new Date().toISOString(), updated_at: new Date().toISOString() } };
       });
     } else if (type === "run") {
@@ -1586,8 +1587,10 @@ function Workspace() {
     const conversationId = activeId;
     setLoadingOlder(true);
     try {
-      const page = await api.messages(conversationId, messageRecords[0].seq);
+      // Runs are paged like messages: the page of messages needs the runs created before the oldest one already shown.
+      const [page, olderRuns] = await Promise.all([api.messages(conversationId, messageRecords[0].seq), api.runs(conversationId, messageRecords[0].created_at).catch(() => ({ runs: [] as Run[] }))]);
       if (activeIdRef.current !== conversationId) return false;
+      if (olderRuns.runs.length) setRuns(current => mergeRunUpdates(current, olderRuns.runs));
       viewport.preservePrepend();
       setMessages(current => [...page.messages, ...current.filter(item => !page.messages.some(old => old.id === item.id))].sort((a, b) => a.seq - b.seq));
       setHasMore(page.has_more);
