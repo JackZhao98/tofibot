@@ -34,6 +34,8 @@ interface Visit {
   hold: { node: HTMLElement; offset: number; until: number } | null;
   glide: Glide | null;
   lastGrowth: number;
+  /** Where the following pane last sat at the bottom. A momentary shrink clamps scrollTop; the glide resumes from here, not from the clamp. */
+  bottomTop: number;
 }
 
 /** A follow-bottom scroll tween in flight. The target is read live every frame, so growth that lands mid-glide is followed. */
@@ -101,7 +103,7 @@ export function useConversationScroll(options: Options) {
     visit.current = { id, readSeq: options.conversation?.read_seq ?? 0, entryMax: snapshot?.entryMax ?? null,
       resume: snapshot, positioned: false, atBottom: snapshot?.atBottom ?? true, nearBottom: true, width: 0, height: 0,
       baseline: 0, detached: snapshot?.detached ?? false, resumeIntent: false, lastScrollTop: 0,
-      prepend: null, followNext: false, loadingBoundary: false, boundaryFailed: false, hold: null, glide: null, lastGrowth: 0 };
+      prepend: null, followNext: false, loadingBoundary: false, boundaryFailed: false, hold: null, glide: null, lastGrowth: 0, bottomTop: 0 };
   }
 
   const isVisible = useCallback(() => document.visibilityState === "visible" &&
@@ -130,7 +132,7 @@ export function useConversationScroll(options: Options) {
     // may re-enable streaming follow. Allow fractional CSS-pixel rounding at
     // the physical bottom, including a clamped resize/keyboard scroll event.
     const returnedToBottom = distanceFromBottom <= 2;
-    if (fromUserScroll && v.detached && returnedToBottom) v.detached = false;
+    if (fromUserScroll && v.detached && returnedToBottom) { v.detached = false; v.bottomTop = el.scrollTop; }
     v.resumeIntent = false;
     v.lastScrollTop = el.scrollTop;
     const following = !v.detached && bottom;
@@ -158,6 +160,10 @@ export function useConversationScroll(options: Options) {
   /** Follow the bottom after the page grew. A tween instead of a jump; instant when motion is reduced or the page is hidden. */
   const followBottom = useCallback((el: HTMLDivElement, v: Visit) => {
     const target = () => el.scrollHeight - el.clientHeight;
+    // A shrink that is undone in the same task (a draft swapped for its saved message) leaves scrollTop clamped lower;
+    // put it back before anything paints so the pane never dips.
+    const floor = Math.min(v.bottomTop, target());
+    if (el.scrollTop < floor - 0.5) el.scrollTop = floor;
     const gap = target() - el.scrollTop;
     if (gap <= 0.5 && !v.glide) return;
     const now = performance.now();
@@ -178,12 +184,15 @@ export function useConversationScroll(options: Options) {
       const node = scrollRef.current;
       if (v.glide !== glide || !node || visit.current !== v) return;
       const end = node.scrollHeight - node.clientHeight;
+      const floor = Math.min(v.bottomTop, node.scrollHeight - node.clientHeight);
+      if (node.scrollTop < floor - 0.5) node.scrollTop = floor;
       if (glide.fresh) { glide.fresh = false; glide.from = node.scrollTop; glide.start = time; }
       const p = Math.min(1, Math.max(0, (time - glide.start) / glide.duration));
       const wanted = glide.from + (end - glide.from) * easeInOutSine(p);
       const next = Math.min(wanted, node.scrollTop + GLIDE_STEP_MAX);
       node.scrollTop = p >= 1 && end - node.scrollTop <= GLIDE_STEP_MAX ? end : Math.max(next, node.scrollTop);
       glide.height = node.scrollHeight;
+      v.bottomTop = Math.max(v.bottomTop, node.scrollTop);
       if (p >= 1 && Math.abs(end - node.scrollTop) <= 0.5) { v.glide = null; syncPosition(); return; }
       glide.raf = requestAnimationFrame(frame);
     };
@@ -269,6 +278,7 @@ export function useConversationScroll(options: Options) {
     } else if (v.atBottom) {
       followBottom(el, v);
     }
+    v.bottomTop = v.atBottom ? Math.max(v.bottomTop, el.scrollTop) : 0;
     syncPosition();
   }, [isVisible, syncPosition, stopGlide, followBottom]);
 
@@ -308,6 +318,7 @@ export function useConversationScroll(options: Options) {
       const v = visit.current;
       if (!v?.positioned) return;
       stopGlide(v, false);
+      v.bottomTop = 0;
       v.hold = null;
       v.detached = true;
       v.resumeIntent = false;
