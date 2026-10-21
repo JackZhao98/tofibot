@@ -448,7 +448,7 @@
 | `styles.css:317` | `.contact-pane`（≤767px） | 6 | 手机推入：列表与会话一对。父级 `.workspace-grid` 不是层叠上下文，这一对在根层叠上下文里，`test:layers` 把它列为唯一的例外 |
 | `styles.css:318` | `.contact-pane::after`（推入时的压暗） | 2 | 同上 |
 | `styles.css:322` | `.chat-pane`（≤767px） | 7 | 同上 |
-| `sidebar-pins.css:7` | 拖动中的会话行 | 40 | 侧栏列表（改用 dnd-kit `DragOverlay` 后应变为 `--z-drag`） |
+| `sidebar-pins.css:7` | 拖动中的会话行 | 40 | 侧栏列表（迁移第 5 步的 dnd-kit 实验不通过，引擎保留，这里不变；以前写的"改用 `DragOverlay` 后变为 `--z-drag`"作废） |
 | `sidebar-pins.css:19` | `.pin-dropzone-anchor` | 30 | 侧栏列表 |
 | `settings-system.css:17` | `.settings-rail-indicator` | 0 | 设置导航 |
 | `settings-system.css:21` | 设置导航按钮 | 1 | 设置导航 |
