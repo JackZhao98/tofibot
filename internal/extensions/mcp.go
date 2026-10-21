@@ -86,6 +86,10 @@ type Config struct {
 	// are workspace-wide unless restricted to selected Bots. Nil permits every
 	// skill; a returned error makes the run drop every skill (fail closed).
 	SkillAccess func(ctx context.Context, botID string, names []string) (map[string]bool, error)
+	// BuiltinSkillsOff reports which built-in skills the person turned off in
+	// Settings. Nil leaves every built-in skill on; an error withholds every
+	// built-in skill from the run (fail closed, like SkillAccess).
+	BuiltinSkillsOff func(ctx context.Context) (map[string]bool, error)
 	// ServerIdentityChanged is called after a configuration write that changed
 	// a server's fingerprint or credential target, or removed it. It runs under
 	// the configuration fence and must not call back into the Manager.
@@ -330,18 +334,12 @@ func (m *Manager) prepareMode(ctx context.Context, botID string, scoped, discove
 
 	m.mu.RLock()
 	servers, err := loadServers(m.cfg.MCPConfigPath)
-	var skills []Skill
-	var skillDiags []Diagnostic
-	if m.cfg.SkillsDir != "" {
-		skills, skillDiags = loadSkillsMode(m.cfg.SkillsDir, discoverable)
-	}
+	skills, skillDiags := m.loadAllSkills(discoverable, discoverable)
 	servers = cloneServers(servers)
 	m.mu.RUnlock()
 	// The access lookup may touch the database, so it runs outside m.mu. Nothing
 	// below sees the unfiltered slice.
-	if m.cfg.SkillsDir != "" {
-		skills, skillDiags = m.filterSkillsForBot(ctx, botID, skills, skillDiags)
-	}
+	skills, skillDiags = m.filterSkillsForBot(ctx, botID, skills, skillDiags)
 	if m.cfg.ServerUsable != nil {
 		for name := range servers {
 			if !m.cfg.ServerUsable(ctx, name) {
@@ -381,7 +379,7 @@ func (m *Manager) prepareMode(ctx context.Context, botID string, scoped, discove
 			p.Tools = append(p.Tools, tools...)
 		}
 	}
-	if m.cfg.SkillsDir != "" {
+	if m.cfg.SkillsDir != "" || len(skills) > 0 {
 		// Installed skills are workspace-wide by default and may be restricted
 		// to selected Bots (Config.SkillAccess). skills was already filtered
 		// for botID above, so the tools and index built below can never name,
@@ -461,6 +459,7 @@ func (m *Manager) prepareMode(ctx context.Context, botID string, scoped, discove
 // filterSkillsForBot drops skills the Bot may not use. When the access lookup
 // fails every skill is dropped: unknown must never be treated as allowed.
 func (m *Manager) filterSkillsForBot(ctx context.Context, botID string, skills []Skill, diags []Diagnostic) ([]Skill, []Diagnostic) {
+	skills, diags = m.withoutDisabledBuiltins(ctx, skills, diags)
 	if m.cfg.SkillAccess == nil || len(skills) == 0 {
 		return skills, diags
 	}
@@ -485,12 +484,12 @@ func (m *Manager) filterSkillsForBot(ctx context.Context, botID string, skills [
 // SkillsForBot lists the skills the Bot may use, failing closed on error.
 func (m *Manager) SkillsForBot(ctx context.Context, botID string) ([]SkillView, []Diagnostic) {
 	m.mu.RLock()
-	s, d := loadSkills(m.cfg.SkillsDir)
+	s, d := m.loadAllSkills(false, true)
 	m.mu.RUnlock()
 	s, d = m.filterSkillsForBot(ctx, botID, s, d)
 	out := make([]SkillView, 0, len(s))
 	for _, x := range s {
-		out = append(out, SkillView{Name: x.Name, Description: x.Description})
+		out = append(out, SkillView{Name: x.Name, Description: x.Description, Builtin: x.Builtin})
 	}
 	return out, d
 }

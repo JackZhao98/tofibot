@@ -43,6 +43,7 @@
 | D30 | 长期操作规则 | 长期 | 正式版标签先问 owner；部署前查正在跑的 run；生产操作只由协调者做；不碰密钥；绿不绿看退出码；修复配上回退就会失败的测试；放宽安全的改动先做对抗性审查 | [0030](0030-standing-operating-rules.md) |
 | D36 | 聊天上传的文件放进 Bot 的电脑 | 2026-10-21 | 用户消息的附件复制到 `/workspace/home/uploads/<对话 id>/`；懒复制、幂等、可见性同 `read_attachment`；复用文件通道反向（`files.import_chunk`） | [0036](0036-chat-uploads-on-the-computer.md) |
 | D37 | Bot 电脑预装办公工具，只预装英文 | 2026-10-21 | LibreOffice、tesseract（英文）、poppler、pandoc、Python 办公库进镜像；其他语言的数据和字体由 Bot 取到用户目录（`TESSDATA_PREFIX`、`~/.local/share/fonts`）；matplotlib 不改默认字体 | [0037](0037-english-only-office-tooling.md) |
+| D41 | 内置交付技能 | 2026-10-21 | 五个 Skill（spreadsheet、document-report、slides、web-page、code-delivery）嵌在二进制里，默认对所有 Bot 可用，设置 › Skills 里标“内置”、可关不可删；提示词只多五行描述（+616 字符），脚本在 Bot 读 Skill 时复制到电脑 | [0041](0041-builtin-deliverable-skills.md) |
 
 ## 怎么新增一条决定
 

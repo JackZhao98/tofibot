@@ -48,6 +48,7 @@
 | 文档体系：总索引、现状、路线图、决策记录、版本记录、工作流程，`AGENTS.md` 加“从这里开始” | 正在分支 `docs/system-opus` 上写，还没合并 | [D27](../decisions/0027-docs-are-the-system.md) |
 | 设计系统规范和迁移方案 | 正在 [`docs/design/`](../design/) 里写。owner 看过、点头之后才开始第一步迁移 | [D28](../decisions/0028-headless-design-system-migration.md) |
 | 连接 Codex（或增删 API Key）后模型列表不刷新：服务端不再把非实时快照缓存 5 分钟、连接变化立即丢弃内存目录；网页端三处选择器共用 `useModelCatalog`，提供方变化、窗口重新聚焦时重取 | 在分支 `fix/model-catalog-refresh` 上，还没合进 `main` | `internal/app/model_catalog_refresh_test.go`；`ui/scripts/test-model-catalog-refresh.mjs`（`test:model-catalog-refresh`） |
+| 内置交付技能（季报图表、幻灯片、发票对账、落地页、代码交付）：五个内置 Skill、设置开关、脚本到电脑、Go 与 Python 测试 | 在分支 `feat/deliverable-skills` 上，还没合进 `main`。合并后要在装了 D37 镜像的电脑上跑 soffice 路径，并重跑那 8 个交付任务做前后对比 | [D41](../decisions/0041-builtin-deliverable-skills.md) |
 | 任务完成度评测脚本 | 在分支 `eval/task-completion` 上（`c9f3517`…`820121f`），还没合进 `main`；结果目录被 git 忽略，只存在本机 | [status.md](status.md) 第 5.1 节 |
 
 ## 3. 下一步

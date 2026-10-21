@@ -100,6 +100,7 @@ TOFI 是一个自托管的 AI Bot 工作台：后端是 Go 服务（`internal/`�
 | 看门狗会重启没有响应的电脑；桌面查看器会等电脑醒来，掉线后自动重连 | `internal/app/computer_watchdog.go`；`51c95a2` |
 | 聊天里上传的文件（zip、PDF、DOCX、XLSX 等任意类型，20 MB 内）在 Bot 的电脑里：`/workspace/home/uploads/<对话 id>/<原文件名>`，第一次用电脑工具时懒复制，已有则跳过；提示词在每个附件后写出路径。线上还没有，随下一个 rc 发 | `internal/app/guest_inputs.go`；`internal/computer/guest/import.go`；[D36](../decisions/0036-chat-uploads-on-the-computer.md) |
 | Bot 电脑镜像预装 LibreOffice、tesseract（英文）、poppler、pandoc 和 Python 办公库（openpyxl、docx、pptx、matplotlib、pandas、reportlab、pypdf、PIL）；其他语言的 OCR 数据和字体由 Bot 取到用户目录。镜像尚未构建和实测，线上没有 | `deploy/microvm/Dockerfile`；`deploy/microvm/smoke-office.sh`；[D37](../decisions/0037-english-only-office-tooling.md) |
+| 内置交付技能：`spreadsheet`、`document-report`、`slides`、`web-page`、`code-delivery` 随二进制发布，默认对每个 Bot 可用。提示词里每个只有一行描述，Bot 读它时才加载正文，并把脚本复制到电脑 `/workspace/home/uploads/.skills/<name>/<摘要>/`。脚本检查自己的产出：PDF/DOCX 的页数和图片数、PPTX 形状越界和文字溢出、XLSX 各列合计、发票对账（行算术、小计、总计、与参照表比对、列出读不出的）、HTML 的双宽度预览、命令的真实输出和 zip 校验。尚未合并、线上没有；soffice 转换路径和对真实任务的效果还没有实测 | `internal/extensions/builtin.go`；`internal/extensions/builtin_skills/`；`internal/app/builtin_skills.go`；[D41](../decisions/0041-builtin-deliverable-skills.md) |
 | 交接卡片：Bot 可以请用户接管屏幕，完成登录、两步验证、验证码这类步骤（`request_takeover`），也可以请用户连接一个服务（`request_connection`） | `internal/app/handover.go:119`、`:156`；`d3e4ff9`；`test:handover-cards`；`AGENTS.md` 第 75–87 行；[D11](../decisions/0011-handover-cards.md) |
 
 | 已知缺口 | 依据 |
@@ -139,6 +140,7 @@ TOFI 是一个自托管的 AI Bot 工作台：后端是 Go 服务（`internal/`�
 |---|---|
 | 设置 › 自动行为：每个自动行为都能看到、能调整，并且有出厂默认值。注册表共 13 项：对话模型、后台模型、结构化回复、Haiku 强制调用工具、联网搜索、群聊摘要、自己回复保留原文的条数、完成后审核、MCP 自动审核（默认关闭）、“记住”的有效时长、模型请求重试次数、定时任务回执审核，以及只读的电脑空闲时长；页面上还有“始终允许”的授权列表 | `ui/src/AutomationSettings.tsx`；`internal/app/automation_settings.go:81-95`（注册表）；`ui/src/StandingAllowances.tsx`；`test:automation-settings`；[D15](../decisions/0015-automatic-behaviour-settings.md) |
 | 模型列表随提供方变化即时刷新：Codex 登录完成或断开、API Key 保存或删除后，所有模型选择器重取目录，窗口重新聚焦时也会重取（超过 10 秒才算过期，没有定时轮询）；服务端只把实时目录缓存 5 分钟，快照/回退结果 20 秒后重试，连接变化立即清空 | `ui/src/useModelCatalog.ts`、`ui/src/modelCatalogStore.ts`；`internal/app/model_settings.go`（`invalidateCodexCatalog`、`catalogRetryGuard`）；`test:model-catalog-refresh` |
+| 设置 › Skills：内置 Skill 带“内置”标签和开关（默认开），不能移除，“谁能用”照常；关闭记在 `builtin_skill_off`，下一次运行生效 | `ui/src/ExtensionPanel.tsx`；`ui/scripts/test-settings-shell.mjs`（7c）；[D41](../decisions/0041-builtin-deliverable-skills.md) |
 | 模型提供方、MCP、语音输入、主动跟进、语言等设置页 | `ui/src/ModelSettings.tsx`、`MCPSettings.tsx`、`DictationSettings.tsx`、`FollowupsSettings.tsx`、`LanguageSetting.tsx` |
 | 设置页重做：第 1、2 阶段已经上线，第 3 阶段要等工具重做的部分完成 | [settings-redesign.md](../agent-plan/settings-redesign.md) 状态行 |
 
