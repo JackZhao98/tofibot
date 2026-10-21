@@ -33,8 +33,9 @@ try {
 import React from 'react';import {createRoot} from 'react-dom/client';
 import {i18nReady,setLanguage} from '../src/i18n';
 import {AutomationSettings} from '../src/AutomationSettings';
+import {TimezoneProvider} from '../src/UserTimezone';
 const query=new URLSearchParams(location.search);
-void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>createRoot(document.getElementById('root')!).render(<div className="workspace"><div className="settings-page-body" data-page="automation"><AutomationSettings/></div></div>));
+void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>createRoot(document.getElementById('root')!).render(<TimezoneProvider><div className="workspace"><div className="settings-page-body" data-page="automation"><AutomationSettings/></div></div></TimezoneProvider>));
 `);
   server = await createServer({configFile: false, root: ui, plugins: [react()], server: {host: "127.0.0.1", port: 0, hmr: false}, logLevel: "error"});
   await server.listen();
@@ -63,6 +64,8 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
     state.env = {};
     state.failNext = false;
     state.idle = 300;
+    state.allowances = [];
+    state.remembered = [];
     requests.length = 0;
   };
   reset();
@@ -95,6 +98,19 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
         if (value === null) delete state.stored[key]; else state.stored[key] = value;
       }
       return {items: KEYS.map(view)};
+    }
+    if (path === "/api/preferences") return {timezone: "America/Los_Angeles", timezone_configured: true};
+    if (path === "/api/standing-allowances" && method === "GET") return {allowances: state.allowances, remembered: state.remembered};
+    if (path.startsWith("/api/standing-allowances/") && method === "DELETE") {
+      const id = decodeURIComponent(path.split("/").pop());
+      if (!state.allowances.some(item => item.id === id)) return [404, {error: {code: "not_found", message: "standing allowance not found"}}];
+      state.allowances = state.allowances.filter(item => item.id !== id);
+      return {ok: true, id};
+    }
+    if (path.startsWith("/api/conversations/") && path.includes("/remembered-approvals/") && method === "DELETE") {
+      const id = decodeURIComponent(path.split("/").pop());
+      state.remembered = state.remembered.filter(item => item.id !== id);
+      return {ok: true, id};
     }
     if (path === "/api/models") return {models, source: "live", warning: ""};
     return undefined;
@@ -134,7 +150,7 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
       assert.ok(text.length > 60, `${key}: name and one-sentence description are shown: ${text}`);
       if (key !== "desktop_idle_seconds") assert.match(text, /Default: /, `${key}: shows its default`);
     }
-    assert.equal(await t.page.locator(".settings-sec h4").count(), 7, "seven calm groups");
+    assert.equal(await t.page.locator(".settings-sec h4").count(), 9, "seven calm groups, then standing allowances and chat-scoped approvals");
     assert.match(await row(t.page, "conversation_model").innerText(), /Claude Sonnet 5\.5/, "conversation model default and value are named");
     assert.equal(await row(t.page, "conversation_model").locator("select").inputValue(), "claude-sonnet-5-5");
     assert.match(await row(t.page, "background_model").innerText(), /Automatic · Claude Haiku 5\.5/, "background model says what automatic means");
@@ -227,17 +243,57 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
     console.log("PASS a failed save keeps the old value and shows the reason");
   }
 
+  // ---- 4b. Standing allowances: the list names Bot, server, tool, when granted and last used; Revoke removes one immediately.
+  const sample = () => ({
+    allowances: [
+      {id: "al-1", bot_id: "bot-tofi", bot_name: "tofi", server: "notion", tool: "notion-update-page", state: "active", created_at: "2026-10-01T16:00:00Z", use_count: 3, last_used_at: "2026-10-19T14:30:00Z"},
+      {id: "al-2", bot_id: "bot-two", bot_name: "Scout", server: "linear", tool: "create-issue", state: "server_changed", created_at: "2026-10-02T16:00:00Z", use_count: 0},
+    ],
+    remembered: [{id: "rm-1", conversation_id: "conv-1", bot_id: "bot-tofi", bot_name: "tofi", conversation_name: "Daily notes", server: "notion", tool: "notion-create-pages", target_kind: "exact", expires_at: "2026-10-21T16:00:00Z", use_count: 1}],
+  });
+  {
+    reset();
+    Object.assign(state, sample());
+    const t = await open();
+    const items = t.page.locator(".standing-item[data-allowance-id]");
+    await items.first().waitFor();
+    assert.equal(await items.count(), 2);
+    const first = (await items.nth(0).innerText()).replace(/\s+/g, " ");
+    assert.match(first, /tofi/); assert.match(first, /notion-update-page/); assert.match(first, /notion/);
+    assert.match(first, /Allowed .*2026/); assert.match(first, /Last used .*2026/); assert.match(first, /used 3 times/);
+    assert.equal(await items.nth(0).locator(".standing-avatar").count(), 1, "the Bot avatar is shown");
+    assert.match(await items.nth(1).innerText(), /Not used yet/);
+    assert.match(await items.nth(1).innerText(), /Server changed\. Asks again\./);
+    assert.equal(await t.page.locator(".standing-item[data-remembered-id]").count(), 1, "chat-scoped approvals are listed too");
+    assert.match(await t.page.locator(".standing-item[data-remembered-id]").innerText(), /Chat: Daily notes/);
+    requests.length = 0;
+    await items.nth(0).getByRole("button", {name: "Revoke"}).click();
+    await t.page.waitForFunction(() => document.querySelectorAll(".standing-item[data-allowance-id]").length === 1);
+    assert.deepEqual(requests, ["DELETE /api/standing-allowances/al-1"], "revoke is one request for that allowance");
+    assert.deepEqual(state.allowances.map(item => item.id), ["al-2"]);
+    await t.page.locator(".standing-item[data-remembered-id]").getByRole("button", {name: "Revoke"}).click();
+    await t.page.waitForFunction(() => document.querySelectorAll(".standing-item[data-remembered-id]").length === 0);
+    assert.match(await t.page.locator(".settings-page-body").innerText(), /Nothing is remembered in any chat/);
+    await t.page.locator(".standing-item[data-allowance-id]").getByRole("button", {name: "Revoke"}).click();
+    await t.page.waitForFunction(() => document.querySelectorAll(".standing-item[data-allowance-id]").length === 0);
+    assert.match(await t.page.locator(".settings-page-body").innerText(), /No standing allowances yet/);
+    assert.deepEqual(t.errors, [], `page errors: ${t.errors}`);
+    await t.close();
+    console.log("PASS standing allowances list Bot, server, tool and dates, and Revoke removes them");
+  }
+
   // ---- 5. Seven languages: no raw keys, no horizontal overflow at 390px.
   for (const [lang, locale, title] of [["en", "en-US", "Conversation model"], ["zh-CN", "zh-CN", "对话模型"], ["zh-TW", "zh-TW", "對話模型"], ["ja", "ja-JP", "会話モデル"], ["ko", "ko-KR", "대화 모델"], ["de", "de-DE", "Gesprächsmodell"], ["fr", "fr-FR", "Modèle de conversation"]]) {
     reset();
     state.stored = {remembered_approval_hours: 48, provider_retries: 0};
+    Object.assign(state, sample());
     const t = await open({lang}, {width: 390, height: 844, locale});
     await t.page.getByText(title, {exact: true}).first().waitFor({timeout: 15000});
     const text = await t.page.locator(".settings-page-body").innerText();
     assert.ok(!/automation\.|settings:/.test(text), `${lang}: raw key on the page`);
     const overflow = await t.page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
     assert.ok(overflow <= 1, `${lang}: page overflows by ${overflow}px`);
-    const clipped = await t.page.evaluate(() => [...document.querySelectorAll(".auto-row .auto-chip, .auto-row .settings-row-copy strong")].filter(el => el.scrollWidth > el.clientWidth + 1).map(el => el.textContent));
+    const clipped = await t.page.evaluate(() => [...document.querySelectorAll(".auto-row .auto-chip, .auto-row .settings-row-copy strong, .standing-main strong")].filter(el => el.scrollWidth > el.clientWidth + 1).map(el => el.textContent));
     assert.deepEqual(clipped, [], `${lang}: clipped text`);
     if (shots && (lang === "en" || lang === "zh-CN")) await t.page.locator(".settings-page-body").screenshot({path: join(shots, `automation-390-${lang}.png`)});
     await t.close();

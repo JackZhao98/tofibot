@@ -8,7 +8,7 @@ import { ApprovalCard } from "./ApprovalCard";
 import { approvalFactRows } from "./extensionFacts";
 import { useUserTimezone } from "./UserTimezone";
 import type { Bot } from "./types";
-import { autoReviewPresentation, reconcileQuestion, REMEMBERED_APPROVAL_ACTOR, type Question } from "./questionTimeline";
+import { autoReviewPresentation, reconcileQuestion, REMEMBERED_APPROVAL_ACTOR, STANDING_ALLOWANCE_ACTOR, type Question } from "./questionTimeline";
 import { isPrivateInputForm, userFormAnswerRows, userFormIdentity, userFormSchemaError, validateUserForm } from "./userForm";
 import { canAnswerQuestion, presentTaskIssue } from "./taskIssuePresentation";
 import { i18n, useTranslation } from "./i18n";
@@ -44,7 +44,7 @@ export function QuestionCard(props: QuestionCardProps) {
 /** Binary answers use the approval layout without claiming authorization. */
 function BinaryQuestionCard({ item, bot, group, archived, onChanged }: QuestionCardProps) {
   const { timezone } = useUserTimezone();
-  const [busy, setBusy] = useState<"accept" | "decline" | "cancel" | "remember" | undefined>();
+  const [busy, setBusy] = useState<"accept" | "decline" | "cancel" | "remember" | "always" | undefined>();
   const [error, setError] = useState("");
   const [resolved, setResolved] = useState<Question | null>(null);
   const sending = useRef(false);
@@ -84,17 +84,22 @@ function BinaryQuestionCard({ item, bot, group, archived, onChanged }: QuestionC
   const autoApproved = current.answered_by === "auto-review" && current.status === "answered" && current.answer === true;
   const remembered = current.answered_by === REMEMBERED_APPROVAL_ACTOR && current.status === "answered" && current.answer === true;
   // Offered by the server only for an MCP proposal a memory could later decide (never an "Always ask me" tool, never an unattended run).
+  const standing = current.answered_by === STANDING_ALLOWANCE_ACTOR && current.status === "answered" && current.answer === true;
+  // Offered by the server only for a write-tier MCP call in a conversation a person can see (never an "Always ask me" tool).
+  const standingOffer = approval && !reviewOnly && current.status === "pending" && approval.standing ? approval.standing : undefined;
   const rememberOffer = approval && !reviewOnly && current.status === "pending" && approval.remember ? approval.remember : undefined;
   useEffect(() => () => controller.current?.abort(), []);
-  async function answer(value: boolean | null, remember = false) {
+  async function answer(value: boolean | null, remember = false, always = false) {
     if (sending.current || !answerable) return;
-    sending.current = true; setBusy(value === null ? "cancel" : remember ? "remember" : value ? "accept" : "decline"); setError("");
+    sending.current = true; setBusy(value === null ? "cancel" : remember ? "remember" : always ? "always" : value ? "accept" : "decline"); setError("");
     const pending = new AbortController(); controller.current = pending;
     try {
-      const result = await request<{ question: Question; remembered?: unknown; remember_error?: string }>(`/api/questions/${encodeURIComponent(item.question_id)}${value === null ? "" : "/answer"}`, { method:value === null ? "DELETE" : "POST", body:value === null ? undefined : JSON.stringify(remember ? { value, remember: true } : { value }), signal:pending.signal });
+      const result = await request<{ question: Question; remembered?: unknown; remember_error?: string; allowance?: unknown; always_allow_error?: string }>(`/api/questions/${encodeURIComponent(item.question_id)}${value === null ? "" : "/answer"}`, { method:value === null ? "DELETE" : "POST", body:value === null ? undefined : JSON.stringify(remember ? { value, remember: true } : always ? { value, always_allow: true } : { value }), signal:pending.signal });
       setResolved(result.question);
       if (remember && result.remembered) window.dispatchEvent(new Event("tofi:remembered-approvals-changed"));
       if (remember && result.remember_error) setError(t("question.remember.stale"));
+      if (always && result.allowance) window.dispatchEvent(new Event("tofi:standing-allowances-changed"));
+      if (always && result.always_allow_error) setError(t("question.always_allow.stale"));
       try { await onChanged(result.question); } catch { if (!pending.signal.aborted) setError(t("question.answered_refresh_failed")); }
     } catch (cause) {
       if (pending.signal.aborted) return;
@@ -118,10 +123,11 @@ function BinaryQuestionCard({ item, bot, group, archived, onChanged }: QuestionC
       time={validTime ? new Intl.DateTimeFormat(intlLocale(), { timeZone:timezone, hour:"2-digit", minute:"2-digit", hourCycle:"h23" }).format(new Date(item.created_at)) : undefined}
       exactTime={item.created_at} facts={approval ? [{ label:t("record.action"), value:approval.action }, ...(approval.facts ? [] : [{ label:t("record.target"), value:approval.target }]), { label:t("record.impact"), value:approval.impact }, ...whyAsked] : undefined} verified={approval?.facts ? approvalFactRows(approval.facts, t) : undefined} verifiedTitle={t("record.facts.title")} factsCaption={t("record.facts.bot_wording")} payload={approval?.payload}
       acceptLabel={approval ? approval.approve_label || t("question.approve") : t("question.yes")} declineLabel={approval ? approval.deny_label || t("question.decline") : t("question.no")} onAnswer={value => void answer(value)} busy={busy} disabled={!answerable}
+      onAlwaysAllow={standingOffer && answerable ? () => void answer(true, false, true) : undefined} alwaysAllowHint={standingOffer ? t("question.always_allow.hint", { tool: standingOffer.tool, server: standingOffer.server, bot: bot?.name ?? "Bot" }) : undefined}
       onRemember={rememberOffer && answerable ? () => void answer(true, true) : undefined} rememberHint={rememberOffer ? rememberOffer.kind === "identifier" && rememberOffer.target ? t("question.remember.hint_identifier", { target: rememberOffer.target }) : t("question.remember.hint_exact") : undefined}
       secondaryAction={answerable && <><button type="button" disabled={Boolean(busy)} onClick={() => void answer(null)}>{busy === "cancel" ? t("question.cancelling") : approval ? t("question.cancel_proposal") : t("question.cancel_question")}</button>{approval?.draft_id && <button type="button" onClick={() => { const node = [...document.querySelectorAll<HTMLElement>("[data-draft-id]")].find(element => element.dataset.draftId === approval.draft_id); node?.scrollIntoView({ behavior:"smooth", block:"center" }); }} >{t("question.view_draft")}</button>}</>}
       note={reviewInProgress ? t("question.note.reviewing") : reviewOnly ? t("question.note.observation") : archived ? t("question.note.archived") : reviewBlocked ? t("question.note.blocked") : approval ? t("question.not_executed_yet") : undefined} error={error || (detailFailed ? t("record.detail_unavailable") : "")}
-      resolution={reviewInProgress ? {label:t("question.resolution.reviewing"),accepted:false} : reviewOnly ? {label:t("question.resolution.observation"), accepted:false} : reviewBlocked && (current.status === "pending" || review?.policy_version?.startsWith("mcp-all-external-v")) ? {label:reviewPresentation?.label ?? t("review.label.not_executable"), accepted:false} : current.status === "pending" ? undefined : { label:current.status === "answered" ? autoApproved ? t("question.resolution.auto_approved") : remembered ? t("question.resolution.remembered") : approval ? t("question.resolution.human_decided") : t("status.answered") : current.status === "expired" ? t("status.expired") : current.status === "run_done" ? t("question.resolution.run_done") : t("status.cancelled"), answer:current.status === "answered" ? approval ? current.answer === true ? approval.approve_label || t("question.resolution.approved") : approval.deny_label || t("status.approval_denied") : answerLabel(current) : undefined, accepted:current.status === "answered" && current.answer === true }} />
+      resolution={reviewInProgress ? {label:t("question.resolution.reviewing"),accepted:false} : reviewOnly ? {label:t("question.resolution.observation"), accepted:false} : reviewBlocked && (current.status === "pending" || review?.policy_version?.startsWith("mcp-all-external-v")) ? {label:reviewPresentation?.label ?? t("review.label.not_executable"), accepted:false} : current.status === "pending" ? undefined : { label:current.status === "answered" ? autoApproved ? t("question.resolution.auto_approved") : remembered ? t("question.resolution.remembered") : standing ? t("question.resolution.standing") : approval ? t("question.resolution.human_decided") : t("status.answered") : current.status === "expired" ? t("status.expired") : current.status === "run_done" ? t("question.resolution.run_done") : t("status.cancelled"), answer:current.status === "answered" ? approval ? current.answer === true ? approval.approve_label || t("question.resolution.approved") : approval.deny_label || t("status.approval_denied") : answerLabel(current) : undefined, accepted:current.status === "answered" && current.answer === true }} />
 
 
   </article>;

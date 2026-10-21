@@ -244,7 +244,8 @@
         "mcp_delete": "MCP-Server löschen",
         "mcp_test": "Mit MCP-Server verbinden"
       }
-    }
+    },
+    "standing_decision": "Durch die Dauerfreigabe dieses Bots genehmigt; niemand wurde gefragt. Der Schritt darunter zeigt, ob er lief."
   },
   "question": {
     "approve": "Aktion freigeben",
@@ -273,7 +274,8 @@
       "human_decided": "Manuell entschieden",
       "run_done": "Aufgabe beendet",
       "approved": "Freigegeben",
-      "remembered": "Durch gemerkte Genehmigung freigegeben"
+      "remembered": "Durch gemerkte Genehmigung freigegeben",
+      "standing": "Durch eine Dauerfreigabe genehmigt"
     },
     "answered_refresh_failed": "Antwort erhalten, aber die Liste wurde nicht aktualisiert. Lade die Seite neu, um sie zu sehen.",
     "submit_failed": "Senden fehlgeschlagen. Versuch es noch einmal.",
@@ -295,6 +297,10 @@
       "hint_identifier": "Spätere Aufrufe dieses Tools für {{target}} in diesem Chat laufen ohne Rückfrage. Jederzeit im Konversationsmenü widerrufbar.",
       "hint_exact": "Spätere Aufrufe dieses Tools mit genau diesen Argumenten in diesem Chat laufen ohne Rückfrage. Jederzeit im Konversationsmenü widerrufbar.",
       "stale": "Genehmigt, aber nicht gemerkt: Das Tool oder seine Einstellungen haben sich geändert."
+    },
+    "always_allow": {
+      "hint": "Mit „Immer erlauben“ darf {{bot}} {{tool}} auf {{server}} ohne Rückfrage nutzen, auch in geplanten Läufen, bis du die Freigabe in den Einstellungen widerrufst.",
+      "stale": "Genehmigt, aber nicht als „Immer erlauben“ gespeichert: Das Tool oder sein Server hat sich geändert."
     }
   },
   "form": {
@@ -422,7 +428,8 @@
       "policy_needs_approval": "Richtlinie verlangt manuelle Freigabe",
       "already_reviewed": "Bereits geprüft",
       "high_risk_tool": "Risikoreiches Tool · deine Entscheidung wird benötigt",
-      "remembered": "Gemerkte Genehmigung"
+      "remembered": "Gemerkte Genehmigung",
+      "standing": "Immer erlaubt"
     },
     "label": {
       "shadow_reviewing": "Beobachtung: wird geprüft",
@@ -449,7 +456,8 @@
       "not_eligible": "Nicht für automatische Ausführung geeignet",
       "not_rereviewed": "Nicht erneut geprüft",
       "high_risk_tool": "Risikoreiches Tool: ein Mensch entscheidet jeden Aufruf",
-      "remembered": "Durch eine in diesem Chat gemerkte Genehmigung entschieden"
+      "remembered": "Durch eine in diesem Chat gemerkte Genehmigung entschieden",
+      "standing": "Durch die Dauerfreigabe dieses Bots entschieden"
     },
     "failure": {
       "title": "Warum die Prüfung nicht abgeschlossen werden konnte",
@@ -495,7 +503,8 @@
     "decline": "Jetzt nicht",
     "payload_label": "Alle Tool-Argumente als Klartext",
     "submitting": "Wird gesendet…",
-    "remember": "Genehmigen und in diesem Chat merken"
+    "remember": "Genehmigen und in diesem Chat merken",
+    "always_allow": "Immer erlauben"
   },
   "remembered": {
     "title": "Gemerkte Genehmigungen",

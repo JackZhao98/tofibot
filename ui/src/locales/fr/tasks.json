@@ -245,7 +245,8 @@
         "mcp_delete": "Supprimer un serveur MCP",
         "mcp_test": "Se connecter à un serveur MCP"
       }
-    }
+    },
+    "standing_decision": "Approuvé par l'autorisation permanente de ce Bot ; personne n'a été sollicité. L'étape ci-dessous indique si l'appel a eu lieu."
   },
   "question": {
     "approve": "Approuver l’action",
@@ -274,7 +275,8 @@
       "human_decided": "Décidé manuellement",
       "run_done": "Tâche terminée",
       "approved": "Approuvé",
-      "remembered": "Autorisé par une approbation mémorisée"
+      "remembered": "Autorisé par une approbation mémorisée",
+      "standing": "Approuvé par une autorisation permanente"
     },
     "answered_refresh_failed": "Réponse reçue, mais la liste ne s’est pas actualisée. Rechargez la page pour la voir.",
     "submit_failed": "Envoi impossible. Réessayez.",
@@ -297,6 +299,10 @@
       "hint_identifier": "Les prochains appels de cet outil sur {{target}} dans cette discussion s'exécuteront sans demander. Révocable à tout moment depuis le menu de la conversation.",
       "hint_exact": "Les prochains appels de cet outil avec exactement ces arguments dans cette discussion s'exécuteront sans demander. Révocable à tout moment depuis le menu de la conversation.",
       "stale": "Approuvé, mais non mémorisé : l'outil ou ses réglages ont changé."
+    },
+    "always_allow": {
+      "hint": "« Toujours autoriser » permet à {{bot}} d'utiliser {{tool}} sur {{server}} sans demander, y compris dans les exécutions planifiées, jusqu'à ce que vous le révoquiez dans les réglages.",
+      "stale": "Approuvé, mais non enregistré comme toujours autorisé : l'outil ou son serveur a changé."
     }
   },
   "form": {
@@ -427,7 +433,8 @@
       "policy_needs_approval": "La règle exige une approbation manuelle",
       "already_reviewed": "Déjà vérifié",
       "high_risk_tool": "Outil à haut risque · votre décision est requise",
-      "remembered": "Approbation mémorisée"
+      "remembered": "Approbation mémorisée",
+      "standing": "Toujours autorisé"
     },
     "label": {
       "shadow_reviewing": "Observation : vérification",
@@ -454,7 +461,8 @@
       "not_eligible": "Non éligible à l’exécution automatique",
       "not_rereviewed": "Non revérifié",
       "high_risk_tool": "Outil à haut risque : une personne décide à chaque appel",
-      "remembered": "Décidé par une approbation mémorisée dans cette discussion"
+      "remembered": "Décidé par une approbation mémorisée dans cette discussion",
+      "standing": "Décidé par l'autorisation permanente de ce Bot"
     },
     "failure": {
       "title": "Pourquoi la vérification n'a pas pu aboutir",
@@ -500,7 +508,8 @@
     "decline": "Pas maintenant",
     "payload_label": "Arguments complets de l’outil, en texte brut",
     "submitting": "Envoi…",
-    "remember": "Approuver et mémoriser dans cette discussion"
+    "remember": "Approuver et mémoriser dans cette discussion",
+    "always_allow": "Toujours autoriser"
   },
   "remembered": {
     "title": "Approbations mémorisées",

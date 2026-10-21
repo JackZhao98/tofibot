@@ -87,6 +87,15 @@ returned only when the guarded call fails with certainty before any effect (`not
 (`click_approval_claims`). Login limits are per peer address (IPv6 /64) and per account identifier; a peer that earlier proved the password skips
 the per-identifier bucket (`owner_auth_known_sources`) so strangers cannot lock the real user out; password changes use their own `pwchange`
 bucket namespace; there is no global bucket.
+MCP write-tier calls can be allowed for good with "Always allow" (`internal/app/mcp_standing_allowance.go`, table `mcp_standing_allowances`, created by
+`migrateStandingAllowances`: `CREATE ... IF NOT EXISTS` + `ensureColumn mcp_call_approvals.standing_eligible`). A grant is (account, Bot, MCP server, tool),
+independent of the payload, and binds to the server's config fingerprint (name, address, transport, headers): any change voids it (Settings shows
+`server_changed`; the next "Always allow" supersedes it). It is created only by the owner question route from a card the gate marked `standing_eligible`
+(write tier, conversation a person can see), never for `high_risk`/read-only tools, never from model input (`approval.standing` is reserved like `remember`).
+It decides unattended and scheduled runs too, but does not lift the hidden-conversation refusal. The decision is a card answered by actor
+`standing-allowance`, re-validated at claim time (`standingClaimValid`), so Revoke (Settings > Automatic behavior, `/api/standing-allowances`) bites an
+in-progress run at its next call; each use bumps `use_count`/`last_used_at` and links the tool activity (`ToolActivity.allowed_by`, table
+`mcp_standing_allowance_uses`). Archiving/deleting the Bot or deleting the server (`deleteMCPServer`: use it, not `extensions.DeleteMCP`) deletes its grants.
 Session cookies are Secure when `TOFI_PUBLIC_ORIGIN` is https; Caddy sends HSTS. Known open: `computer_shell` shares a uid and loopback with the
 shared Chrome DevTools port.
 
