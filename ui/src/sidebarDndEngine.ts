@@ -219,15 +219,18 @@ export function mountSidebarDnd(scroller: HTMLElement, ctx: DndContext): () => v
     const orig = idsOf();
     if (!el || !zoneOf(orig, down.id)) { cancelPress(); return; }
     const source = zoneOf(orig, down.id)!;
-    // A dragged row opens the pin zone, which is in the flow at the top of the list: everything below it moves down by its
-    // height at once. The lifted row cancels that shift with its own transform, the rest glide from where they were seen.
+    // A dragged row lights up the pinned area, the first block of the list: the hint inside it moves everything below down at
+    // once, and the list is taken back to the top so the whole frame is on screen under the search bar (it scrolls with the
+    // list, so nothing is ever laid over it). The lifted row cancels the shift with its own transform, the rest glide from
+    // where they were seen.
     const seen = source === "list" && zone ? flowTops(scroller!, [el, zone]) : null;
     const elBefore = el.getBoundingClientRect().top;
-    if (source === "list") zone?.setAttribute("data-dnd", "row");
+    if (source === "list") { zone?.setAttribute("data-dnd", "row"); if (scroller!.scrollTop) scroller!.scrollTop = 0; }
     const srect = scroller!.getBoundingClientRect();
     const scrollTop = scroller!.scrollTop;
     const shift = source === "list" && zone ? el.getBoundingClientRect().top - elBefore : 0;
-    const zoneBottom = source === "list" && zone ? zone.getBoundingClientRect().bottom : srect.top;
+    // Bottom edge of the pinned frame in scroll-content coordinates (the list scrolls while the frame stays where it is).
+    const zoneBottom = source === "list" && zone ? zone.getBoundingClientRect().bottom - srect.top + scrollTop : 0;
     const rects = new Map<string, Rect>();
     const els = new Map<string, HTMLElement>();
     scroller!.querySelectorAll<HTMLElement>("[data-dnd-id]").forEach(item => {
@@ -275,8 +278,8 @@ export function mountSidebarDnd(scroller: HTMLElement, ctx: DndContext): () => v
     const { dock, list } = d.orig;
     const middle = (id: string) => { const r = d.rects.get(id)!; return r.top + r.height / 2; };
     if (d.source === "list") {
-      // Over the pin zone, which sits in the flow at the top of the list (or above the list altogether).
-      const overDrop = d.py < d.zoneBottom;
+      // Over the pinned frame, which is the first block of the list (or above the list altogether).
+      const overDrop = d.py < d.srect.top || cy < d.zoneBottom;
       const overDock = Boolean(d.dockBox && dock.length && cy >= d.dockBox.top && cy <= d.dockBox.top + d.dockBox.height);
       if (overDrop || overDock) return { where: { dock: [...dock, d.id], list: list.filter(id => id !== d.id) }, over: "pin" };
       const rest = list.filter(id => id !== d.id);
@@ -324,10 +327,8 @@ export function mountSidebarDnd(scroller: HTMLElement, ctx: DndContext): () => v
       }
     }
     let speed = 0;
-    // The band that scrolls up starts under the pin zone: over the zone itself the list stays put.
-    const top = d.py - d.zoneBottom, bottom = d.srect.bottom - d.py;
-    if (d.py < d.zoneBottom) speed = 0;
-    else if (top < EDGE) speed = -Math.ceil((EDGE - Math.max(0, top)) / EDGE * 14);
+    const top = d.py - d.srect.top, bottom = d.srect.bottom - d.py;
+    if (top < EDGE) speed = -Math.ceil((EDGE - Math.max(0, top)) / EDGE * 14);
     else if (bottom < EDGE) speed = Math.ceil((EDGE - Math.max(0, bottom)) / EDGE * 14);
     if (speed && !d.reduced) {
       const before = scroller!.scrollTop;
@@ -370,8 +371,8 @@ export function mountSidebarDnd(scroller: HTMLElement, ctx: DndContext): () => v
     zone?.removeAttribute("data-dnd-over");
     d.el.classList.add(SETTLING);
     d.els.forEach(el => { el.style.transform = ""; });
-    // The pane stays in drag mode for the glide back: the zone keeps its place in the flow so the rows glide to slots that do
-    // not move; it closes after, with the rows gliding up behind it.
+    // The pane stays in drag mode for the glide back: the frame keeps its hint so the rows glide to slots that do not move;
+    // the hint closes after, with the rows gliding up behind it.
     window.setTimeout(() => {
       d.els.forEach(el => el.classList.remove(DRAGGING, SETTLING, LIVE));
       const seen = flowTops(scroller!, [zone]);
