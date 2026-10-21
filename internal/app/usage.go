@@ -282,7 +282,7 @@ func (s *Store) listUsageCalls() ([]UsageCall, error) {
 	if err := pruneUsage(s.db, time.Now().UTC()); err != nil {
 		return nil, err
 	}
-	rows, err := s.db.Query(`SELECT uc.id,uc.bot_id,COALESCE(b.name,'已删除 Bot'),COALESCE(c.name,'已删除对话'),uc.model,uc.input_tokens,uc.output_tokens,uc.equivalent_usd,uc.price_known,uc.trigger_content,uc.occurred_at,uc.kind FROM usage_calls uc JOIN runs r ON r.id=uc.run_id LEFT JOIN bots b ON b.id=uc.bot_id LEFT JOIN conversations c ON c.id=r.conversation_id ORDER BY uc.occurred_at DESC,uc.id DESC LIMIT 200`)
+	rows, err := s.db.Query(`SELECT uc.id,uc.bot_id,COALESCE(b.name,'已删除 Bot'),COALESCE(c.name,'已删除对话'),uc.model,uc.input_tokens,uc.output_tokens,uc.equivalent_usd,uc.price_known,uc.trigger_content,uc.occurred_at,uc.kind FROM usage_calls uc JOIN runs r ON r.id=uc.run_id LEFT JOIN bots b ON b.id=uc.bot_id LEFT JOIN conversations c ON c.id=r.conversation_id WHERE uc.kind<>'web_fetch' ORDER BY uc.occurred_at DESC,uc.id DESC LIMIT 200`)
 	if err != nil {
 		return nil, err
 	}
@@ -427,6 +427,38 @@ const usageKindSearch = "web_search"
 // webSearchUSD is the provider's list price of one server-side search
 // ($10 per 1,000 searches).
 const webSearchUSD = 0.01
+
+// usageKindFetch marks one page a run's model read through the provider's
+// server-side fetch tool. The provider charges nothing for the fetch itself
+// (the page text is billed as input on the request that read it), so a row
+// carries no money and no tokens: it makes the reads countable beside the
+// search fees, and it is never a model request.
+const usageKindFetch = "web_fetch"
+
+// recordWebFetchUsage books n server-side page reads as n usage_calls rows of
+// kind web_fetch priced at zero. The hourly rollup is untouched: no money was
+// spent and no request was added.
+func (s *Store) recordWebFetchUsage(runID string, n int64) error {
+	if n <= 0 {
+		return nil
+	}
+	var botID, model, prompt string
+	if err := s.db.QueryRow(`SELECT r.bot_id,u.model,COALESCE(m.content,'') FROM runs r JOIN run_usage u ON u.run_id=r.id LEFT JOIN messages m ON m.id=r.trigger_message_id WHERE r.id=?`, runID).Scan(&botID, &model, &prompt); err != nil {
+		return err
+	}
+	stamp := stampTime(time.Now().UTC())
+	tx, err := s.db.Begin()
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	for i := int64(0); i < n; i++ {
+		if _, err = tx.Exec(`INSERT INTO usage_calls(run_id,bot_id,model,input_tokens,output_tokens,equivalent_usd,price_known,trigger_content,occurred_at,kind) VALUES(?,?,?,0,0,0,1,?,?,?)`, runID, botID, model, prompt, stamp, usageKindFetch); err != nil {
+			return err
+		}
+	}
+	return tx.Commit()
+}
 
 // recordWebSearchUsage books the fee for n server-side searches a run's model
 // request ran: its own usage_calls row, and the cost in the bot's hourly

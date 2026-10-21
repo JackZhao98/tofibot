@@ -261,6 +261,27 @@ func limitToolEventText(value string, max int) (string, bool) {
 	return string(runes[:max]) + "…", true
 }
 
+// webFetchToolEvent reports a provider-side page read as a finished tool call,
+// so the address it read appears in the run's evidence the way a search does.
+// The page text itself is not copied: the claim it supports is checked against
+// the address, title and time.
+func webFetchToolEvent(wf provider.WebFetch) (queued, finished ToolEvent) {
+	args, _ := json.Marshal(map[string]string{"url": wf.URL})
+	queued = ToolEvent{CallID: "web-fetch-" + wf.ID, Name: "web_fetch", Arguments: string(args), Status: "queued"}
+	ev := queued
+	ev.Status = "completed"
+	if wf.Error != "" {
+		ev.Status = "failed"
+		ev.Result = "fetch failed: " + wf.Error
+		return queued, ev
+	}
+	ev.Result = strings.TrimSpace(wf.Title + " - " + wf.URL)
+	if wf.RetrievedAt != "" {
+		ev.Result += " (retrieved " + wf.RetrievedAt + ")"
+	}
+	return queued, ev
+}
+
 // webSearchToolEvent reports a provider-side search as a finished tool call, so
 // the query and the sources it returned appear in the run's evidence. The
 // activity record opens as queued, as every tool call's does.

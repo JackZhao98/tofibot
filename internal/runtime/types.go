@@ -135,6 +135,12 @@ type Request struct {
 	// of searches through OnWebSearchBilled.
 	WebSearchMaxUses  int
 	OnWebSearchBilled func(searches int64)
+	// WebFetchMaxUses, when positive, gives the model the provider's own
+	// server-side page reader (pages per model request capped at this). Each
+	// page is reported through OnToolEvent as a web_fetch call, and the counted
+	// number through OnWebFetchCounted.
+	WebFetchMaxUses   int
+	OnWebFetchCounted func(fetches int64)
 	OnCompact         func(originalTokens, compactedTokens int)
 	// OnThinking receives provider reasoning-summary deltas. They are never
 	// part of the answer and must not be mixed into OnDelta output.

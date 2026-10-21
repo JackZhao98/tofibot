@@ -37,11 +37,15 @@ import (
 // response as one ReasoningItem{Provider: "anthropic"} holding the turn's
 // content blocks, and are replayed verbatim on the next request.
 const (
-	anthropicVersion          = "2023-06-01"
-	anthropicBindingBeta      = "thinking-binding-controls-2026-08-01"
-	anthropicInterleavedBeta  = "interleaved-thinking-2025-05-14"
-	anthropicReasoningSource  = "anthropic"
-	anthropicWebSearchType    = "web_search_20250305"
+	anthropicVersion         = "2023-06-01"
+	anthropicBindingBeta     = "thinking-binding-controls-2026-08-01"
+	anthropicInterleavedBeta = "interleaved-thinking-2025-05-14"
+	anthropicReasoningSource = "anthropic"
+	anthropicWebSearchType   = "web_search_20250305"
+	// The basic fetch variant, like the basic search one, runs on every
+	// Messages API model without code-execution round trips; the page text is
+	// billed as ordinary input tokens and the fetch itself carries no fee.
+	anthropicWebFetchType     = "web_fetch_20250910"
 	anthropicDefaultMaxTokens = 32000
 	anthropicHighMaxTokens    = 64000
 )
@@ -95,15 +99,33 @@ func (a *anthropicProvider) ChatStream(ctx context.Context, req *ChatRequest, on
 		plain.WebSearch = nil
 		req = &plain
 	}
-	resp, err := a.stream(ctx, req, forward)
-	if err != nil && !forwarded && req.WebSearch != nil && isAnthropicWebSearchRejection(err) {
-		// The account has not enabled web search (an organization setting) or
-		// the model refuses the tool: remember it for this credential and run
-		// the request without search rather than fail the turn.
-		anthropicWebSearchRefused.Store(a.apiKey, true)
-		log.Printf("[anthropic] web search refused (%s); continuing without it for this credential until restart", strings.TrimSpace(err.Error()))
+	if req.WebFetch != nil && a.webFetchRefused() {
 		plain := *req
-		plain.WebSearch = nil
+		plain.WebFetch = nil
+		req = &plain
+	}
+	resp, err := a.stream(ctx, req, forward)
+	// An account that has not enabled a server tool (an organization setting)
+	// or a model that refuses it gets the request again without that tool,
+	// and the refusal is remembered for this credential: a turn is never lost
+	// to an optional capability. A rejection naming both drops both.
+	for attempt := 0; attempt < 2 && err != nil && !forwarded; attempt++ {
+		dropSearch := req.WebSearch != nil && isAnthropicWebSearchRejection(err)
+		dropFetch := req.WebFetch != nil && isAnthropicWebFetchRejection(err)
+		if !dropSearch && !dropFetch {
+			break
+		}
+		plain := *req
+		if dropSearch {
+			anthropicWebSearchRefused.Store(a.apiKey, true)
+			plain.WebSearch = nil
+			log.Printf("[anthropic] web search refused (%s); continuing without it for this credential until restart", strings.TrimSpace(err.Error()))
+		}
+		if dropFetch {
+			anthropicWebFetchRefused.Store(a.apiKey, true)
+			plain.WebFetch = nil
+			log.Printf("[anthropic] web fetch refused (%s); continuing without it for this credential until restart", strings.TrimSpace(err.Error()))
+		}
 		req = &plain
 		resp, err = a.stream(ctx, req, forward)
 	}
@@ -359,8 +381,8 @@ func (a *anthropicProvider) buildPayload(req *ChatRequest) (map[string]any, []st
 	if system := strings.TrimSpace(req.System); system != "" {
 		payload["system"] = []map[string]any{{"type": "text", "text": req.System, "cache_control": cacheControl()}}
 	}
-	if len(req.Tools) > 0 || req.WebSearch != nil {
-		tools := make([]map[string]any, 0, len(req.Tools)+1)
+	if len(req.Tools) > 0 || req.WebSearch != nil || req.WebFetch != nil {
+		tools := make([]map[string]any, 0, len(req.Tools)+2)
 		if req.WebSearch != nil {
 			// The basic variant runs on every Messages API model and adds no
 			// code-execution round trips; the model decides when to search.
@@ -369,6 +391,18 @@ func (a *anthropicProvider) buildPayload(req *ChatRequest) (map[string]any, []st
 				search["max_uses"] = req.WebSearch.MaxUses
 			}
 			tools = append(tools, search)
+		}
+		if req.WebFetch != nil {
+			// Listed right after search: the two lookups come before the
+			// Bot's own tools in the request.
+			fetch := map[string]any{"type": anthropicWebFetchType, "name": "web_fetch"}
+			if req.WebFetch.MaxUses > 0 {
+				fetch["max_uses"] = req.WebFetch.MaxUses
+			}
+			if req.WebFetch.MaxContentTokens > 0 {
+				fetch["max_content_tokens"] = req.WebFetch.MaxContentTokens
+			}
+			tools = append(tools, fetch)
 		}
 		for _, t := range req.Tools {
 			schema := t.Parameters
@@ -688,6 +722,26 @@ func isAnthropicWebSearchRejection(err error) bool {
 	return strings.Contains(body, "web_search") || strings.Contains(body, "web search")
 }
 
+// anthropicWebFetchRefused remembers credentials whose requests the API
+// rejected for declaring server-side web fetch.
+var anthropicWebFetchRefused sync.Map
+
+func (a *anthropicProvider) webFetchRefused() bool {
+	_, refused := anthropicWebFetchRefused.Load(a.apiKey)
+	return refused
+}
+
+// isAnthropicWebFetchRejection matches a 400/403 that names the web fetch
+// tool: not enabled for the organization, or not offered to the model.
+func isAnthropicWebFetchRejection(err error) bool {
+	apiErr, ok := AsAPIError(err)
+	if !ok || (apiErr.StatusCode != 400 && apiErr.StatusCode != 403) {
+		return false
+	}
+	body := strings.ToLower(apiErr.Body)
+	return strings.Contains(body, "web_fetch") || strings.Contains(body, "web fetch")
+}
+
 // anthropicAnyRefused remembers models whose API refused tool_choice any, so
 // the request is not rejected and retried on every turn.
 var anthropicAnyRefused sync.Map
@@ -779,7 +833,7 @@ func parseAnthropicStream(body io.Reader, onDelta func(StreamDelta)) (*ChatRespo
 	result := &ChatResponse{}
 	blocks := map[int]*anthropicBlock{}
 	var usage struct {
-		input, output, cacheRead, cacheWrite, webSearches int64
+		input, output, cacheRead, cacheWrite, webSearches, webFetches int64
 	}
 	readUsage := func(raw json.RawMessage) {
 		var u struct {
@@ -789,6 +843,7 @@ func parseAnthropicStream(body io.Reader, onDelta func(StreamDelta)) (*ChatRespo
 			CacheCreationInputTokens *int64 `json:"cache_creation_input_tokens"`
 			ServerToolUse            *struct {
 				WebSearchRequests int64 `json:"web_search_requests"`
+				WebFetchRequests  int64 `json:"web_fetch_requests"`
 			} `json:"server_tool_use"`
 		}
 		if len(raw) == 0 || json.Unmarshal(raw, &u) != nil {
@@ -806,6 +861,9 @@ func parseAnthropicStream(body io.Reader, onDelta func(StreamDelta)) (*ChatRespo
 		set(&usage.cacheWrite, u.CacheCreationInputTokens)
 		if u.ServerToolUse != nil && u.ServerToolUse.WebSearchRequests > 0 {
 			usage.webSearches = u.ServerToolUse.WebSearchRequests
+		}
+		if u.ServerToolUse != nil && u.ServerToolUse.WebFetchRequests > 0 {
+			usage.webFetches = u.ServerToolUse.WebFetchRequests
 		}
 	}
 	var stopReason string
@@ -959,6 +1017,7 @@ func parseAnthropicStream(body io.Reader, onDelta func(StreamDelta)) (*ChatRespo
 	var content, reasoning strings.Builder
 	var replay []json.RawMessage
 	var searches []WebSearch
+	var fetches []WebFetch
 	hasThinking := false
 	for _, b := range ordered {
 		var out any
@@ -991,7 +1050,7 @@ func parseAnthropicStream(body io.Reader, onDelta func(StreamDelta)) (*ChatRespo
 			// input_json_delta, and a replayed block must hold it.
 			args := strings.TrimSpace(b.input.String())
 			if args == "" {
-				args = "{}"
+				args = startInput(b.start)
 			}
 			out = map[string]any{"type": "server_tool_use", "id": b.id, "name": b.name, "input": toolInputRaw(args)}
 			if b.name == "web_search" {
@@ -1000,6 +1059,13 @@ func parseAnthropicStream(body io.Reader, onDelta func(StreamDelta)) (*ChatRespo
 				}
 				_ = json.Unmarshal([]byte(args), &in)
 				searches = append(searches, WebSearch{ID: b.id, Query: in.Query})
+			}
+			if b.name == "web_fetch" {
+				var in struct {
+					URL string `json:"url"`
+				}
+				_ = json.Unmarshal([]byte(args), &in)
+				fetches = append(fetches, WebFetch{ID: b.id, URL: in.URL})
 			}
 		case "web_search_tool_result":
 			if len(b.start) > 0 {
@@ -1011,6 +1077,17 @@ func parseAnthropicStream(body io.Reader, onDelta func(StreamDelta)) (*ChatRespo
 			}
 			if json.Unmarshal(b.start, &rb) == nil {
 				attachWebSearchResult(searches, rb.ToolUseID, rb.Content)
+			}
+		case "web_fetch_tool_result":
+			if len(b.start) > 0 {
+				out = b.start
+			}
+			var rb struct {
+				ToolUseID string          `json:"tool_use_id"`
+				Content   json.RawMessage `json:"content"`
+			}
+			if json.Unmarshal(b.start, &rb) == nil {
+				attachWebFetchResult(fetches, rb.ToolUseID, rb.Content)
 			}
 		default:
 			if len(b.start) > 0 {
@@ -1030,6 +1107,8 @@ func parseAnthropicStream(body io.Reader, onDelta func(StreamDelta)) (*ChatRespo
 	result.Reasoning = reasoning.String()
 	result.WebSearches = searches
 	result.WebSearchRequests = max(usage.webSearches, int64(len(searches)))
+	result.WebFetches = fetches
+	result.WebFetchRequests = max(usage.webFetches, int64(len(fetches)))
 	if hasThinking {
 		if raw, err := json.Marshal(replay); err == nil {
 			result.ReasoningItems = []ReasoningItem{{Provider: anthropicReasoningSource, Content: raw}}
@@ -1068,4 +1147,53 @@ func attachWebSearchResult(searches []WebSearch, toolUseID string, content json.
 	if json.Unmarshal(content, &failure) == nil && failure.ErrorCode != "" {
 		searches[at].Error = failure.ErrorCode
 	}
+}
+
+// attachWebFetchResult fills the fetch with the given tool_use_id from a
+// web_fetch_tool_result content: a web_fetch_result holding the page on
+// success, one web_fetch_tool_error object (HTTP 200) on failure. The page
+// text stays in the replayed block; only its address, title and time are kept.
+func attachWebFetchResult(fetches []WebFetch, toolUseID string, content json.RawMessage) {
+	at := -1
+	for i := range fetches {
+		if fetches[i].ID == toolUseID {
+			at = i
+		}
+	}
+	if at < 0 {
+		return
+	}
+	var res struct {
+		Type        string `json:"type"`
+		URL         string `json:"url"`
+		RetrievedAt string `json:"retrieved_at"`
+		ErrorCode   string `json:"error_code"`
+		Content     struct {
+			Title string `json:"title"`
+		} `json:"content"`
+	}
+	if json.Unmarshal(content, &res) != nil {
+		return
+	}
+	if res.ErrorCode != "" {
+		fetches[at].Error = res.ErrorCode
+		return
+	}
+	if res.URL != "" {
+		fetches[at].URL = res.URL
+	}
+	fetches[at].Title = res.Content.Title
+	fetches[at].RetrievedAt = res.RetrievedAt
+}
+
+// startInput is the input a content_block_start carried whole (a block whose
+// arguments arrive in one piece has no input_json_delta), or an empty object.
+func startInput(start json.RawMessage) string {
+	var cb struct {
+		Input json.RawMessage `json:"input"`
+	}
+	if json.Unmarshal(start, &cb) == nil && len(cb.Input) > 0 && string(cb.Input) != "null" {
+		return string(cb.Input)
+	}
+	return "{}"
 }
