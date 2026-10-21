@@ -394,7 +394,14 @@
     "saved": "Gespeichert",
     "scope": "Workspace-Skills · bei Bedarf gelesen · auf ausgewählte Bots beschränkbar",
     "starters": "Tofi-Arbeits-Skills",
-    "support_note": "Anleitungen und Referenzdateien werden unterstützt; mitgelieferte Skripte laufen nie automatisch."
+    "support_note": "Anleitungen und Referenzdateien werden unterstützt; mitgelieferte Skripte laufen nie automatisch.",
+    "builtin": {
+      "label": "Diesen Skill verwenden",
+      "off_hint": "Für alle Bots verborgen. Einschalten, um ihn wieder anzubieten.",
+      "on_hint": "Jeder Bot liest ihn, wenn eine Aufgabe ihn braucht. Ausgeschaltet ist er für alle Bots verborgen.",
+      "switch_for": "{{name}} verwenden",
+      "tag": "Integriert"
+    }
   },
   "status": {
     "authorizing": "Autorisierung wird geöffnet…",

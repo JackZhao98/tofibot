@@ -161,7 +161,7 @@ func TestExtensionChangeNeedsExactSingleUseHumanApproval(t *testing.T) {
 	if code := extensionOutcomeCode(call(tool, install)); code != "extension_change_needs_approval" {
 		t.Fatalf("unapproved install: %q", code)
 	}
-	if skills, _ := s.extensions.ListSkills(); len(skills) != 0 {
+	if skills := installedSkills(s); len(skills) != 0 {
 		t.Fatal("unapproved install wrote files")
 	}
 	// An approval for a different payload does not cover this one.

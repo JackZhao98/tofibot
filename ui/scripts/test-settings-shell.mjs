@@ -84,6 +84,7 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
 
   const requested = [], unexpected = [], writes = [], accessWrites = [], tierWrites = [];
   const skillAccess = new Map();
+  const builtinOn = new Map([["spreadsheet", true]]), enabledWrites = [];
   const updateState = {latest: "v0.1.0"};
   const INSTANCE = "0b1c2d3e-4f50-4a6b-8c7d-9e0f1a2b3c4d";
   const providers = [
@@ -142,7 +143,7 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
     if (/^\/api\/extensions\/mcp\/[^/]+\/test$/.test(path) && method === "POST") return query.get("testfail") ? {ok: false, tool_count: 0, diagnostics: [{server: "x", message: "MCP server connection or discovery failed"}]} : {ok: true, tool_count: 8};
     if (path === "/api/extensions/oauth-options") return {vm_available: false, web_callback_origin: "https://tofi.example.test", desktop_redirect_uri: ""};
     if (path === "/api/extensions/local-mcp") return {available: false, reason: "sample"};
-    if (path === "/api/extensions/skills") return {skills: [{name: "research-assistant", description: "Research and verify sources"}, {name: "weekly-report", description: "Draft the weekly status report"}].map(skill => ({...skill, access: skillAccess.get(skill.name) ?? {mode: "all"}}))};
+    if (path === "/api/extensions/skills") return {skills: [{name: "research-assistant", description: "Research and verify sources"}, {name: "spreadsheet", description: "Build and reconcile XLSX workbooks with real numbers and formulas; verify the saved file.", builtin: true, enabled: builtinOn.get("spreadsheet")}, {name: "weekly-report", description: "Draft the weekly status report"}].map(skill => ({...skill, access: skillAccess.get(skill.name) ?? {mode: "all"}}))};
     if (path === "/api/auto-review-settings") return {mode: "shadow", revision: 1, review_scope: "all_external_tools"};
     if (path === "/api/providers") return {providers};
     if (path === "/api/auth/codex") return {connected: true, expires_at: Date.parse("2026-11-01T00:00:00Z")};
@@ -263,6 +264,13 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
         accessWrites.push(`${method} ${url.pathname} ${request.postData()}`);
         skillAccess.set(name, payload.mode === "all" ? {mode: "all"} : {mode: "selected", bot_ids: payload.bot_ids});
         await route.fulfill({contentType: "application/json", body: JSON.stringify({ok: true, access: skillAccess.get(name)})});
+        return;
+      }
+      if (method === "PUT" && /^\/api\/extensions\/skills\/[^/]+\/enabled$/.test(url.pathname)) {
+        const payload = JSON.parse(request.postData() ?? "{}"), name = url.pathname.split("/")[4];
+        enabledWrites.push(`${method} ${url.pathname} ${request.postData()}`);
+        builtinOn.set(name, payload.enabled);
+        await route.fulfill({contentType: "application/json", body: JSON.stringify({ok: true, enabled: payload.enabled})});
         return;
       }
       if (url.pathname.startsWith("/api/admin/")) {
@@ -506,6 +514,40 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
       await view.close();
     }
     console.log("PASS skill access: All Bots by default, sheet needs a Bot, saving shows 1 of 3 Bots, reload keeps it, back to All Bots, translated");
+  }
+
+  // ---- 7c. Built-in skills (decision 0041): tagged Built-in, on by default, switchable, never removable.
+  {
+    builtinOn.set("spreadsheet", true); enabledWrites.length = 0; skillAccess.clear();
+    const card = (page, name) => page.locator('.settings-page-body[data-page="skills"] .extension-card').filter({hasText: name});
+    const {page, close} = await open({tab: "skills"});
+    const sheet = card(page, "spreadsheet");
+    await sheet.waitFor();
+    assert.equal((await sheet.locator(".skill-builtin-tag").textContent()).trim(), "Built-in");
+    assert.equal(await card(page, "weekly-report").locator(".skill-builtin-tag").count(), 0, "installed skills carry no Built-in tag");
+    assert.equal(await sheet.getByRole("button", {name: "Remove"}).count(), 0, "a built-in skill has no Remove");
+    assert.equal(await card(page, "weekly-report").getByRole("button", {name: "Remove"}).count(), 1, "an installed skill keeps Remove");
+    const toggle = sheet.getByRole("switch", {name: "Use spreadsheet"});
+    assert.equal(await toggle.isChecked(), true, "built-in skills are on by default");
+    await toggle.click();
+    await page.waitForFunction(() => document.querySelector('.settings-page-body[data-page="skills"]')?.innerText.includes("Hidden from every Bot"));
+    assert.deepEqual(enabledWrites, ['PUT /api/extensions/skills/spreadsheet/enabled {"enabled":false}']);
+    assert.equal(await sheet.getByRole("switch", {name: "Use spreadsheet"}).isChecked(), false);
+    await page.reload();
+    await sheet.waitFor();
+    assert.equal(await sheet.getByRole("switch", {name: "Use spreadsheet"}).isChecked(), false, "reload keeps the switch off");
+    await sheet.getByRole("switch", {name: "Use spreadsheet"}).click();
+    await page.waitForFunction(() => !document.querySelector('.settings-page-body[data-page="skills"]')?.innerText.includes("Hidden from every Bot"));
+    assert.equal(enabledWrites.at(-1), 'PUT /api/extensions/skills/spreadsheet/enabled {"enabled":true}');
+    assert.equal(await sheet.getByRole("button", {name: "Change"}).count(), 1, "who-can-use access still applies to built-in skills");
+    await close();
+    for (const lang of ["zh-CN", "de"]) {
+      const view = await open({tab: "skills", lang});
+      await card(view.page, "spreadsheet").waitFor();
+      assert.notEqual((await card(view.page, "spreadsheet").locator(".skill-builtin-tag").textContent()).trim(), "Built-in", `${lang}: the Built-in tag is translated`);
+      await view.close();
+    }
+    console.log("PASS built-in skills: tagged, on by default, switch writes and survives reload, no Remove, translated");
   }
 
   // ---- 7f. Connections open on the cached state: no animation, no spinner; the quiet re-check updates in place or flips to the problem.
