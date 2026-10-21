@@ -1,8 +1,9 @@
 import {memo, useCallback, useEffect, useRef, useState} from "react";
 import type {TFunction} from "i18next";
-import {api, request} from "./api";
+import {request} from "./api";
 import {modelName, groupModels} from "./modelCatalog";
 import type {ModelCatalog} from "./types";
+import {useModelCatalog} from "./useModelCatalog";
 import {useTranslation} from "./i18n";
 import {SettingsCard, SettingsRow, SettingsSection} from "./settings/components";
 import {StandingAllowances} from "./StandingAllowances";
@@ -117,7 +118,7 @@ const AutomationRow = memo(function AutomationRow({item, catalog, busy, saved, e
 export function AutomationSettings() {
   const {t} = useTranslation("settings");
   const [items, setItems] = useState<AutomationItem[] | null>(null);
-  const [catalog, setCatalog] = useState<ModelCatalog | null>(null);
+  const {catalog} = useModelCatalog();
   const [loadError, setLoadError] = useState("");
   const [version, setVersion] = useState(0);
   const [busy, setBusy] = useState<AutomationKey | null>(null);
@@ -130,7 +131,6 @@ export function AutomationSettings() {
     const controller = new AbortController();
     setLoadError("");
     request<{items: AutomationItem[]}>("/api/automation-settings", {signal: controller.signal}).then(body => setItems(body.items)).catch(cause => {if (!controller.signal.aborted) setLoadError(cause instanceof Error ? cause.message : t("action.save_failed"));});
-    api.models(controller.signal).then(setCatalog).catch(() => {});
     return () => controller.abort();
   }, [version, t]);
 
