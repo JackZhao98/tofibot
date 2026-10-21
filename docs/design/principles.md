@@ -1,6 +1,6 @@
 # TOFI 界面设计原则
 
-这份文件把 owner 这几天对界面的决定和反馈提炼成规则。每条规则写清楚：从哪条决定来、现在代码里怎么做到的、**怎么检查**、以及现在已知违反它的地方（编号指向 [`components.md`](components.md) 的问题 C1–C41）。
+这份文件把 owner 这几天对界面的决定和反馈提炼成规则。每条规则写清楚：从哪条决定来、现在代码里怎么做到的、**怎么检查**、以及现在已知违反它的地方（编号指向 [`components.md`](components.md) 的问题 C1–C43）。
 
 - 改界面之前读一遍；提 PR 时按文末的"评审清单"逐条自查，在 PR 说明里写结果。
 - 规则之间冲突时，按第 9 节的顺序取舍。
@@ -73,7 +73,7 @@
 
 - 悬停设备上操作行的 28 px 始终预留，显示或隐藏都不让页面跳（`ui/src/v2-app.css:580-584` 注释、`:601-606`）。
 - 触屏上操作行插进文档流，把下面的内容推开，而不是盖在相邻消息上（`v2-app.css:607-610`）。
-- 胶囊 `z-index:6`，高于模糊带和输入框（`ui/src/progressive-blur.css:50-51`）。
+- 胶囊 `--z-pill`，高于模糊带 `--z-edge-blur` 和输入框 `--z-chrome`（`ui/src/styles.css:153`；迁移第 1 步之前是 `progressive-blur.css:51` 的 `z-index:6`）。
 - 电脑小窗在视口 ≥ 1024 px 时让消息区右侧让出它的宽度（`ui/src/FloatingDesktop.tsx:50-60`）。
 - 表情菜单按实测尺寸夹在视口里（`ui/src/MessageReactions.tsx:43-52`）。
 
@@ -82,6 +82,7 @@
 | 检查 | 方法 |
 |---|---|
 | 自动测试 | `npm --prefix ui run test:live-fixes`：胶囊中心和四角用 `elementFromPoint` 取到的都是胶囊本身，且完全在视口内（`ui/scripts/test-live-fixes.mjs:60-80`）。新的"必须点得到"的控件照这个写法加断言 |
+| 层级 | `npm --prefix ui run test:layers`：z-index 只能用 `tokens.md` 9.3 的 `--z-*`（组件内部用 -1..3），弹层只进 `#tofi-layers`，叠在一点上的弹层按刻度顺序画（`ui/scripts/test-layers.mjs`） |
 | 间距 | `test:chat-bubbles` 检查同一发送者消息间距 28–36 px（`ui/scripts/test-chat-bubbles.mjs:198-201`） |
 | 手动：遮挡扫描 | 在预览里打开新浮层后，在 DevTools Console 运行下面的片段，四个尺寸各跑一次：390×844、768×1024、1024×768、1280×800。任何一行是 `false` 就是违反 |
 | 手动：留位 | 让浮层出现、消失各一次，用 Performance 面板的 Layout Shift 轨道确认没有内容被推动（触屏操作行这类有意推开的除外，要在 PR 里说明） |
@@ -95,7 +96,7 @@
     return [el.className || el.tagName, Boolean(top && el.contains(top))]; });
 ```
 
-**已知违反**：C3（操作行的悬停提示压在消息上）、C9（猫可能压住最后一条消息，待实测）、C15（权限提示盖住发送按钮和胶囊）、C16（设置窗层级太低）、C20（右键菜单写死尺寸）、C23、C26（层级）、C32（toast 压住顶栏标题）、**C36（窄于 1024 px 时电脑小窗盖住消息，高）**、C40。
+**已知违反**：C3（操作行的悬停提示压在消息上）、C9（猫可能压住最后一条消息，待实测）、C15（权限提示盖住发送按钮）、C20（右键菜单写死尺寸）、C23（到不了原生 dialog 之上）、C26（层级，第 1 步后待 owner 定是否关闭）、C32（toast 压住顶栏标题）、**C36（窄于 1024 px 时电脑小窗盖住消息，高）**、C40、C42（刚加载就打开电脑小窗时停在视口外，待确认）。
 
 ---
 
@@ -133,7 +134,7 @@
 | 静默失败 | 评审时看新代码里每个事件处理里的 `catch`：要么设置可见的错误，要么有注释说明为什么可以不说（例：`App.tsx:297` 的剪贴板降级） |
 | 状态可辨 | 每个状态截图放进 PR，不靠颜色单独区分时要写明靠什么区分 |
 
-**已知违反**：C5（已读和已送达同色，测试抓不到）、C19（http 下"复制 ID"静默失败）、C30（设置里两种保存方式并存）、C31（对话框开着时 toast 看不到）。
+**已知违反**：C5（已读和已送达同色，测试抓不到）、C19（http 下"复制 ID"静默失败）、C30（设置里两种保存方式并存）、C31（对话框开着时 toast 看不到）、C43（刷新失败的 toast 被一次成功的配置读取清掉，待确认）。
 
 ---
 
@@ -159,6 +160,7 @@
 - 令牌：`--m-instant` 80 / `--m-press` 120 / `--m-quick` 140 / `--m-base` 220 / `--m-panel-in` 280 / `--m-panel-out` 180 / `--m-flight` 640 ms；JS 镜像 `ui/src/motion.ts:4`。
 - 弹簧链参数集中在 `CASCADE`（`ui/src/motion.ts:18-30`），整个过程不改布局和 `scrollTop`，只加视觉偏移（`ui/src/arrivalCascade.ts:3-12`）。
 - 手机推入：进入 280 ms、返回 220 ms，两个窗格同时落地，减少动效时直接切换（`ui/src/styles.css:313-328`）。
+- 手机右滑返回（D35）：手指拖动是直接操作，减少动效时也跟手；松手后的收尾是带手指初速度的临界阻尼弹簧（`SPRING.push`，`ui/src/motion.ts`），预先采样成关键帧交给 WAAPI，只动 `transform` 和变暗层的 `opacity`（`ui/src/phoneSwipeGesture.ts`、`ui/src/phoneSwipeEngine.ts`）。
 - 侧栏拖动只用 transform，React 只在放下时渲染一次（`ui/src/sidebarDndEngine.ts:5-11`）。
 
 **怎么检查**
@@ -274,6 +276,7 @@
 | `test:shell-budget` | 入口 JS gzip ≤ 315,805 字节（`Math.floor(394_757 * 0.8)`；脚本头注释写的 315,806 是未取整的说法）；设置窗第一帧 ≤ 32 ms（4 倍 ≤ 100 ms）；手机推入不出空帧 | `ui/scripts/test-shell-budget.mjs:1-8`、`:29` |
 | `test:avatar-frame-budget` | 猫的逐帧开销 | `ui/package.json` |
 | `test:arrival-glide` | 跟随滚动 220 ms、流式 120 ms、每帧最多 24 px | `AGENTS.md` "Web UI motion" |
+| `test:swipe-back` | 手机右滑返回：4x CPU 下拖动和收尾超过 25 ms 的帧 ≤ 1，每次手指移动的页面脚本 ≤ 1.5 ms，一整次拖动排版 ≤ 8 次；跟手误差 ≤ 1.5 px；松手速度 ≥ 手指的 0.8 倍；引擎懒加载块 ≤ 3,000 B | `ui/scripts/test-swipe-back.mjs` 文件头 |
 | `test:timeline-rows`、`test:perf-structure`、`test:chat-switch` | 行的 memo 结构、切换 | `AGENTS.md` "Web timeline performance" |
 
 **怎么检查**

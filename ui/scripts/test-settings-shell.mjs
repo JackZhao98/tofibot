@@ -360,13 +360,13 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
     await zone.selectOption("Europe/Berlin");
     await page.locator(".settings-save-bar").waitFor();
     await page.locator('.settings-tabs [data-tab="models"]').click();
-    await page.locator("dialog.settings-leave-dialog[open]").waitFor();
+    await page.locator(".settings-leave-dialog").waitFor();
     assert.equal(await selectedTab(page), "general", "still on General while the dialog is open");
     await page.getByRole("button", {name: "Keep editing"}).click();
-    assert.equal(await page.locator("dialog.settings-leave-dialog[open]").count(), 0);
+    assert.equal(await page.locator(".settings-leave-dialog").count(), 0);
     assert.equal(await selectedTab(page), "general");
     await page.locator('.settings-tabs [data-tab="models"]').click();
-    await page.locator("dialog.settings-leave-dialog").getByRole("button", {name: "Discard changes"}).click();
+    await page.locator(".settings-leave-dialog").getByRole("button", {name: "Discard changes"}).click();
     await page.waitForFunction(() => document.querySelector('.settings-tabs [aria-current="page"]')?.dataset.tab === "models");
     await close();
     console.log("PASS pages: heading and description for all eleven tabs, deep links, Models layout, dirty-draft leave dialog");
@@ -787,6 +787,8 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
     await page.waitForFunction(() => [...document.querySelectorAll(".admin-result-sheet input")].some(input => input.value.startsWith("ABCD-")));
     await shown.getByRole("button", {name: "I've saved the passphrase"}).click();
     await shown.waitFor({state: "detached"});
+    // The list refreshes after the sheet closes (AdminAccounts onClose -> refresh()); counting at once raced it.
+    await body.locator('[data-export="exp_new"]').getByRole("button", {name: "Show passphrase"}).waitFor({state: "detached", timeout: 5000}).catch(() => {});
     assert.equal(await body.locator('[data-export="exp_new"]').getByRole("button", {name: "Show passphrase"}).count(), 0, "after acknowledgement the passphrase is gone");
     adminWrites.length = 0;
     await body.locator('[data-export="exp_old"]').getByRole("button", {name: "Delete export"}).click();

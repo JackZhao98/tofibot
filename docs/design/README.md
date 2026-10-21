@@ -3,7 +3,7 @@
 网页界面（`ui/src/`）的设计规范。桌面客户端（Electron）用同一份网页 UI 构建产物，所以这里的规则两端都适用，模糊效果除外（[D18](../decisions/0018-progressive-blur-scope.md)）。
 
 - 基线：`748c774`（= `v0.1.4-rc.29`，2026-10-20）。四份文件里的 `file:line` 都按这个提交写，代码改了要在同一个提交里跟着改（[`process.md` 第 10 节](../process.md)）。
-- **现状 vs 提议**：`tokens.md` 的第二部分（层级刻度、合并方案）和整份 `migration.md` 是提议，owner 点头之前不按它们改代码（[D28](../decisions/0028-headless-design-system-migration.md)）。其余内容是对现有代码的描述，可以当依据。
+- **现状 vs 提议**：owner 已对 `migration.md` 点头（Q1–Q4 的回答是 [D31](../decisions/0031-entry-budget-plan-a.md)–[D34](../decisions/0034-component-catalog-dev-only.md)），按它分步迁移。`tokens.md` 第 9 节的层级刻度已在第 1 步落地，是规范；菜单和弹出卡片已在第 2 步换成 Radix（`ui/src/overlays/`，`components.md` 第 9–12 节）；对话框在第 3 步统一到 `ui/src/overlays/ModalDialog.tsx`；手机右滑返回在第 4 步上线（`ui/src/phoneSwipe*.ts`）；`file:line` 按集成分支 `ds/integrate`；`tokens.md` 第二部分的其余合并方案仍是提议。其余内容是对现有代码的描述，可以当依据。
 - 已经在跑的硬约束仍以 [`AGENTS.md`](../../AGENTS.md) 为准：动效令牌（"Web UI motion"）、侧栏拖动（"Sidebar order and pins"）、时间线性能（"Web timeline performance"）、预览方式（"Fast UI preview against a running server"）。
 
 ## 阅读顺序
@@ -12,17 +12,18 @@
 |---|---|---|---|
 | 1 | [`principles.md`](principles.md) | 八条设计原则 P1–P8，每条有来源决定、检查方法、已知违反项；§9 冲突时的取舍顺序；§10 PR 评审清单 | 动任何界面之前 |
 | 2 | [`tokens.md`](tokens.md) | 颜色、字体、间距、圆角、描边、阴影、模糊、动效的真实取值（第一部分，带 `file:line`）；§9 z-index 现状、问题 Z1–Z7、提议的 13 层刻度和每一处的归层 | 写样式、加颜色或加层级之前 |
-| 3 | [`components.md`](components.md) | 每个组件的状态、焦点、键盘、关闭方式、位置、层级、动效、触屏；已知问题 C1–C41（§24 按严重度汇总）；§25 待确认 | 改某个组件之前，先读它那一节 |
-| 4 | [`migration.md`](migration.md) | 迁到 headless 库的分步方案：选型结论（§0）、体积实测（§2）、六步各改哪些文件、风险、owner 在预览里看哪里（§5）、要 owner 定的 Q1–Q4（§7） | 参与迁移时；当前状态是**等 owner 点头** |
+| 3 | [`components.md`](components.md) | 每个组件的状态、焦点、键盘、关闭方式、位置、层级、动效、触屏；已知问题 C1–C43（§24 按严重度汇总）；§25 待确认 | 改某个组件之前，先读它那一节 |
+| 4 | [`migration.md`](migration.md) | 迁到 headless 库的分步方案：选型结论（§0）、体积实测（§2）、六步各改哪些文件、风险、owner 在预览里看哪里（§5）、owner 对 Q1–Q4 的回答（§7） | 参与迁移时；当前状态：**六步都已完成**（第 4 步不引入 Motion、右滑返回上线自研版；第 5 步 dnd-kit 不通过、保留自研拖动引擎），合在集成分支 `ds/integrate` 上，等 owner 预览和合并进 `main`；合并后的预览清单在"集成"一节 |
+| — | 组件目录页 `ui/catalog.html`（只在开发时可用，[D34](../decisions/0034-component-catalog-dev-only.md)） | `components.md` §1–§23 的每个组件、每种状态，浅色/深色、1280/390 px、7 种语言，真组件 + 假数据；`npm --prefix ui run dev` 后打开 http://localhost:5173/catalog.html | 改组件之前先看它现在长什么样；改完对照 |
 
 ## 四份文件怎么互相引用
 
 | 编号 | 定义在 | 被谁引用 |
 |---|---|---|
 | P1–P8（原则） | `principles.md` | `components.md` 每条问题标它违反的原则 |
-| C1–C41（组件问题） | `components.md` | `principles.md` 每条原则下的"已知违反" |
+| C1–C43（组件问题） | `components.md` | `principles.md` 每条原则下的"已知违反" |
 | Z1–Z7（层级问题）、`--z-*` 刻度 | `tokens.md` §9.2、§9.3 | `components.md` 各组件的层级、`migration.md` 第 1–3 步 |
-| D01–D30（owner 决定） | [`../decisions/`](../decisions/README.md) | 全部四份 |
+| D01–D34（owner 决定） | [`../decisions/`](../decisions/README.md) | 全部四份 |
 
 ## 和设计有关的决定
 
@@ -38,6 +39,10 @@
 | [D22](../decisions/0022-preview-via-dev-remote.md) | 用 `npm run dev:remote` 预览，不为小改动发 rc |
 | [D23](../decisions/0023-no-second-cat-in-header.md) | 顶栏不放第二只猫 |
 | [D28](../decisions/0028-headless-design-system-migration.md) | 采用 headless 库、保留 TOFI 外观；先出方案，再逐步迁移并预览 |
+| [D31](../decisions/0031-entry-budget-plan-a.md) | 迁移的库全部懒加载，入口预算不动 |
+| [D32](../decisions/0032-step1-stacking-changes-accepted.md) | 接受第 1 步的层级变化，逐条预览 |
+| [D33](../decisions/0033-phone-swipe-back-experiment.md) | 手机右滑返回：自研和 Motion 各做一版对照 |
+| [D34](../decisions/0034-component-catalog-dev-only.md) | 组件目录页只在开发时可用 |
 
 ## 改设计规范时
 

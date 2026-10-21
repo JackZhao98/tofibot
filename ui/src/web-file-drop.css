@@ -1,5 +1,5 @@
 html:not([data-desktop]) .web-drop-overlay {
-  position:fixed; inset:0; z-index:1000; display:grid; place-items:center; padding:24px;
+  position:fixed; inset:0; z-index:var(--z-drag); display:grid; place-items:center; padding:24px;
   background:color-mix(in srgb,var(--bg) 48%,transparent);
   -webkit-backdrop-filter:blur(12px); backdrop-filter:blur(12px);
   color:var(--ink); opacity:0; visibility:hidden; pointer-events:none;
@@ -20,7 +20,7 @@ html:not([data-desktop]) .web-drop-arrow {
 }
 html:not([data-desktop]) .web-drop-overlay.is-dragging .web-drop-arrow { animation:web-drop-bob 900ms var(--ease-inout) infinite; }
 @keyframes web-drop-bob { 50% { transform:translateY(-6px); } }
-.web-drop-ghost { position:fixed; z-index:1000; pointer-events:none; display:inline-flex; align-items:center; gap:6px; height:32px; padding:3px 5px 3px 4px; border:1px solid var(--line-soft); border-radius:999px; background:var(--surface-2); color:var(--ink-soft); font:11px/1.4 var(--body); box-shadow:var(--hard-sm); white-space:nowrap; }
+.web-drop-ghost { position:fixed; z-index:var(--z-drag); pointer-events:none; display:inline-flex; align-items:center; gap:6px; height:32px; padding:3px 5px 3px 4px; border:1px solid var(--line-soft); border-radius:999px; background:var(--surface-2); color:var(--ink-soft); font:11px/1.4 var(--body); box-shadow:var(--hard-sm); white-space:nowrap; }
 .web-drop-ghost .composer-attachment-type { display:grid; place-items:center; min-width:24px; height:22px; border-radius:999px; background:var(--blue); color:var(--on-block); font:600 9px/1 var(--mono); }
 .web-drop-ghost .composer-attachment-name { overflow:hidden; text-overflow:ellipsis; }
 .web-drop-ghost > button { display:none; }

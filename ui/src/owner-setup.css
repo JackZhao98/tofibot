@@ -1,6 +1,6 @@
 /* First-run setup and language switch on the sign-in screens. Tokens only; light and dark follow design-tokens.css. */
 .owner-gate{position:relative}
-.auth-language{position:absolute;top:max(14px,env(safe-area-inset-top));right:max(16px,env(safe-area-inset-right));z-index:2;display:block;margin:0}
+.auth-language{position:absolute;top:max(14px,env(safe-area-inset-top));right:max(16px,env(safe-area-inset-right));z-index:var(--z-raised);display:block;margin:0}
 .owner-gate .auth-language select{width:auto;max-width:calc(100vw - 32px);min-height:40px;margin:0;padding:0 34px 0 14px;border:var(--edge) solid var(--line) !important;border-radius:var(--radius-pill);background-color:var(--surface) !important;color:var(--ink);font:600 13px/1 var(--display);box-shadow:var(--hard-sm) !important;cursor:pointer;appearance:none;-webkit-appearance:none;
   background-image:linear-gradient(45deg,transparent 50%,var(--ink) 50%),linear-gradient(135deg,var(--ink) 50%,transparent 50%);background-position:calc(100% - 18px) 17px,calc(100% - 13px) 17px;background-size:5px 5px;background-repeat:no-repeat}
 .owner-gate .auth-language select:focus-visible{outline:var(--focus-ring-width) solid var(--focus-ring);outline-offset:3px}

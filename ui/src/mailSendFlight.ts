@@ -3,6 +3,7 @@ import { SPRINGS, springEasing } from "./motion-lab/lib/spring";
 import "./mail-send-flight.css";
 import { postmarkDate, postmarkSVG } from "./postmark";
 import { EASE } from "./motion";
+import { layerRoot } from "./layers";
 
 async function finish(animation: Animation) { try { await animation.finished; } catch { /* element removed */ } }
 
@@ -13,7 +14,7 @@ export async function flyMailDraft(letter: HTMLElement): Promise<void> {
   if (rect.width < 1 || rect.height < 1) return;
   const layer = document.createElement("div");
   layer.className = "workspace mail-flight-layer";
-  Object.assign(layer.style, { position:"fixed", inset:"0", height:"100dvh", display:"block", overflow:"hidden", background:"transparent", pointerEvents:"none", zIndex:"120" });
+  Object.assign(layer.style, { position:"fixed", inset:"0", height:"100dvh", display:"block", overflow:"hidden", background:"transparent", pointerEvents:"none" });
   layer.setAttribute("aria-hidden", "true");
   const packet = document.createElement("div");
   packet.className = "mail-flight-packet";
@@ -41,7 +42,7 @@ export async function flyMailDraft(letter: HTMLElement): Promise<void> {
   const targetY = Math.max(90, Math.min(window.innerHeight - 220, rect.top + rect.height / 2 - 90));
   Object.assign(envelope.style, { left:`${targetX}px`, top:`${targetY}px`, width:`${envelopeWidth}px` });
   layer.append(packet, envelope);
-  document.body.append(layer);
+  layerRoot().append(layer);
   letter.style.visibility = "hidden";
   try {
     await finish(panels[2].animate({ transform:["rotateX(0deg)","rotateX(180deg)"] }, { duration:460, easing:EASE.inout, fill:"forwards" }));
@@ -59,7 +60,7 @@ export async function flyMailDraft(letter: HTMLElement): Promise<void> {
     inner.style.visibility = "visible";
     await finish(inner.animate({ transform:["none",`translateY(${envelopeWidth * .31}px)`] }, { duration:380, easing:EASE.in, fill:"forwards" }));
     const flap = envelope.querySelector<HTMLElement>(".mail-flight-envelope-flap")!;
-    flap.style.zIndex = "4";
+    flap.classList.add("is-front");
     await finish(flap.animate({ transform:["rotateX(180deg)","rotateX(0deg)"] }, { duration:560, easing:springEasing(SPRINGS.morph).easing, fill:"forwards" }));
     flap.style.transform = "rotateX(0deg)";
     const stamp = envelope.querySelector<HTMLElement>(".mail-flight-envelope-stamp")!;

@@ -1,6 +1,7 @@
 import { useEffect, useId, useLayoutEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { useTranslation } from "./i18n";
 import { MOTION, EASE } from "./motion";
+import "./desktop-shell.css";
 
 /** Docks the small screen in the right gutter (the viewport edge, past the message column), above the composer and its perched cat. */
 function useComposerAnchor(active: boolean) {

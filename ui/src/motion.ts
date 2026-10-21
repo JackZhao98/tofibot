@@ -10,6 +10,15 @@ export const EASE = {
   in: "cubic-bezier(.5,0,.75,0)",
 } as const;
 
+// Springs, for motion a finger hands over mid-flight (it has a velocity a fixed duration and curve cannot carry). JS only:
+// a spring is baked into keyframes at run time, so there is no CSS twin. stiffness in 1/s^2 per unit mass, damping in 1/s.
+//   push: the phone swipe-back (phoneSwipeGesture.ts) after the finger lifts. Critically damped (damping = 2 * sqrt(stiffness *
+//         mass)), so it never rings past the pane's edge. From half way at rest it is within 2 px of home after ~225 ms and
+//         within 0.5 px after ~280 ms, the tap push's base (220) and panel-in (280); a flick leaves faster, lands as soon.
+export const SPRING = {
+  push: { stiffness: 900, damping: 60, mass: 1 },
+} as const;
+
 // Arrival cascade (useConversationScroll + arrivalCascade.ts): a whole message arriving under a reader who follows the
 // bottom. The scroll lands exactly at once; the messages in view ride a visual `translate` offset that settles to 0 as a
 // spring chain: the new message first, each message further up starting STAGGER later, each overshooting its true place by

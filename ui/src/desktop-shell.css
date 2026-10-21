@@ -1,0 +1,19 @@
+/* The floating computer window's box: where it sits and what it stacks over (docs/design/tokens.md section 9).
+   Eager on purpose. FloatingDesktop mounts in the entry chunk, but desktop-presence.css rides the lazy BotDesktopPanel chunk.
+   With these rules in that chunk, a window opened before it arrived was an unstyled block in the message flow while
+   useComposerAnchor and --desktop-reserve measured it, and both kept the wrong numbers once the chunk landed. */
+.desktop-floating-shell{position:fixed;right:20px;bottom:calc(var(--composer-height,90px) + 18px);z-index:var(--z-pill);width:48px;max-height:none;overflow:visible;pointer-events:none}
+.desktop-floating-shell.is-expanded{inset:0;width:auto;max-height:none}
+.desktop-floating-shell.is-settling{transition:left var(--m-panel-in) var(--ease-settle),top var(--m-panel-in) var(--ease-settle)}
+.desktop-floating-shell:focus-visible{outline:var(--focus-ring-width) solid var(--focus-ring);outline-offset:4px;border-radius:20px}
+/* Keep the latest-message control fully visible beneath a collapsed preview. */
+.workspace:has(.jump-latest) .desktop-floating-shell:not(:has(.is-expanded)){bottom:calc(var(--composer-height,90px) + 66px)}
+@media(max-width:767px){
+  .desktop-floating-shell{right:12px;width:48px;max-height:none}
+}
+html:not([data-desktop]) .desktop-floating-shell.is-expanded {
+  inset:0; z-index:var(--z-dialog); display:grid; place-items:center; width:auto; max-height:none;
+  height:var(--viewport-height,100dvh); padding:12px; margin:0; transition:none;
+  pointer-events:auto; background:color-mix(in srgb,var(--ink) 30%,transparent);
+  -webkit-backdrop-filter:blur(6px); backdrop-filter:blur(6px);
+}

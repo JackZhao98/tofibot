@@ -2,7 +2,7 @@
    Colours, edge and shadow come from design-tokens.css; nothing here sets a fixed width on a button or label,
    so long German and French copy wraps instead of being cut. */
 
-.onb-scrim { position:fixed; inset:0; z-index:1200; display:grid; place-items:center; padding:24px 16px; box-sizing:border-box;
+.onb-scrim { position:fixed; inset:0; z-index:var(--z-dialog); display:grid; place-items:center; padding:24px 16px; box-sizing:border-box;
   background:color-mix(in srgb, var(--bg) 62%, transparent); -webkit-backdrop-filter:blur(10px); backdrop-filter:blur(10px); animation:onb-fade var(--m-base) var(--ease-out, ease-out); }
 .onb-sheet { position:relative; display:flex; flex-direction:column; width:min(680px,100%); max-height:calc(100dvh - 48px); box-sizing:border-box; min-width:0;
   background:var(--surface); color:var(--ink); border:var(--edge-bold) solid var(--line); border-radius:var(--r-lg); box-shadow:var(--hard); overflow:hidden;

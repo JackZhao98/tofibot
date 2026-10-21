@@ -2,7 +2,7 @@
    Audited by scripts/test-settings-polish.mjs: no native-looking controls, 12px floor for text, 12px card inset. */
 
 /* Controls inherit the body stack unless a component sets its own font (zero specificity on purpose). */
-:where(.settings-shell,.sheet,[data-onboarding]) :where(button,input,select,textarea){font-family:var(--body)}
+:where(.settings-shell,.sheet,[data-onboarding],.settings-leave-dialog) :where(button,input,select,textarea){font-family:var(--body)}
 :where(.settings-shell,.sheet,[data-onboarding]) :where(.settings-count,.status-badge,code){font-family:var(--mono)}
 
 /* Help text never drops below 12px. */

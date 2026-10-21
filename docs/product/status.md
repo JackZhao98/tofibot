@@ -168,7 +168,7 @@ TOFI 是一个自托管的 AI Bot 工作台：后端是 Go 服务（`internal/`�
 
 | 已知缺口 | 依据 |
 |---|---|
-| 设计系统没有统一：层级（z-index）、弹层的位置和关闭方式都是各写各的 | [D28](../decisions/0028-headless-design-system-migration.md)；规范和迁移方案见 [`docs/design/`](../design/) |
+| 设计系统没有统一：层级（z-index）、弹层的位置和关闭方式都是各写各的（`main` 上仍是这样；迁移六步已在集成分支 `ds/integrate` 上完成，等 owner 预览后合并，见 [`roadmap.md`](roadmap.md) 第 2 节） | [D28](../decisions/0028-headless-design-system-migration.md)；规范和迁移方案见 [`docs/design/`](../design/) |
 | “顶栏不再放第二只猫”（[D23](../decisions/0023-no-second-cat-in-header.md)）落在哪个提交：**待确认** | `git log` 里没找到对应的提交说明 |
 
 ### 4.9 安装和更新

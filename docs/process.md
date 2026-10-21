@@ -128,9 +128,13 @@ done
 | 输入框 | `test:composer-typing`（D02：起因是每键 37 ms、66 次排版） |
 | 侧栏排序和置顶 | `test:sidebar-pins` |
 | 外壳首屏 | `test:shell-budget` |
+| 菜单、弹出卡片、层级 | `test:overlays`（含 `OVERLAYS_ENGINE=webkit`）、`test:layers` |
+| 加了组件或组件状态、改了组件的 CSS 选择器或 DOM 结构 | `test:catalog`（组件目录页每个状态都还能打开、弹层在最上面、键盘能关；正式构建里仍没有目录页） |
+| 手机推入、右滑返回 | `test:swipe-back` 和 `SWIPE_BACK_ENGINE=webkit npm --prefix ui run test:swipe-back`，加 `test:shell-budget`（第 3 节是点按推入） |
 | Safari 相关 | `test:chat-safari` |
 | 设置页、自动行为 | `test:settings-shell`、`test:settings-polish`、`test:automation-settings` |
 | 问题卡、交接卡、常驻授权卡 | `test:question-poll`、`test:handover-cards`、`test:standing-allowance` |
+| 对话框、层级，或改了任何 `@radix-ui/*` 的版本 | `test:dialogs`（`ModalDialog` 的契约、Radix 不进入口包、菜单和对话框共用一份 Radix 底层）、`test:overlays`、`test:layers` |
 
 D02：UI 改动必须量交互开销，预算由测试守住。新做的高频交互要么进已有预算测试，要么新加一个。
 
@@ -214,6 +218,8 @@ TOFI_EVAL_KEY_FILE=<密钥文件路径> TOFI_EVAL_ANTHROPIC_WORKSPACE=<workspace
 ## 6. UI 预览（不发 rc）
 
 D22：小的 UI 改动用开发服务器连真实服务器预览，不为每个小改动打一个 rc。
+
+只看组件、不需要真实数据时，用组件目录页（D34，只在开发时可用）：`cd ui && npm run dev`，打开 http://localhost:5173/catalog.html 。每个组件的每种状态都是真组件配假数据，切浅色/深色、1280/390 px、7 种语言；页面不调用 `/api`，所以 `dev:remote` 下打开也碰不到服务器。
 
 ```sh
 cd ui

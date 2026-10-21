@@ -4,7 +4,7 @@
 
 日期统一用美国太平洋时间（PDT）。
 
-- D24–D29 的日期在整理时记为 10-21，但对应的提交和 GitHub 时间戳换算成 PDT 是 2026-10-20 晚上。已有提交的条目在各自文件里写明了提交时间。哪个日期为准待确认。
+- D24–D29 的日期在整理时记为 10-21，但对应的提交和 GitHub 时间戳换算成 PDT 是 2026-10-20 晚上。已有提交的条目在各自文件里写明了提交时间。哪个日期为准待确认。D31–D34 同样：协调者转述的日期是 10-21，落地提交在 10-20 晚上（PDT）。
 - 文件里写“待确认”的地方，是仓库里找不到证据的内容，不是推测。
 
 ## 全部决定
@@ -41,6 +41,11 @@
 | D28 | headless 设计系统迁移 | 2026-10-21 | 候选 Radix、Motion、dnd-kit，保留 TOFI 的外观；先出方案，再带预览一步步迁移 | [0028](0028-headless-design-system-migration.md) |
 | D29 | 改账户密码不急 | 2026-10-21 | 暂缓 | [0029](0029-password-change-not-urgent.md) |
 | D30 | 长期操作规则 | 长期 | 正式版标签先问 owner；部署前查正在跑的 run；生产操作只由协调者做；不碰密钥；绿不绿看退出码；修复配上回退就会失败的测试；放宽安全的改动先做对抗性审查 | [0030](0030-standing-operating-rules.md) |
+| D31 | 迁移的体积方案：方案 A | 2026-10-21 | 库全部懒加载，入口预算 315,805 B 不动；搬出入口包的弹层代码支付懒加载桩 | [0031](0031-entry-budget-plan-a.md) |
+| D32 | 接受第 1 步的层级变化 | 2026-10-21 | 层级刻度带来的先后顺序变化都接受，每一处列出来给 owner 在预览里看 | [0032](0032-step1-stacking-changes-accepted.md) |
+| D33 | 手机右滑返回手势 | 2026-10-21 | 要做：手指把对话往右拖回列表；做成有门槛的实验，自研和 Motion 各一版，留好的 | [0033](0033-phone-swipe-back-experiment.md) |
+| D34 | 组件目录页只在开发时可用 | 2026-10-21 | 目录页不进正式版构建 | [0034](0034-component-catalog-dev-only.md) |
+| D35 | 第 4 步结果：不引入 Motion，右滑返回用自研版 | 2026-10-21 | 级联、点按推入、布局过渡保留现有代码；右滑返回上线 Pointer Events + Web Animations 版（Motion 版懒加载块大 22 KB、接住时会跳）；等 owner 预览 | [0035](0035-step4-motion-experiment-result.md) |
 | D36 | 聊天上传的文件放进 Bot 的电脑 | 2026-10-21 | 用户消息的附件复制到 `/workspace/home/uploads/<对话 id>/`；懒复制、幂等、可见性同 `read_attachment`；复用文件通道反向（`files.import_chunk`） | [0036](0036-chat-uploads-on-the-computer.md) |
 | D37 | Bot 电脑预装办公工具，只预装英文 | 2026-10-21 | LibreOffice、tesseract（英文）、poppler、pandoc、Python 办公库进镜像；其他语言的数据和字体由 Bot 取到用户目录（`TESSDATA_PREFIX`、`~/.local/share/fonts`）；matplotlib 不改默认字体 | [0037](0037-english-only-office-tooling.md) |
 | D38 | 瞬时错误先重试，失败的运行不丢已发布的文件 | 2026-10-21 | 流内过载、限流、5xx、断流按错误码有界重试（约 2 分钟，服从 `Retry-After`）；运行失败时已发布的文件绑定到一条只带附件的消息上，链接仍可打开 | [0038](0038-failed-runs-keep-published-files.md) |
