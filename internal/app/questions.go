@@ -8,7 +8,9 @@ package app
 
 import (
 	"context"
+	"crypto/sha256"
 	"database/sql"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -163,6 +165,9 @@ type QuestionCard struct {
 	Status         string               `json:"status"`
 	ExpiresAt      string               `json:"expires_at,omitempty"`
 	Target         string               `json:"target,omitempty"`
+	// DetailOmitted marks a compact list row: approval payload and facts were
+	// left out and are served by GET /api/questions/{id}.
+	DetailOmitted bool `json:"detail_omitted,omitempty"`
 }
 
 type askQuestionInput struct {
@@ -620,6 +625,66 @@ func (s *Store) ListQuestions(conv string) ([]Question, error) {
 	return out, nil
 }
 
+// Settled-question bounds for the list endpoint: a caller that names the start
+// of its loaded history gets every settled question since then (capped); one
+// that does not gets only the most recent few.
+const (
+	questionListRecent = 50
+	questionListCap    = 200
+)
+
+// Compact is the list row for a settled question. Pending questions and
+// renewable expired approvals stay whole because their card is still live.
+// Approval payload and facts (the large parts) are left out and fetched on
+// demand; everything a collapsed card or record renders stays.
+func (q Question) Compact() QuestionCard {
+	card := q.Card()
+	if q.Status == questionPending || (q.Type == questionApproval && q.Status == questionExpired) || card.Approval == nil {
+		return card
+	}
+	if card.Approval.Payload == "" && card.Approval.Facts == nil {
+		return card
+	}
+	trimmed := *card.Approval
+	trimmed.Payload, trimmed.Facts = "", nil
+	card.Approval, card.DetailOmitted = &trimmed, true
+	return card
+}
+
+// ListQuestionsWindow returns every pending question plus the settled ones
+// created at or after since (at most questionListCap), or the most recent
+// questionListRecent settled ones when since is empty. Newest first.
+func (s *Store) ListQuestionsWindow(conv, since string) ([]Question, error) {
+	limit, floor := questionListRecent, ""
+	if since != "" {
+		limit, floor = questionListCap, since
+	}
+	rows, err := s.db.Query(`SELECT `+questionColumns+` FROM questions WHERE conversation_id=?1 AND (status=?2 OR id IN (SELECT id FROM questions WHERE conversation_id=?1 AND status<>?2 AND created_at>=?3 ORDER BY created_at DESC,id DESC LIMIT ?4)) ORDER BY created_at DESC,id DESC`, conv, questionPending, floor, limit)
+	if err != nil {
+		return nil, err
+	}
+	var out []Question
+	for rows.Next() {
+		q, e := scanQuestion(rows)
+		if e != nil {
+			rows.Close()
+			return nil, e
+		}
+		out = append(out, q)
+	}
+	err = rows.Err()
+	rows.Close()
+	if err != nil {
+		return nil, err
+	}
+	for i := range out {
+		if out[i].Type == questionApproval && out[i].Status == questionExpired {
+			_ = s.db.QueryRow(`SELECT EXISTS(SELECT 1 FROM run_input_waits w JOIN runs r ON r.id=w.run_id WHERE w.question_id=? AND w.state='waiting' AND r.status='waiting')`, out[i].ID).Scan(&out[i].Resumable)
+		}
+	}
+	return out, nil
+}
+
 func (s *Store) CancelQuestion(id string) (Question, error) {
 	res, err := s.db.Exec(`UPDATE questions SET status=?,updated_at=? WHERE id=? AND status=?`, questionCancelled, now(), id, questionPending)
 	if err != nil {
@@ -653,16 +718,42 @@ func (s *Server) routeQuestions(w http.ResponseWriter, r *http.Request, p string
 			writeErr(w, 400, "invalid_request", "conversation_id is required")
 			return true
 		}
-		qs, err := s.store.ListQuestions(conv)
+		since := strings.TrimSpace(r.URL.Query().Get("since"))
+		if since != "" {
+			t, e := time.Parse(time.RFC3339Nano, since)
+			if e != nil {
+				writeErr(w, 400, "invalid_request", "since must be an RFC 3339 time")
+				return true
+			}
+			// Stored stamps differ in fraction width and compare as text, so leave a margin.
+			since = stampTime(t.Add(-2 * time.Second))
+		}
+		qs, err := s.store.ListQuestionsWindow(conv, since)
 		if err != nil {
 			writeErr(w, 500, "storage", err.Error())
 			return true
 		}
 		cards := make([]QuestionCard, 0, len(qs))
 		for _, q := range qs {
-			cards = append(cards, q.Card())
+			cards = append(cards, q.Compact())
 		}
-		writeJSON(w, 200, map[string]any{"questions": cards})
+		body, err := json.Marshal(map[string]any{"questions": cards})
+		if err != nil {
+			writeErr(w, 500, "storage", err.Error())
+			return true
+		}
+		// An unchanged list costs a 304: the client revalidates on every poll.
+		sum := sha256.Sum256(body)
+		etag := `"q-` + hex.EncodeToString(sum[:12]) + `"`
+		w.Header().Set("ETag", etag)
+		w.Header().Set("Cache-Control", "private, no-cache")
+		if etagMatches(r.Header.Get("If-None-Match"), etag) {
+			w.WriteHeader(http.StatusNotModified)
+			return true
+		}
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write(append(body, '\n'))
 		return true
 	}
 	parts := strings.Split(strings.TrimPrefix(p, "questions/"), "/")
@@ -671,6 +762,20 @@ func (s *Server) routeQuestions(w http.ResponseWriter, r *http.Request, p string
 		return true
 	}
 	id := parts[0]
+	if len(parts) == 1 && r.Method == http.MethodGet {
+		// Full detail of one question: what the compact list row left out.
+		q, err := s.store.GetQuestion(id)
+		if errors.Is(err, sql.ErrNoRows) {
+			writeErr(w, 404, "not_found", "question not found")
+			return true
+		}
+		if err != nil {
+			writeErr(w, 500, "storage", err.Error())
+			return true
+		}
+		writeJSON(w, 200, map[string]any{"question": q.Card()})
+		return true
+	}
 	if len(parts) == 2 && parts[1] == "renew" && r.Method == http.MethodPost {
 		q, err := s.store.RenewExpiredApproval(id)
 		if err != nil {
@@ -816,6 +921,16 @@ func (s *Server) routeQuestions(w http.ResponseWriter, r *http.Request, p string
 	}
 	writeErr(w, 405, "method_not_allowed", "unsupported question operation")
 	return true
+}
+
+func etagMatches(header, etag string) bool {
+	for _, candidate := range strings.Split(header, ",") {
+		candidate = strings.TrimSpace(candidate)
+		if candidate == "*" || strings.TrimPrefix(candidate, "W/") == etag {
+			return true
+		}
+	}
+	return false
 }
 
 func decodeQuestionAnswer(r *http.Request, dst any) error {

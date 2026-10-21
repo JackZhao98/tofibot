@@ -210,6 +210,7 @@
       "unknown": "Not rated"
     },
     "view_full_arguments": "View full arguments",
+    "detail_unavailable": "Details could not be loaded.",
     "proposal_ended": "This proposal ended.",
     "view_decision": "View decision record",
     "remembered_decision": "Approved by a remembered approval from this chat; no one was asked. The step below shows whether it ran.",

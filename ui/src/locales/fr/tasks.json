@@ -211,6 +211,7 @@
       "unknown": "Non évalué"
     },
     "view_full_arguments": "Voir tous les arguments",
+    "detail_unavailable": "Impossible de charger les détails.",
     "proposal_ended": "Cette proposition est close.",
     "view_decision": "Voir l’historique de la décision",
     "remembered_decision": "Autorisé par une approbation mémorisée dans cette discussion ; personne n'a été sollicité. L'étape ci-dessous indique si l'appel a eu lieu.",
