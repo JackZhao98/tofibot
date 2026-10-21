@@ -209,6 +209,7 @@
       "unknown": "未評級"
     },
     "view_full_arguments": "查看完整參數",
+    "detail_unavailable": "無法載入詳情。",
     "proposal_ended": "此提案已結束。",
     "view_decision": "查看決定紀錄",
     "remembered_decision": "由本對話中記住的核准放行，未詢問任何人。下方步驟顯示是否已執行。",

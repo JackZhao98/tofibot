@@ -1334,7 +1334,9 @@ function Workspace() {
   const scheduleMetadata = metadataRead.items;
   /** A scheduled card whose occurrence data has not arrived yet draws a blank ticket instead of placeholder status text. */
   const scheduleCardPending = (runId?: string) => Boolean(runId) && !(occurrenceRead.ready && metadataRead.ready) && !scheduleOccurrences.has(runId!);
-  const questions = useQuestions(activeId);
+  // Settled questions older than the loaded message window are not drawn, so they are not requested.
+  const questionsSince = useMemo(() => { const first = messageRecords.find(message => !message.local); return first && first.conversation_id === activeId ? first.created_at : undefined; }, [messageRecords, activeId]);
+  const questions = useQuestions(activeId, questionsSince);
   const mailDrafts = useMailDrafts(activeId);
   const taskOwners = useMemo(() => buildTaskOwners(runs, messageRecords, questions.items, mailDrafts.items), [runs, messageRecords, questions.items, mailDrafts.items]);
   const ownedRunIDs = useMemo(() => new Set(taskOwners.flatMap(owner => owner.family.attempts.map(run => run.id))), [taskOwners]);

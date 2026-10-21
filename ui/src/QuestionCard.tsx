@@ -18,6 +18,7 @@ import "./question-card.css";
 import { intlLocale } from "./i18n/format";
 import { sameData } from "./sameData";
 import { ConnectionCard, TakeoverCard } from "./HandoverCards";
+import { useQuestionDetail } from "./useQuestions";
 
 function answerLabel(item: Question) {
   const t = i18n.getFixedT(null, "tasks");
@@ -57,7 +58,18 @@ function BinaryQuestionCard({ item, bot, group, archived, onChanged }: QuestionC
     if (restoreFocus.current) { record.current?.focus(); restoreFocus.current = false; }
     return () => { restoreFocus.current = Boolean(record.current?.contains(document.activeElement)); };
   }, [current.status, current.approval?.review?.status]);
-  const approval = current.question_type === "approval" ? current.approval : undefined;
+  // A settled card shown whole (archived chat) needs the payload and facts the list row left out; fetched once it is on screen.
+  const [seen, setSeen] = useState(false);
+  useEffect(() => {
+    const node = record.current;
+    if (seen || !archived || !current.detail_omitted || !node) return;
+    if (typeof IntersectionObserver === "undefined") { setSeen(true); return; }
+    const observer = new IntersectionObserver(entries => { if (entries.some(entry => entry.isIntersecting)) { setSeen(true); observer.disconnect(); } });
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, [seen, archived, current.detail_omitted]);
+  const { question: detailed, failed: detailFailed } = useQuestionDetail(current, seen && current.question_type === "approval");
+  const approval = current.question_type === "approval" ? detailed.approval : undefined;
   const review = approval?.review;
   const reviewPresentation = autoReviewPresentation(current);
   const reviewOnly = approval?.review_only === true;
@@ -108,7 +120,7 @@ function BinaryQuestionCard({ item, bot, group, archived, onChanged }: QuestionC
       acceptLabel={approval ? approval.approve_label || t("question.approve") : t("question.yes")} declineLabel={approval ? approval.deny_label || t("question.decline") : t("question.no")} onAnswer={value => void answer(value)} busy={busy} disabled={!answerable}
       onRemember={rememberOffer && answerable ? () => void answer(true, true) : undefined} rememberHint={rememberOffer ? rememberOffer.kind === "identifier" && rememberOffer.target ? t("question.remember.hint_identifier", { target: rememberOffer.target }) : t("question.remember.hint_exact") : undefined}
       secondaryAction={answerable && <><button type="button" disabled={Boolean(busy)} onClick={() => void answer(null)}>{busy === "cancel" ? t("question.cancelling") : approval ? t("question.cancel_proposal") : t("question.cancel_question")}</button>{approval?.draft_id && <button type="button" onClick={() => { const node = [...document.querySelectorAll<HTMLElement>("[data-draft-id]")].find(element => element.dataset.draftId === approval.draft_id); node?.scrollIntoView({ behavior:"smooth", block:"center" }); }} >{t("question.view_draft")}</button>}</>}
-      note={reviewInProgress ? t("question.note.reviewing") : reviewOnly ? t("question.note.observation") : archived ? t("question.note.archived") : reviewBlocked ? t("question.note.blocked") : approval ? t("question.not_executed_yet") : undefined} error={error}
+      note={reviewInProgress ? t("question.note.reviewing") : reviewOnly ? t("question.note.observation") : archived ? t("question.note.archived") : reviewBlocked ? t("question.note.blocked") : approval ? t("question.not_executed_yet") : undefined} error={error || (detailFailed ? t("record.detail_unavailable") : "")}
       resolution={reviewInProgress ? {label:t("question.resolution.reviewing"),accepted:false} : reviewOnly ? {label:t("question.resolution.observation"), accepted:false} : reviewBlocked && (current.status === "pending" || review?.policy_version?.startsWith("mcp-all-external-v")) ? {label:reviewPresentation?.label ?? t("review.label.not_executable"), accepted:false} : current.status === "pending" ? undefined : { label:current.status === "answered" ? autoApproved ? t("question.resolution.auto_approved") : remembered ? t("question.resolution.remembered") : approval ? t("question.resolution.human_decided") : t("status.answered") : current.status === "expired" ? t("status.expired") : current.status === "run_done" ? t("question.resolution.run_done") : t("status.cancelled"), answer:current.status === "answered" ? approval ? current.answer === true ? approval.approve_label || t("question.resolution.approved") : approval.deny_label || t("status.approval_denied") : answerLabel(current) : undefined, accepted:current.status === "answered" && current.answer === true }} />
 
 
