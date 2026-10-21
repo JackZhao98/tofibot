@@ -105,6 +105,16 @@ func (a *anthropicProvider) ChatStream(ctx context.Context, req *ChatRequest, on
 		req = &plain
 	}
 	resp, err := a.stream(ctx, req, forward)
+	if err != nil && !forwarded && isAnthropicServerToolPairingError(err) {
+		// A replayed server tool block lost its pair somewhere upstream: send
+		// the history once more with every server tool block and the citations
+		// that point at them removed, instead of failing the turn.
+		log.Printf("[anthropic] unpaired server tool block in history (%s); retrying once without replayed server tool blocks", strings.TrimSpace(err.Error()))
+		stripped := *req
+		stripped.Messages = stripServerToolBlocks(req.Messages)
+		req = &stripped
+		resp, err = a.stream(ctx, req, forward)
+	}
 	// An account that has not enabled a server tool (an organization setting)
 	// or a model that refuses it gets the request again without that tool,
 	// and the refusal is remembered for this credential: a turn is never lost
@@ -570,7 +580,7 @@ func anthropicAssistantBlocks(msg Message, replay bool) ([]any, bool) {
 	var blocks []any
 	usedReplay := false
 	if replay {
-		if raw := anthropicReplayBlocks(msg.ReasoningItems); len(raw) > 0 {
+		if raw := pairServerToolBlocks(anthropicReplayBlocks(msg.ReasoningItems)); len(raw) > 0 {
 			if replayMatches(raw, msg) {
 				out := make([]any, len(raw))
 				for i, b := range raw {
@@ -711,15 +721,63 @@ func (a *anthropicProvider) webSearchRefused() bool {
 	return refused
 }
 
-// isAnthropicWebSearchRejection matches a 400/403 that names the web search
-// tool: not enabled for the organization, or not offered to the model.
+// isAnthropicWebSearchRejection matches the API saying this credential,
+// organization or model cannot use the web search tool. A 400 that merely
+// names the tool because the request was malformed (a replayed history with an
+// unpaired server tool block) is not a refusal and never disables search.
 func isAnthropicWebSearchRejection(err error) bool {
+	return isServerToolRefusal(err, "web_search", "web search")
+}
+
+// isServerToolRefusal is true for a 400/403 whose message both names the tool
+// and says the capability is unavailable (not enabled, not permitted, not
+// supported, disabled). A message about the shape of the request (a position
+// such as "messages.7", a missing or unpaired block) is never a refusal.
+func isServerToolRefusal(err error, names ...string) bool {
 	apiErr, ok := AsAPIError(err)
 	if !ok || (apiErr.StatusCode != 400 && apiErr.StatusCode != 403) {
 		return false
 	}
 	body := strings.ToLower(apiErr.Body)
-	return strings.Contains(body, "web_search") || strings.Contains(body, "web search")
+	named := false
+	for _, n := range names {
+		if strings.Contains(body, n) {
+			named = true
+		}
+	}
+	if !named || isMalformedRequestBody(body) {
+		return false
+	}
+	for _, phrase := range []string{"not enabled", "isn't enabled", "is not available", "not available", "not supported", "unsupported", "not permitted", "not allowed", "disabled", "does not support", "doesn't support", "has not been enabled", "permission"} {
+		if strings.Contains(body, phrase) {
+			return true
+		}
+	}
+	return false
+}
+
+// isMalformedRequestBody recognises an error about the structure of the
+// request: it points at a message position or at a block lacking its pair.
+func isMalformedRequestBody(body string) bool {
+	if strings.Contains(body, "messages.") || strings.Contains(body, "without a corresponding") ||
+		strings.Contains(body, "tool_use_id") || strings.Contains(body, "tool_result") || strings.Contains(body, "tool_use ") {
+		return true
+	}
+	return false
+}
+
+// isAnthropicServerToolPairingError matches the 400 for a replayed server tool
+// use block with no matching result (or a result with no use).
+func isAnthropicServerToolPairingError(err error) bool {
+	apiErr, ok := AsAPIError(err)
+	if !ok || apiErr.StatusCode != 400 {
+		return false
+	}
+	body := strings.ToLower(apiErr.Body)
+	if !strings.Contains(body, "without a corresponding") && !strings.Contains(body, "without a matching") {
+		return false
+	}
+	return strings.Contains(body, "web_search") || strings.Contains(body, "web_fetch") || strings.Contains(body, "server_tool_use") || strings.Contains(body, "_tool_result")
 }
 
 // anthropicWebFetchRefused remembers credentials whose requests the API
@@ -731,15 +789,9 @@ func (a *anthropicProvider) webFetchRefused() bool {
 	return refused
 }
 
-// isAnthropicWebFetchRejection matches a 400/403 that names the web fetch
-// tool: not enabled for the organization, or not offered to the model.
+// isAnthropicWebFetchRejection is isAnthropicWebSearchRejection for fetch.
 func isAnthropicWebFetchRejection(err error) bool {
-	apiErr, ok := AsAPIError(err)
-	if !ok || (apiErr.StatusCode != 400 && apiErr.StatusCode != 403) {
-		return false
-	}
-	body := strings.ToLower(apiErr.Body)
-	return strings.Contains(body, "web_fetch") || strings.Contains(body, "web fetch")
+	return isServerToolRefusal(err, "web_fetch", "web fetch")
 }
 
 // anthropicAnyRefused remembers models whose API refused tool_choice any, so
@@ -1196,4 +1248,117 @@ func startInput(start json.RawMessage) string {
 		return string(cb.Input)
 	}
 	return "{}"
+}
+
+// serverToolResultType is true for the result block of a server-side tool
+// (web_search_tool_result, web_fetch_tool_result, code execution results...),
+// never for the client tool_result.
+func serverToolResultType(t string) bool {
+	return t != "tool_result" && strings.HasSuffix(t, "_tool_result")
+}
+
+// pairServerToolBlocks makes the server tool blocks of one replayed assistant
+// turn travel together: a server_tool_use is kept only with its result, and a
+// result only with its use. When a block is dropped, the citations on the
+// turn's text are dropped too, since they point into those results. A turn
+// whose server blocks are all paired comes back untouched.
+func pairServerToolBlocks(raw []json.RawMessage) []json.RawMessage {
+	uses, results := map[string]bool{}, map[string]bool{}
+	type head struct {
+		Type      string `json:"type"`
+		ID        string `json:"id"`
+		ToolUseID string `json:"tool_use_id"`
+	}
+	heads := make([]head, len(raw))
+	for i, b := range raw {
+		if json.Unmarshal(b, &heads[i]) != nil {
+			continue
+		}
+		switch {
+		case heads[i].Type == "server_tool_use":
+			uses[heads[i].ID] = true
+		case serverToolResultType(heads[i].Type):
+			results[heads[i].ToolUseID] = true
+		}
+	}
+	dropped := false
+	keep := make([]bool, len(raw))
+	for i, h := range heads {
+		keep[i] = true
+		switch {
+		case h.Type == "server_tool_use" && !results[h.ID]:
+			keep[i], dropped = false, true
+		case serverToolResultType(h.Type) && !uses[h.ToolUseID]:
+			keep[i], dropped = false, true
+		}
+	}
+	if !dropped {
+		return raw
+	}
+	out := make([]json.RawMessage, 0, len(raw))
+	for i, b := range raw {
+		if keep[i] {
+			out = append(out, stripCitations(b))
+		}
+	}
+	return out
+}
+
+// stripCitations removes the citations of a text block; other blocks pass.
+func stripCitations(b json.RawMessage) json.RawMessage {
+	if blockType(b) != "text" {
+		return b
+	}
+	var m map[string]json.RawMessage
+	if json.Unmarshal(b, &m) != nil {
+		return b
+	}
+	if _, ok := m["citations"]; !ok {
+		return b
+	}
+	delete(m, "citations")
+	if out, err := json.Marshal(m); err == nil {
+		return out
+	}
+	return b
+}
+
+// stripServerToolBlocks returns messages whose replayed Anthropic turns carry
+// no server tool blocks at all (and no citations), keeping the thinking, text
+// and client tool_use blocks.
+func stripServerToolBlocks(msgs []Message) []Message {
+	out := make([]Message, len(msgs))
+	copy(out, msgs)
+	for i := range out {
+		items := make([]ReasoningItem, len(out[i].ReasoningItems))
+		copy(items, out[i].ReasoningItems)
+		for j, item := range items {
+			if item.Provider != anthropicReasoningSource || len(item.Content) == 0 {
+				continue
+			}
+			var raw []json.RawMessage
+			if json.Unmarshal(item.Content, &raw) != nil {
+				continue
+			}
+			kept, changed := make([]json.RawMessage, 0, len(raw)), false
+			for _, b := range raw {
+				if t := blockType(b); t == "server_tool_use" || serverToolResultType(t) {
+					changed = true
+					continue
+				}
+				kept = append(kept, b)
+			}
+			if !changed {
+				continue
+			}
+			for k := range kept {
+				kept[k] = stripCitations(kept[k])
+			}
+			if content, err := json.Marshal(kept); err == nil {
+				items[j].Content = content
+			}
+		}
+		out[i].ReasoningItems = items
+	}
+	return out
 }
