@@ -26,7 +26,6 @@
     "created_by_user": "Von dir erstellt",
     "created_by_bot": "Vom Assistenten erstellt",
     "occurrence": "Lauf Nr. {{number}}",
-    "planned_unknown": "Unbestätigt",
     "planned_description": "Geplant für {{date}} {{time}} · {{zone}}",
     "planned_description_unknown": "Geplante Zeit unbestätigt",
     "triggered_on": "Geplanter Lauf · {{date}}",

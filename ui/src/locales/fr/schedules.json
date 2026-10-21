@@ -30,7 +30,6 @@
     "created_by_user": "Créée par vous",
     "created_by_bot": "Créée par l’assistant",
     "occurrence": "Exécution n° {{number}}",
-    "planned_unknown": "Non confirmé",
     "planned_description": "Prévue le {{date}} à {{time}} · {{zone}}",
     "planned_description_unknown": "Heure prévue non confirmée",
     "triggered_on": "Exécution planifiée · {{date}}",

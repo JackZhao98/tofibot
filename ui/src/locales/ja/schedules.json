@@ -22,7 +22,6 @@
     "created_by_user": "あなたが作成",
     "created_by_bot": "アシスタントが作成",
     "occurrence": "第{{number}}回",
-    "planned_unknown": "未確定",
     "planned_description": "予定：{{date}} {{time}} · {{zone}}",
     "planned_description_unknown": "予定時刻は未確定",
     "triggered_on": "定期実行 · {{date}}",

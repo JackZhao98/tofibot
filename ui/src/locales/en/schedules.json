@@ -26,7 +26,6 @@
     "created_by_user": "Created by you",
     "created_by_bot": "Created by the assistant",
     "occurrence": "Run #{{number}}",
-    "planned_unknown": "Unconfirmed",
     "planned_description": "Scheduled for {{date}} {{time}} · {{zone}}",
     "planned_description_unknown": "Scheduled time unconfirmed",
     "triggered_on": "Scheduled run · {{date}}",

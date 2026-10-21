@@ -55,7 +55,8 @@ export function scheduledRunMetadata(message: Message, run?: Run, occurrence?: S
   return {
     ...display,
     plannedAt,
-    plannedTime: plannedAt ? time(plannedAt) : t("run.planned_unknown"),
+    // The stub column is one time wide: an unknown planned time keeps that shape; the description says why.
+    plannedTime: plannedAt ? time(plannedAt) : "--:--",
     plannedTimeDescription: plannedAt ? t("run.planned_description", { date: date(plannedAt), time: time(plannedAt), zone: displayTimezone }) : t("run.planned_description_unknown"),
     metadata: [recurrence ? scheduleZone ? t("run.with_zone", { recurrence, zone: scheduleZone }) : recurrence : plannedAt ? t("run.triggered_on", { date: date(plannedAt) }) : t("run.metadata_fallback"), occurrenceLabel, creatorLabel, createdAt ? t("run.created_on", { date: date(createdAt) }) : ""].filter(Boolean).join(" · "),
     metadataDescription: recurrence ? t("run.metadata_snapshot") : t("run.metadata_no_snapshot"),
