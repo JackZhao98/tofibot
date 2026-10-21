@@ -8,7 +8,8 @@
 //  4. Browser (Chromium, production build, synthetic data): #tofi-layers is not a stacking context; a real hover hint lands
 //     in it and is topmost at its centre; overlays stacked on one point paint in the order of the scale (drag > tooltip >
 //     toast > form sheet > dialogs > cover > menu > popover > panel > pill > chrome > edge blur); and no element with a
-//     local (non-layer) z-index competes in the root stacking context except the phone push pair.
+//     local (non-layer) z-index competes in the root stacking context except the phone push pair (checked with the
+//     new-message pill on screen).
 // Usage: PLAYWRIGHT_MODULE=/abs/path/playwright/index.mjs npm run test:layers [-- --update-baseline] [-- --static-only]
 import { execSync } from "node:child_process";
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
@@ -19,7 +20,7 @@ const ui = dirname(dirname(fileURLToPath(import.meta.url)));
 const src = join(ui, "src");
 const baselinePath = join(ui, "scripts", "layers-baseline.json");
 const flag = name => process.argv.includes(name);
-const tracked = pattern => execSync(`git ls-files '${pattern}'`, { cwd: src }).toString().trim().split("\n").filter(Boolean);
+const tracked = pattern => execSync(`git ls-files '${pattern}'`, { cwd: src }).toString().trim().split("\n").filter(file => file && existsSync(join(src, file)));
 const skip = file => file.startsWith("motion-lab/") || file.startsWith("lib/tofi-avatar/") || file.includes("acceptance") || file.startsWith("locales/");
 const failures = [];
 const fail = message => failures.push(message);
@@ -35,7 +36,7 @@ for (const [name, value] of Object.entries(SCALE)) {
   if (found.length !== 1 || found[0][1] !== value) fail(`design-tokens.css: --z-${name} must be defined once as ${value} (found ${found.map(f => f[1]).join(", ") || "none"})`);
 }
 for (const [name] of defined) if (!(name in SCALE)) fail(`design-tokens.css: --z-${name} is not in the layer scale (docs/design/tokens.md §9.3)`);
-const mirror = readFileSync(join(src, "layers.ts"), "utf8");
+const mirror = existsSync(join(src, "layers.ts")) ? readFileSync(join(src, "layers.ts"), "utf8") : (fail("src/layers.ts is missing: it mirrors the scale as Z and owns layerRoot()"), "");
 for (const [name, value] of Object.entries(SCALE)) {
   const found = new RegExp(`\\b${camel(name)}:\\s*(-?\\d+)`).exec(mirror);
   if (!found || Number(found[1]) !== value) fail(`layers.ts: Z.${camel(name)} must be ${value}`);
@@ -202,6 +203,12 @@ const LOCAL_IN_ROOT_ALLOWED = [
 for (const viewport of [{ width: 1280, height: 820 }, { width: 1000, height: 820 }, { width: 390, height: 844 }]) {
   await check(`${viewport.width}px: no local z-index competes in the root stacking context`, async () => {
     const { page, context, errors } = await fixture.open({ viewport });
+    // Bring up the new-message pill too: scroll away from the latest message, then let one arrive.
+    await page.locator(".message-scroll").hover();
+    await page.mouse.wheel(0, -700);
+    await page.waitForTimeout(500);
+    await page.evaluate(({ WHOLE, at }) => window.__emit("message", { id: "m_layers", conversation_id: "dm_a", seq: 41, role: "assistant", sender_bot_id: "bot_a", run_id: "run_layers", content: WHOLE, created_at: at }), { WHOLE: fixture.WHOLE, at: fixture.iso(41 * 20) });
+    await page.locator(".jump-latest").waitFor({ timeout: 5000 });
     const leaks = await page.evaluate(SCALE => {
       const layerValues = new Set(Object.values(SCALE).flatMap(v => [v - 1, v, v + 1]));
       const isSC = el => {
