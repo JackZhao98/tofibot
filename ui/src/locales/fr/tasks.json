@@ -301,7 +301,7 @@
       "stale": "Approuvé, mais non mémorisé : l'outil ou ses réglages ont changé."
     },
     "always_allow": {
-      "hint": "« Toujours autoriser » permet à {{bot}} d'utiliser {{tool}} sur {{server}} sans demander, y compris dans les exécutions planifiées, jusqu'à ce que vous le révoquiez dans les réglages.",
+      "hint": "« Toujours autoriser » permet à {{bot}} d'utiliser {{tool}} sur {{server}} sans demander, y compris lorsqu'il travaille seul (par exemple selon un planning, sans personne présent), jusqu'à ce que vous le révoquiez dans les réglages.",
       "stale": "Approuvé, mais non enregistré comme toujours autorisé : l'outil ou son serveur a changé."
     }
   },

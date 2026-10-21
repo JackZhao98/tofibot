@@ -299,7 +299,7 @@
       "stale": "Genehmigt, aber nicht gemerkt: Das Tool oder seine Einstellungen haben sich geändert."
     },
     "always_allow": {
-      "hint": "Mit „Immer erlauben“ darf {{bot}} {{tool}} auf {{server}} ohne Rückfrage nutzen, auch in geplanten Läufen, bis du die Freigabe in den Einstellungen widerrufst.",
+      "hint": "Mit „Immer erlauben“ darf {{bot}} {{tool}} auf {{server}} ohne Rückfrage nutzen, auch wenn der Bot selbstständig arbeitet (zum Beispiel nach Zeitplan, ohne dass jemand dabei ist), bis du die Freigabe in den Einstellungen widerrufst.",
       "stale": "Genehmigt, aber nicht als „Immer erlauben“ gespeichert: Das Tool oder sein Server hat sich geändert."
     }
   },

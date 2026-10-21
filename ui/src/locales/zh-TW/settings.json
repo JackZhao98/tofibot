@@ -867,7 +867,7 @@
     "managed": "由電腦服務管理",
     "standing": {
       "title": "常駐許可",
-      "description": "你允許某個 Bot 隨時使用的工具，排程執行也包括在內。撤銷後，該 Bot 下次呼叫會再次詢問你。",
+      "description": "你允許某個 Bot 不經詢問就使用的工具。Bot 自行運作時（例如依排程執行）同樣適用。撤銷後，該 Bot 下次呼叫會再次詢問你。",
       "empty": "目前沒有常駐許可。在核准卡片上選擇「一律允許」即可新增。",
       "granted": "{{time}} 允許",
       "last_used": "上次使用 {{time}}",
@@ -877,6 +877,8 @@
       "revoke_failed": "無法撤銷，請再試一次。",
       "load_failed": "無法載入常駐許可。",
       "server_changed": "伺服器已變更，將重新詢問。",
+      "tool_changed": "伺服器重新定義了該工具，將重新詢問。",
+      "tier_changed": "該工具的設定已變更，將重新詢問。",
       "used_other": "已使用 {{count}} 次",
       "remembered": {
         "title": "在對話中記住的核准",

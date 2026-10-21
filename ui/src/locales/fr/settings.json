@@ -885,7 +885,7 @@
     "managed": "Géré par le service de l’ordinateur",
     "standing": {
       "title": "Autorisations permanentes",
-      "description": "Outils qu'un Bot peut utiliser à tout moment, y compris dans les exécutions planifiées. Une fois révoquée, la prochaine requête de ce Bot vous redemande.",
+      "description": "Outils qu'un Bot peut utiliser sans demander. Cela vaut aussi lorsque le Bot travaille seul, par exemple selon un planning. Une fois révoquée, la prochaine requête de ce Bot vous redemande.",
       "empty": "Aucune autorisation permanente pour l'instant. Choisissez « Toujours autoriser » sur une carte d'approbation pour en ajouter une.",
       "granted": "Autorisé {{time}}",
       "last_used": "Dernier usage {{time}}",
@@ -895,6 +895,8 @@
       "revoke_failed": "Impossible de révoquer. Réessayez.",
       "load_failed": "Impossible de charger les autorisations permanentes.",
       "server_changed": "Serveur modifié. La question sera reposée.",
+      "tool_changed": "Le serveur a redéfini l'outil. La question sera reposée.",
+      "tier_changed": "Le réglage de cet outil a changé. La question sera reposée.",
       "used_other": "utilisée {{count}} fois",
       "remembered": {
         "title": "Mémorisées dans une conversation",

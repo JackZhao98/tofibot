@@ -73,11 +73,20 @@ type autoReviewFixture struct {
 	execute       func(context.Context) error
 	// executeArgs runs the fixture read with other exact arguments.
 	executeArgs func(context.Context, string) error
+	// executeTool runs another tool of the fixture server ("write_other").
+	executeTool func(context.Context, string, string) error
 	// tool is the fixture's remote tool; tests may set its annotations.
 	tool *mcp.Tool
 }
 
 func newAutoReviewFixture(t *testing.T) *autoReviewFixture {
+	t.Helper()
+	return newAutoReviewFixtureWith(t, false)
+}
+
+// newAutoReviewFixtureWith can add a second write tool ("write_other") to the
+// fixture server; most tests list exactly one tool, so it is opt-in.
+func newAutoReviewFixtureWith(t *testing.T, secondTool bool) *autoReviewFixture {
 	t.Helper()
 	dir := t.TempDir()
 	store, c, r := questionFixtureDir(t, dir)
@@ -109,9 +118,20 @@ func newAutoReviewFixture(t *testing.T) *autoReviewFixture {
 		}
 		return &mcp.CallToolResult{Content: []mcp.Content{&mcp.TextContent{Text: "synthetic public fact"}}}, nil
 	})
+	if secondTool {
+		other := newAppTextTool("write_other", "A second synthetic write tool.", "target")
+		backend.AddTool(other, func(context.Context, *mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+			f.effects.Add(1)
+			return &mcp.CallToolResult{Content: []mcp.Content{&mcp.TextContent{Text: "synthetic other fact"}}}, nil
+		})
+	}
 	transport := syntheticMCPReviewTransport{mcp.NewStreamableHTTPHandler(func(*http.Request) *mcp.Server { return backend }, &mcp.StreamableHTTPOptions{Stateless: true, JSONResponse: true})}
 	newManager := func() *extensions.Manager {
-		return extensions.NewManager(extensions.Config{MCPConfigPath: filepath.Join(dir, "mcp.json"), SkillsDir: filepath.Join(dir, "skills"), HTTPTransport: func(string) (http.RoundTripper, error) { return transport, nil }})
+		return extensions.NewManager(extensions.Config{MCPConfigPath: filepath.Join(dir, "mcp.json"), SkillsDir: filepath.Join(dir, "skills"), HTTPTransport: func(string) (http.RoundTripper, error) { return transport, nil }, ServerIdentityChanged: func(name string) {
+			if f.s != nil {
+				f.s.markStandingServerChanged(name)
+			}
+		}})
 	}
 	m := newManager()
 	f.newManager = newManager
@@ -134,7 +154,7 @@ func newAutoReviewFixture(t *testing.T) *autoReviewFixture {
 	if err != nil {
 		t.Fatal(err)
 	}
-	invokeArgs := func(ctx context.Context, p *extensions.Prepared, args string) error {
+	invokeTool := func(ctx context.Context, p *extensions.Prepared, tool, args string) error {
 		var search, call runtimeTool
 		for _, tool := range p.Tools {
 			if tool.Name == "search_mcp_tools" {
@@ -144,11 +164,14 @@ func newAutoReviewFixture(t *testing.T) *autoReviewFixture {
 				call = tool.Execute
 			}
 		}
-		if _, err := search(ctx, json.RawMessage(`{"server":"fixture","query":"read_public"}`)); err != nil {
+		if _, err := search(ctx, json.RawMessage(`{"server":"fixture","query":"`+tool+`"}`)); err != nil {
 			return err
 		}
-		_, err := call(ctx, json.RawMessage(`{"name":"mcp_fixture__read_public","arguments":`+args+`}`))
+		_, err := call(ctx, json.RawMessage(`{"name":"mcp_fixture__`+tool+`","arguments":`+args+`}`))
 		return err
+	}
+	invokeArgs := func(ctx context.Context, p *extensions.Prepared, args string) error {
+		return invokeTool(ctx, p, "read_public", args)
 	}
 	invoke := func(ctx context.Context, p *extensions.Prepared) error {
 		return invokeArgs(ctx, p, `{"target":"alpha"}`)
@@ -163,7 +186,7 @@ func newAutoReviewFixture(t *testing.T) *autoReviewFixture {
 	}
 
 	f.executeArgs = func(ctx context.Context, args string) error {
-		p, err := m.PrepareDiscoverableForBotWithCallGate(ctx, f.r.BotID, nil, func(ctx context.Context, call extensions.MCPCallApproval) error {
+		p, err := f.s.extensions.PrepareDiscoverableForBotWithCallGate(ctx, f.r.BotID, nil, func(ctx context.Context, call extensions.MCPCallApproval) error {
 			return f.s.approveMCPCall(ctx, f.c, f.r, call)
 		})
 		if err != nil {
@@ -171,6 +194,16 @@ func newAutoReviewFixture(t *testing.T) *autoReviewFixture {
 		}
 		defer p.Close()
 		return invokeArgs(ctx, p, args)
+	}
+	f.executeTool = func(ctx context.Context, tool, args string) error {
+		p, err := f.s.extensions.PrepareDiscoverableForBotWithCallGate(ctx, f.r.BotID, nil, func(ctx context.Context, call extensions.MCPCallApproval) error {
+			return f.s.approveMCPCall(ctx, f.c, f.r, call)
+		})
+		if err != nil {
+			return err
+		}
+		defer p.Close()
+		return invokeTool(ctx, p, tool, args)
 	}
 	f.execute = func(ctx context.Context) error { return f.executeArgs(ctx, `{"target":"alpha"}`) }
 	t.Cleanup(func() { f.s.stopShadowMCPReviews(); store.Close() })

@@ -248,6 +248,8 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
     allowances: [
       {id: "al-1", bot_id: "bot-tofi", bot_name: "tofi", server: "notion", tool: "notion-update-page", state: "active", created_at: "2026-10-01T16:00:00Z", use_count: 3, last_used_at: "2026-10-19T14:30:00Z"},
       {id: "al-2", bot_id: "bot-two", bot_name: "Scout", server: "linear", tool: "create-issue", state: "server_changed", created_at: "2026-10-02T16:00:00Z", use_count: 0},
+      {id: "al-3", bot_id: "bot-two", bot_name: "Scout", server: "linear", tool: "update-issue", state: "tool_changed", created_at: "2026-10-03T16:00:00Z", use_count: 0},
+      {id: "al-4", bot_id: "bot-two", bot_name: "Scout", server: "linear", tool: "delete-issue", state: "tier_changed", created_at: "2026-10-04T16:00:00Z", use_count: 0},
     ],
     remembered: [{id: "rm-1", conversation_id: "conv-1", bot_id: "bot-tofi", bot_name: "tofi", conversation_name: "Daily notes", server: "notion", tool: "notion-create-pages", target_kind: "exact", expires_at: "2026-10-21T16:00:00Z", use_count: 1}],
   });
@@ -257,25 +259,30 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
     const t = await open();
     const items = t.page.locator(".standing-item[data-allowance-id]");
     await items.first().waitFor();
-    assert.equal(await items.count(), 2);
+    assert.equal(await items.count(), 4);
+    assert.match(await t.page.locator(".settings-page-body").innerText(), /also applies when the Bot works on its own, for example on a schedule/, "Settings says the allowance applies when the Bot works on its own");
     const first = (await items.nth(0).innerText()).replace(/\s+/g, " ");
     assert.match(first, /tofi/); assert.match(first, /notion-update-page/); assert.match(first, /notion/);
     assert.match(first, /Allowed .*2026/); assert.match(first, /Last used .*2026/); assert.match(first, /used 3 times/);
     assert.equal(await items.nth(0).locator(".standing-avatar").count(), 1, "the Bot avatar is shown");
     assert.match(await items.nth(1).innerText(), /Not used yet/);
     assert.match(await items.nth(1).innerText(), /Server changed\. Asks again\./);
+    assert.match(await items.nth(2).innerText(), /redefined by its server\. Asks again\./);
+    assert.match(await items.nth(3).innerText(), /setting changed\. Asks again\./);
     assert.equal(await t.page.locator(".standing-item[data-remembered-id]").count(), 1, "chat-scoped approvals are listed too");
     assert.match(await t.page.locator(".standing-item[data-remembered-id]").innerText(), /Chat: Daily notes/);
     requests.length = 0;
     await items.nth(0).getByRole("button", {name: "Revoke"}).click();
-    await t.page.waitForFunction(() => document.querySelectorAll(".standing-item[data-allowance-id]").length === 1);
+    await t.page.waitForFunction(() => document.querySelectorAll(".standing-item[data-allowance-id]").length === 3);
     assert.deepEqual(requests, ["DELETE /api/standing-allowances/al-1"], "revoke is one request for that allowance");
-    assert.deepEqual(state.allowances.map(item => item.id), ["al-2"]);
+    assert.deepEqual(state.allowances.map(item => item.id), ["al-2", "al-3", "al-4"]);
     await t.page.locator(".standing-item[data-remembered-id]").getByRole("button", {name: "Revoke"}).click();
     await t.page.waitForFunction(() => document.querySelectorAll(".standing-item[data-remembered-id]").length === 0);
     assert.match(await t.page.locator(".settings-page-body").innerText(), /Nothing is remembered in any chat/);
-    await t.page.locator(".standing-item[data-allowance-id]").getByRole("button", {name: "Revoke"}).click();
-    await t.page.waitForFunction(() => document.querySelectorAll(".standing-item[data-allowance-id]").length === 0);
+    for (let left = 3; left > 0; left--) {
+      await t.page.locator(".standing-item[data-allowance-id]").first().getByRole("button", {name: "Revoke"}).click();
+      await t.page.waitForFunction(n => document.querySelectorAll(".standing-item[data-allowance-id]").length === n, left - 1);
+    }
     assert.match(await t.page.locator(".settings-page-body").innerText(), /No standing allowances yet/);
     assert.deepEqual(t.errors, [], `page errors: ${t.errors}`);
     await t.close();
