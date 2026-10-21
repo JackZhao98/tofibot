@@ -816,7 +816,7 @@
       },
       "web_search": {
         "name": "Web search",
-        "what": "Claude models search the web on their own before answering when a question may be newer than what they know."
+        "what": "Claude models search the web on their own, and read the pages they rely on, before answering when a question may be newer than what they know."
       },
       "group_exchange_gists": {
         "name": "Finished group exchanges, summarized",
