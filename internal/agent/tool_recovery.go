@@ -104,6 +104,11 @@ func toolRecoveryCallGuardAt(records []ToolRecoveryRecord, identity tooloutcome.
 			// Fresh calls still pass normal schema, identity and approval checks.
 			continue
 		}
+		if o.Code == tooloutcome.FileNotFound && o.Certainty == "not_executed" {
+			// A missing source is a precondition another action can fix (the
+			// file may exist by now), so it never fences a later call.
+			continue
+		}
 		if o.Status == tooloutcome.Expired && prior.Scope == identity.Scope && prior.Operation == identity.Operation {
 			// Changing arguments cannot turn an expired proposal into permission.
 			return &o
@@ -162,6 +167,12 @@ func uncertainIdentityBlocks(prior, candidate tooloutcome.Identity) bool {
 		return false
 	}
 	if prior.Risk == tooloutcome.Observation && candidate.Risk == tooloutcome.Observation {
+		return prior.ArgumentsHash == candidate.ArgumentsHash
+	}
+	if prior.Scope == "tool" && prior.Operation == "publish_file" {
+		// A lost publish response fences its exact replay only. Each call names
+		// its own source path and request key, so a different one is a new
+		// decision, not the old attempt.
 		return prior.ArgumentsHash == candidate.ArgumentsHash
 	}
 	if prior.Risk == tooloutcome.TargetMutation && candidate.Risk == tooloutcome.TargetMutation && prior.Target != "" && candidate.Target != "" {

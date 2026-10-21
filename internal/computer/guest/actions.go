@@ -12,6 +12,7 @@ import (
 	"fmt"
 	"image/png"
 	"io"
+	"io/fs"
 	"net"
 	"net/http"
 	"net/url"
@@ -286,11 +287,11 @@ func fileVersion(info os.FileInfo) string {
 func (s *Service) exportFileChunk(ctx context.Context, botID string, args exportArgs) (map[string]any, error) {
 	p, err := s.resolvePath(botID, args.Path, false)
 	if err != nil {
-		return nil, err
+		return nil, exportPathError(args.Path, err)
 	}
 	rel, err := filepath.Rel(s.root, p)
 	if err != nil || !within(s.root, p) {
-		return nil, errors.New("path escapes guest workspace")
+		return nil, rejected(errPathEscapes)
 	}
 	root, err := os.OpenRoot(s.root)
 	if err != nil {
@@ -299,7 +300,7 @@ func (s *Service) exportFileChunk(ctx context.Context, botID string, args export
 	defer root.Close()
 	f, err := root.OpenFile(rel, os.O_RDONLY|syscall.O_NONBLOCK, 0)
 	if err != nil {
-		return nil, err
+		return nil, exportPathError(args.Path, err)
 	}
 	defer f.Close()
 	before, err := f.Stat()
@@ -307,7 +308,7 @@ func (s *Service) exportFileChunk(ctx context.Context, botID string, args export
 		return nil, err
 	}
 	if !before.Mode().IsRegular() {
-		return nil, errors.New("only regular files can be published")
+		return nil, rejectedf("only regular files can be published: %s is not one", args.Path)
 	}
 	version := fileVersion(before)
 	if args.Version != "" && args.Version != version {
@@ -339,6 +340,19 @@ func (s *Service) exportFileChunk(ctx context.Context, botID string, args export
 	next := args.Offset + int64(n)
 	return map[string]any{"data_base64": base64.StdEncoding.EncodeToString(buf[:n]), "next_offset": next,
 		"size": before.Size(), "eof": next == before.Size(), "version": version, "name": filepath.Base(p)}, nil
+}
+
+// exportPathError turns the failures that prove nothing was exported into
+// typed refusals: a missing source (notFoundError, coded file_not_found) and a
+// path outside the workspace. Anything else stays an ordinary, ambiguous error.
+func exportPathError(given string, err error) error {
+	switch {
+	case errors.Is(err, fs.ErrNotExist):
+		return &notFoundError{given: given}
+	case errors.Is(err, errPathEscapes):
+		return rejected(err)
+	}
+	return err
 }
 
 func decodeArgs(raw json.RawMessage, dst any) error {
@@ -404,13 +418,13 @@ func (s *Service) resolvePath(botID, name string, write bool) (string, error) {
 		return "", err
 	}
 	if err == nil && !within(root, resolved) {
-		return "", errors.New("path escapes guest workspace")
+		return "", errPathEscapes
 	}
 	if target, e := filepath.EvalSymlinks(p); e == nil && !within(root, target) {
-		return "", errors.New("path escapes guest workspace")
+		return "", errPathEscapes
 	}
 	if !within(root, p) {
-		return "", errors.New("path escapes guest workspace")
+		return "", errPathEscapes
 	}
 	if !write {
 		if _, err := os.Stat(p); err != nil {

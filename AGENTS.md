@@ -175,3 +175,11 @@ sentences, Not/But contrasts or keyword lists; `tests/test_skill_text.py` enforc
 description raises the prompt budget: measure it and move the caps in `internal/app/prompt_budget_test.go`. Run the script tests with
 `python3 -m unittest discover -s internal/extensions/builtin_skills/tests -p 'test_*.py'`; `slides/scripts/render_preview.py` and
 `document-report/scripts/render_preview.py` must stay byte-identical.
+
+# publish_file paths and failures
+
+`publish_file` reads `files.export_chunk` from the guest. A relative `path` starts in the Bot's directory, `/workspace/bots/<bot_id>`, the
+same directory `shell.exec` runs in (each command is a fresh shell, so `cd` does not carry over); an absolute path must stay inside
+`/workspace`. A missing source comes back from the guest as outcome code `file_not_found` (`tooloutcome.FileNotFound`, permanent,
+`not_executed`, HTTP 404) and an escaping or non-regular path as `action_rejected`; the host classifies on the code, never on the wording.
+In `internal/agent/tool_recovery.go` a lost `publish_file` result fences only its identical replay, and `file_not_found` never fences a later call.
