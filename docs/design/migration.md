@@ -365,6 +365,8 @@ Motion 擅长三件事：带速度衔接、可中途打断的弹簧；自动 FLI
 | 入口包不超预算 | **超** | 相同 | 315,357 ≤ 315,805 |
 | owner 预览认可 | — | — | **待 owner**（下面的预览清单） |
 
+`test:shell-budget` 第 3 节"4x 下推入超过 25 ms 的帧 ≤ 1"在这台机器有负载时两边都会时过时不过：00:45–00:53 PDT 交替跑第 1 步分支（`ds/step1-layers`）和本分支的构建各 9 次，每次测量超过 25 ms 的帧平均第 1 步约 2.8、本分支约 2.5，通过率差不多；00:59 机器空闲时本分支连跑两次都是 1，退出码 0。点按推入在本分支没有改动（手势引擎只在手机宽度空闲时加载，点按时它的 `pointerdown` 处理在对话窗格外直接返回）。
+
 00:56 PDT 机器空闲时单跑一次（`MOTION_EXPERIMENT_RUNS=1`）：松手到提交的脚本 1x / 4x 自研 1.8 / 7.1 ms、Motion 4.3 / 11.7 ms；WebKit 接住那一帧自研 1.9 px、Motion 50.8 px（前三帧最大 14.4 px），顺序和上表一致。
 
 另外核对了原计划"风险"里待确认的一条：Motion 14.4.0 只把 `opacity`、`clipPath`、`filter`、`transform`、`backgroundColor` 交给 WAAPI（`motion-dom/dist/es/animation/waapi/utils/accelerated-values.mjs`），设了 `onUpdate` 时一律不交（`.../waapi/supports/waapi.mjs`），所以 `translate`、`x`/`y` 和带速度的手势收尾都在主线程每帧跑。
