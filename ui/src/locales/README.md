@@ -128,7 +128,10 @@ There are no copied-English placeholders, so nothing untranslated can be mistake
 ## Hardcoded text ratchet
 
 `scripts/i18n-baseline.json` holds, per file, the count of CJK text runs and obvious English UI phrases still in source
-(`src/locales`, `src/motion-lab` and `src/i18n/languages.ts` are excluded). A file may not exceed its count; files not listed must have none.
+(`src/locales`, `src/motion-lab`, `src/catalog` and `src/i18n/languages.ts` are excluded). A file may not exceed its count; files not listed must have none.
+`src/catalog` is the dev-only component catalog (D34): its labels are English synthetic data for people working on the UI, it never
+ships (`test:catalog` fails if it reaches `dist/` or if product code imports it), and the components inside its frames use the
+real catalogs, switchable to all seven languages.
 After converting files, the integrator runs `npm run test:i18n -- --update-baseline` (it refuses increases). Batch workers do not edit the baseline.
 Comments are ignored; text in strings, templates and JSX counts.
 
