@@ -1,3 +1,16 @@
+# 从这里开始 / Start here
+
+TOFI 是自托管的 AI Bot 工作台（Go 后端 `internal/`，React 19 网页端 `ui/`）。接手前先读：
+
+1. [docs/README.md](docs/README.md) — 全部文档的索引，标明哪些现行、哪些是历史或已被取代。
+2. [docs/product/status.md](docs/product/status.md) — 产品现状、线上版本、owner 的打分标准和评测结果；路线图在 [docs/product/roadmap.md](docs/product/roadmap.md)，每个版本改了什么在 [docs/releases.md](docs/releases.md)。
+3. [docs/decisions/](docs/decisions/README.md) — owner 拍板的每一条决定（D01 起），写明时间、理由和影响的代码。
+4. [docs/process.md](docs/process.md) — 测试、评测、预览、发版、安全审查和模型分工的流程。
+5. [docs/design/](docs/design/README.md) — 设计令牌、组件清单、设计原则和迁移方案；动界面之前读。
+
+规则：**每次合并、发版或 owner 拍板，都在同一个提交里更新对应文档**（决定 D27；哪种事件改哪份文件见 `docs/process.md`
+第 10 节）。Every merge, release or owner decision updates the matching docs in the same commit. 本文件仍是总入口，下面各节是代码约定。
+
 # Core source boundaries
 
 This repository owns Server, Web UI, contracts and Docker/Worker source. Keep the
