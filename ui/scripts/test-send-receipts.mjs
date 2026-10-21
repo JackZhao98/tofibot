@@ -392,26 +392,29 @@ await check("group: read once any addressed Bot starts, and the mark names who",
   await type(page, "group hello");
   await waitState(page, "group hello", "delivered");
   await revealMark(page, "group hello");
-  assert.equal(await block(page, "group hello").locator(".send-receipt-tip").count(), 0, "nothing to name yet");
+  // The read-by names are the mark's hint (ActionHints, quiet tone, in #tofi-layers; design migration step 2).
+  assert.equal(await block(page, "group hello").locator(".send-receipt-mark").getAttribute("data-hint"), null, "nothing to name yet");
   const [a, b] = mock.runs.filter(r => r.conversation_id === "grp");
   push("grp", "run", { ...b, status: "running", updated_at: iso(60) });
   await waitState(page, "group hello", "read");
   const mark = await revealMark(page, "group hello");
   await mark.hover();
-  await sleep(300);
+  const tip = page.locator(".action-hint.is-quiet");
+  await tip.waitFor({ timeout: 2000 });
+  await sleep(200);
   await shot(page, "group-tip");
-  const tip = block(page, "group hello").locator(".send-receipt-tip");
   assert.equal(await tip.textContent(), "Read by Simile Cat");
   assert.equal(await tip.evaluate(node => getComputedStyle(node).visibility), "visible");
+  assert.equal(await tip.evaluate(node => Boolean(node.closest("#tofi-layers"))), true, "the names are portaled, not inside the row");
   push("grp", "run", { ...a, status: "running", updated_at: iso(61) });
-  await page.waitForFunction(() => document.querySelector(".send-receipt-tip")?.textContent === "Read by Ledger Cat and Simile Cat");
+  await page.waitForFunction(() => document.querySelector(".action-hint.is-quiet")?.textContent === "Read by Ledger Cat and Simile Cat");
   await page.mouse.move(5, 5);
   await sleep(300);
   assert.equal(await tip.count(), 0, "tip only on hover or focus: the row, and with it the mark, is gone when neither is on the message");
   await revealMark(page, "group hello");
   await block(page, "group hello").locator(".send-receipt-mark").focus();
-  await sleep(300);
-  assert.equal(await block(page, "group hello").locator(".send-receipt-tip").evaluate(node => getComputedStyle(node).visibility), "visible", "keyboard focus shows it too");
+  await page.locator(".action-hint.is-quiet").waitFor({ timeout: 2000 });
+  assert.equal(await page.locator(".action-hint.is-quiet").evaluate(node => getComputedStyle(node).visibility), "visible", "keyboard focus shows it too");
   await context.close();
 });
 

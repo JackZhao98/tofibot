@@ -25,3 +25,14 @@ JetBrains Mono: the unmodified upstream `fonts/webfonts/JetBrainsMono-Regular.wo
 | `jetbrains-mono-600.woff2` | `918edad542a1da608fd2ba8daebaff9ac802309103fe760eed465b8b4e47faf1` |
 | `public/licenses/fredoka-OFL.txt` | `5c9e7eee5c6b25f4b05b8d53b2e470ea4962f9ced742d044a98f7d95d1375bab` |
 | `public/licenses/jetbrains-mono-OFL.txt` | `30f0c136e3c88e422d0791acd97238870f9054a9729bc34cf2ff0d4ed8cac4ad` |
+
+## Menu and popover libraries (MIT, 0BSD)
+
+The menus and popovers are Radix primitives, bundled only in the lazily loaded chunk `assets/RadixOverlays-*.js` (docs/design/migration.md step 2). Versions are pinned in `package-lock.json`; full license texts are in `public/licenses/`.
+
+| Packages | License | Text |
+|---|---|---|
+| `@radix-ui/react-dropdown-menu` 2.2.1, `@radix-ui/react-popover` 1.3.1 and the `@radix-ui/*` primitives they use (menu, popper, dismissable-layer, focus-scope, focus-guards, roving-focus, collection, presence, portal, primitive, slot, id, direction, context, compose-refs, primitive helpers, `use-*` hooks), Copyright (c) 2022 WorkOS | MIT | `public/licenses/radix-ui.txt` |
+| `@floating-ui/core`, `@floating-ui/dom`, `@floating-ui/react-dom`, `@floating-ui/utils`, Copyright (c) 2021-present Floating UI contributors | MIT | `public/licenses/floating-ui.txt` |
+| `aria-hidden`, `get-nonce`, `react-remove-scroll`, `react-remove-scroll-bar`, `react-style-singleton`, `use-callback-ref`, `use-sidecar`, Copyright (c) Anton Korzunov | MIT | `public/licenses/react-remove-scroll.txt` |
+| `tslib`, Copyright (c) Microsoft Corporation | 0BSD | `public/licenses/tslib.txt` |

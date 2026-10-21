@@ -7,8 +7,6 @@
 .workspace .send-receipt[data-state="sending"] .send-receipt-mark { opacity:.8; }
 .workspace .send-receipt-mark.has-tip { cursor:default; border-radius:4px; }
 .workspace .send-receipt-mark:focus-visible { outline:var(--focus-ring-width) solid var(--focus-ring); outline-offset:2px; }
-.workspace .send-receipt-tip { position:absolute; right:0; bottom:calc(100% - 2px); z-index:var(--z-tooltip); width:max-content; max-width:min(240px, 70vw); padding:5px 9px; border:1px solid var(--line-soft); border-radius:8px; background:var(--surface); color:var(--ink); font:12px/1.35 var(--body); box-shadow:0 4px 14px rgb(0 0 0 / 14%); opacity:0; visibility:hidden; pointer-events:none; }
-.workspace .send-receipt-mark.has-tip:hover .send-receipt-tip, .workspace .send-receipt-mark.has-tip:focus .send-receipt-tip { opacity:1; visibility:visible; }
 .workspace .send-receipt-retry { height:14px; padding:0; border:0; background:transparent; color:var(--danger-text); font:inherit; cursor:pointer; text-decoration:underline; text-underline-offset:2px; }
 .workspace .send-receipt-retry:focus-visible { outline:var(--focus-ring-width) solid var(--focus-ring); outline-offset:3px; border-radius:3px; }
 /* A press target of 44px on touch without growing the row: the hit area extends over the empty space beside the bubble. */
@@ -18,6 +16,5 @@
   .workspace .message-user .message-content { transition:opacity var(--m-base) var(--ease-out); }
   .workspace .send-receipt-mark { transition:color var(--m-base) var(--ease-out); }
   .workspace .send-receipt-mark.is-settling svg { animation:send-receipt-settle var(--m-panel-in) var(--ease-out); }
-  .workspace .send-receipt-tip { transition:opacity var(--m-press) var(--ease-out), visibility var(--m-press); }
 }
 @keyframes send-receipt-settle { from { transform:scale(.7); opacity:.4; } to { transform:none; opacity:1; } }
