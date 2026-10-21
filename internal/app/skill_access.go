@@ -189,6 +189,8 @@ func (s *Store) activeBotSet() (map[string]bool, error) {
 type skillWithAccess struct {
 	extensions.SkillView
 	Access skillAccessView `json:"access"`
+	// Enabled is set for built-in skills only (the Settings switch).
+	Enabled *bool `json:"enabled,omitempty"`
 }
 
 func (s *Server) routeSkillAccess(w http.ResponseWriter, r *http.Request, p string) bool {

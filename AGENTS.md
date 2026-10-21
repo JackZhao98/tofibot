@@ -161,3 +161,17 @@ installed from a pinned wheel. `deploy/microvm/smoke-office.sh` is the in-image 
 Transient provider failures are retried by code, not by message text: `provider.IsRetryable` (HTTP 429/5xx/529, and the in-stream `response.failed` / `error` codes in `retryableResponseFailure`, which arrive with HTTP 200). `RetryProvider` backs off with jitter, honors `Retry-After` (up to 60 s) and stops at `TotalBudget` (2 minutes); the agent loop retries once output has been delivered. A new provider error code that is transient goes into `retryableResponseFailure`. A run that fails after `publish_file` keeps its files: `SetRunStatus(failed)` binds them to an attachments-only assistant message (`keepFailedRunFilesTx`); cancelled and interrupted runs still discard theirs (decision 0038).
 
 Links written as `sandbox:/…` are normalized only on the way out (`Message.MarshalJSON`, `internal/app/sandbox_links.go`); the stored text stays as the model wrote it (decision 0039). The reply marker `[message_id=<uuid>]` is parsed by `ui/src/replyMarker.ts`.
+
+# Built-in Skills
+
+Deliverable Skills ship inside the binary (decision 0041): `internal/extensions/builtin_skills/<name>/SKILL.md` plus `scripts/*.py`, embedded by
+`internal/extensions/builtin.go` (only those two patterns; `builtin_skills/tests/` holds the Python tests and is not embedded). They ride the
+existing Skills tools (`list_skills`, `read_skill`, `read_skill_file`): the prompt directory carries one name and description line each, the body loads on
+`read_skill`, and the same call copies the skill's files to the Bot's computer at `/workspace/home/uploads/.skills/<name>/<digest>/`
+(`internal/app/builtin_skills.go`; inside uploads because the guest's `files.import_chunk` accepts nothing else). They are on for every Bot until
+turned off in Settings > Skills (`builtin_skill_off`, `PUT /api/extensions/skills/<name>/enabled`); an unreadable setting withholds them. They cannot be
+installed over or deleted, and an installed skill with a built-in name is ignored with a diagnostic. SKILL.md text is English principles only (no example
+sentences, Not/But contrasts or keyword lists; `tests/test_skill_text.py` enforces it); concrete know-how lives in the scripts. A new or longer
+description raises the prompt budget: measure it and move the caps in `internal/app/prompt_budget_test.go`. Run the script tests with
+`python3 -m unittest discover -s internal/extensions/builtin_skills/tests -p 'test_*.py'`; `slides/scripts/render_preview.py` and
+`document-report/scripts/render_preview.py` must stay byte-identical.

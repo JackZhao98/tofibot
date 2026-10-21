@@ -391,7 +391,14 @@
     "saved": "저장됨",
     "scope": "워크스페이스 Skill · 필요할 때 읽기 · 선택한 Bot으로 제한 가능",
     "starters": "Tofi 업무 Skill",
-    "support_note": "설명과 참고 파일을 지원합니다. 함께 포함된 스크립트는 자동으로 실행되지 않습니다."
+    "support_note": "설명과 참고 파일을 지원합니다. 함께 포함된 스크립트는 자동으로 실행되지 않습니다.",
+    "builtin": {
+      "label": "이 스킬 사용",
+      "off_hint": "모든 Bot에서 숨겨져 있습니다. 켜면 다시 제공됩니다.",
+      "on_hint": "작업에 필요할 때 모든 Bot이 읽습니다. 끄면 모든 Bot에서 보이지 않습니다.",
+      "switch_for": "{{name}} 사용",
+      "tag": "기본 제공"
+    }
   },
   "status": {
     "authorizing": "승인 화면을 여는 중…",

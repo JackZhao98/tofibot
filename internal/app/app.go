@@ -772,6 +772,9 @@ CREATE INDEX IF NOT EXISTS events_delta ON events(conversation_id,id) WHERE type
 	if err := migrateSkillAccess(s.db); err != nil {
 		return err
 	}
+	if err := migrateBuiltinSkillSetting(s.db); err != nil {
+		return err
+	}
 	return migrateToolActivity(s.db)
 }
 
@@ -2671,7 +2674,7 @@ func NewServer(c Config) (*Server, error) {
 	} else if switched > 0 {
 		log.Printf("[model-settings] %d Bot(s) now follow the global model", switched)
 	}
-	server.extensions = extensions.NewManager(extensions.Config{MCPConfigPath: c.MCPConfigPath, SkillsDir: c.SkillsDir, ExpandToolQuery: server.expandToolSearchQuery, HTTPTransport: server.localMCPTransport, ServerUsable: server.mcpServerUsable, SkillAccess: st.skillAccessFilter, ServerIdentityChanged: server.markStandingServerChanged})
+	server.extensions = extensions.NewManager(extensions.Config{MCPConfigPath: c.MCPConfigPath, SkillsDir: c.SkillsDir, ExpandToolQuery: server.expandToolSearchQuery, HTTPTransport: server.localMCPTransport, ServerUsable: server.mcpServerUsable, SkillAccess: st.skillAccessFilter, BuiltinSkillsOff: st.builtinSkillsOff, ServerIdentityChanged: server.markStandingServerChanged})
 	if st.requireGuestAttachments && microVM != nil {
 		st.guestBlobs = microVM
 		st.cleanupDeletedAttachments()
@@ -3614,7 +3617,7 @@ func (s *Server) execute(c Conversation, r Run) {
 		}
 		defer prepared.Close()
 		extensionPrompt = prepared.Instructions
-		tools = append(tools, s.withoutIdleMCPTools(prepared.Tools)...)
+		tools = append(tools, s.withoutIdleMCPTools(s.withBuiltinSkillStaging(r, prepared.Tools))...)
 		if len(prepared.Diagnostics) > 0 {
 			diagnostics, _ := json.Marshal(prepared.Diagnostics)
 			system += "\nSome configured extensions are unavailable. Consult extension_status when relevant; never claim an unavailable tool was executed."

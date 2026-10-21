@@ -394,7 +394,14 @@
     "saved": "Saved",
     "scope": "Workspace Skills · read on demand · limit to selected Bots",
     "starters": "Tofi work Skills",
-    "support_note": "Instructions and reference files are supported. Bundled scripts never run automatically."
+    "support_note": "Instructions and reference files are supported. Bundled scripts never run automatically.",
+    "builtin": {
+      "label": "Use this Skill",
+      "off_hint": "Hidden from every Bot. Turn it on to offer it again.",
+      "on_hint": "Every Bot reads it when a task needs it. Turn it off to hide it from all Bots.",
+      "switch_for": "Use {{name}}",
+      "tag": "Built-in"
+    }
   },
   "status": {
     "authorizing": "Opening authorization…",

@@ -397,7 +397,14 @@
     "saved": "Enregistré",
     "scope": "Skills de l’espace de travail · lus à la demande · limitables à certains Bots",
     "starters": "Skills de travail Tofi",
-    "support_note": "Instructions et fichiers de référence pris en charge ; les scripts fournis ne s’exécutent jamais automatiquement."
+    "support_note": "Instructions et fichiers de référence pris en charge ; les scripts fournis ne s’exécutent jamais automatiquement.",
+    "builtin": {
+      "label": "Utiliser ce Skill",
+      "off_hint": "Masqué pour tous les Bots. Activez-le pour le proposer de nouveau.",
+      "on_hint": "Chaque Bot le lit lorsqu'une tâche en a besoin. Désactivé, il est masqué pour tous les Bots.",
+      "switch_for": "Utiliser {{name}}",
+      "tag": "Intégré"
+    }
   },
   "status": {
     "authorizing": "Ouverture de l’autorisation…",

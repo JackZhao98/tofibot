@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -29,6 +30,10 @@ type Skill struct {
 	Description string `json:"description"`
 	Body        string `json:"body,omitempty"`
 	Path        string `json:"-"`
+	// Builtin marks a skill embedded in the binary (see builtin.go); files is
+	// then its folder and Path is empty.
+	Builtin bool `json:"builtin,omitempty"`
+	files   fs.FS
 }
 
 type skillManifest struct {
@@ -195,6 +200,9 @@ func skillToolsMode(skills []Skill, max int, lazy bool) []runtime.Tool {
 		if !ok {
 			return "", fmt.Errorf("skill %q not found", in.Name)
 		}
+		if s.Builtin {
+			return boundSkill(s.Body, max), nil
+		}
 		if lazy {
 			root, err := os.OpenRoot(s.Path)
 			if err != nil {
@@ -245,6 +253,9 @@ func skillToolsMode(skills []Skill, max int, lazy bool) []runtime.Tool {
 		}
 		if filepath.IsAbs(in.Path) {
 			return "", errors.New("skill file path must be relative")
+		}
+		if s.Builtin {
+			return readBuiltinFile(s, in.Path)
 		}
 		root, err := os.OpenRoot(s.Path)
 		if err != nil {
