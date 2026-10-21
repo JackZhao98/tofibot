@@ -261,7 +261,8 @@ func (c *Client) send(ctx context.Context, method, endpoint string, body any, ou
 			var rejected ActionResult
 			if json.Unmarshal(message, &rejected) == nil && rejected.Outcome != nil {
 				o := *rejected.Outcome
-				if o.Version == 1 && o.Status == tooloutcome.Validation && o.Certainty == "not_executed" && o.NextAction != "" {
+				refused := o.Status == tooloutcome.Validation || (o.Status == tooloutcome.Permanent && o.Code == tooloutcome.FileNotFound)
+				if o.Version == 1 && refused && o.Certainty == "not_executed" && o.NextAction != "" {
 					return o.Err()
 				}
 			}

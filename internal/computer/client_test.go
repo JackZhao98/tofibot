@@ -353,3 +353,31 @@ func TestAdmittedRequestFailureAfterSendIsNotRetried(t *testing.T) {
 		t.Fatalf("err=%v sends=%d", err, sends)
 	}
 }
+
+func TestGuestFileNotFoundIsClassifiedByCodeNotText(t *testing.T) {
+	body := `{"ok":false,"error":"x","outcome":{"version":1,"status":"permanent_failure","code":"file_not_found","execution_certainty":"not_executed","message":"No file at a.zip.","next_action":"repair_arguments"}}`
+	client, err := New(Config{Client: &http.Client{Transport: actionReadinessTransport(func(r *http.Request) (*http.Response, error) {
+		resp := actionReadinessResponse(body)
+		resp.StatusCode, resp.Status = http.StatusNotFound, "404 Not Found"
+		return resp, nil
+	})}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = client.Action(context.Background(), Action{BotID: "b", Name: "files.export_chunk"})
+	o, ok := tooloutcome.FromError(err)
+	if !ok || o.Code != tooloutcome.FileNotFound || o.Status != tooloutcome.Permanent || o.Certainty != "not_executed" {
+		t.Fatalf("err=%v, want typed definite file_not_found", err)
+	}
+	// The same words under another code are not trusted.
+	other := strings.Replace(body, `"file_not_found"`, `"something_else"`, 1)
+	client, _ = New(Config{Client: &http.Client{Transport: actionReadinessTransport(func(r *http.Request) (*http.Response, error) {
+		resp := actionReadinessResponse(other)
+		resp.StatusCode, resp.Status = http.StatusNotFound, "404 Not Found"
+		return resp, nil
+	})}})
+	_, err = client.Action(context.Background(), Action{BotID: "b", Name: "files.export_chunk"})
+	if _, typed := tooloutcome.FromError(err); typed {
+		t.Fatalf("err=%v, an unknown permanent code must stay unclassified", err)
+	}
+}

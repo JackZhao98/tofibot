@@ -16,6 +16,8 @@ import (
 	"syscall"
 	"testing"
 	"time"
+
+	"github.com/JackZhao98/tofibot/internal/tooloutcome"
 )
 
 func TestFilesWriteExpectedSHA256ConflictAndAtomicResult(t *testing.T) {
@@ -434,4 +436,74 @@ func mustMap(t *testing.T, v any) map[string]any {
 		t.Fatalf("result type=%T value=%#v", v, v)
 	}
 	return m
+}
+
+// A missing source is a definite refusal carrying a structured code, so the
+// host never has to read the stat error's wording to know nothing happened.
+func TestExportFileChunkMissingSourceIsCodedNotFound(t *testing.T) {
+	s := newTestService(t)
+	for _, path := range []string{"nope.zip", filepath.Join(s.root, "shared", "nope.zip")} {
+		status, out := postAction(t, s.Handler(), testBot, "run-1", "files.export_chunk", map[string]any{"path": path})
+		if status != http.StatusNotFound || out.OK || out.Outcome == nil {
+			t.Fatalf("%s: status=%d out=%#v", path, status, out)
+		}
+		o := out.Outcome
+		if o.Code != tooloutcome.FileNotFound || o.Status != tooloutcome.Permanent || o.Certainty != "not_executed" || o.NextAction != "repair_arguments" {
+			t.Fatalf("%s: outcome=%+v", path, o)
+		}
+		if !strings.Contains(o.Message, "No file at "+path) || strings.Contains(o.Message, "stat ") {
+			t.Fatalf("%s: message=%q", path, o.Message)
+		}
+	}
+}
+
+func TestExportFileChunkEscapingPathIsDefiniteRefusal(t *testing.T) {
+	s := newTestService(t)
+	status, out := postAction(t, s.Handler(), testBot, "run-1", "files.export_chunk", map[string]any{"path": "../../../etc/passwd"})
+	if status != http.StatusBadRequest || out.Outcome == nil || out.Outcome.Certainty != "not_executed" || out.Outcome.Code != "action_rejected" {
+		t.Fatalf("status=%d out=%#v", status, out)
+	}
+}
+
+// Pins the base of a relative path: the Bot's own directory under the
+// workspace root, which is also the working directory of shell.exec. A file a
+// command creates with a bare name is exported by that same bare name and by
+// its absolute path.
+func TestRelativeExportPathsStartWhereTheShellStarts(t *testing.T) {
+	s := newTestService(t)
+	status, out := postAction(t, s.Handler(), testBot, "run-1", "shell.exec", map[string]any{"command": "printf made > made.txt; pwd -P"})
+	if status != http.StatusOK || !out.OK {
+		t.Fatalf("shell: %d %#v", status, out)
+	}
+	botDir, err := s.botDir(testBot)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cwd := strings.TrimSpace(mustMap(t, out.Result)["stdout"].(string)); cwd != mustEval(t, botDir) {
+		t.Fatalf("shell cwd=%q, want the Bot directory %q", cwd, botDir)
+	}
+	for _, path := range []string{"made.txt", "./made.txt", filepath.Join(botDir, "made.txt")} {
+		_, out = postAction(t, s.Handler(), testBot, "run-1", "files.export_chunk", map[string]any{"path": path})
+		if !out.OK {
+			t.Fatalf("%s: %#v", path, out)
+		}
+		got, _ := base64.StdEncoding.DecodeString(mustMap(t, out.Result)["data_base64"].(string))
+		if string(got) != "made" {
+			t.Fatalf("%s: %q", path, got)
+		}
+	}
+	// Another Bot's relative name does not see this Bot's file.
+	status, _ = postAction(t, s.Handler(), testBotB, "run-1", "files.export_chunk", map[string]any{"path": "made.txt"})
+	if status != http.StatusNotFound {
+		t.Fatalf("other Bot status=%d", status)
+	}
+}
+
+func mustEval(t *testing.T, p string) string {
+	t.Helper()
+	r, err := filepath.EvalSymlinks(p)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return r
 }
