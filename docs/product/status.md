@@ -61,6 +61,7 @@ TOFI 是一个自托管的 AI Bot 工作台：后端是 Go 服务（`internal/`�
 | `publish_file` 返回一个只有所有者能打开的附件链接 | `internal/app/artifact_publish.go:176`；`ade3968` |
 | 提供方的瞬时错误（含 HTTP 200 的流内 `server_is_overloaded`、限流、5xx、断流）先按错误码有界重试，约 2 分钟内，服从 `Retry-After`，再判运行失败；`provider_retries` 默认 8。未发版 | `internal/provider/retry.go`；`internal/provider/errors.go`；`internal/runtime/overloaded_stream_test.go`；[D38](../decisions/0038-failed-runs-keep-published-files.md) |
 | 运行发布了文件之后失败：文件绑定到一条只带附件的助手消息，链接仍能打开（取消和重启中断的运行仍清理）。未发版 | `internal/app/artifact_publish.go`（`keepFailedRunFilesTx`）；`TestFailedRunKeepsPublishedFileReachable`；[D38](../decisions/0038-failed-runs-keep-published-files.md) |
+| 模型写的 `sandbox:/api/attachments/<id>` 链接（以及与本消息附件唯一同名的 `sandbox:` 路径）在输出时改成可点的附件地址，库里原文不变；回复标记 `[message_id=…]` 单独一行或前有空白都按回复渲染。未发版 | `internal/app/sandbox_links.go`；`ui/src/replyMarker.ts`；`test:reply-quote`；[D39](../decisions/0039-serve-sandbox-links-as-attachments.md) |
 | 失败的运行可以重试；重试时保留之前已经完成的工具结果 | `38dd844`、`75b3e2c` |
 
 | 已知缺口 | 依据 |

@@ -20,6 +20,15 @@ try {
   assert.equal(show(list, 2, "b2"), true, "another Bot's older message with the user in between: shown");
   assert.equal(shouldShowReplyQuote(list, 1, undefined), false, "no target: nothing to show");
   assert.equal(shouldShowReplyQuote([m("b1", "bot")], 0, m("gone", "user")), true, "target outside the visible timeline: shown");
+  const { readReplyMarker } = await modules.load("/src/replyMarker.ts");
+  const id = "123e4567-e89b-12d3-a456-426614174000";
+  for (const [name, text] of [["inline", `[message_id=${id}] 正文`], ["own line", `[message_id=${id}]\n正文`], ["own line CRLF", `[message_id=${id}]\r\n\r\n正文`], ["no space", `[message_id=${id}]正文`], ["leading newline", `\n[message_id=${id}]\n正文`], ["leading space", ` [message_id=${id}] 正文`]]) {
+    assert.deepEqual(readReplyMarker(text), { ids: [id], body: "正文" }, name);
+  }
+  assert.deepEqual(readReplyMarker(`[message_id=${id}][message_id=${id}]\n正文`).ids, [id, id], "two markers");
+  assert.deepEqual(readReplyMarker("[message_id=123e45"), { ids: [], body: "" }, "marker still streaming: hidden");
+  assert.deepEqual(readReplyMarker("\n[message_id"), { ids: [], body: "" }, "indented partial marker: hidden");
+  assert.deepEqual(readReplyMarker("plain [message_id=x] text"), { ids: [], body: "plain [message_id=x] text" }, "a mid-text mention is text");
   console.log("reply quote checks: PASS (adjacent, segment, older, group bot, bot target)");
 } finally {
   await modules.close();
