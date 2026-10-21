@@ -876,7 +876,7 @@
     "managed": "Vom Computerdienst verwaltet",
     "standing": {
       "title": "Dauerfreigaben",
-      "description": "Tools, die ein Bot jederzeit nutzen darf, auch in geplanten Läufen. Nach dem Widerruf fragt der nächste Aufruf dieses Bots wieder bei dir nach.",
+      "description": "Tools, die ein Bot ohne Rückfrage nutzen darf. Das gilt auch, wenn der Bot selbstständig arbeitet, zum Beispiel nach Zeitplan. Nach dem Widerruf fragt der nächste Aufruf dieses Bots wieder bei dir nach.",
       "empty": "Noch keine Dauerfreigaben. Wähle auf einer Freigabekarte „Immer erlauben“, um eine anzulegen.",
       "granted": "Erlaubt {{time}}",
       "last_used": "Zuletzt genutzt {{time}}",
@@ -886,6 +886,8 @@
       "revoke_failed": "Widerruf fehlgeschlagen. Versuche es erneut.",
       "load_failed": "Dauerfreigaben konnten nicht geladen werden.",
       "server_changed": "Server geändert. Es wird wieder gefragt.",
+      "tool_changed": "Der Server hat das Tool neu definiert. Es wird wieder gefragt.",
+      "tier_changed": "Die Einstellung dieses Tools hat sich geändert. Es wird wieder gefragt.",
       "used_other": "{{count}} Mal genutzt",
       "remembered": {
         "title": "In einem Chat gemerkt",

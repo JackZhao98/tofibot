@@ -104,6 +104,14 @@ func (s *Server) routeMCPToolTiers(w http.ResponseWriter, r *http.Request, p str
 			writeErr(w, 400, "extensions", err.Error())
 			return true
 		}
+		if in.Tier == string(extensions.MCPTierHighRisk) {
+			// "Always ask me" ends a standing allowance for this tool for good:
+			// lowering the tier again does not bring it back.
+			if err := s.store.revokeStandingAllowancesForTool(name, tool, "tier_raised"); err != nil {
+				writeErr(w, 500, "storage", err.Error())
+				return true
+			}
+		}
 		s.notifyMCPTiers()
 		writeJSON(w, 200, map[string]any{"ok": true, "tool": view, "summary": s.extensions.ListToolTiers(name)})
 		return true

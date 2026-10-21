@@ -24,7 +24,7 @@ try {
   const offered = render(card({ standing: { server: "notion", tool: "notion-update-page" } }));
   assert.match(offered, /class="approval-always"[^>]*>Always allow</, "an eligible call offers Always allow in the action row");
   assert.ok(offered.indexOf("approval-decline") < offered.indexOf("approval-always") && offered.indexOf("approval-accept") < offered.indexOf("approval-always"), "it sits next to Approve and Deny");
-  assert.ok(offered.includes("tofi") && offered.includes("notion-update-page") && offered.includes("scheduled runs"), "the hint names the Bot, tool and that scheduled runs are included");
+  assert.ok(offered.includes("tofi") && offered.includes("notion-update-page") && offered.includes("also when it works on its own") && offered.includes("on a schedule"), "the hint names the Bot and tool and says it also applies when the Bot works on its own, for example on a schedule");
 
   const plain = render(card({}));
   assert.ok(!plain.includes("approval-always"), "a card with no offer (high-risk, hidden chat, non-MCP) has no Always allow");
@@ -38,5 +38,6 @@ try {
 
   await ui.setLanguage("zh-CN");
   assert.ok(render(card({ standing: { server: "notion", tool: "notion-update-page" } })).includes("始终允许"), "translated");
+  assert.ok(render(card({ standing: { server: "notion", tool: "notion-update-page" } })).includes("自行工作时"), "the unattended wording is translated too");
   console.log("PASS Always allow appears only on eligible approval cards and standing decisions are labelled");
 } finally { await ui.close(); }

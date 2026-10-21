@@ -854,6 +854,25 @@ func (s *Server) finishMCPReview(ctx context.Context, c Conversation, r Run, cal
 		}
 	}
 
+	// A standing allowance ("Always allow") replaces only this outcome: the
+	// reviewer found nothing to deny and asks a person. It is read again here,
+	// in this transaction, so a revoked or changed allowance never decides. A
+	// reviewer deny, a gap or a high-risk tool never reaches this point.
+	standingGrant := ""
+	if q.Status == questionPending && status == "human_required" && terminalErr == nil {
+		allowanceID, matchErr := s.matchStandingAllowance(tx, c, r, call)
+		if matchErr != nil {
+			return matchErr
+		}
+		if allowanceID != "" {
+			q.Status, q.Answer, q.AnsweredBy = questionAnswered, json.RawMessage("true"), standingAllowanceActor
+			if _, err = tx.Exec(`UPDATE mcp_call_approvals SET grant_id=? WHERE question_id=?`, allowanceID, id); err != nil {
+				return err
+			}
+			standingGrant = allowanceID
+		}
+	}
+
 	// No person attends a scheduled chain: where the review would hand the
 	// call to a person (needs_human, or a reviewer context_gap), the proposal
 	// is closed instead of waiting on a card nobody reads. The call is not
@@ -882,6 +901,13 @@ func (s *Server) finishMCPReview(ctx context.Context, c Conversation, r Run, cal
 	}
 	if status == "human_required" || status == "human_decided" {
 		display.DecisionSource = result.Source
+	}
+	if standingGrant != "" {
+		// The reviewer's verdict (needs a person) stays in the audit row; the
+		// card records that the allowance answered it.
+		display.Reason = mcpStandingReason + " Reviewer note: " + result.Reason
+		display.DecisionSource, display.GrantID = mcpDecisionSourceStanding, standingGrant
+		display.Source, display.Status = mcpDecisionSourceStanding, "human_decided"
 	}
 	// A remembered approval is never consulted here: in auto mode the
 	// reviewer's needs_human (or a missing host-verified request) means the

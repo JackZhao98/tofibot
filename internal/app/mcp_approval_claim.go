@@ -66,15 +66,24 @@ func (s *Server) claimMCPApproval(ctx context.Context, c Conversation, r Run, ca
 		}
 		return nil, errAutoReviewInvalidated
 	}
-	if q.AnsweredBy == standingAllowanceActor && !s.standingClaimValid(tx, r, call, q) {
-		// The allowance was revoked, the server's identity changed, the tool
-		// left the write tier or the Bot was archived between the decision and
-		// this claim. The card goes back to a person; nothing executes.
-		if err = withdrawRememberedAnswer(tx, c, q); err != nil {
+	if q.AnsweredBy == standingAllowanceActor && !s.standingClaimValid(tx, c, r, call, q) {
+		// The allowance was revoked, the server's identity or the tool's
+		// definition changed, the tool left the write tier or the Bot was
+		// archived between the decision and this claim. Nothing executes. In a
+		// run a person attends the card goes back to a person; in one nobody
+		// attends it is closed and the call refused with the named outcome.
+		unattended, uErr := mcpRunRootedInSchedule(tx, r)
+		if uErr != nil {
+			return nil, uErr
+		}
+		if err = withdrawStandingAnswer(tx, c, q, unattended); err != nil {
 			return nil, err
 		}
 		if err = tx.Commit(); err != nil {
 			return nil, err
+		}
+		if unattended {
+			return nil, mcpNeedsHumanUnattended(mcpStandingWithdrawnReason)
 		}
 		return nil, errAutoReviewInvalidated
 	}
@@ -83,8 +92,10 @@ func (s *Server) claimMCPApproval(ctx context.Context, c Conversation, r Run, ca
 		return nil, settingsErr
 	}
 	// A standing allowance is the person's own standing decision, re-validated
-	// just above; it does not wait for a reviewer verdict in any mode.
-	if (q.AnsweredBy == autoReviewActor || settings.Mode == "auto") && q.AnsweredBy != standingAllowanceActor {
+	// just above. In auto mode it is checked like any other human answer: it
+	// stands only where the reviewer's recorded verdict permits a person to
+	// decide, so a reviewer deny still blocks.
+	if q.AnsweredBy == autoReviewActor || settings.Mode == "auto" {
 		var account, conv, run, hash, server, tool, config, tierBinding, args, schema, policy, contextDigest, snapshot, provenance, status, expiry, decision, risk string
 		var revision int64
 		var confirmation int
@@ -206,6 +217,13 @@ func (s *Server) claimMCPApproval(ctx context.Context, c Conversation, r Run, ca
 		// so the action-level row only records the first dispatch for it.
 		if inserted != 1 && s.mcpProposalFence(call) == mcpProposalEffect {
 			return nil, tooloutcome.ApprovalAlreadyClaimed("This exact external tool proposal already claimed execution.")
+		}
+		// The audit of an allowance-decided call belongs to its claim: counted
+		// and linked in the same transaction, or not claimed at all.
+		if q.AnsweredBy == standingAllowanceActor {
+			if err = recordStandingUseTx(tx, c.ID, r.ID, r.reviewCallID, id); err != nil {
+				return nil, err
+			}
 		}
 	}
 	if err = tx.Commit(); err != nil {

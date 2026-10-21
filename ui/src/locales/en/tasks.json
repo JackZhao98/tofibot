@@ -299,7 +299,7 @@
       "stale": "Approved, but not remembered: the tool or its settings changed."
     },
     "always_allow": {
-      "hint": "Always allow lets {{bot}} use {{tool}} on {{server}} without asking, including in scheduled runs, until you revoke it in Settings.",
+      "hint": "Always allow lets {{bot}} use {{tool}} on {{server}} without asking, also when it works on its own (for example on a schedule, with no one present), until you revoke it in Settings.",
       "stale": "Approved, but not saved as always allowed: the tool or its server changed."
     }
   },

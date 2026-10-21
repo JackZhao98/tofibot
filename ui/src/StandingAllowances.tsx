@@ -13,8 +13,8 @@ export interface StandingAllowance {
   bot_name: string;
   server: string;
   tool: string;
-  /** server_changed: the server's address or transport changed, so the allowance no longer applies. */
-  state: "active" | "server_changed";
+  /** Anything but active means the allowance no longer applies and the next call asks again: server_changed (address, transport or credential target changed, even if set back), tool_changed (the server redefined the tool), tier_changed (the tool is no longer a plain write tool). */
+  state: "active" | "server_changed" | "tool_changed" | "tier_changed";
   created_at: string;
   use_count: number;
   last_used_at?: string;
@@ -86,7 +86,7 @@ export function StandingAllowances() {
             <div className="standing-main">
               <strong><span className="standing-bot">{item.bot_name}</span><code>{item.tool}</code><span className="standing-server">{item.server}</span></strong>
               <small className="standing-meta">{t("automation.standing.granted", { time: when(item.created_at) })} · {item.last_used_at ? t("automation.standing.last_used", { time: when(item.last_used_at) }) : t("automation.standing.never_used")}{uses(item.use_count)}</small>
-              {item.state === "server_changed" && <small className="standing-warning">{t("automation.standing.server_changed")}</small>}
+              {item.state !== "active" && <small className="standing-warning">{t(`automation.standing.${item.state}`)}</small>}
             </div>
             <button type="button" className="secondary-button standing-revoke" disabled={Boolean(busy)} onClick={() => void revoke(item.id, `/api/standing-allowances/${encodeURIComponent(item.id)}`)}>{busy === item.id ? t("automation.standing.revoking") : t("automation.standing.revoke")}</button>
           </li>)}

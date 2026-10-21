@@ -6,9 +6,15 @@ package app
 // is scoped to (account, Bot, MCP server, tool), not to a chat or an argument
 // payload, has no expiry, and also decides calls in scheduled runs. It binds
 // to the server's identity (config fingerprint: name, address, transport,
-// headers): any change voids it. A high_risk ("Always ask me") tool is never
-// grantable, and a grant is created only from a human answer arriving through
-// the owner-authenticated question route.
+// headers, plus a digest of the credential target) and to the tool's
+// definition digest (name, description, input schema, annotations): any
+// change voids it. A high_risk ("Always ask me") tool is never grantable and
+// raising a granted tool to it revokes the grant. A grant is created only from
+// a human answer arriving through the owner-authenticated question route.
+// It also applies when the Bot works with no person present (a schedule, a
+// Bot-to-Bot turn): that is its purpose. It never applies in a conversation no
+// person can see, and in AutoReview "auto" mode it replaces only the
+// reviewer's "a person decides" outcome, never a deny.
 
 import (
 	"database/sql"
@@ -18,6 +24,7 @@ import (
 	"net/url"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/JackZhao98/tofibot/internal/extensions"
 	"github.com/google/uuid"
@@ -29,6 +36,8 @@ const standingAllowanceActor = "standing-allowance"
 
 // mcpDecisionSourceStanding marks a card decided by a standing allowance.
 const mcpDecisionSourceStanding = "standing_allowance"
+
+const mcpStandingWithdrawnReason = "The standing allowance no longer applies (revoked, or the server, the tool or the Bot changed)."
 
 const mcpStandingReason = "You allowed this Bot to use this tool at any time. The standing allowance decided this call; no person was asked."
 
@@ -45,7 +54,7 @@ type MCPStandingAllowance struct {
 	BotName    string `json:"bot_name"`
 	Server     string `json:"server"`
 	Tool       string `json:"tool"`
-	State      string `json:"state"` // active | server_changed
+	State      string `json:"state"` // active | server_changed | tool_changed | tier_changed
 	CreatedAt  string `json:"created_at"`
 	UseCount   int    `json:"use_count"`
 	LastUsedAt string `json:"last_used_at,omitempty"`
@@ -60,6 +69,25 @@ type ToolAllowance struct {
 var errStandingNotAvailable = errors.New("this approval cannot be turned into a standing allowance")
 
 func migrateStandingAllowances(db *sql.DB) error {
+	// The first draft of the uses table keyed on (run_id, call_id) with a
+	// mandatory call id. It never shipped; rebuild it with a surrogate key.
+	var hasID bool
+	if rows, err := db.Query(`SELECT name FROM pragma_table_info('mcp_standing_allowance_uses')`); err == nil {
+		exists := false
+		for rows.Next() {
+			var name string
+			if rows.Scan(&name) == nil {
+				exists = true
+				hasID = hasID || name == "id"
+			}
+		}
+		rows.Close()
+		if exists && !hasID {
+			if _, err := db.Exec(`DROP TABLE mcp_standing_allowance_uses`); err != nil {
+				return err
+			}
+		}
+	}
 	if _, err := db.Exec(`CREATE TABLE IF NOT EXISTS mcp_standing_allowances(
 id TEXT PRIMARY KEY,
 account_id TEXT NOT NULL,
@@ -76,15 +104,30 @@ use_count INTEGER NOT NULL DEFAULT 0,
 last_used_at TEXT NOT NULL DEFAULT '');
 CREATE UNIQUE INDEX IF NOT EXISTS mcp_standing_allowances_active ON mcp_standing_allowances(account_id,bot_id,server,tool) WHERE revoked_at='';
 CREATE TABLE IF NOT EXISTS mcp_standing_allowance_uses(
+id INTEGER PRIMARY KEY AUTOINCREMENT,
 run_id TEXT NOT NULL,
-call_id TEXT NOT NULL,
+call_id TEXT,
 conversation_id TEXT NOT NULL,
 allowance_id TEXT NOT NULL,
 question_id TEXT NOT NULL,
-used_at TEXT NOT NULL,
-PRIMARY KEY(run_id,call_id));
+used_at TEXT NOT NULL);
+CREATE UNIQUE INDEX IF NOT EXISTS mcp_standing_allowance_uses_call ON mcp_standing_allowance_uses(run_id,call_id) WHERE call_id IS NOT NULL;
 CREATE INDEX IF NOT EXISTS mcp_standing_allowance_uses_conversation ON mcp_standing_allowance_uses(conversation_id);`); err != nil {
 		return err
+	}
+	// tool_digest: the tool definition the person allowed. credential_target:
+	// digest of the credential target of the server at that time.
+	// server_changed_at: set the first time the server's identity is seen to
+	// differ; it is never cleared, so changing an address and changing it back
+	// does not revive the allowance.
+	for _, column := range []struct{ name, ddl string }{
+		{"tool_digest", `ALTER TABLE mcp_standing_allowances ADD COLUMN tool_digest TEXT NOT NULL DEFAULT ''`},
+		{"credential_target", `ALTER TABLE mcp_standing_allowances ADD COLUMN credential_target TEXT NOT NULL DEFAULT ''`},
+		{"server_changed_at", `ALTER TABLE mcp_standing_allowances ADD COLUMN server_changed_at TEXT NOT NULL DEFAULT ''`},
+	} {
+		if err := ensureColumn(db, "mcp_standing_allowances", column.name, column.ddl); err != nil {
+			return err
+		}
 	}
 	return ensureColumn(db, "mcp_call_approvals", "standing_eligible", `ALTER TABLE mcp_call_approvals ADD COLUMN standing_eligible INTEGER NOT NULL DEFAULT 0`)
 }
@@ -105,19 +148,48 @@ func (s *Server) standingOfferable(c Conversation, call extensions.MCPCallApprov
 	return c.UserVisible && s.standingTierOK(call)
 }
 
-// matchStandingAllowance finds the live allowance for this exact Bot, server
-// identity and tool. Revoked allowances, other Bots, other tools, a changed
-// server and archived Bots never match.
-func (s *Server) matchStandingAllowance(db reviewQuerier, r Run, call extensions.MCPCallApproval) (string, error) {
+// standingIdentity is the current identity a grant binds to: the server's
+// credential-target digest and the tool's definition digest. ok is false when
+// the server is gone, its fingerprint is not the call's, or the tool was
+// never observed.
+func (s *Server) standingIdentity(call extensions.MCPCallApproval) (credential, toolDigest string, ok bool) {
+	if s.extensions == nil {
+		return "", "", false
+	}
+	fingerprint, credential, found := s.extensions.MCPServerIdentity(call.Server)
+	if !found || fingerprint != call.ConfigVersion {
+		return "", "", false
+	}
+	toolDigest = s.extensions.MCPToolTier(call.Server, call.Tool).Digest
+	return credential, toolDigest, credential != "" && toolDigest != ""
+}
+
+// standingAllowanceFor finds the live allowance for this exact Bot, server
+// identity and tool definition, without looking at who can see the
+// conversation. Callers that decide a call use matchStandingAllowance.
+func (s *Server) standingAllowanceFor(db reviewQuerier, r Run, call extensions.MCPCallApproval) (string, error) {
 	if !s.standingTierOK(call) {
 		return "", nil
 	}
+	credential, toolDigest, ok := s.standingIdentity(call)
+	if !ok {
+		return "", nil
+	}
 	var id string
-	err := db.QueryRow(`SELECT a.id FROM mcp_standing_allowances a JOIN bots b ON b.id=a.bot_id AND b.archived=0 WHERE a.account_id=? AND a.bot_id=? AND a.server=? AND a.tool=? AND a.config_fingerprint=? AND a.revoked_at='' LIMIT 1`, s.reviewAccountID(), r.BotID, call.Server, call.Tool, call.ConfigVersion).Scan(&id)
+	err := db.QueryRow(`SELECT a.id FROM mcp_standing_allowances a JOIN bots b ON b.id=a.bot_id AND b.archived=0 WHERE a.account_id=? AND a.bot_id=? AND a.server=? AND a.tool=? AND a.config_fingerprint=? AND a.credential_target=? AND a.tool_digest=? AND a.revoked_at='' AND a.server_changed_at='' LIMIT 1`, s.reviewAccountID(), r.BotID, call.Server, call.Tool, call.ConfigVersion, credential, toolDigest).Scan(&id)
 	if errors.Is(err, sql.ErrNoRows) {
 		return "", nil
 	}
 	return id, err
+}
+
+// matchStandingAllowance is standingAllowanceFor for a conversation a person
+// can see; a hidden conversation never matches.
+func (s *Server) matchStandingAllowance(db reviewQuerier, c Conversation, r Run, call extensions.MCPCallApproval) (string, error) {
+	if !c.UserVisible {
+		return "", nil
+	}
+	return s.standingAllowanceFor(db, r, call)
 }
 
 // applyStandingAllowance answers a pending card from an allowance inside the
@@ -144,37 +216,69 @@ func applyStandingAllowance(tx *sql.Tx, c Conversation, q *Question, allowanceID
 	return insertRecoveryEvent(tx, c.ID, "question", q.Card(), q.UpdatedAt)
 }
 
+// withdrawStandingAnswer takes back a standing-allowance answer that no longer
+// binds. Where a person attends, the card returns to pending for them; where
+// nobody does, it is closed (cancelled, named reason) instead of parking on a
+// card nobody can answer. The card keeps its grant id as the record.
+func withdrawStandingAnswer(tx *sql.Tx, c Conversation, q Question, unattended bool) error {
+	q.Status, q.Answer, q.AnsweredBy, q.UpdatedAt = questionPending, nil, "", now()
+	if deadline, e := time.Parse(time.RFC3339Nano, q.ExpiresAt); e != nil || !time.Now().Before(deadline) {
+		q.Status = questionExpired
+	}
+	grantID := ""
+	if q.Approval != nil && q.Approval.Review != nil {
+		grantID = q.Approval.Review.GrantID
+	}
+	if q.Approval != nil {
+		display := &MCPReviewDisplay{Source: autoReviewActor, Status: "human_required", Reason: mcpStandingWithdrawnReason + " A person decides this call.", PolicyVersion: autoReviewPolicyVersion, GrantID: grantID}
+		if unattended {
+			display.Status, display.Reason = "policy_denied", mcpNeedsHumanUnattendedPrefix+mcpStandingWithdrawnReason
+			if q.Status == questionPending {
+				q.Status = questionCancelled
+			}
+		}
+		q.Approval.Review = display
+	}
+	raw := ""
+	if q.Approval != nil {
+		b, _ := json.Marshal(q.Approval)
+		raw = string(b)
+	}
+	if _, err := tx.Exec(`UPDATE questions SET status=?,answer_json=NULL,answered_by=NULL,approval_json=?,updated_at=? WHERE id=?`, q.Status, raw, q.UpdatedAt, q.ID); err != nil {
+		return err
+	}
+	return insertRecoveryEvent(tx, c.ID, "question", q.Card(), q.UpdatedAt)
+}
+
 // standingClaimValid re-checks a standing answer at claim time: the allowance
 // is still live for this Bot, server identity and tool, the tool is still
 // write tier, and the Bot is active. Revocation therefore bites at the next
 // claim even for a run already in progress.
-func (s *Server) standingClaimValid(db reviewQuerier, r Run, call extensions.MCPCallApproval, q Question) bool {
+func (s *Server) standingClaimValid(db reviewQuerier, c Conversation, r Run, call extensions.MCPCallApproval, q Question) bool {
 	var grantID string
 	if db.QueryRow(`SELECT grant_id FROM mcp_call_approvals WHERE question_id=?`, q.ID).Scan(&grantID) != nil || grantID == "" {
 		return false
 	}
-	id, err := s.matchStandingAllowance(db, r, call)
+	id, err := s.matchStandingAllowance(db, c, r, call)
 	return err == nil && id == grantID
 }
 
-// recordStandingUse is the audit of a call the allowance let through: the use
-// counter, and the tool activity link that "View activity" reads.
-func (s *Store) recordStandingUse(c Conversation, runID, callID, questionID, allowanceID string) error {
+// recordStandingUseTx is the audit of a call the allowance let through, written
+// inside the claim transaction: either the call is claimed and counted, or
+// neither. It bumps the use counter and writes the use row that "View
+// activity" reads; a call without a provider call id gets a row with a null
+// call id.
+func recordStandingUseTx(tx *sql.Tx, conversationID, runID, callID, questionID string) error {
+	var allowanceID string
+	if err := tx.QueryRow(`SELECT grant_id FROM mcp_call_approvals WHERE question_id=?`, questionID).Scan(&allowanceID); err != nil || allowanceID == "" {
+		return errors.New("standing allowance use has no grant")
+	}
 	t := now()
-	tx, err := s.db.Begin()
-	if err != nil {
+	if _, err := tx.Exec(`UPDATE mcp_standing_allowances SET use_count=use_count+1,last_used_at=? WHERE id=?`, t, allowanceID); err != nil {
 		return err
 	}
-	defer tx.Rollback()
-	if _, err = tx.Exec(`UPDATE mcp_standing_allowances SET use_count=use_count+1,last_used_at=? WHERE id=?`, t, allowanceID); err != nil {
-		return err
-	}
-	if callID != "" {
-		if _, err = tx.Exec(`INSERT OR REPLACE INTO mcp_standing_allowance_uses(run_id,call_id,conversation_id,allowance_id,question_id,used_at) VALUES(?,?,?,?,?,?)`, runID, callID, c.ID, allowanceID, questionID, t); err != nil {
-			return err
-		}
-	}
-	return tx.Commit()
+	_, err := tx.Exec(`INSERT OR REPLACE INTO mcp_standing_allowance_uses(run_id,call_id,conversation_id,allowance_id,question_id,used_at) VALUES(?,?,?,?,?,?)`, runID, nullString(callID), conversationID, allowanceID, questionID, t)
+	return err
 }
 
 // hydrateAllowances marks activities a standing allowance let through.
@@ -182,7 +286,7 @@ func (s *Store) hydrateAllowances(conversationID string, items []ToolActivity) {
 	if len(items) == 0 {
 		return
 	}
-	rows, err := s.db.Query(`SELECT run_id,call_id,allowance_id FROM mcp_standing_allowance_uses WHERE conversation_id=?`, conversationID)
+	rows, err := s.db.Query(`SELECT run_id,call_id,allowance_id FROM mcp_standing_allowance_uses WHERE conversation_id=? AND call_id IS NOT NULL`, conversationID)
 	if err != nil {
 		return
 	}
@@ -232,12 +336,13 @@ func (s *Server) grantStandingAllowance(q Question, actor string) (MCPStandingAl
 	if err != nil {
 		return MCPStandingAllowance{}, err
 	}
-	if !s.standingTierOK(extensions.MCPCallApproval{Server: server, Tool: tool, ConfigVersion: config, TierBinding: tierBinding}) {
+	probe := extensions.MCPCallApproval{Server: server, Tool: tool, ConfigVersion: config, TierBinding: tierBinding}
+	if !s.standingTierOK(probe) {
 		return MCPStandingAllowance{}, errRememberStale
 	}
-	var archived int
-	if s.store.db.QueryRow(`SELECT archived FROM bots WHERE id=?`, q.BotID).Scan(&archived) != nil || archived != 0 {
-		return MCPStandingAllowance{}, errStandingNotAvailable
+	credential, toolDigest, ok := s.standingIdentity(probe)
+	if !ok {
+		return MCPStandingAllowance{}, errRememberStale
 	}
 	t := now()
 	tx, err := s.store.db.Begin()
@@ -247,20 +352,26 @@ func (s *Server) grantStandingAllowance(q Question, actor string) (MCPStandingAl
 	defer tx.Rollback()
 	account := s.reviewAccountID()
 	var existing string
-	err = tx.QueryRow(`SELECT id FROM mcp_standing_allowances WHERE account_id=? AND bot_id=? AND server=? AND tool=? AND config_fingerprint=? AND revoked_at=''`, account, q.BotID, server, tool, config).Scan(&existing)
+	err = tx.QueryRow(`SELECT a.id FROM mcp_standing_allowances a JOIN bots b ON b.id=a.bot_id AND b.archived=0 WHERE a.account_id=? AND a.bot_id=? AND a.server=? AND a.tool=? AND a.config_fingerprint=? AND a.credential_target=? AND a.tool_digest=? AND a.revoked_at='' AND a.server_changed_at=''`, account, q.BotID, server, tool, config, credential, toolDigest).Scan(&existing)
 	if err != nil && !errors.Is(err, sql.ErrNoRows) {
 		return MCPStandingAllowance{}, err
 	}
 	id := existing
 	if id == "" {
-		// An older allowance for a server identity that has since changed is
-		// replaced by this one.
+		// An older allowance for a server or tool definition that has since
+		// changed is replaced by this one.
 		if _, err = tx.Exec(`UPDATE mcp_standing_allowances SET revoked_at=?,revoked_by='superseded' WHERE account_id=? AND bot_id=? AND server=? AND tool=? AND revoked_at=''`, t, account, q.BotID, server, tool); err != nil {
 			return MCPStandingAllowance{}, err
 		}
 		id = uuid.NewString()
-		if _, err = tx.Exec(`INSERT INTO mcp_standing_allowances(id,account_id,bot_id,server,tool,config_fingerprint,source_question_id,created_at,created_by) VALUES(?,?,?,?,?,?,?,?,?)`, id, account, q.BotID, server, tool, config, q.ID, t, actor); err != nil {
-			return MCPStandingAllowance{}, err
+		// The archived check is part of the insert: an archive that commits
+		// first leaves nothing to insert.
+		res, insertErr := tx.Exec(`INSERT INTO mcp_standing_allowances(id,account_id,bot_id,server,tool,config_fingerprint,credential_target,tool_digest,source_question_id,created_at,created_by) SELECT ?,?,?,?,?,?,?,?,?,?,? WHERE EXISTS(SELECT 1 FROM bots WHERE id=? AND archived=0)`, id, account, q.BotID, server, tool, config, credential, toolDigest, q.ID, t, actor, q.BotID)
+		if insertErr != nil {
+			return MCPStandingAllowance{}, insertErr
+		}
+		if n, _ := res.RowsAffected(); n != 1 {
+			return MCPStandingAllowance{}, errStandingNotAvailable
 		}
 	}
 	if err = tx.Commit(); err != nil {
@@ -278,27 +389,83 @@ type settingsRememberedApproval struct {
 }
 
 func (s *Server) listStandingAllowances() ([]MCPStandingAllowance, error) {
-	rows, err := s.store.db.Query(`SELECT a.id,a.bot_id,b.name,a.server,a.tool,a.config_fingerprint,a.created_at,a.use_count,a.last_used_at FROM mcp_standing_allowances a JOIN bots b ON b.id=a.bot_id WHERE a.account_id=? AND a.revoked_at='' ORDER BY a.created_at DESC,a.id DESC LIMIT 500`, s.reviewAccountID())
+	rows, err := s.store.db.Query(`SELECT a.id,a.bot_id,b.name,a.server,a.tool,a.config_fingerprint,a.credential_target,a.tool_digest,a.server_changed_at,a.created_at,a.use_count,a.last_used_at FROM mcp_standing_allowances a JOIN bots b ON b.id=a.bot_id WHERE a.account_id=? AND a.revoked_at='' ORDER BY a.created_at DESC,a.id DESC LIMIT 500`, s.reviewAccountID())
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
 	out := []MCPStandingAllowance{}
+	var changed []string
 	for rows.Next() {
 		var a MCPStandingAllowance
-		var fingerprint string
-		if err := rows.Scan(&a.ID, &a.BotID, &a.BotName, &a.Server, &a.Tool, &fingerprint, &a.CreatedAt, &a.UseCount, &a.LastUsedAt); err != nil {
+		var fingerprint, credential, digest, changedAt string
+		if err := rows.Scan(&a.ID, &a.BotID, &a.BotName, &a.Server, &a.Tool, &fingerprint, &credential, &digest, &changedAt, &a.CreatedAt, &a.UseCount, &a.LastUsedAt); err != nil {
+			rows.Close()
 			return nil, err
 		}
 		a.State = "server_changed"
-		if s.extensions != nil {
-			if current, ok := s.extensions.MCPConfigVersion(a.Server); ok && current == fingerprint {
-				a.State = "active"
+		if s.extensions != nil && changedAt == "" {
+			if current, currentCredential, ok := s.extensions.MCPServerIdentity(a.Server); ok && current == fingerprint && currentCredential == credential {
+				view := s.extensions.MCPToolTier(a.Server, a.Tool)
+				switch {
+				case view.Digest == "" || view.Digest != digest:
+					a.State = "tool_changed"
+				case view.Tier != extensions.MCPTierWrite:
+					a.State = "tier_changed"
+				default:
+					a.State = "active"
+				}
 			}
+		}
+		if a.State == "server_changed" && changedAt == "" {
+			changed = append(changed, a.ID)
 		}
 		out = append(out, a)
 	}
-	return out, rows.Err()
+	err = rows.Err()
+	rows.Close()
+	if err != nil {
+		return nil, err
+	}
+	// Seen different once: void for good, even if the address is later set back.
+	for _, id := range changed {
+		if _, err := s.store.db.Exec(`UPDATE mcp_standing_allowances SET server_changed_at=? WHERE id=? AND server_changed_at=''`, now(), id); err != nil {
+			return nil, err
+		}
+	}
+	return out, nil
+}
+
+// markStandingServerChanged is the configuration write's hook: the server's
+// identity just changed (or it was removed), so every live allowance made for
+// the earlier identity is void for good. It must not call into the extension
+// Manager, which holds its configuration fence while calling it.
+func (s *Server) markStandingServerChanged(server string) {
+	if s.store == nil || s.store.db == nil {
+		return
+	}
+	_, _ = s.store.db.Exec(`UPDATE mcp_standing_allowances SET server_changed_at=? WHERE server=? AND revoked_at='' AND server_changed_at=''`, now(), server)
+}
+
+// voidChangedStandingAllowances marks as server_changed every live allowance
+// of a server whose identity no longer matches what it was made for. It runs
+// before a call is decided and when Settings lists them: it catches a change
+// made outside this process's configuration writes (an edited file).
+func (s *Server) voidChangedStandingAllowances(server string) {
+	if s.store == nil || s.store.db == nil {
+		return
+	}
+	var fingerprint, credential string
+	found := false
+	if s.extensions != nil {
+		var ok bool
+		fingerprint, credential, ok = s.extensions.MCPServerIdentity(server)
+		found = ok
+	}
+	if found {
+		_, _ = s.store.db.Exec(`UPDATE mcp_standing_allowances SET server_changed_at=? WHERE server=? AND revoked_at='' AND server_changed_at='' AND (config_fingerprint<>? OR credential_target<>?)`, now(), server, fingerprint, credential)
+		return
+	}
+	_, _ = s.store.db.Exec(`UPDATE mcp_standing_allowances SET server_changed_at=? WHERE server=? AND revoked_at='' AND server_changed_at=''`, now(), server)
 }
 
 func (s *Server) listAllRememberedApprovals() ([]settingsRememberedApproval, error) {
@@ -327,25 +494,32 @@ func (s *Store) revokeStandingAllowance(account, id, actor string) (bool, error)
 	return n == 1, err
 }
 
-// deleteStandingAllowancesForServer removes every allowance for a server that
-// no longer exists.
-func (s *Store) deleteStandingAllowancesForServer(server string) error {
-	_, err := s.db.Exec(`DELETE FROM mcp_standing_allowances WHERE server=?`, server)
+// revokeStandingAllowancesForServer revokes (it keeps the rows, so the history
+// and the uses stay readable) every allowance of a server that no longer exists.
+func (s *Store) revokeStandingAllowancesForServer(server string) error {
+	_, err := s.db.Exec(`UPDATE mcp_standing_allowances SET revoked_at=?,revoked_by='server_removed' WHERE server=? AND revoked_at=''`, now(), server)
 	return err
 }
 
-func deleteStandingAllowancesForBotTx(tx *sql.Tx, botID string) error {
-	_, err := tx.Exec(`DELETE FROM mcp_standing_allowances WHERE bot_id=?`, botID)
+// revokeStandingAllowancesForTool: the owner set a tool to "Always ask me".
+func (s *Store) revokeStandingAllowancesForTool(server, tool, by string) error {
+	_, err := s.db.Exec(`UPDATE mcp_standing_allowances SET revoked_at=?,revoked_by=? WHERE server=? AND tool=? AND revoked_at=''`, now(), by, server, tool)
 	return err
 }
 
-// deleteMCPServer removes a configured server and its standing allowances.
+// revokeStandingAllowancesForBotTx: by is bot_archived or bot_deleted.
+func revokeStandingAllowancesForBotTx(tx *sql.Tx, botID, by string) error {
+	_, err := tx.Exec(`UPDATE mcp_standing_allowances SET revoked_at=?,revoked_by=? WHERE bot_id=? AND revoked_at=''`, now(), by, botID)
+	return err
+}
+
+// deleteMCPServer removes a configured server and revokes its standing allowances.
 func (s *Server) deleteMCPServer(name string) error {
 	err := s.extensions.DeleteMCP(name)
 	if err != nil && !errors.Is(err, os.ErrNotExist) {
 		return err
 	}
-	if e := s.store.deleteStandingAllowancesForServer(name); e != nil {
+	if e := s.store.revokeStandingAllowancesForServer(name); e != nil {
 		return e
 	}
 	return err

@@ -8,7 +8,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"log"
 	"strings"
 	"unicode/utf8"
 
@@ -106,11 +105,24 @@ func (s *Server) approveMCPCallOnce(ctx context.Context, c Conversation, r Run, 
 	}
 
 	// A standing allowance ("Always allow") the person gave this Bot for this
-	// exact tool on this server identity decides the call in their place, in a
-	// scheduled run too. High-risk and read-only tools never match. It does not
-	// lift the hidden-conversation refusal below: a conversation no person can
-	// see keeps refusing, grant or not.
-	standingID, err := s.matchStandingAllowance(s.store.db, r, call)
+	// exact tool definition on this server identity decides the call in their
+	// place, whether or not a person attends the run: it also covers a schedule
+	// and a Bot's own turn. High-risk and read-only tools never match. In
+	// AutoReview "auto" mode it replaces only the reviewer's "a person decides"
+	// outcome (finishMCPReview); a deny still blocks.
+	s.voidChangedStandingAllowances(call.Server)
+	standingAny, err := s.standingAllowanceFor(s.store.db, r, call)
+	if err != nil {
+		return err
+	}
+	if standingAny != "" && !c.UserVisible {
+		// A grant never lifts the hidden-conversation refusal, attended run or
+		// not: a conversation no person can see keeps refusing.
+		if err := requireHumanPresent(c); err != nil {
+			return err
+		}
+	}
+	standingID, err := s.matchStandingAllowance(s.store.db, c, r, call)
 	if err != nil {
 		return err
 	}
@@ -201,7 +213,7 @@ func (s *Server) approveMCPCallOnce(ctx context.Context, c Conversation, r Run, 
 			// triggered, and only with a derivable target.
 			if standingID != "" {
 				// Re-checked at the point of use; a revoked allowance means a card.
-				if again, matchErr := s.matchStandingAllowance(s.store.db, r, call); matchErr != nil {
+				if again, matchErr := s.matchStandingAllowance(s.store.db, c, r, call); matchErr != nil {
 					return matchErr
 				} else if again != standingID {
 					standingID = ""
@@ -229,10 +241,12 @@ func (s *Server) approveMCPCallOnce(ctx context.Context, c Conversation, r Run, 
 				return createErr
 			}
 			// Off and shadow modes ask a person at creation. A grant the person
-			// made earlier in this chat decides in their place; the card is
-			// published once, already decided, and keeps its own claim.
+			// made earlier decides in their place; the card is published once,
+			// already decided, and keeps its own claim. In auto mode the reviewer
+			// speaks first (finishMCPReview applies the grant to a "a person
+			// decides" verdict only).
 			remembered := false
-			if standingID != "" {
+			if standingID != "" && settings.Mode != "auto" {
 				tx, txErr := s.store.db.Begin()
 				if txErr != nil {
 					return txErr
@@ -378,13 +392,6 @@ func (s *Server) approveMCPCallOnce(ctx context.Context, c Conversation, r Run, 
 	}
 	if call.OnClaim != nil {
 		call.OnClaim()
-	}
-	if used, e := s.store.GetQuestion(id); e == nil && used.AnsweredBy == standingAllowanceActor && used.Approval != nil && used.Approval.Review != nil {
-		// The call is already claimed: a failed audit write never aborts it,
-		// but it must not pass silently either.
-		if e = s.store.recordStandingUse(c, r.ID, r.reviewCallID, id, used.Approval.Review.GrantID); e != nil {
-			log.Printf("standing allowance use not recorded: %v", e)
-		}
 	}
 	return ctx.Err()
 }
