@@ -116,7 +116,8 @@ async function dragTo(page, from, to, { steps = 14, hold = false } = {}) {
   if (!hold) { await page.mouse.up(); }
 }
 const paneAttr = (page, name) => page.evaluate(attr => document.querySelector("[data-dnd-dropzone]")?.getAttribute(attr), name);
-const dropZoneVisible = page => page.locator(".pin-dropzone").isVisible();
+// The frame around the pinned area is always there once something is pinned; its hint shows only while a row is dragged.
+const dropZoneVisible = page => page.locator(".pin-frame-hint").isVisible();
 const live = page => page.locator(".contact-section [role=status]").innerText();
 const settled = async page => { await page.waitForFunction(() => !document.querySelector(".is-dnd-dragging") && !document.querySelector("[data-dnd-dropzone][data-dnd]"), null, { timeout: 4000 }); await sleep(350); };
 
@@ -233,7 +234,7 @@ await check("the drop zone exists only while a row is dragged", async () => {
   assert.equal(await paneAttr(page, "data-dnd"), "row");
   await until(() => dropZoneVisible(page), "the drop zone to show");
   if (shots) await page.screenshot({ path: join(shots, "drop-zone-idle.png") });
-  const zone = await centre(page.locator(".pin-dropzone"));
+  const zone = await centre(page.locator(".pin-frame"));
   await page.mouse.move(zone.x, zone.y, { steps: 8 });
   await until(async () => (await paneAttr(page, "data-dnd-over")) === "pin", "the zone to highlight");
   if (shots) await page.screenshot({ path: join(shots, "drop-zone-armed.png") });
@@ -253,7 +254,7 @@ await check("dropping on the zone pins: large tile with the cat and the name, ro
   await page.mouse.down();
   await page.mouse.move(from.x, from.y - 30, { steps: 5 });
   await until(() => dropZoneVisible(page), "the drop zone");
-  const zone = await centre(page.locator(".pin-dropzone"));
+  const zone = await centre(page.locator(".pin-frame"));
   await page.mouse.move(zone.x, zone.y, { steps: 10 });
   await page.mouse.up();
   await settled(page);
@@ -284,7 +285,7 @@ async function pinBy(page, name) {
   await page.mouse.down();
   await page.mouse.move(from.x, from.y - 30, { steps: 4 });
   await until(() => dropZoneVisible(page), "the drop zone");
-  const zone = await centre(page.locator(".pin-dropzone"));
+  const zone = await centre(page.locator(".pin-frame"));
   await page.mouse.move(zone.x, zone.y, { steps: 8 });
   if (process.env.DEBUG_PIN) console.log("  [pinBy]", name, JSON.stringify(zone), await paneAttr(page, "data-dnd-over"), await page.evaluate(() => JSON.stringify(document.querySelector(".pin-dropzone").getBoundingClientRect())));
   await page.mouse.up();
@@ -320,33 +321,60 @@ await check("tiles reorder among themselves; dragging a tile back into the list 
   await context.close();
 });
 
-await check("the drop zone sits below the search bar and no row, tile or header element is under it; the ghost stays above", async () => {
-  for (const pinned of [false, true]) {
+await check("the pinned area is the drop frame: below the search bar, around every tile, and nothing covers it at any scroll position", async () => {
+  for (const pins of [0, 3]) for (const where of ["top", "middle", "bottom"]) {
     const { page, context } = await open();
-    if (pinned) await pinBy(page, "Cat 05");
-    const from = await centre(rowFor(page, "Cat 02"));
-    await dragTo(page, from, { x: from.x, y: from.y + 70 }, { hold: true });
-    await until(() => dropZoneVisible(page), "the drop zone");
-    await sleep(500); // the zone's own entrance has finished
+    for (const name of ["Cat 01", "Cat 04", "Cat 06"].slice(0, pins)) await pinBy(page, name);
+    await page.evaluate(w => { const el = document.querySelector(".contact-section"); el.scrollTop = w === "top" ? 0 : w === "middle" ? (el.scrollHeight - el.clientHeight) / 2 : el.scrollHeight; }, where);
+    await sleep(250);
+    const box = await page.locator(".contact-section").boundingBox();
+    let pick = null;
+    for (const n of await names(page)) { const b = await rowFor(page, n).boundingBox(); if (b && b.y > box.y + 10 && b.y + b.height < box.y + box.height - 10) { pick = n; break; } }
+    assert.ok(pick, "a row is on screen");
+    const from = await centre(rowFor(page, pick));
+    await dragTo(page, from, { x: from.x, y: from.y + 8 }, { hold: true, steps: 4 });
+    await until(() => dropZoneVisible(page), "the hint inside the frame");
+    await sleep(500);
     const probe = await page.evaluate(() => {
-      const box = el => { const r = el.getBoundingClientRect(); return { top: r.top, bottom: r.bottom, left: r.left, right: r.right, height: r.height, width: r.width }; };
-      const zone = box(document.querySelector(".pin-dropzone"));
+      const box = el => { const r = el.getBoundingClientRect(); return { top: r.top, bottom: r.bottom, left: r.left, right: r.right, width: r.width, height: r.height }; };
+      const frameEl = document.querySelector(".pin-frame");
+      const frame = box(frameEl);
+      const inside = el => frameEl.contains(el) || el.contains(frameEl);
+      const hit = (a, b) => a.top < b.bottom - 0.5 && a.bottom > b.top + 0.5 && a.left < b.right - 0.5 && a.right > b.left + 0.5;
+      const tiles = [...document.querySelectorAll(".pin-tile")].map(box);
+      const regions = [["frame", frame], ...tiles.map((t, i) => ["tile " + i, t])];
+      const offenders = [];
+      // Anything in the sidebar that is painted over a region: elements inside the frame do not count; nothing outside it may overlap it.
+      for (const el of document.querySelectorAll(".contact-pane *")) {
+        if (inside(el) || el.classList.contains("is-dnd-dragging") || el.closest(".is-dnd-dragging")) continue;
+        const cs = getComputedStyle(el);
+        if (cs.display === "none" || cs.visibility === "hidden" || cs.opacity === "0") continue;
+        const r = box(el);
+        if (!r.width || !r.height) continue;
+        for (const [name, region] of regions) if (hit(r, region)) offenders.push(`${el.className || el.tagName} over ${name}`);
+      }
+      // What is actually on top at points of the frame and at each tile's centre (this sees positioned layers and blurs, not only boxes).
+      const topmost = [];
+      const points = [[frame.left + frame.width / 2, frame.top + 6], [frame.left + 6, frame.top + frame.height / 2], [frame.right - 20, frame.bottom - 20], ...tiles.map(t => [t.left + t.width / 2, t.top + t.height / 2])];
+      for (const [x, y] of points) { const hitEl = document.elementFromPoint(x, y); if (!hitEl || !frameEl.contains(hitEl)) topmost.push(`${hitEl?.className || hitEl?.tagName} at ${Math.round(x)},${Math.round(y)}`); }
       const search = box(document.querySelector(".search-box"));
-      const logo = box(document.querySelector(".sidebar-top"));
+      const scroller = document.querySelector(".contact-section");
       const ghost = document.querySelector(".is-dnd-dragging");
-      const overlaps = [];
-      const hit = (name, el) => { const r = el.getBoundingClientRect(); if (r.width && r.height && r.top < zone.bottom - 0.5 && r.bottom > zone.top + 0.5 && r.left < zone.right && r.right > zone.left) overlaps.push(`${name} ${el.textContent.trim().slice(0, 14)}`); };
-      document.querySelectorAll(".conversation-row:not(.is-dnd-dragging), .pin-tile, .section-label, .search-box, .sidebar-top").forEach(el => hit(el.className.split(" ")[0], el));
-      const scroller = document.querySelector(".contact-section").getBoundingClientRect();
-      return { zone, search, logo, overlaps, ghostZ: getComputedStyle(ghost).zIndex, zoneZ: getComputedStyle(document.querySelector(".pin-dropzone-anchor")).zIndex, scrollerTop: scroller.top };
+      const hint = box(document.querySelector(".pin-frame-hint"));
+      return { frame, search, tiles, offenders, topmost, scrollTop: scroller.scrollTop, ghostZ: getComputedStyle(ghost).zIndex, frameZ: getComputedStyle(frameEl).zIndex, hint, hintDisplay: getComputedStyle(document.querySelector(".pin-frame-hint")).display, frameTouches: frame.height };
     });
-    const what = pinned ? "with a pinned tile" : "no pins";
-    assert.ok(probe.zone.top >= probe.search.bottom - 0.5, `${what}: the zone top ${probe.zone.top} is at or below the search bar bottom ${probe.search.bottom}`);
-    assert.ok(probe.zone.top >= probe.logo.bottom - 0.5, `${what}: the zone is below the logo row`);
-    assert.deepEqual(probe.overlaps, [], `${what}: nothing intersects the zone`);
+    const what = `${pins} pins, scrolled ${where}`;
+    assert.equal(probe.scrollTop, 0, `${what}: lifting a row takes the list to the top, where the whole frame is`);
+    assert.ok(probe.frame.top >= probe.search.bottom - 0.5, `${what}: the frame top ${probe.frame.top} is at or below the search bar bottom ${probe.search.bottom}`);
+    assert.equal(probe.tiles.length, pins, `${what}: every pinned tile is drawn`);
+    for (const [i, t] of probe.tiles.entries()) assert.ok(t.left >= probe.frame.left - 0.5 && t.right <= probe.frame.right + 0.5 && t.top >= probe.frame.top - 0.5 && t.bottom <= probe.frame.bottom + 0.5, `${what}: tile ${i} is inside the frame ${JSON.stringify(t)} vs ${JSON.stringify(probe.frame)}`);
+    assert.ok(probe.hint.top >= probe.frame.top - 0.5 && probe.hint.bottom <= probe.frame.bottom + 0.5, `${what}: the hint is inside the frame`);
+    if (pins === 0) assert.ok(probe.frame.height >= 100 && probe.frame.height <= 140, `${what}: the empty frame is about one tile row tall (${probe.frame.height})`);
+    assert.deepEqual(probe.offenders, [], `${what}: nothing is laid over the frame or the tiles`);
+    assert.deepEqual(probe.topmost, [], `${what}: the frame and the tiles are topmost`);
     assert.equal(probe.ghostZ, "110", `${what}: the ghost is on --z-drag`);
-    assert.ok(Number(probe.zoneZ) < 110 || probe.zoneZ === "auto", `${what}: the zone is under the ghost (${probe.zoneZ})`);
-    if (shots) await page.screenshot({ path: join(shots, pinned ? "zone-in-flow-pinned.png" : "zone-in-flow.png") });
+    assert.ok(probe.frameZ === "auto" || Number(probe.frameZ) < 110, `${what}: the frame is under the ghost`);
+    if (shots) await page.screenshot({ path: join(shots, `frame-${pins}-pins-${where}.png`) });
     await page.keyboard.press("Escape");
     await settled(page);
     await context.close();
@@ -369,7 +397,7 @@ await check("a drop lands where it ends: no step between the last animated frame
   await page.mouse.down();
   await page.mouse.move(from.x, from.y - 30, { steps: 4 });
   await until(() => dropZoneVisible(page), "the drop zone");
-  const zone = await centre(page.locator(".pin-dropzone"));
+  const zone = await centre(page.locator(".pin-frame"));
   await page.mouse.move(zone.x, zone.y, { steps: 8 });
   await sleep(250);
   frames = assertNoJump(await releaseSampled(page, "dm_03"), "pin");
@@ -406,14 +434,18 @@ await check("a drop lands where it ends while the list is scrolled (reorder, the
   await sleep(250);
   assertNoJump(await releaseSampled(page, id), "scrolled reorder");
   await settled(page);
-  // pin while scrolled
-  const p2 = await centre(rowFor(page, vis[6]));
+  // pin from a scrolled list: the lift takes the list to the top, so scroll down again and pick a row that is on screen
+  await page.evaluate(() => { document.querySelector(".contact-section").scrollTop = 300; });
+  await sleep(200);
+  let target = null;
+  for (const n of await names(page)) { const b = await rowFor(page, n).boundingBox(); if (b && b.y > box.y + 20 && b.y + b.height < box.y + box.height - 20) { target = n; break; } }
+  const p2 = await centre(rowFor(page, target));
   await page.mouse.move(p2.x, p2.y); await page.mouse.down(); await page.mouse.move(p2.x, p2.y - 30, { steps: 4 });
   await until(() => dropZoneVisible(page), "zone");
-  const z = await centre(page.locator(".pin-dropzone"));
+  const z = await centre(page.locator(".pin-frame"));
   await page.mouse.move(z.x, z.y, { steps: 8 });
   await sleep(250);
-  assertNoJump(await releaseSampled(page, "dm_" + vis[6].slice(4)), "scrolled pin", { continuity: false });
+  assertNoJump(await releaseSampled(page, "dm_" + target.slice(4)), "scrolled pin", { continuity: false });
   await context.close();
 });
 

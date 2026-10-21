@@ -456,7 +456,7 @@
 | `styles.css:318` | `.contact-pane::after`（推入时的压暗） | 2 | 同上 |
 | `styles.css:322` | `.chat-pane`（≤767px） | 7 | 同上 |
 | `sidebar-pins.css` | 拖动中的会话行、落下去飞行中的行/格（`.is-dnd-landing`） | `--z-drag` | 侧栏列表（原来是 40，被侧栏里的落点和后面的行压住；现在写 `var(--z-drag)`，落点是 `--z-raised`，以前那条"保持 40"作废） |
-| `sidebar-pins.css` | `.pin-dropzone-anchor`（占文档流，`position:sticky`） | `--z-raised` | 侧栏列表（原来是盖在搜索区上的绝对定位，30） |
+| `sidebar-pins.css` | `.pin-frame`（置顶区的框，占文档流） | 无 | 侧栏列表（原来 `.pin-dropzone-anchor` 是盖在搜索区上的绝对定位，30；框不需要层级，上面不许有东西） |
 | `settings-system.css:17` | `.settings-rail-indicator` | 0 | 设置导航 |
 | `settings-system.css:21` | 设置导航按钮 | 1 | 设置导航 |
 | `terminal.css:11` | `.terminal-confirm` | 2 | 终端面板内确认 |
