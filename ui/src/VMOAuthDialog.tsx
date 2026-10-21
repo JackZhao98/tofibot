@@ -1,10 +1,9 @@
 import { useEffect, useRef, useState } from "react";
-import { createPortal } from "react-dom";
 import { api, request } from "./api";
 import { DesktopVideo, type DesktopVideoState } from "./DesktopVideo";
 import { RemoteDesktopControl, type RemoteControlHandle } from "./RemoteDesktopControl";
 import { i18n, useTranslation } from "./i18n";
-import { layerRoot } from "./layers";
+import { ModalDialog } from "./overlays/ModalDialog";
 
 export type VMOAuthSession = { session_id: string; bot_id: string; status: string; error?: string };
 const endKeys = { denied: "extensions:vm.end.denied", expired: "extensions:vm.end.expired", error: "extensions:vm.end.error" } as const;
@@ -21,7 +20,6 @@ export function VMOAuthDialog({ session, serverName, title, onFinish }: Props) {
   const finish = useRef(onFinish); finish.current = onFinish;
   const terminal = useRef(false);
   const cancellation = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
-  const pane = useRef<HTMLDivElement>(null);
   const [owned, setOwned] = useState(false);
   const [closing, setClosing] = useState(false);
   const [connectionError, setConnectionError] = useState("");
@@ -80,22 +78,6 @@ export function VMOAuthDialog({ session, serverName, title, onFinish }: Props) {
     return () => { alive = false; clearTimeout(timer); };
   }, [session.bot_id]);
 
-  useEffect(() => {
-    const previous = document.activeElement as HTMLElement | null;
-    pane.current?.focus();
-    const keys = (event: KeyboardEvent) => {
-      // Escape belongs to the remote computer while the user controls it.
-      if (event.key === "Escape" || event.key !== "Tab" || event.defaultPrevented) return;
-      const targets = Array.from(pane.current?.querySelectorAll<HTMLElement>('button:not([disabled]), textarea:not([tabindex="-1"])') ?? []).filter(el => el.getClientRects().length);
-      const i = targets.indexOf(document.activeElement as HTMLElement);
-      if (i < 0 || (!event.shiftKey && i === targets.length - 1) || (event.shiftKey && i === 0)) {
-        event.preventDefault(); (event.shiftKey ? targets.at(-1) : targets[0])?.focus();
-      }
-    };
-    document.addEventListener("keydown", keys);
-    return () => { document.removeEventListener("keydown", keys); previous?.focus(); };
-  }, []);
-
   async function cancel() {
     setClosing(true);
     try {
@@ -105,8 +87,11 @@ export function VMOAuthDialog({ session, serverName, title, onFinish }: Props) {
     } catch { setConnectionError(t("vm.cancel_failed")); setClosing(false); }
   }
 
-  return createPortal(<div className="mcp-oauth-overlay">
-    <div ref={pane} className="mcp-oauth-dialog mcp-settings" role="dialog" aria-modal="true" aria-label={t("vm.dialog_label", { title })} tabIndex={-1}>
+  // Escape belongs to the remote computer while the person controls it, and only Cancel ends the sign-in, so neither
+  // Escape nor a press outside closes this. Tab stays inside (Radix), but the keyboard receiver stops its own keys
+  // from bubbling, so Tab typed into the remote computer is not trapped.
+  return <ModalDialog onClose={noop} closeOnEscape={false} closeOnOutside={false} overlayClassName="mcp-oauth-overlay">
+    <div className="mcp-oauth-dialog mcp-settings" role="dialog" aria-label={t("vm.dialog_label", { title })} tabIndex={-1}>
       <header><div><strong>{title}</strong><span>{t("vm.subtitle")}</span></div><button className="mcp-button" disabled={closing} onClick={() => void cancel()}>{closing ? t("vm.cancelling") : t("vm.cancel")}</button></header>
       <RemoteDesktopControl botId={session.bot_id} enabled={!closing} expanded onControlChange={setOwned} controlRef={control}>
         {videoState === "fallback" && poster && <img className="computer-screen" src={poster} alt={t("vm.screen_alt")} draggable={false}/>}
@@ -114,5 +99,7 @@ export function VMOAuthDialog({ session, serverName, title, onFinish }: Props) {
       </RemoteDesktopControl>
       <footer role="status">{connectionError || t("vm.footer")}</footer>
     </div>
-  </div>, layerRoot());
+  </ModalDialog>;
 }
+
+const noop = () => {};

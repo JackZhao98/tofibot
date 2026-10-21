@@ -30,7 +30,7 @@ import { MailDraftCard, useMailDrafts } from "./MailDraftCard";
 import { buildQuestionTimeline, compareQuestionTime } from "./questionTimeline";
 import { useDebugMode } from "./debugMode";
 import type { SettingsEntry, SettingsTab, SettingsView } from "./SettingsShell";
-import { AfterPaint, ArchivePanel, UpdateBanner, PermissionCoach, BotPanelSkeleton, BotDesktopPanel, DeleteConversationDialog, RememberedApprovalsSheet, BotPanel, MembersPanel, DesktopSkeleton, MemoryPanel, TeamBoard, ViewOnlyChat, WorkPanel, Onboarding, QuestionCard, preloadPanel, SettingsPanel, SettingsSkeleton, warmPanelsWhenIdle } from "./lazyPanels";
+import { AfterPaint, ArchivePanel, UpdateBanner, PermissionCoach, BotPanelSkeleton, BotDesktopPanel, DeleteConversationDialog, ReassignPrimaryDialog, RememberedApprovalsSheet, BotPanel, MembersPanel, DesktopSkeleton, MemoryPanel, TeamBoard, ViewOnlyChat, WorkPanel, Onboarding, QuestionCard, preloadPanel, SettingsPanel, SettingsSkeleton, warmPanelsWhenIdle } from "./lazyPanels";
 import { subscribeSettingsDeepLinks } from "./settings/deepLinks";
 import { BotIdentityCard } from "./BotIdentityCard";
 import { ActionHints, ConfirmAction, useAppearance, useSurfacePresence } from "./InteractionSystem";
@@ -40,7 +40,7 @@ import { useConversationNavigation } from "./useConversationNavigation";
 import { FloatingDesktop } from "./FloatingDesktop";
 import { useDesktopPresence } from "./desktopPresence";
 import type { DeleteTarget } from "./DeleteConversationDialog";
-import { PrimaryBadge, ReassignPrimaryDialog, otherActiveBots } from "./PrimaryAssistant";
+import { PrimaryBadge, otherActiveBots } from "./PrimaryAssistant";
 import type { ViewOnlyChatTarget } from "./ViewOnlyChat";
 import { ScheduledTaskRow } from "./ScheduledTaskRow";
 import { occurrenceRootKey, type ScheduleOccurrence } from "./scheduleOccurrences";
@@ -79,6 +79,7 @@ import { draftDeltaApplies } from "./draftDelta";
 import { DraftStream, useLiveDraft } from "./draftStream";
 import { rowModelEqual } from "./timelineRow";
 import { layerRoot } from "./layers";
+import { WorkspaceToast } from "./WorkspaceToast";
 import { shouldShowReplyQuote } from "./replyQuote";
 import { buildRetryFamilies, indexMessages, isTerminalRun, retryFamilyAnchor } from "./runFamily";
 import { composerClientMessageId, composerDraftMatchesMessage, composerMessageContent, composerMessageSignature, type ComposerReply } from "./composerDraft";
@@ -590,6 +591,13 @@ function Workspace() {
     sidebarMenuOrigin.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     if (document.documentElement.dataset.input === "keyboard") sidebarMenuRef.current?.querySelector<HTMLElement>("[role=menuitem]")?.focus();
   }, [sidebarContextMenu]);
+  // Where focus returns when the delete or successor dialog closes. Read when it opens: the workspace turns inert in the
+  // same commit, which drops focus to <body> before the dialog renders. From the sidebar menu, the row it belongs to.
+  const dialogOpener = useRef<HTMLElement | null>(null);
+  const rememberDialogOpener = () => {
+    const active = document.activeElement instanceof HTMLElement && document.activeElement !== document.body ? document.activeElement : null;
+    dialogOpener.current = active && sidebarMenuRef.current?.contains(active) ? sidebarMenuOrigin.current : active;
+  };
   function sidebarMenuKeyDown(event: React.KeyboardEvent) {
     if (event.key === "Escape") { sidebarMenuOrigin.current?.focus(); return; }
     if (event.key !== "ArrowDown" && event.key !== "ArrowUp") return;
@@ -766,7 +774,7 @@ function Workspace() {
     // Native menu shortcuts must not steal keys while a remote machine owns input.
     const focus = document.activeElement;
     if (focus instanceof Element && focus.closest(".terminal-panel,.remote-desktop-surface,.remote-desktop.in-control,.xterm")) return;
-    if (document.querySelector('[role="dialog"][aria-modal="true"]') && command !== "settings") return;
+    if (document.querySelector('[aria-modal="true"]') && command !== "settings") return;
     if (command === "settings") { setSettingsEntry(current => ({ seq: current.seq + 1, view: "home" })); setPanel(current => current === "settings" ? null : "settings"); }
     else if (command === "toggle-sidebar") setSidebarCollapsed(value => !value);
     else if (command === "new-conversation") { setCreateMenuOpen(true); setSidebarCollapsed(false); setPanel(null); }
@@ -1115,10 +1123,10 @@ function Workspace() {
   useEffect(() => {
     if (!modalPanelOpen) return;
     const trap = (event: KeyboardEvent) => {
-      if (document.querySelector(".mcp-oauth-overlay, .delete-dialog-overlay")) return;
+      // A dialog above the pane (ui/src/overlays/ModalDialog.tsx) owns Tab and Escape.
+      if (document.querySelector("[data-tofi-modal]")) return;
       if (event.key === "Escape" && !event.defaultPrevented) {
         if (detailPaneRef.current?.querySelector('.settings-tabs')) {
-          if (document.querySelector('.settings-leave-dialog[open]')) return;
           event.preventDefault();
           window.dispatchEvent(new Event('tofi-settings-close'));
           return;
@@ -1200,7 +1208,7 @@ function Workspace() {
   useEffect(() => {
     if (!panel || modalPanelOpen) return;
     const onEscape = (event: KeyboardEvent) => {
-      if (event.key === "Escape" && !event.defaultPrevented && panel !== "settings" && !document.querySelector(".computer-detail.is-expanded, .delete-dialog-overlay") && !detailPaneRef.current?.querySelector('[aria-busy="true"]')) {
+      if (event.key === "Escape" && !event.defaultPrevented && panel !== "settings" && !document.querySelector(".computer-detail.is-expanded, [data-tofi-modal]") && !detailPaneRef.current?.querySelector('[aria-busy="true"]')) {
         event.preventDefault();
         setPanel(null);
       }
@@ -2082,6 +2090,7 @@ function Workspace() {
   function confirmDelete(conversation: Conversation) {
     const botId = conversation.bot_id ?? botByConversationId.get(conversation.id)?.id;
     if (conversation.kind === "dm" && !botId) { setError(t("error.bot_missing_refresh")); return; }
+    rememberDialogOpener();
     setDeleteTarget({ id: conversation.kind === "dm" ? botId! : conversation.id, conversationId: conversation.id, name: conversation.name, kind: conversation.kind === "dm" ? "bot" : "group", isPrimary: conversation.kind === "dm" ? Boolean(botById.get(botId!)?.is_primary) : false });
   }
 
@@ -2128,7 +2137,7 @@ function Workspace() {
       if (conversation.kind === "dm") {
         const bot = botByConversationId.get(conversation.id);
         if (!bot) throw new Error(t("error.bot_missing"));
-        if (bot.is_primary && otherActiveBots(bots, bot.id).length > 0) { setSidebarContextMenu(null); setHidePrimaryTarget(bot); return; }
+        if (bot.is_primary && otherActiveBots(bots, bot.id).length > 0) { rememberDialogOpener(); setSidebarContextMenu(null); setHidePrimaryTarget(bot); return; }
         await api.setBotArchived(bot.id, true);
       } else {
         await api.setConversationArchived(conversation.id, true);
@@ -2439,9 +2448,9 @@ function Workspace() {
   if (loading && !conversations.length) return <BootScreen label={t("workspace.loading")} />;
 
   return (
-    <div inert={Boolean(deleteTarget || (viewOnlyChat && (isDesktop || compactViewport))) || undefined} className={`workspace${keyboardViewportOpen ? " keyboard-viewport-open" : ""}`} style={viewportHeight ? { "--viewport-height": `${viewportHeight}px` } as React.CSSProperties : undefined}>
+    <div inert={Boolean(deleteTarget || hidePrimaryTarget || (viewOnlyChat && (isDesktop || compactViewport))) || undefined} className={`workspace${keyboardViewportOpen ? " keyboard-viewport-open" : ""}`} style={viewportHeight ? { "--viewport-height": `${viewportHeight}px` } as React.CSSProperties : undefined}>
       <Suspense fallback={null}><UpdateBanner /></Suspense>
-      {workspaceErrorShown && indexInitialized.current && <div className="stream-status workspace-status workspace-toast" role="alert">{t("workspace.refresh_failed")}<button className="secondary-button" onClick={() => void refreshIndex()}>{t("common:action.retry")}</button></div>}
+      {workspaceErrorShown && indexInitialized.current && <WorkspaceToast onRetry={() => void refreshIndex()} />}
       {computerInfo && ((computerInfo.state !== "ready" && computerInfo.state !== "hibernated" && computerInfo.state !== "hibernating") || computerHealthAlert(computerInfo.health)) && panel !== "desktop" && <div className="stream-status workspace-status computer-preparing" role="status"><strong>{computerInfo.health?.state === "unresponsive" ? t("computer.health_unresponsive") : computerInfo.health?.state === "restarting" ? t("computer.health_restarting") : computerInfo.state === "starting" ? t("computer.starting") : computerInfo.state === "resuming" ? t("computer.resuming") : computerInfo.state === "error" ? t("computer.failed") : computerInfo.state === "stopped" ? t("computer.stopped") : t("computer.unavailable")}</strong><span>{(computerInfo.state === "starting" || computerInfo.state === "resuming") && computerInfo.phase ? ` · ${computerPhaseKeys[computerInfo.phase] ? t(computerPhaseKeys[computerInfo.phase]) : computerInfo.phase}` : ""}{computerInfo.error ? ` · ${computerInfo.error}` : ""}</span>{(computerInfo.state === "error" || computerInfo.state === "stopped" || computerInfo.health?.state === "unresponsive") && <button className="secondary-button" onClick={() => void api.computerRetry().then(() => api.computerInfo()).then(setComputerInfo).catch(cause => setError(errorText(cause)))}>{t("common:action.retry")}</button>}</div>}
       <div className="native-titlebar" aria-hidden="true" /><ActionHints /><div className={`workspace-grid${sidebarCollapsed ? " sidebar-collapsed" : ""}${contextPanelOpen ? " context-open" : ""}${contextPanelOpen || viewOnlyChat ? " card-open" : ""}${activeBot ? " bot-panel-ready" : ""}${panel === "bot-edit" ? " bot-panel-open" : ""}${displayedPanel === "terminal" ? " terminal-context" : ""}`}>
         <aside className={`contact-pane ${mobileList ? "open" : ""}`} inert={modalPanelOpen || desktopExpanded || undefined}>
@@ -2608,8 +2617,8 @@ function Workspace() {
         </aside>
       </div>
       {desktopBot && desktopOpen && <FloatingDesktop expanded={desktopExpanded} small={desktopSmall} sheet={desktopSheet} onShrink={() => setDesktopSize("small")} onClose={() => setPanel(null)}><Suspense fallback={<DesktopSkeleton botId={desktopBot.id} />}><BotDesktopPanel presence={desktopPresence} autoConnect={currentDesktopOwner?.kind === "bot"} expanded={desktopExpanded} sheet={desktopSheet} botId={desktopBot.id} botName={desktopBot.name} members={bots.map(bot => ({ id: bot.id, name: bot.name }))} onClose={(reason) => { if (reason === "shutdown") { setDesktopReady(false); setComputerInfo({ state: "stopped" }); } setPanel(null); }} onReadyChange={setDesktopReady} onExpandedChange={expanded => { setDesktopSize(expanded ? "big" : "small"); setPanel("desktop"); }} /></Suspense></FloatingDesktop>}
-      {deleteTarget && <Suspense fallback={null}><DeleteConversationDialog target={deleteTarget} bots={bots} onDelete={deleteConversation} onClose={() => setDeleteTarget(null)} /></Suspense>}
-      {hidePrimaryTarget && <ReassignPrimaryDialog bot={hidePrimaryTarget} bots={bots} onConfirm={async (successorId) => { await api.setBotArchived(hidePrimaryTarget.id, true, successorId); setSidebarContextMenu(null); await refreshIndex(); }} onClose={() => setHidePrimaryTarget(null)} />}
+      {deleteTarget && <Suspense fallback={null}><DeleteConversationDialog target={deleteTarget} bots={bots} onDelete={deleteConversation} onClose={() => setDeleteTarget(null)} returnFocus={dialogOpener.current} /></Suspense>}
+      {hidePrimaryTarget && <Suspense fallback={null}><ReassignPrimaryDialog bot={hidePrimaryTarget} bots={bots} onConfirm={async (successorId) => { await api.setBotArchived(hidePrimaryTarget.id, true, successorId); setSidebarContextMenu(null); await refreshIndex(); }} onClose={() => setHidePrimaryTarget(null)} returnFocus={dialogOpener.current} /></Suspense>}
       {viewOnlyChat && <Suspense fallback={null}><ViewOnlyChat target={viewOnlyChat} bots={bots} card={!isDesktop && !compactViewport} returnFocus={viewOnlyChatTriggerRef.current} onClose={() => setViewOnlyChat(null)} /></Suspense>}
       <FilePreviewHost />
     </div>

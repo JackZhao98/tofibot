@@ -9,7 +9,7 @@ import {ConnectionInfo} from "../ConnectionInfo";
 import {DictationSettings} from "../DictationSettings";
 import {ExtensionPanel} from "../ExtensionPanel";
 import {FollowupsSettings} from "../FollowupsSettings";
-import {PrimaryAssistantSetting} from "../PrimaryAssistant";
+import {PrimaryAssistantSetting} from "../PrimaryAssistantSetting";
 import {AppearancePicker} from "../InteractionSystem";
 import {LanguageSetting} from "../LanguageSetting";
 import {ModelDefaults} from "../ModelSettings";
