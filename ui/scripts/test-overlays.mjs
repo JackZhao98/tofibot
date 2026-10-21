@@ -5,7 +5,8 @@
 //     ArrowDown open with focus on the first item, arrows and Home/End move, Escape closes and returns focus to the trigger,
 //     Tab closes and moves on from the trigger, a press outside closes, pressing the trigger again closes; the surface sits in
 //     #tofi-layers above everything at its centre.
-//  3. Sidebar row menu: right click at the pointer, Shift+F10 with focus on the first item and back to the row on Escape, a click
+//  3. Sidebar row menu: right click at the pointer, Shift+F10 with focus on the first item and back to the row on Escape (also
+//     after the Delete dialog it opens), a click
 //     on another conversation closes the menu and still opens that conversation, the menu flips/shifts inside the viewport at the
 //     corners (390 and 1280 px), a 450 ms touch press opens it at 390 px (the drag engine's 380 ms, not Radix's 700 ms), a short
 //     tap does not.
@@ -254,6 +255,27 @@ await check("sidebar row menu: right click at the pointer, Shift+F10, Escape bac
   await page.keyboard.press("Escape");
   await closed(page, ".sidebar-context-menu");
   await focusBack(page, '.conversation-row[aria-label^="Simile Cat"]', "Escape returns focus to the row");
+  assert.deepEqual(errors, []);
+  await context.close();
+});
+
+// Steps 2 + 3 together (ds/integrate): a dialog opened from the sidebar row menu gives focus back to the row the menu belongs
+// to. The menu item that had focus is gone with the menu, and the workspace turns inert in the same commit as the dialog.
+await check("sidebar row menu > Delete: the dialog takes focus, Escape returns it to the row, not to <body>", async () => {
+  const { page, context, errors } = await fx.open({});
+  await row(page, "Simile Cat").focus();
+  await page.keyboard.press("Shift+F10");
+  await page.locator(".sidebar-context-menu").waitFor();
+  await sleep(60);
+  await press(page, "End");
+  assert.match((await state(page)).text, /Delete/, "End reaches the Delete item");
+  await page.keyboard.press("Enter");
+  await page.locator(".delete-dialog").waitFor({ timeout: 4000 });
+  await closed(page, ".sidebar-context-menu");
+  await page.waitForFunction(() => document.querySelector(".delete-dialog")?.contains(document.activeElement), null, { timeout: 2000 });
+  await page.keyboard.press("Escape");
+  await page.locator(".delete-dialog").waitFor({ state: "detached", timeout: 2000 });
+  await focusBack(page, '.conversation-row[aria-label^="Simile Cat"]', "closing the dialog returns focus to the row the menu was opened on");
   assert.deepEqual(errors, []);
   await context.close();
 });

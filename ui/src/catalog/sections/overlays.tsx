@@ -3,7 +3,7 @@
 import { openSettings } from "../drive";
 import { useState, type ReactNode } from "react";
 import { DeleteConversationDialog, type DeleteTarget } from "../../DeleteConversationDialog";
-import { ReassignPrimaryDialog } from "../../PrimaryAssistant";
+import { ReassignPrimaryDialog } from "../../ReassignPrimaryDialog";
 import { AdminSheet, CopyButton, SecretField } from "../../AdminSheets";
 import { SkillAccessSheet } from "../../settings/SkillAccess";
 import { TakeoverDialog } from "../../TakeoverDialog";
@@ -81,7 +81,7 @@ export const dialogs: CatalogSection = {
     "Terminal close / interrupt confirms: need an open terminal session.",
     "Permission coach: desktop client only (window.tofiDesktop).",
     "Image lightbox and file preview: the image is served from /api, which the catalog never calls.",
-    "Settings leave-without-saving and computer restart confirms (native <dialog>): open Settings in a frame, change a field, then close.",
+    "Settings leave-without-saving and computer restart confirms (Radix since step 3): open Settings in a frame, change a field, then close.",
   ],
 };
 
@@ -127,9 +127,8 @@ export const hints: CatalogSection = {
       drive: async step => { await step.focus(".sidebar-account-settings"); await step.find(".action-hint"); } },
     { id: "hint-near-top", kind: "app", label: "Icon button hint near the top edge", note: "flips below the button", app: DM, probe: ".action-hint",
       drive: async step => { await step.focus(".header-more > button"); await step.find(".action-hint"); } },
-    { id: "read-names", kind: "app", label: "Read-by names (group)", note: "section 3", app: GROUP,
-      drive: async step => { await step.hover(await step.find('.message-block[data-message-id="m_grp_launch_7"] .message-hover-host')); await step.find(".send-receipt-mark.has-tip"); },
-      force: [{ selector: ".send-receipt-mark.has-tip", state: "hover" }] },
+    { id: "read-names", kind: "app", label: "Read-by names (group)", note: "section 3; the receipt mark's data-hint in the quiet tone", app: GROUP, probe: ".action-hint",
+      drive: async step => { await step.hover(await step.find('.message-block[data-message-id="m_grp_launch_7"] .message-hover-host')); await step.focus(".send-receipt-mark.has-tip"); await step.find(".action-hint.is-quiet"); } },
   ],
 };
 
