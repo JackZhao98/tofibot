@@ -3,6 +3,7 @@ import { CATS, EmptyCat } from "./EmptyCat";
 import { BrandLogo } from "./BrandLogo";
 import { BootScreen } from "./BootScreen";
 import { useAppearance } from "./InteractionSystem";
+import { arrowOpens, OverlayMenu } from "./overlays/OverlayHost";
 import { TofiIcon } from "./icons";
 import { hydrateDesktopState, isDesktop, flushDesktopState } from "./desktop";
 import { i18n, useTranslation } from "./i18n";
@@ -160,34 +161,27 @@ export function SidebarAccount({ onSettings, onUsage, onConnection, onArchive, c
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const menu = useRef<HTMLDivElement>(null);
+  const trigger = useRef<HTMLButtonElement>(null);
   const { t } = useTranslation(["auth", "common"]);
-  useEffect(() => {
-    if (!open) return;
-    const dismiss = (event: PointerEvent) => { if (event.target instanceof Node && !menu.current?.contains(event.target)) setOpen(false); };
-    const escape = (event: KeyboardEvent) => { if (event.key === "Escape") setOpen(false); };
-    document.addEventListener("pointerdown", dismiss);
-    document.addEventListener("keydown", escape);
-    return () => { document.removeEventListener("pointerdown", dismiss); document.removeEventListener("keydown", escape); };
-  }, [open]);
   const name = session?.owner?.username ?? "Tofi";
   const host = isDesktop ? t("account.desktop_client") : connected ? window.location.host : t("account.offline_reconnecting");
   const initial = Array.from(name)[0]?.toUpperCase() ?? "T";
   const navigate = (action: () => void) => { setOpen(false); action(); };
   return <div className={`sidebar-account${!connected && !isDesktop ? " is-offline" : ""}`} ref={menu}>
-    <button className="sidebar-account-identity" aria-label={t("account.menu_label", { name, status: connected ? t("account.live_ok") : t("account.live_lost") })} aria-expanded={open} onClick={() => setOpen(value => !value)} data-hint={t("account.settings_hint", { name })}>
+    <button ref={trigger} className="sidebar-account-identity" aria-label={t("account.menu_label", { name, status: connected ? t("account.live_ok") : t("account.live_lost") })} aria-haspopup="menu" aria-expanded={open} onClick={() => setOpen(value => !value)} onKeyDown={arrowOpens(setOpen)} data-hint={t("account.settings_hint", { name })}>
       <span className="sidebar-account-monogram" aria-hidden="true">{initial}<i key={String(connected)} /></span>
       <span className="sidebar-account-copy"><strong>{name}</strong><small>{host}</small></span>
     </button>
     <button className="sidebar-account-settings" aria-label={t("common:nav.settings")} data-hint={t("common:nav.settings")} onClick={onSettings}><TofiIcon name="settings" size={20}/></button>
-    {open && <div className="sidebar-account-menu" role="menu">
+    {open && <OverlayMenu open onOpenChange={setOpen} className="sidebar-account-menu" label={name} trigger={trigger} anchor={menu} sideOffset={10} {...(menu.current?.closest(".sidebar-collapsed") ? { side: "right", align: "end" } : { side: "top" })}>
       <div className="sidebar-account-menu-heading"><strong>{name}</strong><small>{host}</small></div>
-      <button role="menuitem" onClick={() => navigate(onSettings)}><TofiIcon name="settings" size={16}/>{t("common:nav.settings")}</button>
-      <button role="menuitem" onClick={() => navigate(onUsage)}><TofiIcon name="activity" size={16}/>{t("common:nav.usage")}</button>
-      <div className="sidebar-account-themes" role="group" aria-label={t("common:theme.label")}>{(["system","light","dark"] as const).map(theme => <button key={theme} aria-pressed={appearance.preference === theme} onClick={() => appearance.choose(theme)}>{t(`common:theme.${theme}`)}</button>)}</div>
-      <button role="menuitem" onClick={() => navigate(onConnection)}><TofiIcon name="server" size={16}/>{t("common:nav.connection")}</button>
-      <button role="menuitem" onClick={() => navigate(onArchive)}><TofiIcon name="archive" size={16}/>{t("common:nav.archived")}</button>
-      {session?.enabled && <><div className="sidebar-account-menu-rule"/><button role="menuitem" className="sidebar-account-logout" disabled={busy} onClick={() => { setBusy(true); setError(""); void logout().catch(cause => setError(cause instanceof Error ? cause.message : t("account.sign_out_failed"))).finally(() => setBusy(false)); }}>{busy ? t("account.signing_out") : t("account.sign_out")}</button></>}
+      <button onClick={() => navigate(onSettings)}><TofiIcon name="settings" size={16}/>{t("common:nav.settings")}</button>
+      <button onClick={() => navigate(onUsage)}><TofiIcon name="activity" size={16}/>{t("common:nav.usage")}</button>
+      <div className="sidebar-account-themes" role="group" aria-label={t("common:theme.label")}>{(["system","light","dark"] as const).map(theme => <button key={theme} role="menuitemradio" aria-checked={appearance.preference === theme} data-keep-open="" onClick={() => appearance.choose(theme)}>{t(`common:theme.${theme}`)}</button>)}</div>
+      <button onClick={() => navigate(onConnection)}><TofiIcon name="server" size={16}/>{t("common:nav.connection")}</button>
+      <button onClick={() => navigate(onArchive)}><TofiIcon name="archive" size={16}/>{t("common:nav.archived")}</button>
+      {session?.enabled && <><div className="sidebar-account-menu-rule"/><button className="sidebar-account-logout" disabled={busy} onClick={() => { setBusy(true); setError(""); void logout().catch(cause => setError(cause instanceof Error ? cause.message : t("account.sign_out_failed"))).finally(() => setBusy(false)); }}>{busy ? t("account.signing_out") : t("account.sign_out")}</button></>}
       {error && <p className="error-text" role="alert">{error}</p>}
-    </div>}
+    </OverlayMenu>}
   </div>;
 }
