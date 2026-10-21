@@ -165,3 +165,16 @@ inside an `aria-modal` container stacks at `calc(var(--z-dialog) + 1)` (`data-la
 not render from (the sidebar row menu) goes in an `OverlaySlot` + `SlotView`, so opening it does not re-render the Workspace.
 `npm --prefix ui run test:overlays` (also `OVERLAYS_ENGINE=webkit`) holds keyboard, dismissal, placement, layers, the bundle split and the
 open cost; `test:shell-budget` keeps Radix out of the entry.
+
+# Web UI dialogs
+
+Modal dialogs use `ModalDialog` / `ConfirmDialog` from `ui/src/overlays/ModalDialog.tsx` (Radix `Dialog` / `AlertDialog`;
+docs/design/migration.md step 3). Import it only from lazy chunks: Radix must stay out of the entry bundle (D31;
+`test:dialogs` crawls the build). Pass the dialog element as the child (classes and role stay yours) and the scrim class
+as `overlayClassName`; choose `closeOnEscape`, `closeOnOutside`, `locked`, `initialFocus` and `returnFocus` explicitly. It
+sets `aria-modal="true"` and `data-tofi-modal` (App.tsx's desktop-shortcut gate and detail-pane trap read them), keeps Tab
+inside, lets Escape close only the top layer and claims it with `preventDefault` (app Escape handlers must check
+`defaultPrevented`), returns focus, hides the rest from screen readers and turns pointer events off on `<body>` (the
+workspace toast opts back in). Not migrated on purpose: `TakeoverDialog` (Tab belongs to the remote screen), the terminal's
+inline confirm, `PermissionCoach`, and the image lightbox and file preview (native `<dialog>`, top layer; hints and the
+toast render inside the open one via `topLayerDialog()` / `InTopLayer` in `layers.ts`).

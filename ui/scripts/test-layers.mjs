@@ -153,7 +153,9 @@ const STACK = [
   ["toast", ".workspace", '<div class="stream-status workspace-status workspace-toast" role="alert">t</div>', "toast"],
   ["sheet", "#tofi-layers", '<div class="sheet-overlay">s</div>', "dialog+1"],
   ["delete", "#tofi-layers", '<div class="delete-dialog-overlay">d</div>', "dialog"],
-  ["onboarding", ".workspace-grid", '<div class="onb-scrim">o</div>', "dialog"],
+  ["onboarding", "#tofi-layers", '<div class="onb-scrim">o</div>', "dialog"],
+  ["leave", "#tofi-layers", '<div class="settings-leave-overlay">l</div>', "dialog"],
+  ["restart", "#tofi-layers", '<div class="resource-restart-overlay">r</div>', "dialog"],
   ["boot", "#root", '<div class="boot boot-dissolve">b</div>', "cover"],
   ["menu", "#tofi-layers", '<div class="sidebar-context-menu" role="menu">m</div>', "menu"], // a Radix menu since step 2
   ["identity", "#tofi-layers", '<section class="bot-identity-card">i</section>', "popover"],
@@ -185,7 +187,7 @@ await check("overlays stacked on one point paint in the order of the scale, the 
     if (debug) return [...seen, "|", ...[...document.querySelectorAll("[data-probe]")].map(el => { const r = el.getBoundingClientRect(), cs = getComputedStyle(el); return `${el.dataset.probe}:${Math.round(r.left)},${Math.round(r.top)},${Math.round(r.width)}x${Math.round(r.height)} ${cs.display}/${cs.visibility}/${cs.pointerEvents}/z${cs.zIndex}/${cs.position}`; })];
     return seen;
   }, Boolean(process.env.LAYERS_DEBUG));
-  const expected = ["drop-ghost", "hint", "toast", "sheet", ["delete", "settings", "onboarding"], "boot", "menu", "identity", "card", "floating-computer", "composer", "edge-blur"];
+  const expected = ["drop-ghost", "hint", "toast", "sheet", ["delete", "settings", "onboarding", "leave", "restart"], "boot", "menu", "identity", "card", "floating-computer", "composer", "edge-blur"];
   const flat = expected.flat();
   for (const name of flat) truthy(order.includes(name), `"${name}" is not hit at the shared point; seen top to bottom: ${order.join(" > ")}`);
   const rank = name => expected.findIndex(entry => entry === name || (Array.isArray(entry) && entry.includes(name)));

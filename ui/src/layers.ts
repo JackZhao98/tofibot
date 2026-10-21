@@ -1,3 +1,6 @@
+import { useSyncExternalStore, type ReactNode } from "react";
+import { createPortal } from "react-dom";
+
 // The JS mirror of the layer scale in design-tokens.css (--z-* tokens, docs/design/tokens.md §9.3) and the one portal
 // root. scripts/test-layers.mjs fails if the two drift apart, if TS code writes a literal z-index or if an overlay is
 // portaled straight into document.body.
@@ -15,4 +18,29 @@ export function layerRoot(): HTMLElement {
   root.id = LAYER_ROOT_ID;
   document.body.append(root);
   return root;
+}
+
+/** The topmost open modal <dialog>, if any. `showModal()` puts a dialog in the browser's top layer, above every z-index,
+ * so a tooltip or toast in #tofi-layers would sit under it (tokens.md Z7): they render inside it instead. Two native
+ * dialogs remain after migration step 3, the image lightbox and the file preview. */
+export function topLayerDialog(): HTMLElement | null {
+  const open = document.querySelectorAll<HTMLDialogElement>("dialog[open]");
+  for (let i = open.length - 1; i >= 0; i--) {
+    try { if (open[i].matches(":modal")) return open[i]; } catch { return open[i]; }
+  }
+  return null;
+}
+
+// A dialog closes by losing `open`, or by being removed while open (its owner unmounted).
+function watchDialogs(change: () => void) {
+  const observer = new MutationObserver(change);
+  observer.observe(document.body, { subtree: true, childList: true, attributes: true, attributeFilter: ["open"] });
+  return () => observer.disconnect();
+}
+
+/** Renders its children in place, or inside the top-layer dialog while one is open. Watches the DOM only while mounted,
+ * so it costs nothing unless the toast it wraps is showing. */
+export function InTopLayer({ children }: { children: ReactNode }) {
+  const host = useSyncExternalStore(watchDialogs, topLayerDialog, () => null);
+  return host ? createPortal(children, host) : children;
 }

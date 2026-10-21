@@ -2,7 +2,7 @@ import { TofiIcon } from "./icons";
 import { useEffect, useId, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { useTranslation } from "./i18n";
-import { layerRoot } from "./layers";
+import { layerRoot, topLayerDialog } from "./layers";
 
 export type ThemePreference = "system" | "light" | "dark";
 export function useAppearance() {
@@ -50,7 +50,7 @@ export function AppearancePicker({ value, onChange }: { value: ThemePreference; 
 
 /** Quiet, delayed tooltips for icon-only actions. No timers or listeners per row. */
 export function ActionHints() {
-  const [hint, setHint] = useState<{ text: string; tone?: string; x: number; y: number; above: boolean } | null>(null);
+  const [hint, setHint] = useState<{ text: string; tone?: string; x: number; y: number; above: boolean; host: HTMLElement } | null>(null);
   const target = useRef<HTMLElement | null>(null);
   useEffect(() => {
     let timer: number | undefined;
@@ -71,7 +71,7 @@ export function ActionHints() {
         visible = true;
         const rect = element.getBoundingClientRect();
         watch.observe(element, { attributeFilter: ["data-hint"] });
-        setHint({ text: element.dataset.hint || "", tone: element.dataset.hintTone, x: Math.max(100, Math.min(innerWidth - 100, rect.left + rect.width / 2)), y: rect.top > 62 ? rect.top - 8 : rect.bottom + 8, above: rect.top > 62 });
+        setHint({ text: element.dataset.hint || "", tone: element.dataset.hintTone, x: Math.max(100, Math.min(innerWidth - 100, rect.left + rect.width / 2)), y: rect.top > 62 ? rect.top - 8 : rect.bottom + 8, above: rect.top > 62, host: topLayerDialog() ?? layerRoot() });
       }, event.type === "focusin" ? 150 : performance.now() - hiddenAt < 400 ? 0 : 500);
     };
     const leave = (event: PointerEvent) => { if (!target.current?.contains(event.relatedTarget as Node | null)) hide(); };
@@ -84,7 +84,7 @@ export function ActionHints() {
     window.addEventListener("scroll", hide, true);
     return () => { hide(); document.removeEventListener("pointerover", show); document.removeEventListener("pointerout", leave); document.removeEventListener("focusin", show); document.removeEventListener("focusout", hide); document.removeEventListener("pointerdown", hide); document.removeEventListener("keydown", hide); window.removeEventListener("scroll", hide, true); };
   }, []);
-  return hint ? createPortal(<div className={`action-hint${hint.tone ? ` is-${hint.tone}` : ""}`} role="tooltip" style={{ left: hint.x, top: hint.y, transform: `translate(-50%, ${hint.above ? "-100%" : "0"})` }}>{hint.text}</div>, layerRoot()) : null;
+  return hint ? createPortal(<div className={`action-hint${hint.tone ? ` is-${hint.tone}` : ""}`} role="tooltip" style={{ left: hint.x, top: hint.y, transform: `translate(-50%, ${hint.above ? "-100%" : "0"})` }}>{hint.text}</div>, hint.host) : null;
 }
 
 /** Keep content mounted through collapse; inert removes closed controls from tab order. */

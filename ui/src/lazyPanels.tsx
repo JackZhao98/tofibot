@@ -20,6 +20,7 @@ const loaders = {
   viewOnly: () => import("./ViewOnlyChat"),
   remembered: () => import("./RememberedApprovals"),
   deleteDialog: () => import("./DeleteConversationDialog"),
+  reassignPrimary: () => import("./ReassignPrimaryDialog"),
   permissionCoach: () => import("./PermissionCoach"),
   updateBanner: () => import("./UpdateNotice"),
   contextPanels: () => import("./ContextPanels"),
@@ -71,6 +72,7 @@ export const ArchivePanel = chunk("archive", module => module.ArchivePanel);
 export const ViewOnlyChat = chunk("viewOnly", module => module.ViewOnlyChat);
 export const RememberedApprovalsSheet = chunk("remembered", module => module.RememberedApprovalsSheet);
 export const DeleteConversationDialog = chunk("deleteDialog", module => module.DeleteConversationDialog);
+export const ReassignPrimaryDialog = chunk("reassignPrimary", module => module.ReassignPrimaryDialog);
 export const BotPanel = chunk("contextPanels", module => module.BotPanel);
 export const MembersPanel = chunk("contextPanels", module => module.MembersPanel);
 export const PermissionCoach = chunk("permissionCoach", module => module.PermissionCoach);
@@ -96,7 +98,7 @@ const entryPoints: Array<[selector: string, chunk: PanelChunk]> = [
 const WARM_START_MS = 500;
 const WARM_STEP_MS = 200;
 export function warmPanelsWhenIdle(): () => void {
-  const order: PanelChunk[] = ["settings", "desktop", "contextPanels", "work", "memory", "team", "archive", "viewOnly", "remembered", "deleteDialog", "permissionCoach", "updateBanner", "questionCard"];
+  const order: PanelChunk[] = ["settings", "desktop", "contextPanels", "work", "memory", "team", "archive", "viewOnly", "remembered", "deleteDialog", "reassignPrimary", "permissionCoach", "updateBanner", "questionCard"];
   let timer = window.setTimeout(function step() {
     const next = order.shift();
     if (!next) return;

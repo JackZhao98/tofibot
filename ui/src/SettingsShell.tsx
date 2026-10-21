@@ -8,6 +8,7 @@ import {SettingsHeaderSlotContext} from "./settings/headerSlot";
 import {useConnectionAttention} from "./settings/useConnectionAttention";
 import {providerForModel, providerLabels} from "./modelCatalog";
 import {useLanguage, useTranslation} from "./i18n";
+import {ConfirmDialog} from "./overlays/ModalDialog";
 
 export type SettingsTab="general"|"connections"|"skills"|"approvals"|"followups"|"models"|"automation"|"computer"|"keys"|"usage"|"advanced"|"admin";
 export type SettingsView="home"|"page";
@@ -68,7 +69,7 @@ export function SettingsShell({tab,onTab,onClose,renderPage,entry,refreshToken=0
  const [pending,setPending]=useState<Target|null>(null);
  const [saving,setSaving]=useState(false);
  const savingRef=useRef(false);
- const dialog=useRef<HTMLDialogElement>(null);
+ const keepEditing=useRef<HTMLButtonElement>(null);
  const register=useCallback((id:string,draft:SettingsDraft|null)=>setDrafts(current=>{
   if(!draft){if(!(id in current))return current;const next={...current};delete next[id];return next}
   return {...current,[id]:draft};
@@ -98,7 +99,6 @@ export function SettingsShell({tab,onTab,onClose,renderPage,entry,refreshToken=0
  const finish=(target:Target)=>{setPending(null);go(target)};
  const saveAndContinue=async()=>{if(!pending)return;const target=pending;if(await saveActive(target==="close"))finish(target);else setPending(null)};
  const discardAndContinue=()=>{if(!pending||busy)return;for(const draft of Object.values(drafts).filter(item=>pending==="close"?item.dirty:item.page===tab&&item.dirty))draft.discard();finish(pending)};
- useEffect(()=>{const element=dialog.current;if(pending&&!element?.open)element?.showModal();else if(!pending&&element?.open)element.close()},[pending]);
  useEffect(()=>{if(!dirty)return;const warn=(event:BeforeUnloadEvent)=>{event.preventDefault();event.returnValue=""};window.addEventListener("beforeunload",warn);return()=>window.removeEventListener("beforeunload",warn)},[dirty]);
  useEffect(()=>{const close=(event:Event)=>{event.preventDefault();navigate("close")};window.addEventListener("tofi-settings-close",close);return()=>window.removeEventListener("tofi-settings-close",close)});
  useEffect(()=>{const key=(event:KeyboardEvent)=>{if(event.key==="Escape"&&!event.defaultPrevented&&!pending){event.preventDefault();navigate("close")}};document.addEventListener("keydown",key);return()=>document.removeEventListener("keydown",key)});
@@ -150,7 +150,7 @@ export function SettingsShell({tab,onTab,onClose,renderPage,entry,refreshToken=0
    <SettingsHeaderSlotContext.Provider value={slot}>{pages.map(page=><div key={page} hidden={page!==tab} data-page={page} className="settings-page-body"><SettingsDraftContext.Provider value={providers[page]}><SettingsActivityContext.Provider value={page===tab}>{renderPage(page)}</SettingsActivityContext.Provider></SettingsDraftContext.Provider></div>)}</SettingsHeaderSlotContext.Provider>
    {activeDrafts.length>0&&<div className="settings-save-bar" role="status"><span>{t("shell.unsaved")}</span><button type="button" disabled={busy} onClick={()=>activeDrafts.forEach(draft=>draft.discard())}>{t("shell.discard")}</button><button type="button" className="primary-button" disabled={busy} onClick={()=>void saveActive()}>{saving?t("shell.saving"):t("shell.save")}</button></div>}
   </div>
-  <dialog ref={dialog} className="settings-leave-dialog" aria-labelledby="settings-leave-title" onCancel={event=>{event.preventDefault();if(!saving)setPending(null)}}><h3 id="settings-leave-title">{t("shell.leave_title")}</h3><p>{pending==="close"?t("shell.leave_close"):t("shell.leave_switch")}</p><div className="settings-leave-actions"><button type="button" onClick={()=>setPending(null)} disabled={saving} autoFocus>{t("shell.keep_editing")}</button><button type="button" onClick={discardAndContinue} disabled={saving}>{t("shell.discard")}</button><button type="button" className="primary-button" onClick={()=>void saveAndContinue()} disabled={saving}>{saving?t("shell.saving"):t("shell.save_continue")}</button></div></dialog>
+  {pending&&<ConfirmDialog onClose={()=>setPending(null)} locked={saving} initialFocus={keepEditing} overlayClassName="settings-leave-overlay"><div className="settings-leave-dialog" aria-labelledby="settings-leave-title"><h3 id="settings-leave-title">{t("shell.leave_title")}</h3><p>{pending==="close"?t("shell.leave_close"):t("shell.leave_switch")}</p><div className="settings-leave-actions"><button ref={keepEditing} type="button" onClick={()=>setPending(null)} disabled={saving}>{t("shell.keep_editing")}</button><button type="button" onClick={discardAndContinue} disabled={saving}>{t("shell.discard")}</button><button type="button" className="primary-button" onClick={()=>void saveAndContinue()} disabled={saving}>{saving?t("shell.saving"):t("shell.save_continue")}</button></div></div></ConfirmDialog>}
  </div>;
 }
 function pagesForProviders(visited:SettingsTab[],tab:SettingsTab){return visited.includes(tab)?visited:[...visited,tab]}
