@@ -148,6 +148,7 @@ export function workspace(options: AppOptions): Synthetic {
     // A refresh after the first load fails across the board, as when the server goes away (one failing read alone is
     // cleared again by the next successful one).
     if (options.refreshFails && conversationReads > 1 && (p === "/api/config" || p === "/api/bots")) return json({ error: { code: "unavailable", message: "Synthetic: the server is busy" } }, 503);
+    if (p === "/api/models") return json({ models: [{ id: "synthetic-model", name: "Synthetic model", provider: "anthropic", reasoning_efforts: ["low","medium","high"], default_reasoning: "medium" }], source: "live" });
     if (p === "/api/config") return json({ model_configured: options.modelConfigured !== false, default_model: "synthetic-model", provider: "synthetic" });
     if (p === "/api/onboarding") return json({ step: 3, completed: true, skipped: false });
     if (p === "/api/primary-assistant") return json({ bot_id: "bot_mochi" });
