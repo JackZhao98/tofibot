@@ -136,6 +136,7 @@ TOFI 是一个自托管的 AI Bot 工作台：后端是 Go 服务（`internal/`�
 | 能用的 | 依据 |
 |---|---|
 | 设置 › 自动行为：每个自动行为都能看到、能调整，并且有出厂默认值。注册表共 13 项：对话模型、后台模型、结构化回复、Haiku 强制调用工具、联网搜索、群聊摘要、自己回复保留原文的条数、完成后审核、MCP 自动审核（默认关闭）、“记住”的有效时长、模型请求重试次数、定时任务回执审核，以及只读的电脑空闲时长；页面上还有“始终允许”的授权列表 | `ui/src/AutomationSettings.tsx`；`internal/app/automation_settings.go:81-95`（注册表）；`ui/src/StandingAllowances.tsx`；`test:automation-settings`；[D15](../decisions/0015-automatic-behaviour-settings.md) |
+| 模型列表随提供方变化即时刷新：Codex 登录完成或断开、API Key 保存或删除后，所有模型选择器重取目录，窗口重新聚焦时也会重取（超过 10 秒才算过期，没有定时轮询）；服务端只把实时目录缓存 5 分钟，快照/回退结果 20 秒后重试，连接变化立即清空 | `ui/src/useModelCatalog.ts`、`ui/src/modelCatalogStore.ts`；`internal/app/model_settings.go`（`invalidateCodexCatalog`、`catalogRetryGuard`）；`test:model-catalog-refresh` |
 | 模型提供方、MCP、语音输入、主动跟进、语言等设置页 | `ui/src/ModelSettings.tsx`、`MCPSettings.tsx`、`DictationSettings.tsx`、`FollowupsSettings.tsx`、`LanguageSetting.tsx` |
 | 设置页重做：第 1、2 阶段已经上线，第 3 阶段要等工具重做的部分完成 | [settings-redesign.md](../agent-plan/settings-redesign.md) 状态行 |
 
