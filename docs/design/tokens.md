@@ -489,7 +489,7 @@
 `npm --prefix ui run test:layers`（`ui/scripts/test-layers.mjs`，浏览器部分要 `PLAYWRIGHT_MODULE`，没设时直接报错退出，不会 SKIP）：
 
 1. **静态**：`design-tokens.css` 里 13 个 `--z-*` 各定义一次、值与 9.3 一致，`layers.ts` 的 `Z` 与之相同；产品 CSS 的 `z-index` 只能是 `var(--z-*)`、`calc(var(--z-*) ± 1)` 或 -1..3（更大的旧局部值按文件不超过 `layers-baseline.json`，只降不升，`-- --update-baseline` 收紧）；TS/TSX 里不许写数字 z-index；`index.html` 在 `#root` 后面有 `#tofi-layers`；没有 `createPortal(..., document.body)`，往 `document.body` 追加元素只允许白名单里的三处非弹层。
-2. **浏览器**（Chromium、生产构建、合成数据）：`#tofi-layers` 紧跟 `#root` 且不是层叠上下文；真实的悬停提示 portal 进 `#tofi-layers`，并且在它中心处是最上层（下面垫一个 toast）；把各层的真实类名叠在输入框中心的同一点上，`elementsFromPoint` 的顺序必须是：拖动残影 > 悬停提示 > toast > 表单 sheet > （删除确认 / 设置窗 / 引导）> 启动画面 > 右键菜单 > 身份卡 > 相关对话卡片 > 电脑小窗 > 输入框 > 底部模糊条；1280 / 1000 / 390 px 下没有局部值落在根层叠上下文里（手机推入那一对除外）。
+2. **浏览器**（Chromium、生产构建、合成数据）：`#tofi-layers` 紧跟 `#root` 且不是层叠上下文；真实的悬停提示 portal 进 `#tofi-layers`，并且在它中心处是最上层（下面垫一个 toast）；把各层的真实类名叠在输入框中心的同一点上，`elementsFromPoint` 的顺序必须是：拖动残影 > 悬停提示 > toast > 表单 sheet > （删除确认 / 设置窗 / 引导）> 启动画面 > 右键菜单 > 身份卡 > 相关对话卡片 > 电脑小窗 > 输入框 > 底部模糊条；1280 / 1000 / 390 px 下（新消息胶囊也在屏幕上时）没有局部值落在根层叠上下文里（手机推入那一对除外）。
 3. 把第 1 步的产品改动撤掉，这个测试会失败（D30）；撤回时的输出见 `migration.md` 第 1 步。
 
 每次改层级还要在预览里看一遍 `migration.md` 第 1 步"owner 预览看哪里"的清单（D22）。

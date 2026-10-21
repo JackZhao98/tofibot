@@ -218,6 +218,18 @@ Motion 擅长三件事：带速度衔接、可中途打断的弹簧；自动 FLI
 
 测试保证不会变的：新消息胶囊仍在底部模糊条和输入框之上（`test:live-fixes`），手机推入的方向、时长和无空帧（`test:shell-budget` 第 3 节，Chromium 和 WebKit）。
 
+**撤回验证**（D30，2026-10-20 PDT，测试文件保留、只动产品代码，见 `docs/process.md` 3.2）
+
+| 撤回什么 | `test:layers` 退出码 | 失败的检查 |
+|---|---|---|
+| 第 1 步对 `ui/src`、`ui/index.html` 的全部改动（`git show <第 1 步提交> -- ui/src ui/index.html \| git apply -R`） | 1 | 13 个令牌缺失、`layers.ts` 缺失、各文件的字面 z-index 超出上限（如 `interaction-system.css` 的 1000、1000、90） |
+| 只把 toast 改成 `var(--z-menu)`（合法令牌，层放错） | 1 | 叠放顺序：toast 跑到启动画面下面 |
+| 只给 `#tofi-layers` 加 `isolation:isolate` | 1 | 根节点是层叠上下文；提示不再是最上层；整组弹层被压到 `#root` 下面 |
+| 只把新消息胶囊改回 `z-index:3`（静态检查允许的局部值） | 1 | 1280 和 1000 px：`button.jump-latest (3)` 落在根层叠上下文里；390 px 通过（手机宽度下它在对话窗格里） |
+| 只把悬停提示改回 `createPortal(..., document.body)` | 1 | `InteractionSystem.tsx` 往 `document.body` portal |
+
+恢复后 `test:layers` 退出码 0，没有 SKIP。
+
 **owner 预览看哪里**（`dev:remote`，Chrome，[D22](../decisions/0022-preview-via-dev-remote.md)）
 
 1. （L1）打开设置窗，然后在 DevTools › Network 里切到 Offline，等侧栏刷新失败：顶部出现"暂时无法刷新工作区"的 toast，盖在设置窗上面。再切回 Online、点重试。
