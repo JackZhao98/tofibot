@@ -864,6 +864,32 @@
     "not_reported": "暂未获取",
     "saved": "已保存",
     "loading": "加载中…",
-    "managed": "由电脑服务管理"
+    "managed": "由电脑服务管理",
+    "standing": {
+      "title": "常驻许可",
+      "description": "你允许某个 Bot 不经询问就使用的工具。Bot 自行工作时（例如按计划运行）同样适用。撤销后，该 Bot 下次调用会再次询问你。",
+      "empty": "还没有常驻许可。在审批卡片上选择“始终允许”即可添加。",
+      "granted": "{{time}} 允许",
+      "last_used": "上次使用 {{time}}",
+      "never_used": "尚未使用",
+      "revoke": "撤销",
+      "revoking": "正在撤销…",
+      "revoke_failed": "无法撤销，请重试。",
+      "load_failed": "无法加载常驻许可。",
+      "server_changed": "服务器已变更，将重新询问。",
+      "tool_changed": "服务器重新定义了该工具，将重新询问。",
+      "tier_changed": "该工具的设置已变更，将重新询问。",
+      "used_other": "已使用 {{count}} 次",
+      "remembered": {
+        "title": "在对话中记住的批准",
+        "description": "你在某个对话里选择记住的批准，只在该对话内有效，到期自动结束。",
+        "empty": "没有任何对话记住了批准。",
+        "target_identifier": "目标：{{target}}",
+        "target_exact": "仅限已批准的完整参数",
+        "ends": "{{time}} 结束",
+        "chat": "对话：{{name}}",
+        "unknown_chat": "某个对话"
+      }
+    }
   }
 }

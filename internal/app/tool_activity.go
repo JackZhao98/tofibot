@@ -45,6 +45,8 @@ type ToolActivity struct {
 	StartedAt      string               `json:"started_at"`
 	UpdatedAt      string               `json:"updated_at"`
 	Outcome        *tooloutcome.Outcome `json:"outcome,omitempty"`
+	// AllowedBy is set when a standing allowance let the call through.
+	AllowedBy *ToolAllowance `json:"allowed_by,omitempty"`
 	// ResultBytes and ResultPreview are set only on list responses that cut
 	// Result short: ResultBytes is the stored length, and Truncated is true.
 	ResultBytes   int  `json:"result_bytes,omitempty"`
@@ -70,8 +72,14 @@ func slimToolActivity(activity ToolActivity) ToolActivity {
 // ToolActivityByCall returns one full snapshot, for expanding a step whose list
 // entry carried only a result preview.
 func (s *Store) ToolActivityByCall(conversationID, runID, callID string) (ToolActivity, error) {
-	return scanToolActivity(s.db.QueryRow(`SELECT conversation_id,bot_id,run_id,call_id,name,arguments,result,status,truncated,started_at,updated_at,outcome_json
+	activity, err := scanToolActivity(s.db.QueryRow(`SELECT conversation_id,bot_id,run_id,call_id,name,arguments,result,status,truncated,started_at,updated_at,outcome_json
 FROM tool_activities WHERE conversation_id=? AND run_id=? AND call_id=?`, conversationID, runID, callID))
+	if err == nil {
+		one := []ToolActivity{activity}
+		s.hydrateAllowances(conversationID, one)
+		activity = one[0]
+	}
+	return activity, err
 }
 
 // ToolActivityRunSummary is the small, exact count shown before a user asks
@@ -318,7 +326,11 @@ FROM tool_activities WHERE conversation_id=? ORDER BY updated_at DESC,run_id DES
 		}
 		activities = append(activities, activity)
 	}
-	return activities, rows.Err()
+	if err = rows.Err(); err != nil {
+		return nil, err
+	}
+	s.hydrateAllowances(conversationID, activities)
+	return activities, nil
 }
 
 // ToolActivitySummaries returns exact, lightweight counts for explicitly
@@ -405,7 +417,11 @@ FROM tool_activities WHERE conversation_id=? AND run_id=? ORDER BY started_at AS
 		}
 		activities = append(activities, activity)
 	}
-	return activities, total, rows.Err()
+	if err = rows.Err(); err != nil {
+		return nil, 0, err
+	}
+	s.hydrateAllowances(conversationID, activities)
+	return activities, total, nil
 }
 
 // routeToolActivities handles /api/conversations/{id}/tools.

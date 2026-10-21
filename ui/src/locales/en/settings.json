@@ -873,6 +873,33 @@
     "not_reported": "Not reported",
     "saved": "Saved",
     "loading": "Loading…",
-    "managed": "Managed by the computer service"
+    "managed": "Managed by the computer service",
+    "standing": {
+      "title": "Standing allowances",
+      "description": "Tools you've allowed a Bot to use without asking. This also applies when the Bot works on its own, for example on a schedule. Revoke one and that Bot's next call asks you again.",
+      "empty": "No standing allowances yet. Choose “Always allow” on an approval card to add one.",
+      "granted": "Allowed {{time}}",
+      "last_used": "Last used {{time}}",
+      "never_used": "Not used yet",
+      "revoke": "Revoke",
+      "revoking": "Revoking…",
+      "revoke_failed": "Couldn't revoke. Try again.",
+      "load_failed": "Couldn't load standing allowances.",
+      "server_changed": "Server changed. Asks again.",
+      "tool_changed": "The tool was redefined by its server. Asks again.",
+      "tier_changed": "This tool's setting changed. Asks again.",
+      "used_other": "used {{count}} times",
+      "remembered": {
+        "title": "Remembered in a chat",
+        "description": "Approvals you remembered inside one conversation. They apply only there and end on their own.",
+        "empty": "Nothing is remembered in any chat.",
+        "target_identifier": "Target: {{target}}",
+        "target_exact": "Exactly the approved arguments",
+        "ends": "Ends {{time}}",
+        "chat": "Chat: {{name}}",
+        "unknown_chat": "A conversation"
+      },
+      "used_one": "used {{count}} time"
+    }
   }
 }

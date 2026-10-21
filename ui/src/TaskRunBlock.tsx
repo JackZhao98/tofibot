@@ -8,7 +8,7 @@ import { canAnswerQuestion, presentTaskIssue, taskCertaintyText, taskOutcomeText
 import { useTranslation, type Language } from "./i18n";
 import { formatClock } from "./i18n/format";
 import { approvalFactRows } from "./extensionFacts";
-import { REMEMBERED_APPROVAL_ACTOR, type Question } from "./questionTimeline";
+import { REMEMBERED_APPROVAL_ACTOR, STANDING_ALLOWANCE_ACTOR, type Question } from "./questionTimeline";
 import type { MailDraft } from "./MailDraftCard";
 import type { Message, ToolActivity, ToolActivityRunSummary } from "./types";
 import { isTerminalRun } from "./runFamily";
@@ -142,7 +142,7 @@ export function TaskRunBlock({ owner, tools, questions, drafts, messages, summar
   // ran. Only answers a person gave to a real question stay as records.
   const recordedQuestions = questions.filter(question => question.question_type !== "approval" && !decisions.some(item => item.question_id === question.question_id));
   // A card decided by a remembered approval ("Approve and remember in this chat") stays visible as a record: nobody was asked.
-  const rememberedDecisions = questions.filter(question => question.question_type === "approval" && question.answered_by === REMEMBERED_APPROVAL_ACTOR && !decisions.some(item => item.question_id === question.question_id));
+  const rememberedDecisions = questions.filter(question => question.question_type === "approval" && (question.answered_by === REMEMBERED_APPROVAL_ACTOR || question.answered_by === STANDING_ALLOWANCE_ACTOR) && !decisions.some(item => item.question_id === question.question_id));
   const notes = messages.filter(message => ids.has(message.run_id ?? "") && message.conversation_id === run.conversation_id && message.role === "assistant" && message.kind === "progress");
   function loadInitial() {
     for (const attempt of owner.family.attempts) {
@@ -213,7 +213,7 @@ export function TaskRunBlock({ owner, tools, questions, drafts, messages, summar
     {!showActivity && liveLine && <p className="task-run-live-line" role="status">{liveLine.avatar && <span className="task-activity-cat" aria-hidden="true">{liveLine.avatar}</span>}{namedLive && <span className="task-activity-name">{botName}</span>}<span className="task-activity-live">{liveLine.label}</span></p>}
     {showActivity && <ActivityDisclosure locale={locale} detail={activityDetail} live={liveLine} disclosureRef={disclosure} onOpen={loadInitial}>
       {owner.family.previous.map((attempt, index) => <p key={attempt.id} className="task-record-meta">{t("activity.previous_attempt", { number: index + 1, status: attemptStatus(attempt.status) })}</p>)}
-      {rememberedDecisions.map(question => <p key={question.question_id} className="task-record-meta task-remembered-record" data-question-record-id={question.question_id}>{t("record.remembered_decision")}</p>)}
+      {rememberedDecisions.map(question => <p key={question.question_id} className="task-record-meta task-remembered-record" data-question-record-id={question.question_id}>{t(question.answered_by === STANDING_ALLOWANCE_ACTOR ? "record.standing_decision" : "record.remembered_decision")}</p>)}
       {recordedQuestions.map(question => <section className="task-question-record" key={question.question_id} data-question-record-id={question.question_id} tabIndex={-1}>
         <p>{question.question_type === "approval" ? question.approval?.review_only || question.approval?.review?.status.startsWith("shadow") ? t("record.observation_only") : question.status === "answered" && question.answer === true ? t("record.approved_unconfirmed") : question.status === "expired" ? t("record.approval_expired") : t("record.decision") : t("record.answer")}</p>
         <dl><div><dt>{t("record.status")}</dt><dd>{taskStatusText(question.approval?.review?.status ?? question.status, locale)}</dd></div>{question.outcome && <div><dt>{t("record.execution")}</dt><dd>{taskCertaintyText(question.outcome.execution_certainty, locale)}</dd></div>}</dl>

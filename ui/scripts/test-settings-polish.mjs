@@ -364,6 +364,7 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
     if (path === "/api/extensions/local-mcp") return {available: true, plugins: [{id: "gog", state: "sleeping", tool_count: 0}]};
     if (path === "/api/extensions/local-mcp/gog/oauth/status") return {connected: false, email: ""};
     if (path === "/api/extensions/skills") return {skills: [{name: "research-assistant", description: "Research and verify sources", access: {mode: "all"}}, {name: "weekly-report", description: "Draft the weekly status report", access: {mode: "selected", bot_ids: ["bot_research"]}}]};
+    if (path === "/api/standing-allowances") return {allowances: [], remembered: []};
     if (path === "/api/automation-settings") return {items: [
       {key: "conversation_model", group: "models", kind: "model", default: "codex-gpt-6-sol", value: "codex-gpt-6-sol", source: "default"},
       {key: "background_model", group: "models", kind: "model", default: "codex-gpt-6-sol", value: "", source: "default"},

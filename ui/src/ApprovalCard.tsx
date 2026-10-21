@@ -24,8 +24,11 @@ export interface ApprovalCardProps {
   /** "Approve and remember in this chat": offered only when the caller says a memory could later decide. */
   onRemember?: () => void;
   rememberHint?: string;
+  /** "Always allow": offered only for a write-tier call a standing allowance could later decide. */
+  onAlwaysAllow?: () => void;
+  alwaysAllowHint?: string;
   resolution?: ApprovalResolution;
-  busy?: "accept" | "decline" | "cancel" | "remember";
+  busy?: "accept" | "decline" | "cancel" | "remember" | "always";
   disabled?: boolean;
   error?: string;
   note?: string;
@@ -33,7 +36,7 @@ export interface ApprovalCardProps {
 }
 
 /** Shared visual card. Only the caller's confirmed result can resolve it. */
-export function ApprovalCard({ title, avatar, time, exactTime, badge: badgeText, facts = [], verified = [], verifiedTitle, factsCaption, payload, acceptLabel: acceptText, declineLabel: declineText, onAnswer, onRemember, rememberHint, resolution, busy, disabled, error, note, secondaryAction }: ApprovalCardProps) {
+export function ApprovalCard({ title, avatar, time, exactTime, badge: badgeText, facts = [], verified = [], verifiedTitle, factsCaption, payload, acceptLabel: acceptText, declineLabel: declineText, onAnswer, onRemember, rememberHint, onAlwaysAllow, alwaysAllowHint, resolution, busy, disabled, error, note, secondaryAction }: ApprovalCardProps) {
   const { t } = useTranslation("tasks");
   const badge = badgeText ?? t("phase.needs_approval");
   const acceptLabel = acceptText ?? t("approval.accept");
@@ -58,12 +61,14 @@ export function ApprovalCard({ title, avatar, time, exactTime, badge: badgeText,
         <div className="approval-actions">
           <button type="button" className="approval-decline" disabled={disabled || Boolean(busy) || !pending} onClick={() => onAnswer(false)}>{busy === "decline" ? t("approval.submitting") : declineLabel}</button>
           <button type="button" className="approval-accept" disabled={disabled || Boolean(busy) || !pending} onClick={() => onAnswer(true)}>{busy === "accept" ? t("approval.submitting") : acceptLabel}</button>
+          {onAlwaysAllow && <button type="button" className="approval-always" disabled={disabled || Boolean(busy) || !pending} onClick={onAlwaysAllow}>{busy === "always" ? t("approval.submitting") : t("approval.always_allow")}</button>}
           {secondaryAction && <span className="approval-secondary">{secondaryAction}</span>}
         </div>
         {onRemember && <div className="approval-remember">
           <button type="button" className="approval-remember-button" disabled={disabled || Boolean(busy) || !pending} onClick={onRemember}>{busy === "remember" ? t("approval.submitting") : t("approval.remember")}</button>
           {rememberHint && <span className="approval-remember-hint">{rememberHint}</span>}
         </div>}
+        {onAlwaysAllow && alwaysAllowHint && <p className="approval-remember-hint approval-always-hint">{alwaysAllowHint}</p>}
         {note && <p className="approval-note">{note}</p>}
       </div>
     </div>

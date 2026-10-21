@@ -269,7 +269,7 @@ func (s *Server) routeLocalMCP(w http.ResponseWriter, r *http.Request, p string)
 				writeErr(w, 409, "runner", strings.TrimSpace(string(data)))
 				return true
 			}
-			if err := s.extensions.DeleteMCP("local_" + id); err != nil && !errors.Is(err, os.ErrNotExist) {
+			if err := s.deleteMCPServer("local_" + id); err != nil && !errors.Is(err, os.ErrNotExist) {
 				writeErr(w, 500, "runner", err.Error())
 				return true
 			}

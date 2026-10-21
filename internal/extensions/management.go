@@ -224,12 +224,33 @@ func (m *Manager) SaveMCP(name string, c MCPServerConfig, updating bool) error {
 	// client registration. StartOAuth performs registration on first connect and
 	// persists the returned credentials after rechecking this configuration.
 	cfg[name] = c
-	if err := writeJSON0600(m.cfg.MCPConfigPath, serverFile{MCPServers: cfg}); err != nil {
+	if err := m.writeServers(cfg); err != nil {
 		return err
 	}
 	m.invalidateCatalogs(name)
 	if exists && credentialTargetChanged(old, c) {
 		return m.invalidateCredentialLocked(name)
+	}
+	return nil
+}
+
+// writeServers saves the configuration and reports every server whose
+// identity (fingerprint or credential target) changed or that was removed, so
+// a standing allowance made for the earlier identity is voided for good even
+// when the identity is later changed back.
+func (m *Manager) writeServers(servers map[string]MCPServerConfig) error {
+	var previous map[string]MCPServerConfig
+	if m.cfg.ServerIdentityChanged != nil {
+		previous, _ = loadServers(m.cfg.MCPConfigPath)
+	}
+	if err := writeJSON0600(m.cfg.MCPConfigPath, serverFile{MCPServers: servers}); err != nil {
+		return err
+	}
+	for name, old := range previous {
+		current, ok := servers[name]
+		if !ok || metadataFingerprint(name, old) != metadataFingerprint(name, current) || credentialTargetChanged(old, current) {
+			m.cfg.ServerIdentityChanged(name)
+		}
 	}
 	return nil
 }
@@ -260,7 +281,7 @@ func (m *Manager) DeleteMCP(name string) error {
 	invalidateErr := m.invalidateCredentialLocked(name)
 	delete(cfg, name)
 	_ = m.clearToolTiersLocked(name)
-	if err := writeJSON0600(m.cfg.MCPConfigPath, serverFile{MCPServers: cfg}); err != nil {
+	if err := m.writeServers(cfg); err != nil {
 		return err
 	}
 	m.invalidateCatalogs(name)
@@ -913,7 +934,7 @@ func (m *Manager) OAuthStart(ctx context.Context, name, redirect string) (string
 		updated := current[name]
 		updated.OAuth.AuthServerMetadataURL = f.AuthServerMetadataURL
 		current[name] = updated
-		if err := writeJSON0600(m.cfg.MCPConfigPath, serverFile{MCPServers: current}); err != nil {
+		if err := m.writeServers(current); err != nil {
 			m.mu.Unlock()
 			return "", "", err
 		}
@@ -1012,11 +1033,11 @@ func (m *Manager) OAuthCallbackForRedirect(ctx context.Context, sid, code, state
 		updated.OAuth.AuthServerMetadataURL = s.Pending.MetadataURL
 	}
 	current[s.Server] = updated
-	if err := writeJSON0600(m.cfg.MCPConfigPath, serverFile{MCPServers: current}); err != nil {
+	if err := m.writeServers(current); err != nil {
 		return err
 	}
 	if err := s.Store.SaveToken(ctx, newToken); err != nil {
-		_ = writeJSON0600(m.cfg.MCPConfigPath, serverFile{MCPServers: oldServers})
+		_ = m.writeServers(oldServers)
 		return err
 	}
 	oauth := *updated.OAuth

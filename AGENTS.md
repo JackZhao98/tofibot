@@ -87,6 +87,24 @@ returned only when the guarded call fails with certainty before any effect (`not
 (`click_approval_claims`). Login limits are per peer address (IPv6 /64) and per account identifier; a peer that earlier proved the password skips
 the per-identifier bucket (`owner_auth_known_sources`) so strangers cannot lock the real user out; password changes use their own `pwchange`
 bucket namespace; there is no global bucket.
+MCP write-tier calls can be allowed for good with "Always allow" (`internal/app/mcp_standing_allowance.go`, table `mcp_standing_allowances`, created by
+`migrateStandingAllowances`: `CREATE ... IF NOT EXISTS` + `ensureColumn`). A grant is (account, Bot, MCP server, tool), independent of the payload, and
+binds to the server's config fingerprint (name, address, transport, headers), a digest of its credential target, and the tool definition digest
+(`MCPToolTierView.Digest`: name, description, schema, annotations): a changed definition or server voids it (Settings shows `tool_changed` /
+`server_changed` / `tier_changed`; the next "Always allow" supersedes it). A server change is sticky: `server_changed_at` is set the first time a
+different identity is seen (configuration writer hook `Config.ServerIdentityChanged`, any call, the Settings list), so setting an address back does not
+revive it; an out-of-process file edit that is changed and reverted between two looks is the one gap. It is created only by the owner question route from a
+card the gate marked `standing_eligible` (write tier, conversation a person can see), never for `high_risk`/read-only tools, never from model input
+(`approval.standing` is reserved like `remember`); the archived-Bot check is part of the INSERT. Setting a tool to "Always ask me" revokes its grants
+(`revoked_by=tier_raised`). It decides when no person attends too (schedules, Bot turns, inbound content) and says so in the card hint and Settings, but
+never in a conversation no person can see (`matchStandingAllowance` needs `UserVisible`, and a live grant in a hidden conversation refuses with
+`conversation_not_user_visible` even in an unattended run). In AutoReview "auto" mode the reviewer still runs: the grant replaces only the "a person
+decides" verdict (`finishMCPReview`); a deny still blocks. The decision is a card answered by actor `standing-allowance`, re-validated at claim time
+(`standingClaimValid`), so Revoke (Settings > Automatic behavior, `/api/standing-allowances`) bites an in-progress run at its next call (attended: the
+card returns to a person; unattended: it is closed and the call refused `mcp_needs_human_unattended`). Each use bumps `use_count`/`last_used_at` and
+writes `mcp_standing_allowance_uses` (null `call_id` when the runtime gave none) inside the claim transaction, and links the tool activity
+(`ToolActivity.allowed_by`). Archiving/deleting the Bot or the server (`deleteMCPServer`: use it, not `extensions.DeleteMCP`) revokes the grants
+(`revoked_by` `bot_archived` | `bot_deleted` | `server_removed`) and keeps the rows and uses.
 Session cookies are Secure when `TOFI_PUBLIC_ORIGIN` is https; Caddy sends HSTS. Known open: `computer_shell` shares a uid and loopback with the
 shared Chrome DevTools port.
 

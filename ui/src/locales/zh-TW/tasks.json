@@ -243,7 +243,8 @@
         "mcp_delete": "刪除 MCP 伺服器",
         "mcp_test": "連線 MCP 伺服器"
       }
-    }
+    },
+    "standing_decision": "由此 Bot 的常駐許可核准，未詢問任何人。下方步驟會顯示是否已執行。"
   },
   "question": {
     "approve": "核准此操作",
@@ -272,7 +273,8 @@
       "human_decided": "已由人工決定",
       "run_done": "任務已結束",
       "approved": "已核准",
-      "remembered": "由記住的核准放行"
+      "remembered": "由記住的核准放行",
+      "standing": "已由常駐許可核准"
     },
     "answered_refresh_failed": "已收到回答，但清單重新整理失敗，請重新整理頁面查看。",
     "submit_failed": "提交未完成，請重試。",
@@ -293,6 +295,10 @@
       "hint_identifier": "本對話中之後對 {{target}} 呼叫此工具將不再詢問。可隨時在對話選單中撤銷。",
       "hint_exact": "本對話中之後以完全相同的參數呼叫此工具將不再詢問。可隨時在對話選單中撤銷。",
       "stale": "已核准，但未記住：工具或其設定已變更。"
+    },
+    "always_allow": {
+      "hint": "選擇「一律允許」後，{{bot}} 可直接使用 {{server}} 上的 {{tool}}，Bot 自行運作時（例如依排程執行、沒有人在場）也一樣，直到你在設定中撤銷。",
+      "stale": "已核准，但未儲存為一律允許：該工具或其伺服器已變更。"
     }
   },
   "form": {
@@ -417,7 +423,8 @@
       "policy_needs_approval": "執行策略需人工核准",
       "already_reviewed": "此提案已有審查紀錄",
       "high_risk_tool": "高風險工具 · 需要你決定",
-      "remembered": "記住的核准"
+      "remembered": "記住的核准",
+      "standing": "一律允許"
     },
     "label": {
       "shadow_reviewing": "觀察審查中",
@@ -444,7 +451,8 @@
       "not_eligible": "不符合自動執行資格",
       "not_rereviewed": "未重複審查",
       "high_risk_tool": "高風險工具：每次呼叫由人決定",
-      "remembered": "由本對話中記住的核准決定"
+      "remembered": "由本對話中記住的核准決定",
+      "standing": "由此 Bot 的常駐許可決定"
     },
     "failure": {
       "title": "審查未能完成的原因",
@@ -490,7 +498,8 @@
     "decline": "暫不核准",
     "payload_label": "完整工具參數，純文字",
     "submitting": "提交中…",
-    "remember": "核准並在本對話中記住"
+    "remember": "核准並在本對話中記住",
+    "always_allow": "一律允許"
   },
   "remembered": {
     "title": "記住的核准",
