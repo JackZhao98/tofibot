@@ -214,7 +214,7 @@
 | 关闭 | 不适用 |
 | 位置 | 侧栏滚动区；排序在服务端（`PUT /api/conversations/order`） |
 | 层级 | 拖动中的行 `z-index:40`（`sidebar-pins.css:6-10`），在侧栏层叠上下文内 |
-| 动效 | 拖动只用 transform，矩形在拿起时量一次，React 只在放下时渲染一次；邻居让位 `--m-quick`；落定 `--m-panel-in` + `--ease-settle`；拿起放大 1.02（`sidebarDndEngine.ts:42`）；减少动效下无滑动 |
+| 动效 | 拖动只用 transform，矩形在拿起时量一次，React 只在放下时渲染一次（迁移第 5 步实测：一次拖动中侧栏行渲染 0 次，放下时每行 1 次；dnd-kit 版是拖动中每行 11–13 次，见 `migration.md` 第 5 步）；邻居让位 `--m-quick`；落定 `--m-panel-in` + `--ease-settle`；拿起放大 1.02（`sidebarDndEngine.ts:42`）；减少动效下无滑动 |
 | 触屏 | 长按 380 ms 才拿起，先移动的手指算滚动（`sidebarDndEngine.ts:13-14`、`:39-41`）；长按不动松开 = 打开行菜单；拿起时震动 8 ms（`:211`） |
 | 可用范围 | 只有默认"消息"区可拖；有搜索词或侧栏收起时关闭（`App.tsx:1283`）；自定义分区和隐藏 Bot 行不可拖（`:2451`、`:2314`） |
 | 交互开销 | 60 个会话时拖动 p95 帧 ≤ 20 ms（4 倍降速 ≤ 34 ms），拖动中每帧排版比静止时多不超过 1.5 次（`ui/scripts/test-sidebar-pins.mjs:415-421`）。`AGENTS.md` 禁止在拿起时加依赖列表祖先属性的样式（实测 +60 ms） |

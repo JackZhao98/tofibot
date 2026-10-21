@@ -69,7 +69,7 @@ TOFI 是一个自托管的 AI Bot 工作台：Go 后端在 `internal/`，React 1
 | [`design/tokens.md`](design/tokens.md) | 颜色、字体、间距、圆角、阴影、模糊、动效令牌的真实取值；z-index 层级刻度和每一处的归层（§9） | 现行（§9 的刻度已在迁移第 1 步落地，第 2 步修了 Z3、Z4；第二部分其余的合并方案仍是提议） | §9 的 `file:line` 按分支 `ds/step2-menus`，其余按 `748c774` |
 | [`design/components.md`](design/components.md) | 每个组件的状态、焦点、键盘、关闭、位置、层级、动效、已知问题（C1–C41） | 现行 | 基线 `748c774`；改组件行为要同一提交更新 |
 | [`design/principles.md`](design/principles.md) | 设计原则 P1–P8，每条带检查方法、冲突取舍和 PR 评审清单 | 现行 | 规则来自 D16–D23 等决定 |
-| [`design/migration.md`](design/migration.md) | 迁到 Radix / Motion / dnd-kit 的分步方案、体积实测、风险和预览点 | 现行：owner 已点头，第 1、2 步已完成（等合并和预览） | §7 是 owner 对 Q1–Q4 的回答（D31–D34） |
+| [`design/migration.md`](design/migration.md) | 迁到 Radix / Motion / dnd-kit 的分步方案、体积实测、风险和预览点 | 现行：owner 已点头，第 1、2、3、6 步已完成，第 5 步 dnd-kit 实验已做、不通过（都在集成分支 `ds/integrate` 上，等合并和预览） | §7 是 owner 对 Q1–Q4 的回答（D31–D34） |
 | [`../ui/src/locales/README.md`](../ui/src/locales/README.md) | Web UI 本地化规则 | 现行 | 7 种语言目录都在 `ui/src/locales/` |
 | [`../ui/src/icons/README.md`](../ui/src/icons/README.md)、[`../ui/public/icons/README.txt`](../ui/public/icons/README.txt) | TOFI 自绘图标 v2.1 的用法 | 现行 | `ui/public/icons/manifest.json` 正好 144 个图标 |
 | [`../ui/src/lib/tofi-avatar/README.md`](../ui/src/lib/tofi-avatar/README.md) | 猫头像动效库 v2 的 API | 现行 | 10-20 仍在改（`39a1822`） |

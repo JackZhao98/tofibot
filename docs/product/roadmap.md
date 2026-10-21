@@ -58,7 +58,7 @@
 
 ### 3.1 设计系统迁移（[`docs/design/`](../design/)，[D28](../decisions/0028-headless-design-system-migration.md)）
 
-- **内容**：引入无头组件库（Radix 做菜单、弹出卡片和对话框；Motion、dnd-kit 只做有门槛的对照实验），同时保持 TOFI 现在的样子。第 1 步（层级刻度和 portal 根节点）、第 2 步（菜单和弹出卡片走 Radix，修 Z3、Z4）、第 3 步（对话框走 Radix Dialog / AlertDialog）、第 6 步（组件目录页）已完成，在集成分支 `ds/integrate` 上合在一起，见第 2 节。
+- **内容**：引入无头组件库（Radix 做菜单、弹出卡片和对话框；Motion、dnd-kit 只做有门槛的对照实验），同时保持 TOFI 现在的样子。第 1 步（层级刻度和 portal 根节点）、第 2 步（菜单和弹出卡片走 Radix，修 Z3、Z4）、第 3 步（对话框走 Radix Dialog / AlertDialog）、第 6 步（组件目录页）已完成；第 5 步（dnd-kit 对照实验）做完，不通过，保留自研拖动引擎（拖动中 React 每行渲染 11–13 次，引擎是 0 次；数字在 `migration.md` 第 5 步）。都在集成分支 `ds/integrate` 上合在一起，见第 2 节。
 - **前提**：owner 已点头，并回答了方案里的 Q1–Q4：库全部懒加载、入口预算不动（[D31](../decisions/0031-entry-budget-plan-a.md)）；接受第 1 步的层级变化，逐条预览（[D32](../decisions/0032-step1-stacking-changes-accepted.md)）；手机右滑返回要做，自研和 Motion 各一版对照（[D33](../decisions/0033-phone-swipe-back-experiment.md)）；组件目录页只在开发时可用（[D34](../decisions/0034-component-catalog-dev-only.md)）。每一步都要在 `dev:remote` 预览里给 owner 看（[D22](../decisions/0022-preview-via-dev-remote.md)）。
 - **怎么算做完**：每一步都按方案里写好的文件范围、风险和检查方法完成。动效和性能相关的现有测试（`test:motion-tokens`、`test:shell-budget`、`test:sidebar-pins`、`test:chat-switch` 等）、`test:layers`、`test:overlays`、`test:dialogs` 和 `test:catalog` 全部通过。
 
