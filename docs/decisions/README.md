@@ -43,6 +43,8 @@
 | D30 | 长期操作规则 | 长期 | 正式版标签先问 owner；部署前查正在跑的 run；生产操作只由协调者做；不碰密钥；绿不绿看退出码；修复配上回退就会失败的测试；放宽安全的改动先做对抗性审查 | [0030](0030-standing-operating-rules.md) |
 | D36 | 聊天上传的文件放进 Bot 的电脑 | 2026-10-21 | 用户消息的附件复制到 `/workspace/home/uploads/<对话 id>/`；懒复制、幂等、可见性同 `read_attachment`；复用文件通道反向（`files.import_chunk`） | [0036](0036-chat-uploads-on-the-computer.md) |
 | D37 | Bot 电脑预装办公工具，只预装英文 | 2026-10-21 | LibreOffice、tesseract（英文）、poppler、pandoc、Python 办公库进镜像；其他语言的数据和字体由 Bot 取到用户目录（`TESSDATA_PREFIX`、`~/.local/share/fonts`）；matplotlib 不改默认字体 | [0037](0037-english-only-office-tooling.md) |
+| D38 | 瞬时错误先重试，失败的运行不丢已发布的文件 | 2026-10-21 | 流内过载、限流、5xx、断流按错误码有界重试（约 2 分钟，服从 `Retry-After`）；运行失败时已发布的文件绑定到一条只带附件的消息上，链接仍可打开 | [0038](0038-failed-runs-keep-published-files.md) |
+| D39 | `sandbox:` 链接服务端输出时改成附件地址 | 2026-10-21 | `sandbox:/api/attachments/<id>` 和与本消息附件唯一同名的 `sandbox:` 绝对路径，在 `Message.MarshalJSON` 里改成 `/api/attachments/<id>`；库里原文不变，其他协议不碰 | [0039](0039-serve-sandbox-links-as-attachments.md) |
 
 ## 怎么新增一条决定
 

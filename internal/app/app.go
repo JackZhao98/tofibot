@@ -2044,6 +2044,9 @@ func (s *Store) SetRunStatus(id, status, msg string) (bool, error) {
 		}
 	}
 	if n == 1 && status == "failed" {
+		if e = keepFailedRunFilesTx(tx, id, t); e != nil {
+			return false, e
+		}
 		if failureReturn, failureReturned, e = scheduleChildFailureReturnTx(tx, id); e != nil {
 			return false, e
 		}

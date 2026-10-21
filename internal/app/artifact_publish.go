@@ -14,6 +14,8 @@ import (
 	"path/filepath"
 	"strings"
 	"time"
+
+	"github.com/google/uuid"
 )
 
 func migratePublishedAttachments(s *Store) error {
@@ -130,6 +132,39 @@ func bindRunAttachmentsTx(tx *sql.Tx, runID, messageID string) error {
 		return err
 	}
 	_, err := tx.Exec(`DELETE FROM run_attachments WHERE run_id=?`, runID)
+	return err
+}
+
+// keepFailedRunFilesTx gives files a run published before it failed a home in
+// the conversation: an attachments-only assistant message, so the failure the
+// person sees carries the work already done and every link the model handed
+// out keeps resolving. Cancelled and interrupted runs still discard theirs.
+func keepFailedRunFilesTx(tx *sql.Tx, runID, t string) error {
+	var pending int
+	if err := tx.QueryRow(`SELECT COUNT(*) FROM run_attachments WHERE run_id=?`, runID).Scan(&pending); err != nil || pending == 0 {
+		return err
+	}
+	var conv, bot string
+	if err := tx.QueryRow(`SELECT conversation_id,bot_id FROM runs WHERE id=?`, runID).Scan(&conv, &bot); err != nil {
+		return err
+	}
+	var seq int64
+	if err := tx.QueryRow(nextMessageSeqSQL, conv, conv, streamDraftActive).Scan(&seq); err != nil {
+		return err
+	}
+	m := Message{ID: uuid.NewString(), ConversationID: conv, Seq: seq, Role: "assistant", SenderBotID: bot, RunID: runID, CreatedAt: t}
+	if _, err := tx.Exec(`INSERT INTO messages(id,conversation_id,seq,role,kind,sender_bot_id,run_id,content,created_at) VALUES(?,?,?,?,?,?,?,?,?)`, m.ID, conv, seq, m.Role, m.Kind, bot, runID, "", t); err != nil {
+		return err
+	}
+	if err := bindRunAttachmentsTx(tx, runID, m.ID); err != nil {
+		return err
+	}
+	var err error
+	if m.Attachments, err = attachmentMetadata(tx, m.ID); err != nil {
+		return err
+	}
+	b, _ := json.Marshal(m)
+	_, err = tx.Exec(`INSERT INTO events(conversation_id,type,data,created_at) VALUES(?,?,?,?)`, conv, "message", string(b), t)
 	return err
 }
 

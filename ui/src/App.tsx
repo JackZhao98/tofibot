@@ -1,4 +1,5 @@
 import { useGraceFlag } from "./useGraceFlag";
+import { readReplyMarker } from "./replyMarker";
 import { thinkingHeadline } from "./thinkingHeadline";
 import { TaskRunBlock, taskBlockVisible } from "./TaskRunBlock";
 import { markSenderGroups } from "./senderGroups";
@@ -2636,20 +2637,6 @@ function RelatedMessageLink({ target, onOpen }: { target: ViewOnlyChatTarget; on
 function SmoothStreamMarkdown({ content, mention, active, streaming = false }: { content: string; mention?: React.ReactNode; active: boolean; streaming?: boolean }) {
   const visible = useSmoothStreamText(content, active);
   return <MessageMarkdown content={visible} mention={mention} cursor={active} reuse={!streaming} />;
-}
-
-function readReplyMarker(content: string): { ids: string[]; body: string } {
-  const ids: string[] = [];
-  let body = content;
-  const markerPattern = /^\[message_id=([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})\]\s*/i;
-  for (let marker = markerPattern.exec(body); marker; marker = markerPattern.exec(body)) {
-    ids.push(marker[1].toLowerCase());
-    body = body.slice(marker[0].length);
-  }
-  if (ids.length) return { ids, body: /^\[message_id(?:=[0-9a-f-]*)?$/i.test(body) ? "" : body };
-  // Streaming can pause in the middle of the internal marker. Never flash it as text.
-  if (/^\[message_id(?:=[0-9a-f-]*)?$/i.test(content)) return { ids, body: "" };
-  return { ids, body: content };
 }
 
 const SNAPSHOT_CACHE_LIMIT = 50;
