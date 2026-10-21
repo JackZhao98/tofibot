@@ -56,7 +56,7 @@
 
 ## 影响
 
-- 实施状态：分支 `ds/step4-motion`（从 `ds/step1-layers` 开出），等协调者合并和 owner 预览。owner 预览后如果觉得 Motion 版手感更好，可以推翻本条：换回只要把 `phoneSwipeMotion.ts` 挪进 `src/` 并替换 `phoneSwipeEngine.ts` 的 `mount`，`motion` 改成 dependency，同时在 `ui/public/licenses/` 加许可证。
+- 实施状态：分支 `ds/step4-motion`（从 `ds/step1-layers` 开出），已合进集成分支 `ds/integrate`，等 owner 预览和合并进 `main`。owner 预览后如果觉得 Motion 版手感更好，可以推翻本条：换回只要把 `phoneSwipeMotion.ts` 挪进 `src/` 并替换 `phoneSwipeEngine.ts` 的 `mount`，`motion` 改成 dependency，同时在 `ui/public/licenses/` 加许可证。
 - 新增：`ui/src/phoneSwipeGesture.ts`、`ui/src/phoneSwipeEngine.ts`、`ui/src/usePhoneSwipeBack.ts`；`ui/src/App.tsx` 一行调用；`ui/src/styles.css` 手机段的 `touch-action` 和 `data-swipe` 规则；`ui/src/motion.ts` 新令牌 `SPRING.push`（临界阻尼，`test:motion-tokens` 守着）。
 - 新测试：`npm --prefix ui run test:swipe-back`（Chromium 用 CDP 真触摸；`SWIPE_BACK_ENGINE=webkit` 用页面内合成的触摸 PointerEvent）；`npm --prefix ui run test:motion-experiment`（复现上面的表）。
 - 不变：点按推入的 280 / 220 ms（`test:shell-budget` 第 3 节）；到达级联（`test:arrival-glide`）。

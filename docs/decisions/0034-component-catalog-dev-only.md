@@ -25,7 +25,7 @@ owner 没有另写理由。
 
 ## 影响
 
-- 实施状态：**已实施**（迁移第 6 步，分支 `ds/step6-catalog`，等合并）。目录页不在 `build` 脚本里，也不在 `vite.motion-lab.config.ts` 的 `input` 里，只由开发服务器提供；`main.tsx` 在生产模式下直接抛错。`npm --prefix ui run test:catalog` 按 `build` 脚本把每个 `vite build` 跑一遍，断言产物里没有 `catalog.html`、没有带目录页标记的块、没有 `src/catalog/` 路径，并断言产品代码不 import 目录页；撤回验证见 [`migration.md`](../design/migration.md) 第 6 步。
+- 实施状态：**已实施**（迁移第 6 步，分支 `ds/step6-catalog`，已合进集成分支 `ds/integrate`，等合并进 `main`）。目录页不在 `build` 脚本里，也不在 `vite.motion-lab.config.ts` 的 `input` 里，只由开发服务器提供；`main.tsx` 在生产模式下直接抛错。`npm --prefix ui run test:catalog` 按 `build` 脚本把每个 `vite build` 跑一遍，断言产物里没有 `catalog.html`、没有带目录页标记的块、没有 `src/catalog/` 路径，并断言产品代码不 import 目录页；撤回验证见 [`migration.md`](../design/migration.md) 第 6 步。
 - `deploy/open-source-allowlist.json` 列入 `ui/catalog.html`：开源导出带上目录页的源码（`ui/src/` 本来就整个导出，只列 `src/catalog/` 而漏掉入口页面会导出一份打不开的目录页）。这和正式版构建无关，正式版里仍然没有它。
 - Motion Lab 是否也改成只在开发时可用：这条决定没有说，不在本条范围内。
 

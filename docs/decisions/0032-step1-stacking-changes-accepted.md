@@ -25,7 +25,7 @@ owner 没有另写理由。方案的理由是：这几处现在的先后顺序�
 
 ## 影响
 
-- 实施状态：已在分支 `ds/step1-layers` 落地，等 owner 预览。
+- 实施状态：已在分支 `ds/step1-layers` 落地，合进集成分支 `ds/integrate`，等 owner 预览。L4、L9 后来分别被第 3 步（引导进 `#tofi-layers`）和第 2 步（顶栏回到 `--z-chrome`）改写；合并后的预览清单在 `migration.md`"集成"一节，第 1 步的变化排在最前。
 - 审计里发现、刻度不打算改变的三处先后顺序，用 `calc(var(--z-*) ± 1)` 保住了原样：侧栏列仍在顶栏和输入框之上（收起侧栏时账户菜单会伸进对话区，`v2-app.css` `.contact-pane`）；macOS 桌面客户端的拖动条仍在侧栏、抽屉和抽屉遮罩之上（`desktop-system.css` `.native-titlebar`）；≥1100 px 时顶栏仍在上下文浮卡之上，直到第 2 步把顶栏菜单改成 portal（`context-card.css`）。
 - `test:layers`（`ui/scripts/test-layers.mjs`）守住刻度：叠在同一点的弹层必须按刻度的顺序画。
 

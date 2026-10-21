@@ -46,11 +46,7 @@
 | 事项 | 现状 | 依据 |
 |---|---|---|
 | 文档体系：总索引、现状、路线图、决策记录、版本记录、工作流程，`AGENTS.md` 加“从这里开始” | 正在分支 `docs/system-opus` 上写，还没合并 | [D27](../decisions/0027-docs-are-the-system.md) |
-| 设计系统迁移第 1 步：`--z-*` 层级刻度和唯一的 portal 根节点 `#tofi-layers` | 在分支 `ds/step1-layers` 上完成（新守卫 `test:layers`，入口包 +49 B），等协调者合并和 owner 预览；层级变化清单 L1–L14 和预览步骤在 [`migration.md`](../design/migration.md) 第 1 步 | [D28](../decisions/0028-headless-design-system-migration.md)、[D31](../decisions/0031-entry-budget-plan-a.md)、[D32](../decisions/0032-step1-stacking-changes-accepted.md) |
-| 设计系统迁移第 2 步：菜单和弹出卡片换成懒加载的 Radix（DropdownMenu、Popover），修 Z3、Z4 | 在分支 `ds/step2-menus`（从 `ds/step1-layers` 开出）上完成：新测试 `test:overlays`，入口包 +5 B，懒加载块 30,699 B；看得见的变化 M1–M8、撤回验证和预览步骤在 [`migration.md`](../design/migration.md) 第 2 步；最大的菜单打开比以前贵（1x 多约 5 ms 脚本，4x 多约 26 ms），数字也在那里。等协调者合并（先合第 1 步）和 owner 预览 | [D28](../decisions/0028-headless-design-system-migration.md)、[D31](../decisions/0031-entry-budget-plan-a.md) |
-| 设计系统迁移第 3 步：对话框走 Radix `Dialog` / `AlertDialog`（懒加载） | 在分支 `ds/step3-dialogs`（从 `ds/step1-layers` 分出，和第 2 步并行）上完成：9 个模态共用 `ui/src/overlays/ModalDialog.tsx`，Esc 只关最上一层、焦点回到原处、背景对读屏隐藏、`aria-modal`；新测试 `test:dialogs`；入口包反而变小（−1,148 B）。等协调者合并和 owner 预览；变化清单 S1–S6 和预览步骤在 [`migration.md`](../design/migration.md) 第 3 步 | [D28](../decisions/0028-headless-design-system-migration.md)、[D31](../decisions/0031-entry-budget-plan-a.md) |
-| 设计系统迁移第 6 步：只在开发时可用的组件目录页 `ui/catalog.html` | 在分支 `ds/step6-catalog`（从 `ds/step1-layers` 分出）上完成：`components.md` §1–§23 共 166 个状态，真组件 + 假数据，浅色/深色、1280/390 px、7 种语言；新守卫 `test:catalog` 证明正式构建里没有它；应用的包 0 字节。等协调者合并和 owner 预览，预览步骤在 [`migration.md`](../design/migration.md) 第 6 步 | [D28](../decisions/0028-headless-design-system-migration.md)、[D34](../decisions/0034-component-catalog-dev-only.md) |
-| 设计系统迁移第 4 步：Motion 对照实验和手机右滑返回 | 在分支 `ds/step4-motion` 上完成：不引入 Motion；右滑返回上线自研版（懒加载块 2,079 B，入口包 +244 B）；新测试 `test:swipe-back`、`test:motion-experiment`。等协调者合并和 owner 预览，预览清单在 [`migration.md`](../design/migration.md) 第 4 步 | [D33](../decisions/0033-phone-swipe-back-experiment.md)、[D35](../decisions/0035-step4-motion-experiment-result.md) |
+| 设计系统迁移第 1–6 步，合在集成分支 `ds/integrate` | 六个步骤分支（`ds/step1-layers` 为起点，依次 `--no-ff` 合入 `ds/step2-menus`、`ds/step3-dialogs`、`ds/step6-catalog`、`ds/step5-dnd`、`ds/step4-motion`）都在 `ds/integrate` 上，全部测试按退出码通过，**还没合进 `main`**，等 owner 预览。第 1 步层级刻度和 `#tofi-layers`（L1–L14）；第 2 步菜单和弹出卡片走懒加载 Radix（M1–M8，`test:overlays`）；第 3 步对话框走懒加载 Radix（S1–S6，`test:dialogs`）；第 4 步不引入 Motion，手机右滑返回上线自研版（`test:swipe-back`，[D35](../decisions/0035-step4-motion-experiment-result.md)）；第 5 步 dnd-kit 不通过，保留自研拖动引擎；第 6 步只在开发时可用的组件目录页（`test:catalog`）。入口包 315,113 → 314,194 B（预算 315,805，余量 1,611 B）。合并时的冲突处理、修掉的东西、最终实测数字和合并后的预览清单在 [`migration.md`](../design/migration.md)"集成"一节 | [D28](../decisions/0028-headless-design-system-migration.md)、[D31](../decisions/0031-entry-budget-plan-a.md)–[D35](../decisions/0035-step4-motion-experiment-result.md) |
 | 任务完成度评测脚本 | 在分支 `eval/task-completion` 上（`c9f3517`…`820121f`），还没合进 `main`；结果目录被 git 忽略，只存在本机 | [status.md](status.md) 第 5.1 节 |
 
 ## 3. 下一步
@@ -59,9 +55,9 @@
 
 ### 3.1 设计系统迁移（[`docs/design/`](../design/)，[D28](../decisions/0028-headless-design-system-migration.md)）
 
-- **内容**：引入无头组件库（Radix 做菜单、弹出卡片和对话框；Motion、dnd-kit 只做有门槛的对照实验），同时保持 TOFI 现在的样子。第 1 步（层级刻度和 portal 根节点）、第 2 步（菜单和弹出卡片走 Radix，修 Z3、Z4）、第 3 步（对话框走 Radix Dialog / AlertDialog）、第 6 步（组件目录页）已完成；第 5 步（dnd-kit 对照实验）做完，不通过，保留自研拖动引擎（拖动中 React 每行渲染 11–13 次，引擎是 0 次；数字在 `migration.md` 第 5 步）。都在集成分支 `ds/integrate` 上合在一起，见第 2 节。
+- **内容**：引入无头组件库（Radix 做菜单、弹出卡片和对话框；Motion、dnd-kit 只做有门槛的对照实验），同时保持 TOFI 现在的样子。六步都已完成，合在集成分支 `ds/integrate` 上，见第 2 节：第 1–3 步按计划迁移；第 4 步不引入 Motion，右滑返回上线自研版；第 5 步 dnd-kit 不通过，保留自研拖动引擎（拖动中 React 每行渲染 11–13 次，引擎是 0 次）；第 6 步组件目录页只在开发时可用。**剩下的事**：owner 在 `dev:remote` 里按 `migration.md`"集成"一节的清单预览，认可后把 `ds/integrate` 合进 `main`。
 - **前提**：owner 已点头，并回答了方案里的 Q1–Q4：库全部懒加载、入口预算不动（[D31](../decisions/0031-entry-budget-plan-a.md)）；接受第 1 步的层级变化，逐条预览（[D32](../decisions/0032-step1-stacking-changes-accepted.md)）；手机右滑返回要做，自研和 Motion 各一版对照（[D33](../decisions/0033-phone-swipe-back-experiment.md)）；组件目录页只在开发时可用（[D34](../decisions/0034-component-catalog-dev-only.md)）。每一步都要在 `dev:remote` 预览里给 owner 看（[D22](../decisions/0022-preview-via-dev-remote.md)）。
-- **怎么算做完**：每一步都按方案里写好的文件范围、风险和检查方法完成。动效和性能相关的现有测试（`test:motion-tokens`、`test:shell-budget`、`test:sidebar-pins`、`test:chat-switch` 等）、`test:layers`、`test:overlays`、`test:dialogs` 和 `test:catalog` 全部通过。
+- **怎么算做完**：每一步都按方案里写好的文件范围、风险和检查方法完成。动效和性能相关的现有测试（`test:motion-tokens`、`test:shell-budget`、`test:sidebar-pins`、`test:chat-switch` 等）、`test:layers`、`test:overlays`、`test:dialogs`、`test:swipe-back` 和 `test:catalog` 全部通过。
 
 ### 3.2 Haiku 在一对一对话里的可靠性
 

@@ -133,7 +133,7 @@ done
 | Safari 相关 | `test:chat-safari` |
 | 设置页、自动行为 | `test:settings-shell`、`test:settings-polish`、`test:automation-settings` |
 | 问题卡、交接卡、常驻授权卡 | `test:question-poll`、`test:handover-cards`、`test:standing-allowance` |
-| 对话框、层级 | `test:dialogs`（`ModalDialog` 的契约、Radix 不进入口包）、`test:layers` |
+| 对话框、层级，或改了任何 `@radix-ui/*` 的版本 | `test:dialogs`（`ModalDialog` 的契约、Radix 不进入口包、菜单和对话框共用一份 Radix 底层）、`test:overlays`、`test:layers` |
 
 D02：UI 改动必须量交互开销，预算由测试守住。新做的高频交互要么进已有预算测试，要么新加一个。
 

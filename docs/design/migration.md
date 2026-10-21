@@ -12,12 +12,12 @@
 | 层级与 portal | 自己做：`--z-*` 令牌 + 一个 portal 根节点 | 不需要库，[`tokens.md` §9.3](tokens.md) 的刻度落地即可（**第 1 步已完成**） | 实测 +49 B |
 | 菜单、弹出卡片 | **Radix**：`DropdownMenu`、`Popover` | 不带样式，`asChild` 可以把现有元素和类名原样留住，外观不变；比 React Aria 小 17–21 KB | 不能，懒加载（**第 2 步已完成**：懒加载块 30,699 B，入口 +5 B） |
 | 悬停提示 | **保留自研的 `ActionHints`**，不用 Radix Tooltip | 现在是整页只有一个委托监听器，行里没有任何组件；Radix Tooltip 要在每个图标外套一层组件，懒加载块 19 KB | — |
-| 对话框 | **Radix**：`Dialog`、`AlertDialog` | 焦点圈定、Esc 只关最上一层、关闭后焦点回到原处，原来每个对话框各写一遍（**第 3 步已完成**，`ui/src/overlays/ModalDialog.tsx`） | 不能，要懒加载（实测 Radix 块 13,981 B，入口反而 −1,148 B） |
+| 对话框 | **Radix**：`Dialog`、`AlertDialog` | 焦点圈定、Esc 只关最上一层、关闭后焦点回到原处，原来每个对话框各写一遍（**第 3 步已完成**，`ui/src/overlays/ModalDialog.tsx`） | 不能，要懒加载（实测 Radix 块 13,981 B，入口反而 −1,148 B；和菜单合在一起后，菜单和对话框共用一个 11,795 B 的 Radix 底层块，见"集成"一节） |
 | 动效 | **不引入 Motion**（第 4 步对照实验已做，[D35](../decisions/0035-step4-motion-experiment-result.md)）；手机右滑返回用自研的 Pointer Events + WAAPI | 到达级联已经是预先算好的弹簧关键帧交给 WAAPI 在合成线程跑；Motion 的 React 组件版本最少 30.8 KB，而且必须进入口包；右滑返回的 Motion 版懒加载块 24,099 B，自研版 2,079 B，手感不比自研好 | 不能（右滑返回：入口只多一个加载桩和钩子，+244 B） |
 | 拖动 | **保留自研引擎**（第 5 步实验已做，不通过） | 引擎懒加载块 3,480 B，拖动过程中 React 不渲染；dnd-kit 版懒加载块 16,856 B，一次拖动 React 提交约 90 次、行渲染约 800 次（第 5 步实测） | 不能 |
 | 组件目录页 | 自己做，单独的开发页（**第 6 步已完成**） | 不占应用的任何一个包；和 Motion Lab 不同，不随 `dist/` 构建（D34） | 不占（实测 0 B） |
 
-最硬的约束是体积：**写方案时入口包离预算只剩 741 字节**（§2；第 1 步之后是 692 字节，第 2 步之后是 687 字节）。所以本方案里任何一个库都只能在懒加载的块里出现，而且第 2、3 步要把现有的弹层代码一起搬出入口包，用省下来的字节支付懒加载的入口开销。owner 选了这条路（方案 A，[D31](../decisions/0031-entry-budget-plan-a.md)），不放宽预算（§2.4 的方案 B 不采用）。
+最硬的约束是体积：**写方案时入口包离预算只剩 741 字节**（§2；第 1 步之后是 692 字节，第 2 步之后是 687 字节；六步合在 `ds/integrate` 之后是 **1,611 字节**，入口 314,194 B，见"集成"一节）。所以本方案里任何一个库都只能在懒加载的块里出现，而且第 2、3 步要把现有的弹层代码一起搬出入口包，用省下来的字节支付懒加载的入口开销。owner 选了这条路（方案 A，[D31](../decisions/0031-entry-budget-plan-a.md)），不放宽预算（§2.4 的方案 B 不采用）。
 
 ## 1. 现状：要迁的东西在哪
 
@@ -179,7 +179,7 @@ Motion 擅长三件事：带速度衔接、可中途打断的弹簧；自动 FLI
 
 每一步的"owner 预览"都用 D22 的方式：`cd ui && TOFI_DEV_API_ORIGIN=https://<server>:8321 npm run dev:remote`，在 Chrome 打开 http://localhost:5173 。
 
-### 第 1 步：层级刻度和 portal 根节点 — **已完成**（分支 `ds/step1-layers`，等合并和 owner 预览）
+### 第 1 步：层级刻度和 portal 根节点 — **已完成**（分支 `ds/step1-layers`，是集成分支 `ds/integrate` 的起点；等合并进 `main` 和 owner 预览）
 
 **目标**：把 [`tokens.md` §9.3](tokens.md) 的 13 个 `--z-*` 令牌落地，89 处 z-index 按 §9.4 归层，修掉 Z1、Z2、Z5、Z6。这一步不引入任何库。
 
@@ -260,7 +260,7 @@ Motion 擅长三件事：带速度衔接、可中途打断的弹簧；自动 FLI
 
 入口包的估计是 +100 到 +300 B，实测 +49 B：`layers.ts` 和几行 import 并进了已有的共享块（这个 6 个文件之一的块从 `react-dom` 改名成 `layers`，1,394 → 1,474 B），`Z` 对象因为没有入口代码用它而被摇掉。设置窗首帧的 1x 中位数每次运行在 18–25 ms 之间跳，迁移前后的范围相同（迁移前 4 次、现在 5 次，同一台机器交替跑），这一步没有改设置窗的代码。
 
-### 第 2 步：菜单和弹出卡片 — **已完成**（分支 `ds/step2-menus`，从 `ds/step1-layers` 开出，等合并和 owner 预览）
+### 第 2 步：菜单和弹出卡片 — **已完成**（分支 `ds/step2-menus`，从 `ds/step1-layers` 开出；已合进 `ds/integrate`，等合并进 `main` 和 owner 预览）
 
 **目标**：所有菜单和弹出卡片走同一个宿主、同一套键盘和关闭规则，用 Radix 实现；顺带修掉 Z3、Z4。
 
@@ -361,7 +361,7 @@ Motion 擅长三件事：带速度衔接、可中途打断的弹簧；自动 FLI
 
 **原方案留档**（各原语怎么处理、改哪些文件、风险）：Tooltip 不用 Radix（见上"悬停提示"）；DropdownMenu 用于新建、顶栏、账户、附件、MCP 菜单；ContextMenu 不用 Radix ContextMenu（它的 Trigger 要包住每一行，自带 700 ms 触屏长按，会和引擎的 380 ms 长按抢；`test:overlays` 断言 450 ms 的长按打开菜单）；Popover 用于身份卡、表情反应菜单，身份卡的悬停延时和长按逻辑留在 `BotIdentityCard.tsx`。风险 ②（第一次打开时块还没到）实测见上表；风险 ③（portal 后丢掉 `.workspace` 祖先选择器）用 `:is(.workspace,[id="tofi-layers"])` 解决，并用一次性脚本逐元素比较了迁移前后 14 种打开状态的计算样式和位置：除 MCP 菜单外壳的 `font-size`（13 → 15 px，外壳里没有直接的文字，子元素各自定了字号，看不出）和有意改的 MCP 菜单层级，全部相同；风险 ④（点外面不吞点击）由 `test:overlays` 的"右键菜单开着时点另一个会话，菜单关、会话照样打开"守住。
 
-### 第 3 步：对话框 — **已完成**（分支 `ds/step3-dialogs`，从 `ds/step1-layers` 分出，和第 2 步并行；等合并和 owner 预览）
+### 第 3 步：对话框 — **已完成**（分支 `ds/step3-dialogs`，从 `ds/step1-layers` 分出，和第 2 步并行；已合进 `ds/integrate`，等合并进 `main` 和 owner 预览）
 
 **目标**：所有模态对话框用 Radix `Dialog` / `AlertDialog`：焦点圈定、Esc 只关最上面一层、关闭后焦点回到打开它的元素、背景对读屏隐藏，全部统一。
 
@@ -466,7 +466,7 @@ Motion 擅长三件事：带速度衔接、可中途打断的弹簧；自动 FLI
 | owner 预览看哪里 | ① 删除一个会话：确认框的样子、出现动画、Esc、点外面。② 设置 › 技能权限 等表单 sheet：叠在设置窗上面。③ 重新指派主助理。④ 新账户引导。⑤ 设置有未保存修改时离开、电脑重启确认。⑥ 全程只用键盘走一遍 |
 | 体积 | 入口包：`DialogShell` 和 `ReassignPrimaryDialog` 搬出去，预计净减少（待实测）。懒加载：Radix Dialog 部分和第 2 步的块共用底层，第 2、3 步合计约 30.9 KB（§2.3）；只开对话框、没开过菜单时约 13.7 KB |
 
-### 第 4 步：Motion（级联、手机推入、布局过渡）——只在比现有 WAAPI 更好时才做 — **已完成**（分支 `ds/step4-motion`，等合并和 owner 预览）
+### 第 4 步：Motion（级联、手机推入、布局过渡）——只在比现有 WAAPI 更好时才做 — **已完成**（分支 `ds/step4-motion`；已合进 `ds/integrate`，等合并进 `main` 和 owner 预览）
 
 **目标**：做一次有门槛的对照实验，结果写回本文。默认结论是"不引入"。
 
@@ -554,7 +554,7 @@ Motion 擅长三件事：带速度衔接、可中途打断的弹簧；自动 FLI
 9. 系统打开"减弱动态效果"：仍然跟手，松手直接到位。
 10. 想对比 Motion 版的手感：`TOFI_MOTION_EXPERIMENT=motion npm run dev:remote`（同时换上 Motion 版的到达级联），同样走一遍 1–5；不设这个变量就是上线的版本。
 
-### 第 5 步：dnd-kit——只在比自研引擎更好时才做 — **已完成：不通过，保留引擎**（分支 `ds/step5-dnd`，只改文档）
+### 第 5 步：dnd-kit——只在比自研引擎更好时才做 — **已完成：不通过，保留引擎**（分支 `ds/step5-dnd`，只改文档；已合进 `ds/integrate`）
 
 **目标**：一次有门槛的对照实验，默认结论是"保留引擎"。结果见本节末尾的"实验结果"。
 
@@ -603,7 +603,7 @@ Motion 擅长三件事：带速度衔接、可中途打断的弹簧；自动 FLI
 
 **不需要 owner 预览**（本节"owner 预览看哪里"一行：通过时才需要）。`ds/step5-dnd` 只改了文档，界面没有任何变化。
 
-### 第 6 步：组件目录页 — **已完成**（分支 `ds/step6-catalog`，从 `ds/step1-layers` 分出，等合并和 owner 预览）
+### 第 6 步：组件目录页 — **已完成**（分支 `ds/step6-catalog`，从 `ds/step1-layers` 分出；已合进 `ds/integrate`，等合并进 `main` 和 owner 预览）
 
 **目标**：一个页面列出每个组件的每种状态，owner 和以后的会话不用翻代码、不用造数据就能看。
 
@@ -666,13 +666,124 @@ Motion 擅长三件事：带速度衔接、可中途打断的弹簧；自动 FLI
 
 `test:shell-budget`（Chromium）在负载 11–22 时连跑 3 次都在"打开设置窗时没有超过 50 ms 的帧"这一条上失败（最差间隔中位数 51–69 ms）；同一时段把起点 `97ac43d` 导出到临时目录交替跑了 2 次，同样失败（61 ms；另一次是手机推入 4x 下 2 帧超过 25 ms）。负载降到 9 后本分支重跑，退出码 0。
 
+### 集成：六步合在 `ds/integrate` — **已完成**（等合并进 `main` 和 owner 预览）
+
+**怎么合的**：从 `ds/step1-layers`（`97ac43d`）开出 `ds/integrate`，按 `ds/step2-menus`、`ds/step3-dialogs`、`ds/step6-catalog`、`ds/step5-dnd`、`ds/step4-motion` 的顺序逐个 `--no-ff` 合并（合并提交 `9b7aece`、`b33e240`、`228cbaf`、`d27235e`、`e6f4003`），之后是一个清理提交和修复提交（见下）。没有合进 `main`。dnd-kit 的实验代码（`fb42063`）没有合，也不该合；它的分支 `ds/step5-dndkit-trial` 已经删了，提交还在本机对象库里。
+
+**各步最终状态**
+
+| 步 | 结论 | 进了产品的东西 | 守卫 |
+|---|---|---|---|
+| 1 层级 | 完成 | 13 个 `--z-*`、`#tofi-layers`、L1–L14 | `test:layers` |
+| 2 菜单、卡片 | 完成，Radix DropdownMenu / Popover（懒加载） | `ui/src/overlays/OverlayHost.tsx`（入口）、`RadixOverlays.tsx`（懒加载）；M1–M8 | `test:overlays`（含 WebKit） |
+| 3 对话框 | 完成，Radix Dialog / AlertDialog（懒加载） | `ui/src/overlays/ModalDialog.tsx`、9 个模态；S1–S6；入口 −1,148 B | `test:dialogs` |
+| 4 Motion | 不引入 Motion（D35）；右滑返回上线自研版 | `phoneSwipeGesture.ts`、`phoneSwipeEngine.ts`（懒加载）、`usePhoneSwipeBack.ts`、`SPRING.push`；`motion` 只是开发依赖 | `test:swipe-back`（含 WebKit）、`test:motion-experiment`、`test:motion-tokens` |
+| 5 dnd-kit | 不通过，保留自研引擎 | 无（只改文档） | `test:sidebar-pins` |
+| 6 目录页 | 完成，只在开发时可用（D34） | `ui/catalog.html`、`ui/src/catalog/`，不进 `dist/` | `test:catalog` |
+
+**冲突怎么解的**（按意图，不是按哪边新）
+
+- `ui/src/App.tsx`：第 2 步把侧栏行菜单的状态挪进 `OverlaySlot`（Radix 菜单，删掉了原来行内菜单的 `sidebarMenuRef` / `sidebarMenuOrigin`）；第 3 步的 `rememberDialogOpener` 原来靠这两个 ref 把"从菜单里打开的删除确认"关掉后的焦点还给那一行。合并后改为：`OverlaySlot` 的监听器在菜单打开的那一刻（菜单渲染、抢焦点之前）同步记下当时的焦点元素；从 `.sidebar-context-menu` 里打开对话框时，还给它。新加的 `test:overlays` 检查"侧栏行菜单 › 删除 › Esc，焦点回到那一行"，撤掉这段映射时焦点落在 `<body>`，退出码 1。
+- `ui/src/InteractionSystem.tsx`：`ActionHints` 同时保留第 2 步的提示色调（`data-hint-tone`）和"提示开着时文字跟着变"，以及第 3 步的挂载点（原生 `<dialog>` 开着时挂进它里面）。
+- `ui/package.json`、`package-lock.json`：四个 Radix 包（dropdown-menu 2.2.1、popover 1.3.1、dialog 1.3.1、alert-dialog 1.2.1）加 `motion` 14.4.0（开发依赖）。锁文件不是手拼的：取一边，再用 `npm install` 补另一边，所有 `@radix-ui/*` 底层包各只有一份（`npm ls` 核对；`tslib` 现在是运行时依赖，不再标 `dev`）。`test:dialogs` 新加一条：构建产物里 Radix 的层栈和焦点圈定代码各只出现一次，菜单块和对话框块都引用同一个共享块（两份就会有两个层栈，对话框里开菜单按 Esc 会把两层一起关掉）。撤回验证：在工作区外的副本里用 npm `overrides` 把 `@radix-ui/react-dialog` 的 `react-dismissable-layer` 钉到 1.2.0、`react-focus-scope` 钉到 1.3.0，`test:dialogs` 报"dismissableLayer.pointerDownOutside is bundled 2 times"，退出码 1。
+- 许可证：第 2、3 步各写了一份 Anton Korzunov 的 MIT 文本，合成 `ui/public/licenses/react-remove-scroll.txt` 一份（删掉 `theKashey-aria-hidden-react-remove-scroll.txt`、`get-nonce.txt`）；`ui/THIRD_PARTY_NOTICES.md` 合成一节。
+- 文档：各步的章节都保留，状态行、z-index 计数（CSS 90 处 = 全局 47 + 局部 43）按合并后的代码重算。
+
+**合并弄坏、已修的**（修复提交 `ddbb5ec`）
+
+1. 目录页（第 6 步，在第 1 步上写的）导入 `ReassignPrimaryDialog` 的路径：第 3 步把它搬进了自己的模块，`typecheck` 挂。
+2. 目录页 §10"已读名单"：第 2 步起名单是已读标记的 `data-hint`（`ActionHints` 的浅色提示），原来强制 `:hover` 的画法画不出名单。改成键盘聚焦已读标记、探针 `.action-hint`；撤回时 `test:catalog` 3 个 frame 挂（"no visible .action-hint"）。
+3. `test:dialogs`（第 3 步，在第 1 步上写的）用 `.more-menu[data-open=true]` 找顶栏菜单；第 2 步起它是 Radix 菜单，属性是 `data-state=open`。6 项挂，改选择器后全过。
+4. 第 4 步的一个文档提交（`548b264`）误带进了 `test:primary-followups` 的临时目录 `ui/.primary-followups-COomK5/`，已删（`5b54479`），并把它和 `test:dialogs` 的 `.dialogs-*` 加进 `.gitignore`。
+
+**验证**（2026-10-21 02:54–04:01 PDT，`ds/integrate` 最终代码，全部按退出码，没有 SKIP）：`typecheck`、`test:i18n`、`build`、`go build ./...`；`test:chat-bubbles`、`test:chat-switch`（Chromium 和 `CHAT_SWITCH_ENGINE=webkit`）、`test:chat-safari`、`test:composer-typing`、`test:timeline`、`test:chat-motion`；`test:arrival-glide`、`test:live-fixes`、`test:send-receipts`、`test:sidebar-pins`、`test:handover-cards`、`test:standing-allowance`、`test:user-form`、`test:approval-facts`、`test:settings-polish`、`test:settings-shell`、`test:preloader`；`test:shell-budget`（Chromium 和 `SHELL_BUDGET_ENGINE=webkit`）、`test:stream-cost`、`test:switch-budget`、`test:motion-tokens`、`test:avatar-frame-budget`；各步加的 `test:layers`、`test:overlays`（Chromium 和 `OVERLAYS_ENGINE=webkit`）、`test:dialogs`、`test:catalog`、`test:swipe-back`（Chromium 和 `SWIPE_BACK_ENGINE=webkit`）、`test:motion-experiment`；以及 `test:onboarding`、`test:primary-followups`、`test:motion-lab`、`test:timeline-rows`、`test:perf-structure`、`test:file-preview`、`test:resilience`、`node scripts/test-remote-desktop-control.mjs`。全部退出码 0。
+
+两项要重跑才过，都是机器负载（同时有别的会话在跑 Go 测试和浏览器测试，1 分钟负载 7–15）：`test:shell-budget`（Chromium）挂了 3 次（设置窗"没有超过 50 ms 的帧"、手机推入 4x"超过 25 ms 的帧 ≤ 1"），同一时段把起点 `97ac43d` 导出到临时目录（自己的 `npm ci`）交替跑，同样挂了 3 次、挂在同样的检查上；负载降到 4 以下后两边都过。`test:stream-cost` 的"4x 下没有超过 34 ms 的帧"挂了 2 次（各 1 帧），负载降到 3 后交替各跑 2 次，两边都是 0 帧、退出码 0。
+
+**实测**（同一台机器，负载 3–5 时交替跑；"之前" = 起点 `ds/step1-layers` 的 `97ac43d`，"之后" = `ds/integrate`）
+
+| 预算 | 之前 | 之后 | 上限 |
+|---|---|---|---|
+| 入口包（gzip，`test:shell-budget`） | 315,113 B（6 个文件，余量 692 B） | **314,194 B（5 个文件，−919 B，余量 1,611 B）** | 315,805 B |
+| Radix 懒加载块 | — | `RadixOverlays` 19,623 B + 共用底层块 11,795 B + `ModalDialog` 2,983 B = 34,401 B（两步各自单独构建时是 30,699 + 13,981 = 44,680 B；合在一起后底层只打一份） | 不在入口 |
+| 其它懒加载块 | `sidebarDndEngine` 3,480 B、`DeleteConversationDialog` 1,015 B | `phoneSwipeEngine` 2,078 B、`sidebarDndEngine` 3,483 B、`DeleteConversationDialog` 947 B、`ReassignPrimaryDialog` 719 B | — |
+| 设置窗首帧 Chromium 1x / 4x 中位数（两轮） | 27.2、23.5 / 49.9、47.4 ms | 24.2、27.9 / 49.5、44.5 ms | 32 / 100 ms |
+| 设置窗首帧 WebKit 1x | 17.0 ms（第 1 步实测） | 13.0 ms | 32 ms |
+| 手机推入 4x 超过 25 ms 的帧（两轮） | 2（挂）、1 | 1、1 | ≤ 1 |
+| 流式每块 1x / 4x（负载 3 时两轮） | 2.20、2.26 / 8.85、8.88 ms | 2.52、2.35 / 9.31、9.40 ms | 4 / 16 ms |
+| 切换会话 p95 1x / 4x | 20.3 / 79.5 ms | 23.0 / 70.4 ms | 60 / 100 ms |
+| 打字每键脚本（减弱动效 / 动画开着） | 0.47 / 0.70 ms | 0.45 / 0.64 ms | ≤ 4 ms |
+| 猫头像帧率（暂停前 / 恢复后） | 62.2 / 59.8 fps | 62.0 / 60.0 fps | 见 `test:avatar-frame-budget` |
+| 打开删除确认，点下到可见 1x / 4x 中位数（`test:dialogs`） | 9.5 / 25.8 ms（第 3 步实测） | 9.1 / 38.2 ms；8.2 / 36.1 ms | 32 / 100 ms |
+| 最大的菜单首次打开，最长帧中位数 1x / 4x（`test:overlays`） | 17 / 33 ms（第 2 步实测） | 16.8 / 50.1 ms | 50 / 100 ms |
+| 菜单点下到出现：块已加载 / 块被压住 800 ms | — | 46.2 / 215.3 ms | 100 / 1,400 ms |
+
+读法：入口包比第 1 步小 919 B——第 3 步搬出入口的 `ReassignPrimaryDialog` 和 `PrimaryAssistantSetting`（−1,148 B）付掉了第 2 步的宿主（+5 B）和第 4 步的右滑钩子（+244 B），没有动预算、也不需要再搬别的东西出入口。合在一起后菜单和对话框的 Radix 底层只打一份，比两步单独构建少约 10 KB。和第 1 步比，看得出的代价仍是第 2、3 步各自记过的那两处（打开最大的菜单、4x 下打开删除确认），合并没有叠出新的；流式每块在安静的机器上多约 0.2 ms（1x）、0.5 ms（4x），离预算很远，其余各项在交替测的噪声里。
+
+**合并后的 owner 预览清单**（`cd ui && TOFI_DEV_API_ORIGIN=https://<server>:8321 npm run dev:remote`，Chrome 打开 http://localhost:5173 ；一次看完六步。顺序：先第 1 步的层级变化，再菜单、对话框、右滑返回、目录页。每条后面是出处，细节在各步的章节里）
+
+*第 1 步：层级变化（D32 已接受，逐条看）*
+
+1. （L1）打开设置窗，DevTools › Network 切到 Offline，等侧栏刷新失败：toast"暂时无法刷新工作区"盖在设置窗上面；切回 Online、点重试。
+2. （L2、L3）刷新页面看启动画面：骨架和呼吸的猫在最上面；新账户的引导盖在启动画面上。
+3. （L4，已被第 3 步 S1 改写）设置窗开着时打开技能的"更改访问"表单 sheet：sheet 在设置窗上面。引导现在也在 `#tofi-layers` 里，和其它对话框按打开顺序叠（不再总在它们下面）。L5（提示在引导和删除确认之上）没有界面入口，由 `test:layers` 覆盖。
+4. （L6）发一条消息：发送飞行在最上面；寄出一封邮件草稿：信封动画在所有东西上面；拖一个文件进窗口：遮罩盖住一切。
+5. （L8，看得见的变化）窗口约 1180 px，打开 Bot 的电脑小窗，再打开 Bot 设置浮卡：重叠处浮卡在上面（以前小窗在上面）。窄于 1120 px 打开一个抽屉面板：小窗变暗在遮罩下面，点它会关掉抽屉。不喜欢就说，改成小窗在 `--z-panel + 1`。
+6. （L9，已被第 2 步 M5 改写）≥1100 px，点消息里的"来自……"打开相关对话卡片，再点顶栏"⋯"：菜单在卡片上面；顶栏本身回到 `--z-chrome`，在卡片下面。
+7. （L11）群聊里，≥1100 px 打开上下文浮卡，悬停自己消息上的 ✓✓：已读名单（第 2 步起是白底提示）在浮卡上面。
+8. （保留）收起侧栏，打开左下角账户菜单：菜单盖在输入框和对话上面（第 2 步起它在 `#tofi-layers` 里，也盖住新消息胶囊和电脑小窗）。
+9. （保留）手机宽度（390 px）点会话、点返回：推入和以前一样。
+10. （L14，桌面客户端，要用这次构建的 UI 包）窗口窄于 1280 px 时打开一个抽屉面板，按住侧栏顶部空白处拖动窗口：仍能拖。
+
+*第 2 步：菜单和弹出卡片*
+
+11. （M1）右键侧栏会话：菜单在鼠标处出现，动画不变；窗口拉矮后在最下面的会话上右键：菜单翻到上面不出界。390 px 长按会话：菜单出现，松手不误选。
+12. 新建（侧栏 +）、顶栏"⋯"、账户、输入框 +、设置 › 连接里 MCP 行"⋯"：位置和外观不变；收起侧栏后新建和账户菜单在侧栏右边。
+13. （M5）输入框打 `@`：名单盖在新消息胶囊上面。≥1100 px 打开 Bot 设置浮卡再点顶栏"⋯"：菜单在浮卡上面。
+14. （M6）设置 › 连接，MCP 行"⋯"：菜单在设置窗上面；Esc 只关菜单。
+15. （M3）只用键盘：Tab 到侧栏 +，按 ↓，上下键选，Esc 回到 +；会话行上 Shift+F10；账户菜单里 ↑↓ 到主题、回车换主题，菜单不关。
+16. （M2）群聊里悬停自己消息的 ✓✓：半秒后出现白底"已读：……"；手机上点 ✓✓。
+17. （M8）开表情反应：焦点在第一个表情，Esc 后回到笑脸按钮。
+
+*第 3 步：对话框*
+
+18. 删除一个会话（顶栏"⋯" › 删除）：样子和动画不变；Esc 关、点遮罩关、点卡片空白不关；关掉后焦点回到"⋯"。点"删除"后请求没回来时，Esc 和遮罩都不关。
+19. （集成新加）用键盘 Tab 到侧栏一个会话，Shift+F10 › 删除（或在主助理那一行 Shift+F10 › 隐藏）：对话框按 Esc 关掉后，焦点回到那一行。
+20. 设置 › 技能 › 更改访问：sheet 叠在设置窗上；Tab 在 sheet 里转；Esc 只关 sheet，再按才关设置窗。
+21. （S5）隐藏主助理：选接任者的对话框；VoiceOver 里听不到背景。
+22. （S1、S3）新账户引导：样子不变；Esc 和点遮罩没反应；Tab 在里面转；VM 授权窗叠在引导上面。
+23. （S2）设置里改时区不保存就切页：离开确认样子不变，Esc 回到编辑。电脑页"重启并应用"：确认框点遮罩不关，Esc 关。
+24. 全屏只读会话（窄于 1100 px，点"来自……"）：Tab 不出框，Esc 关，焦点回到入口。
+25. （S4）设置开着时断网等 toast 出来，再开一个表单 sheet：toast 在 sheet 上面，"重试"能点，点了 sheet 不关。打开一张图片（灯箱）时断网：toast 在灯箱上面（Z7）。
+26. （S6，桌面客户端）删除确认开着时按 ⌘N、⌘F：不响应。
+
+*第 4 步：手机右滑返回*（手机或 Chrome 设备模拟 390 px、打开触摸模拟）
+
+27. 手指按住对话往右拖：对话跟手，列表从左边移回、变亮，和点返回一样。
+28. 过半松手回到列表，不到一半弹回；快速右甩（不到一半也行）回列表，过半后快速左甩回对话。
+29. 往右拖一点再往左拖过起点：只让出一点（橡皮筋），松手弹回。
+30. 松手后对话还在动时再按上去：在当前位置接住。
+31. 上下滑动照常滚动；在输入框里、在横向滚过的代码块上左右拖：不触发。从标题（Bot 名字）上开始拖：回到列表，不会打开 Bot 面板。
+32. 点返回按钮和点会话：推入动画不变（进 280 ms、退 220 ms）。系统"减弱动态效果"：仍跟手，松手直接到位。
+33. 想比 Motion 版手感：`TOFI_MOTION_EXPERIMENT=motion npm run dev:remote`，走一遍 27–30；不设变量就是上线的版本。
+
+*第 6 步：组件目录页*（`cd ui && npm run dev`，不用连服务器）
+
+34. 打开 http://localhost:5173/catalog.html ：逐节翻，和生产界面对照；切"Both"并排看浅色/深色、1280/390，切语言看截断。
+35. §8 对话框、§9 菜单、§13 问题卡：在 frame 里点、按 Esc、Tab，和真的应用一样（目录页现在画的是合并后的 Radix 菜单和对话框）。
+36. 页面上"Not shown here yet"的状态，看有没有想先补的。
+37. 减弱动效：DevTools › Rendering › Emulate CSS prefers-reduced-motion，再刷新。
+
+第 5 步（dnd-kit）没有通过，界面没变，不用预览。
+
 ## 6. 顺序和依赖
 
 ```
-第 1 步 层级 + portal 根（完成）──► 第 2 步 菜单/卡片（完成）──► 第 3 步 对话框
+第 1 步 层级 + portal 根（完成）──► 第 2 步 菜单/卡片（完成）──► 第 3 步 对话框（完成）
                                   │
-                                  └──► 第 6 步 目录页（第 2 步之后就能开始，随后续步骤补内容）
+                                  └──► 第 6 步 目录页（完成）
 第 4 步 Motion 实验（已完成：不引入，右滑返回上线自研版）、第 5 步 dnd-kit 实验（已完成：不通过）：互相独立，和第 1–3 步不冲突，可以并行；不通过就只在本文记结果
+实际做法：2、3、4、5、6 都从第 1 步并行开出，最后按 2 → 3 → 6 → 5 → 4 的顺序合进 ds/integrate（见"集成"一节）
 ```
 
 ## 7. owner 的决定

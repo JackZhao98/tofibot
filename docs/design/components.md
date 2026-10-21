@@ -8,6 +8,7 @@
 - **菜单和弹出卡片已在迁移第 2 步换成 Radix**（分支 `ds/step2-menus`，`ui/src/overlays/`）：第 3、4（C6）、9、10、11、12 节和问题 C6、C18、C20、C21、C24、C25 已按该分支更新，`file:line` 是该分支的。
 - **对话框已在迁移第 3 步换成 Radix**（分支 `ds/step3-dialogs`，`ui/src/overlays/ModalDialog.tsx`）：第 8 节和相关问题（C12、C13、C14、C17、C23）已按该分支更新。
 - **每个组件的每种状态都能在组件目录页里直接看**（迁移第 6 步，分支 `ds/step6-catalog`，只在开发时可用，[D34](../decisions/0034-component-catalog-dev-only.md)）：`cd ui && npm run dev`，打开 http://localhost:5173/catalog.html 。目录页按本文 §1–§23 分节（`test:catalog` 断言一一对应）；本文加了组件或状态，目录页 `ui/src/catalog/sections/` 要跟着加，画不出来的写进该节的 `gaps`。
+- **六步已合在集成分支 `ds/integrate`**（还没进 `main`）：上面按各步骤分支写的 `file:line`，在 `ds/integrate` 上大文件（尤其 `App.tsx`）的行号会因为其它几步的改动偏几行，以符号名为准。第 4 步的手机右滑返回见 [`migration.md`](migration.md) 第 4 步和 `AGENTS.md`"Web UI motion"。
 - 设计原则和检查方法在 [`principles.md`](principles.md)。本文每条已知问题都标了它违反的原则（P1–P8）。
 - 桌面客户端（Electron）消费同一份网页 UI 构建产物（`AGENTS.md` "Core source boundaries"），用 `html[data-desktop]` 和 `isDesktop`（`ui/src/desktop.ts:45`）分支。本文说"网页端"指 `html:not([data-desktop])`。
 
@@ -266,7 +267,7 @@
 
 | # | 对话框 | 文件 | 模态 | Escape | 点遮罩关 | 焦点陷阱 | 关后焦点回去 | 层级 |
 |---|---|---|---|---|---|---|---|---|
-| 1 | 删除 Bot/群确认 | `ui/src/DeleteConversationDialog.tsx`（用 `DialogShell`） | 是，`alertdialog`（Radix `Dialog`，不是 `AlertDialog`：要保留点遮罩关闭） | 是（忙时不关） | 是（忙时不关） | `ModalDialog` | 是，回到打开它的控件（App 在工作区变 `inert` 之前记下，`rememberDialogOpener`；以前这里还不回去） | `--z-dialog` |
+| 1 | 删除 Bot/群确认 | `ui/src/DeleteConversationDialog.tsx`（用 `DialogShell`） | 是，`alertdialog`（Radix `Dialog`，不是 `AlertDialog`：要保留点遮罩关闭） | 是（忙时不关） | 是（忙时不关） | `ModalDialog` | 是，回到打开它的控件（App 在工作区变 `inert` 之前记下，`rememberDialogOpener`；以前这里还不回去）；从侧栏行菜单打开时回到那一行（菜单项随菜单卸载，`OverlaySlot` 的监听器在菜单打开时记下当时的焦点；`ds/integrate` 起，`test:overlays` 守着） | `--z-dialog` |
 | 2 | 隐藏主助理时选接任者 | `ui/src/ReassignPrimaryDialog.tsx:28`（`DialogShell`，第 3 步起懒加载） | 是 | 是 | 是 | `ModalDialog` | 同上 | `--z-dialog` |
 | 3 | 管理员表单 sheet、已记住的审批 | `ui/src/AdminSheets.tsx:12`，`ui/src/RememberedApprovals.tsx:59` | 是 | 是（`locked` 时不关） | 是（`locked` 时不关） | `ModalDialog`；打开时焦点在 sheet 本身 | 是 | `--z-dialog` + 1 |
 | 4 | 技能访问 sheet | `ui/src/settings/SkillAccess.tsx:65` | 是 | 是（保存中也关） | 是（忙时不关） | `ModalDialog` | 是 | `--z-dialog` + 1 |

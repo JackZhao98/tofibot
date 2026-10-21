@@ -28,7 +28,7 @@ owner 没有另写理由。iOS 用户的肌肉记忆是从左边缘右滑返回�
 
 ## 影响
 
-- 实施状态：两版都做了，按门槛选了自研版，见 [D35](0035-step4-motion-experiment-result.md)（分支 `ds/step4-motion`，等合并和 owner 预览）。属于第 4 步，和第 1–3 步互不依赖（`migration.md` §6）。
+- 实施状态：两版都做了，按门槛选了自研版，见 [D35](0035-step4-motion-experiment-result.md)（分支 `ds/step4-motion`，已合进集成分支 `ds/integrate`，等 owner 预览和合并进 `main`）。属于第 4 步，和第 1–3 步互不依赖（`migration.md` §6）。
 - 门槛沿用第 4 步：帧预算不差于现有（`test:shell-budget` 4x CPU 一节）、中途打断有逐帧位置记录作证、减弱动效时立即到位、入口包不超预算（[D31](0031-entry-budget-plan-a.md)）、owner 在预览里看过。新测试：390 px 触摸，拖过一半松手完成返回，不到一半弹回。
 - 点按返回仍然走现有的 CSS transition，`test:shell-budget` 第 3 节对 `transitionend` 时长的断言不放松。
 

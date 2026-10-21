@@ -28,7 +28,7 @@ owner 没有另写理由。方案里给的理由是：入口包变大约 10% 会
 
 ## 影响
 
-- 实施状态：生效。第 1 步（层级刻度和 portal 根节点，分支 `ds/step1-layers`）不引入任何库，入口包从 315,064 B 变成 315,113 B（+49 B，余量 692 B），见 `migration.md` 第 1 步。
+- 实施状态：生效。第 1 步（层级刻度和 portal 根节点，分支 `ds/step1-layers`）不引入任何库，入口包从 315,064 B 变成 315,113 B（+49 B，余量 692 B），见 `migration.md` 第 1 步。六步合在集成分支 `ds/integrate` 之后入口包是 314,194 B（余量 1,611 B）：四个 Radix 包和右滑返回引擎都只在懒加载块里，第 3 步把 `ReassignPrimaryDialog`、`PrimaryAssistantSetting` 搬出入口，付掉了第 2、4 步的桩（`migration.md`"集成"一节）。预算没有动。
 - 第 2、3 步的每一次合并前都要报入口包字节数，超预算不合并（`migration.md` §4 第 7 条）。
 - 每个新库的懒加载块在空闲时预取（`migration.md` §4 第 3 条，做法同 `ui/src/useSidebarDnd.ts:33-35`）。
 
