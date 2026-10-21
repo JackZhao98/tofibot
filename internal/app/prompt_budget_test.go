@@ -262,8 +262,10 @@ func TestProductionPromptSizeMatrix(t *testing.T) {
 				// line that replaces the one-clause route sentence (together ~470; the line is merged into
 				// the existing guidance, not added beside it).
 				// 6933: the computer section's office-tooling and attached-files principles (+183 measured).
-				if tc.name == "dm" && len([]rune(system))+runtime.SystemPromptOverheadRunes() > 6933 {
-					t.Errorf("ordinary DM provider system exceeds 6933 runes")
+				// 7549: the five built-in skills' one-line directory rows (+616 measured, decision 0041); the fixed
+				// overhead below does not include the directory, so its ceiling stays.
+				if tc.name == "dm" && len([]rune(system))+runtime.SystemPromptOverheadRunes() > 7549 {
+					t.Errorf("ordinary DM provider system exceeds 7549 runes")
 				}
 				// 7000: the lookup line's works-newer-than-the-model clause (~45) lands in
 				// every prompt, the longest of which sat 23 under 6950.
@@ -310,8 +312,8 @@ func TestProductionPromptSizeMatrix(t *testing.T) {
 					}
 					// 6250: same two additions as the ordinary DM cap above.
 					// 6700: plus the confirmation, announce-after-work and route principles (~470), as above.
-					if tc.name == "dm" && len([]rune(system))+runtime.StructuredPromptOverheadRunes() > 6883 { // 6883: 6700 plus the same +183 computer-section principles.
-						t.Errorf("structured DM provider system exceeds 6883 runes")
+					if tc.name == "dm" && len([]rune(system))+runtime.StructuredPromptOverheadRunes() > 7499 { // 7499: 6883 plus the built-in skills' directory rows (+616 measured, decision 0041).
+						t.Errorf("structured DM provider system exceeds 7499 runes")
 					}
 					if tc.kind == runKindGroupChat && !strings.Contains(system, "say(answer)") {
 						t.Error("structured group prompt does not name say(answer)")

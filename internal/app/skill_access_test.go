@@ -7,6 +7,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/JackZhao98/tofibot/internal/extensions"
 )
 
 type skillAccessFixtureEnv struct {
@@ -203,7 +205,13 @@ func TestSkillAccessRunPathFiltersByBot(t *testing.T) {
 		}
 		_ = p.Close()
 	}
-	views, _ := e.s.extensions.SkillsForBot(ctx, e.b.ID)
+	all, _ := e.s.extensions.SkillsForBot(ctx, e.b.ID)
+	var views []extensions.SkillView
+	for _, v := range all {
+		if !v.Builtin {
+			views = append(views, v)
+		}
+	}
 	if len(views) != 1 || views[0].Name != "notes" {
 		t.Fatalf("manage_extensions listing for B = %+v", views)
 	}

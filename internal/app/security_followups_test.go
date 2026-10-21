@@ -118,7 +118,7 @@ func TestExtensionApprovalIsSingleUse(t *testing.T) {
 	if code := extensionOutcomeCode(err); code != "extension_change_needs_approval" {
 		t.Fatalf("second run with one approval: %q %v", code, err)
 	}
-	if skills, _ := s.extensions.ListSkills(); len(skills) != 0 {
+	if skills := installedSkills(s); len(skills) != 0 {
 		t.Fatal("the second run changed the workspace")
 	}
 }

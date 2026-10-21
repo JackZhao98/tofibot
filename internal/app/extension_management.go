@@ -22,7 +22,7 @@ func (s *Server) routeExtensions(w http.ResponseWriter, r *http.Request, p strin
 		return true
 	}
 	if s.routeLocalMCP(w,r,p) { return true }
-	if s.routeSkillAccess(w, r, p) {
+	if s.routeSkillAccess(w, r, p) || s.routeBuiltinSkillEnabled(w, r, p) {
 		return true
 	}
 	if s.routeVMOAuth(w, r, p) {
@@ -172,6 +172,11 @@ func (s *Server) routeExtensions(w http.ResponseWriter, r *http.Request, p strin
 			writeErr(w, 500, "internal", "skill access unavailable")
 			return true
 		}
+		off, err := s.store.builtinSkillsOff(r.Context())
+		if err != nil {
+			writeErr(w, 500, "internal", "skill settings unavailable")
+			return true
+		}
 		out := make([]skillWithAccess, 0, len(v))
 		for _, x := range v {
 			view := accessViewFor(access, x.Name)
@@ -185,7 +190,12 @@ func (s *Server) routeExtensions(w http.ResponseWriter, r *http.Request, p strin
 				}
 				view.BotIDs = kept
 			}
-			out = append(out, skillWithAccess{SkillView: x, Access: view})
+			item := skillWithAccess{SkillView: x, Access: view}
+			if x.Builtin {
+				on := !off[x.Name]
+				item.Enabled = &on
+			}
+			out = append(out, item)
 		}
 		writeJSON(w, 200, map[string]any{"skills": out, "diagnostics": d})
 		return true
@@ -215,7 +225,9 @@ func (s *Server) routeExtensions(w http.ResponseWriter, r *http.Request, p strin
 		return true
 	case strings.HasPrefix(p, "extensions/skills/") && r.Method == http.MethodDelete:
 		name := strings.TrimPrefix(p, "extensions/skills/")
-		if e := s.deleteSkill(name); e != nil {
+		if e := s.deleteSkill(name); errors.Is(e, extensions.ErrBuiltinSkill) {
+			writeErr(w, 400, "builtin_skill", e.Error())
+		} else if e != nil {
 			writeErr(w, 404, "extensions", e.Error())
 		} else {
 			s.writeExtensionSaved(w, http.StatusOK)
