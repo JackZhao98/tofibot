@@ -1444,6 +1444,9 @@ func RunAgentLoop(cfg AgentConfig, ctx *models.ExecutionContext) (returned *Agen
 			provider.IsRetryable(err) && !providerAccountError(err) &&
 			!provider.IsStreamWatchdog(err) && !repairRequest && !finalRepairFinalRequest {
 			delay := transientProviderBackoff[transientProviderRetries]
+			if ra := provider.RetryAfterOf(err); ra > delay && ra <= time.Minute {
+				delay = ra
+			}
 			transientProviderRetries++
 			ctx.Log("[Agent] Provider error mid-stream (%v); retry %d in %v", err, transientProviderRetries, delay)
 			state.Trace.RecordError(state.Step, err)
@@ -3323,7 +3326,7 @@ Rules:
 // after some output had streamed.
 // transientProviderBackoff is the wait before each in-loop retry of a
 // retryable provider error that arrived after output had been forwarded.
-var transientProviderBackoff = []time.Duration{2 * time.Second, 5 * time.Second, 10 * time.Second}
+var transientProviderBackoff = []time.Duration{2 * time.Second, 5 * time.Second, 10 * time.Second, 20 * time.Second, 30 * time.Second, 45 * time.Second}
 
 // providerAccountError reports account-level failures that a retry cannot
 // clear: exhausted quota or credit.

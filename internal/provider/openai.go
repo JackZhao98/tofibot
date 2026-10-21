@@ -213,7 +213,7 @@ func (o *openaiResponses) stream(ctx context.Context, req *ChatRequest, onDelta 
 
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		respBody, _ := io.ReadAll(resp.Body)
-		return nil, NewAPIError("openai", resp.StatusCode, string(respBody))
+		return nil, NewAPIErrorFor("openai", resp, string(respBody))
 	}
 
 	timer.Reset(idle)
@@ -468,7 +468,7 @@ func (o *openaiResponses) doRequest(ctx context.Context, payload map[string]inte
 	}
 
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		return "", NewAPIError("openai", resp.StatusCode, string(respBody))
+		return "", NewAPIErrorFor("openai", resp, string(respBody))
 	}
 
 	return string(respBody), nil
@@ -830,6 +830,24 @@ func (o *openaiResponses) parseStream(body io.Reader, onDelta func(StreamDelta))
 			if json.Unmarshal([]byte(data), &ev) == nil {
 				result.Usage.InputTokens = ev.Response.Usage.InputTokens
 				result.Usage.OutputTokens = ev.Response.Usage.OutputTokens
+			}
+
+		case "error":
+			// A top-level error event carries the code at the event's own level.
+			var ev struct {
+				Code    string `json:"code"`
+				Message string `json:"message"`
+				Error   struct {
+					Code    string `json:"code"`
+					Message string `json:"message"`
+				} `json:"error"`
+			}
+			if json.Unmarshal([]byte(data), &ev) == nil {
+				code, msg := ev.Code, ev.Message
+				if code == "" {
+					code, msg = ev.Error.Code, ev.Error.Message
+				}
+				return nil, &ResponseFailedError{Code: code, Message: msg}
 			}
 
 		case "response.failed":

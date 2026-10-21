@@ -231,7 +231,7 @@ func TestAutomationSettingsInventoryAndDefaults(t *testing.T) {
 			t.Fatalf("item %d is %s, want %s", i, body.Items[i].Key, key)
 		}
 	}
-	defaults := map[string]any{autoConversationModel: "claude-sonnet-5-5", autoStructuredOutput: true, autoForceSayHaikuDM: true, autoWebSearch: true, autoGroupExchangeGists: true, autoOwnRepliesVerbatim: float64(3), autoCompletionReview: true, autoMCPReview: "off", autoRememberedApprovalHrs: float64(24), autoProviderRetries: float64(5), autoScheduleReceiptReview: true}
+	defaults := map[string]any{autoConversationModel: "claude-sonnet-5-5", autoStructuredOutput: true, autoForceSayHaikuDM: true, autoWebSearch: true, autoGroupExchangeGists: true, autoOwnRepliesVerbatim: float64(3), autoCompletionReview: true, autoMCPReview: "off", autoRememberedApprovalHrs: float64(24), autoProviderRetries: float64(8), autoScheduleReceiptReview: true}
 	for key, def := range defaults {
 		item := body.find(t, key)
 		if item.Default != def || item.Value != def || item.Source != "default" {
@@ -405,7 +405,7 @@ func TestGroupExchangeGistsFollowTheSetting(t *testing.T) {
 
 func TestProviderRetriesZeroStaysZero(t *testing.T) {
 	s := providerServer(t, nil, nil)
-	if got := s.providerRetries(); got != 5 {
+	if got := s.providerRetries(); got != 8 {
 		t.Fatalf("default retries=%d", got)
 	}
 	if code := autoPutCode(t, s, `{"provider_retries":0}`); code != http.StatusOK {
