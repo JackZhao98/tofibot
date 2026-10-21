@@ -86,6 +86,7 @@ go test ./internal/app -run <测试名>; echo "exit=$?"   # 必须为 0
 | UI 硬编码文案检查 | `npm --prefix ui run test:i18n`（规则见 `ui/src/locales/README.md`） | 是，`ci.yml:36` |
 | UI 构建 | `npm --prefix ui run build` | 是，`ci.yml:37` |
 | Worker / Guest / 安装器 / 发版脚本（Python） | `make self-host-test`（`Makefile:38-41`，三组 `unittest discover`） | 是，`ci.yml:39-54`，Python 3.10 |
+| 内置 Skill 脚本（Python） | `python3 -m unittest discover -s internal/extensions/builtin_skills/tests -p 'test_*.py'`（含 `make self-host-test`）。缺 openpyxl、docx、pptx、matplotlib、reportlab、pypdf、PIL、soffice 或 pdftoppm 时对应测试响亮跳过（stderr 和报告里写 SKIPPED）；CI 装了前几个库和 poppler-utils，没有 soffice | 是，`ci.yml` python 作业 |
 | Shell 语法和 shellcheck | `make self-host-lint`（`Makefile:47-49`） | 是，`ci.yml:56-63` |
 | compose 渲染 | `make self-host-config`（`Makefile:51-53`），外加 `docker compose -f compose.yaml config --quiet` | 是，`ci.yml:65-79` |
 | 本机 HTTP 验收 | `make acceptance`（`Makefile:30-34`，`scripts/acceptance.py` 起一个一次性实例） | 否 |

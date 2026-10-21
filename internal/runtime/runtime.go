@@ -521,6 +521,18 @@ func (e *engine) Run(ctx context.Context, req Request) (Result, error) {
 				req.OnWebSearchBilled(billed)
 			}
 		},
+		WebFetchMaxUses: req.WebFetchMaxUses,
+		OnWebFetches: func(fetches []provider.WebFetch, counted int64) {
+			for _, wf := range fetches {
+				queued, finished := webFetchToolEvent(wf)
+				if tracker.emit(queued) == nil {
+					_ = tracker.emit(finished)
+				}
+			}
+			if req.OnWebFetchCounted != nil && counted > 0 {
+				req.OnWebFetchCounted(counted)
+			}
+		},
 		OnCompact:                req.OnCompact,
 		OnStreamChunk:            onStream,
 		StructuredOutput:         req.StructuredOutput,

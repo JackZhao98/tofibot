@@ -58,7 +58,11 @@ TOFI 是一个自托管的 AI Bot 工作台：后端是 Go 服务（`internal/`�
 | 每条消息下方有一行低调的操作按钮，消息之间留出更宽的间距，避免遮挡 | `bfab118`；[D17](../decisions/0017-quiet-message-action-row.md) |
 | 新消息到达时有弹簧链式的级联动画；读者靠近底部时跟着滚动 | `a7814b3`；`test:arrival-glide`；[D19](../decisions/0019-arrival-spring-cascade.md) |
 | Anthropic 模型可以在服务端联网搜索（默认开启），来源记入证据，费用记入 `usage_calls` | `8d83e30`；`automation_settings.go:86` |
+| （未发布，在分支 `fix/verification-rigor`）同一个开关还给 Anthropic 模型服务端读网页：读过的网址记入证据，次数记入 `usage_calls`（`kind = web_fetch`，读一页记一行，金额 0）；账户没开读网页时去掉并记住。查证原则并入原有查询句，同时写进 `say` 说明和请求旁边 | [D40](../decisions/0040-lookup-at-the-point-of-decision.md)；`internal/provider/anthropic.go`、`internal/app/web_search.go`、`internal/app/context.go`、`internal/app/say.go` |
 | `publish_file` 返回一个只有所有者能打开的附件链接 | `internal/app/artifact_publish.go:176`；`ade3968` |
+| 提供方的瞬时错误（含 HTTP 200 的流内 `server_is_overloaded`、限流、5xx、断流）先按错误码有界重试，约 2 分钟内，服从 `Retry-After`，再判运行失败；`provider_retries` 默认 8。未发版 | `internal/provider/retry.go`；`internal/provider/errors.go`；`internal/runtime/overloaded_stream_test.go`；[D38](../decisions/0038-failed-runs-keep-published-files.md) |
+| 运行发布了文件之后失败：文件绑定到一条只带附件的助手消息，链接仍能打开（取消和重启中断的运行仍清理）。未发版 | `internal/app/artifact_publish.go`（`keepFailedRunFilesTx`）；`TestFailedRunKeepsPublishedFileReachable`；[D38](../decisions/0038-failed-runs-keep-published-files.md) |
+| 模型写的 `sandbox:/api/attachments/<id>` 链接（以及与本消息附件唯一同名的 `sandbox:` 路径）在输出时改成可点的附件地址，库里原文不变；回复标记 `[message_id=…]` 单独一行或前有空白都按回复渲染。未发版 | `internal/app/sandbox_links.go`；`ui/src/replyMarker.ts`；`test:reply-quote`；[D39](../decisions/0039-serve-sandbox-links-as-attachments.md) |
 | 失败的运行可以重试；重试时保留之前已经完成的工具结果 | `38dd844`、`75b3e2c` |
 
 | 已知缺口 | 依据 |
@@ -98,6 +102,9 @@ TOFI 是一个自托管的 AI Bot 工作台：后端是 Go 服务（`internal/`�
 |---|---|
 | 每个账户一台 Firecracker 电脑。工具有 `computer_shell`、`computer_files`、`computer_desktop`、`computer_browser`、`computer_terminal`、`computer_ssh_keys`、`computer_action` 等 | `internal/app/microvm.go:468`、`:479`、`:517`、`:575`；`terminal.go:181`；`ssh_keys.go:278`；`computers.go:1167` |
 | 看门狗会重启没有响应的电脑；桌面查看器会等电脑醒来，掉线后自动重连 | `internal/app/computer_watchdog.go`；`51c95a2` |
+| 聊天里上传的文件（zip、PDF、DOCX、XLSX 等任意类型，20 MB 内）在 Bot 的电脑里：`/workspace/home/uploads/<对话 id>/<原文件名>`，第一次用电脑工具时懒复制，已有则跳过；提示词在每个附件后写出路径。线上还没有，随下一个 rc 发 | `internal/app/guest_inputs.go`；`internal/computer/guest/import.go`；[D36](../decisions/0036-chat-uploads-on-the-computer.md) |
+| Bot 电脑镜像预装 LibreOffice、tesseract（英文）、poppler、pandoc 和 Python 办公库（openpyxl、docx、pptx、matplotlib、pandas、reportlab、pypdf、PIL）；其他语言的 OCR 数据和字体由 Bot 取到用户目录。镜像尚未构建和实测，线上没有 | `deploy/microvm/Dockerfile`；`deploy/microvm/smoke-office.sh`；[D37](../decisions/0037-english-only-office-tooling.md) |
+| 内置交付技能：`spreadsheet`、`document-report`、`slides`、`web-page`、`code-delivery` 随二进制发布，默认对每个 Bot 可用。提示词里每个只有一行描述，Bot 读它时才加载正文，并把脚本复制到电脑 `/workspace/home/uploads/.skills/<name>/<摘要>/`。脚本检查自己的产出：PDF/DOCX 的页数和图片数、PPTX 形状越界和文字溢出、XLSX 各列合计、发票对账（行算术、小计、总计、与参照表比对、列出读不出的）、HTML 的双宽度预览、命令的真实输出和 zip 校验。尚未合并、线上没有；soffice 转换路径和对真实任务的效果还没有实测 | `internal/extensions/builtin.go`；`internal/extensions/builtin_skills/`；`internal/app/builtin_skills.go`；[D41](../decisions/0041-builtin-deliverable-skills.md) |
 | 交接卡片：Bot 可以请用户接管屏幕，完成登录、两步验证、验证码这类步骤（`request_takeover`），也可以请用户连接一个服务（`request_connection`） | `internal/app/handover.go:119`、`:156`；`d3e4ff9`；`test:handover-cards`；`AGENTS.md` 第 75–87 行；[D11](../decisions/0011-handover-cards.md) |
 
 | 已知缺口 | 依据 |
@@ -135,7 +142,9 @@ TOFI 是一个自托管的 AI Bot 工作台：后端是 Go 服务（`internal/`�
 
 | 能用的 | 依据 |
 |---|---|
-| 设置 › 自动行为：每个自动行为都能看到、能调整，并且有出厂默认值。注册表共 13 项：对话模型、后台模型、结构化回复、Haiku 强制调用工具、联网搜索、群聊摘要、自己回复保留原文的条数、完成后审核、MCP 自动审核（默认关闭）、“记住”的有效时长、模型请求重试次数、定时任务回执审核，以及只读的电脑空闲时长；页面上还有“始终允许”的授权列表 | `ui/src/AutomationSettings.tsx`；`internal/app/automation_settings.go:81-95`（注册表）；`ui/src/StandingAllowances.tsx`；`test:automation-settings`；[D15](../decisions/0015-automatic-behaviour-settings.md) |
+| 设置 › 自动行为：每个自动行为都能看到、能调整，并且有出厂默认值。注册表共 13 项：对话模型、后台模型、结构化回复、Haiku 强制调用工具、联网搜索（未发布的分支上同时管读网页）、群聊摘要、自己回复保留原文的条数、完成后审核、MCP 自动审核（默认关闭）、“记住”的有效时长、模型请求重试次数、定时任务回执审核，以及只读的电脑空闲时长；页面上还有“始终允许”的授权列表 | `ui/src/AutomationSettings.tsx`；`internal/app/automation_settings.go:81-95`（注册表）；`ui/src/StandingAllowances.tsx`；`test:automation-settings`；[D15](../decisions/0015-automatic-behaviour-settings.md) |
+| 模型列表随提供方变化即时刷新：Codex 登录完成或断开、API Key 保存或删除后，所有模型选择器重取目录，窗口重新聚焦时也会重取（超过 10 秒才算过期，没有定时轮询）；服务端只把实时目录缓存 5 分钟，快照/回退结果 20 秒后重试，连接变化立即清空 | `ui/src/useModelCatalog.ts`、`ui/src/modelCatalogStore.ts`；`internal/app/model_settings.go`（`invalidateCodexCatalog`、`catalogRetryGuard`）；`test:model-catalog-refresh` |
+| 设置 › Skills：内置 Skill 带“内置”标签和开关（默认开），不能移除，“谁能用”照常；关闭记在 `builtin_skill_off`，下一次运行生效 | `ui/src/ExtensionPanel.tsx`；`ui/scripts/test-settings-shell.mjs`（7c）；[D41](../decisions/0041-builtin-deliverable-skills.md) |
 | 模型提供方、MCP、语音输入、主动跟进、语言等设置页 | `ui/src/ModelSettings.tsx`、`MCPSettings.tsx`、`DictationSettings.tsx`、`FollowupsSettings.tsx`、`LanguageSetting.tsx` |
 | 设置页重做：第 1、2 阶段已经上线，第 3 阶段要等工具重做的部分完成 | [settings-redesign.md](../agent-plan/settings-redesign.md) 状态行 |
 
@@ -229,5 +238,6 @@ H = Haiku，S = Sonnet，O = Opus。
 | `prod-lookup-*` | 10-19 19:38 | 按时间推断为 rc.21 | 名字查询（VisionQuest、トラファルガー・ロー），一对一和群聊各测 | 2/4 | 2/4 | |
 | `prod-lookup2-*` | 10-20 09:20 | 按时间推断为 rc.26 | 同上 | 3/4 | 2/4 | 一对一的 VisionQuest：Haiku 没去查，把它当成了 Vision Pro 的应用；Sonnet 不确定是哪个，反问“你指哪个？”。群聊里 Sonnet 凭记忆答成了 1985 年的同名电影 |
 | `prod-resourceful-*` | 10-20 11:03–11:07 | 按时间推断为 rc.27 | 想办法完成任务（找配图地址；发布文件并给出链接） | 1/2 | 1/2 | Haiku 没把办法试完就交还给用户；Sonnet 只看了搜索结果的标题就写摘要，没有打开页面 |
+| `verify2/*`（本机，未归档） | 10-21 02:00–03:15 | 分支 `fix/verification-rigor`（基线是 `main` 在 `5f4396f`） | 真实网络、本机二进制、Sonnet 5.5 做 Bot、Opus 5.5 评分、3 轮。探针：`dm_title`、`group_unaddressed_title`、`group_mention_title`、`*known_name_reading` 和 5 个小闲聊；任务：`lookup_compare_cities`、`research_requests_maintained`、`research_bun_node`、名字查询 4 题 | | 先搜再答 6/9 → 9/9（被 @ 的群 0/3 → 3/3）；VisionQuest 任务识别 6/6 → 6/6；小闲聊上多余搜索 0 → 0；`wrong_or_unverified` 5/9 → 5/9；探针每个约 $0.078 → $0.084 | 读网页工具在 56 个用了搜索的 run 里 0 次被用；本机“前”的版本 VisionQuest 就已 6/6 先搜，生产 0 次，原因是生产日志里一条格式错误的 400 被误判成“账户不能搜索”（已修，D40 第 6 条）。详见 [D40](../decisions/0040-lookup-at-the-point-of-decision.md) |
 
 `smoke1`、`remote-proof`、`remote-proof2`、`local-regress`、`fix-proof` 是检查评测脚本本身的小规模运行（1–3 题），不算产品成绩。

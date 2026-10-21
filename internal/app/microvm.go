@@ -18,7 +18,7 @@ const microVMComputerID = "firecracker"
 
 var microVMActions = map[string]bool{
 	"shell.exec": true,
-	"files.list": true, "files.read": true, "files.write": true, "files.export_chunk": true,
+	"files.list": true, "files.read": true, "files.write": true, "files.export_chunk": true, "files.import_chunk": true,
 	"desktop.start": true, "desktop.stop": true, "desktop.capture": true,
 	"desktop.click": true, "desktop.type": true, "desktop.key": true, "desktop.scroll": true,
 	"browser.navigate": true, "browser.snapshot": true, "browser.action": true,
@@ -156,7 +156,7 @@ func (s *Server) microVMEnvironmentPrompt(ctx context.Context, botID string) str
 	} else if info.DesktopIdleSeconds != nil {
 		idle = fmt.Sprintf(" Desktop idle timeout: %ds (0 disables).", *info.DesktopIdleSeconds)
 	}
-	return fmt.Sprintf("\nShared Linux VM, separate from the service host and Mac; never claim host/Mac access. cwd=%s/bots/%s, HOME=/workspace/home; /workspace/shared, files, tools, Chrome profile and display are shared. Browser: %s. System directories are read-only (no sudo); install software only in user space (skill: software). Use tools only when ready; otherwise report status. %s Stop the shared desktop only on user intent. Private keys use Secret Input; return public keys only.", root, botID, browser, computerBrowserEssentials) + idle
+	return fmt.Sprintf("\nShared Linux VM, separate from the service host and Mac; never claim host/Mac access. cwd=%s/bots/%s, HOME=/workspace/home; /workspace/shared, files, tools, Chrome profile and display are shared. Browser: %s. System directories are read-only (no sudo); install software only in user space (skill: software). Office, PDF, OCR and charting tools are preinstalled for English; fetch other languages' data or fonts into user directories. Attached files are on this computer at the listed paths. Use tools only when ready; otherwise report status. %s Stop the shared desktop only on user intent. Private keys use Secret Input; return public keys only.", root, botID, browser, computerBrowserEssentials) + idle
 }
 
 // computerBrowserEssentials is the always-present browser recipe; computer_help
@@ -372,6 +372,7 @@ func (s *Server) microVMTools(r Run) []Tool {
 	if s.microVM == nil {
 		return nil
 	}
+	inputs := &guestInputSync{}
 	decode := func(raw json.RawMessage, target any) error {
 		d := json.NewDecoder(strings.NewReader(string(raw)))
 		d.DisallowUnknownFields()
@@ -402,6 +403,7 @@ func (s *Server) microVMTools(r Run) []Tool {
 			if err != nil {
 				return "", err
 			}
+			inputs.ensure(ctx, s, r)
 			// Scheduled work may run after idle cleanup has stopped Chrome.
 			// Starting the shared desktop is idempotent, and makes the promised
 			// browser fallback usable without relying on the model to infer a

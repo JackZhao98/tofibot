@@ -772,6 +772,9 @@ CREATE INDEX IF NOT EXISTS events_delta ON events(conversation_id,id) WHERE type
 	if err := migrateSkillAccess(s.db); err != nil {
 		return err
 	}
+	if err := migrateBuiltinSkillSetting(s.db); err != nil {
+		return err
+	}
 	return migrateToolActivity(s.db)
 }
 
@@ -2044,6 +2047,9 @@ func (s *Store) SetRunStatus(id, status, msg string) (bool, error) {
 		}
 	}
 	if n == 1 && status == "failed" {
+		if e = keepFailedRunFilesTx(tx, id, t); e != nil {
+			return false, e
+		}
 		if failureReturn, failureReturned, e = scheduleChildFailureReturnTx(tx, id); e != nil {
 			return false, e
 		}
@@ -2668,7 +2674,7 @@ func NewServer(c Config) (*Server, error) {
 	} else if switched > 0 {
 		log.Printf("[model-settings] %d Bot(s) now follow the global model", switched)
 	}
-	server.extensions = extensions.NewManager(extensions.Config{MCPConfigPath: c.MCPConfigPath, SkillsDir: c.SkillsDir, ExpandToolQuery: server.expandToolSearchQuery, HTTPTransport: server.localMCPTransport, ServerUsable: server.mcpServerUsable, SkillAccess: st.skillAccessFilter, ServerIdentityChanged: server.markStandingServerChanged})
+	server.extensions = extensions.NewManager(extensions.Config{MCPConfigPath: c.MCPConfigPath, SkillsDir: c.SkillsDir, ExpandToolQuery: server.expandToolSearchQuery, HTTPTransport: server.localMCPTransport, ServerUsable: server.mcpServerUsable, SkillAccess: st.skillAccessFilter, BuiltinSkillsOff: st.builtinSkillsOff, ServerIdentityChanged: server.markStandingServerChanged})
 	if st.requireGuestAttachments && microVM != nil {
 		st.guestBlobs = microVM
 		st.cleanupDeletedAttachments()
@@ -2953,6 +2959,7 @@ func (s *Server) codexAuth(w http.ResponseWriter, r *http.Request, path string) 
 			return
 		}
 		s.forgetCodexVerification()
+		s.invalidateCodexCatalog()
 		// The routed engine keeps serving any other configured provider.
 		s.mu.Lock()
 		if !s.codexManaged && strings.EqualFold(s.provider, "openai_codex") {
@@ -2992,6 +2999,9 @@ func (s *Server) codexAuth(w http.ResponseWriter, r *http.Request, path string) 
 		}
 		if x.Connected {
 			s.forgetCodexVerification()
+		}
+		if before != x {
+			s.invalidateCodexCatalog()
 		}
 		if x.Connected && managedProviderName(s.provider) {
 			s.mu.Lock()
@@ -3607,7 +3617,7 @@ func (s *Server) execute(c Conversation, r Run) {
 		}
 		defer prepared.Close()
 		extensionPrompt = prepared.Instructions
-		tools = append(tools, s.withoutIdleMCPTools(prepared.Tools)...)
+		tools = append(tools, s.withoutIdleMCPTools(s.withBuiltinSkillStaging(r, prepared.Tools))...)
 		if len(prepared.Diagnostics) > 0 {
 			diagnostics, _ := json.Marshal(prepared.Diagnostics)
 			system += "\nSome configured extensions are unavailable. Consult extension_status when relevant; never claim an unavailable tool was executed."
@@ -3878,11 +3888,17 @@ func (s *Server) execute(c Conversation, r Run) {
 	}
 	res, e := runEngine.Run(ctx, Request{BotID: r.BotID, RunID: r.ID, ConversationID: c.ID, System: system, Model: model, ReasoningEffort: reasoningEffort, Messages: pm, Tools: tools, OnDelta: onDelta, StructuredOutput: structured, ForceToolUse: structured && s.forceSayHaikuDMEnabled() && forceSayFor(c, r, model), OnToolCallDelta: onToolCallDelta, EndOnEmptyFinal: endOnEmptyFinal, BeforeModelCall: steeringBoundary, BeforeFinalResponse: finalReview, FinalResponseRepairTools: finalRepairTools, OnAssistantTurn: onAssistantTurn,
 		OnThinking: onThinking, OnRetry: onRetry, OnStreamReset: onStreamReset, OnReviewDraft: onReviewDraft,
-		Continuation:      continuation,
-		WebSearchMaxUses:  s.searchUses(model, tools),
+		Continuation:     continuation,
+		WebSearchMaxUses: s.searchUses(model, tools),
 		OnWebSearchBilled: func(n int64) {
 			if err := s.store.recordWebSearchUsage(r.ID, n); err != nil {
 				log.Printf("[usage] web search: %v", err)
+			}
+		},
+		WebFetchMaxUses: s.fetchUses(model, tools),
+		OnWebFetchCounted: func(n int64) {
+			if err := s.store.recordWebFetchUsage(r.ID, n); err != nil {
+				log.Printf("[usage] web fetch: %v", err)
 			}
 		},
 		ResumeResult:      s.inputResumeResult(answeredQuestion),

@@ -45,13 +45,18 @@ jobs:
           # The oldest supported host is Ubuntu 22.04 (Python 3.10).
           python-version: '3.10'
       - name: Install debugfs/e2fsck for release checks
-        run: sudo apt-get update -qq && sudo apt-get install -y -qq e2fsprogs zstd
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq e2fsprogs zstd poppler-utils
       - name: Worker and Guest release tests
         run: python3 -m unittest discover -s deploy/microvm -p 'test_*.py'
       - name: Host installer tests
         run: python3 -m unittest discover -s deploy/self-host -p 'test_*.py'
       - name: Release script tests
         run: python3 -m unittest discover -s scripts/release -p 'test_*.py'
+      - name: Built-in Skill script tests
+        # Libraries the Bot computer image preinstalls; tests skip loudly without them.
+        run: |
+          python3 -m pip install --quiet openpyxl python-docx python-pptx==1.0.2 matplotlib reportlab pypdf pillow
+          python3 -m unittest discover -s internal/extensions/builtin_skills/tests -p 'test_*.py'
 
   shell:
     runs-on: ubuntu-24.04

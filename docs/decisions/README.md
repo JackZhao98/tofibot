@@ -46,6 +46,12 @@
 | D33 | 手机右滑返回手势 | 2026-10-21 | 要做：手指把对话往右拖回列表；做成有门槛的实验，自研和 Motion 各一版，留好的 | [0033](0033-phone-swipe-back-experiment.md) |
 | D34 | 组件目录页只在开发时可用 | 2026-10-21 | 目录页不进正式版构建 | [0034](0034-component-catalog-dev-only.md) |
 | D35 | 第 4 步结果：不引入 Motion，右滑返回用自研版 | 2026-10-21 | 级联、点按推入、布局过渡保留现有代码；右滑返回上线 Pointer Events + Web Animations 版（Motion 版懒加载块大 22 KB、接住时会跳）；等 owner 预览 | [0035](0035-step4-motion-experiment-result.md) |
+| D36 | 聊天上传的文件放进 Bot 的电脑 | 2026-10-21 | 用户消息的附件复制到 `/workspace/home/uploads/<对话 id>/`；懒复制、幂等、可见性同 `read_attachment`；复用文件通道反向（`files.import_chunk`） | [0036](0036-chat-uploads-on-the-computer.md) |
+| D37 | Bot 电脑预装办公工具，只预装英文 | 2026-10-21 | LibreOffice、tesseract（英文）、poppler、pandoc、Python 办公库进镜像；其他语言的数据和字体由 Bot 取到用户目录（`TESSDATA_PREFIX`、`~/.local/share/fonts`）；matplotlib 不改默认字体 | [0037](0037-english-only-office-tooling.md) |
+| D38 | 瞬时错误先重试，失败的运行不丢已发布的文件 | 2026-10-21 | 流内过载、限流、5xx、断流按错误码有界重试（约 2 分钟，服从 `Retry-After`）；运行失败时已发布的文件绑定到一条只带附件的消息上，链接仍可打开 | [0038](0038-failed-runs-keep-published-files.md) |
+| D39 | `sandbox:` 链接服务端输出时改成附件地址 | 2026-10-21 | `sandbox:/api/attachments/<id>` 和与本消息附件唯一同名的 `sandbox:` 绝对路径，在 `Message.MarshalJSON` 里改成 `/api/attachments/<id>`；库里原文不变，其他协议不碰 | [0039](0039-serve-sandbox-links-as-attachments.md) |
+| D40 | 查证原则放到决策点，并让 Bot 能读网页 | 2026-10-21 | 服务端 `web_fetch` 与联网搜索同开关，读过的网址记入证据；“人提到的作品/产品/人/事件先搜再答，说成有出处的数字要落在打开过的页面上”并入原有查询句，同时写进 `say` 说明和请求旁边；读网页被拒时去掉并记住 | [0040](0040-lookup-at-the-point-of-decision.md) |
+| D41 | 内置交付技能 | 2026-10-21 | 五个 Skill（spreadsheet、document-report、slides、web-page、code-delivery）嵌在二进制里，默认对所有 Bot 可用，设置 › Skills 里标“内置”、可关不可删；提示词只多五行描述（+616 字符），脚本在 Bot 读 Skill 时复制到电脑 | [0041](0041-builtin-deliverable-skills.md) |
 
 ## 怎么新增一条决定
 

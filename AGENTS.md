@@ -193,3 +193,40 @@ A dialog opened from a menu item reads where focus returns before it opens (`rem
 unmounts with the menu and the workspace turns inert in the same commit; from the sidebar row menu that is the row it was opened
 on (recorded by the `OverlaySlot` listener; `test:overlays` holds it). Menus and dialogs share one copy of the Radix primitives
 (one layer stack), so keep the four `@radix-ui/*` packages on versions npm dedupes.
+
+# Chat uploads on the Bot's computer
+
+Files a person sends in chat are copied to the guest at `/workspace/home/uploads/<conversation id>/<name>` (`internal/app/guest_inputs.go`,
+decision 0036). Only attachments of user messages in the run's own conversation (the `read_attachment` visibility) are placed; the trigger
+message's go first, then earlier ones within 40 files / 80 MB. The copy is lazy: a computer tool set syncs once before its first `computer_*`
+call, never at context build, and the prompt only names the paths. Transport is the guest action `files.import_chunk` (reverse of
+`files.export_chunk`, 512 KB chunks into `<path>.part`, renamed on the last): an existing file answers `exists`, so a repeat sends nothing and a
+Bot's edits survive. A colliding name keeps its plain form for the earliest attachment and gets `-<id[:8]>` otherwise. Archives are never extracted.
+A new guest action must also be added to `microVMActions` and the watchdog timeout list, and needs a rebuilt guest in the image.
+
+# Bot computer image tooling
+
+`deploy/microvm/Dockerfile` ships English-only office, PDF, OCR and charting tools (decision 0037); other languages are fetched by the Bot into user
+directories, so the guest sets `TESSDATA_PREFIX=~/.local/share/tessdata` (links to the shipped data, writable; `internal/computer/guest/tessdata.go`) and
+`/etc/fonts/local.conf` lists `~/.local/share/fonts`. Do not preinstall language packs or force a matplotlib font. `python-pptx` has no noble package and is
+installed from a pinned wheel. `deploy/microvm/smoke-office.sh` is the in-image smoke test (run as uid 1000); run it after any change to that layer.
+
+# Provider errors and failed runs
+
+Transient provider failures are retried by code, not by message text: `provider.IsRetryable` (HTTP 429/5xx/529, and the in-stream `response.failed` / `error` codes in `retryableResponseFailure`, which arrive with HTTP 200). `RetryProvider` backs off with jitter, honors `Retry-After` (up to 60 s) and stops at `TotalBudget` (2 minutes); the agent loop retries once output has been delivered. A new provider error code that is transient goes into `retryableResponseFailure`. A run that fails after `publish_file` keeps its files: `SetRunStatus(failed)` binds them to an attachments-only assistant message (`keepFailedRunFilesTx`); cancelled and interrupted runs still discard theirs (decision 0038).
+
+Links written as `sandbox:/…` are normalized only on the way out (`Message.MarshalJSON`, `internal/app/sandbox_links.go`); the stored text stays as the model wrote it (decision 0039). The reply marker `[message_id=<uuid>]` is parsed by `ui/src/replyMarker.ts`.
+
+# Built-in Skills
+
+Deliverable Skills ship inside the binary (decision 0041): `internal/extensions/builtin_skills/<name>/SKILL.md` plus `scripts/*.py`, embedded by
+`internal/extensions/builtin.go` (only those two patterns; `builtin_skills/tests/` holds the Python tests and is not embedded). They ride the
+existing Skills tools (`list_skills`, `read_skill`, `read_skill_file`): the prompt directory carries one name and description line each, the body loads on
+`read_skill`, and the same call copies the skill's files to the Bot's computer at `/workspace/home/uploads/.skills/<name>/<digest>/`
+(`internal/app/builtin_skills.go`; inside uploads because the guest's `files.import_chunk` accepts nothing else). They are on for every Bot until
+turned off in Settings > Skills (`builtin_skill_off`, `PUT /api/extensions/skills/<name>/enabled`); an unreadable setting withholds them. They cannot be
+installed over or deleted, and an installed skill with a built-in name is ignored with a diagnostic. SKILL.md text is English principles only (no example
+sentences, Not/But contrasts or keyword lists; `tests/test_skill_text.py` enforces it); concrete know-how lives in the scripts. A new or longer
+description raises the prompt budget: measure it and move the caps in `internal/app/prompt_budget_test.go`. Run the script tests with
+`python3 -m unittest discover -s internal/extensions/builtin_skills/tests -p 'test_*.py'`; `slides/scripts/render_preview.py` and
+`document-report/scripts/render_preview.py` must stay byte-identical.
