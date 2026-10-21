@@ -168,6 +168,12 @@ func (s *Service) dispatchAction(ctx context.Context, req ActionRequest) (any, e
 			return nil, err
 		}
 		return s.exportFileChunk(ctx, req.BotID, args)
+	case "files.import_chunk":
+		var args importArgs
+		if err := decodeArgs(req.Args, &args); err != nil {
+			return nil, err
+		}
+		return s.importFileChunk(ctx, req.BotID, args)
 	case "files.write":
 		var args fileArgs
 		if err := decodeArgs(req.Args, &args); err != nil {
@@ -502,6 +508,12 @@ func cleanEnv(root, bot string) []string {
 		"PWD=" + bot,
 		"TMPDIR=" + filepath.Join(bot, "tmp"),
 		"LANG=C.UTF-8", "TERM=dumb", "TOFI_WORKSPACE=" + bot,
+	}
+	if dir := userTessdata(home); dir != "" {
+		// Language packs the user downloads into this directory sit beside the
+		// shipped English data; fonts the user installs under
+		// ~/.local/share/fonts are found through the image's fontconfig.
+		env = append(env, "TESSDATA_PREFIX="+dir)
 	}
 	if b, err := os.ReadFile(filepath.Join(root, guestTimezoneFile)); err == nil {
 		if zone := strings.TrimSpace(string(b)); zone != "" {
