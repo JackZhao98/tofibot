@@ -211,7 +211,7 @@ func TestMCPKnownToolNameResolvesWithoutSearch(t *testing.T) {
 	}
 	defer p.Close()
 	call := discoveryTool(t, p, "call_mcp_tool")
-	execute := func(raw string) (string, error) { return call.Execute(context.Background(), json.RawMessage(raw)) }
+	execute := func(raw string) (string, error) { return executeAfterSchema(call, raw) }
 
 	// Unseen but known: resolved through bounded discovery and executed.
 	if got, err := execute(`{"name":"mcp_mail__read_inbox","arguments":{}}`); err != nil || got != "inbox" {
@@ -286,7 +286,7 @@ func TestMCPServerForToolNameLongestSanitizedPrefix(t *testing.T) {
 }
 
 func TestMCPSchemaHintIsBounded(t *testing.T) {
-	params := map[string]any{"type": "object", "required": []string{"v"}, "properties": map[string]any{"v": map[string]any{"type": "string", "description": strings.Repeat("界", 4096)}}}
+	params := map[string]any{"type": "object", "required": []string{"v"}, "properties": map[string]any{"v": map[string]any{"type": "string", "description": strings.Repeat("界", 8192)}}}
 	err := withMCPSchemaHint(validateMCPArguments(params, map[string]any{}), params)
 	o, ok := tooloutcome.FromError(err)
 	if !ok || o.Code != "invalid_arguments" || !strings.HasSuffix(o.Message, "[schema truncated]") || len(o.Message) > maxMCPSchemaHintBytes+512 {
