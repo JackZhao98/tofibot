@@ -127,6 +127,7 @@ done
 | 输入框 | `test:composer-typing`（D02：起因是每键 37 ms、66 次排版） |
 | 侧栏排序和置顶 | `test:sidebar-pins` |
 | 外壳首屏 | `test:shell-budget` |
+| 手机推入、右滑返回 | `test:swipe-back` 和 `SWIPE_BACK_ENGINE=webkit npm --prefix ui run test:swipe-back`，加 `test:shell-budget`（第 3 节是点按推入） |
 | Safari 相关 | `test:chat-safari` |
 | 设置页、自动行为 | `test:settings-shell`、`test:settings-polish`、`test:automation-settings` |
 | 问题卡、交接卡、常驻授权卡 | `test:question-poll`、`test:handover-cards`、`test:standing-allowance` |

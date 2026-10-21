@@ -47,6 +47,7 @@
 |---|---|---|
 | 文档体系：总索引、现状、路线图、决策记录、版本记录、工作流程，`AGENTS.md` 加“从这里开始” | 正在分支 `docs/system-opus` 上写，还没合并 | [D27](../decisions/0027-docs-are-the-system.md) |
 | 设计系统迁移第 1 步：`--z-*` 层级刻度和唯一的 portal 根节点 `#tofi-layers` | 在分支 `ds/step1-layers` 上完成（新守卫 `test:layers`，入口包 +49 B），等协调者合并和 owner 预览；层级变化清单 L1–L14 和预览步骤在 [`migration.md`](../design/migration.md) 第 1 步 | [D28](../decisions/0028-headless-design-system-migration.md)、[D31](../decisions/0031-entry-budget-plan-a.md)、[D32](../decisions/0032-step1-stacking-changes-accepted.md) |
+| 设计系统迁移第 4 步：Motion 对照实验和手机右滑返回 | 在分支 `ds/step4-motion` 上完成：不引入 Motion；右滑返回上线自研版（懒加载块 2,079 B，入口包 +244 B）；新测试 `test:swipe-back`、`test:motion-experiment`。等协调者合并和 owner 预览，预览清单在 [`migration.md`](../design/migration.md) 第 4 步 | [D33](../decisions/0033-phone-swipe-back-experiment.md)、[D35](../decisions/0035-step4-motion-experiment-result.md) |
 | 任务完成度评测脚本 | 在分支 `eval/task-completion` 上（`c9f3517`…`820121f`），还没合进 `main`；结果目录被 git 忽略，只存在本机 | [status.md](status.md) 第 5.1 节 |
 
 ## 3. 下一步

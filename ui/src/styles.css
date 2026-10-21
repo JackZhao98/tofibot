@@ -321,6 +321,13 @@ html[data-desktop] .unread-badge{width:8px;min-width:8px;height:8px;padding:0;co
 /* The chat stays laid out (hidden, not display:none) so the push moves a real pane, never an empty frame. */
 .chat-pane{display:flex;position:relative;z-index:7;visibility:hidden;height:100%;min-height:0;transform:translateX(100%);box-shadow:-14px 0 28px -16px color-mix(in srgb,var(--ink) 28%,transparent);transition:transform var(--m-base) var(--ease-out),visibility 0s linear var(--m-base)}
 .chat-pane.mobile-chat{visibility:visible;transform:none;transition:transform var(--m-panel-in) var(--ease-out),visibility 0s}
+/* Swipe-back (phoneSwipeGesture.ts, D35): while a finger drags the chat, the panes are moved by inline transforms and Web
+   Animations, so CSS transitions stand aside (data-swipe=drag), the covered list is painted under the chat, and on the
+   commit frame (data-swipe=done) the classes change without replaying the push. pan-y leaves vertical scrolling and
+   pinch zoom to the browser and hands horizontal moves to the gesture; a sideways scroller inside keeps its own. */
+.chat-pane.mobile-chat,.chat-pane.mobile-chat .message-scroll{touch-action:pan-y pinch-zoom}
+.chat-pane[data-swipe],.contact-pane[data-swipe],.contact-pane[data-swipe]::after{transition:none}
+.contact-pane[data-swipe=drag]{visibility:visible}
 @media (prefers-reduced-motion:reduce){
   .contact-pane,.contact-pane.open,.chat-pane,.chat-pane.mobile-chat{transition:none}
   .contact-pane,.contact-pane::after{transform:none}

@@ -90,6 +90,7 @@
     "ui/THIRD_PARTY_NOTICES.md",
     "ui/index.html",
     "ui/motion-lab.html",
+    "ui/motionExperimentPlugin.ts",
     "ui/oauthAssetsPlugin.ts",
     "ui/package-lock.json",
     "ui/package.json",
