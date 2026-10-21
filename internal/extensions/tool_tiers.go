@@ -270,6 +270,10 @@ type MCPToolTierView struct {
 	ReadOnlyHint    bool        `json:"read_only_hint,omitempty"`
 	DestructiveHint *bool       `json:"destructive_hint,omitempty"`
 	Binding         string      `json:"-"`
+	// Digest is the tool definition's digest (name, description, input schema,
+	// annotations) as last observed; empty when the tool was never observed.
+	// It does not include the owner's override, unlike Binding.
+	Digest string `json:"-"`
 }
 
 // resolveMCPToolTier is the single place the contract's precedence lives: a
@@ -280,6 +284,7 @@ func resolveMCPToolTier(name string, rec *mcpToolTierRecord, legacyTrusted bool)
 	override, overrideDigest := "", ""
 	if rec != nil {
 		view.Description, view.Duplicated = rec.Description, rec.Duplicated
+		view.Digest = rec.Digest
 		view.ReadOnlyHint, view.DestructiveHint = rec.ReadOnlyHint, rec.DestructiveHint
 		// A name listed more than once is one tools/call target with several
 		// schemas; no single annotation describes it, so the provider's mark
@@ -364,6 +369,38 @@ func (m *Manager) MCPCallTier(call MCPCallApproval) (MCPToolTier, bool) {
 		return MCPTierWrite, false
 	}
 	return view.Tier, true
+}
+
+// MCPConfigVersion is the identity fingerprint of a configured server (its
+// name, address, transport and headers), or false when no such server exists.
+// A standing allowance binds to it: any change of what the name dials voids
+// the allowance.
+func (m *Manager) MCPConfigVersion(server string) (string, bool) {
+	m.mcpConfigFence.RLock()
+	defer m.mcpConfigFence.RUnlock()
+	servers, err := loadServers(m.cfg.MCPConfigPath)
+	cfg, ok := servers[server]
+	if err != nil || !ok {
+		return "", false
+	}
+	return metadataFingerprint(server, cfg), true
+}
+
+// MCPServerIdentity is what a standing allowance binds to besides the
+// configuration fingerprint: a digest of the credential target (address and
+// OAuth client, scopes and discovery URLs), so that connecting the same name
+// to another client or destination voids it. Nothing secret leaves: only the
+// digest does.
+func (m *Manager) MCPServerIdentity(server string) (fingerprint, credential string, ok bool) {
+	m.mcpConfigFence.RLock()
+	defer m.mcpConfigFence.RUnlock()
+	servers, err := loadServers(m.cfg.MCPConfigPath)
+	cfg, found := servers[server]
+	if err != nil || !found {
+		return "", "", false
+	}
+	sum := sha256.Sum256([]byte(credentialTargetKey(cfg)))
+	return metadataFingerprint(server, cfg), hex.EncodeToString(sum[:]), true
 }
 
 func (m *Manager) tierBindingCurrent(call MCPCallApproval, cfg MCPServerConfig) bool {

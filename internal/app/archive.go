@@ -129,6 +129,11 @@ func (s *Store) setBotArchived(id string, archived bool, successor string, stric
 		if err = pauseSchedulesTx(tx, "bot_id=? OR conversation_id=?", id, b.DMConversationID); err != nil {
 			return Bot{}, err
 		}
+		// Standing allowances do not survive archiving (revoked, history kept);
+		// unarchiving asks again.
+		if err = revokeStandingAllowancesForBotTx(tx, id, "bot_archived"); err != nil {
+			return Bot{}, err
+		}
 	}
 	t := now()
 	if _, err = tx.Exec(`UPDATE bots SET archived=? WHERE id=?`, boolInt(archived), id); err != nil {

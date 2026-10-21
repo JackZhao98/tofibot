@@ -243,7 +243,8 @@
         "mcp_delete": "删除 MCP 服务器",
         "mcp_test": "连接 MCP 服务器"
       }
-    }
+    },
+    "standing_decision": "由此 Bot 的常驻许可批准，未询问任何人。下方步骤会显示是否已执行。"
   },
   "question": {
     "approve": "批准此操作",
@@ -272,7 +273,8 @@
       "human_decided": "人工已决定",
       "run_done": "任务已结束",
       "approved": "已批准",
-      "remembered": "由记住的批准放行"
+      "remembered": "由记住的批准放行",
+      "standing": "已由常驻许可批准"
     },
     "answered_refresh_failed": "回答已接收，列表刷新失败，请刷新页面查看。",
     "submit_failed": "提交未完成，请重试。",
@@ -293,6 +295,10 @@
       "hint_identifier": "本对话中以后对 {{target}} 调用此工具将不再询问。可随时在对话菜单中撤销。",
       "hint_exact": "本对话中以后用完全相同的参数调用此工具将不再询问。可随时在对话菜单中撤销。",
       "stale": "已批准，但未记住：工具或其设置已变更。"
+    },
+    "always_allow": {
+      "hint": "“始终允许”后，{{bot}} 可以直接使用 {{server}} 上的 {{tool}}，Bot 自行工作时（例如按计划运行、没有人在场）也一样，直到你在设置中撤销。",
+      "stale": "已批准，但未保存为始终允许：该工具或其服务器已发生变化。"
     }
   },
   "form": {
@@ -417,7 +423,8 @@
       "policy_needs_approval": "执行策略需人工批准",
       "already_reviewed": "本提案已有审查记录",
       "high_risk_tool": "高风险工具 · 需要你决定",
-      "remembered": "记住的批准"
+      "remembered": "记住的批准",
+      "standing": "始终允许"
     },
     "label": {
       "shadow_reviewing": "观察审查中",
@@ -444,7 +451,8 @@
       "not_eligible": "未获自动执行资格",
       "not_rereviewed": "未重复审查",
       "high_risk_tool": "高风险工具：每次调用由人决定",
-      "remembered": "由本对话中记住的批准决定"
+      "remembered": "由本对话中记住的批准决定",
+      "standing": "由此 Bot 的常驻许可决定"
     },
     "failure": {
       "title": "审查未能完成的原因",
@@ -490,7 +498,8 @@
     "decline": "暂不批准",
     "payload_label": "完整工具参数，纯文本",
     "submitting": "提交中…",
-    "remember": "批准并在本对话中记住"
+    "remember": "批准并在本对话中记住",
+    "always_allow": "始终允许"
   },
   "remembered": {
     "title": "记住的批准",

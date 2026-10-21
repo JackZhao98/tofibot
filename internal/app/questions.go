@@ -82,6 +82,10 @@ type ApprovalDetails struct {
 	// this chat" is available for this proposal; it says what the grant
 	// would bind to. The model-visible request_approval tool cannot set it.
 	Remember *MCPRememberOffer `json:"remember,omitempty"`
+	// Standing is set by the internal MCP gate when "Always allow" is
+	// available (write-tier call in a conversation a person can see). The
+	// model-visible request_approval tool cannot set it.
+	Standing *MCPStandingOffer `json:"standing,omitempty"`
 	// Facts are server-built, model-independent facts about an extension
 	// change, shown above the model's wording. request_approval cannot set them.
 	Facts *ApprovalFacts `json:"facts,omitempty"`
@@ -275,7 +279,7 @@ func normalizeQuestionInput(x askQuestionInput) (askQuestionInput, error) {
 		if x.Approval == nil {
 			return x, errors.New("approval details are required")
 		}
-		if x.Approval.Review != nil || x.Approval.ReviewOnly || x.Approval.Remember != nil || x.Approval.Facts != nil {
+		if x.Approval.Review != nil || x.Approval.ReviewOnly || x.Approval.Remember != nil || x.Approval.Standing != nil || x.Approval.Facts != nil {
 			return x, errors.New("AutoReview metadata is reserved for the internal MCP gate")
 		}
 		for _, field := range []*string{&x.Approval.Action, &x.Approval.Target, &x.Approval.Impact} {
@@ -806,6 +810,9 @@ func (s *Server) routeQuestions(w http.ResponseWriter, r *http.Request, p string
 			// proposal. The grant binds to what the gate recorded on the card,
 			// never to anything in this body.
 			Remember bool `json:"remember"`
+			// AlwaysAllow: "Always allow" for an eligible write-tier MCP
+			// proposal; binds to what the gate recorded, never to this body.
+			AlwaysAllow bool `json:"always_allow"`
 		}
 		var raw json.RawMessage
 		if err = decodeQuestionAnswer(r, &raw); err == nil {
@@ -866,6 +873,16 @@ func (s *Server) routeQuestions(w http.ResponseWriter, r *http.Request, p string
 				return true
 			}
 		}
+		if body.AlwaysAllow {
+			if body.Remember {
+				writeErr(w, 400, "invalid_answer", "choose either remember or always allow")
+				return true
+			}
+			if value, ok := answer.(bool); !ok || !value || !s.standingOfferedFor(q) {
+				writeErr(w, 400, "always_allow_not_available", errStandingNotAvailable.Error())
+				return true
+			}
+		}
 		if q.Type == questionConnection && answer == connectionConnected && !s.connectionEstablished(q.Target) {
 			// The card never takes the browser's word for a connection.
 			writeErr(w, http.StatusConflict, "connection_not_ready", "The service is not connected yet.")
@@ -897,6 +914,14 @@ func (s *Server) routeQuestions(w http.ResponseWriter, r *http.Request, p string
 				out["remember_error"] = "remember_stale"
 			} else {
 				out["remembered"] = grant
+			}
+		}
+		if body.AlwaysAllow && !existing {
+			allowance, allowErr := s.grantStandingAllowance(q, actor)
+			if allowErr != nil {
+				out["always_allow_error"] = "always_allow_stale"
+			} else {
+				out["allowance"] = allowance
 			}
 		}
 		_, _ = s.store.Event(q.ConversationID, "question", q.Card())
@@ -961,7 +986,7 @@ func (s *Store) AnswerQuestion(id, actor string, answer any) (Question, bool, er
 	if err != nil {
 		return Question{}, false, err
 	}
-	if actor == "" || actor == q.BotID || actor == autoReviewActor || actor == rememberedApprovalActor {
+	if actor == "" || actor == q.BotID || actor == autoReviewActor || actor == rememberedApprovalActor || actor == standingAllowanceActor {
 		return Question{}, false, ErrQuestionBotActor
 	}
 	if q.Status != questionPending {

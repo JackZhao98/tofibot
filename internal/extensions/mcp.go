@@ -86,6 +86,10 @@ type Config struct {
 	// are workspace-wide unless restricted to selected Bots. Nil permits every
 	// skill; a returned error makes the run drop every skill (fail closed).
 	SkillAccess func(ctx context.Context, botID string, names []string) (map[string]bool, error)
+	// ServerIdentityChanged is called after a configuration write that changed
+	// a server's fingerprint or credential target, or removed it. It runs under
+	// the configuration fence and must not call back into the Manager.
+	ServerIdentityChanged func(server string)
 }
 
 type Manager struct {

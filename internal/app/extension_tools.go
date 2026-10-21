@@ -177,7 +177,7 @@ func (s *Server) applyExtensionChange(ctx context.Context, c Conversation, r Run
 		err = s.extensions.SaveMCP(x.Name, config, x.Action == "mcp_update")
 		mutated = err == nil
 	case "mcp_delete":
-		err = s.extensions.DeleteMCP(x.Name)
+		err = s.deleteMCPServer(x.Name)
 		mutated = err == nil
 	case "mcp_test":
 		if !x.TestConnection {
