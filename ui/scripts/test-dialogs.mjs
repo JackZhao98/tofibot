@@ -63,7 +63,7 @@ await check("Radix ships only in lazy chunks; the entry files carry none of it a
 
 const menuDelete = async page => {
   await page.locator(".header-more > button").click();
-  await page.locator(".more-menu[data-open=true] .delete-menu-action").click();
+  await page.locator(".more-menu[data-state=open] .delete-menu-action").click();
   await page.locator(".delete-dialog").waitFor();
 };
 const inDialog = page => page.evaluate(() => Boolean(document.querySelector(".delete-dialog")?.contains(document.activeElement)));
@@ -138,7 +138,7 @@ await check("delete dialog while busy: neither Escape nor the scrim closes it; a
 await check("Escape closes only the top layer: the dialog first, then the non-modal panel under it", async () => {
   const { page, context, errors } = await fixture.open({ viewport: { width: 1280, height: 820 }, motion: "reduce" });
   await page.locator(".header-more > button").click();
-  await page.locator(".more-menu[data-open=true] button", { hasText: "Schedule" }).click();
+  await page.locator(".more-menu[data-state=open] button", { hasText: "Schedule" }).click();
   await page.waitForFunction(() => document.querySelector(".workspace-grid")?.classList.contains("context-open"));
   await menuDelete(page);
   await page.keyboard.press("Escape");
@@ -184,7 +184,7 @@ const openCost = async (page, cdp) => page.evaluate(() => new Promise(resolve =>
   const long = [];
   const observer = new PerformanceObserver(list => { for (const entry of list.getEntries()) long.push(entry.duration); });
   observer.observe({ type: "longtask" });
-  const item = document.querySelector(".more-menu[data-open=true] .delete-menu-action");
+  const item = document.querySelector(".more-menu[data-state=open] .delete-menu-action");
   const start = performance.now();
   item.click();
   const tick = () => {
@@ -204,7 +204,7 @@ for (const cpu of [1, 4]) {
     const samples = [];
     for (let i = 0; i < 5; i++) {
       await page.locator(".header-more > button").click();
-      await page.locator(".more-menu[data-open=true] .delete-menu-action").waitFor();
+      await page.locator(".more-menu[data-state=open] .delete-menu-action").waitFor();
       await page.waitForTimeout(250);
       samples.push(await openCost(page, cdp));
       await page.keyboard.press("Escape");
