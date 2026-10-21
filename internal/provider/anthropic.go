@@ -37,11 +37,15 @@ import (
 // response as one ReasoningItem{Provider: "anthropic"} holding the turn's
 // content blocks, and are replayed verbatim on the next request.
 const (
-	anthropicVersion          = "2023-06-01"
-	anthropicBindingBeta      = "thinking-binding-controls-2026-08-01"
-	anthropicInterleavedBeta  = "interleaved-thinking-2025-05-14"
-	anthropicReasoningSource  = "anthropic"
-	anthropicWebSearchType    = "web_search_20250305"
+	anthropicVersion         = "2023-06-01"
+	anthropicBindingBeta     = "thinking-binding-controls-2026-08-01"
+	anthropicInterleavedBeta = "interleaved-thinking-2025-05-14"
+	anthropicReasoningSource = "anthropic"
+	anthropicWebSearchType   = "web_search_20250305"
+	// The basic fetch variant, like the basic search one, runs on every
+	// Messages API model without code-execution round trips; the page text is
+	// billed as ordinary input tokens and the fetch itself carries no fee.
+	anthropicWebFetchType     = "web_fetch_20250910"
 	anthropicDefaultMaxTokens = 32000
 	anthropicHighMaxTokens    = 64000
 )
@@ -95,15 +99,43 @@ func (a *anthropicProvider) ChatStream(ctx context.Context, req *ChatRequest, on
 		plain.WebSearch = nil
 		req = &plain
 	}
-	resp, err := a.stream(ctx, req, forward)
-	if err != nil && !forwarded && req.WebSearch != nil && isAnthropicWebSearchRejection(err) {
-		// The account has not enabled web search (an organization setting) or
-		// the model refuses the tool: remember it for this credential and run
-		// the request without search rather than fail the turn.
-		anthropicWebSearchRefused.Store(a.apiKey, true)
-		log.Printf("[anthropic] web search refused (%s); continuing without it for this credential until restart", strings.TrimSpace(err.Error()))
+	if req.WebFetch != nil && a.webFetchRefused() {
 		plain := *req
-		plain.WebSearch = nil
+		plain.WebFetch = nil
+		req = &plain
+	}
+	resp, err := a.stream(ctx, req, forward)
+	if err != nil && !forwarded && isAnthropicServerToolPairingError(err) {
+		// A replayed server tool block lost its pair somewhere upstream: send
+		// the history once more with every server tool block and the citations
+		// that point at them removed, instead of failing the turn.
+		log.Printf("[anthropic] unpaired server tool block in history (%s); retrying once without replayed server tool blocks", strings.TrimSpace(err.Error()))
+		stripped := *req
+		stripped.Messages = stripServerToolBlocks(req.Messages)
+		req = &stripped
+		resp, err = a.stream(ctx, req, forward)
+	}
+	// An account that has not enabled a server tool (an organization setting)
+	// or a model that refuses it gets the request again without that tool,
+	// and the refusal is remembered for this credential: a turn is never lost
+	// to an optional capability. A rejection naming both drops both.
+	for attempt := 0; attempt < 2 && err != nil && !forwarded; attempt++ {
+		dropSearch := req.WebSearch != nil && isAnthropicWebSearchRejection(err)
+		dropFetch := req.WebFetch != nil && isAnthropicWebFetchRejection(err)
+		if !dropSearch && !dropFetch {
+			break
+		}
+		plain := *req
+		if dropSearch {
+			anthropicWebSearchRefused.Store(a.apiKey, true)
+			plain.WebSearch = nil
+			log.Printf("[anthropic] web search refused (%s); continuing without it for this credential until restart", strings.TrimSpace(err.Error()))
+		}
+		if dropFetch {
+			anthropicWebFetchRefused.Store(a.apiKey, true)
+			plain.WebFetch = nil
+			log.Printf("[anthropic] web fetch refused (%s); continuing without it for this credential until restart", strings.TrimSpace(err.Error()))
+		}
 		req = &plain
 		resp, err = a.stream(ctx, req, forward)
 	}
@@ -359,8 +391,8 @@ func (a *anthropicProvider) buildPayload(req *ChatRequest) (map[string]any, []st
 	if system := strings.TrimSpace(req.System); system != "" {
 		payload["system"] = []map[string]any{{"type": "text", "text": req.System, "cache_control": cacheControl()}}
 	}
-	if len(req.Tools) > 0 || req.WebSearch != nil {
-		tools := make([]map[string]any, 0, len(req.Tools)+1)
+	if len(req.Tools) > 0 || req.WebSearch != nil || req.WebFetch != nil {
+		tools := make([]map[string]any, 0, len(req.Tools)+2)
 		if req.WebSearch != nil {
 			// The basic variant runs on every Messages API model and adds no
 			// code-execution round trips; the model decides when to search.
@@ -369,6 +401,18 @@ func (a *anthropicProvider) buildPayload(req *ChatRequest) (map[string]any, []st
 				search["max_uses"] = req.WebSearch.MaxUses
 			}
 			tools = append(tools, search)
+		}
+		if req.WebFetch != nil {
+			// Listed right after search: the two lookups come before the
+			// Bot's own tools in the request.
+			fetch := map[string]any{"type": anthropicWebFetchType, "name": "web_fetch"}
+			if req.WebFetch.MaxUses > 0 {
+				fetch["max_uses"] = req.WebFetch.MaxUses
+			}
+			if req.WebFetch.MaxContentTokens > 0 {
+				fetch["max_content_tokens"] = req.WebFetch.MaxContentTokens
+			}
+			tools = append(tools, fetch)
 		}
 		for _, t := range req.Tools {
 			schema := t.Parameters
@@ -536,7 +580,7 @@ func anthropicAssistantBlocks(msg Message, replay bool) ([]any, bool) {
 	var blocks []any
 	usedReplay := false
 	if replay {
-		if raw := anthropicReplayBlocks(msg.ReasoningItems); len(raw) > 0 {
+		if raw := pairServerToolBlocks(anthropicReplayBlocks(msg.ReasoningItems)); len(raw) > 0 {
 			if replayMatches(raw, msg) {
 				out := make([]any, len(raw))
 				for i, b := range raw {
@@ -677,15 +721,77 @@ func (a *anthropicProvider) webSearchRefused() bool {
 	return refused
 }
 
-// isAnthropicWebSearchRejection matches a 400/403 that names the web search
-// tool: not enabled for the organization, or not offered to the model.
+// isAnthropicWebSearchRejection matches the API saying this credential,
+// organization or model cannot use the web search tool. A 400 that merely
+// names the tool because the request was malformed (a replayed history with an
+// unpaired server tool block) is not a refusal and never disables search.
 func isAnthropicWebSearchRejection(err error) bool {
+	return isServerToolRefusal(err, "web_search", "web search")
+}
+
+// isServerToolRefusal is true for a 400/403 whose message both names the tool
+// and says the capability is unavailable (not enabled, not permitted, not
+// supported, disabled). A message about the shape of the request (a position
+// such as "messages.7", a missing or unpaired block) is never a refusal.
+func isServerToolRefusal(err error, names ...string) bool {
 	apiErr, ok := AsAPIError(err)
 	if !ok || (apiErr.StatusCode != 400 && apiErr.StatusCode != 403) {
 		return false
 	}
 	body := strings.ToLower(apiErr.Body)
-	return strings.Contains(body, "web_search") || strings.Contains(body, "web search")
+	named := false
+	for _, n := range names {
+		if strings.Contains(body, n) {
+			named = true
+		}
+	}
+	if !named || isMalformedRequestBody(body) {
+		return false
+	}
+	for _, phrase := range []string{"not enabled", "isn't enabled", "is not available", "not available", "not supported", "unsupported", "not permitted", "not allowed", "disabled", "does not support", "doesn't support", "has not been enabled", "permission"} {
+		if strings.Contains(body, phrase) {
+			return true
+		}
+	}
+	return false
+}
+
+// isMalformedRequestBody recognises an error about the structure of the
+// request: it points at a message position or at a block lacking its pair.
+func isMalformedRequestBody(body string) bool {
+	if strings.Contains(body, "messages.") || strings.Contains(body, "without a corresponding") ||
+		strings.Contains(body, "tool_use_id") || strings.Contains(body, "tool_result") || strings.Contains(body, "tool_use ") {
+		return true
+	}
+	return false
+}
+
+// isAnthropicServerToolPairingError matches the 400 for a replayed server tool
+// use block with no matching result (or a result with no use).
+func isAnthropicServerToolPairingError(err error) bool {
+	apiErr, ok := AsAPIError(err)
+	if !ok || apiErr.StatusCode != 400 {
+		return false
+	}
+	body := strings.ToLower(apiErr.Body)
+	if !strings.Contains(body, "without a corresponding") && !strings.Contains(body, "without a matching") {
+		return false
+	}
+	return strings.Contains(body, "web_search") || strings.Contains(body, "web_fetch") || strings.Contains(body, "server_tool_use") || strings.Contains(body, "_tool_result")
+}
+
+// anthropicWebFetchRefused remembers credentials whose requests the API
+// rejected for declaring server-side web fetch.
+var anthropicWebFetchRefused sync.Map
+
+func (a *anthropicProvider) webFetchRefused() bool {
+	_, refused := anthropicWebFetchRefused.Load(a.apiKey)
+	return refused
+}
+
+// isAnthropicWebFetchRejection is isAnthropicWebSearchRejection for fetch.
+func isAnthropicWebFetchRejection(err error) bool {
+	return isServerToolRefusal(err, "web_fetch", "web fetch")
 }
 
 // anthropicAnyRefused remembers models whose API refused tool_choice any, so
@@ -779,7 +885,7 @@ func parseAnthropicStream(body io.Reader, onDelta func(StreamDelta)) (*ChatRespo
 	result := &ChatResponse{}
 	blocks := map[int]*anthropicBlock{}
 	var usage struct {
-		input, output, cacheRead, cacheWrite, webSearches int64
+		input, output, cacheRead, cacheWrite, webSearches, webFetches int64
 	}
 	readUsage := func(raw json.RawMessage) {
 		var u struct {
@@ -789,6 +895,7 @@ func parseAnthropicStream(body io.Reader, onDelta func(StreamDelta)) (*ChatRespo
 			CacheCreationInputTokens *int64 `json:"cache_creation_input_tokens"`
 			ServerToolUse            *struct {
 				WebSearchRequests int64 `json:"web_search_requests"`
+				WebFetchRequests  int64 `json:"web_fetch_requests"`
 			} `json:"server_tool_use"`
 		}
 		if len(raw) == 0 || json.Unmarshal(raw, &u) != nil {
@@ -806,6 +913,9 @@ func parseAnthropicStream(body io.Reader, onDelta func(StreamDelta)) (*ChatRespo
 		set(&usage.cacheWrite, u.CacheCreationInputTokens)
 		if u.ServerToolUse != nil && u.ServerToolUse.WebSearchRequests > 0 {
 			usage.webSearches = u.ServerToolUse.WebSearchRequests
+		}
+		if u.ServerToolUse != nil && u.ServerToolUse.WebFetchRequests > 0 {
+			usage.webFetches = u.ServerToolUse.WebFetchRequests
 		}
 	}
 	var stopReason string
@@ -959,6 +1069,7 @@ func parseAnthropicStream(body io.Reader, onDelta func(StreamDelta)) (*ChatRespo
 	var content, reasoning strings.Builder
 	var replay []json.RawMessage
 	var searches []WebSearch
+	var fetches []WebFetch
 	hasThinking := false
 	for _, b := range ordered {
 		var out any
@@ -991,7 +1102,7 @@ func parseAnthropicStream(body io.Reader, onDelta func(StreamDelta)) (*ChatRespo
 			// input_json_delta, and a replayed block must hold it.
 			args := strings.TrimSpace(b.input.String())
 			if args == "" {
-				args = "{}"
+				args = startInput(b.start)
 			}
 			out = map[string]any{"type": "server_tool_use", "id": b.id, "name": b.name, "input": toolInputRaw(args)}
 			if b.name == "web_search" {
@@ -1000,6 +1111,13 @@ func parseAnthropicStream(body io.Reader, onDelta func(StreamDelta)) (*ChatRespo
 				}
 				_ = json.Unmarshal([]byte(args), &in)
 				searches = append(searches, WebSearch{ID: b.id, Query: in.Query})
+			}
+			if b.name == "web_fetch" {
+				var in struct {
+					URL string `json:"url"`
+				}
+				_ = json.Unmarshal([]byte(args), &in)
+				fetches = append(fetches, WebFetch{ID: b.id, URL: in.URL})
 			}
 		case "web_search_tool_result":
 			if len(b.start) > 0 {
@@ -1011,6 +1129,17 @@ func parseAnthropicStream(body io.Reader, onDelta func(StreamDelta)) (*ChatRespo
 			}
 			if json.Unmarshal(b.start, &rb) == nil {
 				attachWebSearchResult(searches, rb.ToolUseID, rb.Content)
+			}
+		case "web_fetch_tool_result":
+			if len(b.start) > 0 {
+				out = b.start
+			}
+			var rb struct {
+				ToolUseID string          `json:"tool_use_id"`
+				Content   json.RawMessage `json:"content"`
+			}
+			if json.Unmarshal(b.start, &rb) == nil {
+				attachWebFetchResult(fetches, rb.ToolUseID, rb.Content)
 			}
 		default:
 			if len(b.start) > 0 {
@@ -1030,6 +1159,8 @@ func parseAnthropicStream(body io.Reader, onDelta func(StreamDelta)) (*ChatRespo
 	result.Reasoning = reasoning.String()
 	result.WebSearches = searches
 	result.WebSearchRequests = max(usage.webSearches, int64(len(searches)))
+	result.WebFetches = fetches
+	result.WebFetchRequests = max(usage.webFetches, int64(len(fetches)))
 	if hasThinking {
 		if raw, err := json.Marshal(replay); err == nil {
 			result.ReasoningItems = []ReasoningItem{{Provider: anthropicReasoningSource, Content: raw}}
@@ -1068,4 +1199,166 @@ func attachWebSearchResult(searches []WebSearch, toolUseID string, content json.
 	if json.Unmarshal(content, &failure) == nil && failure.ErrorCode != "" {
 		searches[at].Error = failure.ErrorCode
 	}
+}
+
+// attachWebFetchResult fills the fetch with the given tool_use_id from a
+// web_fetch_tool_result content: a web_fetch_result holding the page on
+// success, one web_fetch_tool_error object (HTTP 200) on failure. The page
+// text stays in the replayed block; only its address, title and time are kept.
+func attachWebFetchResult(fetches []WebFetch, toolUseID string, content json.RawMessage) {
+	at := -1
+	for i := range fetches {
+		if fetches[i].ID == toolUseID {
+			at = i
+		}
+	}
+	if at < 0 {
+		return
+	}
+	var res struct {
+		Type        string `json:"type"`
+		URL         string `json:"url"`
+		RetrievedAt string `json:"retrieved_at"`
+		ErrorCode   string `json:"error_code"`
+		Content     struct {
+			Title string `json:"title"`
+		} `json:"content"`
+	}
+	if json.Unmarshal(content, &res) != nil {
+		return
+	}
+	if res.ErrorCode != "" {
+		fetches[at].Error = res.ErrorCode
+		return
+	}
+	if res.URL != "" {
+		fetches[at].URL = res.URL
+	}
+	fetches[at].Title = res.Content.Title
+	fetches[at].RetrievedAt = res.RetrievedAt
+}
+
+// startInput is the input a content_block_start carried whole (a block whose
+// arguments arrive in one piece has no input_json_delta), or an empty object.
+func startInput(start json.RawMessage) string {
+	var cb struct {
+		Input json.RawMessage `json:"input"`
+	}
+	if json.Unmarshal(start, &cb) == nil && len(cb.Input) > 0 && string(cb.Input) != "null" {
+		return string(cb.Input)
+	}
+	return "{}"
+}
+
+// serverToolResultType is true for the result block of a server-side tool
+// (web_search_tool_result, web_fetch_tool_result, code execution results...),
+// never for the client tool_result.
+func serverToolResultType(t string) bool {
+	return t != "tool_result" && strings.HasSuffix(t, "_tool_result")
+}
+
+// pairServerToolBlocks makes the server tool blocks of one replayed assistant
+// turn travel together: a server_tool_use is kept only with its result, and a
+// result only with its use. When a block is dropped, the citations on the
+// turn's text are dropped too, since they point into those results. A turn
+// whose server blocks are all paired comes back untouched.
+func pairServerToolBlocks(raw []json.RawMessage) []json.RawMessage {
+	uses, results := map[string]bool{}, map[string]bool{}
+	type head struct {
+		Type      string `json:"type"`
+		ID        string `json:"id"`
+		ToolUseID string `json:"tool_use_id"`
+	}
+	heads := make([]head, len(raw))
+	for i, b := range raw {
+		if json.Unmarshal(b, &heads[i]) != nil {
+			continue
+		}
+		switch {
+		case heads[i].Type == "server_tool_use":
+			uses[heads[i].ID] = true
+		case serverToolResultType(heads[i].Type):
+			results[heads[i].ToolUseID] = true
+		}
+	}
+	dropped := false
+	keep := make([]bool, len(raw))
+	for i, h := range heads {
+		keep[i] = true
+		switch {
+		case h.Type == "server_tool_use" && !results[h.ID]:
+			keep[i], dropped = false, true
+		case serverToolResultType(h.Type) && !uses[h.ToolUseID]:
+			keep[i], dropped = false, true
+		}
+	}
+	if !dropped {
+		return raw
+	}
+	out := make([]json.RawMessage, 0, len(raw))
+	for i, b := range raw {
+		if keep[i] {
+			out = append(out, stripCitations(b))
+		}
+	}
+	return out
+}
+
+// stripCitations removes the citations of a text block; other blocks pass.
+func stripCitations(b json.RawMessage) json.RawMessage {
+	if blockType(b) != "text" {
+		return b
+	}
+	var m map[string]json.RawMessage
+	if json.Unmarshal(b, &m) != nil {
+		return b
+	}
+	if _, ok := m["citations"]; !ok {
+		return b
+	}
+	delete(m, "citations")
+	if out, err := json.Marshal(m); err == nil {
+		return out
+	}
+	return b
+}
+
+// stripServerToolBlocks returns messages whose replayed Anthropic turns carry
+// no server tool blocks at all (and no citations), keeping the thinking, text
+// and client tool_use blocks.
+func stripServerToolBlocks(msgs []Message) []Message {
+	out := make([]Message, len(msgs))
+	copy(out, msgs)
+	for i := range out {
+		items := make([]ReasoningItem, len(out[i].ReasoningItems))
+		copy(items, out[i].ReasoningItems)
+		for j, item := range items {
+			if item.Provider != anthropicReasoningSource || len(item.Content) == 0 {
+				continue
+			}
+			var raw []json.RawMessage
+			if json.Unmarshal(item.Content, &raw) != nil {
+				continue
+			}
+			kept, changed := make([]json.RawMessage, 0, len(raw)), false
+			for _, b := range raw {
+				if t := blockType(b); t == "server_tool_use" || serverToolResultType(t) {
+					changed = true
+					continue
+				}
+				kept = append(kept, b)
+			}
+			if !changed {
+				continue
+			}
+			for k := range kept {
+				kept[k] = stripCitations(kept[k])
+			}
+			if content, err := json.Marshal(kept); err == nil {
+				items[j].Content = content
+			}
+		}
+		out[i].ReasoningItems = items
+	}
+	return out
 }

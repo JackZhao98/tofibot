@@ -92,6 +92,10 @@ var (
 	maxBulkToolCallArgumentChars = 96000
 )
 
+// webFetchMaxContentTokens bounds the page text one server-side fetch puts
+// into context; the text is billed as input on every later request of the run.
+const webFetchMaxContentTokens = 10000
+
 var bulkContentTools = map[string]bool{"computer_files": true, "computer_action": true, "tofi_write": true, "tofi_edit": true, "say": true}
 
 // MaxStepsWithProgressReports is the hard loop guard for tasks that report
@@ -221,9 +225,14 @@ type AgentConfig struct {
 	// OnWebSearches receives what each response searched and the billed count.
 	WebSearchMaxUses int
 	OnWebSearches    func(searches []provider.WebSearch, billed int64)
-	OnCompact        func(originalTokens, compactedTokens int) // Successful in-run context compaction
-	Hooks            *Hooks                                    // Optional: pre/post hooks for tool calls, API calls, compaction
-	OnMessage        func(msg provider.Message)                // Optional: called immediately after each assistant/tool message is appended. Used for incremental chat session persistence so a browser refresh or hold doesn't lose in-progress turns. Internal synthetic user continuations are NOT emitted.
+	// WebFetchMaxUses, when positive, adds the provider's server-side page
+	// reader (pages per model request capped at this); OnWebFetches receives
+	// what each response read and the counted number.
+	WebFetchMaxUses int
+	OnWebFetches    func(fetches []provider.WebFetch, counted int64)
+	OnCompact       func(originalTokens, compactedTokens int) // Successful in-run context compaction
+	Hooks           *Hooks                                    // Optional: pre/post hooks for tool calls, API calls, compaction
+	OnMessage       func(msg provider.Message)                // Optional: called immediately after each assistant/tool message is appended. Used for incremental chat session persistence so a browser refresh or hold doesn't lose in-progress turns. Internal synthetic user continuations are NOT emitted.
 	// BeforeModelCall runs at the safe boundary immediately before a provider
 	// request. Callers may use it to observe durable steering input without
 	// interrupting an already-streaming response or an in-flight tool.
@@ -1341,6 +1350,9 @@ func RunAgentLoop(cfg AgentConfig, ctx *models.ExecutionContext) (returned *Agen
 		if cfg.WebSearchMaxUses > 0 && !repairRequest && !finalRepairFinalRequest && !budgetWrapUp {
 			req.WebSearch = &provider.WebSearchSpec{MaxUses: cfg.WebSearchMaxUses}
 		}
+		if cfg.WebFetchMaxUses > 0 && !repairRequest && !finalRepairFinalRequest && !budgetWrapUp {
+			req.WebFetch = &provider.WebFetchSpec{MaxUses: cfg.WebFetchMaxUses, MaxContentTokens: webFetchMaxContentTokens}
+		}
 		if cfg.ForceToolUse && !repairRequest && !finalRepairFinalRequest && !budgetWrapUp && len(requestTools) > 0 &&
 			!lastToolRoundFailed(messages) && !(cfg.EndOnEmptyFinal != nil && cfg.EndOnEmptyFinal()) {
 			// A run that handed its work off owes no reply and may end quietly,
@@ -1431,6 +1443,9 @@ func RunAgentLoop(cfg AgentConfig, ctx *models.ExecutionContext) (returned *Agen
 				}
 				if cfg.OnWebSearches != nil && (len(resp.WebSearches) > 0 || resp.WebSearchRequests > 0) {
 					cfg.OnWebSearches(resp.WebSearches, resp.WebSearchRequests)
+				}
+				if cfg.OnWebFetches != nil && (len(resp.WebFetches) > 0 || resp.WebFetchRequests > 0) {
+					cfg.OnWebFetches(resp.WebFetches, resp.WebFetchRequests)
 				}
 			}
 			resp, err = nil, errors.New("model call aborted: tool call arguments exceeded the size cap")
@@ -1550,6 +1565,9 @@ func RunAgentLoop(cfg AgentConfig, ctx *models.ExecutionContext) (returned *Agen
 		}
 		if cfg.OnWebSearches != nil && (len(resp.WebSearches) > 0 || resp.WebSearchRequests > 0) {
 			cfg.OnWebSearches(resp.WebSearches, resp.WebSearchRequests)
+		}
+		if cfg.OnWebFetches != nil && (len(resp.WebFetches) > 0 || resp.WebFetchRequests > 0) {
+			cfg.OnWebFetches(resp.WebFetches, resp.WebFetchRequests)
 		}
 		state.Trace.RecordAPICall(state.Step, cfg.Model, resp.Usage, resp, apiDuration)
 		cfg.Hooks.callPostAPICall(state.Step, resp.Usage.InputTokens, resp.Usage.OutputTokens, resp.HasToolCalls())

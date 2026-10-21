@@ -825,7 +825,7 @@
       },
       "web_search": {
         "name": "Recherche web",
-        "what": "Les modèles Claude cherchent eux-mêmes sur le web avant de répondre quand une question peut être plus récente que leurs connaissances."
+        "what": "Les modèles Claude cherchent eux-mêmes sur le web et lisent les pages sur lesquelles ils s'appuient avant de répondre quand une question peut être plus récente que leurs connaissances."
       },
       "group_exchange_gists": {
         "name": "Échanges de groupe terminés, résumés",
