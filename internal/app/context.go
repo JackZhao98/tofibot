@@ -664,6 +664,7 @@ func (s *Server) buildContextPartsWith(c Conversation, r Run, bot Bot, cachedMCP
 	}
 	chosen := make([]runtime.Message, 0, len(msgs))
 	imagesLeft, imageBudget := 3, int64(8<<20)
+	guestPaths := s.guestInputPathsFor(c, r.TriggerMessageID)
 	historyLimit := maxHistoryRunes - handoffReserve
 	// The summary covers seq <= covered; keep only a small verbatim overlap of
 	// summarized messages so the transition stays coherent.
@@ -726,7 +727,7 @@ func (s *Server) buildContextPartsWith(c Conversation, r Run, bot Bot, cachedMCP
 		if !own {
 			visual.Content = "[message_id=" + m.ID + "] " + visual.Content
 		}
-		s.addAttachmentContext(c, m, &visual, &imagesLeft, &imageBudget)
+		s.addAttachmentContext(c, m, &visual, &imagesLeft, &imageBudget, guestPaths)
 		content = trimRunes(visual.Content, historyLimit-used)
 		cost := len([]rune(content))
 		if cost == 0 || used+cost > historyLimit {
