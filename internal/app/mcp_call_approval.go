@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log"
 	"strings"
 	"unicode/utf8"
 
@@ -104,6 +105,16 @@ func (s *Server) approveMCPCallOnce(ctx context.Context, c Conversation, r Run, 
 		}
 	}
 
+	// A standing allowance ("Always allow") the person gave this Bot for this
+	// exact tool on this server identity decides the call in their place, in a
+	// scheduled run too. High-risk and read-only tools never match. It lifts
+	// the hidden-conversation refusal below only for this exact (Bot, server,
+	// tool): nothing else gains a path around requireHumanPresent.
+	standingID, err := s.matchStandingAllowance(s.store.db, r, call)
+	if err != nil {
+		return err
+	}
+
 	// A review card in a conversation no person can see would park the run on
 	// a decision nobody can make. Refuse before any card exists; this covers
 	// every mode, since the card is the record the decision is made on. A
@@ -111,7 +122,7 @@ func (s *Server) approveMCPCallOnce(ctx context.Context, c Conversation, r Run, 
 	// outcomes (mcp_needs_human_unattended and the like) from the flow below.
 	if unattended, err := s.mcpRunUnattended(r); err != nil {
 		return err
-	} else if !unattended {
+	} else if !unattended && standingID == "" {
 		if err := requireHumanPresent(c); err != nil {
 			return err
 		}
@@ -125,6 +136,7 @@ func (s *Server) approveMCPCallOnce(ctx context.Context, c Conversation, r Run, 
 	var id, status, claimed, expires string
 	var answer sql.NullString
 	var newQuestion *Question
+	standingDecided := false
 	loadErr := func() error {
 		s.mcpApprovalMu.Lock()
 		defer s.mcpApprovalMu.Unlock()
@@ -187,6 +199,26 @@ func (s *Server) approveMCPCallOnce(ctx context.Context, c Conversation, r Run, 
 			// could later decide: never in auto mode, never for the owner's
 			// "Always ask me" tier, only in a run the owner's own message
 			// triggered, and only with a derivable target.
+			if standingID != "" {
+				// Re-checked at the point of use; if the allowance went away since
+				// the first look, the hidden-conversation refusal applies again.
+				if again, matchErr := s.matchStandingAllowance(s.store.db, r, call); matchErr != nil {
+					return matchErr
+				} else if again != standingID {
+					standingID = ""
+					if unattended, e := s.mcpRunUnattended(r); e != nil {
+						return e
+					} else if !unattended {
+						if e := requireHumanPresent(c); e != nil {
+							return e
+						}
+					}
+				}
+			}
+			standingOffered := standingID == "" && s.standingOfferable(c, call)
+			if standingOffered {
+				in.Approval.Standing = &MCPStandingOffer{Server: call.Server, Tool: call.Tool}
+			}
 			target, targetOK := mcpRememberTargetFor(call.Schema, call.Arguments)
 			rememberEligible := targetOK && s.rememberedApprovalUsable(s.store.db, c, r, call)
 			if rememberEligible {
@@ -200,7 +232,7 @@ func (s *Server) approveMCPCallOnce(ctx context.Context, c Conversation, r Run, 
 			if rememberEligible {
 				targetKey, targetKind, targetSummary = target.Key, target.Kind, target.Summary
 			}
-			if _, createErr = s.store.db.Exec(`INSERT INTO mcp_call_approvals(question_id,run_id,action_hash,server,tool,config_fingerprint,tier_binding,target_key,target_kind,target_summary,remember_eligible) VALUES(?,?,?,?,?,?,?,?,?,?,?)`, q.ID, r.ID, hash, call.Server, call.Tool, call.ConfigVersion, call.TierBinding, targetKey, targetKind, targetSummary, boolInt(rememberEligible)); createErr != nil {
+			if _, createErr = s.store.db.Exec(`INSERT INTO mcp_call_approvals(question_id,run_id,action_hash,server,tool,config_fingerprint,tier_binding,target_key,target_kind,target_summary,remember_eligible,standing_eligible) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)`, q.ID, r.ID, hash, call.Server, call.Tool, call.ConfigVersion, call.TierBinding, targetKey, targetKind, targetSummary, boolInt(rememberEligible), boolInt(standingOffered)); createErr != nil {
 				_, _ = s.store.db.Exec(`DELETE FROM questions WHERE id=? AND status=?`, q.ID, questionPending)
 				return createErr
 			}
@@ -208,7 +240,21 @@ func (s *Server) approveMCPCallOnce(ctx context.Context, c Conversation, r Run, 
 			// made earlier in this chat decides in their place; the card is
 			// published once, already decided, and keeps its own claim.
 			remembered := false
-			if settings.Mode != "auto" && rememberEligible {
+			if standingID != "" {
+				tx, txErr := s.store.db.Begin()
+				if txErr != nil {
+					return txErr
+				}
+				if applyErr := applyStandingAllowance(tx, c, &q, standingID); applyErr != nil {
+					_ = tx.Rollback()
+					return applyErr
+				}
+				if txErr = tx.Commit(); txErr != nil {
+					return txErr
+				}
+				remembered, standingDecided = true, true
+			}
+			if settings.Mode != "auto" && rememberEligible && !remembered {
 				grantID, matchErr := s.matchRememberedMCPApproval(s.store.db, c, r, call, target)
 				if matchErr != nil {
 					return matchErr
@@ -251,7 +297,7 @@ func (s *Server) approveMCPCallOnce(ctx context.Context, c Conversation, r Run, 
 	if loadErr != nil {
 		return loadErr
 	}
-	if newQuestion != nil {
+	if newQuestion != nil && !standingDecided {
 		if err := s.reviewNewMCPProposal(ctx, c, r, call, *newQuestion); err != nil {
 			return err
 		}
@@ -340,6 +386,13 @@ func (s *Server) approveMCPCallOnce(ctx context.Context, c Conversation, r Run, 
 	}
 	if call.OnClaim != nil {
 		call.OnClaim()
+	}
+	if used, e := s.store.GetQuestion(id); e == nil && used.AnsweredBy == standingAllowanceActor && used.Approval != nil && used.Approval.Review != nil {
+		// The call is already claimed: a failed audit write never aborts it,
+		// but it must not pass silently either.
+		if e = s.store.recordStandingUse(c, r.ID, r.reviewCallID, id, used.Approval.Review.GrantID); e != nil {
+			log.Printf("standing allowance use not recorded: %v", e)
+		}
 	}
 	return ctx.Err()
 }

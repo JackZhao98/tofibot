@@ -122,6 +122,9 @@ func (s *Store) deleteWorkspaceTargetWith(id string, bot bool, actor *Run, succe
 		if err = deleteFollowupsForBotTx(tx, id); err != nil {
 			return DeleteResult{}, err
 		}
+		if err = deleteStandingAllowancesForBotTx(tx, id); err != nil {
+			return DeleteResult{}, err
+		}
 		if _, err = tx.Exec(`INSERT OR IGNORE INTO deleted_bot_creations(client_creation_id) SELECT client_creation_id FROM bot_onboarding WHERE bot_id=?`, id); err != nil {
 			return DeleteResult{}, err
 		}
