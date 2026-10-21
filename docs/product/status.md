@@ -58,7 +58,7 @@ TOFI 是一个自托管的 AI Bot 工作台：后端是 Go 服务（`internal/`�
 | 每条消息下方有一行低调的操作按钮，消息之间留出更宽的间距，避免遮挡 | `bfab118`；[D17](../decisions/0017-quiet-message-action-row.md) |
 | 新消息到达时有弹簧链式的级联动画；读者靠近底部时跟着滚动 | `a7814b3`；`test:arrival-glide`；[D19](../decisions/0019-arrival-spring-cascade.md) |
 | Anthropic 模型可以在服务端联网搜索（默认开启），来源记入证据，费用记入 `usage_calls` | `8d83e30`；`automation_settings.go:86` |
-| （未发布，在分支 `fix/verification-rigor`）同一个开关还给 Anthropic 模型服务端读网页：读过的网址记入证据，次数记入 `usage_calls`（`kind = web_fetch`，读一页记一行，金额 0）；账户没开读网页时去掉并记住。查证原则并入原有查询句，同时写进 `say` 说明和请求旁边 | [D31](../decisions/0031-lookup-at-the-point-of-decision.md)；`internal/provider/anthropic.go`、`internal/app/web_search.go`、`internal/app/context.go`、`internal/app/say.go` |
+| （未发布，在分支 `fix/verification-rigor`）同一个开关还给 Anthropic 模型服务端读网页：读过的网址记入证据，次数记入 `usage_calls`（`kind = web_fetch`，读一页记一行，金额 0）；账户没开读网页时去掉并记住。查证原则并入原有查询句，同时写进 `say` 说明和请求旁边 | [D40](../decisions/0040-lookup-at-the-point-of-decision.md)；`internal/provider/anthropic.go`、`internal/app/web_search.go`、`internal/app/context.go`、`internal/app/say.go` |
 | `publish_file` 返回一个只有所有者能打开的附件链接 | `internal/app/artifact_publish.go:176`；`ade3968` |
 | 失败的运行可以重试；重试时保留之前已经完成的工具结果 | `38dd844`、`75b3e2c` |
 
@@ -230,6 +230,6 @@ H = Haiku，S = Sonnet，O = Opus。
 | `prod-lookup-*` | 10-19 19:38 | 按时间推断为 rc.21 | 名字查询（VisionQuest、トラファルガー・ロー），一对一和群聊各测 | 2/4 | 2/4 | |
 | `prod-lookup2-*` | 10-20 09:20 | 按时间推断为 rc.26 | 同上 | 3/4 | 2/4 | 一对一的 VisionQuest：Haiku 没去查，把它当成了 Vision Pro 的应用；Sonnet 不确定是哪个，反问“你指哪个？”。群聊里 Sonnet 凭记忆答成了 1985 年的同名电影 |
 | `prod-resourceful-*` | 10-20 11:03–11:07 | 按时间推断为 rc.27 | 想办法完成任务（找配图地址；发布文件并给出链接） | 1/2 | 1/2 | Haiku 没把办法试完就交还给用户；Sonnet 只看了搜索结果的标题就写摘要，没有打开页面 |
-| `verify2/*`（本机，未归档） | 10-21 02:00–03:15 | 分支 `fix/verification-rigor`（基线是 `main` 在 `5f4396f`） | 真实网络、本机二进制、Sonnet 5.5 做 Bot、Opus 5.5 评分、3 轮。探针：`dm_title`、`group_unaddressed_title`、`group_mention_title`、`*known_name_reading` 和 5 个小闲聊；任务：`lookup_compare_cities`、`research_requests_maintained`、`research_bun_node`、名字查询 4 题 | | 先搜再答 6/9 → 9/9（被 @ 的群 0/3 → 3/3）；VisionQuest 任务识别 6/6 → 6/6；小闲聊上多余搜索 0 → 0；`wrong_or_unverified` 5/9 → 5/9；探针每个约 $0.078 → $0.084 | 读网页工具在 56 个用了搜索的 run 里 0 次被用；本机“前”的版本 VisionQuest 就已 6/6 先搜，生产 0 次，疑为生产凭证没有联网搜索（待查）。详见 [D31](../decisions/0031-lookup-at-the-point-of-decision.md) |
+| `verify2/*`（本机，未归档） | 10-21 02:00–03:15 | 分支 `fix/verification-rigor`（基线是 `main` 在 `5f4396f`） | 真实网络、本机二进制、Sonnet 5.5 做 Bot、Opus 5.5 评分、3 轮。探针：`dm_title`、`group_unaddressed_title`、`group_mention_title`、`*known_name_reading` 和 5 个小闲聊；任务：`lookup_compare_cities`、`research_requests_maintained`、`research_bun_node`、名字查询 4 题 | | 先搜再答 6/9 → 9/9（被 @ 的群 0/3 → 3/3）；VisionQuest 任务识别 6/6 → 6/6；小闲聊上多余搜索 0 → 0；`wrong_or_unverified` 5/9 → 5/9；探针每个约 $0.078 → $0.084 | 读网页工具在 56 个用了搜索的 run 里 0 次被用；本机“前”的版本 VisionQuest 就已 6/6 先搜，生产 0 次，疑为生产凭证没有联网搜索（待查）。详见 [D40](../decisions/0040-lookup-at-the-point-of-decision.md) |
 
 `smoke1`、`remote-proof`、`remote-proof2`、`local-regress`、`fix-proof` 是检查评测脚本本身的小规模运行（1–3 题），不算产品成绩。

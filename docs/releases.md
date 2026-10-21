@@ -33,7 +33,7 @@ TOFI 每个版本改了什么，最新的在最上面。写给以后接手的人
 
 ## 未发布
 
-分支 `fix/verification-rigor`（未合并，未打标签）。主线：让 Bot 回答前先查证、说有出处的数字要读过页面（[D31](decisions/0031-lookup-at-the-point-of-decision.md)）。
+分支 `fix/verification-rigor`（未合并，未打标签）。主线：让 Bot 回答前先查证、说有出处的数字要读过页面（[D40](decisions/0040-lookup-at-the-point-of-decision.md)）。
 
 | 改了什么 | 说明 |
 |---|---|

@@ -47,7 +47,7 @@
 |---|---|---|
 | 文档体系：总索引、现状、路线图、决策记录、版本记录、工作流程，`AGENTS.md` 加“从这里开始” | 正在分支 `docs/system-opus` 上写，还没合并 | [D27](../decisions/0027-docs-are-the-system.md) |
 | 设计系统规范和迁移方案 | 正在 [`docs/design/`](../design/) 里写。owner 看过、点头之后才开始第一步迁移 | [D28](../decisions/0028-headless-design-system-migration.md) |
-| 查证原则放到决策点 + 服务端读网页 | 在分支 `fix/verification-rigor`，已测完，等协调者合并；读网页被模型主动用的比例是 0，见 3.3a | [D31](../decisions/0031-lookup-at-the-point-of-decision.md) |
+| 查证原则放到决策点 + 服务端读网页 | 在分支 `fix/verification-rigor`，已测完，等协调者合并；读网页被模型主动用的比例是 0，见 3.3a | [D40](../decisions/0040-lookup-at-the-point-of-decision.md) |
 | 任务完成度评测脚本 | 在分支 `eval/task-completion` 上（`c9f3517`…`820121f`），还没合进 `main`；结果目录被 git 忽略，只存在本机 | [status.md](status.md) 第 5.1 节 |
 
 ## 3. 下一步
@@ -70,7 +70,7 @@
 ### 3.3 模型“以为自己认识”的名字也要先查
 
 - **问题**：[D09](../decisions/0009-reliability-principles.md) 要求遇到不熟的名字先查再问，`717e0d8` 也已经让群聊和一对一一样先查。可是模型自以为认识的名字（VisionQuest）它不会去查：Haiku 认成了 Vision Pro 的应用，Sonnet 认成了 1985 年的同名电影（`prod-lookup2-*`，rc.26）。
-- **现状**：`8d83e30`（rc.27）加上了服务端联网搜索，提示词里查询的那一行也覆盖了“可能比模型更新的作品”。10-21 在分支 `fix/verification-rigor` 上复测并改进（[D31](../decisions/0031-lookup-at-the-point-of-decision.md)）：本机 Sonnet 先搜再答 6/9 → 9/9，被 @ 的群 0/3 → 3/3；但本机“前”的版本在 VisionQuest 任务里就已 6/6 先搜，生产是 0 次，**疑为生产凭证没有联网搜索**（生产主机日志里找 `[anthropic] web search refused`，待协调者查，本任务没碰服务器）。
+- **现状**：`8d83e30`（rc.27）加上了服务端联网搜索，提示词里查询的那一行也覆盖了“可能比模型更新的作品”。10-21 在分支 `fix/verification-rigor` 上复测并改进（[D40](../decisions/0040-lookup-at-the-point-of-decision.md)）：本机 Sonnet 先搜再答 6/9 → 9/9，被 @ 的群 0/3 → 3/3；但本机“前”的版本在 VisionQuest 任务里就已 6/6 先搜，生产是 0 次，**疑为生产凭证没有联网搜索**（生产主机日志里找 `[anthropic] web search refused`，待协调者查，本任务没碰服务器）。
 - **怎么算做完**：名字查询专项（`dm_visionquest`、`group_visionquest`、`dm_trafalgar`、`group_trafalgar`）在 Haiku 和 Sonnet 上都是 4/4，并且每次都能看到在回答之前做了查询。
 
 ### 3.3a 有出处的数字要读过页面（接着 3.3）
