@@ -133,6 +133,9 @@
 /* Skill access: "Who can use it" row on a skill card, and its sheet */
 .extension-card .skill-access{margin:10px 0 0;border:1px solid var(--line-soft);border-radius:14px;background:var(--surface-2)}
 .extension-card .skill-access .settings-row-v2{padding:10px 14px}
+.extension-card .skill-builtin-tag{margin-left:8px;padding:2px 8px;border:1px solid var(--line);border-radius:999px;font:600 11px/1.5 var(--body);color:var(--text-soft);vertical-align:middle}
+.extension-card .skill-enabled{margin-bottom:0}
+.extension-card .skill-enabled+.skill-access{margin-top:8px}
 .workspace .settings-page-body .extension-card .skill-access .settings-row-copy p{margin:4px 0 0;display:flex;flex-wrap:wrap;align-items:center;gap:4px 10px;font:12.5px/1.5 var(--body)}
 .skill-access-chips{display:inline-flex;align-items:center}
 .skill-access-chip{display:inline-grid;place-items:center;flex:none;width:26px;height:26px;overflow:hidden;border:2px solid var(--surface-2);border-radius:50%;background:var(--surface);box-shadow:0 0 0 1px var(--line-soft)}

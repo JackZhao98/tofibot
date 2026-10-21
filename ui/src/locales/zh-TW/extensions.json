@@ -391,7 +391,14 @@
     "saved": "已儲存",
     "scope": "工作區 Skill · 依需要讀取 · 可限定給指定 Bot",
     "starters": "Tofi 工作技能",
-    "support_note": "支援說明與參考檔案；不會自動執行附帶的指令碼。"
+    "support_note": "支援說明與參考檔案；不會自動執行附帶的指令碼。",
+    "builtin": {
+      "label": "啟用此技能",
+      "off_hint": "所有 Bot 都看不到它。重新開啟即可再次提供。",
+      "on_hint": "每個 Bot 在任務需要時都會讀取它。關閉後所有 Bot 都看不到它。",
+      "switch_for": "啟用 {{name}}",
+      "tag": "內建"
+    }
   },
   "status": {
     "authorizing": "正在開啟授權…",
