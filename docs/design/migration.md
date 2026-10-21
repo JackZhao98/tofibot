@@ -344,11 +344,11 @@ Motion 擅长三件事：带速度衔接、可中途打断的弹簧；自动 FLI
 | 文案检查 | `scripts/check-i18n.mjs` 和 `src/locales/README.md`：`src/catalog` 和 `src/motion-lab` 一样不计硬编码文案（目录页的标签是给做界面的人看的英文假数据，不随正式版发布；frame 里的产品文字仍走 7 种语言） |
 | 新测试 | `test:catalog`（`ui/scripts/test-catalog.mjs`），见下 |
 
-**`test:catalog` 查什么**（2026-10-20 PDT 实测：退出码 0，166 个状态，浅色 1280 和 390、深色 1280 共 289 个 frame，约 3 分钟）
+**`test:catalog` 查什么**（2026-10-20 PDT 实测：退出码 0，166 个状态，浅色 1280 和 390、深色 1280 共 279 个 frame；127 个弹层查过最上层，54 次键盘关闭；空闲机器上约 3 分钟）
 
 1. 正式构建里没有目录页：按 `package.json` 的 `build` 脚本把每个 `vite build` 跑进临时目录，断言没有 `catalog.html`、没有带 `CATALOG_MARKER` 字符串的文件、没有 `src/catalog/` 路径；`vite.config.ts`、`vite.motion-lab.config.ts`、`build` 脚本不提目录页；`ui/src` 里目录页以外的文件不 import `catalog/`。
 2. 目录页和 `components.md` 一一对应：§1–§23 每节一个，编号相同。
-3. 浏览器（Chromium，开发服务器，只有假数据）：每个状态在它声明的每个宽度上打开，没有页面错误、没有驱动步骤失败；每个弹层在它中心点是最上面的元素（检查时让所有元素都接收指针，所以 `pointer-events:none` 的提示、拖放遮罩也按绘制顺序算）；声明了键盘的弹层，按键能关掉（44 个），对话框和侧栏菜单还能用键盘重新打开；任何 `/api` 请求都没有到网络；本源真实的 `localStorage` 没被写。截图：`CATALOG_SHOTS=/abs/dir`。
+3. 浏览器（Chromium，开发服务器，只有假数据）：每个状态在它声明的每个宽度上打开，没有页面错误、没有驱动步骤失败；每个弹层在它中心点是最上面的元素（检查时让所有元素都接收指针，所以 `pointer-events:none` 的提示、拖放遮罩也按绘制顺序算）；声明了键盘的弹层，按键能关掉，对话框和侧栏菜单还能用键盘重新打开；任何 `/api` 请求都没有到网络；本源真实的 `localStorage` 没被写。截图：`CATALOG_SHOTS=/abs/dir`。
 
 **撤回验证**（D30，测试保留，只改被测的东西）
 
@@ -372,7 +372,22 @@ Motion 擅长三件事：带速度衔接、可中途打断的弹簧；自动 FLI
 3. 页面上"Not shown here yet"列的状态，看有没有你想先补的。
 4. 减弱动效：DevTools › Rendering › Emulate CSS prefers-reduced-motion，再刷新。
 
-**体积**：应用的入口包和懒加载块 0 字节（`test:shell-budget` 入口 315,113 B，和分支起点相同；目录页的文件不在任何生产块里，`test:catalog` 第 1 条证明）。
+**体积**：应用的入口包和懒加载块 0 字节。`npm run build` 的 `dist/`（394 个文件）和分支起点 `97ac43d` 的构建逐字节相同（全部文件 `shasum` 的总和一致）；`test:shell-budget` 入口 315,113 B，和起点相同。
+
+**实测**（同一台机器，2026-10-20 晚 PDT；起点 = `ds/step1-layers` 的 `97ac43d`。这一步不改产品代码，`dist/` 和起点逐字节相同，所以下面的差别都是机器负载：同时有其他四个分支在跑浏览器测试，1 分钟负载 9–22）
+
+| 预算 | 起点（动工前，本分支 worktree） | 现在 | 上限 |
+|---|---|---|---|
+| 入口包（gzip，`test:shell-budget`） | 315,113 B | 315,113 B（0 B） | 315,805 B |
+| 设置窗首帧 Chromium 1x / 4x 中位数 | 26.7 / 43.0 ms | 21.7 / 50.5 ms | 32 / 100 ms |
+| 设置窗首帧 WebKit 1x 中位数 | — | 14.0 ms | 32 ms |
+| 手机推入 4x CPU 超过 25 ms 的帧 | 0 | 1 | ≤ 1 |
+| 流式每块（1x / 4x） | — | 2.89 / 12.18 ms | 4 / 16 ms |
+| 切换会话 p95（1x / 4x） | — | 23.7 / 89.8 ms | 60 / 100 ms |
+| 打字每键脚本（减弱动效 / 动画开着） | — | 0.46 / 0.66 ms | ≤ 4 ms |
+| 猫头像帧率（暂停前 / 恢复后） | — | 64.6 / 59.7 fps | 见 `test:avatar-frame-budget` |
+
+`test:shell-budget`（Chromium）在负载 11–22 时连跑 3 次都在"打开设置窗时没有超过 50 ms 的帧"这一条上失败（最差间隔中位数 51–69 ms）；同一时段把起点 `97ac43d` 导出到临时目录交替跑了 2 次，同样失败（61 ms；另一次是手机推入 4x 下 2 帧超过 25 ms）。负载降到 9 后本分支重跑，退出码 0。
 
 ## 6. 顺序和依赖
 
