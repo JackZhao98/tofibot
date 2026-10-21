@@ -59,6 +59,8 @@ TOFI 是一个自托管的 AI Bot 工作台：后端是 Go 服务（`internal/`�
 | 新消息到达时有弹簧链式的级联动画；读者靠近底部时跟着滚动 | `a7814b3`；`test:arrival-glide`；[D19](../decisions/0019-arrival-spring-cascade.md) |
 | Anthropic 模型可以在服务端联网搜索（默认开启），来源记入证据，费用记入 `usage_calls` | `8d83e30`；`automation_settings.go:86` |
 | `publish_file` 返回一个只有所有者能打开的附件链接 | `internal/app/artifact_publish.go:176`；`ade3968` |
+| 提供方的瞬时错误（含 HTTP 200 的流内 `server_is_overloaded`、限流、5xx、断流）先按错误码有界重试，约 2 分钟内，服从 `Retry-After`，再判运行失败；`provider_retries` 默认 8。未发版 | `internal/provider/retry.go`；`internal/provider/errors.go`；`internal/runtime/overloaded_stream_test.go`；[D38](../decisions/0038-failed-runs-keep-published-files.md) |
+| 运行发布了文件之后失败：文件绑定到一条只带附件的助手消息，链接仍能打开（取消和重启中断的运行仍清理）。未发版 | `internal/app/artifact_publish.go`（`keepFailedRunFilesTx`）；`TestFailedRunKeepsPublishedFileReachable`；[D38](../decisions/0038-failed-runs-keep-published-files.md) |
 | 失败的运行可以重试；重试时保留之前已经完成的工具结果 | `38dd844`、`75b3e2c` |
 
 | 已知缺口 | 依据 |

@@ -84,25 +84,46 @@ func TestStageRunAttachmentSupersedesSameSourceOrName(t *testing.T) {
 	}
 }
 
-func TestFailedRunCleansOnlyUnboundPublishedAttachment(t *testing.T) {
-	s, err := OpenStore(t.TempDir())
+// A run that publishes a file and then fails (for example the provider stays
+// overloaded) must not take the file with it: the failure carries it, and the
+// link the model already handed out keeps opening.
+func TestFailedRunKeepsPublishedFileReachable(t *testing.T) {
+	s, dir := ownerTestServer(t)
+	cookie := ownerSetup(t, s, dir)
+	b, _ := s.store.CreateBot("publisher", "", "model")
+	c, _ := s.store.GetConversation(b.DMConversationID)
+	_, r, _, _ := s.store.AddUserRun(c.ID, b.ID, "publish", "failure-client")
+	_, _ = s.store.SetRunStatus(r.ID, "running", "")
+	a, _ := s.store.AddAttachment(c.ID, "x.xlsx", "application/octet-stream", bytes.NewBufferString("sheet"))
+	if _, err := s.store.stageRunAttachment(r, c, a, "x"); err != nil {
+		t.Fatal(err)
+	}
+	if ok, err := s.store.SetRunStatus(r.ID, "failed", "response failed: [server_is_overloaded] try later"); err != nil || !ok {
+		t.Fatalf("fail=%v %v", ok, err)
+	}
+	w := ownerCall(s, "GET", "/api/attachments/"+a.ID, nil, cookie, true)
+	if w.Code != 200 || w.Body.String() != "sheet" {
+		t.Fatalf("download after failure=%d %q", w.Code, w.Body.String())
+	}
+	msgs, _, err := s.store.Messages(c.ID, 0, 50)
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer s.Close()
-	b, _ := s.CreateBot("publisher", "", "model")
-	c, _ := s.GetConversation(b.DMConversationID)
-	_, r, _, _ := s.AddUserRun(c.ID, b.ID, "publish", "failure-client")
-	_, _ = s.SetRunStatus(r.ID, "running", "")
-	a, _ := s.AddAttachment(c.ID, "x.bin", "application/octet-stream", bytes.NewBufferString("x"))
-	if _, err = s.stageRunAttachment(r, c, a, "x"); err != nil {
-		t.Fatal(err)
+	var carried bool
+	for _, m := range msgs {
+		if m.RunID != r.ID || m.Role != "assistant" {
+			continue
+		}
+		if items, e := s.store.AttachmentsForMessage(m.ID); e == nil && len(items) == 1 && items[0].ID == a.ID {
+			carried = true
+		}
 	}
-	if ok, err := s.SetRunStatus(r.ID, "failed", "cancelled"); err != nil || !ok {
-		t.Fatalf("fail=%v %v", ok, err)
+	if !carried {
+		t.Fatalf("no failure message carries the file: %#v", msgs)
 	}
-	if _, _, err = s.Attachment(a.ID); err == nil {
-		t.Fatal("orphan attachment retained")
+	var pending int
+	if err := s.store.db.QueryRow(`SELECT COUNT(*) FROM run_attachments WHERE run_id=?`, r.ID).Scan(&pending); err != nil || pending != 0 {
+		t.Fatalf("staged rows left=%d %v", pending, err)
 	}
 }
 
