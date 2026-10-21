@@ -22,7 +22,6 @@
     "created_by_user": "내가 만듦",
     "created_by_bot": "어시스턴트가 만듦",
     "occurrence": "{{number}}번째 실행",
-    "planned_unknown": "확인 필요",
     "planned_description": "예정: {{date}} {{time}} · {{zone}}",
     "planned_description_unknown": "예정 시간 확인 필요",
     "triggered_on": "예약 실행 · {{date}}",

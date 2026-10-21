@@ -22,7 +22,6 @@
     "created_by_user": "由你建立",
     "created_by_bot": "由助理建立",
     "occurrence": "第 {{number}} 次",
-    "planned_unknown": "待確認",
     "planned_description": "預定觸發：{{date}} {{time}} · {{zone}}",
     "planned_description_unknown": "預定觸發時間待確認",
     "triggered_on": "排程觸發 · {{date}}",
