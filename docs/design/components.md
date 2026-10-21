@@ -5,6 +5,7 @@
 - 基线：`748c774`（branch `docs/system-opus`，2026-10-20）。下文的 `file:line` 都按这个提交写，代码改了就要跟着改这份文件（`docs/process.md`，"改了设计规范或组件"一行）。
 - 颜色、字体、间距、阴影、模糊、动效令牌和 z-index 的完整清单在同目录的 [`tokens.md`](tokens.md)。本文只写每个组件用到的层级数值，层级问题的编号（Z1–Z7）引用 `tokens.md` 第 9.2 节。
 - **层级已在迁移第 1 步换成 `--z-*` 刻度**（分支 `ds/step1-layers`）：本文各节"层级"一行和层级相关的问题（C15、C16、C21、C23、C26、C31、C35、C40）已按该分支更新，括号里是迁移前的数值；其余 `file:line` 仍按 `748c774`。
+- **菜单和弹出卡片已在迁移第 2 步换成 Radix**（分支 `ds/step2-menus`，`ui/src/overlays/`）：第 3、4（C6）、9、10、11、12 节和问题 C6、C18、C20、C21、C24、C25 已按该分支更新，`file:line` 是该分支的。
 - 设计原则和检查方法在 [`principles.md`](principles.md)。本文每条已知问题都标了它违反的原则（P1–P8）。
 - 桌面客户端（Electron）消费同一份网页 UI 构建产物（`AGENTS.md` "Core source boundaries"），用 `html[data-desktop]` 和 `isDesktop`（`ui/src/desktop.ts:45`）分支。本文说"网页端"指 `html:not([data-desktop])`。
 
@@ -26,7 +27,7 @@
 | 慢请求才显示加载 | `DelayedFeedback`（默认 300 ms 后才挂载）和 `useGraceFlag`（短于宽限期的状态什么都不显示） | `ui/src/DelayedFeedback.tsx:3-10`，`ui/src/useGraceFlag.ts:3-11` |
 | 文案本地化 | 所有用户可见文字在 `ui/src/locales/<lang>/<namespace>.json`；语气规则在 `ui/src/locales/README.md` "Tone" | `npm --prefix ui run test:i18n` |
 
-还**没有**统一的（这正是 D28 迁移要解决的）：焦点陷阱有 9 份各自手写的实现（见第 8 节表格"焦点陷阱"列）；菜单的方向键、关闭后焦点回到哪里各写各的（第 9 节）；z-index 原有 31 个不同的值，第 1 步已统一到 13 层刻度，由 `test:layers` 守着（`tokens.md` 第 9 节）。
+还**没有**统一的（这正是 D28 迁移要解决的）：焦点陷阱有 9 份各自手写的实现（见第 8 节表格"焦点陷阱"列）；菜单的方向键、关闭后焦点回到哪里原来各写各的（第 9 节，**第 2 步已统一**到 `ui/src/overlays/`）；z-index 原有 31 个不同的值，第 1 步已统一到 13 层刻度，由 `test:layers` 守着（`tokens.md` 第 9 节）。
 
 ---
 
@@ -115,15 +116,15 @@
 
 | 项 | 契约 |
 |---|---|
-| 焦点 | 已读且是群聊时，标记加入操作行的方向键序列（`data-roving`，`tabIndex=-1`），聚焦时显示读者名单（`SendReceipt.tsx:43-47`） |
+| 焦点 | 已读且是群聊时，标记加入操作行的方向键序列（`data-roving`，`tabIndex=-1`），聚焦 150 ms 后显示读者名单（标记的 `data-hint`，`SendReceipt.tsx`） |
 | 键盘 | 随操作行 |
-| 关闭 | 提示随焦点/悬停离开消失 |
+| 关闭 | 提示随焦点/悬停离开、任意按下、按键、滚动消失（`ActionHints` 的规则） |
 | 位置 | 标记在操作行末尾、时间之后；失败的重试行在气泡下方 14 px 高 |
-| 层级 | 读者提示 `--z-tooltip`（迁移前 5，`send-receipt.css:10`），仍在操作行里；对话窗格不是层叠上下文，所以宽屏下它直接在根层叠上下文里比，高于浮卡、抽屉、菜单；第 2 步改走 `data-hint` 委托、进 portal |
+| 层级 | 读者名单是 `ActionHints` 的提示（`--z-tooltip`，portal 进 `#tofi-layers`），`data-hint-tone="quiet"` 让它保持原来的白底外观（`.action-hint.is-quiet`，`interaction-system.css:97`）；名单在提示开着时变了，文字跟着变（`InteractionSystem.tsx:60` 的 `MutationObserver`）。迁移前是行内的 `.send-receipt-tip`，z 5 |
 | 动效 | 状态变化时勾"落定"一次（`--m-panel-in`，`send-receipt.css` `send-receipt-settle`）；减少动效下不动 |
 | 触屏 | 重试按钮视觉 14 px，触屏下用 `::after` 把点击区扩到约 44 px（`send-receipt.css`，`@media (pointer:coarse)`） |
 
-**测试**：`test:send-receipts`（`ui/scripts/test-send-receipts.mjs`：发送中→已送达→已读位置不变、失败重试、切走再回来）。
+**测试**：`test:send-receipts`（`ui/scripts/test-send-receipts.mjs`：发送中→已送达→已读位置不变、失败重试、切走再回来、读者名单）、`test:overlays`（名单在 `#tofi-layers`）。
 
 **已知问题**
 
@@ -160,7 +161,7 @@
 
 | # | 严重度 | 问题 | 证据 | 原则 |
 |---|---|---|---|---|
-| C6 | 中 | 附件菜单是 `role="menu"`，但打开时焦点不进菜单、没有方向键、Escape 关掉后焦点不回到触发按钮 | `App.tsx:3339-3352`；菜单标记在 `:3538`（`composer-add-menu`） | P8 |
+| C6 | 中 | ~~附件菜单是 `role="menu"`，但打开时焦点不进菜单、没有方向键、Escape 关掉后焦点不回到触发按钮~~ **第 2 步已修**（Radix 菜单，第 9 节） | `App.tsx` `Composer`（`composer-add-menu`） | P8 |
 | C7 | 中 | 快捷键只认 `metaKey`，菜单里也写死 `⌘⇧I`、`⌘⇧F`。在 Windows/Linux 浏览器上 Ctrl 不触发，显示的 ⌘ 也不存在 | `App.tsx:3354-3360`，`:3538`（`<kbd>⌘⇧I</kbd>`） | P5 |
 | C8 | 中 | @提及菜单是 `role="listbox"`，但文本框没有 `aria-controls`/`aria-activedescendant`，读屏听不到当前选中项；Tab 不能选中 | `App.tsx:3538`（`mention-menu`），全文件 grep `aria-activedescendant` 为 0 | P8 |
 
@@ -305,37 +306,46 @@
 
 ## 9. 菜单和右键菜单
 
-按 `role="menu"` 和右键弹出的算，有 4 个；另有 3 个不带菜单语义的下拉面板放在本节末尾。
+迁移第 2 步起，6 个菜单都是 Radix `DropdownMenu`（`modal={false}`），通过入口包里的 `OverlayMenu`（`ui/src/overlays/OverlayHost.tsx`）懒加载 `ui/src/overlays/RadixOverlays.tsx`。菜单的标记和类名不变，其中每个 `<button>` 变成一个菜单项（`role="menuitem"`）；触发按钮仍是 TOFI 自己的 `<button>`，带 `aria-haspopup="menu"`、`aria-expanded`，按 ↓ 也能打开（`arrowOpens`）。
 
-| 菜单 | 文件 | 打开方式 | 焦点进菜单 | 方向键 | Escape | 关后焦点回去 | 点外面关 | 位置 | 层级 |
-|---|---|---|---|---|---|---|---|---|---|
-| 侧栏行右键菜单（置顶、移到分区、标为未读、改名、设为主助理、复制链接、复制 ID、隐藏、删除） | `ui/src/App.tsx:2462-2473`，键盘 `:586-600`，关闭 `:683-690` | 右键、长按、Menu 键、Shift+F10 | 仅键盘打开时（`data-input="keyboard"`） | 上下循环 | 是 | 是（`sidebarMenuOrigin`） | `window` click | 指针处，用写死的 248×360 夹在视口内（`App.tsx:1314`、`:2286`、`:2308`） | `--z-menu`（120） |
-| 附件菜单（图片、文件、截屏） | `App.tsx:3538`，关闭 `:3339-3352` | 点 + | 否 | 否 | 是 | 否 | pointerdown | 按钮上方 | `--z-menu`（10），被输入框封顶（Z3） |
-| 账户菜单（设置、用量、主题、连接、归档、退出） | `ui/src/OwnerSession.tsx:164-190` | 点账户 | 否 | 否 | 是 | 否 | pointerdown | 账户按钮上方 10 px | `--z-menu`（150），被侧栏封顶（Z3） |
-| 消息表情反应菜单（8 个常用 + 更多 → 完整表情选择器） | `ui/src/MessageReactions.tsx:24-80`，`ui/src/ReactionEmojiPicker.tsx` | 操作行笑脸按钮；桌面客户端右键消息 | 是（第一个按钮） | 否 | 是（capture） | 是 | pointerdown；外部滚动也关 | 锚点下 6 px，按实测尺寸夹在视口内 12 px 边距（`:43-52`） | `--z-menu`（150） |
+**所有菜单共用的行为**（`RadixOverlays.tsx` `Menu`）
 
-下拉面板（没有 `role="menu"`，Tab 走完）：
+| 项 | 契约 |
+|---|---|
+| 打开 | 点触发按钮；Enter、空格、↓；右键菜单另有右键、长按 380 ms（拖动引擎）、Menu 键、Shift+F10 |
+| 焦点进菜单 | 键盘打开（`<html data-input="keyboard">`）：第一项；鼠标打开：菜单本身（不画焦点环，方向键照样能用） |
+| 键盘 | ↑↓ 循环，Home/End，首字母跳转，Enter/空格选中 |
+| Escape | 关闭，焦点回触发按钮（右键菜单回打开前聚焦的行） |
+| Tab | 关闭，焦点从触发按钮往后走；在模态（设置窗）里只在模态里走并回绕；Shift+Tab 回到触发按钮 |
+| 点外面 | 关闭，不吞掉这次点击（例如点另一个会话照样打开它）；再按触发按钮是关闭 |
+| 焦点移走 | 只是焦点移走（没有按下、Esc、Tab）不关闭，和迁移前一样（手机长按打开右键菜单后，触摸的兼容鼠标事件会把焦点移到行上） |
+| 选中后 | 焦点无处可去时回到触发按钮；不是在本项按下的抬起不选中任何项 |
+| 位置 | Radix Popper：`side/align/sideOffset`，离视口边缘不足时翻转、平移，留 8 px |
+| 层级 | 菜单内容自带 `--z-menu`，Radix 把它复制到 `position:fixed` 的外层，外层在 `#tofi-layers`；从 `aria-modal="true"` 的祖先里打开的是 `calc(var(--z-dialog) + 1)`（`data-layer="dialog"`） |
+| 动效 | 进场仍是各自的 CSS（新建、更多、右键：`menu-enter`，`--m-quick`）；新建、更多的退场是 `[data-state="closed"]` 上的 `menu-leave`，Radix 等动画结束再卸载；减弱动效下立即出现、立即消失 |
+| 开销 | 关着的菜单不渲染任何东西；右键菜单的状态在 `OverlaySlot`，打开关闭不重渲染工作区；打开时猫停 320 ms 呼吸（`holdAvatarLife`） |
 
-| 面板 | 文件 | 焦点进面板 | Escape 回触发按钮 | 层级 |
-|---|---|---|---|---|
-| 新建菜单（新 Bot、新群、导入） | `App.tsx:1180-1198`，标记 `create-menu` | 是（rAF 后第一个按钮） | 是 | `--z-menu`（8），在侧栏这一层里 |
-| 顶栏"更多"菜单 | `App.tsx:1159-1179`，标记 `more-menu` | 是 | 是 | `--z-menu`（8），在顶栏这一层里；顶栏在 ≥1100 px 是 `calc(var(--z-panel) + 1)`（迁移前 14，Z4） |
-| MCP 服务器行"更多" | `ui/src/MCPSettings.tsx:232-233` | 待确认 | 待确认 | `--z-menu`（30，`extensions-system.css:61`），在设置窗里 |
+| 菜单 | 文件 | 位置（和迁移前的 CSS 偏移逐像素相同） |
+|---|---|---|
+| 侧栏行右键菜单（置顶、移到分区、标为未读、改名、设为主助理、复制链接、复制 ID、隐藏、删除） | `ui/src/App.tsx:2401`（`SlotView`） | 指针处（右下展开），贴边时翻转 |
+| 新建菜单（新 Bot、新群、导入） | `App.tsx`，`create-menu` | 按钮下 8 px 右对齐；收起侧栏时在侧栏右侧 12 px 顶对齐 |
+| 顶栏"⋯"菜单 | `App.tsx`，`more-menu`，锚在 `.chat-header` | 顶栏下 8 px，右边距顶栏右缘 14 px |
+| 附件菜单（图片、文件、截屏） | `App.tsx` `Composer`，`composer-add-menu` | 按钮上方 12 px 左对齐 |
+| 账户菜单（设置、用量、主题、连接、归档、退出） | `ui/src/OwnerSession.tsx:176` | 账户区上方 10 px 左对齐；收起侧栏时在右侧 10 px 底对齐。主题三选一是 `role="menuitemradio"` + `aria-checked`，选了不关菜单 |
+| MCP 服务器行"⋯" | `ui/src/MCPSettings.tsx:227` | 按钮下 7 px 右对齐；在设置窗之上 |
 
-**动效**：新建和更多菜单进场 `menu-enter`（向下 4 px + 0.97 缩放），退场 `--m-quick`（`interaction-system.css:90-92`）；其余菜单直接出现。
+**触屏**：侧栏行长按 380 ms 出菜单（第 6 节），不用 Radix ContextMenu（它自带 700 ms 长按）。
 
-**触屏**：侧栏行长按 380 ms 出菜单（第 6 节）。表情菜单、账户菜单点外面即关。
-
-**测试**：`test:chat-motion`（表情菜单）、`test:sidebar-pins`（右键菜单、长按）。
+**测试**：`test:overlays`（每个菜单的鼠标、键盘、Esc、Tab、点外面、再按触发按钮、位置；右键菜单的指针位置、Shift+F10、贴边、长按、工作区不重渲染）、`test:sidebar-pins`（右键菜单、长按）、`test:chat-motion`（表情菜单）。
 
 **已知问题**
 
 | # | 严重度 | 问题 | 证据 | 原则 |
 |---|---|---|---|---|
-| C18 | 中 | 四个菜单四种键盘行为（见上表）：账户菜单和附件菜单声明了 `role="menu"` 却既不移焦点也不支持方向键，读屏会按菜单播报、键盘却用不了菜单的方式操作 | 上表各行 | P8 |
-| C19 | 中 | "复制 ID"直接调 `navigator.clipboard?.writeText`，在局域网 http 下（没有异步剪贴板）静默失败，没有任何提示；同文件里已有带降级的 `writeClipboard` | `App.tsx:2470`，对照 `:296-305` | P3 |
-| C20 | 低 | 右键菜单用写死的 248×360 估尺寸夹视口，菜单项变多（主助理、隐藏 Bot）或换语言变宽时可能出界；表情菜单已经用实测尺寸 | `App.tsx:1314`，对照 `MessageReactions.tsx:43-52` | P2 |
-| C21 | 低 | 账户菜单和附件菜单的 z-index 被父级封顶，写的数值没有意义（Z3）。第 1 步把数值换成了 `--z-menu`，仍被封顶，第 2 步改 portal 后才生效 | `tokens.md` Z3 | — |
+| C18 | 中 | ~~四个菜单四种键盘行为~~ **第 2 步已修**：一套规则，见上表 | `test:overlays` | P8 |
+| C19 | 中 | "复制 ID"直接调 `navigator.clipboard?.writeText`，在局域网 http 下（没有异步剪贴板）静默失败，没有任何提示；同文件里已有带降级的 `writeClipboard` | `App.tsx` 右键菜单"复制 ID"一项（第 2 步未改） | P3 |
+| C20 | 低 | ~~右键菜单用写死的 248×360 估尺寸夹视口~~ **第 2 步已修**：Radix 按实测尺寸翻转、平移 | `test:overlays` 贴边检查（390、1280 px） | P2 |
+| C21 | 低 | ~~账户菜单和附件菜单的 z-index 被父级封顶（Z3）~~ **第 2 步已修**：portal 进 `#tofi-layers` | `tokens.md` Z3 | — |
 
 ---
 
@@ -344,7 +354,7 @@
 | 提示 | 文件 | 触发 | 延迟 | 位置 | 层级 |
 |---|---|---|---|---|---|
 | 图标按钮提示 `ActionHints`（全局一个，委托监听带 `data-hint` 的元素） | `ui/src/InteractionSystem.tsx:51-84`，`interaction-system.css:93` | 鼠标悬停（触屏和笔不触发）、键盘聚焦 | 悬停 500 ms，聚焦 150 ms；从一个图标移到相邻图标 400 ms 内不再等（`:71`） | 按钮上方 8 px（离顶 ≤ 62 px 时改到下方），水平夹在 [100, 视口宽 − 100]，最宽 200 px | `--z-tooltip`（1000），portal 到 `#tofi-layers`（迁移前是 `body`） |
-| 群聊已读名单 | `ui/src/SendReceipt.tsx:43-47`，`send-receipt.css:10-11` | 悬停或聚焦已读标记 | 无，`--m-press` 淡入 | 标记上方，右对齐 | `--z-tooltip`（5），仍在行内 |
+| 群聊已读名单（第 2 步起就是上一行的提示，`data-hint-tone="quiet"` 白底） | `ui/src/SendReceipt.tsx`（标记的 `data-hint`），`interaction-system.css:97` | 同上（悬停、聚焦；手机点按标记） | 同上 | 同上 | `--z-tooltip`，portal 到 `#tofi-layers`（迁移前 5，在行内） |
 
 **关闭**：`ActionHints` 在指针移出、失焦、任意指针按下、任意按键、任意滚动时消失（`InteractionSystem.tsx:74-80`）。
 
@@ -356,7 +366,7 @@
 |---|---|---|---|---|
 | C22 | 中 | 提示是强调色底（`--accent`），在一套"控件要低调"的界面里是最显眼的东西 | `interaction-system.css:93` | P1（是否改为中性色：待 owner 定） |
 | C23 | 中 | 层级 1000 低于引导遮罩 1200，也到不了原生 `<dialog>` 顶层；目前那些地方没有 `data-hint`，暂无故障。**前一半第 1 步已修**：`--z-tooltip` 在所有模态之上；原生 `<dialog>` 那一半等第 3 步 | `tokens.md` Z7 | P2 |
-| C24 | 低 | 两套提示 + 原生 title 三种机制，样式和延迟各不一样 | 本节 | P6 |
+| C24 | 低 | ~~两套提示~~ + 原生 title：第 2 步起读者名单也走 `ActionHints`，只剩提示和原生 title 两种机制 | 本节 | P6 |
 
 ---
 
@@ -364,7 +374,8 @@
 
 | 浮层 | 文件 | 打开 | 关闭 | 位置 | 层级 |
 |---|---|---|---|---|---|
-| Bot 身份卡（群聊发送者头像上） | `ui/src/BotIdentityCard.tsx`，使用处 `App.tsx:2735` | 鼠标悬停 400 ms；聚焦；触屏松手；长按 500 ms 直接 @ 这个 Bot（`:37-43`） | 离开 180 ms 后；滚动、改窗口大小、Escape 立即关 | 锚点下 8 px，用写死的 292×240 夹在视口内 12 px 边距（`:22-26`） | `--z-popover`（90） |
+| Bot 身份卡（**界面上没有入口**：`App.tsx` 只给指派通知构造它，而指派通知在那之前已经 return，`inlineMention` 永远为空；迁移前写的"群聊发送者头像上"是错的） | `ui/src/BotIdentityCard.tsx`（第 2 步起 Radix Popover，`role="dialog"`） | 鼠标悬停 400 ms；聚焦；触屏松手；长按 500 ms 直接 @ 这个 Bot | 离开 180 ms 后；滚动、改窗口大小、Escape、点外面立即关；不抢焦点 | 锚点下 8 px 左对齐，贴边翻转、留 12 px | `--z-popover`（90） |
+| 表情反应菜单（第 2 步起 Radix Popover） | `ui/src/MessageReactions.tsx:47` | 操作行笑脸按钮；桌面客户端右键消息 | Escape、点外面、外面滚动；焦点回到笑脸按钮 | 按钮下 6 px（放不下时翻到按钮上方），留 12 px | `--z-menu`（150） |
 | 完整表情选择器 | `ui/src/ReactionEmojiPicker.tsx`（懒加载） | 表情菜单里点 + | 随表情菜单 | 表情菜单内 | 随表情菜单 `--z-menu`（150） |
 | 相关对话只读卡片（宽屏网页） | `ui/src/ViewOnlyChat.tsx`，`context-card.css:30` | 点消息里的相关对话链接 | Escape、关闭按钮 | 右上卡片位置，与上下文面板同位 | `--z-panel`（40） |
 | 上下文浮卡（≥1100 px 的 Bot 面板等） | `ui/src/context-card.css:13`、`:49` | 顶栏按钮 | 待确认 | 右上，`inset: var(--card-top) 16px auto auto` | `--z-panel`（12） |
@@ -373,8 +384,8 @@
 
 | # | 严重度 | 问题 | 证据 | 原则 |
 |---|---|---|---|---|
-| C25 | 低 | 身份卡没有 `role`，只有 `aria-label`；用写死尺寸夹视口 | `BotIdentityCard.tsx:47` | P8 |
-| C26 | 中 | 身份卡 90 低于只读窗 110、右键菜单 120；同一视图里叠开时被盖。第 1 步后按刻度：身份卡 `--z-popover` 低于菜单和模态是有意的顺序；身份卡只在主对话里出现，模态开着时背后是 `inert`，碰不到它。是否关闭这一条，等 owner 预览后定 | `tokens.md` 9.4 | P2 |
+| C25 | 低 | ~~身份卡没有 `role`；用写死尺寸夹视口~~ **第 2 步已修**（Popover 给 `role="dialog"`，按实测尺寸翻转）。另：身份卡在界面上没有入口，要不要恢复待 owner 定 | `BotIdentityCard.tsx` | P8 |
+| C26 | 中 | 身份卡 90 低于只读窗 110、右键菜单 120；同一视图里叠开时被盖。第 1 步后按刻度：身份卡 `--z-popover` 低于菜单和模态是有意的顺序；身份卡只在主对话里出现，模态开着时背后是 `inert`，碰不到它。第 2 步发现身份卡在界面上根本没有入口（见上表）。是否关闭这一条，等 owner 定 | `tokens.md` 9.4 | P2 |
 
 ---
 
@@ -382,7 +393,7 @@
 
 | 列表框 | 文件 | 键盘 | 读屏 | 位置 |
 |---|---|---|---|---|
-| @提及菜单（自写 `role="listbox"`，唯一一个） | `App.tsx:3426-3433`，`:3538`，`ui/src/web-mention.css` | 上下键、Enter 选、Escape 关；鼠标悬停改选中，按下即选 | 选项有 `aria-selected`，但文本框不关联（见 C8） | 网页端跟着光标位置（`mentionAnchor`），桌面客户端固定在输入框上 |
+| @提及菜单（自写 `role="listbox"`，唯一一个） | `App.tsx` `Composer`，`ui/src/web-mention.css` | 上下键、Enter 选、Escape 关；鼠标悬停改选中，按下即选 | 选项有 `aria-selected`，但文本框不关联（见 C8） | 网页端跟着光标位置，桌面客户端固定在输入框上方 8 px；第 2 步起 portal 进 `#tofi-layers`、`position:fixed`，`mentionAnchor` 按视口坐标算，不再被输入框封顶（Z3） |
 | 原生 `<select>` | 设置各页、引导、工作面板等 17 个文件共 36 处（`grep -o "<select" ui/src/*.tsx`） | 浏览器原生 | 浏览器原生 | 浏览器原生（深色模式下的下拉样式由系统决定） |
 
 ---
@@ -685,7 +696,7 @@
 | C36 | 高 | 电脑小窗 | 窄于 1024 px 时盖住消息 | P2 |
 | C3 | 中 | 操作行 | 提示压在消息最后一行上 | P2 |
 | C5 | 中 | 回执 | 已读强调色选择器失效，测试抓不到 | P3 |
-| C6 | 中 | 附件菜单 | 声明了菜单却没有菜单键盘 | P8 |
+| C6 | 中 | 附件菜单 | 声明了菜单却没有菜单键盘（**第 2 步已修**） | P8 |
 | C7 | 中 | 输入框 | 快捷键只认 ⌘，Windows/Linux 不可用 | P5 |
 | C8 | 中 | @菜单 | 读屏听不到选中项 | P8 |
 | C9 | 中 | 输入框上的猫 | 可能压住最后一条消息（待实测） | P2 |
@@ -694,7 +705,7 @@
 | C14 | 中 | 接任者对话框 | 背景没 `inert` | P8 |
 | C15 | 中 | 权限提示 | 盖住发送按钮（不盖胶囊，已更正） | P2 |
 | C16 | 中 | 设置窗 | 模态层级 30，被很多东西盖（**第 1 步已修**） | P2 |
-| C18 | 中 | 菜单 | 四个菜单四种键盘行为 | P8 |
+| C18 | 中 | 菜单 | 四个菜单四种键盘行为（**第 2 步已修**） | P8 |
 | C19 | 中 | 右键菜单 | http 下"复制 ID"静默失败 | P3 |
 | C22 | 中 | 悬停提示 | 强调色底，与"控件低调"冲突（待 owner 定） | P1 |
 | C23 | 中 | 悬停提示 | 到不了原生 dialog 之上（引导那一半第 1 步已修） | P2 |
@@ -705,7 +716,7 @@
 | C38 | 中 | 手机推入 | 没有边缘右滑返回 | P5 |
 | C40 | 中 | 新消息胶囊 | 同角落的电脑小窗盖在它上面 | P2 |
 | C2 | 中 | 消息气泡 | 7 种分支 + 两套工具行 | P6 |
-| C1、C4、C10、C11、C17、C20、C21、C24、C25、C27、C28、C30、C33、C34、C35（第 1 步已修）、C37、C39、C41 | 低 | 各处 | 见各节 | — |
+| C1、C4、C10、C11、C17、C20（第 2 步已修）、C21（第 2 步已修）、C24、C25（第 2 步已修）、C27、C28、C30、C33、C34、C35（第 1 步已修）、C37、C39、C41 | 低 | 各处 | 见各节 | — |
 
 ## 25. 待确认清单
 
@@ -716,4 +727,5 @@
 5. C28：连接卡弹窗被手动关掉后轮询是否停止。
 6. C29：`Segmented` 的方向键。
 7. C38：浏览器后退在手机上是否回到列表。
-8. 第 11 节上下文浮卡的关闭方式；第 9 节 MCP 菜单的焦点行为；第 18 节横幅和 toast 有无进场动画。
+8. 第 11 节上下文浮卡的关闭方式；第 18 节横幅和 toast 有无进场动画。（第 9 节 MCP 菜单的焦点行为第 2 步起和其他菜单相同。）
+9. 身份卡在界面上没有入口（第 11 节），要不要恢复。

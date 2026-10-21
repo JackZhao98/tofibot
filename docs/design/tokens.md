@@ -230,7 +230,7 @@
 
 令牌外的阴影：
 - 硬阴影悬停态 `3px 4px 0 var(--line)` ×3（见 C9）、`1px 2px 0 var(--line)` ×2（`owner-setup.css:7`、`v2-foundations.css:108`）。
-- 模糊投影 5 种互不相同：`0 6px 24px rgb(0 0 0/.18)`（toast，`styles.css:448`）、`0 4px 14px rgb(0 0 0/14%)`（回执提示，`send-receipt.css:10`）、`0 12px 26px rgba(0,0,0,.2)`（拖动中的会话，`sidebar-pins.css:8`）、`--menu-shadow`、`--desktop-bezel-shadow`；还有手机推入面板的侧影 `-14px 0 28px -16px`（`styles.css:322`）。
+- 模糊投影 5 种互不相同：`0 6px 24px rgb(0 0 0/.18)`（toast，`styles.css:448`）、`0 4px 14px rgb(0 0 0/14%)`（读者名单提示，第 2 步起是 `.action-hint.is-quiet`，`interaction-system.css:97`）、`0 12px 26px rgba(0,0,0,.2)`（拖动中的会话，`sidebar-pins.css:8`）、`--menu-shadow`、`--desktop-bezel-shadow`；还有手机推入面板的侧影 `-14px 0 28px -16px`（`styles.css:322`）。
 - 状态光晕 `0 0 0 3px color-mix(… N%)`：N 取 11、13、13、15、28、32（`styles.css:80,262,263`、`web-tool-steps.css:5`、`onboarding.css:76`、`v2-foundations.css:122`）。
 
 **提议**：`--hard` / `--hard-sm` / `--hard-hover`（新，见 C9）三档硬阴影；一个 `--shadow-float`（合并 5 种模糊投影，建议 `0 10px 28px rgb(0 0 0/.18)`，深色加深）；一个 `--halo: 0 0 0 3px` 配统一的 14% 混色。删 `--float-shadow`（与 `--hard` 相同）、`--field-inset-shadow`、`--mail-note-shadow`。
@@ -326,13 +326,15 @@
 
 ## 9. z-index：层级刻度与每一处的归层
 
-> 状态：**已落地**（迁移第 1 步，分支 `ds/step1-layers`；owner 的回答见 [D31](../decisions/0031-entry-budget-plan-a.md)–[D34](../decisions/0034-component-catalog-dev-only.md)）。本节的 `file:line` 按该分支的提交写；"迁移前"一列是 `748c774` 的值。守卫：`npm --prefix ui run test:layers`（`ui/scripts/test-layers.mjs`）。
+> 状态：**已落地**（迁移第 1 步，分支 `ds/step1-layers`；第 2 步菜单和弹出卡片改走 Radix、修 Z3/Z4，分支 `ds/step2-menus`；owner 的回答见 [D31](../decisions/0031-entry-budget-plan-a.md)–[D34](../decisions/0034-component-catalog-dev-only.md)）。本节的 `file:line` 按 `ds/step2-menus` 的提交写；"迁移前"一列是 `748c774` 的值。守卫：`npm --prefix ui run test:layers`（`ui/scripts/test-layers.mjs`），菜单和卡片的层级另有 `test:overlays`。
 
 ### 9.1 现状
 
-产品 CSS 中 `z-index` 共 **89 处**：**46 处是全局层**，写成 `var(--z-*)` 或 `calc(var(--z-*) ± 1)`；**43 处是组件内部的局部值**（-1 到 12 的小整数）。TS 里只剩 1 处：发送飞行的行内样式写 `"var(--z-drag)"`（`ui/src/sendFlight.ts:20`）。motion-lab 页面另有 35 处，不在本表。
+产品 CSS 中 `z-index` 共 **88 处**：**45 处是全局层**，写成 `var(--z-*)` 或 `calc(var(--z-*) ± 1)`；**43 处是组件内部的局部值**（-1 到 12 的小整数）。第 1 步之后是 89 处（全局 46）；第 2 步删了顶栏抬高和行内的回执提示，加了"模态里打开的菜单"一条。TS 里只剩 1 处：发送飞行的行内样式写 `"var(--z-drag)"`（`ui/src/sendFlight.ts:20`）。motion-lab 页面另有 35 处，不在本表。
 
 迁移前（`748c774`）是 89 处 CSS、3 处 TS，31 个不同的值（-1 到 1200，TS 里还有 2147483000）。
+
+第 2 步起，菜单和弹出卡片（新建、顶栏"⋯"、侧栏右键、账户、附件、MCP、表情反应、身份卡）是 Radix 的内容：它们的 CSS 写 `position:relative` 和自己的 `--z-*`，Radix Popper 把这个 z-index 复制到包着它们的 `position:fixed` 外层（`[data-radix-popper-content-wrapper]`），外层 portal 在 `#tofi-layers`。从带 `aria-modal="true"` 的祖先（设置窗）里打开的，内容带 `data-layer="dialog"`，层级是 `calc(var(--z-dialog) + 1)`（`interaction-system.css:91`）。Radix 打开菜单时还会往 `<body>` 首尾各插一个不可见的焦点哨兵（`data-radix-focus-guard`，`position:fixed`、无 z-index），那是库的代码，不在 `test:layers` 静态检查的 `ui/src` 范围里。
 
 局部值里有 16 处大于 3，是刻度出现之前的组件内部叠放，按文件记在 `ui/scripts/layers-baseline.json` 里，只降不升：`desktop-presence.css` 6、`mail-send-flight.css` 4、`sidebar-pins.css` 2、`styles.css` 2（手机推入那一对）、`v2-app.css` 1、`web-file-drop.css` 1。
 
@@ -346,8 +348,8 @@
 |---|---|---|
 | Z1 | **toast 被模态盖住**：工作区错误 toast 是 80，低于只读会话 110、右键菜单 120、面板/表单 200–210、删除对话框 1000、引导 1200 | **第 1 步已修**：toast 是 `--z-toast` 90，在所有模态（80）、菜单（60）之上。原生 dialog 仍盖住它（Z7） |
 | Z2 | 同值不同角色：1000 同时给了删除对话框、悬停提示、拖放遮罩、拖动残影、@提及拖动残影；200 给了两个模态，表单 sheet 只能用 210 压过它们 | **第 1 步已修**：每种角色一层；表单 sheet 是 `calc(var(--z-dialog) + 1)` |
-| Z3 | 数值被父级层叠上下文封顶，写多大都没用：账户菜单在侧栏（≥768px）里面；输入框里的附件菜单、@菜单被输入框（`isolation:isolate`）封顶 | 第 1 步把它们的数值换成了令牌（`--z-menu`、`--z-popover`），但**仍被封顶**；要靠第 2 步改成 portal 才能修 |
-| Z4 | 为了让顶栏菜单盖过浮卡，顶栏在 ≥1100px 被抬高：菜单没有走 portal，层级只能靠抬父级 | 第 1 步保留这个抬高，写成 `calc(var(--z-panel) + 1)`（`context-card.css:49`），第 2 步菜单走 portal 后改回 `--z-chrome` |
+| Z3 | 数值被父级层叠上下文封顶，写多大都没用：账户菜单在侧栏（≥768px）里面；输入框里的附件菜单、@菜单被输入框（`isolation:isolate`）封顶 | **第 2 步已修**：账户、附件菜单是 portal 进 `#tofi-layers` 的 Radix 菜单，@菜单 portal 进 `#tofi-layers`、`position:fixed`；`test:overlays` 检查它们上方只有自己那一层 |
+| Z4 | 为了让顶栏菜单盖过浮卡，顶栏在 ≥1100px 被抬高：菜单没有走 portal，层级只能靠抬父级 | **第 2 步已修**：顶栏菜单 portal 出去，抬高删掉，顶栏回到 `--z-chrome`；`test:overlays` 检查 1280 px 下顶栏是 20、"⋯"菜单在浮卡之上 |
 | Z5 | 设置窗（模态、带遮罩）只有 30，低于启动画面 60、toast 80、身份卡 90、右键菜单 120、权限提示 160 | **第 1 步已修**：设置窗是 `--z-dialog`（`settings-system.css:2`）。权限提示只出现在两处，都在别人的层叠上下文里：设置的电脑页（`ComputerPanel.tsx`，被设置窗包住）和输入框里（`App.tsx` 的 `Composer`，桌面客户端听写要麦克风时，被输入框的 `isolation:isolate` 包住） |
 | Z6 | 魔法数字：发送飞行 2147483000；寄信飞行层在 CSS 和 TS 各写一次 120 | **第 1 步已修**：都是 `--z-drag`；寄信飞行的 TS 行内 z-index 删掉，信封翻盖改成加 `.is-front` 类（`mail-send-flight.css:15`） |
 | Z7 | 原生 dialog 在顶层，提示和 toast 永远到不了它上面。目前这 4 个 dialog 里没有 `data-hint` 按钮，暂无可见故障 | 未修，放第 3 步 |
@@ -364,12 +366,12 @@
 | `--z-chrome` | 20 | 顶栏、输入框、侧栏列 | 侧栏列是 `+ 1`：收起侧栏时账户菜单会伸进对话区，必须在顶栏和输入框之上（`v2-app.css:20`） |
 | `--z-pill` | 30 | 浮动胶囊：回到最新按钮、浮动电脑小窗 | D18：新消息胶囊不能被任何东西盖住，所以要高于 chrome 和模糊条 |
 | `--z-panel` | 40 | 非模态面板：右侧详情抽屉、≥1100px 的上下文浮卡、相关对话卡片；抽屉遮罩是 `- 1` | macOS 桌面客户端的拖动条是 `+ 1`，见 9.4 |
-| `--z-popover` | 50 | 锚定在某元素上的弹出内容：身份卡、成员面板、@菜单 | — |
-| `--z-menu` | 60 | 菜单：更多、新建、右键、账户、表情反应、MCP、附件 | — |
+| `--z-popover` | 50 | 锚定在某元素上的弹出内容：身份卡、@菜单（成员面板的 CSS 还在，已没有组件用它） | — |
+| `--z-menu` | 60 | 菜单：更多、新建、右键、账户、表情反应、MCP、附件 | 在模态（设置窗）里打开的菜单和卡片是 `calc(var(--z-dialog) + 1)`（`data-layer="dialog"`） |
 | `--z-cover` | 70 | 盖住整个应用但不拦模态的：启动画面 | 盖住 chrome、面板和菜单，模态（引导、设置窗）在它之上 |
 | `--z-dialog` | 80 | 模态（遮罩 + 内容）：设置窗、全屏只读会话、删除确认、交接、VM 授权、表单 sheet（`+ 1`）、引导、放大的电脑 | 同层多个模态按 DOM 顺序叠：`#tofi-layers` 在 `#root` 后面，所以 portal 出去的对话框在设置窗、引导之上；portal 出去的几个之间，后打开的在上 |
 | `--z-toast` | 90 | toast、权限提示（右下角非阻塞通知） | 解决 Z1：出错提示永远在模态之上 |
-| `--z-tooltip` | 100 | 悬停提示、发送回执提示 | 提示要在 toast 和模态之上才有用 |
+| `--z-tooltip` | 100 | 悬停提示（第 2 步起群聊读者名单也是同一个提示） | 提示要在 toast 和模态之上才有用 |
 | `--z-drag` | 110 | 拖动残影、拖放整屏遮罩、发送/寄信飞行动画 | 跟随指针或纯动画、`pointer-events:none`，必须在一切之上 |
 
 原生 `<dialog>`（顶层）不在刻度里。迁移到 Radix Dialog 后它们会变成 portal + `--z-dialog`，Z7 随之消失；在那之前，需要在原生 dialog 里显示的提示或 toast 必须渲染在 dialog 内部。
@@ -378,7 +380,7 @@
 
 "局部"表示留在组件自己的层叠上下文里，不映射到全局层。`test:layers` 在 1280、1000、390 px 下检查：除了手机推入那一对，没有任何局部值落在根层叠上下文里。
 
-**全局 / 视口级**（46 处 CSS + 1 处 TS）
+**全局 / 视口级**（45 处 CSS + 1 处 TS；第 2 步删掉的两行留在表里，标"已删"）
 
 | 位置 | 选择器 | 迁移前 | 定位 | 现在 |
 |---|---|---|---|---|
@@ -386,7 +388,7 @@
 | `owner-setup.css:3` | `.auth-language`（登录页语言） | 2 | absolute | `--z-raised` |
 | `progressive-blur.css:10` | `.edge-blur` | 3 | absolute | `--z-edge-blur` |
 | `styles.css:57` | `.chat-header` | 2 | relative | `--z-chrome` |
-| `context-card.css:49` | `.chat-header`（≥1100px，网页端） | 14 | relative | `calc(var(--z-panel) + 1)`：顶栏菜单还没走 portal，顶栏要在浮卡之上（Z4）；第 2 步改回 `--z-chrome` |
+| ~~`context-card.css:49`~~ | `.chat-header`（≥1100px，网页端） | 14 | relative | **第 2 步已删**：顶栏菜单走 portal，顶栏就是 `styles.css:57` 的 `--z-chrome`（Z4） |
 | `styles.css:158` | `.composer` | 4 | relative | `--z-chrome` |
 | `conversation-workspace.css:12` | `.workspace .composer` | 4 | absolute | `--z-chrome` |
 | `v2-app.css:20` | `.contact-pane`（≥768px，侧栏列） | 5 | relative | `calc(var(--z-chrome) + 1)`：同层时顶栏和输入框在 DOM 里靠后，会压住伸出侧栏的账户菜单 |
@@ -399,15 +401,16 @@
 | `context-card.css:13` | `.detail-pane.context-panel`、`.view-only-chat.is-card`（≥1100px 浮卡） | 12 | absolute | `--z-panel` |
 | `context-card.css:30` | `.view-only-chat.is-card` | 40 | fixed | `--z-panel` |
 | `styles.css:72` | `.member-panel` | 8 | absolute（在顶栏里） | `--z-popover` |
-| `styles.css:167` | `.mention-menu` | 5 | absolute（被输入框封顶） | `--z-popover`（第 2 步 portal 后才真正生效） |
-| `interaction-system.css:175` | `.bot-identity-card` | 90 | fixed，portal | `--z-popover` |
-| `styles.css:30` | `.create-menu` | 8 | absolute（在侧栏里） | `--z-menu` |
-| `styles.css:71` | `.more-menu` | 8 | absolute（在顶栏里） | `--z-menu` |
-| `styles.css:141` | `.sidebar-context-menu` | 120 | fixed | `--z-menu` |
-| `v2-app.css:117` | `.sidebar-account-menu` | 150 | absolute（被侧栏封顶，Z3） | `--z-menu`（第 2 步 portal 后才真正生效） |
-| `v2-app.css:308` | `.composer-add-menu` | 10 | absolute（被输入框封顶） | `--z-menu`（同上） |
-| `extensions-system.css:61` | `.mcp-menu` | 30 | absolute（在设置窗里） | `--z-menu` |
-| `message-reactions.css:6` | `.reaction-context-menu` | 150 | fixed，portal | `--z-menu` |
+| `styles.css:167` | `.mention-menu` | 5 | 第 2 步起 fixed，portal 到 `#tofi-layers` | `--z-popover` |
+| `interaction-system.css:177` | `.bot-identity-card` | 90 | 第 2 步起 Radix Popover（relative，外层 fixed），portal | `--z-popover` |
+| `styles.css:30` | `.create-menu` | 8 | 第 2 步起 Radix 菜单（relative，外层 fixed），portal | `--z-menu` |
+| `styles.css:71` | `.more-menu` | 8 | 同上 | `--z-menu` |
+| `styles.css:141` | `.sidebar-context-menu` | 120 | 同上 | `--z-menu` |
+| `v2-app.css:117` | `.sidebar-account-menu` | 150 | 同上（第 2 步以前被侧栏封顶，Z3） | `--z-menu` |
+| `v2-app.css:307` | `.composer-add-menu` | 10 | 同上（第 2 步以前被输入框封顶，Z3） | `--z-menu` |
+| `extensions-system.css:61` | `.mcp-menu` | 30 | 同上；在设置窗里打开，所以由下一行提到模态之上 | `--z-menu` |
+| `interaction-system.css:91` | `#tofi-layers [data-layer="dialog"]`（第 2 步新增：从模态里打开的菜单和卡片） | — | Radix 外层 | `calc(var(--z-dialog) + 1)` |
+| `message-reactions.css:6` | `.reaction-context-menu` | 150 | 第 2 步起 Radix Popover（relative，外层 fixed），portal | `--z-menu` |
 | `boot-screen.css:2` | `.boot` | 60 | fixed | `--z-cover` |
 | `settings-system.css:2` | `.detail-pane:has(.settings-tabs)`（设置窗） | 30 | fixed | `--z-dialog`（Z5） |
 | `styles.css:142` | `.view-only-chat`（全屏） | 110 | fixed，portal | `--z-dialog` |
@@ -422,8 +425,8 @@
 | `onboarding.css:5` | `.onb-scrim` | 1200 | fixed | `--z-dialog` |
 | `styles.css:448` | `.workspace-toast` | 80 | fixed | `--z-toast` |
 | `permission-coach.css:1` | `.permission-coach` | 160 | fixed（在设置窗或输入框里，见 Z5） | `--z-toast` |
-| `send-receipt.css:10` | `.send-receipt-tip` | 5 | absolute（消息行内） | `--z-tooltip`（第 2 步改走 `data-hint` 委托、进 portal） |
-| `interaction-system.css:93` | `.action-hint` | 1000 | fixed，portal | `--z-tooltip` |
+| ~~`send-receipt.css:10`~~ | `.send-receipt-tip` | 5 | absolute（消息行内） | **第 2 步已删**：名单是已读标记的 `data-hint`，由下一行的 `.action-hint` 显示 |
+| `interaction-system.css:94` | `.action-hint` | 1000 | fixed，portal | `--z-tooltip` |
 | `web-mention.css:10` | `.web-mention-ghost` | 1000 | fixed，追加到 `#tofi-layers` | `--z-drag` |
 | `web-file-drop.css:2` | `.web-drop-overlay` | 1000 | fixed，portal | `--z-drag` |
 | `web-file-drop.css:23` | `.web-drop-ghost` | 1000 | fixed，追加到 `#tofi-layers` | `--z-drag` |
@@ -435,12 +438,12 @@
 | 位置 | 选择器 | 值 | 所在组件 |
 |---|---|---|---|
 | `conversation-workspace.css:13` | `.composer::before` | -1 | 输入框 |
-| `v2-app.css:281` | `.composer-row` | 3 | 输入框 |
-| `v2-app.css:298` | `.composer-add-wrap` | 5 | 输入框 |
-| `v2-app.css:361` | `.composer-rich-text` | 0 | 输入框（提及高亮层） |
-| `v2-app.css:364` | `.has-mentions textarea` | 1 | 输入框 |
-| `v2-app.css:367` | `.composer > .working-members` | 2 | 输入框 |
-| `v2-app.css:373` | `.composer-perch`（输入框上方的猫） | 2 | 输入框 |
+| `v2-app.css:280` | `.composer-row` | 3 | 输入框 |
+| `v2-app.css:297` | `.composer-add-wrap` | 5 | 输入框 |
+| `v2-app.css:360` | `.composer-rich-text` | 0 | 输入框（提及高亮层） |
+| `v2-app.css:363` | `.has-mentions textarea` | 1 | 输入框 |
+| `v2-app.css:366` | `.composer > .working-members` | 2 | 输入框 |
+| `v2-app.css:372` | `.composer-perch`（输入框上方的猫） | 2 | 输入框 |
 | `web-file-drop.css:30` | `.web-upload-ring` | 4 | 输入框 |
 | `web-mention.css:3` | `.mention-menu > button[role=option]` | 1 | @菜单 |
 | `web-mention.css:7` | `.web-mention-pill` | 0 | @菜单 |
@@ -478,7 +481,7 @@
 | `mail-send-flight.css:20` | `.mail-flight-envelope-postmark` | 6 | 寄信动画 |
 | `mail-send-flight.css:22` | `.mail-flight-envelope-address` | 5 | 寄信动画 |
 
-合计：CSS 89 处（全局 46 + 局部 43）、TS 1 处（全局），全部已归层。
+合计：CSS 88 处（全局 45 + 局部 43）、TS 1 处（全局），全部已归层。
 
 电脑预览内部的值（最高 12）可以压到 0–3，但这一块正在频繁改动（D11），建议排在后面单独做；寄信动画的信封有 8 层，压到 -1..3 要改结构。两处都在 `layers-baseline.json` 的上限里。
 
@@ -503,7 +506,7 @@
 ```bash
 # 产品 CSS 文件清单（67 个）
 find ui/src -name '*.css' -not -path '*/motion-lab/*' -not -path '*/acceptance/*' | sort
-# 全部 z-index（第 1 步之后 CSS 89 处 + TS 1 处）
+# 全部 z-index（第 2 步之后 CSS 88 处 + TS 1 处）
 grep -rn 'z-index' ui/src --include='*.css' | grep -v '/motion-lab/'
 grep -rn 'zIndex' ui/src --include='*.ts' --include='*.tsx' | grep -v '/motion-lab/'
 # 某个令牌的使用处，例如 --glass

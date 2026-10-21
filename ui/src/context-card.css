@@ -45,8 +45,6 @@
   html:not([data-desktop]) .workspace .detail-pane.context-panel, html:not([data-desktop]) .view-only-chat.is-card { animation:none!important; }
   html:not([data-desktop]) .workspace .workspace-grid.card-open :is(.chat-body,.composer) { transition:none; }
 }
-/* Header menus (more actions, members) open above the card. */
-@media (min-width:1100px) { html:not([data-desktop]) .workspace .chat-header { position:relative; z-index:calc(var(--z-panel) + 1); } }
 
 /* One heading size for every card, whichever panel fills it. */
 @media (min-width:1100px) {

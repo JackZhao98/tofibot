@@ -155,7 +155,7 @@ const STACK = [
   ["delete", "#tofi-layers", '<div class="delete-dialog-overlay">d</div>', "dialog"],
   ["onboarding", ".workspace-grid", '<div class="onb-scrim">o</div>', "dialog"],
   ["boot", "#root", '<div class="boot boot-dissolve">b</div>', "cover"],
-  ["menu", ".workspace-grid", '<div class="sidebar-context-menu" role="menu">m</div>', "menu"],
+  ["menu", "#tofi-layers", '<div class="sidebar-context-menu" role="menu">m</div>', "menu"], // a Radix menu since step 2
   ["identity", "#tofi-layers", '<section class="bot-identity-card">i</section>', "popover"],
   ["card", "#tofi-layers", '<div class="view-only-chat is-card">c</div>', "panel"],
   ["floating-computer", ".workspace", '<div class="desktop-floating-shell">f</div>', "pill"],

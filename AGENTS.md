@@ -148,3 +148,20 @@ stacking context, -1..3; TS writes `"var(--z-*)"`, never a number. Overlays port
 deliberately not a stacking context), never into `document.body`. `npm --prefix ui run test:layers` fails on any of that (older local values
 above 3 are a ceiling in `ui/scripts/layers-baseline.json` that only shrinks) and checks the paint order of overlays stacked on one point.
 Note `container-type` does not create a stacking context: on wide screens the chat pane's chrome competes with the sidebar and panels.
+
+# Web UI menus and popovers
+
+Menus and popovers are Radix (`@radix-ui/react-dropdown-menu`, `@radix-ui/react-popover`, pinned), and Radix lives only in the lazy chunk
+`ui/src/overlays/RadixOverlays.tsx`, fetched in idle time. The entry carries `ui/src/overlays/OverlayHost.tsx`: `OverlayMenu` and
+`OverlayPopover`, which the owner renders only while the surface is open (or leaving), with its existing class as `className` and its
+existing markup as children (every `<button>` in a menu becomes a Radix item; `data-keep-open` keeps the menu open on select). The trigger
+stays TOFI's own `<button>` with `aria-haspopup`, `aria-expanded` and `onKeyDown={arrowOpens(setOpen)}`; pass it as `trigger`, and the box
+the old CSS offsets were measured from as `anchor` (or a viewport `point` for context menus). Rules every menu follows: arrows, Home/End,
+typeahead; Escape returns focus to the trigger; Tab closes and continues from the trigger (inside an `aria-modal` container it stays there);
+a press outside closes without eating the press; a focus move alone does not close. Do not wrap the lazy module in `React.lazy` + `Suspense`
+(React 19 holds a revealed boundary for ~300 ms). Do not use Radix Tooltip (hints are `data-hint` read by `ActionHints`;
+`data-hint-tone="quiet"` gives the white look) or Radix ContextMenu (the sidebar drag engine owns the 380 ms long press). A surface opened
+inside an `aria-modal` container stacks at `calc(var(--z-dialog) + 1)` (`data-layer="dialog"`). State that a large component sets but does
+not render from (the sidebar row menu) goes in an `OverlaySlot` + `SlotView`, so opening it does not re-render the Workspace.
+`npm --prefix ui run test:overlays` (also `OVERLAYS_ENGINE=webkit`) holds keyboard, dismissal, placement, layers, the bundle split and the
+open cost; `test:shell-budget` keeps Radix out of the entry.

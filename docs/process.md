@@ -127,6 +127,7 @@ done
 | 输入框 | `test:composer-typing`（D02：起因是每键 37 ms、66 次排版） |
 | 侧栏排序和置顶 | `test:sidebar-pins` |
 | 外壳首屏 | `test:shell-budget` |
+| 菜单、弹出卡片、层级 | `test:overlays`（含 `OVERLAYS_ENGINE=webkit`）、`test:layers` |
 | Safari 相关 | `test:chat-safari` |
 | 设置页、自动行为 | `test:settings-shell`、`test:settings-polish`、`test:automation-settings` |
 | 问题卡、交接卡、常驻授权卡 | `test:question-poll`、`test:handover-cards`、`test:standing-allowance` |

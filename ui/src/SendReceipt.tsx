@@ -27,7 +27,7 @@ export function SendReceipt({ receipt, onRetry }: { receipt: Receipt; names?: st
   return null;
 }
 
-/** The delivered / read mark at the end of the action row. A group's read-by names show as a tooltip on hover and focus. */
+/** The delivered / read mark at the end of the action row. A group's read-by names are its hover/focus hint (ActionHints, quiet tone). */
 export function SendReceiptMark({ state, names, group }: { state: "delivered" | "read"; names: string[]; group: boolean }) {
   const { t } = useTranslation("chat");
   const previous = useRef(state);
@@ -41,8 +41,7 @@ export function SendReceiptMark({ state, names, group }: { state: "delivered" | 
   }, [state]);
   const label = state === "delivered" ? t("receipt.delivered") : names.length && group ? t("receipt.read_by", { names: formatList(names) }) : t("receipt.read");
   const tip = state === "read" && group && names.length > 0;
-  return <span className={`send-receipt-mark${settling ? " is-settling" : ""}${tip ? " has-tip" : ""}`} data-state={state} role="img" aria-label={label} tabIndex={tip ? -1 : undefined} data-roving={tip ? "" : undefined}>
+  return <span className={`send-receipt-mark${settling ? " is-settling" : ""}${tip ? " has-tip" : ""}`} data-state={state} role="img" aria-label={label} tabIndex={tip ? -1 : undefined} data-roving={tip ? "" : undefined} data-hint={tip ? label : undefined} data-hint-tone={tip ? "quiet" : undefined}>
     <Mark state={state} />
-    {tip && <span className="send-receipt-tip" role="tooltip">{label}</span>}
   </span>;
 }
