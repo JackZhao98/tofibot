@@ -9,7 +9,8 @@ import { OnboardingServices, type ServicesStatus } from "./OnboardingServices";
 import { effortForModel, groupModels, modelEfforts, providerForModel, providerLabels, shortEffortLabel } from "./modelCatalog";
 import { ONBOARDING_STEPS, type OnboardingStep } from "./onboardingFlow";
 import { useTranslation } from "./i18n";
-import type { Bot, ModelCatalog } from "./types";
+import type { Bot } from "./types";
+import { loadModelCatalog, useModelCatalog } from "./useModelCatalog";
 import "./onboarding.css";
 
 type Meta = { connected: boolean; queue: ServicesStatus };
@@ -154,7 +155,7 @@ function ModelStep({ titleId, modelConfigured, bot, onModelChanged, onBot, onBac
   const [error, setError] = useState<{ text: string; billing?: boolean } | null>(null);
   const [slow, setSlow] = useState(false);
   const [defaults, setDefaults] = useState<{ model: string; reasoning_effort: string } | null>(null);
-  const [catalog, setCatalog] = useState<ModelCatalog | null>(null);
+  const { catalog } = useModelCatalog();
   const [botNote, setBotNote] = useState(false);
   const [saveError, setSaveError] = useState(false);
   const run = useRef(0);
@@ -168,10 +169,9 @@ function ModelStep({ titleId, modelConfigured, bot, onModelChanged, onBot, onBac
   const loadDefaults = useCallback(async () => {
     const [settings, models] = await Promise.all([
       request<{ model: string; reasoning_effort: string }>("/api/model-settings").catch(() => null),
-      api.models().catch(() => null),
+      loadModelCatalog().catch(() => null),
     ]);
     if (!alive.current) return;
-    if (models) setCatalog(models);
     let current = settings;
     // A default that belongs to a provider that is not connected cannot run: pick the first model the connected one offers.
     if (models?.models.length && !models.models.some(item => item.id === current?.model)) {
@@ -246,7 +246,7 @@ function ModelStep({ titleId, modelConfigured, bot, onModelChanged, onBot, onBac
     try {
       await api.setProviderKey(provider, value, provider === "anthropic" ? workspace.trim() || undefined : undefined);
       if (run.current !== token) return;
-      const models = await api.models().catch(() => null);
+      const models = await loadModelCatalog().catch(() => null);
       if (run.current !== token) return;
       if (models && !models.models.length) { setPhase("error"); setError({ text: t("onboarding.key_no_models"), billing: true }); return; }
       setKey("");

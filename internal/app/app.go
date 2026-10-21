@@ -2953,6 +2953,7 @@ func (s *Server) codexAuth(w http.ResponseWriter, r *http.Request, path string) 
 			return
 		}
 		s.forgetCodexVerification()
+		s.invalidateCodexCatalog()
 		// The routed engine keeps serving any other configured provider.
 		s.mu.Lock()
 		if !s.codexManaged && strings.EqualFold(s.provider, "openai_codex") {
@@ -2992,6 +2993,9 @@ func (s *Server) codexAuth(w http.ResponseWriter, r *http.Request, path string) 
 		}
 		if x.Connected {
 			s.forgetCodexVerification()
+		}
+		if before != x {
+			s.invalidateCodexCatalog()
 		}
 		if x.Connected && managedProviderName(s.provider) {
 			s.mu.Lock()

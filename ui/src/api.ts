@@ -1,5 +1,6 @@
 import type { FollowupAccount, FollowupBotSettings, FollowupOverview, FollowupVerdict, AgentUsageTotal, Attachment, Bot, ComputerHealth, Config, ContentPatch, ContextUsage, Conversation, EventEnvelope, Memory, MemoryInput, Message, ModelCatalog, ModelProviderStatus, Run, Schedule, ScheduleKind, StreamDraft, ToolActivity, ToolActivityDetailPage, ToolActivityRunSummary, UsageCall, UsagePeriod, WorkspaceEventEnvelope, WorkItem, Weekday } from "./types";
 import { i18n } from "./i18n";
+import { invalidateModelCatalog } from "./modelCatalogStore";
 
 export class ApiError extends Error {
   constructor(public status: number, message: string, public code?: string) {
@@ -9,6 +10,8 @@ export class ApiError extends Error {
 }
 
 const READ_TIMEOUT_MS = 15_000;
+/** Last Codex connection state this tab saw, to notice a sign-in finished elsewhere. */
+let lastCodexConnected: boolean | null = null;
 
 export async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   const headers = new Headers(init.headers);
@@ -41,15 +44,21 @@ export const api = {
   },
   codexStatus: async () => {
     const result = await request<{ connected: boolean; expires_at?: number; pending?: boolean; needs_reconnect?: boolean }>("/api/auth/codex");
+    // Sign-in can finish in another tab; a status that differs from the last one seen means the model list changed with it.
+    if (lastCodexConnected !== null && lastCodexConnected !== result.connected) invalidateModelCatalog();
+    lastCodexConnected = result.connected;
     return result;
   },
   codexVerify: () => request<{ connected: boolean; expires_at?: number; pending?: boolean; needs_reconnect?: boolean; check: "ok" | "rejected" | "unverified" | "not_connected" }>("/api/auth/codex/verify", { method: "POST" }),
   codexConnect: () => request<{ session_id: string; verification_url: string; user_code: string; expires_at: number; interval: number }>("/api/auth/codex/connect", { method: "POST" }),
-  codexPoll: (id: string) => request<{ connected: boolean; pending: boolean; expires_at?: number }>(`/api/auth/codex/connect/${encodeURIComponent(id)}/poll`, { method: "POST" }),
-  codexDisconnect: () => request<void>("/api/auth/codex", { method: "DELETE" }),
+  codexPoll: (id: string) => request<{ connected: boolean; pending: boolean; expires_at?: number }>(`/api/auth/codex/connect/${encodeURIComponent(id)}/poll`, { method: "POST" }).then((result) => {
+    if (result.connected) { lastCodexConnected = true; invalidateModelCatalog(); }
+    return result;
+  }),
+  codexDisconnect: () => request<void>("/api/auth/codex", { method: "DELETE" }).then((result) => { lastCodexConnected = false; invalidateModelCatalog(); return result; }),
   listProviders: (signal?: AbortSignal) => request<{ providers: ModelProviderStatus[] | null }>("/api/providers", { signal }).then((result) => result.providers ?? []),
-  setProviderKey: (id: "openai" | "anthropic", key: string, workspaceId?: string) => request<ModelProviderStatus>(`/api/providers/${encodeURIComponent(id)}/key`, { method: "PUT", body: JSON.stringify(workspaceId ? { key, workspace_id: workspaceId } : { key }) }),
-  deleteProviderKey: (id: "openai" | "anthropic") => request<unknown>(`/api/providers/${encodeURIComponent(id)}/key`, { method: "DELETE" }),
+  setProviderKey: (id: "openai" | "anthropic", key: string, workspaceId?: string) => request<ModelProviderStatus>(`/api/providers/${encodeURIComponent(id)}/key`, { method: "PUT", body: JSON.stringify(workspaceId ? { key, workspace_id: workspaceId } : { key }) }).then((result) => { invalidateModelCatalog(); return result; }),
+  deleteProviderKey: (id: "openai" | "anthropic") => request<unknown>(`/api/providers/${encodeURIComponent(id)}/key`, { method: "DELETE" }).then((result) => { invalidateModelCatalog(); return result; }),
   models: (signal?: AbortSignal) => request<ModelCatalog>("/api/models", { signal }),
   bots: async (includeArchived = false) => {
     const result = await request<{ bots: Bot[] | null }>(`/api/bots${includeArchived ? "?include_archived=true" : ""}`);

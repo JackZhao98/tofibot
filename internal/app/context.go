@@ -672,6 +672,7 @@ func (s *Server) buildContextPartsWith(c Conversation, r Run, bot Bot, cachedMCP
 	}
 	chosen := make([]runtime.Message, 0, len(msgs))
 	imagesLeft, imageBudget := 3, int64(8<<20)
+	guestPaths := s.guestInputPathsFor(c, r.TriggerMessageID)
 	// The run-context note beside the request (time, the say and lookup lines)
 	// is sent outside the history; keep room for it so the total stays inside
 	// the context budget.
@@ -737,7 +738,7 @@ func (s *Server) buildContextPartsWith(c Conversation, r Run, bot Bot, cachedMCP
 		if !own {
 			visual.Content = "[message_id=" + m.ID + "] " + visual.Content
 		}
-		s.addAttachmentContext(c, m, &visual, &imagesLeft, &imageBudget)
+		s.addAttachmentContext(c, m, &visual, &imagesLeft, &imageBudget, guestPaths)
 		content = trimRunes(visual.Content, historyLimit-used)
 		cost := len([]rune(content))
 		if cost == 0 || used+cost > historyLimit {

@@ -247,9 +247,34 @@ func (s *Server) loadModels(ctx context.Context) ([]ModelOption, string, string)
 	return models, source, strings.Join(warning, "; ")
 }
 
+// catalogRetryGuard is how long a non-live (stored or local snapshot) catalog
+// is reused before the provider is asked again. Only live results are held for
+// the full catalogLiveTTL, so a snapshot never masks a provider that has since
+// come online, while a down provider is still not hammered on every request.
+const (
+	catalogLiveTTL    = 5 * time.Minute
+	catalogRetryGuard = 20 * time.Second
+)
+
+func catalogMemoTTL(source string) time.Duration {
+	if source == "live" {
+		return catalogLiveTTL
+	}
+	return catalogRetryGuard
+}
+
+// invalidateCodexCatalog drops the in-memory Codex catalog. Call it whenever
+// the Codex connection changes (sign-in completes, disconnect) so the next
+// request re-reads the provider instead of serving the pre-change list.
+func (s *Server) invalidateCodexCatalog() {
+	s.modelCatalogMu.Lock()
+	s.modelCatalog, s.modelCatalogAt, s.modelCatalogSource = nil, time.Time{}, ""
+	s.modelCatalogMu.Unlock()
+}
+
 func (s *Server) loadCodexModels(ctx context.Context) ([]ModelOption, string, string) {
 	s.modelCatalogMu.Lock()
-	if len(s.modelCatalog) > 0 && time.Since(s.modelCatalogAt) < 5*time.Minute {
+	if len(s.modelCatalog) > 0 && time.Since(s.modelCatalogAt) < catalogMemoTTL(s.modelCatalogSource) {
 		models := append([]ModelOption(nil), s.modelCatalog...)
 		source := s.modelCatalogSource
 		s.modelCatalogMu.Unlock()
@@ -398,7 +423,7 @@ func (s *Server) loadModelsCached() []ModelOption {
 		return []ModelOption{}
 	}
 	s.modelCatalogMu.Lock()
-	stale := len(s.modelCatalog) == 0 || time.Since(s.modelCatalogAt) >= 5*time.Minute
+	stale := len(s.modelCatalog) == 0 || time.Since(s.modelCatalogAt) >= catalogMemoTTL(s.modelCatalogSource)
 	s.modelCatalogMu.Unlock()
 	if stale && s.catalogRefreshing.CompareAndSwap(false, true) {
 		go func() {
