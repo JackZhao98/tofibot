@@ -43,6 +43,30 @@ type ChatRequest struct {
 	// runs the searches inside the model call, so no tool result is returned
 	// to the caller: what was searched comes back on ChatResponse.WebSearches.
 	WebSearch *WebSearchSpec
+	// WebFetch, when set, adds the provider's own server-side page reader
+	// (Anthropic only): the model reads the text of a URL inside the model
+	// call, and what was read comes back on ChatResponse.WebFetches.
+	WebFetch *WebFetchSpec
+}
+
+// WebFetchSpec configures the server-side web fetch tool.
+type WebFetchSpec struct {
+	// MaxUses caps the pages one model request may read (the provider default
+	// applies when zero).
+	MaxUses int
+	// MaxContentTokens caps the page text one fetch puts into context (the
+	// provider default applies when zero).
+	MaxContentTokens int
+}
+
+// WebFetch is one page the model read through the server-side fetch tool: the
+// URL, the title the provider returned, or the provider's error code.
+type WebFetch struct {
+	ID          string
+	URL         string
+	Title       string
+	RetrievedAt string
+	Error       string
 }
 
 // WebSearchSpec configures the server-side web search tool.
@@ -156,6 +180,10 @@ type ChatResponse struct {
 	WebSearches []WebSearch
 	// WebSearchRequests is the number of searches the provider billed for.
 	WebSearchRequests int64
+	// WebFetches are the pages this response read through server-side fetch.
+	WebFetches []WebFetch
+	// WebFetchRequests is the number of fetches the provider counted.
+	WebFetchRequests int64
 }
 
 // HasToolCalls returns true if the response contains tool calls.

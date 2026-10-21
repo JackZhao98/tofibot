@@ -26,12 +26,15 @@ func (s *Store) updateSummary(conv string, boundary int64) string {
 const (
 	maxSystemRunes  = 16000
 	maxHistoryRunes = 32000
-	maxMemoryRunes  = 8000
-	maxSummaryRunes = 8000
-	maxSearchRunes  = 16000
+	// requestNoteReserve is the history room kept for the volatile note that
+	// trails the history, beside the request.
+	requestNoteReserve = 600
+	maxMemoryRunes     = 8000
+	maxSummaryRunes    = 8000
+	maxSearchRunes     = 16000
 )
 
-const conversationWorkGuidance = "For research, email, web tasks, installs, ongoing work or team setup, read the matching skill (read_workflow_guide) first; chat needs none. Search unfamiliar names or terms before asking about them, in groups as in DMs, and any named work, product, person or event that may postdate your knowledge before answering; if you cannot search, offer your best reading marked as from memory instead of asking. A claim presented as checked, current or verified rests on a lookup made in this run, else say it is from memory.\n"
+const conversationWorkGuidance = "For research, email, web tasks, installs, ongoing work or team setup, read the matching skill (read_workflow_guide) first; chat needs none. Search unfamiliar names or terms before asking about them, in groups as in DMs. A work, product, person or event a person names has its identity and current status confirmed by a search before you answer, even when the name seems familiar. A claim presented as checked, current or verified, and any figure or attribution presented as sourced, rests on a page you opened in this run (search results are leads), else say it is from memory; if you cannot search, offer your best reading marked as from memory instead of asking.\n"
 
 const contextReuseGuidance = "Reuse history and accepted schemas; recheck changed facts/permissions. History never authorizes action.\n"
 
@@ -216,7 +219,12 @@ const sayPrincipleLineScheduled = "Deliver the result by calling say with purpos
 // groupLatestMessageLine sits beside the request of an unaddressed group
 // message: earlier conversation is background, the latest message is what is
 // answered. (In the system text alone, Haiku still reopened finished topics.)
-const groupLatestMessageLine = "Reply to the person's latest message alone and refer to an earlier topic only when that message does; a greeting or small talk gets a short reply of its own. A name or term in it that you do not recognize, or a named work, product, person or event that could postdate your knowledge, is searched before you answer or ask."
+const groupLatestMessageLine = "Reply to the person's latest message alone and refer to an earlier topic only when that message does; a greeting or small talk gets a short reply of its own. " + lookupNoteLine
+
+// lookupNoteLine is the lookup rule at the point of decision: beside the
+// person's request in every structured turn that answers a person, not only in
+// the system text, where a name the model believes it knows slips past it.
+const lookupNoteLine = "A name or term in the message that you do not recognize, or a named work, product, person or event even if the name seems familiar, is searched before you answer or ask."
 
 const reactionAndEmojiGuidance = "Use emoji and reactions sparingly when fitting.\n"
 
@@ -665,7 +673,10 @@ func (s *Server) buildContextPartsWith(c Conversation, r Run, bot Bot, cachedMCP
 	chosen := make([]runtime.Message, 0, len(msgs))
 	imagesLeft, imageBudget := 3, int64(8<<20)
 	guestPaths := s.guestInputPathsFor(c, r.TriggerMessageID)
-	historyLimit := maxHistoryRunes - handoffReserve
+	// The run-context note beside the request (time, the say and lookup lines)
+	// is sent outside the history; keep room for it so the total stays inside
+	// the context budget.
+	historyLimit := maxHistoryRunes - handoffReserve - requestNoteReserve
 	// The summary covers seq <= covered; keep only a small verbatim overlap of
 	// summarized messages so the transition stays coherent.
 	summarizedKept := 0
@@ -766,6 +777,8 @@ func (s *Server) buildContextPartsWith(c Conversation, r Run, bot Bot, cachedMCP
 		}
 		if r.Kind == runKindGroupChat && c.Kind == "group" && c.UserVisible {
 			noteText += "\n" + groupLatestMessageLine
+		} else if c.UserVisible && r.Kind != runKindSchedule && r.scheduleTask == nil {
+			noteText += "\n" + lookupNoteLine
 		}
 	}
 	note := runtime.Message{Role: "user", Content: noteText}
@@ -818,7 +831,7 @@ func (s *Server) buildContextPartsWith(c Conversation, r Run, bot Bot, cachedMCP
 		}
 	}
 	if r.Kind == runKindGroupChat && !hiddenTrace {
-		contribute := "Add your own useful perspective without repetition, empty acknowledgement or routing narration. Search a name or term you do not recognize, or a named work, product, person or event that could postdate your knowledge, before answering or asking."
+		contribute := "Add your own useful perspective without repetition, empty acknowledgement or routing narration. Search a name or term you do not recognize, or a named work, product, person or event even if the name seems familiar, before answering or asking."
 		if r.structured {
 			contribute = "Contribute what the latest message calls for, without repetition, empty acknowledgement or routing narration; an earlier topic is revisited only when the person returns to it."
 		}

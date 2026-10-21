@@ -816,7 +816,7 @@
       },
       "web_search": {
         "name": "Websuche",
-        "what": "Claude-Modelle suchen vor der Antwort selbst im Web, wenn eine Frage neuer sein könnte als ihr Wissen."
+        "what": "Claude-Modelle suchen vor der Antwort selbst im Web und lesen die Seiten, auf die sie sich stützen, wenn eine Frage neuer sein könnte als ihr Wissen."
       },
       "group_exchange_gists": {
         "name": "Abgeschlossene Gruppenwechsel zusammenfassen",
