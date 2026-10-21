@@ -5,6 +5,7 @@ import {request} from "../api";
 import {useTranslation} from "../i18n";
 import type {Bot} from "../types";
 import {Banner, SettingsRow} from "./components";
+import { layerRoot } from "../layers";
 
 export type SkillAccess = {mode: "all"} | {mode: "selected"; bot_ids?: string[]};
 
@@ -99,5 +100,5 @@ export function SkillAccessSheet({skill, title, access, bots, onClose, onSaved}:
         <button type="button" className="primary-button" disabled={cannotSave} onClick={() => void save()}>{busy ? t("skills.access.saving") : t("skills.access.save")}</button>
       </div>
     </div>
-  </div>, document.body);
+  </div>, layerRoot());
 }

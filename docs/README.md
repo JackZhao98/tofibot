@@ -13,7 +13,7 @@ TOFI 是一个自托管的 AI Bot 工作台：Go 后端在 `internal/`，React 1
 |---|---|---|
 | 1 | [`AGENTS.md`](../AGENTS.md) | 代码边界和每块子系统必须遵守的约定 |
 | 2 | [`product/status.md`](product/status.md) | TOFI 现在能做什么、线上是哪一版、owner 的打分标准和评测结果 |
-| 3 | [`decisions/README.md`](decisions/README.md) | owner 拍板过的每一条决定（D01–D30），以及为什么 |
+| 3 | [`decisions/README.md`](decisions/README.md) | owner 拍板过的每一条决定（D01–D34），以及为什么 |
 | 4 | [`process.md`](process.md) | 怎么开分支、测试、评测、预览、发版、做安全审查、选模型 |
 | 5 | [`product/roadmap.md`](product/roadmap.md) | 已完成、进行中、下一步、暂缓 |
 | 6 | [`releases.md`](releases.md) | 每个版本（含每个 rc）带进了什么 |
@@ -41,7 +41,7 @@ TOFI 是一个自托管的 AI Bot 工作台：Go 后端在 `internal/`，React 1
 | 文档 | 管什么 | 状态 | 备注 |
 |---|---|---|---|
 | [`decisions/README.md`](decisions/README.md) | 全部决定的总表和新增方法 | 现行 | 一条决定一个文件，`decisions/00NN-*.md` 对应 D*NN* |
-| [`decisions/0001`](decisions/0001-persona-generator-no-examples.md) … [`decisions/0030`](decisions/0030-standing-operating-rules.md) | D01–D30 各自的原话要点、理由、影响的代码 | 现行 | 被推翻的决定标"已被 Dxx 取代"，不删；D24–D29 记为 10-21，但提交时间换算 PDT 是 10-20 晚，哪个为准待确认（见 `decisions/README.md`） |
+| [`decisions/0001`](decisions/0001-persona-generator-no-examples.md) … [`decisions/0034`](decisions/0034-component-catalog-dev-only.md) | D01–D34 各自的原话要点、理由、影响的代码 | 现行 | 被推翻的决定标"已被 Dxx 取代"，不删；D24–D29、D31–D34 记为 10-21，但提交时间换算 PDT 是 10-20 晚，哪个为准待确认（见 `decisions/README.md`） |
 
 ## 3. 版本
 
@@ -66,10 +66,10 @@ TOFI 是一个自托管的 AI Bot 工作台：Go 后端在 `internal/`，React 1
 
 | 文档 | 管什么 | 状态 | 备注 |
 |---|---|---|---|
-| [`design/tokens.md`](design/tokens.md) | 颜色、字体、间距、圆角、阴影、模糊、动效令牌的真实取值；z-index 现状和层级刻度提议（§9） | 现行（第二部分是提议） | 第二部分（层级刻度、合并方案）owner 点头前不是规范（[D28](decisions/0028-headless-design-system-migration.md)） |
+| [`design/tokens.md`](design/tokens.md) | 颜色、字体、间距、圆角、阴影、模糊、动效令牌的真实取值；z-index 层级刻度和每一处的归层（§9） | 现行（§9 的刻度已在迁移第 1 步落地；第二部分其余的合并方案仍是提议） | §9 的 `file:line` 按分支 `ds/step1-layers`，其余按 `748c774` |
 | [`design/components.md`](design/components.md) | 每个组件的状态、焦点、键盘、关闭、位置、层级、动效、已知问题（C1–C41） | 现行 | 基线 `748c774`；改组件行为要同一提交更新 |
 | [`design/principles.md`](design/principles.md) | 设计原则 P1–P8，每条带检查方法、冲突取舍和 PR 评审清单 | 现行 | 规则来自 D16–D23 等决定 |
-| [`design/migration.md`](design/migration.md) | 迁到 Radix / Motion / dnd-kit 的分步方案、体积实测、风险和预览点 | 方案，等 owner 点头 | 点头前不按它改代码；§7 列了要 owner 定的 Q1–Q4 |
+| [`design/migration.md`](design/migration.md) | 迁到 Radix / Motion / dnd-kit 的分步方案、体积实测、风险和预览点 | 现行：owner 已点头，第 1 步已完成（等合并和预览） | §7 是 owner 对 Q1–Q4 的回答（D31–D34） |
 | [`../ui/src/locales/README.md`](../ui/src/locales/README.md) | Web UI 本地化规则 | 现行 | 7 种语言目录都在 `ui/src/locales/` |
 | [`../ui/src/icons/README.md`](../ui/src/icons/README.md)、[`../ui/public/icons/README.txt`](../ui/public/icons/README.txt) | TOFI 自绘图标 v2.1 的用法 | 现行 | `ui/public/icons/manifest.json` 正好 144 个图标 |
 | [`../ui/src/lib/tofi-avatar/README.md`](../ui/src/lib/tofi-avatar/README.md) | 猫头像动效库 v2 的 API | 现行 | 10-20 仍在改（`39a1822`） |

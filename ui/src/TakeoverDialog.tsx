@@ -5,6 +5,7 @@ import { DesktopVideo, type DesktopVideoState } from "./DesktopVideo";
 import { RemoteDesktopControl, type RemoteControlHandle } from "./RemoteDesktopControl";
 import { useTranslation } from "./i18n";
 import "./handover.css";
+import { layerRoot } from "./layers";
 
 type Props = { botId: string; questionId: string; site: string; prompt: string; busy: boolean; error: string; onResult: (result: "done" | "cannot") => void; onClose: () => void };
 
@@ -82,5 +83,5 @@ export function TakeoverDialog({ botId, questionId, site, prompt, busy, error, o
       </RemoteDesktopControl>
       <footer role="status">{error || t("handover.dialog.footer")}</footer>
     </div>
-  </div>, document.body);
+  </div>, layerRoot());
 }

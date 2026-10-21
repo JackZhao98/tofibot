@@ -78,6 +78,7 @@ import { mergeRunUpdates } from "./runMerge";
 import { draftDeltaApplies } from "./draftDelta";
 import { DraftStream, useLiveDraft } from "./draftStream";
 import { rowModelEqual } from "./timelineRow";
+import { layerRoot } from "./layers";
 import { shouldShowReplyQuote } from "./replyQuote";
 import { buildRetryFamilies, indexMessages, isTerminalRun, retryFamilyAnchor } from "./runFamily";
 import { composerClientMessageId, composerDraftMatchesMessage, composerMessageContent, composerMessageSignature, type ComposerReply } from "./composerDraft";
@@ -3271,7 +3272,7 @@ function Composer({ workStatus, activeRun, latestReplyId, onStopRun, avatarMenti
     const ghost = pill.cloneNode(true) as HTMLElement;
     ghost.classList.add("web-drop-ghost");
     Object.assign(ghost.style, { left:`${to.left}px`, top:`${to.top}px`, width:`${to.width}px` });
-    document.body.append(ghost);
+    layerRoot().append(ghost);
     pill.style.visibility = "hidden";
     const dx = origin.x - to.left - to.width / 2;
     const dy = origin.y - to.top - to.height / 2;
@@ -3452,7 +3453,7 @@ function Composer({ workStatus, activeRun, latestReplyId, onStopRun, avatarMenti
       ghost.className = "web-mention-ghost";
       ghost.textContent = `@${bot.name}`;
       Object.assign(ghost.style, { left: `${from.left}px`, top: `${from.top}px` });
-      document.body.append(ghost);
+      layerRoot().append(ghost);
       void ghost.animate([
         { transform: "translate(0,0) scale(.9)", opacity: 1 },
         { transform: `translate(${(to.left - from.left) * .5}px, ${Math.min(from.top,to.top) - from.top - 38}px) scale(1.08)`, opacity: 1, offset:.45 },

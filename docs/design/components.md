@@ -4,6 +4,7 @@
 
 - 基线：`748c774`（branch `docs/system-opus`，2026-10-20）。下文的 `file:line` 都按这个提交写，代码改了就要跟着改这份文件（`docs/process.md`，"改了设计规范或组件"一行）。
 - 颜色、字体、间距、阴影、模糊、动效令牌和 z-index 的完整清单在同目录的 [`tokens.md`](tokens.md)。本文只写每个组件用到的层级数值，层级问题的编号（Z1–Z7）引用 `tokens.md` 第 9.2 节。
+- **层级已在迁移第 1 步换成 `--z-*` 刻度**（分支 `ds/step1-layers`）：本文各节"层级"一行和层级相关的问题（C15、C16、C21、C23、C26、C31、C35、C40）已按该分支更新，括号里是迁移前的数值；其余 `file:line` 仍按 `748c774`。
 - 设计原则和检查方法在 [`principles.md`](principles.md)。本文每条已知问题都标了它违反的原则（P1–P8）。
 - 桌面客户端（Electron）消费同一份网页 UI 构建产物（`AGENTS.md` "Core source boundaries"），用 `html[data-desktop]` 和 `isDesktop`（`ui/src/desktop.ts:45`）分支。本文说"网页端"指 `html:not([data-desktop])`。
 
@@ -25,7 +26,7 @@
 | 慢请求才显示加载 | `DelayedFeedback`（默认 300 ms 后才挂载）和 `useGraceFlag`（短于宽限期的状态什么都不显示） | `ui/src/DelayedFeedback.tsx:3-10`，`ui/src/useGraceFlag.ts:3-11` |
 | 文案本地化 | 所有用户可见文字在 `ui/src/locales/<lang>/<namespace>.json`；语气规则在 `ui/src/locales/README.md` "Tone" | `npm --prefix ui run test:i18n` |
 
-还**没有**统一的（这正是 D28 迁移要解决的）：焦点陷阱有 9 份各自手写的实现（见第 8 节表格"焦点陷阱"列）；菜单的方向键、关闭后焦点回到哪里各写各的（第 9 节）；z-index 有 31 个不同的值（`tokens.md` 9.1）。
+还**没有**统一的（这正是 D28 迁移要解决的）：焦点陷阱有 9 份各自手写的实现（见第 8 节表格"焦点陷阱"列）；菜单的方向键、关闭后焦点回到哪里各写各的（第 9 节）；z-index 原有 31 个不同的值，第 1 步已统一到 13 层刻度，由 `test:layers` 守着（`tokens.md` 第 9 节）。
 
 ---
 
@@ -118,7 +119,7 @@
 | 键盘 | 随操作行 |
 | 关闭 | 提示随焦点/悬停离开消失 |
 | 位置 | 标记在操作行末尾、时间之后；失败的重试行在气泡下方 14 px 高 |
-| 层级 | 读者提示 `z-index:5`，相对操作行（`send-receipt.css:10`） |
+| 层级 | 读者提示 `--z-tooltip`（迁移前 5，`send-receipt.css:10`），仍在操作行里；对话窗格不是层叠上下文，所以宽屏下它直接在根层叠上下文里比，高于浮卡、抽屉、菜单；第 2 步改走 `data-hint` 委托、进 portal |
 | 动效 | 状态变化时勾"落定"一次（`--m-panel-in`，`send-receipt.css` `send-receipt-settle`）；减少动效下不动 |
 | 触屏 | 重试按钮视觉 14 px，触屏下用 `::after` 把点击区扩到约 44 px（`send-receipt.css`，`@media (pointer:coarse)`） |
 
@@ -148,7 +149,7 @@
 | 键盘 | Enter 发送，Shift+Enter 换行，输入法组字中（`isComposing` 或 `keyCode 229`）不发送（`App.tsx:3426-3433`）；@菜单打开时上下键选、Enter 选中、Escape 关菜单；⌘⇧I 选图片、⌘⇧F 选文件（`:3354-3360`） |
 | 关闭 | 附件菜单：点外面或 Escape 关（`:3339-3352`） |
 | 位置 | 固定在消息窗格底部；`--composer-height` 由 ResizeObserver 测量，给消息区留白用 |
-| 层级 | 输入框 `z-index:4` 且 `isolation:isolate`（`conversation-workspace.css:12`），所以它里面的附件菜单（10）、@菜单（5）都被封顶在 4（`tokens.md` Z3） |
+| 层级 | 输入框 `--z-chrome`（迁移前 4）且 `isolation:isolate`（`conversation-workspace.css:12`），所以它里面的附件菜单（`--z-menu`）、@菜单（`--z-popover`）、权限提示（`--z-toast`）都被封顶在输入框这一层（`tokens.md` Z3，第 2 步改 portal） |
 | 动效 | @提及选中时名字飞到文本框里（`web-mention-ghost`）；发送飞行（`sendFlight.ts`） |
 | 触屏 | 网页端输入字号 16 px，避免 iOS 放大（`34c7749`）；软键盘弹起时猫隐藏、底部留白缩小（`sender-groups.css:45-49`） |
 | 交互开销 | 打字只重渲染输入框：每键脚本 ≤ 4 ms、排版 ≤ 2 次（`ui/scripts/test-composer-typing.mjs:158-165`）；草稿停手 400 ms 后才同步给 App（D02） |
@@ -260,22 +261,24 @@
 
 | # | 对话框 | 文件 | 模态 | Escape | 点遮罩关 | 焦点陷阱 | 关后焦点回去 | 层级 |
 |---|---|---|---|---|---|---|---|---|
-| 1 | 删除 Bot/群确认 | `ui/src/DeleteConversationDialog.tsx`（用 `DialogShell`） | 是，`alertdialog` | 是（忙时不关） | 是（忙时不关） | `DialogShell` 只收 `button`、`select` | 是 | 1000 |
-| 2 | 隐藏主助理时选接任者 | `ui/src/PrimaryAssistant.tsx:97`（`DialogShell`） | 是 | 是 | 是 | 同上 | 是 | 1000 |
-| 3 | 管理员表单 sheet、已记住的审批 | `ui/src/AdminSheets.tsx:8-36`，`ui/src/RememberedApprovals.tsx:59` | 是 | 是（`locked` 时不关） | 是（`locked` 时不关） | 自写 | 是 | 210 |
-| 4 | 技能访问 sheet | `ui/src/settings/SkillAccess.tsx:50-83` | 是 | 是 | 是（忙时不关） | 自写 | 是 | 210 |
-| 5 | 接管屏幕（handover） | `ui/src/TakeoverDialog.tsx:48-69` | 是 | **否**（按键要给远程电脑） | 否 | 自写 | 是 | 200 |
-| 6 | VM 里授权（MCP OAuth） | `ui/src/VMOAuthDialog.tsx:82-108` | 是 | **否**（同上，`:86`） | 否 | 自写 | 是 | 200 |
-| 7 | 相关对话只读窗（窄屏/桌面客户端时是模态） | `ui/src/ViewOnlyChat.tsx:44-79` | 宽屏网页是卡片，否则模态 | 是 | — | 自写（卡片形态不陷） | 是 | 110（卡片 40） |
-| 8 | 首次引导 | `ui/src/Onboarding.tsx:67-82` | 是 | 否（文件内只有 Tab 陷阱，没有 Escape 处理，`:69-76`） | 否（`.onb-scrim` 没有点击处理，`:81`） | 自写 | 文件内没有回焦逻辑（打开时聚焦 `[data-autofocus]`，`:67`） | 1200 |
-| 9 | 放大的电脑窗 / 窄屏全屏电脑 | `ui/src/FloatingDesktop.tsx:45-102`，`:135` | 放大时是 | 是：大→小，只有全屏形态直接关（`:45`） | 网页端大窗点遮罩变回小窗（`BotDesktopPanel.tsx:822`）；全屏形态无遮罩 | 自写 | 是 | 25（内部 35） |
-| 10 | 详情窗格当模态（设置总是；其他面板在窄屏） | `ui/src/App.tsx:658`（`modalPanelOpen`）、`:1116-1158`（陷阱）、`:2596` | 是 | 是（设置走 `tofi-settings-close` 经离开确认；电脑放大或面板忙时不关，`:1118-1128`） | 是（`.detail-backdrop`，`:2595`） | 自写 | 是（`:1101-1107`） | 设置 30，其他 10 |
+| 1 | 删除 Bot/群确认 | `ui/src/DeleteConversationDialog.tsx`（用 `DialogShell`） | 是，`alertdialog` | 是（忙时不关） | 是（忙时不关） | `DialogShell` 只收 `button`、`select` | 是 | `--z-dialog`（1000） |
+| 2 | 隐藏主助理时选接任者 | `ui/src/PrimaryAssistant.tsx:97`（`DialogShell`） | 是 | 是 | 是 | 同上 | 是 | `--z-dialog`（1000） |
+| 3 | 管理员表单 sheet、已记住的审批 | `ui/src/AdminSheets.tsx:8-36`，`ui/src/RememberedApprovals.tsx:59` | 是 | 是（`locked` 时不关） | 是（`locked` 时不关） | 自写 | 是 | `--z-dialog` + 1（210） |
+| 4 | 技能访问 sheet | `ui/src/settings/SkillAccess.tsx:50-83` | 是 | 是 | 是（忙时不关） | 自写 | 是 | `--z-dialog` + 1（210） |
+| 5 | 接管屏幕（handover） | `ui/src/TakeoverDialog.tsx:48-69` | 是 | **否**（按键要给远程电脑） | 否 | 自写 | 是 | `--z-dialog`（200） |
+| 6 | VM 里授权（MCP OAuth） | `ui/src/VMOAuthDialog.tsx:82-108` | 是 | **否**（同上，`:86`） | 否 | 自写 | 是 | `--z-dialog`（200） |
+| 7 | 相关对话只读窗（窄屏/桌面客户端时是模态） | `ui/src/ViewOnlyChat.tsx:44-79` | 宽屏网页是卡片，否则模态 | 是 | — | 自写（卡片形态不陷） | 是 | `--z-dialog`（110）；卡片 `--z-panel`（40） |
+| 8 | 首次引导 | `ui/src/Onboarding.tsx:67-82` | 是 | 否（文件内只有 Tab 陷阱，没有 Escape 处理，`:69-76`） | 否（`.onb-scrim` 没有点击处理，`:81`） | 自写 | 文件内没有回焦逻辑（打开时聚焦 `[data-autofocus]`，`:67`） | `--z-dialog`（1200） |
+| 9 | 放大的电脑窗 / 窄屏全屏电脑 | `ui/src/FloatingDesktop.tsx:45-102`，`:135` | 放大时是 | 是：大→小，只有全屏形态直接关（`:45`） | 网页端大窗点遮罩变回小窗（`BotDesktopPanel.tsx:822`）；全屏形态无遮罩 | 自写 | 是 | 小窗 `--z-pill`（25）；放大 `--z-dialog`（40，内部 35） |
+| 10 | 详情窗格当模态（设置总是；其他面板在窄屏） | `ui/src/App.tsx:658`（`modalPanelOpen`）、`:1116-1158`（陷阱）、`:2596` | 是 | 是（设置走 `tofi-settings-close` 经离开确认；电脑放大或面板忙时不关，`:1118-1128`） | 是（`.detail-backdrop`，`:2595`） | 自写 | 是（`:1101-1107`） | 设置 `--z-dialog`（30），其他 `--z-panel`（10），遮罩 `--z-panel` − 1（9） |
 | 11 | 终端：关闭 / 中断确认（两个） | `ui/src/TerminalPanel.tsx:44-50` | `alertdialog` | 是 | 否 | 无 | 待确认 | 2（终端内） |
-| 12 | 权限提示（仅桌面客户端，听写要麦克风时） | `ui/src/PermissionCoach.tsx:37`、`:95`；`App.tsx:3538` | **非模态** `role="dialog"` | **否** | — | 无 | 无 | 160 |
+| 12 | 权限提示（仅桌面客户端，听写要麦克风时） | `ui/src/PermissionCoach.tsx:37`、`:95`；`App.tsx:3538` | **非模态** `role="dialog"` | **否** | — | 无 | 无 | `--z-toast`（160），但在输入框或设置窗里，被它们封顶 |
 | 13 | 图片灯箱 | `ui/src/MessageAttachment.tsx:25`、`:76`、`:85` | 原生 | 原生 `cancel` | 是 | 原生 | 原生 | 顶层 |
 | 14 | 文件预览 | `ui/src/FileViewer.tsx:120-130` | 原生 | 原生 | 是 | 原生 | 原生 | 顶层 |
 | 15 | 设置：离开前保存确认 | `ui/src/SettingsShell.tsx:101`、`:153` | 原生 | 是（保存中不关） | 否（`<dialog>` 本身没有点击处理，`:153`） | 原生 | 原生 | 顶层 |
 | 16 | 电脑重启确认 | `ui/src/ComputerResources.tsx:16-20` | 原生 | 是 | 否（`<dialog>` 本身没有点击处理，`:17`） | 原生 | 原生 | 顶层 |
+
+同一层（`--z-dialog`）的模态按 DOM 顺序叠：portal 到 `#tofi-layers` 的对话框在设置窗和引导（都在 `#root` 里）之上，它们之间后打开的在上；迁移前按数字大小排（`migration.md` 第 1 步 L4）。
 
 另有一种"就地确认"：`ConfirmAction`（`ui/src/InteractionSystem.tsx`，危险操作在原位变成"确定？/取消"，焦点进取消，Escape 退回）。设置里的危险操作用它，不弹窗。
 
@@ -294,8 +297,8 @@
 | C12 | 中 | 9 份手写焦点陷阱，规则各不一样：`DialogShell` 只收 `button`、`select`（以后加输入框或链接就漏掉）；`TakeoverDialog` 只收 `button`、`textarea`；App 详情窗格的版本最完整（过滤隐藏元素） | `DialogShell.tsx:7-11`，`TakeoverDialog.tsx:54`，`App.tsx:1116-1150` | P8 |
 | C13 | 中 | `DialogShell` 的 Escape 和 Tab 处理挂在遮罩的 `onKeyDown` 上：点一下卡片上的空白处，焦点落到 `body`，之后 Escape 和 Tab 都不再经过它 | `DialogShell.tsx:5-6` | P8 |
 | C14 | 中 | 接任者对话框（#2）打开时工作区没设 `inert`：`inert` 条件只看 `deleteTarget` 和只读窗，不含 `hidePrimaryTarget`。读屏的虚拟光标能走到背景 | `App.tsx:2441`，对照 `:2611` | P8 |
-| C15 | 中 | 权限提示（#12）固定在右下角 `right:24px; bottom:24px`，宽到 420 px、`z-index:160`，盖住发送按钮和"新消息"胶囊所在的角；没有 Escape | `ui/src/permission-coach.css:1`，`PermissionCoach.tsx:95` | P2（违反 D18"不能盖住新消息胶囊"） |
-| C16 | 中 | 设置窗是带遮罩的模态，层级却只有 30，启动画面、toast、身份卡、右键菜单、权限提示都会浮在它上面 | `tokens.md` Z5，`settings-system.css:2` | P2 |
+| C15 | 中 | 权限提示（#12）固定在右下角 `right:24px; bottom:24px`，宽到 420 px，盖住发送按钮所在的角；没有 Escape。更正：它渲染在输入框里（`App.tsx` 的 `Composer`），被输入框的 `isolation:isolate` 封顶，所以并不盖住"新消息"胶囊（胶囊 `--z-pill` 高于输入框 `--z-chrome`，迁移前 6 也高于 4） | `ui/src/permission-coach.css:1`，`PermissionCoach.tsx:95` | P2 |
+| C16 | 中 | **第 1 步已修**：设置窗是带遮罩的模态，层级却只有 30，启动画面、toast、身份卡、右键菜单都会浮在它上面。现在是 `--z-dialog`，只有 toast、提示和拖动层在它上面 | `tokens.md` Z5，`settings-system.css:2` | P2 |
 | C17 | 低 | 三套模态机制（自写、原生 `<dialog>`、`ConfirmAction`），Escape 是否关闭、点遮罩是否关闭没有统一规则（见上表"待确认"格） | 本节表格 | P6 |
 
 ---
@@ -306,18 +309,18 @@
 
 | 菜单 | 文件 | 打开方式 | 焦点进菜单 | 方向键 | Escape | 关后焦点回去 | 点外面关 | 位置 | 层级 |
 |---|---|---|---|---|---|---|---|---|---|
-| 侧栏行右键菜单（置顶、移到分区、标为未读、改名、设为主助理、复制链接、复制 ID、隐藏、删除） | `ui/src/App.tsx:2462-2473`，键盘 `:586-600`，关闭 `:683-690` | 右键、长按、Menu 键、Shift+F10 | 仅键盘打开时（`data-input="keyboard"`） | 上下循环 | 是 | 是（`sidebarMenuOrigin`） | `window` click | 指针处，用写死的 248×360 夹在视口内（`App.tsx:1314`、`:2286`、`:2308`） | 120 |
-| 附件菜单（图片、文件、截屏） | `App.tsx:3538`，关闭 `:3339-3352` | 点 + | 否 | 否 | 是 | 否 | pointerdown | 按钮上方 | 10，被输入框封顶在 4（Z3） |
-| 账户菜单（设置、用量、主题、连接、归档、退出） | `ui/src/OwnerSession.tsx:164-190` | 点账户 | 否 | 否 | 是 | 否 | pointerdown | 账户按钮上方 10 px | 150，被侧栏封顶在 5（Z3） |
-| 消息表情反应菜单（8 个常用 + 更多 → 完整表情选择器） | `ui/src/MessageReactions.tsx:24-80`，`ui/src/ReactionEmojiPicker.tsx` | 操作行笑脸按钮；桌面客户端右键消息 | 是（第一个按钮） | 否 | 是（capture） | 是 | pointerdown；外部滚动也关 | 锚点下 6 px，按实测尺寸夹在视口内 12 px 边距（`:43-52`） | 150 |
+| 侧栏行右键菜单（置顶、移到分区、标为未读、改名、设为主助理、复制链接、复制 ID、隐藏、删除） | `ui/src/App.tsx:2462-2473`，键盘 `:586-600`，关闭 `:683-690` | 右键、长按、Menu 键、Shift+F10 | 仅键盘打开时（`data-input="keyboard"`） | 上下循环 | 是 | 是（`sidebarMenuOrigin`） | `window` click | 指针处，用写死的 248×360 夹在视口内（`App.tsx:1314`、`:2286`、`:2308`） | `--z-menu`（120） |
+| 附件菜单（图片、文件、截屏） | `App.tsx:3538`，关闭 `:3339-3352` | 点 + | 否 | 否 | 是 | 否 | pointerdown | 按钮上方 | `--z-menu`（10），被输入框封顶（Z3） |
+| 账户菜单（设置、用量、主题、连接、归档、退出） | `ui/src/OwnerSession.tsx:164-190` | 点账户 | 否 | 否 | 是 | 否 | pointerdown | 账户按钮上方 10 px | `--z-menu`（150），被侧栏封顶（Z3） |
+| 消息表情反应菜单（8 个常用 + 更多 → 完整表情选择器） | `ui/src/MessageReactions.tsx:24-80`，`ui/src/ReactionEmojiPicker.tsx` | 操作行笑脸按钮；桌面客户端右键消息 | 是（第一个按钮） | 否 | 是（capture） | 是 | pointerdown；外部滚动也关 | 锚点下 6 px，按实测尺寸夹在视口内 12 px 边距（`:43-52`） | `--z-menu`（150） |
 
 下拉面板（没有 `role="menu"`，Tab 走完）：
 
 | 面板 | 文件 | 焦点进面板 | Escape 回触发按钮 | 层级 |
 |---|---|---|---|---|
-| 新建菜单（新 Bot、新群、导入） | `App.tsx:1180-1198`，标记 `create-menu` | 是（rAF 后第一个按钮） | 是 | 8 |
-| 顶栏"更多"菜单 | `App.tsx:1159-1179`，标记 `more-menu` | 是 | 是 | 8（顶栏在 ≥1100 px 被抬到 14，Z4） |
-| MCP 服务器行"更多" | `ui/src/MCPSettings.tsx:232-233` | 待确认 | 待确认 | 30（`extensions-system.css:61`） |
+| 新建菜单（新 Bot、新群、导入） | `App.tsx:1180-1198`，标记 `create-menu` | 是（rAF 后第一个按钮） | 是 | `--z-menu`（8），在侧栏这一层里 |
+| 顶栏"更多"菜单 | `App.tsx:1159-1179`，标记 `more-menu` | 是 | 是 | `--z-menu`（8），在顶栏这一层里；顶栏在 ≥1100 px 是 `calc(var(--z-panel) + 1)`（迁移前 14，Z4） |
+| MCP 服务器行"更多" | `ui/src/MCPSettings.tsx:232-233` | 待确认 | 待确认 | `--z-menu`（30，`extensions-system.css:61`），在设置窗里 |
 
 **动效**：新建和更多菜单进场 `menu-enter`（向下 4 px + 0.97 缩放），退场 `--m-quick`（`interaction-system.css:90-92`）；其余菜单直接出现。
 
@@ -332,7 +335,7 @@
 | C18 | 中 | 四个菜单四种键盘行为（见上表）：账户菜单和附件菜单声明了 `role="menu"` 却既不移焦点也不支持方向键，读屏会按菜单播报、键盘却用不了菜单的方式操作 | 上表各行 | P8 |
 | C19 | 中 | "复制 ID"直接调 `navigator.clipboard?.writeText`，在局域网 http 下（没有异步剪贴板）静默失败，没有任何提示；同文件里已有带降级的 `writeClipboard` | `App.tsx:2470`，对照 `:296-305` | P3 |
 | C20 | 低 | 右键菜单用写死的 248×360 估尺寸夹视口，菜单项变多（主助理、隐藏 Bot）或换语言变宽时可能出界；表情菜单已经用实测尺寸 | `App.tsx:1314`，对照 `MessageReactions.tsx:43-52` | P2 |
-| C21 | 低 | 账户菜单和附件菜单的 z-index 被父级封顶，写的数值没有意义（Z3） | `tokens.md` Z3 | — |
+| C21 | 低 | 账户菜单和附件菜单的 z-index 被父级封顶，写的数值没有意义（Z3）。第 1 步把数值换成了 `--z-menu`，仍被封顶，第 2 步改 portal 后才生效 | `tokens.md` Z3 | — |
 
 ---
 
@@ -340,8 +343,8 @@
 
 | 提示 | 文件 | 触发 | 延迟 | 位置 | 层级 |
 |---|---|---|---|---|---|
-| 图标按钮提示 `ActionHints`（全局一个，委托监听带 `data-hint` 的元素） | `ui/src/InteractionSystem.tsx:51-84`，`interaction-system.css:93` | 鼠标悬停（触屏和笔不触发）、键盘聚焦 | 悬停 500 ms，聚焦 150 ms；从一个图标移到相邻图标 400 ms 内不再等（`:71`） | 按钮上方 8 px（离顶 ≤ 62 px 时改到下方），水平夹在 [100, 视口宽 − 100]，最宽 200 px | 1000，portal 到 `body` |
-| 群聊已读名单 | `ui/src/SendReceipt.tsx:43-47`，`send-receipt.css:10-11` | 悬停或聚焦已读标记 | 无，`--m-press` 淡入 | 标记上方，右对齐 | 5 |
+| 图标按钮提示 `ActionHints`（全局一个，委托监听带 `data-hint` 的元素） | `ui/src/InteractionSystem.tsx:51-84`，`interaction-system.css:93` | 鼠标悬停（触屏和笔不触发）、键盘聚焦 | 悬停 500 ms，聚焦 150 ms；从一个图标移到相邻图标 400 ms 内不再等（`:71`） | 按钮上方 8 px（离顶 ≤ 62 px 时改到下方），水平夹在 [100, 视口宽 − 100]，最宽 200 px | `--z-tooltip`（1000），portal 到 `#tofi-layers`（迁移前是 `body`） |
+| 群聊已读名单 | `ui/src/SendReceipt.tsx:43-47`，`send-receipt.css:10-11` | 悬停或聚焦已读标记 | 无，`--m-press` 淡入 | 标记上方，右对齐 | `--z-tooltip`（5），仍在行内 |
 
 **关闭**：`ActionHints` 在指针移出、失焦、任意指针按下、任意按键、任意滚动时消失（`InteractionSystem.tsx:74-80`）。
 
@@ -352,7 +355,7 @@
 | # | 严重度 | 问题 | 证据 | 原则 |
 |---|---|---|---|---|
 | C22 | 中 | 提示是强调色底（`--accent`），在一套"控件要低调"的界面里是最显眼的东西 | `interaction-system.css:93` | P1（是否改为中性色：待 owner 定） |
-| C23 | 中 | 层级 1000 低于引导遮罩 1200，也到不了原生 `<dialog>` 顶层；目前那些地方没有 `data-hint`，暂无故障 | `tokens.md` Z7 | P2 |
+| C23 | 中 | 层级 1000 低于引导遮罩 1200，也到不了原生 `<dialog>` 顶层；目前那些地方没有 `data-hint`，暂无故障。**前一半第 1 步已修**：`--z-tooltip` 在所有模态之上；原生 `<dialog>` 那一半等第 3 步 | `tokens.md` Z7 | P2 |
 | C24 | 低 | 两套提示 + 原生 title 三种机制，样式和延迟各不一样 | 本节 | P6 |
 
 ---
@@ -361,17 +364,17 @@
 
 | 浮层 | 文件 | 打开 | 关闭 | 位置 | 层级 |
 |---|---|---|---|---|---|
-| Bot 身份卡（群聊发送者头像上） | `ui/src/BotIdentityCard.tsx`，使用处 `App.tsx:2735` | 鼠标悬停 400 ms；聚焦；触屏松手；长按 500 ms 直接 @ 这个 Bot（`:37-43`） | 离开 180 ms 后；滚动、改窗口大小、Escape 立即关 | 锚点下 8 px，用写死的 292×240 夹在视口内 12 px 边距（`:22-26`） | 90 |
-| 完整表情选择器 | `ui/src/ReactionEmojiPicker.tsx`（懒加载） | 表情菜单里点 + | 随表情菜单 | 表情菜单内 | 150 |
-| 相关对话只读卡片（宽屏网页） | `ui/src/ViewOnlyChat.tsx`，`context-card.css:30` | 点消息里的相关对话链接 | Escape、关闭按钮 | 右上卡片位置，与上下文面板同位 | 40 |
-| 上下文浮卡（≥1100 px 的 Bot 面板等） | `ui/src/context-card.css:13`、`:49` | 顶栏按钮 | 待确认 | 右上，`inset: var(--card-top) 16px auto auto` | 12 |
+| Bot 身份卡（群聊发送者头像上） | `ui/src/BotIdentityCard.tsx`，使用处 `App.tsx:2735` | 鼠标悬停 400 ms；聚焦；触屏松手；长按 500 ms 直接 @ 这个 Bot（`:37-43`） | 离开 180 ms 后；滚动、改窗口大小、Escape 立即关 | 锚点下 8 px，用写死的 292×240 夹在视口内 12 px 边距（`:22-26`） | `--z-popover`（90） |
+| 完整表情选择器 | `ui/src/ReactionEmojiPicker.tsx`（懒加载） | 表情菜单里点 + | 随表情菜单 | 表情菜单内 | 随表情菜单 `--z-menu`（150） |
+| 相关对话只读卡片（宽屏网页） | `ui/src/ViewOnlyChat.tsx`，`context-card.css:30` | 点消息里的相关对话链接 | Escape、关闭按钮 | 右上卡片位置，与上下文面板同位 | `--z-panel`（40） |
+| 上下文浮卡（≥1100 px 的 Bot 面板等） | `ui/src/context-card.css:13`、`:49` | 顶栏按钮 | 待确认 | 右上，`inset: var(--card-top) 16px auto auto` | `--z-panel`（12） |
 
 **已知问题**
 
 | # | 严重度 | 问题 | 证据 | 原则 |
 |---|---|---|---|---|
 | C25 | 低 | 身份卡没有 `role`，只有 `aria-label`；用写死尺寸夹视口 | `BotIdentityCard.tsx:47` | P8 |
-| C26 | 中 | 身份卡 90 低于只读窗 110、右键菜单 120；同一视图里叠开时被盖 | `tokens.md` 9.4 | P2 |
+| C26 | 中 | 身份卡 90 低于只读窗 110、右键菜单 120；同一视图里叠开时被盖。第 1 步后按刻度：身份卡 `--z-popover` 低于菜单和模态是有意的顺序；身份卡只在主对话里出现，模态开着时背后是 `inert`，碰不到它。是否关闭这一条，等 owner 预览后定 | `tokens.md` 9.4 | P2 |
 
 ---
 
@@ -523,7 +526,7 @@
 
 | 名称 | 文件 | 何时出现 | 位置 | 层级 | 关闭 |
 |---|---|---|---|---|---|
-| 工作区刷新失败 toast | `App.tsx:2443`，`styles.css:447-448` | 列表刷新失败 | `position:fixed` 顶部居中 10 px | 80 | 无关闭按钮，只有"重试" |
+| 工作区刷新失败 toast | `App.tsx:2443`，`styles.css:447-448` | 列表刷新失败 | `position:fixed` 顶部居中 10 px | `--z-toast`（80） | 无关闭按钮，只有"重试" |
 | 共享电脑状态条 | `App.tsx:2444` | 电脑启动、恢复、出错、无响应 | 工作区顶部文档流 | — | 自动消失；出错时带操作按钮 |
 | 新版本横幅 | `ui/src/UpdateNotice.tsx:58-79`，`ui/src/UpdateNotice.css` | 管理员且有新版本 | 工作区最上方文档流（会把内容往下推） | — | 关闭按钮，按版本记住（localStorage） |
 | 对话内系统提示 | `styles.css:449-450`（`.error-banner.system-notice`） | 失败提示 | 消息列表内 | — | — |
@@ -537,7 +540,7 @@
 
 | # | 严重度 | 问题 | 证据 | 原则 |
 |---|---|---|---|---|
-| C31 | 中 | toast 层级 80，被所有模态、菜单盖住，对话框开着时出错用户看不到（Z1） | `tokens.md` Z1 | P3 |
+| C31 | 中 | **第 1 步已修**：toast 层级 80，被所有模态、菜单盖住，对话框开着时出错用户看不到（Z1）。现在是 `--z-toast`，在所有模态和菜单之上；原生 `<dialog>` 仍盖住它（Z7） | `tokens.md` Z1 | P3 |
 | C32 | 中 | toast 固定在顶部正中，正好压在顶栏标题上；没有关闭按钮，要么重试成功要么一直在 | `styles.css:448` | P2 |
 | C33 | 低 | 没有统一的 toast/通知组件：7 种写法，样式、`role`、关闭方式各不相同；toast 阴影写死 `rgb(0 0 0 / .18)` | 本节表格 | P6 |
 
@@ -557,7 +560,7 @@
 |---|---|
 | 读屏 | `aria-busy`，隐藏的 `role="status"` 读 `label` |
 | 位置 | `position:fixed; inset:0`，内容在视口正中（`36c6e0c`，`test:live-fixes` 检查卡片中心偏差 ≤ 1 px，`ui/scripts/test-live-fixes.mjs:55-57`） |
-| 层级 | 60（`boot-screen.css:2`） |
+| 层级 | `--z-cover`（迁移前 60，`boot-screen.css:2`）：盖住 chrome、面板、菜单，模态（设置窗、引导、放大的电脑窗）在它上面 |
 | 主题 | 在 App 应用外观之前就读 localStorage 设好深浅色，深色用户不会先看到一闪白（`BootScreen.tsx:20-28`） |
 | 动效 | logo 呼吸 2.4 s，多个启动画面共用同一相位（`--boot-phase`）；溶解 `--m-panel-in`；只有一层 `backdrop-filter`（`boot-screen.css` "Frost: the one blur layer"） |
 | 骨架形态 | 按当前路由选列表视图或对话视图（`currentView`） |
@@ -569,7 +572,7 @@
 | # | 严重度 | 问题 | 证据 | 原则 |
 |---|---|---|---|---|
 | C34 | 低 | 溶解时长 JS 写 `DISSOLVE_MS = 320`（再加 30 ms 才卸载），CSS 动画是 `--m-panel-in` 280 ms，两处数字没有绑定 | `BootScreen.tsx:17`、`:51`，`boot-screen.css`（`.boot-dissolve`） | P4 |
-| C35 | 低 | 层级 60 低于设置窗以外的多数弹层；`tokens.md` 9.3 提议改到 `--z-cover` 70 | `tokens.md` 9.3 | — |
+| C35 | 低 | **第 1 步已修**：层级 60 低于设置窗以外的多数弹层。现在是 `--z-cover` 70 | `tokens.md` 9.3 | — |
 
 ---
 
@@ -588,7 +591,7 @@
 | 焦点 | 放大时焦点进第一个按钮；关掉回到触发处，触发处没了回到电脑按钮（`FloatingDesktop.tsx:64-102`） |
 | 键盘 | Escape 先大变小，只有全屏 sheet 直接关（`:45-47`）；远程控制时键盘事件给远程电脑，但 Escape 仍然关查看器（`:89-91`） |
 | 位置 | 小窗 `right:16px`，底边在输入框可见最高处之上 64 px，随输入框尺寸变化（`:5-33`）；视口 ≥ 1024 px 时消息区右侧让出小窗宽度 + 32 px（`--desktop-reserve`，`:50-60`，`chat-header.css:56`） |
-| 层级 | 外壳 25，放大内部 35，`.computer-detail.is-expanded` 50 |
+| 层级 | 小窗 `--z-pill`（迁移前 25），在浮卡、抽屉之下；放大后外壳、内部和 `.computer-detail.is-expanded` 都是 `--z-dialog`（迁移前 40、35、50）；电脑预览内部的局部值（最高 12）在 `layers-baseline.json` 的上限里 |
 | 读屏 | 状态变化用 `DesktopStatusAnnouncement`（`role="status"`，`BotDesktopPanel.tsx:107-121`） |
 
 **测试**：`test:computer-window`、`test:desktop-connect`；无 npm script 的 `ui/scripts/test-floating-desktop.mjs`、`test-remote-desktop-control.mjs`、`test-desktop-state.mjs`、`test-desktop-video-recovery.mjs`、`test-desktop-video-visibility.mjs`。
@@ -614,7 +617,7 @@
 |---|---|
 | 时长 | 进入 `--m-panel-in` 280 ms，返回 `--m-base` 220 ms；每个窗格按它要去的状态取时长，两个窗格同时落地（`styles.css:313-317`） |
 | 不出空帧 | 两个窗格整个过程都保持布局和绘制，`visibility` 只在结束时翻转；列表右缘始终在对话左缘之外（`:315-317`） |
-| 层级 | 列表 6、对话 7；列表变暗层是它自己的 `::after` |
+| 层级 | 列表 6、对话 7；列表变暗层是它自己的 `::after`。这一对的父级不是层叠上下文，它们在根层叠上下文里，是 `test:layers` 唯一允许的例外（局部值，不能改成全局令牌） |
 | 减少动效 | 直接切换（`:324-328`） |
 | 返回 | 顶栏返回按钮；按下有 0.94 缩放反馈（`:330`） |
 | 预算 | `test:shell-budget` 第 3 部分：方向、时长、无空帧（`ui/scripts/test-shell-budget.mjs:6-8`） |
@@ -641,7 +644,7 @@
 | 底部模糊带 | 高 `--composer-height + 76px`；两层 `backdrop-filter`（4 px、12 px），各用一段线性渐变遮罩显露，叠加后强度平滑上升；只有一点 `--bg` 色调 | `progressive-blur.css:1-24` |
 | 输入框 | 不再自带背景模糊（每多一层都是整宽重模糊，单它就超过了悬停预算） | `:26-30` |
 | 顶栏 | 消息区向上延伸到顶栏下（`margin-top: -var(--chat-header-height)`）；`::before` 3 px、`::after` 9 px 两层，各自遮罩；顶栏本身 `pointer-events:none`，只有子元素可点 | `:32-49` |
-| 胶囊 | `z-index:6`，高于模糊带 3 和输入框 4 | `:50-51` |
+| 胶囊 | `--z-pill`（迁移前 6），高于模糊带 `--z-edge-blur` 和输入框 `--z-chrome` | `styles.css:153`（迁移前被 `progressive-blur.css:51` 覆盖，第 1 步合并） |
 | 降级 | 系统"减少透明度"或浏览器不支持 `backdrop-filter` 时退回普通渐变遮罩 | `:53-65` |
 
 **"新消息"胶囊**：只在读者离开底部时出现（`viewport.showJump`），有新消息时显示条数；点了滑到底并消失。按下有 2–3 px 的位移反馈（`v2-app.css:398-399`）。
@@ -654,7 +657,7 @@
 
 | # | 严重度 | 问题 | 证据 | 原则 |
 |---|---|---|---|---|
-| C40 | 中 | D18 要求"任何东西都不能盖住新消息胶囊"，但只有测试里的场景被验证；权限提示（C15）和窄于 1024 px 的电脑小窗（C36）都在同一个角落，层级还高于胶囊 | `permission-coach.css:1`（160）、`desktop-presence.css:2`（25）对 `progressive-blur.css:51`（6） | P2 |
+| C40 | 中 | D18 要求"任何东西都不能盖住新消息胶囊"，但只有测试里的场景被验证；窄于 1024 px 的电脑小窗（C36）在同一个角落，和胶囊同在 `--z-pill`、DOM 在后，所以盖在胶囊上（迁移前 25 对 6，也盖着）。更正：权限提示（C15）在输入框里被封顶，并不高于胶囊 | `desktop-presence.css:2`、`styles.css:153` | P2 |
 | C41 | 低 | 胶囊按下的位移反馈用 `:active` 的 `translate(2px,3px)`，不走动效令牌里的按压规范（`--m-press`） | `v2-app.css:398-399` | P4 |
 
 ---
@@ -663,8 +666,8 @@
 
 | 模式 | 文件 | 要点 |
 |---|---|---|
-| 拖文件进窗口 | `ui/src/WebFileDropOverlay.tsx`，`web-file-drop.css:2`、`:23` | 整屏遮罩 + 跟随指针的残影，1000 层，`pointer-events:none` |
-| 发送飞行 / 寄信飞行 | `ui/src/sendFlight.ts`，`ui/src/mailSendFlight.ts`，`mail-send-flight.css` | 纯动画，`--m-flight` 640 ms；z 用了魔法数字 2147483000 和两处重复的 120（`tokens.md` Z6） |
+| 拖文件进窗口 | `ui/src/WebFileDropOverlay.tsx`，`web-file-drop.css:2`、`:23` | 整屏遮罩 + 跟随指针的残影，`--z-drag`（迁移前 1000），都进 `#tofi-layers`，`pointer-events:none` |
+| 发送飞行 / 寄信飞行 | `ui/src/sendFlight.ts`，`ui/src/mailSendFlight.ts`，`mail-send-flight.css` | 纯动画，`--m-flight` 640 ms；`--z-drag`，追加到 `#tofi-layers`（迁移前是魔法数字 2147483000 和两处重复的 120，`tokens.md` Z6，第 1 步已修） |
 | 定时任务行 | `ui/src/ScheduledTaskRow.tsx`，`scheduled-task-row.css` | 时间线里的定时任务，可重试 |
 | 任务问题卡 | `ui/src/TaskIssueCard.tsx`，`taskIssuePresentation.ts` | 运行失败、需要处理时的说明卡 |
 | 邮件草稿卡 | `ui/src/MailDraftCard.tsx` | `prepare_email` 走的独立卡片路径（`AGENTS.md`） |
@@ -689,20 +692,20 @@
 | C12 | 中 | 对话框 | 9 份焦点陷阱规则不一 | P8 |
 | C13 | 中 | `DialogShell` | 焦点落到 body 后 Escape 失效 | P8 |
 | C14 | 中 | 接任者对话框 | 背景没 `inert` | P8 |
-| C15 | 中 | 权限提示 | 盖住发送按钮和新消息胶囊 | P2 |
-| C16 | 中 | 设置窗 | 模态层级 30，被很多东西盖 | P2 |
+| C15 | 中 | 权限提示 | 盖住发送按钮（不盖胶囊，已更正） | P2 |
+| C16 | 中 | 设置窗 | 模态层级 30，被很多东西盖（**第 1 步已修**） | P2 |
 | C18 | 中 | 菜单 | 四个菜单四种键盘行为 | P8 |
 | C19 | 中 | 右键菜单 | http 下"复制 ID"静默失败 | P3 |
 | C22 | 中 | 悬停提示 | 强调色底，与"控件低调"冲突（待 owner 定） | P1 |
-| C23 | 中 | 悬停提示 | 到不了引导遮罩和原生 dialog 之上 | P2 |
-| C26 | 中 | 身份卡 | 层级低于只读窗和右键菜单 | P2 |
+| C23 | 中 | 悬停提示 | 到不了原生 dialog 之上（引导那一半第 1 步已修） | P2 |
+| C26 | 中 | 身份卡 | 层级低于只读窗和右键菜单（第 1 步后是刻度的有意顺序，待 owner 预览后定是否关闭） | P2 |
 | C29 | 中 | `Segmented` | radio 语义的键盘行为待确认 | P8 |
-| C31 | 中 | toast | 被模态盖住 | P3 |
+| C31 | 中 | toast | 被模态盖住（**第 1 步已修**） | P3 |
 | C32 | 中 | toast | 压住顶栏标题，无关闭 | P2 |
 | C38 | 中 | 手机推入 | 没有边缘右滑返回 | P5 |
-| C40 | 中 | 新消息胶囊 | 同角落有两个更高层的东西 | P2 |
+| C40 | 中 | 新消息胶囊 | 同角落的电脑小窗盖在它上面 | P2 |
 | C2 | 中 | 消息气泡 | 7 种分支 + 两套工具行 | P6 |
-| C1、C4、C10、C11、C17、C20、C21、C24、C25、C27、C28、C30、C33、C34、C35、C37、C39、C41 | 低 | 各处 | 见各节 | — |
+| C1、C4、C10、C11、C17、C20、C21、C24、C25、C27、C28、C30、C33、C34、C35（第 1 步已修）、C37、C39、C41 | 低 | 各处 | 见各节 | — |
 
 ## 25. 待确认清单
 

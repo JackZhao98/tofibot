@@ -4,6 +4,7 @@ import type { Message, Reaction } from "./types";
 import { TofiIcon } from "./icons";
 import { useTranslation } from "./i18n";
 import "./message-reactions.css";
+import { layerRoot } from "./layers";
 const EmojiPicker = lazy(() => import("./ReactionEmojiPicker"));
 const choices = ["👍", "❤️", "😂", "🎉", "👀", "🙌", "🤔", "🐱"];
 type MenuPosition = { x: number; y: number } | null;
@@ -77,6 +78,6 @@ export function MessageReactions({ message, botNames, onSet, menuPosition, onClo
     {menuPosition && createPortal(<div ref={menu} className={`reaction-context-menu${showPicker ? " has-emoji-picker" : ""}`} role="dialog" aria-label={t("reactions.menu")} style={position} aria-busy={pendingEmoji.size > 0}>
       {!showPicker ? <div className="reaction-options" role="group" aria-label={t("reactions.common")}>{choices.map(emoji => <button key={emoji} type="button" aria-label={t("reactions.react_with", { emoji })} aria-pressed={mine(emoji)} disabled={pendingEmoji.has(emoji)} onClick={() => void toggle(emoji, !mine(emoji))}>{emoji}</button>)}<button type="button" aria-label={t("reactions.more")} title={t("reactions.more")} onClick={() => setShowPicker(true)}><TofiIcon name="plus" size={18} /></button></div> : <div><Suspense fallback={<p className="reaction-picker-loading" role="status">{t("reactions.loading")}</p>}><EmojiPicker onSelect={emoji => void toggle(emoji, !mine(emoji))} /></Suspense></div>}
       {error && <p role="alert">{error}</p>}
-    </div>, document.body)}
+    </div>, layerRoot())}
   </>;
 }

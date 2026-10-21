@@ -73,7 +73,7 @@
 
 - 悬停设备上操作行的 28 px 始终预留，显示或隐藏都不让页面跳（`ui/src/v2-app.css:580-584` 注释、`:601-606`）。
 - 触屏上操作行插进文档流，把下面的内容推开，而不是盖在相邻消息上（`v2-app.css:607-610`）。
-- 胶囊 `z-index:6`，高于模糊带和输入框（`ui/src/progressive-blur.css:50-51`）。
+- 胶囊 `--z-pill`，高于模糊带 `--z-edge-blur` 和输入框 `--z-chrome`（`ui/src/styles.css:153`；迁移第 1 步之前是 `progressive-blur.css:51` 的 `z-index:6`）。
 - 电脑小窗在视口 ≥ 1024 px 时让消息区右侧让出它的宽度（`ui/src/FloatingDesktop.tsx:50-60`）。
 - 表情菜单按实测尺寸夹在视口里（`ui/src/MessageReactions.tsx:43-52`）。
 
@@ -82,6 +82,7 @@
 | 检查 | 方法 |
 |---|---|
 | 自动测试 | `npm --prefix ui run test:live-fixes`：胶囊中心和四角用 `elementFromPoint` 取到的都是胶囊本身，且完全在视口内（`ui/scripts/test-live-fixes.mjs:60-80`）。新的"必须点得到"的控件照这个写法加断言 |
+| 层级 | `npm --prefix ui run test:layers`：z-index 只能用 `tokens.md` 9.3 的 `--z-*`（组件内部用 -1..3），弹层只进 `#tofi-layers`，叠在一点上的弹层按刻度顺序画（`ui/scripts/test-layers.mjs`） |
 | 间距 | `test:chat-bubbles` 检查同一发送者消息间距 28–36 px（`ui/scripts/test-chat-bubbles.mjs:198-201`） |
 | 手动：遮挡扫描 | 在预览里打开新浮层后，在 DevTools Console 运行下面的片段，四个尺寸各跑一次：390×844、768×1024、1024×768、1280×800。任何一行是 `false` 就是违反 |
 | 手动：留位 | 让浮层出现、消失各一次，用 Performance 面板的 Layout Shift 轨道确认没有内容被推动（触屏操作行这类有意推开的除外，要在 PR 里说明） |
@@ -95,7 +96,7 @@
     return [el.className || el.tagName, Boolean(top && el.contains(top))]; });
 ```
 
-**已知违反**：C3（操作行的悬停提示压在消息上）、C9（猫可能压住最后一条消息，待实测）、C15（权限提示盖住发送按钮和胶囊）、C16（设置窗层级太低）、C20（右键菜单写死尺寸）、C23、C26（层级）、C32（toast 压住顶栏标题）、**C36（窄于 1024 px 时电脑小窗盖住消息，高）**、C40。
+**已知违反**：C3（操作行的悬停提示压在消息上）、C9（猫可能压住最后一条消息，待实测）、C15（权限提示盖住发送按钮）、C20（右键菜单写死尺寸）、C23（到不了原生 dialog 之上）、C26（层级，第 1 步后待 owner 定是否关闭）、C32（toast 压住顶栏标题）、**C36（窄于 1024 px 时电脑小窗盖住消息，高）**、C40。
 
 ---
 

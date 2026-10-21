@@ -1,4 +1,4 @@
-.handover-overlay{position:fixed;inset:0;z-index:200;display:grid;place-items:center;padding:24px;background:color-mix(in srgb,var(--desktop-controls-solid) 50%,transparent);-webkit-backdrop-filter:blur(12px);backdrop-filter:blur(12px)}
+.handover-overlay{position:fixed;inset:0;z-index:var(--z-dialog);display:grid;place-items:center;padding:24px;background:color-mix(in srgb,var(--desktop-controls-solid) 50%,transparent);-webkit-backdrop-filter:blur(12px);backdrop-filter:blur(12px)}
 .handover-dialog{display:flex;flex-direction:column;box-sizing:border-box;width:min(1120px,100%,calc((100dvh - 260px) * 1.6 + 40px));max-height:calc(100dvh - 48px);overflow:auto;background:var(--surface);color:var(--ink);border:var(--edge-bold) solid var(--line);border-radius:22px;padding:20px;box-shadow:var(--hard);outline:none}
 .handover-dialog>header{display:flex;align-items:center;justify-content:space-between;gap:16px;margin-bottom:10px}
 .handover-dialog>header>div:first-child{display:flex;align-items:baseline;gap:12px;flex-wrap:wrap;min-width:0}

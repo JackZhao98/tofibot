@@ -2,6 +2,7 @@
 
 > 范围：Web UI（`ui/src`）。快照基于提交 `748c774`（分支 `docs/system-opus`，2026-10-20 抽取）。
 > 本文分两部分：**第一部分是"现在真实在用的值"**（每条带 `file:line`），**第二部分是"提议"**（层级刻度、合并方案）。提议部分在 owner 点头前不是规范，不得据此改代码（D28：先出方案，再逐步迁移并预览）。
+> **例外：第 9 节的层级刻度已经落地**（迁移第 1 步，分支 `ds/step1-layers`，owner 的回答见 D31–D34），是规范；第 9 节的 `file:line` 按该分支写。其余各节仍按 `748c774`。
 >
 > 统计口径：产品样式 = `ui/src` 下除 `ui/src/motion-lab/`（独立页面 `ui/motion-lab.html`，18 个 CSS）和 `ui/src/lib/tofi-avatar/acceptance/`（头像验收页）以外的全部 `.css`，共 67 个文件（`ui/src/*.css` 63 个 + `ui/src/settings/` 3 个 + `ui/src/oauth/` 1 个）。数字由对这 67 个文件的正则扫描得出，复现方法见文末。
 
@@ -11,14 +12,15 @@
 
 | 东西 | 位置 | 说明 |
 |---|---|---|
-| 唯一令牌源 | `ui/src/design-tokens.css:3-99`（浅色 `:root`）、`:100-117`（深色 `:root[data-theme="dark"]`） | 由 `ui/src/interaction-system.css:1` 的 `@import "./design-tokens.css"` 引入。共定义 188 个自定义属性。 |
+| 唯一令牌源 | `ui/src/design-tokens.css:3-105`（浅色 `:root`，其中 `:99-104` 是层级刻度 `--z-*`）、`:106-123`（深色 `:root[data-theme="dark"]`） | 由 `ui/src/interaction-system.css:1` 的 `@import "./design-tokens.css"` 引入。共定义 201 个自定义属性（`748c774` 是 188 个，第 1 步加了 13 个 `--z-*`）。 |
 | 动效 JS 镜像 | `ui/src/motion.ts:4-11`（`MOTION`、`EASE`），`:18-30`（`CASCADE` 到达级联参数） | 与 CSS 的 `--m-*`、`--ease-*` 必须一致。 |
 | 主题切换 | `ui/src/InteractionSystem.tsx:7-30`（`useAppearance`） | 偏好存 `localStorage["tofi:appearance"]`（system/light/dark），写到 `<html data-theme>`；`system` 跟随 `prefers-color-scheme`。启动画面在 React 前先设一次：`ui/src/BootScreen.tsx:23-26`。**CSS 里没有任何 `@media (prefers-color-scheme)`**，深色只由 `data-theme="dark"` 触发。 |
 | 颜色守卫 | `npm --prefix ui run test:final-v2-tokens`（`ui/scripts/test-final-v2-tokens.mjs`） | 对照 `ui/test-fixtures/design/tokens/colors.css` 与 `tokens.json`：67 个颜色令牌两种模式都要有；36 对"`*-text` 对表面"对比度 ≥ 4.5:1；12 对"`--on-block` 对填充色"≥ 4.5:1；禁止把填充色（`--clay` 等）当前景 `color:` 用。2026-10-20 在本快照运行退出码 0。 |
 | 动效守卫 | `npm --prefix ui run test:motion-tokens`（`ui/scripts/test-motion-tokens.mjs`） | 禁止 800 ms 以下的字面时长、`cubic-bezier()`、裸 `ease`（延迟值除外，见脚本 `:67`）；每个 `backdrop-filter` 必须有 `-webkit-` 孪生。遗留上限在 `ui/scripts/motion-tokens-baseline.json`：目前只剩 `src/mailSendFlight.ts` 9 处。2026-10-20 运行退出码 0。 |
+| 层级守卫 | `npm --prefix ui run test:layers`（`ui/scripts/test-layers.mjs`） | z-index 只能是 `var(--z-*)`、`calc(var(--z-*) ± 1)` 或 -1..3 的局部值；旧的更大局部值的上限在 `ui/scripts/layers-baseline.json`（6 个文件 16 处）；TS 里不许写数字 z-index；弹层只进 `#tofi-layers`；浏览器里按刻度检查叠放顺序。见第 9.5 节。 |
 | 焦点环规则 | `ui/src/focus-ring.css:1-7` | 全产品一种键盘焦点环；组件只能改 offset，不改宽度和颜色。鼠标/触摸时不画（`focusModality.ts` 设 `html[data-input="pointer"]`，`focus-ring.css:14-19`）。 |
 
-**z-index、圆角、间距、阴影、模糊没有任何测试守着**，也基本没走令牌（见下文各节的"令牌使用率"）。
+**圆角、间距、阴影、模糊没有任何测试守着**，也基本没走令牌（见下文各节的"令牌使用率"）。z-index 从迁移第 1 步起由 `test:layers` 守着（第 9 节）。
 
 ---
 
@@ -322,42 +324,50 @@
 
 ---
 
-## 9. z-index：现状清单与层级刻度提议
+## 9. z-index：层级刻度与每一处的归层
+
+> 状态：**已落地**（迁移第 1 步，分支 `ds/step1-layers`；owner 的回答见 [D31](../decisions/0031-entry-budget-plan-a.md)–[D34](../decisions/0034-component-catalog-dev-only.md)）。本节的 `file:line` 按该分支的提交写；"迁移前"一列是 `748c774` 的值。守卫：`npm --prefix ui run test:layers`（`ui/scripts/test-layers.mjs`）。
 
 ### 9.1 现状
 
-产品 CSS 中 `z-index` 共 **89 处**，TS 中 3 处，用了 31 个不同的值：-1、0、1、2、3、4、5、6、7、8、9、10、12、14、20、25、30、35、40、50、60、80、90、110、120、150、160、200、210、1000、1200，以及 TS 里的 2147483000。motion-lab 页面另有 35 处，不在本表。
+产品 CSS 中 `z-index` 共 **89 处**：**46 处是全局层**，写成 `var(--z-*)` 或 `calc(var(--z-*) ± 1)`；**43 处是组件内部的局部值**（-1 到 12 的小整数）。TS 里只剩 1 处：发送飞行的行内样式写 `"var(--z-drag)"`（`ui/src/sendFlight.ts:20`）。motion-lab 页面另有 35 处，不在本表。
+
+迁移前（`748c774`）是 89 处 CSS、3 处 TS，31 个不同的值（-1 到 1200，TS 里还有 2147483000）。
+
+局部值里有 16 处大于 3，是刻度出现之前的组件内部叠放，按文件记在 `ui/scripts/layers-baseline.json` 里，只降不升：`desktop-presence.css` 6、`mail-send-flight.css` 4、`sidebar-pins.css` 2、`styles.css` 2（手机推入那一对）、`v2-app.css` 1、`web-file-drop.css` 1。
+
+所有弹层都 portal 到同一个根节点：`ui/index.html` 里 `#root` 后面的 `<div id="tofi-layers">`，由 `ui/src/layers.ts` 的 `layerRoot()` 取得（页面里没有就创建）。它是一个普通的 `div`，**不是层叠上下文**，所以里面每个弹层的 `--z-*` 和 `#root` 里的启动画面、顶栏、引导在同一个根层叠上下文里比大小。`createPortal(..., document.body)` 和往 `document.body` 里追加弹层元素都被 `test:layers` 拦下（追加离屏测量镜像、剪贴板降级输入框、下载链接这三处不是弹层，列在白名单里）。
 
 还有一类**不受 z-index 管**的：原生 `<dialog>` 的 `showModal()` 进入浏览器顶层（top layer），盖在所有 z-index 之上。目前有 4 个：图片灯箱（`MessageAttachment.tsx:25,76`）、文件预览（`FileViewer.tsx:124`）、设置离开确认（`SettingsShell.tsx:101`）、电脑重启确认（`ComputerResources.tsx:16`）。
 
-### 9.2 已发现的层级问题
+### 9.2 层级问题
 
-| # | 问题 | 证据 |
+| # | 问题 | 状态 |
 |---|---|---|
-| Z1 | **toast 被模态盖住**：工作区错误 toast 是 80，低于只读会话 110、右键菜单 120、面板/表单 200–210、删除对话框 1000、引导 1200，也盖不过原生 dialog。对话框开着时出错，提示看不到 | `styles.css:448`，对照下表 |
-| Z2 | 同值不同角色：1000 同时给了删除对话框、悬停提示、拖放遮罩、拖动残影、@提及拖动残影；200 给了两个模态，表单 sheet 只能用 210 压过它们 | `interaction-system.css:43,93`、`web-file-drop.css:2,23`、`web-mention.css:10`；`handover.css:1`、`extensions-system.css:101`、`settings/settings-components.css:144` |
-| Z3 | 数值被父级层叠上下文封顶，写多大都没用：账户菜单 150 在侧栏（≥768px 时 z 5）里面，实际只到 5；输入框里的附件菜单 10、@菜单 5 被输入框（z 4，`isolation:isolate`）封顶 | `v2-app.css:116` 对 `v2-app.css:19`；`v2-app.css:307`、`styles.css:167` 对 `conversation-workspace.css:12` |
-| Z4 | 为了让顶栏菜单盖过浮卡（12），顶栏在 ≥1100px 被抬到 14：菜单没有走 portal，层级只能靠抬父级 | `context-card.css:49`（注释"Header menus … open above the card"） |
-| Z5 | 设置窗（模态、带遮罩）只有 30，低于启动画面 60、toast 80、身份卡 90、右键菜单 120、权限提示 160；所以设置开着时这些都会浮在设置上面 | `settings-system.css:2`、`:58` |
-| Z6 | 魔法数字：发送飞行 2147483000；寄信飞行层在 CSS 和 TS 各写一次 120 | `sendFlight.ts:19`；`mail-send-flight.css:1`、`mailSendFlight.ts:16` |
-| Z7 | 原生 dialog 在顶层，提示（`.action-hint` 挂在 `document.body`）和 toast 永远到不了它上面。目前这 4 个 dialog 里没有 `data-hint` 按钮，暂无可见故障；以后加提示就会被盖住 | `InteractionSystem.tsx:83`；对 `FileViewer.tsx` 等 grep `data-hint` 为 0 |
+| Z1 | **toast 被模态盖住**：工作区错误 toast 是 80，低于只读会话 110、右键菜单 120、面板/表单 200–210、删除对话框 1000、引导 1200 | **第 1 步已修**：toast 是 `--z-toast` 90，在所有模态（80）、菜单（60）之上。原生 dialog 仍盖住它（Z7） |
+| Z2 | 同值不同角色：1000 同时给了删除对话框、悬停提示、拖放遮罩、拖动残影、@提及拖动残影；200 给了两个模态，表单 sheet 只能用 210 压过它们 | **第 1 步已修**：每种角色一层；表单 sheet 是 `calc(var(--z-dialog) + 1)` |
+| Z3 | 数值被父级层叠上下文封顶，写多大都没用：账户菜单在侧栏（≥768px）里面；输入框里的附件菜单、@菜单被输入框（`isolation:isolate`）封顶 | 第 1 步把它们的数值换成了令牌（`--z-menu`、`--z-popover`），但**仍被封顶**；要靠第 2 步改成 portal 才能修 |
+| Z4 | 为了让顶栏菜单盖过浮卡，顶栏在 ≥1100px 被抬高：菜单没有走 portal，层级只能靠抬父级 | 第 1 步保留这个抬高，写成 `calc(var(--z-panel) + 1)`（`context-card.css:49`），第 2 步菜单走 portal 后改回 `--z-chrome` |
+| Z5 | 设置窗（模态、带遮罩）只有 30，低于启动画面 60、toast 80、身份卡 90、右键菜单 120、权限提示 160 | **第 1 步已修**：设置窗是 `--z-dialog`（`settings-system.css:2`）。权限提示只出现在两处，都在别人的层叠上下文里：设置的电脑页（`ComputerPanel.tsx`，被设置窗包住）和输入框里（`App.tsx` 的 `Composer`，桌面客户端听写要麦克风时，被输入框的 `isolation:isolate` 包住） |
+| Z6 | 魔法数字：发送飞行 2147483000；寄信飞行层在 CSS 和 TS 各写一次 120 | **第 1 步已修**：都是 `--z-drag`；寄信飞行的 TS 行内 z-index 删掉，信封翻盖改成加 `.is-front` 类（`mail-send-flight.css:15`） |
+| Z7 | 原生 dialog 在顶层，提示和 toast 永远到不了它上面。目前这 4 个 dialog 里没有 `data-hint` 按钮，暂无可见故障 | 未修，放第 3 步 |
 
-### 9.3 提议的层级刻度
+### 9.3 层级刻度
 
-原则：**全局层只给"脱离文档流、对整个视口定位"的东西**（`position:fixed` 或 portal）；组件内部的叠放用 `isolation:isolate` 建自己的层叠上下文，只用 0–3 的小整数（下表记为"局部"），不占全局层。层与层间隔 10，留给同层内的特殊情况（例如表单 sheet 盖在设置窗上用 `--z-dialog + 1`）。
+原则：**全局层只给"脱离文档流、对整个视口定位"的东西**（`position:fixed` 或 portal 到 `#tofi-layers`）；组件内部的叠放用 `isolation:isolate`（或别的方式）建自己的层叠上下文，只用 -1..3 的小整数（下表记为"局部"），不占全局层。层与层间隔 10，留给同层内的特殊情况，写成 `calc(var(--z-*) ± 1)`。令牌在 `ui/src/design-tokens.css` 的 `:root`（`:99-104`），JS 镜像是 `ui/src/layers.ts` 的 `Z`。
 
 | 令牌 | 值 | 放什么 | 说明 |
 |---|---|---|---|
 | `--z-base` | 0 | 普通文档流 | — |
 | `--z-raised` | 1 | 表格粘性表头、登录页语言切换这类页面内略高一层的 | — |
-| `--z-edge-blur` | 10 | 消息区底部渐进模糊条 | 必须在消息之上、输入框之下（现状 3 < 4）。所以它排在 chrome **下面**，与任务描述里"sticky chrome、edge blur"的先后相反 |
-| `--z-chrome` | 20 | 顶栏、输入框、侧栏列、Electron 原生标题栏 | — |
-| `--z-pill` | 30 | 浮动胶囊：回到最新按钮、浮动电脑预览 | D18：新消息胶囊不能被任何东西盖住，所以要高于 chrome 和模糊条 |
-| `--z-panel` | 40 | 非模态面板：右侧详情抽屉、≥1100px 的上下文浮卡、抽屉遮罩 | — |
+| `--z-edge-blur` | 10 | 消息区底部渐进模糊条 | 必须在消息之上、输入框之下，所以排在 chrome **下面** |
+| `--z-chrome` | 20 | 顶栏、输入框、侧栏列 | 侧栏列是 `+ 1`：收起侧栏时账户菜单会伸进对话区，必须在顶栏和输入框之上（`v2-app.css:20`） |
+| `--z-pill` | 30 | 浮动胶囊：回到最新按钮、浮动电脑小窗 | D18：新消息胶囊不能被任何东西盖住，所以要高于 chrome 和模糊条 |
+| `--z-panel` | 40 | 非模态面板：右侧详情抽屉、≥1100px 的上下文浮卡、相关对话卡片；抽屉遮罩是 `- 1` | macOS 桌面客户端的拖动条是 `+ 1`，见 9.4 |
 | `--z-popover` | 50 | 锚定在某元素上的弹出内容：身份卡、成员面板、@菜单 | — |
 | `--z-menu` | 60 | 菜单：更多、新建、右键、账户、表情反应、MCP、附件 | — |
-| `--z-cover` | 70 | 盖住整个应用但不拦模态的：启动画面 | 现状启动画面 60 本来就低于多数弹层；新层让它盖住 chrome、面板和菜单，但让引导这类模态在它之上（现状 1200 > 60） |
-| `--z-dialog` | 80 | 模态（遮罩 + 内容）：设置窗、全屏只读会话、删除确认、交接、VM 授权、表单 sheet（+1）、引导、放大的电脑 | 同层多个模态按 DOM 顺序；叠放的模态（设置里开 sheet）用 +1 |
+| `--z-cover` | 70 | 盖住整个应用但不拦模态的：启动画面 | 盖住 chrome、面板和菜单，模态（引导、设置窗）在它之上 |
+| `--z-dialog` | 80 | 模态（遮罩 + 内容）：设置窗、全屏只读会话、删除确认、交接、VM 授权、表单 sheet（`+ 1`）、引导、放大的电脑 | 同层多个模态按 DOM 顺序叠：`#tofi-layers` 在 `#root` 后面，所以 portal 出去的对话框在设置窗、引导之上；portal 出去的几个之间，后打开的在上 |
 | `--z-toast` | 90 | toast、权限提示（右下角非阻塞通知） | 解决 Z1：出错提示永远在模态之上 |
 | `--z-tooltip` | 100 | 悬停提示、发送回执提示 | 提示要在 toast 和模态之上才有用 |
 | `--z-drag` | 110 | 拖动残影、拖放整屏遮罩、发送/寄信飞行动画 | 跟随指针或纯动画、`pointer-events:none`，必须在一切之上 |
@@ -366,78 +376,76 @@
 
 ### 9.4 每一处 z-index 的归层
 
-"局部"表示应留在组件自己的层叠上下文里，不映射到全局层（父级需要 `isolation:isolate`）。
+"局部"表示留在组件自己的层叠上下文里，不映射到全局层。`test:layers` 在 1280、1000、390 px 下检查：除了手机推入那一对，没有任何局部值落在根层叠上下文里。
 
-**全局 / 视口级**
+**全局 / 视口级**（46 处 CSS + 1 处 TS）
 
-| 位置 | 选择器 | 现值 | 定位 | 提议层 |
+| 位置 | 选择器 | 迁移前 | 定位 | 现在 |
 |---|---|---|---|---|
 | `file-preview.css:48` | `.fp-table th`（粘性表头） | 1 | sticky | `--z-raised` |
 | `owner-setup.css:3` | `.auth-language`（登录页语言） | 2 | absolute | `--z-raised` |
 | `progressive-blur.css:10` | `.edge-blur` | 3 | absolute | `--z-edge-blur` |
 | `styles.css:57` | `.chat-header` | 2 | relative | `--z-chrome` |
-| `context-card.css:49` | `.chat-header`（≥1100px） | 14 | relative | `--z-chrome`（菜单走 portal 后不必再抬，Z4） |
+| `context-card.css:49` | `.chat-header`（≥1100px，网页端） | 14 | relative | `calc(var(--z-panel) + 1)`：顶栏菜单还没走 portal，顶栏要在浮卡之上（Z4）；第 2 步改回 `--z-chrome` |
 | `styles.css:158` | `.composer` | 4 | relative | `--z-chrome` |
 | `conversation-workspace.css:12` | `.workspace .composer` | 4 | absolute | `--z-chrome` |
-| `v2-app.css:19` | `.contact-pane`（≥768px，侧栏列） | 5 | relative | `--z-chrome` |
-| `desktop-system.css:8` | `.native-titlebar`（仅 macOS 桌面客户端） | 20 | fixed | `--z-chrome` |
-| `styles.css:153` | `.jump-latest` | 3 | absolute | `--z-pill` |
-| `progressive-blur.css:51` | `.workspace .jump-latest`（覆盖上一行） | 6 | absolute | `--z-pill`（与上一行合并成一处） |
+| `v2-app.css:20` | `.contact-pane`（≥768px，侧栏列） | 5 | relative | `calc(var(--z-chrome) + 1)`：同层时顶栏和输入框在 DOM 里靠后，会压住伸出侧栏的账户菜单 |
+| `desktop-system.css:9` | `.native-titlebar`（仅 macOS 桌面客户端） | 20 | fixed | `calc(var(--z-panel) + 1)`：拖动条原本在侧栏、抽屉和抽屉遮罩之上，保持不变 |
+| `styles.css:153` | `.jump-latest` | 3（`.workspace` 下被 `progressive-blur.css:51` 覆盖成 6） | absolute | `--z-pill`（两处合并成这一处） |
 | `desktop-presence.css:2` | `.desktop-floating-shell` | 25 | fixed | `--z-pill` |
-| `styles.css:179` | `.detail-backdrop`（抽屉遮罩） | 9 | fixed | `--z-panel`（排在面板下面：用 `--z-panel` - 1） |
+| `styles.css:179` | `.detail-backdrop`（抽屉遮罩） | 9 | fixed | `calc(var(--z-panel) - 1)` |
 | `styles.css:307` | `.detail-pane`（≤1120px 抽屉） | 10 | fixed | `--z-panel` |
-| `styles.css:352` | `.detail-pane`（另一断点） | 10 | fixed | `--z-panel` |
+| `styles.css:352` | `.detail-pane`（768–1279px 抽屉） | 10 | fixed | `--z-panel` |
 | `context-card.css:13` | `.detail-pane.context-panel`、`.view-only-chat.is-card`（≥1100px 浮卡） | 12 | absolute | `--z-panel` |
 | `context-card.css:30` | `.view-only-chat.is-card` | 40 | fixed | `--z-panel` |
-| `styles.css:72` | `.member-panel` | 8 | absolute | `--z-popover` |
-| `styles.css:167` | `.mention-menu` | 5 | absolute（被输入框封顶） | `--z-popover`（需 portal） |
+| `styles.css:72` | `.member-panel` | 8 | absolute（在顶栏里） | `--z-popover` |
+| `styles.css:167` | `.mention-menu` | 5 | absolute（被输入框封顶） | `--z-popover`（第 2 步 portal 后才真正生效） |
 | `interaction-system.css:175` | `.bot-identity-card` | 90 | fixed，portal | `--z-popover` |
-| `styles.css:30` | `.create-menu` | 8 | absolute | `--z-menu` |
-| `styles.css:71` | `.more-menu` | 8 | absolute | `--z-menu` |
+| `styles.css:30` | `.create-menu` | 8 | absolute（在侧栏里） | `--z-menu` |
+| `styles.css:71` | `.more-menu` | 8 | absolute（在顶栏里） | `--z-menu` |
 | `styles.css:141` | `.sidebar-context-menu` | 120 | fixed | `--z-menu` |
-| `v2-app.css:116` | `.sidebar-account-menu` | 150 | absolute（被侧栏 5 封顶，Z3） | `--z-menu`（需 portal） |
-| `v2-app.css:307` | `.composer-add-menu` | 10 | absolute（被输入框封顶） | `--z-menu`（需 portal） |
-| `extensions-system.css:61` | `.mcp-menu` | 30 | absolute | `--z-menu` |
+| `v2-app.css:117` | `.sidebar-account-menu` | 150 | absolute（被侧栏封顶，Z3） | `--z-menu`（第 2 步 portal 后才真正生效） |
+| `v2-app.css:308` | `.composer-add-menu` | 10 | absolute（被输入框封顶） | `--z-menu`（同上） |
+| `extensions-system.css:61` | `.mcp-menu` | 30 | absolute（在设置窗里） | `--z-menu` |
 | `message-reactions.css:6` | `.reaction-context-menu` | 150 | fixed，portal | `--z-menu` |
 | `boot-screen.css:2` | `.boot` | 60 | fixed | `--z-cover` |
 | `settings-system.css:2` | `.detail-pane:has(.settings-tabs)`（设置窗） | 30 | fixed | `--z-dialog`（Z5） |
 | `styles.css:142` | `.view-only-chat`（全屏） | 110 | fixed，portal | `--z-dialog` |
 | `styles.css:249` | `.computer-detail.is-expanded` | 50 | fixed | `--z-dialog` |
 | `styles.css:393` | `.detail-pane:has(.computer-detail.is-expanded)` | 20 | fixed | `--z-dialog` |
-| `desktop-presence.css:28` | 放大的 `.computer-detail.is-expanded` | 35 | fixed | `--z-dialog` |
+| `desktop-presence.css:28` | 放大的 `.computer-detail.is-expanded` | 35 | fixed（在电脑外壳里） | `--z-dialog` |
 | `desktop-presence.css:104` | `.desktop-floating-shell.is-expanded`（Web 放大遮罩） | 40 | fixed | `--z-dialog` |
 | `handover.css:1` | `.handover-overlay` | 200 | fixed，portal | `--z-dialog` |
 | `extensions-system.css:101` | `.mcp-oauth-overlay` | 200 | fixed，portal | `--z-dialog` |
-| `settings/settings-components.css:144` | `.sheet-overlay`（设置里的表单） | 210 | fixed，portal | `--z-dialog` + 1 |
-| `interaction-system.css:43` | `.delete-dialog-overlay` | 1000 | fixed，portal | `--z-dialog` |
+| `settings/settings-components.css:144` | `.sheet-overlay`（设置里的表单） | 210 | fixed，portal | `calc(var(--z-dialog) + 1)` |
+| `interaction-system.css:43` | `.delete-dialog-overlay`（删除确认、重新指派主助理） | 1000 | fixed，portal | `--z-dialog` |
 | `onboarding.css:5` | `.onb-scrim` | 1200 | fixed | `--z-dialog` |
 | `styles.css:448` | `.workspace-toast` | 80 | fixed | `--z-toast` |
-| `permission-coach.css:1` | `.permission-coach` | 160 | fixed | `--z-toast` |
-| `send-receipt.css:10` | `.send-receipt-tip` | 5 | absolute（消息行内） | `--z-tooltip`（需 portal） |
+| `permission-coach.css:1` | `.permission-coach` | 160 | fixed（在设置窗或输入框里，见 Z5） | `--z-toast` |
+| `send-receipt.css:10` | `.send-receipt-tip` | 5 | absolute（消息行内） | `--z-tooltip`（第 2 步改走 `data-hint` 委托、进 portal） |
 | `interaction-system.css:93` | `.action-hint` | 1000 | fixed，portal | `--z-tooltip` |
-| `web-mention.css:10` | `.web-mention-ghost` | 1000 | fixed | `--z-drag` |
-| `web-file-drop.css:2` | `.web-drop-overlay` | 1000 | fixed | `--z-drag` |
-| `web-file-drop.css:23` | `.web-drop-ghost` | 1000 | fixed | `--z-drag` |
-| `mail-send-flight.css:1` | `.mail-flight-layer` | 120 | fixed | `--z-drag` |
-| `mailSendFlight.ts:16` | 寄信飞行层（行内样式，重复上一行） | 120 | fixed | `--z-drag`（删掉 TS 里这份） |
-| `sendFlight.ts:19` | 发送飞行 | 2147483000 | fixed | `--z-drag` |
+| `web-mention.css:10` | `.web-mention-ghost` | 1000 | fixed，追加到 `#tofi-layers` | `--z-drag` |
+| `web-file-drop.css:2` | `.web-drop-overlay` | 1000 | fixed，portal | `--z-drag` |
+| `web-file-drop.css:23` | `.web-drop-ghost` | 1000 | fixed，追加到 `#tofi-layers` | `--z-drag` |
+| `mail-send-flight.css:1` | `.mail-flight-layer` | 120（`mailSendFlight.ts:16` 行内样式又写一次） | fixed，追加到 `#tofi-layers` | `--z-drag`（TS 里那份删掉） |
+| `sendFlight.ts:20` | 发送飞行（行内样式） | 2147483000 | fixed，追加到 `#tofi-layers` | `"var(--z-drag)"` |
 
-**局部（组件内部，保留小整数）**
+**局部（组件内部，保留小整数）**（43 处）
 
-| 位置 | 选择器 | 现值 | 所在组件 |
+| 位置 | 选择器 | 值 | 所在组件 |
 |---|---|---|---|
 | `conversation-workspace.css:13` | `.composer::before` | -1 | 输入框 |
-| `v2-app.css:280` | `.composer-row` | 3 | 输入框 |
-| `v2-app.css:297` | `.composer-add-wrap` | 5 | 输入框 |
-| `v2-app.css:360` | `.composer-rich-text` | 0 | 输入框（提及高亮层） |
-| `v2-app.css:363` | `.has-mentions textarea` | 1 | 输入框 |
-| `v2-app.css:366` | `.composer > .working-members` | 2 | 输入框 |
-| `v2-app.css:372` | `.composer-perch`（输入框上方的猫） | 2 | 输入框 |
+| `v2-app.css:281` | `.composer-row` | 3 | 输入框 |
+| `v2-app.css:298` | `.composer-add-wrap` | 5 | 输入框 |
+| `v2-app.css:361` | `.composer-rich-text` | 0 | 输入框（提及高亮层） |
+| `v2-app.css:364` | `.has-mentions textarea` | 1 | 输入框 |
+| `v2-app.css:367` | `.composer > .working-members` | 2 | 输入框 |
+| `v2-app.css:373` | `.composer-perch`（输入框上方的猫） | 2 | 输入框 |
 | `web-file-drop.css:30` | `.web-upload-ring` | 4 | 输入框 |
 | `web-mention.css:3` | `.mention-menu > button[role=option]` | 1 | @菜单 |
 | `web-mention.css:7` | `.web-mention-pill` | 0 | @菜单 |
 | `progressive-blur.css:40` | `.chat-header::before/::after` | -1 | 顶栏（`isolation:isolate`，`progressive-blur.css:37`） |
-| `styles.css:317` | `.contact-pane`（≤767px） | 6 | 手机推入：列表与会话一对 |
+| `styles.css:317` | `.contact-pane`（≤767px） | 6 | 手机推入：列表与会话一对。父级 `.workspace-grid` 不是层叠上下文，这一对在根层叠上下文里，`test:layers` 把它列为唯一的例外 |
 | `styles.css:318` | `.contact-pane::after`（推入时的压暗） | 2 | 同上 |
 | `styles.css:322` | `.chat-pane`（≤767px） | 7 | 同上 |
 | `sidebar-pins.css:7` | 拖动中的会话行 | 40 | 侧栏列表（改用 dnd-kit `DragOverlay` 后应变为 `--z-drag`） |
@@ -465,20 +473,26 @@
 | `mail-send-flight.css:8` | `.mail-flight-envelope-insert` | 2 | 寄信动画 |
 | `mail-send-flight.css:9` | `.mail-flight-envelope-pocket` | 3 | 寄信动画 |
 | `mail-send-flight.css:13` | `.mail-flight-envelope-flap` | 0 | 寄信动画 |
-| `mail-send-flight.css:15` | `.mail-flight-envelope-stamp` | 5 | 寄信动画 |
-| `mail-send-flight.css:18` | `.mail-flight-envelope-postmark` | 6 | 寄信动画 |
-| `mail-send-flight.css:20` | `.mail-flight-envelope-address` | 5 | 寄信动画 |
-| `mailSendFlight.ts:62` | 信封翻盖（行内样式） | 4 | 寄信动画 |
+| `mail-send-flight.css:15` | `.mail-flight-envelope-flap.is-front`（翻盖合上前加的类；原来是 `mailSendFlight.ts:62` 的行内样式） | 4 | 寄信动画 |
+| `mail-send-flight.css:17` | `.mail-flight-envelope-stamp` | 5 | 寄信动画 |
+| `mail-send-flight.css:20` | `.mail-flight-envelope-postmark` | 6 | 寄信动画 |
+| `mail-send-flight.css:22` | `.mail-flight-envelope-address` | 5 | 寄信动画 |
 
-合计：CSS 89 处（全局 47 + 局部 42）、TS 3 处（全局 2 + 局部 1），全部已归层。
+合计：CSS 89 处（全局 46 + 局部 43）、TS 1 处（全局），全部已归层。
 
-电脑预览内部的值（最高 12）可以压到 0–3，但这一块正在频繁改动（D11），建议排在后面单独做。
+电脑预览内部的值（最高 12）可以压到 0–3，但这一块正在频繁改动（D11），建议排在后面单独做；寄信动画的信封有 8 层，压到 -1..3 要改结构。两处都在 `layers-baseline.json` 的上限里。
 
-### 9.5 落地方式（供迁移方案引用）
+一个容易看错的事实：`.workspace .chat-pane` 的 `container-type:inline-size`（`conversation-workspace.css:64`）**不**建立层叠上下文（在 Chromium 和 WebKit 里实测，容器里 z-index 100 的子元素会盖过容器外 z-index 1 的兄弟），所以宽屏下顶栏、输入框、新消息胶囊、回执提示都和侧栏、抽屉、浮卡在同一个根层叠上下文里比大小。手机宽度下 `.chat-pane` 有 `z-index:7`，才是层叠上下文。
 
-1. 在 `design-tokens.css` 加 `--z-*` 一组令牌（只加不改，零视觉变化）。
-2. 加一个守卫测试（如 `test:z-layers`）：产品 CSS 里 `z-index` 只能是 `var(--z-*)`、`calc(var(--z-*) ± 1)`，或 -1..3 的局部值；TS 里不许写 z-index 数字。像 `motion-tokens-baseline.json` 一样给现有违例设一个只降不升的上限。
-3. 按 9.4 表逐层替换。先做 toast、模态、提示（修 Z1、Z5），再把菜单和弹出层改成 portal（修 Z3、Z4，与 Radix 迁移同步）。每一步要在预览里检查：对话框开着时触发一条错误 toast；设置窗里打开表单 sheet；≥1100px 浮卡开着时打开顶栏菜单；侧栏折叠时打开账户菜单；拖动会话到置顶区；拖文件进窗口。
+### 9.5 守卫：`test:layers`
+
+`npm --prefix ui run test:layers`（`ui/scripts/test-layers.mjs`，浏览器部分要 `PLAYWRIGHT_MODULE`，没设时直接报错退出，不会 SKIP）：
+
+1. **静态**：`design-tokens.css` 里 13 个 `--z-*` 各定义一次、值与 9.3 一致，`layers.ts` 的 `Z` 与之相同；产品 CSS 的 `z-index` 只能是 `var(--z-*)`、`calc(var(--z-*) ± 1)` 或 -1..3（更大的旧局部值按文件不超过 `layers-baseline.json`，只降不升，`-- --update-baseline` 收紧）；TS/TSX 里不许写数字 z-index；`index.html` 在 `#root` 后面有 `#tofi-layers`；没有 `createPortal(..., document.body)`，往 `document.body` 追加元素只允许白名单里的三处非弹层。
+2. **浏览器**（Chromium、生产构建、合成数据）：`#tofi-layers` 紧跟 `#root` 且不是层叠上下文；真实的悬停提示 portal 进 `#tofi-layers`，并且在它中心处是最上层（下面垫一个 toast）；把各层的真实类名叠在输入框中心的同一点上，`elementsFromPoint` 的顺序必须是：拖动残影 > 悬停提示 > toast > 表单 sheet > （删除确认 / 设置窗 / 引导）> 启动画面 > 右键菜单 > 身份卡 > 相关对话卡片 > 电脑小窗 > 输入框 > 底部模糊条；1280 / 1000 / 390 px 下没有局部值落在根层叠上下文里（手机推入那一对除外）。
+3. 把第 1 步的产品改动撤掉，这个测试会失败（D30）；撤回时的输出见 `migration.md` 第 1 步。
+
+每次改层级还要在预览里看一遍 `migration.md` 第 1 步"owner 预览看哪里"的清单（D22）。
 
 ---
 
@@ -489,7 +503,7 @@
 ```bash
 # 产品 CSS 文件清单（67 个）
 find ui/src -name '*.css' -not -path '*/motion-lab/*' -not -path '*/acceptance/*' | sort
-# 全部 z-index（89 + 3）
+# 全部 z-index（第 1 步之后 CSS 89 处 + TS 1 处）
 grep -rn 'z-index' ui/src --include='*.css' | grep -v '/motion-lab/'
 grep -rn 'zIndex' ui/src --include='*.ts' --include='*.tsx' | grep -v '/motion-lab/'
 # 某个令牌的使用处，例如 --glass
@@ -497,6 +511,7 @@ grep -rnE 'var\(--glass[,)]' ui/src --include='*.css' | grep -v '/motion-lab/'
 # 守卫
 npm --prefix ui run test:final-v2-tokens; echo "exit=$?"
 npm --prefix ui run test:motion-tokens;   echo "exit=$?"
+PLAYWRIGHT_MODULE=/abs/path/playwright/index.mjs npm --prefix ui run test:layers; echo "exit=$?"
 ```
 
 字号、间距、圆角、阴影的频次表用的是同样的正则（按属性名匹配 `font:`、`font-size:`、`padding|margin|gap:`、`border-radius:`、`box-shadow:`、`backdrop-filter:` 后统计取值），复现时数字可能因格式写法差几个，量级与排序不变。

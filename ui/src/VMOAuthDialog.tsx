@@ -4,6 +4,7 @@ import { api, request } from "./api";
 import { DesktopVideo, type DesktopVideoState } from "./DesktopVideo";
 import { RemoteDesktopControl, type RemoteControlHandle } from "./RemoteDesktopControl";
 import { i18n, useTranslation } from "./i18n";
+import { layerRoot } from "./layers";
 
 export type VMOAuthSession = { session_id: string; bot_id: string; status: string; error?: string };
 const endKeys = { denied: "extensions:vm.end.denied", expired: "extensions:vm.end.expired", error: "extensions:vm.end.error" } as const;
@@ -113,5 +114,5 @@ export function VMOAuthDialog({ session, serverName, title, onFinish }: Props) {
       </RemoteDesktopControl>
       <footer role="status">{connectionError || t("vm.footer")}</footer>
     </div>
-  </div>, document.body);
+  </div>, layerRoot());
 }

@@ -9,7 +9,7 @@
 
 /* The composer floats over the scroll surface; only the field is frosted. */
 .workspace .chat-pane{position:relative}
-.workspace .composer{position:absolute;inset:auto 0 0;z-index:4;padding:10px 24px max(16px,env(safe-area-inset-bottom));background:none;isolation:isolate}
+.workspace .composer{position:absolute;inset:auto 0 0;z-index:var(--z-chrome);padding:10px 24px max(16px,env(safe-area-inset-bottom));background:none;isolation:isolate}
 .workspace .composer::before{content:"";position:absolute;inset:-24px 0 0;z-index:-1;pointer-events:none;background:linear-gradient(to bottom,transparent 0%,color-mix(in srgb,var(--surface) 28%,transparent) 48%,var(--surface) calc(100% - 16px))}
 .workspace .composer .composer-row{min-height:56px;padding:5px 6px;border:1px solid color-mix(in srgb,var(--ink) 9%,transparent);border-radius:28px;background:var(--glass);-webkit-backdrop-filter:var(--blur);backdrop-filter:var(--blur);box-shadow:var(--sheen)}
 .workspace .composer-row:has(:focus-visible){box-shadow:0 0 0 2px var(--surface),0 0 0 4px var(--focus-ring);border-color:var(--focus-ring)}

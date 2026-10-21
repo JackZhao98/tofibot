@@ -1,6 +1,6 @@
 # Web UI 迁移到 headless 组件库：分步方案
 
-> 状态：**方案，等 owner 点头**。点头之前不按本文改代码（[D28](../decisions/0028-headless-design-system-migration.md)：先出方案，再一步一步迁移，每一步都要预览）。
+> 状态：**owner 已点头，按本文分步迁移**（2026-10-21；§7 的 Q1–Q4 已回答，见 [D31](../decisions/0031-entry-budget-plan-a.md)–[D34](../decisions/0034-component-catalog-dev-only.md)）。**第 1 步已完成**（分支 `ds/step1-layers`，等合并和 owner 预览）；第 2–6 步未开始。每一步都要预览（[D28](../decisions/0028-headless-design-system-migration.md)）。
 > 快照：提交 `748c774`（分支 `docs/system-opus`），体积实测日期 2026-10-20（PDT）。
 > 相关文档：层级刻度和每一处 z-index 归到哪一层，以 [`tokens.md` §9](tokens.md) 为准，本文不另定一套；本文只写"怎么迁"。
 > 相关决定：[D02 量交互开销](../decisions/0002-measure-interaction-cost.md)、[D18 渐变模糊范围](../decisions/0018-progressive-blur-scope.md)、[D19 到达级联](../decisions/0019-arrival-spring-cascade.md)、[D20 手机推入](../decisions/0020-phone-push-and-boot-screen.md)、[D21 侧栏拖动和置顶](../decisions/0021-sidebar-reorder-and-pins.md)、[D22 用 dev:remote 预览](../decisions/0022-preview-via-dev-remote.md)、[D30 常设规则](../decisions/0030-standing-operating-rules.md)。
@@ -9,7 +9,7 @@
 
 | 领域 | 选什么 | 一句话理由 | 能不能进入口包 |
 |---|---|---|---|
-| 层级与 portal | 自己做：`--z-*` 令牌 + 一个 portal 根节点 | 不需要库，[`tokens.md` §9.3](tokens.md) 的刻度落地即可 | 只有几十字节 |
+| 层级与 portal | 自己做：`--z-*` 令牌 + 一个 portal 根节点 | 不需要库，[`tokens.md` §9.3](tokens.md) 的刻度落地即可（**第 1 步已完成**） | 实测 +49 B |
 | 菜单、弹出卡片 | **Radix**：`DropdownMenu`、`Popover` | 不带样式，`asChild` 可以把现有元素和类名原样留住，外观不变；比 React Aria 小 17–21 KB | 不能，要懒加载（见 §2） |
 | 悬停提示 | **保留自研的 `ActionHints`**，不用 Radix Tooltip | 现在是整页只有一个委托监听器，行里没有任何组件；Radix Tooltip 要在每个图标外套一层组件，懒加载块 19 KB | — |
 | 对话框 | **Radix**：`Dialog`、`AlertDialog` | 焦点圈定、Esc 只关最上一层、关闭后焦点回到原处，现在每个对话框各写一遍 | 不能，要懒加载 |
@@ -17,7 +17,7 @@
 | 拖动 | **保留自研引擎**，第 5 步只做一次对照实验 | 引擎懒加载块 3,480 B，拖动过程中 React 不渲染；dnd-kit 15.3 KB 起，且 `useSortable` 让每一行在拖动中重新渲染 | 不能 |
 | 组件目录页 | 自己做，仿照 Motion Lab 单独打包 | 不占应用的任何一个包 | 不占 |
 
-最硬的约束是体积：**入口包现在离预算只剩 741 字节**（§2）。所以本方案里任何一个库都只能在懒加载的块里出现，而且第 2、3 步要把现有的弹层代码一起搬出入口包，用省下来的字节支付懒加载的入口开销。如果 owner 宁愿放宽预算换更简单的代码，见 §2.4 的方案 B，这需要 owner 拍板。
+最硬的约束是体积：**写方案时入口包离预算只剩 741 字节**（§2；第 1 步之后是 692 字节）。所以本方案里任何一个库都只能在懒加载的块里出现，而且第 2、3 步要把现有的弹层代码一起搬出入口包，用省下来的字节支付懒加载的入口开销。owner 选了这条路（方案 A，[D31](../decisions/0031-entry-budget-plan-a.md)），不放宽预算（§2.4 的方案 B 不采用）。
 
 ## 1. 现状：要迁的东西在哪
 
@@ -27,11 +27,11 @@
 
 | 组件 | 代码 | 现在怎么做的 | 在哪个包 | 钉住它的测试 |
 |---|---|---|---|---|
-| 悬停提示 `.action-hint` | `ui/src/InteractionSystem.tsx:51-84` | 整页一个委托监听器读 `data-hint`，portal 到 `document.body` | index | `test:chat-motion`（`scripts/test-chat-motion.mjs:358`） |
-| 发送回执提示 `.send-receipt-tip` | `ui/src/SendReceipt.tsx:46` | 行内 `role="tooltip"`，z 5，被所在行封顶 | index | `test:send-receipts` |
+| 悬停提示 `.action-hint` | `ui/src/InteractionSystem.tsx:51-84` | 整页一个委托监听器读 `data-hint`，portal 到 `document.body`（第 1 步起是 `#tofi-layers`） | index | `test:chat-motion`（`scripts/test-chat-motion.mjs:358`） |
+| 发送回执提示 `.send-receipt-tip` | `ui/src/SendReceipt.tsx:46` | 行内 `role="tooltip"`，z 5（第 1 步起 `--z-tooltip`）。宽屏下并不被所在行封顶：对话窗格不是层叠上下文，它直接和侧栏、浮卡在根层叠上下文里比 | index | `test:send-receipts` |
 | 侧栏右键菜单 `.sidebar-context-menu` | `ui/src/App.tsx:2462` | `position:fixed` 坐标定位；右键和拖动引擎的长按都会打开（`ui/src/sidebarDndEngine.ts:308`、`:351`） | index | `test:sidebar-pins`（按 `menuitem` 角色断言，`scripts/test-sidebar-pins.mjs:266-312`、`:458-464`） |
 | 新建菜单、顶栏菜单 | `ui/src/App.tsx:610-611`（`useSurfacePresence`）、渲染在 `:2447`、`:2477` | 绝对定位，跟着父级层叠上下文 | index | 待确认（未找到按类名断言的测试） |
-| 账户菜单 `.sidebar-account-menu` | `ui/src/OwnerSession.tsx:182` | 绝对定位 z 150，实际被侧栏 z 5 封顶（`tokens.md` Z3） | index | 无 |
+| 账户菜单 `.sidebar-account-menu` | `ui/src/OwnerSession.tsx:182` | 绝对定位 z 150（第 1 步起 `--z-menu`），实际被侧栏封顶（第 1 步起侧栏是 `calc(var(--z-chrome) + 1)`，`tokens.md` Z3） | index | 无 |
 | 输入框附件菜单 `.composer-add-menu` | `ui/src/App.tsx:3538` | 绝对定位，被输入框封顶（Z3） | index | 待确认 |
 | 表情反应菜单 `.reaction-context-menu` | `ui/src/MessageReactions.tsx:77` | portal，`role="dialog"`，表情选择器懒加载（`:7`） | index | `test:chat-motion`（`:399-402`） |
 | 身份卡 `.bot-identity-card` | `ui/src/BotIdentityCard.tsx:47` | 悬停/长按出现，portal，退场靠 `useSurfacePresence(position, 180)`（`:19`） | index | 无 |
@@ -50,7 +50,7 @@
 
 ### 1.2 层级
 
-现状和问题（Z1–Z7）见 [`tokens.md` §9.1-9.2](tokens.md)：产品 CSS 89 处 z-index、31 个不同的值，最大 1200（`onboarding.css:5`），TS 里还有 2147483000（`sendFlight.ts:19`）。
+现状和问题（Z1–Z7）见 [`tokens.md` §9.1-9.2](tokens.md)。写方案时：产品 CSS 89 处 z-index、31 个不同的值，最大 1200（`onboarding.css:5`），TS 里还有 2147483000（`sendFlight.ts:19`）。第 1 步之后：46 处全局层全部走 `--z-*`，43 处组件内部的局部值，TS 里只剩 `"var(--z-drag)"` 一处；Z1、Z2、Z5、Z6 已修，Z3、Z4 等第 2 步，Z7 等第 3 步。
 
 ### 1.3 动效
 
@@ -124,7 +124,7 @@ Motion Lab 自己也有一个弹簧积分器，会把弹簧"预烘焙进 `linear
 2. 懒加载边界本身很便宜：每个 `import()` 桩在入口包里 47–93 B（上限）。
 3. Radix 的几个原语共用一大块底层（定位、外部点击、焦点、滚动锁），所以单个 Tooltip 就要 18 KB，而第 2、3 步全部加起来也只有 30.9 KB；Dialog 叠在菜单上只多约 1.2 KB（30,903 − 29,723）。
 4. React Aria 比同等的 Radix 组合大 17–21 KB（51,574 对 34,527 和 30,903）。原因之一：它把 34 种语言的内置文案打进了包（在探针产物里能 grep 到 `"de-DE"`、`"ja-JP"`、`"zh-CN"` 等 34 个语言键和 `dismiss:"Schließen"` 这样的字符串），而 TOFI 已经有自己的 i18next 文案（`ui/src/locales/`）。
-5. 所以默认走**方案 A**：库全在懒加载块里，第 2、3 步把现有弹层代码搬出入口包来支付入口开销，每一步合并前入口包都不超预算。**方案 B**（需要 owner 拍板）：把 `test-shell-budget.mjs:29` 的预算提高约 31 KB，直接静态导入 Radix，代码更简单，但入口包变大约 10%，首屏解析和执行时间要重新量（D02）。
+5. 所以走**方案 A**（owner 已定，[D31](../decisions/0031-entry-budget-plan-a.md)）：库全在懒加载块里，第 2、3 步把现有弹层代码搬出入口包来支付入口开销，每一步合并前入口包都不超预算。不采用的**方案 B**：把 `test-shell-budget.mjs:29` 的预算提高约 31 KB，直接静态导入 Radix，代码更简单，但入口包变大约 10%，首屏解析和执行时间要重新量（D02）。
 
 ## 3. 选型理由
 
@@ -147,7 +147,7 @@ Motion Lab 自己也有一个弹簧积分器，会把弹簧"预烘焙进 `linear
 Motion 擅长三件事：带速度衔接、可中途打断的弹簧；自动 FLIP 的布局动画；`AnimatePresence` 退场。TOFI 的情况：
 
 - 到达级联已经是预先算好的弹簧关键帧交给 WAAPI 动 `translate`（§1.3），在合成线程跑，主线程不参与。Motion 做的也是这种事，换过去拿不到更好的结果。
-- 手机推入是 CSS transition，测试断言的是 `transitionend` 的时长（§1.3）。Motion 真正比它强的只有一种情况：**手指拖着走的边缘返回手势**，松手后按速度用弹簧收尾。这个手势 TOFI 现在没有（在 `ui/src` 里 grep `swipe` 没有结果，motion-lab 除外），要不要做是产品决定，不是迁移本身。
+- 手机推入是 CSS transition，测试断言的是 `transitionend` 的时长（§1.3）。Motion 真正比它强的只有一种情况：**手指拖着走的边缘返回手势**，松手后按速度用弹簧收尾。这个手势 TOFI 现在没有（在 `ui/src` 里 grep `swipe` 没有结果，motion-lab 除外）。owner 定了要做（[D33](../decisions/0033-phone-swipe-back-experiment.md)）：作为有门槛的实验，自研和 Motion 各做一版，留好的那个。
 - 用 React 组件的 Motion（`motion.div`）要出现在渲染树里，所以必须进入口包（最少 30.8 KB）。能懒加载的只有命令式的 `animate()`（22.8 KB），或者 `motion/mini`（3.5 KB，只是 WAAPI 的包装，`motion.ts` + `Element.animate` 已经在做同样的事）。
 
 所以 Motion 只放在第 4 步做对照实验，有门槛，不达标就不引入。
@@ -178,19 +178,74 @@ Motion 擅长三件事：带速度衔接、可中途打断的弹簧；自动 FLI
 
 每一步的"owner 预览"都用 D22 的方式：`cd ui && TOFI_DEV_API_ORIGIN=https://<server>:8321 npm run dev:remote`，在 Chrome 打开 http://localhost:5173 。
 
-### 第 1 步：层级刻度和 portal 根节点
+### 第 1 步：层级刻度和 portal 根节点 — **已完成**（分支 `ds/step1-layers`，等合并和 owner 预览）
 
 **目标**：把 [`tokens.md` §9.3](tokens.md) 的 13 个 `--z-*` 令牌落地，89 处 z-index 按 §9.4 归层，修掉 Z1、Z2、Z5、Z6。这一步不引入任何库。
 
+**做了什么**（提交：分支 `ds/step1-layers` 上的 "Design system step 1" 一提交；合并提交号由协调者合并时补进 [`../product/roadmap.md`](../product/roadmap.md)）
+
 | 项 | 内容 |
 |---|---|
-| 改哪些文件 | `ui/src/design-tokens.css`（加 `--z-*`）；新建 `ui/src/layers.ts`（`layerRoot()`：找到或创建 `#tofi-layers`；导出 `Z` 常量给 TS 用，做法同 `motion.ts`）；`tokens.md` §9.4 表里列出的全部 CSS 文件；`ui/src/sendFlight.ts:19`、`ui/src/mailSendFlight.ts:16`（删掉 TS 里的魔法数字）；现有的 `createPortal(..., document.body)` 改成 `layerRoot()`（`InteractionSystem.tsx:83`、`BotIdentityCard.tsx:47`、`MessageReactions.tsx:77`、`DeleteConversationDialog.tsx:41`、`PrimaryAssistant.tsx:97`、`AdminSheets.tsx:35`、`SkillAccess.tsx:82`、`ViewOnlyChat.tsx:79`、`VMOAuthDialog.tsx:107`、`TakeoverDialog.tsx:68`、`WebFileDropOverlay.tsx:70`） |
-| 不在这一步 | 被父级封顶的三处（账户菜单、附件菜单、@菜单，Z3）和顶栏抬高（Z4）要靠 portal 才能修，放第 2 步；原生 `<dialog>`（Z7）放第 3 步 |
-| 风险 | ① 归层会**有意**改变几处先后顺序：设置窗从 30 升到 `--z-dialog`（Z5），toast 升到模态之上（Z1），启动画面从 60 升到 `--z-cover` 但仍低于引导。每一处都是看得见的变化，列在 PR 描述里给 owner 逐条看。② 局部层要求父级有 `isolation:isolate`，漏加会让局部的小整数漏到全局去比。③ 移动端推入那一对（`styles.css:317-322`）的 6/7/2 是局部的，不能改成全局令牌 |
-| 必须保持绿 | `typecheck`、`build`、`test:shell-budget`（含 WebKit：`SHELL_BUDGET_ENGINE=webkit`）、`test:sidebar-pins`、`test:chat-motion`、`test:send-receipts`、`test:settings-shell`、`test:settings-polish`、`test:onboarding`、`test:handover-cards`、`test:primary-followups`、`test:motion-tokens`、`test:i18n` |
-| 新测试 | `test:layer-tokens`（新建 `ui/scripts/test-layer-tokens.mjs`，仿 `test-motion-tokens.mjs`）：静态检查——`z-index` 只能是 `var(--z-*)`、`calc(var(--z-*) ± 1)` 或 0–3 的局部小整数；局部值所在规则的组件根必须有 `isolation:isolate`；TS 里不许出现字面 `zIndex`；`layers.ts` 的 `Z` 和 CSS 令牌一致。浏览器检查——同时打开设置窗、toast、悬停提示，用 `document.elementFromPoint` 在重叠处取到的元素符合刻度顺序。改回旧值时测试要失败（D30） |
-| owner 预览看哪里 | ① 打开设置窗，再触发一个错误 toast：toast 在设置窗上面。② 设置窗开着时悬停侧栏图标：提示不会盖在设置窗之外的错误位置。③ 刷新页面看启动画面：骨架和猫在最上面，之后引导（新账户）盖在启动画面上。④ 手机宽度下列表↔会话推入和以前一样。⑤ 发送飞行和寄信飞行动画仍在最上面 |
-| 体积 | 入口包 +100 到 +300 B（`layers.ts` 和令牌，估计值，合并前实测）。余量 741 B 够用，但要报数 |
+| 令牌和镜像 | `ui/src/design-tokens.css:99-104` 加 13 个 `--z-*`；新建 `ui/src/layers.ts`：`Z`（JS 镜像，做法同 `motion.ts`）和 `layerRoot()` |
+| portal 根节点 | `ui/index.html` 在 `#root` 后面加 `<div id="tofi-layers"></div>`；`layerRoot()` 找到它，页面里没有就创建（测试夹具和 Motion Lab 的页面没有它）。原计划的 11 处 `createPortal(..., document.body)` 全部改成 `layerRoot()`；另外 4 处往 `document.body` 追加的弹层元素也改了：`App.tsx` 里拖文件的残影、@提及残影，`sendFlight.ts`，`mailSendFlight.ts` |
+| 归层 | `tokens.md` §9.4 表里的全部 CSS；`progressive-blur.css` 里覆盖新消息胶囊的那条规则删掉，合并进 `styles.css:153`；`sendFlight.ts:20` 改成 `"var(--z-drag)"`（这样 `Z` 对象不进入口包）；`mailSendFlight.ts` 删掉行内的 `zIndex:"120"`，信封翻盖改为加 `.is-front` 类（`mail-send-flight.css:15`） |
+| 审计后保住原样的三处 | 逐对审计（见下）发现刻度会意外改变三处先后顺序，用 `± 1` 保住：侧栏列 `calc(var(--z-chrome) + 1)`（`v2-app.css:20`，否则顶栏和输入框靠 DOM 顺序压住伸出侧栏的账户菜单）；macOS 拖动条 `calc(var(--z-panel) + 1)`（`desktop-system.css:9`，保持在侧栏、抽屉和抽屉遮罩之上）；≥1100 px 顶栏 `calc(var(--z-panel) + 1)`（`context-card.css:49`，Z4 的抬高，第 2 步改回 `--z-chrome`）。这三处和 §9.4 原表不同，`tokens.md` 已改 |
+| 新测试 | `test:layers`（`ui/scripts/test-layers.mjs`；本文原计划的名字是 `test:layer-tokens`）和上限文件 `ui/scripts/layers-baseline.json`。检查内容见 [`tokens.md` §9.5](tokens.md)。和原计划的差别：局部值允许 -1..3（原计划写 0–3，`tokens.md` §9.5 写 -1..3，现有代码有 4 处 -1）；"局部值的父级要有 `isolation:isolate`"改在浏览器里查（1280、1000、390 px 下没有局部值落在根层叠上下文里），因为静态地把一条 CSS 规则对应到它的组件根做不到 |
+| 不在这一步 | 被父级封顶的三处（账户菜单、附件菜单、@菜单，Z3）和顶栏抬高（Z4）要靠 portal 才能修，放第 2 步（这一步只把它们的数值换成令牌，仍被封顶）；原生 `<dialog>`（Z7）放第 3 步 |
+
+**事实更正**：`.workspace .chat-pane` 的 `container-type:inline-size` 不建立层叠上下文（Chromium、WebKit 实测），所以宽屏下对话窗格里的顶栏、输入框、新消息胶囊、回执提示都和侧栏、抽屉、浮卡、电脑小窗在同一个根层叠上下文里比大小；只有手机宽度下 `.chat-pane` 有 `z-index:7`，才把它们包住。按"会建立"去推，会得出"对话窗格里的层级都被封顶"这个错误结论。
+
+**怎么找出全部变化**：在工作区外面导出 `main`（`5f4396f`）的 `ui/` 做"迁移前"，和本分支各打一份生产构建，用同一个审计脚本打开 9 种状态（1280 / 1180 / 1000 / 390 px，设置窗开着，电脑放大，侧栏收起，macOS 桌面客户端 1000 / 1280 px），把每个弹层的真实类名插到它真实的父节点下，按层叠上下文规则算出每一对元素谁画在上面，逐对比较两边。脚本是一次性的，没有进仓库；它找出的变化全部列在下面。
+
+**层级变化清单**（owner 已接受，[D32](../decisions/0032-step1-stacking-changes-accepted.md)；预览时逐条看）
+
+| # | 变化 | 迁移前 → 现在 | 来源 |
+|---|---|---|---|
+| L1 | 错误 toast 在所有模态之上（设置窗、删除确认和重新指派主助理、全屏只读会话、交接、VM 授权、表单 sheet、引导），也在侧栏右键菜单、表情反应菜单、身份卡之上 | 80 → `--z-toast` 90 | 方案点名（Z1） |
+| L2 | 设置窗在启动画面、身份卡、表情反应菜单、侧栏右键菜单、相关对话卡片之上；设置窗里的 MCP 菜单、权限提示跟着设置窗走 | 30 → `--z-dialog` 80 | 方案点名（Z5） |
+| L3 | 启动画面在身份卡、表情反应菜单、侧栏右键菜单之上，在设置窗和放大的电脑窗之下；引导仍在它上面 | 60 → `--z-cover` 70 | 方案点名 |
+| L4 | 同一层的模态按 DOM 顺序叠：portal 出去的（删除确认、交接、VM 授权、全屏只读、表单 sheet）都在设置窗和引导之上，它们之间后打开的在上；表单 sheet 始终比同层高一格。以前是固定的数字顺序：引导 1200 > 删除确认 1000 > 表单 sheet 210 > 交接、VM 授权 200 > 全屏只读 110 > 设置窗 30。所以现在引导在这些对话框之下，删除确认在后打开的交接、VM 授权、表单、全屏只读之下 | 各种 → `--z-dialog` | 刻度 |
+| L5 | 悬停提示在引导和删除确认之上（以前引导盖住提示；删除确认和提示同为 1000，看 DOM 顺序） | 1000 → `--z-tooltip` 100 | 刻度（修掉 C23 的前一半） |
+| L6 | 拖动层在一切之上：拖文件的遮罩和残影、@提及残影现在也在引导之上；寄信飞行以前是 120，低于表情反应菜单 150 和所有 200 以上的模态，现在都在它们之上 | 1000 / 120 / 2147483000 → `--z-drag` 110 | 刻度（Z6） |
+| L7 | 放大的电脑窗（网页端大窗的遮罩）在身份卡、表情反应菜单、侧栏右键菜单、启动画面、相关对话卡片之上，和引导同层（DOM 在后，所以在引导之上） | 40 → `--z-dialog` | 刻度 |
+| L8 | 电脑小窗在上下文浮卡、详情抽屉及其遮罩、放大的电脑详情之下，宽屏下也在顶栏和顶栏菜单（更多、成员）之下；以前它是 25，在这些之上。抽屉开着时点小窗会点到遮罩、关掉抽屉 | 25 → `--z-pill` 30（低于 `--z-panel` 40） | 刻度 |
+| L9 | ≥1100 px 网页端顶栏和它的菜单在相关对话卡片之上；以前只在上下文浮卡之上，在相关对话卡片之下 | 14 → `calc(var(--z-panel) + 1)` | 刻度 + Z4 的保留 |
+| L10 | <1100 px 顶栏和它的菜单在底部模糊条之上（以前模糊条 3 > 顶栏 2；两者一上一下，不重叠） | 2 → `--z-chrome` | 刻度 |
+| L11 | 群聊已读名单（回执提示，仍在消息行内）在宽屏下高于周围的一切：浮卡、抽屉和遮罩、电脑小窗、顶栏和它的菜单、身份卡、菜单、启动画面、toast。只有悬停或聚焦已读标记时出现；模态开着时背后的工作区是 `inert`，碰不到它。手机宽度下在对话窗格里，不变 | 5 → `--z-tooltip` | 刻度 |
+| L12 | 顶栏"更多"菜单在成员面板之上（以前同为 8，看 DOM 顺序）；两者不会同时打开 | 8 → `--z-menu` / `--z-popover` | 刻度 |
+| L13 | 侧栏"新建"菜单在置顶落区之上（落区只在拖动时出现，那时菜单是关的） | 8 → `--z-menu` | 刻度 |
+| L14 | macOS 桌面客户端：拖动条在电脑小窗之上（以前在下面）。拖动条在左上角的侧栏上，小窗在右下角，正常不重叠 | 20 → `calc(var(--z-panel) + 1)` | 刻度 + 保留 |
+
+测试保证不会变的：新消息胶囊仍在底部模糊条和输入框之上（`test:live-fixes`），手机推入的方向、时长和无空帧（`test:shell-budget` 第 3 节，Chromium 和 WebKit）。
+
+**owner 预览看哪里**（`dev:remote`，Chrome，[D22](../decisions/0022-preview-via-dev-remote.md)）
+
+1. （L1）打开设置窗，然后在 DevTools › Network 里切到 Offline，等侧栏刷新失败：顶部出现"暂时无法刷新工作区"的 toast，盖在设置窗上面。再切回 Online、点重试。
+2. （L2、L3）刷新页面看启动画面：骨架和呼吸的猫在最上面；新账户的引导盖在启动画面上（L3）。
+3. （L4）设置窗开着时打开一个表单 sheet（例如技能的访问设置），sheet 在设置窗上面；在归档列表里删除一个会话，确认框在最上面。L5（提示在引导和删除确认之上）在界面里没有现成的入口，由 `test:layers` 覆盖。
+4. （L6）发一条消息：发送飞行在最上面；寄出一封邮件草稿：信封动画在所有东西上面。拖一个文件进窗口：遮罩盖住一切。
+5. （L8）窗口宽度 1180 px 左右，打开 Bot 的电脑小窗，再打开 Bot 设置浮卡：两者重叠的地方浮卡在上面（以前小窗在上面）。窗口窄于 1120 px 时打开一个抽屉面板：小窗变暗在遮罩下面，点它会关掉抽屉。**这一条是看得见的变化，不喜欢就说，改成小窗在 `--z-panel + 1`。**
+6. （L9）≥1100 px，点消息里的"来自……"打开相关对话卡片，再点顶栏的"⋯"：菜单在卡片上面。
+7. （L11）群聊里，≥1100 px 打开上下文浮卡，悬停自己消息上的 ✓✓：读者名单在浮卡上面。
+8. （保留）收起侧栏，打开左下角账户菜单：菜单仍盖在输入框和对话上面（和以前一样）。
+9. （保留）手机宽度（390 px）下列表↔会话推入和以前一样。
+10. （L14，桌面客户端，要用这次构建的 UI 包，`dev:remote` 看不到）窗口窄于 1280 px 时打开一个抽屉面板，按住侧栏顶部空白处拖动窗口：仍能拖。
+
+**必须保持绿**（全部按退出码，2026-10-20 PDT 在本分支实测，见本步"实测"）：`typecheck`、`test:i18n`、`build`、`test:shell-budget`（含 `SHELL_BUDGET_ENGINE=webkit`）、`test:sidebar-pins`、`test:chat-motion`、`test:send-receipts`、`test:settings-shell`、`test:settings-polish`、`test:onboarding`、`test:handover-cards`、`test:primary-followups`、`test:motion-tokens`、`test:layers`，以及协调者给的完整清单（`test:chat-bubbles`、`test:chat-switch` 含 WebKit、`test:chat-safari`、`test:composer-typing`、`test:timeline`、`test:arrival-glide`、`test:live-fixes`、`test:standing-allowance`、`test:user-form`、`test:approval-facts`、`test:preloader`、`test:stream-cost`、`test:switch-budget`、`test:avatar-frame-budget`、`go build ./...`）。
+
+**实测**（同一台机器，迁移前 = 本分支起点 `5f4396f`）
+
+| 预算 | 迁移前 | 现在 | 上限 |
+|---|---|---|---|
+| 入口包（gzip，`test:shell-budget`） | 315,064 B | 315,113 B（+49 B，余量 692 B） | 315,805 B |
+| 设置窗首帧（Chromium 1x / 4x，中位数；WebKit 1x） | 18.5 / 41.9 ms；17.0 ms | 19.9 / 43.8 ms；18.0 ms（同一分支前一次：23.5 / 41.6 ms；17.0 ms） | 32 / 100 ms |
+| 手机推入 4x CPU 超过 25 ms 的帧 | 1 | 0 | ≤ 1 |
+| 流式每块（1x / 4x） | 2.14 / 8.53 ms | 2.18 / 8.01 ms | 4 / 16 ms |
+| 切换会话 p95（1x / 4x） | 22.1 / 70.0 ms | 22.8 / 67.5 ms | 60 / 100 ms |
+| 打字每键脚本（减弱动效 / 动画开着） | 0.36 / 0.59 ms | 0.33 / 0.62 ms | ≤ 4 ms |
+| 猫头像帧率（暂停前 / 恢复后） | 61.2 / 59.7 fps | 64.4 / 59.8 fps | 见 `test:avatar-frame-budget` |
+
+入口包的估计是 +100 到 +300 B，实测 +49 B：`layers.ts` 和几行 import 并进了已有的共享块（这个 6 个文件之一的块从 `react-dom` 改名成 `layers`，1,394 → 1,474 B），`Z` 对象因为没有入口代码用它而被摇掉。设置窗首帧在同一分支两次运行之间就差了 3.6 ms（23.5 和 19.9），这一步没有改设置窗的代码，差别是运行噪声。
 
 ### 第 2 步：菜单和弹出卡片（Tooltip / Popover / DropdownMenu / ContextMenu）
 
@@ -209,7 +264,7 @@ Motion 擅长三件事：带速度衔接、可中途打断的弹簧；自动 FLI
 |---|---|
 | 改哪些文件 | 新建 `ui/src/overlays/OverlayHost.tsx`（入口包，很小：状态、`openMenu`/`openPopover`、空闲预取）和 `ui/src/overlays/RadixOverlays.tsx`（懒加载块：Radix 实现、隐形锚点、焦点归还）；改 `ui/src/App.tsx`（新建菜单、顶栏菜单、附件菜单、侧栏右键菜单）、`ui/src/OwnerSession.tsx:182`、`ui/src/MessageReactions.tsx`、`ui/src/BotIdentityCard.tsx`、`ui/src/MCPSettings.tsx:232-233`、`ui/src/InteractionSystem.tsx`（`ActionHints`）、`ui/src/SendReceipt.tsx`；对应 CSS（`styles.css:30,71,141`、`v2-app.css:115-120,307`、`message-reactions.css:6`、`interaction-system.css:93,175`、`extensions-system.css:61`、`context-card.css:49` 去掉顶栏抬高）；`ui/package.json`、`ui/package-lock.json`；`ui/public/licenses/` 加 Radix 的 MIT 文本；`ui/THIRD_PARTY_NOTICES.md` |
 | 风险 | ① **隐形锚点要先做小实验**：用键盘在真按钮上按 ↓ 打开时，Radix 是否把焦点放到第一项（这个行为原本由 Radix 自己的 Trigger 触发）；关闭后用 `onCloseAutoFocus` 阻止默认并把焦点还给真按钮；真按钮要自己带 `aria-haspopup`、`aria-expanded`、`aria-controls`。实验不通过就退到方案 B 或者让 Trigger 留在入口包。② 第一次打开时块还没到（网络慢）：宿主先什么都不画，块到了再开，要量"点下到出现"的时间。③ 菜单从行内挪进 portal 后丢失 `.workspace` 祖先选择器（§4 第 2 条）。④ `modal={false}` 时外部点击要关闭菜单，同时不能吞掉那次点击要做的事（例如点另一个会话） |
-| 必须保持绿 | 第 1 步那组，加 `test:timeline-rows`、`test:stream-cost`、`test:composer-typing`、`test:switch-budget`、`test:chat-switch`（含 `CHAT_SWITCH_ENGINE=webkit`）、`test:perf-structure`、`test:chat-safari`、`test:layer-tokens` |
+| 必须保持绿 | 第 1 步那组，加 `test:timeline-rows`、`test:stream-cost`、`test:composer-typing`、`test:switch-budget`、`test:chat-switch`（含 `CHAT_SWITCH_ENGINE=webkit`）、`test:perf-structure`、`test:chat-safari`、`test:layers` |
 | 新测试 | `test:overlays`（新建）：对每个菜单——鼠标打开、键盘打开（Enter / 空格 / ↓）后焦点在第一项、上下键移动、Home/End、Esc 关闭且焦点回到触发按钮、点外部关闭、Tab 离开时关闭；菜单在视口边缘时翻转不出界（390 px 和 1280 px）；侧栏长按 380 ms 打开右键菜单而不是 700 ms；菜单之上悬停提示可见。体积：入口包不超预算、`RadixOverlays` 不在入口包里（仿 `test-shell-budget.mjs:41-44` 的写法）。性能：打开最重的菜单时没有超过 50 ms 的帧 |
 | owner 预览看哪里 | ① 侧栏右键、手机长按会话：菜单出现的位置、动画和以前一样。② 侧栏底部账户菜单：不再被侧栏边界切掉（Z3）。③ 输入框的附件菜单和 @菜单：不再被输入框切掉。④ ≥1100 px 打开上下文浮卡，再开顶栏菜单：菜单在浮卡上面（Z4）。⑤ 悬停 @提及的 Bot 名字出身份卡；对一条消息开表情反应。⑥ 用键盘：Tab 到"新建"按钮，按 ↓，上下键选，Esc |
 | 体积 | 入口包：`OverlayHost` + 若干 `import()` 桩，约 +0.5 到 +1 KB（估计），减去搬出入口包的菜单代码（待实测），目标是净值 ≤ 0。懒加载块：约 29.7 KB（§2.3 实测"第 2 步推荐组合"），空闲时预取 |
@@ -234,7 +289,7 @@ Motion 擅长三件事：带速度衔接、可中途打断的弹簧；自动 FLI
 
 | 项 | 内容 |
 |---|---|
-| 实验对象 | ① 到达级联：用 Motion 的弹簧重做 `arrivalCascade.ts`，对照现有预算。② 手机推入：只在 owner 想要"手指拖着返回"手势时，用命令式 `animate()`（懒加载，22.8 KB）做手势和松手后的弹簧收尾；CSS transition 保留给点按返回。③ 布局过渡：`AnimatePresence` 换掉 `useSurfacePresence`、`layout` 换掉 `App.tsx:491-494` 的 FLIP——这两项都要 React 组件版本，必须进入口包（≥30.8 KB），方案 A 下直接排除 |
+| 实验对象 | ① 到达级联：用 Motion 的弹簧重做 `arrivalCascade.ts`，对照现有预算。② 手机推入：**owner 要"手指拖着返回"手势**（[D33](../decisions/0033-phone-swipe-back-experiment.md)），做两版对照：自研（Pointer Events + WAAPI / CSS）和 Motion 命令式 `animate()`（懒加载，22.8 KB），都做手势和松手后的弹簧收尾，留更好的那一版；CSS transition 保留给点按返回。③ 布局过渡：`AnimatePresence` 换掉 `useSurfacePresence`、`layout` 换掉 `App.tsx:491-494` 的 FLIP——这两项都要 React 组件版本，必须进入口包（≥30.8 KB），方案 A 下直接排除 |
 | 做在哪 | Motion Lab（`ui/motion-lab.html`、`ui/src/motion-lab/`，单独打包，`ui/vite.motion-lab.config.ts`），不碰生产代码 |
 | 通过门槛（全部满足才进入生产） | 同一台机器、同一组测试：帧预算不差于现有（`test:arrival-glide`、`test:shell-budget` 4x CPU 那一节"超过 25 ms 的帧 ≤ 1"）；中途打断（推入一半点返回、级联中又来一条消息）比现有更顺，有逐帧位置记录作证；减弱动效时立即到位；入口包不超预算；owner 在预览里看过并认可 |
 | 改哪些文件（如果通过） | ① `ui/src/arrivalCascade.ts`、`ui/src/motion.ts`；② `ui/src/App.tsx` 手机推入部分、`ui/src/styles.css:317-325`；`ui/package.json`、`package-lock.json`、`ui/public/licenses/` |
@@ -265,12 +320,12 @@ Motion 擅长三件事：带速度衔接、可中途打断的弹簧；自动 FLI
 
 | 项 | 内容 |
 |---|---|
-| 做法 | 仿照 Motion Lab：新建 `ui/catalog.html` 和 `ui/src/catalog/`，单独打包（加进 `ui/vite.motion-lab.config.ts` 的 `input`，或者单独一份配置），开发时 `npm run dev` / `dev:remote` 直接打开 `/catalog.html`。用真组件、真 CSS、假数据，外面套 `.workspace`（§4 第 2 条）。每个组件列出：默认、悬停、聚焦（键盘）、按下、禁用、忙、出错、空；弹层列出打开/关闭、贴边翻转；浅色/深色、390 px/1280 px、减弱动效各一份 |
+| 做法 | 新建 `ui/catalog.html` 和 `ui/src/catalog/`，**只在开发时可用**（[D34](../decisions/0034-component-catalog-dev-only.md)）：开发时 `npm run dev` / `dev:remote` 直接打开 `/catalog.html`；不加进 `build` 脚本，也不加进 `ui/vite.motion-lab.config.ts` 的 `input`（Motion Lab 是随 `dist/` 一起构建的，目录页不能照抄这一点）。用真组件、真 CSS、假数据，外面套 `.workspace`（§4 第 2 条）。每个组件列出：默认、悬停、聚焦（键盘）、按下、禁用、忙、出错、空；弹层列出打开/关闭、贴边翻转；浅色/深色、390 px/1280 px、减弱动效各一份 |
 | 内容来源 | 组件和状态清单以 [`components.md`](components.md) 为准；本页是它的可视化 |
-| 改哪些文件 | `ui/catalog.html`、`ui/src/catalog/**`、`ui/vite.motion-lab.config.ts`（或新配置）、`ui/package.json`（`build` 脚本和新测试脚本）、`deploy/open-source-allowlist.json`（`ui/motion-lab.html` 和 `ui/vite.motion-lab.config.ts` 是逐个列出的，`:92`、`:98`；新的 `ui/catalog.html` 也要加） |
-| 风险 | 目录页和生产组件走样：只能导入生产组件，不许在目录页里另写一份；目录页要不要随正式版发布（Motion Lab 现在是随 `dist/` 一起构建的）待 owner 定 |
+| 改哪些文件 | `ui/catalog.html`、`ui/src/catalog/**`、`ui/vite.config.ts` 不用改（开发服务器本来就提供 `ui/` 根目录下的 html；`ui/vite.config.ts:28` 的 `build` 没有设 `input`，默认只打 `index.html`，第 6 步动工时再核对一次）、`ui/package.json`（新测试脚本）、`deploy/open-source-allowlist.json`（`ui/motion-lab.html` 和 `ui/vite.motion-lab.config.ts` 是逐个列出的，`:92`、`:98`；新的 `ui/catalog.html` 也要加） |
+| 风险 | 目录页和生产组件走样：只能导入生产组件，不许在目录页里另写一份；目录页不随正式版发布（D34），要有测试证明 `dist/` 里没有它 |
 | 必须保持绿 | `build`、`test:shell-budget`（证明应用的包没变）、`test:motion-lab`、`test:i18n`（目录页上的说明文字也走 i18n，或者明确豁免，以 `ui/src/locales/README.md` 规则为准） |
-| 新测试 | `test:catalog`（新建）：构建目录页，用 Playwright 逐个打开每一节，无页面错误；每个弹层打开后 `elementFromPoint` 在它中心取到的是它自己（没被盖住）；键盘打开/关闭；截图输出到 `CATALOG_SHOTS` 目录给 owner 看 |
+| 新测试 | `test:catalog`（新建）：先断言正式构建的 `dist/` 里没有 `catalog.html` 和目录页的块（D34）；再在开发服务器里用 Playwright 逐个打开每一节，无页面错误；每个弹层打开后 `elementFromPoint` 在它中心取到的是它自己（没被盖住）；键盘打开/关闭；截图输出到 `CATALOG_SHOTS` 目录给 owner 看 |
 | owner 预览看哪里 | http://localhost:5173/catalog.html ：逐节翻看，和生产界面对照 |
 | 体积 | 应用入口包和懒加载块 0 字节（单独打包） |
 
@@ -283,14 +338,16 @@ Motion 擅长三件事：带速度衔接、可中途打断的弹簧；自动 FLI
 第 4 步 Motion 实验、第 5 步 dnd-kit 实验：互相独立，和第 1–3 步不冲突，可以并行；不通过就只在本文记结果
 ```
 
-## 7. 要 owner 定的事
+## 7. owner 的决定
 
-| # | 问题 | 推荐 |
-|---|---|---|
-| Q1 | 入口预算：方案 A（库全懒加载，预算不动）还是方案 B（预算提高约 31 KB，直接静态导入） | A |
-| Q2 | 第 1 步会有意改变几处先后顺序（设置窗、toast、启动画面），是否接受 | 接受，预览时逐条看 |
-| Q3 | 是否要"手指拖着返回"的手机手势（决定第 4 步的实验②要不要做） | 待 owner 定 |
-| Q4 | 组件目录页是否随正式版发布 | 只在开发时可用 |
+2026-10-21 owner 回答了这四个问题（日期是协调者转述的；本分支的提交时间是 2026-10-20 晚上 PDT，哪个为准待确认）。
+
+| # | 问题 | 推荐 | owner 的回答 | 决定 |
+|---|---|---|---|---|
+| Q1 | 入口预算：方案 A（库全懒加载，预算不动）还是方案 B（预算提高约 31 KB，直接静态导入） | A | **A**。每个库都懒加载，入口预算不动（`test:shell-budget` 入口 ≤ 315,805 B，写方案时余量约 741 B）；把现有弹层代码搬出入口包来支付懒加载桩 | [D31](../decisions/0031-entry-budget-plan-a.md) |
+| Q2 | 第 1 步会有意改变几处先后顺序（设置窗、toast、启动画面），是否接受 | 接受，预览时逐条看 | **接受**，每一处都要列出来给 owner 在预览里看。清单是第 1 步的 L1–L14 | [D32](../decisions/0032-step1-stacking-changes-accepted.md) |
+| Q3 | 是否要"手指拖着返回"的手机手势（决定第 4 步的实验②要不要做） | 待 owner 定 | **要**：手指把对话往右拖回到列表。做成有门槛的实验，自研一版、Motion 一版，留好的那个 | [D33](../decisions/0033-phone-swipe-back-experiment.md) |
+| Q4 | 组件目录页是否随正式版发布 | 只在开发时可用 | **只在开发时可用**，不进正式版构建 | [D34](../decisions/0034-component-catalog-dev-only.md) |
 
 ## 附录 A：复现体积测量
 

@@ -10,7 +10,7 @@
   html:not([data-desktop]) .workspace .detail-pane.context-panel,
   html:not([data-desktop]) .view-only-chat.is-card {
     --card-top:66px; /* just under the header's action pill */
-    position:absolute; z-index:12; inset:var(--card-top) 16px auto auto;
+    position:absolute; z-index:var(--z-panel); inset:var(--card-top) 16px auto auto;
     width:min(400px,calc(100vw - var(--sidebar-width,260px) - 64px)); height:auto;
     max-height:calc(var(--viewport-height,100dvh) - var(--card-top) - var(--composer-height,110px) - 20px);
     overflow:auto; overscroll-behavior:contain; box-sizing:border-box;
@@ -27,7 +27,7 @@
   html:not([data-desktop]) .workspace .workspace-grid.card-open :is(.chat-body,.composer) { padding-right:var(--card-room,0px); transition:padding-right var(--m-panel-in) var(--ease-out); }
 
   /* Read-only forwarded chat as a card: header, scrolling history, compact footer. */
-  html:not([data-desktop]) .view-only-chat.is-card { position:fixed; z-index:40; inset:var(--card-top) 16px auto auto; display:flex; flex-direction:column; width:min(440px,calc(100vw - 32px)); overflow:hidden; animation:context-card-enter var(--m-panel-in) var(--ease-out) both; }
+  html:not([data-desktop]) .view-only-chat.is-card { position:fixed; z-index:var(--z-panel); inset:var(--card-top) 16px auto auto; display:flex; flex-direction:column; width:min(440px,calc(100vw - 32px)); overflow:hidden; animation:context-card-enter var(--m-panel-in) var(--ease-out) both; }
   html:not([data-desktop]) .view-only-chat.is-card .view-only-chat-header { min-height:0; padding:12px 12px 12px 16px; border-bottom:1px solid var(--line-soft); background:transparent; -webkit-backdrop-filter:none; backdrop-filter:none; }
   html:not([data-desktop]) .view-only-chat.is-card .view-only-chat-identity strong { max-width:120px; font-size:13px; }
   html:not([data-desktop]) .view-only-chat.is-card .view-only-chat-close { flex-basis:36px; width:36px; height:36px; }
@@ -46,7 +46,7 @@
   html:not([data-desktop]) .workspace .workspace-grid.card-open :is(.chat-body,.composer) { transition:none; }
 }
 /* Header menus (more actions, members) open above the card. */
-@media (min-width:1100px) { html:not([data-desktop]) .workspace .chat-header { position:relative; z-index:14; } }
+@media (min-width:1100px) { html:not([data-desktop]) .workspace .chat-header { position:relative; z-index:calc(var(--z-panel) + 1); } }
 
 /* One heading size for every card, whichever panel fills it. */
 @media (min-width:1100px) {
