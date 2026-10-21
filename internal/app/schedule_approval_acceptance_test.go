@@ -278,8 +278,8 @@ func assertScheduledApprovalSnapshots(t *testing.T, server *Server, conversation
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(questions.Questions) != 1 || !reflect.DeepEqual(questions.Questions[0], question.Card()) {
-		t.Fatalf("refresh questions=%+v durable=%+v", questions, question.Card())
+	if len(questions.Questions) != 1 || !reflect.DeepEqual(questions.Questions[0], question.Compact()) {
+		t.Fatalf("refresh questions=%+v durable=%+v", questions, question.Compact())
 	}
 	wantOccurrences, err := server.store.ScheduleOccurrences(context.Background(), conversationID, []string{runID})
 	if err != nil {

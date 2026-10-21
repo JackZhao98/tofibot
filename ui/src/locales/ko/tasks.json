@@ -209,6 +209,7 @@
       "unknown": "평가 안 됨"
     },
     "view_full_arguments": "전체 인수 보기",
+    "detail_unavailable": "세부 정보를 불러오지 못했습니다.",
     "proposal_ended": "이 제안은 종료되었습니다.",
     "view_decision": "결정 기록 보기",
     "remembered_decision": "이 채팅에서 기억된 승인으로 허용되었으며 아무에게도 묻지 않았습니다. 실행 여부는 아래 단계에 표시됩니다.",

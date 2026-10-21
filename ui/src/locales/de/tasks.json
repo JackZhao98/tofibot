@@ -210,6 +210,7 @@
       "unknown": "Nicht bewertet"
     },
     "view_full_arguments": "Alle Argumente ansehen",
+    "detail_unavailable": "Details konnten nicht geladen werden.",
     "proposal_ended": "Dieser Vorschlag ist beendet.",
     "view_decision": "Entscheidungsprotokoll ansehen",
     "remembered_decision": "Durch eine in diesem Chat gemerkte Genehmigung freigegeben; niemand wurde gefragt. Der Schritt unten zeigt, ob es ausgeführt wurde.",
