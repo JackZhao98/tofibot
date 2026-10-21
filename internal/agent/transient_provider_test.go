@@ -21,8 +21,9 @@ func TestRetryableProviderErrorAfterOutputIsRetriedWithBackoff(t *testing.T) {
 	transientProviderBackoff = []time.Duration{time.Millisecond, time.Millisecond}
 	defer func() { transientProviderBackoff = old }()
 	for name, failure := range map[string]error{
-		"overloaded":    &provider.APIError{StatusCode: 529, Body: "overloaded_error"},
-		"response.fail": &provider.ResponseFailedError{Code: "server_error", Message: "You can retry your request"},
+		"overloaded":      &provider.APIError{StatusCode: 529, Body: "overloaded_error"},
+		"response.fail":   &provider.ResponseFailedError{Code: "server_error", Message: "You can retry your request"},
+		"stream overload": &provider.ResponseFailedError{Code: "server_is_overloaded", Message: "Our servers are currently overloaded."},
 	} {
 		t.Run(name, func(t *testing.T) {
 			p := &scriptedProvider{steps: []func(context.Context, *provider.ChatRequest, func(provider.StreamDelta)) (*provider.ChatResponse, error){

@@ -51,6 +51,9 @@ type OAuthView struct {
 type SkillView struct {
 	Name        string `json:"name"`
 	Description string `json:"description"`
+	// Builtin skills ship in the binary: they are switched on or off in
+	// Settings and can be neither installed over nor deleted.
+	Builtin bool `json:"builtin,omitempty"`
 }
 
 func validExtensionName(s string) bool {
@@ -390,6 +393,9 @@ func (m *Manager) InstallSkill(name string, files map[string][]byte) error {
 	if !skillNamePattern.MatchString(name) {
 		return tooloutcome.InvalidArguments("invalid skill name")
 	}
+	if IsBuiltinSkill(name) {
+		return tooloutcome.InvalidArguments("a built-in skill has this name; built-in skills are switched on or off in Settings")
+	}
 	if len(files) == 0 || len(files) > maxInstallFiles {
 		return tooloutcome.InvalidArguments("invalid skill file count")
 	}
@@ -465,16 +471,19 @@ func validSkillInstallPath(path string) bool {
 func (m *Manager) ListSkills() ([]SkillView, []Diagnostic) {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
-	s, d := loadSkills(m.cfg.SkillsDir)
+	s, d := m.loadAllSkills(false, true)
 	out := make([]SkillView, 0, len(s))
 	for _, x := range s {
-		out = append(out, SkillView{Name: x.Name, Description: x.Description})
+		out = append(out, SkillView{Name: x.Name, Description: x.Description, Builtin: x.Builtin})
 	}
 	return out, d
 }
 // SkillExists reports whether a skill directory of that name is installed,
 // even if its manifest is currently unreadable.
 func (m *Manager) SkillExists(name string) bool {
+	if IsBuiltinSkill(name) {
+		return true
+	}
 	if !skillNamePattern.MatchString(name) || strings.TrimSpace(m.cfg.SkillsDir) == "" {
 		return false
 	}
@@ -485,6 +494,9 @@ func (m *Manager) SkillExists(name string) bool {
 func (m *Manager) DeleteSkill(name string) error {
 	if !skillNamePattern.MatchString(name) {
 		return errors.New("invalid skill name")
+	}
+	if IsBuiltinSkill(name) {
+		return ErrBuiltinSkill
 	}
 	m.mu.Lock()
 	defer m.mu.Unlock()

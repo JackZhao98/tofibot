@@ -57,7 +57,7 @@ func (g *geminiProvider) Chat(ctx context.Context, req *ChatRequest) (*ChatRespo
 	}
 
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		return nil, NewAPIError("gemini", resp.StatusCode, string(respBody))
+		return nil, NewAPIErrorFor("gemini", resp, string(respBody))
 	}
 
 	return g.parseResponse(respBody)
@@ -88,7 +88,7 @@ func (g *geminiProvider) ChatStream(ctx context.Context, req *ChatRequest, onDel
 
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		respBody, _ := io.ReadAll(resp.Body)
-		return nil, NewAPIError("gemini", resp.StatusCode, string(respBody))
+		return nil, NewAPIErrorFor("gemini", resp, string(respBody))
 	}
 
 	return g.parseStream(resp.Body, onDelta)

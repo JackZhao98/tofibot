@@ -54,7 +54,7 @@ const (
 	// has a Codex sign-in.
 	codexDefaultModel = "codex-gpt-5.6-luna"
 
-	defaultProviderRetries = 5
+	defaultProviderRetries = 8
 )
 
 type automationKind string
@@ -268,7 +268,8 @@ func (s *Server) autoInt(key string) int {
 // through say. Read at the ForceToolUse call site of a run.
 func (s *Server) forceSayHaikuDMEnabled() bool { return s.autoBool(autoForceSayHaikuDM) }
 
-// webSearchEnabled says whether Anthropic runs may use server-side web search.
+// webSearchEnabled says whether Anthropic runs may use server-side web search
+// and the server-side page reader that goes with it.
 // TOFI_WEB_SEARCH=off still disables it inside webSearchMaxUses; this adds the
 // stored switch.
 func (s *Server) webSearchEnabled() bool { return s.autoBool(autoWebSearch) }
@@ -279,6 +280,14 @@ func (s *Server) searchUses(model string, tools []Tool) int {
 		return 0
 	}
 	return webSearchMaxUses(model, tools)
+}
+
+// fetchUses is webFetchMaxUses behind the same stored switch as search.
+func (s *Server) fetchUses(model string, tools []Tool) int {
+	if !s.webSearchEnabled() {
+		return 0
+	}
+	return webFetchMaxUses(model, tools)
 }
 
 func (s *Server) groupExchangeGistsEnabled() bool { return s.autoBool(autoGroupExchangeGists) }

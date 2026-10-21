@@ -143,7 +143,7 @@ func TestExtensionToolsSkillLifecycleAndActivation(t *testing.T) {
 	s, _, _, tool := extensionToolFixture(t)
 	cursor := s.store.workspaceEventCursor()
 	extensionToolCall(t, tool, map[string]any{"action": "skill_install", "name": "fixture", "files": map[string]string{"SKILL.md": "---\nname: fixture\ndescription: independent fixture\n---\nUse local inputs.", "references/note.txt": "local fixture"}})
-	skills, _ := s.extensions.ListSkills()
+	skills := installedSkills(s)
 	if len(skills) != 1 {
 		t.Fatalf("skill not installed: %#v", skills)
 	}
@@ -152,7 +152,7 @@ func TestExtensionToolsSkillLifecycleAndActivation(t *testing.T) {
 	if events := configEventsAfter(t, s, cursor); len(events) != 2 {
 		t.Fatalf("want one config event per mutation, got %d", len(events))
 	}
-	skills, _ = s.extensions.ListSkills()
+	skills = installedSkills(s)
 	if len(skills) != 0 {
 		t.Fatal("skill not deleted")
 	}

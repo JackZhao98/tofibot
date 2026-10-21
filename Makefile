@@ -39,6 +39,7 @@ self-host-test:
 	python3 -m unittest discover -s deploy/microvm -p 'test_*.py'
 	python3 -m unittest discover -s deploy/self-host -p 'test_*.py'
 	python3 -m unittest discover -s scripts/release -p 'test_*.py'
+	python3 -m unittest discover -s internal/extensions/builtin_skills/tests -p 'test_*.py'
 
 # install.sh carries a copy of deploy/self-host/tofi_tui.py; refresh it after editing that file.
 self-host-embed:

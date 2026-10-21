@@ -1,6 +1,9 @@
 package app
 
-import "strings"
+import (
+	"regexp"
+	"strings"
+)
 
 // The Bot marks transient narration with <progress>...</progress> in its normal
 // text. Everything outside the tag is an answer. One incremental scanner backs
@@ -136,6 +139,7 @@ func hasPrefixFold(s, prefix string) bool {
 // splitProgress splits a complete turn, in order, into note and answer parts.
 // Adjacent parts of one kind merge and whitespace-only parts are dropped.
 func splitProgress(text string) []textPart {
+	text = stripCiteTags(text)
 	var sc progressScanner
 	raw := append(sc.feed(text), sc.finish()...)
 	var parts []textPart
@@ -158,6 +162,7 @@ func splitProgress(text string) []textPart {
 // stripProgressTags returns the text with every tag removed and nothing else
 // changed; notes keep their words.
 func stripProgressTags(text string) string {
+	text = stripCiteTags(text)
 	if !strings.Contains(text, "<") {
 		return text
 	}
@@ -195,4 +200,18 @@ func finalSplit(text string) (notes []textPart, answer string) {
 		}
 	}
 	return notes, parts[last].Text
+}
+
+// citeTagRE matches the citation markup the model writes around claims taken
+// from search results: an opening tag carrying an index attribute (the model
+// sometimes opens it with a parenthesis) and the closing tag.
+var citeTagRE = regexp.MustCompile(`(?i)(?:<cite\b[^>\n]{0,200}>|\(cite\s+index="[^"\n]{0,40}"\s*>|</cite>)`)
+
+// stripCiteTags removes citation markup and keeps the cited words, so the
+// markup never reaches the stored or served text.
+func stripCiteTags(text string) string {
+	if !strings.Contains(text, "cite") && !strings.Contains(text, "CITE") {
+		return text
+	}
+	return citeTagRE.ReplaceAllString(text, "")
 }

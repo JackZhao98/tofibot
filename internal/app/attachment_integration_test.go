@@ -72,7 +72,7 @@ func TestAttachmentMessageRollbackAndVisionContext(t *testing.T) {
 	pm := runtime.Message{Role: "user", Content: m.Content}
 	left := 3
 	budget := int64(8 << 20)
-	server.addAttachmentContext(c, m, &pm, &left, &budget)
+	server.addAttachmentContext(c, m, &pm, &left, &budget, nil)
 	if len(pm.ImageURLs) != 1 || !strings.HasPrefix(pm.ImageURLs[0], "data:image/png;base64,") || !strings.Contains(pm.Content, a.ID) {
 		t.Fatal("image missing from provider context")
 	}
