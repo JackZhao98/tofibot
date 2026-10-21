@@ -246,6 +246,15 @@ func (s *Server) cachedProviderCatalog(name string) []ModelOption {
 	return models
 }
 
+// providerMemoTTL holds only a live catalog for the full TTL; a stored
+// snapshot is retried after the short guard.
+func providerMemoTTL(source string) time.Duration {
+	if source == "live" {
+		return providerCatalogTTL
+	}
+	return catalogRetryGuard
+}
+
 func (s *Server) forgetProviderCatalog(name string) {
 	s.providerMu.Lock()
 	delete(s.providerCatalogs, name)
@@ -263,7 +272,7 @@ func (s *Server) providerModels(ctx context.Context, name string) ([]ModelOption
 	s.providerMu.Lock()
 	entry, cached := s.providerCatalogs[name]
 	s.providerMu.Unlock()
-	if cached && time.Since(entry.at) < providerCatalogTTL && len(entry.models) > 0 {
+	if cached && time.Since(entry.at) < providerMemoTTL(entry.source) && len(entry.models) > 0 {
 		if entry.source == "live" {
 			return append([]ModelOption(nil), entry.models...), "live", ""
 		}
