@@ -113,28 +113,27 @@ html:not([data-desktop]) .workspace .conversation-row:has(.conversation-status[d
   display:grid; place-items:center; width:36px; height:36px; flex:0 0 36px;
   border:1px solid var(--line-soft); border-radius:10px; color:var(--ink-soft); background:transparent;
 }
-.workspace .sidebar-account-menu {
-  position:absolute; z-index:var(--z-menu); left:0; bottom:calc(100% + 10px); width:min(280px,calc(100vw - 24px));
+:is(.workspace,[id="tofi-layers"]) .sidebar-account-menu {
+  position:relative; z-index:var(--z-menu); width:min(280px,calc(100vw - 24px));
   padding:8px; border:1px solid var(--glass-edge); border-radius:15px;
   background:var(--glass-strong); color:var(--ink); box-shadow:var(--sheen),var(--hard-sm);
   -webkit-backdrop-filter:var(--blur); backdrop-filter:var(--blur);
 }
-.workspace .sidebar-account-menu-heading { display:grid; gap:3px; padding:8px 10px 10px; border-bottom:1px solid var(--line-soft); }
-.workspace .sidebar-account-menu-heading strong { font:600 14px/1.3 var(--display); }
-.workspace .sidebar-account-menu-heading small { color:var(--muted); font:10px/1.3 var(--mono); }
-.workspace .sidebar-account-menu>button {
+:is(.workspace,[id="tofi-layers"]) .sidebar-account-menu-heading { display:grid; gap:3px; padding:8px 10px 10px; border-bottom:1px solid var(--line-soft); }
+:is(.workspace,[id="tofi-layers"]) .sidebar-account-menu-heading strong { font:600 14px/1.3 var(--display); }
+:is(.workspace,[id="tofi-layers"]) .sidebar-account-menu-heading small { color:var(--muted); font:10px/1.3 var(--mono); }
+:is(.workspace,[id="tofi-layers"]) .sidebar-account-menu>button {
   display:flex; align-items:center; gap:9px; width:100%; min-height:38px;
   padding:8px 10px; border:0; border-radius:9px; color:var(--ink-soft); background:transparent; text-align:left;
 }
-.workspace .sidebar-account-menu>button:hover { color:var(--ink); background:var(--surface-2); }
-.workspace .sidebar-account-themes { display:flex; gap:3px; margin:6px 4px; padding:3px; border:1px solid var(--line-soft); border-radius:10px; background:var(--sunk); }
-.workspace .sidebar-account-themes button { flex:1; min-height:30px; border:0; border-radius:7px; color:var(--ink-soft); background:transparent; font:11px/1 var(--body); }
-.workspace .sidebar-account-themes button[aria-pressed="true"] { color:var(--on-block); background:var(--yellow); }
-.workspace .sidebar-account-menu-rule { height:1px; margin:6px 5px; background:var(--line-soft); }
-.workspace .sidebar-account-menu>.sidebar-account-logout { color:var(--danger-text); }
+:is(.workspace,[id="tofi-layers"]) .sidebar-account-menu>button:hover { color:var(--ink); background:var(--surface-2); }
+:is(.workspace,[id="tofi-layers"]) .sidebar-account-themes { display:flex; gap:3px; margin:6px 4px; padding:3px; border:1px solid var(--line-soft); border-radius:10px; background:var(--sunk); }
+:is(.workspace,[id="tofi-layers"]) .sidebar-account-themes button { flex:1; min-height:30px; border:0; border-radius:7px; color:var(--ink-soft); background:transparent; font:11px/1 var(--body); }
+:is(.workspace,[id="tofi-layers"]) .sidebar-account-themes button[aria-checked="true"] { color:var(--on-block); background:var(--yellow); }
+:is(.workspace,[id="tofi-layers"]) .sidebar-account-menu-rule { height:1px; margin:6px 5px; background:var(--line-soft); }
+:is(.workspace,[id="tofi-layers"]) .sidebar-account-menu>.sidebar-account-logout { color:var(--danger-text); }
 .workspace .sidebar-collapsed .sidebar-account-copy,.workspace .sidebar-collapsed .sidebar-account-settings { display:none; }
 .workspace .sidebar-collapsed .sidebar-account-identity { justify-content:center; padding:6px 0; }
-.workspace .sidebar-collapsed .sidebar-account-menu { left:calc(100% + 10px); bottom:0; }
 @media (min-width:768px) {
   .workspace .workspace-grid.sidebar-collapsed { --sidebar-width:80px; }
   .workspace .sidebar-collapsed .contact-pane { padding-inline:6px; }
@@ -305,12 +304,12 @@ html:not([data-desktop]) .workspace .composer-rich-text { font-size:16px; }
 .workspace .composer-add-wrap>.secondary-button:hover,.workspace .composer-row>.dictation-button:hover { transform:none; box-shadow:none; color:var(--ink); border-color:var(--line); background:var(--surface-2); }
 .workspace .composer-add-wrap>.secondary-button:active,.workspace .composer-row>.dictation-button:active { transform:none; box-shadow:none; background:var(--surface-2); }
 .workspace .composer-add-wrap>.secondary-button[aria-expanded="true"] { border:2px solid var(--yellow); color:var(--ink); }
-.workspace .composer-add-menu { position:absolute; z-index:var(--z-menu); left:0; bottom:52px; width:220px; padding:8px; border:2px solid var(--line); border-radius:16px; background:color-mix(in srgb,var(--surface) 99.5%,transparent); box-shadow:var(--hard-sm); -webkit-backdrop-filter:blur(32px) saturate(1.4); backdrop-filter:blur(32px) saturate(1.4); }
-.workspace .composer-add-menu>button { display:flex; align-items:center; gap:12px; width:100%; min-height:40px; margin:0; padding:6px 8px; border:0; border-radius:10px; background:transparent; color:var(--ink); box-shadow:none; text-align:left; font:14px/1.3 var(--body); cursor:pointer; }
-.workspace .composer-add-menu>button:hover,.workspace .composer-add-menu>button:focus-visible { background:var(--surface-2); box-shadow:none; outline:none; }
-.workspace .composer-add-menu .composer-add-icon { display:grid; place-items:center; flex:none; width:20px; color:var(--ink-soft); font:18px/1 var(--body); }
-.workspace .composer-add-menu kbd { margin-left:auto; color:var(--muted); background:transparent; font:11px/1 var(--mono); }
-.workspace .composer-add-menu>p { margin:6px 4px 0; padding:9px 2px 3px; border-top:1px solid var(--line-soft); color:var(--muted); font:11px/1.4 var(--body); }
+:is(.workspace,[id="tofi-layers"]) .composer-add-menu { position:relative; z-index:var(--z-menu); width:220px; padding:8px; border:2px solid var(--line); border-radius:16px; background:color-mix(in srgb,var(--surface) 99.5%,transparent); box-shadow:var(--hard-sm); -webkit-backdrop-filter:blur(32px) saturate(1.4); backdrop-filter:blur(32px) saturate(1.4); }
+:is(.workspace,[id="tofi-layers"]) .composer-add-menu>button { display:flex; align-items:center; gap:12px; width:100%; min-height:40px; margin:0; padding:6px 8px; border:0; border-radius:10px; background:transparent; color:var(--ink); box-shadow:none; text-align:left; font:14px/1.3 var(--body); cursor:pointer; }
+:is(.workspace,[id="tofi-layers"]) .composer-add-menu>button:hover,:is(.workspace,[id="tofi-layers"]) .composer-add-menu>button:focus-visible { background:var(--surface-2); box-shadow:none; outline:none; }
+:is(.workspace,[id="tofi-layers"]) .composer-add-menu .composer-add-icon { display:grid; place-items:center; flex:none; width:20px; color:var(--ink-soft); font:18px/1 var(--body); }
+:is(.workspace,[id="tofi-layers"]) .composer-add-menu kbd { margin-left:auto; color:var(--muted); background:transparent; font:11px/1 var(--mono); }
+:is(.workspace,[id="tofi-layers"]) .composer-add-menu>p { margin:6px 4px 0; padding:9px 2px 3px; border-top:1px solid var(--line-soft); color:var(--muted); font:11px/1.4 var(--body); }
 .workspace .composer-row>.send-button {
   width:40px; height:40px; min-width:40px; margin-left:0; border:var(--edge) solid var(--line);
   border-radius:12px; background:var(--yellow); color:var(--on-block); box-shadow:var(--hard-sm);
@@ -351,12 +350,12 @@ html:not([data-desktop]) .workspace .composer-rich-text { font-size:16px; }
 .workspace .dictation-processing { flex:1; color:var(--muted); font:12px/1.3 var(--body); }
 @keyframes dictation-record-breath { 50% { opacity:.5; transform:scale(.84); } }
 @media (prefers-reduced-motion:reduce) { .workspace .dictation-record-dot { animation:none; } .workspace .dictation-wave i { transition:none; } }
-.workspace .mention-menu { left:0; right:auto; width:min(280px,calc(100vw - 48px)); max-height:240px; padding:7px; border-radius:16px; }
-html:not([data-desktop]) .workspace .mention-menu-heading { padding:5px 9px 8px; color:var(--muted); font:600 10px/1.3 var(--mono); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-html:not([data-desktop]) .workspace .mention-menu-hint { margin:5px 4px 0; padding:7px 5px 3px; border-top:1px solid var(--line-soft); color:var(--muted); font:10px/1.3 var(--mono); }
-.workspace .mention-menu button { display:flex; align-items:center; justify-content:flex-start; gap:9px; width:100%; min-height:42px; padding:6px 9px; border:0; border-radius:10px; background:transparent; text-align:left; }
-.workspace .mention-menu .avatar { display:block; flex:none; width:30px; height:30px; }
-.workspace .mention-menu mark { background:transparent; color:var(--ink); text-decoration:underline; text-decoration-color:var(--pink); text-decoration-thickness:2px; text-underline-offset:3px; }
+:is(.workspace,[id="tofi-layers"]) .mention-menu { width:min(280px,calc(100vw - 48px)); max-height:240px; padding:7px; border-radius:16px; }
+html:not([data-desktop]) :is(.workspace,[id="tofi-layers"]) .mention-menu-heading { padding:5px 9px 8px; color:var(--muted); font:600 10px/1.3 var(--mono); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+html:not([data-desktop]) :is(.workspace,[id="tofi-layers"]) .mention-menu-hint { margin:5px 4px 0; padding:7px 5px 3px; border-top:1px solid var(--line-soft); color:var(--muted); font:10px/1.3 var(--mono); }
+:is(.workspace,[id="tofi-layers"]) .mention-menu button { display:flex; align-items:center; justify-content:flex-start; gap:9px; width:100%; min-height:42px; padding:6px 9px; border:0; border-radius:10px; background:transparent; text-align:left; }
+:is(.workspace,[id="tofi-layers"]) .mention-menu .avatar { display:block; flex:none; width:30px; height:30px; }
+:is(.workspace,[id="tofi-layers"]) .mention-menu mark { background:transparent; color:var(--ink); text-decoration:underline; text-decoration-color:var(--pink); text-decoration-thickness:2px; text-underline-offset:3px; }
 .workspace .composer-input-wrap.has-mentions { position:relative; }
 .workspace .composer-rich-text { position:absolute; inset:0; z-index:0; padding:4px 4px 8px; overflow:hidden; pointer-events:none; white-space:pre-wrap; overflow-wrap:break-word; color:var(--ink); font:15px/1.55 var(--body); }
 .workspace .composer-rich-text>div { position:relative; }
@@ -539,17 +538,17 @@ html:not([data-desktop]) .workspace .composer .working-member.work-companion .wo
 .workspace .bot-avatar-palettes button>span { display:block; width:18px; height:18px; flex:none; border:2px solid; border-radius:50%; }
 .workspace .bot-avatar-palettes button small { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font:10px/1.2 var(--body); }
 .workspace .bot-v2-panel .bot-v2-done { display:flex; width:100%; margin-top:12px; }
-.workspace :is(.more-menu,.create-menu,.sidebar-context-menu,.mention-menu,.member-panel,.sidebar-account-menu,.mcp-menu) { background:color-mix(in srgb,var(--surface) 99.5%,transparent); border:2px solid var(--line); border-radius:16px; box-shadow:var(--sheen),var(--hard-sm); -webkit-backdrop-filter:blur(32px) saturate(1.4); backdrop-filter:blur(32px) saturate(1.4); }
-.workspace .sidebar-context-menu { padding:6px; }
-.workspace :is(.more-menu,.create-menu,.sidebar-context-menu,.sidebar-account-menu,.mcp-menu)>button,
-.workspace .mention-menu>button { display:flex; align-items:center; gap:9px; width:100%; min-height:42px; padding:8px 10px; border:0; border-radius:10px; background:transparent; color:var(--ink); box-shadow:none; text-align:left; font:14px/1.3 var(--body); white-space:normal; overflow-wrap:anywhere; }
-.workspace :is(.more-menu,.create-menu,.sidebar-context-menu,.mention-menu,.member-panel,.sidebar-account-menu,.mcp-menu) button:hover:not(:disabled) { background:var(--surface-2); color:var(--ink); transform:none; box-shadow:none; }
-.workspace :is(.more-menu,.create-menu,.sidebar-context-menu,.mention-menu,.sidebar-account-menu,.mcp-menu)>button:disabled { color:var(--muted); background:transparent; }
-.workspace .sidebar-context-menu .delete-menu-action { color:var(--danger-text); }
-.workspace .mention-menu>button.selected { background:var(--surface-2); }
-.workspace .sidebar-account-menu>.sidebar-account-logout:hover { color:var(--danger-text); }
-.workspace :is(.more-menu,.create-menu,.sidebar-context-menu,.mention-menu,.member-panel,.sidebar-account-menu,.mcp-menu) .delete-menu-action:hover { color:var(--danger-text); }
-@supports not (backdrop-filter:blur(1px)) { .workspace :is(.more-menu,.create-menu,.sidebar-context-menu,.mention-menu,.member-panel,.sidebar-account-menu,.mcp-menu) { background:var(--surface); } }
+:is(.workspace,[id="tofi-layers"]) :is(.more-menu,.create-menu,.sidebar-context-menu,.mention-menu,.member-panel,.sidebar-account-menu,.mcp-menu) { background:color-mix(in srgb,var(--surface) 99.5%,transparent); border:2px solid var(--line); border-radius:16px; box-shadow:var(--sheen),var(--hard-sm); -webkit-backdrop-filter:blur(32px) saturate(1.4); backdrop-filter:blur(32px) saturate(1.4); }
+:is(.workspace,[id="tofi-layers"]) .sidebar-context-menu { padding:6px; }
+:is(.workspace,[id="tofi-layers"]) :is(.more-menu,.create-menu,.sidebar-context-menu,.sidebar-account-menu,.mcp-menu)>button,
+:is(.workspace,[id="tofi-layers"]) .mention-menu>button { display:flex; align-items:center; gap:9px; width:100%; min-height:42px; padding:8px 10px; border:0; border-radius:10px; background:transparent; color:var(--ink); box-shadow:none; text-align:left; font:14px/1.3 var(--body); white-space:normal; overflow-wrap:anywhere; }
+:is(.workspace,[id="tofi-layers"]) :is(.more-menu,.create-menu,.sidebar-context-menu,.mention-menu,.member-panel,.sidebar-account-menu,.mcp-menu) button:hover:not(:disabled) { background:var(--surface-2); color:var(--ink); transform:none; box-shadow:none; }
+:is(.workspace,[id="tofi-layers"]) :is(.more-menu,.create-menu,.sidebar-context-menu,.mention-menu,.sidebar-account-menu,.mcp-menu)>button:disabled { color:var(--muted); background:transparent; }
+:is(.workspace,[id="tofi-layers"]) .sidebar-context-menu .delete-menu-action { color:var(--danger-text); }
+:is(.workspace,[id="tofi-layers"]) .mention-menu>button.selected { background:var(--surface-2); }
+:is(.workspace,[id="tofi-layers"]) .sidebar-account-menu>.sidebar-account-logout:hover { color:var(--danger-text); }
+:is(.workspace,[id="tofi-layers"]) :is(.more-menu,.create-menu,.sidebar-context-menu,.mention-menu,.member-panel,.sidebar-account-menu,.mcp-menu) .delete-menu-action:hover { color:var(--danger-text); }
+@supports not (backdrop-filter:blur(1px)) { :is(.workspace,[id="tofi-layers"]) :is(.more-menu,.create-menu,.sidebar-context-menu,.mention-menu,.member-panel,.sidebar-account-menu,.mcp-menu) { background:var(--surface); } }
 
 @media (max-width:767px) {
   .workspace .contact-pane { padding-inline:8px; }
@@ -567,8 +566,8 @@ html:not([data-desktop]) .workspace .composer .working-member.work-companion .wo
 @media (prefers-reduced-transparency:reduce) {
   html:not([data-desktop]) .workspace .composer::before { background:linear-gradient(to bottom,transparent,var(--bg) 64px); }
   .workspace .chat-header { background:var(--surface); -webkit-backdrop-filter:none; backdrop-filter:none; }
-  .workspace .composer .composer-row,.workspace :is(.more-menu,.create-menu,.sidebar-context-menu,.mention-menu,.member-panel,.sidebar-account-menu,.mcp-menu) { background:var(--surface); -webkit-backdrop-filter:none; backdrop-filter:none; }
-  .workspace .sidebar-account-menu { background:var(--surface); -webkit-backdrop-filter:none; backdrop-filter:none; }
+  .workspace .composer .composer-row,:is(.workspace,[id="tofi-layers"]) :is(.more-menu,.create-menu,.sidebar-context-menu,.mention-menu,.member-panel,.sidebar-account-menu,.mcp-menu) { background:var(--surface); -webkit-backdrop-filter:none; backdrop-filter:none; }
+  :is(.workspace,[id="tofi-layers"]) .sidebar-account-menu { background:var(--surface); -webkit-backdrop-filter:none; backdrop-filter:none; }
 }
 html:not([data-desktop]) .workspace .conversation-empty{align-content:center;justify-items:center;gap:6px}
 html:not([data-desktop]) .workspace .web-memory-empty{display:grid;justify-items:center;align-content:center;gap:4px;min-height:214px;background:var(--dots);border:1px solid var(--line-soft);border-radius:16px;text-align:center}

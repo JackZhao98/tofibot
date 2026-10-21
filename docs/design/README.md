@@ -3,7 +3,7 @@
 网页界面（`ui/src/`）的设计规范。桌面客户端（Electron）用同一份网页 UI 构建产物，所以这里的规则两端都适用，模糊效果除外（[D18](../decisions/0018-progressive-blur-scope.md)）。
 
 - 基线：`748c774`（= `v0.1.4-rc.29`，2026-10-20）。四份文件里的 `file:line` 都按这个提交写，代码改了要在同一个提交里跟着改（[`process.md` 第 10 节](../process.md)）。
-- **现状 vs 提议**：owner 已对 `migration.md` 点头（Q1–Q4 的回答是 [D31](../decisions/0031-entry-budget-plan-a.md)–[D34](../decisions/0034-component-catalog-dev-only.md)），按它分步迁移。`tokens.md` 第 9 节的层级刻度已在第 1 步落地，是规范（`file:line` 按分支 `ds/step1-layers`）；`tokens.md` 第二部分的其余合并方案仍是提议。其余内容是对现有代码的描述，可以当依据。
+- **现状 vs 提议**：owner 已对 `migration.md` 点头（Q1–Q4 的回答是 [D31](../decisions/0031-entry-budget-plan-a.md)–[D34](../decisions/0034-component-catalog-dev-only.md)），按它分步迁移。`tokens.md` 第 9 节的层级刻度已在第 1 步落地，是规范（`file:line` 按分支 `ds/step2-menus`）；菜单和弹出卡片已在第 2 步换成 Radix（`ui/src/overlays/`，`components.md` 第 9–12 节）；`tokens.md` 第二部分的其余合并方案仍是提议。其余内容是对现有代码的描述，可以当依据。
 - 已经在跑的硬约束仍以 [`AGENTS.md`](../../AGENTS.md) 为准：动效令牌（"Web UI motion"）、侧栏拖动（"Sidebar order and pins"）、时间线性能（"Web timeline performance"）、预览方式（"Fast UI preview against a running server"）。
 
 ## 阅读顺序
@@ -13,7 +13,7 @@
 | 1 | [`principles.md`](principles.md) | 八条设计原则 P1–P8，每条有来源决定、检查方法、已知违反项；§9 冲突时的取舍顺序；§10 PR 评审清单 | 动任何界面之前 |
 | 2 | [`tokens.md`](tokens.md) | 颜色、字体、间距、圆角、描边、阴影、模糊、动效的真实取值（第一部分，带 `file:line`）；§9 z-index 现状、问题 Z1–Z7、提议的 13 层刻度和每一处的归层 | 写样式、加颜色或加层级之前 |
 | 3 | [`components.md`](components.md) | 每个组件的状态、焦点、键盘、关闭方式、位置、层级、动效、触屏；已知问题 C1–C41（§24 按严重度汇总）；§25 待确认 | 改某个组件之前，先读它那一节 |
-| 4 | [`migration.md`](migration.md) | 迁到 headless 库的分步方案：选型结论（§0）、体积实测（§2）、六步各改哪些文件、风险、owner 在预览里看哪里（§5）、owner 对 Q1–Q4 的回答（§7） | 参与迁移时；当前状态：**第 1 步已完成**（等合并和预览），第 2–6 步未开始 |
+| 4 | [`migration.md`](migration.md) | 迁到 headless 库的分步方案：选型结论（§0）、体积实测（§2）、六步各改哪些文件、风险、owner 在预览里看哪里（§5）、owner 对 Q1–Q4 的回答（§7） | 参与迁移时；当前状态：**第 1、2 步已完成**（等合并和预览），第 3–6 步未开始 |
 
 ## 四份文件怎么互相引用
 

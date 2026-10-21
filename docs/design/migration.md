@@ -1,6 +1,6 @@
 # Web UI 迁移到 headless 组件库：分步方案
 
-> 状态：**owner 已点头，按本文分步迁移**（2026-10-21；§7 的 Q1–Q4 已回答，见 [D31](../decisions/0031-entry-budget-plan-a.md)–[D34](../decisions/0034-component-catalog-dev-only.md)）。**第 1 步已完成**（分支 `ds/step1-layers`，等合并和 owner 预览）；第 2–6 步未开始。每一步都要预览（[D28](../decisions/0028-headless-design-system-migration.md)）。
+> 状态：**owner 已点头，按本文分步迁移**（2026-10-21；§7 的 Q1–Q4 已回答，见 [D31](../decisions/0031-entry-budget-plan-a.md)–[D34](../decisions/0034-component-catalog-dev-only.md)）。**第 1、2 步已完成**（分支 `ds/step1-layers`、`ds/step2-menus`，等合并和 owner 预览）；第 3–6 步未开始。每一步都要预览（[D28](../decisions/0028-headless-design-system-migration.md)）。
 > 快照：提交 `748c774`（分支 `docs/system-opus`），体积实测日期 2026-10-20（PDT）。
 > 相关文档：层级刻度和每一处 z-index 归到哪一层，以 [`tokens.md` §9](tokens.md) 为准，本文不另定一套；本文只写"怎么迁"。
 > 相关决定：[D02 量交互开销](../decisions/0002-measure-interaction-cost.md)、[D18 渐变模糊范围](../decisions/0018-progressive-blur-scope.md)、[D19 到达级联](../decisions/0019-arrival-spring-cascade.md)、[D20 手机推入](../decisions/0020-phone-push-and-boot-screen.md)、[D21 侧栏拖动和置顶](../decisions/0021-sidebar-reorder-and-pins.md)、[D22 用 dev:remote 预览](../decisions/0022-preview-via-dev-remote.md)、[D30 常设规则](../decisions/0030-standing-operating-rules.md)。
@@ -10,14 +10,14 @@
 | 领域 | 选什么 | 一句话理由 | 能不能进入口包 |
 |---|---|---|---|
 | 层级与 portal | 自己做：`--z-*` 令牌 + 一个 portal 根节点 | 不需要库，[`tokens.md` §9.3](tokens.md) 的刻度落地即可（**第 1 步已完成**） | 实测 +49 B |
-| 菜单、弹出卡片 | **Radix**：`DropdownMenu`、`Popover` | 不带样式，`asChild` 可以把现有元素和类名原样留住，外观不变；比 React Aria 小 17–21 KB | 不能，要懒加载（见 §2） |
+| 菜单、弹出卡片 | **Radix**：`DropdownMenu`、`Popover` | 不带样式，`asChild` 可以把现有元素和类名原样留住，外观不变；比 React Aria 小 17–21 KB | 不能，懒加载（**第 2 步已完成**：懒加载块 30,699 B，入口 +5 B） |
 | 悬停提示 | **保留自研的 `ActionHints`**，不用 Radix Tooltip | 现在是整页只有一个委托监听器，行里没有任何组件；Radix Tooltip 要在每个图标外套一层组件，懒加载块 19 KB | — |
 | 对话框 | **Radix**：`Dialog`、`AlertDialog` | 焦点圈定、Esc 只关最上一层、关闭后焦点回到原处，现在每个对话框各写一遍 | 不能，要懒加载 |
 | 动效 | **暂不引入 Motion**，第 4 步只做一次对照实验 | 到达级联已经是预先算好的弹簧关键帧交给 WAAPI 在合成线程跑；Motion 的 React 组件版本最少 30.8 KB，而且必须进入口包 | 不能 |
 | 拖动 | **保留自研引擎**，第 5 步只做一次对照实验 | 引擎懒加载块 3,480 B，拖动过程中 React 不渲染；dnd-kit 15.3 KB 起，且 `useSortable` 让每一行在拖动中重新渲染 | 不能 |
 | 组件目录页 | 自己做，仿照 Motion Lab 单独打包 | 不占应用的任何一个包 | 不占 |
 
-最硬的约束是体积：**写方案时入口包离预算只剩 741 字节**（§2；第 1 步之后是 692 字节）。所以本方案里任何一个库都只能在懒加载的块里出现，而且第 2、3 步要把现有的弹层代码一起搬出入口包，用省下来的字节支付懒加载的入口开销。owner 选了这条路（方案 A，[D31](../decisions/0031-entry-budget-plan-a.md)），不放宽预算（§2.4 的方案 B 不采用）。
+最硬的约束是体积：**写方案时入口包离预算只剩 741 字节**（§2；第 1 步之后是 692 字节，第 2 步之后是 687 字节）。所以本方案里任何一个库都只能在懒加载的块里出现，而且第 2、3 步要把现有的弹层代码一起搬出入口包，用省下来的字节支付懒加载的入口开销。owner 选了这条路（方案 A，[D31](../decisions/0031-entry-budget-plan-a.md)），不放宽预算（§2.4 的方案 B 不采用）。
 
 ## 1. 现状：要迁的东西在哪
 
@@ -28,14 +28,14 @@
 | 组件 | 代码 | 现在怎么做的 | 在哪个包 | 钉住它的测试 |
 |---|---|---|---|---|
 | 悬停提示 `.action-hint` | `ui/src/InteractionSystem.tsx:51-84` | 整页一个委托监听器读 `data-hint`，portal 到 `document.body`（第 1 步起是 `#tofi-layers`） | index | `test:chat-motion`（`scripts/test-chat-motion.mjs:358`） |
-| 发送回执提示 `.send-receipt-tip` | `ui/src/SendReceipt.tsx:46` | 行内 `role="tooltip"`，z 5（第 1 步起 `--z-tooltip`）。宽屏下并不被所在行封顶：对话窗格不是层叠上下文，它直接和侧栏、浮卡在根层叠上下文里比 | index | `test:send-receipts` |
-| 侧栏右键菜单 `.sidebar-context-menu` | `ui/src/App.tsx:2462` | `position:fixed` 坐标定位；右键和拖动引擎的长按都会打开（`ui/src/sidebarDndEngine.ts:308`、`:351`） | index | `test:sidebar-pins`（按 `menuitem` 角色断言，`scripts/test-sidebar-pins.mjs:266-312`、`:458-464`） |
-| 新建菜单、顶栏菜单 | `ui/src/App.tsx:610-611`（`useSurfacePresence`）、渲染在 `:2447`、`:2477` | 绝对定位，跟着父级层叠上下文 | index | 待确认（未找到按类名断言的测试） |
-| 账户菜单 `.sidebar-account-menu` | `ui/src/OwnerSession.tsx:182` | 绝对定位 z 150（第 1 步起 `--z-menu`），实际被侧栏封顶（第 1 步起侧栏是 `calc(var(--z-chrome) + 1)`，`tokens.md` Z3） | index | 无 |
-| 输入框附件菜单 `.composer-add-menu` | `ui/src/App.tsx:3538` | 绝对定位，被输入框封顶（Z3） | index | 待确认 |
-| 表情反应菜单 `.reaction-context-menu` | `ui/src/MessageReactions.tsx:77` | portal，`role="dialog"`，表情选择器懒加载（`:7`） | index | `test:chat-motion`（`:399-402`） |
-| 身份卡 `.bot-identity-card` | `ui/src/BotIdentityCard.tsx:47` | 悬停/长按出现，portal，退场靠 `useSurfacePresence(position, 180)`（`:19`） | index | 无 |
-| MCP 更多菜单 `.mcp-menu` | `ui/src/MCPSettings.tsx:232-233` | 绝对定位 | SettingsPanel（懒） | `test:settings-shell` |
+| 发送回执提示 `.send-receipt-tip` | `ui/src/SendReceipt.tsx:46` | 行内 `role="tooltip"`，z 5（第 1 步起 `--z-tooltip`）。宽屏下并不被所在行封顶：对话窗格不是层叠上下文，它直接和侧栏、浮卡在根层叠上下文里比。**第 2 步起**是已读标记上的 `data-hint`（`data-hint-tone="quiet"`），由 `ActionHints` portal 进 `#tofi-layers` | index | `test:send-receipts`、`test:overlays` |
+| 侧栏右键菜单 `.sidebar-context-menu` | `ui/src/App.tsx:2462` | `position:fixed` 坐标定位；右键和拖动引擎的长按都会打开（`ui/src/sidebarDndEngine.ts:308`、`:351`）。**第 2 步起** Radix DropdownMenu，锚在 (x, y)，状态在 `OverlaySlot` | index | `test:sidebar-pins`（按 `menuitem` 角色断言，`scripts/test-sidebar-pins.mjs:266-312`、`:458-464`） |
+| 新建菜单、顶栏菜单 | `ui/src/App.tsx:610-611`（`useSurfacePresence`）、渲染在 `:2447`、`:2477` | 绝对定位，跟着父级层叠上下文。**第 2 步起** Radix DropdownMenu | index | 待确认（未找到按类名断言的测试）；第 2 步起 `test:overlays` |
+| 账户菜单 `.sidebar-account-menu` | `ui/src/OwnerSession.tsx:182` | 绝对定位 z 150（第 1 步起 `--z-menu`），实际被侧栏封顶（第 1 步起侧栏是 `calc(var(--z-chrome) + 1)`，`tokens.md` Z3）。**第 2 步起** Radix DropdownMenu，不再封顶 | index | 无；第 2 步起 `test:overlays` |
+| 输入框附件菜单 `.composer-add-menu` | `ui/src/App.tsx:3538` | 绝对定位，被输入框封顶（Z3）。**第 2 步起** Radix DropdownMenu，不再封顶 | index | 待确认；第 2 步起 `test:overlays` |
+| 表情反应菜单 `.reaction-context-menu` | `ui/src/MessageReactions.tsx:77` | portal，`role="dialog"`，表情选择器懒加载（`:7`）。**第 2 步起** Radix Popover | index | `test:chat-motion`（`:399-402`） |
+| 身份卡 `.bot-identity-card` | `ui/src/BotIdentityCard.tsx:47` | 悬停/长按出现，portal，退场靠 `useSurfacePresence(position, 180)`（`:19`）。**第 2 步起** Radix Popover；界面上没有入口（第 2 步"事实更正"） | index | 无；第 2 步起 `test:overlays`（单独的开发页） |
+| MCP 更多菜单 `.mcp-menu` | `ui/src/MCPSettings.tsx:232-233` | 绝对定位。**第 2 步起**走同一个宿主（Radix DropdownMenu），层级 `calc(var(--z-dialog) + 1)` | SettingsPanel（懒） | `test:settings-shell`、`test:overlays` |
 | 删除对话框、重新指派主助理 | `ui/src/DialogShell.tsx:4-14`，用在 `DeleteConversationDialog.tsx:41`、`PrimaryAssistant.tsx:97` | 自写 Tab 圈定和 Esc；`role="alertdialog"` | DeleteConversationDialog 懒（1,027 B）；`PrimaryAssistant` 在 index（`App.tsx:43` 静态导入） | `test:primary-followups` |
 | 表单 sheet `.sheet-overlay` | `ui/src/AdminSheets.tsx:35`、`ui/src/settings/SkillAccess.tsx:82` | portal，点遮罩关闭 | AdminSheets、SettingsPanel（懒） | `test:settings-polish` |
 | 全屏只读会话 | `ui/src/ViewOnlyChat.tsx:79` | portal，`aria-modal` 只在非卡片形态 | ViewOnlyChat（懒） | 无 |
@@ -50,7 +50,7 @@
 
 ### 1.2 层级
 
-现状和问题（Z1–Z7）见 [`tokens.md` §9.1-9.2](tokens.md)。写方案时：产品 CSS 89 处 z-index、31 个不同的值，最大 1200（`onboarding.css:5`），TS 里还有 2147483000（`sendFlight.ts:19`）。第 1 步之后：46 处全局层全部走 `--z-*`，43 处组件内部的局部值，TS 里只剩 `"var(--z-drag)"` 一处；Z1、Z2、Z5、Z6 已修，Z3、Z4 等第 2 步，Z7 等第 3 步。
+现状和问题（Z1–Z7）见 [`tokens.md` §9.1-9.2](tokens.md)。写方案时：产品 CSS 89 处 z-index、31 个不同的值，最大 1200（`onboarding.css:5`），TS 里还有 2147483000（`sendFlight.ts:19`）。第 1 步之后：46 处全局层全部走 `--z-*`，43 处组件内部的局部值，TS 里只剩 `"var(--z-drag)"` 一处；Z1、Z2、Z5、Z6 已修，Z7 等第 3 步。第 2 步之后：全局层 45 处（去掉顶栏抬高和行内回执提示，加了模态里菜单的 `data-layer="dialog"`），Z3、Z4 已修。
 
 ### 1.3 动效
 
@@ -168,7 +168,7 @@ Motion 擅长三件事：带速度衔接、可中途打断的弹簧；自动 FLI
 
 1. **portal 根节点不是层叠上下文。** `#tofi-layers` 是 `<body>` 里排在 `#root` 后面的一个普通 `div`，不设 `z-index`、`isolation`、`transform`、`filter`。它里面每个弹层自己带 `--z-*`，和 `#root` 里的启动画面（`--z-cover`）、顶栏（`--z-chrome`）在同一个根层叠上下文里比大小。如果把它做成层叠上下文，`tokens.md` 的刻度就会被整体打包成一层，启动画面就盖不住菜单了。
 2. **portal 出去的内容会丢掉祖先选择器。** 有的样式写成 `.workspace .sidebar-account-menu`（`ui/src/v2-app.css:115`），portal 到 `.workspace` 外面后就不生效。搬之前先把这类选择器改成不依赖祖先的写法；主题变量在 `<html>` 上（`InteractionSystem.tsx:22`），portal 出去没问题。组件目录页同理，要套 `.workspace` 才有正确样式。
-3. **懒加载的弹层宿主。** 入口包里只放一个很小的 `OverlayHost`（第 2 步新建），它持有"现在开着什么、锚在哪"的状态，开的时候用 `React.lazy` 渲染真正的 Radix 实现；空闲时预取那个块，做法和 `useSidebarDnd.ts:33-35` 一样，所以用户第一次点的时候块通常已经在了。触发按钮仍是 TOFI 现有的普通 `<button>`，行里不增加任何组件（守住 `test:timeline-rows`、`test:stream-cost` 的每行开销）。
+3. **懒加载的弹层宿主。** 入口包里只放一个很小的 `OverlayHost`（第 2 步新建；实际做法见第 2 步"和原方案的不同"第 1、2 条：没有集中状态，不用 `React.lazy` + `Suspense`），它持有"现在开着什么、锚在哪"的状态，开的时候用 `React.lazy` 渲染真正的 Radix 实现；空闲时预取那个块，做法和 `useSidebarDnd.ts:33-35` 一样，所以用户第一次点的时候块通常已经在了。触发按钮仍是 TOFI 现有的普通 `<button>`，行里不增加任何组件（守住 `test:timeline-rows`、`test:stream-cost` 的每行开销）。
 4. **类名不变。** Radix 的 `Content` 用现有类名（如 `className="sidebar-context-menu"`），现有测试的选择器和样式都能继续用。
 5. **动画走令牌。** 进出场用 Radix 的 `data-state` 接现有关键帧和 `--m-*`；`test:motion-tokens` 不能新增例外。
 6. **每一步一个合并**，同一个提交里更新本文的进度和 [`tokens.md`](tokens.md) 的归层表。合并前跑完该步列出的测试，**以退出码为准**（D30）；浏览器测试需要 `PLAYWRIGHT_MODULE=/path/to/playwright/index.mjs`。
@@ -209,7 +209,7 @@ Motion 擅长三件事：带速度衔接、可中途打断的弹簧；自动 FLI
 | L6 | 拖动层在一切之上：拖文件的遮罩和残影、@提及残影现在也在引导之上；寄信飞行以前是 120，低于表情反应菜单 150 和所有 200 以上的模态，现在都在它们之上 | 1000 / 120 / 2147483000 → `--z-drag` 110 | 刻度（Z6） |
 | L7 | 放大的电脑窗（网页端大窗的遮罩）在身份卡、表情反应菜单、侧栏右键菜单、启动画面、相关对话卡片之上，和引导同层（DOM 在后，所以在引导之上） | 40 → `--z-dialog` | 刻度 |
 | L8 | 电脑小窗在上下文浮卡、详情抽屉及其遮罩、放大的电脑详情之下，宽屏下也在顶栏和顶栏菜单（更多、成员）之下；以前它是 25，在这些之上。抽屉开着时点小窗会点到遮罩、关掉抽屉 | 25 → `--z-pill` 30（低于 `--z-panel` 40） | 刻度 |
-| L9 | ≥1100 px 网页端顶栏和它的菜单在相关对话卡片之上；以前只在上下文浮卡之上，在相关对话卡片之下 | 14 → `calc(var(--z-panel) + 1)` | 刻度 + Z4 的保留 |
+| L9 | ≥1100 px 网页端顶栏和它的菜单在相关对话卡片之上；以前只在上下文浮卡之上，在相关对话卡片之下。**第 2 步撤销**：顶栏回到 `--z-chrome`，它的菜单 portal 出去后在卡片之上（第 2 步 M5） | 14 → `calc(var(--z-panel) + 1)` | 刻度 + Z4 的保留 |
 | L10 | <1100 px 顶栏和它的菜单在底部模糊条之上（以前模糊条 3 > 顶栏 2；两者一上一下，不重叠） | 2 → `--z-chrome` | 刻度 |
 | L11 | 群聊已读名单（回执提示，仍在消息行内）在宽屏下高于周围的一切：浮卡、抽屉和遮罩、电脑小窗、顶栏和它的菜单、身份卡、菜单、启动画面、toast。只有悬停或聚焦已读标记时出现；模态开着时背后的工作区是 `inert`，碰不到它。手机宽度下在对话窗格里，不变 | 5 → `--z-tooltip` | 刻度 |
 | L12 | 顶栏"更多"菜单在成员面板之上（以前同为 8，看 DOM 顺序）；两者不会同时打开 | 8 → `--z-menu` / `--z-popover` | 刻度 |
@@ -259,27 +259,106 @@ Motion 擅长三件事：带速度衔接、可中途打断的弹簧；自动 FLI
 
 入口包的估计是 +100 到 +300 B，实测 +49 B：`layers.ts` 和几行 import 并进了已有的共享块（这个 6 个文件之一的块从 `react-dom` 改名成 `layers`，1,394 → 1,474 B），`Z` 对象因为没有入口代码用它而被摇掉。设置窗首帧的 1x 中位数每次运行在 18–25 ms 之间跳，迁移前后的范围相同（迁移前 4 次、现在 5 次，同一台机器交替跑），这一步没有改设置窗的代码。
 
-### 第 2 步：菜单和弹出卡片（Tooltip / Popover / DropdownMenu / ContextMenu）
+### 第 2 步：菜单和弹出卡片 — **已完成**（分支 `ds/step2-menus`，从 `ds/step1-layers` 开出，等合并和 owner 预览）
 
 **目标**：所有菜单和弹出卡片走同一个宿主、同一套键盘和关闭规则，用 Radix 实现；顺带修掉 Z3、Z4。
 
-各原语的处理：
-
-| 原语 | 用在哪 | 做法 |
-|---|---|---|
-| Tooltip | `ActionHints`、发送回执提示 | **不用 Radix Tooltip**。`ActionHints` 保留委托监听，只把它挂到 `layerRoot()`、用 `--z-tooltip`。发送回执提示改走同一套 `data-hint` 委托，从行内挪到 portal（`tokens.md` 归层表要求），群聊里"谁读了"的文字作为 hint 文本（D16 后续还要改成只在悬停/聚焦/点按时出现，界面细节待确认） |
-| DropdownMenu | 新建菜单、顶栏菜单、账户菜单、输入框附件菜单、MCP 更多菜单 | Radix `DropdownMenu`，`modal={false}`（不锁整页指针和滚动，控件保持低调）。前四个在入口包里，走懒加载宿主；MCP 菜单本来就在懒加载的 SettingsPanel 里，可以直接静态导入 Radix |
-| ContextMenu | 侧栏右键菜单 | **不用 Radix ContextMenu**：它的 Trigger 要包住每一行，而且自带 700 ms 触屏长按（`@radix-ui/react-context-menu` `dist/index.mjs:104`），会和引擎的 380 ms 长按（`sidebarDndEngine.ts:39`）抢。改为引擎照旧调用 `onMenu(id, x, y)`，宿主在 (x, y) 放一个 1×1 的隐形锚点，打开同一个 `DropdownMenu` |
-| Popover | 身份卡、表情反应菜单 | Radix `Popover`，`Popover.Anchor` 锚到触发元素的位置；身份卡的悬停延时和长按逻辑保留在 `BotIdentityCard.tsx`，只把卡片本身交给 Popover |
+**做了什么**（提交：分支 `ds/step2-menus` 上的 "Design system step 2" 一提交）
 
 | 项 | 内容 |
 |---|---|
-| 改哪些文件 | 新建 `ui/src/overlays/OverlayHost.tsx`（入口包，很小：状态、`openMenu`/`openPopover`、空闲预取）和 `ui/src/overlays/RadixOverlays.tsx`（懒加载块：Radix 实现、隐形锚点、焦点归还）；改 `ui/src/App.tsx`（新建菜单、顶栏菜单、附件菜单、侧栏右键菜单）、`ui/src/OwnerSession.tsx:182`、`ui/src/MessageReactions.tsx`、`ui/src/BotIdentityCard.tsx`、`ui/src/MCPSettings.tsx:232-233`、`ui/src/InteractionSystem.tsx`（`ActionHints`）、`ui/src/SendReceipt.tsx`；对应 CSS（`styles.css:30,71,141`、`v2-app.css:115-120,307`、`message-reactions.css:6`、`interaction-system.css:93,175`、`extensions-system.css:61`、`context-card.css:49` 去掉顶栏抬高）；`ui/package.json`、`ui/package-lock.json`；`ui/public/licenses/` 加 Radix 的 MIT 文本；`ui/THIRD_PARTY_NOTICES.md` |
-| 风险 | ① **隐形锚点要先做小实验**：用键盘在真按钮上按 ↓ 打开时，Radix 是否把焦点放到第一项（这个行为原本由 Radix 自己的 Trigger 触发）；关闭后用 `onCloseAutoFocus` 阻止默认并把焦点还给真按钮；真按钮要自己带 `aria-haspopup`、`aria-expanded`、`aria-controls`。实验不通过就退到方案 B 或者让 Trigger 留在入口包。② 第一次打开时块还没到（网络慢）：宿主先什么都不画，块到了再开，要量"点下到出现"的时间。③ 菜单从行内挪进 portal 后丢失 `.workspace` 祖先选择器（§4 第 2 条）。④ `modal={false}` 时外部点击要关闭菜单，同时不能吞掉那次点击要做的事（例如点另一个会话） |
-| 必须保持绿 | 第 1 步那组，加 `test:timeline-rows`、`test:stream-cost`、`test:composer-typing`、`test:switch-budget`、`test:chat-switch`（含 `CHAT_SWITCH_ENGINE=webkit`）、`test:perf-structure`、`test:chat-safari`、`test:layers` |
-| 新测试 | `test:overlays`（新建）：对每个菜单——鼠标打开、键盘打开（Enter / 空格 / ↓）后焦点在第一项、上下键移动、Home/End、Esc 关闭且焦点回到触发按钮、点外部关闭、Tab 离开时关闭；菜单在视口边缘时翻转不出界（390 px 和 1280 px）；侧栏长按 380 ms 打开右键菜单而不是 700 ms；菜单之上悬停提示可见。体积：入口包不超预算、`RadixOverlays` 不在入口包里（仿 `test-shell-budget.mjs:41-44` 的写法）。性能：打开最重的菜单时没有超过 50 ms 的帧 |
-| owner 预览看哪里 | ① 侧栏右键、手机长按会话：菜单出现的位置、动画和以前一样。② 侧栏底部账户菜单：不再被侧栏边界切掉（Z3）。③ 输入框的附件菜单和 @菜单：不再被输入框切掉。④ ≥1100 px 打开上下文浮卡，再开顶栏菜单：菜单在浮卡上面（Z4）。⑤ 悬停 @提及的 Bot 名字出身份卡；对一条消息开表情反应。⑥ 用键盘：Tab 到"新建"按钮，按 ↓，上下键选，Esc |
-| 体积 | 入口包：`OverlayHost` + 若干 `import()` 桩，约 +0.5 到 +1 KB（估计），减去搬出入口包的菜单代码（待实测），目标是净值 ≤ 0。懒加载块：约 29.7 KB（§2.3 实测"第 2 步推荐组合"），空闲时预取 |
+| 依赖 | `@radix-ui/react-dropdown-menu` 2.2.1、`@radix-ui/react-popover` 1.3.1（`ui/package.json` 固定版本）。许可证：`ui/public/licenses/radix-ui.txt`、`floating-ui.txt`、`react-remove-scroll.txt`、`tslib.txt`，清单在 `ui/THIRD_PARTY_NOTICES.md` 末节（打进懒加载块的全部第三方包，按构建的 sourcemap 列出） |
+| 入口包里的宿主 | `ui/src/overlays/OverlayHost.tsx`：`OverlayMenu`、`OverlayPopover` 两个薄包装（没加载完时什么都不画，加载完在同一次提交里渲染），`arrowOpens`（在菜单按钮上按 ↓ 打开），`OverlaySlot` / `SlotView`（见"交互开销"），以及空闲时预取懒加载块（`requestIdleCallback`，超时 1.5 s，做法同 `useSidebarDnd.ts`） |
+| 懒加载块 | `ui/src/overlays/RadixOverlays.tsx`：`Menu`（Radix `DropdownMenu`，`modal={false}`）和 `Popover`（Radix `Popover`），都 portal 进 `layerRoot()`。菜单的子元素原样是 TOFI 的标记：其中每个 `<button>`（任意深度、含 fragment 里的）用 `DropdownMenu.Item asChild` 变成菜单项，元素和类名不变 |
+| 一套规则 | ↑↓、Home/End、首字母跳转；Enter/空格选中；Esc 关闭并把焦点还给触发按钮；Tab 关闭并从触发按钮往后走（在设置窗这类模态里，只在模态里走并回绕）；点外面关闭且不吞掉这次点击；再按一次触发按钮是关闭；键盘打开焦点在第一项，鼠标打开焦点在菜单本身（不画焦点环，方向键照样能用）；选中一项后焦点无处可去时回到触发按钮；只是焦点移走（没有按下、Esc、Tab）不关闭，和迁移前一样 |
+| 迁了哪些 | 菜单（DropdownMenu）：新建（`App.tsx`）、顶栏"⋯"（`App.tsx`，锚在顶栏 `chatHeaderRef`）、侧栏行右键/长按（`App.tsx:2401`，锚在 (x, y) 的点）、输入框附件（`App.tsx` `Composer`）、账户（`OwnerSession.tsx:176`）、MCP 行"⋯"（`MCPSettings.tsx:227`，也走同一个宿主，没在 SettingsPanel 里静态导入 Radix）。弹出卡片（Popover）：表情反应（`MessageReactions.tsx:47`）、Bot 身份卡（`BotIdentityCard.tsx`）。删掉了它们各自手写的外部点击、Esc、方向键、焦点归还、视口夹取代码，以及新建/顶栏菜单的 `inert` 退场 |
+| 悬停提示 | 不用 Radix Tooltip。`ActionHints` 不变（第 1 步已挂到 `layerRoot()`、`--z-tooltip`）；群聊读者名单从行内的 `.send-receipt-tip` 改成已读标记上的 `data-hint`（`SendReceipt.tsx`），`data-hint-tone="quiet"` 让提示保持原来的白底外观（`.action-hint.is-quiet`，`interaction-system.css:97`）；`ActionHints` 加了一个只在提示显示时工作的 `MutationObserver`（`InteractionSystem.tsx:60`），提示开着时名单变了，文字跟着变 |
+| @菜单 | 它是 `role="listbox"`、焦点留在输入框里，不是菜单，没有换成 Radix；只是 `createPortal` 进 `#tofi-layers`，按视口坐标放（`App.tsx` 里计算 `mentionAnchor` 的 layout effect），`.mention-menu` 改为 `position:fixed`。这样它不再被输入框封顶（Z3 的第三处） |
+| CSS | 菜单的 `position:absolute/fixed` + `top/left/right/bottom` 换成 `position:relative`（位置交给 Radix Popper 的外层，Popper 把内容的 `--z-*` 复制到外层）；原来写在偏移里的位置改成 `side/align/sideOffset/alignOffset`（收起侧栏时新建菜单在右侧 12 px、账户菜单在右侧 10 px 底对齐）；`.workspace` 开头的菜单选择器改成 `:is(.workspace,[id="tofi-layers"])`（特异性不变，`v2-app.css`、`web-mention.css` 共 47 处）；`[data-open="false"]` 退场改成 Radix 的 `[data-state="closed"]`，退场动画由 Radix `Presence` 等完再卸载；新建/顶栏菜单的 `transform-origin` 用 `var(--radix-dropdown-menu-content-transform-origin)`；删掉 `context-card.css` 的顶栏抬高（Z4）；新增 `#tofi-layers [data-layer="dialog"]{z-index:calc(var(--z-dialog) + 1)}`（`interaction-system.css:91`，模态里打开的菜单盖在模态上）；账户菜单的主题三选一改成 `role="menuitemradio"` + `aria-checked`（选了不关菜单），CSS 从 `[aria-pressed]` 跟着改 |
+| 测试 | 新增 `test:overlays`（`ui/scripts/test-overlays.mjs`，夹具 `ui/scripts/lib/overlay-fixture.mjs`，Chromium，`OVERLAYS_ENGINE=webkit` 跑 WebKit）。改了两个现有测试：`test:send-receipts` 的读者名单改为找 `#tofi-layers` 里的 `.action-hint.is-quiet`；`test:layers` 的叠放探针里右键菜单的父节点改为 `#tofi-layers`（它现在就在那里） |
+
+**和原方案的不同**
+
+1. **没有集中的"现在开着什么"状态。** 每个菜单的开关状态仍在它的触发按钮旁边；宿主只是两个薄包装，关着的菜单不渲染任何东西。方案 §4 第 3 条写的集中状态没有带来好处，反而要让所有菜单的父组件订阅它。
+2. **不用 `React.lazy` + `Suspense`。** React 19 显示一个挂起过的 Suspense 边界时会压住约 300 ms：实测"点下到菜单出现"是 340 ms。改成模块缓存（`useRadix`）后是 40–50 ms，和迁移前一样（撤回验证 P6）。**第 3 步的对话框也不要用 Suspense 包懒加载的 Radix**。
+3. **锚点。** Popover 用 `Popover.Anchor virtualRef` 直接锚到元素或一个虚拟矩形。DropdownMenu 没有公开的 Anchor，用一个隐形的 `DropdownMenu.Trigger`：按钮菜单是放在按钮旁边、复制锚框位置的 `span`（和锚一起滚动）；右键菜单是 portal 进 `#tofi-layers` 的 0×0 `position:fixed` 点。方案的风险 ①（隐形锚点下键盘打开时焦点能否到第一项）的结论：Radix 自己的"键盘打开"判断在菜单挂载之前的按键上拿不到，改为读 `<html data-input="keyboard">`（`focusModality.ts`），菜单获得焦点时把焦点交给第一项。
+4. **长按的尾巴。** 手机上长按打开行菜单后，那次触摸的兼容鼠标事件会把焦点移到行上；Radix 默认"焦点移出就关闭"，菜单会一闪而过（`test:sidebar-pins` 抓到）。所以焦点移出不关闭（`keepOnFocusMove`）。另外菜单项上不是在本项按下的抬起（Radix 的"按住拖到某项松开即选中"）不选中任何项。
+5. **设置窗里的菜单要盖在设置窗上。** 迁移前 MCP 菜单在设置窗内部；portal 之后它的 `--z-menu`（60）低于设置窗的 `--z-dialog`（80），会被盖住。从带 `aria-modal="true"` 的祖先里打开的菜单和卡片加 `data-layer="dialog"`，层级是 `calc(var(--z-dialog) + 1)`。
+6. **交互开销（D02）。** 右键菜单的状态从 Workspace 的 `useState` 挪到 `OverlaySlot`，打开和关闭只重渲染 `SlotView`，整个工作区不渲染（`test:overlays` 用一个 React DevTools 钩子数工作区的渲染次数，撤回验证 P15）。菜单或卡片打开时让猫的呼吸停 320 ms（`holdAvatarLife`，和面板打开同一个机制，P16）。试过"空闲时预渲染一次 Radix"（首开 4x CPU 下脚本时间少约 10–15 ms），但它本身是一次 12 ms（1x）/ 约 50 ms（4x）的空闲任务、可能撞上手机推入，而且效果在本机的噪声里证明不了，没有保留。
+
+**事实更正**
+
+- **身份卡在界面上没有入口。** `App.tsx` 只在"指派"通知里构造 `BotIdentityCard`（`inlineMention`），但指派通知在那之前已经 `return`，`mention` 永远是 `undefined`。`components.md` 第 11 节"群聊发送者头像上"是错的，已改。组件照方案迁到 Popover，`test:overlays` 在一个单独的开发页里挂它来测。要不要在界面上恢复它，待 owner 定。
+- `.member-panel`（`styles.css:72`）没有任何组件使用，是死 CSS（未删）。
+- 顶栏"⋯"菜单的定位基准是 `.chat-header`（`position:relative`），不是 `.header-more`：右边距 14 px 是相对整个顶栏的。
+
+**看得见的变化**（预览时逐条看）
+
+| # | 变化 | 迁移前 → 现在 |
+|---|---|---|
+| M1 | 菜单贴近视口边缘时翻转或平移进视口（菜单留 8 px，卡片留 12 px）；正常位置下 7 个菜单的位置逐像素不变（`test:overlays` 按旧 CSS 的偏移逐个核对） | 右键菜单用写死的 248×360 夹视口（C20），其余菜单不处理边缘 |
+| M2 | 群聊读者名单：悬停 500 ms（键盘聚焦 150 ms）后出现，在已读标记正上方居中，和图标提示同一套延迟和关闭规则；白底外观不变；手机上点按已读标记会显示 | 悬停立即淡入，右对齐在标记上方，在消息行里 |
+| M3 | 键盘：所有菜单都能 ↑↓/Home/End/首字母，Enter/空格/↓ 打开时焦点在第一项，Esc 回到按钮，Tab 关闭并往后走；账户菜单的主题三选一读屏读成单选菜单项 | 账户、附件菜单声明了 `role="menu"` 却只有 Esc（C18）；新建、顶栏菜单只能 Tab |
+| M4 | 鼠标打开的菜单焦点在菜单本身 | 新建、顶栏菜单把焦点放在第一项（鼠标模式下不画焦点环，看不出差别） |
+| M5 | 收起侧栏时的账户菜单、输入框附件菜单、@菜单都在 `#tofi-layers` 里，盖在新消息胶囊、电脑小窗、浮卡之上（Z3）；≥1100 px 顶栏回到 `--z-chrome`，"⋯"菜单仍在上下文浮卡之上（Z4）。第 1 步的 L9（顶栏在相关对话卡片之上）随之撤销：顶栏本身回到卡片之下，它的菜单在卡片之上 | 被侧栏 / 输入框封顶；顶栏抬到 `calc(var(--z-panel) + 1)` |
+| M6 | 设置 › 连接里 MCP 行的"⋯"菜单在 `calc(var(--z-dialog) + 1)` | 在设置窗内部 |
+| M7 | 选中一项后，焦点无处可去时回到触发按钮；菜单或卡片打开时猫停 320 ms 呼吸 | 留在 `<body>`；猫不停 |
+| M8 | 表情反应菜单放不下时翻到按钮上方（不再压住按钮） | 夹在视口内，可能盖住按钮 |
+
+**撤回验证**（D30，2026-10-21 PDT，测试保留、只动产品代码）
+
+| # | 撤回什么 | 测试 | 退出码 | 失败的检查 |
+|---|---|---|---|---|
+| P1 | 本步对 `ui/src` 的全部改动（`git diff ds/step1-layers -- ui/src \| git apply -R`） | `test:overlays`；`test:send-receipts` | 1；1 | 22 项里 20 项失败（没有 Radix 块、键盘、位置、层级、读者名单、渲染次数……；长按和表情菜单焦点两项迁移前就满足）；16 项里读者名单那一项 |
+| P2 | 只去掉"焦点移出不关闭" | `test:sidebar-pins` | 1 | 390 px 长按后菜单不出现 |
+| P3 | 只去掉 Tab 处理 | `test:overlays`（新建菜单） | 1 | Tab 之后菜单不关 |
+| P4 | 只删 `data-layer="dialog"` 那条 CSS | `test:overlays` | 1 | MCP 菜单中心处最上层是设置窗里的按钮 |
+| P5 | 把顶栏抬高加回 `context-card.css` | `test:overlays` | 1 | 1280 px 顶栏不是 `--z-chrome` |
+| P6 | `OverlayMenu` 改回 `React.lazy` + `Suspense` | `test:overlays`（开销） | 1 | 点下到出现 348.7 ms > 100 |
+| P7 | @菜单不 portal | `test:overlays` | 1 | @菜单不在 `#tofi-layers` |
+| P8 | 去掉菜单项的 `onPointerUp` 拦截 | `test:overlays` | 1 | 不是在本项按下的抬起选中了该项 |
+| P10 | 去掉 `ActionHints` 的 `MutationObserver` | `test:send-receipts` | 1 | 名单变了提示没跟着变 |
+| P11 | 去掉主题按钮的 `data-keep-open` | `test:overlays` | 1 | 选主题后菜单关了 |
+| P12 | 去掉 `App.tsx` 模态 Tab 圈定里的 `defaultPrevented` 判断 | `test:overlays`（MCP 菜单） | 1 | Tab 之后焦点回绕到触发按钮之前 |
+| P13 | 顶栏"⋯"菜单锚回按钮 | `test:overlays` | 1 | 位置偏 −20 / −14 px |
+| P14 | 去掉新建按钮的 `arrowOpens` | `test:overlays` | 1 | ↓ 打不开菜单 |
+| P15 | 右键菜单状态改回 Workspace 的 `useState` | `test:overlays` | 1 | 工作区渲染了 2 次 |
+| P16 | 去掉打开时的 `holdAvatarLife` | `test:overlays` | 1 | 打开后 250 ms 内猫写了 590 次属性 |
+
+每一项恢复后对应测试退出码 0，没有 SKIP。
+
+**owner 预览看哪里**（`dev:remote`，Chrome，[D22](../decisions/0022-preview-via-dev-remote.md)；M1–M8 见上表）
+
+1. （M1）右键侧栏里的会话：菜单在鼠标处出现，动画和以前一样；把窗口拉矮、在最下面的会话上右键：菜单翻到上面，不出界。手机宽度（390 px）长按会话：菜单出现，松手不会误选。
+2. 新建（侧栏 +）、顶栏"⋯"、账户（左下角）、输入框 +、设置 › 连接里 MCP 行的"⋯"：位置和外观和以前一样；收起侧栏后新建和账户菜单在侧栏右边。
+3. （M5）收起侧栏、打开左下角账户菜单：菜单伸到对话区，盖在新消息胶囊、电脑小窗上面。输入框打 `@`：名单盖在新消息胶囊上面。≥1100 px 打开 Bot 设置浮卡，再点顶栏"⋯"：菜单在浮卡上面。
+4. （M6）设置 › 连接，点某个 MCP 服务的"⋯"：菜单在设置窗上面；按 Esc 只关菜单，设置窗还在。
+5. （M3）只用键盘：Tab 到侧栏的 +，按 ↓，上下键选，Esc 回到 +；在会话行上按 Shift+F10；账户菜单里用 ↑↓ 走到主题，回车换主题，菜单不关。
+6. （M2）群聊里悬停自己消息上的 ✓✓：半秒后出现"已读：……"，白底；手机上点 ✓✓。
+7. （M8）对一条消息开表情反应：焦点在第一个表情，Esc 关闭后焦点回到笑脸按钮。
+8. 身份卡在界面上看不到（见"事实更正"），无需预览。
+
+**必须保持绿**（全部按退出码，2026-10-21 PDT 在本分支最终提交上实测，没有 SKIP）：`typecheck`、`test:i18n`、`build`、`go build ./...`、`test:overlays`（Chromium 和 `OVERLAYS_ENGINE=webkit`；WebKit 下长按和身份卡两项只在 Chromium 跑，会打印说明）、`test:layers`、`test:motion-tokens`、`test:chat-bubbles`、`test:chat-switch`（含 `CHAT_SWITCH_ENGINE=webkit`）、`test:chat-safari`、`test:composer-typing`、`test:timeline`、`test:chat-motion`、`test:arrival-glide`、`test:live-fixes`、`test:send-receipts`、`test:sidebar-pins`、`test:handover-cards`、`test:standing-allowance`、`test:user-form`、`test:approval-facts`、`test:settings-polish`、`test:settings-shell`、`test:preloader`、`test:onboarding`、`test:primary-followups`、`test:shell-budget`（含 `SHELL_BUDGET_ENGINE=webkit`）、`test:stream-cost`、`test:switch-budget`、`test:avatar-frame-budget`、`test:timeline-rows`、`test:perf-structure`。
+
+**实测**（同一台机器；迁移前 = 本分支起点 `ds/step1-layers` 的 `97ac43d`）
+
+| 预算 | 迁移前 | 现在 | 上限 |
+|---|---|---|---|
+| 入口包（gzip，`test:shell-budget`） | 315,113 B | 315,118 B（+5 B，余量 687 B） | 315,805 B |
+| 懒加载块 `RadixOverlays` | — | 30,699 B（方案估计 29,723 B，多出来的是 TOFI 的包装代码） | 不在入口包 |
+| 新建菜单点下到出现（块已加载） | 35–48 ms（4 次） | 38–69 ms（10 次，负载不同） | `test:overlays` ≤ 100 ms |
+| 同上，块在页面加载后被压住 800 ms | — | 84–255 ms（块到了就出现，多次运行） | ≤ 1,400 ms |
+| 最大的菜单（侧栏右键，9 项）首次打开，前后交替 7 次的中位数，1x CPU | 最长帧 17 ms；右键到下一帧 40 ms；事件处理 + 渲染 3 ms | 最长帧 33 ms；右键到下一帧 40 ms；事件处理 + 渲染 8 ms | `test:overlays` 中位数最长帧 ≤ 3 帧（50 ms） |
+| 同上，4x CPU | 最长帧 33 ms；右键到下一帧 64 ms；事件处理 + 渲染 11 ms | 最长帧 50 ms；右键到下一帧 88 ms；事件处理 + 渲染 37 ms | ≤ 6 帧（100 ms） |
+| 设置窗首帧（1x / 4x 中位数；WebKit 1x） | 1x 23.5、19.9、24.5 ms；4x 41.6–44.4 ms；WebKit 17 ms（第 1 步实测） | 1x 22.1–24.7 ms；4x 46.3–47.1 ms；WebKit 11.0 ms | 32 / 100 ms |
+| 手机推入 4x CPU 超过 25 ms 的帧 | 0（第 1 步实测）；今天和本步的构建交替测 4 次，首测 1、3、0、2，过了 2 次 | 1（最终运行）；交替测 4 次，首测 2、2、1、1，过了 3 次（`attempt` 不过会重测一次） | ≤ 1 |
+| 流式每块（1x / 4x） | 2.18 / 8.01 ms | 2.21 / 9.46 ms | 4 / 16 ms |
+| 切换会话 p95（1x / 4x） | 22.8 / 67.5 ms | 19.4 / 72.1 ms | 60 / 100 ms |
+| 打字每键脚本（减弱动效 / 动画开着） | 0.33 / 0.62 ms（第 1 步实测）；今天和本步交替测 2 次：0.39–0.43 / 0.65–0.66 ms | 交替测 2 次：0.43–0.44 / 0.67–0.73 ms | ≤ 4 ms |
+
+结论：入口包基本不变；菜单的打开比迁移前贵——最大的菜单在 1x 下多约 5 ms 脚本、4x 下多约 26 ms，最长帧多一帧，仍在 50 ms 以内。主要是 Radix 每一项都是一串组件（项、集合、漫游焦点、Slot），以及首次打开时这些代码第一次执行。已经做的：右键菜单不重渲染工作区、打开时猫停呼吸。还能做但没做的：空闲时预渲染一次 Radix（见"和原方案的不同"第 6 条），要不要换这 10–15 ms（4x）由 owner 定。手机推入、流式、切换、打字的数字和迁移前在同一噪声范围内；本机测试期间有别的会话在跑，负载在 3–21 之间，手机推入 4x 那一项迁移前的构建也会偶尔超（上表）。
+
+**原方案留档**（各原语怎么处理、改哪些文件、风险）：Tooltip 不用 Radix（见上"悬停提示"）；DropdownMenu 用于新建、顶栏、账户、附件、MCP 菜单；ContextMenu 不用 Radix ContextMenu（它的 Trigger 要包住每一行，自带 700 ms 触屏长按，会和引擎的 380 ms 长按抢；`test:overlays` 断言 450 ms 的长按打开菜单）；Popover 用于身份卡、表情反应菜单，身份卡的悬停延时和长按逻辑留在 `BotIdentityCard.tsx`。风险 ②（第一次打开时块还没到）实测见上表；风险 ③（portal 后丢掉 `.workspace` 祖先选择器）用 `:is(.workspace,[id="tofi-layers"])` 解决，并用一次性脚本逐元素比较了迁移前后 14 种打开状态的计算样式和位置：除 MCP 菜单外壳的 `font-size`（13 → 15 px，外壳里没有直接的文字，子元素各自定了字号，看不出）和有意改的 MCP 菜单层级，全部相同；风险 ④（点外面不吞点击）由 `test:overlays` 的"右键菜单开着时点另一个会话，菜单关、会话照样打开"守住。
 
 ### 第 3 步：对话框
 
@@ -344,7 +423,7 @@ Motion 擅长三件事：带速度衔接、可中途打断的弹簧；自动 FLI
 ## 6. 顺序和依赖
 
 ```
-第 1 步 层级 + portal 根 ──► 第 2 步 菜单/卡片 ──► 第 3 步 对话框
+第 1 步 层级 + portal 根（完成）──► 第 2 步 菜单/卡片（完成）──► 第 3 步 对话框
                                   │
                                   └──► 第 6 步 目录页（第 2 步之后就能开始，随后续步骤补内容）
 第 4 步 Motion 实验、第 5 步 dnd-kit 实验：互相独立，和第 1–3 步不冲突，可以并行；不通过就只在本文记结果
