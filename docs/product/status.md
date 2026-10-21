@@ -98,6 +98,7 @@ TOFI 是一个自托管的 AI Bot 工作台：后端是 Go 服务（`internal/`�
 |---|---|
 | 每个账户一台 Firecracker 电脑。工具有 `computer_shell`、`computer_files`、`computer_desktop`、`computer_browser`、`computer_terminal`、`computer_ssh_keys`、`computer_action` 等 | `internal/app/microvm.go:468`、`:479`、`:517`、`:575`；`terminal.go:181`；`ssh_keys.go:278`；`computers.go:1167` |
 | 看门狗会重启没有响应的电脑；桌面查看器会等电脑醒来，掉线后自动重连 | `internal/app/computer_watchdog.go`；`51c95a2` |
+| 聊天里上传的文件（zip、PDF、DOCX、XLSX 等任意类型，20 MB 内）在 Bot 的电脑里：`/workspace/home/uploads/<对话 id>/<原文件名>`，第一次用电脑工具时懒复制，已有则跳过；提示词在每个附件后写出路径。线上还没有，随下一个 rc 发 | `internal/app/guest_inputs.go`；`internal/computer/guest/import.go`；[D36](../decisions/0036-chat-uploads-on-the-computer.md) |
 | 交接卡片：Bot 可以请用户接管屏幕，完成登录、两步验证、验证码这类步骤（`request_takeover`），也可以请用户连接一个服务（`request_connection`） | `internal/app/handover.go:119`、`:156`；`d3e4ff9`；`test:handover-cards`；`AGENTS.md` 第 75–87 行；[D11](../decisions/0011-handover-cards.md) |
 
 | 已知缺口 | 依据 |

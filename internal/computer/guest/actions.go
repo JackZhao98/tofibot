@@ -168,6 +168,12 @@ func (s *Service) dispatchAction(ctx context.Context, req ActionRequest) (any, e
 			return nil, err
 		}
 		return s.exportFileChunk(ctx, req.BotID, args)
+	case "files.import_chunk":
+		var args importArgs
+		if err := decodeArgs(req.Args, &args); err != nil {
+			return nil, err
+		}
+		return s.importFileChunk(ctx, req.BotID, args)
 	case "files.write":
 		var args fileArgs
 		if err := decodeArgs(req.Args, &args); err != nil {

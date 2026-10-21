@@ -41,6 +41,7 @@
 | D28 | headless 设计系统迁移 | 2026-10-21 | 候选 Radix、Motion、dnd-kit，保留 TOFI 的外观；先出方案，再带预览一步步迁移 | [0028](0028-headless-design-system-migration.md) |
 | D29 | 改账户密码不急 | 2026-10-21 | 暂缓 | [0029](0029-password-change-not-urgent.md) |
 | D30 | 长期操作规则 | 长期 | 正式版标签先问 owner；部署前查正在跑的 run；生产操作只由协调者做；不碰密钥；绿不绿看退出码；修复配上回退就会失败的测试；放宽安全的改动先做对抗性审查 | [0030](0030-standing-operating-rules.md) |
+| D36 | 聊天上传的文件放进 Bot 的电脑 | 2026-10-21 | 用户消息的附件复制到 `/workspace/home/uploads/<对话 id>/`；懒复制、幂等、可见性同 `read_attachment`；复用文件通道反向（`files.import_chunk`） | [0036](0036-chat-uploads-on-the-computer.md) |
 
 ## 怎么新增一条决定
 
