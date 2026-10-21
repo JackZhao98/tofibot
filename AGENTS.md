@@ -155,3 +155,7 @@ A new guest action must also be added to `microVMActions` and the watchdog timeo
 directories, so the guest sets `TESSDATA_PREFIX=~/.local/share/tessdata` (links to the shipped data, writable; `internal/computer/guest/tessdata.go`) and
 `/etc/fonts/local.conf` lists `~/.local/share/fonts`. Do not preinstall language packs or force a matplotlib font. `python-pptx` has no noble package and is
 installed from a pinned wheel. `deploy/microvm/smoke-office.sh` is the in-image smoke test (run as uid 1000); run it after any change to that layer.
+
+# Provider errors and failed runs
+
+Transient provider failures are retried by code, not by message text: `provider.IsRetryable` (HTTP 429/5xx/529, and the in-stream `response.failed` / `error` codes in `retryableResponseFailure`, which arrive with HTTP 200). `RetryProvider` backs off with jitter, honors `Retry-After` (up to 60 s) and stops at `TotalBudget` (2 minutes); the agent loop retries once output has been delivered. A new provider error code that is transient goes into `retryableResponseFailure`. A run that fails after `publish_file` keeps its files: `SetRunStatus(failed)` binds them to an attachments-only assistant message (`keepFailedRunFilesTx`); cancelled and interrupted runs still discard theirs (decision 0038).

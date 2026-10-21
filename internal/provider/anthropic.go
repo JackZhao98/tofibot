@@ -190,7 +190,7 @@ func streamWithWatchdogs(ctx context.Context, providerName string, build func(co
 	defer resp.Body.Close()
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		respBody, _ := io.ReadAll(io.LimitReader(resp.Body, 1<<20))
-		return nil, NewAPIError(providerName, resp.StatusCode, string(respBody))
+		return nil, NewAPIErrorFor(providerName, resp, string(respBody))
 	}
 
 	timer.Reset(idle)

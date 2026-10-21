@@ -11,7 +11,7 @@ import (
 
 // RetryConfig controls retry behavior for API calls.
 type RetryConfig struct {
-	// MaxRetries is the maximum number of retry attempts (default 5). A
+	// MaxRetries is the maximum number of retry attempts (default 8, bounded by TotalBudget). A
 	// negative value means no retries at all.
 	MaxRetries int
 	// BaseDelay is the initial delay before the first retry (default 1s).
@@ -20,6 +20,10 @@ type RetryConfig struct {
 	MaxDelay time.Duration
 	// FallbackModel is used when rate limits persist after MaxRateLimitRetries (optional).
 	FallbackModel string
+	// TotalBudget caps the time one call may spend retrying, attempts and
+	// waits together (default 2 minutes). A retry whose wait would cross it is
+	// not made and the last error is returned.
+	TotalBudget time.Duration
 	// MaxRateLimitRetries triggers fallback after this many consecutive 429/529s (default 3).
 	MaxRateLimitRetries int
 	// OnRetry is called before each retry attempt (optional, for logging/metrics).
@@ -33,7 +37,7 @@ func (c RetryConfig) maxRetries() int {
 	if c.MaxRetries < 0 {
 		return 0
 	}
-	return 5
+	return 8
 }
 
 func (c RetryConfig) baseDelay() time.Duration {
@@ -48,6 +52,13 @@ func (c RetryConfig) maxDelay() time.Duration {
 		return c.MaxDelay
 	}
 	return 30 * time.Second
+}
+
+func (c RetryConfig) totalBudget() time.Duration {
+	if c.TotalBudget > 0 {
+		return c.TotalBudget
+	}
+	return 2 * time.Minute
 }
 
 func (c RetryConfig) maxRateLimitRetries() int {
@@ -74,10 +85,14 @@ func NewRetryProvider(inner Provider, config RetryConfig) *RetryProvider {
 func (r *RetryProvider) Chat(ctx context.Context, req *ChatRequest) (*ChatResponse, error) {
 	var lastErr error
 	rateLimitCount := 0
+	started := time.Now()
 
 	for attempt := 0; attempt <= r.config.maxRetries(); attempt++ {
 		if attempt > 0 {
-			delay := r.calculateDelay(attempt)
+			delay, ok := r.retryDelay(attempt, lastErr, started)
+			if !ok {
+				return nil, fmt.Errorf("retry budget (%v) exhausted: %w", r.config.totalBudget(), lastErr)
+			}
 			if r.config.OnRetry != nil {
 				r.config.OnRetry(attempt, lastErr, delay)
 			} else {
@@ -139,10 +154,14 @@ func (r *RetryProvider) Chat(ctx context.Context, req *ChatRequest) (*ChatRespon
 func (r *RetryProvider) ChatStream(ctx context.Context, req *ChatRequest, onDelta func(StreamDelta)) (*ChatResponse, error) {
 	var lastErr error
 	rateLimitCount := 0
+	started := time.Now()
 
 	for attempt := 0; attempt <= r.config.maxRetries(); attempt++ {
 		if attempt > 0 {
-			delay := r.calculateDelay(attempt)
+			delay, ok := r.retryDelay(attempt, lastErr, started)
+			if !ok {
+				return nil, fmt.Errorf("retry budget (%v) exhausted: %w", r.config.totalBudget(), lastErr)
+			}
 			if r.config.OnRetry != nil {
 				r.config.OnRetry(attempt, lastErr, delay)
 			} else {
@@ -200,6 +219,29 @@ func (r *RetryProvider) ChatStream(ctx context.Context, req *ChatRequest, onDelt
 	}
 
 	return nil, fmt.Errorf("max retries (%d) exceeded: %w", r.config.maxRetries(), lastErr)
+}
+
+// maxRetryAfter bounds how long a server-requested wait is honored; a longer
+// ask is not worth holding a run for and ends the retries instead.
+const maxRetryAfter = 60 * time.Second
+
+// retryDelay is the wait before attempt: the jittered backoff, raised to the
+// server's Retry-After when it asked for more. ok is false when the wait would
+// cross the total budget or the server asked for longer than maxRetryAfter.
+func (r *RetryProvider) retryDelay(attempt int, err error, started time.Time) (time.Duration, bool) {
+	delay := r.calculateDelay(attempt)
+	if ra := RetryAfterOf(err); ra > 0 {
+		if ra > maxRetryAfter {
+			return 0, false
+		}
+		if ra > delay {
+			delay = ra + time.Duration(rand.Int63n(int64(250*time.Millisecond)))
+		}
+	}
+	if time.Since(started)+delay > r.config.totalBudget() {
+		return 0, false
+	}
+	return delay, true
 }
 
 // calculateDelay returns exponential backoff with 25% jitter.

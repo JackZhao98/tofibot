@@ -54,7 +54,7 @@ const (
 	// has a Codex sign-in.
 	codexDefaultModel = "codex-gpt-5.6-luna"
 
-	defaultProviderRetries = 5
+	defaultProviderRetries = 8
 )
 
 type automationKind string

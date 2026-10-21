@@ -3,7 +3,9 @@ package provider
 import (
 	"errors"
 	"fmt"
+	"net/http"
 	"regexp"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -14,6 +16,9 @@ type APIError struct {
 	Provider   string
 	Body       string
 	Err        error
+	// RetryAfter is the wait the server asked for (Retry-After header); zero
+	// when it sent none.
+	RetryAfter time.Duration
 }
 
 func (e *APIError) Error() string {
@@ -34,6 +39,46 @@ func NewAPIError(provider string, statusCode int, body string) *APIError {
 		Provider:   provider,
 		Body:       body,
 	}
+}
+
+// NewAPIErrorFor is NewAPIError for a failed HTTP response: it also records
+// the wait the server asked for.
+func NewAPIErrorFor(provider string, resp *http.Response, body string) *APIError {
+	e := NewAPIError(provider, resp.StatusCode, body)
+	e.RetryAfter = parseRetryAfter(resp.Header, time.Now())
+	return e
+}
+
+// parseRetryAfter reads retry-after-ms, then Retry-After as seconds or an
+// HTTP date. A missing, malformed or negative value is zero.
+func parseRetryAfter(h http.Header, now time.Time) time.Duration {
+	if ms, err := strconv.ParseFloat(strings.TrimSpace(h.Get("Retry-After-Ms")), 64); err == nil && ms > 0 {
+		return time.Duration(ms * float64(time.Millisecond))
+	}
+	v := strings.TrimSpace(h.Get("Retry-After"))
+	if v == "" {
+		return 0
+	}
+	if sec, err := strconv.ParseFloat(v, 64); err == nil {
+		if sec < 0 {
+			return 0
+		}
+		return time.Duration(sec * float64(time.Second))
+	}
+	if at, err := http.ParseTime(v); err == nil {
+		if d := at.Sub(now); d > 0 {
+			return d
+		}
+	}
+	return 0
+}
+
+// RetryAfterOf returns the wait a failed response asked for, or zero.
+func RetryAfterOf(err error) time.Duration {
+	if apiErr, ok := AsAPIError(err); ok {
+		return apiErr.RetryAfter
+	}
+	return 0
 }
 
 // QuotaMarkers are the provider body fragments that mean the account has no
@@ -76,8 +121,9 @@ func IsRetryable(err error) bool {
 	}
 	var failed *ResponseFailedError
 	if errors.As(err, &failed) {
-		// An in-stream failure the provider itself marks as worth retrying.
-		return failed.Code == "server_error" || failed.Code == "rate_limit_exceeded"
+		// An in-stream failure arrives with HTTP 200, so the provider's own
+		// code is the only status there is.
+		return retryableResponseFailure(failed.Code)
 	}
 	var incomplete *IncompleteResponseError
 	var refusal *RefusalError
@@ -88,6 +134,18 @@ func IsRetryable(err error) bool {
 	// Connection-level errors (no HTTP response received)
 	msg := err.Error()
 	return isConnectionError(msg)
+}
+
+// retryableResponseFailure reports the in-stream failure codes that are
+// transient on the provider's side: server faults, overload and rate limits.
+// Quota exhaustion, invalid input and policy codes are not.
+func retryableResponseFailure(code string) bool {
+	switch strings.ToLower(strings.TrimSpace(code)) {
+	case "server_error", "internal_error", "server_is_overloaded", "overloaded", "overloaded_error",
+		"service_unavailable", "rate_limit_exceeded", "rate_limit_error", "timeout", "bad_gateway", "gateway_timeout":
+		return true
+	}
+	return false
 }
 
 // IsRateLimited returns true if the error is a rate limit (429/529).
