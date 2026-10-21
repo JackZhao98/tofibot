@@ -160,6 +160,7 @@
 - 令牌：`--m-instant` 80 / `--m-press` 120 / `--m-quick` 140 / `--m-base` 220 / `--m-panel-in` 280 / `--m-panel-out` 180 / `--m-flight` 640 ms；JS 镜像 `ui/src/motion.ts:4`。
 - 弹簧链参数集中在 `CASCADE`（`ui/src/motion.ts:18-30`），整个过程不改布局和 `scrollTop`，只加视觉偏移（`ui/src/arrivalCascade.ts:3-12`）。
 - 手机推入：进入 280 ms、返回 220 ms，两个窗格同时落地，减少动效时直接切换（`ui/src/styles.css:313-328`）。
+- 手机右滑返回（D35）：手指拖动是直接操作，减少动效时也跟手；松手后的收尾是带手指初速度的临界阻尼弹簧（`SPRING.push`，`ui/src/motion.ts`），预先采样成关键帧交给 WAAPI，只动 `transform` 和变暗层的 `opacity`（`ui/src/phoneSwipeGesture.ts`、`ui/src/phoneSwipeEngine.ts`）。
 - 侧栏拖动只用 transform，React 只在放下时渲染一次（`ui/src/sidebarDndEngine.ts:5-11`）。
 
 **怎么检查**
@@ -275,6 +276,7 @@
 | `test:shell-budget` | 入口 JS gzip ≤ 315,805 字节（`Math.floor(394_757 * 0.8)`；脚本头注释写的 315,806 是未取整的说法）；设置窗第一帧 ≤ 32 ms（4 倍 ≤ 100 ms）；手机推入不出空帧 | `ui/scripts/test-shell-budget.mjs:1-8`、`:29` |
 | `test:avatar-frame-budget` | 猫的逐帧开销 | `ui/package.json` |
 | `test:arrival-glide` | 跟随滚动 220 ms、流式 120 ms、每帧最多 24 px | `AGENTS.md` "Web UI motion" |
+| `test:swipe-back` | 手机右滑返回：4x CPU 下拖动和收尾超过 25 ms 的帧 ≤ 1，每次手指移动的页面脚本 ≤ 1.5 ms，一整次拖动排版 ≤ 8 次；跟手误差 ≤ 1.5 px；松手速度 ≥ 手指的 0.8 倍；引擎懒加载块 ≤ 3,000 B | `ui/scripts/test-swipe-back.mjs` 文件头 |
 | `test:timeline-rows`、`test:perf-structure`、`test:chat-switch` | 行的 memo 结构、切换 | `AGENTS.md` "Web timeline performance" |
 
 **怎么检查**

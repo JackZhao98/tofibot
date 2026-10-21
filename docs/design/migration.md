@@ -1,6 +1,6 @@
 # Web UI 迁移到 headless 组件库：分步方案
 
-> 状态：**owner 已点头，按本文分步迁移**（2026-10-21；§7 的 Q1–Q4 已回答，见 [D31](../decisions/0031-entry-budget-plan-a.md)–[D34](../decisions/0034-component-catalog-dev-only.md)）。**第 1、2、3、6 步已完成**（分支 `ds/step1-layers`、`ds/step2-menus`、`ds/step3-dialogs`、`ds/step6-catalog`，在集成分支 `ds/integrate` 上合在一起，等合并进 `main` 和 owner 预览）；**第 5 步已完成：dnd-kit 实验不通过，保留自研引擎**（分支 `ds/step5-dnd`，只改文档）；第 4 步见该节。每一步都要预览（[D28](../decisions/0028-headless-design-system-migration.md)）。
+> 状态：**owner 已点头，按本文分步迁移**（2026-10-21；§7 的 Q1–Q4 已回答，见 [D31](../decisions/0031-entry-budget-plan-a.md)–[D34](../decisions/0034-component-catalog-dev-only.md)）。**六步都已完成**，在集成分支 `ds/integrate` 上合在一起（`ds/step1-layers`、`ds/step2-menus`、`ds/step3-dialogs`、`ds/step6-catalog`、`ds/step5-dnd`、`ds/step4-motion`），等合并进 `main` 和 owner 预览：第 1–3 步按计划迁移；第 4 步不引入 Motion、右滑返回上线自研版（[D35](../decisions/0035-step4-motion-experiment-result.md)）；第 5 步 dnd-kit 实验不通过，保留自研引擎；第 6 步组件目录页只在开发时可用。每一步都要预览（[D28](../decisions/0028-headless-design-system-migration.md)）。
 > 快照：提交 `748c774`（分支 `docs/system-opus`），体积实测日期 2026-10-20（PDT）。
 > 相关文档：层级刻度和每一处 z-index 归到哪一层，以 [`tokens.md` §9](tokens.md) 为准，本文不另定一套；本文只写"怎么迁"。
 > 相关决定：[D02 量交互开销](../decisions/0002-measure-interaction-cost.md)、[D18 渐变模糊范围](../decisions/0018-progressive-blur-scope.md)、[D19 到达级联](../decisions/0019-arrival-spring-cascade.md)、[D20 手机推入](../decisions/0020-phone-push-and-boot-screen.md)、[D21 侧栏拖动和置顶](../decisions/0021-sidebar-reorder-and-pins.md)、[D22 用 dev:remote 预览](../decisions/0022-preview-via-dev-remote.md)、[D30 常设规则](../decisions/0030-standing-operating-rules.md)。
@@ -13,7 +13,7 @@
 | 菜单、弹出卡片 | **Radix**：`DropdownMenu`、`Popover` | 不带样式，`asChild` 可以把现有元素和类名原样留住，外观不变；比 React Aria 小 17–21 KB | 不能，懒加载（**第 2 步已完成**：懒加载块 30,699 B，入口 +5 B） |
 | 悬停提示 | **保留自研的 `ActionHints`**，不用 Radix Tooltip | 现在是整页只有一个委托监听器，行里没有任何组件；Radix Tooltip 要在每个图标外套一层组件，懒加载块 19 KB | — |
 | 对话框 | **Radix**：`Dialog`、`AlertDialog` | 焦点圈定、Esc 只关最上一层、关闭后焦点回到原处，原来每个对话框各写一遍（**第 3 步已完成**，`ui/src/overlays/ModalDialog.tsx`） | 不能，要懒加载（实测 Radix 块 13,981 B，入口反而 −1,148 B） |
-| 动效 | **暂不引入 Motion**，第 4 步只做一次对照实验 | 到达级联已经是预先算好的弹簧关键帧交给 WAAPI 在合成线程跑；Motion 的 React 组件版本最少 30.8 KB，而且必须进入口包 | 不能 |
+| 动效 | **不引入 Motion**（第 4 步对照实验已做，[D35](../decisions/0035-step4-motion-experiment-result.md)）；手机右滑返回用自研的 Pointer Events + WAAPI | 到达级联已经是预先算好的弹簧关键帧交给 WAAPI 在合成线程跑；Motion 的 React 组件版本最少 30.8 KB，而且必须进入口包；右滑返回的 Motion 版懒加载块 24,099 B，自研版 2,079 B，手感不比自研好 | 不能（右滑返回：入口只多一个加载桩和钩子，+244 B） |
 | 拖动 | **保留自研引擎**（第 5 步实验已做，不通过） | 引擎懒加载块 3,480 B，拖动过程中 React 不渲染；dnd-kit 版懒加载块 16,856 B，一次拖动 React 提交约 90 次、行渲染约 800 次（第 5 步实测） | 不能 |
 | 组件目录页 | 自己做，单独的开发页（**第 6 步已完成**） | 不占应用的任何一个包；和 Motion Lab 不同，不随 `dist/` 构建（D34） | 不占（实测 0 B） |
 
@@ -58,6 +58,7 @@
 |---|---|---|---|
 | 新消息到达级联（D19） | `ui/src/arrivalCascade.ts:79-98`，参数 `ui/src/motion.ts:18-30` | 每条消息的欠阻尼弹簧曲线预先采样成 26 帧关键帧（`cascadeKeyframes`，`:37-48`），用 WAAPI 动 `translate`，布局和 `scrollTop` 全程不变 | `test:arrival-glide` |
 | 手机列表↔会话推入（D20） | `ui/src/styles.css:317-325` | CSS transition，280 ms 进 / 220 ms 退（令牌 panel-in / base） | `test:shell-budget` 第 3 节（`scripts/test-shell-budget.mjs:223-290`，断言 `transitionend` 的 `elapsedTime` 正好 280 / 220） |
+| 手机右滑返回（D33、D35，第 4 步新增） | `ui/src/phoneSwipeGesture.ts`（手势核心）、`ui/src/phoneSwipeEngine.ts`（松手后的收尾），`ui/src/usePhoneSwipeBack.ts` 在手机宽度下空闲时懒加载 | 拖动中直接写两个窗格的 `transform`、用暂停的 WAAPI 动画拖着列表的变暗层（`::after`）；松手后把带初速度的临界阻尼弹簧（`SPRING.push`）预先采样成关键帧交给 WAAPI | `test:swipe-back`（含 WebKit） |
 | 侧栏行进出、换位 | `ui/src/App.tsx:491-494` | WAAPI FLIP | `test:sidebar-pins` |
 | 回答高度、移动 | `ui/src/App.tsx:2678`、`:2853`、`:3051` | WAAPI | `test:chat-motion` 等 |
 | 弹层退场 | `ui/src/InteractionSystem.tsx:33-41` `useSurfacePresence` | 用定时器把关掉的内容多留 N 毫秒 | — |
@@ -147,7 +148,7 @@ Motion Lab 自己也有一个弹簧积分器，会把弹簧"预烘焙进 `linear
 Motion 擅长三件事：带速度衔接、可中途打断的弹簧；自动 FLIP 的布局动画；`AnimatePresence` 退场。TOFI 的情况：
 
 - 到达级联已经是预先算好的弹簧关键帧交给 WAAPI 动 `translate`（§1.3），在合成线程跑，主线程不参与。Motion 做的也是这种事，换过去拿不到更好的结果。
-- 手机推入是 CSS transition，测试断言的是 `transitionend` 的时长（§1.3）。Motion 真正比它强的只有一种情况：**手指拖着走的边缘返回手势**，松手后按速度用弹簧收尾。这个手势 TOFI 现在没有（在 `ui/src` 里 grep `swipe` 没有结果，motion-lab 除外）。owner 定了要做（[D33](../decisions/0033-phone-swipe-back-experiment.md)）：作为有门槛的实验，自研和 Motion 各做一版，留好的那个。
+- 手机推入是 CSS transition，测试断言的是 `transitionend` 的时长（§1.3）。Motion 真正比它强的只有一种情况：**手指拖着走的边缘返回手势**，松手后按速度用弹簧收尾。写方案时 TOFI 没有这个手势。owner 定了要做（[D33](../decisions/0033-phone-swipe-back-experiment.md)）：作为有门槛的实验，自研和 Motion 各做一版，留好的那个。**结果**（第 4 步，[D35](../decisions/0035-step4-motion-experiment-result.md)）：带速度的弹簧收尾自研也能做（把初速度代进弹簧、预先采样成关键帧），Motion 在这里没有优势，上线的是自研版。
 - 用 React 组件的 Motion（`motion.div`）要出现在渲染树里，所以必须进入口包（最少 30.8 KB）。能懒加载的只有命令式的 `animate()`（22.8 KB），或者 `motion/mini`（3.5 KB，只是 WAAPI 的包装，`motion.ts` + `Element.animate` 已经在做同样的事）。
 
 所以 Motion 只放在第 4 步做对照实验，有门槛，不达标就不引入。
@@ -465,9 +466,13 @@ Motion 擅长三件事：带速度衔接、可中途打断的弹簧；自动 FLI
 | owner 预览看哪里 | ① 删除一个会话：确认框的样子、出现动画、Esc、点外面。② 设置 › 技能权限 等表单 sheet：叠在设置窗上面。③ 重新指派主助理。④ 新账户引导。⑤ 设置有未保存修改时离开、电脑重启确认。⑥ 全程只用键盘走一遍 |
 | 体积 | 入口包：`DialogShell` 和 `ReassignPrimaryDialog` 搬出去，预计净减少（待实测）。懒加载：Radix Dialog 部分和第 2 步的块共用底层，第 2、3 步合计约 30.9 KB（§2.3）；只开对话框、没开过菜单时约 13.7 KB |
 
-### 第 4 步：Motion（级联、手机推入、布局过渡）——只在比现有 WAAPI 更好时才做
+### 第 4 步：Motion（级联、手机推入、布局过渡）——只在比现有 WAAPI 更好时才做 — **已完成**（分支 `ds/step4-motion`，等合并和 owner 预览）
 
 **目标**：做一次有门槛的对照实验，结果写回本文。默认结论是"不引入"。
+
+**结论**（[D35](../decisions/0035-step4-motion-experiment-result.md)）：**不引入 Motion。** 级联、点按推入、布局过渡保留现有代码；owner 要的右滑返回（D33）上线自研版（Pointer Events + Web Animations），只在手机布局。下面先是原计划，然后是做了什么和实测数字。
+
+**原计划**
 
 | 项 | 内容 |
 |---|---|
@@ -480,6 +485,74 @@ Motion 擅长三件事：带速度衔接、可中途打断的弹簧；自动 FLI
 | 新测试（如果通过） | 中途打断：推入进行到一半点返回，逐帧记录位置，不许跳变（相邻两帧位移不超过正常速度的 2 倍）；拖动返回手势：390 px 触摸，拖过一半松手完成返回，不到一半弹回 |
 | owner 预览看哪里 | 先在 Motion Lab 里并排看"现有"和"Motion"两个版本；通过后在手机（或 390 px 窗口）上看连发多条消息的级联、推入一半时点返回 |
 | 体积 | 不通过：0。通过：手势用命令式 `animate()` 懒加载块约 22.8 KB，入口包只多一个桩（约 50 B） |
+
+**做了什么**（提交：分支 `ds/step4-motion` 上的 "Design system step 4" 一提交；合并提交号由协调者合并时补进 [`../product/roadmap.md`](../product/roadmap.md)）
+
+| 项 | 内容 |
+|---|---|
+| 右滑返回（上线） | `ui/src/phoneSwipeGesture.ts`：两版共用的手势核心（判定、跟手、橡皮筋、接住、提交，规则常量 `SWIPE`）；`ui/src/phoneSwipeEngine.ts`：自研收尾，弹簧带初速度预先采样成 8 ms 一帧的关键帧，聊天窗格、列表和列表变暗层三条 WAAPI 动画同步播放；`ui/src/usePhoneSwipeBack.ts`：入口里的钩子，窗口是手机宽度时 500 ms 后加载引擎块，宽窗口不加载；`ui/src/App.tsx` 一行调用（提交用 `flushSync(() => setMobileList(true))`，和返回按钮同一个状态） |
+| 手势规则 | 只认触摸和触控笔、只在 `.chat-pane.mobile-chat` 上、先横向移动超过 10 px 才开始（先竖向就交给滚动）；输入框、可编辑区、向左滚过的横向滚动块（如代码块）里不开始。过半松手完成；不到一半弹回；向右快于 0.5 px/ms 完成、向左快于 0.5 px/ms 取消（不论位置）；速度取松手前 80 ms 的平均。拖到起点左边是橡皮筋（`rubberBand`，常数 0.55，最多宽度的 10%）。收尾途中手指按上去就在当前位置接住。从按钮上开始的拖动不会触发点击。减弱动效：仍然跟手，松手立即到位 |
+| CSS | `ui/src/styles.css` 手机段：`.chat-pane.mobile-chat` 和它的 `.message-scroll` 设 `touch-action:pan-y pinch-zoom`（竖向滚动和缩放仍归浏览器，横向移动交给手势；里面能横向滚动的块保留自己的滚动）；`data-swipe=drag` 时两个窗格和变暗层 `transition:none`、被盖住的列表照常绘制；`data-swipe=done` 是提交那一帧，类名变化不会重放推入动画 |
+| 令牌 | `ui/src/motion.ts` 加 `SPRING.push`（stiffness 900、damping 60、mass 1，临界阻尼：从一半处静止松手约 225 ms 到离终点 2 px 以内、约 280 ms 到 0.5 px 以内，正好对上点按推入的 220 / 280 ms）。`test:motion-tokens` 扩展：必须导出 `SPRING.push` 且临界阻尼；`motion.ts` 以外的 TS 不许写 `stiffness`/`damping`/`mass` 字面值 |
+| 实验（不进构建） | `ui/src/motion-lab/experiments/phoneSwipeMotion.ts`（Motion 收尾：一个数值弹簧 + `onUpdate` 每帧写样式）、`ui/src/motion-lab/experiments/arrivalCascadeMotion.ts`（Motion 级联，两种用法：动 `transform` 走 WAAPI，或动 `y` 带速度在主线程）。`ui/motionExperimentPlugin.ts` 在构建或开发服务器里把 `./phoneSwipeEngine`、`./arrivalCascade` 换成它们；`vite.config.ts` 只在 `TOFI_MOTION_EXPERIMENT` 有值时、只对开发服务器启用。`motion@14.4.0` 是 devDependency，正式构建里没有它 |
+| 和原计划的差别 | "做在哪"原计划是 Motion Lab。Motion Lab 随 `dist/` 一起构建（D34 背景），放进去就会把 Motion 带上线；而且右滑返回要在真的对话页面上、在手机上试才有意义。所以改为把两版换进真实应用：测试用 `test:motion-experiment` 自己构建三份，owner 用 `TOFI_MOTION_EXPERIMENT=motion npm run dev:remote` 在手机上体验 Motion 版。点按推入没有做 Motion 版：D33 定了点按保留 CSS transition，"推入一半点返回"仍是现有 CSS transition 的反向过渡 |
+| 新测试 | `test:swipe-back`（13 项，Chromium 用 CDP 真触摸；`SWIPE_BACK_ENGINE=webkit` 用页面内合成的触摸 PointerEvent，跑其中不依赖浏览器平移判定的 10 项）；`test:motion-experiment`（两版对照，交替测，每项 5 次取中位数，`MOTION_EXPERIMENT_OUT` 输出 JSON） |
+| 回退就会挂 | 删掉 `App.tsx` 的 `usePhoneSwipeBack(...)` 一行：`test:swipe-back` 13 项挂 11 项，退出码 1。删掉 `touch-action` 那条规则：横向拖动一项挂（"手指按着时对话应在手指下，实际 0.0 px"），过半松手、向左快甩两项也挂。`SPRING.push` 改成欠阻尼（damping 40）：`test:motion-tokens` 退出码 1；在 `phoneSwipeEngine.ts` 写一个 `stiffness: 300` 字面值：`test:motion-tokens` 退出码 1 |
+
+**实测**（`npm run test:motion-experiment`，2026-10-21 00:07–00:17 PDT；同一台机器同时有另外四个分支在跑浏览器测试，负载平均值 8–34，所以绝对值偏高、两版交替测以保证对比公平）
+
+右滑返回，390 px 触摸：
+
+| 指标 | 自研（WAAPI） | Motion 14.4.0 |
+|---|---|---|
+| 懒加载块（gzip） | **2,079 B** | 24,099 B |
+| 入口包（gzip） | 315,357 B（第 1 步 315,113 B，+244 B；预算 315,805 B，余 448 B） | 315,356 B |
+| 拖动中每次移动的脚本，1x / 4x | 0.69 / 2.64 ms | 0.58 / 1.73 ms（同一份代码，差别是噪声） |
+| 拖动中的排版次数（一整次拖动） | 9 | 6–8 |
+| 松手到提交的脚本，1x / 4x | **3.9 / 17.1 ms** | 7.8 / 20.0 ms |
+| 4x 下超过 25 ms 的帧（中位数） | 2 | 2 |
+| 松手后两帧的速度 ÷ 手指速度，Chromium / WebKit | 0.87 / 1.23 | 0.77 / 0.66（这项不稳：空闲时单跑一次 Chromium 是 0.83 对 1.09） |
+| 收尾时长 | 300 ms | 300 ms |
+| 半路接住那一帧的位移（前三帧最大位移），Chromium / WebKit | **0 (30.3) / 7.5 (29.9) px** | 20.9 (30.0) / 50.6 (24.6) px |
+
+到达级联，1180×1150，十几条短消息在视野里：
+
+| 指标 | 现有 | Motion（`transform`） | Motion（`y`） |
+|---|---|---|---|
+| 入口包 | 315,357 B | 338,091 B，**超预算 22,286 B** | 同左 |
+| 单条到达 1x：最差帧 / 过冲 / 落定 | 16.8 ms / 3.5 px / 223 ms | 16.8 ms / 3.5 px / 238 ms | 16.8 ms / 3.6 px / 234 ms |
+| 单条到达 4x：最差帧 | 33 ms | 50 ms | 50 ms |
+| 级联中又来一条，被打断那条的速度变化，Chromium 1x | 0.72 px/ms | 0.73 px/ms | 0.71 px/ms |
+| 同上，WebKit（变化 ÷ 原速） | 0.79 px/ms（0.80） | 0.66 px/ms（0.83） | 0.54 px/ms（0.89） |
+
+**门槛逐条**
+
+| 门槛 | 级联（Motion） | 右滑返回（Motion 版对自研版） | 右滑返回（自研版，上线的） |
+|---|---|---|---|
+| 帧预算不差于现有 | 4x 最差帧 50 对 33 ms，差 | 相同 | 4x 超过 25 ms 的帧：空闲时 0–1，负载下中位数 2；`test:swipe-back` 最多量四次，一次干净就过（同 `test:shell-budget` 的重测做法） |
+| 中途打断更顺，有逐帧记录 | 没有更顺（速度变化相同） | 更差：WebKit 接住时跳了正常的 2.1 倍 | 接住不跳；松手带走手指速度（`test:swipe-back` 断言 ≥ 0.8 倍） |
+| 减弱动效立即到位 | 未单测（不上线） | 共用核心，相同 | `test:swipe-back`：松手后 ≤ 1 帧在途 |
+| 入口包不超预算 | **超** | 相同 | 315,357 ≤ 315,805 |
+| owner 预览认可 | — | — | **待 owner**（下面的预览清单） |
+
+`test:shell-budget` 第 3 节"4x 下推入超过 25 ms 的帧 ≤ 1"在这台机器有负载时两边都会时过时不过：00:45–00:53 PDT 交替跑第 1 步分支（`ds/step1-layers`）和本分支的构建各 9 次，每次测量超过 25 ms 的帧平均第 1 步约 2.8、本分支约 2.5，通过率差不多；00:59 机器空闲时本分支连跑两次都是 1，退出码 0。点按推入在本分支没有改动（手势引擎只在手机宽度空闲时加载，点按时它的 `pointerdown` 处理在对话窗格外直接返回）。
+
+00:56 PDT 机器空闲时单跑一次（`MOTION_EXPERIMENT_RUNS=1`）：松手到提交的脚本 1x / 4x 自研 1.8 / 7.1 ms、Motion 4.3 / 11.7 ms；WebKit 接住那一帧自研 1.9 px、Motion 50.8 px（前三帧最大 14.4 px），顺序和上表一致。
+
+另外核对了原计划"风险"里待确认的一条：Motion 14.4.0 只把 `opacity`、`clipPath`、`filter`、`transform`、`backgroundColor` 交给 WAAPI（`motion-dom/dist/es/animation/waapi/utils/accelerated-values.mjs`），设了 `onUpdate` 时一律不交（`.../waapi/supports/waapi.mjs`），所以 `translate`、`x`/`y` 和带速度的手势收尾都在主线程每帧跑。
+
+**owner 预览**（`cd ui && TOFI_DEV_API_ORIGIN=https://<server>:8321 npm run dev:remote`，手机或 Chrome 设备模拟 390 px、打开触摸模拟）
+
+1. 打开一个对话，手指按住对话往右拖：对话跟着手指走，下面的列表从左边慢慢移回来、变亮，和点返回按钮时的画面一致。
+2. 拖过一半松手：回到列表。不到一半松手：弹回对话。
+3. 快速往右一甩（不到一半也行）：回到列表；拖过一半后快速往左一甩：回到对话。
+4. 往右拖一点再往左拖过起点：对话只让出一点点（橡皮筋），松手弹回。
+5. 松手后、对话还在动的时候再按上去：在当前位置接住，可以拖回去。
+6. 上下滑动消息：照常滚动，对话不左右动；在输入框里、在横向滚动过的代码块上左右拖：不触发。
+7. 从标题（Bot 名字）上开始往右拖：回到列表，不会打开 Bot 面板。
+8. 点返回按钮和点会话：推入动画和以前完全一样（进 280 ms、退 220 ms）。
+9. 系统打开"减弱动态效果"：仍然跟手，松手直接到位。
+10. 想对比 Motion 版的手感：`TOFI_MOTION_EXPERIMENT=motion npm run dev:remote`（同时换上 Motion 版的到达级联），同样走一遍 1–5；不设这个变量就是上线的版本。
 
 ### 第 5 步：dnd-kit——只在比自研引擎更好时才做 — **已完成：不通过，保留引擎**（分支 `ds/step5-dnd`，只改文档）
 
@@ -599,7 +672,7 @@ Motion 擅长三件事：带速度衔接、可中途打断的弹簧；自动 FLI
 第 1 步 层级 + portal 根（完成）──► 第 2 步 菜单/卡片（完成）──► 第 3 步 对话框
                                   │
                                   └──► 第 6 步 目录页（第 2 步之后就能开始，随后续步骤补内容）
-第 4 步 Motion 实验、第 5 步 dnd-kit 实验：互相独立，和第 1–3 步不冲突，可以并行；不通过就只在本文记结果（第 5 步已做，不通过）
+第 4 步 Motion 实验（已完成：不引入，右滑返回上线自研版）、第 5 步 dnd-kit 实验（已完成：不通过）：互相独立，和第 1–3 步不冲突，可以并行；不通过就只在本文记结果
 ```
 
 ## 7. owner 的决定

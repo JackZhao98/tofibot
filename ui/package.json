@@ -64,6 +64,8 @@
     "test:layers": "node scripts/test-layers.mjs",
     "test:overlays": "node scripts/test-overlays.mjs",
     "test:dialogs": "node scripts/test-dialogs.mjs",
+    "test:swipe-back": "node scripts/test-swipe-back.mjs",
+    "test:motion-experiment": "node scripts/test-motion-experiment.mjs",
     "test:onboarding": "node scripts/test-onboarding.mjs",
     "test:settings-polish": "node scripts/test-settings-polish.mjs",
     "test:tool-tiers-e2e": "node scripts/test-tool-tiers-e2e.mjs",
@@ -95,6 +97,7 @@
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",
     "@vitejs/plugin-react": "^6.1.1",
+    "motion": "14.4.0",
     "typescript": "^7.0.2",
     "vite": "^8.3.3"
   }

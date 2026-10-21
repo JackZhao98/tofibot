@@ -13,7 +13,7 @@ TOFI 是一个自托管的 AI Bot 工作台：Go 后端在 `internal/`，React 1
 |---|---|---|
 | 1 | [`AGENTS.md`](../AGENTS.md) | 代码边界和每块子系统必须遵守的约定 |
 | 2 | [`product/status.md`](product/status.md) | TOFI 现在能做什么、线上是哪一版、owner 的打分标准和评测结果 |
-| 3 | [`decisions/README.md`](decisions/README.md) | owner 拍板过的每一条决定（D01–D34），以及为什么 |
+| 3 | [`decisions/README.md`](decisions/README.md) | owner 拍板过的每一条决定（D01–D35），以及为什么 |
 | 4 | [`process.md`](process.md) | 怎么开分支、测试、评测、预览、发版、做安全审查、选模型 |
 | 5 | [`product/roadmap.md`](product/roadmap.md) | 已完成、进行中、下一步、暂缓 |
 | 6 | [`releases.md`](releases.md) | 每个版本（含每个 rc）带进了什么 |
@@ -41,7 +41,7 @@ TOFI 是一个自托管的 AI Bot 工作台：Go 后端在 `internal/`，React 1
 | 文档 | 管什么 | 状态 | 备注 |
 |---|---|---|---|
 | [`decisions/README.md`](decisions/README.md) | 全部决定的总表和新增方法 | 现行 | 一条决定一个文件，`decisions/00NN-*.md` 对应 D*NN* |
-| [`decisions/0001`](decisions/0001-persona-generator-no-examples.md) … [`decisions/0034`](decisions/0034-component-catalog-dev-only.md) | D01–D34 各自的原话要点、理由、影响的代码 | 现行 | 被推翻的决定标"已被 Dxx 取代"，不删；D24–D29、D31–D34 记为 10-21，但提交时间换算 PDT 是 10-20 晚，哪个为准待确认（见 `decisions/README.md`） |
+| [`decisions/0001`](decisions/0001-persona-generator-no-examples.md) … [`decisions/0035`](decisions/0035-step4-motion-experiment-result.md) | D01–D35 各自的原话要点、理由、影响的代码 | 现行 | 被推翻的决定标"已被 Dxx 取代"，不删；D24–D29、D31–D34 记为 10-21，但提交时间换算 PDT 是 10-20 晚，哪个为准待确认（见 `decisions/README.md`） |
 
 ## 3. 版本
 

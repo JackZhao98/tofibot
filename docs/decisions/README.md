@@ -45,6 +45,7 @@
 | D32 | 接受第 1 步的层级变化 | 2026-10-21 | 层级刻度带来的先后顺序变化都接受，每一处列出来给 owner 在预览里看 | [0032](0032-step1-stacking-changes-accepted.md) |
 | D33 | 手机右滑返回手势 | 2026-10-21 | 要做：手指把对话往右拖回列表；做成有门槛的实验，自研和 Motion 各一版，留好的 | [0033](0033-phone-swipe-back-experiment.md) |
 | D34 | 组件目录页只在开发时可用 | 2026-10-21 | 目录页不进正式版构建 | [0034](0034-component-catalog-dev-only.md) |
+| D35 | 第 4 步结果：不引入 Motion，右滑返回用自研版 | 2026-10-21 | 级联、点按推入、布局过渡保留现有代码；右滑返回上线 Pointer Events + Web Animations 版（Motion 版懒加载块大 22 KB、接住时会跳）；等 owner 预览 | [0035](0035-step4-motion-experiment-result.md) |
 
 ## 怎么新增一条决定
 

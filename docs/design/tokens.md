@@ -309,6 +309,8 @@
 - 到达级联（D19）：`motion.ts:18-30` 的 `CASCADE`：错峰 15ms、单条 240ms、过冲 2.4–3.8px、最多 12 环、最大位移 130px；可在控制台用 `window.__TOFI_CASCADE` 临时调。
 - 跟随底部滚动：`GLIDE_MS` 220、`GLIDE_STREAM_MS` 120，每帧最多 24px（来源 `AGENTS.md` "Web UI motion"；由 `test:arrival-glide` 守）。
 - 弹簧：`ui/src/motion-lab/lib/spring.ts:7-14` 的 `SPRINGS`（toy 240/13、morph 320/22、settle 380/39），产品代码 `mailSendFlight.ts:2`、`BotAvatarPicker.tsx:7` 直接从 motion-lab 目录引用。
+- 弹簧令牌（第 4 步新增，[D35](../decisions/0035-step4-motion-experiment-result.md)）：`ui/src/motion.ts` 的 `SPRING.push`（stiffness 900、damping 60、mass 1，临界阻尼），给手机右滑返回松手后的收尾用（`ui/src/phoneSwipeGesture.ts` 的 `springPath` 把它和手指的初速度一起采样成关键帧）。从一半处静止松手约 225 ms 到离终点 2 px 以内、约 280 ms 到 0.5 px 以内。只有 JS 版，没有 CSS 孪生（弹簧要带初速度，CSS 的时长和曲线带不了）。`test:motion-tokens` 守着：`SPRING.push` 必须存在且临界阻尼（`damping = 2·√(stiffness·mass)`，误差 0.5），`motion.ts` 以外的 TS 不许写 `stiffness`/`damping`/`mass` 数字字面值（`motion-lab/` 除外，和其他规则一样）。
+- 右滑返回的手势常量（不是动效令牌，是手势规则）：`ui/src/phoneSwipeGesture.ts` 的 `SWIPE`：起手阈值 10 px、过半完成、快甩 0.5 px/ms、速度窗口 80 ms、橡皮筋最多 10% 宽度（常数 0.55）、列表位移 22%（和点按推入的 `styles.css` 一致）。
 - 长循环动画（≥800ms，不受测试限制）：2.4s ×10（如 `v2-app.css:67`、`sidebar-pins.css:49`）、1.4s ×6、1.8s ×3、1.6s ×2、1s ×2、2.8s、2s、1.5s、1.3s、1.2s、1400ms、980ms、900ms ×2。
 - 减弱动效：产品 CSS 中 `prefers-reduced-motion` 共 60 处。
 
@@ -318,7 +320,7 @@
 |---|---|---|---|
 | M1 | `--ease-press` 名字是"曲线"，值却是时长 `var(--m-press)`，11 处都当时长用 | `design-tokens.css:32`；`terminal.css:4`、`computer-credentials.css:5`、`oauth/connection.css:33`、`owner-setup.css:23` | 调用点改 `--m-press`，删 `--ease-press` |
 | M2 | `--m-panel-out` 只被引用 3 次，大多数面板离场没用更短的时长 | 8.1 表 | 迁移弹层时一起补上 |
-| M3 | 产品依赖 `motion-lab/lib/` 下的 `spring.ts`、`hooks.ts`、`flip.ts`、`choreo.ts` 等 | `App.tsx:69-70`、`mailSendFlight.ts:1-2`、`TaskRunBlock.tsx:15`、`sendFlight.ts:1` | 把产品要用的移到 `ui/src/motion/`，`SPRINGS` 并入 `motion.ts` |
+| M3 | 产品依赖 `motion-lab/lib/` 下的 `spring.ts`、`hooks.ts`、`flip.ts`、`choreo.ts` 等 | `App.tsx:69-70`、`mailSendFlight.ts:1-2`、`TaskRunBlock.tsx:15`、`sendFlight.ts:1` | 把产品要用的移到 `ui/src/motion/`，`SPRINGS` 并入 `motion.ts`（第 4 步已在 `motion.ts` 建了 `SPRING`，新的弹簧放那里；旧的三个还没搬） |
 | M4 | 遗留 9 处字面值都在 `mailSendFlight.ts` | `motion-tokens-baseline.json` | 改用 `MOTION`/`EASE` 后把上限降到 0 |
 | M5 | 循环动画时长没有令牌 | 8.2 | 新增 `--m-loop-slow 2.4s`、`--m-loop 1.4s`（只给呼吸、脉冲这类循环用） |
 

@@ -129,6 +129,7 @@ done
 | 外壳首屏 | `test:shell-budget` |
 | 菜单、弹出卡片、层级 | `test:overlays`（含 `OVERLAYS_ENGINE=webkit`）、`test:layers` |
 | 加了组件或组件状态、改了组件的 CSS 选择器或 DOM 结构 | `test:catalog`（组件目录页每个状态都还能打开、弹层在最上面、键盘能关；正式构建里仍没有目录页） |
+| 手机推入、右滑返回 | `test:swipe-back` 和 `SWIPE_BACK_ENGINE=webkit npm --prefix ui run test:swipe-back`，加 `test:shell-budget`（第 3 节是点按推入） |
 | Safari 相关 | `test:chat-safari` |
 | 设置页、自动行为 | `test:settings-shell`、`test:settings-polish`、`test:automation-settings` |
 | 问题卡、交接卡、常驻授权卡 | `test:question-poll`、`test:handover-cards`、`test:standing-allowance` |

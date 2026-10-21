@@ -7,6 +7,8 @@
 //     only shrink (npm run test:motion-tokens -- --update-baseline lowers it). Ambient loops of 0.8 s and longer
 //     are narrative motion, not interface motion, and are not counted.
 //  3. Every backdrop-filter has its -webkit-backdrop-filter twin in the same rule (older Safari ignores the bare one).
+//  4. Springs are tokens too (migration step 4, D35): motion.ts exports SPRING, SPRING.push is critically damped (the
+//     swipe-back never rings past the pane's edge), and TS outside motion.ts carries no literal stiffness/damping/mass.
 // Usage: npm run test:motion-tokens [-- --update-baseline]
 import assert from "node:assert/strict";
 import { execSync } from "node:child_process";
@@ -46,6 +48,13 @@ for (const [name, curve] of Object.entries(CURVES)) {
   if (!found || found[1].replace(/\s+/g, "") !== curve) fail(`motion.ts: EASE.${name} must be cubic-bezier(${curve})`);
 }
 
+const spring = /export const SPRING = \{[\s\S]*?push:\s*\{\s*stiffness:\s*([\d.]+),\s*damping:\s*([\d.]+),\s*mass:\s*([\d.]+)\s*\}/.exec(mirror);
+if (!spring) fail("motion.ts: SPRING.push { stiffness, damping, mass } must be exported (springs are tokens)");
+else {
+  const [stiffness, damping, mass] = spring.slice(1).map(Number);
+  if (Math.abs(damping - 2 * Math.sqrt(stiffness * mass)) > 0.5) fail(`motion.ts: SPRING.push must be critically damped (damping ${damping}, want ${(2 * Math.sqrt(stiffness * mass)).toFixed(1)})`);
+}
+
 // ---- 2. no vocabulary leaks
 const strip = text => text.replace(/\/\*[\s\S]*?\*\//g, " ");
 const splitTop = (value, separator) => { const out = []; let depth = 0, current = ""; for (const char of value) { if (char === "(") depth++; if (char === ")") depth--; if (char === separator && depth === 0) { out.push(current); current = ""; } else current += char; } out.push(current); return out; };
@@ -79,6 +88,7 @@ export function cssViolations(text) {
 export function scriptViolations(text) {
   const code = text.replace(/\/\*[\s\S]*?\*\//g, " ").replace(/(^|[^:])\/\/[^\n]*/g, "$1");
   let count = (code.match(/cubic-bezier\(/g) || []).length;
+  count += (code.match(/\b(stiffness|damping|mass)\s*:\s*\d/g) || []).length;
   for (const match of code.matchAll(/\bduration\s*:\s*(\d+(?:\.\d+)?)\b(?!\s*\*)/g)) if (Number(match[1]) > 0 && Number(match[1]) < 800) count++;
   return count;
 }
@@ -93,7 +103,7 @@ if (flag("--update-baseline")) {
   writeFileSync(baselinePath, `{\n  "note": "Ceiling of motion values outside the vocabulary (literal durations under 800 ms, cubic-bezier(), bare ease keywords) per file. Only ever shrinks; regenerate with npm run test:motion-tokens -- --update-baseline.",\n  "files": {\n${lines.join(",\n")}\n  }\n}\n`);
   console.log(`baseline updated: ${lines.length} file(s), ${Object.values(counts).reduce((a, b) => a + b, 0)} value(s)`);
 }
-for (const file of Object.keys(counts)) if (counts[file] > (baseline[file] ?? 0) && !flag("--update-baseline")) fail(`${file}: ${counts[file]} motion value(s) outside the vocabulary (baseline ${baseline[file] ?? 0}); use var(--m-*) / var(--ease-*) in CSS or MOTION / EASE from motion.ts`);
+for (const file of Object.keys(counts)) if (counts[file] > (baseline[file] ?? 0) && !flag("--update-baseline")) fail(`${file}: ${counts[file]} motion value(s) outside the vocabulary (baseline ${baseline[file] ?? 0}); use var(--m-*) / var(--ease-*) in CSS or MOTION / EASE / SPRING from motion.ts`);
 const shrinkable = Object.keys(baseline).filter(file => (counts[file] ?? 0) < baseline[file]);
 
 // ---- 3. -webkit-backdrop-filter pairing

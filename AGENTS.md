@@ -42,6 +42,13 @@ outside the tokens (existing leftovers are a ceiling in `ui/scripts/motion-token
 on a `backdrop-filter` without its `-webkit-` twin. The follow-bottom scroll is a tween owned by
 `useConversationScroll` (`GLIDE_MS` 220, `GLIDE_STREAM_MS` 120, at most 24 px per frame; reduced motion lands at once);
 `test:arrival-glide` holds its budgets. Do not scroll the message pane with a bare `scrollTop =` for organic growth.
+Springs are tokens too: `SPRING` in `motion.ts` (`push`, critically damped; `test:motion-tokens` fails on a literal
+`stiffness`/`damping`/`mass` elsewhere). The phone swipe-back (D35) is `phoneSwipeGesture.ts` (gesture core, rules in
+`SWIPE`) + `phoneSwipeEngine.ts` (the release, a spring with the finger's velocity baked into WAAPI keyframes), a lazy chunk
+loaded by `usePhoneSwipeBack.ts` on a phone-sized window only; it moves the panes by transform and commits through the same
+`setMobileList(true)` as the back button (flushSync, `data-swipe=done` keeps CSS transitions from replaying). `test:swipe-back`
+(also `SWIPE_BACK_ENGINE=webkit`) holds it. Motion is not a dependency of the app (step 4 measured it and kept our code,
+D35); `motion` is a devDependency only for `test:motion-experiment` and `TOFI_MOTION_EXPERIMENT=motion` in the dev server.
 
 # Sidebar order and pins
 
