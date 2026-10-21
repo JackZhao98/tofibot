@@ -34,7 +34,9 @@ export type Options = {
 };
 
 type Rect = { left: number; top: number; width: number; height: number };
-export type Pending = { id: string; from?: Rect; source: Zone; target: Zone; reduced: boolean; keyboard?: Map<string, Rect> };
+/** Viewport tops of the list's direct children at one moment: what the eye sees, before the layout changes under it. */
+type Tops = Map<HTMLElement, number>;
+export type Pending = { id: string; from?: Rect; source: Zone; target: Zone; reduced: boolean; keyboard?: Map<string, Rect>; tops?: Tops; background?: string };
 
 const LONG_PRESS_MS = 380;
 const MOUSE_SLOP = 4;
@@ -46,11 +48,35 @@ const SETTLING = "is-dnd-settling";
 // Every row gets this while a drag is live; the neighbours' glide is keyed on it. Nothing in the CSS depends on an attribute
 // of an ancestor of the list: such a selector makes the browser restyle every element under it (all the cats) on pickup.
 const LIVE = "dnd-live";
+// The dropped element keeps the drag layer while it flies to its slot, so the rows it passes cannot paint over it.
+const LANDING = "is-dnd-landing";
 
 /** What the hook owns across renders and hands to the engine. */
 export type DndContext = { live: MutableRefObject<Options>; pending: MutableRefObject<Pending | null>; settleTimer: MutableRefObject<number | undefined> };
 
 const sameWhere = (a: Where, b: Where) => a.dock.join("\n") === b.dock.join("\n") && a.list.join("\n") === b.list.join("\n");
+/** Where the visible direct children of the list are on screen now; `skip` leaves out the element that has its own motion. */
+function flowTops(scroller: HTMLElement, skip: Array<Element | null>): Tops {
+  const box = scroller.getBoundingClientRect();
+  const tops: Tops = new Map();
+  for (const child of Array.from(scroller.children) as HTMLElement[]) {
+    if (skip.includes(child)) continue;
+    const r = child.getBoundingClientRect();
+    if (r.height > 0 && r.bottom > box.top && r.top < box.bottom) tops.set(child, r.top);
+  }
+  return tops;
+}
+
+/** The layout moved under what was on screen (the pin zone opened or closed, rows closed a gap): each child glides from where it was seen. */
+function glideFrom(tops: Tops, reduced: boolean) {
+  if (reduced) return;
+  tops.forEach((top, child) => {
+    if (!child.isConnected) return;
+    const delta = top - child.getBoundingClientRect().top;
+    if (Math.abs(delta) > 1) child.animate([{ transform: `translateY(${delta}px)` }, { transform: "none" }], { duration: MOTION.base, easing: EASE.out });
+  });
+}
+
 const reducedMotion = () => typeof matchMedia === "function" && matchMedia("(prefers-reduced-motion: reduce)").matches;
 
 export function settleSidebarDnd(scroller: HTMLElement, ctx: DndContext) {
@@ -58,12 +84,20 @@ export function settleSidebarDnd(scroller: HTMLElement, ctx: DndContext) {
   const p = pending.current;
   pending.current = null;
   window.clearTimeout(settleTimer.current);
-  scroller.querySelectorAll<HTMLElement>("[data-dnd-id]").forEach(el => { el.style.transform = ""; el.classList.remove(DRAGGING, SETTLING, LIVE); });
+  const items = Array.from(scroller.querySelectorAll<HTMLElement>("[data-dnd-id]"));
+  // The rows carry a CSS transition on transform, background and shadow. Clearing the drag's inline transform with it live
+  // would start a transition from the lifted pose, and the rect read below would be the lifted pose instead of the slot.
+  items.forEach(el => { el.style.transition = "none"; el.style.transform = ""; el.classList.remove(DRAGGING, SETTLING, LIVE); });
   scroller.closest<HTMLElement>(".contact-pane")?.querySelector("[data-dnd-dropzone]")?.removeAttribute("data-dnd");
-  if (!p) return;
   const find = (id: string) => scroller.querySelector<HTMLElement>(`[data-dnd-id="${CSS.escape(id)}"]`);
+  const el = p ? find(p.id) : null;
+  // Every read happens here, in the final layout with the zone closed, before any animation starts.
+  const to = el?.getBoundingClientRect();
+  const resting = el ? getComputedStyle(el).backgroundColor : "";
+  if (to) void to.top;
+  items.forEach(item => { item.style.transition = ""; });
+  if (!p) return;
   if (p.keyboard) {
-    const el = find(p.id);
     el?.focus({ preventScroll: true });
     el?.scrollIntoView({ block: "nearest" });
     if (p.reduced) return;
@@ -76,20 +110,24 @@ export function settleSidebarDnd(scroller: HTMLElement, ctx: DndContext) {
     });
     return;
   }
-  const el = find(p.id);
-  if (!el || p.reduced || !p.from) return;
-  const to = el.getBoundingClientRect();
-  if (p.source === p.target) {
-    const dx = p.from.left + p.from.width / 2 - (to.left + to.width / 2);
-    const dy = p.from.top + p.from.height / 2 - (to.top + to.height / 2);
-    el.animate([
-      { transform: `translate(${dx}px,${dy}px) scale(${LIFT})`, boxShadow: "0 12px 26px rgba(0,0,0,.2)" },
-      { transform: "none", boxShadow: "0 0 0 rgba(0,0,0,0)" },
+  if (p.tops) glideFrom(p.tops, p.reduced);
+  if (!el || !to || p.reduced || !p.from) return;
+  const dx = p.from.left + p.from.width / 2 - (to.left + to.width / 2);
+  const dy = p.from.top + p.from.height / 2 - (to.top + to.height / 2);
+  el.classList.add(LANDING);
+  const landed = () => el.classList.remove(LANDING);
+  const flight = p.source === p.target
+    ? el.animate([
+      { transform: `translate(${dx}px,${dy}px) scale(${LIFT})`, boxShadow: "0 12px 26px rgba(0,0,0,.2)", backgroundColor: p.background ?? resting },
+      { transform: "none", boxShadow: "0 0 0 rgba(0,0,0,0)", backgroundColor: resting },
+    ], { duration: MOTION.panelIn, easing: EASE.settle })
+    // The row became a tile (or the reverse): a new element of another size, so it flies out of the lifted row's place.
+    : el.animate([
+      { transform: `translate(${dx}px,${dy}px) scale(.6)`, opacity: .55 },
+      { transform: "none", opacity: 1 },
     ], { duration: MOTION.panelIn, easing: EASE.settle });
-  } else {
-    // The row became a tile (or the reverse): a new element, so it settles in instead of flying.
-    el.animate([{ opacity: .5, transform: "scale(.92)" }, { opacity: 1, transform: "none" }], { duration: MOTION.base, easing: EASE.out });
-  }
+  flight.addEventListener("finish", landed);
+  flight.addEventListener("cancel", landed);
 }
 
 
@@ -106,6 +144,8 @@ export function mountSidebarDnd(scroller: HTMLElement, ctx: DndContext): () => v
     startX: number; startY: number; startScroll: number; px: number; py: number;
     srect: DOMRect; rects: Map<string, Rect>; els: Map<string, HTMLElement>;
     orig: Where; hyp: Where; key: string; dockBox: Rect | null; shown: Map<string, string>;
+    /** Layout shift the pin zone's opening put under the lifted row: the row's transform takes it back out. */
+    shift: number; zoneBottom: number;
     type: string; reduced: boolean;
   };
   let down: Down | null = null;
@@ -178,8 +218,16 @@ export function mountSidebarDnd(scroller: HTMLElement, ctx: DndContext): () => v
     const el = scroller!.querySelector<HTMLElement>(`[data-dnd-id="${CSS.escape(down.id)}"]`);
     const orig = idsOf();
     if (!el || !zoneOf(orig, down.id)) { cancelPress(); return; }
+    const source = zoneOf(orig, down.id)!;
+    // A dragged row opens the pin zone, which is in the flow at the top of the list: everything below it moves down by its
+    // height at once. The lifted row cancels that shift with its own transform, the rest glide from where they were seen.
+    const seen = source === "list" && zone ? flowTops(scroller!, [el, zone]) : null;
+    const elBefore = el.getBoundingClientRect().top;
+    if (source === "list") zone?.setAttribute("data-dnd", "row");
     const srect = scroller!.getBoundingClientRect();
     const scrollTop = scroller!.scrollTop;
+    const shift = source === "list" && zone ? el.getBoundingClientRect().top - elBefore : 0;
+    const zoneBottom = source === "list" && zone ? zone.getBoundingClientRect().bottom : srect.top;
     const rects = new Map<string, Rect>();
     const els = new Map<string, HTMLElement>();
     scroller!.querySelectorAll<HTMLElement>("[data-dnd-id]").forEach(item => {
@@ -190,22 +238,16 @@ export function mountSidebarDnd(scroller: HTMLElement, ctx: DndContext): () => v
     const dock = scroller!.querySelector<HTMLElement>("[data-dnd-dock]");
     let dockBox: Rect | null = null;
     if (dock) { const r = dock.getBoundingClientRect(); dockBox = { left: r.left - srect.left, top: r.top - srect.top + scrollTop, width: r.width, height: r.height }; }
-    const source = zoneOf(orig, down.id)!;
+    if (seen) glideFrom(seen, reducedMotion());
     drag = {
       id: down.id, source, el, pointerId: down.pointerId, startX: down.x, startY: down.y, startScroll: scrollTop,
       px: down.x, py: down.y, srect, rects, els, orig, hyp: { dock: [...orig.dock], list: [...orig.list] }, key: "",
-      dockBox, shown: new Map(), type: down.type, reduced: reducedMotion(),
+      dockBox, shown: new Map(), shift, zoneBottom, type: down.type, reduced: reducedMotion(),
     };
     if (down.timer) window.clearTimeout(down.timer);
     el.classList.add(DRAGGING);
-    if (pane && zone) {
-      // The pin zone fills the sidebar above the list, whatever the platform puts there. The variable lives on the zone,
-      // not the pane: a custom property set on the pane would restyle every cat in the list.
-      const paneBox = pane.getBoundingClientRect();
-      zone.style.setProperty("--dnd-zone-bottom", `${Math.max(72, Math.round(srect.top - paneBox.top - 6))}px`);
-    }
     els.forEach(item => item.classList.add(LIVE));
-    zone?.setAttribute("data-dnd", source === "list" ? "row" : "tile");
+    if (source === "dock") zone?.setAttribute("data-dnd", "tile");
     window.addEventListener("selectstart", noSelect);
     window.addEventListener("keydown", onEscape, true);
     try { navigator.vibrate?.(8); } catch { /* haptics are optional */ }
@@ -233,8 +275,8 @@ export function mountSidebarDnd(scroller: HTMLElement, ctx: DndContext): () => v
     const { dock, list } = d.orig;
     const middle = (id: string) => { const r = d.rects.get(id)!; return r.top + r.height / 2; };
     if (d.source === "list") {
-      // Above the list: over the pin zone that covers the search area.
-      const overDrop = d.py < d.srect.top;
+      // Over the pin zone, which sits in the flow at the top of the list (or above the list altogether).
+      const overDrop = d.py < d.zoneBottom;
       const overDock = Boolean(d.dockBox && dock.length && cy >= d.dockBox.top && cy <= d.dockBox.top + d.dockBox.height);
       if (overDrop || overDock) return { where: { dock: [...dock, d.id], list: list.filter(id => id !== d.id) }, over: "pin" };
       const rest = list.filter(id => id !== d.id);
@@ -261,7 +303,7 @@ export function mountSidebarDnd(scroller: HTMLElement, ctx: DndContext): () => v
     if (!d) return;
     const scrollTop = scroller!.scrollTop;
     const dx = d.px - d.startX;
-    const dy = d.py - d.startY + (scrollTop - d.startScroll);
+    const dy = d.py - d.startY + (scrollTop - d.startScroll) - d.shift;
     d.el.style.transform = `translate3d(${dx}px,${dy}px,0) scale(${LIFT})`;
     const { where, over } = aim(d, scrollTop);
     const key = `${where.dock.join(",")}|${where.list.join(",")}`;
@@ -282,8 +324,10 @@ export function mountSidebarDnd(scroller: HTMLElement, ctx: DndContext): () => v
       }
     }
     let speed = 0;
-    const top = d.py - d.srect.top, bottom = d.srect.bottom - d.py;
-    if (top < EDGE) speed = -Math.ceil((EDGE - Math.max(0, top)) / EDGE * 14);
+    // The band that scrolls up starts under the pin zone: over the zone itself the list stays put.
+    const top = d.py - d.zoneBottom, bottom = d.srect.bottom - d.py;
+    if (d.py < d.zoneBottom) speed = 0;
+    else if (top < EDGE) speed = -Math.ceil((EDGE - Math.max(0, top)) / EDGE * 14);
     else if (bottom < EDGE) speed = Math.ceil((EDGE - Math.max(0, bottom)) / EDGE * 14);
     if (speed && !d.reduced) {
       const before = scroller!.scrollTop;
@@ -295,6 +339,8 @@ export function mountSidebarDnd(scroller: HTMLElement, ctx: DndContext): () => v
   function finish(commit: boolean) {
     const d = drag, press = down;
     if (raf) { cancelAnimationFrame(raf); raf = 0; }
+    // A release right behind the last move: the target is worked out for where the pointer is now, not for the last frame drawn.
+    if (commit && d) { update(); if (raf) { cancelAnimationFrame(raf); raf = 0; } }
     removeListeners();
     drag = null; down = null;
     if (!d || !press) return;
@@ -311,7 +357,7 @@ export function mountSidebarDnd(scroller: HTMLElement, ctx: DndContext): () => v
     if (!changed) { revert(d); return; }
     const from = d.el.getBoundingClientRect();
     const target = zoneOf(d.hyp, d.id)!;
-    pending.current = { id: d.id, from, source: d.source, target, reduced: d.reduced };
+    pending.current = { id: d.id, from, source: d.source, target, reduced: d.reduced, tops: flowTops(scroller!, [d.el, zone]), background: getComputedStyle(d.el).backgroundColor };
     live.current.skipFlip.current = true;
     const ids = d.hyp[target];
     live.current.onAnnounce({ kind: d.source === target ? "move" : target === "dock" ? "pin" : "unpin", id: d.id, pos: ids.indexOf(d.id) + 1, total: ids.length });
@@ -324,12 +370,14 @@ export function mountSidebarDnd(scroller: HTMLElement, ctx: DndContext): () => v
     zone?.removeAttribute("data-dnd-over");
     d.el.classList.add(SETTLING);
     d.els.forEach(el => { el.style.transform = ""; });
+    // The pane stays in drag mode for the glide back: the zone keeps its place in the flow so the rows glide to slots that do
+    // not move; it closes after, with the rows gliding up behind it.
     window.setTimeout(() => {
       d.els.forEach(el => el.classList.remove(DRAGGING, SETTLING, LIVE));
+      const seen = flowTops(scroller!, [zone]);
       zone?.removeAttribute("data-dnd");
+      glideFrom(seen, d.reduced);
     }, d.reduced ? 0 : MOTION.panelIn);
-    // The pane stays in drag mode for the glide back; drop mode (the pin zone) closes at once.
-    zone?.setAttribute("data-dnd", "settling");
   }
 
   function onClickCapture(event: MouseEvent) {

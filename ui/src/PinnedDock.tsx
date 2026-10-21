@@ -38,9 +38,9 @@ export function PinTile({ tile, onOpen, onMenu, onWarm }: {
 }
 
 /**
- * Where a dragged row is dropped to pin it. It hovers over the search area at the top of the sidebar (the drag hook
- * sizes it to the space above the list, so the list rows stay free to receive a drop at position one) and is hit-tested
- * by the hook, so it takes no pointer events and is never in the tab order.
+ * Where a dragged row is dropped to pin it. It is the first block of the scroll area, in the flow directly under the search
+ * bar, and shown only while a row is dragged: the rows below move down for it (the drag engine glides them) rather than being
+ * covered. It is hit-tested by the drag hook, so it takes no pointer events and is never in the tab order.
  */
 export function PinDropZone({ label, hint }: { label: string; hint: string }) {
   return <div className="pin-dropzone-anchor" data-dnd-dropzone aria-hidden="true">

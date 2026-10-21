@@ -17,7 +17,7 @@
 | 主题切换 | `ui/src/InteractionSystem.tsx:7-30`（`useAppearance`） | 偏好存 `localStorage["tofi:appearance"]`（system/light/dark），写到 `<html data-theme>`；`system` 跟随 `prefers-color-scheme`。启动画面在 React 前先设一次：`ui/src/BootScreen.tsx:23-26`。**CSS 里没有任何 `@media (prefers-color-scheme)`**，深色只由 `data-theme="dark"` 触发。 |
 | 颜色守卫 | `npm --prefix ui run test:final-v2-tokens`（`ui/scripts/test-final-v2-tokens.mjs`） | 对照 `ui/test-fixtures/design/tokens/colors.css` 与 `tokens.json`：67 个颜色令牌两种模式都要有；36 对"`*-text` 对表面"对比度 ≥ 4.5:1；12 对"`--on-block` 对填充色"≥ 4.5:1；禁止把填充色（`--clay` 等）当前景 `color:` 用。2026-10-20 在本快照运行退出码 0。 |
 | 动效守卫 | `npm --prefix ui run test:motion-tokens`（`ui/scripts/test-motion-tokens.mjs`） | 禁止 800 ms 以下的字面时长、`cubic-bezier()`、裸 `ease`（延迟值除外，见脚本 `:67`）；每个 `backdrop-filter` 必须有 `-webkit-` 孪生。遗留上限在 `ui/scripts/motion-tokens-baseline.json`：目前只剩 `src/mailSendFlight.ts` 9 处。2026-10-20 运行退出码 0。 |
-| 层级守卫 | `npm --prefix ui run test:layers`（`ui/scripts/test-layers.mjs`） | z-index 只能是 `var(--z-*)`、`calc(var(--z-*) ± 1)` 或 -1..3 的局部值；旧的更大局部值的上限在 `ui/scripts/layers-baseline.json`（6 个文件 16 处）；TS 里不许写数字 z-index；弹层只进 `#tofi-layers`；浏览器里按刻度检查叠放顺序。见第 9.5 节。 |
+| 层级守卫 | `npm --prefix ui run test:layers`（`ui/scripts/test-layers.mjs`） | z-index 只能是 `var(--z-*)`、`calc(var(--z-*) ± 1)` 或 -1..3 的局部值；旧的更大局部值的上限在 `ui/scripts/layers-baseline.json`（5 个文件 14 处）；TS 里不许写数字 z-index；弹层只进 `#tofi-layers`；浏览器里按刻度检查叠放顺序。见第 9.5 节。 |
 | 焦点环规则 | `ui/src/focus-ring.css:1-7` | 全产品一种键盘焦点环；组件只能改 offset，不改宽度和颜色。鼠标/触摸时不画（`focusModality.ts` 设 `html[data-input="pointer"]`，`focus-ring.css:14-19`）。 |
 
 **圆角、间距、阴影、模糊没有任何测试守着**，也基本没走令牌（见下文各节的"令牌使用率"）。z-index 从迁移第 1 步起由 `test:layers` 守着（第 9 节）。
@@ -338,7 +338,7 @@
 
 第 2 步起，菜单和弹出卡片（新建、顶栏"⋯"、侧栏右键、账户、附件、MCP、表情反应、身份卡）是 Radix 的内容：它们的 CSS 写 `position:relative` 和自己的 `--z-*`，Radix Popper 把这个 z-index 复制到包着它们的 `position:fixed` 外层（`[data-radix-popper-content-wrapper]`），外层 portal 在 `#tofi-layers`。从带 `aria-modal="true"` 的祖先（设置窗）里打开的，内容带 `data-layer="dialog"`，层级是 `calc(var(--z-dialog) + 1)`（`interaction-system.css:91`）。Radix 打开菜单时还会往 `<body>` 首尾各插一个不可见的焦点哨兵（`data-radix-focus-guard`，`position:fixed`、无 z-index），那是库的代码，不在 `test:layers` 静态检查的 `ui/src` 范围里。
 
-局部值里有 16 处大于 3，是刻度出现之前的组件内部叠放，按文件记在 `ui/scripts/layers-baseline.json` 里，只降不升：`desktop-presence.css` 6、`mail-send-flight.css` 4、`sidebar-pins.css` 2、`styles.css` 2（手机推入那一对）、`v2-app.css` 1、`web-file-drop.css` 1。
+局部值里有 14 处大于 3，是刻度出现之前的组件内部叠放，按文件记在 `ui/scripts/layers-baseline.json` 里，只降不升：`desktop-presence.css` 6、`mail-send-flight.css` 4、`styles.css` 2（手机推入那一对）、`v2-app.css` 1、`web-file-drop.css` 1。
 
 所有弹层都 portal 到同一个根节点：`ui/index.html` 里 `#root` 后面的 `<div id="tofi-layers">`，由 `ui/src/layers.ts` 的 `layerRoot()` 取得（页面里没有就创建）。它是一个普通的 `div`，**不是层叠上下文**，所以里面每个弹层的 `--z-*` 和 `#root` 里的启动画面、顶栏、引导在同一个根层叠上下文里比大小。`createPortal(..., document.body)` 和往 `document.body` 里追加弹层元素都被 `test:layers` 拦下（追加离屏测量镜像、剪贴板降级输入框、下载链接这三处不是弹层，列在白名单里）。
 
@@ -455,8 +455,8 @@
 | `styles.css:317` | `.contact-pane`（≤767px） | 6 | 手机推入：列表与会话一对。父级 `.workspace-grid` 不是层叠上下文，这一对在根层叠上下文里，`test:layers` 把它列为唯一的例外 |
 | `styles.css:318` | `.contact-pane::after`（推入时的压暗） | 2 | 同上 |
 | `styles.css:322` | `.chat-pane`（≤767px） | 7 | 同上 |
-| `sidebar-pins.css:7` | 拖动中的会话行 | 40 | 侧栏列表（迁移第 5 步的 dnd-kit 实验不通过，引擎保留，这里不变；以前写的"改用 `DragOverlay` 后变为 `--z-drag`"作废） |
-| `sidebar-pins.css:19` | `.pin-dropzone-anchor` | 30 | 侧栏列表 |
+| `sidebar-pins.css` | 拖动中的会话行、落下去飞行中的行/格（`.is-dnd-landing`） | `--z-drag` | 侧栏列表（原来是 40，被侧栏里的落点和后面的行压住；现在写 `var(--z-drag)`，落点是 `--z-raised`，以前那条"保持 40"作废） |
+| `sidebar-pins.css` | `.pin-dropzone-anchor`（占文档流，`position:sticky`） | `--z-raised` | 侧栏列表（原来是盖在搜索区上的绝对定位，30） |
 | `settings-system.css:17` | `.settings-rail-indicator` | 0 | 设置导航 |
 | `settings-system.css:21` | 设置导航按钮 | 1 | 设置导航 |
 | `terminal.css:11` | `.terminal-confirm` | 2 | 终端面板内确认 |

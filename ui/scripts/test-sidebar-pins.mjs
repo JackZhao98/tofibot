@@ -19,7 +19,10 @@ const outDir = await mkdtemp(join(tmpdir(), "tofi-sidebar-pins-"));
 await build({ configFile: false, root: ui, plugins: [react()], build: { outDir, emptyOutDir: true }, logLevel: "error" });
 const server = await preview({ configFile: false, root: ui, plugins: [react()], build: { outDir }, preview: { host: "127.0.0.1", port: 0 }, logLevel: "error" });
 const origin = `http://127.0.0.1:${server.httpServer.address().port}`;
-const browser = await pw.chromium.launch({ headless: true, ...(process.env.CHROME_EXECUTABLE ? { executablePath: process.env.CHROME_EXECUTABLE } : {}) });
+// SIDEBAR_PINS_ENGINE=webkit runs the same scenarios in WebKit (Safari's engine); frame timing needs CDP, so it is Chromium only.
+const engine = process.env.SIDEBAR_PINS_ENGINE === "webkit" ? "webkit" : "chromium";
+const browser = await pw[engine].launch({ headless: true, ...(engine === "chromium" && process.env.CHROME_EXECUTABLE ? { executablePath: process.env.CHROME_EXECUTABLE } : {}) });
+console.log(`engine: ${engine}`);
 const shots = process.env.SIDEBAR_PINS_SHOTS;
 if (shots) await mkdir(shots, { recursive: true });
 
@@ -67,6 +70,7 @@ async function open({ reduced = false, viewport = { width: 1180, height: 820 }, 
     if (path === "/api/conversations/order" && request.method() === "PUT") {
       const body = request.postDataJSON();
       puts.push(body);
+      if (process.env.SIDEBAR_PINS_PUT_DELAY) await sleep(Number(process.env.SIDEBAR_PINS_PUT_DELAY));
       const known = new Set(convs.map(c => c.id));
       const all = [...body.pinned, ...body.order];
       if (new Set(all).size !== all.length || all.some(id => !known.has(id))) return json({ error: { code: "invalid_layout", message: "invalid" } }, 400);
@@ -116,6 +120,54 @@ const dropZoneVisible = page => page.locator(".pin-dropzone").isVisible();
 const live = page => page.locator(".contact-section [role=status]").innerText();
 const settled = async page => { await page.waitForFunction(() => !document.querySelector(".is-dnd-dragging") && !document.querySelector("[data-dnd-dropzone][data-dnd]"), null, { timeout: 4000 }); await sleep(350); };
 
+/** Samples the rect of [data-dnd-id=id] (and the running animations on it) every animation frame; call before the pointer is released. */
+const sampleStart = (page, id) => page.evaluate(sampleId => {
+  window.__samples = [];
+  window.__upAt = -1;
+  window.__sampling = true;
+  window.addEventListener("pointerup", () => { if (window.__upAt < 0) window.__upAt = window.__samples.length; }, { capture: true, once: true });
+  const t0 = performance.now();
+  const tick = () => {
+    const el = document.querySelector(`[data-dnd-id="${CSS.escape(sampleId)}"]`);
+    const r = el?.getBoundingClientRect();
+    const zone = document.querySelector(".pin-dropzone")?.getBoundingClientRect();
+    window.__samples.push({ t: performance.now() - t0, rect: r ? { x: r.left, y: r.top, w: r.width, h: r.height } : null, running: el ? el.getAnimations().filter(a => a.playState === "running").length : 0, scroll: document.querySelector(".contact-section").scrollTop, zone: zone ? { top: zone.top, bottom: zone.bottom } : null });
+    if (window.__sampling) requestAnimationFrame(tick);
+  };
+  requestAnimationFrame(tick);
+}, id);
+const sampleStop = async page => { await page.evaluate(() => { window.__sampling = false; }); const { frames, upAt } = await page.evaluate(() => ({ frames: window.__samples, upAt: window.__upAt })); return Object.assign(frames, { upAt }); };
+/** Release the button a few frames after the sampler started, so the frames before the release are on record. */
+const releaseSampled = async (page, id) => { await sampleStart(page, id); await sleep(120); await page.mouse.up(); await sleep(900); return sampleStop(page); };
+/** The settle must end where it ends: the last frame of the animation and the resting rect agree, and nothing steps afterwards. */
+function assertNoJump(samples, what, { continuity = true } = {}) {
+  const up = samples.upAt;
+  assert.ok(up > 2, `${what}: the release was recorded (${up})`);
+  // Continuity at the release: the first frame after it starts from where the lifted row was, not from its old slot.
+  const beforeUp = samples.slice(0, up).filter(s => s.rect).at(-1);
+  const afterUp = samples.slice(up).find(s => s.rect);
+  const mid = r => ({ x: r.x + r.w / 2, y: r.y + r.h / 2 });
+  const leap = Math.hypot(mid(afterUp.rect).x - mid(beforeUp.rect).x, mid(afterUp.rect).y - mid(beforeUp.rect).y);
+  // The settle eases out of a standing start, so how far it may have travelled grows with the time between the two frames
+  // (about 2.6 px per ms at its steepest over these distances); a start from the old slot is 100+ px at once.
+  const elapsed = afterUp.t - beforeUp.t;
+  // (A tile that lands above the scrolled viewport flies a long way off screen: its continuity is not visible, so not asserted.)
+  if (continuity) assert.ok(leap <= 12 + 2.6 * elapsed, `${what}: the element leaps ${leap.toFixed(1)} px in ${elapsed.toFixed(0)} ms between its last lifted frame and the first frame after the release`);
+  const have = samples.filter(s => s.rect);
+  if (process.env.DEBUG_JUMP) console.log(`  [${what}] release at frame ${up}; before: ${samples.slice(Math.max(0, up - 3), up).map(s => s.rect && s.rect.y.toFixed(1)).join(" ")}`);
+  if (process.env.DEBUG_JUMP) console.log(`  [${what}]`, have.map(s => `${s.t.toFixed(0)}:${s.rect.x.toFixed(1)},${s.rect.y.toFixed(1)},${s.rect.w.toFixed(0)}x${s.rect.h.toFixed(0)}${s.running ? "*" : ""}@${s.scroll}`).join(" "));
+  assert.ok(have.length > 5, `${what}: frames were sampled (${have.length})`);
+  const final = have.at(-1).rect;
+  const animated = have.map((s, i) => s.running > 0 ? i : -1).filter(i => i >= 0);
+  const lastAnimating = animated.length ? have[animated.at(-1)] : have[0];
+  const gap = r => Math.max(Math.abs(r.x - final.x), Math.abs(r.y - final.y), Math.abs(r.w - final.w), Math.abs(r.h - final.h));
+  assert.ok(gap(lastAnimating.rect) <= 0.5, `${what}: the last animated frame is ${gap(lastAnimating.rect).toFixed(2)} px from the resting rect (jump)`);
+  const after = have.slice(animated.length ? animated.at(-1) : 0);
+  for (let i = 1; i < after.length; i++) assert.ok(Math.max(Math.abs(after[i].rect.x - after[i - 1].rect.x), Math.abs(after[i].rect.y - after[i - 1].rect.y)) <= 0.5, `${what}: steps ${(after[i].rect.y - after[i - 1].rect.y).toFixed(2)} px at ${after[i].t.toFixed(0)} ms after the animation ended`);
+  // No frame may sit further from the resting rect than the lift allows, and the path must be continuous: no frame-to-frame leap bigger than the whole travel.
+  return have;
+}
+
 const results = [];
 const failures = [];
 const check = async (name, run) => {
@@ -128,8 +180,12 @@ await check("dragging a row reorders the list, lifts it, and the order survives 
   const { page, context, puts, errors } = await open();
   assert.deepEqual((await names(page)).slice(0, 4), ["Cat 00", "Cat 01", "Cat 02", "Cat 03"], "starts in recency order");
   const from = await centre(rowFor(page, "Cat 03"));
+  // Lifting a row opens the pin zone above the list, which moves the rows down: aim at where Cat 00 is once the zone is open.
+  await dragTo(page, from, { x: from.x, y: from.y - 20 }, { hold: true });
+  await until(() => dropZoneVisible(page), "the drop zone");
+  await sleep(300);
   const top = await centre(rowFor(page, "Cat 00"));
-  await dragTo(page, from, { x: from.x, y: top.y - 12 }, { hold: true });
+  await page.mouse.move(from.x, top.y - 12, { steps: 10 });
   // While held: the row is lifted (scale <= 1.02, shadow) and follows the pointer; neighbours have moved aside.
   const lift = await page.evaluate(() => {
     const el = document.querySelector(".is-dnd-dragging");
@@ -230,6 +286,7 @@ async function pinBy(page, name) {
   await until(() => dropZoneVisible(page), "the drop zone");
   const zone = await centre(page.locator(".pin-dropzone"));
   await page.mouse.move(zone.x, zone.y, { steps: 8 });
+  if (process.env.DEBUG_PIN) console.log("  [pinBy]", name, JSON.stringify(zone), await paneAttr(page, "data-dnd-over"), await page.evaluate(() => JSON.stringify(document.querySelector(".pin-dropzone").getBoundingClientRect())));
   await page.mouse.up();
   await settled(page);
 }
@@ -260,6 +317,103 @@ await check("tiles reorder among themselves; dragging a tile back into the list 
   const list = await names(page);
   assert.equal(list[list.indexOf("Cat 03") + 1], "Cat 01", `Cat 01 sits right after Cat 03: ${list.slice(0, 6)}`);
   assert.deepEqual(puts.at(-1).pinned, ["dm_06", "dm_04"]);
+  await context.close();
+});
+
+await check("the drop zone sits below the search bar and no row, tile or header element is under it; the ghost stays above", async () => {
+  for (const pinned of [false, true]) {
+    const { page, context } = await open();
+    if (pinned) await pinBy(page, "Cat 05");
+    const from = await centre(rowFor(page, "Cat 02"));
+    await dragTo(page, from, { x: from.x, y: from.y + 70 }, { hold: true });
+    await until(() => dropZoneVisible(page), "the drop zone");
+    await sleep(500); // the zone's own entrance has finished
+    const probe = await page.evaluate(() => {
+      const box = el => { const r = el.getBoundingClientRect(); return { top: r.top, bottom: r.bottom, left: r.left, right: r.right, height: r.height, width: r.width }; };
+      const zone = box(document.querySelector(".pin-dropzone"));
+      const search = box(document.querySelector(".search-box"));
+      const logo = box(document.querySelector(".sidebar-top"));
+      const ghost = document.querySelector(".is-dnd-dragging");
+      const overlaps = [];
+      const hit = (name, el) => { const r = el.getBoundingClientRect(); if (r.width && r.height && r.top < zone.bottom - 0.5 && r.bottom > zone.top + 0.5 && r.left < zone.right && r.right > zone.left) overlaps.push(`${name} ${el.textContent.trim().slice(0, 14)}`); };
+      document.querySelectorAll(".conversation-row:not(.is-dnd-dragging), .pin-tile, .section-label, .search-box, .sidebar-top").forEach(el => hit(el.className.split(" ")[0], el));
+      const scroller = document.querySelector(".contact-section").getBoundingClientRect();
+      return { zone, search, logo, overlaps, ghostZ: getComputedStyle(ghost).zIndex, zoneZ: getComputedStyle(document.querySelector(".pin-dropzone-anchor")).zIndex, scrollerTop: scroller.top };
+    });
+    const what = pinned ? "with a pinned tile" : "no pins";
+    assert.ok(probe.zone.top >= probe.search.bottom - 0.5, `${what}: the zone top ${probe.zone.top} is at or below the search bar bottom ${probe.search.bottom}`);
+    assert.ok(probe.zone.top >= probe.logo.bottom - 0.5, `${what}: the zone is below the logo row`);
+    assert.deepEqual(probe.overlaps, [], `${what}: nothing intersects the zone`);
+    assert.equal(probe.ghostZ, "110", `${what}: the ghost is on --z-drag`);
+    assert.ok(Number(probe.zoneZ) < 110 || probe.zoneZ === "auto", `${what}: the zone is under the ghost (${probe.zoneZ})`);
+    if (shots) await page.screenshot({ path: join(shots, pinned ? "zone-in-flow-pinned.png" : "zone-in-flow.png") });
+    await page.keyboard.press("Escape");
+    await settled(page);
+    await context.close();
+  }
+});
+
+await check("a drop lands where it ends: no step between the last animated frame and the resting rect (reorder, pin, unpin)", async () => {
+  const { page, context } = await open();
+  // Reorder inside the list.
+  let from = await centre(rowFor(page, "Cat 04"));
+  let top = await centre(rowFor(page, "Cat 01"));
+  await dragTo(page, from, { x: from.x + 6, y: top.y - 4 }, { hold: true });
+  await sleep(250);
+  let frames = assertNoJump(await releaseSampled(page, "dm_04"), "reorder");
+  assert.ok(frames.some(f => f.running > 0), "reorder: the settle animated");
+  await settled(page);
+  // Pin: the row becomes the large tile.
+  from = await centre(rowFor(page, "Cat 03"));
+  await page.mouse.move(from.x, from.y);
+  await page.mouse.down();
+  await page.mouse.move(from.x, from.y - 30, { steps: 4 });
+  await until(() => dropZoneVisible(page), "the drop zone");
+  const zone = await centre(page.locator(".pin-dropzone"));
+  await page.mouse.move(zone.x, zone.y, { steps: 8 });
+  await sleep(250);
+  frames = assertNoJump(await releaseSampled(page, "dm_03"), "pin");
+  await settled(page);
+  // Reorder inside the list again, now that a tile is above it.
+  from = await centre(rowFor(page, "Cat 06"));
+  top = await centre(rowFor(page, "Cat 02"));
+  await dragTo(page, from, { x: from.x, y: top.y - 4 }, { hold: true });
+  await sleep(250);
+  assertNoJump(await releaseSampled(page, "dm_06"), "reorder under a tile");
+  await settled(page);
+  // Unpin by dragging the tile into the list.
+  const tile = await centre(tileFor(page, "Cat 03"));
+  const between = await centre(rowFor(page, "Cat 05"));
+  await dragTo(page, tile, { x: between.x, y: between.y + 10 }, { hold: true });
+  await sleep(250);
+  assertNoJump(await releaseSampled(page, "dm_03"), "unpin");
+  await context.close();
+});
+
+await check("a drop lands where it ends while the list is scrolled (reorder, then pin)", async () => {
+  const { page, context } = await open();
+  await page.evaluate(() => { document.querySelector(".contact-section").scrollTop = 400; });
+  await sleep(200);
+  const rows = await page.locator(".contact-section .conversation-row .contact-name").allInnerTexts();
+  const box = await page.locator(".contact-section").boundingBox();
+  const vis = [];
+  for (const n of rows) { const b = await rowFor(page, n).boundingBox(); if (b && b.y > box.y + 20 && b.y + b.height < box.y + box.height - 20) vis.push(n); }
+  const pick = vis[4], dest = vis[1];
+  const from = await centre(rowFor(page, pick));
+  const top = await centre(rowFor(page, dest));
+  const id = "dm_" + pick.slice(4);
+  await dragTo(page, from, { x: from.x + 6, y: top.y - 4 }, { hold: true });
+  await sleep(250);
+  assertNoJump(await releaseSampled(page, id), "scrolled reorder");
+  await settled(page);
+  // pin while scrolled
+  const p2 = await centre(rowFor(page, vis[6]));
+  await page.mouse.move(p2.x, p2.y); await page.mouse.down(); await page.mouse.move(p2.x, p2.y - 30, { steps: 4 });
+  await until(() => dropZoneVisible(page), "zone");
+  const z = await centre(page.locator(".pin-dropzone"));
+  await page.mouse.move(z.x, z.y, { steps: 8 });
+  await sleep(250);
+  assertNoJump(await releaseSampled(page, "dm_" + vis[6].slice(4)), "scrolled pin", { continuity: false });
   await context.close();
 });
 
@@ -368,7 +522,7 @@ await check("reduced motion: neighbours do not glide, but the row still follows 
   }
 });
 
-for (const rate of [1, 4]) await check(`frame timing: a drag across 60 conversations keeps animation frames on budget (${rate}x CPU)`, async () => {
+for (const rate of engine === "chromium" ? [1, 4] : []) await check(`frame timing: a drag across 60 conversations keeps animation frames on budget (${rate}x CPU)`, async () => {
   const { page, context } = await open({ viewport: { width: 1180, height: 760 } });
   const cdp = await context.newCDPSession(page);
   await cdp.send("Performance.enable");
@@ -429,7 +583,7 @@ async function touch(cdp, type, x, y) {
   await cdp.send("Input.dispatchTouchEvent", { type, touchPoints: type === "touchEnd" ? [] : [{ x, y, id: 1 }] });
 }
 
-await check("touch: a long press drags a row at 390 px; a quick swipe scrolls; a tap still pushes into the chat", async () => {
+for (const _ of engine === "chromium" ? [0] : []) await check("touch: a long press drags a row at 390 px; a quick swipe scrolls; a tap still pushes into the chat", async () => {
   const { page, context, puts } = await open({ viewport: { width: 390, height: 844 }, touch: true });
   const cdp = await context.newCDPSession(page);
   // A swipe that starts moving before the press delay is a scroll, not a drag.
@@ -444,10 +598,11 @@ await check("touch: a long press drags a row at 390 px; a quick swipe scrolls; a
   // Long press, then drag Cat 03 to the top.
   await page.evaluate(() => document.querySelector(".contact-section").scrollTo(0, 0));
   p = await centre(rowFor(page, "Cat 03"));
-  const top = await centre(rowFor(page, "Cat 00"));
   await touch(cdp, "touchStart", p.x, p.y);
   await sleep(520);
   await until(async () => (await page.locator(".is-dnd-dragging").count()) === 1, "the long press to lift the row");
+  await sleep(300);
+  const top = await centre(rowFor(page, "Cat 00")); // the pin zone opened above the list: Cat 00 is lower than before the lift
   if (shots) await page.screenshot({ path: join(shots, "touch-lifted-390.png") });
   for (let i = 1; i <= 12; i++) { await touch(cdp, "touchMove", p.x, p.y + (top.y - 14 - p.y) * i / 12); await sleep(16); }
   await touch(cdp, "touchEnd");
