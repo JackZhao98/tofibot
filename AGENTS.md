@@ -189,3 +189,7 @@ inside, lets Escape close only the top layer and claims it with `preventDefault`
 workspace toast opts back in). Not migrated on purpose: `TakeoverDialog` (Tab belongs to the remote screen), the terminal's
 inline confirm, `PermissionCoach`, and the image lightbox and file preview (native `<dialog>`, top layer; hints and the
 toast render inside the open one via `topLayerDialog()` / `InTopLayer` in `layers.ts`).
+A dialog opened from a menu item reads where focus returns before it opens (`rememberDialogOpener` in App.tsx): the item
+unmounts with the menu and the workspace turns inert in the same commit; from the sidebar row menu that is the row it was opened
+on (recorded by the `OverlaySlot` listener; `test:overlays` holds it). Menus and dialogs share one copy of the Radix primitives
+(one layer stack), so keep the four `@radix-ui/*` packages on versions npm dedupes.

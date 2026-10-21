@@ -1,6 +1,7 @@
 // Modal dialogs on Radix Dialog / AlertDialog (docs/design/migration.md step 3, ui/src/overlays/ModalDialog.tsx).
 //  1. Bundle (production build): Radix is only in lazy chunks, never in the entry files (D31); the dialogs that used to
-//     sit in the entry (ReassignPrimaryDialog, DialogShell) are lazy too.
+//     sit in the entry (ReassignPrimaryDialog, DialogShell) are lazy too; menus and dialogs share one copy of Radix's
+//     layer and focus primitives (ds/integrate).
 //  2. Real app (production build, synthetic data, Chromium): the delete dialog takes focus on Cancel, keeps Tab and
 //     Shift+Tab inside, hides the page from screen readers (aria-hidden around it, the workspace inert), carries
 //     aria-modal, closes on Escape and on a press on the scrim but on neither while busy, and gives focus back to the
@@ -57,6 +58,17 @@ await check("Radix ships only in lazy chunks; the entry files carry none of it a
     const files = [...seen.keys()].filter(file => file.startsWith(`assets/${name}-`));
     truthy(files.length, `${name} is not a chunk of its own`);
     truthy(!files.some(file => eager.includes(file)), `${name} is loaded with the entry`);
+  }
+  // Menus (RadixOverlays, step 2) and dialogs (ModalDialog, step 3) must share one copy of Radix's layer and focus
+  // primitives: two copies keep two layer stacks, and Escape in a menu over a dialog would close both.
+  for (const marker of ["dismissableLayer.pointerDownOutside", "focusScope.autoFocusOnMount"]) {
+    const copies = [...seen].reduce((count, [, text]) => count + text.split(marker).length - 1, 0);
+    truthy(copies === 1, `${marker} is bundled ${copies} times; the Radix packages must resolve to one copy of each primitive`);
+  }
+  const owner = radix.find(file => seen.get(file).includes("dismissableLayer.pointerDownOutside"));
+  for (const name of ["RadixOverlays", "ModalDialog"]) {
+    const [file] = [...seen.keys()].filter(path => path.startsWith(`assets/${name}-`));
+    truthy(file && (file === owner || seen.get(file).includes(basename(owner))), `${name} does not use the shared Radix primitives in ${owner}`);
   }
   console.log(`  ${seen.size} chunks; Radix in ${radix.join(", ")}`);
 });
