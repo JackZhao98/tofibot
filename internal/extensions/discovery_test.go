@@ -16,6 +16,7 @@ import (
 	"time"
 
 	"github.com/JackZhao98/tofibot/internal/runtime"
+	"github.com/JackZhao98/tofibot/internal/tooloutcome"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
@@ -142,7 +143,7 @@ func TestDiscoverableMCPAuthorizationAndTransports(t *testing.T) {
 			if _, err := call.Execute(context.Background(), json.RawMessage(`{"name":"mcp_fixture__denied","arguments":{}}`)); err == nil {
 				t.Fatal("denied tool callable by exact name")
 			}
-			direct, err := call.Execute(context.Background(), json.RawMessage(`{"name":"mcp_fixture__echo","arguments":{}}`))
+			direct, err := executeAfterSchema(call, `{"name":"mcp_fixture__echo","arguments":{}}`)
 			if transport == "sse" {
 				if err == nil {
 					t.Fatal("legacy transport call allowed")
@@ -392,4 +393,15 @@ func TestDiscoverableInvokeCancellationAndRunIsolation(t *testing.T) {
 	case <-time.After(time.Second):
 		t.Fatal("in-flight call did not cancel")
 	}
+}
+
+// executeAfterSchema calls a tool the way a model does when its first call to
+// a tool it was never shown comes back unexecuted with the schema: it calls
+// again.
+func executeAfterSchema(call runtime.Tool, raw string) (string, error) {
+	out, err := call.Execute(context.Background(), json.RawMessage(raw))
+	if o, ok := tooloutcome.FromError(err); ok && o.Code == "schema_required" && o.Certainty == "not_executed" && strings.Contains(o.Message, "Input schema:") {
+		return call.Execute(context.Background(), json.RawMessage(raw))
+	}
+	return out, err
 }

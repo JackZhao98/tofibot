@@ -13,7 +13,7 @@ import (
 // directThroughDispatcher mirrors what the runtime does for a call the model
 // made under a concrete run name: no prior search, ResolveDirectName on the
 // call_mcp_tool dispatcher, then that dispatcher's own Execute with the
-// wrapped payload. The gate is the same approveMCPCall a native call uses.
+// wrapped payload (repeated once after the schema-first answer). The gate is the same approveMCPCall a native call uses.
 func directThroughDispatcher(ctx context.Context, f *autoReviewFixture, name, args string) (string, error, bool) {
 	p, err := f.s.extensions.PrepareDiscoverableForBotWithCallGate(ctx, f.r.BotID, nil, func(ctx context.Context, call extensions.MCPCallApproval) error {
 		return f.s.approveMCPCall(ctx, f.c, f.r, call)
@@ -32,6 +32,11 @@ func directThroughDispatcher(ctx context.Context, f *autoReviewFixture, name, ar
 		}
 		wrapped, _ := json.Marshal(map[string]json.RawMessage{"name": mustRawJSON(canonical), "arguments": json.RawMessage(args)})
 		out, err := tool.Execute(ctx, wrapped)
+		// A schema the model was not shown comes back first, unexecuted; the
+		// model then calls again with it in view.
+		if o, ok := tooloutcome.FromError(err); ok && o.Code == "schema_required" && o.Certainty == "not_executed" {
+			out, err = tool.Execute(ctx, wrapped)
+		}
 		return out, err, true
 	}
 	return "", errors.New("no dispatcher"), false

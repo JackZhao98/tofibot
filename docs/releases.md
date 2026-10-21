@@ -36,6 +36,7 @@ TOFI 每个版本改了什么，最新的在最上面。写给以后接手的人
 还没进任何 rc 的改动写在这里；打下一个 rc 时挪进那个 rc 的条目（决定 D27）。设计系统迁移第 1–6 步在集成分支 `ds/integrate`，等 owner 预览后合入。
 
 - 修复 `publish_file`：一次路径写错（`uncertain_effect`）之后，换路径或换 `request_key` 再发仍被回放第一次的错误。现在只拦参数完全相同的重放；源文件不存在改为确定失败 `file_not_found`（guest 返回结构化码，主机按码分类），文件建好后可原样重试；相对路径基准写明为 `/workspace/bots/<bot_id>`，与 shell 工作目录一致。分支 `fix/publish-file-replay`。
+- 修复 Bot 反复用错参数调用 MCP 工具（Notion `notion-update-page` 被退回 “replace_content 需要 new_str”）：Notion 一侧没变，问题在 TOFI。模型直接用确切工具名调用、而本次运行没展示过参数结构时，第一次调用只返回完整 schema、不执行；`search_mcp_tools` 一页降到 22 KiB 以内，不再在无人值守运行里被截掉中间的嵌套字段；参数校验失败和远端退回参数时给出完整 schema（上限 4 KiB 提到 16 KiB）。分支 `fix/mcp-tool-schema`。
 
 ---
 
