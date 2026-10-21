@@ -5,6 +5,7 @@
 - 基线：`748c774`（branch `docs/system-opus`，2026-10-20）。下文的 `file:line` 都按这个提交写，代码改了就要跟着改这份文件（`docs/process.md`，"改了设计规范或组件"一行）。
 - 颜色、字体、间距、阴影、模糊、动效令牌和 z-index 的完整清单在同目录的 [`tokens.md`](tokens.md)。本文只写每个组件用到的层级数值，层级问题的编号（Z1–Z7）引用 `tokens.md` 第 9.2 节。
 - **层级已在迁移第 1 步换成 `--z-*` 刻度**（分支 `ds/step1-layers`）：本文各节"层级"一行和层级相关的问题（C15、C16、C21、C23、C26、C31、C35、C40）已按该分支更新，括号里是迁移前的数值；其余 `file:line` 仍按 `748c774`。
+- **每个组件的每种状态都能在组件目录页里直接看**（迁移第 6 步，分支 `ds/step6-catalog`，只在开发时可用，[D34](../decisions/0034-component-catalog-dev-only.md)）：`cd ui && npm run dev`，打开 http://localhost:5173/catalog.html 。目录页按本文 §1–§23 分节（`test:catalog` 断言一一对应）；本文加了组件或状态，目录页 `ui/src/catalog/sections/` 要跟着加，画不出来的写进该节的 `gaps`。
 - 设计原则和检查方法在 [`principles.md`](principles.md)。本文每条已知问题都标了它违反的原则（P1–P8）。
 - 桌面客户端（Electron）消费同一份网页 UI 构建产物（`AGENTS.md` "Core source boundaries"），用 `html[data-desktop]` 和 `isDesktop`（`ui/src/desktop.ts:45`）分支。本文说"网页端"指 `html:not([data-desktop])`。
 
@@ -542,6 +543,7 @@
 |---|---|---|---|---|
 | C31 | 中 | **第 1 步已修**：toast 层级 80，被所有模态、菜单盖住，对话框开着时出错用户看不到（Z1）。现在是 `--z-toast`，在所有模态和菜单之上；原生 `<dialog>` 仍盖住它（Z7） | `tokens.md` Z1 | P3 |
 | C32 | 中 | toast 固定在顶部正中，正好压在顶栏标题上；没有关闭按钮，要么重试成功要么一直在 | `styles.css:448` | P2 |
+| C43 | 低 | 刷新失败的 toast 会被随后一次成功的配置读取清掉：`refreshConfig` 成功时 `setWorkspaceError("")`，不管错误是不是它造成的。只有会话列表失败、配置正常时（服务器部分故障），toast 出现约 0.75 秒就消失（组件目录页实测）。是否有意：待确认 | `App.tsx:919`（`refreshConfig`），对照 `:905` | P3 |
 | C33 | 低 | 没有统一的 toast/通知组件：7 种写法，样式、`role`、关闭方式各不相同；toast 阴影写死 `rgb(0 0 0 / .18)` | 本节表格 | P6 |
 
 ---
@@ -601,6 +603,7 @@
 | # | 严重度 | 问题 | 证据 | 原则 |
 |---|---|---|---|---|
 | C36 | 高 | 视口窄于 1024 px（但大于手机全屏断点）时，小窗不让位，直接盖在消息上 | `FloatingDesktop.tsx:50-55`（`window.innerWidth >= 1024` 才设 `--desktop-reserve`） | P2 |
+| C42 | 低 | 小窗打开时量一次输入框的位置（之后只在尺寸变化时重算，位置变化不重算）。工作区刚画出来的几百毫秒内打开，量到的位置不对，小窗停在视口外（组件目录页实测 `bottom: 938px`，1280×800）；等 1 秒再开就正常（`bottom: 202px`）。真实用户点得这么快不常见，但面板若在加载时自动恢复打开就会撞上：待确认 | `FloatingDesktop.tsx:6-33`（`useComposerAnchor`） | P2 |
 | C37 | 低 | `floatingDesktopPosition.ts`（夹边、停靠算法）只被测试脚本引用，应用代码不用，测的是不上线的代码 | 文件是 `ui/src/floatingDesktopPosition.ts`；`grep -rl floatingDesktopPosition ui/src ui/scripts` 只得 `ui/scripts/test-floating-desktop.mjs` | — |
 
 ---
@@ -705,7 +708,7 @@
 | C38 | 中 | 手机推入 | 没有边缘右滑返回 | P5 |
 | C40 | 中 | 新消息胶囊 | 同角落的电脑小窗盖在它上面 | P2 |
 | C2 | 中 | 消息气泡 | 7 种分支 + 两套工具行 | P6 |
-| C1、C4、C10、C11、C17、C20、C21、C24、C25、C27、C28、C30、C33、C34、C35（第 1 步已修）、C37、C39、C41 | 低 | 各处 | 见各节 | — |
+| C1、C4、C10、C11、C17、C20、C21、C24、C25、C27、C28、C30、C33、C34、C35（第 1 步已修）、C37、C39、C41、C42、C43（组件目录页发现） | 低 | 各处 | 见各节 | — |
 
 ## 25. 待确认清单
 
@@ -717,3 +720,5 @@
 6. C29：`Segmented` 的方向键。
 7. C38：浏览器后退在手机上是否回到列表。
 8. 第 11 节上下文浮卡的关闭方式；第 9 节 MCP 菜单的焦点行为；第 18 节横幅和 toast 有无进场动画。
+9. C42：电脑面板加载时自动恢复打开的话，小窗会不会停在视口外。
+10. C43：配置读取成功时清掉会话列表的刷新错误，是不是有意。

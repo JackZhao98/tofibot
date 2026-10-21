@@ -13,7 +13,7 @@
 //    may lag (i18next falls back to en) and are
 //    reported as untranslated.
 // 2. Source: counts CJK text runs and obvious English UI prose per file in
-//    src (excluding locales/, motion-lab/ and i18n/languages.ts). A file may not
+//    src (excluding locales/, motion-lab/, catalog/ and i18n/languages.ts). A file may not
 //    exceed its count in scripts/i18n-baseline.json; files not listed must be 0.
 import { readFileSync, readdirSync, statSync, writeFileSync, existsSync } from "node:fs";
 import { dirname, join, relative } from "node:path";
@@ -179,7 +179,7 @@ function englishProse(text) {
 function* sourceFiles(dir) {
   for (const entry of readdirSync(dir)) {
     const path = join(dir, entry), rel = relative(ui, path);
-    if (statSync(path).isDirectory()) { if (rel !== "src/locales" && rel !== "src/motion-lab") yield* sourceFiles(path); continue; }
+    if (statSync(path).isDirectory()) { if (rel !== "src/locales" && rel !== "src/motion-lab" && rel !== "src/catalog") yield* sourceFiles(path); continue; }
     if (/\.(ts|tsx)$/.test(entry) && !entry.endsWith(".d.ts") && rel !== "src/i18n/languages.ts") yield rel;
   }
 }
