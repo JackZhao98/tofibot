@@ -509,6 +509,12 @@ func cleanEnv(root, bot string) []string {
 		"TMPDIR=" + filepath.Join(bot, "tmp"),
 		"LANG=C.UTF-8", "TERM=dumb", "TOFI_WORKSPACE=" + bot,
 	}
+	if dir := userTessdata(home); dir != "" {
+		// Language packs the user downloads into this directory sit beside the
+		// shipped English data; fonts the user installs under
+		// ~/.local/share/fonts are found through the image's fontconfig.
+		env = append(env, "TESSDATA_PREFIX="+dir)
+	}
 	if b, err := os.ReadFile(filepath.Join(root, guestTimezoneFile)); err == nil {
 		if zone := strings.TrimSpace(string(b)); zone != "" {
 			if _, loadErr := time.LoadLocation(zone); loadErr == nil {

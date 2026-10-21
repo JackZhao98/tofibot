@@ -6,6 +6,7 @@ import (
 	"encoding/base64"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -75,5 +76,60 @@ func TestImportFileRefusesOutsideUploadsAndBadChunks(t *testing.T) {
 	}
 	if _, err := importChunk(t, s, filepath.Join(uploads, "over"), 0, 2, []byte("abc")); err == nil {
 		t.Error("chunk beyond total accepted")
+	}
+}
+
+func TestUserTessdataHoldsShippedDataAndStaysWritable(t *testing.T) {
+	system := t.TempDir()
+	for _, name := range []string{"eng.traineddata", "osd.traineddata"} {
+		if err := os.WriteFile(filepath.Join(system, name), []byte(name), 0644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := os.MkdirAll(filepath.Join(system, "configs"), 0755); err != nil {
+		t.Fatal(err)
+	}
+	old := tesseractSystemGlob
+	tesseractSystemGlob = system
+	defer func() { tesseractSystemGlob = old }()
+	home := t.TempDir()
+	dir := userTessdata(home)
+	if dir != filepath.Join(home, ".local", "share", "tessdata") {
+		t.Fatalf("dir=%q", dir)
+	}
+	if b, err := os.ReadFile(filepath.Join(dir, "eng.traineddata")); err != nil || string(b) != "eng.traineddata" {
+		t.Fatalf("shipped English data not reachable: %q %v", b, err)
+	}
+	if info, err := os.Stat(filepath.Join(dir, "configs")); err != nil || !info.IsDir() {
+		t.Fatalf("configs missing: %v", err)
+	}
+	// A pack the user adds, and a replacement of a shipped name, both survive.
+	if err := os.WriteFile(filepath.Join(dir, "chi_sim.traineddata"), []byte("zh"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Remove(filepath.Join(dir, "osd.traineddata")); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "osd.traineddata"), []byte("mine"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	if again := userTessdata(home); again != dir {
+		t.Fatal("second call moved the directory")
+	}
+	if b, _ := os.ReadFile(filepath.Join(dir, "osd.traineddata")); string(b) != "mine" {
+		t.Fatalf("user file replaced: %q", b)
+	}
+	found := false
+	for _, e := range cleanEnv(t.TempDir(), "bot") {
+		found = found || strings.HasPrefix(e, "TESSDATA_PREFIX=")
+	}
+	if !found {
+		t.Fatal("shell environment lacks TESSDATA_PREFIX")
+	}
+	tesseractSystemGlob = filepath.Join(t.TempDir(), "absent")
+	for _, e := range cleanEnv(t.TempDir(), "bot") {
+		if strings.HasPrefix(e, "TESSDATA_PREFIX=") {
+			t.Fatal("TESSDATA_PREFIX set without tesseract")
+		}
 	}
 }
