@@ -91,6 +91,7 @@
     "ui/catalog.html",
     "ui/index.html",
     "ui/motion-lab.html",
+    "ui/motionExperimentPlugin.ts",
     "ui/oauthAssetsPlugin.ts",
     "ui/package-lock.json",
     "ui/package.json",

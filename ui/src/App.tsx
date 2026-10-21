@@ -55,6 +55,7 @@ import { BrandLogo } from "./BrandLogo";
 import { PinDock, PinDropZone, PinTile } from "./PinnedDock";
 import { applyLayout, fillSlots, keepLocalLayout, listOrder, pinnedOf, type SidebarIds } from "./sidebarOrder";
 import { useSidebarDnd, type DndAnnounce, type DndCommit } from "./useSidebarDnd";
+import { usePhoneSwipeBack } from "./usePhoneSwipeBack";
 import { createContext, lazy, memo, startTransition, Suspense, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { createPortal, flushSync } from "react-dom";
 import { errorText } from "./errorText";
@@ -1408,6 +1409,8 @@ function Workspace() {
     ready: loadedId === activeId && !loadingMessages, hasMore, loadingOlder, mobileList,
     loadOlder, markRead });
   const jumpLatest = viewport.jumpLatest;
+  // Phone: a finger dragging the chat to the right returns to the list (D35); the gesture commits the same state as the back button.
+  usePhoneSwipeBack(() => flushSync(() => setMobileList(true)));
   useEffect(() => {
     if (!taskFocus) return;
     if (taskFocus.conversationId !== activeId) { setTaskFocus(null); return; }
