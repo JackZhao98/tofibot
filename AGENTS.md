@@ -148,3 +148,16 @@ stacking context, -1..3; TS writes `"var(--z-*)"`, never a number. Overlays port
 deliberately not a stacking context), never into `document.body`. `npm --prefix ui run test:layers` fails on any of that (older local values
 above 3 are a ceiling in `ui/scripts/layers-baseline.json` that only shrinks) and checks the paint order of overlays stacked on one point.
 Note `container-type` does not create a stacking context: on wide screens the chat pane's chrome competes with the sidebar and panels.
+
+# Web UI dialogs
+
+Modal dialogs use `ModalDialog` / `ConfirmDialog` from `ui/src/overlays/ModalDialog.tsx` (Radix `Dialog` / `AlertDialog`;
+docs/design/migration.md step 3). Import it only from lazy chunks: Radix must stay out of the entry bundle (D31;
+`test:dialogs` crawls the build). Pass the dialog element as the child (classes and role stay yours) and the scrim class
+as `overlayClassName`; choose `closeOnEscape`, `closeOnOutside`, `locked`, `initialFocus` and `returnFocus` explicitly. It
+sets `aria-modal="true"` and `data-tofi-modal` (App.tsx's desktop-shortcut gate and detail-pane trap read them), keeps Tab
+inside, lets Escape close only the top layer and claims it with `preventDefault` (app Escape handlers must check
+`defaultPrevented`), returns focus, hides the rest from screen readers and turns pointer events off on `<body>` (the
+workspace toast opts back in). Not migrated on purpose: `TakeoverDialog` (Tab belongs to the remote screen), the terminal's
+inline confirm, `PermissionCoach`, and the image lightbox and file preview (native `<dialog>`, top layer; hints and the
+toast render inside the open one via `topLayerDialog()` / `InTopLayer` in `layers.ts`).

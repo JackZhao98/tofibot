@@ -1,6 +1,6 @@
 # Web UI 迁移到 headless 组件库：分步方案
 
-> 状态：**owner 已点头，按本文分步迁移**（2026-10-21；§7 的 Q1–Q4 已回答，见 [D31](../decisions/0031-entry-budget-plan-a.md)–[D34](../decisions/0034-component-catalog-dev-only.md)）。**第 1 步已完成**（分支 `ds/step1-layers`，等合并和 owner 预览）；第 2–6 步未开始。每一步都要预览（[D28](../decisions/0028-headless-design-system-migration.md)）。
+> 状态：**owner 已点头，按本文分步迁移**（2026-10-21；§7 的 Q1–Q4 已回答，见 [D31](../decisions/0031-entry-budget-plan-a.md)–[D34](../decisions/0034-component-catalog-dev-only.md)）。**第 1 步已完成**（分支 `ds/step1-layers`，等合并和 owner 预览）；**第 3 步已完成**（分支 `ds/step3-dialogs`，从第 1 步分出、和第 2 步并行，等合并和 owner 预览）；第 2 步在并行进行，第 4–6 步未开始。每一步都要预览（[D28](../decisions/0028-headless-design-system-migration.md)）。
 > 快照：提交 `748c774`（分支 `docs/system-opus`），体积实测日期 2026-10-20（PDT）。
 > 相关文档：层级刻度和每一处 z-index 归到哪一层，以 [`tokens.md` §9](tokens.md) 为准，本文不另定一套；本文只写"怎么迁"。
 > 相关决定：[D02 量交互开销](../decisions/0002-measure-interaction-cost.md)、[D18 渐变模糊范围](../decisions/0018-progressive-blur-scope.md)、[D19 到达级联](../decisions/0019-arrival-spring-cascade.md)、[D20 手机推入](../decisions/0020-phone-push-and-boot-screen.md)、[D21 侧栏拖动和置顶](../decisions/0021-sidebar-reorder-and-pins.md)、[D22 用 dev:remote 预览](../decisions/0022-preview-via-dev-remote.md)、[D30 常设规则](../decisions/0030-standing-operating-rules.md)。
@@ -12,7 +12,7 @@
 | 层级与 portal | 自己做：`--z-*` 令牌 + 一个 portal 根节点 | 不需要库，[`tokens.md` §9.3](tokens.md) 的刻度落地即可（**第 1 步已完成**） | 实测 +49 B |
 | 菜单、弹出卡片 | **Radix**：`DropdownMenu`、`Popover` | 不带样式，`asChild` 可以把现有元素和类名原样留住，外观不变；比 React Aria 小 17–21 KB | 不能，要懒加载（见 §2） |
 | 悬停提示 | **保留自研的 `ActionHints`**，不用 Radix Tooltip | 现在是整页只有一个委托监听器，行里没有任何组件；Radix Tooltip 要在每个图标外套一层组件，懒加载块 19 KB | — |
-| 对话框 | **Radix**：`Dialog`、`AlertDialog` | 焦点圈定、Esc 只关最上一层、关闭后焦点回到原处，现在每个对话框各写一遍 | 不能，要懒加载 |
+| 对话框 | **Radix**：`Dialog`、`AlertDialog` | 焦点圈定、Esc 只关最上一层、关闭后焦点回到原处，原来每个对话框各写一遍（**第 3 步已完成**，`ui/src/overlays/ModalDialog.tsx`） | 不能，要懒加载（实测 Radix 块 13,981 B，入口反而 −1,148 B） |
 | 动效 | **暂不引入 Motion**，第 4 步只做一次对照实验 | 到达级联已经是预先算好的弹簧关键帧交给 WAAPI 在合成线程跑；Motion 的 React 组件版本最少 30.8 KB，而且必须进入口包 | 不能 |
 | 拖动 | **保留自研引擎**，第 5 步只做一次对照实验 | 引擎懒加载块 3,480 B，拖动过程中 React 不渲染；dnd-kit 15.3 KB 起，且 `useSortable` 让每一行在拖动中重新渲染 | 不能 |
 | 组件目录页 | 自己做，仿照 Motion Lab 单独打包 | 不占应用的任何一个包 | 不占 |
@@ -46,11 +46,11 @@
 | 原生 `<dialog>` ×4 | `MessageAttachment.tsx:25,76`、`FileViewer.tsx:124`、`SettingsShell.tsx:101`、`ComputerResources.tsx:16` | `showModal()`，进浏览器顶层 | 各自所在包 | `test:file-preview`（FileViewer） |
 | 权限提示 | `ui/src/PermissionCoach.tsx:95` | 非模态 `aside role="dialog"`，右下角 | PermissionCoach（懒） | 无 |
 
-另有一处依赖现有写法的代码：`ui/src/App.tsx:768` 用 `document.querySelector('[role="dialog"][aria-modal="true"]')` 判断"有模态开着就不响应桌面客户端菜单快捷键"。Radix Dialog 只设 `role="dialog"`，**不设 `aria-modal`**（在 `@radix-ui/react-dialog@1.3.1` 的 `dist/index.mjs` 里 grep `aria-modal` 为 0），迁移时必须显式加上，否则这道闸会失效。
+另有一处依赖现有写法的代码：`ui/src/App.tsx:768` 用 `document.querySelector('[role="dialog"][aria-modal="true"]')` 判断"有模态开着就不响应桌面客户端菜单快捷键"。Radix Dialog 只设 `role="dialog"`，**不设 `aria-modal`**（在 `@radix-ui/react-dialog@1.3.1` 的 `dist/index.mjs` 里 grep `aria-modal` 为 0），迁移时必须显式加上，否则这道闸会失效。第 3 步：`ModalDialog` 给每个对话框加 `aria-modal="true"`，闸改认 `[aria-modal="true"]`（原来的选择器漏掉了 `role="alertdialog"` 的删除确认），`test:dialogs` 模拟 `tofiDesktop.onCommand("toggle-sidebar")` 守着。
 
 ### 1.2 层级
 
-现状和问题（Z1–Z7）见 [`tokens.md` §9.1-9.2](tokens.md)。写方案时：产品 CSS 89 处 z-index、31 个不同的值，最大 1200（`onboarding.css:5`），TS 里还有 2147483000（`sendFlight.ts:19`）。第 1 步之后：46 处全局层全部走 `--z-*`，43 处组件内部的局部值，TS 里只剩 `"var(--z-drag)"` 一处；Z1、Z2、Z5、Z6 已修，Z3、Z4 等第 2 步，Z7 等第 3 步。
+现状和问题（Z1–Z7）见 [`tokens.md` §9.1-9.2](tokens.md)。写方案时：产品 CSS 89 处 z-index、31 个不同的值，最大 1200（`onboarding.css:5`），TS 里还有 2147483000（`sendFlight.ts:19`）。第 1 步之后：46 处全局层全部走 `--z-*`，43 处组件内部的局部值，TS 里只剩 `"var(--z-drag)"` 一处；Z1、Z2、Z5、Z6 已修，Z3、Z4 等第 2 步，Z7 第 3 步已修。
 
 ### 1.3 动效
 
@@ -281,9 +281,100 @@ Motion 擅长三件事：带速度衔接、可中途打断的弹簧；自动 FLI
 | owner 预览看哪里 | ① 侧栏右键、手机长按会话：菜单出现的位置、动画和以前一样。② 侧栏底部账户菜单：不再被侧栏边界切掉（Z3）。③ 输入框的附件菜单和 @菜单：不再被输入框切掉。④ ≥1100 px 打开上下文浮卡，再开顶栏菜单：菜单在浮卡上面（Z4）。⑤ 悬停 @提及的 Bot 名字出身份卡；对一条消息开表情反应。⑥ 用键盘：Tab 到"新建"按钮，按 ↓，上下键选，Esc |
 | 体积 | 入口包：`OverlayHost` + 若干 `import()` 桩，约 +0.5 到 +1 KB（估计），减去搬出入口包的菜单代码（待实测），目标是净值 ≤ 0。懒加载块：约 29.7 KB（§2.3 实测"第 2 步推荐组合"），空闲时预取 |
 
-### 第 3 步：对话框
+### 第 3 步：对话框 — **已完成**（分支 `ds/step3-dialogs`，从 `ds/step1-layers` 分出，和第 2 步并行；等合并和 owner 预览）
 
 **目标**：所有模态对话框用 Radix `Dialog` / `AlertDialog`：焦点圈定、Esc 只关最上面一层、关闭后焦点回到打开它的元素、背景对读屏隐藏，全部统一。
+
+**做了什么**（提交：分支 `ds/step3-dialogs` 上的 "Design system step 3" 一提交）
+
+| 项 | 内容 |
+|---|---|
+| 唯一实现 | 新建 `ui/src/overlays/ModalDialog.tsx`：`ModalDialog`（Radix `Dialog`）和 `ConfirmDialog`（Radix `AlertDialog`）。调用方把对话框元素本身交给它（`asChild`，类名、`role`、标签都不变），有遮罩的写 `overlayClassName`，内容仍渲染在遮罩里面（CSS 原来就这么写）。它统一做：`aria-modal="true"` 和 `data-tofi-modal`（Radix 不设 `aria-modal`）；`locked`（忙时 Esc 和点遮罩都不关）、`closeOnEscape`、`closeOnOutside`；打开时焦点给 `initialFocus`，没有就给对话框本身（不画焦点环）；关闭时只在焦点随对话框丢失时才还回去，还给 `returnFocus` 或打开时的焦点元素 |
+| 只进懒加载块 | 只有懒加载块导入 `ModalDialog.tsx`（D31）。Radix 在一个共用的懒加载块 `ModalDialog-*.js`（13,981 B gzip），随设置、引导、删除确认等块在空闲时预取 |
+| 迁了哪些 | `DialogShell.tsx`（同名组件改成包 `ModalDialog`，`role="alertdialog"`；删除会话、重新指派主助理跟着走）；`AdminSheets.tsx` 的 `AdminSheet`（管理员表单、已记住的审批）；`SkillAccess.tsx`；`ViewOnlyChat.tsx` 的全屏形态（≥1100 px 网页卡片形态仍是非模态面板，没迁）；`VMOAuthDialog.tsx`；`Onboarding.tsx`；原生 `<dialog>` 的两个确认框 `SettingsShell.tsx`（离开前保存）和 `ComputerResources.tsx`（重启）改成 `ConfirmDialog` |
+| 没迁（按计划） | `TakeoverDialog.tsx`（风险 ③）、`TerminalPanel.tsx` 面板内确认、`PermissionCoach`、图片灯箱和文件预览（仍是原生 `<dialog>`） |
+| 搬出入口包 | `ReassignPrimaryDialog` 搬进自己的懒加载块（`ReassignPrimaryDialog.tsx`，`lazyPanels.tsx` 的 `reassignPrimary`）；`PrimaryAssistantSetting`（只有设置页用）搬进 `PrimaryAssistantSetting.tsx`。后一条不在原计划里：只搬前一条时 rolldown 会把 `InteractionSystem` 拆成单独的入口块，入口反而 +442 B；两条一起搬，`settings/components` 也离开入口，入口 −1,148 B |
+| Z7 | 还留在原生 `<dialog>`（浏览器顶层）里的两个：悬停提示在显示时挂进最上层打开的模态 `<dialog>`（`layers.ts` 的 `topLayerDialog()`）；工作区 toast 从 App.tsx 抽成 `WorkspaceToast.tsx`，包在 `InTopLayer` 里：有模态 `<dialog>` 开着时渲染进它里面，关掉（或被卸载）后回到原处；只在 toast 显示时监听 DOM |
+| App.tsx | 桌面菜单快捷键的闸改认 `[aria-modal="true"]`（原来只认 `role="dialog"`，删除确认是 `alertdialog`，闸对它一直无效）；详情窗格自写的 Tab/Esc 圈定在有 `[data-tofi-modal]` 时让开；删除确认和重新指派打开时记下焦点（`rememberDialogOpener`），关掉还回去（工作区同一提交变成 `inert`，焦点在对话框渲染前就掉到 `<body>` 了，原来的代码也因此还不回去）；重新指派打开时工作区也 `inert`（C14） |
+| 样式 | 两个原生确认框换成普通元素后，`::backdrop` 改成遮罩类 `.settings-leave-overlay`、`.resource-restart-overlay`（`--z-dialog`），并补上原生模态 `<dialog>` 的尺寸规则；它们原来在设置页里面，继承了设置页的标题、按钮和字体样式，portal 出去以后在 `computer-resources.css` 和 `settings-polish.css` 里显式写回。工作区 toast 加 `pointer-events:auto`（Radix 模态开着时 `<body>` 关掉了指针事件） |
+
+**和计划不同的几处，以及原因**
+
+1. **删除确认用 `Dialog` + `role="alertdialog"`，不用 `AlertDialog`**：Radix `AlertDialog` 永远不让点遮罩关闭，而删除确认现在点遮罩会关（components.md §8 #1）。保持现有行为。真正"只能用按钮或 Esc 回答"的两个原生确认框用了 `AlertDialog`。
+2. **不用 Radix `Overlay`**：它带的滚动锁（`react-remove-scroll`）每次打开都改 `<body>` 的样式，而 TOFI 的页面在对话框后面本来就不滚动（遮罩盖满、自己不可滚）。遮罩是普通元素，`pointer-events:auto`。实测在 4x CPU 下打开删除确认快了几毫秒，也消掉了风险 ④（关掉后消息区滚动位置），`test:chat-safari` 照旧通过。
+3. **两处补丁 Radix 的空隙**（都在 `ModalDialog.tsx`，都有测试）：Radix 在新对话框首帧之后才把它登记成最上层，这一帧里按 Esc 会关掉下面那一层（连带新开的）——现在这个键被丢掉；Radix 把逃出对话框的焦点送回"上次聚焦的元素"，那个元素被替换掉时焦点会停在它插在 `<body>` 两端的隐形 span 上，Tab 画不出焦点环（`test:settings-polish` 在引导里抓到）——现在送回对话框的第一个（或最后一个）控件。
+4. **新测试叫 `test:dialogs`，不扩展 `test:overlays`**：第 2 步在并行建 `test:overlays`，合并后可以并在一起。"对话框里再开菜单，按一次 Esc 只关菜单"现在还测不了（迁过来的对话框里没有菜单）；用"对话框里再开对话框"测了同一条规则，菜单走 Radix 以后共享同一个层栈。
+5. **全屏只读会话跨过 1100 px 时**：卡片和模态是两套外壳，窗口宽度跨过断点时历史会重新挂载（重新取一次）。原来是同一个元素换属性。
+
+**层级和行为变化清单**（预览时逐条看；D32 接受的是第 1 步，这几条是第 3 步新的）
+
+| # | 变化 | 迁移前 → 现在 |
+|---|---|---|
+| S1 | 引导从 `#root` 搬进 `#tofi-layers`：现在在设置窗之上（以前设置窗在它之上，DOM 在后）；和其它 portal 出去的对话框按打开顺序叠（以前它们总在引导之上，第 1 步 L4） | `.workspace-grid` 里 → `#tofi-layers` |
+| S2 | 离开前保存、电脑重启两个确认框不再在浏览器顶层：toast、悬停提示、拖动层现在在它们之上（Z7 修好的一半）；它们仍在设置窗之上 | 顶层 → `--z-dialog` |
+| S3 | 引导、VM 授权：Esc 和点遮罩现在明确什么都不做，也不再传给后面的工作区（以前引导打开时 Esc 会落到 App 自己的处理上） | — |
+| S4 | 任何模态开着时，`<body>` 上的指针事件关掉（Radix）：后面的东西点不到，点遮罩外的地方等于点遮罩；工作区 toast 例外，仍可点，点它不会关掉对话框 | — |
+| S5 | 读屏：模态开着时页面其余部分 `aria-hidden`（Radix；`aria-live` 区域和它们的祖先除外），重新指派主助理时工作区也 `inert`（C14） | 原来只有删除确认和只读会话让工作区 `inert` |
+| S6 | 桌面客户端：删除确认、重新指派、两个原生确认框改成的对话框开着时，菜单快捷键（新建、搜索、收起侧栏等，设置除外）不再生效 | 闸以前只认 `role="dialog"` |
+
+**撤回验证**（D30，测试文件保留，只动产品代码，见 `docs/process.md` 3.2）
+
+在工作区外的一份副本上逐项改回，测试文件保留（`docs/process.md` 3.2）：
+
+| 撤回什么 | 跑的测试 | 退出码 | 失败的检查 |
+|---|---|---|---|
+| 第 3 步对 `ui/src` 的全部改动（换回第 1 步的 `ui/src`） | `test:dialogs` | 1 | 14 项里 13 项挂：没有任何块带 Radix；删除确认缺 `data-tofi-modal`；忙时 Esc 之后关不掉（C13）；桌面快捷键在删除确认后面照样生效；测试页导不进 `ModalDialog`。"Esc 只关最上一层（对话框和下面的非模态面板）"一项原来的代码也通过 |
+| 去掉 `ModalDialog` 的 `aria-modal` | `test:dialogs` | 1 | 删除确认 `aria-modal` 为空；`toggle-sidebar` 在删除确认后面生效 |
+| App.tsx 的快捷键闸改回只认 `[role="dialog"][aria-modal="true"]` | `test:dialogs` | 1 | `toggle-sidebar` 在删除确认（`alertdialog`）后面生效 |
+| 删除确认不传 `returnFocus`（去掉 `rememberDialogOpener` 的作用） | `test:dialogs` | 1 | 关掉后焦点在 `<body>`，没回到"⋯" |
+| `ReassignPrimaryDialog` 改回 App.tsx 静态导入 | `test:dialogs` | 1 | Radix 进了入口包（`ModalDialog-*.js` 成了入口文件） |
+| 去掉"新对话框首帧里的 Esc 丢掉" | `test:dialogs` | 1 | 首帧的 Esc 关掉了下面的 sheet（`onClose` 只有 `sheet`） |
+| 悬停提示改回总挂在 `layerRoot()` | `test:dialogs` | 1 | 原生 `<dialog>` 开着时提示不在 dialog 里、也不在最上面 |
+| `WorkspaceToast` 去掉 `InTopLayer` | `test:dialogs` | 1 | 原生 `<dialog>` 开着时 toast 不在 dialog 里 |
+| `InTopLayer` 只看 `open` 属性、不看节点删除 | `test:dialogs` | 1 | dialog 被卸载后 toast 没回到页面 |
+| 两个确认框不再写回设置页的标题和按钮样式 | `test:dialogs` | 1 | 重启确认的标题是 Fredoka 20px/700，设置页是 15px/600 |
+| toast 不再 `pointer-events:auto`、点它会关掉对话框 | `test:dialogs` | 1 | sheet 开着时点不到 toast 的"重试" |
+| 去掉焦点落在 Radix 隐形 span 上时的补救 | `test:settings-polish` | 1 | 390 px 的引导里 Tab 落在不画焦点环的 `.onb-sheet` 上（3 处） |
+| 什么都不撤（对照） | `test:dialogs` | 0 | — |
+
+另外试过、后来删掉的一处：让每个对话框保留自己的 `tabIndex`（不用 Radix 给的 `-1`）。有了上面那条补救之后，撤掉它 `test:settings-polish` 仍是 0，测不出作用，所以没留。
+
+**owner 预览看哪里**（`dev:remote`，Chrome，[D22](../decisions/0022-preview-via-dev-remote.md)）
+
+1. 删除一个会话（顶栏"⋯" › 删除）：确认框样子和出现动画和以前一样；Esc 关；点遮罩关；点卡片空白处不关，之后 Esc 照样能关；关掉后焦点回到"⋯"（用键盘打开时能看到焦点环）。点"删除"后、请求还没回来时，Esc 和点遮罩都不关。
+2. 设置 › 技能 › 某个技能的"更改访问"：表单 sheet 叠在设置窗上面；Tab 在 sheet 里转圈；Esc 只关 sheet，设置窗还在；再按 Esc 才关设置窗。
+3. 隐藏主助理（侧栏右键主助理 › 隐藏）：选接任者的对话框；读屏（VoiceOver）里背景听不到（S5）。
+4. 新账户引导（S1、S3）：样子不变；Esc 和点遮罩没有反应；Tab 在引导里转圈；连接服务时打开的 VM 授权窗叠在引导上面。
+5. 设置里改一个时区不保存就切页：离开确认框样子不变（S2）；Esc 回到编辑。电脑页"重启并应用"：重启确认框样子不变；点遮罩不关，Esc 关。
+6. 全屏只读会话（窗口窄于 1100 px，点消息里的"来自……"）：Tab 不出框，Esc 关，焦点回到那条消息上的入口。
+7. Settings 开着时断网等 toast 出来，再打开一个表单 sheet：toast 在 sheet 上面，"重试"能点，点了 sheet 不关（S4）。
+8. 打开一张图片（灯箱）时断网：toast 在灯箱上面（Z7）。
+9. 桌面客户端（要用这次构建的 UI 包）：开着删除确认按 ⌘N、⌘F：不响应（S6）。
+10. 全程只用键盘走一遍 1–6。
+
+**必须保持绿**（全部按退出码，2026-10-21 PDT 在本分支实测）：`typecheck`、`test:i18n`、`build`、`go build ./...`、`test:chat-bubbles`、`test:chat-switch`（含 `CHAT_SWITCH_ENGINE=webkit`）、`test:chat-safari`、`test:composer-typing`、`test:timeline`、`test:chat-motion`、`test:arrival-glide`、`test:live-fixes`、`test:send-receipts`、`test:sidebar-pins`、`test:handover-cards`、`test:standing-allowance`、`test:user-form`、`test:approval-facts`、`test:settings-polish`、`test:settings-shell`、`test:preloader`、`test:shell-budget`（含 `SHELL_BUDGET_ENGINE=webkit`）、`test:stream-cost`、`test:switch-budget`、`test:motion-tokens`、`test:avatar-frame-budget`、`test:dialogs`、`test:layers`、`test:primary-followups`、`test:onboarding`、`test:file-preview`、`test:resilience`、`test:mcp-oauth`、`node scripts/test-remote-desktop-control.mjs`，全部退出码 0、没有 SKIP。机器上同时跑着另外三步的测试（负载 3–5）：第一轮里 `test:shell-budget` 的"手机推入 4x 超过 25 ms 的帧 ≤ 1"（3 帧）和 `test:stream-cost` 的"4x 下没有超过 34 ms 的帧"（1 帧）各挂了一次，单独重跑都是 0。和起点交替跑同一项（见下表），起点在同样的负载下也会挂（手机推入 6 次里挂 1 次，两边一样），所以记为负载造成的抖动，不是这一步的回归。
+
+**实测**（同一台机器，迁移前 = 本分支起点 `97ac43d`，即第 1 步完成时）
+
+| 预算 | 迁移前 | 现在 | 上限 |
+|---|---|---|---|
+| 入口包（gzip，`test:shell-budget`） | 315,113 B（6 个文件） | **313,965 B（−1,148 B，余量 1,840 B）**（5 个文件） | 315,805 B |
+| Radix 块 `ModalDialog-*.js`（懒加载，随设置、引导、删除确认等块空闲预取） | — | 13,981 B | — |
+| 全部 JS（gzip） | 934,559 B | 948,815 B（+14,256 B） | — |
+| 打开删除确认：点下到可见（`test:dialogs`，块已预取，5 次中位数，两轮交替） | 1x 9.5 / 8.6 ms；4x 25.8 / 23.5 ms | 1x 8.6 / 11.0 ms；4x 36.0 / 35.0 ms；最长任务 0 ms | 32 / 100 ms（新） |
+| 设置窗首帧 1x 中位数（`SHELL_BUDGET_ONLY=panel`，6 轮交替） | 20.9–25.8 ms（均值 23.6） | 24.4–29.0 ms（均值 26.2）；最后一次完整运行 20.4 | 32 ms |
+| 设置窗首帧 4x | 42.7–44.9 ms | 43.1–46.6 ms | 100 ms |
+| 手机推入 4x 超过 25 ms 的帧（6 轮交替，首次测量） | 3、2、3、2、0、0（第 4 轮两次都超，挂） | 2、2、1、1、1、2（第 1 轮两次都超，挂） | ≤ 1（测试会重测一次） |
+| 流式每块 1x / 4x（4 轮交替） | 2.22–2.82 / 8.0–12.2 ms | 2.23–2.63 / 7.6–10.3 ms | 4 / 16 ms |
+| 切换会话 p95 1x / 4x（2 轮交替） | 19.0、19.5 / 66.1、80.3 ms | 22.9、22.5 / 66.1、69.6 ms | 60 / 100 ms |
+| 打字每键脚本（减弱动效 / 动画开着） | 0.33 / 0.61 ms | 0.36 / 0.59 ms | ≤ 4 ms |
+| 猫头像帧率（暂停前 / 恢复后） | 61.7 / 59.5 fps | 64.8 / 59.9 fps | 见 `test:avatar-frame-budget` |
+
+读法：入口包变小，是因为 `ReassignPrimaryDialog` 和只给设置页用的 `PrimaryAssistantSetting` 离开了入口（后者也把 `settings/components` 带出去了），比新增的 `import()` 桩和 `WorkspaceToast` 多。看得出的代价只有一处：**4x CPU 下打开删除确认慢了约 11 ms**（25 → 36 ms 中位数），1x 下看不出差别。拆开看（Chrome trace，4x，每次打开的平均）：样式重算多约 10 ms，事件处理多约 11 ms——Radix 在 `<body>` 上关掉指针事件（继承属性，整页重算样式）、给页面其余部分加 `aria-hidden`、挂焦点监听。不用 Radix `Overlay` 省掉了滚动锁对 `<body>` 的改写（试过，约省几毫秒）。这是一次性的点击，不是高频交互，留在新预算（4x ≤ 100 ms）里很远。设置窗首帧 1x 均值高约 2.6 ms、切换会话 1x p95 高约 3 ms，都在各自轮次的抖动范围内（两边单次都有 20 到 29 ms 的跨度），4x 下没有差别；设置窗打开时不渲染任何 Radix 组件。
+
+外观：用同一套截图脚本给迁移前后各拍一份（删除确认、已记住的审批 sheet：1280 / 390 px × 浅色 / 深色；离开确认、重启确认；引导全部 81 张），逐像素比。删除确认、sheet、重启确认 0 像素不同；离开确认 47 个像素（字的抗锯齿）；引导的差异和迁移前自己跑两次之间的差异是同一批位置、同一量级（动画中的猫），所以记为相同。第一次比对抓到两个确认框离开设置页后标题和按钮样式变了（标题变成 Fredoka 20px），已写回，`test:dialogs` 守着。
+
+**原计划**（保留作对照）
 
 | 项 | 内容 |
 |---|---|

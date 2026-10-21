@@ -25,3 +25,15 @@ JetBrains Mono: the unmodified upstream `fonts/webfonts/JetBrainsMono-Regular.wo
 | `jetbrains-mono-600.woff2` | `918edad542a1da608fd2ba8daebaff9ac802309103fe760eed465b8b4e47faf1` |
 | `public/licenses/fredoka-OFL.txt` | `5c9e7eee5c6b25f4b05b8d53b2e470ea4962f9ced742d044a98f7d95d1375bab` |
 | `public/licenses/jetbrains-mono-OFL.txt` | `30f0c136e3c88e422d0791acd97238870f9054a9729bc34cf2ff0d4ed8cac4ad` |
+
+## Dialog primitives (MIT)
+
+The modal dialogs (`src/overlays/ModalDialog.tsx`, a lazy chunk) bundle Radix Dialog and AlertDialog and their runtime
+dependencies. All are MIT licensed; the texts are in `public/licenses/`.
+
+| Packages | License text |
+|---|---|
+| `@radix-ui/react-dialog`, `@radix-ui/react-alert-dialog` and the `@radix-ui/*` primitives they use, Copyright (c) 2022 WorkOS | `public/licenses/radix-ui.txt` |
+| `aria-hidden`, `react-remove-scroll`, `react-remove-scroll-bar`, `react-style-singleton`, `use-callback-ref`, `use-sidecar`, Copyright (c) 2017 Anton Korzunov | `public/licenses/theKashey-aria-hidden-react-remove-scroll.txt` |
+| `get-nonce`, Copyright (c) 2020 Anton Korzunov | `public/licenses/get-nonce.txt` |
+| `detect-node-es`, Copyright (c) 2017 Ilya Kantor | `public/licenses/detect-node-es.txt` |

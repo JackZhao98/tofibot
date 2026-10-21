@@ -5,6 +5,7 @@
 - 基线：`748c774`（branch `docs/system-opus`，2026-10-20）。下文的 `file:line` 都按这个提交写，代码改了就要跟着改这份文件（`docs/process.md`，"改了设计规范或组件"一行）。
 - 颜色、字体、间距、阴影、模糊、动效令牌和 z-index 的完整清单在同目录的 [`tokens.md`](tokens.md)。本文只写每个组件用到的层级数值，层级问题的编号（Z1–Z7）引用 `tokens.md` 第 9.2 节。
 - **层级已在迁移第 1 步换成 `--z-*` 刻度**（分支 `ds/step1-layers`）：本文各节"层级"一行和层级相关的问题（C15、C16、C21、C23、C26、C31、C35、C40）已按该分支更新，括号里是迁移前的数值；其余 `file:line` 仍按 `748c774`。
+- **对话框已在迁移第 3 步换成 Radix**（分支 `ds/step3-dialogs`，`ui/src/overlays/ModalDialog.tsx`）：第 8 节和相关问题（C12、C13、C14、C17、C23）已按该分支更新。
 - 设计原则和检查方法在 [`principles.md`](principles.md)。本文每条已知问题都标了它违反的原则（P1–P8）。
 - 桌面客户端（Electron）消费同一份网页 UI 构建产物（`AGENTS.md` "Core source boundaries"），用 `html[data-desktop]` 和 `isDesktop`（`ui/src/desktop.ts:45`）分支。本文说"网页端"指 `html:not([data-desktop])`。
 
@@ -26,7 +27,7 @@
 | 慢请求才显示加载 | `DelayedFeedback`（默认 300 ms 后才挂载）和 `useGraceFlag`（短于宽限期的状态什么都不显示） | `ui/src/DelayedFeedback.tsx:3-10`，`ui/src/useGraceFlag.ts:3-11` |
 | 文案本地化 | 所有用户可见文字在 `ui/src/locales/<lang>/<namespace>.json`；语气规则在 `ui/src/locales/README.md` "Tone" | `npm --prefix ui run test:i18n` |
 
-还**没有**统一的（这正是 D28 迁移要解决的）：焦点陷阱有 9 份各自手写的实现（见第 8 节表格"焦点陷阱"列）；菜单的方向键、关闭后焦点回到哪里各写各的（第 9 节）；z-index 原有 31 个不同的值，第 1 步已统一到 13 层刻度，由 `test:layers` 守着（`tokens.md` 第 9 节）。
+还**没有**统一的（这正是 D28 迁移要解决的）：焦点陷阱原有 9 份各自手写的实现，第 3 步之后迁过去的对话框共用 `ModalDialog`（Radix），只剩交接窗和 App 的详情窗格（设置窗等）两份自写（见第 8 节表格"焦点陷阱"列）；菜单的方向键、关闭后焦点回到哪里各写各的（第 9 节）；z-index 原有 31 个不同的值，第 1 步已统一到 13 层刻度，由 `test:layers` 守着（`tokens.md` 第 9 节）。
 
 ---
 
@@ -257,28 +258,30 @@
 
 ## 8. 对话框
 
-协调者给的数是 12。按实现逐个数，实际有 16 个，分两类机制：自己写的遮罩 + 焦点陷阱（12 个），以及原生 `<dialog>.showModal()`（4 个，进浏览器顶层，不受 z-index 管，见 `tokens.md` Z7）。
+协调者给的数是 12。按实现逐个数，实际有 16 个。**第 3 步之后**分三类机制：`ModalDialog` / `ConfirmDialog`（`ui/src/overlays/ModalDialog.tsx`，Radix `Dialog` / `AlertDialog`，懒加载块，9 个）；仍自己写遮罩和焦点陷阱的（交接窗、放大的电脑、App 详情窗格，3 个）；原生 `<dialog>.showModal()`（灯箱和文件预览，2 个，进浏览器顶层）；另有两个非模态的（终端内确认、权限提示）。
+
+`ModalDialog` 的共同契约：`aria-modal="true"`、`data-tofi-modal`；Tab / Shift+Tab 不出框；Esc 只关最上面一层（Radix 的层栈；新对话框首帧里的 Esc 被丢掉，不会关到下面那层），并 `preventDefault`，App 自己的 Esc 处理都看 `defaultPrevented`，所以不会连带关掉面板或设置窗；关闭后焦点回到打开它的元素（只在焦点随对话框丢失时）；其余页面 `aria-hidden`（`aria-live` 区域和它们的祖先除外）；Radix 关掉 `<body>` 的指针事件，工作区 toast 例外（可点，点它不关对话框）。`test:dialogs` 守着。
 
 | # | 对话框 | 文件 | 模态 | Escape | 点遮罩关 | 焦点陷阱 | 关后焦点回去 | 层级 |
 |---|---|---|---|---|---|---|---|---|
-| 1 | 删除 Bot/群确认 | `ui/src/DeleteConversationDialog.tsx`（用 `DialogShell`） | 是，`alertdialog` | 是（忙时不关） | 是（忙时不关） | `DialogShell` 只收 `button`、`select` | 是 | `--z-dialog`（1000） |
-| 2 | 隐藏主助理时选接任者 | `ui/src/PrimaryAssistant.tsx:97`（`DialogShell`） | 是 | 是 | 是 | 同上 | 是 | `--z-dialog`（1000） |
-| 3 | 管理员表单 sheet、已记住的审批 | `ui/src/AdminSheets.tsx:8-36`，`ui/src/RememberedApprovals.tsx:59` | 是 | 是（`locked` 时不关） | 是（`locked` 时不关） | 自写 | 是 | `--z-dialog` + 1（210） |
-| 4 | 技能访问 sheet | `ui/src/settings/SkillAccess.tsx:50-83` | 是 | 是 | 是（忙时不关） | 自写 | 是 | `--z-dialog` + 1（210） |
-| 5 | 接管屏幕（handover） | `ui/src/TakeoverDialog.tsx:48-69` | 是 | **否**（按键要给远程电脑） | 否 | 自写 | 是 | `--z-dialog`（200） |
-| 6 | VM 里授权（MCP OAuth） | `ui/src/VMOAuthDialog.tsx:82-108` | 是 | **否**（同上，`:86`） | 否 | 自写 | 是 | `--z-dialog`（200） |
-| 7 | 相关对话只读窗（窄屏/桌面客户端时是模态） | `ui/src/ViewOnlyChat.tsx:44-79` | 宽屏网页是卡片，否则模态 | 是 | — | 自写（卡片形态不陷） | 是 | `--z-dialog`（110）；卡片 `--z-panel`（40） |
-| 8 | 首次引导 | `ui/src/Onboarding.tsx:67-82` | 是 | 否（文件内只有 Tab 陷阱，没有 Escape 处理，`:69-76`） | 否（`.onb-scrim` 没有点击处理，`:81`） | 自写 | 文件内没有回焦逻辑（打开时聚焦 `[data-autofocus]`，`:67`） | `--z-dialog`（1200） |
-| 9 | 放大的电脑窗 / 窄屏全屏电脑 | `ui/src/FloatingDesktop.tsx:45-102`，`:135` | 放大时是 | 是：大→小，只有全屏形态直接关（`:45`） | 网页端大窗点遮罩变回小窗（`BotDesktopPanel.tsx:822`）；全屏形态无遮罩 | 自写 | 是 | 小窗 `--z-pill`（25）；放大 `--z-dialog`（40，内部 35） |
-| 10 | 详情窗格当模态（设置总是；其他面板在窄屏） | `ui/src/App.tsx:658`（`modalPanelOpen`）、`:1116-1158`（陷阱）、`:2596` | 是 | 是（设置走 `tofi-settings-close` 经离开确认；电脑放大或面板忙时不关，`:1118-1128`） | 是（`.detail-backdrop`，`:2595`） | 自写 | 是（`:1101-1107`） | 设置 `--z-dialog`（30），其他 `--z-panel`（10），遮罩 `--z-panel` − 1（9） |
+| 1 | 删除 Bot/群确认 | `ui/src/DeleteConversationDialog.tsx`（用 `DialogShell`） | 是，`alertdialog`（Radix `Dialog`，不是 `AlertDialog`：要保留点遮罩关闭） | 是（忙时不关） | 是（忙时不关） | `ModalDialog` | 是，回到打开它的控件（App 在工作区变 `inert` 之前记下，`rememberDialogOpener`；以前这里还不回去） | `--z-dialog` |
+| 2 | 隐藏主助理时选接任者 | `ui/src/ReassignPrimaryDialog.tsx:28`（`DialogShell`，第 3 步起懒加载） | 是 | 是 | 是 | `ModalDialog` | 同上 | `--z-dialog` |
+| 3 | 管理员表单 sheet、已记住的审批 | `ui/src/AdminSheets.tsx:12`，`ui/src/RememberedApprovals.tsx:59` | 是 | 是（`locked` 时不关） | 是（`locked` 时不关） | `ModalDialog`；打开时焦点在 sheet 本身 | 是 | `--z-dialog` + 1 |
+| 4 | 技能访问 sheet | `ui/src/settings/SkillAccess.tsx:65` | 是 | 是（保存中也关） | 是（忙时不关） | `ModalDialog` | 是 | `--z-dialog` + 1 |
+| 5 | 接管屏幕（handover） | `ui/src/TakeoverDialog.tsx:48-69` | 是 | **否**（按键要给远程电脑） | 否 | 自写（第 3 步没迁，风险 ③） | 是 | `--z-dialog` |
+| 6 | VM 里授权（MCP OAuth） | `ui/src/VMOAuthDialog.tsx:93` | 是 | **否**（按键给远程电脑；Esc 和 Tab 在远程键盘里直接转发，`RemoteDesktopControl` 自己停止冒泡） | 否 | `ModalDialog` | 是 | `--z-dialog` |
+| 7 | 相关对话只读窗（窄屏/桌面客户端时是模态） | `ui/src/ViewOnlyChat.tsx:59` | 宽屏网页是卡片（`ViewOnlyCard`，非模态），否则模态（`ModalDialog`） | 是 | — | 模态时 `ModalDialog`（卡片形态不陷） | 是（`returnFocus`） | `--z-dialog`；卡片 `--z-panel` |
+| 8 | 首次引导 | `ui/src/Onboarding.tsx:75` | 是（第 3 步起 portal 到 `#tofi-layers`） | 否 | 否 | `ModalDialog`；每一步聚焦 `[data-autofocus]` | 打开前的焦点（若还在） | `--z-dialog` |
+| 9 | 放大的电脑窗 / 窄屏全屏电脑 | `ui/src/FloatingDesktop.tsx:45-102`，`:135` | 放大时是 | 是：大→小，只有全屏形态直接关（`:45`） | 网页端大窗点遮罩变回小窗（`BotDesktopPanel.tsx:822`）；全屏形态无遮罩 | 自写 | 是 | 小窗 `--z-pill`；放大 `--z-dialog` |
+| 10 | 详情窗格当模态（设置总是；其他面板在窄屏） | `ui/src/App.tsx`（`modalPanelOpen`、详情窗格的 Tab/Esc 圈定，有 `[data-tofi-modal]` 时让开） | 是 | 是（设置走 `tofi-settings-close` 经离开确认；电脑放大或面板忙时不关） | 是（`.detail-backdrop`） | 自写 | 是 | 设置 `--z-dialog`，其他 `--z-panel`，遮罩 `--z-panel` − 1 |
 | 11 | 终端：关闭 / 中断确认（两个） | `ui/src/TerminalPanel.tsx:44-50` | `alertdialog` | 是 | 否 | 无 | 待确认 | 2（终端内） |
-| 12 | 权限提示（仅桌面客户端，听写要麦克风时） | `ui/src/PermissionCoach.tsx:37`、`:95`；`App.tsx:3538` | **非模态** `role="dialog"` | **否** | — | 无 | 无 | `--z-toast`（160），但在输入框或设置窗里，被它们封顶 |
-| 13 | 图片灯箱 | `ui/src/MessageAttachment.tsx:25`、`:76`、`:85` | 原生 | 原生 `cancel` | 是 | 原生 | 原生 | 顶层 |
-| 14 | 文件预览 | `ui/src/FileViewer.tsx:120-130` | 原生 | 原生 | 是 | 原生 | 原生 | 顶层 |
-| 15 | 设置：离开前保存确认 | `ui/src/SettingsShell.tsx:101`、`:153` | 原生 | 是（保存中不关） | 否（`<dialog>` 本身没有点击处理，`:153`） | 原生 | 原生 | 顶层 |
-| 16 | 电脑重启确认 | `ui/src/ComputerResources.tsx:16-20` | 原生 | 是 | 否（`<dialog>` 本身没有点击处理，`:17`） | 原生 | 原生 | 顶层 |
+| 12 | 权限提示（仅桌面客户端，听写要麦克风时） | `ui/src/PermissionCoach.tsx:37`、`:95`；`App.tsx:3538` | **非模态** `role="dialog"` | **否** | — | 无 | 无 | `--z-toast`，但在输入框或设置窗里，被它们封顶 |
+| 13 | 图片灯箱 | `ui/src/MessageAttachment.tsx:25`、`:76`、`:85` | 原生 | 原生 `cancel` | 是 | 原生 | 原生 | 顶层（开着时提示和 toast 渲染进它里面） |
+| 14 | 文件预览 | `ui/src/FileViewer.tsx:120-130` | 原生 | 原生 | 是 | 原生 | 原生 | 顶层（同上） |
+| 15 | 设置：离开前保存确认 | `ui/src/SettingsShell.tsx:153` | `ConfirmDialog`（Radix `AlertDialog`，`alertdialog`；原来是原生） | 是（保存中不关） | 否 | `ConfirmDialog`；焦点在"继续编辑" | 是 | `--z-dialog`（原来顶层） |
+| 16 | 电脑重启确认 | `ui/src/ComputerResources.tsx:17` | `ConfirmDialog`（原来是原生） | 是 | 否 | `ConfirmDialog`；焦点在"取消" | 是 | `--z-dialog`（原来顶层） |
 
-同一层（`--z-dialog`）的模态按 DOM 顺序叠：portal 到 `#tofi-layers` 的对话框在设置窗和引导（都在 `#root` 里）之上，它们之间后打开的在上；迁移前按数字大小排（`migration.md` 第 1 步 L4）。
+同一层（`--z-dialog`）的模态按 DOM 顺序叠：portal 到 `#tofi-layers` 的对话框在设置窗（`#root` 里）之上，它们之间（第 3 步起也包括引导）后打开的在上；迁移前按数字大小排（`migration.md` 第 1 步 L4、第 3 步 S1）。
 
 另有一种"就地确认"：`ConfirmAction`（`ui/src/InteractionSystem.tsx`，危险操作在原位变成"确定？/取消"，焦点进取消，Escape 退回）。设置里的危险操作用它，不弹窗。
 
@@ -288,18 +291,18 @@
 
 **触屏**：sheet 在窄屏全屏；`DialogShell` 卡片 `max-height: calc(100dvh - 48px)` 内部滚动（`interaction-system.css:44`）。
 
-**测试**：`test:primary-followups`（删除/接任对话框）、`test:handover-cards`（接管）、`test:mcp-oauth`、`test:onboarding`、`test:file-preview`、`test:settings-shell`、`test:computer-window`。
+**测试**：`test:dialogs`（`ModalDialog` 的契约，见上）、`test:primary-followups`（删除/接任对话框）、`test:handover-cards`（接管）、`test:mcp-oauth`、`test:onboarding`、`test:file-preview`、`test:settings-shell`、`test:computer-window`。
 
 **已知问题**
 
 | # | 严重度 | 问题 | 证据 | 原则 |
 |---|---|---|---|---|
-| C12 | 中 | 9 份手写焦点陷阱，规则各不一样：`DialogShell` 只收 `button`、`select`（以后加输入框或链接就漏掉）；`TakeoverDialog` 只收 `button`、`textarea`；App 详情窗格的版本最完整（过滤隐藏元素） | `DialogShell.tsx:7-11`，`TakeoverDialog.tsx:54`，`App.tsx:1116-1150` | P8 |
-| C13 | 中 | `DialogShell` 的 Escape 和 Tab 处理挂在遮罩的 `onKeyDown` 上：点一下卡片上的空白处，焦点落到 `body`，之后 Escape 和 Tab 都不再经过它 | `DialogShell.tsx:5-6` | P8 |
-| C14 | 中 | 接任者对话框（#2）打开时工作区没设 `inert`：`inert` 条件只看 `deleteTarget` 和只读窗，不含 `hidePrimaryTarget`。读屏的虚拟光标能走到背景 | `App.tsx:2441`，对照 `:2611` | P8 |
+| C12 | 中 | **第 3 步已修**（迁过去的 9 个共用 `ModalDialog`；交接窗和详情窗格仍自写）：9 份手写焦点陷阱，规则各不一样：`DialogShell` 只收 `button`、`select`（以后加输入框或链接就漏掉）；`TakeoverDialog` 只收 `button`、`textarea`；App 详情窗格的版本最完整（过滤隐藏元素） | `DialogShell.tsx:7-11`，`TakeoverDialog.tsx:54`，`App.tsx:1116-1150` | P8 |
+| C13 | 中 | **第 3 步已修**（Radix 在 document 上处理 Esc；`test:dialogs` 点卡片空白后再按 Esc）：`DialogShell` 的 Escape 和 Tab 处理挂在遮罩的 `onKeyDown` 上：点一下卡片上的空白处，焦点落到 `body`，之后 Escape 和 Tab 都不再经过它 | `DialogShell.tsx:5-6` | P8 |
+| C14 | 中 | **第 3 步已修**（工作区 `inert`，背景 `aria-hidden`）：接任者对话框（#2）打开时工作区没设 `inert`：`inert` 条件只看 `deleteTarget` 和只读窗，不含 `hidePrimaryTarget`。读屏的虚拟光标能走到背景 | `App.tsx:2441`，对照 `:2611` | P8 |
 | C15 | 中 | 权限提示（#12）固定在右下角 `right:24px; bottom:24px`，宽到 420 px，盖住发送按钮所在的角；没有 Escape。更正：它渲染在输入框里（`App.tsx` 的 `Composer`），被输入框的 `isolation:isolate` 封顶，所以并不盖住"新消息"胶囊（胶囊 `--z-pill` 高于输入框 `--z-chrome`，迁移前 6 也高于 4） | `ui/src/permission-coach.css:1`，`PermissionCoach.tsx:95` | P2 |
 | C16 | 中 | **第 1 步已修**：设置窗是带遮罩的模态，层级却只有 30，启动画面、toast、身份卡、右键菜单都会浮在它上面。现在是 `--z-dialog`，只有 toast、提示和拖动层在它上面 | `tokens.md` Z5，`settings-system.css:2` | P2 |
-| C17 | 低 | 三套模态机制（自写、原生 `<dialog>`、`ConfirmAction`），Escape 是否关闭、点遮罩是否关闭没有统一规则（见上表"待确认"格） | 本节表格 | P6 |
+| C17 | 低 | 第 3 步后：Esc / 点遮罩的规则写在 `ModalDialog` 的 `closeOnEscape`、`closeOnOutside`、`locked` 里，每个对话框显式选择（见上表）。原生 `<dialog>` 只剩灯箱和文件预览。原问题：三套模态机制（自写、原生 `<dialog>`、`ConfirmAction`），Escape 是否关闭、点遮罩是否关闭没有统一规则（见上表"待确认"格） | 本节表格 | P6 |
 
 ---
 
@@ -355,7 +358,7 @@
 | # | 严重度 | 问题 | 证据 | 原则 |
 |---|---|---|---|---|
 | C22 | 中 | 提示是强调色底（`--accent`），在一套"控件要低调"的界面里是最显眼的东西 | `interaction-system.css:93` | P1（是否改为中性色：待 owner 定） |
-| C23 | 中 | 层级 1000 低于引导遮罩 1200，也到不了原生 `<dialog>` 顶层；目前那些地方没有 `data-hint`，暂无故障。**前一半第 1 步已修**：`--z-tooltip` 在所有模态之上；原生 `<dialog>` 那一半等第 3 步 | `tokens.md` Z7 | P2 |
+| C23 | 中 | 层级 1000 低于引导遮罩 1200，也到不了原生 `<dialog>` 顶层；目前那些地方没有 `data-hint`，暂无故障。**前一半第 1 步已修**：`--z-tooltip` 在所有模态之上；**原生 `<dialog>` 那一半第 3 步已修**：两个确认框改成 Radix，剩下的灯箱和文件预览开着时提示渲染进 dialog 里面 | `tokens.md` Z7 | P2 |
 | C24 | 低 | 两套提示 + 原生 title 三种机制，样式和延迟各不一样 | 本节 | P6 |
 
 ---
@@ -689,15 +692,15 @@
 | C7 | 中 | 输入框 | 快捷键只认 ⌘，Windows/Linux 不可用 | P5 |
 | C8 | 中 | @菜单 | 读屏听不到选中项 | P8 |
 | C9 | 中 | 输入框上的猫 | 可能压住最后一条消息（待实测） | P2 |
-| C12 | 中 | 对话框 | 9 份焦点陷阱规则不一 | P8 |
-| C13 | 中 | `DialogShell` | 焦点落到 body 后 Escape 失效 | P8 |
-| C14 | 中 | 接任者对话框 | 背景没 `inert` | P8 |
+| C12 | 中 | 对话框 | 9 份焦点陷阱规则不一（**第 3 步已修**） | P8 |
+| C13 | 中 | `DialogShell` | 焦点落到 body 后 Escape 失效（**第 3 步已修**） | P8 |
+| C14 | 中 | 接任者对话框 | 背景没 `inert`（**第 3 步已修**） | P8 |
 | C15 | 中 | 权限提示 | 盖住发送按钮（不盖胶囊，已更正） | P2 |
 | C16 | 中 | 设置窗 | 模态层级 30，被很多东西盖（**第 1 步已修**） | P2 |
 | C18 | 中 | 菜单 | 四个菜单四种键盘行为 | P8 |
 | C19 | 中 | 右键菜单 | http 下"复制 ID"静默失败 | P3 |
 | C22 | 中 | 悬停提示 | 强调色底，与"控件低调"冲突（待 owner 定） | P1 |
-| C23 | 中 | 悬停提示 | 到不了原生 dialog 之上（引导那一半第 1 步已修） | P2 |
+| C23 | 中 | 悬停提示 | 到不了原生 dialog 之上（引导那一半第 1 步已修，原生 dialog 那一半第 3 步已修） | P2 |
 | C26 | 中 | 身份卡 | 层级低于只读窗和右键菜单（第 1 步后是刻度的有意顺序，待 owner 预览后定是否关闭） | P2 |
 | C29 | 中 | `Segmented` | radio 语义的键盘行为待确认 | P8 |
 | C31 | 中 | toast | 被模态盖住（**第 1 步已修**） | P3 |
@@ -711,7 +714,7 @@
 
 1. C5：已读不再用强调色是不是有意的。
 2. C9：390 px 宽时猫是否盖住靠右的用户气泡（在 `npm run dev:remote` 预览里实测）。
-3. 第 8 节表格里终端确认（#11）关后焦点回到哪里；引导（#8）关掉后焦点是否由别处接回（`Onboarding.tsx` 内没有回焦逻辑）。
+3. 第 8 节表格里终端确认（#11）关后焦点回到哪里。（引导 #8 第 3 步起由 `ModalDialog` 还给打开前的焦点元素；新账户多半是 `<body>`。）
 4. C22：悬停提示是否改成中性色，要 owner 定。
 5. C28：连接卡弹窗被手动关掉后轮询是否停止。
 6. C29：`Segmented` 的方向键。

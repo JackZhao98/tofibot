@@ -101,7 +101,7 @@
 | C5 | 定义了但从未使用（26 个）：`--accent-decide-text --desktop-controls-grip --field-inset-shadow --file-pdf --file-xlsx --lagoon-text-light --mail-muted --mail-note --mail-note-ink --mail-note-muted --mail-note-shadow --mail-rule --pink-text --settings-rail --sidebar-collapsed --space-1 --space-5 --status-done-text --status-unread --status-unread-text --status-wait --status-working --status-working-text --surface-raised --type-hero --yellow-text` | 扫描结果（`var(--x)` 在产品 CSS/TS 中出现 0 次） | 先决定语义层（1.3）要不要真正启用；不启用就删 |
 | C6 | `--file-xlsx`/`--file-pdf` 有令牌却没人用，`file-preview.css:4-5` 用同值字面色，另外 8 个文件类型色只有字面值 | `design-tokens.css:20`，`file-preview.css:2-12` | 建一组 `--file-*`（10 个），`file-preview.css` 全改 `var()` |
 | C7 | 引用了不存在的变量：`--hard-ink`（`mail-send-flight.css:2,6`，无回退。它只定义在 motion-lab 页 `motion-lab/motion-lab.css:4-5`）；`--amber`（`extensions-system.css:131`，有回退）；`--panel`（`work-panel.css:296`，有回退）；`--gate-clear`（`desktop-system.css:27`，有回退，可能由桌面客户端注入，待确认） | 扫描 | `--hard-ink` 未定义会让整条 `filter: drop-shadow(...)` 在计算时失效，寄信动画的硬阴影因此不显示（推断，待在预览确认）；改用 `--line`/`--hard` 的颜色。`--amber` 改 `--honey` |
-| C8 | 遮罩层（scrim）有 8 种写法，深色模式下用 `--ink` 的那几种会变成**奶白色**蒙层（深色 `--ink` 是 `#f3eadb`） | `--ink` 16%（`styles.css:318`）、19%（`settings-system.css:58`）、22%（`interaction-system.css:99`）、24%（`interaction-system.css:43`）、30%（`desktop-presence.css:106`）、48%（`settings-system.css:70`）；`--bg` 48%（`web-file-drop.css:3`）、58%（`terminal.css:11`、`computer-resources.css:5`）、62%（`onboarding.css:6`）、82%（`message-attachment.css:131`）；`--desktop-controls-solid` 50%（`handover.css:1`、`extensions-system.css:101`、`settings/settings-components.css:144`）；`--lightbox-scrim`（`message-attachment.css:149`、`file-preview.css:16`） | 定两个：`--scrim`（模态，统一一个颜色和不透明度，两种主题都偏暗）和 `--scrim-soft`（拖放、页面内确认这类"页面变浅"的）。需要 owner 在预览里看深色效果 |
+| C8 | 遮罩层（scrim）有 8 种写法，深色模式下用 `--ink` 的那几种会变成**奶白色**蒙层（深色 `--ink` 是 `#f3eadb`） | `--ink` 16%（`styles.css:318`）、19%（`settings-system.css:58`）、22%（`interaction-system.css:99`）、24%（`interaction-system.css:43`）、30%（`desktop-presence.css:106`）、48%（`settings-system.css:70`）；`--bg` 48%（`web-file-drop.css:3`）、58%（`terminal.css:11`、`computer-resources.css:7`）、62%（`onboarding.css:6`）、82%（`message-attachment.css:131`）；`--desktop-controls-solid` 50%（`handover.css:1`、`extensions-system.css:101`、`settings/settings-components.css:144`）；`--lightbox-scrim`（`message-attachment.css:149`、`file-preview.css:16`） | 定两个：`--scrim`（模态，统一一个颜色和不透明度，两种主题都偏暗）和 `--scrim-soft`（拖放、页面内确认这类"页面变浅"的）。需要 owner 在预览里看深色效果 |
 | C9 | 深色模式下主按钮悬停时硬阴影从黑变奶白：静止用 `--hard-sm`（深色是 `#000`），悬停写死 `3px 4px 0 var(--line)`（深色 `--line` 是 `#f1e6d6`） | `design-tokens.css:111`；`v2-foundations.css:32,45,159` | 悬停改用新令牌 `--hard-hover`（深色同为 `#000`）。是否刻意，待 owner 确认 |
 | C10 | 浅色 `--hard` 写死 `#2a2019` 而不是 `var(--line)` | `design-tokens.css:34` | 改为引用，避免改墨色时漏改 |
 
@@ -326,11 +326,11 @@
 
 ## 9. z-index：层级刻度与每一处的归层
 
-> 状态：**已落地**（迁移第 1 步，分支 `ds/step1-layers`；owner 的回答见 [D31](../decisions/0031-entry-budget-plan-a.md)–[D34](../decisions/0034-component-catalog-dev-only.md)）。本节的 `file:line` 按该分支的提交写；"迁移前"一列是 `748c774` 的值。守卫：`npm --prefix ui run test:layers`（`ui/scripts/test-layers.mjs`）。
+> 状态：**已落地**（迁移第 1 步，分支 `ds/step1-layers`；owner 的回答见 [D31](../decisions/0031-entry-budget-plan-a.md)–[D34](../decisions/0034-component-catalog-dev-only.md)）。本节的 `file:line` 按该分支的提交写（第 3 步改过的几行按分支 `ds/step3-dialogs`）；"迁移前"一列是 `748c774` 的值。守卫：`npm --prefix ui run test:layers`（`ui/scripts/test-layers.mjs`）。
 
 ### 9.1 现状
 
-产品 CSS 中 `z-index` 共 **89 处**：**46 处是全局层**，写成 `var(--z-*)` 或 `calc(var(--z-*) ± 1)`；**43 处是组件内部的局部值**（-1 到 12 的小整数）。TS 里只剩 1 处：发送飞行的行内样式写 `"var(--z-drag)"`（`ui/src/sendFlight.ts:20`）。motion-lab 页面另有 35 处，不在本表。
+产品 CSS 中 `z-index` 共 **91 处**（第 3 步加了两个确认框的遮罩）：**48 处是全局层**，写成 `var(--z-*)` 或 `calc(var(--z-*) ± 1)`；**43 处是组件内部的局部值**（-1 到 12 的小整数）。TS 里只剩 1 处：发送飞行的行内样式写 `"var(--z-drag)"`（`ui/src/sendFlight.ts:20`）。motion-lab 页面另有 35 处，不在本表。
 
 迁移前（`748c774`）是 89 处 CSS、3 处 TS，31 个不同的值（-1 到 1200，TS 里还有 2147483000）。
 
@@ -338,7 +338,7 @@
 
 所有弹层都 portal 到同一个根节点：`ui/index.html` 里 `#root` 后面的 `<div id="tofi-layers">`，由 `ui/src/layers.ts` 的 `layerRoot()` 取得（页面里没有就创建）。它是一个普通的 `div`，**不是层叠上下文**，所以里面每个弹层的 `--z-*` 和 `#root` 里的启动画面、顶栏、引导在同一个根层叠上下文里比大小。`createPortal(..., document.body)` 和往 `document.body` 里追加弹层元素都被 `test:layers` 拦下（追加离屏测量镜像、剪贴板降级输入框、下载链接这三处不是弹层，列在白名单里）。
 
-还有一类**不受 z-index 管**的：原生 `<dialog>` 的 `showModal()` 进入浏览器顶层（top layer），盖在所有 z-index 之上。目前有 4 个：图片灯箱（`MessageAttachment.tsx:25,76`）、文件预览（`FileViewer.tsx:124`）、设置离开确认（`SettingsShell.tsx:101`）、电脑重启确认（`ComputerResources.tsx:16`）。
+还有一类**不受 z-index 管**的：原生 `<dialog>` 的 `showModal()` 进入浏览器顶层（top layer），盖在所有 z-index 之上。第 3 步之后剩 2 个：图片灯箱（`MessageAttachment.tsx:25,76`）、文件预览（`FileViewer.tsx:124`）。设置离开确认和电脑重启确认改成了 Radix `AlertDialog`（portal 到 `#tofi-layers`，`--z-dialog`）。原生 dialog 开着时，悬停提示和工作区 toast 渲染进最上层的那个 dialog 里面（`layers.ts` 的 `topLayerDialog()`、`InTopLayer`），所以仍在最上面。
 
 ### 9.2 层级问题
 
@@ -350,7 +350,7 @@
 | Z4 | 为了让顶栏菜单盖过浮卡，顶栏在 ≥1100px 被抬高：菜单没有走 portal，层级只能靠抬父级 | 第 1 步保留这个抬高，写成 `calc(var(--z-panel) + 1)`（`context-card.css:49`），第 2 步菜单走 portal 后改回 `--z-chrome` |
 | Z5 | 设置窗（模态、带遮罩）只有 30，低于启动画面 60、toast 80、身份卡 90、右键菜单 120、权限提示 160 | **第 1 步已修**：设置窗是 `--z-dialog`（`settings-system.css:2`）。权限提示只出现在两处，都在别人的层叠上下文里：设置的电脑页（`ComputerPanel.tsx`，被设置窗包住）和输入框里（`App.tsx` 的 `Composer`，桌面客户端听写要麦克风时，被输入框的 `isolation:isolate` 包住） |
 | Z6 | 魔法数字：发送飞行 2147483000；寄信飞行层在 CSS 和 TS 各写一次 120 | **第 1 步已修**：都是 `--z-drag`；寄信飞行的 TS 行内 z-index 删掉，信封翻盖改成加 `.is-front` 类（`mail-send-flight.css:15`） |
-| Z7 | 原生 dialog 在顶层，提示和 toast 永远到不了它上面。目前这 4 个 dialog 里没有 `data-hint` 按钮，暂无可见故障 | 未修，放第 3 步 |
+| Z7 | 原生 dialog 在顶层，提示和 toast 永远到不了它上面。目前这 4 个 dialog 里没有 `data-hint` 按钮，暂无可见故障 | **第 3 步已修**：两个确认框改成 Radix（`--z-dialog`，toast、提示、拖动层在它们之上）；剩下的灯箱和文件预览开着时，提示和 toast 渲染进 dialog 内部（`test:dialogs` 守着） |
 
 ### 9.3 层级刻度
 
@@ -367,18 +367,18 @@
 | `--z-popover` | 50 | 锚定在某元素上的弹出内容：身份卡、成员面板、@菜单 | — |
 | `--z-menu` | 60 | 菜单：更多、新建、右键、账户、表情反应、MCP、附件 | — |
 | `--z-cover` | 70 | 盖住整个应用但不拦模态的：启动画面 | 盖住 chrome、面板和菜单，模态（引导、设置窗）在它之上 |
-| `--z-dialog` | 80 | 模态（遮罩 + 内容）：设置窗、全屏只读会话、删除确认、交接、VM 授权、表单 sheet（`+ 1`）、引导、放大的电脑 | 同层多个模态按 DOM 顺序叠：`#tofi-layers` 在 `#root` 后面，所以 portal 出去的对话框在设置窗、引导之上；portal 出去的几个之间，后打开的在上 |
+| `--z-dialog` | 80 | 模态（遮罩 + 内容）：设置窗、全屏只读会话、删除确认、交接、VM 授权、表单 sheet（`+ 1`）、引导、离开确认、重启确认、放大的电脑 | 同层多个模态按 DOM 顺序叠：`#tofi-layers` 在 `#root` 后面，所以 portal 出去的对话框在设置窗之上；portal 出去的几个之间（第 3 步起也包括引导），后打开的在上 |
 | `--z-toast` | 90 | toast、权限提示（右下角非阻塞通知） | 解决 Z1：出错提示永远在模态之上 |
 | `--z-tooltip` | 100 | 悬停提示、发送回执提示 | 提示要在 toast 和模态之上才有用 |
 | `--z-drag` | 110 | 拖动残影、拖放整屏遮罩、发送/寄信飞行动画 | 跟随指针或纯动画、`pointer-events:none`，必须在一切之上 |
 
-原生 `<dialog>`（顶层）不在刻度里。迁移到 Radix Dialog 后它们会变成 portal + `--z-dialog`，Z7 随之消失；在那之前，需要在原生 dialog 里显示的提示或 toast 必须渲染在 dialog 内部。
+原生 `<dialog>`（顶层）不在刻度里。第 3 步把两个确认框迁到 Radix（portal + `--z-dialog`）；剩下的灯箱和文件预览（各自有专门的缩放和焦点处理，没迁）开着时，提示和 toast 渲染在 dialog 内部（Z7）。
 
 ### 9.4 每一处 z-index 的归层
 
 "局部"表示留在组件自己的层叠上下文里，不映射到全局层。`test:layers` 在 1280、1000、390 px 下检查：除了手机推入那一对，没有任何局部值落在根层叠上下文里。
 
-**全局 / 视口级**（46 处 CSS + 1 处 TS）
+**全局 / 视口级**（48 处 CSS + 1 处 TS）
 
 | 位置 | 选择器 | 迁移前 | 定位 | 现在 |
 |---|---|---|---|---|
@@ -419,7 +419,9 @@
 | `extensions-system.css:101` | `.mcp-oauth-overlay` | 200 | fixed，portal | `--z-dialog` |
 | `settings/settings-components.css:144` | `.sheet-overlay`（设置里的表单） | 210 | fixed，portal | `calc(var(--z-dialog) + 1)` |
 | `interaction-system.css:43` | `.delete-dialog-overlay`（删除确认、重新指派主助理） | 1000 | fixed，portal | `--z-dialog` |
-| `onboarding.css:5` | `.onb-scrim` | 1200 | fixed | `--z-dialog` |
+| `onboarding.css:5` | `.onb-scrim` | 1200 | fixed（第 3 步起 portal 到 `#tofi-layers`） | `--z-dialog` |
+| `settings-system.css:70` | `.settings-leave-overlay`（离开前保存确认，第 3 步新增；原来是原生 dialog 的 `::backdrop`） | 顶层 | fixed，portal | `--z-dialog` |
+| `computer-resources.css:7` | `.resource-restart-overlay`（电脑重启确认，同上） | 顶层 | fixed，portal | `--z-dialog` |
 | `styles.css:448` | `.workspace-toast` | 80 | fixed | `--z-toast` |
 | `permission-coach.css:1` | `.permission-coach` | 160 | fixed（在设置窗或输入框里，见 Z5） | `--z-toast` |
 | `send-receipt.css:10` | `.send-receipt-tip` | 5 | absolute（消息行内） | `--z-tooltip`（第 2 步改走 `data-hint` 委托、进 portal） |
@@ -478,7 +480,7 @@
 | `mail-send-flight.css:20` | `.mail-flight-envelope-postmark` | 6 | 寄信动画 |
 | `mail-send-flight.css:22` | `.mail-flight-envelope-address` | 5 | 寄信动画 |
 
-合计：CSS 89 处（全局 46 + 局部 43）、TS 1 处（全局），全部已归层。
+合计：CSS 91 处（全局 48 + 局部 43）、TS 1 处（全局），全部已归层。
 
 电脑预览内部的值（最高 12）可以压到 0–3，但这一块正在频繁改动（D11），建议排在后面单独做；寄信动画的信封有 8 层，压到 -1..3 要改结构。两处都在 `layers-baseline.json` 的上限里。
 
@@ -489,7 +491,7 @@
 `npm --prefix ui run test:layers`（`ui/scripts/test-layers.mjs`，浏览器部分要 `PLAYWRIGHT_MODULE`，没设时直接报错退出，不会 SKIP）：
 
 1. **静态**：`design-tokens.css` 里 13 个 `--z-*` 各定义一次、值与 9.3 一致，`layers.ts` 的 `Z` 与之相同；产品 CSS 的 `z-index` 只能是 `var(--z-*)`、`calc(var(--z-*) ± 1)` 或 -1..3（更大的旧局部值按文件不超过 `layers-baseline.json`，只降不升，`-- --update-baseline` 收紧）；TS/TSX 里不许写数字 z-index；`index.html` 在 `#root` 后面有 `#tofi-layers`；没有 `createPortal(..., document.body)`，往 `document.body` 追加元素只允许白名单里的三处非弹层。
-2. **浏览器**（Chromium、生产构建、合成数据）：`#tofi-layers` 紧跟 `#root` 且不是层叠上下文；真实的悬停提示 portal 进 `#tofi-layers`，并且在它中心处是最上层（下面垫一个 toast）；把各层的真实类名叠在输入框中心的同一点上，`elementsFromPoint` 的顺序必须是：拖动残影 > 悬停提示 > toast > 表单 sheet > （删除确认 / 设置窗 / 引导）> 启动画面 > 右键菜单 > 身份卡 > 相关对话卡片 > 电脑小窗 > 输入框 > 底部模糊条；1280 / 1000 / 390 px 下（新消息胶囊也在屏幕上时）没有局部值落在根层叠上下文里（手机推入那一对除外）。
+2. **浏览器**（Chromium、生产构建、合成数据）：`#tofi-layers` 紧跟 `#root` 且不是层叠上下文；真实的悬停提示 portal 进 `#tofi-layers`，并且在它中心处是最上层（下面垫一个 toast）；把各层的真实类名叠在输入框中心的同一点上，`elementsFromPoint` 的顺序必须是：拖动残影 > 悬停提示 > toast > 表单 sheet > （删除确认 / 设置窗 / 引导 / 离开确认 / 重启确认）> 启动画面 > 右键菜单 > 身份卡 > 相关对话卡片 > 电脑小窗 > 输入框 > 底部模糊条；1280 / 1000 / 390 px 下（新消息胶囊也在屏幕上时）没有局部值落在根层叠上下文里（手机推入那一对除外）。
 3. 把第 1 步的产品改动撤掉，这个测试会失败（D30）；撤回时的输出见 `migration.md` 第 1 步。
 
 每次改层级还要在预览里看一遍 `migration.md` 第 1 步"owner 预览看哪里"的清单（D22）。
@@ -503,7 +505,7 @@
 ```bash
 # 产品 CSS 文件清单（67 个）
 find ui/src -name '*.css' -not -path '*/motion-lab/*' -not -path '*/acceptance/*' | sort
-# 全部 z-index（第 1 步之后 CSS 89 处 + TS 1 处）
+# 全部 z-index（第 3 步之后 CSS 91 处 + TS 1 处）
 grep -rn 'z-index' ui/src --include='*.css' | grep -v '/motion-lab/'
 grep -rn 'zIndex' ui/src --include='*.ts' --include='*.tsx' | grep -v '/motion-lab/'
 # 某个令牌的使用处，例如 --glass
