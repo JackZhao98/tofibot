@@ -154,7 +154,7 @@ func (s *Server) routeExtensions(w http.ResponseWriter, r *http.Request, p strin
 		return true
 	case strings.HasPrefix(p, "extensions/mcp/") && r.Method == http.MethodDelete:
 		name := strings.TrimPrefix(p, "extensions/mcp/")
-		if e := s.extensions.DeleteMCP(name); e != nil {
+		if e := s.deleteMCPServer(name); e != nil {
 			writeErr(w, 404, "extensions", e.Error())
 		} else {
 			s.writeExtensionSaved(w, http.StatusOK)

@@ -366,6 +366,21 @@ func (m *Manager) MCPCallTier(call MCPCallApproval) (MCPToolTier, bool) {
 	return view.Tier, true
 }
 
+// MCPConfigVersion is the identity fingerprint of a configured server (its
+// name, address, transport and headers), or false when no such server exists.
+// A standing allowance binds to it: any change of what the name dials voids
+// the allowance.
+func (m *Manager) MCPConfigVersion(server string) (string, bool) {
+	m.mcpConfigFence.RLock()
+	defer m.mcpConfigFence.RUnlock()
+	servers, err := loadServers(m.cfg.MCPConfigPath)
+	cfg, ok := servers[server]
+	if err != nil || !ok {
+		return "", false
+	}
+	return metadataFingerprint(server, cfg), true
+}
+
 func (m *Manager) tierBindingCurrent(call MCPCallApproval, cfg MCPServerConfig) bool {
 	if call.TierBinding == "" {
 		return true
