@@ -116,11 +116,17 @@ try {
     }
   }
 
+  const small = index.find(section => section.id === "computer")?.states.find(state => state.id === "small");
+  if (small && (!only || only.includes("computer"))) jobs.push({ section: index.find(section => section.id === "computer"), state: small, width: "desktop", theme: "light", lateChunk: true });
+
   let checkedProbes = 0, checkedKeys = 0;
   async function run(job) {
-    const { section, state, width, theme } = job;
-    const name = `${section.id}/${state?.id ?? "inline"} ${theme} ${WIDTHS[width].width}`;
+    const { section, state, width, theme, lateChunk } = job;
+    const name = `${section.id}/${state?.id ?? "inline"} ${theme} ${WIDTHS[width].width}${lateChunk ? " (lazy chunk arrives late)" : ""}`;
     const page = await context.newPage();
+    // A slow network: the computer window's lazy chunk and its stylesheet land after the window is already open. The window
+    // must already sit in its place (its box rules are eager), not be measured as an unstyled block and keep those numbers.
+    if (lateChunk) await page.route(/BotDesktopPanel|desktop-presence/, async route => { await new Promise(done => setTimeout(done, 1500)); await route.continue(); });
     await page.setViewportSize(WIDTHS[width]);
     const errors = [];
     page.on("pageerror", error => errors.push(error.message));
@@ -136,6 +142,8 @@ try {
       if (state?.probe) {
         // Let entrance animations settle before asking what is on top.
         await page.waitForTimeout(450);
+        // Late chunk: judge the window only once the chunk's content has replaced the skeleton, i.e. its stylesheet has landed.
+        if (lateChunk) await page.waitForFunction(() => document.querySelector(".desktop-floating-shell .computer-detail"), null, { timeout: 15000 });
         // Hit testing follows paint order only for elements that take the pointer. Hints, drop overlays and the like are
         // pointer-events:none by design, so for the check every element takes it: the hit is then whatever paints on top.
         const probe = () => page.evaluate(selector => {
