@@ -17,6 +17,11 @@ import (
 
 const maxDiscoveryBytes = 32 << 10
 
+// maxSchemaPageBytes bounds one search_mcp_tools page below the 24000
+// characters the agent keeps of a tool result in unattended runs. A larger
+// page is cut in the middle there, which silently drops schema fields.
+const maxSchemaPageBytes = 22 << 10
+
 // PrepareDiscoverableForBot exposes bounded discovery without remote I/O at startup.
 func (m *Manager) PrepareDiscoverableForBot(ctx context.Context, botID string) (*Prepared, error) {
 	return m.prepareMode(ctx, botID, true, true, nil, nil, false)
@@ -658,7 +663,7 @@ func lazyDiscoverableMCPTools(runCtx context.Context, m *Manager, servers map[st
 				return "", err
 			}
 			// Reserve room for diagnostics from the rest of this bounded server page.
-			if len(data) > maxDiscoveryBytes-4096 {
+			if len(data) > maxSchemaPageBytes-4096 {
 				out.Tools = out.Tools[:len(out.Tools)-1]
 				out.Truncated = true
 				single := out
@@ -667,7 +672,7 @@ func lazyDiscoverableMCPTools(runCtx context.Context, m *Manager, servers map[st
 				if err != nil {
 					return "", err
 				}
-				if len(singleData) <= maxDiscoveryBytes-4096 {
+				if len(singleData) <= maxSchemaPageBytes-4096 {
 					// This schema fits alone. Resume at it rather than losing it
 					// merely because earlier schemas filled the current page.
 					n := in.ToolOffset + index
@@ -693,10 +698,10 @@ func lazyDiscoverableMCPTools(runCtx context.Context, m *Manager, servers map[st
 	// resolveKnown looks up an exact tool name on the configured server it
 	// names, through the same bounded discovery search uses. Policy filtering
 	// is identical: only names ensure returns for this run become callable.
-	resolveKnown := func(ctx context.Context, toolName string) (runtime.Tool, bool) {
+	resolveKnown := func(ctx context.Context, toolName string) (_ runtime.Tool, _, _ bool) {
 		server := mcpServerForToolName(names, toolName)
 		if server == "" {
-			return runtime.Tool{}, false
+			return runtime.Tool{}, false, false
 		}
 		if rejected, ok := rejectedCached[toolName]; ok && rejected.Server == server {
 			// A stale reference to a tool the current policy denies needs no
@@ -710,26 +715,28 @@ func lazyDiscoverableMCPTools(runCtx context.Context, m *Manager, servers map[st
 				deny[remoteName] = true
 			}
 			if !mcpToolAllowed(allow, deny, nil, rejected.RemoteName) {
-				return runtime.Tool{}, false
+				return runtime.Tool{}, false, false
 			}
 		}
 		found, err := ensure(ctx, server)
 		if err != nil {
-			return runtime.Tool{}, false
+			return runtime.Tool{}, false, false
 		}
 		for _, candidate := range found {
 			if !strings.EqualFold(candidate.Name, toolName) {
 				continue
 			}
+			// Resolving a name does not mean the model has read its schema, so
+			// it is not recorded as seen here. call_mcp_tool shows the schema
+			// first and only then lets the tool run.
 			seenMu.Lock()
 			defer seenMu.Unlock()
 			if existing, ok := seen[candidate.Name]; ok {
-				return existing, true
+				return existing, true, true
 			}
-			seen[candidate.Name] = candidate
-			return candidate, true
+			return candidate, true, false
 		}
-		return runtime.Tool{}, false
+		return runtime.Tool{}, false, false
 	}
 	call := runtime.Tool{Name: "call_mcp_tool", Description: "Invoke an MCP tool by its exact name and input schema. A name returned by search_mcp_tools in this run, a validated schema reference from this Bot conversation, or a known exact tool name (mcp_<server>__<tool>) can be called directly; a known name is resolved on its server without a separate search. Invalid arguments return the current input schema.", Parameters: map[string]any{"type": "object", "properties": map[string]any{"name": map[string]any{"type": "string"}, "arguments": map[string]any{"type": "object"}}, "required": []string{"name", "arguments"}, "additionalProperties": false}}
 	call.Identity = func(raw json.RawMessage) tooloutcome.Identity {
@@ -770,12 +777,24 @@ func lazyDiscoverableMCPTools(runCtx context.Context, m *Manager, servers map[st
 		t, ok := seen[in.Name]
 		seenMu.Unlock()
 		if !ok {
-			t, ok = resolveKnown(ctx, in.Name)
+			var shown bool
+			t, ok, shown = resolveKnown(ctx, in.Name)
 			if err := ctx.Err(); err != nil {
 				return "", err
 			}
-			if ok {
+			if ok && shown {
+				// Same tool under another spelling of its name.
 				in.Name = t.Name
+			} else if ok {
+				in.Name = t.Name
+				// The model has not been shown this schema in this run or in
+				// its recent context. Guessing arguments for a write tool is
+				// how a remote "requires new_str" rejection happens, so the
+				// first call only returns the schema; nothing is executed.
+				seenMu.Lock()
+				seen[t.Name] = t
+				seenMu.Unlock()
+				return "", mcpSchemaRevealOutcome(t).Err()
 			}
 		}
 		if !ok {
@@ -835,7 +854,7 @@ func lazyDiscoverableMCPTools(runCtx context.Context, m *Manager, servers map[st
 		if claimedDispatch {
 			ctx = context.WithValue(ctx, mcpClaimedDispatchKey{}, true)
 		}
-		return m.executeCurrentMCPCall(proposal, func() (string, error) {
+		out, execErr := m.executeCurrentMCPCall(proposal, func() (string, error) {
 			// The configuration fence is already held here. Do not recursively
 			// acquire it while a writer is waiting; only recheck the endpoint.
 			state, err := t.CheckReadiness(ctx)
@@ -847,6 +866,10 @@ func lazyDiscoverableMCPTools(runCtx context.Context, m *Manager, servers map[st
 			}
 			return t.Execute(ctx, in.Arguments)
 		})
+		if execErr != nil {
+			execErr = withMCPReportedSchema(execErr, t.Parameters)
+		}
+		return out, execErr
 	}
 	// ResolveDirectName lets the runtime hand a call made under a concrete run
 	// name (mcp_<server>__<tool>) to call_mcp_tool. It uses the same resolution
@@ -861,7 +884,7 @@ func lazyDiscoverableMCPTools(runCtx context.Context, m *Manager, servers map[st
 		t, ok := seen[name]
 		seenMu.Unlock()
 		if !ok {
-			t, ok = resolveKnown(ctx, name)
+			t, ok, _ = resolveKnown(ctx, name)
 			if !ok || ctx.Err() != nil {
 				return "", false
 			}

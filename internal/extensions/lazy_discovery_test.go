@@ -275,10 +275,13 @@ func TestLazyDiscoveryBrowseAfterKeywordMissRemainsBoundedAndScoped(t *testing.T
 	}
 	// An oversized schema omitted from search pages stays callable by its
 	// exact name; the server's own schema still validates the arguments.
+	if _, err = call.Execute(context.Background(), json.RawMessage(`{"name":"mcp_catalog__entry_00","arguments":{"value":1}}`)); err == nil || !strings.Contains(err.Error(), "Input schema: ") {
+		t.Fatalf("omitted schema was not shown before its first call: %v", err)
+	}
 	if _, err = call.Execute(context.Background(), json.RawMessage(`{"name":"mcp_catalog__entry_00","arguments":{"value":1}}`)); err == nil || !strings.Contains(err.Error(), "Current input schema") {
 		t.Fatalf("omitted schema did not validate arguments: %v", err)
 	}
-	if _, err = call.Execute(context.Background(), json.RawMessage(`{"name":"mcp_catalog__entry_12","arguments":{}}`)); err != nil {
+	if _, err = executeAfterSchema(call, `{"name":"mcp_catalog__entry_12","arguments":{}}`); err != nil {
 		t.Fatal(err)
 	}
 	for _, raw := range []string{`{"query":"*"}`, `{"query":"*","server_offset":1}`, `{"query":"records","tool_offset":-1}`, `{"query":"*","server":"catalog","tool_offset":-1}`, `{"query":"*","server":"catalog","tool_offset":99}`} {
@@ -523,7 +526,7 @@ func TestLazyDiscoverySourceFailureLeavesAlternateCallable(t *testing.T) {
 			if _, err := search.Execute(context.Background(), json.RawMessage(`{"query":"primary"}`)); err != nil {
 				t.Fatal(err)
 			}
-			output, err := call.Execute(context.Background(), json.RawMessage(`{"name":"mcp_fixture__primary","arguments":{}}`))
+			output, err := executeAfterSchema(call, `{"name":"mcp_fixture__primary","arguments":{}}`)
 			if (err != nil) != tc.wantErr || (!tc.wantErr && output != "MCP returned no text content") {
 				t.Fatalf("source evidence changed: %s %v", output, err)
 			}
@@ -535,13 +538,13 @@ func TestLazyDiscoverySourceFailureLeavesAlternateCallable(t *testing.T) {
 			if alternateCalls.Load() != 0 {
 				t.Fatal("source failure invoked the alternate")
 			}
-			if _, err := call.Execute(context.Background(), json.RawMessage(`{"name":"mcp_fixture__alternate","arguments":{}}`)); err != nil || alternateCalls.Load() != 1 {
+			if _, err := executeAfterSchema(call, `{"name":"mcp_fixture__alternate","arguments":{}}`); err != nil || alternateCalls.Load() != 1 {
 				t.Fatalf("explicit exact-name alternate failed: %v", err)
 			}
 			if _, err := search.Execute(context.Background(), json.RawMessage(`{"query":"browser"}`)); err != nil {
 				t.Fatal(err)
 			}
-			output, err = call.Execute(context.Background(), json.RawMessage(`{"name":"mcp_fixture__alternate","arguments":{}}`))
+			output, err = executeAfterSchema(call, `{"name":"mcp_fixture__alternate","arguments":{}}`)
 			if err != nil || output != "fixture inventory record" || alternateCalls.Load() != 2 {
 				t.Fatalf("alternate unavailable after source failure: %s %v", output, err)
 			}
