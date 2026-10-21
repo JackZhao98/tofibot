@@ -1,6 +1,6 @@
 # Web UI 迁移到 headless 组件库：分步方案
 
-> 状态：**owner 已点头，按本文分步迁移**（2026-10-21；§7 的 Q1–Q4 已回答，见 [D31](../decisions/0031-entry-budget-plan-a.md)–[D34](../decisions/0034-component-catalog-dev-only.md)）。**第 1、2、3 步已完成**（分支 `ds/step1-layers`、`ds/step2-menus`、`ds/step3-dialogs`，在集成分支 `ds/integrate` 上合在一起，等合并进 `main` 和 owner 预览）；第 4–6 步见各节。每一步都要预览（[D28](../decisions/0028-headless-design-system-migration.md)）。
+> 状态：**owner 已点头，按本文分步迁移**（2026-10-21；§7 的 Q1–Q4 已回答，见 [D31](../decisions/0031-entry-budget-plan-a.md)–[D34](../decisions/0034-component-catalog-dev-only.md)）。**第 1、2、3、6 步已完成**（分支 `ds/step1-layers`、`ds/step2-menus`、`ds/step3-dialogs`、`ds/step6-catalog`，在集成分支 `ds/integrate` 上合在一起，等合并进 `main` 和 owner 预览）；第 4、5 步见各节。每一步都要预览（[D28](../decisions/0028-headless-design-system-migration.md)）。
 > 快照：提交 `748c774`（分支 `docs/system-opus`），体积实测日期 2026-10-20（PDT）。
 > 相关文档：层级刻度和每一处 z-index 归到哪一层，以 [`tokens.md` §9](tokens.md) 为准，本文不另定一套；本文只写"怎么迁"。
 > 相关决定：[D02 量交互开销](../decisions/0002-measure-interaction-cost.md)、[D18 渐变模糊范围](../decisions/0018-progressive-blur-scope.md)、[D19 到达级联](../decisions/0019-arrival-spring-cascade.md)、[D20 手机推入](../decisions/0020-phone-push-and-boot-screen.md)、[D21 侧栏拖动和置顶](../decisions/0021-sidebar-reorder-and-pins.md)、[D22 用 dev:remote 预览](../decisions/0022-preview-via-dev-remote.md)、[D30 常设规则](../decisions/0030-standing-operating-rules.md)。
@@ -15,7 +15,7 @@
 | 对话框 | **Radix**：`Dialog`、`AlertDialog` | 焦点圈定、Esc 只关最上一层、关闭后焦点回到原处，原来每个对话框各写一遍（**第 3 步已完成**，`ui/src/overlays/ModalDialog.tsx`） | 不能，要懒加载（实测 Radix 块 13,981 B，入口反而 −1,148 B） |
 | 动效 | **暂不引入 Motion**，第 4 步只做一次对照实验 | 到达级联已经是预先算好的弹簧关键帧交给 WAAPI 在合成线程跑；Motion 的 React 组件版本最少 30.8 KB，而且必须进入口包 | 不能 |
 | 拖动 | **保留自研引擎**，第 5 步只做一次对照实验 | 引擎懒加载块 3,480 B，拖动过程中 React 不渲染；dnd-kit 15.3 KB 起，且 `useSortable` 让每一行在拖动中重新渲染 | 不能 |
-| 组件目录页 | 自己做，仿照 Motion Lab 单独打包 | 不占应用的任何一个包 | 不占 |
+| 组件目录页 | 自己做，单独的开发页（**第 6 步已完成**） | 不占应用的任何一个包；和 Motion Lab 不同，不随 `dist/` 构建（D34） | 不占（实测 0 B） |
 
 最硬的约束是体积：**写方案时入口包离预算只剩 741 字节**（§2；第 1 步之后是 692 字节，第 2 步之后是 687 字节）。所以本方案里任何一个库都只能在懒加载的块里出现，而且第 2、3 步要把现有的弹层代码一起搬出入口包，用省下来的字节支付懒加载的入口开销。owner 选了这条路（方案 A，[D31](../decisions/0031-entry-budget-plan-a.md)），不放宽预算（§2.4 的方案 B 不采用）。
 
@@ -496,20 +496,68 @@ Motion 擅长三件事：带速度衔接、可中途打断的弹簧；自动 FLI
 | owner 预览看哪里 | 通过时才需要：在 60 个以上会话的账户里拖动、拖进置顶区、手机长按拖动 |
 | 体积 | 不通过：0。通过：懒加载 16.0 KB 起，入口包变化待实测 |
 
-### 第 6 步：组件目录页
+### 第 6 步：组件目录页 — **已完成**（分支 `ds/step6-catalog`，从 `ds/step1-layers` 分出，等合并和 owner 预览）
 
 **目标**：一个页面列出每个组件的每种状态，owner 和以后的会话不用翻代码、不用造数据就能看。
 
+**做了什么**
+
 | 项 | 内容 |
 |---|---|
-| 做法 | 新建 `ui/catalog.html` 和 `ui/src/catalog/`，**只在开发时可用**（[D34](../decisions/0034-component-catalog-dev-only.md)）：开发时 `npm run dev` / `dev:remote` 直接打开 `/catalog.html`；不加进 `build` 脚本，也不加进 `ui/vite.motion-lab.config.ts` 的 `input`（Motion Lab 是随 `dist/` 一起构建的，目录页不能照抄这一点）。用真组件、真 CSS、假数据，外面套 `.workspace`（§4 第 2 条）。每个组件列出：默认、悬停、聚焦（键盘）、按下、禁用、忙、出错、空；弹层列出打开/关闭、贴边翻转；浅色/深色、390 px/1280 px、减弱动效各一份 |
-| 内容来源 | 组件和状态清单以 [`components.md`](components.md) 为准；本页是它的可视化 |
-| 改哪些文件 | `ui/catalog.html`、`ui/src/catalog/**`、`ui/vite.config.ts` 不用改（开发服务器本来就提供 `ui/` 根目录下的 html；`ui/vite.config.ts:28` 的 `build` 没有设 `input`，默认只打 `index.html`，第 6 步动工时再核对一次）、`ui/package.json`（新测试脚本）、`deploy/open-source-allowlist.json`（`ui/motion-lab.html` 和 `ui/vite.motion-lab.config.ts` 是逐个列出的，`:92`、`:98`；新的 `ui/catalog.html` 也要加） |
-| 风险 | 目录页和生产组件走样：只能导入生产组件，不许在目录页里另写一份；目录页不随正式版发布（D34），要有测试证明 `dist/` 里没有它 |
-| 必须保持绿 | `build`、`test:shell-budget`（证明应用的包没变）、`test:motion-lab`、`test:i18n`（目录页上的说明文字也走 i18n，或者明确豁免，以 `ui/src/locales/README.md` 规则为准） |
-| 新测试 | `test:catalog`（新建）：先断言正式构建的 `dist/` 里没有 `catalog.html` 和目录页的块（D34）；再在开发服务器里用 Playwright 逐个打开每一节，无页面错误；每个弹层打开后 `elementFromPoint` 在它中心取到的是它自己（没被盖住）；键盘打开/关闭；截图输出到 `CATALOG_SHOTS` 目录给 owner 看 |
-| owner 预览看哪里 | http://localhost:5173/catalog.html ：逐节翻看，和生产界面对照 |
-| 体积 | 应用入口包和懒加载块 0 字节（单独打包） |
+| 页面 | `ui/catalog.html` + `ui/src/catalog/**`，**只在开发时可用**（[D34](../decisions/0034-component-catalog-dev-only.md)）：`npm run dev` / `dev:remote` 打开 http://localhost:5173/catalog.html 。`build` 脚本、`vite.config.ts`、`vite.motion-lab.config.ts` 都没改（核对过：`vite.config.ts` 的 `build` 没有 `input`，只打 `index.html`）。入口 `main.tsx` 在生产模式下直接抛错，就算被误打进包也不会跑 |
+| 怎么画 | 每个状态是一个 iframe（还是 `catalog.html`，带 `?frame=<节>&state=<状态>&theme=&lng=`），宽度是真的 1280 px 或 390 px，所以产品的媒体查询、`position:fixed` 弹层和 portal 都和应用里一样。三种状态：**inline**（生产组件 + 假 props，一节的 inline 状态叠在一个 frame 里）、**overlay**（对话框、sheet、浮层，一个状态一个 frame）、**app**（真的 `<App/>` 连 `ui/src/catalog/world.ts` 的假服务器，再用真 DOM 事件点到那个状态；侧栏行、菜单、输入框、手机推入这些只存在于工作区里的东西都这样画）。没有另写任何组件：只导入生产组件，`main.tsx` 加载的全局样式按同样顺序加载（`test:catalog` 比对两份清单） |
+| 外层 | 左边按 `components.md` §1–§23 列节；上面切浅色/深色/两者、1280/390/两者、7 种语言（frame 里的产品文字走真的语言包）。每个 frame 有"单独打开"链接；frame 是活的，可以悬停、点击、打字 |
+| 强制状态 | 悬停、按下、键盘聚焦没法用脚本让浏览器"真的"进入。`ui/src/catalog/pseudo.ts` 把产品 CSS 里每条带 `:hover`/`:active`/`:focus-visible` 的规则复制一份，伪类换成 `.catalog-hover`/`.catalog-active`/`.catalog-focus`；给元素加这个类，画出来的就是产品自己的那条规则。原规则保留 |
+| 沙箱 | `ui/src/catalog/sandbox.ts` 是第一个执行的模块：`localStorage`/`sessionStorage` 换成内存版（不改本源的主题、语言、草稿、侧栏布局）；所有 `/api`、`/health` 请求在页内用假数据回答（`dev:remote` 会把 `/api` 带着 owner 的会话 cookie 转到真实服务器，漏一个就是读写真实数据）；`EventSource` 不连接，`WebSocket` 禁用，`window.open` 返回 `null` |
+| 内容 | 23 节、166 个状态。`components.md` 列了但目录页还画不出来的状态，在页面上逐条写成"Not shown here yet"（例如终端确认要一个真的终端会话、图片灯箱的图从 `/api` 取、拖动中和落点只在拖的时候出现），不藏 |
+| 开源清单 | `deploy/open-source-allowlist.json` 加了 `ui/catalog.html`（源码进开源导出，和正式版构建无关；D34 留的"待确认"就此定下） |
+| 文案检查 | `scripts/check-i18n.mjs` 和 `src/locales/README.md`：`src/catalog` 和 `src/motion-lab` 一样不计硬编码文案（目录页的标签是给做界面的人看的英文假数据，不随正式版发布；frame 里的产品文字仍走 7 种语言） |
+| 新测试 | `test:catalog`（`ui/scripts/test-catalog.mjs`），见下 |
+
+**`test:catalog` 查什么**（2026-10-20 PDT 实测：退出码 0，166 个状态，浅色 1280 和 390、深色 1280 共 279 个 frame；127 个弹层查过最上层，54 次键盘关闭；空闲机器上约 3 分钟）
+
+1. 正式构建里没有目录页：按 `package.json` 的 `build` 脚本把每个 `vite build` 跑进临时目录，断言没有 `catalog.html`、没有带 `CATALOG_MARKER` 字符串的文件、没有 `src/catalog/` 路径；`vite.config.ts`、`vite.motion-lab.config.ts`、`build` 脚本不提目录页；`ui/src` 里目录页以外的文件不 import `catalog/`。
+2. 目录页和 `components.md` 一一对应：§1–§23 每节一个，编号相同。
+3. 浏览器（Chromium，开发服务器，只有假数据）：每个状态在它声明的每个宽度上打开，没有页面错误、没有驱动步骤失败；每个弹层在它中心点是最上面的元素（检查时让所有元素都接收指针，所以 `pointer-events:none` 的提示、拖放遮罩也按绘制顺序算）；声明了键盘的弹层，按键能关掉，对话框和侧栏菜单还能用键盘重新打开；任何 `/api` 请求都没有到网络；本源真实的 `localStorage` 没被写。截图：`CATALOG_SHOTS=/abs/dir`。
+
+**撤回验证**（D30，测试保留，只改被测的东西）
+
+| 改了什么 | 退出码 | 失败的检查 |
+|---|---|---|
+| 把 `catalog.html` 加进 `vite.motion-lab.config.ts` 的 `input`（照抄 Motion Lab 的做法） | 1 | 配置提到目录页；`dist/` 里有 `catalog.html`；`assets/c-*.js` 带标记 |
+| `build` 脚本末尾加一个另外的 `vite build --config`，配置文件名不含 catalog | 1 | `dist/` 里有 `catalog.html` 并带标记 |
+| `src/main.tsx` 加 `import "./catalog/sandbox"` | 1 | 产品代码 import 了目录页 |
+| 沙箱不再拦 `/api` | 1 | 15 个 `/api` 请求到了网络；app 状态打不开 |
+| 沙箱不再换内存存储 | 1 | 写了本源的 `tofi:appearance`、`tofi.language`、`tofi:sidebar-layout` |
+| 产品代码把 `.sidebar-context-menu` 的层级从 `--z-menu` 改成 `--z-base` | 1 | 1280 px 下菜单中心被 `.contact-section` 盖住，390 px 下被 `.contact-pane` 盖住 |
+
+恢复后退出码 0。
+
+**目录页顺带看到的两处**（没改，记进 [`components.md`](components.md) C42、C43，待确认）：电脑小窗在工作区刚画出来的几百毫秒内打开时，量到的输入框位置不对，停在视口外（`bottom: 938px`），之后不再重算；工作区刷新失败的 toast 会被随后一次成功的配置读取清掉（假服务器只让会话列表失败时，toast 出现约 0.75 秒就消失）。目录页的驱动步骤绕开了这两处（先等 1 秒再开电脑；"刷新失败"让会话、Bot、配置一起失败）。
+
+**owner 预览看哪里**：`cd ui && npm run dev`（不用连服务器；`dev:remote` 也可以，目录页不会碰它），Chrome 打开 http://localhost:5173/catalog.html 。
+
+1. 逐节翻，和生产界面对照外观；上面切"Both"看浅色/深色、1280/390 并排，切语言看文字有没有被截断。
+2. §8 对话框、§9 菜单、§13 问题卡：点进 frame 里试，Escape、Tab 和真的应用一样。
+3. 页面上"Not shown here yet"列的状态，看有没有你想先补的。
+4. 减弱动效：DevTools › Rendering › Emulate CSS prefers-reduced-motion，再刷新。
+
+**体积**：应用的入口包和懒加载块 0 字节。`npm run build` 的 `dist/`（394 个文件）和分支起点 `97ac43d` 的构建逐字节相同（全部文件 `shasum` 的总和一致）；`test:shell-budget` 入口 315,113 B，和起点相同。
+
+**实测**（同一台机器，2026-10-20 晚 PDT；起点 = `ds/step1-layers` 的 `97ac43d`。这一步不改产品代码，`dist/` 和起点逐字节相同，所以下面的差别都是机器负载：同时有其他四个分支在跑浏览器测试，1 分钟负载 9–22）
+
+| 预算 | 起点（动工前，本分支 worktree） | 现在 | 上限 |
+|---|---|---|---|
+| 入口包（gzip，`test:shell-budget`） | 315,113 B | 315,113 B（0 B） | 315,805 B |
+| 设置窗首帧 Chromium 1x / 4x 中位数 | 26.7 / 43.0 ms | 21.7 / 50.5 ms | 32 / 100 ms |
+| 设置窗首帧 WebKit 1x 中位数 | — | 14.0 ms | 32 ms |
+| 手机推入 4x CPU 超过 25 ms 的帧 | 0 | 1 | ≤ 1 |
+| 流式每块（1x / 4x） | — | 2.89 / 12.18 ms | 4 / 16 ms |
+| 切换会话 p95（1x / 4x） | — | 23.7 / 89.8 ms | 60 / 100 ms |
+| 打字每键脚本（减弱动效 / 动画开着） | — | 0.46 / 0.66 ms | ≤ 4 ms |
+| 猫头像帧率（暂停前 / 恢复后） | — | 64.6 / 59.7 fps | 见 `test:avatar-frame-budget` |
+
+`test:shell-budget`（Chromium）在负载 11–22 时连跑 3 次都在"打开设置窗时没有超过 50 ms 的帧"这一条上失败（最差间隔中位数 51–69 ms）；同一时段把起点 `97ac43d` 导出到临时目录交替跑了 2 次，同样失败（61 ms；另一次是手机推入 4x 下 2 帧超过 25 ms）。负载降到 9 后本分支重跑，退出码 0。
 
 ## 6. 顺序和依赖
 

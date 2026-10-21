@@ -88,6 +88,7 @@
     "scripts/test_acceptance_guard.py",
     "ui/LICENSE",
     "ui/THIRD_PARTY_NOTICES.md",
+    "ui/catalog.html",
     "ui/index.html",
     "ui/motion-lab.html",
     "ui/oauthAssetsPlugin.ts",

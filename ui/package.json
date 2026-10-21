@@ -30,6 +30,7 @@
     "test:final-v2-tokens": "node scripts/test-final-v2-tokens.mjs",
     "test:design-icons": "node scripts/test-design-icons.mjs",
     "test:motion-lab": "node scripts/test-motion-lab.mjs",
+    "test:catalog": "node scripts/test-catalog.mjs",
     "preview": "vite preview",
     "test:auto-review": "node scripts/test-auto-review.mjs",
     "test:computer-window": "node scripts/test-computer-window.mjs",
