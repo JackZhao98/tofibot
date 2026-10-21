@@ -209,6 +209,7 @@
       "unknown": "未評価"
     },
     "view_full_arguments": "引数の全文を表示",
+    "detail_unavailable": "詳細を読み込めませんでした。",
     "proposal_ended": "この提案は終了しました。",
     "view_decision": "判断の記録を表示",
     "remembered_decision": "このチャットで記憶した承認により許可され、誰にも確認していません。実行されたかは下のステップに表示されます。",

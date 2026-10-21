@@ -209,6 +209,7 @@
       "unknown": "未评级"
     },
     "view_full_arguments": "查看完整参数",
+    "detail_unavailable": "无法加载详情。",
     "proposal_ended": "此提案已结束。",
     "view_decision": "查看决定记录",
     "remembered_decision": "由本对话中记住的批准放行，未询问任何人。下方步骤显示是否已执行。",

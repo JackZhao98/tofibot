@@ -40,6 +40,8 @@ export interface Question {
   created_at: string;
   updated_at?: string;
   expires_at?: string;
+  /** True on a compact list row: approval payload and facts are fetched with `useQuestionDetail`. */
+  detail_omitted?: boolean;
   outcome?: { status: string; code?: string; execution_certainty: string; message: string; next_action: string };
 }
 export type ConversationItem = { kind: "message"; message: Message } | { kind: "question"; question: Question } | { kind: "mail_draft"; draft: MailDraft };
