@@ -18,7 +18,10 @@ export function loadModelCatalog(): Promise<ModelCatalog> {
   if (current && current.version === version && (!current.settled || Date.now() - current.startedAt < REUSE_MS)) return current.promise;
   const load = { version, startedAt: Date.now(), settled: false } as Load;
   load.promise = api.models().then(
-    catalog => { load.settled = true; if (current === load) last = catalog; return catalog; },
+    raw => {
+      const catalog: ModelCatalog = { ...raw, models: Array.isArray(raw?.models) ? raw.models : [] };
+      load.settled = true; if (current === load) last = catalog; return catalog;
+    },
     cause => { load.settled = true; if (current === load) current = null; throw cause; },
   );
   current = load;
