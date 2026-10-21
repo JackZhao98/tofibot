@@ -20,6 +20,11 @@ const (
 	Uncertain       = "uncertain_effect"
 )
 
+// FileNotFound is the code of a definite refusal: the guest was asked for a
+// source file that does not exist, so nothing was read or changed. Executors
+// classify on it, never on the text of the underlying stat error.
+const FileNotFound = "file_not_found"
+
 type Outcome struct {
 	Readiness   string `json:"readiness,omitempty"`
 	Version     int    `json:"version"`

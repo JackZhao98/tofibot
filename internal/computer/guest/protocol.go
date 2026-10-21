@@ -254,6 +254,12 @@ func (s *Service) handle(w http.ResponseWriter, r *http.Request) {
 			writeJSON(w, http.StatusConflict, ActionResponse{OK: false, Error: o.Message, Outcome: &o})
 			return
 		}
+		var missing *notFoundError
+		if errors.As(err, &missing) {
+			dir := filepath.Join(s.root, "bots", req.BotID)
+			writeNotFound(w, missing, dir)
+			return
+		}
 		var refusal *rejectedError
 		if errors.As(err, &refusal) {
 			// An explicit pre-action refusal proves nothing was performed.
@@ -312,6 +318,23 @@ func writeRejection(w http.ResponseWriter, refusal error) {
 }
 
 func rejected(err error) error { return &rejectedError{msg: err.Error()} }
+
+var errPathEscapes = errors.New("path escapes guest workspace")
+
+// notFoundError is a definite refusal: the source was never read.
+type notFoundError struct{ given string }
+
+func (e *notFoundError) Error() string { return "no file at " + e.given }
+
+func writeNotFound(w http.ResponseWriter, e *notFoundError, botDir string) {
+	msg := "No file at " + e.given + "."
+	if !filepath.IsAbs(e.given) {
+		msg += " Relative paths start in this Bot's workspace directory, " + botDir + "."
+	}
+	msg += " Nothing was changed. Check the path or create the file first."
+	o := tooloutcome.New(tooloutcome.Permanent, tooloutcome.FileNotFound, "not_executed", msg, "repair_arguments")
+	writeJSON(w, http.StatusNotFound, ActionResponse{OK: false, Error: msg, Outcome: &o})
+}
 
 var errInvalidAction = errors.New("unsupported action")
 var errFileConflict = errors.New("file_conflict")

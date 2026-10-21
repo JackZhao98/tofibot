@@ -191,3 +191,35 @@ func TestRefusedApprovalFencesOnlyIdenticalArguments(t *testing.T) {
 		t.Fatalf("identical refused call replayed: %+v", got)
 	}
 }
+
+func publishTranscript(path string, o tooloutcome.Outcome) []provider.Message {
+	args := `{"path":"` + path + `","name":"x.zip"}`
+	return []provider.Message{{Role: "assistant", ToolCalls: []provider.ToolCall{{ID: "p1", Name: "publish_file", Arguments: args}}}, {Role: "tool", ToolCallID: "p1", ToolOutcome: outcomePtr(o)}}
+}
+
+// A lost publish response fences the identical call only. The Bot that
+// garbled one path must be able to publish a different one.
+func TestUncertainPublishFencesOnlyItsExactReplay(t *testing.T) {
+	lost := publishTranscript("/workspace/bots/garbled/x.zip", tooloutcome.New(tooloutcome.Uncertain, "lost", "unknown", "response lost", "verify_effect"))
+	if got := toolRecoveryGuard(lost, "publish_file", `{"path":"/workspace/bots/garbled/x.zip","name":"x.zip"}`); got == nil || got.Code != "lost" {
+		t.Fatalf("identical replay not fenced: %+v", got)
+	}
+	for _, next := range []string{`{"path":"x.zip","name":"x.zip","request_key":"v2"}`, `{"path":"/workspace/shared/x.zip","name":"x.zip"}`} {
+		if got := toolRecoveryGuard(lost, "publish_file", next); got != nil {
+			t.Fatalf("different publish %s answered with the first attempt's outcome: %+v", next, got)
+		}
+	}
+}
+
+// A missing source is fixable by another action, so even the identical call
+// is allowed again once the file exists.
+func TestMissingSourceNeverFencesALaterPublish(t *testing.T) {
+	miss := publishTranscript("x.zip", tooloutcome.New(tooloutcome.Permanent, tooloutcome.FileNotFound, "not_executed", "No file at x.zip.", "repair_arguments"))
+	if got := toolRecoveryGuard(miss, "publish_file", `{"path":"x.zip","name":"x.zip"}`); got != nil {
+		t.Fatalf("identical retry after creating the file was blocked: %+v", got)
+	}
+	other := publishTranscript("x.zip", tooloutcome.New(tooloutcome.Permanent, "tool_rejected", "not_executed", "other refusal", "repair_arguments"))
+	if got := toolRecoveryGuard(other, "publish_file", `{"path":"x.zip","name":"x.zip"}`); got == nil {
+		t.Fatal("the skip must be limited to the file_not_found code")
+	}
+}

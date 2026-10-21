@@ -35,6 +35,8 @@ TOFI 每个版本改了什么，最新的在最上面。写给以后接手的人
 
 还没进任何 rc 的改动写在这里；打下一个 rc 时挪进那个 rc 的条目（决定 D27）。设计系统迁移第 1–6 步在集成分支 `ds/integrate`，等 owner 预览后合入。
 
+- 修复 `publish_file`：一次路径写错（`uncertain_effect`）之后，换路径或换 `request_key` 再发仍被回放第一次的错误。现在只拦参数完全相同的重放；源文件不存在改为确定失败 `file_not_found`（guest 返回结构化码，主机按码分类），文件建好后可原样重试；相对路径基准写明为 `/workspace/bots/<bot_id>`，与 shell 工作目录一致。分支 `fix/publish-file-replay`。
+
 ---
 
 ## v0.1.4（候选中，未发正式版）
