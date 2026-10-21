@@ -12,6 +12,7 @@ import { useTranslation } from "./i18n";
 import type { Bot } from "./types";
 import { loadModelCatalog, useModelCatalog } from "./useModelCatalog";
 import "./onboarding.css";
+import { ModalDialog } from "./overlays/ModalDialog";
 
 type Meta = { connected: boolean; queue: ServicesStatus };
 
@@ -66,21 +67,14 @@ export function Onboarding(props: OnboardingProps) {
   }, [step, props]);
   useEffect(() => { if (props.initialStep === 1) props.onProgress({ step: 1 }); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, []);
   useEffect(() => { sheet.current?.querySelector<HTMLElement>("[data-autofocus]")?.focus(); }, [step]);
-  // Keep Tab inside the sheet: the workspace behind it is out of reach while it is open.
-  const trap = (event: React.KeyboardEvent) => {
-    if (event.key !== "Tab" || !sheet.current) return;
-    const items = [...sheet.current.querySelectorAll<HTMLElement>("button:not([disabled]),a[href],input:not([disabled]),select:not([disabled]),[tabindex]:not([tabindex='-1'])")].filter(node => node.offsetParent !== null);
-    if (!items.length) return;
-    const first = items[0], last = items[items.length - 1];
-    if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus(); }
-    else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
-  };
   const status = step === 1 ? "" : step === 2 ? t(meta.connected ? "onboarding.status_done" : "onboarding.status_required") : meta.queue?.kind === "walk" ? t("onboarding.status_app", { name: meta.queue.name, index: meta.queue.index, total: meta.queue.total }) : meta.queue?.kind === "summary" ? t("onboarding.status_done") : t("onboarding.status_optional");
   const skipLabel = step === 1 ? t("onboarding.skip") : step === 2 ? t("onboarding.not_now") : t("onboarding.skip");
   const skip = () => step === 3 ? props.onFinish(props.bot?.id) : props.onSkip();
   return (
-    <div className="onb-scrim" data-onboarding="true" data-step={step}>
-      <section ref={sheet} className="onb-sheet" role="dialog" aria-modal="true" aria-labelledby={titleId} onKeyDown={trap}>
+    // Radix Dialog (ui/src/overlays/ModalDialog.tsx) keeps Tab inside and hides the workspace from screen readers. The
+    // sheet ends only through its own buttons: neither Escape nor a press on the scrim closes it.
+    <ModalDialog onClose={noop} closeOnEscape={false} closeOnOutside={false} overlayClassName="onb-scrim" overlayProps={{ "data-onboarding": "true", "data-step": step }}>
+      <section ref={sheet} className="onb-sheet" role="dialog" aria-labelledby={titleId}>
         <header className="onb-head">
           <div className="onb-progress" role="progressbar" aria-valuemin={1} aria-valuemax={ONBOARDING_STEPS} aria-valuenow={step} aria-valuetext={t("onboarding.step_of", { step, total: ONBOARDING_STEPS })}>
             {[1, 2, 3].map(index => <i key={index} data-state={index < step ? "done" : index === step ? "current" : "todo"} />)}
@@ -94,9 +88,11 @@ export function Onboarding(props: OnboardingProps) {
           {step === 3 && <OnboardingServices titleId={titleId} botId={props.bot?.id} onQueue={onQueue} onFinish={() => props.onFinish(props.bot?.id)} />}
         </div>
       </section>
-    </div>
+    </ModalDialog>
   );
 }
+
+const noop = () => {};
 
 function Welcome({ titleId, onStart, onSkip }: { titleId: string; onStart: () => void; onSkip: () => void }) {
   const { t } = useTranslation("chat");

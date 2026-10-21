@@ -5,6 +5,7 @@ import {useSettingsActive} from "./settingsActivity";
 import {useSettingsDraft} from "./settingsDraft";
 import {useTranslation} from "./i18n";
 import "./computer-resources.css";
+import {ConfirmDialog} from "./overlays/ModalDialog";
 
 type Allocation={vcpus:number;memory_mib:number;disk_gib:number};
 type Resources={current:Allocation;desired:Allocation;pending:boolean;state:string;error?:string;host:{cpus:number;memory_total_mib:number;memory_available_mib:number;disk_available_gib:number};limits:{max_vcpus:number;max_memory_mib:number;max_disk_gib:number}};
@@ -12,13 +13,12 @@ const resourceError=(cause:unknown,fallback:string)=>cause instanceof Error?caus
 
 function RestartConfirmation({onCancel,onConfirm}:{onCancel:()=>void;onConfirm:()=>void}) {
  const {t}=useTranslation("computer");
- const dialog=useRef<HTMLDialogElement>(null);
- useEffect(()=>{const element=dialog.current;element?.showModal();return()=>element?.close()},[]);
- return <dialog ref={dialog} className="resource-restart-dialog" aria-labelledby="resource-restart-title" aria-describedby="resource-restart-impact" onCancel={event=>{event.preventDefault();onCancel()}} onKeyDown={event=>{if(event.key==="Escape"){event.preventDefault();event.stopPropagation();onCancel()}}}>
+ const cancel=useRef<HTMLButtonElement>(null);
+ return <ConfirmDialog onClose={onCancel} initialFocus={cancel} overlayClassName="resource-restart-overlay"><div className="resource-restart-dialog" aria-labelledby="resource-restart-title" aria-describedby="resource-restart-impact">
   <h3 id="resource-restart-title">{t("resources.restart.title")}</h3>
   <p id="resource-restart-impact">{t("resources.restart.impact")}</p>
-  <div className="resource-restart-actions"><button type="button" className="secondary-button" autoFocus onClick={onCancel}>{t("resources.cancel")}</button><button type="button" className="primary-button" onClick={onConfirm}>{t("resources.restart.confirm")}</button></div>
- </dialog>;
+  <div className="resource-restart-actions"><button ref={cancel} type="button" className="secondary-button" onClick={onCancel}>{t("resources.cancel")}</button><button type="button" className="primary-button" onClick={onConfirm}>{t("resources.restart.confirm")}</button></div>
+ </div></ConfirmDialog>;
 }
 
 export function ComputerResources(){

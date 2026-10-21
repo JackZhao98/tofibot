@@ -2,6 +2,7 @@ import { useEffect, useEffectEvent, useState, type RefObject } from "react";
 import { createPortal } from "react-dom";
 import { TofiIcon } from "./icons";
 import { useTranslation } from "./i18n";
+import { layerRoot } from "./layers";
 
 /** A window-level drop target; files are only added to the current draft. */
 export function WebFileDropOverlay({ inputRef, enabled, onDrop }: {
@@ -74,6 +75,6 @@ export function WebFileDropOverlay({ inputRef, enabled, onDrop }: {
         <span>{t("composer.drop_release")}</span>
       </div>
     </div>,
-    document.body,
+    layerRoot(),
   );
 }

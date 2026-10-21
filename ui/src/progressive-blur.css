@@ -7,7 +7,7 @@
 html:not([data-desktop]) .workspace .edge-blur {
   --pb-step:30px; --pb-ramp:76px; --pb-tint:20%;
   --pb-blur-1:4px; --pb-blur-2:12px;
-  display:block; position:absolute; left:0; right:0; z-index:3; pointer-events:none; contain:strict;
+  display:block; position:absolute; left:0; right:0; z-index:var(--z-edge-blur); pointer-events:none; contain:strict;
 }
 html:not([data-desktop]) .workspace .edge-blur > i { position:absolute; inset:0; display:block; }
 /* Bottom: from the middle of the pane down to the composer. The tint is the only colour, just enough for the text under the field. */
@@ -47,8 +47,7 @@ html:not([data-desktop]) .workspace .chat-header::after {
   -webkit-backdrop-filter:blur(var(--pbt-blur-2)); backdrop-filter:blur(var(--pbt-blur-2));
   -webkit-mask-image:linear-gradient(to bottom,#000 20%,transparent 78%); mask-image:linear-gradient(to bottom,#000 20%,transparent 78%);
 }
-/* The jump pill sits above the blur and the composer chrome: it is the one thing in this corner that must always be reachable. */
-.workspace .jump-latest { z-index:6; }
+/* The jump pill (.jump-latest, var(--z-pill) in styles.css) sits above the blur and the composer chrome: it is the one thing in this corner that must always be reachable. */
 /* Without real blur (Reduce Transparency, no backdrop-filter) fall back to the soft veil the pane always had. */
 @media (prefers-reduced-transparency:reduce) {
   html:not([data-desktop]) .workspace .chat-header::after { display:none; }

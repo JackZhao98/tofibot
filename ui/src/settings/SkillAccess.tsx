@@ -1,10 +1,10 @@
-import {useEffect, useId, useRef, useState} from "react";
-import {createPortal} from "react-dom";
+import {useId, useState} from "react";
 import {BotAvatar} from "../BotAvatar";
 import {request} from "../api";
 import {useTranslation} from "../i18n";
 import type {Bot} from "../types";
 import {Banner, SettingsRow} from "./components";
+import { ModalDialog } from "../overlays/ModalDialog";
 
 export type SkillAccess = {mode: "all"} | {mode: "selected"; bot_ids?: string[]};
 
@@ -44,26 +44,8 @@ export function SkillAccessSheet({skill, title, access, bots, onClose, onSaved}:
   const [picked, setPicked] = useState<string[]>(() => access.mode === "selected" ? (access.bot_ids ?? []).filter(id => active.some(bot => bot.id === id)) : []);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
-  const pane = useRef<HTMLDivElement>(null);
   const headingId = useId();
   const cannotSave = busy || (mode === "selected" && picked.length === 0);
-
-  useEffect(() => {
-    const previous = document.activeElement as HTMLElement | null;
-    pane.current?.focus();
-    const keys = (event: KeyboardEvent) => {
-      if (event.key === "Escape" && !event.defaultPrevented) { event.preventDefault(); event.stopPropagation(); onClose(); return; }
-      if (event.key !== "Tab") return;
-      const targets = Array.from(pane.current?.querySelectorAll<HTMLElement>("button:not([disabled]), input:not([disabled])") ?? []).filter(el => el.getClientRects().length);
-      const i = targets.indexOf(document.activeElement as HTMLElement);
-      if (i < 0 || (!event.shiftKey && i === targets.length - 1) || (event.shiftKey && i === 0)) {
-        event.preventDefault(); (event.shiftKey ? targets.at(-1) : targets[0])?.focus();
-      }
-    };
-    document.addEventListener("keydown", keys, true);
-    return () => { document.removeEventListener("keydown", keys, true); previous?.focus(); };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
 
   async function save() {
     if (cannotSave) return;
@@ -79,8 +61,9 @@ export function SkillAccessSheet({skill, title, access, bots, onClose, onSaved}:
   }
 
   const toggle = (id: string) => setPicked(current => current.includes(id) ? current.filter(x => x !== id) : [...current, id]);
-  return createPortal(<div className="sheet-overlay" onMouseDown={event => { if (event.target === event.currentTarget && !busy) onClose(); }}>
-    <div ref={pane} className="sheet skill-access-sheet" role="dialog" aria-modal="true" aria-labelledby={headingId} tabIndex={-1}>
+  // Escape closes even while saving (the PUT is idempotent); a press on the scrim does not.
+  return <ModalDialog onClose={onClose} closeOnOutside={!busy} overlayClassName="sheet-overlay">
+    <div className="sheet skill-access-sheet" role="dialog" aria-labelledby={headingId} tabIndex={-1}>
       <h3 id={headingId}>{t("skills.access.sheet_title", {name: title})}</h3>
       <fieldset className="sheet-fieldset" disabled={busy}>
         <legend className="sr-only">{t("skills.access.label")}</legend>
@@ -99,5 +82,5 @@ export function SkillAccessSheet({skill, title, access, bots, onClose, onSaved}:
         <button type="button" className="primary-button" disabled={cannotSave} onClick={() => void save()}>{busy ? t("skills.access.saving") : t("skills.access.save")}</button>
       </div>
     </div>
-  </div>, document.body);
+  </ModalDialog>;
 }

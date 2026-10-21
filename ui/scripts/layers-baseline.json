@@ -1,0 +1,10 @@
+{
+  "note": "Ceiling of local z-index values above 3 per file (component-internal stacking that predates the layer scale). Only ever shrinks; regenerate with npm run test:layers -- --update-baseline.",
+  "files": {
+    "src/desktop-presence.css": 6,
+    "src/mail-send-flight.css": 4,
+    "src/styles.css": 2,
+    "src/v2-app.css": 1,
+    "src/web-file-drop.css": 1
+  }
+}

@@ -3,6 +3,7 @@ import { request } from "./api";
 import type { Bot } from "./types";
 import { VMOAuthDialog, type VMOAuthSession } from "./VMOAuthDialog";
 import { Disclosure } from "./InteractionSystem";
+import { arrowOpens, OverlayMenu } from "./overlays/OverlayHost";
 import { TofiIcon } from "./icons";
 import { IntegrationBrowser } from "./IntegrationBrowser";
 import { ServiceMark } from "./ServiceMark";
@@ -121,13 +122,6 @@ function MCPRow({server,checkRequest,refresh,onEdit,onRemoved,route,botId}:{rout
  const display=preset?.name??server.name;
  const busy=vmSession!==null||(route.mode==="desktop"&&phase==="waiting")||["checking","authorizing","removing"].includes(phase);
  useEffect(()=>{alive.current=true;return()=>{alive.current=false;operation.current++;abort.current?.abort();if(nativePending.current)void window.tofiDesktop?.cancelMCPAuthorization?.(server.name).catch(()=>{});};},[server.name]);
- useEffect(()=>{
-  if(!menu)return;
-  // Dismiss this topmost surface before Settings' document-level Escape handler.
-  const close=(event:MouseEvent|KeyboardEvent)=>{if(event instanceof KeyboardEvent){if(event.key!=="Escape"||event.defaultPrevented)return;event.preventDefault();event.stopPropagation();setMenu(false);trigger.current?.focus();}else if(!menuRef.current?.contains(event.target as Node))setMenu(false);};
-  document.addEventListener("mousedown",close);document.addEventListener("keydown",close,true);
-  return()=>{document.removeEventListener("mousedown",close);document.removeEventListener("keydown",close,true);};
- },[menu]);
  const check=useCallback(async()=>{
   const id=++operation.current;abort.current?.abort();const controller=new AbortController();abort.current=controller;
   setError("");setPhase("checking");
@@ -229,8 +223,8 @@ function MCPRow({server,checkRequest,refresh,onEdit,onRemoved,route,botId}:{rout
  return <article className="mcp-service" aria-label={display} data-state={error?"error":phase}>
   <div className="mcp-service-row"><ServiceMark name={display}/><div className="mcp-service-identity"><strong>{display}</strong><span className="mcp-service-status" role="status"><i aria-hidden="true"/>{status}{phase==="ready"&&checkedAt&&<small className="mcp-service-checked">{t("status.checked",{when:formatRelativeTime(checkedAt)})}</small>}</span></div>
    <div className="mcp-service-actions">{phase==="waiting"&&route.mode==="desktop"?<button className="mcp-button" onClick={()=>void window.tofiDesktop?.cancelMCPAuthorization?.(server.name).catch(e=>setError(message(e)))}>{t("mcp.cancel_auth")}</button>:phase==="waiting"&&authURL?<a className="mcp-button" href={authURL} target="_blank" rel="noopener noreferrer">{t("mcp.continue_auth")}</a>:needsAuth?<button className="mcp-button" disabled={busy||route.mode==="blocked"} onClick={()=>void authorize()}>{error?t("common:action.retry"):t("mcp.connect")}</button>:(phase==="idle"||phase==="error")?<button className="mcp-button" disabled={busy} onClick={()=>void check()}>{error?t("common:action.retry"):t("mcp.connect")}</button>:null}
-   <div className="mcp-menu-anchor" ref={menuRef}><button ref={trigger} className="mcp-button mcp-menu-trigger" aria-label={t("mcp.more_actions",{name:display})} aria-expanded={menu} disabled={busy} onClick={()=>setMenu(value=>!value)}><TofiIcon name="more" size={20} variant={menu?"filled":"outline"}/></button>
-    {menu&&<div className="mcp-menu"><button onClick={()=>{setMenu(false);onEdit();}}>{t("mcp.menu.edit")}</button><button onClick={()=>{setMenu(false);void check();}}>{t("mcp.menu.refresh")}</button>{server.oauth?.connected&&<button onClick={()=>{setMenu(false);setConfirm("disconnect");}}>{t("mcp.menu.disconnect")}</button>}<button className="mcp-menu-danger" onClick={()=>{setMenu(false);setConfirm("remove");}}>{t("mcp.menu.remove")}</button></div>}
+   <div className="mcp-menu-anchor" ref={menuRef}><button ref={trigger} className="mcp-button mcp-menu-trigger" aria-label={t("mcp.more_actions",{name:display})} aria-haspopup="menu" aria-expanded={menu} disabled={busy} onClick={()=>setMenu(value=>!value)} onKeyDown={arrowOpens(setMenu)}><TofiIcon name="more" size={20} variant={menu?"filled":"outline"}/></button>
+    {menu&&<OverlayMenu open onOpenChange={setMenu} className="mcp-menu" label={t("mcp.more_actions",{name:display})} trigger={trigger} anchor={menuRef} align="end" sideOffset={7}><button onClick={()=>{setMenu(false);onEdit();}}>{t("mcp.menu.edit")}</button><button onClick={()=>{setMenu(false);void check();}}>{t("mcp.menu.refresh")}</button>{server.oauth?.connected&&<button onClick={()=>{setMenu(false);setConfirm("disconnect");}}>{t("mcp.menu.disconnect")}</button>}<button className="mcp-menu-danger" onClick={()=>{setMenu(false);setConfirm("remove");}}>{t("mcp.menu.remove")}</button></OverlayMenu>}
    </div></div>
   </div>
   {!isDesktop&&server.oauth&&["authorizing","waiting"].includes(phase)&&<OAuthLinkMotion title={display}/>}

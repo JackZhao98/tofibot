@@ -1,43 +1,20 @@
-import {useEffect, useId, useRef, useState, type ReactNode} from "react";
-import {createPortal} from "react-dom";
+import {useEffect, useId, useState, type ReactNode} from "react";
 import {TofiIcon} from "./icons";
 import {useTranslation} from "./i18n";
 import {StatusBadge} from "./settings/components";
 import type {AdminAccount} from "./adminApi";
+import { ModalDialog } from "./overlays/ModalDialog";
 
-/** Modal sheet shared by the admin flows: portal, focus trap, Escape closes unless `locked`. */
+/** Modal sheet shared by the admin flows (Radix Dialog, ui/src/overlays/ModalDialog.tsx): Escape and a press on the scrim
+ * close it unless `locked`; focus starts on the sheet itself. */
 export function AdminSheet({title, children, onClose, locked = false, className = ""}: {title: ReactNode; children: ReactNode; onClose: () => void; /** Blocks Escape and outside clicks (work in flight, or a secret that must be acknowledged). */ locked?: boolean; className?: string}) {
-  const pane = useRef<HTMLDivElement>(null);
   const headingId = useId();
-  const lockedRef = useRef(locked);
-  lockedRef.current = locked;
-  useEffect(() => {
-    const previous = document.activeElement as HTMLElement | null;
-    pane.current?.focus();
-    const keys = (event: KeyboardEvent) => {
-      if (event.key === "Escape" && !event.defaultPrevented) {
-        event.preventDefault(); event.stopPropagation();
-        if (!lockedRef.current) onClose();
-        return;
-      }
-      if (event.key !== "Tab") return;
-      const targets = Array.from(pane.current?.querySelectorAll<HTMLElement>("button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), a[href]") ?? []).filter(element => element.getClientRects().length);
-      const index = targets.indexOf(document.activeElement as HTMLElement);
-      if (index < 0 || (!event.shiftKey && index === targets.length - 1) || (event.shiftKey && index === 0)) {
-        event.preventDefault();
-        (event.shiftKey ? targets.at(-1) : targets[0])?.focus();
-      }
-    };
-    document.addEventListener("keydown", keys, true);
-    return () => { document.removeEventListener("keydown", keys, true); previous?.focus(); };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-  return createPortal(<div className="sheet-overlay" onMouseDown={event => { if (event.target === event.currentTarget && !locked) onClose(); }}>
-    <div ref={pane} className={`sheet admin-sheet ${className}`.trim()} role="dialog" aria-modal="true" aria-labelledby={headingId} tabIndex={-1}>
+  return <ModalDialog onClose={onClose} locked={locked} overlayClassName="sheet-overlay">
+    <div className={`sheet admin-sheet ${className}`.trim()} role="dialog" aria-labelledby={headingId} tabIndex={-1}>
       <h3 id={headingId}>{title}</h3>
       {children}
     </div>
-  </div>, document.body);
+  </ModalDialog>;
 }
 
 /** Copy button that says "Copied" for a moment. Falls back to selecting the text when the clipboard is blocked. */

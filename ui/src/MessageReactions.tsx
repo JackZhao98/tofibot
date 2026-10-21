@@ -1,12 +1,12 @@
-import { lazy, Suspense, useEffect, useLayoutEffect, useRef, useState } from "react";
-import { createPortal } from "react-dom";
+import { lazy, Suspense, useEffect, useRef, useState } from "react";
 import type { Message, Reaction } from "./types";
 import { TofiIcon } from "./icons";
 import { useTranslation } from "./i18n";
 import "./message-reactions.css";
+import { OverlayPopover } from "./overlays/OverlayHost";
 const EmojiPicker = lazy(() => import("./ReactionEmojiPicker"));
 const choices = ["👍", "❤️", "😂", "🎉", "👀", "🙌", "🤔", "🐱"];
-type MenuPosition = { x: number; y: number } | null;
+type MenuPosition = { x: number; y: number; h?: number } | null;
 
 export function MessageReactions({ message, botNames, onSet, menuPosition, onCloseMenu }: { message: Message; botNames: Map<string, string>; onSet: (emoji: string, present: boolean) => Promise<void>; menuPosition: MenuPosition; onCloseMenu: () => void }) {
   const { t } = useTranslation("chat");
@@ -15,42 +15,12 @@ export function MessageReactions({ message, botNames, onSet, menuPosition, onClo
   const pendingRef = useRef(new Set<string>());
   const [showPicker, setShowPicker] = useState(false);
   const [error, setError] = useState("");
-  const [position, setPosition] = useState({ left: 12, top: 12 });
-  const menu = useRef<HTMLDivElement>(null);
+  const anchor = useRef<{ getBoundingClientRect(): DOMRect } | null>(null);
   const closeRef = useRef(onCloseMenu);
   closeRef.current = onCloseMenu;
-
-  useEffect(() => {
-    if (!menuPosition) return;
-    setError(""); setShowPicker(false);
-    const previousFocus = document.activeElement as HTMLElement | null;
-    menu.current?.querySelector<HTMLButtonElement>("button")?.focus();
-    const closeOutside = (event: PointerEvent) => { if (!menu.current?.contains(event.target as Node)) closeRef.current(); };
-    const escape = (event: KeyboardEvent) => { if (event.key === "Escape") { event.preventDefault(); closeRef.current(); } };
-    // Category/emoji scrolling inside the picker must not dismiss it.
-    const scroll = (event: Event) => { if (!event.composedPath().includes(menu.current as EventTarget)) closeRef.current(); };
-    document.addEventListener("pointerdown", closeOutside);
-    document.addEventListener("keydown", escape, true);
-    window.addEventListener("scroll", scroll, true);
-    return () => {
-      document.removeEventListener("pointerdown", closeOutside); document.removeEventListener("keydown", escape, true); window.removeEventListener("scroll", scroll, true);
-      if (document.activeElement === document.body || menu.current?.contains(document.activeElement)) {
-        if (previousFocus?.isConnected) previousFocus.focus({ preventScroll: true });
-      }
-    };
-  }, [menuPosition]);
-
-  useLayoutEffect(() => {
-    if (!menuPosition || !menu.current) return;
-    const place = () => {
-      const rect = menu.current!.getBoundingClientRect();
-      setPosition({ left: Math.max(12, Math.min(menuPosition.x, window.innerWidth - rect.width - 12)), top: Math.max(12, Math.min(menuPosition.y, window.innerHeight - rect.height - 12)) });
-    };
-    place();
-    const observer = new ResizeObserver(place); observer.observe(menu.current);
-    window.addEventListener("resize", place);
-    return () => { observer.disconnect(); window.removeEventListener("resize", place); };
-  }, [menuPosition]);
+  // The menu sits under the point (or the button's box, so a flip lands above it rather than over it).
+  if (menuPosition) anchor.current = { getBoundingClientRect: () => new DOMRect(menuPosition.x, menuPosition.y, 0, menuPosition.h ?? 0) };
+  useEffect(() => { if (menuPosition) { setError(""); setShowPicker(false); } }, [menuPosition]);
 
   const grouped = new Map<string, Reaction[]>();
   for (const reaction of message.reactions ?? []) grouped.set(reaction.emoji, [...(grouped.get(reaction.emoji) ?? []), reaction]);
@@ -74,9 +44,9 @@ export function MessageReactions({ message, botNames, onSet, menuPosition, onClo
       })}
     </div>}
     {!menuPosition && error && <span className="reaction-error" role="alert">{error}</span>}
-    {menuPosition && createPortal(<div ref={menu} className={`reaction-context-menu${showPicker ? " has-emoji-picker" : ""}`} role="dialog" aria-label={t("reactions.menu")} style={position} aria-busy={pendingEmoji.size > 0}>
+    {menuPosition && <OverlayPopover open onOpenChange={open => { if (!open) closeRef.current(); }} anchor={anchor} closeOnScroll className={`reaction-context-menu${showPicker ? " has-emoji-picker" : ""}`} aria-label={t("reactions.menu")} aria-busy={pendingEmoji.size > 0}>
       {!showPicker ? <div className="reaction-options" role="group" aria-label={t("reactions.common")}>{choices.map(emoji => <button key={emoji} type="button" aria-label={t("reactions.react_with", { emoji })} aria-pressed={mine(emoji)} disabled={pendingEmoji.has(emoji)} onClick={() => void toggle(emoji, !mine(emoji))}>{emoji}</button>)}<button type="button" aria-label={t("reactions.more")} title={t("reactions.more")} onClick={() => setShowPicker(true)}><TofiIcon name="plus" size={18} /></button></div> : <div><Suspense fallback={<p className="reaction-picker-loading" role="status">{t("reactions.loading")}</p>}><EmojiPicker onSelect={emoji => void toggle(emoji, !mine(emoji))} /></Suspense></div>}
       {error && <p role="alert">{error}</p>}
-    </div>, document.body)}
+    </OverlayPopover>}
   </>;
 }

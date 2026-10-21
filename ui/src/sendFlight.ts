@@ -1,5 +1,6 @@
 import { arcPoints } from "./motion-lab/lib/choreo";
 import { MOTION, EASE } from "./motion";
+import { layerRoot } from "./layers";
 
 /** Fly the confirmed user bubble along the same arc and timing as Motion Lab. */
 export function flySentMessage(origin: DOMRect, target: HTMLElement): void {
@@ -16,11 +17,11 @@ export function flySentMessage(origin: DOMRect, target: HTMLElement): void {
     font: style.font, lineHeight: style.lineHeight, color: style.color,
     backgroundColor: style.backgroundColor, border: style.border,
     borderRadius: style.borderRadius, boxSizing: "border-box", overflowWrap: "anywhere",
-    zIndex: "2147483000", pointerEvents: "none", transformOrigin: "100% 100%",
+    zIndex: "var(--z-drag)", pointerEvents: "none", transformOrigin: "100% 100%",
   });
   const previousVisibility = target.style.visibility;
   target.style.visibility = "hidden";
-  document.body.append(ghost);
+  layerRoot().append(ghost);
   const path = arcPoints({ x: origin.left - to.left, y: origin.top - to.top }, { x: 0, y: 0 }, 70, 18);
   const animation = ghost.animate(path.map((point, index) => {
     const t = index / (path.length - 1);

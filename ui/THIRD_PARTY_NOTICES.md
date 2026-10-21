@@ -25,3 +25,15 @@ JetBrains Mono: the unmodified upstream `fonts/webfonts/JetBrainsMono-Regular.wo
 | `jetbrains-mono-600.woff2` | `918edad542a1da608fd2ba8daebaff9ac802309103fe760eed465b8b4e47faf1` |
 | `public/licenses/fredoka-OFL.txt` | `5c9e7eee5c6b25f4b05b8d53b2e470ea4962f9ced742d044a98f7d95d1375bab` |
 | `public/licenses/jetbrains-mono-OFL.txt` | `30f0c136e3c88e422d0791acd97238870f9054a9729bc34cf2ff0d4ed8cac4ad` |
+
+## Menu, popover and dialog libraries (MIT, 0BSD)
+
+The menus and popovers are Radix primitives in the lazily loaded chunk `assets/RadixOverlays-*.js` (docs/design/migration.md step 2); the modal dialogs (`src/overlays/ModalDialog.tsx`, step 3) bundle Radix Dialog and AlertDialog in their own lazy chunk. Shared primitives land in a shared lazy chunk; none of them is in the entry bundle. Versions are pinned in `package-lock.json`; full license texts are in `public/licenses/`.
+
+| Packages | License | Text |
+|---|---|---|
+| `@radix-ui/react-dropdown-menu` 2.2.1, `@radix-ui/react-popover` 1.3.1, `@radix-ui/react-dialog` 1.3.1, `@radix-ui/react-alert-dialog` 1.2.1 and the `@radix-ui/*` primitives they use (menu, popper, dismissable-layer, focus-scope, focus-guards, roving-focus, collection, presence, portal, primitive, slot, id, direction, context, compose-refs, primitive helpers, `use-*` hooks), Copyright (c) 2022 WorkOS | MIT | `public/licenses/radix-ui.txt` |
+| `@floating-ui/core`, `@floating-ui/dom`, `@floating-ui/react-dom`, `@floating-ui/utils`, Copyright (c) 2021-present Floating UI contributors | MIT | `public/licenses/floating-ui.txt` |
+| `aria-hidden`, `get-nonce`, `react-remove-scroll`, `react-remove-scroll-bar`, `react-style-singleton`, `use-callback-ref`, `use-sidecar`, Copyright (c) Anton Korzunov | MIT | `public/licenses/react-remove-scroll.txt` |
+| `detect-node-es`, Copyright (c) 2017 Ilya Kantor | MIT | `public/licenses/detect-node-es.txt` |
+| `tslib`, Copyright (c) Microsoft Corporation | 0BSD | `public/licenses/tslib.txt` |

@@ -40,7 +40,7 @@ html[data-desktop] .conversation-row>.unread-badge{position:absolute;right:12px;
 .contact-section>.section-label:first-child{padding-top:0}
 .section-label>span{font-weight:500}
 .archive-entry{font-size:12px;color:var(--muted)}
-.delete-dialog-overlay{position:fixed;inset:0;z-index:1000;display:grid;place-items:center;padding:24px;background:color-mix(in srgb,var(--ink) 24%,transparent);-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);animation:delete-dialog-arrive var(--m-base) var(--ease-out)}
+.delete-dialog-overlay{position:fixed;inset:0;z-index:var(--z-dialog);display:grid;place-items:center;padding:24px;background:color-mix(in srgb,var(--ink) 24%,transparent);-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);animation:delete-dialog-arrive var(--m-base) var(--ease-out)}
 .delete-dialog{width:min(420px,100%);max-height:calc(100dvh - 48px);overflow-y:auto;padding:22px;border:var(--edge-bold) solid var(--line);border-radius:22px;background:var(--surface);box-shadow:var(--hard);color:var(--ink)}
 .delete-dialog-identity{display:flex;align-items:center;gap:10px;margin-bottom:20px;color:var(--text-soft);font-size:14px}
 .delete-dialog-identity span{overflow-wrap:anywhere}
@@ -83,15 +83,18 @@ html[data-desktop] .conversation-row>.unread-badge{position:absolute;right:12px;
 .message-user .message-content a{color:inherit}
 /* Composer and message hierarchy likewise have one visual owner. */
 .composer-hint{font-size:11px}
-.more-menu,.create-menu{min-width:208px;transform-origin:top right;animation:menu-enter var(--m-quick) var(--ease-out) both}
+.more-menu,.create-menu{min-width:208px;transform-origin:var(--radix-dropdown-menu-content-transform-origin);animation:menu-enter var(--m-quick) var(--ease-out) both}
 .create-menu{min-width:212px}
 .more-menu,.create-menu,.sidebar-context-menu{max-width:calc(100vw - 24px)}
 .more-menu .delete-menu-action:hover,.sidebar-context-menu .delete-menu-action:hover{color:var(--danger-text)}
-.more-menu[data-open="false"],.create-menu[data-open="false"]{animation:menu-leave var(--m-quick) var(--ease-settle) both;pointer-events:none}
+.more-menu[data-state="closed"],.create-menu[data-state="closed"]{animation:menu-leave var(--m-quick) var(--ease-settle) both;pointer-events:none}
+#tofi-layers [data-layer="dialog"]{z-index:calc(var(--z-dialog) + 1)}
 @keyframes menu-enter{from{opacity:0;transform:translateY(-4px) scale(.97)}to{opacity:1;transform:translateY(0) scale(1)}}
 @keyframes menu-leave{to{opacity:0;transform:translateY(-3px) scale(.98)}}
-.action-hint{position:fixed;z-index:1000;max-width:200px;padding:7px 10px;color:var(--on-accent);background:var(--accent);box-shadow:var(--float-shadow);border-radius:8px;font-size:12px;line-height:18px;pointer-events:none;animation:hint-enter var(--m-quick) var(--ease-out) both}
+.action-hint{position:fixed;z-index:var(--z-tooltip);max-width:200px;padding:7px 10px;color:var(--on-accent);background:var(--accent);box-shadow:var(--float-shadow);border-radius:8px;font-size:12px;line-height:18px;pointer-events:none;animation:hint-enter var(--m-quick) var(--ease-out) both}
 @keyframes hint-enter{from{opacity:0}to{opacity:1}}
+/* A group's read-by names (SendReceiptMark): the same delegated hint in the quiet surface look it had inside the row. */
+.action-hint.is-quiet{width:max-content;max-width:min(240px,70vw);padding:5px 9px;border:1px solid var(--line-soft);color:var(--ink);background:var(--surface);box-shadow:0 4px 14px rgb(0 0 0 / 14%);font:12px/1.35 var(--body)}
 .detail-pane.visible{background:var(--surface);animation:drawer-enter var(--m-panel-in) var(--ease-out) both;box-shadow:var(--float-shadow)}
 .detail-pane.surface-exiting{animation:drawer-leave var(--m-panel-out) var(--ease-settle) both;pointer-events:none}
 @keyframes drawer-enter{from{opacity:.6;translate:24px 0}to{opacity:1;translate:0 0}}
@@ -127,7 +130,6 @@ html[data-desktop] .conversation-row>.unread-badge{position:absolute;right:12px;
  html[data-desktop] .sidebar-collapsed .conversation-row>.unread-badge{position:absolute;top:6px;right:6px;bottom:auto}
  .sidebar-collapsed .sidebar-settings-button{justify-content:center;padding:8px}
  .sidebar-collapsed .sidebar-footer{padding-inline:0}
- .sidebar-collapsed .create-menu{left:calc(100% + 12px);right:auto;top:0;transform-origin:top left}
  .sidebar-collapsed .create-menu-anchor{position:static}
  .sidebar-collapsed .sidebar-actions{position:relative}
  .sidebar-collapsed .contact-pane{overflow:visible}
@@ -172,7 +174,7 @@ html[data-desktop] .message-avatar .avatar{width:38px;height:38px}
 .computer-viewer-status{font-size:12px}.computer-viewer-actions .secondary-button{font-size:12px;padding:6px 8px;min-height:30px;background:transparent;border:0}
 .computer-viewer-actions .secondary-button:hover{background:var(--surface-hover)}
 .computer-tools>summary{font-size:12px;color:var(--muted)}
-.bot-identity-card{position:fixed;z-index:90;width:280px;padding:18px;background:var(--surface);color:var(--text);border:1px solid var(--line);border-radius:18px;box-shadow:var(--float-shadow);animation:menu-enter var(--m-base) var(--ease-out) both;transform-origin:top left}
+.bot-identity-card{position:relative;z-index:var(--z-popover);width:280px;padding:18px;background:var(--surface);color:var(--text);border:1px solid var(--line);border-radius:18px;box-shadow:var(--float-shadow);animation:menu-enter var(--m-base) var(--ease-out) both;transform-origin:top left}
 .identity-card-anchor{display:inline-flex;border-radius:10px;outline-offset:4px}
 .identity-card-title{display:flex;align-items:center;gap:12px}
 .identity-card-title>div{display:grid;gap:2px;min-width:0}
@@ -218,7 +220,7 @@ html[data-desktop] .message-avatar .avatar{width:38px;height:38px}
 .group-avatar,.user-avatar{background:var(--surface-hover);color:var(--text-soft)}
 .unread-divider::before,.unread-divider::after{background:var(--line)!important}
 .back-button{color:var(--text);background:transparent}.back-button:hover{background:var(--surface-hover)}
-.bot-identity-card[data-open="false"]{animation:menu-leave var(--m-quick) var(--ease-out) both;pointer-events:none}
+.bot-identity-card[data-state="closed"]{animation:menu-leave var(--m-quick) var(--ease-out) both;pointer-events:none}
 html[data-desktop] .new-arrival .message-content{transform-origin:0 100%;animation:bubble-arrive var(--m-panel-in) var(--ease-out) both}
 html[data-desktop] .new-arrival .message-user .message-content{transform-origin:100% 12px}
 @keyframes bubble-arrive{0%{transform:scale(.87,.9)}70%{transform:scale(1.007,1.01)}100%{transform:scale(1)}}

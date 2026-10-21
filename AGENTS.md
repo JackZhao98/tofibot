@@ -42,6 +42,13 @@ outside the tokens (existing leftovers are a ceiling in `ui/scripts/motion-token
 on a `backdrop-filter` without its `-webkit-` twin. The follow-bottom scroll is a tween owned by
 `useConversationScroll` (`GLIDE_MS` 220, `GLIDE_STREAM_MS` 120, at most 24 px per frame; reduced motion lands at once);
 `test:arrival-glide` holds its budgets. Do not scroll the message pane with a bare `scrollTop =` for organic growth.
+Springs are tokens too: `SPRING` in `motion.ts` (`push`, critically damped; `test:motion-tokens` fails on a literal
+`stiffness`/`damping`/`mass` elsewhere). The phone swipe-back (D35) is `phoneSwipeGesture.ts` (gesture core, rules in
+`SWIPE`) + `phoneSwipeEngine.ts` (the release, a spring with the finger's velocity baked into WAAPI keyframes), a lazy chunk
+loaded by `usePhoneSwipeBack.ts` on a phone-sized window only; it moves the panes by transform and commits through the same
+`setMobileList(true)` as the back button (flushSync, `data-swipe=done` keeps CSS transitions from replaying). `test:swipe-back`
+(also `SWIPE_BACK_ENGINE=webkit`) holds it. Motion is not a dependency of the app (step 4 measured it and kept our code,
+D35); `motion` is a devDependency only for `test:motion-experiment` and `TOFI_MOTION_EXPERIMENT=motion` in the dev server.
 
 # Sidebar order and pins
 
@@ -50,7 +57,7 @@ Two per-account integers on `conversations` (added by `ensureColumn`): `pin_orde
 atomically and rejects duplicates, unknown ids, ids in both lists and archived pins; archiving a Bot or group clears its pin. The list is recency
 until the person reorders; after that their order wins, and a conversation the server has not numbered (new since the last reorder) enters at the
 top, newest first. Exports (`portable*`) deliberately carry neither field. In the UI, `sidebarOrder.ts` is the pure ordering and `sidebarDndEngine.ts`
-the drag/keyboard/long-press engine (its own chunk, loaded in idle time by `useSidebarDnd.ts` to hold the shell budget): it moves elements with transforms from rects measured once at pickup, and React renders once, on drop. Do not
+the drag/keyboard/long-press engine (its own chunk, loaded in idle time by `useSidebarDnd.ts` to hold the shell budget): it moves elements with transforms from rects measured once at pickup, and React renders once, on drop. The pinned area is the drop target: `.pin-frame` wraps the dock (empty when nothing is pinned) as the first block of the list, under the search bar, no sticky or positioned layer over it; a row drag shows its dashed outline and hint, moving the rows down (and takes the list to the top), and `glideFrom` slides every visible child from where it was seen; the settle must clear transitions (`transition:none`) before it reads the landing rect, or the rect carries the lifted pose. The dragged and landing element sit on `--z-drag`. Do not
 put a style that depends on an attribute or custom property of an ancestor of the list on pickup (it restyles every cat; measured +60 ms at 4x CPU).
 `npm --prefix ui run test:sidebar-pins` holds it (frame budget over 60 conversations, touch at 390 px, keyboard, reduced motion).
 
@@ -138,6 +145,54 @@ was set (sender marks, a prepended block) must be followed by `viewport.repositi
 # Fast UI preview against a running server
 
 Iterate on the UI without a release: `cd ui && TOFI_DEV_API_ORIGIN=https://<server>:8321 npm run dev:remote`, then open http://localhost:5173 in Chrome and sign in once. Vite hot-reloads UI edits instantly while `/api` is proxied to that server's real data; `dev:remote` accepts the default self-signed certificate. Safari will not keep the Secure session cookie on plain-http localhost, so use Chrome. Backend changes still need a build and deploy.
+Every component state is also on the dev-only component catalog, http://localhost:5173/catalog.html (`ui/catalog.html`, `ui/src/catalog/`, D34): real
+components on synthetic data in iframes at 1280/390 px, light/dark, 7 languages. It never calls `/api` and never ships: `npm --prefix ui run test:catalog`
+fails if it reaches `dist/`, if product code imports it, or if a frame leaks a request. A component or state added to `docs/design/components.md` gets a
+state in `ui/src/catalog/sections/` (or a listed gap).
+
+# Web UI layers
+
+One layer scale, in `ui/src/design-tokens.css` (`--z-base` 0, `--z-raised` 1, `--z-edge-blur` 10, `--z-chrome` 20, `--z-pill` 30,
+`--z-panel` 40, `--z-popover` 50, `--z-menu` 60, `--z-cover` 70, `--z-dialog` 80, `--z-toast` 90, `--z-tooltip` 100, `--z-drag` 110) and
+mirrored as `Z` in `ui/src/layers.ts` (docs/design/tokens.md §9). A z-index is `var(--z-*)`, `calc(var(--z-*) +/- 1)` or, inside a component's own
+stacking context, -1..3; TS writes `"var(--z-*)"`, never a number. Overlays portal into `layerRoot()` (`<div id="tofi-layers">` after `#root`,
+deliberately not a stacking context), never into `document.body`. `npm --prefix ui run test:layers` fails on any of that (older local values
+above 3 are a ceiling in `ui/scripts/layers-baseline.json` that only shrinks) and checks the paint order of overlays stacked on one point.
+Note `container-type` does not create a stacking context: on wide screens the chat pane's chrome competes with the sidebar and panels.
+
+# Web UI menus and popovers
+
+Menus and popovers are Radix (`@radix-ui/react-dropdown-menu`, `@radix-ui/react-popover`, pinned), and Radix lives only in the lazy chunk
+`ui/src/overlays/RadixOverlays.tsx`, fetched in idle time. The entry carries `ui/src/overlays/OverlayHost.tsx`: `OverlayMenu` and
+`OverlayPopover`, which the owner renders only while the surface is open (or leaving), with its existing class as `className` and its
+existing markup as children (every `<button>` in a menu becomes a Radix item; `data-keep-open` keeps the menu open on select). The trigger
+stays TOFI's own `<button>` with `aria-haspopup`, `aria-expanded` and `onKeyDown={arrowOpens(setOpen)}`; pass it as `trigger`, and the box
+the old CSS offsets were measured from as `anchor` (or a viewport `point` for context menus). Rules every menu follows: arrows, Home/End,
+typeahead; Escape returns focus to the trigger; Tab closes and continues from the trigger (inside an `aria-modal` container it stays there);
+a press outside closes without eating the press; a focus move alone does not close. Do not wrap the lazy module in `React.lazy` + `Suspense`
+(React 19 holds a revealed boundary for ~300 ms). Do not use Radix Tooltip (hints are `data-hint` read by `ActionHints`;
+`data-hint-tone="quiet"` gives the white look) or Radix ContextMenu (the sidebar drag engine owns the 380 ms long press). A surface opened
+inside an `aria-modal` container stacks at `calc(var(--z-dialog) + 1)` (`data-layer="dialog"`). State that a large component sets but does
+not render from (the sidebar row menu) goes in an `OverlaySlot` + `SlotView`, so opening it does not re-render the Workspace.
+`npm --prefix ui run test:overlays` (also `OVERLAYS_ENGINE=webkit`) holds keyboard, dismissal, placement, layers, the bundle split and the
+open cost; `test:shell-budget` keeps Radix out of the entry.
+
+# Web UI dialogs
+
+Modal dialogs use `ModalDialog` / `ConfirmDialog` from `ui/src/overlays/ModalDialog.tsx` (Radix `Dialog` / `AlertDialog`;
+docs/design/migration.md step 3). Import it only from lazy chunks: Radix must stay out of the entry bundle (D31;
+`test:dialogs` crawls the build). Pass the dialog element as the child (classes and role stay yours) and the scrim class
+as `overlayClassName`; choose `closeOnEscape`, `closeOnOutside`, `locked`, `initialFocus` and `returnFocus` explicitly. It
+sets `aria-modal="true"` and `data-tofi-modal` (App.tsx's desktop-shortcut gate and detail-pane trap read them), keeps Tab
+inside, lets Escape close only the top layer and claims it with `preventDefault` (app Escape handlers must check
+`defaultPrevented`), returns focus, hides the rest from screen readers and turns pointer events off on `<body>` (the
+workspace toast opts back in). Not migrated on purpose: `TakeoverDialog` (Tab belongs to the remote screen), the terminal's
+inline confirm, `PermissionCoach`, and the image lightbox and file preview (native `<dialog>`, top layer; hints and the
+toast render inside the open one via `topLayerDialog()` / `InTopLayer` in `layers.ts`).
+A dialog opened from a menu item reads where focus returns before it opens (`rememberDialogOpener` in App.tsx): the item
+unmounts with the menu and the workspace turns inert in the same commit; from the sidebar row menu that is the row it was opened
+on (recorded by the `OverlaySlot` listener; `test:overlays` holds it). Menus and dialogs share one copy of the Radix primitives
+(one layer stack), so keep the four `@radix-ui/*` packages on versions npm dedupes.
 
 # Chat uploads on the Bot's computer
 

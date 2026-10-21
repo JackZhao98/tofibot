@@ -2,9 +2,14 @@ import { defineConfig } from "vite";
 import { readFileSync } from "node:fs";
 import react from "@vitejs/plugin-react";
 import { oauthAssetsPlugin } from "./oauthAssetsPlugin.ts";
+import { motionExperimentPlugin } from "./motionExperimentPlugin.ts";
 
 export default defineConfig({
-  plugins: [react(), oauthAssetsPlugin()],
+  plugins: [
+    react(), oauthAssetsPlugin(),
+    // Step 4 experiment (D35): TOFI_MOTION_EXPERIMENT=motion serves the Motion variants; dev server only, never a build.
+    ...(process.env.TOFI_MOTION_EXPERIMENT ? [{ ...motionExperimentPlugin(process.env.TOFI_MOTION_EXPERIMENT), apply: "serve" as const }] : []),
+  ],
   server: {
     port: 5173,
     // Serve the dev UI over HTTPS (for another machine on the LAN, where the Secure session cookie needs a secure origin).
