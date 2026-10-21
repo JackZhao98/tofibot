@@ -7,6 +7,7 @@ import { TofiIcon } from "./icons";
 import { useTranslation } from "./i18n";
 import { PrimarySuccessorSelect } from "./PrimaryAssistant";
 import type { Bot } from "./types";
+import { layerRoot } from "./layers";
 
 /** `isPrimary` marks the account's Primary Assistant: removing it needs a named successor. */
 export type DeleteTarget = { id: string; conversationId: string; name: string; kind: "bot" | "group"; isPrimary?: boolean };
@@ -46,5 +47,5 @@ export function DeleteConversationDialog({ target, bots = [], onDelete, onClose 
     {needsSuccessor && <><p className="delete-dialog-primary">{t("primary.delete_notice")}</p><PrimarySuccessorSelect bots={candidates} value={successor} onChange={setSuccessor} disabled={busy} /></>}
     {error && <p className="error-text" role="alert">{error}</p>}
     <div className="delete-dialog-actions"><button ref={cancel} type="button" className="secondary-button" disabled={busy} onClick={onClose}>{t("deleteDialog.cancel")}</button><button type="button" className="delete-dialog-submit" disabled={busy || (needsSuccessor && !successor)} onClick={() => void remove()}>{busy ? t("deleteDialog.deleting") : error ? t("deleteDialog.retry") : label}</button></div>
-  </DialogShell>, document.body);
+  </DialogShell>, layerRoot());
 }

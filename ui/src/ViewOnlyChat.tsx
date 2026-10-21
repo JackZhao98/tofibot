@@ -8,6 +8,7 @@ import { TofiIcon } from "./icons";
 import { useTranslation } from "./i18n";
 import type { Bot, Conversation, Message } from "./types";
 import { mergeViewOnlyHistory, type ViewOnlyHistory, type ViewOnlyHistoryPage } from "./viewOnlyHistory";
+import { layerRoot } from "./layers";
 
 export type ViewOnlyChatTarget = {
   source: Conversation;
@@ -87,7 +88,7 @@ export function ViewOnlyChat({ target, bots, onClose, returnFocus, card = false 
     </header>
     <ViewOnlyChatHistory key={JSON.stringify([target.target.id, target.runId ?? null])} conversationId={target.target.id} runId={target.runId} botById={botById} closeRef={closeRef} />
     <footer className="view-only-chat-footer"><span><TofiIcon name="lock" size={16} /> {t("viewOnly.read_only")}</span><button type="button" className="secondary-button" onClick={onClose}>{t("viewOnly.close")}</button></footer>
-  </div>, document.body);
+  </div>, layerRoot());
 }
 
 function ViewOnlyChatHistory({ conversationId, runId, botById, closeRef }: { conversationId: string; runId?: string; botById: Map<string, Bot>; closeRef: RefObject<HTMLButtonElement | null> }) {

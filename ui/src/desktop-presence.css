@@ -1,5 +1,5 @@
 .computer-detail:not(.is-expanded)>.computer-screen-wrap.desktop-presence-frame,.computer-detail.is-expanded>.computer-screen-wrap.desktop-presence-frame{border:2px solid var(--desktop-bezel);overflow:hidden}
-.desktop-floating-shell{position:fixed;right:20px;bottom:calc(var(--composer-height,90px) + 18px);z-index:25;width:48px;max-height:none;overflow:visible;pointer-events:none}
+.desktop-floating-shell{position:fixed;right:20px;bottom:calc(var(--composer-height,90px) + 18px);z-index:var(--z-pill);width:48px;max-height:none;overflow:visible;pointer-events:none}
 .desktop-floating-shell.is-expanded{inset:0;width:auto;max-height:none}
 .desktop-floating-shell.is-settling{transition:left var(--m-panel-in) var(--ease-settle),top var(--m-panel-in) var(--ease-settle)}
 .desktop-floating-shell:focus-visible{outline:var(--focus-ring-width) solid var(--focus-ring);outline-offset:4px;border-radius:20px}
@@ -25,7 +25,7 @@
 .desktop-floating-shell .computer-detail:not(.is-expanded) .computer-screen-wrap{position:relative;width:100%;aspect-ratio:8/5;max-height:none;margin:0;padding:0;border:2px solid var(--desktop-bezel);border-radius:16px;background:var(--desktop-screen);overflow:hidden;transition:border-color var(--m-panel-in) var(--ease-out),box-shadow var(--m-flight) var(--ease-out)}
 .desktop-floating-shell .computer-detail:not(.is-expanded) .computer-screen-wrap .remote-preview-hint{display:none}
 .desktop-floating-shell .computer-detail:not(.is-expanded) .desktop-launch-preview{width:100%;height:100%;aspect-ratio:auto;margin:0;border:0;border-radius:14px;background:transparent!important}
-.desktop-floating-shell .desktop-presence-canvas>.computer-detail.is-expanded{position:fixed;z-index:35;top:16px;left:max(16px,calc((100vw - 1120px)/2));translate:none;transform:none;display:flex;width:min(1120px,calc(100vw - 32px));height:calc(100dvh - 32px);max-height:calc(100dvh - 32px);box-sizing:border-box;flex-direction:column;gap:0;padding:18px 20px 20px;border:3px solid var(--line);border-radius:22px;background:var(--surface);box-shadow:var(--hard),var(--float-shadow);overflow:auto;pointer-events:auto}
+.desktop-floating-shell .desktop-presence-canvas>.computer-detail.is-expanded{position:fixed;z-index:var(--z-dialog);top:16px;left:max(16px,calc((100vw - 1120px)/2));translate:none;transform:none;display:flex;width:min(1120px,calc(100vw - 32px));height:calc(100dvh - 32px);max-height:calc(100dvh - 32px);box-sizing:border-box;flex-direction:column;gap:0;padding:18px 20px 20px;border:3px solid var(--line);border-radius:22px;background:var(--surface);box-shadow:var(--hard),var(--float-shadow);overflow:auto;pointer-events:auto}
 .desktop-floating-shell .computer-detail.is-expanded .computer-floating-heading{position:static;display:flex;align-items:center;justify-content:space-between;gap:18px;margin:0 0 8px;padding:0;background:transparent;pointer-events:auto}
 .desktop-floating-shell .computer-detail.is-expanded .computer-heading-copy{display:block}
 .desktop-floating-shell .computer-detail.is-expanded .computer-floating-actions{position:static;padding:2px;border:0;border-radius:0;background:transparent;backdrop-filter:none;-webkit-backdrop-filter:none;opacity:1;pointer-events:auto}
@@ -101,7 +101,7 @@ html:not([data-desktop]) .web-desktop-pointer-name{position:absolute;left:16px;t
 /* Web enlargement uses the viewport as its frame, with no translated half-width.
    The 8:5 canvas determines the card height instead of a tall letterboxed panel. */
 html:not([data-desktop]) .desktop-floating-shell.is-expanded {
-  inset:0; z-index:40; display:grid; place-items:center; width:auto; max-height:none;
+  inset:0; z-index:var(--z-dialog); display:grid; place-items:center; width:auto; max-height:none;
   height:var(--viewport-height,100dvh); padding:12px; margin:0; transition:none;
   pointer-events:auto; background:color-mix(in srgb,var(--ink) 30%,transparent);
   -webkit-backdrop-filter:blur(6px); backdrop-filter:blur(6px);

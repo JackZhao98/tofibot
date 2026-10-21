@@ -2,6 +2,7 @@ import { TofiIcon } from "./icons";
 import { useEffect, useId, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { useTranslation } from "./i18n";
+import { layerRoot } from "./layers";
 
 export type ThemePreference = "system" | "light" | "dark";
 export function useAppearance() {
@@ -80,7 +81,7 @@ export function ActionHints() {
     window.addEventListener("scroll", hide, true);
     return () => { hide(); document.removeEventListener("pointerover", show); document.removeEventListener("pointerout", leave); document.removeEventListener("focusin", show); document.removeEventListener("focusout", hide); document.removeEventListener("pointerdown", hide); document.removeEventListener("keydown", hide); window.removeEventListener("scroll", hide, true); };
   }, []);
-  return hint ? createPortal(<div className="action-hint" role="tooltip" style={{ left: hint.x, top: hint.y, transform: `translate(-50%, ${hint.above ? "-100%" : "0"})` }}>{hint.text}</div>, document.body) : null;
+  return hint ? createPortal(<div className="action-hint" role="tooltip" style={{ left: hint.x, top: hint.y, transform: `translate(-50%, ${hint.above ? "-100%" : "0"})` }}>{hint.text}</div>, layerRoot()) : null;
 }
 
 /** Keep content mounted through collapse; inert removes closed controls from tab order. */

@@ -7,6 +7,7 @@ import { useTranslation } from "./i18n";
 import { SettingsCard, SettingsRow, SettingsSection } from "./settings/components";
 import type { Bot } from "./types";
 import "./primary-assistant.css";
+import { layerRoot } from "./layers";
 
 /** Small "Primary" tag for the account's Primary Assistant (sidebar, Bot panel, pickers). */
 export function PrimaryBadge() {
@@ -101,5 +102,5 @@ export function ReassignPrimaryDialog({ bot, bots, onConfirm, onClose }: { bot: 
     <PrimarySuccessorSelect bots={candidates} value={successor} onChange={setSuccessor} disabled={busy} />
     {error && <p className="error-text" role="alert">{error}</p>}
     <div className="delete-dialog-actions"><button ref={cancel} type="button" className="secondary-button" disabled={busy} onClick={onClose}>{t("deleteDialog.cancel")}</button><button type="button" className="primary-button" disabled={busy || !successor} onClick={() => void confirm()}>{busy ? t("primary.working") : t("primary.hide_confirm")}</button></div>
-  </DialogShell>, document.body);
+  </DialogShell>, layerRoot());
 }
