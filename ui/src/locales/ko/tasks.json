@@ -243,7 +243,8 @@
         "mcp_delete": "MCP 서버 삭제",
         "mcp_test": "MCP 서버에 연결"
       }
-    }
+    },
+    "standing_decision": "이 Bot의 상시 허용으로 승인되었으며 아무에게도 묻지 않았습니다. 실행 여부는 아래 단계에서 확인할 수 있습니다."
   },
   "question": {
     "approve": "작업 승인",
@@ -272,7 +273,8 @@
       "human_decided": "수동으로 결정함",
       "run_done": "작업 종료",
       "approved": "승인됨",
-      "remembered": "기억된 승인으로 허용됨"
+      "remembered": "기억된 승인으로 허용됨",
+      "standing": "상시 허용으로 승인됨"
     },
     "answered_refresh_failed": "답변을 받았지만 목록을 새로고침하지 못했습니다. 페이지를 새로고침해 확인하세요.",
     "submit_failed": "제출하지 못했습니다. 다시 시도하세요.",
@@ -293,6 +295,10 @@
       "hint_identifier": "이 채팅에서 이후 {{target}}에 대한 이 도구 호출은 묻지 않고 실행됩니다. 대화 메뉴에서 언제든지 취소할 수 있습니다.",
       "hint_exact": "이 채팅에서 이후 완전히 같은 인수로 이 도구를 호출하면 묻지 않고 실행됩니다. 대화 메뉴에서 언제든지 취소할 수 있습니다.",
       "stale": "승인했지만 기억하지 못했습니다. 도구 또는 설정이 변경되었습니다."
+    },
+    "always_allow": {
+      "hint": "'항상 허용'을 선택하면 {{bot}}이(가) {{server}}의 {{tool}}을(를) 묻지 않고 사용할 수 있으며, 예약 실행에서도 마찬가지입니다. 설정에서 철회할 때까지 유지됩니다.",
+      "stale": "승인했지만 '항상 허용'으로 저장되지 않았습니다. 도구 또는 서버가 변경되었습니다."
     }
   },
   "form": {
@@ -417,7 +423,8 @@
       "policy_needs_approval": "정책상 수동 승인 필요",
       "already_reviewed": "이미 검토됨",
       "high_risk_tool": "고위험 도구 · 결정 필요",
-      "remembered": "기억된 승인"
+      "remembered": "기억된 승인",
+      "standing": "항상 허용"
     },
     "label": {
       "shadow_reviewing": "관찰: 검토 중",
@@ -444,7 +451,8 @@
       "not_eligible": "자동 실행 대상 아님",
       "not_rereviewed": "재검토 안 됨",
       "high_risk_tool": "고위험 도구: 호출마다 사람이 결정",
-      "remembered": "이 채팅에서 기억된 승인으로 결정됨"
+      "remembered": "이 채팅에서 기억된 승인으로 결정됨",
+      "standing": "이 Bot의 상시 허용으로 결정됨"
     },
     "failure": {
       "title": "검토를 완료하지 못한 이유",
@@ -490,7 +498,8 @@
     "decline": "나중에",
     "payload_label": "전체 도구 인수, 일반 텍스트",
     "submitting": "제출 중…",
-    "remember": "승인하고 이 채팅에서 기억하기"
+    "remember": "승인하고 이 채팅에서 기억하기",
+    "always_allow": "항상 허용"
   },
   "remembered": {
     "title": "기억된 승인",

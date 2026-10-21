@@ -70,3 +70,4 @@
 @keyframes approval-result-in { from { opacity:0; transform:translateY(4px); } }
 @media(max-width:560px) { .approval-card { padding:15px; } .approval-title { font-size:17px; } .approval-actions > button { min-height:44px; } }
 @media(prefers-reduced-motion:reduce) { .approval-card,.approval-fold,.approval-actions > button,.approval-result { animation:none !important; transition:none !important; } }
+.approval-always-hint { margin:8px 0 0; }

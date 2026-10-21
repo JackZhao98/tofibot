@@ -107,9 +107,9 @@ func (s *Server) approveMCPCallOnce(ctx context.Context, c Conversation, r Run, 
 
 	// A standing allowance ("Always allow") the person gave this Bot for this
 	// exact tool on this server identity decides the call in their place, in a
-	// scheduled run too. High-risk and read-only tools never match. It lifts
-	// the hidden-conversation refusal below only for this exact (Bot, server,
-	// tool): nothing else gains a path around requireHumanPresent.
+	// scheduled run too. High-risk and read-only tools never match. It does not
+	// lift the hidden-conversation refusal below: a conversation no person can
+	// see keeps refusing, grant or not.
 	standingID, err := s.matchStandingAllowance(s.store.db, r, call)
 	if err != nil {
 		return err
@@ -122,7 +122,7 @@ func (s *Server) approveMCPCallOnce(ctx context.Context, c Conversation, r Run, 
 	// outcomes (mcp_needs_human_unattended and the like) from the flow below.
 	if unattended, err := s.mcpRunUnattended(r); err != nil {
 		return err
-	} else if !unattended && standingID == "" {
+	} else if !unattended {
 		if err := requireHumanPresent(c); err != nil {
 			return err
 		}
@@ -200,19 +200,11 @@ func (s *Server) approveMCPCallOnce(ctx context.Context, c Conversation, r Run, 
 			// "Always ask me" tier, only in a run the owner's own message
 			// triggered, and only with a derivable target.
 			if standingID != "" {
-				// Re-checked at the point of use; if the allowance went away since
-				// the first look, the hidden-conversation refusal applies again.
+				// Re-checked at the point of use; a revoked allowance means a card.
 				if again, matchErr := s.matchStandingAllowance(s.store.db, r, call); matchErr != nil {
 					return matchErr
 				} else if again != standingID {
 					standingID = ""
-					if unattended, e := s.mcpRunUnattended(r); e != nil {
-						return e
-					} else if !unattended {
-						if e := requireHumanPresent(c); e != nil {
-							return e
-						}
-					}
 				}
 			}
 			standingOffered := standingID == "" && s.standingOfferable(c, call)

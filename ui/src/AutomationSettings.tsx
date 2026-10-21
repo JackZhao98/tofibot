@@ -5,6 +5,7 @@ import {modelName, groupModels} from "./modelCatalog";
 import type {ModelCatalog} from "./types";
 import {useTranslation} from "./i18n";
 import {SettingsCard, SettingsRow, SettingsSection} from "./settings/components";
+import {StandingAllowances} from "./StandingAllowances";
 import "./settings/automation.css";
 
 /** Every automatic behavior the server reports, in the order the page lists them. */
@@ -165,5 +166,6 @@ export function AutomationSettings() {
         <SettingsCard>{rows.map(item => <AutomationRow key={item.key} item={item} catalog={catalog} busy={busy === item.key} saved={saved === item.key} error={errors[item.key] ?? ""} onChange={change}/>)}</SettingsCard>
       </SettingsSection>;
     })}
+    <StandingAllowances/>
   </div>;
 }

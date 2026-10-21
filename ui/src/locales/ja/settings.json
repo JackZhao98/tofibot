@@ -864,6 +864,30 @@
     "not_reported": "取得できません",
     "saved": "保存しました",
     "loading": "読み込み中…",
-    "managed": "コンピュータサービスが管理"
+    "managed": "コンピュータサービスが管理",
+    "standing": {
+      "title": "常時許可",
+      "description": "Bot にいつでも使わせると決めたツールです。スケジュール実行も含みます。取り消すと、その Bot の次の呼び出しで再び確認します。",
+      "empty": "常時許可はまだありません。承認カードで「常に許可」を選ぶと追加されます。",
+      "granted": "{{time}} に許可",
+      "last_used": "最終使用 {{time}}",
+      "never_used": "未使用",
+      "revoke": "取り消す",
+      "revoking": "取り消し中…",
+      "revoke_failed": "取り消せませんでした。もう一度お試しください。",
+      "load_failed": "常時許可を読み込めませんでした。",
+      "server_changed": "サーバーが変更されました。再度確認します。",
+      "used_other": "{{count}} 回使用",
+      "remembered": {
+        "title": "チャットで記憶した承認",
+        "description": "1 つの会話内で記憶した承認です。その会話でのみ有効で、自動的に終了します。",
+        "empty": "どのチャットにも記憶された承認はありません。",
+        "target_identifier": "対象：{{target}}",
+        "target_exact": "承認した引数と完全に同じもの",
+        "ends": "{{time}} に終了",
+        "chat": "チャット：{{name}}",
+        "unknown_chat": "ある会話"
+      }
+    }
   }
 }

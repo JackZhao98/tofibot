@@ -882,6 +882,32 @@
     "not_reported": "Non communiquée",
     "saved": "Enregistré",
     "loading": "Chargement…",
-    "managed": "Géré par le service de l’ordinateur"
+    "managed": "Géré par le service de l’ordinateur",
+    "standing": {
+      "title": "Autorisations permanentes",
+      "description": "Outils qu'un Bot peut utiliser à tout moment, y compris dans les exécutions planifiées. Une fois révoquée, la prochaine requête de ce Bot vous redemande.",
+      "empty": "Aucune autorisation permanente pour l'instant. Choisissez « Toujours autoriser » sur une carte d'approbation pour en ajouter une.",
+      "granted": "Autorisé {{time}}",
+      "last_used": "Dernier usage {{time}}",
+      "never_used": "Jamais utilisé",
+      "revoke": "Révoquer",
+      "revoking": "Révocation…",
+      "revoke_failed": "Impossible de révoquer. Réessayez.",
+      "load_failed": "Impossible de charger les autorisations permanentes.",
+      "server_changed": "Serveur modifié. La question sera reposée.",
+      "used_other": "utilisée {{count}} fois",
+      "remembered": {
+        "title": "Mémorisées dans une conversation",
+        "description": "Approbations mémorisées au sein d'une conversation. Elles ne valent que là et prennent fin d'elles-mêmes.",
+        "empty": "Rien n'est mémorisé dans aucune conversation.",
+        "target_identifier": "Cible : {{target}}",
+        "target_exact": "Exactement les arguments approuvés",
+        "ends": "Se termine {{time}}",
+        "chat": "Conversation : {{name}}",
+        "unknown_chat": "Une conversation"
+      },
+      "used_one": "utilisée {{count}} fois",
+      "used_many": "utilisée {{count}} fois"
+    }
   }
 }

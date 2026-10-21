@@ -244,7 +244,8 @@
         "mcp_delete": "Delete an MCP server",
         "mcp_test": "Connect to an MCP server"
       }
-    }
+    },
+    "standing_decision": "Approved by this Bot's standing allowance; no one was asked. The step below shows whether it ran."
   },
   "question": {
     "approve": "Approve action",
@@ -273,7 +274,8 @@
       "human_decided": "Decided manually",
       "run_done": "Task ended",
       "approved": "Approved",
-      "remembered": "Approved by a remembered approval"
+      "remembered": "Approved by a remembered approval",
+      "standing": "Approved by a standing allowance"
     },
     "answered_refresh_failed": "Answer received, but the list didn't refresh. Reload the page to see it.",
     "submit_failed": "Couldn't submit. Try again.",
@@ -295,6 +297,10 @@
       "hint_identifier": "Later calls to this tool on {{target}} in this chat run without asking. Revoke any time from the conversation menu.",
       "hint_exact": "Later calls to this tool with exactly these arguments in this chat run without asking. Revoke any time from the conversation menu.",
       "stale": "Approved, but not remembered: the tool or its settings changed."
+    },
+    "always_allow": {
+      "hint": "Always allow lets {{bot}} use {{tool}} on {{server}} without asking, including in scheduled runs, until you revoke it in Settings.",
+      "stale": "Approved, but not saved as always allowed: the tool or its server changed."
     }
   },
   "form": {
@@ -422,7 +428,8 @@
       "policy_needs_approval": "Policy requires manual approval",
       "already_reviewed": "Already reviewed",
       "high_risk_tool": "High-risk tool · your decision is needed",
-      "remembered": "Remembered approval"
+      "remembered": "Remembered approval",
+      "standing": "Always allowed"
     },
     "label": {
       "shadow_reviewing": "Observation: reviewing",
@@ -449,7 +456,8 @@
       "not_eligible": "Not eligible for automatic execution",
       "not_rereviewed": "Not reviewed again",
       "high_risk_tool": "High-risk tool: a person decides each call",
-      "remembered": "Decided by a remembered approval from this chat"
+      "remembered": "Decided by a remembered approval from this chat",
+      "standing": "Decided by a standing allowance for this Bot"
     },
     "failure": {
       "title": "Why the review could not finish",
@@ -495,7 +503,8 @@
     "decline": "Not now",
     "payload_label": "Full tool arguments, plain text",
     "submitting": "Submitting…",
-    "remember": "Approve and remember in this chat"
+    "remember": "Approve and remember in this chat",
+    "always_allow": "Always allow"
   },
   "remembered": {
     "title": "Remembered approvals",

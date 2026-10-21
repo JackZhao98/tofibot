@@ -873,6 +873,31 @@
     "not_reported": "Nicht gemeldet",
     "saved": "Gespeichert",
     "loading": "Wird geladen …",
-    "managed": "Vom Computerdienst verwaltet"
+    "managed": "Vom Computerdienst verwaltet",
+    "standing": {
+      "title": "Dauerfreigaben",
+      "description": "Tools, die ein Bot jederzeit nutzen darf, auch in geplanten Läufen. Nach dem Widerruf fragt der nächste Aufruf dieses Bots wieder bei dir nach.",
+      "empty": "Noch keine Dauerfreigaben. Wähle auf einer Freigabekarte „Immer erlauben“, um eine anzulegen.",
+      "granted": "Erlaubt {{time}}",
+      "last_used": "Zuletzt genutzt {{time}}",
+      "never_used": "Noch nicht genutzt",
+      "revoke": "Widerrufen",
+      "revoking": "Wird widerrufen …",
+      "revoke_failed": "Widerruf fehlgeschlagen. Versuche es erneut.",
+      "load_failed": "Dauerfreigaben konnten nicht geladen werden.",
+      "server_changed": "Server geändert. Es wird wieder gefragt.",
+      "used_other": "{{count}} Mal genutzt",
+      "remembered": {
+        "title": "In einem Chat gemerkt",
+        "description": "Freigaben, die du innerhalb einer Unterhaltung gemerkt hast. Sie gelten nur dort und enden von selbst.",
+        "empty": "In keinem Chat ist etwas gemerkt.",
+        "target_identifier": "Ziel: {{target}}",
+        "target_exact": "Genau die genehmigten Argumente",
+        "ends": "Endet {{time}}",
+        "chat": "Chat: {{name}}",
+        "unknown_chat": "Eine Unterhaltung"
+      },
+      "used_one": "{{count}} Mal genutzt"
+    }
   }
 }
