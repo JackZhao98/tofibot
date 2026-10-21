@@ -261,14 +261,16 @@ func TestProductionPromptSizeMatrix(t *testing.T) {
 				// that asked four times and promised without acting), plus the route-resourcefulness
 				// line that replaces the one-clause route sentence (together ~470; the line is merged into
 				// the existing guidance, not added beside it).
-				if tc.name == "dm" && len([]rune(system))+runtime.SystemPromptOverheadRunes() > 6750 {
-					t.Errorf("ordinary DM provider system exceeds 6750 runes")
+				// 6933: the computer section's office-tooling and attached-files principles (+183 measured).
+				if tc.name == "dm" && len([]rune(system))+runtime.SystemPromptOverheadRunes() > 6933 {
+					t.Errorf("ordinary DM provider system exceeds 6933 runes")
 				}
 				// 7000: the lookup line's works-newer-than-the-model clause (~45) lands in
 				// every prompt, the longest of which sat 23 under 6950.
 				// 7450: the confirmation, announce-after-work and route principles (~470) lands in every prompt.
-				if fixed > 7450 {
-					t.Errorf("fixed overhead %d leaves too little customization headroom (ceiling 7450)", fixed)
+				// 7633: plus the computer section's office-tooling and attached-files principles (+183 measured).
+				if fixed > 7633 {
+					t.Errorf("fixed overhead %d leaves too little customization headroom (ceiling 7633)", fixed)
 				}
 				if !strings.Contains(system, bot.Instructions) {
 					t.Fatal("user instructions changed")
@@ -308,8 +310,8 @@ func TestProductionPromptSizeMatrix(t *testing.T) {
 					}
 					// 6250: same two additions as the ordinary DM cap above.
 					// 6700: plus the confirmation, announce-after-work and route principles (~470), as above.
-					if tc.name == "dm" && len([]rune(system))+runtime.StructuredPromptOverheadRunes() > 6700 {
-						t.Errorf("structured DM provider system exceeds 6700 runes")
+					if tc.name == "dm" && len([]rune(system))+runtime.StructuredPromptOverheadRunes() > 6883 { // 6883: 6700 plus the same +183 computer-section principles.
+						t.Errorf("structured DM provider system exceeds 6883 runes")
 					}
 					if tc.kind == runKindGroupChat && !strings.Contains(system, "say(answer)") {
 						t.Error("structured group prompt does not name say(answer)")

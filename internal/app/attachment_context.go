@@ -120,7 +120,7 @@ func (s *Server) attachmentTools(c Conversation) []Tool {
 	}}}
 }
 
-func (s *Server) addAttachmentContext(c Conversation, m Message, pm *runtime.Message, imagesLeft *int, imageBudget *int64) {
+func (s *Server) addAttachmentContext(c Conversation, m Message, pm *runtime.Message, imagesLeft *int, imageBudget *int64, guestPaths map[string]string) {
 	attachments, err := s.store.AttachmentsForMessage(m.ID)
 	if err != nil || len(attachments) == 0 {
 		return
@@ -128,6 +128,9 @@ func (s *Server) addAttachmentContext(c Conversation, m Message, pm *runtime.Mes
 	var note strings.Builder
 	for _, a := range attachments {
 		fmt.Fprintf(&note, "\nAttachment: %s (attachment_id=%s, type=%s, bytes=%d).", a.Name, a.ID, a.MIME, a.Size)
+		if p := guestPaths[a.ID]; p != "" {
+			fmt.Fprintf(&note, " On the computer at %s.", p)
+		}
 		if strings.HasPrefix(a.MIME, "image/") && *imagesLeft > 0 && a.Size <= *imageBudget {
 			image, e := s.store.attachmentImage(a.ID, c.ID)
 			if e == nil {

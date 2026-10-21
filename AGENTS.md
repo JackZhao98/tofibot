@@ -138,3 +138,13 @@ was set (sender marks, a prepended block) must be followed by `viewport.repositi
 # Fast UI preview against a running server
 
 Iterate on the UI without a release: `cd ui && TOFI_DEV_API_ORIGIN=https://<server>:8321 npm run dev:remote`, then open http://localhost:5173 in Chrome and sign in once. Vite hot-reloads UI edits instantly while `/api` is proxied to that server's real data; `dev:remote` accepts the default self-signed certificate. Safari will not keep the Secure session cookie on plain-http localhost, so use Chrome. Backend changes still need a build and deploy.
+
+# Chat uploads on the Bot's computer
+
+Files a person sends in chat are copied to the guest at `/workspace/home/uploads/<conversation id>/<name>` (`internal/app/guest_inputs.go`,
+decision 0036). Only attachments of user messages in the run's own conversation (the `read_attachment` visibility) are placed; the trigger
+message's go first, then earlier ones within 40 files / 80 MB. The copy is lazy: a computer tool set syncs once before its first `computer_*`
+call, never at context build, and the prompt only names the paths. Transport is the guest action `files.import_chunk` (reverse of
+`files.export_chunk`, 512 KB chunks into `<path>.part`, renamed on the last): an existing file answers `exists`, so a repeat sends nothing and a
+Bot's edits survive. A colliding name keeps its plain form for the earliest attachment and gets `-<id[:8]>` otherwise. Archives are never extracted.
+A new guest action must also be added to `microVMActions` and the watchdog timeout list, and needs a rebuilt guest in the image.
