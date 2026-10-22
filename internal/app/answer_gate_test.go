@@ -3,27 +3,40 @@ package app
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"go/parser"
 	"go/token"
 	"net/http"
 	"os"
 	"strings"
+	"sync"
+	"sync/atomic"
 	"testing"
+	"time"
 
+	"github.com/JackZhao98/tofibot/internal/provider"
 	"github.com/JackZhao98/tofibot/internal/runtime"
 )
 
 // gateReminderMarker is a stable stretch of the gate's private reminder.
-const gateReminderMarker = "you labelled it a gap"
+const gateReminderMarker = "this run has not yet tried any lookup route"
 
 func gateRun(t *testing.T, model *fakeModel, gateOn bool) (*Server, Run) {
+	return gateRunWith(t, model.engine(t), gateOn, nil)
+}
+
+// gateRunWith runs one turn; setup may install a test input-check provider.
+func gateRunWith(t *testing.T, engine runtime.Engine, gateOn bool, setup func(*Server)) (*Server, Run) {
 	t.Helper()
 	retainDeltaEvents(t)
-	s, err := NewServer(Config{DataDir: t.TempDir(), Engine: model.engine(t)})
+	s, err := NewServer(Config{DataDir: t.TempDir(), Engine: engine})
 	if err != nil {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { s.Close() })
+	if setup != nil {
+		setup(s)
+	}
 	if !gateOn {
 		if code := autoPutCode(t, s, `{"answer_gate":false}`); code != http.StatusOK {
 			t.Fatalf("put=%d", code)
@@ -201,17 +214,22 @@ func TestGateDecisionReadsOnlyLabelAndToolRecord(t *testing.T) {
 	for _, tc := range []struct {
 		enabled       bool
 		label         string
+		outside       bool
 		looked, spent bool
 		want          bool
 	}{
-		{true, resolutionGap, false, false, true},
-		{true, resolutionGap, true, false, false},
-		{true, resolutionGap, false, true, false},
-		{true, resolutionResolved, false, false, false},
-		{true, "", false, false, false},
-		{false, resolutionGap, false, false, false},
+		{true, resolutionGap, false, false, false, true},
+		{true, resolutionGap, false, true, false, false},
+		{true, resolutionGap, false, false, true, false},
+		{true, resolutionResolved, false, false, false, false},
+		{true, "", false, false, false, false},
+		{false, resolutionGap, false, false, false, false},
+		{true, resolutionResolved, true, false, false, true},
+		{true, resolutionResolved, true, true, false, false},
+		{true, resolutionResolved, true, false, true, false},
+		{false, resolutionResolved, true, false, false, false},
 	} {
-		if got := answerGateDue(tc.enabled, tc.label, tc.looked, tc.spent); got != tc.want {
+		if got := answerGateDue(tc.enabled, tc.label, tc.outside, tc.looked, tc.spent); got != tc.want {
 			t.Fatalf("%+v: got %v", tc, got)
 		}
 	}
@@ -220,15 +238,22 @@ func TestGateDecisionReadsOnlyLabelAndToolRecord(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, imp := range file.Imports {
-		if p := strings.Trim(imp.Path.Value, `"`); p == "regexp" || p == "unicode" {
-			t.Fatalf("answer_gate.go imports %s: the gate must not match text", p)
+	_ = file
+	for _, name := range []string{"answer_gate.go", "answer_probe.go"} {
+		f, err := parser.ParseFile(fset, name, nil, parser.ImportsOnly)
+		if err != nil {
+			t.Fatal(err)
 		}
-	}
-	src, _ := os.ReadFile("answer_gate.go")
-	for _, banned := range []string{"strings.Contains", "strings.ToLower", "strings.HasPrefix", "MatchString"} {
-		if strings.Contains(string(src), banned) {
-			t.Fatalf("answer_gate.go uses %s", banned)
+		for _, imp := range f.Imports {
+			if p := strings.Trim(imp.Path.Value, `"`); p == "regexp" || p == "unicode" {
+				t.Fatalf("%s imports %s: the gate must not match text", name, p)
+			}
+		}
+		src, _ := os.ReadFile(name)
+		for _, banned := range []string{"strings.Contains", "strings.ToLower", "strings.HasPrefix", "MatchString"} {
+			if strings.Contains(string(src), banned) {
+				t.Fatalf("%s uses %s", name, banned)
+			}
 		}
 	}
 }
@@ -246,5 +271,168 @@ func TestLookupAttemptIsDecidedByToolNameAndRisk(t *testing.T) {
 	}
 	if !lookupAttempt("mcp_read", "observation") || lookupAttempt("get_context_usage", "observation") {
 		t.Fatal("a read-only connected-tool call counts; bookkeeping reads do not")
+	}
+}
+
+// probeProvider is a scripted input check.
+type probeProvider struct {
+	reply    string
+	err      error
+	block    chan struct{} // when set, Chat waits for it (or the context)
+	calls    atomic.Int32
+	returned chan struct{}
+	once     sync.Once
+}
+
+func (p *probeProvider) Chat(ctx context.Context, _ *provider.ChatRequest) (*provider.ChatResponse, error) {
+	p.calls.Add(1)
+	defer p.once.Do(func() {
+		if p.returned != nil {
+			close(p.returned)
+		}
+	})
+	if p.block != nil {
+		select {
+		case <-p.block:
+		case <-ctx.Done():
+			return nil, ctx.Err()
+		}
+	}
+	if p.err != nil {
+		return nil, p.err
+	}
+	return &provider.ChatResponse{Content: p.reply, Usage: provider.Usage{InputTokens: 120, OutputTokens: 8}}, nil
+}
+
+func (p *probeProvider) ChatStream(ctx context.Context, req *provider.ChatRequest, _ func(provider.StreamDelta)) (*provider.ChatResponse, error) {
+	return p.Chat(ctx, req)
+}
+
+// afterProbe delays the main model until the input check has returned and its
+// verdict is stored, the ordering the check is designed for.
+type afterProbe struct {
+	inner runtime.Engine
+	p     *probeProvider
+}
+
+func (e afterProbe) Run(ctx context.Context, req runtime.Request) (runtime.Result, error) {
+	select {
+	case <-e.p.returned:
+		time.Sleep(150 * time.Millisecond)
+	case <-time.After(5 * time.Second):
+	}
+	return e.inner.Run(ctx, req)
+}
+
+func probeServer(p *probeProvider) func(*Server) {
+	return func(s *Server) { s.answerProbeProvider = p }
+}
+
+func TestInputCheckAloneTriggersTheGate(t *testing.T) {
+	p := &probeProvider{reply: `{"outside_information":"needed"}`, returned: make(chan struct{})}
+	model := newFakeModel(t,
+		fakeStep{calls: []fakeCall{sayCall("c1", "resolved", "Confident draft with no lookup.")}},
+		fakeStep{calls: []fakeCall{sayCall("c2", "resolved", "Second draft after looking.")}})
+	s, run := gateRunWith(t, afterProbe{model.engine(t), p}, true, probeServer(p))
+	if run.Status != "done" || gateReminders(model) != 1 || modelCalls(model) != 2 {
+		t.Fatalf("run=%+v reminders=%d calls=%d", run, gateReminders(model), modelCalls(model))
+	}
+	if rows := assistantRows(t, s.store, run.ConversationID); !equalStrings(kindsAndText(rows), []string{"|Second draft after looking."}) {
+		t.Fatalf("messages = %q", kindsAndText(rows))
+	}
+	if all := strings.Join(deltaTexts(t, s.store, run.ConversationID), ""); strings.Contains(all, "Confident draft") {
+		t.Fatalf("the bounced draft streamed: %q", all)
+	}
+}
+
+func TestInputCheckNotNeededLeavesAResolvedAnswerAlone(t *testing.T) {
+	p := &probeProvider{reply: `{"outside_information":"not_needed"}`, returned: make(chan struct{})}
+	model := newFakeModel(t, fakeStep{calls: []fakeCall{sayCall("c1", "resolved", "Plain answer.")}})
+	_, run := gateRunWith(t, afterProbe{model.engine(t), p}, true, probeServer(p))
+	if run.Status != "done" || modelCalls(model) != 1 || gateReminders(model) != 0 {
+		t.Fatalf("run=%+v calls=%d reminders=%d", run, modelCalls(model), gateReminders(model))
+	}
+}
+
+// A check that has not returned when the answer arrives is ignored: the run
+// finishes without waiting for it.
+func TestLateInputCheckNeverDelaysAResolvedAnswer(t *testing.T) {
+	p := &probeProvider{reply: `{"outside_information":"needed"}`, block: make(chan struct{})}
+	model := newFakeModel(t, fakeStep{calls: []fakeCall{sayCall("c1", "resolved", "Answer that does not wait.")}})
+	start := time.Now()
+	s, run := gateRunWith(t, model.engine(t), true, probeServer(p))
+	if run.Status != "done" || modelCalls(model) != 1 || gateReminders(model) != 0 {
+		t.Fatalf("run=%+v calls=%d reminders=%d", run, modelCalls(model), gateReminders(model))
+	}
+	if d := time.Since(start); d > 3*time.Second {
+		t.Fatalf("the run took %v while the check was still pending", d)
+	}
+	if rows := assistantRows(t, s.store, run.ConversationID); !equalStrings(kindsAndText(rows), []string{"|Answer that does not wait."}) {
+		t.Fatalf("messages = %q", kindsAndText(rows))
+	}
+	close(p.block)
+}
+
+func TestInputCheckFailureFallsBackToTheLabelOnlyRule(t *testing.T) {
+	for _, p := range []*probeProvider{
+		{err: errors.New("provider unavailable"), returned: make(chan struct{})},
+		{reply: "not the structured answer", returned: make(chan struct{})},
+		{reply: `{"outside_information":"maybe"}`, returned: make(chan struct{})},
+	} {
+		resolved := newFakeModel(t, fakeStep{calls: []fakeCall{sayCall("c1", "resolved", "Stands.")}})
+		_, run := gateRunWith(t, afterProbe{resolved.engine(t), p}, true, probeServer(p))
+		if run.Status != "done" || modelCalls(resolved) != 1 {
+			t.Fatalf("resolved with a failed check: run=%+v calls=%d", run, modelCalls(resolved))
+		}
+		gap := newFakeModel(t,
+			fakeStep{calls: []fakeCall{sayCall("c1", "gap", "First gap.")}},
+			fakeStep{calls: []fakeCall{sayCall("c2", "resolved", "Second.")}})
+		q := &probeProvider{err: p.err, reply: p.reply, returned: make(chan struct{})}
+		_, run = gateRunWith(t, afterProbe{gap.engine(t), q}, true, probeServer(q))
+		if run.Status != "done" || gateReminders(gap) != 1 {
+			t.Fatalf("a gap with a failed check must still bounce: run=%+v reminders=%d", run, gateReminders(gap))
+		}
+	}
+}
+
+func TestSettingOffTurnsOffTheInputCheckCallAndTheGate(t *testing.T) {
+	p := &probeProvider{reply: `{"outside_information":"needed"}`, returned: make(chan struct{})}
+	model := newFakeModel(t, fakeStep{calls: []fakeCall{sayCall("c1", "resolved", "No check, no gate.")}})
+	_, run := gateRunWith(t, model.engine(t), false, probeServer(p))
+	if run.Status != "done" || p.calls.Load() != 0 || modelCalls(model) != 1 || gateReminders(model) != 0 {
+		t.Fatalf("run=%+v probe calls=%d model calls=%d", run, p.calls.Load(), modelCalls(model))
+	}
+}
+
+func TestInputCheckRunsOncePerTurnAndIsMetered(t *testing.T) {
+	p := &probeProvider{reply: `{"outside_information":"not_needed"}`, returned: make(chan struct{})}
+	model := newFakeModel(t, fakeStep{calls: []fakeCall{sayCall("c1", "resolved", "Metered.")}})
+	s, run := gateRunWith(t, afterProbe{model.engine(t), p}, true, probeServer(p))
+	var n, in int
+	if err := s.store.db.QueryRow(`SELECT COUNT(*),COALESCE(SUM(input_tokens),0) FROM usage_calls WHERE run_id=? AND kind=?`, run.ID, usageKindReview).Scan(&n, &in); err != nil {
+		t.Fatal(err)
+	}
+	if p.calls.Load() != 1 || n != 1 || in != 120 {
+		t.Fatalf("probe calls=%d metered rows=%d input=%d", p.calls.Load(), n, in)
+	}
+}
+
+func TestProbeVerdictReadsOnlyTheEnumField(t *testing.T) {
+	for raw, want := range map[string]int32{
+		`{"outside_information":"needed"}`:                       probeNeeded,
+		"```json\n{\"outside_information\":\"not_needed\"}\n```": probeNotNeeded,
+		`{"outside_information":"Needed"}`:                       probeFailed,
+		`needed`:                                                 probeFailed,
+		``:                                                       probeFailed,
+	} {
+		if got := probeVerdict(raw); got != want {
+			t.Fatalf("%q -> %d, want %d", raw, got, want)
+		}
+	}
+}
+
+func TestCodexOnlyWorkspaceChecksWithItsSmallestModel(t *testing.T) {
+	if codexDefaultModel != "codex-gpt-5.6-luna" {
+		t.Fatalf("codex small model = %s", codexDefaultModel)
 	}
 }

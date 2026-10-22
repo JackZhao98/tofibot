@@ -202,6 +202,7 @@ type Server struct {
 	accountID                            string
 	mcpApprovalMu                        sync.Mutex
 	autoReviewProvider                   provider.Provider // Deterministic tests only; production uses the existing Codex adapter.
+	answerProbeProvider                  provider.Provider // Deterministic tests only; production uses the background model.
 	shadowReviewMu                       sync.Mutex
 	shadowReviewWG                       sync.WaitGroup
 	shadowReviewCancel                   context.CancelFunc
@@ -219,7 +220,7 @@ type Server struct {
 	listen                               string
 	uiDir                                string
 	publicOrigin                         string
-	allowInternalMCPHosts                bool // tests only: Bot-created MCP servers may use loopback hosts
+	allowInternalMCPHosts                bool     // tests only: Bot-created MCP servers may use loopback hosts
 	extensionProposals                   sync.Map // run id + normalized token -> *ApprovalFacts, set when a change is refused for approval
 	defaultModel, provider               string
 	transcriptionAPIKey                  string
@@ -3682,6 +3683,11 @@ func (s *Server) execute(c Conversation, r Run) {
 	// observedLookup is the answer gate's tool record: set once the run has
 	// attempted any lookup route (history, memory, web, files, connected tools).
 	var observedLookup atomic.Bool
+	// probe is the input check's verdict (see answer_probe.go); nil when no check runs.
+	var probe *answerProbe
+	if structured && r.Kind != runKindTriage && r.Kind != runKindSchedule && r.scheduleTask == nil && c.UserVisible && r.TriggerMessageID != "" && len(continuation) == 0 && s.answerGateEnabled() {
+		probe = &answerProbe{}
+	}
 	if r.Kind != runKindTriage {
 		var initErr error
 		var controls streamControlSet
@@ -3709,11 +3715,12 @@ func (s *Server) execute(c Conversation, r Run) {
 			state.review = func() bool { return observedToolWork.Load() && !reviewed.Swap(true) }
 			state.owed = func() bool { return observedToolWork.Load() && !reviewed.Load() }
 			// The answer gate shares the review's one repair budget (reviewed).
-			state.gateOwed = func(resolution string) bool {
-				return answerGateDue(s.answerGateEnabled(), resolution, observedLookup.Load(), reviewed.Load())
+			state.probeNow = probe.load
+			state.gateOwed = func(resolution string, verdict int32) bool {
+				return answerGateDue(s.answerGateEnabled(), resolution, verdict == probeNeeded, observedLookup.Load(), reviewed.Load())
 			}
-			state.gate = func(resolution string) bool {
-				return state.gateOwed(resolution) && !reviewed.Swap(true)
+			state.gate = func(resolution string, verdict int32) bool {
+				return state.gateOwed(resolution, verdict) && !reviewed.Swap(true)
 			}
 			s.sayRuns.Store(r.ID, state)
 			defer s.sayRuns.Delete(r.ID)
@@ -3893,6 +3900,9 @@ func (s *Server) execute(c Conversation, r Run) {
 				return reminder, err
 			}
 		}
+	}
+	if probe != nil {
+		go s.runAnswerProbe(ctx, r.ID, pm, probe)
 	}
 	runEngine := engine
 	var onToolCallDelta func(runtime.ToolCallDelta)

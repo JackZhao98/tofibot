@@ -23,7 +23,7 @@ const sayResolutionDescription = "With purpose answer, label the reply honestly.
 
 // answerGateReminder is the private instruction a gap answer gets once. It
 // carries no sample wording.
-const answerGateReminder = `Before this reply becomes final: you labelled it a gap, and this run has not yet tried any lookup route. A gap is acceptable only after the routes that could plausibly hold the answer have been tried: this conversation's history, saved memory, attachments and files, connected tools, and the web.
+const answerGateReminder = `Before this reply becomes final: this run has not yet tried any lookup route, and the reply either claims a gap or answers a request that may depend on what this person said earlier, saved memory, or other information beyond the current context. A gap is acceptable only after the routes that could plausibly hold the answer have been tried: this conversation's history, saved memory, attachments and files, connected tools, and the web.
 Try the routes that could plausibly hold it, then reply with what you found. If they are truly exhausted, the reply says what was checked. Keep this review private. The draft immediately before this reminder is replaced by your final reply and is not shown to the person, so the final reply must contain the complete substantive response.`
 
 // answerGateLookupTools are the tools whose use counts as a lookup attempt: they
@@ -44,10 +44,11 @@ func lookupAttempt(name, risk string) bool {
 }
 
 // answerGateDue is the whole gate decision: the setting is on, the answer is
-// labelled a gap, the run has made no lookup attempt and the run's one repair
+// labelled a gap or the input check found the request depends on outside
+// information, the run has made no lookup attempt and the run's one repair
 // budget is unspent.
-func answerGateDue(enabled bool, resolution string, lookedUp, budgetSpent bool) bool {
-	return enabled && resolution == resolutionGap && !lookedUp && !budgetSpent
+func answerGateDue(enabled bool, resolution string, outsideNeeded, lookedUp, budgetSpent bool) bool {
+	return enabled && (resolution == resolutionGap || outsideNeeded) && !lookedUp && !budgetSpent
 }
 
 // hasLookupAttempt restores the gate's tool record after a durable input
