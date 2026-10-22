@@ -217,7 +217,7 @@ func safeCapabilityName(name string) bool {
 	return true
 }
 
-const taskCompletionGuidance = "Complete the requested deliverable and fields; continue authorized work until satisfied or concretely blocked. When a route fails or is refused, try the computer's other means before reporting a blocker or asking: the real signed-in browser, dismissing overlays and consent or subscription dialogs (never accepting a purchase), another source, your own earlier outputs and artifacts; a blocker report names the routes tried. Do not broaden scope. Never claim something was searched, verified or done without evidence. Keep checks internal: give the answer itself, not an account of how you got it. When information is missing but the work can proceed, proceed on sensible assumptions, state them in a line, and deliver; never close on questions your stated assumptions already settle. Ask once, and only when the gap blocks the work. A direct instruction is the confirmation that action needs, whatever your role notes list; confirm only consequential actions not asked for. Announce work only after doing it this turn. Asked to write or draft something, deliver the finished text in the chat with every part such a piece has; sending is only ever the person's step.\n"
+const taskCompletionGuidance = "Complete the requested deliverable and fields; continue authorized work until satisfied or concretely blocked. When a route fails or is refused, try the computer's other means before reporting a blocker or asking: the real signed-in browser, dismissing overlays and consent or subscription dialogs (never accepting a purchase), another source, your own earlier outputs and artifacts; a blocker report names the routes tried. Do not broaden scope. Never claim something was searched, verified or done without evidence. Keep checks internal: give the answer itself, not an account of how you got it. When information is missing but the work can proceed, proceed on sensible assumptions, state them in a line, and deliver; never close on questions your stated assumptions already settle. Ask once, and only when the gap blocks the work. A direct instruction is the confirmation that action needs, whatever your role notes list; confirm only consequential actions not asked for. Say that work is done only after doing it this turn. Asked to write or draft something, deliver the finished text in the chat with every part such a piece has; sending is only ever the person's step.\n"
 
 const segmentedReplyGuidance = "Hide internal IDs/labels. Only for an intentional reply to an earlier message, start with its exact same-chat [message_id=UUID] label. Follow newer user instructions.\n"
 
@@ -228,6 +228,19 @@ const sayPrincipleLine = "Deliver your reply by calling say with purpose answer,
 // sayPrincipleLineScheduled is the line for a scheduled run, whose blocker is
 // reported as plain final text because an answer records success.
 const sayPrincipleLineScheduled = "Deliver the result by calling say with purpose answer; a run that cannot produce it ends with a plain-text explanation of the blocker instead."
+
+// sayAcknowledgeLine is the working-in-view rule at the point of decision, for
+// a run whose person is waiting in a conversation they can see (D50). It sits
+// beside the request, where the first move is chosen.
+const sayAcknowledgeLine = "A person is waiting on this request. When it needs tool work, first acknowledge it in one short line in your own voice with say, purpose message, then do the work. Share a finding the person would want as it comes up with say, purpose message, and finish with say, purpose answer. Say that work is done only once it is done."
+
+// acknowledgesBeforeWork reports whether the run is one a person waits on in a
+// user-visible conversation: their direct message or an unaddressed group
+// message. Scheduled, hidden and delegated runs have no one watching the first
+// move; handoff assignments carry their own acknowledgement rule.
+func acknowledgesBeforeWork(c Conversation, r Run) bool {
+	return r.structured && c.UserVisible && r.scheduleTask == nil && (r.Kind == "" || r.Kind == runKindGroupChat)
+}
 
 // groupLatestMessageLine sits beside the request of an unaddressed group
 // message: earlier conversation is background, the latest message is what is
@@ -810,6 +823,9 @@ func (s *Server) buildContextPartsWith(c Conversation, r Run, bot Bot, cachedMCP
 			noteText += "\n" + sayPrincipleLineScheduled
 		} else {
 			noteText += "\n" + sayPrincipleLine
+		}
+		if acknowledgesBeforeWork(c, r) {
+			noteText += " " + sayAcknowledgeLine
 		}
 		if r.Kind == runKindGroupChat && c.Kind == "group" && c.UserVisible {
 			noteText += "\n" + groupLatestMessageLine
