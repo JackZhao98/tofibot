@@ -1,9 +1,12 @@
-html:not([data-desktop]) .workspace .conversation-row>.conversation-task-badge{position:absolute;right:14px;bottom:13px;display:grid;place-items:center;min-width:19px;height:19px;padding:0 3px;border-radius:999px;background:var(--surface);color:var(--muted);font:700 12px/1 var(--mono);border:1px solid var(--line-soft)}
-html:not([data-desktop]) .workspace .conversation-row>.conversation-task-badge[data-task-status="executing"]{background:color-mix(in srgb,var(--lagoon) 18%,var(--surface));color:var(--lagoon-text);animation:v2-breathe 2.4s var(--ease-inout) infinite}
-html:not([data-desktop]) .workspace .conversation-row>.conversation-task-badge[data-task-status="needs_attention"],html:not([data-desktop]) .workspace .conversation-row>.conversation-task-badge[data-task-status="waiting"]{background:color-mix(in srgb,var(--iris) 20%,var(--surface));color:var(--iris-text)}
-html:not([data-desktop]) .workspace .conversation-row>.conversation-task-badge[data-task-status="failed"]{background:color-mix(in srgb,var(--danger) 16%,var(--surface));color:var(--danger-text)}
-html:not([data-desktop]) .workspace .conversation-row:has(>.conversation-task-badge) .contact-copy small{padding-right:34px}
-html:not([data-desktop]) .workspace .conversation-row:has(>.conversation-task-badge)>.conversation-status[data-status="unread"]{right:38px}
-html:not([data-desktop]) .workspace .sidebar-collapsed .conversation-row>.conversation-task-badge{top:6px;right:6px;bottom:auto}
-html:not([data-desktop]) .workspace .sidebar-collapsed .conversation-row:has(>.conversation-task-badge)>.conversation-status[data-status="unread"]{top:27px;right:6px}
-@media(prefers-reduced-motion:reduce){html:not([data-desktop]) .workspace .conversation-row>.conversation-task-badge[data-task-status="executing"]{animation:none}}
+/* The single status slot of a sidebar row (priority rule in rowIndicator.ts): attention > failed > unread > working. */
+.workspace .conversation-row>.conversation-status{position:absolute;right:12px;bottom:12px;display:grid;place-items:center;box-sizing:border-box;min-width:22px;height:18px;padding:0 4px;border-radius:999px;font:600 10px/1 var(--mono)}
+.workspace .conversation-row>.conversation-status[data-status="unread"]{background:var(--orange);color:var(--on-block)}
+.workspace .conversation-row>.conversation-status:is([data-status="attention"],[data-status="failed"]){min-width:18px;border:1px solid var(--line-soft);background:var(--surface);color:var(--iris-text);font-size:12px;font-weight:700}
+.workspace .conversation-row>.conversation-status[data-status="failed"]{color:var(--danger-text)}
+.workspace .conversation-row>.conversation-status[data-status="attention"]::before{content:"?"}
+.workspace .conversation-row>.conversation-status[data-status="failed"]::before{content:"!"}
+.workspace .conversation-row>.conversation-status[data-status="working"]{right:17px;bottom:17px;min-width:9px;width:9px;height:9px;padding:0;background:var(--blue);animation:v2-breathe 2.4s var(--ease-inout) infinite}
+.workspace .conversation-row:has(>.conversation-status) .contact-copy small{padding-right:34px}
+.workspace .conversation-row[data-unread] .contact-copy :is(strong,small){color:var(--ink);font-weight:700}
+.workspace .sidebar-collapsed .conversation-row>.conversation-status{top:6px;right:6px;bottom:auto}
+@media(prefers-reduced-motion:reduce){.workspace .conversation-row>.conversation-status[data-status="working"]{animation:none}}

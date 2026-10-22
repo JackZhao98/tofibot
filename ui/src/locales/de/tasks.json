@@ -131,8 +131,8 @@
   },
   "phase": {
     "finishing": "Wird abgeschlossen",
-    "needs_approval": "Deine Freigabe wird benötigt",
-    "needs_answer": "Deine Eingabe wird benötigt",
+    "needs_approval": "Freigabe offen",
+    "needs_answer": "Antwort offen",
     "turn_ended": "Diese Runde ist beendet",
     "stopped": "Dieser Ablauf wurde gestoppt",
     "reviewing": "Prüfung vor der Ausführung",
@@ -280,7 +280,6 @@
     "answered_refresh_failed": "Antwort erhalten, aber die Liste wurde nicht aktualisiert. Lade die Seite neu, um sie zu sehen.",
     "submit_failed": "Senden fehlgeschlagen. Versuch es noch einmal.",
     "state_changed": "Diese Frage hat sich geändert. Lade die Seite neu, bevor du weitermachst.",
-    "needs_decision": "Deine Entscheidung wird benötigt",
     "answer_placeholder": "Deine Antwort eingeben…",
     "other_option": "Andere Antwort",
     "your_answer": "Deine Antwort",
@@ -326,7 +325,6 @@
     "submit_failed": "Senden fehlgeschlagen. Deine Eingaben bleiben erhalten, prüfe sie und versuch es noch einmal.",
     "cancelled_refresh_failed": "Abgebrochen, aber der Status wurde nicht aktualisiert. Lade die Seite neu, um ihn zu sehen.",
     "answered_refresh_failed": "Antwort erhalten, aber der Status wurde nicht aktualisiert. Lade die Seite neu, um ihn zu sehen.",
-    "needs_input": "Deine Eingabe wird benötigt",
     "target_site": "Website",
     "privacy_fields": "Normale Felder werden als Klartext an den Bot weitergegeben. Passwörter laufen über die private Eingabe und werden dem Bot nie im Klartext gezeigt. Leerzeichen in Passwörtern bleiben erhalten.",
     "privacy_continue": "Mit dem Absenden kann der Bot die Aufgabe fortsetzen. An die Website wurde noch nichts übermittelt.",
@@ -555,7 +553,6 @@
     "send_failed": "Deine Antwort konnte nicht gesendet werden. Versuche es erneut.",
     "state_changed": "Diese Anfrage hat sich geändert. Prüfe den aktuellen Status, bevor du weitermachst.",
     "takeover": {
-      "badge": "Du wirst am Computer gebraucht",
       "take": "Übernehmen",
       "hint": "Du arbeitest am geteilten Computer des Bots. Was du eingibst oder kopierst, bleibt auf diesem Bildschirm und wird nie mit dem Bot geteilt.",
       "resolved_done": "An den Bot zurückgegeben",
@@ -569,7 +566,6 @@
       "footer": "Der Bot wartet, solange du arbeitest. Wähle „Erledigt“, wenn du fertig bist."
     },
     "connection": {
-      "badge": "Dienst verbinden",
       "connect": "Verbinden",
       "retry": "Erneut versuchen",
       "waiting": "Warten auf die Anmeldung…",

@@ -119,7 +119,7 @@ function BinaryQuestionCard({ item, bot, group, archived, onChanged }: QuestionC
   }
   return <article ref={record} className={`binary-question-message${group ? " is-group" : " is-dm"}`} data-question-id={item.question_id} tabIndex={-1} aria-label={t("question.aria", { name: bot?.name ?? "Bot" })}>
     {group && <div className="message-meta"><strong>{bot?.name ?? "Bot"}</strong></div>}
-    <ApprovalCard title={<MessageMarkdown content={item.question} />} avatar={group ? <BotAvatar id={item.bot_id} mini /> : undefined} badge={approval ? t("phase.needs_approval") : t("phase.needs_answer")}
+    <ApprovalCard title={<MessageMarkdown content={item.question} />} avatar={group ? <BotAvatar id={item.bot_id} mini /> : undefined}
       time={validTime ? new Intl.DateTimeFormat(intlLocale(), { timeZone:timezone, hour:"2-digit", minute:"2-digit", hourCycle:"h23" }).format(new Date(item.created_at)) : undefined}
       exactTime={item.created_at} facts={approval ? [{ label:t("record.action"), value:approval.action }, ...(approval.facts ? [] : [{ label:t("record.target"), value:approval.target }]), { label:t("record.impact"), value:approval.impact }, ...whyAsked] : undefined} verified={approval?.facts ? approvalFactRows(approval.facts, t) : undefined} verifiedTitle={t("record.facts.title")} factsCaption={t("record.facts.bot_wording")} payload={approval?.payload}
       acceptLabel={approval ? approval.approve_label || t("question.approve") : t("question.yes")} declineLabel={approval ? approval.deny_label || t("question.decline") : t("question.no")} onAnswer={value => void answer(value)} busy={busy} disabled={!answerable}
@@ -224,7 +224,6 @@ function UserFormCard({ item, bot, group, archived, onChanged }: QuestionCardPro
       <form ref={attachForm} className={`question-card question-form ${active ? "is-pending" : "is-resolved"}`}
         aria-labelledby={title} aria-describedby={active ? privacy : undefined} aria-busy={Boolean(busy)}
         autoComplete="off" noValidate onSubmit={event => { event.preventDefault(); void finish(); }}>
-        {active && <span className="question-state">{t("form.needs_input")}</span>}
         <div id={title} className="question-prompt"><MessageMarkdown content={item.question} /></div>
         {!isPrivateInputForm(item) && <p className="question-form-target"><span>{t("form.target_site")}</span> <span>{item.source_url}</span></p>}
         {active ? <>
@@ -317,7 +316,6 @@ function LegacyQuestionCard({ item, bot, group, archived, onChanged }: QuestionC
     {group && <BotAvatar id={item.bot_id} mini />}
     <div className="question-body">{group && <div className="message-meta"><strong>{bot?.name ?? "Bot"}</strong></div>}
       <form className={`question-card ${active ? "is-pending" : foldAnswer ? "is-folding" : "is-resolved"}${current.status === "expired" ? " is-expired" : ""}${current.status === "answered" ? " is-answered" : ""}`} aria-labelledby={title} onSubmit={event => { event.preventDefault(); void finish(); }}>
-        {(active || foldAnswer) && <span className="question-state">{t("question.needs_decision")}</span>}
         <div id={title} className="question-prompt"><MessageMarkdown content={item.question} /></div>
         {active || foldAnswer ? <>
           {item.question_type === "text" ? <textarea aria-labelledby={title} value={text} onChange={event => setText(event.target.value)} rows={3} disabled={busy || archived || !active} placeholder={t("question.answer_placeholder")} /> : <fieldset className="question-options" disabled={busy || archived || !active} aria-labelledby={title}>

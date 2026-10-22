@@ -131,8 +131,8 @@
   },
   "phase": {
     "finishing": "Finalisation",
-    "needs_approval": "Votre approbation est requise",
-    "needs_answer": "Votre réponse est requise",
+    "needs_approval": "À valider",
+    "needs_answer": "À répondre",
     "turn_ended": "Ce tour est terminé",
     "stopped": "Ce flux de travail s’est arrêté",
     "reviewing": "Vérification avant exécution",
@@ -281,7 +281,6 @@
     "answered_refresh_failed": "Réponse reçue, mais la liste ne s’est pas actualisée. Rechargez la page pour la voir.",
     "submit_failed": "Envoi impossible. Réessayez.",
     "state_changed": "Cette question a changé. Rechargez la page avant de continuer.",
-    "needs_decision": "Votre décision est requise",
     "answer_placeholder": "Saisissez votre réponse…",
     "other_option": "Autre réponse",
     "your_answer": "Votre réponse",
@@ -328,7 +327,6 @@
     "submit_failed": "Envoi impossible. Votre saisie est conservée ; vérifiez-la et réessayez.",
     "cancelled_refresh_failed": "Annulé, mais l’état ne s’est pas actualisé. Rechargez la page pour le voir.",
     "answered_refresh_failed": "Réponse reçue, mais l’état ne s’est pas actualisé. Rechargez la page pour le voir.",
-    "needs_input": "Votre saisie est requise",
     "target_site": "Site web",
     "privacy_fields": "Les champs ordinaires sont transmis au Bot en clair. Les mots de passe passent par une saisie privée et ne sont jamais montrés en clair au Bot. Les espaces dans les mots de passe sont conservés.",
     "privacy_continue": "L’envoi permet au Bot de poursuivre la tâche. Rien n’a encore été envoyé au site web.",
@@ -561,7 +559,6 @@
     "send_failed": "Votre réponse n’a pas pu être envoyée. Réessayez.",
     "state_changed": "Cette demande a changé. Vérifiez son état à jour avant de continuer.",
     "takeover": {
-      "badge": "Votre intervention est requise sur l’ordinateur",
       "take": "Prendre la main",
       "hint": "Vous travaillez sur l’ordinateur partagé du Bot. Ce que vous saisissez ou copiez reste sur cet écran et n’est jamais partagé avec le Bot.",
       "resolved_done": "Rendu au Bot",
@@ -575,7 +572,6 @@
       "footer": "Le Bot attend pendant que vous travaillez. Choisissez Terminé quand vous avez fini."
     },
     "connection": {
-      "badge": "Connecter un service",
       "connect": "Connecter",
       "retry": "Réessayer",
       "waiting": "En attente de la connexion…",

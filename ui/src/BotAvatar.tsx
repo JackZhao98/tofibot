@@ -24,7 +24,7 @@ function whenNearViewport(element: Element, callback: () => void) {
   return () => { nearCallbacks.delete(element); nearObserver?.unobserve(element); };
 }
 
-export function BotAvatar({ id, mini = false, animated = false, motion, config }: { id: string; mini?: boolean; animated?: boolean; motion?: AvatarMotion; config?: AvatarConfig }) {
+export function BotAvatar({ id, mini = false, animated = false, motion, config, still = false }: { id: string; mini?: boolean; animated?: boolean; motion?: AvatarMotion; config?: AvatarConfig; /** Awake, drawn once: no life layer, no motion director (group avatars). */ still?: boolean }) {
   const host = useRef<HTMLSpanElement | null>(null);
   const controller = useRef<CatAvatar | null>(null);
   const previousMotion = useRef<AvatarMotion>("sleeping");
@@ -43,7 +43,7 @@ export function BotAvatar({ id, mini = false, animated = false, motion, config }
   }, [mini, near]);
   useEffect(() => {
     if (!host.current || !near) return;
-    const cat = mountCat(host.current, { ...appearance, initialState: "asleep", life: !(mini && motion === undefined) });
+    const cat = mountCat(host.current, { ...appearance, initialState: still ? "awake" : "asleep", life: !still && !(mini && motion === undefined) });
     mountedAppearance.current = appearance;
     controller.current = cat;
     return () => { cat.destroy(); controller.current = null; };
@@ -58,7 +58,7 @@ export function BotAvatar({ id, mini = false, animated = false, motion, config }
   }, [appearance]);
   useEffect(() => {
     const cat = controller.current;
-    if (!cat) return;
+    if (!cat || still) return;
     let cancelled = false;
     let timer: number | undefined;
     let finishPause: (() => void) | undefined;

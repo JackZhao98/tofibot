@@ -302,7 +302,6 @@ input,textarea,select{width:100%;margin-top:7px;resize:vertical}
 .notification-setting{margin-top:18px;padding:18px 22px 22px;border-top:1px solid var(--line);font-size:13px}
 .notification-setting strong{display:block;margin-bottom:7px;line-height:1.4}
 .notification-setting .field-note{margin:0 0 12px;line-height:1.55}
-html[data-desktop] .unread-badge{width:8px;min-width:8px;height:8px;padding:0;color:transparent;background:var(--accent);border-radius:50%;font-size:0;line-height:0}
 
 @media(max-width:1120px){.detail-pane{position:fixed;z-index:var(--z-panel);inset:0 0 0 auto;width:min(380px,100vw);display:block;transform:translateX(100%);transition:transform var(--m-base) var(--ease-out)}
 .detail-pane.visible{transform:translateX(0)}
@@ -413,7 +412,6 @@ html[data-desktop] .unread-badge{width:8px;min-width:8px;height:8px;padding:0;co
   .secondary-button,.icon-button,.top-icon-button,.computer-button,.back-button{color:ButtonText;background:ButtonFace;border:1px solid ButtonText}
   .contact-row.active,.settings-tabs button.selected{color:HighlightText;background:Highlight;box-shadow:none;forced-color-adjust:none}
   .contact-row.active .contact-copy strong,.contact-row.active .contact-copy small,.contact-row.active .conversation-time{color:HighlightText}
-  html[data-desktop] .unread-badge{color:HighlightText;background:Highlight}
   .message-user .message-content{color:ButtonFace;background:ButtonText}
   .message-bot .message-content{color:CanvasText;background:Canvas;border:1px solid ButtonText}
   .detail-backdrop{background:Canvas}

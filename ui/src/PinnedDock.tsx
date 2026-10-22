@@ -1,6 +1,8 @@
 import type { MouseEvent, ReactNode } from "react";
 import { BotAvatar, type AvatarMotion } from "./BotAvatar";
 import { TofiIcon as Icon } from "./icons";
+import { LazyGroupAvatar as GroupAvatar } from "./LazyGroupAvatar";
+import type { RowIndicatorKind } from "./rowIndicator";
 
 export type PinTileModel = {
   id: string;
@@ -8,10 +10,13 @@ export type PinTileModel = {
   /** Bot id whose cat is drawn; groups use the group mark instead. */
   avatarId: string;
   group: boolean;
+  /** Member Bot ids of a group, in membership order; its avatar draws the first four heads. */
+  members?: string[];
   motion: AvatarMotion;
   active: boolean;
   unread: number;
-  working: boolean;
+  /** The one corner status (see rowIndicator.ts). */
+  indicator: RowIndicatorKind | null;
   /** Spoken label: name plus unread and task state. */
   label: string;
   unreadLabel: string;
@@ -29,9 +34,8 @@ export function PinTile({ tile, onOpen, onMenu, onWarm }: {
     aria-label={tile.label} aria-current={tile.active ? "true" : undefined}
     onClick={onOpen} onContextMenu={event => { event.preventDefault(); onMenu(event); }} onPointerDown={onWarm}>
     <span className="pin-tile-art">
-      {tile.group ? <span className="avatar group-avatar pin-tile-group" aria-hidden="true"><Icon name="group" size={30} /></span> : <BotAvatar id={tile.avatarId} motion={tile.motion} />}
-      {tile.unread > 0 ? <span className="pin-tile-badge" data-status="unread" aria-hidden="true">{Math.min(tile.unread, 99)}</span>
-        : tile.working ? <span className="pin-tile-badge" data-status="working" aria-hidden="true" /> : null}
+      {tile.group ? <span className="avatar group-avatar pin-tile-group" aria-hidden="true"><GroupAvatar ids={tile.members ?? []} iconSize={30} /></span> : <BotAvatar id={tile.avatarId} motion={tile.motion} />}
+      {tile.indicator && <span className="pin-tile-badge" data-status={tile.indicator} aria-hidden="true">{tile.indicator === "unread" ? Math.min(tile.unread, 99) : null}</span>}
     </span>
     <span className="pin-tile-name">{tile.name}</span>
   </button>;

@@ -9,7 +9,6 @@ export interface ApprovalCardProps {
   avatar?: ReactNode;
   time?: string;
   exactTime?: string;
-  badge?: string;
   facts?: { label: string; value: ReactNode }[];
   /** Facts the server built from the exact payload; shown above everything the Bot wrote. */
   verified?: { label: string; value: ReactNode }[];
@@ -36,20 +35,18 @@ export interface ApprovalCardProps {
 }
 
 /** Shared visual card. Only the caller's confirmed result can resolve it. */
-export function ApprovalCard({ title, avatar, time, exactTime, badge: badgeText, facts = [], verified = [], verifiedTitle, factsCaption, payload, acceptLabel: acceptText, declineLabel: declineText, onAnswer, onRemember, rememberHint, onAlwaysAllow, alwaysAllowHint, resolution, busy, disabled, error, note, secondaryAction }: ApprovalCardProps) {
+export function ApprovalCard({ title, avatar, time, exactTime, facts = [], verified = [], verifiedTitle, factsCaption, payload, acceptLabel: acceptText, declineLabel: declineText, onAnswer, onRemember, rememberHint, onAlwaysAllow, alwaysAllowHint, resolution, busy, disabled, error, note, secondaryAction }: ApprovalCardProps) {
   const { t } = useTranslation("tasks");
-  const badge = badgeText ?? t("phase.needs_approval");
   const acceptLabel = acceptText ?? t("approval.accept");
   const declineLabel = declineText ?? t("approval.decline");
   const heading = useId();
   const pending = !resolution;
   return <section className={`approval-card ${pending ? "is-pending" : "is-resolved"}${resolution?.accepted === false ? " is-declined" : ""}`} aria-labelledby={heading} aria-busy={Boolean(busy)}>
     <div className="approval-fold approval-heading-fold" aria-hidden={!pending} inert={!pending}>
-      <div className="approval-fold-inner"><header className="approval-head">
+      <div className="approval-fold-inner">{(avatar || time) && <header className="approval-head">
         {avatar && <span className="approval-avatar">{avatar}</span>}
-        <span className="approval-badge">{badge}</span>
         {time && <time title={exactTime}>{time}</time>}
-      </header></div>
+      </header>}</div>
     </div>
     <div id={heading} className="approval-title">{title}</div>
     <div className="approval-fold approval-content-fold" aria-hidden={!pending} inert={!pending}>

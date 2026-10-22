@@ -6,6 +6,8 @@ import { MailDraftCard } from "../../MailDraftCard";
 import { TaskIssueCard } from "../../TaskIssueCard";
 import { presentTaskIssue } from "../../taskIssuePresentation";
 import { CATS, EmptyCat, EmptyState } from "../../EmptyCat";
+import GroupAvatar from "../../GroupAvatar";
+import { catalog, normalizeConfig, paletteOptions, type AvatarConfig } from "../../lib/tofi-avatar/index.js";
 import { at, bot, mailDraft } from "../world";
 import type { Message, Run } from "../../types";
 import type { CatalogSection, CatalogState } from "../types";
@@ -17,10 +19,32 @@ const LIST: AppOptions = { path: "/" };
 const ROW = (id: string) => `[data-sidebar-flip="${id}"]`;
 const PIN = ".pin-dock button";
 
+/** A look for member `n`: shape and coat both vary with it, so a cluster never repeats a cat. */
+const look = (n: number): AvatarConfig => {
+  const shape = catalog.shapes[n % catalog.shapes.length].id;
+  const pattern = catalog.patterns[(n * 3) % catalog.patterns.length].id;
+  const palettes = paletteOptions(pattern);
+  return normalizeConfig({ shape, pattern, palette: palettes[(n * 2) % palettes.length].id });
+};
+const cluster = (count: number, offset: number) => ({ ids: Array.from({ length: count }, (_, i) => `catalog_member_${offset + i}`), configs: Array.from({ length: count }, (_, i) => look(offset + i)) });
+const Box = ({ size, ...props }: { size: number; ids: string[]; configs: AvatarConfig[] }) => <span style={{ display: "inline-block", width: size, height: size }}><GroupAvatar {...props} /></span>;
+const groupAvatars = (id: string, label: string, offset: number): CatalogState => ({ id, kind: "inline", label,
+  note: "1, 2, 3 and 4 members at the sidebar size (44 px) and the pin size (64 px); static, no autoplay",
+  render: () => <div style={{ display: "grid", gap: 18 }}>{[44, 64].map(size => <div key={size} style={{ display: "flex", gap: 22, alignItems: "center" }}>
+    {[1, 2, 3, 4].map(count => <Box key={count} size={size} {...cluster(count, offset + count * 4)} />)}</div>)}</div> });
+
 export const rows: CatalogSection = {
   id: "rows", number: "6", title: "Sidebar conversation rows",
   states: [
     { id: "list", kind: "app", label: "Rows", note: "group (working), unread count, a question waiting (?), hidden Bots folded at the end", app: LIST },
+    { id: "indicators", kind: "app", label: "One status per row", note: "Miso: waiting (?) over 3 unread. Nori: failed (!) over 1 unread. Juno: 2 unread. Pip: working dot. Kit: finished task, nothing shown. The title stays bold while there are unread messages.", app: { path: "/", indicators: true } },
+    { id: "indicators-collapsed", kind: "app", label: "One status per row, collapsed rail", app: { path: "/", indicators: true }, widths: ["desktop"], drive: async step => { await step.click(".sidebar-toggle"); await step.wait(400); } },
+    groupAvatars("group-avatars", "Group avatars, set A", 0),
+    groupAvatars("group-avatars-b", "Group avatars, set B (other shapes and coats)", 9),
+    { id: "group-avatar-shapes", kind: "inline", label: "Every shape as one head", note: "each cat cropped to its face at 44 px and 64 px",
+      render: () => <div style={{ display: "grid", gap: 18 }}>{[44, 64].map(size => <div key={size} style={{ display: "flex", gap: 14, alignItems: "center" }}>
+        {catalog.shapes.map((shape, index) => { const config = normalizeConfig({ shape: shape.id, pattern: catalog.patterns[index % catalog.patterns.length].id, palette: paletteOptions(catalog.patterns[index % catalog.patterns.length].id)[0].id }); return <Box key={shape.id} size={size} ids={[`catalog_shape_${shape.id}`]} configs={[config]} />; })}</div>)}</div> },
+    { id: "group-avatar-empty", kind: "inline", label: "Group with no Bot member", note: "keeps the people icon", render: () => <span style={{ display: "inline-grid", width: 44, height: 44, placeItems: "center" }}><GroupAvatar ids={[]} /></span> },
     { id: "active", kind: "app", label: "Current row", app: GROUP, widths: ["desktop"] },
     { id: "hover", kind: "app", label: "Hover", app: LIST, force: [{ selector: ROW("dm_miso"), state: "hover" }] },
     { id: "focus", kind: "app", label: "Keyboard focus", app: LIST, drive: async step => { await step.focus(ROW("dm_miso")); } },
@@ -125,6 +149,8 @@ export const other: CatalogSection = {
     scheduledState("done", "Scheduled task, done quietly (nothing posted)", undefined, "scheduled-done-quiet", { posted: false }),
     scheduledState("failed", "Scheduled task, failed", "Synthetic: the provider timed out"),
     { id: "task-issue", kind: "inline", label: "Task issue card", context: ["catalog-column"], render: () => { const issue = presentTaskIssue({ run: failedRun, recordsComplete: true }); return issue ? <TaskIssueCard issue={issue} onAction={() => {}} onRetry={() => {}} /> : <p>no issue</p>; } },
+    { id: "mail-pending-demo", kind: "inline", label: "Mail draft, pending (demo)", context: ["catalog-column"],
+      render: () => <MailDraftCard draft={mailDraft("pending", { demo: true })} bot={bot("bot_mochi")} group={false} onChanged={async () => {}} /> },
     ...(["pending", "sent", "declined"] as const).map(status => ({ id: `mail-${status}`, kind: "inline" as const, label: `Mail draft, ${status}`, context: ["catalog-column"],
       render: () => <MailDraftCard draft={mailDraft(status)} bot={bot("bot_mochi")} group={false} onChanged={async () => {}} /> })),
     { id: "empty-cats", kind: "inline", label: "Empty-state cats", render: () => <div style={{ display: "flex", gap: 24, flexWrap: "wrap", alignItems: "end" }}>
