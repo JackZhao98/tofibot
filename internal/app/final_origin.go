@@ -12,6 +12,8 @@ import (
 //	implicit   the final is the model's plain final text
 //	promoted   the host published a progress note as the answer
 //	none       nothing was published (silent run, or failed without an answer)
+//	quiet      a scheduled answer was recorded as the run's conclusion and not
+//	           posted (say(answer, quiet=true), D52)
 //	heuristic:<name>   a host heuristic changed what was published; it replaces
 //	           the base value and several are comma-separated in firing order
 const (
@@ -19,6 +21,7 @@ const (
 	finalOriginImplicit = "implicit"
 	finalOriginPromoted = "promoted"
 	finalOriginNone     = "none"
+	finalOriginQuiet    = "quiet"
 
 	heuristicRepeat         = "heuristic:repeat"          // H3 repeated reply
 	heuristicNarrationFold  = "heuristic:narration_fold"  // H2 step narration

@@ -19,6 +19,12 @@ export type ScheduleOccurrence = {
   status_run_id: string;
   status_error?: string;
   result_in_conversation: boolean;
+  /** The run's recorded conclusion (bounded), present for a done occurrence. */
+  result_text?: string;
+  result_sources?: string[];
+  /** false with a result_text: the run completed quietly and posted nothing (D52). */
+  result_posted: boolean;
+  completed_at?: string;
 };
 
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
@@ -47,6 +53,10 @@ export async function loadScheduleOccurrences(conversationId: string, rootKey: s
         scheduled_for_utc: item.scheduled_for_utc, execution_status: item.execution_status,
         status_run_id: item.status_run_id,
         result_in_conversation: item.result_in_conversation === true && item.execution_status === "done",
+        result_posted: item.result_posted === true && item.execution_status === "done",
+        ...(item.execution_status === "done" && typeof item.result_text === "string" && item.result_text ? { result_text: item.result_text } : {}),
+        ...(item.execution_status === "done" && Array.isArray(item.result_sources) ? { result_sources: item.result_sources.filter((src: unknown): src is string => typeof src === "string" && src !== "").slice(0, 20) } : {}),
+        ...(typeof item.completed_at === "string" && Number.isFinite(Date.parse(item.completed_at)) ? { completed_at: item.completed_at } : {}),
         ...(typeof item.title === "string" && item.title ? { title: item.title } : {}),
         ...(typeof item.description === "string" ? { description: item.description } : {}),
         ...((item.created_by === "user" || item.created_by === "bot") ? { created_by: item.created_by } : {}),

@@ -285,8 +285,10 @@ func TestProductionPromptSizeMatrix(t *testing.T) {
 				// forbids claiming unfinished work and no longer reads as forbidding an
 				// acknowledgement); the acknowledgement line itself sits beside the request,
 				// outside this prompt.
-				if fixed > 8620 {
-					t.Errorf("fixed overhead %d leaves too little customization headroom (ceiling 8620)", fixed)
+				// 8843: plus the quiet-completion sentence in the scheduled result guidance (+223 measured on
+				// the scheduled descendant, the longest prompt; decision 0052).
+				if fixed > 8843 {
+					t.Errorf("fixed overhead %d leaves too little customization headroom (ceiling 8843)", fixed)
 				}
 				if !strings.Contains(system, bot.Instructions) {
 					t.Fatal("user instructions changed")

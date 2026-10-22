@@ -50,7 +50,8 @@
       "turn_done": "この回は終了しました",
       "turn_failed": "この回は失敗しました",
       "turn_cancelled": "この回は停止されました",
-      "turn_interrupted": "この回は中断されました"
+      "turn_interrupted": "この回は中断されました",
+      "quiet": "完了、投稿なし"
     },
     "failure": {
       "receipt_missing": "この回は完了した結果を確認できなかったため、配信済みとはみなされません。",
@@ -65,7 +66,11 @@
     "manage_instructions": "管理 · 指示の全文",
     "technical_reason": "技術的な詳細を表示",
     "rerunning": "再実行中…",
-    "rerun": "もう一度実行"
+    "rerun": "もう一度実行",
+    "result": {
+      "heading": "結論",
+      "sources": "情報源"
+    }
   },
   "editor": {
     "edit": "編集",

@@ -38,7 +38,7 @@ export function scheduledRunMetadata(message: Message, run?: Run, occurrence?: S
   const state = exactOccurrence?.execution_status ?? owningRun?.status;
   // The root run's update time is not the delegated family's completion time.
   const statusRun = owningRun?.status === state && (!exactOccurrence || exactOccurrence.status_run_id === owningRun?.id) ? owningRun : undefined;
-  const statusAt = timestamp(statusRun?.updated_at);
+  const statusAt = timestamp(statusRun?.updated_at) ?? timestamp(exactOccurrence?.completed_at);
   const terminal = state === "done" || state === "failed" || state === "interrupted" || state === "cancelled";
   const createdAt = timestamp(matchedSchedule?.created_at);
   // Snapshot fields are written when an occurrence is claimed. A changed

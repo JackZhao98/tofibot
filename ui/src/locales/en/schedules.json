@@ -54,7 +54,8 @@
       "turn_done": "This run ended",
       "turn_failed": "This run failed",
       "turn_cancelled": "This run was stopped",
-      "turn_interrupted": "This run was interrupted"
+      "turn_interrupted": "This run was interrupted",
+      "quiet": "Completed, nothing posted"
     },
     "failure": {
       "receipt_missing": "This run didn't confirm a completed result, so it doesn't count as delivered.",
@@ -69,7 +70,11 @@
     "manage_instructions": "Manage · full instructions",
     "technical_reason": "View technical details",
     "rerunning": "Rerunning…",
-    "rerun": "Run again"
+    "rerun": "Run again",
+    "result": {
+      "heading": "Conclusion",
+      "sources": "Sources"
+    }
   },
   "editor": {
     "edit": "Edit",

@@ -4,6 +4,7 @@ import type { RunStatus } from "./types";
 import { useTranslation } from "./i18n";
 import "./scheduled-run.css";
 import { MOTION, EASE } from "./motion";
+import { MessageMarkdown } from "./MessageMarkdown";
 
 export interface ScheduledRunProps {
   title: string;
@@ -21,6 +22,10 @@ export interface ScheduledRunProps {
   statusTimeDescription?: string;
   runningSince?: string;
   resultPublished?: boolean;
+  /** Done with a recorded conclusion and no chat message (D52). */
+  quiet?: boolean;
+  resultText?: string;
+  resultSources?: string[];
   failureSummary?: string;
   error?: string;
   notes?: ReactNode;
@@ -31,7 +36,7 @@ export interface ScheduledRunProps {
 const reduceMotion = () => typeof window.matchMedia === "function" && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
 /** Shared ticket used by the conversation and the explicitly synthetic Lab. */
-export function ScheduledRun({ title, description, content, plannedTime, plannedAt, plannedTimeDescription, metadata, metadataDescription, state, statusLabel, statusAt, statusTime, statusTimeDescription, runningSince, resultPublished = false, failureSummary, error, notes, onRetry, defaultExpanded = false }: ScheduledRunProps) {
+export function ScheduledRun({ title, description, content, plannedTime, plannedAt, plannedTimeDescription, metadata, metadataDescription, state, statusLabel, statusAt, statusTime, statusTimeDescription, runningSince, resultPublished = false, quiet = false, resultText, resultSources, failureSummary, error, notes, onRetry, defaultExpanded = false }: ScheduledRunProps) {
   const { t } = useTranslation("schedules");
   const [expanded, setExpanded] = useState(defaultExpanded);
   const [retrying, setRetrying] = useState(false);
@@ -43,7 +48,9 @@ export function ScheduledRun({ title, description, content, plannedTime, planned
   const retryIconRef = useRef<HTMLSpanElement>(null);
   const previousState = useRef(state);
   const failed = state === "failed" || state === "interrupted";
-  const tone = failed ? "error" : state === "running" ? "running" : state === "done" && resultPublished ? "done" : "neutral";
+  // pending (queued, waiting) | running | done (posted) | quiet (done, nothing posted) | error (failed).
+  const tone = failed ? "error" : state === "running" ? "running" : state === "done" && quiet ? "quiet" : state === "done" && resultPublished ? "done" : "neutral";
+  const hasResult = state === "done" && !!resultText;
   const startedAt = runningSince ? Date.parse(runningSince) : NaN;
   const seconds = state === "running" && Number.isFinite(startedAt) ? Math.max(0, Math.floor((now - startedAt) / 1000)) : undefined;
 
@@ -86,8 +93,8 @@ export function ScheduledRun({ title, description, content, plannedTime, planned
         <span className="scheduled-run-heading">
           <strong id={titleId} className="scheduled-run-title" title={title}>{title}</strong>
           <span className="scheduled-run-status" title={statusTimeDescription ? `${statusLabel} · ${statusTimeDescription}` : statusLabel}>
-            <i className="scheduled-run-dot" aria-hidden="true">{failed && "!"}</i>
-            {tone === "done" && statusTime
+            <i className="scheduled-run-dot" aria-hidden="true">{failed ? "!" : tone === "done" ? "✓" : ""}</i>
+            {(tone === "done" || tone === "quiet") && statusTime
               ? <><span className="scheduled-run-sr">{statusLabel} · </span><time dateTime={statusAt}>{statusTime}</time></>
               : <span>{statusLabel}{seconds !== undefined && <span aria-hidden="true"> · {seconds}s</span>}</span>}
           </span>
@@ -105,6 +112,18 @@ export function ScheduledRun({ title, description, content, plannedTime, planned
       {retryError && <p className="scheduled-run-retry-error" role="alert">{retryError}</p>}
       <div className="scheduled-run-disclosure" data-expanded={expanded} id={contentId} inert={!expanded} aria-hidden={!expanded}>
         <div className="scheduled-run-disclosure-inner">
+          {hasResult && <section className="scheduled-run-result" aria-label={t("row.result.heading")}>
+            <header>
+              <strong>{t("row.result.heading")}</strong>
+              <span className={`scheduled-run-chip is-${tone}`}>{statusLabel}</span>
+              {statusTime && <time dateTime={statusAt} title={statusTimeDescription}>{statusTime}</time>}
+            </header>
+            <div className="scheduled-run-result-text"><MessageMarkdown content={resultText} /></div>
+            {resultSources && resultSources.length > 0 && <div className="scheduled-run-sources">
+              <strong>{t("row.result.sources")}</strong>
+              <ul>{resultSources.map(source => <li key={source}>{source}</li>)}</ul>
+            </div>}
+          </section>}
           <details className="scheduled-run-details"><summary>{t("row.manage_instructions")}</summary><p>{content}</p></details>
           {notes && <div className="scheduled-run-notes">{notes}</div>}
           {failed && <div className="scheduled-run-recovery">

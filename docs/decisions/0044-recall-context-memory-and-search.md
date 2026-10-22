@@ -74,3 +74,7 @@ owner 的反馈：早先说的事实（例：猫吃什么）被挤出 Bot 的 32
 | 摘要与记忆 | `internal/app/memory.go`（未改） |
 | 测试 | `internal/app/recall_context_test.go`：`TestTrimmedHistoryKeepsSummaryAndPointsAtSearch`、`TestEarlierTurnsNoteOnlyWhenHistoryIsCutOff`、`TestMemoryAndRecallGuidanceIsInTheSystemPrompt`、`TestMemoryAndHistoryToolsSayWhenToUseThem`（回退对应改动都会失败，已逐项验证） |
 | 相关决定 | [D06](0006-closed-group-exchange-gist.md)、[D14](0014-sonnet-conversation-haiku-background.md)、[D01](0001-persona-generator-no-examples.md) |
+
+## 后续补充（D52，2026-10-22）
+
+上下文里除 `[memory data]`、`[derived history data]` 外，每个用户可见对话的每一轮还带 `[recent scheduled results from records…]` 块（`scheduleResultsNote`，`schedule_state_note.go`）：本对话最近的定时运行及其结论文字，含安静完成（没发聊天消息）的结论。见 [D52](0052-quiet-schedule-results.md)。
