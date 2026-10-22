@@ -1,4 +1,4 @@
-# 0048 `tofi security audit`：只读、只看主机能看到的事实，FAIL 只留给直接泄密或登录失效
+# 0049 `tofi security audit`：只读、只看主机能看到的事实，FAIL 只留给直接泄密或登录失效
 
 > 编号 D48，索引见 [README](README.md)。**这是执行者在任务 S2 里做的取舍，不是 owner 的原话；owner 尚未确认，待确认。** 若与别的分支撞了编号，合并时顺延。
 

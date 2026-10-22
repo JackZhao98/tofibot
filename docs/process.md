@@ -350,7 +350,7 @@ sudo tofi security audit --online   # 现查最新版本（默认只读本机缓
 
 - 退出码：`0` 没有 FAIL（可以有 WARN）；`2` 至少一条 FAIL；`1` 命令本身出错（没装好、不是 root）。
 - 它**不改任何东西**：不拿生命周期锁、不整理残留、不写版本缓存；密钥只报名字和个数，**不输出任何值**（测试 `test_security_audit.py` 用金丝雀值断言）。
-- 判定口径见 `docs/decisions/0048-security-audit-levels.md`；检查项和出处见 `deploy/self-host/README.md` 的 `tofi` 命令表和 `security_audit`（`tofi_host.py`）。
+- 判定口径见 `docs/decisions/0049-security-audit-levels.md`；检查项和出处见 `deploy/self-host/README.md` 的 `tofi` 命令表和 `security_audit`（`tofi_host.py`）。
 - 它只看主机能看到的事实。网页是否真的从公网可达、路由器和防火墙、运行中的电脑、登录限流在线上实际是否生效，都要真机验证（见 `tofi doctor`、`tofi computers`、第 5 节）。
 
 ## 8. 安全审查闸
