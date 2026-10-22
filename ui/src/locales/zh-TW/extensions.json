@@ -271,6 +271,8 @@
       "scope": "Gmail 權限",
       "scope_read_send": "讀取及傳送：每封郵件都要我確認",
       "scope_readonly": "唯讀：搜尋及檢視郵件",
+      "services": "Google 服務",
+      "services_note": "所選服務只開放唯讀工具。新增服務時，既有授權會保留。",
       "verified": "個人 Gmail 讀取已驗證。",
       "verify": "驗證 Gmail 讀取",
       "verifying": "正在驗證…",
@@ -478,6 +480,7 @@
     },
     "details": {
       "account": "帳號：{{email}}",
+      "services": "已授權服務：{{services}}",
       "project": "Google Cloud 專案：{{project}}",
       "community_review": "社群程式碼：其工具在你標為唯讀之前每次都要確認。"
     },

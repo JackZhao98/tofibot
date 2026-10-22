@@ -88,7 +88,8 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
     let m = /^\/api\/extensions\/mcp\/([^/]+)\/tools$/.exec(path);
     if (m && method === "GET") return tools(m[1] === "notion" ? 6 : m[1] === "google-gmail" ? 6 : 3);
     if (path === "/api/extensions/local-mcp") return {available: q.get("runner") !== "off", plugins: q.get("fresh") ? [] : [{id: "gog", state: "sleeping", tool_count: 3}]};
-    if (path === "/api/extensions/local-mcp/gog/oauth/status") return q.get("gog") === "authorised" ? {connected: true, email: "you@example.test", scope: "readonly"} : {connected: false, email: ""};
+    if (path === "/api/extensions/local-mcp/gog/oauth/status") return q.get("gog") === "authorised" ? {connected: true, email: "you@example.test", scope: "readonly", services: (q.get("services") || "gmail").split(",")} : {connected: false, email: "", services: []};
+    if (path === "/api/extensions/local-mcp/gog/oauth/start") return {authorization_url: "https://accounts.google.com/o/oauth2/v2/auth?state=sample"};
     if (path === "/api/extensions/repo-stars") return q.get("nostars") ? {stars: {}} : {stars: {"openclaw/gogcli": 8520, "upstash/context7": 63467, "github/github-mcp-server": 33839, "makenotion/notion-mcp-server": 4673, "MicrosoftDocs/mcp": 1951}};
     if (path === "/api/extensions/google") return q.get("gclient") ? {client: {configured: true, project_id: "tofi-sample-123456", project_number: "622599621014"}, apis: []} : {client: {configured: false}, apis: []};
     if (path === "/api/standing-allowances") return {allowances: [], remembered: []};
@@ -98,20 +99,20 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
     const context = await browser.newContext({viewport: {width, height}, colorScheme: theme, locale, hasTouch: width < 600});
     await context.addInitScript(value => { try { localStorage.setItem("tofi:appearance", value); } catch {} }, theme);
     const page = await context.newPage();
-    const writes = [];
+    const writes = [], posts = [];
     page.on("pageerror", error => unexpected.push(`pageerror: ${error.message}`));
     await page.route("**/*", async route => {
       const request = route.request(), url = new URL(request.url()), method = request.method();
       if (url.origin !== origin) { await route.abort(); return; }
       if (!url.pathname.startsWith("/api/")) { await route.continue(); return; }
-      if (method !== "GET" && !/\/test$/.test(url.pathname)) writes.push(`${method} ${url.pathname}`);
+      if (method !== "GET" && !/\/test$/.test(url.pathname)) { writes.push(`${method} ${url.pathname}`); posts.push({path: url.pathname, body: request.postData() ?? ""}); }
       const body = stub(url, method, new URLSearchParams(page.url().split("?")[1] ?? ""));
       await route.fulfill({contentType: "application/json", body: JSON.stringify(body ?? {})});
     });
     await page.goto(`${origin}/${basename(fixture)}/index.html?${new URLSearchParams({lang: "en", ...params})}`);
     try { await page.locator(".settings-page-body .mcp-settings").waitFor({timeout: 20000}); }
     catch (error) { console.log("page errors:", unexpected, "\nbody:", (await page.locator("body").innerText().catch(() => "")).slice(0, 400)); throw error; }
-    return {page, writes, close: () => context.close()};
+    return {page, writes, posts, close: () => context.close()};
   }
   const shot = async (page, name, width, theme) => { if (shots) await page.screenshot({path: join(shots, `${prefix}-${name}-${width}-${theme}.png`), fullPage: false}); };
   const rows = page => page.locator(".mcp-service");
@@ -203,6 +204,34 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
       assert.match(await row(page, "Gmail (personal account)").locator(".mcp-service-status").innerText(), /you@example\.test/);
       await close();
       console.log("PASS list: an authorised Google account reads Connected with the account");
+    }
+
+    // ---- 2b. Services: the status line names what is authorised; the dialog offers Gmail / Calendar / Drive with an enable link per service.
+    {
+      const {page, close, posts} = await open({gog: "authorised", services: "gmail,calendar", gclient: "1"});
+      const gog = row(page, "Gmail (personal account)");
+      await page.locator('.mcp-service[aria-label="Gmail (personal account)"][data-kind="ready"]').waitFor({timeout: 10000});
+      assert.match(await gog.locator(".mcp-service-status").innerText(), /you@example\.test · Gmail, Google Calendar/, "the status line names the authorised services");
+      await gog.locator(".mcp-menu-trigger").click();
+      await page.getByRole("menuitem", {name: /Sign in again/}).click();
+      const dialog = page.locator('[role="dialog"].connect-dialog');
+      await dialog.waitFor();
+      const box = name => dialog.getByRole("checkbox", {name});
+      assert.equal(await box("Gmail").isChecked(), true, "an authorised service stays selected");
+      assert.equal(await box("Google Calendar").isChecked(), true);
+      assert.equal(await box("Google Drive").isChecked(), false, "an unauthorised service is not preselected");
+      assert.equal(await dialog.getByRole("link", {name: "Enable Google Calendar API"}).getAttribute("href"), "https://console.cloud.google.com/apis/library/calendar-json.googleapis.com?project=tofi-sample-123456", "the enable button is built per service");
+      assert.equal(await dialog.getByRole("link", {name: "Enable Google Drive API"}).count(), 0, "no enable link for a service that is not selected");
+      await box("Google Drive").check();
+      assert.equal(await dialog.getByRole("link", {name: "Enable Google Drive API"}).getAttribute("href"), "https://console.cloud.google.com/apis/library/drive.googleapis.com?project=tofi-sample-123456");
+      await box("Gmail").uncheck();
+      assert.equal(await dialog.locator("select").count(), 0, "the Gmail access choice goes away with Gmail");
+      assert.equal(await box("Gmail").isChecked(), false);
+      await box("Gmail").check();
+      assert.equal(await dialog.getByRole("button", {name: "Authorize with Google"}).isDisabled(), true, "authorization stays gated on the configured HTTPS address (this fixture is http)");
+      assert.deepEqual(posts, [], "choosing services writes nothing");
+      await close();
+      console.log("PASS services: status line names them, dialog selects Gmail / Calendar / Drive, enable link per service");
     }
 
     // ---- 3. Authorize opens a dialog; the page behind is inert; Escape closes it and focus returns.

@@ -271,6 +271,8 @@
       "scope": "Accès Gmail",
       "scope_read_send": "Lecture et envoi : je confirme chaque e-mail",
       "scope_readonly": "Lecture seule : rechercher et consulter les e-mails",
+      "services": "Services Google",
+      "services_note": "Seuls des outils en lecture seule sont proposés pour chaque service choisi. Ajouter un service conserve l’autorisation existante.",
       "verified": "Lecture du Gmail personnel vérifiée.",
       "verify": "Vérifier la lecture Gmail",
       "verifying": "Vérification…",
@@ -482,6 +484,7 @@
     },
     "details": {
       "account": "Compte : {{email}}",
+      "services": "Services autorisés : {{services}}",
       "project": "Projet Google Cloud : {{project}}",
       "community_review": "Code communautaire : ses outils demandent une approbation tant que vous ne les marquez pas en lecture seule."
     },

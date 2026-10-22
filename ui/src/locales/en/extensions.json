@@ -271,6 +271,8 @@
       "scope": "Gmail access",
       "scope_read_send": "Read and send: I confirm every email",
       "scope_readonly": "Read-only: search and view email",
+      "services": "Google services",
+      "services_note": "Read-only tools for each service you pick. Adding a service keeps what you already authorized.",
       "verified": "Personal Gmail read access verified.",
       "verify": "Verify Gmail access",
       "verifying": "Verifying…",
@@ -480,6 +482,7 @@
     },
     "details": {
       "account": "Account: {{email}}",
+      "services": "Authorized services: {{services}}",
       "project": "Google Cloud project: {{project}}",
       "community_review": "Community code: its tools ask for approval until you mark them read-only."
     },

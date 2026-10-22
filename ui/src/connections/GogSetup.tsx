@@ -3,14 +3,14 @@ import { request } from "../api";
 import { Banner, FilePicker } from "../settings/components";
 import { Trans, useTranslation } from "../i18n";
 import { message } from "./shared";
-import { GOOGLE_SERVICE_API, GOOGLE_SERVICE_NAME, googleEnableURL, parseGoogleClient, type GoogleOverview } from "./google";
+import { GOG_SERVICES, GOOGLE_SERVICE_API, GOOGLE_SERVICE_NAME, googleEnableURL, parseGoogleClient, type GogService, type GoogleOverview } from "./google";
 import type { GoogleStatus, LocalState } from "./localPlugins";
 import { CallbackAddress } from "./RemoteForm";
 
 type Scope = "readonly" | "read-send";
 
 /**
- * Personal Gmail through a Google account the person authorises: install the plugin if it is missing, register the
+ * Personal Gmail, Calendar and Drive through a Google account the person authorises: install the plugin if it is missing, register the
  * OAuth client, then sign in on Google's page. Copy keys stay under `local.google.*` and `local.gog.*`.
  */
 export function GogSetup({ local, google, callbackOrigin, onChanged, onDone, onCancel }: {
@@ -23,7 +23,13 @@ export function GogSetup({ local, google, callbackOrigin, onChanged, onDone, onC
   const [busy, setBusy] = useState("");
   const [error, setError] = useState("");
   const [email, setEmail] = useState("");
-  const [scope, setScope] = useState<Scope>("readonly");
+  const [scope, setScope] = useState<Scope>(local.google?.scope ?? "readonly");
+  // The services already authorised stay selected: adding Calendar is one more tick, and Google keeps the earlier grant.
+  const [services, setServices] = useState<GogService[]>(() => {
+    const granted = GOG_SERVICES.filter(service => local.google?.services?.includes(service));
+    return granted.length ? granted : ["gmail"];
+  });
+  const hasGmail = services.includes("gmail");
   const [credentials, setCredentials] = useState("");
   const [credentialsName, setCredentialsName] = useState("");
   const [authURL, setAuthURL] = useState("");
@@ -36,6 +42,7 @@ export function GogSetup({ local, google, callbackOrigin, onChanged, onDone, onC
   const fileLabel = useId();
   const latest = useRef({ onChanged, onDone });
   latest.current = { onChanged, onDone };
+  const toggleService = (service: GogService, on: boolean) => setServices(current => GOG_SERVICES.filter(item => item === service ? on : current.includes(item)));
 
   async function install() {
     setBusy("install"); setError("");
@@ -51,26 +58,27 @@ export function GogSetup({ local, google, callbackOrigin, onChanged, onDone, onC
     if (popup) popup.document.body.textContent = t("local.google.preparing_popup");
     setBusy("oauth"); setError(""); setAuthURL("");
     try {
-      const result = await request<{ authorization_url: string }>("/api/extensions/local-mcp/gog/oauth/start", { method: "POST", body: JSON.stringify(savedClient ? { email, scope, services: ["gmail"] } : { email, scope, services: ["gmail"], credentials_json: client }) });
+      const result = await request<{ authorization_url: string }>("/api/extensions/local-mcp/gog/oauth/start", { method: "POST", body: JSON.stringify(savedClient ? { email, scope, services } : { email, scope, services, credentials_json: client }) });
       setCredentials(""); setCredentialsName("");
       setAuthURL(result.authorization_url); setWaiting(true);
       if (popup && !popup.closed) popup.location.replace(result.authorization_url);
     } catch (caught) { popup?.close(); setError(message(caught)); }
     finally { setBusy(""); }
   }
-  // Finished when the Google account shows up: confirm Gmail answers, then hand the list its new state.
+  // Finished when the account shows up with every chosen service authorised: confirm each answers, then hand the list its new state.
   useEffect(() => {
     if (!waiting) return;
     let live = true;
     const timer = window.setInterval(() => {
       void request<GoogleStatus>("/api/extensions/local-mcp/gog/oauth/status").then(async account => {
-        if (!live || !account.connected) return;
+        if (!live || !account.connected || !services.every(service => account.services?.includes(service) ?? service === "gmail")) return;
         live = false; window.clearInterval(timer);
         try { await request("/api/extensions/local-mcp/gog/oauth/check", { method: "POST", body: "{}" }); } catch (caught) { setError(message(caught)); }
         await latest.current.onChanged(); latest.current.onDone();
       }).catch(() => {});
     }, 2000);
     return () => { live = false; window.clearInterval(timer); };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [waiting]);
 
   if (!installed) return <div className="connect-body">
@@ -97,11 +105,16 @@ export function GogSetup({ local, google, callbackOrigin, onChanged, onDone, onC
         {savedClient ? <p>{t("connections.google.using_client", { project })} <button type="button" className="text-button" onClick={() => setReplaceClient(true)}>{t("connections.google.replace_client")}</button></p> : <>
         <div className="connect-field"><span id={fileLabel}>{t("local.google.client_json")}</span><FilePicker accept=".json,application/json" labelledBy={fileLabel} label={t("local.google.choose_file")} fileName={credentialsName} dropHint={t("local.google.no_file")} disabled={Boolean(busy)} onFile={file => { setError(""); void file.text().then(text => { setCredentials(text); setCredentialsName(file.name); }).catch(caught => setError(message(caught))); }} /></div>
         {uploaded && <p>{t("connections.google.project_found", { project: uploaded.project || uploaded.clientId })}</p>}</>}
-        {project && <a className="connect-link" href={googleEnableURL(GOOGLE_SERVICE_API.gmail, project)} target="_blank" rel="noopener noreferrer">{t("connections.action.enable_api", { name: GOOGLE_SERVICE_NAME.gmail })}</a>}
+        {project && services.map(service => <a key={service} className="connect-link" data-enable-api={service} href={googleEnableURL(GOOGLE_SERVICE_API[service], project)} target="_blank" rel="noopener noreferrer">{t("connections.action.enable_api", { name: GOOGLE_SERVICE_NAME[service] })}</a>)}
       </li>
       <li>
+        <fieldset className="connect-field connect-services">
+          <legend>{t("local.google.services")}</legend>
+          {GOG_SERVICES.map(service => <label key={service} className="connect-check"><input type="checkbox" checked={services.includes(service)} disabled={services.length === 1 && services.includes(service)} onChange={event => toggleService(service, event.target.checked)} /> {GOOGLE_SERVICE_NAME[service]}</label>)}
+          <p className="field-note">{t("local.google.services_note")}</p>
+        </fieldset>
         <label className="connect-field">{t("local.google.email")}<input type="email" value={email} onChange={event => setEmail(event.target.value)} placeholder="you@gmail.com" /></label>
-        <label className="connect-field">{t("local.google.scope")}<select value={scope} onChange={event => setScope(event.target.value as Scope)}><option value="readonly">{t("local.google.scope_readonly")}</option><option value="read-send">{t("local.google.scope_read_send")}</option></select></label>
+        {hasGmail && <label className="connect-field">{t("local.google.scope")}<select value={scope} onChange={event => setScope(event.target.value as Scope)}><option value="readonly">{t("local.google.scope_readonly")}</option><option value="read-send">{t("local.google.scope_read_send")}</option></select></label>}
       </li>
     </ol>
     {!oauthReady && <p className="field-note">{t("local.google.needs_https")}</p>}

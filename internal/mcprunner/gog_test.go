@@ -20,6 +20,12 @@ func TestFakeGogProcess(t *testing.T) {
 		return
 	}
 	args := strings.Join(os.Args, " ")
+	if log := os.Getenv("TOFI_FAKE_GOG_LOG"); log != "" {
+		if f, err := os.OpenFile(log, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0600); err == nil {
+			_, _ = fmt.Fprintln(f, args)
+			_ = f.Close()
+		}
+	}
 	switch {
 	case strings.Contains(args, "credentials set -"):
 		_, _ = io.Copy(io.Discard, os.Stdin)
@@ -30,6 +36,10 @@ func TestFakeGogProcess(t *testing.T) {
 			os.Exit(2)
 		}
 		_, _ = fmt.Fprint(os.Stdout, `{"ok":true}`)
+	case strings.Contains(args, "calendar events"):
+		_, _ = fmt.Fprint(os.Stdout, `{"events":[]}`)
+	case strings.Contains(args, "drive search"):
+		_, _ = fmt.Fprint(os.Stdout, `{"files":[]}`)
 	case strings.Contains(args, "gmail search"):
 		_, _ = fmt.Fprint(os.Stdout, `{"messages":[]}`)
 	case strings.Contains(args, "gmail send"):
@@ -209,5 +219,104 @@ func TestGogFailureIsClassifiedFromTheStructuredError(t *testing.T) {
 	}
 	if classifyGogFailure(io.EOF, "gmail.googleapis.com") != nil {
 		t.Fatal("a plain error is not a Google failure")
+	}
+}
+
+func TestGogMCPToolsFollowAuthorisedServices(t *testing.T) {
+	defaults := []string{"mcp", "--allow-tool", "gmail"}
+	cases := []struct {
+		name     string
+		account  *gogAccount
+		args     []string
+		expected string
+	}{
+		{"no account", nil, defaults, "gmail"},
+		{"recorded before services were tracked", &gogAccount{Email: "a@b.c"}, defaults, "gmail"},
+		{"gmail and calendar", &gogAccount{Email: "a@b.c", Services: []string{"calendar", "gmail"}}, defaults, "gmail,calendar"},
+		{"all three", &gogAccount{Email: "a@b.c", Services: []string{"drive", "calendar", "gmail"}}, defaults, "gmail,calendar,drive"},
+		{"calendar only", &gogAccount{Email: "a@b.c", Services: []string{"calendar"}}, defaults, "calendar"},
+		{"unknown service ignored", &gogAccount{Email: "a@b.c", Services: []string{"gmail", "docs"}}, defaults, "gmail"},
+	}
+	for _, c := range cases {
+		dir := t.TempDir()
+		if c.account != nil {
+			data, _ := json.Marshal(c.account)
+			if err := os.WriteFile(filepath.Join(dir, "gog-account.json"), data, 0600); err != nil {
+				t.Fatal(err)
+			}
+		}
+		got := gogMCPArgs(Spec{Kind: "builtin_gog", WorkDir: dir, Args: c.args})
+		want := []string{"mcp", "--allow-tool", c.expected}
+		if strings.Join(got, " ") != strings.Join(want, " ") {
+			t.Errorf("%s: args %v, want %v", c.name, got, want)
+		}
+	}
+	// Arguments set by hand and other plugins are never rewritten.
+	dir := t.TempDir()
+	data, _ := json.Marshal(gogAccount{Email: "a@b.c", Services: []string{"gmail", "drive"}})
+	_ = os.WriteFile(filepath.Join(dir, "gog-account.json"), data, 0600)
+	custom := []string{"mcp", "--allow-tool", "gmail_search"}
+	if got := gogMCPArgs(Spec{Kind: "builtin_gog", WorkDir: dir, Args: custom}); strings.Join(got, " ") != strings.Join(custom, " ") {
+		t.Errorf("hand-set args rewritten: %v", got)
+	}
+	if got := gogMCPArgs(Spec{Kind: "npm", WorkDir: dir, Args: defaults}); strings.Join(got, " ") != strings.Join(defaults, " ") {
+		t.Errorf("another plugin's args rewritten: %v", got)
+	}
+}
+
+func TestGogAuthAddFlagsAskForNothingWider(t *testing.T) {
+	join := func(f []string) string { return " " + strings.Join(f, " ") + " " }
+	ro := join(gogAuthAddFlags("a@b.c", "readonly", []string{"gmail", "calendar", "drive"}))
+	for _, want := range []string{" --readonly ", " --services gmail,calendar,drive ", " --gmail-scope readonly "} {
+		if !strings.Contains(ro, want) {
+			t.Errorf("read-only flags %q lack %q", ro, want)
+		}
+	}
+	rs := join(gogAuthAddFlags("a@b.c", "read-send", []string{"gmail", "drive"}))
+	if strings.Contains(rs, " --readonly ") || !strings.Contains(rs, " --gmail-scope read-send ") || !strings.Contains(rs, " --drive-scope readonly ") {
+		t.Errorf("read-send flags %q", rs)
+	}
+	cal := join(gogAuthAddFlags("a@b.c", "read-send", []string{"calendar"}))
+	if !strings.Contains(cal, " --readonly ") || strings.Contains(cal, "--gmail-scope") {
+		t.Errorf("a calendar-only grant must be read-only and carry no Gmail scope: %q", cal)
+	}
+}
+
+func TestGogCheckReadsEachAuthorisedServiceOnce(t *testing.T) {
+	dir := t.TempDir()
+	bin := filepath.Join(dir, "fake-gog")
+	script := fmt.Sprintf("#!/bin/sh\nexec '%s' -test.run=TestFakeGogProcess -- \"$@\"\n", strings.ReplaceAll(os.Args[0], "'", "'\\''"))
+	if err := os.WriteFile(bin, []byte(script), 0700); err != nil {
+		t.Fatal(err)
+	}
+	logPath := filepath.Join(dir, "calls.log")
+	r, err := New([]Spec{{ID: "gog", Kind: "builtin_gog", Command: bin, WorkDir: dir, Env: map[string]string{"TOFI_FAKE_GOG": "1", "TOFI_FAKE_GOG_LOG": logPath}}}, time.Minute)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer r.Close()
+	record := func(services ...string) {
+		data, _ := json.Marshal(gogAccount{Email: "a@b.c", Services: services})
+		if err := os.WriteFile(filepath.Join(dir, "gog-account.json"), data, 0600); err != nil {
+			t.Fatal(err)
+		}
+		_ = os.Remove(logPath)
+	}
+	calls := func() string { data, _ := os.ReadFile(logPath); return string(data) }
+	record("gmail", "calendar")
+	if err := r.GogCheck(context.Background(), "gog"); err != nil {
+		t.Fatal(err)
+	}
+	got := calls()
+	if strings.Count(got, "gmail search") != 1 || strings.Count(got, "calendar events") != 1 || strings.Contains(got, "drive search") {
+		t.Fatalf("gmail+calendar checked as:\n%s", got)
+	}
+	record("drive")
+	if err := r.GogCheck(context.Background(), "gog"); err != nil {
+		t.Fatal(err)
+	}
+	got = calls()
+	if strings.Contains(got, "gmail search") || strings.Count(got, "drive search") != 1 {
+		t.Fatalf("drive-only checked as:\n%s", got)
 	}
 }
