@@ -91,3 +91,31 @@ func TestToolCallRejectedWithAuthStatusNamesPreviewThenAgentic(t *testing.T) {
 		}
 	}
 }
+
+func TestMCPInspectionDiagnosticNamesAgenticClientForGoogleHosts(t *testing.T) {
+	for _, status := range []int{401, 403} {
+		// The wrapped error carries no status text: classification is by host
+		// plus the structured HTTP status only.
+		err := &mcpHTTPStatusError{Status: status, Err: errors.New("connect MCP: rejected PRIVATE")}
+		for _, host := range []string{"gmailmcp", "drivemcp", "docsmcp", "sheetsmcp", "slidesmcp", "calendarmcp"} {
+			got := mcpInspectionDiagnostic("google", "https://"+host+".googleapis.com/mcp/v1", err)
+			if got.Code != "permission_denied" || !strings.Contains(got.Message, "AI-powered agent") || !strings.Contains(got.Message, "Developer Preview Program") || strings.Contains(got.Message, "PRIVATE") {
+				t.Fatalf("%s %d: %+v", host, status, got)
+			}
+		}
+	}
+	// Other statuses do not point at the agentic setting.
+	got := mcpInspectionDiagnostic("google", "https://gmailmcp.googleapis.com/mcp/v1", &mcpHTTPStatusError{Status: 500, Err: errors.New("x")})
+	if strings.Contains(got.Message, "AI-powered agent") {
+		t.Fatalf("500 named agentic: %+v", got)
+	}
+}
+
+func TestMCPInspectionDiagnosticNonGoogleHostNeverNamesAgentic(t *testing.T) {
+	for _, endpoint := range []string{"https://mcp.notion.com/mcp", "https://example.com/mcp/v1", "https://gmailmcp.googleapis.com.evil.invalid/mcp/v1"} {
+		got := mcpInspectionDiagnostic("x", endpoint, &mcpHTTPStatusError{Status: 403, Err: errors.New("x")})
+		if got.Code != "" || strings.Contains(got.Message, "agent") {
+			t.Fatalf("%s: %+v", endpoint, got)
+		}
+	}
+}
