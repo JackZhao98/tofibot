@@ -320,3 +320,42 @@ func TestGogCheckReadsEachAuthorisedServiceOnce(t *testing.T) {
 		t.Fatalf("drive-only checked as:\n%s", got)
 	}
 }
+
+func TestRecycleOfABusyChildClosesItWhenTheLastLeaseIsReleased(t *testing.T) {
+	spec, _ := notionFixtureSpec(t, NotionLeafProtocol)
+	r, err := New([]Spec{spec}, time.Minute)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer r.Close()
+	p, _ := r.get(spec.ID)
+	_, first, err := r.acquire(context.Background(), p)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, second, err := r.acquire(context.Background(), p)
+	if err != nil {
+		t.Fatal(err)
+	}
+	p.recycle()
+	has := func() bool { p.mu.Lock(); defer p.mu.Unlock(); return p.cli != nil }
+	if !has() {
+		t.Fatal("a busy child was closed under its call")
+	}
+	first()
+	if !has() {
+		t.Fatal("child closed while a lease was still held")
+	}
+	second()
+	if has() {
+		t.Fatal("child survived the release of its last lease; new tools would wait for the idle reap")
+	}
+	if _, release, err := r.acquire(context.Background(), p); err != nil || !has() {
+		t.Fatal("next lease did not start a fresh child", err)
+	} else {
+		release()
+	}
+	if !has() {
+		t.Fatal("deferred restart leaked to the fresh child")
+	}
+}

@@ -384,7 +384,7 @@
     "defaults_failed": "没能保存。请重试。",
     "first_bot_failed": "没能创建你的第一个 Bot。可以从侧边栏自己创建。",
     "services_title": "挑几个要连接的服务",
-    "services_body": "你的 Bot 可以自己读取这些服务，改动任何内容前都会先问你。",
+    "services_body": "你的 Bot 可以自己读取这些服务。发送邮件一律由你确认，扩展变更需你批准，登录、两步验证等敏感步骤交还给你。",
     "services_hint": "之后随时可以在 设置 > 连接 里添加更多。",
     "later": "稍后再说，开始聊天",
     "connect_selected_other": "连接已选的 {{count}} 个",

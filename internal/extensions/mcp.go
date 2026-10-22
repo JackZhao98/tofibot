@@ -808,7 +808,7 @@ func (m *Manager) openMCPClient(runCtx, discoveryCtx context.Context, name strin
 	// Connect's context bounds discovery, while the prepared session belongs
 	// to the run. Its cancellation must close even lazy stateless sessions.
 	stop := context.AfterFunc(runCtx, func() { _ = cli.Close() })
-	m.mcpStatus.Store(cli, &mcpSessionHTTP{endpoint: cfg.URL, failed: &failedStatus})
+	m.mcpStatus.Store(cli, &mcpSessionHTTP{endpoint: cfg.URL})
 	go func() { _ = cli.Wait(); stop(); m.mcpStatus.Delete(cli) }()
 
 	return cli, nil
@@ -859,8 +859,8 @@ func (m *Manager) callMCPToolObserved(callCtx context.Context, cli *mcp.ClientSe
 	attempts := 0
 	for {
 		attempts++
-		m.resetHTTPStatus(cli)
-		out, err = cli.CallTool(callCtx, &mcp.CallToolParams{Name: name, Arguments: arguments})
+		call := &mcpCallStatus{}
+		out, err = cli.CallTool(context.WithValue(callCtx, mcpCallStatusKey{}, call), &mcp.CallToolParams{Name: name, Arguments: arguments})
 		if mcpConnectionFailure(err) {
 			if observe.connectionFailed != nil {
 				observe.connectionFailed()
@@ -876,12 +876,12 @@ func (m *Manager) callMCPToolObserved(callCtx context.Context, cli *mcp.ClientSe
 		}
 		if !readOnly {
 			o := uncertainMCPOutcome(attempts)
-			if hint := m.googleAuthRejection(cli); hint != "" {
+			if hint := m.googleAuthRejection(cli, call); hint != "" {
 				o.Message += " " + hint
 			}
 			return "", o.Err()
 		}
-		if hint := m.googleAuthRejection(cli); hint != "" {
+		if hint := m.googleAuthRejection(cli, call); hint != "" {
 			o := tooloutcome.New(tooloutcome.Permanent, "mcp_permission_denied", "no_side_effect", hint, "explain_blocker")
 			o.Attempts = attempts
 			return "", o.Err()

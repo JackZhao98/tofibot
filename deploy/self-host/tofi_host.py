@@ -2192,8 +2192,9 @@ def restore_disks(item, meta, state):
     renamed to workspace-before-restore-<ns>.ext4 (kept: nothing is deleted)
     and the copy renamed in. Each swap is journalled in the transaction so a
     failed restore puts the live disks back (undo_disk_swaps). A computer's
-    saved snapshot belongs to the disk it was taken with, so it is discarded:
-    the computer cold-boots on the restored disk. Services must be stopped.
+    saved snapshot belongs to the disk it was taken with, so it is moved aside
+    (journalled like the disk) and deleted only once the restore succeeded:
+    the computer cold-boots on the restored disk. Returns the aside snapshots. Services must be stopped.
     """
     staged = []
     try:
@@ -2216,17 +2217,26 @@ def restore_disks(item, meta, state):
             temporary.unlink(missing_ok=True)
         raise
     swaps = state['transaction'].setdefault('disk_swaps', [])
+    asides = []
     for account_dir, temporary in staged:
         live = account_dir / DISK_NAME
         aside = account_dir / ('workspace-before-restore-%d.ext4' % time.time_ns()) if live.exists() else None
-        swaps.append({'live': str(live), 'aside': str(aside) if aside else None})
+        snapshot = account_dir / 'snapshot'
+        snapshot_aside = (account_dir / ('snapshot-before-restore-%d' % time.time_ns())
+                          if snapshot.exists() or snapshot.is_symlink() else None)
+        swaps.append({'live': str(live), 'aside': str(aside) if aside else None,
+                      'snapshot': str(snapshot) if snapshot_aside else None,
+                      'snapshot_aside': str(snapshot_aside) if snapshot_aside else None})
         save_state(state)
         if aside:
             os.rename(live, aside)
         os.rename(temporary, live)
-        remove_tree(account_dir / 'snapshot')
+        if snapshot_aside:
+            os.rename(snapshot, snapshot_aside)
+        asides.append(snapshot_aside)
     say('Restored %s; each replaced disk is kept beside it as workspace-before-restore-*.ext4 '
         '(delete them by hand when you are sure).' % plural(len(staged), 'computer disk'))
+    return [aside for aside in asides if aside]
 
 
 def undo_disk_swaps(transaction):
@@ -2239,6 +2249,11 @@ def undo_disk_swaps(transaction):
                 os.replace(aside, live)
         elif live.exists():
             live.unlink()
+        if swap.get('snapshot_aside'):
+            snapshot_aside = Path(swap['snapshot_aside'])
+            if snapshot_aside.exists():
+                remove_tree(Path(swap['snapshot']))
+                os.replace(snapshot_aside, swap['snapshot'])
     transaction['disk_swaps'] = []
 
 
@@ -2934,9 +2949,10 @@ def restore_backup(backup_id, yes=False, wait=0, force=False, confirm=None, disk
             state['transaction']['data_changed'] = True
             transition(state, 'upgrading', 'restore-data')
             restore_files(item['id'])
+            snapshot_asides = []
             if with_disks:
                 transition(state, 'upgrading', 'restore-disks')
-                restore_disks(item, meta, state)
+                snapshot_asides = restore_disks(item, meta, state)
             env = read_env()
             transition(state, 'upgrading', 'switch-config')
             apply_host_config(bundle, env)
@@ -2944,6 +2960,11 @@ def restore_backup(backup_id, yes=False, wait=0, force=False, confirm=None, disk
             transition(state, 'upgrading', 'start-candidate')
             start_services(env)
             complete(state, version=version)
+            for snapshot_aside in snapshot_asides:
+                try:
+                    remove_tree(snapshot_aside)
+                except OSError as error:
+                    warn('Could not remove %s (%s); delete it by hand.' % (snapshot_aside, error))
         except BaseException as error:
             reject_candidate(state, error, version, candidate['TOFI_GUEST_VERSION'], previous,
                              'restore failed; previous state recovered')
@@ -2974,6 +2995,9 @@ def backup_now(note=None, wait=0, force=False, disks=True):
                 % (len(account_disks()), human_bytes(disks_allocated()), human_bytes(expected))) if disks else '',
                int(DISK_COMPRESSION_RATIO * 100)))
         check_backup_space('the backup', expected)
+        if disks and account_disks() and not zstd_available():
+            raise HostError('Backing up computer disks needs the zstd tool; install it (apt-get install zstd) or add '
+                            '--no-disks. Nothing was changed.')
         env = read_env()
         was_running = any((c.get('State') or {}).get('Running') for c in project_containers())
         stopped()
@@ -4599,6 +4623,18 @@ def audit_login_limits(env):
                          'limiter on (per address and per account); no proxy trusted, visitors are keyed by their own address')
 
 
+def backup_member_rules(directory):
+    """Rules for the members of a backup directory: files 0600, subdirectories (disks/) 0700 and walked."""
+    rules = []
+    for member in sorted(directory.iterdir()):
+        if member.is_dir() and not member.is_symlink():
+            rules.append((member, 0o700, 0, None))
+            rules.extend(backup_member_rules(member))
+        else:
+            rules.append((member, 0o600, 0, None))
+    return rules
+
+
 def audit_files(env):
     findings = []
     host_rules = [(P.etc, 0o700, 0, None), (P.env_file, 0o600, 0, None), (P.worker_json, 0o600, 0, None),
@@ -4617,7 +4653,7 @@ def audit_files(env):
         for entry in sorted(P.backups.iterdir()) if P.backups.is_dir() else []:
             backup_rules.append((entry, 0o700, 0, None))
             if entry.is_dir() and not entry.is_symlink():
-                backup_rules.extend((member, 0o600, 0, None) for member in sorted(entry.iterdir()))
+                backup_rules.extend(backup_member_rules(entry))
     except OSError:
         pass
     findings.append(audit_file_finding('files.backups', 'Backups (they hold a copy of the vault key)', backup_rules))

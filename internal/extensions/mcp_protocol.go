@@ -38,10 +38,17 @@ func contains(values []string, value string) bool {
 type mcpHeaderTransport struct {
 	headers map[string]string
 	base    http.RoundTripper
-	// failed remembers the last non-2xx HTTP status so a failed connect can be
-	// classified by status, never by the SDK's or the provider's message text.
+	// failed remembers the last non-2xx HTTP status of the connect handshake so a failed connect can be
+	// classified by status, never by the SDK's or the provider's message text. Tool calls do not use it: they
+	// carry their own mcpCallStatus in the request context.
 	failed *atomic.Int32
 }
+
+// mcpCallStatus is the failed HTTP status one tool call saw. It travels in the call's context, so concurrent calls
+// on one session cannot see each other's status.
+type mcpCallStatus struct{ status atomic.Int32 }
+
+type mcpCallStatusKey struct{}
 
 // mcpHTTPStatusError carries the HTTP status of the failing response next to
 // the SDK error. Only the number is kept; no provider text.
@@ -69,8 +76,12 @@ func (t mcpHeaderTransport) RoundTrip(r *http.Request) (*http.Response, error) {
 		req.Header.Set(k, v)
 	}
 	resp, err := t.base.RoundTrip(req)
-	if err == nil && resp != nil && t.failed != nil && resp.StatusCode >= 400 {
-		t.failed.Store(int32(resp.StatusCode))
+	if err == nil && resp != nil && resp.StatusCode >= 400 {
+		if call, ok := r.Context().Value(mcpCallStatusKey{}).(*mcpCallStatus); ok {
+			call.status.Store(int32(resp.StatusCode))
+		} else if t.failed != nil {
+			t.failed.Store(int32(resp.StatusCode))
+		}
 	}
 	return resp, err
 }
