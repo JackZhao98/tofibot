@@ -6,8 +6,6 @@
 export function thinkingHeadline(text: string): string {
   const bold = [...text.matchAll(/\*\*([^*\n]{2,80})\*\*/g)].at(-1)?.[1]?.replace(/[_`#]/g, "").trim() ?? "";
   if (!bold) return "";
-  if (bold.length <= 40) return bold;
-  // Over-long titles are cut at a word boundary from the start, never mid-word.
-  const cut = bold.slice(0, 40).replace(/\s+\S*$/, "").replace(/[\s,;:\u2014-]+$/, "");
-  return cut.length >= 8 ? `${cut}\u2026` : "";
+  // The title is shown whole; the line it sits on ellipsizes by width, so no word is ever cut here.
+  return bold;
 }

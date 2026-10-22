@@ -1,0 +1,18 @@
+/* Process line: what a Bot is doing right now, as one quiet line that opens into the tool steps.
+   Used by the task block's live line and Activity summary, the web tool row and the compact live line. */
+.process-line{display:flex;align-items:center;gap:var(--space-2);box-sizing:border-box;max-width:100%;min-width:0;min-height:28px;margin:0;padding:0;border:0;border-radius:6px;background:none;color:var(--text-process);font:var(--type-meta);font-variant-numeric:tabular-nums;text-align:start;list-style:none}
+button.process-line,summary.process-line{cursor:pointer}
+button.process-line:hover,summary.process-line:hover{color:var(--text-secondary)}
+.process-line:focus-visible{outline:var(--focus-ring-width) solid var(--focus-ring);outline-offset:2px}
+summary.process-line::-webkit-details-marker{display:none}
+/* One line, always: a long status ellipsizes and the expanded view carries it whole. */
+.process-line-text{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.process-line-chevron{flex:none}
+.task-live-full{margin:0 0 var(--space-2);color:var(--text-process);font:var(--type-meta);overflow-wrap:anywhere}
+@media(pointer:coarse){.process-line{min-height:44px}}
+
+/* Loading mark: a 14px ink ring, a lagoon stroke circling it slowly (transform only, no layout). */
+.live-mark{position:relative;flex:none;width:14px;height:14px;border-radius:50%;box-shadow:inset 0 0 0 1.5px color-mix(in srgb,var(--muted) 30%,transparent)}
+.live-mark::after{content:"";position:absolute;inset:0;box-sizing:border-box;border:1.5px solid transparent;border-top-color:var(--lagoon-text);border-right-color:var(--lagoon-text);border-radius:50%;transform:rotate(-45deg);animation:live-mark-turn 1.8s var(--ease-inout) infinite;will-change:transform}
+@keyframes live-mark-turn{to{transform:rotate(315deg)}}
+@media(prefers-reduced-motion:reduce){.live-mark::after{animation:none;will-change:auto}}

@@ -3,6 +3,7 @@
 import type { Drive } from "../drive";
 import type { CatalogSection } from "../types";
 import type { AppOptions } from "../world";
+import { processStates } from "./process";
 
 const DM: AppOptions = { path: "/b/bot_mochi" };
 const GROUP: AppOptions = { path: "/g/grp_launch" };
@@ -28,8 +29,10 @@ export const bubbles: CatalogSection = {
     { id: "sending", kind: "app", label: "Sending", note: "the server has not answered: the bubble is dimmed", app: { ...DM, send: "hang" }, drive: step => send(step, "Is the room booked?") },
     { id: "failed", kind: "app", label: "Failed to send", note: "\"Not sent · Retry\" under the bubble", app: { ...DM, send: "fail" }, drive: async step => { await send(step, "Is the room booked?"); await step.find(".send-receipt-retry"); } },
     { id: "brief", kind: "app", label: "Handoff brief open", app: GROUP, drive: async step => { await step.click(".assignment-brief summary"); } },
+    // The process line: live and finished, collapsed and opened, task block and web tool row (process.tsx).
+    ...processStates,
   ],
-  gaps: ["Jump target (a 1.7 s flash): click a reply quote in a frame to see it.", "Display cards (ui_card) and tool rows under an answer: no synthetic tool activity yet."],
+  gaps: ["Jump target (a 1.7 s flash): click a reply quote in a frame to see it.", "Display cards (ui_card) under an answer: no synthetic card yet.", "Desktop-client tool rows (DesktopToolActivityRun): Electron only."],
 };
 
 export const actions: CatalogSection = {

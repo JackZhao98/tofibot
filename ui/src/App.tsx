@@ -2,6 +2,7 @@ import { useGraceFlag } from "./useGraceFlag";
 import { readReplyMarker } from "./replyMarker";
 import { thinkingHeadline } from "./thinkingHeadline";
 import { TaskRunBlock, taskBlockVisible } from "./TaskRunBlock";
+import { LiveMark } from "./LiveMark";
 import { markSenderGroups } from "./senderGroups";
 import { sameData } from "./sameData";
 import { buildTaskOwners, presentTaskIssue, taskPhaseLabel, type TaskOwner } from "./taskIssuePresentation";
@@ -369,7 +370,9 @@ function jumpToMessage(target: HTMLElement | null | undefined) {
 const ExpiryFinishingContext = createContext<ReadonlySet<string>>(new Set());
 const RunStartContext = createContext<ReadonlyMap<string, number>>(new Map());
 /** Whether chat shows Activity rows, and which runs were opened one by one from a message's action menu. */
-const ActivityViewContext = createContext<{ show: boolean; revealed: ReadonlySet<string> }>({ show: false, revealed: new Set() });
+const ActivityViewContext = createContext<{ show: boolean; revealed: ReadonlySet<string>; /** Opens one run's steps from its live line (adds it to `revealed`, never removes). */ reveal: (runId: string) => void }>({ show: false, revealed: new Set(), reveal: () => {} });
+/** The run whose steps a live line just opened: its toggle takes focus where the line was. */
+let focusToggleOfRun = "";
 
 function useNow(active: boolean, interval = 1000) {
   const [now, setNow] = useState(() => Date.now());
@@ -388,11 +391,12 @@ function SenderHead({ id, name }: { id: string; name: string }) {
   return <div className="sender-head"><div className="sender-avatar"><Avatar label={name} id={id} mini /></div><span className="sender-name">{name}</span></div>;
 }
 
-/** The one compact status line of a working run: "Browsing the web · 10s". Part of the Bot's sender group. */
-function CompactLiveLine({ label, botId, botName, at, showName, ariaLabel }: { label: string; botId: string; botName: string; at: string; showName: boolean; ariaLabel: string }) {
+/** The one compact process line of a working run: loading mark, "Browsing the web · 10s". Part of the Bot's sender group; a button when the run's steps can be opened from it. */
+function CompactLiveLine({ label, botId, botName, at, showName, ariaLabel, onOpen }: { label: string; botId: string; botName: string; at: string; showName: boolean; ariaLabel: string; onOpen?: () => void }) {
+  const line = <><LiveMark /><span className="process-line-text web-tool-live-label">{label}</span>{onOpen && <Icon className="web-tool-chevron process-line-chevron" name="chevron-right" size={14} aria-hidden="true" />}</>;
   return <section className={`tool-message web-tool-run is-live live-run-status${showName ? " is-group" : ""}`} aria-label={ariaLabel} data-sender={showName ? botId : undefined} data-at={showName ? at : undefined}>
     {showName && <SenderHead id={botId} name={botName} />}
-    <div className="web-tool-disclosure"><div className="web-tool-summary"><span className="web-tool-toggle"><span className="web-tool-live-label">{label}</span></span></div></div>
+    <div className="web-tool-disclosure"><div className="web-tool-summary">{onOpen ? <button type="button" className="web-tool-toggle" aria-expanded="false" onClick={onOpen}>{line}</button> : <span className="web-tool-toggle is-static">{line}</span>}</div></div>
   </section>;
 }
 
@@ -410,10 +414,11 @@ function LiveToolLine({ runId, items, now, botName, senderId }: { runId: string;
   const { t } = useTranslation("chat");
   const finishing = useContext(ExpiryFinishingContext).has(runId);
   const runStart = useContext(RunStartContext).get(runId);
+  const { reveal } = useContext(ActivityViewContext);
   const current = activeToolForRun(items, runId) ?? items.find(item => item.status === "queued");
   const seconds = runStart !== undefined ? Math.max(0, Math.floor((now - runStart) / 1000)) : undefined;
   const label = finishing ? t("live.finishing") : `${current ? toolActionLabel(current) : t("live.thinking")}${seconds === undefined ? "" : ` · ${formatRunDuration(seconds * 1000, false)}`}`;
-  return <CompactLiveLine label={label} botId={senderId ?? items[0]?.bot_id ?? ""} botName={botName} at={new Date(runStart ?? now).toISOString()} showName={Boolean(senderId)} ariaLabel={t("live.status_label", { name: botName })} />;
+  return <CompactLiveLine label={label} botId={senderId ?? items[0]?.bot_id ?? ""} botName={botName} at={new Date(runStart ?? now).toISOString()} showName={Boolean(senderId)} ariaLabel={t("live.status_label", { name: botName })} onOpen={() => reveal(runId)} />;
 }
 
 /** Short run durations keep their tenths; longer runs read as minutes and hours. */
@@ -465,7 +470,8 @@ function Workspace() {
   const { t } = useTranslation(["chat", "common"]);
   const {timezone, showActivity} = useUserTimezone();
   const [revealedRuns, setRevealedRuns] = useState<ReadonlySet<string>>(() => new Set());
-  const activityView = useMemo(() => ({ show: showActivity, revealed: revealedRuns }), [showActivity, revealedRuns]);
+  const revealRun = useCallback((runId: string) => { focusToggleOfRun = runId; setRevealedRuns(current => current.has(runId) ? current : new Set(current).add(runId)); }, []);
+  const activityView = useMemo(() => ({ show: showActivity, revealed: revealedRuns, reveal: revealRun }), [showActivity, revealedRuns, revealRun]);
   const appearance = useAppearance();
   const [sidebarCollapsed, setSidebarCollapsed] = useState(Boolean(desktopState().sidebarCollapsed));
   const sidebarListRef = useRef<HTMLDivElement | null>(null);
@@ -2213,7 +2219,7 @@ function Workspace() {
   const ownedAttemptKeys = new Set(taskOwners.flatMap(owner => owner.family.attempts.map(run => `${run.id}|${run.bot_id}|${run.conversation_id}`)));
   const ownedBy = (item: { run_id: string; bot_id: string; conversation_id: string }) => ownedAttemptKeys.has(`${item.run_id}|${item.bot_id}|${item.conversation_id}`);
   function renderTaskOwner(owner: TaskOwner) {
-    return <TaskRunBlock key={owner.key} replying={replyingRunIDs.has(owner.family.latest.id)} hideActivity={!showActivity} revealed={ownerRevealed(owner)} owner={owner} senderHead={active?.kind === "group" ? <SenderHead id={owner.family.latest.bot_id} name={botById.get(owner.family.latest.bot_id)?.name ?? "Bot"} /> : undefined} liveStatus={runLiveStatus(owner.family.latest)} onRetryRun={retryRun} liveAvatar={<BotAvatar id={owner.family.latest.bot_id} mini motion={owner.family.latest.status === "waiting" ? "awake" : "working"} />} tools={loadedToolActivities} questions={questions.items} drafts={mailDrafts.items} messages={messageRecords} summaries={terminalToolSummaries} details={toolDetailState} connected={linkConnected} botName={botById.get(owner.family.latest.bot_id)?.name ?? "Bot"} showName={active?.kind === "group"}
+    return <TaskRunBlock key={owner.key} replying={replyingRunIDs.has(owner.family.latest.id)} hideActivity={!showActivity} revealed={ownerRevealed(owner)} owner={owner} senderHead={active?.kind === "group" ? <SenderHead id={owner.family.latest.bot_id} name={botById.get(owner.family.latest.bot_id)?.name ?? "Bot"} /> : undefined} liveStatus={runLiveStatus(owner.family.latest)} onRetryRun={retryRun} tools={loadedToolActivities} questions={questions.items} drafts={mailDrafts.items} messages={messageRecords} summaries={terminalToolSummaries} details={toolDetailState} connected={linkConnected} botName={botById.get(owner.family.latest.bot_id)?.name ?? "Bot"} showName={active?.kind === "group"}
       onOpenTools={() => openSettings("connections")}
       onFeedback={text => window.dispatchEvent(new CustomEvent("tofi:task-feedback", {detail:{conversationId:owner.family.latest.conversation_id,text}}))}
       onRefresh={refreshTaskStatus} onLoadDetails={loadToolDetails}
@@ -2962,6 +2968,10 @@ function WebToolActivityRun({ runId, items, notes, summary, summaryError, summar
   const revealedHere = useContext(ActivityViewContext).revealed.has(runId);
   const [expanded, setExpanded] = useState(revealedHere);
   const stepsRef = useRef<HTMLOListElement>(null);
+  const toggleRef = useRef<HTMLButtonElement>(null);
+  const labelRef = useRef<HTMLSpanElement>(null);
+  // Set when the one-line label was cut at the moment the steps opened: the drawer then carries it whole.
+  const [clipped, setClipped] = useState(false);
   const priorStepKeys = useRef("");
   const priorStepsHeight = useRef(0);
   const growthAnimation = useRef<Animation | null>(null);
@@ -3004,17 +3014,27 @@ function WebToolActivityRun({ runId, items, notes, summary, summaryError, summar
   useEffect(() => () => { growthAnimation.current?.cancel(); }, []);
   // Opened from a message's "View activity": the steps are wanted at once.
   useEffect(() => { if (revealedHere) loadDetails(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  // Opened from this run's live line: focus stays where the line was.
+  useLayoutEffect(() => { if (focusToggleOfRun === runId) { focusToggleOfRun = ""; toggleRef.current?.focus({ preventScroll: true }); } }, [runId]);
+  const fullLabel = `${activityLabel}${!live && count !== undefined ? ` · ${t("tools.call_count", { count })}` : ""}${issues ? ` · ${issues}` : ""}${notes.length ? ` · ${t("tools.report_count", { count: notes.length })}` : ""}${!live && duration !== undefined ? ` · ${duration}` : ""}`;
   return <section data-activity-run={runId} className={`tool-message web-tool-run${live ? " is-live" : ` is-complete${issues ? " has-tool-issues" : ""}`}`} aria-label={t("tools.steps_label", { name: botName })} data-sender={senderId || undefined} data-at={senderId && Number.isFinite(lastTime) ? new Date(lastTime).toISOString() : undefined}>
     {senderId && <SenderHead id={senderId} name={botName} />}
     <div className="web-tool-disclosure">
       <div className="web-tool-summary">
         {!live && Number.isFinite(lastTime) && <time>{formatTime(new Date(lastTime).toISOString(), timezone)}</time>}
-        <button type="button" className="web-tool-toggle" aria-expanded={expanded} aria-controls={`web-tool-drawer-${runId}`} onClick={() => setExpanded(value => { const next = !value; if (next) loadDetails(); return next; })}>
-          <Icon className="web-tool-chevron" name="chevron-right" size={14} />
-          <span className={live ? "web-tool-live-label" : undefined}>{activityLabel}{!live && count !== undefined ? ` · ${t("tools.call_count", { count })}` : ""}{issues ? ` · ${issues}` : ""}{notes.length ? ` · ${t("tools.report_count", { count: notes.length })}` : ""}{!live && duration !== undefined ? ` · ${duration}` : ""}</span>
+        <button type="button" ref={toggleRef} className="web-tool-toggle" aria-expanded={expanded} aria-controls={`web-tool-drawer-${runId}`} onClick={() => {
+          const next = !expanded;
+          setExpanded(next);
+          if (next) { const label = labelRef.current; if (label && label.scrollWidth > label.clientWidth) setClipped(true); loadDetails(); }
+        }}>
+          {live && <LiveMark />}
+          {!live && <Icon className="web-tool-chevron" name="chevron-right" size={14} />}
+          <span ref={labelRef} className={`process-line-text${live ? " web-tool-live-label" : ""}`}>{fullLabel}</span>
+          {live && <Icon className="web-tool-chevron" name="chevron-right" size={14} aria-hidden="true" />}
         </button>
       </div>
       <div className={`web-tool-drawer${expanded ? " is-open" : ""}`} id={`web-tool-drawer-${runId}`} aria-hidden={!expanded} inert={!expanded}><div className="web-tool-drawer-inner">
+      {clipped && <p className="web-tool-full">{fullLabel}</p>}
       <ol className="web-tool-steps" ref={stepsRef}>{summaryLoading && <li className="web-tool-step is-note"><span>{t("tools.summary_loading")}</span></li>}{summaryError && <li className="web-tool-step is-note"><span>{t("tools.summary_failed", { error: summaryError })}</span><button type="button" className="secondary-button" onClick={() => onRetrySummary?.(runId)}>{t("common:action.retry")}</button></li>}{!entries.length && <li className="web-tool-step is-note"><span>{detail?.loading ? t("tools.details_loading") : detail?.error ? t("tools.details_failed", { error: detail.error }) : t("tools.expand_to_load")}</span></li>}{entries.map(entry => {
         if (entry.type === "note") return <li className="web-tool-step is-note" key={entry.note.id}><Icon name="file-text" size={16} /><div className="web-tool-step-copy"><span>{t("tools.progress_note")}</span><div className="web-tool-note"><MessageMarkdown content={entry.note.content} /></div></div><time>{formatExactTime(entry.note.created_at, timezone)}</time></li>;
         const activity = entry.activity;
@@ -3476,4 +3496,4 @@ function Composer({ workStatus, activeRun, latestReplyId, onStopRun, avatarMenti
 }
 
 export default App;
-export { WorkingMembers, Composer, DictationControls, WebToolActivityRun };
+export { WorkingMembers, Composer, DictationControls, WebToolActivityRun, CompactLiveLine, RunStartContext };

@@ -1,5 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { TofiIcon } from "./icons";
+import { LiveMark } from "./LiveMark";
 import { MessageMarkdown } from "./MessageMarkdown";
 import { requestFullToolResult } from "./toolResultLoader";
 import { toolDisplayLabel, orderToolActivities, toolDisplayState, toolStepTitle, toolStepSeconds, formatStepSeconds, toolStepDetail } from "./toolTimeline";
@@ -17,7 +18,7 @@ import "./task-issue-card.css";
 import { MOTION, EASE } from "./motion";
 
 export type TaskDetailState = { loaded: number; toolCount: number; hasMore: boolean; loading: boolean; error?: string };
-export type TaskRunBlockProps = { senderHead?: React.ReactNode; owner: TaskOwner; tools: ToolActivity[]; questions: Question[]; drafts: MailDraft[]; messages: Message[]; summaries: ToolActivityRunSummary[]; details?: Record<string, TaskDetailState>; connected?: boolean; /** Sends a failed run again (the server accepts it for busy or dropped service). */ onRetryRun?: (runId: string) => void | Promise<void>; /** Pins one language (tests, fixtures); the active UI language otherwise. */ locale?: Language; botName?: string; showName?: boolean; onFeedback?: (text:string) => void; onOpenTools: () => void; onRefresh: () => Promise<void>; onLoadDetails?: (runId: string, offset: number) => Promise<void>; liveStatus?: string; liveAvatar?: ReactNode; /** The run's reply is already on screen (a streaming draft with text, or its final message): the live line steps aside in that same frame instead of leaving later. */ replying?: boolean; /** Chat default: no Activity row. Cards (approvals, issues) and a live status line still show. */ hideActivity?: boolean; /** The run's Activity was asked for (message action); shows it although hidden. */ revealed?: boolean; renderMessage?: (message: Message) => ReactNode; renderQuestion: (question: Question) => ReactNode; renderDraft: (draft: MailDraft) => ReactNode };
+export type TaskRunBlockProps = { senderHead?: React.ReactNode; owner: TaskOwner; tools: ToolActivity[]; questions: Question[]; drafts: MailDraft[]; messages: Message[]; summaries: ToolActivityRunSummary[]; details?: Record<string, TaskDetailState>; connected?: boolean; /** Sends a failed run again (the server accepts it for busy or dropped service). */ onRetryRun?: (runId: string) => void | Promise<void>; /** Pins one language (tests, fixtures); the active UI language otherwise. */ locale?: Language; botName?: string; showName?: boolean; onFeedback?: (text:string) => void; onOpenTools: () => void; onRefresh: () => Promise<void>; onLoadDetails?: (runId: string, offset: number) => Promise<void>; liveStatus?: string; /** The run's reply is already on screen (a streaming draft with text, or its final message): the live line steps aside in that same frame instead of leaving later. */ replying?: boolean; /** Chat default: no Activity row. Cards (approvals, issues) and a live status line still show. */ hideActivity?: boolean; /** The run's Activity was asked for (message action); shows it although hidden. */ revealed?: boolean; renderMessage?: (message: Message) => ReactNode; renderQuestion: (question: Question) => ReactNode; renderDraft: (draft: MailDraft) => ReactNode };
 
 const drawers = new WeakMap<HTMLElement, Animation[]>();
 const drawerBody = (details: HTMLDetailsElement) => details.querySelector<HTMLElement>(":scope > :not(summary)");
@@ -57,11 +58,15 @@ export function toggleDisclosure(event: React.MouseEvent<HTMLElement>) {
   animateDisclosure(details, details.dataset.drawer ? details.dataset.drawer === "closing" : !details.open);
 }
 
-export function ActivityDisclosure({ children, locale, detail, problem, live, disclosureRef, onOpen }: { children: ReactNode; locale?: Language; detail?: string; problem?: string; live?: { label: string; avatar?: ReactNode }; disclosureRef: React.RefObject<HTMLDetailsElement | null>; onOpen: () => void }) {
+/** A live status this long can be cut on a phone; opened, the first row carries it whole. */
+const LONG_STATUS = 28;
+
+export function ActivityDisclosure({ children, locale, detail, problem, live, disclosureRef, onOpen }: { children: ReactNode; locale?: Language; detail?: string; problem?: string; live?: { label: string; full: string }; disclosureRef: React.RefObject<HTMLDetailsElement | null>; onOpen: () => void }) {
   const { t } = useTranslation("tasks", { lng: locale });
-  // While the Bot works the whole block is one quiet status line; the steps
-  // stay folded until someone opens them.
-  return <details className={`task-activity${live ? " is-live" : ""}`} ref={disclosureRef} onToggle={event => { if (event.currentTarget.open) onOpen(); }}><summary onClick={toggleDisclosure}>{live ? <>{live.avatar && <span className="task-activity-cat" aria-hidden="true">{live.avatar}</span>}<span className="task-activity-live" role="status">{live.label}</span></> : <><TofiIcon name="chevron-right" size={16} aria-hidden="true" />{t("activity.title")}{detail && <span className="task-activity-detail"> · {detail}</span>}{problem && <span className="task-activity-problem"> · {problem}</span>}</>}</summary><div className="task-activity-records">{children}</div></details>;
+  const [open, setOpen] = useState(false);
+  // While the Bot works the whole block is one quiet process line (loading mark, what it is doing, seconds); the
+  // steps stay folded until someone opens it. The line is the <summary>, so Enter and Space open it natively.
+  return <details className={`task-activity${live ? " is-live" : ""}`} ref={disclosureRef} onToggle={event => { setOpen(event.currentTarget.open); if (event.currentTarget.open) onOpen(); }}><summary className="process-line" role="button" aria-expanded={open} onClick={toggleDisclosure}>{live ? <><LiveMark /><span className="process-line-text task-activity-live" role="status">{live.label}</span><TofiIcon className="process-line-chevron" name="chevron-right" size={14} aria-hidden="true" /></> : <><TofiIcon name="chevron-right" size={16} aria-hidden="true" /><span className="process-line-text">{t("activity.title")}{detail && <span className="task-activity-detail"> · {detail}</span>}{problem && <span className="task-activity-problem"> · {problem}</span>}</span></>}</summary><div className="task-activity-records">{live && live.full.length > LONG_STATUS && <p className="task-live-full">{live.full}</p>}{children}</div></details>;
 }
 
 /** One step: marker, human action, short argument, then state and duration. */
@@ -125,7 +130,7 @@ export function taskBlockVisible(props: BlockScopeInput & { hideActivity?: boole
   return !isTerminalRun(run) || Boolean(issue) || taskPhaseVisible(run) || decisions.length > 0 || currentDrafts.some(draft => draft.status !== "unknown");
 }
 
-export function TaskRunBlock({ owner, tools, questions, drafts, messages, summaries, details = {}, connected = true, locale, botName, showName, senderHead, onFeedback, onOpenTools, onRefresh, onRetryRun, onLoadDetails, liveStatus, liveAvatar, replying = false, hideActivity = false, revealed: revealedByMenu = false, renderMessage, renderQuestion, renderDraft }: TaskRunBlockProps) {
+export function TaskRunBlock({ owner, tools, questions, drafts, messages, summaries, details = {}, connected = true, locale, botName, showName, senderHead, onFeedback, onOpenTools, onRefresh, onRetryRun, onLoadDetails, liveStatus, replying = false, hideActivity = false, revealed: revealedByMenu = false, renderMessage, renderQuestion, renderDraft }: TaskRunBlockProps) {
   const disclosure = useRef<HTMLDetailsElement>(null);
   const block = useRef<HTMLElement>(null);
   const needsFocus = useRef(false);
@@ -165,7 +170,8 @@ export function TaskRunBlock({ owner, tools, questions, drafts, messages, summar
     return () => window.clearInterval(ticker);
   }, [live, currentTools]);
   const liveSeconds = Math.max(0, Math.floor((now - Date.parse(run.created_at)) / 1000));
-  const liveLine = live && !(replying && hideActivity && !revealedByMenu) ? { label: `${liveStatus || t("activity.thinking")} · ${formatStepSeconds(liveSeconds)}`, avatar: liveAvatar } : undefined;
+  const liveFull = liveStatus || t("activity.thinking");
+  const liveLine = live && !(replying && hideActivity && !revealedByMenu) ? { label: `${liveFull} · ${formatStepSeconds(liveSeconds)}`, full: liveFull } : undefined;
   function openStep(runId: string, callId: string) {
     if (disclosure.current && !disclosure.current.open) disclosure.current.open = true;
     setPendingStep(`${runId}:${callId}`);
@@ -210,7 +216,7 @@ export function TaskRunBlock({ owner, tools, questions, drafts, messages, summar
     {/* A separate valid proposal survives another call's failure/unknown effect. */}
     {decisions.map(renderQuestion)}
     {currentDrafts.filter(draft => draft.status !== "unknown").map(renderDraft)}
-    {!showActivity && liveLine && <p className="task-run-live-line" role="status">{liveLine.avatar && <span className="task-activity-cat" aria-hidden="true">{liveLine.avatar}</span>}{namedLive && <span className="task-activity-name">{botName}</span>}<span className="task-activity-live">{liveLine.label}</span></p>}
+    {!showActivity && liveLine && <p className="task-run-live-line"><button type="button" className="process-line" aria-expanded="false" onClick={viewActivity}><LiveMark />{namedLive && <span className="task-activity-name">{botName}</span>}<span className="process-line-text task-activity-live" role="status">{liveLine.label}</span><TofiIcon className="process-line-chevron" name="chevron-right" size={14} aria-hidden="true" /></button></p>}
     {showActivity && <ActivityDisclosure locale={locale} detail={activityDetail} live={liveLine} disclosureRef={disclosure} onOpen={loadInitial}>
       {owner.family.previous.map((attempt, index) => <p key={attempt.id} className="task-record-meta">{t("activity.previous_attempt", { number: index + 1, status: attemptStatus(attempt.status) })}</p>)}
       {rememberedDecisions.map(question => <p key={question.question_id} className="task-record-meta task-remembered-record" data-question-record-id={question.question_id}>{t(question.answered_by === STANDING_ALLOWANCE_ACTOR ? "record.standing_decision" : "record.remembered_decision")}</p>)}

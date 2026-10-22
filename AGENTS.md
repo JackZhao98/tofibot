@@ -51,6 +51,10 @@ loaded by `usePhoneSwipeBack.ts` on a phone-sized window only; it moves the pane
 (also `SWIPE_BACK_ENGINE=webkit`) holds it. Motion is not a dependency of the app (step 4 measured it and kept our code,
 D35); `motion` is a devDependency only for `test:motion-experiment` and `TOFI_MOTION_EXPERIMENT=motion` in the dev server.
 
+# Process line
+
+What a Bot is doing right now is one quiet line, never a block: `LiveMark` (14px ink ring, a lagoon stroke turning on `transform`, static under reduced motion), the status, the seconds, a chevron. It is a real button (`aria-expanded`, focus ring) that opens the tool steps through the mechanism already there: the task block's `<details>` (`ActivityDisclosure`, `viewActivity` when Activity is hidden) or the web tool row's drawer (`ActivityViewContext.reveal` from `LiveToolLine`). Look in `ui/src/live-line.css`: `font: var(--type-meta)`, `color: var(--text-process)`, one line with an ellipsis (the opened view carries the whole text), no cat, no mono or semibold on the line. A new live line uses `.process-line` and `LiveMark` instead of its own style; the cat stays only on the composer perch and in the sender column. States: catalog section 1 (`ui/src/catalog/sections/process.tsx`).
+
 # Sidebar order and pins
 
 Two per-account integers on `conversations` (added by `ensureColumn`): `pin_order` (1-based pinned slot, 0 = not pinned) and `sort_order`
