@@ -130,6 +130,8 @@ TOFI 是一个自托管的 AI Bot 工作台：Go 后端在 `internal/`，React 1
 | [`agent-plan/plugin-library-mainstream.md`](agent-plan/plugin-library-mainstream.md) | 首屏推荐服务调研第二稿（10-09） | 历史 | 调研稿，随合并提交 `6544e42`（feat/remember-approval）进入仓库 |
 | [`integrations/token-catalog-review.md`](integrations/token-catalog-review.md) | token 鉴权服务第一轮评审 | 历史 | 结论和目录一致（四个 `held`）；配套证据 [`integrations/acceptance.json`](integrations/acceptance.json) |
 | [`integrations/notion-adapter-candidate.md`](integrations/notion-adapter-candidate.md) | Notion token 版 stdio 适配器候选 | 历史 | 代码在 `internal/mcprunner/notion_adapter.go`；仍未进可添加目录 |
+| [`integrations/discord-package-qualification.md`](integrations/discord-package-qualification.md) | Discord 社区 MCP 服务的资格评估：选定 `@discord-mcp/cli` 0.32.1，其余三个不过；工具、权限、证据 | 现行 | [D47](decisions/0047-curated-official-community-user-installed.md)；机器可读的固定值在 [`integrations/community/`](integrations/community/discord.json) |
+| [`integrations/discord-add-it-yourself.md`](integrations/discord-add-it-yourself.md) | 给 owner 的中文步骤：自己添加 Discord（开发者平台、邀请权限整数、安装表单、白名单、批准） | 现行 | 没有真实 token 的验证缺口写在末尾 |
 | [`integrations/notion-package-qualification.md`](integrations/notion-package-qualification.md) | Notion 2.5.2 包来源核验：暂缓 | 历史 | 一次性核验（`0be8060`） |
 | [`integrations/icons/NOTICE.md`](integrations/icons/NOTICE.md) | GitHub、Discord 官方图标候选和来源 | 历史 | 仍未进 `ui/public`、`ui/src`；是否继续保留：待确认 |
 

@@ -48,6 +48,7 @@ const repoFor = (server: MCP, preset: IntegrationPreset | undefined) => preset?.
 function sourceLine(server: MCP, preset: IntegrationPreset | undefined, pluginId: string) {
   const t = i18n.getFixedT(null, "extensions");
   if (pluginId === "gog") return t("connections.source.gog");
+  if (pluginId && server.provenance?.origin === "community" && server.provenance.package) return t("connections.source.package", { package: server.provenance.package, version: server.provenance.version ?? "" });
   if (pluginId) return t("connections.source.local", { name: pluginId });
   let host = "";
   try { host = new URL(preset?.url ?? server.url).host; } catch { host = ""; }
@@ -312,6 +313,7 @@ function MCPRow({ server, checkRequest, refresh, refreshLocal, onEdit, onRemoved
     {route.mode === "blocked" && needsAuth && <div className="mcp-login-note"><p role="status">{route.note}</p></div>}
     {detailsOpen && <div className="mcp-service-details">
       <p className="mcp-service-source">{source}</p>
+      {server.provenance?.origin === "community" && <p className="mcp-service-source">{t("connections.details.community_review")}</p>}
       {repoFor(server, preset) && <p className="mcp-service-source"><RepoLink repo={repoFor(server, preset)} stars={stars[repoFor(server, preset)]} /></p>}
       {account?.connected && <p className="mcp-service-source">{t("connections.details.account", { email: account.email })} · {account.scope === "read-send" ? t("local.google.granted_read_send") : t("local.google.granted_readonly")}</p>}
       {isGog && google?.client.configured && <p className="mcp-service-source">{t("connections.details.project", { project: google.client.project_id || google.client.project_number })}</p>}

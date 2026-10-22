@@ -40,6 +40,8 @@ type MCPServerView struct {
 	OAuth         *OAuthView          `json:"oauth,omitempty"`
 	// Status is the persisted result of the last check; nil if never checked.
 	Status *MCPStatus `json:"status,omitempty"`
+	// Provenance is set for packages a person installed into the local Runner.
+	Provenance *MCPProvenance `json:"provenance,omitempty"`
 }
 type OAuthView struct {
 	ClientID              string   `json:"client_id"`
@@ -124,7 +126,7 @@ func (m *Manager) ListMCP() ([]MCPServerView, error) {
 			st := st
 			status = &st
 		}
-		out = append(out, MCPServerView{Name: n, URL: c.URL, Transport: c.Transport, Headers: maskedHeaders(c.Headers), ToolAllowlist: append([]string(nil), c.ToolAllowlist...), ToolDenylist: append([]string(nil), c.ToolDenylist...), BotAllowlists: c.BotAllowlists, OAuth: oauth, Status: status})
+		out = append(out, MCPServerView{Name: n, URL: c.URL, Transport: c.Transport, Headers: maskedHeaders(c.Headers), ToolAllowlist: append([]string(nil), c.ToolAllowlist...), ToolDenylist: append([]string(nil), c.ToolDenylist...), BotAllowlists: c.BotAllowlists, OAuth: oauth, Status: status, Provenance: c.Provenance})
 	}
 	return out, nil
 }
@@ -189,6 +191,11 @@ func (m *Manager) SaveMCP(name string, c MCPServerConfig, updating bool) error {
 	// Ordinary settings updates cannot grant an exemption. Changing the target
 	// clears previously reviewed read-only tool names.
 	c.TrustedReadOnlyTools = append([]string(nil), old.TrustedReadOnlyTools...)
+	// Provenance is not editable through settings or Bot requests; it carries
+	// over only while the server still dials the same address.
+	if c.Provenance == nil && exists && old.URL == c.URL {
+		c.Provenance = old.Provenance
+	}
 	c.Headers = copyHeaders(c.Headers, old.Headers)
 	if c.OAuth == nil {
 		c.OAuth = old.OAuth

@@ -208,7 +208,7 @@
   "held": {
     "discord": {
       "description": "Connexion de Bot Discord maintenue par la communauté.",
-      "reason": "Méthode d’installation et autorisations compatibles pas encore vérifiées : ajout impossible pour l’instant."
+      "reason": "Ce n’est pas un connecteur sélectionné par TOFI. Vous pouvez installer vous-même un serveur Discord communautaire via Ajouter une connexion › Personnalisé › Paquet local ; guide dans docs/integrations/discord-add-it-yourself.md."
     },
     "notion_token": {
       "description": "Ancien serveur MCP local, plus maintenu.",
@@ -228,14 +228,18 @@
     "custom": {
       "args": "Arguments (un par ligne)",
       "binary": "Exécutable",
-      "env": "Variables d’environnement (KEY=value par ligne, enregistrées dans un fichier privé)",
+      "env": "Variables d’environnement (les valeurs sont enregistrées dans des fichiers privés et ne sont plus affichées)",
       "install": "Installer le plugin",
-      "intro": "Indiquez une version figée et l’exécutable. La commande d’installation s’exécute sur ce serveur, et le plugin tourne avec les droits de ce serveur.",
+      "intro": "Indiquez une version figée et l’exécutable. La commande d’installation s’exécute sur ce serveur, et le plugin tourne avec les droits de ce serveur.Un paquet communautaire est du code auquel vous choisissez de faire confiance : il voit les variables que vous lui donnez, et ses outils demandent une approbation tant que vous ne les marquez pas en lecture seule.",
       "package": "Nom du paquet",
       "plugin_id": "ID du plugin",
       "runtime": "Environnement d’exécution",
       "version": "Version figée",
-      "installing": "Installation…"
+      "installing": "Installation…",
+      "integrity": "Empreinte du paquet (facultative, sha512-… ; l’installation échoue si le registre sert autre chose)",
+      "env_name": "Nom de la variable",
+      "env_value": "Valeur",
+      "env_add": "Ajouter une variable"
     },
     "gog": {
       "install": "Installer gogcli",
@@ -473,11 +477,13 @@
       "local": "Communauté · {{name}}",
       "vendor": "Officiel · {{host}}",
       "community": "Communauté · {{host}}",
-      "custom": "Personnalisé · {{host}}"
+      "custom": "Personnalisé · {{host}}",
+      "package": "Communauté · {{package}} {{version}}"
     },
     "details": {
       "account": "Compte : {{email}}",
-      "project": "Projet Google Cloud : {{project}}"
+      "project": "Projet Google Cloud : {{project}}",
+      "community_review": "Code communautaire : ses outils demandent une approbation tant que vous ne les marquez pas en lecture seule."
     },
     "preview_note": "Nécessite un projet Google Cloud inscrit au Workspace Developer Preview Program, réservé aux comptes professionnels ou d’entreprise. Tant qu’il ne l’est pas, les appels d’outils peuvent échouer avec une erreur d’autorisation.",
     "error": {

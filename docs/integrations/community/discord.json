@@ -1,0 +1,61 @@
+{
+  "title": "Discord via a community MCP server, installed by the user",
+  "status": "community-user-installed",
+  "package": {
+    "kind": "npm",
+    "name": "@discord-mcp/cli",
+    "version": "0.32.1",
+    "integrity": "sha512-rIdvu+/Eia+YVtEy4OBAzrVpshFn9Q2BTVlIqDHdP5ptgR9U0AsM3sVfuxPnoz/kgNnlA+p0zp/6F/5Y8+c5mQ==",
+    "binary": "discord-mcp",
+    "args": ["serve"],
+    "license": "Apache-2.0",
+    "node": ">=22.12"
+  },
+  "source": {
+    "repository": "https://github.com/cappyeo/discord-mcp",
+    "tag": "v0.32.1",
+    "commit": "964f37457aa7a9d90aa33bd50650b2db43737f48"
+  },
+  "env": {
+    "secret": ["DISCORD_TOKEN"],
+    "recommended": {
+      "MCP_CATEGORIES": "messages,channels,users,reactions",
+      "MCP_WRITE_MODE": "allow"
+    },
+    "per_user": ["ALLOWED_GUILDS", "DISCORD_EXPECTED_BOT_ID"]
+  },
+  "tool_allowlist": {
+    "read": [
+      "users_list_current_user_guilds",
+      "channels_list",
+      "channels_get",
+      "channels_list_active_threads_guild",
+      "messages_read",
+      "messages_get",
+      "messages_search_recent",
+      "messages_context"
+    ],
+    "write": [
+      "messages_send",
+      "reactions_create"
+    ]
+  },
+  "invite": {
+    "scope": "bot",
+    "permission_bits": {
+      "VIEW_CHANNEL": 1024,
+      "READ_MESSAGE_HISTORY": 65536,
+      "SEND_MESSAGES": 2048,
+      "ADD_REACTIONS": 64
+    },
+    "read_only_bits": ["VIEW_CHANNEL", "READ_MESSAGE_HISTORY"],
+    "permissions_read_only": 66560,
+    "permissions_read_write": 68672
+  },
+  "intents": {
+    "message_content": "required (privileged, enable in the Developer Portal)",
+    "guild_members": "not needed",
+    "presence": "not needed",
+    "gateway": "off (REST only, the default)"
+  }
+}

@@ -4,7 +4,7 @@ export type OAuth = { client_id: string; client_secret?: string; scopes?: string
 export type TestResult = { ok: boolean; tool_count?: number; auth_required?: boolean; diagnostics?: { message: string; code?: string; api?: string; enable_url?: string }[] };
 export type MCPTransport = "streamable_http" | "sse";
 export type MCPStatus = { checked_at: string; ok: boolean; tool_count: number; error_class?: "auth" | "failed"; error_code?: string; api?: string; enable_url?: string };
-export type MCP = { name: string; url: string; transport?: MCPTransport; status?: MCPStatus; headers?: Record<string, string>; tool_allowlist?: string[]; tool_denylist?: string[]; oauth?: OAuth; google_client?: boolean };
+export type MCP = { name: string; url: string; transport?: MCPTransport; status?: MCPStatus; headers?: Record<string, string>; tool_allowlist?: string[]; tool_denylist?: string[]; oauth?: OAuth; google_client?: boolean; provenance?: { origin: string; kind?: string; package?: string; version?: string } };
 
 /** Tool tiers (docs/agent-plan/mcp-tool-tiers.md): read_only (marked by the provider, or by you) runs without review, write is reviewed each time, high_risk ("Always ask me") always asks a person. */
 export type ToolTier = "read_only" | "write" | "high_risk";

@@ -41,10 +41,17 @@ type Spec struct {
 	Env       map[string]string `json:"env,omitempty"`
 	SecretEnv map[string]string `json:"secret_env,omitempty"`
 	Adapter   *AdapterPolicy    `json:"adapter,omitempty"`
+	// Package and Version record what a person installed (npm or PyPI), for
+	// the connection's provenance. They never affect how the child runs.
+	Package string `json:"package,omitempty"`
+	Version string `json:"version,omitempty"`
 }
 
 type Status struct {
 	ID              string    `json:"id"`
+	Kind            string    `json:"kind,omitempty"`
+	Package         string    `json:"package,omitempty"`
+	Version         string    `json:"version,omitempty"`
 	State           string    `json:"state"`
 	ToolCount       int       `json:"tool_count"`
 	LastUsed        time.Time `json:"last_used,omitempty"`
@@ -182,7 +189,7 @@ func (r *Runner) Statuses() []Status {
 		} else if p.cli != nil {
 			state = "ready"
 		}
-		out = append(out, Status{ID: p.spec.ID, State: state, ToolCount: len(p.tools), LastUsed: p.lastUsed, AdapterIdentity: adapterIdentity(p.spec)})
+		out = append(out, Status{ID: p.spec.ID, Kind: p.spec.Kind, Package: p.spec.Package, Version: p.spec.Version, State: state, ToolCount: len(p.tools), LastUsed: p.lastUsed, AdapterIdentity: adapterIdentity(p.spec)})
 		p.mu.Unlock()
 	}
 	sort.Slice(out, func(i, j int) bool { return out[i].ID < out[j].ID })

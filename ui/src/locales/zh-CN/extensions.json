@@ -208,7 +208,7 @@
   "held": {
     "discord": {
       "description": "社区维护的 Discord Bot 连接。",
-      "reason": "尚未核实兼容的安装方式与连接权限，暂未开放添加。"
+      "reason": "不属于官方精选连接。可在“添加连接 › 自定义 › 本地软件包”里自行安装社区版 Discord 服务；步骤见 docs/integrations/discord-add-it-yourself.md。"
     },
     "notion_token": {
       "description": "已停止维护的历史本地 MCP 服务。",
@@ -228,14 +228,18 @@
     "custom": {
       "args": "启动参数（每行一个）",
       "binary": "可执行文件",
-      "env": "环境变量（每行 KEY=value，作为私密文件保存）",
+      "env": "环境变量（值保存为私密文件，之后不再显示）",
       "install": "安装插件",
-      "intro": "指定固定版本和可执行文件。安装命令会在本服务器上执行，插件将以本服务器的权限运行。",
+      "intro": "指定固定版本和可执行文件。安装命令会在本服务器上执行，插件将以本服务器的权限运行。社区包是你选择信任的代码：它能看到你交给它的变量，其工具在你标为只读之前每次都要确认。",
       "package": "包名",
       "plugin_id": "插件 ID",
       "runtime": "运行时",
       "version": "固定版本",
-      "installing": "正在安装…"
+      "installing": "正在安装…",
+      "integrity": "包摘要（可选，sha512-…；仓库返回的内容与之不符则安装失败）",
+      "env_name": "变量名",
+      "env_value": "值",
+      "env_add": "添加变量"
     },
     "gog": {
       "install": "安装 gogcli",
@@ -469,11 +473,13 @@
       "local": "社区 · {{name}}",
       "vendor": "官方 · {{host}}",
       "community": "社区 · {{host}}",
-      "custom": "自定义 · {{host}}"
+      "custom": "自定义 · {{host}}",
+      "package": "社区 · {{package}} {{version}}"
     },
     "details": {
       "account": "账号：{{email}}",
-      "project": "Google Cloud 项目：{{project}}"
+      "project": "Google Cloud 项目：{{project}}",
+      "community_review": "社区代码：其工具在你标为只读之前每次都要确认。"
     },
     "preview_note": "需要已加入 Workspace 开发者预览计划的 Google Cloud 项目，该计划要求企业或公司账号。未加入时，工具调用可能返回权限错误。",
     "error": {
