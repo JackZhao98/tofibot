@@ -160,3 +160,30 @@
 - [../design/settings-ia.md](../design/settings-ia.md) §7 落地顺序；[../agent-plan/installer-backlog.md](../agent-plan/installer-backlog.md) #3–#5；[../agent-plan/one-command-install.md](../agent-plan/one-command-install.md)
 - 决定：[D12](../decisions/0012-no-opus-unless-needed.md)、[D13](../decisions/0013-test-with-fresh-bots.md)、[D15](../decisions/0015-automatic-behaviour-settings.md)、[D22](../decisions/0022-preview-via-dev-remote.md)、[D27](../decisions/0027-docs-are-the-system.md)、[D30](../decisions/0030-standing-operating-rules.md)、[D41](../decisions/0041-builtin-deliverable-skills.md)、[D45](../decisions/0045-reply-matches-the-work.md)、[D46](../decisions/0046-google-agentic-oauth-client.md)、D47（`main` @ `61f4c3a`）
 - 代码：`internal/mcprunner/gog.go:61`、`install.go:152`；`internal/app/oauth_completion.go:137`；`internal/app/automation_settings.go:36`；`internal/provider/models.go`（无 `codex-gpt-5.6-terra` 条目）；`deploy/self-host/upgrade_acceptance.py`；`tofibot-taskeval/eval/results/`
+
+## 7. 02:20 追加：自托管 + Web 为最高优先级；对标 Grok Bot / WorkBuddy / Muse
+
+owner 10-22 01:58：「以在个人服务器 selfhost 作为最高优先级，selfhost 加上 web」；规划对标 grokbot、WorkBuddy、Muse。
+
+**对标结论**（Fable 竞品研究，来源见会话汇报）：三者都不能装在个人服务器上（Grok Bot＝xAI 云电脑；WorkBuddy＝腾讯云账号+桌面应用，私有化年费数十万起；Muse＝Meta 云 VM）。自托管参照取 OpenClaw（及 Hermes / NanoClaw / ZeroClaw / TrustClaw）。
+
+| 自托管用户在意的事 | TOFI 现状 | 参照 |
+|---|---|---|
+| 安装 | 需 KVM；无 swap 主机可能卡死（installer-backlog #5） | OpenClaw 一条命令、$5 VPS 可跑 |
+| 升级/备份 | 升级前自动备份，但**电脑磁盘不在内**；无 `backup --verify` | OpenClaw `backup create --verify`、分阶段更新 |
+| 安全自检 | 无一条命令的体检 | OpenClaw `security audit` |
+| 首次使用 | 只讲连模型、建 Bot，不展示能交什么 | Grok「名字即开场白」+模板；WorkBuddy 角色+技能包；Muse 示例任务 |
+| 成本控制 | 只有用量页，无预算上限 | Muse 用量表首屏 |
+| 资源 | 每账户 1–4 GiB 微 VM | ZeroClaw/NanoClaw 轻量 |
+| 模型 | 仅 OpenAI/Anthropic/ChatGPT 登录，无本地/兼容端点 | WorkBuddy、OpenClaw 多提供方 |
+
+TOFI 领先：每账户 Firecracker 隔离（Grok 自认多 Bot 共机非安全边界）、服务端生成的审批事实与绑定工具定义的「始终允许」、接管卡、单一提问通道、多账户+7 语言。
+
+**不抄**：多 Bot 共用一台电脑、公开技能市场（OpenClaw 恶意技能/CVE）、积分制、录屏教技能。
+
+**对今晚清单的调整**（协调者 02:20 执行）：
+- 新增 **S1** 备份含电脑磁盘 + `tofi backup --verify` + `tofi restore`（分支 `night/s1-backup-verify`）。
+- 新增 **S2** `tofi security audit`（只读体检，PASS/WARN/FAIL + `--json`），与 A8 回滚成文同分支 `night/s2-audit-rollback`。
+- 第一波同时只跑 7 个任务（机器负载），实际派出：A1、A2、A4、S1、S2+A8、A6、A3+A9。
+- **延后**：A7 定时抖动扫尾（高 CPU，与并行任务互相拖慢）、A5 评测器审查（下一轮）、B3 权限页分支。B1 VM 106 升级验收由协调者在 rc.33 上线后亲自做（只碰 106）。
+- 两周路线里，自托管项（安装 swap 预检、备份/恢复/体检、首次使用给出可点的首个任务、预算上限、OpenAI 兼容端点）整体前移到第 1 周，排在 IA 第 4 步与连接器扩充之前；Electron/iOS 相关（渐变模糊等）降到「之后」。
