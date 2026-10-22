@@ -10,7 +10,7 @@ import (
 	"net/http/httptest"
 	"path/filepath"
 	"strings"
-	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 )
@@ -137,47 +137,44 @@ func TestMCPInspectionDiagnosticNonGoogleHostNeverNamesAgentic(t *testing.T) {
 	}
 }
 
-func TestConcurrentToolCallsEachGetTheirOwnAuthStatus(t *testing.T) {
-	server := mcp.NewServer(&mcp.Implementation{Name: "g", Version: "1"}, &mcp.ServerOptions{SupportedProtocolVersions: []string{requiredMCPProtocolVersion}})
-	server.AddTool(fixtureTool("denied"), fixtureNoop)
-	server.AddTool(fixtureTool("fine"), fixtureNoop)
-	inner := fixtureHTTPHandler(server)
-	remote := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		body, _ := io.ReadAll(r.Body)
-		r.Body = io.NopCloser(bytes.NewReader(body))
-		if bytes.Contains(body, []byte(`"tools/call"`)) && bytes.Contains(body, []byte(`"denied"`)) {
-			w.WriteHeader(http.StatusForbidden)
-			return
+type statusByPathTransport struct{ release chan struct{} }
+
+func (t statusByPathTransport) RoundTrip(r *http.Request) (*http.Response, error) {
+	status := http.StatusForbidden
+	if r.URL.Path == "/slow" {
+		<-t.release // answers after the other call has already failed
+		status = http.StatusInternalServerError
+	}
+	return &http.Response{StatusCode: status, Body: io.NopCloser(strings.NewReader("")), Header: http.Header{}, Request: r}, nil
+}
+
+// Two calls on one session share its transport; each must see only the failed status of its own request.
+func TestConcurrentCallsKeepTheirOwnFailedHTTPStatus(t *testing.T) {
+	release := make(chan struct{})
+	shared := &atomic.Int32{}
+	client := &http.Client{Transport: mcpHeaderTransport{base: statusByPathTransport{release: release}, failed: shared}}
+	slow, denied := &mcpCallStatus{}, &mcpCallStatus{}
+	do := func(path string, call *mcpCallStatus, done chan<- struct{}) {
+		ctx := context.WithValue(context.Background(), mcpCallStatusKey{}, call)
+		req, _ := http.NewRequestWithContext(ctx, http.MethodPost, "http://example.invalid"+path, nil)
+		if resp, err := client.Do(req); err == nil {
+			resp.Body.Close()
 		}
-		inner.ServeHTTP(w, r)
-	}))
-	defer remote.Close()
-	m := NewManager(Config{MCPConfigPath: filepath.Join(t.TempDir(), "mcp.json"), ToolTimeout: 5 * time.Second})
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
-	cli, err := m.openMCPClient(ctx, ctx, "g", MCPServerConfig{URL: remote.URL})
-	if err != nil {
-		t.Fatal(err)
+		close(done)
 	}
-	defer cli.Close()
-	v, _ := m.mcpStatus.Load(cli)
-	v.(*mcpSessionHTTP).endpoint = "https://gmailmcp.googleapis.com/mcp/v1"
-	var deniedErr, fineErr error
-	var wg sync.WaitGroup
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
-		// The failure callback runs before the hint is chosen; the other call starts and succeeds meanwhile.
-		observe := mcpCallObserver{failed: func(error) { time.Sleep(500 * time.Millisecond) }}
-		_, deniedErr = m.callMCPToolObserved(ctx, cli, "denied", nil, false, observe)
-	}()
-	time.Sleep(150 * time.Millisecond)
-	_, fineErr = m.callMCPTool(ctx, cli, "fine", nil, false)
-	wg.Wait()
-	if fineErr != nil {
-		t.Fatalf("the successful call failed: %v", fineErr)
+	slowDone, deniedDone := make(chan struct{}), make(chan struct{})
+	go do("/slow", slow, slowDone)
+	go do("/denied", denied, deniedDone)
+	<-deniedDone
+	close(release)
+	<-slowDone
+	if got := denied.status.Load(); got != http.StatusForbidden {
+		t.Fatalf("the 403 call saw status %d", got)
 	}
-	if deniedErr == nil || !strings.Contains(deniedErr.Error(), "Developer Preview Program") {
-		t.Fatalf("the 403 call lost its hint to the other call: %v", deniedErr)
+	if got := slow.status.Load(); got != http.StatusInternalServerError {
+		t.Fatalf("the 500 call saw status %d", got)
+	}
+	if shared.Load() != 0 {
+		t.Fatalf("tool calls wrote the connect-time status: %d", shared.Load())
 	}
 }
