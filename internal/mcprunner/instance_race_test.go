@@ -225,6 +225,7 @@ func TestPluginInstanceLeaseAndFailedRemovalRecovery(t *testing.T) {
 	}
 	defer r.Close()
 	dir := fixtureManifest(t, r, spec)
+	r.removeDrain = 50 * time.Millisecond
 	p, _ := r.get(spec.ID)
 	_, release, err := r.acquire(context.Background(), p)
 	if err != nil {

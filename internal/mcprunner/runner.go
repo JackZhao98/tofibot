@@ -20,8 +20,13 @@ import (
 const (
 	defaultIdleTimeout = 10 * time.Minute
 	startupTimeout     = 45 * time.Second
+	defaultRemoveDrain = 5 * time.Second
 	maxTools           = 1000
 )
+
+// ErrPluginBusy means a tool call (or a cold start) outlasted Remove's bounded
+// wait. Nothing was changed; the caller may retry.
+var ErrPluginBusy = errors.New("plugin is busy")
 
 var ErrPluginInstanceChanged = errors.New("plugin instance changed; reattach before calling")
 
@@ -62,6 +67,8 @@ type Runner struct {
 	ctx         context.Context
 	cancel      context.CancelFunc
 	done        chan struct{}
+	// removeDrain bounds how long Remove waits for in-flight leases to finish.
+	removeDrain time.Duration
 }
 
 type plugin struct {
@@ -87,7 +94,7 @@ func New(specs []Spec, idleTimeout time.Duration) (*Runner, error) {
 		idleTimeout = defaultIdleTimeout
 	}
 	ctx, cancel := context.WithCancel(context.Background())
-	r := &Runner{plugins: make(map[string]*plugin, len(specs)), idleTimeout: idleTimeout, ctx: ctx, cancel: cancel, done: make(chan struct{})}
+	r := &Runner{plugins: make(map[string]*plugin, len(specs)), idleTimeout: idleTimeout, ctx: ctx, cancel: cancel, done: make(chan struct{}), removeDrain: defaultRemoveDrain}
 	for _, spec := range specs {
 		if !validID(spec.ID) || !filepath.IsAbs(spec.Command) || !filepath.IsAbs(spec.WorkDir) {
 			cancel()

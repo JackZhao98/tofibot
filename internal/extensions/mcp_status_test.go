@@ -1,6 +1,7 @@
 package extensions
 
 import (
+	"errors"
 	"os"
 	"path/filepath"
 	"testing"
@@ -68,4 +69,53 @@ func containsText(s, sub string) bool {
 		}
 	}
 	return false
+}
+
+// A tool call that comes back "API not enabled" (Google's structured SERVICE_DISABLED) is recorded on the connection,
+// so the row can say so and offer the enable link; unstructured failures and other servers record nothing.
+func TestToolCallFailureRecordsAPINotEnabled(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "mcp.json")
+	const url = "https://gmailmcp.googleapis.com/mcp/v1"
+	if err := os.WriteFile(path, []byte(`{"mcpServers":{"gmail":{"url":"`+url+`"},"other":{"url":"https://other.example/mcp"}}}`), 0600); err != nil {
+		t.Fatal(err)
+	}
+	m := NewManager(Config{MCPConfigPath: path})
+	m.recordStatus("gmail", url, MCPInspection{ToolCount: 23})
+	body := `status 403: {"error":{"code":403,"status":"PERMISSION_DENIED","message":"PRIVATE","details":[{"@type":"type.googleapis.com/google.rpc.ErrorInfo","reason":"SERVICE_DISABLED","metadata":{"service":"gmail.googleapis.com","consumer":"projects/622599621014","activationUrl":"https://evil.invalid/x"}}]}}`
+	m.noteToolFailure("other", "https://other.example/mcp", errors.New(body))
+	m.noteToolFailure("gmail", url, errors.New("SERVICE_DISABLED accessNotConfigured PRIVATE"))
+	views, _ := m.ListMCP()
+	for _, v := range views {
+		if v.Name == "gmail" && (!v.Status.OK || v.Status.ErrorCode != "") {
+			t.Fatalf("unstructured failure changed the status: %+v", v.Status)
+		}
+		if v.Name == "other" && v.Status != nil {
+			t.Fatalf("a non-Google server recorded a Google failure: %+v", v.Status)
+		}
+	}
+	m.noteToolFailure("gmail", url, errors.New(body))
+	views, _ = m.ListMCP()
+	var st *MCPStatus
+	for _, v := range views {
+		if v.Name == "gmail" {
+			st = v.Status
+		}
+	}
+	if st == nil || st.OK || st.ErrorCode != "api_disabled" || st.API != "gmail.googleapis.com" || st.ToolCount != 23 ||
+		st.EnableURL != "https://console.cloud.google.com/apis/library/gmail.googleapis.com?project=622599621014" {
+		t.Fatalf("not recorded: %+v", st)
+	}
+	raw, _ := os.ReadFile(filepath.Join(dir, ".mcp-status.json"))
+	if containsText(string(raw), "PRIVATE") || containsText(string(raw), "evil.invalid") {
+		t.Fatal("provider text reached the status file")
+	}
+	// A later successful check clears it.
+	m.recordStatus("gmail", url, MCPInspection{ToolCount: 23})
+	views, _ = m.ListMCP()
+	for _, v := range views {
+		if v.Name == "gmail" && (!v.Status.OK || v.Status.ErrorCode != "") {
+			t.Fatalf("not cleared by a good check: %+v", v.Status)
+		}
+	}
 }

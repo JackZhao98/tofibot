@@ -36,7 +36,7 @@ Discord 设置 → 高级 → 打开开发者模式；右键你的服务器 → 
 
 ## 四、在 TOFI 里安装
 
-设置 → 连接（Connections）→ 本地 MCP → **安装其他本地 MCP**，填：
+设置 → 连接 → **添加连接** → **自定义** → **本地软件包**，填：
 
 | 字段 | 填写 |
 | --- | --- |
@@ -49,13 +49,13 @@ Discord 设置 → 高级 → 打开开发者模式；右键你的服务器 → 
 | 包摘要 | 上表的 `sha512-…`（安装时校验；仓库返回的不是这份就拒装） |
 | 环境变量（值是密码框，保存为私密文件，之后不再显示） | `DISCORD_TOKEN` = 第一步的 token；`MCP_CATEGORIES` = `messages,channels,users,reactions`；`MCP_WRITE_MODE` = `allow`；`ALLOWED_GUILDS` = 服务器 ID；`DISCORD_EXPECTED_BOT_ID` = 机器人用户 ID |
 
-点 **安装插件**，成功后在列表里点 **接入 Tofi**。连接行会写“社区插件 · @discord-mcp/cli 0.32.1”。
+点 **安装插件**，成功后连接会自动出现在列表里；行的 ⋯ → **查看详情** 会写“社区 · @discord-mcp/cli 0.32.1”。
 
 `MCP_WRITE_MODE=allow` 的含义：包自己不再把写操作拦成预览，**由 TOFI 的人工批准当写闸**。如果你想先只验证读，改成 `preview`（所有写都不会发出）。
 
 ## 五、只开放需要的工具
 
-在这条连接的设置里把**工具白名单**设为下面 10 个（其余 212 个对 Bot 不可见也不可调用）：
+在这条连接的 ⋯ → 编辑设置里把**工具白名单**设为下面 10 个（其余 212 个对 Bot 不可见也不可调用）：
 
 - 读：`users_list_current_user_guilds`、`channels_list`、`channels_get`、`channels_list_active_threads_guild`、`messages_read`、`messages_get`、`messages_search_recent`、`messages_context`
 - 写：`messages_send`、`reactions_create`

@@ -232,9 +232,9 @@ async function walkthrough({ width, height, theme, locale = "en-US", shotsOn = t
     assert.equal(await primary.isDisabled(), true, "nothing selected: the primary waits");
     assert.doesNotMatch(await primary.innerText(), /\d/, "never a count of 0");
     assert.match(await primary.innerText(), /Select a service|Dienst auswählen/);
-    // Every named service wears its own letter mark, not a shared glyph.
-    const marks = await page.locator(".onb-tile").evaluateAll(tiles => tiles.map(tile => `${tile.dataset.integrationId}:${tile.querySelector(".service-mark")?.textContent}`));
-    assert.deepEqual(marks, ["github:G", "notion:N", "linear:L", "robinhood:R", "context7:C", "microsoft-learn:M"]);
+    // Every named service wears its own real brand mark, not a shared glyph.
+    const marks = await page.locator(".onb-tile").evaluateAll(tiles => tiles.map(tile => `${tile.dataset.integrationId}:${tile.querySelector(".service-mark")?.dataset.mark}:${tile.querySelector(".service-mark img")?.getAttribute("src")}`));
+    assert.deepEqual(marks, ["github:github", "notion:notion", "linear:linear", "robinhood:robinhood", "context7:context7", "microsoft-learn:microsoft-learn"].map(item => { const key = item.split(":")[1]; return `${item.split(":")[0]}:${key}:/brand/services/${{ github: "github-monochrome.svg", notion: "notion.svg", linear: "linear.svg", robinhood: "robinhood.svg", context7: "context7.svg", "microsoft-learn": "microsoft-learn.svg" }[key]}`; }));
     await page.locator("[data-integration-id='github']").click();
     await page.locator("[data-integration-id='linear']").click();
     assert.match(await primary.innerText(), /2/);

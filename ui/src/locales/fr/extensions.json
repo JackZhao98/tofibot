@@ -1,6 +1,7 @@
 {
   "action": {
-    "cancel": "Annuler"
+    "cancel": "Annuler",
+    "close": "Fermer"
   },
   "auth": {
     "bot_token": "Jeton de Bot",
@@ -11,18 +12,24 @@
   },
   "browser": {
     "added": "Ajouté",
-    "back": "Ajoutés",
-    "custom": "MCP personnalisé",
     "empty": "Aucun service correspondant. Vous pouvez ajouter un MCP personnalisé.",
     "held_label": "Services pas encore disponibles",
     "held_title": "Pas encore disponibles",
-    "intro": "Choisissez un préréglage, puis vérifiez l’autorisation et la connexion des outils après l’ajout.",
+    "intro": "Choisissez un service à connecter. La configuration se poursuit à l’étape suivante.",
     "read_only_tools": "Outils en lecture seule",
     "retired": "Plus maintenu",
     "retired_origin": "Ancien projet du fournisseur",
     "search": "Rechercher un service",
     "services": "Services",
-    "title": "Ajouter un service"
+    "local_details": "S’exécute sur ce serveur · OAuth",
+    "custom_section": "Personnalisé",
+    "custom_url": "Connecteur personnalisé",
+    "custom_url_hint": "Connectez n’importe quel serveur MCP distant par URL.",
+    "custom_package": "Paquet local",
+    "custom_package_hint": "Installez sur ce serveur un serveur MCP npm ou PyPI à version figée.",
+    "preview_title": "Aperçu Workspace (entreprise)",
+    "preview_toggle": "Afficher les serveurs Google Workspace",
+    "community_note": "Les connecteurs communautaires sont maintenus par des tiers ; leurs actions d’écriture demandent toujours confirmation."
   },
   "callback": {
     "copied": "Copié",
@@ -201,7 +208,7 @@
   "held": {
     "discord": {
       "description": "Connexion de Bot Discord maintenue par la communauté.",
-      "reason": "Ce n’est pas un connecteur sélectionné par TOFI. Vous pouvez installer vous-même un serveur Discord communautaire dans MCP local ; guide dans docs/integrations/discord-add-it-yourself.md."
+      "reason": "Ce n’est pas un connecteur sélectionné par TOFI. Vous pouvez installer vous-même un serveur Discord communautaire via Ajouter une connexion › Personnalisé › Paquet local ; guide dans docs/integrations/discord-add-it-yourself.md."
     },
     "notion_token": {
       "description": "Ancien serveur MCP local, plus maintenu.",
@@ -218,18 +225,17 @@
     }
   },
   "local": {
-    "attach": "Connecter à Tofi",
     "custom": {
       "args": "Arguments (un par ligne)",
       "binary": "Exécutable",
       "env": "Variables d’environnement (les valeurs sont enregistrées dans des fichiers privés et ne sont plus affichées)",
       "install": "Installer le plugin",
-      "intro": "Indiquez une version figée et l’exécutable. La commande d’installation s’exécute dans le Runner, et le code du plugin tourne avec les droits du Runner. Un paquet communautaire est du code auquel vous choisissez de faire confiance : il voit les variables que vous lui donnez, et ses outils demandent une approbation tant que vous ne les marquez pas en lecture seule.",
+      "intro": "Indiquez une version figée et l’exécutable. La commande d’installation s’exécute sur ce serveur, et le plugin tourne avec les droits de ce serveur.Un paquet communautaire est du code auquel vous choisissez de faire confiance : il voit les variables que vous lui donnez, et ses outils demandent une approbation tant que vous ne les marquez pas en lecture seule.",
       "package": "Nom du paquet",
       "plugin_id": "ID du plugin",
       "runtime": "Environnement d’exécution",
-      "title": "Installer un autre MCP local",
       "version": "Version figée",
+      "installing": "Installation…",
       "integrity": "Empreinte du paquet (facultative, sha512-… ; l’installation échoue si le registre sert autre chose)",
       "env_name": "Nom de la variable",
       "env_value": "Valeur",
@@ -238,19 +244,18 @@
     "gog": {
       "install": "Installer gogcli",
       "installing": "Installation…",
-      "intro": "Une version figée de gogcli est incluse dans l’image Runner. Choisissez la lecture seule, ou autorisez lecture et envoi. Chaque e-mail doit toujours être confirmé avant envoi.",
-      "title": "Gmail personnel · gogcli"
+      "intro": "Lisez votre propre Gmail avec un compte Google que vous autorisez. Choisissez la lecture seule, ou autorisez lecture et envoi. Chaque e-mail doit toujours être confirmé avant envoi."
     },
     "google": {
       "client_json": "JSON du client OAuth",
       "choose_file": "Choisir un fichier…",
       "no_file": "Aucun fichier choisi",
       "client_setup": "Dans Google Cloud, créez un client OAuth de type <strong>Application Web</strong>, ajoutez l’adresse ci-dessous dans « URI de redirection autorisés », puis importez le JSON téléchargé.",
-      "connect": "Connecter Google",
+      "connect": "Autoriser avec Google",
       "connected_as": "Autorisé : {{email}}",
       "continue": "Continuer vers l’autorisation Google",
-      "disconnect": "Déconnecter Google",
-      "disconnect_confirm": "Supprimer l’autorisation Google enregistrée dans le Runner ?",
+      "disconnect": "Déconnecter le compte Google",
+      "disconnect_confirm": "Supprimer l’autorisation Google enregistrée ?",
       "disconnect_submit": "Révoquer l’autorisation",
       "disconnected": "Autorisation Google supprimée du Runner.",
       "email": "E-mail Google",
@@ -270,32 +275,9 @@
       "verify": "Vérifier la lecture Gmail",
       "verifying": "Vérification…",
       "waiting": "En attente de l’autorisation Google"
-    },
-    "intro": "Les plugins s’installent dans un conteneur Runner dédié, démarrent à la demande et se mettent en veille au repos.",
-    "notice": {
-      "attached": "{{id}} est connecté à Tofi.",
-      "installed": "{{id}} installé. Ses outils démarrent à l’usage.",
-      "removed": "{{id}} supprimé."
-    },
-    "remove": "Supprimer",
-    "remove_confirm": "Supprimer le plugin et son autorisation enregistrée ?",
-    "remove_submit": "Supprimer",
-    "state": {
-      "not_installed": "Non installé",
-      "ready": "En cours",
-      "sleeping": "En veille",
-      "starting": "Démarrage"
-    },
-    "title": "MCP local",
-    "unavailable": "Runner MCP local indisponible",
-    "unavailable_hint": "Vérifiez que le conteneur Runner est démarré.",
-    "plugin_count_one": "{{count}} plugin",
-    "plugin_count_many": "{{count}} de plugins",
-    "plugin_count_other": "{{count}} plugins"
+    }
   },
   "mcp": {
-    "add": "Ajouter un service",
-    "added": "Ajoutés",
     "back": "Retour",
     "cancel_auth": "Annuler l’autorisation",
     "confirm": {
@@ -417,17 +399,14 @@
     "authorizing": "Ouverture de l’autorisation…",
     "checked": "Vérifié {{when}}",
     "checking": "Chargement des outils…",
-    "connected_tools_many": "Connecté · {{count}} d’outils",
-    "connected_tools_one": "Connecté · {{count}} outil",
-    "connected_tools_other": "Connecté · {{count}} outils",
     "failed": "Échec de la connexion",
     "needs_auth": "Autorisation requise",
     "removing": "Traitement…",
     "unverified": "Pas encore vérifié",
     "waiting": "En attente d’autorisation",
-    "read_only_count_one": "{{count}} en lecture seule",
-    "read_only_count_many": "{{count}} en lecture seule",
-    "read_only_count_other": "{{count}} en lecture seule"
+    "connected": "Connecté",
+    "not_connected": "Non connecté",
+    "api_disabled": "API non activée"
   },
   "vm": {
     "cancel": "Annuler l’autorisation",
@@ -472,8 +451,52 @@
     },
     "title": "Outils · {{count}}"
   },
-  "provenance": {
-    "community": "Plugin communautaire · {{package}} {{version}}",
-    "review": "ses outils demandent une approbation tant qu’ils ne sont pas en lecture seule"
+  "connections": {
+    "title": "Connexions",
+    "add": "Ajouter une connexion",
+    "action": {
+      "authorize": "Autoriser",
+      "enable_api": "Activer l’API {{name}}"
+    },
+    "menu": {
+      "details": "Voir les détails",
+      "hide_details": "Masquer les détails",
+      "sign_in_again": "Se reconnecter"
+    },
+    "dialog": {
+      "title": "Ajouter une connexion"
+    },
+    "local": {
+      "gog": {
+        "name": "Gmail (compte personnel)",
+        "description": "Lisez votre propre Gmail avec un compte Google que vous autorisez."
+      }
+    },
+    "source": {
+      "gog": "Communauté · gogcli · API Gmail",
+      "local": "Communauté · {{name}}",
+      "vendor": "Officiel · {{host}}",
+      "community": "Communauté · {{host}}",
+      "custom": "Personnalisé · {{host}}",
+      "package": "Communauté · {{package}} {{version}}"
+    },
+    "details": {
+      "account": "Compte : {{email}}",
+      "project": "Projet Google Cloud : {{project}}",
+      "community_review": "Code communautaire : ses outils demandent une approbation tant que vous ne les marquez pas en lecture seule."
+    },
+    "preview_note": "Nécessite un projet Google Cloud inscrit au Workspace Developer Preview Program, réservé aux comptes professionnels ou d’entreprise. Tant qu’il ne l’est pas, les appels d’outils peuvent échouer avec une erreur d’autorisation.",
+    "error": {
+      "api_disabled": "L’API {{name}} n’est pas activée dans votre projet Google Cloud. Activez-la, puis actualisez."
+    },
+    "google": {
+      "using_client": "Le client Google enregistré est utilisé (projet {{project}}). Aucun nouvel envoi nécessaire.",
+      "replace_client": "Remplacer le client",
+      "project_found": "Ce client appartient au projet {{project}}."
+    },
+    "repo": {
+      "label": "Code source sur GitHub : {{repo}}",
+      "with_stars": "Code source sur GitHub : {{repo}}, {{count}} étoiles"
+    }
   }
 }

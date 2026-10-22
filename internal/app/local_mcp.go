@@ -16,6 +16,7 @@ import (
 
 	"github.com/JackZhao98/tofibot/internal/computer"
 	"github.com/JackZhao98/tofibot/internal/extensions"
+	"github.com/JackZhao98/tofibot/internal/googleapi"
 	"github.com/JackZhao98/tofibot/internal/mcprunner"
 )
 
@@ -166,6 +167,11 @@ func (s *Server) routeLocalMCP(w http.ResponseWriter, r *http.Request, p string)
 			writeErr(w, 502, "runner", err.Error())
 			return true
 		}
+		if status == http.StatusConflict {
+			if s.writeGogAPIDisabled(w, data) {
+				return true
+			}
+		}
 		if status != http.StatusOK {
 			writeErr(w, 502, "runner", strings.TrimSpace(string(data)))
 			return true
@@ -201,12 +207,25 @@ func (s *Server) routeLocalMCP(w http.ResponseWriter, r *http.Request, p string)
 			Email           string          `json:"email"`
 			Scope           string          `json:"scope"`
 			CredentialsJSON json.RawMessage `json:"credentials_json"`
+			// Services to authorise (gmail, calendar, drive); a service after the first adds to the same account.
+			Services []string `json:"services"`
 		}
 		if err := decodeExtensionJSON(r, &input); err != nil {
 			writeErr(w, 400, "invalid_request", err.Error())
 			return true
 		}
-		request := mcprunner.GogStartRequest{Email: input.Email, Scope: input.Scope, CredentialsJSON: input.CredentialsJSON, RedirectURI: origin + "/api/extensions/local-mcp/gog/oauth/callback"}
+		// One Google client for the workspace: an uploaded one is kept, and without an upload the saved one is used,
+		// so connecting another Google service never asks for the JSON again.
+		credentials := input.CredentialsJSON
+		if len(credentials) == 0 || string(credentials) == "null" {
+			saved, _, err := s.googleClient()
+			if err != nil {
+				writeErr(w, 409, "google_client_missing", "No Google OAuth client is saved yet. Upload the client JSON.")
+				return true
+			}
+			credentials = saved
+		}
+		request := mcprunner.GogStartRequest{Email: input.Email, Scope: input.Scope, Services: input.Services, CredentialsJSON: credentials, RedirectURI: origin + "/api/extensions/local-mcp/gog/oauth/callback"}
 		data, status, err := s.runnerRequest(r, http.MethodPost, "/v1/plugins/gog/gog/start", request)
 		if err != nil {
 			writeErr(w, 502, "runner", err.Error())
@@ -215,6 +234,10 @@ func (s *Server) routeLocalMCP(w http.ResponseWriter, r *http.Request, p string)
 		if status != http.StatusOK {
 			writeErr(w, 400, "runner", strings.TrimSpace(string(data)))
 			return true
+		}
+		// Keep the client that just worked, if it was uploaded now (best effort: the runner already validated it).
+		if len(input.CredentialsJSON) > 0 && string(input.CredentialsJSON) != "null" {
+			_, _ = s.saveGoogleClient(input.CredentialsJSON)
 		}
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(200)
@@ -232,7 +255,11 @@ func (s *Server) routeLocalMCP(w http.ResponseWriter, r *http.Request, p string)
 		fullURL := origin + r.URL.RequestURI()
 		_, status, err := s.runnerRequest(r, http.MethodPost, "/v1/plugins/gog/gog/finish", mcprunner.GogFinishRequest{RedirectedURL: fullURL})
 		if err == nil && status == http.StatusOK {
-			page.State, page.Message = "success", "Google 授权已保存。请返回 Tofi 验证 Gmail 工具。"
+			page.State, page.Message = "success", "授权已保存，但暂时读不到 Gmail。请回到 Tofi 查看。"
+			// Confirm Gmail answers before saying so: a working connection shows its result and nothing else.
+			if _, checked, checkErr := s.runnerRequest(r, http.MethodPost, "/v1/plugins/gog/gog/check", map[string]any{}); checkErr == nil && checked == http.StatusOK {
+				page.Message = "已连接，Gmail 可以读取了。"
+			}
 			_, _ = s.store.WorkspaceEvent(workspaceScopeConfig)
 			writeOAuthCompletion(w, 200, page)
 			return true
@@ -266,6 +293,13 @@ func (s *Server) routeLocalMCP(w http.ResponseWriter, r *http.Request, p string)
 				return true
 			}
 			if status != http.StatusOK {
+				var refusal struct {
+					Code string `json:"code"`
+				}
+				if status == http.StatusConflict && json.Unmarshal(data, &refusal) == nil && refusal.Code == "plugin_busy" {
+					writeErr(w, 409, "plugin_busy", "The plugin is in use by a task; try again shortly")
+					return true
+				}
 				writeErr(w, 409, "runner", strings.TrimSpace(string(data)))
 				return true
 			}
@@ -397,4 +431,26 @@ func (s *Server) mcpServerUsable(ctx context.Context, name string) bool {
 	}
 	c.connected, c.checked = out.Connected, time.Now()
 	return c.connected
+}
+
+// writeGogAPIDisabled turns the runner's structured "API not enabled" into the Settings error: a stable code, the
+// API, and the one console page that enables it, built here from the known API and the saved client's project (or
+// the project Google named). Nothing from Google's error text is passed on.
+func (s *Server) writeGogAPIDisabled(w http.ResponseWriter, data []byte) bool {
+	var failure struct {
+		Code    string `json:"code"`
+		API     string `json:"api"`
+		Project string `json:"project"`
+	}
+	if json.Unmarshal(data, &failure) != nil || failure.Code != "api_disabled" || !googleapi.KnownAPI(failure.API) {
+		return false
+	}
+	project := failure.Project
+	if _, client, err := s.googleClient(); err == nil && client.Project() != "" {
+		project = client.Project()
+	}
+	writeJSON(w, http.StatusConflict, map[string]any{"error": map[string]any{
+		"code": "api_disabled", "message": "Google API is not enabled for the project", "api": failure.API, "enable_url": googleapi.EnableURL(failure.API, project),
+	}})
+	return true
 }

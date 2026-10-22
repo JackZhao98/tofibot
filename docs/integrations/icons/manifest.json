@@ -1,6 +1,6 @@
 {
-  "reviewed_on": "2026-10-03",
-  "delivery": "candidate-only; assets are not wired into production UI",
+  "reviewed_on": "2026-10-22",
+  "delivery": "wired: audited copies in docs/integrations/icons; byte-identical runtime copies in ui/public/brand/services, resolved by ui/src/brandIcons.ts and the OAuth completion page. Assets are vendored and never hotlinked.",
   "style_names": [
     "monochrome",
     "color",
@@ -15,7 +15,10 @@
       "source": "https://brand.github.com/GitHub_Logos.zip",
       "archive_member": "GitHub Logos/SVG/GitHub_Invertocat_Black_Clearspace.svg",
       "sha256": "b5e2f4b3f953f075de7016faa952d6ce3ec7492aa7b32408505ec25857962d89",
-      "modified": false
+      "modified": false,
+      "runtime": "brand/services/github-monochrome.svg",
+      "license": "Vendor brand kit; usage per vendor guidelines",
+      "kit": "official"
     },
     {
       "name": "github-color.svg",
@@ -49,7 +52,10 @@
       "style": "color",
       "source": "https://cdn.prod.website-files.com/6257adef93867e50d84d30e2/66e3d80db9971f10a9757c99_Symbol.svg",
       "sha256": "296286aa112c4400af8e96191ab888f81abd4bd1d5dc7294112a622ef43581b1",
-      "modified": false
+      "modified": false,
+      "runtime": "brand/services/discord-color.svg",
+      "license": "Vendor brand kit; usage per vendor guidelines",
+      "kit": "official"
     },
     {
       "name": "discord-inverse.svg",
@@ -58,6 +64,196 @@
       "source": "https://cdn.prod.website-files.com/6257adef93867e50d84d30e2/66e3d7f4ef6498ac018f2c55_Symbol.svg",
       "sha256": "eb3bf5a2e8b9f9aa39c1b1d38aeaa7c2997084567634c55f4141aa39cf426cec",
       "modified": false
+    },
+    {
+      "name": "google-gmail.png",
+      "brand": "google-gmail",
+      "style": "color",
+      "source": "https://www.gstatic.com/images/branding/product/2x/gmail_2020q4_96dp.png",
+      "sha256": "d49100a00e2caa1626f9f3339879e047327f28c0c3a2a18c767c1a5682863981",
+      "modified": false,
+      "runtime": "brand/services/google-gmail.png",
+      "kit": "official",
+      "retrieved": "2026-10-22",
+      "license": "Google trademark; not open-licensed. Used only to identify the Google service the user connects, unmodified.",
+      "note": "Google Workspace product icon, 192x192 (2x of 96dp)"
+    },
+    {
+      "name": "google-calendar.png",
+      "brand": "google-calendar",
+      "style": "color",
+      "source": "https://www.gstatic.com/images/branding/product/2x/calendar_2020q4_96dp.png",
+      "sha256": "76a70f2332cb47edf75087d3b2bc3c2192a4d0ef8caf06661aed9824bfcaab80",
+      "modified": false,
+      "runtime": "brand/services/google-calendar.png",
+      "kit": "official",
+      "retrieved": "2026-10-22",
+      "license": "Google trademark; not open-licensed. Used only to identify the Google service the user connects, unmodified.",
+      "note": "192x192"
+    },
+    {
+      "name": "google-drive.png",
+      "brand": "google-drive",
+      "style": "color",
+      "source": "https://www.gstatic.com/images/branding/product/2x/drive_2020q4_96dp.png",
+      "sha256": "d53d5d1b60242b61f058b37ee0c3395bf3f1d620047c1df7958bcdf43182f404",
+      "modified": false,
+      "runtime": "brand/services/google-drive.png",
+      "kit": "official",
+      "retrieved": "2026-10-22",
+      "license": "Google trademark; not open-licensed. Used only to identify the Google service the user connects, unmodified.",
+      "note": "192x192"
+    },
+    {
+      "name": "google-docs.png",
+      "brand": "google-docs",
+      "style": "color",
+      "source": "https://www.gstatic.com/images/branding/product/2x/docs_2020q4_96dp.png",
+      "sha256": "da3b15086d4450956ba8940752e0d6484536bddc3db1e7dcd2a043a1e949ed48",
+      "modified": false,
+      "runtime": "brand/services/google-docs.png",
+      "kit": "official",
+      "retrieved": "2026-10-22",
+      "license": "Google trademark; not open-licensed. Used only to identify the Google service the user connects, unmodified.",
+      "note": "192x192"
+    },
+    {
+      "name": "google-sheets.png",
+      "brand": "google-sheets",
+      "style": "color",
+      "source": "https://www.gstatic.com/images/branding/product/2x/sheets_2020q4_96dp.png",
+      "sha256": "2047adc537a69c2278cafa728e9c3a5d06fba21ec968e0164efd8206c0c2abb0",
+      "modified": false,
+      "runtime": "brand/services/google-sheets.png",
+      "kit": "official",
+      "retrieved": "2026-10-22",
+      "license": "Google trademark; not open-licensed. Used only to identify the Google service the user connects, unmodified.",
+      "note": "192x192"
+    },
+    {
+      "name": "google-slides.png",
+      "brand": "google-slides",
+      "style": "color",
+      "source": "https://www.gstatic.com/images/branding/product/2x/slides_2020q4_96dp.png",
+      "sha256": "567af867c86432ae76c57bb138c7f678f7eb9e81297a014d92c6e2efe1a84e16",
+      "modified": false,
+      "runtime": "brand/services/google-slides.png",
+      "kit": "official",
+      "retrieved": "2026-10-22",
+      "license": "Google trademark; not open-licensed. Used only to identify the Google service the user connects, unmodified.",
+      "note": "192x192"
+    },
+    {
+      "name": "google-g.png",
+      "brand": "google",
+      "style": "color",
+      "source": "https://www.gstatic.com/images/branding/googleg/2x/googleg_standard_color_128dp.png",
+      "sha256": "6fae509b81bc94fef1b4ac2cdae8f1889df2da9f736f050cd32e337517494084",
+      "modified": false,
+      "runtime": "brand/services/google-g.png",
+      "kit": "official",
+      "retrieved": "2026-10-22",
+      "license": "Google trademark; not open-licensed. Used only to identify the Google service the user connects, unmodified.",
+      "note": "Google G account mark, 256x256. Google publishes no SVG at gstatic for the G or the 2020q4 product icons (all probed SVG paths return 404), so the largest published PNG is used."
+    },
+    {
+      "name": "notion.svg",
+      "brand": "notion",
+      "style": "color",
+      "source": "https://raw.githubusercontent.com/simple-icons/simple-icons/c71c69e3a27e4436936b831c72643e6513b9f49b/icons/notion.svg",
+      "source_commit": "c71c69e3a27e4436936b831c72643e6513b9f49b",
+      "sha256": "b17d2a2b592a06252efef522d5205f0c7a958f748d40df1011ed081417e42f85",
+      "modified": false,
+      "runtime": "brand/services/notion.svg",
+      "kit": "simple-icons",
+      "retrieved": "2026-10-22",
+      "license": "CC0-1.0 (package); brand rights remain with the owner, see simple-icons DISCLAIMER.md",
+      "brand_hex": "000000"
+    },
+    {
+      "name": "linear.svg",
+      "brand": "linear",
+      "style": "color",
+      "source": "https://raw.githubusercontent.com/simple-icons/simple-icons/c71c69e3a27e4436936b831c72643e6513b9f49b/icons/linear.svg",
+      "source_commit": "c71c69e3a27e4436936b831c72643e6513b9f49b",
+      "sha256": "3700486fede168b1fbaf0987eda06621d0e54dd30968578b857fd7360cb2029e",
+      "modified": true,
+      "runtime": "brand/services/linear.svg",
+      "kit": "simple-icons",
+      "retrieved": "2026-10-22",
+      "license": "CC0-1.0 (package); brand rights remain with the owner, see simple-icons DISCLAIMER.md",
+      "brand_hex": "5E6AD2",
+      "recolor": "5E6AD2",
+      "modification": "added fill=\"5E6AD2\" to the root <svg>; paths untouched",
+      "upstream_sha256": "90b91b61090f4f9c94f9cb24769642278f03e8eedcfe5680738cf3a186bfc00f"
+    },
+    {
+      "name": "robinhood.svg",
+      "brand": "robinhood",
+      "style": "color",
+      "source": "https://raw.githubusercontent.com/simple-icons/simple-icons/c71c69e3a27e4436936b831c72643e6513b9f49b/icons/robinhood.svg",
+      "source_commit": "c71c69e3a27e4436936b831c72643e6513b9f49b",
+      "sha256": "d6b51a8e99629922d145e56e1373708b34af3da6e89f2774a8e1bed702a19e33",
+      "modified": true,
+      "runtime": "brand/services/robinhood.svg",
+      "kit": "simple-icons",
+      "retrieved": "2026-10-22",
+      "license": "CC0-1.0 (package); brand rights remain with the owner, see simple-icons DISCLAIMER.md",
+      "brand_hex": "CCFF00",
+      "recolor": "CCFF00",
+      "modification": "added fill=\"CCFF00\" to the root <svg>; paths untouched",
+      "upstream_sha256": "2f48f18882e7a463dea8edca079c11a2490177b6d7d74fc7ef4d20572068e5f0"
+    },
+    {
+      "name": "slack.png",
+      "brand": "slack",
+      "style": "color",
+      "source": "https://a.slack-edge.com/80588/marketing/img/icons/icon_slack_hash_colored.png",
+      "sha256": "cfd9f050bf26ea547af438722c5a93be002c721f0f32a3c996595eab7af1b36d",
+      "modified": false,
+      "runtime": "brand/services/slack.png",
+      "kit": "official",
+      "retrieved": "2026-10-22",
+      "license": "Slack trademark; marketing asset published by Slack (slack.com/media-kit). Simple Icons has no Slack entry (removed at the brand's request).",
+      "note": "400x400 RGBA hash mark"
+    },
+    {
+      "name": "microsoft-learn.svg",
+      "brand": "microsoft-learn",
+      "style": "color",
+      "source": "https://learn.microsoft.com/en-us/media/logos/logo-ms-social.svg",
+      "sha256": "ec25fc196f07e70ebf0e51e583881c0b75c7c936bd6e77e14da4be6633ea345a",
+      "modified": false,
+      "runtime": "brand/services/microsoft-learn.svg",
+      "kit": "official",
+      "retrieved": "2026-10-22",
+      "license": "Microsoft trademark; the Microsoft four-square symbol as published by learn.microsoft.com. Simple Icons has no Microsoft entry."
+    },
+    {
+      "name": "context7.svg",
+      "brand": "context7",
+      "style": "color",
+      "source": "https://raw.githubusercontent.com/upstash/context7/master/public/context7-icon.svg",
+      "sha256": "929514f6ba1133c75bf42abb8e1d8dada941c397490804a3bf047b5272b87ce3",
+      "modified": false,
+      "runtime": "brand/services/context7.svg",
+      "kit": "official",
+      "retrieved": "2026-10-22",
+      "license": "Upstash/Context7 project asset (repository MIT); trademark with Upstash. Simple Icons has no Context7 entry.",
+      "note": "Self-contained black rounded square with white glyph"
+    },
+    {
+      "name": "yahoo-finance.svg",
+      "brand": "yahoo-finance",
+      "style": "color",
+      "source": "https://s.yimg.com/cv/apiv2/finance/YF_Favicon.svg",
+      "sha256": "cac94595dc77cb0e39b51268c38da2d956864df64ae966870ff4acf2d12661e8",
+      "modified": false,
+      "runtime": "brand/services/yahoo-finance.svg",
+      "kit": "official",
+      "retrieved": "2026-10-22",
+      "license": "Yahoo trademark; Yahoo Finance's own published favicon SVG. Simple Icons has no Yahoo Finance entry.",
+      "note": "The only vendor-published Yahoo Finance vector found; includes its white background square"
     }
   ],
   "brands": [
@@ -88,10 +284,10 @@
       "title": "Notion",
       "variants": {
         "monochrome": null,
-        "color": null,
+        "color": "notion.svg",
         "soft": null
       },
-      "note": "Existing public/oauth/provider-notion.svg remains unchanged. Further variants held until usage terms and exact source are confirmed."
+      "note": "Simple Icons (CC0) mark, unmodified (brand hex 000000 is the default fill); shown on a light tile."
     },
     {
       "id": "slack",
@@ -99,20 +295,70 @@
       "guidelines": "https://slack.com/media-kit",
       "variants": {
         "monochrome": null,
-        "color": null,
+        "color": "slack.png",
         "soft": null
       },
-      "note": "Use official brand-center assets only after confirming applicable usage and modification terms."
+      "note": "Slack-published colored hash mark (no Simple Icons entry exists)."
     },
     {
       "id": "yahoo-finance",
       "title": "Yahoo Finance",
       "variants": {
         "monochrome": null,
-        "color": null,
+        "color": "yahoo-finance.svg",
         "soft": null
       },
-      "note": "No Yahoo-specific asset or modification permission verified; no invented Yahoo logo."
+      "note": "Yahoo Finance's own favicon SVG (no Simple Icons entry exists)."
+    },
+    {
+      "id": "linear",
+      "title": "Linear",
+      "variants": {
+        "monochrome": null,
+        "color": "linear.svg",
+        "soft": null
+      },
+      "note": "Simple Icons mark recolored to brand hex 5E6AD2 (modified: true, recolor)."
+    },
+    {
+      "id": "robinhood",
+      "title": "Robinhood",
+      "variants": {
+        "monochrome": null,
+        "color": "robinhood.svg",
+        "soft": null
+      },
+      "note": "Simple Icons mark recolored to brand hex CCFF00 (modified: true, recolor); shown on a dark tile because the brand color has no contrast on white."
+    },
+    {
+      "id": "context7",
+      "title": "Context7",
+      "variants": {
+        "monochrome": null,
+        "color": "context7.svg",
+        "soft": null
+      },
+      "note": "Project-published icon (no Simple Icons entry exists)."
+    },
+    {
+      "id": "microsoft-learn",
+      "title": "Microsoft Learn",
+      "variants": {
+        "monochrome": null,
+        "color": "microsoft-learn.svg",
+        "soft": null
+      },
+      "note": "Microsoft four-square symbol as served by learn.microsoft.com (no Simple Icons entry exists)."
+    },
+    {
+      "id": "google",
+      "title": "Google Workspace",
+      "variants": {
+        "monochrome": null,
+        "color": "google-g.png",
+        "soft": null
+      },
+      "note": "Google gstatic published PNGs (SVG not published at gstatic); unmodified, used only to identify the connected Google service."
     }
   ],
   "soft_proposal": "Named soft/cute treatment for TOFI-owned surrounding UI only. Retain provider mark unmodified, recognizably paired with its service name. No mascot substitutions, endorsement claims, effects on the mark or unapproved combinations; obtain applicable permission before rendering."

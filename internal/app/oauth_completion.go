@@ -1,6 +1,8 @@
 package app
 
 import (
+	"github.com/JackZhao98/tofibot/internal/googleapi"
+
 	"bytes"
 	"html/template"
 	"net/http"
@@ -19,15 +21,56 @@ type oauthCompletionPage struct {
 	APIURL      string
 	MCPURL      string
 	DocsURL     string
+	// Setup says what is actually missing, so the page shows setup help only then:
+	// "" (nothing: a connection that works shows the result and the way back),
+	// "enable" (the product API or its MCP service is not enabled) or
+	// "audience" (the account is not an allowed test user).
+	Setup string
+	// For Setup "enable": the one console page that enables the API Google named, and that API's name.
+	EnableURL   string
+	EnableLabel string
+}
+
+// Provider artwork is served from this build (the page's CSP is img-src 'self'). The marks are the vendors' own,
+// vendored under ui/public/brand/services with provenance in docs/integrations/icons/manifest.json. The page only
+// ever renders a logo from this list; anything else becomes the neutral generic pictogram.
+const (
+	oauthLogoGeneric  = "/oauth/provider-generic.svg"
+	oauthLogoGoogle   = "/brand/services/google-g.png"
+	oauthLogoGmail    = "/brand/services/google-gmail.png"
+	oauthLogoCalendar = "/brand/services/google-calendar.png"
+	oauthLogoDrive    = "/brand/services/google-drive.png"
+	oauthLogoDocs     = "/brand/services/google-docs.png"
+	oauthLogoSheets   = "/brand/services/google-sheets.png"
+	oauthLogoSlides   = "/brand/services/google-slides.png"
+	oauthLogoNotion   = "/brand/services/notion.svg"
+)
+
+var oauthLogoAllowed = map[string]bool{
+	oauthLogoGeneric: true, oauthLogoGoogle: true, oauthLogoGmail: true, oauthLogoCalendar: true,
+	oauthLogoDrive: true, oauthLogoDocs: true, oauthLogoSheets: true, oauthLogoSlides: true, oauthLogoNotion: true,
 }
 
 var oauthAPIPath = regexp.MustCompile(`^/apis/enableflow;apiid=[a-z][a-z0-9-]*\.googleapis\.com$`)
+var oauthLibraryPath = regexp.MustCompile(`^/apis/library/([a-z][a-z0-9-]*\.googleapis\.com)$`)
 
 // Setup destinations are public documentation, not redirect targets. Keep this
 // independent of callback parameters and disallow query strings and fragments.
 func oauthCompletionLink(raw string, docs bool) string {
 	u, err := url.Parse(raw)
-	if err != nil || u.Scheme != "https" || u.User != nil || u.RawQuery != "" || u.ForceQuery || u.Fragment != "" || u.RawPath != "" {
+	if err != nil || u.Scheme != "https" || u.User != nil || u.ForceQuery || u.Fragment != "" || u.RawPath != "" {
+		return ""
+	}
+	// The one query TOFI builds itself: a known API's library page for a validated project.
+	if !docs && u.Host == "console.cloud.google.com" && u.RawQuery != "" {
+		if m := oauthLibraryPath.FindStringSubmatch(u.Path); m != nil && googleapi.KnownAPI(m[1]) {
+			if q := u.Query(); len(q) == 1 && googleapi.ValidProject(q.Get("project")) && u.RawQuery == "project="+url.QueryEscape(q.Get("project")) {
+				return u.String()
+			}
+		}
+		return ""
+	}
+	if u.RawQuery != "" {
 		return ""
 	}
 	if !docs && u.Host == "console.cloud.google.com" && oauthAPIPath.MatchString(u.Path) {
@@ -46,7 +89,7 @@ func writeOAuthCompletion(w http.ResponseWriter, status int, page oauthCompletio
 	case "pending":
 		title, heading, next = "Connecting", "正在连接", "正在打开服务的授权页面，请稍候。"
 	case "success":
-		title, heading, next = "Connection complete", "授权已完成", "返回 Tofi 读取工具并检查连接状态。授权完成不代表服务 API 已启用。"
+		title, heading, next = "Connection complete", "授权已完成", "返回 Tofi 即可使用。"
 	case "denied":
 		heading, next = "授权被拒绝", "如需继续连接，请返回 Tofi 检查账号权限并重试。"
 	case "failed":
@@ -56,14 +99,21 @@ func writeOAuthCompletion(w http.ResponseWriter, status int, page oauthCompletio
 	if strings.TrimSpace(page.ServiceName) == "" {
 		page.ServiceName = "外部服务"
 	}
-	switch page.LogoURL {
-	case "/oauth/provider-google.svg", "/oauth/provider-notion.svg", "/oauth/provider-generic.svg":
-	default:
-		page.LogoURL = "/oauth/provider-generic.svg"
+	if !oauthLogoAllowed[page.LogoURL] {
+		page.LogoURL = oauthLogoGeneric
+	}
+	page.EnableURL = oauthCompletionLink(page.EnableURL, false)
+	if page.EnableURL == "" {
+		page.EnableLabel = ""
 	}
 	page.APIURL = oauthCompletionLink(page.APIURL, false)
 	page.MCPURL = oauthCompletionLink(page.MCPURL, false)
 	page.DocsURL = oauthCompletionLink(page.DocsURL, true)
+	switch page.Setup {
+	case "enable", "audience":
+	default:
+		page.Setup = ""
+	}
 	view := struct {
 		oauthCompletionPage
 		Title, Heading, Next string
@@ -104,20 +154,31 @@ var oauthCompletionTemplate = template.Must(template.New("oauth-connection").Par
     <h1 id="connection-heading">{{.Heading}}</h1>
     {{if .Message}}<p class="oauth-message" role="status">{{.Message}}</p>{{else}}<p class="oauth-next">{{.Next}}</p>{{end}}
     <a class="oauth-return" href="/">返回 Tofi</a>
-    {{if or .APIURL .MCPURL}}
+    {{if eq .Setup "enable"}}
     <section class="oauth-setup" aria-labelledby="setup-heading">
-      <h2 id="setup-heading">Google 连接设置</h2>
-      <p>打开 Google Cloud 后，选择与 OAuth Client 相同的项目。若应用处于测试模式，请在 Audience 中添加当前账号为测试用户。</p>
+      <h2 id="setup-heading">启用服务</h2>
+      <p>在 OAuth Client 所属的同一个 Google Cloud 项目中启用下面的服务，然后回到 Tofi 刷新工具。</p>
+      <p>Cloud 项目须已加入 Google Workspace Developer Preview Program（developers.google.com/workspace/preview），否则授权成功后每次工具调用仍会被拒。</p>
+      <p>OAuth Client 须勾选“Use this client for an AI-powered agent”：2026-11-11 起 Workspace MCP 拒绝未标记的 Client，2026-11-12 起该设置固定，需新建 Client。</p>
       <p>Cloud 项目须已加入 Google Workspace Developer Preview Program（developers.google.com/workspace/preview），否则授权成功后每次工具调用仍会被拒。</p>
       <p>OAuth Client 须勾选“Use this client for an AI-powered agent”：2026-11-11 起 Workspace MCP 拒绝未标记的 Client，2026-11-12 起该设置固定，需新建 Client。</p>
       <nav aria-label="Google 配置">
+        {{if .EnableURL}}<a class="oauth-enable" href="{{.EnableURL}}" target="_blank" rel="noopener noreferrer">启用 {{.EnableLabel}}</a>{{else}}
         {{if .APIURL}}<a href="{{.APIURL}}" target="_blank" rel="noopener noreferrer">启用产品 API</a>{{end}}
-        {{if .MCPURL}}<a href="{{.MCPURL}}" target="_blank" rel="noopener noreferrer">启用 MCP 服务</a>{{end}}
+        {{if .MCPURL}}<a href="{{.MCPURL}}" target="_blank" rel="noopener noreferrer">启用 MCP 服务</a>{{end}}{{end}}
+        {{if .DocsURL}}<a href="{{.DocsURL}}" target="_blank" rel="noopener noreferrer">官方接入文档</a>{{end}}
+      </nav>
+    </section>
+    {{else if eq .Setup "audience"}}
+    <section class="oauth-setup" aria-labelledby="setup-heading">
+      <h2 id="setup-heading">添加测试用户</h2>
+      <p>应用处于测试模式时，只有测试用户能授权。请在 Audience 中添加当前账号，然后重试。</p>
+      <nav aria-label="Google 配置">
         <a href="https://console.cloud.google.com/auth/audience" target="_blank" rel="noopener noreferrer">配置测试用户</a>
+        {{if .DocsURL}}<a href="{{.DocsURL}}" target="_blank" rel="noopener noreferrer">官方接入文档</a>{{end}}
       </nav>
     </section>
     {{end}}
-    {{if .DocsURL}}<a class="oauth-docs" href="{{.DocsURL}}" target="_blank" rel="noopener noreferrer">查看官方接入文档</a>{{end}}
   </main>
 </body>
 </html>`))

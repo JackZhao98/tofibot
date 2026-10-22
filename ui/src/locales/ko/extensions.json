@@ -1,6 +1,7 @@
 {
   "action": {
-    "cancel": "취소"
+    "cancel": "취소",
+    "close": "닫기"
   },
   "auth": {
     "bot_token": "Bot 토큰",
@@ -11,18 +12,24 @@
   },
   "browser": {
     "added": "추가됨",
-    "back": "추가됨",
-    "custom": "사용자 지정 MCP",
     "empty": "일치하는 서비스가 없습니다. 사용자 지정 MCP를 추가할 수 있습니다.",
     "held_label": "아직 추가할 수 없는 서비스",
     "held_title": "아직 추가할 수 없음",
-    "intro": "연결 프리셋을 선택하고, 추가한 뒤 승인과 도구 연결을 확인하세요.",
+    "intro": "연결할 서비스를 선택하세요. 설정은 다음 단계에서 진행합니다.",
     "read_only_tools": "읽기 전용 도구",
     "retired": "유지 관리 중단",
     "retired_origin": "제공업체의 이전 프로젝트",
     "search": "서비스 검색",
     "services": "서비스",
-    "title": "서비스 추가"
+    "local_details": "이 서버에서 실행 · OAuth",
+    "custom_section": "사용자 지정",
+    "custom_url": "사용자 지정 커넥터",
+    "custom_url_hint": "URL로 원격 MCP 서버에 연결합니다.",
+    "custom_package": "로컬 패키지",
+    "custom_package_hint": "버전을 고정한 npm 또는 PyPI MCP 서버를 이 서버에 설치합니다.",
+    "preview_title": "Workspace 프리뷰(기업용)",
+    "preview_toggle": "Google Workspace 서버 보기",
+    "community_note": "커뮤니티 커넥터는 제3자가 유지 관리하며, 쓰기 작업은 항상 먼저 확인을 요청합니다."
   },
   "callback": {
     "copied": "복사됨",
@@ -201,7 +208,7 @@
   "held": {
     "discord": {
       "description": "커뮤니티가 관리하는 Discord Bot 연결입니다.",
-      "reason": "공식으로 선별된 커넥터가 아닙니다. '로컬 MCP'에서 커뮤니티 Discord 서버를 직접 설치할 수 있습니다. 설정 안내는 docs/integrations/discord-add-it-yourself.md를 참고하세요."
+      "reason": "공식으로 선별된 커넥터가 아닙니다. '연결 추가 › 사용자 지정 › 로컬 패키지'에서 커뮤니티 Discord 서버를 직접 설치할 수 있습니다. 안내는 docs/integrations/discord-add-it-yourself.md를 참고하세요."
     },
     "notion_token": {
       "description": "유지 관리가 중단된 이전 로컬 MCP 서버입니다.",
@@ -218,18 +225,17 @@
     }
   },
   "local": {
-    "attach": "Tofi에 연결",
     "custom": {
       "args": "실행 인수 (한 줄에 하나)",
       "binary": "실행 파일",
       "env": "환경 변수(값은 비공개 파일로 저장되며 다시 표시되지 않습니다)",
       "install": "플러그인 설치",
-      "intro": "고정 버전과 실행 파일을 지정하세요. 설치 명령은 Runner 안에서 실행되며, 플러그인 코드는 Runner 권한으로 실행됩니다. 커뮤니티 패키지는 직접 신뢰하기로 한 코드입니다. 전달한 변수를 읽을 수 있으며, 도구는 읽기 전용으로 표시하기 전까지 매번 승인이 필요합니다.",
+      "intro": "고정 버전과 실행 파일을 지정하세요. 설치 명령은 이 서버에서 실행되며, 플러그인은 이 서버의 권한으로 실행됩니다.커뮤니티 패키지는 직접 신뢰하기로 한 코드입니다. 전달한 변수를 읽을 수 있으며, 도구는 읽기 전용으로 표시하기 전까지 매번 승인이 필요합니다.",
       "package": "패키지 이름",
       "plugin_id": "플러그인 ID",
       "runtime": "런타임",
-      "title": "다른 로컬 MCP 설치",
       "version": "고정 버전",
+      "installing": "설치 중…",
       "integrity": "패키지 다이제스트(선택, sha512-…; 레지스트리가 다른 내용을 제공하면 설치가 실패합니다)",
       "env_name": "변수 이름",
       "env_value": "값",
@@ -238,19 +244,18 @@
     "gog": {
       "install": "gogcli 설치",
       "installing": "설치 중…",
-      "intro": "버전이 고정된 gogcli가 Runner 이미지에 포함되어 있습니다. 읽기 전용 또는 읽기 및 보내기 권한을 선택할 수 있습니다. 메일을 보낼 때는 매번 확인이 필요합니다.",
-      "title": "개인 Gmail · gogcli"
+      "intro": "승인한 Google 계정으로 내 Gmail을 읽습니다. 읽기 전용 또는 읽기 및 보내기 권한을 선택할 수 있으며, 메일을 보낼 때는 매번 확인이 필요합니다."
     },
     "google": {
       "client_json": "OAuth 클라이언트 JSON",
       "choose_file": "파일 선택…",
       "no_file": "선택된 파일 없음",
       "client_setup": "Google Cloud에서 <strong>웹 애플리케이션</strong> OAuth 클라이언트를 만들고, 아래 주소를 '승인된 리디렉션 URI'에 추가한 뒤 다운로드한 JSON을 업로드하세요.",
-      "connect": "Google 연결",
+      "connect": "Google로 승인",
       "connected_as": "{{email}} 승인됨",
       "continue": "Google 승인 페이지 계속 열기",
-      "disconnect": "Google 연결 해제",
-      "disconnect_confirm": "Runner에서 저장된 Google 승인을 삭제할까요?",
+      "disconnect": "Google 계정 연결 해제",
+      "disconnect_confirm": "저장된 Google 승인을 삭제할까요?",
       "disconnect_submit": "승인 해제",
       "disconnected": "Runner에서 Google 승인을 삭제했습니다.",
       "email": "Google 이메일",
@@ -270,30 +275,9 @@
       "verify": "Gmail 읽기 확인",
       "verifying": "확인 중…",
       "waiting": "Google 승인 대기 중"
-    },
-    "intro": "플러그인은 별도의 Runner 컨테이너에 설치되며, 필요할 때 시작되고 유휴 시 자동으로 절전됩니다.",
-    "notice": {
-      "attached": "{{id}}이(가) Tofi에 연결되었습니다.",
-      "installed": "{{id}} 설치됨. 도구는 사용할 때 시작됩니다.",
-      "removed": "{{id}} 삭제됨."
-    },
-    "remove": "삭제",
-    "remove_confirm": "플러그인과 저장된 승인을 삭제할까요?",
-    "remove_submit": "삭제",
-    "state": {
-      "not_installed": "설치 안 됨",
-      "ready": "실행 중",
-      "sleeping": "절전 중",
-      "starting": "시작 중"
-    },
-    "title": "로컬 MCP",
-    "unavailable": "로컬 MCP Runner를 사용할 수 없습니다",
-    "unavailable_hint": "Runner 컨테이너가 실행 중인지 확인하세요.",
-    "plugin_count_other": "플러그인 {{count}}개"
+    }
   },
   "mcp": {
-    "add": "서비스 추가",
-    "added": "추가됨",
     "back": "뒤로",
     "cancel_auth": "승인 취소",
     "confirm": {
@@ -411,13 +395,14 @@
     "authorizing": "승인 화면을 여는 중…",
     "checked": "{{when}} 확인",
     "checking": "도구를 불러오는 중…",
-    "connected_tools_other": "연결됨 · 도구 {{count}}개",
     "failed": "연결 실패",
     "needs_auth": "승인 필요",
     "removing": "처리 중…",
     "unverified": "아직 확인되지 않음",
     "waiting": "승인 대기 중",
-    "read_only_count_other": "읽기 전용 {{count}}개"
+    "connected": "연결됨",
+    "not_connected": "연결 안 됨",
+    "api_disabled": "API가 사용 설정되지 않음"
   },
   "vm": {
     "cancel": "승인 취소",
@@ -462,8 +447,52 @@
     },
     "title": "도구 · {{count}}"
   },
-  "provenance": {
-    "community": "커뮤니티 플러그인 · {{package}} {{version}}",
-    "review": "읽기 전용으로 표시하기 전까지 도구는 매번 승인이 필요합니다"
+  "connections": {
+    "title": "연결",
+    "add": "연결 추가",
+    "action": {
+      "authorize": "승인",
+      "enable_api": "{{name}} API 사용 설정"
+    },
+    "menu": {
+      "details": "세부 정보 보기",
+      "hide_details": "세부 정보 숨기기",
+      "sign_in_again": "다시 로그인"
+    },
+    "dialog": {
+      "title": "연결 추가"
+    },
+    "local": {
+      "gog": {
+        "name": "Gmail(개인 계정)",
+        "description": "승인한 Google 계정으로 내 Gmail을 읽습니다."
+      }
+    },
+    "source": {
+      "gog": "커뮤니티 · gogcli · Gmail API",
+      "local": "커뮤니티 · {{name}}",
+      "vendor": "공식 · {{host}}",
+      "community": "커뮤니티 · {{host}}",
+      "custom": "사용자 지정 · {{host}}",
+      "package": "커뮤니티 · {{package}} {{version}}"
+    },
+    "details": {
+      "account": "계정: {{email}}",
+      "project": "Google Cloud 프로젝트: {{project}}",
+      "community_review": "커뮤니티 코드: 읽기 전용으로 표시하기 전까지 도구는 매번 승인이 필요합니다."
+    },
+    "preview_note": "Workspace 개발자 프리뷰 프로그램에 등록된 Google Cloud 프로젝트가 필요하며, 회사 또는 기업 계정이 있어야 합니다. 등록 전에는 도구 호출이 권한 오류로 실패할 수 있습니다.",
+    "error": {
+      "api_disabled": "Google Cloud 프로젝트에서 {{name}} API가 사용 설정되지 않았습니다. 사용 설정한 뒤 새로고침하세요."
+    },
+    "google": {
+      "using_client": "저장된 Google 클라이언트(프로젝트 {{project}})를 사용합니다. 다시 업로드할 필요가 없습니다.",
+      "replace_client": "클라이언트 교체",
+      "project_found": "이 클라이언트는 프로젝트 {{project}}에 속합니다."
+    },
+    "repo": {
+      "label": "GitHub 소스: {{repo}}",
+      "with_stars": "GitHub 소스: {{repo}}, 별 {{count}}개"
+    }
   }
 }

@@ -46,6 +46,12 @@ func (r *Runner) Handler(token string) http.Handler {
 				return
 			}
 			if err := r.Remove(id); err != nil {
+				if errors.Is(err, ErrPluginBusy) {
+					w.Header().Set("Content-Type", "application/json")
+					w.WriteHeader(http.StatusConflict)
+					_ = json.NewEncoder(w).Encode(map[string]string{"code": "plugin_busy"})
+					return
+				}
 				http.Error(w, err.Error(), http.StatusConflict)
 				return
 			}
@@ -138,6 +144,13 @@ func (r *Runner) Handler(token string) http.Handler {
 				_ = json.NewEncoder(w).Encode(map[string]any{"sent": true, "result": result})
 			case parts[4] == "check" && req.Method == http.MethodPost:
 				if err := r.GogCheck(req.Context(), id); err != nil {
+					var disabled *APIDisabled
+					if errors.As(err, &disabled) {
+						w.Header().Set("Content-Type", "application/json")
+						w.WriteHeader(http.StatusConflict)
+						_ = json.NewEncoder(w).Encode(map[string]any{"code": "api_disabled", "api": disabled.API, "project": disabled.Project})
+						return
+					}
 					http.Error(w, err.Error(), 502)
 					return
 				}

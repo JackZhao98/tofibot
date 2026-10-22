@@ -1,6 +1,7 @@
 {
   "action": {
-    "cancel": "Abbrechen"
+    "cancel": "Abbrechen",
+    "close": "Schließen"
   },
   "auth": {
     "bot_token": "Bot-Token",
@@ -11,18 +12,24 @@
   },
   "browser": {
     "added": "Hinzugefügt",
-    "back": "Hinzugefügt",
-    "custom": "Eigenes MCP",
     "empty": "Keine passenden Dienste. Sie können ein eigenes MCP hinzufügen.",
     "held_label": "Noch nicht verfügbare Dienste",
     "held_title": "Noch nicht verfügbar",
-    "intro": "Wählen Sie eine Vorlage und prüfen Sie nach dem Hinzufügen Autorisierung und Tool-Verbindung.",
+    "intro": "Wählen Sie einen Dienst zum Verbinden. Die Einrichtung folgt im nächsten Schritt.",
     "read_only_tools": "Nur Lese-Tools",
     "retired": "Nicht mehr gepflegt",
     "retired_origin": "Früheres Anbieterprojekt",
     "search": "Dienste suchen",
     "services": "Dienste",
-    "title": "Dienst hinzufügen"
+    "local_details": "Läuft auf diesem Server · OAuth",
+    "custom_section": "Benutzerdefiniert",
+    "custom_url": "Eigener Connector",
+    "custom_url_hint": "Verbinden Sie einen beliebigen Remote-MCP-Server per URL.",
+    "custom_package": "Lokales Paket",
+    "custom_package_hint": "Installieren Sie einen MCP-Server aus npm oder PyPI mit fester Version auf diesem Server.",
+    "preview_title": "Workspace-Vorschau (Unternehmen)",
+    "preview_toggle": "Google-Workspace-Server anzeigen",
+    "community_note": "Community-Connectors werden von Dritten gepflegt; ihre Schreibaktionen fragen immer zuerst nach."
   },
   "callback": {
     "copied": "Kopiert",
@@ -201,7 +208,7 @@
   "held": {
     "discord": {
       "description": "Von der Community gepflegte Discord-Bot-Verbindung.",
-      "reason": "Kein von TOFI kuratierter Connector. Sie können einen Community-Discord-Server unter „Lokales MCP“ selbst installieren; Anleitung in docs/integrations/discord-add-it-yourself.md."
+      "reason": "Kein von TOFI kuratierter Connector. Sie können einen Community-Discord-Server über Verbindung hinzufügen › Benutzerdefiniert › Lokales Paket selbst installieren; Anleitung in docs/integrations/discord-add-it-yourself.md."
     },
     "notion_token": {
       "description": "Veralteter lokaler MCP-Server, nicht mehr gepflegt.",
@@ -218,18 +225,17 @@
     }
   },
   "local": {
-    "attach": "Mit Tofi verbinden",
     "custom": {
       "args": "Startargumente (eins pro Zeile)",
       "binary": "Ausführbare Datei",
       "env": "Umgebungsvariablen (Werte werden als private Dateien gespeichert und nicht mehr angezeigt)",
       "install": "Plug-in installieren",
-      "intro": "Geben Sie eine feste Version und die ausführbare Datei an. Der Installationsbefehl läuft im Runner; der Plug-in-Code läuft mit den Rechten des Runners. Ein Community-Paket ist Code, dem Sie bewusst vertrauen: Es sieht die Variablen, die Sie ihm geben, und seine Tools verlangen eine Freigabe, bis Sie sie als schreibgeschützt markieren.",
+      "intro": "Geben Sie eine feste Version und die ausführbare Datei an. Der Installationsbefehl läuft auf diesem Server; das Plug-in läuft mit den Rechten dieses Servers.Ein Community-Paket ist Code, dem Sie bewusst vertrauen: Es sieht die Variablen, die Sie ihm geben, und seine Tools verlangen eine Freigabe, bis Sie sie als schreibgeschützt markieren.",
       "package": "Paketname",
       "plugin_id": "Plug-in-ID",
       "runtime": "Laufzeit",
-      "title": "Weiteres lokales MCP installieren",
       "version": "Feste Version",
+      "installing": "Wird installiert…",
       "integrity": "Paket-Prüfsumme (optional, sha512-…; die Installation schlägt fehl, wenn die Registry etwas anderes liefert)",
       "env_name": "Variablenname",
       "env_value": "Wert",
@@ -238,19 +244,18 @@
     "gog": {
       "install": "gogcli installieren",
       "installing": "Wird installiert…",
-      "intro": "Eine fest versionierte gogcli ist im Runner-Image enthalten. Wählen Sie „Nur lesen“ oder „Lesen und senden“. Jede E-Mail muss vor dem Senden einzeln bestätigt werden.",
-      "title": "Persönliches Gmail · gogcli"
+      "intro": "Lesen Sie Ihr eigenes Gmail über ein Google-Konto, das Sie autorisieren. Wählen Sie „Nur lesen“ oder „Lesen und senden“. Jede E-Mail muss vor dem Senden einzeln bestätigt werden."
     },
     "google": {
       "client_json": "OAuth-Client-JSON",
       "choose_file": "Datei auswählen…",
       "no_file": "Keine Datei ausgewählt",
       "client_setup": "Erstellen Sie in Google Cloud einen OAuth-Client vom Typ <strong>Webanwendung</strong>, tragen Sie die Adresse unten unter „Autorisierte Weiterleitungs-URIs“ ein und laden Sie dann die heruntergeladene JSON hoch.",
-      "connect": "Google verbinden",
+      "connect": "Mit Google autorisieren",
       "connected_as": "Autorisiert als {{email}}",
       "continue": "Weiter zur Google-Autorisierung",
-      "disconnect": "Google trennen",
-      "disconnect_confirm": "Gespeicherte Google-Autorisierung aus dem Runner entfernen?",
+      "disconnect": "Google-Konto trennen",
+      "disconnect_confirm": "Gespeicherte Google-Autorisierung entfernen?",
       "disconnect_submit": "Autorisierung trennen",
       "disconnected": "Google-Autorisierung aus dem Runner entfernt.",
       "email": "Google-E-Mail",
@@ -270,31 +275,9 @@
       "verify": "Gmail-Lesezugriff prüfen",
       "verifying": "Wird geprüft…",
       "waiting": "Warten auf Google-Autorisierung"
-    },
-    "intro": "Plug-ins laufen in einem eigenen Runner-Container, starten bei Bedarf und ruhen im Leerlauf.",
-    "notice": {
-      "attached": "{{id}} ist mit Tofi verbunden.",
-      "installed": "{{id}} installiert. Die Tools starten bei Verwendung.",
-      "removed": "{{id}} entfernt."
-    },
-    "remove": "Entfernen",
-    "remove_confirm": "Plug-in und gespeicherte Autorisierung entfernen?",
-    "remove_submit": "Entfernen",
-    "state": {
-      "not_installed": "Nicht installiert",
-      "ready": "Läuft",
-      "sleeping": "Ruht",
-      "starting": "Startet"
-    },
-    "title": "Lokales MCP",
-    "unavailable": "Lokaler MCP-Runner nicht verfügbar",
-    "unavailable_hint": "Prüfen Sie, ob der Runner-Container läuft.",
-    "plugin_count_one": "{{count}} Plug-in",
-    "plugin_count_other": "{{count}} Plug-ins"
+    }
   },
   "mcp": {
-    "add": "Dienst hinzufügen",
-    "added": "Hinzugefügt",
     "back": "Zurück",
     "cancel_auth": "Autorisierung abbrechen",
     "confirm": {
@@ -414,15 +397,14 @@
     "authorizing": "Autorisierung wird geöffnet…",
     "checked": "Geprüft {{when}}",
     "checking": "Tools werden geladen…",
-    "connected_tools_one": "Verbunden · {{count}} Tool",
-    "connected_tools_other": "Verbunden · {{count}} Tools",
     "failed": "Verbindung fehlgeschlagen",
     "needs_auth": "Autorisierung erforderlich",
     "removing": "Wird bearbeitet…",
     "unverified": "Noch nicht geprüft",
     "waiting": "Warten auf Autorisierung",
-    "read_only_count_one": "{{count}} nur lesend",
-    "read_only_count_other": "{{count}} nur lesend"
+    "connected": "Verbunden",
+    "not_connected": "Nicht verbunden",
+    "api_disabled": "API nicht aktiviert"
   },
   "vm": {
     "cancel": "Autorisierung abbrechen",
@@ -467,8 +449,52 @@
     },
     "title": "Tools · {{count}}"
   },
-  "provenance": {
-    "community": "Community-Plug-in · {{package}} {{version}}",
-    "review": "seine Tools verlangen eine Freigabe, bis sie als schreibgeschützt markiert sind"
+  "connections": {
+    "title": "Verbindungen",
+    "add": "Verbindung hinzufügen",
+    "action": {
+      "authorize": "Autorisieren",
+      "enable_api": "{{name}}-API aktivieren"
+    },
+    "menu": {
+      "details": "Details anzeigen",
+      "hide_details": "Details ausblenden",
+      "sign_in_again": "Erneut anmelden"
+    },
+    "dialog": {
+      "title": "Verbindung hinzufügen"
+    },
+    "local": {
+      "gog": {
+        "name": "Gmail (privates Konto)",
+        "description": "Lesen Sie Ihr eigenes Gmail über ein Google-Konto, das Sie autorisieren."
+      }
+    },
+    "source": {
+      "gog": "Community · gogcli · Gmail-API",
+      "local": "Community · {{name}}",
+      "vendor": "Offiziell · {{host}}",
+      "community": "Community · {{host}}",
+      "custom": "Eigene · {{host}}",
+      "package": "Community · {{package}} {{version}}"
+    },
+    "details": {
+      "account": "Konto: {{email}}",
+      "project": "Google-Cloud-Projekt: {{project}}",
+      "community_review": "Community-Code: Seine Tools verlangen eine Freigabe, bis Sie sie als schreibgeschützt markieren."
+    },
+    "preview_note": "Erfordert ein Google-Cloud-Projekt, das im Workspace Developer Preview Program angemeldet ist (Firmen- oder Enterprise-Konto nötig). Bis dahin können Tool-Aufrufe mit einem Berechtigungsfehler scheitern.",
+    "error": {
+      "api_disabled": "Die {{name}}-API ist in Ihrem Google-Cloud-Projekt nicht aktiviert. Aktivieren Sie sie und aktualisieren Sie dann."
+    },
+    "google": {
+      "using_client": "Gespeicherter Google-Client wird verwendet (Projekt {{project}}). Kein erneuter Upload nötig.",
+      "replace_client": "Client ersetzen",
+      "project_found": "Dieser Client gehört zum Projekt {{project}}."
+    },
+    "repo": {
+      "label": "Quellcode auf GitHub: {{repo}}",
+      "with_stars": "Quellcode auf GitHub: {{repo}}, {{count}} Sterne"
+    }
   }
 }

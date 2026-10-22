@@ -18,6 +18,7 @@
     "retry": "再試行"
   },
   "apiError": {
-    "request_failed": "リクエストに失敗しました（{{status}}）"
+    "request_failed": "リクエストに失敗しました（{{status}}）",
+    "plugin_busy": "プラグインはタスクで使用中です。しばらくしてからもう一度お試しください。"
   }
 }
