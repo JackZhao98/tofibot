@@ -18,6 +18,7 @@
     "retry": "Erneut versuchen"
   },
   "apiError": {
-    "request_failed": "Anfrage fehlgeschlagen ({{status}})"
+    "request_failed": "Anfrage fehlgeschlagen ({{status}})",
+    "plugin_busy": "Das Plugin wird gerade von einer Aufgabe verwendet. Versuchen Sie es gleich erneut."
   }
 }

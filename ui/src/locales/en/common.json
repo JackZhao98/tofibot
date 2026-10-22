@@ -18,6 +18,7 @@
     "retry": "Retry"
   },
   "apiError": {
-    "request_failed": "Request failed ({{status}})"
+    "request_failed": "Request failed ({{status}})",
+    "plugin_busy": "The plugin is in use by a task. Try again shortly."
   }
 }

@@ -84,8 +84,9 @@
     "google_setup": {
       "client_credentials": "Saisissez l’ID client et le secret ci-dessous, puis terminez l’autorisation Google après l’ajout.",
       "consent_screen": "Configurez l’écran de consentement OAuth et les utilisateurs test, puis créez un client Application Web et enregistrez l’URL de redirection.",
+      "agentic_client": "À la création du client, cochez « Use this client for an AI-powered agent ». Dès le 2026-11-11, Workspace MCP refuse les autres clients ; dès le 2026-11-12, ce réglage n’est plus modifiable sur un client existant : créez-en un nouveau.",
       "enable_apis": "Dans votre projet Google Cloud, activez l’API du produit et son service MCP.",
-      "preview_access": "Vérifiez que vous avez accès à la Google Workspace Developer Preview."
+      "preview_access": "Inscrivez le projet Cloud au Google Workspace Developer Preview Program (developers.google.com/workspace/preview) ; sans cela, chaque appel d’outil est refusé alors que la connexion fonctionne."
     },
     "google_sheets": {
       "description": "Lisez les données, modifiez feuilles et formules.",
@@ -199,6 +200,8 @@
     "links_label": "Liens de configuration {{name}}",
     "nav_label": "Réglages Google Cloud pour {{name}}",
     "project_hint": "Dans Google Cloud, choisissez le même projet que le client OAuth. Tant que l’application est en mode test, ajoutez votre compte comme utilisateur test dans Audience.",
+    "preview_hint": "Inscrivez le projet Cloud au Google Workspace Developer Preview Program (developers.google.com/workspace/preview) ; sans cela, chaque appel d’outil est refusé alors que la connexion fonctionne.",
+    "agentic_hint": "Cochez « Use this client for an AI-powered agent » (Google Auth Platform → Clients). Dès le 2026-11-11, Workspace MCP refuse les clients sans cette case ; dès le 2026-11-12 elle est définitive, un client non coché doit être remplacé.",
     "redirect_hint": "Dans Google Auth Platform → Clients, ouvrez votre application Web et ajoutez chaque URL utilisée dans Authorized redirect URIs (pas dans JavaScript origins). Les deux accès peuvent partager ces identifiants. Adresse, port et chemin doivent correspondre exactement. La redirection HTTP dynamique de l’ordinateur partagé ne fonctionne pas avec cette configuration fixe ; préférez HTTPS ou l’application.",
     "test_users": "Configurer les utilisateurs test"
   },

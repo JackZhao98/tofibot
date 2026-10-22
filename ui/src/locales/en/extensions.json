@@ -84,8 +84,9 @@
     "google_setup": {
       "client_credentials": "Enter the Client ID and Secret below, then finish Google authorization after adding.",
       "consent_screen": "Set up the OAuth consent screen and test users, then create a Web application client and register the redirect URL.",
+      "agentic_client": "When creating the client, check “Use this client for an AI-powered agent”. Workspace MCP rejects other clients from 2026-11-11, and the setting can't be changed on an existing client after 2026-11-12: create a new client instead.",
       "enable_apis": "In your Google Cloud project, enable the product API and its MCP service.",
-      "preview_access": "Make sure you have access to the Google Workspace Developer Preview."
+      "preview_access": "Enrol the Cloud project in the Google Workspace Developer Preview Program (developers.google.com/workspace/preview); without it every tool call is refused even though sign-in works."
     },
     "google_sheets": {
       "description": "Read data and edit sheets and formulas.",
@@ -199,6 +200,8 @@
     "links_label": "{{name}} setup links",
     "nav_label": "Google Cloud settings for {{name}}",
     "project_hint": "In Google Cloud, choose the same project as the OAuth client. While the app is in testing, add your account as a test user under Audience.",
+    "preview_hint": "Enrol the Cloud project in the Google Workspace Developer Preview Program (developers.google.com/workspace/preview); without it every tool call is refused even though sign-in works.",
+    "agentic_hint": "Check “Use this client for an AI-powered agent” (Google Auth Platform → Clients). From 2026-11-11 Workspace MCP rejects clients without it; from 2026-11-12 it is permanent, so an unmarked client must be replaced.",
     "redirect_hint": "In Google Auth Platform → Clients, open your Web application and add each URL you'll use under Authorized redirect URIs (not JavaScript origins). Both entry points can share these credentials. Address, port and path must match exactly. The shared computer's dynamic HTTP redirect can't use this fixed setup; use HTTPS or the app instead.",
     "test_users": "Set up test users"
   },

@@ -84,8 +84,9 @@
     "google_setup": {
       "client_credentials": "Tragen Sie unten Client-ID und Secret ein und schließen Sie nach dem Hinzufügen die Google-Autorisierung ab.",
       "consent_screen": "Richten Sie den OAuth-Zustimmungsbildschirm und Testnutzer ein, erstellen Sie einen Webanwendungs-Client und tragen Sie die Weiterleitungs-URL ein.",
+      "agentic_client": "Aktivieren Sie beim Anlegen des Clients „Use this client for an AI-powered agent“. Ab 2026-11-11 lehnt Workspace MCP andere Clients ab; ab 2026-11-12 lässt sich die Einstellung bei bestehenden Clients nicht mehr ändern, ein neuer Client ist nötig.",
       "enable_apis": "Aktivieren Sie im Google-Cloud-Projekt die Produkt-API und den MCP-Dienst.",
-      "preview_access": "Stellen Sie sicher, dass Sie Zugang zur Google Workspace Developer Preview haben."
+      "preview_access": "Melden Sie das Cloud-Projekt im Google Workspace Developer Preview Program an (developers.google.com/workspace/preview); ohne Anmeldung wird jeder Tool-Aufruf abgelehnt, obwohl die Anmeldung klappt."
     },
     "google_sheets": {
       "description": "Daten lesen, Tabellen und Formeln bearbeiten.",
@@ -199,6 +200,8 @@
     "links_label": "Einrichtungslinks für {{name}}",
     "nav_label": "Google-Cloud-Einstellungen für {{name}}",
     "project_hint": "Wählen Sie in Google Cloud dasselbe Projekt wie für den OAuth-Client. Solange die App im Testmodus ist, fügen Sie Ihr Konto unter Audience als Testnutzer hinzu.",
+    "preview_hint": "Melden Sie das Cloud-Projekt im Google Workspace Developer Preview Program an (developers.google.com/workspace/preview); ohne Anmeldung wird jeder Tool-Aufruf abgelehnt, obwohl die Anmeldung klappt.",
+    "agentic_hint": "Aktivieren Sie „Use this client for an AI-powered agent“ (Google Auth Platform → Clients). Ab 2026-11-11 lehnt Workspace MCP Clients ohne diese Markierung ab; ab 2026-11-12 ist sie dauerhaft, ein unmarkierter Client muss ersetzt werden.",
     "redirect_hint": "Fügen Sie unter Google Auth Platform → Clients in Ihrer Webanwendung jede benötigte URL einzeln bei Authorized redirect URIs hinzu (nicht bei JavaScript origins). Beide Zugänge können diese Zugangsdaten teilen. Adresse, Port und Pfad müssen exakt übereinstimmen. Die dynamische HTTP-Weiterleitung des geteilten Computers passt nicht zu dieser festen Einrichtung; nutzen Sie besser HTTPS oder die App.",
     "test_users": "Testnutzer einrichten"
   },

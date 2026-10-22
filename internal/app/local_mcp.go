@@ -293,6 +293,13 @@ func (s *Server) routeLocalMCP(w http.ResponseWriter, r *http.Request, p string)
 				return true
 			}
 			if status != http.StatusOK {
+				var refusal struct {
+					Code string `json:"code"`
+				}
+				if status == http.StatusConflict && json.Unmarshal(data, &refusal) == nil && refusal.Code == "plugin_busy" {
+					writeErr(w, 409, "plugin_busy", "The plugin is in use by a task; try again shortly")
+					return true
+				}
 				writeErr(w, 409, "runner", strings.TrimSpace(string(data)))
 				return true
 			}

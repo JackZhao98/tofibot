@@ -31,6 +31,8 @@ function OAuthLinkMotion({ title }: { title: string }) {
   return <div className="web-oauth-link" aria-label={t("oauth.waiting", { title })}><span className="web-oauth-node"><CatStage config={{ shape: "curl", pattern: "calico", palette: "calico" }} initialState="asleep" /></span><svg viewBox="0 0 200 60" aria-hidden="true"><path className="web-oauth-wait" d="M6 44 Q100 -6 194 44" /></svg><span className="web-oauth-provider"><TofiIcon name="key" size={22} /><small>{title}</small></span></div>;
 }
 
+/** A refused removal says why (a task is using the plugin) and the row stays. */
+const removeError = (e: unknown) => e instanceof ApiError && e.code === "plugin_busy" ? i18n.t("common:apiError.plugin_busy") : message(e);
 const presetFor = (server: MCP) => integrationCatalog.find(item => item.url === server.url);
 /** The name a person sees: a catalog name, "Gmail" for the personal Gmail plugin, else what they called it. Never `local_gog`. */
 function displayName(server: MCP, preset: IntegrationPreset | undefined) {
@@ -116,7 +118,7 @@ function PluginRow({ plugin, onChanged }: { plugin: Plugin; onChanged: () => Pro
   const [error, setError] = useState("");
   const [confirm, setConfirm] = useState(false);
   const name = plugin.id === "gog" ? t("connections.local.gog.name") : plugin.id;
-  async function act(run: () => Promise<unknown>) { setBusy(true); setError(""); try { await run(); await onChanged(); setConfirm(false); } catch (e) { setError(message(e)); } finally { setBusy(false); } }
+  async function act(run: () => Promise<unknown>) { setBusy(true); setError(""); try { await run(); await onChanged(); setConfirm(false); } catch (e) { setError(removeError(e)); } finally { setBusy(false); } }
   const menu: RowMenuItem[] = [{ key: "remove", label: t("mcp.menu.remove"), danger: true, onSelect: () => setConfirm(true) }];
   return <ConnectionRowView name={name} mark={plugin.id === "gog" ? "Gmail" : name} state="idle" kind="unverified" statusText={t("status.not_connected")} error={error} menuBusy={busy} menu={menu}
     primary={{ label: t("mcp.connect"), disabled: busy, onClick: () => void act(() => request(`/api/extensions/local-mcp/${encodeURIComponent(plugin.id)}/attach`, post({}))) }}>
@@ -278,7 +280,7 @@ function MCPRow({ server, checkRequest, refresh, refreshLocal, onEdit, onRemoved
       if (confirm === "remove") onRemoved();
       else { setAuthURL(""); setPhase(confirm === "disconnect" ? "auth" : "ready"); await refresh(); }
       setConfirm(null);
-    } catch (e) { if (alive.current && id === operation.current) { setPhase("error"); setError(message(e)); } }
+    } catch (e) { if (alive.current && id === operation.current) { if (confirm === "remove") { setPhase("ready"); setConfirm(null); } else setPhase("error"); setError(confirm === "remove" ? removeError(e) : message(e)); } }
   }
   const needsAuth = Boolean(server.oauth) && (!server.oauth?.connected || phase === "auth");
   const apiService = apiIssue ? googleServiceForAPI(apiIssue.api) : "";
