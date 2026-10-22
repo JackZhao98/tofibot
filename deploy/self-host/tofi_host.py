@@ -3753,6 +3753,13 @@ def parse_args(argv):
     logs_parser = sub.add_parser('logs')
     logs_parser.add_argument('service', nargs='?', choices=['app', 'worker', 'caddy'])
     sub.add_parser('doctor')
+    security_parser = sub.add_parser('security', help='security checks')
+    security_sub = security_parser.add_subparsers(dest='security_command', required=True)
+    audit_parser = security_sub.add_parser(
+        'audit', help='report where this install deviates from safe defaults (read-only; exit 2 on FAIL)')
+    audit_parser.add_argument('--json', action='store_true', help='machine-readable output')
+    audit_parser.add_argument('--online', action='store_true',
+                              help='fetch the latest release instead of reading the stored check (no file is written)')
     sub.add_parser('version')
     return parser.parse_args(argv)
 
@@ -3939,6 +3946,10 @@ def main(argv=None):
             os.execvp('docker', command)
         if args.command == 'doctor':
             return 0 if doctor() else 1
+        if args.command == 'security':
+            report = security_audit(args.online)
+            sys.stdout.write(json.dumps(report, indent=2) + '\n' if args.json else render_security_audit(report))
+            return report['exit_code']
         if args.command == 'version':
             print(json.dumps(version(), indent=2))
             return 0
@@ -3953,6 +3964,432 @@ def main(argv=None):
         print('tofi: ' + str(error), file=sys.stderr)
         return 1
     return 1
+
+
+# --------------------------------------------------------------------------
+# Security audit (`tofi security audit`)
+#
+# Read-only: it reads the journal, tofi.env, file modes, the certificate and
+# the backup list, and changes nothing (no lock, no restore settling, no cache
+# write, no network unless --online). Values of secrets are never read into a
+# result: findings carry names, counts, modes and paths only.
+
+AUDIT_PASS, AUDIT_WARN, AUDIT_FAIL = 'PASS', 'WARN', 'FAIL'
+AUDIT_FAIL_EXIT = 2
+BACKUP_STALE_DAYS = 7
+# Environment names that look like credentials. tofi.env should hold none: the
+# file layer carries platform settings, third-party keys live in the vault.
+SECRET_NAME_RE = re.compile(r'KEY|TOKEN|SECRET|PASSWORD|PASSWD|PASSPHRASE|CREDENTIAL')
+# Model provider keys the App can read from its environment (cmd/tofi/main.go);
+# the self-host compose.yaml passes none of them on.
+MODEL_KEY_ENV_NAMES = ('TOFI_MODEL_API_KEY', 'TOFI_TRANSCRIPTION_API_KEY', 'ANTHROPIC_API_KEY', 'OPENAI_API_KEY')
+# What a provider key looks like in the clear (sealed values are base64).
+PLAIN_KEY_RE = re.compile(r'sk-(?:ant-|proj-)?[A-Za-z0-9_-]{20,}')
+VAULT_MODEL_KIND = 'model_provider'
+
+
+def audit_finding(level, check, title, detail, fix=None):
+    return {'id': check, 'level': level, 'title': title, 'detail': detail, 'fix': fix if level != AUDIT_PASS else None}
+
+
+def path_facts(path):
+    """(uid, gid, permission bits, is_symlink) of `path` without following links, or None."""
+    try:
+        info = os.lstat(path)
+    except OSError:
+        return None
+    return info.st_uid, info.st_gid, stat.S_IMODE(info.st_mode), stat.S_ISLNK(info.st_mode)
+
+
+def audit_paths(rules):
+    """Compare (path, max mode, owner uid, allowed gids or None) rules with the disk.
+
+    Returns (offences, checked): an offence is (path, problem sentence, fix
+    command). A path that does not exist is skipped; a mode with any bit
+    outside `max mode` is too permissive; a symbolic link is always refused.
+    """
+    offences, checked = [], 0
+    for path, max_mode, uid, gids in rules:
+        facts = path_facts(path)
+        if facts is None:
+            continue
+        checked += 1
+        actual_uid, actual_gid, mode, is_link = facts
+        if is_link:
+            offences.append((path, 'is a symbolic link', 'sudo rm %s  # then let tofi recreate it' % path))
+            continue
+        problems, fixes = [], []
+        if mode & ~max_mode & 0o7777:
+            problems.append('mode %04o, allowed %04o' % (mode, max_mode))
+            fixes.append('sudo chmod %04o %s' % (max_mode, path))
+        if actual_uid != uid:
+            problems.append('owner uid %d, expected %d' % (actual_uid, uid))
+            fixes.append('sudo chown %d %s' % (uid, path))
+        if gids is not None and actual_gid not in gids:
+            problems.append('group gid %d, expected %s' % (actual_gid, ' or '.join(map(str, gids))))
+            fixes.append('sudo chgrp %d %s' % (gids[-1], path))
+        if problems:
+            offences.append((path, '; '.join(problems), ' && '.join(fixes)))
+    return offences, checked
+
+
+def audit_file_finding(check, title, rules, secret=True):
+    offences, checked = audit_paths(rules)
+    if not offences:
+        return audit_finding(AUDIT_PASS, check, title, '%d path%s checked, modes and owners as expected'
+                             % (checked, '' if checked == 1 else 's'))
+    shown = ['%s: %s' % (path, problem) for path, problem, _ in offences[:5]]
+    if len(offences) > 5:
+        shown.append('and %d more' % (len(offences) - 5))
+    fix = ' && '.join(dict.fromkeys(command for _, _, command in offences[:5]))
+    return audit_finding(AUDIT_FAIL if secret else AUDIT_WARN, check, title, '; '.join(shown), fix)
+
+
+def audit_certificate(env):
+    """(issuer, subject, level) of the served certificate; level is PASS, WARN (renewal due) or FAIL (expired)."""
+    shown = run(['openssl', 'x509', '-noout', '-issuer', '-subject', '-in', str(P.tls_cert)], check=False)
+    fields = {}
+    for line in shown.stdout.splitlines():
+        name, _, value = line.partition('=')
+        fields[name.strip()] = value.strip()
+    expired = run(['openssl', 'x509', '-checkend', '0', '-noout', '-in', str(P.tls_cert)], check=False)
+    renewal = run(['openssl', 'x509', '-checkend', str(CERT_RENEW_SECONDS), '-noout', '-in', str(P.tls_cert)],
+                  check=False)
+    level = AUDIT_FAIL if expired.returncode else AUDIT_WARN if renewal.returncode else AUDIT_PASS
+    return fields.get('issuer'), fields.get('subject'), level
+
+
+def public_addresses():
+    import ipaddress
+    """Global-scope addresses of this host that the Internet can route to (no NAT in between is known)."""
+    found = []
+    for _family, address in interface_addresses():
+        try:
+            if ipaddress.ip_address(address).is_global:
+                found.append(address)
+        except ValueError:
+            continue
+    return found
+
+
+def audit_tls(env):
+    domain, cert, bind = env.get('TOFI_DOMAIN'), env.get('TOFI_TLS_CERT_FILE'), env.get('TOFI_BIND') or '127.0.0.1'
+    title = 'HTTPS and certificate'
+    if domain:
+        return audit_finding(AUDIT_PASS, 'exposure.tls', title,
+                             'HTTPS for %s, terminated by the bundled Caddy (certificate issued and renewed by Caddy)' % domain)
+    if not cert:
+        loopback = bind in ('127.0.0.1', '::1')
+        return audit_finding(AUDIT_WARN if loopback else AUDIT_FAIL, 'exposure.tls', title,
+                             'the App serves plain HTTP on %s: sign-in passwords cross the network in the clear' % bind,
+                             'sudo tofi install --yes  # re-run to restore the default HTTPS mode, or reinstall with --domain')
+    if not P.tls_cert.is_file():
+        return audit_finding(AUDIT_FAIL, 'exposure.tls', title, 'HTTPS is configured but %s is missing' % P.tls_cert,
+                             'sudo tofi regenerate-cert')
+    issuer, subject, level = audit_certificate(env)
+    kind = 'self-signed' if issuer and issuer == subject else 'issued by %s' % (issuer or 'an unknown issuer')
+    if level == AUDIT_FAIL:
+        return audit_finding(AUDIT_FAIL, 'exposure.tls', title, 'the %s certificate has expired' % kind,
+                             'sudo tofi regenerate-cert')
+    if level == AUDIT_WARN:
+        return audit_finding(AUDIT_WARN, 'exposure.tls', title,
+                             'the %s certificate expires within %d days' % (kind, CERT_RENEW_SECONDS // 86400),
+                             'sudo tofi regenerate-cert')
+    return audit_finding(AUDIT_PASS, 'exposure.tls', title, 'HTTPS on, %s certificate (fingerprint %s)'
+                         % (kind, short_fingerprint(certificate_fingerprint() or '?')))
+
+
+def audit_listening(env):
+    title = 'Listening interfaces'
+    bind, port = env.get('TOFI_BIND') or '127.0.0.1', env.get('TOFI_HTTP_PORT') or str(DEFAULT_PORT)
+    domain = env.get('TOFI_DOMAIN')
+    if domain:
+        if bind not in ('127.0.0.1', '::1'):
+            return audit_finding(AUDIT_WARN, 'exposure.listen', title,
+                                 'with a domain the App port %s is also published on %s, beside Caddy' % (port, bind),
+                                 'set TOFI_BIND=127.0.0.1 in /etc/tofi/tofi.env, then sudo tofi stop && sudo tofi start')
+        return audit_finding(AUDIT_PASS, 'exposure.listen', title,
+                             'the App port is on 127.0.0.1; only Caddy (80/443) faces the network')
+    if bind in ('127.0.0.1', '::1'):
+        return audit_finding(AUDIT_PASS, 'exposure.listen', title, 'the App listens on %s:%s only (local-only)' % (bind, port))
+    public = public_addresses()
+    if public:
+        return audit_finding(AUDIT_WARN, 'exposure.listen', title,
+                             'the App listens on %s:%s and this host has public address%s %s, so the self-signed login page '
+                             'may be reachable from the Internet (a router or firewall in front cannot be seen from here)'
+                             % (bind, port, '' if len(public) == 1 else 'es', ', '.join(public[:3])),
+                             'put it behind a domain (reinstall with --domain), a VPN, or a firewall that only admits your '
+                             'LAN; or sudo tofi install --local-only')
+    return audit_finding(AUDIT_PASS, 'exposure.listen', title,
+                         'the App listens on %s:%s; no public address on any interface (LAN only)' % (bind, port))
+
+
+def audit_lan_http(env):
+    title = 'Plain-HTTP sign-in'
+    if env.get('TOFI_DOMAIN'):
+        return audit_finding(AUDIT_PASS, 'exposure.lan_http', title,
+                             'plain HTTP is accepted only from Caddy over the Docker bridge (by design with --domain)')
+    if (env.get('TOFI_OWNER_ALLOW_LAN_HTTP') or '1') == '1':  # compose: ${...:-1}, empty means 1
+        return audit_finding(AUDIT_WARN, 'exposure.lan_http', title,
+                             'TOFI_OWNER_ALLOW_LAN_HTTP=1 lets the Admin sign in over plain HTTP from private addresses',
+                             'set TOFI_OWNER_ALLOW_LAN_HTTP=0 in /etc/tofi/tofi.env, then sudo tofi stop && sudo tofi start')
+    return audit_finding(AUDIT_PASS, 'exposure.lan_http', title, 'sign-in over plain HTTP is refused')
+
+
+def audit_admin():
+    title = 'Admin password'
+    if read_setup_secret():
+        return audit_finding(AUDIT_WARN, 'auth.admin', title,
+                             'the Admin account has not been created: a one-time setup key is still pending',
+                             'open the web page and create the Admin password now (sudo tofi setup-secret prints the key)')
+    if not P.data.is_dir():
+        return audit_finding(AUDIT_WARN, 'auth.admin', title, 'the App has not created its data yet', 'sudo tofi start')
+    return audit_finding(AUDIT_PASS, 'auth.admin', title, 'no pending setup key: the Admin account exists')
+
+
+def audit_login_limits(env):
+    title = 'Login rate limiting'
+    try:
+        compose = compose_file().read_text()
+    except OSError:
+        compose = ''
+    if not re.search(r'^\s*TOFI_OWNER_AUTH:\s*"?1"?\s*$', compose, re.M):
+        return audit_finding(AUDIT_FAIL, 'auth.rate_limit', title,
+                             'compose.yaml does not switch owner sign-in on (TOFI_OWNER_AUTH=1), so no limiter runs',
+                             'sudo tofi update --version <installed version>  # restores the shipped compose.yaml')
+    proxies = env.get('TOFI_TRUSTED_PROXIES') or ''
+    if proxies:
+        entries, error = tofi_tui.parse_proxy_list(proxies)
+        if error:
+            return audit_finding(AUDIT_FAIL, 'auth.rate_limit', title,
+                                 'TOFI_TRUSTED_PROXIES=%s is malformed or too broad: any visitor could forge '
+                                 'X-Forwarded-For and dodge the per-address limit' % proxies[:80],
+                                 'sudo tofi config trusted-proxies <your proxy IP>  # or --clear')
+        return audit_finding(AUDIT_PASS, 'auth.rate_limit', title,
+                             'limiter on (per address and per account); X-Forwarded-For trusted only from %s' % ', '.join(entries))
+    if env.get('TOFI_DOMAIN'):
+        return audit_finding(AUDIT_WARN, 'auth.rate_limit', title,
+                             'limiter on, but with a domain no proxy is trusted, so every visitor shares Caddy\'s address '
+                             'bucket and one attacker can lock everyone out',
+                             'set TOFI_TRUSTED_PROXIES=%s in /etc/tofi/tofi.env, then sudo tofi stop && sudo tofi start'
+                             % LOCAL_PROXY_CIDRS)
+    return audit_finding(AUDIT_PASS, 'auth.rate_limit', title,
+                         'limiter on (per address and per account); no proxy trusted, visitors are keyed by their own address')
+
+
+def audit_files(env):
+    findings = []
+    host_rules = [(P.etc, 0o700, 0, None), (P.env_file, 0o600, 0, None), (P.worker_json, 0o600, 0, None),
+                  (P.seccomp, 0o600, 0, None), (P.state_file, 0o600, 0, None), (P.worker, 0o700, 0, None),
+                  (P.caddy, 0o700, 0, None)]
+    findings.append(audit_file_finding('files.host', 'Host config and state files', host_rules))
+    if env.get('TOFI_TLS_CERT_FILE'):
+        findings.append(audit_file_finding('files.tls', 'HTTPS private key',
+                                           [(P.tls, 0o750, 0, (0, APP_UID)), (P.tls_key, 0o640, 0, (0, APP_UID))]))
+    secrets = P.data / 'secrets'
+    data_rules = [(P.data, 0o700, APP_UID, None), (secrets, 0o700, APP_UID, None), (secrets / 'key', 0o600, APP_UID, None),
+                  (secrets / 'vault.json', 0o600, APP_UID, None), (P.bootstrap_secret, 0o600, APP_UID, None)]
+    findings.append(audit_file_finding('files.data', 'Data directory and secret vault files', data_rules))
+    backup_rules = [(P.backups, 0o700, 0, None)]
+    try:
+        for entry in sorted(P.backups.iterdir()) if P.backups.is_dir() else []:
+            backup_rules.append((entry, 0o700, 0, None))
+            if entry.is_dir() and not entry.is_symlink():
+                backup_rules.extend((member, 0o600, 0, None) for member in sorted(entry.iterdir()))
+    except OSError:
+        pass
+    findings.append(audit_file_finding('files.backups', 'Backups (they hold a copy of the vault key)', backup_rules))
+    return findings
+
+
+def audit_env_secrets(env):
+    title = 'Secrets in tofi.env'
+    managed = set(ENV_KEYS)
+    names = sorted(name for name, value in env.items() if name not in managed and name not in MODEL_KEY_ENV_NAMES
+                   and value and SECRET_NAME_RE.search(name.upper()))
+    if not names:
+        return audit_finding(AUDIT_PASS, 'secrets.env', title, 'no credential-looking variable in /etc/tofi/tofi.env')
+    shown = ', '.join(re.sub(r'[^A-Za-z0-9_.-]', '?', name)[:60] for name in names[:10])
+    return audit_finding(AUDIT_WARN, 'secrets.env', title,
+                         '%d credential-looking variable%s in /etc/tofi/tofi.env (names only): %s%s'
+                         % (len(names), '' if len(names) == 1 else 's', shown, ' and more' if len(names) > 10 else ''),
+                         'remove them from tofi.env; enter third-party keys in the web UI so they are sealed in the vault')
+
+
+def audit_model_keys(env):
+    title = 'Model provider keys'
+    problems, notes = [], []
+    named = sorted(name for name in MODEL_KEY_ENV_NAMES if env.get(name))
+    shaped = sorted(name for name, value in env.items() if name not in named and PLAIN_KEY_RE.search(value or ''))
+    if named or shaped:
+        problems.append('%d provider key%s in plaintext in /etc/tofi/tofi.env (names only): %s'
+                        % (len(named + shaped), '' if len(named + shaped) == 1 else 's',
+                           ', '.join(re.sub(r'[^A-Za-z0-9_.-]', '?', n)[:60] for n in named + shaped)))
+    vault = P.data / 'secrets' / 'vault.json'
+    level = AUDIT_WARN if problems else AUDIT_PASS
+    if vault.is_file():
+        try:
+            text = vault.read_text()
+            records = json.loads(text)
+            if not isinstance(records, dict):
+                raise ValueError('not an object')
+        except (OSError, ValueError):
+            return audit_finding(AUDIT_WARN, 'secrets.model_keys', title, 'the vault file could not be read as JSON',
+                                 'sudo tofi doctor; restore the vault from a backup if the App cannot open it')
+        provider = [r for r in records.values() if isinstance(r, dict) and r.get('kind') == VAULT_MODEL_KIND]
+        unsealed = [r for r in provider if not r.get('ciphertext')]
+        if PLAIN_KEY_RE.search(text) or unsealed:
+            level = AUDIT_FAIL
+            problems.append('%d vault record%s hold%s a provider key without sealed ciphertext'
+                            % (max(len(unsealed), 1), '' if max(len(unsealed), 1) == 1 else 's',
+                               's' if max(len(unsealed), 1) == 1 else ''))
+        notes.append('%d sealed provider key%s in the vault' % (len(provider), '' if len(provider) == 1 else 's'))
+    if problems:
+        return audit_finding(level, 'secrets.model_keys', title, '; '.join(problems + notes),
+                             'delete the plaintext entry and enter the key again in the web UI (Settings), which seals it')
+    return audit_finding(AUDIT_PASS, 'secrets.model_keys', title,
+                         '; '.join(notes) if notes else 'no provider key on the host outside the sealed vault')
+
+
+def cached_latest():
+    """The last stored latest-release answer, read only (latest_release() would rewrite the cache)."""
+    try:
+        cached = json.loads(P.latest_cache.read_text())
+    except (OSError, ValueError):
+        return None
+    return cached if isinstance(cached, dict) and cached.get('version') else None
+
+
+def audit_versions(env, online=False):
+    title = 'TOFI version'
+    installed = env.get('TOFI_VERSION')
+    source = 'cached release check'
+    latest, checked = None, None
+    if online:
+        try:
+            latest = fetch_manifest(timeout=5)['version']
+            checked, source = iso_now(), 'GitHub, just now'
+        except HostError as error:
+            return audit_finding(AUDIT_WARN, 'versions.tofi', title,
+                                 'installed %s; the latest release could not be fetched (%s)' % (installed, str(error)[:120]),
+                                 'check the network, then sudo tofi update --check')
+    else:
+        cached = cached_latest()
+        if cached:
+            latest, checked = cached['version'], cached.get('checked_at')
+    if latest is None:
+        return audit_finding(AUDIT_WARN, 'versions.tofi', title,
+                             'installed %s; no release check is stored yet, so freshness is unknown' % installed,
+                             'sudo tofi security audit --online  # or sudo tofi update --check')
+    if is_newer(latest, installed):
+        return audit_finding(AUDIT_WARN, 'versions.tofi', title,
+                             'installed %s, latest release %s (%s, %s)' % (installed, latest, source, checked or 'time unknown'),
+                             'sudo tofi update --check, then sudo tofi update')
+    return audit_finding(AUDIT_PASS, 'versions.tofi', title, 'installed %s is the latest release known (%s, %s)'
+                         % (installed, source, checked or 'time unknown'))
+
+
+def audit_computers(env):
+    title = 'Computer images (Guest)'
+    guest, server = env.get('TOFI_GUEST_VERSION'), env.get('TOFI_VERSION')
+    if not guest or not (P.guest / guest / 'account-release.json').is_file():
+        return audit_finding(AUDIT_FAIL, 'versions.computers', title,
+                             'the pinned Guest release %s is not on disk under %s' % (guest, P.guest),
+                             'sudo tofi update --version %s  # fetches the Guest again' % server)
+    older = sorted(version for version in guest_references() if version != guest)
+    if older:
+        return audit_finding(AUDIT_WARN, 'versions.computers', title,
+                             'Guest %s is installed (server %s) but hibernated computers hold snapshots from %s'
+                             % (guest, server, ', '.join(older)),
+                             'sudo tofi computers upgrade --all')
+    return audit_finding(AUDIT_PASS, 'versions.computers', title,
+                         'Guest %s installed with server %s; no hibernated computer is on an older Guest '
+                         '(running computers: sudo tofi computers)' % (guest, server))
+
+
+def audit_backup_age():
+    title = 'Last backup'
+    backups = list_backups()
+    if not backups:
+        return audit_finding(AUDIT_WARN, 'backups.recent', title, 'no backup exists on this host',
+                             'sudo tofi backup --note first; copy backups off this machine')
+    import calendar
+    newest = backups[0]['meta'].get('created_at')
+    try:
+        taken = calendar.timegm(time.strptime(newest, '%Y-%m-%dT%H:%M:%SZ'))
+    except (TypeError, ValueError):
+        return audit_finding(AUDIT_WARN, 'backups.recent', title, 'the newest backup records no readable time',
+                             'sudo tofi backup')
+    days = (time.time() - taken) / 86400
+    detail = 'newest backup %s (%s, %.1f days ago), %d kept on this host only' % (
+        backups[0]['id'], backups[0]['meta'].get('reason'), max(days, 0), len(backups))
+    if days > BACKUP_STALE_DAYS:
+        return audit_finding(AUDIT_WARN, 'backups.recent', title, detail + '; older than %d days' % BACKUP_STALE_DAYS,
+                             'sudo tofi backup')
+    return audit_finding(AUDIT_PASS, 'backups.recent', title, detail)
+
+
+def read_journal():
+    """The install journal without load_state(), which may move restore leftovers back."""
+    try:
+        state = json.loads(P.state_file.read_text())
+    except FileNotFoundError:
+        return None
+    except (OSError, ValueError) as error:
+        raise HostError('The install journal %s is not readable (%s).' % (P.state_file, error)) from error
+    if not isinstance(state, dict) or state.get('schema') != 1 or state.get('phase') not in PHASES:
+        raise HostError('The install journal %s is not readable; inspect it before continuing.' % P.state_file)
+    return state
+
+
+def security_audit(online=False):
+    """Run every check; return {'findings', 'summary', 'exit_code', ...}. Changes nothing."""
+    require_root()
+    state = read_journal()
+    if state is None:
+        raise HostError('TOFI is not installed; run install.sh.')
+    env = read_env()
+    findings = []
+    if state['phase'] != 'installed':
+        findings.append(audit_finding(AUDIT_WARN, 'install.journal', 'Install journal',
+                                      'the install is in phase %s, not installed' % state['phase'],
+                                      'sudo tofi install  # resumes or rolls back the interrupted operation'))
+
+    def collect(check, function):
+        try:
+            result = function()
+        except Exception as error:  # one broken check must not hide the others
+            result = audit_finding(AUDIT_WARN, check, check, 'could not be checked (%s)' % str(error)[:160], 'sudo tofi doctor')
+        findings.extend(result if isinstance(result, list) else [result])
+
+    collect('exposure.tls', lambda: audit_tls(env))
+    collect('exposure.listen', lambda: audit_listening(env))
+    collect('exposure.lan_http', lambda: audit_lan_http(env))
+    collect('auth.admin', audit_admin)
+    collect('auth.rate_limit', lambda: audit_login_limits(env))
+    collect('files', lambda: audit_files(env))
+    collect('secrets.env', lambda: audit_env_secrets(env))
+    collect('secrets.model_keys', lambda: audit_model_keys(env))
+    collect('versions.tofi', lambda: audit_versions(env, online))
+    collect('versions.computers', lambda: audit_computers(env))
+    collect('backups.recent', audit_backup_age)
+    summary = {level.lower(): sum(1 for f in findings if f['level'] == level)
+               for level in (AUDIT_PASS, AUDIT_WARN, AUDIT_FAIL)}
+    return {'schema': 1, 'version': env.get('TOFI_VERSION'), 'generated_at': iso_now(), 'summary': summary,
+            'findings': findings, 'exit_code': AUDIT_FAIL_EXIT if summary['fail'] else 0}
+
+
+def render_security_audit(report):
+    lines = ['TOFI security audit (%s)' % (report.get('version') or 'unknown version'), '']
+    for finding in report['findings']:
+        lines.append('%-4s  %-20s %s' % (finding['level'], finding['id'], finding['title']))
+        lines.append('      %s' % finding['detail'])
+        if finding.get('fix'):
+            lines.append('      fix: %s' % finding['fix'])
+    summary = report['summary']
+    lines += ['', '%d PASS, %d WARN, %d FAIL.' % (summary['pass'], summary['warn'], summary['fail']),
+              'Read-only; for runtime checks (KVM, AppArmor, health) run `sudo tofi doctor`.']
+    return '\n'.join(lines) + '\n'
 
 
 if __name__ == '__main__':
