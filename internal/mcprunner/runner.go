@@ -87,6 +87,8 @@ type plugin struct {
 	lastUsed     time.Time
 	active       int
 	retiring     bool
+	// restartWhenIdle asks the last lease release to close the child (see recycle).
+	restartWhenIdle bool
 }
 
 func New(specs []Spec, idleTimeout time.Duration) (*Runner, error) {
@@ -174,7 +176,23 @@ func (r *Runner) retainPlugin(p *plugin) (func(), error) {
 	}
 	p.active++
 	p.lastUsed = time.Now()
-	return func() { p.mu.Lock(); p.active--; p.lastUsed = time.Now(); p.mu.Unlock() }, nil
+	return p.releaseLease, nil
+}
+
+// releaseLease ends one lease. When it is the last one and a recycle was deferred because the child was busy, the
+// child is closed here so the next lease starts it afresh.
+func (p *plugin) releaseLease() {
+	p.mu.Lock()
+	p.active--
+	p.lastUsed = time.Now()
+	if p.active > 0 || !p.restartWhenIdle || p.cli == nil || p.ready != nil {
+		p.mu.Unlock()
+		return
+	}
+	cli, stop, group := p.cli, p.stop, p.processGroup
+	p.cli, p.stop, p.tools, p.restartWhenIdle = nil, nil, nil, false
+	p.mu.Unlock()
+	shutdown(cli, stop, group)
 }
 
 func (r *Runner) Statuses() []Status {
@@ -313,7 +331,7 @@ func (r *Runner) acquire(ctx context.Context, p *plugin) (*mcp.ClientSession, fu
 			p.lastUsed = time.Now()
 			cli := p.cli
 			p.mu.Unlock()
-			return cli, func() { p.mu.Lock(); p.active--; p.lastUsed = time.Now(); p.mu.Unlock() }, nil
+			return cli, p.releaseLease, nil
 		}
 		if p.ready != nil {
 			ready := p.ready
