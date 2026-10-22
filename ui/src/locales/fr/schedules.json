@@ -58,7 +58,8 @@
       "turn_done": "Cette exécution est terminée",
       "turn_failed": "Cette exécution a échoué",
       "turn_cancelled": "Cette exécution a été arrêtée",
-      "turn_interrupted": "Cette exécution a été interrompue"
+      "turn_interrupted": "Cette exécution a été interrompue",
+      "quiet": "Terminé, rien publié"
     },
     "failure": {
       "receipt_missing": "Cette exécution n’a pas confirmé de résultat final ; elle n’est donc pas considérée comme livrée.",
@@ -73,7 +74,11 @@
     "manage_instructions": "Gérer · instructions complètes",
     "technical_reason": "Voir les détails techniques",
     "rerunning": "Relance…",
-    "rerun": "Relancer"
+    "rerun": "Relancer",
+    "result": {
+      "heading": "Conclusion",
+      "sources": "Sources"
+    }
   },
   "editor": {
     "edit": "Modifier",

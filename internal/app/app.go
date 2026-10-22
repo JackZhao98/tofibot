@@ -3713,9 +3713,10 @@ func (s *Server) execute(c Conversation, r Run) {
 			// A say call's text is the only thing that streams into the chat
 			// draft; plain text goes to the live status line instead.
 			state := &sayRunState{
-				raw:   controls.Raw,
-				reset: controls.Reset,
-				flush: controls.Flush,
+				holdAnswers: saySendsSources(r),
+				raw:         controls.Raw,
+				reset:       controls.Reset,
+				flush:       controls.Flush,
 				demote: func(text string) {
 					demotedMu.Lock()
 					demoted = demotedDraft{turn: maxAssistantTurns, content: text}
@@ -4102,11 +4103,19 @@ func (s *Server) execute(c Conversation, r Run) {
 	}
 	sayRec, said := s.store.sayAnswer(r.ID)
 	said = structured && said
+	quietDone := false
 	if said {
 		// say(answer) is the run's answer; text after it is not published.
 		res.Content = sayRec.Text
 		repliedFinal = false
 		s.store.noteFinalOrigin(r.ID, finalOriginSay)
+		if sayRec.Quiet && (r.Kind == runKindSchedule || r.scheduleTask != nil) {
+			// A quiet scheduled answer is the run's recorded conclusion; no chat
+			// message carries it (D52).
+			quietDone = true
+			res.Content = ""
+			s.store.noteFinalOrigin(r.ID, finalOriginQuiet)
+		}
 	}
 	if r.Kind == runKindSchedule || r.scheduleTask != nil {
 		if err := steeringBoundary(); err != nil {
@@ -4143,7 +4152,7 @@ func (s *Server) execute(c Conversation, r Run) {
 				}
 			}
 		}
-		if cleanBotOutput(res.Content, botCfg) == "" && !repliedFinal {
+		if cleanBotOutput(res.Content, botCfg) == "" && !repliedFinal && !quietDone {
 			s.failRun(c, r, errors.New("scheduled task confirmed a result but returned no final answer"))
 			return
 		}
@@ -4221,7 +4230,7 @@ func (s *Server) execute(c Conversation, r Run) {
 		}
 	}
 	var promotedBeat *Message
-	if res.Content == "" && !repliedFinal {
+	if res.Content == "" && !repliedFinal && !quietDone {
 		required, err := s.store.finalAnswerRequired(r.ID)
 		if err != nil {
 			s.failRun(c, r, err)
