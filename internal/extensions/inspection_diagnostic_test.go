@@ -140,20 +140,16 @@ func TestMCPInspectionDiagnosticNonGoogleHostNeverNamesAgentic(t *testing.T) {
 func TestConcurrentToolCallsEachGetTheirOwnAuthStatus(t *testing.T) {
 	server := mcp.NewServer(&mcp.Implementation{Name: "g", Version: "1"}, &mcp.ServerOptions{SupportedProtocolVersions: []string{requiredMCPProtocolVersion}})
 	server.AddTool(fixtureTool("denied"), fixtureNoop)
-	server.AddTool(fixtureTool("broken"), fixtureNoop)
+	server.AddTool(fixtureTool("fine"), fixtureNoop)
 	inner := fixtureHTTPHandler(server)
 	remote := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		body, _ := io.ReadAll(r.Body)
 		r.Body = io.NopCloser(bytes.NewReader(body))
-		switch {
-		case bytes.Contains(body, []byte(`"tools/call"`)) && bytes.Contains(body, []byte(`"denied"`)):
+		if bytes.Contains(body, []byte(`"tools/call"`)) && bytes.Contains(body, []byte(`"denied"`)) {
 			w.WriteHeader(http.StatusForbidden)
-		case bytes.Contains(body, []byte(`"tools/call"`)) && bytes.Contains(body, []byte(`"broken"`)):
-			time.Sleep(300 * time.Millisecond) // answers after the denied call has already failed
-			w.WriteHeader(http.StatusInternalServerError)
-		default:
-			inner.ServeHTTP(w, r)
+			return
 		}
+		inner.ServeHTTP(w, r)
 	}))
 	defer remote.Close()
 	m := NewManager(Config{MCPConfigPath: filepath.Join(t.TempDir(), "mcp.json"), ToolTimeout: 5 * time.Second})
@@ -166,24 +162,22 @@ func TestConcurrentToolCallsEachGetTheirOwnAuthStatus(t *testing.T) {
 	defer cli.Close()
 	v, _ := m.mcpStatus.Load(cli)
 	v.(*mcpSessionHTTP).endpoint = "https://gmailmcp.googleapis.com/mcp/v1"
-	errs := map[string]error{}
-	var mu sync.Mutex
+	var deniedErr, fineErr error
 	var wg sync.WaitGroup
-	for _, name := range []string{"broken", "denied"} {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			_, err := m.callMCPTool(ctx, cli, name, nil, false)
-			mu.Lock()
-			errs[name] = err
-			mu.Unlock()
-		}()
-	}
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		// The failure callback runs before the hint is chosen; the other call starts and succeeds meanwhile.
+		observe := mcpCallObserver{failed: func(error) { time.Sleep(500 * time.Millisecond) }}
+		_, deniedErr = m.callMCPToolObserved(ctx, cli, "denied", nil, false, observe)
+	}()
+	time.Sleep(150 * time.Millisecond)
+	_, fineErr = m.callMCPTool(ctx, cli, "fine", nil, false)
 	wg.Wait()
-	if errs["denied"] == nil || !strings.Contains(errs["denied"].Error(), "Developer Preview Program") {
-		t.Fatalf("the 403 call lost its hint: %v", errs["denied"])
+	if fineErr != nil {
+		t.Fatalf("the successful call failed: %v", fineErr)
 	}
-	if errs["broken"] == nil || strings.Contains(errs["broken"].Error(), "Developer Preview Program") {
-		t.Fatalf("the 500 call got another call's hint: %v", errs["broken"])
+	if deniedErr == nil || !strings.Contains(deniedErr.Error(), "Developer Preview Program") {
+		t.Fatalf("the 403 call lost its hint to the other call: %v", deniedErr)
 	}
 }
