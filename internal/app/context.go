@@ -32,7 +32,20 @@ const (
 	maxMemoryRunes     = 8000
 	maxSummaryRunes    = 8000
 	maxSearchRunes     = 16000
+	// earlierNoteReserve is the history room kept for the note that says earlier
+	// turns exist beyond the window.
+	earlierNoteReserve = 400
 )
+
+// earlierTurnsNote tells the model that the conversation reaches back further
+// than the history it was given. Anthropic's context-engineering guidance has
+// the agent keep lightweight references and retrieve on demand; this is the
+// reference, and search_history is the retrieval.
+const earlierTurnsNote = "[earlier conversation]\nThis conversation began before the turns shown here. Earlier turns are not displayed beyond the summary, if any; search_history finds their original wording.\n[/earlier conversation]"
+
+// memoryAndRecallGuidance is the standing principle for durable facts and for
+// reaching back into the conversation.
+const memoryAndRecallGuidance = "Memory: when the person tells you something durable about themselves, the people, animals or things in their life, their preferences or their plans, save it with save_memory when you learn it; the memory block lists what is saved. When the person refers to something from before that you do not see in the visible conversation or the memory, look for it with search_history before you answer or say you do not know.\n"
 
 const conversationWorkGuidance = "For research, email, web tasks, installs, ongoing work or team setup, read the matching skill (read_workflow_guide) first; chat needs none. Search unfamiliar names or terms before asking about them, in groups as in DMs. A work, product, person or event a person names has its identity and current status confirmed by a search before you answer, even when the name seems familiar. A claim presented as checked, current or verified, and any figure or attribution presented as sourced, rests on a page you opened in this run (search results are leads), else say it is from memory; if you cannot search, offer your best reading marked as from memory instead of asking.\n"
 
@@ -446,7 +459,7 @@ func (s *Server) buildContextPartsWith(c Conversation, r Run, bot Bot, cachedMCP
 			}
 		}
 	}
-	msgs, _, _ := s.store.Messages(contextConversationID, before, 200)
+	msgs, moreBefore, _ := s.store.Messages(contextConversationID, before, 200)
 	if roundMessages, boundary, ok := s.store.groupRoundContext(r, contextConversationID); ok {
 		msgs = roundMessages
 		before = boundary
@@ -683,12 +696,16 @@ func (s *Server) buildContextPartsWith(c Conversation, r Run, bot Bot, cachedMCP
 	// The run-context note beside the request (time, the say and lookup lines)
 	// is sent outside the history; keep room for it so the total stays inside
 	// the context budget.
-	historyLimit := maxHistoryRunes - handoffReserve - requestNoteReserve
+	historyLimit := maxHistoryRunes - handoffReserve - requestNoteReserve - earlierNoteReserve
 	// The summary covers seq <= covered; keep only a small verbatim overlap of
 	// summarized messages so the transition stays coherent.
 	summarizedKept := 0
 	ownKept := 0
-	for i := len(msgs) - 1; i >= 0 && used < historyLimit; i-- {
+	// earlier is set when a message the model has no other view of (not covered
+	// by the summary) stays out of the window, or older pages were not fetched.
+	earlier := moreBefore || summary != ""
+	i := len(msgs) - 1
+	for ; i >= 0 && used < historyLimit; i-- {
 		m := msgs[i]
 		if m.Seq <= covered && m.ID != r.TriggerMessageID {
 			if summarizedKept >= summaryOverlapMessages {
@@ -749,10 +766,22 @@ func (s *Server) buildContextPartsWith(c Conversation, r Run, bot Bot, cachedMCP
 		content = trimRunes(visual.Content, historyLimit-used)
 		cost := len([]rune(content))
 		if cost == 0 || used+cost > historyLimit {
+			if m.Seq > covered {
+				earlier = true
+			}
 			continue
 		}
 		chosen = append(chosen, runtime.Message{Role: role, Content: content, ImageURLs: visual.ImageURLs})
 		used += cost
+	}
+	for ; i >= 0; i-- {
+		if msgs[i].Seq > covered {
+			earlier = true
+			break
+		}
+	}
+	if earlier {
+		pm = append(pm, runtime.Message{Role: "user", Content: earlierTurnsNote})
 	}
 	for i, j := 0, len(chosen)-1; i < j; i, j = i+1, j-1 {
 		chosen[i], chosen[j] = chosen[j], chosen[i]
@@ -799,7 +828,7 @@ func (s *Server) buildContextPartsWith(c Conversation, r Run, bot Bot, cachedMCP
 	if zone, err := s.store.userTimezone(); err == nil && zone != "" {
 		zoneGuidance = "User timezone: " + zone
 	}
-	system := authoredInstructionGuidance + conversationWorkGuidance + contextReuseGuidance + taskCompletionGuidance + segmentedReplyGuidance + reactionAndEmojiGuidance + fmt.Sprintf("You are Bot %s (id=%s). Speak in your Bot instructions' persona and voice in every reply. Sender labels identify other participants: never impersonate them. Delegate with tools.\n%s\nPromise future work only after scheduling; no self-renewing loops.\n", bot.Name, bot.ID, zoneGuidance)
+	system := authoredInstructionGuidance + conversationWorkGuidance + contextReuseGuidance + memoryAndRecallGuidance + taskCompletionGuidance + segmentedReplyGuidance + reactionAndEmojiGuidance + fmt.Sprintf("You are Bot %s (id=%s). Speak in your Bot instructions' persona and voice in every reply. Sender labels identify other participants: never impersonate them. Delegate with tools.\n%s\nPromise future work only after scheduling; no self-renewing loops.\n", bot.Name, bot.ID, zoneGuidance)
 	if c.Kind == "group" && c.UserVisible && r.Kind != runKindTriage {
 		if r.structured {
 			system += "\n" + groupDispositionGuidanceStructured

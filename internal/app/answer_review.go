@@ -135,11 +135,16 @@ func answerRevision(gaps []criterionResult, criteria []rubricCriterion) string {
 }
 
 // answerGateScope says whether a run's answers are graded: structured replies
-// in a conversation a person can see, scheduled runs included (a scheduled
-// report is read later by the same person and nothing waits on it), hidden and
-// internal turns and triage excluded.
+// to work that nobody is waiting on. Of the run kinds in the code
+// (collaboration.go, group_mention.go) only scheduled occurrences, group
+// schedules included, start without a person's message: "" (a DM message),
+// group_chat, group_mention, team, message, group_task and group_followup all
+// belong to a turn a person started and may be watching, so chat keeps
+// streaming exactly as before. Hidden or internal conversations and triage are
+// out as well.
 func answerGateScope(c Conversation, r Run, structured bool) bool {
-	return structured && r.Kind != runKindTriage && c.UserVisible
+	scheduled := r.Kind == runKindSchedule || r.scheduleTask != nil
+	return structured && scheduled && r.Kind != runKindTriage && c.UserVisible
 }
 
 // graderInput assembles what the grader may see: the request, the visible

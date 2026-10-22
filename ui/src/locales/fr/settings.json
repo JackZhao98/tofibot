@@ -840,8 +840,8 @@
         "what": "Après avoir utilisé des outils, un Bot confronte une fois sa réponse aux résultats réels avant de l’envoyer."
       },
       "answer_gate": {
-        "name": "Relire les réponses avant de les afficher",
-        "what": "Un relecteur lit chaque brouillon de réponse selon une grille avant que vous la voyiez, et un brouillon faible retourne au Bot pour une nouvelle tentative. C’est le nombre maximal de renvois ; 0 désactive la relecture. Les réponses apparaissent un peu plus tard."
+        "name": "Relire les tâches planifiées et de fond avant livraison",
+        "what": "Un relecteur lit chaque brouillon de résultat d’une exécution planifiée selon une grille avant sa livraison, et un brouillon faible retourne au Bot pour une nouvelle tentative. C’est le nombre maximal de renvois ; 0 désactive la relecture. Les réponses de chat ne sont jamais relues."
       },
       "mcp_auto_review": {
         "name": "Revue automatique des appels d’outils",

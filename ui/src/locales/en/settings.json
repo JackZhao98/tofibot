@@ -831,8 +831,8 @@
         "what": "After using tools, a Bot checks its answer against the actual results once before it replies."
       },
       "answer_gate": {
-        "name": "Review replies before they are shown",
-        "what": "A reviewer reads each draft reply against a rubric before you see it, and a weak draft goes back to the Bot for another try. This is how many times a draft can be sent back; 0 turns the review off. Replies appear a moment later."
+        "name": "Review scheduled and background work before delivery",
+        "what": "A reviewer reads each draft result of a scheduled run against a rubric before it is delivered, and a weak draft goes back to the Bot for another try. This is how many times a draft can be sent back; 0 turns the review off. Chat replies are never reviewed."
       },
       "mcp_auto_review": {
         "name": "Automatic review of tool calls",

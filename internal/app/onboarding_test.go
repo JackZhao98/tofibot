@@ -7,8 +7,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/google/uuid"
 	"github.com/JackZhao98/tofibot/internal/runtime"
+	"github.com/google/uuid"
 )
 
 func profileValue(value string) *string { return &value }

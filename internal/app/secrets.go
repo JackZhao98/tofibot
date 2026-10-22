@@ -285,6 +285,7 @@ func (s *Server) handleSecrets(w http.ResponseWriter, r *http.Request) bool {
 	fail(405, "Method not allowed")
 	return true
 }
+
 // A reference lives this long after the human submitted it.
 const secretReferenceLifetime = 15 * time.Minute
 

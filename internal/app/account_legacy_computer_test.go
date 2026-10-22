@@ -13,8 +13,8 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/google/uuid"
 	"github.com/JackZhao98/tofibot/internal/computer"
+	"github.com/google/uuid"
 )
 
 func TestAccountLegacyComputerBindingRoutingAndRetainedDataRollback(t *testing.T) {

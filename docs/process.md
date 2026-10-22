@@ -81,7 +81,7 @@ go test ./internal/app -run <测试名>; echo "exit=$?"   # 必须为 0
 
 | 套件 | 命令 | 在 CI 里吗 |
 |---|---|---|
-| Go 构建、单测、静态检查 | `go build ./...`、`go test ./...`（`Makefile:12-13`）、`go vet ./...`、`scripts/check-gofmt.sh`（新的未格式化文件失败；`.gofmt-baseline` 里的旧文件只减不增，格式化后必须从中删掉） | 是，`ci.yml` go 作业 |
+| Go 构建、单测、静态检查 | `go build ./...`、`go test ./...`（`Makefile:12-13`）、`go vet ./...`、`scripts/check-gofmt.sh`（任何未格式化的 `.go` 文件都失败；10-21 已全部格式化，基线文件已删除） | 是，`ci.yml` go 作业 |
 | UI 类型检查 | `npm --prefix ui run typecheck` | 是，`ci.yml:35` |
 | UI 硬编码文案检查 | `npm --prefix ui run test:i18n`（规则见 `ui/src/locales/README.md`） | 是，`ci.yml:36` |
 | UI 构建 | `npm --prefix ui run build` | 是，`ci.yml:37` |

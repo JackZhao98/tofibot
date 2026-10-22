@@ -62,10 +62,31 @@ const (
 	gradeGap  = `{"criteria":[{"id":"C1","result":"met","note":""},{"id":"C2","result":"met","note":""},{"id":"C3","result":"gap","note":"Hands the work back to the person."},{"id":"C4","result":"met","note":""}]}`
 )
 
-// gateHook, when set by a test, receives the server and run before the run starts.
-var gateHook func(*Server, Run)
+// gateHook, when set by a test, receives the server and conversation before the run starts.
+var gateHook func(*Server, string)
 
+// gateRunWith runs one scheduled occurrence in a group, the kind of work the
+// answer gate reviews (nobody is waiting on it).
 func gateRunWith(t *testing.T, engine runtime.Engine, g *gradeProvider, settings string) (*Server, Run) {
+	t.Helper()
+	retainDeltaEvents(t)
+	f := newDedupeFixture(t, engine)
+	if g != nil {
+		f.server.answerGraderProvider = g
+	}
+	if settings != "" {
+		if code := autoPutCode(t, f.server, settings); code != http.StatusOK {
+			t.Fatalf("put=%d", code)
+		}
+	}
+	if gateHook != nil {
+		gateHook(f.server, f.group.ID)
+	}
+	return f.server, runScheduledOnce(t, f)
+}
+
+// gateChatRun runs one person-triggered DM turn, which the gate never reviews.
+func gateChatRun(t *testing.T, engine runtime.Engine, g *gradeProvider) (*Server, Run) {
 	t.Helper()
 	retainDeltaEvents(t)
 	s, err := NewServer(Config{DataDir: t.TempDir(), Engine: engine})
@@ -73,15 +94,8 @@ func gateRunWith(t *testing.T, engine runtime.Engine, g *gradeProvider, settings
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { s.Close() })
-	if g != nil {
-		s.answerGraderProvider = g
-	}
-	if settings != "" {
-		if code := autoPutCode(t, s, settings); code != http.StatusOK {
-			t.Fatalf("put=%d", code)
-		}
-	}
-	b, err := s.store.CreateBot("gate fixture", "", "model")
+	s.answerGraderProvider = g
+	b, err := s.store.CreateBot("gate chat fixture", "", "model")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -89,9 +103,6 @@ func gateRunWith(t *testing.T, engine runtime.Engine, g *gradeProvider, settings
 	_, run, _, err := s.store.AddUserRun(c.ID, b.ID, "What did I tell you earlier about the synthetic project?", "gate-"+t.Name())
 	if err != nil {
 		t.Fatal(err)
-	}
-	if gateHook != nil {
-		gateHook(s, run)
 	}
 	s.enqueue(c, run)
 	return s, waitRunTerminal(t, s, run.ID)
@@ -219,7 +230,7 @@ func TestGraderSeesOnlyWhatTheRecipientSees(t *testing.T) {
 		t.Fatalf("run=%+v grader=%d", run, g.calls.Load())
 	}
 	in := g.requests[0]
-	for _, want := range []string{"What did I tell you earlier about the synthetic project?", "The delivered synthetic reply.", "## C1", "## C4"} {
+	for _, want := range []string{"post the daily synthetic note", "The delivered synthetic reply.", "## C1", "## C4"} {
 		if !strings.Contains(in, want) {
 			t.Fatalf("grader input lacks %q", want)
 		}
@@ -236,8 +247,8 @@ func TestGraderSeesOnlyWhatTheRecipientSees(t *testing.T) {
 func TestDraftIsHeldFromTheStreamUntilItPasses(t *testing.T) {
 	var seenDuringGrading []string
 	g := &gradeProvider{replies: []string{gradePass}}
-	gateHook = func(s *Server, run Run) {
-		g.onCall = func() { seenDuringGrading = deltaTexts(t, s.store, run.ConversationID) }
+	gateHook = func(s *Server, conv string) {
+		g.onCall = func() { seenDuringGrading = deltaTexts(t, s.store, conv) }
 	}
 	defer func() { gateHook = nil }()
 	s, run := gateRunWithStore(t, g)
@@ -269,6 +280,7 @@ func gateRunWithStore(t *testing.T, g *gradeProvider) (*Server, Run) {
 
 func TestGateScope(t *testing.T) {
 	visible := Conversation{UserVisible: true}
+	group := Conversation{Kind: "group", UserVisible: true}
 	for _, tc := range []struct {
 		name       string
 		c          Conversation
@@ -276,16 +288,43 @@ func TestGateScope(t *testing.T) {
 		structured bool
 		want       bool
 	}{
-		{"visible chat", visible, Run{}, true, true},
-		{"group turn", Conversation{Kind: "group", UserVisible: true}, Run{Kind: runKindGroupChat}, true, true},
-		{"scheduled run", visible, Run{Kind: runKindSchedule}, true, true},
-		{"hidden conversation", Conversation{}, Run{}, true, false},
+		{"scheduled occurrence", visible, Run{Kind: runKindSchedule}, true, true},
+		{"group schedule", group, Run{Kind: runKindSchedule}, true, true},
+		{"person's DM message", visible, Run{}, true, false},
+		{"person's group message", group, Run{Kind: runKindGroupChat}, true, false},
+		{"group mention", group, Run{Kind: runKindGroupMention}, true, false},
+		{"delegated work", group, Run{Kind: runKindTeam}, true, false},
+		{"delegated message", group, Run{Kind: runKindMessage}, true, false},
+		{"group task", group, Run{Kind: runKindGroupTask}, true, false},
+		{"follow-up to a delegation", group, Run{Kind: runKindFollowup}, true, false},
+		{"hidden scheduled", Conversation{}, Run{Kind: runKindSchedule}, true, false},
 		{"triage", visible, Run{Kind: runKindTriage}, true, false},
-		{"plain-text protocol", visible, Run{}, false, false},
+		{"plain-text protocol", visible, Run{Kind: runKindSchedule}, false, false},
 	} {
 		if got := answerGateScope(tc.c, tc.r, tc.structured); got != tc.want {
 			t.Fatalf("%s: got %v", tc.name, got)
 		}
+	}
+}
+
+// A person-triggered answer streams from its first character and the grader is
+// never called: chat is exactly as it was before the gate.
+func TestPersonTriggeredAnswerStreamsAndIsNeverGraded(t *testing.T) {
+	g := &gradeProvider{replies: []string{gradeGap}}
+	s, run := gateChatRun(t, dmFuncEngine(func(ctx context.Context, req runtime.Request) (runtime.Result, error) {
+		req.OnToolCallDelta(runtime.ToolCallDelta{Index: 0, ID: "g1", Name: "say"})
+		req.OnToolCallDelta(runtime.ToolCallDelta{Index: 0, Arguments: `{"purpose":"answer","text":"Streams `})
+		time.Sleep(150 * time.Millisecond) // the draft flushes on a timer
+		req.OnToolCallDelta(runtime.ToolCallDelta{Index: 0, Arguments: `right away."}`})
+		_, err := callTool(ctx, req, "say", "g1", map[string]any{"purpose": "answer", "text": "Streams right away."})
+		return runtime.Result{}, err
+	}), g)
+	if run.Status != "done" || g.calls.Load() != 0 {
+		t.Fatalf("run=%+v grader calls=%d", run, g.calls.Load())
+	}
+	deltas := deltaTexts(t, s.store, run.ConversationID)
+	if len(deltas) < 2 || !strings.HasPrefix(deltas[0], "Streams") || strings.Join(deltas, "") != "Streams right away." {
+		t.Fatalf("deltas = %q", deltas)
 	}
 }
 
