@@ -1,0 +1,72 @@
+/* Settings › Connections: status dots by kind, the tools details view, and the connect dialog (docs/design/components.md §17). */
+.mcp-settings .mcp-service[data-kind=needs_auth] .mcp-service-status i{background:var(--honey);opacity:1}
+.mcp-settings .mcp-service[data-kind=error] .mcp-service-status i,.mcp-settings .mcp-service[data-kind=api_disabled] .mcp-service-status i{background:var(--danger);opacity:1}
+.mcp-service-detail{margin-left:2px;font-size:12px;color:var(--muted);overflow-wrap:anywhere}
+.mcp-service-detail::before{content:"\00b7";margin-right:6px}
+.mcp-tools-title{display:flex;align-items:center;justify-content:space-between;gap:12px;min-height:36px}
+.mcp-tools-title strong{font:600 12px/1.4 var(--display);color:var(--ink-soft)}
+.mcp-tools-title .text-button{min-height:36px;padding:0 4px;font-size:12px}
+
+/* The connect dialog reuses the sheet frame; the directory and forms inside it are plain lists, not cards. */
+.sheet.connect-dialog{width:min(560px,100%);gap:16px;padding:0}
+.connect-head{position:sticky;top:0;z-index:1;display:flex;align-items:center;gap:12px;padding:18px 20px 8px;background:var(--surface)}
+.connect-head .close-button{flex:none;width:36px;height:36px;min-width:36px}
+.connect-title{min-width:0;flex:1}
+.connect-title h3{margin:0;font:600 17px/1.3 var(--display);overflow-wrap:anywhere}
+.connect-title p{margin:4px 0 0;font-size:12px;line-height:1.5;color:var(--muted);max-width:52ch}
+.connect-dialog>:is(.connect-directory,.connect-form,.connect-body){padding:0 20px 20px}
+.connect-dialog .integration-search{margin:0 0 16px!important}
+.connect-dialog .integration-grid{grid-template-columns:1fr;gap:0}
+.connect-dialog .integration-tile{min-height:68px;border:0;border-bottom:1px solid var(--line-soft);border-radius:0;padding:12px 4px;background:transparent;box-shadow:none;transform:none}
+.connect-dialog .integration-tile:hover:not(:disabled){background:color-mix(in srgb,var(--text) 4%,transparent);box-shadow:none;transform:none}
+.connect-dialog .integration-tile small{margin-top:3px}
+.connect-dialog .integration-details{margin-top:3px}
+.connect-dialog .integration-section{margin-bottom:18px}
+.connect-dialog .integration-held{margin-bottom:0}
+.connect-dialog .integration-held li{padding:12px 4px}
+.connect-form .form-fields{display:grid;gap:14px;min-width:0;margin:0;padding:0;border:0}
+.connect-form label,.connect-field{display:grid;gap:6px;margin:0;font-size:13px}
+.connect-form .extension-check{display:flex;align-items:center;gap:8px}
+.connect-form .disclosure{margin:0}
+.connect-form .integration-guide{border:0;padding:8px 0 0;background:none}
+.connect-form .disclosure-inner label+label{margin-top:12px}
+.connect-body{display:grid;gap:14px;align-content:start}
+.connect-lead{margin:0;font-size:13px;line-height:1.6;color:var(--ink-soft);max-width:60ch}
+.connect-steps{display:grid;gap:16px;margin:0;padding:0 0 0 22px;font-size:13px;line-height:1.6;list-style:decimal}
+.connect-steps>li{display:list-item;padding-left:4px}
+.connect-steps>li>*+*{margin-top:10px}
+.connect-steps>li::marker{color:var(--muted)}
+.connect-steps p{margin:0;color:var(--ink-soft)}
+.connect-code{display:block;overflow-wrap:anywhere;padding:9px 12px;border-radius:8px;background:var(--sunk);font-size:12px}
+.connect-link{display:inline-flex;align-items:center;min-height:44px;color:var(--ink);text-underline-offset:4px}
+.connect-dialog .sheet-actions{padding-top:4px}
+.connect-dialog .mcp-google-setup p{margin:12px 0 4px;color:var(--ink-soft);font:var(--type-meta)}
+.connect-dialog .mcp-google-setup nav{display:flex;flex-wrap:wrap;column-gap:18px}
+.connect-dialog .mcp-google-setup a{display:inline-flex;align-items:center;min-height:44px;color:var(--ink-soft);font:var(--type-meta);text-underline-offset:4px}
+@media(max-width:767px){
+  .sheet.connect-dialog{max-height:calc(100dvh - 16px)}
+  .connect-head{padding:14px 16px 8px}
+  .connect-dialog>:is(.connect-directory,.connect-form,.connect-body){padding:0 16px 16px}
+}
+.mcp-service-details{display:grid;gap:8px;margin:10px 0 0 52px;max-width:65ch}
+.mcp-service-source{margin:0;font-size:12px;line-height:1.6;color:var(--muted);overflow-wrap:anywhere}
+.mcp-settings .mcp-service-details .mcp-service-tools{margin:4px 0 0}
+.connect-dialog .integration-preview .disclosure{margin:0}
+.connect-dialog .integration-preview .integration-catalog-note{margin:0 0 8px}
+@media(max-width:420px){.mcp-service-details{margin-left:0}}
+.repo-link{display:inline-flex;align-items:center;gap:6px;min-height:24px;color:var(--muted);font-size:12px;text-decoration:none;overflow-wrap:anywhere}
+.repo-link:hover{color:var(--ink);text-decoration:underline;text-underline-offset:3px}
+.repo-link:focus-visible{outline:var(--focus-ring-width) solid var(--focus-ring);outline-offset:3px;border-radius:var(--radius-sm)}
+.repo-mark{flex:none;display:block}
+.repo-mark-dark{display:none}
+:root[data-theme="dark"] .repo-mark-light{display:none}
+:root[data-theme="dark"] .repo-mark-dark{display:block}
+.repo-stars{white-space:nowrap}
+.connect-dialog .integration-item{border-bottom:1px solid var(--line-soft)}
+.connect-dialog .integration-item .integration-tile{border-bottom:0}
+.integration-repo{padding:0 4px 10px 54px}
+.connect-dialog .integration-search input{width:100%;padding-left:40px;background:var(--sunk);border-color:transparent}
+.connect-dialog .integration-tile>span:nth-child(2){flex:1;min-width:0}
+.connect-dialog .integration-tile>svg:last-child,.connect-dialog .integration-tile>.integration-added{flex:none}
+.connect-env{display:grid;gap:8px;margin:0;padding:0;border:0;min-width:0}.connect-env legend{padding:0;margin-bottom:6px;font-size:13px}.connect-env-row{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,2fr);gap:8px}.connect-env .secondary-button{justify-self:start}
+.mcp-service-source{overflow-wrap:anywhere}

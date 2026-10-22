@@ -7,6 +7,7 @@ import (
 	"strings"
 	"sync/atomic"
 
+	"github.com/JackZhao98/tofibot/internal/googleapi"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
@@ -28,6 +29,18 @@ func mcpInspectionDiagnostic(name, endpoint string, err error) Diagnostic {
 	if err == nil {
 		return d
 	}
+	// "API not enabled" is read from Google's structured error (ErrorInfo reason SERVICE_DISABLED), never from wording.
+	if failure, ok := googleapi.ParseFailure(err.Error()); ok {
+		d.Code, d.Message = "api_disabled", "Google 返回 API 未启用。请在 OAuth Client 所属的同一个项目中启用产品 API 和 MCP 服务，再刷新工具。"
+		// The link is built here from the endpoint's own API and the validated project, never from the error body.
+		host := ""
+		if parsed, perr := url.Parse(endpoint); perr == nil {
+			host = parsed.Hostname()
+		}
+		d.API = googleMCPProductAPI(host, failure.API)
+		d.EnableURL = googleapi.EnableURL(d.API, failure.Project)
+		return d
+	}
 	// Google documents no machine-readable reason for a non-agentic OAuth
 	// client, so this classifies by host plus the HTTP status the transport
 	// saw, never by message text.
@@ -35,14 +48,26 @@ func mcpInspectionDiagnostic(name, endpoint string, err error) Diagnostic {
 	authStatus := errors.As(err, &httpErr) && (httpErr.Status == http.StatusUnauthorized || httpErr.Status == http.StatusForbidden)
 	message := strings.ToLower(err.Error())
 	switch {
-	case strings.Contains(message, "service_disabled"), strings.Contains(message, "accessnotconfigured"), strings.Contains(message, "has not been used in project") && strings.Contains(message, "is disabled"):
-		d.Code, d.Message = "api_disabled", "Google 返回 API 未启用。请在 OAuth Client 所属的同一个项目中启用产品 API 和 MCP 服务，再刷新工具。"
 	case strings.Contains(message, "access_denied"):
 		d.Code, d.Message = "access_denied", "Google 拒绝了访问。若应用处于测试模式，请检查当前账号是否在测试用户中；也可能是账号或组织限制。"
 	case authStatus, strings.Contains(message, "permission_denied"), strings.Contains(message, "status 403"), strings.Contains(message, "status code: 403"):
 		d.Code, d.Message = "permission_denied", "Google 拒绝读取工具。请先确认 Cloud 项目已加入 Google Workspace Developer Preview Program，再确认 OAuth Client 已勾选“Use this client for an AI-powered agent”（2026-11-11 起 Workspace MCP 拒绝未标记的 Client；该设置在 11-12 后固定，需新建 Client）；最后检查 API / MCP 启用状态和账号权限。401 / 403 本身不能确定是哪一项。"
 	}
 	return d
+}
+
+// googleMCPProductAPI picks the API to enable: the one the error names when it is a known API, else the product API
+// of the Workspace MCP endpoint that was called.
+func googleMCPProductAPI(host, named string) string {
+	if googleapi.KnownAPI(named) {
+		return named
+	}
+	for service, mcpAPI := range googleapi.ServiceMCPAPI {
+		if mcpAPI == host {
+			return googleapi.ServiceAPI[service]
+		}
+	}
+	return ""
 }
 
 // isGoogleWorkspaceMCPEndpoint is true only for the exact https Workspace MCP

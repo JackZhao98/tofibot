@@ -21,6 +21,12 @@ func (s *Server) routeExtensions(w http.ResponseWriter, r *http.Request, p strin
 		writeErr(w, 503, "extensions_unavailable", "extensions unavailable")
 		return true
 	}
+	if s.routeRepoStars(w, r, p) {
+		return true
+	}
+	if s.routeGoogle(w, r, p) {
+		return true
+	}
 	if s.routeLocalMCP(w, r, p) {
 		return true
 	}
@@ -81,9 +87,14 @@ func (s *Server) routeExtensions(w http.ResponseWriter, r *http.Request, p strin
 		status := http.StatusBadRequest
 		if errors.Is(err, extensions.ErrOAuthDenied) {
 			page.State, page.Message = "denied", "服务提供方未授予访问权限，可能是取消了授权或账号不符合应用的访问条件。请检查配置后重新连接。"
+			if page.APIURL != "" {
+				page.Setup = "audience"
+			}
 		} else if err == nil {
-			page.State, page.Message = "success", "授权已保存。请返回 Tofi 验证工具是否可用；授权成功不代表服务 API 已启用。"
 			_, _ = s.store.WorkspaceEvent(workspaceScopeConfig)
+			// Read the tools right away: a working connection says so and shows nothing else; a missing API or
+			// test user is named with the one place that fixes it.
+			oauthVerifiedPage(&page, s.extensions.InspectMCP(r.Context(), name))
 			status = http.StatusOK
 		}
 		writeOAuthCompletion(w, status, page)
@@ -116,9 +127,14 @@ func (s *Server) routeExtensions(w http.ResponseWriter, r *http.Request, p strin
 			ToolAllowlist []string                `json:"tool_allowlist"`
 			ToolDenylist  []string                `json:"tool_denylist"`
 			OAuth         *extensions.OAuthConfig `json:"oauth"`
+			// GoogleClient: sign in with the workspace's saved Google OAuth client instead of asking for one again.
+			GoogleClient bool `json:"google_client"`
 		}
 		if e := decodeExtensionJSON(r, &in); e != nil {
 			writeErr(w, 400, "invalid_request", e.Error())
+			return true
+		}
+		if in.GoogleClient && !s.useWorkspaceGoogleClient(w, &in.OAuth) {
 			return true
 		}
 		e := s.extensions.SaveMCP(in.Name, extensions.MCPServerConfig{URL: in.URL, Transport: in.Transport, Headers: in.Headers, ToolAllowlist: in.ToolAllowlist, ToolDenylist: in.ToolDenylist, OAuth: in.OAuth}, r.Method == http.MethodPut)

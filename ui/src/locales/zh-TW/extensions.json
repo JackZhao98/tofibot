@@ -1,6 +1,7 @@
 {
   "action": {
-    "cancel": "取消"
+    "cancel": "取消",
+    "close": "關閉"
   },
   "auth": {
     "bot_token": "Bot 權杖",
@@ -11,18 +12,24 @@
   },
   "browser": {
     "added": "已新增",
-    "back": "已新增",
-    "custom": "自訂 MCP",
     "empty": "找不到符合的服務。可以新增自訂 MCP。",
     "held_label": "暫不可新增的服務",
     "held_title": "暫不可新增",
-    "intro": "選擇連線預設，新增後確認授權與工具連線。",
+    "intro": "選擇要連線的服務，下一步完成設定。",
     "read_only_tools": "唯讀工具",
     "retired": "已停止維護",
     "retired_origin": "提供者舊專案",
     "search": "搜尋服務",
     "services": "服務連線",
-    "title": "新增服務"
+    "local_details": "在本伺服器執行 · OAuth",
+    "custom_section": "自訂",
+    "custom_url": "自訂連線",
+    "custom_url_hint": "用網址連線任何遠端 MCP 伺服器。",
+    "custom_package": "本機套件",
+    "custom_package_hint": "在本伺服器安裝固定版本的 npm 或 PyPI MCP 服務。",
+    "preview_title": "Workspace 預覽（企業）",
+    "preview_toggle": "顯示 Google Workspace 伺服器",
+    "community_note": "社群連線器由第三方維護，其寫入操作每次都會先詢問你。"
   },
   "callback": {
     "copied": "已複製",
@@ -201,7 +208,7 @@
   "held": {
     "discord": {
       "description": "社群維護的 Discord Bot 連線。",
-      "reason": "不屬於官方精選連線。可在「本機 MCP」中自行安裝社群版 Discord 服務；步驟見 docs/integrations/discord-add-it-yourself.md。"
+      "reason": "不屬於官方精選連線。可在「新增連線 › 自訂 › 本機套件」中自行安裝社群版 Discord 服務；步驟見 docs/integrations/discord-add-it-yourself.md。"
     },
     "notion_token": {
       "description": "已停止維護的舊版本機 MCP 服務。",
@@ -218,18 +225,17 @@
     }
   },
   "local": {
-    "attach": "接入 Tofi",
     "custom": {
       "args": "啟動參數（每行一個）",
       "binary": "執行檔",
       "env": "環境變數（值以私密檔案儲存，之後不再顯示）",
       "install": "安裝外掛程式",
-      "intro": "指定固定版本與執行檔。安裝指令會在 Runner 內執行；外掛程式碼將以 Runner 的權限執行。社群套件是你選擇信任的程式碼：它能看到你交給它的變數，其工具在你標為唯讀之前每次都要確認。",
+      "intro": "指定固定版本與執行檔。安裝指令會在本伺服器上執行，外掛程式將以本伺服器的權限執行。社群套件是你選擇信任的程式碼：它能看到你交給它的變數，其工具在你標為唯讀之前每次都要確認。",
       "package": "套件名稱",
       "plugin_id": "外掛程式 ID",
       "runtime": "執行環境",
-      "title": "安裝其他本機 MCP",
       "version": "固定版本",
+      "installing": "正在安裝…",
       "integrity": "套件摘要（選填，sha512-…；若來源回傳的內容不符，安裝即失敗）",
       "env_name": "變數名稱",
       "env_value": "值",
@@ -238,19 +244,18 @@
     "gog": {
       "install": "安裝 gogcli",
       "installing": "正在安裝…",
-      "intro": "固定版本的 gogcli 已包含在 Runner 映像檔中。可選擇唯讀，或授權讀取及傳送。傳送郵件仍需逐封確認。",
-      "title": "個人 Gmail · gogcli"
+      "intro": "透過你授權的 Google 帳號讀取自己的 Gmail。可選擇唯讀，或授權讀取及傳送；傳送郵件仍需逐封確認。"
     },
     "google": {
       "client_json": "OAuth 用戶端 JSON",
       "choose_file": "選擇檔案…",
       "no_file": "尚未選擇檔案",
       "client_setup": "在 Google Cloud 建立<strong>網頁應用程式</strong> OAuth 用戶端，將下方網址加入「已授權的重新導向 URI」，再上傳下載的 JSON。",
-      "connect": "連結 Google",
+      "connect": "使用 Google 授權",
       "connected_as": "已授權 {{email}}",
       "continue": "繼續開啟 Google 授權頁面",
-      "disconnect": "中斷 Google",
-      "disconnect_confirm": "要從 Runner 移除已儲存的 Google 授權嗎？",
+      "disconnect": "中斷 Google 帳號",
+      "disconnect_confirm": "要移除已儲存的 Google 授權嗎？",
       "disconnect_submit": "中斷授權",
       "disconnected": "Google 授權已從 Runner 移除。",
       "email": "Google 電子郵件",
@@ -270,30 +275,9 @@
       "verify": "驗證 Gmail 讀取",
       "verifying": "正在驗證…",
       "waiting": "等待 Google 授權"
-    },
-    "intro": "外掛程式安裝在獨立的 Runner 容器中，依需要啟動，閒置後自動休眠。",
-    "notice": {
-      "attached": "{{id}} 已接入 Tofi。",
-      "installed": "{{id}} 已安裝；工具會在使用時啟動。",
-      "removed": "{{id}} 已移除。"
-    },
-    "remove": "移除",
-    "remove_confirm": "要移除外掛程式及已儲存的授權嗎？",
-    "remove_submit": "確定移除",
-    "state": {
-      "not_installed": "未安裝",
-      "ready": "執行中",
-      "sleeping": "已休眠",
-      "starting": "啟動中"
-    },
-    "title": "本機 MCP",
-    "unavailable": "本機 MCP Runner 暫時無法使用",
-    "unavailable_hint": "請檢查 Runner 容器是否已啟動。",
-    "plugin_count_other": "{{count}} 個外掛程式"
+    }
   },
   "mcp": {
-    "add": "新增服務",
-    "added": "已新增",
     "back": "返回",
     "cancel_auth": "取消授權",
     "confirm": {
@@ -411,13 +395,14 @@
     "authorizing": "正在開啟授權…",
     "checked": "{{when}}已檢查",
     "checking": "正在讀取工具…",
-    "connected_tools_other": "已連線 · {{count}} 個工具",
     "failed": "連線失敗",
     "needs_auth": "需要授權",
     "removing": "處理中…",
     "unverified": "尚未驗證",
     "waiting": "等待授權",
-    "read_only_count_other": "{{count}} 個唯讀"
+    "connected": "已連線",
+    "not_connected": "未連線",
+    "api_disabled": "API 未啟用"
   },
   "vm": {
     "cancel": "取消授權",
@@ -462,8 +447,52 @@
     },
     "title": "工具 · {{count}}"
   },
-  "provenance": {
-    "community": "社群外掛程式 · {{package}} {{version}}",
-    "review": "工具在標為唯讀之前每次都要確認"
+  "connections": {
+    "title": "連線",
+    "add": "新增連線",
+    "action": {
+      "authorize": "授權",
+      "enable_api": "啟用 {{name}} API"
+    },
+    "menu": {
+      "details": "查看詳細資料",
+      "hide_details": "收合詳細資料",
+      "sign_in_again": "重新登入"
+    },
+    "dialog": {
+      "title": "新增連線"
+    },
+    "local": {
+      "gog": {
+        "name": "Gmail（個人帳號）",
+        "description": "透過你授權的 Google 帳號讀取自己的 Gmail。"
+      }
+    },
+    "source": {
+      "gog": "社群 · gogcli · Gmail API",
+      "local": "社群 · {{name}}",
+      "vendor": "官方 · {{host}}",
+      "community": "社群 · {{host}}",
+      "custom": "自訂 · {{host}}",
+      "package": "社群 · {{package}} {{version}}"
+    },
+    "details": {
+      "account": "帳號：{{email}}",
+      "project": "Google Cloud 專案：{{project}}",
+      "community_review": "社群程式碼：其工具在你標為唯讀之前每次都要確認。"
+    },
+    "preview_note": "需要已加入 Workspace 開發人員預覽計畫的 Google Cloud 專案，該計畫要求公司或企業帳號。未加入時，工具呼叫可能傳回權限錯誤。",
+    "error": {
+      "api_disabled": "你的 Google Cloud 專案尚未啟用 {{name}} API。啟用後重新整理即可。"
+    },
+    "google": {
+      "using_client": "使用已儲存的 Google 用戶端（專案 {{project}}），無需再次上傳。",
+      "replace_client": "更換用戶端",
+      "project_found": "此用戶端屬於專案 {{project}}。"
+    },
+    "repo": {
+      "label": "GitHub 原始碼：{{repo}}",
+      "with_stars": "GitHub 原始碼：{{repo}}，{{count}} 個星號"
+    }
   }
 }

@@ -1,359 +1,327 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { request } from "./api";
+import { ApiError, request } from "./api";
 import type { Bot } from "./types";
 import { VMOAuthDialog, type VMOAuthSession } from "./VMOAuthDialog";
 import { Disclosure } from "./InteractionSystem";
-import { arrowOpens, OverlayMenu } from "./overlays/OverlayHost";
 import { TofiIcon } from "./icons";
-import { IntegrationBrowser } from "./IntegrationBrowser";
-import { ServiceMark } from "./ServiceMark";
-import { googleAPIEnableURL, googleAudienceURL, integrationCatalog, type IntegrationPreset } from "./integrationCatalog";
+import { integrationCatalog, LOCAL_PLUGIN_REPOS, type IntegrationPreset } from "./integrationCatalog";
+import { RepoLink, useRepoStars } from "./connections/repoStars";
 import { isDesktop } from "./desktop";
 import { mcpOAuthRoute, type OAuthOptions, type OAuthRoute } from "./mcpOAuthRoute";
 import { CatStage } from "./CatStage";
-import { LocalMCPPanel } from "./LocalMCPPanel";
-import { Banner } from "./settings/components";
-import { mcpTokenHeaders } from "./mcpTokenHeaders";
 import { i18n, useTranslation } from "./i18n";
 import { formatRelativeTime } from "./i18n/format";
 import { CATS, EmptyState } from "./EmptyCat";
+import { ConnectDialog, type DialogRequest } from "./connections/ConnectDialog";
+import { ConnectionRowView, type RowMenuItem, type RowPrimary } from "./connections/RowView";
+import { GoogleSetupLinks } from "./connections/RemoteForm";
+import { ToolTierPanel } from "./connections/ToolTierPanel";
+import { useLocalPlugins, type LocalState, type Plugin } from "./connections/localPlugins";
+import { connectionKind, primaryAction, type Phase } from "./connections/status";
+import { GOOGLE_SERVICE_NAME, googleServiceForAPI, isConsoleURL, useGoogleOverview, type GoogleOverview } from "./connections/google";
+import { endpoint, localPluginId, message, normalizeTiers, post, toolsEndpoint, type MCP, type TestResult, type ToolTierList } from "./connections/shared";
 import "./oauth-link-motion.css";
+import "./connections/connections.css";
+
+export type { ToolTier, ToolTierView, ToolTierList } from "./connections/shared";
 
 /** Shown only while the user is signing in; never in a resting card. */
-function OAuthLinkMotion({title}:{title:string}) {
- const { t } = useTranslation("extensions");
- return <div className="web-oauth-link" aria-label={t("oauth.waiting",{title})}><span className="web-oauth-node"><CatStage config={{shape:"curl",pattern:"calico",palette:"calico"}} initialState="asleep"/></span><svg viewBox="0 0 200 60" aria-hidden="true"><path className="web-oauth-wait" d="M6 44 Q100 -6 194 44"/></svg><span className="web-oauth-provider"><TofiIcon name="key" size={22}/><small>{title}</small></span></div>;
+function OAuthLinkMotion({ title }: { title: string }) {
+  const { t } = useTranslation("extensions");
+  return <div className="web-oauth-link" aria-label={t("oauth.waiting", { title })}><span className="web-oauth-node"><CatStage config={{ shape: "curl", pattern: "calico", palette: "calico" }} initialState="asleep" /></span><svg viewBox="0 0 200 60" aria-hidden="true"><path className="web-oauth-wait" d="M6 44 Q100 -6 194 44" /></svg><span className="web-oauth-provider"><TofiIcon name="key" size={22} /><small>{title}</small></span></div>;
 }
 
-type OAuth = {client_id:string;client_secret?:string;scopes?:string[];auth_server_metadata_url?:string;connected?:boolean};
-type TestResult = {ok:boolean;tool_count?:number;auth_required?:boolean;diagnostics?:{message:string}[]};
-type MCPTransport = "streamable_http"|"sse";
-type MCPStatus = {checked_at:string;ok:boolean;tool_count:number;error_class?:"auth"|"failed"};
-type MCP = {name:string;url:string;transport?:MCPTransport;status?:MCPStatus;headers?:Record<string,string>;tool_allowlist?:string[];tool_denylist?:string[];oauth?:OAuth;provenance?:{origin:string;kind?:string;package?:string;version?:string}};
-/** Tool tiers (docs/agent-plan/mcp-tool-tiers.md): read_only (marked by the provider, or by you) runs without review, write is reviewed each time, high_risk ("Always ask me") always asks a person. */
-export type ToolTier="read_only"|"write"|"high_risk";
-export type ToolTierView={name:string;description?:string;tier:ToolTier;source:"owner"|"provider"|"default";override?:ToolTier;changed?:boolean;duplicated?:boolean;read_only_hint?:boolean;destructive_hint?:boolean};
-export type ToolTierList={tools:ToolTierView[];read_only:number;write:number;high_risk:number;checked?:boolean;error_class?:"auth"|"failed";diagnostics?:{message:string}[]};
-const TIERS:readonly ToolTier[]=["read_only","write","high_risk"];
-const toolsEndpoint=(name:string)=>`/api/extensions/mcp/${encodeURIComponent(name)}/tools`;
-const normalizeTiers=(value:Partial<ToolTierList>|null|undefined):ToolTierList=>({tools:Array.isArray(value?.tools)?value!.tools:[],read_only:value?.read_only??0,write:value?.write??0,high_risk:value?.high_risk??0,checked:value?.checked,error_class:value?.error_class,diagnostics:value?.diagnostics});
-const message=(e:unknown)=>{
- const text=e instanceof Error?e.message:String(e);
- if(text==="Failed to fetch")return i18n.t("extensions:error.offline");
- if(text==="MCP server connection or discovery failed")return i18n.t("extensions:error.discovery_failed");
- if(text.includes("HTTP redirects must use localhost"))return i18n.t("extensions:error.redirect_needs_https");
- if(text.includes("OAuth discovery or client registration failed"))return i18n.t("extensions:error.oauth_discovery_failed");
- if(text.startsWith("OAuth connection could not be started"))return i18n.t("extensions:error.oauth_start_failed");
- if(text==="MCP endpoint changed; re-enter or remove saved headers before saving")return i18n.t("extensions:error.endpoint_changed_headers");
- if(text==="MCP endpoint changed; explicitly configure OAuth for the new endpoint before saving")return i18n.t("extensions:error.endpoint_changed_oauth");
- if(text==="OAuth metadata destination changed; re-enter or remove the saved client secret before saving")return i18n.t("extensions:error.metadata_changed_secret");
- return text;
-};
-/** Protocol names, not translated. */
-const transportLabels:Record<MCPTransport,string>={streamable_http:"Streamable HTTP",sse:"SSE"};
-const post=(body:unknown)=>({method:"POST",body:JSON.stringify(body)});
-const words=(value:string)=>value.split(/[,\n]/).map(x=>x.trim()).filter(Boolean);
-const endpoint=(name:string)=>`/api/extensions/mcp/${encodeURIComponent(name)}`;
-const presetFor=(server:MCP)=>integrationCatalog.find(item=>item.url===server.url);
-
-export function MCPSettings({refreshToken=0,bots=[]}:{refreshToken?:number;bots?:Bot[]}) {
- const { t } = useTranslation(["extensions","common"]);
- const [options,setOptions]=useState<OAuthOptions|null>(null);
- useEffect(()=>{let alive=true;void request<OAuthOptions>("/api/extensions/oauth-options").then(result=>{if(alive)setOptions(result);}).catch(()=>{if(alive)setOptions({vm_available:false,web_callback_origin:"",desktop_redirect_uri:""});});return()=>{alive=false;};},[]);
- const route=mcpOAuthRoute(window.location.protocol,isDesktop,Boolean(window.tofiDesktop?.authorizeMCP),options);
- const [servers,setServers]=useState<MCP[]>([]);
- const [loaded,setLoaded]=useState(false);
- const [listError,setListError]=useState("");
- const [browse,setBrowse]=useState(false);
- const [query,setQuery]=useState("");
- const [editor,setEditor]=useState<{server:MCP|null;preset?:IntegrationPreset}|null>(null);
- const [saving,setSaving]=useState(false);
- const [checks,setChecks]=useState<Record<string,number>>({});
- const version=useRef(0);
- const refresh=useCallback(async()=>{
-  const current=++version.current;
-  try {const value=await request<{servers:MCP[]}>("/api/extensions/mcp");if(current!==version.current)return;setServers(value.servers??[]);setListError("");setLoaded(true);}
-  catch(e){if(current===version.current){setListError(message(e));setLoaded(true);}}
- },[]);
- useEffect(()=>{void refresh();return()=>{version.current++;};},[refresh,refreshToken]);
- useEffect(()=>{const focus=()=>{if(!document.hidden)void refresh();};window.addEventListener("focus",focus);document.addEventListener("visibilitychange",focus);return()=>{window.removeEventListener("focus",focus);document.removeEventListener("visibilitychange",focus);};},[refresh]);
- async function save(value:MCP){
-  setSaving(true);
-  try {
-   await request("/api/extensions/mcp",{method:editor?.server?"PUT":"POST",body:JSON.stringify(value)});
-   // Keep the saved row visible immediately, even if refreshing the full list fails.
-   setServers(items=>[...items.filter(item=>item.name!==value.name),value]);
-   setChecks(values=>({...values,[value.name]:(values[value.name]??0)+1}));
-   setEditor(null);setBrowse(false);await refresh();
-  } finally {setSaving(false);}
- }
- return <div className="extension-panel mcp-settings">
-  {editor?<><button className="extension-back" disabled={saving} onClick={()=>setEditor(null)}><TofiIcon name="arrow-left" size={16}/>{t("mcp.back")}</button><MCPForm key={editor.server?.name??editor.preset?.id??"new"} initial={editor.server} preset={editor.preset} options={options} route={route} busy={saving} onSave={save} onCancel={()=>setEditor(null)}/></>:browse?<IntegrationBrowser query={query} servers={servers} onQueryChange={setQuery} onBack={()=>setBrowse(false)} onSelect={preset=>setEditor({server:null,preset})} onCustom={()=>setEditor({server:null})}/>:<>
-   {!isDesktop&&<LocalMCPPanel onChanged={refresh} callbackOrigin={options?.web_callback_origin} attachedIDs={servers.filter(server=>server.name.startsWith("local_")).map(server=>server.name.slice(6))}/>}
-   <div className="mcp-toolbar"><h3>{t("mcp.added")} <span>{servers.length||""}</span></h3><button className="mcp-button" onClick={()=>setBrowse(true)}><TofiIcon name="plus" size={16}/>{t("mcp.add")}</button></div>
-   {listError&&<div className="mcp-list-error" role="alert"><span>{listError}</span><button className="mcp-button" onClick={()=>void refresh()}>{t("common:action.retry")}</button></div>}
-   {!loaded&&<p className="mcp-placeholder">{t("mcp.loading")}</p>}
-   {loaded&&!listError&&servers.length===0&&<EmptyState name="mcp-empty" className="extension-empty" look={CATS.yuzu} pose="curious" size={72} title={t("mcp.empty")}/>}
-   <div className="mcp-rows">{servers.map(server=><MCPRow key={server.name} route={route} botId={bots.find(bot=>!bot.archived)?.id} server={server} checkRequest={checks[server.name]??0} refresh={refresh} onEdit={()=>setEditor({server,preset:presetFor(server)})} onRemoved={()=>{setServers(items=>items.filter(item=>item.name!==server.name));void refresh();}}/>)}</div>
-  </>}
- </div>;
+/** A refused removal says why (a task is using the plugin) and the row stays. */
+const removeError = (e: unknown) => e instanceof ApiError && e.code === "plugin_busy" ? i18n.t("common:apiError.plugin_busy") : message(e);
+const presetFor = (server: MCP) => integrationCatalog.find(item => item.url === server.url);
+/** The name a person sees: a catalog name, "Gmail" for the personal Gmail plugin, else what they called it. Never `local_gog`. */
+function displayName(server: MCP, preset: IntegrationPreset | undefined) {
+  if (preset) return preset.name;
+  const plugin = localPluginId(server.name);
+  return plugin === "gog" ? i18n.t("extensions:connections.local.gog.name") : plugin || server.name;
 }
 
-type Phase="idle"|"checking"|"ready"|"auth"|"authorizing"|"waiting"|"error"|"removing";
-function MCPRow({server,checkRequest,refresh,onEdit,onRemoved,route,botId}:{route:OAuthRoute;botId?:string;server:MCP;checkRequest:number;refresh:()=>Promise<void>;onEdit:()=>void;onRemoved:()=>void}) {
- const { t } = useTranslation(["extensions","common"]);
- const known=server.status;
- const [phase,setPhase]=useState<Phase>(server.oauth&&!server.oauth.connected?"auth":known?(known.ok?"ready":known.error_class==="auth"?"auth":"error"):"idle");
- const [count,setCount]=useState<number|undefined>(known?.ok?known.tool_count:undefined);
- const [checkedAt,setCheckedAt]=useState<string|undefined>(known?.checked_at);
- const [error,setError]=useState(known&&!known.ok&&known.error_class!=="auth"?i18n.t("extensions:error.tools_failed"):"");
- const [authURL,setAuthURL]=useState("");
- const [vmSession,setVMSession]=useState<VMOAuthSession|null>(null);
- const [menu,setMenu]=useState(false);
- const [confirm,setConfirm]=useState<"remove"|"disconnect"|null>(null);
- const [tiers,setTiers]=useState<ToolTierList|null>(null);
- const loadTiers=useCallback(async()=>{try{const value=await request<ToolTierList>(toolsEndpoint(server.name));if(alive.current)setTiers(normalizeTiers(value));}catch{/* The card keeps its last tool list; the disclosure shows the empty state. */}},[server.name]);
- const alive=useRef(true);const operation=useRef(0);const quietBase=useRef(0);const abort=useRef<AbortController|null>(null);
- const menuRef=useRef<HTMLDivElement>(null);const trigger=useRef<HTMLButtonElement>(null);
- const previouslyConnected=useRef(server.oauth?.connected);
- const authorizationPopup=useRef<Window|null>(null);
- const nativePending=useRef(false);
- const preset=presetFor(server);
- const display=preset?.name??server.name;
- const busy=vmSession!==null||(route.mode==="desktop"&&phase==="waiting")||["checking","authorizing","removing"].includes(phase);
- useEffect(()=>{alive.current=true;return()=>{alive.current=false;operation.current++;abort.current?.abort();if(nativePending.current)void window.tofiDesktop?.cancelMCPAuthorization?.(server.name).catch(()=>{});};},[server.name]);
- const check=useCallback(async()=>{
-  const id=++operation.current;abort.current?.abort();const controller=new AbortController();abort.current=controller;
-  setError("");setPhase("checking");
-  try {
-   const result=await request<{ok:boolean;tool_count?:number;auth_required?:boolean;diagnostics?:{message:string}[]}>(endpoint(server.name)+"/test",{...post({}),signal:controller.signal});
-   if(!alive.current||operation.current!==id)return;
-   if(result.ok){setCount(result.tool_count??0);setCheckedAt(new Date().toISOString());setPhase("ready");setAuthURL("");}
-   else if(result.auth_required){setPhase("auth");setCount(undefined);}
-   else {setPhase("error");setError(result.diagnostics?.map(item=>message(item.message)).join(t("diagnostics_separator"))||t("error.tools_failed"));}
-  } catch(e){if(alive.current&&operation.current===id){setPhase("error");setError(message(e));}}
- },[server.name,server.oauth?.connected]);
- useEffect(()=>{if(checkRequest>0)void check();},[checkRequest,check]);
- useEffect(()=>{void loadTiers();},[loadTiers]);
- useEffect(()=>{if(phase==="ready")void loadTiers();},[phase,count,loadTiers]);
- // Only a queue in motion is polled; a settled list is read once per check.
- // Quiet re-verification on open: no phase change, no motion. One retry absorbs a transient blip; only a repeated failure changes the card.
- useEffect(()=>{
-  if((server.oauth&&!server.oauth.connected)||checkRequest>0)return;
-  const base=operation.current;let live=true;const controller=new AbortController();let timer=0;
-  const probe=async()=>{
-   try {
-    const r=await request<TestResult>(endpoint(server.name)+"/test",{...post({}),signal:controller.signal});
-    return r;
-   } catch(e){return controller.signal.aborted?null:{ok:false,diagnostics:[{message:e instanceof Error?e.message:String(e)}]} as TestResult;}
-  };
-  void (async()=>{
-   let r=await probe();
-   if(!live||!r)return;
-   if(!r.ok&&!r.auth_required){
-    await new Promise<void>(done=>{timer=window.setTimeout(done,1500);});
-    if(!live)return;
-    r=await probe();
-    if(!live||!r)return;
-   }
-   if(!alive.current||operation.current!==base)return;
-   if(r.ok){setCount(r.tool_count??0);setCheckedAt(new Date().toISOString());setError("");setPhase(p=>p==="idle"||p==="ready"||p==="error"?"ready":p);}
-   else if(r.auth_required){setPhase("auth");setCount(undefined);}
-   else {setPhase(p=>p==="idle"||p==="ready"||p==="error"?"error":p);setError(r.diagnostics?.map(item=>message(item.message)).join(t("diagnostics_separator"))||t("error.tools_failed"));}
-  })();
-  return()=>{live=false;window.clearTimeout(timer);controller.abort();};
- // eslint-disable-next-line react-hooks/exhaustive-deps
- },[server.name,server.url]);
- useEffect(()=>{if(!vmSession&&!previouslyConnected.current&&server.oauth?.connected&&checkRequest===0){setAuthURL("");void check();}else if(previouslyConnected.current&&!server.oauth?.connected){setCount(undefined);setPhase("auth");}previouslyConnected.current=server.oauth?.connected;},[server.oauth?.connected,checkRequest,check,vmSession]);
- useEffect(()=>{
-  if(phase!=="waiting"||vmSession||isDesktop)return;
-  const timer=window.setInterval(()=>{
-   const popup=authorizationPopup.current;
-   try {
-    if(popup&&!popup.closed&&popup.location.origin===window.location.origin&&popup.location.pathname===endpoint(server.name)+"/oauth/callback") {
-     if(popup.document.title==="Connection failed") {setPhase("auth");setError(i18n.t("extensions:error.auth_incomplete"));return;}
-     if(popup.document.title==="Connection complete") {authorizationPopup.current=null;void refresh();void check();return;}
+/** The open-source repository behind a connection, when it has one. */
+const repoFor = (server: MCP, preset: IntegrationPreset | undefined) => preset?.repo ?? LOCAL_PLUGIN_REPOS[localPluginId(server.name)] ?? "";
+
+/** Where a connection comes from, in the words a person uses: the plugin and what it talks to, or the vendor host. */
+function sourceLine(server: MCP, preset: IntegrationPreset | undefined, pluginId: string) {
+  const t = i18n.getFixedT(null, "extensions");
+  if (pluginId === "gog") return t("connections.source.gog");
+  if (pluginId && server.provenance?.origin === "community" && server.provenance.package) return t("connections.source.package", { package: server.provenance.package, version: server.provenance.version ?? "" });
+  if (pluginId) return t("connections.source.local", { name: pluginId });
+  let host = "";
+  try { host = new URL(preset?.url ?? server.url).host; } catch { host = ""; }
+  return t(preset ? (preset.upstream === "community" ? "connections.source.community" : "connections.source.vendor") : "connections.source.custom", { host });
+}
+
+/** Settings › Connections: one list, one row per connection, setup in a dialog. */
+export function MCPSettings({ refreshToken = 0, bots = [] }: { refreshToken?: number; bots?: Bot[] }) {
+  const { t } = useTranslation(["extensions", "common"]);
+  const [options, setOptions] = useState<OAuthOptions | null>(null);
+  useEffect(() => { let alive = true; void request<OAuthOptions>("/api/extensions/oauth-options").then(result => { if (alive) setOptions(result); }).catch(() => { if (alive) setOptions({ vm_available: false, web_callback_origin: "", desktop_redirect_uri: "" }); }); return () => { alive = false; }; }, []);
+  const route = mcpOAuthRoute(window.location.protocol, isDesktop, Boolean(window.tofiDesktop?.authorizeMCP), options);
+  const [servers, setServers] = useState<MCP[]>([]);
+  const [loaded, setLoaded] = useState(false);
+  const [listError, setListError] = useState("");
+  const [dialog, setDialog] = useState<DialogRequest | null>(null);
+  const [checks, setChecks] = useState<Record<string, number>>({});
+  const { local, refreshLocal } = useLocalPlugins(!isDesktop, refreshToken);
+  const { google, refreshGoogle } = useGoogleOverview(refreshToken);
+  // Focus returns to the control that opened the dialog (the settings window around it would otherwise keep it); a menu
+  // item that opened it is gone by then, so the page's own Add button takes over.
+  const opener = useRef<HTMLElement | null>(null);
+  const addButton = useRef<HTMLButtonElement>(null);
+  const openDialog = (next: DialogRequest) => { opener.current = document.activeElement instanceof HTMLElement ? document.activeElement : null; setDialog(next); };
+  const closeDialog = useCallback(() => {
+    setDialog(null);
+    window.requestAnimationFrame(() => { const target = opener.current?.isConnected ? opener.current : addButton.current; target?.focus(); });
+  }, []);
+  const version = useRef(0);
+  const refresh = useCallback(async () => {
+    const current = ++version.current;
+    try { const value = await request<{ servers: MCP[] }>("/api/extensions/mcp"); if (current !== version.current) return; setServers(value.servers ?? []); setListError(""); setLoaded(true); }
+    catch (e) { if (current === version.current) { setListError(message(e)); setLoaded(true); } }
+  }, []);
+  useEffect(() => { void refresh(); return () => { version.current++; }; }, [refresh, refreshToken]);
+  useEffect(() => { const focus = () => { if (!document.hidden) void refresh(); }; window.addEventListener("focus", focus); document.addEventListener("visibilitychange", focus); return () => { window.removeEventListener("focus", focus); document.removeEventListener("visibilitychange", focus); }; }, [refresh]);
+  const refreshAll = useCallback(async () => { await Promise.all([refresh(), refreshLocal(), refreshGoogle()]); }, [refresh, refreshLocal, refreshGoogle]);
+  async function save(value: MCP, editing: boolean) {
+    await request("/api/extensions/mcp", { method: editing ? "PUT" : "POST", body: JSON.stringify(value) });
+    // Keep the saved row visible immediately, even if refreshing the full list fails.
+    setServers(items => [...items.filter(item => item.name !== value.name), value]);
+    setChecks(values => ({ ...values, [value.name]: (values[value.name] ?? 0) + 1 }));
+    closeDialog(); await refresh();
+  }
+  // A plugin installed on this server but not yet connected to Tofi still counts as a connection the person has.
+  const orphans = local.plugins.filter(plugin => !servers.some(server => server.name === `local_${plugin.id}`));
+  const total = servers.length + orphans.length;
+  const stars = useRepoStars(servers.map(server => repoFor(server, presetFor(server))));
+  return <div className="extension-panel mcp-settings">
+    <div className="mcp-toolbar"><h3>{t("connections.title")} <span>{total || ""}</span></h3><button ref={addButton} className="mcp-button" onClick={() => openDialog({ view: "directory" })}><TofiIcon name="plus" size={16} />{t("connections.add")}</button></div>
+    {listError && <div className="mcp-list-error" role="alert"><span>{listError}</span><button className="mcp-button" onClick={() => void refresh()}>{t("common:action.retry")}</button></div>}
+    {!loaded && <p className="mcp-placeholder">{t("mcp.loading")}</p>}
+    {loaded && !listError && total === 0 && <EmptyState name="mcp-empty" className="extension-empty" look={CATS.yuzu} pose="curious" size={72} title={t("mcp.empty")} />}
+    <div className="mcp-rows">
+      {servers.map(server => <MCPRow key={server.name} route={route} botId={bots.find(bot => !bot.archived)?.id} server={server} local={local} google={google} stars={stars} checkRequest={checks[server.name] ?? 0} refresh={refresh} refreshLocal={refreshLocal}
+        onEdit={() => openDialog({ view: "edit", server, preset: presetFor(server) })} onAuthorizeLocal={() => openDialog({ view: "gog" })}
+        onRemoved={() => { setServers(items => items.filter(item => item.name !== server.name)); void refreshAll(); }} />)}
+      {orphans.map(plugin => <PluginRow key={plugin.id} plugin={plugin} onChanged={refreshAll} />)}
+    </div>
+    {dialog && <ConnectDialog request={dialog} servers={servers} local={local} google={google} options={options} route={route} onSave={save} onLocalChanged={refreshAll} onClose={closeDialog} />}
+  </div>;
+}
+
+/** A local plugin the server has but Tofi is not yet using. One action: connect it. */
+function PluginRow({ plugin, onChanged }: { plugin: Plugin; onChanged: () => Promise<void> }) {
+  const { t } = useTranslation("extensions");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  const [confirm, setConfirm] = useState(false);
+  const name = plugin.id === "gog" ? t("connections.local.gog.name") : plugin.id;
+  async function act(run: () => Promise<unknown>) { setBusy(true); setError(""); try { await run(); await onChanged(); setConfirm(false); } catch (e) { setError(removeError(e)); } finally { setBusy(false); } }
+  const menu: RowMenuItem[] = [{ key: "remove", label: t("mcp.menu.remove"), danger: true, onSelect: () => setConfirm(true) }];
+  return <ConnectionRowView name={name} mark={plugin.id === "gog" ? "Gmail" : name} state="idle" kind="unverified" statusText={t("status.not_connected")} error={error} menuBusy={busy} menu={menu}
+    primary={{ label: t("mcp.connect"), disabled: busy, onClick: () => void act(() => request(`/api/extensions/local-mcp/${encodeURIComponent(plugin.id)}/attach`, post({}))) }}>
+    {confirm && <div className="mcp-confirm"><span>{t("mcp.confirm.remove", { name })}</span><button className="mcp-button" disabled={busy} onClick={() => setConfirm(false)}>{t("action.cancel")}</button><button className="mcp-button mcp-danger" disabled={busy} onClick={() => void act(() => request(`/api/extensions/local-mcp/${encodeURIComponent(plugin.id)}`, { method: "DELETE" }))}>{t("mcp.confirm.remove_submit")}</button></div>}
+  </ConnectionRowView>;
+}
+
+function MCPRow({ server, checkRequest, refresh, refreshLocal, onEdit, onRemoved, onAuthorizeLocal, route, botId, local, google, stars }: {
+  stars: Record<string, number>; route: OAuthRoute; botId?: string; server: MCP; local: LocalState; google: GoogleOverview | null; checkRequest: number; refresh: () => Promise<void>; refreshLocal: () => Promise<void>;
+  onEdit: () => void; onRemoved: () => void; onAuthorizeLocal: () => void;
+}) {
+  const { t } = useTranslation(["extensions", "common"]);
+  const known = server.status;
+  const [phase, setPhase] = useState<Phase>(server.oauth && !server.oauth.connected ? "auth" : known ? (known.ok ? "ready" : known.error_class === "auth" ? "auth" : "error") : "idle");
+  const [checkedAt, setCheckedAt] = useState<string | undefined>(known?.checked_at);
+  const [error, setError] = useState(known && !known.ok && known.error_class !== "auth" ? known.error_code === "api_disabled" ? "" : i18n.t("extensions:error.tools_failed") : "");
+  const [authURL, setAuthURL] = useState("");
+  // Google said the API is not enabled in the project: which API, and the console page that enables it.
+  const [apiIssue, setApiIssue] = useState<{ api: string; url: string } | null>(known?.error_code === "api_disabled" && isConsoleURL(known.enable_url) ? { api: known.api ?? "", url: known.enable_url } : null);
+  const [vmSession, setVMSession] = useState<VMOAuthSession | null>(null);
+  const [confirm, setConfirm] = useState<"remove" | "disconnect" | "disconnect_google" | null>(null);
+  const [detailsOpen, setDetailsOpen] = useState(false);
+  const [tiers, setTiers] = useState<ToolTierList | null>(null);
+  const loadTiers = useCallback(async () => { try { const value = await request<ToolTierList>(toolsEndpoint(server.name)); if (alive.current) setTiers(normalizeTiers(value)); } catch { /* The row keeps its last tool list; the details view shows the empty state. */ } }, [server.name]);
+  const alive = useRef(true); const operation = useRef(0); const abort = useRef<AbortController | null>(null);
+  const previouslyConnected = useRef(server.oauth?.connected);
+  const authorizationPopup = useRef<Window | null>(null);
+  const nativePending = useRef(false);
+  const preset = presetFor(server);
+  const display = displayName(server, preset);
+  const pluginId = localPluginId(server.name);
+  const isGog = pluginId === "gog";
+  const account = isGog ? local.google : null;
+  // A local plugin answers tools without ever having been given a Google account: that is "needs authorization".
+  const accountMissing = isGog && account !== null && !account.connected;
+  const busy = vmSession !== null || (route.mode === "desktop" && phase === "waiting") || ["checking", "authorizing", "removing"].includes(phase);
+  useEffect(() => { alive.current = true; return () => { alive.current = false; operation.current++; abort.current?.abort(); if (nativePending.current) void window.tofiDesktop?.cancelMCPAuthorization?.(server.name).catch(() => {}); }; }, [server.name]);
+  const check = useCallback(async () => {
+    const id = ++operation.current; abort.current?.abort(); const controller = new AbortController(); abort.current = controller;
+    setError(""); setPhase("checking");
+    try {
+      const result = await request<TestResult>(endpoint(server.name) + "/test", { ...post({}), signal: controller.signal });
+      if (!alive.current || operation.current !== id) return;
+      if (result.ok) { setCheckedAt(new Date().toISOString()); setPhase("ready"); setAuthURL(""); setApiIssue(null); }
+      else if (result.auth_required) { setPhase("auth"); }
+      else {
+        const disabled = result.diagnostics?.find(item => item.code === "api_disabled" && isConsoleURL(item.enable_url));
+        setApiIssue(disabled ? { api: disabled.api ?? "", url: disabled.enable_url! } : null);
+        setPhase("error"); setError(disabled ? "" : result.diagnostics?.map(item => message(item.message)).join(t("diagnostics_separator")) || t("error.tools_failed"));
+      }
+    } catch (e) { if (alive.current && operation.current === id) { setPhase("error"); setError(message(e)); } }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [server.name, server.oauth?.connected]);
+  useEffect(() => { if (checkRequest > 0) void check(); }, [checkRequest, check]);
+  useEffect(() => { void loadTiers(); }, [loadTiers]);
+  useEffect(() => { if (phase === "ready") void loadTiers(); }, [phase, loadTiers]);
+  // Only a queue in motion is polled; a settled list is read once per check.
+  // Quiet re-verification on open: no phase change, no motion. One retry absorbs a transient blip; only a repeated failure changes the row.
+  useEffect(() => {
+    if ((server.oauth && !server.oauth.connected) || checkRequest > 0) return;
+    const base = operation.current; let live = true; const controller = new AbortController(); let timer = 0;
+    const probe = async () => {
+      try { return await request<TestResult>(endpoint(server.name) + "/test", { ...post({}), signal: controller.signal }); }
+      catch (e) { return controller.signal.aborted ? null : { ok: false, diagnostics: [{ message: e instanceof Error ? e.message : String(e) }] } as TestResult; }
+    };
+    void (async () => {
+      let r = await probe();
+      if (!live || !r) return;
+      if (!r.ok && !r.auth_required) {
+        await new Promise<void>(done => { timer = window.setTimeout(done, 1500); });
+        if (!live) return;
+        r = await probe();
+        if (!live || !r) return;
+      }
+      if (!alive.current || operation.current !== base) return;
+      if (r.ok) { setCheckedAt(new Date().toISOString()); setError(""); setPhase(p => p === "idle" || p === "ready" || p === "error" ? "ready" : p); }
+      else if (r.auth_required) { setPhase("auth"); }
+      else {
+        const disabled = r.diagnostics?.find(item => item.code === "api_disabled" && isConsoleURL(item.enable_url));
+        if (disabled) setApiIssue({ api: disabled.api ?? "", url: disabled.enable_url! });
+        setPhase(p => p === "idle" || p === "ready" || p === "error" ? "error" : p); setError(disabled ? "" : r.diagnostics?.map(item => message(item.message)).join(t("diagnostics_separator")) || t("error.tools_failed"));
+      }
+    })();
+    return () => { live = false; window.clearTimeout(timer); controller.abort(); };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [server.name, server.url]);
+  useEffect(() => { if (!vmSession && !previouslyConnected.current && server.oauth?.connected && checkRequest === 0) { setAuthURL(""); void check(); } else if (previouslyConnected.current && !server.oauth?.connected) { setPhase("auth"); } previouslyConnected.current = server.oauth?.connected; }, [server.oauth?.connected, checkRequest, check, vmSession]);
+  useEffect(() => {
+    if (phase !== "waiting" || vmSession || isDesktop) return;
+    const timer = window.setInterval(() => {
+      const popup = authorizationPopup.current;
+      try {
+        if (popup && !popup.closed && popup.location.origin === window.location.origin && popup.location.pathname === endpoint(server.name) + "/oauth/callback") {
+          if (popup.document.title === "Connection failed") { setPhase("auth"); setError(i18n.t("extensions:error.auth_incomplete")); return; }
+          if (popup.document.title === "Connection complete") { authorizationPopup.current = null; void refresh(); void check(); return; }
+        }
+      } catch { /* The provider page is cross-origin until it returns to Tofi. */ }
+      if (!document.hidden) void refresh();
+    }, 2000);
+    const timeout = window.setTimeout(() => { setPhase("auth"); setError(i18n.t("extensions:error.auth_timeout")); }, 10 * 60 * 1000);
+    return () => { window.clearInterval(timer); window.clearTimeout(timeout); };
+  }, [phase, refresh, check, server.name, vmSession]);
+  // After the person enables the API in the console and comes back, look again.
+  useEffect(() => {
+    if (!apiIssue) return;
+    const back = () => { if (!document.hidden) void check(); };
+    window.addEventListener("focus", back);
+    return () => window.removeEventListener("focus", back);
+  }, [apiIssue, check]);
+  async function authorize() {
+    const id = ++operation.current; abort.current?.abort(); const controller = new AbortController(); abort.current = controller;
+    setError(""); setAuthURL(""); setPhase("authorizing");
+    if (route.mode === "blocked") { setPhase("auth"); setError(route.note); return; }
+    if (route.mode === "desktop") {
+      nativePending.current = true; setPhase("waiting");
+      try {
+        await window.tofiDesktop!.authorizeMCP!(server.name);
+        if (alive.current && id === operation.current) { await refresh(); void check(); }
+      } catch (e) { if (alive.current && id === operation.current) { setPhase("auth"); setError(message(e)); } }
+      finally { nativePending.current = false; }
+      return;
     }
-   } catch { /* The provider page is cross-origin until it returns to Tofi. */ }
-   if(!document.hidden)void refresh();
-  },2000);
-  const timeout=window.setTimeout(()=>{setPhase("auth");setError(i18n.t("extensions:error.auth_timeout"));},10*60*1000);
-  return()=>{window.clearInterval(timer);window.clearTimeout(timeout);};
- },[phase,refresh,check,server.name,vmSession]);
- async function authorize(){
-  const id=++operation.current;abort.current?.abort();const controller=new AbortController();abort.current=controller;
-  setError("");setAuthURL("");setPhase("authorizing");setMenu(false);
-  if(route.mode==="blocked"){setPhase("auth");setError(route.note);return;}
-  if(route.mode==="desktop"){
-   nativePending.current=true;setPhase("waiting");
-   try {
-    await window.tofiDesktop!.authorizeMCP!(server.name);
-    if(alive.current&&id===operation.current){await refresh();void check();}
-   } catch(e){if(alive.current&&id===operation.current){setPhase("auth");setError(message(e));}}
-   finally {nativePending.current=false;}
-   return;
+    if (route.mode === "vm") {
+      try {
+        if (!botId) throw new Error(t("error.needs_bot"));
+        const result = await request<VMOAuthSession>(endpoint(server.name) + "/oauth/vm/start", { ...post({ bot_id: botId }), signal: controller.signal });
+        if (!alive.current || id !== operation.current) { void request(endpoint(server.name) + `/oauth/vm/${encodeURIComponent(result.session_id)}/cancel`, { ...post({}), keepalive: true }).catch(() => {}); return; }
+        setVMSession(result); setPhase("waiting");
+      } catch (e) { if (alive.current && id === operation.current) { setPhase("auth"); setError(message(e)); } }
+      return;
+    }
+    // Open during the user gesture; asynchronous window.open is blocked by many browsers.
+    let popup: Window | null = null;
+    try {
+      popup = window.open(endpoint(server.name) + "/oauth/pending", "_blank"); authorizationPopup.current = popup; if (popup) popup.opener = null;
+      const result = await request<{ authorization_url: string }>(endpoint(server.name) + "/oauth/start", { ...post({}), signal: controller.signal });
+      if (!alive.current || id !== operation.current) { popup?.close(); return; }
+      const url = new URL(result.authorization_url); if (!["https:", "http:"].includes(url.protocol)) throw new Error(t("error.invalid_auth_url"));
+      setAuthURL(url.href); setPhase("waiting"); if (popup && !popup.closed) popup.location.replace(url.href);
+    } catch (e) { popup?.close(); if (alive.current && id === operation.current) { setPhase("auth"); setError(message(e)); } }
   }
-  if(route.mode==="vm"){
-   try {
-    if(!botId)throw new Error(t("error.needs_bot"));
-    const result=await request<VMOAuthSession>(endpoint(server.name)+"/oauth/vm/start",{...post({bot_id:botId}),signal:controller.signal});
-    if(!alive.current||id!==operation.current){void request(endpoint(server.name)+`/oauth/vm/${encodeURIComponent(result.session_id)}/cancel`,{...post({}),keepalive:true}).catch(()=>{});return;}
-    setVMSession(result);setPhase("waiting");
-   } catch(e){if(alive.current&&id===operation.current){setPhase("auth");setError(message(e));}}
-   return;
+  async function verifyGoogle() {
+    const id = ++operation.current; setPhase("checking"); setError("");
+    try { await request("/api/extensions/local-mcp/gog/oauth/check", post({})); if (alive.current && operation.current === id) await check(); }
+    catch (e) {
+      if (!alive.current || operation.current !== id) return;
+      const url = e instanceof ApiError && e.code === "api_disabled" ? e.data?.enable_url : undefined;
+      if (isConsoleURL(typeof url === "string" ? url : undefined)) { setApiIssue({ api: String(e instanceof ApiError ? e.data?.api ?? "gmail.googleapis.com" : ""), url: url as string }); setPhase("error"); setError(""); return; }
+      setPhase("error"); setError(message(e));
+    }
   }
-  // Open during the user gesture; asynchronous window.open is blocked by many browsers.
-  let popup:Window|null=null;
-  try {
-   popup=window.open(endpoint(server.name)+"/oauth/pending","_blank");authorizationPopup.current=popup;if(popup)popup.opener=null;
-   const result=await request<{authorization_url:string}>(endpoint(server.name)+"/oauth/start",{...post({}),signal:controller.signal});
-   if(!alive.current||id!==operation.current){popup?.close();return;}
-   const url=new URL(result.authorization_url);if(!["https:","http:"].includes(url.protocol))throw new Error(t("error.invalid_auth_url"));
-   setAuthURL(url.href);setPhase("waiting");if(popup&&!popup.closed)popup.location.replace(url.href);
-  } catch(e){popup?.close();if(alive.current&&id===operation.current){setPhase("auth");setError(message(e));}}
- }
- async function confirmAction(){
-  const id=++operation.current;setPhase("removing");setError("");
-  try {await request(endpoint(server.name)+(confirm==="disconnect"?"/oauth/disconnect":""),confirm==="disconnect"?post({}):{method:"DELETE"});if(!alive.current||id!==operation.current)return;if(confirm==="remove")onRemoved();else {setAuthURL("");setCount(undefined);setPhase("auth");await refresh();}setConfirm(null);}
-  catch(e){if(alive.current&&id===operation.current){setPhase("error");setError(message(e));}}
- }
- const needsAuth=Boolean(server.oauth)&&(!server.oauth?.connected||phase==="auth");
- const readOnlySummary=phase==="ready"&&tiers&&tiers.tools.length>0?t("status.read_only_count",{count:tiers.read_only}):"";
- const status=phase==="checking"?t("status.checking"):phase==="ready"?t("status.connected_tools",{count:count??0})+(readOnlySummary?` · ${readOnlySummary}`:""):phase==="authorizing"?t("status.authorizing"):phase==="waiting"?t("status.waiting"):phase==="removing"?t("status.removing"):error?t("status.failed"):needsAuth?t("status.needs_auth"):t("status.unverified");
- return <article className="mcp-service" aria-label={display} data-state={error?"error":phase}>
-  <div className="mcp-service-row"><ServiceMark name={display}/><div className="mcp-service-identity"><strong>{display}</strong><span className="mcp-service-status" role="status"><i aria-hidden="true"/>{status}{phase==="ready"&&checkedAt&&<small className="mcp-service-checked">{t("status.checked",{when:formatRelativeTime(checkedAt)})}</small>}</span>{server.provenance?.origin==="community"&&<small className="mcp-service-provenance">{t("provenance.community",{package:server.provenance.package??server.name,version:server.provenance.version??""})} · {t("provenance.review")}</small>}</div>
-   <div className="mcp-service-actions">{phase==="waiting"&&route.mode==="desktop"?<button className="mcp-button" onClick={()=>void window.tofiDesktop?.cancelMCPAuthorization?.(server.name).catch(e=>setError(message(e)))}>{t("mcp.cancel_auth")}</button>:phase==="waiting"&&authURL?<a className="mcp-button" href={authURL} target="_blank" rel="noopener noreferrer">{t("mcp.continue_auth")}</a>:needsAuth?<button className="mcp-button" disabled={busy||route.mode==="blocked"} onClick={()=>void authorize()}>{error?t("common:action.retry"):t("mcp.connect")}</button>:(phase==="idle"||phase==="error")?<button className="mcp-button" disabled={busy} onClick={()=>void check()}>{error?t("common:action.retry"):t("mcp.connect")}</button>:null}
-   <div className="mcp-menu-anchor" ref={menuRef}><button ref={trigger} className="mcp-button mcp-menu-trigger" aria-label={t("mcp.more_actions",{name:display})} aria-haspopup="menu" aria-expanded={menu} disabled={busy} onClick={()=>setMenu(value=>!value)} onKeyDown={arrowOpens(setMenu)}><TofiIcon name="more" size={20} variant={menu?"filled":"outline"}/></button>
-    {menu&&<OverlayMenu open onOpenChange={setMenu} className="mcp-menu" label={t("mcp.more_actions",{name:display})} trigger={trigger} anchor={menuRef} align="end" sideOffset={7}><button onClick={()=>{setMenu(false);onEdit();}}>{t("mcp.menu.edit")}</button><button onClick={()=>{setMenu(false);void check();}}>{t("mcp.menu.refresh")}</button>{server.oauth?.connected&&<button onClick={()=>{setMenu(false);setConfirm("disconnect");}}>{t("mcp.menu.disconnect")}</button>}<button className="mcp-menu-danger" onClick={()=>{setMenu(false);setConfirm("remove");}}>{t("mcp.menu.remove")}</button></OverlayMenu>}
-   </div></div>
-  </div>
-  {!isDesktop&&server.oauth&&["authorizing","waiting"].includes(phase)&&<OAuthLinkMotion title={display}/>}
-  {error&&<p className="mcp-service-error" role="alert">{error}</p>}
-  {needsAuth&&<div className="mcp-login-note"><p role="status">{route.note}</p></div>}
-  {tiers&&(tiers.tools.length>0||phase==="ready")&&<div className="mcp-service-tools"><Disclosure title={t("tools.title",{count:tiers.tools.length})}><ToolTierPanel server={server.name} tiers={tiers} onChange={setTiers} busy={busy}/></Disclosure></div>}
-  {preset?.googleAPIs&&<div className="mcp-service-setup"><Disclosure key={needsAuth||phase==="error"||error?"attention":"available"} title={t("google.help")} defaultOpen={Boolean(needsAuth||phase==="error"||error)}><GoogleSetupLinks preset={preset} docs/></Disclosure></div>}
-  {vmSession&&<VMOAuthDialog session={vmSession} serverName={server.name} title={display} onFinish={(status,detail)=>{setVMSession(null);if(status==="complete"){void refresh();void check();}else{setPhase("auth");setError(detail||"");}}}/>}
-  {confirm&&<div className="mcp-confirm"><span>{confirm==="remove"?t("mcp.confirm.remove",{name:display}):t("mcp.confirm.disconnect",{name:display})}</span><button className="mcp-button" disabled={busy} onClick={()=>setConfirm(null)}>{t("action.cancel")}</button><button className="mcp-button mcp-danger" disabled={busy} onClick={()=>void confirmAction()}>{confirm==="remove"?t("mcp.confirm.remove_submit"):t("mcp.confirm.disconnect_submit")}</button></div>}
- </article>;
-}
-/** Tools grouped by tier, a per-tool selector, and Refresh. Copy stays in the extensions namespace. */
-function ToolTierPanel({server,tiers,onChange,busy}:{server:string;tiers:ToolTierList;onChange:(value:ToolTierList)=>void;busy:boolean}) {
- const { t } = useTranslation("extensions");
- const [refreshing,setRefreshing]=useState(false);
- const [saving,setSaving]=useState("");
- const [error,setError]=useState("");
- const alive=useRef(true);
- useEffect(()=>{alive.current=true;return()=>{alive.current=false;};},[]);
- async function refresh(){
-  setRefreshing(true);setError("");
-  try {
-   const value=normalizeTiers(await request<ToolTierList>(toolsEndpoint(server)+"/refresh",post({})));
-   if(!alive.current)return;
-   onChange(value);
-   if(value.error_class)setError(value.diagnostics?.map(item=>message(item.message)).join(t("diagnostics_separator"))||t("tools.error.refresh_failed"));
-  } catch(e){if(alive.current)setError(message(e));}
-  finally {if(alive.current)setRefreshing(false);}
- }
- async function setTier(tool:ToolTierView,value:string){
-  setSaving(tool.name);setError("");
-  try {
-   const result=await request<{tool:ToolTierView;summary:ToolTierList}>(`${toolsEndpoint(server)}/${encodeURIComponent(tool.name)}`,{method:"PUT",body:JSON.stringify({tier:value==="auto"?"":value})});
-   if(!alive.current)return;
-   onChange(normalizeTiers(result.summary));
-  } catch(e){if(alive.current)setError(message(e));}
-  finally {if(alive.current)setSaving("");}
- }
- const groups=TIERS.map(tier=>({tier,tools:tiers.tools.filter(tool=>tool.tier===tier)}));
- return <div className="mcp-tools" aria-busy={refreshing}>
-  <div className="mcp-tools-head"><p>{t("tools.explain")}</p><button type="button" className="mcp-button" disabled={busy||refreshing} onClick={()=>void refresh()}>{refreshing?t("tools.refreshing"):t("tools.refresh")}</button></div>
-  {error&&<p className="mcp-service-error mcp-tools-error" role="alert">{error}</p>}
-  {tiers.tools.length===0&&<p className="mcp-tools-note">{t("tools.empty")}</p>}
-  {groups.map(group=>group.tools.length>0&&<section key={group.tier} className="mcp-tool-group" data-tier={group.tier} aria-label={t(`tools.group.${group.tier}`)}>
-   <h5>{t(`tools.group.${group.tier}`)}<span className="mcp-tool-count">{group.tools.length}</span></h5>
-   <ul>{group.tools.map(tool=>{
-    const marker=tool.source==="owner"?t("tools.source.owner"):tool.source==="provider"?t("tools.source.provider"):"";
-    return <li key={tool.name} className="mcp-tool" data-source={tool.source} data-changed={tool.changed?"true":undefined}>
-     <div className="mcp-tool-copy"><code>{tool.name}</code><span className="mcp-tool-marks">{marker&&<small className="mcp-tier-mark">{marker}</small>}{tool.duplicated&&<small className="mcp-tier-mark">{t("tools.duplicated")}</small>}{tool.changed&&<small className="mcp-tier-mark is-changed">{t("tools.changed")}</small>}</span>{tool.description&&<p>{tool.description}</p>}</div>
-     <select className="mcp-tier-select" aria-label={t("tools.select_label",{name:tool.name})} value={tool.override??"auto"} disabled={busy||refreshing||saving===tool.name} onChange={e=>void setTier(tool,e.target.value)}>
-      <option value="auto">{t("tools.tier.auto")}</option>
-      {TIERS.map(tier=><option key={tier} value={tier}>{t(`tools.tier.${tier}`)}</option>)}
-     </select>
-    </li>;
-   })}</ul>
-  </section>)}
- </div>;
-}
-function OAuthLoginHelp({route}:{route:OAuthRoute}) {
- const { t } = useTranslation("extensions");
- return <Disclosure title={t("oauth.help_title")}><div className="mcp-login-help">
-  <p>{route.note}</p>
-  <p>{t("oauth.help_body")}</p>
- </div></Disclosure>;
-}
-function GoogleSetupLinks({preset,docs=false}:{preset:IntegrationPreset;docs?:boolean}) {
- const { t } = useTranslation("extensions");
- if(!preset.googleAPIs)return null;
- return <section className="mcp-google-setup" aria-label={t("google.links_label",{name:preset.name})}>
-  <p>{t("google.project_hint")}</p>
-  <p>{t("google.preview_hint")}</p>
-  <p>{t("google.agentic_hint")}</p>
-  <nav aria-label={t("google.nav_label",{name:preset.name})}>
-   <a href={googleAPIEnableURL(preset.googleAPIs.api)} target="_blank" rel="noopener noreferrer">{t("google.enable_api")}</a>
-   <a href={googleAPIEnableURL(preset.googleAPIs.mcp)} target="_blank" rel="noopener noreferrer">{t("google.enable_mcp")}</a>
-   <a href={googleAudienceURL} target="_blank" rel="noopener noreferrer">{t("google.test_users")}</a>
-   {docs&&<a href={preset.docsURL} target="_blank" rel="noopener noreferrer">{t("google.docs")}</a>}
-  </nav>
- </section>;
-}
-function CallbackAddress({label,value}:{label:string;value:string}) {
- const { t } = useTranslation("extensions");
- const [notice,setNotice]=useState("");
- async function copy(){try {await navigator.clipboard.writeText(value);setNotice(t("callback.copied"));}catch {setNotice(t("callback.copy_failed"));}}
- return <div className="integration-callback"><span>{label}</span><code>{value}</code><button className="mcp-button" type="button" onClick={()=>void copy()}>{t("callback.copy")}</button>{notice&&<small role="status">{notice}</small>}</div>;
-}
-function MCPForm({initial,preset,options,route,busy,onSave,onCancel}:{initial:MCP|null;preset?:IntegrationPreset;options:OAuthOptions|null;route:OAuthRoute;busy:boolean;onSave:(v:MCP)=>Promise<void>;onCancel:()=>void}) {
- const { t } = useTranslation("extensions");
- const [name,setName]=useState(initial?.name??preset?.id??"");
- const [url,setURL]=useState(initial?.url??preset?.url??"");
- const [transport,setTransport]=useState<MCPTransport>(initial?.transport??"streamable_http");
- const [headers,setHeaders]=useState(JSON.stringify(initial?.headers??{},null,2));
- const [token,setToken]=useState("");
- const [allow,setAllow]=useState(initial?.tool_allowlist?.join(", ")??"");
- const [deny,setDeny]=useState(initial?.tool_denylist?.join(", ")??"");
- const [oauth,setOAuth]=useState(initial?Boolean(initial.oauth):preset?.auth==="oauth");
- const [clientID,setClientID]=useState(initial?.oauth?.client_id??"");
- const [secret,setSecret]=useState(initial?.oauth?.client_secret??"");
- const [scopes,setScopes]=useState(initial?.oauth?.scopes?.join(", ")??preset?.scopes?.join(", ")??"");
- const [metadata,setMetadata]=useState(initial?.oauth?.auth_server_metadata_url??preset?.metadataURL??"");
- const [error,setError]=useState("");
- return <form className="extension-form integration-setup" aria-busy={busy} onSubmit={async e=>{e.preventDefault();if(busy)return;try{
-  if(!/^[a-zA-Z0-9_.-]{1,64}$/.test(name)||name==="."||name==="..")throw new Error(t("form.name_invalid"));
-  const parsed=mcpTokenHeaders(headers,token,preset);
-  setError("");await onSave({name,url,transport,headers:parsed,tool_allowlist:words(allow),tool_denylist:words(deny),...(oauth?{oauth:{client_id:clientID,client_secret:secret,scopes:words(scopes),auth_server_metadata_url:metadata}}:{})});
- }catch(cause){setError(message(cause));}}}>
-  <fieldset className="form-fields" disabled={busy}>
-  <header className="integration-setup-heading"><ServiceMark name={preset?.name??initial?.name??"MCP"}/><div><h3>{preset?.name??(initial?t("form.edit_title"):t("form.custom_title"))}</h3><p>{preset?.description??t("form.custom_description")}</p></div></header>
-  {preset&&<Disclosure title={t("form.guide")} defaultOpen={preset.category==="google"}><div className="integration-guide"><div><strong>{preset.category==="google"?t("form.google_prepare"):t("form.guide_heading")}</strong><a href={preset.docsURL} target="_blank" rel="noopener noreferrer">{preset.upstream==="community"?t("docs.community"):t("docs.vendor")} <TofiIcon name="external-link" size={16} style={{verticalAlign:"middle"}}/></a></div><ol>{preset.setup.map(step=><li key={step}>{step}</li>)}</ol>{preset.note&&<p>{preset.note}</p>}<GoogleSetupLinks preset={preset}/></div></Disclosure>}
-  {oauth&&<OAuthLoginHelp route={route}/>}
-  {!preset&&<label>{t("form.name")}<input required maxLength={64} disabled={Boolean(initial)} value={name} onChange={e=>setName(e.target.value)} placeholder="my-service"/></label>}
-  {!preset&&<label>{t("form.url")}<input required type="url" value={url} onChange={e=>{setURL(e.target.value);setToken("");}} placeholder="https://example.com/mcp"/></label>}
-  {preset?.auth==="token"&&<label>{t("form.token")}<input type="password" autoComplete="off" value={token} onChange={e=>setToken(e.target.value)} placeholder={initial?t("form.token_keep"):t("form.token_paste")} required={!initial}/></label>}
-  {!preset&&<label className="extension-check"><input type="checkbox" checked={oauth} onChange={e=>setOAuth(e.target.checked)} disabled={Boolean(initial?.oauth)}/>{t("auth.oauth")}</label>}
-  {oauth&&!preset?.dcr&&<><label>{preset?.category!=="google"?t("form.client_id_optional"):t("form.client_id")}<input required={preset?.category==="google"} value={clientID} onChange={e=>setClientID(e.target.value)} autoComplete="off"/></label><label>{t("form.client_secret")}<input required={preset?.category==="google"} type="password" autoComplete="off" value={secret} onChange={e=>setSecret(e.target.value)} placeholder={t("form.client_secret_hint")}/></label>
-   {options?.web_callback_origin&&<CallbackAddress label={t("callback.web")} value={`${options.web_callback_origin}${endpoint(name||t("form.name"))}/oauth/callback`}/>}
-   {options?.desktop_redirect_uri&&<CallbackAddress label={t("callback.desktop")} value={options.desktop_redirect_uri}/>}
-   {preset?.category==="google"&&<p className="field-note">{t("google.redirect_hint")}</p>}
-  </>}
-  <Disclosure title={t("form.advanced")}>
-   {preset&&<label>{t("form.name")}<input required maxLength={64} disabled={Boolean(initial)} value={name} onChange={e=>setName(e.target.value)} placeholder="my-service"/></label>}
-   {preset&&<label>{t("form.url")}<input required type="url" value={url} onChange={e=>{setURL(e.target.value);setToken("");}}/></label>}
-   <label>{t("form.transport")}<select value={transport} disabled={busy} onChange={e=>setTransport(e.target.value as MCPTransport)}><option value="streamable_http">{transportLabels.streamable_http}</option><option value="sse">{transportLabels.sse}</option></select></label>
-   <label>{t("form.headers")}<textarea rows={3} value={headers} onChange={e=>setHeaders(e.target.value)} spellCheck={false}/></label>{initial&&<p className="field-note">{t("form.headers_note")}</p>}
-   {oauth&&<><label>{t("form.scopes")}<input value={scopes} onChange={e=>setScopes(e.target.value)} placeholder={t("form.comma_separated")}/></label><label>{t("form.metadata_url")}<input type="url" value={metadata} onChange={e=>setMetadata(e.target.value)}/></label></>}
-   <label>{t("form.allowlist")}<input value={allow} onChange={e=>setAllow(e.target.value)} placeholder={t("form.allowlist_hint")}/></label><label>{t("form.denylist")}<input value={deny} onChange={e=>setDeny(e.target.value)} placeholder={t("form.comma_separated")}/></label>
-  </Disclosure>
-  {error&&<Banner tone="error" title={error}/>}
-  <div className="extension-actions"><button className="primary-button" disabled={busy} type="submit">{busy?t("form.saving"):initial?t("form.save"):t("form.add")}</button><button disabled={busy} type="button" onClick={onCancel}>{t("action.cancel")}</button></div>
-  </fieldset>
- </form>;
+  async function confirmAction() {
+    const id = ++operation.current; setPhase("removing"); setError("");
+    try {
+      if (confirm === "disconnect_google") { await request("/api/extensions/local-mcp/gog/oauth/disconnect", post({})); await refreshLocal(); }
+      else if (confirm === "disconnect") await request(endpoint(server.name) + "/oauth/disconnect", post({}));
+      else await request(pluginId ? `/api/extensions/local-mcp/${encodeURIComponent(pluginId)}` : endpoint(server.name), { method: "DELETE" });
+      if (!alive.current || id !== operation.current) return;
+      if (confirm === "remove") onRemoved();
+      else { setAuthURL(""); setPhase(confirm === "disconnect" ? "auth" : "ready"); await refresh(); }
+      setConfirm(null);
+    } catch (e) { if (alive.current && id === operation.current) { if (confirm === "remove") { setPhase("ready"); setConfirm(null); } else setPhase("error"); setError(confirm === "remove" ? removeError(e) : message(e)); } }
+  }
+  const needsAuth = Boolean(server.oauth) && (!server.oauth?.connected || phase === "auth");
+  const apiService = apiIssue ? googleServiceForAPI(apiIssue.api) : "";
+  const apiName = apiService ? GOOGLE_SERVICE_NAME[apiService] : display;
+  const kind = connectionKind({ phase, needsAuth, error, accountMissing, apiDisabled: Boolean(apiIssue) });
+  const statusText = kind === "checking" ? t("status.checking") : kind === "ready" ? t("status.connected") : kind === "working" ? (phase === "authorizing" ? t("status.authorizing") : t("status.removing")) : kind === "waiting" ? t("status.waiting") : kind === "error" ? t("status.failed") : kind === "needs_auth" ? t("status.needs_auth") : kind === "api_disabled" ? t("status.api_disabled") : t("status.unverified");
+  const action = primaryAction(kind, Boolean(authURL), route.mode === "desktop");
+  const authorizeNow = () => { if (accountMissing && !needsAuth) onAuthorizeLocal(); else void authorize(); };
+  const primary: RowPrimary | null = action === "enable_api" && apiIssue ? { label: t("connections.action.enable_api", { name: apiName }), href: apiIssue.url }
+    : action === "authorize" ? { label: t("connections.action.authorize"), disabled: busy || (route.mode === "blocked" && !accountMissing), onClick: authorizeNow }
+    : action === "retry" ? { label: t("common:action.retry"), disabled: busy, onClick: () => { if (needsAuth || accountMissing) authorizeNow(); else void check(); } }
+    : action === "connect" ? { label: t("mcp.connect"), disabled: busy, onClick: () => void check() }
+    : action === "cancel" ? { label: t("mcp.cancel_auth"), onClick: () => void window.tofiDesktop?.cancelMCPAuthorization?.(server.name).catch(e => setError(message(e))) }
+    : action === "continue" ? { label: t("mcp.continue_auth"), href: authURL } : null;
+  const hasTools = Boolean(tiers) && (tiers!.tools.length > 0 || phase === "ready");
+  const source = sourceLine(server, preset, pluginId);
+  const menu: RowMenuItem[] = [];
+  menu.push({ key: "details", label: detailsOpen ? t("connections.menu.hide_details") : t("connections.menu.details"), onSelect: () => setDetailsOpen(open => !open) });
+  if (!pluginId) menu.push({ key: "edit", label: t("mcp.menu.edit"), onSelect: onEdit });
+  menu.push({ key: "refresh", label: t("mcp.menu.refresh"), onSelect: () => void check() });
+  if (isGog && account?.connected) menu.push({ key: "sign_in_again", label: t("connections.menu.sign_in_again"), onSelect: onAuthorizeLocal }, { key: "verify", label: t("local.google.verify"), onSelect: () => void verifyGoogle() }, { key: "disconnect_google", label: t("local.google.disconnect"), onSelect: () => setConfirm("disconnect_google") });
+  if (!pluginId && server.oauth?.connected) menu.push({ key: "disconnect", label: t("mcp.menu.disconnect"), onSelect: () => setConfirm("disconnect") });
+  menu.push({ key: "remove", label: t("mcp.menu.remove"), danger: true, onSelect: () => setConfirm("remove") });
+  const confirmText = confirm === "remove" ? t("mcp.confirm.remove", { name: display }) : confirm === "disconnect_google" ? t("local.google.disconnect_confirm") : t("mcp.confirm.disconnect", { name: display });
+  return <ConnectionRowView name={display} mark={isGog ? "Gmail" : display} state={error ? "error" : phase} kind={kind} statusText={statusText}
+    detail={kind === "ready" && account?.connected ? account.email : undefined} checkedText={kind === "ready" && checkedAt ? t("status.checked", { when: formatRelativeTime(checkedAt) }) : undefined}
+    primary={primary} menu={menu} menuBusy={busy} error={kind === "api_disabled" ? t("connections.error.api_disabled", { name: apiName }) : error}>
+    {!isDesktop && server.oauth && ["authorizing", "waiting"].includes(phase) && <OAuthLinkMotion title={display} />}
+    {route.mode === "blocked" && needsAuth && <div className="mcp-login-note"><p role="status">{route.note}</p></div>}
+    {detailsOpen && <div className="mcp-service-details">
+      <p className="mcp-service-source">{source}</p>
+      {server.provenance?.origin === "community" && <p className="mcp-service-source">{t("connections.details.community_review")}</p>}
+      {repoFor(server, preset) && <p className="mcp-service-source"><RepoLink repo={repoFor(server, preset)} stars={stars[repoFor(server, preset)]} /></p>}
+      {account?.connected && <p className="mcp-service-source">{t("connections.details.account", { email: account.email })} · {account.scope === "read-send" ? t("local.google.granted_read_send") : t("local.google.granted_readonly")}</p>}
+      {isGog && google?.client.configured && <p className="mcp-service-source">{t("connections.details.project", { project: google.client.project_id || google.client.project_number })}</p>}
+      {preset?.googleAPIs && <p className="mcp-service-source">{t("connections.preview_note")}</p>}
+      {hasTools && tiers && <div className="mcp-service-tools"><div className="mcp-tools-title"><strong>{t("tools.title", { count: tiers.tools.length })}</strong></div><ToolTierPanel server={server.name} tiers={tiers} onChange={setTiers} busy={busy} /></div>}
+    </div>}
+    {kind === "error" && preset?.googleAPIs && <div className="mcp-service-setup"><Disclosure title={t("google.help")} defaultOpen><GoogleSetupLinks preset={preset} docs /></Disclosure></div>}
+    {vmSession && <VMOAuthDialog session={vmSession} serverName={server.name} title={display} onFinish={(status, detail) => { setVMSession(null); if (status === "complete") { void refresh(); void check(); } else { setPhase("auth"); setError(detail || ""); } }} />}
+    {confirm && <div className="mcp-confirm"><span>{confirmText}</span><button className="mcp-button" disabled={busy} onClick={() => setConfirm(null)}>{t("action.cancel")}</button><button className="mcp-button mcp-danger" disabled={busy} onClick={() => void confirmAction()}>{confirm === "remove" ? t("mcp.confirm.remove_submit") : t("mcp.confirm.disconnect_submit")}</button></div>}
+  </ConnectionRowView>;
 }

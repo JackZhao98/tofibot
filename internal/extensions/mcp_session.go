@@ -265,6 +265,7 @@ func (s *mcpSessionSlot) callTool(remoteName string, onError func()) func(contex
 				s.touch(cli)
 				s.m.markMCPReady(s.name, s.cfg)
 			},
+			failed: func(err error) { s.m.noteToolFailure(s.name, s.cfg.URL, err) },
 		})
 		if err != nil && onError != nil {
 			onError()

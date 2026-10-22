@@ -45,6 +45,8 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
     ]};
     if (/^\/api\/extensions\/mcp\/[^/]+\/tools$/.test(path) && method === "GET") return {tools: [], read_only: 0, write: 0, high_risk: 0};
     if (/^\/api\/extensions\/mcp\/[^/]+\/test$/.test(path) && method === "POST") return {ok: true, tool_count: 3};
+    if (path === "/api/extensions/repo-stars") return {stars: {}};
+    if (path === "/api/extensions/google") return {client: {configured: false}, apis: []};
     if (path === "/api/extensions/oauth-options") return {vm_available: false, web_callback_origin: "https://tofi.example.test", desktop_redirect_uri: ""};
     if (path === "/api/extensions/local-mcp" && method === "GET") return {available: true, plugins};
     if (path === "/api/extensions/local-mcp/install" && method === "POST") { installs.push(JSON.parse(body)); return {ok: true}; }
@@ -69,47 +71,53 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
   }
 
   const en = await open("en");
-  const row = en.page.locator('.mcp-service[aria-label="local_discord"]');
+  const row = en.page.locator('.mcp-service[aria-label="discord"]');
   await row.waitFor();
-  assert.match(await row.locator(".mcp-service-provenance").textContent(), new RegExp(`Community plugin · ${PACKAGE} ${VERSION} · its tools ask for approval until marked read-only`), "a community connection says where it came from and how its tools are treated");
-  assert.equal(await en.page.locator('.mcp-service[aria-label="curated_docs"] .mcp-service-provenance').count(), 0, "a connection without provenance shows none");
-  assert.match(await en.page.locator(".local-mcp-installed-row").first().textContent(), new RegExp(`discord.*Community plugin · ${PACKAGE} ${VERSION}`), "the installed plugin lists its package and version");
+  await row.getByRole("button", {name: /More actions/}).click();
+  await en.page.getByRole("menuitem", {name: "View details"}).or(en.page.getByRole("button", {name: "View details"})).first().click();
+  const details = await row.locator(".mcp-service-details").textContent();
+  assert.ok(details.includes(`Community · ${PACKAGE} ${VERSION}`), "details name the package and version");
+  assert.ok(details.includes("its tools ask for approval until you mark them read-only"), "details say how its tools are treated");
+  assert.equal(await en.page.locator('.mcp-service[aria-label="curated_docs"]').count(), 1);
 
-  await en.page.locator(".local-mcp-custom summary").click();
-  const form = en.page.locator(".local-mcp-fields");
+  await en.page.getByRole("button", {name: "Add connection"}).click();
+  const dialog = en.page.locator('[role="dialog"].connect-dialog');
+  await dialog.locator('[data-integration-id="custom-package"]').click();
+  const form = dialog.locator(".connect-form");
   const field = label => form.locator("label", {hasText: label}).locator("input,textarea,select");
   await field("Plugin ID").fill("discord2");
   await field("Package name").fill(PACKAGE);
   await field("Pinned version").fill(VERSION);
   await field("Executable").fill("discord-mcp");
   await field("Arguments").fill("serve");
-  const install = en.page.locator(".local-mcp-custom > .mcp-button:not(.local-mcp-env .mcp-button)").last();
-  await en.page.locator(".local-mcp-env-row input").nth(0).fill("DISCORD_TOKEN");
-  const secretInput = en.page.locator(".local-mcp-env-row input").nth(1);
+  const install = dialog.getByRole("button", {name: "Install plugin"});
+  await dialog.locator(".connect-env-row input").nth(0).fill("DISCORD_TOKEN");
+  const secretInput = dialog.locator(".connect-env-row input").nth(1);
   assert.equal(await secretInput.getAttribute("type"), "password", "a variable's value is never shown while typing");
   await secretInput.fill(SECRET);
   await field("Package digest").fill("sha512-too-short");
   assert.equal(await install.isDisabled(), true, "a malformed digest blocks the install");
   await field("Package digest").fill(DIGEST);
   assert.equal(await install.isDisabled(), false);
-  await en.page.locator(".local-mcp-env .mcp-button").click();
-  assert.equal(await en.page.locator(".local-mcp-env-row").count(), 2, "more variables can be added");
+  await dialog.getByRole("button", {name: "Add variable"}).click();
+  assert.equal(await dialog.locator(".connect-env-row").count(), 2, "more variables can be added");
   await install.click();
-  await en.page.locator(".local-mcp-notice").waitFor();
+  await dialog.waitFor({state: "detached"});
   assert.deepEqual(installs, [{id: "discord2", kind: "npm", package: PACKAGE, version: VERSION, binary: "discord-mcp", args: ["serve"], env: {DISCORD_TOKEN: SECRET}, integrity: DIGEST}], "the exact pinned package, digest and secret go to the Runner install route");
-  assert.equal(await en.page.locator(".local-mcp-env-row input").nth(1).inputValue(), "", "the secret is cleared from the form after a successful install");
-  assert.equal(await field("Package digest").inputValue(), "");
   const html = await en.page.content();
   assert.ok(!html.includes(SECRET), "the secret appears nowhere in the page");
   assert.ok(!requested.some(line => line.includes(SECRET)), "the secret appears in no URL");
   await en.close();
 
   const zh = await open("zh-CN");
-  await zh.page.locator('.mcp-service[aria-label="local_discord"]').waitFor();
-  assert.match(await zh.page.locator('.mcp-service[aria-label="local_discord"] .mcp-service-provenance').textContent(), new RegExp(`社区插件 · ${PACKAGE} ${VERSION}`));
+  const zhRow = zh.page.locator('.mcp-service[aria-label="discord"]');
+  await zhRow.waitFor();
+  await zhRow.locator(".mcp-menu-trigger").click();
+  await zh.page.getByText("查看详情").first().click();
+  assert.match(await zhRow.locator(".mcp-service-details").textContent(), new RegExp(`社区 · ${PACKAGE} ${VERSION}`));
   await zh.close();
   assert.deepEqual(unexpected, [], "no unstubbed request and no page error");
-  console.log("PASS community install: provenance line, package and version in the installed list, masked variable values, digest validation, exact install payload, secret cleared and never in the page, zh-CN copy");
+  console.log("PASS community install: details name package and version, masked variable values, digest validation, exact install payload, secret never in the page, zh-CN copy");
 } finally {
   await browser?.close();
   await server?.close();
