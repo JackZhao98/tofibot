@@ -9,8 +9,8 @@ import (
 	"time"
 	"unicode/utf8"
 
-	"github.com/google/uuid"
 	"github.com/JackZhao98/tofibot/internal/runtime"
+	"github.com/google/uuid"
 )
 
 const maxChatSegments = 3

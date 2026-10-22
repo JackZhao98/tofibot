@@ -196,11 +196,11 @@ func TestMCPToolTierFileMigrationDropsClassifierState(t *testing.T) {
 		tier MCPToolTier
 		src  string
 	}{
-		"fetch":       {MCPTierWrite, MCPTierSourceDefault},     // the model's read_only is gone
-		"get":         {MCPTierWrite, MCPTierSourceDefault},     // a version 1 mark is re-recorded by the next tools/list
-		"legacy_read": {MCPTierReadOnly, MCPTierSourceOwner},    // migrated trusted entry stays an owner override
-		"send":        {MCPTierHighRisk, MCPTierSourceOwner},    // owner high_risk stays
-		"post":        {MCPTierWrite, MCPTierSourceDefault},     // the model's high_risk is gone: reviewed, not forced
+		"fetch":       {MCPTierWrite, MCPTierSourceDefault},  // the model's read_only is gone
+		"get":         {MCPTierWrite, MCPTierSourceDefault},  // a version 1 mark is re-recorded by the next tools/list
+		"legacy_read": {MCPTierReadOnly, MCPTierSourceOwner}, // migrated trusted entry stays an owner override
+		"send":        {MCPTierHighRisk, MCPTierSourceOwner}, // owner high_risk stays
+		"post":        {MCPTierWrite, MCPTierSourceDefault},  // the model's high_risk is gone: reviewed, not forced
 	} {
 		if v := m.MCPToolTier("svc", name); v.Tier != want.tier || v.Source != want.src {
 			t.Errorf("%s: %+v", name, v)

@@ -11,8 +11,8 @@ import (
 	"time"
 	"unicode/utf8"
 
-	"github.com/google/uuid"
 	"github.com/JackZhao98/tofibot/internal/runtime"
+	"github.com/google/uuid"
 )
 
 func occurrenceFixture(t *testing.T, s *Store, bot Bot, c Conversation, kind string) (Schedule, Run) {

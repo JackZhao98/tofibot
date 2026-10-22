@@ -14,7 +14,7 @@
 - 有清晰边界的东西才单独成包：`agent`（循环）、`runtime`（运行与恢复）、`provider`（模型提供方）、`extensions`（MCP 与 Skill）、`computer`（Bot 的电脑与 guest）、`tooloutcome`（工具结果与恢复决定）、`saystream`、`shadowreview`、`codexauth`、`mcprunner`。包的依赖方向是 `app → 其余`，其余包不 import `app`。
 - 测试文件与源文件同名加 `_test.go`，放在同一个目录（`mcp_standing_allowance.go` / `mcp_standing_allowance_test.go`）；跨功能的验收类测试叫 `*_acceptance_test.go`。平台相关文件用构建标签和后缀（`portability_file_unix.go` / `portability_file_other.go`，`internal/computer/guest/*_linux.go`）。
 - 文件头注释写"这个文件管什么、为什么这样"，不重复函数名。例：`internal/app/builtin_skills.go` 开头的那段。
-- 格式：`gofmt`。CI 的 `scripts/check-gofmt.sh` 拦新的未格式化文件；`.gofmt-baseline` 里的旧文件只减不增（见 `process.md` 3.3），新代码一律 `gofmt -w` 后再提交。`go vet ./...` 在 CI 里跑，目前无告警。
+- 格式：`gofmt`。CI 的 `scripts/check-gofmt.sh` 要求所有 `.go` 文件都已格式化（10-21 起没有基线例外），提交前 `gofmt -w`。`go vet ./...` 在 CI 里跑，目前无告警。
 
 ## 2. Go：错误处理与分类
 
@@ -62,7 +62,7 @@
 - 预算测试量的是生产包（`ui/scripts/lib/chat-fixture.mjs` 用 vite 打包再测），不量开发服务器。
 - 时间敏感的断言本地跑；CI 用 `TOFI_SKIP_TIMING=1` 跳过（`test:dialogs`、`test:overlays`）。新加的时间断言要写进同一个开关，不然 CI 上会抖。
 - Python：`unittest`，标准库发现（`python3 -m unittest discover -s <目录> -p 'test_*.py'`）。缺依赖的测试要响亮地跳过（stderr 和报告里写 SKIPPED）。
-- 基线文件只减不增：`ui/scripts/layers-baseline.json`、`ui/scripts/motion-tokens-baseline.json`、`ui/scripts/i18n-baseline.json`、`.gofmt-baseline`。
+- 基线文件只减不增：`ui/scripts/layers-baseline.json`、`ui/scripts/motion-tokens-baseline.json`、`ui/scripts/i18n-baseline.json`。
 
 ## 7. 提示词（只写原则）
 
