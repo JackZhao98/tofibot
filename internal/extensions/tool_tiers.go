@@ -279,7 +279,10 @@ type MCPToolTierView struct {
 // resolveMCPToolTier is the single place the contract's precedence lives: a
 // fresh owner override wins; a stale one only tightens; the provider's
 // readOnlyHint makes an unambiguous tool read_only; everything else is write.
-func resolveMCPToolTier(name string, rec *mcpToolTierRecord, legacyTrusted bool) MCPToolTierView {
+// For a community server (code a person installed, never vetted by TOFI) the
+// hint is only shown, never obeyed: MCP annotations from an unvetted server are
+// untrusted, so every tool is reviewed until the owner marks it.
+func resolveMCPToolTier(name string, rec *mcpToolTierRecord, legacyTrusted, community bool) MCPToolTierView {
 	view := MCPToolTierView{RemoteName: name, Tier: MCPTierWrite, Source: MCPTierSourceDefault}
 	override, overrideDigest := "", ""
 	if rec != nil {
@@ -290,7 +293,7 @@ func resolveMCPToolTier(name string, rec *mcpToolTierRecord, legacyTrusted bool)
 		// schemas; no single annotation describes it, so the provider's mark
 		// does not apply. destructiveHint never changes the tier: it is passed
 		// to the reviewer as evidence.
-		if rec.AnnotationsPresent && rec.ReadOnlyHint && !rec.Duplicated {
+		if rec.AnnotationsPresent && rec.ReadOnlyHint && !rec.Duplicated && !community {
 			view.Tier, view.Source = MCPTierReadOnly, MCPTierSourceProvider
 		}
 		override, overrideDigest = rec.Override, rec.OverrideDigest
@@ -332,7 +335,7 @@ func (s *mcpToolTierStore) resolve(server string, cfg MCPServerConfig, tool stri
 	} else {
 		legacy = trustedReadOnlyTool(cfg, tool)
 	}
-	return resolveMCPToolTier(tool, rec, legacy)
+	return resolveMCPToolTier(tool, rec, legacy, communityServer(cfg))
 }
 
 // MCPToolTier resolves the current policy for one remote tool of a configured
@@ -523,7 +526,7 @@ func (m *Manager) SetToolTierOverride(server, tool, tier string) (MCPToolTierVie
 	if err := s.saveLocked(); err != nil {
 		return MCPToolTierView{}, err
 	}
-	return resolveMCPToolTier(tool, rec, false), nil
+	return resolveMCPToolTier(tool, rec, false, false), nil
 }
 
 // MCPToolTierList is the per-service summary the settings page shows.
@@ -563,7 +566,7 @@ func (m *Manager) ListToolTiers(server string) MCPToolTierList {
 			rec = srv.Tools[name]
 		}
 		legacy := (srv == nil || !srv.MigratedTrusted) && trustedReadOnlyTool(cfg, name)
-		view := resolveMCPToolTier(name, rec, legacy)
+		view := resolveMCPToolTier(name, rec, legacy, communityServer(cfg))
 		out.Tools = append(out.Tools, view)
 		switch view.Tier {
 		case MCPTierReadOnly:
@@ -628,7 +631,7 @@ func (m *Manager) RunToolReadOnly(runToolName string) bool {
 		rec = srv.Tools[matched]
 	}
 	legacy := (srv == nil || !srv.MigratedTrusted) && trustedReadOnlyTool(cfg, matched)
-	return resolveMCPToolTier(matched, rec, legacy).Tier == MCPTierReadOnly
+	return resolveMCPToolTier(matched, rec, legacy, communityServer(cfg)).Tier == MCPTierReadOnly
 }
 
 // clearToolTiersLocked forgets a server's policy. Callers hold the

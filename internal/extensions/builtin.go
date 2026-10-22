@@ -9,7 +9,9 @@ import (
 	"fmt"
 	"io/fs"
 	"log"
+	"os"
 	"path"
+	"path/filepath"
 	"sort"
 	"strings"
 	"sync"
@@ -200,4 +202,56 @@ func (m *Manager) withoutDisabledBuiltins(ctx context.Context, skills []Skill, d
 		diags = append(diags, Diagnostic{Message: "built-in skills unavailable: setting check failed"})
 	}
 	return kept, diags
+}
+
+// InstalledSkillFiles returns the files of a skill a person installed, in the
+// same shape and with the same content digest as BuiltinSkillFiles, so both can
+// be copied to a Bot's computer. Only regular files inside the skill folder are
+// read; links and anything else are skipped, and the folder is bounded.
+func (m *Manager) InstalledSkillFiles(name string) ([]BuiltinSkillFile, string, error) {
+	if !skillNamePattern.MatchString(name) || m.cfg.SkillsDir == "" {
+		return nil, "", errors.New("not an installed skill")
+	}
+	root, err := os.OpenRoot(filepath.Join(m.cfg.SkillsDir, name))
+	if err != nil {
+		return nil, "", errors.New("not an installed skill")
+	}
+	defer root.Close()
+	var out []BuiltinSkillFile
+	total := 0
+	err = fs.WalkDir(root.FS(), ".", func(p string, d fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		if !d.Type().IsRegular() {
+			return nil
+		}
+		if len(out) >= maxInstallFiles {
+			return errors.New("skill has too many files")
+		}
+		file, err := root.Open(p)
+		if err != nil {
+			return err
+		}
+		defer file.Close()
+		data, err := readBounded(file, maxSkillFile)
+		if err != nil {
+			return err
+		}
+		if total += len(data); total > 2*maxSkillFile {
+			return errors.New("skill is too large")
+		}
+		out = append(out, BuiltinSkillFile{Path: p, Data: data, Exec: strings.HasPrefix(p, "scripts/")})
+		return nil
+	})
+	if err != nil {
+		return nil, "", err
+	}
+	sort.Slice(out, func(i, j int) bool { return out[i].Path < out[j].Path })
+	sum := sha256.New()
+	for _, f := range out {
+		fmt.Fprintf(sum, "%s\x00%d\x00", f.Path, len(f.Data))
+		sum.Write(f.Data)
+	}
+	return out, hex.EncodeToString(sum.Sum(nil))[:12], nil
 }

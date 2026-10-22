@@ -20,6 +20,7 @@ var (
 	versionName = regexp.MustCompile(`^v?[0-9][0-9A-Za-z.+_-]*$`)
 	binName     = regexp.MustCompile(`^[a-zA-Z0-9][a-zA-Z0-9._-]*$`)
 	envName     = regexp.MustCompile(`^[A-Za-z_][A-Za-z0-9_]*$`)
+	sriSHA512   = regexp.MustCompile(`^sha512-[A-Za-z0-9+/]{86}==$`)
 )
 
 // InstallRequest is an exact, owner-approved package installation. Version is
@@ -32,6 +33,10 @@ type InstallRequest struct {
 	Binary  string            `json:"binary,omitempty"`
 	Args    []string          `json:"args,omitempty"`
 	Env     map[string]string `json:"env,omitempty"`
+	// Integrity is an optional npm SRI digest (sha512-...) of the package
+	// tarball. When present the install fails unless the registry served that
+	// exact artifact. Dependencies of the package are not covered.
+	Integrity string `json:"integrity,omitempty"`
 }
 
 type installedRecord struct {
@@ -86,6 +91,9 @@ func (r *Runner) Install(ctx context.Context, input InstallRequest) error {
 	if input.Kind != "builtin_gog" && input.Kind != "npm" && input.Kind != "pypi" {
 		return errors.New("unsupported package kind")
 	}
+	if input.Integrity != "" && (input.Kind != "npm" || !sriSHA512.MatchString(input.Integrity)) {
+		return errors.New("integrity must be an npm sha512 digest and applies to npm packages only")
+	}
 	if input.Kind == "builtin_gog" && len(input.Env) > 0 {
 		return errors.New("gogcli environment is managed by Runner")
 	}
@@ -137,6 +145,11 @@ func (r *Runner) Install(ctx context.Context, input InstallRequest) error {
 		if err := runInstaller(installCtx, "npm", "install", "--prefix", stage, "--ignore-scripts", "--no-audit", "--no-fund", "--", input.Package+"@"+input.Version); err != nil {
 			return err
 		}
+		if input.Integrity != "" {
+			if err := verifyInstalledIntegrity(stage, input.Package, input.Version, input.Integrity); err != nil {
+				return err
+			}
+		}
 		command = filepath.Join(stage, "node_modules", ".bin", input.Binary)
 	case "pypi":
 		if err := runInstaller(installCtx, "python3", "-m", "venv", stage); err != nil {
@@ -166,6 +179,10 @@ func (r *Runner) Install(ctx context.Context, input InstallRequest) error {
 		return fmt.Errorf("installed executable missing: %w", err)
 	}
 	spec := Spec{ID: input.ID, Kind: input.Kind, Command: command, Args: args, WorkDir: target, Env: map[string]string{"HOME": filepath.Join(target, "home")}}
+	if input.Kind != "builtin_gog" {
+		// Provenance for the connection details; operator-visible, never a secret.
+		spec.Package, spec.Version = input.Package, input.Version
+	}
 	if len(input.Env) > 0 {
 		secrets, err := installSecretEnv(target, input.Env)
 		if err != nil {
@@ -206,6 +223,30 @@ func (r *Runner) Install(ctx context.Context, input InstallRequest) error {
 	r.plugins[input.ID] = &plugin{spec: spec}
 	r.mu.Unlock()
 	installed = true
+	return nil
+}
+
+// verifyInstalledIntegrity compares the digest npm recorded for the installed
+// top-level package (npm itself verified the downloaded tarball against it)
+// with the one the person pinned. Only the named package is covered.
+func verifyInstalledIntegrity(stage, pkg, version, want string) error {
+	data, err := os.ReadFile(filepath.Join(stage, "node_modules", ".package-lock.json"))
+	if err != nil {
+		return errors.New("package integrity could not be read after installation")
+	}
+	var lock struct {
+		Packages map[string]struct {
+			Version   string `json:"version"`
+			Integrity string `json:"integrity"`
+		} `json:"packages"`
+	}
+	if json.Unmarshal(data, &lock) != nil {
+		return errors.New("package integrity could not be read after installation")
+	}
+	entry, ok := lock.Packages["node_modules/"+pkg]
+	if !ok || entry.Version != strings.TrimPrefix(version, "v") || entry.Integrity != want {
+		return errors.New("installed package does not match the pinned integrity digest")
+	}
 	return nil
 }
 

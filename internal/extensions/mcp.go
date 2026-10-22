@@ -55,6 +55,30 @@ type MCPServerConfig struct {
 	// CGNAT and metadata addresses at dial time. Servers saved by the owner in
 	// Settings never carry it, which is the owner-only way to reach a LAN server.
 	BotManaged bool `json:"bot_managed,omitempty"`
+	// Provenance is set only by the server when it attaches a package a person
+	// installed into the local Runner (never from a request body). It is part of
+	// the configuration fingerprint, so reinstalling another package or version
+	// under the same name voids standing allowances and stale approvals.
+	Provenance *MCPProvenance `json:"provenance,omitempty"`
+}
+
+// MCPOriginCommunity marks a package a person chose and installed themselves,
+// as opposed to a connector TOFI curates.
+const MCPOriginCommunity = "community"
+
+// MCPProvenance says where a locally installed server's code came from.
+type MCPProvenance struct {
+	Origin  string `json:"origin"`
+	Kind    string `json:"kind,omitempty"` // npm or pypi
+	Package string `json:"package,omitempty"`
+	Version string `json:"version,omitempty"`
+}
+
+// communityServer reports whether the provider's own tool annotations must be
+// treated as untrusted advice: the code was installed by a person and no one at
+// TOFI has vetted it.
+func communityServer(cfg MCPServerConfig) bool {
+	return cfg.Provenance != nil && cfg.Provenance.Origin == MCPOriginCommunity
 }
 
 type serverFile struct {
