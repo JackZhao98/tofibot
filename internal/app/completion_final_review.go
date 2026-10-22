@@ -11,9 +11,17 @@ import (
 // user's request before it becomes final. The agent owns the single repair
 // budget; this callback only supplies the review instruction and never treats
 // a draft as proof that work completed.
-const taskCompletionFinalReminder = `Before sending the final answer, compare the user's requested deliverable, fields, and categories with the actual completed work and tool results in this conversation.
+const taskCompletionFinalReminder = "Before sending the final answer, read your draft sentence by sentence against the tool results in this conversation.\n" + replyMatchesRecordPrinciple + `
+Then compare the user's requested deliverable, fields, and categories with the actual completed work and tool results in this conversation.
 If any requested item remains unresolved, continue the remaining authorized work with relevant available and permitted tools while capacity remains. Give partial results only when the user asked for them or a concrete blocker prevents completion; a missing detail that a stated assumption can cover is no blocker, so deliver every part the request names on stated assumptions and drop a closing question those assumptions already settle. Do not stop after one lead or category. Each fact about the present world rests on this conversation's tool results or is marked as recalled from memory. Do not describe a category, source, or action as searched, checked, completed, unavailable, or verified unless the conversation contains evidence for that statement. Distinguish an attempted or failed route from an inspected result.
-Do not broaden the request or replay an action with an uncertain outcome; inspect its current state first. Keep this review private. The draft immediately before this reminder is replaced by your final answer and is not kept for the user, so the final answer must contain the complete substantive response rather than assuming they saw that draft. Preserve the tone and form the user asked for, including playful or interactive replies. Do not replace the answer with an audit-style statement such as "I checked everything" or "nothing was missed" unless the user asked for an audit.`
+Do not broaden the request or replay an action with an uncertain outcome; inspect its current state first. Keep this review private. The draft immediately before this reminder is replaced by your final answer and is not kept for the user, so the final answer must contain the complete substantive response; they have not seen that draft. Preserve the tone and form the user asked for, including playful or interactive replies. The review itself is not reported unless the user asked for an audit.`
+
+// replyMatchesRecordPrinciple is the part of every final review that holds the
+// reply itself to the tool record: how far the work reached, what it produced,
+// and where the results live. Whether the work is complete is a separate
+// question, asked after it (D45).
+const replyMatchesRecordPrinciple = `A statement of extent or number holds for exactly what the results show: a check that reached part of a set is reported as reaching that part, a count names what was counted, and an action is reported as done only when its result confirms it. Correct each sentence the record does not support, or do the work that makes it true.
+Whatever the work leaves behind that the person will rely on (files, stored state, schedules, places on the computer), the answer says what exists and where it lives, using the locations the tool results gave. Only what the person asked to receive is published; working files stay on the computer.`
 
 // noCompletionReviewTools never arm the review: they read context, manage
 // memory, or talk to the user rather than doing the requested work.
