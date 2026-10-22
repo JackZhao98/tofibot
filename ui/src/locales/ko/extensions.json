@@ -271,6 +271,8 @@
       "scope": "Gmail 권한",
       "scope_read_send": "읽기 및 보내기: 모든 메일을 내가 확인",
       "scope_readonly": "읽기 전용: 메일 검색 및 보기",
+      "services": "Google 서비스",
+      "services_note": "선택한 서비스에는 읽기 전용 도구만 제공됩니다. 서비스를 추가해도 기존 승인은 유지됩니다.",
       "verified": "개인 Gmail 읽기가 확인되었습니다.",
       "verify": "Gmail 읽기 확인",
       "verifying": "확인 중…",
@@ -478,6 +480,7 @@
     },
     "details": {
       "account": "계정: {{email}}",
+      "services": "승인된 서비스: {{services}}",
       "project": "Google Cloud 프로젝트: {{project}}",
       "community_review": "커뮤니티 코드: 읽기 전용으로 표시하기 전까지 도구는 매번 승인이 필요합니다."
     },

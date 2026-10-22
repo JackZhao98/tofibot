@@ -18,6 +18,14 @@ export type GoogleService = keyof typeof GOOGLE_SERVICE_API;
 /** Product names, not translated. */
 export const GOOGLE_SERVICE_NAME: Record<GoogleService, string> = { gmail: "Gmail", calendar: "Google Calendar", drive: "Google Drive", docs: "Google Docs", sheets: "Google Sheets", slides: "Google Slides" };
 
+/** The services the personal Google connection (gogcli) can authorise, in the order they are offered. */
+export const GOG_SERVICES = ["gmail", "calendar", "drive"] as const satisfies readonly GoogleService[];
+export type GogService = typeof GOG_SERVICES[number];
+/** "Gmail, Google Calendar": the product names of the services the account authorised ("" when the server did not say). */
+export function googleServicesLabel(services: readonly string[] | undefined): string {
+  return GOG_SERVICES.filter(service => services?.includes(service)).map(service => GOOGLE_SERVICE_NAME[service]).join(", ");
+}
+
 const MCP_API = (service: GoogleService) => `${service}mcp.googleapis.com`;
 const KNOWN = new Set<string>([...Object.values(GOOGLE_SERVICE_API), ...(Object.keys(GOOGLE_SERVICE_API) as GoogleService[]).map(MCP_API)]);
 const PROJECT_ID = /^[a-z][a-z0-9-]{4,28}[a-z0-9]$/;

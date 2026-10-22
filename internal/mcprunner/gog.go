@@ -87,6 +87,101 @@ func gogServiceList(requested, granted []string) ([]string, error) {
 	return out, nil
 }
 
+// gogAuthAddFlags is the `gog auth add` command line for the services and Gmail scope chosen. Read-only unless the
+// person chose to let Gmail send; even then Drive stays read-only, and Calendar has no narrower mode in gog.
+func gogAuthAddFlags(email, scope string, services []string) []string {
+	flags := []string{"--json", "--no-input"}
+	hasGmail := len(services) > 0 && services[0] == "gmail"
+	if scope == "" || scope == "readonly" || !hasGmail {
+		flags = append(flags, "--readonly")
+	}
+	flags = append(flags, "auth", "add", email, "--services", strings.Join(services, ","))
+	if hasGmail && scope != "" {
+		flags = append(flags, "--gmail-scope", scope)
+	}
+	if scope == "read-send" && hasGmail {
+		for _, service := range services {
+			if service == "drive" {
+				flags = append(flags, "--drive-scope", "readonly")
+			}
+		}
+	}
+	return flags
+}
+
+func (r *Runner) grantedGogScope(id string) string {
+	account, err := r.GogStatus(id)
+	if err != nil {
+		return ""
+	}
+	return account.Scope
+}
+
+// gogToolSelectors are the `gog mcp --allow-tool` selectors for authorised services. They are gog v0.40.0's own
+// service names (`gog mcp --list-tools`: gmail_search, gmail_get_message, gmail_get_thread, calendar_events,
+// drive_search, drive_get, all read-only); a service the account has not authorised contributes none.
+func gogToolSelectors(services []string) string {
+	return strings.Join(authorisedGogServices(services), ",")
+}
+
+// authorisedGogServices keeps the recognised services of an account record in the stable order; an account recorded
+// before services were tracked (or with none) is Gmail only.
+func authorisedGogServices(granted []string) []string {
+	out := []string{}
+	for _, name := range []string{"gmail", "calendar", "drive"} {
+		for _, have := range granted {
+			if have == name {
+				out = append(out, name)
+				break
+			}
+		}
+	}
+	if len(out) == 0 {
+		out = []string{"gmail"}
+	}
+	return out
+}
+
+// gogMCPArgs is the argument list the MCP child starts with. The installed default (`mcp --allow-tool <services>`)
+// follows the services the account has authorised, read from the account record at every start; arguments someone
+// set by hand are left alone.
+func gogMCPArgs(spec Spec) []string {
+	if spec.Kind != "builtin_gog" || !isDefaultGogArgs(spec.Args) {
+		return spec.Args
+	}
+	var account gogAccount
+	if data, err := os.ReadFile(filepath.Join(spec.WorkDir, "gog-account.json")); err == nil {
+		_ = json.Unmarshal(data, &account)
+	}
+	return []string{"mcp", "--allow-tool", gogToolSelectors(account.Services)}
+}
+
+func isDefaultGogArgs(args []string) bool {
+	if len(args) != 3 || args[0] != "mcp" || args[1] != "--allow-tool" {
+		return false
+	}
+	for _, name := range strings.Split(args[2], ",") {
+		if !gogServices[name] {
+			return false
+		}
+	}
+	return true
+}
+
+// recycle stops an idle MCP child so the next call starts it with the tools of the current account. A child busy with
+// a call is left to finish; it is replaced when it goes idle and is reaped.
+func (p *plugin) recycle() {
+	p.mu.Lock()
+	if p.cli == nil || p.active > 0 || p.ready != nil {
+		p.mu.Unlock()
+		return
+	}
+	cli, stop, group := p.cli, p.stop, p.processGroup
+	p.cli, p.stop, p.tools = nil, nil, nil
+	p.mu.Unlock()
+	shutdown(cli, stop, group)
+}
+
 // withIncrementalAuth asks Google to keep what the account already granted and add the new scopes to it.
 func withIncrementalAuth(authURL string) (string, error) {
 	u, err := url.Parse(authURL)
@@ -236,21 +331,17 @@ func (r *Runner) GogStart(ctx context.Context, id string, input GogStartRequest)
 	}
 	scope := input.Scope
 	if scope == "" {
-		scope = "readonly"
-	}
-	flags := []string{"--json", "--no-input"}
-	if scope == "readonly" {
-		flags = append(flags, "--readonly")
+		// Adding a service must not quietly narrow what the account already granted for Gmail.
+		if scope = r.grantedGogScope(id); scope == "" {
+			scope = "readonly"
+		}
 	}
 	granted, _ := r.GogStatus(id)
 	services, err := gogServiceList(input.Services, granted.Services)
 	if err != nil {
 		return GogStartResult{}, err
 	}
-	flags = append(flags, "auth", "add", input.Email, "--services", strings.Join(services, ","))
-	if services[0] == "gmail" {
-		flags = append(flags, "--gmail-scope", scope)
-	}
+	flags := gogAuthAddFlags(input.Email, scope, services)
 	flags = append(flags, "--remote", "--step", "1", "--redirect-uri", input.RedirectURI)
 	output, err := runGog(ctx, spec, nil, flags...)
 	if err != nil {
@@ -314,18 +405,11 @@ func (r *Runner) GogFinish(ctx context.Context, id string, input GogFinishReques
 	}
 	ctx, cancel := context.WithTimeout(ctx, 45*time.Second)
 	defer cancel()
-	flags := []string{"--json", "--no-input"}
-	if session.Scope == "" || session.Scope == "readonly" {
-		flags = append(flags, "--readonly")
-	}
 	services, err := gogServiceList(session.Services, nil)
 	if err != nil {
 		return err
 	}
-	flags = append(flags, "auth", "add", session.Email, "--services", strings.Join(services, ","))
-	if services[0] == "gmail" {
-		flags = append(flags, "--gmail-scope", session.Scope)
-	}
+	flags := gogAuthAddFlags(session.Email, session.Scope, services)
 	flags = append(flags, "--remote", "--step", "2", "--auth-url", input.RedirectedURL, "--redirect-uri", session.RedirectURI)
 	if _, err := runGog(ctx, spec, nil, flags...); err != nil {
 		return errors.New("Google authorization could not be completed")
@@ -335,6 +419,8 @@ func (r *Runner) GogFinish(ctx context.Context, id string, input GogFinishReques
 		return err
 	}
 	_ = os.Remove(filepath.Join(spec.WorkDir, "gog-oauth-session.json"))
+	// The MCP child was started with the tools of the services granted then; the next call starts it with these.
+	p.recycle()
 	return nil
 }
 
@@ -357,7 +443,18 @@ func (r *Runner) GogStatus(id string) (gogAccount, error) {
 	return account, nil
 }
 
-// GogCheck performs a bounded read-only Gmail request with the stored token.
+// gogChecks are the bounded read-only requests that prove each service answers with the stored token.
+var gogChecks = map[string]struct {
+	args []string
+	name string
+}{
+	"gmail":    {[]string{"gmail", "search", "newer_than:1d", "--max", "1"}, "Gmail"},
+	"calendar": {[]string{"calendar", "events", "--today", "--max", "1"}, "Calendar"},
+	"drive":    {[]string{"drive", "search", "--max", "1", "--raw-query", "--", "trashed = false"}, "Drive"},
+}
+
+// GogCheck performs one bounded read-only request per authorised service. The first service that fails decides the
+// error, so an API that is not enabled names that service's API.
 func (r *Runner) GogCheck(ctx context.Context, id string) error {
 	spec, err := r.gogSpec(id)
 	if err != nil {
@@ -367,14 +464,22 @@ func (r *Runner) GogCheck(ctx context.Context, id string) error {
 	if err != nil || account.Email == "" {
 		return errors.New("Google account is not connected")
 	}
-	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
-	defer cancel()
-	_, err = runGog(ctx, spec, nil, "--json", "--no-input", "--readonly", "--account", account.Email, "gmail", "search", "newer_than:1d", "--max", "1")
-	if err != nil {
-		if disabled := classifyGogFailure(err, "gmail.googleapis.com"); disabled != nil {
-			return disabled
+	services := authorisedGogServices(account.Services)
+	for _, service := range services {
+		check, ok := gogChecks[service]
+		if !ok {
+			continue
 		}
-		return errors.New("Gmail read verification failed")
+		serviceCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
+		args := append([]string{"--json", "--no-input", "--readonly", "--account", account.Email}, check.args...)
+		_, err = runGog(serviceCtx, spec, nil, args...)
+		cancel()
+		if err != nil {
+			if disabled := classifyGogFailure(err, googleapi.ServiceAPI[service]); disabled != nil {
+				return disabled
+			}
+			return errors.New(check.name + " read verification failed")
+		}
 	}
 	return nil
 }
@@ -402,5 +507,16 @@ func (r *Runner) GogDisconnect(ctx context.Context, id string) error {
 	if _, err := runGog(ctx, spec, nil, "--no-input", "auth", "remove", account.Email); err != nil {
 		return errors.New("could not remove stored Google token")
 	}
-	return os.Remove(filepath.Join(spec.WorkDir, "gog-account.json"))
+	err = os.Remove(filepath.Join(spec.WorkDir, "gog-account.json"))
+	p.recycle()
+	return err
+}
+
+// authorisedServicesOf is the services to report for a status: none without an account, otherwise the recorded ones
+// (Gmail for an account recorded before services were tracked).
+func authorisedServicesOf(account gogAccount) []string {
+	if account.Email == "" {
+		return []string{}
+	}
+	return authorisedGogServices(account.Services)
 }
