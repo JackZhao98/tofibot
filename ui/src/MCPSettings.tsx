@@ -318,7 +318,7 @@ function MCPRow({ server, checkRequest, refresh, refreshLocal, onEdit, onRemoved
       {account?.connected && <p className="mcp-service-source">{t("connections.details.account", { email: account.email })} · {account.scope === "read-send" ? t("local.google.granted_read_send") : t("local.google.granted_readonly")}</p>}
       {isGog && google?.client.configured && <p className="mcp-service-source">{t("connections.details.project", { project: google.client.project_id || google.client.project_number })}</p>}
       {preset?.googleAPIs && <p className="mcp-service-source">{t("connections.preview_note")}</p>}
-      {hasTools && tiers && <div className="mcp-service-tools"><div className="mcp-tools-title"><strong>{t("tools.title", { count: tiers.tools.length })}</strong></div><ToolTierPanel server={server.name} tiers={tiers} onChange={setTiers} busy={busy} /></div>}
+      {hasTools && tiers && <div className="mcp-service-tools"><div className="mcp-tools-title"><strong>{t("tools.title", { count: tiers.tools.length })}</strong></div><ToolTierPanel server={server.name} tiers={tiers} onChange={setTiers} busy={busy} community={server.provenance?.origin === "community"} /></div>}
     </div>}
     {kind === "error" && preset?.googleAPIs && <div className="mcp-service-setup"><Disclosure title={t("google.help")} defaultOpen><GoogleSetupLinks preset={preset} docs /></Disclosure></div>}
     {vmSession && <VMOAuthDialog session={vmSession} serverName={server.name} title={display} onFinish={(status, detail) => { setVMSession(null); if (status === "complete") { void refresh(); void check(); } else { setPhase("auth"); setError(detail || ""); } }} />}

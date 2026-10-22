@@ -498,5 +498,12 @@
       "label": "Code source sur GitHub : {{repo}}",
       "with_stars": "Code source sur GitHub : {{repo}}, {{count}} étoiles"
     }
+  },
+  "capabilities": {
+    "title": "Ce que cela peut faire",
+    "read": "Lecture",
+    "write": "Écriture",
+    "more": "+{{count}} autres",
+    "community_note": "Code communautaire : les écritures demandent toujours confirmation, et ses propres marques de lecture seule sont ignorées. Marquez un outil en lecture seule ci-dessous pour qu'il s'exécute sans demander."
   }
 }

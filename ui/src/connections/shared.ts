@@ -10,6 +10,19 @@ export type MCP = { name: string; url: string; transport?: MCPTransport; status?
 export type ToolTier = "read_only" | "write" | "high_risk";
 export type ToolTierView = { name: string; description?: string; tier: ToolTier; source: "owner" | "provider" | "default"; override?: ToolTier; changed?: boolean; duplicated?: boolean; read_only_hint?: boolean; destructive_hint?: boolean };
 export type ToolTierList = { tools: ToolTierView[]; read_only: number; write: number; high_risk: number; checked?: boolean; error_class?: "auth" | "failed"; diagnostics?: { message: string }[] };
+/**
+ * "What this can do", built from the tool list and the tiers the server resolved, never from written copy. Read is what
+ * runs without asking; write is everything reviewed (write and always-ask). A community connection's own read-only
+ * hints do not count (D47): only a tool the owner marked read only is read.
+ */
+export type Capabilities = { read: ToolTierView[]; write: ToolTierView[] };
+export function capabilities(tiers: ToolTierList, community = false): Capabilities {
+  const read: ToolTierView[] = [], write: ToolTierView[] = [];
+  for (const tool of tiers.tools) (tool.tier === "read_only" && (!community || tool.source === "owner") ? read : write).push(tool);
+  return { read, write };
+}
+/** How many tool names the summary lists before "+N more". */
+export const CAPABILITY_NAMES = 6;
 export const TIERS: readonly ToolTier[] = ["read_only", "write", "high_risk"];
 
 export const toolsEndpoint = (name: string) => `/api/extensions/mcp/${encodeURIComponent(name)}/tools`;
