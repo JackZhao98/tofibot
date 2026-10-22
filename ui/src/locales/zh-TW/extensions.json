@@ -494,5 +494,12 @@
       "label": "GitHub 原始碼：{{repo}}",
       "with_stars": "GitHub 原始碼：{{repo}}，{{count}} 個星號"
     }
+  },
+  "capabilities": {
+    "title": "這能做什麼",
+    "read": "可讀取",
+    "write": "可寫入",
+    "more": "另 {{count}} 個",
+    "community_note": "社群程式碼：寫入每次都先詢問，它自己標示的唯讀不採信。在下方把某個工具標為唯讀，它才不再詢問。"
   }
 }

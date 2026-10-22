@@ -496,5 +496,12 @@
       "label": "Quellcode auf GitHub: {{repo}}",
       "with_stars": "Quellcode auf GitHub: {{repo}}, {{count}} Sterne"
     }
+  },
+  "capabilities": {
+    "title": "Was das kann",
+    "read": "Lesen",
+    "write": "Schreiben",
+    "more": "+{{count}} weitere",
+    "community_note": "Community-Code: Schreibzugriffe fragen jedes Mal nach, seine eigenen Nur-Lesen-Markierungen werden ignoriert. Markieren Sie unten ein Tool als schreibgeschützt, damit es ohne Nachfrage läuft."
   }
 }
