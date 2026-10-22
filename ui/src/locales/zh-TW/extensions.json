@@ -22,13 +22,14 @@
     "search": "搜尋服務",
     "services": "服務連線",
     "local_details": "在本伺服器執行 · OAuth",
-    "custom_section": "自訂",
+    "custom_section": "新增社群或自訂連線",
     "custom_url": "自訂連線",
     "custom_url_hint": "用網址連線任何遠端 MCP 伺服器。",
     "custom_package": "本機套件",
     "custom_package_hint": "在本伺服器安裝固定版本的 npm 或 PyPI MCP 服務。",
     "preview_title": "Workspace 預覽（企業）",
-    "preview_toggle": "顯示 Google Workspace 伺服器"
+    "preview_toggle": "顯示 Google Workspace 伺服器",
+    "community_note": "社群連線器由第三方維護，其寫入操作每次都會先詢問你。"
   },
   "callback": {
     "copied": "已複製",
@@ -393,7 +394,8 @@
     "unverified": "尚未驗證",
     "waiting": "等待授權",
     "connected": "已連線",
-    "not_connected": "未連線"
+    "not_connected": "未連線",
+    "api_disabled": "API 未啟用"
   },
   "vm": {
     "cancel": "取消授權",
@@ -442,11 +444,13 @@
     "title": "連線",
     "add": "新增連線",
     "action": {
-      "authorize": "授權"
+      "authorize": "授權",
+      "enable_api": "啟用 {{name}} API"
     },
     "menu": {
       "details": "查看詳細資料",
-      "hide_details": "收合詳細資料"
+      "hide_details": "收合詳細資料",
+      "sign_in_again": "重新登入"
     },
     "dialog": {
       "title": "新增連線"
@@ -458,15 +462,24 @@
       }
     },
     "source": {
-      "gog": "來自 gogcli · Gmail API",
-      "local": "本機外掛程式 · {{name}}",
-      "vendor": "官方 MCP 伺服器 · {{host}}",
-      "community": "社群 MCP 伺服器 · {{host}}",
-      "custom": "自訂連線 · {{host}}"
+      "gog": "社群 · gogcli · Gmail API",
+      "local": "社群 · {{name}}",
+      "vendor": "官方 · {{host}}",
+      "community": "社群 · {{host}}",
+      "custom": "自訂 · {{host}}"
     },
     "details": {
-      "account": "帳號：{{email}}"
+      "account": "帳號：{{email}}",
+      "project": "Google Cloud 專案：{{project}}"
     },
-    "preview_note": "需要已加入 Workspace 開發人員預覽計畫的 Google Cloud 專案，該計畫要求公司或企業帳號。未加入時，工具呼叫可能傳回權限錯誤。"
+    "preview_note": "需要已加入 Workspace 開發人員預覽計畫的 Google Cloud 專案，該計畫要求公司或企業帳號。未加入時，工具呼叫可能傳回權限錯誤。",
+    "error": {
+      "api_disabled": "你的 Google Cloud 專案尚未啟用 {{name}} API。啟用後重新整理即可。"
+    },
+    "google": {
+      "using_client": "使用已儲存的 Google 用戶端（專案 {{project}}），無需再次上傳。",
+      "replace_client": "更換用戶端",
+      "project_found": "此用戶端屬於專案 {{project}}。"
+    }
   }
 }

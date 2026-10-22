@@ -7,6 +7,7 @@ import type { OAuthOptions, OAuthRoute } from "../mcpOAuthRoute";
 import { mcpTokenHeaders } from "../mcpTokenHeaders";
 import { useTranslation } from "../i18n";
 import { endpoint, message, transportLabels, words, type MCP, type MCPTransport } from "./shared";
+import type { GoogleOverview } from "./google";
 
 /** Google Cloud links for one Google connector. Shown while connecting, and after a failure; never on a healthy row. */
 export function GoogleSetupLinks({ preset, docs = false }: { preset: IntegrationPreset; docs?: boolean }) {
@@ -40,8 +41,8 @@ export function CallbackAddress({ label, value }: { label: string; value: string
 }
 
 /** Remote MCP setup (a catalog preset, a custom URL, or editing a saved connection), as the body of the connect dialog. */
-export function RemoteForm({ initial, preset, options, route, busy, onSave, onCancel }: {
-  initial: MCP | null; preset?: IntegrationPreset; options: OAuthOptions | null; route: OAuthRoute; busy: boolean;
+export function RemoteForm({ initial, preset, options, route, busy, onSave, onCancel, google }: {
+  google: GoogleOverview | null; initial: MCP | null; preset?: IntegrationPreset; options: OAuthOptions | null; route: OAuthRoute; busy: boolean;
   onSave: (v: MCP) => Promise<void>; onCancel: () => void;
 }) {
   const { t } = useTranslation("extensions");
@@ -58,13 +59,16 @@ export function RemoteForm({ initial, preset, options, route, busy, onSave, onCa
   const [scopes, setScopes] = useState(initial?.oauth?.scopes?.join(", ") ?? preset?.scopes?.join(", ") ?? "");
   const [metadata, setMetadata] = useState(initial?.oauth?.auth_server_metadata_url ?? preset?.metadataURL ?? "");
   const [error, setError] = useState("");
+  const [replaceClient, setReplaceClient] = useState(false);
+  // A Google service after the first signs in with the workspace's saved Google client: no ID or secret to type again.
+  const savedClient = Boolean(google?.client.configured) && preset?.category === "google" && !initial && !replaceClient;
   return <form className="connect-form" aria-busy={busy} onSubmit={async e => {
     e.preventDefault(); if (busy) return;
     try {
       if (!/^[a-zA-Z0-9_.-]{1,64}$/.test(name) || name === "." || name === "..") throw new Error(t("form.name_invalid"));
       const parsed = mcpTokenHeaders(headers, token, preset);
       setError("");
-      await onSave({ name, url, transport, headers: parsed, tool_allowlist: words(allow), tool_denylist: words(deny), ...(oauth ? { oauth: { client_id: clientID, client_secret: secret, scopes: words(scopes), auth_server_metadata_url: metadata } } : {}) });
+      await onSave({ name, url, transport, headers: parsed, tool_allowlist: words(allow), tool_denylist: words(deny), ...(oauth ? { oauth: { client_id: savedClient ? "" : clientID, client_secret: savedClient ? "" : secret, scopes: words(scopes), auth_server_metadata_url: metadata } } : {}), ...(savedClient ? { google_client: true } : {}) });
     } catch (cause) { setError(message(cause)); }
   }}>
     <fieldset className="form-fields" disabled={busy}>
@@ -74,7 +78,8 @@ export function RemoteForm({ initial, preset, options, route, busy, onSave, onCa
       {!preset && <label>{t("form.url")}<input required type="url" value={url} onChange={e => { setURL(e.target.value); setToken(""); }} placeholder="https://example.com/mcp" /></label>}
       {preset?.auth === "token" && <label>{t("form.token")}<input type="password" autoComplete="off" value={token} onChange={e => setToken(e.target.value)} placeholder={initial ? t("form.token_keep") : t("form.token_paste")} required={!initial} /></label>}
       {!preset && <label className="extension-check"><input type="checkbox" checked={oauth} onChange={e => setOAuth(e.target.checked)} disabled={Boolean(initial?.oauth)} />{t("auth.oauth")}</label>}
-      {oauth && !preset?.dcr && <>
+      {oauth && !preset?.dcr && savedClient && <p className="connect-lead">{t("connections.google.using_client", { project: google!.client.project_id || google!.client.project_number })} <button type="button" className="text-button" onClick={() => setReplaceClient(true)}>{t("connections.google.replace_client")}</button></p>}
+      {oauth && !preset?.dcr && !savedClient && <>
         <label>{preset?.category !== "google" ? t("form.client_id_optional") : t("form.client_id")}<input required={preset?.category === "google"} value={clientID} onChange={e => setClientID(e.target.value)} autoComplete="off" /></label>
         <label>{t("form.client_secret")}<input required={preset?.category === "google"} type="password" autoComplete="off" value={secret} onChange={e => setSecret(e.target.value)} placeholder={t("form.client_secret_hint")} /></label>
         {options?.web_callback_origin && <CallbackAddress label={t("callback.web")} value={`${options.web_callback_origin}${endpoint(name || t("form.name"))}/oauth/callback`} />}

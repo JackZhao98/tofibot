@@ -22,13 +22,14 @@
     "search": "서비스 검색",
     "services": "서비스",
     "local_details": "이 서버에서 실행 · OAuth",
-    "custom_section": "사용자 지정",
+    "custom_section": "커뮤니티 또는 사용자 지정 연결 추가",
     "custom_url": "사용자 지정 커넥터",
     "custom_url_hint": "URL로 원격 MCP 서버에 연결합니다.",
     "custom_package": "로컬 패키지",
     "custom_package_hint": "버전을 고정한 npm 또는 PyPI MCP 서버를 이 서버에 설치합니다.",
     "preview_title": "Workspace 프리뷰(기업용)",
-    "preview_toggle": "Google Workspace 서버 보기"
+    "preview_toggle": "Google Workspace 서버 보기",
+    "community_note": "커뮤니티 커넥터는 제3자가 유지 관리하며, 쓰기 작업은 항상 먼저 확인을 요청합니다."
   },
   "callback": {
     "copied": "복사됨",
@@ -393,7 +394,8 @@
     "unverified": "아직 확인되지 않음",
     "waiting": "승인 대기 중",
     "connected": "연결됨",
-    "not_connected": "연결 안 됨"
+    "not_connected": "연결 안 됨",
+    "api_disabled": "API가 사용 설정되지 않음"
   },
   "vm": {
     "cancel": "승인 취소",
@@ -442,11 +444,13 @@
     "title": "연결",
     "add": "연결 추가",
     "action": {
-      "authorize": "승인"
+      "authorize": "승인",
+      "enable_api": "{{name}} API 사용 설정"
     },
     "menu": {
       "details": "세부 정보 보기",
-      "hide_details": "세부 정보 숨기기"
+      "hide_details": "세부 정보 숨기기",
+      "sign_in_again": "다시 로그인"
     },
     "dialog": {
       "title": "연결 추가"
@@ -458,15 +462,24 @@
       }
     },
     "source": {
-      "gog": "gogcli 경유 · Gmail API",
-      "local": "로컬 플러그인 · {{name}}",
-      "vendor": "공식 MCP 서버 · {{host}}",
-      "community": "커뮤니티 MCP 서버 · {{host}}",
-      "custom": "사용자 지정 연결 · {{host}}"
+      "gog": "커뮤니티 · gogcli · Gmail API",
+      "local": "커뮤니티 · {{name}}",
+      "vendor": "공식 · {{host}}",
+      "community": "커뮤니티 · {{host}}",
+      "custom": "사용자 지정 · {{host}}"
     },
     "details": {
-      "account": "계정: {{email}}"
+      "account": "계정: {{email}}",
+      "project": "Google Cloud 프로젝트: {{project}}"
     },
-    "preview_note": "Workspace 개발자 프리뷰 프로그램에 등록된 Google Cloud 프로젝트가 필요하며, 회사 또는 기업 계정이 있어야 합니다. 등록 전에는 도구 호출이 권한 오류로 실패할 수 있습니다."
+    "preview_note": "Workspace 개발자 프리뷰 프로그램에 등록된 Google Cloud 프로젝트가 필요하며, 회사 또는 기업 계정이 있어야 합니다. 등록 전에는 도구 호출이 권한 오류로 실패할 수 있습니다.",
+    "error": {
+      "api_disabled": "Google Cloud 프로젝트에서 {{name}} API가 사용 설정되지 않았습니다. 사용 설정한 뒤 새로고침하세요."
+    },
+    "google": {
+      "using_client": "저장된 Google 클라이언트(프로젝트 {{project}})를 사용합니다. 다시 업로드할 필요가 없습니다.",
+      "replace_client": "클라이언트 교체",
+      "project_found": "이 클라이언트는 프로젝트 {{project}}에 속합니다."
+    }
   }
 }

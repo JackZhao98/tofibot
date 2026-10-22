@@ -62,6 +62,7 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
 
   // ---- Synthetic server: the owner's real shape (a Google account never authorised, Notion with many tools, Google's official
   // Gmail MCP, a custom server), none of its data.
+  const ENABLE = "https://console.cloud.google.com/apis/library/gmail.googleapis.com?project=tofi-sample-123456";
   const tools = n => ({tools: Array.from({length: n}, (_, i) => ({name: `tool_${i + 1}`, description: `Synthetic tool ${i + 1}`, tier: i % 3 === 0 ? "read_only" : "write", source: i % 3 === 0 ? "provider" : "default"})), read_only: Math.ceil(n / 3), write: n - Math.ceil(n / 3), high_risk: 0, checked: true});
   const stub = (url, method, q) => {
     const path = url.pathname;
@@ -73,11 +74,14 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
     if (path === "/api/extensions/mcp" && method === "GET") return {servers: [
       ...(q.get("fresh") ? [] : [{name: "local_gog", url: "http://plugins.internal.example:8787/mcp/gog", transport: "streamable_http", headers: {Authorization: "Bearer x"}, status: {checked_at: "2026-10-21T09:30:00Z", ok: true, tool_count: 3}}]),
       {name: "notion", url: "https://mcp.notion.com/mcp", transport: "streamable_http", oauth: {client_id: "", connected: true}, status: {checked_at: "2026-10-21T09:30:00Z", ok: true, tool_count: 65}},
-      {name: "google-gmail", url: "https://gmailmcp.googleapis.com/mcp/v1", transport: "streamable_http", oauth: {client_id: "sample", connected: true}, status: {checked_at: "2026-10-21T09:30:00Z", ok: true, tool_count: 23}},
+      {name: "google-gmail", url: "https://gmailmcp.googleapis.com/mcp/v1", transport: "streamable_http", oauth: {client_id: "sample", connected: true}, status: q.get("apidisabled") === "status"
+        ? {checked_at: "2026-10-21T09:30:00Z", ok: false, tool_count: 23, error_class: "failed", error_code: "api_disabled", api: "gmail.googleapis.com", enable_url: ENABLE}
+        : {checked_at: "2026-10-21T09:30:00Z", ok: true, tool_count: 23}},
       {name: "acme_tracker", url: "https://mcp.example.test/tracker", oauth: {client_id: "sample", connected: false}},
     ]};
     if (/^\/api\/extensions\/mcp\/[^/]+\/test$/.test(path) && method === "POST") {
       const name = path.split("/")[4];
+      if (q.get("apidisabled") && name === "google-gmail") return {ok: false, tool_count: 0, diagnostics: [{message: "Google 返回 API 未启用。", code: "api_disabled", api: "gmail.googleapis.com", enable_url: ENABLE}]};
       if (q.get("fail") === name) return {ok: false, tool_count: 0, diagnostics: [{message: "Google 返回 API 未启用。请在 OAuth Client 所属的同一个项目中启用产品 API 和 MCP 服务，再刷新工具。", code: "api_disabled"}]};
       return {ok: true, tool_count: name === "notion" ? 65 : name === "google-gmail" ? 23 : 3};
     }
@@ -85,6 +89,7 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
     if (m && method === "GET") return tools(m[1] === "notion" ? 6 : m[1] === "google-gmail" ? 6 : 3);
     if (path === "/api/extensions/local-mcp") return {available: q.get("runner") !== "off", plugins: q.get("fresh") ? [] : [{id: "gog", state: "sleeping", tool_count: 3}]};
     if (path === "/api/extensions/local-mcp/gog/oauth/status") return q.get("gog") === "authorised" ? {connected: true, email: "you@example.test", scope: "readonly"} : {connected: false, email: ""};
+    if (path === "/api/extensions/google") return q.get("gclient") ? {client: {configured: true, project_id: "tofi-sample-123456", project_number: "622599621014"}, apis: []} : {client: {configured: false}, apis: []};
     if (path === "/api/standing-allowances") return {allowances: [], remembered: []};
     return {};
   };
@@ -258,12 +263,12 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
       await gog.waitFor();
       await gog.locator(".mcp-menu-trigger").click();
       await page.getByRole("menuitem", {name: "View details"}).click();
-      assert.match(await gog.locator(".mcp-service-details").innerText(), /Via gogcli · Gmail API/, "Gmail says it runs via gogcli");
+      assert.match(await gog.locator(".mcp-service-details").innerText(), /Community · gogcli · Gmail API/, "Gmail says it runs via gogcli");
       await gog.locator(".mcp-tool-group").first().waitFor();
       const notion = row(page, "Notion");
       await notion.locator(".mcp-menu-trigger").click();
       await page.getByRole("menuitem", {name: "View details"}).click();
-      assert.match(await notion.locator(".mcp-service-details").innerText(), /Official MCP server · mcp\.notion\.com/);
+      assert.match(await notion.locator(".mcp-service-details").innerText(), /Official · mcp\.notion\.com/);
       const google = row(page, "Google Gmail");
       await google.locator(".mcp-menu-trigger").click();
       await page.getByRole("menuitem", {name: "View details"}).click();
@@ -271,7 +276,7 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
       const custom = row(page, "acme_tracker");
       await custom.locator(".mcp-menu-trigger").click();
       await page.getByRole("menuitem", {name: "View details"}).click();
-      assert.match(await custom.locator(".mcp-service-details").innerText(), /Custom connection · mcp\.example\.test/);
+      assert.match(await custom.locator(".mcp-service-details").innerText(), /Custom · mcp\.example\.test/);
       await close();
       console.log("PASS details: each connection says where it comes from; tools are in the details; Workspace servers name the enrolment");
     }
@@ -289,6 +294,55 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
       await close();
       console.log("PASS error: a failing Google row names the reason and shows its setup help; healthy rows show none");
     }
+
+    // ---- 7b. "API not enabled" is a named problem with one Enable button (from the structured error, via the status and a check).
+    for (const variant of ["status", "check"]) {
+      const {page, close} = await open({apidisabled: variant});
+      const google = row(page, "Google Gmail");
+      await google.waitFor();
+      await page.waitForFunction(() => document.querySelector('.mcp-service[aria-label="Google Gmail"]')?.getAttribute("data-kind") === "api_disabled", null, {timeout: 12000});
+      assert.match((await google.locator(".mcp-service-status").innerText()).trim(), /^API not enabled/, "the status names the problem");
+      const enable = google.getByRole("link", {name: "Enable Gmail API"});
+      assert.equal(await enable.count(), 1, "one primary action: the Enable button");
+      assert.equal(await enable.getAttribute("href"), "https://console.cloud.google.com/apis/library/gmail.googleapis.com?project=tofi-sample-123456", "it opens the exact console page for that API in that project");
+      assert.equal(await enable.getAttribute("target"), "_blank");
+      assert.match(await enable.getAttribute("rel"), /noopener/);
+      assert.match(await google.locator(".mcp-service-error").innerText(), /Gmail API isn.t enabled in your Google Cloud project/);
+      assert.doesNotMatch(await google.locator(".mcp-service-status").innerText(), /Connected/);
+      if (variant === "status") assert.equal(await google.getAttribute("data-state"), "error");
+      await close();
+    }
+    console.log("PASS api not enabled: the row says so and offers the Enable button for that API in that project");
+
+    // ---- 7c. A second Google service does not ask for the client again.
+    {
+      const {page, close} = await open({gclient: "1", gog: "authorised", fresh: "1"});
+      await page.getByRole("button", {name: "Add connection"}).click();
+      const dialog = page.locator('[role="dialog"].connect-dialog');
+      await dialog.waitFor();
+      await dialog.locator('[data-integration-id="google-calendar"]').waitFor({state: "attached"});
+      await dialog.getByRole("button", {name: /Google Workspace servers/}).click();
+      await dialog.locator('[data-integration-id="google-calendar"]').click();
+      await dialog.locator("form").waitFor();
+      assert.match(await dialog.innerText(), /Using your saved Google client \(project tofi-sample-123456\)/);
+      assert.equal(await dialog.locator('input[required][autocomplete="off"]').count(), 0, "no client ID or secret to type again");
+      await page.keyboard.press("Escape");
+      await dialog.waitFor({state: "detached"});
+      await close();
+    }
+    console.log("PASS google client: a second Google service uses the saved client");
+
+    // ---- 7d. The directory curates official connectors; community ones go through the custom path.
+    {
+      const {page, close} = await open({fresh: "1"});
+      await page.getByRole("button", {name: "Add connection"}).click();
+      const dialog = page.locator('[role="dialog"].connect-dialog');
+      await dialog.waitFor();
+      assert.equal(await dialog.locator('[data-held-integration-id="discord"], [data-held-integration-id="yahoo-finance"]').count(), 0, "community servers are not curated");
+      assert.match(await dialog.innerText(), /maintained by third parties.*always ask first/);
+      await close();
+    }
+    console.log("PASS directory: official only, community through the custom path with its caveat");
 
     // ---- 8. Phone width: no horizontal overflow, 44 px targets for the controls that matter.
     {

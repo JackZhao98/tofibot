@@ -17,7 +17,8 @@ export function IntegrationBrowser({ query, servers, localConnectors, onQueryCha
   onQueryChange: (query: string) => void; onSelect: (preset: IntegrationPreset) => void; onLocal: (id: LocalConnector["id"]) => void; onCustom: () => void; onPackage?: () => void;
 }) {
   const { t } = useTranslation("extensions");
-  const held = heldIntegrations.filter(item => matchesIntegration(item, query));
+  // The directory curates official connectors; a community one is added through the custom path below.
+  const held = heldIntegrations.filter(item => item.upstream === "vendor" && matchesIntegration(item, query));
   const matching = integrationCatalog.filter(item => matchesIntegration(item, query));
   const needle = query.trim().toLowerCase();
   const locals = localConnectors.map(item => ({ ...item, name: t("connections.local.gog.name"), description: t("connections.local.gog.description") }))
@@ -46,6 +47,7 @@ export function IntegrationBrowser({ query, servers, localConnectors, onQueryCha
     {nothing && <EmptyState name="integrations-no-match" className="mcp-placeholder is-compact" role="status" look={CATS.yuzu} pose="curious"><p>{t("browser.empty")}</p></EmptyState>}
     <section className="integration-section" aria-label={t("browser.custom_section")}>
       <h3>{t("browser.custom_section")}</h3>
+      <p className="integration-catalog-note">{t("browser.community_note")}</p>
       <div className="integration-grid">
         <button className="integration-tile" data-integration-id="custom-url" onClick={onCustom}><span className="service-mark"><TofiIcon name="mcp" size={22} /></span><span><strong>{t("browser.custom_url")}</strong><small>{t("browser.custom_url_hint")}</small></span><TofiIcon name="chevron-right" size={16} /></button>
         {onPackage && <button className="integration-tile" data-integration-id="custom-package" onClick={onPackage}><span className="service-mark"><TofiIcon name="terminal" size={22} /></span><span><strong>{t("browser.custom_package")}</strong><small>{t("browser.custom_package_hint")}</small></span><TofiIcon name="chevron-right" size={16} /></button>}
