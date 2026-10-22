@@ -201,7 +201,7 @@
   "held": {
     "discord": {
       "description": "社群維護的 Discord Bot 連線。",
-      "reason": "尚未核實相容的安裝方式與連線權限，暫不開放新增。"
+      "reason": "不屬於官方精選連線。可在「本機 MCP」中自行安裝社群版 Discord 服務；步驟見 docs/integrations/discord-add-it-yourself.md。"
     },
     "notion_token": {
       "description": "已停止維護的舊版本機 MCP 服務。",
@@ -222,14 +222,18 @@
     "custom": {
       "args": "啟動參數（每行一個）",
       "binary": "執行檔",
-      "env": "環境變數（每行 KEY=value，以私密檔案儲存）",
+      "env": "環境變數（值以私密檔案儲存，之後不再顯示）",
       "install": "安裝外掛程式",
-      "intro": "指定固定版本與執行檔。安裝指令會在 Runner 內執行；外掛程式碼將以 Runner 的權限執行。",
+      "intro": "指定固定版本與執行檔。安裝指令會在 Runner 內執行；外掛程式碼將以 Runner 的權限執行。社群套件是你選擇信任的程式碼：它能看到你交給它的變數，其工具在你標為唯讀之前每次都要確認。",
       "package": "套件名稱",
       "plugin_id": "外掛程式 ID",
       "runtime": "執行環境",
       "title": "安裝其他本機 MCP",
-      "version": "固定版本"
+      "version": "固定版本",
+      "integrity": "套件摘要（選填，sha512-…；若來源回傳的內容不符，安裝即失敗）",
+      "env_name": "變數名稱",
+      "env_value": "值",
+      "env_add": "新增變數"
     },
     "gog": {
       "install": "安裝 gogcli",
@@ -457,5 +461,9 @@
       "high_risk": "總是問我"
     },
     "title": "工具 · {{count}}"
+  },
+  "provenance": {
+    "community": "社群外掛程式 · {{package}} {{version}}",
+    "review": "工具在標為唯讀之前每次都要確認"
   }
 }

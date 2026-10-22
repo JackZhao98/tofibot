@@ -4,7 +4,9 @@ import { request } from "./api";
 import { Trans, useTranslation } from "./i18n";
 import "./local-mcp.css";
 
-type Plugin = { id: string; state: "sleeping" | "starting" | "ready"; tool_count: number };
+type Plugin = { id: string; state: "sleeping" | "starting" | "ready"; tool_count: number; kind?: string; package?: string; version?: string };
+type EnvRow = { key: string; value: string };
+const integrityPattern = /^sha512-[A-Za-z0-9+/]{86}==$/;
 type RunnerStatus = { available: boolean; reason?: string; plugins?: Plugin[] };
 type GoogleStatus = { connected: boolean; email: string; scope?: "readonly" | "read-send" };
 type PackageKind = "npm" | "pypi";
@@ -33,7 +35,8 @@ export function LocalMCPPanel({ onChanged, attachedIDs, callbackOrigin }: { onCh
  const [version, setVersion] = useState("");
  const [binary, setBinary] = useState("");
  const [args, setArgs] = useState("");
- const [environment, setEnvironment] = useState("");
+ const [integrity, setIntegrity] = useState("");
+ const [envRows, setEnvRows] = useState<EnvRow[]>([{ key: "", value: "" }]);
  const [confirmRemove, setConfirmRemove] = useState("");
  const [confirmDisconnect, setConfirmDisconnect] = useState(false);
  const refresh = useCallback(async () => {
@@ -51,13 +54,14 @@ export function LocalMCPPanel({ onChanged, attachedIDs, callbackOrigin }: { onCh
  if (!runner.available) return <section className="local-mcp-panel" aria-label={t("local.title")}><h3>{t("local.unavailable")}</h3><p>{t("local.unavailable_hint")}</p>{runner.reason && <p className="field-note">{runner.reason}</p>}</section>;
  const gog = runner.plugins?.find(plugin => plugin.id === "gog");
  const installed = runner.plugins ?? [];
- async function install(payload: { id: string; kind: string; package?: string; version?: string; binary?: string; args?: string[]; env?: Record<string,string> }) {
+ async function install(payload: { id: string; kind: string; package?: string; version?: string; binary?: string; args?: string[]; env?: Record<string,string>; integrity?: string }): Promise<boolean> {
   setBusy(`install:${payload.id}`); setError(""); setNotice("");
   try {
    await request("/api/extensions/local-mcp/install", { method: "POST", body: JSON.stringify(payload) });
    await Promise.all([refresh(), onChanged()]);
    setNotice(t("local.notice.installed", { id: payload.id }));
-  } catch (caught) { setError(errorText(caught)); }
+   return true;
+  } catch (caught) { setError(errorText(caught)); return false; }
   finally { setBusy(""); }
  }
  async function connectGoogle() {
@@ -103,8 +107,10 @@ export function LocalMCPPanel({ onChanged, attachedIDs, callbackOrigin }: { onCh
  const packagePreview = kind === "npm"
   ? `npm install --prefix <${id || t("local.custom.plugin_id")}> --ignore-scripts --no-audit --no-fund -- ${packageName || t("local.custom.package")}@${version || t("local.custom.version")}`
   : `python3 -m venv <${id || t("local.custom.plugin_id")}> && pip install ${packageName || t("local.custom.package")}==${version || t("local.custom.version")}`;
- const environmentEntries = environment.split("\n").map(line => line.trim()).filter(Boolean);
- const environmentValid = environmentEntries.every(line => /^[A-Za-z_][A-Za-z0-9_]*=/.test(line));
+ const environmentEntries = envRows.map(row => ({ key: row.key.trim(), value: row.value })).filter(row => row.key !== "" || row.value !== "");
+ const environmentValid = environmentEntries.every(row => /^[A-Za-z_][A-Za-z0-9_]*$/.test(row.key));
+ const integrityValid = kind !== "npm" || integrity.trim() === "" || integrityPattern.test(integrity.trim());
+ const updateEnvRow = (index: number, patch: Partial<EnvRow>) => setEnvRows(rows => rows.map((row, at) => at === index ? { ...row, ...patch } : row));
  return <section className="local-mcp-panel" aria-label={t("local.title")}>
   <div className="local-mcp-heading"><div><h3>{t("local.title")}</h3><p>{t("local.intro")}</p></div><span className="local-mcp-count">{t("local.plugin_count", { count: installed.length })}</span></div>
   <div className="local-mcp-card">
@@ -127,12 +133,12 @@ export function LocalMCPPanel({ onChanged, attachedIDs, callbackOrigin }: { onCh
     {!attachedIDs.includes("gog") && <button className="mcp-button" disabled={!!busy} onClick={() => void attach("gog")}>{t("local.attach")}</button>}
    </>}
   </div>
-  {installed.length>0 && <div className="local-mcp-installed">{installed.map(plugin => <div key={plugin.id} className="local-mcp-installed-row"><span><strong>{plugin.id}</strong> · {t(pluginStateKeys[plugin.state])}</span>{!attachedIDs.includes(plugin.id) && <button className="mcp-button" disabled={!!busy} onClick={() => void attach(plugin.id)}>{t("local.attach")}</button>}{confirmRemove === plugin.id ? <><span>{t("local.remove_confirm")}</span><button className="mcp-button" onClick={() => setConfirmRemove("")}>{t("action.cancel")}</button><button className="mcp-button mcp-danger" disabled={!!busy} onClick={() => void remove(plugin.id)}>{t("local.remove_submit")}</button></> : <button className="mcp-button" disabled={!!busy} onClick={() => setConfirmRemove(plugin.id)}>{t("local.remove")}</button>}</div>)}</div>}
+  {installed.length>0 && <div className="local-mcp-installed">{installed.map(plugin => <div key={plugin.id} className="local-mcp-installed-row"><span><strong>{plugin.id}</strong> · {t(pluginStateKeys[plugin.state])}{plugin.package && <> · {t("provenance.community", { package: plugin.package, version: plugin.version ?? "" })}</>}</span>{!attachedIDs.includes(plugin.id) && <button className="mcp-button" disabled={!!busy} onClick={() => void attach(plugin.id)}>{t("local.attach")}</button>}{confirmRemove === plugin.id ? <><span>{t("local.remove_confirm")}</span><button className="mcp-button" onClick={() => setConfirmRemove("")}>{t("action.cancel")}</button><button className="mcp-button mcp-danger" disabled={!!busy} onClick={() => void remove(plugin.id)}>{t("local.remove_submit")}</button></> : <button className="mcp-button" disabled={!!busy} onClick={() => setConfirmRemove(plugin.id)}>{t("local.remove")}</button>}</div>)}</div>}
   <details className="local-mcp-custom"><summary>{t("local.custom.title")}</summary>
    <p>{t("local.custom.intro")}</p>
-   <div className="local-mcp-fields"><label>{t("local.custom.runtime")}<select value={kind} onChange={event => setKind(event.target.value as PackageKind)}><option value="npm">Node / npm</option><option value="pypi">Python / PyPI</option></select></label><label>{t("local.custom.plugin_id")}<input value={id} onChange={event => setID(event.target.value)} placeholder="my-plugin" /></label><label>{t("local.custom.package")}<input value={packageName} onChange={event => setPackageName(event.target.value)} /></label><label>{t("local.custom.version")}<input value={version} onChange={event => setVersion(event.target.value)} placeholder="1.2.3" /></label><label>{t("local.custom.binary")}<input value={binary} onChange={event => setBinary(event.target.value)} /></label><label>{t("local.custom.args")}<textarea rows={2} value={args} onChange={event => setArgs(event.target.value)} /></label><label>{t("local.custom.env")}<textarea rows={3} value={environment} onChange={event => setEnvironment(event.target.value)} /></label></div>
+   <div className="local-mcp-fields"><label>{t("local.custom.runtime")}<select value={kind} onChange={event => setKind(event.target.value as PackageKind)}><option value="npm">Node / npm</option><option value="pypi">Python / PyPI</option></select></label><label>{t("local.custom.plugin_id")}<input value={id} onChange={event => setID(event.target.value)} placeholder="my-plugin" /></label><label>{t("local.custom.package")}<input value={packageName} onChange={event => setPackageName(event.target.value)} /></label><label>{t("local.custom.version")}<input value={version} onChange={event => setVersion(event.target.value)} placeholder="1.2.3" /></label><label>{t("local.custom.binary")}<input value={binary} onChange={event => setBinary(event.target.value)} /></label><label>{t("local.custom.args")}<textarea rows={2} value={args} onChange={event => setArgs(event.target.value)} /></label>{kind === "npm" && <label>{t("local.custom.integrity")}<input value={integrity} onChange={event => setIntegrity(event.target.value)} placeholder="sha512-…" spellCheck={false} autoComplete="off" aria-invalid={!integrityValid} /></label>}<fieldset className="local-mcp-env"><legend>{t("local.custom.env")}</legend>{envRows.map((row, index) => <div key={index} className="local-mcp-env-row"><input aria-label={t("local.custom.env_name")} value={row.key} onChange={event => updateEnvRow(index, { key: event.target.value })} placeholder="API_TOKEN" spellCheck={false} autoComplete="off" /><input aria-label={t("local.custom.env_value")} type="password" value={row.value} onChange={event => updateEnvRow(index, { value: event.target.value })} autoComplete="new-password" spellCheck={false} /></div>)}<button type="button" className="mcp-button" onClick={() => setEnvRows(rows => [...rows, { key: "", value: "" }])}>{t("local.custom.env_add")}</button></fieldset></div>
    <code>{packagePreview}</code>
-   <button className="mcp-button" disabled={!!busy || !id || !packageName || !version || !binary || !environmentValid} onClick={() => void install({ id, kind, package: packageName, version, binary, args: args.split("\n").map(item => item.trim()).filter(Boolean), env: Object.fromEntries(environmentEntries.map(line => { const index=line.indexOf("="); return [line.slice(0,index),line.slice(index+1)]; })) })}>{t("local.custom.install")}</button>
+   <button className="mcp-button" disabled={!!busy || !id || !packageName || !version || !binary || !environmentValid || !integrityValid} onClick={() => void install({ id, kind, package: packageName, version, binary, args: args.split("\n").map(item => item.trim()).filter(Boolean), env: Object.fromEntries(environmentEntries.map(row => [row.key, row.value])), ...(kind === "npm" && integrity.trim() ? { integrity: integrity.trim() } : {}) }).then(ok => { if (ok) { setEnvRows([{ key: "", value: "" }]); setIntegrity(""); } })}>{t("local.custom.install")}</button>
   </details>
   {error && <p className="local-mcp-error" role="alert">{error}</p>}{notice && <p className="local-mcp-notice" role="status">{notice}</p>}
  </section>;

@@ -23,6 +23,7 @@
     "test:run-progress": "node scripts/test-run-progress.mjs",
     "test:mcp-oauth": "node scripts/test-mcp-oauth.mjs",
     "test:integration-catalog": "node scripts/test-integration-catalog.mjs",
+    "test:community-install": "node scripts/test-community-install.mjs",
     "test:oauth-completion": "node scripts/test-oauth-completion.mjs",
     "test:user-form": "node scripts/test-user-form.mjs",
     "test:message-markdown": "node scripts/test-message-markdown.mjs",
