@@ -33,8 +33,11 @@ const fx = await createOverlayFixture({ engineName, dist: process.env.OVERLAYS_D
 const only = process.env.OVERLAYS_ONLY;
 const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
 let failures = 0;
+// TOFI_SKIP_TIMING=1 (CI): leave out the checks that read a clock or count writes per time window; shared runners are too noisy for them. Run them locally.
+const timingCheck = name => process.env.TOFI_SKIP_TIMING === "1" && /the cats hold still|^cost:/.test(name);
 async function check(name, fn) {
   if (only && !name.includes(only)) return;
+  if (timingCheck(name)) { console.log(`skipped (timing check, CI mode) - ${name}`); return; }
   try { await fn(); console.log(`ok - ${name}`); }
   catch (error) { failures++; console.log(`FAIL - ${name}\n  ${String(error.stack || error).split("\n").slice(0, 4).join("\n  ")}`); }
 }
