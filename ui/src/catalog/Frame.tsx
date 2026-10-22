@@ -6,6 +6,7 @@ import { createRoot } from "react-dom/client";
 import App from "../App";
 import { OwnerSessionGate } from "../OwnerSession";
 import { BootDissolve } from "../BootScreen";
+import { ProxyChallengeSlot } from "../ProxyChallengeSlot";
 import { TimezoneProvider } from "../UserTimezone";
 import { useLanguage } from "../i18n";
 import { installFocusModality } from "../focusModality";
@@ -47,7 +48,7 @@ function Staged({ state, children, onReady }: { state: CatalogState; children: R
 /** The real entry tree from main.tsx, unchanged. */
 function AppRoot() {
   useLanguage();
-  return <><OwnerSessionGate><App /></OwnerSessionGate><BootDissolve /></>;
+  return <><OwnerSessionGate><App /></OwnerSessionGate><BootDissolve /><ProxyChallengeSlot /></>;
 }
 
 function AppDriver({ state, onReady }: { state: CatalogState; onReady: Ready }) {

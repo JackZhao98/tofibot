@@ -15,6 +15,7 @@
     "unknown": "Time unconfirmed"
   },
   "action": {
+    "verify_again": "Verify again",
     "retry": "Retry"
   },
   "apiError": {
@@ -30,6 +31,8 @@
     "schedule_timing_conflict": "Those timing fields don't belong to this kind of schedule.",
     "schedule_timing_locked": "A one-time schedule that has already run can't be rescheduled.",
     "request_failed": "Request failed ({{status}})",
+    "proxy_challenge": "Your site's protection (Cloudflare) needs a quick re-check.",
+    "csrf": "The request was blocked as a cross-site request. Reload the page and try again.",
     "plugin_busy": "The plugin is in use by a task. Try again shortly.",
     "computer_busy": "The computer is busy or controlled by another window, task or Bot. Stop the current task or try again shortly.",
     "control_expired": "Control was released or expired. Take over again.",

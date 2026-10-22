@@ -207,6 +207,34 @@ header and must not pass a client-supplied value through unchecked (Caddy's
   `/etc/tofi/tofi.env` by hand works the same. `tofi update` keeps the value. An invalid
   entry stops the App at start with a clear error.
 
+### Behind Cloudflare
+
+If the hostname is proxied by Cloudflare with a managed challenge (or "Under
+Attack" mode), the challenge clearance cookie expires after about 30 minutes.
+Page loads can still be answered by a visible challenge, but the background
+requests the web UI makes then get `403` (or `503`) with an HTML "Just a moment..."
+body and the header `cf-mitigated: challenge`. TOFI has its own sign-in, session
+cookie and rate limits, so the challenge adds little in front of the API.
+
+Recommended: add a WAF custom rule that skips the managed challenge for the API.
+
+- Cloudflare dashboard -> Security -> WAF -> Custom rules -> Create rule.
+- Expression: `(http.host eq "tofi.example.com" and starts_with(http.request.uri.path, "/api/"))`
+- Action: Skip -> the managed challenge / bot-fight / security-level features you
+  have enabled. Keep the rule scoped to `/api/*` on the TOFI hostname, so the page
+  itself can stay challenged.
+
+If the rule is absent, the web UI copes on its own: it names the response
+`proxy_challenge` (never showing the HTML), loads the hidden same-origin URL
+`/api/server-info` in a frame so the challenge can renew its cookie without
+interaction, and retries the failed request once (waiting at most about 10 s,
+one frame for any number of concurrent failures). If that does not work it shows
+one notice, "Your site's protection (Cloudflare) needs a quick re-check", with a
+**Verify again** button that reloads the page at the same URL. Interactive
+challenges cannot complete in a hidden frame, so with a rule-less interactive
+challenge the notice appears about every half hour. TOFI sets no
+`frame-ancestors` or `X-Frame-Options` on the app, so the frame needs no header change.
+
 ## What install.sh does
 
 1. Root and `Linux x86_64`.

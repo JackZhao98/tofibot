@@ -15,6 +15,7 @@
     "unknown": "時間未確認"
   },
   "action": {
+    "verify_again": "重新驗證",
     "retry": "重試"
   },
   "apiError": {
@@ -30,6 +31,8 @@
     "schedule_timing_conflict": "這些時間欄位不適用於此類排程。",
     "schedule_timing_locked": "已經執行過的單次排程無法重新安排時間。",
     "request_failed": "請求失敗（{{status}}）",
+    "proxy_challenge": "站點防護（Cloudflare）需要重新驗證一下。",
+    "csrf": "請求被視為跨站請求而遭攔截，請重新整理頁面後再試。",
     "plugin_busy": "正在被某個任務使用，稍後再試。",
     "computer_busy": "電腦正忙，或已被其他視窗、任務或 Bot 佔用。請先停止目前任務，或稍後重試。",
     "control_expired": "控制已釋放或已過期，請重新接管。",

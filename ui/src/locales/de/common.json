@@ -15,6 +15,7 @@
     "unknown": "Zeit unbestätigt"
   },
   "action": {
+    "verify_again": "Erneut prüfen",
     "retry": "Erneut versuchen"
   },
   "apiError": {
@@ -30,6 +31,8 @@
     "schedule_timing_conflict": "Diese Zeitfelder gehören nicht zu dieser Art von Zeitplan.",
     "schedule_timing_locked": "Ein einmaliger Zeitplan, der schon gelaufen ist, lässt sich nicht neu terminieren.",
     "request_failed": "Anfrage fehlgeschlagen ({{status}})",
+    "proxy_challenge": "Der Schutz der Website (Cloudflare) verlangt eine erneute Prüfung.",
+    "csrf": "Die Anfrage wurde als Cross-Site-Anfrage blockiert. Seite neu laden und erneut versuchen.",
     "plugin_busy": "Das Plugin wird gerade von einer Aufgabe verwendet. Versuchen Sie es gleich erneut.",
     "computer_busy": "Der Computer ist belegt oder wird von einem anderen Fenster, einer anderen Aufgabe oder einem anderen Bot gesteuert. Beenden Sie die laufende Aufgabe oder versuchen Sie es gleich erneut.",
     "control_expired": "Die Steuerung wurde freigegeben oder ist abgelaufen. Übernehmen Sie erneut.",
