@@ -77,8 +77,9 @@
     "google_setup": {
       "client_credentials": "아래에 Client ID와 Secret을 입력하고, 추가한 뒤 Google 승인을 완료하세요.",
       "consent_screen": "OAuth 동의 화면과 테스트 사용자를 설정하고, 웹 애플리케이션 클라이언트를 만든 뒤 리디렉션 URL을 등록하세요.",
+      "agentic_client": "클라이언트를 만들 때 “Use this client for an AI-powered agent”를 선택하세요. 2026-11-11부터 Workspace MCP는 그 외 클라이언트를 거부하며, 2026-11-12 이후에는 기존 클라이언트에서 이 설정을 바꿀 수 없으므로 새로 만들어야 합니다.",
       "enable_apis": "Google Cloud 프로젝트에서 해당 제품 API와 MCP 서비스를 사용 설정하세요.",
-      "preview_access": "Google Workspace Developer Preview 액세스 권한이 있는지 확인하세요."
+      "preview_access": "Cloud 프로젝트를 Google Workspace Developer Preview Program(developers.google.com/workspace/preview)에 등록하세요. 등록하지 않으면 로그인은 되어도 모든 도구 호출이 거부됩니다."
     },
     "google_sheets": {
       "description": "데이터를 읽고 시트와 수식을 편집합니다.",
@@ -192,6 +193,8 @@
     "links_label": "{{name}} 설정 링크",
     "nav_label": "{{name}}의 Google Cloud 설정",
     "project_hint": "Google Cloud에서 OAuth 클라이언트와 같은 프로젝트를 선택하세요. 앱이 테스트 모드일 때는 Audience에서 현재 계정을 테스트 사용자로 추가하세요.",
+    "preview_hint": "Cloud 프로젝트를 Google Workspace Developer Preview Program(developers.google.com/workspace/preview)에 등록하세요. 등록하지 않으면 로그인은 되어도 모든 도구 호출이 거부됩니다.",
+    "agentic_hint": "“Use this client for an AI-powered agent”를 선택하세요(Google Auth Platform → Clients). 2026-11-11부터 선택하지 않은 클라이언트는 Workspace MCP가 거부하고, 2026-11-12부터 설정이 고정되므로 새 클라이언트로 교체해야 합니다.",
     "redirect_hint": "Google Auth Platform → Clients의 웹 애플리케이션에서 사용할 URL을 하나씩 Authorized redirect URIs에 추가하세요(JavaScript origins 아님). 두 접속 경로가 이 자격 증명을 함께 쓸 수 있습니다. 주소, 포트, 경로가 정확히 일치해야 합니다. HTTP 공유 컴퓨터의 동적 리디렉션은 이 고정 설정에 맞지 않으므로 HTTPS나 앱 사용을 권장합니다.",
     "test_users": "테스트 사용자 설정"
   },

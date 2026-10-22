@@ -77,8 +77,9 @@
     "google_setup": {
       "client_credentials": "下に Client ID と Secret を入力し、追加後に Google の認可を完了します。",
       "consent_screen": "OAuth 同意画面とテストユーザーを設定し、ウェブアプリケーションのクライアントを作成してリダイレクト URL を登録します。",
+      "agentic_client": "クライアント作成時に「Use this client for an AI-powered agent」にチェックを入れます。2026-11-11 以降、Workspace MCP はそれ以外のクライアントを拒否します。2026-11-12 以降は既存クライアントでこの設定を変更できないため、新しく作成してください。",
       "enable_apis": "Google Cloud プロジェクトで、対象プロダクトの API と MCP サービスを有効にします。",
-      "preview_access": "Google Workspace Developer Preview へのアクセス権があることを確認します。"
+      "preview_access": "Cloud プロジェクトを Google Workspace Developer Preview Program（developers.google.com/workspace/preview）に登録します。未登録だと、サインインできてもツール呼び出しはすべて拒否されます。"
     },
     "google_sheets": {
       "description": "データの読み取り、シートと数式の編集。",
@@ -192,6 +193,8 @@
     "links_label": "{{name}} の設定リンク",
     "nav_label": "{{name}} の Google Cloud 設定",
     "project_hint": "Google Cloud で OAuth クライアントと同じプロジェクトを選びます。アプリがテストモードの間は、Audience で現在のアカウントをテストユーザーに追加してください。",
+    "preview_hint": "Cloud プロジェクトを Google Workspace Developer Preview Program（developers.google.com/workspace/preview）に登録します。未登録だと、サインインできてもツール呼び出しはすべて拒否されます。",
+    "agentic_hint": "「Use this client for an AI-powered agent」にチェックします（Google Auth Platform → Clients）。2026-11-11 以降、未設定のクライアントは Workspace MCP に拒否されます。2026-11-12 以降は設定が固定されるため、未設定のクライアントは作り直しが必要です。",
     "redirect_hint": "Google Auth Platform → Clients のウェブアプリケーションで、使用する URL を 1 つずつ Authorized redirect URIs（JavaScript origins ではありません）に追加します。2 つの入口で同じ認証情報を共有できます。アドレス、ポート、パスは完全に一致させてください。HTTP の共有コンピュータで使う動的リダイレクトはこの固定設定に対応しないため、HTTPS かアプリの利用をおすすめします。",
     "test_users": "テストユーザーを設定"
   },
