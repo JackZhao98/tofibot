@@ -82,6 +82,7 @@ TOFI 是一个自托管的 AI Bot 工作台：后端是 Go 服务（`internal/`�
 | 提到不是群成员的 @名字 时按普通文字处理；中日韩文名字后面紧跟文字也能匹配 | `9be534d` |
 | 点“停止”会停下整条调用链，并让其中还在等待的项过期 | `9e24534` |
 | 群成员名单带各自的职责，提示词有按职责分工的原则：多职责请求里同事职责更合适的部分交给同事，单职责请求和闲聊不拆（分支 `fix/group-real-delegation`，未合并） | `internal/app/context.go`；`group_delegation_test.go`；[D42](../decisions/0042-group-roster-roles-and-delegation.md) |
+| 早先说过的事（分支 `feat/recall-context`，未合并）：`save_memory`、`search_history` 说明写明何时用；历史被截断时上下文多一条“早先轮次存在，可搜索”；记忆和摘要本来就在上下文里。走产品的流程里 Sonnet 前后都 3/3 答对（Haiku 回复时已自行存了记忆）；直接写库、无记忆无摘要的 `gate_recall_name` 仍 0/3（泛泛而谈），未解决，terra 未测 | `internal/app/context.go`、`app.go`；`recall_context_test.go`；[D44](../decisions/0044-recall-context-memory-and-search.md) |
 
 | 已知缺口 | 依据 |
 |---|---|

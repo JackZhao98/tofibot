@@ -53,6 +53,7 @@
 | D40 | 查证原则放到决策点，并让 Bot 能读网页 | 2026-10-21 | 服务端 `web_fetch` 与联网搜索同开关，读过的网址记入证据；“人提到的作品/产品/人/事件先搜再答，说成有出处的数字要落在打开过的页面上”并入原有查询句，同时写进 `say` 说明和请求旁边；读网页被拒时去掉并记住 | [0040](0040-lookup-at-the-point-of-decision.md) |
 | D41 | 内置交付技能 | 2026-10-21 | 五个 Skill（spreadsheet、document-report、slides、web-page、code-delivery）嵌在二进制里，默认对所有 Bot 可用，设置 › Skills 里标“内置”、可关不可删；提示词只多五行描述（+616 字符），脚本在 Bot 读 Skill 时复制到电脑 | [0041](0041-builtin-deliverable-skills.md) |
 | D42 | 群成员名单带职责，按职责分工 | 2026-10-21 | 群里的成员名单每项带该成员持久指令开头一行（最多 140 字符）；提示词用一条原则说明：自己职责内的自己做，同事职责更合适的部分交给同事并并入同一条回复，单职责请求和闲聊不拆；待 owner 确认 | [0042](0042-group-roster-roles-and-delegation.md) |
+| D44 | 早先说过的事：边学边存记忆，历史截断时留摘要和可搜索提示 | 2026-10-21 | 照 Anthropic 记忆工具、压缩、工具说明的做法补缺口：`save_memory` 说明写明何时存；记忆本来已在每轮上下文里；历史被截断时加一条“早先轮次存在，可用 `search_history`”；`search_history` 说明写何时用；无逐轮搜索 | [0044](0044-recall-context-memory-and-search.md) |
 
 ## 怎么新增一条决定
 
