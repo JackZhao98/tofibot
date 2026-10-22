@@ -71,7 +71,7 @@ class AuditCase(base.LifecycleBase):
         tofi_host.write_json(self.P.latest_cache, {'version': version, 'guest': version, 'checked_at': '2026-10-22T00:00:00Z',
                                                    'error': None, 'attempted': time.time()}, 0o644)
 
-    def make_backup(self, backup_id, created_at, mode=0o600):
+    def make_backup(self, backup_id, created_at, mode=0o600, disks=False):
         directory = self.P.backups / backup_id
         directory.mkdir(parents=True, mode=0o700)
         os.chmod(self.P.backups, 0o700)
@@ -81,6 +81,11 @@ class AuditCase(base.LifecycleBase):
             (directory / name).write_bytes(b'archive')
             os.chmod(directory / name, mode)
             sha[name] = hashlib.sha256(b'archive').hexdigest()
+        if disks:
+            (directory / 'disks').mkdir(mode=0o700)
+            os.chmod(directory / 'disks', 0o700)
+            (directory / 'disks' / 'workspace.ext4.zst').write_bytes(b'disk')
+            os.chmod(directory / 'disks' / 'workspace.ext4.zst', mode)
         meta = {'schema': 1, 'id': backup_id, 'version': OLD, 'created_at': created_at, 'reason': 'manual',
                 'archives': {'data': 'data.tar.gz', 'etc': 'etc.tar.gz'}, 'sha256': sha,
                 'sizes': {'data_archive': 7, 'etc_archive': 7}}
@@ -272,6 +277,26 @@ class FileTests(AuditCase):
         finding = self.audit()['files.backups']
         self.assertEqual(finding['level'], 'FAIL')
         self.assertIn('data.tar.gz', finding['detail'])
+
+    def test_backup_with_disks_directory_passes(self):
+        self.make_backup('20261021T000000Z-%s' % OLD, '2026-10-21T00:00:00Z', disks=True)
+        self.assertEqual(self.level('files.backups'), 'PASS')
+
+    def test_backup_disk_image_must_be_private(self):
+        directory = self.make_backup('20261021T000000Z-%s' % OLD, '2026-10-21T00:00:00Z', disks=True)
+        os.chmod(directory / 'disks' / 'workspace.ext4.zst', 0o644)
+        finding = self.audit()['files.backups']
+        self.assertEqual(finding['level'], 'FAIL')
+        self.assertIn('workspace.ext4.zst', finding['detail'])
+        self.assertIn('chmod 0600', finding['fix'])
+
+    def test_backup_disks_directory_fix_keeps_it_traversable(self):
+        directory = self.make_backup('20261021T000000Z-%s' % OLD, '2026-10-21T00:00:00Z', disks=True)
+        os.chmod(directory / 'disks', 0o755)
+        finding = self.audit()['files.backups']
+        self.assertEqual(finding['level'], 'FAIL')
+        self.assertIn('chmod 0700 %s' % (directory / 'disks'), finding['fix'])
+        self.assertNotIn('chmod 0600 %s' % (directory / 'disks'), finding['fix'])
 
     def test_symbolic_link_is_refused(self):
         self.P.seccomp.unlink()

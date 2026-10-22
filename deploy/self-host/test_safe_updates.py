@@ -1792,6 +1792,14 @@ class DiskBackupTests(BackupCase):
                 tofi_host.backup_now()
         self.stopped.assert_not_called()
 
+    def test_missing_zstd_is_refused_before_anything_is_stopped(self):
+        self.seed_disks()
+        with mock.patch.object(tofi_host, 'zstd_available', return_value=False):
+            with self.assertRaisesRegex(HostError, 'zstd.*--no-disks.*Nothing was changed'):
+                tofi_host.backup_now()
+        self.stopped.assert_not_called()
+        self.assertEqual(tofi_host.list_backups(), [])
+
     # -- never while a computer could be writing
 
     def test_refuses_while_a_container_is_running(self):
@@ -1905,6 +1913,7 @@ class DiskBackupTests(BackupCase):
         kept = sorted(self.disk1.parent.glob('workspace-before-restore-*.ext4'))
         self.assertEqual([p.read_bytes() for p in kept], [b'NEWER ONE'])
         self.assertFalse((self.disk1.parent / 'snapshot').exists(), 'a snapshot belongs to the old disk')
+        self.assertEqual(list(self.disk1.parent.glob('snapshot-before-restore-*')), [], 'removed after success')
         self.assertFalse(list(self.disk1.parent.glob('.*restore-new')))
         # The pre-restore backup is automatic: it never carries disks.
         pre = next(i for i in tofi_host.list_backups() if i['meta']['reason'] == 'pre-restore')
@@ -1930,6 +1939,19 @@ class DiskBackupTests(BackupCase):
         self.assertEqual(self.disk1.read_bytes(), b'NEWER ONE')
         self.assertEqual(list(self.disk1.parent.glob('workspace-before-restore-*')), [])
         self.assertEqual(self.phase(), 'installed')
+
+    def test_failed_restore_keeps_the_hibernation_snapshot(self):
+        self.seed_disks()
+        meta = self.manual()
+        self.disk1.write_bytes(b'NEWER ONE')
+        self.start_services.side_effect = [HostError('restored version will not start'), None]
+        with self.local_manifest():
+            with self.assertRaisesRegex(HostError, 'restore failed; previous state recovered'):
+                tofi_host.restore_backup(meta['id'], yes=True)
+        snapshot = self.disk1.parent / 'snapshot'
+        self.assertEqual((snapshot / 'memory').read_bytes(), b'M' * 64)
+        self.assertEqual((snapshot / 'meta.json').read_text(), '{"release": "v0"}')
+        self.assertEqual(list(self.disk1.parent.glob('snapshot-before-restore-*')), [])
 
     def test_restore_refuses_while_bot_runs_are_active_and_touches_nothing(self):
         self.seed_disks()

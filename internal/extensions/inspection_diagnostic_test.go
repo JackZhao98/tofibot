@@ -10,6 +10,7 @@ import (
 	"net/http/httptest"
 	"path/filepath"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 )
@@ -133,5 +134,47 @@ func TestMCPInspectionDiagnosticNonGoogleHostNeverNamesAgentic(t *testing.T) {
 		if got.Code != "" || strings.Contains(got.Message, "agent") {
 			t.Fatalf("%s: %+v", endpoint, got)
 		}
+	}
+}
+
+type statusByPathTransport struct{ release chan struct{} }
+
+func (t statusByPathTransport) RoundTrip(r *http.Request) (*http.Response, error) {
+	status := http.StatusForbidden
+	if r.URL.Path == "/slow" {
+		<-t.release // answers after the other call has already failed
+		status = http.StatusInternalServerError
+	}
+	return &http.Response{StatusCode: status, Body: io.NopCloser(strings.NewReader("")), Header: http.Header{}, Request: r}, nil
+}
+
+// Two calls on one session share its transport; each must see only the failed status of its own request.
+func TestConcurrentCallsKeepTheirOwnFailedHTTPStatus(t *testing.T) {
+	release := make(chan struct{})
+	shared := &atomic.Int32{}
+	client := &http.Client{Transport: mcpHeaderTransport{base: statusByPathTransport{release: release}, failed: shared}}
+	slow, denied := &mcpCallStatus{}, &mcpCallStatus{}
+	do := func(path string, call *mcpCallStatus, done chan<- struct{}) {
+		ctx := context.WithValue(context.Background(), mcpCallStatusKey{}, call)
+		req, _ := http.NewRequestWithContext(ctx, http.MethodPost, "http://example.invalid"+path, nil)
+		if resp, err := client.Do(req); err == nil {
+			resp.Body.Close()
+		}
+		close(done)
+	}
+	slowDone, deniedDone := make(chan struct{}), make(chan struct{})
+	go do("/slow", slow, slowDone)
+	go do("/denied", denied, deniedDone)
+	<-deniedDone
+	close(release)
+	<-slowDone
+	if got := denied.status.Load(); got != http.StatusForbidden {
+		t.Fatalf("the 403 call saw status %d", got)
+	}
+	if got := slow.status.Load(); got != http.StatusInternalServerError {
+		t.Fatalf("the 500 call saw status %d", got)
+	}
+	if shared.Load() != 0 {
+		t.Fatalf("tool calls wrote the connect-time status: %d", shared.Load())
 	}
 }

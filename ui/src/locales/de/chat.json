@@ -388,7 +388,7 @@
     "defaults_failed": "Das ließ sich nicht speichern. Versuche es erneut.",
     "first_bot_failed": "Dein erster Bot konnte nicht angelegt werden. Du kannst ihn in der Seitenleiste erstellen.",
     "services_title": "Wähle ein paar Dienste zum Verbinden",
-    "services_body": "Deine Bots können diese Dienste selbst lesen und fragen, bevor sie etwas ändern.",
+    "services_body": "Deine Bots können diese Dienste selbst lesen. Das Senden von E-Mails braucht immer dich, Änderungen an Erweiterungen brauchen deine Freigabe, und sensible Schritte wie Login oder 2FA werden an dich übergeben.",
     "services_hint": "Mehr kannst du jederzeit unter Einstellungen > Verbindungen hinzufügen.",
     "later": "Später — jetzt chatten",
     "connect_selected_one": "{{count}} ausgewählten verbinden",
