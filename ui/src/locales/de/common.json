@@ -24,7 +24,7 @@
     "control_expired": "Die Steuerung wurde freigegeben oder ist abgelaufen. Übernehmen Sie erneut.",
     "input_sequence": "Die Eingabereihenfolge ist veraltet. Übernehmen Sie erneut.",
     "control_unavailable": "Die Desktop-Steuerung ist nicht verfügbar. Übernehmen Sie erneut.",
-    "ssh_keys": "Prüfen Sie Dateiname und Inhaltsformat des Schlüssels.",
+    "ssh_key_format": "Prüfen Sie Dateiname und Inhaltsformat des Schlüssels.",
     "dictation_unconfigured": "Verbinden Sie Codex, fügen Sie einen OpenAI-API-Schlüssel hinzu oder konfigurieren Sie einen serverseitigen Transkriptions-API-Schlüssel.",
     "dictation_auth_unavailable": "Die Authentifizierung für die Transkription ist nicht verfügbar. Versuchen Sie es erneut oder verbinden Sie Codex neu.",
     "oauth_https_required": "Die Web-Autorisierung erfordert HTTPS. Bei reinem HTTP autorisieren Sie über den geteilten Computer oder nutzen HTTPS bzw. den Tofi-Client.",

@@ -309,6 +309,7 @@
     "resume_continuing": "마지막 체크포인트에서 이어서 진행합니다.",
     "resume_restart": "서비스가 다시 시작되었습니다. 마지막 체크포인트에서 이어서 진행합니다.",
     "handed_over": "{{from}} 님이 {{to}} 님에게 넘겼습니다",
+    "routed_to": "{{to}} 님에게 넘겼습니다",
     "view_brief": "요청 내용 보기",
     "scheduled": "예약 작업",
     "system": "시스템 알림",

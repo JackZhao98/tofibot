@@ -24,7 +24,7 @@
     "control_expired": "Control was released or expired. Take over again.",
     "input_sequence": "The input sequence is stale. Take over again.",
     "control_unavailable": "Desktop control is unavailable. Take over again.",
-    "ssh_keys": "Check the key file name and content format.",
+    "ssh_key_format": "Check the key file name and content format.",
     "dictation_unconfigured": "Connect Codex, add an OpenAI API key, or configure a server transcription API key.",
     "dictation_auth_unavailable": "Transcription authentication is unavailable. Try again or reconnect Codex.",
     "oauth_https_required": "Web authorization requires HTTPS. Over plain HTTP, authorize from the shared computer or use HTTPS or the Tofi client.",

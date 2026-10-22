@@ -313,6 +313,7 @@
     "resume_continuing": "Resuming from the last checkpoint.",
     "resume_restart": "Service restarted. Resuming from the last checkpoint.",
     "handed_over": "{{from}} handed this to {{to}}",
+    "routed_to": "Handed to {{to}}",
     "view_brief": "View brief",
     "scheduled": "Scheduled task",
     "system": "System notice",

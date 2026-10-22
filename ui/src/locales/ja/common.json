@@ -24,7 +24,7 @@
     "control_expired": "操作権が解放されたか期限切れです。もう一度引き継いでください。",
     "input_sequence": "入力の順序が無効になりました。もう一度引き継いでください。",
     "control_unavailable": "デスクトップ操作を利用できません。もう一度引き継いでください。",
-    "ssh_keys": "鍵ファイルの名前と内容の形式を確認してください。",
+    "ssh_key_format": "鍵ファイルの名前と内容の形式を確認してください。",
     "dictation_unconfigured": "Codex を接続するか、OpenAI の API キーを追加するか、サーバー側の文字起こし API キーを設定してください。",
     "dictation_auth_unavailable": "文字起こしの認証を利用できません。もう一度試すか、Codex を接続し直してください。",
     "oauth_https_required": "Web での認可には HTTPS が必要です。HTTP の場合は共有コンピューターで認可するか、HTTPS または Tofi クライアントを使ってください。",

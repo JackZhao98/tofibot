@@ -309,6 +309,7 @@
     "resume_continuing": "任務從上一個檢查點繼續。",
     "resume_restart": "服務已重新啟動，任務從上一個檢查點繼續。",
     "handed_over": "{{from}} 請 {{to}} 接手",
+    "routed_to": "已交給 {{to}} 處理",
     "view_brief": "查看交代",
     "scheduled": "排程任務",
     "system": "系統提示",

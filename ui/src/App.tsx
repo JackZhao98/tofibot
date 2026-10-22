@@ -2647,9 +2647,13 @@ export function MessageBubble({ receipt, message, replyTarget, replyTargetName, 
     message.notice.target_conversation_id === message.conversation_id;
   if (message.kind === "notice" && message.notice && !assignment) {
     const target = message.notice.target_conversation_id;
-    const targetBot = sender?.name;
-    const showSender = targetBot && !message.content.startsWith(targetBot);
-    const content = <>{showSender && <><span>{targetBot}</span> · </>}{message.content}</>;
+    const noticeSender = sender?.name;
+    // The server's English sentence is the fallback; a forward between known bots is worded here, in the UI's language.
+    const noticeText = message.notice.type !== "forward" || !targetBot?.name ? message.content
+      : message.sender_bot_id === "system" ? t("message.routed_to", { to: targetBot.name })
+      : noticeSender ? t("message.handed_over", { from: noticeSender, to: targetBot.name }) : message.content;
+    const showSender = noticeSender && !noticeText.startsWith(noticeSender);
+    const content = <>{showSender && <><span>{noticeSender}</span> · </>}{noticeText}</>;
     return <article className="message message-notice" title={`${formatExactTime(message.created_at, timezone)} · ${timezone}`}><div>{noticeTargetAvailable ? <button onClick={() => onNavigate?.(target)}>{content}</button> : <span>{content}</span>}{relatedChat && onOpenRelatedChat && <RelatedMessageLink target={relatedChat} onOpen={onOpenRelatedChat} />}</div></article>;
   }
   const isUser = message.role === "user";
