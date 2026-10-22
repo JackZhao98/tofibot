@@ -287,7 +287,7 @@ func TestOAuthCompletionAuditServer(t *testing.T) {
 				oauthVerifiedPage(&page, extensions.MCPInspection{ToolCount: 23})
 			case "enable":
 				page.State = "success"
-				oauthVerifiedPage(&page, extensions.MCPInspection{Diagnostics: []extensions.Diagnostic{{Code: "api_disabled", Message: "Google 返回 API 未启用。请在 OAuth Client 所属的同一个项目中启用产品 API 和 MCP 服务，再刷新工具。"}}})
+				oauthVerifiedPage(&page, extensions.MCPInspection{Diagnostics: []extensions.Diagnostic{{Code: "api_disabled", Message: "Google 返回 API 未启用。请在 OAuth Client 所属的同一个项目中启用产品 API 和 MCP 服务，再刷新工具。", API: "gmail.googleapis.com", EnableURL: "https://console.cloud.google.com/apis/library/gmail.googleapis.com?project=tofi-sample-123456"}}})
 			case "audience":
 				oauthVerifiedPage(&page, extensions.MCPInspection{Diagnostics: []extensions.Diagnostic{{Code: "access_denied", Message: "Google 拒绝了访问。若应用处于测试模式，请检查当前账号是否在测试用户中。"}}})
 			case "notion":
