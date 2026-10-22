@@ -108,6 +108,8 @@ var oauthCompletionTemplate = template.Must(template.New("oauth-connection").Par
     <section class="oauth-setup" aria-labelledby="setup-heading">
       <h2 id="setup-heading">Google 连接设置</h2>
       <p>打开 Google Cloud 后，选择与 OAuth Client 相同的项目。若应用处于测试模式，请在 Audience 中添加当前账号为测试用户。</p>
+      <p>Cloud 项目须已加入 Google Workspace Developer Preview Program（developers.google.com/workspace/preview），否则授权成功后每次工具调用仍会被拒。</p>
+      <p>OAuth Client 须勾选“Use this client for an AI-powered agent”：2026-11-11 起 Workspace MCP 拒绝未标记的 Client，2026-11-12 起该设置固定，需新建 Client。</p>
       <nav aria-label="Google 配置">
         {{if .APIURL}}<a href="{{.APIURL}}" target="_blank" rel="noopener noreferrer">启用产品 API</a>{{end}}
         {{if .MCPURL}}<a href="{{.MCPURL}}" target="_blank" rel="noopener noreferrer">启用 MCP 服务</a>{{end}}
