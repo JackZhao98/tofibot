@@ -22,7 +22,7 @@
     "search": "서비스 검색",
     "services": "서비스",
     "local_details": "이 서버에서 실행 · OAuth",
-    "custom_section": "커뮤니티 또는 사용자 지정 연결 추가",
+    "custom_section": "사용자 지정",
     "custom_url": "사용자 지정 커넥터",
     "custom_url_hint": "URL로 원격 MCP 서버에 연결합니다.",
     "custom_package": "로컬 패키지",
@@ -480,6 +480,10 @@
       "using_client": "저장된 Google 클라이언트(프로젝트 {{project}})를 사용합니다. 다시 업로드할 필요가 없습니다.",
       "replace_client": "클라이언트 교체",
       "project_found": "이 클라이언트는 프로젝트 {{project}}에 속합니다."
+    },
+    "repo": {
+      "label": "GitHub 소스: {{repo}}",
+      "with_stars": "GitHub 소스: {{repo}}, 별 {{count}}개"
     }
   }
 }

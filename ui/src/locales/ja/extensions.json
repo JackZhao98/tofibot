@@ -22,7 +22,7 @@
     "search": "サービスを検索",
     "services": "サービス",
     "local_details": "このサーバーで実行 · OAuth",
-    "custom_section": "コミュニティまたはカスタム接続を追加",
+    "custom_section": "カスタム",
     "custom_url": "カスタムコネクタ",
     "custom_url_hint": "URL でリモート MCP サーバーに接続します。",
     "custom_package": "ローカルパッケージ",
@@ -480,6 +480,10 @@
       "using_client": "保存済みの Google クライアント（プロジェクト {{project}}）を使用します。再アップロードは不要です。",
       "replace_client": "クライアントを置き換える",
       "project_found": "このクライアントはプロジェクト {{project}} のものです。"
+    },
+    "repo": {
+      "label": "GitHub のソース：{{repo}}",
+      "with_stars": "GitHub のソース：{{repo}}、スター {{count}} 件"
     }
   }
 }

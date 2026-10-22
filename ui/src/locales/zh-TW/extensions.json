@@ -22,7 +22,7 @@
     "search": "搜尋服務",
     "services": "服務連線",
     "local_details": "在本伺服器執行 · OAuth",
-    "custom_section": "新增社群或自訂連線",
+    "custom_section": "自訂",
     "custom_url": "自訂連線",
     "custom_url_hint": "用網址連線任何遠端 MCP 伺服器。",
     "custom_package": "本機套件",
@@ -480,6 +480,10 @@
       "using_client": "使用已儲存的 Google 用戶端（專案 {{project}}），無需再次上傳。",
       "replace_client": "更換用戶端",
       "project_found": "此用戶端屬於專案 {{project}}。"
+    },
+    "repo": {
+      "label": "GitHub 原始碼：{{repo}}",
+      "with_stars": "GitHub 原始碼：{{repo}}，{{count}} 個星號"
     }
   }
 }

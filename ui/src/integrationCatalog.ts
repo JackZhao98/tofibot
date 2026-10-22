@@ -18,6 +18,8 @@ export type IntegrationPreset = {
   docsURL: string;
   /** Provider-owned and community-maintained servers are distinct. */
   upstream?: "vendor" | "community";
+  /** The open-source repository behind this connector (owner/name), verified against the upstream; shown as a GitHub link with its star count. */
+  repo?: string;
   /** Provider exposes read tools only; this does not waive Tofi approvals. */
   readOnly?: true;
   /** Public enablement IDs, never inferred from a user's OAuth client ID. */
@@ -55,7 +57,7 @@ const googleSetup = () => [
  * represented as six presets rather than a fictional all-in-one endpoint.
  */
 export const integrationCatalog: IntegrationPreset[] = [
-  {id:"microsoft-learn", name:"Microsoft Learn", get description() { return i18n.t("extensions:catalog.microsoft_learn.description"); }, category:"service", url:"https://learn.microsoft.com/api/mcp", docsURL:"https://learn.microsoft.com/en-us/training/support/mcp", upstream:"vendor", get setup() { return [i18n.t("extensions:catalog.microsoft_learn.setup.no_account")]; }, auth:"none", status:"active"},
+  {id:"microsoft-learn", repo: "MicrosoftDocs/mcp", name:"Microsoft Learn", get description() { return i18n.t("extensions:catalog.microsoft_learn.description"); }, category:"service", url:"https://learn.microsoft.com/api/mcp", docsURL:"https://learn.microsoft.com/en-us/training/support/mcp", upstream:"vendor", get setup() { return [i18n.t("extensions:catalog.microsoft_learn.setup.no_account")]; }, auth:"none", status:"active"},
   {
     id: "google-gmail",
     googleAPIs: { api: "gmail.googleapis.com", mcp: "gmailmcp.googleapis.com" },
@@ -147,7 +149,7 @@ export const integrationCatalog: IntegrationPreset[] = [
     status: "developer-preview",
   },
   {
-    id: "github-readonly",
+    id: "github-readonly", repo: "github/github-mcp-server",
     get name() { return i18n.t("extensions:catalog.github_readonly.name"); },
     get description() { return i18n.t("extensions:catalog.github_readonly.description"); },
     category: "service",
@@ -169,7 +171,7 @@ export const integrationCatalog: IntegrationPreset[] = [
     status: "public-preview",
   },
   {
-    id: "github",
+    id: "github", repo: "github/github-mcp-server",
     name: "GitHub",
     get description() { return i18n.t("extensions:catalog.github.description"); },
     category: "service",
@@ -189,7 +191,7 @@ export const integrationCatalog: IntegrationPreset[] = [
     status: "public-preview",
   },
   {
-    id: "notion",
+    id: "notion", repo: "makenotion/notion-mcp-server",
     name: "Notion",
     get description() { return i18n.t("extensions:catalog.notion.description"); },
     category: "service",
@@ -271,7 +273,7 @@ export const integrationCatalog: IntegrationPreset[] = [
     status: "active",
   },
   {
-    id: "context7",
+    id: "context7", repo: "upstash/context7",
     name: "Context7",
     get description() { return i18n.t("extensions:catalog.context7.description"); },
     category: "service",
@@ -347,3 +349,6 @@ export const integrationOriginLabel = (upstream: IntegrationPreset["upstream"]):
 
 export const matchesIntegration = (item: Pick<IntegrationPreset, "name" | "description">, query: string): boolean =>
   `${item.name} ${item.description}`.toLowerCase().includes(query.trim().toLowerCase());
+
+/** Open-source repositories of the local plugins TOFI ships (owner/name, checked against what the runner image builds). */
+export const LOCAL_PLUGIN_REPOS: Record<string, string> = { gog: "openclaw/gogcli" };

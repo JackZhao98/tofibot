@@ -52,3 +52,14 @@
 .connect-dialog .integration-preview .disclosure{margin:0}
 .connect-dialog .integration-preview .integration-catalog-note{margin:0 0 8px}
 @media(max-width:420px){.mcp-service-details{margin-left:0}}
+.repo-link{display:inline-flex;align-items:center;gap:6px;min-height:24px;color:var(--muted);font-size:12px;text-decoration:none;overflow-wrap:anywhere}
+.repo-link:hover{color:var(--ink);text-decoration:underline;text-underline-offset:3px}
+.repo-link:focus-visible{outline:var(--focus-ring-width) solid var(--focus-ring);outline-offset:3px;border-radius:var(--radius-sm)}
+.repo-mark{flex:none;display:block}
+.repo-mark-dark{display:none}
+:root[data-theme="dark"] .repo-mark-light{display:none}
+:root[data-theme="dark"] .repo-mark-dark{display:block}
+.repo-stars{white-space:nowrap}
+.connect-dialog .integration-item{border-bottom:1px solid var(--line-soft)}
+.connect-dialog .integration-item .integration-tile{border-bottom:0}
+.integration-repo{padding:0 4px 10px 54px}

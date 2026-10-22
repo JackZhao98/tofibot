@@ -21,6 +21,9 @@ func (s *Server) routeExtensions(w http.ResponseWriter, r *http.Request, p strin
 		writeErr(w, 503, "extensions_unavailable", "extensions unavailable")
 		return true
 	}
+	if s.routeRepoStars(w, r, p) {
+		return true
+	}
 	if s.routeGoogle(w, r, p) {
 		return true
 	}

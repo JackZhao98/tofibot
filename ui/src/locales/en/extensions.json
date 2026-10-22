@@ -22,7 +22,7 @@
     "search": "Search services",
     "services": "Services",
     "local_details": "Runs on this server · OAuth",
-    "custom_section": "Add a community or custom connection",
+    "custom_section": "Custom",
     "custom_url": "Custom connector",
     "custom_url_hint": "Connect any remote MCP server by URL.",
     "custom_package": "Local package",
@@ -482,6 +482,10 @@
       "using_client": "Using your saved Google client (project {{project}}). No upload needed.",
       "replace_client": "Replace client",
       "project_found": "This client belongs to project {{project}}."
+    },
+    "repo": {
+      "label": "Source on GitHub: {{repo}}",
+      "with_stars": "Source on GitHub: {{repo}}, {{count}} stars"
     }
   }
 }
