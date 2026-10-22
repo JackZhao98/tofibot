@@ -12,7 +12,7 @@ import "./settings/automation.css";
 /** Every automatic behavior the server reports, in the order the page lists them. */
 export type AutomationKey =
   | "conversation_model" | "background_model" | "structured_output" | "force_say_haiku_dm" | "web_search"
-  | "group_exchange_gists" | "own_replies_verbatim" | "completion_review" | "mcp_auto_review"
+  | "group_exchange_gists" | "own_replies_verbatim" | "completion_review" | "answer_gate" | "mcp_auto_review"
   | "remembered_approval_hours" | "provider_retries" | "schedule_receipt_review" | "desktop_idle_seconds";
 export type AutomationGroup = "models" | "replies" | "history" | "checks" | "reliability" | "schedules" | "computer";
 const groupOrder: AutomationGroup[] = ["models", "replies", "history", "checks", "reliability", "schedules", "computer"];

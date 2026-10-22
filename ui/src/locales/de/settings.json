@@ -830,6 +830,10 @@
         "name": "Abschlussprüfung nach Werkzeugarbeit",
         "what": "Nach der Nutzung von Werkzeugen gleicht ein Bot seine Antwort vor dem Senden einmal mit den tatsächlichen Ergebnissen ab."
       },
+      "answer_gate": {
+        "name": "Nachsehen, bevor „weiß ich nicht“ kommt",
+        "what": "Sagt die Antwort eines Bots, dass ihm Informationen fehlen, prüft er vorher einmal Chatverlauf, Gedächtnis, Dateien und Web."
+      },
       "mcp_auto_review": {
         "name": "Automatische Prüfung von Werkzeugaufrufen",
         "what": "Ein Prüfer im Hintergrund sieht sich Aufrufe externer Werkzeuge an. Beobachten hält nur Hinweise fest; Automatisch lässt risikoarme Aufrufe nach seinem Urteil durch."

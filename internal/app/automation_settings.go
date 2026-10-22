@@ -38,6 +38,7 @@ const (
 	autoGroupExchangeGists    = "group_exchange_gists"
 	autoOwnRepliesVerbatim    = "own_replies_verbatim"
 	autoCompletionReview      = "completion_review"
+	autoAnswerGate            = "answer_gate"
 	autoMCPReview             = "mcp_auto_review"
 	autoRememberedApprovalHrs = "remembered_approval_hours"
 	autoProviderRetries       = "provider_retries"
@@ -87,6 +88,7 @@ var automationItems = []automationItem{
 	{Key: autoGroupExchangeGists, Group: "history", Kind: autoKindBool, Default: "true"},
 	{Key: autoOwnRepliesVerbatim, Group: "history", Kind: autoKindInt, Default: strconv.Itoa(ownVerbatimReplies), Min: 1, Max: 20},
 	{Key: autoCompletionReview, Group: "checks", Kind: autoKindBool, Default: "true"},
+	{Key: autoAnswerGate, Group: "checks", Kind: autoKindBool, Default: "true"},
 	{Key: autoMCPReview, Group: "checks", Kind: autoKindEnum, Default: "off", Options: []string{"off", "shadow", "auto"}},
 	{Key: autoRememberedApprovalHrs, Group: "checks", Kind: autoKindInt, Default: strconv.Itoa(int(rememberedApprovalValidity / time.Hour)), Min: 1, Max: 720, Unit: "hours"},
 	{Key: autoProviderRetries, Group: "reliability", Kind: autoKindInt, Default: strconv.Itoa(defaultProviderRetries), Min: 0, Max: 10, Env: "TOFI_PROVIDER_RETRIES"},
@@ -293,6 +295,7 @@ func (s *Server) fetchUses(model string, tools []Tool) int {
 func (s *Server) groupExchangeGistsEnabled() bool { return s.autoBool(autoGroupExchangeGists) }
 func (s *Server) ownRepliesVerbatim() int         { return s.autoInt(autoOwnRepliesVerbatim) }
 func (s *Server) completionReviewEnabled() bool   { return s.autoBool(autoCompletionReview) }
+func (s *Server) answerGateEnabled() bool         { return s.autoBool(autoAnswerGate) }
 func (s *Server) scheduleReceiptReviewEnabled() bool {
 	return s.autoBool(autoScheduleReceiptReview)
 }

@@ -18,7 +18,7 @@ func (p *holdProbe) state(owed func() bool) *sayRunState {
 
 func feedSay(st *sayStreamer, idx int) {
 	st.Delta(runtime.ToolCallDelta{Index: idx, ID: "c", Name: "say"})
-	for _, f := range []string{`{"purpose":"answer",`, `"text":"Hel`, `lo there"}`} {
+	for _, f := range []string{`{"purpose":"answer","resolution":"resolved",`, `"text":"Hel`, `lo there"}`} {
 		st.Delta(runtime.ToolCallDelta{Index: idx, Arguments: f})
 	}
 }

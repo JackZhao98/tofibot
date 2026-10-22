@@ -17,6 +17,9 @@ type sayStreamer struct {
 	// toolWork: this model response already holds a call that may arm the
 	// completion review, so a say(answer) in it may be refused once.
 	toolWork bool
+	// lookup: this response already holds a call that is a lookup attempt, so
+	// its answer is not gated.
+	lookup bool
 }
 
 type sayStreamCall struct {
@@ -41,11 +44,16 @@ func (st *sayStreamer) Delta(d runtime.ToolCallDelta) {
 		defer st.mu.Unlock()
 		if d.ID != "" || d.Name != "" {
 			if d.Name == "say" {
-				st.calls[d.Index] = &sayStreamCall{id: d.ID}
+				c := &sayStreamCall{id: d.ID}
+				c.dec.HoldForResolution = true
+				st.calls[d.Index] = c
 			} else {
 				delete(st.calls, d.Index)
 				if completionReviewTool(d.Name) {
 					st.toolWork = true
+				}
+				if lookupAttempt(d.Name, "") {
+					st.lookup = true
 				}
 			}
 		}
@@ -56,11 +64,15 @@ func (st *sayStreamer) Delta(d runtime.ToolCallDelta) {
 		text := call.dec.Feed(d.Arguments)
 		begin := false
 		if !call.started {
-			if _, known := call.dec.Purpose(); !known {
+			// The text waits for the answer's label, so a reply that may be
+			// gated is held from its first character and a resolved one streams
+			// from its first.
+			if !call.dec.Ready() {
 				return "", "", false
 			}
 			call.started, begin = true, true
-			call.held = st.toolWork || st.state.reviewOwed()
+			label, _ := call.dec.Resolution()
+			call.held = st.toolWork || st.state.reviewOwed() || (!st.lookup && st.state.gateIsOwed(label))
 		}
 		if call.held {
 			return "", "", false
@@ -81,5 +93,5 @@ func (st *sayStreamer) Reset() {
 	st.mu.Lock()
 	defer st.mu.Unlock()
 	st.calls = map[int]*sayStreamCall{}
-	st.toolWork = false
+	st.toolWork, st.lookup = false, false
 }

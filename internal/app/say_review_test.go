@@ -45,7 +45,7 @@ func (e afterSayEngine) Run(ctx context.Context, req runtime.Request) (runtime.R
 func TestSteeringMessageAfterSayAnswerKeepsTheAnswer(t *testing.T) {
 	s, c, old := steeringReviewFixture(t, false)
 	model := newFakeModel(t,
-		fakeStep{calls: []fakeCall{{"c1", "say", `{"purpose":"answer","text":"The finished answer."}`}}},
+		fakeStep{calls: []fakeCall{{"c1", "say", `{"purpose":"answer","resolution":"resolved","text":"The finished answer."}`}}},
 		fakeStep{content: "the successor's reply"})
 	var successor Run
 	s.engine = afterSayEngine{inner: model.engine(t), after: func() { successor = steeringReviewInterject(t, s, c, old) }}
@@ -92,7 +92,7 @@ func TestSayAnswerIsRefusedOnceAnInterjectionIsPending(t *testing.T) {
 func TestSteeringMessageAfterRespondReplyKeepsTheReply(t *testing.T) {
 	var f dedupeFixture
 	model := newFakeModel(t,
-		fakeStep{calls: []fakeCall{{"c1", "say", `{"purpose":"answer","text":"Spaces, and a formatter."}`}}},
+		fakeStep{calls: []fakeCall{{"c1", "say", `{"purpose":"answer","resolution":"resolved","text":"Spaces, and a formatter."}`}}},
 		fakeStep{content: "a model call that must not happen"})
 	byBot := engineByBot{}
 	f = newDedupeFixture(t, byBot)
@@ -251,8 +251,8 @@ func TestPlainTextFeedsTheLiveStatusWhenStructured(t *testing.T) {
 func TestSayAnswerAfterToolWorkGetsExactlyOneCompletionReview(t *testing.T) {
 	model := newFakeModel(t,
 		fakeStep{calls: []fakeCall{{"c1", "create_work_item", `{"kind":"task","title":"Check the numbers"}`}}},
-		fakeStep{calls: []fakeCall{{"c2", "say", `{"purpose":"answer","text":"First draft of the answer."}`}}},
-		fakeStep{calls: []fakeCall{{"c3", "say", `{"purpose":"answer","text":"Reviewed answer."}`}}},
+		fakeStep{calls: []fakeCall{{"c2", "say", `{"purpose":"answer","resolution":"resolved","text":"First draft of the answer."}`}}},
+		fakeStep{calls: []fakeCall{{"c3", "say", `{"purpose":"answer","resolution":"resolved","text":"Reviewed answer."}`}}},
 		fakeStep{content: "a call that must not happen"})
 	s, run := serverWithModel(t, model, true)
 	if run.Status != "done" {
@@ -276,7 +276,7 @@ func TestSayAnswerAfterToolWorkGetsExactlyOneCompletionReview(t *testing.T) {
 }
 
 func TestSayAnswerWithoutToolWorkGetsNoReview(t *testing.T) {
-	model := newFakeModel(t, fakeStep{calls: []fakeCall{{"c1", "say", `{"purpose":"answer","text":"A plain reply."}`}}})
+	model := newFakeModel(t, fakeStep{calls: []fakeCall{{"c1", "say", `{"purpose":"answer","resolution":"resolved","text":"A plain reply."}`}}})
 	s, run := serverWithModel(t, model, true)
 	for _, body := range model.requests() {
 		if strings.Contains(body, "compare the user's requested deliverable") {
@@ -292,7 +292,7 @@ func TestSayAnswerWithoutToolWorkGetsNoReview(t *testing.T) {
 func TestReviewedSayAnswerThatIsNeverRepeatedStillReachesThePerson(t *testing.T) {
 	model := newFakeModel(t,
 		fakeStep{calls: []fakeCall{{"c1", "create_work_item", `{"kind":"task","title":"Check the numbers"}`}}},
-		fakeStep{calls: []fakeCall{{"c2", "say", `{"purpose":"answer","text":"The only draft."}`}}},
+		fakeStep{calls: []fakeCall{{"c2", "say", `{"purpose":"answer","resolution":"resolved","text":"The only draft."}`}}},
 		fakeStep{content: "The only draft."})
 	s, run := serverWithModel(t, model, true)
 	if run.Status != "done" {
@@ -438,7 +438,7 @@ func TestResumeAfterTheRealSayToolRecordedTheAnswer(t *testing.T) {
 	live := run
 	live.structured = true
 	model := newFakeModel(t,
-		fakeStep{calls: []fakeCall{{"call-real", "say", `{"purpose":"answer","text":"The answer from the real tool."}`}}},
+		fakeStep{calls: []fakeCall{{"call-real", "say", `{"purpose":"answer","resolution":"resolved","text":"The answer from the real tool."}`}}},
 		fakeStep{content: "a second model call that must not happen"})
 	res, err := model.engine(t).Run(context.Background(), runtime.Request{
 		BotID: bot.ID, RunID: run.ID, ConversationID: conv.ID, Attempt: 1,

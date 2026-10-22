@@ -839,6 +839,10 @@
         "name": "Relecture finale après usage d’outils",
         "what": "Après avoir utilisé des outils, un Bot confronte une fois sa réponse aux résultats réels avant de l’envoyer."
       },
+      "answer_gate": {
+        "name": "Chercher avant de répondre « je ne sais pas »",
+        "what": "Quand la réponse d’un Bot dit qu’il manque d’informations, il consulte d’abord une fois l’historique, la mémoire, les fichiers et le web."
+      },
       "mcp_auto_review": {
         "name": "Revue automatique des appels d’outils",
         "what": "Un relecteur en arrière-plan examine les appels aux outils externes. Observer n’enregistre que des avis ; Auto laisse passer les appels à faible risque sur son jugement."

@@ -138,3 +138,30 @@ func FuzzDecoderNeverPanics(f *testing.F) {
 		_ = d.Feed(raw[cut:])
 	})
 }
+
+// With HoldForResolution an answer's text waits for the label; other purposes
+// and an object that ends without a label release at once.
+func TestDecoderHoldsAnswerTextForTheResolutionLabel(t *testing.T) {
+	d := Decoder{HoldForResolution: true}
+	if got := d.Feed(`{"purpose":"answer","text":"Early words.","resolution":"gap"`); got != "Early words." {
+		t.Fatalf("released %q", got)
+	}
+	if v, ok := d.Resolution(); !ok || v != "gap" {
+		t.Fatalf("resolution %q %v", v, ok)
+	}
+	d = Decoder{HoldForResolution: true}
+	if got := d.Feed(`{"purpose":"answer","text":"Held words."`); got != "" || d.Ready() {
+		t.Fatalf("released before the label: %q", got)
+	}
+	if got := d.Feed(`}`); got != "Held words." || !d.Ready() {
+		t.Fatalf("not released at the end: %q", got)
+	}
+	d = Decoder{HoldForResolution: true}
+	if got := d.Feed(`{"purpose":"note","text":"A note."`); got != "A note." {
+		t.Fatalf("note held: %q", got)
+	}
+	d = Decoder{HoldForResolution: true}
+	if got := d.Feed(`{"purpose":"answer","resolution":"resolved","text":"Streams at once."`); got != "Streams at once." {
+		t.Fatalf("resolved held: %q", got)
+	}
+}

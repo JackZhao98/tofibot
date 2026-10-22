@@ -3679,6 +3679,9 @@ func (s *Server) execute(c Conversation, r Run) {
 	// observedToolWork arms the completion review; reviewed records that the
 	// review (on a text final or on a say answer) has already been spent.
 	var observedToolWork, reviewed atomic.Bool
+	// observedLookup is the answer gate's tool record: set once the run has
+	// attempted any lookup route (history, memory, web, files, connected tools).
+	var observedLookup atomic.Bool
 	if r.Kind != runKindTriage {
 		var initErr error
 		var controls streamControlSet
@@ -3705,6 +3708,13 @@ func (s *Server) execute(c Conversation, r Run) {
 			// scheduled run's answer is also its receipt, so it is reviewed too.
 			state.review = func() bool { return observedToolWork.Load() && !reviewed.Swap(true) }
 			state.owed = func() bool { return observedToolWork.Load() && !reviewed.Load() }
+			// The answer gate shares the review's one repair budget (reviewed).
+			state.gateOwed = func(resolution string) bool {
+				return answerGateDue(s.answerGateEnabled(), resolution, observedLookup.Load(), reviewed.Load())
+			}
+			state.gate = func(resolution string) bool {
+				return state.gateOwed(resolution) && !reviewed.Swap(true)
+			}
 			s.sayRuns.Store(r.ID, state)
 			defer s.sayRuns.Delete(r.ID)
 			sayStream = newSayStreamer(state)
@@ -3826,6 +3836,12 @@ func (s *Server) execute(c Conversation, r Run) {
 			return
 		}
 		observedToolWork.Store(observed)
+		looked, lookErr := s.store.hasLookupAttempt(r.ID)
+		if lookErr != nil {
+			s.failRun(c, r, lookErr)
+			return
+		}
+		observedLookup.Store(looked)
 	}
 	reviewKind := r.Kind
 	if r.scheduleTask != nil {
@@ -3867,6 +3883,15 @@ func (s *Server) execute(c Conversation, r Run) {
 		})
 		if !s.scheduleReceiptReviewEnabled() {
 			finalReview = nil
+		}
+		if inner := finalReview; inner != nil {
+			finalReview = func(content string) (string, error) {
+				reminder, err := inner(content)
+				if reminder != "" {
+					reviewed.Store(true) // the receipt repair spends the one budget
+				}
+				return reminder, err
+			}
 		}
 	}
 	runEngine := engine
@@ -3936,8 +3961,13 @@ func (s *Server) execute(c Conversation, r Run) {
 			}
 		},
 		OnToolEvent: func(ev runtime.ToolEvent) error {
-			if completionReviewWork(ev.Name, ev.Risk) && (ev.Status == "running" || ev.Status == "completed" || ev.Status == "failed") {
-				observedToolWork.Store(true)
+			if ev.Status == "running" || ev.Status == "completed" || ev.Status == "failed" {
+				if completionReviewWork(ev.Name, ev.Risk) {
+					observedToolWork.Store(true)
+				}
+				if lookupAttempt(ev.Name, ev.Risk) {
+					observedLookup.Store(true)
+				}
 			}
 			if ev.Status == "running" {
 				if err := steeringBoundary(); err != nil {
