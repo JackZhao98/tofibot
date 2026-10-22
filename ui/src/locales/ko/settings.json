@@ -237,7 +237,39 @@
     "not_reported": "보고 안 됨",
     "window": "로컬 창 설정 {{value}}",
     "auto_compact": "80%에서 자동 압축 시도",
-    "compacted_other": "이번 실행에서 {{count}}회 압축됨"
+    "compacted_other": "이번 실행에서 {{count}}회 압축됨",
+    "health": {
+      "title": "실행 상태",
+      "loading": "실행 상태를 불러오는 중…",
+      "load_failed": "실행 상태를 불러오지 못했습니다. 다시 시도하세요.",
+      "runs": "실행",
+      "no_runs": "이 기간에는 실행이 없습니다.",
+      "reasons": "주요 실패 사유",
+      "no_failures": "실패한 실행이 없습니다.",
+      "timeouts": "도구 시간 초과",
+      "timeouts_note": "제한 시간에 도달했거나 강제 종료된 명령입니다.",
+      "status": {
+        "done": "완료",
+        "failed": "실패",
+        "cancelled": "취소됨",
+        "interrupted": "중단됨",
+        "running": "실행 중",
+        "waiting": "대기 중",
+        "queued": "대기열"
+      },
+      "reason": {
+        "execution_failed": "완료 전에 실패",
+        "no_final_answer": "최종 답변 없음",
+        "tool_stuck": "도구 단계 멈춤",
+        "resumed_repeatedly": "반복 중단",
+        "approval_expired": "승인 만료",
+        "model_unconfigured": "모델 미설정",
+        "model_auth_invalid": "모델 로그인 거부됨",
+        "model_quota_exhausted": "모델 한도 도달",
+        "connection_interrupted": "연결 끊김",
+        "budget_exhausted": "단계 예산 소진"
+      }
+    }
   },
   "permissions": {
     "microphone": {

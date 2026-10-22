@@ -1478,12 +1478,46 @@ def status_versions(**values):
     return result
 
 
+class RunHealthTests(HostCase):
+    def make_db(self, path, rows, tools):
+        import sqlite3
+        path.parent.mkdir(parents=True, exist_ok=True)
+        db = sqlite3.connect(str(path))
+        db.execute('CREATE TABLE runs(id TEXT, status TEXT, updated_at TEXT)')
+        db.execute('CREATE TABLE tool_activities(run_id TEXT, status TEXT, result TEXT, started_at TEXT)')
+        db.executemany('INSERT INTO runs VALUES(?,?,?)', rows)
+        db.executemany('INSERT INTO tool_activities VALUES(?,?,?,?)', tools)
+        db.commit()
+        db.close()
+
+    def test_counts_runs_and_timeouts_across_databases_in_window(self):
+        recent, old = '2026-10-21T10:00:00.000000000Z', '2026-09-01T10:00:00.000000000Z'
+        now = 1792674000  # 2026-10-22
+        self.make_db(self.P.data / 'tofi.db', [('a', 'done', recent), ('b', 'failed', recent), ('c', 'failed', old)],
+                     [('a', 'failed', '[Timed out after 30000ms]', recent), ('a', 'failed', '[Exit code: 2]', recent),
+                      ('a', 'failed', 'x\n[Exit 137: Killed]', recent), ('a', 'failed', '[Timed out after 1ms]', old)])
+        self.make_db(self.P.data / 'accounts' / 'u1' / 'tofi.db', [('d', 'done', recent)], [])
+        health = tofi_host.run_health(now=now)
+        self.assertEqual(health, {'days': 7, 'by_status': {'done': 2, 'failed': 1}, 'tool_timeouts': 2})
+        self.assertEqual(tofi_host.run_health_summary(health),
+                         '2 completed · 1 failed · 2 tool timeouts · last 7 days')
+
+    def test_no_database_means_no_row(self):
+        self.assertIsNone(tofi_host.run_health())
+        self.assertIsNone(tofi_host.run_health_summary(None))
+
+
 class RenderStatusTests(unittest.TestCase):
     ACCESS = {'domain': '', 'port': '8321', 'local_only': False}
 
     def render(self, result=None, **kwargs):
         kwargs.setdefault('access', self.ACCESS)
         return tofi_host.render_status(result or status_result(), **kwargs)
+
+    def test_runs_row_is_one_quiet_line(self):
+        text = self.render(status_result(run_health={'days': 7, 'by_status': {'done': 5, 'failed': 1}, 'tool_timeouts': 0}))
+        self.assertIn('  Runs         5 completed · 1 failed · last 7 days\n', text)
+        self.assertNotIn('Runs  ', self.render())
 
     def test_default_view_is_compact(self):
         text = self.render()

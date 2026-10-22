@@ -1,0 +1,10 @@
+/* Run health card: counts in the muted settings-row register, no color unless something failed. */
+.run-health-stats,.run-health-reasons{margin:0;padding:0;list-style:none}
+.run-health-stats{display:flex;flex-wrap:wrap;justify-content:flex-end;gap:6px 18px}
+.run-health-stats li{display:grid;justify-items:end;gap:2px}
+.run-health-stats strong,.run-health-count{color:var(--ink);font:600 15px/1.2 var(--mono);font-variant-numeric:tabular-nums}
+.run-health-stats span{color:var(--muted);font:12px/1.3 var(--body)}
+.run-health-reasons{display:grid;gap:4px;min-width:200px}
+.run-health-reasons li{display:flex;justify-content:space-between;gap:16px;color:var(--ink-soft);font:13px/1.4 var(--body)}
+.run-health-reasons strong{color:var(--ink);font:600 13px/1.4 var(--mono);font-variant-numeric:tabular-nums}
+@media(max-width:700px){.run-health-stats{justify-content:flex-start}.run-health-stats li{justify-items:start}.run-health-reasons{min-width:0}}

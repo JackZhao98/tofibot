@@ -160,6 +160,7 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
     if (path === "/api/computer/resources") return {current: {vcpus: 2, memory_mib: 4096, disk_gib: 20}, desired: {vcpus: 2, memory_mib: 4096, disk_gib: 20}, pending: false, state: "ready", host: {cpus: 8, memory_total_mib: 16384, memory_available_mib: 9000, disk_available_gib: 120}, limits: {max_vcpus: 6, max_memory_mib: 12288, max_disk_gib: 100}};
     if (path === "/api/computer/credentials") return {credentials: [{id: "cred_1", name: "WEB_API_TOKEN", kind: "env", target: "WEB_API_TOKEN", created_at: day(3)}, {id: "cred_2", name: "DEPLOY_REGION", kind: "env", target: "DEPLOY_REGION", created_at: day(5)}]};
     if (path === "/api/computer/ssh-keys") return {keys: []};
+    if (path === "/api/usage/runs") return {days: 7, since: day(7), runs: 48, by_status: {done: 41, failed: 4, cancelled: 2, running: 1}, failures: [{code: "model_auth_invalid", count: 3}, {code: "connection_interrupted", count: 1}], tool_calls: 212, tool_timeouts: 2, model_calls: 96};
     if (path === "/api/usage") return {contexts: [{run_id: "run_1", conversation_id: "conv_1", conversation_name: "Weekly summary", bot_id: "bot_research", bot_name: "Research Bot", run_status: "completed", model: "codex-gpt-6-sol", window_tokens: 200000, window_known: true, compact_at: 160000, estimated_input: 52000, last_input: 48000, total_input: 310000, total_output: 42000, compact_count: 1, updated_at: day(0)}],
       agents: [{bot_id: "bot_research", bot_name: "Research Bot", input_tokens: 310000, output_tokens: 42000, runs: 14, compactions: 1}, {bot_id: "bot_inbox", bot_name: "Inbox Bot", input_tokens: 120000, output_tokens: 18000, runs: 6, compactions: 0}],
       periods: {"24h": [{bot_id: "bot_research", input_tokens: 90000, output_tokens: 12000, requests: 5, equivalent_usd: 0.42, unpriced_requests: 0}], "7d": [{bot_id: "bot_research", input_tokens: 310000, output_tokens: 42000, requests: 14, equivalent_usd: 1.9, unpriced_requests: 0}], "30d": [{bot_id: "bot_research", input_tokens: 310000, output_tokens: 42000, requests: 14, equivalent_usd: 1.9, unpriced_requests: 0}]},
@@ -550,6 +551,23 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
       await view.close();
     }
     console.log("PASS built-in skills: tagged, on by default, switch writes and survives reload, no Remove, translated");
+  }
+
+  // ---- 7d. Run health card on the Usage page: counts by status, named failure reasons, tool timeouts; no provider text.
+  {
+    const {page, close} = await open({tab: "usage"});
+    const card = page.locator('.settings-page-body[data-page="usage"] .settings-sec').filter({hasText: "Run health"});
+    await card.waitFor();
+    const text = await card.innerText();
+    for (const expected of ["Last 7 days", "41", "Completed", "4", "Failed", "Cancelled", "Running", "Model sign-in rejected", "Connection dropped", "Tool timeouts", "2"]) assert.ok(text.includes(expected), `run health shows ${expected}: ${text}`);
+    assert.ok(!/model_auth_invalid|api error|invalid_api_key/i.test(text), "no raw codes or provider text");
+    assert.equal(await card.getByRole("alert").count(), 0, "no error when the read succeeds");
+    if (process.env.RUN_HEALTH_SHOT) await card.screenshot({path: process.env.RUN_HEALTH_SHOT});
+    await close();
+    const german = await open({tab: "usage", lang: "de"});
+    await german.page.locator('.settings-page-body[data-page="usage"] .settings-sec').filter({hasText: "Ausführungsstatus"}).waitFor();
+    await german.close();
+    console.log("PASS run health: counts by status, named failure reasons, tool timeouts, no provider text, translated");
   }
 
   // ---- 7f. Connections open on the cached state: no animation, no spinner; the quiet re-check updates in place or flips to the problem.
