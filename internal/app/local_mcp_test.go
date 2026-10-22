@@ -128,3 +128,53 @@ func TestLocalGogOAuthUsesConfiguredHTTPSCallback(t *testing.T) {
 		t.Fatalf("callback=%d %s", w.Code, w.Body.String())
 	}
 }
+
+// A removal refused because a task is mid-call answers with the stable code
+// plugin_busy and leaves the registered connection untouched.
+func TestLocalMCPRemoveBusyKeepsConnectionAndNamesTheReason(t *testing.T) {
+	root := t.TempDir()
+	tokenPath := filepath.Join(root, "runner-token")
+	if err := os.WriteFile(tokenPath, []byte("private-token"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	runner := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case r.URL.Path == "/v1/plugins" && r.Method == http.MethodPost:
+			w.WriteHeader(http.StatusCreated)
+			_, _ = w.Write([]byte(`{"id":"gog","state":"sleeping"}`))
+		case r.URL.Path == "/v1/plugins" && r.Method == http.MethodGet:
+			_, _ = w.Write([]byte(`{"plugins":[{"id":"gog","state":"sleeping"}]}`))
+		case r.URL.Path == "/v1/plugins/gog" && r.Method == http.MethodDelete:
+			w.WriteHeader(http.StatusConflict)
+			_, _ = w.Write([]byte(`{"code":"plugin_busy"}`))
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer runner.Close()
+	t.Setenv("TOFI_MCP_RUNNER_URL", runner.URL)
+	t.Setenv("TOFI_MCP_RUNNER_TOKEN_FILE", tokenPath)
+	s, err := NewServer(Config{DataDir: root, MCPConfigPath: filepath.Join(root, "mcp.json")})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer s.Close()
+	w := httptest.NewRecorder()
+	s.routeLocalMCP(w, httptest.NewRequest(http.MethodPost, "/api/extensions/local-mcp/install", strings.NewReader(`{"id":"gog","kind":"builtin_gog"}`)), "extensions/local-mcp/install")
+	if w.Code != http.StatusCreated {
+		t.Fatalf("install: %d %s", w.Code, w.Body.String())
+	}
+	w = httptest.NewRecorder()
+	s.routeLocalMCP(w, httptest.NewRequest(http.MethodDelete, "/api/extensions/local-mcp/gog", nil), "extensions/local-mcp/gog")
+	var body struct {
+		Error struct {
+			Code string `json:"code"`
+		} `json:"error"`
+	}
+	if w.Code != http.StatusConflict || json.Unmarshal(w.Body.Bytes(), &body) != nil || body.Error.Code != "plugin_busy" {
+		t.Fatalf("busy removal: %d %s", w.Code, w.Body.String())
+	}
+	if views, err := s.extensions.ListMCP(); err != nil || len(views) != 1 {
+		t.Fatalf("connection changed by a refused removal: %v %v", views, err)
+	}
+}

@@ -18,6 +18,7 @@
     "retry": "重試"
   },
   "apiError": {
-    "request_failed": "請求失敗（{{status}}）"
+    "request_failed": "請求失敗（{{status}}）",
+    "plugin_busy": "正在被某個任務使用，稍後再試。"
   }
 }

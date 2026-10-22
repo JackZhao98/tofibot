@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useId, useState } from "react";
 import { FilePicker } from "./settings/components";
-import { request } from "./api";
+import { ApiError, request } from "./api";
 import { Trans, useTranslation } from "./i18n";
 import "./local-mcp.css";
 
@@ -97,7 +97,7 @@ export function LocalMCPPanel({ onChanged, attachedIDs, callbackOrigin }: { onCh
  async function remove(pluginID: string) {
   setBusy(`remove:${pluginID}`); setError("");
   try { await request(`/api/extensions/local-mcp/${encodeURIComponent(pluginID)}`, { method: "DELETE" }); await Promise.all([refresh(), onChanged()]); setNotice(t("local.notice.removed", { id: pluginID })); setConfirmRemove(""); }
-  catch (caught) { setError(errorText(caught)); }
+  catch (caught) { setError(caught instanceof ApiError && caught.code === "plugin_busy" ? t("common:apiError.plugin_busy") : errorText(caught)); }
   finally { setBusy(""); }
  }
  const packagePreview = kind === "npm"
