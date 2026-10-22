@@ -1,0 +1,34 @@
+/* "Context" in View activity (D53): quiet L1 paper rows, a margin rule on the left, mono only for the original text. */
+.run-context-body{display:grid;gap:8px;margin:6px 0 0 12px;padding:2px 0 2px 12px;border-left:var(--edge) solid var(--line-soft);color:var(--ink-soft);font:var(--type-meta);min-width:0}
+.run-context-total{margin:0;color:var(--text-process)}
+.run-context-total strong{font-weight:inherit;color:var(--ink-soft)}
+.run-context-note{margin:0;color:var(--text-process);font:var(--type-meta);overflow-wrap:anywhere}
+.run-context-share{display:flex;gap:2px;height:6px;border-radius:3px;overflow:hidden;background:var(--surface-2)}
+.run-context-share>span{min-width:2px;background:color-mix(in srgb,var(--lagoon) var(--share-tone,30%),var(--surface-2))}
+.run-context-legend{display:grid;gap:2px;margin:0;padding:0;list-style:none}
+.run-context-legend li{display:grid;grid-template-columns:8px minmax(0,1fr) auto;align-items:center;gap:8px}
+.run-context-legend i{width:8px;height:8px;border-radius:2px;background:color-mix(in srgb,var(--lagoon) var(--share-tone,30%),var(--surface-2))}
+.run-context-legend-name{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.run-context-legend-size,.run-context-part-size{color:var(--muted);font:var(--type-status-regular);font-variant-numeric:tabular-nums;white-space:nowrap}
+.run-context-parts{display:grid;gap:2px;min-width:0}
+.run-context-part{min-width:0;border:1px solid transparent;border-radius:8px}
+.run-context-part[open]{border-color:var(--line-soft);background:var(--surface-soft)}
+.run-context-part>summary{display:flex;align-items:baseline;justify-content:space-between;gap:12px;min-width:0;padding:4px 6px;border-radius:8px;cursor:pointer;list-style:none}
+.run-context-part>summary::-webkit-details-marker{display:none}
+.run-context-part>summary:hover{background:var(--surface-2)}
+.run-context-part>summary:focus-visible{outline:var(--focus-ring-width) solid var(--focus-ring);outline-offset:2px}
+.run-context-part-name{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.run-context-part.is-on-demand .run-context-part-name{color:var(--muted)}
+.run-context-part-text{display:grid;gap:6px;padding:2px 8px 8px}
+.run-context-part-text pre{max-height:320px;margin:0;overflow:auto;white-space:pre-wrap;overflow-wrap:anywhere;color:var(--text-soft);font:11px/1.45 var(--font-mono)}
+.run-context-actions{display:flex;justify-content:flex-end}
+.run-context-copy{display:inline-flex;align-items:center;gap:6px;padding:2px 6px;border:0;border-radius:6px;background:transparent;color:var(--text-process);font:var(--type-status-regular);cursor:pointer}
+.run-context-copy:hover{background:var(--surface-2);color:var(--ink-soft)}
+.run-context-copy:focus-visible{outline:var(--focus-ring-width) solid var(--focus-ring);outline-offset:2px}
+.run-context-items{display:grid;gap:1px;max-height:160px;margin:0;padding:0;overflow:auto;list-style:none;font:var(--type-status-regular)}
+.run-context-items li{display:flex;justify-content:space-between;gap:12px}
+.run-context-items li>span:last-child{color:var(--muted);font-variant-numeric:tabular-nums;white-space:nowrap}
+.run-context-history{display:grid;gap:2px;min-width:0}
+.run-context-history h4{margin:6px 0 0;padding:0 6px;color:var(--text-process);font:var(--type-meta);font-weight:inherit}
+.run-context-history ol{display:grid;gap:0;margin:0;padding:0;list-style:none}
+.run-context-part.is-compact>summary{padding:2px 6px}

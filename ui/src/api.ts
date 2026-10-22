@@ -1,4 +1,4 @@
-import type { FollowupAccount, FollowupBotSettings, FollowupOverview, FollowupVerdict, AgentUsageTotal, Attachment, Bot, ComputerHealth, Config, ContentPatch, ContextUsage, Conversation, EventEnvelope, Memory, MemoryInput, Message, ModelCatalog, ModelProviderStatus, Run, RunHealth, Schedule, ScheduleKind, SchedulePatchInput, StreamDraft, ToolActivity, ToolActivityDetailPage, ToolActivityRunSummary, UsageCall, UsagePeriod, WorkspaceEventEnvelope, WorkItem, Weekday } from "./types";
+import type { FollowupAccount, FollowupBotSettings, FollowupOverview, FollowupVerdict, AgentUsageTotal, Attachment, Bot, ComputerHealth, Config, ContentPatch, ContextUsage, Conversation, EventEnvelope, Memory, MemoryInput, Message, ModelCatalog, ModelProviderStatus, Run, RunContextSnapshot, RunHealth, Schedule, ScheduleKind, SchedulePatchInput, StreamDraft, ToolActivity, ToolActivityDetailPage, ToolActivityRunSummary, UsageCall, UsagePeriod, WorkspaceEventEnvelope, WorkItem, Weekday } from "./types";
 import { i18n } from "./i18n";
 import { codeText } from "./i18n/codeText";
 import { invalidateModelCatalog } from "./modelCatalogStore";
@@ -127,6 +127,7 @@ export const api = {
   toolActivitySummaries: (id: string, runIds: string[]) => request<{ summaries: ToolActivityRunSummary[] }>(`/api/conversations/${encodeURIComponent(id)}/tools?${new URLSearchParams({ run_ids: runIds.join(",") })}`),
   toolActivityResult: (id: string, runId: string, callId: string) => request<{ activity: ToolActivity }>(`/api/conversations/${encodeURIComponent(id)}/tools?${new URLSearchParams({ run_id: runId, call_id: callId })}`),
   toolActivityDetails: (id: string, runId: string, offset = 0) => request<ToolActivityDetailPage>(`/api/conversations/${encodeURIComponent(id)}/tools?${new URLSearchParams({ run_id: runId, offset: String(offset) })}`),
+  runContext: (runId: string, signal?: AbortSignal) => request<RunContextSnapshot>(`/api/runs/${encodeURIComponent(runId)}/context`, { signal }),
   computerInfo: () => request<{ kind: string; state: string; phase?: string; workspace_root?: string; browser?: string; error?: string; health?: ComputerHealth }>("/api/computers/firecracker/info"),
   computerRetry: () => request<{ accepted: boolean }>("/api/computers/firecracker/retry", { method: "POST" }),
   computerWake: () => request<{ accepted: boolean; state?: string }>("/api/computers/firecracker/wake", { method: "POST" }),

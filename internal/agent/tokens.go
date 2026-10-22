@@ -232,6 +232,12 @@ func (t *TokenTracker) ContextWindow() int {
 	return t.contextWindow
 }
 
+// EstimateTextTokens is the estimate the context meters use for plain text.
+func EstimateTextTokens(s string) int { return estimateStringTokens(s) }
+
+// EstimateToolDefinitionTokens is the estimate for one tool definition.
+func EstimateToolDefinitionTokens(tool provider.Tool) int { return estimateToolTokens(tool) }
+
 // estimateStringTokens estimates token count for a string.
 // Uses ~4 chars per token as baseline, with adjustments for
 // code (denser) and CJK text (more tokens per char).

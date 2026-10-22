@@ -32,7 +32,7 @@ import { MailDraftCard, useMailDrafts } from "./MailDraftCard";
 import { buildQuestionTimeline, compareQuestionTime } from "./questionTimeline";
 import { useDebugMode } from "./debugMode";
 import type { SettingsEntry, SettingsTab, SettingsView } from "./SettingsShell";
-import { AfterPaint, ArchivePanel, UpdateBanner, PermissionCoach, BotPanelSkeleton, BotDesktopPanel, DeleteConversationDialog, ReassignPrimaryDialog, RememberedApprovalsSheet, BotPanel, MembersPanel, DesktopSkeleton, MemoryPanel, TeamBoard, ViewOnlyChat, WorkPanel, Onboarding, QuestionCard, preloadPanel, SettingsPanel, SettingsSkeleton, warmPanelsWhenIdle } from "./lazyPanels";
+import { AfterPaint, ArchivePanel, UpdateBanner, PermissionCoach, BotPanelSkeleton, BotDesktopPanel, DeleteConversationDialog, ReassignPrimaryDialog, RememberedApprovalsSheet, BotPanel, MembersPanel, DesktopSkeleton, MemoryPanel, TeamBoard, ViewOnlyChat, WorkPanel, Onboarding, QuestionCard, RunContextView, preloadPanel, SettingsPanel, SettingsSkeleton, warmPanelsWhenIdle } from "./lazyPanels";
 import { subscribeSettingsDeepLinks } from "./settings/deepLinks";
 import { BotIdentityCard } from "./BotIdentityCard";
 import { arrowOpens, OverlayMenu, OverlaySlot, SlotView } from "./overlays/OverlayHost";
@@ -2962,6 +2962,16 @@ function toolRunTimes(items: ToolActivity[], notes: Message[], summary?: ToolAct
   return { first: starts.length ? Math.min(...starts) : Number.NaN, last: ends.length ? Math.max(...ends) : Number.NaN };
 }
 
+/** The "Context" row at the foot of a reply's activity: what the model received (D53). The view is its own chunk, fetched on first open. */
+function RunContextEntry({ runId, timezone }: { runId: string; timezone: string }) {
+  const { t } = useTranslation("chat");
+  const [open, setOpen] = useState(false);
+  return <div className="run-context-entry">
+    <button type="button" className="run-context-toggle" aria-expanded={open} aria-controls={`run-context-${runId}`} onClick={() => setOpen(value => !value)}><Icon className="web-tool-chevron" name="chevron-right" size={14} /><span>{t("runContext.toggle")}</span></button>
+    {open && <div id={`run-context-${runId}`}><Suspense fallback={null}><RunContextView runId={runId} timezone={timezone} /></Suspense></div>}
+  </div>;
+}
+
 function WebToolActivityRun({ runId, items, notes, summary, summaryError, summaryLoading, detail, onLoadDetails, onRetrySummary, live, now, timezone, botName, senderId }: ToolRunProps) {
   const { t } = useTranslation(["chat", "common"]);
   const finishing = useContext(ExpiryFinishingContext).has(runId);
@@ -3048,6 +3058,7 @@ function WebToolActivityRun({ runId, items, notes, summary, summaryError, summar
           <span className="web-tool-step-meta">{active ? <span className="web-tool-breath" aria-hidden="true" /> : <Icon name={activity.status === "completed" ? "check" : toolDisplayState(activity) !== activity.status ? "clock" : "alert"} size={14} variant="filled" />}{toolDisplayLabel(activity)}{duration === undefined ? "" : ` · ${duration.toFixed(1)}s`}</span>
         </li>;
       })}{hasMoreDetails && <li className="web-tool-step is-note"><button type="button" className="secondary-button" disabled={detail?.loading} onClick={loadDetails}>{detail?.loading ? t("action.loading") : t("tools.load_more", { shown: items.length, total: count ?? "?" })}</button></li>}</ol>
+      <RunContextEntry runId={runId} timezone={timezone} />
       </div></div>
     </div>
   </section>;
