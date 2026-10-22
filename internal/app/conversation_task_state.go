@@ -18,7 +18,9 @@ type ConversationTaskState struct {
 	DraftDemo       bool   `json:"draft_demo,omitempty"`
 	ResultMessageID string `json:"result_message_id,omitempty"`
 	FailureReason   string `json:"failure_reason,omitempty"`
-	CanRetry        bool   `json:"can_retry,omitempty"`
+	// FailureCode is set when FailureReason is a fixed server sentence, so the UI can translate it.
+	FailureCode string `json:"failure_code,omitempty"`
+	CanRetry    bool   `json:"can_retry,omitempty"`
 }
 
 func (s *Store) fillConversationTaskStates(byID map[string]*Conversation) error {
@@ -133,7 +135,7 @@ func (s *Store) fillConversationTaskStates(byID map[string]*Conversation) error 
 			}
 			state.FailureReason = reason.String
 			if sourceConv != conv {
-				state.FailureReason = "协作成员未完成此步骤。"
+				state.FailureReason, state.FailureCode = "A collaborator did not finish this step.", "collaborator_incomplete"
 			}
 			// A draft may already have caused an external send. Never offer an
 			// automatic run retry from this summary for such a run.

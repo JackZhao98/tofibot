@@ -16,14 +16,14 @@ func CheckShellSafety(script string) error {
 	// 解析脚本为 AST
 	f, err := parser.Parse(in, "")
 	if err != nil {
-		return fmt.Errorf("shell 语法错误: %v", err)
+		return fmt.Errorf("shell syntax error: %v", err)
 	}
 
 	checker := &safetyChecker{}
 	checker.visit(f, false)
 
 	if len(checker.errors) > 0 {
-		return fmt.Errorf("脚本安全检查失败:\n%s", strings.Join(checker.errors, "\n"))
+		return fmt.Errorf("script safety check failed:\n%s", strings.Join(checker.errors, "\n"))
 	}
 
 	return nil
@@ -65,7 +65,7 @@ func (c *safetyChecker) visit(node syntax.Node, inDoubleQuote bool) {
 			if name == "" { // 处理 $1, $2 等
 				name = "?"
 			}
-			msg := fmt.Sprintf("  - Line %d: 变量 $%s 未加双引号 (建议改为 \"$%s\")", x.Pos().Line(), name, name)
+			msg := fmt.Sprintf("  - Line %d: variable $%s is not double-quoted (use \"$%s\")", x.Pos().Line(), name, name)
 			c.errors = append(c.errors, msg)
 		}
 

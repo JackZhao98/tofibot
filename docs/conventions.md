@@ -21,6 +21,7 @@
 **规则（D 系列近期决定里反复出现）：分类只看结构化的码，不看消息文字。**
 
 - HTTP 错误体固定为 `{"error": {"code": "...", "message": "..."}}`，由 `writeErr(w, status, code, msg)` 写（`internal/app/app.go:3032`）。`code` 是小写下划线的稳定标识，前端用它查翻译（`ui/src/i18n/errors.ts` 的 `errorText`），`message` 只是英文兜底。新的用户可见错误一定给 `code`。
+- 服务端非测试 `.go` 的字符串字面量不许出现 CJK：固定的人话一律是码加英文 `message`，译文放 `ui/src/locales/*/common.json` 的 `apiError.<code>`；`internal/app/no_cjk_literals_test.go` 守着（白名单只减不增）。载荷里带固定句子时配一个 `*_code` 字段。
 - 工具调用的结果是 `tooloutcome.Outcome`（`internal/tooloutcome/outcome.go`）：`Status`（`need_approval`、`validation_error`、`transient_failure`、`permanent_failure`、`denied`、`approval_expired`、`uncertain_effect`）、`Code`、`Certainty`（`not_executed` 等）、`NextAction`。包注释写明："Remote prose is never used to authorize retries or classify execution certainty." 用 `tooloutcome.New(...).Err()` 返回、`tooloutcome.FromError` / `errors.As` 取回。文件缺失是例子：guest 回 `file_not_found`（`tooloutcome.FileNotFound`），主机按码分类，不看底层 stat 错误的措辞（`AGENTS.md` "publish_file paths and failures"）。
 - 可重试的提供方错误由 `provider.IsRetryable`（`internal/provider/errors.go:100`）判断：HTTP 状态、`errors.Is(err, ErrStreamIncomplete)`、`errors.As` 到 `*ResponseFailedError` 的码。新的瞬时错误码加进 `retryableResponseFailure`（`AGENTS.md` "Provider errors and failed runs"）。
 - 用 `errors.Is` / `errors.As` 判断，需要带信息就定义类型或哨兵，用 `%w` 包装。

@@ -1678,7 +1678,7 @@ func (s *Store) AddHandoff(conv, sender, bot, parent, task string) (Message, Run
 		if err = tx.QueryRow(`SELECT trigger_message_id FROM runs WHERE id=? AND kind='triage'`, parent).Scan(&routedTrigger); err != nil {
 			return Message{}, Run{}, err
 		}
-		task = "已交给 " + botName + " 处理。"
+		task = "Handed to " + botName + "."
 	}
 	origin := conv
 	var parentOrigin string
@@ -3313,7 +3313,7 @@ func (s *Server) postMessage(w http.ResponseWriter, r *http.Request, c Conversat
 		return
 	}
 	if strings.TrimSpace(x.Content) == "" {
-		x.Content = "请查看附件。"
+		x.Content = "See the attachments."
 	}
 	var specs []runSpec
 	interrupt := false

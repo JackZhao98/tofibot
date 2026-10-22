@@ -251,7 +251,7 @@ func (s *Store) updateWorkItem(id string, patch WorkItemPatch, conversationID, a
 		return WorkItem{}, err
 	}
 	if execution != nil && execution.Active {
-		return WorkItem{}, fmt.Errorf("%w: 请先停止这项待办的执行，再修改或确认完成。", ErrWorkExecutionConflict)
+		return WorkItem{}, workConflict("work_stop_first", "Stop this work item's execution before editing it or marking it done.")
 	}
 	if actor != "" {
 		if err = requireWorkItemMemberTx(tx, item.ConversationID, actor); err != nil {
@@ -487,7 +487,12 @@ func (s *Server) writeWorkItemError(w http.ResponseWriter, err error) {
 	case errors.Is(err, ErrWorkItemScope):
 		writeErr(w, 403, "work_item_scope", err.Error())
 	case errors.Is(err, ErrWorkExecutionConflict):
-		writeErr(w, 409, "work_execution_unavailable", strings.TrimPrefix(err.Error(), ErrWorkExecutionConflict.Error()+": "))
+		var conflict *workExecutionConflictError
+		if errors.As(err, &conflict) {
+			writeErr(w, 409, conflict.code, conflict.message)
+			break
+		}
+		writeErr(w, 409, "work_execution_unavailable", "Work execution is unavailable.")
 	case errors.Is(err, ErrWorkItemInvalid):
 		writeErr(w, 400, "invalid_work_item", err.Error())
 	default:

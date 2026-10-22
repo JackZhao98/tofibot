@@ -97,7 +97,7 @@ func TestTriageUsesRosterAndPreservesOriginalTask(t *testing.T) {
 		if strings.Contains(message.Content, "Please research the attached filing") {
 			childSawTask = true
 		}
-		if strings.Contains(message.Content, "已交给") {
+		if strings.Contains(message.Content, "Handed to") {
 			childSawRoutingNotice = true
 		}
 	}

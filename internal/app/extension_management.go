@@ -56,14 +56,14 @@ func (s *Server) routeExtensions(w http.ResponseWriter, r *http.Request, p strin
 			}
 		}
 		page.State = "pending"
-		page.Message = "即将前往服务提供方确认访问权限，请仅授予本次任务需要的权限。"
+		page.Message = "You are about to confirm access with the service provider. Grant only the permissions this task needs."
 		writeOAuthCompletion(w, http.StatusOK, page)
 		return true
 	case strings.HasPrefix(p, "extensions/mcp/") && strings.HasSuffix(p, "/oauth/start") && r.Method == http.MethodPost:
 		name := strings.TrimSuffix(strings.TrimPrefix(p, "extensions/mcp/"), "/oauth/start")
 		origin := s.webOAuthOrigin(r)
 		if origin == "" || (r.TLS == nil && r.Header.Get("Origin") != origin) || (r.Header.Get("Origin") != "" && r.Header.Get("Origin") != origin) {
-			writeErr(w, 400, "oauth_https_required", "网页授权需要 HTTPS。HTTP 直连请使用共享电脑授权，或改用 HTTPS / Tofi 客户端。")
+			writeErr(w, 400, "oauth_https_required", "Web authorization requires HTTPS. Over plain HTTP, authorize from the shared computer or use HTTPS or the Tofi client.")
 			return true
 		}
 		redirect := origin + "/api/extensions/mcp/" + name + "/oauth/callback"
@@ -83,10 +83,10 @@ func (s *Server) routeExtensions(w http.ResponseWriter, r *http.Request, p strin
 		q := r.URL.Query()
 		identity, err := s.extensions.OAuthWebCallback(r.Context(), name, q.Get("session_id"), q.Get("code"), q.Get("state"), redirect, q.Get("error") != "")
 		page := oauthServicePage(identity)
-		page.State, page.Message = "failed", "无法验证这次授权，链接可能已过期或使用过。请返回 Tofi 重新连接。"
+		page.State, page.Message = "failed", "This authorization could not be verified. The link may have expired or been used already. Return to Tofi and connect again."
 		status := http.StatusBadRequest
 		if errors.Is(err, extensions.ErrOAuthDenied) {
-			page.State, page.Message = "denied", "服务提供方未授予访问权限，可能是取消了授权或账号不符合应用的访问条件。请检查配置后重新连接。"
+			page.State, page.Message = "denied", "The service provider did not grant access. Authorization may have been cancelled, or the account does not meet the app's access conditions. Check the configuration and connect again."
 			if page.APIURL != "" {
 				page.Setup = "audience"
 			}

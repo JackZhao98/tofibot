@@ -3,6 +3,7 @@ package app
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -195,8 +196,8 @@ func TestPrepareEmailRejectsPlaceholderRecipientWithRepairHint(t *testing.T) {
 	if drafts, _ := s.store.ListMailDrafts(conv.ID); len(drafts) != 0 {
 		t.Fatalf("drafts=%+v", drafts)
 	}
-	// The HTTP and UI path keeps its localized text.
-	if _, _, verr := validateMailDraft("[x]", "s", "b"); verr == nil || !strings.Contains(verr.Error(), "收件人") {
+	// The HTTP path classifies by sentinel (stable code), never by wording.
+	if _, _, verr := validateMailDraft("[x]", "s", "b"); !errors.Is(verr, errMailRecipientInval) {
 		t.Fatalf("validate error = %v", verr)
 	}
 }
