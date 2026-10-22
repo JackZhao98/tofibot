@@ -46,6 +46,12 @@ func (r *Runner) Handler(token string) http.Handler {
 				return
 			}
 			if err := r.Remove(id); err != nil {
+				if errors.Is(err, ErrPluginBusy) {
+					w.Header().Set("Content-Type", "application/json")
+					w.WriteHeader(http.StatusConflict)
+					_ = json.NewEncoder(w).Encode(map[string]string{"code": "plugin_busy"})
+					return
+				}
 				http.Error(w, err.Error(), http.StatusConflict)
 				return
 			}
