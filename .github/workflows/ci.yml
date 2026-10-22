@@ -24,7 +24,8 @@ jobs:
       - name: go vet
         run: go vet ./...
       - name: go test
-        run: go test ./...
+        # internal/app runs 5-7 minutes on hosted runners; the 10-minute default timed out once (run 39711758364).
+        run: go test -timeout 30m ./...
 
   ui:
     runs-on: ubuntu-24.04

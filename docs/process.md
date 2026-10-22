@@ -52,7 +52,7 @@ git -C <主仓库> worktree add ../tofibot-<主题> -b fix/<主题> main
 "全绿"只能用退出码证明。不许数 `ok` / `PASS` 行数，不许看日志尾巴判断。
 
 ```sh
-go test ./...; echo "exit=$?"
+go test -timeout 30m ./...; echo "exit=$?"   # internal/app 本机 4–7 分钟，负载高时会超过默认 10 分钟
 ```
 
 要注意的坑：
