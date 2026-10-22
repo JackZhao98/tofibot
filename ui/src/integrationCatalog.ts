@@ -62,6 +62,7 @@ export const integrationCatalog: IntegrationPreset[] = [
     name: "Google Gmail",
     get description() { return i18n.t("extensions:catalog.google_gmail.description"); },
     category: "google",
+    upstream: "vendor", // Google publishes these servers itself (Workspace Developer Preview)
     url: "https://gmailmcp.googleapis.com/mcp/v1",
     docsURL: "https://developers.google.com/workspace/gmail/api/guides/configure-mcp-server",
     get setup() { return googleSetup(); },
@@ -76,6 +77,7 @@ export const integrationCatalog: IntegrationPreset[] = [
     name: "Google Drive",
     get description() { return i18n.t("extensions:catalog.google_drive.description"); },
     category: "google",
+    upstream: "vendor", // Google publishes these servers itself (Workspace Developer Preview)
     url: "https://drivemcp.googleapis.com/mcp/v1",
     docsURL: "https://developers.google.com/workspace/drive/api/guides/configure-mcp-server",
     get setup() { return googleSetup(); },
@@ -90,6 +92,7 @@ export const integrationCatalog: IntegrationPreset[] = [
     name: "Google Docs",
     get description() { return i18n.t("extensions:catalog.google_docs.description"); },
     category: "google",
+    upstream: "vendor", // Google publishes these servers itself (Workspace Developer Preview)
     url: "https://docsmcp.googleapis.com/mcp/v1",
     docsURL: "https://developers.google.com/workspace/docs/api/guides/configure-mcp-server",
     get setup() { return googleSetup(); },
@@ -104,6 +107,7 @@ export const integrationCatalog: IntegrationPreset[] = [
     name: "Google Sheets",
     get description() { return i18n.t("extensions:catalog.google_sheets.description"); },
     category: "google",
+    upstream: "vendor", // Google publishes these servers itself (Workspace Developer Preview)
     url: "https://sheetsmcp.googleapis.com/mcp/v1",
     docsURL: "https://developers.google.com/workspace/sheets/api/guides/configure-mcp-server",
     get setup() { return googleSetup(); },
@@ -118,6 +122,7 @@ export const integrationCatalog: IntegrationPreset[] = [
     name: "Google Slides",
     get description() { return i18n.t("extensions:catalog.google_slides.description"); },
     category: "google",
+    upstream: "vendor", // Google publishes these servers itself (Workspace Developer Preview)
     url: "https://slidesmcp.googleapis.com/mcp/v1",
     docsURL: "https://developers.google.com/workspace/slides/api/guides/configure-mcp-server",
     get setup() { return googleSetup(); },
@@ -132,6 +137,7 @@ export const integrationCatalog: IntegrationPreset[] = [
     name: "Google Calendar",
     get description() { return i18n.t("extensions:catalog.google_calendar.description"); },
     category: "google",
+    upstream: "vendor", // Google publishes these servers itself (Workspace Developer Preview)
     url: "https://calendarmcp.googleapis.com/mcp/v1",
     docsURL: "https://developers.google.com/workspace/calendar/api/guides/configure-mcp-server",
     get setup() { return googleSetup(); },

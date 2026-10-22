@@ -22,13 +22,14 @@
     "search": "搜索服务",
     "services": "服务连接",
     "local_details": "在本服务器运行 · OAuth",
-    "custom_section": "自定义",
+    "custom_section": "添加社区或自定义连接",
     "custom_url": "自定义连接",
     "custom_url_hint": "用地址连接任意远程 MCP 服务器。",
     "custom_package": "本地包",
     "custom_package_hint": "在本服务器安装固定版本的 npm 或 PyPI MCP 服务。",
     "preview_title": "Workspace 预览（企业）",
-    "preview_toggle": "显示 Google Workspace 服务器"
+    "preview_toggle": "显示 Google Workspace 服务器",
+    "community_note": "社区连接器由第三方维护，其写入操作每次都会先询问你。"
   },
   "callback": {
     "copied": "已复制",
@@ -393,7 +394,8 @@
     "unverified": "尚未验证",
     "waiting": "等待授权",
     "connected": "已连接",
-    "not_connected": "未连接"
+    "not_connected": "未连接",
+    "api_disabled": "API 未启用"
   },
   "vm": {
     "cancel": "取消授权",
@@ -442,11 +444,13 @@
     "title": "连接",
     "add": "添加连接",
     "action": {
-      "authorize": "授权"
+      "authorize": "授权",
+      "enable_api": "启用 {{name}} API"
     },
     "menu": {
       "details": "查看详情",
-      "hide_details": "收起详情"
+      "hide_details": "收起详情",
+      "sign_in_again": "重新登录"
     },
     "dialog": {
       "title": "添加连接"
@@ -458,15 +462,24 @@
       }
     },
     "source": {
-      "gog": "来自 gogcli · Gmail API",
-      "local": "本地插件 · {{name}}",
-      "vendor": "官方 MCP 服务器 · {{host}}",
-      "community": "社区 MCP 服务器 · {{host}}",
-      "custom": "自定义连接 · {{host}}"
+      "gog": "社区 · gogcli · Gmail API",
+      "local": "社区 · {{name}}",
+      "vendor": "官方 · {{host}}",
+      "community": "社区 · {{host}}",
+      "custom": "自定义 · {{host}}"
     },
     "details": {
-      "account": "账号：{{email}}"
+      "account": "账号：{{email}}",
+      "project": "Google Cloud 项目：{{project}}"
     },
-    "preview_note": "需要已加入 Workspace 开发者预览计划的 Google Cloud 项目，该计划要求企业或公司账号。未加入时，工具调用可能返回权限错误。"
+    "preview_note": "需要已加入 Workspace 开发者预览计划的 Google Cloud 项目，该计划要求企业或公司账号。未加入时，工具调用可能返回权限错误。",
+    "error": {
+      "api_disabled": "你的 Google Cloud 项目里还没有启用 {{name}} API。启用后刷新即可。"
+    },
+    "google": {
+      "using_client": "使用已保存的 Google 客户端（项目 {{project}}），无需再次上传。",
+      "replace_client": "更换客户端",
+      "project_found": "此客户端属于项目 {{project}}。"
+    }
   }
 }

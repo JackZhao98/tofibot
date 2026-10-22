@@ -15,6 +15,8 @@ export const GOOGLE_SERVICE_API = {
   slides: "slides.googleapis.com",
 } as const;
 export type GoogleService = keyof typeof GOOGLE_SERVICE_API;
+/** Product names, not translated. */
+export const GOOGLE_SERVICE_NAME: Record<GoogleService, string> = { gmail: "Gmail", calendar: "Google Calendar", drive: "Google Drive", docs: "Google Docs", sheets: "Google Sheets", slides: "Google Slides" };
 
 const MCP_API = (service: GoogleService) => `${service}mcp.googleapis.com`;
 const KNOWN = new Set<string>([...Object.values(GOOGLE_SERVICE_API), ...(Object.keys(GOOGLE_SERVICE_API) as GoogleService[]).map(MCP_API)]);
@@ -61,7 +63,7 @@ export type GoogleOverview = {
 export function useGoogleOverview(refreshToken: number) {
   const [overview, setOverview] = useState<GoogleOverview | null>(null);
   const refresh = useCallback(async () => {
-    try { setOverview(await request<GoogleOverview>("/api/extensions/google")); } catch { setOverview(null); }
+    try { const value = await request<Partial<GoogleOverview>>("/api/extensions/google"); setOverview({ client: value.client ?? { configured: false }, apis: value.apis ?? [] }); } catch { setOverview(null); }
   }, []);
   useEffect(() => { void refresh(); }, [refresh, refreshToken]);
   return { google: overview, refreshGoogle: refresh };

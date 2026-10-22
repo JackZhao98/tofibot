@@ -35,6 +35,9 @@ TOFI 每个版本改了什么，最新的在最上面。写给以后接手的人
 
 还没进任何 rc 的改动写在这里；打下一个 rc 时挪进那个 rc 的条目（决定 D27）。
 
+- **设置 › 连接重做**（分支 `ui/connections-simplify`）：一个列表、一行一个连接（图标、人话名字、一个诚实的状态、一个主操作，其余进 ⋯ 菜单）；不再出现 `local_gog`、Runner、休眠字样，插件卡和服务器行合并；工具列表和"来自哪里"（官方 / 社区 / 自定义）进"查看详情"；"添加连接"和所有配置表单都在对话框里（目录 → 单步设置）。没授权 Google 账号的 Gmail 读作"需要授权"而不是"已连接"。目录只收官方连接器，社区项走"添加社区或自定义连接"（带第三方维护、写入先问的说明）；Gmail 默认走 gogcli；Google Workspace 官方 MCP 收进"Workspace 预览（企业）"并写明预览计划要求。`ui/src/MCPSettings.tsx`、`ui/src/connections/`、`ui/scripts/test-connections.mjs`。
+- **Google 连接**：从上传的 OAuth 客户端 JSON 读出项目（`internal/googleapi`），"API 未启用"由 Google 结构化错误（`SERVICE_DISABLED` 的 ErrorInfo，不看文字）判定，在连接检查、工具调用失败和 gogcli 校验时记入状态，行上显示"API 未启用"和直达该项目该 API 的"启用 … API"按钮（链接由 TOFI 用已知 API 和校验过的项目自己拼，不转发错误里的网址）。第一次上传的客户端封存在工作区保险库里，之后加第二个 Google 服务（gogcli 多服务增量授权带 `include_granted_scopes`，或带 `google_client` 的 MCP 条目）不再要 JSON。OAuth 成功页现场读一次工具：能用就只给结果和返回，缺什么才给对应的那一个启用按钮或测试用户入口。
+
 ---
 
 ## v0.1.4（候选中，未发正式版）

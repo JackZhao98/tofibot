@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { request } from "./api";
+import { ApiError, request } from "./api";
 import type { Bot } from "./types";
 import { VMOAuthDialog, type VMOAuthSession } from "./VMOAuthDialog";
 import { Disclosure } from "./InteractionSystem";
@@ -17,6 +17,7 @@ import { GoogleSetupLinks } from "./connections/RemoteForm";
 import { ToolTierPanel } from "./connections/ToolTierPanel";
 import { useLocalPlugins, type LocalState, type Plugin } from "./connections/localPlugins";
 import { connectionKind, primaryAction, type Phase } from "./connections/status";
+import { GOOGLE_SERVICE_NAME, googleServiceForAPI, isConsoleURL, useGoogleOverview, type GoogleOverview } from "./connections/google";
 import { endpoint, localPluginId, message, normalizeTiers, post, toolsEndpoint, type MCP, type TestResult, type ToolTierList } from "./connections/shared";
 import "./oauth-link-motion.css";
 import "./connections/connections.css";
@@ -59,6 +60,7 @@ export function MCPSettings({ refreshToken = 0, bots = [] }: { refreshToken?: nu
   const [dialog, setDialog] = useState<DialogRequest | null>(null);
   const [checks, setChecks] = useState<Record<string, number>>({});
   const { local, refreshLocal } = useLocalPlugins(!isDesktop, refreshToken);
+  const { google, refreshGoogle } = useGoogleOverview(refreshToken);
   // Focus returns to the control that opened the dialog (the settings window around it would otherwise keep it); a menu
   // item that opened it is gone by then, so the page's own Add button takes over.
   const opener = useRef<HTMLElement | null>(null);
@@ -76,7 +78,7 @@ export function MCPSettings({ refreshToken = 0, bots = [] }: { refreshToken?: nu
   }, []);
   useEffect(() => { void refresh(); return () => { version.current++; }; }, [refresh, refreshToken]);
   useEffect(() => { const focus = () => { if (!document.hidden) void refresh(); }; window.addEventListener("focus", focus); document.addEventListener("visibilitychange", focus); return () => { window.removeEventListener("focus", focus); document.removeEventListener("visibilitychange", focus); }; }, [refresh]);
-  const refreshAll = useCallback(async () => { await Promise.all([refresh(), refreshLocal()]); }, [refresh, refreshLocal]);
+  const refreshAll = useCallback(async () => { await Promise.all([refresh(), refreshLocal(), refreshGoogle()]); }, [refresh, refreshLocal, refreshGoogle]);
   async function save(value: MCP, editing: boolean) {
     await request("/api/extensions/mcp", { method: editing ? "PUT" : "POST", body: JSON.stringify(value) });
     // Keep the saved row visible immediately, even if refreshing the full list fails.
@@ -93,12 +95,12 @@ export function MCPSettings({ refreshToken = 0, bots = [] }: { refreshToken?: nu
     {!loaded && <p className="mcp-placeholder">{t("mcp.loading")}</p>}
     {loaded && !listError && total === 0 && <EmptyState name="mcp-empty" className="extension-empty" look={CATS.yuzu} pose="curious" size={72} title={t("mcp.empty")} />}
     <div className="mcp-rows">
-      {servers.map(server => <MCPRow key={server.name} route={route} botId={bots.find(bot => !bot.archived)?.id} server={server} local={local} checkRequest={checks[server.name] ?? 0} refresh={refresh} refreshLocal={refreshLocal}
+      {servers.map(server => <MCPRow key={server.name} route={route} botId={bots.find(bot => !bot.archived)?.id} server={server} local={local} google={google} checkRequest={checks[server.name] ?? 0} refresh={refresh} refreshLocal={refreshLocal}
         onEdit={() => openDialog({ view: "edit", server, preset: presetFor(server) })} onAuthorizeLocal={() => openDialog({ view: "gog" })}
         onRemoved={() => { setServers(items => items.filter(item => item.name !== server.name)); void refreshAll(); }} />)}
       {orphans.map(plugin => <PluginRow key={plugin.id} plugin={plugin} onChanged={refreshAll} />)}
     </div>
-    {dialog && <ConnectDialog request={dialog} servers={servers} local={local} options={options} route={route} onSave={save} onLocalChanged={refreshAll} onClose={closeDialog} />}
+    {dialog && <ConnectDialog request={dialog} servers={servers} local={local} google={google} options={options} route={route} onSave={save} onLocalChanged={refreshAll} onClose={closeDialog} />}
   </div>;
 }
 
@@ -117,16 +119,18 @@ function PluginRow({ plugin, onChanged }: { plugin: Plugin; onChanged: () => Pro
   </ConnectionRowView>;
 }
 
-function MCPRow({ server, checkRequest, refresh, refreshLocal, onEdit, onRemoved, onAuthorizeLocal, route, botId, local }: {
-  route: OAuthRoute; botId?: string; server: MCP; local: LocalState; checkRequest: number; refresh: () => Promise<void>; refreshLocal: () => Promise<void>;
+function MCPRow({ server, checkRequest, refresh, refreshLocal, onEdit, onRemoved, onAuthorizeLocal, route, botId, local, google }: {
+  route: OAuthRoute; botId?: string; server: MCP; local: LocalState; google: GoogleOverview | null; checkRequest: number; refresh: () => Promise<void>; refreshLocal: () => Promise<void>;
   onEdit: () => void; onRemoved: () => void; onAuthorizeLocal: () => void;
 }) {
   const { t } = useTranslation(["extensions", "common"]);
   const known = server.status;
   const [phase, setPhase] = useState<Phase>(server.oauth && !server.oauth.connected ? "auth" : known ? (known.ok ? "ready" : known.error_class === "auth" ? "auth" : "error") : "idle");
   const [checkedAt, setCheckedAt] = useState<string | undefined>(known?.checked_at);
-  const [error, setError] = useState(known && !known.ok && known.error_class !== "auth" ? i18n.t("extensions:error.tools_failed") : "");
+  const [error, setError] = useState(known && !known.ok && known.error_class !== "auth" ? known.error_code === "api_disabled" ? "" : i18n.t("extensions:error.tools_failed") : "");
   const [authURL, setAuthURL] = useState("");
+  // Google said the API is not enabled in the project: which API, and the console page that enables it.
+  const [apiIssue, setApiIssue] = useState<{ api: string; url: string } | null>(known?.error_code === "api_disabled" && isConsoleURL(known.enable_url) ? { api: known.api ?? "", url: known.enable_url } : null);
   const [vmSession, setVMSession] = useState<VMOAuthSession | null>(null);
   const [confirm, setConfirm] = useState<"remove" | "disconnect" | "disconnect_google" | null>(null);
   const [detailsOpen, setDetailsOpen] = useState(false);
@@ -151,9 +155,13 @@ function MCPRow({ server, checkRequest, refresh, refreshLocal, onEdit, onRemoved
     try {
       const result = await request<TestResult>(endpoint(server.name) + "/test", { ...post({}), signal: controller.signal });
       if (!alive.current || operation.current !== id) return;
-      if (result.ok) { setCheckedAt(new Date().toISOString()); setPhase("ready"); setAuthURL(""); }
+      if (result.ok) { setCheckedAt(new Date().toISOString()); setPhase("ready"); setAuthURL(""); setApiIssue(null); }
       else if (result.auth_required) { setPhase("auth"); }
-      else { setPhase("error"); setError(result.diagnostics?.map(item => message(item.message)).join(t("diagnostics_separator")) || t("error.tools_failed")); }
+      else {
+        const disabled = result.diagnostics?.find(item => item.code === "api_disabled" && isConsoleURL(item.enable_url));
+        setApiIssue(disabled ? { api: disabled.api ?? "", url: disabled.enable_url! } : null);
+        setPhase("error"); setError(disabled ? "" : result.diagnostics?.map(item => message(item.message)).join(t("diagnostics_separator")) || t("error.tools_failed"));
+      }
     } catch (e) { if (alive.current && operation.current === id) { setPhase("error"); setError(message(e)); } }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [server.name, server.oauth?.connected]);
@@ -181,7 +189,11 @@ function MCPRow({ server, checkRequest, refresh, refreshLocal, onEdit, onRemoved
       if (!alive.current || operation.current !== base) return;
       if (r.ok) { setCheckedAt(new Date().toISOString()); setError(""); setPhase(p => p === "idle" || p === "ready" || p === "error" ? "ready" : p); }
       else if (r.auth_required) { setPhase("auth"); }
-      else { setPhase(p => p === "idle" || p === "ready" || p === "error" ? "error" : p); setError(r.diagnostics?.map(item => message(item.message)).join(t("diagnostics_separator")) || t("error.tools_failed")); }
+      else {
+        const disabled = r.diagnostics?.find(item => item.code === "api_disabled" && isConsoleURL(item.enable_url));
+        if (disabled) setApiIssue({ api: disabled.api ?? "", url: disabled.enable_url! });
+        setPhase(p => p === "idle" || p === "ready" || p === "error" ? "error" : p); setError(disabled ? "" : r.diagnostics?.map(item => message(item.message)).join(t("diagnostics_separator")) || t("error.tools_failed"));
+      }
     })();
     return () => { live = false; window.clearTimeout(timer); controller.abort(); };
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -202,6 +214,13 @@ function MCPRow({ server, checkRequest, refresh, refreshLocal, onEdit, onRemoved
     const timeout = window.setTimeout(() => { setPhase("auth"); setError(i18n.t("extensions:error.auth_timeout")); }, 10 * 60 * 1000);
     return () => { window.clearInterval(timer); window.clearTimeout(timeout); };
   }, [phase, refresh, check, server.name, vmSession]);
+  // After the person enables the API in the console and comes back, look again.
+  useEffect(() => {
+    if (!apiIssue) return;
+    const back = () => { if (!document.hidden) void check(); };
+    window.addEventListener("focus", back);
+    return () => window.removeEventListener("focus", back);
+  }, [apiIssue, check]);
   async function authorize() {
     const id = ++operation.current; abort.current?.abort(); const controller = new AbortController(); abort.current = controller;
     setError(""); setAuthURL(""); setPhase("authorizing");
@@ -237,7 +256,12 @@ function MCPRow({ server, checkRequest, refresh, refreshLocal, onEdit, onRemoved
   async function verifyGoogle() {
     const id = ++operation.current; setPhase("checking"); setError("");
     try { await request("/api/extensions/local-mcp/gog/oauth/check", post({})); if (alive.current && operation.current === id) await check(); }
-    catch (e) { if (alive.current && operation.current === id) { setPhase("error"); setError(message(e)); } }
+    catch (e) {
+      if (!alive.current || operation.current !== id) return;
+      const url = e instanceof ApiError && e.code === "api_disabled" ? e.data?.enable_url : undefined;
+      if (isConsoleURL(typeof url === "string" ? url : undefined)) { setApiIssue({ api: String(e instanceof ApiError ? e.data?.api ?? "gmail.googleapis.com" : ""), url: url as string }); setPhase("error"); setError(""); return; }
+      setPhase("error"); setError(message(e));
+    }
   }
   async function confirmAction() {
     const id = ++operation.current; setPhase("removing"); setError("");
@@ -252,11 +276,14 @@ function MCPRow({ server, checkRequest, refresh, refreshLocal, onEdit, onRemoved
     } catch (e) { if (alive.current && id === operation.current) { setPhase("error"); setError(message(e)); } }
   }
   const needsAuth = Boolean(server.oauth) && (!server.oauth?.connected || phase === "auth");
-  const kind = connectionKind({ phase, needsAuth, error, accountMissing });
-  const statusText = kind === "checking" ? t("status.checking") : kind === "ready" ? t("status.connected") : kind === "working" ? (phase === "authorizing" ? t("status.authorizing") : t("status.removing")) : kind === "waiting" ? t("status.waiting") : kind === "error" ? t("status.failed") : kind === "needs_auth" ? t("status.needs_auth") : t("status.unverified");
+  const apiService = apiIssue ? googleServiceForAPI(apiIssue.api) : "";
+  const apiName = apiService ? GOOGLE_SERVICE_NAME[apiService] : display;
+  const kind = connectionKind({ phase, needsAuth, error, accountMissing, apiDisabled: Boolean(apiIssue) });
+  const statusText = kind === "checking" ? t("status.checking") : kind === "ready" ? t("status.connected") : kind === "working" ? (phase === "authorizing" ? t("status.authorizing") : t("status.removing")) : kind === "waiting" ? t("status.waiting") : kind === "error" ? t("status.failed") : kind === "needs_auth" ? t("status.needs_auth") : kind === "api_disabled" ? t("status.api_disabled") : t("status.unverified");
   const action = primaryAction(kind, Boolean(authURL), route.mode === "desktop");
   const authorizeNow = () => { if (accountMissing && !needsAuth) onAuthorizeLocal(); else void authorize(); };
-  const primary: RowPrimary | null = action === "authorize" ? { label: t("connections.action.authorize"), disabled: busy || (route.mode === "blocked" && !accountMissing), onClick: authorizeNow }
+  const primary: RowPrimary | null = action === "enable_api" && apiIssue ? { label: t("connections.action.enable_api", { name: apiName }), href: apiIssue.url }
+    : action === "authorize" ? { label: t("connections.action.authorize"), disabled: busy || (route.mode === "blocked" && !accountMissing), onClick: authorizeNow }
     : action === "retry" ? { label: t("common:action.retry"), disabled: busy, onClick: () => { if (needsAuth || accountMissing) authorizeNow(); else void check(); } }
     : action === "connect" ? { label: t("mcp.connect"), disabled: busy, onClick: () => void check() }
     : action === "cancel" ? { label: t("mcp.cancel_auth"), onClick: () => void window.tofiDesktop?.cancelMCPAuthorization?.(server.name).catch(e => setError(message(e))) }
@@ -267,18 +294,19 @@ function MCPRow({ server, checkRequest, refresh, refreshLocal, onEdit, onRemoved
   menu.push({ key: "details", label: detailsOpen ? t("connections.menu.hide_details") : t("connections.menu.details"), onSelect: () => setDetailsOpen(open => !open) });
   if (!pluginId) menu.push({ key: "edit", label: t("mcp.menu.edit"), onSelect: onEdit });
   menu.push({ key: "refresh", label: t("mcp.menu.refresh"), onSelect: () => void check() });
-  if (isGog && account?.connected) menu.push({ key: "verify", label: t("local.google.verify"), onSelect: () => void verifyGoogle() }, { key: "disconnect_google", label: t("local.google.disconnect"), onSelect: () => setConfirm("disconnect_google") });
+  if (isGog && account?.connected) menu.push({ key: "sign_in_again", label: t("connections.menu.sign_in_again"), onSelect: onAuthorizeLocal }, { key: "verify", label: t("local.google.verify"), onSelect: () => void verifyGoogle() }, { key: "disconnect_google", label: t("local.google.disconnect"), onSelect: () => setConfirm("disconnect_google") });
   if (!pluginId && server.oauth?.connected) menu.push({ key: "disconnect", label: t("mcp.menu.disconnect"), onSelect: () => setConfirm("disconnect") });
   menu.push({ key: "remove", label: t("mcp.menu.remove"), danger: true, onSelect: () => setConfirm("remove") });
   const confirmText = confirm === "remove" ? t("mcp.confirm.remove", { name: display }) : confirm === "disconnect_google" ? t("local.google.disconnect_confirm") : t("mcp.confirm.disconnect", { name: display });
   return <ConnectionRowView name={display} mark={isGog ? "Gmail" : display} state={error ? "error" : phase} kind={kind} statusText={statusText}
     detail={kind === "ready" && account?.connected ? account.email : undefined} checkedText={kind === "ready" && checkedAt ? t("status.checked", { when: formatRelativeTime(checkedAt) }) : undefined}
-    primary={primary} menu={menu} menuBusy={busy} error={error}>
+    primary={primary} menu={menu} menuBusy={busy} error={kind === "api_disabled" ? t("connections.error.api_disabled", { name: apiName }) : error}>
     {!isDesktop && server.oauth && ["authorizing", "waiting"].includes(phase) && <OAuthLinkMotion title={display} />}
     {route.mode === "blocked" && needsAuth && <div className="mcp-login-note"><p role="status">{route.note}</p></div>}
     {detailsOpen && <div className="mcp-service-details">
       <p className="mcp-service-source">{source}</p>
       {account?.connected && <p className="mcp-service-source">{t("connections.details.account", { email: account.email })} · {account.scope === "read-send" ? t("local.google.granted_read_send") : t("local.google.granted_readonly")}</p>}
+      {isGog && google?.client.configured && <p className="mcp-service-source">{t("connections.details.project", { project: google.client.project_id || google.client.project_number })}</p>}
       {preset?.googleAPIs && <p className="mcp-service-source">{t("connections.preview_note")}</p>}
       {hasTools && tiers && <div className="mcp-service-tools"><div className="mcp-tools-title"><strong>{t("tools.title", { count: tiers.tools.length })}</strong></div><ToolTierPanel server={server.name} tiers={tiers} onChange={setTiers} busy={busy} /></div>}
     </div>}

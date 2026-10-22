@@ -11,6 +11,7 @@ import { GogSetup } from "./GogSetup";
 import { PackageForm } from "./PackageForm";
 import { RemoteForm } from "./RemoteForm";
 import type { MCP } from "./shared";
+import type { GoogleOverview } from "./google";
 
 export type DialogRequest =
   | { view: "directory" }
@@ -25,8 +26,8 @@ export type DialogRequest =
  * (a catalog service, personal Gmail, a custom URL, a local package). Opened by "Add connection", by a row's
  * Authorize action and by "Edit settings".
  */
-export function ConnectDialog({ request, servers, local, options, route, onSave, onLocalChanged, onClose }: {
-  request: DialogRequest; servers: MCP[]; local: LocalState; options: OAuthOptions | null; route: OAuthRoute;
+export function ConnectDialog({ request, servers, local, google, options, route, onSave, onLocalChanged, onClose }: {
+  request: DialogRequest; servers: MCP[]; local: LocalState; google: GoogleOverview | null; options: OAuthOptions | null; route: OAuthRoute;
   onSave: (value: MCP, editing: boolean) => Promise<void>; onLocalChanged: () => Promise<void>; onClose: () => void;
 }) {
   const { t } = useTranslation("extensions");
@@ -62,8 +63,8 @@ export function ConnectDialog({ request, servers, local, options, route, onSave,
       {view.view === "directory" && <IntegrationBrowser query={query} servers={servers} onQueryChange={setQuery}
         localConnectors={local.available ? [{ id: "local-gog", added: servers.some(server => server.name === "local_gog") }] : []}
         onSelect={preset => setView({ view: "preset", preset })} onLocal={() => setView({ view: "gog" })} onCustom={() => setView({ view: "custom" })} onPackage={local.available ? () => setView({ view: "package" }) : undefined} />}
-      {(view.view === "preset" || view.view === "custom" || view.view === "edit") && <RemoteForm key={editing?.name ?? (view.view === "preset" ? view.preset.id : "custom")} initial={editing} preset={view.view === "preset" || view.view === "edit" ? view.preset : undefined} options={options} route={route} busy={saving} onSave={save} onCancel={fromDirectory && view.view !== "edit" ? back : onClose} />}
-      {view.view === "gog" && <GogSetup local={local} callbackOrigin={options?.web_callback_origin} onChanged={onLocalChanged} onDone={onClose} onCancel={fromDirectory ? back : onClose} />}
+      {(view.view === "preset" || view.view === "custom" || view.view === "edit") && <RemoteForm google={google} key={editing?.name ?? (view.view === "preset" ? view.preset.id : "custom")} initial={editing} preset={view.view === "preset" || view.view === "edit" ? view.preset : undefined} options={options} route={route} busy={saving} onSave={save} onCancel={fromDirectory && view.view !== "edit" ? back : onClose} />}
+      {view.view === "gog" && <GogSetup local={local} google={google} callbackOrigin={options?.web_callback_origin} onChanged={onLocalChanged} onDone={onClose} onCancel={fromDirectory ? back : onClose} />}
       {view.view === "package" && <PackageForm onInstalled={async () => { await onLocalChanged(); onClose(); }} onCancel={fromDirectory ? back : onClose} />}
     </div>
   </ModalDialog>;

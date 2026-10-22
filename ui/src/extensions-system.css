@@ -10,9 +10,10 @@
 .extension-panel .extension-card{position:relative;border:0;border-bottom:1px solid var(--line-soft);border-radius:0;padding:18px 0;background:transparent!important;box-shadow:none}
 .extension-row-heading{display:flex;align-items:center;gap:12px;padding-right:100px;min-height:42px}
 .extension-row-heading strong{font-size:14px;font-weight:550}.extension-row-heading small{display:block;margin-top:4px;font-size:12px}
-.service-mark{display:grid;place-items:center;flex:0 0 40px;width:40px;height:40px;border:1px solid var(--line-soft);border-radius:12px;background:var(--surface-2);font:600 15px/1 var(--display);color:var(--ink)}
-.service-mark-letter{color:#fff;border:2px solid var(--line);font:700 16px/1 var(--display)}
-.service-mark-google{color:var(--blue-text);font-size:24px;font-weight:600}
+.service-mark{display:grid;place-items:center;flex:0 0 40px;width:40px;height:40px;border:1px solid var(--line-soft);border-radius:12px;background:var(--surface-2);color:var(--ink)}
+.service-mark-brand{--mark-tile:#fff;--mark-line:rgba(0,0,0,.14);padding:17%;box-sizing:border-box;background:var(--mark-tile);border-color:var(--mark-line)}
+.service-mark-brand[data-tile="dark"]{--mark-tile:#111;--mark-line:rgba(255,255,255,.2)}
+.service-mark-brand img{display:block;width:100%;height:100%;object-fit:contain;pointer-events:none;user-select:none}
 .extension-row-heading+.extension-actions{position:absolute;right:0;top:20px;margin:0;gap:6px}
 .extension-panel .extension-actions button{font-size:12px;min-height:34px;padding:7px 12px}
 .extension-panel .extension-card>.disclosure{margin:10px 0 0 52px}
@@ -68,9 +69,7 @@
 .mcp-settings .mcp-danger{color:var(--danger-text)}
 .mcp-list-error{display:flex;align-items:center;gap:12px;padding:12px 0;color:var(--danger-text);font-size:12px}.mcp-list-error>span{flex:1}
 .mcp-placeholder{padding:20px 0;font-size:12px;color:var(--muted)}
-.mcp-settings .integration-grid{grid-template-columns:1fr;gap:0}
 .integration-catalog-note{margin:0 0 16px;font-size:12px;line-height:1.6;color:var(--muted)}
-.mcp-settings .integration-tile .integration-details{margin-top:5px;font-size:12px;color:var(--muted)}
 .integration-held ul{margin:0;padding:0;list-style:none}
 .integration-held li{display:flex;align-items:flex-start;gap:12px;padding:16px 4px;border-bottom:1px solid var(--line)}
 .integration-held li>div{min-width:0;flex:1}
@@ -79,12 +78,6 @@
 .integration-held p{margin:8px 0 0;font-size:12px;line-height:1.6;color:var(--muted)}
 .integration-held a{display:inline-flex;align-items:center;gap:6px;min-height:36px;font-size:12px;color:var(--ink-soft);text-underline-offset:3px}
 .integration-held a:focus-visible{outline:var(--focus-ring-width) solid var(--focus-ring);outline-offset:3px;border-radius:var(--radius-sm)}
-.mcp-settings .integration-tile{min-height:76px;border:0;border-bottom:1px solid var(--line);border-radius:0;padding:14px 4px;background:transparent;box-shadow:none}
-.mcp-settings .integration-tile:hover:not(:disabled){background:color-mix(in srgb,var(--text) 3%,transparent);box-shadow:none}
-.mcp-settings .integration-custom{border-style:solid;min-height:48px;border-radius:12px}
-.mcp-settings .integration-setup>.extension-actions button{height:36px;min-height:36px;padding:0 14px;border-radius:10px}
-.mcp-settings .integration-guide{border:0;padding:8px 0 0;background:none}
-.mcp-settings .integration-setup-heading p{max-width:48ch}
 .mcp-settings .mcp-service-setup{margin:12px 0 0 52px;max-width:65ch}
 .mcp-settings .mcp-service-setup .disclosure-toggle{min-height:36px;padding:4px 0;font:var(--type-meta);color:var(--ink-soft)}
 .mcp-settings .mcp-google-setup p{margin:12px 0 4px;color:var(--ink-soft);font:var(--type-meta)}

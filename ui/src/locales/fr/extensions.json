@@ -22,13 +22,14 @@
     "search": "Rechercher un service",
     "services": "Services",
     "local_details": "S’exécute sur ce serveur · OAuth",
-    "custom_section": "Personnalisé",
+    "custom_section": "Ajouter une connexion communautaire ou personnalisée",
     "custom_url": "Connecteur personnalisé",
     "custom_url_hint": "Connectez n’importe quel serveur MCP distant par URL.",
     "custom_package": "Paquet local",
     "custom_package_hint": "Installez sur ce serveur un serveur MCP npm ou PyPI à version figée.",
     "preview_title": "Aperçu Workspace (entreprise)",
-    "preview_toggle": "Afficher les serveurs Google Workspace"
+    "preview_toggle": "Afficher les serveurs Google Workspace",
+    "community_note": "Les connecteurs communautaires sont maintenus par des tiers ; leurs actions d’écriture demandent toujours confirmation."
   },
   "callback": {
     "copied": "Copié",
@@ -397,7 +398,8 @@
     "unverified": "Pas encore vérifié",
     "waiting": "En attente d’autorisation",
     "connected": "Connecté",
-    "not_connected": "Non connecté"
+    "not_connected": "Non connecté",
+    "api_disabled": "API non activée"
   },
   "vm": {
     "cancel": "Annuler l’autorisation",
@@ -446,11 +448,13 @@
     "title": "Connexions",
     "add": "Ajouter une connexion",
     "action": {
-      "authorize": "Autoriser"
+      "authorize": "Autoriser",
+      "enable_api": "Activer l’API {{name}}"
     },
     "menu": {
       "details": "Voir les détails",
-      "hide_details": "Masquer les détails"
+      "hide_details": "Masquer les détails",
+      "sign_in_again": "Se reconnecter"
     },
     "dialog": {
       "title": "Ajouter une connexion"
@@ -462,15 +466,24 @@
       }
     },
     "source": {
-      "gog": "Via gogcli · API Gmail",
-      "local": "Plugin local · {{name}}",
-      "vendor": "Serveur MCP officiel · {{host}}",
-      "community": "Serveur MCP communautaire · {{host}}",
-      "custom": "Connexion personnalisée · {{host}}"
+      "gog": "Communauté · gogcli · API Gmail",
+      "local": "Communauté · {{name}}",
+      "vendor": "Officiel · {{host}}",
+      "community": "Communauté · {{host}}",
+      "custom": "Personnalisé · {{host}}"
     },
     "details": {
-      "account": "Compte : {{email}}"
+      "account": "Compte : {{email}}",
+      "project": "Projet Google Cloud : {{project}}"
     },
-    "preview_note": "Nécessite un projet Google Cloud inscrit au Workspace Developer Preview Program, réservé aux comptes professionnels ou d’entreprise. Tant qu’il ne l’est pas, les appels d’outils peuvent échouer avec une erreur d’autorisation."
+    "preview_note": "Nécessite un projet Google Cloud inscrit au Workspace Developer Preview Program, réservé aux comptes professionnels ou d’entreprise. Tant qu’il ne l’est pas, les appels d’outils peuvent échouer avec une erreur d’autorisation.",
+    "error": {
+      "api_disabled": "L’API {{name}} n’est pas activée dans votre projet Google Cloud. Activez-la, puis actualisez."
+    },
+    "google": {
+      "using_client": "Le client Google enregistré est utilisé (projet {{project}}). Aucun nouvel envoi nécessaire.",
+      "replace_client": "Remplacer le client",
+      "project_found": "Ce client appartient au projet {{project}}."
+    }
   }
 }

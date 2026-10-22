@@ -22,13 +22,14 @@
     "search": "サービスを検索",
     "services": "サービス",
     "local_details": "このサーバーで実行 · OAuth",
-    "custom_section": "カスタム",
+    "custom_section": "コミュニティまたはカスタム接続を追加",
     "custom_url": "カスタムコネクタ",
     "custom_url_hint": "URL でリモート MCP サーバーに接続します。",
     "custom_package": "ローカルパッケージ",
     "custom_package_hint": "バージョンを固定した npm / PyPI の MCP サーバーをこのサーバーにインストールします。",
     "preview_title": "Workspace プレビュー（企業向け）",
-    "preview_toggle": "Google Workspace サーバーを表示"
+    "preview_toggle": "Google Workspace サーバーを表示",
+    "community_note": "コミュニティ コネクタは第三者が保守しており、書き込み操作は毎回先に確認します。"
   },
   "callback": {
     "copied": "コピーしました",
@@ -393,7 +394,8 @@
     "unverified": "未確認",
     "waiting": "認可を待っています",
     "connected": "接続済み",
-    "not_connected": "未接続"
+    "not_connected": "未接続",
+    "api_disabled": "API が有効になっていません"
   },
   "vm": {
     "cancel": "認可をキャンセル",
@@ -442,11 +444,13 @@
     "title": "接続",
     "add": "接続を追加",
     "action": {
-      "authorize": "認可"
+      "authorize": "認可",
+      "enable_api": "{{name}} API を有効にする"
     },
     "menu": {
       "details": "詳細を表示",
-      "hide_details": "詳細を隠す"
+      "hide_details": "詳細を隠す",
+      "sign_in_again": "再度サインイン"
     },
     "dialog": {
       "title": "接続を追加"
@@ -458,15 +462,24 @@
       }
     },
     "source": {
-      "gog": "gogcli 経由 · Gmail API",
-      "local": "ローカルプラグイン · {{name}}",
-      "vendor": "公式 MCP サーバー · {{host}}",
-      "community": "コミュニティ MCP サーバー · {{host}}",
-      "custom": "カスタム接続 · {{host}}"
+      "gog": "コミュニティ · gogcli · Gmail API",
+      "local": "コミュニティ · {{name}}",
+      "vendor": "公式 · {{host}}",
+      "community": "コミュニティ · {{host}}",
+      "custom": "カスタム · {{host}}"
     },
     "details": {
-      "account": "アカウント：{{email}}"
+      "account": "アカウント：{{email}}",
+      "project": "Google Cloud プロジェクト：{{project}}"
     },
-    "preview_note": "Workspace デベロッパー プレビュー プログラムに登録した Google Cloud プロジェクトが必要です（会社または企業のアカウントが必要）。未登録の場合、ツール呼び出しが権限エラーになることがあります。"
+    "preview_note": "Workspace デベロッパー プレビュー プログラムに登録した Google Cloud プロジェクトが必要です（会社または企業のアカウントが必要）。未登録の場合、ツール呼び出しが権限エラーになることがあります。",
+    "error": {
+      "api_disabled": "Google Cloud プロジェクトで {{name}} API が有効になっていません。有効にしてから更新してください。"
+    },
+    "google": {
+      "using_client": "保存済みの Google クライアント（プロジェクト {{project}}）を使用します。再アップロードは不要です。",
+      "replace_client": "クライアントを置き換える",
+      "project_found": "このクライアントはプロジェクト {{project}} のものです。"
+    }
   }
 }
