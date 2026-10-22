@@ -70,17 +70,17 @@ func lookupTool(handler func(context.Context, map[string]interface{}) (string, e
 	return ExtraBuiltinTool{Schema: provider.Tool{Name: "lookup", Parameters: map[string]any{"type": "object"}}, HandlerCtx: handler}
 }
 
-func TestDropOldToolImagesKeepsNewestTwoAndCountsImages(t *testing.T) {
+func TestDropOldToolImagesKeepsNewestFourAndCountsImages(t *testing.T) {
 	messages := []provider.Message{{Role: "user", Content: "look", ImageURLs: []string{"data:user"}}}
-	for i := 1; i <= 4; i++ {
+	for i := 1; i <= 6; i++ {
 		messages = append(messages, provider.Message{Role: "tool", Content: fmt.Sprintf("shot %d", i), ImageURLs: []string{fmt.Sprintf("data:%d", i)}})
 	}
 	got := dropOldToolImages(messages, keepRecentToolImages)
-	if len(got[0].ImageURLs) != 1 || len(got[1].ImageURLs) != 0 || len(got[2].ImageURLs) != 0 || len(got[3].ImageURLs) != 1 || len(got[4].ImageURLs) != 1 {
+	if keepRecentToolImages != 4 || len(got[0].ImageURLs) != 1 || len(got[1].ImageURLs) != 0 || len(got[2].ImageURLs) != 0 || len(got[3].ImageURLs) != 1 || len(got[6].ImageURLs) != 1 {
 		t.Fatalf("images = %+v", got)
 	}
-	if !strings.HasSuffix(got[1].Content, omittedToolImageNote) || strings.Contains(got[4].Content, "omitted") {
-		t.Fatalf("markers = %q / %q", got[1].Content, got[4].Content)
+	if !strings.HasSuffix(got[1].Content, omittedToolImageNote) || strings.Contains(got[6].Content, "omitted") {
+		t.Fatalf("markers = %q / %q", got[1].Content, got[6].Content)
 	}
 	if len(messages[1].ImageURLs) != 1 {
 		t.Fatal("input slice was mutated")
