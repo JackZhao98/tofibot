@@ -6,7 +6,8 @@ TOFI 是自托管的 AI Bot 工作台（Go 后端 `internal/`，React 19 网页�
 2. [docs/product/status.md](docs/product/status.md) — 产品现状、线上版本、owner 的打分标准和评测结果；路线图在 [docs/product/roadmap.md](docs/product/roadmap.md)，每个版本改了什么在 [docs/releases.md](docs/releases.md)。
 3. [docs/decisions/](docs/decisions/README.md) — owner 拍板的每一条决定（D01 起），写明时间、理由和影响的代码。
 4. [docs/process.md](docs/process.md) — 测试、评测、预览、发版、安全审查和模型分工的流程。
-5. [docs/design/](docs/design/README.md) — 设计令牌、组件清单、设计原则和迁移方案；动界面之前读。
+5. [docs/design/](docs/design/README.md) — 设计令牌、组件清单、设计原则和迁移方案；动界面之前读；加新页面、面板或组件按 [docs/design/new-page.md](docs/design/new-page.md) 一步步做。
+6. [docs/conventions.md](docs/conventions.md) — Go 与 TypeScript/React 的现行代码约定（错误码而不是消息文字、context 与超时、迁移、日志、测试、前端取数、CSS）；写代码之前读。
 
 规则：**每次合并、发版或 owner 拍板，都在同一个提交里更新对应文档**（决定 D27；哪种事件改哪份文件见 `docs/process.md`
 第 10 节）。Every merge, release or owner decision updates the matching docs in the same commit. 本文件仍是总入口，下面各节是代码约定。
@@ -226,7 +227,11 @@ existing Skills tools (`list_skills`, `read_skill`, `read_skill_file`): the prom
 (`internal/app/builtin_skills.go`; inside uploads because the guest's `files.import_chunk` accepts nothing else). They are on for every Bot until
 turned off in Settings > Skills (`builtin_skill_off`, `PUT /api/extensions/skills/<name>/enabled`); an unreadable setting withholds them. They cannot be
 installed over or deleted, and an installed skill with a built-in name is ignored with a diagnostic. SKILL.md text is English principles only (no example
-sentences, Not/But contrasts or keyword lists; `tests/test_skill_text.py` enforces it); concrete know-how lives in the scripts. A new or longer
+sentences, Not/But contrasts, keyword lists, or a mandate to run a specific script; `tests/test_skill_text.py` enforces it): what good looks like, verify
+as the recipient will experience it, every claim true of the delivered file. Scripts are general capabilities only (decision 0041 addendum, owner rule
+2026-10-21: no task-tailored tools, builders or graders; the model writes its own code): `render_preview.py` (document/slides to page images),
+`xlsx_summary.py` (recalculate and dump structure), `pptx_outline.py` (shape dump), `preview_page.py` (page at several widths),
+`run_and_record.py`, `package_project.py`. A new or longer
 description raises the prompt budget: measure it and move the caps in `internal/app/prompt_budget_test.go`. Run the script tests with
 `python3 -m unittest discover -s internal/extensions/builtin_skills/tests -p 'test_*.py'`; `slides/scripts/render_preview.py` and
 `document-report/scripts/render_preview.py` must stay byte-identical.
