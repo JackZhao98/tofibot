@@ -159,10 +159,10 @@ func TestListWorkItemExecutionsDoesNotLeakHiddenChildResultsOrErrors(t *testing.
 	if len(history) != 2 {
 		t.Fatalf("history length=%d", len(history))
 	}
-	if history[0].RootRunID != receiptRoot.ID || history[0].Result != "" || history[0].ResultMessageID != "" || !strings.Contains(history[0].Error, "没有在原对话发布") {
+	if history[0].RootRunID != receiptRoot.ID || history[0].Result != "" || history[0].ResultMessageID != "" || history[0].ErrorCode != "work_no_result" {
 		t.Fatalf("hidden receipt leaked: %+v", history[0])
 	}
-	if history[1].RootRunID != failedRoot.ID || history[1].Error != "协作执行未完成，请在原对话查看进度或停止本轮后重试。" || history[1].Result != "" || history[1].ResultMessageID != "" {
+	if history[1].RootRunID != failedRoot.ID || history[1].Error != "Collaborative execution did not finish. Check progress in the original conversation, or stop the round and retry." || history[1].Result != "" || history[1].ResultMessageID != "" {
 		t.Fatalf("hidden error leaked: %+v", history[1])
 	}
 	for _, execution := range history {

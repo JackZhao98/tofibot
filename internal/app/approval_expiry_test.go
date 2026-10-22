@@ -287,7 +287,7 @@ func TestApprovalExpiryPreservesUncertainClaimAndTrueFailure(t *testing.T) {
 	}
 	var conclusion string
 	_ = s.db.QueryRow(`SELECT content FROM messages WHERE run_id=? AND role='assistant'`, r.ID).Scan(&conclusion)
-	if !strings.Contains(conclusion, "核实结果") || strings.Contains(conclusion, "需要审批的操作未执行") {
+	if !strings.Contains(conclusion, "verify the outcome") || strings.Contains(conclusion, "needed approval was not executed") {
 		t.Fatal(conclusion)
 	}
 }

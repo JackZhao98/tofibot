@@ -221,13 +221,13 @@ func settleApprovalExpiryTx(tx *sql.Tx, runID, content string) error {
 	if err = tx.QueryRow(`SELECT COALESCE(SUM(status='completed' AND COALESCE(json_extract(NULLIF(outcome_json,''),'$.status'),'')<>'approval_recorded'),0),COALESCE(SUM(COALESCE(json_extract(NULLIF(outcome_json,''),'$.status'),'')<>'approval_recorded' AND json_extract(NULLIF(outcome_json,''),'$.execution_certainty')='not_executed'),0),COALESCE(SUM(json_extract(NULLIF(outcome_json,''),'$.execution_certainty')='unknown'),0) FROM tool_activities WHERE run_id=?`, runID).Scan(&completed, &notExecuted, &uncertain); err != nil {
 		return err
 	}
-	conclusion := fmt.Sprintf("审批已过期，本次工作已停止。记录保留：%d 个工具步骤已完成，%d 个步骤未执行。", completed, notExecuted)
+	conclusion := fmt.Sprintf("The approval expired and this work has stopped. The record is kept: %d tool steps completed, %d steps not executed.", completed, notExecuted)
 	if uncertain > 0 || claimed || checkpointErr != nil || q.RunID != r.ID || q.BotID != r.BotID || q.ConversationID != r.ConversationID {
-		conclusion += "存在结果不确定或无法验证的步骤；再次操作前需要核实结果。"
+		conclusion += " Some steps have an uncertain or unverifiable result; verify the outcome before acting again."
 	} else {
-		conclusion += "需要审批的操作未执行。"
+		conclusion += " The action that needed approval was not executed."
 	}
-	conclusion += "未完成的工作不会自动重试。"
+	conclusion += " Unfinished work is not retried automatically."
 	if strings.TrimSpace(content) != "" {
 		conclusion += "\n\n" + strings.TrimSpace(content)
 	}

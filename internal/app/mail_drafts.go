@@ -55,10 +55,25 @@ CREATE INDEX IF NOT EXISTS mail_drafts_conversation ON mail_drafts(conversation_
 // The draft validation errors keep their localized text for the HTTP and UI
 // routes; the model-facing tool maps them to a repair hint (mailDraftToolError).
 var (
-	errMailDraftInvalid   = errors.New("收件人、主题和正文必须有效")
-	errMailTooManyTo      = errors.New("收件人不能超过 20 位")
-	errMailRecipientInval = errors.New("收件人邮箱格式无效")
+	errMailDraftInvalid   = errors.New("Recipients, subject and body must be valid")
+	errMailTooManyTo      = errors.New("A draft takes at most 20 recipients")
+	errMailRecipientInval = errors.New("A recipient email address is invalid")
 )
+
+// writeMailDraftChangeError maps a failed edit or status change to a stable code:
+// the three validation sentinels are 400s, anything else is a stale-draft conflict.
+func writeMailDraftChangeError(w http.ResponseWriter, err error) {
+	switch {
+	case errors.Is(err, errMailDraftInvalid):
+		writeErr(w, 400, "draft_invalid", err.Error())
+	case errors.Is(err, errMailTooManyTo):
+		writeErr(w, 400, "recipient_limit", err.Error())
+	case errors.Is(err, errMailRecipientInval):
+		writeErr(w, 400, "recipient_invalid", err.Error())
+	default:
+		writeErr(w, 409, "draft_conflict", err.Error())
+	}
+}
 
 // mailDraftToolError tells the model what to repair, in English.
 func mailDraftToolError(err error) error {
@@ -169,7 +184,7 @@ func (s *Store) EditMailDraft(id string, revision int, to, subject, body string)
 		return MailDraft{}, err
 	}
 	if n, _ := result.RowsAffected(); n != 1 {
-		return MailDraft{}, errors.New("草稿已变化，请刷新后查看")
+		return MailDraft{}, errors.New("The draft has changed. Refresh to see the latest.")
 	}
 	return s.GetMailDraft(id)
 }
@@ -180,7 +195,7 @@ func (s *Store) ChangeMailDraftStatus(id string, revision int, from, to string) 
 		return MailDraft{}, err
 	}
 	if n, _ := result.RowsAffected(); n != 1 {
-		return MailDraft{}, errors.New("草稿状态已变化，请刷新后查看")
+		return MailDraft{}, errors.New("The draft status has changed. Refresh to see the latest.")
 	}
 	return s.GetMailDraft(id)
 }
@@ -277,7 +292,7 @@ func (s *Server) routeMailDrafts(w http.ResponseWriter, r *http.Request, p strin
 		}
 		updated, e := s.store.EditMailDraft(id, input.Revision, input.To, input.Subject, input.Body)
 		if e != nil {
-			writeErr(w, 409, "draft_conflict", e.Error())
+			writeMailDraftChangeError(w, e)
 		} else {
 			writeJSON(w, 200, map[string]any{"draft": updated})
 		}
@@ -293,7 +308,7 @@ func (s *Server) routeMailDrafts(w http.ResponseWriter, r *http.Request, p strin
 		}
 		updated, e := s.store.ChangeMailDraftStatus(id, input.Revision, "pending", "declined")
 		if e != nil {
-			writeErr(w, 409, "draft_conflict", e.Error())
+			writeMailDraftChangeError(w, e)
 		} else {
 			writeJSON(w, 200, map[string]any{"draft": updated})
 		}
@@ -308,17 +323,17 @@ func (s *Server) routeMailDrafts(w http.ResponseWriter, r *http.Request, p strin
 			return true
 		}
 		if input.Revision != d.Revision || d.Status != "pending" {
-			writeErr(w, 409, "draft_conflict", "草稿已变化，请刷新后查看")
+			writeErr(w, 409, "draft_conflict", "The draft has changed. Refresh to see the latest.")
 			return true
 		}
 		if strings.TrimSpace(d.To) == "" {
-			writeErr(w, 409, "recipient_missing", "请先填写收件人")
+			writeErr(w, 409, "recipient_missing", "Add a recipient first.")
 			return true
 		}
 		if d.Demo {
 			updated, e := s.store.ChangeMailDraftStatus(id, input.Revision, "pending", "sent")
 			if e != nil {
-				writeErr(w, 409, "draft_conflict", e.Error())
+				writeMailDraftChangeError(w, e)
 			} else {
 				writeJSON(w, 200, map[string]any{"draft": updated})
 			}
@@ -330,12 +345,12 @@ func (s *Server) routeMailDrafts(w http.ResponseWriter, r *http.Request, p strin
 			Scope     string `json:"scope"`
 		}
 		if e != nil || code != 200 || json.Unmarshal(statusData, &account) != nil || !account.Connected || account.Scope != "read-send" {
-			writeErr(w, 409, "gmail_permission", "需要先在设置里连接 Google，并授权读取及发送")
+			writeErr(w, 409, "gmail_permission", "Connect Google in Settings and allow reading and sending first.")
 			return true
 		}
 		claimed, e := s.store.ChangeMailDraftStatus(id, input.Revision, "pending", "sending")
 		if e != nil {
-			writeErr(w, 409, "draft_conflict", e.Error())
+			writeMailDraftChangeError(w, e)
 			return true
 		}
 		data, code, e := s.runnerRequest(r, http.MethodPost, "/v1/plugins/gog/gog/send", map[string]any{"to": claimed.To, "subject": claimed.Subject, "body": claimed.Body})
@@ -351,7 +366,7 @@ func (s *Server) routeMailDrafts(w http.ResponseWriter, r *http.Request, p strin
 		_, _ = s.store.db.Exec(`UPDATE mail_drafts SET status=?,provider_result=?,updated_at=? WHERE id=? AND status='sending'`, outcome, nullableMailResult(data, code, e), now(), id)
 		updated, _ := s.store.GetMailDraft(id)
 		if outcome != "sent" {
-			writeErr(w, 502, "send_unknown", "发送结果未确认。请先检查 Gmail 已发送邮件，再决定下一步；系统不会自动重发。")
+			writeErr(w, 502, "send_unknown", "The send result is unconfirmed. Check the Gmail sent folder before deciding what to do next; the system will not resend automatically.")
 			return true
 		}
 		writeJSON(w, 200, map[string]any{"draft": updated})

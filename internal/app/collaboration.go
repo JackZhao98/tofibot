@@ -344,7 +344,7 @@ func (s *Store) AddForwardHandoff(origin, sender, bot, parent, task string) (Mes
 	if err = tx.QueryRow(nextMessageSeqSQL, origin, origin, streamDraftActive).Scan(&originSeq); err != nil {
 		return Message{}, Run{}, err
 	}
-	noticeMsg := Message{ID: newID(), ConversationID: origin, Seq: originSeq, Role: "assistant", Kind: "notice", SenderBotID: sender, RunID: childID, Content: fmt.Sprintf("%s 已将任务转交给 %s。", senderName, targetName), Notice: notice, CreatedAt: t}
+	noticeMsg := Message{ID: newID(), ConversationID: origin, Seq: originSeq, Role: "assistant", Kind: "notice", SenderBotID: sender, RunID: childID, Content: fmt.Sprintf("%s handed the task to %s.", senderName, targetName), Notice: notice, CreatedAt: t}
 	if _, err = tx.Exec(`INSERT INTO messages(id,conversation_id,seq,role,kind,sender_bot_id,run_id,content,notice_data,created_at) VALUES(?,?,?,?,?,?,?,?,?,?)`, noticeMsg.ID, origin, originSeq, noticeMsg.Role, noticeMsg.Kind, sender, childID, noticeMsg.Content, string(noticeData), t); err != nil {
 		return Message{}, Run{}, err
 	}

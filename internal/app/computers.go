@@ -1029,7 +1029,7 @@ func (s *Server) routeComputers(w http.ResponseWriter, r *http.Request, path str
 			}
 			readOnly := isReadOnlyMicroVMAction(v.Action)
 			if active > 0 && !readOnly && !isGraphicAction(v.Action) {
-				writeErr(w, http.StatusConflict, "computer_busy", "Bot 正在工作，暂时不能接管电脑")
+				writeErr(w, http.StatusConflict, "computer_busy", "The Bot is working. The computer cannot be taken over right now.")
 				return true
 			}
 			if v.RunID != "" {
@@ -1055,7 +1055,7 @@ func (s *Server) routeComputers(w http.ResponseWriter, r *http.Request, path str
 			if v.Action != "desktop.capture" {
 				if !lease.TryLock() {
 					log.Printf("[desktop] action denied bot=%s action=%s reason=computer-lease-busy", v.BotID, v.Action)
-					writeErr(w, http.StatusConflict, "computer_busy", "电脑正在被使用，请稍后重试")
+					writeErr(w, http.StatusConflict, "computer_busy", "The computer is in use. Try again shortly.")
 					return true
 				}
 				defer lease.Unlock()
@@ -1066,7 +1066,7 @@ func (s *Server) routeComputers(w http.ResponseWriter, r *http.Request, path str
 			if !readOnly && isGraphicAction(v.Action) {
 				if !s.claimComputerOwner(v.BotID, runID) {
 					log.Printf("[desktop] action denied bot=%s action=%s run=%s reason=owner-conflict", v.BotID, v.Action, runID)
-					writeErr(w, http.StatusConflict, "computer_busy", "电脑正在被另一个 Bot 运行使用")
+					writeErr(w, http.StatusConflict, "computer_busy", "The computer is in use by another Bot run.")
 					return true
 				}
 				defer s.releaseComputerOwner(v.BotID, runID)
@@ -1074,7 +1074,7 @@ func (s *Server) routeComputers(w http.ResponseWriter, r *http.Request, path str
 			// Recheck after taking the lease so a queued run cannot begin between
 			// the first check and this human action.
 			if activeNow := s.botHasActiveRun(v.BotID); activeNow && !readOnly && !isGraphicAction(v.Action) {
-				writeErr(w, http.StatusConflict, "computer_busy", "Bot 正在工作，暂时不能接管电脑")
+				writeErr(w, http.StatusConflict, "computer_busy", "The Bot is working. The computer cannot be taken over right now.")
 				return true
 			}
 			source := "human"

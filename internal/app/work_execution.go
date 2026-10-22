@@ -13,18 +13,31 @@ import (
 
 var ErrWorkExecutionConflict = errors.New("work execution unavailable")
 
+// workExecutionConflictError is an ErrWorkExecutionConflict that carries a stable
+// code; the UI words the reason from common:apiError.<code>.
+type workExecutionConflictError struct{ code, message string }
+
+func workConflict(code, message string) error { return &workExecutionConflictError{code, message} }
+func (e *workExecutionConflictError) Error() string {
+	return ErrWorkExecutionConflict.Error() + ": " + e.message
+}
+func (e *workExecutionConflictError) Is(target error) bool { return target == ErrWorkExecutionConflict }
+
 // An attempt is durable; its read model follows the entire causal run family.
 // Finishing a run is not proof of completing the user's task. The board only
 // proposes review, leaving completion to an explicit subsequent action.
 type WorkItemExecution struct {
-	ID              string `json:"id"`
-	WorkItemID      string `json:"work_item_id"`
-	RootRunID       string `json:"root_run_id"`
-	StatusRunID     string `json:"status_run_id"`
-	Status          string `json:"status"`
-	Active          bool   `json:"active"`
-	Error           string `json:"error,omitempty"`
+	ID          string `json:"id"`
+	WorkItemID  string `json:"work_item_id"`
+	RootRunID   string `json:"root_run_id"`
+	StatusRunID string `json:"status_run_id"`
+	Status      string `json:"status"`
+	Active      bool   `json:"active"`
+	Error       string `json:"error,omitempty"`
+	// ErrorCode and ResultCode are set when Error or Result is a fixed server sentence, so the UI can translate it.
+	ErrorCode       string `json:"error_code,omitempty"`
 	Result          string `json:"result,omitempty"`
+	ResultCode      string `json:"result_code,omitempty"`
 	ResultMessageID string `json:"result_message_id,omitempty"`
 	CreatedAt       string `json:"created_at"`
 	UpdatedAt       string `json:"updated_at"`
@@ -100,7 +113,7 @@ func projectWorkExecutionAttemptTx(tx *sql.Tx, item WorkItem, execution WorkItem
 		if selected.ConversationID == item.ConversationID {
 			execution.Error = boundedWorkResult(selected.Error, 2000)
 		} else if selected.Error != "" {
-			execution.Error = "协作执行未完成，请在原对话查看进度或停止本轮后重试。"
+			execution.Error, execution.ErrorCode = "Collaborative execution did not finish. Check progress in the original conversation, or stop the round and retry.", "work_collaboration_incomplete"
 		}
 	}
 	if !execution.Active && execution.Status == "done" {
@@ -114,9 +127,9 @@ func projectWorkExecutionAttemptTx(tx *sql.Tx, item WorkItem, execution WorkItem
 		}
 		execution.Result = boundedWorkResult(execution.Result, 4000)
 		if execution.ResultMessageID == "" {
-			execution.Error = "本轮执行已结束，但没有在原对话发布可验收的结果。"
+			execution.Error, execution.ErrorCode = "The round ended without a reviewable result in the original conversation.", "work_no_result"
 		} else if strings.TrimSpace(execution.Result) == "" {
-			execution.Result = "本轮结果包含附件，请在原对话查看。"
+			execution.Result, execution.ResultCode = "The result includes attachments. See the original conversation.", "work_result_attachments"
 		}
 	}
 	return &execution, nil
@@ -212,7 +225,7 @@ func requireCurrentWorkExecutionRetryTx(tx *sql.Tx, runID string) error {
 		return err
 	}
 	if attemptID != latestID || status == "done" || status == "cancelled" || botID != rootBotID {
-		return fmt.Errorf("%w: 待办已重新执行、结束或更换负责人，请从看板查看当前任务。", ErrWorkExecutionConflict)
+		return workConflict("work_execution_superseded", "The work item was run again, finished or reassigned. Check the board for the current task.")
 	}
 	return requireCurrentMemberTx(tx, conversationID, botID)
 }
@@ -260,7 +273,7 @@ func (s *Store) StartWorkItem(id, requestID string) (Run, bool, error) {
 		return Run{}, false, err
 	}
 	if !visible {
-		return Run{}, false, fmt.Errorf("%w: 请在用户可见的原对话中执行待办。", ErrWorkExecutionConflict)
+		return Run{}, false, workConflict("work_needs_origin_conversation", "Run the work item in its original, user-visible conversation.")
 	}
 	var previousRun string
 	err = tx.QueryRow(`SELECT root_run_id FROM work_item_executions WHERE work_item_id=? AND request_id=?`, id, requestID).Scan(&previousRun)
@@ -271,24 +284,24 @@ func (s *Store) StartWorkItem(id, requestID string) (Run, bool, error) {
 		return Run{}, false, err
 	}
 	if item.Kind != "task" {
-		return Run{}, false, fmt.Errorf("%w: 目标用于规划，请选择一项待办开始执行。", ErrWorkExecutionConflict)
+		return Run{}, false, workConflict("work_goal_is_planning", "This goal is for planning. Pick a work item to start.")
 	}
 	if item.Status == "done" || item.Status == "cancelled" {
-		return Run{}, false, fmt.Errorf("%w: 请先重新打开这项已结束的待办。", ErrWorkExecutionConflict)
+		return Run{}, false, workConflict("work_reopen_first", "Reopen this finished work item first.")
 	}
 	execution, err := workExecutionTx(tx, item)
 	if err != nil {
 		return Run{}, false, err
 	}
 	if execution != nil && execution.Active {
-		return Run{}, false, fmt.Errorf("%w: 这项待办已有执行中的任务，请等待结束或先停止执行。", ErrWorkExecutionConflict)
+		return Run{}, false, workConflict("work_already_running", "This work item already has a task running. Wait for it to finish or stop it.")
 	}
 	var busy int
 	if err = tx.QueryRow(`SELECT COUNT(*) FROM runs WHERE (conversation_id=? OR origin_conversation_id=?) AND status IN ('queued','running','waiting')`, item.ConversationID, item.ConversationID).Scan(&busy); err != nil {
 		return Run{}, false, err
 	}
 	if busy > 0 {
-		return Run{}, false, fmt.Errorf("%w: 当前对话仍有任务在执行或等待协作，请等待结束或先停止本轮。", ErrWorkExecutionConflict)
+		return Run{}, false, workConflict("work_conversation_busy", "This conversation still has a task running or waiting on collaborators. Wait for it to finish or stop the round.")
 	}
 	var model string
 	if err = tx.QueryRow(`SELECT model FROM bots WHERE id=?`, item.BotID).Scan(&model); err != nil {
@@ -365,7 +378,7 @@ func (s *Server) startWorkItem(w http.ResponseWriter, r *http.Request, id string
 		return
 	}
 	if !s.modelConfigured() {
-		writeErr(w, 503, "model_unavailable", "请先连接模型，再执行待办。")
+		writeErr(w, 503, "model_unavailable", "Connect a model before running work items.")
 		return
 	}
 	run, duplicate, err := s.store.StartWorkItem(id, input.RequestID)

@@ -1,6 +1,7 @@
 import { useEffect, useRef } from "react";
 import { api } from "./api";
 import { useTranslation } from "./i18n";
+import { codeText } from "./i18n/codeText";
 import { hasPendingWorkExecution, startWorkExecution, workExecutionActive, workExecutionClosed, workExecutionStatusKeys } from "./workExecutionState";
 import type { WorkItem } from "./types";
 import "./work-execution.css";
@@ -42,10 +43,10 @@ export function WorkExecution(props: Props) {
 
   return <section className="work-execution" aria-label={t("execution.aria")}>
     <div className="work-execution-heading"><strong>{t("execution.heading")}</strong><span role="status">{execution ? t(workExecutionStatusKeys[execution.status]) : t("execution.not_run")}</span></div>
-    {execution?.error && <p className="work-execution-error" role="alert">{execution.error}</p>}
+    {execution?.error && <p className="work-execution-error" role="alert">{codeText(execution.error_code, "work") ?? execution.error}</p>}
     {active && <p className="work-execution-note">{execution?.status === "failed" ? t("execution.active_failed_note") : t("execution.active_note")}</p>}
     {execution && !active && execution.status === "done" && <>
-      {execution.result?.trim() ? <><p className="work-execution-result">{execution.result}</p><p className="work-execution-note">{t("execution.check_result")}</p></> : <p className="work-execution-note">{t("execution.no_result")}</p>}
+      {execution.result?.trim() ? <><p className="work-execution-result">{codeText(execution.result_code, "work") ?? execution.result}</p><p className="work-execution-note">{t("execution.check_result")}</p></> : <p className="work-execution-note">{t("execution.no_result")}</p>}
     </>}
     <div className="work-execution-actions">
       {active ? <button type="button" disabled={pending || readOnly} onClick={() => void mutate(item.id, stop)}>{t("execution.stop")}</button>

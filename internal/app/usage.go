@@ -282,7 +282,7 @@ func (s *Store) listUsageCalls() ([]UsageCall, error) {
 	if err := pruneUsage(s.db, time.Now().UTC()); err != nil {
 		return nil, err
 	}
-	rows, err := s.db.Query(`SELECT uc.id,uc.bot_id,COALESCE(b.name,'已删除 Bot'),COALESCE(c.name,'已删除对话'),uc.model,uc.input_tokens,uc.output_tokens,uc.equivalent_usd,uc.price_known,uc.trigger_content,uc.occurred_at,uc.kind FROM usage_calls uc JOIN runs r ON r.id=uc.run_id LEFT JOIN bots b ON b.id=uc.bot_id LEFT JOIN conversations c ON c.id=r.conversation_id WHERE uc.kind<>'web_fetch' ORDER BY uc.occurred_at DESC,uc.id DESC LIMIT 200`)
+	rows, err := s.db.Query(`SELECT uc.id,uc.bot_id,COALESCE(b.name,'Deleted Bot'),COALESCE(c.name,'Deleted conversation'),uc.model,uc.input_tokens,uc.output_tokens,uc.equivalent_usd,uc.price_known,uc.trigger_content,uc.occurred_at,uc.kind FROM usage_calls uc JOIN runs r ON r.id=uc.run_id LEFT JOIN bots b ON b.id=uc.bot_id LEFT JOIN conversations c ON c.id=r.conversation_id WHERE uc.kind<>'web_fetch' ORDER BY uc.occurred_at DESC,uc.id DESC LIMIT 200`)
 	if err != nil {
 		return nil, err
 	}

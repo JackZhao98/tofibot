@@ -1,5 +1,6 @@
 import type { FollowupAccount, FollowupBotSettings, FollowupOverview, FollowupVerdict, AgentUsageTotal, Attachment, Bot, ComputerHealth, Config, ContentPatch, ContextUsage, Conversation, EventEnvelope, Memory, MemoryInput, Message, ModelCatalog, ModelProviderStatus, Run, RunHealth, Schedule, ScheduleKind, StreamDraft, ToolActivity, ToolActivityDetailPage, ToolActivityRunSummary, UsageCall, UsagePeriod, WorkspaceEventEnvelope, WorkItem, Weekday } from "./types";
 import { i18n } from "./i18n";
+import { codeText } from "./i18n/codeText";
 import { invalidateModelCatalog } from "./modelCatalogStore";
 
 export class ApiError extends Error {
@@ -22,7 +23,9 @@ export async function request<T>(path: string, init: RequestInit = {}): Promise<
   if (!response.ok) {
     if (response.status === 401) window.dispatchEvent(new Event("tofi:unauthorized"));
     const body = (await response.json().catch(() => null)) as { error?: { message?: string; code?: string } & Record<string, unknown> } | null;
-    throw new ApiError(response.status, body?.error?.message ?? i18n.t("common:apiError.request_failed", { status: response.status }), body?.error?.code, body?.error);
+    // A catalogued code is worded in the UI's language; the server's English message stays in `data.message`.
+    const message = codeText(body?.error?.code) ?? body?.error?.message ?? i18n.t("common:apiError.request_failed", { status: response.status });
+    throw new ApiError(response.status, message, body?.error?.code, body?.error);
   }
   if (response.status === 204) return undefined as T;
   return (await response.json()) as T;
