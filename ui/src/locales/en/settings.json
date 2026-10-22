@@ -830,6 +830,10 @@
         "name": "Completion review after tool work",
         "what": "After using tools, a Bot checks its answer against the actual results once before it replies."
       },
+      "answer_gate": {
+        "name": "Review scheduled and background work before delivery",
+        "what": "A reviewer reads each draft result of a scheduled run against a rubric before it is delivered, and a weak draft goes back to the Bot for another try. This is how many times a draft can be sent back; 0 turns the review off. Chat replies are never reviewed."
+      },
       "mcp_auto_review": {
         "name": "Automatic review of tool calls",
         "what": "A background reviewer looks at calls to outside tools. Observe only records advice; Auto lets low-risk calls go through on its say-so."
