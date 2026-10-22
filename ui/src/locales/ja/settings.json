@@ -237,7 +237,39 @@
     "not_reported": "報告なし",
     "window": "ローカルのウィンドウ設定 {{value}}",
     "auto_compact": "80% で自動圧縮を試行",
-    "compacted_other": "この実行で {{count}} 回圧縮済み"
+    "compacted_other": "この実行で {{count}} 回圧縮済み",
+    "health": {
+      "title": "実行状況",
+      "loading": "実行状況を読み込み中…",
+      "load_failed": "実行状況を読み込めませんでした。もう一度お試しください。",
+      "runs": "実行",
+      "no_runs": "この期間の実行はありません。",
+      "reasons": "主な失敗理由",
+      "no_failures": "失敗した実行はありません。",
+      "timeouts": "ツールのタイムアウト",
+      "timeouts_note": "制限時間に達した、または強制終了されたコマンド。",
+      "status": {
+        "done": "完了",
+        "failed": "失敗",
+        "cancelled": "キャンセル",
+        "interrupted": "中断",
+        "running": "実行中",
+        "waiting": "待機中",
+        "queued": "待機列"
+      },
+      "reason": {
+        "execution_failed": "完了前に失敗",
+        "no_final_answer": "最終回答なし",
+        "tool_stuck": "ツールの処理が停止",
+        "resumed_repeatedly": "繰り返し中断",
+        "approval_expired": "承認の期限切れ",
+        "model_unconfigured": "モデル未設定",
+        "model_auth_invalid": "モデルのサインインが拒否",
+        "model_quota_exhausted": "モデルの上限に到達",
+        "connection_interrupted": "接続が切断",
+        "budget_exhausted": "ステップ上限に到達"
+      }
+    }
   },
   "permissions": {
     "microphone": {
