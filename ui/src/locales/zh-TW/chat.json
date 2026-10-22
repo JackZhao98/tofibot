@@ -384,7 +384,7 @@
     "defaults_failed": "沒能儲存。請重試。",
     "first_bot_failed": "沒能建立你的第一個 Bot。可以從側邊欄自己建立。",
     "services_title": "挑幾個要連接的服務",
-    "services_body": "你的 Bot 可以自己讀取這些服務，改動任何內容前都會先問你。",
+    "services_body": "你的 Bot 可以自己讀取這些服務。寄送郵件一律由你確認，擴充功能變更需你核准，登入、兩步驟驗證等敏感步驟交還給你。",
     "services_hint": "之後隨時可以在 設定 > 連線 裡新增更多。",
     "later": "稍後再說，開始聊天",
     "connect_selected_other": "連接已選的 {{count}} 個",

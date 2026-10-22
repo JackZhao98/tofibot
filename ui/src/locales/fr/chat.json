@@ -392,7 +392,7 @@
     "defaults_failed": "Enregistrement impossible. Réessaie.",
     "first_bot_failed": "Impossible de préparer ton premier Bot. Tu peux en créer un depuis la barre latérale.",
     "services_title": "Choisis quelques services à connecter",
-    "services_body": "Tes Bots peuvent lire ces services seuls et te demandent avant de modifier quoi que ce soit.",
+    "services_body": "Tes Bots peuvent lire ces services seuls. L'envoi d'e-mails passe toujours par toi, les changements d'extensions demandent ton approbation, et les étapes sensibles comme la connexion ou la 2FA te sont transmises.",
     "services_hint": "Tu pourras en ajouter à tout moment dans Réglages > Connexions.",
     "later": "Plus tard, je discute",
     "connect_selected_one": "Connecter {{count}} sélectionné",
