@@ -208,6 +208,6 @@ try {
  const App=await server.ssrLoadModule("/src/thinkingHeadline.ts");
  assert.equal(App.thinkingHeadline("I role for myself too—something like a planner for later"),"","plain prose is never sliced into a status");
  assert.equal(App.thinkingHeadline("**Choosing a name**\nThe user wants"),"Choosing a name");
- assert.equal(App.thinkingHeadline("**Working out which of the available tools fits best here**"),"Working out which of the available\u2026");
+ assert.equal(App.thinkingHeadline("**Working out which of the available tools fits best here**"),"Working out which of the available tools fits best here");
  console.log("PASS 9: recovered definite failure has no card, profile step is named, uncertain action leaves only a row status, thinking status is never a mid-sentence slice");
 } finally {await server.close();}

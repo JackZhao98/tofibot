@@ -21,7 +21,7 @@
   --code-inline-bg:#eae3d7; --code-inline-ink:#56432e; --code-inline-edge:#d8cbb9;
   --code-block-bg:#e6ded0; --code-block-ink:#352b22; --code-block-edge:#d3c5b2;
   --surface-page:var(--bg); --surface-card:var(--surface); --surface-raised:var(--surface-2); --surface-sunk:var(--sunk);
-  --text-body:var(--ink); --text-secondary:var(--ink-soft); --text-meta:var(--muted); --text-on-block:var(--on-block);
+  --text-body:var(--ink); --text-secondary:var(--ink-soft); --text-meta:var(--muted); --text-process:var(--muted); --text-on-block:var(--on-block);
   --border-edge:var(--line); --border-soft:var(--line-soft); --accent-primary:var(--clay); --accent-decide:var(--iris);
   --accent-primary-text:var(--clay-text); --accent-decide-text:var(--iris-text);
   --surface-inverse:var(--inverse); --text-on-inverse:var(--on-inverse);
@@ -79,7 +79,7 @@
   --type-button:600 14px/1 var(--display); --type-body:400 15px/1.6 var(--body);
   --type-row-title:600 14px/1.4 var(--body); --type-meta:400 13px/1.5 var(--body);
   --type-label:600 10px/1.2 var(--mono); --label-tracking:.14em;
-  --type-status:600 11px/1.4 var(--mono); --type-code:400 13px/1.6 var(--mono);
+  --type-status:600 11px/1.4 var(--mono); --type-status-regular:400 11px/1.4 var(--mono); --type-code:400 13px/1.6 var(--mono);
   /* Compatibility selectors resolve to V2 values while component CSS is retired. */
   --surface-soft:var(--surface-2); --surface-hover:var(--surface);
   --sidebar-bg:var(--sunk); --selected-bg:var(--surface-2); --line-strong:var(--line-soft);
