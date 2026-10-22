@@ -181,3 +181,30 @@ func TestGogCheckReportsAPINotEnabledWithTOFIBuiltLink(t *testing.T) {
 		t.Fatalf("check: %d %s", w.Code, w.Body.String())
 	}
 }
+
+// The workspace Google client belongs to the server like a model provider key:
+// it is never listed among computer credentials, removed there, or installed on
+// a computer.
+func TestWorkspaceGoogleClientStaysOutOfComputerCredentials(t *testing.T) {
+	s, _ := googleTestServerAt(t, "", "")
+	w := httptest.NewRecorder()
+	if !s.routeGoogle(w, httptest.NewRequest(http.MethodPut, "/api/extensions/google/client", strings.NewReader(`{"credentials_json":`+testGoogleClient+`}`)), "extensions/google/client") || w.Code != 200 {
+		t.Fatalf("save: %d %s", w.Code, w.Body.String())
+	}
+	list := providerRequest(t, s, http.MethodGet, "/api/computer/credentials", "")
+	if list.Code != http.StatusOK || strings.Contains(list.Body.String(), googleClientKind) || strings.Contains(list.Body.String(), googleClientID) {
+		t.Fatalf("credentials list=%d %s", list.Code, list.Body.String())
+	}
+	b, _ := s.store.CreateBot("vault", "", "gpt-6-luna")
+	for _, tc := range []struct{ method, path, body string }{
+		{http.MethodPost, "/api/computer/credentials/" + googleClientID + "/apply", `{"bot_id":"` + b.ID + `"}`},
+		{http.MethodDelete, "/api/computer/credentials/" + googleClientID, ""},
+	} {
+		if rec := providerRequest(t, s, tc.method, tc.path, tc.body); rec.Code != http.StatusNotFound {
+			t.Fatalf("%s %s = %d %s", tc.method, tc.path, rec.Code, rec.Body.String())
+		}
+	}
+	if _, _, err := s.googleClient(); err != nil {
+		t.Fatalf("the client must survive: %v", err)
+	}
+}
