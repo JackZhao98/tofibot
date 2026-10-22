@@ -3686,8 +3686,18 @@ func (s *Server) execute(c Conversation, r Run) {
 	var gradedRounds atomic.Int32
 	var inReceiptRepair atomic.Bool
 	gateRounds := 0
-	if answerGateScope(c, r, structured) && (s.answerGraderProvider != nil || managedProviderName(s.provider)) {
-		gateRounds = s.answerGateRounds()
+	var graderModelProvider provider.Provider
+	graderModel := "grader-test"
+	if answerGateScope(c, r, structured) {
+		if gateRounds = s.answerGateRounds(); gateRounds > 0 {
+			if s.answerGraderProvider != nil {
+				graderModelProvider = s.answerGraderProvider
+			} else if p, m, perr := s.backgroundProvider(ctx, backgroundAnswerGrade); perr == nil {
+				graderModelProvider, graderModel = p, m
+			} else {
+				gateRounds = 0 // no grader available: answers stream and ship as before
+			}
+		}
 	}
 	if r.Kind != runKindTriage {
 		var initErr error
@@ -3720,7 +3730,7 @@ func (s *Server) execute(c Conversation, r Run) {
 				if !state.gradeOwed() {
 					return ""
 				}
-				revision := s.gradeAnswer(ctx, r.ID, int(gradedRounds.Load()), pm, text)
+				revision := s.gradeAnswer(ctx, graderModelProvider, graderModel, r.ID, int(gradedRounds.Load()), pm, text)
 				gradedRounds.Add(1)
 				return revision
 			}
