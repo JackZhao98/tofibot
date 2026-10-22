@@ -94,8 +94,8 @@ func TestBuiltinSkillsLoadOnDemand(t *testing.T) {
 		}
 	}
 	file := discoveryTool(t, p, "read_skill_file")
-	script, err := file.Execute(context.Background(), json.RawMessage(`{"name":"spreadsheet","path":"scripts/reconcile.py"}`))
-	if err != nil || !strings.Contains(script, "Reconcile figures") {
+	script, err := file.Execute(context.Background(), json.RawMessage(`{"name":"spreadsheet","path":"scripts/xlsx_summary.py"}`))
+	if err != nil || !strings.Contains(script, "Summarise an XLSX workbook") {
 		t.Fatalf("script err=%v", err)
 	}
 	for _, bad := range []string{"../spreadsheet/SKILL.md", "/etc/passwd", "scripts/../../slides/SKILL.md", "scripts/missing.py"} {
