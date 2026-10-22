@@ -65,6 +65,10 @@ Bot 的 `say(answer)` 草稿在人看到之前，先交给一个独立的评分�
 - Codex terra 上的“前/后”由协调者另行测，不在这里。
 - 缩小范围后的验证：一次本机端到端，定时任务的回答被评分并在有 gap 时被退回（见下方“范围验证”）；聊天回复不评分、流式输出由测试 `TestPersonTriggeredAnswerStreamsAndIsNeverGraded` 保证。
 
+## 范围验证（本机，Sonnet 5.5，约 $0.42）
+
+用评测任务 `remind_stretch_3min` 在本机服务上端到端跑了一遍：这一任务里有 2 个聊天回合（私聊）和 1 个定时回合。服务日志里只有一行 `[answer-grade]`，属于定时回合（Haiku 评分，iteration=0，gaps=0，3.07 s，通过后交付）；两个聊天回合没有评分调用。退回路径（有 gap）由单元测试覆盖，这次线上没有触发。
+
 ## 影响
 
 实施状态：已实现，在分支 `feat/answer-gate`，未合并、未发版。代码：`internal/app/answer_review.go`、`answer_rubric.md`（内嵌）、`say.go`（评分与退回）、`say_stream.go`（压住正文）、`app.go`（轮次计数、回执修复不评分）、`automation_settings.go`（`answer_gate`，整数，0 关）；界面：设置 › 自动行为 › 检查，7 种语言文案。测试：`internal/app/answer_gate_test.go`。
