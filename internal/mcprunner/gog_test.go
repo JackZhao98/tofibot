@@ -4,6 +4,7 @@ import (
 	"context"
 	"debug/buildinfo"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/url"
@@ -155,5 +156,58 @@ func TestPinnedGogCLIProtocolCompatibility(t *testing.T) {
 	authorization, err := url.Parse(started.AuthorizationURL)
 	if err != nil || authorization.Query().Get("redirect_uri") != redirect || !strings.Contains(authorization.Query().Get("scope"), "gmail.readonly") {
 		t.Fatalf("unexpected real gogcli authorization URL: %v err=%v", authorization, err)
+	}
+}
+
+func TestGogServicesAreIncrementalAndBounded(t *testing.T) {
+	got, err := gogServiceList(nil, nil)
+	if err != nil || strings.Join(got, ",") != "gmail" {
+		t.Fatalf("default: %v %v", got, err)
+	}
+	// A second service is added to what the account already has; nothing is dropped.
+	got, err = gogServiceList([]string{"calendar"}, []string{"gmail"})
+	if err != nil || strings.Join(got, ",") != "gmail,calendar" {
+		t.Fatalf("incremental: %v %v", got, err)
+	}
+	got, _ = gogServiceList([]string{"drive", "calendar"}, nil)
+	if strings.Join(got, ",") != "calendar,drive" {
+		t.Fatalf("order is stable: %v", got)
+	}
+	if _, err := gogServiceList([]string{"gmail", "admin-sdk"}, nil); err == nil {
+		t.Fatal("an unknown service must be refused")
+	}
+}
+
+func TestGogAuthorizationURLCarriesIncludeGrantedScopes(t *testing.T) {
+	got, err := withIncrementalAuth("https://accounts.google.com/o/oauth2/auth?client_id=c&state=s&scope=a")
+	if err != nil {
+		t.Fatal(err)
+	}
+	u, _ := url.Parse(got)
+	if u.Query().Get("include_granted_scopes") != "true" || u.Query().Get("state") != "s" || u.Query().Get("scope") != "a" {
+		t.Fatalf("url: %s", got)
+	}
+	for _, bad := range []string{"https://evil.example/auth", "http://accounts.google.com/x", "://"} {
+		if _, err := withIncrementalAuth(bad); err == nil {
+			t.Errorf("accepted %q", bad)
+		}
+	}
+}
+
+func TestGogFailureIsClassifiedFromTheStructuredError(t *testing.T) {
+	body := `{"error":{"code":403,"status":"PERMISSION_DENIED","message":"PRIVATE https://evil.example","details":[{"@type":"type.googleapis.com/google.rpc.ErrorInfo","reason":"SERVICE_DISABLED","metadata":{"service":"gmail.googleapis.com","consumer":"projects/622599621014"}}]}}`
+	err := classifyGogFailure(&gogCommandError{err: io.EOF, output: "gog: " + body}, "gmail.googleapis.com")
+	var disabled *APIDisabled
+	if !errors.As(err, &disabled) || disabled.API != "gmail.googleapis.com" || disabled.Project != "622599621014" {
+		t.Fatalf("not classified: %v", err)
+	}
+	if strings.Contains(err.Error(), "PRIVATE") || strings.Contains(err.Error(), "evil") {
+		t.Fatal("provider text in the error")
+	}
+	if classifyGogFailure(&gogCommandError{err: io.EOF, output: "SERVICE_DISABLED accessNotConfigured"}, "gmail.googleapis.com") != nil {
+		t.Fatal("wording alone must not classify")
+	}
+	if classifyGogFailure(io.EOF, "gmail.googleapis.com") != nil {
+		t.Fatal("a plain error is not a Google failure")
 	}
 }

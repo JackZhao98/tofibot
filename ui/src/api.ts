@@ -3,7 +3,7 @@ import { i18n } from "./i18n";
 import { invalidateModelCatalog } from "./modelCatalogStore";
 
 export class ApiError extends Error {
-  constructor(public status: number, message: string, public code?: string) {
+  constructor(public status: number, message: string, public code?: string, public data?: Record<string, unknown>) {
     super(message);
     this.name = "ApiError";
   }
@@ -21,8 +21,8 @@ export async function request<T>(path: string, init: RequestInit = {}): Promise<
   const response = await fetch(path, { ...init, headers, credentials: "same-origin", signal });
   if (!response.ok) {
     if (response.status === 401) window.dispatchEvent(new Event("tofi:unauthorized"));
-    const body = (await response.json().catch(() => null)) as { error?: { message?: string; code?: string } } | null;
-    throw new ApiError(response.status, body?.error?.message ?? i18n.t("common:apiError.request_failed", { status: response.status }), body?.error?.code);
+    const body = (await response.json().catch(() => null)) as { error?: { message?: string; code?: string } & Record<string, unknown> } | null;
+    throw new ApiError(response.status, body?.error?.message ?? i18n.t("common:apiError.request_failed", { status: response.status }), body?.error?.code, body?.error);
   }
   if (response.status === 204) return undefined as T;
   return (await response.json()) as T;

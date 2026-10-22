@@ -1,6 +1,7 @@
 {
   "action": {
-    "cancel": "キャンセル"
+    "cancel": "キャンセル",
+    "close": "閉じる"
   },
   "auth": {
     "bot_token": "Bot トークン",
@@ -11,18 +12,24 @@
   },
   "browser": {
     "added": "追加済み",
-    "back": "追加済み",
-    "custom": "カスタム MCP",
     "empty": "一致するサービスがありません。カスタム MCP を追加できます。",
     "held_label": "まだ追加できないサービス",
     "held_title": "まだ追加できません",
-    "intro": "接続プリセットを選び、追加後に認可とツールの接続を確認します。",
+    "intro": "接続するサービスを選びます。設定は次のステップで行います。",
     "read_only_tools": "読み取り専用ツール",
     "retired": "保守終了",
     "retired_origin": "提供元の旧プロジェクト",
     "search": "サービスを検索",
     "services": "サービス",
-    "title": "サービスを追加"
+    "local_details": "このサーバーで実行 · OAuth",
+    "custom_section": "カスタム",
+    "custom_url": "カスタムコネクタ",
+    "custom_url_hint": "URL でリモート MCP サーバーに接続します。",
+    "custom_package": "ローカルパッケージ",
+    "custom_package_hint": "バージョンを固定した npm / PyPI の MCP サーバーをこのサーバーにインストールします。",
+    "preview_title": "Workspace プレビュー（企業向け）",
+    "preview_toggle": "Google Workspace サーバーを表示",
+    "community_note": "コミュニティ コネクタは第三者が保守しており、書き込み操作は毎回先に確認します。"
   },
   "callback": {
     "copied": "コピーしました",
@@ -218,35 +225,33 @@
     }
   },
   "local": {
-    "attach": "Tofi に接続",
     "custom": {
       "args": "起動引数（1 行に 1 つ）",
       "binary": "実行ファイル",
       "env": "環境変数（1 行に KEY=value、非公開ファイルとして保存）",
       "install": "プラグインをインストール",
-      "intro": "固定バージョンと実行ファイルを指定します。インストールコマンドは Runner 内で実行され、プラグインのコードは Runner の権限で動作します。",
+      "intro": "固定バージョンと実行ファイルを指定します。インストールコマンドはこのサーバーで実行され、プラグインはこのサーバーの権限で動作します。",
       "package": "パッケージ名",
       "plugin_id": "プラグイン ID",
       "runtime": "ランタイム",
-      "title": "ほかのローカル MCP をインストール",
-      "version": "固定バージョン"
+      "version": "固定バージョン",
+      "installing": "インストール中…"
     },
     "gog": {
       "install": "gogcli をインストール",
       "installing": "インストール中…",
-      "intro": "バージョン固定の gogcli が Runner イメージに含まれています。読み取り専用か、読み取りと送信の許可を選べます。メール送信は 1 通ずつ確認が必要です。",
-      "title": "個人の Gmail · gogcli"
+      "intro": "認可した Google アカウントで自分の Gmail を読み取ります。読み取り専用か、読み取りと送信の許可を選べます。メール送信は 1 通ずつ確認が必要です。"
     },
     "google": {
       "client_json": "OAuth クライアント JSON",
       "choose_file": "ファイルを選択…",
       "no_file": "ファイルが選択されていません",
       "client_setup": "Google Cloud で<strong>ウェブ アプリケーション</strong>の OAuth クライアントを作成し、下のアドレスを「承認済みのリダイレクト URI」に追加してから、ダウンロードした JSON をアップロードします。",
-      "connect": "Google に接続",
+      "connect": "Google で認可",
       "connected_as": "{{email}} で認可済み",
       "continue": "Google の認可ページを開く",
-      "disconnect": "Google を切断",
-      "disconnect_confirm": "保存済みの Google の認可を Runner から削除しますか？",
+      "disconnect": "Google アカウントを切断",
+      "disconnect_confirm": "保存済みの Google の認可を削除しますか？",
       "disconnect_submit": "認可を解除",
       "disconnected": "Google の認可を Runner から削除しました。",
       "email": "Google のメールアドレス",
@@ -266,30 +271,9 @@
       "verify": "Gmail の読み取りを確認",
       "verifying": "確認中…",
       "waiting": "Google の認可を待っています"
-    },
-    "intro": "プラグインは専用の Runner コンテナにインストールされ、必要なときに起動し、アイドル時は自動でスリープします。",
-    "notice": {
-      "attached": "{{id}} を Tofi に接続しました。",
-      "installed": "{{id}} をインストールしました。ツールは使用時に起動します。",
-      "removed": "{{id}} を削除しました。"
-    },
-    "remove": "削除",
-    "remove_confirm": "プラグインと保存済みの認可を削除しますか？",
-    "remove_submit": "削除する",
-    "state": {
-      "not_installed": "未インストール",
-      "ready": "実行中",
-      "sleeping": "スリープ中",
-      "starting": "起動中"
-    },
-    "title": "ローカル MCP",
-    "unavailable": "ローカル MCP Runner は現在利用できません",
-    "unavailable_hint": "Runner コンテナが起動しているか確認してください。",
-    "plugin_count_other": "プラグイン {{count}} 個"
+    }
   },
   "mcp": {
-    "add": "サービスを追加",
-    "added": "追加済み",
     "back": "戻る",
     "cancel_auth": "認可をキャンセル",
     "confirm": {
@@ -407,13 +391,14 @@
     "authorizing": "認可を開いています…",
     "checked": "{{when}}に確認",
     "checking": "ツールを読み込み中…",
-    "connected_tools_other": "接続済み · ツール {{count}} 件",
     "failed": "接続に失敗しました",
     "needs_auth": "認可が必要です",
     "removing": "処理中…",
     "unverified": "未確認",
     "waiting": "認可を待っています",
-    "read_only_count_other": "読み取り専用 {{count}} 件"
+    "connected": "接続済み",
+    "not_connected": "未接続",
+    "api_disabled": "API が有効になっていません"
   },
   "vm": {
     "cancel": "認可をキャンセル",
@@ -457,5 +442,51 @@
       "high_risk": "毎回確認"
     },
     "title": "ツール · {{count}}"
+  },
+  "connections": {
+    "title": "接続",
+    "add": "接続を追加",
+    "action": {
+      "authorize": "認可",
+      "enable_api": "{{name}} API を有効にする"
+    },
+    "menu": {
+      "details": "詳細を表示",
+      "hide_details": "詳細を隠す",
+      "sign_in_again": "再度サインイン"
+    },
+    "dialog": {
+      "title": "接続を追加"
+    },
+    "local": {
+      "gog": {
+        "name": "Gmail（個人アカウント）",
+        "description": "認可した Google アカウントで自分の Gmail を読み取ります。"
+      }
+    },
+    "source": {
+      "gog": "コミュニティ · gogcli · Gmail API",
+      "local": "コミュニティ · {{name}}",
+      "vendor": "公式 · {{host}}",
+      "community": "コミュニティ · {{host}}",
+      "custom": "カスタム · {{host}}"
+    },
+    "details": {
+      "account": "アカウント：{{email}}",
+      "project": "Google Cloud プロジェクト：{{project}}"
+    },
+    "preview_note": "Workspace デベロッパー プレビュー プログラムに登録した Google Cloud プロジェクトが必要です（会社または企業のアカウントが必要）。未登録の場合、ツール呼び出しが権限エラーになることがあります。",
+    "error": {
+      "api_disabled": "Google Cloud プロジェクトで {{name}} API が有効になっていません。有効にしてから更新してください。"
+    },
+    "google": {
+      "using_client": "保存済みの Google クライアント（プロジェクト {{project}}）を使用します。再アップロードは不要です。",
+      "replace_client": "クライアントを置き換える",
+      "project_found": "このクライアントはプロジェクト {{project}} のものです。"
+    },
+    "repo": {
+      "label": "GitHub のソース：{{repo}}",
+      "with_stars": "GitHub のソース：{{repo}}、スター {{count}} 件"
+    }
   }
 }
