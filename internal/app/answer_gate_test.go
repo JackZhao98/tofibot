@@ -58,8 +58,8 @@ func (g *gradeProvider) ChatStream(ctx context.Context, req *provider.ChatReques
 }
 
 const (
-	gradePass = `{"criteria":[{"id":"C1","result":"met","note":""},{"id":"C2","result":"met","note":""},{"id":"C3","result":"met","note":""},{"id":"C4","result":"met","note":""},{"id":"C5","result":"met","note":""}]}`
-	gradeGap  = `{"criteria":[{"id":"C1","result":"met","note":""},{"id":"C2","result":"met","note":""},{"id":"C3","result":"gap","note":"Hands the work back to the person."},{"id":"C4","result":"met","note":""},{"id":"C5","result":"met","note":""}]}`
+	gradePass = `{"criteria":[{"id":"C1","result":"met","note":""},{"id":"C2","result":"met","note":""},{"id":"C3","result":"met","note":""},{"id":"C4","result":"met","note":""}]}`
+	gradeGap  = `{"criteria":[{"id":"C1","result":"met","note":""},{"id":"C2","result":"met","note":""},{"id":"C3","result":"gap","note":"Hands the work back to the person."},{"id":"C4","result":"met","note":""}]}`
 )
 
 // gateHook, when set by a test, receives the server and run before the run starts.
@@ -219,7 +219,7 @@ func TestGraderSeesOnlyWhatTheRecipientSees(t *testing.T) {
 		t.Fatalf("run=%+v grader=%d", run, g.calls.Load())
 	}
 	in := g.requests[0]
-	for _, want := range []string{"What did I tell you earlier about the synthetic project?", "The delivered synthetic reply.", "## C1", "## C5"} {
+	for _, want := range []string{"What did I tell you earlier about the synthetic project?", "The delivered synthetic reply.", "## C1", "## C4"} {
 		if !strings.Contains(in, want) {
 			t.Fatalf("grader input lacks %q", want)
 		}
@@ -293,7 +293,7 @@ func TestGateScope(t *testing.T) {
 // never matches text: no pattern imports, no phrase checks.
 func TestGradeDecisionReadsOnlyStructuredResults(t *testing.T) {
 	criteria := rubricCriteria(answerRubric)
-	if len(criteria) < 5 || criteria[0].ID != "C1" {
+	if len(criteria) < 4 || criteria[0].ID != "C1" {
 		t.Fatalf("criteria = %+v", criteria)
 	}
 	results, ok := parseGrade(gradeGap, criteria)
