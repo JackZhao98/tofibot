@@ -46,7 +46,7 @@ sys.path.insert(0, str(MICROVM))
 sys.path.insert(0, str(HERE))
 
 from account_release_check import PROTOCOL, validate_release  # noqa: E402
-from manager import snapshot_release  # noqa: E402
+from manager import copy_sparse, snapshot_release  # noqa: E402
 from worker_entrypoint import validate_config  # noqa: E402
 import tofi_tui  # noqa: E402
 # Palette, art and colour rules live in tofi_tui (shared with install.sh).
@@ -1403,8 +1403,11 @@ def wait_for_idle(action, wait_minutes=0, force=False):
 # --------------------------------------------------------------------------
 # Backups: /var/lib/tofi/backups/<UTC timestamp>-<version>/{data.tar.*,etc.tar.gz,meta.json}
 #
-# Taken only while the services are stopped (SQLite is quiescent). The computer
-# disks under /var/lib/tofi/worker are never included.
+# Taken only while the services are stopped (SQLite is quiescent; the Worker
+# hibernates every computer on the way down, so each workspace disk is flushed).
+# The computer disks under /var/lib/tofi/worker/state/<account>/workspace.ext4
+# are included only in a manual `tofi backup` (sparse copies under disks/); the
+# automatic pre-update and pre-restore backups never carry them.
 
 
 def human_bytes(value):
@@ -1437,20 +1440,24 @@ def free_bytes(path):
     return info.f_bavail * info.f_frsize
 
 
-def check_backup_space(action='the update'):
+def check_backup_space(action='the update', disks=0):
     """Refuse, before anything is stopped, when a backup would not fit.
 
-    Needs 2x the data and settings size plus 1 GiB free under /var/lib/tofi.
-    Returns the size estimate.
+    Needs 2x the data and settings size plus 1 GiB free under /var/lib/tofi,
+    plus `disks` (the allocated size of the computer disks to copy, once: they
+    are copied as they are, not compressed). Returns the size estimate.
     """
     estimate = tree_bytes(P.data) + tree_bytes(P.etc)
-    need = BACKUP_FREE_FACTOR * estimate + BACKUP_FREE_MARGIN
+    need = BACKUP_FREE_FACTOR * estimate + BACKUP_FREE_MARGIN + disks
     free = free_bytes(P.var)
     if free < need:
         raise HostError(
-            'Not enough free disk space for the backup before %s: TOFI data and settings take %s, so a backup needs '
-            '%s free under /var/lib/tofi (2x plus 1 GiB) but only %s is free. Nothing was changed; free some '
-            'space and run it again.' % (action, human_bytes(estimate), human_bytes(need), human_bytes(free)))
+            'Not enough free disk space for the backup before %s: TOFI data and settings take %s%s, so a backup needs '
+            '%s free under /var/lib/tofi (2x plus 1 GiB%s) but only %s is free. Nothing was changed; free some '
+            'space%s and run it again.'
+            % (action, human_bytes(estimate), (' and the computer disks %s' % human_bytes(disks)) if disks else '',
+               human_bytes(need), ' plus the disks' if disks else '', human_bytes(free),
+               ' or add --no-disks' if disks else ''))
     return estimate
 
 
@@ -1600,15 +1607,17 @@ def backup_timestamp():
     return time.strftime('%Y%m%dT%H%M%SZ', time.gmtime())
 
 
-def backup_data(reason, env=None, note=None, check_space=True):
+def backup_data(reason, env=None, note=None, check_space=True, disks=False):
     """Archive /var/lib/tofi/data and /etc/tofi into a new backup; return its meta.
 
     Call only while the services are stopped. The backup is assembled in a
     hidden .partial directory and renamed when complete, so an interrupted
-    backup is never listed or restored.
+    backup is never listed or restored. `disks` also copies every computer's
+    workspace disk (only a manual backup asks for it).
     """
     env = env if env is not None else read_env()
-    estimate = check_backup_space('this backup') if check_space else tree_bytes(P.data) + tree_bytes(P.etc)
+    estimate = (check_backup_space('this backup', disks_estimate() if disks else 0) if check_space
+                else tree_bytes(P.data) + tree_bytes(P.etc))
     P.backups.mkdir(parents=True, exist_ok=True)
     os.chmod(P.backups, 0o700)
     stamp = backup_timestamp()
@@ -1630,6 +1639,7 @@ def backup_data(reason, env=None, note=None, check_space=True):
         worker_name = 'worker-meta.tar.gz'
         write_archive(partial / worker_name, 'gz', worker_meta_roots(), exclude=worker_meta_excluded,
                       max_file_bytes=WORKER_META_MAX_FILE)
+        disk_entries = backup_disks(partial) if disks else None
         meta = {
             'schema': 1, 'id': backup_id, 'version': env.get('TOFI_VERSION'),
             'app_image': env.get('TOFI_APP_IMAGE'), 'worker_image': env.get('TOFI_WORKER_IMAGE'),
@@ -1643,6 +1653,9 @@ def backup_data(reason, env=None, note=None, check_space=True):
             'sha256': {data_name: sha256_file(partial / data_name), etc_name: sha256_file(partial / etc_name),
                        worker_name: sha256_file(partial / worker_name)},
         }
+        if disk_entries is not None:
+            meta['disks'] = disk_entries
+            meta['sizes']['disks_allocated'] = sum(entry['allocated'] for entry in disk_entries)
         write_json(partial / 'meta.json', meta, 0o600)
         os.rename(partial, final)
     except BaseException as error:
@@ -1650,7 +1663,9 @@ def backup_data(reason, env=None, note=None, check_space=True):
         if isinstance(error, OSError):
             raise HostError('Cannot write the backup under %s (%s); nothing was changed.' % (P.backups, error)) from error
         raise
-    say('Backup %s saved (%s).' % (backup_id, human_bytes(meta['sizes']['data_archive'] + meta['sizes']['etc_archive'])))
+    say('Backup %s saved (%s%s).' % (
+        backup_id, human_bytes(meta['sizes']['data_archive'] + meta['sizes']['etc_archive']),
+        (', %s' % plural(len(disk_entries), 'computer disk')) if disk_entries else ''))
     return meta
 
 
@@ -1667,14 +1682,24 @@ def read_backup_meta(directory):
     for name in archives.values():
         if not isinstance(name, str) or '/' in name or name.startswith('.'):
             raise HostError('Backup %s names an unsafe archive file.' % Path(directory).name)
+    for entry in meta.get('disks') or []:
+        if (not isinstance(entry, dict) or not isinstance(entry.get('account'), str)
+                or not DISK_ACCOUNT_RE.match(entry['account']) or entry.get('file') != 'disks/%s.ext4' % entry['account']
+                or not isinstance(entry.get('sha256'), str) or not SHA_RE.match(entry['sha256'])
+                or type(entry.get('bytes')) is not int or type(entry.get('allocated')) is not int):
+            raise HostError('Backup %s lists an unusable computer disk.' % Path(directory).name)
+    if 'disks' in meta and not isinstance(meta['disks'], list):
+        raise HostError('Backup %s lists an unusable computer disk.' % Path(directory).name)
     return meta
 
 
 def verify_backup(directory):
-    """Check every archive against meta.json's sha256; return meta."""
+    """Check every archive and computer disk against meta.json's sha256; return meta."""
     meta = read_backup_meta(directory)
-    for name in meta['archives'].values():
-        expected = meta['sha256'].get(name)
+    recorded = dict(meta['sha256'])
+    recorded.update({entry['file']: entry['sha256'] for entry in meta.get('disks') or []})
+    for name in list(meta['archives'].values()) + [entry['file'] for entry in meta.get('disks') or []]:
+        expected = recorded.get(name)
         archive = Path(directory) / name
         if not isinstance(expected, str) or not SHA_RE.match(expected):
             raise HostError('Backup %s records no checksum for %s.' % (Path(directory).name, name))
@@ -1698,7 +1723,8 @@ def list_backups():
             meta = read_backup_meta(entry)
         except HostError:
             continue
-        size = sum(meta['sizes'].get(key) or 0 for key in ('data_archive', 'etc_archive', 'worker_archive'))
+        size = sum(meta['sizes'].get(key) or 0
+                   for key in ('data_archive', 'etc_archive', 'worker_archive', 'disks_allocated'))
         found.append({'id': entry.name, 'path': entry, 'meta': meta, 'size': size})
     found.sort(key=lambda item: (item['meta'].get('created_at') or '', item['id']), reverse=True)
     return found
@@ -1715,6 +1741,190 @@ def find_backup(backup_id):
     if len(matches) > 1:
         raise HostError('%r matches several backups; give more of the id.' % backup_id)
     return matches[0]
+
+
+DISK_NAME = 'workspace.ext4'
+DISK_ACCOUNT_RE = re.compile(r'^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$')
+ARCHIVE_SIZE_KEYS = {'data': 'data_archive', 'etc': 'etc_archive', 'worker': 'worker_archive'}
+
+
+def account_disks():
+    """[(account directory name, disk path)] for every computer with a workspace disk on this host."""
+    root = P.worker_state
+    found = []
+    for entry in sorted(root.iterdir()) if root.is_dir() and not root.is_symlink() else []:
+        disk = entry / DISK_NAME
+        if entry.name.startswith('.') or entry.is_symlink() or not entry.is_dir():
+            continue
+        if disk.is_symlink() or not disk.is_file():
+            continue
+        if not DISK_ACCOUNT_RE.match(entry.name):
+            warn('Backup skips the computer disk of %r: not a usable account directory name.' % entry.name)
+            continue
+        found.append((entry.name, disk))
+    return found
+
+
+def allocated_bytes(path):
+    """Bytes a (sparse) file really occupies on disk."""
+    return os.lstat(str(path)).st_blocks * 512
+
+
+def disks_estimate():
+    return sum(allocated_bytes(disk) for _name, disk in account_disks())
+
+
+def assert_disks_quiet(disks):
+    """Refuse to copy workspace disks a computer could still be writing.
+
+    The services must be stopped (the Worker hibernates every computer on
+    the way down, which flushes its disk), and no computer manager may still
+    hold its state directory's manager.lock (an flock, visible across containers).
+    """
+    if any((c.get('State') or {}).get('Running') or (c.get('State') or {}).get('Restarting')
+           for c in project_containers()):
+        raise HostError('A TOFI container is still running; computer disks are only backed up while TOFI is '
+                        'stopped. Nothing was copied.')
+    for name, disk in disks:
+        try:
+            descriptor = os.open(str(disk.parent / 'manager.lock'), os.O_RDONLY | os.O_NOFOLLOW)
+        except FileNotFoundError:
+            continue
+        try:
+            fcntl.flock(descriptor, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except OSError as error:
+            raise HostError('The computer of %s is still running (its manager holds the lock); its disk is not '
+                            'copied while it could change. Nothing was copied.' % name) from error
+        finally:
+            os.close(descriptor)
+
+
+def backup_disks(partial):
+    """Copy each computer's workspace disk into <partial>/disks/<account>.ext4 (sparse, reflinked where the
+    filesystem can); return the meta entries. Only call with the services stopped."""
+    found = account_disks()
+    if not found:
+        return []
+    assert_disks_quiet(found)
+    directory = partial / 'disks'
+    directory.mkdir(mode=0o700)
+    entries = []
+    for name, disk in found:
+        info = disk.stat()
+        target = directory / (name + '.ext4')
+        copy_sparse(disk, target)
+        os.chmod(target, 0o600)
+        with open(target, 'rb') as stream:
+            os.fsync(stream.fileno())
+        entries.append({'account': name, 'file': 'disks/%s.ext4' % name, 'bytes': info.st_size,
+                        'allocated': allocated_bytes(target), 'sha256': sha256_file(target),
+                        'mode': stat.S_IMODE(info.st_mode), 'uid': info.st_uid, 'gid': info.st_gid,
+                        'hibernated': (disk.parent / 'snapshot' / 'meta.json').is_file()})
+    return entries
+
+
+def check_backup(directory):
+    """Audit a backup without restoring it: every file present and the size and sha256 meta.json records,
+    every archive readable end to end, tofi.env usable, every listed disk intact, nothing unlisted.
+
+    Returns {'id', 'meta', 'checks': [str], 'problems': [str]}; never raises for a damaged backup.
+    """
+    directory = Path(directory)
+    report = {'id': directory.name, 'meta': None, 'checks': [], 'problems': []}
+    try:
+        meta = read_backup_meta(directory)
+    except HostError as error:
+        report['problems'].append(str(error))
+        return report
+    report['meta'] = meta
+    listed = {'meta.json'}
+
+    def file_problem(name, expected_sha, expected_size, label):
+        listed.add(name)
+        path = directory / name
+        try:
+            info = path.lstat()
+        except OSError as error:
+            report['problems'].append('%s is missing (%s).' % (label, error))
+            return False
+        if not stat.S_ISREG(info.st_mode):
+            report['problems'].append('%s is not a regular file.' % label)
+            return False
+        if expected_size is not None and info.st_size != expected_size:
+            report['problems'].append('%s is %d bytes; meta.json records %d.' % (label, info.st_size, expected_size))
+            return False
+        if not isinstance(expected_sha, str) or not SHA_RE.match(expected_sha):
+            report['problems'].append('%s has no recorded checksum.' % label)
+            return False
+        if sha256_file(path) != expected_sha:
+            report['problems'].append('%s does not match its recorded checksum (damaged).' % label)
+            return False
+        report['checks'].append('%s: checksum ok (%s)' % (label, human_bytes(info.st_size)))
+        return True
+
+    for key, name in sorted(meta['archives'].items()):
+        sound = file_problem(name, meta['sha256'].get(name), meta['sizes'].get(ARCHIVE_SIZE_KEYS[key]), name)
+        if not sound:
+            continue
+        try:
+            members = 0
+            with archive_reader(directory / name) as tar:
+                for _member in safe_members(tar):
+                    members += 1
+            report['checks'].append('%s: readable, %d entries' % (name, members))
+        except HostError as error:
+            report['problems'].append('%s: %s' % (name, error))
+        except (tarfile.TarError, EOFError, OSError, ValueError) as error:
+            report['problems'].append('%s is not a readable archive (%s).' % (name, error))
+    if not any(p.startswith(meta['archives']['etc']) for p in report['problems']):
+        try:
+            backup_env({'id': directory.name, 'path': directory, 'meta': meta})
+            report['checks'].append('tofi.env: present and usable')
+        except (HostError, OSError, tarfile.TarError, EOFError, ValueError) as error:
+            report['problems'].append('The settings archive has no usable tofi.env (%s).' % error)
+    disks = meta.get('disks')
+    if disks is None:
+        report['checks'].append('computer disks: not part of this backup')
+    for entry in disks or []:
+        file_problem(entry['file'], entry['sha256'], entry['bytes'], 'disk ' + entry['account'])
+    if disks is not None:
+        listed.add('disks')
+        report['checks'].append('computer disks: %s listed' % plural(len(disks), 'disk'))
+    try:
+        present = {entry.name for entry in directory.iterdir()}
+        if (directory / 'disks').is_dir():
+            present |= {'disks/' + entry.name for entry in (directory / 'disks').iterdir()}
+    except OSError as error:
+        report['problems'].append('The backup directory cannot be listed (%s).' % error)
+        present = set()
+    for name in sorted(present - listed):
+        report['problems'].append('%s is in the backup but meta.json does not list it.' % name)
+    return report
+
+
+def verify_backups(selector):
+    """`tofi backup --verify [ID|all]`: audit the newest backup, one by id, or all. Returns (reports, ok)."""
+    with lifecycle_lock():
+        backups = list_backups()
+        if selector == 'all':
+            items = backups
+        elif selector == 'latest':
+            items = backups[:1]
+        else:
+            items = [find_backup(selector)]
+        if not items:
+            raise HostError('No backups to verify; `sudo tofi backup` takes one.')
+        reports = [check_backup(item['path']) for item in items]
+    return reports, all(not report['problems'] for report in reports)
+
+
+def render_verify(reports):
+    lines = []
+    for report in reports:
+        lines.append('Backup %s: %s' % (report['id'], 'OK' if not report['problems'] else 'FAILED'))
+        lines += ['  ok    ' + check for check in report['checks']]
+        lines += ['  FAIL  ' + problem for problem in report['problems']]
+    return '\n'.join(lines) + '\n'
 
 
 AUTOMATIC_REASONS = ('pre-update', 'pre-restore')
@@ -1880,6 +2090,63 @@ def restore_files(backup_id):
         finally:
             remove_tree(worker_tmp)
     return meta
+
+
+def restore_disks(item, meta, state):
+    """Put the backup's computer disks back, one workspace.ext4 per account.
+
+    Every disk is copied beside its live one first; only then is each live disk
+    renamed to workspace-before-restore-<ns>.ext4 (kept: nothing is deleted)
+    and the copy renamed in. Each swap is journalled in the transaction so a
+    failed restore puts the live disks back (undo_disk_swaps). A computer's
+    saved snapshot belongs to the disk it was taken with, so it is discarded:
+    the computer cold-boots on the restored disk. Services must be stopped.
+    """
+    staged = []
+    try:
+        for entry in meta.get('disks') or []:
+            account_dir = P.worker_state / entry['account']
+            if account_dir.is_symlink():
+                raise HostError('Computer directory %s is a symbolic link; nothing was restored.' % entry['account'])
+            account_dir.mkdir(mode=0o700, parents=True, exist_ok=True)
+            temporary = account_dir / ('.%s.restore-new' % DISK_NAME)
+            temporary.unlink(missing_ok=True)
+            copy_sparse(item['path'] / entry['file'], temporary)
+            os.chmod(temporary, entry.get('mode', 0o600) & 0o777)
+            try:
+                os.chown(temporary, entry.get('uid', 0), entry.get('gid', 0))
+            except PermissionError:
+                pass
+            staged.append((account_dir, temporary))
+    except BaseException:
+        for _directory, temporary in staged:
+            temporary.unlink(missing_ok=True)
+        raise
+    swaps = state['transaction'].setdefault('disk_swaps', [])
+    for account_dir, temporary in staged:
+        live = account_dir / DISK_NAME
+        aside = account_dir / ('workspace-before-restore-%d.ext4' % time.time_ns()) if live.exists() else None
+        swaps.append({'live': str(live), 'aside': str(aside) if aside else None})
+        save_state(state)
+        if aside:
+            os.rename(live, aside)
+        os.rename(temporary, live)
+        remove_tree(account_dir / 'snapshot')
+    say('Restored %s; each replaced disk is kept beside it as workspace-before-restore-*.ext4 '
+        '(delete them by hand when you are sure).' % plural(len(staged), 'computer disk'))
+
+
+def undo_disk_swaps(transaction):
+    """Put back the live disks a failed restore replaced."""
+    for swap in reversed(transaction.get('disk_swaps') or []):
+        live = Path(swap['live'])
+        if swap['aside']:
+            aside = Path(swap['aside'])
+            if aside.exists():
+                os.replace(aside, live)
+        elif live.exists():
+            live.unlink()
+    transaction['disk_swaps'] = []
 
 
 def backup_env(item):
@@ -2505,12 +2772,14 @@ def restore_manifest(version):
     return fetch_manifest(version)
 
 
-def restore_backup(backup_id, yes=False, wait=0, force=False, confirm=None):
+def restore_backup(backup_id, yes=False, wait=0, force=False, confirm=None, disks=True):
     """`tofi restore <id>`: put a backup's data and settings back and switch to its version.
 
     Runs as an update-shaped transaction: the current state is backed up first
     (reason pre-restore), and if the restored version does not start, rollback
-    restores that backup and starts the version that was running.
+    restores that backup and starts the version that was running. A backup that
+    carries computer disks puts them back too (`disks=False` leaves them).
+    Active Bot runs refuse it (wait_for_idle) unless --force.
     """
     with lifecycle_lock():
         state = load_state()
@@ -2545,6 +2814,9 @@ def restore_backup(backup_id, yes=False, wait=0, force=False, confirm=None):
         # Room for a backup of the current state plus the restored copy beside it.
         current = tree_bytes(P.data) + tree_bytes(P.etc)
         incoming = int(meta['sizes'].get('data_bytes') or 0) + int(meta['sizes'].get('etc_bytes') or 0)
+        with_disks = bool(disks and meta.get('disks'))
+        if with_disks:
+            incoming += sum(entry['allocated'] for entry in meta['disks'])
         need = current + incoming + BACKUP_FREE_MARGIN
         free = free_bytes(P.var)
         if free < need:
@@ -2569,6 +2841,9 @@ def restore_backup(backup_id, yes=False, wait=0, force=False, confirm=None):
             state['transaction']['data_changed'] = True
             transition(state, 'upgrading', 'restore-data')
             restore_files(item['id'])
+            if with_disks:
+                transition(state, 'upgrading', 'restore-disks')
+                restore_disks(item, meta, state)
             env = read_env()
             transition(state, 'upgrading', 'switch-config')
             apply_host_config(bundle, env)
@@ -2587,20 +2862,23 @@ def restore_backup(backup_id, yes=False, wait=0, force=False, confirm=None):
         return {'restored': item['id'], 'version': version, 'pre_restore_backup': pre_restore}
 
 
-def backup_now(note=None, wait=0, force=False):
-    """`tofi backup`: stop, back up, start again (only if it was running)."""
+def backup_now(note=None, wait=0, force=False, disks=True):
+    """`tofi backup`: stop, back up, start again (only if it was running).
+
+    Computer disks are included unless `disks` is False; the Worker's stop
+    hibernates every computer first, so each disk is quiet when it is copied."""
     with lifecycle_lock():
         state = load_state()
         if state is None or state['phase'] != 'installed':
             raise HostError('Backup needs an installed TOFI in phase installed; run `sudo tofi install` first.')
         wait_for_idle('the backup', wait, force)
-        check_backup_space('the backup')
+        check_backup_space('the backup', disks_estimate() if disks else 0)
         env = read_env()
         was_running = any((c.get('State') or {}).get('Running') for c in project_containers())
         stopped()
         meta, failure = None, None
         try:
-            meta = backup_data('manual', env, note, check_space=False)
+            meta = backup_data('manual', env, note, check_space=False, disks=disks)
         except BaseException as error:
             failure = error
         if was_running:
@@ -2676,6 +2954,9 @@ def rollback(state):
     try:
         transition(state, 'rolling-back', 'stop-candidate')
         stopped(tolerate_unclean=True)
+        if transaction.get('disk_swaps'):
+            undo_disk_swaps(transaction)
+            save_state(state)
         if transaction.get('data_changed') and not transaction.get('data_restored'):
             backup_id = transaction.get('backup')
             if backup_id:
@@ -3728,6 +4009,11 @@ def parse_args(argv):
     upgrade_parser.add_argument('--json', action='store_true', help='machine-readable output')
     backup_parser = sub.add_parser('backup', help='stop, back up data and settings, start again')
     backup_parser.add_argument('--note', help='a short label stored with the backup')
+    backup_parser.add_argument('--no-disks', action='store_true',
+                               help='leave the computers\' workspace disks out (they can be large)')
+    backup_parser.add_argument('--verify', nargs='?', const='latest', metavar='ID',
+                               help='check a backup (newest, an ID, or "all") without restoring it: files, '
+                                    'checksums, readability; changes nothing and stops nothing')
     add_guard_flags(backup_parser)
     backups_parser = sub.add_parser('backups', help='list backups')
     backups_parser.add_argument('--json', action='store_true', help='machine-readable output')
@@ -3735,6 +4021,8 @@ def parse_args(argv):
     restore_parser = sub.add_parser('restore', help='restore a backup and switch to its version')
     restore_parser.add_argument('backup_id', help='an id from `tofi backups` (or a unique prefix)')
     restore_parser.add_argument('--yes', '-y', action='store_true', help='do not ask for confirmation')
+    restore_parser.add_argument('--no-disks', action='store_true',
+                                help='keep the current computer disks even if the backup carries them')
     add_guard_flags(restore_parser)
     config_parser = sub.add_parser('config', help='change a setting')
     config_sub = config_parser.add_subparsers(dest='config_command', required=True)
@@ -3835,6 +4123,10 @@ def confirm_restore(item, meta):
     say('Restore backup %s (TOFI %s, taken %s, %s).' % (item['id'], meta.get('version'), meta.get('created_at'),
                                                        meta.get('reason')))
     say('All current data and settings are replaced; the current state is backed up first (pre-restore).')
+    if meta.get('disks'):
+        say('It carries %s: they replace the current ones, which are kept beside them (workspace-before-restore-*.ext4); '
+            'open pages of those computers are lost. --no-disks leaves the disks as they are.'
+            % plural(len(meta['disks']), 'computer disk'))
     if not ask_yes('Restore it?'):
         raise HostError('Restore cancelled; nothing was changed.')
 
@@ -3881,9 +4173,17 @@ def main(argv=None):
             stop(*guard_options(args, interactive_default=True))
             return 0
         if args.command == 'backup':
-            meta = backup_now(args.note, *guard_options(args, interactive_default=True))
+            if args.verify is not None:
+                require_root()
+                reports, ok = verify_backups(args.verify)
+                sys.stdout.write(render_verify(reports))
+                return 0 if ok else 1
+            meta = backup_now(args.note, *guard_options(args, interactive_default=True), disks=not args.no_disks)
             say('Backup id: %s' % meta['id'])
-            return 0
+            # Re-read what was just written: a backup nobody checked is a hope.
+            reports, ok = verify_backups(meta['id'])
+            sys.stdout.write(render_verify(reports))
+            return 0 if ok else 1
         if args.command == 'backups':
             require_root()
             if args.remove:
@@ -3897,7 +4197,7 @@ def main(argv=None):
             return 0
         if args.command == 'restore':
             restore_backup(args.backup_id, args.yes, *guard_options(args, interactive_default=not args.yes),
-                           confirm=confirm_restore if sys.stdin.isatty() else None)
+                           confirm=confirm_restore if sys.stdin.isatty() else None, disks=not args.no_disks)
             return 0
         if args.command == 'config':
             if args.config_command == 'trusted-proxies':
