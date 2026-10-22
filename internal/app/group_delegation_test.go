@@ -1,6 +1,7 @@
 package app
 
 import (
+	"github.com/JackZhao98/tofibot/internal/runtime"
 	"strings"
 	"testing"
 )
@@ -76,9 +77,37 @@ func TestDelegationPrincipleInGroupTurnsNotDMs(t *testing.T) {
 			t.Errorf("principle holds an example or contrast: %q", banned)
 		}
 	}
-	for _, keep := range []string{"fully own stays with that member", "small talk is answered directly"} {
+	for _, keep := range []string{"fully own stays with that member", "merely be nice to have is no reason", "mall talk is answered directly"} {
 		if !strings.Contains(groupDelegationGuidance, keep) {
 			t.Errorf("over-delegation guard missing %q", keep)
 		}
+	}
+}
+
+func contextTexts(msgs []runtime.Message, system string) string {
+	var b strings.Builder
+	b.WriteString(system)
+	for _, m := range msgs {
+		b.WriteString("\n" + m.Content)
+	}
+	return b.String()
+}
+
+func TestHandoffContributionsAreAssembledIntoOneResult(t *testing.T) {
+	f := newGroupReturnFixture(t)
+	defer f.store.Close()
+	srv := &Server{store: f.store}
+	msgs, system := srv.buildContext(f.group, f.child, f.b)
+	child := contextTexts(msgs, system)
+	if !strings.Contains(child, "Post your contribution once, complete") || strings.Contains(child, "Post your actual findings") {
+		t.Fatalf("colleague run is not told to post its contribution once: %s", child)
+	}
+	finishGroupRun(t, f.store, f.root, f.a, "A delegated to B")
+	finishGroupRun(t, f.store, f.child, f.b, "B result")
+	follow := followupFor(t, f.store, f.child.ID)
+	msgs, system = srv.buildContext(f.group, follow, f.a)
+	resumed := contextTexts(msgs, system)
+	if !strings.Contains(resumed, "publish the assembled outcome once") {
+		t.Fatalf("coordinator is not told to publish one assembled outcome: %s", resumed)
 	}
 }
