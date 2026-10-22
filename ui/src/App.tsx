@@ -84,6 +84,7 @@ import { DraftStream, useLiveDraft } from "./draftStream";
 import { rowModelEqual } from "./timelineRow";
 import { layerRoot } from "./layers";
 import { WorkspaceToast } from "./WorkspaceToast";
+import { useProxyChallenge } from "./ProxyChallengeSlot";
 import { shouldShowReplyQuote } from "./replyQuote";
 import { buildRetryFamilies, indexMessages, isTerminalRun, retryFamilyAnchor } from "./runFamily";
 import { composerClientMessageId, composerDraftMatchesMessage, composerMessageContent, composerMessageSignature, type ComposerReply } from "./composerDraft";
@@ -584,6 +585,7 @@ function Workspace() {
   const [scheduleRefresh, setScheduleRefresh] = useState(0);
   const [error, setError] = useState("");
   const [snapshotError, setSnapshotError] = useState("");
+  const proxyChallenged = useProxyChallenge();
   const [workspaceError, setWorkspaceError] = useState("");
   const workspaceErrorShown = useGraceFlag(Boolean(workspaceError), LINK_LOSS_GRACE_MS);
   const [headerMenuOpen, setHeaderMenuOpen] = useState(false);
@@ -2406,7 +2408,7 @@ function Workspace() {
   return (
     <div inert={Boolean(deleteTarget || hidePrimaryTarget || (viewOnlyChat && (isDesktop || compactViewport))) || undefined} className={`workspace${keyboardViewportOpen ? " keyboard-viewport-open" : ""}`} style={viewportHeight ? { "--viewport-height": `${viewportHeight}px` } as React.CSSProperties : undefined}>
       <Suspense fallback={null}><UpdateBanner /></Suspense>
-      {workspaceErrorShown && indexInitialized.current && <WorkspaceToast onRetry={() => void refreshIndex()} />}
+      {workspaceErrorShown && indexInitialized.current && !proxyChallenged && <WorkspaceToast onRetry={() => void refreshIndex()} />}
       {computerInfo && ((computerInfo.state !== "ready" && computerInfo.state !== "hibernated" && computerInfo.state !== "hibernating") || computerHealthAlert(computerInfo.health)) && panel !== "desktop" && <div className="stream-status workspace-status computer-preparing" role="status"><strong>{computerInfo.health?.state === "unresponsive" ? t("computer.health_unresponsive") : computerInfo.health?.state === "restarting" ? t("computer.health_restarting") : computerInfo.state === "starting" ? t("computer.starting") : computerInfo.state === "resuming" ? t("computer.resuming") : computerInfo.state === "error" ? t("computer.failed") : computerInfo.state === "stopped" ? t("computer.stopped") : t("computer.unavailable")}</strong><span>{(computerInfo.state === "starting" || computerInfo.state === "resuming") && computerInfo.phase ? ` · ${computerPhaseKeys[computerInfo.phase] ? t(computerPhaseKeys[computerInfo.phase]) : computerInfo.phase}` : ""}{computerInfo.error ? ` · ${computerInfo.error}` : ""}</span>{(computerInfo.state === "error" || computerInfo.state === "stopped" || computerInfo.health?.state === "unresponsive") && <button className="secondary-button" onClick={() => void api.computerRetry().then(() => api.computerInfo()).then(setComputerInfo).catch(cause => setError(errorText(cause)))}>{t("common:action.retry")}</button>}</div>}
       <div className="native-titlebar" aria-hidden="true" /><ActionHints /><div className={`workspace-grid${sidebarCollapsed ? " sidebar-collapsed" : ""}${contextPanelOpen ? " context-open" : ""}${contextPanelOpen || viewOnlyChat ? " card-open" : ""}${activeBot ? " bot-panel-ready" : ""}${panel === "bot-edit" ? " bot-panel-open" : ""}${displayedPanel === "terminal" ? " terminal-context" : ""}`}>
         <aside className={`contact-pane ${mobileList ? "open" : ""}`} inert={modalPanelOpen || desktopExpanded || undefined}>
@@ -2546,7 +2548,7 @@ function Workspace() {
                   <ToolActivityList activities={toolTimeline.fallback} summaries={terminalToolSummaries.filter(summary => toolTimeline.fallback.some(activity => activity.run_id === summary.run_id))} details={toolDetailState} onLoadDetails={loadToolDetails} botById={botById} activeRunIds={activeRunIds} group={active.kind === "group"} />
                   {taskOwners.filter(owner => !owner.anchor).map(renderTaskOwner)}
                   {!isDesktop && pendingRuns.filter(run => !ownedRunIDs.has(run.id)).map(run => <LiveRunStatus key={run.id} run={run} botName={run.kind === "triage" ? "Tofi" : botById.get(run.bot_id)?.name ?? "Bot"} showName={active.kind === "group"} />)}
-                  {error && <div className="error-banner system-notice" role="alert">{error}</div>}
+                  {error && !proxyChallenged && <div className="error-banner system-notice" role="alert">{error}</div>}
                 </div></ActivityViewContext.Provider></RunStartContext.Provider></ExpiryFinishingContext.Provider>
               </div>
               <div className="edge-blur is-bottom" aria-hidden="true"><i /><i /></div>
