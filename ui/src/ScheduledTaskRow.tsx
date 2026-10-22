@@ -4,6 +4,7 @@ import { isDesktop } from "./desktop";
 import type { Message, Run, Schedule } from "./types";
 import type { ScheduleOccurrence } from "./scheduleOccurrences";
 import { ScheduledRun } from "./ScheduledRun";
+import { MessageMarkdown } from "./MessageMarkdown";
 import { scheduledRunMetadata } from "./scheduledRunMetadata";
 import { useTranslation } from "./i18n";
 import "./scheduled-task-row.css";
@@ -17,8 +18,10 @@ export function ScheduledTaskRow({ message, run, occurrence, pending = false, sc
   // completed receipt plus a persisted final reply in this conversation can
   // justify the narrower publication label (not a notification/read claim).
   const { t } = useTranslation("schedules");
+  // A done occurrence that recorded a conclusion and posted nothing completed quietly (D52).
+  const quiet = state === "done" && !!exactOccurrence && !exactOccurrence.result_posted && !exactOccurrence.result_in_conversation && !!exactOccurrence.result_text;
   const status = t(state === "waiting" ? "row.status.waiting" : exactOccurrence
-    ? state === "queued" ? "row.status.queued" : state === "running" ? "row.status.running" : state === "done" ? exactOccurrence.result_in_conversation ? "row.status.published" : "row.status.done" : state === "failed" ? "row.status.failed" : state === "cancelled" ? "row.status.cancelled" : state === "interrupted" ? "row.status.interrupted" : "row.status.unknown"
+    ? state === "queued" ? "row.status.queued" : state === "running" ? "row.status.running" : state === "done" ? exactOccurrence.result_in_conversation ? "row.status.published" : quiet ? "row.status.quiet" : "row.status.done" : state === "failed" ? "row.status.failed" : state === "cancelled" ? "row.status.cancelled" : state === "interrupted" ? "row.status.interrupted" : "row.status.unknown"
     : state === "queued" ? "row.status.queued" : state === "running" ? "row.status.turn_running" : state === "done" ? "row.status.turn_done" : state === "failed" ? "row.status.turn_failed" : state === "cancelled" ? "row.status.turn_cancelled" : state === "interrupted" ? "row.status.turn_interrupted" : "row.status.unknown");
   const isFailure = state === "failed" || state === "interrupted";
   // The family may have failed in another Bot's hidden conversation. Its
@@ -41,11 +44,14 @@ export function ScheduledTaskRow({ message, run, occurrence, pending = false, sc
     state={state}
     statusLabel={status}
     resultPublished={exactOccurrence?.result_in_conversation}
+    quiet={quiet}
+    resultText={exactOccurrence?.result_text}
+    resultSources={exactOccurrence?.result_sources}
     failureSummary={receiptMissing ? t("row.failure.receipt_missing") : t("row.failure.incomplete")}
     error={error}
-    notes={(!exactOccurrence || (exactOccurrence.execution_status === "done" && !exactOccurrence.result_in_conversation)) ? <>
+    notes={(!exactOccurrence || (exactOccurrence.execution_status === "done" && !exactOccurrence.result_in_conversation && !quiet)) ? <>
       {!exactOccurrence && <p>{t("row.note.partial_status")}</p>}
-      {exactOccurrence?.execution_status === "done" && !exactOccurrence.result_in_conversation && <p>{t("row.note.unpublished")}</p>}
+      {exactOccurrence?.execution_status === "done" && !exactOccurrence.result_in_conversation && !quiet && <p>{t("row.note.unpublished")}</p>}
     </> : undefined}
     onRetry={onRetry && retryId ? () => onRetry(retryId) : undefined}
   />;
@@ -59,7 +65,7 @@ export function ScheduledTaskRow({ message, run, occurrence, pending = false, sc
         <span className="scheduled-task-status">{status}</span>
         <TofiIcon className="scheduled-task-chevron" name="chevron-right" size={14} />
       </summary>
-      <div className="scheduled-task-details"><p>{metadata.description}</p><details><summary>{t("row.manage_instructions")}</summary><p>{message.content}</p></details>{!exactOccurrence && <p className="field-note">{t("row.note.partial_status")}</p>}{exactOccurrence?.execution_status === "done" && !exactOccurrence.result_in_conversation && <p className="field-note">{t("row.note.unpublished")}</p>}{isFailure && <div className="scheduled-task-recovery"><p>{receiptMissing ? t("row.failure.receipt_missing_confirm") : t("row.failure.incomplete_confirm")}</p>{error && <details><summary>{t("row.technical_reason")}</summary><p className="error-text">{error}</p></details>}{onRetry && retryId && <button type="button" className="text-button" disabled={retrying} onClick={() => { setRetrying(true); void onRetry(retryId).finally(() => setRetrying(false)); }}>{retrying ? t("row.rerunning") : t("row.rerun")}</button>}</div>}</div>
+      <div className="scheduled-task-details"><p>{metadata.description}</p><details><summary>{t("row.manage_instructions")}</summary><p>{message.content}</p></details>{!exactOccurrence && <p className="field-note">{t("row.note.partial_status")}</p>}{exactOccurrence?.execution_status === "done" && !exactOccurrence.result_in_conversation && !quiet && <p className="field-note">{t("row.note.unpublished")}</p>}{exactOccurrence?.result_text && !exactOccurrence.result_in_conversation && <details open><summary>{t("row.result.heading")}</summary><MessageMarkdown content={exactOccurrence.result_text} /></details>}{isFailure && <div className="scheduled-task-recovery"><p>{receiptMissing ? t("row.failure.receipt_missing_confirm") : t("row.failure.incomplete_confirm")}</p>{error && <details><summary>{t("row.technical_reason")}</summary><p className="error-text">{error}</p></details>}{onRetry && retryId && <button type="button" className="text-button" disabled={retrying} onClick={() => { setRetrying(true); void onRetry(retryId).finally(() => setRetrying(false)); }}>{retrying ? t("row.rerunning") : t("row.rerun")}</button>}</div>}</div>
     </details>
   </article>;
 }

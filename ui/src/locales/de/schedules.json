@@ -54,7 +54,8 @@
       "turn_done": "Dieser Lauf ist beendet",
       "turn_failed": "Dieser Lauf ist fehlgeschlagen",
       "turn_cancelled": "Dieser Lauf wurde gestoppt",
-      "turn_interrupted": "Dieser Lauf wurde unterbrochen"
+      "turn_interrupted": "Dieser Lauf wurde unterbrochen",
+      "quiet": "Abgeschlossen, nichts gepostet"
     },
     "failure": {
       "receipt_missing": "Dieser Lauf hat kein fertiges Ergebnis bestätigt und gilt daher nicht als geliefert.",
@@ -69,7 +70,11 @@
     "manage_instructions": "Verwalten · vollständige Anweisungen",
     "technical_reason": "Technische Details ansehen",
     "rerunning": "Läuft erneut…",
-    "rerun": "Erneut ausführen"
+    "rerun": "Erneut ausführen",
+    "result": {
+      "heading": "Ergebnis",
+      "sources": "Quellen"
+    }
   },
   "editor": {
     "edit": "Bearbeiten",

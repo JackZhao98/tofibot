@@ -100,6 +100,14 @@ type ScheduleOccurrence struct {
 	StatusRunID          string   `json:"status_run_id"`
 	StatusError          string   `json:"status_error,omitempty"`
 	ResultInConversation bool     `json:"result_in_conversation"`
+	// Result is the run's recorded conclusion (the scheduled say(answer)),
+	// bounded. ResultPosted is true when that conclusion was posted to the
+	// chat and false when the run completed quietly (D52). CompletedAt is when
+	// the outcome run last changed state.
+	ResultText    string   `json:"result_text,omitempty"`
+	ResultSources []string `json:"result_sources,omitempty"`
+	ResultPosted  bool     `json:"result_posted"`
+	CompletedAt   string   `json:"completed_at,omitempty"`
 }
 
 type scheduleFamilyRun struct {
@@ -860,11 +868,57 @@ func (s *Store) ScheduleOccurrences(ctx context.Context, conversationID string, 
 					occurrence.StatusError = boundedOccurrenceError(r.statusError)
 				}
 			}
+			s.attachOccurrenceResult(&occurrence, families[id])
 			out = append(out, occurrence)
 			delete(occurrences, id) // Return duplicate requested IDs only once.
 		}
 	}
 	return out, nil
+}
+
+// maxOccurrenceResultRunes bounds the result text an occurrence carries.
+const maxOccurrenceResultRunes = 4000
+
+// scheduleOccurrenceResult is the recorded conclusion of an occurrence.
+type scheduleOccurrenceResult struct {
+	Text    string
+	Sources []string
+	Quiet   bool
+}
+
+// occurrenceAnswer returns the conclusion recorded by the occurrence's root
+// run, else by the latest run of its family that recorded one.
+func (s *Store) occurrenceAnswer(rootID string, family []scheduleFamilyRun) (scheduleOccurrenceResult, bool) {
+	ids := []string{rootID}
+	for i := len(family) - 1; i >= 0; i-- {
+		if family[i].id != rootID {
+			ids = append(ids, family[i].id)
+		}
+	}
+	for _, id := range ids {
+		if rec, ok := s.sayAnswer(id); ok {
+			return scheduleOccurrenceResult{Text: trimRunes(rec.Text, maxOccurrenceResultRunes), Sources: rec.Sources, Quiet: rec.Quiet}, true
+		}
+	}
+	return scheduleOccurrenceResult{}, false
+}
+
+// attachOccurrenceResult adds the recorded conclusion and completion time. A
+// failed or running occurrence has no result of its own to show.
+func (s *Store) attachOccurrenceResult(o *ScheduleOccurrence, family []scheduleFamilyRun) {
+	if o.StatusRunID != "" {
+		var updated string
+		if s.db.QueryRow(`SELECT updated_at FROM runs WHERE id=?`, o.StatusRunID).Scan(&updated) == nil && (o.ExecutionStatus == "done" || o.ExecutionStatus == "failed" || o.ExecutionStatus == "interrupted" || o.ExecutionStatus == "cancelled") {
+			o.CompletedAt = updated
+		}
+	}
+	if o.ExecutionStatus != "done" {
+		return
+	}
+	if res, ok := s.occurrenceAnswer(o.RootRunID, family); ok {
+		o.ResultText, o.ResultSources = res.Text, res.Sources
+		o.ResultPosted = !res.Quiet && o.ResultInConversation
+	}
 }
 
 func boundedOccurrenceError(value string) string {

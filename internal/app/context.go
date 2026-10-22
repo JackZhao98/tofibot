@@ -227,7 +227,7 @@ const sayPrincipleLine = "Deliver your reply by calling say with purpose answer,
 
 // sayPrincipleLineScheduled is the line for a scheduled run, whose blocker is
 // reported as plain final text because an answer records success.
-const sayPrincipleLineScheduled = "Deliver the result by calling say with purpose answer; a run that cannot produce it ends with a plain-text explanation of the blocker instead."
+const sayPrincipleLineScheduled = "Deliver the result by calling say with purpose answer, with quiet true when the task's own instruction makes reporting conditional and the condition is not met; a run that cannot produce it ends with a plain-text explanation of the blocker instead."
 
 // sayAcknowledgeLine is the working-in-view rule at the point of decision, for
 // a run whose person is waiting in a conversation they can see (D50). It sits
@@ -256,7 +256,7 @@ const reactionAndEmojiGuidance = "Use emoji and reactions sparingly when fitting
 
 // Shared by scheduled roots and descendants; occurrence receipts remain run-specific.
 const scheduledResultGuidance = "\nSchedule status: use [schedule states], not old messages.\nOnce you have the assigned result and its sources, call complete_scheduled_task with both (source names/URLs), then give the same concise result as your final answer. If blocked after fallback, explain why without calling complete_scheduled_task."
-const scheduledResultGuidanceStructured = "\nSchedule status: use [schedule states], not old messages.\nOnce you have the assigned result and its sources, deliver the concise result with say(answer), listing the sources; that answer is also this run's completion record. If blocked after fallback, explain why as plain final text without say(answer), which would record success."
+const scheduledResultGuidanceStructured = "\nSchedule status: use [schedule states], not old messages.\nOnce you have the assigned result and its sources, deliver the concise result with say(answer), listing the sources; that answer is also this run's completion record and posts to the chat. When the task's own instruction makes reporting conditional and the condition is not met, deliver your conclusion with say(answer) and quiet true: it is recorded as the run's result and nothing is posted. If blocked after fallback, explain why as plain final text without say(answer), which would record success."
 
 const scheduledBrowserFallbackGuidance = "\nIf an installed capability or Skill is unavailable, empty, stale or failed, use the browser before giving up: a scheduled computer_browser call starts its shared desktop and Chrome if needed; inspect with browser.snapshot, then search and verify with visible desktop click/type/scroll. If the computer is unavailable or browser startup fails, report that concrete blocker instead of claiming the scheduled result was delivered."
 
@@ -714,6 +714,9 @@ func (s *Server) buildContextPartsWith(c Conversation, r Run, bot Bot, cachedMCP
 	// summarized messages so the transition stays coherent.
 	summarizedKept := 0
 	ownKept := 0
+	// verbatim lists the runs whose own reply stays word for word in the window;
+	// the scheduled results block does not repeat those (D52).
+	verbatim := map[string]bool{}
 	// earlier is set when a message the model has no other view of (not covered
 	// by the summary) stays out of the window, or older pages were not fetched.
 	earlier := moreBefore || summary != ""
@@ -768,6 +771,8 @@ func (s *Server) buildContextPartsWith(c Conversation, r Run, bot Bot, cachedMCP
 			// verbatim; older ones keep their gist for continuity.
 			if ownKept >= s.ownRepliesVerbatim() {
 				content = ownReplyGist(content)
+			} else if m.RunID != "" {
+				verbatim[m.RunID] = true
 			}
 			ownKept++
 		}
@@ -817,6 +822,9 @@ func (s *Server) buildContextPartsWith(c Conversation, r Run, bot Bot, cachedMCP
 	noteText := s.runContextNote(context.Background())
 	if states := s.scheduleStateNote(c, r, s.userLocation()); states != "" {
 		noteText += "\n" + states
+	}
+	if results := s.scheduleResultsNote(c, r, s.userLocation(), verbatim); results != "" {
+		noteText += "\n" + results
 	}
 	if r.structured {
 		if r.Kind == runKindSchedule || r.scheduleTask != nil {

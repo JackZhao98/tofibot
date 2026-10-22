@@ -50,7 +50,8 @@
       "turn_done": "이번 실행 종료",
       "turn_failed": "이번 실행 실패",
       "turn_cancelled": "이번 실행 중지됨",
-      "turn_interrupted": "이번 실행 중단됨"
+      "turn_interrupted": "이번 실행 중단됨",
+      "quiet": "완료, 게시 없음"
     },
     "failure": {
       "receipt_missing": "이번 실행에서 완료 결과가 확인되지 않아 전달된 것으로 보지 않습니다.",
@@ -65,7 +66,11 @@
     "manage_instructions": "관리 · 전체 지시 사항",
     "technical_reason": "기술 세부 정보 보기",
     "rerunning": "다시 실행하는 중…",
-    "rerun": "다시 실행"
+    "rerun": "다시 실행",
+    "result": {
+      "heading": "결론",
+      "sources": "출처"
+    }
   },
   "editor": {
     "edit": "편집",
