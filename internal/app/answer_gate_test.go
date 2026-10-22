@@ -436,3 +436,26 @@ func TestCodexOnlyWorkspaceChecksWithItsSmallestModel(t *testing.T) {
 		t.Fatalf("codex small model = %s", codexDefaultModel)
 	}
 }
+
+// A verdict that arrives after the answer's text began streaming is not used:
+// the draft was already shown, so bouncing it would retract visible text.
+func TestVerdictArrivingAfterTheTextBeganDoesNotBounceIt(t *testing.T) {
+	p := &probeProvider{reply: `{"outside_information":"needed"}`, block: make(chan struct{})}
+	var execErr error
+	s, run := gateRunWith(t, dmFuncEngine(func(ctx context.Context, req runtime.Request) (runtime.Result, error) {
+		req.OnToolCallDelta(runtime.ToolCallDelta{Index: 0, ID: "g1", Name: "say"})
+		for _, f := range []string{`{"purpose":"answer",`, `"resolution":"resolved",`, `"text":"Already `, `on screen."}`} {
+			req.OnToolCallDelta(runtime.ToolCallDelta{Index: 0, Arguments: f})
+		}
+		close(p.block) // the check answers only now
+		time.Sleep(400 * time.Millisecond)
+		_, execErr = callTool(ctx, req, "say", "g1", map[string]any{"purpose": "answer", "resolution": "resolved", "text": "Already on screen."})
+		return runtime.Result{}, nil
+	}), true, probeServer(p))
+	if run.Status != "done" || execErr != nil {
+		t.Fatalf("run=%+v execErr=%v", run, execErr)
+	}
+	if rows := assistantRows(t, s.store, run.ConversationID); !equalStrings(kindsAndText(rows), []string{"|Already on screen."}) {
+		t.Fatalf("messages = %q", kindsAndText(rows))
+	}
+}
