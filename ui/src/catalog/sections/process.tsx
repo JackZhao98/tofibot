@@ -2,9 +2,10 @@
 // into the tool steps. Task block (live line, Activity summary), web tool row and the compact live line, on synthetic
 // runs and tool steps; the clock of a live run starts when the frame opens.
 import { CompactLiveLine, RunStartContext, WebToolActivityRun } from "../../App";
+import { RunContextBody, type RunContextState } from "../../RunContext";
 import { TaskRunBlock } from "../../TaskRunBlock";
 import { buildTaskOwners } from "../../taskIssuePresentation";
-import type { Message, Run, ToolActivity, ToolActivityRunSummary } from "../../types";
+import type { Message, Run, RunContextSnapshot, ToolActivity, ToolActivityRunSummary } from "../../types";
 import type { CatalogState } from "../types";
 
 const ago = (seconds: number) => new Date(Date.now() - seconds * 1000).toISOString();
@@ -42,6 +43,41 @@ function web(runId: string, live: boolean) {
   </RunStartContext.Provider>;
 }
 
+// "Context" inside View activity (D53): synthetic snapshots; the body is the production component, the fetch is not made.
+const ctxMessage = (id: string, role: "user" | "assistant", text: string, minutesAgo: number, extra: Record<string, unknown> = {}) =>
+  ({ kind: "history_message", role, chars: text.length, tokens: Math.ceil(text.length / 4), text, message: { id, created_at: ago(minutesAgo * 60), ...extra } });
+const CONTEXT_SNAPSHOT: RunContextSnapshot = {
+  version: 1, run_id: "run_ctx", conversation_id: CONVERSATION, bot_id: BOT, model: "synthetic-model", captured_at: ago(60),
+  parts: [
+    { kind: "system_guidance", role: "system", chars: 4200, tokens: 1050, text: "You are Bot Mochi (id=bot_mochi). Speak in your Bot instructions' persona and voice in every reply.\nPromise future work only after scheduling; no self-renewing loops." },
+    { kind: "bot_instructions", role: "system", chars: 640, tokens: 160, text: "Bot instructions:\nAnswer briefly. Keep the launch checklist current.\nEnd of Bot instructions." },
+    { kind: "tools", role: "system", chars: 21000, tokens: 5400, text: "[{\"name\":\"say\",\"description\":\"Tell the person something\"}]", items: [{ name: "browser_open", chars: 2400, tokens: 610 }, { name: "say", chars: 900, tokens: 230 }] },
+    { kind: "tools_on_demand", role: "system", chars: 3000, tokens: 780, on_demand: true, text: "[{\"name\":\"schedule_create\"}]" },
+    { kind: "memory", role: "user", chars: 120, tokens: 30, text: "[memory data]\nThe cat is called Pixel.\n[/memory data]" },
+    { kind: "summary", role: "user", chars: 900, tokens: 225, text: "[derived history data]\nLaunch review moved to Thursday; venue booked.\n[/derived history data]" },
+    { kind: "earlier_turns_note", role: "user", chars: 170, tokens: 42, text: "[earlier conversation]\nThis conversation began before the turns shown here.\n[/earlier conversation]" },
+    ctxMessage("m1", "user", "Can you check the venue booking?", 52),
+    ctxMessage("m2", "assistant", "Booked for Thursday 15:00.", 51, { gisted: true }),
+    ctxMessage("m3", "user", "Thanks. What is on the launch checklist today?", 3, { request: true }),
+    { kind: "run_context", role: "user", chars: 70, tokens: 18, text: "[run context]\nCurrent time: 2026-10-22 10:30 UTC\n[/run context]" },
+    { kind: "request_note", role: "user", chars: 160, tokens: 40, text: "\nUse say(answer) for the final reply." },
+  ],
+  history: { considered: 3, included: 3, skipped: 0, skipped_by_summary: 0 },
+  totals: { chars: 30000, tokens: 7600, on_demand_chars: 3000, on_demand_tokens: 780, dropped_texts: 0, by_kind: [
+    { kind: "tools", parts: 1, chars: 21000, tokens: 5400 }, { kind: "system_guidance", parts: 1, chars: 4200, tokens: 1050 }, { kind: "summary", parts: 1, chars: 900, tokens: 225 },
+    { kind: "bot_instructions", parts: 1, chars: 640, tokens: 160 }, { kind: "history_message", parts: 3, chars: 150, tokens: 40 }, { kind: "memory", parts: 1, chars: 120, tokens: 30 },
+    { kind: "earlier_turns_note", parts: 1, chars: 170, tokens: 42 }, { kind: "run_context", parts: 1, chars: 70, tokens: 18 }, { kind: "request_note", parts: 1, chars: 160, tokens: 40 },
+  ] },
+};
+const CONTEXT_CUT: RunContextSnapshot = {
+  ...CONTEXT_SNAPSHOT,
+  parts: CONTEXT_SNAPSHOT.parts.map(part => part.kind === "memory" ? { ...part, text: undefined, text_dropped: true } : part.kind === "summary" ? { ...part, redactions: 2 } : part),
+  history: { considered: 41, included: 3, skipped: 38, skipped_by_summary: 30, earlier_unfetched: true },
+  totals: { ...CONTEXT_SNAPSHOT.totals, dropped_texts: 1 },
+};
+const contextBody = (state: RunContextState) => <div className="run-context-catalog"><RunContextBody state={state} timezone="UTC" /></div>;
+const openPart = (index: number): CatalogState["drive"] => async step => { await step.click(`.run-context-parts > .run-context-part:nth-child(${index}) > summary`); await step.wait(200); };
+
 const expand = (selector: string): CatalogState["drive"] => async step => { await step.click(selector); await step.wait(400); };
 const LONG = "Working out which of the available tools fits best for the launch review notes and the venue";
 const ctx = { kind: "inline" as const, context: ["catalog-column"] };
@@ -58,6 +94,12 @@ export const processStates: CatalogState[] = [
   { id: "process-web-live-open", label: "Web tool row, live, opened", ...ctx, render: () => web("run_w2", true), drive: expand(".web-tool-toggle") },
   { id: "process-web-complete", label: "Web tool row, finished", ...ctx, render: () => web("run_w3", false) },
   { id: "process-web-complete-open", label: "Web tool row, finished, opened", ...ctx, render: () => web("run_w4", false), drive: expand(".web-tool-toggle") },
+  { id: "context-ready", label: "Context in View activity", note: "summary line, share of the context by kind, then the parts in order; history messages are compact rows", ...ctx, render: () => contextBody({ status: "ready", snapshot: CONTEXT_SNAPSHOT }) },
+  { id: "context-part-open", label: "Context, one part opened", note: "the original text in mono, with Copy", ...ctx, render: () => contextBody({ status: "ready", snapshot: CONTEXT_SNAPSHOT }), drive: openPart(1) },
+  { id: "context-cut", label: "Context, history cut by the window", note: "skipped messages, older history never read, a part whose text was left out, secret-like values replaced", ...ctx, render: () => contextBody({ status: "ready", snapshot: CONTEXT_CUT }) },
+  { id: "context-loading", label: "Context, loading", ...ctx, render: () => contextBody({ status: "loading" }) },
+  { id: "context-unavailable", label: "Context, no snapshot", note: "context_snapshot_unavailable: an older run, or one pruned", ...ctx, render: () => contextBody({ status: "unavailable" }) },
+  { id: "context-error", label: "Context, could not load", ...ctx, render: () => contextBody({ status: "error", message: "The request timed out." }) },
   { id: "process-compact", label: "Compact live line (nothing to open yet)", note: "a run that has not called a tool: the same line, not a button", ...ctx, render: () => <CompactLiveLine label="Thinking · 4s" botId={BOT} botName="Mochi" at={ago(4)} showName={false} ariaLabel="Mochi is working" /> },
   { id: "process-compact-open", label: "Compact live line with steps behind it", note: "activity hidden, a tool is running: a button", ...ctx, render: () => <CompactLiveLine label="Browsing the web · 12s" botId={BOT} botName="Mochi" at={ago(12)} showName={false} ariaLabel="Mochi is working" onOpen={noop} /> },
 ];

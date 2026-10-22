@@ -725,6 +725,7 @@ func (s *Server) buildContextPartsWith(c Conversation, r Run, bot Bot, cachedMCP
 		m := msgs[i]
 		if m.Seq <= covered && m.ID != r.TriggerMessageID {
 			if summarizedKept >= summaryOverlapMessages {
+				r.ctxCapture.skipBySummary()
 				continue
 			}
 			summarizedKept++
@@ -740,6 +741,7 @@ func (s *Server) buildContextPartsWith(c Conversation, r Run, bot Bot, cachedMCP
 			content = trimRunes(content, historyLimit-used)
 			if cost := len([]rune(content)); cost > 0 && used+cost <= historyLimit {
 				chosen = append(chosen, runtime.Message{Role: "user", Content: content})
+				r.ctxCapture.addHistory(m, "user", content, true, content != m.Content, 0, false, m.SenderBotID)
 				used += cost
 			}
 			continue
@@ -765,12 +767,14 @@ func (s *Server) buildContextPartsWith(c Conversation, r Run, bot Bot, cachedMCP
 			}
 		}
 		own := m.SenderBotID == bot.ID && m.Role == "assistant"
+		gisted := false
 		if own {
 			// The Bot's own wording, replayed verbatim, becomes a template it keeps
 			// copying (fixed caveats, closing offers). Only its latest replies stay
 			// verbatim; older ones keep their gist for continuity.
 			if ownKept >= s.ownRepliesVerbatim() {
 				content = ownReplyGist(content)
+				gisted = true
 			} else if m.RunID != "" {
 				verbatim[m.RunID] = true
 			}
@@ -790,6 +794,7 @@ func (s *Server) buildContextPartsWith(c Conversation, r Run, bot Bot, cachedMCP
 			continue
 		}
 		chosen = append(chosen, runtime.Message{Role: role, Content: content, ImageURLs: visual.ImageURLs})
+		r.ctxCapture.addHistory(m, role, content, gisted, content != visual.Content, len(visual.ImageURLs), m.ID == r.TriggerMessageID, m.SenderBotID)
 		used += cost
 	}
 	for ; i >= 0; i-- {
@@ -813,6 +818,7 @@ func (s *Server) buildContextPartsWith(c Conversation, r Run, bot Bot, cachedMCP
 	if mentions := s.mentionedSinceTrigger(c, r, bot); mentions != "" {
 		pm = append(pm, runtime.Message{Role: "user", Content: mentions})
 	}
+	r.ctxCapture.markHistoryStart(len(pm))
 	pm = append(pm, chosen...)
 	if handoffText != "" {
 		pm = append(pm, runtime.Message{Role: "user", Content: handoffText})
@@ -820,7 +826,9 @@ func (s *Server) buildContextPartsWith(c Conversation, r Run, bot Bot, cachedMCP
 	// Volatile facts trail the history, just before the final input, so the
 	// system text stays cache-stable and the current request stays last.
 	noteText := s.runContextNote(context.Background())
-	if states := s.scheduleStateNote(c, r, s.userLocation()); states != "" {
+	noteBase := noteText
+	states := s.scheduleStateNote(c, r, s.userLocation())
+	if states != "" {
 		noteText += "\n" + states
 	}
 	if results := s.scheduleResultsNote(c, r, s.userLocation(), verbatim); results != "" {
@@ -842,6 +850,7 @@ func (s *Server) buildContextPartsWith(c Conversation, r Run, bot Bot, cachedMCP
 		}
 	}
 	note := runtime.Message{Role: "user", Content: noteText}
+	r.ctxCapture.markNote(len(pm), noteBase, states)
 	if n := len(pm); n > 0 {
 		last := pm[n-1]
 		pm = append(pm[:n-1], note, last)
@@ -924,6 +933,7 @@ func (s *Server) buildContextPartsWith(c Conversation, r Run, bot Bot, cachedMCP
 		system += "\nAfter successful delegation, end this turn without a receipt or predicted result; the durable return resumes you to integrate it and obtain this run's receipt. An assignment is not completion. Promises, failed dispatches and conversational invitations create no waiting task."
 	}
 
+	r.ctxCapture.finishMessages(pm, len(msgs), moreBefore)
 	return pm, system
 }
 
