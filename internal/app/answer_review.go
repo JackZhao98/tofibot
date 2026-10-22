@@ -134,6 +134,11 @@ func answerRevision(gaps []criterionResult, criteria []rubricCriterion) string {
 	return b.String()
 }
 
+// blockerRevisionTail follows the gap list when the draft was a plain-text
+// ending: the run may still produce its result, or end the same way if a
+// concrete blocker stands.
+const blockerRevisionTail = " If the work can now be completed, deliver the result with say, purpose answer; if a concrete blocker still stands, end with a plain-text explanation of it."
+
 // answerGateScope says whether a run's answers are graded: structured replies
 // to work that nobody is waiting on. Of the run kinds in the code
 // (collaboration.go, group_mention.go) only scheduled occurrences, group

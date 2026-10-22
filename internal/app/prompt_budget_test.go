@@ -281,8 +281,12 @@ func TestProductionPromptSizeMatrix(t *testing.T) {
 				// roster (+296 measured on the synthetic two-Bot group, the longest prompt; DM unchanged).
 				// 8196: plus the nice-to-have limit on handing off and the one-assembled-result lines (+125 measured).
 				// 8612: 8196 plus the memory and recall principle (+416 measured, decision 0044).
-				if fixed > 8612 {
-					t.Errorf("fixed overhead %d leaves too little customization headroom (ceiling 8612)", fixed)
+				// 8620: 8612 plus the reworded work-is-done sentence (+8, decision 0050: it
+				// forbids claiming unfinished work and no longer reads as forbidding an
+				// acknowledgement); the acknowledgement line itself sits beside the request,
+				// outside this prompt.
+				if fixed > 8620 {
+					t.Errorf("fixed overhead %d leaves too little customization headroom (ceiling 8620)", fixed)
 				}
 				if !strings.Contains(system, bot.Instructions) {
 					t.Fatal("user instructions changed")

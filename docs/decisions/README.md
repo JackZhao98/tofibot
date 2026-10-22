@@ -60,6 +60,7 @@
 | D47 | TOFI 只精选官方连接；社区连接由使用者自己安装，工具默认不信它自己的“只读” | 2026-10-22 | 社区包不进目录和镜像（Discord 仍 held，只给自己添加的步骤）；本地 MCP 安装加可选 npm 包摘要校验、出处（社区插件·包名·版本，进配置指纹）、值为密码框并安装后清空；对社区连接，提供方的 readOnlyHint 只展示不生效，工具默认按写批准，owner 手动标只读；使用者安装的带脚本 Skill 读取时也复制到 Bot 电脑（带凭据优先用 MCP）；试验案例 `@discord-mcp/cli` 0.32.1，邀请权限 66560 / 68672 | [0047](0047-curated-official-community-user-installed.md) |
 | D48 | 手动备份带上电脑磁盘，自动备份不带；备份可以不还原就验证 | 2026-10-22 | `tofi backup` 默认复制每台电脑的 workspace.ext4（稀疏/reflink，`--no-disks` 可关），pre-update / pre-restore 永不带；`tofi backup --verify [ID\|all]` 查文件、大小、sha256、归档可读、tofi.env 可用；`tofi restore` 默认连磁盘一起还原，被换下的盘改名保留，回滚时换回；只在服务停止且 manager.lock 可拿时复制 | [0048](0048-backups-carry-computer-disks-and-verify.md) |
 | D49 | `tofi security audit`：只读、只看主机能证实的事实，FAIL 只留给直接泄密或登录失效 | 2026-10-22 | 不拿锁不写缓存，默认不联网（`--online` 才查）；FAIL=机密权限/明文 HTTP/证书过期/限流关闭/明文模型密钥，WARN=其余风险；退出码 0/2/1；不输出密钥值；执行者提出，owner 待确认 | [0049](0049-security-audit-levels.md) |
+| D50 | 先应一声再干活；定时任务的“卡住”结尾也过评分员 | 2026-10-22 | 照 Claude Code“第一次调用工具前先说一句、关键时刻给简短更新”：有人在等的运行（私聊、群里人发的消息）在请求旁加一条原则，需要工具工作时先 `say(message)` 应一声再做，值得说的发现随时说，最后 `say(answer)`；`say` 说明和完成指引里的“只在做完后宣布”改成“只在做完后说做完了”；3 条上限不变；定时任务以纯文字结尾（卡住）时，这段文字也用 D43 的评分员评一次，有 gap 私下退回，与 `say(answer)` 共用轮数；只有合成测试，待真模型实测；待 owner 确认 | [0050](0050-acknowledge-then-work.md) |
 
 ## 怎么新增一条决定
 
