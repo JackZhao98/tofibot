@@ -131,8 +131,8 @@
   },
   "phase": {
     "finishing": "Finishing up",
-    "needs_approval": "Your approval is needed",
-    "needs_answer": "Your input is needed",
+    "needs_approval": "To approve",
+    "needs_answer": "To answer",
     "turn_ended": "This turn ended",
     "stopped": "This workflow stopped",
     "reviewing": "Checking before execution",
@@ -280,7 +280,6 @@
     "answered_refresh_failed": "Answer received, but the list didn't refresh. Reload the page to see it.",
     "submit_failed": "Couldn't submit. Try again.",
     "state_changed": "This question has changed. Reload the page before continuing.",
-    "needs_decision": "Your decision is needed",
     "answer_placeholder": "Type your answer…",
     "other_option": "Other answer",
     "your_answer": "Your answer",
@@ -326,7 +325,6 @@
     "submit_failed": "Couldn't submit. Your input is kept; check it and try again.",
     "cancelled_refresh_failed": "Cancelled, but the status didn't refresh. Reload the page to see it.",
     "answered_refresh_failed": "Answer received, but the status didn't refresh. Reload the page to see it.",
-    "needs_input": "Your input is needed",
     "target_site": "Website",
     "privacy_fields": "Regular fields are shared with the Bot as plain text. Passwords go through private input and are never shown to the Bot as plain text. Spaces in passwords are kept.",
     "privacy_continue": "Submitting lets the Bot continue the task. Nothing has been submitted to the website yet.",
@@ -555,7 +553,6 @@
     "send_failed": "Couldn't send your response. Try again.",
     "state_changed": "This request has changed. Check its updated status before continuing.",
     "takeover": {
-      "badge": "Needs you on the computer",
       "take": "Take over",
       "hint": "You'll work on the Bot's shared computer. What you type or copy stays on that screen and is never shared with the Bot.",
       "resolved_done": "Handed back to the Bot",
@@ -569,7 +566,6 @@
       "footer": "The Bot waits while you work. Choose Done when you finish."
     },
     "connection": {
-      "badge": "Connect a service",
       "connect": "Connect",
       "retry": "Try again",
       "waiting": "Waiting for sign-in…",

@@ -464,14 +464,17 @@ await check("the context menu pins and unpins, for rows and tiles", async () => 
   await context.close();
 });
 
-await check("a pinned group shows the group mark, not a cat", async () => {
+await check("a pinned group shows the group mark (member heads), not a full cat", async () => {
   const { page, context } = await open();
   await rowFor(page, "Synthetic Group").scrollIntoViewIfNeeded();
   await rowFor(page, "Synthetic Group").click({ button: "right" });
   await page.getByRole("menuitem", { name: "Pin", exact: true }).click();
   await page.locator(".pin-tile-group").waitFor();
   assert.deepEqual(await pinnedNames(page), ["Synthetic Group"]);
-  assert.equal(await page.locator(".pin-tile .tofi-avatar").count(), 0, "no cat for a group");
+  // The group mark is a cluster of static heads (GroupAvatar); no cat is drawn outside it.
+  await page.locator(".pin-tile-group .group-head").first().waitFor();
+  assert.equal(await page.locator(".pin-tile-group .group-head").count() > 0, true, "the group draws member heads");
+  assert.equal(await page.locator(".pin-tile .tofi-avatar").evaluateAll(nodes => nodes.filter(node => !node.closest(".pin-tile-group")).length), 0, "no full cat for a group");
   await context.close();
 });
 

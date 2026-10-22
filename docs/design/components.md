@@ -223,7 +223,11 @@ Bot 在干活时，聊天里只有一行：加载标记、现在在做什么、�
 
 **文件**：`ui/src/App.tsx:2272-2297`（`conversationRow`）、`:2314`（隐藏 Bot 行）、`ui/src/sidebarOrder.ts`（纯排序）、`ui/src/sidebarDndEngine.ts`（拖动引擎，空闲时加载的独立 chunk）、`ui/src/useSidebarDnd.ts`、`ui/src/web-sidebar-list.css`、`ui/src/sidebar-pins.css`。决定：[D21](../decisions/0021-sidebar-reorder-and-pins.md)；服务端契约见 `AGENTS.md` "Sidebar order and pins"。
 
-**状态**：普通 / 当前（`active`）/ 未读（数字徽章，>99 显示 99）/ 运行中（呼吸圆点）/ 任务状态（`?` 等待或需要处理、`!` 失败、`×` 取消，`App.tsx:2278`）/ 拖动中（`is-dnd-dragging`）/ 落定中（`is-dnd-settling`）/ 侧栏收起（只剩头像，名字进悬停提示）。
+**头像**：DM 是猫；群是 `GroupAvatar`（`ui/src/GroupAvatar.tsx`）：成员顺序的前 4 只猫的**脸**，各自裁成圆并带一圈 `--surface` 细环，1 个成员一张脸、2 个并排重叠、3 个三角、4 个 2×2；裁法用 `catFraming`（`lib/tofi-avatar`），画一次不动（`BotAvatar still`：醒着、无 life、无动效总管，不占帧预算）；没有 Bot 成员的群仍是人像图标。同一组件用在会话行、置顶格、归档卡、成员面板标题。顶栏没有群标，仍是成员猫叠放（D23）。
+
+**右下角只有一个状态**（`ui/src/rowIndicator.ts`，会话行和置顶格共用，一行永远不同时画两个）。优先级从高到低：**等你（`?`，任务 needs_attention / waiting）> 失败（`!`）> 未读数 > 运行中（呼吸点）**；已完成、已取消、已过期、空闲什么都不画。被压下去的信息不丢：有未读时名字和预览保持加粗（`data-unread`），`aria-label` 仍拼上名字、任务状态、未读数；运行中只在没有更高状态时出现。桌面端（Electron）与网页同一套。
+
+**状态**：普通 / 当前（`active`）/ 状态位四选一（见上）/ 拖动中（`is-dnd-dragging`）/ 落定中（`is-dnd-settling`）/ 侧栏收起（只剩头像，名字进悬停提示）。
 
 **行为契约**
 
@@ -255,7 +259,7 @@ Bot 在干活时，聊天里只有一行：加载标记、现在在做什么、�
 
 **文件**：`ui/src/PinnedDock.tsx`、`ui/src/App.tsx:2299-2309`（`pinTile`）、`ui/src/sidebar-pins.css`。
 
-**状态**：普通 / 当前（底色 + 描边 + 小硬阴影）/ 未读（橙色数字）/ 运行中（蓝色呼吸点）/ 侧栏收起（单列、44 px、无名字）。落点：隐藏 / 拖动行时出现 / 指针在落点上（橙色）。
+**状态**：普通 / 当前（底色 + 描边 + 小硬阴影）/ 右上角同一个状态位（优先级见第 6 节：等你 > 失败 > 未读 > 运行中）/ 群格是 `GroupAvatar` 的猫脸簇（64 px，收起 44 px）/ 侧栏收起（单列、44 px、无名字）。落点：隐藏 / 拖动行时出现 / 指针在落点上（橙色）。
 
 **行为契约**
 
@@ -452,6 +456,8 @@ Bot 在干活时，聊天里只有一行：加载标记、现在在做什么、�
 **是什么**：需要人点"批准/拒绝"的卡片外观，由问题卡和 MCP 审批共用。服务端根据确切参数生成的事实（`verified`）排在 Bot 自己写的说明之前（`2befb5b`）。
 
 **文件**：`ui/src/ApprovalCard.tsx`、`ui/src/approval-card.css`。
+
+**状态提示的规则（D51 L1 纸）**：卡片自己的按钮已经说明"等你决定"，所以**不画**"需要你批准/需要你回答/需要你决定"这类彩色胶囊（原先是 honey 或 iris 实色块；审批卡、二选一问题卡、网页表单、接管卡、连接卡、邮件草稿页脚共 6 处，全部去掉）。需要状态词的地方（读屏播报、`taskPhaseLabel`）改成 2–3 字的行业用语：待确认 / 待回答。要加语义提示时用一个小圆点，取现有令牌色，不用实色块。
 
 **状态**：待批（头部、事实、参数、按钮都展开）/ 已决（头部和内容折叠，`inert` + `aria-hidden`，只剩标题和结果行）/ 已拒（`is-declined`）/ 忙（`aria-busy`，按钮文字变"提交中"）/ 出错。
 
@@ -730,7 +736,7 @@ Bot 在干活时，聊天里只有一行：加载标记、现在在做什么、�
 | 发送飞行 / 寄信飞行 | `ui/src/sendFlight.ts`，`ui/src/mailSendFlight.ts`，`mail-send-flight.css` | 纯动画，`--m-flight` 640 ms；`--z-drag`，追加到 `#tofi-layers`（迁移前是魔法数字 2147483000 和两处重复的 120，`tokens.md` Z6，第 1 步已修） |
 | 定时任务行 | `ui/src/ScheduledTaskRow.tsx`，`scheduled-task-row.css` | 时间线里的定时任务，可重试 |
 | 任务问题卡 | `ui/src/TaskIssueCard.tsx`，`taskIssuePresentation.ts` | 运行失败、需要处理时的说明卡 |
-| 邮件草稿卡 | `ui/src/MailDraftCard.tsx` | `prepare_email` 走的独立卡片路径（`AGENTS.md`） |
+| 邮件草稿卡 | `ui/src/MailDraftCard.tsx` | `prepare_email` 走的独立卡片路径（`AGENTS.md`）。页脚只剩「编辑 · 再想想 · 发送邮件」：没有"需要你批准"胶囊，也没有"发出后不能撤回"（按钮已经说明状态）；演示草稿才多一行安静的灰字"演示 · 不会发出" |
 | 空状态 | `ui/src/EmptyCat.tsx`，`empty-states.css` | 每种空状态一只固定姿势的猫；`test:empty-states` |
 | 软键盘 | `ui/src/visualViewport.ts` | 键盘弹起时设 `keyboard-viewport-open`，用 `--viewport-height`（`App.tsx:2441`） |
 

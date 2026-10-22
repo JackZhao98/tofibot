@@ -111,7 +111,7 @@ export function MailDraftCard({ draft, bot, group, archived, onDemoAction, onCha
       <footer>{editing ? <><button type="button" disabled={Boolean(busy)} onClick={() => { setTo(draft.to); setSubject(draft.subject); setBody(draft.body); setEditing(false); setError(""); }}>{t("draft.discard")}</button><button type="button" className="mail-draft-save" disabled={Boolean(busy || !changed)} onClick={() => void act("save")}>{busy === "save" ? t("draft.saving") : t("draft.save")}</button></>
         : draft.status === "pending" ? <>
           <button type="button" className="mail-draft-text-action" disabled={Boolean(busy || archived)} onClick={() => setEditing(true)}><TofiIcon name="edit" size={15} aria-hidden="true" />{t("draft.edit")}</button>
-          <span className="mail-draft-hint"><b>{draft.demo ? t("draft.demo_badge") : t("draft.needs_approval")}</b>{draft.demo ? t("draft.demo_hint") : t("draft.send_final")}</span>
+          {draft.demo && <span className="mail-draft-hint"><b>{t("draft.demo_badge")}</b>{t("draft.demo_hint")}</span>}
           <button type="button" className="mail-draft-decline" disabled={Boolean(busy || archived)} onClick={() => void act("decline")}>{busy === "decline" ? t("draft.working") : t("draft.hold")}</button>
           <button type="button" className="mail-draft-send" disabled={Boolean(busy || archived || changed || !draft.to.trim())} onClick={() => void act("send")}>{busy === "send" ? t("draft.sending") : draft.demo ? t("draft.demo_send") : t("draft.send")}</button>
         </>

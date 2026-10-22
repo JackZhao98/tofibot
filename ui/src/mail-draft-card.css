@@ -23,7 +23,7 @@
 .workspace .mail-draft-letter footer .mail-draft-save { background:var(--clay); color:var(--on-block); }
 .workspace .mail-draft-letter footer .mail-draft-text-action { display:inline-flex; align-items:center; gap:5px; margin-right:auto; border:0; background:transparent; color:var(--paper-ink); }
 .workspace .mail-draft-hint { display:flex; align-items:center; gap:7px; min-width:0; color:var(--paper-muted); }
-.workspace .mail-draft-hint b { padding:2px 7px; border-radius:999px; background:var(--iris,var(--pink)); color:var(--on-block); font:700 11px/1.4 var(--body); white-space:nowrap; }
+.workspace .mail-draft-hint b { color:var(--ink-soft); font:600 11px/1.4 var(--body); white-space:nowrap; }
 .workspace .mail-draft-letter footer .mail-draft-send { border-width:2px; background:var(--clay); color:var(--on-block); box-shadow:var(--hard-sm); }
 .workspace .mail-draft-letter footer button:disabled { opacity:.55; cursor:default; }
 .workspace .mail-draft-note, .workspace .mail-draft-error { margin:8px 2px 0; color:var(--muted); font:12px/1.5 var(--body); }

@@ -27,6 +27,23 @@ export const CONVERSATIONS: Conversation[] = [
   { id: "dm_nori", kind: "dm", name: "Nori", bot_id: "bot_nori", bot_ids: ["bot_nori"], updated_at: at(20), read_seq: 99, user_visible: true, task_state: { status: "needs_attention", question_id: "q_nori" }, last_message: last("m_nori_2", 2, "Should I book the venue for Thursday?", 20, "assistant", "bot_nori") },
   { id: "dm_ledger", kind: "dm", name: "Ledger", bot_id: "bot_ledger", bot_ids: ["bot_ledger"], updated_at: at(-500), read_seq: 99, archived: true, user_visible: true },
 ];
+const INDICATOR_BOTS: Bot[] = [
+  { id: "bot_juno", name: "Juno", instructions: "Synthetic", model: "default", dm_conversation_id: "dm_juno", created_at: at(-5000) },
+  { id: "bot_pip", name: "Pip", instructions: "Synthetic", model: "default", dm_conversation_id: "dm_pip", created_at: at(-4000) },
+  { id: "bot_kit", name: "Kit", instructions: "Synthetic", model: "default", dm_conversation_id: "dm_kit", created_at: at(-3000) },
+];
+/** The sample list with one row per indicator case: waiting beats unread (Miso), failed beats unread (Nori), unread alone (Juno), working alone (Pip), a finished task and nothing (Kit). */
+function indicatorRows(): Conversation[] {
+  const row = (id: string, name: string, bot: string, text: string, minutes: number, extra: Partial<Conversation>): Conversation =>
+    ({ id, kind: "dm", name, bot_id: bot, bot_ids: [bot], updated_at: at(minutes), read_seq: 99, user_visible: true, last_message: last(`m_${id}`, 2, text, minutes, "assistant", bot), ...extra });
+  return [
+    ...CONVERSATIONS.filter(item => !item.archived).map(item => item.id === "dm_miso" ? { ...item, task_state: { status: "needs_attention" as const, question_id: "q_miso" } }
+      : item.id === "dm_nori" ? { ...item, task_state: { status: "failed" as const }, unread_count: 1 } : item),
+    row("dm_juno", "Juno", "bot_juno", "The invoice batch is sorted.", 15, { unread_count: 2, read_seq: 1 }),
+    row("dm_pip", "Pip", "bot_pip", "Reconciling the March statements.", 10, { task_state: { status: "executing" as const } }),
+    row("dm_kit", "Kit", "bot_kit", "Receipts filed. Nothing else to do.", 5, { task_state: { status: "completed" as const } }),
+  ];
+}
 export const conversation = (id: string) => CONVERSATIONS.find(item => item.id === id)!;
 
 const TABLE = "| Channel | Sign-ups | Change |\n|---|---:|---:|\n| Newsletter | 1,240 | +12% |\n| Waitlist | 860 | +4% |\n| Referrals | 312 | −2% |";
@@ -120,6 +137,8 @@ export type AppOptions = {
   empty?: boolean;
   /** Twenty-four extra messages above, so the conversation can scroll away from the bottom. */
   longHistory?: boolean;
+  /** Every status case of a sidebar row at once (see rowIndicator.ts): working, unread, waiting over unread, failed over unread, nothing. */
+  indicators?: boolean;
   /** A pending approval card in Mochi's chat. */
   approval?: boolean;
   computer?: "ready" | "starting";
@@ -136,8 +155,8 @@ export function workspace(options: AppOptions): Synthetic {
     ["dm_miso", [user("dm_miso", 1, "Can you check the launch copy?", 10), reply("dm_miso", 2, "bot_miso", "On it.", 11), reply("dm_miso", 3, "bot_miso", "Found three small fixes.", 25), reply("dm_miso", 4, "bot_miso", "Three copy fixes are ready for review.", 30)]],
     ["dm_nori", [user("dm_nori", 1, "Find a venue for the launch review.", 15), reply("dm_nori", 2, "bot_nori", "Should I book the venue for Thursday?", 20)]],
     ["dm_ledger", [user("dm_ledger", 1, "Archive last quarter's receipts.", -520), reply("dm_ledger", 2, "bot_ledger", "Archived.", -510)]]]);
-  const bots = options.empty ? [] : BOTS;
-  const conversations = options.empty ? [] : CONVERSATIONS;
+  const bots = options.empty ? [] : options.indicators ? [...BOTS, ...INDICATOR_BOTS] : BOTS;
+  const conversations = options.empty ? [] : options.indicators ? indicatorRows() : CONVERSATIONS;
   const questions = (id: string) => [
     ...(options.approval && id === "dm_mochi" ? [pendingApproval()] : []),
     ...(id === "dm_nori" ? [{ ...pendingApproval("dm_nori"), question_id: "q_nori", bot_id: "bot_nori", run_id: "run_nori", question_type: "yes_no" as const, question: "Should I book the venue for Thursday?", approval: undefined, created_at: at(20) }] : []),

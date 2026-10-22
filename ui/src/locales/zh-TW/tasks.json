@@ -131,8 +131,8 @@
   },
   "phase": {
     "finishing": "正在收尾",
-    "needs_approval": "需要你核准",
-    "needs_answer": "需要你回答",
+    "needs_approval": "待確認",
+    "needs_answer": "待回覆",
     "turn_ended": "本輪已結束",
     "stopped": "這次工作已停止",
     "reviewing": "執行前檢查中",
@@ -279,7 +279,6 @@
     "answered_refresh_failed": "已收到回答，但清單重新整理失敗，請重新整理頁面查看。",
     "submit_failed": "提交未完成，請重試。",
     "state_changed": "問題狀態已變更，請重新整理頁面後再操作。",
-    "needs_decision": "需要你決定",
     "answer_placeholder": "輸入回答…",
     "other_option": "其他回答",
     "your_answer": "你的回答",
@@ -324,7 +323,6 @@
     "submit_failed": "提交未完成，輸入內容已保留，請檢查後重試。",
     "cancelled_refresh_failed": "已取消，但狀態重新整理失敗，請重新整理頁面查看。",
     "answered_refresh_failed": "已收到回答，但狀態重新整理失敗，請重新整理頁面查看。",
-    "needs_input": "需要你填寫",
     "target_site": "目標網站",
     "privacy_fields": "一般欄位會以明文提供給 Bot；密碼透過私密輸入提供，不會以明文回答顯示給 Bot。密碼中的空格會保留。",
     "privacy_continue": "提交後 Bot 會繼續任務，不代表已向網站送出。",
@@ -549,7 +547,6 @@
     "send_failed": "未能送出你的回應，請重試。",
     "state_changed": "這個請求已有變動，請先確認最新狀態再繼續。",
     "takeover": {
-      "badge": "需要你在電腦上操作",
       "take": "接管",
       "hint": "你將在 Bot 的共用電腦上操作。你輸入或複製的內容只會留在那個畫面上，不會分享給 Bot。",
       "resolved_done": "已交還給 Bot",
@@ -563,7 +560,6 @@
       "footer": "你操作期間 Bot 會等待。完成後請按「已完成」。"
     },
     "connection": {
-      "badge": "連接服務",
       "connect": "連接",
       "retry": "重試",
       "waiting": "等待登入…",

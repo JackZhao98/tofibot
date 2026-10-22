@@ -28,6 +28,8 @@ import { useQuestions } from "./useQuestions";
 import { toolDisplayState, toolDisplayLabel } from "./toolTimeline";
 import { requestFullToolResult, setToolResultLoader } from "./toolResultLoader";
 import { taskStateLabel } from "./ConversationTaskStatus";
+import { LazyGroupAvatar as GroupAvatar } from "./LazyGroupAvatar";
+import { rowIndicator } from "./rowIndicator";
 import { MailDraftCard, useMailDrafts } from "./MailDraftCard";
 import { buildQuestionTimeline, compareQuestionTime } from "./questionTimeline";
 import { useDebugMode } from "./debugMode";
@@ -203,8 +205,8 @@ function writeComposerDrafts(key: string, drafts: ComposerDrafts) {
   }
 }
 
-function Avatar({ id, group = false, mini = false, motion }: { label: string; id: string; group?: boolean; mini?: boolean; motion?: AvatarMotion }) {
-  if (group) return <span className={`avatar group-avatar ${mini ? "mini" : ""}`} aria-hidden="true"><Icon name="group" size={mini ? 14 : 19} /></span>;
+function Avatar({ id, group = false, mini = false, motion, members }: { label: string; id: string; group?: boolean; mini?: boolean; motion?: AvatarMotion; members?: string[] }) {
+  if (group) return <span className={`avatar group-avatar ${mini ? "mini" : ""}`} aria-hidden="true"><GroupAvatar ids={members ?? []} iconSize={mini ? 14 : 19} /></span>;
   return <BotAvatar id={id} mini={mini} motion={motion} />;
 }
 
@@ -2243,23 +2245,20 @@ function Workspace() {
     const botId = conversation.kind === "dm" ? bot?.id || conversation.bot_id || conversation.bot_ids[0] || conversation.id : conversation.id;
     const motion = conversationMotion(conversation, bot?.id || conversation.bot_id || botId);
     const task = conversation.task_state;
-    const taskGlyph = task?.status === "needs_attention" || task?.status === "waiting" ? "?" : task?.status === "failed" ? "!" : task?.status === "cancelled" ? "×" : "·";
+    const unread = conversation.unread_count ?? 0;
+    const indicator = rowIndicator(task, unread, motion === "working");
     return <button key={conversation.id} data-sidebar-flip={conversation.id} data-dnd-id={draggable ? conversation.id : undefined} data-dnd-zone={draggable ? "list" : undefined} aria-keyshortcuts={draggable ? "Alt+ArrowUp Alt+ArrowDown" : undefined} data-hint={sidebarCollapsed ? conversation.name : undefined}
       aria-label={[conversation.name, task ? taskStateLabel(task) : "", conversation.unread_count ? t("sidebar.unread", { count: conversation.unread_count }) : ""].filter(Boolean).join(t("sidebar.label_separator"))}
-      className={`contact-row conversation-row ${activeId === conversation.id ? "active" : ""}`}
+      className={`contact-row conversation-row ${activeId === conversation.id ? "active" : ""}`} data-unread={unread > 0 ? "" : undefined}
       onClick={() => focusTask(conversation)}
       onPointerEnter={event => { if (event.pointerType === "mouse") { window.clearTimeout(prefetchTimer.current); prefetchTimer.current = window.setTimeout(() => prefetchConversation(conversation.id), 80); } }}
       onPointerLeave={() => window.clearTimeout(prefetchTimer.current)}
       onPointerDown={() => prefetchConversation(conversation.id)}
       onContextMenu={(event) => { event.preventDefault(); setSidebarContextMenu({ conversation, x: event.clientX, y: event.clientY }); }}>
-      <Avatar label={conversation.name} id={botId} group={conversation.kind === "group"} motion={motion} />
+      <Avatar label={conversation.name} id={botId} group={conversation.kind === "group"} members={conversation.bot_ids} motion={motion} />
       <span className="contact-copy"><strong><span className="contact-name">{conversation.name}</span>{bot?.is_primary && <PrimaryBadge />}</strong><small>{preview}</small></span>
       <time className="conversation-time">{conversation.last_message ? formatListTime(conversation.last_message.created_at, timezone) : ""}</time>
-      {isDesktop ? (Boolean(conversation.unread_count) ? <span className="unread-badge" aria-label={t("sidebar.unread", { count: conversation.unread_count ?? 0 })}>{Math.min(conversation.unread_count ?? 0, 99)}</span> : motion === "working" ? <span className="conversation-working-indicator" aria-label={t("sidebar.working")} /> : null) : <>
-        {Boolean(conversation.unread_count) && <span className="conversation-status" data-status="unread" aria-label={t("sidebar.unread", { count: conversation.unread_count ?? 0 })}>{Math.min(conversation.unread_count ?? 0, 99)}</span>}
-        {task && task.status !== "completed" && <span className="conversation-task-badge" data-task-status={task.status} aria-label={taskStateLabel(task)}>{taskGlyph}</span>}
-        {!task && !conversation.unread_count && motion === "working" && <span className="conversation-status" data-status="working" aria-label={t("sidebar.working")} />}
-      </>}
+      {indicator && <span className="conversation-status" data-status={indicator} aria-label={indicator === "unread" ? t("sidebar.unread", { count: unread }) : indicator === "working" ? t("sidebar.working") : task ? taskStateLabel(task) : undefined}>{indicator === "unread" ? Math.min(unread, 99) : null}</span>}
     </button>;
   }
 
@@ -2270,7 +2269,7 @@ function Workspace() {
     const task = conversation.task_state;
     const unread = conversation.unread_count ?? 0;
     return <PinTile key={conversation.id}
-      tile={{ id: conversation.id, name: conversation.name, avatarId: botId, group: conversation.kind === "group", motion, active: activeId === conversation.id, unread, working: !unread && motion === "working",
+      tile={{ id: conversation.id, name: conversation.name, avatarId: botId, group: conversation.kind === "group", members: conversation.bot_ids, motion, active: activeId === conversation.id, unread, indicator: rowIndicator(task, unread, motion === "working"),
         label: [conversation.name, task ? taskStateLabel(task) : "", unread ? t("sidebar.unread", { count: unread }) : ""].filter(Boolean).join(t("sidebar.label_separator")), unreadLabel: t("sidebar.unread", { count: unread }), workingLabel: t("sidebar.working") }}
       onOpen={() => focusTask(conversation)} onWarm={() => prefetchConversation(conversation.id)}
       onMenu={event => setSidebarContextMenu({ conversation, x: event.clientX, y: event.clientY })} />;

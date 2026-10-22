@@ -15,6 +15,7 @@ import { ModelFields } from "./ModelSettings";
 import { PrimaryBadge } from "./PrimaryAssistant";
 import type { Bot, Conversation, Memory } from "./types";
 import { WorkPreview } from "./workAgenda";
+import { LazyGroupAvatar as GroupAvatar } from "./LazyGroupAvatar";
 
 export function MembersPanel({ conversation, bots, onClose, onOpen, onSaved, onReload, onOpenWork, refreshToken }: {
   onOpenWork: () => void;
@@ -116,7 +117,7 @@ export function MembersPanel({ conversation, bots, onClose, onOpen, onSaved, onR
   }
 
   return <div className="detail-content member-details">
-    <div className="detail-heading"><div><h2>{t("members.title")}</h2></div><button className="close-button" aria-label={t("members.close")} disabled={saving || reloading} onClick={onClose}><Icon name="close" size={18} /></button></div>
+    <div className="detail-heading"><div className="members-heading"><span className="members-heading-avatar" aria-hidden="true"><GroupAvatar ids={conversation.bot_ids} iconSize={20} /></span><h2>{t("members.title")}</h2></div><button className="close-button" aria-label={t("members.close")} disabled={saving || reloading} onClick={onClose}><Icon name="close" size={18} /></button></div>
     <nav className="bot-v2-rows members-v2-rows" aria-label={t("members.title")}><WorkPreview disabled={saving || reloading} scope={{type:"conversations",id:conversation.id}} refreshToken={refreshToken} onOpen={onOpenWork} leading={<span className="bot-v2-row-icon" aria-hidden="true"><Icon name="checklist" size={18}/></span>}/></nav>
     <form className="members-manage-form" aria-busy={saving || reloading} onSubmit={(event) => void submit(event)}>
       <label>{t("members.name")}<input aria-label={t("members.name")} value={name} maxLength={200} disabled={saving || reloading} onChange={(event) => setName(event.target.value)} /></label>

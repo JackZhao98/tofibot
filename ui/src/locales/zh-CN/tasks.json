@@ -131,8 +131,8 @@
   },
   "phase": {
     "finishing": "正在收尾",
-    "needs_approval": "需要你批准",
-    "needs_answer": "需要你回答",
+    "needs_approval": "待确认",
+    "needs_answer": "待回答",
     "turn_ended": "本轮已结束",
     "stopped": "本次工作已停止",
     "reviewing": "执行前检查中",
@@ -279,7 +279,6 @@
     "answered_refresh_failed": "回答已接收，列表刷新失败，请刷新页面查看。",
     "submit_failed": "提交未完成，请重试。",
     "state_changed": "问题状态已变化，请刷新页面后再操作。",
-    "needs_decision": "需要你决定",
     "answer_placeholder": "输入回答…",
     "other_option": "其他回答",
     "your_answer": "你的回答",
@@ -324,7 +323,6 @@
     "submit_failed": "提交未完成，输入已保留，请检查后重试。",
     "cancelled_refresh_failed": "已取消，状态刷新失败，请刷新页面查看。",
     "answered_refresh_failed": "已接收回答，状态刷新失败，请刷新页面查看。",
-    "needs_input": "需要你填写",
     "target_site": "目标网站",
     "privacy_fields": "普通字段会以明文提供给 Bot；密码通过私密输入提供，不会作为明文回答显示给 Bot。密码中的空格会保留。",
     "privacy_continue": "提交后 Bot 将继续任务，不代表已向网站提交。",
@@ -549,7 +547,6 @@
     "send_failed": "未能提交你的回应，请重试。",
     "state_changed": "这个请求已发生变化，请先确认最新状态再继续。",
     "takeover": {
-      "badge": "需要你在电脑上操作",
       "take": "接管",
       "hint": "你将在 Bot 的共享电脑上操作。你输入或复制的内容只留在那块屏幕上，不会分享给 Bot。",
       "resolved_done": "已交还给 Bot",
@@ -563,7 +560,6 @@
       "footer": "你操作期间 Bot 会等待。完成后请点“已完成”。"
     },
     "connection": {
-      "badge": "连接服务",
       "connect": "连接",
       "retry": "重试",
       "waiting": "等待登录…",

@@ -47,11 +47,14 @@
 .pin-tile.active { background:var(--surface-2); border-color:var(--line); box-shadow:var(--hard-sm); }
 .pin-tile-art { position:relative; display:grid; place-items:center; }
 .pin-tile .avatar { width:64px; height:64px; flex:0 0 64px; border-radius:18px; background:transparent; }
-.pin-tile .avatar.pin-tile-group { background:var(--surface-hover); color:var(--text-soft); }
 .pin-tile-name { max-width:100%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:var(--muted); font:12px/16px var(--body); }
 .pin-tile.active .pin-tile-name { color:var(--ink); font-weight:600; }
 .pin-tile-badge { position:absolute; top:-3px; right:-5px; display:grid; place-items:center; pointer-events:none; }
 .pin-tile-badge[data-status="unread"] { min-width:18px; height:18px; padding:0 4px; border-radius:999px; background:var(--orange); color:var(--on-block); font:600 10px/18px var(--mono); }
+.pin-tile-badge:is([data-status="attention"],[data-status="failed"]) { min-width:18px; height:18px; border:1px solid var(--line-soft); border-radius:50%; background:var(--surface); color:var(--iris-text); font:700 12px/16px var(--mono); }
+.pin-tile-badge[data-status="failed"] { color:var(--danger-text); }
+.pin-tile-badge[data-status="attention"]::before { content:"?"; }
+.pin-tile-badge[data-status="failed"]::before { content:"!"; }
 .pin-tile-badge[data-status="working"] { width:11px; height:11px; border-radius:50%; background:var(--blue); box-shadow:0 0 0 2px var(--sunk); animation:v2-breathe 2.4s var(--ease-inout) infinite; }
 @media (prefers-reduced-motion:reduce) { .pin-tile-badge[data-status="working"] { animation:none; } }
 @media (forced-colors:active) { .pin-tile.active { outline:2px solid Highlight; } }
