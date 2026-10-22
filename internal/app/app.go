@@ -3886,7 +3886,9 @@ func (s *Server) execute(c Conversation, r Run) {
 			finalRepairTools = []string{"say"}
 			reminder = scheduleFinalReminderStructured
 		}
-		finalReview = scheduledFinalReviewWith(reviewKind, reminder, func() (bool, error) {
+		// settled: the run already holds its receipt, or hands its work to a
+		// colleague whose return resumes it. Neither ends on a plain-text blocker.
+		settled := func() (bool, error) {
 			if err := steeringBoundary(); err != nil {
 				return false, err
 			}
@@ -3894,7 +3896,8 @@ func (s *Server) execute(c Conversation, r Run) {
 				return continuation, err
 			}
 			return s.store.scheduleReceipt(r.ID)
-		})
+		}
+		finalReview = scheduledFinalReviewWith(reviewKind, reminder, settled)
 		if !s.scheduleReceiptReviewEnabled() {
 			finalReview = nil
 		}
@@ -3905,6 +3908,31 @@ func (s *Server) execute(c Conversation, r Run) {
 					inReceiptRepair.Store(true) // the one receipt attempt is not graded
 				}
 				return reminder, err
+			}
+		}
+		if receiptReview := finalReview; gateRounds > 0 {
+			finalReview = func(content string) (string, error) {
+				// A scheduled run that ends on plain text with no receipt is a
+				// blocker report. It is graded with the answer rubric, on the same
+				// rounds, and gaps go back privately in place of the receipt
+				// reminder (D50).
+				if int(gradedRounds.Load()) < gateRounds && !inReceiptRepair.Load() {
+					done, err := settled()
+					if err != nil {
+						return "", err
+					}
+					if !done {
+						revision := s.gradeAnswer(ctx, graderModelProvider, graderModel, r.ID, int(gradedRounds.Load()), pm, content)
+						gradedRounds.Add(1)
+						if revision != "" {
+							return revision + blockerRevisionTail, nil
+						}
+					}
+				}
+				if receiptReview == nil {
+					return "", nil
+				}
+				return receiptReview(content)
 			}
 		}
 	}

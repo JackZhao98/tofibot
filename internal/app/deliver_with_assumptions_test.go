@@ -273,7 +273,7 @@ func TestRouteAndConfirmationPrinciplesArePresentAndExampleFree(t *testing.T) {
 		"your own earlier outputs and artifacts",
 		"a blocker report names the routes tried",
 		"A direct instruction is the confirmation that action needs, whatever your role notes list",
-		"Announce work only after doing it this turn",
+		"Say that work is done only after doing it this turn",
 	} {
 		if !strings.Contains(taskCompletionGuidance, want) {
 			t.Fatalf("taskCompletionGuidance lacks %q", want)
@@ -298,7 +298,7 @@ func TestRouteAndConfirmationPrinciplesArePresentAndExampleFree(t *testing.T) {
 			}
 		}
 	}
-	if !strings.Contains(sayToolDescription, "An instructed action needs no further confirmation; announce work only once it is done") {
+	if !strings.Contains(sayToolDescription, "An instructed action needs no further confirmation; say that work is done only once it is done") {
 		t.Fatal("say lacks the confirmation and announce-after-work principle")
 	}
 }
