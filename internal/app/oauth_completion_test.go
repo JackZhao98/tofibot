@@ -307,3 +307,24 @@ func TestOAuthCompletionAuditServer(t *testing.T) {
 	t.Logf("Synthetic OAuth renderer fixture: http://%s/success (assets: %s)", addr, ui)
 	t.Fatal(server.ListenAndServe())
 }
+
+func TestOAuthCompletionGoogleSetupNamesAgenticClient(t *testing.T) {
+	w := httptest.NewRecorder()
+	page := completionFixture("success")
+	page.Setup = "enable"
+	writeOAuthCompletion(w, http.StatusOK, page)
+	if !strings.Contains(w.Body.String(), "AI-powered agent") || !strings.Contains(w.Body.String(), "Developer Preview Program") {
+		t.Error("the failure-path Google setup section does not name the agentic client setting")
+	}
+	// A connection that works shows neither line.
+	w = httptest.NewRecorder()
+	writeOAuthCompletion(w, http.StatusOK, completionFixture("success"))
+	if strings.Contains(w.Body.String(), "AI-powered agent") {
+		t.Error("the agentic setting is setup help and must not appear on success")
+	}
+	w = httptest.NewRecorder()
+	writeOAuthCompletion(w, http.StatusOK, oauthCompletionPage{State: "success", ServiceName: "Notion", LogoURL: "/oauth/provider-notion.svg", DocsURL: "https://www.notion.com/help/notion-mcp"})
+	if strings.Contains(w.Body.String(), "AI-powered agent") {
+		t.Error("non-Google page names the Google agentic setting")
+	}
+}

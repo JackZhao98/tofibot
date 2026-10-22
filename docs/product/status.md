@@ -112,11 +112,13 @@ TOFI 是一个自托管的 AI Bot 工作台：后端是 Go 服务（`internal/`�
 | Bot 电脑镜像预装 LibreOffice、tesseract（英文）、poppler、pandoc 和 Python 办公库（openpyxl、docx、pptx、matplotlib、pandas、reportlab、pypdf、PIL）；其他语言的 OCR 数据和字体由 Bot 取到用户目录。镜像尚未构建和实测，线上没有 | `deploy/microvm/Dockerfile`；`deploy/microvm/smoke-office.sh`；[D37](../decisions/0037-english-only-office-tooling.md) |
 | 内置交付技能：`spreadsheet`、`document-report`、`slides`、`web-page`、`code-delivery` 随二进制发布，默认对每个 Bot 可用。提示词里每个只有一行描述，Bot 读它时才加载正文，并把脚本复制到电脑 `/workspace/home/uploads/.skills/<name>/<摘要>/`。SKILL.md 只写原则（好交付长什么样、按收件人看到的方式验证、回复对文件成立），不规定步骤；脚本只留通用能力：文档 / 幻灯片渲染成页面图片、XLSX 重算并转储结构、PPTX 形状转储、HTML 多宽度并排预览、命令的真实输出记录和 zip 打包校验。按评测任务写的生成器、检查器和发票对账已删除（[D41](../decisions/0041-builtin-deliverable-skills.md) 2026-10-21 补记）。尚未合并、线上没有；soffice 转换路径和对真实任务的效果还没有实测 | `internal/extensions/builtin.go`；`internal/extensions/builtin_skills/`；`internal/app/builtin_skills.go`；[D41](../decisions/0041-builtin-deliverable-skills.md) |
 | 交接卡片：Bot 可以请用户接管屏幕，完成登录、两步验证、验证码这类步骤（`request_takeover`），也可以请用户连接一个服务（`request_connection`） | `internal/app/handover.go:119`、`:156`；`d3e4ff9`；`test:handover-cards`；`AGENTS.md` 第 75–87 行；[D11](../decisions/0011-handover-cards.md) |
+| 回复要和做过的活对得上（分支 `fix/reply-matches-work`，未合并、未上线）：完成复核先逐句对照工具记录再查完成度；`computer_files` 写入结果带绝对 `location`（随下一次电脑镜像构建出现），`publish_file` 结果带 `source_path` 和 `attached_to_reply`，只发布人要收的 | `internal/app/completion_final_review.go`；`internal/app/artifact_publish.go`；`internal/computer/guest/actions.go`；[D45](../decisions/0045-reply-matches-the-work.md) |
 
 | 已知缺口 | 依据 |
 |---|---|
 | `computer_shell` 和共享 Chrome 的 DevTools 端口使用同一个 uid 和回环地址，没有隔离 | `AGENTS.md` 第 121–122 行 |
 | 让 Bot 找一张网页配图的地址时，Haiku 没把能试的办法都试一遍，就让用户自己去右键复制 | 评测 `prod-resourceful-haiku-5-5` 里的 `reuters_image` |
+| 交付任务的最终回复有时超出工具记录（说“所有发票都核对了明细”但只核对了 PDF；把去重前的 40 份说成 40 张发票），不说基线等留下的东西放在哪，还会把自检图一起发布。D45 的修复在分支上，本机和重放探针方向正确（重放里位置 0/3 → 3/3），线上要重跑 `deliv_*` 才算数 | 评测 `deliv-terra-r3`（线上 rc.32，Codex terra）里的 `deliv_invoices`、`deliv_watch_weekly`、`deliv_quarterly_report`；[D45](../decisions/0045-reply-matches-the-work.md) |
 
 ### 4.5 定时任务
 
@@ -154,6 +156,8 @@ TOFI 是一个自托管的 AI Bot 工作台：后端是 Go 服务（`internal/`�
 | 设置 › 连接：一个列表、一行一个连接，状态只有已连接 / 需要授权 / API 未启用 / 连接失败（带原因）等一个；配置在对话框里；目录只收官方连接器，社区项走自定义；详情里写明来源并放工具列表；Google 连接共用一个工作区 OAuth 客户端，"API 未启用"带直达启用按钮（未发布，分支 `ui/connections-simplify`） | `ui/src/MCPSettings.tsx`、`ui/src/connections/`、`internal/googleapi/`；`ui/scripts/test-connections.mjs`；`docs/design/components.md` §17 |
 | 模型提供方、语音输入、主动跟进、语言等设置页 | `ui/src/ModelSettings.tsx`、`DictationSettings.tsx`、`FollowupsSettings.tsx`、`LanguageSetting.tsx` |
 | 设置页重做：第 1、2 阶段已经上线，第 3 阶段要等工具重做的部分完成 | [settings-redesign.md](../agent-plan/settings-redesign.md) 状态行 |
+| Google Workspace MCP 连接（Gmail、Drive、Docs、Sheets、Slides、Calendar）：Cloud 项目须加入 Developer Preview Program，OAuth 客户端须标为 AI 智能体，2026-11-11 起未标记的会被拒，11-12 起固定。引导和诊断已覆盖（分支 `fix/google-agentic-client`，未合并）；**owner 待办：在 GCP 项目 `tofi-self-hosted` 标记现有客户端** | [D46](../decisions/0046-google-agentic-oauth-client.md)；`internal/extensions/inspection_diagnostic.go`；`ui/src/locales/*/extensions.json` |
+| 移除本地 MCP 插件（设置 › 连接 › 本地 MCP）：先退役（不再发新租约）、有界等待 5 秒让在途请求结束、再删；真在被任务使用才拒绝，稳定码 `plugin_busy`，连接与插件保持原样（分支 `fix/local-plugin-remove-busy`，未合并） | `internal/mcprunner/install.go`（`Remove`）；`internal/mcprunner/remove_connected_test.go`；`internal/app/local_mcp_test.go` |
 
 修改账户密码这件事 owner 认为不急（[D29](../decisions/0029-password-change-not-urgent.md)）。
 

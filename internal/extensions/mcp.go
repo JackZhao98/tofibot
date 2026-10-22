@@ -16,6 +16,7 @@ import (
 	"sort"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 	"unicode/utf8"
 
@@ -101,6 +102,7 @@ type Config struct {
 }
 
 type Manager struct {
+	mcpStatus          sync.Map     // *mcp.ClientSession -> *mcpSessionHTTP
 	mcpConfigFence     sync.RWMutex // Dispatch/configuration fence, separate from OAuth cache locking.
 	cfg                Config
 	mu                 sync.RWMutex
@@ -699,7 +701,8 @@ func (m *Manager) openMCPClient(runCtx, discoveryCtx context.Context, name strin
 			baseTransport = resolved
 		}
 	}
-	transport := &mcp.StreamableClientTransport{Endpoint: cfg.URL, HTTPClient: &http.Client{Transport: mcpHeaderTransport{headers: cloneStringMap(cfg.Headers), base: baseTransport}, CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}}
+	var failedStatus atomic.Int32
+	transport := &mcp.StreamableClientTransport{Endpoint: cfg.URL, HTTPClient: &http.Client{Transport: mcpHeaderTransport{headers: cloneStringMap(cfg.Headers), base: baseTransport, failed: &failedStatus}, CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}}
 	if cfg.OAuth != nil {
 		transport.OAuthHandler = storedMCPOAuth{store: m.tokenStore(name, cfg)}
 	}
@@ -765,6 +768,9 @@ func (m *Manager) openMCPClient(runCtx, discoveryCtx context.Context, name strin
 	}
 	if err != nil {
 		m.invalidateMCPReadiness(name)
+		if status := int(failedStatus.Load()); status >= 400 {
+			err = &mcpHTTPStatusError{Status: status, Err: err}
+		}
 		return nil, fmt.Errorf("connect MCP: %w", err)
 	}
 	if cli.InitializeResult().ProtocolVersion != requiredMCPProtocolVersion {
@@ -778,7 +784,8 @@ func (m *Manager) openMCPClient(runCtx, discoveryCtx context.Context, name strin
 	// Connect's context bounds discovery, while the prepared session belongs
 	// to the run. Its cancellation must close even lazy stateless sessions.
 	stop := context.AfterFunc(runCtx, func() { _ = cli.Close() })
-	go func() { _ = cli.Wait(); stop() }()
+	m.mcpStatus.Store(cli, &mcpSessionHTTP{endpoint: cfg.URL, failed: &failedStatus})
+	go func() { _ = cli.Wait(); stop(); m.mcpStatus.Delete(cli) }()
 
 	return cli, nil
 }
@@ -828,6 +835,7 @@ func (m *Manager) callMCPToolObserved(callCtx context.Context, cli *mcp.ClientSe
 	attempts := 0
 	for {
 		attempts++
+		m.resetHTTPStatus(cli)
 		out, err = cli.CallTool(callCtx, &mcp.CallToolParams{Name: name, Arguments: arguments})
 		if mcpConnectionFailure(err) {
 			if observe.connectionFailed != nil {
@@ -843,7 +851,16 @@ func (m *Manager) callMCPToolObserved(callCtx context.Context, cli *mcp.ClientSe
 			observe.failed(err)
 		}
 		if !readOnly {
-			return "", uncertainMCPOutcome(attempts).Err()
+			o := uncertainMCPOutcome(attempts)
+			if hint := m.googleAuthRejection(cli); hint != "" {
+				o.Message += " " + hint
+			}
+			return "", o.Err()
+		}
+		if hint := m.googleAuthRejection(cli); hint != "" {
+			o := tooloutcome.New(tooloutcome.Permanent, "mcp_permission_denied", "no_side_effect", hint, "explain_blocker")
+			o.Attempts = attempts
+			return "", o.Err()
 		}
 		if !transientMCPError(err) || attempts >= 3 || callCtx.Err() != nil {
 			status, code := tooloutcome.Permanent, "mcp_call_failed"

@@ -4,6 +4,7 @@ import (
 	"errors"
 	"net/http"
 	"strings"
+	"sync/atomic"
 
 	"github.com/modelcontextprotocol/go-sdk/jsonrpc"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
@@ -37,7 +38,20 @@ func contains(values []string, value string) bool {
 type mcpHeaderTransport struct {
 	headers map[string]string
 	base    http.RoundTripper
+	// failed remembers the last non-2xx HTTP status so a failed connect can be
+	// classified by status, never by the SDK's or the provider's message text.
+	failed *atomic.Int32
 }
+
+// mcpHTTPStatusError carries the HTTP status of the failing response next to
+// the SDK error. Only the number is kept; no provider text.
+type mcpHTTPStatusError struct {
+	Status int
+	Err    error
+}
+
+func (e *mcpHTTPStatusError) Error() string { return e.Err.Error() }
+func (e *mcpHTTPStatusError) Unwrap() error { return e.Err }
 
 func (t mcpHeaderTransport) RoundTrip(r *http.Request) (*http.Response, error) {
 	req := r.Clone(r.Context())
@@ -54,5 +68,9 @@ func (t mcpHeaderTransport) RoundTrip(r *http.Request) (*http.Response, error) {
 		}
 		req.Header.Set(k, v)
 	}
-	return t.base.RoundTrip(req)
+	resp, err := t.base.RoundTrip(req)
+	if err == nil && resp != nil && t.failed != nil && resp.StatusCode >= 400 {
+		t.failed.Store(int32(resp.StatusCode))
+	}
+	return resp, err
 }

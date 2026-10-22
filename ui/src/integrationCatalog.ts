@@ -48,6 +48,7 @@ const googleSetup = () => [
   i18n.t("extensions:catalog.google_setup.preview_access"),
   i18n.t("extensions:catalog.google_setup.enable_apis"),
   i18n.t("extensions:catalog.google_setup.consent_screen"),
+  i18n.t("extensions:catalog.google_setup.agentic_client"),
   i18n.t("extensions:catalog.google_setup.client_credentials"),
 ];
 
