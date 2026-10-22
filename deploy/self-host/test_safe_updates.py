@@ -9,6 +9,7 @@ import json
 import os
 from pathlib import Path
 import shutil
+import subprocess
 import sqlite3
 import sys
 import tarfile
@@ -1710,6 +1711,7 @@ class StoppedToleratesCrashedCandidateTests(unittest.TestCase):
 # ---------------------------------------------------------------- computer disks, verify, restore
 
 
+@unittest.skipUnless(shutil.which('zstd'), 'zstd not installed')
 class DiskBackupTests(BackupCase):
     """Manual backups carry the computers' workspace disks; --verify audits a backup; restore puts them back."""
 
@@ -1752,7 +1754,10 @@ class DiskBackupTests(BackupCase):
         self.assertEqual(sorted(entry['account'] for entry in meta['disks']), ['acct-1', 'acct-2'])
         for entry, original in ((meta['disks'][0], self.disk1), (meta['disks'][1], self.disk2)):
             copy = directory / entry['file']
-            self.assertEqual(copy.read_bytes(), original.read_bytes())
+            self.assertTrue(entry['file'].endswith('.ext4.zst'))
+            self.assertEqual(subprocess.run(['zstd', '-dc', str(copy)], capture_output=True).stdout,
+                             original.read_bytes())
+            self.assertEqual(entry['compressed'], copy.stat().st_size)
             self.assertEqual(entry['sha256'], hashlib.sha256(copy.read_bytes()).hexdigest())
             self.assertEqual(entry['bytes'], original.stat().st_size)
             self.assertEqual(oct(copy.stat().st_mode & 0o777), '0o600')
@@ -1836,9 +1841,9 @@ class DiskBackupTests(BackupCase):
     def test_verify_fails_on_a_corrupted_disk(self):
         self.seed_disks()
         meta = self.manual()
-        copy = self.P.backups / meta['id'] / 'disks' / 'acct-1.ext4'
+        copy = self.P.backups / meta['id'] / 'disks' / 'acct-1.ext4.zst'
         data = bytearray(copy.read_bytes())
-        data[100] ^= 0xFF  # same size, one flipped byte
+        data[len(data) // 2] ^= 0xFF  # same size, one flipped byte
         copy.write_bytes(bytes(data))
         code, out = self.main('backup', '--verify')
         self.assertEqual(code, 1)
@@ -1851,7 +1856,7 @@ class DiskBackupTests(BackupCase):
         meta = self.manual()
         directory = self.P.backups / meta['id']
         (directory / meta['archives']['etc']).write_bytes(b'garbage')
-        (directory / 'disks' / 'acct-2.ext4').unlink()
+        (directory / 'disks' / 'acct-2.ext4.zst').unlink()
         (directory / 'disks' / 'stray.ext4').write_bytes(b'x')
         report = tofi_host.check_backup(directory)
         text = '\n'.join(report['problems'])
@@ -1947,8 +1952,88 @@ class DiskBackupTests(BackupCase):
     def test_restore_checks_the_disks_before_stopping_anything(self):
         self.seed_disks()
         meta = self.manual()
-        (self.P.backups / meta['id'] / 'disks' / 'acct-1.ext4').write_bytes(b'rotten')
+        (self.P.backups / meta['id'] / 'disks' / 'acct-1.ext4.zst').write_bytes(b'rotten')
         with self.local_manifest():
             with self.assertRaisesRegex(HostError, 'damaged'):
                 tofi_host.restore_backup(meta['id'], yes=True)
         self.stopped.assert_not_called()
+
+    # -- compression, retention, estimate
+
+    def test_compressed_disk_is_much_smaller_and_round_trips_byte_for_byte(self):
+        self.seed_disks()
+        with open(self.disk1, 'wb') as stream:
+            stream.write(b'ABCD' * 250000)  # 1 MB, very compressible
+        original = self.disk1.read_bytes()
+        meta = self.manual()
+        entry = next(e for e in meta['disks'] if e['account'] == 'acct-1')
+        self.assertLess(entry['compressed'], len(original) // 10)
+        self.disk1.write_bytes(b'changed')
+        with self.local_manifest():
+            tofi_host.restore_backup(meta['id'], yes=True)
+        self.assertEqual(self.disk1.read_bytes(), original)
+
+    def test_verify_catches_a_corrupted_compressed_disk_even_when_the_checksum_was_rewritten(self):
+        self.seed_disks()
+        self.disk1.write_bytes(os.urandom(200000))
+        meta = self.manual()
+        directory = self.P.backups / meta['id']
+        copy = directory / 'disks' / 'acct-1.ext4.zst'
+        raw = copy.read_bytes()
+        copy.write_bytes(raw[: len(raw) // 2])
+        stored = json.loads((directory / 'meta.json').read_text())
+        entry = next(e for e in stored['disks'] if e['account'] == 'acct-1')
+        entry['sha256'] = hashlib.sha256(copy.read_bytes()).hexdigest()
+        entry['compressed'] = copy.stat().st_size
+        (directory / 'meta.json').write_text(json.dumps(stored))
+        report = tofi_host.check_backup(directory)
+        self.assertTrue(any('zstd -t failed' in p for p in report['problems']), report['problems'])
+
+    def test_only_the_two_newest_disk_backups_keep_their_disks(self):
+        self.seed_disks()
+        ids = []
+        for _ in range(3):
+            ids.append(tofi_host.backup_now()['id'])
+        listed = {item['id']: item for item in tofi_host.list_backups()}
+        self.assertEqual(sorted(listed), sorted(ids), 'the oldest backup itself stays')
+        oldest, middle, newest = ids
+        self.assertNotIn('disks', listed[oldest]['meta'])
+        self.assertFalse((self.P.backups / oldest / 'disks').exists())
+        self.assertTrue((self.P.backups / oldest / listed[oldest]['meta']['archives']['data']).exists())
+        self.assertEqual(tofi_host.verify_backup(self.P.backups / oldest)['id'], oldest)
+        self.assertEqual(len(listed[middle]['meta']['disks']), 2)
+        self.assertEqual(len(listed[newest]['meta']['disks']), 2)
+        self.assertIn('Removed the computer disks of backup %s' % oldest, sys.stdout.getvalue())
+        self.assertEqual(self.main('backup', '--verify', 'all')[0], 0)
+
+    def test_backups_without_disks_do_not_count_toward_the_two(self):
+        self.seed_disks()
+        first = tofi_host.backup_now()['id']
+        for _ in range(3):
+            tofi_host.backup_now(disks=False)
+        second = tofi_host.backup_now()['id']
+        listed = {item['id']: item['meta'] for item in tofi_host.list_backups()}
+        self.assertTrue(listed[first].get('disks') and listed[second].get('disks'))
+
+    def test_estimate_is_printed_and_called_an_estimate(self):
+        self.seed_disks()
+        tofi_host.backup_now()
+        out = sys.stdout.getvalue()
+        self.assertIn('Space estimate: about', out)
+        self.assertIn('It is an estimate', out)
+        self.assertIn('2 computer disk(s)', out)
+
+    def test_not_enough_room_for_the_estimate_refuses_before_stopping(self):
+        self.seed_disks()
+        with open(self.disk1, 'wb') as stream:
+            stream.write(os.urandom(1 << 20))
+        need = tofi_host.BACKUP_FREE_FACTOR * (tofi_host.tree_bytes(self.P.data) + tofi_host.tree_bytes(self.P.etc)) \
+            + tofi_host.BACKUP_FREE_MARGIN
+        expected = tofi_host.disks_estimate()
+        self.assertGreater(expected, 0)
+        with mock.patch.object(tofi_host, 'free_bytes', return_value=need + expected - 1):
+            with self.assertRaisesRegex(HostError, 'estimated.*--no-disks'):
+                tofi_host.backup_now()
+        self.stopped.assert_not_called()
+        with mock.patch.object(tofi_host, 'free_bytes', return_value=need + expected):
+            tofi_host.backup_now()
