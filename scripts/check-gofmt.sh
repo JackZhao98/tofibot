@@ -10,8 +10,8 @@ baseline=.gofmt-baseline
 unformatted=$(git ls-files '*.go' | xargs gofmt -l | LC_ALL=C sort)
 known=""
 if [ -f "$baseline" ]; then known=$(grep -v '^[[:space:]]*\(#\|$\)' "$baseline" | LC_ALL=C sort); fi
-fresh=$(comm -23 <(printf '%s\n' "$unformatted" | sed '/^$/d') <(printf '%s\n' "$known" | sed '/^$/d'))
-stale=$(comm -13 <(printf '%s\n' "$unformatted" | sed '/^$/d') <(printf '%s\n' "$known" | sed '/^$/d'))
+fresh=$(LC_ALL=C comm -23 <(printf '%s\n' "$unformatted" | sed '/^$/d') <(printf '%s\n' "$known" | sed '/^$/d'))
+stale=$(LC_ALL=C comm -13 <(printf '%s\n' "$unformatted" | sed '/^$/d') <(printf '%s\n' "$known" | sed '/^$/d'))
 status=0
 if [ -n "$fresh" ]; then
   echo "gofmt: these files are not formatted (run: gofmt -w <file>):" >&2
