@@ -81,6 +81,8 @@
     "description_aria": "Edit schedule description",
     "instructions": "Full instructions",
     "instructions_aria": "Edit schedule instructions",
+    "timing": "Timing",
+    "timing_locked": "A one-time schedule that has already run can't be rescheduled.",
     "cancel": "Cancel",
     "save": "Save"
   }

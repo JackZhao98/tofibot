@@ -81,6 +81,8 @@
     "description_aria": "Beschreibung des Zeitplans bearbeiten",
     "instructions": "Vollständige Anweisungen",
     "instructions_aria": "Anweisungen des Zeitplans bearbeiten",
+    "timing": "Zeitplan",
+    "timing_locked": "Ein einmaliger Zeitplan, der schon gelaufen ist, lässt sich nicht neu terminieren.",
     "cancel": "Abbrechen",
     "save": "Speichern"
   }

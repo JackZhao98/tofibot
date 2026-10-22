@@ -18,6 +18,17 @@
     "retry": "Réessayer"
   },
   "apiError": {
+    "schedule_kind_invalid": "Choisissez ponctuelle, intervalle, quotidienne ou hebdomadaire.",
+    "schedule_content_invalid": "Les instructions sont obligatoires et ne doivent pas être trop longues.",
+    "schedule_timezone_invalid": "Ce fuseau horaire n'est pas reconnu.",
+    "schedule_run_at_required": "Indiquez une heure d'exécution pour une planification ponctuelle.",
+    "schedule_run_at_invalid": "L'heure d'exécution n'est pas une date et une heure valides.",
+    "schedule_run_at_past": "L'heure d'exécution doit être dans le futur.",
+    "schedule_interval_invalid": "L'intervalle doit être compris entre 1 minute et 365 jours.",
+    "schedule_time_invalid": "L'heure doit être au format HH:MM.",
+    "schedule_weekdays_invalid": "Choisissez au moins un jour de la semaine valide.",
+    "schedule_timing_conflict": "Ces champs de planification ne s'appliquent pas à ce type de planification.",
+    "schedule_timing_locked": "Une planification ponctuelle déjà exécutée ne peut pas être reprogrammée.",
     "request_failed": "Échec de la requête ({{status}})",
     "plugin_busy": "Le plugin est utilisé par une tâche. Réessayez dans un instant.",
     "computer_busy": "L’ordinateur est occupé ou piloté par une autre fenêtre, tâche ou un autre Bot. Arrêtez la tâche en cours ou réessayez dans un instant.",

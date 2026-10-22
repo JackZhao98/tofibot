@@ -139,6 +139,21 @@ different package or version voids standing allowances. For a community server t
 Session cookies are Secure when `TOFI_PUBLIC_ORIGIN` is https; Caddy sends HSTS. Known open: `computer_shell` shares a uid and loopback with the
 shared Chrome DevTools port.
 
+# Editing a schedule's timing
+
+`PATCH /api/schedules/{id}` and the Bot tool `update_schedule` accept optional `kind`, `run_at`, `interval_seconds`, `daily_time`, `weekdays`, `timezone`
+(`SchedulePatch`, `internal/app/schedule_edit.go`). They go through `planScheduleTiming`, which merges the patch onto the stored schedule and calls the
+creation validation and next-time calculation (`validateScheduleSpec`); there is no second calculator. A change recomputes `next_at_utc` from now; a
+restated timing changes nothing. Unset fields keep their stored value unless `kind` changes, which starts from the fields the new kind needs
+(`daily` <-> `weekly` keep the clock). Failures are `*ScheduleError` with stable codes (`schedule_kind_invalid`, `schedule_timezone_invalid`,
+`schedule_run_at_required|invalid|past`, `schedule_interval_invalid`, `schedule_time_invalid`, `schedule_weekdays_invalid`, `schedule_timing_conflict`,
+`schedule_timing_locked` = 409); create returns the same codes. It never touches a claimed or running occurrence (runs, `schedule_occurrences`
+and the occurrence authorization snapshot are separate rows), leaves a paused schedule paused, and refuses a one-time schedule that was claimed or
+completed. `expected_timing` is the opt-in baseline (a mismatch is `edit_conflict`, like `expected`). A timing edit is journaled as a `content_edit`
+authorization revision from the same source kinds (form or native chat), so whoever may edit content may edit timing; `verifyMCPScheduleSources` therefore
+lets timing differ between revisions (identity and the original anchor must still match) and shows each revision's timing to the reviewer. The UI is
+`ScheduleEditor.tsx` using `ScheduleTimingFields.tsx`, the same controls as the create form; `test:schedule-timing` holds its patch building.
+
 # Web timeline performance
 
 The message list is built for cost that does not grow with the conversation. Each row is `MessageRow` (a `memo` component compared by

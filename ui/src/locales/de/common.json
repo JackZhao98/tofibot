@@ -18,6 +18,17 @@
     "retry": "Erneut versuchen"
   },
   "apiError": {
+    "schedule_kind_invalid": "Wähle einmalig, Intervall, täglich oder wöchentlich.",
+    "schedule_content_invalid": "Die Anweisungen sind erforderlich und dürfen nicht zu lang sein.",
+    "schedule_timezone_invalid": "Diese Zeitzone wird nicht erkannt.",
+    "schedule_run_at_required": "Lege für einen einmaligen Zeitplan eine Ausführungszeit fest.",
+    "schedule_run_at_invalid": "Die Ausführungszeit ist kein gültiges Datum mit Uhrzeit.",
+    "schedule_run_at_past": "Die Ausführungszeit muss in der Zukunft liegen.",
+    "schedule_interval_invalid": "Das Intervall muss zwischen 1 Minute und 365 Tagen liegen.",
+    "schedule_time_invalid": "Die Uhrzeit muss im Format HH:MM angegeben werden.",
+    "schedule_weekdays_invalid": "Wähle mindestens einen gültigen Wochentag.",
+    "schedule_timing_conflict": "Diese Zeitfelder gehören nicht zu dieser Art von Zeitplan.",
+    "schedule_timing_locked": "Ein einmaliger Zeitplan, der schon gelaufen ist, lässt sich nicht neu terminieren.",
     "request_failed": "Anfrage fehlgeschlagen ({{status}})",
     "plugin_busy": "Das Plugin wird gerade von einer Aufgabe verwendet. Versuchen Sie es gleich erneut.",
     "computer_busy": "Der Computer ist belegt oder wird von einem anderen Fenster, einer anderen Aufgabe oder einem anderen Bot gesteuert. Beenden Sie die laufende Aufgabe oder versuchen Sie es gleich erneut.",
