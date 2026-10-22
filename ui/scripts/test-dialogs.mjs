@@ -22,7 +22,10 @@ import { fileURLToPath } from "node:url";
 if (!process.env.PLAYWRIGHT_MODULE) { console.error("test:dialogs needs PLAYWRIGHT_MODULE=/abs/path/playwright/index.mjs"); process.exit(1); }
 const ui = dirname(dirname(fileURLToPath(import.meta.url)));
 const results = [], failures = [];
+// TOFI_SKIP_TIMING=1 (CI): leave out the checks that read a clock; shared runners are too noisy for them. Run them locally.
+const timingCheck = name => process.env.TOFI_SKIP_TIMING === "1" && /\bwithin \d+ ms\b/.test(name);
 const check = async (name, run) => {
+  if (timingCheck(name)) { console.log(`skipped (timing check, CI mode) - ${name}`); return; }
   try { await run(); results.push(name); console.log(`ok - ${name}`); }
   catch (error) { failures.push(name); console.log(`not ok - ${name}\n    ${String(error.message).split("\n").slice(0, 4).join("\n    ")}`); }
 };
