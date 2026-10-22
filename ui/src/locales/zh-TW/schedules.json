@@ -50,7 +50,8 @@
       "turn_done": "本輪已結束",
       "turn_failed": "本輪失敗",
       "turn_cancelled": "本輪已停止",
-      "turn_interrupted": "本輪已中斷"
+      "turn_interrupted": "本輪已中斷",
+      "quiet": "已完成，未發訊息"
     },
     "failure": {
       "receipt_missing": "本輪沒有確認完成結果，不算已交付。",
@@ -65,7 +66,11 @@
     "manage_instructions": "管理 · 完整執行指令",
     "technical_reason": "查看技術原因",
     "rerunning": "正在重新執行…",
-    "rerun": "重新執行本輪"
+    "rerun": "重新執行本輪",
+    "result": {
+      "heading": "結論",
+      "sources": "來源"
+    }
   },
   "editor": {
     "edit": "編輯",

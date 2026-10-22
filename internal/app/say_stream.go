@@ -61,7 +61,7 @@ func (st *sayStreamer) Delta(d runtime.ToolCallDelta) {
 			}
 			call.started, begin = true, true
 			purpose, _ := call.dec.Purpose()
-			call.held = st.toolWork || st.state.reviewOwed() || (purpose == sayAnswer && st.state.gradeIsOwed())
+			call.held = st.toolWork || st.state.reviewOwed() || (purpose == sayAnswer && (st.state.gradeIsOwed() || st.state.holdAnswers))
 		}
 		if call.held {
 			return "", "", false

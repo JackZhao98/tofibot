@@ -53,7 +53,12 @@ func migrateSay(db *sql.DB) error {
 	if err := ensureColumn(db, "run_say_answers", "wake", `ALTER TABLE run_say_answers ADD COLUMN wake TEXT NOT NULL DEFAULT ''`); err != nil {
 		return err
 	}
-	return ensureColumn(db, "run_say_answers", "sources", `ALTER TABLE run_say_answers ADD COLUMN sources TEXT NOT NULL DEFAULT ''`)
+	if err := ensureColumn(db, "run_say_answers", "sources", `ALTER TABLE run_say_answers ADD COLUMN sources TEXT NOT NULL DEFAULT ''`); err != nil {
+		return err
+	}
+	// quiet marks a scheduled answer recorded as the run's conclusion without
+	// a chat message (D52).
+	return ensureColumn(db, "run_say_answers", "quiet", `ALTER TABLE run_say_answers ADD COLUMN quiet INTEGER NOT NULL DEFAULT 0`)
 }
 
 type sayAnswerRecord struct {
@@ -61,13 +66,17 @@ type sayAnswerRecord struct {
 	Text    string
 	Wake    []groupWakeEntry
 	Sources []string
+	// Quiet: the answer is the run's conclusion and is not posted to the chat.
+	Quiet bool
 }
 
 // sayAnswerExtras are the answer's optional fields: the Bots a group answer
-// starts, and the sources of a scheduled answer.
+// starts, the sources of a scheduled answer, and whether that answer completes
+// the run quietly.
 type sayAnswerExtras struct {
 	Wake    []groupWakeEntry
 	Sources []string
+	Quiet   bool
 }
 
 // recordSayAnswer stores the run's one answer. The same provider call may
@@ -116,7 +125,7 @@ func (s *Store) recordSayAnswerWith(runID, callID, text string, extras sayAnswer
 		b, _ := json.Marshal(extras.Sources)
 		sourcesJSON = string(b)
 	}
-	if _, err = tx.Exec(`INSERT INTO run_say_answers(run_id,call_id,text,wake,sources,created_at) VALUES(?,?,?,?,?,?)`, runID, callID, text, wakeJSON, sourcesJSON, now()); err != nil {
+	if _, err = tx.Exec(`INSERT INTO run_say_answers(run_id,call_id,text,wake,sources,quiet,created_at) VALUES(?,?,?,?,?,?,?)`, runID, callID, text, wakeJSON, sourcesJSON, boolInt(extras.Quiet), now()); err != nil {
 		return err
 	}
 	return tx.Commit()
@@ -126,9 +135,11 @@ func (s *Store) recordSayAnswerWith(runID, callID, text string, extras sayAnswer
 func (s *Store) sayAnswer(runID string) (sayAnswerRecord, bool) {
 	var rec sayAnswerRecord
 	var wakeJSON, sourcesJSON string
-	if s.db.QueryRow(`SELECT call_id,text,wake,sources FROM run_say_answers WHERE run_id=?`, runID).Scan(&rec.CallID, &rec.Text, &wakeJSON, &sourcesJSON) != nil {
+	var quiet int
+	if s.db.QueryRow(`SELECT call_id,text,wake,sources,quiet FROM run_say_answers WHERE run_id=?`, runID).Scan(&rec.CallID, &rec.Text, &wakeJSON, &sourcesJSON, &quiet) != nil {
 		return sayAnswerRecord{}, false
 	}
+	rec.Quiet = quiet != 0
 	if wakeJSON != "" {
 		_ = json.Unmarshal([]byte(wakeJSON), &rec.Wake)
 	}
@@ -160,6 +171,10 @@ type sayRunState struct {
 	// may still happen, which holds the answer's text back from the stream.
 	grade     func(ctx context.Context, text string) string
 	gradeOwed func() bool
+	// holdAnswers keeps an answer's text out of the stream until the call
+	// executes: a scheduled answer may turn out to be quiet (D52), which is
+	// known only from a field that can follow the text.
+	holdAnswers bool
 }
 
 // reviewOwed reports whether a say(answer) beginning now would be sent back
@@ -273,8 +288,11 @@ func saySendsSources(r Run) bool { return r.Kind == runKindSchedule || r.schedul
 const (
 	sayWakeDescription    = "With purpose answer, group chats only: other members to start once your reply is posted, each with a concrete request, at most three. Omit it to start nobody; a plain @mention starts nobody. The group sees each request only as a handed-over line, so write it for the member."
 	saySourcesDescription = "With purpose answer, scheduled runs only: URLs or source names behind current or external information. Delivering the answer records this run as complete."
-	maxSaySources         = 20
-	maxSaySourceRunes     = 500
+	// sayQuietDescription states the principle only: it names the condition on
+	// the task's own instruction and carries no task wording.
+	sayQuietDescription = "With purpose answer, scheduled runs only: true completes the run quietly. Your text is recorded as the run's conclusion, kept for the task's record and for later turns, and no chat message is posted. Use it only when the task's own instruction makes reporting conditional and the condition is not met; otherwise omit it and the answer posts to the chat."
+	maxSaySources       = 20
+	maxSaySourceRunes   = 500
 )
 
 // sayToolSchemaFor adds the optional fields a run can use. Optional fields
@@ -292,6 +310,7 @@ func sayToolSchemaFor(c Conversation, r Run) (map[string]any, bool) {
 	}
 	if saySendsSources(r) {
 		props["sources"] = map[string]any{"type": "array", "items": map[string]any{"type": "string"}, "description": saySourcesDescription}
+		props["quiet"] = map[string]any{"type": "boolean", "description": sayQuietDescription}
 		strict = false
 	}
 	return schema, strict
@@ -353,6 +372,7 @@ func (s *Server) sayTool(c Conversation, r Run) Tool {
 			Text    string           `json:"text"`
 			Wake    []groupWakeEntry `json:"wake"`
 			Sources []string         `json:"sources"`
+			Quiet   bool             `json:"quiet"`
 		}
 		if json.Unmarshal(raw, &in) != nil {
 			return "", errors.New("invalid say arguments")
@@ -408,7 +428,10 @@ func (s *Server) sayTool(c Conversation, r Run) Tool {
 					return fail(recipientAddressedRefusal(name))
 				}
 			}
-			extras := sayAnswerExtras{Wake: in.Wake}
+			if in.Quiet && !saySendsSources(r) {
+				return fail(tooloutcome.New(tooloutcome.Validation, "quiet_not_available", "not_executed", "quiet is only available in scheduled runs; deliver the answer without it.", "repair_arguments").Err())
+			}
+			extras := sayAnswerExtras{Wake: in.Wake, Quiet: in.Quiet}
 			if len(in.Sources) > 0 {
 				if !saySendsSources(r) {
 					return fail(errors.New("sources are only available in scheduled runs"))
@@ -451,9 +474,17 @@ func (s *Server) sayTool(c Conversation, r Run) Tool {
 				return fail(err)
 			}
 			if state != nil {
-				state.show(callID, text)
+				if extras.Quiet {
+					// Recorded, not posted: nothing of it reaches the draft.
+					state.discard(callID)
+				} else {
+					state.show(callID, text)
+				}
 			}
 			runtime.EndTurn(ctx)
+			if extras.Quiet {
+				return "Recorded quietly. Your turn is complete; write nothing more.", nil
+			}
 			return "Delivered. Your turn is complete; write nothing more.", nil
 		case sayNote, sayMessage:
 			limit, kind, prefix := maxSayNoteRunes, "progress", sayNoteClientPrefix

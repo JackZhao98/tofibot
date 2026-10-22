@@ -1,6 +1,7 @@
 // The workspace frame: sidebar rows and pins, notices, the boot screen, the computer window, the phone push and the
 // smaller patterns. Mostly the real App; the cards that take props are rendered on their own.
 import { ScheduledTaskRow } from "../../ScheduledTaskRow";
+import type { ScheduleOccurrence } from "../../scheduleOccurrences";
 import { MailDraftCard } from "../../MailDraftCard";
 import { TaskIssueCard } from "../../TaskIssueCard";
 import { presentTaskIssue } from "../../taskIssuePresentation";
@@ -98,9 +99,15 @@ const scheduled = (status: Run["status"], error?: string): { message: Message; r
   message: { id: `m_sched_${status}`, conversation_id: "dm_mochi", seq: 1, role: "user", kind: "scheduled_task", content: "Send me the weekly sign-up numbers", created_at: at(-60), run_id: `run_sched_${status}` },
   run: { id: `run_sched_${status}`, conversation_id: "dm_mochi", bot_id: "bot_mochi", status, kind: "schedule", created_at: at(-60), updated_at: at(-58), ...(error ? { error } : {}) },
 });
-const scheduledState = (status: Run["status"], label: string, error?: string): CatalogState => {
+const scheduledState = (status: Run["status"], label: string, error?: string, id = `scheduled-${status}`, result?: { posted: boolean }): CatalogState => {
   const { message, run } = scheduled(status, error);
-  return { id: `scheduled-${status}`, kind: "inline", label, context: ["catalog-column"], render: () => <ScheduledTaskRow message={message} run={run} timezone="UTC" onRetry={async () => {}} /> };
+  // A done occurrence carries the run's recorded conclusion; posted decides whether a chat message exists (D52).
+  const occurrence: ScheduleOccurrence | undefined = result ? {
+    root_run_id: run.id, schedule_id: "0f0f0f0f-0000-4000-8000-000000000001", scheduled_for_utc: at(-60), execution_status: "done", status_run_id: run.id,
+    result_in_conversation: result.posted, result_posted: result.posted, completed_at: at(-58),
+    result_text: "Nothing was restocked. Checked the two product pages.", result_sources: ["https://shop.example/item-a", "https://shop.example/item-b"],
+  } : undefined;
+  return { id, kind: "inline", label, context: ["catalog-column"], render: () => <ScheduledTaskRow message={message} run={run} occurrence={occurrence} timezone="UTC" onRetry={async () => {}} /> };
 };
 const failedRun: Run = { id: "run_failed", conversation_id: "dm_mochi", bot_id: "bot_mochi", status: "failed", created_at: at(-20), updated_at: at(-19), failure: { code: "model_quota_exhausted", source: "runtime", message: "Synthetic: quota" } };
 
@@ -112,6 +119,8 @@ export const other: CatalogSection = {
     scheduledState("queued", "Scheduled task, queued"),
     scheduledState("running", "Scheduled task, running"),
     scheduledState("done", "Scheduled task, done"),
+    scheduledState("done", "Scheduled task, done, result posted", undefined, "scheduled-done-posted", { posted: true }),
+    scheduledState("done", "Scheduled task, done quietly (nothing posted)", undefined, "scheduled-done-quiet", { posted: false }),
     scheduledState("failed", "Scheduled task, failed", "Synthetic: the provider timed out"),
     { id: "task-issue", kind: "inline", label: "Task issue card", context: ["catalog-column"], render: () => { const issue = presentTaskIssue({ run: failedRun, recordsComplete: true }); return issue ? <TaskIssueCard issue={issue} onAction={() => {}} onRetry={() => {}} /> : <p>no issue</p>; } },
     ...(["pending", "sent", "declined"] as const).map(status => ({ id: `mail-${status}`, kind: "inline" as const, label: `Mail draft, ${status}`, context: ["catalog-column"],

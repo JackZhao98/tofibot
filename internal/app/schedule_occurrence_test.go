@@ -63,7 +63,7 @@ func readOccurrences(t *testing.T, server *Server, conversationID string, ids ..
 		t.Fatal(err)
 	}
 	for _, fields := range raw.Occurrences {
-		allowed := map[string]bool{"root_run_id": true, "schedule_id": true, "scheduled_for_utc": true, "title": true, "created_by": true, "kind": true, "timezone": true, "interval_seconds": true, "daily_time": true, "occurrence_number": true, "execution_status": true, "status_run_id": true, "status_error": true, "result_in_conversation": true}
+		allowed := map[string]bool{"root_run_id": true, "schedule_id": true, "scheduled_for_utc": true, "title": true, "created_by": true, "kind": true, "timezone": true, "interval_seconds": true, "daily_time": true, "occurrence_number": true, "execution_status": true, "status_run_id": true, "status_error": true, "result_in_conversation": true, "result_text": true, "result_sources": true, "result_posted": true, "completed_at": true}
 		for key := range fields {
 			if !allowed[key] {
 				t.Fatalf("unexpected DTO field %s: %s", key, w.Body.String())

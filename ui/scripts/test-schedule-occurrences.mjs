@@ -53,6 +53,19 @@ try {
   assert.equal(publication.get(id(1)).result_in_conversation, true);
   assert.equal(publication.get(id(2)).result_in_conversation, false);
   assert.equal(publication.get(id(3)).result_in_conversation, false);
+  // D52: a done occurrence carries its recorded conclusion; quiet means nothing was posted.
+  const results = await loadScheduleOccurrences("c", occurrenceRootKey([id(1), id(2), id(3), id(4)]), signal, async () => ({ occurrences: [
+    item(id(1), "done", { result_text: "Nothing restocked.", result_sources: ["https://shop.example/a", "", 7], result_posted: false, completed_at: "2026-09-22T00:05:00Z" }),
+    item(id(2), "done", { result_text: "Item is back.", result_posted: true, result_in_conversation: true }),
+    item(id(3), "failed", { result_text: "STALE", result_posted: true }),
+    item(id(4), "done", { result_text: { bad: true }, completed_at: "not a time" }),
+  ] }));
+  assert.deepEqual(results.get(id(1)), { ...results.get(id(1)), result_text: "Nothing restocked.", result_sources: ["https://shop.example/a"], result_posted: false, completed_at: "2026-09-22T00:05:00Z" });
+  assert.equal(results.get(id(2)).result_posted, true);
+  assert.equal(results.get(id(3)).result_text, undefined);
+  assert.equal(results.get(id(3)).result_posted, false);
+  assert.equal(results.get(id(4)).result_text, undefined);
+  assert.equal(results.get(id(4)).completed_at, undefined);
   assert.equal(diagnostic.has(id(99)), false);
   assert.equal((await loadScheduleOccurrences("c", id(1), signal, async () => ({ occurrences: [] }))).size, 0);
   await assert.rejects(loadScheduleOccurrences("c", id(1), signal, async () => ({ occurrences: null })), /Invalid/);
