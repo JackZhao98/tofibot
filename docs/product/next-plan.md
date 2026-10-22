@@ -177,9 +177,9 @@ owner 10-22 01:58：「以在个人服务器 selfhost 作为最高优先级，se
 | 资源 | 每账户 1–4 GiB 微 VM | ZeroClaw/NanoClaw 轻量 |
 | 模型 | 仅 OpenAI/Anthropic/ChatGPT 登录，无本地/兼容端点 | WorkBuddy、OpenClaw 多提供方 |
 
-TOFI 领先：每账户 Firecracker 隔离（Grok 自认多 Bot 共机非安全边界）、服务端生成的审批事实与绑定工具定义的「始终允许」、接管卡、单一提问通道、多账户+7 语言。
+TOFI 领先：多租户隔离（每个账户一台 Firecracker 微 VM，账户之间隔离）；**同一账户内的多个 Bot 和 Grok Bot 一样共用一台电脑，不是安全边界**（owner 10-22 更正竞品研究的说法）。其余优势：服务端生成的审批事实与绑定工具定义的「始终允许」、接管卡、单一提问通道、多账户+7 语言。
 
-**不抄**：多 Bot 共用一台电脑、公开技能市场（OpenClaw 恶意技能/CVE）、积分制、录屏教技能。
+**不抄**：公开技能市场（OpenClaw 恶意技能/CVE）、积分制、录屏教技能。
 
 **对今晚清单的调整**（协调者 02:20 执行）：
 - 新增 **S1** 备份含电脑磁盘 + `tofi backup --verify` + `tofi restore`（分支 `night/s1-backup-verify`）。
