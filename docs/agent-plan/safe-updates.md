@@ -6,7 +6,7 @@ Goal: when we ship a fix, every self-hosted user learns about it, can install it
 
 Owner decisions:
 - Auto-update is off unless the operator says yes. The installer asks once, default yes, and it applies to patch releases only (same major.minor).
-- Before every update, an automatic backup is taken. The last 3 are kept. Computer disks are not included.
+- Before every update, an automatic backup is taken. The last 3 are kept. Computer disks are not included in automatic backups; a manual `tofi backup` includes them by default (D48, `--no-disks` to leave them out).
 
 ## Facts found in the current code (why this exists)
 
@@ -38,7 +38,7 @@ Test: a file with `TOFI_TRUSTED_PROXIES=…` and `CUSTOM_X=1` survives install-r
   - `etc.tar.gz` of `/etc/tofi`, including `tofi.env`, `worker.json` and `tls/`;
   - `meta.json` with `{version, app_image, worker_image, guest, created_at, reason, sizes, sha256 of each archive}`.
 - Mode 0700, owner root.
-- Excludes `/var/lib/tofi/worker`, which holds the computer disks.
+- Excludes the computer disks under `/var/lib/tofi/worker`. Only a manual `tofi backup` copies them (D48): sparse copies in `disks/<account>.ext4`, listed with sha256 in `meta.json`, taken only with the services stopped and every computer's `manager.lock` free.
 - Before backing up, estimate the size and refuse the update if free space under `/var/lib/tofi` is less than 2× the estimate plus 1 GiB. The message names the numbers.
 - Keep the last 3 backups (prune after a successful update).
 
@@ -48,13 +48,15 @@ Test: a file with `TOFI_TRUSTED_PROXIES=…` and `CUSTOM_X=1` survives install-r
 - `meta.json` sha256 is verified before restoring.
 
 **New commands**
-- `sudo tofi backup [--note TEXT]`: stop → backup → start. It honors the active-run guard (A3).
+- `sudo tofi backup [--note TEXT] [--no-disks]`: stop → backup → start → verify the new backup. It honors the active-run guard (A3). These commands exist (`backup_now`, `restore_backup`); they are no longer "planned".
+- `sudo tofi backup --verify [ID|all]`: audit a backup without restoring it or stopping anything: files present, sizes and sha256 match `meta.json`, every archive reads end to end, `tofi.env` usable, no unlisted files. Exit 1 on any problem.
 - `sudo tofi backups`: list backups (time, version, size, reason).
 - `sudo tofi restore <backup-id> [--yes]`:
   - Restores data + etc and switches to that backup's version: images and bundle from `meta.json`.
   - If the bundle was pruned, it re-fetches the bundle for that version from the release.
   - It asks for confirmation and honors the active-run guard.
   - It takes a backup of the current state first (reason `pre-restore`).
+  - A backup that carries computer disks restores them too (`--no-disks` skips). Each replaced live disk is kept as `workspace-before-restore-<ns>.ext4`, a failed restore puts it back, and the computer's saved snapshot is dropped (it cold-boots).
 
 ### A3. Active-run guard
 

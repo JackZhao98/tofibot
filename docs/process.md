@@ -309,6 +309,12 @@ sudo tofi update --version v0.1.4-rc.<N>                 # 装 rc 必须带 --ve
 - 更新过程：停服务 → 备份数据 → 切配置和版本 → 启动新版；新版起不来就恢复备份、回滚到原版本（`upgrade` / `_upgrade`，`tofi_host.py:2366-2475`）。结果写进 `/var/lib/tofi/update-history.jsonl`（`deploy/self-host/README.md:326`）。
 - 数据结构（镜像标签 `io.tofi.data-schema`）变了时，`tofi update` 会拒绝，要加 `--allow-schema-change`（`tofi_host.py:2425-2427`）。遇到这种情况停下来问 owner。这是本文的建议，还没有 owner 决定，**待确认**。
 
+备份、验证、还原（D48，只由协调者在主机上做）：
+
+- `sudo tofi backup`：停服务、备份数据和设置、默认连每台电脑的工作区磁盘一起（`--no-disks` 不带）、再启动，并自动验证刚写的那份；自动备份（更新前、还原前）不带磁盘。
+- `sudo tofi backup --verify [ID|all]`：不还原、不停服务，查文件、大小、sha256、归档可读、`tofi.env`；退出码 0 才算这份备份可用。
+- `sudo tofi restore <ID>`：有运行在跑就拒绝（同更新），先做 `pre-restore` 备份；带磁盘的备份连磁盘还原，被换下的盘留作 `workspace-before-restore-*.ext4`。
+
 ### 7.5 部署后验证
 
 1. `sudo tofi status`、`sudo tofi version`：版本是新标签，服务都健康。
