@@ -44,6 +44,7 @@
     "test:i18n": "node scripts/check-i18n.mjs",
     "test:schedule-timing": "node scripts/test-schedule-timing.mjs",
     "test:api-error-codes": "node scripts/test-api-error-codes.mjs",
+    "test:proxy-challenge": "node scripts/test-proxy-challenge.mjs",
     "test:empty-states": "node scripts/test-empty-states.mjs",
     "test:file-preview": "node scripts/test-file-preview.mjs",
     "test:perf-structure": "node scripts/test-perf-structure.mjs",

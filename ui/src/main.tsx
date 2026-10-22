@@ -3,6 +3,7 @@ import { createRoot } from "react-dom/client";
 import App from "./App";
 import { OwnerSessionGate } from "./OwnerSession";
 import { BootDissolve } from "./BootScreen";
+import { ProxyChallengeSlot } from "./ProxyChallengeSlot";
 import { i18nReady, useLanguage } from "./i18n";
 import { installFocusModality } from "./focusModality";
 import "./fonts.css";
@@ -13,7 +14,7 @@ installFocusModality();
 /** Re-renders the tree on a language switch so helpers that read the active language refresh too. */
 function Root() {
   useLanguage();
-  return <><OwnerSessionGate><App /></OwnerSessionGate><BootDissolve /></>;
+  return <><OwnerSessionGate><App /></OwnerSessionGate><BootDissolve /><ProxyChallengeSlot /></>;
 }
 
 // Render once the active language's catalogs are in, so the first paint is not English.
