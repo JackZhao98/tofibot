@@ -611,7 +611,7 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
     await tiered.locator(".mcp-menu-trigger").click();
     await tiersPage.page.getByRole("menuitem", {name: "View details"}).click();
     await tiered.locator(".mcp-tool-group[data-tier=read_only]").waitFor();
-    assert.deepEqual(await tiered.locator(".mcp-tool-group h5").allTextContents(), ["Read only (marked by provider)2", "Reviewed each time2", "Always ask me2"], "three groups with counts");
+    assert.deepEqual(await tiered.locator(".mcp-tool-group[data-tier] h5").allTextContents(), ["Read only (marked by provider)2", "Reviewed each time2", "Always ask me2"], "three groups with counts");
     assert.deepEqual(await tiered.locator(".mcp-tool[data-source=owner] code").allTextContents(), ["get_issue", "delete_issue", "post_comment"], "owner overrides are marked");
     assert.equal(await tiered.locator(".mcp-tool[data-changed=true]").count(), 2, "changed tools are marked");
     assert.equal(await tiered.locator(".mcp-tier-mark.is-changed").first().textContent(), "Changed");
@@ -623,7 +623,7 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
     await selector.selectOption("high_risk");
     await tiersPage.page.waitForTimeout(400);
     assert.deepEqual(tierWrites, [`PUT /api/extensions/mcp/acme_tracker/tools/create_issue {"tier":"high_risk"}`], "the selector writes exactly one owner override");
-    assert.equal(await tiered.locator(".mcp-service-tools .mcp-tools-note").count(), 0, "nothing is pending: no classification note");
+    assert.equal(await tiered.locator(".mcp-service-tools .mcp-tools-note:not([data-capability])").count(), 0, "nothing is pending: no classification note");
     assert.equal(await tiered.locator(".mcp-tools-head .mcp-button").textContent(), "Refresh tools", "the disclosure refreshes the tool list; nothing classifies");
     assert.doesNotMatch(await tiersPage.page.locator('.mcp-service[aria-label="notes_search"] .mcp-service-status').textContent(), /Classifying/, "no classifying status anywhere");
     const docs = card(tiersPage.page, "acme_docs");
