@@ -46,7 +46,7 @@ sys.path.insert(0, str(MICROVM))
 sys.path.insert(0, str(HERE))
 
 from account_release_check import PROTOCOL, validate_release  # noqa: E402
-from manager import copy_sparse, snapshot_release  # noqa: E402
+from manager import snapshot_release  # noqa: E402
 from worker_entrypoint import validate_config  # noqa: E402
 import tofi_tui  # noqa: E402
 # Palette, art and colour rules live in tofi_tui (shared with install.sh).
@@ -1479,8 +1479,8 @@ def check_backup_space(action='the update', disks=0):
     """Refuse, before anything is stopped, when a backup would not fit.
 
     Needs 2x the data and settings size plus 1 GiB free under /var/lib/tofi,
-    plus `disks` (the allocated size of the computer disks to copy, once: they
-    are copied as they are, not compressed). Returns the size estimate.
+    plus `disks` (the expected compressed size of the computer disks; an
+    estimate, see disks_estimate). Returns the size estimate.
     """
     estimate = tree_bytes(P.data) + tree_bytes(P.etc)
     need = BACKUP_FREE_FACTOR * estimate + BACKUP_FREE_MARGIN + disks
@@ -1488,9 +1488,9 @@ def check_backup_space(action='the update', disks=0):
     if free < need:
         raise HostError(
             'Not enough free disk space for the backup before %s: TOFI data and settings take %s%s, so a backup needs '
-            '%s free under /var/lib/tofi (2x plus 1 GiB%s) but only %s is free. Nothing was changed; free some '
+            'an estimated %s free under /var/lib/tofi (2x plus 1 GiB%s) but only %s is free. Nothing was changed; free some '
             'space%s and run it again.'
-            % (action, human_bytes(estimate), (' and the computer disks %s' % human_bytes(disks)) if disks else '',
+            % (action, human_bytes(estimate), (' and the computer disks about %s compressed' % human_bytes(disks)) if disks else '',
                human_bytes(need), ' plus the disks' if disks else '', human_bytes(free),
                ' or add --no-disks' if disks else ''))
     return estimate
@@ -1690,7 +1690,7 @@ def backup_data(reason, env=None, note=None, check_space=True, disks=False):
         }
         if disk_entries is not None:
             meta['disks'] = disk_entries
-            meta['sizes']['disks_allocated'] = sum(entry['allocated'] for entry in disk_entries)
+            meta['sizes']['disks_allocated'] = sum(entry['compressed'] for entry in disk_entries)
         write_json(partial / 'meta.json', meta, 0o600)
         os.rename(partial, final)
     except BaseException as error:
@@ -1719,9 +1719,10 @@ def read_backup_meta(directory):
             raise HostError('Backup %s names an unsafe archive file.' % Path(directory).name)
     for entry in meta.get('disks') or []:
         if (not isinstance(entry, dict) or not isinstance(entry.get('account'), str)
-                or not DISK_ACCOUNT_RE.match(entry['account']) or entry.get('file') != 'disks/%s.ext4' % entry['account']
+                or not DISK_ACCOUNT_RE.match(entry['account']) or entry.get('file') != 'disks/%s.ext4.zst' % entry['account']
                 or not isinstance(entry.get('sha256'), str) or not SHA_RE.match(entry['sha256'])
-                or type(entry.get('bytes')) is not int or type(entry.get('allocated')) is not int):
+                or type(entry.get('bytes')) is not int or type(entry.get('allocated')) is not int
+                or type(entry.get('compressed')) is not int):
             raise HostError('Backup %s lists an unusable computer disk.' % Path(directory).name)
     if 'disks' in meta and not isinstance(meta['disks'], list):
         raise HostError('Backup %s lists an unusable computer disk.' % Path(directory).name)
@@ -1805,8 +1806,59 @@ def allocated_bytes(path):
     return os.lstat(str(path)).st_blocks * 512
 
 
-def disks_estimate():
+DISK_COMPRESSION_RATIO = 0.5  # assumed zstd ratio on allocated ext4 blocks; a guess, not a measurement
+DISK_BACKUPS_KEEP = 2
+
+
+def disks_allocated():
     return sum(allocated_bytes(disk) for _name, disk in account_disks())
+
+
+def disks_estimate():
+    """Expected compressed size of all computer disks: allocated bytes times an assumed ratio. An estimate."""
+    return int(disks_allocated() * DISK_COMPRESSION_RATIO)
+
+
+def compress_disk(source, target):
+    """zstd the (sparse) disk file into `target`; zeros compress to almost nothing."""
+    if not zstd_available():
+        raise HostError('Backing up computer disks needs the zstd tool; install it (apt-get install zstd) or add --no-disks.')
+    descriptor = os.open(str(target), os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+    with os.fdopen(descriptor, 'wb') as output:
+        result = subprocess.run(['zstd', '-q', '-T0', '-c', str(source)], stdout=output, stderr=subprocess.PIPE)
+        if result.returncode != 0:
+            raise HostError('zstd failed while compressing %s.' % source)
+        output.flush()
+        os.fsync(output.fileno())
+
+
+def decompress_disk(source, target):
+    """Expand a .zst disk into `target`, keeping holes (zstd --sparse)."""
+    if not zstd_available():
+        raise HostError('Restoring computer disks needs the zstd tool; install it (apt-get install zstd).')
+    result = subprocess.run(['zstd', '-d', '-q', '-f', '--sparse', '-o', str(target), str(source)],
+                            stderr=subprocess.PIPE)
+    if result.returncode != 0:
+        Path(target).unlink(missing_ok=True)
+        raise HostError('zstd failed while expanding %s.' % Path(source).name)
+
+
+def prune_disk_backups(keep=DISK_BACKUPS_KEEP):
+    """Keep the computer disks of only the newest `keep` backups that carry them; strip the disks (not the
+    data, settings or Worker archives) from older ones. Returns [(backup id, bytes freed)]."""
+    carrying = [item for item in list_backups() if item['meta'].get('disks')]
+    stripped = []
+    for item in carrying[keep:]:
+        meta = dict(item['meta'])
+        freed = sum(entry['compressed'] for entry in meta.pop('disks'))
+        sizes = dict(meta['sizes'])
+        sizes.pop('disks_allocated', None)
+        meta['sizes'] = sizes
+        meta['disks_removed_at'] = iso_now()
+        remove_tree(item['path'] / 'disks')
+        write_json(item['path'] / 'meta.json', meta, 0o600)
+        stripped.append((item['id'], freed))
+    return stripped
 
 
 def assert_disks_quiet(disks):
@@ -1835,8 +1887,8 @@ def assert_disks_quiet(disks):
 
 
 def backup_disks(partial):
-    """Copy each computer's workspace disk into <partial>/disks/<account>.ext4 (sparse, reflinked where the
-    filesystem can); return the meta entries. Only call with the services stopped."""
+    """Compress each computer's workspace disk into <partial>/disks/<account>.ext4.zst (zstd on the sparse
+    file); return the meta entries. Only call with the services stopped."""
     found = account_disks()
     if not found:
         return []
@@ -1846,13 +1898,11 @@ def backup_disks(partial):
     entries = []
     for name, disk in found:
         info = disk.stat()
-        target = directory / (name + '.ext4')
-        copy_sparse(disk, target)
-        os.chmod(target, 0o600)
-        with open(target, 'rb') as stream:
-            os.fsync(stream.fileno())
-        entries.append({'account': name, 'file': 'disks/%s.ext4' % name, 'bytes': info.st_size,
-                        'allocated': allocated_bytes(target), 'sha256': sha256_file(target),
+        target = directory / (name + '.ext4.zst')
+        compress_disk(disk, target)
+        entries.append({'account': name, 'file': 'disks/%s.ext4.zst' % name, 'bytes': info.st_size,
+                        'compression': 'zstd', 'compressed': target.stat().st_size,
+                        'allocated': allocated_bytes(disk), 'sha256': sha256_file(target),
                         'mode': stat.S_IMODE(info.st_mode), 'uid': info.st_uid, 'gid': info.st_gid,
                         'hibernated': (disk.parent / 'snapshot' / 'meta.json').is_file()})
     return entries
@@ -1921,7 +1971,15 @@ def check_backup(directory):
     if disks is None:
         report['checks'].append('computer disks: not part of this backup')
     for entry in disks or []:
-        file_problem(entry['file'], entry['sha256'], entry['bytes'], 'disk ' + entry['account'])
+        label = 'disk ' + entry['account']
+        if file_problem(entry['file'], entry['sha256'], entry['compressed'], label):
+            if not zstd_available():
+                report['problems'].append('%s cannot be tested: the zstd tool is missing.' % label)
+            elif subprocess.run(['zstd', '-t', '-q', str(directory / entry['file'])],
+                                stderr=subprocess.DEVNULL).returncode != 0:
+                report['problems'].append('%s is not a valid zstd stream (zstd -t failed).' % label)
+            else:
+                report['checks'].append('%s: zstd stream intact (expands to %s)' % (label, human_bytes(entry['bytes'])))
     if disks is not None:
         listed.add('disks')
         report['checks'].append('computer disks: %s listed' % plural(len(disks), 'disk'))
@@ -2146,7 +2204,7 @@ def restore_disks(item, meta, state):
             account_dir.mkdir(mode=0o700, parents=True, exist_ok=True)
             temporary = account_dir / ('.%s.restore-new' % DISK_NAME)
             temporary.unlink(missing_ok=True)
-            copy_sparse(item['path'] / entry['file'], temporary)
+            decompress_disk(item['path'] / entry['file'], temporary)
             os.chmod(temporary, entry.get('mode', 0o600) & 0o777)
             try:
                 os.chown(temporary, entry.get('uid', 0), entry.get('gid', 0))
@@ -2851,7 +2909,7 @@ def restore_backup(backup_id, yes=False, wait=0, force=False, confirm=None, disk
         incoming = int(meta['sizes'].get('data_bytes') or 0) + int(meta['sizes'].get('etc_bytes') or 0)
         with_disks = bool(disks and meta.get('disks'))
         if with_disks:
-            incoming += sum(entry['allocated'] for entry in meta['disks'])
+            incoming += sum(entry['allocated'] for entry in meta['disks'])  # expands back to the allocated size
         need = current + incoming + BACKUP_FREE_MARGIN
         free = free_bytes(P.var)
         if free < need:
@@ -2907,7 +2965,15 @@ def backup_now(note=None, wait=0, force=False, disks=True):
         if state is None or state['phase'] != 'installed':
             raise HostError('Backup needs an installed TOFI in phase installed; run `sudo tofi install` first.')
         wait_for_idle('the backup', wait, force)
-        check_backup_space('the backup', disks_estimate() if disks else 0)
+        expected = disks_estimate() if disks else 0
+        small = tree_bytes(P.data) + tree_bytes(P.etc)
+        say('Space estimate: about %s for this backup (data and settings %s%s). It is an estimate: the disks '
+            'are assumed to compress to %d%% of their allocated size.'
+            % (human_bytes(small + expected), human_bytes(small),
+               (', %d computer disk(s) %s allocated -> about %s compressed'
+                % (len(account_disks()), human_bytes(disks_allocated()), human_bytes(expected))) if disks else '',
+               int(DISK_COMPRESSION_RATIO * 100)))
+        check_backup_space('the backup', expected)
         env = read_env()
         was_running = any((c.get('State') or {}).get('Running') for c in project_containers())
         stopped()
@@ -2925,6 +2991,10 @@ def backup_now(note=None, wait=0, force=False, disks=True):
                 warn('Could not start TOFI again after the failed backup (%s); run `sudo tofi start`.' % error)
         if failure is not None:
             raise failure
+        if meta.get('disks'):
+            for backup_id, freed in prune_disk_backups():
+                say('Removed the computer disks of backup %s (%s freed); only the newest %d backups keep their '
+                    'disks, its data and settings stay.' % (backup_id, human_bytes(freed), DISK_BACKUPS_KEEP))
         return meta
 
 
@@ -4062,7 +4132,7 @@ def parse_args(argv):
     backup_parser = sub.add_parser('backup', help='stop, back up data and settings, start again')
     backup_parser.add_argument('--note', help='a short label stored with the backup')
     backup_parser.add_argument('--no-disks', action='store_true',
-                               help='leave the computers\' workspace disks out (they can be large)')
+                               help='leave the computers\' workspace disks out (they can be large; compressed, and only the last 2 backups keep them)')
     backup_parser.add_argument('--verify', nargs='?', const='latest', metavar='ID',
                                help='check a backup (newest, an ID, or "all") without restoring it: files, '
                                     'checksums, readability; changes nothing and stops nothing')

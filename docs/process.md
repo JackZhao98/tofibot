@@ -311,7 +311,7 @@ sudo tofi update --version v0.1.4-rc.<N>                 # 装 rc 必须带 --ve
 
 备份、验证、还原（D48，只由协调者在主机上做）：
 
-- `sudo tofi backup`：停服务、备份数据和设置、默认连每台电脑的工作区磁盘一起（`--no-disks` 不带）、再启动，并自动验证刚写的那份；自动备份（更新前、还原前）不带磁盘。
+- `sudo tofi backup`：停服务、备份数据和设置、默认连每台电脑的工作区磁盘一起（`--no-disks` 不带；zstd 压缩，备份前打印空间估算，不够就拒绝）、再启动，并自动验证刚写的那份；带磁盘的备份只留最近 2 份（更老的只剥掉磁盘）；自动备份（更新前、还原前）不带磁盘。
 - `sudo tofi backup --verify [ID|all]`：不还原、不停服务，查文件、大小、sha256、归档可读、`tofi.env`；退出码 0 才算这份备份可用。
 - `sudo tofi restore <ID>`：有运行在跑就拒绝（同更新），先做 `pre-restore` 备份；带磁盘的备份连磁盘还原，被换下的盘留作 `workspace-before-restore-*.ext4`。
 

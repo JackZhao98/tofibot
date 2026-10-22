@@ -38,7 +38,7 @@ Test: a file with `TOFI_TRUSTED_PROXIES=…` and `CUSTOM_X=1` survives install-r
   - `etc.tar.gz` of `/etc/tofi`, including `tofi.env`, `worker.json` and `tls/`;
   - `meta.json` with `{version, app_image, worker_image, guest, created_at, reason, sizes, sha256 of each archive}`.
 - Mode 0700, owner root.
-- Excludes the computer disks under `/var/lib/tofi/worker`. Only a manual `tofi backup` copies them (D48): sparse copies in `disks/<account>.ext4`, listed with sha256 in `meta.json`, taken only with the services stopped and every computer's `manager.lock` free.
+- Excludes the computer disks under `/var/lib/tofi/worker`. Only a manual `tofi backup` copies them (D48): zstd-compressed disks in `disks/<account>.ext4.zst` (restore expands them sparse), listed with compressed size and sha256 in `meta.json`, only the 2 newest disk-carrying backups keep them (older ones lose just `disks/`), a space estimate is printed first, taken only with the services stopped and every computer's `manager.lock` free.
 - Before backing up, estimate the size and refuse the update if free space under `/var/lib/tofi` is less than 2× the estimate plus 1 GiB. The message names the numbers.
 - Keep the last 3 backups (prune after a successful update).
 
@@ -49,7 +49,7 @@ Test: a file with `TOFI_TRUSTED_PROXIES=…` and `CUSTOM_X=1` survives install-r
 
 **New commands**
 - `sudo tofi backup [--note TEXT] [--no-disks]`: stop → backup → start → verify the new backup. It honors the active-run guard (A3). These commands exist (`backup_now`, `restore_backup`); they are no longer "planned".
-- `sudo tofi backup --verify [ID|all]`: audit a backup without restoring it or stopping anything: files present, sizes and sha256 match `meta.json`, every archive reads end to end, `tofi.env` usable, no unlisted files. Exit 1 on any problem.
+- `sudo tofi backup --verify [ID|all]`: audit a backup without restoring it or stopping anything: files present, sizes and sha256 match `meta.json`, every archive reads end to end, every compressed disk passes `zstd -t`, `tofi.env` usable, no unlisted files. Exit 1 on any problem.
 - `sudo tofi backups`: list backups (time, version, size, reason).
 - `sudo tofi restore <backup-id> [--yes]`:
   - Restores data + etc and switches to that backup's version: images and bundle from `meta.json`.
