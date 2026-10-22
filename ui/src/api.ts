@@ -24,7 +24,8 @@ export async function request<T>(path: string, init: RequestInit = {}): Promise<
   let response = await send();
   // A proxy challenge (Cloudflare) is not a TOFI answer: renew the clearance once, retry once, else one notice.
   if (response.status === 403 || response.status === 503) {
-    const settled = await import("./proxyChallengeRecover").then((m) => m.settle(path, response, send));
+    // If the recovery chunk cannot load, the response is handled as it came.
+    const settled = await import("./proxyChallengeRecover").then((m) => m.settle(path, response, send), () => response);
     if (!settled) throw new ApiError(response.status, codeText("proxy_challenge")!, "proxy_challenge");
     response = settled;
   }
