@@ -312,6 +312,8 @@ func (s *Server) backgroundDefaultModel(purpose string) string {
 	switch p := runtime.ModelProvider(conversation); {
 	case p == providerAnthropic:
 		return anthropicBackgroundModel
+	case p == providerCodex && purpose == backgroundInputCheck && s.codexConnected():
+		return codexDefaultModel // the smallest Codex model
 	case p == providerCodex && purpose == backgroundReview && s.codexConnected():
 		return codexReviewModel // Codex ships a purpose-built reviewer
 	}

@@ -72,7 +72,7 @@ func (st *sayStreamer) Delta(d runtime.ToolCallDelta) {
 			}
 			call.started, begin = true, true
 			label, _ := call.dec.Resolution()
-			call.held = st.toolWork || st.state.reviewOwed() || (!st.lookup && st.state.gateIsOwed(label))
+			call.held = st.toolWork || st.state.reviewOwed() || (!st.lookup && st.state.gateIsOwed(label, st.state.pinProbe(call.id)))
 		}
 		if call.held {
 			return "", "", false

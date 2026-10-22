@@ -157,8 +157,35 @@ type sayRunState struct {
 	owed func() bool
 	// gate reports whether an answer with this label is sent back once, before
 	// any lookup, and spends the repair budget when it is; gateOwed peeks.
-	gate     func(resolution string) bool
-	gateOwed func(resolution string) bool
+	gate     func(resolution string, probe int32) bool
+	gateOwed func(resolution string, probe int32) bool
+	// probeNow reads the input check's verdict; a streamed answer pins the
+	// verdict it saw when its text began, so a draft is never shown and then
+	// bounced.
+	probeNow func() int32
+	pinned   sync.Map // call ID -> int32; its own lock, as the streamer calls it under its lock
+}
+
+// pinProbe records the verdict a call's text began under and returns it.
+func (st *sayRunState) pinProbe(callID string) int32 {
+	v := probePending
+	if st.probeNow != nil {
+		v = st.probeNow()
+	}
+	st.pinned.Store(callID, v)
+	return v
+}
+
+// probeFor is the verdict the gate uses for a call: the pinned one if its text
+// streamed, else the current one.
+func (st *sayRunState) probeFor(callID string) int32 {
+	if v, ok := st.pinned.Load(callID); ok {
+		return v.(int32)
+	}
+	if st.probeNow != nil {
+		return st.probeNow()
+	}
+	return probePending
 }
 
 // reviewOwed reports whether a say(answer) beginning now would be sent back
@@ -166,8 +193,8 @@ type sayRunState struct {
 func (st *sayRunState) reviewOwed() bool { return st.owed != nil && st.owed() }
 
 // gateIsOwed reports whether an answer with this label would be gated now.
-func (st *sayRunState) gateIsOwed(resolution string) bool {
-	return st.gateOwed != nil && st.gateOwed(resolution)
+func (st *sayRunState) gateIsOwed(resolution string, probe int32) bool {
+	return st.gateOwed != nil && st.gateOwed(resolution, probe)
 }
 
 func (s *Server) sayRun(runID string) *sayRunState {
@@ -440,7 +467,7 @@ func (s *Server) sayTool(c Conversation, r Run) Tool {
 				}
 				return fail(tooloutcome.New(tooloutcome.Transient, "answer_review", "not_executed", reminder, "retry").Err())
 			}
-			if state != nil && state.gate != nil && state.gate(in.Resolution) {
+			if state != nil && state.gate != nil && state.gate(in.Resolution, state.probeFor(callID)) {
 				// The answer gate: a reply labelled a gap, before any lookup, is
 				// sent back once on the same single repair budget.
 				if state.demote != nil {
