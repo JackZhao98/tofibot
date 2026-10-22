@@ -237,7 +237,39 @@
     "not_reported": "未回報",
     "window": "本機視窗設定 {{value}}",
     "auto_compact": "達 80% 時嘗試自動壓縮",
-    "compacted_other": "本次執行已壓縮 {{count}} 次"
+    "compacted_other": "本次執行已壓縮 {{count}} 次",
+    "health": {
+      "title": "執行狀況",
+      "loading": "正在載入執行狀況…",
+      "load_failed": "無法載入執行狀況，請重試。",
+      "runs": "執行",
+      "no_runs": "此時段內沒有執行。",
+      "reasons": "主要失敗原因",
+      "no_failures": "沒有失敗的執行。",
+      "timeouts": "工具逾時",
+      "timeouts_note": "達到時限或被終止的指令。",
+      "status": {
+        "done": "已完成",
+        "failed": "失敗",
+        "cancelled": "已取消",
+        "interrupted": "已中斷",
+        "running": "執行中",
+        "waiting": "等待中",
+        "queued": "排隊中"
+      },
+      "reason": {
+        "execution_failed": "未完成即失敗",
+        "no_final_answer": "沒有最終回覆",
+        "tool_stuck": "工具步驟停滯",
+        "resumed_repeatedly": "多次中斷",
+        "approval_expired": "核准已過期",
+        "model_unconfigured": "未設定模型",
+        "model_auth_invalid": "模型登入被拒絕",
+        "model_quota_exhausted": "已達模型配額",
+        "connection_interrupted": "連線中斷",
+        "budget_exhausted": "步數預算已用盡"
+      }
+    }
   },
   "permissions": {
     "microphone": {

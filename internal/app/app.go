@@ -2751,7 +2751,7 @@ func (s *Server) handle(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Cache-Control", "no-store")
 	}
 	if r.URL.Path == "/health" {
-		writeJSON(w, 200, map[string]any{"ok": true, "environment": s.instance.Environment, "instance_id": s.instance.ID})
+		writeJSON(w, 200, map[string]any{"ok": true, "version": Version, "environment": s.instance.Environment, "instance_id": s.instance.ID})
 		return
 	}
 	if !strings.HasPrefix(r.URL.Path, "/api/") {
@@ -2843,7 +2843,7 @@ func (s *Server) route(w http.ResponseWriter, r *http.Request) {
 	if s.routeExtensions(w, r, p) {
 		return
 	}
-	if s.routeUsage(w, r, p) {
+	if s.routeUsage(w, r, p) || s.routeUsageRuns(w, r, p) {
 		return
 	}
 	if s.routeProviders(w, r, p) {

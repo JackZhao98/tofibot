@@ -1,4 +1,4 @@
-import type { FollowupAccount, FollowupBotSettings, FollowupOverview, FollowupVerdict, AgentUsageTotal, Attachment, Bot, ComputerHealth, Config, ContentPatch, ContextUsage, Conversation, EventEnvelope, Memory, MemoryInput, Message, ModelCatalog, ModelProviderStatus, Run, Schedule, ScheduleKind, StreamDraft, ToolActivity, ToolActivityDetailPage, ToolActivityRunSummary, UsageCall, UsagePeriod, WorkspaceEventEnvelope, WorkItem, Weekday } from "./types";
+import type { FollowupAccount, FollowupBotSettings, FollowupOverview, FollowupVerdict, AgentUsageTotal, Attachment, Bot, ComputerHealth, Config, ContentPatch, ContextUsage, Conversation, EventEnvelope, Memory, MemoryInput, Message, ModelCatalog, ModelProviderStatus, Run, RunHealth, Schedule, ScheduleKind, StreamDraft, ToolActivity, ToolActivityDetailPage, ToolActivityRunSummary, UsageCall, UsagePeriod, WorkspaceEventEnvelope, WorkItem, Weekday } from "./types";
 import { i18n } from "./i18n";
 import { invalidateModelCatalog } from "./modelCatalogStore";
 
@@ -34,6 +34,7 @@ export const api = {
   serverInfo: (signal?: AbortSignal) => request<{ service: string; protocol_version: number; instance_id: string }>("/api/server-info", { signal }),
   config: () => request<Config>("/api/config"),
   usage: () => request<{ contexts: ContextUsage[]; agents: AgentUsageTotal[]; periods: Record<"24h" | "7d" | "30d", UsagePeriod[]>; review_periods?: Record<"24h" | "7d" | "30d", UsagePeriod[]>; calls: UsageCall[]; price_source: string; price_as_of: string; note: string }>("/api/usage"),
+  usageRuns: (days = 7, signal?: AbortSignal) => request<RunHealth>(`/api/usage/runs?days=${days}`, { signal }),
   dictationSettings: () => request<{ model: string; configured: boolean; auth_source: "api_key" | "codex" | ""; models: { id: string; name: string }[] }>("/api/dictation-settings"),
   saveDictationSettings: (model: string) => request<{ model: string }>("/api/dictation-settings", { method: "PUT", body: JSON.stringify({ model }) }),
   transcribeDictation: async (blob: Blob, signal?: AbortSignal) => {
