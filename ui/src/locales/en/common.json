@@ -18,6 +18,17 @@
     "retry": "Retry"
   },
   "apiError": {
+    "schedule_kind_invalid": "Choose one of once, interval, daily or weekly.",
+    "schedule_content_invalid": "The instructions are required and too long ones are rejected.",
+    "schedule_timezone_invalid": "That time zone isn't recognized.",
+    "schedule_run_at_required": "Set a run time for a one-time schedule.",
+    "schedule_run_at_invalid": "The run time isn't a valid date and time.",
+    "schedule_run_at_past": "The run time must be in the future.",
+    "schedule_interval_invalid": "The interval must be between 1 minute and 365 days.",
+    "schedule_time_invalid": "The time of day must be HH:MM.",
+    "schedule_weekdays_invalid": "Pick at least one valid day of the week.",
+    "schedule_timing_conflict": "Those timing fields don't belong to this kind of schedule.",
+    "schedule_timing_locked": "A one-time schedule that has already run can't be rescheduled.",
     "request_failed": "Request failed ({{status}})",
     "plugin_busy": "The plugin is in use by a task. Try again shortly.",
     "computer_busy": "The computer is busy or controlled by another window, task or Bot. Stop the current task or try again shortly.",

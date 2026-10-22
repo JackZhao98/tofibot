@@ -1,19 +1,20 @@
 import { scheduleDisplay } from "./displayMetadata";
 import { CATS, EmptyState } from "./EmptyCat";
 import { ScheduleEditor } from "./ScheduleEditor";
+import { ScheduleTimingFields, defaultTimingDraft, timingCreateFields, type TimingDraft } from "./ScheduleTimingFields";
 import { DelayedFeedback } from "./DelayedFeedback";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { api, ApiError } from "./api";
 import { TofiIcon } from "./icons";
 import { BotAvatar } from "./BotAvatar";
 import { ConfirmAction, Disclosure } from "./InteractionSystem";
-import { TimezoneSelect, useUserTimezone } from "./UserTimezone";
+import { useUserTimezone } from "./UserTimezone";
 import { formatZonedTime } from "./timezone";
 import { WorkExecution } from "./WorkExecution";
 import { workExecutionActive, workExecutionStatusKeys } from "./workExecutionState";
 import { useTranslation } from "./i18n";
-import { WEEKDAYS, type Bot, type Conversation, type Schedule, type ScheduleKind, type Weekday, type WorkItem, type WorkStatus } from "./types";
-import { weekdayName, weeklyCadence } from "./scheduleCadence";
+import { type Bot, type Conversation, type Schedule, type WorkItem, type WorkStatus } from "./types";
+import { weeklyCadence } from "./scheduleCadence";
 import { message, useAgenda, type Scope } from "./workAgenda";
 import "./work-panel.css";
 
@@ -121,14 +122,10 @@ function WorkCreate({ conversation, conversations, bots, goals, onDone, onCancel
   const [description, setDescription] = useState("");
   const [parent, setParent] = useState("");
   const [botID, setBotID] = useState(conversation.bot_id || conversation.bot_ids[0] || "");
-  const [kind, setKind] = useState<ScheduleKind>("once");
-  const [runAt, setRunAt] = useState("");
-  const [dailyTime, setDailyTime] = useState("09:00");
-  const [weekdays, setWeekdays] = useState<Weekday[]>(["mon"]);
-  const [interval, setInterval] = useState("60");
+  const [timing, setTiming] = useState<TimingDraft>(defaultTimingDraft);
+  const { kind, weekdays } = timing;
   const preference = useUserTimezone();
-  const [zone, setZone] = useState("");
-  const timezone = zone || preference.timezone;
+  const timezone = timing.zone || preference.timezone;
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const members = bots.filter(bot => !bot.archived && (source.kind === "dm" ? bot.id === source.bot_id : source.bot_ids.includes(bot.id)));
@@ -137,7 +134,7 @@ function WorkCreate({ conversation, conversations, bots, goals, onDone, onCancel
     event.preventDefault(); if (busy || !title.trim()) return;
     setBusy(true); onBusyChange(true); setError("");
     try {
-      if (type === "schedule") await api.createSchedule(sourceID, { bot_id: botID, title: scheduleTitle.trim(), description: description.trim(), content: title, kind, timezone, ...(kind === "daily" ? { daily_time: dailyTime } : kind === "weekly" ? { daily_time: dailyTime, weekdays: WEEKDAYS.filter(day => weekdays.includes(day)) } : { run_at: runAt }), ...(kind === "interval" ? { interval_seconds: Math.round(Number(interval) * 60) } : {}) });
+      if (type === "schedule") await api.createSchedule(sourceID, { bot_id: botID, title: scheduleTitle.trim(), description: description.trim(), content: title, ...timingCreateFields(timing, timezone) });
       else await api.createWorkItem(sourceID, { bot_id: botID, kind: type, title: title.trim(), description: description.trim(), ...(type === "task" && parent ? { parent_goal_id: parent } : {}) });
       onDone();
     } catch (cause) { setError(message(cause)); }
@@ -147,7 +144,7 @@ function WorkCreate({ conversation, conversations, bots, goals, onDone, onCancel
     <label>{t(`create.content_label.${type}`)}<textarea autoFocus aria-label={t("create.content_aria")} maxLength={type === "schedule" ? 32000 : 240} value={title} onChange={event => setTitle(event.target.value)} rows={2} required /></label>
     {botView && <label>{t("create.source")}<select value={sourceID} onChange={event => { setSourceID(event.target.value); setParent(""); }} aria-label={t("create.source_aria")}>{sources.map(value => <option key={value.id} value={value.id}>{value.kind === "dm" ? t("create.direct") : value.name}</option>)}</select></label>}
     {!botView && <label>{t("create.owner")}<select aria-label={t("create.owner_aria")} value={botID} onChange={event => setBotID(event.target.value)}>{members.map(bot => <option key={bot.id} value={bot.id}>{bot.name}</option>)}</select></label>}
-    {type === "schedule" ? <><label>{t("create.schedule_title")}<input aria-label={t("create.schedule_title")} required maxLength={120} value={scheduleTitle} onChange={event => setScheduleTitle(event.target.value)} placeholder={t("create.schedule_title_placeholder")} /></label><label>{t("create.schedule_description")}<textarea aria-label={t("create.schedule_description")} maxLength={280} required value={description} onChange={event => setDescription(event.target.value)} rows={2} /></label><label>{t("create.repeat")}<select aria-label={t("create.repeat_aria")} value={kind} onChange={event => setKind(event.target.value as ScheduleKind)}><option value="once">{t("create.repeat_once")}</option><option value="daily">{t("create.repeat_daily")}</option><option value="weekly">{t("create.repeat_weekly")}</option><option value="interval">{t("create.repeat_interval")}</option></select></label>{kind === "weekly" && <fieldset className="work-weekdays" aria-label={t("create.weekdays")}><legend>{t("create.weekdays")}</legend>{WEEKDAYS.map(day => <button key={day} type="button" aria-pressed={weekdays.includes(day)} onClick={() => setWeekdays(current => current.includes(day) ? current.filter(value => value !== day) : [...current, day])}>{weekdayName(day)}</button>)}</fieldset>}<label>{kind === "daily" || kind === "weekly" ? t("create.daily_time") : t("create.run_time")}{kind === "daily" || kind === "weekly" ? <input type="time" required value={dailyTime} onChange={event => setDailyTime(event.target.value)} /> : <input type="datetime-local" required value={runAt} onChange={event => setRunAt(event.target.value)} />}</label>{kind === "interval" && <label>{t("create.interval_minutes")}<input type="number" min="1" max="525600" value={interval} onChange={event => setInterval(event.target.value)} required /></label>}<Disclosure title={t("create.timezone", { zone: timezone })}><TimezoneSelect value={timezone} onChange={setZone} /></Disclosure></> : <Disclosure title={t("create.more")}><label>{t("create.description")}<textarea aria-label={t("create.description_aria")} rows={3} value={description} onChange={event => setDescription(event.target.value)} /></label>{type === "task" && !!goalOptions.length && <label>{t("create.parent_goal")}<select value={parent} onChange={event => setParent(event.target.value)}><option value="">{t("create.no_goal")}</option>{goalOptions.map(goal => <option key={goal.id} value={goal.id}>{goal.title}</option>)}</select></label>}</Disclosure>}
+    {type === "schedule" ? <><label>{t("create.schedule_title")}<input aria-label={t("create.schedule_title")} required maxLength={120} value={scheduleTitle} onChange={event => setScheduleTitle(event.target.value)} placeholder={t("create.schedule_title_placeholder")} /></label><label>{t("create.schedule_description")}<textarea aria-label={t("create.schedule_description")} maxLength={280} required value={description} onChange={event => setDescription(event.target.value)} rows={2} /></label><ScheduleTimingFields draft={timing} timezone={timezone} onChange={change => setTiming(current => ({ ...current, ...change }))} /></> : <Disclosure title={t("create.more")}><label>{t("create.description")}<textarea aria-label={t("create.description_aria")} rows={3} value={description} onChange={event => setDescription(event.target.value)} /></label>{type === "task" && !!goalOptions.length && <label>{t("create.parent_goal")}<select value={parent} onChange={event => setParent(event.target.value)}><option value="">{t("create.no_goal")}</option>{goalOptions.map(goal => <option key={goal.id} value={goal.id}>{goal.title}</option>)}</select></label>}</Disclosure>}
     {error && <p className="error-text" role="alert">{error}</p>}<div className="work-create-actions"><button className="text-button" type="button" onClick={onCancel}>{t("create.cancel")}</button><button className="primary-button" disabled={busy || !title.trim() || !botID || (type === "schedule" && (!preference.ready || !scheduleTitle.trim() || !description.trim() || (kind === "weekly" && !weekdays.length)))}>{busy ? t("create.saving") : t("create.add")}</button></div>
   </fieldset></form>;
 }

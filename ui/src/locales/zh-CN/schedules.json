@@ -77,6 +77,8 @@
     "description_aria": "编辑日程说明",
     "instructions": "完整执行指令",
     "instructions_aria": "编辑日程执行指令",
+    "timing": "时间安排",
+    "timing_locked": "已经执行过的单次日程无法重新安排时间。",
     "cancel": "取消",
     "save": "保存"
   }

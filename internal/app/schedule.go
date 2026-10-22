@@ -273,54 +273,87 @@ func parseRunAt(raw string, loc *time.Location) (time.Time, error) {
 	return time.Time{}, errors.New("run_at must be RFC3339 or YYYY-MM-DD HH:MM")
 }
 
+// ScheduleError is a timing or content validation failure with a stable,
+// machine-readable code; Error() keeps the English sentence for logs and the
+// model. Callers branch on Code, never on the message.
+type ScheduleError struct {
+	Code    string
+	Message string
+}
+
+func (e *ScheduleError) Error() string { return e.Message }
+
+func schedErr(code, message string) error { return &ScheduleError{Code: code, Message: message} }
+
+func wrapSchedErr(code string, err error) error {
+	return &ScheduleError{Code: code, Message: err.Error()}
+}
+
+// runAtCode names why run_at failed: absent, or present but unreadable.
+func runAtCode(raw string) string {
+	if strings.TrimSpace(raw) == "" {
+		return "schedule_run_at_required"
+	}
+	return "schedule_run_at_invalid"
+}
+
+// scheduleErrorCode is the stable code of a validation failure, or fallback.
+func scheduleErrorCode(err error, fallback string) string {
+	var se *ScheduleError
+	if errors.As(err, &se) {
+		return se.Code
+	}
+	return fallback
+}
+
 func validateScheduleSpec(spec ScheduleSpec, now time.Time) (ScheduleSpec, time.Time, error) {
 	spec.Kind = strings.ToLower(strings.TrimSpace(spec.Kind))
 	spec.Content = strings.TrimSpace(spec.Content)
 	spec.RunAt = strings.TrimSpace(spec.RunAt)
 	spec.DailyTime = strings.TrimSpace(spec.DailyTime)
 	if spec.Kind != scheduleWeekly && len(spec.Weekdays) > 0 {
-		return spec, time.Time{}, errors.New("weekdays is only valid for weekly schedules")
+		return spec, time.Time{}, schedErr("schedule_timing_conflict", "weekdays is only valid for weekly schedules")
 	}
 	if spec.Content == "" || len([]rune(spec.Content)) > maxScheduleContent {
-		return spec, time.Time{}, fmt.Errorf("content is required and must be at most %d runes", maxScheduleContent)
+		return spec, time.Time{}, schedErr("schedule_content_invalid", fmt.Sprintf("content is required and must be at most %d runes", maxScheduleContent))
 	}
 	if spec.Timezone == "" {
 		spec.Timezone = "UTC"
 	}
 	loc, err := time.LoadLocation(spec.Timezone)
 	if err != nil {
-		return spec, time.Time{}, fmt.Errorf("unknown timezone %q", spec.Timezone)
+		return spec, time.Time{}, schedErr("schedule_timezone_invalid", fmt.Sprintf("unknown timezone %q", spec.Timezone))
 	}
 	now = now.UTC()
 	switch spec.Kind {
 	case scheduleOnce, scheduleInterval:
 		if spec.DailyTime != "" {
-			return spec, time.Time{}, errors.New("daily_time is only valid for daily and weekly schedules")
+			return spec, time.Time{}, schedErr("schedule_timing_conflict", "daily_time is only valid for daily and weekly schedules")
 		}
 		at, e := parseRunAt(spec.RunAt, loc)
 		if e != nil {
-			return spec, time.Time{}, e
+			return spec, time.Time{}, wrapSchedErr(runAtCode(spec.RunAt), e)
 		}
 		if !at.After(now) {
-			return spec, time.Time{}, errors.New("run_at must be in the future")
+			return spec, time.Time{}, schedErr("schedule_run_at_past", "run_at must be in the future")
 		}
 		if spec.Kind == scheduleInterval {
 			if spec.IntervalSeconds < int64(minScheduleInterval/time.Second) {
-				return spec, time.Time{}, fmt.Errorf("interval_seconds must be at least %d", int64(minScheduleInterval/time.Second))
+				return spec, time.Time{}, schedErr("schedule_interval_invalid", fmt.Sprintf("interval_seconds must be at least %d", int64(minScheduleInterval/time.Second)))
 			}
 			if spec.IntervalSeconds > int64(maxScheduleInterval/time.Second) {
-				return spec, time.Time{}, fmt.Errorf("interval_seconds must be at most %d", int64(maxScheduleInterval/time.Second))
+				return spec, time.Time{}, schedErr("schedule_interval_invalid", fmt.Sprintf("interval_seconds must be at most %d", int64(maxScheduleInterval/time.Second)))
 			}
 		} else if spec.IntervalSeconds != 0 {
-			return spec, time.Time{}, errors.New("interval_seconds is only valid for interval schedules")
+			return spec, time.Time{}, schedErr("schedule_timing_conflict", "interval_seconds is only valid for interval schedules")
 		}
 		return spec, at.UTC(), nil
 	case scheduleDaily:
 		if spec.RunAt != "" || spec.IntervalSeconds != 0 {
-			return spec, time.Time{}, errors.New("run_at and interval_seconds are not valid for daily schedules")
+			return spec, time.Time{}, schedErr("schedule_timing_conflict", "run_at and interval_seconds are not valid for daily schedules")
 		}
 		if _, _, e := parseClock(spec.DailyTime); e != nil {
-			return spec, time.Time{}, e
+			return spec, time.Time{}, wrapSchedErr("schedule_time_invalid", e)
 		}
 		at, e := nextDaily(now, loc, spec.DailyTime)
 		if e != nil {
@@ -329,14 +362,14 @@ func validateScheduleSpec(spec ScheduleSpec, now time.Time) (ScheduleSpec, time.
 		return spec, at.UTC(), nil
 	case scheduleWeekly:
 		if spec.RunAt != "" || spec.IntervalSeconds != 0 {
-			return spec, time.Time{}, errors.New("run_at and interval_seconds are not valid for weekly schedules")
+			return spec, time.Time{}, schedErr("schedule_timing_conflict", "run_at and interval_seconds are not valid for weekly schedules")
 		}
 		if _, _, e := parseClock(spec.DailyTime); e != nil {
-			return spec, time.Time{}, e
+			return spec, time.Time{}, wrapSchedErr("schedule_time_invalid", e)
 		}
 		days, e := normalizeWeekdays(spec.Weekdays)
 		if e != nil {
-			return spec, time.Time{}, e
+			return spec, time.Time{}, wrapSchedErr("schedule_weekdays_invalid", e)
 		}
 		spec.Weekdays = days
 		at, e := nextWeekly(now, loc, spec.DailyTime, days)
@@ -345,7 +378,7 @@ func validateScheduleSpec(spec ScheduleSpec, now time.Time) (ScheduleSpec, time.
 		}
 		return spec, at.UTC(), nil
 	default:
-		return spec, time.Time{}, errors.New("kind must be once, interval, daily, or weekly")
+		return spec, time.Time{}, schedErr("schedule_kind_invalid", "kind must be once, interval, daily, or weekly")
 	}
 }
 
@@ -1310,7 +1343,7 @@ func (s *Server) routeSchedules(w http.ResponseWriter, r *http.Request, p string
 					writeErr(w, http.StatusConflict, "archive_blocked", err.Error())
 					return true
 				}
-				writeErr(w, http.StatusBadRequest, "invalid_schedule", err.Error())
+				writeErr(w, http.StatusBadRequest, scheduleErrorCode(err, "invalid_schedule"), err.Error())
 				return true
 			}
 			writeJSON(w, http.StatusCreated, x)
@@ -1347,7 +1380,12 @@ func (s *Server) routeSchedules(w http.ResponseWriter, r *http.Request, p string
 					writeErr(w, http.StatusConflict, "archive_blocked", err.Error())
 					return true
 				}
-				writeErr(w, http.StatusBadRequest, "invalid_schedule", err.Error())
+				code := scheduleErrorCode(err, "invalid_schedule")
+				status := http.StatusBadRequest
+				if code == "schedule_timing_locked" {
+					status = http.StatusConflict
+				}
+				writeErr(w, status, code, err.Error())
 				return true
 			}
 			writeJSON(w, http.StatusOK, x)
@@ -1439,7 +1477,7 @@ func (s *Server) scheduleTools(c Conversation, r Run) []Tool {
 			}
 			return scheduleToolJSON(x), nil
 		}},
-		{Name: "update_schedule", Description: "Edit this conversation's schedule title, description and optionally its complete execution instruction, only when the user requests an edit. Write authored execution instructions in English while preserving quoted data and localized output requirements. Timing, recurrence (kind, daily_time, weekdays, timezone) and past executions cannot be changed here; to change when it runs, delete the schedule and create a new one.", Parameters: objectSchema(map[string]any{"schedule_id": map[string]any{"type": "string"}, "title": displayTitleSchema(), "description": displayDescriptionSchema(), "content": map[string]any{"type": "string", "description": "Optional complete replacement execution instruction in English; omit to preserve it"}}, []string{"schedule_id", "title", "description"}), Execute: func(ctx context.Context, raw json.RawMessage) (string, error) {
+		{Name: "update_schedule", Description: "Edit this conversation's schedule only when the user requests an edit. Title and description are required; the complete execution instruction and the timing are optional. Write authored execution instructions in English while preserving quoted data and localized output requirements. Timing fields mean what they do in create_schedule; send only what changes. When kind changes, provide the fields the new kind needs. A run already claimed or in progress is not changed, and a paused schedule stays paused. The result carries the new next_at_local.", Parameters: objectSchema(map[string]any{"schedule_id": map[string]any{"type": "string"}, "title": displayTitleSchema(), "description": displayDescriptionSchema(), "content": map[string]any{"type": "string", "description": "Optional complete replacement execution instruction in English; omit to preserve it"}, "kind": map[string]any{"type": "string", "enum": []string{"once", "interval", "daily", "weekly"}}, "run_at": map[string]any{"type": "string", "description": "RFC3339 timestamp with explicit UTC offset"}, "interval_seconds": map[string]any{"type": "integer"}, "daily_time": map[string]any{"type": "string", "description": "HH:MM in the schedule timezone"}, "weekdays": map[string]any{"type": "array", "items": map[string]any{"type": "string", "enum": weekdayNames}}, "timezone": map[string]any{"type": "string", "description": "IANA timezone"}}, []string{"schedule_id", "title", "description"}), Execute: func(ctx context.Context, raw json.RawMessage) (string, error) {
 			if err := ctx.Err(); err != nil {
 				return "", err
 			}

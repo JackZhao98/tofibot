@@ -1,4 +1,4 @@
-import type { FollowupAccount, FollowupBotSettings, FollowupOverview, FollowupVerdict, AgentUsageTotal, Attachment, Bot, ComputerHealth, Config, ContentPatch, ContextUsage, Conversation, EventEnvelope, Memory, MemoryInput, Message, ModelCatalog, ModelProviderStatus, Run, RunHealth, Schedule, ScheduleKind, StreamDraft, ToolActivity, ToolActivityDetailPage, ToolActivityRunSummary, UsageCall, UsagePeriod, WorkspaceEventEnvelope, WorkItem, Weekday } from "./types";
+import type { FollowupAccount, FollowupBotSettings, FollowupOverview, FollowupVerdict, AgentUsageTotal, Attachment, Bot, ComputerHealth, Config, ContentPatch, ContextUsage, Conversation, EventEnvelope, Memory, MemoryInput, Message, ModelCatalog, ModelProviderStatus, Run, RunHealth, Schedule, ScheduleKind, SchedulePatchInput, StreamDraft, ToolActivity, ToolActivityDetailPage, ToolActivityRunSummary, UsageCall, UsagePeriod, WorkspaceEventEnvelope, WorkItem, Weekday } from "./types";
 import { i18n } from "./i18n";
 import { codeText } from "./i18n/codeText";
 import { invalidateModelCatalog } from "./modelCatalogStore";
@@ -119,7 +119,7 @@ export const api = {
   updateWorkItem: (id: string, input: Partial<Pick<WorkItem, "title" | "description" | "status" | "bot_id">>) => request<WorkItem>(`/api/work-items/${encodeURIComponent(id)}`, { method: "PATCH", body: JSON.stringify(input) }),
   executeWorkItem: (id: string, request_id: string) => request<{ work_item: WorkItem; run: Run; duplicate: boolean }>(`/api/work-items/${encodeURIComponent(id)}/execute`, json({ request_id })),
   createSchedule: (id: string, input: { bot_id?: string; title: string; description: string; content: string; kind: ScheduleKind; run_at?: string; interval_seconds?: number; daily_time?: string; weekdays?: Weekday[]; timezone?: string }) => request<Schedule>(`/api/conversations/${encodeURIComponent(id)}/schedules`, json(input)),
-  updateSchedule: (id: string, input: ContentPatch) => request<Schedule>(`/api/schedules/${encodeURIComponent(id)}`, { method: "PATCH", body: JSON.stringify(input) }),
+  updateSchedule: (id: string, input: SchedulePatchInput) => request<Schedule>(`/api/schedules/${encodeURIComponent(id)}`, { method: "PATCH", body: JSON.stringify(input) }),
   pauseSchedule: (id: string) => request<Schedule>(`/api/schedules/${encodeURIComponent(id)}/pause`, json({})),
   resumeSchedule: (id: string) => request<Schedule>(`/api/schedules/${encodeURIComponent(id)}/resume`, json({})),
   deleteSchedule: (id: string) => request<void>(`/api/schedules/${encodeURIComponent(id)}`, { method: "DELETE" }),
