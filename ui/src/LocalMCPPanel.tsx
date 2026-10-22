@@ -13,7 +13,7 @@ const pluginStateKeys = { ready: "local.state.ready", starting: "local.state.sta
 const errorText = (error: unknown) => error instanceof Error ? error.message : String(error);
 
 export function LocalMCPPanel({ onChanged, attachedIDs, callbackOrigin }: { onChanged: () => Promise<void>; attachedIDs: string[]; callbackOrigin?: string }) {
- const { t } = useTranslation("extensions");
+ const { t } = useTranslation(["extensions", "common"]);
  const callbackURL = `${callbackOrigin ?? window.location.origin}/api/extensions/local-mcp/gog/oauth/callback`;
  const oauthReady = callbackOrigin?.startsWith("https://") && callbackOrigin === window.location.origin;
  const [runner, setRunner] = useState<RunnerStatus | null>(null);
