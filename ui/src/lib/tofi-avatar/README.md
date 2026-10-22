@@ -27,6 +27,8 @@ cat.destroy();
 
 The original six shapes, coat/palette restrictions, `play`, `setIdle`, `setAppearance`, `reset`, `setSpeed`, `getConfig`, `getState`, `exportSVG`, and `destroy` keep their public signatures. V2 adds the `stand` shape, more clips, eye styles, `setLife`, `setAutoplay`, `setEyes`, `eyeStyles`, `clips`, and `pose`. `stand` as an **action** is unavailable for the `curl` and `stand` shapes; callers can check `clips()` first.
 
+`catFraming(shape, headY?)` returns where to place a 320-unit cat host inside a square frame (multiples of the frame edge: `size`, `left`, `top`) so the head fills it and the body is cropped at the bottom: the portrait crop of a round or bare avatar frame. Additive; the group avatar (`GroupAvatar.tsx`) is its caller.
+
 Clips are `look`, `curious`, `double-take`, `slow-blink`, `happy`, `stand`, `blink-look`, `work`, `work-end`, `knead`, `bat`, `wave`, `sleep`, `dream`, `breathe`, and `wake`. `work` is a finite clip; repeat it in the host if the task remains active. Autonomous idle motion can be disabled with `life: false`, while `autoplay` controls the separate, weighted idle gestures. System reduced-motion preferences, hidden documents, and offscreen hosts suspend the animation loop. After `IDLE_PAUSE_MS` (20 s) without pointer, keyboard, wheel or touch input every cat settles into its rest pose and its life layer stops; the next input resumes it within a frame. Playing clips are not affected.
 
 ## Files and verification

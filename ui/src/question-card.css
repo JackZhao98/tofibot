@@ -26,27 +26,16 @@ html:not([data-desktop]) .workspace .question-message > .avatar { margin:0; }
 html:not([data-desktop]) .workspace .question-message .question-card { transition: padding var(--m-base) var(--ease-out), border-width var(--m-base) var(--ease-out), border-color var(--m-base) var(--ease-out), background-color var(--m-base) var(--ease-out), box-shadow var(--m-base) var(--ease-out); }
 html:not([data-desktop]) .workspace .question-message .question-card.is-pending { transform-origin:50% 100%; animation:question-card-arrive var(--m-flight) var(--ease-spring) both; }
 @keyframes question-card-arrive { from { opacity: 0; transform: translateY(28px) scale(.94); } to { opacity: 1; transform: translateY(0) scale(1); } }
-html:not([data-desktop]) .workspace .question-message .question-state { max-height:40px; overflow:hidden; }
 html:not([data-desktop]) .workspace .question-message .question-prompt { max-height:240px; overflow:hidden; }
 html:not([data-desktop]) .workspace .question-message .question-options label { max-height:120px; overflow:hidden; }
 html:not([data-desktop]) .workspace .question-message .question-card.is-folding { overflow:hidden; }
-html:not([data-desktop]) .workspace .question-message .question-card.is-folding :is(.question-state,.question-prompt) { max-height:0; margin:0; opacity:0; overflow:hidden; transition:max-height var(--m-panel-in) var(--ease-out),opacity var(--m-base) var(--ease-out),margin var(--m-panel-in) var(--ease-out); }
+html:not([data-desktop]) .workspace .question-message .question-card.is-folding :is(.question-prompt) { max-height:0; margin:0; opacity:0; overflow:hidden; transition:max-height var(--m-panel-in) var(--ease-out),opacity var(--m-base) var(--ease-out),margin var(--m-panel-in) var(--ease-out); }
 html:not([data-desktop]) .workspace .question-message .question-card.is-folding .question-options { gap:0; margin-top:0; transition:gap var(--m-panel-in) var(--ease-out),margin var(--m-panel-in) var(--ease-out); }
 html:not([data-desktop]) .workspace .question-message .question-card.is-folding .question-options label { max-height:80px; overflow:hidden; }
 html:not([data-desktop]) .workspace .question-message .question-card.is-folding .question-options label.selected { transform:translate(2px,2px); background:color-mix(in srgb,var(--iris) 24%,var(--surface)); color:var(--ink); opacity:1; }
 html:not([data-desktop]) .workspace .question-message .question-card.is-folding .question-options label.is-fold-away { max-height:0; padding-block:0; border-width:0; opacity:0; transform:scaleY(0); }
 html:not([data-desktop]) .workspace .question-message .question-options label.selected { background:color-mix(in srgb,var(--iris) 24%,var(--surface)); color:var(--ink); transform:translate(2px,2px); }
 
-.workspace .question-message .question-state {
-  width: fit-content;
-  margin: 0 0 9px;
-  padding: 4px 8px;
-  border-radius: 6px;
-  background: var(--iris);
-  color: var(--on-block);
-  font: 600 10px/1.2 var(--mono);
-  letter-spacing: .04em;
-}
 
 .workspace .question-message .question-prompt {
   color: var(--ink);
@@ -245,7 +234,7 @@ html:not([data-desktop]) .workspace .question-message .question-card.is-resolved
 }
 @media (prefers-reduced-motion: reduce) {
   html:not([data-desktop]) .workspace .question-message .question-card { animation: none; transition: none; }
-  html:not([data-desktop]) .workspace .question-message .question-card.is-folding :is(.question-state,.question-prompt,.question-options) { transition:none; }
+  html:not([data-desktop]) .workspace .question-message .question-card.is-folding :is(.question-prompt,.question-options) { transition:none; }
   .workspace .question-message .question-options label,
   .workspace .question-message .question-actions .primary-button { transition: none; }
   html:not([data-desktop]) .workspace .question-message .question-card.is-resolved.is-answered .question-result > :is(svg,span) { animation:none; }

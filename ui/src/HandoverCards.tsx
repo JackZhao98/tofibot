@@ -50,13 +50,12 @@ function resolutionLabel(current: Question, t: (key: any) => string) {
   return current.status === "expired" ? t("status.expired") : current.status === "run_done" ? t("question.resolution.run_done") : t("status.cancelled");
 }
 
-function Shell({ item, bot, group, children, active, badge }: { item: Question; bot?: Bot; group?: boolean; active: boolean; badge: string; children: React.ReactNode }) {
+function Shell({ item, bot, group, children, active }: { item: Question; bot?: Bot; group?: boolean; active: boolean; children: React.ReactNode }) {
   const { t } = useTranslation("tasks");
   return <article className={`question-message${group ? " is-group" : " is-dm"}`} data-question-id={item.question_id} data-question-type={item.question_type} tabIndex={-1} aria-label={t("question.aria", { name: bot?.name ?? "Bot" })}>
     {group && <BotAvatar id={item.bot_id} mini />}
     <div className="question-body">{group && <div className="message-meta"><strong>{bot?.name ?? "Bot"}</strong></div>}
       <section className={`question-card ${active ? "is-pending" : "is-resolved"}`}>
-        {active && <span className="question-state">{badge}</span>}
         <div className="question-prompt"><MessageMarkdown content={item.question} /></div>
         {children}
       </section>
@@ -73,7 +72,7 @@ export function TakeoverCard({ item, bot, group, archived, onChanged }: CardProp
   useEffect(() => { if (current.status !== "pending") setOpen(false); }, [current.status]);
   const ended = resolutionLabel(current, t);
   const answered = current.status === "answered" ? (current.answer === "done" ? t("handover.takeover.resolved_done") : t("handover.takeover.resolved_cannot")) : null;
-  return <Shell item={item} bot={bot} group={group} active={active} badge={t("handover.takeover.badge")}>
+  return <Shell item={item} bot={bot} group={group} active={active}>
     {item.source_url && <p className="handover-site"><span>{t("handover.site")}</span><span>{item.source_url}</span></p>}
     {active ? <>
       <p className="handover-hint">{t("handover.takeover.hint")}</p>
@@ -181,7 +180,7 @@ export function ConnectionCard({ item, bot, group, archived, onChanged }: CardPr
   const ended = resolutionLabel(current, t);
   const answered = current.status === "answered" ? t(`handover.connection.resolved_${current.answer === "connected" ? "connected" : current.answer === "declined" ? "declined" : "failed"}`) : null;
   const waiting = connect.phase !== "idle";
-  return <Shell item={item} bot={bot} group={group} active={active} badge={t("handover.connection.badge")}>
+  return <Shell item={item} bot={bot} group={group} active={active}>
     <p className="handover-site"><span>{t("handover.service")}</span><span>{service}</span></p>
     {active ? <>
       <p className="handover-hint">{t("handover.connection.hint")}</p>

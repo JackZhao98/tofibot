@@ -6,6 +6,7 @@ import { BotAvatar } from "./BotAvatar";
 import type { Bot, Conversation } from "./types";
 import { i18n, useTranslation } from "./i18n";
 import { errorText } from "./i18n/errors";
+import { LazyGroupAvatar as GroupAvatar } from "./LazyGroupAvatar";
 
 type Props = {
   onClose: () => void;
@@ -76,7 +77,7 @@ export function ArchivePanel({ onClose, onOpen, onLoaded, onChanged, onDelete }:
     {loading ? <div className="inline-state"><div className="spinner" />{t("archive.loading")}</div> : !conversations.length ? !error && <EmptyState name="archive-empty" className="panel-empty is-card" look={CATS.kiwi} pose="asleep"><p>{t("archive.empty")}</p></EmptyState> : <div className="archive-list">{conversations.map((conversation) => {
       const bot = conversation.kind === "dm" ? bots.find((item) => item.id === conversation.bot_id || item.dm_conversation_id === conversation.id) : undefined;
       return <article className="archive-card" key={conversation.id}>
-        {bot ? <BotAvatar id={bot.id} mini /> : <span className="archive-group-mark" aria-hidden="true"><TofiIcon name="group" size={20} /></span>}
+        {bot ? <BotAvatar id={bot.id} mini /> : <span className="archive-group-mark" aria-hidden="true"><GroupAvatar ids={conversation.bot_ids} iconSize={20} /></span>}
         <div className="archive-card-copy"><button type="button" className="archive-open" onClick={() => onOpen(conversation.id)}>{conversation.name}</button><small>{conversation.kind === "group" ? t("archive.group_meta", { count: conversation.bot_ids.length }) : t("archive.dm_meta")}</small></div>
         <div className="archive-card-actions"><button type="button" className="danger-link" disabled={busyId !== null} onClick={() => onDelete(conversation)}>{bot ? t("archive.delete_bot") : t("archive.delete_group")}</button><button type="button" className="secondary-button" disabled={busyId !== null} onClick={() => void restore(conversation)}>{busyId === conversation.id ? t("archive.restoring") : t("archive.restore")}</button></div>
       </article>;
