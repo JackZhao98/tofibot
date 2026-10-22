@@ -24,7 +24,7 @@
     "control_expired": "Le contrôle a été libéré ou a expiré. Reprenez la main.",
     "input_sequence": "La séquence de saisie n’est plus valide. Reprenez la main.",
     "control_unavailable": "Le contrôle du bureau est indisponible. Reprenez la main.",
-    "ssh_keys": "Vérifiez le nom du fichier de clé et le format de son contenu.",
+    "ssh_key_format": "Vérifiez le nom du fichier de clé et le format de son contenu.",
     "dictation_unconfigured": "Connectez Codex, ajoutez une clé d’API OpenAI ou configurez une clé d’API de transcription côté serveur.",
     "dictation_auth_unavailable": "L’authentification de la transcription est indisponible. Réessayez ou reconnectez Codex.",
     "oauth_https_required": "L’autorisation web exige HTTPS. En HTTP simple, autorisez depuis l’ordinateur partagé ou utilisez HTTPS ou le client Tofi.",

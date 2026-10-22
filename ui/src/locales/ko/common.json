@@ -24,7 +24,7 @@
     "control_expired": "제어권이 해제되었거나 만료되었습니다. 다시 인계받으세요.",
     "input_sequence": "입력 순서가 만료되었습니다. 다시 인계받으세요.",
     "control_unavailable": "데스크톱 제어를 사용할 수 없습니다. 다시 인계받으세요.",
-    "ssh_keys": "키 파일 이름과 내용 형식을 확인하세요.",
+    "ssh_key_format": "키 파일 이름과 내용 형식을 확인하세요.",
     "dictation_unconfigured": "Codex를 연결하거나 OpenAI API 키를 추가하거나 서버 전사 API 키를 설정하세요.",
     "dictation_auth_unavailable": "전사 인증을 사용할 수 없습니다. 다시 시도하거나 Codex를 다시 연결하세요.",
     "oauth_https_required": "웹 인증에는 HTTPS가 필요합니다. HTTP로 접속 중이면 공유 컴퓨터에서 인증하거나 HTTPS 또는 Tofi 클라이언트를 사용하세요.",

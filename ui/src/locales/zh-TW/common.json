@@ -24,7 +24,7 @@
     "control_expired": "控制已釋放或已過期，請重新接管。",
     "input_sequence": "輸入順序已失效，請重新接管。",
     "control_unavailable": "桌面控制暫不可用，請重新接管。",
-    "ssh_keys": "請檢查金鑰檔案名稱與內容格式。",
+    "ssh_key_format": "請檢查金鑰檔案名稱與內容格式。",
     "dictation_unconfigured": "請連接 Codex、新增 OpenAI API 金鑰，或設定伺服器端轉寫 API 金鑰。",
     "dictation_auth_unavailable": "轉寫驗證暫不可用，請重試或重新連接 Codex。",
     "oauth_https_required": "網頁授權需要 HTTPS。HTTP 直連請使用共享電腦授權，或改用 HTTPS 或 Tofi 用戶端。",

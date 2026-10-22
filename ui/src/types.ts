@@ -102,6 +102,7 @@ export interface Conversation {
     draft_demo?: boolean;
     result_message_id?: string;
     failure_reason?: string;
+    failure_code?: string;
     can_retry?: boolean;
   };
   read_seq?: number;
@@ -230,7 +231,9 @@ export interface WorkExecution {
   status: RunStatus;
   active: boolean;
   error?: string;
+  error_code?: string;
   result?: string;
+  result_code?: string;
   result_message_id?: string;
   created_at: string;
   updated_at: string;
