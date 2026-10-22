@@ -11,8 +11,9 @@
 .extension-row-heading{display:flex;align-items:center;gap:12px;padding-right:100px;min-height:42px}
 .extension-row-heading strong{font-size:14px;font-weight:550}.extension-row-heading small{display:block;margin-top:4px;font-size:12px}
 .service-mark{display:grid;place-items:center;flex:0 0 40px;width:40px;height:40px;border:1px solid var(--line-soft);border-radius:12px;background:var(--surface-2);color:var(--ink)}
-.service-mark-brand{--mark-tile:#fff;--mark-line:rgba(0,0,0,.14);padding:17%;box-sizing:border-box;background:var(--mark-tile);border-color:var(--mark-line)}
+.service-mark-brand{display:block;--mark-tile:#fff;--mark-line:rgba(0,0,0,.14);padding:7px;box-sizing:border-box;background:var(--mark-tile);border-color:var(--mark-line)}
 .service-mark-brand[data-tile="dark"]{--mark-tile:#111;--mark-line:rgba(255,255,255,.2)}
+.onb-queue .service-mark-brand{padding:4px}
 .service-mark-brand img{display:block;width:100%;height:100%;object-fit:contain;pointer-events:none;user-select:none}
 .extension-row-heading+.extension-actions{position:absolute;right:0;top:20px;margin:0;gap:6px}
 .extension-panel .extension-actions button{font-size:12px;min-height:34px;padding:7px 12px}
