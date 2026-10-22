@@ -155,47 +155,19 @@ type sayRunState struct {
 	review func() bool
 	// owed peeks at review without spending it.
 	owed func() bool
-	// gate reports whether an answer with this label is sent back once, before
-	// any lookup, and spends the repair budget when it is; gateOwed peeks.
-	gate     func(resolution string, probe int32) bool
-	gateOwed func(resolution string, probe int32) bool
-	// probeNow reads the input check's verdict; a streamed answer pins the
-	// verdict it saw when its text began, so a draft is never shown and then
-	// bounced.
-	probeNow func() int32
-	pinned   sync.Map // call ID -> int32; its own lock, as the streamer calls it under its lock
-}
-
-// pinProbe records the verdict a call's text began under and returns it.
-func (st *sayRunState) pinProbe(callID string) int32 {
-	v := probePending
-	if st.probeNow != nil {
-		v = st.probeNow()
-	}
-	st.pinned.Store(callID, v)
-	return v
-}
-
-// probeFor is the verdict the gate uses for a call: the pinned one if its text
-// streamed, else the current one.
-func (st *sayRunState) probeFor(callID string) int32 {
-	if v, ok := st.pinned.Load(callID); ok {
-		return v.(int32)
-	}
-	if st.probeNow != nil {
-		return st.probeNow()
-	}
-	return probePending
+	// grade reads the draft against the answer rubric and returns the private
+	// revision message, or "" to ship it; gradeOwed reports whether a grading
+	// may still happen, which holds the answer's text back from the stream.
+	grade     func(ctx context.Context, text string) string
+	gradeOwed func() bool
 }
 
 // reviewOwed reports whether a say(answer) beginning now would be sent back
 // for the one-time completion review.
 func (st *sayRunState) reviewOwed() bool { return st.owed != nil && st.owed() }
 
-// gateIsOwed reports whether an answer with this label would be gated now.
-func (st *sayRunState) gateIsOwed(resolution string, probe int32) bool {
-	return st.gateOwed != nil && st.gateOwed(resolution, probe)
-}
+// gradeIsOwed reports whether an answer beginning now may be graded.
+func (st *sayRunState) gradeIsOwed() bool { return st.gradeOwed != nil && st.gradeOwed() }
 
 func (s *Server) sayRun(runID string) *sayRunState {
 	if v, ok := s.sayRuns.Load(runID); ok {
@@ -287,10 +259,9 @@ func (st *sayRunState) discard(callID string) {
 // extras, so OpenAI strict mode accepts it.
 func sayToolSchema() map[string]any {
 	return objectSchema(map[string]any{
-		"purpose":    map[string]any{"type": "string", "enum": []string{sayAnswer, sayNote, sayMessage}},
-		"resolution": map[string]any{"type": "string", "enum": []string{resolutionResolved, resolutionGap}, "description": sayResolutionDescription},
-		"text":       map[string]any{"type": "string", "description": "What the person reads."},
-	}, []string{"purpose", "resolution", "text"})
+		"purpose": map[string]any{"type": "string", "enum": []string{sayAnswer, sayNote, sayMessage}},
+		"text":    map[string]any{"type": "string", "description": "What the person reads."},
+	}, []string{"purpose", "text"})
 }
 
 // sayWakesBots: a group answer may start other members.
@@ -378,11 +349,10 @@ func (s *Server) sayTool(c Conversation, r Run) Tool {
 			return "", err
 		}
 		var in struct {
-			Purpose    string           `json:"purpose"`
-			Resolution string           `json:"resolution"`
-			Text       string           `json:"text"`
-			Wake       []groupWakeEntry `json:"wake"`
-			Sources    []string         `json:"sources"`
+			Purpose string           `json:"purpose"`
+			Text    string           `json:"text"`
+			Wake    []groupWakeEntry `json:"wake"`
+			Sources []string         `json:"sources"`
 		}
 		if json.Unmarshal(raw, &in) != nil {
 			return "", errors.New("invalid say arguments")
@@ -467,13 +437,15 @@ func (s *Server) sayTool(c Conversation, r Run) Tool {
 				}
 				return fail(tooloutcome.New(tooloutcome.Transient, "answer_review", "not_executed", reminder, "retry").Err())
 			}
-			if state != nil && state.gate != nil && state.gate(in.Resolution, state.probeFor(callID)) {
-				// The answer gate: a reply labelled a gap, before any lookup, is
-				// sent back once on the same single repair budget.
-				if state.demote != nil {
-					state.demote(text)
+			if state != nil && state.grade != nil && len(in.Wake) == 0 {
+				// The answer gate: the draft is graded against the rubric before
+				// the person sees it. Gaps go back to the writer privately.
+				if revision := state.grade(ctx, text); revision != "" {
+					if state.demote != nil {
+						state.demote(text)
+					}
+					return fail(tooloutcome.New(tooloutcome.Transient, "answer_revise", "not_executed", revision, "retry").Err())
 				}
-				return fail(tooloutcome.New(tooloutcome.Transient, "answer_gap_check", "not_executed", answerGateReminder, "retry").Err())
 			}
 			if err := s.store.recordSayAnswerWith(r.ID, callID, text, extras); err != nil {
 				return fail(err)

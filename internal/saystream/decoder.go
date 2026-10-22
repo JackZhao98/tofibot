@@ -95,18 +95,17 @@ const utf8Replacement = '�'
 type state int
 
 const (
-	stStart        state = iota // before '{'
-	stKeyOrEnd                  // expecting a key's opening quote, ',' or '}'
-	stInKey                     // inside a key
-	stColon                     // after a key, expecting ':'
-	stValue                     // expecting a value
-	stInText                    // inside the "text" string
-	stInPurpose                 // inside the "purpose" string
-	stInResolution              // inside the "resolution" string
-	stSkipString                // inside a string value we ignore
-	stSkipNested                // inside an object or array we ignore
-	stSkipScalar                // inside a number, true, false or null
-	stAfterValue                // after a value, expecting ',' or '}'
+	stStart      state = iota // before '{'
+	stKeyOrEnd                // expecting a key's opening quote, ',' or '}'
+	stInKey                   // inside a key
+	stColon                   // after a key, expecting ':'
+	stValue                   // expecting a value
+	stInText                  // inside the "text" string
+	stInPurpose               // inside the "purpose" string
+	stSkipString              // inside a string value we ignore
+	stSkipNested              // inside an object or array we ignore
+	stSkipScalar              // inside a number, true, false or null
+	stAfterValue              // after a value, expecting ',' or '}'
 	stDone
 )
 
@@ -121,35 +120,14 @@ type Decoder struct {
 	str     jsonStringDecoder
 	purpose strings.Builder
 	known   bool
-	// resolution is the answer's self-declared label, read once its string has
-	// closed. HoldForResolution keeps an answer's text back until the label is
-	// known (or the object ended), so a consumer can decide before showing it.
-	resolution        strings.Builder
-	resolutionKnown   bool
-	HoldForResolution bool
-	held              strings.Builder
-	depth             int
-	inStr             bool // inside a string within a skipped nested value
-	nestEsc           bool
+	held    strings.Builder
+	depth   int
+	inStr   bool // inside a string within a skipped nested value
+	nestEsc bool
 }
 
 // Purpose returns the purpose once its string has closed.
 func (d *Decoder) Purpose() (string, bool) { return d.purpose.String(), d.known }
-
-// Resolution returns the answer's label once its string has closed.
-func (d *Decoder) Resolution() (string, bool) { return d.resolution.String(), d.resolutionKnown }
-
-// Ready reports whether text may be released: the purpose is known and, when
-// HoldForResolution is set, an answer's label is known or the object is over.
-func (d *Decoder) Ready() bool {
-	if !d.known {
-		return false
-	}
-	if !d.HoldForResolution || d.purpose.String() != "answer" {
-		return true
-	}
-	return d.resolutionKnown || d.state == stDone
-}
 
 // Feed consumes an arguments fragment and returns the text that is now
 // decided and may be shown.
@@ -159,16 +137,10 @@ func (d *Decoder) Feed(chunk string) string {
 		if s == "" {
 			return
 		}
-		if d.Ready() {
+		if d.known {
 			out.WriteString(s)
 		} else {
 			d.held.WriteString(s)
-		}
-	}
-	release := func() {
-		if d.Ready() && d.held.Len() > 0 {
-			out.WriteString(d.held.String())
-			d.held.Reset()
 		}
 	}
 	for _, r := range chunk {
@@ -208,10 +180,6 @@ func (d *Decoder) Feed(chunk string) string {
 				d.str.reset()
 				d.purpose.Reset()
 				d.state = stInPurpose
-			case r == '"' && d.cur == "resolution":
-				d.str.reset()
-				d.resolution.Reset()
-				d.state = stInResolution
 			case r == '"':
 				d.str.reset()
 				d.state = stSkipString
@@ -232,19 +200,13 @@ func (d *Decoder) Feed(chunk string) string {
 			s, closed := d.str.feed(r)
 			if closed {
 				d.state = stAfterValue
-				d.known = true
-				release()
+				if !d.known {
+					d.known = true
+					out.WriteString(d.held.String())
+					d.held.Reset()
+				}
 			} else {
 				d.purpose.WriteString(s)
-			}
-		case stInResolution:
-			s, closed := d.str.feed(r)
-			if closed {
-				d.state = stAfterValue
-				d.resolutionKnown = true
-				release()
-			} else {
-				d.resolution.WriteString(s)
 			}
 		case stSkipString:
 			if _, closed := d.str.feed(r); closed {
@@ -282,9 +244,6 @@ func (d *Decoder) Feed(chunk string) string {
 				d.state = stDone
 			}
 		case stDone:
-		}
-		if d.state == stDone {
-			release()
 		}
 	}
 	return out.String()
