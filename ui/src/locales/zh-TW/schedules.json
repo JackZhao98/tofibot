@@ -77,6 +77,8 @@
     "description_aria": "編輯排程說明",
     "instructions": "完整執行指令",
     "instructions_aria": "編輯排程執行指令",
+    "timing": "時間安排",
+    "timing_locked": "已經執行過的單次排程無法重新安排時間。",
     "cancel": "取消",
     "save": "儲存"
   }

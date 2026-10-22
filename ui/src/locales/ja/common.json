@@ -18,6 +18,17 @@
     "retry": "再試行"
   },
   "apiError": {
+    "schedule_kind_invalid": "繰り返しは単発・間隔・毎日・毎週のいずれかにしてください。",
+    "schedule_content_invalid": "実行指示は必須で、長すぎる場合は受け付けられません。",
+    "schedule_timezone_invalid": "このタイムゾーンは認識できません。",
+    "schedule_run_at_required": "単発のスケジュールには実行日時が必要です。",
+    "schedule_run_at_invalid": "実行日時が有効な日付と時刻ではありません。",
+    "schedule_run_at_past": "実行日時は未来にしてください。",
+    "schedule_interval_invalid": "間隔は 1 分から 365 日の範囲で指定してください。",
+    "schedule_time_invalid": "時刻は HH:MM 形式で指定してください。",
+    "schedule_weekdays_invalid": "有効な曜日を 1 つ以上選んでください。",
+    "schedule_timing_conflict": "これらの時刻項目はこの種類のスケジュールには使えません。",
+    "schedule_timing_locked": "すでに実行された単発のスケジュールは日時を変更できません。",
     "request_failed": "リクエストに失敗しました（{{status}}）",
     "plugin_busy": "プラグインはタスクで使用中です。しばらくしてからもう一度お試しください。",
     "computer_busy": "コンピューターが使用中か、別のウィンドウ・タスク・Bot が操作しています。実行中のタスクを止めるか、しばらくしてからもう一度お試しください。",

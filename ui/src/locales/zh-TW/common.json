@@ -18,6 +18,17 @@
     "retry": "重試"
   },
   "apiError": {
+    "schedule_kind_invalid": "重複方式需為單次、固定間隔、每天或每週之一。",
+    "schedule_content_invalid": "執行指令不能為空，也不能過長。",
+    "schedule_timezone_invalid": "無法辨識該時區。",
+    "schedule_run_at_required": "單次排程需要設定執行時間。",
+    "schedule_run_at_invalid": "執行時間不是有效的日期與時間。",
+    "schedule_run_at_past": "執行時間必須在未來。",
+    "schedule_interval_invalid": "間隔需在 1 分鐘到 365 天之間。",
+    "schedule_time_invalid": "每日時間需為 HH:MM 格式。",
+    "schedule_weekdays_invalid": "請至少選擇一個有效的星期。",
+    "schedule_timing_conflict": "這些時間欄位不適用於此類排程。",
+    "schedule_timing_locked": "已經執行過的單次排程無法重新安排時間。",
     "request_failed": "請求失敗（{{status}}）",
     "plugin_busy": "正在被某個任務使用，稍後再試。",
     "computer_busy": "電腦正忙，或已被其他視窗、任務或 Bot 佔用。請先停止目前任務，或稍後重試。",

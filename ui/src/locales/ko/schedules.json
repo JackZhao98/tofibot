@@ -77,6 +77,8 @@
     "description_aria": "일정 설명 편집",
     "instructions": "전체 지시 사항",
     "instructions_aria": "일정 지시 사항 편집",
+    "timing": "실행 시점",
+    "timing_locked": "이미 실행된 일회성 일정은 시간을 다시 정할 수 없습니다.",
     "cancel": "취소",
     "save": "저장"
   }

@@ -330,6 +330,11 @@ export interface Run {
 
 export interface MemoryInput { title: string; description: string; content: string; }
 export type ContentPatch = Partial<MemoryInput> & { expected?: Partial<MemoryInput> };
+/** PATCH /api/schedules/{id}: content fields plus optional timing, with the timing it was opened against. */
+export type SchedulePatchInput = ContentPatch & {
+  kind?: ScheduleKind; run_at?: string; interval_seconds?: number; daily_time?: string; weekdays?: Weekday[]; timezone?: string;
+  expected_timing?: { kind?: ScheduleKind; timezone?: string; interval_seconds?: number; daily_time?: string; weekdays?: Weekday[]; next_at_utc?: string };
+};
 
 export interface Memory {
   id: string;
