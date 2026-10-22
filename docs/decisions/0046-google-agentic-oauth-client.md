@@ -1,6 +1,6 @@
-# 0045 Google Workspace MCP 要求 OAuth 客户端标为“AI 智能体”（agentic）
+# 0046 Google Workspace MCP 要求 OAuth 客户端标为“AI 智能体”（agentic）
 
-> 编号 D45，索引见 [README](README.md)。这是 Google 的外部要求，不是产品取舍；owner 的指示是照要求改引导、诊断和文档，并自己去标记现有客户端。
+> 编号 D46，索引见 [README](README.md)。这是 Google 的外部要求，不是产品取舍；owner 的指示是照要求改引导、诊断和文档，并自己去标记现有客户端。
 
 ## 决定
 

@@ -35,7 +35,7 @@ TOFI 每个版本改了什么，最新的在最上面。写给以后接手的人
 
 还没进任何 rc 的改动写在这里；打下一个 rc 时挪进那个 rc 的条目（决定 D27）。
 
-- **Google Workspace MCP 的 agentic 客户端要求和 Developer Preview（分支 `fix/google-agentic-client`，D45）。** Google 自 2026-11-11 起拒绝未标为 AI 智能体的 OAuth 客户端，11-12 起该设置固定。设置页和 OAuth 完成页的 Google 引导加了“勾选 Use this client for an AI-powered agent”、固定说明，以及“把 Cloud 项目加入 Workspace Developer Preview Program”（7 语言）；Google MCP 主机连接或工具调用被 401/403 拒绝时，诊断按主机加 HTTP 状态分类，工具调用时 Preview Program 排第一、agentic 第二。Gmail MCP 不能发信，发信走 `gog`。**Owner 动作：** 在 GCP 项目 `tofi-self-hosted` 确认已加入 Preview Program，并在 2026-11-11 前标记现有 OAuth 客户端。
+- **Google Workspace MCP 的 agentic 客户端要求和 Developer Preview（分支 `fix/google-agentic-client`，D46）。** Google 自 2026-11-11 起拒绝未标为 AI 智能体的 OAuth 客户端，11-12 起该设置固定。设置页和 OAuth 完成页的 Google 引导加了“勾选 Use this client for an AI-powered agent”、固定说明，以及“把 Cloud 项目加入 Workspace Developer Preview Program”（7 语言）；Google MCP 主机连接或工具调用被 401/403 拒绝时，诊断按主机加 HTTP 状态分类，工具调用时 Preview Program 排第一、agentic 第二。Gmail MCP 不能发信，发信走 `gog`。**Owner 动作：** 在 GCP 项目 `tofi-self-hosted` 确认已加入 Preview Program，并在 2026-11-11 前标记现有 OAuth 客户端。
 
 ---
 
