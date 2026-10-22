@@ -18,6 +18,17 @@
     "retry": "重试"
   },
   "apiError": {
+    "schedule_kind_invalid": "重复方式需为单次、固定间隔、每天或每周之一。",
+    "schedule_content_invalid": "执行指令不能为空，也不能过长。",
+    "schedule_timezone_invalid": "无法识别该时区。",
+    "schedule_run_at_required": "单次日程需要设置运行时间。",
+    "schedule_run_at_invalid": "运行时间不是有效的日期和时间。",
+    "schedule_run_at_past": "运行时间必须在未来。",
+    "schedule_interval_invalid": "间隔需在 1 分钟到 365 天之间。",
+    "schedule_time_invalid": "每日时间需为 HH:MM 格式。",
+    "schedule_weekdays_invalid": "请至少选择一个有效的星期。",
+    "schedule_timing_conflict": "这些时间字段不适用于此类日程。",
+    "schedule_timing_locked": "已经执行过的单次日程无法重新安排时间。",
     "request_failed": "请求失败（{{status}}）",
     "plugin_busy": "正在被某个任务使用，稍后再试。",
     "computer_busy": "电脑正忙，或已被其他窗口、任务或 Bot 占用。请先停止当前任务，或稍后重试。",

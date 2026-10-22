@@ -126,6 +126,7 @@ TOFI 是一个自托管的 AI Bot 工作台：后端是 Go 服务（`internal/`�
 |---|---|
 | `create_schedule` 支持四种：`once`、`interval`、`daily`、`weekly`。返回结果里带 `next_at_local`，即下一次运行在该任务所在时区的时间并附上时区名；确认消息要写出这个时间 | `internal/app/schedule.go:1420`；`1a0b123`（从 rc.27 起） |
 | 同一个群里的定时任务按到期顺序运行，一次只跑一条调用链 | `4664b56` |
+| 已有定时任务的时间可以直接改（重复方式、时刻、星期、间隔、一次性时间、时区），不必删了重建、历史保留：网页「管理 › 编辑」与 Bot 的 `update_schedule` 共用创建时的校验和下次时间计算，已领取或在跑的那一次不受影响，暂停的保持暂停；已跑过的一次性任务不能改时间。分支 `fix/schedule-edit-timing`（未发布） | `internal/app/schedule_edit.go`；`ui/src/ScheduleTimingFields.tsx`；`TestPatchSchedule*`、`test:schedule-timing`；`AGENTS.md` “Editing a schedule's timing” |
 | 定时运行中向人提问时，问题会挂起等待，到时过期 | `AGENTS.md` 第 86–87 行 |
 
 | 已知缺口 | 依据 |

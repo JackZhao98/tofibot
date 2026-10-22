@@ -85,6 +85,8 @@
     "description_aria": "Modifier la description du planning",
     "instructions": "Instructions complètes",
     "instructions_aria": "Modifier les instructions du planning",
+    "timing": "Planification",
+    "timing_locked": "Une planification ponctuelle déjà exécutée ne peut pas être reprogrammée.",
     "cancel": "Annuler",
     "save": "Enregistrer"
   }

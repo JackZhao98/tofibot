@@ -77,6 +77,8 @@
     "description_aria": "スケジュールの説明を編集",
     "instructions": "指示の全文",
     "instructions_aria": "スケジュールの指示を編集",
+    "timing": "実行タイミング",
+    "timing_locked": "すでに実行された単発のスケジュールは日時を変更できません。",
     "cancel": "キャンセル",
     "save": "保存"
   }

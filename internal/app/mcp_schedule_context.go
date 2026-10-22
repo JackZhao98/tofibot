@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"strings"
 )
 
@@ -71,6 +72,7 @@ type mcpScheduleRevisionEvidence struct {
 	CreatedAt        string    `json:"created_at"`
 	SourceDigest     string    `json:"source_digest"`
 	ExecutionContent string    `json:"execution_content"`
+	ExecutionTiming  string    `json:"execution_timing"`
 	SubmittedFields  string    `json:"untrusted_submitted_fields,omitempty"`
 	SourceRequest    string    `json:"source_request,omitempty"`
 	SourceMessages   []Message `json:"source_conversation_context,omitempty"`
@@ -378,11 +380,15 @@ func verifyMCPScheduleSources(db reviewQuerier, record scheduleOccurrenceAuthori
 		return mcpContextFail(mcpContextSourceChain)
 	}
 	initial := chain[0].ExecutionSpec
+	// Identity and the original anchor must hold across the whole chain. Timing
+	// (kind, timezone, interval, daily time, weekdays) may differ between
+	// revisions: a timing edit is journaled like a content edit, from the same
+	// kinds of source, and each row's spec is digest-bound and shown below.
 	for i, saved := range chain {
 		if saved.PreviousRevision != int64(i) || saved.AccountID != record.AccountID || saved.ConversationID != initial.ConversationID || saved.BotID != initial.BotID || saved.RequestID == "" {
 			return mcpContextFail(mcpContextSourceChain)
 		}
-		if saved.ExecutionSpec.AccountID != initial.AccountID || saved.ExecutionSpec.ConversationID != initial.ConversationID || saved.ExecutionSpec.BotID != initial.BotID || saved.ExecutionSpec.InitialAtUTC != initial.InitialAtUTC || saved.ExecutionSpec.Kind != initial.Kind || saved.ExecutionSpec.Timezone != initial.Timezone || saved.ExecutionSpec.IntervalSeconds != initial.IntervalSeconds || saved.ExecutionSpec.DailyTime != initial.DailyTime || saved.ExecutionSpec.Weekdays != initial.Weekdays {
+		if saved.ExecutionSpec.AccountID != initial.AccountID || saved.ExecutionSpec.ConversationID != initial.ConversationID || saved.ExecutionSpec.BotID != initial.BotID || saved.ExecutionSpec.InitialAtUTC != initial.InitialAtUTC {
 			return mcpContextFail(mcpContextSourceChain)
 		}
 		if i == 0 && saved.EventKind != "create" || i > 0 && saved.EventKind == "create" {
@@ -390,6 +396,7 @@ func verifyMCPScheduleSources(db reviewQuerier, record scheduleOccurrenceAuthori
 		}
 		evidence := mcpScheduleRevisionEvidence{Revision: saved.Revision, EventKind: saved.EventKind, SourceKind: saved.SourceKind, RequestID: saved.RequestID, CreatedAt: saved.CreatedAt, SourceDigest: saved.SourceDigest}
 		evidence.ExecutionContent, evidence.Truncated = mcpTruncate(saved.ExecutionSpec.Content, mcpEvidenceMessageRunes)
+		evidence.ExecutionTiming = fmt.Sprintf("kind=%s timezone=%s interval_seconds=%d daily_time=%s weekdays=%s", saved.ExecutionSpec.Kind, saved.ExecutionSpec.Timezone, saved.ExecutionSpec.IntervalSeconds, saved.ExecutionSpec.DailyTime, saved.ExecutionSpec.Weekdays)
 		switch saved.EventKind {
 		case "pause", "delete", "archive":
 			if i == len(chain)-1 {

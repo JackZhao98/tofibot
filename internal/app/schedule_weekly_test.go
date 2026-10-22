@@ -149,8 +149,14 @@ func TestWeeklyToolSchemaCreateUpdateList(t *testing.T) {
 	if !strings.Contains(create.Description, "weekly") || !strings.Contains(create.Description, "never create a daily schedule whose instructions check the weekday") {
 		t.Errorf("create_schedule description does not steer toward weekly: %s", create.Description)
 	}
-	if !strings.Contains(update.Description, "weekdays") {
-		t.Errorf("update_schedule description should say recurrence is fixed: %s", update.Description)
+	if !strings.Contains(update.Description, "Timing fields") {
+		t.Errorf("update_schedule description should cover timing: %s", update.Description)
+	}
+	updateSchema, _ := json.Marshal(update.Parameters)
+	for _, want := range []string{`"weekdays"`, `"daily_time"`, `"kind"`, `"timezone"`, `"run_at"`, `"interval_seconds"`} {
+		if !strings.Contains(string(updateSchema), want) {
+			t.Errorf("update_schedule schema lacks %s: %s", want, updateSchema)
+		}
 	}
 
 	body := map[string]any{"title": "Weekly", "description": "Sunday job", "content": "Do the weekly thing.", "kind": "weekly", "daily_time": "00:43", "weekdays": []string{"sun"}, "timezone": "America/Los_Angeles"}
@@ -192,8 +198,8 @@ func TestWeeklyToolSchemaCreateUpdateList(t *testing.T) {
 	if err != nil || !strings.Contains(listed, `"weekdays":["sun"]`) || !strings.Contains(listed, `"kind":"weekly"`) {
 		t.Fatalf("list_schedules: %s %v", listed, err)
 	}
-	// update_schedule edits text only; timing and weekdays are preserved.
-	if _, err := executeScheduleTool(t, server, c, run, "update_schedule", map[string]any{"schedule_id": created.ID, "title": "Renamed", "description": "Sunday job", "content": "Do the new thing.", "weekdays": []string{"mon"}}); err != nil {
+	// An update_schedule call without timing fields preserves timing and weekdays.
+	if _, err := executeScheduleTool(t, server, c, run, "update_schedule", map[string]any{"schedule_id": created.ID, "title": "Renamed", "description": "Sunday job", "content": "Do the new thing."}); err != nil {
 		t.Fatal(err)
 	}
 	after, _ := store.GetSchedule(created.ID)
