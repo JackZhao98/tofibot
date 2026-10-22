@@ -388,7 +388,7 @@
     "defaults_failed": "Couldn’t save that. Try again.",
     "first_bot_failed": "Couldn’t set up your first Bot. You can create one from the sidebar.",
     "services_title": "Pick a few things to connect",
-    "services_body": "Your Bots can read from these on their own and ask before changing anything.",
+    "services_body": "Your Bots can read from these on their own. Sending email always needs you, extension changes need your approval, and login or 2FA steps are handed to you.",
     "services_hint": "You can add more anytime in Settings > Connections.",
     "later": "Later, start chatting",
     "connect_selected_one": "Connect {{count}} selected",
