@@ -247,7 +247,7 @@ func (s *Server) routeLocalMCP(w http.ResponseWriter, r *http.Request, p string)
 	if p == "extensions/local-mcp/gog/oauth/callback" && r.Method == http.MethodGet {
 		origin := s.webOAuthOrigin(r)
 		page := oauthServicePage(extensions.OAuthServiceIdentity{Name: "Google (gogcli)"})
-		page.State, page.Message = "failed", "无法完成 Google 授权，请返回 Tofi 重试。"
+		page.State, page.Message = "failed", "Google authorization could not be completed. Return to Tofi and try again."
 		if origin == "" {
 			writeOAuthCompletion(w, 400, page)
 			return true
@@ -255,10 +255,10 @@ func (s *Server) routeLocalMCP(w http.ResponseWriter, r *http.Request, p string)
 		fullURL := origin + r.URL.RequestURI()
 		_, status, err := s.runnerRequest(r, http.MethodPost, "/v1/plugins/gog/gog/finish", mcprunner.GogFinishRequest{RedirectedURL: fullURL})
 		if err == nil && status == http.StatusOK {
-			page.State, page.Message = "success", "授权已保存，但暂时读不到 Gmail。请回到 Tofi 查看。"
+			page.State, page.Message = "success", "Authorization was saved, but Gmail cannot be read yet. Return to Tofi to check."
 			// Confirm Gmail answers before saying so: a working connection shows its result and nothing else.
 			if _, checked, checkErr := s.runnerRequest(r, http.MethodPost, "/v1/plugins/gog/gog/check", map[string]any{}); checkErr == nil && checked == http.StatusOK {
-				page.Message = "已连接，Gmail 可以读取了。"
+				page.Message = "Connected. Gmail can be read."
 			}
 			_, _ = s.store.WorkspaceEvent(workspaceScopeConfig)
 			writeOAuthCompletion(w, 200, page)

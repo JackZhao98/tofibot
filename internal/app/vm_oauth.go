@@ -24,7 +24,7 @@ type vmOAuthSession struct {
 	id, botID, server, guestID, flowID string
 	targetID                           string
 	mu                                 sync.Mutex
-	status, err                        string
+	status, err, errCode               string
 	ended                              time.Time
 	cancel                             context.CancelFunc
 	done                               chan struct{}
@@ -34,7 +34,7 @@ func (v *vmOAuthSession) owner() string { return oauthOwnerPrefix + v.id }
 func (v *vmOAuthSession) snapshot() map[string]any {
 	v.mu.Lock()
 	defer v.mu.Unlock()
-	return map[string]any{"session_id": v.id, "bot_id": v.botID, "status": v.status, "error": v.err}
+	return map[string]any{"session_id": v.id, "bot_id": v.botID, "status": v.status, "error_code": v.errCode}
 }
 
 func (s *Server) closeVMOAuth() {
@@ -100,7 +100,7 @@ func (s *Server) startVMOAuth(requestCtx context.Context, botID, name string) (_
 	defer func() {
 		stopRequestCancel()
 		if !handedOff {
-			s.finishVMOAuth(v, "error", "无法启动授权，请重试。")
+			s.finishVMOAuth(v, "error", "vm_oauth_start_failed")
 		}
 	}()
 	lease := s.computerLease(botID)
@@ -200,7 +200,7 @@ func (s *Server) pollVMOAuth(ctx context.Context, v *vmOAuthSession) {
 				continue
 			}
 			if err != nil {
-				s.finishVMOAuth(v, "error", "共享电脑连接中断，请重新授权。")
+				s.finishVMOAuth(v, "error", "vm_oauth_computer_lost")
 				return
 			}
 			switch result.Status {
@@ -209,14 +209,14 @@ func (s *Server) pollVMOAuth(ctx context.Context, v *vmOAuthSession) {
 			case "complete":
 				err = s.extensions.OAuthCallback(ctx, v.flowID, result.Code, result.State)
 				if err != nil {
-					s.finishVMOAuth(v, "error", "授权交换失败，请检查服务的回调配置后重试。")
+					s.finishVMOAuth(v, "error", "vm_oauth_exchange_failed")
 					return
 				}
 				_, _ = s.store.WorkspaceEvent(workspaceScopeConfig)
 				s.finishVMOAuth(v, "complete", "")
 				return
 			case "denied":
-				s.finishVMOAuth(v, "denied", "授权未获批准，可重新连接。")
+				s.finishVMOAuth(v, "denied", "vm_oauth_denied")
 				return
 			default:
 				s.finishVMOAuth(v, "expired", "")
@@ -228,7 +228,11 @@ func (s *Server) pollVMOAuth(ctx context.Context, v *vmOAuthSession) {
 
 // Only the initialization path or its single worker calls finish. Stop/Close
 // cancel that worker and wait, so token exchange cannot race a second cleanup.
-func (s *Server) finishVMOAuth(v *vmOAuthSession, status, detail string) {
+// finishVMOAuth ends the session. code is a stable end reason (vm_oauth_start_failed,
+// vm_oauth_computer_lost, vm_oauth_exchange_failed, vm_oauth_denied) or "". The session
+// carries the code only; the dialog words it from the status (extensions:vm.end.*) and
+// the UI catalogues the code under common:apiError.
+func (s *Server) finishVMOAuth(v *vmOAuthSession, status, code string) {
 	defer s.vmOAuthWG.Done()
 	v.cancel()
 	if v.flowID != "" {
@@ -277,7 +281,7 @@ func (s *Server) finishVMOAuth(v *vmOAuthSession, status, detail string) {
 	}
 	v.mu.Lock()
 	v.status = status
-	v.err = detail
+	v.errCode = code
 	v.ended = time.Now()
 	v.mu.Unlock()
 	close(v.done)
@@ -304,7 +308,7 @@ func (s *Server) routeVMOAuth(w http.ResponseWriter, r *http.Request, p string) 
 		v, err := s.startVMOAuth(r.Context(), in.BotID, name)
 		if err != nil {
 			if errors.Is(err, errOAuthComputerBusy) {
-				writeErr(w, 409, "computer_busy", "电脑正在执行其他操作，请稍后再连接。")
+				writeErr(w, 409, "computer_busy", "The computer is busy with another operation. Try connecting again shortly.")
 			} else {
 				writeErr(w, 400, "oauth", extensions.OAuthPublicError(err))
 			}
@@ -328,7 +332,7 @@ func (s *Server) routeVMOAuth(w http.ResponseWriter, r *http.Request, p string) 
 			case <-r.Context().Done():
 				return true
 			case <-time.After(20 * time.Second):
-				writeErr(w, 503, "oauth", "授权正在结束，请稍后重试。")
+				writeErr(w, 503, "oauth", "The authorization is ending. Try again shortly.")
 				return true
 			}
 		}

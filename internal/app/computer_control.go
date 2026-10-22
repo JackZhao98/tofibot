@@ -106,7 +106,7 @@ func (s *Server) handleComputerControl(w http.ResponseWriter, r *http.Request, b
 		}
 		if !locked {
 			log.Printf("[desktop-control] acquire denied bot=%s reason=computer-lease-busy", botID)
-			writeErr(w, 409, "computer_busy", "电脑正在执行其他操作")
+			writeErr(w, 409, "computer_busy", "The computer is busy with another operation.")
 			return
 		}
 		defer lease.Unlock()
@@ -123,7 +123,7 @@ func (s *Server) handleComputerControl(w http.ResponseWriter, r *http.Request, b
 		}
 		if !s.claimComputerOwner(botID, "human-control:"+c.id) {
 			log.Printf("[desktop-control] acquire denied bot=%s reason=owner-conflict", botID)
-			writeErr(w, 409, "computer_busy", "电脑已被占用")
+			writeErr(w, 409, "computer_busy", "The computer is in use.")
 			return
 		}
 		c.mu.Lock()
@@ -167,7 +167,7 @@ func (s *Server) handleComputerControl(w http.ResponseWriter, r *http.Request, b
 		if action == "desktop.control.release" {
 			writeJSON(w, 200, map[string]any{"ok": true, "result": map[string]bool{"released": true}})
 		} else {
-			writeErr(w, 409, "control_expired", "控制已释放，请重新接管")
+			writeErr(w, 409, "control_expired", "Control was released. Take over again.")
 		}
 		return
 	}
@@ -180,7 +180,7 @@ func (s *Server) handleComputerControl(w http.ResponseWriter, r *http.Request, b
 	}
 	if c.released || !c.expires.After(time.Now()) {
 		s.releaseControl(c)
-		writeErr(w, 409, "control_expired", "控制已过期，请重新接管")
+		writeErr(w, 409, "control_expired", "Control expired. Take over again.")
 		return
 	}
 	lease := s.computerLease(botID)
@@ -294,6 +294,9 @@ func (s *Server) closeComputerControls() {
 	}
 }
 
+// errControllerChanged is returned as the message of a computer_busy response; the UI shows common:apiError.computer_busy.
+var errControllerChanged = errors.New("The controller changed. Try again shortly.")
+
 func writeControlError(w http.ResponseWriter, err error) {
 	message := err.Error()
 	for _, code := range []string{"computer_busy", "control_expired", "input_sequence", "desktop_stopped"} {
@@ -303,10 +306,10 @@ func writeControlError(w http.ResponseWriter, err error) {
 		}
 	}
 	if errors.Is(err, context.Canceled) {
-		writeErr(w, 409, "control_expired", "控制请求已取消")
+		writeErr(w, 409, "control_expired", "The control request was cancelled.")
 		return
 	}
-	writeErr(w, 502, "control_unavailable", "桌面控制暂不可用，请重新接管")
+	writeErr(w, 502, "control_unavailable", "Desktop control is unavailable. Take over again.")
 }
 
 // Caller owns the shared action mutex: finish the previous tool before freeing
@@ -321,7 +324,7 @@ func (s *Server) transferDesktopToHuman(ctx context.Context, c *computerControl,
 	}
 	s.computerOwnerMu.Unlock()
 	if bot == "" {
-		return errors.New("控制者已变化，请稍后重试")
+		return errControllerChanged
 	}
 	if _, err := s.microVM.Action(ctx, computer.Action{BotID: bot, RunID: expected, Source: "model", Name: "desktop.release", Args: json.RawMessage(`{}`)}); err != nil {
 		return err
@@ -329,7 +332,7 @@ func (s *Server) transferDesktopToHuman(ctx context.Context, c *computerControl,
 	s.computerOwnerMu.Lock()
 	defer s.computerOwnerMu.Unlock()
 	if s.computerOwners[bot] != expected {
-		return errors.New("控制者已变化，请稍后重试")
+		return errControllerChanged
 	}
 	delete(s.computerOwners, bot)
 	delete(s.desktopObserved, expected)

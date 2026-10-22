@@ -16,11 +16,11 @@ import (
 func mcpInspectionDiagnostic(name, endpoint string, err error) Diagnostic {
 	d := Diagnostic{Server: name, Message: "MCP server connection or discovery failed"}
 	if errors.Is(err, errMCPLegacySSE) {
-		d.Code, d.Message = "unsupported_transport", "该服务使用旧式 MCP SSE，无法支持 2026-07-28。请将服务升级并改为 Streamable HTTP。"
+		d.Code, d.Message = "unsupported_transport", "This service uses legacy MCP SSE, which cannot support 2026-07-28. Upgrade the service and switch it to Streamable HTTP."
 		return d
 	}
 	if isMCPProtocolFailure(err) {
-		d.Code, d.Message = "unsupported_protocol", "该 MCP 服务不支持 Tofi 要求的 2026-07-28 协议。请升级服务；Tofi 不会降级到旧协议。"
+		d.Code, d.Message = "unsupported_protocol", "This MCP service does not support the 2026-07-28 protocol that Tofi requires. Upgrade the service; Tofi does not fall back to an older protocol."
 		return d
 	}
 	if !isGoogleWorkspaceMCPEndpoint(endpoint) {
@@ -31,7 +31,7 @@ func mcpInspectionDiagnostic(name, endpoint string, err error) Diagnostic {
 	}
 	// "API not enabled" is read from Google's structured error (ErrorInfo reason SERVICE_DISABLED), never from wording.
 	if failure, ok := googleapi.ParseFailure(err.Error()); ok {
-		d.Code, d.Message = "api_disabled", "Google 返回 API 未启用。请在 OAuth Client 所属的同一个项目中启用产品 API 和 MCP 服务，再刷新工具。"
+		d.Code, d.Message = "api_disabled", "Google reports the API is not enabled. Enable the product API and its MCP service in the same project as the OAuth client, then refresh the tools."
 		// The link is built here from the endpoint's own API and the validated project, never from the error body.
 		host := ""
 		if parsed, perr := url.Parse(endpoint); perr == nil {
@@ -49,9 +49,9 @@ func mcpInspectionDiagnostic(name, endpoint string, err error) Diagnostic {
 	message := strings.ToLower(err.Error())
 	switch {
 	case strings.Contains(message, "access_denied"):
-		d.Code, d.Message = "access_denied", "Google 拒绝了访问。若应用处于测试模式，请检查当前账号是否在测试用户中；也可能是账号或组织限制。"
+		d.Code, d.Message = "access_denied", "Google denied access. If the app is in testing mode, check that this account is a test user; an account or organization restriction is also possible."
 	case authStatus, strings.Contains(message, "permission_denied"), strings.Contains(message, "status 403"), strings.Contains(message, "status code: 403"):
-		d.Code, d.Message = "permission_denied", "Google 拒绝读取工具。请先确认 Cloud 项目已加入 Google Workspace Developer Preview Program，再确认 OAuth Client 已勾选“Use this client for an AI-powered agent”（2026-11-11 起 Workspace MCP 拒绝未标记的 Client；该设置在 11-12 后固定，需新建 Client）；最后检查 API / MCP 启用状态和账号权限。401 / 403 本身不能确定是哪一项。"
+		d.Code, d.Message = "permission_denied", "Google refused to list the tools. First confirm the Cloud project has joined the Google Workspace Developer Preview Program, then confirm the OAuth client has \"Use this client for an AI-powered agent\" checked (from 2026-11-11 the Workspace MCP rejects unmarked clients; the setting is fixed after 11-12, so a new client is needed); finally check the API and MCP enablement and the account's permissions. A 401 or 403 alone cannot tell which one it is."
 	}
 	return d
 }

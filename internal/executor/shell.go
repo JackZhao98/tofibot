@@ -43,14 +43,14 @@ func ExecuteShell(parentCtx context.Context, script string, env map[string]strin
 
 	if err := CheckShellSafety(script); err != nil {
 
-		return "", fmt.Errorf("安全检查未通过: %v", err)
+		return "", fmt.Errorf("safety check failed: %v", err)
 
 	}
 
 	output, err := cmd.CombinedOutput() // 同时获取 stdout 和 stderr
 	if err != nil {
 		if ctx.Err() == context.DeadlineExceeded {
-			return "", fmt.Errorf("执行超时 (%d秒)", timeout)
+			return "", fmt.Errorf("execution timed out (%d seconds)", timeout)
 		}
 		return "", err
 	}

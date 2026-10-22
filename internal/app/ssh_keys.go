@@ -245,7 +245,7 @@ func (s *Server) handleSSHKeys(w http.ResponseWriter, r *http.Request) bool {
 		return true
 	}
 	if r.Method == "POST" && (!validSSHKeyName(op.Name) || (op.Action == "import" && (!validSecretValue(op.PrivateKey) || len(op.PublicKey) > 16384))) {
-		writeErr(w, 400, "ssh_keys", "请检查密钥文件名与内容格式")
+		writeErr(w, 400, "ssh_keys", "Check the key file name and content format.")
 		return true
 	}
 	if _, err := s.store.GetBot(botID); err != nil {
