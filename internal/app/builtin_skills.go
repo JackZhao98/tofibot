@@ -117,6 +117,10 @@ func (s *Server) stageBuiltinSkill(ctx context.Context, r Run, name string) (str
 	if err != nil {
 		return "", err
 	}
+	return s.stageSkillFiles(ctx, r, name, files, digest)
+}
+
+func (s *Server) stageSkillFiles(ctx context.Context, r Run, name string, files []extensions.BuiltinSkillFile, digest string) (string, error) {
 	dir := guestSkillsDir(name, digest)
 	for _, f := range files {
 		if err := s.pushGuestBytes(ctx, r, dir+"/"+f.Path, f.Data); err != nil {
@@ -150,9 +154,11 @@ func (s *Server) pushGuestBytes(ctx context.Context, r Run, dst string, data []b
 	}
 }
 
-// withBuiltinSkillStaging wraps read_skill so that reading a built-in skill
-// also places its scripts on the Bot's computer and tells the model where they
-// are. Installed skills and Bots without a computer are untouched.
+// withBuiltinSkillStaging wraps read_skill so that reading a skill that has
+// files besides SKILL.md (a built-in skill, or one a person installed) also
+// places them on the Bot's computer and tells the model where they are. An
+// installed skill that is only SKILL.md and Bots without a computer are
+// untouched. A skill's files are inert until the Bot chooses to run them.
 func (s *Server) withBuiltinSkillStaging(r Run, tools []Tool) []Tool {
 	if s.microVM == nil {
 		return tools
@@ -174,22 +180,40 @@ func (s *Server) withBuiltinSkillStaging(r Run, tools []Tool) []Tool {
 			var in struct {
 				Name string `json:"name"`
 			}
-			if json.Unmarshal(raw, &in) != nil || !extensions.IsBuiltinSkill(in.Name) {
+			if json.Unmarshal(raw, &in) != nil {
 				return body, nil
+			}
+			builtin := extensions.IsBuiltinSkill(in.Name)
+			var installed []extensions.BuiltinSkillFile
+			var installedDigest string
+			if !builtin {
+				var ierr error
+				installed, installedDigest, ierr = s.extensions.InstalledSkillFiles(in.Name)
+				if ierr != nil || len(installed) < 2 {
+					return body, nil
+				}
 			}
 			mu.Lock()
 			defer mu.Unlock()
 			dir, ok := staged[in.Name]
 			if !ok {
 				var serr error
-				if dir, serr = s.stageBuiltinSkill(ctx, r, in.Name); serr != nil {
+				if builtin {
+					dir, serr = s.stageBuiltinSkill(ctx, r, in.Name)
+				} else {
+					dir, serr = s.stageSkillFiles(ctx, r, in.Name, installed, installedDigest)
+				}
+				if serr != nil {
 					if ctx.Err() != nil {
 						return "", ctx.Err()
 					}
-					log.Printf("built-in skill %s: copy to the computer failed: %v", in.Name, serr)
+					log.Printf("skill %s: copy to the computer failed: %v", in.Name, serr)
 					return "The scripts of this skill could not be copied to the computer just now; read_skill_file shows their text, and reading the skill again retries the copy.\n\n" + body, nil
 				}
 				staged[in.Name] = dir
+			}
+			if !builtin {
+				return "This skill's files are on the computer in " + dir + ".\n\n" + body, nil
 			}
 			return "This skill's files are on the computer in " + dir + " (scripts under " + dir + "/scripts, run with python3).\n\n" + body, nil
 		}
