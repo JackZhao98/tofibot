@@ -155,6 +155,7 @@ TOFI 是一个自托管的 AI Bot 工作台：后端是 Go 服务（`internal/`�
 | 设置 › Skills：内置 Skill 带“内置”标签和开关（默认开），不能移除，“谁能用”照常；关闭记在 `builtin_skill_off`，下一次运行生效 | `ui/src/ExtensionPanel.tsx`；`ui/scripts/test-settings-shell.mjs`（7c）；[D41](../decisions/0041-builtin-deliverable-skills.md) |
 | 模型提供方、MCP、语音输入、主动跟进、语言等设置页 | `ui/src/ModelSettings.tsx`、`MCPSettings.tsx`、`DictationSettings.tsx`、`FollowupsSettings.tsx`、`LanguageSetting.tsx` |
 | 设置页重做：第 1、2 阶段已经上线，第 3 阶段要等工具重做的部分完成 | [settings-redesign.md](../agent-plan/settings-redesign.md) 状态行 |
+| Google Workspace MCP 连接（Gmail、Drive、Docs、Sheets、Slides、Calendar）：Cloud 项目须加入 Developer Preview Program，OAuth 客户端须标为 AI 智能体，2026-11-11 起未标记的会被拒，11-12 起固定。引导和诊断已覆盖（分支 `fix/google-agentic-client`，未合并）；**owner 待办：在 GCP 项目 `tofi-self-hosted` 标记现有客户端** | [D46](../decisions/0046-google-agentic-oauth-client.md)；`internal/extensions/inspection_diagnostic.go`；`ui/src/locales/*/extensions.json` |
 
 修改账户密码这件事 owner 认为不急（[D29](../decisions/0029-password-change-not-urgent.md)）。
 

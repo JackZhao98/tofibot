@@ -205,3 +205,16 @@ func TestOAuthCompletionAuditServer(t *testing.T) {
 	t.Logf("Synthetic OAuth renderer fixture: http://%s/success (assets: %s)", addr, ui)
 	t.Fatal(server.ListenAndServe())
 }
+
+func TestOAuthCompletionGoogleSetupNamesAgenticClient(t *testing.T) {
+	w := httptest.NewRecorder()
+	writeOAuthCompletion(w, http.StatusOK, completionFixture("success"))
+	if !strings.Contains(w.Body.String(), "AI-powered agent") || !strings.Contains(w.Body.String(), "Developer Preview Program") {
+		t.Error("Google setup section does not name the agentic client setting")
+	}
+	w = httptest.NewRecorder()
+	writeOAuthCompletion(w, http.StatusOK, oauthCompletionPage{State: "success", ServiceName: "Notion", LogoURL: "/oauth/provider-notion.svg", DocsURL: "https://www.notion.com/help/notion-mcp"})
+	if strings.Contains(w.Body.String(), "AI-powered agent") {
+		t.Error("non-Google page names the Google agentic setting")
+	}
+}

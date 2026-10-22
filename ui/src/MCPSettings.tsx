@@ -295,6 +295,8 @@ function GoogleSetupLinks({preset,docs=false}:{preset:IntegrationPreset;docs?:bo
  if(!preset.googleAPIs)return null;
  return <section className="mcp-google-setup" aria-label={t("google.links_label",{name:preset.name})}>
   <p>{t("google.project_hint")}</p>
+  <p>{t("google.preview_hint")}</p>
+  <p>{t("google.agentic_hint")}</p>
   <nav aria-label={t("google.nav_label",{name:preset.name})}>
    <a href={googleAPIEnableURL(preset.googleAPIs.api)} target="_blank" rel="noopener noreferrer">{t("google.enable_api")}</a>
    <a href={googleAPIEnableURL(preset.googleAPIs.mcp)} target="_blank" rel="noopener noreferrer">{t("google.enable_mcp")}</a>

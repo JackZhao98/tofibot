@@ -77,8 +77,9 @@
     "google_setup": {
       "client_credentials": "填寫下方的 Client ID 和 Secret，新增後完成 Google 授權。",
       "consent_screen": "設定 OAuth 同意畫面與測試使用者，建立網頁應用程式用戶端並登記重新導向網址。",
+      "agentic_client": "建立用戶端時勾選「Use this client for an AI-powered agent」。自 2026-11-11 起 Workspace MCP 會拒絕其他用戶端；2026-11-12 後該設定無法在現有用戶端上修改，只能新建用戶端。",
       "enable_apis": "在 Google Cloud 專案中啟用對應的產品 API 和 MCP 服務。",
-      "preview_access": "確認已取得 Google Workspace Developer Preview 存取資格。"
+      "preview_access": "將 Cloud 專案加入 Google Workspace Developer Preview Program（developers.google.com/workspace/preview）；未加入時授權雖可成功，每次工具呼叫仍會被拒。"
     },
     "google_sheets": {
       "description": "讀取資料、編輯試算表與公式。",
@@ -192,6 +193,8 @@
     "links_label": "{{name}} 設定連結",
     "nav_label": "{{name}} 的 Google Cloud 設定",
     "project_hint": "在 Google Cloud 中選擇與 OAuth Client 相同的專案。應用程式處於測試模式時，請在 Audience 中將目前帳號新增為測試使用者。",
+    "preview_hint": "將 Cloud 專案加入 Google Workspace Developer Preview Program（developers.google.com/workspace/preview）；未加入時授權雖可成功，每次工具呼叫仍會被拒。",
+    "agentic_hint": "勾選「Use this client for an AI-powered agent」（Google Auth Platform → Clients）。自 2026-11-11 起 Workspace MCP 拒絕未標記的用戶端；2026-11-12 起該設定固定，未標記的用戶端需新建替換。",
     "redirect_hint": "在 Google Auth Platform → Clients 的 Web application 中，將需要使用的網址逐一加入 Authorized redirect URIs（不是 JavaScript origins）。兩種入口可共用這組憑證。網址、連接埠、路徑必須完全一致；HTTP 共用電腦的動態重新導向不適用此固定網址設定，建議改用 HTTPS 或用戶端。",
     "test_users": "設定測試使用者"
   },
