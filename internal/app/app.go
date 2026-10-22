@@ -202,7 +202,7 @@ type Server struct {
 	accountID                            string
 	mcpApprovalMu                        sync.Mutex
 	autoReviewProvider                   provider.Provider // Deterministic tests only; production uses the existing Codex adapter.
-	answerProbeProvider                  provider.Provider // Deterministic tests only; production uses the background model.
+	answerGraderProvider                 provider.Provider // Deterministic tests only; production uses the background model.
 	shadowReviewMu                       sync.Mutex
 	shadowReviewWG                       sync.WaitGroup
 	shadowReviewCancel                   context.CancelFunc
@@ -220,7 +220,7 @@ type Server struct {
 	listen                               string
 	uiDir                                string
 	publicOrigin                         string
-	allowInternalMCPHosts                bool     // tests only: Bot-created MCP servers may use loopback hosts
+	allowInternalMCPHosts                bool // tests only: Bot-created MCP servers may use loopback hosts
 	extensionProposals                   sync.Map // run id + normalized token -> *ApprovalFacts, set when a change is refused for approval
 	defaultModel, provider               string
 	transcriptionAPIKey                  string
@@ -3680,13 +3680,14 @@ func (s *Server) execute(c Conversation, r Run) {
 	// observedToolWork arms the completion review; reviewed records that the
 	// review (on a text final or on a say answer) has already been spent.
 	var observedToolWork, reviewed atomic.Bool
-	// observedLookup is the answer gate's tool record: set once the run has
-	// attempted any lookup route (history, memory, web, files, connected tools).
-	var observedLookup atomic.Bool
-	// probe is the input check's verdict (see answer_probe.go); nil when no check runs.
-	var probe *answerProbe
-	if structured && r.Kind != runKindTriage && r.Kind != runKindSchedule && r.scheduleTask == nil && c.UserVisible && r.TriggerMessageID != "" && len(continuation) == 0 && s.answerGateEnabled() {
-		probe = &answerProbe{}
+	// The answer gate (answer_review.go): graded drafts so far, the cap for this
+	// run, and whether a scheduled receipt repair is under way (which must not
+	// be sent back again).
+	var gradedRounds atomic.Int32
+	var inReceiptRepair atomic.Bool
+	gateRounds := 0
+	if answerGateScope(c, r, structured) && (s.answerGraderProvider != nil || managedProviderName(s.provider)) {
+		gateRounds = s.answerGateRounds()
 	}
 	if r.Kind != runKindTriage {
 		var initErr error
@@ -3714,13 +3715,14 @@ func (s *Server) execute(c Conversation, r Run) {
 			// scheduled run's answer is also its receipt, so it is reviewed too.
 			state.review = func() bool { return observedToolWork.Load() && !reviewed.Swap(true) }
 			state.owed = func() bool { return observedToolWork.Load() && !reviewed.Load() }
-			// The answer gate shares the review's one repair budget (reviewed).
-			state.probeNow = probe.load
-			state.gateOwed = func(resolution string, verdict int32) bool {
-				return answerGateDue(s.answerGateEnabled(), resolution, verdict == probeNeeded, observedLookup.Load(), reviewed.Load())
-			}
-			state.gate = func(resolution string, verdict int32) bool {
-				return state.gateOwed(resolution, verdict) && !reviewed.Swap(true)
+			state.gradeOwed = func() bool { return int(gradedRounds.Load()) < gateRounds && !inReceiptRepair.Load() }
+			state.grade = func(ctx context.Context, text string) string {
+				if !state.gradeOwed() {
+					return ""
+				}
+				revision := s.gradeAnswer(ctx, r.ID, int(gradedRounds.Load()), pm, text)
+				gradedRounds.Add(1)
+				return revision
 			}
 			s.sayRuns.Store(r.ID, state)
 			defer s.sayRuns.Delete(r.ID)
@@ -3843,12 +3845,6 @@ func (s *Server) execute(c Conversation, r Run) {
 			return
 		}
 		observedToolWork.Store(observed)
-		looked, lookErr := s.store.hasLookupAttempt(r.ID)
-		if lookErr != nil {
-			s.failRun(c, r, lookErr)
-			return
-		}
-		observedLookup.Store(looked)
 	}
 	reviewKind := r.Kind
 	if r.scheduleTask != nil {
@@ -3895,14 +3891,11 @@ func (s *Server) execute(c Conversation, r Run) {
 			finalReview = func(content string) (string, error) {
 				reminder, err := inner(content)
 				if reminder != "" {
-					reviewed.Store(true) // the receipt repair spends the one budget
+					inReceiptRepair.Store(true) // the one receipt attempt is not graded
 				}
 				return reminder, err
 			}
 		}
-	}
-	if probe != nil {
-		go s.runAnswerProbe(ctx, r.ID, pm, probe)
 	}
 	runEngine := engine
 	var onToolCallDelta func(runtime.ToolCallDelta)
@@ -3971,13 +3964,8 @@ func (s *Server) execute(c Conversation, r Run) {
 			}
 		},
 		OnToolEvent: func(ev runtime.ToolEvent) error {
-			if ev.Status == "running" || ev.Status == "completed" || ev.Status == "failed" {
-				if completionReviewWork(ev.Name, ev.Risk) {
-					observedToolWork.Store(true)
-				}
-				if lookupAttempt(ev.Name, ev.Risk) {
-					observedLookup.Store(true)
-				}
+			if completionReviewWork(ev.Name, ev.Risk) && (ev.Status == "running" || ev.Status == "completed" || ev.Status == "failed") {
+				observedToolWork.Store(true)
 			}
 			if ev.Status == "running" {
 				if err := steeringBoundary(); err != nil {

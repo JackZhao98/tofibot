@@ -840,8 +840,8 @@
         "what": "Après avoir utilisé des outils, un Bot confronte une fois sa réponse aux résultats réels avant de l’envoyer."
       },
       "answer_gate": {
-        "name": "Chercher avant de répondre « je ne sais pas »",
-        "what": "Quand la réponse d’un Bot dit qu’il manque d’informations, il consulte d’abord une fois l’historique, la mémoire, les fichiers et le web."
+        "name": "Relire les réponses avant de les afficher",
+        "what": "Un relecteur lit chaque brouillon de réponse selon une grille avant que vous la voyiez, et un brouillon faible retourne au Bot pour une nouvelle tentative. C’est le nombre maximal de renvois ; 0 désactive la relecture. Les réponses apparaissent un peu plus tard."
       },
       "mcp_auto_review": {
         "name": "Revue automatique des appels d’outils",

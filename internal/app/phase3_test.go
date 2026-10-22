@@ -321,7 +321,7 @@ func TestScheduledSayAnswerCountsAsDeliveredInTheOccurrence(t *testing.T) {
 func TestScheduledFinalReviewAsksForSayAnswerUnderTheFlag(t *testing.T) {
 	model := newFakeModel(t,
 		fakeStep{content: "All checks done."},
-		fakeStep{calls: []fakeCall{{"c1", "say", `{"purpose":"answer","resolution":"resolved","text":"The synthetic report.","sources":["synthetic source"]}`}}})
+		fakeStep{calls: []fakeCall{{"c1", "say", `{"purpose":"answer","text":"The synthetic report.","sources":["synthetic source"]}`}}})
 	f := newDedupeFixture(t, model.engine(t))
 	got := runScheduledOnce(t, f)
 	if got.Status != "done" {
@@ -483,8 +483,8 @@ func TestRunRequestsForcedToolUseOnlyForAHaikuDMUnderTheFlag(t *testing.T) {
 func TestIdenticalSayAnswerAfterTheReviewRefusalIsRecorded(t *testing.T) {
 	model := newFakeModel(t,
 		fakeStep{calls: []fakeCall{{"c1", "create_work_item", `{"kind":"task","title":"Check the numbers"}`}}},
-		fakeStep{calls: []fakeCall{{"c2", "say", `{"purpose":"answer","resolution":"resolved","text":"The complete answer."}`}}},
-		fakeStep{calls: []fakeCall{{"c3", "say", `{"purpose":"answer","resolution":"resolved","text":"The complete answer."}`}}},
+		fakeStep{calls: []fakeCall{{"c2", "say", `{"purpose":"answer","text":"The complete answer."}`}}},
+		fakeStep{calls: []fakeCall{{"c3", "say", `{"purpose":"answer","text":"The complete answer."}`}}},
 		fakeStep{content: "a call that must not happen"})
 	s, run := serverWithModel(t, model, true)
 	if run.Status != "done" {
@@ -507,8 +507,8 @@ func TestIdenticalSayAnswerAfterTheReviewRefusalIsRecorded(t *testing.T) {
 func TestScheduledSayAnswerAfterToolWorkIsReviewedOnce(t *testing.T) {
 	model := newFakeModel(t,
 		fakeStep{calls: []fakeCall{{"c1", "create_work_item", `{"kind":"task","title":"Check the numbers"}`}}},
-		fakeStep{calls: []fakeCall{{"c2", "say", `{"purpose":"answer","resolution":"resolved","text":"The scheduled report.","sources":["synthetic source"]}`}}},
-		fakeStep{calls: []fakeCall{{"c3", "say", `{"purpose":"answer","resolution":"resolved","text":"The scheduled report.","sources":["synthetic source"]}`}}},
+		fakeStep{calls: []fakeCall{{"c2", "say", `{"purpose":"answer","text":"The scheduled report.","sources":["synthetic source"]}`}}},
+		fakeStep{calls: []fakeCall{{"c3", "say", `{"purpose":"answer","text":"The scheduled report.","sources":["synthetic source"]}`}}},
 		fakeStep{content: "a call that must not happen"})
 	f := newDedupeFixture(t, model.engine(t))
 	got := runScheduledOnce(t, f)

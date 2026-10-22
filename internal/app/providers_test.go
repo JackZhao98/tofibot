@@ -6,7 +6,6 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
-	"slices"
 	"strings"
 	"sync"
 	"testing"
@@ -551,8 +550,7 @@ func TestRunWithOpenAIKeyModelEndToEnd(t *testing.T) {
 		t.Fatalf("assistant=%+v", last)
 	}
 	chats, keys := openai.requests()
-	// The input check runs beside the main call, so the order is not fixed.
-	if !slices.Contains(chats, "gpt-6-luna") || len(keys) == 0 || keys[0] != syntheticOpenAIKey {
+	if len(chats) == 0 || chats[0] != "gpt-6-luna" || keys[0] != syntheticOpenAIKey {
 		t.Fatalf("openai chats=%v", chats)
 	}
 }
@@ -573,7 +571,7 @@ func TestRunWithAnthropicModelEndToEnd(t *testing.T) {
 		t.Fatalf("assistant=%+v", last)
 	}
 	chats, keys := anthropic.requests()
-	if !slices.Contains(chats, "claude-opus-5-5") || len(keys) == 0 || keys[0] != syntheticAnthropicKey {
+	if len(chats) == 0 || chats[0] != "claude-opus-5-5" || keys[0] != syntheticAnthropicKey {
 		t.Fatalf("anthropic chats=%v keys=%d", chats, len(keys))
 	}
 }

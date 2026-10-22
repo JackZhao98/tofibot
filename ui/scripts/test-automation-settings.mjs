@@ -51,7 +51,7 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
     group_exchange_gists: {group: "history", kind: "bool", def: true},
     own_replies_verbatim: {group: "history", kind: "int", def: 3, min: 1, max: 20},
     completion_review: {group: "checks", kind: "bool", def: true},
-    answer_gate: {group: "checks", kind: "bool", def: true},
+    answer_gate: {group: "checks", kind: "int", def: 2, min: 0, max: 5},
     mcp_auto_review: {group: "checks", kind: "enum", def: "off", options: ["off", "shadow", "auto"]},
     remembered_approval_hours: {group: "checks", kind: "int", def: 24, min: 1, max: 720, unit: "hours"},
     provider_retries: {group: "reliability", kind: "int", def: 5, min: 0, max: 10},

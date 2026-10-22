@@ -231,7 +231,7 @@ func TestAutomationSettingsInventoryAndDefaults(t *testing.T) {
 			t.Fatalf("item %d is %s, want %s", i, body.Items[i].Key, key)
 		}
 	}
-	defaults := map[string]any{autoConversationModel: "claude-sonnet-5-5", autoStructuredOutput: true, autoForceSayHaikuDM: true, autoWebSearch: true, autoGroupExchangeGists: true, autoOwnRepliesVerbatim: float64(3), autoCompletionReview: true, autoAnswerGate: true, autoMCPReview: "off", autoRememberedApprovalHrs: float64(24), autoProviderRetries: float64(8), autoScheduleReceiptReview: true}
+	defaults := map[string]any{autoConversationModel: "claude-sonnet-5-5", autoStructuredOutput: true, autoForceSayHaikuDM: true, autoWebSearch: true, autoGroupExchangeGists: true, autoOwnRepliesVerbatim: float64(3), autoCompletionReview: true, autoAnswerGate: float64(2), autoMCPReview: "off", autoRememberedApprovalHrs: float64(24), autoProviderRetries: float64(8), autoScheduleReceiptReview: true}
 	for key, def := range defaults {
 		item := body.find(t, key)
 		if item.Default != def || item.Value != def || item.Source != "default" {
@@ -258,7 +258,7 @@ func TestAutomationSettingsReadWriteEachItem(t *testing.T) {
 		{autoGroupExchangeGists, "false", false, func() bool { return !s.groupExchangeGistsEnabled() }},
 		{autoOwnRepliesVerbatim, "7", float64(7), func() bool { return s.ownRepliesVerbatim() == 7 }},
 		{autoCompletionReview, "false", false, func() bool { return !s.completionReviewEnabled() }},
-		{autoAnswerGate, "false", false, func() bool { return !s.answerGateEnabled() }},
+		{autoAnswerGate, "4", float64(4), func() bool { return s.answerGateRounds() == 4 }},
 		{autoMCPReview, `"shadow"`, "shadow", func() bool { x, _ := s.store.getAutoReviewSettings(); return x.Mode == "shadow" }},
 		{autoRememberedApprovalHrs, "48", float64(48), func() bool { return s.rememberedApprovalWindow().Hours() == 48 }},
 		{autoProviderRetries, "2", float64(2), func() bool { return s.providerRetries() == 2 }},

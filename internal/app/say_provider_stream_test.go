@@ -17,7 +17,7 @@ const sayAnswerText = "Revenue grew four percent, and costs stayed flat."
 
 // sayFragments cuts a say call's arguments so the text arrives in pieces.
 func sayArgFragments() []string {
-	b, _ := json.Marshal(map[string]string{"purpose": "answer", "resolution": "resolved", "text": sayAnswerText})
+	b, _ := json.Marshal(map[string]string{"purpose": "answer", "text": sayAnswerText})
 	runes := []rune(string(b))
 	var out []string
 	for len(runes) > 14 {

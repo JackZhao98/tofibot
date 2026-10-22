@@ -831,8 +831,8 @@
         "what": "After using tools, a Bot checks its answer against the actual results once before it replies."
       },
       "answer_gate": {
-        "name": "Look before saying “I don’t know”",
-        "what": "When a Bot's reply says it lacks the information, it first checks the chat history, memory, files and the web, once, before it answers."
+        "name": "Review replies before they are shown",
+        "what": "A reviewer reads each draft reply against a rubric before you see it, and a weak draft goes back to the Bot for another try. This is how many times a draft can be sent back; 0 turns the review off. Replies appear a moment later."
       },
       "mcp_auto_review": {
         "name": "Automatic review of tool calls",

@@ -131,7 +131,7 @@ func TestRefusedAnswerAfterAHandoffEndsTheTurn(t *testing.T) {
 	model := newFakeModel(t,
 		fakeStep{calls: []fakeCall{{"c1", "say", `{"purpose":"message","text":"My line."}`}}},
 		fakeStep{calls: []fakeCall{{"c2", "handoff", fmt.Sprintf(`{"bot_id":"%s","task":"give the other line"}`, "META")}}},
-		fakeStep{calls: []fakeCall{{"c3", "say", `{"purpose":"answer","resolution":"resolved","text":"The other line is on its way; I will add it."}`}}},
+		fakeStep{calls: []fakeCall{{"c3", "say", `{"purpose":"answer","text":"The other line is on its way; I will add it."}`}}},
 		fakeStep{content: "Waiting on the other member now."})
 	byBot := engineByBot{}
 	f = newDedupeFixture(t, byBot)

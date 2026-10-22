@@ -831,8 +831,8 @@
         "what": "Nach der Nutzung von Werkzeugen gleicht ein Bot seine Antwort vor dem Senden einmal mit den tatsächlichen Ergebnissen ab."
       },
       "answer_gate": {
-        "name": "Nachsehen, bevor „weiß ich nicht“ kommt",
-        "what": "Sagt die Antwort eines Bots, dass ihm Informationen fehlen, prüft er vorher einmal Chatverlauf, Gedächtnis, Dateien und Web."
+        "name": "Antworten vor der Anzeige prüfen",
+        "what": "Ein Prüfer liest jeden Antwortentwurf anhand eines Kriterienkatalogs, bevor Sie ihn sehen; ein schwacher Entwurf geht zur Überarbeitung an den Bot zurück. Hier steht, wie oft ein Entwurf zurückgehen darf; 0 schaltet die Prüfung aus. Antworten erscheinen etwas später."
       },
       "mcp_auto_review": {
         "name": "Automatische Prüfung von Werkzeugaufrufen",
