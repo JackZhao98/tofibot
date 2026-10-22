@@ -70,6 +70,7 @@
     "unsupported_protocol": "該 MCP 服務不支援 Tofi 要求的 2026-07-28 協定。請升級服務；Tofi 不會降級到舊協定。",
     "api_disabled": "Google 回報 API 未啟用。請在 OAuth 用戶端所屬的同一個專案中啟用產品 API 和 MCP 服務，再重新整理工具。",
     "access_denied": "Google 拒絕了存取。若應用程式處於測試模式，請檢查目前帳號是否在測試使用者中；也可能是帳號或組織限制。",
-    "permission_denied": "Google 拒絕讀取工具。請確認 Cloud 專案已加入 Google Workspace Developer Preview Program，OAuth 用戶端已勾選「Use this client for an AI-powered agent」（2026-11-11 起 Workspace MCP 拒絕未標記的用戶端；該設定在 11-12 後固定，需新建用戶端），並檢查 API / MCP 啟用狀態和帳號權限。401 / 403 本身無法確定是哪一項。"
+    "permission_denied": "Google 拒絕讀取工具。請確認 Cloud 專案已加入 Google Workspace Developer Preview Program，OAuth 用戶端已勾選「Use this client for an AI-powered agent」（2026-11-11 起 Workspace MCP 拒絕未標記的用戶端；該設定在 11-12 後固定，需新建用戶端），並檢查 API / MCP 啟用狀態和帳號權限。401 / 403 本身無法確定是哪一項。",
+    "context_snapshot_unavailable": "這則回覆沒有上下文紀錄。"
   }
 }

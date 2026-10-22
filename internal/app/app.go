@@ -144,6 +144,10 @@ type Run struct {
 	// The tool call id of the proposal being reviewed, in memory only. Its own
 	// in-flight activity row is the call under review, never prior evidence.
 	reviewCallID string
+	// ctxCapture collects the parts of this run's model context for "view
+	// context" (context_snapshot.go). Nil outside a real run, where every
+	// capture call is a no-op.
+	ctxCapture *contextCapture
 }
 type Memory struct {
 	Title          string `json:"title,omitempty"`
@@ -777,7 +781,10 @@ CREATE INDEX IF NOT EXISTS events_delta ON events(conversation_id,id) WHERE type
 	if err := migrateBuiltinSkillSetting(s.db); err != nil {
 		return err
 	}
-	return migrateToolActivity(s.db)
+	if err := migrateToolActivity(s.db); err != nil {
+		return err
+	}
+	return migrateRunContext(s.db)
 }
 
 func ensureColumn(db *sql.DB, table, column, ddl string) error {
@@ -2876,7 +2883,7 @@ func (s *Server) route(w http.ResponseWriter, r *http.Request) {
 	if s.routeDeletion(w, r, p) {
 		return
 	}
-	if s.routeAttachments(w, r, p) || s.routeInbox(w, r, p) || s.routeSidebarOrder(w, r, p) || s.routeSchedules(w, r, p) || s.routeWorkItems(w, r, p) || s.routeToolActivities(w, r, p) {
+	if s.routeAttachments(w, r, p) || s.routeInbox(w, r, p) || s.routeSidebarOrder(w, r, p) || s.routeSchedules(w, r, p) || s.routeWorkItems(w, r, p) || s.routeToolActivities(w, r, p) || s.routeRunContext(w, r, p) {
 		return
 	}
 	if s.routeRememberedApprovals(w, r, p) || s.routeStandingAllowances(w, r, p) || s.routeQuestions(w, r, p) {
@@ -3581,6 +3588,7 @@ func (s *Server) execute(c Conversation, r Run) {
 	// One protocol for the whole run, even if the setting changes meanwhile.
 	structured := r.Kind != runKindTriage && s.store.structuredOutputOn()
 	r.structured = structured
+	r.ctxCapture = newContextCapture()
 	// The last committed summary and bounded recent history are enough to start
 	// the reply. Durable history maintenance runs after the response is saved.
 	cachedMCPTools := s.store.recentCapabilitySchemas(contextConversationID(c, botCfg), botCfg.ID, r.CreatedAt)
@@ -3817,15 +3825,17 @@ func (s *Server) execute(c Conversation, r Run) {
 		defer publishDemotedDraft()
 	}
 	if r.Kind != runKindTriage {
-		var promptErr error
-		system, promptErr = assembleRunSystem(runSystemPrompt{Core: system, BotInstructions: botCfg.Instructions, Durable: runtimeDurablePrompt, Computer: computerPrompt, Extensions: extensionPrompt, Capabilities: capabilityPrompt})
+		segments, promptErr := assembleRunSystemSegments(runSystemPrompt{Core: system, BotInstructions: botCfg.Instructions, Durable: runtimeDurablePrompt, Computer: computerPrompt, Extensions: extensionPrompt, Capabilities: capabilityPrompt})
 		if promptErr != nil {
 			s.failRun(c, r, promptErr)
 			return
 		}
+		system = joinSystemSegments(segments)
+		r.ctxCapture.system = segments
 	} else {
 		system = trimRunes(system, maxSystemRunes)
 	}
+	s.recordRunContext(r, c, model, system, tools)
 	// Announce the resume only once the run is set up to continue.
 	if claim.ResumeNotice != "" {
 		if _, noticeErr := s.store.AddResumeNotice(r, claim.ResumeNotice); noticeErr != nil {

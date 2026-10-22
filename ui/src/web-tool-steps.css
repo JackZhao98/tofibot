@@ -49,6 +49,12 @@ html:not([data-desktop]) .workspace .web-tool-note :is(p,ul,ol){margin:0 0 4px}
 @keyframes web-tool-label-sheen{from{background-position:100% 0}to{background-position:-60% 0}}
 @keyframes web-tool-breathe{0%,100%{scale:.75;opacity:.7}50%{scale:1;opacity:1}}
 @media(max-width:700px){html:not([data-desktop]) .workspace .web-tool-step{grid-template-columns:16px minmax(0,1fr) auto;gap:5px}}
+/* View context (D53): one quiet row under the steps; the view itself is run-context.css, loaded with its chunk. */
+html:not([data-desktop]) .workspace .run-context-entry{margin:2px 0 8px 12px}
+html:not([data-desktop]) .workspace .run-context-toggle{display:inline-flex;align-items:center;gap:var(--space-2);margin-left:-2px;padding:4px 6px;border:0;border-radius:8px;background:transparent;color:var(--text-process);font:var(--type-meta);cursor:pointer}
+html:not([data-desktop]) .workspace .run-context-toggle:hover{color:var(--text-secondary);background:var(--surface-2)}
+html:not([data-desktop]) .workspace .run-context-toggle:focus-visible{outline:var(--focus-ring-width) solid var(--focus-ring);outline-offset:2px}
+html:not([data-desktop]) .workspace .run-context-toggle[aria-expanded="true"] .web-tool-chevron{rotate:90deg}
 @media(prefers-reduced-motion:reduce){
   html:not([data-desktop]) .workspace .message-content .typing-cursor{animation:none}
   html:not([data-desktop]) .workspace .composer-row>.dictation-button.is-starting{animation:none}
