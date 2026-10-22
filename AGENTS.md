@@ -264,11 +264,12 @@ installed over or deleted, and an installed skill with a built-in name is ignore
 sentences, Not/But contrasts, keyword lists, or a mandate to run a specific script; `tests/test_skill_text.py` enforces it): what good looks like, verify
 as the recipient will experience it, every claim true of the delivered file. Scripts are general capabilities only (decision 0041 addendum, owner rule
 2026-10-21: no task-tailored tools, builders or graders; the model writes its own code): `render_preview.py` (document/slides to page images),
-`xlsx_summary.py` (recalculate and dump structure), `pptx_outline.py` (shape dump), `preview_page.py` (page at several widths),
+`xlsx_summary.py` (recalculate and dump structure), `pptx_outline.py` (shape dump), `preview_page.py` (page at several widths, written as PNG sheets by headless Chrome),
 `run_and_record.py`, `package_project.py`. A new or longer
 description raises the prompt budget: measure it and move the caps in `internal/app/prompt_budget_test.go`. Run the script tests with
 `python3 -m unittest discover -s internal/extensions/builtin_skills/tests -p 'test_*.py'`; `slides/scripts/render_preview.py` and
 `document-report/scripts/render_preview.py` must stay byte-identical.
+A model sees a rendered image only through `computer_files` `files.view` (`internal/app/computer_view_file.go`, decision 0054): shell output is text and the browser tool refuses `file://`; the result is bounded (8 MiB / 24 MP source, 1568 px long side, 640 KiB, 16 views per run) and the agent keeps the newest 4 tool images.
 
 # publish_file paths and failures
 

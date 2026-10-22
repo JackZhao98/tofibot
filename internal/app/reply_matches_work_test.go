@@ -26,6 +26,8 @@ func TestEveryFinalReviewHoldsTheReplyToTheRecordAndNamesWhereResultsLive(t *tes
 			"a count names what was counted",
 			"says what exists and where it lives, using the locations the tool results gave",
 			"working files stay on the computer",
+			"State that a later run reads or compares against is left behind for the person too",
+			"names where it is kept and what it holds",
 		} {
 			if !strings.Contains(text, want) {
 				t.Errorf("%s lost %q", name, want)
@@ -112,5 +114,52 @@ func TestComputerFilesWriteResultCarriesLocation(t *testing.T) {
 	}
 	if json.Unmarshal([]byte(out), &res) != nil || !strings.HasPrefix(res.Location, root) || !strings.HasSuffix(res.Location, filepath.Join("state", "baseline.md")) {
 		t.Fatalf("write result lacks the absolute location: %s (root %s)", out, root)
+	}
+}
+
+// D54: the chat completion review asks for the product to be judged as its
+// recipient will meet it, ahead of the completeness check, in principle form.
+func TestChatCompletionReviewAsksForJudgingTheProductAsItsRecipientMeetsIt(t *testing.T) {
+	for _, want := range []string{
+		"judge the product as they will meet it",
+		"rendered images you viewed",
+		"each item the request names is present in it",
+		"A defect you saw is fixed before delivery",
+		"anything you did not look at is reported as unchecked",
+	} {
+		if !strings.Contains(taskCompletionFinalReminder, want) {
+			t.Errorf("chat review lost %q", want)
+		}
+	}
+	if strings.Index(taskCompletionFinalReminder, "as they will meet it") > strings.Index(taskCompletionFinalReminder, "requested deliverable") {
+		t.Error("the recipient check belongs before the completeness check")
+	}
+	lower := strings.ToLower(deliveredAsRecipientPrinciple)
+	for _, banned := range []string{"for example", "e.g.", "such as", "not just", "rather than", "\""} {
+		if strings.Contains(lower, banned) {
+			t.Errorf("recipient principle carries example or contrast wording %q", banned)
+		}
+	}
+}
+
+func TestSayAndScheduleToolsNameWhereSavedStateLives(t *testing.T) {
+	if !strings.Contains(sayToolDescription, "including state a later run reads") {
+		t.Error("say description lost the saved-state location")
+	}
+	s, _, _ := newGuestInputServer(t)
+	bot, _ := s.store.CreateBot("synthetic", "", "model")
+	conv, _ := s.store.GetConversation(bot.DMConversationID)
+	_, run, _ := sendWithFiles(t, s, conv.ID, bot.ID, "plan it", "rm-sched", nil, nil)
+	found := false
+	for _, tool := range s.scheduleTools(conv, run) {
+		if tool.Name == "create_schedule" {
+			found = true
+			if !strings.Contains(tool.Description, "the instructions name where that state is kept") {
+				t.Error("create_schedule description lost the saved-state location")
+			}
+		}
+	}
+	if !found {
+		t.Fatal("create_schedule not offered")
 	}
 }
