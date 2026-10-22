@@ -5,7 +5,6 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"net/mail"
 	"net/url"
 	"os"
@@ -13,13 +12,18 @@ import (
 	"path/filepath"
 	"strings"
 	"time"
+
+	"github.com/JackZhao98/tofibot/internal/googleapi"
 )
 
 type GogStartRequest struct {
 	Email           string          `json:"email"`
 	CredentialsJSON json.RawMessage `json:"credentials_json"`
 	RedirectURI     string          `json:"redirect_uri"`
-	Scope           string          `json:"scope,omitempty"` // readonly or read-send
+	Scope           string          `json:"scope,omitempty"` // Gmail scope: readonly or read-send
+	// Services to authorise on the account: gmail (default), calendar, drive. A second service is added to the
+	// account's existing grant (incremental authorisation), never replacing it.
+	Services []string `json:"services,omitempty"`
 }
 
 type GogStartResult struct {
@@ -31,6 +35,7 @@ type GogFinishRequest struct {
 type gogSession struct {
 	Email       string    `json:"email"`
 	Scope       string    `json:"scope"`
+	Services    []string  `json:"services,omitempty"`
 	RedirectURI string    `json:"redirect_uri"`
 	State       string    `json:"state"`
 	ExpiresAt   time.Time `json:"expires_at"`
@@ -38,6 +43,7 @@ type gogSession struct {
 type gogAccount struct {
 	Email       string    `json:"email"`
 	Scope       string    `json:"scope,omitempty"`
+	Services    []string  `json:"services,omitempty"`
 	ConnectedAt time.Time `json:"connected_at"`
 }
 
@@ -52,7 +58,51 @@ func (r *Runner) gogSpec(id string) (Spec, error) {
 	return p.spec, nil
 }
 
+var gogServices = map[string]bool{"gmail": true, "calendar": true, "drive": true}
+
+// gogServiceList validates the requested services, adds the ones the account already has, and returns them in a
+// stable order. An empty request means Gmail, the connector TOFI ships.
+func gogServiceList(requested, granted []string) ([]string, error) {
+	want := map[string]bool{}
+	for _, name := range requested {
+		if !gogServices[name] {
+			return nil, errors.New("unsupported Google service")
+		}
+		want[name] = true
+	}
+	if len(want) == 0 {
+		want["gmail"] = true
+	}
+	for _, name := range granted {
+		if gogServices[name] {
+			want[name] = true
+		}
+	}
+	out := []string{}
+	for _, name := range []string{"gmail", "calendar", "drive"} {
+		if want[name] {
+			out = append(out, name)
+		}
+	}
+	return out, nil
+}
+
+// withIncrementalAuth asks Google to keep what the account already granted and add the new scopes to it.
+func withIncrementalAuth(authURL string) (string, error) {
+	u, err := url.Parse(authURL)
+	if err != nil || u.Scheme != "https" || u.Host != "accounts.google.com" {
+		return "", errors.New("invalid Google authorization URL")
+	}
+	q := u.Query()
+	q.Set("include_granted_scopes", "true")
+	u.RawQuery = q.Encode()
+	return u.String(), nil
+}
+
 func validateGogStart(input GogStartRequest) error {
+	if _, err := gogServiceList(input.Services, nil); err != nil {
+		return err
+	}
 	if input.Scope != "" && input.Scope != "readonly" && input.Scope != "read-send" {
 		return errors.New("unsupported Gmail authorization scope")
 	}
@@ -102,6 +152,45 @@ func gogEnv(spec Spec) ([]string, error) {
 	return env, nil
 }
 
+// gogCommandError keeps gogcli's own output for classification only (see APIDisabled); it is never shown or logged.
+type gogCommandError struct {
+	err    error
+	output string
+}
+
+func (e *gogCommandError) Error() string { return "gogcli command failed: " + e.err.Error() }
+func (e *gogCommandError) Unwrap() error { return e.err }
+
+func boundedTail(s string, n int) string {
+	if len(s) <= n {
+		return s
+	}
+	return s[len(s)-n:]
+}
+
+// APIDisabled is returned when Google's structured error says an API is not enabled in the OAuth client's project.
+// The API and project are the validated values from that error, never its text or links.
+type APIDisabled struct {
+	API     string `json:"api"`
+	Project string `json:"project"`
+}
+
+func (e *APIDisabled) Error() string { return "Google API is not enabled for the project" }
+
+func classifyGogFailure(err error, fallbackAPI string) error {
+	var failed *gogCommandError
+	if errors.As(err, &failed) {
+		if f, ok := googleapi.ParseFailure(failed.output); ok {
+			api := f.API
+			if api == "" {
+				api = fallbackAPI
+			}
+			return &APIDisabled{API: api, Project: f.Project}
+		}
+	}
+	return nil
+}
+
 func runGog(ctx context.Context, spec Spec, input []byte, args ...string) ([]byte, error) {
 	env, err := gogEnv(spec)
 	if err != nil {
@@ -118,7 +207,7 @@ func runGog(ctx context.Context, spec Spec, input []byte, args ...string) ([]byt
 	cmd.Stderr = &stderr
 	err = cmd.Run()
 	if err != nil {
-		return nil, fmt.Errorf("gogcli command failed: %w", err)
+		return nil, &gogCommandError{err: err, output: boundedTail(stdout.String()+"\n"+stderr.String(), 8<<10)}
 	}
 	if stdout.Len() > 64<<10 || stderr.Len() > 64<<10 {
 		return nil, errors.New("gogcli response too large")
@@ -153,7 +242,16 @@ func (r *Runner) GogStart(ctx context.Context, id string, input GogStartRequest)
 	if scope == "readonly" {
 		flags = append(flags, "--readonly")
 	}
-	flags = append(flags, "auth", "add", input.Email, "--services", "gmail", "--gmail-scope", scope, "--remote", "--step", "1", "--redirect-uri", input.RedirectURI)
+	granted, _ := r.GogStatus(id)
+	services, err := gogServiceList(input.Services, granted.Services)
+	if err != nil {
+		return GogStartResult{}, err
+	}
+	flags = append(flags, "auth", "add", input.Email, "--services", strings.Join(services, ","))
+	if services[0] == "gmail" {
+		flags = append(flags, "--gmail-scope", scope)
+	}
+	flags = append(flags, "--remote", "--step", "1", "--redirect-uri", input.RedirectURI)
 	output, err := runGog(ctx, spec, nil, flags...)
 	if err != nil {
 		return GogStartResult{}, errors.New("could not start Google authorization")
@@ -168,11 +266,16 @@ func (r *Runner) GogStart(ctx context.Context, id string, input GogStartRequest)
 	if err != nil || authURL.Scheme != "https" || authURL.Host != "accounts.google.com" {
 		return GogStartResult{}, errors.New("invalid Google authorization URL")
 	}
+	incremental, err := withIncrementalAuth(result.AuthURL)
+	if err != nil {
+		return GogStartResult{}, err
+	}
+	result.AuthURL = incremental
 	state := authURL.Query().Get("state")
 	if state == "" {
 		return GogStartResult{}, errors.New("Google authorization state missing")
 	}
-	session := gogSession{Email: input.Email, Scope: scope, RedirectURI: input.RedirectURI, State: state, ExpiresAt: time.Now().Add(10 * time.Minute)}
+	session := gogSession{Email: input.Email, Scope: scope, Services: services, RedirectURI: input.RedirectURI, State: state, ExpiresAt: time.Now().Add(10 * time.Minute)}
 	data, err := json.Marshal(session)
 	if err != nil {
 		return GogStartResult{}, err
@@ -215,11 +318,19 @@ func (r *Runner) GogFinish(ctx context.Context, id string, input GogFinishReques
 	if session.Scope == "" || session.Scope == "readonly" {
 		flags = append(flags, "--readonly")
 	}
-	flags = append(flags, "auth", "add", session.Email, "--services", "gmail", "--gmail-scope", session.Scope, "--remote", "--step", "2", "--auth-url", input.RedirectedURL, "--redirect-uri", session.RedirectURI)
+	services, err := gogServiceList(session.Services, nil)
+	if err != nil {
+		return err
+	}
+	flags = append(flags, "auth", "add", session.Email, "--services", strings.Join(services, ","))
+	if services[0] == "gmail" {
+		flags = append(flags, "--gmail-scope", session.Scope)
+	}
+	flags = append(flags, "--remote", "--step", "2", "--auth-url", input.RedirectedURL, "--redirect-uri", session.RedirectURI)
 	if _, err := runGog(ctx, spec, nil, flags...); err != nil {
 		return errors.New("Google authorization could not be completed")
 	}
-	account, _ := json.Marshal(gogAccount{Email: session.Email, Scope: session.Scope, ConnectedAt: time.Now()})
+	account, _ := json.Marshal(gogAccount{Email: session.Email, Scope: session.Scope, Services: services, ConnectedAt: time.Now()})
 	if err := writeAtomic0600(filepath.Join(spec.WorkDir, "gog-account.json"), account); err != nil {
 		return err
 	}
@@ -260,6 +371,9 @@ func (r *Runner) GogCheck(ctx context.Context, id string) error {
 	defer cancel()
 	_, err = runGog(ctx, spec, nil, "--json", "--no-input", "--readonly", "--account", account.Email, "gmail", "search", "newer_than:1d", "--max", "1")
 	if err != nil {
+		if disabled := classifyGogFailure(err, "gmail.googleapis.com"); disabled != nil {
+			return disabled
+		}
 		return errors.New("Gmail read verification failed")
 	}
 	return nil

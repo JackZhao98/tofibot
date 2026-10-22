@@ -14,7 +14,7 @@ import (
 
 func completionFixture(state string) oauthCompletionPage {
 	return oauthCompletionPage{
-		State: state, ServiceName: "Google Gmail", LogoURL: "/oauth/provider-google.svg",
+		State: state, ServiceName: "Google Gmail", LogoURL: oauthLogoGmail,
 		APIURL:  "https://console.cloud.google.com/apis/enableflow;apiid=gmail.googleapis.com",
 		MCPURL:  "https://console.cloud.google.com/apis/enableflow;apiid=gmailmcp.googleapis.com",
 		DocsURL: "https://developers.google.com/workspace/gmail/api/guides/configure-mcp-server",
@@ -96,8 +96,39 @@ func TestOAuthCompletionEscapesAndRejectsDestinations(t *testing.T) {
 	}
 }
 
+// Every allow-listed mark is a real vendored file (never an empty or missing one), and nothing outside the list
+// can reach the page: external URLs, traversal and look-alike paths fall back to the generic pictogram.
+func TestOAuthCompletionLogoAllowList(t *testing.T) {
+	for logo := range oauthLogoAllowed {
+		info, err := os.Stat(filepath.Join("../../ui/public", logo))
+		if err != nil || info.Size() == 0 {
+			t.Errorf("allow-listed mark %s is missing or empty: %v", logo, err)
+		}
+	}
+	if len(oauthLogoAllowed) != 9 {
+		t.Errorf("expected generic, Google G, six Workspace products and Notion; got %d", len(oauthLogoAllowed))
+	}
+	for _, bad := range []string{"https://www.gstatic.com/images/branding/product/2x/gmail_2020q4_96dp.png", "//evil.invalid/x.png", "/brand/services/../../etc/passwd", "/brand/services/google-gmail.png?x=1", "/brand/services/other.png", "/oauth/provider-google.svg", "javascript:alert(1)", ""} {
+		page := completionFixture("success")
+		page.LogoURL = bad
+		w := httptest.NewRecorder()
+		writeOAuthCompletion(w, http.StatusOK, page)
+		body := w.Body.String()
+		if !strings.Contains(body, `<img src="`+oauthLogoGeneric+`" alt="" width="64" height="64">`) || (bad != "" && strings.Contains(body, bad)) {
+			t.Errorf("logo %q was not replaced by the generic mark", bad)
+		}
+	}
+	if csp := func() string {
+		w := httptest.NewRecorder()
+		writeOAuthCompletion(w, http.StatusOK, completionFixture("success"))
+		return w.Header().Get("Content-Security-Policy")
+	}(); !strings.Contains(csp, "img-src 'self'") {
+		t.Errorf("CSP must keep img-src 'self': %s", csp)
+	}
+}
+
 func TestOAuthCompletionAllowedLinksAndLocalMarks(t *testing.T) {
-	for _, logo := range []string{"/oauth/provider-google.svg", "/oauth/provider-notion.svg", "/oauth/provider-generic.svg"} {
+	for logo := range oauthLogoAllowed {
 		page := completionFixture("success")
 		page.Setup = "enable"
 		page.LogoURL = logo
@@ -165,6 +196,7 @@ func TestOAuthVerifiedPageShowsSetupOnlyWhenSomethingIsMissing(t *testing.T) {
 			t.Errorf("working connection shows setup help: %q", noise)
 		}
 	}
+	// Without a structured API the page offers the two generic enable links; with one, a single button for that API.
 	disabled := render(extensions.MCPInspection{Diagnostics: []extensions.Diagnostic{{Code: "api_disabled", Message: "Google 返回 API 未启用。"}}})
 	for _, want := range []string{"Google 返回 API 未启用。", "启用服务", "gmail.googleapis.com", "gmailmcp.googleapis.com", `class="oauth-setup"`} {
 		if !strings.Contains(disabled, want) {
@@ -173,6 +205,24 @@ func TestOAuthVerifiedPageShowsSetupOnlyWhenSomethingIsMissing(t *testing.T) {
 	}
 	if strings.Contains(disabled, "添加测试用户") {
 		t.Error("api_disabled must not ask for test users")
+	}
+	named := render(extensions.MCPInspection{Diagnostics: []extensions.Diagnostic{{Code: "api_disabled", Message: "Google 返回 API 未启用。", API: "gmail.googleapis.com", EnableURL: "https://console.cloud.google.com/apis/library/gmail.googleapis.com?project=622599621014"}}})
+	if !strings.Contains(named, `class="oauth-enable" href="https://console.cloud.google.com/apis/library/gmail.googleapis.com?project=622599621014"`) || !strings.Contains(named, "启用 Gmail API") {
+		t.Errorf("the named API gets its own Enable button:\n%s", named)
+	}
+	if strings.Contains(named, "gmailmcp.googleapis.com") {
+		t.Error("the generic MCP link must not appear next to the exact button")
+	}
+	// A URL that is not TOFI's own library link is dropped.
+	for _, raw := range []string{
+		"https://console.cloud.google.com/apis/library/gmail.googleapis.com?project=x&redirect=https://evil.example",
+		"https://console.cloud.google.com/apis/library/evil.googleapis.com?project=622599621014",
+		"https://console.cloud.google.com/apis/library/gmail.googleapis.com?project=a%20b",
+		"https://console.cloud.google.com/apis/library/gmail.googleapis.com?foo=622599621014",
+	} {
+		if oauthCompletionLink(raw, false) != "" {
+			t.Errorf("accepted %q", raw)
+		}
 	}
 	denied := render(extensions.MCPInspection{Diagnostics: []extensions.Diagnostic{{Code: "access_denied", Message: "Google 拒绝了访问。"}}})
 	if !strings.Contains(denied, "添加测试用户") || strings.Contains(denied, "gmail.googleapis.com") {
@@ -241,7 +291,7 @@ func TestOAuthCompletionAuditServer(t *testing.T) {
 			case "audience":
 				oauthVerifiedPage(&page, extensions.MCPInspection{Diagnostics: []extensions.Diagnostic{{Code: "access_denied", Message: "Google 拒绝了访问。若应用处于测试模式，请检查当前账号是否在测试用户中。"}}})
 			case "notion":
-				page = oauthCompletionPage{State: "success", ServiceName: "Notion", LogoURL: "/oauth/provider-notion.svg", DocsURL: "https://www.notion.com/help/notion-mcp"}
+				page = oauthCompletionPage{State: "success", ServiceName: "Notion", LogoURL: oauthLogoNotion, DocsURL: "https://www.notion.com/help/notion-mcp"}
 			case "long":
 				page = oauthCompletionPage{State: "failed", ServiceName: "一个很长的自定义服务名称 LongUnbrokenServiceNameForWrapping", Message: "未能完成授权。请返回 Tofi 重试。"}
 			case "failed":
