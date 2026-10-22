@@ -6,6 +6,7 @@
  * OAuth client on the provider's behalf.
  */
 import { i18n } from "./i18n";
+import { googleEnableURL } from "./connections/google";
 
 export type IntegrationPreset = {
   id: string;
@@ -39,8 +40,7 @@ export type IntegrationPreset = {
 };
 
 export const googleAudienceURL = "https://console.cloud.google.com/auth/audience";
-export const googleAPIEnableURL = (api: string) =>
-  `https://console.cloud.google.com/apis/enableflow;apiid=${api}`;
+export const googleAPIEnableURL = (api: string, project?: string) => googleEnableURL(api, project) || `https://console.cloud.google.com/apis/enableflow;apiid=${api}`;
 // Catalog text is read at access time, so it follows the current UI language.
 const googleSetup = () => [
   i18n.t("extensions:catalog.google_setup.preview_access"),

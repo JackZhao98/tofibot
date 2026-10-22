@@ -1,6 +1,8 @@
 package app
 
 import (
+	"github.com/JackZhao98/tofibot/internal/googleapi"
+
 	"bytes"
 	"html/template"
 	"net/http"
@@ -24,15 +26,51 @@ type oauthCompletionPage struct {
 	// "enable" (the product API or its MCP service is not enabled) or
 	// "audience" (the account is not an allowed test user).
 	Setup string
+	// For Setup "enable": the one console page that enables the API Google named, and that API's name.
+	EnableURL   string
+	EnableLabel string
+}
+
+// Provider artwork is served from this build (the page's CSP is img-src 'self'). The marks are the vendors' own,
+// vendored under ui/public/brand/services with provenance in docs/integrations/icons/manifest.json. The page only
+// ever renders a logo from this list; anything else becomes the neutral generic pictogram.
+const (
+	oauthLogoGeneric  = "/oauth/provider-generic.svg"
+	oauthLogoGoogle   = "/brand/services/google-g.png"
+	oauthLogoGmail    = "/brand/services/google-gmail.png"
+	oauthLogoCalendar = "/brand/services/google-calendar.png"
+	oauthLogoDrive    = "/brand/services/google-drive.png"
+	oauthLogoDocs     = "/brand/services/google-docs.png"
+	oauthLogoSheets   = "/brand/services/google-sheets.png"
+	oauthLogoSlides   = "/brand/services/google-slides.png"
+	oauthLogoNotion   = "/brand/services/notion.svg"
+)
+
+var oauthLogoAllowed = map[string]bool{
+	oauthLogoGeneric: true, oauthLogoGoogle: true, oauthLogoGmail: true, oauthLogoCalendar: true,
+	oauthLogoDrive: true, oauthLogoDocs: true, oauthLogoSheets: true, oauthLogoSlides: true, oauthLogoNotion: true,
 }
 
 var oauthAPIPath = regexp.MustCompile(`^/apis/enableflow;apiid=[a-z][a-z0-9-]*\.googleapis\.com$`)
+var oauthLibraryPath = regexp.MustCompile(`^/apis/library/([a-z][a-z0-9-]*\.googleapis\.com)$`)
 
 // Setup destinations are public documentation, not redirect targets. Keep this
 // independent of callback parameters and disallow query strings and fragments.
 func oauthCompletionLink(raw string, docs bool) string {
 	u, err := url.Parse(raw)
-	if err != nil || u.Scheme != "https" || u.User != nil || u.RawQuery != "" || u.ForceQuery || u.Fragment != "" || u.RawPath != "" {
+	if err != nil || u.Scheme != "https" || u.User != nil || u.ForceQuery || u.Fragment != "" || u.RawPath != "" {
+		return ""
+	}
+	// The one query TOFI builds itself: a known API's library page for a validated project.
+	if !docs && u.Host == "console.cloud.google.com" && u.RawQuery != "" {
+		if m := oauthLibraryPath.FindStringSubmatch(u.Path); m != nil && googleapi.KnownAPI(m[1]) {
+			if q := u.Query(); len(q) == 1 && googleapi.ValidProject(q.Get("project")) && u.RawQuery == "project="+url.QueryEscape(q.Get("project")) {
+				return u.String()
+			}
+		}
+		return ""
+	}
+	if u.RawQuery != "" {
 		return ""
 	}
 	if !docs && u.Host == "console.cloud.google.com" && oauthAPIPath.MatchString(u.Path) {
@@ -61,10 +99,12 @@ func writeOAuthCompletion(w http.ResponseWriter, status int, page oauthCompletio
 	if strings.TrimSpace(page.ServiceName) == "" {
 		page.ServiceName = "外部服务"
 	}
-	switch page.LogoURL {
-	case "/oauth/provider-google.svg", "/oauth/provider-notion.svg", "/oauth/provider-generic.svg":
-	default:
-		page.LogoURL = "/oauth/provider-generic.svg"
+	if !oauthLogoAllowed[page.LogoURL] {
+		page.LogoURL = oauthLogoGeneric
+	}
+	page.EnableURL = oauthCompletionLink(page.EnableURL, false)
+	if page.EnableURL == "" {
+		page.EnableLabel = ""
 	}
 	page.APIURL = oauthCompletionLink(page.APIURL, false)
 	page.MCPURL = oauthCompletionLink(page.MCPURL, false)
@@ -119,8 +159,9 @@ var oauthCompletionTemplate = template.Must(template.New("oauth-connection").Par
       <h2 id="setup-heading">启用服务</h2>
       <p>在 OAuth Client 所属的同一个 Google Cloud 项目中启用下面的服务，然后回到 Tofi 刷新工具。</p>
       <nav aria-label="Google 配置">
+        {{if .EnableURL}}<a class="oauth-enable" href="{{.EnableURL}}" target="_blank" rel="noopener noreferrer">启用 {{.EnableLabel}}</a>{{else}}
         {{if .APIURL}}<a href="{{.APIURL}}" target="_blank" rel="noopener noreferrer">启用产品 API</a>{{end}}
-        {{if .MCPURL}}<a href="{{.MCPURL}}" target="_blank" rel="noopener noreferrer">启用 MCP 服务</a>{{end}}
+        {{if .MCPURL}}<a href="{{.MCPURL}}" target="_blank" rel="noopener noreferrer">启用 MCP 服务</a>{{end}}{{end}}
         {{if .DocsURL}}<a href="{{.DocsURL}}" target="_blank" rel="noopener noreferrer">官方接入文档</a>{{end}}
       </nav>
     </section>

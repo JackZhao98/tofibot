@@ -65,6 +65,10 @@ type Diagnostic struct {
 	Server  string `json:"server,omitempty"`
 	Code    string `json:"code,omitempty"`
 	Message string `json:"message"`
+	// For code "api_disabled": the product API to enable and the console page that enables it in the project the
+	// error names. Both are built by TOFI from known ids, never copied from the provider's error.
+	API       string `json:"api,omitempty"`
+	EnableURL string `json:"enable_url,omitempty"`
 }
 
 type Config struct {
@@ -658,7 +662,7 @@ func (m *Manager) prepareServer(runCtx, discoveryCtx context.Context, name strin
 		}
 		r := remote
 		result = append(result, runtime.Tool{Name: toolName, Description: boundedDescription(remote.Description, toolName), Parameters: params, CheckReadiness: m.mcpMethodReadiness(name, cfg), Execute: func(callCtx context.Context, args json.RawMessage) (string, error) {
-			return m.callMCPTool(callCtx, cli, r.Name, args, m.toolReadOnly(name, cfg, r.Name))
+			return m.callMCPToolObserved(callCtx, cli, r.Name, args, m.toolReadOnly(name, cfg, r.Name), mcpCallObserver{failed: func(err error) { m.noteToolFailure(name, cfg.URL, err) }})
 		}})
 	}
 	return result, cli, nil
@@ -794,6 +798,9 @@ type mcpCallObserver struct {
 	connectionFailed func()
 	// reached runs when the endpoint answered tools/call at all.
 	reached func()
+	// failed runs with the error of a call that failed or came back as a tool error, so a Google "API not enabled"
+	// can be recorded on the connection after the fact.
+	failed func(error)
 }
 
 func (m *Manager) callMCPToolObserved(callCtx context.Context, cli *mcp.ClientSession, name string, args json.RawMessage, readOnly bool, observe mcpCallObserver) (string, error) {
@@ -832,6 +839,9 @@ func (m *Manager) callMCPToolObserved(callCtx context.Context, cli *mcp.ClientSe
 		if err == nil {
 			break
 		}
+		if observe.failed != nil {
+			observe.failed(err)
+		}
 		if !readOnly {
 			return "", uncertainMCPOutcome(attempts).Err()
 		}
@@ -855,6 +865,9 @@ func (m *Manager) callMCPToolObserved(callCtx context.Context, cli *mcp.ClientSe
 		return text, uncertainMCPOutcome(attempts).Err()
 	}
 	if out.IsError {
+		if observe.failed != nil {
+			observe.failed(errors.New(text))
+		}
 		// The agent reports err.Error() for a failed executor and discards its
 		// value. Preserve bounded tool output while keeping transport errors private.
 		o := uncertainMCPOutcome(attempts)

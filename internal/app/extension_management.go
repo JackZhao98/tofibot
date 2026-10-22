@@ -21,6 +21,9 @@ func (s *Server) routeExtensions(w http.ResponseWriter, r *http.Request, p strin
 		writeErr(w, 503, "extensions_unavailable", "extensions unavailable")
 		return true
 	}
+	if s.routeGoogle(w, r, p) {
+		return true
+	}
 	if s.routeLocalMCP(w, r, p) {
 		return true
 	}
@@ -121,9 +124,14 @@ func (s *Server) routeExtensions(w http.ResponseWriter, r *http.Request, p strin
 			ToolAllowlist []string                `json:"tool_allowlist"`
 			ToolDenylist  []string                `json:"tool_denylist"`
 			OAuth         *extensions.OAuthConfig `json:"oauth"`
+			// GoogleClient: sign in with the workspace's saved Google OAuth client instead of asking for one again.
+			GoogleClient bool `json:"google_client"`
 		}
 		if e := decodeExtensionJSON(r, &in); e != nil {
 			writeErr(w, 400, "invalid_request", e.Error())
+			return true
+		}
+		if in.GoogleClient && !s.useWorkspaceGoogleClient(w, &in.OAuth) {
 			return true
 		}
 		e := s.extensions.SaveMCP(in.Name, extensions.MCPServerConfig{URL: in.URL, Transport: in.Transport, Headers: in.Headers, ToolAllowlist: in.ToolAllowlist, ToolDenylist: in.ToolDenylist, OAuth: in.OAuth}, r.Method == http.MethodPut)
