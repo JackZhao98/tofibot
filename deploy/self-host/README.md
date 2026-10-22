@@ -276,7 +276,10 @@ Later accounts are created by the Admin. Then open Settings -> Model provider.
 | `tofi regenerate-cert` | Replace the self-signed certificate (new names/IPs, new fingerprint) and restart the App |
 | `tofi logs [app\|worker\|caddy]` | Follow container logs |
 | `tofi doctor` | The installer's "This machine" card, then check KVM, computer backend, cgroup, profile, `/run/tofi`, Worker config, Guest release, images, disk, health |
+| `tofi security audit [--json] [--online]` | Read-only report of where this install deviates from safe defaults: HTTPS and certificate type, listening interfaces and public addresses, plain-HTTP sign-in, pending Admin setup key, login limiter and trusted proxies, modes and owners of `/etc/tofi`, the data dir, vault files, the TLS key and backups, credential-looking names in `tofi.env` (names only, never values), plaintext model keys, installed vs latest release (stored check; `--online` fetches), Guest vs hibernated computers, newest backup age. PASS/WARN/FAIL with one fix line each; exit 0 (no FAIL), 2 (a FAIL), 1 (could not run). Changes nothing |
 | `tofi version` | Host tool, installed release and images |
+
+`security audit` takes no lock and writes nothing.
 
 Mutating commands (`install`, `start`, `stop`, `update`, `backup`, `restore`,
 `config`, `uninstall`, `computers upgrade`, `regenerate-cert`) take the host

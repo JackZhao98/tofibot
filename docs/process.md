@@ -324,7 +324,40 @@ sudo tofi update --version v0.1.4-rc.<N>                 # 装 rc 必须带 --ve
 5. 需要量化的，跑第 5 节的任务完成评测，结果记进 `docs/product/status.md`。
 6. 有电脑仍挂在旧 Guest 快照上时，`tofi update` 会提示用 `sudo tofi computers upgrade --all` 切换（`tofi_host.py:2470-2473`）。
 
-`tofi update` 失败已自动回滚时，`sudo tofi status` 会显示 `Update` 一行和恢复建议（`deploy/self-host/README.md:335`）。
+`tofi update` 失败已自动回滚时，`sudo tofi status` 会显示 `Update` 一行和恢复建议（`deploy/self-host/README.md:335`）。出了别的问题看 7.6；部署后顺手跑一次 `sudo tofi security audit`（7.7）。
+
+### 7.6 回滚（出问题时）
+
+先说结论：**降级能做，但没有任何闸在保护数据。** `tofi update --version <更旧的版本>` 会被接受：`_upgrade` 只拒绝"和已装版本完全相同"（`deploy/self-host/tofi_host.py:2404-2406`），不比较新旧；`update --check` 对更旧的版本只标"older release"，并把 `update_available` 记为真（`tofi_host.py:3159`、`3177`）。唯一会拦的是目标版本在 GitHub 上没有 Release（D25 已清掉 rc.1–rc.25 的 Release，`fetch_manifest` 报"Cannot download the release manifest"，`tofi_host.py:524-531`），以及数据结构标签不同（`tofi_host.py:2425-2427`）。但数据结构标签至今是常量 `tofi-account-data-v1`，从没升过（`docs/agent-plan/safe-updates.md:17`），所以这一闸实际不拦；App 里也没有"数据库比我新就拒绝启动"的检查（在 `internal/` 里搜过 `user_version`、`schema_version`，没有）。后果：降级后旧版 App 会在已被新版迁移过的数据库上启动，能不能用要看那几次迁移是否向后兼容，**未实证，待 B1 在 VM 106 上实跑一次降级到 rc.32 后补记**。自动更新绝不降级（`auto_update_allowed`，`tofi_host.py:1926-1933`）。
+
+所以下面三种情况，能"恢复备份"的就不要"降级"。动手前先 `sudo tofi status` 看 `Update` 一行，并按 7.4 查有没有在跑的运行；每条命令都用 `sudo`，只由协调者在线上执行。
+
+| 情况 | 一条命令 | 它做什么 | 出处 |
+|---|---|---|---|
+| **更新起不来**（命令中途断了、服务没起、journal 停在 `upgrading` / `upgrade-failed` / `rolling-back` / `rollback-failed`） | `sudo tofi install` | 对这些阶段，`install` 不装新东西，而是继续回滚：停候选版，若候选版已启动过就先校验并还原 `pre-update` 备份，再还原旧镜像、Guest 版本和主机配置，起旧版。更新自己在候选版起不来时也会做同样的事，输出"update rejected; previous version restored"，并在 `tofi status` 留一条 `Update` 记录 | `resume` `tofi_host.py:2304`、`2317-2319`；`rollback` `tofi_host.py:2666-2702`；自动回滚 `reject_candidate` `tofi_host.py:2478-2495` |
+| **起来了但是坏的**（健康检查过了，但行为不对） | `sudo tofi restore <备份 id>`（先 `sudo tofi backups` 找更新前那份，`REASON` 为 `pre-update`） | 校验备份的校验和，先给当前状态做一份 `pre-restore` 备份，再还原**数据和设置**并切回那份备份记录的版本；新版起不来则回到当前状态。**更新之后写入的数据会丢**，所以必须先问 owner | `restore_backup` `tofi_host.py:2508-2587`；备份列表 `tofi_host.py:1691`、`1746-1756`；更新前备份 `tofi_host.py:2446` |
+| **Guest 镜像坏了**（电脑起不来、浏览器或办公工具不对，服务端本身正常） | `sudo tofi update --version v0.1.4-rc.<上一个好的>`，然后 `sudo tofi computers upgrade --all` | Guest 版本跟着被选版本的 manifest 走（`TOFI_GUEST_VERSION`，`tofi_host.py:2411-2417`），所以要降 Guest 只能降整个版本；随后 `computers upgrade` 把电脑从现有快照换到已装的 Guest（休眠的丢快照、忙的先跳过，不加 `--force`）。这是上面说的降级，数据不回退 | 降级入口 `tofi_host.py:2395-2406`；`upgrade_computers` `tofi_host.py:3443`；旧快照所用 Guest 不被清理 `prune_guests` `tofi_host.py:3537-3550` |
+
+注意：
+
+- 更新前备份只留最近 3 份自动备份（`BACKUP_KEEP`，`tofi_host.py:130`、`prune_backups`），手动备份不删。要降级或还原，先确认那份备份还在：`sudo tofi backups`。
+- `tofi restore` 用本机 `/opt/tofi/releases/<版本>/manifest.json`，没有才去 GitHub 取（`restore_manifest`，`tofi_host.py:2497-2505`）；更新成功后只保留当前和上一个版本的主机包（`tofi_host.py:2460`）。
+- 还没有人在真机上实跑过降级。B1（升级验收）要把这一节的三条命令各跑一遍，结果补进来。
+
+### 7.7 安全体检 `tofi security audit`
+
+只读的主机命令，列出这台安装偏离安全默认的地方（对标 OpenClaw 的 `openclaw security audit`）。部署后和每次改暴露方式后各跑一次：
+
+```sh
+sudo tofi security audit            # PASS / WARN / FAIL，每条非 PASS 带一行修法
+sudo tofi security audit --json     # 给机器读
+sudo tofi security audit --online   # 现查最新版本（默认只读本机缓存，不联网）
+```
+
+- 退出码：`0` 没有 FAIL（可以有 WARN）；`2` 至少一条 FAIL；`1` 命令本身出错（没装好、不是 root）。
+- 它**不改任何东西**：不拿生命周期锁、不整理残留、不写版本缓存；密钥只报名字和个数，**不输出任何值**（测试 `test_security_audit.py` 用金丝雀值断言）。
+- 判定口径见 `docs/decisions/0049-security-audit-levels.md`；检查项和出处见 `deploy/self-host/README.md` 的 `tofi` 命令表和 `security_audit`（`tofi_host.py`）。
+- 它只看主机能看到的事实。网页是否真的从公网可达、路由器和防火墙、运行中的电脑、登录限流在线上实际是否生效，都要真机验证（见 `tofi doctor`、`tofi computers`、第 5 节）。
 
 ## 8. 安全审查闸
 
