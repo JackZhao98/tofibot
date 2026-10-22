@@ -208,7 +208,7 @@ func (s *Server) publishAttachmentTools(c Conversation, r Run) []Tool {
 	if s.microVM == nil {
 		return nil
 	}
-	return []Tool{{Name: "publish_file", Description: "Publish a regular file from the shared Linux VM as a persistent attachment in this conversation. Images are previewable; other files are downloadable after the VM stops. The result carries a url that opens the file for the signed-in person; when the person asks for the file or its link, give them that url, as a markdown link, instead of saying a link is unavailable.", Parameters: objectSchema(map[string]any{
+	return []Tool{{Name: "publish_file", Description: "Publish a regular file from the shared Linux VM as a persistent attachment in this conversation. Everything published rides with the reply and the person sees it, so publish only what they asked to receive; drafts, checks and other working files stay on the computer. Images are previewable; other files are downloadable after the VM stops. The result lists source_path and everything attached to the reply so far, and carries a url that opens the file for the signed-in person; when the person asks for the file or its link, give them that url, as a markdown link, instead of saying a link is unavailable.", Parameters: objectSchema(map[string]any{
 		"path": map[string]any{"type": "string"}, "name": map[string]any{"type": "string"}, "request_key": map[string]any{"type": "string", "description": "Optional stable retry key"},
 	}, []string{"path"}), Execute: func(ctx context.Context, raw json.RawMessage) (string, error) {
 		var in struct {
@@ -310,7 +310,7 @@ func (s *Server) publishAttachmentTools(c Conversation, r Run) []Tool {
 			_ = s.store.deleteUnboundAttachment(created.ID)
 			return "", err
 		}
-		return s.publishedFileResult(a), nil
+		return s.publishedFileResultFor(a, in.Path, s.store.runAttachmentNames(r.ID)), nil
 	}}}
 }
 
@@ -322,6 +322,39 @@ func (s *Server) attachmentLink(id string) string {
 }
 
 func (s *Server) publishedFileResult(a Attachment) string {
-	result, _ := json.Marshal(map[string]any{"attachment_id": a.ID, "name": a.Name, "mime": a.MIME, "size": a.Size, "url": s.attachmentLink(a.ID), "link_access": "opens for the signed-in owner only"})
+	return s.publishedFileResultFor(a, "", nil)
+}
+
+// publishedFileResultFor states the facts a reply about publishing rests on:
+// the file now exists as an attachment, where on the computer it came from
+// (the source stays there), and everything this run has attached so far,
+// which is exactly what the person receives with the reply.
+func (s *Server) publishedFileResultFor(a Attachment, sourcePath string, attached []string) string {
+	m := map[string]any{"attachment_id": a.ID, "name": a.Name, "mime": a.MIME, "size": a.Size, "url": s.attachmentLink(a.ID), "link_access": "opens for the signed-in owner only"}
+	if sourcePath != "" {
+		m["source_path"] = sourcePath
+	}
+	if len(attached) > 0 {
+		m["attached_to_reply"] = attached
+	}
+	result, _ := json.Marshal(m)
 	return string(result)
+}
+
+// runAttachmentNames lists, in publishing order, the attachments this run has
+// staged for its reply.
+func (s *Store) runAttachmentNames(runID string) []string {
+	rows, err := s.db.Query(`SELECT a.name FROM run_attachments r JOIN attachments a ON a.id=r.attachment_id WHERE r.run_id=? ORDER BY r.ordinal`, runID)
+	if err != nil {
+		return nil
+	}
+	defer rows.Close()
+	var names []string
+	for rows.Next() {
+		var n string
+		if rows.Scan(&n) == nil {
+			names = append(names, n)
+		}
+	}
+	return names
 }

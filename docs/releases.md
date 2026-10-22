@@ -35,6 +35,8 @@ TOFI 每个版本改了什么，最新的在最上面。写给以后接手的人
 
 还没进任何 rc 的改动写在这里；打下一个 rc 时挪进那个 rc 的条目（决定 D27）。
 
+- 回复对得上做过的活（分支 `fix/reply-matches-work`，[D45](decisions/0045-reply-matches-the-work.md)）：完成复核先逐句对照工具记录（范围、数字、结果）再查完成度；`say` 说明加一句；`computer_files` 写入结果带绝对 `location`，`publish_file` 结果带 `source_path` 和 `attached_to_reply`，说明写明只发布人要收的、工作文件留在电脑上。系统提示词未改。`location` 随下一次电脑镜像构建才在线上出现。
+
 ---
 
 ## v0.1.4（候选中，未发正式版）

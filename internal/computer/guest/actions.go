@@ -180,10 +180,17 @@ func (s *Service) dispatchAction(ctx context.Context, req ActionRequest) (any, e
 		if err := decodeArgs(req.Args, &args); err != nil {
 			return nil, err
 		}
+		var written map[string]any
+		var err error
 		if req.WriteIdentity != nil {
-			return s.guardedWriteFile(ctx, req.BotID, args, *req.WriteIdentity)
+			written, err = s.guardedWriteFile(ctx, req.BotID, args, *req.WriteIdentity)
+		} else {
+			written, err = s.writeFile(ctx, req.BotID, args)
 		}
-		return s.writeFile(ctx, req.BotID, args)
+		if err != nil {
+			return nil, err
+		}
+		return s.withFileLocation(req.BotID, args.Path, written), nil
 	case "desktop.start":
 		return s.startDesktop(ctx, req.BotID)
 	case "desktop.stop":
@@ -840,6 +847,20 @@ func (s *Service) writeFile(ctx context.Context, botID string, args fileArgs) (m
 	}
 	newHash := sha256.Sum256([]byte(args.Content))
 	return map[string]any{"path": args.Path, "bytes": n, "sha256": hex.EncodeToString(newHash[:])}, nil
+}
+
+// withFileLocation adds the absolute place a write landed to its result. The
+// path argument is relative to the Bot's own profile, which means nothing to a
+// person (or a later run) reading it back; the location is where the file can
+// be found on the computer.
+func (s *Service) withFileLocation(botID, name string, result map[string]any) map[string]any {
+	if result == nil {
+		return result
+	}
+	if p, err := s.resolvePath(botID, name, true); err == nil {
+		result["location"] = p
+	}
+	return result
 }
 
 func (s *Service) fileWriteLock(path string) *sync.Mutex {

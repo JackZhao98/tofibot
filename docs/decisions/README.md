@@ -55,6 +55,7 @@
 | D42 | 群成员名单带职责，按职责分工 | 2026-10-21 | 群里的成员名单每项带该成员持久指令开头一行（最多 140 字符）；提示词用一条原则说明：自己职责内的自己做，同事职责更合适的部分交给同事并并入同一条回复，单职责请求和闲聊不拆；待 owner 确认 | [0042](0042-group-roster-roles-and-delegation.md) |
 | D43 | 回答闸：定时和后台任务的回答，交付前先过评分员 | 2026-10-21 | 照 Anthropic 的 evaluator–optimizer / outcomes 评分员：定时任务的 `say(answer)` 草稿在交付前由后台模型按内嵌的 markdown 评分标准逐条打分（met/gap），有 gap 就把清单私下交还 Bot 重写，最多 `answer_gate` 次（默认 2，0 关）；聊天回复不评分、照旧流式输出（owner：没人在等的活才评）；评分员失败或超时直接发出 | [0043](0043-answer-gate.md) |
 | D44 | 早先说过的事：边学边存记忆，历史截断时留摘要和可搜索提示 | 2026-10-21 | 照 Anthropic 记忆工具、压缩、工具说明的做法补缺口：`save_memory` 说明写明何时存；记忆本来已在每轮上下文里；历史被截断时加一条“早先轮次存在，可用 `search_history`”；`search_history` 说明写何时用；无逐轮搜索 | [0044](0044-recall-context-memory-and-search.md) |
+| D45 | 回复要和做过的活对得上：范围与数字照工具记录，留下的东西说明在哪 | 2026-10-21 | 完成复核先逐句对照工具记录再查完成度；`say` 说明加一句；`computer_files` 写入结果带绝对 `location`，`publish_file` 结果带 `source_path` 和 `attached_to_reply`，只发布人要收的 | [0045](0045-reply-matches-the-work.md) |
 
 ## 怎么新增一条决定
 
