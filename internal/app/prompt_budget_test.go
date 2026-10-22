@@ -278,8 +278,9 @@ func TestProductionPromptSizeMatrix(t *testing.T) {
 				// 7803: 7450 plus the same +170 lookup-line rewrite and +183 computer-section principles.
 				// 8071: 7803 plus the group delegation principle and each member's role line in the
 				// roster (+296 measured on the synthetic two-Bot group, the longest prompt; DM unchanged).
-				if fixed > 8071 {
-					t.Errorf("fixed overhead %d leaves too little customization headroom (ceiling 8071)", fixed)
+				// 8196: plus the nice-to-have limit on handing off and the one-assembled-result lines (+125 measured).
+				if fixed > 8196 {
+					t.Errorf("fixed overhead %d leaves too little customization headroom (ceiling 8196)", fixed)
 				}
 				if !strings.Contains(system, bot.Instructions) {
 					t.Fatal("user instructions changed")
