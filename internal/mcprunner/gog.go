@@ -169,10 +169,11 @@ func isDefaultGogArgs(args []string) bool {
 }
 
 // recycle stops an idle MCP child so the next call starts it with the tools of the current account. A child busy with
-// a call is left to finish; it is replaced when it goes idle and is reaped.
+// a call is left to finish and is closed by the release of its last lease (releaseLease), not at the idle reap.
 func (p *plugin) recycle() {
 	p.mu.Lock()
 	if p.cli == nil || p.active > 0 || p.ready != nil {
+		p.restartWhenIdle = p.cli != nil
 		p.mu.Unlock()
 		return
 	}

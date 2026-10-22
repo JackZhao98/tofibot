@@ -10,6 +10,7 @@ import (
 	"net/http/httptest"
 	"path/filepath"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 )
@@ -133,5 +134,56 @@ func TestMCPInspectionDiagnosticNonGoogleHostNeverNamesAgentic(t *testing.T) {
 		if got.Code != "" || strings.Contains(got.Message, "agent") {
 			t.Fatalf("%s: %+v", endpoint, got)
 		}
+	}
+}
+
+func TestConcurrentToolCallsEachGetTheirOwnAuthStatus(t *testing.T) {
+	server := mcp.NewServer(&mcp.Implementation{Name: "g", Version: "1"}, &mcp.ServerOptions{SupportedProtocolVersions: []string{requiredMCPProtocolVersion}})
+	server.AddTool(fixtureTool("denied"), fixtureNoop)
+	server.AddTool(fixtureTool("broken"), fixtureNoop)
+	inner := fixtureHTTPHandler(server)
+	remote := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		body, _ := io.ReadAll(r.Body)
+		r.Body = io.NopCloser(bytes.NewReader(body))
+		switch {
+		case bytes.Contains(body, []byte(`"tools/call"`)) && bytes.Contains(body, []byte(`"denied"`)):
+			w.WriteHeader(http.StatusForbidden)
+		case bytes.Contains(body, []byte(`"tools/call"`)) && bytes.Contains(body, []byte(`"broken"`)):
+			time.Sleep(300 * time.Millisecond) // answers after the denied call has already failed
+			w.WriteHeader(http.StatusInternalServerError)
+		default:
+			inner.ServeHTTP(w, r)
+		}
+	}))
+	defer remote.Close()
+	m := NewManager(Config{MCPConfigPath: filepath.Join(t.TempDir(), "mcp.json"), ToolTimeout: 5 * time.Second})
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	cli, err := m.openMCPClient(ctx, ctx, "g", MCPServerConfig{URL: remote.URL})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer cli.Close()
+	v, _ := m.mcpStatus.Load(cli)
+	v.(*mcpSessionHTTP).endpoint = "https://gmailmcp.googleapis.com/mcp/v1"
+	errs := map[string]error{}
+	var mu sync.Mutex
+	var wg sync.WaitGroup
+	for _, name := range []string{"broken", "denied"} {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			_, err := m.callMCPTool(ctx, cli, name, nil, false)
+			mu.Lock()
+			errs[name] = err
+			mu.Unlock()
+		}()
+	}
+	wg.Wait()
+	if errs["denied"] == nil || !strings.Contains(errs["denied"].Error(), "Developer Preview Program") {
+		t.Fatalf("the 403 call lost its hint: %v", errs["denied"])
+	}
+	if errs["broken"] == nil || strings.Contains(errs["broken"].Error(), "Developer Preview Program") {
+		t.Fatalf("the 500 call got another call's hint: %v", errs["broken"])
 	}
 }

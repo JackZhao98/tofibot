@@ -5,7 +5,6 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
-	"sync/atomic"
 
 	"github.com/JackZhao98/tofibot/internal/googleapi"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
@@ -84,30 +83,23 @@ func isGoogleWorkspaceMCPEndpoint(endpoint string) bool {
 	return false
 }
 
-// mcpSessionHTTP is what a session's transport saw, kept beside the session so
-// a failed tool call can be classified by endpoint plus HTTP status.
+// mcpSessionHTTP is the endpoint of a session, kept beside it so a failed tool
+// call can be classified by endpoint plus the call's own HTTP status.
 type mcpSessionHTTP struct {
 	endpoint string
-	failed   *atomic.Int32
-}
-
-func (m *Manager) resetHTTPStatus(cli *mcp.ClientSession) {
-	if v, ok := m.mcpStatus.Load(cli); ok {
-		v.(*mcpSessionHTTP).failed.Store(0)
-	}
 }
 
 // googleAuthRejection returns a fixed, person-facing next step when a Google
 // Workspace MCP host answered a tool call with HTTP 401 or 403. Google
 // documents no structured reason for either cause, so the classification is
 // host plus status; the hint says the status cannot tell the causes apart.
-func (m *Manager) googleAuthRejection(cli *mcp.ClientSession) string {
+func (m *Manager) googleAuthRejection(cli *mcp.ClientSession, call *mcpCallStatus) string {
 	v, ok := m.mcpStatus.Load(cli)
 	if !ok {
 		return ""
 	}
 	s := v.(*mcpSessionHTTP)
-	if status := s.failed.Load(); !isGoogleWorkspaceMCPEndpoint(s.endpoint) || (status != http.StatusUnauthorized && status != http.StatusForbidden) {
+	if status := call.status.Load(); !isGoogleWorkspaceMCPEndpoint(s.endpoint) || (status != http.StatusUnauthorized && status != http.StatusForbidden) {
 		return ""
 	}
 	return "Google Workspace MCP rejected the call with an authorization status. Check in this order: (1) the Google Cloud project is enrolled in the Google Workspace Developer Preview Program; (2) the OAuth client is marked \"Use this client for an AI-powered agent\" (required from 2026-11-11, permanent on an existing client from 2026-11-12, so a new client is needed); (3) the product API and its MCP service are enabled, the scopes are granted and the account is a test user. The status alone cannot tell which one applies."
