@@ -2138,7 +2138,7 @@ func RunAgentLoop(cfg AgentConfig, ctx *models.ExecutionContext) (returned *Agen
 						}
 					}
 					imageURLs := visualImageURLs(fnName, argsMap, resultMsg)
-					if (fnName == "computer_action" || fnName == "computer_desktop" || fnName == "computer_browser") && err == nil {
+					if (fnName == "computer_action" || fnName == "computer_desktop" || fnName == "computer_browser" || fnName == "computer_files") && err == nil {
 						resultMsg, imageURLs = computerScreenshot(resultMsg)
 					}
 					ctx.Log("[ExtraTool:%s] %s", fnName, truncate(resultMsg, 200))
@@ -2638,7 +2638,7 @@ func microCompactDue(messages []provider.Message, keepRecentCount int, estimated
 }
 
 // keepRecentToolImages is how many image-bearing tool results keep pixels.
-const keepRecentToolImages = 2
+const keepRecentToolImages = 4
 
 const omittedToolImageNote = "\n[earlier screenshot omitted]"
 
