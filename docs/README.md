@@ -34,6 +34,7 @@ TOFI 是一个自托管的 AI Bot 工作台：Go 后端在 `internal/`，React 1
 |---|---|---|---|
 | [`product/status.md`](product/status.md) | 产品现状、当前版本、owner 评分标准（85 分可公开发布）和自评、按领域的能用功能与已知缺口、评测记录 | 现行 | 每次合并、发版、部署、跑完评测都要更新 |
 | [`product/roadmap.md`](product/roadmap.md) | 已完成 / 进行中 / 下一步 / 暂缓 | 现行 | 做完一项就在同一提交里挪到"已完成"，写提交号和 rc |
+| [`product/trust.md`](product/trust.md) | 能放心交给 TOFI 的任务：按评测结果分“放心交 / 看一眼 / 先别 / 数据不够”，每题附结果目录、版本、失败原因、修复分支；TOFI 什么时候会先问你（已对着代码核实，不是“一律先问”） | 现行 | 证据明细由 `tofibot-taskeval` 的 `eval/trust_report.py` 生成，每次评测跑完重生成。版本号多为按时间推断，**待确认** |
 | [`../README.md`](../README.md) | 对外介绍：安装、`tofi` 命令、从源码构建、许可 | 现行（部分滞后） | 最后修改 `f46d446`（10-09），早于 `735a40f`（10-11），安装流程里没有"先问前面有没有反向代理"、`--behind-proxy`、`tofi config trusted-proxies`；以 [`deploy/self-host/README.md`](../deploy/self-host/README.md) 为准 |
 | [`agent-plan/proactive-followups.md`](agent-plan/proactive-followups.md) | 秘书主动跟进的设计：主助理、open loops、克制规则 | 现行 | P0（shadow）已实现，`internal/app/followups_*.go`；投递仍被拒，`internal/app/followups_http.go:160` `followup_delivery_unavailable`；P1 之后未做 |
 
