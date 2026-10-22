@@ -271,6 +271,8 @@
       "scope": "Gmail-Zugriff",
       "scope_read_send": "Lesen und senden: Ich bestätige jede E-Mail",
       "scope_readonly": "Nur lesen: E-Mails suchen und ansehen",
+      "services": "Google-Dienste",
+      "services_note": "Für jeden gewählten Dienst gibt es nur lesende Werkzeuge. Ein weiterer Dienst behält die bisherige Freigabe.",
       "verified": "Lesezugriff auf persönliches Gmail bestätigt.",
       "verify": "Gmail-Lesezugriff prüfen",
       "verifying": "Wird geprüft…",
@@ -480,6 +482,7 @@
     },
     "details": {
       "account": "Konto: {{email}}",
+      "services": "Freigegebene Dienste: {{services}}",
       "project": "Google-Cloud-Projekt: {{project}}",
       "community_review": "Community-Code: Seine Tools verlangen eine Freigabe, bis Sie sie als schreibgeschützt markieren."
     },

@@ -18,7 +18,7 @@ import { GoogleSetupLinks } from "./connections/RemoteForm";
 import { ToolTierPanel } from "./connections/ToolTierPanel";
 import { useLocalPlugins, type LocalState, type Plugin } from "./connections/localPlugins";
 import { connectionKind, primaryAction, type Phase } from "./connections/status";
-import { GOOGLE_SERVICE_NAME, googleServiceForAPI, isConsoleURL, useGoogleOverview, type GoogleOverview } from "./connections/google";
+import { GOOGLE_SERVICE_NAME, googleServiceForAPI, googleServicesLabel, isConsoleURL, useGoogleOverview, type GoogleOverview } from "./connections/google";
 import { endpoint, localPluginId, message, normalizeTiers, post, toolsEndpoint, type MCP, type TestResult, type ToolTierList } from "./connections/shared";
 import "./oauth-link-motion.css";
 import "./connections/connections.css";
@@ -307,7 +307,7 @@ function MCPRow({ server, checkRequest, refresh, refreshLocal, onEdit, onRemoved
   menu.push({ key: "remove", label: t("mcp.menu.remove"), danger: true, onSelect: () => setConfirm("remove") });
   const confirmText = confirm === "remove" ? t("mcp.confirm.remove", { name: display }) : confirm === "disconnect_google" ? t("local.google.disconnect_confirm") : t("mcp.confirm.disconnect", { name: display });
   return <ConnectionRowView name={display} mark={isGog ? "Gmail" : display} state={error ? "error" : phase} kind={kind} statusText={statusText}
-    detail={kind === "ready" && account?.connected ? account.email : undefined} checkedText={kind === "ready" && checkedAt ? t("status.checked", { when: formatRelativeTime(checkedAt) }) : undefined}
+    detail={kind === "ready" && account?.connected ? [account.email, googleServicesLabel(account.services)].filter(Boolean).join(" · ") : undefined} checkedText={kind === "ready" && checkedAt ? t("status.checked", { when: formatRelativeTime(checkedAt) }) : undefined}
     primary={primary} menu={menu} menuBusy={busy} error={kind === "api_disabled" ? t("connections.error.api_disabled", { name: apiName }) : error}>
     {!isDesktop && server.oauth && ["authorizing", "waiting"].includes(phase) && <OAuthLinkMotion title={display} />}
     {route.mode === "blocked" && needsAuth && <div className="mcp-login-note"><p role="status">{route.note}</p></div>}
@@ -315,6 +315,7 @@ function MCPRow({ server, checkRequest, refresh, refreshLocal, onEdit, onRemoved
       <p className="mcp-service-source">{source}</p>
       {server.provenance?.origin === "community" && <p className="mcp-service-source">{t("connections.details.community_review")}</p>}
       {repoFor(server, preset) && <p className="mcp-service-source"><RepoLink repo={repoFor(server, preset)} stars={stars[repoFor(server, preset)]} /></p>}
+      {account?.connected && googleServicesLabel(account.services) && <p className="mcp-service-source">{t("connections.details.services", { services: googleServicesLabel(account.services) })}</p>}
       {account?.connected && <p className="mcp-service-source">{t("connections.details.account", { email: account.email })} · {account.scope === "read-send" ? t("local.google.granted_read_send") : t("local.google.granted_readonly")}</p>}
       {isGog && google?.client.configured && <p className="mcp-service-source">{t("connections.details.project", { project: google.client.project_id || google.client.project_number })}</p>}
       {preset?.googleAPIs && <p className="mcp-service-source">{t("connections.preview_note")}</p>}

@@ -129,7 +129,7 @@ func (r *Runner) Handler(token string) http.Handler {
 					http.Error(w, "Google account status unavailable", 502)
 					return
 				}
-				_ = json.NewEncoder(w).Encode(map[string]any{"connected": result.Email != "", "email": result.Email, "scope": result.Scope})
+				_ = json.NewEncoder(w).Encode(map[string]any{"connected": result.Email != "", "email": result.Email, "scope": result.Scope, "services": authorisedServicesOf(result)})
 			case parts[4] == "send" && req.Method == http.MethodPost:
 				var input GogSendRequest
 				if err := decodeJSON(req, &input); err != nil {

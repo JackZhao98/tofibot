@@ -271,6 +271,8 @@
       "scope": "Gmail 权限",
       "scope_read_send": "读取及发送：每封邮件都要我确认",
       "scope_readonly": "只读：搜索及查看邮件",
+      "services": "Google 服务",
+      "services_note": "所选服务只开放只读工具。新增服务时，已有授权会保留。",
       "verified": "个人 Gmail 读取已验证。",
       "verify": "验证 Gmail 读取",
       "verifying": "正在验证…",
@@ -478,6 +480,7 @@
     },
     "details": {
       "account": "账号：{{email}}",
+      "services": "已授权服务：{{services}}",
       "project": "Google Cloud 项目：{{project}}",
       "community_review": "社区代码：其工具在你标为只读之前每次都要确认。"
     },

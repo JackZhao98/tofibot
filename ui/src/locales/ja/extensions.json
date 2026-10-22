@@ -271,6 +271,8 @@
       "scope": "Gmail の権限",
       "scope_read_send": "読み取りと送信：メールは毎回自分で確認",
       "scope_readonly": "読み取り専用：メールの検索と閲覧",
+      "services": "Google サービス",
+      "services_note": "選んだサービスには読み取り専用のツールだけが公開されます。サービスを追加しても、既存の認可は維持されます。",
       "verified": "個人の Gmail の読み取りを確認しました。",
       "verify": "Gmail の読み取りを確認",
       "verifying": "確認中…",
@@ -478,6 +480,7 @@
     },
     "details": {
       "account": "アカウント：{{email}}",
+      "services": "認可済みのサービス：{{services}}",
       "project": "Google Cloud プロジェクト：{{project}}",
       "community_review": "コミュニティ製コード：読み取り専用にするまで、そのツールは毎回確認が必要です。"
     },

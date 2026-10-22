@@ -382,6 +382,7 @@ func start(startCtx, life context.Context, spec Spec) (*mcp.ClientSession, conte
 		return nil, nil, 0, nil, err
 	}
 	procCtx, stop := context.WithCancel(life)
+	spec.Args = gogMCPArgs(spec) // the personal Google plugin offers the tools of the services the account authorised
 	processCmd := exec.CommandContext(procCtx, spec.Command, spec.Args...)
 	processCmd.Dir = spec.WorkDir
 	processCmd.Env = []string{"PATH=/usr/local/bin:/usr/bin:/bin", "LANG=C.UTF-8", "TMPDIR=/tmp"}
