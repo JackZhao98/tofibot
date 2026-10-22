@@ -816,10 +816,17 @@ func (s *Server) buildContextPartsWith(c Conversation, r Run, bot Bot, cachedMCP
 		roster := make([]string, 0, len(members))
 		if memberErr == nil {
 			for _, member := range members {
-				roster = append(roster, member.Name+" ("+member.ID+")")
+				entry := member.Name + " (" + member.ID + ")"
+				if member.ID == bot.ID {
+					entry += " [you]"
+				}
+				if role := memberRoleLine(member.Instructions); role != "" {
+					entry += ": " + role
+				}
+				roster = append(roster, entry)
 			}
 		}
-		system += "\nGroup members: " + strings.Join(roster, ", ")
+		system += "\nGroup members: " + strings.Join(roster, "; ")
 		if hiddenTrace {
 			system += "\nYou collaborate only with the listed Bots in this hidden trace. To request a concrete contribution, call handoff with a listed member's exact id and task, then end your turn without duplicating the assignment or predicting the result. The completed result resumes you here to integrate it. Post your own findings in this trace; do not hand off merely to acknowledge or return completed work. Use at most one handoff per reply and at most eight rounds per chain. send_group_message only starts work in a different group and rejects this current group. Never speak for another member."
 		} else {
@@ -827,7 +834,7 @@ func (s *Server) buildContextPartsWith(c Conversation, r Run, bot Bot, cachedMCP
 			if r.structured {
 				voice, acknowledge, mentions = "What you say publishes here under your identity.", "Briefly acknowledge assigned work with say(message) before substantial tools, then post findings here.", "Mentions in text only refer to members; assign work with handoff or wake."
 			}
-			system += "\n" + voice + " Address the user's request yourself. For a concrete colleague task, call handoff with their exact member id and the assignment as your message to them. It publishes their mention and starts work: do not duplicate the message or narrate routing. After successful handoff, end your turn; their completed result resumes you to integrate it. " + acknowledge + " Never hand off thanks, acknowledgements or completed results, or predict another member's answer. At most one handoff per reply and eight rounds per chain. send_group_message starts work only in another group. " + mentions
+			system += "\n" + voice + " " + groupDelegationGuidance + " For a concrete colleague task, call handoff with their exact member id and the assignment as your message to them. It publishes their mention and starts work: do not duplicate the message or narrate routing. After successful handoff, end your turn; their completed result resumes you to integrate it. " + acknowledge + " Never hand off thanks, acknowledgements or completed results, or predict another member's answer. At most one handoff per reply and eight rounds per chain. send_group_message starts work only in another group. " + mentions
 		}
 	}
 	if r.Kind == runKindGroupChat && !hiddenTrace {
@@ -858,6 +865,18 @@ func (s *Server) buildContextPartsWith(c Conversation, r Run, bot Bot, cachedMCP
 	}
 
 	return pm, system
+}
+
+// groupDelegationGuidance is the group's division-of-labour principle. It
+// states when work goes to a colleague and when it stays, and relies on the
+// roster for each colleague's role.
+const groupDelegationGuidance = "Do the part your own role covers. Work a colleague's role covers better goes to that colleague with a concrete brief, and you integrate the result into the one reply the person gets. A request one member can fully own stays with that member; small talk is answered directly."
+
+// memberRoleLine is a member's role for the group roster: the opening of its
+// durable instructions, on one line.
+func memberRoleLine(instructions string) string {
+	line := strings.Join(strings.Fields(instructions), " ")
+	return trimRunesMarker(line, 140, "…")
 }
 
 // runContextNote renders minute-precision local time and, when a VM is

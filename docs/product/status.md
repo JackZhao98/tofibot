@@ -81,10 +81,12 @@ TOFI 是一个自托管的 AI Bot 工作台：后端是 Go 服务（`internal/`�
 | 回复某条消息时不加 @，就交给发那条消息的 Bot | `abf8fab` |
 | 提到不是群成员的 @名字 时按普通文字处理；中日韩文名字后面紧跟文字也能匹配 | `9be534d` |
 | 点“停止”会停下整条调用链，并让其中还在等待的项过期 | `9e24534` |
+| 群成员名单带各自的职责，提示词有按职责分工的原则：多职责请求里同事职责更合适的部分交给同事，单职责请求和闲聊不拆（分支 `fix/group-real-delegation`，未合并） | `internal/app/context.go`；`group_delegation_test.go`；[D42](../decisions/0042-group-roster-roles-and-delegation.md) |
 
 | 已知缺口 | 依据 |
 |---|---|
 | Bot 之间的分工话语会露给用户，比如“我的部分做完了，笔记留给 Sage 汇总”（rc.26，Haiku 和 Sonnet 都有） | 评测 `prod-haiku-r3`、`prod-sonnet-r3` 里的 `group_wiki_decision`，评分标准第 2 条；与 [D09](../decisions/0009-reliability-principles.md) “群聊里只给最终合并的结果” 冲突 |
+| 生产默认模型 codex-gpt-5.6-terra 在 `deliv_group_announcement` 上三次都是一个 Bot 独自查、写、配图（`deliv-terra-r0/r1/r2`）；D42 的修复在本机只用 Sonnet 5.5 测过：三个 Bot 都运行的次数前后均为 3/3（原本就会分工），对 terra 的效果没验证，本机无电脑也无法验证设计师出图 | 本机评测 `eval-before/after`（Sonnet 5.5，各 3 次）；[D42](../decisions/0042-group-roster-roles-and-delegation.md) |
 | Haiku 在群聊里使用 `say` 的比例低（辩论、分工题只有 33–50%），因为群聊不强制调用工具 | structured-output.md 第 12 节 “Still open after Phase 3”、第 14 节末 |
 
 ### 4.3 Bot 和人设
