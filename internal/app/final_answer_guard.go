@@ -12,7 +12,7 @@ var errNoFinalAnswer = errors.New(noFinalAnswerCode + ": the run ended without a
 
 // noFinalAnswerProgressNote closes a run whose only visible output is its
 // progress reports. It points at them instead of repeating their text.
-const noFinalAnswerProgressNote = "本次任务没有生成单独的最终总结；上方最近一条进度更新即为目前的结果。"
+const noFinalAnswerProgressNote = "This task produced no separate final summary; the latest progress update above is the current result."
 
 // finalAnswerRequired mirrors finishRunState's publication rule: a run with
 // no handoff, outside group chat and without pending attachments publishes

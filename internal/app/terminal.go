@@ -92,17 +92,17 @@ func (s *Server) handleTerminalAction(w http.ResponseWriter, r *http.Request, bo
 		}
 		lease := s.terminalLease(botID)
 		if !lease.TryLock() {
-			writeErr(w, 409, "computer_busy", "电脑正在执行操作，请稍后重试")
+			writeErr(w, 409, "computer_busy", "The computer is busy. Try again shortly.")
 			return
 		}
 		defer lease.Unlock()
 		if s.botHasActiveRun(botID) {
-			writeErr(w, 409, "computer_busy", "Bot 正在工作，接管前需要停止当前任务")
+			writeErr(w, 409, "computer_busy", "The Bot is working. Stop its current task before taking over.")
 			return
 		}
 		c := &computerControl{id: uuid.NewString(), botID: botID, terminal: true}
 		if !s.claimTerminalOwner(botID, "human-control:"+c.id) {
-			writeErr(w, 409, "computer_busy", "电脑已被其他窗口或任务接管")
+			writeErr(w, 409, "computer_busy", "The computer is already controlled by another window or task.")
 			return
 		}
 		c.mu.Lock()
@@ -121,7 +121,7 @@ func (s *Server) handleTerminalAction(w http.ResponseWriter, r *http.Request, bo
 	c := s.computerControls["terminal:"+botID]
 	s.computerOwnerMu.Unlock()
 	if c == nil || c.id != in.ControlID || !c.terminal {
-		writeErr(w, 409, "control_expired", "控制已释放，请重新接管")
+		writeErr(w, 409, "control_expired", "Control was released. Take over again.")
 		return
 	}
 	c.mu.Lock()
@@ -133,7 +133,7 @@ func (s *Server) handleTerminalAction(w http.ResponseWriter, r *http.Request, bo
 	}
 	if c.released || !c.expires.After(time.Now()) {
 		s.releaseControl(c)
-		writeErr(w, 409, "control_expired", "控制已过期，请重新接管")
+		writeErr(w, 409, "control_expired", "Control expired. Take over again.")
 		return
 	}
 	if action == "terminal.control.renew" {
@@ -159,7 +159,7 @@ func (s *Server) handleTerminalAction(w http.ResponseWriter, r *http.Request, bo
 		return
 	}
 	if in.Seq != c.seq+1 {
-		writeErr(w, 409, "input_sequence", "输入顺序已失效，请重新接管")
+		writeErr(w, 409, "input_sequence", "The input sequence is stale. Take over again.")
 		return
 	}
 	c.seq = in.Seq

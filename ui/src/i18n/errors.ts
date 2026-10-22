@@ -1,5 +1,8 @@
 import { ApiError } from "../api";
-import { i18n, type Namespace } from "./index";
+import { type Namespace } from "./index";
+import { codeText } from "./codeText";
+
+export { codeText };
 
 /**
  * Words for a failure, from its stable server code when one is catalogued.
@@ -8,10 +11,9 @@ import { i18n, type Namespace } from "./index";
  * Store codes or this result at render time; do not concatenate it into sentences.
  */
 export function errorText(cause: unknown, ns: Namespace, fallback: string): string {
-  if (cause instanceof ApiError && cause.code && /^[a-z0-9_]+$/.test(cause.code)) {
-    for (const key of [`${ns}:apiError.${cause.code}`, `common:apiError.${cause.code}`]) {
-      if (i18n.exists(key)) return i18n.t(key, { defaultValue: fallback });
-    }
+  if (cause instanceof ApiError) {
+    const text = codeText(cause.code, ns);
+    if (text) return text;
   }
   if (cause instanceof Error && cause.message) return cause.message;
   return fallback;

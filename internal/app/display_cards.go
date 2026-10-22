@@ -116,16 +116,16 @@ func (s *Store) AddDisplayCard(ctx context.Context, conv string, run Run, card D
 	}
 	content := card.Title + "\n" + card.Body
 	if card.Type == "mail" {
-		content = "邮件 · " + card.Subject + "\n发件人: " + card.From
+		content = "Email · " + card.Subject + "\nFrom: " + card.From
 		if card.To != "" {
-			content += "\n收件人: " + card.To
+			content += "\nTo: " + card.To
 		}
-		content += "\n正文:\n" + card.Body
+		content += "\nBody:\n" + card.Body
 		if card.Summary != "" {
-			content += "\nBot 解读: " + card.Summary
+			content += "\nBot summary: " + card.Summary
 		}
 	} else if card.Title == "" {
-		content = "文本\n" + card.Body
+		content = "Text\n" + card.Body
 	}
 	message := Message{ID: uuid.NewString(), ConversationID: conv, Seq: seq, Role: "assistant", Kind: "ui_card", SenderBotID: run.BotID, RunID: run.ID, Content: content, Card: &card, CreatedAt: now()}
 	if _, err = tx.ExecContext(ctx, `INSERT INTO messages(id,conversation_id,seq,role,kind,sender_bot_id,run_id,content,notice_data,created_at) VALUES(?,?,?,?,?,?,?,?,?,?)`, message.ID, conv, seq, message.Role, message.Kind, run.BotID, run.ID, content, string(metadata), message.CreatedAt); err != nil {

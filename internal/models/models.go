@@ -299,7 +299,7 @@ func (ctx *ExecutionContext) replaceParamsInternal(script string, strict bool) (
 					content, err := ctx.resolveFileContent(nodeID, output)
 					if err != nil {
 						if strict {
-							return "", fmt.Errorf("无法读取文件内容: {{%s}}\n  %v", fullPath, err)
+							return "", fmt.Errorf("cannot read file content: {{%s}}\n  %v", fullPath, err)
 						}
 						// Non-strict mode: replace with error message
 						finalScript = strings.ReplaceAll(finalScript, "{{"+fullPath+"}}", fmt.Sprintf("[Error: %v]", err))
@@ -313,9 +313,9 @@ func (ctx *ExecutionContext) replaceParamsInternal(script string, strict bool) (
 			result := gjson.Get(output, jsonPath)
 
 			if strict && !result.Exists() {
-				return "", fmt.Errorf("字段不存在: {{%s}}\n"+
-					"  节点 '%s' 的输出中没有字段 '%s'\n"+
-					"  实际输出: %s",
+				return "", fmt.Errorf("field not found: {{%s}}\n"+
+					"  node '%s' has no field '%s' in its output\n"+
+					"  actual output: %s",
 					fullPath, nodeID, jsonPath, truncateString(output, 200))
 			}
 
@@ -333,9 +333,9 @@ func (ctx *ExecutionContext) replaceParamsInternal(script string, strict bool) (
 			if dotIdx := strings.Index(unresolvedVar, "."); dotIdx > 0 {
 				nodeID = unresolvedVar[:dotIdx]
 			}
-			return "", fmt.Errorf("节点不存在: {{%s}}\n"+
-				"  引用的节点 '%s' 不存在或尚未执行\n"+
-				"  提示: 请检查节点ID拼写和依赖关系",
+			return "", fmt.Errorf("node not found: {{%s}}\n"+
+				"  the referenced node '%s' does not exist or has not run yet\n"+
+				"  hint: check the node ID spelling and the dependencies",
 				unresolvedVar, nodeID)
 		}
 	}
@@ -353,7 +353,7 @@ func (ctx *ExecutionContext) resolveFileContent(nodeID, output string) (string, 
 	if path != "" {
 		// Check if it's a text file
 		if !isTextMimeType(mimeType) {
-			return "", fmt.Errorf("无法读取二进制文件内容 (%s)，请使用 .path 获取文件路径", mimeType)
+			return "", fmt.Errorf("cannot read binary file content (%s); use .path to get the file path", mimeType)
 		}
 
 		// Read file content
@@ -371,7 +371,7 @@ func (ctx *ExecutionContext) resolveFileContent(nodeID, output string) (string, 
 		}
 	}
 
-	return "", fmt.Errorf("文件内容不可用：文件未保存到磁盘且无上游数据")
+	return "", fmt.Errorf("file content unavailable: the file is not saved to disk and has no upstream data")
 }
 
 // isTextMimeType checks if a MIME type is a text format
@@ -394,7 +394,7 @@ func isTextMimeType(mimeType string) bool {
 func readFileContent(path string) (string, error) {
 	content, err := readFile(path)
 	if err != nil {
-		return "", fmt.Errorf("无法读取文件: %v", err)
+		return "", fmt.Errorf("cannot read file: %v", err)
 	}
 
 	// Limit content size to prevent memory issues (max 1MB)

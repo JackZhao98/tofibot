@@ -170,7 +170,7 @@ func (s *Server) dictate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if s.dictationAuthSource() == "" {
-		writeErr(w, http.StatusServiceUnavailable, "dictation_unconfigured", "请连接 Codex、添加 OpenAI API key，或配置服务端转写 API key。")
+		writeErr(w, http.StatusServiceUnavailable, "dictation_unconfigured", "Connect Codex, add an OpenAI API key, or configure a server transcription API key.")
 		return
 	}
 	r.Body = http.MaxBytesReader(w, r.Body, maxDictationBytes+1<<20)
@@ -200,7 +200,7 @@ func (s *Server) dictate(w http.ResponseWriter, r *http.Request) {
 	}
 	apiKey, err := s.dictationCredential(r.Context())
 	if err != nil {
-		writeErr(w, http.StatusServiceUnavailable, "dictation_auth_unavailable", "转写认证暂不可用，请重试或重新连接 Codex。")
+		writeErr(w, http.StatusServiceUnavailable, "dictation_auth_unavailable", "Transcription authentication is unavailable. Try again or reconnect Codex.")
 		return
 	}
 	text, err := requestTranscription(r.Context(), s.transcriptionURL, apiKey, model, audio, header)

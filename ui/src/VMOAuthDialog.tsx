@@ -3,9 +3,10 @@ import { api, request } from "./api";
 import { DesktopVideo, type DesktopVideoState } from "./DesktopVideo";
 import { RemoteDesktopControl, type RemoteControlHandle } from "./RemoteDesktopControl";
 import { i18n, useTranslation } from "./i18n";
+import { codeText } from "./i18n/codeText";
 import { ModalDialog } from "./overlays/ModalDialog";
 
-export type VMOAuthSession = { session_id: string; bot_id: string; status: string; error?: string };
+export type VMOAuthSession = { session_id: string; bot_id: string; status: string; error?: string; error_code?: string };
 const endKeys = { denied: "extensions:vm.end.denied", expired: "extensions:vm.end.expired", error: "extensions:vm.end.error" } as const;
 const endText = (status: string) => status in endKeys ? i18n.t(endKeys[status as keyof typeof endKeys]) : undefined;
 
@@ -40,7 +41,7 @@ export function VMOAuthDialog({ session, serverName, title, onFinish }: Props) {
         if (!["pending", "preparing"].includes(state.status)) {
           terminal.current = true;
           await control.current?.release();
-          if (alive) finish.current(state.status, state.error || endText(state.status));
+          if (alive) finish.current(state.status, codeText(state.error_code, "extensions") || state.error || endText(state.status));
           return;
         }
       } catch {

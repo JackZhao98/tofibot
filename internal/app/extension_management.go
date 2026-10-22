@@ -62,7 +62,7 @@ func (s *Server) routeExtensions(w http.ResponseWriter, r *http.Request, p strin
 		name := strings.TrimSuffix(strings.TrimPrefix(p, "extensions/mcp/"), "/oauth/start")
 		origin := s.webOAuthOrigin(r)
 		if origin == "" || (r.TLS == nil && r.Header.Get("Origin") != origin) || (r.Header.Get("Origin") != "" && r.Header.Get("Origin") != origin) {
-			writeErr(w, 400, "oauth_https_required", "网页授权需要 HTTPS。HTTP 直连请使用共享电脑授权，或改用 HTTPS / Tofi 客户端。")
+			writeErr(w, 400, "oauth_https_required", "Web authorization requires HTTPS. Over plain HTTP, authorize from the shared computer or use HTTPS or the Tofi client.")
 			return true
 		}
 		redirect := origin + "/api/extensions/mcp/" + name + "/oauth/callback"

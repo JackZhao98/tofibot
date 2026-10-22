@@ -23,7 +23,7 @@ func ExecuteHTTP(method, targetURL string, headers map[string]string, queryParam
 	if len(queryParams) > 0 {
 		u, err := url.Parse(targetURL)
 		if err != nil {
-			return "", fmt.Errorf("无效的 URL: %v", err)
+			return "", fmt.Errorf("invalid URL: %v", err)
 		}
 		q := u.Query()
 		for k, v := range queryParams {
@@ -41,7 +41,7 @@ func ExecuteHTTP(method, targetURL string, headers map[string]string, queryParam
 
 	req, err := http.NewRequest(method, targetURL, bodyReader)
 	if err != nil {
-		return "", fmt.Errorf("创建请求失败: %v", err)
+		return "", fmt.Errorf("failed to create the request: %v", err)
 	}
 
 	// 4. 设置 Headers
@@ -64,13 +64,13 @@ func ExecuteHTTP(method, targetURL string, headers map[string]string, queryParam
 	// 5. 执行请求
 	resp, err := client.Do(req)
 	if err != nil {
-		return "", fmt.Errorf("请求执行失败: %v", err)
+		return "", fmt.Errorf("request failed: %v", err)
 	}
 	defer resp.Body.Close()
 
 	respBody, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return "", fmt.Errorf("读取响应失败: %v", err)
+		return "", fmt.Errorf("failed to read the response: %v", err)
 	}
 
 	// 6. 状态码检查 (允许 2xx)
