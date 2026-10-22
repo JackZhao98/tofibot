@@ -143,6 +143,8 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
     if (/^\/api\/extensions\/mcp\/[^/]+\/test$/.test(path) && method === "POST") return query.get("testfail") ? {ok: false, tool_count: 0, diagnostics: [{server: "x", message: "MCP server connection or discovery failed"}]} : {ok: true, tool_count: 8};
     if (path === "/api/extensions/oauth-options") return {vm_available: false, web_callback_origin: "https://tofi.example.test", desktop_redirect_uri: ""};
     if (path === "/api/extensions/local-mcp") return {available: false, reason: "sample"};
+    if (path === "/api/extensions/google") return {client: {configured: false}, apis: []};
+    if (path === "/api/extensions/repo-stars") return {stars: {}};
     if (path === "/api/extensions/skills") return {skills: [{name: "research-assistant", description: "Research and verify sources"}, {name: "spreadsheet", description: "Build and reconcile XLSX workbooks with real numbers and formulas; verify the saved file.", builtin: true, enabled: builtinOn.get("spreadsheet")}, {name: "weekly-report", description: "Draft the weekly status report"}].map(skill => ({...skill, access: skillAccess.get(skill.name) ?? {mode: "all"}}))};
     if (path === "/api/auto-review-settings") return {mode: "shadow", revision: 1, review_scope: "all_external_tools"};
     if (path === "/api/providers") return {providers};
@@ -589,7 +591,7 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
     await tiered.waitFor({timeout: 15000});
     assert.equal(await tiered.locator(".mcp-service-tools").count(), 0, "a resting row shows no tool list");
     await tiered.locator(".mcp-menu-trigger").click();
-    await tiersPage.page.getByRole("menuitem", {name: "View tools"}).click();
+    await tiersPage.page.getByRole("menuitem", {name: "View details"}).click();
     await tiered.locator(".mcp-tool-group[data-tier=read_only]").waitFor();
     assert.deepEqual(await tiered.locator(".mcp-tool-group h5").allTextContents(), ["Read only (marked by provider)2", "Reviewed each time2", "Always ask me2"], "three groups with counts");
     assert.deepEqual(await tiered.locator(".mcp-tool[data-source=owner] code").allTextContents(), ["get_issue", "delete_issue", "post_comment"], "owner overrides are marked");
@@ -608,8 +610,9 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
     assert.doesNotMatch(await tiersPage.page.locator('.mcp-service[aria-label="notes_search"] .mcp-service-status').textContent(), /Classifying/, "no classifying status anywhere");
     const docs = card(tiersPage.page, "acme_docs");
     await docs.locator(".mcp-menu-trigger").click();
-    assert.equal(await tiersPage.page.getByRole("menuitem", {name: "View tools"}).count(), 0, "a connection without a tool list has no View tools action");
-    await tiersPage.page.keyboard.press("Escape");
+    await tiersPage.page.getByRole("menuitem", {name: "View details"}).click();
+    await docs.locator(".mcp-service-details").waitFor();
+    assert.equal(await docs.locator(".mcp-service-tools").count(), 0, "a connection without a tool list has details (its source) but no tools section");
     await tiersPage.close();
     console.log("PASS connections tools: opened from the menu, tier groups, markers, styled selector, one override write");
   }

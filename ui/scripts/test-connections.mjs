@@ -133,20 +133,26 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
         await page.waitForTimeout(600);
         await shot(page, "directory", width, theme);
       } else {
-        await page.getByRole("button", {name: "Add connection"}).click();
-        await page.locator(".connect-dialog").waitFor();
-        await page.waitForTimeout(500);
-        await shot(page, "directory", width, theme);
-        await page.locator('[data-integration-id="local-gog"]').click();
-        await page.locator('.connect-dialog input[type="email"]').waitFor();
-        await shot(page, "gmail-setup", width, theme);
-        await page.keyboard.press("Escape");
-        await page.locator(".connect-dialog").waitFor({state: "detached"});
         await row(page, "Gmail (personal account)").locator(".mcp-menu-trigger").click();
         await page.getByRole("menuitem", {name: "View details"}).click();
         await page.locator(".mcp-service-details").waitFor();
         await row(page, "Gmail (personal account)").scrollIntoViewIfNeeded();
+        await page.waitForTimeout(500);
         await shot(page, "details", width, theme);
+        const fresh = await open({fresh: "1", gclient: "1"}, {width, height, theme});
+        await fresh.page.getByRole("button", {name: "Add connection"}).click();
+        await fresh.page.locator(".connect-dialog").waitFor();
+        await fresh.page.waitForTimeout(700);
+        await shot(fresh.page, "directory", width, theme);
+        await fresh.page.locator('[data-integration-id="local-gog"]').click();
+        await fresh.page.getByRole("button", {name: "Install gogcli"}).waitFor();
+        await shot(fresh.page, "gmail-install", width, theme);
+        await fresh.close();
+        const saved = await open({gclient: "1"}, {width, height, theme});
+        await row(saved.page, "Gmail (personal account)").getByRole("button", {name: "Authorize"}).click();
+        await saved.page.locator('.connect-dialog input[type="email"]').waitFor();
+        await shot(saved.page, "gmail-setup", width, theme);
+        await saved.close();
       }
       await close();
       if (prefix !== "before") {

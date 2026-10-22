@@ -362,6 +362,8 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
     if (/\/oauth\/vm\/start$/.test(path) && method === "POST") return {session_id: "sess_vm", bot_id: "bot_research", status: "pending"};
     if (/\/oauth\/vm\/[^/]+\/status$/.test(path)) return {session_id: "sess_vm", bot_id: "bot_research", status: "pending"};
     if (path === "/api/extensions/local-mcp") return {available: true, plugins: [{id: "gog", state: "sleeping", tool_count: 0}]};
+    if (path === "/api/extensions/google") return {client: {configured: false}, apis: []};
+    if (path === "/api/extensions/repo-stars") return {stars: {}};
     if (path === "/api/extensions/local-mcp/gog/oauth/status") return {connected: false, email: ""};
     if (path === "/api/extensions/skills") return {skills: [{name: "research-assistant", description: "Research and verify sources", access: {mode: "all"}}, {name: "weekly-report", description: "Draft the weekly status report", access: {mode: "selected", bot_ids: ["bot_research"]}}]};
     if (path === "/api/standing-allowances") return {allowances: [], remembered: []};
@@ -457,7 +459,7 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
     // Tool tiers disclosure: grouped list, markers, the per-tool selector; audited at every viewport.
     {id: "connections-tools", tab: "connections", run: async ({page}) => { await click(page.locator('.mcp-service[aria-label="acme_tracker"] .mcp-menu-trigger'), "Connections: more actions"); await click(page.getByRole("menuitem", {name: "View details"}), "Connections: View details"); await page.locator(".mcp-tool-group").first().waitFor({timeout: 4000}).catch(() => warnings.push("step skipped: details did not open")); await page.waitForTimeout(400); }},
     // The connect dialog's directory, and the Workspace preview grouping opened inside it.
-    {id: "connections-directory", tab: "connections", container: ".sheet", run: async ({page}) => { await click(page.getByRole("button", {name: "Add connection"}), "Connections: Add connection"); await page.locator(".connect-dialog").waitFor({timeout: 4000}); await click(page.getByRole("button", {name: /Workspace preview/}), "Connections: Workspace preview"); await page.waitForTimeout(500); }},
+    {id: "connections-directory", tab: "connections", container: ".sheet", run: async ({page}) => { await click(page.getByRole("button", {name: "Add connection"}), "Connections: Add connection"); await page.locator(".connect-dialog").waitFor({timeout: 4000}); await click(page.getByRole("button", {name: /Google Workspace servers/}), "Connections: Workspace preview"); await page.waitForTimeout(500); }},
     {id: "skills-install", tab: "skills", run: async ({page}) => { await click(page.getByRole("button", {name: /Add skill|Install/}), "Skills: install"); await page.waitForTimeout(500); }},
     {id: "skills-access-sheet", tab: "skills", container: ".sheet", run: async ({page}) => { await click(page.getByRole("button", {name: "Change"}).first(), "Skills: Change"); await page.locator(".sheet").waitFor({timeout: 4000}).catch(() => {}); await page.getByRole("radio", {name: /^Only selected Bots/}).check().catch(() => {}); await page.waitForTimeout(400); }},
     {id: "approvals-modes", tab: "approvals", run: async ({page}) => { await page.locator("#auto-review-mode").selectOption({index: 1}).catch(() => warnings.push("step skipped: approvals mode select")); await page.waitForTimeout(300); }},
