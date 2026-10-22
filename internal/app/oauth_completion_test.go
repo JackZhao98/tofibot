@@ -1,6 +1,7 @@
 package app
 
 import (
+	"github.com/JackZhao98/tofibot/internal/extensions"
 	"net"
 	"net/http"
 	"net/http/httptest"
@@ -38,9 +39,15 @@ func TestOAuthCompletionStatesAndHeaders(t *testing.T) {
 				t.Fatalf("status = %d", w.Code)
 			}
 			body := w.Body.String()
-			for _, want := range []string{"<title>" + tc.title + "</title>", tc.heading, `href="/"`, `src="/oauth/connection.js"`, `href="/oauth/connection.css"`, "与 OAuth Client 相同的项目", `href="https://console.cloud.google.com/auth/audience"`} {
+			for _, want := range []string{"<title>" + tc.title + "</title>", tc.heading, `href="/"`, `src="/oauth/connection.js"`, `href="/oauth/connection.css"`} {
 				if !strings.Contains(body, want) {
 					t.Errorf("missing %q", want)
+				}
+			}
+			// Setup help is for a connection that is missing something; the fixture says nothing is.
+			for _, noise := range []string{"Google 连接设置", "启用服务", "添加测试用户", "console.cloud.google.com", "developers.google.com", "官方接入文档", "授权成功不代表服务 API 已启用"} {
+				if strings.Contains(body, noise) {
+					t.Errorf("setup help shown without a missing piece: %q", noise)
 				}
 			}
 			if strings.Contains(body, "工具已就绪") {
@@ -92,6 +99,7 @@ func TestOAuthCompletionEscapesAndRejectsDestinations(t *testing.T) {
 func TestOAuthCompletionAllowedLinksAndLocalMarks(t *testing.T) {
 	for _, logo := range []string{"/oauth/provider-google.svg", "/oauth/provider-notion.svg", "/oauth/provider-generic.svg"} {
 		page := completionFixture("success")
+		page.Setup = "enable"
 		page.LogoURL = logo
 		w := httptest.NewRecorder()
 		writeOAuthCompletion(w, http.StatusOK, page)
@@ -132,10 +140,47 @@ func TestOAuthCompletionAllowedLinksAndLocalMarks(t *testing.T) {
 func TestOAuthCompletionMessageReplacesDefaultCopy(t *testing.T) {
 	w := httptest.NewRecorder()
 	page := completionFixture("success")
-	page.Message = "授权已保存。授权成功不代表服务 API 已启用。"
+	page.Message = "已连接，读取到 3 个工具，可以使用了。"
 	writeOAuthCompletion(w, http.StatusOK, page)
-	if strings.Count(w.Body.String(), "服务 API 已启用") != 1 {
-		t.Fatal("authorization caveat repeated")
+	if strings.Count(w.Body.String(), "可以使用了") != 1 || strings.Contains(w.Body.String(), "返回 Tofi 即可使用") {
+		t.Fatal("the default sentence repeated next to the result")
+	}
+}
+
+// A verified connection shows the result and the way back, nothing else; what is missing is named with the one fix.
+func TestOAuthVerifiedPageShowsSetupOnlyWhenSomethingIsMissing(t *testing.T) {
+	render := func(inspection extensions.MCPInspection) string {
+		page := completionFixture("success")
+		oauthVerifiedPage(&page, inspection)
+		w := httptest.NewRecorder()
+		writeOAuthCompletion(w, http.StatusOK, page)
+		return w.Body.String()
+	}
+	ok := render(extensions.MCPInspection{ToolCount: 23})
+	if !strings.Contains(ok, "读取到 23 个工具") {
+		t.Error("a working connection must say so with its tool count")
+	}
+	for _, noise := range []string{"启用服务", "添加测试用户", "console.cloud.google.com", "developers.google.com", `class="oauth-setup"`, `class="oauth-docs"`} {
+		if strings.Contains(ok, noise) {
+			t.Errorf("working connection shows setup help: %q", noise)
+		}
+	}
+	disabled := render(extensions.MCPInspection{Diagnostics: []extensions.Diagnostic{{Code: "api_disabled", Message: "Google 返回 API 未启用。"}}})
+	for _, want := range []string{"Google 返回 API 未启用。", "启用服务", "gmail.googleapis.com", "gmailmcp.googleapis.com", `class="oauth-setup"`} {
+		if !strings.Contains(disabled, want) {
+			t.Errorf("api_disabled page misses %q", want)
+		}
+	}
+	if strings.Contains(disabled, "添加测试用户") {
+		t.Error("api_disabled must not ask for test users")
+	}
+	denied := render(extensions.MCPInspection{Diagnostics: []extensions.Diagnostic{{Code: "access_denied", Message: "Google 拒绝了访问。"}}})
+	if !strings.Contains(denied, "添加测试用户") || strings.Contains(denied, "gmail.googleapis.com") {
+		t.Error("access_denied names the test-user fix only")
+	}
+	other := render(extensions.MCPInspection{Diagnostics: []extensions.Diagnostic{{Message: "MCP server connection or discovery failed"}}})
+	if strings.Contains(other, `class="oauth-setup"`) || !strings.Contains(other, "暂时读取不到工具") {
+		t.Error("an unnamed failure shows its message and no setup help")
 	}
 }
 
@@ -161,7 +206,7 @@ func TestOAuthCompletionAuditServer(t *testing.T) {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/audit", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
-		_, _ = w.Write([]byte(`<!doctype html><html lang="en"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Synthetic OAuth QA</title><body><h1>Synthetic OAuth QA</h1><p>Local fixture only. Choose saved Tofi appearance for callback testing.</p><button data-theme="light">Light</button> <button data-theme="dark">Dark</button> <button data-theme="system">System</button><p id="appearance"></p><nav><a href="/success">Google success</a> · <a href="/pending">Pending</a> · <a href="/failed">Failure</a> · <a href="/denied">Denied</a> · <a href="/notion">Notion</a> · <a href="/long">Long generic name</a> · <a href="/no-script">Without JavaScript</a></nav><script src="/audit-theme.js"></script></body></html>`))
+		_, _ = w.Write([]byte(`<!doctype html><html lang="en"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Synthetic OAuth QA</title><body><h1>Synthetic OAuth QA</h1><p>Local fixture only. Choose saved Tofi appearance for callback testing.</p><button data-theme="light">Light</button> <button data-theme="dark">Dark</button> <button data-theme="system">System</button><p id="appearance"></p><nav><a href="/success">Google success</a> · <a href="/enable">API not enabled</a> · <a href="/audience">Test user missing</a> · <a href="/pending">Pending</a> · <a href="/failed">Failure</a> · <a href="/denied">Denied</a> · <a href="/notion">Notion</a> · <a href="/long">Long generic name</a> · <a href="/no-script">Without JavaScript</a></nav><script src="/audit-theme.js"></script></body></html>`))
 	})
 	mux.HandleFunc("/audit-theme.js", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/javascript")
@@ -184,10 +229,17 @@ func TestOAuthCompletionAuditServer(t *testing.T) {
 		}
 		writeOAuthCompletion(w, http.StatusOK, page)
 	})
-	for _, state := range []string{"pending", "success", "failed", "denied", "notion", "long"} {
+	for _, state := range []string{"pending", "success", "enable", "audience", "failed", "denied", "notion", "long"} {
 		mux.HandleFunc("/"+state, func(w http.ResponseWriter, r *http.Request) {
 			page := completionFixture(state)
 			switch state {
+			case "success":
+				oauthVerifiedPage(&page, extensions.MCPInspection{ToolCount: 23})
+			case "enable":
+				page.State = "success"
+				oauthVerifiedPage(&page, extensions.MCPInspection{Diagnostics: []extensions.Diagnostic{{Code: "api_disabled", Message: "Google 返回 API 未启用。请在 OAuth Client 所属的同一个项目中启用产品 API 和 MCP 服务，再刷新工具。"}}})
+			case "audience":
+				oauthVerifiedPage(&page, extensions.MCPInspection{Diagnostics: []extensions.Diagnostic{{Code: "access_denied", Message: "Google 拒绝了访问。若应用处于测试模式，请检查当前账号是否在测试用户中。"}}})
 			case "notion":
 				page = oauthCompletionPage{State: "success", ServiceName: "Notion", LogoURL: "/oauth/provider-notion.svg", DocsURL: "https://www.notion.com/help/notion-mcp"}
 			case "long":

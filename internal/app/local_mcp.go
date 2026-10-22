@@ -232,7 +232,11 @@ func (s *Server) routeLocalMCP(w http.ResponseWriter, r *http.Request, p string)
 		fullURL := origin + r.URL.RequestURI()
 		_, status, err := s.runnerRequest(r, http.MethodPost, "/v1/plugins/gog/gog/finish", mcprunner.GogFinishRequest{RedirectedURL: fullURL})
 		if err == nil && status == http.StatusOK {
-			page.State, page.Message = "success", "Google 授权已保存。请返回 Tofi 验证 Gmail 工具。"
+			page.State, page.Message = "success", "授权已保存，但暂时读不到 Gmail。请回到 Tofi 查看。"
+			// Confirm Gmail answers before saying so: a working connection shows its result and nothing else.
+			if _, checked, checkErr := s.runnerRequest(r, http.MethodPost, "/v1/plugins/gog/gog/check", map[string]any{}); checkErr == nil && checked == http.StatusOK {
+				page.Message = "已连接，Gmail 可以读取了。"
+			}
 			_, _ = s.store.WorkspaceEvent(workspaceScopeConfig)
 			writeOAuthCompletion(w, 200, page)
 			return true

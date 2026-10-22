@@ -1,6 +1,7 @@
 package app
 
 import (
+	"fmt"
 	"net/url"
 	"strings"
 
@@ -41,4 +42,33 @@ func oauthServicePage(identity extensions.OAuthServiceIdentity) oauthCompletionP
 		page.DocsURL = "https://developers.google.com/workspace/" + product.product + "/guides/configure-mcp-server"
 	}
 	return page
+}
+
+// oauthVerifiedPage turns the tool listing taken right after a successful authorization into what the page says.
+// Every sentence comes from fixed server text (inspection diagnostics carry no provider text), never from the
+// callback. A working connection gets its result and nothing else; setup help appears only when the diagnostic names
+// what is missing.
+func oauthVerifiedPage(page *oauthCompletionPage, inspection extensions.MCPInspection) {
+	page.State = "success"
+	if len(inspection.Diagnostics) == 0 {
+		if inspection.ToolCount == 0 {
+			page.Message = "已连接，但这个服务暂时没有列出工具。"
+		} else {
+			page.Message = fmt.Sprintf("已连接，读取到 %d 个工具，可以使用了。", inspection.ToolCount)
+		}
+		return
+	}
+	diagnostic := inspection.Diagnostics[0]
+	switch {
+	case inspection.AuthRequired:
+		page.Message = "授权已保存，但服务还不接受这次登录。请回到 Tofi 重新授权。"
+	case diagnostic.Code == "api_disabled" || diagnostic.Code == "permission_denied":
+		page.Setup = "enable"
+		page.Message = "授权已保存，但工具还不能用。" + diagnostic.Message
+	case diagnostic.Code == "access_denied":
+		page.Setup = "audience"
+		page.Message = "授权已保存，但工具还不能用。" + diagnostic.Message
+	default:
+		page.Message = "授权已保存，但暂时读取不到工具。" + diagnostic.Message
+	}
 }
