@@ -266,7 +266,7 @@ Later accounts are created by the Admin. Then open Settings -> Model provider.
 | `tofi update --auto` | What the daily timer runs: nothing unless `TOFI_AUTO_UPDATE=patch`; installs only a newer patch of the installed major.minor, never an rc, never when a Bot run is active (skipped, not waited for) |
 | `tofi config auto-update on\|off` | Switch automatic fix releases and the systemd timer |
 | `tofi config trusted-proxies [IP\|CIDR ...] [--clear]` | Show, set or clear the reverse proxies trusted for `X-Forwarded-For`; printing the Caddy/Nginx snippets when set |
-| `tofi backup [--note TEXT] [--no-disks]` | Stop, back up data, settings and (by default) every computer's workspace disk, start again, then verify the new backup. Disks are copied sparse (reflink where possible) and only while TOFI is stopped |
+| `tofi backup [--note TEXT] [--no-disks]` | Stop, back up data, settings and (by default) every computer's workspace disk, start again, then verify the new backup. Disks are zstd-compressed, copied only while TOFI is stopped; a space estimate is printed first and only the 2 newest backups keep their disks |
 | `tofi backup --verify [ID\|all]` | Check a backup without restoring it: files, sizes, sha256, archives readable, `tofi.env` usable, no unlisted files. Exit 1 on any problem |
 | `tofi backups [--json]` | List backups: id, time, version, size, reason |
 | `tofi restore <id> [--yes] [--no-disks]` | Verify the backup's checksums, back up the current state (`pre-restore`), restore data and settings (and the computer disks, if the backup has them), and switch to that backup's version. Replaced disks stay beside the new ones as `workspace-before-restore-*.ext4` |
@@ -298,7 +298,7 @@ Every update is built so that nothing is lost when it fails.
   file over 64 MiB are skipped with a warning; a restore copies them over the
   live ones and deletes nothing), and `meta.json` with the version, images, Guest, time, reason, sizes
   and a sha256 of each archive. Computer disks are never in the automatic
-  backups; a manual `tofi backup` adds `disks/<account>.ext4` (see `--no-disks`). The last 3 automatic backups (`pre-update`, `pre-restore`) are kept, pruned
+  backups; a manual `tofi backup` adds `disks/<account>.ext4.zst` (see `--no-disks`). The last 3 automatic backups (`pre-update`, `pre-restore`) are kept, pruned
   after a good update; `manual` backups (`tofi backup`) are never pruned: remove
   one with `sudo tofi backups --remove <ID>`.
 - **Room check.** Before anything is stopped the update needs 2x the size of
