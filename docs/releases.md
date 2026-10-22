@@ -35,6 +35,7 @@ TOFI 每个版本改了什么，最新的在最上面。写给以后接手的人
 
 还没进任何 rc 的改动写在这里；打下一个 rc 时挪进那个 rc 的条目（决定 D27）。
 
+- 早先说过的事：`save_memory` 说明写明学到持久信息时当场存，系统提示词加一条同向原则；历史被截断时在上下文里加一条“早先轮次存在，`search_history` 可找到原文”（预留 400 字符，不加搜索调用）；`search_history` 说明写明何时用以及按字面匹配。系统提示词核心 +416 字符，只上调了提示词大小测试里的三个上限各 +416（[D44](decisions/0044-recall-context-memory-and-search.md)；分支 `feat/recall-context`）。
 - 定时任务卡片左侧时间栏在计划时间未知时显示 `--:--`，不再把"Unconfirmed / 待确认"挤出栏外（说明仍在悬停提示里）。
 - 内置交付技能只留通用能力：删除按评测任务写的生成器（`build_deck`、`build_report`、`build_workbook`）、检查器（`check_deck`、`check_page` 的规则清单）和发票对账（`reconcile`）；`render_preview`、`xlsx_summary` 去掉断言参数，新增 `pptx_outline`（形状转储）和 `preview_page`（多宽度预览）；五个 SKILL.md 改成只写原则。目录描述少 60 字符，提示词上限各降 60（[D41](decisions/0041-builtin-deliverable-skills.md) 补记）。
 - 群聊分工：成员名单每项带该成员的职责（持久指令开头一行，最多 140 字符），提示词里 “自己回答” 一句换成按职责分工的原则（自己职责内的自己做，同事职责更合适的部分交给同事并并入同一条回复，单职责请求和闲聊不拆）。群里仍只显示最终结果和简短转交行。群聊最长提示词 +296 字符，固定开销上限 7803 到 8196；只在需要同事职责时才转交；同事的贡献只发一次，协调者只发一条整合结果（[D42](decisions/0042-group-roster-roles-and-delegation.md)）。

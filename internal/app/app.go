@@ -4335,7 +4335,7 @@ func externalEffectToolSets(name string) bool {
 }
 
 func (s *Server) toolsUnmarked(c Conversation, r Run) []Tool {
-	base := []Tool{{Name: "save_memory", Description: "Save scoped factual memory with a concise localized title and user-facing description. Content is the faithful memory body, not an execution prompt; preserve facts and quoted user wording. Write any assistant-authored instructions in English.", Parameters: objectSchema(memoryInputProperties(), []string{"title", "description", "content"}), Execute: func(ctx context.Context, b json.RawMessage) (string, error) {
+	base := []Tool{{Name: "save_memory", Description: "Save scoped factual memory with a concise localized title and user-facing description. Use it when you learn something durable about the person or their world (facts about them, the people, animals and things in their life, preferences, plans, decisions) that will matter in later conversations, at the moment you learn it and without being asked, so it survives after the conversation has moved on or its early turns have left your context. Saved memories are listed in your context at the start of each turn. Content is the faithful memory body, not an execution prompt; preserve facts and quoted user wording. Write any assistant-authored instructions in English.", Parameters: objectSchema(memoryInputProperties(), []string{"title", "description", "content"}), Execute: func(ctx context.Context, b json.RawMessage) (string, error) {
 		var x MemoryInput
 		if json.Unmarshal(b, &x) != nil || strings.TrimSpace(x.Content) == "" {
 			return "", errors.New("content required")
@@ -4359,7 +4359,7 @@ func (s *Server) toolsUnmarked(c Conversation, r Run) []Tool {
 		}
 		m, e := s.store.AddMemoryWithMetadata(s.memoryConversationID(c, r.BotID), memoryBot, x)
 		return m.ID, e
-	}}, {Name: "search_history", ApprovalExpiryReadOnly: true, Description: "search exact conversation history", Parameters: objectSchema(map[string]any{"query": map[string]any{"type": "string"}}, []string{"query"}), Execute: func(ctx context.Context, b json.RawMessage) (string, error) {
+	}}, {Name: "search_history", ApprovalExpiryReadOnly: true, Description: "Search this conversation's full stored history for messages containing the given text. Your context holds only recent turns plus a summary of older ones, so use this when the person refers to something said earlier that you do not see in the visible conversation, the summary or the memory, before you answer from general knowledge or say you do not know. The match is on literal text, case-insensitive: query with a distinctive word or short phrase the person is likely to have used, and try another wording if nothing comes back. Returns matching messages in order, up to 50.", Parameters: objectSchema(map[string]any{"query": map[string]any{"type": "string"}}, []string{"query"}), Execute: func(ctx context.Context, b json.RawMessage) (string, error) {
 		var x struct {
 			Query string `json:"query"`
 		}
