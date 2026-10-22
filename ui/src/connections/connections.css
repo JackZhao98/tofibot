@@ -1,6 +1,6 @@
 /* Settings › Connections: status dots by kind, the tools details view, and the connect dialog (docs/design/components.md §17). */
-.mcp-service[data-kind=needs_auth] .mcp-service-status i{background:var(--honey);opacity:1}
-.mcp-service[data-kind=error] .mcp-service-status i{background:var(--danger);opacity:1}
+.mcp-settings .mcp-service[data-kind=needs_auth] .mcp-service-status i{background:var(--honey);opacity:1}
+.mcp-settings .mcp-service[data-kind=error] .mcp-service-status i,.mcp-settings .mcp-service[data-kind=api_disabled] .mcp-service-status i{background:var(--danger);opacity:1}
 .mcp-service-detail{margin-left:2px;font-size:12px;color:var(--muted);overflow-wrap:anywhere}
 .mcp-service-detail::before{content:"\00b7";margin-right:6px}
 .mcp-tools-title{display:flex;align-items:center;justify-content:space-between;gap:12px;min-height:36px}
@@ -32,8 +32,10 @@
 .connect-form .disclosure-inner label+label{margin-top:12px}
 .connect-body{display:grid;gap:14px;align-content:start}
 .connect-lead{margin:0;font-size:13px;line-height:1.6;color:var(--ink-soft);max-width:60ch}
-.connect-steps{display:grid;gap:16px;margin:0;padding:0 0 0 20px;font-size:13px;line-height:1.6}
-.connect-steps>li{display:grid;gap:10px;padding-left:4px}
+.connect-steps{display:grid;gap:16px;margin:0;padding:0 0 0 22px;font-size:13px;line-height:1.6;list-style:decimal}
+.connect-steps>li{display:list-item;padding-left:4px}
+.connect-steps>li>*+*{margin-top:10px}
+.connect-steps>li::marker{color:var(--muted)}
 .connect-steps p{margin:0;color:var(--ink-soft)}
 .connect-code{display:block;overflow-wrap:anywhere;padding:9px 12px;border-radius:8px;background:var(--sunk);font-size:12px}
 .connect-link{display:inline-flex;align-items:center;min-height:44px;color:var(--ink);text-underline-offset:4px}
@@ -63,3 +65,6 @@
 .connect-dialog .integration-item{border-bottom:1px solid var(--line-soft)}
 .connect-dialog .integration-item .integration-tile{border-bottom:0}
 .integration-repo{padding:0 4px 10px 54px}
+.connect-dialog .integration-search input{width:100%;padding-left:40px;background:var(--sunk);border-color:transparent}
+.connect-dialog .integration-tile>span:nth-child(2){flex:1;min-width:0}
+.connect-dialog .integration-tile>svg:last-child,.connect-dialog .integration-tile>.integration-added{flex:none}

@@ -43,7 +43,6 @@ export function ConnectDialog({ request, servers, local, google, options, route,
     : view.view === "package" ? t("browser.custom_package") : t("browser.custom_url");
   const hint = view.view === "directory" ? t("browser.intro")
     : view.view === "preset" ? view.preset.description
-    : view.view === "gog" ? t("connections.local.gog.description")
     : view.view === "custom" ? t("form.custom_description") : "";
   const mark = view.view === "preset" ? view.preset.name : view.view === "edit" ? view.preset?.name ?? view.server.name : view.view === "gog" ? "Gmail" : "";
   const editing = view.view === "edit" ? view.server : null;
