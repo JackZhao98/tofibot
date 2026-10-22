@@ -202,6 +202,7 @@ type Server struct {
 	accountID                            string
 	mcpApprovalMu                        sync.Mutex
 	autoReviewProvider                   provider.Provider // Deterministic tests only; production uses the existing Codex adapter.
+	answerGraderProvider                 provider.Provider // Deterministic tests only; production uses the background model.
 	shadowReviewMu                       sync.Mutex
 	shadowReviewWG                       sync.WaitGroup
 	shadowReviewCancel                   context.CancelFunc
@@ -3679,6 +3680,25 @@ func (s *Server) execute(c Conversation, r Run) {
 	// observedToolWork arms the completion review; reviewed records that the
 	// review (on a text final or on a say answer) has already been spent.
 	var observedToolWork, reviewed atomic.Bool
+	// The answer gate (answer_review.go): graded drafts so far, the cap for this
+	// run, and whether a scheduled receipt repair is under way (which must not
+	// be sent back again).
+	var gradedRounds atomic.Int32
+	var inReceiptRepair atomic.Bool
+	gateRounds := 0
+	var graderModelProvider provider.Provider
+	graderModel := "grader-test"
+	if answerGateScope(c, r, structured) {
+		if gateRounds = s.answerGateRounds(); gateRounds > 0 {
+			if s.answerGraderProvider != nil {
+				graderModelProvider = s.answerGraderProvider
+			} else if p, m, perr := s.backgroundProvider(ctx, backgroundAnswerGrade); perr == nil {
+				graderModelProvider, graderModel = p, m
+			} else {
+				gateRounds = 0 // no grader available: answers stream and ship as before
+			}
+		}
+	}
 	if r.Kind != runKindTriage {
 		var initErr error
 		var controls streamControlSet
@@ -3705,6 +3725,15 @@ func (s *Server) execute(c Conversation, r Run) {
 			// scheduled run's answer is also its receipt, so it is reviewed too.
 			state.review = func() bool { return observedToolWork.Load() && !reviewed.Swap(true) }
 			state.owed = func() bool { return observedToolWork.Load() && !reviewed.Load() }
+			state.gradeOwed = func() bool { return int(gradedRounds.Load()) < gateRounds && !inReceiptRepair.Load() }
+			state.grade = func(ctx context.Context, text string) string {
+				if !state.gradeOwed() {
+					return ""
+				}
+				revision := s.gradeAnswer(ctx, graderModelProvider, graderModel, r.ID, int(gradedRounds.Load()), pm, text)
+				gradedRounds.Add(1)
+				return revision
+			}
 			s.sayRuns.Store(r.ID, state)
 			defer s.sayRuns.Delete(r.ID)
 			sayStream = newSayStreamer(state)
@@ -3867,6 +3896,15 @@ func (s *Server) execute(c Conversation, r Run) {
 		})
 		if !s.scheduleReceiptReviewEnabled() {
 			finalReview = nil
+		}
+		if inner := finalReview; inner != nil {
+			finalReview = func(content string) (string, error) {
+				reminder, err := inner(content)
+				if reminder != "" {
+					inReceiptRepair.Store(true) // the one receipt attempt is not graded
+				}
+				return reminder, err
+			}
 		}
 	}
 	runEngine := engine

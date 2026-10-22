@@ -155,11 +155,19 @@ type sayRunState struct {
 	review func() bool
 	// owed peeks at review without spending it.
 	owed func() bool
+	// grade reads the draft against the answer rubric and returns the private
+	// revision message, or "" to ship it; gradeOwed reports whether a grading
+	// may still happen, which holds the answer's text back from the stream.
+	grade     func(ctx context.Context, text string) string
+	gradeOwed func() bool
 }
 
 // reviewOwed reports whether a say(answer) beginning now would be sent back
 // for the one-time completion review.
 func (st *sayRunState) reviewOwed() bool { return st.owed != nil && st.owed() }
+
+// gradeIsOwed reports whether an answer beginning now may be graded.
+func (st *sayRunState) gradeIsOwed() bool { return st.gradeOwed != nil && st.gradeOwed() }
 
 func (s *Server) sayRun(runID string) *sayRunState {
 	if v, ok := s.sayRuns.Load(runID); ok {
@@ -428,6 +436,16 @@ func (s *Server) sayTool(c Conversation, r Run) Tool {
 					reminder = scheduleFinalReminderStructured
 				}
 				return fail(tooloutcome.New(tooloutcome.Transient, "answer_review", "not_executed", reminder, "retry").Err())
+			}
+			if state != nil && state.grade != nil && len(in.Wake) == 0 {
+				// The answer gate: the draft is graded against the rubric before
+				// the person sees it. Gaps go back to the writer privately.
+				if revision := state.grade(ctx, text); revision != "" {
+					if state.demote != nil {
+						state.demote(text)
+					}
+					return fail(tooloutcome.New(tooloutcome.Transient, "answer_revise", "not_executed", revision, "retry").Err())
+				}
 			}
 			if err := s.store.recordSayAnswerWith(r.ID, callID, text, extras); err != nil {
 				return fail(err)
