@@ -112,6 +112,8 @@ export type AppOptions = {
   send?: "ok" | "fail" | "hang";
   /** The first list load works, every refresh after it fails (the refresh toast). */
   refreshFails?: boolean;
+  /** After the first list load no /api request answers, so nothing "gets through" to end the proxy-challenge notice. */
+  challenge?: boolean;
   /** The first list load never answers (boot screen) or fails (boot failure card). */
   boot?: "hang" | "fail";
   /** No Bots and no conversations: the first-run screen. */
@@ -145,6 +147,7 @@ export function workspace(options: AppOptions): Synthetic {
     const method = init?.method ?? "GET";
     if (p === "/api/server-info") return json({ service: "tofi", protocol_version: 1, instance_id: "00000000-0000-4000-8000-00000000ca7a", auth: { mode: "none" } });
     if (p === "/api/preferences") return json({ timezone: "UTC", timezone_configured: true, language: localStorage.getItem("tofi.language") ?? "en", show_activity: false });
+    if (options.challenge && conversationReads > 1) return new Promise<Response>(() => {});
     // A refresh after the first load fails across the board, as when the server goes away (one failing read alone is
     // cleared again by the next successful one).
     if (options.refreshFails && conversationReads > 1 && (p === "/api/config" || p === "/api/bots")) return json({ error: { code: "unavailable", message: "Synthetic: the server is busy" } }, 503);

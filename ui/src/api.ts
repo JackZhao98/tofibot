@@ -2,6 +2,7 @@ import type { FollowupAccount, FollowupBotSettings, FollowupOverview, FollowupVe
 import { i18n } from "./i18n";
 import { codeText } from "./i18n/codeText";
 import { invalidateModelCatalog } from "./modelCatalogStore";
+import { setProxyChallenge } from "./proxyChallenge";
 
 export class ApiError extends Error {
   constructor(public status: number, message: string, public code?: string, public data?: Record<string, unknown>) {
@@ -19,7 +20,16 @@ export async function request<T>(path: string, init: RequestInit = {}): Promise<
   if (init.body && !(init.body instanceof FormData) && !headers.has("Content-Type")) headers.set("Content-Type", "application/json");
   // A read that never answers must fail so polls can recover; writes keep their own pace.
   const signal = init.signal ?? (!init.method || init.method === "GET" ? AbortSignal.timeout(READ_TIMEOUT_MS) : undefined);
-  const response = await fetch(path, { ...init, headers, credentials: "same-origin", signal });
+  const send = () => fetch(path, { ...init, headers, credentials: "same-origin", signal });
+  let response = await send();
+  // A proxy challenge (Cloudflare) is not a TOFI answer: renew the clearance once, retry once, else one notice.
+  if (response.status === 403 || response.status === 503) {
+    // If the recovery chunk cannot load, the response is handled as it came.
+    const settled = await import("./proxyChallengeRecover").then((m) => m.settle(path, response, send), () => response);
+    if (!settled) throw new ApiError(response.status, codeText("proxy_challenge")!, "proxy_challenge");
+    response = settled;
+  }
+  setProxyChallenge(false);
   if (!response.ok) {
     if (response.status === 401) window.dispatchEvent(new Event("tofi:unauthorized"));
     const body = (await response.json().catch(() => null)) as { error?: { message?: string; code?: string } & Record<string, unknown> } | null;
@@ -163,7 +173,7 @@ export function openConversationEvents(
     source.addEventListener("workspace_reset", workspace.onReset);
   }
   source.addEventListener("ping", () => onActivity?.());
-  source.onerror = onError;
+  source.onerror = streamError(source, onError);
   return source;
 }
 
@@ -179,9 +189,15 @@ export function openWorkspaceEvents(
   source.addEventListener("workspace", workspaceEventListener(onEvent, true));
   source.addEventListener("ping", () => onActivity?.());
   if (onReset) source.addEventListener("workspace_reset", onReset);
-  source.onerror = onError;
+  source.onerror = streamError(source, onError);
   return source;
 }
+
+/** A stream the browser gave up on may have met a proxy challenge, whose status EventSource hides: one cheap request classifies it. */
+const streamError = (source: EventSource, onError: () => void) => () => {
+  if (source.readyState === EventSource.CLOSED) void request("/api/server-info").catch(() => {});
+  onError();
+};
 
 function workspaceEventListener(onEvent: (data: WorkspaceEventEnvelope, eventId: number) => void, ownSSECursor: boolean) {
   return (event: Event) => {

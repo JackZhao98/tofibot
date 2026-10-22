@@ -15,6 +15,7 @@
     "unknown": "시간 미확인"
   },
   "action": {
+    "verify_again": "다시 확인",
     "retry": "다시 시도"
   },
   "apiError": {
@@ -30,6 +31,8 @@
     "schedule_timing_conflict": "이 시간 항목은 이 종류의 일정에 사용할 수 없습니다.",
     "schedule_timing_locked": "이미 실행된 일회성 일정은 시간을 다시 정할 수 없습니다.",
     "request_failed": "요청 실패({{status}})",
+    "proxy_challenge": "사이트 보호 기능(Cloudflare)의 재확인이 필요합니다.",
+    "csrf": "교차 사이트 요청으로 차단되었습니다. 페이지를 새로고침한 뒤 다시 시도하세요.",
     "plugin_busy": "플러그인을 작업에서 사용 중입니다. 잠시 후 다시 시도하세요.",
     "computer_busy": "컴퓨터가 사용 중이거나 다른 창, 작업 또는 Bot이 제어하고 있습니다. 진행 중인 작업을 중지하거나 잠시 후 다시 시도하세요.",
     "control_expired": "제어권이 해제되었거나 만료되었습니다. 다시 인계받으세요.",

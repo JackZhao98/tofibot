@@ -15,6 +15,7 @@
     "unknown": "Heure non confirmée"
   },
   "action": {
+    "verify_again": "Revérifier",
     "retry": "Réessayer"
   },
   "apiError": {
@@ -30,6 +31,8 @@
     "schedule_timing_conflict": "Ces champs de planification ne s'appliquent pas à ce type de planification.",
     "schedule_timing_locked": "Une planification ponctuelle déjà exécutée ne peut pas être reprogrammée.",
     "request_failed": "Échec de la requête ({{status}})",
+    "proxy_challenge": "La protection du site (Cloudflare) demande une nouvelle vérification.",
+    "csrf": "La requête a été bloquée comme requête inter-sites. Rechargez la page et réessayez.",
     "plugin_busy": "Le plugin est utilisé par une tâche. Réessayez dans un instant.",
     "computer_busy": "L’ordinateur est occupé ou piloté par une autre fenêtre, tâche ou un autre Bot. Arrêtez la tâche en cours ou réessayez dans un instant.",
     "control_expired": "Le contrôle a été libéré ou a expiré. Reprenez la main.",
