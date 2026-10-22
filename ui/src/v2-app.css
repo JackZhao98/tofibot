@@ -374,11 +374,11 @@ html:not([data-desktop]) .workspace .composer.is-no-model .composer-perch { top:
 html:not([data-desktop]) .workspace .composer-perch .lab-cat { display:block; width:100%; height:100%; }
 html:not([data-desktop]) .workspace .work-companion>.avatar { display:none; }
 html:not([data-desktop]) .workspace .work-companion:not(:has(.working-label)) { display:none; }
-html:not([data-desktop]) .workspace .composer > .working-members:not(.group-working-members) { display:block; min-height:18px; margin:0 auto 10px; padding:0 8px; font:var(--type-status); }
+html:not([data-desktop]) .workspace .composer > .working-members:not(.group-working-members) { display:block; min-height:18px; margin:0 auto 10px; padding:0 8px; font:var(--type-meta); }
 html:not([data-desktop]) .workspace .composer > .working-members:not(.group-working-members):not(:has(.working-label)) { display:none; }
-html:not([data-desktop]) .workspace .composer .working-member.work-companion .working-label { margin:0; color:var(--lagoon-text); font:var(--type-status); line-height:18px; }
+html:not([data-desktop]) .workspace .composer .working-member.work-companion .working-label { margin:0; color:var(--text-process); font:var(--type-meta); line-height:18px; }
 .workspace .working-member { display:flex; align-items:flex-end; gap:8px; min-width:0; }
-.workspace .working-member.work-active .working-label { margin:0 3px 19px 0; color:var(--work-status-ink); font:600 11px/1.4 var(--mono); }
+.workspace .working-member.work-active .working-label { margin:0 3px 19px 0; color:var(--text-process); font:var(--type-meta); }
 .workspace .group-working-members { display:flex; align-items:flex-end; gap:2px; min-height:48px; padding-left:18px; }
 .workspace .group-working-cat { position:relative; flex:0 0 52px; width:52px; height:52px; }
 .workspace .group-working-cat .avatar { width:52px; height:52px; margin:0 0 -6px; }

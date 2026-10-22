@@ -48,9 +48,10 @@ html:not([data-desktop]) .workspace.keyboard-viewport-open .composer-perch { dis
 html:not([data-desktop]) .workspace.keyboard-viewport-open .message-scroll,
 html:not([data-desktop]) .workspace.keyboard-viewport-open .chat-pane:has(.composer-perch) .message-scroll { padding-top:calc(var(--chat-header-height,0px) + 8px); padding-bottom:calc(var(--composer-height,110px) + 8px); }
 html[data-desktop] .workspace .message-scroll { padding-bottom:calc(var(--composer-height,110px) + 24px + 20px); }
-/* A live-only group block is not a sender unit: its line starts in the avatar column, the cat centred where the avatar sits. */
-.workspace .task-run-block.in-group:not([data-sender]) > .task-run-live-line { margin-left:calc(var(--sender-gutter) * -1); gap:var(--sender-gap); }
-.workspace .task-run-block.in-group:not([data-sender]) > .task-run-live-line > .task-activity-cat { width:var(--sender-avatar); place-items:center; }
+/* A live-only group block is not a sender unit: its line starts in the avatar column, the loading mark centred where the avatar sits. */
+.workspace .task-run-block.in-group:not([data-sender]) > .task-run-live-line { margin-left:calc(var(--sender-gutter) * -1); }
+.workspace .task-run-block.in-group:not([data-sender]) > .task-run-live-line .process-line { gap:var(--sender-gap); }
+.workspace .task-run-block.in-group:not([data-sender]) > .task-run-live-line .live-mark { margin-inline:calc((var(--sender-avatar) - 14px) / 2); }
 /* Wider gap where the speaker changes (person ↔ Bot, Bot ↔ Bot); a speaker's consecutive messages stay close. */
 .workspace .message-list [data-speaker-change="true"] { margin-top:22px; }
 /* A delegation in a group: one quiet handoff line; the brief opens on request. */

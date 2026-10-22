@@ -283,13 +283,17 @@ try {
       const { page, context, errors } = await open(url, { width: 1180, height: 820, theme: "light", world, fakeEvents: true });
       try {
         await page.waitForSelector(".task-run-live-line");
-        const live = await page.evaluate(() => ({ lines: [...document.querySelectorAll(".task-run-live-line")].map(el => el.textContent), steps: document.querySelectorAll(".task-step, .task-activity, .web-tool-run:not(.live-run-status)").length, heads: document.querySelectorAll(".message-list .task-run-block .sender-head").length, names: [...document.querySelectorAll(".task-run-live-line .task-activity-name")].map(el => el.textContent), cats: document.querySelectorAll(".message-list .task-run-block :is(.task-activity-cat, .sender-avatar)").length, last: document.querySelector(".message-list").lastElementChild?.className ?? "" }));
+        const live = await page.evaluate(() => ({ lines: [...document.querySelectorAll(".task-run-live-line")].map(el => el.textContent), steps: document.querySelectorAll(".task-step, .task-activity, .web-tool-run:not(.live-run-status)").length, heads: document.querySelectorAll(".message-list .task-run-block .sender-head").length, names: [...document.querySelectorAll(".task-run-live-line .task-activity-name")].map(el => el.textContent), cats: document.querySelectorAll(".message-list .task-run-block :is(.task-activity-cat, .sender-avatar)").length, marks: document.querySelectorAll(".message-list .task-run-live-line .live-mark").length, button: document.querySelectorAll(".message-list .task-run-live-line button.process-line[aria-expanded=false]").length, weight: Number(getComputedStyle(document.querySelector(".task-run-live-line .process-line")).fontWeight), wraps: document.querySelector(".task-run-live-line .process-line-text").scrollHeight <= document.querySelector(".task-run-live-line .process-line-text").clientHeight + 1, last: document.querySelector(".message-list").lastElementChild?.className ?? "" }));
         assert.equal(live.lines.length, 1, "exactly one live status line");
         assert.match(live.lines[0], /正在浏览网页 · \d+s/, "the live line names the current action and the elapsed time");
         assert.equal(live.steps, 0, "no tool list while live");
         assert.equal(live.heads, 0, "a live-only block carries no sender caption");
         assert.deepEqual(live.names, kind === "group" ? ["Simile Cat"] : [], "the live line names the Bot in a group, not in a direct chat");
-        assert.equal(live.cats, 1, "one avatar on the live line");
+        assert.equal(live.cats, 0, "no avatar on the live line: a loading mark takes the cat's place");
+        assert.equal(live.marks, 1, "one loading mark on the live line");
+        assert.equal(live.button, 1, "the live line is a collapsed button");
+        assert.equal(live.weight, 400, "the live line is regular weight");
+        assert.ok(live.wraps, "the live line is one line");
         await page.locator(".task-run-live-line").scrollIntoViewIfNeeded(); await page.waitForTimeout(200);
         await page.screenshot({ path: join(heroDir, `after-live-${kind}-1180x820-light.png`) });
         // The run ends without a message or card: the line and its name label disappear and nothing is left behind.
@@ -317,10 +321,10 @@ try {
         const seen = await page.evaluate(() => {
           const prompt = getComputedStyle(document.querySelector(".question-prompt"));
           const line = document.querySelector(".task-run-live-line");
-          return { size: parseFloat(prompt.fontSize), weight: Number(prompt.fontWeight), cats: line.querySelectorAll(".task-activity-cat").length, name: line.querySelector(".task-activity-name")?.textContent ?? "", heads: document.querySelectorAll(".message-list .task-run-block .sender-head").length };
+          return { size: parseFloat(prompt.fontSize), weight: Number(prompt.fontWeight), cats: line.querySelectorAll(".live-mark").length, name: line.querySelector(".task-activity-name")?.textContent ?? "", heads: document.querySelectorAll(".message-list .task-run-block .sender-head").length };
         });
         assert.ok(seen.size <= 15 && seen.weight < 600, `question text reads at chat size (${seen.size}px/${seen.weight})`);
-        assert.deepEqual([seen.cats, seen.name, seen.heads], [1, "Simile Cat", 0], "one cat and the Bot's name on the live line, no extra caption");
+        assert.deepEqual([seen.cats, seen.name, seen.heads], [1, "Simile Cat", 0], "one loading mark and the Bot's name on the live line, no extra caption");
         await page.locator(".task-run-live-line").scrollIntoViewIfNeeded(); await page.waitForTimeout(200);
         await page.screenshot({ path: join(heroDir, `after-question-group-${width}-light.png`) });
         assert.deepEqual(errors, [], "page errors");
