@@ -70,6 +70,7 @@
     "unsupported_protocol": "This MCP service does not support the 2026-07-28 protocol that Tofi requires. Upgrade the service; Tofi does not fall back to an older protocol.",
     "api_disabled": "Google reports the API is not enabled. Enable the product API and its MCP service in the same project as the OAuth client, then refresh the tools.",
     "access_denied": "Google denied access. If the app is in testing mode, check that this account is a test user; an account or organization restriction is also possible.",
-    "permission_denied": "Google refused to list the tools. Confirm the Cloud project has joined the Google Workspace Developer Preview Program, that the OAuth client has \"Use this client for an AI-powered agent\" checked (from 2026-11-11 the Workspace MCP rejects unmarked clients; the setting is fixed after 11-12, so a new client is needed), and check the API and MCP enablement and the account's permissions. A 401 or 403 alone cannot tell which one it is."
+    "permission_denied": "Google refused to list the tools. Confirm the Cloud project has joined the Google Workspace Developer Preview Program, that the OAuth client has \"Use this client for an AI-powered agent\" checked (from 2026-11-11 the Workspace MCP rejects unmarked clients; the setting is fixed after 11-12, so a new client is needed), and check the API and MCP enablement and the account's permissions. A 401 or 403 alone cannot tell which one it is.",
+    "context_snapshot_unavailable": "No context was recorded for this reply."
   }
 }

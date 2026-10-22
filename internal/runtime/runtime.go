@@ -30,6 +30,19 @@ func SystemPromptOverheadRunes() int {
 	return len([]rune(agent.ProgressReportPrompt(defaultToolCallsBetweenReports)))
 }
 
+// SystemPromptSuffix is the exact text the agent loop appends to Request.System
+// for a run with or without tools, so "view context" can show the whole system
+// prompt. Keep it in step with the reports value chosen in Run.
+func SystemPromptSuffix(structured, hasTools bool) string {
+	if !hasTools {
+		return ""
+	}
+	if structured {
+		return agent.StructuredReportPrompt(defaultToolCallsBetweenReports)
+	}
+	return agent.ProgressReportPrompt(defaultToolCallsBetweenReports)
+}
+
 // StructuredPromptOverheadRunes is the same suffix for a run that follows the
 // say protocol. It is shorter than SystemPromptOverheadRunes, which therefore
 // remains a valid reservation for both.

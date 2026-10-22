@@ -309,6 +309,33 @@ export interface ToolActivityDetailPage {
   has_more: boolean;
 }
 
+/** GET /api/runs/{id}/context: what a run's first model call received, part by part (D53). */
+export interface RunContextPart {
+  kind: string;
+  label?: string;
+  role?: string;
+  chars: number;
+  tokens: number;
+  text?: string;
+  text_dropped?: boolean;
+  redactions?: number;
+  on_demand?: boolean;
+  message?: { id?: string; kind?: string; sender?: string; created_at?: string; gisted?: boolean; trimmed?: boolean; images?: number; request?: boolean };
+  items?: { name: string; chars: number; tokens: number }[];
+}
+
+export interface RunContextSnapshot {
+  version: number;
+  run_id: string;
+  conversation_id: string;
+  bot_id: string;
+  model?: string;
+  captured_at: string;
+  parts: RunContextPart[];
+  history: { considered: number; included: number; skipped: number; skipped_by_summary: number; earlier_unfetched?: boolean };
+  totals: { chars: number; tokens: number; on_demand_chars: number; on_demand_tokens: number; dropped_texts: number; by_kind: { kind: string; parts: number; chars: number; tokens: number }[] };
+}
+
 export interface Run {
   id: string;
   conversation_id: string;

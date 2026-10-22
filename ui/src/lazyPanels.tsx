@@ -25,6 +25,7 @@ const loaders = {
   updateBanner: () => import("./UpdateNotice"),
   contextPanels: () => import("./ContextPanels"),
   questionCard: () => import("./QuestionCard"),
+  runContext: () => import("./RunContext"),
 } as const;
 export type PanelChunk = keyof typeof loaders;
 
@@ -78,6 +79,7 @@ export const MembersPanel = chunk("contextPanels", module => module.MembersPanel
 export const PermissionCoach = chunk("permissionCoach", module => module.PermissionCoach);
 export const UpdateBanner = chunk("updateBanner", module => module.UpdateBanner);
 export const QuestionCard = chunk("questionCard", module => module.QuestionCard);
+export const RunContextView = chunk("runContext", module => module.RunContextView);
 export const Onboarding = chunk("onboarding", module => module.Onboarding);
 
 export function preloadPanel(name: PanelChunk) {
