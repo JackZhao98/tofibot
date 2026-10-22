@@ -15,12 +15,12 @@ import (
 	"testing"
 	"time"
 
-	"github.com/google/uuid"
-	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"github.com/JackZhao98/tofibot/internal/codexauth"
 	"github.com/JackZhao98/tofibot/internal/computer"
 	"github.com/JackZhao98/tofibot/internal/extensions"
 	"github.com/JackZhao98/tofibot/internal/runtime"
+	"github.com/google/uuid"
+	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
 const fallbackAcceptanceModel = "codex-gpt-5.6-luna"

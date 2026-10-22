@@ -10,9 +10,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/google/uuid"
 	"github.com/JackZhao98/tofibot/internal/computer"
 	"github.com/JackZhao98/tofibot/internal/extensions"
+	"github.com/google/uuid"
 )
 
 const oauthOwnerPrefix = "human-oauth:"

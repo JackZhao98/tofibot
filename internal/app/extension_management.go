@@ -21,7 +21,9 @@ func (s *Server) routeExtensions(w http.ResponseWriter, r *http.Request, p strin
 		writeErr(w, 503, "extensions_unavailable", "extensions unavailable")
 		return true
 	}
-	if s.routeLocalMCP(w,r,p) { return true }
+	if s.routeLocalMCP(w, r, p) {
+		return true
+	}
 	if s.routeSkillAccess(w, r, p) || s.routeBuiltinSkillEnabled(w, r, p) {
 		return true
 	}

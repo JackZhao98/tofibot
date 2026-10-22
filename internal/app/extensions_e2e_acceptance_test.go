@@ -17,8 +17,8 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"github.com/JackZhao98/tofibot/internal/runtime"
+	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
 type extensionAcceptanceEngine struct {

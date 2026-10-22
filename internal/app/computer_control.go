@@ -11,8 +11,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/google/uuid"
 	"github.com/JackZhao98/tofibot/internal/computer"
+	"github.com/google/uuid"
 )
 
 const computerControlLease = 15 * time.Second

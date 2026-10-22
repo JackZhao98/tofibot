@@ -10,8 +10,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"github.com/JackZhao98/tofibot/internal/mcprunner"
+	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
 func TestGuestRunnerHelperProcess(t *testing.T) {

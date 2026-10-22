@@ -296,6 +296,7 @@ func (a *ownerAuth) session(r *http.Request) (string, time.Time, bool) {
 	err = a.store.db.QueryRow(`SELECT expires_at FROM owner_sessions WHERE token_hash=?`, hash[:]).Scan(&expiry)
 	return string(hash[:]), time.Unix(expiry, 0), err == nil && time.Now().Unix() < expiry
 }
+
 // cookieSecure marks session cookies Secure when the request arrived over TLS
 // or the configured public origin is https (TLS terminated by a proxy).
 func (a *ownerAuth) cookieSecure(r *http.Request) bool {

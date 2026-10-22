@@ -831,8 +831,8 @@
         "what": "Nach der Nutzung von Werkzeugen gleicht ein Bot seine Antwort vor dem Senden einmal mit den tatsächlichen Ergebnissen ab."
       },
       "answer_gate": {
-        "name": "Antworten vor der Anzeige prüfen",
-        "what": "Ein Prüfer liest jeden Antwortentwurf anhand eines Kriterienkatalogs, bevor Sie ihn sehen; ein schwacher Entwurf geht zur Überarbeitung an den Bot zurück. Hier steht, wie oft ein Entwurf zurückgehen darf; 0 schaltet die Prüfung aus. Antworten erscheinen etwas später."
+        "name": "Geplante und Hintergrundarbeit vor der Zustellung prüfen",
+        "what": "Ein Prüfer liest jeden Ergebnisentwurf eines geplanten Laufs anhand eines Kriterienkatalogs, bevor er zugestellt wird; ein schwacher Entwurf geht zur Überarbeitung an den Bot zurück. Hier steht, wie oft ein Entwurf zurückgehen darf; 0 schaltet die Prüfung aus. Chat-Antworten werden nie geprüft."
       },
       "mcp_auto_review": {
         "name": "Automatische Prüfung von Werkzeugaufrufen",
