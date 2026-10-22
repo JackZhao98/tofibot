@@ -156,6 +156,7 @@ TOFI 是一个自托管的 AI Bot 工作台：后端是 Go 服务（`internal/`�
 | 模型提供方、MCP、语音输入、主动跟进、语言等设置页 | `ui/src/ModelSettings.tsx`、`MCPSettings.tsx`、`DictationSettings.tsx`、`FollowupsSettings.tsx`、`LanguageSetting.tsx` |
 | 设置页重做：第 1、2 阶段已经上线，第 3 阶段要等工具重做的部分完成 | [settings-redesign.md](../agent-plan/settings-redesign.md) 状态行 |
 | Google Workspace MCP 连接（Gmail、Drive、Docs、Sheets、Slides、Calendar）：Cloud 项目须加入 Developer Preview Program，OAuth 客户端须标为 AI 智能体，2026-11-11 起未标记的会被拒，11-12 起固定。引导和诊断已覆盖（分支 `fix/google-agentic-client`，未合并）；**owner 待办：在 GCP 项目 `tofi-self-hosted` 标记现有客户端** | [D46](../decisions/0046-google-agentic-oauth-client.md)；`internal/extensions/inspection_diagnostic.go`；`ui/src/locales/*/extensions.json` |
+| 自己安装社区 MCP（试验案例 Discord）：TOFI 只精选官方连接，社区服务由使用者在“安装其他本地 MCP”里装；可选 npm 包摘要校验，环境变量值是密码框并在装好后清空，连接标“社区插件·包名·版本”；社区连接的工具不信提供方的只读标注，默认按写批准；带脚本的已安装 Skill 读取时复制到 Bot 电脑。选定 `@discord-mcp/cli` 0.32.1，只开 10 个工具，邀请权限 66560/68672。**没有真实 Discord token，未对真实 Discord 验证**（分支 `feat/discord-connector`，未合并） | [D47](../decisions/0047-curated-official-community-user-installed.md)；[资格记录](../integrations/discord-package-qualification.md)；[添加步骤](../integrations/discord-add-it-yourself.md)；`internal/mcprunner/install.go`；`internal/extensions/tool_tiers.go` |
 
 修改账户密码这件事 owner 认为不急（[D29](../decisions/0029-password-change-not-urgent.md)）。
 

@@ -57,6 +57,7 @@
 | D44 | 早先说过的事：边学边存记忆，历史截断时留摘要和可搜索提示 | 2026-10-21 | 照 Anthropic 记忆工具、压缩、工具说明的做法补缺口：`save_memory` 说明写明何时存；记忆本来已在每轮上下文里；历史被截断时加一条“早先轮次存在，可用 `search_history`”；`search_history` 说明写何时用；无逐轮搜索 | [0044](0044-recall-context-memory-and-search.md) |
 | D45 | 回复要和做过的活对得上：范围与数字照工具记录，留下的东西说明在哪 | 2026-10-21 | 完成复核先逐句对照工具记录再查完成度；`say` 说明加一句；`computer_files` 写入结果带绝对 `location`，`publish_file` 结果带 `source_path` 和 `attached_to_reply`，只发布人要收的 | [0045](0045-reply-matches-the-work.md) |
 | D46 | Google Workspace MCP 要求 OAuth 客户端标为 AI 智能体，并需加入 Developer Preview | 2026-10-21 | Gmail MCP 不能发信（走 gog）；2026-11-11 起 Workspace MCP 拒绝未标记的客户端，11-12 起该设置在现有客户端上固定；引导（7 语言）和 OAuth 完成页加这一步；Google 主机 401/403 的诊断点名该设置（按主机加 HTTP 状态，未找到文档化的原因码）；owner 要在 `tofi-self-hosted` 标记现有客户端 | [0046](0046-google-agentic-oauth-client.md) |
+| D47 | TOFI 只精选官方连接；社区连接由使用者自己安装，工具默认不信它自己的“只读” | 2026-10-22 | 社区包不进目录和镜像（Discord 仍 held，只给自己添加的步骤）；本地 MCP 安装加可选 npm 包摘要校验、出处（社区插件·包名·版本，进配置指纹）、值为密码框并安装后清空；对社区连接，提供方的 readOnlyHint 只展示不生效，工具默认按写批准，owner 手动标只读；使用者安装的带脚本 Skill 读取时也复制到 Bot 电脑（带凭据优先用 MCP）；试验案例 `@discord-mcp/cli` 0.32.1，邀请权限 66560 / 68672 | [0047](0047-curated-official-community-user-installed.md) |
 
 ## 怎么新增一条决定
 

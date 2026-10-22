@@ -1,0 +1,224 @@
+# @discord-mcp/cli 0.32.1 tools/list as served by the pinned package (222 tools): name, provider readOnlyHint, destructiveHint.
+# Regenerate: install the pinned version, start 'discord-mcp serve' with a placeholder DISCORD_TOKEN and no MCP_CATEGORIES, call tools/list.
+messages_send	write
+messages_read	read_only
+messages_edit	write
+messages_delete	write	destructive
+messages_get	read_only
+messages_crosspost	write
+messages_bulk_delete	write	destructive
+messages_pin	write
+messages_unpin	write
+messages_list_pins	read_only
+messages_create_thread	write
+messages_search_recent	read_only
+reactions_create	write
+reactions_delete_own	write
+reactions_delete_user	write
+reactions_list	read_only
+reactions_delete_all	write	destructive
+emojis_list_guild	read_only
+emojis_get	read_only
+emojis_create	write
+emojis_modify	write
+emojis_delete	write	destructive
+app_emojis_list	read_only
+app_emojis_get	read_only
+app_emojis_create	write
+app_emojis_modify	write
+app_emojis_delete	write	destructive
+stickers_get	read_only
+stickers_list_packs	read_only
+stickers_list_guild	read_only
+stickers_get_guild_sticker	read_only
+stickers_create_guild_sticker	write
+stickers_modify_guild_sticker	write
+stickers_delete_guild_sticker	write	destructive
+channels_list	read_only
+channels_get	read_only
+channels_create_guild_channel	write
+channels_modify	write
+channels_delete	write	destructive
+channels_modify_permissions	write
+channels_delete_permissions	write
+channels_follow_announcement	write
+channels_trigger_typing	write
+channels_list_active_threads_guild	read_only
+channels_list_public_archived_threads	read_only
+channels_list_private_archived_threads	read_only
+channels_list_joined_private_archived_threads	read_only
+channels_forum_create_thread	write
+threads_join	write
+threads_leave	write
+threads_add_member	write
+threads_remove_member	write
+threads_get_member	read_only
+threads_list_members	read_only
+invites_get	read_only
+invites_delete	write	destructive
+invites_list_channel	read_only
+invites_create_channel	write
+members_get	read_only
+members_search	read_only
+members_list	read_only
+members_modify	write
+members_modify_current	write
+members_add_role	write
+members_bulk_add_role	write
+members_remove_role	write
+members_kick	write	destructive
+members_ban	write	destructive
+members_unban	write
+members_list_bans	read_only
+members_get_ban	read_only
+members_bulk_ban	write	destructive
+members_get_current_user	read_only
+roles_list	read_only
+permissions_audit_channel	read_only
+permissions_explain	read_only
+roles_create	write
+roles_modify	write
+roles_modify_positions	write
+roles_delete	write	destructive
+templates_get	read_only
+templates_inspect	read_only
+templates_diff	read_only
+templates_list	read_only
+templates_create	write
+templates_sync	write
+templates_modify	write
+templates_recommend	read_only
+templates_delete	write	destructive
+guild_get	read_only
+guild_change_plan	read_only
+guild_change_apply	write
+guild_change_restore	write
+permissions_member_access_report	read_only
+messages_context	read_only
+workflow_start	write
+workflow_status	read_only
+workflow_resume	write
+workflow_cancel	write
+guild_blueprint_compile	read_only
+guild_blueprint_plan	read_only
+guild_blueprint_apply	write	destructive
+guild_blueprint_evidence	read_only
+guild_modify	write
+guild_list_voice_regions	read_only
+guild_list_integrations	read_only
+guild_delete_integration	write	destructive
+guild_get_widget_settings	read_only
+guild_modify_widget	write
+guild_get_widget	read_only
+guild_get_widget_image_url	read_only
+guild_get_vanity_url	read_only
+guild_get_welcome_screen	read_only
+guild_modify_welcome_screen	write
+guild_get_prune_count	read_only
+guild_begin_prune	write	destructive
+guild_modify_user_voice_state	write
+guild_modify_current_voice_state	write
+audit_log_get	read_only
+automod_list_rules	read_only
+automod_get_rule	read_only
+automod_create_rule	write
+automod_modify_rule	write
+automod_delete_rule	write	destructive
+webhooks_list_channel	read_only
+webhooks_list_guild	read_only
+webhooks_create	write
+webhooks_get	read_only
+webhooks_get_with_token	read_only
+webhooks_modify	write
+webhooks_modify_with_token	write
+webhooks_delete	write	destructive
+webhooks_delete_with_token	write	destructive
+webhooks_execute	write
+webhooks_get_message	read_only
+webhooks_edit_message	write
+webhooks_delete_message	write	destructive
+events_list	read_only
+events_create	write
+events_get	read_only
+events_modify	write
+events_delete	write	destructive
+events_list_users	read_only
+commands_list_guild	read_only
+commands_list_global	read_only
+commands_create_global	write
+commands_get_global	read_only
+commands_modify_global	write
+commands_delete_global	write	destructive
+commands_bulk_overwrite_global	write	destructive
+commands_create_guild	write
+commands_get_guild	read_only
+commands_modify_guild	write
+commands_delete_guild	write	destructive
+commands_bulk_overwrite_guild	write	destructive
+commands_get_guild_command_permissions	read_only
+commands_get_command_permissions	read_only
+commands_edit_command_permissions	write
+users_get_current	read_only
+users_get	read_only
+users_modify_current	write
+users_list_current_user_guilds	read_only
+users_leave_guild	write	destructive
+users_create_dm	write
+components_v2_build_container	read_only
+components_v2_build_section	read_only
+components_v2_build_media_gallery	read_only
+components_v2_validate	read_only
+components_v2_preview	read_only
+components_v2_send	write
+components_v2_edit	write
+components_v2_send_from_template	write
+messages_compose	read_only
+messages_publish	write
+messages_update	write
+mcp_pipeline	write
+discord_intent_plan	read_only
+intelligence_summarize_channel	read_only
+intelligence_classify_messages	read_only
+intelligence_draft_response	read_only
+intelligence_moderate_content	read_only
+intelligence_extract_entities	read_only
+inspiration_emoji_gg_search	read_only
+interactions_create_response	write
+interactions_get_original_response	read_only
+interactions_edit_original_response	write
+interactions_delete_original_response	write	destructive
+interactions_create_followup	write
+interactions_get_followup	read_only
+interactions_edit_followup	write
+interactions_delete_followup	write	destructive
+application_get_current	read_only
+application_modify_current	write
+application_get_role_connection_metadata	read_only
+application_modify_role_connection_metadata	write
+application_get_activity_instance	read_only
+stage_instances_create	write
+stage_instances_get	read_only
+stage_instances_modify	write
+stage_instances_delete	write	destructive
+soundboard_list_default_sounds	read_only
+soundboard_list_guild_sounds	read_only
+soundboard_get_guild_sound	read_only
+soundboard_create_guild_sound	write
+soundboard_modify_guild_sound	write
+soundboard_delete_guild_sound	write	destructive
+soundboard_send_sound	write
+polls_get_voters	read_only
+polls_end	write
+voice_list_regions	read_only
+voice_get_current_user_state	read_only
+voice_get_user_state	read_only
+onboarding_get	read_only
+onboarding_modify	write
+skus_list	read_only
+subscriptions_list	read_only
+subscriptions_get	read_only
+entitlements_list	read_only
+entitlements_get	read_only
+entitlements_consume	write
+entitlements_create_test	write
+entitlements_delete_test	write	destructive

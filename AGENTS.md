@@ -126,6 +126,12 @@ card returns to a person; unattended: it is closed and the call refused `mcp_nee
 writes `mcp_standing_allowance_uses` (null `call_id` when the runtime gave none) inside the claim transaction, and links the tool activity
 (`ToolActivity.allowed_by`). Archiving/deleting the Bot or the server (`deleteMCPServer`: use it, not `extensions.DeleteMCP`) revokes the grants
 (`revoked_by` `bot_archived` | `bot_deleted` | `server_removed`) and keeps the rows and uses.
+Community connections (decision 0047): TOFI curates official connectors only; a community MCP is installed by the person under Settings > Connections > Local MCP
+(npm or PyPI, pinned version, optional npm `sha512-` digest verified after install). Its secrets are 0600 files in the Runner, never in a response, status or manifest.
+`attachLocalMCP` writes `provenance` (origin `community`, kind, package, version) from the Runner's status only; it is part of the configuration fingerprint, so a
+different package or version voids standing allowances. For a community server the provider's `readOnlyHint` is shown but not obeyed (`communityServer` in
+`resolveMCPToolTier`): its tools are reviewed as writes until the owner marks them read-only. Installed Skills with scripts are copied to the Bot's computer on
+`read_skill` like built-in ones, so prefer MCP for anything holding a credential. Pins and recipes live in `docs/integrations/community/`.
 Session cookies are Secure when `TOFI_PUBLIC_ORIGIN` is https; Caddy sends HSTS. Known open: `computer_shell` shares a uid and loopback with the
 shared Chrome DevTools port.
 
