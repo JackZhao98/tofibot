@@ -18,6 +18,7 @@ TOFI 是一个自托管的 AI Bot 工作台：Go 后端在 `internal/`，React 1
 | 5 | [`product/roadmap.md`](product/roadmap.md) | 已完成、进行中、下一步、暂缓 |
 | 6 | [`releases.md`](releases.md) | 每个版本（含每个 rc）带进了什么 |
 | 7 | 动界面之前：[`design/README.md`](design/README.md) | 设计令牌、组件清单、设计原则、迁移方案 |
+| 8 | 加新页面或组件：[`design/new-page.md`](design/new-page.md)；写代码之前：[`conventions.md`](conventions.md) | 一步一步的做法；Go 和 TS/React 现行的代码约定（错误码、context、SQL、日志、测试、前端取数、CSS） |
 
 ## 状态口径
 
@@ -70,6 +71,8 @@ TOFI 是一个自托管的 AI Bot 工作台：Go 后端在 `internal/`，React 1
 | [`design/components.md`](design/components.md) | 每个组件的状态、焦点、键盘、关闭、位置、层级、动效、已知问题（C1–C41） | 现行 | 基线 `748c774`；改组件行为要同一提交更新 |
 | [`design/principles.md`](design/principles.md) | 设计原则 P1–P8，每条带检查方法、冲突取舍和 PR 评审清单 | 现行 | 规则来自 D16–D23 等决定 |
 | [`design/migration.md`](design/migration.md) | 迁到 Radix / Motion / dnd-kit 的分步方案、体积实测、风险和预览点 | 现行：owner 已点头，六步都已完成（第 4 步不引入 Motion、右滑返回上线自研版；第 5 步 dnd-kit 不通过），合在集成分支 `ds/integrate` 上，等预览和合并 | §7 是 owner 对 Q1–Q4 的回答（D31–D34） |
+| [`design/new-page.md`](design/new-page.md) | 新页面怎么做：十步配方，引用本目录各文档和代码路径，末节是对现有组件的走查 | 现行 | 基线 `25930a5` |
+| [`conventions.md`](conventions.md) | Go 与 TypeScript/React 代码约定，从现有代码推出，带文件出处；已知遗留写明 | 现行 | 基线 `25930a5`；约定变了要同一提交更新 |
 | [`../ui/src/locales/README.md`](../ui/src/locales/README.md) | Web UI 本地化规则 | 现行 | 7 种语言目录都在 `ui/src/locales/` |
 | [`../ui/src/icons/README.md`](../ui/src/icons/README.md)、[`../ui/public/icons/README.txt`](../ui/public/icons/README.txt) | TOFI 自绘图标 v2.1 的用法 | 现行 | `ui/public/icons/manifest.json` 正好 144 个图标 |
 | [`../ui/src/lib/tofi-avatar/README.md`](../ui/src/lib/tofi-avatar/README.md) | 猫头像动效库 v2 的 API | 现行 | 10-20 仍在改（`39a1822`） |

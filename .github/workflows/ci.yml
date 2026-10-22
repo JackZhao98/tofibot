@@ -17,8 +17,12 @@ jobs:
       - uses: actions/setup-go@v5
         with:
           go-version-file: go.mod
+      - name: gofmt (new unformatted files fail; .gofmt-baseline only shrinks)
+        run: scripts/check-gofmt.sh
       - name: go build
         run: go build ./...
+      - name: go vet
+        run: go vet ./...
       - name: go test
         run: go test ./...
 
@@ -34,7 +38,60 @@ jobs:
       - run: npm --prefix ui ci
       - run: npm --prefix ui run typecheck
       - run: npm --prefix ui run test:i18n
+      - run: npm --prefix ui run test:motion-tokens
       - run: npm --prefix ui run build
+
+  # Browser guards. The scripts load Playwright from PLAYWRIGHT_MODULE (ui/package.json has no Playwright dependency).
+  # TOFI_SKIP_TIMING=1 leaves out the clock-reading checks of test:dialogs and test:overlays; test:shell-budget runs
+  # only its bundle-size part. See docs/process.md 3.3.
+  ui-guards:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    env:
+      TOFI_SKIP_TIMING: '1'
+      SHELL_BUDGET_ONLY: struct
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: ui/package-lock.json
+      - run: npm --prefix ui ci
+      - name: Playwright with Chromium
+        run: |
+          mkdir -p "$RUNNER_TEMP/pw"
+          cd "$RUNNER_TEMP/pw"
+          npm init -y > /dev/null
+          npm install --no-audit --no-fund playwright@1.58.2
+          npx playwright install --with-deps chromium
+          echo "PLAYWRIGHT_MODULE=$RUNNER_TEMP/pw/node_modules/playwright/index.mjs" >> "$GITHUB_ENV"
+      - run: npm --prefix ui run test:layers
+      - run: npm --prefix ui run test:dialogs
+      - run: npm --prefix ui run test:overlays
+      - run: npm --prefix ui run test:shell-budget
+
+  # The component catalog opens every state of every component in a browser: slow (minutes), no timing assertions.
+  ui-catalog:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: ui/package-lock.json
+      - run: npm --prefix ui ci
+      - name: Playwright with Chromium
+        run: |
+          mkdir -p "$RUNNER_TEMP/pw"
+          cd "$RUNNER_TEMP/pw"
+          npm init -y > /dev/null
+          npm install --no-audit --no-fund playwright@1.58.2
+          npx playwright install --with-deps chromium
+          echo "PLAYWRIGHT_MODULE=$RUNNER_TEMP/pw/node_modules/playwright/index.mjs" >> "$GITHUB_ENV"
+      - run: npm --prefix ui run test:catalog
 
   python:
     runs-on: ubuntu-24.04
@@ -63,9 +120,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: bash -n
-        run: bash -n install.sh deploy/self-host/bin/tofi scripts/release/make_bundle.sh
+        run: bash -n install.sh deploy/self-host/bin/tofi scripts/release/make_bundle.sh scripts/check-gofmt.sh
       - name: shellcheck
-        run: shellcheck install.sh deploy/self-host/bin/tofi scripts/release/make_bundle.sh
+        run: shellcheck install.sh deploy/self-host/bin/tofi scripts/release/make_bundle.sh scripts/check-gofmt.sh
 
   compose:
     runs-on: ubuntu-24.04

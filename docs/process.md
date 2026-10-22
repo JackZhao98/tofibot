@@ -81,7 +81,7 @@ go test ./internal/app -run <测试名>; echo "exit=$?"   # 必须为 0
 
 | 套件 | 命令 | 在 CI 里吗 |
 |---|---|---|
-| Go 构建和单测 | `go build ./...`、`go test ./...`（`Makefile:12-13`） | 是，`.github/workflows/ci.yml:13-23` |
+| Go 构建、单测、静态检查 | `go build ./...`、`go test ./...`（`Makefile:12-13`）、`go vet ./...`、`scripts/check-gofmt.sh`（新的未格式化文件失败；`.gofmt-baseline` 里的旧文件只减不增，格式化后必须从中删掉） | 是，`ci.yml` go 作业 |
 | UI 类型检查 | `npm --prefix ui run typecheck` | 是，`ci.yml:35` |
 | UI 硬编码文案检查 | `npm --prefix ui run test:i18n`（规则见 `ui/src/locales/README.md`） | 是，`ci.yml:36` |
 | UI 构建 | `npm --prefix ui run build` | 是，`ci.yml:37` |
@@ -91,9 +91,10 @@ go test ./internal/app -run <测试名>; echo "exit=$?"   # 必须为 0
 | compose 渲染 | `make self-host-config`（`Makefile:51-53`），外加 `docker compose -f compose.yaml config --quiet` | 是，`ci.yml:65-79` |
 | 本机 HTTP 验收 | `make acceptance`（`Makefile:30-34`，`scripts/acceptance.py` 起一个一次性实例） | 否 |
 | Docker 冒烟 | `scripts/docker-smoke.sh [image]`（一次性容器和卷，只绑 127.0.0.1） | 否 |
-| UI 浏览器套件和性能预算 | `npm --prefix ui run test:<名字>`，见 3.4 | **否**，CI 只跑上面四条 UI 命令 |
+| UI 守卫（浏览器） | `test:motion-tokens`（ui 作业）；`test:layers`、`test:dialogs`、`test:overlays`、`SHELL_BUDGET_ONLY=struct test:shell-budget`（`ui-guards` 作业，Playwright 1.58.2 + Chromium，`PLAYWRIGHT_MODULE` 由作业设置）；`test:catalog`（`ui-catalog` 作业，本地约 7 分钟）。`TOFI_SKIP_TIMING=1` 让 `test:dialogs`、`test:overlays` 跳过读时钟的检查（打开耗时、猫的写入次数、`cost:`） | 是，`ci.yml` |
+| UI 其余浏览器套件和性能预算 | `npm --prefix ui run test:<名字>`，见 3.4 | **否**（时间断言在共享机器上会抖） |
 
-注意：CI 不跑任何 UI 浏览器测试和性能预算，这些只能在本地跑并按 3.1 汇报。
+注意：CI 只跑上面列的 UI 守卫，且 `test:dialogs`、`test:overlays` 的耗时检查和 `test:shell-budget` 的帧预算部分不在 CI 里；其余套件（流式、切换、输入框、侧栏、右滑返回等）和这些被跳过的检查只能在本地跑并按 3.1 汇报。CI 里的跳过输出写 `skipped (timing check, CI mode)`，不含大写 `SKIP`。
 
 ### 3.4 UI 浏览器套件与 `PLAYWRIGHT_MODULE`
 

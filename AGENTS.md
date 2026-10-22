@@ -6,7 +6,8 @@ TOFI 是自托管的 AI Bot 工作台（Go 后端 `internal/`，React 19 网页�
 2. [docs/product/status.md](docs/product/status.md) — 产品现状、线上版本、owner 的打分标准和评测结果；路线图在 [docs/product/roadmap.md](docs/product/roadmap.md)，每个版本改了什么在 [docs/releases.md](docs/releases.md)。
 3. [docs/decisions/](docs/decisions/README.md) — owner 拍板的每一条决定（D01 起），写明时间、理由和影响的代码。
 4. [docs/process.md](docs/process.md) — 测试、评测、预览、发版、安全审查和模型分工的流程。
-5. [docs/design/](docs/design/README.md) — 设计令牌、组件清单、设计原则和迁移方案；动界面之前读。
+5. [docs/design/](docs/design/README.md) — 设计令牌、组件清单、设计原则和迁移方案；动界面之前读；加新页面、面板或组件按 [docs/design/new-page.md](docs/design/new-page.md) 一步步做。
+6. [docs/conventions.md](docs/conventions.md) — Go 与 TypeScript/React 的现行代码约定（错误码而不是消息文字、context 与超时、迁移、日志、测试、前端取数、CSS）；写代码之前读。
 
 规则：**每次合并、发版或 owner 拍板，都在同一个提交里更新对应文档**（决定 D27；哪种事件改哪份文件见 `docs/process.md`
 第 10 节）。Every merge, release or owner decision updates the matching docs in the same commit. 本文件仍是总入口，下面各节是代码约定。

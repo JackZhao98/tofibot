@@ -14,6 +14,7 @@
 | 2 | [`tokens.md`](tokens.md) | 颜色、字体、间距、圆角、描边、阴影、模糊、动效的真实取值（第一部分，带 `file:line`）；§9 z-index 现状、问题 Z1–Z7、提议的 13 层刻度和每一处的归层 | 写样式、加颜色或加层级之前 |
 | 3 | [`components.md`](components.md) | 每个组件的状态、焦点、键盘、关闭方式、位置、层级、动效、触屏；已知问题 C1–C43（§24 按严重度汇总）；§25 待确认 | 改某个组件之前，先读它那一节 |
 | 4 | [`migration.md`](migration.md) | 迁到 headless 库的分步方案：选型结论（§0）、体积实测（§2）、六步各改哪些文件、风险、owner 在预览里看哪里（§5）、owner 对 Q1–Q4 的回答（§7） | 参与迁移时；当前状态：**六步都已完成**（第 4 步不引入 Motion、右滑返回上线自研版；第 5 步 dnd-kit 不通过、保留自研拖动引擎），合在集成分支 `ds/integrate` 上，等 owner 预览和合并进 `main`；合并后的预览清单在"集成"一节 |
+| — | [`new-page.md`](new-page.md) | 新页面、面板、设置页、对话框、组件的做法：选容器、Radix 与懒加载、令牌、7 种语言文案、目录页状态、无障碍、预算与测试、评审清单、要更新的文档；末节记录用两个现有组件走查时代码与步骤不一致处 | 开始做任何新界面时，和 `principles.md` 一起读 |
 | — | 组件目录页 `ui/catalog.html`（只在开发时可用，[D34](../decisions/0034-component-catalog-dev-only.md)） | `components.md` §1–§23 的每个组件、每种状态，浅色/深色、1280/390 px、7 种语言，真组件 + 假数据；`npm --prefix ui run dev` 后打开 http://localhost:5173/catalog.html | 改组件之前先看它现在长什么样；改完对照 |
 
 ## 四份文件怎么互相引用
