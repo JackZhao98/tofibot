@@ -8,6 +8,7 @@ import (
 	"log"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/JackZhao98/tofibot/internal/computer"
@@ -378,6 +379,7 @@ func (s *Server) microVMTools(r Run) []Tool {
 		d.DisallowUnknownFields()
 		return d.Decode(target)
 	}
+	var viewed atomic.Int32
 	call := func(name, description string, schema map[string]any, parse func(json.RawMessage) (string, json.RawMessage, error)) Tool {
 		return Tool{Name: name, Description: description, Parameters: schema, Timeout: computerToolTimeout, Identity: func(raw json.RawMessage) tooloutcome.Identity {
 			action, args, err := parse(raw)
@@ -412,6 +414,12 @@ func (s *Server) microVMTools(r Run) []Tool {
 				if _, err := s.microVMAction(ctx, r, "desktop.start", json.RawMessage(`{}`)); err != nil {
 					return "", fmt.Errorf("scheduled browser startup: %w", err)
 				}
+			}
+			if action == "files.view" {
+				if viewed.Add(1) > viewsPerRunMax {
+					return "", tooloutcome.InvalidArguments(fmt.Sprintf("files.view is limited to %d images per run; judge from the views you already have", viewsPerRunMax))
+				}
+				return s.viewComputerFile(ctx, r, args)
 			}
 			if action == "browser.click" {
 				return s.browserClick(ctx, r, args)
@@ -478,7 +486,7 @@ func (s *Server) microVMTools(r Run) []Tool {
 		args, _ := json.Marshal(map[string]any{"command": in.Command, "timeout_sec": in.TimeoutSec})
 		return "shell.exec", args, nil
 	})
-	files := call("computer_files", "List, read, or write files in the shared user VM. Relative paths start in the current Bot profile; absolute paths under /workspace may access shared files or another Bot profile when needed. Files are shared and other Bots may write concurrently. Read sha256 then send expected_sha256 on writes to avoid overwriting another Bot's changes. Keep writes scoped to the requested Bot or shared workspace. A write result carries location, the absolute place the file now lives on the computer; the file stays there, unpublished until publish_file.", objectSchema(map[string]any{"action": map[string]any{"type": "string", "enum": []string{"files.list", "files.read", "files.write"}, "description": "files.list, files.read, or files.write"}, "path": map[string]any{"type": "string", "description": "Relative to this Bot profile, or an absolute path under /workspace such as /workspace/shared/..."}, "content": map[string]any{"type": "string"}, "expected_sha256": map[string]any{"type": "string", "description": "Optional SHA-256 from files.read for conditional writes to shared files; reject if another writer changed the file"}, "append": map[string]any{"type": "boolean"}, "offset": map[string]any{"type": "integer", "minimum": 1}, "limit": map[string]any{"type": "integer", "minimum": 1}}, []string{"action"}), func(raw json.RawMessage) (string, json.RawMessage, error) {
+	files := call("computer_files", "List, read, or write files in the shared user VM. Relative paths start in the current Bot profile; absolute paths under /workspace may access shared files or another Bot profile when needed. Files are shared and other Bots may write concurrently. Read sha256 then send expected_sha256 on writes to avoid overwriting another Bot's changes. Keep writes scoped to the requested Bot or shared workspace. A write result carries location, the absolute place the file now lives on the computer; the file stays there, unpublished until publish_file. files.view shows you a PNG or JPEG on the computer as an image (large ones are scaled down, at most 16 views per run): a path or a shell listing shows nothing of how a page, slide, chart or screenshot looks, so view what you rendered before you judge it.", objectSchema(map[string]any{"action": map[string]any{"type": "string", "enum": []string{"files.list", "files.read", "files.write", "files.view"}, "description": "files.list, files.read, files.write, or files.view"}, "path": map[string]any{"type": "string", "description": "Relative to this Bot profile, or an absolute path under /workspace such as /workspace/shared/..."}, "content": map[string]any{"type": "string"}, "expected_sha256": map[string]any{"type": "string", "description": "Optional SHA-256 from files.read for conditional writes to shared files; reject if another writer changed the file"}, "append": map[string]any{"type": "boolean"}, "offset": map[string]any{"type": "integer", "minimum": 1}, "limit": map[string]any{"type": "integer", "minimum": 1}}, []string{"action"}), func(raw json.RawMessage) (string, json.RawMessage, error) {
 		var in struct {
 			Action         string  `json:"action"`
 			Path           string  `json:"path,omitempty"`
@@ -510,8 +518,12 @@ func (s *Server) microVMTools(r Run) []Tool {
 				Append         bool    `json:"append,omitempty"`
 				ExpectedSHA256 *string `json:"expected_sha256,omitempty"`
 			}{Path: in.Path, Content: in.Content, Append: in.Append, ExpectedSHA256: in.ExpectedSHA256}
+		case "files.view":
+			args = struct {
+				Path string `json:"path,omitempty"`
+			}{Path: in.Path}
 		default:
-			return "", nil, errors.New("computer_files requires files.list, files.read, or files.write")
+			return "", nil, errors.New("computer_files requires files.list, files.read, files.write, or files.view")
 		}
 		argsJSON, _ := json.Marshal(args)
 		return in.Action, argsJSON, nil

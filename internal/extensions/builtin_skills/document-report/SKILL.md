@@ -13,7 +13,7 @@ description: Write DOCX or PDF documents and reports; look at the rendered pages
 
 ## Verifying
 
-- Look at the pages the way the reader will: render them to images and view them. Check that each chart, table and figure the reply mentions is on a page and agrees with the numbers in the text.
+- Look at the pages the way the reader will: render them to images and view them. A rendered image reaches you only when you view it; the computer_files tool's files.view action returns a PNG or JPEG as an image, while a path or a listing shows nothing. Check that each chart, table and figure the reply mentions is on a page and agrees with the numbers in the text.
 - Every claim in the reply is true of the delivered file. Page counts, charts and tables are mentioned only after you saw them in the rendered pages.
 - Publish only the final file.
 

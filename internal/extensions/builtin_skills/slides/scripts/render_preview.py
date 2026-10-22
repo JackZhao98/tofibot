@@ -5,7 +5,7 @@ Accepts DOCX, PPTX, XLSX or PDF. Office files are converted with
 `soffice --headless`; pages are rendered with `pdftoppm`. Writes page-NN.png and
 a contact sheet (contact.png) into --outdir and prints the page count, the
 number of embedded images per page and in total (from the PDF itself), and the
-files to open. Open the PNGs to look at the pages the way a reader will.
+files written. View the PNGs with the computer_files tool's files.view action to look at the pages the way a reader will; a path alone shows nothing.
 Usage: render_preview.py file [--outdir DIR] [--dpi 70]
 """
 from __future__ import annotations
