@@ -78,6 +78,7 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
         ? {checked_at: "2026-10-21T09:30:00Z", ok: false, tool_count: 23, error_class: "failed", error_code: "api_disabled", api: "gmail.googleapis.com", enable_url: ENABLE}
         : {checked_at: "2026-10-21T09:30:00Z", ok: true, tool_count: 23}},
       {name: "acme_tracker", url: "https://mcp.example.test/tracker", oauth: {client_id: "sample", connected: false}},
+      ...(q.get("community") ? [{name: "acme_pkg", url: "http://plugins.internal.example:8787/mcp/acme", transport: "streamable_http", provenance: {origin: "community", kind: "npm", package: "acme-mcp", version: "1.0.0"}, status: {checked_at: "2026-10-21T09:30:00Z", ok: true, tool_count: 3}}] : []),
     ]};
     if (/^\/api\/extensions\/mcp\/[^/]+\/test$/.test(path) && method === "POST") {
       const name = path.split("/")[4];
@@ -86,6 +87,11 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
       return {ok: true, tool_count: name === "notion" ? 65 : name === "google-gmail" ? 23 : 3};
     }
     let m = /^\/api\/extensions\/mcp\/([^/]+)\/tools$/.exec(path);
+    // A community connection: the server has already ignored the package's own read-only marks (D47), so only the tool the owner marked is read.
+    if (m && method === "GET" && m[1] === "acme_pkg") return {tools: [
+      {name: "list_things", description: "Provider says read only", tier: "write", source: "default", read_only_hint: true},
+      {name: "get_thing", description: "Marked by the owner", tier: "read_only", source: "owner", override: "read_only"},
+      {name: "send_thing", description: "Writes", tier: "write", source: "default"}], read_only: 1, write: 2, high_risk: 0, checked: true};
     if (m && method === "GET") return tools(m[1] === "notion" ? 6 : m[1] === "google-gmail" ? 6 : 3);
     if (path === "/api/extensions/local-mcp") return {available: q.get("runner") !== "off", plugins: q.get("fresh") ? [] : [{id: "gog", state: "sleeping", tool_count: 3}]};
     if (path === "/api/extensions/local-mcp/gog/oauth/status") return q.get("gog") === "authorised" ? {connected: true, email: "you@example.test", scope: "readonly", services: (q.get("services") || "gmail").split(",")} : {connected: false, email: "", services: []};
@@ -316,6 +322,13 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
       await custom.locator(".mcp-menu-trigger").click();
       await page.getByRole("menuitem", {name: "View details"}).click();
       assert.match(await custom.locator(".mcp-service-details").innerText(), /Custom · mcp\.example\.test/);
+      // "What this can do": read and write groups built from the tool list; official connections state no community rule.
+      const can = notion.locator(".mcp-capabilities");
+      await can.waitFor();
+      assert.match(await can.locator("h5").innerText(), /What this can do/);
+      assert.match(await can.locator('[data-capability="read"]').innerText(), /^Can read\s+tool_1 · tool_4$/, "official read tools are the provider-marked ones");
+      assert.match(await can.locator('[data-capability="write"]').innerText(), /^Can write\s+tool_2 · tool_3 · tool_5 · tool_6$/);
+      assert.equal(await can.locator('[data-capability="community"]').count(), 0, "an official connection carries no community note");
       await close();
       console.log("PASS details: each connection says where it comes from; tools are in the details; Workspace servers name the enrolment");
     }
@@ -370,6 +383,22 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
       await close();
     }
     console.log("PASS google client: a second Google service uses the saved client");
+
+    // ---- 6b. A community connection: the package's own read-only mark is ignored and writes are stated to ask every time.
+    {
+      const {page, close} = await open({community: "1"});
+      const pkg = row(page, "acme_pkg");
+      await pkg.waitFor();
+      await pkg.locator(".mcp-menu-trigger").click();
+      await page.getByRole("menuitem", {name: "View details"}).click();
+      const can = pkg.locator(".mcp-capabilities");
+      await can.waitFor();
+      assert.match(await can.locator('[data-capability="read"]').innerText(), /^Can read\s+get_thing$/, "only the owner-marked tool is read");
+      assert.match(await can.locator('[data-capability="write"]').innerText(), /list_things · send_thing/, "a tool the package calls read only is still a write");
+      assert.match(await can.locator('[data-capability="community"]').innerText(), /writes ask every time/i);
+      await close();
+      console.log("PASS capabilities: community read-only marks ignored, writes ask every time");
+    }
 
     // ---- 7d. The directory curates official connectors; community ones go through the custom path.
     {

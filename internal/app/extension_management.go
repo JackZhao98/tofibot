@@ -55,8 +55,7 @@ func (s *Server) routeExtensions(w http.ResponseWriter, r *http.Request, p strin
 				}
 			}
 		}
-		page.State = "pending"
-		page.Message = "即将前往服务提供方确认访问权限，请仅授予本次任务需要的权限。"
+		page.State, page.MessageKey, page.Lang = "pending", "msg_pending", s.oauthPageLanguage(r)
 		writeOAuthCompletion(w, http.StatusOK, page)
 		return true
 	case strings.HasPrefix(p, "extensions/mcp/") && strings.HasSuffix(p, "/oauth/start") && r.Method == http.MethodPost:
@@ -83,10 +82,10 @@ func (s *Server) routeExtensions(w http.ResponseWriter, r *http.Request, p strin
 		q := r.URL.Query()
 		identity, err := s.extensions.OAuthWebCallback(r.Context(), name, q.Get("session_id"), q.Get("code"), q.Get("state"), redirect, q.Get("error") != "")
 		page := oauthServicePage(identity)
-		page.State, page.Message = "failed", "无法验证这次授权，链接可能已过期或使用过。请返回 Tofi 重新连接。"
+		page.State, page.MessageKey, page.Lang = "failed", "msg_callback_invalid", s.oauthPageLanguage(r)
 		status := http.StatusBadRequest
 		if errors.Is(err, extensions.ErrOAuthDenied) {
-			page.State, page.Message = "denied", "服务提供方未授予访问权限，可能是取消了授权或账号不符合应用的访问条件。请检查配置后重新连接。"
+			page.State, page.MessageKey = "denied", "msg_denied"
 			if page.APIURL != "" {
 				page.Setup = "audience"
 			}

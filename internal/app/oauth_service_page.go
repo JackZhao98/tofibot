@@ -1,7 +1,6 @@
 package app
 
 import (
-	"fmt"
 	"net/url"
 	"strings"
 
@@ -12,7 +11,7 @@ import (
 // Provider artwork and configuration links come from known endpoints, never
 // from callback parameters or provider-supplied error URLs.
 func oauthServicePage(identity extensions.OAuthServiceIdentity) oauthCompletionPage {
-	page := oauthCompletionPage{ServiceName: "外部服务", LogoURL: oauthLogoGeneric}
+	page := oauthCompletionPage{LogoURL: oauthLogoGeneric}
 	if identity.Name == "" {
 		return page
 	}
@@ -58,40 +57,42 @@ func oauthVerifiedPage(page *oauthCompletionPage, inspection extensions.MCPInspe
 	page.State = "success"
 	if len(inspection.Diagnostics) == 0 {
 		if inspection.ToolCount == 0 {
-			page.Message = "已连接，但这个服务暂时没有列出工具。"
+			page.MessageKey = "msg_connected_none"
 		} else {
-			page.Message = fmt.Sprintf("已连接，读取到 %d 个工具，可以使用了。", inspection.ToolCount)
+			page.MessageKey, page.MessageCount = "msg_connected_n", inspection.ToolCount
 		}
 		return
 	}
 	diagnostic := inspection.Diagnostics[0]
+	page.DetailCode, page.MessageDetail = diagnostic.Code, diagnostic.Message
 	switch {
 	case inspection.AuthRequired:
-		page.Message = "授权已保存，但服务还不接受这次登录。请回到 Tofi 重新授权。"
+		page.MessageKey, page.DetailCode, page.MessageDetail = "msg_auth_rejected", "", ""
 	case diagnostic.Code == "api_disabled" || diagnostic.Code == "permission_denied":
 		page.Setup = "enable"
 		if diagnostic.Code == "api_disabled" && diagnostic.EnableURL != "" {
 			// The exact API Google named, in the project it named: one button.
-			page.EnableURL, page.EnableLabel = diagnostic.EnableURL, googleAPILabel(diagnostic.API)
+			page.EnableURL = diagnostic.EnableURL
+			page.EnableLabel, page.EnableKind = googleAPILabel(diagnostic.API)
 		}
-		page.Message = "授权已保存，但工具还不能用。" + diagnostic.Message
+		page.MessageKey = "msg_saved_unusable"
 	case diagnostic.Code == "access_denied":
 		page.Setup = "audience"
-		page.Message = "授权已保存，但工具还不能用。" + diagnostic.Message
+		page.MessageKey = "msg_saved_unusable"
 	default:
-		page.Message = "授权已保存，但暂时读取不到工具。" + diagnostic.Message
+		page.MessageKey = "msg_saved_unreadable"
 	}
 }
 
-// googleAPILabel names an API for the "Enable ..." button.
-func googleAPILabel(api string) string {
+// googleAPILabel names an API for the "Enable ..." button: the service, and which of its two switches (api or mcp).
+func googleAPILabel(api string) (name, kind string) {
 	for service, name := range map[string]string{googleapi.Gmail: "Gmail", googleapi.Calendar: "Google Calendar", googleapi.Drive: "Google Drive", googleapi.Docs: "Google Docs", googleapi.Sheets: "Google Sheets", googleapi.Slides: "Google Slides"} {
 		if googleapi.ServiceAPI[service] == api {
-			return name + " API"
+			return name, "api"
 		}
 		if googleapi.ServiceMCPAPI[service] == api {
-			return name + " MCP 服务"
+			return name, "mcp"
 		}
 	}
-	return "API"
+	return "", "api"
 }

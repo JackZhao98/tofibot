@@ -14,7 +14,7 @@ import (
 
 func completionFixture(state string) oauthCompletionPage {
 	return oauthCompletionPage{
-		State: state, ServiceName: "Google Gmail", LogoURL: oauthLogoGmail,
+		Lang: "zh-CN", State: state, ServiceName: "Google Gmail", LogoURL: oauthLogoGmail,
 		APIURL:  "https://console.cloud.google.com/apis/enableflow;apiid=gmail.googleapis.com",
 		MCPURL:  "https://console.cloud.google.com/apis/enableflow;apiid=gmailmcp.googleapis.com",
 		DocsURL: "https://developers.google.com/workspace/gmail/api/guides/configure-mcp-server",
@@ -26,11 +26,11 @@ func TestOAuthCompletionStatesAndHeaders(t *testing.T) {
 		state, title, heading string
 		status                int
 	}{
-		{"pending", "Connecting", "正在连接", http.StatusOK},
-		{"success", "Connection complete", "授权已完成", http.StatusOK},
-		{"failed", "Connection failed", "授权未完成", http.StatusBadRequest},
-		{"denied", "Connection failed", "授权被拒绝", http.StatusForbidden},
-		{"unknown", "Connection failed", "授权未完成", http.StatusBadRequest},
+		{"pending", "正在连接", "正在连接", http.StatusOK},
+		{"success", "授权已完成", "授权已完成", http.StatusOK},
+		{"failed", "授权未完成", "授权未完成", http.StatusBadRequest},
+		{"denied", "授权未完成", "授权被拒绝", http.StatusForbidden},
+		{"unknown", "授权未完成", "授权未完成", http.StatusBadRequest},
 	} {
 		t.Run(tc.state, func(t *testing.T) {
 			w := httptest.NewRecorder()
@@ -162,7 +162,7 @@ func TestOAuthCompletionAllowedLinksAndLocalMarks(t *testing.T) {
 		t.Error("Notion docs missing")
 	}
 	w := httptest.NewRecorder()
-	writeOAuthCompletion(w, http.StatusBadRequest, oauthCompletionPage{State: "failed"})
+	writeOAuthCompletion(w, http.StatusBadRequest, oauthCompletionPage{Lang: "zh-CN", State: "failed"})
 	if !strings.Contains(w.Body.String(), "外部服务") {
 		t.Error("missing generic identity")
 	}
@@ -291,9 +291,9 @@ func TestOAuthCompletionAuditServer(t *testing.T) {
 			case "audience":
 				oauthVerifiedPage(&page, extensions.MCPInspection{Diagnostics: []extensions.Diagnostic{{Code: "access_denied", Message: "Google 拒绝了访问。若应用处于测试模式，请检查当前账号是否在测试用户中。"}}})
 			case "notion":
-				page = oauthCompletionPage{State: "success", ServiceName: "Notion", LogoURL: oauthLogoNotion, DocsURL: "https://www.notion.com/help/notion-mcp"}
+				page = oauthCompletionPage{Lang: "zh-CN", State: "success", ServiceName: "Notion", LogoURL: oauthLogoNotion, DocsURL: "https://www.notion.com/help/notion-mcp"}
 			case "long":
-				page = oauthCompletionPage{State: "failed", ServiceName: "一个很长的自定义服务名称 LongUnbrokenServiceNameForWrapping", Message: "未能完成授权。请返回 Tofi 重试。"}
+				page = oauthCompletionPage{Lang: "zh-CN", State: "failed", ServiceName: "一个很长的自定义服务名称 LongUnbrokenServiceNameForWrapping", Message: "未能完成授权。请返回 Tofi 重试。"}
 			case "failed":
 				page.Message = "无法完成授权，请核对服务配置。"
 			case "denied":
@@ -323,7 +323,7 @@ func TestOAuthCompletionGoogleSetupNamesAgenticClient(t *testing.T) {
 		t.Error("the agentic setting is setup help and must not appear on success")
 	}
 	w = httptest.NewRecorder()
-	writeOAuthCompletion(w, http.StatusOK, oauthCompletionPage{State: "success", ServiceName: "Notion", LogoURL: "/oauth/provider-notion.svg", DocsURL: "https://www.notion.com/help/notion-mcp"})
+	writeOAuthCompletion(w, http.StatusOK, oauthCompletionPage{Lang: "zh-CN", State: "success", ServiceName: "Notion", LogoURL: "/oauth/provider-notion.svg", DocsURL: "https://www.notion.com/help/notion-mcp"})
 	if strings.Contains(w.Body.String(), "AI-powered agent") {
 		t.Error("non-Google page names the Google agentic setting")
 	}

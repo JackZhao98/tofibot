@@ -497,5 +497,12 @@
       "label": "GitHub 源码：{{repo}}",
       "with_stars": "GitHub 源码：{{repo}}，{{count}} 个星标"
     }
+  },
+  "capabilities": {
+    "title": "这能做什么",
+    "read": "可读取",
+    "write": "可写入",
+    "more": "另 {{count}} 个",
+    "community_note": "社区代码：写入每次都先问，它自己标的只读不算数。在下方把某个工具标为只读，它才不再询问。"
   }
 }

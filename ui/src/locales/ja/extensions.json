@@ -497,5 +497,12 @@
       "label": "GitHub のソース：{{repo}}",
       "with_stars": "GitHub のソース：{{repo}}、スター {{count}} 件"
     }
+  },
+  "capabilities": {
+    "title": "できること",
+    "read": "読み取り",
+    "write": "書き込み",
+    "more": "ほか {{count}} 件",
+    "community_note": "コミュニティ製のコードです。書き込みは毎回確認し、ツール自身の読み取り専用の表示は無視します。下でツールを読み取り専用にすると、確認なしで実行されます。"
   }
 }
