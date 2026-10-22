@@ -4,7 +4,8 @@ import type { Bot } from "./types";
 import { VMOAuthDialog, type VMOAuthSession } from "./VMOAuthDialog";
 import { Disclosure } from "./InteractionSystem";
 import { TofiIcon } from "./icons";
-import { integrationCatalog, type IntegrationPreset } from "./integrationCatalog";
+import { integrationCatalog, LOCAL_PLUGIN_REPOS, type IntegrationPreset } from "./integrationCatalog";
+import { RepoLink, useRepoStars } from "./connections/repoStars";
 import { isDesktop } from "./desktop";
 import { mcpOAuthRoute, type OAuthOptions, type OAuthRoute } from "./mcpOAuthRoute";
 import { CatStage } from "./CatStage";
@@ -37,6 +38,9 @@ function displayName(server: MCP, preset: IntegrationPreset | undefined) {
   const plugin = localPluginId(server.name);
   return plugin === "gog" ? i18n.t("extensions:connections.local.gog.name") : plugin || server.name;
 }
+
+/** The open-source repository behind a connection, when it has one. */
+const repoFor = (server: MCP, preset: IntegrationPreset | undefined) => preset?.repo ?? LOCAL_PLUGIN_REPOS[localPluginId(server.name)] ?? "";
 
 /** Where a connection comes from, in the words a person uses: the plugin and what it talks to, or the vendor host. */
 function sourceLine(server: MCP, preset: IntegrationPreset | undefined, pluginId: string) {
@@ -89,13 +93,14 @@ export function MCPSettings({ refreshToken = 0, bots = [] }: { refreshToken?: nu
   // A plugin installed on this server but not yet connected to Tofi still counts as a connection the person has.
   const orphans = local.plugins.filter(plugin => !servers.some(server => server.name === `local_${plugin.id}`));
   const total = servers.length + orphans.length;
+  const stars = useRepoStars(servers.map(server => repoFor(server, presetFor(server))));
   return <div className="extension-panel mcp-settings">
     <div className="mcp-toolbar"><h3>{t("connections.title")} <span>{total || ""}</span></h3><button ref={addButton} className="mcp-button" onClick={() => openDialog({ view: "directory" })}><TofiIcon name="plus" size={16} />{t("connections.add")}</button></div>
     {listError && <div className="mcp-list-error" role="alert"><span>{listError}</span><button className="mcp-button" onClick={() => void refresh()}>{t("common:action.retry")}</button></div>}
     {!loaded && <p className="mcp-placeholder">{t("mcp.loading")}</p>}
     {loaded && !listError && total === 0 && <EmptyState name="mcp-empty" className="extension-empty" look={CATS.yuzu} pose="curious" size={72} title={t("mcp.empty")} />}
     <div className="mcp-rows">
-      {servers.map(server => <MCPRow key={server.name} route={route} botId={bots.find(bot => !bot.archived)?.id} server={server} local={local} google={google} checkRequest={checks[server.name] ?? 0} refresh={refresh} refreshLocal={refreshLocal}
+      {servers.map(server => <MCPRow key={server.name} route={route} botId={bots.find(bot => !bot.archived)?.id} server={server} local={local} google={google} stars={stars} checkRequest={checks[server.name] ?? 0} refresh={refresh} refreshLocal={refreshLocal}
         onEdit={() => openDialog({ view: "edit", server, preset: presetFor(server) })} onAuthorizeLocal={() => openDialog({ view: "gog" })}
         onRemoved={() => { setServers(items => items.filter(item => item.name !== server.name)); void refreshAll(); }} />)}
       {orphans.map(plugin => <PluginRow key={plugin.id} plugin={plugin} onChanged={refreshAll} />)}
@@ -119,8 +124,8 @@ function PluginRow({ plugin, onChanged }: { plugin: Plugin; onChanged: () => Pro
   </ConnectionRowView>;
 }
 
-function MCPRow({ server, checkRequest, refresh, refreshLocal, onEdit, onRemoved, onAuthorizeLocal, route, botId, local, google }: {
-  route: OAuthRoute; botId?: string; server: MCP; local: LocalState; google: GoogleOverview | null; checkRequest: number; refresh: () => Promise<void>; refreshLocal: () => Promise<void>;
+function MCPRow({ server, checkRequest, refresh, refreshLocal, onEdit, onRemoved, onAuthorizeLocal, route, botId, local, google, stars }: {
+  stars: Record<string, number>; route: OAuthRoute; botId?: string; server: MCP; local: LocalState; google: GoogleOverview | null; checkRequest: number; refresh: () => Promise<void>; refreshLocal: () => Promise<void>;
   onEdit: () => void; onRemoved: () => void; onAuthorizeLocal: () => void;
 }) {
   const { t } = useTranslation(["extensions", "common"]);
@@ -305,6 +310,7 @@ function MCPRow({ server, checkRequest, refresh, refreshLocal, onEdit, onRemoved
     {route.mode === "blocked" && needsAuth && <div className="mcp-login-note"><p role="status">{route.note}</p></div>}
     {detailsOpen && <div className="mcp-service-details">
       <p className="mcp-service-source">{source}</p>
+      {repoFor(server, preset) && <p className="mcp-service-source"><RepoLink repo={repoFor(server, preset)} stars={stars[repoFor(server, preset)]} /></p>}
       {account?.connected && <p className="mcp-service-source">{t("connections.details.account", { email: account.email })} · {account.scope === "read-send" ? t("local.google.granted_read_send") : t("local.google.granted_readonly")}</p>}
       {isGog && google?.client.configured && <p className="mcp-service-source">{t("connections.details.project", { project: google.client.project_id || google.client.project_number })}</p>}
       {preset?.googleAPIs && <p className="mcp-service-source">{t("connections.preview_note")}</p>}

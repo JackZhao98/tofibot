@@ -122,6 +122,14 @@ async function run() {
     assert.ok(english.includes("Former provider project") && english.includes("No longer maintained") && english.includes('aria-label="Services not available yet"'));
     assert.ok(!/[\p{sc=Han}]/u.test(render()), "English rendering has no Chinese text");
   } finally { await ui.setLanguage("zh-CN"); }
+  // Source repositories: every curated connector with an open-source server names it (owner/name), Context7 and GitHub included.
+  const { LOCAL_PLUGIN_REPOS } = await ui.load("/src/integrationCatalog.ts");
+  const repos = await ui.load("/src/connections/repoStars.tsx");
+  for (const id of ["context7", "github", "github-readonly", "notion"]) assert.match(getIntegrationPreset(id).repo, /^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/, `${id} names its source repository`);
+  assert.equal(getIntegrationPreset("context7").repo, "upstash/context7");
+  assert.equal(getIntegrationPreset("github").repo, "github/github-mcp-server");
+  assert.equal(LOCAL_PLUGIN_REPOS.gog, "openclaw/gogcli", "the curated Gmail path names gogcli's real repository (the one the runner image builds)");
+  for (const [count, text] of [[0, "0"], [999, "999"], [1000, "1k"], [1234, "1.2k"], [12345, "12.3k"], [63467, "63.5k"], [999999, "1M"], [1234567, "1.2M"], [-1, ""], [NaN, ""]]) assert.equal(repos.formatStars(count), text, `formatStars(${count})`);
   // Google: the project is read from the client JSON, and every service has its enable link.
   const google = await ui.load("/src/connections/google.ts");
   const clientJSON = JSON.stringify({ web: { client_id: "622599621014-abcdef.apps.googleusercontent.com", client_secret: "s", project_id: "tofi-sample-123456" } });

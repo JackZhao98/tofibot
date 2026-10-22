@@ -3,7 +3,8 @@ import { ServiceMark } from "./ServiceMark";
 import { CATS, EmptyState } from "./EmptyCat";
 import { Disclosure } from "./InteractionSystem";
 import { useTranslation } from "./i18n";
-import { heldIntegrations, integrationAuthLabel, integrationCatalog, integrationOriginLabel, matchesIntegration, type IntegrationPreset } from "./integrationCatalog";
+import { RepoLink, useRepoStars } from "./connections/repoStars";
+import { heldIntegrations, LOCAL_PLUGIN_REPOS, integrationAuthLabel, integrationCatalog, integrationOriginLabel, matchesIntegration, type IntegrationPreset } from "./integrationCatalog";
 
 /** Connectors that run beside Tofi instead of at a vendor URL. Only offered when the server has a local plugin service. */
 export type LocalConnector = { id: "local-gog"; added: boolean };
@@ -21,19 +22,21 @@ export function IntegrationBrowser({ query, servers, localConnectors, onQueryCha
   const held = heldIntegrations.filter(item => item.upstream === "vendor" && matchesIntegration(item, query));
   const matching = integrationCatalog.filter(item => matchesIntegration(item, query));
   const needle = query.trim().toLowerCase();
+  const stars = useRepoStars([...integrationCatalog.map(item => item.repo ?? ""), ...(localConnectors.length ? [LOCAL_PLUGIN_REPOS.gog] : [])]);
   const locals = localConnectors.map(item => ({ ...item, name: t("connections.local.gog.name"), description: t("connections.local.gog.description") }))
     .filter(item => !needle || `${item.name} ${item.description} gmail google`.toLowerCase().includes(needle));
   const services = matching.filter(item => item.category === "service");
   const google = matching.filter(item => item.category === "google");
   const tile = (item: IntegrationPreset) => {
     const installed = servers.some(server => server.url === item.url);
-    return <button className="integration-tile" key={item.id} data-integration-id={item.id} disabled={installed} onClick={() => onSelect(item)}><ServiceMark name={item.name} /><span><strong>{item.name}</strong><small>{item.description}</small><small className="integration-details">{integrationAuthLabel(item.auth)} · {integrationOriginLabel(item.upstream)}{item.readOnly ? ` · ${t("browser.read_only_tools")}` : ""}</small></span>{installed ? <span className="integration-added">{t("browser.added")}</span> : <TofiIcon name="plus" size={16} />}</button>;
+    const tileButton = <button className="integration-tile" data-integration-id={item.id} disabled={installed} onClick={() => onSelect(item)}><ServiceMark name={item.name} /><span><strong>{item.name}</strong><small>{item.description}</small><small className="integration-details">{integrationAuthLabel(item.auth)} · {integrationOriginLabel(item.upstream)}{item.readOnly ? ` · ${t("browser.read_only_tools")}` : ""}</small></span>{installed ? <span className="integration-added">{t("browser.added")}</span> : <TofiIcon name="plus" size={16} />}</button>;
+    return <div className="integration-item" key={item.id}>{tileButton}{item.repo && <div className="integration-repo"><RepoLink repo={item.repo} stars={stars[item.repo]} /></div>}</div>;
   };
   const nothing = matching.length === 0 && held.length === 0 && locals.length === 0;
   return <div className="connect-directory">
     <label className="integration-search"><TofiIcon name="search" size={20} /><input aria-label={t("browser.search")} placeholder={t("browser.search")} value={query} onChange={e => onQueryChange(e.target.value)} /></label>
     {(locals.length > 0 || services.length > 0) && <section className="integration-section"><h3>{t("browser.services")}</h3><div className="integration-grid">
-      {locals.map(item => <button className="integration-tile" key={item.id} data-integration-id={item.id} disabled={item.added} onClick={() => onLocal(item.id)}><ServiceMark name="Gmail" /><span><strong>{item.name}</strong><small>{item.description}</small><small className="integration-details">{t("browser.local_details")}</small></span>{item.added ? <span className="integration-added">{t("browser.added")}</span> : <TofiIcon name="plus" size={16} />}</button>)}
+      {locals.map(item => <div className="integration-item" key={item.id}><button className="integration-tile" data-integration-id={item.id} disabled={item.added} onClick={() => onLocal(item.id)}><ServiceMark name="Gmail" /><span><strong>{item.name}</strong><small>{item.description}</small><small className="integration-details">{t("browser.local_details")}</small></span>{item.added ? <span className="integration-added">{t("browser.added")}</span> : <TofiIcon name="plus" size={16} />}</button><div className="integration-repo"><RepoLink repo={LOCAL_PLUGIN_REPOS.gog} stars={stars[LOCAL_PLUGIN_REPOS.gog]} /></div></div>)}
       {services.map(item => tile(item))}
     </div></section>}
     {google.length > 0 && <section className="integration-section integration-preview">

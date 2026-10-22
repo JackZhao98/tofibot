@@ -22,7 +22,7 @@
     "search": "Rechercher un service",
     "services": "Services",
     "local_details": "S’exécute sur ce serveur · OAuth",
-    "custom_section": "Ajouter une connexion communautaire ou personnalisée",
+    "custom_section": "Personnalisé",
     "custom_url": "Connecteur personnalisé",
     "custom_url_hint": "Connectez n’importe quel serveur MCP distant par URL.",
     "custom_package": "Paquet local",
@@ -484,6 +484,10 @@
       "using_client": "Le client Google enregistré est utilisé (projet {{project}}). Aucun nouvel envoi nécessaire.",
       "replace_client": "Remplacer le client",
       "project_found": "Ce client appartient au projet {{project}}."
+    },
+    "repo": {
+      "label": "Code source sur GitHub : {{repo}}",
+      "with_stars": "Code source sur GitHub : {{repo}}, {{count}} étoiles"
     }
   }
 }

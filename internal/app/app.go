@@ -233,6 +233,7 @@ type Server struct {
 	modelCatalogSource                   string
 	providerMu                           sync.Mutex
 	providerEndpoints                    map[string]string // Tests and operator gateways only.
+	repoStars                            repoStarCache
 	envProviderKeys                      map[string]string
 	envProviderErrors                    map[string]string
 	providerCatalogs                     map[string]providerCatalog

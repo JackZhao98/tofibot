@@ -89,6 +89,7 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
     if (m && method === "GET") return tools(m[1] === "notion" ? 6 : m[1] === "google-gmail" ? 6 : 3);
     if (path === "/api/extensions/local-mcp") return {available: q.get("runner") !== "off", plugins: q.get("fresh") ? [] : [{id: "gog", state: "sleeping", tool_count: 3}]};
     if (path === "/api/extensions/local-mcp/gog/oauth/status") return q.get("gog") === "authorised" ? {connected: true, email: "you@example.test", scope: "readonly"} : {connected: false, email: ""};
+    if (path === "/api/extensions/repo-stars") return q.get("nostars") ? {stars: {}} : {stars: {"openclaw/gogcli": 8520, "upstash/context7": 63467, "github/github-mcp-server": 33839, "makenotion/notion-mcp-server": 4673, "MicrosoftDocs/mcp": 1951}};
     if (path === "/api/extensions/google") return q.get("gclient") ? {client: {configured: true, project_id: "tofi-sample-123456", project_number: "622599621014"}, apis: []} : {client: {configured: false}, apis: []};
     if (path === "/api/standing-allowances") return {allowances: [], remembered: []};
     return {};
@@ -123,7 +124,10 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
       const {page, close} = await open({}, {width, height, theme});
       await page.waitForTimeout(1500);
       await shot(page, "list", width, theme);
-      await page.screenshot({path: join(shots, `${prefix}-list-full-${width}-${theme}.png`), fullPage: true}).catch(() => {});
+      await page.locator(".settings-page-body").evaluate(element => element.scrollTo(0, element.scrollHeight));
+      await page.waitForTimeout(300);
+      await shot(page, "list-lower", width, theme);
+      await page.locator(".settings-page-body").evaluate(element => element.scrollTo(0, 0));
       if (prefix === "before") {
         await page.getByRole("button", {name: /Add service/}).click();
         await page.waitForTimeout(600);
@@ -343,6 +347,43 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
       await close();
     }
     console.log("PASS directory: official only, community through the custom path with its caveat");
+
+    // ---- 7e. GitHub source links with star counts: from TOFI's own server, quiet, and no number when the server has none.
+    {
+      const {page, close} = await open({fresh: "1"});
+      await page.getByRole("button", {name: "Add connection"}).click();
+      const dialog = page.locator('[role="dialog"].connect-dialog');
+      await dialog.waitFor();
+      const gogRepo = dialog.locator('[data-integration-id="local-gog"] + .integration-repo .repo-link');
+      await gogRepo.waitFor();
+      assert.equal(await gogRepo.getAttribute("href"), "https://github.com/openclaw/gogcli");
+      assert.equal(await gogRepo.getAttribute("target"), "_blank");
+      assert.match(await gogRepo.getAttribute("rel"), /noopener/);
+      await dialog.locator('[data-integration-id="local-gog"] + .integration-repo .repo-stars').waitFor();
+      assert.match(await gogRepo.innerText(), /★ 8\.5k/);
+      assert.match(await dialog.locator('[data-integration-id="github"] + .integration-repo').innerText(), /github\/github-mcp-server\s*★ 33\.8k/);
+      assert.match(await dialog.locator('[data-integration-id="notion"] + .integration-repo').innerText(), /makenotion\/notion-mcp-server\s*★ 4\.7k/);
+      assert.equal(await dialog.locator('[data-integration-id="linear"] + .integration-repo').count(), 0, "a connector with no verified open-source repo shows no link");
+      await close();
+      const none = await open({fresh: "1", nostars: "1"});
+      await none.page.getByRole("button", {name: "Add connection"}).click();
+      const noneDialog = none.page.locator('[role="dialog"].connect-dialog');
+      await noneDialog.locator('[data-integration-id="local-gog"] + .integration-repo .repo-link').waitFor();
+      await none.page.waitForTimeout(300);
+      assert.equal(await noneDialog.locator(".repo-stars").count(), 0, "no cached count: the link shows without a number");
+      assert.doesNotMatch(await noneDialog.innerText(), /★/);
+      await none.close();
+      // The row's details carry the same link.
+      const rows = await open({gog: "authorised"});
+      const gog = rows.page.locator('.mcp-service[aria-label="Gmail (personal account)"]');
+      await gog.waitFor();
+      await gog.locator(".mcp-menu-trigger").click();
+      await rows.page.getByRole("menuitem", {name: "View details"}).click();
+      await gog.locator(".repo-stars").waitFor();
+      assert.match(await gog.locator(".repo-link").innerText(), /openclaw\/gogcli\s*★ 8\.5k/);
+      await rows.close();
+    }
+    console.log("PASS source links: GitHub link and star count in the directory and the details; no count, no number");
 
     // ---- 8. Phone width: no horizontal overflow, 44 px targets for the controls that matter.
     {
