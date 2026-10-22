@@ -32,9 +32,7 @@ button{touch-action:manipulation;-webkit-tap-highlight-color:transparent}
 /* Time belongs beside the name, not in a column stealing preview width. */
 .conversation-row{position:relative}
 .conversation-row:has(.conversation-time:not(:empty)) .contact-copy strong{padding-right:46px}
-html[data-desktop] .conversation-row:has(.unread-badge) .contact-copy small{padding-right:16px}
 .conversation-time{position:absolute;right:10px;top:15px;max-width:44px;overflow:hidden;text-overflow:ellipsis;font-size:11px;line-height:20px;padding:0;margin:0;font-variant-numeric:tabular-nums}
-html[data-desktop] .conversation-row>.unread-badge{position:absolute;right:12px;bottom:17px}
 .contact-section{overflow-x:hidden}
 .section-label{font-size:12px;line-height:20px;padding:16px 10px 6px}
 .contact-section>.section-label:first-child{padding-top:0}
@@ -127,8 +125,7 @@ html[data-desktop] .conversation-row>.unread-badge{position:absolute;right:12px;
  .sidebar-collapsed .sidebar-actions{flex-direction:column}
  .sidebar-collapsed .search-box,.sidebar-collapsed .section-label,.sidebar-collapsed .sidebar-settings-button>span,html[data-desktop] .sidebar-collapsed .contact-copy,html[data-desktop] .sidebar-collapsed .conversation-time{display:none}
  .sidebar-collapsed .contact-row{position:relative;min-height:56px;padding:8px;justify-content:center}
- html[data-desktop] .sidebar-collapsed .conversation-row>.unread-badge{position:absolute;top:6px;right:6px;bottom:auto}
- .sidebar-collapsed .sidebar-settings-button{justify-content:center;padding:8px}
+  .sidebar-collapsed .sidebar-settings-button{justify-content:center;padding:8px}
  .sidebar-collapsed .sidebar-footer{padding-inline:0}
  .sidebar-collapsed .create-menu-anchor{position:static}
  .sidebar-collapsed .sidebar-actions{position:relative}
@@ -199,7 +196,6 @@ html[data-desktop] .message-avatar .avatar{width:38px;height:38px}
 .contact-pane{padding-inline:6px}
 .contact-row{gap:8px;padding-inline:8px}
 .conversation-row>.avatar{width:48px;height:48px;flex-basis:48px}
-.conversation-row>.group-avatar svg{width:25px;height:25px}
 .contact-row .contact-copy{min-width:0}
 
 @media(min-width:768px){
@@ -303,8 +299,7 @@ form[aria-busy=true]{cursor:progress}
   :root,:root[data-theme="dark"]{--focus-ring:Highlight;--muted:CanvasText}
   .workspace .contact-row.active,.workspace .settings-tabs button.selected{background:Highlight;color:HighlightText}
   .workspace .contact-row.active :is(strong,small,time){color:HighlightText}
-  .workspace .contact-row.active>.conversation-status[data-status="unread"]{background:HighlightText;color:Highlight}
-  html[data-desktop] .workspace .contact-row.active>.unread-badge{background:HighlightText}
+  .workspace .contact-row.active>.conversation-status{background:HighlightText;color:Highlight}
   .workspace ::selection{background:Highlight;color:HighlightText}
 }
 

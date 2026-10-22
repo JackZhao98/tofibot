@@ -131,8 +131,8 @@
   },
   "phase": {
     "finishing": "마무리 중",
-    "needs_approval": "승인 필요",
-    "needs_answer": "입력 필요",
+    "needs_approval": "승인 대기",
+    "needs_answer": "답변 대기",
     "turn_ended": "이번 턴 종료",
     "stopped": "이번 작업 중지됨",
     "reviewing": "실행 전 검사 중",
@@ -279,7 +279,6 @@
     "answered_refresh_failed": "답변을 받았지만 목록을 새로고침하지 못했습니다. 페이지를 새로고침해 확인하세요.",
     "submit_failed": "제출하지 못했습니다. 다시 시도하세요.",
     "state_changed": "이 질문이 변경되었습니다. 계속하기 전에 페이지를 새로고침하세요.",
-    "needs_decision": "결정 필요",
     "answer_placeholder": "답변 입력…",
     "other_option": "기타 답변",
     "your_answer": "내 답변",
@@ -324,7 +323,6 @@
     "submit_failed": "제출하지 못했습니다. 입력 내용은 유지됩니다. 확인 후 다시 시도하세요.",
     "cancelled_refresh_failed": "취소되었지만 상태를 새로고침하지 못했습니다. 페이지를 새로고침해 확인하세요.",
     "answered_refresh_failed": "답변을 받았지만 상태를 새로고침하지 못했습니다. 페이지를 새로고침해 확인하세요.",
-    "needs_input": "입력 필요",
     "target_site": "웹사이트",
     "privacy_fields": "일반 필드는 일반 텍스트로 Bot에 전달됩니다. 비밀번호는 비공개 입력으로 전달되며 Bot에게 일반 텍스트로 표시되지 않습니다. 비밀번호의 공백은 그대로 유지됩니다.",
     "privacy_continue": "제출하면 Bot이 작업을 계속합니다. 아직 웹사이트에 제출된 것은 없습니다.",
@@ -549,7 +547,6 @@
     "send_failed": "응답을 보내지 못했습니다. 다시 시도하세요.",
     "state_changed": "이 요청이 변경되었습니다. 최신 상태를 확인한 뒤 계속하세요.",
     "takeover": {
-      "badge": "컴퓨터에서 직접 작업이 필요합니다",
       "take": "제어 가져오기",
       "hint": "Bot의 공유 컴퓨터에서 작업하게 됩니다. 입력하거나 복사한 내용은 그 화면에만 남고 Bot과 공유되지 않습니다.",
       "resolved_done": "Bot에게 돌려줌",
@@ -563,7 +560,6 @@
       "footer": "작업하는 동안 Bot은 기다립니다. 끝나면 완료를 선택하세요."
     },
     "connection": {
-      "badge": "서비스 연결",
       "connect": "연결",
       "retry": "다시 시도",
       "waiting": "로그인을 기다리는 중…",

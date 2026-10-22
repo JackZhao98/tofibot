@@ -23,6 +23,7 @@ export const catalog=Object.freeze({
   patterns:Object.freeze(patterns.map(p=>Object.freeze({id:p.id,name:p.name,mode:p.mode,note:p.note}))),
   actions:Object.freeze([...actions])
 });
+export {catFraming} from './framing.js';
 export function paletteOptions(pattern){
   if(!patterns.some(p=>p.id===pattern))throw new Error(`Unknown cat pattern: ${pattern}`);
   return choices(pattern).map(p=>({...p}));

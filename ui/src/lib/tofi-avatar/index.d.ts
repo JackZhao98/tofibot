@@ -62,6 +62,8 @@ export const catalog: {
   readonly patterns: ReadonlyArray<{readonly id: Pattern;readonly name: string;readonly mode: 'general' | 'special';readonly note: string}>;
   readonly actions: ReadonlyArray<Action>;
 };
+/** Placement of a cat host inside a square frame so the head fills it, as multiples of the frame edge. */
+export function catFraming(shape: Shape, headY?: number): {size: number; left: number; top: number};
 export function paletteOptions(pattern: Pattern): PaletteOption[];
 export function normalizeConfig(value?: Partial<AvatarConfig>): AvatarConfig;
 export function mountCat(host: HTMLElement, options?: MountOptions): CatAvatar;

@@ -8,7 +8,6 @@
 .approval-head { display:flex; align-items:center; gap:10px; margin-bottom:9px; min-height:24px; }
 .approval-avatar { display:flex; flex:none; width:24px; height:24px; }
 .approval-avatar .avatar { width:24px; height:24px; margin:0; }
-.approval-badge { color:var(--on-block); background:var(--honey); padding:3px 8px; border-radius:7px; font:600 11px/1.3 var(--mono); }
 .approval-head time { margin-left:auto; color:var(--muted); font:11px/1.4 var(--mono); white-space:nowrap; }
 .approval-title { color:var(--ink); font:600 18px/1.4 var(--display); overflow-wrap:anywhere; }
 .approval-title p { margin:0; }

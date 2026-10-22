@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {mountCat as mountAvatar, catalog, normalizeConfig, paletteOptions} from '../index.js';
+import {mountCat as mountAvatar, catalog, normalizeConfig, paletteOptions, catFraming} from '../index.js';
 import {performances, readableContour, deformPoint, poseFields} from '../performances.js';
 
 // A deterministic DOM/RAF boundary, not a browser rendering substitute. The
@@ -13,6 +13,7 @@ class Target extends EventTarget {
 class Element extends Target {
   constructor(tag) { super(); this.tag = tag; this.attributes = {}; this.children = []; this.style = {}; }
   setAttribute(k, v) { this.attributes[k] = String(v); }
+  getAttribute(k) { return this.attributes[k] ?? null; }
   removeAttribute(k) { delete this.attributes[k]; }
   append(...nodes) { nodes.forEach(n => { n.parent = this; this.children.push(n); }); }
   remove() { if (this.parent) this.parent.children = this.parent.children.filter(n => n !== this); }
@@ -306,4 +307,13 @@ test('eye styles, expressions and static SVG include stand tail and limbs', () =
   assert.match(paw.exportSVG(),/scale\(1 1\.000\)/);
   assert.match(paw.exportSVG(),/<rect[^>]*height="[^"]+"/);
   paw.destroy();
+});
+
+test('catFraming covers every shape and rejects unknown ones', () => {
+  for(const {id} of catalog.shapes){
+    const f=catFraming(id);
+    assert.ok(f.size>1&&f.size<4,id+' scale');
+    assert.ok(f.top<0.52*1.5&&f.left<0.5,id+' placement');
+  }
+  assert.throws(()=>catFraming('nope'));
 });
