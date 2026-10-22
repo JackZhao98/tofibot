@@ -242,7 +242,39 @@
     "window": "Local window setting {{value}}",
     "auto_compact": "Auto-compacts at 80%",
     "compacted_one": "Compacted {{count}} time this run",
-    "compacted_other": "Compacted {{count}} times this run"
+    "compacted_other": "Compacted {{count}} times this run",
+    "health": {
+      "title": "Run health",
+      "loading": "Loading run health…",
+      "load_failed": "Couldn't load run health. Try again.",
+      "runs": "Runs",
+      "no_runs": "No runs in this period.",
+      "reasons": "Top failure reasons",
+      "no_failures": "No failed runs.",
+      "timeouts": "Tool timeouts",
+      "timeouts_note": "Commands that hit their time limit or were killed.",
+      "status": {
+        "done": "Completed",
+        "failed": "Failed",
+        "cancelled": "Cancelled",
+        "interrupted": "Interrupted",
+        "running": "Running",
+        "waiting": "Waiting",
+        "queued": "Queued"
+      },
+      "reason": {
+        "execution_failed": "Failed before completion",
+        "no_final_answer": "No final answer",
+        "tool_stuck": "Tool step stalled",
+        "resumed_repeatedly": "Interrupted repeatedly",
+        "approval_expired": "Approval expired",
+        "model_unconfigured": "Model not configured",
+        "model_auth_invalid": "Model sign-in rejected",
+        "model_quota_exhausted": "Model quota reached",
+        "connection_interrupted": "Connection dropped",
+        "budget_exhausted": "Step budget exhausted"
+      }
+    }
   },
   "permissions": {
     "microphone": {

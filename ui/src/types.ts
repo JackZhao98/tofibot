@@ -13,6 +13,17 @@ export interface AgentUsageTotal {
   bot_id: string; bot_name: string; input_tokens: number; output_tokens: number; runs: number; compactions: number;
 }
 
+export interface RunHealth {
+  days: number;
+  since: string;
+  runs: number;
+  by_status: Record<string, number>;
+  failures: { code: string; count: number }[];
+  tool_calls: number;
+  tool_timeouts: number;
+  model_calls: number;
+}
+
 export interface UsagePeriod {
   bot_id: string; input_tokens: number; output_tokens: number; requests: number;
   equivalent_usd: number; unpriced_requests: number;

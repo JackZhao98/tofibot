@@ -25,6 +25,7 @@ import {useTranslation} from "../i18n";
 import type {Bot, Conversation} from "../types";
 import type {ThemePreference} from "../InteractionSystem";
 import {Banner, DangerZone, SettingsCard, SettingsSection} from "./components";
+import {RunHealthCard} from "./RunHealthCard";
 
 /** Pieces that live in App.tsx and are handed in, so this folder never imports App. */
 export type SettingsSlots={codex:ReactNode;notifications:ReactNode;providersRefresh:number;onProvidersConfigured:()=>void;legacyArchive:ReactNode};
@@ -54,7 +55,7 @@ export function SettingsPages(props:SettingsPagesProps){
   case "automation": return <AutomationSettings/>;
   case "computer": return <><ComputerResources/><ComputerPanel/></>;
   case "keys": return <ComputerCredentials bots={activeBots}/>;
-  case "usage": return <UsagePanel preferredBotId={props.usageBotId} timezone={props.timezone}/>;
+  case "usage": return <div className="settings-stack"><RunHealthCard/><UsagePanel preferredBotId={props.usageBotId} timezone={props.timezone}/></div>;
   case "advanced": return <AdvancedPage {...props} bots={bots} activeBots={activeBots}/>;
   case "admin": return <Suspense fallback={null}><AdminAccounts/></Suspense>;
   default: return unreachable(page);

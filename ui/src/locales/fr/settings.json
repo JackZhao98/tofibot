@@ -247,7 +247,39 @@
     "auto_compact": "Compression automatique à 80 %",
     "compacted_one": "Compressé {{count}} fois pendant cette exécution",
     "compacted_many": "Compressé {{count}} fois pendant cette exécution",
-    "compacted_other": "Compressé {{count}} fois pendant cette exécution"
+    "compacted_other": "Compressé {{count}} fois pendant cette exécution",
+    "health": {
+      "title": "État des exécutions",
+      "loading": "Chargement de l’état des exécutions…",
+      "load_failed": "Impossible de charger l’état des exécutions. Réessayez.",
+      "runs": "Exécutions",
+      "no_runs": "Aucune exécution sur cette période.",
+      "reasons": "Principales causes d’échec",
+      "no_failures": "Aucune exécution en échec.",
+      "timeouts": "Délais d’outil dépassés",
+      "timeouts_note": "Commandes ayant atteint leur délai ou ayant été arrêtées.",
+      "status": {
+        "done": "Terminée",
+        "failed": "Échec",
+        "cancelled": "Annulée",
+        "interrupted": "Interrompue",
+        "running": "En cours",
+        "waiting": "En attente",
+        "queued": "En file"
+      },
+      "reason": {
+        "execution_failed": "Échec avant la fin",
+        "no_final_answer": "Aucune réponse finale",
+        "tool_stuck": "Étape d’outil bloquée",
+        "resumed_repeatedly": "Interrompue à répétition",
+        "approval_expired": "Approbation expirée",
+        "model_unconfigured": "Modèle non configuré",
+        "model_auth_invalid": "Connexion au modèle refusée",
+        "model_quota_exhausted": "Quota du modèle atteint",
+        "connection_interrupted": "Connexion interrompue",
+        "budget_exhausted": "Budget d’étapes épuisé"
+      }
+    }
   },
   "permissions": {
     "microphone": {

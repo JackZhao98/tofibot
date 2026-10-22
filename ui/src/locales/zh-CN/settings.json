@@ -237,7 +237,39 @@
     "not_reported": "未报告",
     "window": "本地窗口配置 {{value}}",
     "auto_compact": "80% 时尝试自动压缩",
-    "compacted_other": "本次运行已压缩 {{count}} 次"
+    "compacted_other": "本次运行已压缩 {{count}} 次",
+    "health": {
+      "title": "运行状况",
+      "loading": "正在加载运行状况…",
+      "load_failed": "无法加载运行状况，请重试。",
+      "runs": "运行",
+      "no_runs": "此时段内没有运行。",
+      "reasons": "主要失败原因",
+      "no_failures": "没有失败的运行。",
+      "timeouts": "工具超时",
+      "timeouts_note": "达到时限或被终止的命令。",
+      "status": {
+        "done": "已完成",
+        "failed": "失败",
+        "cancelled": "已取消",
+        "interrupted": "已中断",
+        "running": "运行中",
+        "waiting": "等待中",
+        "queued": "排队中"
+      },
+      "reason": {
+        "execution_failed": "未完成即失败",
+        "no_final_answer": "没有最终答复",
+        "tool_stuck": "工具步骤停滞",
+        "resumed_repeatedly": "多次中断",
+        "approval_expired": "审批已过期",
+        "model_unconfigured": "未配置模型",
+        "model_auth_invalid": "模型登录被拒绝",
+        "model_quota_exhausted": "已达模型配额",
+        "connection_interrupted": "连接中断",
+        "budget_exhausted": "步数预算已用尽"
+      }
+    }
   },
   "permissions": {
     "microphone": {

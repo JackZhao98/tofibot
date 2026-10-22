@@ -242,7 +242,39 @@
     "window": "Lokale Fenstereinstellung {{value}}",
     "auto_compact": "Komprimiert automatisch bei 80 %",
     "compacted_one": "In diesem Lauf {{count}}-mal komprimiert",
-    "compacted_other": "In diesem Lauf {{count}}-mal komprimiert"
+    "compacted_other": "In diesem Lauf {{count}}-mal komprimiert",
+    "health": {
+      "title": "Ausführungsstatus",
+      "loading": "Ausführungsstatus wird geladen …",
+      "load_failed": "Der Ausführungsstatus konnte nicht geladen werden. Versuche es erneut.",
+      "runs": "Ausführungen",
+      "no_runs": "Keine Ausführungen in diesem Zeitraum.",
+      "reasons": "Häufigste Fehlerursachen",
+      "no_failures": "Keine fehlgeschlagenen Ausführungen.",
+      "timeouts": "Tool-Zeitüberschreitungen",
+      "timeouts_note": "Befehle, die ihr Zeitlimit erreicht haben oder beendet wurden.",
+      "status": {
+        "done": "Abgeschlossen",
+        "failed": "Fehlgeschlagen",
+        "cancelled": "Abgebrochen",
+        "interrupted": "Unterbrochen",
+        "running": "Läuft",
+        "waiting": "Wartet",
+        "queued": "In Warteschlange"
+      },
+      "reason": {
+        "execution_failed": "Vor Abschluss fehlgeschlagen",
+        "no_final_answer": "Keine abschließende Antwort",
+        "tool_stuck": "Tool-Schritt hängt",
+        "resumed_repeatedly": "Wiederholt unterbrochen",
+        "approval_expired": "Freigabe abgelaufen",
+        "model_unconfigured": "Modell nicht konfiguriert",
+        "model_auth_invalid": "Modell-Anmeldung abgelehnt",
+        "model_quota_exhausted": "Modell-Kontingent erreicht",
+        "connection_interrupted": "Verbindung getrennt",
+        "budget_exhausted": "Schrittbudget aufgebraucht"
+      }
+    }
   },
   "permissions": {
     "microphone": {

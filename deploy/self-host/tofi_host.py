@@ -1369,6 +1369,41 @@ def active_runs():
     return total
 
 
+RUN_HEALTH_DAYS = 7
+# Same test as internal/app/usage_runs.go: a failed shell-style tool call that
+# timed out or was killed (exit 137).
+TOOL_TIMEOUT_SQL = ("status='failed' AND (result LIKE '[Timed out after%' OR result LIKE '%\"timed_out\":true%' "
+                    "OR result LIKE '%\"timed_out\": true%' OR result LIKE '%[Exit 137:%' "
+                    "OR result LIKE '%[Exit code: 137]%' OR result LIKE '%\"exit_code\":137%' "
+                    "OR result LIKE '%\"exit_code\": 137%')")
+
+
+def run_health(days=RUN_HEALTH_DAYS, now=None):
+    """Runs by status and tool time-outs over the last `days`, summed over every
+    App database (read-only, like active_runs). None when no database is
+    readable; counts only, never any run text."""
+    since = time.strftime('%Y-%m-%dT%H:%M:%S.000000000Z', time.gmtime((now or time.time()) - days * 86400))
+    by_status, timeouts, seen = {}, 0, False
+    for database in run_databases():
+        try:
+            connection = sqlite3.connect('file:%s?mode=ro' % urllib.parse.quote(str(database)), uri=True, timeout=5)
+            try:
+                for status, count in connection.execute(
+                        'SELECT status, COUNT(*) FROM runs WHERE updated_at >= ? GROUP BY status', (since,)):
+                    by_status[status] = by_status.get(status, 0) + int(count)
+                timeouts += int(connection.execute(
+                    'SELECT COUNT(*) FROM tool_activities WHERE started_at >= ? AND ' + TOOL_TIMEOUT_SQL,
+                    (since,)).fetchone()[0])
+                seen = True
+            finally:
+                connection.close()
+        except (sqlite3.Error, OSError, ValueError, TypeError):
+            continue
+    if not seen:
+        return None
+    return {'days': days, 'by_status': by_status, 'tool_timeouts': timeouts}
+
+
 def plural(count, noun):
     return '%d %s%s' % (count, noun, '' if count == 1 else 's')
 
@@ -3180,6 +3215,7 @@ def status(details=False):
             pass
     if details and env is not None:
         result['versions'] = versions_report(env)
+        result['run_health'] = run_health()
         if state.get('last_computers_upgrade'):
             result['last_computers_upgrade'] = state['last_computers_upgrade']
         try:
@@ -3223,6 +3259,19 @@ def version_summary(result, verbose):
     elif verbose and error:
         text += ' · checked %s, offline now' % versions.get('latest_checked_at')
     return text
+
+
+def run_health_summary(health):
+    """One line for `tofi status`: runs by status and tool time-outs for the window."""
+    if not health:
+        return None
+    by_status = health.get('by_status') or {}
+    labels = [('done', 'completed'), ('failed', 'failed'), ('cancelled', 'cancelled'),
+              ('interrupted', 'interrupted'), ('running', 'running'), ('waiting', 'waiting'), ('queued', 'queued')]
+    parts = ['%d %s' % (by_status[key], label) for key, label in labels if by_status.get(key)]
+    if health.get('tool_timeouts'):
+        parts.append(plural(health['tool_timeouts'], 'tool timeout'))
+    return '%s · last %d days' % (' · '.join(parts) if parts else 'none', health.get('days') or RUN_HEALTH_DAYS)
 
 
 def render_status(result, mode=None, verbose=False, access=None):
@@ -3275,6 +3324,9 @@ def render_status(result, mode=None, verbose=False, access=None):
         row('Services', ' · '.join('%s %s' % item for item in sorted(services.items())) or 'none running')
     elif services:
         row('Services', services)
+    row_runs = run_health_summary(result.get('run_health'))
+    if row_runs:
+        row('Runs', row_runs)
     if verbose and versions:
         row('App', short_image(versions.get('app_image')))
         row('Worker', short_image(versions.get('worker_image')))
