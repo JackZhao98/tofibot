@@ -18,6 +18,7 @@
     "retry": "Réessayer"
   },
   "apiError": {
-    "request_failed": "Échec de la requête ({{status}})"
+    "request_failed": "Échec de la requête ({{status}})",
+    "plugin_busy": "Le plugin est utilisé par une tâche. Réessayez dans un instant."
   }
 }

@@ -250,17 +250,10 @@ func (r *Runner) Remove(id string) error {
 	}
 	p.gogMu.Lock()
 	defer p.gogMu.Unlock()
+	// Retire first: no new lease (health check, discovery, tool call) can start
+	// from here on, so the leases left are only those already in flight.
 	p.mu.Lock()
-	if p.active > 0 || p.ready != nil {
-		p.mu.Unlock()
-		return errors.New("plugin is busy")
-	}
-	cli, stop, group := p.cli, p.stop, p.processGroup
-	// Block new leases before releasing the busy-check lock. Shutdown and
-	// manifest writes may take time; an old handler must not restart this child.
 	p.retiring = true
-	p.cli = nil
-	p.stop = nil
 	p.mu.Unlock()
 	removed := false
 	defer func() {
@@ -270,6 +263,25 @@ func (r *Runner) Remove(id string) error {
 			p.mu.Unlock()
 		}
 	}()
+	// Leases are per request, so an idle connection holds none; a probe that was
+	// mid-flight when removal began finishes within the bounded wait. Only a call
+	// that outlasts it keeps the plugin.
+	deadline := time.Now().Add(r.removeDrain)
+	for {
+		p.mu.Lock()
+		if p.active == 0 && p.ready == nil {
+			break
+		}
+		p.mu.Unlock()
+		if !time.Now().Before(deadline) {
+			return ErrPluginBusy
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+	cli, stop, group := p.cli, p.stop, p.processGroup
+	p.cli = nil
+	p.stop = nil
+	p.mu.Unlock()
 	shutdown(cli, stop, group)
 	manifest := filepath.Join(dir, "manifest.json")
 	data, err := os.ReadFile(manifest)

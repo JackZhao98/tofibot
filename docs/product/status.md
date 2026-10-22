@@ -156,6 +156,7 @@ TOFI 是一个自托管的 AI Bot 工作台：后端是 Go 服务（`internal/`�
 | 模型提供方、MCP、语音输入、主动跟进、语言等设置页 | `ui/src/ModelSettings.tsx`、`MCPSettings.tsx`、`DictationSettings.tsx`、`FollowupsSettings.tsx`、`LanguageSetting.tsx` |
 | 设置页重做：第 1、2 阶段已经上线，第 3 阶段要等工具重做的部分完成 | [settings-redesign.md](../agent-plan/settings-redesign.md) 状态行 |
 | Google Workspace MCP 连接（Gmail、Drive、Docs、Sheets、Slides、Calendar）：Cloud 项目须加入 Developer Preview Program，OAuth 客户端须标为 AI 智能体，2026-11-11 起未标记的会被拒，11-12 起固定。引导和诊断已覆盖（分支 `fix/google-agentic-client`，未合并）；**owner 待办：在 GCP 项目 `tofi-self-hosted` 标记现有客户端** | [D46](../decisions/0046-google-agentic-oauth-client.md)；`internal/extensions/inspection_diagnostic.go`；`ui/src/locales/*/extensions.json` |
+| 移除本地 MCP 插件（设置 › 连接 › 本地 MCP）：先退役（不再发新租约）、有界等待 5 秒让在途请求结束、再删；真在被任务使用才拒绝，稳定码 `plugin_busy`，连接与插件保持原样（分支 `fix/local-plugin-remove-busy`，未合并） | `internal/mcprunner/install.go`（`Remove`）；`internal/mcprunner/remove_connected_test.go`；`internal/app/local_mcp_test.go` |
 
 修改账户密码这件事 owner 认为不急（[D29](../decisions/0029-password-change-not-urgent.md)）。
 
