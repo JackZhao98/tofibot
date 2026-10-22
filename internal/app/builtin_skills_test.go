@@ -187,8 +187,8 @@ func TestBuiltinSkillLoadsOnDemandAndItsScriptsReachTheComputer(t *testing.T) {
 	}
 	// The staged script is a working program.
 	if py, lookErr := exec.LookPath("python3"); lookErr == nil {
-		cmd := exec.Command(py, filepath.Join(onDisk, "scripts", "reconcile.py"), "--help")
-		if help, runErr := cmd.CombinedOutput(); runErr != nil || !strings.Contains(string(help), "Reconcile figures") {
+		cmd := exec.Command(py, filepath.Join(onDisk, "scripts", "xlsx_summary.py"), "--help")
+		if help, runErr := cmd.CombinedOutput(); runErr != nil || !strings.Contains(string(help), "Summarise an XLSX workbook") {
 			t.Fatalf("staged script: %v %s", runErr, help)
 		}
 	} else {

@@ -1,24 +1,23 @@
 ---
 name: slides
-description: Build PPTX decks, one idea per slide; check bounds and text fit and inspect rendered slides.
+description: Build PPTX decks; look at the rendered slides before delivering.
 ---
 
 # Slide decks
 
-Scripts live in the skill folder named in the header of this text, under `scripts/`. Run each with `--help` first.
+## What good looks like
 
-## Principles
+- One idea per slide, a title on every slide, short lines, and a chart or table where numbers are compared. Every item the request names has a place in the deck.
+- Everything sits inside the slide, text is readable at presentation size, and nothing overlaps. Charts and tables are native and editable when the data allows.
+- The numbers on the slides are the numbers in the sources.
 
-- Every claim in the reply is true of the delivered file, and you have verified that by opening it. The slide count, the figures and the charts you mention are the ones in the final rendered deck.
-- One idea per slide, a title on every slide, short lines, and a visual or a table wherever numbers are compared. Every figure the request names appears on a slide; the plan lists them before building and the check afterwards.
-- Everything sits inside the slide bounds and every text box holds its text at a readable size.
+## Verifying
+
+- Look at the deck the way the audience will: render each slide to an image and view it. The rendered picture decides whether a slide works.
+- Read the file back for what a render hides: shape positions, hidden or off-slide content, speaker notes.
+- Every claim in the reply is true of the delivered file. The slide count, figures and charts mentioned are the ones in the final deck, and omissions are stated with the reason.
 - Publish only the final deck.
 
-## Process
+## Tools
 
-1. Write the outline: for each slide, its title, the single point, and the data or figure it carries. Cross-check the outline against the request so that every requested item has a slide.
-2. Describe the deck as a JSON spec and build it with `build_deck.py`. It lays out a 16:9 deck from a grid, chooses font sizes that fit the estimated text height, uses native editable charts and tables, and keeps speaker notes.
-3. Run `check_deck.py`. It reports shapes outside the slide, estimated text overflow, slides without titles, tiny fonts, overlaps, and counts of slides, charts, pictures and tables. Pass `--expect-slides` and `--expect-charts` with the numbers you intend to claim. Fix the spec until it exits cleanly.
-4. Run `render_preview.py`, which converts through `soffice --headless` and `pdftoppm` and writes one PNG per slide plus a contact sheet. Open the PNGs in the computer browser through a file URL and look at every slide with a screenshot; the estimates in the check are approximations and the picture decides.
-5. Write the reply from the final render: slide count, what each requested item became, and anything omitted with the reason.
-6. Publish the final file with `publish_file`.
+`python-pptx` and `matplotlib` are installed; write the code the task needs. `scripts/render_preview.py` converts to PDF with LibreOffice and renders one PNG per slide plus a contact sheet. `scripts/pptx_outline.py` prints every shape with its position, text and notes, and marks any shape outside the slide. `--help` describes each.

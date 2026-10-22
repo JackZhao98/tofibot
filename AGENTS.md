@@ -227,7 +227,11 @@ existing Skills tools (`list_skills`, `read_skill`, `read_skill_file`): the prom
 (`internal/app/builtin_skills.go`; inside uploads because the guest's `files.import_chunk` accepts nothing else). They are on for every Bot until
 turned off in Settings > Skills (`builtin_skill_off`, `PUT /api/extensions/skills/<name>/enabled`); an unreadable setting withholds them. They cannot be
 installed over or deleted, and an installed skill with a built-in name is ignored with a diagnostic. SKILL.md text is English principles only (no example
-sentences, Not/But contrasts or keyword lists; `tests/test_skill_text.py` enforces it); concrete know-how lives in the scripts. A new or longer
+sentences, Not/But contrasts, keyword lists, or a mandate to run a specific script; `tests/test_skill_text.py` enforces it): what good looks like, verify
+as the recipient will experience it, every claim true of the delivered file. Scripts are general capabilities only (decision 0041 addendum, owner rule
+2026-10-21: no task-tailored tools, builders or graders; the model writes its own code): `render_preview.py` (document/slides to page images),
+`xlsx_summary.py` (recalculate and dump structure), `pptx_outline.py` (shape dump), `preview_page.py` (page at several widths),
+`run_and_record.py`, `package_project.py`. A new or longer
 description raises the prompt budget: measure it and move the caps in `internal/app/prompt_budget_test.go`. Run the script tests with
 `python3 -m unittest discover -s internal/extensions/builtin_skills/tests -p 'test_*.py'`; `slides/scripts/render_preview.py` and
 `document-report/scripts/render_preview.py` must stay byte-identical.
