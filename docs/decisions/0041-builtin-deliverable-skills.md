@@ -46,6 +46,28 @@
 - 脚本放进 uploads 之下，是为了不动 guest 二进制和镜像；代价是路径里有个 `.skills` 目录。
 - 关闭用“有行 = 关闭”，使全新工作区和读不到表的情况都不会改变用户已做的选择之外的任何东西。
 
+## 补记 2026-10-21（PDT）：内置技能只留通用能力
+
+owner 原话：“我们不能有任何的这种硬编码或者是硬为他定制化工具来通过测试。我们要改的是模型、提示词、思考流程本身，然后提供必要的工具，但不是给他写好脚本喂给他，说你这样做就能过。”
+
+判据：这个脚本放进任何公司的通用办公或开发工具箱、对任何文档都说得通吗？是才留。对照 Anthropic 自己的 xlsx / docx / pptx / pdf 技能：它们给的是通用能力（重算公式、把文档渲染成图片让人看、转格式），不给某类任务的做法。上面“脚本”一行和“背景”里按评测任务写的检查（图片数断言、形状越界规则、发票对账）作废，按下表处理；SKILL.md 改成只写原则（好交付长什么样、按收件人会看到的方式验证、回复里每句话对文件成立），不规定步骤，也不要求必须运行某个脚本（`test_skill_text.py` 现在也检查这一点）。
+
+| 脚本 | 处理 | 理由 |
+| --- | --- | --- |
+| `slides/render_preview.py`、`document-report/render_preview.py`（两份保持一致） | 保留并缩减 | 文档 / 幻灯片转 PDF 再转页面图片，是通用的“看自己的产出”；去掉 `--expect-pages/images/text`，那是在复刻评测的断言 |
+| `spreadsheet/xlsx_summary.py` | 保留并缩减 | 重算公式加结构转储（表、行数、公式数、错误单元格、数值列合计）是通用能力；去掉 `--expect-sum/rows/sheets` |
+| `code-delivery/run_and_record.py` | 保留 | 运行命令并记录原样命令、退出码和输出，任何开发者都用得上 |
+| `code-delivery/package_project.py` | 保留 | 打包并排除依赖目录、缓存、密钥，再回读校验；通用打包 |
+| `slides/check_deck.py` | 删除，换成 `slides/pptx_outline.py` | 原脚本是带阈值的评分器（溢出估算、字号、重叠、期望张数）；新脚本只转储每个形状的位置、文字、备注，并标出越界，由模型判断 |
+| `slides/deckkit.py` | 删除 | 只为 `build_deck.py` / `check_deck.py` 估算文字高度 |
+| `slides/build_deck.py` | 删除 | 替模型决定版式和内容的模板生成器；python-pptx 已装，模型自己写 |
+| `document-report/build_report.py` | 删除 | 同上，替模型生成报告结构和图表；matplotlib、docx、reportlab 已装 |
+| `spreadsheet/build_workbook.py` | 删除 | 同上，替模型生成工作簿；openpyxl 已装 |
+| `spreadsheet/reconcile.py` | 删除 | 围绕发票概念（行、小计、税、总计、参照表）写的，复刻评测的对账判分 |
+| `web-page/check_page.py` | 缩减为 `web-page/preview_page.py` | 规则清单像评分标准；只保留“按多个视口宽度并排渲染页面”，由模型看、模型判断 |
+
+提示词预算：五行描述共少 60 个字符（目录段 710 到 650，实测），“普通私聊”上限 7719 到 7659，“结构化私聊”上限 7669 到 7609。审计了 Go 代码、提示词和工具返回：没有发现按发票、幻灯片、落地页写的逻辑；`read_skill` 返回的只是技能目录位置和 `run with python3`。该规矩同时写进 [`conventions.md`](../conventions.md) 第 7 节。
+
 ## 影响
 
 - 实施状态：已实现（分支 `feat/deliverable-skills`）。

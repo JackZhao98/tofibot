@@ -1,24 +1,22 @@
 ---
 name: document-report
-description: Write DOCX or PDF reports with real embedded charts; render and inspect the pages.
+description: Write DOCX or PDF documents and reports; look at the rendered pages before delivering.
 ---
 
 # Document and report
 
-Scripts live in the skill folder named in the header of this text, under `scripts/`. Run each with `--help` first.
+## What good looks like
 
-## Principles
+- A clear structure: a title, headings that tell the reader where they are, short paragraphs, tables for comparisons and charts where a picture shows the data better than words.
+- The content comes from the sources you read. Figures are copied from the data, charts are drawn from the real numbers and embedded as images, and the limits of the data are stated.
+- The layout survives rendering: no clipped tables, overlapping text, unreadable axes or blank pages.
 
-- Every claim in the reply is true of the delivered file, and you have verified that by opening it. A chart, table, section or figure is mentioned only after you have seen it in the rendered pages.
-- Charts are drawn from the actual data with matplotlib and embedded as images. A report that promises charts holds images, and the image count reported by the render script is the number you may claim.
-- The words of the report come from the sources you read. Figures are copied from the data, and anything you could not read is listed in the report or the reply.
+## Verifying
+
+- Look at the pages the way the reader will: render them to images and view them. Check that each chart, table and figure the reply mentions is on a page and agrees with the numbers in the text.
+- Every claim in the reply is true of the delivered file. Page counts, charts and tables are mentioned only after you saw them in the rendered pages.
 - Publish only the final file.
 
-## Process
+## Tools
 
-1. Collect the data and the points the report must make. Read the provided files completely; uploaded files are on the computer at the paths listed in the conversation.
-2. Describe the report as a JSON spec (title, headings, paragraphs, bullets, tables, charts, images) and build it with `build_report.py` as DOCX or PDF. It draws each chart from the numbers in the spec, embeds the PNG, and stops with a message when chart data is missing, mismatched or not numeric. Use `--font` when the text needs a script the default fonts lack.
-3. Run `render_preview.py` on the output. It converts Office files to PDF with `soffice --headless`, renders each page to PNG with `pdftoppm`, writes a contact sheet, and reports page count and image count. Pass `--expect-images` with the number of charts you intend to claim and `--expect-text` with key phrases or figures from the report.
-4. Open the page PNGs in the computer browser through a file URL and look at them with a screenshot. Check clipped tables, overlapping text, unreadable axes, blank pages and charts that match the numbers in the text. Fix the spec and rebuild until the pages are right.
-5. Write the reply from what the final render showed: page count, the charts and tables present, and the limits of the data.
-6. Publish the final file with `publish_file`.
+`python-docx`, `reportlab` and `matplotlib` are installed; write the code the task needs. `scripts/render_preview.py` converts a DOCX, PPTX, XLSX or PDF to a PDF with LibreOffice, renders each page to a PNG with a contact sheet, and reports the page count, embedded images and text length. `--help` describes it.

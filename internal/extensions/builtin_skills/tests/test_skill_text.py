@@ -46,10 +46,18 @@ class SkillText(unittest.TestCase):
                 for line in (meta["description"] + "\n" + body).splitlines():
                     self.assertIsNone(re.search(pattern, line, re.I), "%s: %r matches %s" % (path, line, pattern))
 
+    def test_skills_do_not_mandate_running_a_script(self):
+        # Scripts are general capabilities offered to the Bot, never a required step.
+        mandates = [r"\b(must|should|always|first|then|required?)\b[^.\n]*\brun\b", r"\brun\b[^.\n]*\.py\b", r"\b(must|required?)\b[^.\n]*\.py\b",
+                    r"\bpass\b[^.\n]*--expect", r"^\s*\d+\.\s", r"\bstep\b"]
+        for path in SKILL_FILES:
+            _, body = split(path)
+            for pattern in mandates:
+                for line in body.splitlines():
+                    self.assertIsNone(re.search(pattern, line, re.I), "%s: %r matches %s" % (path, line, pattern))
+
     def test_every_script_documents_itself(self):
         for path in glob.glob(os.path.join(SKILLS, "*", "scripts", "*.py")):
-            if os.path.basename(path) == "deckkit.py":
-                continue
             result = subprocess.run([sys.executable, path, "--help"], capture_output=True, text=True, timeout=60)
             self.assertEqual(result.returncode, 0, "%s: %s" % (path, result.stderr))
             self.assertIn("usage:", result.stdout.lower(), path)

@@ -9,10 +9,8 @@ program recalculates them. --recalc runs LibreOffice headless to recalculate a
 copy first, so sums include formula results; without it, formula cells that
 have no cached value are counted and listed as uncomputed.
 
---expect-sum "Sheet.Header=123.45" asserts a column sum (repeatable, tolerance
-0.005); --expect-sheets N and --expect-rows "Sheet=N" assert structure.
-Exit status 1 when an assertion fails or error cells exist.
-Usage: xlsx_summary.py book.xlsx [--recalc] [--json] [--expect-sum ...]
+Exit status 1 when error cells exist.
+Usage: xlsx_summary.py book.xlsx [--recalc] [--json]
 """
 from __future__ import annotations
 
@@ -94,19 +92,6 @@ def summarise(path, recalc=False):
         shutil.rmtree(workdir, ignore_errors=True)
 
 
-def column_sum(report, sheet, header):
-    for info in report["sheets"]:
-        if info["name"] != sheet:
-            continue
-        total, found = 0.0, False
-        for key, entry in info["columns"].items():
-            if key.startswith(header + " ("):
-                total += entry["sum"]
-                found = True
-        return total if found else None
-    return None
-
-
 def render(report):
     lines = ["%s (recalculated: %s)" % (report["file"], "yes" if report["recalculated"] else "no"),
              "sheets: %d" % len(report["sheets"])]
@@ -128,9 +113,6 @@ def main(argv=None):
     parser.add_argument("path")
     parser.add_argument("--recalc", action="store_true")
     parser.add_argument("--json", action="store_true")
-    parser.add_argument("--expect-sum", action="append", default=[], metavar="SHEET.HEADER=VALUE")
-    parser.add_argument("--expect-sheets", type=int)
-    parser.add_argument("--expect-rows", action="append", default=[], metavar="SHEET=N")
     args = parser.parse_args(argv)
     try:
         report = summarise(args.path, args.recalc)
@@ -145,19 +127,6 @@ def main(argv=None):
     for info in report["sheets"]:
         if info["error_cells"]:
             failures.append("sheet %s has error cells" % info["name"])
-    if args.expect_sheets is not None and len(report["sheets"]) != args.expect_sheets:
-        failures.append("expected %d sheets, found %d" % (args.expect_sheets, len(report["sheets"])))
-    for item in args.expect_rows:
-        name, _, number = item.rpartition("=")
-        match = next((s for s in report["sheets"] if s["name"] == name), None)
-        if match is None or match["rows"] != int(number):
-            failures.append("rows of %s: expected %s, found %s" % (name, number, match and match["rows"]))
-    for item in args.expect_sum:
-        target, _, number = item.rpartition("=")
-        sheet, _, header = target.partition(".")
-        got = column_sum(report, sheet, header)
-        if got is None or abs(got - float(number)) > 0.005:
-            failures.append("sum of %s: expected %s, found %s" % (target, number, got))
     for text in failures:
         print("FAIL: " + text)
     return 1 if failures else 0

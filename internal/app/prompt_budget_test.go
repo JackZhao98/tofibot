@@ -267,17 +267,20 @@ func TestProductionPromptSizeMatrix(t *testing.T) {
 				// run; production Sonnet answered a newer title from memory and cited figures from search
 				// titles; it is the existing line, rewritten) plus the computer section's office-tooling and
 				// attached-files principles (+183 measured, other branch).
-				// 7719: plus the five built-in skills' one-line directory rows (+616 measured, decision 0041); the
+				// 7659: plus the five built-in skills' one-line directory rows (+616 measured, decision 0041; -60 when the descriptions shrank, D41 2026-10-21 addendum); the
 				// fixed overhead below does not include the directory, so its ceiling stays.
-				if tc.name == "dm" && len([]rune(system))+runtime.SystemPromptOverheadRunes() > 7719 {
-					t.Errorf("ordinary DM provider system exceeds 7719 runes")
+				if tc.name == "dm" && len([]rune(system))+runtime.SystemPromptOverheadRunes() > 7659 {
+					t.Errorf("ordinary DM provider system exceeds 7659 runes")
 				}
 				// 7000: the lookup line's works-newer-than-the-model clause (~45) lands in
 				// every prompt, the longest of which sat 23 under 6950.
 				// 7450: the confirmation, announce-after-work and route principles (~470) lands in every prompt.
 				// 7803: 7450 plus the same +170 lookup-line rewrite and +183 computer-section principles.
-				if fixed > 7803 {
-					t.Errorf("fixed overhead %d leaves too little customization headroom (ceiling 7803)", fixed)
+				// 8071: 7803 plus the group delegation principle and each member's role line in the
+				// roster (+296 measured on the synthetic two-Bot group, the longest prompt; DM unchanged).
+				// 8196: plus the nice-to-have limit on handing off and the one-assembled-result lines (+125 measured).
+				if fixed > 8196 {
+					t.Errorf("fixed overhead %d leaves too little customization headroom (ceiling 8196)", fixed)
 				}
 				if !strings.Contains(system, bot.Instructions) {
 					t.Fatal("user instructions changed")
@@ -317,10 +320,10 @@ func TestProductionPromptSizeMatrix(t *testing.T) {
 					}
 					// 6250: same two additions as the ordinary DM cap above.
 					// 6700: plus the confirmation, announce-after-work and route principles (~470), as above.
-					// 7669: 6700 plus the +170 lookup-line rewrite and the +183 computer-section principles,
-					// plus the built-in skills' directory rows (+616 measured, decision 0041): 7669.
-					if tc.name == "dm" && len([]rune(system))+runtime.StructuredPromptOverheadRunes() > 7669 {
-						t.Errorf("structured DM provider system exceeds 7669 runes")
+					// 7609: 6700 plus the +170 lookup-line rewrite and the +183 computer-section principles,
+					// plus the built-in skills' directory rows (+616 measured, decision 0041; -60 when the descriptions shrank, D41 2026-10-21 addendum): 7609.
+					if tc.name == "dm" && len([]rune(system))+runtime.StructuredPromptOverheadRunes() > 7609 {
+						t.Errorf("structured DM provider system exceeds 7609 runes")
 					}
 					if tc.kind == runKindGroupChat && !strings.Contains(system, "say(answer)") {
 						t.Error("structured group prompt does not name say(answer)")

@@ -82,10 +82,12 @@ TOFI 是一个自托管的 AI Bot 工作台：后端是 Go 服务（`internal/`�
 | 回复某条消息时不加 @，就交给发那条消息的 Bot | `abf8fab` |
 | 提到不是群成员的 @名字 时按普通文字处理；中日韩文名字后面紧跟文字也能匹配 | `9be534d` |
 | 点“停止”会停下整条调用链，并让其中还在等待的项过期 | `9e24534` |
+| 群成员名单带各自的职责，提示词有按职责分工的原则：多职责请求里同事职责更合适的部分交给同事，单职责请求和闲聊不拆（分支 `fix/group-real-delegation`，未合并） | `internal/app/context.go`；`group_delegation_test.go`；[D42](../decisions/0042-group-roster-roles-and-delegation.md) |
 
 | 已知缺口 | 依据 |
 |---|---|
 | Bot 之间的分工话语会露给用户，比如“我的部分做完了，笔记留给 Sage 汇总”（rc.26，Haiku 和 Sonnet 都有） | 评测 `prod-haiku-r3`、`prod-sonnet-r3` 里的 `group_wiki_decision`，评分标准第 2 条；与 [D09](../decisions/0009-reliability-principles.md) “群聊里只给最终合并的结果” 冲突 |
+| 生产默认模型 codex-gpt-5.6-terra 在 `deliv_group_announcement` 上三次都是一个 Bot 独自查、写、配图（`deliv-terra-r0/r1/r2`）；D42 的修复在本机只用 Sonnet 5.5 测过：三个 Bot 都运行的次数前后均为 3/3（原本就会分工），对 terra 的效果没验证，本机无电脑也无法验证设计师出图 | 本机评测 `eval-before/after`（Sonnet 5.5，各 3 次）；[D42](../decisions/0042-group-roster-roles-and-delegation.md) |
 | Haiku 在群聊里使用 `say` 的比例低（辩论、分工题只有 33–50%），因为群聊不强制调用工具 | structured-output.md 第 12 节 “Still open after Phase 3”、第 14 节末 |
 
 ### 4.3 Bot 和人设
@@ -107,7 +109,7 @@ TOFI 是一个自托管的 AI Bot 工作台：后端是 Go 服务（`internal/`�
 | 看门狗会重启没有响应的电脑；桌面查看器会等电脑醒来，掉线后自动重连 | `internal/app/computer_watchdog.go`；`51c95a2` |
 | 聊天里上传的文件（zip、PDF、DOCX、XLSX 等任意类型，20 MB 内）在 Bot 的电脑里：`/workspace/home/uploads/<对话 id>/<原文件名>`，第一次用电脑工具时懒复制，已有则跳过；提示词在每个附件后写出路径。线上还没有，随下一个 rc 发 | `internal/app/guest_inputs.go`；`internal/computer/guest/import.go`；[D36](../decisions/0036-chat-uploads-on-the-computer.md) |
 | Bot 电脑镜像预装 LibreOffice、tesseract（英文）、poppler、pandoc 和 Python 办公库（openpyxl、docx、pptx、matplotlib、pandas、reportlab、pypdf、PIL）；其他语言的 OCR 数据和字体由 Bot 取到用户目录。镜像尚未构建和实测，线上没有 | `deploy/microvm/Dockerfile`；`deploy/microvm/smoke-office.sh`；[D37](../decisions/0037-english-only-office-tooling.md) |
-| 内置交付技能：`spreadsheet`、`document-report`、`slides`、`web-page`、`code-delivery` 随二进制发布，默认对每个 Bot 可用。提示词里每个只有一行描述，Bot 读它时才加载正文，并把脚本复制到电脑 `/workspace/home/uploads/.skills/<name>/<摘要>/`。脚本检查自己的产出：PDF/DOCX 的页数和图片数、PPTX 形状越界和文字溢出、XLSX 各列合计、发票对账（行算术、小计、总计、与参照表比对、列出读不出的）、HTML 的双宽度预览、命令的真实输出和 zip 校验。尚未合并、线上没有；soffice 转换路径和对真实任务的效果还没有实测 | `internal/extensions/builtin.go`；`internal/extensions/builtin_skills/`；`internal/app/builtin_skills.go`；[D41](../decisions/0041-builtin-deliverable-skills.md) |
+| 内置交付技能：`spreadsheet`、`document-report`、`slides`、`web-page`、`code-delivery` 随二进制发布，默认对每个 Bot 可用。提示词里每个只有一行描述，Bot 读它时才加载正文，并把脚本复制到电脑 `/workspace/home/uploads/.skills/<name>/<摘要>/`。SKILL.md 只写原则（好交付长什么样、按收件人看到的方式验证、回复对文件成立），不规定步骤；脚本只留通用能力：文档 / 幻灯片渲染成页面图片、XLSX 重算并转储结构、PPTX 形状转储、HTML 多宽度并排预览、命令的真实输出记录和 zip 打包校验。按评测任务写的生成器、检查器和发票对账已删除（[D41](../decisions/0041-builtin-deliverable-skills.md) 2026-10-21 补记）。尚未合并、线上没有；soffice 转换路径和对真实任务的效果还没有实测 | `internal/extensions/builtin.go`；`internal/extensions/builtin_skills/`；`internal/app/builtin_skills.go`；[D41](../decisions/0041-builtin-deliverable-skills.md) |
 | 交接卡片：Bot 可以请用户接管屏幕，完成登录、两步验证、验证码这类步骤（`request_takeover`），也可以请用户连接一个服务（`request_connection`） | `internal/app/handover.go:119`、`:156`；`d3e4ff9`；`test:handover-cards`；`AGENTS.md` 第 75–87 行；[D11](../decisions/0011-handover-cards.md) |
 
 | 已知缺口 | 依据 |
