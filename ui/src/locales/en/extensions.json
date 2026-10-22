@@ -208,7 +208,7 @@
   "held": {
     "discord": {
       "description": "Community-maintained Discord Bot connection.",
-      "reason": "We haven't verified a compatible install method and permissions yet, so it can't be added."
+      "reason": "Not a curated connector. You can install a community Discord server yourself under Add connection › Custom › Local package; guide in docs/integrations/discord-add-it-yourself.md."
     },
     "notion_token": {
       "description": "Legacy local MCP server, no longer maintained.",
@@ -228,14 +228,18 @@
     "custom": {
       "args": "Arguments (one per line)",
       "binary": "Executable",
-      "env": "Environment variables (KEY=value per line, saved as a private file)",
+      "env": "Environment variables (values are saved as private files and never shown again)",
       "install": "Install plugin",
-      "intro": "Specify a pinned version and executable. The install command runs on this server, and the plugin runs with this server’s permissions.",
+      "intro": "Specify a pinned version and executable. The install command runs on this server, and the plugin runs with this server’s permissions. A community package is code you chose to trust: it sees the variables you give it, and its tools ask for approval until you mark them read-only.",
       "package": "Package name",
       "plugin_id": "Plugin ID",
       "runtime": "Runtime",
       "version": "Pinned version",
-      "installing": "Installing…"
+      "installing": "Installing…",
+      "integrity": "Package digest (optional, sha512-…; the install fails if the registry serves anything else)",
+      "env_name": "Variable name",
+      "env_value": "Value",
+      "env_add": "Add variable"
     },
     "gog": {
       "install": "Install gogcli",
@@ -471,11 +475,13 @@
       "local": "Community · {{name}}",
       "vendor": "Official · {{host}}",
       "community": "Community · {{host}}",
-      "custom": "Custom · {{host}}"
+      "custom": "Custom · {{host}}",
+      "package": "Community · {{package}} {{version}}"
     },
     "details": {
       "account": "Account: {{email}}",
-      "project": "Google Cloud project: {{project}}"
+      "project": "Google Cloud project: {{project}}",
+      "community_review": "Community code: its tools ask for approval until you mark them read-only."
     },
     "preview_note": "Needs a Google Cloud project enrolled in the Workspace Developer Preview Program, which requires a company or enterprise account. Until then, tool calls can fail with a permission error.",
     "error": {

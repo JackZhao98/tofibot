@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { request } from "../api";
 
 /** The local plugin service's own facts (state, tool count). The page never shows them; it needs only which plugins exist. */
-export type Plugin = { id: string; state: "sleeping" | "starting" | "ready"; tool_count: number };
+export type Plugin = { id: string; state: "sleeping" | "starting" | "ready"; tool_count: number; kind?: string; package?: string; version?: string };
 export type GoogleStatus = { connected: boolean; email: string; scope?: "readonly" | "read-send" };
 export type LocalState = {
   loaded: boolean;

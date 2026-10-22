@@ -208,7 +208,7 @@
   "held": {
     "discord": {
       "description": "Von der Community gepflegte Discord-Bot-Verbindung.",
-      "reason": "Kompatible Installation und Berechtigungen sind noch nicht geprüft, daher noch nicht verfügbar."
+      "reason": "Kein von TOFI kuratierter Connector. Sie können einen Community-Discord-Server über Verbindung hinzufügen › Benutzerdefiniert › Lokales Paket selbst installieren; Anleitung in docs/integrations/discord-add-it-yourself.md."
     },
     "notion_token": {
       "description": "Veralteter lokaler MCP-Server, nicht mehr gepflegt.",
@@ -228,14 +228,18 @@
     "custom": {
       "args": "Startargumente (eins pro Zeile)",
       "binary": "Ausführbare Datei",
-      "env": "Umgebungsvariablen (KEY=value pro Zeile, als private Datei gespeichert)",
+      "env": "Umgebungsvariablen (Werte werden als private Dateien gespeichert und nicht mehr angezeigt)",
       "install": "Plug-in installieren",
-      "intro": "Geben Sie eine feste Version und die ausführbare Datei an. Der Installationsbefehl läuft auf diesem Server; das Plug-in läuft mit den Rechten dieses Servers.",
+      "intro": "Geben Sie eine feste Version und die ausführbare Datei an. Der Installationsbefehl läuft auf diesem Server; das Plug-in läuft mit den Rechten dieses Servers.Ein Community-Paket ist Code, dem Sie bewusst vertrauen: Es sieht die Variablen, die Sie ihm geben, und seine Tools verlangen eine Freigabe, bis Sie sie als schreibgeschützt markieren.",
       "package": "Paketname",
       "plugin_id": "Plug-in-ID",
       "runtime": "Laufzeit",
       "version": "Feste Version",
-      "installing": "Wird installiert…"
+      "installing": "Wird installiert…",
+      "integrity": "Paket-Prüfsumme (optional, sha512-…; die Installation schlägt fehl, wenn die Registry etwas anderes liefert)",
+      "env_name": "Variablenname",
+      "env_value": "Wert",
+      "env_add": "Variable hinzufügen"
     },
     "gog": {
       "install": "gogcli installieren",
@@ -471,11 +475,13 @@
       "local": "Community · {{name}}",
       "vendor": "Offiziell · {{host}}",
       "community": "Community · {{host}}",
-      "custom": "Eigene · {{host}}"
+      "custom": "Eigene · {{host}}",
+      "package": "Community · {{package}} {{version}}"
     },
     "details": {
       "account": "Konto: {{email}}",
-      "project": "Google-Cloud-Projekt: {{project}}"
+      "project": "Google-Cloud-Projekt: {{project}}",
+      "community_review": "Community-Code: Seine Tools verlangen eine Freigabe, bis Sie sie als schreibgeschützt markieren."
     },
     "preview_note": "Erfordert ein Google-Cloud-Projekt, das im Workspace Developer Preview Program angemeldet ist (Firmen- oder Enterprise-Konto nötig). Bis dahin können Tool-Aufrufe mit einem Berechtigungsfehler scheitern.",
     "error": {

@@ -208,7 +208,7 @@
   "held": {
     "discord": {
       "description": "社群維護的 Discord Bot 連線。",
-      "reason": "尚未核實相容的安裝方式與連線權限，暫不開放新增。"
+      "reason": "不屬於官方精選連線。可在「新增連線 › 自訂 › 本機套件」中自行安裝社群版 Discord 服務；步驟見 docs/integrations/discord-add-it-yourself.md。"
     },
     "notion_token": {
       "description": "已停止維護的舊版本機 MCP 服務。",
@@ -228,14 +228,18 @@
     "custom": {
       "args": "啟動參數（每行一個）",
       "binary": "執行檔",
-      "env": "環境變數（每行 KEY=value，以私密檔案儲存）",
+      "env": "環境變數（值以私密檔案儲存，之後不再顯示）",
       "install": "安裝外掛程式",
-      "intro": "指定固定版本與執行檔。安裝指令會在本伺服器上執行，外掛程式將以本伺服器的權限執行。",
+      "intro": "指定固定版本與執行檔。安裝指令會在本伺服器上執行，外掛程式將以本伺服器的權限執行。社群套件是你選擇信任的程式碼：它能看到你交給它的變數，其工具在你標為唯讀之前每次都要確認。",
       "package": "套件名稱",
       "plugin_id": "外掛程式 ID",
       "runtime": "執行環境",
       "version": "固定版本",
-      "installing": "正在安裝…"
+      "installing": "正在安裝…",
+      "integrity": "套件摘要（選填，sha512-…；若來源回傳的內容不符，安裝即失敗）",
+      "env_name": "變數名稱",
+      "env_value": "值",
+      "env_add": "新增變數"
     },
     "gog": {
       "install": "安裝 gogcli",
@@ -469,11 +473,13 @@
       "local": "社群 · {{name}}",
       "vendor": "官方 · {{host}}",
       "community": "社群 · {{host}}",
-      "custom": "自訂 · {{host}}"
+      "custom": "自訂 · {{host}}",
+      "package": "社群 · {{package}} {{version}}"
     },
     "details": {
       "account": "帳號：{{email}}",
-      "project": "Google Cloud 專案：{{project}}"
+      "project": "Google Cloud 專案：{{project}}",
+      "community_review": "社群程式碼：其工具在你標為唯讀之前每次都要確認。"
     },
     "preview_note": "需要已加入 Workspace 開發人員預覽計畫的 Google Cloud 專案，該計畫要求公司或企業帳號。未加入時，工具呼叫可能傳回權限錯誤。",
     "error": {

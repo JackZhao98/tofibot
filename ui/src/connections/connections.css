@@ -68,3 +68,5 @@
 .connect-dialog .integration-search input{width:100%;padding-left:40px;background:var(--sunk);border-color:transparent}
 .connect-dialog .integration-tile>span:nth-child(2){flex:1;min-width:0}
 .connect-dialog .integration-tile>svg:last-child,.connect-dialog .integration-tile>.integration-added{flex:none}
+.connect-env{display:grid;gap:8px;margin:0;padding:0;border:0;min-width:0}.connect-env legend{padding:0;margin-bottom:6px;font-size:13px}.connect-env-row{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,2fr);gap:8px}.connect-env .secondary-button{justify-self:start}
+.mcp-service-source{overflow-wrap:anywhere}

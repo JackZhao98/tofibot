@@ -362,6 +362,13 @@ func (s *Server) attachLocalMCP(id string) error {
 			continue
 		}
 		found = true
+		// A package a person installed is community code: record where it came
+		// from (shown in the connection details) and let the tool tiers treat
+		// its own annotations as untrusted. The bundled gogcli and
+		// operator-configured adapter profiles are not community packages.
+		if (plugin.Kind == "npm" || plugin.Kind == "pypi") && plugin.AdapterIdentity == "" {
+			cfg.Provenance = &extensions.MCPProvenance{Origin: extensions.MCPOriginCommunity, Kind: plugin.Kind, Package: plugin.Package, Version: plugin.Version}
+		}
 		if plugin.AdapterIdentity != "" {
 			if len(plugin.AdapterIdentity) != 64 || strings.Trim(plugin.AdapterIdentity, "0123456789abcdef") != "" {
 				return errors.New("invalid local MCP adapter identity")

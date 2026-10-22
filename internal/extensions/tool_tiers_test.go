@@ -34,7 +34,7 @@ func TestMCPToolTierProviderAnnotationTable(t *testing.T) {
 		{"destructiveHint true alone is write, not high_risk", &mcpToolTierRecord{Digest: "d", AnnotationsPresent: true, DestructiveHint: boolPtr(true)}, MCPTierWrite, MCPTierSourceDefault},
 		{"duplicated listing with readOnlyHint", &mcpToolTierRecord{Digest: "d", AnnotationsPresent: true, ReadOnlyHint: true, Duplicated: true}, MCPTierWrite, MCPTierSourceDefault},
 	} {
-		if v := resolveMCPToolTier("x", tc.rec, false); v.Tier != tc.want || v.Source != tc.src {
+		if v := resolveMCPToolTier("x", tc.rec, false, false); v.Tier != tc.want || v.Source != tc.src {
 			t.Errorf("%s: got %s/%s want %s/%s", tc.name, v.Tier, v.Source, tc.want, tc.src)
 		}
 	}
@@ -44,37 +44,37 @@ func TestMCPToolTierProviderAnnotationTable(t *testing.T) {
 // stale override only tightens; everything binds to the tool digest.
 func TestMCPToolTierResolutionAndOverrideStaleness(t *testing.T) {
 	rec := &mcpToolTierRecord{Digest: "d1"}
-	if v := resolveMCPToolTier("x", rec, false); v.Tier != MCPTierWrite || v.Source != MCPTierSourceDefault || v.Changed {
+	if v := resolveMCPToolTier("x", rec, false, false); v.Tier != MCPTierWrite || v.Source != MCPTierSourceDefault || v.Changed {
 		t.Fatalf("default: %+v", v)
 	}
-	if v := resolveMCPToolTier("x", nil, true); v.Tier != MCPTierReadOnly || v.Source != MCPTierSourceOwner {
+	if v := resolveMCPToolTier("x", nil, true, false); v.Tier != MCPTierReadOnly || v.Source != MCPTierSourceOwner {
 		t.Fatalf("legacy trusted without record: %+v", v)
 	}
 	rec.AnnotationsPresent, rec.ReadOnlyHint = true, true
-	provider := resolveMCPToolTier("x", rec, false)
+	provider := resolveMCPToolTier("x", rec, false, false)
 	if provider.Tier != MCPTierReadOnly || provider.Source != MCPTierSourceProvider {
 		t.Fatalf("provider: %+v", provider)
 	}
 	rec.Override, rec.OverrideDigest = string(MCPTierHighRisk), "d1"
-	owner := resolveMCPToolTier("x", rec, false)
+	owner := resolveMCPToolTier("x", rec, false, false)
 	if owner.Tier != MCPTierHighRisk || owner.Source != MCPTierSourceOwner || owner.Binding == provider.Binding {
 		t.Fatalf("fresh override: %+v", owner)
 	}
 	// The tool changed: the tightening override is kept, a loosening one is not.
 	rec.Digest = "d2"
-	changed := resolveMCPToolTier("x", rec, false)
+	changed := resolveMCPToolTier("x", rec, false, false)
 	if changed.Tier != MCPTierHighRisk || !changed.Changed || changed.Source != MCPTierSourceOwner || changed.Binding == owner.Binding {
 		t.Fatalf("stale tightening override: %+v", changed)
 	}
 	rec.AnnotationsPresent, rec.ReadOnlyHint = false, false
 	rec.Override = string(MCPTierReadOnly)
-	if v := resolveMCPToolTier("x", rec, false); v.Tier != MCPTierWrite || !v.Changed || v.Source != MCPTierSourceDefault || v.Override != string(MCPTierReadOnly) {
+	if v := resolveMCPToolTier("x", rec, false, false); v.Tier != MCPTierWrite || !v.Changed || v.Source != MCPTierSourceDefault || v.Override != string(MCPTierReadOnly) {
 		t.Fatalf("stale loosening override must not apply: %+v", v)
 	}
 	// An owner write override over a provider read-only mark tightens.
 	rec.AnnotationsPresent, rec.ReadOnlyHint = true, true
 	rec.Override, rec.OverrideDigest = string(MCPTierWrite), "d2"
-	if v := resolveMCPToolTier("x", rec, false); v.Tier != MCPTierWrite || v.Source != MCPTierSourceOwner {
+	if v := resolveMCPToolTier("x", rec, false, false); v.Tier != MCPTierWrite || v.Source != MCPTierSourceOwner {
 		t.Fatalf("owner write over provider read-only: %+v", v)
 	}
 }
