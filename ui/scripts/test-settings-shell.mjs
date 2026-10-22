@@ -560,12 +560,13 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
     const tracker = card(slow.page, "acme_tracker");
     await tracker.waitFor({timeout: 15000});
     const first = (await tracker.locator(".mcp-service-status").textContent()).trim();
-    assert.match(first, /^Connected · 49 tools/, `cached status on first paint, got "${first}"`);
+    assert.match(first, /^Connected/, `cached status on first paint, got "${first}"`);
+    assert.doesNotMatch(first, /tool/i, "the status line carries no tool count; tools are in the details view");
     assert.equal(await slow.page.locator(motion).count(), 0, "no test animation while the quiet check runs");
     assert.equal(await running(slow.page), 0, "nothing animates inside a connection card");
     assert.equal(await tracker.locator(".mcp-menu-trigger").isDisabled(), false, "menu is not busy during the quiet check");
     assert.equal(await tracker.getAttribute("data-state"), "ready");
-    await slow.page.waitForFunction(() => /Connected · 8 tools/.test(document.querySelector('.mcp-service[aria-label="acme_tracker"] .mcp-service-status')?.textContent ?? ""), null, {timeout: 10000});
+    await slow.page.waitForFunction(() => /Checked/.test(document.querySelector('.mcp-service[aria-label="acme_tracker"] .mcp-service-status')?.textContent ?? ""), null, {timeout: 10000});
     assert.match(await tracker.locator(".mcp-service-checked").textContent(), /^Checked /, "tiny checked timestamp appears");
     assert.equal(await slow.page.locator(motion).count(), 0);
     await slow.close();
@@ -574,7 +575,7 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
     const bad = await open({tab: "connections", testfail: "1"});
     const badTracker = card(bad.page, "acme_tracker");
     await badTracker.waitFor({timeout: 15000});
-    assert.match((await badTracker.locator(".mcp-service-status").textContent()).trim(), /^Connected · 49 tools/, "starts from the cached state");
+    assert.match((await badTracker.locator(".mcp-service-status").textContent()).trim(), /^Connected/, "starts from the cached state");
     await bad.page.waitForFunction(() => document.querySelector('.mcp-service[aria-label="acme_tracker"]')?.getAttribute("data-state") === "error", null, {timeout: 12000});
     assert.match(await badTracker.locator(".mcp-service-status").textContent(), /Connection failed/);
     assert.ok((await badTracker.locator(".mcp-service-error").textContent()).trim().length > 5, "a named reason is shown");
@@ -586,9 +587,9 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
     const tiersPage = await open({tab: "connections"});
     const tiered = card(tiersPage.page, "acme_tracker");
     await tiered.waitFor({timeout: 15000});
-    await tiersPage.page.waitForFunction(() => /read only/.test(document.querySelector('.mcp-service[aria-label="acme_tracker"] .mcp-service-status')?.textContent ?? ""), null, {timeout: 10000});
-    assert.match((await tiered.locator(".mcp-service-status").textContent()).trim(), /tools · 2 read only/, "read-only count in the summary");
-    await tiered.locator(".mcp-service-tools .disclosure-toggle").click();
+    assert.equal(await tiered.locator(".mcp-service-tools").count(), 0, "a resting row shows no tool list");
+    await tiered.locator(".mcp-menu-trigger").click();
+    await tiersPage.page.getByRole("menuitem", {name: "View tools"}).click();
     await tiered.locator(".mcp-tool-group[data-tier=read_only]").waitFor();
     assert.deepEqual(await tiered.locator(".mcp-tool-group h5").allTextContents(), ["Read only (marked by provider)2", "Reviewed each time2", "Always ask me2"], "three groups with counts");
     assert.deepEqual(await tiered.locator(".mcp-tool[data-source=owner] code").allTextContents(), ["get_issue", "delete_issue", "post_comment"], "owner overrides are marked");
@@ -606,9 +607,11 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
     assert.equal(await tiered.locator(".mcp-tools-head .mcp-button").textContent(), "Refresh tools", "the disclosure refreshes the tool list; nothing classifies");
     assert.doesNotMatch(await tiersPage.page.locator('.mcp-service[aria-label="notes_search"] .mcp-service-status').textContent(), /Classifying/, "no classifying status anywhere");
     const docs = card(tiersPage.page, "acme_docs");
-    assert.equal(await docs.locator(".mcp-service-tools").count(), 0, "a connection without a tool list has no tools disclosure");
+    await docs.locator(".mcp-menu-trigger").click();
+    assert.equal(await tiersPage.page.getByRole("menuitem", {name: "View tools"}).count(), 0, "a connection without a tool list has no View tools action");
+    await tiersPage.page.keyboard.press("Escape");
     await tiersPage.close();
-    console.log("PASS connections tools: read-only count, tier groups, markers, styled selector, one override write");
+    console.log("PASS connections tools: opened from the menu, tier groups, markers, styled selector, one override write");
   }
 
   // ---- 7c. Admin console: list, detail, role, disk, password, deactivation and the delete flow (stubbed API).

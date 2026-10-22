@@ -38,9 +38,8 @@
 .oauth-setup h2 { margin: 0 0 8px; font: var(--type-row-title); }
 .oauth-setup p { margin: 0 0 12px; font: var(--type-meta); color: var(--text-secondary); }
 .oauth-setup nav { display: flex; flex-wrap: wrap; column-gap: 20px; row-gap: 4px; }
-.oauth-setup a,.oauth-docs { display: inline-flex; align-items: center; min-height: 44px; color: var(--text-secondary); text-underline-offset: 4px; font: var(--type-meta); }
-.oauth-setup a:hover,.oauth-docs:hover { color: var(--text-body); text-decoration-thickness: 2px; }
-.oauth-docs { display: flex; width: fit-content; margin: 16px auto 0; }
+.oauth-setup a { display: inline-flex; align-items: center; min-height: 44px; color: var(--text-secondary); text-underline-offset: 4px; font: var(--type-meta); }
+.oauth-setup a:hover { color: var(--text-body); text-decoration-thickness: 2px; }
 @keyframes oauth-connect { 0%,70%,100% { opacity: .4; transform: translateY(0); } 30% { opacity: 1; transform: translateY(-4px); } }
 @media (max-width: 420px) {
   .oauth-connection { padding: 36px 24px; }

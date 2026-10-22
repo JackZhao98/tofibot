@@ -19,6 +19,11 @@ type oauthCompletionPage struct {
 	APIURL      string
 	MCPURL      string
 	DocsURL     string
+	// Setup says what is actually missing, so the page shows setup help only then:
+	// "" (nothing: a connection that works shows the result and the way back),
+	// "enable" (the product API or its MCP service is not enabled) or
+	// "audience" (the account is not an allowed test user).
+	Setup string
 }
 
 var oauthAPIPath = regexp.MustCompile(`^/apis/enableflow;apiid=[a-z][a-z0-9-]*\.googleapis\.com$`)
@@ -46,7 +51,7 @@ func writeOAuthCompletion(w http.ResponseWriter, status int, page oauthCompletio
 	case "pending":
 		title, heading, next = "Connecting", "正在连接", "正在打开服务的授权页面，请稍候。"
 	case "success":
-		title, heading, next = "Connection complete", "授权已完成", "返回 Tofi 读取工具并检查连接状态。授权完成不代表服务 API 已启用。"
+		title, heading, next = "Connection complete", "授权已完成", "返回 Tofi 即可使用。"
 	case "denied":
 		heading, next = "授权被拒绝", "如需继续连接，请返回 Tofi 检查账号权限并重试。"
 	case "failed":
@@ -64,6 +69,11 @@ func writeOAuthCompletion(w http.ResponseWriter, status int, page oauthCompletio
 	page.APIURL = oauthCompletionLink(page.APIURL, false)
 	page.MCPURL = oauthCompletionLink(page.MCPURL, false)
 	page.DocsURL = oauthCompletionLink(page.DocsURL, true)
+	switch page.Setup {
+	case "enable", "audience":
+	default:
+		page.Setup = ""
+	}
 	view := struct {
 		oauthCompletionPage
 		Title, Heading, Next string
@@ -104,18 +114,26 @@ var oauthCompletionTemplate = template.Must(template.New("oauth-connection").Par
     <h1 id="connection-heading">{{.Heading}}</h1>
     {{if .Message}}<p class="oauth-message" role="status">{{.Message}}</p>{{else}}<p class="oauth-next">{{.Next}}</p>{{end}}
     <a class="oauth-return" href="/">返回 Tofi</a>
-    {{if or .APIURL .MCPURL}}
+    {{if eq .Setup "enable"}}
     <section class="oauth-setup" aria-labelledby="setup-heading">
-      <h2 id="setup-heading">Google 连接设置</h2>
-      <p>打开 Google Cloud 后，选择与 OAuth Client 相同的项目。若应用处于测试模式，请在 Audience 中添加当前账号为测试用户。</p>
+      <h2 id="setup-heading">启用服务</h2>
+      <p>在 OAuth Client 所属的同一个 Google Cloud 项目中启用下面的服务，然后回到 Tofi 刷新工具。</p>
       <nav aria-label="Google 配置">
         {{if .APIURL}}<a href="{{.APIURL}}" target="_blank" rel="noopener noreferrer">启用产品 API</a>{{end}}
         {{if .MCPURL}}<a href="{{.MCPURL}}" target="_blank" rel="noopener noreferrer">启用 MCP 服务</a>{{end}}
+        {{if .DocsURL}}<a href="{{.DocsURL}}" target="_blank" rel="noopener noreferrer">官方接入文档</a>{{end}}
+      </nav>
+    </section>
+    {{else if eq .Setup "audience"}}
+    <section class="oauth-setup" aria-labelledby="setup-heading">
+      <h2 id="setup-heading">添加测试用户</h2>
+      <p>应用处于测试模式时，只有测试用户能授权。请在 Audience 中添加当前账号，然后重试。</p>
+      <nav aria-label="Google 配置">
         <a href="https://console.cloud.google.com/auth/audience" target="_blank" rel="noopener noreferrer">配置测试用户</a>
+        {{if .DocsURL}}<a href="{{.DocsURL}}" target="_blank" rel="noopener noreferrer">官方接入文档</a>{{end}}
       </nav>
     </section>
     {{end}}
-    {{if .DocsURL}}<a class="oauth-docs" href="{{.DocsURL}}" target="_blank" rel="noopener noreferrer">查看官方接入文档</a>{{end}}
   </main>
 </body>
 </html>`))
