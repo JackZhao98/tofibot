@@ -67,6 +67,7 @@
 | 旧色名 `--yellow --pink --blue --orange`（及 `*-text`） | `:12-13` | `--clay --iris --lagoon --honey` | 17 / 10 / 17 / 13（`*-text` 另有 0 / 0 / 3 / 3） |
 | 语义面 `--surface-page/-card/-raised/-sunk` | `:23` | `--bg --surface --surface-2 --sunk` | 1 / 1 / 0 / 1 |
 | 语义字 `--text-body/-secondary/-meta/-on-block` | `:24` | `--ink --ink-soft --muted --on-block` | 12 / 24 / 1 / 2 |
+| 语义字 `--text-process` | `:24` | `--muted`（Bot 过程行的字：安静、不抢正文；浅/深色对比度都不低于 AA，见 `components.md` 第 1 节"过程行"） | 7 |
 | 语义边/强调 `--border-edge/-soft`、`--accent-primary/-decide(-text)` | `:25-26` | `--line --line-soft --clay --iris` | 2 / 7 / 1（`-text` 1）/ 2（`-text` 0） |
 | 状态 `--status-working/-unread/-done/-error/-wait(-text)` | `:28-29` | 对应色相 | 大多为 0（见 1.6） |
 | 兼容名 `--text --text-soft --accent --surface-soft --surface-hover --sidebar-bg --selected-bg --line-strong --success --on-accent --bubble-user` | `:84-88` | 见右 | 43 / 39 / 7 / 18 / 19 / 3 / 5 / 4 / 3 / 1 / 1 |
@@ -135,6 +136,7 @@
 | `--type-meta` | `400 13px/1.5 body` | 50 |
 | `--type-label` | `600 10px/1.2 mono`，配 `--label-tracking: .14em` | 1 |
 | `--type-status` | `600 11px/1.4 mono` | 20 |
+| `--type-status-regular` | `400 11px/1.4 mono`（T2 的落地；过程行里步骤状态用） | 2 |
 | `--type-code` | `400 13px/1.6 mono` | 7 |
 
 ### 2.3 实际在用的值（`font:` 简写 + `font-size`/`font-weight`/`line-height` 单写）
@@ -149,7 +151,7 @@
 | # | 问题 | 证据 | 提议 |
 |---|---|---|---|
 | T1 | 与令牌完全相同的字面值：`13px/1.5 var(--body)` 出现 19 次，正好等于 `--type-meta` | 如 `display-card.css:105`、`work-panel.css:248` | 直接替换 |
-| T2 | 与令牌只差字重：`11px/1.4 var(--mono)`（400）12 次，`--type-status` 是 600 | `conversation-workspace.css:91`、`display-card.css:44` | 新增 `--type-status-regular`，或统一为 600（需预览） |
+| T2 | 与令牌只差字重：`11px/1.4 var(--mono)`（400）12 次，`--type-status` 是 600 | `conversation-workspace.css:91`、`display-card.css:44` | 已新增 `--type-status-regular`（过程行先用上了），其余 12 处待换（需预览） |
 | T3 | 半像素字号 12.5 / 13.5 / 14.5 / 10.5px | `onboarding.css:35,38`、`empty-states.css:23` 等 | 归到 12 / 13 / 14 / 10 或 11 |
 | T4 | 自定义字重 550 / 650 | `extensions-system.css:12` 等 | 归到 500 / 600 |
 | T5 | 等宽 700 只有合成粗体（只加载了 400/600） | `file-preview.css:2`（`700 9px/1 var(--mono)`） | 改 600 |

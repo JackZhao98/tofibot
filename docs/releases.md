@@ -36,6 +36,7 @@ TOFI 每个版本改了什么，最新的在最上面。写给以后接手的人
 还没进任何 rc 的改动写在这里；打下一个 rc 时挪进那个 rc 的条目（决定 D27）。
 
 - **先应一声再干活；定时任务卡住的结尾也过评分员（分支 `night/ack-and-blocker-review`，[D50](decisions/0050-acknowledge-then-work.md)）。** 人在等的运行（私聊、群里人发的消息）在请求旁多一条原则：需要工具工作时先用 `say(message)` 简短应一声，发现了值得说的随时说，最后 `say(answer)`；`say` 说明和完成指引里的“只在做完后宣布”改成“只在做完后说做完了”（D45 的意图不变）；每个运行 3 条 `say(message)` 的上限不变；定时、隐藏、分诊和委派类运行不加。定时任务以纯文字结尾（卡住）时，这段文字也用 D43 的评分员评一次（与 `say(answer)` 共用 `answer_gate` 轮数），有 gap 就私下退回再来一轮；评分员失败或到上限照旧。`internal/app/context.go`、`say.go`、`app.go`、`answer_review.go`、`blocker_ack_test.go`。**只有合成测试，未用真模型实测**；纯文字结尾受 Agent 循环一次续跑名额限制，最多评一轮。
+- **Bot 干活的过程行改安静（分支 `night/quiet-process-line`，owner 10-22 的要求）。** 聊天里 Bot 正在做的事默认只有一行（加载标记、在做什么、秒数），点击或按 Enter/空格展开工具步骤，跑完变成完成摘要；任务块的活动行、网页工具行和精简活动行共用同一个写法（`live-line.css`），一律是真按钮、有 `aria-expanded` 和焦点环，长文字省略号截断不换行。字改成 400 的 13px 正文体、`--muted` 灰（新令牌 `--text-process`、`--type-status-regular`），去掉光泽扫过动画；对比度浅/深色都不低于 AA。活动行左边的猫换成 14px 的墨环加湖蓝笔画加载标记（只动 `transform`，减少动效时静止）；输入框上的猫和群聊头像列不动。"Thinking: …"的标题不再在 40 个字符处被切断。目录页第 1 节新增过程行各状态。
 
 ---
 

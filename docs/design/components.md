@@ -47,7 +47,7 @@
 | 发送中（自己的） | 内容透明度 0.72，读屏读"发送中" | `ui/src/send-receipt.css`（`.is-sending .message-content{opacity:.72}`），`ui/src/SendReceipt.tsx:26` |
 | 发送失败 | 气泡下一行"未发送 · 重试" | 见第 3 节 |
 | 流式输出中 | 文字从 `draftStream` 直接进这一行，不经过 Workspace 状态；行内光标 | `AGENTS.md` "Web timeline performance"，`App.tsx:2781-2784` |
-| 工具运行中 / 结束 | 网页端答案上方有工具行；工具行收起时答案用 `MOTION.panelIn` 滑到新位置（减少动效时不动） | `App.tsx:2667-2681` |
+| 工具运行中 / 结束 | 网页端答案上方有工具行；工具行收起时答案用 `MOTION.panelIn` 滑到新位置（减少动效时不动）；这一行的样子和展开方式见下面的"过程行" | `App.tsx:2667-2681` |
 | 新到达 | `.new-arrival` / `.was-streamed`；整条回复到达时弹簧链（D19） | `App.tsx:2792`，第 22 节 |
 | 跳转目标 | 滚到中间并闪一次 `is-jump-target`，1.7 s 后去掉，不留常驻框 | `App.tsx:352-362`（`jumpToMessage`） |
 | 群聊 / 单聊 | 群聊显示小头像和名字（同一发送者连续消息合并）；单聊 Bot 消息没有容器 | `ui/src/sender-groups.css:38-39`，`App.tsx:2735` |
@@ -65,6 +65,25 @@
 | 触屏 | 轻点气泡正文打开操作行（只在 `(hover: none)` 下，选中文字、点链接/按钮/代码块不算，`App.tsx:2391-2398`）；桌面客户端右键打开反应菜单（`App.tsx:2792` 的 `onContextMenu`） |
 
 **测试**：`test:chat-bubbles`、`test:timeline-rows`、`test:stream-cost`、`test:chat-switch`、`test:switch-budget`、`test:chat-motion`、`test:arrival-glide`、`test:message-markdown`、`test:perf-structure`。
+
+**过程行（Bot 正在做什么）**
+
+Bot 在干活时，聊天里只有一行：加载标记、现在在做什么、已用秒数（"Browsing the web · 12s"）。点这一行（点击、Enter、空格）展开工具步骤；跑完后标记消失，这一行变成完成摘要（"Activity · 3 tools · 46s"）。四处共用同一个写法（外观在 `ui/src/live-line.css`）：
+
+| 处 | 活着时 | 展开什么 | 位置 |
+|---|---|---|---|
+| 任务块，活动被隐藏（聊天默认） | `<button class="process-line" aria-expanded>`，在 `.task-run-live-line` 里 | 点它把这次运行的活动挂出来并打开，同一行变成下一项的摘要，焦点留在行上（`viewActivity`，复用"查看活动"的路径） | `TaskRunBlock.tsx:219` |
+| 任务块，活动已显示 | `<details>` 的 `<summary class="process-line" role="button" aria-expanded>`，沿用原有抽屉动画 `animateDisclosure` | 步骤列表；状态文字超过 28 个字符时，第一行放完整文字 | `TaskRunBlock.tsx:62-70` |
+| 网页工具行（`WebToolActivityRun`） | `.web-tool-toggle` 按钮，原有的 `aria-expanded` 与抽屉 | 步骤；点开时若这一行被截断，抽屉第一行放完整文字（`.web-tool-full`） | `App.tsx:2965`、`:3018`、`:3037` |
+| 精简活动行（`CompactLiveLine`；`LiveToolLine` 在活动隐藏时用，`LiveRunStatus` 在还没有工具时用） | `LiveToolLine` 是按钮，点它走 `ActivityViewContext.reveal`，换成上一行的网页工具行并把焦点放到它的开关上；`LiveRunStatus` 还没有步骤，是不可点的同一行 | 同上 | `App.tsx:395-420`、`:473` |
+
+- **只有一行**：长文字用 `.process-line-text` 省略号截断，不换行；"Thinking: …"的标题不再在 40 个字符处硬切（`thinkingHeadline.ts`），整句交给省略号，展开后第一行是完整标题。
+- **字**：`--type-meta`（400 13px 正文体），颜色 `--text-process`（= `--muted`）；摘要行不用等宽、不用 600。展开后的步骤行可以保留自己的字体，但不得比摘要行更粗：步骤状态改用 `--type-status-regular`（400 11px 等宽）。已删除光泽扫过动画和"完成后透明度 .72"（后者会把 `--muted` 的对比度拉到 AA 以下）。
+- **对比度（WCAG 2.1，正文字）**：`--muted` 在浅色 `--bg` 5.16、`--surface` 5.73、`--surface-2` 5.35、`--sunk` 4.76；深色 `--bg` 6.38、`--surface` 5.79、`--surface-2` 5.12、`--sunk` 6.16，都不低于 AA 4.5。
+- **加载标记 `LiveMark`**：14px 的墨色细环（`--muted` 30%），一小段湖蓝（`--lagoon-text`）笔画沿环慢慢转一圈，1.8 s，`--ease-inout`，只动 `transform`，不触发布局；减少动效时静止，笔画停在右上。装饰性（`aria-hidden`），状态由文字承担；只在运行期间挂载，运行结束就没了。群聊里它放在原来头像列的中心；头像列仍由 `SenderHead` 负责，不受影响。输入框上的猫（第 5 节）不动。
+- **触屏**：`(pointer: coarse)` 下行高 44px。
+- **输入框上方的 `.working-label`**（`v2-app.css`）：同样改成 `--type-meta` + `--text-process`。
+- **目录页**：第 1 节的"过程行"各状态（`ui/src/catalog/sections/process.tsx`）：任务块和网页工具行各有活着/完成、收起/展开，另有长文字、键盘焦点和精简行。
 
 **已知问题**
 
