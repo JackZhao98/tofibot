@@ -11,9 +11,9 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"github.com/JackZhao98/tofibot/internal/computer/guest"
 	"github.com/JackZhao98/tofibot/internal/mcprunner"
+	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
 func TestAccountGuestRunnerHelperProcess(t *testing.T) {

@@ -14,9 +14,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"github.com/JackZhao98/tofibot/internal/extensions"
 	"github.com/JackZhao98/tofibot/internal/runtime"
+	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
 type scheduleBrowserEngine struct{ scheduled runtime.Engine }

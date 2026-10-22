@@ -1228,6 +1228,7 @@ func interruptInTransaction(tx *sql.Tx, conv string, addressed ...string) error 
 	}
 	return nil
 }
+
 // Stop in a group also takes the stopped run's root and everything that
 // root started (sibling wakes included); co-addressed roots of the same
 // message are separate requests and keep running.

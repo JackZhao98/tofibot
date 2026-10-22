@@ -17,7 +17,7 @@ jobs:
       - uses: actions/setup-go@v5
         with:
           go-version-file: go.mod
-      - name: gofmt (new unformatted files fail; .gofmt-baseline only shrinks)
+      - name: gofmt (every tracked .go file must be formatted)
         run: scripts/check-gofmt.sh
       - name: go build
         run: go build ./...

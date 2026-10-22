@@ -346,7 +346,7 @@ func newScheduledApprovalModel(t *testing.T, outcome string, remoteCalls *atomic
 	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		var input struct {
 			Stream bool `json:"stream"`
-			Tools []struct {
+			Tools  []struct {
 				Function struct {
 					Name string `json:"name"`
 				} `json:"function"`
@@ -414,8 +414,8 @@ func newScheduledApprovalModel(t *testing.T, outcome string, remoteCalls *atomic
 			}
 		}
 		if !input.Stream {
-			w.Header().Set("Content-Type","application/json")
-			_ = json.NewEncoder(w).Encode(map[string]any{"choices":[]any{map[string]any{"index":0,"message":delta}},"usage":map[string]int{"prompt_tokens":10,"completion_tokens":5}})
+			w.Header().Set("Content-Type", "application/json")
+			_ = json.NewEncoder(w).Encode(map[string]any{"choices": []any{map[string]any{"index": 0, "message": delta}}, "usage": map[string]int{"prompt_tokens": 10, "completion_tokens": 5}})
 			return
 		}
 		w.Header().Set("Content-Type", "text/event-stream")
