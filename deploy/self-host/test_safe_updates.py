@@ -1705,3 +1705,250 @@ class StoppedToleratesCrashedCandidateTests(unittest.TestCase):
         import inspect
         source = inspect.getsource(tofi_host.rollback)
         self.assertIn('stopped(tolerate_unclean=True)', source)
+
+
+# ---------------------------------------------------------------- computer disks, verify, restore
+
+
+class DiskBackupTests(BackupCase):
+    """Manual backups carry the computers' workspace disks; --verify audits a backup; restore puts them back."""
+
+    def setUp(self):
+        super().setUp()
+        self.containers = mock.patch.object(tofi_host, 'project_containers', return_value=[]).start()
+
+    def main(self, *argv):
+        sys.stdout.seek(0)
+        sys.stdout.truncate()
+        with mock.patch('sys.stderr', new_callable=io.StringIO) as err:
+            code = tofi_host.main(list(argv))
+        self.stderr = err.getvalue()
+        return code, sys.stdout.getvalue()
+
+    def seed_disks(self):
+        self.seed()
+        self.disk1 = self.P.worker_state / 'acct-1' / 'workspace.ext4'
+        self.disk2 = self.P.worker_state / 'acct-2' / 'workspace.ext4'
+        self.disk1.write_bytes(b'ONE' * 2000)
+        self.disk2.parent.mkdir(parents=True)
+        with open(self.disk2, 'wb') as stream:  # sparse: a hole, then data
+            stream.truncate(1 << 20)
+            stream.seek(900000)
+            stream.write(b'TWO')
+        snapshot = self.P.worker_state / 'acct-1' / 'snapshot'
+        snapshot.mkdir()
+        (snapshot / 'meta.json').write_text('{"release": "v0"}')
+        (snapshot / 'memory').write_bytes(b'M' * 64)
+
+    def manual(self):
+        return tofi_host.backup_data('manual', tofi_host.read_env(), disks=True)
+
+    # -- contents
+
+    def test_manual_backup_with_disks_copies_every_workspace_disk(self):
+        self.seed_disks()
+        meta = self.manual()
+        directory = self.P.backups / meta['id']
+        self.assertEqual(sorted(entry['account'] for entry in meta['disks']), ['acct-1', 'acct-2'])
+        for entry, original in ((meta['disks'][0], self.disk1), (meta['disks'][1], self.disk2)):
+            copy = directory / entry['file']
+            self.assertEqual(copy.read_bytes(), original.read_bytes())
+            self.assertEqual(entry['sha256'], hashlib.sha256(copy.read_bytes()).hexdigest())
+            self.assertEqual(entry['bytes'], original.stat().st_size)
+            self.assertEqual(oct(copy.stat().st_mode & 0o777), '0o600')
+        self.assertEqual(oct((directory / 'disks').stat().st_mode & 0o777), '0o700')
+        self.assertTrue(next(e for e in meta['disks'] if e['account'] == 'acct-1')['hibernated'])
+        self.assertEqual(self.disk1.read_bytes(), b'ONE' * 2000, 'the live disk is untouched')
+        self.assertGreater(meta['sizes']['disks_allocated'], 0)
+        self.assertEqual(tofi_host.list_backups()[0]['size'],
+                         sum(meta['sizes'][k] for k in ('data_archive', 'etc_archive', 'worker_archive',
+                                                        'disks_allocated')))
+
+    def test_automatic_backups_never_carry_disks(self):
+        self.seed_disks()
+        meta = tofi_host.backup_data('pre-update', tofi_host.read_env())
+        self.assertNotIn('disks', meta)
+        self.assertFalse((self.P.backups / meta['id'] / 'disks').exists())
+
+    def test_backup_command_includes_disks_unless_told_not_to(self):
+        self.seed_disks()
+        code, out = self.main('backup')
+        self.assertEqual(code, 0, self.stderr)
+        self.assertEqual(len(tofi_host.list_backups()[0]['meta']['disks']), 2)
+        self.assertIn(': OK', out)
+        code, _ = self.main('backup', '--no-disks')
+        self.assertEqual(code, 0, self.stderr)
+        self.assertNotIn('disks', tofi_host.list_backups()[0]['meta'])
+
+    def test_disks_need_room_and_the_refusal_names_the_escape(self):
+        self.seed_disks()
+        with mock.patch.object(tofi_host, 'free_bytes', return_value=tofi_host.BACKUP_FREE_MARGIN + 10):
+            with self.assertRaisesRegex(HostError, 'computer disks.*--no-disks'):
+                tofi_host.backup_now()
+        self.stopped.assert_not_called()
+
+    # -- never while a computer could be writing
+
+    def test_refuses_while_a_container_is_running(self):
+        self.seed_disks()
+        self.containers.return_value = [{'State': {'Running': True}, 'Config': {'Labels': {}}}]
+        with self.assertRaisesRegex(HostError, 'still running'):
+            self.manual()
+        self.assertEqual([p for p in self.P.backups.iterdir() if not p.name.startswith('.')]
+                         if self.P.backups.exists() else [], [])
+        self.assertFalse(list(self.P.backups.glob('.*partial')), 'no half-written backup is left')
+
+    def test_refuses_while_a_computer_manager_holds_its_lock(self):
+        import fcntl
+        self.seed_disks()
+        with open(self.disk1.parent / 'manager.lock', 'w') as held:
+            fcntl.flock(held, fcntl.LOCK_EX)
+            with self.assertRaisesRegex(HostError, 'acct-1 is still running'):
+                self.manual()
+        self.assertTrue(self.manual()['disks'], 'released lock: the backup goes ahead')
+
+    # -- verify
+
+    def test_verify_passes_a_whole_backup_and_changes_nothing(self):
+        self.seed_disks()
+        meta = self.manual()
+        before = sorted((p.name, p.stat().st_mtime_ns) for p in (self.P.backups / meta['id']).rglob('*'))
+        code, out = self.main('backup', '--verify')
+        self.assertEqual(code, 0, out + self.stderr)
+        self.assertIn('Backup %s: OK' % meta['id'], out)
+        for expected in ('data.tar', 'etc.tar.gz: readable', 'tofi.env: present and usable', 'disk acct-1',
+                         'disk acct-2'):
+            self.assertIn(expected, out)
+        self.assertNotIn('FAIL', out)
+        self.assertEqual(sorted((p.name, p.stat().st_mtime_ns) for p in (self.P.backups / meta['id']).rglob('*')),
+                         before)
+        self.stopped.assert_not_called()
+        self.assertEqual(self.main('backup', '--verify', meta['id'])[0], 0)
+        self.assertEqual(self.main('backup', '--verify', 'all')[0], 0)
+
+    def test_verify_passes_a_backup_without_disks_and_says_so(self):
+        self.seed_disks()
+        tofi_host.backup_data('pre-update', tofi_host.read_env())
+        code, out = self.main('backup', '--verify')
+        self.assertEqual(code, 0, out)
+        self.assertIn('computer disks: not part of this backup', out)
+
+    def test_verify_fails_on_a_corrupted_disk(self):
+        self.seed_disks()
+        meta = self.manual()
+        copy = self.P.backups / meta['id'] / 'disks' / 'acct-1.ext4'
+        data = bytearray(copy.read_bytes())
+        data[100] ^= 0xFF  # same size, one flipped byte
+        copy.write_bytes(bytes(data))
+        code, out = self.main('backup', '--verify')
+        self.assertEqual(code, 1)
+        self.assertIn('FAILED', out)
+        self.assertIn('FAIL  disk acct-1 does not match its recorded checksum', out)
+        self.assertIn('ok    disk acct-2', out, 'the other disk is still reported good')
+
+    def test_verify_fails_on_a_corrupted_archive_a_missing_disk_and_an_unlisted_file(self):
+        self.seed_disks()
+        meta = self.manual()
+        directory = self.P.backups / meta['id']
+        (directory / meta['archives']['etc']).write_bytes(b'garbage')
+        (directory / 'disks' / 'acct-2.ext4').unlink()
+        (directory / 'disks' / 'stray.ext4').write_bytes(b'x')
+        report = tofi_host.check_backup(directory)
+        text = '\n'.join(report['problems'])
+        self.assertIn('etc.tar.gz', text)
+        self.assertIn('disk acct-2 is missing', text)
+        self.assertIn('disks/stray.ext4 is in the backup but meta.json does not list it', text)
+        self.assertEqual(self.main('backup', '--verify', meta['id'])[0], 1)
+
+    def test_verify_fails_on_a_truncated_archive_even_with_a_matching_checksum(self):
+        # A backup whose meta.json was rewritten to match a cut-off archive: readability catches it.
+        self.seed_disks()
+        (self.P.data / 'big.bin').write_bytes(os.urandom(300000))
+        meta = self.backup('manual')
+        directory = self.P.backups / meta['id']
+        name = meta['archives']['data']
+        raw = (directory / name).read_bytes()
+        (directory / name).write_bytes(raw[: len(raw) // 2])
+        stored = json.loads((directory / 'meta.json').read_text())
+        stored['sha256'][name] = hashlib.sha256((directory / name).read_bytes()).hexdigest()
+        stored['sizes']['data_archive'] = (directory / name).stat().st_size
+        (directory / 'meta.json').write_text(json.dumps(stored))
+        report = tofi_host.check_backup(directory)
+        self.assertTrue(any(name in problem for problem in report['problems']), report)
+
+    def test_verify_with_no_backups_says_so(self):
+        self.installed()
+        code, _ = self.main('backup', '--verify')
+        self.assertEqual(code, 1)
+        self.assertIn('No backups to verify', self.stderr)
+
+    # -- restore
+
+    def local_manifest(self):
+        return mock.patch.object(tofi_host, 'restore_manifest', return_value=base.manifest(OLD, '1'))
+
+    def test_restore_puts_the_disks_back_and_keeps_the_ones_it_replaced(self):
+        self.seed_disks()
+        meta = self.manual()
+        self.disk1.write_bytes(b'NEWER ONE')
+        self.disk2.write_bytes(b'NEWER TWO')
+        with self.local_manifest():
+            tofi_host.restore_backup(meta['id'], yes=True)
+        self.assertEqual(self.disk1.read_bytes(), b'ONE' * 2000)
+        self.assertEqual(self.disk2.stat().st_size, 1 << 20)
+        self.assertEqual(self.disk2.read_bytes()[900000:900003], b'TWO')
+        kept = sorted(self.disk1.parent.glob('workspace-before-restore-*.ext4'))
+        self.assertEqual([p.read_bytes() for p in kept], [b'NEWER ONE'])
+        self.assertFalse((self.disk1.parent / 'snapshot').exists(), 'a snapshot belongs to the old disk')
+        self.assertFalse(list(self.disk1.parent.glob('.*restore-new')))
+        # The pre-restore backup is automatic: it never carries disks.
+        pre = next(i for i in tofi_host.list_backups() if i['meta']['reason'] == 'pre-restore')
+        self.assertNotIn('disks', pre['meta'])
+
+    def test_restore_no_disks_leaves_the_current_disks(self):
+        self.seed_disks()
+        meta = self.manual()
+        self.disk1.write_bytes(b'NEWER ONE')
+        with self.local_manifest():
+            tofi_host.restore_backup(meta['id'], yes=True, disks=False)
+        self.assertEqual(self.disk1.read_bytes(), b'NEWER ONE')
+        self.assertTrue((self.disk1.parent / 'snapshot').exists())
+
+    def test_failed_restore_puts_the_live_disks_back(self):
+        self.seed_disks()
+        meta = self.manual()
+        self.disk1.write_bytes(b'NEWER ONE')
+        self.start_services.side_effect = [HostError('restored version will not start'), None]
+        with self.local_manifest():
+            with self.assertRaisesRegex(HostError, 'restore failed; previous state recovered'):
+                tofi_host.restore_backup(meta['id'], yes=True)
+        self.assertEqual(self.disk1.read_bytes(), b'NEWER ONE')
+        self.assertEqual(list(self.disk1.parent.glob('workspace-before-restore-*')), [])
+        self.assertEqual(self.phase(), 'installed')
+
+    def test_restore_refuses_while_bot_runs_are_active_and_touches_nothing(self):
+        self.seed_disks()
+        meta = self.manual()
+        self.disk1.write_bytes(b'NEWER ONE')
+        self.active_runs.return_value = 2
+        before = self.data_snapshot()
+        with self.local_manifest():
+            with self.assertRaisesRegex(tofi_host.ActiveRunsError, '2 Bot runs still active'):
+                tofi_host.restore_backup(meta['id'], yes=True)
+        self.stopped.assert_not_called()
+        self.assertEqual(self.disk1.read_bytes(), b'NEWER ONE')
+        self.assertEqual(self.data_snapshot(), before)
+        self.assertEqual([i['meta']['reason'] for i in tofi_host.list_backups()], ['manual'],
+                         'no pre-restore backup either: nothing was started')
+        code, _ = self.main('restore', meta['id'], '--yes')
+        self.assertEqual(code, 1)
+        self.assertIn('2 Bot runs still active', self.stderr)
+
+    def test_restore_checks_the_disks_before_stopping_anything(self):
+        self.seed_disks()
+        meta = self.manual()
+        (self.P.backups / meta['id'] / 'disks' / 'acct-1.ext4').write_bytes(b'rotten')
+        with self.local_manifest():
+            with self.assertRaisesRegex(HostError, 'damaged'):
+                tofi_host.restore_backup(meta['id'], yes=True)
+        self.stopped.assert_not_called()
