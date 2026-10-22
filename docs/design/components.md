@@ -529,6 +529,14 @@
 
 **测试**：`test:settings-shell`、`test:settings-polish`、`test:automation-settings`、`test:shell-budget`。
 
+**服务标识 `ServiceMark`**：目录里每个服务都戴它的真品牌图（`ui/src/ServiceMark.tsx`，唯一用法 `ServiceMark({name, id?})`，引导页、连接列表、目录、连接对话框共用）。品牌表只有一份：`ui/src/brandIcons.ts`（目录 id 或显示名 → `public/brand/services/` 里的本地资源，是否需要深色底）；图片永远 `alt=""`、保持比例、不用 CSS 滤镜改色，放在中性底板上（亮暗两种主题都是浅底板，黑色标志 Notion/GitHub 才有对比度；Robinhood 的品牌荧光绿在白底上看不见，所以只有它用深底板）。自定义/未知服务才显示通用图标，并带 `data-mark="generic"`。来源、许可和 sha256 在 `docs/integrations/icons/manifest.json` 与 `NOTICE.md`；OAuth 成功页用同一批文件（`internal/app/oauth_completion.go` 的白名单）。测试：`test:brand-icons`（每个目录 id 有标志、文件非空、清单有来源与 sha256、未改动的文件哈希一致、不落到通用图标）；目录状态 `service-marks`。
+
+**连接列表和连接对话框（设置 › 连接）**：模仿 Anthropic 的 Settings › Connectors。文件：`ui/src/MCPSettings.tsx`（页面和 `MCPRow` 的行为）、`ui/src/connections/`（`RowView` 一行的外观、`status.ts` 状态判定、`ConnectDialog` 对话框、`RemoteForm` / `GogSetup` / `PackageForm` 三种设置步骤、`ToolTierPanel`、`google.ts`、`localPlugins.ts`、`connections.css`）、`ui/src/IntegrationBrowser.tsx`（目录）。
+- **一行一个连接**：图标、人话名字、一个状态、至多一个主操作，其余进 ⋯ 菜单（`OverlayMenu`）。远程 MCP、本地插件、适配器同一种行，不重复；不出现 `local_gog`、Runner、休眠字样。状态只有：已连接 / 需要授权（插件没有 Google 账号也算，绝不写"已连接"）/ API 未启用（带"启用 … API"主按钮，来自结构化错误）/ 连接失败（带具名原因，Google 的启用帮助只在这时出现）/ 正在检查 / 等待授权 / 尚未验证。主操作：授权、启用 API、重试、连接。
+- **详情**（⋯ › 查看详情）：来源一行（官方 / 社区 · 包名 / 自定义，`connections.source.*`）、账号和 Google 项目、Workspace 预览要求，工具列表（`ToolTierPanel`）只在这里。常驻行不显示工具数。
+- **配置都在对话框里**（`ModalDialog`，懒加载块）：目录（官方连接器；Gmail 走 gogcli 且排第一；Google Workspace 官方 MCP 收在"Workspace 预览（企业）"并写明预览计划要求；"添加社区或自定义连接"带第三方维护、写入先问的说明）→ 单步设置。工作区已有 Google 客户端时，不再要 JSON。关闭后焦点回到打开它的控件。
+- 目录状态：`settings` 节的 `connections-*`。测试：`test:connections`（行数、无内部 id、需要授权、对话框、目录、详情来源、API 未启用按钮、共用客户端、手机宽度、七种语言）、`test:integration-catalog`（目录只含官方、Google 项目解析与启用链接）、`test:settings-shell`、`test:settings-polish`、`test:overlays`。
+
 **已知问题**
 
 | # | 严重度 | 问题 | 证据 | 原则 |

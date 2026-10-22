@@ -3,6 +3,9 @@ import { openSettings } from "../drive";
 import { Banner, DangerZone, FilePicker, Segmented, SettingsCard, SettingsDetails, SettingsRow, SettingsSection, StatusBadge, type BadgeState } from "../../settings/components";
 import { AppearancePicker, ConfirmAction, Disclosure } from "../../InteractionSystem";
 import { i18n } from "../../i18n";
+import "../../extensions-system.css";
+import { brandIcons } from "../../brandIcons";
+import { ServiceMark } from "../../ServiceMark";
 import type { CatalogSection } from "../types";
 
 const noop = () => {};
@@ -62,6 +65,11 @@ export const settings: CatalogSection = {
       render: () => <ConfirmAction label="Delete" question="Delete everything?" onConfirm={never} /> },
     { id: "confirm-error", kind: "inline", label: "In-place confirm, failed", drive: async step => { await step.click(".confirm-action .danger-link"); await step.click(".inline-confirmation .danger-link"); await step.find(".inline-confirmation .error-text"); },
       render: () => <ConfirmAction label="Delete" question="Delete everything?" onConfirm={() => Promise.reject(new Error("Synthetic: the server refused"))} /> },
+    { id: "service-marks", kind: "inline", label: "Service marks (every directory service, light/dark)", note: "real vendor marks from the brand registry on a neutral tile; the last one is the generic fallback for a custom service",
+      render: () => <ul data-service-marks style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(168px, 1fr))", gap: 10, margin: 0, padding: 0, listStyle: "none" }}>
+        {brandIcons.map(icon => <li key={icon.key} style={{ display: "flex", alignItems: "center", gap: 10 }}><ServiceMark name={icon.label} id={icon.ids[0]} /><span style={{ fontSize: 13 }}>{icon.label}</span></li>)}
+        <li style={{ display: "flex", alignItems: "center", gap: 10 }}><ServiceMark name="My own server" /><span style={{ fontSize: 13 }}>Custom service</span></li>
+      </ul> },
     { id: "shell", kind: "app", label: "Settings window", note: "the real settings shell, opened from the gear beside the account",
       app: { path: "/b/bot_mochi" }, probe: ".settings-shell", keyboard: { close: "Escape" },
       drive: async step => { await openSettings(step); } },
