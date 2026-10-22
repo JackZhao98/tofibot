@@ -138,3 +138,4 @@
   .mcp-tool{flex-direction:column;align-items:stretch}
   .workspace .settings-page-body .mcp-tier-select{width:100%;max-width:none;min-height:44px}
 }
+.mcp-service-provenance{display:block;margin-top:3px;font-size:12px;color:var(--muted);overflow-wrap:anywhere}

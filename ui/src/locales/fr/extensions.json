@@ -201,7 +201,7 @@
   "held": {
     "discord": {
       "description": "Connexion de Bot Discord maintenue par la communauté.",
-      "reason": "Méthode d’installation et autorisations compatibles pas encore vérifiées : ajout impossible pour l’instant."
+      "reason": "Ce n’est pas un connecteur sélectionné par TOFI. Vous pouvez installer vous-même un serveur Discord communautaire dans MCP local ; guide dans docs/integrations/discord-add-it-yourself.md."
     },
     "notion_token": {
       "description": "Ancien serveur MCP local, plus maintenu.",
@@ -222,14 +222,18 @@
     "custom": {
       "args": "Arguments (un par ligne)",
       "binary": "Exécutable",
-      "env": "Variables d’environnement (KEY=value par ligne, enregistrées dans un fichier privé)",
+      "env": "Variables d’environnement (les valeurs sont enregistrées dans des fichiers privés et ne sont plus affichées)",
       "install": "Installer le plugin",
-      "intro": "Indiquez une version figée et l’exécutable. La commande d’installation s’exécute dans le Runner, et le code du plugin tourne avec les droits du Runner.",
+      "intro": "Indiquez une version figée et l’exécutable. La commande d’installation s’exécute dans le Runner, et le code du plugin tourne avec les droits du Runner. Un paquet communautaire est du code auquel vous choisissez de faire confiance : il voit les variables que vous lui donnez, et ses outils demandent une approbation tant que vous ne les marquez pas en lecture seule.",
       "package": "Nom du paquet",
       "plugin_id": "ID du plugin",
       "runtime": "Environnement d’exécution",
       "title": "Installer un autre MCP local",
-      "version": "Version figée"
+      "version": "Version figée",
+      "integrity": "Empreinte du paquet (facultative, sha512-… ; l’installation échoue si le registre sert autre chose)",
+      "env_name": "Nom de la variable",
+      "env_value": "Valeur",
+      "env_add": "Ajouter une variable"
     },
     "gog": {
       "install": "Installer gogcli",
@@ -467,5 +471,9 @@
       "high_risk": "Toujours me demander"
     },
     "title": "Outils · {{count}}"
+  },
+  "provenance": {
+    "community": "Plugin communautaire · {{package}} {{version}}",
+    "review": "ses outils demandent une approbation tant qu’ils ne sont pas en lecture seule"
   }
 }

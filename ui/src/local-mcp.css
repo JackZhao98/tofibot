@@ -18,3 +18,4 @@
 .local-mcp-installed{display:grid;gap:8px}.local-mcp-installed-row{display:flex;align-items:center;flex-wrap:wrap;gap:8px;padding:8px 0;border-top:1px solid var(--line-soft)}.local-mcp-installed-row>span:first-child{margin-right:auto;font-size:13px}
 @media(max-width:680px){.local-mcp-fields{grid-template-columns:1fr}.local-mcp-panel{padding:16px}}
 .local-mcp-panel>:is(h3,p){margin:0}.local-mcp-panel>h3+p{margin-top:-8px}
+.local-mcp-env{grid-column:1/-1;display:grid;gap:8px;margin:0;padding:0;border:0;min-width:0}.local-mcp-env legend{padding:0;margin-bottom:6px;font-size:13px}.local-mcp-env-row{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,2fr);gap:8px}.local-mcp-env-row input{width:100%;min-height:38px;padding:8px 10px;border:1px solid var(--line-soft);border-radius:9px;background:var(--surface);color:var(--ink);font:inherit}

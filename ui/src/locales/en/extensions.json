@@ -201,7 +201,7 @@
   "held": {
     "discord": {
       "description": "Community-maintained Discord Bot connection.",
-      "reason": "We haven't verified a compatible install method and permissions yet, so it can't be added."
+      "reason": "Not a curated connector. You can install a community Discord server yourself under Local MCP; setup guide in docs/integrations/discord-add-it-yourself.md."
     },
     "notion_token": {
       "description": "Legacy local MCP server, no longer maintained.",
@@ -222,14 +222,18 @@
     "custom": {
       "args": "Arguments (one per line)",
       "binary": "Executable",
-      "env": "Environment variables (KEY=value per line, saved as a private file)",
+      "env": "Environment variables (values are saved as private files and never shown again)",
       "install": "Install plugin",
-      "intro": "Specify a pinned version and executable. The install command runs inside the Runner, and the plugin runs with the Runner's permissions.",
+      "intro": "Specify a pinned version and executable. The install command runs inside the Runner, and the plugin runs with the Runner's permissions. A community package is code you chose to trust: it sees the variables you give it, and its tools ask for approval until you mark them read-only.",
       "package": "Package name",
       "plugin_id": "Plugin ID",
       "runtime": "Runtime",
       "title": "Install another local MCP",
-      "version": "Pinned version"
+      "version": "Pinned version",
+      "integrity": "Package digest (optional, sha512-…; the install fails if the registry serves anything else)",
+      "env_name": "Variable name",
+      "env_value": "Value",
+      "env_add": "Add variable"
     },
     "gog": {
       "install": "Install gogcli",
@@ -462,5 +466,9 @@
       "high_risk": "Always ask me"
     },
     "title": "Tools · {{count}}"
+  },
+  "provenance": {
+    "community": "Community plugin · {{package}} {{version}}",
+    "review": "its tools ask for approval until marked read-only"
   }
 }
