@@ -1,6 +1,8 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { runInNewContext } from "node:vm";
+import { spawnSync } from "node:child_process";
+import { readdirSync } from "node:fs";
 import { oauthAssetsPlugin } from "../oauthAssetsPlugin.ts";
 import { openUiModules } from "./ui-modules.mjs";
 
@@ -66,4 +68,17 @@ assert.equal(state.document.documentElement.dataset.theme, "light");
 assert.equal(execute({ dark: true, blocked: true }).document.documentElement.dataset.theme, "dark");
 assert.deepEqual(JSON.parse(JSON.stringify(state.historyCalls)), [[null,"","/api/extensions/mcp/fixture/oauth/callback"]]);
 assert.equal(execute({ pathname: "/api/extensions/mcp/fixture/oauth/pending" }).historyCalls.length, 0);
-console.log("OAuth completion: six Google presets, stable shared-token assets, saved/system appearance, bounded history and no opener/query access PASS");
+
+// The page is served by Go, in the person's language: seven catalogs with the same keys as English, and a Go
+// test that renders the page in each of the seven languages (html lang, heading, tool-count sentence, setup help).
+const pagesDir = new URL("../../internal/app/oauth_pages/", import.meta.url);
+const languages = ["en", "zh-CN", "zh-TW", "ja", "ko", "de", "fr"];
+assert.deepEqual(readdirSync(pagesDir).sort(), languages.map(language => language + ".json").sort());
+const catalogs = Object.fromEntries(languages.map(language => [language, JSON.parse(readFileSync(new URL(language + ".json", pagesDir), "utf8"))]));
+for (const language of languages) {
+  assert.deepEqual(Object.keys(catalogs[language]).sort(), Object.keys(catalogs.en).sort(), language + " catalog keys match en");
+  for (const [key, text] of Object.entries(catalogs[language])) assert.ok(text.trim().length > 0, language + "." + key);
+}
+const goTest = spawnSync("go", ["test", "-count=1", "-run", "TestOAuthCompletionSevenLocales|TestOAuthAcceptLanguage|TestOAuthPageLanguageFromRequest", "./internal/app"], { cwd: new URL("../../", import.meta.url), encoding: "utf8" });
+assert.equal(goTest.status, 0, "seven-locale Go assertions\n" + goTest.stdout + goTest.stderr);
+console.log("OAuth completion: seven locales rendered (html lang, heading, tool count, setup help), six Google presets, stable shared-token assets, saved/system appearance, bounded history and no opener/query access PASS");

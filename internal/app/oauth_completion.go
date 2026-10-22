@@ -2,6 +2,7 @@ package app
 
 import (
 	"github.com/JackZhao98/tofibot/internal/googleapi"
+	"strconv"
 
 	"bytes"
 	"html/template"
@@ -18,9 +19,17 @@ type oauthCompletionPage struct {
 	ServiceName string
 	LogoURL     string
 	Message     string
-	APIURL      string
-	MCPURL      string
-	DocsURL     string
+	// Lang is one of the seven UI languages; anything else renders English.
+	Lang string
+	// MessageKey names a catalog sentence and takes the place of Message; MessageCount fills its {n} and
+	// MessageDetail follows it (a provider diagnostic, shown in the page language when its code is known).
+	MessageKey    string
+	MessageCount  int
+	DetailCode    string
+	MessageDetail string
+	APIURL        string
+	MCPURL        string
+	DocsURL       string
 	// Setup says what is actually missing, so the page shows setup help only then:
 	// "" (nothing: a connection that works shows the result and the way back),
 	// "enable" (the product API or its MCP service is not enabled) or
@@ -29,6 +38,8 @@ type oauthCompletionPage struct {
 	// For Setup "enable": the one console page that enables the API Google named, and that API's name.
 	EnableURL   string
 	EnableLabel string
+	// EnableKind is "api" or "mcp": which of the service's two switches the Enable button turns on.
+	EnableKind string
 }
 
 // Provider artwork is served from this build (the page's CSP is img-src 'self'). The marks are the vendors' own,
@@ -84,20 +95,40 @@ func oauthCompletionLink(raw string, docs bool) string {
 }
 
 func writeOAuthCompletion(w http.ResponseWriter, status int, page oauthCompletionPage) {
-	title, heading, next := "Connection failed", "授权未完成", "返回 Tofi 检查连接配置，然后重试授权。"
+	lang := oauthNormalLanguage(page.Lang)
+	if lang == "" {
+		lang = "en"
+	}
+	t := func(key string) string { return oauthText(lang, key) }
+	title, heading, next := t("title_failed"), t("heading_failed"), t("next_failed")
 	switch page.State {
 	case "pending":
-		title, heading, next = "Connecting", "正在连接", "正在打开服务的授权页面，请稍候。"
+		title, heading, next = t("title_pending"), t("heading_pending"), t("next_pending")
 	case "success":
-		title, heading, next = "Connection complete", "授权已完成", "返回 Tofi 即可使用。"
+		title, heading, next = t("title_success"), t("heading_success"), t("next_success")
 	case "denied":
-		heading, next = "授权被拒绝", "如需继续连接，请返回 Tofi 检查账号权限并重试。"
+		heading, next = t("heading_denied"), t("next_denied")
 	case "failed":
 	default:
 		page.State = "failed"
 	}
 	if strings.TrimSpace(page.ServiceName) == "" {
-		page.ServiceName = "外部服务"
+		page.ServiceName = t("service_default")
+	}
+	if page.MessageKey != "" {
+		page.Message = oauthTextWith(lang, page.MessageKey, map[string]string{"n": strconv.Itoa(page.MessageCount)})
+		detail := page.MessageDetail
+		if localized, ok := oauthPageCatalogs[lang]["diag_"+page.DetailCode]; ok && page.DetailCode != "" {
+			detail = localized
+		}
+		page.Message += detail
+	}
+	if page.EnableLabel != "" {
+		kind := "label_api"
+		if page.EnableKind == "mcp" {
+			kind = "label_mcp"
+		}
+		page.EnableLabel += " " + t(kind)
 	}
 	if !oauthLogoAllowed[page.LogoURL] {
 		page.LogoURL = oauthLogoGeneric
@@ -117,7 +148,14 @@ func writeOAuthCompletion(w http.ResponseWriter, status int, page oauthCompletio
 	view := struct {
 		oauthCompletionPage
 		Title, Heading, Next string
-	}{page, title, heading, next}
+		HTMLLang             string
+		T                    map[string]string
+		EnableButton         string
+		HandshakeLabel       string
+	}{page, title, heading, next, lang, oauthPageCatalogs[lang], "", oauthTextWith(lang, "handshake", map[string]string{"service": page.ServiceName})}
+	if page.EnableLabel != "" {
+		view.EnableButton = oauthTextWith(lang, "enable_named", map[string]string{"label": page.EnableLabel})
+	}
 	var body bytes.Buffer
 	if err := oauthCompletionTemplate.Execute(&body, view); err != nil {
 		http.Error(w, "Unable to display connection status", http.StatusInternalServerError)
@@ -134,7 +172,7 @@ func writeOAuthCompletion(w http.ResponseWriter, status int, page oauthCompletio
 }
 
 var oauthCompletionTemplate = template.Must(template.New("oauth-connection").Parse(`<!doctype html>
-<html lang="zh-CN">
+<html lang="{{.HTMLLang}}">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -146,36 +184,34 @@ var oauthCompletionTemplate = template.Must(template.New("oauth-connection").Par
 </head>
 <body class="oauth-connection" data-state="{{.State}}">
   <main class="oauth-completion" aria-labelledby="connection-heading">
-    <div class="oauth-handshake" aria-label="Tofi 连接 {{.ServiceName}}">
+    <div class="oauth-handshake" aria-label="{{.HandshakeLabel}}">
       <div class="oauth-identity"><span class="oauth-logo"><img src="/brand/tofi-logo-color.svg" alt="" width="64" height="64"></span><span>Tofi</span></div>
       <div class="oauth-dots" aria-hidden="true"><i></i><i></i><i></i></div>
       <div class="oauth-identity"><span class="oauth-logo oauth-provider"><img src="{{.LogoURL}}" alt="" width="64" height="64"></span><span>{{.ServiceName}}</span></div>
     </div>
     <h1 id="connection-heading">{{.Heading}}</h1>
     {{if .Message}}<p class="oauth-message" role="status">{{.Message}}</p>{{else}}<p class="oauth-next">{{.Next}}</p>{{end}}
-    <a class="oauth-return" href="/">返回 Tofi</a>
+    <a class="oauth-return" href="/">{{index .T "return_link"}}</a>
     {{if eq .Setup "enable"}}
     <section class="oauth-setup" aria-labelledby="setup-heading">
-      <h2 id="setup-heading">启用服务</h2>
-      <p>在 OAuth Client 所属的同一个 Google Cloud 项目中启用下面的服务，然后回到 Tofi 刷新工具。</p>
-      <p>Cloud 项目须已加入 Google Workspace Developer Preview Program（developers.google.com/workspace/preview），否则授权成功后每次工具调用仍会被拒。</p>
-      <p>OAuth Client 须勾选“Use this client for an AI-powered agent”：2026-11-11 起 Workspace MCP 拒绝未标记的 Client，2026-11-12 起该设置固定，需新建 Client。</p>
-      <p>Cloud 项目须已加入 Google Workspace Developer Preview Program（developers.google.com/workspace/preview），否则授权成功后每次工具调用仍会被拒。</p>
-      <p>OAuth Client 须勾选“Use this client for an AI-powered agent”：2026-11-11 起 Workspace MCP 拒绝未标记的 Client，2026-11-12 起该设置固定，需新建 Client。</p>
-      <nav aria-label="Google 配置">
-        {{if .EnableURL}}<a class="oauth-enable" href="{{.EnableURL}}" target="_blank" rel="noopener noreferrer">启用 {{.EnableLabel}}</a>{{else}}
-        {{if .APIURL}}<a href="{{.APIURL}}" target="_blank" rel="noopener noreferrer">启用产品 API</a>{{end}}
-        {{if .MCPURL}}<a href="{{.MCPURL}}" target="_blank" rel="noopener noreferrer">启用 MCP 服务</a>{{end}}{{end}}
-        {{if .DocsURL}}<a href="{{.DocsURL}}" target="_blank" rel="noopener noreferrer">官方接入文档</a>{{end}}
+      <h2 id="setup-heading">{{index .T "setup_enable_heading"}}</h2>
+      <p>{{index .T "setup_enable_body"}}</p>
+      <p>{{index .T "setup_preview"}}</p>
+      <p>{{index .T "setup_agent_client"}}</p>
+      <nav aria-label="{{index .T "nav_label"}}">
+        {{if .EnableURL}}<a class="oauth-enable" href="{{.EnableURL}}" target="_blank" rel="noopener noreferrer">{{.EnableButton}}</a>{{else}}
+        {{if .APIURL}}<a href="{{.APIURL}}" target="_blank" rel="noopener noreferrer">{{index .T "enable_api"}}</a>{{end}}
+        {{if .MCPURL}}<a href="{{.MCPURL}}" target="_blank" rel="noopener noreferrer">{{index .T "enable_mcp"}}</a>{{end}}{{end}}
+        {{if .DocsURL}}<a href="{{.DocsURL}}" target="_blank" rel="noopener noreferrer">{{index .T "docs"}}</a>{{end}}
       </nav>
     </section>
     {{else if eq .Setup "audience"}}
     <section class="oauth-setup" aria-labelledby="setup-heading">
-      <h2 id="setup-heading">添加测试用户</h2>
-      <p>应用处于测试模式时，只有测试用户能授权。请在 Audience 中添加当前账号，然后重试。</p>
-      <nav aria-label="Google 配置">
-        <a href="https://console.cloud.google.com/auth/audience" target="_blank" rel="noopener noreferrer">配置测试用户</a>
-        {{if .DocsURL}}<a href="{{.DocsURL}}" target="_blank" rel="noopener noreferrer">官方接入文档</a>{{end}}
+      <h2 id="setup-heading">{{index .T "audience_heading"}}</h2>
+      <p>{{index .T "audience_body"}}</p>
+      <nav aria-label="{{index .T "nav_label"}}">
+        <a href="https://console.cloud.google.com/auth/audience" target="_blank" rel="noopener noreferrer">{{index .T "audience_link"}}</a>
+        {{if .DocsURL}}<a href="{{.DocsURL}}" target="_blank" rel="noopener noreferrer">{{index .T "docs"}}</a>{{end}}
       </nav>
     </section>
     {{end}}

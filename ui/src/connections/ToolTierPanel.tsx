@@ -1,10 +1,28 @@
 import { useEffect, useRef, useState } from "react";
 import { request } from "../api";
 import { useTranslation } from "../i18n";
-import { message, normalizeTiers, post, TIERS, toolsEndpoint, type ToolTierList, type ToolTierView } from "./shared";
+import { CAPABILITY_NAMES, capabilities, message, normalizeTiers, post, TIERS, toolsEndpoint, type ToolTierList, type ToolTierView } from "./shared";
+
+/** "What this can do": the tools split into what it can read and what it can write, with the community rule stated. */
+export function ToolCapabilities({ tiers, community }: { tiers: ToolTierList; community: boolean }) {
+  const { t } = useTranslation("extensions");
+  const [all, setAll] = useState(false);
+  if (tiers.tools.length === 0) return null;
+  const { read, write } = capabilities(tiers, community);
+  const groups = [{ key: "read", tools: read }, { key: "write", tools: write }] as const;
+  return <section className="mcp-tool-group mcp-capabilities" aria-label={t("capabilities.title")}>
+    <h5>{t("capabilities.title")}</h5>
+    {groups.map(group => group.tools.length > 0 && <p key={group.key} className="mcp-tools-note" data-capability={group.key}>
+      <strong>{t(`capabilities.${group.key}`)}</strong>{" "}
+      {(all ? group.tools : group.tools.slice(0, CAPABILITY_NAMES)).map(tool => tool.name).join(" · ")}
+      {!all && group.tools.length > CAPABILITY_NAMES && <>{" · "}<button type="button" className="text-button" onClick={() => setAll(true)}>{t("capabilities.more", { count: group.tools.length - CAPABILITY_NAMES })}</button></>}
+    </p>)}
+    {community && <p className="mcp-tools-note" data-capability="community">{t("capabilities.community_note")}</p>}
+  </section>;
+}
 
 /** Tools grouped by tier, a per-tool selector, and Refresh. Copy stays in the extensions namespace. */
-export function ToolTierPanel({ server, tiers, onChange, busy }: { server: string; tiers: ToolTierList; onChange: (value: ToolTierList) => void; busy: boolean }) {
+export function ToolTierPanel({ server, tiers, onChange, busy, community = false }: { server: string; tiers: ToolTierList; onChange: (value: ToolTierList) => void; busy: boolean; community?: boolean }) {
   const { t } = useTranslation("extensions");
   const [refreshing, setRefreshing] = useState(false);
   const [saving, setSaving] = useState("");
@@ -32,6 +50,7 @@ export function ToolTierPanel({ server, tiers, onChange, busy }: { server: strin
   }
   const groups = TIERS.map(tier => ({ tier, tools: tiers.tools.filter(tool => tool.tier === tier) }));
   return <div className="mcp-tools" aria-busy={refreshing}>
+    <ToolCapabilities tiers={tiers} community={community} />
     <div className="mcp-tools-head"><p>{t("tools.explain")}</p><button type="button" className="mcp-button" disabled={busy || refreshing} onClick={() => void refresh()}>{refreshing ? t("tools.refreshing") : t("tools.refresh")}</button></div>
     {error && <p className="mcp-service-error mcp-tools-error" role="alert">{error}</p>}
     {tiers.tools.length === 0 && <p className="mcp-tools-note">{t("tools.empty")}</p>}

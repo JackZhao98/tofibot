@@ -499,5 +499,12 @@
       "label": "Source on GitHub: {{repo}}",
       "with_stars": "Source on GitHub: {{repo}}, {{count}} stars"
     }
+  },
+  "capabilities": {
+    "title": "What this can do",
+    "read": "Can read",
+    "write": "Can write",
+    "more": "+{{count}} more",
+    "community_note": "Community code: writes ask every time, and its own read-only marks are ignored. Mark a tool read only below to let it run without asking."
   }
 }

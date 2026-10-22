@@ -41,7 +41,7 @@ func TestOAuthServicePageUsesKnownEndpointNotUntrustedLabel(t *testing.T) {
 		t.Fatalf("gog name with a foreign endpoint=%+v", page)
 	}
 	page = oauthServicePage(extensions.OAuthServiceIdentity{})
-	if page.ServiceName != "外部服务" || page.APIURL != "" {
+	if page.ServiceName != "" || page.APIURL != "" {
 		t.Fatal("invalid session used provider identity")
 	}
 }
