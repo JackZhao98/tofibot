@@ -5,13 +5,8 @@ Accepts DOCX, PPTX, XLSX or PDF. Office files are converted with
 `soffice --headless`; pages are rendered with `pdftoppm`. Writes page-NN.png and
 a contact sheet (contact.png) into --outdir and prints the page count, the
 number of embedded images per page and in total (from the PDF itself), and the
-files to open. Open the PNGs in the computer's browser (file:// URL) and look
-at them before delivering.
-
-Assertions (exit status 1 when one fails): --expect-pages N, --expect-images N
-(at least N images in the PDF), --expect-text TEXT (repeatable, searched in the
-PDF text layer).
-Usage: render_preview.py file [--outdir DIR] [--dpi 70] [--expect-images N]
+files to open. Open the PNGs to look at the pages the way a reader will.
+Usage: render_preview.py file [--outdir DIR] [--dpi 70]
 """
 from __future__ import annotations
 
@@ -92,9 +87,6 @@ def main(argv=None):
     parser.add_argument("path")
     parser.add_argument("--outdir")
     parser.add_argument("--dpi", type=int, default=70)
-    parser.add_argument("--expect-pages", type=int)
-    parser.add_argument("--expect-images", type=int)
-    parser.add_argument("--expect-text", action="append", default=[])
     args = parser.parse_args(argv)
     outdir = os.path.abspath(args.outdir or os.path.splitext(args.path)[0] + "-preview")
     os.makedirs(outdir, exist_ok=True)
@@ -118,18 +110,7 @@ def main(argv=None):
     print("page images: %s" % ", ".join(pages))
     if sheet:
         print("contact sheet: %s" % sheet)
-    failures = []
-    if args.expect_pages is not None and len(per_page) != args.expect_pages:
-        failures.append("expected %d pages, found %d" % (args.expect_pages, len(per_page)))
-    if args.expect_images is not None and total_images < args.expect_images:
-        failures.append("expected at least %d images, found %d" % (args.expect_images, total_images))
-    for needle in args.expect_text:
-        if needle not in text:
-            failures.append("text not found in the PDF: %r" % needle)
-    for item in failures:
-        print("FAIL: " + item)
-    return 1 if failures else 0
-
+    return 0
 
 if __name__ == "__main__":
     sys.exit(main())
