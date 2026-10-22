@@ -1,6 +1,7 @@
 {
   "action": {
-    "cancel": "Cancel"
+    "cancel": "Cancel",
+    "close": "Close"
   },
   "auth": {
     "bot_token": "Bot token",
@@ -11,18 +12,24 @@
   },
   "browser": {
     "added": "Added",
-    "back": "Added",
-    "custom": "Custom MCP",
     "empty": "No matching services. You can add a custom MCP.",
     "held_label": "Services not available yet",
     "held_title": "Not available yet",
-    "intro": "Pick a preset, then confirm access and tool connection after adding.",
+    "intro": "Choose a service to connect. Setup continues in the next step.",
     "read_only_tools": "Read-only tools",
     "retired": "No longer maintained",
     "retired_origin": "Former provider project",
     "search": "Search services",
     "services": "Services",
-    "title": "Add a service"
+    "local_details": "Runs on this server · OAuth",
+    "custom_section": "Custom",
+    "custom_url": "Custom connector",
+    "custom_url_hint": "Connect any remote MCP server by URL.",
+    "custom_package": "Local package",
+    "custom_package_hint": "Install a pinned npm or PyPI MCP server on this server.",
+    "preview_title": "Workspace preview (enterprise)",
+    "preview_toggle": "Show Google Workspace servers",
+    "community_note": "Community connectors are maintained by third parties, and their write actions always ask first."
   },
   "callback": {
     "copied": "Copied",
@@ -218,35 +225,33 @@
     }
   },
   "local": {
-    "attach": "Connect to Tofi",
     "custom": {
       "args": "Arguments (one per line)",
       "binary": "Executable",
       "env": "Environment variables (KEY=value per line, saved as a private file)",
       "install": "Install plugin",
-      "intro": "Specify a pinned version and executable. The install command runs inside the Runner, and the plugin runs with the Runner's permissions.",
+      "intro": "Specify a pinned version and executable. The install command runs on this server, and the plugin runs with this server’s permissions.",
       "package": "Package name",
       "plugin_id": "Plugin ID",
       "runtime": "Runtime",
-      "title": "Install another local MCP",
-      "version": "Pinned version"
+      "version": "Pinned version",
+      "installing": "Installing…"
     },
     "gog": {
       "install": "Install gogcli",
       "installing": "Installing…",
-      "intro": "A pinned gogcli version ships in the Runner image. Choose read-only, or allow reading and sending. Each email still needs your approval before it's sent.",
-      "title": "Personal Gmail · gogcli"
+      "intro": "Read your own Gmail with a Google account you authorize. Choose read-only, or allow reading and sending; each email still needs your approval before it’s sent."
     },
     "google": {
       "client_json": "OAuth client JSON",
       "choose_file": "Choose file…",
       "no_file": "No file chosen",
       "client_setup": "In Google Cloud, create a <strong>Web application</strong> OAuth client, add the address below under “Authorized redirect URIs”, then upload the downloaded JSON.",
-      "connect": "Connect Google",
+      "connect": "Authorize with Google",
       "connected_as": "Authorized as {{email}}",
       "continue": "Continue to Google authorization",
-      "disconnect": "Disconnect Google",
-      "disconnect_confirm": "Remove the saved Google authorization from the Runner?",
+      "disconnect": "Disconnect Google account",
+      "disconnect_confirm": "Remove the saved Google authorization?",
       "disconnect_submit": "Disconnect",
       "disconnected": "Google authorization removed from the Runner.",
       "email": "Google email",
@@ -266,31 +271,9 @@
       "verify": "Verify Gmail access",
       "verifying": "Verifying…",
       "waiting": "Waiting for Google authorization"
-    },
-    "intro": "Plugins install in a separate Runner container, start on demand and sleep when idle.",
-    "notice": {
-      "attached": "{{id}} is connected to Tofi.",
-      "installed": "{{id}} installed. Its tools start when used.",
-      "removed": "{{id}} removed."
-    },
-    "remove": "Remove",
-    "remove_confirm": "Remove the plugin and its saved authorization?",
-    "remove_submit": "Remove",
-    "state": {
-      "not_installed": "Not installed",
-      "ready": "Running",
-      "sleeping": "Asleep",
-      "starting": "Starting"
-    },
-    "title": "Local MCP",
-    "unavailable": "Local MCP Runner unavailable",
-    "unavailable_hint": "Check that the Runner container is running.",
-    "plugin_count_one": "{{count}} plugin",
-    "plugin_count_other": "{{count}} plugins"
+    }
   },
   "mcp": {
-    "add": "Add service",
-    "added": "Added",
     "back": "Back",
     "cancel_auth": "Cancel authorization",
     "confirm": {
@@ -410,15 +393,14 @@
     "authorizing": "Opening authorization…",
     "checked": "Checked {{when}}",
     "checking": "Loading tools…",
-    "connected_tools_one": "Connected · {{count}} tool",
-    "connected_tools_other": "Connected · {{count}} tools",
     "failed": "Connection failed",
-    "needs_auth": "Authorization needed",
+    "needs_auth": "Needs authorization",
     "removing": "Working…",
     "unverified": "Not verified yet",
     "waiting": "Waiting for authorization",
-    "read_only_count_one": "{{count}} read only",
-    "read_only_count_other": "{{count}} read only"
+    "connected": "Connected",
+    "not_connected": "Not connected",
+    "api_disabled": "API not enabled"
   },
   "vm": {
     "cancel": "Cancel authorization",
@@ -462,5 +444,51 @@
       "high_risk": "Always ask me"
     },
     "title": "Tools · {{count}}"
+  },
+  "connections": {
+    "title": "Connections",
+    "add": "Add connection",
+    "action": {
+      "authorize": "Authorize",
+      "enable_api": "Enable {{name}} API"
+    },
+    "menu": {
+      "details": "View details",
+      "hide_details": "Hide details",
+      "sign_in_again": "Sign in again"
+    },
+    "dialog": {
+      "title": "Add connection"
+    },
+    "local": {
+      "gog": {
+        "name": "Gmail (personal account)",
+        "description": "Read your own Gmail through a Google account you authorize."
+      }
+    },
+    "source": {
+      "gog": "Community · gogcli · Gmail API",
+      "local": "Community · {{name}}",
+      "vendor": "Official · {{host}}",
+      "community": "Community · {{host}}",
+      "custom": "Custom · {{host}}"
+    },
+    "details": {
+      "account": "Account: {{email}}",
+      "project": "Google Cloud project: {{project}}"
+    },
+    "preview_note": "Needs a Google Cloud project enrolled in the Workspace Developer Preview Program, which requires a company or enterprise account. Until then, tool calls can fail with a permission error.",
+    "error": {
+      "api_disabled": "The {{name}} API isn’t enabled in your Google Cloud project. Enable it, then refresh."
+    },
+    "google": {
+      "using_client": "Using your saved Google client (project {{project}}). No upload needed.",
+      "replace_client": "Replace client",
+      "project_found": "This client belongs to project {{project}}."
+    },
+    "repo": {
+      "label": "Source on GitHub: {{repo}}",
+      "with_stars": "Source on GitHub: {{repo}}, {{count}} stars"
+    }
   }
 }

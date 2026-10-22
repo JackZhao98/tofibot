@@ -1,19 +1,13 @@
-import { TofiIcon, type TofiIconName } from "./icons";
+import { TofiIcon } from "./icons";
+import { resolveBrandIcon } from "./brandIcons";
 
-/** Letter monograms for the named catalog services (not brand art): a letter on the service's own colour. */
-const monograms: { match: RegExp; letter: string; color: string }[] = [
-  { match: /GitHub/, letter: "G", color: "#24292f" },
-  { match: /Notion/, letter: "N", color: "#191919" },
-  { match: /Linear/, letter: "L", color: "#5e6ad2" },
-  { match: /Robinhood/, letter: "R", color: "#1e8f4f" },
-  { match: /Context7/, letter: "C", color: "#0f766e" },
-  { match: /Microsoft/, letter: "M", color: "#0b6bcb" },
-];
-
-/** The one mark every catalog service wears: onboarding, the Connections list and the add form. */
-export function ServiceMark({ name }: { name: string }) {
-  const mono = monograms.find(item => item.match.test(name));
-  if (mono) return <span className="service-mark service-mark-letter" data-mark={mono.letter} style={{ background: mono.color }} aria-hidden="true">{mono.letter}</span>;
-  const icon: TofiIconName = /Calendar/.test(name) ? "calendar" : /Drive/.test(name) ? "folder" : /Gmail/.test(name) ? "inbox" : /Docs|Sheets|Slides/.test(name) ? "file-text" : "mcp";
-  return <span className={`service-mark${/Google|Gmail/.test(name) ? " service-mark-google" : ""}`} aria-hidden="true"><TofiIcon name={icon} size={22} /></span>;
+/**
+ * The one mark every directory service wears (onboarding, the Connections list, the directory, the connect dialog):
+ * the vendor's real brand image from the registry, unmodified, on a neutral tile. Only a custom or unknown service
+ * gets the generic glyph (data-mark="generic"). The image is decorative; the service name is always beside it.
+ */
+export function ServiceMark({ name, id }: { name: string; id?: string }) {
+  const brand = resolveBrandIcon(name, id);
+  if (!brand) return <span className="service-mark service-mark-generic" data-mark="generic" aria-hidden="true"><TofiIcon name="mcp" size={22} /></span>;
+  return <span className="service-mark service-mark-brand" data-mark={brand.key} data-tile={brand.tile ?? "light"} aria-hidden="true"><img src={brand.src} alt="" draggable={false} decoding="async" /></span>;
 }

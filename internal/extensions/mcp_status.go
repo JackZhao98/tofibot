@@ -17,6 +17,11 @@ type MCPStatus struct {
 	ToolCount  int       `json:"tool_count"`
 	ErrorClass string    `json:"error_class,omitempty"` // "auth" or "failed"
 	URL        string    `json:"url,omitempty"`         // status applies only while the endpoint is unchanged
+	// ErrorCode names a problem the person can fix ("api_disabled"); API and EnableURL then say which Google API
+	// to enable and where. Set by a check, or by a tool call that came back "API not enabled".
+	ErrorCode string `json:"error_code,omitempty"`
+	API       string `json:"api,omitempty"`
+	EnableURL string `json:"enable_url,omitempty"`
 }
 
 type statusFile struct {
@@ -66,6 +71,9 @@ func (m *Manager) recordStatus(name, url string, inspection MCPInspection) {
 		st.ErrorClass = "auth"
 	default:
 		st.ErrorClass = "failed"
+		if d := inspection.Diagnostics[0]; d.Code == "api_disabled" {
+			st.ErrorCode, st.API, st.EnableURL = d.Code, d.API, d.EnableURL
+		}
 	}
 	if !st.OK && prev.URL == url {
 		st.ToolCount = prev.ToolCount
@@ -86,5 +94,31 @@ func (m *Manager) forgetStatus(name string) {
 		return
 	}
 	delete(all, name)
+	_ = writeJSON0600(path, statusFile{Servers: all})
+}
+
+// noteToolFailure records "API not enabled" on a connection when a tool call came back with Google's structured
+// SERVICE_DISABLED error. Nothing else is recorded from a failed call: the status holds no provider text.
+func (m *Manager) noteToolFailure(name, url string, err error) {
+	if err == nil {
+		return
+	}
+	d := mcpInspectionDiagnostic(name, url, err)
+	if d.Code != "api_disabled" {
+		return
+	}
+	path := m.statusPath()
+	if path == "" {
+		return
+	}
+	m.statusMu.Lock()
+	defer m.statusMu.Unlock()
+	all := m.loadStatuses()
+	prev := all[name]
+	st := MCPStatus{CheckedAt: m.clock().UTC(), URL: url, ErrorClass: "failed", ErrorCode: d.Code, API: d.API, EnableURL: d.EnableURL}
+	if prev.URL == url {
+		st.ToolCount = prev.ToolCount
+	}
+	all[name] = st
 	_ = writeJSON0600(path, statusFile{Servers: all})
 }
