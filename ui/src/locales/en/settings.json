@@ -830,6 +830,10 @@
         "name": "Completion review after tool work",
         "what": "After using tools, a Bot checks its answer against the actual results once before it replies."
       },
+      "answer_gate": {
+        "name": "Look before saying “I don’t know”",
+        "what": "When a Bot's reply says it lacks the information, it first checks the chat history, memory, files and the web, once, before it answers."
+      },
       "mcp_auto_review": {
         "name": "Automatic review of tool calls",
         "what": "A background reviewer looks at calls to outside tools. Observe only records advice; Auto lets low-risk calls go through on its say-so."
