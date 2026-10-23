@@ -734,36 +734,8 @@ func (m *Manager) openMCPClient(runCtx, discoveryCtx context.Context, name strin
 		Capabilities:           &mcp.ClientCapabilities{},
 		ToolListChangedHandler: func(context.Context, *mcp.ToolListChangedRequest) { m.invalidateCatalogs(name) },
 	})
-	// The SDK normally falls back to initialize on discover failure. Block
-	// that outgoing request before it reaches the transport, and preserve the
-	// original auth/network error for actionable diagnostics.
-	var discoverErr error
-	client.AddSendingMiddleware(func(next mcp.MethodHandler) mcp.MethodHandler {
-		return func(ctx context.Context, method string, req mcp.Request) (mcp.Result, error) {
-			if method == "initialize" || method == "notifications/initialized" {
-				if discoverErr != nil && !isMCPProtocolFailure(discoverErr) {
-					return nil, discoverErr
-				}
-				return nil, errMCPProtocolIncompatible
-			}
-			if method == "server/discover" {
-				if req.GetParams().GetMeta()[mcp.MetaKeyProtocolVersion] != requiredMCPProtocolVersion {
-					return nil, errMCPProtocolIncompatible
-				}
-				result, err := next(ctx, method, req)
-				discoverErr = err
-				if err == nil {
-					res, ok := result.(*mcp.DiscoverResult)
-					if !ok || !contains(res.SupportedVersions, requiredMCPProtocolVersion) {
-						discoverErr = errMCPProtocolIncompatible
-						return nil, discoverErr
-					}
-				}
-				return result, err
-			}
-			return next(ctx, method, req)
-		}
-	})
+	// The SDK tries server/discover first and falls back to the legacy
+	// initialize handshake (2025-11-25 and older supported versions) on its own.
 	// Connect closes its session on cancellation, and the SDK's close waits
 	// (up to its 5s cancel-notification bound) for an unresponsive server to
 	// answer the notifications/cancelled POST. Stop and run cancellation must not
@@ -775,7 +747,7 @@ func (m *Manager) openMCPClient(runCtx, discoveryCtx context.Context, name strin
 	}
 	connectDone := make(chan connected, 1)
 	go func() {
-		c, e := client.Connect(discoveryCtx, transport, &mcp.ClientSessionOptions{ProtocolVersion: requiredMCPProtocolVersion})
+		c, e := client.Connect(discoveryCtx, transport, nil)
 		connectDone <- connected{c, e}
 	}()
 	var cli *mcp.ClientSession
@@ -797,12 +769,7 @@ func (m *Manager) openMCPClient(runCtx, discoveryCtx context.Context, name strin
 		}
 		return nil, fmt.Errorf("connect MCP: %w", err)
 	}
-	if cli.InitializeResult().ProtocolVersion != requiredMCPProtocolVersion {
-		_ = cli.Close()
-		m.invalidateMCPReadiness(name)
-		return nil, errMCPProtocolIncompatible
-	}
-	// A completed server/discover handshake is the readiness proof that
+	// A completed handshake (server/discover or legacy initialize) is the readiness proof that
 	// call-time checks may reuse for a short, configuration-bound window.
 	m.markMCPReady(name, cfg)
 	// Connect's context bounds discovery, while the prepared session belongs

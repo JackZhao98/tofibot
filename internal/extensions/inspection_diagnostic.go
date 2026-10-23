@@ -19,7 +19,7 @@ func mcpInspectionDiagnostic(name, endpoint string, err error) Diagnostic {
 		return d
 	}
 	if isMCPProtocolFailure(err) {
-		d.Code, d.Message = "unsupported_protocol", "This MCP service does not support the 2026-07-28 protocol that Tofi requires. Upgrade the service; Tofi does not fall back to an older protocol."
+		d.Code, d.Message = "unsupported_protocol", "This MCP service offers no protocol version that Tofi supports (2024-11-05 through 2026-07-28). Upgrade the service."
 		return d
 	}
 	if !isGoogleWorkspaceMCPEndpoint(endpoint) {
