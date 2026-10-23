@@ -5,25 +5,13 @@ import {ConfirmAction,Disclosure} from "./InteractionSystem";
 import type {Bot} from "./types";
 import {useSettingsActive} from "./settingsActivity";
 import {useSettingsDraft} from "./settingsDraft";
-import {i18n,useTranslation} from "./i18n";
+import {useTranslation} from "./i18n";
+import {credentialMessage} from "./credentialMessages";
 import "./computer-credentials.css";
 
 type Credential={id:string;name:string;kind:"env"|"ssh";target:string;created_at:string};
 type SSHKey={name:string;path:string;public_key:string;fingerprint:string;has_private:boolean;encrypted:boolean;source:"computer";public_key_verified?:boolean};
 type Tab="env"|"ssh";
-function message(cause:unknown,fallback:string){
- if(!(cause instanceof Error))return fallback;
- const text=cause.message;
- if(/already exists/i.test(text))return i18n.t("computer:credentials.error.exists");
- if(/busy|current task/i.test(text))return i18n.t("computer:credentials.error.busy");
- if(/private key.*parsed|valid private key/i.test(text))return i18n.t("computer:credentials.error.private_key_invalid");
- if(/private key filename/i.test(text))return i18n.t("computer:credentials.error.private_key_filename");
- if(/SSH directory/i.test(text))return i18n.t("computer:credentials.error.ssh_dir");
- if(/OpenSSH tools/i.test(text))return i18n.t("computer:credentials.error.openssh_missing");
- if(/SSH key response|read SSH keys|SSH key operation/i.test(text))return i18n.t("computer:credentials.error.key_io");
- return text;
-}
-
 export function ComputerCredentials({bots}:{bots:Bot[]}){
  const {t}=useTranslation("computer");
  const active=useSettingsActive();
@@ -47,7 +35,7 @@ export function ComputerCredentials({bots}:{bots:Bot[]}){
    const ssh=tab==="ssh"&&botID?await request<{keys:SSHKey[];truncated?:boolean}>(`/api/computer/ssh-keys?bot_id=${encodeURIComponent(botID)}`):null;
    if(!alive.current||current!==generation.current)return;
    setItems(credentials.credentials??[]);if(ssh){setKeys(ssh.keys??[]);setTruncated(Boolean(ssh.truncated))}setLoadError("");setSyncPending(false);
-  }catch(cause){if(alive.current&&current===generation.current){if(cause instanceof ApiError&&cause.status===409&&/busy|current task/i.test(cause.message)){setSyncPending(true);setLoadError("")}else{setSyncPending(false);setLoadError(message(cause,t("credentials.error.load")))}}}
+  }catch(cause){if(alive.current&&current===generation.current){if(cause instanceof ApiError&&cause.status===409&&/busy|current task/i.test(cause.message)){setSyncPending(true);setLoadError("")}else{setSyncPending(false);setLoadError(credentialMessage(cause,t("credentials.error.load"),tab))}}}
   finally{reading.current=false;if(alive.current&&current===generation.current)setLoading(false)}
  },[tab,botID,t]);
  useEffect(()=>{alive.current=true;return()=>{alive.current=false}},[]);
@@ -62,11 +50,11 @@ export function ComputerCredentials({bots}:{bots:Bot[]}){
  function clearForm(){fileRead.current++;setAdding(false);setName("");setTarget("");setValue("");setDragging(false)}
  function changeTab(next:Tab){if(busy||next===tab)return false;if(adding&&(name||target||value)){setError(t("credentials.error.switch_unsaved"));return false}clearForm();setTab(next);setError("");setStatus("");setOpenKey(null);setCopied(null);setSyncPending(false);return true}
  async function apply(id:string){if(!botID)throw new Error(t("credentials.error.no_bot"));await request(`/api/computer/credentials/${encodeURIComponent(id)}/apply`,{method:"POST",body:JSON.stringify({bot_id:botID})})}
- async function mutate(action:()=>Promise<void>){if(mutation.current)return false;mutation.current=true;generation.current++;setBusy(true);setError("");setStatus("");try{await action();return true}catch(cause){setError(message(cause,t("credentials.error.operation")));return false}finally{mutation.current=false;if(alive.current){setBusy(false);void refresh()}}}
+ async function mutate(action:()=>Promise<void>){if(mutation.current)return false;mutation.current=true;generation.current++;setBusy(true);setError("");setStatus("");try{await action();return true}catch(cause){setError(credentialMessage(cause,t("credentials.error.operation"),tab));return false}finally{mutation.current=false;if(alive.current){setBusy(false);void refresh()}}}
  async function save(){if(!target.trim()||(tab==="env"||mode==="import")&&!value||(tab==="ssh"&&!botID)){setError(t("credentials.error.required"));return false}if(tab==="env"?!/^[A-Z_][A-Z0-9_]*$/.test(target):!/^[A-Za-z0-9_.-]+$/.test(target)){setError(t("credentials.error.name_format"));return false}return mutate(async()=>{
   if(tab==="env"){
    const credential=await request<Credential>("/api/computer/credentials",{method:"POST",body:JSON.stringify({name:name.trim()||target.trim(),kind:"env",target:target.trim(),value})});
-   clearForm();try{await apply(credential.id);setStatus(t("credentials.status.saved_applied"))}catch{setStatus(t("credentials.status.saved_not_applied"))}
+   clearForm();try{await apply(credential.id);setStatus(t("credentials.status.saved_applied"))}catch(cause){setStatus(t("credentials.status.saved_not_applied"));setError(credentialMessage(cause,t("credentials.error.operation"),tab))}
   }else{
    if(!botID)throw new Error(t("credentials.error.no_bot"));
    if(mode==="import"&&!/-----BEGIN (?:OPENSSH|RSA|EC|DSA|ENCRYPTED)? ?PRIVATE KEY-----/.test(value))throw new Error(t("credentials.error.not_private_key"));
@@ -91,11 +79,11 @@ export function ComputerCredentials({bots}:{bots:Bot[]}){
     {tab==="env"?<label>{t("credentials.field.env_value")}<input required type="password" value={value} disabled={busy} onChange={event=>setValue(event.target.value)} autoComplete="new-password"/></label>:mode==="import"?<div className={`credential-dropzone ${dragging?'is-dragging':''}`} onDragOver={event=>{event.preventDefault();if(!busy)setDragging(true)}} onDragLeave={event=>{if(!event.currentTarget.contains(event.relatedTarget as Node))setDragging(false)}} onDrop={event=>{event.preventDefault();setDragging(false);if(!busy){if(event.dataTransfer.files.length!==1)setError(t("credentials.error.drop_single"));else void readFile(event.dataTransfer.files[0])}}}><label>{t("credentials.field.private_key")}<textarea required value={value} disabled={busy} onChange={event=>{fileRead.current++;setValue(event.target.value)}} rows={5} autoComplete="off" spellCheck={false} placeholder={t("credentials.field.private_key_placeholder")}/></label><input ref={fileInput} type="file" hidden onChange={event=>{const file=event.target.files?.[0];event.target.value='';if(file)void readFile(file)}}/><button type="button" className="secondary-button" disabled={busy} onClick={()=>fileInput.current?.click()}>{t("credentials.choose_file")}</button><span className="field-note">{t("credentials.private_key_note")}</span></div>:<p className="field-note">{t("credentials.generate_note")}</p>}
     <button className="primary-button" disabled={busy||!target.trim()||(tab==="env"||mode==="import")&&!value||(tab==="ssh"&&!botID)}>{busy?t("credentials.submit.working"):tab==="env"?t("credentials.submit.save_apply"):mode==="import"?t("credentials.submit.import"):t("credentials.submit.generate")}</button>
    </form>}
+   {status&&<p className="settings-feedback" role="status">{status}</p>}
+   {error&&<p className="error-text" role="alert">{error}</p>}
    {loading&&<p className="field-note" role="status">{t("credentials.loading")}</p>}
    {tab==="env"?<div className="credential-list">{savedRows(items.filter(item=>item.kind==="env"))}{!loading&&!loadError&&!items.some(item=>item.kind==="env")&&!adding&&<EmptyState name="credentials-env-empty" className="settings-empty is-compact" look={CATS.nori} pose="asleep"><p>{t("credentials.empty_env")}</p></EmptyState>}</div>:<><div className="credential-list">{keys.map(key=><article className="ssh-key-row" key={key.name}><div className="credential-row"><div className="credential-copy"><strong>{key.name}</strong><p>{!key.has_private?(key.fingerprint?t("credentials.key.public_only_fingerprint",{fingerprint:key.fingerprint}):t("credentials.key.public_only")):key.encrypted&&!key.public_key?t("credentials.key.encrypted_no_public"):key.public_key&&key.public_key_verified===false?t("credentials.key.unverified",{fingerprint:key.fingerprint||t("credentials.key.no_public")}):(key.fingerprint||t("credentials.key.no_public"))}</p></div>{key.public_key&&<div className="credential-actions"><button className="text-button" aria-expanded={openKey===key.name} onClick={()=>setOpenKey(openKey===key.name?null:key.name)}>{openKey===key.name?t("credentials.key.hide_public"):t("credentials.key.show_public")}</button><button className="text-button" onClick={()=>void copyKey(key)}>{copied===key.name?t("credentials.key.copied"):t("credentials.key.copy_public")}</button></div>}</div>{openKey===key.name&&key.public_key&&<textarea ref={element=>{if(element&&selectPublic.current===key.name){element.focus();element.select();selectPublic.current=null}}} className="ssh-public-key" aria-label={t("credentials.key.public_aria",{name:key.name})} readOnly value={key.public_key} rows={3} onFocus={event=>event.target.select()}/>}</article>)}</div>{!botID?<p className="field-note">{t("credentials.no_bot_note")}</p>:!loading&&!loadError&&!syncPending&&!keys.length&&!adding&&<EmptyState name="credentials-ssh-empty" className="settings-empty is-compact" look={CATS.nori} pose="asleep"><p>{t("credentials.empty_ssh")}</p></EmptyState>}{legacy.length>0&&<Disclosure title={t("credentials.legacy_title")}><p className="field-note">{t("credentials.legacy_note")}</p>{savedRows(legacy)}</Disclosure>}</>}
    {tab==="ssh"&&syncPending&&<p className="field-note" role="status">{t("credentials.sync_pending")}</p>}{tab==="ssh"&&truncated&&<p className="field-note">{t("credentials.truncated")}</p>}
-   {status&&<p className="settings-feedback" role="status">{status}</p>}
-   {error&&<p className="error-text" role="alert">{error}</p>}
    {loadError&&<div className="credential-load-error" role="alert"><span>{loadError}</span><button className="text-button" disabled={busy} onClick={()=>void refresh()}>{t("credentials.retry")}</button></div>}
   </div>
  </section>

@@ -27,6 +27,7 @@
     "test:community-install": "node scripts/test-community-install.mjs",
     "test:oauth-completion": "node scripts/test-oauth-completion.mjs",
     "test:user-form": "node scripts/test-user-form.mjs",
+    "test:credential-messages": "node scripts/test-credential-messages.mjs",
     "test:message-markdown": "node scripts/test-message-markdown.mjs",
     "test:v2-palette": "node scripts/test-v2-palette.mjs",
     "test:final-v2-tokens": "node scripts/test-final-v2-tokens.mjs",
