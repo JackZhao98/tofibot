@@ -294,9 +294,21 @@ func TestGuestShellUsesCleanBotWorkspaceAndKillsTimeoutGroup(t *testing.T) {
 	if result["timed_out"] != true || result["exit_code"] != float64(137) {
 		t.Fatalf("timeout result=%#v", result)
 	}
-	status, out = postAction(t, s.Handler(), testBot, "run-1", "shell.exec", map[string]any{"command": "true", "env": map[string]string{"BAD": "ignored"}})
-	if status != http.StatusBadRequest || out.OK {
-		t.Fatalf("silent env field accepted: %d %#v", status, out)
+	// A host-injected variable reaches that one command, is not inherited by the
+	// next, and a reserved or malformed name is refused rather than ignored.
+	status, out = postAction(t, s.Handler(), testBot, "run-1", "shell.exec", map[string]any{"command": "printf %s \"$SYNTHETIC_INJECTED\"", "env": map[string]string{"SYNTHETIC_INJECTED": "synthetic-value"}})
+	if got, _ := mustMap(t, out.Result)["stdout"].(string); status != http.StatusOK || got != "synthetic-value" {
+		t.Fatalf("injected variable missing: %d %#v", status, out)
+	}
+	status, out = postAction(t, s.Handler(), testBot, "run-1", "shell.exec", map[string]any{"command": "printf %s \"$SYNTHETIC_INJECTED\""})
+	if got, _ := mustMap(t, out.Result)["stdout"].(string); status != http.StatusOK || got != "" {
+		t.Fatalf("injected variable persisted into the next command: %#v", out)
+	}
+	for _, bad := range []string{"PATH", "lower", "LD_PRELOAD", "A-B"} {
+		status, out = postAction(t, s.Handler(), testBot, "run-1", "shell.exec", map[string]any{"command": "true", "env": map[string]string{bad: "x"}})
+		if out.OK {
+			t.Fatalf("injected name %q accepted: %d", bad, status)
+		}
 	}
 }
 

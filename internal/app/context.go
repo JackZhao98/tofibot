@@ -537,6 +537,10 @@ func (s *Server) buildContextPartsWith(c Conversation, r Run, bot Bot, cachedMCP
 			used += len([]rune(x))
 		}
 	}
+	if names := s.botSecretContext(r.BotID); names != "" && used+len([]rune(names)) <= maxHistoryRunes {
+		pm = append(pm, runtime.Message{Role: "user", Content: names})
+		used += len([]rune(names))
+	}
 	if refs := s.store.recentCapabilityReferencesWith(contextConversationID, bot.ID, r.CreatedAt, cachedMCP); refs != "" && used+len([]rune(refs)) <= maxHistoryRunes {
 		pm = append(pm, runtime.Message{Role: "user", Content: refs})
 		used += len([]rune(refs))

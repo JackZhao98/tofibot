@@ -380,8 +380,11 @@ func (s *Server) microVMTools(r Run) []Tool {
 		return d.Decode(target)
 	}
 	var viewed atomic.Int32
+	// Values injected earlier in this run stay masked in every later computer
+	// tool result of the run (a command may have written one to a file).
+	injected := &injectedSecrets{}
 	call := func(name, description string, schema map[string]any, parse func(json.RawMessage) (string, json.RawMessage, error)) Tool {
-		return Tool{Name: name, Description: description, Parameters: schema, Timeout: computerToolTimeout, Identity: func(raw json.RawMessage) tooloutcome.Identity {
+		t := Tool{Name: name, Description: description, Parameters: schema, Timeout: computerToolTimeout, Identity: func(raw json.RawMessage) tooloutcome.Identity {
 			action, args, err := parse(raw)
 			if err != nil {
 				var in struct {
@@ -464,7 +467,34 @@ func (s *Server) microVMTools(r Run) []Tool {
 					return "", guardErr
 				}
 			}
+			// Secrets the command names are injected here, at dispatch, so they
+			// never enter the recovery identity, the tool arguments or a log, and
+			// are masked in everything that comes back.
+			var mask func(string) string
+			if name == "computer_shell" {
+				names, nerr := shellSecretNames(raw)
+				if nerr != nil {
+					return "", nerr
+				}
+				if len(names) > 0 {
+					env, rerr := s.resolveShellSecrets(r.BotID, names)
+					if rerr != nil {
+						return "", rerr
+					}
+					if args, rerr = withShellEnv(args, env); rerr != nil {
+						return "", tooloutcome.InvalidArguments("invalid command")
+					}
+					injected.add(env)
+					mask = shellSecretMask(env)
+				}
+			}
 			out, err := s.microVMAction(ctx, r, action, args)
+			if mask != nil {
+				out = mask(out)
+				if err != nil && mask(err.Error()) != err.Error() {
+					err = errors.New("command failed; its error text held a secret and was withheld")
+				}
+			}
 			// Chrome can exit under a still-registered desktop; every later
 			// browser call then fails the same way. Restart it once and retry.
 			if err != nil && name == "computer_browser" && browserProcessGone(err) && s.restartDesktop(ctx, r) == nil {
@@ -474,11 +504,18 @@ func (s *Server) microVMTools(r Run) []Tool {
 			settle(err)
 			return out, err
 		}}
+		inner := t.Execute
+		t.Execute = func(ctx context.Context, raw json.RawMessage) (string, error) {
+			out, err := inner(ctx, raw)
+			return injected.mask(out), err
+		}
+		return t
 	}
-	shell := call("computer_shell", "Run a bounded shell command with this Bot's default working directory inside the shared user VM. HOME and installed tools are shared across all Bots in this VM; installing or uninstalling a command affects all of them. Only default working directories differ and remain mutually accessible. Load a project's .env explicitly when needed.", objectSchema(map[string]any{"command": map[string]any{"type": "string", "description": "bash command, for example pwd"}, "timeout_sec": map[string]any{"type": "integer", "minimum": 1, "maximum": 120, "description": "Optional command timeout in seconds"}}, []string{"command"}), func(raw json.RawMessage) (string, json.RawMessage, error) {
+	shell := call("computer_shell", "Run a bounded shell command with this Bot's default working directory inside the shared user VM. HOME and installed tools are shared across all Bots in this VM; installing or uninstalling a command affects all of them. Only default working directories differ and remain mutually accessible. Load a project's .env explicitly when needed. To use a saved secret, list its name in secrets: it is set as an environment variable for this command only and masked in the output.", objectSchema(map[string]any{"command": map[string]any{"type": "string", "description": "bash command, for example pwd"}, "secrets": map[string]any{"type": "array", "maxItems": maxShellSecrets, "items": map[string]any{"type": "string"}, "description": "Names of saved secrets this command needs"}, "timeout_sec": map[string]any{"type": "integer", "minimum": 1, "maximum": 120, "description": "Optional command timeout in seconds"}}, []string{"command"}), func(raw json.RawMessage) (string, json.RawMessage, error) {
 		var in struct {
-			Command    string `json:"command"`
-			TimeoutSec int    `json:"timeout_sec,omitempty"`
+			Command    string   `json:"command"`
+			TimeoutSec int      `json:"timeout_sec,omitempty"`
+			Secrets    []string `json:"secrets,omitempty"`
 		}
 		if err := decode(raw, &in); err != nil || strings.TrimSpace(in.Command) == "" {
 			return "", nil, errors.New("computer_shell requires command")

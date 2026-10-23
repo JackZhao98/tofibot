@@ -800,12 +800,15 @@ func (s *Server) routeQuestions(w http.ResponseWriter, r *http.Request, p string
 			return true
 		}
 		var body struct {
-			Text      string            `json:"text"`
-			Value     *bool             `json:"value"`
-			Values    []string          `json:"values"`
-			Fields    map[string]string `json:"fields"`
-			Result    string            `json:"result"`
-			OtherText json.RawMessage   `json:"other_text"`
+			Text   string            `json:"text"`
+			Value  *bool             `json:"value"`
+			Values []string          `json:"values"`
+			Fields map[string]string `json:"fields"`
+			// SaveAs: the person's own choice on a private-input card to keep
+			// the secret for that card's Bot under this variable name.
+			SaveAs    string          `json:"save_as"`
+			Result    string          `json:"result"`
+			OtherText json.RawMessage `json:"other_text"`
 			// Remember: "Approve and remember in this chat" for an eligible MCP
 			// proposal. The grant binds to what the gate recorded on the card,
 			// never to anything in this body.
@@ -890,7 +893,7 @@ func (s *Server) routeQuestions(w http.ResponseWriter, r *http.Request, p string
 		}
 		var existing bool
 		if q.Type == questionForm {
-			q, _, err = s.AnswerUserForm(id, actor, body.Fields)
+			q, _, err = s.AnswerUserFormSaving(id, actor, body.Fields, strings.TrimSpace(body.SaveAs))
 		} else {
 			q, existing, err = s.store.AnswerQuestion(id, actor, answer)
 		}
