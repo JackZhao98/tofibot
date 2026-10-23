@@ -157,32 +157,37 @@ func TestExtensionChangeNeedsExactSingleUseHumanApproval(t *testing.T) {
 		_, err := tl.Execute(context.Background(), raw)
 		return err
 	}
-	install := map[string]any{"action": "skill_install", "name": "gated", "files": map[string]string{"SKILL.md": "---\nname: gated\ndescription: fixture\n---\nbody"}}
-	if code := extensionOutcomeCode(call(tool, install)); code != "extension_change_needs_approval" {
-		t.Fatalf("unapproved install: %q", code)
+	// Installing a skill for oneself needs no approval.
+	v1 := map[string]string{"SKILL.md": "---\nname: gated\ndescription: fixture\n---\nbody"}
+	if err := call(tool, map[string]any{"action": "skill_install", "name": "gated", "files": v1}); err != nil {
+		t.Fatalf("install without approval: %v", err)
 	}
-	if skills := installedSkills(s); len(skills) != 0 {
-		t.Fatal("unapproved install wrote files")
+	publish := map[string]any{"action": "skill_publish_version", "name": "gated", "files": map[string]string{"SKILL.md": "---\nname: gated\ndescription: fixture\n---\nbody two"}}
+	if code := extensionOutcomeCode(call(tool, publish)); code != "extension_change_needs_approval" {
+		t.Fatalf("unapproved publish: %q", code)
+	}
+	if body, _, err := s.extensions.SkillFilesMap("gated"); err != nil || strings.Contains(string(body["SKILL.md"]), "body two") {
+		t.Fatalf("unapproved publish wrote files: %v", err)
 	}
 	// An approval for a different payload does not cover this one.
-	other := map[string]any{"action": "skill_install", "name": "gated", "files": map[string]string{"SKILL.md": "---\nname: gated\ndescription: other\n---\nbody"}}
+	other := map[string]any{"action": "skill_publish_version", "name": "gated", "files": map[string]string{"SKILL.md": "---\nname: gated\ndescription: other\n---\nbody"}}
 	var ox extensionToolArgs
 	raw, _ := json.Marshal(other)
 	_ = json.Unmarshal(raw, &ox)
 	approveExtensionChange(t, s, c, r, ox)
-	if code := extensionOutcomeCode(call(tool, install)); code != "extension_change_needs_approval" {
+	if code := extensionOutcomeCode(call(tool, publish)); code != "extension_change_needs_approval" {
 		t.Fatalf("approval for another payload was accepted: %q", code)
 	}
 	var x extensionToolArgs
-	raw, _ = json.Marshal(install)
+	raw, _ = json.Marshal(publish)
 	_ = json.Unmarshal(raw, &x)
 	approveExtensionChange(t, s, c, r, x)
-	if err := call(tool, install); err != nil {
-		t.Fatalf("approved install: %v", err)
+	if err := call(tool, publish); err != nil {
+		t.Fatalf("approved publish: %v", err)
 	}
-	del := map[string]any{"action": "skill_delete", "name": "gated"}
-	if code := extensionOutcomeCode(call(tool, del)); code != "extension_change_needs_approval" {
-		t.Fatalf("an install approval authorized a delete: %q", code)
+	// A publish approval does not authorize an MCP change.
+	if code := extensionOutcomeCode(call(tool, map[string]any{"action": "mcp_delete", "name": "gated"})); code != "extension_change_needs_approval" {
+		t.Fatalf("a publish approval authorized an MCP delete: %q", code)
 	}
 	// Reads need no approval.
 	if err := call(tool, map[string]any{"action": "skill_list"}); err != nil {

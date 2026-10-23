@@ -111,14 +111,11 @@ type Config struct {
 	// ServerUsable may hide a configured server from a run while its setup is
 	// incomplete (for example, no connected account). Nil offers every server.
 	ServerUsable func(context.Context, string) bool
-	// SkillAccess reports which of the named skills the Bot may use. Skills
-	// are workspace-wide unless restricted to selected Bots. Nil permits every
-	// skill; a returned error makes the run drop every skill (fail closed).
+	// SkillAccess reports which of the named skills are enabled for the Bot:
+	// one global library, one enabled set per Bot, built-in skills on unless
+	// the Bot's set turns them off. Nil permits every skill; a returned error
+	// makes the run drop every skill (fail closed).
 	SkillAccess func(ctx context.Context, botID string, names []string) (map[string]bool, error)
-	// BuiltinSkillsOff reports which built-in skills the person turned off in
-	// Settings. Nil leaves every built-in skill on; an error withholds every
-	// built-in skill from the run (fail closed, like SkillAccess).
-	BuiltinSkillsOff func(ctx context.Context) (map[string]bool, error)
 	// ServerIdentityChanged is called after a configuration write that changed
 	// a server's fingerprint or credential target, or removed it. It runs under
 	// the configuration fence and must not call back into the Manager.
@@ -410,10 +407,10 @@ func (m *Manager) prepareMode(ctx context.Context, botID string, scoped, discove
 		}
 	}
 	if m.cfg.SkillsDir != "" || len(skills) > 0 {
-		// Installed skills are workspace-wide by default and may be restricted
-		// to selected Bots (Config.SkillAccess). skills was already filtered
-		// for botID above, so the tools and index built below can never name,
-		// list or read a skill this Bot may not use. The old per-Bot
+		// Skills live in one library and each Bot has its own enabled set
+		// (Config.SkillAccess). skills was already filtered for botID above,
+		// so the tools and index built below can never name, list or read a
+		// skill that is not enabled for this Bot. The old per-Bot
 		// .enabled.json state file is intentionally ignored.
 		p.Diagnostics = append(p.Diagnostics, skillDiags...)
 		if discoverable {
@@ -486,10 +483,9 @@ func (m *Manager) prepareMode(ctx context.Context, botID string, scoped, discove
 	return p, nil
 }
 
-// filterSkillsForBot drops skills the Bot may not use. When the access lookup
+// filterSkillsForBot drops skills that are not enabled for the Bot. When the access lookup
 // fails every skill is dropped: unknown must never be treated as allowed.
 func (m *Manager) filterSkillsForBot(ctx context.Context, botID string, skills []Skill, diags []Diagnostic) ([]Skill, []Diagnostic) {
-	skills, diags = m.withoutDisabledBuiltins(ctx, skills, diags)
 	if m.cfg.SkillAccess == nil || len(skills) == 0 {
 		return skills, diags
 	}
@@ -511,7 +507,7 @@ func (m *Manager) filterSkillsForBot(ctx context.Context, botID string, skills [
 	return kept, diags
 }
 
-// SkillsForBot lists the skills the Bot may use, failing closed on error.
+// SkillsForBot lists the skills enabled for the Bot, failing closed on error.
 func (m *Manager) SkillsForBot(ctx context.Context, botID string) ([]SkillView, []Diagnostic) {
 	m.mu.RLock()
 	s, d := m.loadAllSkills(false, true)

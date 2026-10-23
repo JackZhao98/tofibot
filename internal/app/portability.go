@@ -27,7 +27,7 @@ const portableMaxRecords = 20000
 var portableDefaultCategories = []string{"bot_config", "chats", "memories", "schedules", "attachments", "settings"}
 var portableCategories = append(append([]string(nil), portableDefaultCategories...), portableEnvironmentCategory)
 
-// extensions_and_skills also covers skill_access (per-Bot skill restrictions).
+// extensions_and_skills covers the skill library and its files; a Bot export names the skills the Bot has on and carries nothing more (decision 0058).
 var portableExcluded = []string{"credentials", "private_ssh_keys", "attachments", "guest_files_and_disk", "extensions_and_skills", "work_items", "mail_drafts", "run_and_tool_history", "reactions", "summaries", "browser_preferences", "authentication_and_approvals"}
 
 type portableOrigin struct {
@@ -45,6 +45,10 @@ type portableBot struct {
 	Bot
 	Avatar json.RawMessage `json:"avatar,omitempty"`
 	Origin portableOrigin  `json:"origin"`
+	// EnabledSkills are the names of the library skills this Bot has on, and
+	// nothing else: no files, versions or who set them. An import never turns
+	// a skill on from this list; it tells the person what the Bot used.
+	EnabledSkills []string `json:"enabled_skills,omitempty"`
 }
 type portableConversation struct {
 	ID          string   `json:"id"`

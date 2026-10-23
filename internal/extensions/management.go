@@ -55,8 +55,8 @@ type OAuthView struct {
 type SkillView struct {
 	Name        string `json:"name"`
 	Description string `json:"description"`
-	// Builtin skills ship in the binary: they are switched on or off in
-	// Settings and can be neither installed over nor deleted.
+	// Builtin skills ship in the binary: they are switched on or off per Bot
+	// and can be neither installed over nor deleted.
 	Builtin bool `json:"builtin,omitempty"`
 }
 
@@ -404,21 +404,21 @@ func writeJSON0600(path string, v any) error {
 	return os.Rename(tmp, path)
 }
 
-// InstallSkill installs a complete user supplied skill directory. Paths are
-// relative, bounded, and created with private permissions.
-func (m *Manager) InstallSkill(name string, files map[string][]byte) error {
+// ErrSkillExists is returned when an install would overwrite a skill that is
+// already in the library. Its text is part of the Settings error mapping.
+var ErrSkillExists = errors.New("skill already exists")
+
+// validateSkillFiles checks one skill's complete file set: bounded count and
+// size, safe relative paths, and a SKILL.md whose name is the skill's name.
+func validateSkillFiles(name string, files map[string][]byte) error {
 	if !skillNamePattern.MatchString(name) {
 		return tooloutcome.InvalidArguments("invalid skill name")
 	}
 	if IsBuiltinSkill(name) {
-		return tooloutcome.InvalidArguments("a built-in skill has this name; built-in skills are switched on or off in Settings")
+		return tooloutcome.InvalidArguments("a built-in skill has this name; built-in skills are switched on or off per Bot")
 	}
 	if len(files) == 0 || len(files) > maxInstallFiles {
 		return tooloutcome.InvalidArguments("invalid skill file count")
-	}
-	root := m.cfg.SkillsDir
-	if root == "" {
-		return tooloutcome.New(tooloutcome.Permanent, "skills_unavailable", "not_executed", "Skills directory is not configured.", "explain_blocker").Err()
 	}
 	total := 0
 	for p, b := range files {
@@ -437,14 +437,52 @@ func (m *Manager) InstallSkill(name string, files map[string][]byte) error {
 	if manifest.Name != name {
 		return tooloutcome.InvalidArguments("skill directory name must match SKILL.md name")
 	}
+	return nil
+}
+
+// writeSkillDir writes a validated file set into a new private directory.
+func writeSkillDir(dir string, files map[string][]byte) error {
+	if err := os.MkdirAll(dir, 0700); err != nil {
+		return err
+	}
+	if err := os.Chmod(dir, 0700); err != nil {
+		return err
+	}
+	for p, b := range files {
+		dst := filepath.Join(dir, filepath.FromSlash(p))
+		if e := os.MkdirAll(filepath.Dir(dst), 0700); e != nil {
+			return e
+		}
+		if e := os.WriteFile(dst, b, 0600); e != nil {
+			return e
+		}
+	}
+	_, err := os.Stat(filepath.Join(dir, "SKILL.md"))
+	return err
+}
+
+// InstallSkill installs a complete user supplied skill directory. Paths are
+// relative, bounded, and created with private permissions.
+func (m *Manager) InstallSkill(name string, files map[string][]byte) error {
+	if err := validateSkillFiles(name, files); err != nil {
+		return err
+	}
+	root := m.cfg.SkillsDir
+	if root == "" {
+		return tooloutcome.New(tooloutcome.Permanent, "skills_unavailable", "not_executed", "Skills directory is not configured.", "explain_blocker").Err()
+	}
 	m.mu.Lock()
 	defer m.mu.Unlock()
+	return m.installSkillLocked(root, name, files)
+}
+
+func (m *Manager) installSkillLocked(root, name string, files map[string][]byte) error {
 	if err := os.MkdirAll(root, 0700); err != nil {
 		return err
 	}
 	dir := filepath.Join(root, name)
 	if _, err := os.Lstat(dir); err == nil {
-		return errors.New("skill already exists")
+		return ErrSkillExists
 	} else if !errors.Is(err, os.ErrNotExist) {
 		return err
 	}
@@ -453,19 +491,7 @@ func (m *Manager) InstallSkill(name string, files map[string][]byte) error {
 		return err
 	}
 	defer os.RemoveAll(stage)
-	if err := os.Chmod(stage, 0700); err != nil {
-		return err
-	}
-	for p, b := range files {
-		dst := filepath.Join(stage, filepath.FromSlash(p))
-		if e := os.MkdirAll(filepath.Dir(dst), 0700); e != nil {
-			return e
-		}
-		if e := os.WriteFile(dst, b, 0600); e != nil {
-			return e
-		}
-	}
-	if _, err := os.Stat(filepath.Join(stage, "SKILL.md")); err != nil {
+	if err := writeSkillDir(stage, files); err != nil {
 		return err
 	}
 	return os.Rename(stage, dir)

@@ -1,14 +1,12 @@
 package extensions
 
 import (
-	"context"
 	"crypto/sha256"
 	"embed"
 	"encoding/hex"
 	"errors"
 	"fmt"
 	"io/fs"
-	"log"
 	"os"
 	"path"
 	"path/filepath"
@@ -21,7 +19,7 @@ import (
 // SKILL.md and scripts/*.py. They take the same progressive-disclosure shape as
 // installed skills (a one-line description in the prompt, the body on
 // read_skill, supporting files on read_skill_file) and are offered to every Bot
-// until the person turns one off in Settings. They are not stored in the skills
+// until the Bot's own enabled set turns one off. They are not stored in the skills
 // directory, cannot be installed over, deleted or edited there, and their
 // scripts are copied to the Bot's computer when the skill is read.
 //
@@ -147,7 +145,7 @@ func readBuiltinFile(s Skill, rel string) (string, error) {
 }
 
 // ErrBuiltinSkill is returned when a built-in skill is asked to be deleted.
-var ErrBuiltinSkill = errors.New("built-in skills cannot be removed; turn them off in Settings")
+var ErrBuiltinSkill = errors.New("built-in skills cannot be removed; turn them off per Bot in the Bot's settings")
 
 // loadAllSkills returns the built-in skills (when withBuiltin) and the installed
 // ones, sorted by name. Only the discoverable run path and the listings ask for
@@ -175,33 +173,6 @@ func (m *Manager) loadAllSkills(metadataOnly, withBuiltin bool) ([]Skill, []Diag
 	}
 	sort.Slice(out, func(i, j int) bool { return out[i].Name < out[j].Name })
 	return out, diags
-}
-
-// withoutDisabledBuiltins drops the built-in skills switched off in Settings.
-func (m *Manager) withoutDisabledBuiltins(ctx context.Context, skills []Skill, diags []Diagnostic) ([]Skill, []Diagnostic) {
-	if m.cfg.BuiltinSkillsOff == nil {
-		return skills, diags
-	}
-	has := false
-	for _, s := range skills {
-		has = has || s.Builtin
-	}
-	if !has {
-		return skills, diags
-	}
-	off, err := m.cfg.BuiltinSkillsOff(ctx)
-	kept := make([]Skill, 0, len(skills))
-	for _, s := range skills {
-		if s.Builtin && (err != nil || off[s.Name]) {
-			continue
-		}
-		kept = append(kept, s)
-	}
-	if err != nil {
-		log.Printf("built-in skill setting lookup failed; built-in skills withheld from run: %v", err)
-		diags = append(diags, Diagnostic{Message: "built-in skills unavailable: setting check failed"})
-	}
-	return kept, diags
 }
 
 // InstalledSkillFiles returns the files of a skill a person installed, in the

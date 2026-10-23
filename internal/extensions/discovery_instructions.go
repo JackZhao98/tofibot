@@ -39,7 +39,7 @@ func discoveryInstructions(servers map[string]MCPServerConfig, skills []Skill) s
 		rows = append(rows, string(b))
 	}
 	appendRows(rows)
-	directory.WriteString("Installed Skills (name and purpose):\n")
+	directory.WriteString("Enabled Skills (name and purpose):\n")
 	rows = rows[:0]
 	for _, skill := range ordered {
 		b, _ := json.Marshal(struct {
@@ -68,7 +68,7 @@ func BoundCapabilityDirectory(directory string, budget int) string {
 		return directory
 	}
 	const sources = "Configured MCP sources (names only):\n"
-	const skills = "Installed Skills (name and purpose):\n"
+	const skills = "Enabled Skills (name and purpose):\n"
 	const omitted = "Additional entries omitted; use discovery tools.\n"
 	minimum := len([]rune(sources + skills + omitted + omitted))
 	if budget < minimum {

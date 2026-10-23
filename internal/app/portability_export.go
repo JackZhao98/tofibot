@@ -6,6 +6,8 @@ import (
 	"encoding/json"
 	"errors"
 	"sort"
+
+	"github.com/JackZhao98/tofibot/internal/extensions"
 )
 
 func (s *Store) exportPortable(ctx context.Context, instance string, selection portableSelection, kind string) (portableBundle, error) {
@@ -107,6 +109,28 @@ func (s *Store) exportPortable(ctx context.Context, instance string, selection p
 		}
 	}
 	b.Bots = selected
+	for i := range b.Bots {
+		skillRows, qerr := tx.QueryContext(ctx, `SELECT skill_name FROM skill_enablement WHERE bot_id=? AND enabled=1 ORDER BY skill_name`, b.Bots[i].ID)
+		if qerr != nil {
+			return b, qerr
+		}
+		for skillRows.Next() {
+			var name string
+			if qerr = skillRows.Scan(&name); qerr != nil {
+				break
+			}
+			if !extensions.IsBuiltinSkill(name) {
+				b.Bots[i].EnabledSkills = append(b.Bots[i].EnabledSkills, name)
+			}
+		}
+		if qerr == nil {
+			qerr = skillRows.Err()
+		}
+		skillRows.Close()
+		if qerr != nil {
+			return b, qerr
+		}
+	}
 	rows, err = tx.QueryContext(ctx, `SELECT id,kind,name,bot_id,updated_at,archived,user_visible FROM conversations ORDER BY id`)
 	if err != nil {
 		return b, err
