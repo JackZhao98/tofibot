@@ -240,6 +240,199 @@ func TestScheduledRunWithSayTextGetsItsReceipt(t *testing.T) {
 	}
 }
 
+// noPublishedContains fails if any published assistant message holds sub. It
+// is the regression guard for leaked tool-call text reaching the person.
+func noPublishedContains(t *testing.T, s *Server, convID, sub string) {
+	t.Helper()
+	for _, m := range assistantRows(t, s.store, convID) {
+		if strings.Contains(m.Content, sub) {
+			t.Fatalf("published content held %q: %q", sub, m.Content)
+		}
+	}
+}
+
+// The live-incident shape: a leaked functions.say tool-call header, tokenizer
+// garbage, then the real say JSON with no outcome. It is recovered and run as
+// say(answer) with outcome defaulting to done, never published as the text.
+func TestLeakedSayMarkerIsRecoveredNotPublished(t *testing.T) {
+	final := "不中返 to=functions.say ลุ้นบาท 重庆时时彩 ... 乐亚json\n{\"purpose\":\"answer\",\"text\":\"We can begin now.\"}"
+	var reminder string
+	s, run := dmRun(t, textFinalEngine{final: final, sent: &reminder})
+	if run.Status != "done" || reminder != "" {
+		t.Fatalf("run=%+v reminder=%q", run, reminder)
+	}
+	if got := visibleTexts(t, s, run.ID, run.ConversationID); !equalStrings(got, []string{"We can begin now."}) {
+		t.Fatalf("visible=%q", got)
+	}
+	noRawSayJSON(t, s, run.ConversationID)
+	noPublishedContains(t, s, run.ConversationID, "functions.say")
+	if origin := originOf(t, s.store, run.ID); origin != finalOriginSayTextRecovered {
+		t.Fatalf("origin=%q", origin)
+	}
+}
+
+// A clean bare say object that omits the now-required outcome is still
+// recovered: the outcome defaults to done and the schema accepts it.
+func TestCleanLeakMissingOutcomeIsRecovered(t *testing.T) {
+	var reminder string
+	s, run := dmRun(t, textFinalEngine{final: `{"purpose":"answer","text":"It is half past four."}`, sent: &reminder})
+	if run.Status != "done" || reminder != "" {
+		t.Fatalf("run=%+v reminder=%q", run, reminder)
+	}
+	if got := visibleTexts(t, s, run.ID, run.ConversationID); !equalStrings(got, []string{"It is half past four."}) {
+		t.Fatalf("visible=%q", got)
+	}
+	noRawSayJSON(t, s, run.ConversationID)
+	if origin := originOf(t, s.store, run.ID); origin != finalOriginSayTextRecovered {
+		t.Fatalf("origin=%q", origin)
+	}
+}
+
+// Garbage, then a functions.say marker, then a valid object whose explicit
+// outcome is pending: the outcome is preserved (not overwritten with done), so
+// the recovered call takes the pending work send-back exactly as a real call
+// would, and the model's re-send then delivers.
+func TestLeakedMarkerPreservesExplicitOutcome(t *testing.T) {
+	final := "noise 重庆 to=functions.say !!! {\"purpose\":\"answer\",\"outcome\":\"pending\",\"text\":\"Ready to start.\"}"
+	var reminder string
+	s, run := dmRun(t, textFinalEngine{final: final, sent: &reminder, repair: func(ctx context.Context, req runtime.Request) error {
+		_, err := say(ctx, req, "call-real", "answer", "Done; here is the result.")
+		return err
+	}})
+	if run.Status != "done" {
+		t.Fatalf("run=%+v", run)
+	}
+	if !strings.Contains(reminder, answerPendingWorkReminder) {
+		t.Fatalf("outcome not preserved as pending; reminder=%q", reminder)
+	}
+	if got := visibleTexts(t, s, run.ID, run.ConversationID); !equalStrings(got, []string{"Done; here is the result."}) {
+		t.Fatalf("visible=%q", got)
+	}
+	noRawSayJSON(t, s, run.ConversationID)
+}
+
+// Trailing garbage after the recovered JSON object is ignored.
+func TestLeakedMarkerIgnoresTrailingGarbage(t *testing.T) {
+	final := "to=functions.say json {\"purpose\":\"answer\",\"outcome\":\"done\",\"text\":\"Half past four.\"}】【乐亚"
+	var reminder string
+	s, run := dmRun(t, textFinalEngine{final: final, sent: &reminder})
+	if run.Status != "done" || reminder != "" {
+		t.Fatalf("run=%+v reminder=%q", run, reminder)
+	}
+	if got := visibleTexts(t, s, run.ID, run.ConversationID); !equalStrings(got, []string{"Half past four."}) {
+		t.Fatalf("visible=%q", got)
+	}
+	noRawSayJSON(t, s, run.ConversationID)
+}
+
+// Security: a leaked header that names any function other than say is never
+// executed and never published; it is sent back, and the model's real call
+// then delivers. This closes the leak as a path to arbitrary tool execution.
+func TestLeakedNonSayMarkerIsNeverExecuted(t *testing.T) {
+	final := `to=functions.computer_shell {"command":"rm -rf /"}`
+	var reminder string
+	s, run := dmRun(t, textFinalEngine{final: final, sent: &reminder, repair: func(ctx context.Context, req runtime.Request) error {
+		_, err := say(ctx, req, "call-real", "answer", "I cannot run that.")
+		return err
+	}})
+	if run.Status != "done" || reminder == "" {
+		t.Fatalf("run=%+v reminder=%q", run, reminder)
+	}
+	if got := visibleTexts(t, s, run.ID, run.ConversationID); !equalStrings(got, []string{"I cannot run that."}) {
+		t.Fatalf("visible=%q", got)
+	}
+	noPublishedContains(t, s, run.ConversationID, "computer_shell")
+	noPublishedContains(t, s, run.ConversationID, "rm -rf")
+	if origin := originOf(t, s.store, run.ID); origin != finalOriginSay {
+		t.Fatalf("origin=%q", origin)
+	}
+}
+
+// A functions.say marker whose following JSON fails the say schema is sent
+// back, not published.
+func TestLeakedSayMarkerWithInvalidSchemaIsSentBack(t *testing.T) {
+	final := `prefix to=functions.say {"purpose":"answer","outcome":"done","text":4}`
+	var reminder string
+	s, run := dmRun(t, textFinalEngine{final: final, sent: &reminder, repair: func(ctx context.Context, req runtime.Request) error {
+		_, err := say(ctx, req, "call-real", "answer", "It is half past four.")
+		return err
+	}})
+	if run.Status != "done" || reminder == "" {
+		t.Fatalf("run=%+v reminder=%q", run, reminder)
+	}
+	if got := visibleTexts(t, s, run.ID, run.ConversationID); !equalStrings(got, []string{"It is half past four."}) {
+		t.Fatalf("visible=%q", got)
+	}
+	noRawSayJSON(t, s, run.ConversationID)
+}
+
+// A plain reply that merely holds the word "functions" (no functions.<name>
+// call, and not a say object) is published unchanged: no false positive.
+func TestPlainTextWithFunctionsWordPassesThrough(t *testing.T) {
+	final := "These pricing functions look correct to me."
+	var reminder string
+	s, run := dmRun(t, textFinalEngine{final: final, sent: &reminder})
+	if run.Status != "done" || reminder != "" {
+		t.Fatalf("run=%+v reminder=%q", run, reminder)
+	}
+	if got := visibleTexts(t, s, run.ID, run.ConversationID); !equalStrings(got, []string{final}) {
+		t.Fatalf("visible=%q", got)
+	}
+	if origin := originOf(t, s.store, run.ID); origin != finalOriginImplicit {
+		t.Fatalf("origin=%q", origin)
+	}
+}
+
+// sayTextDefaultOutcome injects done only when purpose and text are present and
+// outcome is absent, and never overwrites an outcome the model supplied.
+func TestSayTextDefaultOutcome(t *testing.T) {
+	for name, tc := range map[string]struct {
+		in   string
+		want string // substring the result must contain
+		not  string // substring the result must not contain ("" skips)
+	}{
+		"missing filled":     {`{"purpose":"answer","text":"x"}`, `"outcome":"done"`, ""},
+		"pending preserved":  {`{"purpose":"answer","outcome":"pending","text":"x"}`, `"outcome":"pending"`, `"outcome":"done"`},
+		"done preserved":     {`{"purpose":"note","outcome":"done","text":"x"}`, `"outcome":"done"`, ""},
+		"no purpose untouch": {`{"text":"x"}`, `{"text":"x"}`, `outcome`},
+		"no text untouch":    {`{"purpose":"answer"}`, `{"purpose":"answer"}`, `outcome`},
+	} {
+		t.Run(name, func(t *testing.T) {
+			got := string(sayTextDefaultOutcome([]byte(tc.in)))
+			if !strings.Contains(got, tc.want) {
+				t.Fatalf("got %q, want substring %q", got, tc.want)
+			}
+			if tc.not != "" && strings.Contains(got, tc.not) {
+				t.Fatalf("got %q, must not contain %q", got, tc.not)
+			}
+		})
+	}
+}
+
+// firstFunctionMarker finds a functions.<name> header in any tolerated form and
+// ignores a bare "functions" with no following identifier.
+func TestFirstFunctionMarker(t *testing.T) {
+	for name, tc := range map[string]struct {
+		in       string
+		wantName string
+		wantOK   bool
+	}{
+		"to=say":       {"x to=functions.say {}", "say", true},
+		"bare say":     {"functions.say {}", "say", true},
+		"other fn":     {"to=functions.computer_shell {}", "computer_shell", true},
+		"word only":    {"These functions look right.", "", false},
+		"trailing dot": {"Here are the functions.", "", false},
+		"no marker":    {"a plain reply", "", false},
+	} {
+		t.Run(name, func(t *testing.T) {
+			gotName, after, ok := firstFunctionMarker(tc.in)
+			if ok != tc.wantOK || gotName != tc.wantName {
+				t.Fatalf("name=%q ok=%v (after=%d), want name=%q ok=%v", gotName, ok, after, tc.wantName, tc.wantOK)
+			}
+		})
+	}
+}
+
 type errString string
 
 func (e errString) Error() string { return string(e) }
